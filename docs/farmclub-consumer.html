@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FarmClub — 소비자</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;500;600;700;800&display=swap">
+<style>
+  :root{
+    --paper:#FDFCF8; --paper-alt:#F4F2E8; --ink:#1C2A1E; --ink-soft:#4B5A4C;
+    --leaf:#23422B; --citrus:#E8791A; --citrus-deep:#C45E0C; --line:#DEDACB; --card:#FFFFFF;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#131C15; --paper-alt:#1B271E; --ink:#EDEFE8; --ink-soft:#B7C2B6;
+      --leaf:#8FC49A; --citrus:#F2952E; --citrus-deep:#FFAE55; --line:#2D3A2F; --card:#1B271E;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#131C15; --paper-alt:#1B271E; --ink:#EDEFE8; --ink-soft:#B7C2B6;
+    --leaf:#8FC49A; --citrus:#F2952E; --citrus-deep:#FFAE55; --line:#2D3A2F; --card:#1B271E;
+    color-scheme: dark;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Gothic A1", -apple-system, "Malgun Gothic", sans-serif; line-height:1.6;
+    min-height:100%;
+  }
+  .wrap{ max-width:620px; margin:0 auto; padding:20px; }
+  h1,h2{ font-family:"Jua","Gothic A1",sans-serif; font-weight:400; text-wrap:balance; margin:0; }
+  .logo{ font-family:"Jua",sans-serif; font-size:18px; color:var(--leaf); display:flex; align-items:center; gap:8px; }
+  .logo .mark{ width:10px; height:10px; border-radius:50%; background:var(--citrus); }
+  .eyebrow{
+    display:inline-block; font-size:12.5px; letter-spacing:.06em; color:var(--citrus-deep);
+    background: color-mix(in srgb, var(--citrus) 14%, transparent);
+    border:1px solid color-mix(in srgb, var(--citrus) 35%, transparent);
+    padding:6px 12px; border-radius:999px; margin:26px 0 16px;
+  }
+  h1{ font-size:clamp(26px,5vw,36px); line-height:1.32; color:var(--leaf); }
+  .lede{ margin-top:14px; font-size:15.5px; color:var(--ink-soft); max-width:44ch; }
+
+  .panel{ margin-top:30px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 24px; }
+  .panel + .panel{ margin-top:14px; }
+  .panel .k{ font-size:12px; font-weight:700; letter-spacing:.04em; color:var(--ink-soft); text-transform:uppercase; }
+  .panel ul{ margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px; }
+  .panel li{ font-size:15px; padding-left:20px; position:relative; }
+  .need li::before{ content:"?"; position:absolute; left:0; color:var(--ink-soft); font-weight:700; }
+  .offer li::before{ content:"✓"; position:absolute; left:0; color:var(--leaf); font-weight:700; }
+  .offer{ border-top:3px solid var(--citrus); }
+
+  .cta-row{ margin-top:28px; text-align:center; }
+  .cta{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    text-decoration:none; font-weight:700; font-size:16px; padding:14px 28px;
+    border-radius:10px; background:var(--citrus); color:#1C1200; transition:filter .15s ease;
+  }
+  .cta:hover{ filter:brightness(1.06); }
+  .cta:focus-visible{ outline:2px solid var(--leaf); outline-offset:3px; }
+  .switch{ margin-top:14px; font-size:12.5px; color:var(--ink-soft); text-align:center; }
+  .switch a{ color:var(--leaf); font-weight:600; }
+
+  footer{ margin-top:40px; padding-top:20px; border-top:1px solid var(--line); }
+  footer p{ font-size:12px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo"><span class="mark"></span>FarmClub</div>
+  <span class="eyebrow">제주 감귤 직거래 베타테스트</span>
+  <h1>누가, 어떻게 키웠는지<br>알고 사고 싶으신가요?</h1>
+  <p class="lede">팜클럽은 수확 전부터 자라는 과정을 지켜보고, 믿을 수 있는 농가에게 가장 신선할 때 직접 주문하는 감귤 직거래 서비스예요.</p>
+
+  <div class="panel need">
+    <div class="k">이런 고민, 있으신가요</div>
+    <ul>
+      <li>가격표만 보고 사기엔 불안하다</li>
+      <li>산지 직구를 하고 싶은데 믿을 만한 농가를 찾기 어렵다</li>
+      <li>가장 신선할 때 받고 싶다</li>
+    </ul>
+  </div>
+
+  <div class="panel offer">
+    <div class="k">팜클럽이 드려요</div>
+    <ul>
+      <li>마음에 드는 농가를 팔로우하고 자라는 과정을 실시간으로 확인</li>
+      <li>수확 전 미리 예약, 가장 신선한 시점에 배송</li>
+      <li>궁금한 건 채팅으로 농가에게 직접 문의</li>
+    </ul>
+  </div>
+
+  <div class="cta-row">
+    <a class="cta" href="https://docs.google.com/forms/d/e/1FAIpQLSeah-43nXl_Yydh5Ona2nOBCfQVxuxfyyAvI6ycQJwL9sTOMg/viewform?usp=publish-editor" target="_blank" rel="noopener">소비자로 신청하기</a>
+    <div class="switch">농가이신가요? <a href="farmclub-producer.html">생산자용 페이지로 이동</a></div>
+  </div>
+
+  <footer>
+    <p>팜클럽은 서울대학교 &ldquo;소프트웨어 개발의 원리와 실습&rdquo; 수업에서 진행하는 학생 프로젝트입니다. 베타테스트 신청 시 남겨주신 연락처는 프로젝트 목적으로만 사용됩니다.</p>
+  </footer>
+</div>
+</body>
+</html>
