@@ -6,7 +6,7 @@
 ## 프로젝트
 - **Farmclub**: 생산자(농가)와 소비자를 잇는 산지 직거래·선주문 서비스. I1 타깃은 당도 중심 고품질 감귤.
 - 팀 4명, 이터레이션 단위(I1, I2 …) 진행. 이슈는 Linear(DEV 팀 = GitHub 이슈와 양방향 동기화).
-- 기술 스택: Expo + Expo Router 웹 출력으로 소비자 앱·생산자 앱 2개(Vercel), Django 5.2 LTS + DRF(Railway, PostgreSQL), 운영자는 Django Admin. 카카오 로그인 → 서버 JWT. AI는 Claude Haiku 4.5를 `server/ai` 어댑터에서만 호출. PostHog·Sentry·Langfuse, 파일은 Cloudflare R2. 상세는 `docs/spec/tech-design/stack.md`.
+- 기술 스택: Expo + Expo Router 웹 출력으로 소비자 앱·생산자 앱 2개(Vercel), FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic(Railway, PostgreSQL), 운영자는 관리 API + Swagger UI(화면은 I2). 카카오 로그인 → 서버 JWT. AI는 Claude Haiku 4.5를 `server/app/ai` 어댑터에서만 호출. PostHog·Sentry·Langfuse, 파일은 Cloudflare R2. 상세는 `docs/spec/tech-design/stack.md`.
 - 평가 문서는 `docs/wiki/`에 쓰고, main에 머지되면 GitHub Wiki로 자동 동기화된다. 평가 문서(`docs/wiki/`)는 영어, 팀 내부 규칙·spec은 한국어.
 
 ## 제품 스펙 (`docs/spec/`)
@@ -43,7 +43,7 @@
 - 현재 레포 구조 (상세는 `docs/spec/tech-design/stack.md` 3장):
   - `apps/consumer/`, `apps/producer/` — 소비자 앱, 생산자 앱 (Expo Router 웹)
   - `packages/ui/`, `packages/api/` — 앱 공용 패키지
-  - `server/` — Django 서버 (`config`, `accounts`, `farms`, `catalog`, `orders`, `messaging`, `ai`, `analytics`)
+  - `server/` — FastAPI 서버. `app/` 안에 도메인 모듈(`core`, `accounts`, `farms`, `catalog`, `orders`, `messaging`, `ai`, `analytics`, 모듈마다 `router`·`models`·`schemas`·`service`), `migrations/`(Alembic)
   - `docs/spec/` — 제품 스펙 원본 (한국어)
   - `docs/wiki/` — 평가용 wiki 원본 (`meetings/YYYY-MM-DD-*.md`는 Meeting-Logs로 합쳐짐)
   - `docs/*.html` — 랜딩 페이지

@@ -2,7 +2,7 @@
 
 ## Changes in this iteration
 
-- I1: wrote 49 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
+- I1: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
 
 ## 1. Testing Plan and Results (Iteration 2~)
 
@@ -41,7 +41,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-04-1 | The delivery window is empty | The producer tries to request publishing | The button is disabled and the missing fields are shown |
 | AC-04-2 | A product is pending approval or rejected | A consumer looks for it in the consumer app | It is not visible |
-| AC-04-3 | A product is pending approval | The operator runs the approval script | It becomes "on sale" and appears on SCR-03 |
+| AC-04-3 | A product is pending approval | The operator approves it through the admin API | It becomes "on sale" and appears on SCR-03 |
 | AC-04-4 | A product is on sale | The producer changes the price and saves | Consumers still see the old price until it is approved again |
 
 ### FEAT-05 Stage, price, and quantity setup
@@ -145,6 +145,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-19-1 | A link to an approved farm | It is opened in a logged-out browser | That farm page shows right away |
 | AC-19-2 | A link to a farm whose approval was revoked | It is opened | A "farm not found" notice is shown, then the farm list |
+| AC-19-3 | A share link to an approved farm | It is pasted into a KakaoTalk chat | A preview with the farm name and main photo is shown |
 
 ## 4. Alpha and Beta Testing (Iteration 5)
 
