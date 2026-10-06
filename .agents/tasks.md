@@ -28,18 +28,21 @@
 ## 작업
 - [x] Linear 이슈 본문(왜·완료 조건) 작성, In Progress
 - [x] 브랜치 생성, tasks.md 작성
-- [ ] draft PR 생성
-- [ ] `AGENTS.md` / `CLAUDE.md` / `.gitignore`
-- [ ] 스킬: `spec`, `pr-context`, `pr-review` (`/review`는 Claude Code 내장 명령과 겹쳐서 피함)
-- [ ] `.claude/skills` 심링크
-- [ ] `.github/pull_request_template.md`
+- [x] draft PR 생성
+- [x] `AGENTS.md` / `CLAUDE.md` / `.gitignore`
+- [x] 스킬: `spec`, `pr-context`, `pr-review` (`/review`는 Claude Code 내장 명령과 겹쳐서 피함)
+- [x] `.claude/skills` 심링크
+- [x] `.github/pull_request_template.md`
 - [ ] AI 1차 셀프리뷰 → ready for review
 
 ## 완료 조건
 - [ ] Claude Code에서 `/spec`, `/pr-context`, `/pr-review` 스킬이 보이고 AGENTS.md 규칙을 따름
-- [ ] Codex에서 AGENTS.md와 `.agents/skills` 인식 (팀원 확인)
-- [ ] `CLAUDE.local.md`가 git에 잡히지 않음
+- [x] Codex에서 AGENTS.md와 `.agents/skills` 인식 (팀원 확인)
+- [x] `CLAUDE.local.md`가 git에 잡히지 않음
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ## 기록
-- 10/06 spec 작성
+- 10/06 spec 작성, draft PR #15
+- 10/06 규칙·스킬·PR 템플릿 작성. Codex(`codex exec`)에서 AGENTS.md 규칙·3개 스킬 인식 확인. Claude Code headless 확인은 CLI 인증 만료로 못 함 → 리뷰어가 새 세션에서 확인
+- 10/06 결정: 스킬명 `review` → `pr-review` (Claude Code 내장 `/review`와 충돌 회피)
+- 10/06 ! 작업 중 워킹트리가 main으로 전환돼 규칙 커밋이 origin/main에 직접 push됨 → 브랜치로 옮김, main 원복 필요 → PM
