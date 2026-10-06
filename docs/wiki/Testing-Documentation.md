@@ -2,7 +2,7 @@
 
 ## Changes in this iteration
 
-- I1: wrote acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
+- I1: wrote 49 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
 
 ## 1. Testing Plan and Results (Iteration 2~)
 
@@ -75,6 +75,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | AC-08-2 | The maximum quantity per order is 3 | The consumer picks a quantity | 4 or more cannot be chosen |
 | AC-08-3 | The product has a separate shipping fee | Checkout opens | Product amount, shipping fee, and total are shown separately |
 | AC-08-4 | The delivery address is in a remote area set by the producer | The address is entered | The extra shipping fee is added to the total |
+| AC-08-5 | The consumer saved a delivery address in My info | Checkout opens | Recipient, phone number, and address are filled in and can be edited |
 
 ### FEAT-09 Card payment (mock)
 

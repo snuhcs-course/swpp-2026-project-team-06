@@ -14,6 +14,8 @@
 - A-02. Farms can measure sweetness themselves at harvest and enter it.
 - A-03. We can use real text from beta farms in the demo (consent needed).
 - A-04. In I1, one order holds one weight option, and the quantity is chosen within the producer's limit (Q-14, R-23).
+- A-05. Producers send a message to their followers at least once a week. If this is wrong, we will consider a feature where AI suggests message drafts that match the stage schedule.
+- A-06. Consumers who see the measured sweetness reserve more. We check this by comparing the order conversion rate of people who saw sweetness on the product detail page with those who did not.
 
 ## Constraints
 

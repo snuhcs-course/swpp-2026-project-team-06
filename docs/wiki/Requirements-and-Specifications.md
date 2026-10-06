@@ -85,7 +85,7 @@ Every feature follows these principles. The full rules (R-01–R-25, M-01–M-17
 
 ### 4.3 Traceability
 
-This table shows, for each feature, the PRD scenario it comes from, the screens it runs on, the rules it follows, and the acceptance criteria that check it. Test plans and code review use this table.
+This table shows, for each feature, the PRD scenario it comes from, the screens it runs on, the rules it follows, and the acceptance criteria that check it. Test plans and code review use this table. It covers 17 P0 features and 49 acceptance criteria.
 
 | FEAT | PRD | Screens | Rules | Acceptance criteria |
 | -- | -- | -- | -- | -- |
@@ -96,12 +96,12 @@ This table shows, for each feature, the PRD scenario it comes from, the screens 
 | FEAT-05 | S-1 | SCR-26 | R-06, 17, 18, 25 | AC-05-1–3 |
 | FEAT-06 | S-2 | SCR-02, 03, 17 | — | AC-06-1–3 |
 | FEAT-07 | S-2 | SCR-04 | R-05, 06, 16, 20, M-15 | AC-07-1–2 |
-| FEAT-08 | S-2 | SCR-10 | R-03, 06, 17, 20, 23 | AC-08-1–4 |
+| FEAT-08 | S-2 | SCR-10 | R-03, 06, 17, 20, 23 | AC-08-1–5 |
 | FEAT-09 | S-2 | SCR-11, 12 | R-01, 02, 06, 13, 17 | AC-09-1–2 |
 | FEAT-10 | S-2, S-4 | SCR-13, 14 | R-05, 13, 14, 21, 24 | AC-10-1–3 |
 | FEAT-11 | S-4 | SCR-14 | R-07, 08 | AC-11-1–2 |
 | FEAT-12 | S-3 | SCR-15, 16, 27 | M-01–04, 14, 16 | AC-12-1–3 |
-| FEAT-13 | S-3 | SCR-16, 28 | M-05–09, 15, 17 | AC-13-1–5 |
+| FEAT-13 | S-3 | SCR-16, 28 | M-05–09, 15, 17, 18 | AC-13-1–5 |
 | FEAT-14 | S-4 | SCR-22 | R-15 | AC-14-1–2 |
 | FEAT-15 | S-3 | SCR-03 | M-02, 14 | AC-15-1–2 |
 | FEAT-17 | S-4 | SCR-29 | R-07, 19 | AC-17-1–3 |
@@ -115,15 +115,15 @@ Rules not in this table run on the system or operator side: R-04, R-09, R-10 (au
 
 | ID | Item | Requirement |
 | -- | -- | -- |
-| N-04 | Response time | After replying, a consumer gets an AI answer or a "forwarded to the farm" notice without waiting. If AI fails, the question is forwarded. The target time is set in the technical design |
-| N-08 | AI operations | Model, cost limit, and logging tools are set in the technical design (Q-19) |
+| N-04 | Response time | The AI product draft shows a result within 20 seconds. After replying, a consumer gets an AI answer or a "forwarded to the farm" notice without waiting. If AI fails, the question is forwarded. The target time is set in the technical design |
+| N-08 | AI operations | Product draft extraction is at least 80% accurate, counted per field. Data sent to AI must not include phone numbers or addresses (M-18). Model, cost limit, and logging tools are set in the technical design (Q-19) |
 
 ### 5.2 Reliability and Usability
 
 | ID | Item | Requirement |
 | -- | -- | -- |
 | N-01 | Platform | The consumer app and the producer app are separate mobile web apps. Mobile first, and they must not break on desktop. Users enter by link with no app install |
-| N-02 | Accessibility | Text and buttons large enough for people in their 40s–50s to read and tap without reading glasses. One main action per screen. Exact sizes are set in the screen spec |
+| N-02 | Accessibility | Text and buttons large enough for people in their 40s–50s to read and tap without reading glasses. One main action per screen. Body text at least 16px, tap targets at least 48px. Other sizes are set in the screen spec |
 | N-03 | Language and region | Korean only, times in KST, amounts as whole won |
 | N-07 | Demo environment | Seed farms, products, and stages, plus test accounts for each role. Mock payment can reproduce both success and failure |
 

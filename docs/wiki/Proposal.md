@@ -39,7 +39,7 @@ Consumers hesitate to reserve because they cannot check quality in advance. Prod
 | Producer | Little experience with reservation sales; rarely take photos | Text-first input, as few steps as possible |
 | Producer | Of 14 farms contacted, 4 joined the beta and 2 more may join (Oct 2) | Real farm text can be used in the demo |
 
-The working conclusion is "Go with a narrower scope" (tangerines only, high quality at normal prices).
+The working conclusion is "Go with a narrower scope" (tangerines only, high quality at normal prices). It will be confirmed in P13 (SWPP-17). Per-hypothesis verdicts are in User Study Results.
 
 **Alternatives**: Smart Store and Allways sell stock after harvest and offer no contact with the farm. Nongsa Fund and Wadiz are crowdfunding, so buyers get a reward, not a product purchase.
 
@@ -62,7 +62,7 @@ The working conclusion is "Go with a narrower scope" (tangerines only, high qual
 2. G2. A producer can register a product using only their existing text.
 3. G3. A farm can send news to its followers. AI answers consumer questions first and forwards only what needs the farm.
 4. G4. A consumer can check sweetness, grade, and expected delivery window before paying.
-5. G5. We can measure the success metrics and use them to set the direction for I2.
+5. G5. We can measure the success metrics and use them to set the direction for I2. The metrics are listed in Requirements and Specifications (1.1).
 
 **Non-goals**
 

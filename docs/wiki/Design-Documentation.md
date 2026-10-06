@@ -95,46 +95,71 @@ Login happens only after tapping "Reserve", and the user returns straight to che
 
 ### 2.3 Data Model
 
-Main entities for I1, based on the shared glossary. Field-level design is not final yet.
+This is the draft model from the technical design. It lists the minimum fields. Fields can be added during implementation, but names and meanings follow the PRD glossary. The final version will be written after the tech stack decision (P19).
 
-| Entity | Meaning |
-| -- | -- |
-| User | One Kakao account. Can be a consumer, and a producer after approval |
-| Farm | The selling unit run by one producer. Target of follows and messages. One producer has one farm |
-| Product | One variety for one harvest season from one farm. States: draft, pending approval, rejected, on sale, ended |
-| Weight option | The unit a product is sold in (for example 3 kg, 5 kg, 10 kg) |
-| Stage | A sales period with start, end, and order. Set by the producer from defaults. Not a crop growth stage |
-| Stage price / stage quantity | Price and sellable quantity for each stage × weight option. Quantity is not "stock" because it is before harvest |
-| Reservation order | One weight option bought at one stage price, with a quantity up to the producer's limit. The amount is fixed at order time |
-| Payment / refund | Full card payment for the order (mock in I1). A refund is a card cancellation; there are no points or credits |
-| Follow | A consumer chose to receive a farm's messages |
-| Message | A farm → all followers (1:N) message. If public, it also appears in the farm's news tab |
-| Conversation | The private 1:1 reply thread between one consumer and one farm. Holds replies, AI answers, and farm answers |
-| Forwarded question | A question AI did not answer and sent to the producer's question inbox |
-| AI product draft | A product draft that AI built from the producer's text |
+Both apps use the same Kakao account. One `User` can have several roles. Producer app APIs check the `PRODUCER` role and farm approval (`Farm.approvalStatus = APPROVED`) on the server.
+
+| Entity | Key fields | Relation |
+| -- | -- | -- |
+| `User` | kakaoId, roles (CONSUMER, PRODUCER, ADMIN), name, phone | — |
+| `Farm` | producerId, name, region, intro, approvalStatus (PENDING / APPROVED / REJECTED) | 1 producer : 1 farm |
+| `Follow` | consumerId, farmId | consumer N : M farm |
+| `Product` | name, variety, description, deliveryWindow, maxDelayUntil, expectedBrix, measuredBrix, grade, status (DRAFT / PENDING_APPROVAL / PUBLISHED / CLOSED), shippingFeeType (FREE / SEPARATE), maxQuantityPerOrder | farm 1 : N product |
+| `ProductOption` | weightKg | product 1 : N option |
+| `Stage` | seq, name, startsAt, endsAt | product 1 : N stage |
+| `StagePrice` | price (won) | one per stage × option |
+| `StageAllocation` | quantity, reservedCount | one per stage × option |
+| `Order` | optionId, stageId, quantity, unitPrice, totalAmount, recipient, address, status, timestamps | — |
+| `Payment` | method (CARD), provider (MOCK / PG), amount, status | order 1 : 1 payment |
+| `Refund` | amount, reason, refundedAt | order 1 : N refund |
+| `Broadcast` | body, attachments, visibility (PUBLIC / FOLLOWERS) | farm 1 : N broadcast |
+| `Thread` / `ThreadMessage` | senderType (CONSUMER / PRODUCER / AI), body, sourceRefs | one thread per (farm, consumer) |
+| `Escalation` | threadMessageId, status (OPEN / ANSWERED) | forwarded question |
+| `ProductDraft` | inputText, output (JSON), missingFields | AI product draft |
+
+Key invariants:
+
+1. `Order.unitPrice` is a copy of the `StagePrice` at order time (R-17).
+2. `reservedCount ≤ quantity`. Creating the order and reducing the quantity happen in one transaction (R-06).
+3. An order can only use the stage that is open now. Stages of one product do not overlap.
+4. `totalAmount = unitPrice × quantity`, in whole won. If shipping is `SEPARATE`, the shipping fee is added (R-20).
+5. `deliveryWindow.end ≤ maxDelayUntil`.
+6. A product can be `PUBLISHED` only if every option has a stage price and a delivery window is set.
+7. A producer can write only their own product's stages, prices, and quantities (R-18).
+8. No balance, point, credit, or stored-value fields (R-08).
 
 #### Order states
 
-| State | Meaning |
-| -- | -- |
-| Pending payment | Order created at checkout; price is fixed but quantity is not yet taken |
-| Reserved | Payment succeeded; stage quantity is reduced |
-| Preparing shipment | Producer pressed "Start harvest" for the product. Consumer can still cancel |
-| Shipped | Producer confirmed shipping (FEAT-17). Consumer can no longer cancel |
-| Delivered | Delivery confirmed by courier tracking |
-| Purchase confirmed | Consumer tapped "Confirm purchase", or 8 days passed after delivery |
-| Refunded | Cancelled before shipping, refund chosen after a delivery window change, or the farm was suspended. Stage quantity is restored on cancel |
+| State | Meaning | Next states | Changed by |
+| -- | -- | -- | -- |
+| `PENDING_PAYMENT` | Terms agreed, not paid yet | RESERVED, CANCELED | System |
+| `RESERVED` | Paid, waiting for shipping (shown as "Reserved") | PREPARING, REFUNDED | Producer (start harvest), consumer cancel, system (R-09) |
+| `PREPARING` | Harvest and shipping prep | SHIPPED, REFUNDED, PARTIALLY_REFUNDED | Producer (ship, FEAT-17), consumer cancel, system (R-09, R-10) |
+| `SHIPPED` | Shipped. Consumer can no longer simply cancel | DELIVERED | Operator |
+| `DELIVERED` | Delivery confirmed by courier tracking, waiting for purchase confirmation | COMPLETED, REFUNDED, PARTIALLY_REFUNDED | Consumer confirms, system (8 days after delivery, R-14), operator (R-11) |
+| `COMPLETED` | Purchase confirmed | — | — |
+| `CANCELED` | Ended without payment | — | — |
+| `REFUNDED` | Fully refunded | — | — |
+| `PARTIALLY_REFUNDED` | Part refunded, the rest still ships | SHIPPED, DELIVERED | Operator |
+
+Transitions not in the table are blocked. On a refund, the refunded quantity goes back to `StageAllocation.reservedCount`.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> PendingPayment: checkout
-  PendingPayment --> Reserved: payment succeeds
-  Reserved --> PreparingShipment: start harvest
-  PreparingShipment --> Shipped: producer confirms shipping
-  Shipped --> Delivered: courier tracking
-  Delivered --> PurchaseConfirmed: consumer confirms or 8 days pass
-  Reserved --> Refunded: cancel / window change refund / farm suspended
-  PreparingShipment --> Refunded: cancel / window change refund / farm suspended
+  [*] --> PENDING_PAYMENT: checkout
+  PENDING_PAYMENT --> RESERVED: payment succeeds
+  PENDING_PAYMENT --> CANCELED: not paid
+  RESERVED --> PREPARING: start harvest
+  RESERVED --> REFUNDED: cancel / refund
+  PREPARING --> SHIPPED: producer confirms shipping
+  PREPARING --> REFUNDED: cancel / refund
+  PREPARING --> PARTIALLY_REFUNDED: partial refund
+  SHIPPED --> DELIVERED: courier tracking
+  DELIVERED --> COMPLETED: consumer confirms or 8 days pass
+  DELIVERED --> REFUNDED: refund
+  DELIVERED --> PARTIALLY_REFUNDED: partial refund
+  PARTIALLY_REFUNDED --> SHIPPED
+  PARTIALLY_REFUNDED --> DELIVERED
 ```
 
 ### 2.4 API Specification
@@ -145,4 +170,4 @@ stateDiagram-v2
 
 ## 3. Design Patterns
 
-Source of truth: `docs/spec/ia.md` and `docs/spec/functional/` (Korean).
+Source of truth: `docs/spec/ia.md` and `docs/spec/tech-design/README.md` (Korean).
