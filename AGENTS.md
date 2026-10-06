@@ -42,6 +42,8 @@
 - 커밋: `type(scope): 요약 (DEV-12)` — type은 `feat` `fix` `docs` `refactor` `test` `chore`. 한 커밋은 한 가지 변경.
 - PR 제목: `[DEV-12] 요약`. 본문은 `.github/pull_request_template.md`를 채운다.
 - `main`에 직접 push하지 않는다. force push는 자기 브랜치에서만.
+- 에이전트는 커밋·push 직전에 `git branch --show-current`로 작업 브랜치인지 확인하고, push는 `git push origin HEAD`처럼 브랜치를 명시한다.
+- 여러 작업(세션)을 동시에 돌릴 때는 같은 폴더에서 브랜치를 바꾸지 말고 `git worktree`로 폴더를 나눈다.
 - 머지는 사람 1명 Approve 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
 
 ## 리뷰

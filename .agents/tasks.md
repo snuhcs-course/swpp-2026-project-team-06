@@ -45,4 +45,5 @@
 - 10/06 spec 작성, draft PR #15
 - 10/06 규칙·스킬·PR 템플릿 작성. Codex(`codex exec`)에서 AGENTS.md 규칙·3개 스킬 인식 확인. Claude Code headless 확인은 CLI 인증 만료로 못 함 → 리뷰어가 새 세션에서 확인
 - 10/06 결정: 스킬명 `review` → `pr-review` (Claude Code 내장 `/review`와 충돌 회피)
-- 10/06 ! 작업 중 워킹트리가 main으로 전환돼 규칙 커밋이 origin/main에 직접 push됨 → 브랜치로 옮김, main 원복 필요 → PM
+- 10/06 ! 작업 중 워킹트리가 main으로 전환돼 규칙 커밋이 origin/main에 직접 push됨 → 브랜치로 옮김, origin/main을 bc6965e로 force-with-lease 원복 완료
+- 10/06 결정: 같은 폴더에서 여러 세션이 브랜치를 바꾸지 않는다 → AGENTS.md에 worktree 규칙 추가
