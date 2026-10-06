@@ -12,6 +12,7 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 | 규칙 전문 | [functional/rules.md](./functional/rules.md) | R-01~R-25(거래·환불·정산), M-01~M-17(소통·AI) |
 | 기능별 명세 | `functional/FEAT-xx-*.md` | 사전·사후 조건, 정상·예외 흐름, 검증, 인수 조건(Given/When/Then) |
 | 서비스 정책 | [policy.md](./policy.md) | 사용자에게 보일 정책·문구, 개인정보 요지, 법정 표시, 열린 질문(PQ) |
+| 기술 스택 | [tech-design/stack.md](./tech-design/stack.md) | 스택, 레포 구조, FEAT ↔ 코드 폴더 대응표, 핵심 흐름 |
 | 기술 설계 | [tech-design/README.md](./tech-design/README.md) | 데이터 모델, 주문 상태, 트래킹 플랜 초안. 결정 기록은 `tech-design/adr/` |
 | 근거 | [evidence.md](./evidence.md) | 가설 판정과 근거 |
 
@@ -37,7 +38,7 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 | 무엇을 만드나 | 동작, 규칙, 인수 조건 | 이 폴더 (`docs/spec/`) |
 | 어떻게 만드나 | 구현 결정(`spec.md`), 이슈별 작업 기록(`tasks.md`) | 기능을 구현하는 코드 폴더 |
 
-코드 폴더의 `spec.md`는 FEAT·규칙 ID만 적고 내용을 다시 쓰지 않는다. `tasks.md`는 Linear 이슈별 섹션을 쌓고 머지 후에도 남긴다. FEAT와 코드 폴더의 대응표는 기술 설계에 둔다.
+코드 폴더의 `spec.md`는 FEAT·규칙 ID만 적고 내용을 다시 쓰지 않는다. `tasks.md`는 Linear 이슈별 섹션을 쌓고 머지 후에도 남긴다. FEAT와 코드 폴더의 대응표는 [기술 스택 4장](./tech-design/stack.md#4-feat--코드-폴더)에 둔다.
 
 ## ID
 

@@ -26,7 +26,7 @@
 - [x] P16 기능 명세 → `functional/` (`README.md`, `rules.md`, `FEAT-xx-*.md`)
 - [x] P17 서비스 정책 → `policy.md`
 - [ ] P18 프로토타입 스펙 확정 → P14~P17 문서 간 정합성 확인, `README.md` 갱신
-- [ ] P19 기술 스택 → `tech-design/README.md`, 결정 기록은 `tech-design/adr/`
+- [x] P19 기술 스택 → `tech-design/stack.md`, 결정 기록은 `tech-design/adr/`
 - [ ] P20 와이어프레임 → `wireframes.md`
 - [ ] P21 화면 명세 → `screens.md`
 - [ ] P22 검토·확정 → 전체 스펙 검토, 영문 wiki 반영
