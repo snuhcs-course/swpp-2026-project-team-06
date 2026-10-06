@@ -21,7 +21,7 @@
 - Tech Stack 사본 (Linear 문서)
 
 ## 작업
-- [ ] P14 프로토타입 개요 → `P14-prototype-overview.md`
+- [x] P14 프로토타입 개요 (10/06 확정) → `P14-prototype-overview.md`
 - [ ] P15 IA → `P15-information-architecture.md`
 - [ ] P16 기능 요구사항 → `P16-functional-requirements.md`
 - [ ] P17 서비스 정책 → `P17-service-policies.md`
