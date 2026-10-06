@@ -1,0 +1,82 @@
+name: Sync docs/wiki to GitHub Wiki
+
+# docs/wiki/ is the single source of truth for the GitHub Wiki.
+#   docs/wiki/<Page-Name>.md         -> Wiki page "<Page-Name>"
+#   docs/wiki/images/*               -> copied as-is (reference as images/xxx.png)
+#   docs/wiki/meetings/YYYY-MM-DD-*.md -> merged into one page "Meeting-Logs" (newest first)
+# Files starting with "_" inside meetings/ (e.g. _template.md) are skipped.
+# Pages edited directly on the Wiki are overwritten on the next sync.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/wiki/**"
+      - ".github/workflows/wiki-sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone wiki
+        env:
+          # Uses GITHUB_TOKEN by default. If pushing to the wiki fails with a permission
+          # error, add a PAT with repo scope as the secret WIKI_TOKEN.
+          TOKEN: ${{ secrets.WIKI_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+
+      - name: Mirror pages
+        run: |
+          set -euo pipefail
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'meetings/' \
+            --exclude 'README.md' \
+            --exclude '.gitkeep' \
+            docs/wiki/ wiki/
+
+      - name: Build Meeting-Logs page
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(docs/wiki/meetings/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md)
+          {
+            echo "# Meeting Logs"
+            echo
+            echo "> Generated from \`docs/wiki/meetings/\`. Do not edit this page on the Wiki."
+            echo
+            if [ ${#files[@]} -gt 0 ]; then
+              IFS=$'\n' sorted=($(printf '%s\n' "${files[@]}" | sort -r)); unset IFS
+              for f in "${sorted[@]}"; do
+                cat "$f"
+                echo
+                echo "---"
+                echo
+              done
+            fi
+          } > wiki/Meeting-Logs.md
+
+      - name: Commit and push to wiki
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki already up to date"
+            exit 0
+          fi
+          git commit -m "Sync wiki from ${GITHUB_SHA::7}"
+          git push
