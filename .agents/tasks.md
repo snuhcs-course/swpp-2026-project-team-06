@@ -33,6 +33,7 @@
 - [x] 스킬: `spec`, `pr-context`, `pr-review` (`/review`는 Claude Code 내장 명령과 겹쳐서 피함)
 - [x] `.claude/skills` 심링크
 - [x] `.github/pull_request_template.md`
+- [x] 개인 규칙 예시 파일 `.agents/examples/` (Claude·Codex·Claude 권한 설정)
 - [ ] AI 1차 셀프리뷰 → ready for review
 
 ## 완료 조건
@@ -47,3 +48,4 @@
 - 10/06 결정: 스킬명 `review` → `pr-review` (Claude Code 내장 `/review`와 충돌 회피)
 - 10/06 ! 작업 중 워킹트리가 main으로 전환돼 규칙 커밋이 origin/main에 직접 push됨 → 브랜치로 옮김, origin/main을 bc6965e로 force-with-lease 원복 완료
 - 10/06 결정: 같은 폴더에서 여러 세션이 브랜치를 바꾸지 않는다 → AGENTS.md에 worktree 규칙 추가
+- 10/06 개인 규칙 예시 파일 추가 (사용자 요청)

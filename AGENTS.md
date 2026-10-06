@@ -72,4 +72,10 @@
 공용 규칙을 덮어쓰지 말고 **추가**만 한다. 아래 파일은 gitignore되어 있다.
 - Claude Code: 레포 루트 `CLAUDE.local.md` (또는 전역 `~/.claude/CLAUDE.md`)
 - Codex: 전역 `~/.codex/AGENTS.md`. 레포의 `AGENTS.override.md`는 공용 규칙을 대체하므로 쓰지 않는다.
+- 예시 파일은 `.agents/examples/`에 있다. 복사해서 고쳐 쓴다.
+  | 예시 | 복사 위치 |
+  | -- | -- |
+  | `CLAUDE.local.example.md` | 레포 루트 `CLAUDE.local.md` |
+  | `codex-AGENTS.example.md` | `~/.codex/AGENTS.md` |
+  | `claude-settings.local.example.json` | `.claude/settings.local.json` (Claude Code 개인 권한) |
 - 개인 규칙과 공용 규칙이 충돌하면 공용 규칙이 우선이다. 공용으로 올릴 만한 규칙은 PR로 제안한다.
