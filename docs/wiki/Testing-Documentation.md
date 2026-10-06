@@ -2,7 +2,7 @@
 
 ## Changes in this iteration
 
-- I1: wrote 49 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
+- I1: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
 
 ## 1. Testing Plan and Results (Iteration 2~)
 
@@ -145,6 +145,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-19-1 | A link to an approved farm | It is opened in a logged-out browser | That farm page shows right away |
 | AC-19-2 | A link to a farm whose approval was revoked | It is opened | A "farm not found" notice is shown, then the farm list |
+| AC-19-3 | A share link to an approved farm | It is pasted into a KakaoTalk chat | A preview with the farm name and main photo is shown |
 
 ## 4. Alpha and Beta Testing (Iteration 5)
 
