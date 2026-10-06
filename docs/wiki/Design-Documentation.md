@@ -89,7 +89,7 @@ Each decision has an ADR in `docs/spec/tech-design/adr/`.
 
 ### 2.1 Frontend Design
 
-I1 has 24 screens: 5 public, 8 consumer, and 11 producer. There are no operator screens. There are two mobile web apps, a consumer app and a producer app, and one Kakao account works for both. Each app has four bottom tabs.
+I1 has 24 screens: 5 public, 8 consumer, and 11 producer. Operators use the Django Admin for approvals, delivery confirmation and refunds; a dedicated operator screen is P2. There are two mobile web apps, a consumer app and a producer app, and one Kakao account works for both. Each app has four bottom tabs.
 
 #### Sitemap: consumer app
 
