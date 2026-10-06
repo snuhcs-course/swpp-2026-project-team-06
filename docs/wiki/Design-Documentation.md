@@ -5,24 +5,99 @@
 | Version | Date | Author | Changes |
 | -- | -- | -- | -- |
 | 0.1 | 2026-10-07 | Team 6 | Initial draft: sitemaps, user flows, data model summary, order states |
+| 0.2 | 2026-10-07 | Team 6 | Backend Django → FastAPI; operators use the admin API through Swagger UI instead of Django Admin (ADR 0007, 0008) |
 
 ## 1. System Architecture
 
 ### 1.1 High-Level Architecture
 
+There are two Expo web apps (consumer and producer) and one FastAPI server. Both apps call the server's REST API. The server owns the database, file storage, Kakao login, and all AI calls. In I1, operators call admin API endpoints (`/admin/...`) through Swagger UI; a dedicated operator screen comes in I2.
+
 ### 1.2 Component Overview
+
+```
+apps/
+  consumer/        Consumer app (Expo Router, web output)
+  producer/        Producer app (Expo Router, web output)
+packages/
+  ui/              Shared components and design tokens
+  api/             API client and types
+server/            FastAPI server
+  app/
+    main.py        App setup, router registration
+    core/          Settings, DB session, auth and permissions, common code
+    accounts/      Users, roles, Kakao login, producer sign-up and approval
+    farms/         Farms, follows, search, share links (OG)
+    catalog/       Products, weight options, stages, prices, quantities, product approval
+    orders/        Orders, mock payment, cancel and refund, harvest and shipping, purchase confirmation, addresses
+    messaging/     Messages, replies, farm news, question inbox, contact masking
+    ai/            Claude adapter, product draft, inquiry answers, shipping text parsing, personal data removal
+    analytics/     PostHog server events
+  migrations/      Alembic migrations
+docs/              Spec (docs/spec) and wiki (docs/wiki)
+```
+
+Each domain module has `router.py` (API routes), `models.py` (SQLAlchemy models), `schemas.py` (Pydantic input and output), and `service.py` (business logic).
+
+Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (work log).
 
 ### 1.3 Key Data Flows
 
+**Kakao login (FEAT-01)**
+1. The app sends the user to the Kakao authorization screen.
+2. The app posts the authorization code to `POST /api/auth/kakao`.
+3. The server gets the Kakao user, finds or creates the `User`, and returns JWTs.
+4. Producer app APIs check the `PRODUCER` role and farm approval on the server.
+
+**Share link (FEAT-19)**
+1. The producer app copies a server link, `/s/farms/<id>`.
+2. That page returns HTML rendered with a Jinja2 template, with OG tags (farm name, intro, main photo), so KakaoTalk and SMS show a preview. People are sent on to the farm page in the consumer app.
+3. A farm whose approval was revoked goes to "farm not found".
+
+**AI call (FEAT-03, FEAT-13, FEAT-17)**
+1. Every call goes through one adapter in `server/app/ai`. Other modules do not know the model name.
+2. Contact info, addresses, and account numbers are removed before sending.
+3. Output must match a fixed JSON format. Anything else is treated as a failure.
+4. Input, output, sources, model, and latency are logged in Langfuse.
+
 ### 1.4 Technology Stack & External Libraries
 
+| Area | Choice |
+| -- | -- |
+| Frontend | Expo (React Native, TypeScript) + Expo Router, web output, two apps |
+| Web hosting | Vercel |
+| Backend | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic on Railway |
+| Operator screens | Admin API (`/admin/...`) + Swagger UI; dedicated screen in I2 |
+| Auth | Kakao login (OAuth authorization code) → JWT (PyJWT) |
+| Database | PostgreSQL (Railway) |
+| Files | Cloudflare R2 + boto3 |
+| AI | Claude API, Claude Haiku 4.5, behind one backend adapter |
+| AI observability | Langfuse Cloud |
+| Analytics | PostHog Cloud |
+| Errors | Sentry |
+| Payment | Mock in I1, PortOne (NHN KCP) from I2 |
+| CI/CD | GitHub Actions → Railway and Vercel |
+
 ### 1.5 Architectural Decisions & Rationale
+
+Each decision has an ADR in `docs/spec/tech-design/adr/`.
+
+| ADR | Decision | Why |
+| -- | -- | -- |
+| 0001 | Expo web output, two apps | Ship web first, build Android and iOS from the same code later |
+| 0002 | Django + DRF, Django Admin for operators (superseded by 0007 and 0008) | Operator screens come almost free. ORM transactions prevent overselling |
+| 0003 | Kakao login + JWT | Works when the apps and the API are on different domains |
+| 0004 | Claude Haiku 4.5 behind one adapter | Fast and cheap. The model can be swapped by changing only the adapter |
+| 0005 | PostHog from I1 | Measure PRD metrics without personal data |
+| 0006 | Server OG page for share links | Web output apps cannot easily build per-page meta tags for link previews |
+| 0007 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic (replaces 0002) | Lighter structure and typed API definitions. The OpenAPI schema comes straight from the code |
+| 0008 | Admin API + Swagger UI for operators; dedicated screen in I2 (replaces 0002) | No time for an operator screen in I1. The I2 screen will reuse the same API |
 
 ## 2. Design Details
 
 ### 2.1 Frontend Design
 
-I1 has 24 screens: 5 public, 8 consumer, and 11 producer. There are no operator screens. There are two mobile web apps, a consumer app and a producer app, and one Kakao account works for both. Each app has four bottom tabs.
+I1 has 24 screens: 5 public, 8 consumer, and 11 producer. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, and one Kakao account works for both. Each app has four bottom tabs.
 
 #### Sitemap: consumer app
 
@@ -47,7 +122,7 @@ flowchart TD
 
 #### Sitemap: producer app
 
-Producers must log in, apply, and wait for approval before the tabs open. In I1, operators handle approval, delivery completion, and refunds with scripts.
+Producers must log in, apply, and wait for approval before the tabs open. In I1, operators handle approval, delivery completion, and refunds through admin API endpoints in Swagger UI.
 
 ```mermaid
 flowchart TD
@@ -163,6 +238,8 @@ stateDiagram-v2
 ```
 
 ### 2.4 API Specification
+
+Endpoints are defined per server app; see docs/spec/tech-design/stack.md.
 
 ### 2.5 AI Components
 
