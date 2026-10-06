@@ -1,0 +1,13 @@
+# 개인 AI 규칙·설정 (공용 규칙은 AGENTS.md)
+CLAUDE.local.md
+*.local.md
+AGENTS.override.md
+.claude/settings.local.json
+
+# 비밀값
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
