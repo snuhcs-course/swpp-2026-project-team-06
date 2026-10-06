@@ -3,8 +3,9 @@
 Linear DEV- · Closes #
 
 ## Spec
-<!-- 작업 폴더의 tasks.md 경로 -->
-`path/to/tasks.md`
+<!-- 작업 폴더 tasks.md의 이 이슈 섹션(경로#이슈 키)
+     관련 FEAT·AC ID (docs/spec/functional/FEAT-xx-*.md) -->
+`path/to/tasks.md#DEV-xx`
 
 ## 변경 요약
 <!-- 파일·기능 단위. diff에 있는 것만 -->
