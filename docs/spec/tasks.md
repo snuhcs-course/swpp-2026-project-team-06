@@ -263,7 +263,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 
 - 이슈: DEV-3 (프론트), 연계 DEV-4 (백엔드). 두 이슈 전체 완료를 의미하지 않는다.
 - 브랜치: jinwoo/dev-3-spec-1-2
-- 상태: 명세 작성·AI 검토 완료, PR #38 CI 및 사람 승인 대기
+- 상태: 명세 작성·AI 리뷰·CI 완료, PR #38 사람 승인 대기
 - 목표: 사용자 승인 계획을 API·인수 조건으로 먼저 확정해 프론트/백엔드가 병렬 구현할 수 있게 한다.
 - 범위: docs/spec/**, docs/design/README.md, docs/wiki/Requirements-and-Specifications.md, docs/wiki/Design-Documentation.md, docs/wiki/Testing-Documentation.md.
 - 비범위: apps/**, packages/**, server/** 구현, 워크플로·의존성, 인터뷰 원문·개인정보.
@@ -273,7 +273,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 - 결정: 공개 명세에는 익명 인터뷰 근거만 기록. 과금/사적 거래 조건 제외.
 - [x] 문서·API·인수 조건 동기화
 - [x] 링크·ID·계약 및 범위 검사
-- [ ] AI 리뷰·문서 전용 PR·CI
+- [x] AI 리뷰·문서 전용 PR·CI
 - [ ] 사람 리뷰 승인 후 머지
 
 - 검토: main의 stage-presets·questions 계약은 116ecdd에 존재하므로 경로를 유지하되 새 UI 사용을 중단한다. 로컬 중간 구조용 호환 API는 추가하지 않는다.
@@ -281,3 +281,6 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 
 - PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/38 (작성자 jangjinuite). 로컬 링크 241개·앵커 4개, 표·ID·범위 검사 오류 0.
 - AI 검토 반영: 농가 OFF 당시 받은 미답변은 ON으로 바꿔도 남도록 판정을 명확히 함. 방송 미디어/답장 null 필드, polling 사이 여러 페이지 수신 규칙 보강.
+
+- PR #38 ready for review, nemodleo에게 리뷰 요청. AI 리뷰 코멘트 https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/38#issuecomment-6038719639 . CI apps/server 통과(run 37626878066, fce5b95).
+- 머지는 pr-review의 사람 1명 Approve 조건 대기. 자동 머지 미설정. 기존 프론트 브랜치와 로컬 8081/8082/8083 서버를 유지하며 명세 머지 전 새 UI 구현을 시작하지 않는다.
