@@ -17,7 +17,7 @@
 - `Thread`는 (Farm, Consumer)당 1개. `ThreadMessage.senderType`은 CONSUMER/PRODUCER/AI, AI 응답은 `senderType = AI`와 근거(`sourceRefs`)를 가진다(M-08). 채팅에는 소식이 섞이지 않는다(AC-12-5).
 - 소식 탭(`GET /news`)은 그 사용자가 팔로우한 농가의 공개·팔로워 전용 소식, 농가 페이지(`GET /farms/{farmId}/news`)는 공개 소식만(M-14, AC-15-1).
 - `Reaction`은 (broadcastId, userId) 유일. 그 사용자가 볼 수 있는 소식(공개, 또는 팔로우한 농가의 팔로워 전용)에만 만들 수 있고, 아니면 404(AC-15-5). 응답에 반응 수와 내 반응을 담는다.
-- 채팅은 팔로우한 농가와만(M-04). `POST /chats`(`farmId`)는 팔로우하지 않았으면 farms service로 팔로우를 먼저 만들고 대화를 연다(AC-12-4).
+- 채팅은 팔로우한 농가와만(M-04). `POST /chats`(`farmId`)는 팔로우하지 않았으면 farms service로 팔로우를 먼저 만들고 대화를 연다(AC-12-4). 메시지 경로는 `/chats/{farmId}/messages`이고(대화가 농가·소비자당 1개), 팔로우하지 않은 농가면 403. 채팅 목록은 팔로우 중인 농가만.
 - 채팅은 그 소비자와 농가만 본다(M-02). 남의 대화는 404.
 - 첨부: 소식 사진 최대 5장(장당 10MB)·영상 1개(60초, 100MB), 채팅 사진 최대 3장(장당 10MB). 서버에서 다시 검사하고 넘으면 413(stack.md 6장 FQ-05). 저장소(R2)는 기능 이슈에서.
 - ‘틀렸어요’(M-17, AC-13-5)는 I2. I1에는 엔드포인트가 없다.

@@ -177,7 +177,7 @@ I1 화면 25개(소비자 앱 14, 생산자 앱 11, 로그인 SCR-05는 두 앱 
 
 - **관련**: FEAT-12, FEAT-13 · 탭: 채팅(첫 화면) · 규칙: M-02, M-04 · 우선순위: Should
 - **목적**: 농가와의 1:1 채팅을 고른다.
-- **화면 요소·데이터**: 채팅 카드(농가명, 마지막 질문·답 앞부분, 시각, 안 읽음, AI 안내 여부). 최근 순. 농가 소식은 여기 나오지 않는다(AC-12-5).
+- **화면 요소·데이터**: 채팅 카드(농가명, 마지막 질문·답 앞부분, 시각, 안 읽음, AI 안내 여부). 팔로우 중인 농가만, 최근 순. 팔로우를 해제하면 빠지고 다시 팔로우하면 이전 채팅이 보인다(FEAT-06). 농가 소식은 여기 나오지 않는다(AC-12-5).
 - **입력·출력**: `GET /api/messaging/chats?cursor=&limit=`.
 - **버튼 동작**: 카드 → SCR-16.
 - **빈 상태·오류**: 채팅 없음 → ‘농가에 궁금한 점을 물어보세요’와 농가 둘러보기(SCR-02). 실패 → 다시 시도.
@@ -188,9 +188,9 @@ I1 화면 25개(소비자 앱 14, 생산자 앱 11, 로그인 SCR-05는 두 앱 
 - **목적**: 농가에 질문하고, AI가 답할 수 있는 것은 바로 안내받는다.
 - **화면 요소·데이터**: 농가 헤더(→ SCR-03), 시간순 타임라인(내 질문, AI 안내 배지가 붙은 답과 근거 요약, 농가 답, ‘농가에 전달했어요’ 상태), 입력창(글, 사진 최대 3장), 보내기. 처음이면 ‘팔로우하고 대화를 시작해요’ 한 줄.
 - **입력**: `text`(앞뒤 공백 제외 1자 이상, 1,000자 이하), 선택 사진.
-- **출력**: 들어올 때 `POST /api/messaging/chats`(`farmId`)로 대화를 찾거나 만들고(팔로우하지 않았으면 자동 팔로우), `GET /api/messaging/chats/{threadId}/messages?cursor=`. 보내기 `POST /api/messaging/chats/{threadId}/messages` → 저장된 질문(연락처 가림)과 AI 안내 또는 전달 상태(`handoffStatus`).
+- **출력**: 들어오면 `GET /api/messaging/chats/{farmId}/messages?cursor=`(대화는 농가·소비자당 1개라 `farmId`로 찾는다). 보내기 `POST /api/messaging/chats/{farmId}/messages` → 저장된 질문(연락처 가림)과 AI 안내 또는 전달 상태(`handoffStatus`). 자동 팔로우는 여기서 하지 않고 SCR-03·04·18의 채팅하기·질문하기가 `POST /api/messaging/chats`로 한다.
 - **버튼 동작**: 보내기 → 1회, 처리 중 잠금. AI 안내는 등록된 정보로만 답하고, 근거가 없거나 전달 주제면 ‘농가에 전달했어요’(M-06·M-07). 위로 → 이전 cursor. ‘틀렸어요’ 버튼은 I1에 없다(M-17, I2).
-- **빈 상태·오류**: 보내기 실패 → 입력창에 글·사진 유지, 다시 보내기. AI 실패·시간 초과 → 전달로 처리(N-04). 불러오기 실패 → 이미 보인 것을 유지하고 다시 시도.
+- **빈 상태·오류**: 아직 질문이 없으면 ‘궁금한 점을 물어보세요’. 팔로우하지 않은 농가의 채팅 주소로 바로 들어오면(403) 그 농가 SCR-03으로 보낸다(IA 5장 예외 경로). 보내기 실패 → 입력창에 글·사진 유지, 다시 보내기. AI 실패·시간 초과 → 전달로 처리(N-04). 불러오기 실패 → 이미 보인 것을 유지하고 다시 시도.
 
 ### SCR-17 내 정보 `/me`
 
@@ -335,6 +335,7 @@ I1 화면 25개(소비자 앱 14, 생산자 앱 11, 로그인 SCR-05는 두 앱 
 - **멱등 키**: `POST /api/orders`와 `POST /api/orders/{orderId}/pay`는 `Idempotency-Key`(UUID) 헤더가 필수다. 같은 사용자·같은 키는 처음 결과를 그대로 돌려주고, 같은 키에 다른 본문이면 409 `IDEMPOTENCY_MISMATCH`. 키는 24시간 보관한다.
 - **시간 제한**: AI 초안 20초, 문의 응답은 시간을 넘기면 전달(N-04).
 - **개인정보**: 응답·로그에 필요한 것만(N-05). 생산자에게 배송 정보는 배송 완료 전 주문만(R-15).
+- **경로 순서**: 같은 prefix에서 고정 경로(`/mine`, `/me`, `/following`, `/drafts`, `/stage-presets`, `/producer`)를 경로 변수(`/{productId}`, `/{farmId}`, `/{orderId}`)보다 먼저 등록한다.
 
 ### 7.2 엔드포인트
 
@@ -407,10 +408,10 @@ I1 화면 25개(소비자 앱 14, 생산자 앱 11, 로그인 SCR-05는 두 앱 
 | `PUT /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `true`. 볼 수 없는 소식이면 404 | FEAT-15 |
 | `DELETE /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `false` | FEAT-15 |
 | `POST /api/messaging/news` | 생산자 | SCR-27 | 본문, 첨부, `visibility`(`PUBLIC`·`FOLLOWERS`) | `broadcastId`, 작성 시각, 받을 팔로워 수 | FEAT-12 |
-| `GET /api/messaging/chats` | 로그인 | SCR-15 | `cursor`, `limit` | 내 채팅 목록(1:1만) | FEAT-12 |
-| `POST /api/messaging/chats` | 로그인 | SCR-03, 04, 16, 18 | `farmId` | `threadId`, 자동 팔로우 여부. 기존 대화면 그대로 | FEAT-12 |
-| `GET /api/messaging/chats/{threadId}/messages` | 로그인(본인) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`) | FEAT-12, 13 |
-| `POST /api/messaging/chats/{threadId}/messages` | 로그인(본인) | SCR-16 | `text`, 사진(3장 이하) | 저장된 질문(가림 적용)과 AI 안내 또는 `handoffStatus: FORWARDED` | FEAT-12, 13 |
+| `GET /api/messaging/chats` | 로그인 | SCR-15 | `cursor`, `limit` | 팔로우 중인 농가와의 내 채팅 목록(1:1만) | FEAT-12 |
+| `POST /api/messaging/chats` | 로그인 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 |
+| `GET /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`) | FEAT-12, 13 |
+| `POST /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `text`, 사진(3장 이하) | 저장된 질문(가림 적용)과 AI 안내 또는 `handoffStatus: FORWARDED` | FEAT-12, 13 |
 | `GET /api/messaging/questions` | 생산자 | SCR-28 | `status`(`OPEN`·`ANSWERED`), `cursor`, `limit` | 전달된 질문과 그 채팅 | FEAT-13 |
 | `POST /api/messaging/questions/{escalationId}/answer` | 생산자 | SCR-28 | `text` | 답(그 소비자 채팅에만), 질문 상태 `ANSWERED` | FEAT-13 |
 

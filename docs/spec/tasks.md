@@ -28,7 +28,7 @@
 - [ ] P18 프로토타입 스펙 확정 → P14~P17 문서 간 정합성 확인, `README.md` 갱신
 - [x] P19 기술 스택 → `tech-design/stack.md`, 결정 기록은 `tech-design/adr/`
 - [ ] P20 와이어프레임 → `wireframes.md`
-- [ ] P21 화면 명세 → `screens.md`
+- [x] P21 화면 명세 → `screens.md` (P21 초안을 SWPP-26에서 docs/spec과 합침)
 - [ ] P22 검토·확정 → 전체 스펙 검토, 영문 wiki 반영
 
 ## 결정 사항
@@ -195,4 +195,5 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 ### 기록
 - 10/07 1/2·2/2 결정 받음. 불일치 목록 정리
 - 10/07 screens.md(SCR 25, API 57), ia·functional(AC 50 → 62, I2 2개)·prd·policy·tech-design·ADR 0009·코드 폴더 spec.md·AGENTS.md 한 줄·wiki 반영. DEV-3·DEV-4 할 일은 각 tasks.md
+- 10/07 AI 1차 리뷰(PR #25): SCR-16 진입 시 자동 팔로우되던 것을 채팅하기·질문하기 버튼에서만 하게 고침(메시지 API를 `farmId` 기준으로), 채팅 목록은 팔로우 중인 농가만, 경로 등록 순서 메모
 - 10/07 ID·링크 검사(스크립트): FEAT·AC·R·M·SCR 참조와 상대 링크·앵커 이상 없음. 추적표 FEAT-08 화면에 SCR-17 누락(기존)을 고침
