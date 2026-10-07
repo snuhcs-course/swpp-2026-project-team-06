@@ -18,7 +18,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-01-1 | A logged-out user is on a product detail page | They tap "Reserve", choose an option in the sheet, tap "Go to checkout", and log in with a consumer test account | Checkout (SCR-10) opens with the same option and quantity |
+| AC-01-1 | A logged-out user is on a product detail page | They tap "Reserve" and log in with a test account | Checkout (SCR-10) opens |
 | ~~AC-01-2~~ | ~~A test account is logged in to the consumer app~~ | ~~The same account logs in to the producer app~~ | ~~They log in as the same user, with no new account~~ — retired (SWPP-81, ADR 0010); replaced by AC-01-6 |
 | AC-01-3 | A producer is not yet approved | They open SCR-22–30 or call a producer API | They are sent to SCR-21 and the API refuses the call |
 | AC-01-4 | Mock login is on | The test-login API is called with a user ID that is not a seeded test account | It is refused and no account is created |
