@@ -185,7 +185,7 @@ Both apps use the same Kakao account. One `User` can have several roles. Produce
 | `Stage` | seq, name, startsAt, endsAt | product 1 : N stage |
 | `StagePrice` | price (won) | one per stage × option |
 | `StageAllocation` | quantity, reservedCount | one per stage × option |
-| `Order` | optionId, stageId, quantity, unitPrice, totalAmount, recipient, address, status, timestamps | — |
+| `Order` | optionId, stageId, quantity, unitPrice, totalAmount, recipient, phone, postalCode, address, addressDetail, status, timestamps | address fields are a copy made at order time |
 | `Payment` | method (CARD), provider (MOCK / PG), amount, status | order 1 : 1 payment |
 | `Refund` | amount, reason, refundedAt | order 1 : N refund |
 | `Broadcast` | body, attachments, visibility (PUBLIC / FOLLOWERS) | farm 1 : N broadcast |
