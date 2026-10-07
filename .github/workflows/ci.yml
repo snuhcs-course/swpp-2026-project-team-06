@@ -1,0 +1,144 @@
+name: CI
+
+# PR 검사(CI). 배포(CD)는 브랜치 전략(SWPP-58) 결정 후 DEV-8에서 따로 만든다.
+# job은 항상 실행하고, 관련 파일이 바뀌지 않았으면 단계만 건너뛰고 성공한다.
+# (branch protection의 필수 체크 server·apps가 막히지 않게)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # PR은 새 push가 오면 이전 실행을 취소한다. main push는 커밋마다 결과를 남기려고 취소하지 않는다.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: farmclub
+          POSTGRES_PASSWORD: farmclub
+          POSTGRES_DB: farmclub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U farmclub"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # 테스트 전용 DB. 이름은 server/.env.example을 따른다.
+      DATABASE_URL: postgresql+psycopg://farmclub:farmclub@localhost:5432/farmclub
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v4
+        with:
+          # git diff로 비교한다(API 방식은 pull-requests: read 권한이 필요).
+          token: ""
+          filters: |
+            server:
+              - "server/**"
+              - ".github/workflows/ci.yml"
+
+      - name: Skip (no server changes)
+        if: steps.changes.outputs.server != 'true'
+        working-directory: .
+        run: echo "server/와 워크플로 파일 변경 없음. 검사를 건너뛴다."
+
+      # setup-uv는 v8부터 메이저 태그를 내지 않는다. upstream 권장대로 불변 전체 태그로 고정한다(업데이트는 Dependabot).
+      - uses: astral-sh/setup-uv@v10.2.0
+        if: steps.changes.outputs.server == 'true'
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: server/uv.lock
+
+      - name: Install
+        if: steps.changes.outputs.server == 'true'
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        if: steps.changes.outputs.server == 'true'
+        run: uv run ruff check .
+
+      - name: Test (pytest)
+        if: steps.changes.outputs.server == 'true'
+        run: uv run pytest
+
+      - name: Migrations (alembic)
+        if: steps.changes.outputs.server == 'true'
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+
+  apps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v4
+        with:
+          token: ""
+          filters: |
+            apps:
+              - "apps/**"
+              - "packages/**"
+              - "package.json"
+              - "package-lock.json"
+              - ".nvmrc"
+              - ".github/workflows/ci.yml"
+
+      - name: Skip (no app changes)
+        if: steps.changes.outputs.apps != 'true'
+        run: echo "apps/·packages/·루트 package 파일·.nvmrc·워크플로 파일 변경 없음. 검사를 건너뛴다."
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.apps == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        if: steps.changes.outputs.apps == 'true'
+        run: npm ci
+
+      - name: Typecheck consumer
+        if: steps.changes.outputs.apps == 'true'
+        working-directory: apps/consumer
+        run: npx tsc --noEmit
+
+      - name: Web export consumer
+        if: steps.changes.outputs.apps == 'true'
+        working-directory: apps/consumer
+        run: npx expo export -p web
+
+      - name: Typecheck producer
+        if: steps.changes.outputs.apps == 'true'
+        working-directory: apps/producer
+        run: npx tsc --noEmit
+
+      - name: Web export producer
+        if: steps.changes.outputs.apps == 'true'
+        working-directory: apps/producer
+        run: npx expo export -p web
