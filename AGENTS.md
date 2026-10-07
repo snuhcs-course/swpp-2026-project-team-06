@@ -6,7 +6,7 @@
 ## 프로젝트
 - **Farmclub**: 생산자(농가)와 소비자를 잇는 산지 직거래·선주문 서비스. I1 타깃은 당도 중심 고품질 감귤.
 - 팀 4명, 이터레이션 단위(I1, I2 …) 진행. 이슈는 Linear(DEV 팀 = GitHub 이슈와 양방향 동기화).
-- 기술 스택: Expo + Expo Router 웹 출력으로 소비자 앱·생산자 앱 2개(Vercel), FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic(Railway, PostgreSQL), 운영자는 관리 API + Swagger UI(화면은 I2). 카카오 로그인 → 서버 JWT. AI는 Claude Haiku 4.5를 `server/app/ai` 어댑터에서만 호출. PostHog·Sentry·Langfuse, 파일은 Cloudflare R2. 상세는 `docs/spec/tech-design/stack.md`.
+- 기술 스택: Expo + Expo Router 웹 출력으로 소비자 앱·생산자 앱 2개(Vercel), FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic(Railway, PostgreSQL), 운영자는 관리 API + Swagger UI(화면은 I2). 로그인은 I1 Mock(시드 테스트 계정), I2 카카오 → 서버 JWT. AI는 Claude Haiku 4.5를 `server/app/ai` 어댑터에서만 호출. PostHog·Sentry·Langfuse, 파일은 Cloudflare R2. 상세는 `docs/spec/tech-design/stack.md`.
 - 평가 문서는 `docs/wiki/`에 쓰고, main에 머지되면 GitHub Wiki로 자동 동기화된다. 평가 문서(`docs/wiki/`)는 영어, 팀 내부 규칙·spec은 한국어.
 
 ## 제품 스펙 (`docs/spec/`)
