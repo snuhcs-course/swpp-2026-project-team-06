@@ -1,5 +1,7 @@
 > **스펙 1.2 보충**: 아래 기존 모델·시드에 [공통 계약](../contracts-1.2.md)을 함께 적용한다. stages/stageId는 유지하지만 화면은 날짜 기반이다. 이 문서는 마이그레이션 구현 완료를 의미하지 않는다.
 
+> 공급 물량·승인·가격의 현재 기준: [스펙 1.4](../capacity-1.4.md). 기존 박스 한도/가격 재승인 계약을 대체한다.
+
 # 기술 설계 초안
 
 PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스택 확정(P19) 때 기술 설계 문서로 정식 작성하고, PRD의 R·M 규칙을 구현 단위로 풀어 쓴다.
@@ -142,8 +144,8 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 
 | 자원 | 추가 계약 |
 | --- | --- |
-| Product | maxSalesQuantity, soldQuantity, salesPaused, version. remainingQuantity·availability는 일관된 판매값에서 계산. 한 주문 상한은 별개 |
-| Stage/Allocation | stable stageId, 승인 판매값과 대기 편집안 분리. 예약 기간 변경 잠금, 옵션별 가격 엄격 증가 |
+| Product | approvedSupplyGrams, salesLimitGrams, salesPaused, version. reservedGrams/shippedGrams/remainingGrams는 주문 스냅샷·반환량에서 계산. 한 주문 박스 상한은 별개 |
+| Stage/Allocation | stable stageId, 단일 판매값과 주문 가격·중량 스냅샷. 예약 기간 날짜/삭제 잠금, 옵션별 가격 엄격 증가 |
 | Thread | (farmId,consumerId) 유일, aiMode·version·양쪽 읽음 위치. 전달 질문 없는 대화도 조회 |
 | RoomReply | farmId·consumerId·body·createdAt, 방송과 구분. 소비자별 권한 필터 뒤 페이지 조회 |
 | FarmAiSettings | 농가별 버전·enabled·원칙·FAQ·추가 전달 주제, 변경 이력 |
@@ -153,3 +155,7 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 결제와 판매 설정은 상품 → 기간 옵션 순서로 잠근다. 수량 차감/반환, 상태 변경, 멱등 결과를 같은 트랜잭션에 저장한다. 취소·미공급 반환은 누적 반환량으로 중복을 막는다. AI 응답은 저장 직전 farm.enabled와 Thread.aiMode를 다시 확인하며 직접 답변/모드 변경과 직렬화한다. 작업 시작 시 Thread/FarmAiSettings 버전을 캡처하고 저장 시 동일성을 검사해 OFF→ON·HUMAN→AUTO 왕복 후 오래된 답변도 폐기한다. 아직 답하지 않은 질문은 직접 응대 대상으로 남긴다.
 
 기존 데이터 이관·초기 한도·읽음·AI 모드·승인값 분리는 계약 7장이다. 시드에 상품 총 한도 도달, 판매 중지, 기간 공백, 두 소비자의 비공개 답장, HUMAN/OFF, 주문 사진 문의를 추가하되 시계를 주입한다. 승인/대기 값을 구분할 수 없는 기존 데이터는 조용히 덮어쓰지 않는다.
+
+## 스펙 1.4 모델 변경
+
+CapacityRequest에 상품/요청량/초기·증액 구분/상태/사유/버전/처리 시각을 저장한다. Product에는 승인·실제 판매 g 한도, Order에는 unitWeightGrams·releasedQuantity를 저장한다. 상품별 PENDING 신청 하나와 원자적 결제/취소/출하를 보장한다. 상세 스키마·API·이관은 [계약](../capacity-1.4.md)을 따른다.

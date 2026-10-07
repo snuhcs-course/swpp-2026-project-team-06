@@ -74,7 +74,7 @@ P0 means required for I1. Each feature's behavior, exceptions, and acceptance cr
 
 Every feature follows these principles. The full rules (R-01–R-27, M-01–M-21) and their exceptions are in the functional spec. MUST NOT rules apply even with mock payment.
 
-1. **Farmclub is the seller.** Producers, products, and prices go public only after Farmclub approves them. Changing price, options, or stages while on sale needs approval again. (R-18, R-22, R-25, M-13)
+1. **Farmclub is the seller.** Farms and initial product supply capacity require approval. Only capacity increases need further approval; price, option and period edits apply immediately to new orders. (R-18, R-22, R-25, M-13)
 2. **The full amount is paid by card at order time.** No split payment, escrow, or cash-like payment. (R-01, R-02)
 3. **Terms are shown and agreed to before payment.** They cover the delivery window, delays, crop failure, and cancellation. If the promised window changes, the buyer chooses to accept it or get a refund. (R-03–R-05, R-21)
 4. **Full refund any time before shipping.** Refunds are card cancellations only. No points, credits, or other money-like features. If a farm is suspended, its unshipped orders are fully refunded. (R-07–R-12, R-24)
@@ -181,4 +181,13 @@ Consumer tabs: Discover / My Orders / Chat / Me. Producer: Dashboard / Products 
 
 Orders use `/orders` and detail/completion/inquiry children. Settings leads to profile/link, AI settings and logout. Producers publish only through their own room; media posting returns there.
 
-Product groups: On sale (unpaused PUBLISHED except ENDED), Under review (PENDING_APPROVAL), Paused (PUBLISHED with salesPaused or PAUSED), Drafts (DRAFT/REJECTED, showing rejection), Ended (CLOSED or unpaused PUBLISHED/ENDED). CLOSED wins; manual pause retains 1.2 precedence. Scheduled/gap/sold-out states are secondary labels; reapproval stays in its current sales group. Counts include all pages. No new endpoints, enums or migrations. See `docs/spec/navigation-1.3.md`; API contract 1.2 remains unchanged.
+Product groups: On sale (unpaused PUBLISHED except ENDED), Under review (PENDING_APPROVAL), Drafts (DRAFT/REJECTED, showing rejection), Paused (PUBLISHED with salesPaused or PAUSED), Ended (CLOSED or unpaused PUBLISHED/ENDED). CLOSED wins; manual pause retains 1.2 precedence. Scheduled/gap/sold-out states are secondary labels; a pending capacity increase stays in its current sales group. Counts include all pages. See `docs/spec/navigation-1.3.md` and the 1.4 capacity contract for updated APIs and migration requirements.
+
+
+## Supply capacity approval (spec 1.4)
+
+Product-level kg capacity is approved once, with a new request only to increase it. Integer grams are used internally; orders and period allocations remain in boxes. Approved capacity and the producer sales limit are separate. Reserved plus shipped grams cannot exceed the sales limit, which cannot exceed approved capacity. First approval publishes the product and sets both limits; later approval increases only approved capacity. Pending/rejected increases do not interrupt current sales. Prices update immediately for new orders; paid price/weight snapshots remain unchanged and unpaid orders must reconfirm changed terms. Existing-order period dates/deletion and option weights remain locked. Pre-shipping returns restore weight exactly once; post-shipping refunds do not restore it.
+
+The product filter order is Selling / Under review / Draft / Paused / Ended. Only initial requests are under review; increases use a badge in the existing group. My Orders uses “Unconfirmed orders” for the existing action-needed group. Producer screens show approved weight, sales limit, reserved, shipped and available-to-reserve kg. There is no producer self-approval button.
+
+[Capacity contract](../spec/capacity-1.4.md) defines request history/withdrawal and ADMIN approval/rejection, optimistic versions and idempotency, locked payment/cap updates, and explicit migration without guessing real approved kg from boxes. AC-04-8/9, AC-05-6, AC-09-6, AC-10-6 cover approval lifecycle, permissions, mixed weights, last-capacity concurrency, cancellation/shipping, price snapshots and UI. DEV-3 implements frontend/Mock; DEV-4 implements the actual server. This replaces earlier recurring product/price approval and box-cap statements; the seller/settlement business model is unchanged.

@@ -8,7 +8,7 @@
 
 Iteration 1 (I1) builds a prototype where the three key ideas (reservation sales, farm communication, and AI) work as one flow. Payment is mocked.
 
-Farmclub buys from farms and resells (direct purchase). Farmclub is the seller and is responsible for refunds. Producers set prices and quantities by date range, and Farmclub approves them.
+Farmclub buys from farms and resells (direct purchase). Farmclub is the seller and is responsible for refunds. Producers set prices and quantities by date range, within a product-level approved supply weight. Farmclub approves initial capacity and increases only.
 
 ## 2. Target Customers
 
@@ -19,7 +19,7 @@ There are three account roles: consumer, producer, and operator. There are two a
 | Consumer (primary) | People in their 40s–50s, mostly women. They have buying power and make the decision, and are likely to talk with farms | Few steps to reserve, sweetness, delivery time, and price at a glance, large text |
 | Consumer (indirect) | People in their 20s–30s. Little direct-trade experience, dislike searching for information. Often order for their parents | A separate recipient field, product info that needs no comparison |
 | Producer | Jeju tangerine farms. They sold through KakaoTalk and Band and rarely take photos. They can measure sweetness at harvest | Register products by pasting text, set reservation dates, prices, total quantity limits and pause/resume sales, hand off repeated questions, see demand early, share a link with regular customers |
-| Operator | The Farmclub team | Approve producers, products, and prices, handle refunds and exceptions. No operator screen in I1 |
+| Operator | The Farmclub team | Approve producers, product supply capacity, handle refunds and exceptions. No operator screen in I1 |
 
 A producer has one farm and cannot access other farms' products, orders, or messages. A consumer can see only their own orders and conversations.
 
@@ -82,3 +82,12 @@ Source of truth: `docs/spec/prd.md` (Korean).
 ## Navigation refinement (spec 1.3)
 
 Consumer: Discover / My Orders / Chat / Me. Producer: Dashboard / Products / Chat / Settings. Chat is third, with separate News Rooms and 1:1 Chat views. Consumers follow multiple farms and choose their rooms in a messenger list. Producers publish news from their own room. This refines reservation, communication and AI without changing the business scope or adding consumer-to-consumer chat.
+
+
+## Supply capacity approval (spec 1.4)
+
+Product-level kg capacity is approved once, with a new request only to increase it. Integer grams are used internally; orders and period allocations remain in boxes. Approved capacity and the producer sales limit are separate. Reserved plus shipped grams cannot exceed the sales limit, which cannot exceed approved capacity. First approval publishes the product and sets both limits; later approval increases only approved capacity. Pending/rejected increases do not interrupt current sales. Prices update immediately for new orders; paid price/weight snapshots remain unchanged and unpaid orders must reconfirm changed terms. Existing-order period dates/deletion and option weights remain locked. Pre-shipping returns restore weight exactly once; post-shipping refunds do not restore it.
+
+The product filter order is Selling / Under review / Draft / Paused / Ended. Only initial requests are under review; increases use a badge in the existing group. My Orders uses “Unconfirmed orders” for the existing action-needed group. Producer screens show approved weight, sales limit, reserved, shipped and available-to-reserve kg. There is no producer self-approval button.
+
+[Capacity contract](../spec/capacity-1.4.md) defines request history/withdrawal and ADMIN approval/rejection, optimistic versions and idempotency, locked payment/cap updates, and explicit migration without guessing real approved kg from boxes. AC-04-8/9, AC-05-6, AC-09-6, AC-10-6 cover approval lifecycle, permissions, mixed weights, last-capacity concurrency, cancellation/shipping, price snapshots and UI. DEV-3 implements frontend/Mock; DEV-4 implements the actual server. This replaces earlier recurring product/price approval and box-cap statements; the seller/settlement business model is unchanged.

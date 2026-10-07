@@ -1,5 +1,7 @@
 > 현재 화면 구조는 [1.3](./navigation-1.3.md), API·권한은 1.2를 따른다. 이전 결정 표는 변경 이력이다.
 
+> 공급 물량·승인·가격의 현재 기준: [스펙 1.4](./capacity-1.4.md). 기존 박스 한도/가격 재승인 계약을 대체한다.
+
 # farmclub 화면 명세 (I1-P21·P22)
 
 I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산자 SCR-19)와 그 하위 화면의 구성·데이터·동작·예외와 API 계약을 정한다. P21 초안(제안서 기준)을 확정 스펙(`docs/spec`)과 합친 확정본이다. 동작·규칙의 원문은 기능 명세(FEAT·R·M)에 있고, 여기서는 ID로 가리킨다.
@@ -30,7 +32,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 | 8 | 예약 기간별 가격(이른 예약일수록 저렴). 번호 단계/고정 프리셋 대신 날짜 구간을 추가·편집한다 | 1.2 |
 | 9 | 예약할 때 전액 결제(I1 Mock, I2 PortOne) | docs |
 | 10 | 농가 페이지는 별도 화면, 탭 \[상품 \| 소식\] | docs |
-| 11 | 생산자 가입·승인(SCR-20·21), 상품 게시 승인·재승인(R-25) | docs |
+| 11 | 생산자 가입 승인(SCR-20·21), 상품 공급 물량 최초·증액 승인(R-25) | docs |
 | 12 | 생산자 하단 탭: 현황 · 상품 · 채팅 · 농가 | docs |
 | 13 | 용어·데이터 모델은 docs(Order, 주문 상태, ShippingAddress). P21의 Reservation은 Order | docs |
 | 14 | API 경로는 `/api/<prefix>`, `/admin/...`, `/s/...` | docs |
@@ -287,7 +289,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 ### SCR-22 현황 `/`
 
 - **관련**: FEAT-14(AC-14-1·2) · 탭: 현황 · 규칙: R-15 · 우선순위: Must
-- **목적**: 할 일과 상품별 판매/총 한도/잔여 박스를 한눈에 본다.
+- **목적**: 할 일과 상품별 승인/판매 한도/예약 중/출하 완료/추가 예약 가능 kg를 한눈에 본다.
 - **화면 요소·데이터**: 농가 사진 띠(농가명, 오늘 날짜, 오늘 할 일 수), 할 일 세 줄(답할 질문 수, 출하할 주문 수, 승인 대기 상품 수, 숫자 22~34), 예약 수량(상품명, 예약한 사람 수·주문 수, 단계마다 옵션별 예약 박스 / 물량 막대, 지금 단계의 마감일과 남은 물량), 최근 예약(이름 앞 글자, 옵션 × 수량, 날짜, 지역, 상태). ‘출하 처리’ 버튼은 없다(결정 30).
 - **입력·출력**: `GET /api/orders/producer/dashboard`.
 - **버튼 동작**: 답변 필요한 대화 → SCR-28의 답변 필요 필터. 출하할 주문 → SCR-29. 승인 대기 상품 → SCR-23 심사 중 필터.
@@ -297,7 +299,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-04(AC-04-2) · 탭: 상품 · 우선순위: Should
 - **목적**: 내 상품과 상태를 보고 새 상품을 만든다.
-- **화면 요소·데이터**: 떠 있는 ‘+ 새 상품’, 상품 카드(썸네일 64 또는 사진 없음 자리 표시, 상품명, 판매 중·심사 중·판매 중지·작성 중·판매 종료 필터와 개수, 반려 사유, 재승인 대기 여부, 판매 중이면 ‘n명 예약’ `reservedCount`, 판매/총 한도/잔여 박스, 현재 예약 기간과 중지·품절 상태). 기본은 판매 중. 그룹 조건·재심사·품절 표시는 [화면 구조 1.3](./navigation-1.3.md)을 따른다.
+- **화면 요소·데이터**: 떠 있는 ‘+ 새 상품’, 상품 카드(썸네일 64 또는 사진 없음 자리 표시, 상품명, 판매 중·심사 중·작성 중·판매 중지·판매 종료 필터와 개수, 반려 사유, 물량 추가 심사 여부, 판매 중이면 ‘n명 예약’ `reservedCount`, 승인/판매 한도/예약 중/출하 완료/추가 예약 가능 kg, 현재 예약 기간과 중지·품절 상태). 기본은 판매 중. 그룹 조건·증액 심사·품절 표시는 [화면 구조 1.3](./navigation-1.3.md)을 따른다.
 - **입력·출력**: `GET /api/products/mine?status=&cursor=`.
 - **버튼 동작**: 새 상품 → SCR-24. 카드 → SCR-25.
 - **빈 상태·오류**: 상품 없음 → ‘첫 상품을 등록해 보세요’와 SCR-24.
@@ -316,8 +318,8 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **관련**: FEAT-04(AC-04-1~4) · 규칙: R-16, R-18, R-20, R-21, R-23, R-25, M-13 · 우선순위: Must
 - **목적**: 초안을 다듬고 게시를 요청한다.
 - **화면 요소·데이터**: 상태와 반려 사유, 사진(첫 사진이 목록에서 잘려 보이는 104·64 미리보기), 기본 정보(상품명, 품종, 설명, 원산지, 보관 방법), 품질(예상·실측 당도, 등급), 중량 옵션·상품 최대 판매 박스 수·한 주문 최대 수량, 받는 시기(배송 예정 기간)와 최대 지연 기한(누르면 기간 선택 달력 시트), 배송비(무료·별도)·도서산간, 예약 기간·가격·물량 요약 줄, 판매/총 한도/잔여 요약, 판매 중지·재개, 하단 바 저장 + 게시 요청.
-- **입력·출력**: `GET /api/products/mine/{productId}`, 저장 `PATCH /api/products/{productId}`, 게시 요청 `POST /api/products/{productId}/publish-request`. 판매 한도·한 주문 상한·중지는 `PUT /api/products/{productId}/sales-settings`(계약 2장).
-- **버튼 동작**: 저장 → 초안 유지. 예약 기간 설정으로 → SCR-26. 게시 요청 → 필수값·단계 가격이 모두 있을 때만 활성(AC-04-1) → 승인 대기. 판매 중 가격·옵션·단계 변경은 재승인 전까지 기존 값으로 판매(R-25).
+- **입력·출력**: `GET /api/products/mine/{productId}`, 저장 `PATCH /api/products/{productId}`, 공급 승인 요청 `POST /api/products/{productId}/capacity-requests`. 판매 한도·한 주문 상한·중지는 `PUT /api/products/{productId}/sales-settings`(계약 2장).
+- **버튼 동작**: 저장 → 초안 유지. 예약 기간 설정으로 → SCR-26. 게시 요청 → 필수값·단계 가격이 모두 있을 때만 활성(AC-04-1) → 승인 대기. 판매 중 가격·옵션·기간 변경은 신규 주문부터 즉시 반영하고 기존 결제 주문은 보존한다(R-25).
 - **빈 상태·오류**: 빠진 항목 수(‘빈 칸 n개를 채우면 게시를 요청할 수 있어요’)와 칸별 오류 표시. 저장 실패 → 입력 유지. 나가기 전 저장하지 않은 변경이 있으면 확인 시트. 예약이 있는 상품의 배송 예정 기간을 바꾸면 주문자 동의·환불 안내 시트(R-21). 저장 성공 → 토스트.
 
 ### SCR-26 예약 기간·가격·물량 `/products/:id/stages`
@@ -325,7 +327,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **관련**: FEAT-05 AC-05-1~5, R-06·18·25·26 · Must.
 - **목적·화면**: 날짜 범위별 가격과 옵션 물량을 입력한다. 빈 기간 하나로 시작, 기간 추가/삭제, 날짜 선택, 옵션별 가격·박스 수, 상품 총 한도 요약, 저장. 단계 번호·프리셋·할인율 선택은 없다.
 - **입출력**: 편집 상품 GET과 `PUT /api/products/{productId}/stages`(stageId, version 포함). 상세 계약 3장.
-- **동작**: 날짜순 정렬, 기존 ID 유지. 이른 기간 가격은 이후보다 낮고 겹치지 않는다. 현재 판매값과 승인 대기 편집안을 구분한다.
+- **동작**: 날짜순 정렬, 기존 ID 유지. 이른 기간 가격은 이후보다 낮고 겹치지 않는다. 저장 즉시 새 주문에 적용하며 기존 주문값은 보존한다.
 - **빈 상태·오류**: 예약 있는 기간은 삭제·날짜·가격 변경을 막고 이유를 보여준다. 필드 오류/버전 충돌 때 입력을 유지하며 최신 값 확인 후 재저장한다.
 
 ### SCR-27 소식 올리기 `/broadcast/new`
@@ -468,13 +470,13 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | --- | --- | --- | --- | --- | --- | --- |
 | `GET /api/products/{productId}` | 공개 | SCR-04, 10 | — | 판매 중 상품, 농가 요약(`brixRecordCount` 포함), 옵션, 단계별 가격·남은 물량·지금 단계·다음 단계, 배송비, `reservedCount`. 최신 소식은 없다(결정 26) | FEAT-07, 05 | Must |
 | `GET /api/products/mine` | 생산자 | SCR-23 | `status`, `cursor`, `limit` | 내 상품 목록과 상태, `reservedCount`, 지금 단계 | FEAT-04 | Should |
-| `GET /api/products/mine/{productId}` | 생산자 | SCR-25, 26 | — | 편집용 전체 값(초안·반려 사유·재승인 대기 값 포함) | FEAT-04 | Must |
+| `GET /api/products/mine/{productId}` | 생산자 | SCR-25, 26 | — | 편집용 전체 값(초안·반려 사유·물량 신청 요약 포함) | FEAT-04 | Must |
 | `POST /api/products/drafts` | 생산자 | SCR-24 | `inputText`(3,000자 이하) | `draftId`, 추출 값, `missingFields`. AI 실패면 빈 값과 `failed` 표시 | FEAT-03 | Must |
 | `POST /api/products` | 생산자 | SCR-24 | `draftId`(선택) | 초안 상품(`DRAFT`) | FEAT-03, 04 | Must |
-| `PATCH /api/products/{productId}` | 생산자 | SCR-25 | 바꿀 필드 | 저장된 상품, 재승인 필요 여부 | FEAT-04 | Must |
+| `PATCH /api/products/{productId}` | 생산자 | SCR-25 | 바꿀 필드 | 즉시 반영된 상품·version | FEAT-04 | Must |
 | `GET /api/products/stage-presets` | 생산자 | 1.2 사용 안 함 | — | 1.1 기본값 계약만 유지 | FEAT-05 | 기존 |
-| `PUT /api/products/{productId}/stages` | 생산자 | SCR-26 | `version`, `stageId` 포함 기간·옵션 가격·물량 | 편집안·승인 판매값. 계약 3장 | FEAT-05 | Must |
-| `POST /api/products/{productId}/publish-request` | 생산자 | SCR-25 | — | 상태 `PENDING_APPROVAL`. 빠진 항목이 있으면 400 | FEAT-04 | Must |
+| `PUT /api/products/{productId}/stages` | 생산자 | SCR-26 | `version`, `stageId` 포함 기간·옵션 가격·물량 | {version,stages}. 스펙 1.4 계약 | FEAT-05 | Must |
+| `POST /api/products/{productId}/capacity-requests` | 생산자 | SCR-25·판매 설정 | requestedTotalGrams,version | 최초·증액 신청. 1.4 계약 | FEAT-04 | Must |
 
 **orders** (`/api/orders`)
 
@@ -514,8 +516,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | --- | --- | --- | --- | --- | --- |
 | `POST /admin/producers/{farmId}/approve` | 운영자 | — | 농가 `APPROVED` | FEAT-01, R-22 | Should |
 | `POST /admin/producers/{farmId}/reject` | 운영자 | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 | Should |
-| `POST /admin/products/{productId}/approve` | 운영자 | — | `PUBLISHED`(재승인이면 대기 값 반영) | FEAT-04, R-25 | Must |
-| `POST /admin/products/{productId}/reject` | 운영자 | `reason` | 반려, 사유 | FEAT-04 | Should |
+| `POST /admin/products/{productId}/capacity-requests/{requestId}/approve` | 운영자 | version | 공급 총중량 승인. 1.4 계약 | FEAT-04, R-25 | Must |
+| `POST /admin/products/{productId}/capacity-requests/{requestId}/reject` | 운영자 | version,reason | 신청 반려, 기존 판매 유지 | FEAT-04 | Must |
 | `POST /admin/orders/{orderId}/delivered` | 운영자 | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
 | `POST /admin/orders/{orderId}/refund` | 운영자 | 금액(없으면 전액), `reason` | `REFUNDED`·`PARTIALLY_REFUNDED`, 환불 기록 | R-11, R-12 | Should |
 | `POST /admin/farms/{farmId}/suspend` | 운영자 | `reason` | 농가 정지, 출하 전 주문 전액 환불 수 | R-24 | Should |
