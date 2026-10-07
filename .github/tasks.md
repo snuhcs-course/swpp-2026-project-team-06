@@ -25,6 +25,7 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 ### 결정 사항
 - 10/07 CI는 `ci.yml` 하나, job `server`·`apps`. paths-filter로 변경이 없으면 단계만 건너뛰고 job은 항상 성공(필수 체크로 지정해도 막히지 않게)
 - 10/07 paths-filter는 `token: ""`로 git diff 방식을 쓴다. 기본(API) 방식은 PR에서 `pull-requests: read` 권한이 필요해 `contents: read`만으로는 안 됨
+- 10/07 `astral-sh/setup-uv`는 v8부터 메이저 태그(`@v8`)를 내지 않고 불변 전체 태그(`@v10.2.0`)만 낸다. "메이저 태그로 고정" 규칙에 맞춰 마지막 메이저 태그 `@v7`을 쓴다(첫 CI 실행이 `@v10`을 못 찾아 실패). 전체 태그로 바꿀지는 결정 필요
 - 10/07 레포에 Node 버전 설정(.nvmrc, engines)이 없어 현재 LTS인 Node 24로 한다(로컬 v24와 같음)
 
 ### 작업
