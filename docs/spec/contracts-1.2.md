@@ -14,61 +14,9 @@
 - 페이지 응답은 {items,nextCursor}. 메시지는 최신 페이지를 조회하되 items는 오래된 순으로 반환한다. cursor는 (createdAt,id) 기반 opaque 값이며 사용자·자원에 귀속된다. 권한 필터 후 limit(기본 20, 최대 50)을 적용한다.
 - 기존 ID와 데이터는 유지한다. 아직 배포된 적 없는 로컬 중간 형식을 영구 API 별칭으로 추가하지 않는다.
 
-## 2. 판매 수량·상태
+## 2·3. 판매 수량·승인·기간 가격 — 1.4로 대체
 
-### 데이터
-
-ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
-
-| 필드 | 형식 | 의미 |
-| --- | --- | --- |
-| maxSalesQuantity | integer >= 0, 초안만 null | 판매자가 상품별로 정하는 누적 최대 판매 박스 수. 모든 옵션·기간 합산 |
-| soldQuantity | integer >= 0 | 결제로 확보한 수량 - 출하 전 취소/미공급으로 반환한 수량. 출하 완료 물량도 포함 |
-| remainingQuantity | integer >= 0, 한도 미입력 초안만 null | maxSalesQuantity - soldQuantity; 한도 null이면 null |
-| salesPaused | boolean | 판매자 수동 중지. 승인 상태와 독립 |
-| availability | enum | PAUSED / ENDED / NOT_OPEN / TOTAL_SOLD_OUT / PERIOD_SOLD_OUT / AVAILABLE |
-| version | integer >= 1 | 판매 설정·승인 판매값 갱신 충돌 검사 |
-
-- availability 우선순위: 수동 중지 → 모든 기간 종료/CLOSED → 현재 기간 없음 → 전체 물량 소진 → 현재 기간의 모든 옵션 물량 소진 → 예약 가능. 옵션별 품절은 별도로 표시한다.
-- 농가 미승인/정지, 상품 미승인은 공개 조회에서 제외한다. PUBLISHED이면서 PAUSED/품절인 상품은 목록·상세에 남긴다.
-- 새 상품의 maxSalesQuantity는 미입력(null, 작성 중에만 허용)으로 시작한다. 미입력 초안은 remainingQuantity=null, availability=NOT_OPEN이다. 게시 요청 전에 정수 입력 필수. 0이면 예약을 받지 않는다. 한 주문 최대 수량(maxQuantityPerOrder, 정수 >= 1)은 별도 필수 입력이다.
-- 주문 수량 1은 선택 중량의 박스 1개다. 5kg × 2와 10kg × 1은 총 3박스이며 kg 환산 재고는 이번 범위가 아니다.
-- 현재 옵션의 예약 가능 수 = min(전체 remainingQuantity, 현재 기간 옵션 quantity-reservedCount). 한 주문 선택 상한은 이 값과 maxQuantityPerOrder의 최솟값이다.
-- 가격 기간별 옵션 물량은 유지한다. 상품 총 한도가 기간별 물량 합보다 작아도 유효하며 전역 상한이 우선한다.
-
-### API
-
-- PUT /api/products/{productId}/sales-settings
-  - 생산자 소유 상품. 입력 {maxSalesQuantity,maxQuantityPerOrder,salesPaused,version}, Idempotency-Key 필수.
-  - 응답 {productId,maxSalesQuantity,maxQuantityPerOrder,soldQuantity,remainingQuantity,salesPaused,availability,version}.
-  - 판매 한도/주문 한도는 즉시 반영하되 기존 주문은 변경하지 않는다. maxSalesQuantity < soldQuantity는 409 CAP_BELOW_SOLD.
-  - 수동 상태 전환은 승인된 PUBLISHED 상품에서만 가능. 재개 시 현재 또는 미래 기간에 잔여 판매 가능 옵션이 있어야 한다. 없으면 409 NOT_RESUMABLE. 미래만 있으면 재개 후 NOT_OPEN이다.
-  - DRAFT/REJECTED/PENDING_APPROVAL에서는 수량 설정만 가능하다. CLOSED는 재개 불가. 이미 같은 paused 상태면 불필요한 상태 전환 없이 저장한다.
-- 예: PUT 입력 {"maxSalesQuantity":100,"maxQuantityPerOrder":3,"salesPaused":true,"version":4}
-  → 응답 {"productId":"p-example","maxSalesQuantity":100,"maxQuantityPerOrder":3,"soldQuantity":44,"remainingQuantity":56,"salesPaused":true,"availability":"PAUSED","version":5}.
-
-### 결제·취소 원자성
-
-- 소비자 주문/결제 실패 우선순위: 승인/권한 → SALES_PAUSED → STAGE_CHANGED(기간 없음·종료/다른 기간/단가 변경) → TOTAL_LIMIT_REACHED → SOLD_OUT → QUANTITY_LIMIT. details에 최신 availability·기간·한도를 포함한다.
-- 주문서 작성은 물량을 선점하지 않는다. 새 주문 생성과 결제 시 모두 승인·중지·기간·수량을 검사한다.
-- 결제는 상품 행을 잠근 뒤 기간/옵션 물량을 잠그는 고정 순서로 검사·차감·주문 상태 변경·멱등 결과를 같은 트랜잭션에 저장한다.
-- 판매 한도 변경·중지와 결제는 같은 상품 잠금을 공유한다. 마지막 1박스에 대한 동시 결제는 한 건만 성공한다.
-- 출하 전 취소/미공급 확정은 해당 수량을 정확히 한 번 반환한다. 부분 미공급은 반환 수량을 따로 기록한다. 출하 이후 환불·교환은 물량을 자동 복원하지 않는다.
-- PAUSED는 미결제 주문도 결제 불가. 이미 결제된 예약·취소·출하는 정상 처리한다. 재개는 기존 기간/가격/물량을 되돌리지 않는다.
-- 결제 전에 가격 기간/가격 버전이 바뀌면 STAGE_CHANGED로 새 주문서 확인을 요구한다. 소비자 동의 없이 가격을 바꿔 결제하지 않는다.
-
-## 3. 날짜 기반 예약 가격
-
-- UI는 예약 기간·가격. 1/2/3단계 선택과 단계 번호를 제거한다. 신규 상품에는 빈 가격/수량의 기간 하나를 제시하고 기간 추가/삭제로 구성한다.
-- 기존 PUT /api/products/{productId}/stages 경로 유지. 입력 {version,stages:[{stageId?,startsAt,endsAt,options:{optionId:{price,quantity}}}]}.
-- 기존 행에는 stageId 필수, 신규 행만 생략. seq와 날짜 표시용 name은 서버가 정렬해 계산한다. 배열 인덱스로 기존 reservedCount를 연결하지 않는다.
-- 응답 {version,pendingReapproval,stages,approvedStages}. 생산자 stages는 최신 편집안, approvedStages는 현재 판매값. 최초 승인 전 approvedStages=[].
-- 승인된 공개 ProductDetail.stages는 approvedStages만 반환한다. 내부 명칭 stages는 유지하되 화면에는 날짜 범위를 표시한다.
-- 모든 상품 옵션의 price는 정수 >= 1, quantity는 정수 >= 0. 날짜 실제 유효성·시작<=종료·겹침 없음·예약 종료<배송 시작을 검사한다. 기간 공백 허용, 그때 NOT_OPEN 및 다음 예약 시작일 안내.
-- 같은 옵션의 가격은 시간순으로 엄격히 증가한다. 이후 가격이 같거나 낮으면 400 필드 오류.
-- 예약 이력이 연결된 기간은 삭제·날짜·가격 변경 불가(409 PERIOD_LOCKED). 판매 물량은 현재 확보 수량보다 낮출 수 없다. 주문과 연결된 옵션 ID도 삭제할 수 없다.
-- 가격/옵션/기간/기간 물량 수정은 승인 대기 편집안에 저장한다. 승인 동작은 상품 잠금 아래 당시 판매 수량과 기간 제약을 재검증한 뒤 원자적으로 교체한다. 기존 주문의 가격·기간 ID는 보존한다.
-- GET /api/products/stage-presets는 1.2 화면에서 사용하지 않는다. 1.1 계약에 존재하므로 서버 제거를 이 PR의 전제 조건으로 삼지 않는다.
+[상품별 공급 물량 승인 계약](./capacity-1.4.md)이 박스 총한도와 가격 재승인 구조를 대체한다. 승인/판매 한도·주문 스냅샷·API·잠금·이관은 1.4를 따른다. 아래 채팅·AI·문의 계약은 유지한다.
 
 ## 4. 소식방과 양방향 1:1 채팅
 
@@ -144,9 +92,9 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 
 ### 기존 데이터 보존
 
-- 상품별 maxSalesQuantity는 max(기존 모든 기간 옵션 quantity 합, 계산된 soldQuantity), salesPaused=false, version=1로 이관한다. 신규 상품 입력 필수와 구분한다.
+- 상품 물량 이관은 1.4의 명시적인 g 전환표와 주문 중량 스냅샷 검증을 따른다.
 - soldQuantity는 주문/수량 반환 이력에서 재계산한다. 결제 기록 없이 reservedCount 숫자만 임의 생성하지 않는다. 출하 이후 환불 수량도 사용한 물량으로 남긴다.
-- 기존 승인된 기간과 stageId는 승인 판매값으로 보존한다. 미승인 편집안이 이미 덮어써져 구분 불가능하면 이관을 중단하고 백업/확인 대상으로 보고한다.
+- 기존 공개 판매 기간과 stageId를 단일 판매값으로 보존한다. 구형 미승인 편집안은 백업 후 별도 검토하며 자동 공개하지 않는다.
 - 기존 Thread/질문은 같은 농가·소비자에 묶고 메시지 ID를 보존한다. 기존 농가 답변이 있는 방은 HUMAN, 없는 방은 AUTO. 읽음 정보가 없으면 미확인 소비자 메시지를 생산자 안 읽음으로 잡는다.
 - 농가 설정 기본값 추가. 소식 답장은 기존 방송/1:1 기록을 복제하지 않는 별도 저장이다. 새 시드는 두 소비자·두 농가의 권한 검증이 가능해야 한다.
 
@@ -161,7 +109,7 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 - 마지막 1박스에 두 결제: 한 건 성공, 다른 건 TOTAL_LIMIT_REACHED 또는 SOLD_OUT. 중복 결제·중복 취소는 한 번만 반영.
 - 다른 상품 판매량은 독립. 같은 상품의 다른 기간/옵션은 총 한도를 공유. 한도 축소가 이미 판매한 수량 미만이면 실패.
 - 주문서를 연 뒤 중지: 결제 SALES_PAUSED. 결제 완료 주문은 정상 출하. 기간 공백/종료/품절/수동 중지를 구분.
-- 기간 순서 변경에도 주문 stageId/수량 보존, 이른 가격>=후기 가격 및 예약 있는 기간 수정 거부, 미승인 가격 공개 금지.
+- 기간 순서 변경에도 주문 stageId/수량 보존, 이른 가격>=후기 가격 및 예약 기간 삭제·날짜 변경 거부, 신규 가격 즉시 적용과 기존 주문 스냅샷 보존.
 - 소비자 A 답장이 B의 소식방/요약/cursor에 없음. 농가 X가 Y의 1:1/사진/설정을 조회·변경하지 못함.
 - 농가 직접 답변 중 AI 처리 경합: HUMAN 이후 AI 메시지 저장 금지. 농가 OFF+방 AUTO에서도 AI 없음. 미리보기는 기록 변경 없음.
 - 본인 결제 주문의 미팔로우 문의는 허용, 타인 주문/첨부는 차단. 사진 문의 처리 상태가 주문 환불 상태를 바꾸지 않음.

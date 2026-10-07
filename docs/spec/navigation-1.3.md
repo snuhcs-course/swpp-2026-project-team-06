@@ -34,11 +34,11 @@ DEV-3. 화면 구조 변경이며 서버 API·상태 enum·DB·권한은 [1.2 �
 | --- | --- |
 | 판매 중 | PUBLISHED이고 중지되지 않았으며 availability가 ENDED가 아님 |
 | 심사 중 | PENDING_APPROVAL |
-| 판매 중지 | PUBLISHED이며 salesPaused=true 또는 availability=PAUSED |
 | 작성 중 | DRAFT 또는 REJECTED; 반려에는 수정 필요와 사유 표시 |
+| 판매 중지 | PUBLISHED이며 salesPaused=true 또는 availability=PAUSED |
 | 판매 종료 | CLOSED 또는 중지되지 않은 PUBLISHED의 availability=ENDED |
 
-CLOSED가 우선한다. 1.2의 수동 중지 우선순위를 유지하므로 중지된 상품은 기간이 지나도 중지 그룹에 남는다. 판매 예정·기간 공백·품절은 판매 중에서 보조 상태로 구분한다. 재심사는 현재 판매/중지 그룹에 '수정안 심사 중'을 표시한다. 총 한도·주문당 한도·중지/재개·날짜 가격 계약은 그대로다. 현황의 승인 대기는 `/products?filter=review`, 답변 필요는 `/chats?view=private&needsReply=1`로 연결한다.
+CLOSED가 우선한다. 1.2의 수동 중지 우선순위를 유지하므로 중지된 상품은 기간이 지나도 중지 그룹에 남는다. 판매 예정·기간 공백·품절은 판매 중에서 보조 상태로 구분한다. 증액 심사는 현재 그룹에 '물량 추가 심사 중'을 표시한다. 최초 물량 심사만 심사 중에 포함한다. 중량과 가격 계약은 [1.4](./capacity-1.4.md)를 따른다. 현황의 승인 대기는 `/products?filter=review`, 답변 필요는 `/chats?view=private&needsReply=1`로 연결한다.
 
 ## 검증
 
