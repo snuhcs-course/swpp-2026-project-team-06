@@ -6,12 +6,13 @@
 | -- | -- | -- | -- |
 | 0.1 | 2026-10-07 | Team 6 | Initial draft: sitemaps, user flows, data model summary, order states |
 | 0.2 | 2026-10-07 | Team 6 | Backend Django → FastAPI; operators use the admin API through Swagger UI instead of Django Admin (ADR 0007, 0008) |
+| 0.3 | 2026-10-07 | Team 6 | Synced with the final design (`docs/design/`) and screen spec 1.1: separate consumer and producer accounts (ADR 0010), producer login SCR-19, sub-screens, design rules, seed data, new fields (SWPP-81) |
 
 ## 1. System Architecture
 
 ### 1.1 High-Level Architecture
 
-There are two Expo web apps (consumer and producer) and one FastAPI server. Both apps call the server's REST API. The server owns the database, file storage, login (I1: mock login with seeded test accounts; Kakao in I2), and all AI calls. In I1, operators call admin API endpoints (`/admin/...`) through Swagger UI; a dedicated operator screen comes in I2.
+There are two Expo web apps (consumer and producer) and one FastAPI server. Both apps call the server's REST API. The server owns the database, file storage, login (I1: mock login with seeded test accounts; Kakao in I2), and all AI calls. Consumer and producer accounts are separate: each account has one role, and each app has its own login (ADR 0010). In I1, operators call admin API endpoints (`/admin/...`) through Swagger UI; a dedicated operator screen comes in I2.
 
 ### 1.2 Component Overview
 
@@ -44,10 +45,10 @@ Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (wo
 ### 1.3 Key Data Flows
 
 **Mock login (FEAT-01, ADR 0009) — I1**
-1. The app lists seeded test accounts from `GET /api/auth/test-accounts`.
-2. The user picks one and the app posts it to `POST /api/auth/test-login`.
+1. The app lists its own seeded test accounts from `GET /api/auth/test-accounts?app=consumer|producer` (the consumer app shows only consumer accounts, the producer app only producer accounts).
+2. The user picks one and the app posts it to `POST /api/auth/test-login` with `userId` and `app`.
 3. The server returns a JWT only when the `MOCK_LOGIN_ENABLED` setting is on and the user is a seeded test account. No new accounts are created.
-4. Producer app APIs check the `PRODUCER` role and farm approval on the server. Kakao login (ADR 0003) replaces this in I2, and the flag is turned off.
+4. Consumer APIs require the `CONSUMER` role, and producer app APIs require the `PRODUCER` role and farm approval, checked on the server. A token from the other app gets 403 `FORBIDDEN` with `details.reason: WRONG_APP`. Kakao login (ADR 0003) replaces this in I2, and the flag is turned off.
 
 **Share link (FEAT-19)**
 1. The producer app copies a server link, `/s/farms/<id>`.
@@ -92,13 +93,25 @@ Each decision has an ADR in `docs/spec/tech-design/adr/`.
 | 0006 | Server OG page for share links | Web output apps cannot easily build per-page meta tags for link previews |
 | 0007 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic (replaces 0002) | Lighter structure and typed API definitions. The OpenAPI schema comes straight from the code |
 | 0008 | Admin API + Swagger UI for operators; dedicated screen in I2 (replaces 0002) | No time for an operator screen in I1. The I2 screen will reuse the same API |
-| 0009 | I1 mock login with seeded test accounts, behind a setting flag | Demo all roles without external accounts. Risk: anyone with the demo URL can use a test account, so test accounts hold no real data and no admin role |
+| 0009 | I1 mock login with seeded test accounts, behind a setting flag; per-app account lists since 0010 | Demo all roles without external accounts. Risk: anyone with the demo URL can use a test account, so test accounts hold no real data and no admin role |
+| 0010 | Separate consumer and producer accounts (changes IA-Q4) | One login screen mixing both roles confused the demo, and one token valid in both apps makes access checks harder. Each account has one role; the same person uses two accounts. Producer sign-up also creates the producer account |
 
 ## 2. Design Details
 
 ### 2.1 Frontend Design
 
-I1 has 25 screens: 5 public, 9 consumer, and 11 producer. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, and one account works for both. Each app has four bottom tabs: consumer Discover · News · Chat · Me, producer Dashboard · Products · Questions · Farm. "News" means the farm's 1:N posts and "Chat" means the private 1:1 Q&A; consumer screens do not use the word "message". Screen-level specs and the API contract are in `docs/spec/screens.md`.
+I1 has 26 screens: 5 public, 9 consumer, and 12 producer, plus 5 sub-screens (address entry, saved addresses, suspension notice, per-consumer chat, edit one profile field) and a shared 403 screen. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, with separate accounts: the consumer app logs in at SCR-05 with consumer accounts only, and the producer app logs in at SCR-19 with producer accounts only (ADR 0010). Each app has four bottom tabs: consumer Discover · News · Chat · Me, producer Dashboard · Products · Questions · Farm. "News" means the farm's 1:N posts and "Chat" means the private 1:1 Q&A; consumer screens do not use the word "message". Screen-level specs and the API contract are in `docs/spec/screens.md` (version 1.1).
+
+**Design source and rules.** The final design is the Claude Design canvas exported to `docs/design/` (static HTML per frame, plus a README with tokens and rules). Screens, wording, and sizes follow that folder. Key rules after the design review:
+
+- Tap targets are at least 48px (PRD N-02). Small visible buttons, such as the 40px round buttons over photos, get a 48px hit area.
+- Type scale: body 17, input 16 (prevents iOS zoom), secondary 15, meta (dates, chips, tabs, "n reserved", times) 15. Pretendard variable web font first, tabular numbers.
+- Spacing uses a 4px grid (4, 8, 12, 16, 20, 24, 32, 40). Thumbnails come in three sizes: 104 (browse lists), 64 (order summaries, producer lists), 40 (avatars). News photos are 7:4.
+- One accent-colored main button per screen. Exceptions: unread badges, the "rejected" label, and the "Follow" button before following (SCR-03, SCR-12). After following it becomes a neutral "Following" toggle.
+- Header types: tab root = large title, list sub-screen = 48px bar + large title, task screen = 48px bar with centered title, photo screen = round buttons over the photo. Close (X) only for full screens that slide up.
+- Success toasts are used for posting news, saving, saving a tracking number, saving or deleting an address, canceling a reservation, unfollowing, and copying a link. Network errors show one shared "connection is unstable" toast with retry.
+- On desktop the app is centered at a maximum width of 480px on a #F5F5F3 background. Light mode only in I1 (`color-scheme: light`); safe-area insets are added at the top and bottom.
+- Consumer screens say "harvesting & packing" and "in delivery" for the order states the producer app calls "preparing" and "shipped". The API state values do not change.
 
 #### Sitemap: consumer app
 
@@ -120,22 +133,28 @@ flowchart TD
   inbox --> thread["Farm chat<br/>SCR-16"]
   news -. ask .-> thread
   orders --> detail["Order detail<br/>SCR-14"]
-  product -. if not logged in .-> login["Login (test account) SCR-05<br/>only to follow, reserve, chat, or like"]
+  me --> addresses["Saved addresses<br/>/me/addresses"]
+  checkout --> address["Address entry<br/>/checkout/:productId/address"]
+  product -. if not logged in: notice sheet .-> login["Login (consumer test account) SCR-05<br/>only to follow, reserve, chat, or like"]
+  me -. Start as a farm: notice sheet .-> papp["Producer app sign-up<br/>SCR-19 → SCR-20"]
 ```
 
 #### Sitemap: producer app
 
-Producers must log in, apply, and wait for approval before the tabs open. In I1, operators handle approval, delivery completion, and refunds through admin API endpoints in Swagger UI.
+Producers log in with a producer account (SCR-19), apply, and wait for approval before the tabs open. Signing up creates the producer account; it is separate from any consumer account. In I1, operators handle approval, delivery completion, and refunds through admin API endpoints in Swagger UI.
 
 ```mermaid
 flowchart TD
-  login["Login (test account)<br/>SCR-05"] --> apply["Sign-up request<br/>SCR-20"] --> pending["Awaiting approval<br/>SCR-21"]
+  login["Login (producer test account)<br/>SCR-19"] --> apply["Sign-up request · creates producer account<br/>SCR-20"] --> pending["Awaiting approval<br/>SCR-21"]
+  login --> suspended["Suspension notice<br/>/suspended"]
   pending -- after approval --> home["Dashboard<br/>SCR-22 · Home tab"]
   pending -- after approval --> products["Product list<br/>SCR-23 · Products tab"]
   pending -- after approval --> questions["Question inbox<br/>SCR-28 · Questions tab"]
   pending -- after approval --> farmtab["Farm profile & link<br/>SCR-30 · Farm tab"]
-  home --> broadcast["Post news<br/>SCR-27"]
-  home --> ship["Shipping<br/>SCR-29"]
+  home --> broadcast["Post news<br/>SCR-27 · + News button"]
+  home --> ship["Shipping<br/>SCR-29 · to-do ‘Orders to ship’"]
+  questions --> qchat["Per-consumer chat<br/>/questions/:escalationId"]
+  farmtab --> fedit["Edit one profile field<br/>/farm/edit/:field"]
   products --> draft["AI product draft<br/>SCR-24 · New product"] --> edit["Edit product<br/>SCR-25"] --> stages["Stages, prices, quantities<br/>SCR-26"]
 ```
 
@@ -143,8 +162,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  a["Login (test account)<br/>Producer app SCR-05"] --> d1{"Approved farm?"}
-  d1 -- No --> b["Sign-up request<br/>SCR-20"] --> c["Awaiting approval<br/>SCR-21<br/>verified by phone or visit"]
+  a["Login (producer test account)<br/>Producer app SCR-19"] --> d1{"Approved farm?"}
+  d1 -- No --> b["Sign-up request · creates producer account<br/>SCR-20"] --> c["Awaiting approval<br/>SCR-21<br/>verified by phone or visit"]
   c -- after approval --> h["Dashboard<br/>SCR-22"]
   d1 -- Yes --> h
   h -- Products tab → New product --> dr["AI product draft<br/>SCR-24"] --> ed["Edit product<br/>SCR-25"] --> st["Stages, prices, quantities → request publishing<br/>SCR-26"]
@@ -159,15 +178,15 @@ While awaiting approval, other producer screens are locked. A rejected product c
 
 ```mermaid
 flowchart TD
-  fp["Farm page<br/>SCR-03 · from farm link"] --> pd["Product detail<br/>SCR-04"] --> d1{"Logged in?"}
-  d1 -- No --> lg["Login (test account)<br/>SCR-05"]
-  lg -- back to checkout after login --> co
+  fp["Farm page<br/>SCR-03 · from farm link"] --> pd["Product detail<br/>SCR-04"] --> os["Option & quantity sheet<br/>‘Go to checkout’"] --> d1{"Logged in?"}
+  d1 -- No --> gate["Notice sheet<br/>log in / later"] --> lg["Login (consumer test account)<br/>SCR-05"]
+  lg -- back to checkout with the same option and quantity --> co
   d1 -- Yes --> co["Checkout · agree to terms<br/>SCR-10"] --> py["Card payment (Mock)<br/>SCR-11"] --> d2{"Payment succeeded?"}
   d2 -- No → pay again --> co
   d2 -- Yes --> dn["Reservation complete<br/>SCR-12 · suggest follow"]
 ```
 
-Login happens only after tapping "Reserve", and the user returns straight to checkout. After the reservation is complete, the user can go to order history under Me (SCR-13).
+Login happens only after tapping "Go to checkout" in the option sheet, and the user returns straight to checkout with the chosen option and quantity. After the reservation is complete, the user can go to order history under Me (SCR-13).
 
 ### 2.2 Backend Design
 
@@ -175,20 +194,20 @@ Login happens only after tapping "Reserve", and the user returns straight to che
 
 This is the draft model from the technical design. It lists the minimum fields. Fields can be added during implementation, but names and meanings follow the PRD glossary. The final version will be written after the tech stack decision (P19).
 
-Both apps use the same account (seeded test accounts in I1, Kakao in I2). One `User` can have several roles. Producer app APIs check the `PRODUCER` role and farm approval (`Farm.approvalStatus = APPROVED`) on the server.
+Consumer and producer accounts are separate (ADR 0010). Each `User` has exactly one role, so the same person who buys and sells has two accounts (seeded test accounts in I1, Kakao in I2). Consumer APIs require `CONSUMER`; producer app APIs require `PRODUCER` and farm approval (`Farm.approvalStatus = APPROVED`) on the server.
 
 | Entity | Key fields | Relation |
 | -- | -- | -- |
-| `User` | kakaoId (I2), isTestAccount, roles (CONSUMER, PRODUCER, ADMIN), name, phone | — |
+| `User` | kakaoId (I2), isTestAccount, role (one of CONSUMER, PRODUCER, ADMIN), name, phone | one per (kakaoId, role) |
 | `ShippingAddress` | userId, recipient, postalCode, address, addressDetail, isDefault | user 1 : N saved address; orders copy it at order time, no reference |
-| `Farm` | producerId, name, region, intro, approvalStatus (PENDING / APPROVED / REJECTED) | 1 producer : 1 farm |
+| `Farm` | producerId, name, region, intro, mainItems, contactPhone, approvalStatus (PENDING / APPROVED / REJECTED / SUSPENDED), rejectReason, suspendReason | 1 producer account : 1 farm, created by the sign-up request |
 | `Follow` | consumerId, farmId | consumer N : M farm |
 | `Product` | name, variety, description, deliveryWindow, maxDelayUntil, expectedBrix, measuredBrix, grade, status (DRAFT / PENDING_APPROVAL / PUBLISHED / CLOSED), shippingFeeType (FREE / SEPARATE), maxQuantityPerOrder | farm 1 : N product |
 | `ProductOption` | weightKg | product 1 : N option |
 | `Stage` | seq, name, startsAt, endsAt | product 1 : N stage |
 | `StagePrice` | price (won) | one per stage × option |
-| `StageAllocation` | quantity, reservedCount | one per stage × option |
-| `Order` | optionId, stageId, quantity, unitPrice, totalAmount, recipient, phone, postalCode, address, addressDetail, deliveryNote, status, trackingNumber, timestamps | address fields are a copy made at order time |
+| `StageAllocation` | quantity, reservedCount (boxes) | one per stage × option. Product responses also have `reservedCount` = number of people who reserved (no duplicates) |
+| `Order` | optionId, stageId, quantity, unitPrice, totalAmount, recipient, phone, postalCode, address, addressDetail, deliveryNote, status, carrier (CJ / EPOST / HANJIN / LOTTE / LOGEN / ETC), trackingNumber, timestamps | address fields are a copy made at order time |
 | `Payment` | method (CARD), provider (MOCK / PG), amount, status | order 1 : 1 payment |
 | `Refund` | amount, reason, refundedAt | order 1 : N refund |
 | `Broadcast` | body, attachments, visibility (PUBLIC / FOLLOWERS) | farm 1 : N broadcast; shown as "News" |
@@ -244,7 +263,9 @@ stateDiagram-v2
 
 ### 2.4 API Specification
 
-The endpoint list (57 endpoints), the common error format `{code, message, details}`, cursor pagination, and `Idempotency-Key` for order and payment requests are in `docs/spec/screens.md` section 7.
+The endpoint list (57 endpoints), the common error format `{code, message, details}`, cursor pagination, and `Idempotency-Key` for order and payment requests are in `docs/spec/screens.md` section 7. Version 1.1 adds: `app` on the mock login endpoints, 403 `WRONG_APP` for a token from the other app, `reservedCount` and `brixRecordCount` on product responses, `carrier` on shipping, no "latest news" on product detail, and farm cards instead of a news preview on home. Shipping several orders calls the per-order ship endpoint once per order.
+
+**Seed data.** Server seeds and app mocks follow one table in `docs/spec/tech-design/README.md`: consumers Kim Minji and Lee Seojun; producers Kang Youngsoo (approved), Oh Misook (pending), Park Soonja (rejected), Choi Taeho (suspended), and a new producer with no farm; one house tangerine product with three stages, 37 people / 40 orders reserved, and today = 2026-10-07 (Wednesday).
 
 ### 2.5 AI Components
 
