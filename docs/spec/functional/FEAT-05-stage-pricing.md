@@ -1,6 +1,6 @@
 # FEAT-05 단계·가격·물량 설정
 
-> 상위: [PRD](/docs/spec/prd.md) 7.1 · 규칙: [rules.md](./rules.md) · 화면: [IA](/docs/spec/ia.md) · 추적표: [README](./README.md)
+> 상위: [PRD](/docs/spec/prd.md) 7.1 · 규칙: [rules.md](./rules.md) · 화면: [IA](/docs/spec/ia.md), [화면 명세](/docs/spec/screens.md) · 추적표: [README](./README.md)
 
 | 항목 | 내용 |
 | --- | --- |
