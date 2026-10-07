@@ -7,7 +7,7 @@
 - 이슈: [DEV-9](https://linear.app/sswp6/issue/DEV-9) (GitHub #10)
 - 브랜치: `nemodleo/dev-9-i1-github-actions-cicd-배포-파이프라인-구성`
 - 기능·인수 조건: 없음(인프라). 관련: server/spec.md "테스트 방법", stack.md 2장 CI/CD
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타입 검사·웹 빌드를 자동으로 돌려, 깨진 변경이 main에 들어가지 않게 한다. 이번에는 CI만 만든다. CD(배포)는 브랜치 전략(SWPP-58)이 정해진 뒤 DEV-8과 함께 한다.
@@ -43,7 +43,7 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - [x] job `timeout-minutes: 15`
 - [x] `.github/dependabot.yml` (github-actions, 매주)
 - [x] 로컬에서 같은 명령 통과, actionlint 통과
-- [ ] 팀 결정 반영: PR만 cancel-in-progress, `.nvmrc` + `node-version-file`, AGENTS.md 봇 PR 예외
+- [x] 팀 결정 반영: PR만 cancel-in-progress, `.nvmrc` + `node-version-file`, AGENTS.md 봇 PR 예외
 - [x] draft PR에서 Actions 통과
 - [x] ruff 위반 커밋으로 server job 실패 확인 → revert로 다시 통과
 
