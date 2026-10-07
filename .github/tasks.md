@@ -14,6 +14,7 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 
 ### 범위 (수정 허용 경로)
 - `.github/workflows/ci.yml` (새 파일)
+- `.github/dependabot.yml` (새 파일, github-actions만)
 - `.github/tasks.md` (이 절)
 - 실패 확인용 임시 커밋: `server/` 안 한 파일(같은 PR에서 revert)
 
@@ -26,6 +27,8 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 10/07 CI는 `ci.yml` 하나, job `server`·`apps`. paths-filter로 변경이 없으면 단계만 건너뛰고 job은 항상 성공(필수 체크로 지정해도 막히지 않게)
 - 10/07 paths-filter는 `token: ""`로 git diff 방식을 쓴다. 기본(API) 방식은 PR에서 `pull-requests: read` 권한이 필요해 `contents: read`만으로는 안 됨
 - 10/07 액션은 메이저 태그로 고정한다(checkout@v7, setup-node@v7, paths-filter@v4). 단 `astral-sh/setup-uv`는 v8부터 메이저 태그를 내지 않으므로 upstream 권장대로 불변 전체 태그 `@v10.2.0`(현재 최신 v10)으로 고정한다. 첫 CI 실행은 없는 `@v10`을 찾다 실패했다
+- 10/07 job마다 `timeout-minutes: 15` (기본 360분 대신)
+- 10/07 `.github/dependabot.yml`: github-actions 생태계만 매주 업데이트 PR. 한 주의 업데이트는 한 PR로 묶는다. npm·pip은 지금 넣지 않음
 - 10/07 레포에 Node 버전 설정(.nvmrc, engines)이 없어 현재 LTS인 Node 24로 한다(로컬 v24와 같음)
 
 ### 작업
