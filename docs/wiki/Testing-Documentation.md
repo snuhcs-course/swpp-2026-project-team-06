@@ -56,7 +56,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-05-1 | Stage 2 for 5 kg is 25,000 won | The producer enters 27,000 won for stage 1 5 kg and saves | Nothing is saved and the reason is shown |
 | AC-05-2 | Stage 1 runs Oct 7–20 | The producer sets stage 2 to start Oct 15 | The periods overlap, so nothing is saved |
-| AC-05-3 | The producer picks a default | The screen opens | Number of stages, periods, and discount size are filled in |
+| AC-05-3 | A new product is being configured | The screen opens | One blank date range is shown; add/remove ranges without numbered stages or fixed presets |
 
 ### FEAT-06 Farm search and follow
 
@@ -123,10 +123,10 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
 | AC-13-1 | The product has a delivery window | A consumer replies "When will it ship?" | The AI answer gives that window |
-| AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the question inbox |
-| AC-13-3 | Only expected sweetness is registered | A consumer replies "How sweet is it?" | AI answers and says it is an expected value |
+| AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the needs-reply chat list |
+| AC-13-3 | Only expected sweetness is registered | A consumer replies "What is the registered Brix value?" | AI answers and says it is an expected value |
 | AC-13-4 | AI sent an answer | The conversation opens | The answer has an "AI answer" label |
-| AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's question inbox (SCR-28), marked as a wrong answer |
+| AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's needs-reply chat list (SCR-28), marked as a wrong answer |
 
 ### FEAT-14 Producer dashboard
 
@@ -166,3 +166,20 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 ## 4. Alpha and Beta Testing (Iteration 5)
 
 Source of truth: `docs/spec/functional/` (Korean).
+
+## Specification 1.2 Acceptance Plan
+
+These are required checks for follow-up implementation, not executed test results from the documentation PR. Detailed AC IDs live in the Korean functional specifications.
+
+| Coverage | Required observation |
+| --- | --- |
+| FEAT-04, 07–09; R-26·27 | Distinct products have independent caps; all options/periods of one product share its box cap. The per-order cap is separate. A cap below sold quantity is rejected. Pause after checkout blocks payment, but paid orders can ship. |
+| FEAT-09·11 | Two payments for the last box produce exactly one success. Duplicate payment/cancellation returns the original result and changes counters only once. Post-shipping refund does not restore stock. |
+| AC-05-3~5 | Blank/addable date ranges, strictly increasing prices, no overlap, stable IDs after reordering, locked sold periods, and no public exposure of unapproved edits. |
+| AC-12-6~8 | A consumer never sees another consumer's room reply through messages, previews, or cursors. Producers see every own-farm conversation. Active polling and pagination do not duplicate messages or move a reader's scroll position. |
+| AC-13-6~8 | HUMAN transition races with AI completion safely. Farm OFF overrides AUTO. Subjective taste, quality, and damage require handoff. |
+| AC-32-1~4 | Versioned settings survive reload; conflicting/stale/foreign writes fail; preview does not save settings, messages, inquiries, or mode changes. |
+| AC-33-1~4 | Own paid-order inquiry works after unfollow; another buyer/farm cannot read the order/photo or rebind an attachment. Retry creates one inquiry. Resolution does not change order/refund state. |
+| Layout | 360/390/430/1440px, long text, big counts, photos, empty/loading/error states, keyboard, composer/tab overlap, and historical-message scrolling. |
+
+DEV-4 owns transaction, migration, authorization, API and AI boundary tests. DEV-3 owns the clients, shared Mock behavior, components and browser checks. An accepted spec does not close either entire implementation issue.

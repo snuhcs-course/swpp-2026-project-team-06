@@ -100,9 +100,9 @@ Each decision has an ADR in `docs/spec/tech-design/adr/`.
 
 ### 2.1 Frontend Design
 
-I1 has 26 screens: 5 public, 9 consumer, and 12 producer, plus 5 sub-screens (address entry, saved addresses, suspension notice, per-consumer chat, edit one profile field) and a shared 403 screen. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, with separate accounts: the consumer app logs in at SCR-05 with consumer accounts only, and the producer app logs in at SCR-19 with producer accounts only (ADR 0010). Each app has four bottom tabs: consumer Discover · News · Chat · Me, producer Dashboard · Products · Questions · Farm. "News" means the farm's 1:N posts and "Chat" means the private 1:1 Q&A; consumer screens do not use the word "message". Screen-level specs and the API contract are in `docs/spec/screens.md` (version 1.1).
+I1 has 28 screens: 5 public, 10 consumer, and 13 producer, plus 7 sub-screens (address entry, saved addresses, suspension notice, per-consumer chat, edit one profile field, consumer news room, producer news room) and a shared 403 screen. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, with separate accounts: the consumer app logs in at SCR-05 with consumer accounts only, and the producer app logs in at SCR-19 with producer accounts only (ADR 0010). Each app has four bottom tabs: consumer Discover · News · 1:1 Chat · Me, producer Dashboard · Products · Chat · Farm. "News" means the farm's 1:N posts and "Chat" means the private 1:1 Q&A; consumer screens do not use the word "message". Screen-level specs and the API contract are in `docs/spec/screens.md` (version 1.2).
 
-**Design source and rules.** The final design is the Claude Design canvas exported to `docs/design/` (static HTML per frame, plus a README with tokens and rules). Screens, wording, and sizes follow that folder. Key rules after the design review:
+**Design source and rules.** The final design is the Claude Design canvas exported to `docs/design/` (static HTML per frame, plus a README with tokens and rules). Screens, wording, and sizes follow its README; static HTML remains the 1.1 snapshot until the frontend follow-up. Key rules after the design review:
 
 - Tap targets are at least 48px (PRD N-02). Small visible buttons, such as the 40px round buttons over photos, get a 48px hit area.
 - Type scale: body 17, input 16 (prevents iOS zoom), secondary 15, meta (dates, chips, tabs, "n reserved", times) 15. Pretendard variable web font first, tabular numbers.
@@ -133,6 +133,8 @@ flowchart TD
   inbox --> thread["Farm chat<br/>SCR-16"]
   news -. ask .-> thread
   orders --> detail["Order detail<br/>SCR-14"]
+  detail --> inquiry["Order inquiry<br/>SCR-32"]
+  news --> room["Farm news room<br/>/news/:farmId"]
   me --> addresses["Saved addresses<br/>/me/addresses"]
   checkout --> address["Address entry<br/>/checkout/:productId/address"]
   product -. if not logged in: notice sheet .-> login["Login (consumer test account) SCR-05<br/>only to follow, reserve, chat, or like"]
@@ -149,13 +151,15 @@ flowchart TD
   login --> suspended["Suspension notice<br/>/suspended"]
   pending -- after approval --> home["Dashboard<br/>SCR-22 · Home tab"]
   pending -- after approval --> products["Product list<br/>SCR-23 · Products tab"]
-  pending -- after approval --> questions["Question inbox<br/>SCR-28 · Questions tab"]
+  pending -- after approval --> questions["Chat: news room / all 1:1<br/>SCR-28 · Chat tab"]
   pending -- after approval --> farmtab["Farm profile & link<br/>SCR-30 · Farm tab"]
   home --> broadcast["Post news<br/>SCR-27 · + News button"]
   home --> ship["Shipping<br/>SCR-29 · to-do ‘Orders to ship’"]
-  questions --> qchat["Per-consumer chat<br/>/questions/:escalationId"]
+  questions --> room["Own farm news room<br/>/news/:farmId"]
+  farmtab --> settings["AI settings<br/>SCR-31"]
+  questions --> qchat["Per-consumer chat<br/>/chats/:consumerId"]
   farmtab --> fedit["Edit one profile field<br/>/farm/edit/:field"]
-  products --> draft["AI product draft<br/>SCR-24 · New product"] --> edit["Edit product<br/>SCR-25"] --> stages["Stages, prices, quantities<br/>SCR-26"]
+  products --> draft["AI product draft<br/>SCR-24 · New product"] --> edit["Edit product<br/>SCR-25"] --> stages["Date ranges, prices, quantities<br/>SCR-26"]
 ```
 
 #### Flow F-1: producer sign-up and product registration (S-1)
@@ -166,7 +170,7 @@ flowchart TD
   d1 -- No --> b["Sign-up request · creates producer account<br/>SCR-20"] --> c["Awaiting approval<br/>SCR-21<br/>verified by phone or visit"]
   c -- after approval --> h["Dashboard<br/>SCR-22"]
   d1 -- Yes --> h
-  h -- Products tab → New product --> dr["AI product draft<br/>SCR-24"] --> ed["Edit product<br/>SCR-25"] --> st["Stages, prices, quantities → request publishing<br/>SCR-26"]
+  h -- Products tab → New product --> dr["AI product draft<br/>SCR-24"] --> ed["Edit product<br/>SCR-25"] --> st["Date ranges, prices, quantities → request publishing<br/>SCR-26"]
   st --> d2{"Approved by Farmclub?"}
   d2 -- Rejected → fix and request again --> ed
   d2 -- Approved --> live["On sale<br/>visible in consumer app"]
@@ -263,7 +267,7 @@ stateDiagram-v2
 
 ### 2.4 API Specification
 
-The endpoint list (57 endpoints), the common error format `{code, message, details}`, cursor pagination, and `Idempotency-Key` for order and payment requests are in `docs/spec/screens.md` section 7. Version 1.1 adds: `app` on the mock login endpoints, 403 `WRONG_APP` for a token from the other app, `reservedCount` and `brixRecordCount` on product responses, `carrier` on shipping, no "latest news" on product detail, and farm cards instead of a news preview on home. Shipping several orders calls the per-order ship endpoint once per order.
+The baseline endpoint list plus the 1.2 additions, the common error format `{code, message, details}`, cursor pagination, and `Idempotency-Key` for order and payment requests are in `docs/spec/screens.md` section 7. Version 1.1 adds: `app` on the mock login endpoints, 403 `WRONG_APP` for a token from the other app, `reservedCount` and `brixRecordCount` on product responses, `carrier` on shipping, no "latest news" on product detail, and farm cards instead of a news preview on home. Shipping several orders calls the per-order ship endpoint once per order.
 
 **Seed data.** Server seeds and app mocks follow one table in `docs/spec/tech-design/README.md`: consumers Kim Minji and Lee Seojun; producers Kang Youngsoo (approved), Oh Misook (pending), Park Soonja (rejected), Choi Taeho (suspended), and a new producer with no farm; one house tangerine product with three stages, 37 people / 40 orders reserved, and today = 2026-10-07 (Wednesday).
 
@@ -274,3 +278,13 @@ The endpoint list (57 endpoints), the common error format `{code, message, detai
 ## 3. Design Patterns
 
 Source of truth: `docs/spec/ia.md` and `docs/spec/tech-design/README.md` (Korean).
+
+### Specification 1.2 Design Delta
+
+The static HTML and original canvas remain a 1.1 snapshot. The 1.2 section of `docs/design/README.md` defines the next frontend changes: compact chat headers, date groups and profile bubbles, readable product sales summaries, and date-range pricing instead of numbered steps. Check 360/390/430/1440px widths, long names, empty/error states, photos, keyboards, scrolling, and safe areas. Minimum 48px hit targets remain.
+
+The detailed API contract is `docs/spec/contracts-1.2.md`, indexed in `screens.md` 7.3. It adds product sales settings, news-room replies, all producer threads, explicit read/mode writes, farm AI settings/preview, order inquiries, and private attachments. Existing account separation and error envelopes remain. A same-role foreign resource is 404; wrong-app tokens are 403 WRONG_APP.
+
+Product adds maxSalesQuantity/soldQuantity/salesPaused/version, with derived remainingQuantity and availability. Stable period IDs and approved/draft sales values are separate. Payment, cap changes, and pause serialize on the product row, then period-option allocation. Idempotent payment and pre-shipping quantity returns commit atomically with state changes. Settings use optimistic versions.
+
+Thread is unique per farm/consumer and stores AUTO/HUMAN plus read positions. Room replies are separately permission-filtered before cursor pagination. FarmAiSettings stores versioned policies; OrderInquiry has its own status/version; private attachments are authenticated, MIME-checked, EXIF-stripped, and cleaned up if unbound after 24 hours. AI receives neither shipping PII nor private inquiry photos. Existing data migration and cross-role seed cases are specified in contract section 7; they are not implemented by this documentation PR.
