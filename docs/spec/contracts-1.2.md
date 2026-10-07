@@ -22,16 +22,16 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 
 | 필드 | 형식 | 의미 |
 | --- | --- | --- |
-| maxSalesQuantity | integer >= 0 | 판매자가 상품별로 정하는 누적 최대 판매 박스 수. 모든 옵션·기간 합산 |
+| maxSalesQuantity | integer >= 0, 초안만 null | 판매자가 상품별로 정하는 누적 최대 판매 박스 수. 모든 옵션·기간 합산 |
 | soldQuantity | integer >= 0 | 결제로 확보한 수량 - 출하 전 취소/미공급으로 반환한 수량. 출하 완료 물량도 포함 |
-| remainingQuantity | integer >= 0 | maxSalesQuantity - soldQuantity |
+| remainingQuantity | integer >= 0, 한도 미입력 초안만 null | maxSalesQuantity - soldQuantity; 한도 null이면 null |
 | salesPaused | boolean | 판매자 수동 중지. 승인 상태와 독립 |
 | availability | enum | PAUSED / ENDED / NOT_OPEN / TOTAL_SOLD_OUT / PERIOD_SOLD_OUT / AVAILABLE |
 | version | integer >= 1 | 판매 설정·승인 판매값 갱신 충돌 검사 |
 
 - availability 우선순위: 수동 중지 → 모든 기간 종료/CLOSED → 현재 기간 없음 → 전체 물량 소진 → 현재 기간의 모든 옵션 물량 소진 → 예약 가능. 옵션별 품절은 별도로 표시한다.
 - 농가 미승인/정지, 상품 미승인은 공개 조회에서 제외한다. PUBLISHED이면서 PAUSED/품절인 상품은 목록·상세에 남긴다.
-- 새 상품의 maxSalesQuantity는 미입력(null, 작성 중에만 허용)으로 시작한다. 게시 요청 전에 정수 입력 필수. 0이면 예약을 받지 않는다. 한 주문 최대 수량(maxQuantityPerOrder, 정수 >= 1)은 별도 필수 입력이다.
+- 새 상품의 maxSalesQuantity는 미입력(null, 작성 중에만 허용)으로 시작한다. 미입력 초안은 remainingQuantity=null, availability=NOT_OPEN이다. 게시 요청 전에 정수 입력 필수. 0이면 예약을 받지 않는다. 한 주문 최대 수량(maxQuantityPerOrder, 정수 >= 1)은 별도 필수 입력이다.
 - 주문 수량 1은 선택 중량의 박스 1개다. 5kg × 2와 10kg × 1은 총 3박스이며 kg 환산 재고는 이번 범위가 아니다.
 - 현재 옵션의 예약 가능 수 = min(전체 remainingQuantity, 현재 기간 옵션 quantity-reservedCount). 한 주문 선택 상한은 이 값과 maxQuantityPerOrder의 최솟값이다.
 - 가격 기간별 옵션 물량은 유지한다. 상품 총 한도가 기간별 물량 합보다 작아도 유효하며 전역 상한이 우선한다.
@@ -100,6 +100,7 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 - PUT /api/messaging/chats/{farmId}/read 및 /api/messaging/producer/chats/{consumerId}/read {lastReadMessageId} → {unreadCount}. 해당 방에 보이는 메시지만 허용하고 읽음 위치는 뒤로 이동하지 않는다.
 - 1.1의 사진 URL 입력은 이 기능 구현 시 비공개 attachmentIds로 교체하며 프론트 클라이언트·Mock·서버를 함께 맞춘다. 임의 외부 사진 URL을 private attachment로 간주하지 않는다.
 - 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
+- AI 작업 시작 시 Thread.version과 AiSettings.version을 캡처한다. 저장 직전 현재 ON/AUTO 여부와 두 버전이 모두 같은지 같은 트랜잭션에서 검사한다. HUMAN→AUTO 또는 OFF→ON 왕복에도 이전 작업의 답은 저장하지 않는다. 폐기된 질문에 생산자 답변이 아직 없으면 직접 응대 대상으로 남기며 자동 재실행하지 않는다.
 - 기존 questions 조회/answer 계약은 유지하고 같은 Thread·Escalation을 사용한다. 기존 answer도 HUMAN 전환 규칙을 적용한다. 새 화면은 producer/chats를 사용한다.
 - 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수이며 임의 다른 주문의 문맥을 첨부할 수 없다.
 - 소식방·1:1 모두 활성 화면에서 2초 polling, 숨김/비활성 중단. cursor 이전 페이지/새 페이지 합치기는 ID 기준으로 중복 제거. 과거 읽는 위치를 유지하고 새 메시지 이동 버튼 제공. 최신 페이지부터 기존 마지막 메시지 ID와 만날 때까지 cursor 페이지를 이어 읽어 polling 사이 limit보다 많은 메시지가 와도 빠뜨리지 않는다.

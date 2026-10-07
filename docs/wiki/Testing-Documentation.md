@@ -122,9 +122,9 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-13-1 | The product has a delivery window | A consumer replies "When will it ship?" | The AI answer gives that window |
+| AC-13-1 | Farm AI is ON, thread is AUTO, and the product has a delivery window | A consumer replies "When will it ship?" | The AI answer gives that window |
 | AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the needs-reply chat list |
-| AC-13-3 | Only expected sweetness is registered | A consumer replies "What is the registered Brix value?" | AI answers and says it is an expected value |
+| AC-13-3 | Farm AI is ON, thread is AUTO, and only expected sweetness is registered | A consumer replies "What is the registered Brix value?" | AI answers and says it is an expected value |
 | AC-13-4 | AI sent an answer | The conversation opens | The answer has an "AI answer" label |
 | AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's needs-reply chat list (SCR-28), marked as a wrong answer |
 
@@ -177,7 +177,7 @@ These are required checks for follow-up implementation, not executed test result
 | FEAT-09·11 | Two payments for the last box produce exactly one success. Duplicate payment/cancellation returns the original result and changes counters only once. Post-shipping refund does not restore stock. |
 | AC-05-3~5 | Blank/addable date ranges, strictly increasing prices, no overlap, stable IDs after reordering, locked sold periods, and no public exposure of unapproved edits. |
 | AC-12-6~8 | A consumer never sees another consumer's room reply through messages, previews, or cursors. Producers see every own-farm conversation. Active polling and pagination do not duplicate messages or move a reader's scroll position. |
-| AC-13-6~8 | HUMAN transition races with AI completion safely. Farm OFF overrides AUTO. Subjective taste, quality, and damage require handoff. |
+| AC-13-6~8 | HUMAN transition races with AI completion safely. Thread/settings version checks also reject old answers after HUMAN→AUTO or OFF→ON round trips and preserve unanswered work. Farm OFF overrides AUTO. Subjective taste, quality, and damage require handoff. |
 | AC-32-1~4 | Versioned settings survive reload; conflicting/stale/foreign writes fail; preview does not save settings, messages, inquiries, or mode changes. |
 | AC-33-1~4 | Own paid-order inquiry works after unfollow; another buyer/farm cannot read the order/photo or rebind an attachment. Retry creates one inquiry. Resolution does not change order/refund state. |
 | Layout | 360/390/430/1440px, long text, big counts, photos, empty/loading/error states, keyboard, composer/tab overlap, and historical-message scrolling. |

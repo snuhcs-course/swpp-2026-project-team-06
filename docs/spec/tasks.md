@@ -263,7 +263,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 
 - 이슈: DEV-3 (프론트), 연계 DEV-4 (백엔드). 두 이슈 전체 완료를 의미하지 않는다.
 - 브랜치: jinwoo/dev-3-spec-1-2
-- 상태: 명세 작성·AI 리뷰·CI 완료, PR #38 사람 승인 대기
+- 상태: 명세 작업 완료. 사용자 예외 지시에 따라 2차 리뷰 반영 후 최종 CI·머지 진행
 - 목표: 사용자 승인 계획을 API·인수 조건으로 먼저 확정해 프론트/백엔드가 병렬 구현할 수 있게 한다.
 - 범위: docs/spec/**, docs/design/README.md, docs/wiki/Requirements-and-Specifications.md, docs/wiki/Design-Documentation.md, docs/wiki/Testing-Documentation.md.
 - 비범위: apps/**, packages/**, server/** 구현, 워크플로·의존성, 인터뷰 원문·개인정보.
@@ -274,7 +274,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 - [x] 문서·API·인수 조건 동기화
 - [x] 링크·ID·계약 및 범위 검사
 - [x] AI 리뷰·문서 전용 PR·CI
-- [ ] 사람 리뷰 승인 후 머지
+- [x] 이번 PR의 사람 승인 대기를 생략하는 사용자 지시 확인; 추가 AI 리뷰 후 CI 통과 시 머지
 
 - 검토: main의 stage-presets·questions 계약은 116ecdd에 존재하므로 경로를 유지하되 새 UI 사용을 중단한다. 로컬 중간 구조용 호환 API는 추가하지 않는다.
 - 검증: 문서만 변경. 앱/서버 테스트·화면 구현은 후속 PR이며 본 PR의 AC 체크박스는 실행 결과가 아니다.
@@ -283,4 +283,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 - AI 검토 반영: 농가 OFF 당시 받은 미답변은 ON으로 바꿔도 남도록 판정을 명확히 함. 방송 미디어/답장 null 필드, polling 사이 여러 페이지 수신 규칙 보강.
 
 - PR #38 ready for review, nemodleo에게 리뷰 요청. AI 리뷰 코멘트 https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/38#issuecomment-6038719639 . CI apps/server 통과(run 37626878066, fce5b95).
-- 머지는 pr-review의 사람 1명 Approve 조건 대기. 자동 머지 미설정. 기존 프론트 브랜치와 로컬 8081/8082/8083 서버를 유지하며 명세 머지 전 새 UI 구현을 시작하지 않는다.
+- 이전 상태: pr-review의 사람 1명 Approve 조건 대기였음. 자동 머지 미설정. 기존 프론트 브랜치와 로컬 8081/8082/8083 서버를 유지하며 명세 머지 전 새 UI 구현을 시작하지 않는다.
+
+- 사용자 추가 지시: PR #38은 사람 Approve 대기 대신 AI 재리뷰·수정·CI 확인 후 머지한다. 이번 PR에 한한 예외이며 공용 AGENTS/스킬 규칙은 변경하지 않는다.
+- 2차 리뷰 결정: AI 모드/설정 왕복 전환 중 오래된 응답 저장 차단, 초안 미입력 판매 한도의 null 형식, 소비자 날짜 가격·중지 표시 및 최신 AC 추적표를 보완한다.
