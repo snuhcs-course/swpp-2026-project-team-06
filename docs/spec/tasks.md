@@ -177,13 +177,13 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 | 30 | 결제 전 동의 | 없음 | 동의 4개(R-03) | docs |
 
 ### 작업
-- [ ] `screens.md`: 결정 표, P21 ↔ SCR 대응표, 화면별 명세(5항목 + ID + 우선순위), API 표, P21 5장 확정 항목 정리
-- [ ] `ia.md`: 소비자 탭, 첫 화면, 화면 목록, 화면 간 이동, 레이블
-- [ ] `functional/`: FEAT-01·06·08·09·10·12·13·15·17, rules.md(R-19·R-22·M-01·M-04·M-05·M-14·M-17), README 추적표·AC 수
-- [ ] `prd.md`: I1 범위와 I2로 미룬 것, 용어집
-- [ ] `policy.md`, `tech-design/README.md`(Reaction, Order 필드, 테스트 계정), `stack.md`, ADR 0003(I2로 연기)·0004·0009(새 파일), `README.md`(screens.md)
-- [ ] 코드 폴더 spec.md(server, 모듈, 두 앱, packages/api), AGENTS.md 한 줄, DEV-3·DEV-4 할 일
-- [ ] wiki 영문 반영
+- [x] `screens.md`: 결정 표, P21 ↔ SCR 대응표, 화면별 명세(5항목 + ID + 우선순위), API 표, P21 5장 확정 항목 정리
+- [x] `ia.md`: 소비자 탭, 첫 화면, 화면 목록, 화면 간 이동, 레이블
+- [x] `functional/`: FEAT-01·06·08·09·10·12·13·15·17, rules.md(R-19·R-22·M-01·M-04·M-05·M-14·M-17), README 추적표·AC 수
+- [x] `prd.md`: I1 범위와 I2로 미룬 것, 용어집
+- [x] `policy.md`, `tech-design/README.md`(Reaction, Order 필드, 테스트 계정), `stack.md`, ADR 0003(I2로 연기)·0004·0009(새 파일), `README.md`(screens.md)
+- [x] 코드 폴더 spec.md(server, 모듈, 두 앱, packages/api), AGENTS.md 한 줄, DEV-3·DEV-4 할 일
+- [x] wiki 영문 반영
 - [ ] ID·상대 링크 검사, draft PR, AI 1차 리뷰
 
 ### 완료 조건
@@ -194,3 +194,5 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 
 ### 기록
 - 10/07 1/2·2/2 결정 받음. 불일치 목록 정리
+- 10/07 screens.md(SCR 25, API 57), ia·functional(AC 50 → 62, I2 2개)·prd·policy·tech-design·ADR 0009·코드 폴더 spec.md·AGENTS.md 한 줄·wiki 반영. DEV-3·DEV-4 할 일은 각 tasks.md
+- 10/07 ID·링크 검사(스크립트): FEAT·AC·R·M·SCR 참조와 상대 링크·앵커 이상 없음. 추적표 FEAT-08 화면에 SCR-17 누락(기존)을 고침

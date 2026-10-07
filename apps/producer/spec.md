@@ -39,7 +39,7 @@
 ## 구현 결정
 | 날짜 | 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
-| 2026-10-07 | 라우트는 `src/app/`, 탭 화면은 `(tabs)` 그룹(상품 탭은 Stack). 로그인·가입·대기·메시지 보내기·출하 처리는 탭 밖 루트 Stack | ia.md 2장 경로와 4장 탭 구성을 함께 지킴 | — |
+| 2026-10-07 | 라우트는 `src/app/`, 탭 화면은 `(tabs)` 그룹(상품 탭은 Stack). 로그인·가입·대기·소식 올리기·출하 처리는 탭 밖 루트 Stack | ia.md 2장 경로와 4장 탭 구성을 함께 지킴 | — |
 | 2026-10-07 | 웹 출력은 `web.output: "single"`(SPA). Vercel rewrite는 DEV-8 | 정적 호스팅, 동적 경로 | — |
 | 2026-10-07 | Expo는 SDK마다 바뀌므로 docs.expo.dev의 버전별 문서를 확인하고, 패키지는 반드시 `npx expo install`로 추가한다 | create-expo-app이 만든 AGENTS.md 규칙을 루트 AGENTS.md 하나로 합치며 옮김 | — |
 | 2026-10-07 | DEV-12의 화면은 `Placeholder`로 "SCR-xx 화면 이름 · FEAT-xx"만 보여준다. 승인 전 잠금은 아직 없음 | 뼈대 이슈, 기능은 DEV-3·DEV-4 | AC-01-3 |
