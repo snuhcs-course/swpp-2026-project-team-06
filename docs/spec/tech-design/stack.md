@@ -90,10 +90,10 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 ## 5. 핵심 흐름
 
 **Mock 로그인 (FEAT-01, ADR 0009) — I1**
-1. 앱이 `GET /api/auth/test-accounts`로 시드 테스트 계정 목록을 받아 보여준다.
-2. 사용자가 고르면 `POST /api/auth/test-login`(`userId`)으로 보낸다.
+1. 앱이 `GET /api/auth/test-accounts?app=consumer|producer`로 그 앱의 시드 테스트 계정 목록을 받아 보여준다(계정 분리, ADR 0010).
+2. 사용자가 고르면 `POST /api/auth/test-login`(`userId`, `app`)으로 보낸다.
 3. 서버는 설정 플래그(`MOCK_LOGIN_ENABLED`)가 켜져 있고 그 사용자가 시드 테스트 계정(`User.isTestAccount`)일 때만 JWT를 돌려준다. 새 계정은 만들지 않는다.
-4. 생산자 앱 API는 서버에서 `PRODUCER` 역할과 농가 승인 상태를 검사한다(N-06).
+4. 소비자 API는 `CONSUMER`, 생산자 앱 API는 `PRODUCER` 역할과 농가 승인 상태를 서버에서 검사한다(N-06). 다른 앱 계정의 토큰은 403 `WRONG_APP`.
 
 **카카오 로그인 (ADR 0003) — I2**
 1. 앱이 카카오 인가 화면으로 보낸다(리다이렉트 주소는 각 앱의 `/auth/kakao`).
