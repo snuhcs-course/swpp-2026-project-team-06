@@ -392,4 +392,32 @@ test("AC-04-3 / R-21: changed delivery window needs paid buyer consent; gram pre
     ).status,
     400,
   );
+  const rec = db().products[draft.productId];
+  rec.status = "PUBLISHED";
+  rec.approvedSupplyGrams = 4001;
+  rec.salesLimitGrams = 4001;
+  rec.salesPaused = true;
+  rec.options = [{ optionId: "precise", label: "4.001kg", weightKg: 4.001 }];
+  rec.stages = [
+    {
+      stageId: "precision-stage",
+      seq: 1,
+      name: "precision",
+      startsAt: "2026-10-01",
+      endsAt: "2026-10-31",
+      options: { precise: { price: 100, quantity: 1, reservedCount: 0 } },
+    },
+  ];
+  const resumed = await ok(
+    "PUT",
+    `/api/products/${draft.productId}/sales-settings`,
+    p,
+    {
+      version: rec.version,
+      salesLimitGrams: 4001,
+      maxQuantityPerOrder: 1,
+      salesPaused: false,
+    },
+  );
+  assert.equal(resumed.availability, "AVAILABLE");
 });

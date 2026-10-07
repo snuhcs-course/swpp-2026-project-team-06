@@ -426,7 +426,7 @@ register({
               s.endsAt >= TODAY &&
               p.options.some(
                 (o) =>
-                  o.weightKg * 1000 <= left &&
+                  Math.round(o.weightKg * 1000) <= left &&
                   s.options[o.optionId]?.quantity >
                     s.options[o.optionId]?.reservedCount,
               ),
