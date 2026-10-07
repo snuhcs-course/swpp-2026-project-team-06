@@ -19,24 +19,28 @@
 | SCR-02 | 농가 목록 | `/farms` | `src/app/(tabs)/farms/index.tsx` | FEAT-06 |
 | SCR-03 | 농가 페이지 | `/farms/:farmId` | `src/app/(tabs)/farms/[farmId].tsx` | FEAT-02, 06, 12, 15, 19 |
 | SCR-04 | 상품 상세 | `/products/:productId` | `src/app/products/[productId].tsx` | FEAT-07 |
-| SCR-05 | 로그인(테스트 계정) | `/login` | `src/app/login.tsx` | FEAT-01 |
+| SCR-05 | 로그인(소비자 테스트 계정만) | `/login` | `src/app/login.tsx` | FEAT-01 |
 | SCR-10 | 주문서 | `/checkout/:productId` | `src/app/checkout/[productId]/index.tsx` | FEAT-08 |
+| SCR-10 하위 | 배송지 입력 | `/checkout/:productId/address` | `src/app/checkout/[productId]/address.tsx` | FEAT-08 |
 | SCR-11 | 결제 | `/checkout/:productId/pay` | `src/app/checkout/[productId]/pay.tsx` | FEAT-09 |
 | SCR-12 | 주문 완료 | `/me/orders/:orderId/done` | `src/app/(tabs)/me/orders/[orderId]/done.tsx` | FEAT-09 |
 | SCR-13 | 주문 내역 | `/me/orders` | `src/app/(tabs)/me/orders/index.tsx` | FEAT-10 |
 | SCR-14 | 주문 상세 | `/me/orders/:orderId` | `src/app/(tabs)/me/orders/[orderId]/index.tsx` | FEAT-10, 11 |
 | SCR-15 | 채팅 목록 | `/chats` | `src/app/(tabs)/chats/index.tsx` | FEAT-12 |
 | SCR-16 | 농가 채팅 | `/chats/:farmId` | `src/app/(tabs)/chats/[farmId].tsx` | FEAT-12, 13 |
-| SCR-17 | 내 정보 | `/me` | `src/app/(tabs)/me/index.tsx` | FEAT-06, 08, 10 |
+| SCR-17 | 내 정보 | `/me` | `src/app/(tabs)/me/index.tsx` | FEAT-01, 06, 08, 10 |
+| SCR-17 하위 | 배송지 관리 | `/me/addresses` | `src/app/(tabs)/me/addresses.tsx` | FEAT-08 |
 | SCR-18 | 소식 | `/news` | `src/app/(tabs)/news.tsx` | FEAT-12, 15 |
 
 ## 계약
 - 공용 컴포넌트·토큰은 `@farmclub/ui`(packages/ui), 서버 호출은 `@farmclub/api`(packages/api)만 쓴다. 화면에서 `fetch`를 직접 부르지 않는다.
 - 서버 주소는 `EXPO_PUBLIC_API_URL`(packages/api spec). 쓰는 API는 screens.md 7.2.
 - 농가 링크는 서버 `/s/farms/<id>`(ADR 0006)를 거쳐 `/farms/:farmId`로 도착한다. 이 경로는 바꾸지 않는다.
-- I1 로그인은 테스트 계정 선택(`GET /api/auth/test-accounts`, `POST /api/auth/test-login`, ADR 0009). 카카오 리다이렉트 `/auth/kakao`는 I2.
-- 로그인 관문(팔로우·예약하기·채팅하기·좋아요, 소식·채팅·내 정보 탭)과 권한 표시는 화면에서 하되, 실제 권한 검사는 서버가 한다(N-06).
-- 레이블은 ia.md 4장: 소비자 화면에 ‘메시지’를 쓰지 않는다(‘소식’, ‘채팅’).
+- I1 로그인은 소비자 테스트 계정 선택(`GET /api/auth/test-accounts?app=consumer`, `POST /api/auth/test-login`의 `app: consumer`, ADR 0009·0010). 생산자 계정은 이 앱에 로그인하지 않는다. 403 `WRONG_APP`이면 토큰을 지우고 로그인으로. 카카오 리다이렉트 `/auth/kakao`는 I2.
+- 내 정보의 ‘농가로 시작하기’는 ‘생산자 앱은 따로 가입해요’ 시트 뒤 생산자 앱 주소(`EXPO_PUBLIC_PRODUCER_URL`)의 로그인으로 보낸다(AC-01-7).
+- 로그인 관문(팔로우·예약·채팅하기·좋아요, 소식·채팅·내 정보 탭)은 안내 시트를 먼저 띄우고, 예약은 옵션·수량 시트의 ‘주문서로’에서 띄워 로그인 뒤 고른 값을 유지한다(screens.md 결정 25). 권한 표시는 화면에서 하되, 실제 권한 검사는 서버가 한다(N-06).
+- 레이블은 ia.md 4장: 소비자 화면에 ‘메시지’를 쓰지 않는다(‘소식’, ‘채팅’). 주문 상태는 소비자 문구(수확·포장 중, 배송 중)로 보인다.
+- 화면 모양·크기·문구는 `docs/design/`(screens/*.html, README 토큰·규칙)이 기준이다.
 
 ## 구현 결정
 | 날짜 | 결정 | 이유 | 관련 AC |
@@ -46,3 +50,4 @@
 | 2026-10-07 | Expo는 SDK마다 바뀌므로 docs.expo.dev의 버전별 문서를 확인하고, 패키지는 반드시 `npx expo install`로 추가한다 | create-expo-app이 만든 AGENTS.md 규칙을 루트 AGENTS.md 하나로 합치며 옮김 | — |
 | 2026-10-07 | DEV-12의 화면은 `Placeholder`로 "SCR-xx 화면 이름 · FEAT-xx"만 보여준다 | 뼈대 이슈, 기능은 DEV-3 이후 | — |
 | 2026-10-07 | 탭을 발견·소식·채팅·내 정보로, 첫 화면을 홈·발견(SCR-01)으로, 주문 내역을 내 정보 안(`/me/orders`)으로, 메시지함을 채팅(`/chats`)으로 | P22 결정(SWPP-26) | AC-06-4, AC-12-5 |
+| 2026-10-07 | 앱별 로그인(소비자 계정만), 하위 화면 `/checkout/:productId/address`·`/me/addresses`, 홈 농가 둘러보기, 상품 상세 최신 소식 없음, 소비자 상태 문구·택배 조회 | SWPP-81(screens.md 1.1, ADR 0010) | AC-01-6, AC-01-7 |
