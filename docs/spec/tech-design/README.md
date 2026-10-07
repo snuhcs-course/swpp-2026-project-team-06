@@ -99,7 +99,7 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 | `order_canceled` | 출하 전 취소 | 출하 전 취소율 |
 | `farm_followed` | 팔로우 | 팔로우 → 주문 |
 | `broadcast_sent` | 소식 올리기 | 질문률 |
-| `reply_sent` | 소비자가 채팅으로 질문 | 질문률 |
+| `chat_message_sent` | 소비자가 채팅으로 질문(이전 이름 `reply_sent`) | 질문률 |
 | `ai_replied` | AI 응답 | AI 자체 해결률 |
 | `escalated` | 생산자에게 전달 | AI 자체 해결률 |
 | `draft_created` | AI 초안 생성 | AI 초안 게시율 |

@@ -25,7 +25,7 @@
   - ai: 질문이 오면 ai 어댑터에 문의 응답을 요청한다. 시간 초과·실패·답할 수 없음은 `Escalation`(전달)으로 처리한다(N-04, M-06). 연락처 가림은 이 모듈, AI 전송 전 개인정보 제거는 ai 모듈이 한다.
   - farms: 팔로워 목록(M-01), 팔로우 여부 확인, 자동 팔로우는 farms service를 부른다. 홈의 공개 소식 미리보기는 이 모듈 service가 준다.
   - catalog: AI 근거용 상품 정보는 catalog service에서 받는다.
-  - analytics: `broadcast_sent`, `reply_sent`(채팅 질문), `reaction_toggled`, `ai_replied`, `escalated` 서버 이벤트(본문 없이, N-05).
+  - analytics: `broadcast_sent`, `chat_message_sent`(채팅 질문), `reaction_toggled`, `ai_replied`, `escalated` 서버 이벤트(본문 없이, N-05).
 
 ## 구현 결정
 | 날짜 | 결정 | 이유 | 관련 AC |
