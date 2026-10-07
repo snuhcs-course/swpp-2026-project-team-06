@@ -5,7 +5,7 @@ declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
 
 const DEFAULT_API_URL = "http://localhost:8000";
 
-export const apiUrl = (process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, "");
+export const apiUrl = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, "");
 
 export class ApiError extends Error {
   constructor(
@@ -17,10 +17,12 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, {
-    ...init,
-    headers: { Accept: "application/json", ...init?.headers },
-  });
+  // Headers 객체·배열로 넘겨도 합쳐지도록 Headers로 만든다.
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+  const response = await fetch(`${apiUrl}${path}`, { ...init, headers });
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     throw new ApiError(response.status, body);

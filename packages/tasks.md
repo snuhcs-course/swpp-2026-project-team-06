@@ -25,6 +25,7 @@
 - 10/07 루트 공통 파일(`package.json`·`package-lock.json`·`.gitignore`·`README.md`)은 이 섹션 범위에 둔다. 레포 루트에는 tasks.md를 두지 않는다
 - 10/07 두 패키지 모두 빌드 없이 TS 소스를 `main`으로 둔다
 - 10/07 Expo 57 앱 tsconfig에는 Node 타입이 없어 `process.env`가 타입 오류 → `packages/api/src/client.ts` 안에서만 `process`를 선언(@types/node를 추가하지 않음)
+- 10/07 PR 리뷰 반영: `request()`가 `Headers` 객체로 받은 헤더를 잃던 문제와, `EXPO_PUBLIC_API_URL`이 빈 문자열이면 상대 경로가 되던 문제 수정
 - 10/07 루트 `.gitignore`에 node_modules·.expo·dist·.venv 등 추가(앱 커밋 전에 필요)
 
 ### 작업
