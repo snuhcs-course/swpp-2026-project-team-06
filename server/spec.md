@@ -45,7 +45,7 @@ server/
 - `config.py`: `pydantic-settings`로 환경 변수를 읽는다. 이름은 `.env.example`이 원본이다. 빈 값은 기본값으로 본다.
 - `db.py`: SQLAlchemy 2.0 엔진·세션(`get_db` 의존성), 모든 모델의 `Base`. 엔진은 처음 쓸 때 만든다.
 - `security.py`: `get_current_user`, `require_roles(...)`, `require_approved_producer` 자리. JWT(PyJWT)는 DEV-4. I1 로그인은 Mock(시드 테스트 계정, `MOCK_LOGIN_ENABLED` 플래그, ADR 0009), 카카오 로그인은 I2(ADR 0003).
-- 권한은 서버에서 검사한다(N-06). 역할: `CONSUMER`, `PRODUCER`, `ADMIN`(tech-design/README.md `User.roles`). 생산자 API는 `PRODUCER` + `Farm.approvalStatus = APPROVED`를 확인한다.
+- 권한은 서버에서 검사한다(N-06). 역할: `CONSUMER`, `PRODUCER`, `ADMIN` 중 계정마다 하나(tech-design/README.md `User.role`, ADR 0010). 소비자 API는 `CONSUMER`, 생산자 API는 `PRODUCER` + `Farm.approvalStatus = APPROVED`를 확인한다. 다른 앱 계정의 토큰은 403 `FORBIDDEN`(`details.reason: WRONG_APP`).
 - 시간은 DB에 UTC(timezone-aware)로 저장하고, 화면 표시는 KST(N-03). 금액은 원 단위 정수(N-03).
 
 **관리 API (ADR 0008)**
@@ -81,3 +81,4 @@ server/
 | 2026-10-07 | 모듈 간에는 service 함수로만 호출 | 모듈 경계 유지, 동시 작업 충돌 감소 | — |
 | 2026-10-07 | 오류 형식은 `{code, message, details}`, cursor 페이지네이션, 주문·결제 `Idempotency-Key` | P22 결정(screens.md 7.1) | AC-09-3 |
 | 2026-10-07 | I1 로그인은 Mock(시드 테스트 계정만, 설정 플래그), 카카오는 I2 | P22 결정, ADR 0009 | AC-01-4, AC-01-5 |
+| 2026-10-07 | 계정 하나는 역할 하나(`User.role`), 다른 앱 토큰은 403 `WRONG_APP`, Mock 로그인에 `app` | SWPP-81, ADR 0010 | AC-01-6 |

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SCR-14 · 시트 예약 취소 확인</title>
+</head>
+<body>
+<div class="x-dc">
+
+<style>
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
+body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:#111111;text-decoration:none}a:hover{color:#000000}
+.t34{font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
+.t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.3}
+.t17{font-size:17px;line-height:1.5}
+.t15{font-size:15px;line-height:1.45}
+.muted{color:#6B6B6B}
+.sk{background:#F5F5F3;border-radius:8px}
+.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
+.tab.on{color:#111111;background:#F5F5F3}
+</style>
+
+<div style="width:390px;height:844px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
+  <div style="position:absolute;left:0;top:0;width:390px;height:844px;overflow:hidden" aria-hidden="true"><iframe src="scr-14.html" style="border:0;width:390px;height:844px" title="SCR-14"></iframe></div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.4)"></div>
+  <div role="dialog" aria-label="예약 취소 확인" style="position:absolute;left:0;right:0;bottom:0;border-radius:16px 16px 0 0;background:rgba(255,255,255,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px 20px 28px;display:flex;flex-direction:column;gap:12px">
+    <i style="display:block;width:36px;height:4px;border-radius:999px;background:#E8E8E6;margin:0 auto"></i>
+    <span class="t22">예약을 취소할까요?</span>
+    <p class="t17" style="margin:0">보내기 전이라 58,000원 전액 환불돼요. 수수료는 없어요.</p>
+    <p class="t15 muted" style="margin:0">환불은 결제한 카드의 승인 취소로 처리돼요. 3영업일 안에 처리돼요.</p>
+    <div style="display:flex;gap:8px;margin-top:8px"><a href="scr-14.html" style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:#F5F5F3;font-size:17px;font-weight:600">아니요</a><a href="s-14-refunded.html" style="flex:2;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:#C94F0C;color:#FFFFFF;font-size:17px;font-weight:600">예약 취소하기</a></div>
+  </div>
+</div>
+</div>
+</body>
+</html>

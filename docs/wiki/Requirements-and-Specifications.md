@@ -5,6 +5,7 @@
 | Version | Date | Author | Changes |
 | -- | -- | -- | -- |
 | 0.1 | 2026-10-07 | Team 6 | Initial draft from `docs/spec/` |
+| 0.2 | 2026-10-07 | Team 6 | Separate consumer and producer accounts (ADR 0010), FEAT-01 criteria, UI requirements from the final design (SWPP-81) |
 
 ## 1. Project Abstract
 
@@ -51,7 +52,7 @@ P0 means required for I1. Each feature's behavior, exceptions, and acceptance cr
 
 | ID | Feature | User story | Related rules |
 | -- | -- | -- | -- |
-| FEAT-01 | Sign-up and login | As a consumer, I want to browse farms and products without signing up, and log in only when I order, follow, chat, or like (I1: pick a seeded test account; Kakao login in I2). As a producer, I want to apply to join and start selling after Farmclub verifies my farm | R-22 |
+| FEAT-01 | Sign-up and login | As a consumer, I want to browse farms and products without signing up, and log in only when I order, follow, chat, or like (I1: pick a seeded consumer test account; Kakao login in I2). As a producer, I want to sign up in the producer app, which also creates my producer account, and start selling after Farmclub verifies my farm. Consumer and producer accounts are separate (ADR 0010) | R-22 |
 | FEAT-02 | Farm profile | As a producer, I want to register my farm name, region, and introduction so consumers can see them | — |
 | FEAT-03 | AI product draft | As a producer, I want to paste the text I already use and get a product page | M-10–M-13 |
 | FEAT-04 | Product and weight option publishing | As a producer, I want to edit the draft, set weight options and the shipping fee type, and request publishing (public after Farmclub approval) | R-18, Q-21 |
@@ -89,7 +90,7 @@ This table shows, for each feature, the PRD scenario it comes from, the screens 
 
 | FEAT | PRD | Screens | Rules | Acceptance criteria |
 | -- | -- | -- | -- | -- |
-| FEAT-01 | S-1, S-2 | SCR-05, 20, 21 | R-22 | AC-01-1–5 |
+| FEAT-01 | S-1, S-2 | SCR-05, 17, 19, 20, 21 | R-22 | AC-01-1, 3–7 (AC-01-2 retired) |
 | FEAT-02 | S-1 | SCR-30, 03 | — | AC-02-1–2 |
 | FEAT-03 | S-1 | SCR-24 | M-10–12 | AC-03-1–3 |
 | FEAT-04 | S-1 | SCR-23, 25 | R-18, 20, 21, 23, 25, M-13 | AC-04-1–4 |
@@ -123,7 +124,7 @@ Rules not in this table run on the system or operator side: R-04, R-09, R-10 (au
 | ID | Item | Requirement |
 | -- | -- | -- |
 | N-01 | Platform | The consumer app and the producer app are separate mobile web apps. Mobile first, and they must not break on desktop. Users enter by link with no app install |
-| N-02 | Accessibility | Text and buttons large enough for people in their 40s–50s to read and tap without reading glasses. One main action per screen. Body text at least 16px, tap targets at least 48px. Other sizes are set in the screen spec |
+| N-02 | Accessibility | Text and buttons large enough for people in their 40s–50s to read and tap without reading glasses. One main action per screen. Body text at least 16px, tap targets at least 48px. Other sizes are set in the screen spec (1.1: body 17, input 16, secondary and meta 15) |
 | N-03 | Language and region | Korean only, times in KST, amounts as whole won |
 | N-07 | Demo environment | Seed farms, products, and stages, plus test accounts for each role. Mock payment can reproduce both success and failure |
 
@@ -132,13 +133,21 @@ Rules not in this table run on the system or operator side: R-04, R-09, R-10 (au
 | ID | Item | Requirement |
 | -- | -- | -- |
 | N-05 | Personal data | Collect only name, phone number, and delivery address. No personal data in logs or analytics events. Retention period is Q-20 |
-| N-06 | Security | Role-based access control is checked on the server. Hiding something in the UI is not enough |
+| N-06 | Security | Role-based access control is checked on the server. Hiding something in the UI is not enough. Each account has one role, and a token from the other app is rejected with 403 (ADR 0010) |
 
 ## 6. User Interface Requirements
 
 ### 6.1 Figma
 
 ### 6.2 Wireframe Overview
+
+The final design lives in `docs/design/` (exported from the Claude Design canvas): 26 screens, 38 state frames, 11 sheets, 5 flow diagrams, a desktop layout, share previews, and app icons. Each frame is one HTML file; the README lists design tokens and rules. Main UI requirements:
+
+- Tap targets of at least 48px, body text 17px, meta text 15px, Pretendard web font.
+- One accent-colored main button per screen, placed at the bottom (bottom bar, floating button, or sheet).
+- Logged-out users who tap follow, reserve, chat, or like first see a notice sheet, then the consumer login (SCR-05), and return to the same action.
+- Consumer and producer apps have separate logins: SCR-05 (consumer accounts only) and SCR-19 (producer accounts only, with a "sign up as a farm" link). "Start as a farm" in the consumer app explains that the producer app needs its own sign-up.
+- On desktop, the app is centered with a maximum width of 480px.
 
 ### 6.3 Consumer Flow
 

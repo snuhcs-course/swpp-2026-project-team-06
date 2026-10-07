@@ -1,6 +1,6 @@
 # server/app/accounts spec
 
-> 구현하는 기능: FEAT-01(Mock 로그인), FEAT-08(저장 배송지) · 지키는 규칙: R-22, N-05, N-06, N-07 · 인수 조건: AC-01-1~5, AC-08-5
+> 구현하는 기능: FEAT-01(Mock 로그인), FEAT-08(저장 배송지) · 지키는 규칙: R-22, N-05, N-06, N-07 · 인수 조건: AC-01-1, AC-01-3~7, AC-08-5
 > 동작·규칙·인수 조건 원본: docs/spec/functional/FEAT-01-login.md, rules.md (여기에 다시 쓰지 않는다)
 > API 원본: docs/spec/screens.md 7.2 accounts · 흐름: docs/spec/tech-design/stack.md 5장 "Mock 로그인", ADR 0009(I1), ADR 0003(카카오, I2)
 
@@ -14,9 +14,11 @@
 - `service.py` — 테스트 계정 조회·로그인(플래그·`isTestAccount` 확인), 사용자 조회, JWT 발급, 가입 신청·승인, 배송지 저장. (I2) 카카오 토큰 교환(httpx)
 
 ## 계약
-- `User`: id, kakaoId?(I2), isTestAccount, roles(CONSUMER·PRODUCER·ADMIN 복수), name, phone (tech-design/README.md).
+- `User`: id, kakaoId?(I2), isTestAccount, role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone (tech-design/README.md). 같은 사람이라도 소비자·생산자 계정은 따로다(ADR 0010).
 - Mock 로그인은 설정 `MOCK_LOGIN_ENABLED`가 켜져 있을 때만 동작하고, 꺼지면 두 엔드포인트 모두 404다. `isTestAccount = true`인 시드 계정만 로그인되고 새 계정은 만들지 않는다(AC-01-4·5). 테스트 계정에는 `ADMIN`을 주지 않는다(ADR 0009).
-- 시드: 소비자 2, 승인된 생산자 1, 승인 대기 생산자 1(N-07). 이름·연락처·주소는 가짜 값.
+- 테스트 계정 목록·로그인은 `app`(`consumer`·`producer`)을 받아 그 앱 역할의 계정만 다룬다. 계정 역할이 `app`과 다르면 403 `WRONG_APP`.
+- 생산자 가입 신청은 생산자 계정(`role = PRODUCER`, 농가 없음)만 할 수 있고, `ownerName`으로 계정 이름을 바꾸며 `Farm`(PENDING)을 만든다. 소비자 계정에 생산자 역할을 붙이지 않는다(AC-01-7).
+- 시드: 소비자 2(김민지·이서준), 생산자 5(승인·확인 중·반려·정지·농가 없음), tech-design/README.md ‘시드 데이터’(N-07). 이름·연락처·주소는 가짜 값.
 - JWT 검증·현재 사용자 조회는 `core/security.py`가 제공하고, 토큰 발급은 이 모듈이 한다.
 - 다른 모듈과의 경계
   - farms: 가입 신청이 만드는 `Farm`(approvalStatus=PENDING)과 승인 상태는 farms가 가진다. 이 모듈은 farms의 service 함수로 농가를 만들고 승인 상태를 바꾼다.
@@ -28,3 +30,4 @@
 | 2026-10-07 | 저장 배송지는 accounts의 `ShippingAddress`(사용자별) | 사용자 정보와 함께 관리, 주문과 분리(팀 결정) | AC-08-5 |
 | 2026-10-07 | 라우터 prefix는 `/auth` | stack.md 5장 | — |
 | 2026-10-07 | I1 로그인은 시드 테스트 계정 Mock 로그인(플래그), 카카오는 I2 | P22 결정, ADR 0009 | AC-01-4, AC-01-5 |
+| 2026-10-07 | 계정 분리: `User.role` 하나, test-accounts·test-login에 `app`, 가입 신청이 생산자 계정 만들기를 겸함(`ownerName`), 생산자 시드 5명 | SWPP-81, ADR 0010 | AC-01-6, AC-01-7 |

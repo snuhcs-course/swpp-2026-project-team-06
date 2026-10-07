@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SCR-01 홈·발견</title>
+</head>
+<body>
+<div class="x-dc">
+
+<style>
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
+body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:#111111;text-decoration:none}a:hover{color:#000000}
+.t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25}
+.t17{font-size:17px;line-height:1.5}
+.t15{font-size:15px;line-height:1.45}
+.muted{color:#6B6B6B}
+.chip{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;background:#F5F5F3;font-size:15px;font-weight:600;color:#111111}
+.farm{flex:none;width:160px;display:flex;flex-direction:column;gap:8px}
+.farm img{display:block;width:160px;height:200px;border-radius:16px;object-fit:cover}
+.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
+.tab.on{color:#111111;background:#F5F5F3}
+.badge{position:absolute;top:2px;left:50%;margin-left:8px;min-width:24px;height:24px;padding:0 8px;box-sizing:border-box;border-radius:999px;background:#C94F0C;color:#FFFFFF;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+</style>
+
+<div style="width:390px;height:1300px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden;padding-bottom:96px">
+
+  <header style="height:48px;display:flex;align-items:center;padding:0 20px;flex:none">
+    <span style="display:inline-flex;align-items:baseline;font-size:20px;font-weight:700;letter-spacing:-0.03em;line-height:1">farmclub<i style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#C94F0C;margin-left:4px"></i></span><a href="scr-02.html" aria-label="농가·상품 검색" style="margin-left:auto;margin-right:-12px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#111111"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a>
+  </header>
+
+  <a href="scr-04.html" style="position:relative;display:block;width:390px;height:480px;overflow:hidden;flex:none">
+    <img src="../assets/orchard-crate.jpg" alt="수확 상자가 놓인 서귀포 감귤 과수원" style="display:block;width:390px;height:480px;object-fit:cover">
+    <div style="position:absolute;left:0;right:0;bottom:0;height:260px;background:linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.62) 100%)"></div>
+    <div style="position:absolute;left:20px;right:20px;bottom:24px;display:flex;flex-direction:column;gap:8px;color:#FFFFFF">
+      <span class="t15" style="font-weight:600;opacity:0.85">10월 · 수확 전 예약</span>
+      <span class="t22" style="color:#FFFFFF">서귀포 하우스 귤이<br>지금 익어가고 있어요</span>
+      <span class="t15" style="font-weight:600;opacity:0.92;margin-top:4px">강씨네 귤밭 · 하우스 감귤 5kg 보러 가기 →</span>
+    </div>
+  </a>
+
+  <section style="padding:40px 0 0;display:flex;flex-direction:column;gap:16px">
+    <div style="padding:0 20px;display:flex;align-items:baseline;justify-content:space-between"><h2 class="t22" style="margin:0">지금 예약하면 이득</h2><span class="t15 muted">마감 임박순</span></div>
+    <div style="display:flex;gap:12px;padding:0 20px;overflow:hidden">
+      <a href="scr-04.html" style="flex:none;width:232px;display:flex;flex-direction:column;gap:8px">
+        <img src="../assets/basket.jpg" alt="하우스 감귤" style="display:block;width:232px;height:160px;border-radius:16px;object-fit:cover">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span class="t17" style="font-weight:600">하우스 감귤 5kg</span>
+          <span class="t15 muted">강씨네 귤밭 · 11월 10일~20일 도착</span>
+          <span style="display:flex;align-items:center;gap:8px"><span class="t17" style="font-weight:700">29,000원</span><span class="chip">D-5</span><span class="t15 muted" style="margin-left:auto">37명 예약</span></span>
+        </div>
+      </a>
+      <a href="#" style="flex:none;width:232px;display:flex;flex-direction:column;gap:8px">
+        <img src="../assets/tangerine-sky.jpg" alt="노지 감귤" style="display:block;width:232px;height:160px;border-radius:16px;object-fit:cover">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span class="t17" style="font-weight:600">노지 감귤 10kg</span>
+          <span class="t15 muted">한라네 과수원 · 12월 1일~15일 도착</span>
+          <span style="display:flex;align-items:center;gap:8px"><span class="t17" style="font-weight:700">24,000원</span><span class="chip">D-18</span><span class="t15 muted" style="margin-left:auto">12명 예약</span></span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section style="padding:40px 0 0;display:flex;flex-direction:column;gap:16px">
+    <div style="padding:0 20px;display:flex;align-items:baseline;justify-content:space-between"><h2 class="t22" style="margin:0">농가 둘러보기</h2><a href="scr-02.html" class="t15 muted" style="font-weight:600;min-height:48px;display:flex;align-items:center">모두 보기</a></div>
+    <div style="display:flex;gap:12px;padding:0 20px;overflow:hidden">
+      <a href="scr-03.html" class="farm"><img src="../assets/farmer.jpg" alt="강씨네 귤밭 농부"><div style="display:flex;flex-direction:column"><span class="t17" style="font-weight:700">강씨네 귤밭</span><span class="t15 muted">제주 서귀포 · 팔로워 128명</span></div></a>
+      <a href="#" class="farm"><img src="../assets/harvest-hand.jpg" alt="한라네 과수원 수확"><div style="display:flex;flex-direction:column"><span class="t17" style="font-weight:700">한라네 과수원</span><span class="t15 muted">제주 제주시 · 팔로워 86명</span></div></a>
+      <a href="#" class="farm"><img src="../assets/greenhouse-aisle.jpg" alt="효돈 하우스농원"><div style="display:flex;flex-direction:column"><span class="t17" style="font-weight:700">효돈 하우스농원</span><span class="t15 muted">제주 서귀포 · 팔로워 41명</span></div></a>
+    </div>
+  </section>
+
+  <nav class="tabbar">
+    <a href="scr-01.html" class="tab on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>발견</a>
+    <a href="scr-18.html" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>소식</a>
+    <a href="scr-15.html" class="tab" aria-label="채팅, 안 읽음 2"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4z"/></svg>채팅<span class="badge">2</span></a>
+    <a href="scr-17.html" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>내 정보</a>
+  </nav>
+</div>
+</div>
+</body>
+</html>

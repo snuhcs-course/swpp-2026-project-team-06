@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SCR-03 · 팔로잉</title>
+</head>
+<body>
+<div class="x-dc">
+
+<style>
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
+body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:#111111;text-decoration:none}a:hover{color:#000000}
+.t34{font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
+.t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25}
+.t17{font-size:17px;line-height:1.5}
+.t15{font-size:15px;line-height:1.45}
+.muted{color:#6B6B6B}
+.chip{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;background:#F5F5F3;font-size:15px;font-weight:600;color:#111111}
+.ov{position:absolute;top:4px;width:48px;height:48px;box-sizing:border-box;padding:4px;border-radius:999px;background:rgba(0,0,0,0.32);display:flex;align-items:center;justify-content:center;color:#FFFFFF;border:0;cursor:pointer;background-clip:content-box}
+.btn-p{flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:#C94F0C;color:#FFFFFF;font-size:17px;font-weight:600}
+.btn-o{flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;border:1.5px solid #111111;color:#111111;font-size:17px;font-weight:600;box-sizing:border-box}
+.prow{display:flex;gap:16px;padding:16px 0;color:#111111;position:relative}
+.prow + .prow{border-top:1px solid #E8E8E6}
+.prow .nm{font-size:17px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.prow .cnt{position:absolute;right:0;bottom:16px;font-size:15px;color:#6B6B6B}
+.like{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 4px;color:#6B6B6B;font-size:15px;font-weight:600;background:transparent;border:0;font-family:inherit;cursor:pointer}
+.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
+.tab.on{color:#111111;background:#F5F5F3}
+.badge{position:absolute;top:2px;left:50%;margin-left:8px;min-width:24px;height:24px;padding:0 8px;box-sizing:border-box;border-radius:999px;background:#C94F0C;color:#FFFFFF;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+</style>
+
+<div style="width:390px;height:1560px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden;padding-bottom:96px">
+
+  <div style="position:relative;width:390px;height:440px;overflow:hidden;flex:none">
+    <img src="../assets/farmer.jpg" alt="귤을 든 강씨네 귤밭 농부" style="display:block;width:390px;height:440px;object-fit:cover">
+    <div style="position:absolute;left:0;right:0;bottom:0;height:240px;background:linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.66) 100%)"></div>
+    <a href="scr-01.html" class="ov" style="left:12px" aria-label="뒤로"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <button class="ov" style="right:12px" aria-label="농가 링크 공유"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
+    <div style="position:absolute;left:20px;right:20px;bottom:24px;display:flex;flex-direction:column;gap:8px;color:#FFFFFF">
+      <h1 class="t34" style="margin:0;color:#FFFFFF">강씨네 귤밭</h1>
+      <span class="t15" style="opacity:0.88">제주 서귀포 · 팔로워 129명</span>
+    </div>
+  </div>
+
+  <div style="padding:16px 20px 0;display:flex;gap:12px">
+    <a href="s-03-unfollowed.html" aria-pressed="true" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:16px;background:#F5F5F3;color:#111111;font-size:17px;font-weight:600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>팔로잉</a>
+    <a href="#" class="btn-o">채팅하기</a>
+  </div>
+
+  <p class="t17" style="margin:16px 20px 0">3대째 효돈 하우스 감귤. 밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요.</p>
+
+  <article style="padding:24px 20px 0;display:flex;flex-direction:column;gap:12px">
+    <a href="#" style="display:block"><img src="../assets/greenhouse.jpg" alt="하우스 안 감귤나무, 10월 5일" style="display:block;width:350px;height:200px;border-radius:16px;object-fit:cover"></a>
+    <span class="t15 muted">10월 5일</span>
+    <p class="t17" style="margin:0">하우스 안 온도가 잘 유지돼서 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</p>
+    <button class="like" aria-label="좋아요 128"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>좋아요 128</button>
+  </article>
+
+  <div style="padding:32px 20px 0">
+    <div style="display:flex;background:#F5F5F3;border-radius:8px;padding:4px" role="tablist">
+      <a href="#" role="tab" aria-selected="true" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#FFFFFF;font-size:15px;font-weight:600">상품</a>
+      <a href="#" role="tab" aria-selected="false" class="muted" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:15px;font-weight:600">소식</a>
+    </div>
+
+    <div style="margin-top:4px">
+      <a href="scr-04.html" class="prow">
+        <img src="../assets/basket.jpg" alt="하우스 감귤" style="width:104px;height:104px;border-radius:16px;object-fit:cover;flex:none">
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">
+          <span class="nm">하우스 감귤 5kg</span>
+          <span class="t15 muted">11월 10일~20일 도착</span>
+          <span style="display:flex;align-items:center;gap:8px;margin-top:4px"><span class="t17" style="font-weight:700">29,000원</span><span class="chip">D-5</span></span>
+        </div>
+        <span class="cnt">37명 예약</span>
+      </a>
+      <a href="#" class="prow">
+        <img src="../assets/tangerine-box.jpg" alt="노지 감귤" style="width:104px;height:104px;border-radius:16px;object-fit:cover;flex:none">
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">
+          <span class="nm">노지 감귤 10kg</span>
+          <span class="t15 muted">12월 1일~15일 도착</span>
+          <span style="display:flex;align-items:center;gap:8px;margin-top:4px"><span class="t17" style="font-weight:700">24,000원</span><span class="chip">D-18</span></span>
+        </div>
+        <span class="cnt">12명 예약</span>
+      </a>
+      <a href="#" class="prow">
+        <img src="../assets/branch.jpg" alt="레드향" style="width:104px;height:104px;border-radius:16px;object-fit:cover;flex:none;filter:grayscale(1);opacity:0.5">
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">
+          <span class="nm">레드향 3kg</span>
+          <span class="t15 muted">12월 20일~30일 도착</span>
+          <span style="display:flex;align-items:center;gap:8px;margin-top:4px"><span class="chip">품절</span><span class="t15 muted">다음 단계 11월 1일</span></span>
+        </div>
+        <span class="cnt">60명 예약</span>
+      </a>
+    </div>
+  </div>
+
+  <nav class="tabbar">
+    <a href="scr-01.html" class="tab on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>발견</a>
+    <a href="scr-18.html" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>소식</a>
+    <a href="#" class="tab" aria-label="채팅, 안 읽음 2"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4z"/></svg>채팅<span class="badge">2</span></a>
+    <a href="#" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>내 정보</a>
+  </nav>
+</div>
+</div>
+</body>
+</html>

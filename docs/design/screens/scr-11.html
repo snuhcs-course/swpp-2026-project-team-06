@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SCR-11 결제</title>
+</head>
+<body>
+<div class="x-dc">
+
+<style>
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
+body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:#111111;text-decoration:none}a:hover{color:#000000}
+.t34{font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
+.t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25}
+.t17{font-size:17px;line-height:1.5}
+.t15{font-size:15px;line-height:1.45}
+.muted{color:#6B6B6B}
+.ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#111111}
+.card{display:flex;align-items:center;gap:16px;min-height:72px;border-top:1px solid #E8E8E6;color:#111111}
+.rd{width:24px;height:24px;border-radius:999px;border:1.5px solid #6B6B6B;box-sizing:border-box;flex:none}
+.rd.on{border:7px solid #111111}
+</style>
+
+<div style="width:390px;height:844px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
+
+  <header style="height:48px;display:flex;align-items:center;padding:0 8px;flex:none">
+    <a href="scr-10.html" class="ib" aria-label="뒤로"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <span style="flex:1;text-align:center;font-size:17px;font-weight:600">결제</span>
+    <span style="width:48px"></span>
+  </header>
+  <div style="display:flex;align-items:center;min-height:48px;padding:0 20px;background:#F5F5F3" class="t15">테스트 서비스예요. 실제 돈은 나가지 않아요.</div>
+
+  <div style="padding:32px 20px 0;display:flex;flex-direction:column;gap:4px">
+    <span class="t15 muted">결제할 금액</span>
+    <span class="t34">58,000원</span>
+    <span class="t15 muted">하우스 감귤 5kg × 2 · 강씨네 귤밭</span>
+  </div>
+
+  <div style="padding:40px 20px 0;display:flex;flex-direction:column">
+    <h2 class="t22" style="margin:0 0 8px">결제 수단</h2>
+    <a href="#" class="card"><span class="rd on"></span><span style="width:48px;height:32px;border-radius:8px;background:#111111;flex:none"></span><div style="display:flex;flex-direction:column;flex:1"><span class="t17" style="font-weight:600">테스트 카드</span><span class="t15 muted">···· 1234 · 일시불</span></div></a>
+    <a href="#" class="card" style="border-bottom:1px solid #E8E8E6"><span class="rd"></span><span style="width:48px;height:32px;border-radius:8px;background:#F5F5F3;border:1px solid #E8E8E6;box-sizing:border-box;flex:none"></span><div style="display:flex;flex-direction:column;flex:1"><span class="t17" style="font-weight:600">다른 카드</span><span class="t15 muted">카드로 내는 간편결제 포함</span></div></a>
+    <p class="t15 muted" style="margin:12px 0 0">예약할 때 전액을 한 번에 결제해요.</p>
+  </div>
+
+  <div style="margin:32px 20px 0;padding:16px;border:1.5px dashed #6B6B6B;border-radius:16px;display:flex;flex-direction:column;gap:8px">
+    <span class="t15 muted" style="font-weight:600">개발용 · 실제 서비스에는 없음</span>
+    <span class="t15" style="font-weight:600">데모 결과</span>
+    <div style="display:flex;background:#F5F5F3;border-radius:8px;padding:4px">
+      <a href="#" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#FFFFFF;font-size:15px;font-weight:600">성공</a>
+      <a href="#" class="muted" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:15px;font-weight:600">실패</a>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 20px 28px;background:#FFFFFF;display:flex;flex-direction:column;gap:12px">
+    <a href="scr-12.html" style="display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:#C94F0C;color:#FFFFFF;font-size:17px;font-weight:600">58,000원 결제하기</a>
+  </div>
+</div>
+</div>
+</body>
+</html>
