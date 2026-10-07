@@ -6,7 +6,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 
 ## 앱 구성
 
-프론트엔드는 소비자 앱과 생산자 앱 두 개의 모바일 웹이다(PRD N-01, IA 2장). 두 앱은 같은 카카오 계정을 쓰고, 한 계정이 여러 역할(`roles`)을 가질 수 있다. 생산자 앱 API는 `PRODUCER` 역할과 농가 승인(`Farm.approvalStatus = APPROVED`)을 서버에서 확인한다. 두 앱의 주소, 저장소 구조는 P19에서 정한다. 백엔드는 FastAPI 서버 하나다([ADR 0007](./adr/0007-backend-fastapi.md), [stack.md](./stack.md)).
+프론트엔드는 소비자 앱과 생산자 앱 두 개의 모바일 웹이다(PRD N-01, IA 2장). 두 앱은 같은 계정을 쓰고(I1은 시드 테스트 계정 Mock 로그인 [ADR 0009](./adr/0009-mock-login.md), I2부터 카카오 [ADR 0003](./adr/0003-auth-kakao.md)), 한 계정이 여러 역할(`roles`)을 가질 수 있다. 생산자 앱 API는 `PRODUCER` 역할과 농가 승인(`Farm.approvalStatus = APPROVED`)을 서버에서 확인한다. 두 앱의 주소, 저장소 구조는 P19에서 정한다. 백엔드는 FastAPI 서버 하나다([ADR 0007](./adr/0007-backend-fastapi.md), [stack.md](./stack.md)).
 
 ## 데이터 모델
 
@@ -14,7 +14,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 
 | 엔티티 | 필수 필드 | 관계 |
 | --- | --- | --- |
-| `User` | id, kakaoId, roles(CONSUMER·PRODUCER·ADMIN 중 복수), name, phone | — |
+| `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), roles(CONSUMER·PRODUCER·ADMIN 중 복수), name, phone | — |
 | `ShippingAddress` | id, userId, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5) |
 | `Farm` | id, producerId, name, region, intro, approvalStatus(PENDING/APPROVED/REJECTED) | User(PRODUCER) 1 : 1 Farm |
 | `Follow` | consumerId, farmId, createdAt | User(CONSUMER) N : M Farm |
@@ -23,11 +23,12 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | `Stage` | id, productId, seq, name, startsAt, endsAt | Product 1 : N Stage |
 | `StagePrice` | stageId, optionId, price(원) | Stage × Option → 1 |
 | `StageAllocation` | stageId, optionId, quantity, reservedCount | Stage × Option → 1 |
-| `Order` | id, consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), status, consentAt, paidAt?, shippedAt?, deliveredAt?, completedAt? | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다 |
+| `Order` | id, consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt? | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
 | `Payment` | id, orderId, method(CARD), provider(MOCK/PG), amount, status, approvedAt | Order 1 : 1 Payment |
 | `Refund` | id, orderId, amount, reason, refundedAt | Order 1 : N Refund |
-| `Broadcast` | id, farmId, body, attachments?(사진·영상), visibility(PUBLIC/FOLLOWERS), createdAt | Farm 1 : N Broadcast |
-| `Thread` | id, farmId, consumerId | (Farm, Consumer)당 1개 |
+| `Broadcast` | id, farmId, body, attachments?(사진·영상), visibility(PUBLIC/FOLLOWERS), createdAt | Farm 1 : N Broadcast. 화면 이름은 ‘소식’ |
+| `Reaction` | broadcastId, userId, createdAt | Broadcast × User → 0 또는 1(한 사람 한 번). 종류는 ‘좋아요’ 하나라 필드 없음. 볼 수 있는 소식에만(FEAT-15) |
+| `Thread` | id, farmId, consumerId | (Farm, Consumer)당 1개. 화면 이름은 ‘채팅’ |
 | `ThreadMessage` | id, threadId, senderType(CONSUMER/PRODUCER/AI), body, sourceRefs?, createdAt | Thread 1 : N |
 | `Escalation` | id, threadMessageId, status(OPEN/ANSWERED), answeredAt? | — |
 | `ProductDraft` | id, farmId, inputText, output(JSON), missingFields, createdAt | — |
@@ -79,8 +80,9 @@ PRD 용어집(14.1)의 용어를 코드에서는 아래 이름으로 쓴다.
 | 결제 | `Payment` |
 | 환불 | `Refund` |
 | 팔로우 | `Follow` |
-| 전체 메시지 | `Broadcast` |
-| 대화 | `Thread`, `ThreadMessage` |
+| 소식(전체 메시지) | `Broadcast` |
+| 좋아요 | `Reaction` |
+| 채팅(대화) | `Thread`, `ThreadMessage` |
 | AI 응답 | `ThreadMessage(senderType = AI)` |
 | 전달 | `Escalation` |
 | AI 상품 초안 | `ProductDraft` |
@@ -96,9 +98,10 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 | `order_paid` | 결제 완료(단계 포함) | 주문 전환율, 이른 단계 주문 비중, 팔로우 → 주문 |
 | `order_canceled` | 출하 전 취소 | 출하 전 취소율 |
 | `farm_followed` | 팔로우 | 팔로우 → 주문 |
-| `broadcast_sent` | 전체 메시지 발송 | 답장률 |
-| `reply_sent` | 소비자 답장 | 답장률 |
+| `broadcast_sent` | 소식 올리기 | 질문률 |
+| `reply_sent` | 소비자가 채팅으로 질문 | 질문률 |
 | `ai_replied` | AI 응답 | AI 자체 해결률 |
 | `escalated` | 생산자에게 전달 | AI 자체 해결률 |
 | `draft_created` | AI 초안 생성 | AI 초안 게시율 |
 | `draft_published` | 초안 게시(수정 필드 수 포함) | AI 초안 게시율 |
+| `reaction_toggled` | 소식 좋아요 켬·끔(속성: on/off) | 소식 반응(참고 지표, I1은 측정만) |
