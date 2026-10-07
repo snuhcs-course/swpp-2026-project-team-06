@@ -46,3 +46,14 @@
 - 10/07 spec.md·tasks.md 먼저 커밋
 - 10/07 루트 README "로컬 실행" 절 추가. `git diff main...HEAD`를 네 tasks.md 범위와 대조: 범위 밖 파일 없음, docs/·.agents/ 변경 없음
 - 10/07 앱 tsconfig로 packages/ui·api `tsc --noEmit` 통과
+
+## DEV-3 [I1-P23] Implement frontend (prototype)
+
+- 이슈: [DEV-3](https://linear.app/sswp6/issue/DEV-3)
+- 상태: 시작 전 — 아래는 SWPP-26(P22 스펙 확정)에서 넘어온 할 일만 미리 적었다. 시작할 때 `spec` 스킬로 목표·범위·완료 조건을 채운다
+- 기준 문서: `docs/spec/screens.md`(화면·API), Must 범위는 screens.md 4장
+
+### SWPP-26에서 넘어온 할 일
+- [ ] `@farmclub/api`: `ApiError`가 오류 본문 `{code, message, details}`를 꺼내 주게 바꾸기(screens.md 7.1)
+- [ ] `@farmclub/api`: 토큰 보관과 `Authorization` 헤더, 테스트 로그인 함수(`GET /api/auth/test-accounts`, `POST /api/auth/test-login`)
+- [ ] `@farmclub/api`: 목록 함수 `{ items, nextCursor }`, 주문·결제에 `Idempotency-Key`(재시도 때 같은 키)

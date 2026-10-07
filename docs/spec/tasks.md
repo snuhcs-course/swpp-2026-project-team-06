@@ -99,7 +99,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 - `AGENTS.md` "프로젝트"의 기술 스택 한 줄(로그인)
 - `server/spec.md`, `server/app/{accounts,farms,catalog,orders,messaging,ai}/spec.md`
 - `apps/consumer/spec.md`, `apps/producer/spec.md`, `packages/api/spec.md`
-- `apps/consumer/tasks.md`, `apps/producer/tasks.md`(DEV-3 할 일), `server/tasks.md`(DEV-4 할 일)
+- `apps/consumer/tasks.md`, `apps/producer/tasks.md`, `packages/tasks.md`(DEV-3 할 일), `server/tasks.md`(DEV-4 할 일)
 
 ### 비범위 (건드리지 않음)
 - 앱 코드(탭 레이아웃, 라우트 파일), 서버 코드, `server/.env.example`의 KAKAO 변수 → DEV-3·DEV-4 tasks.md에 할 일로 적음
