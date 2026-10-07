@@ -37,6 +37,7 @@ server/
 **앱 구조**
 - 앱용 API는 `/api` 아래, 모듈 라우터의 prefix로 나눈다(`/api/auth`, `/api/farms`, `/api/products`, `/api/orders`, `/api/messaging`). 운영자 관리 API는 `/admin/...`(ADR 0008), 공유 링크는 `/s/farms/<id>`(ADR 0006). `/health`는 루트.
 - 모듈 사이 호출은 상대 모듈의 `service.py` 함수로만 한다. 다른 모듈의 `models.py`를 직접 쿼리하지 않는다(같은 트랜잭션이 필요하면 세션을 인자로 넘긴다).
+- CORS는 `CONSUMER_APP_URL`, `PRODUCER_APP_URL` 두 주소만 허용한다(두 웹 앱과 API의 주소가 다름, ADR 0003).
 - Swagger UI는 `/docs`, 스키마는 `/openapi.json`. packages/api가 이 스키마로 클라이언트를 생성한다.
 
 **core**
