@@ -26,10 +26,10 @@ server/            FastAPI server
   app/
     main.py        App setup, router registration
     core/          Settings, DB session, auth and permissions, common code
-    accounts/      Users, roles, Kakao login, producer sign-up and approval
+    accounts/      Users, roles, Kakao login, producer sign-up and approval, saved addresses (ShippingAddress)
     farms/         Farms, follows, search, share links (OG)
     catalog/       Products, weight options, stages, prices, quantities, product approval
-    orders/        Orders, mock payment, cancel and refund, harvest and shipping, purchase confirmation, addresses
+    orders/        Orders, mock payment, cancel and refund, harvest and shipping, purchase confirmation, order-time address copy
     messaging/     Messages, replies, farm news, question inbox, contact masking
     ai/            Claude adapter, product draft, inquiry answers, shipping text parsing, personal data removal
     analytics/     PostHog server events
@@ -177,6 +177,7 @@ Both apps use the same Kakao account. One `User` can have several roles. Produce
 | Entity | Key fields | Relation |
 | -- | -- | -- |
 | `User` | kakaoId, roles (CONSUMER, PRODUCER, ADMIN), name, phone | — |
+| `ShippingAddress` | userId, recipient, postalCode, address, addressDetail, isDefault | user 1 : N saved address; orders copy it at order time, no reference |
 | `Farm` | producerId, name, region, intro, approvalStatus (PENDING / APPROVED / REJECTED) | 1 producer : 1 farm |
 | `Follow` | consumerId, farmId | consumer N : M farm |
 | `Product` | name, variety, description, deliveryWindow, maxDelayUntil, expectedBrix, measuredBrix, grade, status (DRAFT / PENDING_APPROVAL / PUBLISHED / CLOSED), shippingFeeType (FREE / SEPARATE), maxQuantityPerOrder | farm 1 : N product |
@@ -184,7 +185,7 @@ Both apps use the same Kakao account. One `User` can have several roles. Produce
 | `Stage` | seq, name, startsAt, endsAt | product 1 : N stage |
 | `StagePrice` | price (won) | one per stage × option |
 | `StageAllocation` | quantity, reservedCount | one per stage × option |
-| `Order` | optionId, stageId, quantity, unitPrice, totalAmount, recipient, address, status, timestamps | — |
+| `Order` | optionId, stageId, quantity, unitPrice, totalAmount, recipient, phone, postalCode, address, addressDetail, status, timestamps | address fields are a copy made at order time |
 | `Payment` | method (CARD), provider (MOCK / PG), amount, status | order 1 : 1 payment |
 | `Refund` | amount, reason, refundedAt | order 1 : N refund |
 | `Broadcast` | body, attachments, visibility (PUBLIC / FOLLOWERS) | farm 1 : N broadcast |

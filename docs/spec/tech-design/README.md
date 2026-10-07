@@ -15,6 +15,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | 엔티티 | 필수 필드 | 관계 |
 | --- | --- | --- |
 | `User` | id, kakaoId, roles(CONSUMER·PRODUCER·ADMIN 중 복수), name, phone | — |
+| `ShippingAddress` | id, userId, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5) |
 | `Farm` | id, producerId, name, region, intro, approvalStatus(PENDING/APPROVED/REJECTED) | User(PRODUCER) 1 : 1 Farm |
 | `Follow` | consumerId, farmId, createdAt | User(CONSUMER) N : M Farm |
 | `Product` | id, farmId, name, variety, description, deliveryWindow(start, end), maxDelayUntil, expectedBrix?, measuredBrix?, grade?, status(DRAFT/PENDING\_APPROVAL/PUBLISHED/CLOSED), shippingFeeType(FREE/SEPARATE), shippingFee?, maxQuantityPerOrder | Farm 1 : N Product |
@@ -22,7 +23,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | `Stage` | id, productId, seq, name, startsAt, endsAt | Product 1 : N Stage |
 | `StagePrice` | stageId, optionId, price(원) | Stage × Option → 1 |
 | `StageAllocation` | stageId, optionId, quantity, reservedCount | Stage × Option → 1 |
-| `Order` | id, consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName, recipientPhone, address, status, consentAt, paidAt?, shippedAt?, deliveredAt?, completedAt? | — |
+| `Order` | id, consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), status, consentAt, paidAt?, shippedAt?, deliveredAt?, completedAt? | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다 |
 | `Payment` | id, orderId, method(CARD), provider(MOCK/PG), amount, status, approvedAt | Order 1 : 1 Payment |
 | `Refund` | id, orderId, amount, reason, refundedAt | Order 1 : N Refund |
 | `Broadcast` | id, farmId, body, attachments?(사진·영상), visibility(PUBLIC/FOLLOWERS), createdAt | Farm 1 : N Broadcast |
