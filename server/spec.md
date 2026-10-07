@@ -24,7 +24,7 @@ server/
 
 | 모듈 | 맡는 FEAT | spec |
 | --- | --- | --- |
-| accounts | FEAT-01 | [app/accounts/spec.md](./app/accounts/spec.md) |
+| accounts | FEAT-01, 08(저장 배송지) | [app/accounts/spec.md](./app/accounts/spec.md) |
 | farms | FEAT-02, 06, 19 | [app/farms/spec.md](./app/farms/spec.md) |
 | catalog | FEAT-03, 04, 05, 07, 14 | [app/catalog/spec.md](./app/catalog/spec.md) |
 | orders | FEAT-08, 09, 10, 11, 14, 17 | [app/orders/spec.md](./app/orders/spec.md) |
@@ -71,4 +71,5 @@ server/
 | 2026-10-07 | 의존성은 fastapi, uvicorn[standard], sqlalchemy 2, alembic, psycopg[binary], pydantic-settings, pyjwt, httpx, jinja2만. anthropic·boto3·posthog·sentry는 각 기능 이슈에서 추가 | 쓰지 않는 의존성을 미리 넣지 않음 | — |
 | 2026-10-07 | DB 드라이버는 psycopg 3, URL은 `postgresql+psycopg://` | SQLAlchemy 2.0 권장 드라이버 | — |
 | 2026-10-07 | 앱 API는 `/api/<모듈 prefix>`, 관리 API는 `/admin/...`, 공유 링크 `/s/...`, `/health`는 루트 | stack.md 5장 `POST /api/auth/kakao`, ADR 0006·0008 | — |
+| 2026-10-07 | 저장 배송지는 accounts `ShippingAddress`, 주문은 주문 시점 주소를 `Order`에 복사(참조하지 않음). `ProductDraft`는 catalog | 팀 결정. 배송지를 바꿔도 지난 주문이 바뀌지 않게 | AC-08-5 |
 | 2026-10-07 | 모듈 간에는 service 함수로만 호출 | 모듈 경계 유지, 동시 작업 충돌 감소 | — |
