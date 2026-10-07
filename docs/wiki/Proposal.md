@@ -8,18 +8,18 @@
 
 Iteration 1 (I1) builds a prototype where the three key ideas (reservation sales, farm communication, and AI) work as one flow. Payment is mocked.
 
-Farmclub buys from farms and resells (direct purchase). Farmclub is the seller and is responsible for refunds. Producers set prices from platform defaults, and Farmclub approves them.
+Farmclub buys from farms and resells (direct purchase). Farmclub is the seller and is responsible for refunds. Producers set prices and quantities by date range, and Farmclub approves them.
 
 ## 2. Target Customers
 
-There are three account roles: consumer, producer, and operator. There are two apps, a consumer app and a producer app. One Kakao account works for both. Producers can also order in the consumer app. The producer app opens only after approval.
+There are three account roles: consumer, producer, and operator. There are two apps, a consumer app and a producer app. Consumer and producer accounts are separate (I1 app-specific test accounts; Kakao starts in I2). Producers need a consumer account to order. The producer app opens only after approval.
 
 | Role | Who | What they need |
 | -- | -- | -- |
 | Consumer (primary) | People in their 40s–50s, mostly women. They have buying power and make the decision, and are likely to talk with farms | Few steps to reserve, sweetness, delivery time, and price at a glance, large text |
 | Consumer (indirect) | People in their 20s–30s. Little direct-trade experience, dislike searching for information. Often order for their parents | A separate recipient field, product info that needs no comparison |
-| Producer | Jeju tangerine farms. They sold through KakaoTalk and Band and rarely take photos. They can measure sweetness at harvest | Register products by pasting text, set stages and prices easily from defaults, hand off repeated questions, see demand early, share a link with regular customers |
-| Operator | The Farmclub team | Manage defaults (stage and price presets), approve producers, products, and prices, handle refunds and exceptions. No operator screen in I1 |
+| Producer | Jeju tangerine farms. They sold through KakaoTalk and Band and rarely take photos. They can measure sweetness at harvest | Register products by pasting text, set reservation dates, prices, total quantity limits and pause/resume sales, hand off repeated questions, see demand early, share a link with regular customers |
+| Operator | The Farmclub team | Approve producers, products, and prices, handle refunds and exceptions. No operator screen in I1 |
 
 A producer has one farm and cannot access other farms' products, orders, or messages. A consumer can see only their own orders and conversations.
 
@@ -47,7 +47,7 @@ The working conclusion is "Go with a narrower scope" (tangerines only, high qual
 
 | Key idea | How it appears in the product |
 | -- | -- |
-| Reservation sales | Stage pricing: the earlier you buy, the cheaper it is. The platform gives defaults; the producer sets stage dates, prices, and quantities |
+| Reservation sales | Date-based pricing: the earlier you reserve, the cheaper it is. Producers set date ranges, prices, quantities, and total sales limits |
 | Communication | Like Bubble, a farm sends 1:N messages to its followers. Replies are visible only between the consumer and the farm (1:1) |
 | AI | Drafts product pages, gives first answers to repeated questions, and forwards only questions that need the farm's judgment |
 
@@ -58,7 +58,7 @@ The working conclusion is "Go with a narrower scope" (tangerines only, high qual
 
 **I1 goals**
 
-1. G1. A consumer can follow a farm and complete a reservation order for tangerines at the stage price.
+1. G1. A consumer can follow a farm and complete a reservation order for tangerines at the price for the reservation date.
 2. G2. A producer can register a product using only their existing text.
 3. G3. A farm can send news to its followers. AI answers consumer questions first and forwards only what needs the farm.
 4. G4. A consumer can check sweetness, grade, and expected delivery window before paying.
@@ -78,3 +78,7 @@ The working conclusion is "Go with a narrower scope" (tangerines only, high qual
 ## 7. Test & Demo Plan
 
 Source of truth: `docs/spec/prd.md` (Korean).
+
+## Navigation refinement (spec 1.3)
+
+Consumer: Discover / My Orders / Chat / Me. Producer: Dashboard / Products / Chat / Settings. Chat is third, with separate News Rooms and 1:1 Chat views. Consumers follow multiple farms and choose their rooms in a messenger list. Producers publish news from their own room. This refines reservation, communication and AI without changing the business scope or adding consumer-to-consumer chat.

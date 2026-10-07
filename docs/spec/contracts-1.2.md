@@ -128,7 +128,7 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 
 ## 6. 주문 문제 문의·비공개 사진 (SCR-32, FEAT-33)
 
-- 진입: 소비자 주문 상세 → /me/orders/:orderId/inquiry. 폼은 유형(DAMAGE/CONDITION/TASTE/OTHER), 설명(1~1000자), 사진(선택0~3장, 각10MB).
+- 진입: 소비자 주문 상세 → /orders/:orderId/inquiry. 폼은 유형(DAMAGE/CONDITION/TASTE/OTHER), 설명(1~1000자), 사진(선택0~3장, 각10MB).
 - POST /api/orders/{orderId}/inquiries {type,text,attachmentIds} → {inquiry,message,threadId}. Idempotency-Key 필수. 결제 이력이 있는 본인 주문만, 해당 농가 대화에 주문 요약과 문의를 연결한다.
 - Inquiry={inquiryId,orderId,threadId,type,text,attachments,status:OPEN|RESOLVED,version,createdAt,resolvedAt}. RESOLVED는 대화 처리 표시이지 환불/보상 승인이 아니다.
 - GET /api/orders/{orderId}/inquiries → Paged<Inquiry>. 본인 소비자 또는 해당 농가 생산자만. 미결제 주문은 접수 불가. 중복 재시도는 같은 문의/메시지를 반환한다.

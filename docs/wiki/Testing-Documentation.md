@@ -64,7 +64,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-06-1 | Farm A's stage ends tomorrow and farm B's ends next week | The farm list opens | A is shown above B |
 | AC-06-2 | A farm has Hallabong as a variety | The user searches "Hallabong" | Only that farm appears |
-| AC-06-3 | A logged-in consumer | Follows a farm | The farm appears in My info, and its news appears in the News tab |
+| AC-06-3 | A logged-in consumer | Follows a farm | The farm appears in My info, and its news appears in Chat > News Rooms |
 | AC-06-4 | Product A's stage ends tomorrow and product B's ends next week, both on sale | Home opens | A is shown before B in the recommended products |
 | AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the farm cards (browse farms) still show |
 
@@ -114,7 +114,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-12-1 | Consumer A asked a farm in chat | Consumer B opens the same farm chat or calls the API | A's reply does not appear anywhere |
 | AC-12-2 | The message body has "Call me at 010-1234-5678" | It is sent | The number is masked when stored and shown |
-| AC-12-3 | A news post is marked public | It is posted | It appears in followers' News tab and in the farm page news tab |
+| AC-12-3 | A news post is marked public | It is posted | It appears in followers' Chat > News Rooms and in the farm page news tab |
 | AC-12-4 | A logged-in consumer does not follow a farm | They tap "Chat" | They see "Follow and start chatting", the farm is followed, and the chat opens |
 | AC-12-5 | A followed farm posted news | The Chat tab and that farm's chat open | The news is not shown; only 1:1 Q&A is |
 
@@ -183,3 +183,15 @@ These are required checks for follow-up implementation, not executed test result
 | Layout | 360/390/430/1440px, long text, big counts, photos, empty/loading/error states, keyboard, composer/tab overlap, and historical-message scrolling. |
 
 DEV-4 owns transaction, migration, authorization, API and AI boundary tests. DEV-3 owns the clients, shared Mock behavior, components and browser checks. An accepted spec does not close either entire implementation issue.
+
+## Spec 1.3 acceptance scenarios (planned, not executed)
+
+| AC | Scenario | Expected |
+| --- | --- | --- |
+| AC-02-3 | Producer fourth tab | Settings leads to profile/link, AI settings, logout |
+| AC-04-7 | Mixed product states across pages, pause/resume, reapproval | Exactly one group per product, full counts; reapproval keeps current group |
+| AC-10-5 | Second consumer tab, payment, inquiry, login from deep link | `/orders` routes, correct return and order context |
+| AC-12-9 | Follow two farms, switch rooms, return | Third Chat tab, News Rooms/1:1, circular avatars, selection/scroll and privacy preserved |
+| AC-12-10 | Dashboard/profile; post text/media in own room | No duplicate news button, media success returns to room |
+
+Check 360/390/430px and desktop, long names, composer/keyboard overlap, empty/loading/error, paid-order inquiry after unfollow and pagination beyond 50 rows. Existing API/privacy tests remain required.
