@@ -106,17 +106,17 @@ jobs:
               - "packages/**"
               - "package.json"
               - "package-lock.json"
+              - ".nvmrc"
               - ".github/workflows/ci.yml"
 
       - name: Skip (no app changes)
         if: steps.changes.outputs.apps != 'true'
-        run: echo "apps/·packages/·루트 package 파일·워크플로 파일 변경 없음. 검사를 건너뛴다."
+        run: echo "apps/·packages/·루트 package 파일·.nvmrc·워크플로 파일 변경 없음. 검사를 건너뛴다."
 
       - uses: actions/setup-node@v7
         if: steps.changes.outputs.apps == 'true'
         with:
-          # 레포에 Node 버전 설정이 없어 현재 LTS를 쓴다.
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install
