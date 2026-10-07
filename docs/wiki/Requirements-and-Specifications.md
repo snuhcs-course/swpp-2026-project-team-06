@@ -174,3 +174,11 @@ This is a documentation contract for subsequent DEV-3/DEV-4 implementation, not 
 - **FEAT-33 / SCR-32 / M-21:** Owners of paid orders can submit a typed inquiry with up to three private photos, including after unfollowing. Only that consumer and farm can access it. Marking it resolved does not approve a refund.
 
 Sales controls are Must for the sales path; chat, AI settings, and inquiries are I1 Should. Real payments, automated compensation, refund adjudication screens, and new fee structures are outside this change. Interview evidence is summarized anonymously; no raw contact or private commercial information is published.
+
+## Spec 1.3 navigation
+
+Consumer tabs: Discover / My Orders / Chat / Me. Producer: Dashboard / Products / Chat / Settings (SCR-33). Chat is always third; News Rooms and 1:1 remain separate API resources and privacy boundaries. Consumers see multiple eligible farm rooms with circular avatars, latest visible message/time and existing private-chat unread counts. Selection and scroll persist on room return.
+
+Orders use `/orders` and detail/completion/inquiry children. Settings leads to profile/link, AI settings and logout. Producers publish only through their own room; media posting returns there.
+
+Product groups: On sale (unpaused PUBLISHED except ENDED), Under review (PENDING_APPROVAL), Paused (PUBLISHED with salesPaused or PAUSED), Drafts (DRAFT/REJECTED, showing rejection), Ended (CLOSED or unpaused PUBLISHED/ENDED). CLOSED wins; manual pause retains 1.2 precedence. Scheduled/gap/sold-out states are secondary labels; reapproval stays in its current sales group. Counts include all pages. No new endpoints, enums or migrations. See `docs/spec/navigation-1.3.md`; API contract 1.2 remains unchanged.

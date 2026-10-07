@@ -9,6 +9,7 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 | PRD | [prd.md](./prd.md) | 문제, 목표, 사용자, 시나리오, 기능 목록(P0~P2), 원칙, 비기능 요구사항, 미결 사항 |
 | IA·사용자 흐름 | [ia.md](./ia.md) | 앱별 사이트맵, 화면 목록(SCR), 콘텐츠 구성, 내비게이션·레이블, 흐름, 예외 경로, 접근 권한 |
 | 화면 명세 | [screens.md](./screens.md) | 화면별 목적·요소·데이터·입력·출력·버튼 동작·빈 상태·오류, I1 우선순위, API 계약(오류 형식, 페이지네이션, 멱등 키) |
+| 화면 구조 1.3 | [navigation-1.3.md](./navigation-1.3.md) | 대칭 탭·주문·통합 채팅·상품 표시 그룹·환경설정 |
 | 스펙 1.2 공통 계약 | [contracts-1.2.md](./contracts-1.2.md) | 판매 운영·채팅·AI 설정·주문 문의의 필드·권한·원자성·이관 |
 | 기능 명세 | [functional/README.md](./functional/README.md) | 기능 파일 목록, 추적표, 열린 질문(FQ) |
 | 규칙 전문 | [functional/rules.md](./functional/rules.md) | R-01~R-27(거래·환불·정산), M-01~M-21(소통·AI) |

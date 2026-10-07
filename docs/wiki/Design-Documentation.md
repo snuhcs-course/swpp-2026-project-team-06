@@ -100,7 +100,7 @@ Each decision has an ADR in `docs/spec/tech-design/adr/`.
 
 ### 2.1 Frontend Design
 
-I1 has 28 screens: 5 public, 10 consumer, and 13 producer, plus 7 sub-screens (address entry, saved addresses, suspension notice, per-consumer chat, edit one profile field, consumer news room, producer news room) and a shared 403 screen. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, with separate accounts: the consumer app logs in at SCR-05 with consumer accounts only, and the producer app logs in at SCR-19 with producer accounts only (ADR 0010). Each app has four bottom tabs: consumer Discover · News · 1:1 Chat · Me, producer Dashboard · Products · Chat · Farm. "News" means the farm's 1:N posts and "Chat" means the private 1:1 Q&A; consumer screens do not use the word "message". Screen-level specs and the API contract are in `docs/spec/screens.md` (version 1.2).
+I1 includes the original screens plus AI settings SCR-31, order inquiries SCR-32, and Settings SCR-33, with sub-screens (address entry, saved addresses, suspension notice, per-consumer chat, edit one profile field, consumer news room, producer news room) and a shared 403 screen. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, with separate accounts: the consumer app logs in at SCR-05 with consumer accounts only, and the producer app logs in at SCR-19 with producer accounts only (ADR 0010). Each app has four bottom tabs: consumer Discover · My Orders · Chat · Me, producer Dashboard · Products · Chat · Settings. Chat contains separate News Rooms (broadcasts and private replies) and 1:1 Chat; consumer screens do not use the word "message". Screen-level specs and the API contract are in `docs/spec/screens.md` (screen structure 1.3; API contract 1.2).
 
 **Design source and rules.** The final design is the Claude Design canvas exported to `docs/design/` (static HTML per frame, plus a README with tokens and rules). Screens, wording, and sizes follow its README; static HTML remains the 1.1 snapshot until the frontend follow-up. Key rules after the design review:
 
@@ -121,10 +121,10 @@ The consumer app opens on Home · Discover (SCR-01); a link the farm sent opens 
 flowchart TD
   root["Home · Discover<br/>SCR-01 · Discover tab"]
   root --> farms["Farm list<br/>SCR-02"]
-  root --> news["News<br/>SCR-18 · News tab"]
+  inbox --> news["News Rooms<br/>SCR-18 · inside Chat"]
   root --> inbox["Chats<br/>SCR-15 · Chat tab"]
   root --> me["My info<br/>SCR-17 · Me tab"]
-  me --> orders["Order history<br/>SCR-13"]
+  root --> orders["My Orders<br/>SCR-13 · second tab"]
   farms --> farm["Farm page<br/>SCR-03 · link landing"]
   farm --> product["Product detail<br/>SCR-04"]
   product --> checkout["Checkout<br/>SCR-10"]
@@ -152,11 +152,12 @@ flowchart TD
   pending -- after approval --> home["Dashboard<br/>SCR-22 · Home tab"]
   pending -- after approval --> products["Product list<br/>SCR-23 · Products tab"]
   pending -- after approval --> questions["Chat: news room / all 1:1<br/>SCR-28 · Chat tab"]
-  pending -- after approval --> farmtab["Farm profile & link<br/>SCR-30 · Farm tab"]
-  home --> broadcast["Post news<br/>SCR-27 · + News button"]
+  pending -- after approval --> prefs["Settings<br/>SCR-33 · fourth tab"]
+  prefs --> farmtab["Farm profile & link<br/>SCR-30"]
+  room --> broadcast["Post media news<br/>SCR-27"]
   home --> ship["Shipping<br/>SCR-29 · to-do ‘Orders to ship’"]
   questions --> room["Own farm news room<br/>/news/:farmId"]
-  farmtab --> settings["AI settings<br/>SCR-31"]
+  prefs --> settings["AI settings<br/>SCR-31"]
   questions --> qchat["Per-consumer chat<br/>/chats/:consumerId"]
   farmtab --> fedit["Edit one profile field<br/>/farm/edit/:field"]
   products --> draft["AI product draft<br/>SCR-24 · New product"] --> edit["Edit product<br/>SCR-25"] --> stages["Date ranges, prices, quantities<br/>SCR-26"]
@@ -176,7 +177,7 @@ flowchart TD
   d2 -- Approved --> live["On sale<br/>visible in consumer app"]
 ```
 
-While awaiting approval, other producer screens are locked. A rejected product can be fixed and submitted again. Once on sale, the producer copies the farm link from the Farm tab (SCR-30) and sends it to regular customers.
+While awaiting approval, other producer screens are locked. A rejected product can be fixed and submitted again. Once on sale, the producer copies the farm link from Settings → Farm profile (SCR-33 → SCR-30) and sends it to regular customers.
 
 #### Flow F-2: consumer reservation order (S-2)
 
@@ -290,3 +291,9 @@ Product adds maxSalesQuantity/soldQuantity/salesPaused/version, with derived rem
 Thread is unique per farm/consumer and stores AUTO/HUMAN plus read positions. Room replies are separately permission-filtered before cursor pagination. FarmAiSettings stores versioned policies; OrderInquiry has its own status/version; private attachments are authenticated, MIME-checked, EXIF-stripped, and cleaned up if unbound after 24 hours. AI receives neither shipping PII nor private inquiry photos. Existing data migration and cross-role seed cases are specified in contract section 7; they are not implemented by this documentation PR.
 
 AI workers capture both thread-mode and farm-settings versions and compare them atomically before saving. Switching HUMAN→AUTO or OFF→ON never revives an old in-flight answer; unanswered questions remain for the producer. Draft products may have a null total cap and null remaining quantity, with NOT_OPEN availability until configured. Consumer price displays use a variable list of date ranges and distinguish paused, not-open, sold-out, and ended states.
+
+## Spec 1.3 layout
+
+No floating chat launcher. Third Chat tab contains News Rooms / 1:1; consumer defaults to News Rooms, producer to 1:1. Circular avatars 48px, names/previews each one line, time/badges retain space. Initials replace missing photos; consumer identities stay masked on the producer side. Room headers include avatars; date separators, bubbles and bottom composer use existing tokens.
+
+Products have five state filters/counts. Dashboard/profile have no news FAB. My Orders is a root screen. Settings is a farm summary and profile/link, AI settings, logout list. Existing HTML exports are historical 1.1 snapshots; current rules are in `docs/design/README.md` and `docs/spec/navigation-1.3.md`.
