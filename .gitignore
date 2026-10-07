@@ -11,3 +11,18 @@ AGENTS.override.md
 
 # OS
 .DS_Store
+
+# Node·Expo (apps, packages)
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Python (server)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
