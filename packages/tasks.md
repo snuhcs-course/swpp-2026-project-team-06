@@ -57,3 +57,36 @@
 - [ ] `@farmclub/api`: `ApiError`가 오류 본문 `{code, message, details}`를 꺼내 주게 바꾸기(screens.md 7.1)
 - [ ] `@farmclub/api`: 토큰 보관과 `Authorization` 헤더, 테스트 로그인 함수(`GET /api/auth/test-accounts`, `POST /api/auth/test-login`)
 - [ ] `@farmclub/api`: 목록 함수 `{ items, nextCursor }`, 주문·결제에 `Idempotency-Key`(재시도 때 같은 키)
+
+## DEV-14 README 영문 완성
+
+- 이슈: [DEV-14](https://linear.app/sswp6/issue/DEV-14)
+- 브랜치: `nemodleo/dev-14-readme-영문-완성`
+- 기능·인수 조건: 없음(문서)
+- 상태: 진행 중
+
+### 목표
+루트 `README.md`의 SWPP 템플릿 문구를 걷어내고, 레포를 처음 보는 사람이 서비스, 실행 방법, 문서 위치를 바로 알 수 있게 영어로 완성한다.
+
+### 범위 (수정 허용 경로)
+- `README.md`
+- `packages/tasks.md` (이 섹션)
+
+### 비범위 (건드리지 않음)
+- `docs/**`, `AGENTS.md`, 코드
+- 스크린샷(디자인 확정 후)
+
+### 결정 사항
+- 10/07 루트 공통 파일은 DEV-12 결정대로 이 파일 범위에 기록한다(루트에 tasks.md를 두지 않음)
+- 10/07 README는 영어로 쓴다. 스펙 원본(`docs/spec/`)은 한국어로 유지하고 README에서 위치만 안내한다
+- 10/07 공개 레포 규칙에 따라 가격·운영 수치, 개인정보, 내부 도구 링크는 넣지 않는다. 팀은 이름만 적는다(wiki Home과 같음)
+
+### 작업
+- [ ] 소개, I1 범위의 핵심 기능, 기술 스택, 레포 구조
+- [ ] 로컬 실행(서버, 두 앱), 테스트·CI
+- [ ] 문서 안내, 작업 방식 요약, 팀
+
+### 완료 조건
+- [ ] README에 템플릿 문구가 남아 있지 않다
+- [ ] 적힌 실행 명령이 레포의 실제 스크립트·설정과 같다
+- [ ] CI 통과 후 main 머지
