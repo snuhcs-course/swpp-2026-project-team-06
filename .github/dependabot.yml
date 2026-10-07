@@ -1,0 +1,13 @@
+# GitHub Actions 버전만 매주 확인한다(DEV-9). npm·pip은 아직 넣지 않는다.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"
