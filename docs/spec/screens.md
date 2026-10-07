@@ -339,7 +339,7 @@ I1 화면 25개(소비자 앱 14, 생산자 앱 11, 로그인 SCR-05는 두 앱 
 
 ### 7.2 엔드포인트
 
-I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 운영자 API는 게시에 필요한 상품 승인만 Must다. **Must API는 26개**(전체 57개 중)다.
+I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Must 화면에 있어도 Should 기능으로 이어지는 좋아요·채팅 시작 API는 Should다. 운영자 API는 게시에 필요한 상품 승인만 Must다. **Must API는 23개**(전체 57개 중)다. Should API를 쓰는 버튼은 API가 준비될 때까지 프론트에서 숨긴다.
 
 권한: 공개 = 토큰 없이, 로그인 = 로그인한 사용자, 생산자 = 승인된 생산자(자기 농가만), 운영자 = `ADMIN`.
 
@@ -407,11 +407,11 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 운영�
 | --- | --- | --- | --- | --- | --- | --- |
 | `GET /api/messaging/news` | 로그인 | SCR-18 | `cursor`, `limit` | 팔로우한 농가의 소식(공개·팔로워 전용), 반응 수, 내 반응 | FEAT-12, 15 | Should |
 | `GET /api/messaging/farms/{farmId}/news` | 공개 | SCR-03 | `cursor`, `limit` | 그 농가의 공개 소식, 반응 수, 내 반응(로그인 시) | FEAT-15 | Must |
-| `PUT /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `true`. 볼 수 없는 소식이면 404 | FEAT-15 | Must |
-| `DELETE /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `false` | FEAT-15 | Must |
+| `PUT /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `true`. 볼 수 없는 소식이면 404 | FEAT-15 | Should |
+| `DELETE /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `false` | FEAT-15 | Should |
 | `POST /api/messaging/news` | 생산자 | SCR-27 | 본문, 첨부, `visibility`(`PUBLIC`·`FOLLOWERS`) | `broadcastId`, 작성 시각, 받을 팔로워 수 | FEAT-12 | Should |
 | `GET /api/messaging/chats` | 로그인 | SCR-15 | `cursor`, `limit` | 팔로우 중인 농가와의 내 채팅 목록(1:1만) | FEAT-12 | Should |
-| `POST /api/messaging/chats` | 로그인 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Must |
+| `POST /api/messaging/chats` | 로그인 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Should |
 | `GET /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`) | FEAT-12, 13 | Should |
 | `POST /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `text`, 사진(3장 이하) | 저장된 질문(가림 적용)과 AI 안내 또는 `handoffStatus: FORWARDED` | FEAT-12, 13 | Should |
 | `GET /api/messaging/questions` | 생산자 | SCR-28 | `status`(`OPEN`·`ANSWERED`), `cursor`, `limit` | 전달된 질문과 그 채팅 | FEAT-13 | Should |

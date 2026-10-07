@@ -139,7 +139,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 - 10/07 `Order.deliveryNote`(배송 메모, 선택, 짧은 글) 추가. 개인정보 취급은 주소와 같음
 - 10/07 SCR-29 출하 처리는 별도 화면 유지
 - 10/07 오류 형식은 P21의 `{code, message, details}`. packages/api도 함께
-- 10/07 PR #25 확인 후 결정: (1) Must/Should는 screens.md 4장 제안안대로. API 표에 I1 열을 두고 Must 화면이 쓰는 API를 Must(운영자 API는 상품 승인만), 나머지 Should. Must API 26개 (2) 세부 값 확정: 홈 소식 미리보기 3개, 페이지 기본 20·최대 50, 멱등 키 24시간, 배송 메모 100자·송장 50자·채팅 글 1,000자 (3) API 이름은 screens.md 7.2 그대로 확정 (4) 트래킹 이벤트 `reply_sent` → `chat_message_sent`(tech-design 트래킹 플랜, messaging·analytics spec.md. FEAT·wiki에는 이벤트 이름이 없음)
+- 10/07 PR #25 확인 후 결정: (1) Must/Should는 screens.md 4장 제안안대로. API 표에 I1 열을 두고 Must 화면이 쓰는 API를 Must(운영자 API는 상품 승인만), 나머지 Should. Must API 26개(이후 23개로 수정, 아래) (2) 세부 값 확정: 홈 소식 미리보기 3개, 페이지 기본 20·최대 50, 멱등 키 24시간, 배송 메모 100자·송장 50자·채팅 글 1,000자 (3) API 이름은 screens.md 7.2 그대로 확정 (4) 트래킹 이벤트 `reply_sent` → `chat_message_sent`(tech-design 트래킹 플랜, messaging·analytics spec.md. FEAT·wiki에는 이벤트 이름이 없음)
 - 10/07 AGENTS.md 스택 한 줄은 “I1 Mock 로그인, I2 카카오”로. 앱 코드·`server/.env.example` KAKAO 변수는 DEV-3·DEV-4 tasks.md 할 일로. wiki Proposal.md는 그대로
 
 ### 불일치 목록 (P21 ↔ docs/spec)
@@ -196,6 +196,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 ### 기록
 - 10/07 1/2·2/2 결정 받음. 불일치 목록 정리
 - 10/07 screens.md(SCR 25, API 57), ia·functional(AC 50 → 62, I2 2개)·prd·policy·tech-design·ADR 0009·코드 폴더 spec.md·AGENTS.md 한 줄·wiki 반영. DEV-3·DEV-4 할 일은 각 tasks.md
+- 10/07 Must 기준 수정: 팔로우·팔로우 해제 API는 Must 유지, 좋아요(`PUT`·`DELETE /api/messaging/news/{broadcastId}/reaction`)와 채팅 시작(`POST /api/messaging/chats`)은 Should. Should API를 쓰는 버튼은 API가 준비될 때까지 프론트에서 숨긴다(screens.md 7.2). Must API 23/57
 - 10/07 PR #25 결정 반영: API 표 I1 열(Must 26/57), 세부 값·API 이름 확정, `chat_message_sent`
 - 10/07 AI 1차 리뷰(PR #25): SCR-16 진입 시 자동 팔로우되던 것을 채팅하기·질문하기 버튼에서만 하게 고침(메시지 API를 `farmId` 기준으로), 채팅 목록은 팔로우 중인 농가만, 경로 등록 순서 메모
 - 10/07 ID·링크 검사(스크립트): FEAT·AC·R·M·SCR 참조와 상대 링크·앵커 이상 없음. 추적표 FEAT-08 화면에 SCR-17 누락(기존)을 고침
