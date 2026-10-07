@@ -339,94 +339,96 @@ I1 화면 25개(소비자 앱 14, 생산자 앱 11, 로그인 SCR-05는 두 앱 
 
 ### 7.2 엔드포인트
 
+I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 운영자 API는 게시에 필요한 상품 승인만 Must다. **Must API는 26개**(전체 57개 중)다.
+
 권한: 공개 = 토큰 없이, 로그인 = 로그인한 사용자, 생산자 = 승인된 생산자(자기 농가만), 운영자 = `ADMIN`.
 
 **accounts** (`/api/auth`)
 
-| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT |
-| --- | --- | --- | --- | --- | --- |
-| `GET /api/auth/test-accounts` | 공개(Mock 플래그) | SCR-05 | — | 시드 테스트 계정 목록(`userId`, 이름, 역할, 농가 승인 상태) | FEAT-01 |
-| `POST /api/auth/test-login` | 공개(Mock 플래그) | SCR-05 | `userId` | `accessToken`, 사용자(역할, 농가 상태). 시드 계정이 아니면 404, 플래그가 꺼지면 404 | FEAT-01 |
-| `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작 | — | 사용자, 역할, 농가 승인 상태 | FEAT-01 |
-| `POST /api/auth/producer-application` | 로그인 | SCR-20 | 농가명, 지역, 주 품목, 연락처 | 농가(`PENDING`) | FEAT-01 |
-| `GET /api/auth/producer-application` | 로그인 | SCR-21 | — | 신청 상태, 반려 사유 | FEAT-01 |
-| `GET /api/auth/me/addresses` | 로그인 | SCR-10, 17 | — | 저장 배송지 목록(기본 표시) | FEAT-08 |
-| `POST /api/auth/me/addresses` | 로그인 | SCR-10, 17 | 받는 사람, 연락처, 우편번호, 주소, 상세 주소, 기본 여부 | 저장된 배송지 | FEAT-08 |
-| `PATCH /api/auth/me/addresses/{addressId}` | 로그인 | SCR-17 | 바꿀 필드 | 저장된 배송지 | FEAT-08 |
-| `DELETE /api/auth/me/addresses/{addressId}` | 로그인 | SCR-17 | — | 204 | FEAT-08 |
+| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GET /api/auth/test-accounts` | 공개(Mock 플래그) | SCR-05 | — | 시드 테스트 계정 목록(`userId`, 이름, 역할, 농가 승인 상태) | FEAT-01 | Must |
+| `POST /api/auth/test-login` | 공개(Mock 플래그) | SCR-05 | `userId` | `accessToken`, 사용자(역할, 농가 상태). 시드 계정이 아니면 404, 플래그가 꺼지면 404 | FEAT-01 | Must |
+| `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작 | — | 사용자, 역할, 농가 승인 상태 | FEAT-01 | Must |
+| `POST /api/auth/producer-application` | 로그인 | SCR-20 | 농가명, 지역, 주 품목, 연락처 | 농가(`PENDING`) | FEAT-01 | Should |
+| `GET /api/auth/producer-application` | 로그인 | SCR-21 | — | 신청 상태, 반려 사유 | FEAT-01 | Should |
+| `GET /api/auth/me/addresses` | 로그인 | SCR-10, 17 | — | 저장 배송지 목록(기본 표시) | FEAT-08 | Must |
+| `POST /api/auth/me/addresses` | 로그인 | SCR-10, 17 | 받는 사람, 연락처, 우편번호, 주소, 상세 주소, 기본 여부 | 저장된 배송지 | FEAT-08 | Must |
+| `PATCH /api/auth/me/addresses/{addressId}` | 로그인 | SCR-17 | 바꿀 필드 | 저장된 배송지 | FEAT-08 | Should |
+| `DELETE /api/auth/me/addresses/{addressId}` | 로그인 | SCR-17 | — | 204 | FEAT-08 | Should |
 
 **farms** (`/api/home`, `/api/farms`, `/s`)
 
-| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT |
-| --- | --- | --- | --- | --- | --- |
-| `GET /api/home` | 공개 | SCR-01 | — | 시즌 히어로(설정 값), 추천 상품 상위 N개(마감 임박순), 공개 소식 최신 3개 | FEAT-06, 15 |
-| `GET /api/farms` | 공개 | SCR-02 | `q`, `cursor`, `limit` | 농가 카드 목록 | FEAT-06 |
-| `GET /api/farms/{farmId}` | 공개 | SCR-03 | — | 프로필, 팔로워 수, 내 팔로우 여부, 판매 중 상품 | FEAT-02, 06 |
-| `PUT /api/farms/{farmId}/follow` | 로그인 | SCR-03, 12 | — | 팔로우 상태, 팔로워 수 | FEAT-06 |
-| `DELETE /api/farms/{farmId}/follow` | 로그인 | SCR-03, 17 | — | 팔로우 상태, 팔로워 수 | FEAT-06 |
-| `GET /api/farms/following` | 로그인 | SCR-17 | `cursor`, `limit` | 팔로우한 농가 목록 | FEAT-06 |
-| `GET /api/farms/me` | 생산자 | SCR-30 | — | 내 농가 프로필, `shareUrl` | FEAT-02, 19 |
-| `PATCH /api/farms/me` | 생산자 | SCR-30 | 농가명, 지역, 소개, 대표 사진 | 저장된 프로필 | FEAT-02 |
-| `GET /s/farms/{farmId}` | 공개 | (카톡 미리보기) | — | OG 태그 HTML → 소비자 앱 `/farms/{farmId}` | FEAT-19 |
+| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GET /api/home` | 공개 | SCR-01 | — | 시즌 히어로(설정 값), 추천 상품 상위 N개(마감 임박순), 공개 소식 최신 3개 | FEAT-06, 15 | Must |
+| `GET /api/farms` | 공개 | SCR-02 | `q`, `cursor`, `limit` | 농가 카드 목록 | FEAT-06 | Should |
+| `GET /api/farms/{farmId}` | 공개 | SCR-03 | — | 프로필, 팔로워 수, 내 팔로우 여부, 판매 중 상품 | FEAT-02, 06 | Must |
+| `PUT /api/farms/{farmId}/follow` | 로그인 | SCR-03, 12 | — | 팔로우 상태, 팔로워 수 | FEAT-06 | Must |
+| `DELETE /api/farms/{farmId}/follow` | 로그인 | SCR-03, 17 | — | 팔로우 상태, 팔로워 수 | FEAT-06 | Must |
+| `GET /api/farms/following` | 로그인 | SCR-17 | `cursor`, `limit` | 팔로우한 농가 목록 | FEAT-06 | Should |
+| `GET /api/farms/me` | 생산자 | SCR-30 | — | 내 농가 프로필, `shareUrl` | FEAT-02, 19 | Should |
+| `PATCH /api/farms/me` | 생산자 | SCR-30 | 농가명, 지역, 소개, 대표 사진 | 저장된 프로필 | FEAT-02 | Should |
+| `GET /s/farms/{farmId}` | 공개 | (카톡 미리보기) | — | OG 태그 HTML → 소비자 앱 `/farms/{farmId}` | FEAT-19 | Should |
 
 **catalog** (`/api/products`)
 
-| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT |
-| --- | --- | --- | --- | --- | --- |
-| `GET /api/products/{productId}` | 공개 | SCR-04, 10 | — | 판매 중 상품, 농가 요약, 옵션, 단계별 가격·남은 물량·지금 단계·다음 단계, 배송비, 최신 소식 한 개 | FEAT-07, 05 |
-| `GET /api/products/mine` | 생산자 | SCR-23 | `status`, `cursor`, `limit` | 내 상품 목록과 상태 | FEAT-04 |
-| `GET /api/products/mine/{productId}` | 생산자 | SCR-25, 26 | — | 편집용 전체 값(초안·반려 사유·재승인 대기 값 포함) | FEAT-04 |
-| `POST /api/products/drafts` | 생산자 | SCR-24 | `inputText`(3,000자 이하) | `draftId`, 추출 값, `missingFields`. AI 실패면 빈 값과 `failed` 표시 | FEAT-03 |
-| `POST /api/products` | 생산자 | SCR-24 | `draftId`(선택) | 초안 상품(`DRAFT`) | FEAT-03, 04 |
-| `PATCH /api/products/{productId}` | 생산자 | SCR-25 | 바꿀 필드 | 저장된 상품, 재승인 필요 여부 | FEAT-04 |
-| `GET /api/products/stage-presets` | 생산자 | SCR-26 | — | 단계 기본값 목록 | FEAT-05 |
-| `PUT /api/products/{productId}/stages` | 생산자 | SCR-26 | 단계(기간), 옵션별 가격·물량 | 저장된 단계. 검증 실패는 400 `details.fields` | FEAT-05 |
-| `POST /api/products/{productId}/publish-request` | 생산자 | SCR-25 | — | 상태 `PENDING_APPROVAL`. 빠진 항목이 있으면 400 | FEAT-04 |
+| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GET /api/products/{productId}` | 공개 | SCR-04, 10 | — | 판매 중 상품, 농가 요약, 옵션, 단계별 가격·남은 물량·지금 단계·다음 단계, 배송비, 최신 소식 한 개 | FEAT-07, 05 | Must |
+| `GET /api/products/mine` | 생산자 | SCR-23 | `status`, `cursor`, `limit` | 내 상품 목록과 상태 | FEAT-04 | Should |
+| `GET /api/products/mine/{productId}` | 생산자 | SCR-25, 26 | — | 편집용 전체 값(초안·반려 사유·재승인 대기 값 포함) | FEAT-04 | Must |
+| `POST /api/products/drafts` | 생산자 | SCR-24 | `inputText`(3,000자 이하) | `draftId`, 추출 값, `missingFields`. AI 실패면 빈 값과 `failed` 표시 | FEAT-03 | Must |
+| `POST /api/products` | 생산자 | SCR-24 | `draftId`(선택) | 초안 상품(`DRAFT`) | FEAT-03, 04 | Must |
+| `PATCH /api/products/{productId}` | 생산자 | SCR-25 | 바꿀 필드 | 저장된 상품, 재승인 필요 여부 | FEAT-04 | Must |
+| `GET /api/products/stage-presets` | 생산자 | SCR-26 | — | 단계 기본값 목록 | FEAT-05 | Must |
+| `PUT /api/products/{productId}/stages` | 생산자 | SCR-26 | 단계(기간), 옵션별 가격·물량 | 저장된 단계. 검증 실패는 400 `details.fields` | FEAT-05 | Must |
+| `POST /api/products/{productId}/publish-request` | 생산자 | SCR-25 | — | 상태 `PENDING_APPROVAL`. 빠진 항목이 있으면 400 | FEAT-04 | Must |
 
 **orders** (`/api/orders`)
 
-| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT |
-| --- | --- | --- | --- | --- | --- |
-| `POST /api/orders` | 로그인, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 4개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT` | FEAT-08 |
-| `POST /api/orders/{orderId}/pay` | 로그인, `Idempotency-Key` | SCR-11 | `mockResult`(`success`·`fail`) | 성공: `RESERVED`, 결제일. 실패: 사유. 물량 0이면 409 `SOLD_OUT` | FEAT-09 |
-| `GET /api/orders` | 로그인 | SCR-13 | `cursor`, `limit` | 내 주문 목록(할 일 먼저) | FEAT-10 |
-| `GET /api/orders/{orderId}` | 로그인(본인) | SCR-12, 14 | — | 주문, 상품 요약, 상태, 받는 시기, 송장 번호, 할 수 있는 행동 | FEAT-10 |
-| `POST /api/orders/{orderId}/cancel` | 로그인(본인) | SCR-14 | — | `REFUNDED`, 환불 기록. 출하 후면 409 | FEAT-11 |
-| `POST /api/orders/{orderId}/confirm` | 로그인(본인) | SCR-14 | — | `COMPLETED`, 구매 확정일 | FEAT-10 |
-| `POST /api/orders/{orderId}/delivery-window-response` | 로그인(본인) | SCR-14 | `choice`(`accept`·`refund`) | 바뀐 주문 | FEAT-10 |
-| `GET /api/orders/producer/dashboard` | 생산자 | SCR-22 | — | 할 일 수, 단계·옵션별 예약 수량과 남은 물량, 최근 주문 | FEAT-14 |
-| `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(배송 완료 전만 배송 정보) | FEAT-14, 17 |
-| `POST /api/orders/producer/harvest-start` | 생산자 | SCR-29 | `productId` | 출하 준비로 바뀐 주문 수 | FEAT-17 |
-| `POST /api/orders/{orderId}/ship` | 생산자(자기 농가) | SCR-29 | `trackingNumber`(선택) | `SHIPPED`, 출하일. 출하 준비가 아니면 409 `INVALID_TRANSITION` | FEAT-17 |
+| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `POST /api/orders` | 로그인, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 4개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT` | FEAT-08 | Must |
+| `POST /api/orders/{orderId}/pay` | 로그인, `Idempotency-Key` | SCR-11 | `mockResult`(`success`·`fail`) | 성공: `RESERVED`, 결제일. 실패: 사유. 물량 0이면 409 `SOLD_OUT` | FEAT-09 | Must |
+| `GET /api/orders` | 로그인 | SCR-13 | `cursor`, `limit` | 내 주문 목록(할 일 먼저) | FEAT-10 | Should |
+| `GET /api/orders/{orderId}` | 로그인(본인) | SCR-12, 14 | — | 주문, 상품 요약, 상태, 받는 시기, 송장 번호, 할 수 있는 행동 | FEAT-10 | Must |
+| `POST /api/orders/{orderId}/cancel` | 로그인(본인) | SCR-14 | — | `REFUNDED`, 환불 기록. 출하 후면 409 | FEAT-11 | Should |
+| `POST /api/orders/{orderId}/confirm` | 로그인(본인) | SCR-14 | — | `COMPLETED`, 구매 확정일 | FEAT-10 | Should |
+| `POST /api/orders/{orderId}/delivery-window-response` | 로그인(본인) | SCR-14 | `choice`(`accept`·`refund`) | 바뀐 주문 | FEAT-10 | Should |
+| `GET /api/orders/producer/dashboard` | 생산자 | SCR-22 | — | 할 일 수, 단계·옵션별 예약 수량과 남은 물량, 최근 주문 | FEAT-14 | Must |
+| `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(배송 완료 전만 배송 정보) | FEAT-14, 17 | Should |
+| `POST /api/orders/producer/harvest-start` | 생산자 | SCR-29 | `productId` | 출하 준비로 바뀐 주문 수 | FEAT-17 | Should |
+| `POST /api/orders/{orderId}/ship` | 생산자(자기 농가) | SCR-29 | `trackingNumber`(선택) | `SHIPPED`, 출하일. 출하 준비가 아니면 409 `INVALID_TRANSITION` | FEAT-17 | Should |
 
 **messaging** (`/api/messaging`)
 
-| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT |
-| --- | --- | --- | --- | --- | --- |
-| `GET /api/messaging/news` | 로그인 | SCR-18 | `cursor`, `limit` | 팔로우한 농가의 소식(공개·팔로워 전용), 반응 수, 내 반응 | FEAT-12, 15 |
-| `GET /api/messaging/farms/{farmId}/news` | 공개 | SCR-03 | `cursor`, `limit` | 그 농가의 공개 소식, 반응 수, 내 반응(로그인 시) | FEAT-15 |
-| `PUT /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `true`. 볼 수 없는 소식이면 404 | FEAT-15 |
-| `DELETE /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `false` | FEAT-15 |
-| `POST /api/messaging/news` | 생산자 | SCR-27 | 본문, 첨부, `visibility`(`PUBLIC`·`FOLLOWERS`) | `broadcastId`, 작성 시각, 받을 팔로워 수 | FEAT-12 |
-| `GET /api/messaging/chats` | 로그인 | SCR-15 | `cursor`, `limit` | 팔로우 중인 농가와의 내 채팅 목록(1:1만) | FEAT-12 |
-| `POST /api/messaging/chats` | 로그인 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 |
-| `GET /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`) | FEAT-12, 13 |
-| `POST /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `text`, 사진(3장 이하) | 저장된 질문(가림 적용)과 AI 안내 또는 `handoffStatus: FORWARDED` | FEAT-12, 13 |
-| `GET /api/messaging/questions` | 생산자 | SCR-28 | `status`(`OPEN`·`ANSWERED`), `cursor`, `limit` | 전달된 질문과 그 채팅 | FEAT-13 |
-| `POST /api/messaging/questions/{escalationId}/answer` | 생산자 | SCR-28 | `text` | 답(그 소비자 채팅에만), 질문 상태 `ANSWERED` | FEAT-13 |
+| 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GET /api/messaging/news` | 로그인 | SCR-18 | `cursor`, `limit` | 팔로우한 농가의 소식(공개·팔로워 전용), 반응 수, 내 반응 | FEAT-12, 15 | Should |
+| `GET /api/messaging/farms/{farmId}/news` | 공개 | SCR-03 | `cursor`, `limit` | 그 농가의 공개 소식, 반응 수, 내 반응(로그인 시) | FEAT-15 | Must |
+| `PUT /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `true`. 볼 수 없는 소식이면 404 | FEAT-15 | Must |
+| `DELETE /api/messaging/news/{broadcastId}/reaction` | 로그인 | SCR-03, 18 | — | 반응 수, 내 반응 `false` | FEAT-15 | Must |
+| `POST /api/messaging/news` | 생산자 | SCR-27 | 본문, 첨부, `visibility`(`PUBLIC`·`FOLLOWERS`) | `broadcastId`, 작성 시각, 받을 팔로워 수 | FEAT-12 | Should |
+| `GET /api/messaging/chats` | 로그인 | SCR-15 | `cursor`, `limit` | 팔로우 중인 농가와의 내 채팅 목록(1:1만) | FEAT-12 | Should |
+| `POST /api/messaging/chats` | 로그인 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Must |
+| `GET /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`) | FEAT-12, 13 | Should |
+| `POST /api/messaging/chats/{farmId}/messages` | 로그인(팔로우 중) | SCR-16 | `text`, 사진(3장 이하) | 저장된 질문(가림 적용)과 AI 안내 또는 `handoffStatus: FORWARDED` | FEAT-12, 13 | Should |
+| `GET /api/messaging/questions` | 생산자 | SCR-28 | `status`(`OPEN`·`ANSWERED`), `cursor`, `limit` | 전달된 질문과 그 채팅 | FEAT-13 | Should |
+| `POST /api/messaging/questions/{escalationId}/answer` | 생산자 | SCR-28 | `text` | 답(그 소비자 채팅에만), 질문 상태 `ANSWERED` | FEAT-13 | Should |
 
 **운영자** (`/admin`, Swagger UI, ADR 0008)
 
-| 메서드·경로 | 권한 | 요청 | 응답 | FEAT·규칙 |
-| --- | --- | --- | --- | --- |
-| `POST /admin/producers/{farmId}/approve` | 운영자 | — | 농가 `APPROVED` | FEAT-01, R-22 |
-| `POST /admin/producers/{farmId}/reject` | 운영자 | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 |
-| `POST /admin/products/{productId}/approve` | 운영자 | — | `PUBLISHED`(재승인이면 대기 값 반영) | FEAT-04, R-25 |
-| `POST /admin/products/{productId}/reject` | 운영자 | `reason` | 반려, 사유 | FEAT-04 |
-| `POST /admin/orders/{orderId}/delivered` | 운영자 | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 |
-| `POST /admin/orders/{orderId}/refund` | 운영자 | 금액(없으면 전액), `reason` | `REFUNDED`·`PARTIALLY_REFUNDED`, 환불 기록 | R-11, R-12 |
-| `POST /admin/farms/{farmId}/suspend` | 운영자 | `reason` | 농가 정지, 출하 전 주문 전액 환불 수 | R-24 |
-| `DELETE /admin/messages/{messageId}` | 운영자 | — | 204 | 정책 4장 |
+| 메서드·경로 | 권한 | 요청 | 응답 | FEAT·규칙 | I1 |
+| --- | --- | --- | --- | --- | --- |
+| `POST /admin/producers/{farmId}/approve` | 운영자 | — | 농가 `APPROVED` | FEAT-01, R-22 | Should |
+| `POST /admin/producers/{farmId}/reject` | 운영자 | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 | Should |
+| `POST /admin/products/{productId}/approve` | 운영자 | — | `PUBLISHED`(재승인이면 대기 값 반영) | FEAT-04, R-25 | Must |
+| `POST /admin/products/{productId}/reject` | 운영자 | `reason` | 반려, 사유 | FEAT-04 | Should |
+| `POST /admin/orders/{orderId}/delivered` | 운영자 | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
+| `POST /admin/orders/{orderId}/refund` | 운영자 | 금액(없으면 전액), `reason` | `REFUNDED`·`PARTIALLY_REFUNDED`, 환불 기록 | R-11, R-12 | Should |
+| `POST /admin/farms/{farmId}/suspend` | 운영자 | `reason` | 농가 정지, 출하 전 주문 전액 환불 수 | R-24 | Should |
+| `DELETE /admin/messages/{messageId}` | 운영자 | — | 204 | 정책 4장 | Should |
 
 엔드포인트는 앱 API 48개, 운영자 API 8개, 공유 링크 1개, 모두 57개다(`/health` 제외).
 
