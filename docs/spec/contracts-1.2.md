@@ -32,7 +32,7 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 - availability 우선순위: 수동 중지 → 모든 기간 종료/CLOSED → 현재 기간 없음 → 전체 물량 소진 → 현재 기간의 모든 옵션 물량 소진 → 예약 가능. 옵션별 품절은 별도로 표시한다.
 - 농가 미승인/정지, 상품 미승인은 공개 조회에서 제외한다. PUBLISHED이면서 PAUSED/품절인 상품은 목록·상세에 남긴다.
 - 새 상품의 maxSalesQuantity는 미입력(null, 작성 중에만 허용)으로 시작한다. 게시 요청 전에 정수 입력 필수. 0이면 예약을 받지 않는다. 한 주문 최대 수량(maxQuantityPerOrder, 정수 >= 1)은 별도 필수 입력이다.
-- 주문 1개는 선택 중량의 박스 1개다. 5kg × 2와 10kg × 1은 총 3박스이며 kg 환산 재고는 이번 범위가 아니다.
+- 주문 수량 1은 선택 중량의 박스 1개다. 5kg × 2와 10kg × 1은 총 3박스이며 kg 환산 재고는 이번 범위가 아니다.
 - 현재 옵션의 예약 가능 수 = min(전체 remainingQuantity, 현재 기간 옵션 quantity-reservedCount). 한 주문 선택 상한은 이 값과 maxQuantityPerOrder의 최솟값이다.
 - 가격 기간별 옵션 물량은 유지한다. 상품 총 한도가 기간별 물량 합보다 작아도 유효하며 전역 상한이 우선한다.
 
@@ -76,7 +76,8 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 
 - 소비자 GET /api/messaging/rooms: 팔로우한 승인 농가, 생산자: 자기 농가 1개. summary={farmId,farmName,farmPhoto,lastMessage,lastAt}.
 - GET /api/messaging/rooms/{farmId}/messages → {room,items,nextCursor}.
-- items: {messageId,farmId,senderId,senderName,senderRole,body,photos,createdAt,broadcastId,reactionCount,myReaction}.
+- items: {messageId,farmId,senderId,senderName,senderRole,body,photos,videos,createdAt,broadcastId,reactionCount,myReaction}.
+- photos/videos는 방송에 연결된 기존 미디어 배열이며 텍스트 답장은 빈 배열이다. 소비자 답장의 broadcastId는 null, reactionCount=0, myReaction=false이다.
 - 생산자는 자기 농가의 방송+모든 답장, 소비자는 방송+본인 답장만 받는다. 요약·cursor에도 같은 필터. 소비자 이름은 생산자 응답에서 앞 글자+○○.
 - POST 같은 messages 경로: {text}, 소비자 1~1000자/생산자 1~2000자 → 저장된 메시지. 생산자는 FOLLOWERS 방송, 소비자는 텍스트 비공개 답장. AI/1:1 대화에는 넣지 않는다.
 - 사진·영상 방송은 기존 POST /api/messaging/news로 작성. FOLLOWERS가 기본, PUBLIC은 농가 공개 목록에도 노출한다. 본문 <=2000자, 사진 최대5장(각10MB), 영상1개(60초/100MB). Idempotency-Key 필수.
@@ -92,7 +93,8 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 - POST /api/messaging/producer/chats {consumerId,roomReplyId?} → Thread. 기존 대화 또는 자기 소식방에 답장한 현재 팔로워만 대상으로 허용하며 무작위 고객 검색은 제공하지 않는다.
 - GET /api/messaging/producer/chats/{consumerId}/messages → {thread,items,nextCursor,escalations,inquiries,orders}. items는 기존 ChatMessage + orderId?,inquiryId?,sourceRefs?,settingsVersion?.
 - POST 같은 messages 경로 {text,attachmentIds?,answerToEscalationIds?} → {message,thread}. 텍스트 <=1000자, 사진3장 이하, 본문/첨부 중 하나 필수. 성공 저장과 aiMode=HUMAN 전환을 같은 트랜잭션에서 처리한다. 사진은 해당 대화의 비공개 첨부 ID만 허용한다.
-- 답변 필요는 OPEN 전달 질문, OPEN 문제 문의 또는 마지막 직접 응대 대상(HUMAN 또는 농가 AI OFF) 소비자 메시지가 생산자 답변보다 새로울 때 true. 읽는 것만으로 해결되지 않는다.
+- 답변 필요는 OPEN 전달 질문, OPEN 문제 문의 또는 마지막 직접 응대 대상 소비자 메시지가 생산자 답변보다 새로울 때 true. 읽는 것만으로 해결되지 않는다.
+- 직접 응대 대상 여부는 소비자 메시지 접수 당시 HUMAN/농가 AI OFF 상태로 저장한다. 이후 AUTO/ON 전환만으로 미답변 표시가 사라지지 않는다.
 - 답변과 함께 지정한 자기 대화의 escalation만 ANSWERED 처리한다. 다른 질문을 일괄 해결하지 않는다.
 - PUT /api/messaging/producer/chats/{consumerId}/ai-mode {mode:AUTO|HUMAN,version} → Thread. AUTO 전환은 이후 메시지부터 적용하고 과거 질문을 자동 재처리하지 않는다.
 - PUT /api/messaging/chats/{farmId}/read 및 /api/messaging/producer/chats/{consumerId}/read {lastReadMessageId} → {unreadCount}. 해당 방에 보이는 메시지만 허용하고 읽음 위치는 뒤로 이동하지 않는다.
@@ -100,7 +102,7 @@ ProductCard/ProductDetail/MyProduct 응답에 아래 필드를 추가한다.
 - 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
 - 기존 questions 조회/answer 계약은 유지하고 같은 Thread·Escalation을 사용한다. 기존 answer도 HUMAN 전환 규칙을 적용한다. 새 화면은 producer/chats를 사용한다.
 - 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수이며 임의 다른 주문의 문맥을 첨부할 수 없다.
-- 소식방·1:1 모두 활성 화면에서 2초 polling, 숨김/비활성 중단. cursor 이전 페이지/새 페이지 합치기는 ID 기준으로 중복 제거. 과거 읽는 위치를 유지하고 새 메시지 이동 버튼 제공.
+- 소식방·1:1 모두 활성 화면에서 2초 polling, 숨김/비활성 중단. cursor 이전 페이지/새 페이지 합치기는 ID 기준으로 중복 제거. 과거 읽는 위치를 유지하고 새 메시지 이동 버튼 제공. 최신 페이지부터 기존 마지막 메시지 ID와 만날 때까지 cursor 페이지를 이어 읽어 polling 사이 limit보다 많은 메시지가 와도 빠뜨리지 않는다.
 
 ## 5. AI 응답 설정 (SCR-31, FEAT-32)
 

@@ -263,7 +263,7 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 
 - 이슈: DEV-3 (프론트), 연계 DEV-4 (백엔드). 두 이슈 전체 완료를 의미하지 않는다.
 - 브랜치: jinwoo/dev-3-spec-1-2
-- 상태: 명세 작성·로컬 검사 완료, PR 리뷰 준비
+- 상태: 명세 작성·AI 검토 완료, PR #38 CI 및 사람 승인 대기
 - 목표: 사용자 승인 계획을 API·인수 조건으로 먼저 확정해 프론트/백엔드가 병렬 구현할 수 있게 한다.
 - 범위: docs/spec/**, docs/design/README.md, docs/wiki/Requirements-and-Specifications.md, docs/wiki/Design-Documentation.md, docs/wiki/Testing-Documentation.md.
 - 비범위: apps/**, packages/**, server/** 구현, 워크플로·의존성, 인터뷰 원문·개인정보.
@@ -278,3 +278,6 @@ P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합
 
 - 검토: main의 stage-presets·questions 계약은 116ecdd에 존재하므로 경로를 유지하되 새 UI 사용을 중단한다. 로컬 중간 구조용 호환 API는 추가하지 않는다.
 - 검증: 문서만 변경. 앱/서버 테스트·화면 구현은 후속 PR이며 본 PR의 AC 체크박스는 실행 결과가 아니다.
+
+- PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/38 (작성자 jangjinuite). 로컬 링크 241개·앵커 4개, 표·ID·범위 검사 오류 0.
+- AI 검토 반영: 농가 OFF 당시 받은 미답변은 ON으로 바꿔도 남도록 판정을 명확히 함. 방송 미디어/답장 null 필드, polling 사이 여러 페이지 수신 규칙 보강.
