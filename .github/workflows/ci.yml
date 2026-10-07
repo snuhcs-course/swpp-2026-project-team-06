@@ -15,7 +15,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # PR은 새 push가 오면 이전 실행을 취소한다. main push는 커밋마다 결과를 남기려고 취소하지 않는다.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   server:
