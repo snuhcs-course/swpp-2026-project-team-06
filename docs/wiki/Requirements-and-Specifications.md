@@ -56,7 +56,7 @@ P0 means required for I1. Each feature's behavior, exceptions, and acceptance cr
 | FEAT-02 | Farm profile | As a producer, I want to register my farm name, region, and introduction so consumers can see them | — |
 | FEAT-03 | AI product draft | As a producer, I want to paste the text I already use and get a product page | M-10–M-13 |
 | FEAT-04 | Product and weight option publishing | As a producer, I want to edit the draft, set weight options and the shipping fee type, and request publishing (public after Farmclub approval) | R-18, Q-21 |
-| FEAT-05 | Stage, price, and quantity setup | As a producer, I want to set stage dates, prices, and quantities easily from defaults | R-06, R-18 |
+| FEAT-05 | Stage, price, and quantity setup | As a producer, I want to add date ranges, prices, and quantities, and set a product-wide box limit | R-06, R-18 |
 | FEAT-06 | Discovery (home), farm search and follow | As a consumer, I want a home screen with a season banner and products closing soonest, to see farms sorted by nearest reservation deadline, search by farm name, variety, or region, and follow them (region and variety filters in I2) | — |
 | FEAT-07 | Product detail | As a consumer, I want to see quality, delivery window, and today's price before I decide | R-05, R-06, R-16 |
 | FEAT-08 | Reservation order | As a consumer, I want to set the recipient, agree to the terms, and place an order | R-03, R-20, Q-14 |
@@ -72,13 +72,13 @@ P0 means required for I1. Each feature's behavior, exceptions, and acceptance cr
 
 ### 4.2 Business Principles
 
-Every feature follows these principles. The full rules (R-01–R-25, M-01–M-17) and their exceptions are in the functional spec. MUST NOT rules apply even with mock payment.
+Every feature follows these principles. The full rules (R-01–R-27, M-01–M-21) and their exceptions are in the functional spec. MUST NOT rules apply even with mock payment.
 
 1. **Farmclub is the seller.** Producers, products, and prices go public only after Farmclub approves them. Changing price, options, or stages while on sale needs approval again. (R-18, R-22, R-25, M-13)
 2. **The full amount is paid by card at order time.** No split payment, escrow, or cash-like payment. (R-01, R-02)
 3. **Terms are shown and agreed to before payment.** They cover the delivery window, delays, crop failure, and cancellation. If the promised window changes, the buyer chooses to accept it or get a refund. (R-03–R-05, R-21)
 4. **Full refund any time before shipping.** Refunds are card cancellations only. No points, credits, or other money-like features. If a farm is suspended, its unshipped orders are fully refunded. (R-07–R-12, R-24)
-5. **Earlier stages are cheaper, and we never sell more than the stage quantity.** The order amount is fixed at the price when ordered. The producer sets the maximum quantity per order. (R-06, R-17, R-18, R-20, R-23)
+5. **Earlier stages are cheaper, and we never sell more than the stage quantity.** Price/period changes before payment require reconfirmation; paid order prices are fixed. The producer sets the maximum quantity per order. (R-06, R-17, R-18, R-20, R-23)
 6. **Farm settlement is fixed at purchase confirmation.** The producer marks shipping, and delivery is confirmed by courier tracking. (R-13, R-14, R-19)
 7. **Communication is farm → followers (1:N news), and chat is private (1:1).** External contact details are masked automatically. (M-01–M-04, M-14, M-16)
 8. **AI answers only what it has evidence for and forwards the rest to the farm.** AI does not set prices or statuses, does not publish, and does not pretend to be the farm. No personal data is sent to AI. A "This is wrong" button for consumers comes in I2. (M-05–M-13, M-15, M-17, M-18)
@@ -160,3 +160,17 @@ The final design lives in `docs/design/` (exported from the Claude Design canvas
 ## 7. Scope of This Specification
 
 Source of truth: `docs/spec/prd.md` and `docs/spec/functional/README.md` (Korean).
+
+## Specification 1.2 — Sales Operations and Direct Support
+
+This is a documentation contract for subsequent DEV-3/DEV-4 implementation, not a completed feature release. The Korean source is [contracts-1.2.md](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/contracts-1.2.md).
+
+- **R-26:** Producers set a total box limit per product, shared across all periods and weight options. It is separate from the per-order quantity limit. Paid quantities consume the limit; cancellation/shortfall before shipping returns quantity exactly once. Post-shipping refunds do not replenish it.
+- **R-27:** Pause keeps the product visible but blocks new reservations and payment of unpaid orders. Paid orders remain valid. Resume requires a valid current/future period with stock.
+- **FEAT-05:** Editable date ranges replace numbered stages and fixed presets. Earlier prices must be strictly lower. Stable stage IDs and approved values survive edits; periods with reservation history cannot be deleted or repriced.
+- **M-19 / FEAT-12:** News uses farm rooms. Consumers see broadcasts and their own private replies; the producer sees all replies for their own farm. Separate 1:1 chat includes every conversation, with a needs-reply filter.
+- **FEAT-13 / M-20:** A successful producer reply switches the thread to HUMAN atomically. Only an explicit AUTO action re-enables future replies; farm-wide AI OFF overrides AUTO. AI checks mode again before saving a pending answer.
+- **FEAT-32 / SCR-31:** Farm AI settings include enable/disable, small-order and reservation-shipping principles, FAQs, extra handoff topics, and a side-effect-free preview. Platform rules and verified product/order facts override farm prose. Subjective taste, quality, damage, and compensation decisions require a human.
+- **FEAT-33 / SCR-32 / M-21:** Owners of paid orders can submit a typed inquiry with up to three private photos, including after unfollowing. Only that consumer and farm can access it. Marking it resolved does not approve a refund.
+
+Sales controls are Must for the sales path; chat, AI settings, and inquiries are I1 Should. Real payments, automated compensation, refund adjudication screens, and new fee structures are outside this change. Interview evidence is summarized anonymously; no raw contact or private commercial information is published.

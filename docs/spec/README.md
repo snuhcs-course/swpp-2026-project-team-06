@@ -9,8 +9,9 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 | PRD | [prd.md](./prd.md) | 문제, 목표, 사용자, 시나리오, 기능 목록(P0~P2), 원칙, 비기능 요구사항, 미결 사항 |
 | IA·사용자 흐름 | [ia.md](./ia.md) | 앱별 사이트맵, 화면 목록(SCR), 콘텐츠 구성, 내비게이션·레이블, 흐름, 예외 경로, 접근 권한 |
 | 화면 명세 | [screens.md](./screens.md) | 화면별 목적·요소·데이터·입력·출력·버튼 동작·빈 상태·오류, I1 우선순위, API 계약(오류 형식, 페이지네이션, 멱등 키) |
+| 스펙 1.2 공통 계약 | [contracts-1.2.md](./contracts-1.2.md) | 판매 운영·채팅·AI 설정·주문 문의의 필드·권한·원자성·이관 |
 | 기능 명세 | [functional/README.md](./functional/README.md) | 기능 파일 목록, 추적표, 열린 질문(FQ) |
-| 규칙 전문 | [functional/rules.md](./functional/rules.md) | R-01~R-25(거래·환불·정산), M-01~M-17(소통·AI) |
+| 규칙 전문 | [functional/rules.md](./functional/rules.md) | R-01~R-27(거래·환불·정산), M-01~M-21(소통·AI) |
 | 기능별 명세 | `functional/FEAT-xx-*.md` | 사전·사후 조건, 정상·예외 흐름, 검증, 인수 조건(Given/When/Then) |
 | 서비스 정책 | [policy.md](./policy.md) | 사용자에게 보일 정책·문구, 개인정보 요지, 법정 표시, 열린 질문(PQ) |
 | 기술 스택 | [tech-design/stack.md](./tech-design/stack.md) | 스택, 레포 구조, FEAT ↔ 코드 폴더 대응표, 핵심 흐름 |
@@ -25,6 +26,7 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 2. 해당 `functional/FEAT-xx-*.md` — 동작과 인수 조건
 3. [functional/rules.md](./functional/rules.md) — FEAT 파일이 가리키는 규칙
 4. 화면이 걸리면 [ia.md](./ia.md)의 해당 SCR과 [screens.md](./screens.md)의 화면·API
+   - 1.2 변경 기능은 [공통 계약](./contracts-1.2.md)도 읽는다.
 5. 작업하는 코드 폴더의 `spec.md`와 `tasks.md`
 
 ## 문서끼리 다를 때
