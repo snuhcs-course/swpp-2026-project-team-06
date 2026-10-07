@@ -1,0 +1,8 @@
+{
+  "name": "farmclub",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
