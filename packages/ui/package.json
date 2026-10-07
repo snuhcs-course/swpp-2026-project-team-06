@@ -6,6 +6,10 @@
   "types": "src/index.ts",
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-svg": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
   }
 }

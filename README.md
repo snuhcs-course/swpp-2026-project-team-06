@@ -26,7 +26,7 @@ The first product category is premium Jeju citrus.
 - Farm page with products and updates; follow a farm
 - Product detail with the current stage price, the next stage price, and the expected delivery window
 - Reservation order and payment (mock), order history, cancellation before shipping
-- Updates feed with likes, and 1:1 chat with AI answers and hand-off to the farm
+- Farm news rooms with likes and private consumer replies, and 1:1 chat with AI answers and hand-off to the farm
 
 **Producer app**
 - Sign-up request and approval
@@ -147,3 +147,47 @@ Features are written against IDs in the spec (`FEAT-xx`, rules `R-xx` and `M-xx`
 ## Team
 
 Team 6: Hyun Park, Minsun Kim, Jinwoo Jang, Zahra
+
+
+## Local prototype preview (DEV-3)
+
+The frontend uses the reference prototype by Hyun Park (`farmclub-proto-ref.zip`).
+It implements the consumer/producer flows and the merged specifications through 1.4.
+
+```sh
+npm install
+npm run dev
+```
+
+The launcher runs the consumer app at http://localhost:8081 and the producer app at
+http://localhost:8082. If a port is occupied, it prints the selected available URL.
+Both apps run with `EXPO_PUBLIC_API_MOCK=1`; no FastAPI service or database installation is required.
+App links and Mock farm sharing point to the local consumer/producer URLs.
+Edit the source while the servers are running to use Fast Refresh. Stop with Ctrl+C.
+
+Local development shares Mock state between both apps through a loopback server.
+Payments and AI responses remain simulated. Exported standalone demos use browser localStorage.
+The reference seed date remains 2026-10-07. Demo reset controls restore the seed data.
+
+```sh
+npm run typecheck
+npm run build:web
+```
+
+These commands work in PowerShell as well as Unix shells. Web exports go to each
+app's ignored `dist` directory; they do not deploy anything.
+
+
+Local shared Mock: `npm run dev` compiles the API fixtures and starts a loopback-only HTTP backend plus both apps. State and uploaded media persist under ignored `.expo/shared-mock/`. Each app has its own login token. The reset action clears shared data and invalidates both apps’ tokens. Exported demos retain standalone browser Mock mode. Run `node node_modules/typescript/bin/tsc -p scripts/mock-tsconfig.json && node --test scripts/test-news-rooms.mjs` to verify room privacy using isolated test storage.
+
+### Spec 1.4 frontend and Mock
+
+- Consumer: discovery / orders / chat / profile. Chat combines farm news rooms and private 1:1 conversations. Orders requiring action are labeled **미확정 주문**.
+- Producer: dashboard / products / chat / settings. Product filters: **판매 중 → 심사 중 → 작성 중 → 판매 중지 → 판매 종료**. Farm profile and AI settings live under settings; news is written from the farm room.
+- Supply approval is per product, entered in kg and stored as integer grams. Initial approval opens sales; only additional capacity requires another request. Approval and the producer's sales limit are separate. Pending increases keep existing sales open.
+- Date-based reservation periods, immediate prices for new orders, per-order box limits, pause/resume, mixed-weight capacity accounting. Paid orders retain price/weight snapshots; pre-shipping cancellations restore capacity once.
+- Order problem inquiries support private photos, participant-only access and producer handoff. AI replies and previews are deterministic Mock behavior.
+- `npm run test:mock` checks isolated fixtures/storage; it does not reset the running demo. CI also runs these contracts. `npm run typecheck` and `npm run build:web` check both apps.
+- Changes to `packages/api/src/mock` require restarting `npm run dev` to recompile the shared backend. Frontend/UI edits use Fast Refresh. Stop the existing launcher first to retain ports 8081/8082/8083.
+- Mock schema 7 requires explicit local migration/reset on a schema mismatch. Existing local orders/messages were backed up and converted once; no legacy schema compatibility is shipped. Do not commit `.expo`, tokens or backups.
+- Scope: frontend + local Mock. DEV-4 implements the corresponding FastAPI endpoints and production transactions. These tests do not verify real payments, AI or server API implementation. Admin approval is a management API, never a producer self-approval button.

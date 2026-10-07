@@ -104,6 +104,7 @@ jobs:
             apps:
               - "apps/**"
               - "packages/**"
+              - "scripts/**"
               - "package.json"
               - "package-lock.json"
               - ".nvmrc"
@@ -122,6 +123,13 @@ jobs:
       - name: Install
         if: steps.changes.outputs.apps == 'true'
         run: npm ci
+
+      - name: Shared packages and Mock contracts
+        if: steps.changes.outputs.apps == 'true'
+        run: |
+          npm run typecheck -w packages/api
+          npm run typecheck -w packages/ui
+          npm run test:mock
 
       - name: Typecheck consumer
         if: steps.changes.outputs.apps == 'true'
