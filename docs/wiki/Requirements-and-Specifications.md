@@ -51,22 +51,22 @@ P0 means required for I1. Each feature's behavior, exceptions, and acceptance cr
 
 | ID | Feature | User story | Related rules |
 | -- | -- | -- | -- |
-| FEAT-01 | Sign-up and login | As a consumer, I want to browse farms and products without signing up, and log in with Kakao only when I order or follow. As a producer, I want to apply to join and start selling after Farmclub verifies my farm | R-22 |
+| FEAT-01 | Sign-up and login | As a consumer, I want to browse farms and products without signing up, and log in only when I order, follow, chat, or like (I1: pick a seeded test account; Kakao login in I2). As a producer, I want to apply to join and start selling after Farmclub verifies my farm | R-22 |
 | FEAT-02 | Farm profile | As a producer, I want to register my farm name, region, and introduction so consumers can see them | — |
 | FEAT-03 | AI product draft | As a producer, I want to paste the text I already use and get a product page | M-10–M-13 |
 | FEAT-04 | Product and weight option publishing | As a producer, I want to edit the draft, set weight options and the shipping fee type, and request publishing (public after Farmclub approval) | R-18, Q-21 |
 | FEAT-05 | Stage, price, and quantity setup | As a producer, I want to set stage dates, prices, and quantities easily from defaults | R-06, R-18 |
-| FEAT-06 | Farm search and follow | As a consumer, I want to see farms sorted by nearest reservation deadline, search by farm name, variety, or region, and follow them (region and variety filters in I2) | — |
+| FEAT-06 | Discovery (home), farm search and follow | As a consumer, I want a home screen with a season banner and products closing soonest, to see farms sorted by nearest reservation deadline, search by farm name, variety, or region, and follow them (region and variety filters in I2) | — |
 | FEAT-07 | Product detail | As a consumer, I want to see quality, delivery window, and today's price before I decide | R-05, R-06, R-16 |
 | FEAT-08 | Reservation order | As a consumer, I want to set the recipient, agree to the terms, and place an order | R-03, R-20, Q-14 |
 | FEAT-09 | Card payment (mock) | As a consumer, I want to pay the full order amount by card at once | R-01, R-02, R-17 |
 | FEAT-10 | Order history | As a consumer, I want to see my order status and expected delivery window | R-05 |
 | FEAT-11 | Cancel before shipping | As a consumer, I want to cancel any time before shipping and get a full refund | R-07, R-08 |
-| FEAT-12 | 1:N messages | As a producer, I want to send news with text, photos, or video to all followers. As a consumer, I want to reply only to the farm | M-01–M-04, M-14, M-16 |
-| FEAT-13 | AI reply and forwarding | As a producer, I want AI to handle repeated questions so I only answer the ones that need me | M-05–M-09, M-15 |
+| FEAT-12 | 1:N news and 1:1 chat | As a producer, I want to post news with text, photos, or video to all followers. As a consumer, I want to ask the farm in a private 1:1 chat | M-01–M-04, M-14, M-16 |
+| FEAT-13 | AI reply and forwarding | As a producer, I want AI to handle repeated questions so I only answer the ones that need me ("This is wrong" button in I2) | M-05–M-09, M-15 |
 | FEAT-14 | Producer dashboard | As a producer, I want to see reservations per stage and orders to ship | R-15 |
-| FEAT-15 | Farm news (public messages) | As a consumer, I want to see a farm's public news on its page even before I follow it | M-14 |
-| FEAT-17 | Shipping by natural language | As a producer, I want to mark an order as shipped by typing a sentence like "Sent Kim's 5kg today" | R-19, Q-22 |
+| FEAT-15 | Farm news and likes | As a consumer, I want to see a farm's public news on its page even before I follow it, and like a post | M-14 |
+| FEAT-17 | Shipping | As a producer, I want to mark an order as shipped with its tracking number (typing a sentence like "Sent Kim's 5kg today" for AI to parse comes in I2) | R-19, Q-22 |
 | FEAT-19 | Farm link sharing | As a producer, I want to send my farm link by SMS or KakaoTalk to bring in my regular customers | Q-17 |
 
 ### 4.2 Business Principles
@@ -79,33 +79,33 @@ Every feature follows these principles. The full rules (R-01–R-25, M-01–M-17
 4. **Full refund any time before shipping.** Refunds are card cancellations only. No points, credits, or other money-like features. If a farm is suspended, its unshipped orders are fully refunded. (R-07–R-12, R-24)
 5. **Earlier stages are cheaper, and we never sell more than the stage quantity.** The order amount is fixed at the price when ordered. The producer sets the maximum quantity per order. (R-06, R-17, R-18, R-20, R-23)
 6. **Farm settlement is fixed at purchase confirmation.** The producer marks shipping, and delivery is confirmed by courier tracking. (R-13, R-14, R-19)
-7. **Communication is farm → followers (1:N), and replies are private (1:1).** External contact details are masked automatically. (M-01–M-04, M-14, M-16)
-8. **AI answers only what it has evidence for and forwards the rest to the farm.** AI does not set prices or statuses, does not publish, and does not pretend to be the farm. Consumers can tap "This is wrong" on an AI answer to send it to the farm. (M-05–M-13, M-15, M-17)
+7. **Communication is farm → followers (1:N news), and chat is private (1:1).** External contact details are masked automatically. (M-01–M-04, M-14, M-16)
+8. **AI answers only what it has evidence for and forwards the rest to the farm.** AI does not set prices or statuses, does not publish, and does not pretend to be the farm. No personal data is sent to AI. A "This is wrong" button for consumers comes in I2. (M-05–M-13, M-15, M-17, M-18)
 9. **Personal data is shown only as needed.** Producers see only what they need for shipping, and legal disclosure duties are met. (R-15, R-16)
 
 ### 4.3 Traceability
 
-This table shows, for each feature, the PRD scenario it comes from, the screens it runs on, the rules it follows, and the acceptance criteria that check it. Test plans and code review use this table. It covers 17 P0 features and 49 acceptance criteria.
+This table shows, for each feature, the PRD scenario it comes from, the screens it runs on, the rules it follows, and the acceptance criteria that check it. Test plans and code review use this table. It covers 17 P0 features and 62 acceptance criteria; AC-13-5 and AC-17-1 are deferred to I2.
 
 | FEAT | PRD | Screens | Rules | Acceptance criteria |
 | -- | -- | -- | -- | -- |
-| FEAT-01 | S-1, S-2 | SCR-05, 20, 21 | R-22 | AC-01-1–3 |
+| FEAT-01 | S-1, S-2 | SCR-05, 20, 21 | R-22 | AC-01-1–5 |
 | FEAT-02 | S-1 | SCR-30, 03 | — | AC-02-1–2 |
 | FEAT-03 | S-1 | SCR-24 | M-10–12 | AC-03-1–3 |
 | FEAT-04 | S-1 | SCR-23, 25 | R-18, 20, 21, 23, 25, M-13 | AC-04-1–4 |
 | FEAT-05 | S-1 | SCR-26 | R-06, 17, 18, 25 | AC-05-1–3 |
-| FEAT-06 | S-2 | SCR-02, 03, 17 | — | AC-06-1–3 |
+| FEAT-06 | S-2 | SCR-01, 02, 03, 17 | — | AC-06-1–5 |
 | FEAT-07 | S-2 | SCR-04 | R-05, 06, 16, 20, M-15 | AC-07-1–2 |
 | FEAT-08 | S-2 | SCR-10 | R-03, 06, 17, 20, 23 | AC-08-1–5 |
-| FEAT-09 | S-2 | SCR-11, 12 | R-01, 02, 06, 13, 17 | AC-09-1–2 |
-| FEAT-10 | S-2, S-4 | SCR-13, 14 | R-05, 13, 14, 21, 24 | AC-10-1–3 |
+| FEAT-09 | S-2 | SCR-11, 12 | R-01, 02, 06, 13, 17 | AC-09-1–3 |
+| FEAT-10 | S-2, S-4 | SCR-13, 14, 17 | R-05, 13, 14, 21, 24 | AC-10-1–3 |
 | FEAT-11 | S-4 | SCR-14 | R-07, 08 | AC-11-1–2 |
-| FEAT-12 | S-3 | SCR-15, 16, 27 | M-01–04, 14, 16 | AC-12-1–3 |
-| FEAT-13 | S-3 | SCR-16, 28 | M-05–09, 15, 17, 18 | AC-13-1–5 |
+| FEAT-12 | S-3 | SCR-03, 04, 15, 16, 18, 27 | M-01–04, 14, 16 | AC-12-1–5 |
+| FEAT-13 | S-3 | SCR-16, 28 | M-05–09, 15, 18 (M-17 in I2) | AC-13-1–5 (AC-13-5 in I2) |
 | FEAT-14 | S-4 | SCR-22 | R-15 | AC-14-1–2 |
-| FEAT-15 | S-3 | SCR-03 | M-02, 14 | AC-15-1–2 |
-| FEAT-17 | S-4 | SCR-29 | R-07, 19 | AC-17-1–3 |
-| FEAT-19 | S-1 | SCR-30 | — | AC-19-1–2 |
+| FEAT-15 | S-3 | SCR-01, 03, 18 | M-02, 03, 14 | AC-15-1–5 |
+| FEAT-17 | S-4 | SCR-29 | R-07, 15, 19 | AC-17-1–5 (AC-17-1 in I2) |
+| FEAT-19 | S-1 | SCR-30 | — | AC-19-1–3 |
 
 Rules not in this table run on the system or operator side: R-04, R-09, R-10 (automatic refund, FEAT-24, P2), R-11, R-12 (refund policy), and running the R-14 settlement (FEAT-21, P2).
 

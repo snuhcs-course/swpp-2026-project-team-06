@@ -3,6 +3,7 @@
 ## Changes in this iteration
 
 - I1: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
+- I1 (P22): now 62 criteria. Added AC-01-4–5 (mock login), AC-06-4–5 (home), AC-09-3 (idempotency), AC-12-4–5 (chat), AC-15-3–5 (likes), AC-17-4–5 (shipping). AC-13-5 and AC-17-1 are deferred to I2.
 
 ## 1. Testing Plan and Results (Iteration 2~)
 
@@ -16,9 +17,11 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-01-1 | A logged-out user is on a product detail page | They tap "Reserve" and finish Kakao login | Checkout (SCR-10) opens |
-| AC-01-2 | A Kakao account is logged in to the consumer app | The same account logs in to the producer app | They log in as the same user, with no new account |
+| AC-01-1 | A logged-out user is on a product detail page | They tap "Reserve" and log in with a test account | Checkout (SCR-10) opens |
+| AC-01-2 | A test account is logged in to the consumer app | The same account logs in to the producer app | They log in as the same user, with no new account |
 | AC-01-3 | A producer is not yet approved | They open SCR-22–30 or call a producer API | They are sent to SCR-21 and the API refuses the call |
+| AC-01-4 | Mock login is on | The test-login API is called with a user ID that is not a seeded test account | It is refused and no account is created |
+| AC-01-5 | Mock login is off | The test-account list or test-login API is called | Both are refused |
 
 ### FEAT-02 Farm profile
 
@@ -58,7 +61,9 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-06-1 | Farm A's stage ends tomorrow and farm B's ends next week | The farm list opens | A is shown above B |
 | AC-06-2 | A farm has Hallabong as a variety | The user searches "Hallabong" | Only that farm appears |
-| AC-06-3 | A logged-in consumer | Follows a farm | The farm appears in My info and the inbox |
+| AC-06-3 | A logged-in consumer | Follows a farm | The farm appears in My info, and its news appears in the News tab |
+| AC-06-4 | Product A's stage ends tomorrow and product B's ends next week, both on sale | Home opens | A is shown before B in the recommended products |
+| AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the news preview still shows |
 
 ### FEAT-07 Product detail
 
@@ -83,6 +88,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-09-1 | Only 1 unit is left | Two people pay at the same time | Only one succeeds; the other gets a sold-out notice |
 | AC-09-2 | An order is pending payment | The consumer picks "fail" | The remaining quantity does not drop and they return to checkout |
+| AC-09-3 | A payment request was sent | It is sent again with the same idempotency key | Payment and stage quantity change happen only once, with the same result |
 
 ### FEAT-10 Order history and detail
 
@@ -99,13 +105,15 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | AC-11-1 | An order is reserved | The consumer cancels | It is fully refunded and that stage's remaining quantity goes up |
 | AC-11-2 | An order has shipped | The order detail opens | There is no cancel button |
 
-### FEAT-12 1:N messages and replies
+### FEAT-12 1:N news and 1:1 chat
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-12-1 | Consumer A replied to a farm | Consumer B opens the same farm conversation or calls the API | A's reply does not appear anywhere |
+| AC-12-1 | Consumer A asked a farm in chat | Consumer B opens the same farm chat or calls the API | A's reply does not appear anywhere |
 | AC-12-2 | The message body has "Call me at 010-1234-5678" | It is sent | The number is masked when stored and shown |
-| AC-12-3 | A message is marked public | It is sent | It appears in followers' inboxes and in the farm page news tab |
+| AC-12-3 | A news post is marked public | It is posted | It appears in followers' News tab and in the farm page news tab |
+| AC-12-4 | A logged-in consumer does not follow a farm | They tap "Chat" | They see "Follow and start chatting", the farm is followed, and the chat opens |
+| AC-12-5 | A followed farm posted news | The Chat tab and that farm's chat open | The news is not shown; only 1:1 Q&A is |
 
 ### FEAT-13 AI reply, forwarding, and producer answer
 
@@ -115,7 +123,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the question inbox |
 | AC-13-3 | Only expected sweetness is registered | A consumer replies "How sweet is it?" | AI answers and says it is an expected value |
 | AC-13-4 | AI sent an answer | The conversation opens | The answer has an "AI answer" label |
-| AC-13-5 | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's question inbox (SCR-28), marked as a wrong answer |
+| AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's question inbox (SCR-28), marked as a wrong answer |
 
 ### FEAT-14 Producer dashboard
 
@@ -124,20 +132,25 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | AC-14-1 | The producer is viewing the dashboard | A new order is paid | On reopening, that stage's reservation count is up and remaining quantity is down |
 | AC-14-2 | An order has been delivered | The producer views it on the dashboard | Address and phone number are hidden |
 
-### FEAT-15 Farm news
+### FEAT-15 Farm news and likes
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
 | AC-15-1 | A message was sent as private | The news tab opens | That message is not shown |
 | AC-15-2 | The user is logged out | The news tab opens | Public news is shown |
+| AC-15-3 | A logged-in consumer sees a post with 3 likes | They tap Like, then tap it again | First 4 with their like shown, then back to 3 |
+| AC-15-4 | A logged-out user sees a public post | They tap Like and log in | They return to that post and the like is applied |
+| AC-15-5 | A followers-only post from a farm the user does not follow | The like API is called | It is refused and the count does not change |
 
-### FEAT-17 Shipping by natural language
+### FEAT-17 Shipping
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-17-1 | AI found an order and asked for confirmation | Before the producer taps confirm | No order changes state |
+| AC-17-1 (I2) | AI found an order and asked for confirmation | Before the producer taps confirm | No order changes state |
 | AC-17-2 | An order is preparing shipment | The producer taps confirm | The consumer's order detail shows "Shipped" and the cancel button disappears |
 | AC-17-3 | A product has 3 reserved orders | The producer taps "Start harvest" | All 3 become "preparing shipment", and consumers can still cancel |
+| AC-17-4 | An order has shipped | The producer sends a request to mark it delivered | It is refused and the order stays shipped |
+| AC-17-5 | Tracking number "123-456" is entered on a preparing order | It is marked shipped | The ship date and tracking number are saved and shown on the consumer's order detail |
 
 ### FEAT-19 Farm link sharing
 
