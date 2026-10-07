@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>PC 화면 · 최대 폭 480</title>
+</head>
+<body>
+<div class="x-dc">
+
+<style>
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
+body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:#111111;text-decoration:none}a:hover{color:#000000}
+.t34{font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
+.t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.3}
+.t17{font-size:17px;line-height:1.5}
+.t15{font-size:15px;line-height:1.45}
+.muted{color:#6B6B6B}
+.sk{background:#F5F5F3;border-radius:8px}
+.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
+.tab.on{color:#111111;background:#F5F5F3}
+</style>
+
+<div style="width:1440px;height:960px;position:relative;background:#F5F5F3;overflow:hidden">
+  <div style="position:absolute;left:480px;top:0;width:480px;height:960px;background:#FFFFFF;overflow:hidden"><div style="width:390px;height:780px;transform:scale(1.2308);transform-origin:0 0"><iframe src="scr-01.html" style="border:0;width:390px;height:780px" title="B-SCR-01"></iframe></div></div>
+  <div style="position:absolute;left:40px;top:40px;width:400px;display:flex;flex-direction:column;gap:24px">
+    <span class="t34">PC 브라우저</span>
+    <div style="display:flex;flex-direction:column;gap:4px"><span class="t17" style="font-weight:700">최대 폭 480 · 가운데 정렬</span><span class="t15 muted">창이 넓어도 앱은 가운데 480 칸 안에만 그려요. 그림은 390 화면을 480 칸에 맞춰 늘린 예시이고, 실제로는 글자 크기는 그대로고 폭만 늘어요.</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px"><span class="t17" style="font-weight:700">바깥 배경 #F5F5F3</span><span class="t15 muted">앱 칸 밖은 면색으로 채워요. 그림자·테두리는 넣지 않아요.</span></div>
+  </div>
+  <div style="position:absolute;left:1000px;top:120px;width:400px;display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;flex-direction:column;gap:4px"><span class="t17" style="font-weight:700">떠 있는 것도 480 안에</span><span class="t15 muted">탭 바, 하단 고정 바, 시트, 토스트, 떠 있는 작성 버튼은 화면 전체가 아니라 앱 칸 폭에 맞춰요.</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px"><span class="t17" style="font-weight:700">키보드 포커스</span><span class="t15 muted">Tab으로 옮길 때 2px #111111 포커스 링, 요소와 2px 떨어뜨려요.</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px"><span class="t17" style="font-weight:700">안전 영역</span><span class="t15 muted">휴대폰에서는 위·아래 여백에 기기 안전 영역을 더해요. 사진이 맨 위까지 찬 화면은 원형 버튼만 안전 영역 아래로 내려요.</span></div>
+  </div>
+</div>
+</div>
+</body>
+</html>
