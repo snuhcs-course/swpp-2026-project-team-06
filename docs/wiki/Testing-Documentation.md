@@ -4,6 +4,7 @@
 
 - I1: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
 - I1 (P22): now 62 criteria. Added AC-01-4–5 (mock login), AC-06-4–5 (home), AC-09-3 (idempotency), AC-12-4–5 (chat), AC-15-3–5 (likes), AC-17-4–5 (shipping). AC-13-5 and AC-17-1 are deferred to I2.
+- I1 (SWPP-81): now 64 criteria, one retired. Consumer and producer accounts are separate (ADR 0010): AC-01-2 is retired and AC-01-6–7 are added. AC-06-5 and AC-17-2 follow screen spec 1.1. 61 criteria are tested in I1.
 
 ## 1. Testing Plan and Results (Iteration 2~)
 
@@ -17,11 +18,13 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-01-1 | A logged-out user is on a product detail page | They tap "Reserve" and log in with a test account | Checkout (SCR-10) opens |
-| AC-01-2 | A test account is logged in to the consumer app | The same account logs in to the producer app | They log in as the same user, with no new account |
+| AC-01-1 | A logged-out user is on a product detail page | They tap "Reserve", choose an option in the sheet, tap "Go to checkout", and log in with a consumer test account | Checkout (SCR-10) opens with the same option and quantity |
+| ~~AC-01-2~~ | ~~A test account is logged in to the consumer app~~ | ~~The same account logs in to the producer app~~ | ~~They log in as the same user, with no new account~~ — retired (SWPP-81, ADR 0010); replaced by AC-01-6 |
 | AC-01-3 | A producer is not yet approved | They open SCR-22–30 or call a producer API | They are sent to SCR-21 and the API refuses the call |
 | AC-01-4 | Mock login is on | The test-login API is called with a user ID that is not a seeded test account | It is refused and no account is created |
 | AC-01-5 | Mock login is off | The test-account list or test-login API is called | Both are refused |
+| AC-01-6 | There is a consumer account token and a producer account token | The producer login (SCR-19) account list is opened, a producer API is called with the consumer token, or a consumer API (for example creating an order) is called with the producer token | The producer list shows only producer accounts, and both calls are refused with 403 `WRONG_APP` |
+| AC-01-7 | A consumer is logged in to the consumer app | They tap "Start as a farm" in My info | A notice says the producer app needs its own sign-up, then the producer app sign-up opens; no producer role is added to the consumer account |
 
 ### FEAT-02 Farm profile
 
@@ -63,7 +66,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | AC-06-2 | A farm has Hallabong as a variety | The user searches "Hallabong" | Only that farm appears |
 | AC-06-3 | A logged-in consumer | Follows a farm | The farm appears in My info, and its news appears in the News tab |
 | AC-06-4 | Product A's stage ends tomorrow and product B's ends next week, both on sale | Home opens | A is shown before B in the recommended products |
-| AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the news preview still shows |
+| AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the farm cards (browse farms) still show |
 
 ### FEAT-07 Product detail
 
@@ -147,7 +150,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
 | AC-17-1 (I2) | AI found an order and asked for confirmation | Before the producer taps confirm | No order changes state |
-| AC-17-2 | An order is preparing shipment | The producer taps confirm | The consumer's order detail shows "Shipped" and the cancel button disappears |
+| AC-17-2 | An order is preparing shipment | The producer taps confirm | The consumer's order detail shows "In delivery" (state `SHIPPED`) and the cancel button disappears |
 | AC-17-3 | A product has 3 reserved orders | The producer taps "Start harvest" | All 3 become "preparing shipment", and consumers can still cancel |
 | AC-17-4 | An order has shipped | The producer sends a request to mark it delivered | It is refused and the order stays shipped |
 | AC-17-5 | Tracking number "123-456" is entered on a preparing order | It is marked shipped | The ship date and tracking number are saved and shown on the consumer's order detail |
