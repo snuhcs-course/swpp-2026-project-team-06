@@ -39,9 +39,9 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [x] `tests/test_health.py`, `uv run pytest`·`uv run ruff check .` 통과
 
 ### 완료 조건
-- [ ] FastAPI 앱, 도메인 모듈(router·models·schemas·service), `/health`, Alembic, 로컬 Postgres(docker compose), pytest 통과
-- [ ] 각 코드 폴더 `spec.md`, 작업 폴더 `tasks.md`
-- [ ] `.env.example`(비밀값 없이)
+- [x] FastAPI 앱, 도메인 모듈(router·models·schemas·service), `/health`, Alembic, 로컬 Postgres(docker compose), pytest 통과
+- [x] 각 코드 폴더 `spec.md`, 작업 폴더 `tasks.md`
+- [x] `.env.example`(비밀값 없이)
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록

@@ -33,14 +33,15 @@
 - [x] `@farmclub/ui`: `tokens.ts`(본문 16px, 누르는 영역 48px), `Button`, `Placeholder`
 - [x] `@farmclub/api`: `EXPO_PUBLIC_API_URL` fetch 래퍼, `health()`
 - [x] 루트 `.gitignore` 확인(node_modules, .venv, .env, dist, .expo 등)
-- [ ] 루트 `README.md` "로컬 실행" 절
+- [x] 루트 `README.md` "로컬 실행" 절
 
 ### 완료 조건
 - [x] `packages/ui`(N-02 크기 토큰·기본 버튼), `packages/api`(API 클라이언트 자리)
-- [ ] 실행 방법 README
+- [x] 실행 방법 README
 - [x] 두 앱에서 import해 `npx tsc --noEmit` 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/07 spec.md·tasks.md 먼저 커밋
+- 10/07 루트 README "로컬 실행" 절 추가. `git diff main...HEAD`를 네 tasks.md 범위와 대조: 범위 밖 파일 없음, docs/·.agents/ 변경 없음
 - 10/07 앱 tsconfig로 packages/ui·api `tsc --noEmit` 통과
