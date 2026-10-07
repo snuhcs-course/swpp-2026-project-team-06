@@ -43,3 +43,15 @@ DEV-3(프론트) 구현을 바로 시작할 수 있게, ia.md 2장 경로대로 
 ### 기록
 - 10/07 spec.md·tasks.md 먼저 커밋
 - 10/07 뼈대 완료: `npx tsc --noEmit`, `npx expo export -p web` 성공
+
+## DEV-3 [I1-P23] Implement frontend (prototype)
+
+- 이슈: [DEV-3](https://linear.app/sswp6/issue/DEV-3)
+- 상태: 시작 전 — 아래는 SWPP-26(P22 스펙 확정)에서 넘어온 할 일만 미리 적었다. 시작할 때 `spec` 스킬로 목표·범위·완료 조건을 채운다
+- 기준 문서: `docs/spec/screens.md`(화면·API), Must 범위는 screens.md 4장
+
+### SWPP-26에서 넘어온 할 일
+- [ ] SCR-27 Placeholder 제목 ‘메시지 보내기’ → ‘소식 올리기’
+- [ ] SCR-05를 테스트 계정 선택 화면으로(ADR 0009). 로그인 후 상태별 이동: 농가 없음 → SCR-20, 승인 대기·반려 → SCR-21, 승인 → SCR-22
+- [ ] SCR-29 출하 처리: 수확 시작 + 주문별 송장 번호 입력·출하로 바꾸기. 자연어 입력은 만들지 않음(I2)
+- [ ] 승인 전 잠금(AC-01-3): SCR-22~30 → SCR-21

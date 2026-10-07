@@ -13,7 +13,7 @@
 - `service.py` — `track(event, distinct_id, properties)` 자리
 
 ## 계약
-- 이벤트 이름은 트래킹 플랜 표만 쓴다(`order_paid`, `order_canceled`, `farm_followed`, `broadcast_sent`, `reply_sent`, `ai_replied`, `escalated`, `draft_created`, `draft_published` 등).
+- 이벤트 이름은 트래킹 플랜 표만 쓴다(`order_paid`, `order_canceled`, `farm_followed`, `broadcast_sent`, `chat_message_sent`, `ai_replied`, `escalated`, `draft_created`, `draft_published` 등).
 - 사용자 구분은 내부 ID만. 이름·연락처·주소·메시지 본문은 넣지 않는다(N-05).
 - 이벤트 전송 실패가 업무 처리(결제·취소)를 실패시키지 않는다.
 - 다른 모듈과의 경계: orders·farms·messaging·catalog가 업무 처리 성공 뒤 이 모듈 service를 부른다.

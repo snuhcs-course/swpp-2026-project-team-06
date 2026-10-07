@@ -43,3 +43,17 @@ DEV-3(프론트) 구현을 바로 시작할 수 있게, ia.md 2장 경로대로 
 ### 기록
 - 10/07 spec.md·tasks.md 먼저 커밋
 - 10/07 뼈대 완료: `npx tsc --noEmit`, `npx expo export -p web` 성공. `expo start --web`에서 `/`, `/farms/123`, `/checkout/1/pay`, `/orders/9/done` 화면과 탭 4개 확인, 콘솔 오류 없음
+
+## DEV-3 [I1-P23] Implement frontend (prototype)
+
+- 이슈: [DEV-3](https://linear.app/sswp6/issue/DEV-3)
+- 상태: 시작 전 — 아래는 SWPP-26(P22 스펙 확정)에서 넘어온 할 일만 미리 적었다. 시작할 때 `spec` 스킬로 목표·범위·완료 조건을 채운다
+- 기준 문서: `docs/spec/screens.md`(화면·API), Must 범위는 screens.md 4장
+
+### SWPP-26에서 넘어온 할 일
+- [ ] 하단 탭을 발견(SCR-01) · 소식(SCR-18) · 채팅(SCR-15) · 내 정보(SCR-17)로 바꾸기: `src/app/(tabs)/_layout.tsx`
+- [ ] 라우트 옮기기(spec.md 경로표): `src/app/index.tsx`(랜딩) → `(tabs)/index.tsx`(홈·발견), `(tabs)/inbox/*` → `(tabs)/chats/*`, `(tabs)/orders/*` → `(tabs)/me/orders/*`, `(tabs)/me.tsx` → `(tabs)/me/index.tsx`, 새 `(tabs)/news.tsx`(SCR-18)
+- [ ] Placeholder 제목·레이블을 ia.md 4장대로(소비자 화면에 ‘메시지’ 없음: 메시지함 → 채팅 목록, 농가 대화 → 농가 채팅)
+- [ ] SCR-05를 테스트 계정 선택 화면으로(ADR 0009). 카카오 리다이렉트 `/auth/kakao` 라우트는 만들지 않음(I2)
+- [ ] 로그인 관문: 팔로우·예약하기·채팅하기·좋아요, 소식·채팅·내 정보 탭 → SCR-05 → 원래 행동으로 복귀
+- [ ] ‘틀렸어요’ 버튼은 만들지 않음(M-17, I2)

@@ -28,7 +28,7 @@
 - [ ] P18 프로토타입 스펙 확정 → P14~P17 문서 간 정합성 확인, `README.md` 갱신
 - [x] P19 기술 스택 → `tech-design/stack.md`, 결정 기록은 `tech-design/adr/`
 - [ ] P20 와이어프레임 → `wireframes.md`
-- [ ] P21 화면 명세 → `screens.md`
+- [x] P21 화면 명세 → `screens.md` (P21 초안을 SWPP-26에서 docs/spec과 합침)
 - [ ] P22 검토·확정 → 전체 스펙 검토, 영문 wiki 반영
 
 ## 결정 사항
@@ -82,3 +82,121 @@ DEV-12(PR #20) 리뷰에서 정한 저장 배송지 결정을 데이터 모델·
 ### 기록
 - 10/07 문서 반영 완료
 - 10/07 AI 1차 리뷰: wiki 레포 구조의 orders "addresses"가 stack.md와 어긋나 수정. PR 본문 갱신
+
+## SWPP-26 [I1-P22] Review & finalize specifications
+
+- 이슈: [SWPP-26](https://linear.app/sswp6/issue/SWPP-26)
+- 브랜치: `nemodleo/swpp-26-i1-p22-review-finalize-specifications`
+- 기능·인수 조건: FEAT-01, 06, 08, 09, 10, 12, 13, 15, 17 (변경) / 새 AC와 I2로 미룬 AC는 `functional/README.md` 추적표
+- 상태: 진행 중
+
+### 목표
+P21 화면 명세(초안, 제안서 기준)를 확정 스펙(`docs/spec`)과 합쳐 `screens.md`로 레포에 올리고, 바뀐 결정을 스펙 전체와 영문 wiki에 반영해 프론트(DEV-3)·백엔드(DEV-4)가 같은 화면·API 기준으로 구현하게 한다.
+
+### 범위 (수정 허용 경로)
+- `docs/spec/**` (새 파일 `screens.md`, `tech-design/adr/0009-mock-login.md` 포함)
+- `docs/wiki/Requirements-and-Specifications.md`, `docs/wiki/Design-Documentation.md`, `docs/wiki/Testing-Documentation.md`
+- `AGENTS.md` "프로젝트"의 기술 스택 한 줄(로그인)
+- `server/spec.md`, `server/app/{accounts,farms,catalog,orders,messaging,ai,analytics}/spec.md`
+- `apps/consumer/spec.md`, `apps/producer/spec.md`, `packages/api/spec.md`
+- `apps/consumer/tasks.md`, `apps/producer/tasks.md`, `packages/tasks.md`(DEV-3 할 일), `server/tasks.md`(DEV-4 할 일)
+
+### 비범위 (건드리지 않음)
+- 앱 코드(탭 레이아웃, 라우트 파일), 서버 코드, `server/.env.example`의 KAKAO 변수 → DEV-3·DEV-4 tasks.md에 할 일로 적음
+- `docs/wiki/Proposal.md`, 회의록, 랜딩 페이지(`docs/*.html`)
+- BM·정산 수치, Notion 링크
+
+### 결정 사항
+1/2 결정 표 (I1 기준, 이 표가 최우선). P21 = P21 초안을 따름, docs = 기존 docs/spec을 따름.
+
+| # | 결정 | 따르는 쪽 |
+| --- | --- | --- |
+| 1 | 로그인은 Mock(시드 테스트 계정 선택). 카카오 로그인은 I2 | P21 |
+| 2 | 소비자 하단 탭: 발견 · 소식 · 채팅 · 내 정보. 주문 내역은 내 정보 안으로 | P21 |
+| 3 | 첫 화면은 홈·발견(시즌 히어로, 추천 상품, 소식 미리보기) | P21 |
+| 4 | 출하 처리는 주문별 상태 변경 + 송장 번호 입력. AI가 주문을 찾는 기능은 I2 | P21 |
+| 5 | AI 답변은 AI 배지 + 어려우면 생산자 전달. ‘틀렸어요’(M-17)는 I2. M-18 유지 | P21 |
+| 6 | 소식에 반응(좋아요) 버튼과 반응 수. I1 범위 | P21 |
+| 7 | 화면 명세는 P21 형식(목적, 화면 요소·데이터, 입력·출력, 버튼 동작, 빈 상태·오류) + API 표, 공통 오류 형식, cursor 페이지네이션, 멱등 키, 입력값 보존 | P21 |
+| 8 | 단계별 가격(이른 단계일수록 쌈)과 그 연출 | docs |
+| 9 | 예약할 때 전액 결제(I1 Mock, I2 PortOne) | docs |
+| 10 | 농가 페이지는 별도 화면, 탭 [상품 \| 소식] | docs |
+| 11 | 생산자 가입·승인(SCR-20·21), 상품 게시 승인·재승인(R-25) | docs |
+| 12 | 생산자 하단 탭: 현황 · 상품 · 질문함 · 농가 | docs |
+| 13 | 용어·데이터 모델은 docs(Order, 주문 상태, ShippingAddress). P21 Reservation → Order | docs |
+| 14 | API 경로는 `/api/<prefix>`, `/admin/...`, `/s/...` (P21 `/api/v1` 안 씀) | docs |
+
+1/2 보고 뒤 추가 결정 (10/07)
+- 10/07 P01 파일 업로드: I1은 텍스트 붙여넣기만. 파일·사진은 기존대로 P2(FEAT-29)
+- 10/07 레이블: “채팅” = 소비자와 농가의 1:1 질문·답(AI 안내 포함), “소식” = 농가가 올리는 1:N 글. 소비자 화면에 “메시지”를 쓰지 않는다. SCR-27 “메시지 보내기” → “소식 올리기”. 생산자 탭 “질문함” 유지
+- 10/07 소식 탭: 팔로우한 농가의 소식(공개 + 팔로워 전용) 시간순. 팔로우한 농가가 없으면 빈 상태에서 농가 둘러보기 안내. 채팅 탭은 1:1 질문·답만. 소식 카드 ‘질문하기’ → 그 농가 채팅. M-14 유지
+- 10/07 팔로우 없이 ‘채팅하기’ → 자동 팔로우 후 대화 시작(“팔로우하고 대화를 시작해요”). M-04 유지
+- 10/07 반응: FEAT-15 확장. 로그인 필요, 종류는 ‘좋아요’ 하나, 한 사람 한 번 토글, 볼 수 있는 소식이면 팔로워 전용에도 가능, 반응 수는 숫자
+- 10/07 홈: 시즌 히어로는 시드 데이터(서버 설정 값), 운영자 관리는 I2. 추천 상품은 FEAT-06과 같은 마감 임박순 상위 N개. 홈은 FEAT-06 확장
+- 10/07 SCR-01은 랜딩 → 홈·발견으로 재정의. ‘농가로 시작하기’는 내 정보(SCR-17)로. 레포 밖 마케팅 랜딩은 별개
+- 10/07 Mock 로그인: 테스트 계정은 소비자 2, 승인된 생산자 1, 승인 대기 생산자 1. 운영자는 Swagger(관리 API). Mock 로그인 API는 설정 플래그로 켜고 끄며, I1 데모 배포에서는 켜되 시드 테스트 계정만 고를 수 있다(임의 계정 생성 불가). I2 카카오 전환 때 끈다. 위험은 ADR 0009. 둘러보다가 팔로우·예약·채팅·반응 때만 로그인하는 흐름은 유지
+- 10/07 배송 상태는 docs 기준: 생산자는 출하 준비·출하(송장)까지, 배송 완료는 운영자
+- 10/07 `Order.deliveryNote`(배송 메모, 선택, 짧은 글) 추가. 개인정보 취급은 주소와 같음
+- 10/07 SCR-29 출하 처리는 별도 화면 유지
+- 10/07 오류 형식은 P21의 `{code, message, details}`. packages/api도 함께
+- 10/07 PR #25 확인 후 결정: (1) Must/Should는 screens.md 4장 제안안대로. API 표에 I1 열을 두고 Must 화면이 쓰는 API를 Must(운영자 API는 상품 승인만), 나머지 Should. Must API 26개(이후 23개로 수정, 아래) (2) 세부 값 확정: 홈 소식 미리보기 3개, 페이지 기본 20·최대 50, 멱등 키 24시간, 배송 메모 100자·송장 50자·채팅 글 1,000자 (3) API 이름은 screens.md 7.2 그대로 확정 (4) 트래킹 이벤트 `reply_sent` → `chat_message_sent`(tech-design 트래킹 플랜, messaging·analytics spec.md. FEAT·wiki에는 이벤트 이름이 없음)
+- 10/07 AGENTS.md 스택 한 줄은 “I1 Mock 로그인, I2 카카오”로. 앱 코드·`server/.env.example` KAKAO 변수는 DEV-3·DEV-4 tasks.md 할 일로. wiki Proposal.md는 그대로
+
+### 불일치 목록 (P21 ↔ docs/spec)
+
+| # | 항목 | P21 | docs/spec(이전) | 정한 쪽 |
+| --- | --- | --- | --- | --- |
+| 1 | 로그인 | 범위 밖(로그인된 계정 가정) | 카카오 로그인 | Mock 로그인(결정 1), 카카오 I2 |
+| 2 | 소비자 탭 | 발견·소식·채팅·내 정보 | 농가·메시지·주문·내 정보 | P21(결정 2) |
+| 3 | 첫 화면 | C01 홈·발견 | SCR-01 랜딩 | P21(결정 3), SCR-01 재정의 |
+| 4 | 출하 처리 | 상태 변경 + 송장 | 자연어 입력 → AI가 주문 찾기 | P21(결정 4), AI는 I2 |
+| 5 | AI 오답 신고 | 없음 | ‘틀렸어요’(M-17) | P21(결정 5), M-17·AC-13-5 I2 |
+| 6 | 반응 | 선택(와이어프레임에 있으면) | 없음 | P21(결정 6), FEAT-15 확장 |
+| 7 | 화면 명세 형식 | 5항목 + API 표 | 없음(작성 전) | P21(결정 7) |
+| 8 | 단계별 가격 | 없음(단일 가격) | 단계 가격·물량 | docs(결정 8) |
+| 9 | 결제 | 결제 없이 예약만 | 예약 때 전액 카드 결제 | docs(결정 9) |
+| 10 | 농가·상품 상세 | C02 한 화면 | SCR-03·SCR-04 분리 | docs(결정 10) |
+| 11 | 생산자 가입·승인 | 없음 | SCR-20·21, R-22 | docs(결정 11) |
+| 12 | 상품 게시 | 생산자가 바로 게시 | 게시 요청 → farmclub 승인, 재승인(R-25) | docs(결정 11) |
+| 13 | 생산자 탭 | 없음 | 현황·상품·질문함·농가 | docs(결정 12) |
+| 14 | 주문 모델·상태 | Reservation, RESERVED→…→DELIVERED, 상품 DRAFT/OPEN/CLOSED | Order, 주문 상태 표, 상품 DRAFT/PENDING_APPROVAL/PUBLISHED/CLOSED | docs(결정 13) |
+| 15 | API 경로 | `/api/v1/...` | `/api/<prefix>`, `/admin`, `/s` | docs(결정 14) |
+| 16 | AI 초안 입력 | 파일·이미지 업로드 + 텍스트 | 텍스트 붙여넣기(M-10) | docs(추가 결정), 파일은 FEAT-29 P2 |
+| 17 | AI 초안 가격 | 가격 추출 | 가격 채우지 않음(M-12) | docs |
+| 18 | 상품 필드 | price, packageDescription, harvestStart/End | 중량 옵션, 단계 가격, 배송 예정 기간 | docs |
+| 19 | 레이블 | 채팅 | ‘채팅’은 쓰지 않는 말 | 새 정의(추가 결정): 채팅 = 1:1, 소식 = 1:N |
+| 20 | 소식·채팅 범위 | C05 생산자별 소식, C06 대화 | 메시지함에 1:N 메시지와 답장이 섞임 | 추가 결정: 소식 탭 = 팔로우 농가 소식, 채팅 = 1:1만 |
+| 21 | 팔로우 없이 채팅 | 상품에서 바로 채팅 | 팔로우한 농가에만 답장(M-04) | 추가 결정: 자동 팔로우, M-04 유지 |
+| 22 | 홈 데이터 | `GET /home`(출처 미정) | 없음 | 추가 결정: 히어로 = 시드 설정 값, 추천 = 마감 임박순 |
+| 23 | 생산자 배송 상태 권한 | DELIVERED까지 | 출하까지, 배송 완료는 운영자 | docs(추가 결정) |
+| 24 | 배송 메모 | deliveryNote | 없음 | P21(추가 결정), `Order.deliveryNote` |
+| 25 | 상품·예약 관리 | P03 한 화면 | SCR-22·23·29 | docs(추가 결정, SCR-29 유지) |
+| 26 | 오류 형식 | `{code, message, details}` | `{"error": {code, message}}`(DEV-4에서 확정 예정) | P21(추가 결정) |
+| 27 | 대화 단위 | producer + 선택 product | (Farm, Consumer)당 Thread 1개 | docs (I1은 상품별 대화를 나누지 않음) |
+| 28 | 소식 단위 | 상품 선택 가능 | 농가 단위 Broadcast | docs (I1은 상품 연결 없음) |
+| 29 | 취소·환불 | P18에서 확정 | 출하 전 전액 환불(FEAT-11) | docs |
+| 30 | 결제 전 동의 | 없음 | 동의 4개(R-03) | docs |
+
+### 작업
+- [x] `screens.md`: 결정 표, P21 ↔ SCR 대응표, 화면별 명세(5항목 + ID + 우선순위), API 표, P21 5장 확정 항목 정리
+- [x] `ia.md`: 소비자 탭, 첫 화면, 화면 목록, 화면 간 이동, 레이블
+- [x] `functional/`: FEAT-01·06·08·09·10·12·13·15·17, rules.md(R-19·R-22·M-01·M-04·M-05·M-14·M-17), README 추적표·AC 수
+- [x] `prd.md`: I1 범위와 I2로 미룬 것, 용어집
+- [x] `policy.md`, `tech-design/README.md`(Reaction, Order 필드, 테스트 계정), `stack.md`, ADR 0003(I2로 연기)·0004·0009(새 파일), `README.md`(screens.md)
+- [x] 코드 폴더 spec.md(server, 모듈, 두 앱, packages/api), AGENTS.md 한 줄, DEV-3·DEV-4 할 일
+- [x] wiki 영문 반영
+- [ ] ID·상대 링크 검사, draft PR, AI 1차 리뷰
+
+### 완료 조건
+- [ ] 스펙-화면 불일치 목록 정리 및 수정 반영 (이 절의 표, screens.md)
+- [ ] 문서 안 FEAT·AC·R·M·SCR ID가 서로 맞고 깨진 상대 링크가 없음
+- [ ] 프론트(P23)·백엔드(P24) 담당자 확인 후 스펙 동결
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/07 1/2·2/2 결정 받음. 불일치 목록 정리
+- 10/07 screens.md(SCR 25, API 57), ia·functional(AC 50 → 62, I2 2개)·prd·policy·tech-design·ADR 0009·코드 폴더 spec.md·AGENTS.md 한 줄·wiki 반영. DEV-3·DEV-4 할 일은 각 tasks.md
+- 10/07 Must 기준 수정: 팔로우·팔로우 해제 API는 Must 유지, 좋아요(`PUT`·`DELETE /api/messaging/news/{broadcastId}/reaction`)와 채팅 시작(`POST /api/messaging/chats`)은 Should. Should API를 쓰는 버튼은 API가 준비될 때까지 프론트에서 숨긴다(screens.md 7.2). Must API 23/57
+- 10/07 PR #25 결정 반영: API 표 I1 열(Must 26/57), 세부 값·API 이름 확정, `chat_message_sent`
+- 10/07 AI 1차 리뷰(PR #25): SCR-16 진입 시 자동 팔로우되던 것을 채팅하기·질문하기 버튼에서만 하게 고침(메시지 API를 `farmId` 기준으로), 채팅 목록은 팔로우 중인 농가만, 경로 등록 순서 메모
+- 10/07 ID·링크 검사(스크립트): FEAT·AC·R·M·SCR 참조와 상대 링크·앵커 이상 없음. 추적표 FEAT-08 화면에 SCR-17 누락(기존)을 고침

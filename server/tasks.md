@@ -49,3 +49,21 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 ### 기록
 - 10/07 spec.md·tasks.md 먼저 커밋
 - 10/07 서버 뼈대: pytest 2개 통과, ruff 통과, docker compose Postgres 16에서 `alembic check` 통과. Python 3.12(`.python-version`)
+
+## DEV-4 [I1-P24] Implement backend (prototype)
+
+- 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4)
+- 상태: 시작 전 — 아래는 SWPP-26(P22 스펙 확정)에서 넘어온 할 일만 미리 적었다. 시작할 때 `spec` 스킬로 목표·범위·완료 조건을 채운다
+- 기준 문서: `docs/spec/screens.md`(화면·API), Must 범위는 screens.md 4장
+
+### SWPP-26에서 넘어온 할 일
+- [ ] Python 환경은 uv(Poetry 아님): `uv sync`, `uv run …`
+- [ ] Mock 로그인: `GET /api/auth/test-accounts`, `POST /api/auth/test-login`, 설정 `MOCK_LOGIN_ENABLED`(config.py·`.env.example`에 추가, 운영 기본값 꺼짐), 시드 테스트 계정(소비자 2, 승인된 생산자 1, 승인 대기 생산자 1, `isTestAccount`) — ADR 0009, AC-01-4·5
+- [ ] `.env.example`의 `KAKAO_*` 변수는 I2용으로 남기고 주석 표시. 카카오 로그인 코드는 만들지 않음
+- [ ] 오류 형식 `{code, message, details}` 예외 처리기(422 검증 오류 → 400 `VALIDATION_ERROR` 포함)
+- [ ] cursor 페이지네이션 공통 함수(`limit` 기본 20·최대 50, `nextCursor`)
+- [ ] `Idempotency-Key` 저장(사용자·키, 24시간) — `POST /api/orders`, `POST /api/orders/{orderId}/pay`, AC-09-3
+- [ ] 모델: `Reaction`(messaging), `Order.deliveryNote`·`trackingNumber`·`consentVersion`, `User.isTestAccount`·`kakaoId` 비워 둘 수 있게 — tech-design/README.md
+- [ ] 홈 `GET /api/home`(farms 별도 라우터), 시즌 히어로 설정 값
+- [ ] `ai.parse_shipping`은 만들지 않음(FEAT-17 자연어는 I2). 생산자 출하는 `POST /api/orders/{orderId}/ship`
+- [ ] 엔드포인트 목록은 screens.md 7.2를 기준으로 하고, 바뀌면 같은 PR에서 screens.md를 고친다
