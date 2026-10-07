@@ -50,10 +50,10 @@ server/            FastAPI 서버
   app/
     main.py        앱 생성, 라우터 등록
     core/          설정, DB 세션, 인증·권한, 공통
-    accounts/      사용자, 역할, 카카오 로그인, 생산자 신청·승인
+    accounts/      사용자, 역할, 카카오 로그인, 생산자 신청·승인, 저장 배송지(ShippingAddress)
     farms/         농가, 팔로우, 검색, 공유 링크(OG)
     catalog/       상품, 중량 옵션, 단계·가격·물량, 상품 승인
-    orders/        주문, Mock 결제, 취소·환불, 수확 시작·출하, 구매 확정, 배송지
+    orders/        주문, Mock 결제, 취소·환불, 수확 시작·출하, 구매 확정, 주문 시점 배송지 사본
     messaging/     메시지, 답장, 소식, 질문함, 연락처 가림
     ai/            Claude 어댑터, 상품 초안, 문의 응답, 출하 문장 해석, 개인정보 제거
     analytics/     PostHog 서버 이벤트
@@ -76,7 +76,7 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 | FEAT-05 단계·가격·물량 | — | 단계 설정 | `catalog` |
 | FEAT-06 농가 탐색·팔로우 | 농가 목록·내 정보 | — | `farms` |
 | FEAT-07 상품 상세 | 상품 상세 | — | `catalog` |
-| FEAT-08 예약 주문 | 주문서·배송지 | — | `orders` |
+| FEAT-08 예약 주문 | 주문서·배송지 | — | `orders`, `accounts`(저장 배송지 `ShippingAddress`. 주문은 주문 시점 주소를 복사) |
 | FEAT-09 Mock 결제 | 결제·완료 | — | `orders` |
 | FEAT-10 주문 내역·상세 | 주문 탭 | — | `orders` |
 | FEAT-11 출하 전 취소 | 주문 상세 | — | `orders` |
