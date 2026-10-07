@@ -25,16 +25,18 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/07 패키지 관리는 uv, DB 드라이버는 psycopg 3(`postgresql+psycopg://`)
 - 10/07 앱 API는 `/api/<prefix>`, 관리 API `/admin/...`, 공유 링크 `/s/...`, `/health`는 루트(server/spec.md)
 - 10/07 `ProductDraft`는 catalog가 가진다(ai는 저장하지 않음)
+- 10/07 Python 3.12로 고정(`.python-version`). uv가 3.14를 고르는 것을 막고 Railway와 맞추기 위해
+- 10/07 `server/.gitignore`에 .venv·캐시·.env
 - 10/07 배송지 엔티티는 데이터 모델 표에 없음 → orders가 맡되 이름·필드는 결정 필요(DEV-4에서 tech-design/README.md에 질문으로)
 
 ### 작업
 - [x] `server/spec.md`, `app/<모듈>/spec.md` 7개 작성
-- [ ] uv 프로젝트(`pyproject.toml`), 의존성·개발 의존성
-- [ ] `app/main.py`(`GET /health`, 라우터 등록), `app/core/`(config·db·security)
-- [ ] 모듈 7개 `router.py`·`models.py`·`schemas.py`·`service.py`
-- [ ] Alembic(`alembic init migrations`, env.py가 core 설정·Base.metadata 사용)
-- [ ] `docker-compose.yml`(PostgreSQL 16), `.env.example`(이름만)
-- [ ] `tests/test_health.py`, `uv run pytest`·`uv run ruff check .` 통과
+- [x] uv 프로젝트(`pyproject.toml`), 의존성·개발 의존성
+- [x] `app/main.py`(`GET /health`, 라우터 등록), `app/core/`(config·db·security)
+- [x] 모듈 7개 `router.py`·`models.py`·`schemas.py`·`service.py`
+- [x] Alembic(`alembic init migrations`, env.py가 core 설정·Base.metadata 사용)
+- [x] `docker-compose.yml`(PostgreSQL 16), `.env.example`(이름만)
+- [x] `tests/test_health.py`, `uv run pytest`·`uv run ruff check .` 통과
 
 ### 완료 조건
 - [ ] FastAPI 앱, 도메인 모듈(router·models·schemas·service), `/health`, Alembic, 로컬 Postgres(docker compose), pytest 통과
@@ -44,3 +46,4 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 
 ### 기록
 - 10/07 spec.md·tasks.md 먼저 커밋
+- 10/07 서버 뼈대: pytest 2개 통과, ruff 통과, docker compose Postgres 16에서 `alembic check` 통과. Python 3.12(`.python-version`)
