@@ -177,6 +177,7 @@ Both apps use the same Kakao account. One `User` can have several roles. Produce
 | Entity | Key fields | Relation |
 | -- | -- | -- |
 | `User` | kakaoId, roles (CONSUMER, PRODUCER, ADMIN), name, phone | — |
+| `ShippingAddress` | userId, recipient, postalCode, address, addressDetail, isDefault | user 1 : N saved address; orders copy it at order time, no reference |
 | `Farm` | producerId, name, region, intro, approvalStatus (PENDING / APPROVED / REJECTED) | 1 producer : 1 farm |
 | `Follow` | consumerId, farmId | consumer N : M farm |
 | `Product` | name, variety, description, deliveryWindow, maxDelayUntil, expectedBrix, measuredBrix, grade, status (DRAFT / PENDING_APPROVAL / PUBLISHED / CLOSED), shippingFeeType (FREE / SEPARATE), maxQuantityPerOrder | farm 1 : N product |
