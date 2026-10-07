@@ -26,10 +26,10 @@ server/            FastAPI server
   app/
     main.py        App setup, router registration
     core/          Settings, DB session, auth and permissions, common code
-    accounts/      Users, roles, Kakao login, producer sign-up and approval
+    accounts/      Users, roles, Kakao login, producer sign-up and approval, saved addresses (ShippingAddress)
     farms/         Farms, follows, search, share links (OG)
     catalog/       Products, weight options, stages, prices, quantities, product approval
-    orders/        Orders, mock payment, cancel and refund, harvest and shipping, purchase confirmation, addresses
+    orders/        Orders, mock payment, cancel and refund, harvest and shipping, purchase confirmation, order-time address copy
     messaging/     Messages, replies, farm news, question inbox, contact masking
     ai/            Claude adapter, product draft, inquiry answers, shipping text parsing, personal data removal
     analytics/     PostHog server events
