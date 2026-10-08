@@ -64,7 +64,7 @@
 - 판매 설정: 승인 물량/현재 판매 한도/예약 중/출하 완료/추가 예약 가능(kg), 주문당 상한(박스), 중지/재개, 공급 신청·이력.
 - 최초는 '공급 물량 승인 요청', 이후 '물량 추가 신청'. 신청 전 기존 승인량·추가량·신청 후 총량을 표시한다. 대기 중 철회, 반려 시 사유와 재신청을 제공한다.
 - 신규 상품은 판매 한도 입력 대신 공급 신청 kg을 입력한다. 최초 신청 시 필수 항목·기간 검증. 상품·기간 편집에 '승인 전 가격 유지' 문구를 없앤다.
-- 상단 탭은 미확정 → 확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다.
+- 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다.
 
 ## 6. 이관·검증·담당
 
