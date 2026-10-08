@@ -211,3 +211,66 @@ Producers generate a detail draft from their supplied text/photos and registered
 Anonymous/non-followers may read public broadcasts in the room; followers see all broadcasts plus only their replies; owners see all replies. Filter before pagination and summaries; clear inaccessible cached content after access changes. Writing remains gated and reading never follows automatically. Test role isolation, failed draft/save recovery, persisted content, navigation/login return and 360/390/430px layouts. The current source is [spec 1.5](../spec/storefront-1.5.md), superseding earlier inline farm-news and recurring price-approval descriptions.
 
 Storefront implementation checks: 11 Mock regression cases pass; browser checks cover farm/product draft generation, preview and public rendering after save, failed generation/save preserving edits, replacement cancellation, unsaved-exit confirmation, anonymous reading, login return and following to reply. Farm layouts pass 360/390/430/1440px width checks; editor layouts pass 360/390/430px. Onboarding policy copy now reflects initial/increased capacity approval only, and login uses a neutral continuation title. Real AI remains a backend integration task.
+
+## I1 Real-Backend Integration Test (DEV-6, 2026-10-09)
+
+DEV-6 connects both Expo web apps to the local FastAPI/PostgreSQL stack. Mock mode is disabled. The database is migrated through `0005`, reset to the I1 seed, and the server clock is fixed at `2026-10-07T10:00:00+09:00`.
+
+### Repeatable setup
+
+```bash
+cd server
+docker compose up -d
+uv run alembic upgrade head
+uv run python -m app.core.seed --reset
+MOCK_LOGIN_ENABLED=true FIXED_NOW=2026-10-07T10:00:00+09:00 \
+  uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# In another terminal from the repository root
+FARMCLUB_ADMIN_TOKEN="$(cd server && uv run python -m app.accounts.admin_token)" \
+  npm run test:integration
+
+EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 \
+  npm run web -w apps/consumer -- --port 8081
+EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 \
+  npm run web -w apps/producer -- --port 8082
+```
+
+`scripts/test-integration.mjs` has no added dependency and refuses non-localhost API URLs. It creates uniquely named test data after a seed reset and covers seven sequential real-server flows.
+
+### Automated results
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Real API smoke | PASS | 7/7: health/auth/gates; product/detail/capacity approval; payment/capacity release; fulfillment; news privacy; AI chat/handoff; farm detail draft/save |
+| Server lint | PASS | `uv run ruff check .` |
+| Server tests | PASS | 133 pytest tests |
+| Database | PASS | Alembic upgrade through `0005`; `alembic check` reports no new operations |
+| Frontend types | PASS | Consumer, producer, API and UI workspaces |
+| Mock contracts | PASS | 11/11 Node test scenarios |
+| Web exports | PASS | Consumer and producer Expo web exports |
+
+The smoke suite verifies app-separated account lists and `WRONG_APP`, all producer gates at the API boundary, pending/rejected application details, the no-application 404, version/idempotency rules, explicit initial capacity approval, public visibility, exact gram reservation/release, pause blocking, immutable paid snapshots, producer fulfillment, consumer confirmation, public/follower news privacy, private replies, reactions, chat auto-follow, factual AI evidence, sensitive-topic handoff, and explicit detail publication. Expected 400/403/404/409 responses are asserted; no unexpected 5xx occurred.
+
+### Browser matrix
+
+| Scenario | Expected | Actual | Result |
+| --- | --- | --- | --- |
+| Anonymous discovery | Home → farm → product and public room work logged out; participation returns through login | Public content loaded from FastAPI; follower-only posts stayed hidden; login returned to the same room | PASS |
+| Consumer checkout | Logged-in consumer selects an option, accepts four consents, pays, and sees history/detail | Order `FC-1007-1009` was paid against PostgreSQL and displayed in order detail | PASS |
+| Cross-app fulfillment | Producer sees the same order, starts harvest, adds carrier/tracking, and ships; consumer loses cancel | Producer shipped with CJ tracking; consumer showed `SHIPPED`, tracking, and no cancel action | PASS |
+| Producer product flow | Product data, capacity state, public visibility and sales controls use the real API | API flow created/configured/approved a product; producer and consumer UIs displayed the same product and gram state | PASS |
+| Farm/product storytelling | Generate does not auto-publish; reorder/preview/save publishes; failed save retains edits | Unsaved generated text stayed private; reordered preview saved and rendered publicly; stopped-API save retained edits and one retry succeeded | PASS |
+| News-room privacy | Anonymous/unfollowed users see public posts; follower sees own replies; owner sees all | Real API smoke covered two consumers/owner and reaction authorization; browser covered anonymous and followed return flows | PASS |
+| 1:1 chat and inquiry | Auto-follow, factual AI, handoff, and paid-order inquiry isolation | Browser displayed factual evidence and handoff; API/pytest cover auto-follow, inquiry and private attachment ownership/isolation | PASS |
+| Producer account gates | Approved, pending, rejected, suspended and new accounts reach their proper screens | All five gates pass. After #55, pending shows the application timeline and read-only details; rejected shows the reason and a prefilled reapplication form. The API returned 200 and browser error logs were empty | PASS |
+| Resilience and layout | Reload persists sessions; failed edit/send keeps input; retry succeeds; 390px and 1440px remain usable | Both sessions survived reload. Chat and detail input survived API shutdown and succeeded after one retry. Core pages rendered at both widths | PASS |
+
+FastAPI access logs show the browser clients calling port 8000. No `/__mock` traffic was observed. Browser error logs were empty; the development build emitted only the known React Native Web warnings about a require cycle and deprecated `pointerEvents` prop.
+
+### Resolved defect and release decision
+
+- [#54](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/54) was fixed by [#55](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/55). DEV-6 merged the resulting `main`, reset the database, and added the missing producer-application checks to the reusable smoke suite.
+- Post-fix validation passed: real API smoke 7/7, Ruff, 133 pytest tests, Alembic upgrade/check, all workspace typechecks, Mock contracts 11/11, and both Expo web exports.
+- The previously blocked browser scenario was rerun against FastAPI: pending and rejected applications rendered their expected content, the rejected form was prefilled, browser error logs were empty, and FastAPI logged `GET /api/auth/producer-application` as 200.
+- No release-blocking DEV-6 defect remains. Human review and merge are the remaining release gates.
