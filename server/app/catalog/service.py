@@ -570,8 +570,24 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
             p.measured_brix_at = now()
             p.brix_record_count += 1
     if "delivery_window" in data:
+        changed = (p.delivery_start, p.delivery_end) != (
+            window.start if window else None,
+            window.end if window else None,
+        )
         p.delivery_start = window.start if window else None
         p.delivery_end = window.end if window else None
+        if changed and window:
+            from app.orders.models import Order
+
+            orders = db.scalars(
+                select(Order).where(
+                    Order.product_id == p.id,
+                    Order.status.in_(("RESERVED", "PREPARING")),
+                )
+            )
+            for order in orders:
+                order.proposed_delivery_start = window.start
+                order.proposed_delivery_end = window.end
     if patch.info is not None:
         p.info = {**(p.info or {}), **patch.info.model_dump(by_alias=True, exclude_unset=True)}
     if patch.options is not None:
@@ -579,6 +595,17 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
 
     if p.status == "REJECTED":
         p.status = "DRAFT"
+    if p.status == "PUBLISHED":
+        refreshed = load_products(db, [p])[0]
+        missing = missing_fields(refreshed)
+        if missing:
+            raise invalid({name: "필수 항목이에요" for name in missing})
+        if (
+            refreshed.stages
+            and p.delivery_start
+            and refreshed.stages[-1].ends_at >= p.delivery_start
+        ):
+            raise invalid({"deliveryWindow": "받는 시기는 마지막 예약 단계 뒤여야 해요"})
     p.version += 1
     p.updated_at = now()
     db.flush()
@@ -586,6 +613,8 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
 
 
 def _replace_options(db: Session, item: Loaded, options: list[ProductOptionInput]) -> None:
+    for option in options:
+        weight_grams(option.weight_kg)
     keep = {o.option_id for o in options if o.option_id}
     current = {o.id: o for o in item.options}
     for oid in set(current) - keep:
@@ -747,10 +776,10 @@ def create_capacity_request(
     p = item.product
     if version != p.version:
         raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
-    if p.status not in ("DRAFT", "REJECTED", "PUBLISHED"):
-        raise conflict("INVALID_TRANSITION", "공급 물량을 신청할 수 없는 상품이에요.")
     if pending_capacity(db, p.id):
         raise conflict("CAPACITY_REQUEST_PENDING", "심사 중인 신청을 먼저 확인해 주세요.")
+    if p.status not in ("DRAFT", "REJECTED", "PUBLISHED"):
+        raise conflict("INVALID_TRANSITION", "공급 물량을 신청할 수 없는 상품이에요.")
     if requested_total_grams <= p.approved_supply_grams:
         raise invalid({"requestedTotalGrams": "기존 승인량보다 큰 총중량을 입력해 주세요"})
     kind = "INITIAL" if p.approved_supply_grams == 0 else "INCREASE"
@@ -861,6 +890,8 @@ def update_sales_settings(
     p = item.product
     if body.version != p.version:
         raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
+    if p.status in ("PENDING_APPROVAL", "CLOSED"):
+        raise conflict("INVALID_TRANSITION", "승인 대기·판매 종료 상품은 고칠 수 없어요.")
     state = sales_state(db, item)
     committed = state.reserved_grams + state.shipped_grams
     if p.approved_supply_grams == 0 and body.sales_limit_grams != 0:
@@ -869,6 +900,8 @@ def update_sales_settings(
         raise conflict("APPROVED_CAP_EXCEEDED", "승인 물량 안에서 판매 한도를 정해 주세요.")
     if body.sales_limit_grams < committed:
         raise conflict("CAP_BELOW_COMMITTED", "이미 예약·출하한 물량보다 줄일 수 없어요.")
+    if p.status != "PUBLISHED" and body.sales_paused != p.sales_paused:
+        raise conflict("INVALID_TRANSITION", "승인된 상품에서만 중지·재개할 수 있어요.")
     p.sales_limit_grams = body.sales_limit_grams
     p.max_quantity_per_order = body.max_quantity_per_order
     p.sales_paused = body.sales_paused
@@ -877,8 +910,20 @@ def update_sales_settings(
     db.flush()
     refreshed = load_products(db, [p])[0]
     result = sales_state(db, refreshed)
-    if not p.sales_paused and p.status == "PUBLISHED" and result.availability != "AVAILABLE":
-        raise conflict("INVALID_TRANSITION", "판매 가능한 현재 또는 미래 예약 기간이 필요해요.")
+    if not p.sales_paused and p.status == "PUBLISHED":
+        remaining = result.remaining_grams
+        resumable = any(
+            stage.ends_at >= today()
+            and any(
+                (allocation := refreshed.allocations.get((stage.id, option.id))) is not None
+                and allocation.quantity > allocation.reserved_count
+                and weight_grams(option.weight_kg) <= remaining
+                for option in refreshed.options
+            )
+            for stage in refreshed.stages
+        )
+        if not resumable:
+            raise conflict("NOT_RESUMABLE", "판매 가능한 기간과 물량을 먼저 확인해 주세요.")
     return result
 
 
