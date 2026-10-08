@@ -88,10 +88,10 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - [x] integration 변경 감지와 PostgreSQL service
 - [x] Node·uv·Chromium 설치와 full integration 실행
 - [x] 실패 artifact 업로드와 항상 성공하는 skip 경로
-- [ ] action syntax와 실제 Actions 실행 확인(YAML parse 통과, Actions 실행 대기)
+- [x] action syntax와 실제 Actions 실행 확인
 
 ### 완료 조건
-- [ ] 관련 PR에서 integration job이 실행되고 통과
+- [x] 관련 PR에서 integration job이 실행되고 통과
 - [ ] 관련 없는 변경에서는 job이 skip 단계 후 성공
 - [x] 실패 증거 upload 단계가 report·trace·screenshot/video·process/HTTP log를 포함
 - [x] 기존 server·apps job 유지
@@ -101,3 +101,4 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 10/09 DEV-25는 root test automation과 CI를 함께 바꾸므로 packages/tasks.md와 이 파일에 각각 범위·결정을 기록
 - 10/09 `integration` job을 `needs: [server, apps]`, PostgreSQL 16, Node 24, Python 3.12/uv, Chromium, 25분 제한으로 추가. 관련 경로가 없으면 skip 단계만 실행
 - 10/09 실패 시 `playwright-report/`, `test-results/`, `.artifacts/integration/`을 7일 artifact로 업로드하도록 구성. 로컬 YAML parse와 full integration 통과; GitHub Actions 결과는 push 후 확인
+- 10/09 첫 run 37818613030에서 Linux 전용 locator 차이를 artifact로 확인·수정. 재실행 run 37819337425에서 server 44초, apps 1분 28초, integration 2분 7초로 모두 통과
