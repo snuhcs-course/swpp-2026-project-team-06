@@ -68,5 +68,8 @@ test("AC-10-6: failed inquiry send retains typed text and retries", async ({ pag
   await page.getByRole("button", { name: "농가에 문의 보내기" }).click();
   await expect(input).toHaveValue("DEV25 연결 실패 뒤에도 남아야 하는 문의");
   await page.unroute(`${apiUrl}/api/orders/o-07/inquiries`);
+  await page.getByRole("button", { name: "농가에 문의 보내기" }).click();
+  await expect(page).toHaveURL(/\/chats\/f-kang/);
+  await expect(page.getByText("DEV25 연결 실패 뒤에도 남아야 하는 문의")).toBeVisible();
   assertClean();
 });

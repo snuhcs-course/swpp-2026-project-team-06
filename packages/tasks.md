@@ -262,4 +262,5 @@ DEV-6의 실제 API smoke와 수동 브라우저 결과를 반복 가능한 실�
 - 10/09 Chromium 8/8 통과: 익명 탐색·로그인 복귀, 실제 결제, 생산자 UI 수확/송장/출하, 소비자 배송 확인, 실패 문의 입력 보존, 생산자 5개 gate, 상품 초안·판매 중지/재개, 소식방 session, farm editor, 360/390/430/1440px
 - 10/09 최종 로컬 검증: Ruff 통과, pytest 133개, Alembic upgrade/check, 4개 workspace typecheck, Mock 11개, consumer/producer web export, full integration 7 API + 8 Chromium 통과. Mock 첫 실행 실패는 sandbox loopback EPERM이었고 권한 있는 동일 명령에서 통과
 - 10/09 자동화/기존 수동/미검증 범위를 영어 Testing Documentation에 분리 기록. 새 제품 Bug는 발견되지 않음
+- 10/09 AI 1차 검토에서 stateful browser suite의 CI retry가 dirty DB를 재사용하는 문제와 실패 문의의 실제 retry 누락을 찾아 retry를 끄고 두 번째 전송·채팅 표시까지 검증
 - 10/09 인계: spec 커밋(987c752)만 push, draft PR #57의 server·apps CI는 그 커밋 기준. 로컬에 push 안 한 커밋 4개(runner `scripts/run-integration.mjs`, API smoke 확장 `scripts/test-integration.mjs`, Playwright `scripts/e2e/*`, CI `integration` job). 미커밋 변경 1개: `checkout-and-fulfillment.spec.ts`의 수확 시작·출하를 API 호출에서 생산자 화면 조작으로 바꾸는 중. `test:integration:full` 실행 결과·Testing Documentation·README는 아직 기록 없음
