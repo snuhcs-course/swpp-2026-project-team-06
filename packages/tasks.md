@@ -263,4 +263,5 @@ DEV-6의 실제 API smoke와 수동 브라우저 결과를 반복 가능한 실�
 - 10/09 최종 로컬 검증: Ruff 통과, pytest 133개, Alembic upgrade/check, 4개 workspace typecheck, Mock 11개, consumer/producer web export, full integration 7 API + 8 Chromium 통과. Mock 첫 실행 실패는 sandbox loopback EPERM이었고 권한 있는 동일 명령에서 통과
 - 10/09 자동화/기존 수동/미검증 범위를 영어 Testing Documentation에 분리 기록. 새 제품 Bug는 발견되지 않음
 - 10/09 AI 1차 검토에서 stateful browser suite의 CI retry가 dirty DB를 재사용하는 문제와 실패 문의의 실제 retry 누락을 찾아 retry를 끄고 두 번째 전송·채팅 표시까지 검증
+- 10/09 첫 integration CI는 Linux 접근성 이름에 `소식방`이 없는 농가 보기 버튼을 과도하게 한정해 7/8 실패. 제품 결함이 아니며 semantic name을 `/농가 보기/`로 맞춘 뒤 전체 CI 재실행
 - 10/09 인계: spec 커밋(987c752)만 push, draft PR #57의 server·apps CI는 그 커밋 기준. 로컬에 push 안 한 커밋 4개(runner `scripts/run-integration.mjs`, API smoke 확장 `scripts/test-integration.mjs`, Playwright `scripts/e2e/*`, CI `integration` job). 미커밋 변경 1개: `checkout-and-fulfillment.spec.ts`의 수확 시작·출하를 API 호출에서 생산자 화면 조작으로 바꾸는 중. `test:integration:full` 실행 결과·Testing Documentation·README는 아직 기록 없음

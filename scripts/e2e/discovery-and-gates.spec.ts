@@ -11,7 +11,7 @@ test("AC-06/07/15: anonymous discovery, public news, and login return", async ({
   await expect(page.getByRole("heading", { name: "강씨네 귤밭", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "소식방 입장" }).click();
   await expect(page).toHaveURL(/\/news\/f-kang/);
-  await expect(page.getByRole("button", { name: /소식방.*농가 보기/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /농가 보기/ }).first()).toBeVisible();
 
   await page.goto(`${consumerUrl}/products/p-house`);
   await page.getByRole("button", { name: "예약하기" }).click();
