@@ -86,3 +86,4 @@ server/
 | 2026-10-08 | `core`: `errors.py`(오류 형식), `security.py`(JWT·WRONG_APP·승인 생산자), `pagination.py`, `idempotency.py`(`IdempotencyRecord`), `clock.py`(`FIXED_NOW`), `seed.py` | 공통 계약을 한 곳에 | AC-01-6, AC-09-3 |
 | 2026-10-08 | `JWT_SECRET`이 비면 local이 아닌 환경에서 시작 실패 | 이슈 #5(#19 리뷰) | — |
 | 2026-10-08 | 테스트는 `<DB>_test` DB에서 매 테스트 시드를 다시 넣고 돈다 | CI의 alembic 검사 DB와 분리 | — |
+| 2026-10-08 | 연락처 가림은 `core/masking.py` 하나(전화번호, 숫자 10자리 이상 계좌). 날짜는 가리지 않는다 | M-16, M-18 | AC-12-2 |

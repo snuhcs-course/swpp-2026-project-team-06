@@ -13,7 +13,14 @@ from app.accounts.models import ShippingAddress, User
 from app.catalog.models import Product, ProductOption, Stage, StageAllocation, StagePrice
 from app.core.db import Base, get_sessionmaker
 from app.farms.models import Farm, Follow
-from app.messaging.models import Broadcast, Reaction
+from app.messaging.models import (
+    Broadcast,
+    Escalation,
+    Reaction,
+    RoomReply,
+    Thread,
+    ThreadMessage,
+)
 from app.orders.models import Order, Payment
 
 KST = timezone(timedelta(hours=9))
@@ -434,6 +441,135 @@ CITIES = [
     "울산 남구 삼산로 200",
 ]
 
+# 1:1 대화(Mock db.ts). (농가, 소비자) → [(id, 보낸 쪽, 본문, 시각, 추가 필드)]
+THREADS = {
+    ("f-kang", "u-minji"): [
+        (
+            "m-1",
+            "CONSUMER",
+            "지금 당도 얼마예요? 10kg도 같은 귤인가요?",
+            ("2026-10-06", "15:12"),
+            {},
+        ),
+        (
+            "m-2",
+            "AI",
+            "10월 5일 실측 당도는 11.8Brix예요. 5kg과 10kg은 같은 하우스 감귤이고, "
+            "10kg은 55,000원이에요.",
+            ("2026-10-06", "15:12"),
+            {"source_summary": "10월 5일 소식 · 상품 정보", "source_refs": ["product:p-house"]},
+        ),
+        (
+            "m-3",
+            "CONSUMER",
+            "12일 이후에 받을 수 있게 맞춰주실 수 있나요?",
+            ("2026-10-06", "15:15"),
+            {},
+        ),
+        (
+            "m-4",
+            "AI",
+            "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+            ("2026-10-06", "15:15"),
+            {
+                "handoff_status": "FORWARDED",
+                "source_summary": "배송 날짜 약속은 농가만 할 수 있어요",
+            },
+        ),
+        (
+            "m-5",
+            "PRODUCER",
+            "네, 12일 이후 출하로 맞춰드릴게요. 급하면 ●●●-●●●●-●●●●로 연락 주세요.",
+            ("2026-10-07", "08:05"),
+            {"masked": True},
+        ),
+    ],
+    ("f-halla", "u-minji"): [
+        ("m-6", "CONSUMER", "10kg은 몇 개쯤 들어있어요?", ("2026-10-06", "20:01"), {}),
+        (
+            "m-7",
+            "AI",
+            "10kg은 약 70~90과예요.",
+            ("2026-10-06", "20:01"),
+            {"source_summary": "상품 정보", "source_refs": ["product:p-noji"]},
+        ),
+    ],
+    ("f-hyodon", "u-minji"): [
+        ("m-8", "CONSUMER", "택배사는 어디로 보내세요?", ("2026-10-02", "13:20"), {}),
+    ],
+    ("f-kang", "u-seojun"): [
+        ("m-9", "CONSUMER", "농약은 언제 마지막으로 치셨어요?", ("2026-10-06", "10:02"), {}),
+        (
+            "m-10",
+            "AI",
+            "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+            ("2026-10-06", "10:02"),
+            {
+                "handoff_status": "FORWARDED",
+                "source_summary": "재배 방식은 농가가 직접 답해야 해요",
+            },
+        ),
+    ],
+    ("f-kang", "u-buyer-park"): [
+        ("m-11", "CONSUMER", "10박스 사면 좀 깎아주실 수 있나요?", ("2026-10-05", "16:40"), {}),
+        (
+            "m-12",
+            "AI",
+            "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+            ("2026-10-05", "16:40"),
+            {"handoff_status": "FORWARDED", "source_summary": "가격 흥정은 AI가 답하지 않아요"},
+        ),
+    ],
+}
+# 전달 질문(질문함). (id, 농가, 소비자, 질문 메시지, 관련 예약, 질문, 넘긴 이유, 시각)
+ESCALATIONS = [
+    (
+        "e-1",
+        "f-kang",
+        "u-minji",
+        "m-3",
+        "하우스 감귤 5kg 예약",
+        "12일 이후에 받을 수 있게 맞춰주실 수 있나요?",
+        "배송 날짜 약속은 농가만 할 수 있어요",
+        ("2026-10-06", "15:15"),
+    ),
+    (
+        "e-2",
+        "f-kang",
+        "u-seojun",
+        "m-9",
+        None,
+        "농약은 언제 마지막으로 치셨어요?",
+        "재배 방식은 농가가 직접 답해야 해요",
+        ("2026-10-06", "10:02"),
+    ),
+    (
+        "e-3",
+        "f-kang",
+        "u-buyer-park",
+        "m-11",
+        None,
+        "10박스 사면 좀 깎아주실 수 있나요?",
+        "가격 흥정은 AI가 답하지 않아요",
+        ("2026-10-05", "16:40"),
+    ),
+]
+# 소식방 비공개 답장(M-19): 두 소비자가 같은 방에 답해 서로 안 보이는지 확인할 수 있게
+ROOM_REPLIES = [
+    (
+        "reply-1",
+        "f-kang",
+        "u-minji",
+        "첫 바구니 사진 반가워요! 일주일 뒤에 꼭 맛볼게요.",
+        ("2026-10-07", "09:00"),
+    ),
+    ("reply-2", "f-kang", "u-seojun", "신맛 빠지면 소식 또 올려 주세요.", ("2026-10-07", "09:20")),
+]
+
+
+def _thread_id(farm_id: str, consumer_id: str) -> str:
+    return f"thread-{farm_id.removeprefix('f-')}-{consumer_id.removeprefix('u-')}"
+
 
 def _stage_id(product_id: str, seq: int) -> str:
     return f"st-{product_id.removeprefix('p-')}-{seq}"
@@ -778,7 +914,15 @@ def seed(session: Session) -> None:
             )
         )
 
-    for consumer, farm in (("u-minji", "f-kang"), ("u-minji", "f-halla"), ("u-minji", "f-hyodon")):
+    # 팔로워 수(follower_count)는 시드 표시 값이고, 아래는 테스트 계정의 팔로우다.
+    follows = (
+        ("u-minji", "f-kang"),
+        ("u-minji", "f-halla"),
+        ("u-minji", "f-hyodon"),
+        ("u-seojun", "f-kang"),
+        ("u-buyer-park", "f-kang"),
+    )
+    for consumer, farm in follows:
         session.add(Follow(consumer_id=consumer, farm_id=farm, created_at=created))
     for bid, farm, when, body, photos, visibility, count in BROADCASTS:
         session.add(
@@ -796,6 +940,56 @@ def seed(session: Session) -> None:
     session.add(
         Reaction(broadcast_id="n-2", user_id="u-minji", created_at=at("2026-10-05", "12:00"))
     )
+    for rid, farm, consumer, body, when in ROOM_REPLIES:
+        session.add(
+            RoomReply(id=rid, farm_id=farm, consumer_id=consumer, body=body, created_at=at(*when))
+        )
+    for (farm, consumer), messages in THREADS.items():
+        tid = _thread_id(farm, consumer)
+        human = any(sender == "PRODUCER" for _, sender, *_ in messages)
+        session.add(
+            Thread(
+                id=tid,
+                farm_id=farm,
+                consumer_id=consumer,
+                ai_mode="HUMAN" if human else "AUTO",
+                version=2 if human else 1,
+                created_at=at(*messages[0][3]),
+            )
+        )
+        session.flush()
+        for mid, sender, body, when, extra in messages:
+            session.add(
+                ThreadMessage(
+                    id=mid,
+                    thread_id=tid,
+                    sender_type=sender,
+                    body=body,
+                    photos=[],
+                    attachment_ids=[],
+                    source_refs=extra.get("source_refs", []),
+                    source_summary=extra.get("source_summary"),
+                    handoff_status=extra.get("handoff_status"),
+                    masked=extra.get("masked", False),
+                    settings_version=1 if sender == "AI" else None,
+                    needs_human=False,
+                    created_at=at(*when),
+                )
+            )
+            session.flush()
+    for eid, farm, consumer, mid, context, question, reason, when in ESCALATIONS:
+        session.add(
+            Escalation(
+                id=eid,
+                thread_id=_thread_id(farm, consumer),
+                thread_message_id=mid,
+                context=context,
+                question=question,
+                reason=reason,
+                status="OPEN",
+                created_at=at(*when),
+            )
+        )
     for aid, uid, label, name, phone, postal, address, detail, default in ADDRESSES:
         session.add(
             ShippingAddress(

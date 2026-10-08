@@ -656,3 +656,8 @@ def farm_products(db: Session, farm_id: str) -> list[Loaded]:
     query = select(Product).where(Product.farm_id == farm_id).order_by(Product.id)
     products = list(db.scalars(query))
     return load_products(db, products)
+
+
+def published_products_of_farm(db: Session, farm_id: str) -> list[Product]:
+    query = select(Product).where(Product.farm_id == farm_id, Product.status == "PUBLISHED")
+    return list(db.scalars(query.order_by(Product.id)))

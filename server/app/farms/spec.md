@@ -34,3 +34,4 @@
 | 2026-10-07 | 홈은 소식 미리보기 대신 농가 둘러보기, 농가 상태 SUSPENDED, 팔로우는 소비자 계정만 | SWPP-81(screens.md 1.1) | AC-06-5 |
 | 2026-10-08 | 팔로워 수는 `Farm.follower_count`에 두고 팔로우·해제 때 행 잠금 안에서 바꾼다. 시즌 히어로 문구는 `HERO`, 상품은 설정 `HOME_HERO_PRODUCT_ID` | 시드 128명 유지, screens.md 결정 19 | AC-06-3 |
 | 2026-10-08 | 농가 페이지 응답에 `latestNews`(최신 공개 소식 한 개), `shareUrl`은 `/s/farms/{id}`(OG 페이지는 Should) | screens.md 7.2 farms | AC-19-1 |
+| 2026-10-08 | `FarmAiSettings`는 farms가 가진다. 행이 없으면 기본값(켜짐, version 1). 설정 API는 1.2 (2/2) | contracts-1.2 5장 | AC-13-7 |
