@@ -38,6 +38,8 @@ class Order(Base):
     stage_id: Mapped[str] = mapped_column(ForeignKey("stages.id"))
     quantity: Mapped[int] = mapped_column(Integer)
     unit_price: Mapped[int] = mapped_column(Integer)
+    unit_weight_grams: Mapped[int] = mapped_column(Integer)
+    released_quantity: Mapped[int] = mapped_column(Integer, default=0)
     shipping_fee: Mapped[int] = mapped_column(Integer, default=0)
     remote_area_fee: Mapped[int] = mapped_column(Integer, default=0)
     total_amount: Mapped[int] = mapped_column(Integer)
