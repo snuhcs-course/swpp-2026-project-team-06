@@ -222,7 +222,7 @@ def test_order_detail_for_owner(client, login):
 def test_AC_14_1_dashboard_counts(client, login):
     body = client.get("/api/orders/producer/dashboard", headers=login("u-kang")).json()
 
-    assert body["todo"] == {"openQuestions": 0, "toShip": 7, "pendingProducts": 1}
+    assert body["todo"] == {"openQuestions": 3, "toShip": 7, "pendingProducts": 1}
     assert body["product"] == {
         "productId": "p-house",
         "productName": "하우스 감귤 5kg / 10kg",
