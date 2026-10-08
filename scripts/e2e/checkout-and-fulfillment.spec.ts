@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-import { apiLogin, apiUrl, consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from "./helpers";
+import { apiUrl, consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from "./helpers";
 
-test("AC-08/09/10: consumer checkout reaches producer and preserves status", async ({ browser, request }) => {
+test("AC-08/09/10: consumer checkout reaches producer and preserves status", async ({ browser }) => {
   test.setTimeout(120_000);
   const consumer = await browser.newContext();
   const consumerPage = await consumer.newPage();
@@ -36,19 +36,17 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   const producerPage = await producer.newPage();
   const assertProducerClean = monitor(producerPage);
   await loginProducer(producerPage, "강영수");
-  const producerToken = await apiLogin(request, "u-kang", "producer");
-  await request.post(`${apiUrl}/api/orders/producer/harvest-start`, {
-    headers: { Authorization: `Bearer ${producerToken}` },
-    data: { productId: "p-house" },
-  });
   await producerPage.goto(`${producerUrl}/ship`);
+  await producerPage.getByRole("button", { name: "수확 시작" }).first().click();
+  await producerPage.getByRole("button", { name: "수확 시작" }).last().click();
   await expect(producerPage.getByText("DEV25 구매자")).toBeVisible();
-
-  const ship = await request.post(`${apiUrl}/api/orders/${orderId}/ship`, {
-    headers: { Authorization: `Bearer ${producerToken}` },
-    data: { carrier: "CJ", trackingNumber: "DEV25-1234" },
-  });
-  expect(ship.ok()).toBeTruthy();
+  await producerPage.getByRole("button", { name: /DEV25 구매자.*택배사·송장 번호 넣기/ }).click();
+  await producerPage.getByRole("radio", { name: "CJ대한통운" }).click();
+  await producerPage.getByRole("textbox", { name: "송장 번호", exact: true }).fill("DEV25-1234");
+  await producerPage.getByRole("button", { name: "저장", exact: true }).click();
+  await producerPage.getByRole("button", { name: "1건 출하로 바꾸기" }).click();
+  await producerPage.getByRole("button", { name: "1건 출하로 바꾸기" }).last().click();
+  await expect(producerPage.getByRole("tab", { name: /출하 4/ })).toBeVisible();
 
   await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
   await expect(consumerPage.getByRole("heading", { name: "배송 중" })).toBeVisible();
