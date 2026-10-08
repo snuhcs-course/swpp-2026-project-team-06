@@ -77,25 +77,35 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/08 시드 테스트 계정은 소비자 2·생산자 5(ADR 0010). 이전 SWPP-26 할 일의 “생산자 2명”은 SWPP-81로 바뀌었다
 - 10/08 시계는 `FIXED_NOW` 설정으로 고정할 수 있다(데모·테스트 기준일 2026-10-07, contracts 1장)
 - 10/08 API 문서는 FastAPI `/docs`·`/openapi.json`으로 프론트에 공유한다
+- 10/08 `reservedCount`(예약한 사람 수)는 저장하지 않고 결제된 주문의 소비자 수로 계산한다(tech-design 데이터 모델). 시드의 레드향·노지·효돈 표시 값은 주문 수와 같아진다
+- 10/08 팔로워 수·좋아요 수는 `Farm.follower_count`, `Broadcast.reaction_count`에 두고 팔로우·좋아요 때 같은 트랜잭션에서 바꾼다(시드 128명·128개를 그대로 보여주기 위해)
+- 10/08 옵션 ID는 상품 안에서만 유일하다(`opt-5`, 기본 키 = 상품 + 옵션). 단계 ID는 전체에서 유일하게 `st-house-1`처럼 바꿨다
+- 10/08 현황의 답할 질문 수(`openQuestions`)는 채팅(Should, 1.2)이 들어오기 전까지 0
+- 10/08 운영자 토큰은 `python -m app.accounts.admin_token`으로 발급한다(시드 `u-admin`, 테스트 계정 아님). 관리 API는 Swagger UI에서 부른다(ADR 0008)
+- 10/08 테스트는 같은 PostgreSQL의 `<DB>_test` DB에서 돈다. CI의 alembic 검사 DB와 섞이지 않게
+- 10/08 도서산간 판정은 우편번호·주소 예시 규칙(Mock과 같음). 생산자가 지역을 정하는 R-20은 후속
 
 ### 작업
-- [ ] core: 설정(플래그·JWT 검사), 오류 형식, JWT·권한, 페이지네이션, 멱등 키, 시계
-- [ ] 모델과 Alembic 마이그레이션(스펙 1.1 데이터 모델)
-- [ ] 시드(tech-design 시드 데이터, Mock db.ts)
-- [ ] accounts: test-accounts, test-login, me, 배송지 조회·추가
-- [ ] farms: 홈, 농가, 팔로우·해제
-- [ ] catalog: 상품 상세, 내 상품, AI 초안, 상품 생성·수정, 단계 기본값·설정, 게시 요청 / 관리: 상품 승인
-- [ ] orders: 주문 생성, Mock 결제, 주문 상세, 생산자 현황
-- [ ] messaging: 농가 공개 소식
-- [ ] 테스트(AC ID), ruff, alembic check
+- [x] core: 설정(플래그·JWT 검사), 오류 형식, JWT·권한, 페이지네이션, 멱등 키, 시계
+- [x] 모델과 Alembic 마이그레이션(스펙 1.1 데이터 모델)
+- [x] 시드(tech-design 시드 데이터, Mock db.ts)
+- [x] accounts: test-accounts, test-login, me, 배송지 조회·추가
+- [x] farms: 홈, 농가, 팔로우·해제
+- [x] catalog: 상품 상세, 내 상품, AI 초안, 상품 생성·수정, 단계 기본값·설정, 게시 요청 / 관리: 상품 승인
+- [x] orders: 주문 생성, Mock 결제, 주문 상세, 생산자 현황
+- [x] messaging: 농가 공개 소식
+- [x] 테스트(AC ID), ruff, alembic check
 - [ ] AI 1차 리뷰 → ready for review
 
 ### 완료 조건
-- [ ] 스펙 1.1의 Must API 23개 구현
-- [ ] API 문서(`/docs`) 공유
-- [ ] JWT_SECRET 비면 local 외 환경에서 시작 실패
-- [ ] 테스트 통과(CI server job)
+- [x] 스펙 1.1의 Must API 23개 구현
+- [x] API 문서(`/docs`) 공유
+- [x] JWT_SECRET 비면 local 외 환경에서 시작 실패
+- [x] 테스트 통과(CI server job)
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/08 spec 작성, 브랜치 생성
+- 10/08 core·모델·시드·accounts·farms·catalog·orders·messaging 구현. pytest 65개(AC-09-1 동시 결제 포함), ruff, alembic upgrade·downgrade·check 통과
+- 10/08 로컬 서버 스모크: 로그인·WRONG_APP 403·홈·상품 상세·주문·같은 키 결제 2번(1번만 반영)·현황·운영자 승인 확인
+- 10/08 남은 일(후속 PR): 스펙 1.2~1.5 계약, Should API(주문 내역·취소·구매 확정·출하·소식 올리기·채팅 등), 공유 링크 OG(/s), 카카오(I2)
