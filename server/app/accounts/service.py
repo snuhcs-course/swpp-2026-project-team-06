@@ -6,7 +6,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.accounts.models import ShippingAddress, User
-from app.accounts.schemas import Address, AddressInput, LoginResult, TestAccount, UserView
+from app.accounts.schemas import (
+    Address,
+    AddressInput,
+    LoginResult,
+    ProducerApplication,
+    ProducerApplicationInput,
+    TestAccount,
+    UserView,
+)
 from app.core.clock import now
 from app.core.config import get_settings
 from app.core.errors import forbidden, invalid, not_found
@@ -85,6 +93,66 @@ def test_login(db: Session, user_id: str, app: str) -> LoginResult:
     if user.role != APP_ROLE[app]:
         raise forbidden("이 앱의 계정이 아니에요.", reason="WRONG_APP")
     return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
+
+
+def _application_view(user: User, farm) -> ProducerApplication:
+    return ProducerApplication(
+        farm_id=farm.id,
+        owner_name=user.name,
+        farm_name=farm.name,
+        region=farm.region,
+        main_items=farm.main_items,
+        phone=farm.contact_phone,
+        status=farm.approval_status,
+        reject_reason=farm.reject_reason,
+        submitted_at=farm.applied_at,
+        decided_at=farm.decided_at,
+    )
+
+
+def producer_application(db: Session, user: User) -> ProducerApplication:
+    from app.farms import service as farms
+
+    farm = farms.get_farm_of_producer(db, user.id)
+    if farm is None:
+        raise not_found("신청 내역이 없어요.")
+    return _application_view(user, farm)
+
+
+def submit_producer_application(
+    db: Session, user: User, data: ProducerApplicationInput
+) -> ProducerApplication:
+    from app.farms import service as farms
+
+    fields = {}
+    if not data.owner_name.strip():
+        fields["ownerName"] = "대표자 이름을 적어 주세요"
+    if not data.farm_name.strip():
+        fields["farmName"] = "농가 이름을 적어 주세요"
+    if not data.region.strip():
+        fields["region"] = "지역을 적어 주세요"
+    if not data.main_items.strip():
+        fields["mainItems"] = "주로 키우는 것을 적어 주세요"
+    if not PHONE.fullmatch(data.phone.strip()):
+        fields["phone"] = "휴대폰 번호 형식으로 입력해 주세요"
+    if fields:
+        raise invalid(fields)
+
+    locked_user = db.scalar(select(User).where(User.id == user.id).with_for_update())
+    if locked_user is None:
+        raise not_found()
+    user = locked_user
+    farm = farms.submit_application(
+        db,
+        producer_id=user.id,
+        name=data.farm_name.strip(),
+        region=data.region.strip(),
+        main_items=data.main_items.strip(),
+        contact_phone=data.phone.strip(),
+    )
+    user.name = data.owner_name.strip()
+    db.flush()
+    return _application_view(user, farm)
 
 
 def _address(a: ShippingAddress) -> Address:

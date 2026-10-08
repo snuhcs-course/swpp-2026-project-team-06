@@ -9,12 +9,14 @@ from app.accounts.schemas import (
     AddressInput,
     App,
     LoginResult,
+    ProducerApplication,
+    ProducerApplicationInput,
     TestAccount,
     TestLoginInput,
     UserView,
 )
 from app.core.db import get_db
-from app.core.security import Consumer, CurrentUser
+from app.core.security import Consumer, CurrentUser, Producer
 
 router = APIRouter(prefix="/auth", tags=["accounts"])
 
@@ -36,6 +38,18 @@ def test_login(db: Db, body: TestLoginInput):
 @router.get("/me", response_model=UserView)
 def me(db: Db, user: CurrentUser):
     return service.user_view(db, user)
+
+
+@router.post("/producer-application", response_model=ProducerApplication)
+def submit_producer_application(db: Db, user: Producer, body: ProducerApplicationInput):
+    service.submit_producer_application(db, user, body)
+    db.commit()
+    return service.producer_application(db, user)
+
+
+@router.get("/producer-application", response_model=ProducerApplication)
+def producer_application(db: Db, user: Producer):
+    return service.producer_application(db, user)
 
 
 @router.get("/me/addresses", response_model=list[Address])

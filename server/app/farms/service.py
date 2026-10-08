@@ -38,6 +38,52 @@ def get_farm_of_producer(db: Session, producer_id: str) -> Farm | None:
     return db.scalar(select(Farm).where(Farm.producer_id == producer_id))
 
 
+def submit_application(
+    db: Session,
+    producer_id: str,
+    name: str,
+    region: str,
+    main_items: str,
+    contact_phone: str,
+) -> Farm:
+    farm = db.scalar(
+        select(Farm).where(Farm.producer_id == producer_id).with_for_update()
+    )
+    if farm is None:
+        farm = Farm(
+            id=new_id("f"),
+            producer_id=producer_id,
+            name=name,
+            region=region,
+            intro="",
+            detail_content=None,
+            photo=None,
+            main_items=main_items,
+            contact_phone=contact_phone,
+            approval_status="PENDING",
+            reject_reason=None,
+            suspend_reason=None,
+            follower_count=0,
+            applied_at=now(),
+            decided_at=None,
+        )
+        db.add(farm)
+    elif farm.approval_status == "REJECTED":
+        farm.name = name
+        farm.region = region
+        farm.main_items = main_items
+        farm.contact_phone = contact_phone
+        farm.approval_status = "PENDING"
+        farm.reject_reason = None
+        farm.suspend_reason = None
+        farm.applied_at = now()
+        farm.decided_at = None
+    else:
+        raise conflict("INVALID_TRANSITION", "이미 신청했어요.")
+    db.flush()
+    return farm
+
+
 def get_approved_farm(db: Session, farm_id: str) -> Farm | None:
     farm = db.get(Farm, farm_id)
     return farm if farm and farm.approval_status == "APPROVED" else None
