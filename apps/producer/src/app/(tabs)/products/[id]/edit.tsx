@@ -362,6 +362,18 @@ export default function EditProduct() {
               : ""}
           </T>
         </View>
+        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+          <Button
+            label="상품 상세 페이지 편집"
+            variant="outline"
+            onPress={() =>
+              router.push({
+                pathname: "/products/[id]/detail",
+                params: { id: p.productId },
+              })
+            }
+          />
+        </View>
         {p.status === "REJECTED" && p.rejectReason ? (
           <Notice
             title="반려됐어요. 고쳐서 다시 요청해 주세요."
@@ -373,7 +385,7 @@ export default function EditProduct() {
         {p.status === "PUBLISHED" ? (
           <Notice
             title="판매 중 상품이에요"
-            body="가격·옵션·예약 기간·받는 시기를 바꾸면 다시 승인받을 때까지 지금 값으로 팔려요."
+            body="저장한 가격은 새 예약부터 적용돼요. 공급 물량을 늘릴 때만 추가 승인이 필요해요. 기존 주문의 옵션·중량은 변경할 수 없고, 받는 시기 변경은 소비자 동의가 필요해요."
             style={{ marginHorizontal: 20, marginTop: 20 }}
           />
         ) : null}

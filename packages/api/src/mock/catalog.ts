@@ -1,3 +1,4 @@
+import { validateDetail } from "./detailContent";
 import { salesState, validatePeriods } from "./sales";
 import { db, TODAY } from "./db";
 // /api/products Mock (FEAT-03 AI 초안, 04 상품 편집, 05 단계·가격·물량, 07 상품 상세)
@@ -67,6 +68,7 @@ function myProduct(p: ProductRec): MyProduct {
     expectedBrix: p.expectedBrix,
     variety: p.variety,
     description: p.description,
+    ...(p.detailContent ? { detailContent: p.detailContent } : {}),
     grade: p.grade,
     measuredBrix: p.measuredBrix,
     measuredBrixAt: p.measuredBrixAt,
@@ -336,6 +338,8 @@ register({
         }
       }
       const next = structuredClone(p);
+      if (b.detailContent !== undefined)
+        next.detailContent = validateDetail(b.detailContent);
       for (const k of [
         "name",
         "variety",

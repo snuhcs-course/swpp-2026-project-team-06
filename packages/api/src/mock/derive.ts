@@ -130,6 +130,7 @@ export function productDetail(
     ...card,
     variety: p.variety,
     description: p.description,
+    ...(p.detailContent ? { detailContent: p.detailContent } : {}),
     grade: p.grade,
     measuredBrix: p.measuredBrix,
     measuredBrixAt: p.measuredBrixAt,

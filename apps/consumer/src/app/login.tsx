@@ -76,7 +76,7 @@ export default function Login() {
       <Scroll bottom={170}>
         <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 8 }}>
           <T variant="title" accessibilityRole="header">
-            {"로그인하고\n예약을 이어가요"}
+            {"로그인하고\n계속해요"}
           </T>
           <T variant="body" muted>
             예약·팔로우·채팅은 로그인이 필요해요. 끝나면 보던{" "}

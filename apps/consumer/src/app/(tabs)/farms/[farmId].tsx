@@ -1,10 +1,6 @@
+import { DetailStory, Icon } from "@farmclub/ui";
 // SCR-03 농가 페이지 (FEAT-02, 06, 12, 15, 19) — design: scr-03, s-03-news, s-03-notfound
-import {
-  farms,
-  messaging,
-  type FarmDetail,
-  type NewsItem,
-} from "@farmclub/api";
+import { farms, type FarmDetail } from "@farmclub/api";
 import {
   Button,
   EmptyState,
@@ -15,7 +11,6 @@ import {
   ProductRow,
   Screen,
   Scroll,
-  Segmented,
   Sheet,
   Skeleton,
   T,
@@ -27,30 +22,24 @@ import {
   useAsync,
   won,
 } from "@farmclub/ui";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useEffect, useState, useCallback } from "react";
+import { View, Pressable } from "react-native";
 
 import { useSession } from "../../../lib/session";
 import { useToast } from "../../../lib/toast";
-import {
-  LoadError,
-  NewsCard,
-  PhotoShade,
-  copyText,
-  isStatus,
-} from "../../../lib/views";
+import { LoadError, PhotoShade, copyText, isStatus } from "../../../lib/views";
 
 export default function FarmPage() {
   const { farmId } = useLocalSearchParams<{ farmId: string }>();
   const router = useRouter();
   const { user, requireLogin, resume, clearResume } = useSession();
   const farm = useAsync(() => farms.get(farmId), [farmId, user?.userId]);
-  const news = useAsync(
-    () => messaging.farmNews(farmId),
-    [farmId, user?.userId],
+  useFocusEffect(
+    useCallback(() => {
+      void farm.reload();
+    }, [farm.reload, farmId, user?.userId]),
   );
-  const [tab, setTab] = useState<"products" | "news">("products");
   const toast = useToast(tokens.height.tabBarClearance + 16);
   const [chatConfirm, setChatConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -83,33 +72,6 @@ export default function FarmPage() {
     else setChatConfirm(true);
   }
 
-  async function like(n: NewsItem) {
-    requireLogin(
-      "like",
-      here,
-      async () => {
-        try {
-          const r = n.myReaction
-            ? await messaging.unreact(n.broadcastId)
-            : await messaging.react(n.broadcastId);
-          news.setData((p) =>
-            p
-              ? {
-                  ...p,
-                  items: p.items.map((x) =>
-                    x.broadcastId === n.broadcastId ? { ...x, ...r } : x,
-                  ),
-                }
-              : p,
-          );
-        } catch (e) {
-          toast.fail(e);
-        }
-      },
-      { broadcastId: n.broadcastId },
-    );
-  }
-
   // 로그인 뒤 돌아오면 누른 행동을 이어서 한다(결정 25, D-17). 로그인한 사용자 기준 값을 다시 읽은 뒤에 실행
   useEffect(() => {
     if (!user || !resume || resume.next !== here || !f || farm.loading) return;
@@ -119,23 +81,15 @@ export default function FarmPage() {
     } else if (resume.action === "chat") {
       clearResume();
       chatNow(f.isFollowing);
-    } else if (resume.action === "like" && news.data && !news.loading) {
-      clearResume();
-      const n = news.data.items.find(
-        (x) => x.broadcastId === resume.data?.broadcastId,
-      );
-      if (n && !n.myReaction) void like(n);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.userId, resume, f, farm.loading, news.data, news.loading]);
+  }, [user?.userId, resume, f, farm.loading]);
 
   function startChat() {
     requireLogin("chat", here, () => chatNow(!!f?.isFollowing));
   }
 
   if (farm.error && isStatus(farm.error, 404)) return <NotFound />;
-
-  const latest = news.data?.items[0];
 
   return (
     <Screen fullBleed={!!f}>
@@ -147,7 +101,7 @@ export default function FarmPage() {
           </>
         ) : (
           <View>
-            <Skeleton width="100%" height={440} radius={0} />
+            <Skeleton width="100%" height={220} radius={0} />
             <View style={{ padding: 20, gap: 12 }}>
               <Skeleton width="70%" height={22} />
               <Skeleton width="100%" height={52} radius={16} />
@@ -156,11 +110,11 @@ export default function FarmPage() {
         )
       ) : (
         <Scroll bottom={tokens.height.tabBarClearance}>
-          <View style={{ height: 440 }}>
+          <View style={{ height: 220 }}>
             <Photo
               uri={f.photo}
               width="100%"
-              height={440}
+              height={220}
               radius={0}
               alt={`${f.name} 농부`}
               kind="farm"
@@ -205,85 +159,107 @@ export default function FarmPage() {
                 {f.name}
               </T>
               <T variant="sub" color="rgba(255,255,255,0.88)">
-                {f.region} · 팔로워 {f.followerCount}명
+                {f.region}
               </T>
             </View>
           </View>
 
-          <View
-            style={{
-              flexDirection: "row",
-              gap: 12,
-              paddingHorizontal: 20,
-              paddingTop: 16,
-            }}
-          >
-            <FollowButton
-              following={f.isFollowing}
-              loading={busy}
-              onPress={() =>
-                f.isFollowing
-                  ? void toggleFollow(false)
-                  : requireLogin("follow", here, () => void toggleFollow(true))
-              }
-              style={{ flex: 1 }}
-            />
-            <Button
-              label="1:1 채팅하기"
-              variant="outline"
-              onPress={startChat}
-              style={{ flex: 1 }}
-            />
-          </View>
-
-          {f.intro ? (
-            <T variant="body" style={{ marginHorizontal: 20, marginTop: 16 }}>
-              {f.intro}
-            </T>
-          ) : null}
-
-          {tab === "products" && latest ? (
-            <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-              <NewsCard item={latest} onLike={() => like(latest)} first />
+          <View style={{ padding: 20, gap: 18 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <T variant="sub" muted style={{ flex: 1 }}>
+                이 농가의 다음 이야기도 받아보세요
+              </T>
+              <FollowButton
+                following={f.isFollowing}
+                loading={busy}
+                onPress={() =>
+                  f.isFollowing
+                    ? void toggleFollow(false)
+                    : requireLogin(
+                        "follow",
+                        here,
+                        () => void toggleFollow(true),
+                      )
+                }
+              />
             </View>
-          ) : null}
-
-          <View style={{ paddingHorizontal: 20, paddingTop: 32 }}>
-            <Segmented
-              value={tab}
-              onChange={setTab}
-              options={[
-                { value: "products", label: "상품" },
-                { value: "news", label: "소식" },
-              ]}
-            />
-            {tab === "products" ? (
-              <ProductsTab
-                f={f}
-                onOpen={(id) => router.push(`/products/${id}`)}
-              />
-            ) : news.data && news.data.items.length > 0 ? (
-              <View style={{ marginTop: 8 }}>
-                {news.data.items.map((n, i) => (
-                  <NewsCard
-                    key={n.broadcastId}
-                    item={n}
-                    onLike={() => like(n)}
-                    first={i === 0}
-                  />
-                ))}
+            <View
+              style={{
+                flexDirection: "row",
+                borderRadius: 20,
+                backgroundColor: tokens.color.surface,
+                paddingVertical: 16,
+              }}
+            >
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                }}
+              >
+                <T variant="heading">{f.followerCount.toLocaleString()}</T>
+                <T variant="caption" muted>
+                  팔로워
+                </T>
               </View>
-            ) : news.loading ? (
-              <Skeleton
-                width="100%"
-                height={220}
-                radius={16}
-                style={{ marginTop: 16 }}
-              />
-            ) : (
-              <EmptyState icon="news" title="아직 올라온 소식이 없어요" />
-            )}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push(`/news/${farmId}?from=farm`)}
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  borderLeftWidth: 1,
+                  borderRightWidth: 1,
+                  borderColor: tokens.color.border,
+                }}
+              >
+                <Icon name="news" size={22} />
+                <T variant="sub" weight="semibold">
+                  소식방 입장
+                </T>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={startChat}
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <Icon name="chat" size={22} />
+                <T variant="sub" weight="semibold">
+                  1:1 채팅
+                </T>
+              </Pressable>
+            </View>
           </View>
+          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+            <T variant="heading" accessibilityRole="header">
+              농가의 상품
+            </T>
+            <ProductsTab
+              f={f}
+              onOpen={(id) => router.push(`/products/${id}`)}
+            />
+          </View>
+          <DetailStory
+            content={f.detailContent}
+            fallback={f.intro}
+            title={f.name + " 이야기"}
+          />
         </Scroll>
       )}
       {toast.node}

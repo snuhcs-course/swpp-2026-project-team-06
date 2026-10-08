@@ -261,6 +261,7 @@ export function ProductRow({
           <View
             style={{
               flexDirection: "row",
+              flexWrap: "wrap",
               alignItems: "center",
               gap: 8,
               marginTop: 4,
@@ -272,19 +273,19 @@ export function ProductRow({
               </T>
             ) : null}
             {chip ? <Chip label={chip} /> : null}
-            {chipNote ? (
-              <T variant="sub" muted>
-                {chipNote}
-              </T>
-            ) : null}
           </View>
         ) : null}
+        {chipNote ? (
+          <T variant="caption" muted>
+            {chipNote}
+          </T>
+        ) : null}
+        {reserved ? (
+          <T variant="caption" muted>
+            {reserved}
+          </T>
+        ) : null}
       </View>
-      {reserved ? (
-        <T variant="caption" muted style={styles.reserved}>
-          {reserved}
-        </T>
-      ) : null}
     </Pressable>
   );
 }
@@ -756,7 +757,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   prowBorder: { borderTopWidth: 1, borderTopColor: tokens.color.border },
-  reserved: { position: "absolute", right: 0, bottom: 16 },
   lrow: {
     flexDirection: "row",
     alignItems: "center",

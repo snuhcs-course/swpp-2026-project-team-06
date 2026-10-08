@@ -225,6 +225,11 @@ export default function Farm() {
                 />
               </View>
               <Button
+                label="농가 상세 페이지 편집"
+                variant="outline"
+                onPress={() => router.push("/farm/detail")}
+              />
+              <Button
                 label="소비자 앱에서 내 농가 보기 ›"
                 variant="text"
                 onPress={() =>

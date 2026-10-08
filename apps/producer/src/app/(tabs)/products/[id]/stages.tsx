@@ -269,15 +269,7 @@ export default function Periods() {
                 기간 사이를 비워 두면 그동안 예약을 받지 않아요. 모든 예약
                 기간은 배송 시작 전에 끝나야 해요.
               </T>
-              <Button
-                label={
-                  p.status === "PUBLISHED"
-                    ? "승인 대기 편집안 저장"
-                    : "예약 기간 저장"
-                }
-                loading={busy}
-                onPress={save}
-              />
+              <Button label="예약 기간 저장" loading={busy} onPress={save} />
             </>
           ) : null}
         </View>

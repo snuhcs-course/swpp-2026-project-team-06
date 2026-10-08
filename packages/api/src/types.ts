@@ -191,6 +191,7 @@ export type NewsRoomMessage = {
   myReaction: boolean;
 };
 export type NewsRoomSummary = {
+  canReply: boolean;
   farmId: string;
   farmName: string;
   farmPhoto: string | null;
@@ -214,6 +215,7 @@ export type Home = {
 
 export type FarmDetail = FarmSummary & {
   intro: string;
+  detailContent?: DetailContent;
   isFollowing: boolean;
   products: ProductCard[];
   shareUrl: string;
@@ -221,6 +223,7 @@ export type FarmDetail = FarmSummary & {
 
 export type MyFarm = FarmSummary & {
   intro: string;
+  detailContent?: DetailContent;
   status: FarmStatus;
   shareUrl: string | null;
 };
@@ -258,6 +261,7 @@ export type Stage = {
 export type ProductDetail = ProductCard & {
   variety: string;
   description: string;
+  detailContent?: DetailContent;
   grade: string | null;
   measuredBrix: number | null;
   measuredBrixAt: ISODate | null;
@@ -328,6 +332,7 @@ export type ProductPatch = { version: number } & Partial<{
   name: string;
   variety: string;
   description: string;
+  detailContent?: DetailContent;
   grade: string | null;
   expectedBrix: number | null;
   measuredBrix: number | null;
@@ -649,3 +654,11 @@ export type CapacityRequest = {
   decidedAt: string | null;
   version: number;
 };
+
+/** 스펙 1.5: 사람이 확인·저장하는 상세 콘텐츠 */
+export type DetailBlock =
+  | { id: string; type: "text"; title: string; body: string }
+  | { id: string; type: "image"; uri: string; alt: string };
+export type DetailContent = { blocks: DetailBlock[] };
+export type DetailDraftInput = { inputText: string; photos: string[] };
+export type DetailDraft = { content: DetailContent; mode: "mock" | "ai" };

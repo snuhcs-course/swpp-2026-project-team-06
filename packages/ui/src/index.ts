@@ -64,3 +64,5 @@ export {
   messageTime,
 } from "./Messenger";
 export { useLiveList } from "./useLiveList";
+
+export { DetailStory, StoryImage } from "./DetailStory";

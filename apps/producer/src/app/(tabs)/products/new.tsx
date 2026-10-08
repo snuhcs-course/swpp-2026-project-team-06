@@ -182,8 +182,8 @@ export default function NewProduct() {
             )}
             {draft.priceMentioned ? (
               <T variant="sub" muted style={{ marginTop: 16 }}>
-                문구의 ‘{draft.priceMentioned}’은 넣지 않았어요. 가격은 단계
-                설정에서 정해요.
+                문구의 ‘{draft.priceMentioned}’은 넣지 않았어요. 가격은 예약
+                기간별 설정에서 정해요.
               </T>
             ) : null}
             {error ? (
@@ -255,7 +255,7 @@ export default function NewProduct() {
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
             <T variant="caption" muted>
-              가격은 단계 설정에서 정해요
+              가격은 예약 기간별로 정해요
             </T>
             <T variant="caption" muted>
               {text.length.toLocaleString("ko-KR")} / 3,000
