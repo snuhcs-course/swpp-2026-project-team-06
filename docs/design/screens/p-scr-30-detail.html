@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>SCR-30 하위 · 소개 고치기</title>
+<title>SCR-30 하위 · 농가 상세 편집</title>
 </head>
 <body>
 <div class="x-dc">
@@ -42,15 +42,37 @@ a{color:#111111;text-decoration:none}a:hover{color:#000000}
 .bar{position:absolute;left:0;right:0;bottom:0;padding:12px 20px 28px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #E8E8E6;display:flex;flex-direction:column;gap:12px}
 </style>
 
-<div style="width:390px;height:844px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
-  <header style="height:48px;display:flex;align-items:center;padding:0 8px;flex:none"><a href="p-scr-30.html" aria-label="뒤로" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#111111"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a><span style="flex:1;text-align:center;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">소개</span><span style="width:48px"></span></header>
-  <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:8px">
-    <label for="intro" class="lbl">소개</label>
-    <textarea id="intro" class="ta" style="height:160px;border:1.5px solid #111111">3대째 효돈 하우스 감귤. 밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요.</textarea>
-    <span class="t15 muted">소비자 앱 농가 페이지 이름 아래에 보여요.</span>
+<div style="width:390px;height:1360px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
+  <header style="height:48px;display:flex;align-items:center;padding:0 8px;flex:none"><a href="p-scr-30.html" aria-label="뒤로" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#111111"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a><span style="flex:1;text-align:center;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">농가 상세 편집</span><span style="width:48px"></span></header>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <h1 class="t34" style="margin:0">강씨네 귤밭</h1>
+    <p class="t17 muted" style="margin:0">사진과 글로 우리 이야기를 전해요. 저장하면 소비자에게 보여요.</p>
+    
+    <section class="card">
+      <h2 class="t22" style="margin:0">이야기 초안 만들기</h2>
+      <span class="t15 muted">Mock 미리보기 · 실제 AI 호출 없이 등록 정보와 입력을 구성해요.</span>
+      <label for="ref" class="lbl" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">상세 생성 참고 글</label>
+      <textarea id="ref" class="ta" style="height:120px" placeholder="농가의 이야기, 과일의 특징을 적어 주세요"></textarea>
+      <span class="t15 muted">0/3,000 · 가격·예약 날짜는 판매 설정에서 관리해요</span>
+      <a href="#" class="btn out">참고 사진 추가 (0/10)</a>
+      <a href="#" class="btn pri">상세 초안 생성</a>
+    </section>
+    <div class="seg" role="tablist" aria-label="보기"><a href="#" role="tab" class="on" aria-selected="true">내용 편집</a><a href="s-30-detail-preview.html" role="tab" aria-selected="false">미리보기</a></div>
+  </div>
+  <div style="padding:0 20px 168px;display:flex;flex-direction:column;gap:16px">
+      <div class="blk">
+        <span class="t15" style="font-weight:600">1. 글</span>
+        <label for="t1" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">섹션 1 제목</label>
+        <input id="t1" class="inp" value="강씨네 귤밭" placeholder="제목">
+        <label for="b1" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">섹션 1 본문</label>
+        <textarea id="b1" class="ta" style="height:150px" placeholder="이야기를 적어 주세요">3대째 효돈 하우스 감귤. 밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요.</textarea>
+        <span style="display:flex;gap:8px"><a href="#" class="tbtn off" aria-disabled="true">위로</a><a href="#" class="tbtn off" aria-disabled="true">아래로</a><a href="#" class="tbtn">삭제</a></span>
+      </div>
+      <a href="#" class="btn out">글 섹션 추가</a>
+      <a href="#" class="btn out">상세 사진 추가</a>
   </div>
   <div class="bar">
-    <a href="p-scr-30.html" class="btn pri">저장</a>
+    <a href="#" class="btn pri">상세 저장</a>
   </div>
 </div>
 </div>
