@@ -11,69 +11,89 @@
 @font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
 body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 a{color:#111111;text-decoration:none}a:hover{color:#000000}
+button{font-family:inherit;border:0;margin:0;cursor:pointer}
 .muted{color:#6B6B6B}
-.todo{display:flex;align-items:center;gap:16px;min-height:56px;padding:12px 0;border-top:1px solid #E8E8E6;color:#111111}
-.todo b{font-size:48px;font-weight:700;letter-spacing:-0.02em;line-height:1;width:64px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:56px;border-top:1px solid #E8E8E6}
-.bar{height:6px;border-radius:999px;background:#E8E8E6;overflow:hidden}
-.bar i{display:block;height:100%;background:#111111}
-.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
-.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
-.tab.on{color:#111111;background:#F5F5F3}
-.badge{position:absolute;top:2px;left:50%;margin-left:8px;min-width:24px;height:24px;padding:0 8px;box-sizing:border-box;border-radius:999px;background:#C94F0C;color:#FFFFFF;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
-.fab{position:absolute;right:16px;bottom:88px;height:56px;padding:0 24px;border-radius:999px;background:#C94F0C;color:#FFFFFF;display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600}
 .t34{font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
 .t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25}
 .t17{font-size:17px;line-height:1.5}
 .t15{font-size:15px;line-height:1.45}
+.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
+.tab.on{color:#111111;background:#F5F5F3}
+.badge{position:absolute;top:2px;left:50%;margin-left:8px;min-width:24px;height:24px;padding:0 8px;box-sizing:border-box;border-radius:999px;background:#C94F0C;color:#FFFFFF;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:56px;border-radius:16px;font-size:17px;font-weight:600;box-sizing:border-box;width:100%}
+.btn.p{background:#C94F0C;color:#FFFFFF}
+.btn.s{background:#F5F5F3;color:#111111}
+.btn.o{background:#FFFFFF;color:#111111;border:1.5px solid #111111}
+.btn.off{background:#F5F5F3;color:#6B6B6B}
+.btn.o.off{background:#FFFFFF;border-color:#E8E8E6}
+.btn.sm{height:52px}
+.tbtn{display:inline-flex;align-items:center;min-height:48px;font-size:17px;font-weight:600;background:none;color:#111111;padding:0}
+.f{display:flex;flex-direction:column;gap:8px}
+.lbl{font-size:15px;font-weight:600}
+.fld{height:48px;border:1px solid #E8E8E6;border-radius:8px;padding:0 16px;font-size:16px;width:100%;box-sizing:border-box;font-family:inherit;color:#111111;background:#FFFFFF;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fld.err{border:1.5px solid #B42318}
+.notice{padding:16px;border-radius:16px;background:#F5F5F3;display:flex;flex-direction:column;gap:4px}
+.bar{height:8px;border-radius:999px;background:#E8E8E6;overflow:hidden}
+.bar i{display:block;height:100%;background:#111111}
+.bottombar{position:absolute;left:0;right:0;bottom:0;padding:12px 20px 28px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #E8E8E6;display:flex;gap:8px}
+.sheet{position:absolute;left:0;right:0;bottom:0;border-radius:16px 16px 0 0;background:rgba(255,255,255,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px 20px 28px;display:flex;flex-direction:column;gap:12px}
 </style>
 
-<div style="width:390px;height:1640px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden;padding-bottom:176px">
-
+<div style="width:390px;height:1480px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden;padding-bottom:96px">
   <div style="position:relative;width:390px;height:200px;overflow:hidden;flex:none">
-    <img src="../assets/greenhouse.jpg" alt="강씨네 귤밭 하우스" style="display:block;width:390px;height:200px;object-fit:cover">
+    <img src="../assets/greenhouse.jpg" alt="강씨네 귤밭 사진" style="display:block;width:390px;height:200px;object-fit:cover">
     <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.6) 100%)"></div>
     <div style="position:absolute;left:20px;right:20px;bottom:16px;display:flex;flex-direction:column;gap:4px;color:#FFFFFF">
-      <span class="t22" style="color:#FFFFFF">강씨네 귤밭</span>
+      <h1 class="t22" style="margin:0;color:#FFFFFF">강씨네 귤밭</h1>
       <span class="t15" style="opacity:0.88">10월 7일 (수) · 오늘 할 일 11</span>
     </div>
   </div>
 
   <div style="padding:8px 20px 0">
-    <a href="p-scr-28.html" class="todo" style="border-top:0"><b>3</b><span class="t17" style="font-weight:600;flex:1">답할 질문</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
-    <a href="p-scr-29.html" class="todo"><b>7</b><span class="t17" style="font-weight:600;flex:1">출하할 주문</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
-    <a href="p-scr-23.html" class="todo" style="border-bottom:1px solid #E8E8E6"><b>1</b><span class="t17" style="font-weight:600;flex:1">승인 대기 상품</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
+    <a href="p-scr-28.html" aria-label="답변이 필요한 대화 3" style="display:flex;align-items:center;gap:16px;min-height:56px;padding:12px 0;border-top:0"><b style="font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1;min-width:48px">3</b><span class="t17" style="font-weight:600;flex:1">답변이 필요한 대화</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
+    <a href="p-scr-29.html" aria-label="출하할 주문 7" style="display:flex;align-items:center;gap:16px;min-height:56px;padding:12px 0;border-top:1px solid #E8E8E6"><b style="font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1;min-width:48px">7</b><span class="t17" style="font-weight:600;flex:1">출하할 주문</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
+    <a href="p-scr-23.html" aria-label="승인 대기 상품 1" style="display:flex;align-items:center;gap:16px;min-height:56px;padding:12px 0;border-top:1px solid #E8E8E6;border-bottom:1px solid #E8E8E6"><b style="font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1;min-width:48px">1</b><span class="t17" style="font-weight:600;flex:1">승인 대기 상품</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
   </div>
 
-  <section style="padding:40px 20px 0;display:flex;flex-direction:column;gap:24px">
-    <div style="display:flex;flex-direction:column"><h2 class="t22" style="margin:0;font-weight:700">예약 수량</h2><span class="t15 muted">하우스 감귤 · 37명 예약, 40건</span></div>
+  <section style="padding:40px 20px 0;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:4px"><h2 class="t22" style="margin:0">예약 수량</h2><span class="t15 muted">하우스 감귤 5kg / 10kg · 37명 예약, 40건</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="t15 muted">예약 중</span><span style="font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25">230kg</span></div><div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="t15 muted">출하 완료</span><span style="font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25">20kg</span></div><div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="t15 muted">추가 예약 가능</span><span style="font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25">2,150kg</span></div>
+    </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <span class="t15" style="font-weight:700">1단계 · 지금</span>
-      <div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15">5kg</span><span class="t15"><b>38</b> / 80박스</span></div><div class="bar"><i style="width:48%"></i></div></div><div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15">10kg</span><span class="t15"><b>6</b> / 20박스</span></div><div class="bar"><i style="width:30%"></i></div></div>
+      <div class="bar" role="progressbar" aria-label="판매 한도 2,400kg 중 250kg 사용"><i style="width:10%"></i></div>
+      <span class="t15 muted">승인 2,400kg · 판매 한도 2,400kg 중 250kg 사용</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:#F5F5F3">
+      <span class="t15" style="font-weight:700">10월 1일 ~ 10월 12일 · 지금 예약받는 기간</span>
+      <div role="progressbar" aria-label="5kg 80박스 중 38박스 예약" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15">5kg</span><span class="t15"><b>38</b> / 80박스</span></div><div class="bar" style="height:6px"><i style="width:48%"></i></div></div>
+      <div role="progressbar" aria-label="10kg 20박스 중 6박스 예약" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15">10kg</span><span class="t15"><b>6</b> / 20박스</span></div><div class="bar" style="height:6px"><i style="width:30%"></i></div></div>
       <span class="t15 muted">10월 12일까지 · 5kg 42박스, 10kg 14박스 남음</span>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <span class="t15 muted" style="font-weight:600">2단계</span>
-      <div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">5kg</span><span class="t15 muted">0 / 60박스</span></div><div class="bar"><i style="width:0%"></i></div></div><div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">10kg</span><span class="t15 muted">0 / 25박스</span></div><div class="bar"><i style="width:0%"></i></div></div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:0 16px">
+      <span class="t15 muted" style="font-weight:600">10월 13일 ~ 11월 5일</span>
+      <div role="progressbar" aria-label="5kg 60박스 중 0박스 예약" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">5kg</span><span class="t15 muted">0 / 60박스</span></div><div class="bar" style="height:6px"><i style="width:0%"></i></div></div>
+      <div role="progressbar" aria-label="10kg 25박스 중 0박스 예약" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">10kg</span><span class="t15 muted">0 / 25박스</span></div><div class="bar" style="height:6px"><i style="width:0%"></i></div></div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <span class="t15 muted" style="font-weight:600">3단계</span>
-      <div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">5kg</span><span class="t15 muted">0 / 40박스</span></div><div class="bar"><i style="width:0%"></i></div></div><div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">10kg</span><span class="t15 muted">0 / 15박스</span></div><div class="bar"><i style="width:0%"></i></div></div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:8px 16px 0">
+      <span class="t15 muted" style="font-weight:600">11월 6일 ~ 11월 9일</span>
+      <div role="progressbar" aria-label="5kg 40박스 중 0박스 예약" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">5kg</span><span class="t15 muted">0 / 40박스</span></div><div class="bar" style="height:6px"><i style="width:0%"></i></div></div>
+      <div role="progressbar" aria-label="10kg 15박스 중 0박스 예약" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t15 muted">10kg</span><span class="t15 muted">0 / 15박스</span></div><div class="bar" style="height:6px"><i style="width:0%"></i></div></div>
     </div>
   </section>
 
   <section style="padding:40px 20px 0">
-    <h2 class="t22" style="margin:0 0 8px;font-weight:700">최근 예약</h2>
-    <div class="row"><span style="display:flex;flex-direction:column"><span class="t15" style="font-weight:600">김○○ · 5kg × 2</span><span class="t15 muted">10월 7일 · 서울 마포구</span></span><span class="t15" style="font-weight:600">예약 완료</span></div>
-    <div class="row" style="border-bottom:1px solid #E8E8E6"><span style="display:flex;flex-direction:column"><span class="t15" style="font-weight:600">이○○ · 10kg × 1</span><span class="t15 muted">10월 6일 · 부산 해운대구</span></span><span class="t15" style="font-weight:600">예약 완료</span></div>
+    <h2 class="t22" style="margin:0 0 8px">최근 예약</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:56px;padding:8px 0;box-sizing:border-box;border-top:1px solid #E8E8E6"><span style="display:flex;flex-direction:column;min-width:0"><span class="t15" style="font-weight:600">예○○ · 5kg × 1</span><span class="t15 muted">10월 7일 · 울산 남구</span></span><span class="t15" style="font-weight:600;flex:none">예약 완료</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:56px;padding:8px 0;box-sizing:border-box;border-top:1px solid #E8E8E6"><span style="display:flex;flex-direction:column;min-width:0"><span class="t15" style="font-weight:600">안○○ · 5kg × 1</span><span class="t15 muted">10월 7일 · 광주 서구</span></span><span class="t15" style="font-weight:600;flex:none">예약 완료</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:56px;padding:8px 0;box-sizing:border-box;border-top:1px solid #E8E8E6;border-bottom:1px solid #E8E8E6"><span style="display:flex;flex-direction:column;min-width:0"><span class="t15" style="font-weight:600">예○○ · 5kg × 1</span><span class="t15 muted">10월 7일 · 대구 수성구</span></span><span class="t15" style="font-weight:600;flex:none">예약 완료</span></div>
   </section>
-
-  <a href="p-scr-27.html" class="fab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>소식</a>
   <nav class="tabbar">
     <a href="p-scr-22.html" class="tab on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-8M10 20V5M16 20v-5M2 20h20"/></svg>현황</a>
     <a href="p-scr-23.html" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>상품</a>
-    <a href="p-scr-28.html" class="tab" aria-label="질문함, 답할 질문 3"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17h.01"/></svg>질문함<span class="badge">3</span></a>
-    <a href="p-scr-30.html" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>농가</a>
+    <a href="p-scr-28.html" class="tab" aria-label="채팅, 안 읽음 4"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4z"/></svg>채팅<span class="badge">4</span></a>
+    <a href="p-scr-33.html" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>환경설정</a>
   </nav>
 </div>
 </div>
