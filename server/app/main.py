@@ -6,11 +6,13 @@ from app.ai.router import router as ai_router
 from app.analytics.router import router as analytics_router
 from app.catalog.router import router as catalog_router
 from app.core.config import get_settings
+from app.core.errors import install_error_handlers
 from app.farms.router import router as farms_router
 from app.messaging.router import router as messaging_router
 from app.orders.router import router as orders_router
 
 app = FastAPI(title="Farmclub API")
+install_error_handlers(app)
 
 # 두 앱(웹)과 API는 다른 주소다. 앱 주소만 허용한다.
 settings = get_settings()
