@@ -36,7 +36,9 @@ def upgrade() -> None:
         "products",
         sa.Column("sales_paused", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
-    op.add_column("products", sa.Column("version", sa.Integer(), nullable=False, server_default="1"))
+    op.add_column(
+        "products", sa.Column("version", sa.Integer(), nullable=False, server_default="1")
+    )
     op.add_column("orders", sa.Column("unit_weight_grams", sa.Integer(), nullable=True))
     op.add_column(
         "orders", sa.Column("released_quantity", sa.Integer(), nullable=False, server_default="0")
@@ -84,19 +86,48 @@ def upgrade() -> None:
             "WHERE po.product_id=o.product_id AND po.id=o.option_id"
         )
     )
-    missing = connection.scalar(sa.text("SELECT COUNT(*) FROM orders WHERE unit_weight_grams IS NULL"))
+    missing = connection.scalar(
+        sa.text("SELECT COUNT(*) FROM orders WHERE unit_weight_grams IS NULL")
+    )
     if missing:
         raise RuntimeError("Every existing order must map to an option weight")
     op.alter_column("orders", "unit_weight_grams", nullable=False)
     connection.execute(
         sa.text(
+            "UPDATE orders SET released_quantity=quantity "
+            "WHERE status='REFUNDED' AND shipped_at IS NULL"
+        )
+    )
+    connection.execute(
+        sa.text(
+            "UPDATE stage_allocations AS a SET reserved_count=COALESCE(("
+            "SELECT SUM(o.quantity-o.released_quantity) FROM orders AS o "
+            "WHERE o.stage_id=a.stage_id AND o.option_id=a.option_id "
+            "AND o.paid_at IS NOT NULL), 0)"
+        )
+    )
+    connection.execute(
+        sa.text(
+            "UPDATE stage_allocations SET quantity=0 "
+            "WHERE product_id='p-redhyang' AND option_id='opt-3' "
+            "AND stage_id IN (SELECT id FROM stages WHERE product_id='p-redhyang' AND seq=1)"
+        )
+    )
+    connection.execute(
+        sa.text(
             "INSERT INTO capacity_requests "
-            "(id, product_id, kind, requested_total_grams, status, reason, created_at, decided_at, version) "
+            "(id, product_id, kind, requested_total_grams, status, reason, created_at, "
+            "decided_at, version) "
             "SELECT 'capacity-' || id, id, 'INITIAL', 250000, 'PENDING', NULL, updated_at, NULL, 1 "
             "FROM products WHERE status='PENDING_APPROVAL'"
         )
     )
     op.drop_column("products", "pending_reapproval")
+    op.alter_column("products", "approved_supply_grams", server_default=None)
+    op.alter_column("products", "sales_limit_grams", server_default=None)
+    op.alter_column("products", "sales_paused", server_default=None)
+    op.alter_column("products", "version", server_default=None)
+    op.alter_column("orders", "released_quantity", server_default=None)
 
 
 def downgrade() -> None:
