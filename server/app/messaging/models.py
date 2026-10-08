@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Identity,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -116,3 +117,42 @@ class Escalation(Base):
     answer: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PrivateAttachment(Base):
+    """주문 문의·1:1 대화의 비공개 사진(contracts-1.2 6장). 공개 소식 미디어와 분리한다.
+
+    I1은 바이트를 DB에 둔다. 업로더만 보는 임시 파일은 접수·전송에 성공하면 자원에 묶인다.
+    """
+
+    __tablename__ = "private_attachments"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    uploader_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    order_id: Mapped[str | None] = mapped_column(String(64))
+    thread_id: Mapped[str | None] = mapped_column(String(64))
+    mime_type: Mapped[str] = mapped_column(String(32))
+    size: Mapped[int] = mapped_column(Integer)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    bound: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class OrderInquiry(Base):
+    """주문 문제 문의(FEAT-33). RESOLVED는 대화 처리 표시일 뿐 환불·보상 승인이 아니다(M-21)."""
+
+    __tablename__ = "order_inquiries"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"), index=True)
+    thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), index=True)
+    message_id: Mapped[str] = mapped_column(ForeignKey("thread_messages.id"))
+    # DAMAGE · CONDITION · TASTE · OTHER
+    type: Mapped[str] = mapped_column(String(16))
+    text: Mapped[str] = mapped_column(Text)
+    attachment_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # OPEN · RESOLVED
+    status: Mapped[str] = mapped_column(String(16), default="OPEN")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
