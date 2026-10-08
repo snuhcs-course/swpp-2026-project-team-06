@@ -31,6 +31,36 @@ _REMOTE_POSTAL = re.compile(r"^(63|40[0-2]|23[01])")
 _REMOTE_ADDRESS = re.compile(r"(울릉|옹진|도서)")
 
 
+def capacity_totals(db: Session, product_id: str) -> tuple[int, int, int]:
+    reserved_grams = shipped_grams = sold_quantity = 0
+    orders = db.scalars(
+        select(Order).where(Order.product_id == product_id, Order.paid_at.is_not(None))
+    )
+    for order in orders:
+        allocated = max(0, order.quantity - order.released_quantity)
+        sold_quantity += allocated
+        grams = allocated * order.unit_weight_grams
+        if order.shipped_at:
+            shipped_grams += grams
+        else:
+            reserved_grams += grams
+    return reserved_grams, shipped_grams, sold_quantity
+
+
+def propose_delivery_window(
+    db: Session, product_id: str, delivery_start, delivery_end
+) -> None:
+    orders = db.scalars(
+        select(Order).where(
+            Order.product_id == product_id,
+            Order.status.in_(("RESERVED", "PREPARING")),
+        )
+    )
+    for order in orders:
+        order.proposed_delivery_start = delivery_start
+        order.proposed_delivery_end = delivery_end
+
+
 def reserved_people(db: Session, product_ids: list[str]) -> dict[str, int]:
     """상품별 예약한 사람 수(reservedCount, 같은 사람의 여러 주문은 한 명)."""
     if not product_ids:

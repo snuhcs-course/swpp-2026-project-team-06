@@ -124,20 +124,11 @@ def weight_grams(weight_kg: float) -> int:
 
 
 def sales_state(db: Session, item: Loaded) -> SalesState:
-    from app.orders.models import Order
+    from app.orders import service as orders
 
-    reserved_grams = shipped_grams = sold_quantity = 0
-    orders = db.scalars(
-        select(Order).where(Order.product_id == item.product.id, Order.paid_at.is_not(None))
+    reserved_grams, shipped_grams, sold_quantity = orders.capacity_totals(
+        db, item.product.id
     )
-    for order in orders:
-        allocated = max(0, order.quantity - order.released_quantity)
-        sold_quantity += allocated
-        grams = allocated * order.unit_weight_grams
-        if order.shipped_at:
-            shipped_grams += grams
-        else:
-            reserved_grams += grams
     p = item.product
     remaining = p.sales_limit_grams - reserved_grams - shipped_grams
     cur = current_stage(item)
@@ -591,17 +582,9 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
         p.delivery_start = window.start if window else None
         p.delivery_end = window.end if window else None
         if changed and window:
-            from app.orders.models import Order
+            from app.orders import service as orders
 
-            orders = db.scalars(
-                select(Order).where(
-                    Order.product_id == p.id,
-                    Order.status.in_(("RESERVED", "PREPARING")),
-                )
-            )
-            for order in orders:
-                order.proposed_delivery_start = window.start
-                order.proposed_delivery_end = window.end
+            orders.propose_delivery_window(db, p.id, window.start, window.end)
     if patch.info is not None:
         p.info = {**(p.info or {}), **patch.info.model_dump(by_alias=True, exclude_unset=True)}
     if patch.options is not None:
