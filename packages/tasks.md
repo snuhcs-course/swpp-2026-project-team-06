@@ -184,19 +184,24 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/09 실패는 재현 정보·예상/실제·증거를 담은 별도 Bug 이슈로 등록하고 DEV-6에는 수정하지 않는다. blocker 수정 후 전체 matrix를 다시 실행한다
 
 ### 작업
-- [ ] `npm run test:integration` 실제 FastAPI smoke harness
-- [ ] 인증·상품 승인·주문·용량·소식/채팅·상세 콘텐츠 API 흐름
-- [ ] 소비자·생산자 브라우저 핵심 흐름과 계정 gate
-- [ ] privacy·오류 복구·390/1440px·Mock 미사용 확인
-- [ ] 전체 자동 검사와 browser 결과를 영어 Testing Documentation에 기록
-- [ ] 실패별 Bug 이슈 등록·수정 후 전체 재실행
+- [x] `npm run test:integration` 실제 FastAPI smoke harness
+- [x] 인증·상품 승인·주문·용량·소식/채팅·상세 콘텐츠 API 흐름
+- [ ] 소비자·생산자 브라우저 핵심 흐름과 계정 gate (#54 수정 후 재실행 필요)
+- [x] privacy·오류 복구·390/1440px·Mock 미사용 확인
+- [x] 전체 자동 검사와 browser 결과를 영어 Testing Documentation에 기록
+- [ ] 실패별 Bug 이슈 등록·수정 후 전체 재실행 (#54 등록 완료, 수정 대기)
 
 ### 완료 조건
-- [ ] 실제 FastAPI smoke 전체 통과
+- [x] 실제 FastAPI smoke 전체 통과
 - [ ] 브라우저 시나리오 전체 expected=actual, 예상하지 않은 5xx·console error·Mock 요청 없음
-- [ ] ruff·pytest·alembic, typecheck·Mock tests·web export 통과
+- [x] ruff·pytest·alembic, typecheck·Mock tests·web export 통과
 - [ ] 모든 실패가 별도 Bug 이슈로 추적되고 blocker 해결 후 재검증
 - [ ] AI 1차 리뷰 후 사람 1명 승인, CI 통과, main 머지
 
 ### 기록
 - 10/09 PR #52(스펙 1.5) 머지·CI 통과 후 최신 main에서 브랜치 생성. GitHub #7 완료 조건과 기존 pytest·Mock·browser 검증 기록, 실제 API 실행 방법 확인
+- 10/09 draft PR #53 생성. `scripts/test-integration.mjs`는 localhost만 허용하고 새 의존성 없이 7개 실제 서버 흐름을 순차 검증한다
+- 10/09 DB reset 뒤 실제 API smoke 7/7 통과. ruff 통과, pytest 128개 통과, Alembic upgrade/check 통과. frontend typecheck 4개 workspace, Mock 11개, 두 Expo web export 통과
+- 10/09 브라우저에서 익명 탐색·로그인 복귀, 소비자 결제, 생산자 수확/송장/출하, 소비자 배송 상태, 상품 상세 초안/재정렬/미리보기/저장, 공개 소식방 privacy, AI 답변/전달, reload·API 중단/재시도, 390/1440px를 실제 port 8000으로 확인. 예상하지 않은 5xx·browser error·Mock 요청 없음
+- 10/09 승인 대기·반려 생산자에서 `/api/auth/producer-application` 404로 `/pending`이 `Not Found`를 표시하는 blocker 발견. 제품 수정은 섞지 않고 Bug #54로 등록해 #7·#8에 연결. 정지·신규 gate는 정상
+- 10/09 #54 수정 머지 후 최신 main 병합, DB reset, 전체 API/브라우저 matrix 재실행 전까지 draft 유지하고 완료 처리하지 않는다
