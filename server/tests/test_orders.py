@@ -205,6 +205,149 @@ def test_stage_changed_before_payment(client, login):
     assert response.json()["details"]["reason"] == "STAGE_CHANGED"
 
 
+def test_AC_05_6_price_change_preserves_paid_and_reconfirms_unpaid(client, login):
+    consumer = login("u-seojun")
+    producer = login("u-kang")
+    paid = client.post("/api/orders", headers=consumer | key(), json=order_body()).json()
+    client.post(f"/api/orders/{paid['orderId']}/pay", headers=consumer | key(), json={})
+    unpaid = client.post("/api/orders", headers=consumer | key(), json=order_body()).json()
+
+    product = client.get("/api/products/mine/p-house", headers=producer).json()
+    stages = []
+    for stage in product["stages"]:
+        stages.append(
+            {
+                **stage,
+                "options": {
+                    option_id: {"price": value["price"] + 100, "quantity": value["quantity"]}
+                    for option_id, value in stage["options"].items()
+                },
+            }
+        )
+    changed = client.put(
+        "/api/products/p-house/stages",
+        headers=producer | key(),
+        json={"version": product["version"], "stages": stages},
+    )
+    assert changed.status_code == 200, changed.text
+
+    paid_detail = client.get(f"/api/orders/{paid['orderId']}", headers=consumer).json()
+    assert paid_detail["unitPrice"] == 29000
+    reconfirm = client.post(
+        f"/api/orders/{unpaid['orderId']}/pay", headers=consumer | key(), json={}
+    )
+    assert reconfirm.status_code == 409
+    assert reconfirm.json()["details"]["reason"] == "STAGE_CHANGED"
+    newest = client.post("/api/orders", headers=consumer | key(), json=order_body()).json()
+    assert newest["unitPrice"] == 29100
+
+    product = client.get("/api/products/mine/p-house", headers=producer).json()
+    options = product["options"]
+    options[0]["weightKg"] = 6
+    locked = client.patch(
+        "/api/products/p-house",
+        headers=producer | key(),
+        json={"version": product["version"], "options": options},
+    )
+    assert locked.status_code == 409
+    assert locked.json()["details"]["reason"] == "PERIOD_LOCKED"
+
+
+def test_AC_09_6_mixed_weight_release_and_shipping_accounting(client, login):
+    consumer = login("u-seojun")
+    producer = login("u-kang")
+    before = client.get("/api/products/mine/p-house", headers=producer).json()
+    committed = before["reservedGrams"] + before["shippedGrams"]
+
+    five = client.post(
+        "/api/orders", headers=consumer | key(), json=order_body(quantity=2)
+    ).json()
+    client.post(f"/api/orders/{five['orderId']}/pay", headers=consumer | key(), json={})
+    ten = client.post(
+        "/api/orders", headers=consumer | key(), json=order_body(optionId="opt-10")
+    ).json()
+    client.post(f"/api/orders/{ten['orderId']}/pay", headers=consumer | key(), json={})
+
+    after_payment = client.get("/api/products/mine/p-house", headers=producer).json()
+    assert after_payment["reservedGrams"] + after_payment["shippedGrams"] == committed + 20_000
+
+    first_cancel = client.post(f"/api/orders/{ten['orderId']}/cancel", headers=consumer).json()
+    second_cancel = client.post(f"/api/orders/{ten['orderId']}/cancel", headers=consumer).json()
+    assert first_cancel["releasedQuantity"] == second_cancel["releasedQuantity"] == 1
+    after_cancel = client.get("/api/products/mine/p-house", headers=producer).json()
+    assert after_cancel["reservedGrams"] + after_cancel["shippedGrams"] == committed + 10_000
+
+    client.post(
+        "/api/orders/producer/harvest-start",
+        headers=producer,
+        json={"productId": "p-house"},
+    )
+    shipped = client.post(
+        f"/api/orders/{five['orderId']}/ship",
+        headers=producer,
+        json={"carrier": "CJ", "trackingNumber": "12345678"},
+    )
+    assert shipped.status_code == 200, shipped.text
+    after_ship = client.get("/api/products/mine/p-house", headers=producer).json()
+    assert after_ship["reservedGrams"] + after_ship["shippedGrams"] == committed + 10_000
+
+
+def test_AC_09_6_weight_limit_allows_only_one_concurrent_payment(client, login):
+    producer = login("u-kang")
+    consumers = [login("u-seojun"), login("u-minji")]
+    product = client.get("/api/products/mine/p-house", headers=producer).json()
+    committed = product["reservedGrams"] + product["shippedGrams"]
+    settings = client.put(
+        "/api/products/p-house/sales-settings",
+        headers=producer | key(),
+        json={
+            "salesLimitGrams": committed + 5_000,
+            "maxQuantityPerOrder": 3,
+            "salesPaused": False,
+            "version": product["version"],
+        },
+    )
+    assert settings.status_code == 200, settings.text
+    orders = [
+        client.post("/api/orders", headers=headers | key(), json=order_body()).json()["orderId"]
+        for headers in consumers
+    ]
+
+    def pay_weight(index: int):
+        return client.post(
+            f"/api/orders/{orders[index]}/pay", headers=consumers[index] | key(), json={}
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(pay_weight, [0, 1]))
+
+    assert sorted(response.status_code for response in results) == [200, 409]
+    loser = next(response for response in results if response.status_code == 409)
+    assert loser.json()["details"]["reason"] == "TOTAL_LIMIT_REACHED"
+
+
+def test_AC_10_6_lists_filters_and_order_actions(client, login):
+    consumer = login("u-minji")
+    producer = login("u-kang")
+    consumer_orders = client.get("/api/orders", headers=consumer).json()["items"]
+    assert all(order["status"] != "PENDING_PAYMENT" for order in consumer_orders)
+    assert consumer_orders[0]["actions"]
+
+    filtered = client.get(
+        "/api/orders/producer", headers=producer, params={"status": "PREPARING"}
+    ).json()["items"]
+    assert filtered
+    assert all(order["status"] == "PREPARING" for order in filtered)
+
+    confirmed = client.post("/api/orders/o-07/confirm", headers=consumer)
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "COMPLETED"
+
+    canceled = client.post("/api/orders/o-42/cancel", headers=consumer)
+    assert canceled.status_code == 200
+    assert canceled.json()["status"] == "REFUNDED"
+
+
 def test_other_consumers_order_is_not_found(client, login):
     response = client.get("/api/orders/o-42", headers=login("u-seojun"))
 
@@ -223,7 +366,9 @@ def test_AC_14_1_dashboard_counts(client, login):
     body = client.get("/api/orders/producer/dashboard", headers=login("u-kang")).json()
 
     assert body["todo"] == {"openQuestions": 3, "toShip": 7, "pendingProducts": 1}
-    assert body["product"] == {
+    assert {key: body["product"][key] for key in (
+        "productId", "productName", "reservedCount", "orderCount"
+    )} == {
         "productId": "p-house",
         "productName": "하우스 감귤 5kg / 10kg",
         "reservedCount": 37,

@@ -10,7 +10,14 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.accounts.models import ShippingAddress, User
-from app.catalog.models import Product, ProductOption, Stage, StageAllocation, StagePrice
+from app.catalog.models import (
+    CapacityRequest,
+    Product,
+    ProductOption,
+    Stage,
+    StageAllocation,
+    StagePrice,
+)
 from app.core.db import Base, get_sessionmaker
 from app.farms.models import Farm, Follow
 from app.messaging.models import (
@@ -167,6 +174,13 @@ KANG_INFO = {
 OPT5 = ("opt-5", "5kg", 5, "약 35~45과")
 OPT10 = ("opt-10", "10kg", 10, "약 70~90과")
 OPT3 = ("opt-3", "3kg", 3, None)
+CAPACITY = {
+    "p-house": 2_400_000,
+    "p-redhyang": 300_000,
+    "p-josaeng": 300_000,
+    "p-noji": 800_000,
+    "p-hyodon": 180_000,
+}
 
 # (상품 필드, 옵션, 단계[(이름, 시작, 끝, {옵션: (가격, 물량, 예약 박스)})])
 PRODUCTS = [
@@ -845,12 +859,21 @@ def seed(session: Session) -> None:
     session.flush()
 
     products = {}
+    weights: dict[tuple[str, str], int] = {}
     for fields, options, stages in PRODUCTS:
+        product_id = fields["id"]
+        if fields.get("status") in ("PUBLISHED", "CLOSED"):
+            fields = {
+                **fields,
+                "approved_supply_grams": CAPACITY[product_id],
+                "sales_limit_grams": CAPACITY[product_id],
+            }
         p = Product(**{"info": KANG_INFO, "updated_at": at("2026-10-06"), **fields})
         session.add(p)
         products[p.id] = p
         session.flush()
         for i, (oid, label, kg, note) in enumerate(options):
+            weights[(p.id, oid)] = round(kg * 1000)
             session.add(
                 ProductOption(
                     product_id=p.id, id=oid, label=label, weight_kg=kg, note=note, sort_order=i
@@ -877,6 +900,17 @@ def seed(session: Session) -> None:
                     )
                 )
     session.flush()
+    session.add(
+        CapacityRequest(
+            id="capacity-p-cheonggyeon",
+            product_id="p-cheonggyeon",
+            kind="INITIAL",
+            requested_total_grams=250_000,
+            status="PENDING",
+            created_at=at("2026-10-06"),
+            version=1,
+        )
+    )
 
     house_orders, buyers = _house_orders()
     examples = _example_orders()
@@ -888,9 +922,12 @@ def seed(session: Session) -> None:
     for o in examples + house_orders:
         p = products[o["product_id"]]
         o.setdefault("delivery_note", None)
+        released = o["quantity"] if o["status"] == "REFUNDED" and not o.get("shipped_at") else 0
         session.add(
             Order(
                 stage_id=_stage_id(p.id, 1),
+                unit_weight_grams=weights[(p.id, o["option_id"])],
+                released_quantity=released,
                 shipping_fee=0,
                 remote_area_fee=0,
                 total_amount=o["unit_price"] * o["quantity"],
@@ -903,6 +940,12 @@ def seed(session: Session) -> None:
             )
         )
     session.flush()
+    for allocation in session.scalars(select(StageAllocation)):
+        allocation.reserved_count = 0
+    for order in session.scalars(select(Order)):
+        allocation = session.get(StageAllocation, (order.stage_id, order.option_id))
+        allocation.reserved_count += order.quantity - order.released_quantity
+    session.get(StageAllocation, ("st-redhyang-1", "opt-3")).quantity = 0
     for o in session.scalars(select(Order)):
         session.add(
             Payment(

@@ -7,7 +7,7 @@
 - 이슈: [DEV-12](https://linear.app/sswp6/issue/DEV-12) (GitHub #19)
 - 브랜치: `nemodleo/dev-12-i1-구현-뼈대-appspackagesserver-폴더와-폴더별-specmd`
 - 기능·인수 조건: 없음(뼈대). 모듈별 FEAT는 `app/<모듈>/spec.md`
-- 상태: 진행 중
+- 상태: 사람 리뷰 대기
 
 ### 목표
 DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대로 실행되는 빈 FastAPI 서버와 모듈별 spec.md를 만든다.
@@ -154,7 +154,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 ### 완료 조건
 - [x] 소비자 A의 답장·질문이 B의 목록·요약·cursor·API에 나오지 않음(AC-12-1·6)
 - [x] HUMAN/OFF에서 AI 답 없음, 왕복 전환 뒤 늦은 답 저장 안 함(AC-13-6·7)
-- [ ] 테스트·ruff·alembic check, CI 통과
+- [x] 테스트·ruff·alembic check, CI 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
@@ -204,3 +204,47 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 ### 기록
 - 10/08 브랜치·spec 작성
 - 10/08 모델·마이그레이션 0003, AI 설정 API, 비공개 사진, 주문 문제 문의. pytest 115개(새 테스트 17개), ruff, alembic upgrade·downgrade·check 통과
+
+## DEV-4 스펙 1.4 — 상품별 공급 물량 승인·판매 설정·주문 처리
+
+- 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5, 이 PR은 닫지 않음)
+- 브랜치: `zahra/dev-4-spec-1-4-capacity-orders`
+- 기능·인수 조건: AC-04-8·9, AC-05-6, AC-09-6, AC-10-6, FEAT-10·11·17 / [capacity-1.4](../docs/spec/capacity-1.4.md)
+- 상태: 진행 중
+
+### 목표
+1.1의 게시 요청·운영자 상품 승인·재승인(`pendingReapproval`)을 상품별 공급 물량 신청(g)과 판매 설정으로 바꾸고, 중량 집계(예약·출하·잔여)와 주문 처리(내역·취소·구매 확정·받는 시기 응답·생산자 주문·수확 시작·출하)를 서버에 만든다. 프론트 `packages/api`(endpoints.ts·types.ts)와 Mock(`capacity.ts`·`sales.ts`·`orders.ts`)을 따른다.
+
+### 범위 (수정 허용 경로)
+- `server/**`
+
+### 비범위 (건드리지 않음)
+- 스펙 1.5(상세 콘텐츠·공개 소식방), 승인 한도 감액·농가 전체 공유 물량(capacity-1.4 1장)
+- `apps/**`, `packages/**`, `docs/spec/**`
+
+### 결정 사항
+- 10/08 시드 상품 승인량은 Mock과 같은 명시적 전환표(p-house 2,400kg 등)를 쓴다. 박스 한도에서 자동 추정하지 않는다(capacity-1.4 6장)
+- 10/08 마이그레이션은 기존 주문의 옵션 중량을 정확히 찾지 못하면 중단하고, 결제된 미반환 주문으로 단계 예약량을 다시 계산한다
+- 10/08 결제는 상품 행 다음 단계·옵션 물량 행 순서로 잠그며, 취소·미공급 반환은 `releasedQuantity`로 한 번만 반영한다
+- 10/08 받는 시기 변경은 기존 결제 주문의 스냅샷을 유지하고 RESERVED/PREPARING 주문에 제안 기간으로 기록한다
+
+### 작업
+- [x] 모델·마이그레이션 0004: Product(approvedSupplyGrams·salesLimitGrams·salesPaused·version, pending_reapproval 삭제), CapacityRequest, Order(unitWeightGrams·releasedQuantity)
+- [x] 공급 신청·이력·철회, 운영자 승인·반려(구형 publish-request·admin approve 삭제)
+- [x] 판매 설정, PATCH·stages version·PERIOD_LOCKED, 중량 집계·availability, 내 상품 목록
+- [x] 결제 때 중량·기간 물량 확보(TOTAL_LIMIT_REACHED·SALES_PAUSED·STAGE_CHANGED)
+- [x] 주문 내역·취소·구매 확정·받는 시기 응답, 생산자 주문·수확 시작·출하(반환·출하 집계)
+- [x] 시드 전환, 테스트(AC ID), 기존 1.1 승인 테스트 교체
+
+### 완료 조건
+- [x] AC-04-8·9, AC-05-6, AC-09-6, AC-10-6 테스트
+- [ ] 테스트·ruff·alembic check, CI 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/08 브랜치·spec 작성. capacity-1.4, packages/api 계약·Mock, 현재 catalog·orders 서비스 확인 완료(구현 전)
+- 10/08 draft PR #51 생성(`Refs #5`). 모델·0004, 공급 승인, 판매 설정·버전, 중량 결제, 주문 처리, 시드 전환 구현
+- 10/08 AI 1차 리뷰에서 생산자 상품 정렬·현재 단계 라벨, 소비자 주문 정렬 동률, 마이그레이션 중량 반올림 위험을 발견해 수정
+- 10/08 AI 재검토에서 catalog의 orders 모델 직접 조회를 발견해 orders service 경계 뒤로 이동
+- 10/08 `ruff check .`, pytest 120개, alembic 0004 upgrade → 0003 downgrade → head upgrade, `alembic check` 통과
+- 10/08 PR #51에 AI 1차 리뷰를 남기고 모든 must/should를 해결. GitHub Actions server/apps 통과, draft 해제·사람 리뷰 대기

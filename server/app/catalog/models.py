@@ -48,9 +48,25 @@ class Product(Base):
     # DRAFT · PENDING_APPROVAL · REJECTED · PUBLISHED · CLOSED
     status: Mapped[str] = mapped_column(String(20), default="DRAFT")
     reject_reason: Mapped[str | None] = mapped_column(Text)
-    # 판매 중 상품의 재승인 대기(R-25, 스펙 1.1)
-    pending_reapproval: Mapped[bool] = mapped_column(Boolean, default=False)
+    approved_supply_grams: Mapped[int] = mapped_column(Integer, default=0)
+    sales_limit_grams: Mapped[int] = mapped_column(Integer, default=0)
+    sales_paused: Mapped[bool] = mapped_column(Boolean, default=False)
+    version: Mapped[int] = mapped_column(Integer, default=1)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CapacityRequest(Base):
+    __tablename__ = "capacity_requests"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    requested_total_grams: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1)
 
 
 class ProductOption(Base):

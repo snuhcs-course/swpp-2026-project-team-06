@@ -1,4 +1,6 @@
-"""FEAT-03 AI 초안, FEAT-04 상품 편집·게시 요청, FEAT-05 단계, FEAT-07 상품 상세."""
+"""FEAT-03 AI 초안, FEAT-04 상품 편집·공급 승인, FEAT-05 단계, FEAT-07 상세."""
+
+import uuid
 
 from sqlalchemy import update
 
@@ -23,6 +25,10 @@ STAGES = {
         },
     ]
 }
+
+
+def key() -> dict[str, str]:
+    return {"Idempotency-Key": str(uuid.uuid4())}
 
 
 def test_product_detail_has_stage_prices_and_counts(client):
@@ -78,6 +84,21 @@ def test_my_product_has_missing_fields(client, login):
 
     assert body["status"] == "DRAFT"
     assert set(body["missingFields"]) == {"받는 시기", "최대 지연 기한", "단계 가격"}
+
+
+def test_producer_product_list_matches_mock_grouping_and_stage_label(client, login):
+    items = client.get("/api/products/mine", headers=login("u-kang")).json()["items"]
+
+    assert [item["status"] for item in items] == [
+        "REJECTED",
+        "PENDING_APPROVAL",
+        "PUBLISHED",
+        "PUBLISHED",
+        "DRAFT",
+        "CLOSED",
+    ]
+    house = next(item for item in items if item["productId"] == "p-house")
+    assert house["currentStageLabel"] == "2026-10-01 ~ 2026-10-12"
 
 
 def test_AC_01_6_consumer_token_on_producer_api_is_403(client, login):
@@ -175,10 +196,11 @@ def test_create_product_from_draft(client, login, monkeypatch):
 def _new_product(client, headers) -> str:
     product = client.post("/api/products", headers=headers, json={}).json()
     pid = product["productId"]
-    client.patch(
+    response = client.patch(
         f"/api/products/{pid}",
-        headers=headers,
+        headers=headers | key(),
         json={
+            "version": product["version"],
             "name": "청귤 5kg",
             "variety": "청귤",
             "options": [{"label": "5kg", "weightKg": 5}],
@@ -186,14 +208,19 @@ def _new_product(client, headers) -> str:
             "maxDelayUntil": "2026-11-30",
         },
     )
+    assert response.status_code == 200, response.text
     return pid
 
 
-def test_AC_04_1_publish_requires_delivery_window(client, login):
+def test_AC_04_8_initial_capacity_requires_complete_product(client, login):
     headers = login("u-kang")
-    pid = client.post("/api/products", headers=headers, json={}).json()["productId"]
+    product = client.post("/api/products", headers=headers, json={}).json()
 
-    response = client.post(f"/api/products/{pid}/publish-request", headers=headers)
+    response = client.post(
+        f"/api/products/{product['productId']}/capacity-requests",
+        headers=headers | key(),
+        json={"requestedTotalGrams": 100_000, "version": product["version"]},
+    )
 
     assert response.status_code == 400
     assert "받는 시기" in response.json()["details"]["fields"]
@@ -205,7 +232,12 @@ def test_AC_05_1_earlier_stage_must_be_cheaper(client, login):
     bad = {"stages": [dict(STAGES["stages"][0]), dict(STAGES["stages"][1])]}
     bad["stages"][0] = {**bad["stages"][0], "options": {"opt-5": {"price": 30000, "quantity": 30}}}
 
-    response = client.put(f"/api/products/{pid}/stages", headers=headers, json=bad)
+    version = client.get(f"/api/products/mine/{pid}", headers=headers).json()["version"]
+    response = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={**bad, "version": version},
+    )
 
     assert response.status_code == 400
     assert "stages.1.opt-5.price" in response.json()["details"]["fields"]
@@ -217,7 +249,12 @@ def test_AC_05_2_overlapping_periods_rejected(client, login):
     bad = {"stages": [dict(STAGES["stages"][0]), dict(STAGES["stages"][1])]}
     bad["stages"][1] = {**bad["stages"][1], "startsAt": "2026-10-15"}
 
-    response = client.put(f"/api/products/{pid}/stages", headers=headers, json=bad)
+    version = client.get(f"/api/products/mine/{pid}", headers=headers).json()["version"]
+    response = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={**bad, "version": version},
+    )
 
     assert response.status_code == 400
     assert "stages.1.period" in response.json()["details"]["fields"]
@@ -228,46 +265,144 @@ def test_last_stage_must_end_before_delivery(client, login):
     pid = _new_product(client, headers)
     bad = {"stages": [{**STAGES["stages"][0], "endsAt": "2026-11-12"}]}
 
-    response = client.put(f"/api/products/{pid}/stages", headers=headers, json=bad)
+    version = client.get(f"/api/products/mine/{pid}", headers=headers).json()["version"]
+    response = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={**bad, "version": version},
+    )
 
     assert response.status_code == 400
     assert "stages.period" in response.json()["details"]["fields"]
 
 
-def test_AC_04_3_publish_then_admin_approve(client, login, admin_headers):
+def test_AC_04_8_9_capacity_lifecycle_and_increase(client, login, admin_headers):
     headers = login("u-kang")
     pid = _new_product(client, headers)
-    stages = client.put(f"/api/products/{pid}/stages", headers=headers, json=STAGES)
+    product = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    stages = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={**STAGES, "version": product["version"]},
+    )
     assert stages.status_code == 200, stages.text
 
-    requested = client.post(f"/api/products/{pid}/publish-request", headers=headers).json()
-    assert requested["status"] == "PENDING_APPROVAL"
+    request_key = key()
+    request_body = {"requestedTotalGrams": 100_000, "version": stages.json()["version"]}
+    requested = client.post(
+        f"/api/products/{pid}/capacity-requests",
+        headers=headers | request_key,
+        json=request_body,
+    ).json()
+    repeated = client.post(
+        f"/api/products/{pid}/capacity-requests",
+        headers=headers | request_key,
+        json=request_body,
+    ).json()
+    assert repeated == requested
+    assert requested["kind"] == "INITIAL"
+    pending = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    assert pending["status"] == "PENDING_APPROVAL"
     assert client.get(f"/api/products/{pid}").status_code == 404
 
-    approved = client.post(f"/admin/products/{pid}/approve", headers=admin_headers)
-    assert approved.json()["status"] == "PUBLISHED"
+    duplicate = client.post(
+        f"/api/products/{pid}/capacity-requests",
+        headers=headers | key(),
+        json={"requestedTotalGrams": 200_000, "version": stages.json()["version"] + 1},
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["details"]["reason"] == "CAPACITY_REQUEST_PENDING"
+
+    approved = client.post(
+        f"/admin/products/{pid}/capacity-requests/{requested['requestId']}/approve",
+        headers=admin_headers | key(),
+        json={"version": requested["version"]},
+    )
+    assert approved.status_code == 200, approved.text
     assert client.get(f"/api/products/{pid}").status_code == 200
-    farm = client.get("/api/farms/f-kang").json()
-    assert pid in [p["productId"] for p in farm["products"]]
+    product = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    assert product["approvedSupplyGrams"] == 100_000
+    assert product["salesLimitGrams"] == 100_000
 
-
-def test_admin_approve_requires_admin(client, login):
-    response = client.post("/admin/products/p-cheonggyeon/approve", headers=login("u-kang"))
-
-    assert response.status_code == 403
-
-
-def test_AC_04_4_published_edit_needs_reapproval(client, login, admin_headers):
-    headers = login("u-kang")
-    body = client.patch(
-        "/api/products/p-house",
-        headers=headers,
-        json={"deliveryWindow": {"start": "2026-11-12", "end": "2026-11-22"}},
+    increase = client.post(
+        f"/api/products/{pid}/capacity-requests",
+        headers=headers | key(),
+        json={"requestedTotalGrams": 150_000, "version": product["version"]},
     ).json()
+    assert client.get(f"/api/products/{pid}").status_code == 200
+    rejected = client.post(
+        f"/admin/products/{pid}/capacity-requests/{increase['requestId']}/reject",
+        headers=admin_headers | key(),
+        json={"version": increase["version"], "reason": "추가 확인"},
+    )
+    assert rejected.status_code == 200, rejected.text
+    product = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    assert product["status"] == "PUBLISHED"
+    assert product["approvedSupplyGrams"] == 100_000
 
-    assert body["pendingReapproval"] is True
-    approved = client.post("/admin/products/p-house/approve", headers=admin_headers).json()
-    assert approved["pendingReapproval"] is False
+    history = client.get(f"/api/products/{pid}/capacity-requests", headers=headers).json()
+    assert {item["status"] for item in history["items"]} == {"REJECTED", "APPROVED"}
+
+
+def test_AC_04_8_capacity_withdrawal_authorization_and_reason(client, login, admin_headers):
+    producer = login("u-kang")
+    pending = client.get("/api/products/mine/p-cheonggyeon", headers=producer).json()
+    request = pending["pendingCapacityRequest"]
+
+    forbidden = client.post(
+        f"/admin/products/p-cheonggyeon/capacity-requests/{request['requestId']}/approve",
+        headers=producer | key(),
+        json={"version": request["version"]},
+    )
+    assert forbidden.status_code == 403
+
+    no_reason = client.post(
+        f"/admin/products/p-cheonggyeon/capacity-requests/{request['requestId']}/reject",
+        headers=admin_headers | key(),
+        json={"version": request["version"], "reason": ""},
+    )
+    assert no_reason.status_code == 400
+
+    withdrawn = client.post(
+        f"/api/products/p-cheonggyeon/capacity-requests/{request['requestId']}/withdraw",
+        headers=producer | key(),
+        json={"version": request["version"]},
+    )
+    assert withdrawn.status_code == 200, withdrawn.text
+    assert withdrawn.json()["status"] == "WITHDRAWN"
+    product = client.get("/api/products/mine/p-cheonggyeon", headers=producer).json()
+    assert product["status"] == "DRAFT"
+
+
+def test_AC_05_6_paid_snapshot_and_delivery_window_proposal(client, login):
+    consumer = login("u-minji")
+    producer = login("u-kang")
+    order = client.get("/api/orders/o-42", headers=consumer).json()
+    product = client.get("/api/products/mine/p-house", headers=producer).json()
+
+    changed = client.patch(
+        "/api/products/p-house",
+        headers=producer | key(),
+        json={
+            "version": product["version"],
+            "deliveryWindow": {"start": "2026-11-12", "end": "2026-11-22"},
+        },
+    )
+    assert changed.status_code == 200, changed.text
+    updated = client.get("/api/orders/o-42", headers=consumer).json()
+    assert updated["deliveryWindow"] == order["deliveryWindow"]
+    assert updated["proposedDeliveryWindow"] == {
+        "start": "2026-11-12",
+        "end": "2026-11-22",
+    }
+
+    accepted = client.post(
+        "/api/orders/o-42/delivery-window-response",
+        headers=consumer,
+        json={"choice": "accept"},
+    ).json()
+    assert accepted["deliveryWindow"] == {"start": "2026-11-12", "end": "2026-11-22"}
+    assert accepted["proposedDeliveryWindow"] is None
 
 
 def test_reserved_stage_quantity_cannot_drop_below_reserved(client, login):
@@ -286,7 +421,11 @@ def test_reserved_stage_quantity_cannot_drop_below_reserved(client, login):
     ]
     stages[0]["options"]["opt-5"]["quantity"] = 10
 
-    response = client.put("/api/products/p-house/stages", headers=headers, json={"stages": stages})
+    response = client.put(
+        "/api/products/p-house/stages",
+        headers=headers | key(),
+        json={"stages": stages, "version": current["version"]},
+    )
 
     assert response.status_code == 400
     assert "stages.0.opt-5.quantity" in response.json()["details"]["fields"]

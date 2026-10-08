@@ -5,18 +5,36 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.idempotency import run_idempotent
-from app.core.pagination import page_limit
+from app.core.pagination import decode_cursor, encode_cursor, page_limit
 from app.core.schemas import Paged
 from app.core.security import ApprovedProducer, Consumer, CurrentUser
 from app.messaging import service as messaging
 from app.messaging.schemas import InquiryCreated, InquiryInput, InquiryView
 from app.orders import service
-from app.orders.schemas import Dashboard, OrderInput, OrderView, PayInput, PayResult
+from app.orders.schemas import (
+    Changed,
+    Dashboard,
+    DeliveryWindowResponse,
+    HarvestStartInput,
+    OrderInput,
+    OrderView,
+    PayInput,
+    PayResult,
+    ProducerOrder,
+    ShipInput,
+)
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 Db = Annotated[Session, Depends(get_db)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
+
+
+def _page(items: list, cursor: str | None, limit: int) -> Paged:
+    offset = int((decode_cursor(cursor) or [0])[0])
+    page = items[offset : offset + limit]
+    next_cursor = encode_cursor([offset + limit]) if offset + limit < len(items) else None
+    return Paged(items=page, next_cursor=next_cursor)
 
 
 @router.post("", response_model=OrderView)
@@ -34,6 +52,27 @@ def dashboard(db: Db, producer: ApprovedProducer):
     return service.dashboard(db, farm)
 
 
+@router.get("/producer", response_model=Paged[ProducerOrder])
+def producer_orders(
+    db: Db,
+    producer: ApprovedProducer,
+    limit: Annotated[int, Depends(page_limit)],
+    cursor: str | None = None,
+    status: str | None = None,
+    product_id: str | None = None,
+):
+    _, farm = producer
+    return _page(service.producer_orders(db, farm.id, status, product_id), cursor, limit)
+
+
+@router.post("/producer/harvest-start", response_model=Changed)
+def harvest_start(db: Db, producer: ApprovedProducer, body: HarvestStartInput):
+    _, farm = producer
+    result = service.harvest_start(db, farm.id, body.product_id)
+    db.commit()
+    return result
+
+
 @router.post("/{order_id}/pay", response_model=PayResult)
 def pay(db: Db, user: Consumer, order_id: str, body: PayInput, key: IdempotencyKey = None):
     """Mock 결제(FEAT-09). 결제와 물량 차감은 한 번만 일어난다(AC-09-1·3)."""
@@ -45,6 +84,52 @@ def pay(db: Db, user: Consumer, order_id: str, body: PayInput, key: IdempotencyK
         body,
         lambda: service.pay(db, user.id, order_id, body.mock_result),
     )
+
+
+@router.get("", response_model=Paged[OrderView])
+def list_orders(
+    db: Db,
+    user: Consumer,
+    limit: Annotated[int, Depends(page_limit)],
+    cursor: str | None = None,
+):
+    return _page(service.list_orders(db, user.id), cursor, limit)
+
+
+@router.post("/{order_id}/cancel", response_model=OrderView)
+def cancel_order(db: Db, user: Consumer, order_id: str):
+    result = service.cancel_order(db, user.id, order_id)
+    db.commit()
+    return result
+
+
+@router.post("/{order_id}/confirm", response_model=OrderView)
+def confirm_order(db: Db, user: Consumer, order_id: str):
+    result = service.confirm_order(db, user.id, order_id)
+    db.commit()
+    return result
+
+
+@router.post("/{order_id}/delivery-window-response", response_model=OrderView)
+def delivery_window_response(
+    db: Db, user: Consumer, order_id: str, body: DeliveryWindowResponse
+):
+    result = service.respond_delivery_window(db, user.id, order_id, body.choice)
+    db.commit()
+    return result
+
+
+@router.post("/{order_id}/ship", response_model=ProducerOrder)
+def ship_order(
+    db: Db,
+    producer: ApprovedProducer,
+    order_id: str,
+    body: ShipInput,
+):
+    _, farm = producer
+    result = service.ship_order(db, farm.id, order_id, body.tracking_number, body.carrier)
+    db.commit()
+    return result
 
 
 @router.get("/{order_id}", response_model=OrderView)

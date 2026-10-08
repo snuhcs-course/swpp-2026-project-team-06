@@ -47,7 +47,33 @@ class ProductInfo(CamelModel):
     contact: str = ""
 
 
-class ProductCard(CamelModel):
+class SalesState(CamelModel):
+    approved_supply_grams: int
+    sales_limit_grams: int
+    reserved_grams: int
+    shipped_grams: int
+    sold_quantity: int
+    remaining_grams: int
+    sales_paused: bool
+    availability: Literal[
+        "PAUSED", "ENDED", "NOT_OPEN", "TOTAL_SOLD_OUT", "PERIOD_SOLD_OUT", "AVAILABLE"
+    ]
+    version: int
+
+
+class CapacityRequestView(CamelModel):
+    request_id: str
+    product_id: str
+    kind: Literal["INITIAL", "INCREASE"]
+    requested_total_grams: int
+    status: Literal["PENDING", "APPROVED", "REJECTED", "WITHDRAWN"]
+    reason: str | None
+    created_at: datetime
+    decided_at: datetime | None
+    version: int
+
+
+class ProductCard(SalesState):
     product_id: str
     name: str
     farm_id: str
@@ -86,7 +112,7 @@ class ProductDetail(ProductCard):
     status: ProductStatus
 
 
-class MyProduct(CamelModel):
+class MyProduct(SalesState):
     product_id: str
     farm_id: str
     name: str
@@ -109,9 +135,21 @@ class MyProduct(CamelModel):
     info: ProductInfo
     status: ProductStatus
     reject_reason: str | None
-    pending_reapproval: bool
+    pending_capacity_request: CapacityRequestView | None
     missing_fields: list[str]
     reserved_count: int
+
+
+class MyProductCard(SalesState):
+    product_id: str
+    name: str
+    photo: str | None
+    status: ProductStatus
+    reject_reason: str | None
+    pending_capacity_request: CapacityRequestView | None
+    reserved_count: int
+    current_stage_label: str | None
+    updated_at: datetime
 
 
 class ProductOptionInput(CamelModel):
@@ -122,6 +160,7 @@ class ProductOptionInput(CamelModel):
 
 
 class ProductPatch(CamelModel):
+    version: int
     name: str | None = Field(default=None, max_length=200)
     variety: str | None = Field(default=None, max_length=100)
     description: str | None = None
@@ -145,6 +184,7 @@ class StageOptionInput(CamelModel):
 
 
 class StageInput(CamelModel):
+    stage_id: str | None = None
     name: str = ""
     starts_at: date
     ends_at: date
@@ -153,6 +193,32 @@ class StageInput(CamelModel):
 
 class StagesInput(CamelModel):
     stages: list[StageInput]
+    version: int
+
+
+class StagesResult(CamelModel):
+    version: int
+    stages: list[StageView]
+
+
+class SalesInput(CamelModel):
+    sales_limit_grams: int = Field(ge=0)
+    max_quantity_per_order: int = Field(ge=1)
+    sales_paused: bool
+    version: int
+
+
+class CapacityRequestInput(CamelModel):
+    requested_total_grams: int = Field(gt=0)
+    version: int
+
+
+class VersionInput(CamelModel):
+    version: int
+
+
+class CapacityDecisionInput(VersionInput):
+    reason: str | None = None
 
 
 class StagePreset(CamelModel):
