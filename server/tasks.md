@@ -167,7 +167,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5, 이 PR은 닫지 않음)
 - 브랜치: `zahra/dev-4-spec-1-2-settings-inquiries`
 - 기능·인수 조건: FEAT-32(AC-32-1~4), FEAT-33(AC-33-1~4), FEAT-10(AC-10-4), M-20·M-21, R-15 / [contracts-1.2](../docs/spec/contracts-1.2.md) 5·6장
-- 상태: 진행 중
+- 상태: 리뷰 대기
 
 ### 목표
 1.2 (1/2)에 이어 농가 AI 응답 설정(저장·미리보기), 결제 주문의 문제 문의, 비공개 사진 첨부를 서버에 만든다. 1:1 채팅의 첨부·문의 예외(팔로우 해제 후 본인 결제 주문 문의)를 연다.
@@ -183,18 +183,24 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/08 비공개 사진은 I1에서 `private_attachments` 테이블에 바이트로 저장한다(공개 소식 미디어와 분리). R2 연동은 배포(DEV-8) 때 저장소만 바꾼다
 - 10/08 업로드는 multipart(`file`, `orderId` 또는 `threadId`) — 프론트 `uploadAttachment`와 같다. JPEG·PNG·WebP, 10MB, 서버가 실제 형식을 확인하고 EXIF·메타데이터를 지운다(Mock과 같은 방식). `python-multipart` 추가
 - 10/08 AI 설정은 저장할 때마다 이력(`farm_ai_settings_history`)을 남긴다
+- 10/08 미리보기는 DB에 쓰지 않는다. `settings`를 보내면 저장 전 값으로, 없으면 저장된 설정으로 답하고 `settingsVersion`은 저장된 설정일 때만 준다. 정책을 바꾸려는 FAQ·원칙 문구(환불·보상·무조건 등)는 근거로 쓰지 않는다(AC-32-2)
+- 10/08 문의 접수는 그 농가 1:1 대화에 주문 문맥 메시지로 넣고 대화를 HUMAN으로 바꾼다. 열린 문의가 있으면 생산자 '답변 필요'에 나온다. 해결·재열기는 문의 상태만 바꾸고 주문·환불은 그대로(AC-33-3)
+- 10/08 팔로우를 해제한 소비자도 그 농가의 본인 결제 주문(`orderId`)으로는 문의·대화할 수 있다. 주문 없는 전송은 403(AC-33-2)
+- 10/08 사진은 업로드한 사람만 묶을 수 있고, 한 번 묶이면 다시 못 쓴다. 묶인 사진은 그 대화의 소비자·농가만 읽는다(그 밖은 404)
+- 10/08 시드는 바꾸지 않았다. 문의는 테스트에서 만든다
 
 ### 작업
-- [ ] 모델·마이그레이션 0003(PrivateAttachment, OrderInquiry, FarmAiSettingsHistory)
-- [ ] AI 설정 조회·저장(버전)·미리보기
-- [ ] 비공개 사진 업로드·조회, 채팅 전송에 첨부 연결
-- [ ] 주문 문제 문의 접수·조회, 생산자 해결·재열기, 대화 페이지의 inquiries, 답변 필요·팔로우 예외
-- [ ] 테스트(AC ID), 시드
+- [x] 모델·마이그레이션 0003(PrivateAttachment, OrderInquiry, FarmAiSettingsHistory)
+- [x] AI 설정 조회·저장(버전)·미리보기
+- [x] 비공개 사진 업로드·조회, 채팅 전송에 첨부 연결
+- [x] 주문 문제 문의 접수·조회, 생산자 해결·재열기, 대화 페이지의 inquiries, 답변 필요·팔로우 예외
+- [x] 테스트(AC ID), 시드
 
 ### 완료 조건
-- [ ] AC-32-1~4, AC-33-1~4 테스트
-- [ ] 테스트·ruff·alembic check, CI 통과
+- [x] AC-32-1~4, AC-33-1~4 테스트
+- [x] 테스트·ruff·alembic check, CI 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/08 브랜치·spec 작성
+- 10/08 모델·마이그레이션 0003, AI 설정 API, 비공개 사진, 주문 문제 문의. pytest 115개(새 테스트 17개), ruff, alembic upgrade·downgrade·check 통과
