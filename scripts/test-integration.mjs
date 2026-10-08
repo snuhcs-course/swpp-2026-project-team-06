@@ -113,6 +113,24 @@ await scenario("health, account separation, wrong-app access, and producer gates
       expected: 403,
     });
   }
+
+  const pendingApplication = await request("GET", "/api/auth/producer-application", {
+    token: token("u-misook"),
+  });
+  assert.equal(pendingApplication.status, "PENDING");
+  assert.equal(pendingApplication.farmName, "위미 감귤농장");
+  assert.equal(pendingApplication.rejectReason, null);
+
+  const rejectedApplication = await request("GET", "/api/auth/producer-application", {
+    token: token("u-soonja"),
+  });
+  assert.equal(rejectedApplication.status, "REJECTED");
+  assert.match(rejectedApplication.rejectReason, /연락/);
+
+  await request("GET", "/api/auth/producer-application", {
+    token: token("u-new"),
+    expected: 404,
+  });
 });
 
 await scenario("product completion, detail draft, capacity request, and admin approval", async () => {

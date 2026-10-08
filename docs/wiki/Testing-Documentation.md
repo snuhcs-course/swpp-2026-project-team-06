@@ -244,13 +244,13 @@ EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 \
 | --- | --- | --- |
 | Real API smoke | PASS | 7/7: health/auth/gates; product/detail/capacity approval; payment/capacity release; fulfillment; news privacy; AI chat/handoff; farm detail draft/save |
 | Server lint | PASS | `uv run ruff check .` |
-| Server tests | PASS | 128 pytest tests |
+| Server tests | PASS | 133 pytest tests |
 | Database | PASS | Alembic upgrade through `0005`; `alembic check` reports no new operations |
 | Frontend types | PASS | Consumer, producer, API and UI workspaces |
 | Mock contracts | PASS | 11/11 Node test scenarios |
 | Web exports | PASS | Consumer and producer Expo web exports |
 
-The smoke suite verifies app-separated account lists and `WRONG_APP`, all producer gates at the API boundary, version/idempotency rules, explicit initial capacity approval, public visibility, exact gram reservation/release, pause blocking, immutable paid snapshots, producer fulfillment, consumer confirmation, public/follower news privacy, private replies, reactions, chat auto-follow, factual AI evidence, sensitive-topic handoff, and explicit detail publication. Expected 400/403/404/409 responses are asserted; no unexpected 5xx occurred.
+The smoke suite verifies app-separated account lists and `WRONG_APP`, all producer gates at the API boundary, pending/rejected application details, the no-application 404, version/idempotency rules, explicit initial capacity approval, public visibility, exact gram reservation/release, pause blocking, immutable paid snapshots, producer fulfillment, consumer confirmation, public/follower news privacy, private replies, reactions, chat auto-follow, factual AI evidence, sensitive-topic handoff, and explicit detail publication. Expected 400/403/404/409 responses are asserted; no unexpected 5xx occurred.
 
 ### Browser matrix
 
@@ -263,12 +263,14 @@ The smoke suite verifies app-separated account lists and `WRONG_APP`, all produc
 | Farm/product storytelling | Generate does not auto-publish; reorder/preview/save publishes; failed save retains edits | Unsaved generated text stayed private; reordered preview saved and rendered publicly; stopped-API save retained edits and one retry succeeded | PASS |
 | News-room privacy | Anonymous/unfollowed users see public posts; follower sees own replies; owner sees all | Real API smoke covered two consumers/owner and reaction authorization; browser covered anonymous and followed return flows | PASS |
 | 1:1 chat and inquiry | Auto-follow, factual AI, handoff, and paid-order inquiry isolation | Browser displayed factual evidence and handoff; API/pytest cover auto-follow, inquiry and private attachment ownership/isolation | PASS |
-| Producer account gates | Approved, pending, rejected, suspended and new accounts reach their proper screens | Approved, suspended and new passed. Pending and rejected routed to `/pending` but showed `Not Found` because `/api/auth/producer-application` returned 404 | BLOCKED — [#54](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/54) |
+| Producer account gates | Approved, pending, rejected, suspended and new accounts reach their proper screens | All five gates pass. After #55, pending shows the application timeline and read-only details; rejected shows the reason and a prefilled reapplication form. The API returned 200 and browser error logs were empty | PASS |
 | Resilience and layout | Reload persists sessions; failed edit/send keeps input; retry succeeds; 390px and 1440px remain usable | Both sessions survived reload. Chat and detail input survived API shutdown and succeeded after one retry. Core pages rendered at both widths | PASS |
 
 FastAPI access logs show the browser clients calling port 8000. No `/__mock` traffic was observed. Browser error logs were empty; the development build emitted only the known React Native Web warnings about a require cycle and deprecated `pointerEvents` prop.
 
-### Open defect and release decision
+### Resolved defect and release decision
 
-- [#54](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/54) tracks the missing pending/rejected producer-application contract and is related to #7 and #8.
-- DEV-6 remains draft and incomplete until #54 is fixed on its own Bug branch, `main` is merged back, the database is reset, and the entire automated and browser matrix passes again.
+- [#54](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/54) was fixed by [#55](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/55). DEV-6 merged the resulting `main`, reset the database, and added the missing producer-application checks to the reusable smoke suite.
+- Post-fix validation passed: real API smoke 7/7, Ruff, 133 pytest tests, Alembic upgrade/check, all workspace typechecks, Mock contracts 11/11, and both Expo web exports.
+- The previously blocked browser scenario was rerun against FastAPI: pending and rejected applications rendered their expected content, the rejected form was prefilled, browser error logs were empty, and FastAPI logged `GET /api/auth/producer-application` as 200.
+- No release-blocking DEV-6 defect remains. Human review and merge are the remaining release gates.
