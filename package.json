@@ -9,6 +9,7 @@
     "dev": "node scripts/local.mjs start",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build:web": "node scripts/local.mjs export",
+    "test:integration": "node scripts/test-integration.mjs",
     "test:mock": "tsc -p scripts/mock-tsconfig.json && node --test scripts/test-news-rooms.mjs scripts/test-spec12.mjs scripts/test-capacity.mjs scripts/test-navigation.mjs scripts/test-storefront.mjs"
   }
 }
