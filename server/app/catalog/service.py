@@ -4,11 +4,13 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.catalog.models import (
+    CapacityRequest,
     Product,
     ProductDraft,
     ProductOption,
@@ -17,19 +19,24 @@ from app.catalog.models import (
     StagePrice,
 )
 from app.catalog.schemas import (
+    CapacityRequestView,
     DateRange,
     Draft,
     DraftFields,
     MyProduct,
+    MyProductCard,
     ProductCard,
     ProductDetail,
     ProductInfo,
     ProductOptionInput,
     ProductOptionView,
     ProductPatch,
+    SalesInput,
+    SalesState,
     StageOptionValue,
     StagePreset,
     StagesInput,
+    StagesResult,
     StageView,
 )
 from app.core.clock import days_until, now, today
@@ -106,13 +113,93 @@ def _delivery_window(p: Product) -> DateRange | None:
     return None
 
 
-def card(item: Loaded, farm_name: str, reserved_people: int) -> ProductCard:
+def weight_grams(weight_kg: float) -> int:
+    try:
+        grams = Decimal(str(weight_kg)) * 1000
+    except InvalidOperation as exc:
+        raise invalid({"weightKg": "중량을 확인해 주세요"}) from exc
+    if grams != grams.to_integral_value() or grams <= 0:
+        raise invalid({"weightKg": "중량은 소수 셋째 자리까지 입력해 주세요"})
+    return int(grams)
+
+
+def sales_state(db: Session, item: Loaded) -> SalesState:
+    from app.orders.models import Order
+
+    reserved_grams = shipped_grams = sold_quantity = 0
+    orders = db.scalars(
+        select(Order).where(Order.product_id == item.product.id, Order.paid_at.is_not(None))
+    )
+    for order in orders:
+        allocated = max(0, order.quantity - order.released_quantity)
+        sold_quantity += allocated
+        grams = allocated * order.unit_weight_grams
+        if order.shipped_at:
+            shipped_grams += grams
+        else:
+            reserved_grams += grams
+    p = item.product
+    remaining = p.sales_limit_grams - reserved_grams - shipped_grams
+    cur = current_stage(item)
+    options = [o for o in item.options if cur and (cur.id, o.id) in item.allocations]
+    if p.sales_paused:
+        availability = "PAUSED"
+    elif p.status == "CLOSED" or (item.stages and all(s.ends_at < today() for s in item.stages)):
+        availability = "ENDED"
+    elif cur is None:
+        availability = "NOT_OPEN"
+    elif not options or all(weight_grams(o.weight_kg) > remaining for o in options):
+        availability = "TOTAL_SOLD_OUT"
+    elif all(
+        weight_grams(o.weight_kg) > remaining or item.remaining(cur, o.id) <= 0 for o in options
+    ):
+        availability = "PERIOD_SOLD_OUT"
+    else:
+        availability = "AVAILABLE"
+    return SalesState(
+        approved_supply_grams=p.approved_supply_grams,
+        sales_limit_grams=p.sales_limit_grams,
+        reserved_grams=reserved_grams,
+        shipped_grams=shipped_grams,
+        sold_quantity=sold_quantity,
+        remaining_grams=remaining,
+        sales_paused=p.sales_paused,
+        availability=availability,
+        version=p.version,
+    )
+
+
+def capacity_view(request: CapacityRequest) -> CapacityRequestView:
+    return CapacityRequestView(
+        request_id=request.id,
+        product_id=request.product_id,
+        kind=request.kind,
+        requested_total_grams=request.requested_total_grams,
+        status=request.status,
+        reason=request.reason,
+        created_at=request.created_at,
+        decided_at=request.decided_at,
+        version=request.version,
+    )
+
+
+def pending_capacity(db: Session, product_id: str) -> CapacityRequestView | None:
+    request = db.scalar(
+        select(CapacityRequest).where(
+            CapacityRequest.product_id == product_id, CapacityRequest.status == "PENDING"
+        )
+    )
+    return capacity_view(request) if request else None
+
+
+def card(db: Session, item: Loaded, farm_name: str, reserved_people: int) -> ProductCard:
     p = item.product
     cur = current_stage(item)
     nxt = next_stage(item)
     first = item.options[0].id if item.options else None
     sold_out = cur is None or all(item.remaining(cur, o.id) == 0 for o in item.options)
     return ProductCard(
+        **sales_state(db, item).model_dump(),
         product_id=p.id,
         name=p.name,
         farm_id=p.farm_id,
@@ -169,7 +256,7 @@ def published_cards(db: Session, farm_ids: list[str] | None = None) -> list[Prod
     products = [p for p in products if p.farm_id in approved]
     people = _reserved_people(db, [p.id for p in products])
     return [
-        card(item, approved[item.product.farm_id], people.get(item.product.id, 0))
+        card(db, item, approved[item.product.farm_id], people.get(item.product.id, 0))
         for item in load_products(db, products)
     ]
 
@@ -190,7 +277,7 @@ def product_detail(db: Session, product_id: str) -> ProductDetail | None:
     farm = farms.get_approved_farm(db, p.farm_id)
     if farm is None:
         return None
-    base = card(item, farm.name, _reserved_people(db, [p.id]).get(p.id, 0))
+    base = card(db, item, farm.name, _reserved_people(db, [p.id]).get(p.id, 0))
     cur = current_stage(item)
     return ProductDetail(
         **base.model_dump(),
@@ -278,6 +365,7 @@ def missing_fields(item: Loaded) -> list[str]:
 def my_product(db: Session, item: Loaded) -> MyProduct:
     p = item.product
     return MyProduct(
+        **sales_state(db, item).model_dump(),
         product_id=p.id,
         farm_id=p.farm_id,
         name=p.name,
@@ -300,10 +388,35 @@ def my_product(db: Session, item: Loaded) -> MyProduct:
         info=ProductInfo(**(p.info or {})),
         status=p.status,
         reject_reason=p.reject_reason,
-        pending_reapproval=p.pending_reapproval,
+        pending_capacity_request=pending_capacity(db, p.id),
         missing_fields=missing_fields(item),
         reserved_count=_reserved_people(db, [p.id]).get(p.id, 0),
     )
+
+
+def my_product_card(db: Session, item: Loaded) -> MyProductCard:
+    p = item.product
+    cur = current_stage(item)
+    return MyProductCard(
+        **sales_state(db, item).model_dump(),
+        product_id=p.id,
+        name=p.name,
+        photo=p.photos[0] if p.photos else None,
+        status=p.status,
+        reject_reason=p.reject_reason,
+        pending_capacity_request=pending_capacity(db, p.id),
+        reserved_count=_reserved_people(db, [p.id]).get(p.id, 0),
+        current_stage_label=cur.name if cur else None,
+        updated_at=p.updated_at,
+    )
+
+
+def my_product_cards(db: Session, farm_id: str, status: str | None = None) -> list[MyProductCard]:
+    query = select(Product).where(Product.farm_id == farm_id)
+    if status:
+        query = query.where(Product.status == status)
+    products = list(db.scalars(query.order_by(Product.updated_at.desc(), Product.id.desc())))
+    return [my_product_card(db, item) for item in load_products(db, products)]
 
 
 def load_my_product(db: Session, farm_id: str, product_id: str, lock: bool = False) -> Loaded:
@@ -419,6 +532,9 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
     if p.status in ("PENDING_APPROVAL", "CLOSED"):
         raise conflict("INVALID_TRANSITION", "승인 대기·판매 종료 상품은 고칠 수 없어요.")
     data = patch.model_dump(exclude_unset=True)
+    if patch.version != p.version:
+        raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
+    data.pop("version", None)
     fields: dict[str, str] = {}
     window = patch.delivery_window
     if window and window.start > window.end:
@@ -461,11 +577,9 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
     if patch.options is not None:
         _replace_options(db, item, patch.options)
 
-    # R-25(스펙 1.1): 판매 중 상품의 옵션·받는 시기 변경은 재승인을 받는다.
-    if p.status == "PUBLISHED" and ("options" in data or "delivery_window" in data):
-        p.pending_reapproval = True
     if p.status == "REJECTED":
         p.status = "DRAFT"
+    p.version += 1
     p.updated_at = now()
     db.flush()
     return my_product(db, load_products(db, [p])[0])
@@ -476,7 +590,7 @@ def _replace_options(db: Session, item: Loaded, options: list[ProductOptionInput
     current = {o.id: o for o in item.options}
     for oid in set(current) - keep:
         if _has_orders(db, item.product.id, oid):
-            raise conflict("INVALID_TRANSITION", "주문이 있는 옵션은 지울 수 없어요.")
+            raise conflict("PERIOD_LOCKED", "주문이 있는 옵션은 지울 수 없어요.")
         db.execute(
             delete(StagePrice).where(
                 StagePrice.product_id == item.product.id, StagePrice.option_id == oid
@@ -493,6 +607,10 @@ def _replace_options(db: Session, item: Loaded, options: list[ProductOptionInput
     for i, o in enumerate(options):
         if o.option_id and o.option_id in current:
             row = current[o.option_id]
+            if weight_grams(row.weight_kg) != weight_grams(o.weight_kg) and _has_orders(
+                db, item.product.id, o.option_id
+            ):
+                raise conflict("PERIOD_LOCKED", "주문이 있는 옵션의 중량은 바꿀 수 없어요.")
             row.label, row.weight_kg, row.note, row.sort_order = o.label, o.weight_kg, o.note, i
         else:
             oid = o.option_id if o.option_id and o.option_id not in current else None
@@ -509,12 +627,14 @@ def _replace_options(db: Session, item: Loaded, options: list[ProductOptionInput
     db.flush()
 
 
-def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) -> list[StageView]:
+def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) -> StagesResult:
     """단계·가격·물량(FEAT-05). 이른 단계가 더 싸고 기간은 겹치지 않는다(R-18)."""
     item = load_my_product(db, farm_id, product_id, lock=True)
     p = item.product
     if p.status in ("PENDING_APPROVAL", "CLOSED"):
         raise conflict("INVALID_TRANSITION", "승인 대기·판매 종료 상품은 고칠 수 없어요.")
+    if body.version != p.version:
+        raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
     option_ids = {o.id for o in item.options}
     stages = body.stages
     fields: dict[str, str] = {}
@@ -542,6 +662,16 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
 
     old = item.stages
     for i, s in enumerate(old):
+        from app.orders.models import Order
+
+        used = db.scalar(select(Order.id).where(Order.stage_id == s.id).limit(1)) is not None
+        dates_changed = i >= len(stages) or (
+            stages[i].starts_at != s.starts_at or stages[i].ends_at != s.ends_at
+        )
+        if used and dates_changed:
+            raise conflict(
+                "PERIOD_LOCKED", "주문이 있는 예약 기간은 날짜를 바꾸거나 지울 수 없어요."
+            )
         reserved = {
             oid: a.reserved_count for (sid, oid), a in item.allocations.items() if sid == s.id
         }
@@ -592,51 +722,171 @@ def put_stages(db: Session, farm_id: str, product_id: str, body: StagesInput) ->
         db.execute(delete(StagePrice).where(StagePrice.stage_id == row.id))
         db.execute(delete(StageAllocation).where(StageAllocation.stage_id == row.id))
         db.delete(row)
-    if p.status == "PUBLISHED":
-        p.pending_reapproval = True
+    p.version += 1
     p.updated_at = now()
     db.flush()
     db.expire_all()
-    return stage_views(load_products(db, [db.get(Product, p.id)])[0])
+    return StagesResult(
+        version=p.version, stages=stage_views(load_products(db, [db.get(Product, p.id)])[0])
+    )
 
 
-def request_publish(db: Session, farm_id: str, product_id: str) -> MyProduct:
-    """게시 요청(FEAT-04). 빠진 칸이 있으면 400(AC-04-1). farmclub이 승인해야 공개된다(M-13)."""
+def capacity_history(db: Session, product_id: str) -> list[CapacityRequestView]:
+    rows = db.scalars(
+        select(CapacityRequest)
+        .where(CapacityRequest.product_id == product_id)
+        .order_by(CapacityRequest.created_at.desc(), CapacityRequest.id.desc())
+    )
+    return [capacity_view(row) for row in rows]
+
+
+def create_capacity_request(
+    db: Session, farm_id: str, product_id: str, requested_total_grams: int, version: int
+) -> CapacityRequestView:
     item = load_my_product(db, farm_id, product_id, lock=True)
     p = item.product
-    missing = missing_fields(item)
-    if missing:
-        raise invalid(
-            {name: "필요해요" for name in missing}, f"빠진 칸이 있어요: {', '.join(missing)}"
-        )
-    if p.status == "CLOSED":
-        raise conflict("INVALID_TRANSITION", "판매가 끝난 상품이에요.")
-    if p.status == "PUBLISHED":
-        p.pending_reapproval = True
-    else:
+    if version != p.version:
+        raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
+    if p.status not in ("DRAFT", "REJECTED", "PUBLISHED"):
+        raise conflict("INVALID_TRANSITION", "공급 물량을 신청할 수 없는 상품이에요.")
+    if pending_capacity(db, p.id):
+        raise conflict("CAPACITY_REQUEST_PENDING", "심사 중인 신청을 먼저 확인해 주세요.")
+    if requested_total_grams <= p.approved_supply_grams:
+        raise invalid({"requestedTotalGrams": "기존 승인량보다 큰 총중량을 입력해 주세요"})
+    kind = "INITIAL" if p.approved_supply_grams == 0 else "INCREASE"
+    if kind == "INITIAL":
+        missing = missing_fields(item)
+        if missing:
+            raise invalid(
+                {name: "필요해요" for name in missing},
+                f"빠진 칸이 있어요: {', '.join(missing)}",
+            )
         p.status = "PENDING_APPROVAL"
+    request = CapacityRequest(
+        id=new_id("capacity"),
+        product_id=p.id,
+        kind=kind,
+        requested_total_grams=requested_total_grams,
+        status="PENDING",
+        created_at=now(),
+        version=1,
+    )
+    db.add(request)
     p.reject_reason = None
+    p.version += 1
     p.updated_at = now()
     db.flush()
-    return my_product(db, item)
+    return capacity_view(request)
 
 
-def approve_product(db: Session, product_id: str) -> MyProduct:
-    """운영자 승인(R-22·M-13, ADR 0008). 승인 대기는 판매 중으로, 판매 중 재승인은 반영."""
+def _capacity_request(
+    db: Session, product_id: str, request_id: str, version: int
+) -> tuple[Product, CapacityRequest]:
     product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
-    if product is None:
-        raise not_found("찾을 수 없는 상품이에요.")
-    if product.status == "PENDING_APPROVAL":
-        product.status = "PUBLISHED"
-    elif product.status == "PUBLISHED" and product.pending_reapproval:
-        product.pending_reapproval = False
-    else:
-        message = "승인할 수 있는 상태가 아니에요."
-        raise conflict("INVALID_TRANSITION", message, status=product.status)
-    product.reject_reason = None
+    request = db.scalar(
+        select(CapacityRequest).where(CapacityRequest.id == request_id).with_for_update()
+    )
+    if product is None or request is None or request.product_id != product_id:
+        raise not_found("신청을 찾을 수 없어요.")
+    if request.version != version:
+        raise conflict("STALE_VERSION", "최신 신청을 다시 불러와 주세요.")
+    if request.status != "PENDING":
+        raise conflict("INVALID_TRANSITION", "이미 처리된 신청이에요.")
+    return product, request
+
+
+def withdraw_capacity_request(
+    db: Session, farm_id: str, product_id: str, request_id: str, version: int
+) -> CapacityRequestView:
+    owned = load_my_product(db, farm_id, product_id, lock=True).product
+    product, request = _capacity_request(db, product_id, request_id, version)
+    if product.id != owned.id:
+        raise not_found("신청을 찾을 수 없어요.")
+    request.status = "WITHDRAWN"
+    request.decided_at = now()
+    request.version += 1
+    if request.kind == "INITIAL":
+        product.status = "DRAFT"
+    product.version += 1
     product.updated_at = now()
     db.flush()
-    return my_product(db, load_products(db, [product])[0])
+    return capacity_view(request)
+
+
+def decide_capacity_request(
+    db: Session,
+    product_id: str,
+    request_id: str,
+    version: int,
+    approved: bool,
+    reason: str | None = None,
+) -> CapacityRequestView:
+    product, request = _capacity_request(db, product_id, request_id, version)
+    reason = (reason or "").strip()
+    if not approved and not reason:
+        raise invalid({"reason": "반려 사유를 입력해 주세요"})
+    if product.status == "CLOSED":
+        raise conflict("INVALID_TRANSITION", "판매가 끝난 상품이에요.")
+    if approved:
+        if request.requested_total_grams <= product.approved_supply_grams:
+            raise conflict("INVALID_TRANSITION", "현재 승인량보다 큰 신청만 승인할 수 있어요.")
+        if request.kind == "INITIAL":
+            item = load_products(db, [product])[0]
+            if missing_fields(item):
+                raise conflict("INVALID_TRANSITION", "필수 상품 정보를 확인해 주세요.")
+            product.sales_limit_grams = request.requested_total_grams
+            product.status = "PUBLISHED"
+        product.approved_supply_grams = request.requested_total_grams
+        product.reject_reason = None
+        request.status = "APPROVED"
+        request.reason = None
+    else:
+        if request.kind == "INITIAL":
+            product.status = "REJECTED"
+        product.reject_reason = reason
+        request.status = "REJECTED"
+        request.reason = reason
+    request.decided_at = now()
+    request.version += 1
+    product.version += 1
+    product.updated_at = now()
+    db.flush()
+    return capacity_view(request)
+
+
+def update_sales_settings(
+    db: Session, farm_id: str, product_id: str, body: SalesInput
+) -> SalesState:
+    item = load_my_product(db, farm_id, product_id, lock=True)
+    p = item.product
+    if body.version != p.version:
+        raise conflict("STALE_VERSION", "최신 상품을 다시 불러와 주세요.")
+    state = sales_state(db, item)
+    committed = state.reserved_grams + state.shipped_grams
+    if p.approved_supply_grams == 0 and body.sales_limit_grams != 0:
+        raise conflict("APPROVED_CAP_EXCEEDED", "승인 전에는 판매 한도를 늘릴 수 없어요.")
+    if body.sales_limit_grams > p.approved_supply_grams:
+        raise conflict("APPROVED_CAP_EXCEEDED", "승인 물량 안에서 판매 한도를 정해 주세요.")
+    if body.sales_limit_grams < committed:
+        raise conflict("CAP_BELOW_COMMITTED", "이미 예약·출하한 물량보다 줄일 수 없어요.")
+    p.sales_limit_grams = body.sales_limit_grams
+    p.max_quantity_per_order = body.max_quantity_per_order
+    p.sales_paused = body.sales_paused
+    p.version += 1
+    p.updated_at = now()
+    db.flush()
+    refreshed = load_products(db, [p])[0]
+    result = sales_state(db, refreshed)
+    if not p.sales_paused and p.status == "PUBLISHED" and result.availability != "AVAILABLE":
+        raise conflict("INVALID_TRANSITION", "판매 가능한 현재 또는 미래 예약 기간이 필요해요.")
+    return result
+
+
+def lock_product(db: Session, product_id: str) -> Loaded:
+    product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
+    if product is None:
+        raise not_found("상품을 찾을 수 없어요.")
+    return load_products(db, [product])[0]
 
 
 def lock_allocation(db: Session, stage_id: str, option_id: str) -> StageAllocation:
