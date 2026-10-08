@@ -31,3 +31,5 @@
 | 2026-10-07 | 라우터 prefix는 `/auth` | stack.md 5장 | — |
 | 2026-10-07 | I1 로그인은 시드 테스트 계정 Mock 로그인(플래그), 카카오는 I2 | P22 결정, ADR 0009 | AC-01-4, AC-01-5 |
 | 2026-10-07 | 계정 분리: `User.role` 하나, test-accounts·test-login에 `app`, 가입 신청이 생산자 계정 만들기를 겸함(`ownerName`), 생산자 시드 5명 | SWPP-81, ADR 0010 | AC-01-6, AC-01-7 |
+| 2026-10-08 | 테스트 계정 순서는 소비자 [u-minji, u-seojun], 생산자 [u-kang, u-misook, u-new, u-soonja, u-taeho]. 운영자 `u-admin`은 테스트 계정이 아니고 `python -m app.accounts.admin_token`으로 토큰을 받는다 | 화면 SCR-05·19, ADR 0008·0009 | AC-01-4 |
+| 2026-10-08 | 주문서의 기본 배송지 저장은 `save_order_address`(같은 주소면 기본으로만 바꿈) | FEAT-08 | AC-08-5 |

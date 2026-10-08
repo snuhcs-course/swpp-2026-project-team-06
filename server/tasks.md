@@ -52,18 +52,62 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 
 ## DEV-4 [I1-P24] Implement backend (prototype)
 
-- 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4)
-- 상태: 시작 전 — 아래는 SWPP-26(P22 스펙 확정)에서 넘어온 할 일만 미리 적었다. 시작할 때 `spec` 스킬로 목표·범위·완료 조건을 채운다
-- 기준 문서: `docs/spec/screens.md`(화면·API), Must 범위는 screens.md 4장
+- 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5)
+- 브랜치: `zahra/dev-4-i1-p24-implement-backend-prototype`
+- 기능·인수 조건: 스펙 1.1(`docs/spec/screens.md` bccb29a, PR #28)의 Must API 23개 — FEAT-01·02·03·04·05·06·07·08·09·10·14·15 / AC-01-1·3~7, AC-03-1~3, AC-04-1·3·4, AC-05-1~3, AC-06-1·4·5, AC-07-1·2, AC-08-1~5, AC-09-1~3, AC-15-1
+- 상태: 리뷰 중
 
-### SWPP-26에서 넘어온 할 일
-- [ ] Python 환경은 uv(Poetry 아님): `uv sync`, `uv run …`
-- [ ] Mock 로그인: `GET /api/auth/test-accounts`, `POST /api/auth/test-login`, 설정 `MOCK_LOGIN_ENABLED`(config.py·`.env.example`에 추가, 운영 기본값 꺼짐), 시드 테스트 계정(소비자 2, 승인된 생산자 1, 승인 대기 생산자 1, `isTestAccount`) — ADR 0009, AC-01-4·5
-- [ ] `.env.example`의 `KAKAO_*` 변수는 I2용으로 남기고 주석 표시. 카카오 로그인 코드는 만들지 않음
-- [ ] 오류 형식 `{code, message, details}` 예외 처리기(422 검증 오류 → 400 `VALIDATION_ERROR` 포함)
-- [ ] cursor 페이지네이션 공통 함수(`limit` 기본 20·최대 50, `nextCursor`)
-- [ ] `Idempotency-Key` 저장(사용자·키, 24시간) — `POST /api/orders`, `POST /api/orders/{orderId}/pay`, AC-09-3
-- [ ] 모델: `Reaction`(messaging), `Order.deliveryNote`·`trackingNumber`·`consentVersion`, `User.isTestAccount`·`kakaoId` 비워 둘 수 있게 — tech-design/README.md
-- [ ] 홈 `GET /api/home`(farms 별도 라우터), 시즌 히어로 설정 값
-- [ ] `ai.parse_shipping`은 만들지 않음(FEAT-17 자연어는 I2). 생산자 출하는 `POST /api/orders/{orderId}/ship`
-- [ ] 엔드포인트 목록은 screens.md 7.2를 기준으로 하고, 바뀌면 같은 PR에서 screens.md를 고친다
+### 목표
+진우·자라 노트(데모 코드 이어서 작업하기)대로 스펙 1.1(계정 분리, 새 필드, Must API부터)을 서버에 구현한다. 데모 프로토타입(Hyun Park 작성)의 Mock을 응답 모양·로직의 참고로 쓴다. 스펙 1.2~1.5는 다음 PR에서 한다.
+
+### 범위 (수정 허용 경로)
+- `server/**`
+- `README.md` 서버 실행 절(시드·Mock 로그인 플래그)
+
+### 비범위 (건드리지 않음)
+- 스펙 1.2~1.5 계약(판매 한도·중지, 공급 물량 승인 1.4, 소식방·1:1 채팅·AI 설정·주문 문의, 상세 블록) — 후속 PR
+- Must가 아닌(Should) API, 카카오 로그인(I2), 실결제, R2 업로드, PostHog·Sentry·Langfuse 연동
+- `apps/**`, `packages/**`, `docs/spec/**`(동작이 스펙과 다르면 같은 PR에서 고친다)
+
+### 결정 사항
+- 10/08 범위는 스펙 1.1의 Must API 23개(screens.md 7.2 I1 열). 사용자 확인
+- 10/08 ID는 문자열(시드는 Mock과 같은 `u-minji`·`f-kang`·`p-house`·`opt-5`, 새 행은 접두어 + 랜덤). JSON은 camelCase. 앱과 Mock을 그대로 맞추기 위해
+- 10/08 AI 초안은 `anthropic` SDK로 Claude Haiku 4.5를 부르고, `ANTHROPIC_API_KEY`가 없거나 실패·20초 초과면 `failed=true`(AC-03-3). 테스트는 가짜 어댑터. 사용자 확인
+- 10/08 `JWT_SECRET`이 비어 있으면 local이 아닌 환경에서는 서버 시작을 실패시킨다(#19 리뷰, 이슈 #5)
+- 10/08 시드 테스트 계정은 소비자 2·생산자 5(ADR 0010). 이전 SWPP-26 할 일의 “생산자 2명”은 SWPP-81로 바뀌었다
+- 10/08 시계는 `FIXED_NOW` 설정으로 고정할 수 있다(데모·테스트 기준일 2026-10-07, contracts 1장)
+- 10/08 API 문서는 FastAPI `/docs`·`/openapi.json`으로 프론트에 공유한다
+- 10/08 `reservedCount`(예약한 사람 수)는 저장하지 않고 결제된 주문의 소비자 수로 계산한다(tech-design 데이터 모델). 시드의 레드향·노지·효돈 표시 값은 주문 수와 같아진다
+- 10/08 팔로워 수·좋아요 수는 `Farm.follower_count`, `Broadcast.reaction_count`에 두고 팔로우·좋아요 때 같은 트랜잭션에서 바꾼다(시드 128명·128개를 그대로 보여주기 위해)
+- 10/08 옵션 ID는 상품 안에서만 유일하다(`opt-5`, 기본 키 = 상품 + 옵션). 단계 ID는 전체에서 유일하게 `st-house-1`처럼 바꿨다
+- 10/08 현황의 답할 질문 수(`openQuestions`)는 채팅(Should, 1.2)이 들어오기 전까지 0
+- 10/08 운영자 토큰은 `python -m app.accounts.admin_token`으로 발급한다(시드 `u-admin`, 테스트 계정 아님). 관리 API는 Swagger UI에서 부른다(ADR 0008)
+- 10/08 테스트는 같은 PostgreSQL의 `<DB>_test` DB에서 돈다. CI의 alembic 검사 DB와 섞이지 않게
+- 10/08 PR #48은 이슈 #5를 닫지 않는다(`Refs #5`). DEV-4는 스펙 1.2~1.5 후속 PR(1.4 공급 물량·주문 처리 → 1.2 채팅 → 1.2 AI 설정·문의 → 1.5 상세·공개 소식방)까지 연다. 1.1의 publish-request·관리 승인·stage-presets·pendingReapproval은 1.4 PR에서 바꾼다
+- 10/08 도서산간 판정은 우편번호·주소 예시 규칙(Mock과 같음). 생산자가 지역을 정하는 R-20은 후속
+
+### 작업
+- [x] core: 설정(플래그·JWT 검사), 오류 형식, JWT·권한, 페이지네이션, 멱등 키, 시계
+- [x] 모델과 Alembic 마이그레이션(스펙 1.1 데이터 모델)
+- [x] 시드(tech-design 시드 데이터, Mock db.ts)
+- [x] accounts: test-accounts, test-login, me, 배송지 조회·추가
+- [x] farms: 홈, 농가, 팔로우·해제
+- [x] catalog: 상품 상세, 내 상품, AI 초안, 상품 생성·수정, 단계 기본값·설정, 게시 요청 / 관리: 상품 승인
+- [x] orders: 주문 생성, Mock 결제, 주문 상세, 생산자 현황
+- [x] messaging: 농가 공개 소식
+- [x] 테스트(AC ID), ruff, alembic check
+- [x] AI 1차 리뷰 → ready for review
+
+### 완료 조건
+- [x] 스펙 1.1의 Must API 23개 구현
+- [x] API 문서(`/docs`) 공유
+- [x] JWT_SECRET 비면 local 외 환경에서 시작 실패
+- [x] 테스트 통과(CI server job)
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/08 spec 작성, 브랜치 생성
+- 10/08 core·모델·시드·accounts·farms·catalog·orders·messaging 구현. pytest 65개(AC-09-1 동시 결제 포함), ruff, alembic upgrade·downgrade·check 통과
+- 10/08 로컬 서버 스모크: 로그인·WRONG_APP 403·홈·상품 상세·주문·같은 키 결제 2번(1번만 반영)·현황·운영자 승인 확인
+- 10/08 남은 일(후속 PR): 스펙 1.2~1.5 계약, Should API(주문 내역·취소·구매 확정·출하·소식 올리기·채팅 등), 공유 링크 OG(/s), 카카오(I2)
+- 10/08 AI 1차 리뷰(PR #48 코멘트): must 없음. should 2건 반영(공개 API 토큰 오류는 비로그인 처리, AC-08-3 테스트), 2건은 기록(REJECTED 상태 표기, openQuestions 0)

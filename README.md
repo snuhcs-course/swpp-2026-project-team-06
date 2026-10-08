@@ -93,11 +93,16 @@ docker compose up -d          # local PostgreSQL 16
 cp .env.example .env          # fill in only what you need; empty values fall back to app/core/config.py
 uv sync
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload
+uv run python -m app.core.seed            # I1 demo data (add --reset to start over)
+MOCK_LOGIN_ENABLED=true uv run uvicorn app.main:app --reload
 ```
 
 - Health check: http://localhost:8000/health returns `{"status": "ok"}`
-- API docs (Swagger UI): http://localhost:8000/docs
+- API docs (Swagger UI): http://localhost:8000/docs. This is the API reference for the apps.
+- Test login (I1): `MOCK_LOGIN_ENABLED=true` turns on `GET /api/auth/test-accounts` and `POST /api/auth/test-login`. It is off by default and must stay off in production.
+- Demo date: set `FIXED_NOW=2026-10-07T10:00:00+09:00` so stages and D-days match the seed.
+- Operator token for the `/admin` API: `uv run python -m app.accounts.admin_token`, then paste it into **Authorize** in Swagger UI.
+- Outside `APP_ENV=local`, the server refuses to start without `JWT_SECRET`.
 - Never commit `.env`.
 
 ### Apps
@@ -117,7 +122,7 @@ The apps call the server at `EXPO_PUBLIC_API_URL` (default `http://localhost:800
 These are the same checks CI runs on every pull request.
 
 ```bash
-# server/
+# server/ (pytest uses a separate <db>_test database on the same PostgreSQL)
 uv run ruff check .
 uv run pytest
 uv run alembic check          # needs the database running
