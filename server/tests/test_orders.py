@@ -249,3 +249,18 @@ def test_AC_14_1_dashboard_updates_after_payment(client, login):
 
     assert body["stages"][0]["options"][0]["reserved"] == 39
     assert body["product"]["orderCount"] == 41
+
+
+def test_AC_08_3_separate_shipping_fee_in_total(client, login):
+    from app.catalog.models import Product
+
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Product)
+            .where(Product.id == "p-house")
+            .values(shipping_fee_type="SEPARATE", shipping_fee=4000)
+        )
+
+    order = client.post("/api/orders", headers=login("u-seojun") | key(), json=order_body()).json()
+
+    assert (order["unitPrice"], order["shippingFee"], order["totalAmount"]) == (29000, 4000, 33000)

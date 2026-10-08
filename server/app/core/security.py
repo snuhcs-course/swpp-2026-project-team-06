@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import now
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.errors import forbidden, unauthenticated
+from app.core.errors import ApiError, forbidden, unauthenticated
 
 ALGORITHM = "HS256"
 
@@ -84,9 +84,12 @@ def get_optional_user(
     db: Annotated[Session, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ):
-    """공개 API용. 토큰이 없으면 None(내 팔로우·내 좋아요 표시에 쓴다)."""
-    token = _bearer(authorization)
-    return _user_from_token(db, token) if token else None
+    """공개 API용. 토큰이 없거나 만료·잘못됐으면 None(둘러보기는 로그인 없이 된다)."""
+    try:
+        token = _bearer(authorization)
+        return _user_from_token(db, token) if token else None
+    except ApiError:
+        return None
 
 
 def require_roles(*roles: Role) -> Callable[..., object]:

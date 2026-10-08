@@ -92,3 +92,10 @@ def test_farm_news_pagination(client):
     bad = client.get("/api/messaging/farms/f-kang/news", params={"limit": 51})
     assert bad.status_code == 400
     assert bad.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_public_pages_ignore_stale_token(client):
+    response = client.get("/api/farms/f-kang", headers={"Authorization": "Bearer expired"})
+
+    assert response.status_code == 200
+    assert response.json()["isFollowing"] is False
