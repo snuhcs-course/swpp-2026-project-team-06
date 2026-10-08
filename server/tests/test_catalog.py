@@ -125,11 +125,17 @@ def test_AC_03_4_product_detail_respects_owner_state_and_uri_validation(client, 
         headers=login("u-kang"),
         json={"inputText": "소개", "photos": ["http://example.com/photo.jpg"]},
     )
+    null_snake_case = client.patch(
+        "/api/products/p-house",
+        headers=login("u-kang") | key(),
+        json={"version": 1, "detail_content": None},
+    )
 
     assert other.status_code == 404
     assert closed.status_code == 409
     assert closed.json()["details"]["reason"] == "INVALID_TRANSITION"
     assert invalid_uri.status_code == 400
+    assert null_snake_case.status_code == 400
 
 
 def test_AC_04_2_unpublished_product_not_visible(client):

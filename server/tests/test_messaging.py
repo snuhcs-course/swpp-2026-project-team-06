@@ -140,6 +140,16 @@ def test_producer_cannot_open_other_farm_room(client, login):
     assert response.status_code == 404
 
 
+def test_AC_12_10_unapproved_producer_and_suspended_farm_are_hidden(client, login):
+    unapproved = client.get(
+        "/api/messaging/rooms/f-kang/messages", headers=login("u-misook")
+    )
+    suspended = client.get("/api/messaging/rooms/f-stop/messages")
+
+    assert unapproved.status_code == 403
+    assert suspended.status_code == 404
+
+
 def test_room_send_reply_and_broadcast(client, login):
     reply = client.post(
         "/api/messaging/rooms/f-kang/messages",

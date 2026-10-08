@@ -32,7 +32,7 @@ _DETAIL_SYSTEM = """너는 농가·상품 소개 상세를 정리하는 도우�
 입력 JSON에 있는 사실과 사진 주소만 사용한다. 가격, 할인, 무료배송, 날짜는 쓰지 않는다.
 연락처나 계좌 등 개인정보를 쓰지 않고, 없는 품질·재배·배송 정보를 지어내지 않는다."""
 _DETAIL_EXCLUDED = re.compile(
-    r"\d[\d,]*\s*원|\d{1,2}월|\d{4}-\d{2}-\d{2}|무료\s*배송", re.IGNORECASE
+    r"\d{1,2}월|\d{4}-\d{2}-\d{2}|무료\s*배송|할인", re.IGNORECASE
 )
 
 
@@ -95,7 +95,7 @@ def _clean_detail_text(value: str) -> str:
     return "\n".join(
         part.strip()
         for part in re.split(r"\n|(?<=[.!?])\s+", strip_personal_info(value))
-        if part.strip() and not _DETAIL_EXCLUDED.search(part)
+        if part.strip() and not _PRICE.search(part) and not _DETAIL_EXCLUDED.search(part)
     )
 
 
@@ -181,14 +181,16 @@ def detail_draft(
         content = _call_detail_claude(payload)
     except Exception:  # noqa: BLE001  AI 실패·지연·형식 오류는 검증된 mock 초안으로 대체한다
         return DetailDraft(content=fallback, mode="mock")
+    if not content.blocks:
+        return DetailDraft(content=fallback, mode="mock")
     allowed_photos = set(payload["photos"])
     for block in content.blocks:
         if isinstance(block, ImageDetailBlock) and block.uri not in allowed_photos:
             return DetailDraft(content=fallback, mode="mock")
-        if isinstance(block, TextDetailBlock) and _DETAIL_EXCLUDED.search(
-            f"{block.title}\n{block.body}"
-        ):
-            return DetailDraft(content=fallback, mode="mock")
+        if isinstance(block, TextDetailBlock):
+            text = f"{block.title}\n{block.body}"
+            if _PRICE.search(text) or _DETAIL_EXCLUDED.search(text):
+                return DetailDraft(content=fallback, mode="mock")
     return DetailDraft(content=content, mode="ai")
 
 

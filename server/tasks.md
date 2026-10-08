@@ -288,4 +288,5 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 
 ### 기록
 - 10/09 PR #51 머지 후 main 갱신. storefront-1.5, 관련 FEAT·규칙, packages/api 타입·endpoints·Mock, 현재 farms/catalog/messaging/ai 코드 확인
-- 10/09 nullable 상세 저장·공통 검증·mock/AI 초안, 농가/상품 조회·수정, 공개 소식방 권한 필터·canReply 구현. Ruff, pytest 127개, alembic 0005 upgrade → 0004 downgrade → head upgrade, `alembic check` 통과
+- 10/09 nullable 상세 저장·공통 검증·mock/AI 초안, 농가/상품 조회·수정, 공개 소식방 권한 필터·canReply 구현. Ruff, pytest 128개, alembic 0005 upgrade → 0004 downgrade → head upgrade, `alembic check` 통과
+- 10/09 AI 1차 diff 점검에서 snake_case null의 500 가능성, `3만원` 가격 필터 누락, 미승인 생산자 소식방 테스트 누락을 찾아 수정

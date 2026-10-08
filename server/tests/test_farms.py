@@ -58,7 +58,7 @@ def test_AC_02_4_and_03_4_farm_detail_save_empty_and_draft_without_save(client, 
         "/api/farms/me/detail-draft",
         headers=headers,
         json={
-            "inputText": "10월 12일 30,000원 무료배송으로 만나요. 정성껏 돌본 이야기예요.",
+            "inputText": "10월 12일 3만원 무료배송으로 만나요. 정성껏 돌본 이야기예요.",
             "photos": ["/photos/farmer.jpg"],
         },
     )
@@ -68,7 +68,7 @@ def test_AC_02_4_and_03_4_farm_detail_save_empty_and_draft_without_save(client, 
     text = " ".join(
         block.get("body", "") for block in draft.json()["content"]["blocks"]
     )
-    assert "30,000원" not in text
+    assert "3만원" not in text
     assert "10월" not in text
     assert "무료배송" not in text
     assert "detailContent" not in client.get("/api/farms/f-kang").json()
@@ -91,7 +91,11 @@ def test_AC_03_4_farm_detail_validation_and_authorization(client, login):
     response = client.patch(
         "/api/farms/me", headers=login("u-kang"), json={"detailContent": duplicate}
     )
+    null_snake_case = client.patch(
+        "/api/farms/me", headers=login("u-kang"), json={"detail_content": None}
+    )
     assert response.status_code == 400
+    assert null_snake_case.status_code == 400
 
     unapproved = client.post(
         "/api/farms/me/detail-draft",
