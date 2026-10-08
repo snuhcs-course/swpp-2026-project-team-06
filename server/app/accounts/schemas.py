@@ -1,5 +1,6 @@
 """accounts 모듈 Pydantic 입출력 스키마 (screens.md 7.2 accounts)."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import Field
@@ -36,6 +37,22 @@ class TestLoginInput(CamelModel):
 class LoginResult(CamelModel):
     access_token: str
     user: UserView
+
+
+class ProducerApplicationInput(CamelModel):
+    owner_name: str = Field(max_length=100)
+    farm_name: str = Field(max_length=100)
+    region: str = Field(max_length=100)
+    main_items: str = Field(max_length=200)
+    phone: str = Field(max_length=32)
+
+
+class ProducerApplication(ProducerApplicationInput):
+    farm_id: str
+    status: Literal["PENDING", "REJECTED", "APPROVED", "SUSPENDED"]
+    reject_reason: str | None
+    submitted_at: datetime
+    decided_at: datetime | None
 
 
 class AddressInput(CamelModel):

@@ -88,6 +88,124 @@ def test_me_requires_token(client):
     assert response.json()["code"] == "UNAUTHENTICATED"
 
 
+def test_AC_01_3_pending_and_rejected_producers_can_read_application(client, login):
+    pending = client.get("/api/auth/producer-application", headers=login("u-misook"))
+    rejected = client.get("/api/auth/producer-application", headers=login("u-soonja"))
+
+    assert pending.status_code == 200
+    assert pending.json() == {
+        "farmId": "f-wimi",
+        "ownerName": "오미숙",
+        "farmName": "위미 감귤농장",
+        "region": "제주 서귀포시 남원읍",
+        "mainItems": "노지 감귤, 레드향",
+        "phone": "010-4321-8765",
+        "status": "PENDING",
+        "rejectReason": None,
+        "submittedAt": "2026-10-07T01:00:00Z",
+        "decidedAt": None,
+    }
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "REJECTED"
+    assert rejected.json()["rejectReason"].startswith("적어 주신 번호로")
+    assert rejected.json()["decidedAt"] == "2026-10-06T01:00:00Z"
+
+
+def test_AC_01_3_application_requires_producer_account_and_existing_application(client, login):
+    consumer = client.get("/api/auth/producer-application", headers=login("u-minji"))
+    missing = client.get("/api/auth/producer-application", headers=login("u-new"))
+
+    assert consumer.status_code == 403
+    assert consumer.json()["details"] == {"reason": "WRONG_APP"}
+    assert missing.status_code == 404
+    assert missing.json()["message"] == "신청 내역이 없어요."
+
+
+def test_AC_01_7_new_producer_can_submit_application(client, login):
+    headers = login("u-new")
+    response = client.post(
+        "/api/auth/producer-application",
+        headers=headers,
+        json={
+            "ownerName": "김새농",
+            "farmName": "새 농장",
+            "region": "제주 제주시",
+            "mainItems": "감귤",
+            "phone": "010-9876-5432",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["farmId"].startswith("f-")
+    assert body["status"] == "PENDING"
+    assert body["rejectReason"] is None
+    assert client.get("/api/auth/producer-application", headers=headers).json() == body
+    me = client.get("/api/auth/me", headers=headers).json()
+    assert me["name"] == "김새농"
+    assert me["farmId"] == body["farmId"]
+    assert me["farmStatus"] == "PENDING"
+
+
+def test_AC_01_7_rejected_producer_can_reapply_with_same_farm(client, login):
+    headers = login("u-soonja")
+    response = client.post(
+        "/api/auth/producer-application",
+        headers=headers,
+        json={
+            "ownerName": "박순자",
+            "farmName": "하례 새 귤밭",
+            "region": "제주 서귀포시 남원읍",
+            "mainItems": "노지 감귤, 한라봉",
+            "phone": "010-1111-2222",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "farmId": "f-reject",
+        "ownerName": "박순자",
+        "farmName": "하례 새 귤밭",
+        "region": "제주 서귀포시 남원읍",
+        "mainItems": "노지 감귤, 한라봉",
+        "phone": "010-1111-2222",
+        "status": "PENDING",
+        "rejectReason": None,
+        "submittedAt": "2026-10-07T01:00:00Z",
+        "decidedAt": None,
+    }
+
+
+def test_AC_01_7_application_validates_fields_and_transition(client, login):
+    invalid = client.post(
+        "/api/auth/producer-application",
+        headers=login("u-new"),
+        json={"ownerName": "", "farmName": "", "region": "", "mainItems": "", "phone": "123"},
+    )
+    duplicate = client.post(
+        "/api/auth/producer-application",
+        headers=login("u-misook"),
+        json={
+            "ownerName": "오미숙",
+            "farmName": "위미 감귤농장",
+            "region": "제주 서귀포시 남원읍",
+            "mainItems": "노지 감귤",
+            "phone": "010-4321-8765",
+        },
+    )
+
+    assert invalid.status_code == 400
+    assert set(invalid.json()["details"]["fields"]) == {
+        "ownerName",
+        "farmName",
+        "region",
+        "mainItems",
+        "phone",
+    }
+    assert duplicate.status_code == 409
+    assert duplicate.json()["details"] == {"reason": "INVALID_TRANSITION"}
+
+
 def test_invalid_token_is_401(client):
     response = client.get("/api/auth/me", headers={"Authorization": "Bearer not-a-jwt"})
 
