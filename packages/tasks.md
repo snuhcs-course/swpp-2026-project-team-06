@@ -208,3 +208,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/09 #54 수정 머지 후 최신 main 병합, DB reset, 전체 API/브라우저 matrix 재실행 전까지 draft 유지하고 완료 처리하지 않는다
 - 10/09 PR #55 머지 commit `297b27a`를 병합하고 DB를 reset. smoke에 PENDING·REJECTED 신청 조회와 NONE 404를 추가해 7/7 재통과. Ruff, pytest 133개, Alembic upgrade/check, typecheck, Mock 11개, 두 web export 재통과
 - 10/09 실제 생산자 앱에서 오미숙은 신청 일정·읽기 전용 신청 내용, 박순자는 반려 사유·이전 값이 채워진 재신청 폼을 확인. `/api/auth/producer-application` 200, browser error 없음. #54 blocker 해소
+- 10/09 AI 1차 diff 점검에서 integration scenario 이름의 AC 추적 ID 누락을 발견해 7개 흐름 모두 관련 AC ID를 붙임

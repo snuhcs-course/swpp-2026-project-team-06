@@ -73,7 +73,7 @@ function itemById(page, keyName, id) {
   return page.items.find((item) => item[keyName] === id);
 }
 
-await scenario("health, account separation, wrong-app access, and producer gates", async () => {
+await scenario("AC-01-3/6: health, account separation, wrong-app access, and producer gates", async () => {
   const health = await request("GET", "/health");
   assert.equal(health.status, "ok");
 
@@ -133,7 +133,7 @@ await scenario("health, account separation, wrong-app access, and producer gates
   });
 });
 
-await scenario("product completion, detail draft, capacity request, and admin approval", async () => {
+await scenario("AC-03-4/04-8/07-5: product detail, capacity request, and approval", async () => {
   const created = await request("POST", "/api/products", {
     token: token("u-kang"),
     body: {},
@@ -296,7 +296,7 @@ async function createAndPayOrder(userId, label) {
   return paid.order;
 }
 
-await scenario("payment idempotency, exact capacity release, pause, and paid snapshots", async () => {
+await scenario("AC-05-6/09-6: payment, exact release, pause, and paid snapshots", async () => {
   const before = await request("GET", `/api/products/${state.productId}`);
   state.primaryOrder = await createAndPayOrder("u-minji", "primary");
   const afterPrimary = await request("GET", `/api/products/${state.productId}`);
@@ -374,7 +374,7 @@ await scenario("payment idempotency, exact capacity release, pause, and paid sna
   assert.equal(paidSnapshot.unitWeightGrams, 5000);
 });
 
-await scenario("producer fulfillment and consumer order visibility", async () => {
+await scenario("AC-10-6: producer fulfillment and consumer order visibility", async () => {
   const producerOrders = await request(
     "GET",
     `/api/orders/producer?productId=${state.productId}`,
@@ -407,7 +407,7 @@ await scenario("producer fulfillment and consumer order visibility", async () =>
   assert.equal(completed.status, "COMPLETED");
 });
 
-await scenario("public/follower news privacy, reactions, and private replies", async () => {
+await scenario("AC-12-10/15-6: news privacy, reactions, and private replies", async () => {
   await request("DELETE", "/api/farms/f-kang/follow", { token: token("u-seojun") });
   const publicPost = await request("POST", "/api/messaging/news", {
     token: token("u-kang"),
@@ -462,7 +462,7 @@ await scenario("public/follower news privacy, reactions, and private replies", a
   assert.ok(itemById(producerRoom, "messageId", seojunReply.messageId));
 });
 
-await scenario("chat auto-follow, factual AI, and sensitive handoff", async () => {
+await scenario("AC-13-1/2: chat auto-follow, factual AI, and sensitive handoff", async () => {
   await request("DELETE", "/api/farms/f-kang/follow", { token: token("u-seojun") });
   const started = await request("POST", "/api/messaging/chats", {
     token: token("u-seojun"),
@@ -501,7 +501,7 @@ await scenario("chat auto-follow, factual AI, and sensitive handoff", async () =
   assert.equal(handoff.reply.needsHuman, false);
 });
 
-await scenario("farm detail draft remains private until explicit save", async () => {
+await scenario("AC-02-4: farm detail draft remains private until explicit save", async () => {
   const before = await request("GET", "/api/farms/f-kang");
   const draft = await request("POST", "/api/farms/me/detail-draft", {
     token: token("u-kang"),
