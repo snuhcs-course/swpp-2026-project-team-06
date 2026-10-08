@@ -7,6 +7,7 @@
 | 0.1 | 2026-10-07 | Team 6 | Initial draft: sitemaps, user flows, data model summary, order states |
 | 0.2 | 2026-10-07 | Team 6 | Backend Django → FastAPI; operators use the admin API through Swagger UI instead of Django Admin (ADR 0007, 0008) |
 | 0.3 | 2026-10-07 | Team 6 | Synced with the final design (`docs/design/`) and screen spec 1.1: separate consumer and producer accounts (ADR 0010), producer login SCR-19, sub-screens, design rules, seed data, new fields (SWPP-81) |
+| 0.4 | 2026-10-08 | Team 6 | Design canvas and `docs/design/` synced to specs 1.2–1.5 from the implemented apps (SWPP-83): 1.3 tabs, messenger chat and news rooms, order inquiry SCR-32, sales settings and capacity, detail editing, AI settings SCR-31, Settings SCR-33 |
 
 ## 1. System Architecture
 
@@ -102,7 +103,7 @@ Each decision has an ADR in `docs/spec/tech-design/adr/`.
 
 I1 includes the original screens plus AI settings SCR-31, order inquiries SCR-32, and Settings SCR-33, with sub-screens (address entry, saved addresses, suspension notice, per-consumer chat, edit one profile field, consumer news room, producer news room) and a shared 403 screen. Operators handle approvals, delivery confirmation and refunds by calling admin API endpoints through Swagger UI; a dedicated operator screen comes in I2. There are two mobile web apps, a consumer app and a producer app, with separate accounts: the consumer app logs in at SCR-05 with consumer accounts only, and the producer app logs in at SCR-19 with producer accounts only (ADR 0010). Each app has four bottom tabs: consumer Discover · My Orders · Chat · Me, producer Dashboard · Products · Chat · Settings. Chat contains separate News Rooms (broadcasts and private replies) and 1:1 Chat; consumer screens do not use the word "message". Screen-level specs and the API contract are in `docs/spec/screens.md` (screen structure 1.3; API contract 1.2).
 
-**Design source and rules.** The final design is the Claude Design canvas exported to `docs/design/` (static HTML per frame, plus a README with tokens and rules). Screens, wording, and sizes follow its README; static HTML remains the 1.1 snapshot until the frontend follow-up. Key rules after the design review:
+**Design source and rules.** The final design is the Claude Design canvas exported to `docs/design/` (static HTML per frame, plus a README with tokens and rules). Screens, wording, and sizes follow its README. Since SWPP-83 (2026-10-08) the canvas and static HTML cover specs 1.2–1.5, redrawn from the implemented apps; where the implementation broke a design rule, the frame follows the rule. Key rules after the design review:
 
 - Tap targets are at least 48px (PRD N-02). Small visible buttons, such as the 40px round buttons over photos, get a 48px hit area.
 - Type scale: body 17, input 16 (prevents iOS zoom), secondary 15, meta (dates, chips, tabs, "n reserved", times) 15. Pretendard variable web font first, tabular numbers.
@@ -282,7 +283,7 @@ Source of truth: `docs/spec/ia.md` and `docs/spec/tech-design/README.md` (Korean
 
 ### Specification 1.2 Design Delta
 
-The static HTML and original canvas remain a 1.1 snapshot. The 1.2 section of `docs/design/README.md` defines the next frontend changes: compact chat headers, date groups and profile bubbles, readable product sales summaries, and date-range pricing instead of numbered steps. Check 360/390/430/1440px widths, long names, empty/error states, photos, keyboards, scrolling, and safe areas. Minimum 48px hit targets remain.
+The canvas and static HTML now include these 1.2 changes (SWPP-83): compact chat headers, date groups and profile bubbles, readable product sales summaries, and date-range pricing instead of numbered steps. Check 360/390/430/1440px widths, long names, empty/error states, photos, keyboards, scrolling, and safe areas. Minimum 48px hit targets remain.
 
 The detailed API contract is `docs/spec/contracts-1.2.md`, indexed in `screens.md` 7.3. It adds product sales settings, news-room replies, all producer threads, explicit read/mode writes, farm AI settings/preview, order inquiries, and private attachments. Existing account separation and error envelopes remain. A same-role foreign resource is 404; wrong-app tokens are 403 WRONG_APP.
 
@@ -296,7 +297,7 @@ AI workers capture both thread-mode and farm-settings versions and compare them 
 
 No floating chat launcher. Third Chat tab contains News Rooms / 1:1; consumer defaults to News Rooms, producer to 1:1. Circular avatars 48px, names/previews each one line, time/badges retain space. Initials replace missing photos; consumer identities stay masked on the producer side. Room headers include avatars; date separators, bubbles and bottom composer use existing tokens.
 
-Products have five state filters/counts. Dashboard/profile have no news FAB. My Orders is a root screen. Settings is a farm summary and profile/link, AI settings, logout list. Existing HTML exports are historical 1.1 snapshots; current rules are in `docs/design/README.md` and `docs/spec/navigation-1.3.md`.
+Products have five state filters/counts. Dashboard/profile have no news FAB. My Orders is a root screen. Settings is a farm summary and profile/link, AI settings, logout list. The HTML exports include these frames (SWPP-83); rules are in `docs/design/README.md` and `docs/spec/navigation-1.3.md`.
 
 
 ## Supply capacity approval (spec 1.4)
