@@ -161,3 +161,40 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/08 브랜치·spec 작성
 - 10/08 모델·마이그레이션 0002, AI 응답 엔진, 소식방·1:1·좋아요·소식 올리기, 시드. pytest 98개, alembic upgrade·downgrade·check 통과
 - 10/08 로컬 서버 스모크: 소식방 답장 격리, AI 전달, 생산자 답변 필요 목록, 현황 답할 질문 3
+
+## DEV-4 스펙 1.2 (2/2) — AI 응답 설정·주문 문제 문의·비공개 사진
+
+- 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5, 이 PR은 닫지 않음)
+- 브랜치: `zahra/dev-4-spec-1-2-settings-inquiries`
+- 기능·인수 조건: FEAT-32(AC-32-1~4), FEAT-33(AC-33-1~4), FEAT-10(AC-10-4), M-20·M-21, R-15 / [contracts-1.2](../docs/spec/contracts-1.2.md) 5·6장
+- 상태: 진행 중
+
+### 목표
+1.2 (1/2)에 이어 농가 AI 응답 설정(저장·미리보기), 결제 주문의 문제 문의, 비공개 사진 첨부를 서버에 만든다. 1:1 채팅의 첨부·문의 예외(팔로우 해제 후 본인 결제 주문 문의)를 연다.
+
+### 범위 (수정 허용 경로)
+- `server/**`
+
+### 비범위 (건드리지 않음)
+- 스펙 1.4(공급 물량·판매 설정·주문 처리), 1.5(상세·공개 소식방)
+- Cloudflare R2 업로드(I1은 DB에 저장, 아래 결정), 환불·교환 심사
+
+### 결정 사항
+- 10/08 비공개 사진은 I1에서 `private_attachments` 테이블에 바이트로 저장한다(공개 소식 미디어와 분리). R2 연동은 배포(DEV-8) 때 저장소만 바꾼다
+- 10/08 업로드는 multipart(`file`, `orderId` 또는 `threadId`) — 프론트 `uploadAttachment`와 같다. JPEG·PNG·WebP, 10MB, 서버가 실제 형식을 확인하고 EXIF·메타데이터를 지운다(Mock과 같은 방식). `python-multipart` 추가
+- 10/08 AI 설정은 저장할 때마다 이력(`farm_ai_settings_history`)을 남긴다
+
+### 작업
+- [ ] 모델·마이그레이션 0003(PrivateAttachment, OrderInquiry, FarmAiSettingsHistory)
+- [ ] AI 설정 조회·저장(버전)·미리보기
+- [ ] 비공개 사진 업로드·조회, 채팅 전송에 첨부 연결
+- [ ] 주문 문제 문의 접수·조회, 생산자 해결·재열기, 대화 페이지의 inquiries, 답변 필요·팔로우 예외
+- [ ] 테스트(AC ID), 시드
+
+### 완료 조건
+- [ ] AC-32-1~4, AC-33-1~4 테스트
+- [ ] 테스트·ruff·alembic check, CI 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/08 브랜치·spec 작성
