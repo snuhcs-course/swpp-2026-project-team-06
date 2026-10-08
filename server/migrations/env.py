@@ -8,6 +8,7 @@ from app.accounts import models as _accounts_models  # noqa: F401
 from app.ai import models as _ai_models  # noqa: F401
 from app.analytics import models as _analytics_models  # noqa: F401
 from app.catalog import models as _catalog_models  # noqa: F401
+from app.core import models as _core_models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base
 from app.farms import models as _farms_models  # noqa: F401
