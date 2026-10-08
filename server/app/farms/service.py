@@ -5,9 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import now
 from app.core.config import get_settings
-from app.core.errors import not_found
-from app.farms.models import Farm, FarmAiSettings, Follow
+from app.core.errors import conflict, not_found
+from app.core.ids import new_id
+from app.farms.models import Farm, FarmAiSettings, FarmAiSettingsHistory, Follow
 from app.farms.schemas import (
+    AiPreview,
+    AiPreviewInput,
+    AiSettings,
+    FaqItem,
     FarmCard,
     FarmDetail,
     FarmSummary,
@@ -173,3 +178,95 @@ def ai_settings(db: Session, farm_id: str, fresh: bool = False) -> FarmAiSetting
             handoff_topics=[],
         )
     return row
+
+
+# ---------------- 농가 AI 응답 설정 (FEAT-32, contracts-1.2 5장) ----------------
+
+
+def ai_settings_view(row: FarmAiSettings) -> AiSettings:
+    return AiSettings(
+        enabled=row.enabled,
+        version=row.version,
+        small_order_policy=row.small_order_policy,
+        reservation_shipping_policy=row.reservation_shipping_policy,
+        faqs=[FaqItem(**f) for f in row.faqs],
+        handoff_topics=list(row.handoff_topics),
+    )
+
+
+def save_ai_settings(db: Session, farm, user_id: str, body: AiSettings) -> AiSettings:
+    """버전이 다르면 409 STALE_VERSION(AC-32-4). 저장하면 version+1, 이력을 남기고 바로 쓴다."""
+    row = db.scalar(
+        select(FarmAiSettings).where(FarmAiSettings.farm_id == farm.id).with_for_update()
+    )
+    current = row.version if row else 1
+    if body.version != current:
+        raise conflict("STALE_VERSION", "최신 AI 설정을 다시 불러와 주세요.", version=current)
+    faqs = [
+        {"id": f.id or new_id("faq"), "question": f.question.strip(), "answer": f.answer.strip()}
+        for f in body.faqs
+    ]
+    if row is None:
+        row = FarmAiSettings(farm_id=farm.id)
+        db.add(row)
+    row.enabled = body.enabled
+    row.version = current + 1
+    row.small_order_policy = body.small_order_policy.strip()
+    row.reservation_shipping_policy = body.reservation_shipping_policy.strip()
+    row.faqs = faqs
+    row.handoff_topics = [t.strip() for t in body.handoff_topics]
+    row.updated_at = now()
+    db.flush()
+    view = ai_settings_view(row)
+    db.add(
+        FarmAiSettingsHistory(
+            farm_id=farm.id,
+            version=row.version,
+            settings=view.model_dump(by_alias=True),
+            saved_by=user_id,
+            created_at=row.updated_at,
+        )
+    )
+    db.flush()
+    return view
+
+
+def preview_ai(db: Session, farm, body: AiPreviewInput) -> AiPreview:
+    """저장·메시지·전달 질문·AI 모드를 바꾸지 않는 미리보기(AC-32-3)."""
+    from app.ai import service as ai
+    from app.catalog import service as catalog
+    from app.messaging import service as messaging
+    from app.orders import service as orders
+
+    if body.product_id:
+        item = catalog.load_product(db, body.product_id)
+        if item is None or item.product.farm_id != farm.id:
+            raise not_found("찾을 수 없는 상품이에요.")
+    if body.order_id:
+        order = orders.get_any_order(db, body.order_id)
+        if (
+            order is None
+            or order.paid_at is None
+            or not orders.order_belongs_to_farm(db, order, farm.id)
+        ):
+            raise not_found("찾을 수 없는 주문이에요.")
+    temporary = body.settings is not None
+    settings = body.settings or ai_settings_view(ai_settings(db, farm.id))
+    evidence = messaging.build_evidence(
+        db,
+        farm.id,
+        body.order_id,
+        settings.small_order_policy,
+        settings.reservation_shipping_policy,
+        [f.model_dump() for f in settings.faqs],
+        settings.handoff_topics,
+        product_id=body.product_id,
+    )
+    answer = ai.answer_question(body.question.strip(), evidence, enabled=settings.enabled)
+    return AiPreview(
+        action=answer.action,
+        answer=answer.answer if answer.action == "ANSWER" else None,
+        reason=answer.reason,
+        source_refs=answer.source_refs,
+        settings_version=None if temporary else settings.version,
+    )
