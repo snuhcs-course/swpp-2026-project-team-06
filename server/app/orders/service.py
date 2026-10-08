@@ -241,6 +241,7 @@ def list_orders(db: Session, consumer_id: str) -> list[OrderView]:
         key=lambda order: (
             "respondDeliveryWindow" in _actions(order) or "confirm" in _actions(order),
             order.created_at,
+            order.id,
         ),
         reverse=True,
     )

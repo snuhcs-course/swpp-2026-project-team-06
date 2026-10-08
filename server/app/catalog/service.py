@@ -406,7 +406,7 @@ def my_product_card(db: Session, item: Loaded) -> MyProductCard:
         reject_reason=p.reject_reason,
         pending_capacity_request=pending_capacity(db, p.id),
         reserved_count=_reserved_people(db, [p.id]).get(p.id, 0),
-        current_stage_label=cur.name if cur else None,
+        current_stage_label=f"{cur.starts_at} ~ {cur.ends_at}" if cur else None,
         updated_at=p.updated_at,
     )
 
@@ -415,7 +415,21 @@ def my_product_cards(db: Session, farm_id: str, status: str | None = None) -> li
     query = select(Product).where(Product.farm_id == farm_id)
     if status:
         query = query.where(Product.status == status)
-    products = list(db.scalars(query.order_by(Product.updated_at.desc(), Product.id.desc())))
+    products = list(db.scalars(query))
+    status_order = {
+        "REJECTED": 0,
+        "PENDING_APPROVAL": 1,
+        "PUBLISHED": 2,
+        "DRAFT": 3,
+        "CLOSED": 4,
+    }
+    products.sort(
+        key=lambda product: (
+            status_order.get(product.status, 99),
+            -product.updated_at.timestamp(),
+            product.id,
+        )
+    )
     return [my_product_card(db, item) for item in load_products(db, products)]
 
 

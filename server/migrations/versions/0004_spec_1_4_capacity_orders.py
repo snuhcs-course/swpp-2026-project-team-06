@@ -79,6 +79,16 @@ def upgrade() -> None:
             ),
             {"product_id": product_id, "grams": grams},
         )
+    unsafe_weights = connection.scalar(
+        sa.text(
+            "SELECT COUNT(*) FROM orders AS o JOIN product_options AS po "
+            "ON po.product_id=o.product_id AND po.id=o.option_id "
+            "WHERE po.weight_kg <= 0 OR "
+            "ABS(po.weight_kg * 1000 - ROUND(po.weight_kg * 1000)) > 0.000001"
+        )
+    )
+    if unsafe_weights:
+        raise RuntimeError("Every existing order option weight must map to exact integer grams")
     connection.execute(
         sa.text(
             "UPDATE orders AS o SET unit_weight_grams = ROUND(po.weight_kg * 1000)::integer "

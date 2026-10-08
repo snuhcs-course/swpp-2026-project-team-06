@@ -86,6 +86,21 @@ def test_my_product_has_missing_fields(client, login):
     assert set(body["missingFields"]) == {"받는 시기", "최대 지연 기한", "단계 가격"}
 
 
+def test_producer_product_list_matches_mock_grouping_and_stage_label(client, login):
+    items = client.get("/api/products/mine", headers=login("u-kang")).json()["items"]
+
+    assert [item["status"] for item in items] == [
+        "REJECTED",
+        "PENDING_APPROVAL",
+        "PUBLISHED",
+        "PUBLISHED",
+        "DRAFT",
+        "CLOSED",
+    ]
+    house = next(item for item in items if item["productId"] == "p-house")
+    assert house["currentStageLabel"] == "2026-10-01 ~ 2026-10-12"
+
+
 def test_AC_01_6_consumer_token_on_producer_api_is_403(client, login):
     response = client.get("/api/products/mine/p-house", headers=login("u-minji"))
 
