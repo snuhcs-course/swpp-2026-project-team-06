@@ -15,7 +15,7 @@ _PNG_KEEP = {b"IHDR", b"PLTE", b"IDAT", b"IEND", b"tRNS"}
 def _jpeg(data: bytes) -> bytes:
     out = bytearray(data[:2])
     i = 2
-    while i < len(data):
+    while i + 4 <= len(data):
         if data[i] != 0xFF:
             raise invalid({"file": "손상된 JPEG예요"})
         marker = data[i + 1]
@@ -33,6 +33,8 @@ def _jpeg(data: bytes) -> bytes:
 
 
 def _png(data: bytes) -> bytes:
+    if data[12:16] != b"IHDR":
+        raise invalid({"file": "손상된 PNG예요"})
     out = bytearray(data[:8])
     i = 8
     while i + 12 <= len(data):

@@ -205,11 +205,17 @@ def test_AC_33_4_rejects_wrong_type_and_size(client, login):
     mismatch = upload(client, headers, png(), "a.jpg", "image/jpeg", orderId="o-42")
     big = upload(client, headers, png() + b"\x00" * (10 * 1024 * 1024), orderId="o-42")
     neither = upload(client, headers, png())
+    truncated = upload(client, headers, b"\xff\xd8\xff", "a.jpg", "image/jpeg", orderId="o-42")
+    broken_png = upload(client, headers, png()[:20], orderId="o-42")
+    header_only = upload(client, headers, png()[:8], orderId="o-42")
 
     assert fake.status_code == 400
     assert mismatch.status_code == 400
     assert big.status_code == 400
     assert neither.status_code == 400
+    assert truncated.status_code == 400
+    assert broken_png.status_code == 400
+    assert header_only.status_code == 400
 
 
 def test_AC_33_2_other_consumers_cannot_use_or_read(client, login):
