@@ -19,6 +19,9 @@ dist/
 web-build/
 expo-env.d.ts
 *.tsbuildinfo
+playwright-report/
+test-results/
+.artifacts/
 
 # Python (server)
 .venv/
