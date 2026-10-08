@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, File, Form, Header, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
+from app.core import images
 from app.core.db import get_db
 from app.core.errors import not_found
 from app.core.idempotency import run_idempotent
@@ -13,9 +14,12 @@ from app.farms import service as farms
 from app.messaging import service
 from app.messaging.schemas import (
     AiModeInput,
+    AttachmentView,
     ChatPage,
     ChatSummary,
     EscalationView,
+    InquiryStatusInput,
+    InquiryView,
     NewsInput,
     NewsItem,
     NewsPosted,
@@ -262,3 +266,51 @@ def answer(db: Db, producer: ApprovedProducer, escalation_id: str, body: TextInp
     view = service.answer_question(db, farm, escalation_id, body.text)
     db.commit()
     return view
+
+
+# ---------------- 비공개 사진·문의 상태 (contracts-1.2 6장) ----------------
+
+
+@router.post("/attachments", response_model=AttachmentView)
+async def upload_attachment(
+    db: Db,
+    user: CurrentUser,
+    file: Annotated[UploadFile, File()],
+    order_id: Annotated[str | None, Form(alias="orderId")] = None,
+    thread_id: Annotated[str | None, Form(alias="threadId")] = None,
+):
+    """multipart(file, orderId 또는 threadId). JPEG·PNG·WebP 10MB, EXIF는 지워서 저장한다."""
+    data = await file.read(images.MAX_BYTES + 1)
+    view = service.upload_attachment(db, user, data, file.content_type, order_id, thread_id)
+    db.commit()
+    return view
+
+
+@router.get("/attachments/{attachment_id}", response_class=Response)
+def read_attachment(db: Db, user: CurrentUser, attachment_id: str):
+    a = service.read_attachment(db, user, attachment_id)
+    return Response(
+        content=a.data,
+        media_type=a.mime_type,
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+@router.put("/producer/inquiries/{inquiry_id}/status", response_model=InquiryView)
+def inquiry_status(
+    db: Db,
+    producer: ApprovedProducer,
+    inquiry_id: str,
+    body: InquiryStatusInput,
+    key: IdempotencyKey = None,
+):
+    """해결·재열기. 주문 상태·환불액은 바꾸지 않는다."""
+    user, farm = producer
+    return run_idempotent(
+        db,
+        user.id,
+        f"inquiry-status:{inquiry_id}",
+        key,
+        body,
+        lambda: service.set_inquiry_status(db, farm, inquiry_id, body.status, body.version),
+    )

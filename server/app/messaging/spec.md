@@ -38,4 +38,5 @@
 | 2026-10-08 | 소식방은 방송 + 소비자는 본인 답장만, 생산자는 모든 답장(이름 앞 글자). 권한 필터 뒤에 (createdAt, id) keyset으로 자르고 cursor는 사용자·자원에 묶는다 | contracts-1.2 4장, M-19 | AC-12-6 |
 | 2026-10-08 | 소비자 전송은 대화 행을 FOR UPDATE로 잠그고 AI 답까지 같은 트랜잭션에 저장, 저장 직전 대화·농가 설정 버전을 다시 확인한다. HUMAN·농가 AI OFF면 `needsHuman` | contracts-1.2 4장, M-20 | AC-13-6, AC-13-7 |
 | 2026-10-08 | 생산자 답변은 저장과 HUMAN 전환을 함께, 지정한 전달 질문만 ANSWERED. 질문함 API(1.1)는 같은 Thread·Escalation을 쓴다 | M-09 | AC-13-2 |
-| 2026-10-08 | 첨부는 1.2 (2/2)에서. 지금은 `attachmentIds`가 비어 있지 않으면 404 | 단계적 구현 | — |
+| 2026-10-08 | 첨부는 1.2 (2/2)에서. 지금은 `attachmentIds`가 비어 있지 않으면 404 (1.2 (2/2)에서 아래 행으로 대체) | 단계적 구현 | — |
+| 2026-10-08 | 비공개 사진은 `private_attachments`(I1은 DB 바이트), 업로드 때 형식 확인·메타데이터 제거(`core/images.py`), 조회는 `Cache-Control: private, no-store`. 문의는 `order_inquiries`, 대화를 HUMAN으로, 열린 문의는 답변 필요 | contracts-1.2 6장, M-21 | AC-33-1~4 |

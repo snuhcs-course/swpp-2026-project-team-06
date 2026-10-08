@@ -122,11 +122,47 @@ class EscalationView(CamelModel):
     thread: list[ChatMessage]
 
 
+class AttachmentView(CamelModel):
+    attachment_id: str
+    mime_type: str
+    size: int
+
+
+class InquiryView(CamelModel):
+    inquiry_id: str
+    order_id: str
+    thread_id: str
+    type: Literal["DAMAGE", "CONDITION", "TASTE", "OTHER"]
+    text: str
+    attachments: list[AttachmentView]
+    status: Literal["OPEN", "RESOLVED"]
+    version: int
+    created_at: datetime
+    resolved_at: datetime | None
+
+
+class InquiryInput(CamelModel):
+    type: Literal["DAMAGE", "CONDITION", "TASTE", "OTHER"]
+    text: str = ""
+    attachment_ids: list[str] = Field(default_factory=list)
+
+
+class InquiryCreated(CamelModel):
+    inquiry: InquiryView
+    message: "ChatMessage"
+    thread_id: str
+
+
+class InquiryStatusInput(CamelModel):
+    status: Literal["OPEN", "RESOLVED"]
+    version: int
+
+
 class ChatPage(CamelModel):
     items: list[ChatMessage]
     next_cursor: str | None
     thread: ThreadView
-    inquiries: list[dict]
+    inquiries: list[InquiryView]
     orders: list[LinkedOrder]
     escalations: list[EscalationView] | None = None
 

@@ -50,3 +50,16 @@ class FarmAiSettings(Base):
     faqs: Mapped[list[dict]] = mapped_column(JSON, default=list)
     handoff_topics: Mapped[list[str]] = mapped_column(JSON, default=list)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class FarmAiSettingsHistory(Base):
+    """AI 설정을 저장할 때마다 남기는 이력(contracts-1.2 5장)."""
+
+    __tablename__ = "farm_ai_settings_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    settings: Mapped[dict] = mapped_column(JSON)
+    saved_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

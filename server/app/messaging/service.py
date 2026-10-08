@@ -4,23 +4,36 @@
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core import masking
+from app.core import images, masking
 from app.core.clock import now
 from app.core.errors import ApiError, conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
 from app.core.pagination import decode_cursor, encode_cursor
 from app.core.schemas import Paged
-from app.messaging.models import Broadcast, Escalation, Reaction, RoomReply, Thread, ThreadMessage
+from app.messaging.models import (
+    Broadcast,
+    Escalation,
+    OrderInquiry,
+    PrivateAttachment,
+    Reaction,
+    RoomReply,
+    Thread,
+    ThreadMessage,
+)
 from app.messaging.schemas import (
+    AttachmentView,
     ChatMessage,
     ChatPage,
     ChatSummary,
     EscalationView,
+    InquiryCreated,
+    InquiryInput,
+    InquiryView,
     LinkedOrder,
     NewsInput,
     NewsItem,
@@ -41,6 +54,7 @@ from app.messaging.schemas import (
 
 _VIDEO = re.compile(r"^data:video|\.(mp4|webm|mov)$", re.IGNORECASE)
 FORWARDED_TEXT = "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요."
+ATTACHMENT_TTL = timedelta(hours=24)
 
 
 def mask(text: str) -> tuple[str, bool]:
@@ -411,8 +425,11 @@ def _set_mode(t: Thread, mode: str) -> None:
 
 
 def _has_inquiries(db: Session, thread_id: str) -> bool:
-    """주문 문제 문의는 1.2 (2/2)에서 연다. 그 전까지 팔로우 예외는 없다."""
-    return False
+    """결제 주문 문의가 있는 대화는 팔로우를 해제해도 이어진다(M-04)."""
+    return (
+        db.scalar(select(OrderInquiry.id).where(OrderInquiry.thread_id == thread_id).limit(1))
+        is not None
+    )
 
 
 def get_thread(db: Session, farm_id: str, consumer_id: str, lock: bool = False) -> Thread | None:
@@ -494,7 +511,12 @@ def _needs_reply(db: Session, t: Thread) -> bool:
         .where(Escalation.thread_id == t.id, Escalation.status == "OPEN")
         .limit(1)
     )
-    if open_escalation:
+    open_inquiry = db.scalar(
+        select(OrderInquiry.id)
+        .where(OrderInquiry.thread_id == t.id, OrderInquiry.status == "OPEN")
+        .limit(1)
+    )
+    if open_escalation or open_inquiry:
         return True
     last_producer = (
         db.scalar(
@@ -520,7 +542,10 @@ def _needs_reply(db: Session, t: Thread) -> bool:
 def _linked_orders(db: Session, t: Thread, messages: list[ThreadMessage]) -> list[LinkedOrder]:
     from app.orders import service as orders
 
-    ids = sorted({m.order_id for m in messages if m.order_id})
+    ids = sorted(
+        {m.order_id for m in messages if m.order_id}
+        | {i.order_id for i in _thread_inquiries(db, t.id)}
+    )
     return [
         LinkedOrder(**o) for o in orders.linked_order_summaries(db, t.consumer_id, t.farm_id, ids)
     ]
@@ -568,7 +593,7 @@ def _chat_page(
         items=[_message_view(m) for m in rows],
         next_cursor=next_cursor,
         thread=_thread_view(t),
-        inquiries=[],
+        inquiries=[inquiry_view(db, i) for i in _thread_inquiries(db, t.id)],
         orders=_linked_orders(db, t, _messages(db, t.id)),
         escalations=escalations,
     )
@@ -634,12 +659,46 @@ def consumer_page(db: Session, consumer, farm_id: str, cursor: str | None, limit
     return _chat_page(db, consumer, thread, cursor, limit, producer=False)
 
 
-def _check_attachments(ids: list[str]) -> None:
-    if ids:
-        raise not_found("사용할 수 없는 첨부예요.")
+def bind_attachments(
+    db: Session, uploader_id: str, ids: list[str], thread: Thread | None, order_id: str | None
+) -> list[PrivateAttachment]:
+    """업로더 본인의, 묶이지 않은, 같은 주문·대화로 올린 24시간 안의 사진만(contracts-1.2 6장)."""
+    if len(ids) > 3 or len(set(ids)) != len(ids):
+        raise invalid({"attachmentIds": "사진은 서로 다른 3장까지 첨부해 주세요"})
+    found = []
+    for aid in ids:
+        a = db.scalar(
+            select(PrivateAttachment).where(PrivateAttachment.id == aid).with_for_update()
+        )
+        if (
+            a is None
+            or a.uploader_id != uploader_id
+            or a.bound
+            or now() - a.created_at > ATTACHMENT_TTL
+            or (
+                a.order_id != order_id
+                if a.order_id
+                else (thread is None or a.thread_id != thread.id)
+            )
+        ):
+            raise not_found("사용할 수 없는 첨부예요.")
+        found.append(a)
+    for a in found:
+        a.bound = True
+    return found
 
 
-def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
+def build_evidence(
+    db: Session,
+    farm_id: str,
+    order_id: str | None,
+    small_order_policy: str,
+    reservation_shipping_policy: str,
+    faqs: list[dict],
+    handoff_topics: list[str],
+    product_id: str | None = None,
+):
+    """AI 근거(M-18: 개인정보 없음). 주문 > 지정 상품 > 판매 중 상품이 하나뿐이면 그 상품."""
     from app.ai.schemas import Evidence
     from app.catalog import service as catalog
     from app.orders import service as orders
@@ -649,11 +708,17 @@ def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
     product = None
     if order is not None:
         product = catalog.load_product(db, order.product_id).product
+    elif product_id:
+        item = catalog.load_product(db, product_id)
+        product = item.product if item else None
     elif len(published) == 1:
         product = published[0]
     window = None
     if product and product.delivery_start and product.delivery_end:
         window = (product.delivery_start.isoformat(), product.delivery_end.isoformat())
+    order_window = None
+    if order is not None:
+        order_window = (order.delivery_start.isoformat(), order.delivery_end.isoformat())
     return Evidence(
         product_id=product.id if product else None,
         product_name=product.name if product else None,
@@ -665,13 +730,23 @@ def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
         expected_brix=product.expected_brix if product else None,
         order_id=order.id if order else None,
         order_status=order.status if order else None,
-        order_delivery_window=(order.delivery_start.isoformat(), order.delivery_end.isoformat())
-        if order
-        else None,
-        faqs=settings.faqs,
-        small_order_policy=settings.small_order_policy,
-        reservation_shipping_policy=settings.reservation_shipping_policy,
-        handoff_topics=settings.handoff_topics,
+        order_delivery_window=order_window,
+        faqs=faqs,
+        small_order_policy=small_order_policy,
+        reservation_shipping_policy=reservation_shipping_policy,
+        handoff_topics=handoff_topics,
+    )
+
+
+def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
+    return build_evidence(
+        db,
+        farm_id,
+        order_id,
+        settings.small_order_policy,
+        settings.reservation_shipping_policy,
+        settings.faqs,
+        settings.handoff_topics,
     )
 
 
@@ -686,15 +761,18 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendR
 
     thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
     text = body.text.strip()
-    _check_attachments(body.attachment_ids)
-    if not text or len(text) > 1000:
-        raise invalid({"text": "본문을 넣고 글은 1,000자 이내로 적어 주세요"})
+    if (not text and not body.attachment_ids) or len(text) > 1000:
+        raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
     context = None
     if body.order_id:
         order = orders.get_paid_order_of(db, consumer.id, body.order_id)
         if order is None or not orders.order_belongs_to_farm(db, order, farm_id):
             raise not_found("결제한 본인 주문만 문의할 수 있어요.")
         context = orders.order_context(db, order)
+    elif not farms.is_following(db, consumer.id, farm_id):
+        # 팔로우 해제 뒤에는 본인 결제 주문 문맥으로만 보낼 수 있다(contracts-1.2 4장)
+        raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
+    attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
     settings = farms.ai_settings(db, farm_id)
     captured = (thread.version, settings.version)
     masked_text, was_masked = mask(text)
@@ -705,17 +783,18 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendR
         sender_type="CONSUMER",
         body=masked_text,
         photos=[],
-        attachment_ids=[],
+        attachment_ids=[a.id for a in attachments],
         order_id=body.order_id,
         source_refs=[],
         masked=was_masked,
-        needs_human=thread.ai_mode == "HUMAN" or not settings.enabled,
+        # 사진만 보낸 메시지는 AI가 판단하지 않는다(M-21)
+        needs_human=thread.ai_mode == "HUMAN" or not settings.enabled or not text,
         created_at=created,
     )
     db.add(message)
     db.flush()
     reply = None
-    if thread.ai_mode == "AUTO" and settings.enabled:
+    if thread.ai_mode == "AUTO" and settings.enabled and text:
         answer = ai.answer_question(text, _evidence(db, farm_id, body.order_id, settings))
         latest = farms.ai_settings(db, farm_id, fresh=True)
         still_auto = thread.ai_mode == "AUTO" and latest.enabled
@@ -841,18 +920,25 @@ def producer_page(
 
 
 def _producer_reply(
-    db: Session, thread: Thread, text: str, escalation_ids: list[str]
+    db: Session,
+    thread: Thread,
+    text: str,
+    escalation_ids: list[str],
+    attachment_ids: list[str] | None = None,
+    uploader_id: str | None = None,
 ) -> ThreadMessage:
     """생산자 답변. 저장과 HUMAN 전환을 같은 트랜잭션에서 한다(M-09)."""
     text = text.strip()
-    if not text or len(text) > 1000:
-        raise invalid({"text": "본문을 넣고 글은 1,000자 이내로 적어 주세요"})
+    attachment_ids = attachment_ids or []
+    if (not text and not attachment_ids) or len(text) > 1000:
+        raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
     escalations = []
     for eid in escalation_ids:
         e = db.get(Escalation, eid)
         if e is None or e.thread_id != thread.id:
             raise not_found("찾을 수 없는 질문이에요.")
         escalations.append(e)
+    attachments = bind_attachments(db, uploader_id or "", attachment_ids, thread, None)
     masked_text, was_masked = mask(text)
     message = ThreadMessage(
         id=new_id("m"),
@@ -860,7 +946,7 @@ def _producer_reply(
         sender_type="PRODUCER",
         body=masked_text,
         photos=[],
-        attachment_ids=[],
+        attachment_ids=[a.id for a in attachments],
         source_refs=[],
         masked=was_masked,
         needs_human=False,
@@ -878,8 +964,14 @@ def producer_send(
     db: Session, farm, consumer_id: str, body: ProducerSendInput
 ) -> ProducerSendResult:
     thread = _producer_thread(db, farm, consumer_id, lock=True)
-    _check_attachments(body.attachment_ids)
-    message = _producer_reply(db, thread, body.text, body.answer_to_escalation_ids)
+    message = _producer_reply(
+        db,
+        thread,
+        body.text,
+        body.answer_to_escalation_ids,
+        body.attachment_ids,
+        farm.producer_id,
+    )
     return ProducerSendResult(message=_message_view(message), thread=_thread_view(thread))
 
 
@@ -929,3 +1021,223 @@ def open_question_count(db: Session, farm_id: str) -> int:
     """현황의 답할 질문 수(FEAT-14): 답변이 필요한 대화 수."""
     threads = db.scalars(select(Thread).where(Thread.farm_id == farm_id))
     return sum(1 for t in threads if _needs_reply(db, t))
+
+
+# ---------------- 비공개 사진 (contracts-1.2 6장) ----------------
+
+
+def _attachment_view(a: PrivateAttachment) -> AttachmentView:
+    return AttachmentView(attachment_id=a.id, mime_type=a.mime_type, size=a.size)
+
+
+def _check_resource(db: Session, user, order_id: str | None, thread_id: str | None) -> None:
+    """주문 또는 대화 하나. 본인 결제 주문·자기 대화, 생산자는 자기 농가의 것만."""
+    from app.farms import service as farms
+    from app.orders import service as orders
+
+    if bool(order_id) == bool(thread_id):
+        raise invalid({"file": "주문 또는 대화를 하나 지정해 주세요"})
+    if order_id:
+        order = orders.get_any_order(db, order_id)
+        if order is None or order.paid_at is None:
+            raise not_found("결제한 본인 주문만 문의할 수 있어요.")
+        if user.role == "CONSUMER":
+            ok = order.consumer_id == user.id
+        else:
+            own = farms.get_farm_of_producer(db, user.id)
+            ok = own is not None and orders.order_belongs_to_farm(db, order, own.id)
+        if not ok:
+            raise not_found("결제한 본인 주문만 문의할 수 있어요.")
+        return
+    thread = db.get(Thread, thread_id)
+    if thread is None or farms.get_approved_farm(db, thread.farm_id) is None:
+        raise not_found("찾을 수 없는 대화예요.")
+    if user.role == "CONSUMER":
+        if thread.consumer_id != user.id:
+            raise not_found("찾을 수 없는 대화예요.")
+        following = farms.is_following(db, user.id, thread.farm_id)
+        if not following and not _has_inquiries(db, thread.id):
+            raise not_found("찾을 수 없는 대화예요.")
+    else:
+        own = farms.get_farm_of_producer(db, user.id)
+        if own is None or own.id != thread.farm_id:
+            raise not_found("찾을 수 없는 대화예요.")
+
+
+def upload_attachment(
+    db: Session,
+    user,
+    data: bytes,
+    declared: str | None,
+    order_id: str | None,
+    thread_id: str | None,
+) -> AttachmentView:
+    """업로드한 사람만 보는 임시 파일. 실제 형식 확인·EXIF 제거, 24시간 지난 미연결 파일 정리."""
+    if user.role not in ("CONSUMER", "PRODUCER"):
+        raise forbidden()
+    _check_resource(db, user, order_id, thread_id)
+    mime, cleaned = images.sanitize(data, declared)
+    db.execute(
+        delete(PrivateAttachment).where(
+            PrivateAttachment.bound.is_(False),
+            PrivateAttachment.created_at < now() - ATTACHMENT_TTL,
+        )
+    )
+    row = PrivateAttachment(
+        id=new_id("att"),
+        uploader_id=user.id,
+        order_id=order_id,
+        thread_id=thread_id,
+        mime_type=mime,
+        size=len(cleaned),
+        data=cleaned,
+        bound=False,
+        created_at=now(),
+    )
+    db.add(row)
+    db.flush()
+    return _attachment_view(row)
+
+
+def read_attachment(db: Session, user, attachment_id: str) -> PrivateAttachment:
+    """묶인 파일은 그 주문·대화 참여자, 임시 파일은 업로더만. 아니면 404."""
+    a = db.get(PrivateAttachment, attachment_id)
+    if a is None:
+        raise not_found("찾을 수 없는 사진이에요.")
+    if not a.bound:
+        if a.uploader_id != user.id or now() - a.created_at > ATTACHMENT_TTL:
+            raise not_found("찾을 수 없는 사진이에요.")
+        return a
+    try:
+        _check_resource(db, user, a.order_id, None if a.order_id else a.thread_id)
+    except ApiError as exc:
+        raise not_found("찾을 수 없는 사진이에요.") from exc
+    return a
+
+
+# ---------------- 주문 문제 문의 (FEAT-33, M-21) ----------------
+
+
+def _thread_inquiries(db: Session, thread_id: str) -> list[OrderInquiry]:
+    return list(
+        db.scalars(
+            select(OrderInquiry)
+            .where(OrderInquiry.thread_id == thread_id)
+            .order_by(OrderInquiry.created_at, OrderInquiry.id)
+        )
+    )
+
+
+def inquiry_view(db: Session, i: OrderInquiry) -> InquiryView:
+    """첨부는 메타데이터만 돌려준다. 바이트는 GET /api/messaging/attachments/{id}."""
+    attachments = []
+    if i.attachment_ids:
+        rows = {
+            a.id: a
+            for a in db.scalars(
+                select(PrivateAttachment).where(PrivateAttachment.id.in_(i.attachment_ids))
+            )
+        }
+        attachments = [_attachment_view(rows[a]) for a in i.attachment_ids if a in rows]
+    return InquiryView(
+        inquiry_id=i.id,
+        order_id=i.order_id,
+        thread_id=i.thread_id,
+        type=i.type,
+        text=i.text,
+        attachments=attachments,
+        status=i.status,
+        version=i.version,
+        created_at=i.created_at,
+        resolved_at=i.resolved_at,
+    )
+
+
+def create_inquiry(db: Session, consumer, order_id: str, body: InquiryInput) -> InquiryCreated:
+    """본인 결제 주문에서 접수(AC-33-1). 그 농가 대화에 주문 문맥과 함께 넣고 HUMAN으로."""
+    from app.farms import service as farms
+    from app.orders import service as orders
+
+    order = orders.get_paid_order_of(db, consumer.id, order_id)
+    if order is None:
+        raise not_found("결제한 본인 주문만 문의할 수 있어요.")
+    text = body.text.strip()
+    if not text or len(text) > 1000:
+        raise invalid({"text": "유형을 선택하고 설명을 1~1,000자로 적어 주세요"})
+    farm_id = orders.order_farm_id(db, order)
+    if farms.get_approved_farm(db, farm_id) is None:
+        raise not_found("지금은 이 농가에 문의할 수 없어요.")
+    ensure_thread(db, farm_id, consumer.id)
+    thread = get_thread(db, farm_id, consumer.id, lock=True)
+    attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, order.id)
+    masked_text, was_masked = mask(text)
+    created = now()
+    inquiry_id = new_id("inquiry")
+    message = ThreadMessage(
+        id=new_id("m"),
+        thread_id=thread.id,
+        sender_type="CONSUMER",
+        body=masked_text,
+        photos=[],
+        attachment_ids=[a.id for a in attachments],
+        order_id=order.id,
+        inquiry_id=inquiry_id,
+        source_refs=[],
+        masked=was_masked,
+        needs_human=True,
+        created_at=created,
+    )
+    db.add(message)
+    db.flush()
+    inquiry = OrderInquiry(
+        id=inquiry_id,
+        order_id=order.id,
+        thread_id=thread.id,
+        message_id=message.id,
+        type=body.type,
+        text=masked_text,
+        attachment_ids=[a.id for a in attachments],
+        status="OPEN",
+        version=1,
+        created_at=created,
+    )
+    db.add(inquiry)
+    # AI는 접수 안내만 할 수 있고 사진·책임을 판단하지 않는다 → 직접 응대(M-21)
+    _set_mode(thread, "HUMAN")
+    db.flush()
+    return InquiryCreated(
+        inquiry=inquiry_view(db, inquiry), message=_message_view(message), thread_id=thread.id
+    )
+
+
+def list_inquiries(db: Session, user, order_id: str, cursor: str | None, limit: int) -> Paged:
+    """본인 소비자 또는 그 농가 생산자만(AC-33-2)."""
+    _check_resource(db, user, order_id, None)
+    rows = list(
+        db.scalars(
+            select(OrderInquiry)
+            .where(OrderInquiry.order_id == order_id)
+            .order_by(OrderInquiry.created_at, OrderInquiry.id)
+        )
+    )
+    return _offset_page([inquiry_view(db, i) for i in rows], cursor, limit)
+
+
+def set_inquiry_status(
+    db: Session, farm, inquiry_id: str, status: str, version: int
+) -> InquiryView:
+    """해결·재열기. 주문 상태·환불액은 바꾸지 않는다(AC-33-3)."""
+    inquiry = db.scalar(select(OrderInquiry).where(OrderInquiry.id == inquiry_id).with_for_update())
+    thread = db.get(Thread, inquiry.thread_id) if inquiry else None
+    if inquiry is None or thread is None or thread.farm_id != farm.id:
+        raise not_found("찾을 수 없는 문의예요.")
+    if inquiry.version != version:
+        raise conflict(
+            "STALE_VERSION", "최신 문의 상태를 다시 불러와 주세요.", version=inquiry.version
+        )
+    if inquiry.status != status:
+        inquiry.status = status
+        inquiry.version += 1
+        inquiry.resolved_at = now() if status == "RESOLVED" else None
+    db.flush()
+    return inquiry_view(db, inquiry)

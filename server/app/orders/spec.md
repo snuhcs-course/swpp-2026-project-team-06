@@ -42,3 +42,4 @@
 | 2026-10-08 | 결제는 `catalog.lock_allocation`(FOR UPDATE)으로 잠근 뒤 차감, 주문 생성은 물량을 잡지 않는다. 409(STAGE_CHANGED·SOLD_OUT)도 멱등 결과로 저장 | FQ-03, contracts 1장 | AC-09-1, AC-09-3 |
 | 2026-10-08 | 주문 번호는 `FC-MMDD-NNNN`(`order_no_seq`). 도서산간은 우편번호·주소 예시 규칙, 생산자 지역 설정은 후속 | Mock과 같음, R-20 | AC-08-4 |
 | 2026-10-08 | 현황의 `openQuestions`는 채팅 구현 전까지 0, 대표 상품은 지금 단계가 가장 일찍 끝나는 판매 중 상품 | FEAT-14 | AC-14-1 |
+| 2026-10-08 | 주문 문의 API(`POST·GET /api/orders/{id}/inquiries`)는 orders 라우터, 로직은 messaging 서비스. 결제한 본인 주문·그 농가 생산자만 | contracts-1.2 6장 | AC-33-1 |
