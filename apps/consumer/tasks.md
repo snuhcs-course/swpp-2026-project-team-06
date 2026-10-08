@@ -197,3 +197,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: 소비자 typecheck·web export, Mock 9개 테스트 통과. 브라우저에서 구매 확정 시 건수 3/0/1→2/1/1, 상세 왕복/로그인 복귀 필터 유지, 빈 확정 탭, 360/390/430px 가로 넘침 없음 확인.
 - 자체 리뷰 수정: 중첩 layout의 useLocalSearchParams는 직접 링크 query를 놓쳐 로그인 복귀가 pending으로 바뀜. useGlobalSearchParams로 수정하고 confirmed 복귀 재검증. 기존 상품 테스트의 의미는 유지. API/DB 변경 없음.
 - 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건.
+
+## DEV-3 주문 탭 표시 순서 수정
+- 범위: 주문 그룹 배열과 관련 소비자 명세·영문 Wiki.
+- 결정: 사용자 요청대로 확정 → 미확정 → 취소·환불 순서. 기본 선택은 미확정 유지.
+- 브랜치: jinwoo/dev-3-order-tab-order. 자체 검토·검증 후 PR 및 머지.
+- 검증 완료: 기존 navigation 테스트 4건 통과, 브라우저 표시 순서·미확정 기본 선택 확인. diff 검토 지적 없음.
+- 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건.

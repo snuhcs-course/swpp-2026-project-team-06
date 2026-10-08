@@ -1,8 +1,8 @@
 import type { Order } from "@farmclub/api";
 
 export const orderGroups = [
-  { value: "pending", label: "미확정" },
   { value: "confirmed", label: "확정" },
+  { value: "pending", label: "미확정" },
   { value: "canceled", label: "취소·환불" },
 ] as const;
 export type OrderGroup = (typeof orderGroups)[number]["value"];
