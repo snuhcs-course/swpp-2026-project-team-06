@@ -54,8 +54,17 @@ test("AC-12-1/2/3/5/6/7/9: shared rooms enforce privacy, permissions, idempotenc
       b = await login("u-seojun", "consumer"),
       p = await login("u-kang", "producer"),
       pending = await login("u-misook", "producer");
-    assert.equal((await api("GET", room)).status, 401);
-    assert.equal((await api("GET", room, b)).status, 403);
+    assert.equal((await api("GET", room)).status, 200);
+    assert.equal(
+      (await api("POST", room, null, { text: "anonymous" })).status,
+      401,
+    );
+    assert.equal((await api("GET", room, b)).status, 200);
+    assert.equal(
+      (await api("POST", room, b, { text: "not following" }, "not-following"))
+        .status,
+      403,
+    );
     assert.equal((await api("GET", room, pending)).status, 403);
     assert.equal(
       (await api("GET", "/api/messaging/rooms", pending)).status,

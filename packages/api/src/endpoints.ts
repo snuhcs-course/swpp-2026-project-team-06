@@ -38,6 +38,10 @@ export const auth = {
 /* ---------------- farms (/api/home, /api/farms) ---------------- */
 
 export const farms = {
+  detailDraft: (input: A.DetailDraftInput) =>
+    request<A.DetailDraft>("POST", "/api/farms/me/detail-draft", {
+      body: input,
+    }),
   home: () => request<A.Home>("GET", "/api/home"),
   list: (q: { q?: string } & A.PageQuery = {}) =>
     request<A.Paged<A.FarmCard>>("GET", "/api/farms", { query: q }),
@@ -56,6 +60,7 @@ export const farms = {
       name: string;
       region: string;
       intro: string;
+      detailContent: A.DetailContent;
       photo: string | null;
     }>,
   ) => request<A.MyFarm>("PATCH", "/api/farms/me", { body: patch }),
@@ -64,6 +69,12 @@ export const farms = {
 /* ---------------- catalog (/api/products) ---------------- */
 
 export const catalog = {
+  detailDraft: (productId: string, input: A.DetailDraftInput) =>
+    request<A.DetailDraft>(
+      "POST",
+      `/api/products/mine/${productId}/detail-draft`,
+      { body: input },
+    ),
   product: (productId: string) =>
     request<A.ProductDetail>("GET", `/api/products/${productId}`),
   mine: (q: { status?: A.ProductStatus } & A.PageQuery = {}) =>

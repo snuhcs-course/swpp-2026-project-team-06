@@ -1,3 +1,4 @@
+import { validateDetail } from "./detailContent";
 // /api/home, /api/farms Mock (FEAT-02, 06, 19)
 import type { FollowState, Home, MyFarm } from "../types";
 import { farmCard, farmSummary, productCard } from "./derive";
@@ -100,6 +101,7 @@ register({
     return {
       ...farmSummary(f),
       intro: f.intro,
+      ...(f.detailContent ? { detailContent: f.detailContent } : {}),
       status: f.status,
       shareUrl: f.status === "APPROVED" ? `${SHARE_BASE}/${f.farmId}` : null,
     };
@@ -120,10 +122,18 @@ register({
       fields.region = "지역을 적어 주세요";
     if (Object.keys(fields).length)
       fail(400, "VALIDATION_ERROR", "빈 칸을 채워 주세요.", { fields });
-    Object.assign(f, b);
+    const detail =
+      "detailContent" in ctx.body
+        ? validateDetail(ctx.body.detailContent)
+        : undefined;
+    for (const key of ["name", "region", "intro", "photo"] as const) {
+      if (key in b) Object.assign(f, { [key]: b[key] });
+    }
+    if (detail) f.detailContent = detail;
     return {
       ...farmSummary(f),
       intro: f.intro,
+      ...(f.detailContent ? { detailContent: f.detailContent } : {}),
       status: f.status,
       shareUrl: f.status === "APPROVED" ? `${SHARE_BASE}/${f.farmId}` : null,
     };
@@ -136,6 +146,7 @@ register({
     return {
       ...farmSummary(f),
       intro: f.intro,
+      ...(f.detailContent ? { detailContent: f.detailContent } : {}),
       isFollowing:
         !!uid &&
         ctx.db.follows.some((x) => x.userId === uid && x.farmId === f.farmId),

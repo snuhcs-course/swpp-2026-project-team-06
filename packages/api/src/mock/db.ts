@@ -41,6 +41,7 @@ export type FarmRec = {
   name: string;
   region: string;
   intro: string;
+  detailContent?: import("../types").DetailContent;
   photo: string | null;
   followerCount: number;
   status: Exclude<FarmStatus, "NONE">;
@@ -57,6 +58,7 @@ export type ProductRec = {
   name: string;
   variety: string;
   description: string;
+  detailContent?: import("../types").DetailContent;
   photos: string[];
   grade: string | null;
   expectedBrix: number | null;

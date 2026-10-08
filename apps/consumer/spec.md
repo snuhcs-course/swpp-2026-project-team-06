@@ -83,3 +83,6 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 ## DEV-3 주문 탭 구현
 AC-10-6/7: orderGroups의 상태별 분류·정렬을 사용하고, 기존 전체 cursor 조회와 useLiveList를 조합해 계정·focus별 갱신을 한다. 필터는 URL에 보존하고 제목·탭은 목록 스크롤 밖에 둔다. API/DB 변경 없음.
+
+## DEV-3 상세·공개 소식방 구현 (1.5)
+명세 PR #44의 storefront-1.5.md를 따른다. 상세는 text/image 블록과 공유 DetailStory 렌더러를 사용하며 생성은 저장 전 편집안이다. 기존 intro/description은 실제 기존 데이터의 기본 소개로 유지한다. 소식방 공개 읽기와 답장 권한을 분리하고 권한 변경 후 이전 비동기 메시지를 폐기한다. 실제 AI 호출은 구현하지 않으며 Mock임을 명시한다.

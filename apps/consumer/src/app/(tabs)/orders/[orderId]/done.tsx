@@ -193,6 +193,19 @@ export default function Done() {
             paddingTop: 16,
           }}
         >
+          {farm.data ? (
+            <Button
+              label="소식방 입장"
+              variant="text"
+              onPress={() =>
+                router.push({
+                  pathname: "/news/[farmId]",
+                  params: { farmId: farm.data!.farmId, from: "farm" },
+                })
+              }
+              style={{ flex: 1 }}
+            />
+          ) : null}
           <Button
             label="주문 내역"
             variant="text"

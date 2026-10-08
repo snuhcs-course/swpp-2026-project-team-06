@@ -13,6 +13,7 @@ import "./conversations";
 import "./attachments";
 import "./messaging";
 import "./rooms";
+import "./detailDrafts";
 
 // 운영자 API는 I1에 화면이 없다. ADMIN 테스트 fixture/관리 API에서만 호출한다.
 register({

@@ -15,13 +15,21 @@ function chooseFiles(accept: string, multiple: boolean): Promise<File[]> {
     input.accept = accept;
     input.multiple = multiple;
     input.onchange = () => resolve(Array.from(input.files ?? []));
+    input.oncancel = () => resolve([]);
     input.click();
   });
 }
 
-function drawToDataUrl(src: CanvasImageSource, w: number, h: number) {
+function drawToDataUrl(
+  src: CanvasImageSource,
+  w: number,
+  h: number,
+  imageWidth?: number,
+) {
   const max = 600;
-  const scale = Math.min(1, max / Math.max(w, h));
+  const scale = imageWidth
+    ? Math.min(1, imageWidth / w, 16000 / h)
+    : Math.min(1, max / Math.max(w, h));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(w * scale);
   canvas.height = Math.round(h * scale);
@@ -29,12 +37,14 @@ function drawToDataUrl(src: CanvasImageSource, w: number, h: number) {
   return canvas.toDataURL("image/jpeg", 0.8);
 }
 
-function readImage(file: File): Promise<string> {
+function readImage(file: File, imageWidth?: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      resolve(drawToDataUrl(img, img.naturalWidth, img.naturalHeight));
+      resolve(
+        drawToDataUrl(img, img.naturalWidth, img.naturalHeight, imageWidth),
+      );
       URL.revokeObjectURL(url);
     };
     img.onerror = reject;
@@ -71,7 +81,10 @@ const mmss = (s: number) =>
 export async function pickMedia({
   multiple = true,
   video = false,
-}: { multiple?: boolean; video?: boolean } = {}): Promise<Picked[]> {
+  imageWidth,
+}: { multiple?: boolean; video?: boolean; imageWidth?: number } = {}): Promise<
+  Picked[]
+> {
   const files = await chooseFiles(
     video ? "image/*,video/*" : "image/*",
     multiple,
@@ -124,7 +137,7 @@ export async function pickMedia({
         out.push({
           name: f.name,
           ok: true,
-          uri: await uploadMockMedia(await readImage(f)),
+          uri: await uploadMockMedia(await readImage(f, imageWidth)),
           video: false,
         });
       } else {

@@ -1,3 +1,4 @@
+import { DetailStory } from "@farmclub/ui";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
 import { apiUrl, catalog, farms, isMock } from "@farmclub/api";
 import {
@@ -399,7 +400,7 @@ export default function ProductPage() {
             <T variant="sub" muted>
               {p.measuredBrix
                 ? `${md(p.measuredBrixAt)} 측정`
-                : "실측 당도는 수확 후 소식으로 올라와요"}
+                : "실측 당도가 등록되면 이곳에서 확인할 수 있어요"}
             </T>
           </View>
         </View>
@@ -412,6 +413,12 @@ export default function ProductPage() {
             <T variant="body">{p.farmerNote}</T>
           </View>
         ) : null}
+
+        <DetailStory
+          content={p.detailContent}
+          fallback={p.description}
+          title={p.name}
+        />
 
         <View style={{ marginHorizontal: 20, marginTop: 40 }}>
           <Fold
@@ -436,11 +443,6 @@ export default function ProductPage() {
                 </T>
               </View>
             ))}
-            {p.description ? (
-              <T variant="sub" style={{ marginTop: 8 }}>
-                {p.description}
-              </T>
-            ) : null}
           </Fold>
           <Fold
             label="취소 규정"

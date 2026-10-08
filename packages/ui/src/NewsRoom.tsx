@@ -1,4 +1,10 @@
-import { createElement, useEffect, useRef, useState } from "react";
+import {
+  createElement,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Platform, ScrollView, TextInput, View } from "react-native";
 import { Button } from "./Button";
 import { T } from "./Text";
@@ -23,10 +29,12 @@ type Message = {
 type Page = {
   items: Message[];
   nextCursor: string | null;
-  room: { farmName: string };
+  room: { farmName: string; canReply: boolean };
 };
 type Props = {
   userId: string;
+  joinAction?: ReactNode;
+  onLogin?: () => void;
   producer?: boolean;
   active: boolean;
   onAttach?: () => void;
@@ -61,7 +69,12 @@ export function NewsRoom({
   react,
   onPrivateReply,
   onAttach,
+  joinAction,
+  onLogin,
 }: Props) {
+  const [canReply, setCanReply] = useState(producer);
+  const access = useRef<boolean | null>(null);
+  const accessEpoch = useRef(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -110,6 +123,18 @@ export function NewsRoom({
       running = true;
       try {
         const page = await load();
+        if (cancelled) return;
+        if (access.current !== page.room.canReply) {
+          accessEpoch.current++;
+          access.current = page.room.canReply;
+          setCanReply(page.room.canReply);
+          setMessages([]);
+          known.current.clear();
+          initialized.current = false;
+          setCursor(null);
+          setBody("");
+          pending.current = null;
+        }
         const incoming = [...page.items];
         let next = page.nextCursor;
         while (
@@ -141,6 +166,9 @@ export function NewsRoom({
             "status" in e &&
             [401, 403, 404].includes(Number(e.status))
           ) {
+            accessEpoch.current++;
+            access.current = null;
+            setCanReply(false);
             setMessages([]);
             setReady(false);
             setCursor(null);
@@ -162,9 +190,10 @@ export function NewsRoom({
   async function loadOlder() {
     if (!cursor || older) return;
     setOlder(true);
+    const epoch = accessEpoch.current;
     try {
       const page = await load(cursor);
-      if (!alive.current) return;
+      if (!alive.current || epoch !== accessEpoch.current) return;
       preserve.current = { height: height.current, offset: offset.current };
       merge(page.items);
       setCursor(page.nextCursor);
@@ -177,6 +206,7 @@ export function NewsRoom({
   async function submit() {
     const text = body.trim();
     if (!text || sending.current) return;
+    const epoch = accessEpoch.current;
     sending.current = true;
     setBusy(true);
     setError("");
@@ -184,7 +214,7 @@ export function NewsRoom({
       pending.current = { body: text, key: makeKey() };
     try {
       const message = await send(text, pending.current.key);
-      if (!alive.current) return;
+      if (!alive.current || epoch !== accessEpoch.current) return;
       nearBottom.current = true;
       merge([message]);
       setBody("");
@@ -202,10 +232,16 @@ export function NewsRoom({
     }
   }
   async function like(message: Message) {
+    if (!userId) {
+      onLogin?.();
+      return;
+    }
     if (!message.broadcastId) return;
+    const epoch = accessEpoch.current;
     try {
       const result = await react(message.broadcastId, message.myReaction);
-      if (alive.current) merge([{ ...message, ...result }]);
+      if (alive.current && epoch === accessEpoch.current)
+        merge([{ ...message, ...result }]);
     } catch {
       setError("좋아요를 반영하지 못했어요");
     }
@@ -216,7 +252,9 @@ export function NewsRoom({
         <T variant="caption" muted>
           {producer
             ? "소비자의 모든 답장이 보여요. 여기서 보내는 소식은 모든 팔로워에게 전달돼요."
-            : "농가의 소식과 내가 보낸 답장만 보여요. 내 답장은 농가만 볼 수 있어요."}
+            : canReply
+              ? "농가의 소식과 내가 보낸 답장만 보여요. 내 답장은 농가만 볼 수 있어요."
+              : "공개 소식을 둘러보고 있어요. 팔로우하면 전용 소식도 보고 답장할 수 있어요."}
         </T>
       </View>
       {error || loadError ? (
@@ -263,7 +301,7 @@ export function NewsRoom({
         {!ready ? (
           <T muted>소식 불러오는 중…</T>
         ) : messages.length === 0 ? (
-          <T muted>아직 소식이 없어요. 첫 이야기를 남겨 보세요.</T>
+          <T muted>아직 소식이 없어요.</T>
         ) : null}
         {messages.map((m, i) => (
           <View key={m.messageId} style={{ gap: 8 }}>
@@ -328,59 +366,69 @@ export function NewsRoom({
           }}
         />
       ) : null}
-      <View
-        style={{
-          padding: 12,
-          paddingBottom: safe("bottom", 12),
-          borderTopWidth: 1,
-          borderColor: tokens.color.border,
-          gap: 8,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-          {onAttach ? (
-            <Button
-              label="＋"
-              accessibilityLabel="사진·영상 소식 첨부"
-              variant="text"
-              onPress={onAttach}
-              disabled={busy}
+      {canReply ? (
+        <View
+          style={{
+            padding: 12,
+            paddingBottom: safe("bottom", 12),
+            borderTopWidth: 1,
+            borderColor: tokens.color.border,
+            gap: 8,
+          }}
+        >
+          <View
+            style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}
+          >
+            {onAttach ? (
+              <Button
+                label="＋"
+                accessibilityLabel="사진·영상 소식 첨부"
+                variant="text"
+                onPress={onAttach}
+                disabled={busy}
+              />
+            ) : null}
+            <TextInput
+              accessibilityLabel={
+                producer ? "모두에게 보낼 소식" : "농가에 답장"
+              }
+              value={body}
+              onChangeText={setBody}
+              editable={!busy}
+              multiline
+              maxLength={producer ? 2000 : 1000}
+              placeholder={
+                producer ? "모든 팔로워에게 소식 보내기" : "농가에 답장하기"
+              }
+              style={{
+                flex: 1,
+                minWidth: 0,
+                minHeight: 48,
+                maxHeight: 130,
+                padding: 12,
+                borderRadius: 16,
+                backgroundColor: tokens.color.surface,
+                fontSize: 16,
+                fontFamily: tokens.fontFamily,
+              }}
             />
-          ) : null}
-          <TextInput
-            accessibilityLabel={producer ? "모두에게 보낼 소식" : "농가에 답장"}
-            value={body}
-            onChangeText={setBody}
-            editable={!busy}
-            multiline
-            maxLength={producer ? 2000 : 1000}
-            placeholder={
-              producer ? "모든 팔로워에게 소식 보내기" : "농가에 답장하기"
-            }
-            style={{
-              flex: 1,
-              minWidth: 0,
-              minHeight: 48,
-              maxHeight: 130,
-              padding: 12,
-              borderRadius: 16,
-              backgroundColor: tokens.color.surface,
-              fontSize: 16,
-              fontFamily: tokens.fontFamily,
-            }}
-          />
-          <Button
-            label="전송"
-            onPress={submit}
-            loading={busy}
-            disabled={!ready || !body.trim()}
-          />
+            <Button
+              label="전송"
+              onPress={submit}
+              loading={busy}
+              disabled={!ready || !body.trim()}
+            />
+          </View>
+          <T variant="caption" muted>
+            {body.length}/{producer ? 2000 : 1000}
+            {producer ? " · 전체 발송" : ""}
+          </T>
         </View>
-        <T variant="caption" muted>
-          {body.length}/{producer ? 2000 : 1000}
-          {producer ? " · 전체 발송" : ""}
-        </T>
-      </View>
+      ) : (
+        <View style={{ padding: 16, paddingBottom: safe("bottom", 16) }}>
+          {joinAction}
+        </View>
+      )}
     </View>
   );
 }

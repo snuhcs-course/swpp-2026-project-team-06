@@ -131,7 +131,7 @@ export function messagePage<T extends { messageId: string; createdAt: string }>(
       b.createdAt.localeCompare(a.createdAt) ||
       b.messageId.localeCompare(a.messageId),
   );
-  const scope = `${ctx.me().userId}|${resource}|`;
+  const scope = `${ctx.user?.userId ?? "public"}|${resource}|`;
   let offset = 0;
   if (ctx.query.cursor) {
     let value = "";

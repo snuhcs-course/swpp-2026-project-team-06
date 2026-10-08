@@ -177,6 +177,7 @@ export async function dispatch(req: {
     },
   };
   try {
+    if (token && !user) fail(401, "UNAUTHENTICATED", "다시 로그인해 주세요.");
     // 다른 앱 계정의 토큰이면 403 WRONG_APP (ADR 0010, screens.md 7.1)
     if (
       user &&

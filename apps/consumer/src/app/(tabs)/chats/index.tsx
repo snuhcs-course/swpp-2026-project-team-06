@@ -128,7 +128,9 @@ export default function Chats() {
                       photo={room.farmPhoto}
                       preview={room.lastMessage ?? "아직 소식이 없어요"}
                       at={room.lastAt}
-                      onPress={() => router.push(`/news/${room.farmId}`)}
+                      onPress={() =>
+                        router.push(`/news/${room.farmId}?from=chats`)
+                      }
                     />
                   ))
                 : chats.data?.map((chat) => (
