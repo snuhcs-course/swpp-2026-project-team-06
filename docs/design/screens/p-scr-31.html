@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SCR-31 AI 응답 설정</title>
+</head>
+<body>
+<div class="x-dc">
+
+<style>
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
+body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:#111111;text-decoration:none}a:hover{color:#000000}
+.muted{color:#6B6B6B}
+.f{display:flex;flex-direction:column;gap:8px}
+.lbl{font-size:15px;font-weight:600}
+.fld{height:48px;border:1px solid #E8E8E6;border-radius:8px;padding:0 16px;font-size:16px;width:100%;box-sizing:border-box;background:#FFFFFF;display:flex;align-items:center}
+.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
+.tab.on{color:#111111;background:#F5F5F3}
+.badge{position:absolute;top:2px;left:50%;margin-left:8px;min-width:24px;height:24px;padding:0 8px;box-sizing:border-box;border-radius:999px;background:#C94F0C;color:#FFFFFF;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.fab{position:absolute;right:16px;bottom:88px;height:56px;padding:0 24px;border-radius:999px;background:#C94F0C;color:#FFFFFF;display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600}
+.t34{font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
+.t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25}
+.t17{font-size:17px;line-height:1.5}
+.t15{font-size:15px;line-height:1.45}
+
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 0;border-top:1px solid #E8E8E6;box-sizing:border-box;color:#111111}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:56px;border-radius:16px;font-size:17px;font-weight:600;box-sizing:border-box;padding:0 16px}
+.pri{background:#C94F0C;color:#FFFFFF}
+.out{border:1.5px solid #111111;color:#111111;background:#FFFFFF}
+.tbtn{min-height:48px;min-width:48px;display:inline-flex;align-items:center;font-size:17px;font-weight:600;padding:0 4px;box-sizing:border-box;color:#111111}
+.tbtn.off{color:#6B6B6B}
+.inp{display:block;width:100%;box-sizing:border-box;border:1px solid #E8E8E6;border-radius:8px;padding:0 16px;height:48px;font-size:16px;font-family:inherit;color:#111111;background:#FFFFFF}
+.ta{display:block;width:100%;box-sizing:border-box;border:1px solid #E8E8E6;border-radius:8px;padding:12px 16px;font-size:16px;line-height:26px;font-family:inherit;color:#111111;background:#FFFFFF;resize:none}
+.hint{display:flex;justify-content:space-between;gap:12px}
+.seg{display:flex;background:#F5F5F3;border-radius:8px;padding:4px}
+.seg a{flex:1;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:15px;font-weight:600;color:#6B6B6B}
+.seg a.on{background:#FFFFFF;color:#111111}
+.card{background:#F5F5F3;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.blk{border:1px solid #E8E8E6;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 20px 28px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #E8E8E6;display:flex;flex-direction:column;gap:12px}
+</style>
+
+<div style="width:390px;height:2020px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
+  <header style="height:48px;display:flex;align-items:center;padding:0 8px;flex:none"><a href="p-scr-33.html" aria-label="뒤로" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#111111"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a><span style="flex:1;text-align:center;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI 응답 설정</span><span style="width:48px"></span></header>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:24px">
+    <div class="card">
+      <h2 class="t22" style="margin:0">반복되는 질문은 AI에게</h2>
+      <p class="t17 muted" style="margin:0">농가가 정한 원칙과 등록된 정보로 안내해요. 어려운 질문은 직접 답할 수 있게 모아 드려요.</p>
+      <span class="t15 muted">로컬 Mock 미리보기 · 실제 AI를 호출하지 않아요</span>
+    </div>
+
+    <div class="f" style="gap:8px">
+      <div class="seg" role="tablist" aria-label="AI 자동 응답"><a href="#" class="on" role="tab" aria-selected="true">자동 응답 켜기</a><a href="#" role="tab" aria-selected="false">자동 응답 끄기</a></div>
+      <span class="t15 muted">꺼도 채팅은 계속할 수 있어요. 직접 응대 중인 방은 별도로 AI를 재개해야 해요.</span>
+    </div>
+
+    <div class="f"><label for="small" class="lbl">소량 주문 원칙</label><textarea id="small" class="ta" style="height:120px">한 박스부터 예약할 수 있어요. 5kg이 가장 작은 상자예요.</textarea><div class="hint"><span class="t15 muted"></span><span class="t15 muted">29 / 1,000</span></div></div>
+    <div class="f"><label for="ship" class="lbl">예약·배송 안내 원칙</label><textarea id="ship" class="ta" style="height:120px">확정된 상품 배송 기간을 우선 안내해요. 날짜를 바꾸는 약속은 농가가 직접 답해요.</textarea><div class="hint"><span class="t15 muted"></span><span class="t15 muted">44 / 1,000</span></div></div>
+
+    <section style="display:flex;flex-direction:column;gap:12px">
+      <h2 class="t22" style="margin:0">자주 묻는 질문</h2>
+      <div style="background:#F5F5F3;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div class="f"><label for="q1" class="lbl">질문</label><input id="q1" class="inp" value="선물 포장도 되나요?"></div>
+        <div class="f"><label for="a1" class="lbl">답변</label><textarea id="a1" class="ta" style="height:96px">따로 선물 포장은 하지 않아요. 상자째 깔끔하게 보내 드려요.</textarea></div>
+        <a href="#" class="tbtn">이 질문 삭제</a>
+      </div>
+      <a href="#" class="btn out"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>자주 묻는 질문 추가</a>
+    </section>
+
+    <div class="f"><label for="handoff" class="lbl">추가로 직접 답할 주제</label><textarea id="handoff" class="ta" style="height:96px">단체 예약</textarea><div class="hint"><span class="t15 muted">한 줄에 한 주제 · 최대 20개, 각 100자</span><span class="t15 muted"></span></div></div>
+    <p class="t15 muted" style="margin:0">환불·보상, 농약·재배 방식, 개인적인 맛 평가, 품질·파손 판단은 설정과 관계없이 농가에 전달해요.</p>
+
+    <a href="#" class="btn pri">설정 저장</a>
+
+    <section style="border:1px solid #E8E8E6;border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <h2 class="t22" style="margin:0">답변 미리보기</h2>
+      <span class="t15 muted">지금 입력한 설정으로 확인해요. 설정이나 채팅 기록은 저장되지 않아요.</span>
+      <div class="f"><label for="try" class="lbl">시험할 질문</label><input id="try" class="inp" value="소량으로도 주문할 수 있나요?"></div>
+      <a href="#" class="btn out">미리보기</a>
+      <div role="status" style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
+        <span class="t17" style="font-weight:700">AI 안내</span>
+        <span class="t17">한 박스부터 예약할 수 있어요. 5kg이 가장 작은 상자예요.</span>
+        <span class="t15 muted">근거: 농가 소량 주문 원칙 · 저장 전 설정</span>
+      </div>
+    </section>
+  </div>
+</div>
+</div>
+</body>
+</html>

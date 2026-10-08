@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>SCR-30 농가 프로필·링크</title>
+<title>SCR-33 환경설정</title>
 </head>
 <body>
 <div class="x-dc">
@@ -42,35 +42,29 @@ a{color:#111111;text-decoration:none}a:hover{color:#000000}
 .bar{position:absolute;left:0;right:0;bottom:0;padding:12px 20px 28px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #E8E8E6;display:flex;flex-direction:column;gap:12px}
 </style>
 
-<div style="width:390px;height:980px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
-  <header style="height:48px;display:flex;align-items:center;padding:0 8px;flex:none"><a href="p-scr-33.html" aria-label="뒤로" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#111111"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a><span style="flex:1;text-align:center;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">농가 프로필·공유 링크</span><span style="width:48px"></span></header>
+<div style="width:390px;height:844px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
+  <h1 class="t34" style="margin:0;padding:56px 20px 0">환경설정</h1>
+  <p class="t15 muted" style="margin:4px 0 0;padding:0 20px">농가 정보와 응대 방식을 관리해요</p>
 
-  <section style="padding:24px 20px 0;display:flex;flex-direction:column;gap:8px">
-    <h2 class="t22" style="margin:0">농가 링크</h2>
-    <span class="t17">farmclub.kr/s/farms/f-kang</span>
-    <span class="t15 muted">단골에게 보내면 농가 페이지로 바로 와요</span>
-    <span style="display:flex;gap:20px"><a href="#" class="tbtn">복사</a><a href="#" class="tbtn">보내기</a></span>
+  <section aria-label="내 농가" style="margin:24px 20px 0;padding:20px;background:#F5F5F3;border-radius:20px;display:flex;align-items:center;gap:16px">
+    <img src="../assets/farmer.jpg" alt="" style="width:64px;height:64px;border-radius:999px;object-fit:cover;flex:none">
+    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span class="t22" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">강씨네 귤밭</span><span class="t15 muted">제주 서귀포 · 팔로워 128명</span></span>
   </section>
 
-  <section style="padding:32px 20px 0;display:flex;flex-direction:column;gap:12px">
-    <h2 class="t22" style="margin:0">프로필</h2>
-    <div style="position:relative;width:350px;height:240px;border-radius:16px;overflow:hidden;background:#F5F5F3">
-      <img src="../assets/farmer.jpg" alt="대표 사진" style="display:block;width:350px;height:240px;object-fit:cover">
-      <div style="position:absolute;left:0;right:0;bottom:0;height:140px;background:linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.66) 100%)"></div>
-      <div style="position:absolute;left:16px;bottom:16px;display:flex;flex-direction:column;gap:4px;color:#FFFFFF"><span class="t22" style="color:#FFFFFF">강씨네 귤밭</span><span class="t15" style="opacity:0.88">제주 서귀포 · 팔로워 128명</span></div>
-      <a href="#" style="position:absolute;right:8px;top:8px;height:48px;padding:0 4px;display:flex;align-items:center"><span style="height:40px;padding:0 16px;border-radius:999px;background:rgba(0,0,0,0.32);color:#FFFFFF;display:flex;align-items:center;font-size:15px;font-weight:600">사진 바꾸기</span></a>
-    </div>
-    <span class="t15 muted">소비자 앱 농가 페이지 위쪽에 이렇게 보여요</span>
+  <section style="padding:40px 20px 0;display:flex;flex-direction:column;gap:12px">
+    <h2 class="t22" style="margin:0">농가 관리</h2>
     <div>
-      <a href="s-30-edit.html" class="row" aria-label="농가 이름 고치기: 강씨네 귤밭"><span class="t15 muted" style="width:72px;flex:none">농가 이름</span><span class="t17" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">강씨네 귤밭</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
-      <a href="s-30-edit.html" class="row" aria-label="지역 고치기: 제주 서귀포"><span class="t15 muted" style="width:72px;flex:none">지역</span><span class="t17" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">제주 서귀포</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
-      <a href="s-30-edit.html" class="row" style="border-bottom:1px solid #E8E8E6" aria-label="소개 고치기: 3대째 효돈 하우스 감귤. 밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요."><span class="t15 muted" style="width:72px;flex:none">소개</span><span class="t17" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">3대째 효돈 하우스 감귤. 밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요.</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
+      <a href="p-scr-30.html" class="row" style="min-height:72px"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span class="t17" style="font-weight:600">농가 프로필·공유 링크</span><span class="t15 muted">사진과 소개를 고치고 단골에게 알려요</span></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
+      <a href="p-scr-31.html" class="row" style="min-height:72px;border-bottom:1px solid #E8E8E6"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span class="t17" style="font-weight:600">AI 응답 설정</span><span class="t15 muted">자동 안내와 농가의 응대 원칙</span></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
-    <a href="p-scr-30-detail.html" class="btn out">농가 상세 페이지 편집</a>
-    <a href="scr-03.html" class="tbtn" style="align-self:flex-start">소비자 앱에서 내 농가 보기 ›</a>
   </section>
 
-  <div role="status" style="position:absolute;left:50%;transform:translateX(-50%);bottom:100px;display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 20px;border-radius:999px;background:#111111;color:#FFFFFF;font-size:17px;font-weight:600;white-space:nowrap"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>링크를 복사했어요</div>
+  <section style="padding:40px 20px 0;display:flex;flex-direction:column;gap:12px">
+    <h2 class="t22" style="margin:0">계정</h2>
+    <div><a href="p-scr-19.html" class="row" style="border-bottom:1px solid #E8E8E6"><span class="t17" style="flex:1;font-weight:600">로그아웃</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a></div>
+  </section>
+
+  <div style="padding:20px 20px 0"><a href="#" class="tbtn">데모 데이터 초기화</a></div>
 
   <nav class="tabbar">
     <a href="p-scr-22.html" class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-8M10 20V5M16 20v-5M2 20h20"/></svg>현황</a>
