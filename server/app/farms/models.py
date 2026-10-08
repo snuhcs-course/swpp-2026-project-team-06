@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -35,3 +35,18 @@ class Follow(Base):
     consumer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class FarmAiSettings(Base):
+    """농가 AI 응답 설정(contracts-1.2 5장). 행이 없으면 기본값(켜짐, 빈 원칙)."""
+
+    __tablename__ = "farm_ai_settings"
+
+    farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    small_order_policy: Mapped[str] = mapped_column(Text, default="")
+    reservation_shipping_policy: Mapped[str] = mapped_column(Text, default="")
+    faqs: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    handoff_topics: Mapped[list[str]] = mapped_column(JSON, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
