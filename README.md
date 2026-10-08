@@ -51,7 +51,7 @@ Planned for I2 and later: Kakao login, real payment (PortOne), notifications, na
 | Observability | PostHog (product metrics), Sentry (errors), Langfuse (AI traces) |
 | Files | Cloudflare R2 |
 | Hosting | Vercel (apps), Railway (API and database) |
-| CI | GitHub Actions: server lint, tests, and migration check; app type check and web build |
+| CI | GitHub Actions: server lint/tests/migrations; app typecheck/web build; real-stack API and Chromium integration |
 
 Architecture decisions are recorded in [`docs/spec/tech-design/adr/`](docs/spec/tech-design/adr/).
 
@@ -131,6 +131,30 @@ uv run alembic check          # needs the database running
 npm run typecheck
 npx expo export -p web
 ```
+
+### Real-stack integration
+
+Install dependencies once with `npm ci`, `cd server && uv sync --frozen`, and
+`npx playwright install chromium`. Docker must be running and ports 8000, 8081,
+and 8082 must be free.
+
+```bash
+# Reset PostgreSQL, start FastAPI and both Expo web apps, run API + Chromium tests,
+# then stop every child process. This is the same entry point used by CI.
+npm run test:integration:full
+
+# Run only the API smoke against an already-running local FastAPI server.
+FARMCLUB_ADMIN_TOKEN="$(cd server && uv run python -m app.accounts.admin_token)" \
+  npm run test:integration
+
+# Run only Chromium against an already-running, reset real stack.
+npm run test:e2e
+```
+
+The integration commands reject non-localhost targets. The full runner fixes the
+server clock, disables Mock mode, resets the I1 seed before both phases, and keeps
+process logs under `.artifacts/integration/`. Playwright reports, traces, videos,
+and screenshots are written to `playwright-report/` and `test-results/`.
 
 ## Documentation
 

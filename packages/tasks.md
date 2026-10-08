@@ -240,20 +240,26 @@ DEV-6의 실제 API smoke와 수동 브라우저 결과를 반복 가능한 실�
 - 10/09 CI 변경 결정과 검증은 `.github/tasks.md`의 같은 DEV-25 절에도 기록한다
 
 ### 작업
-- [ ] 실제 스택을 reset·실행·종료하는 `test:integration:full`
-- [ ] DEV-6 API smoke 누락 계약과 clean-seed preflight
-- [ ] Chromium Playwright 교차 앱·privacy·resilience·responsive 시나리오
-- [ ] 실패 screenshot·trace·report·HTTP/process log
-- [ ] README 실행 방법과 영문 Testing Documentation 결과
-- [ ] 발견한 결함을 별도 Bug 이슈로 분리하고 수정 후 전체 재실행
+- [x] 실제 스택을 reset·실행·종료하는 `test:integration:full`
+- [x] DEV-6 API smoke 누락 계약과 clean-seed preflight
+- [x] Chromium Playwright 교차 앱·privacy·resilience·responsive 시나리오
+- [x] 실패 screenshot·trace·report·HTTP/process log
+- [x] README 실행 방법과 영문 Testing Documentation 결과
+- [x] 제품 결함 발견 여부 확인(새 제품 결함 없음; 테스트 locator·lifecycle 기대만 수정)
 
 ### 완료 조건
-- [ ] 실제 스택을 한 명령으로 초기화·실행·종료
-- [ ] API smoke와 Chromium suite가 DEV-6 누락 범위를 자동 검증
-- [ ] Mock traffic·예상하지 않은 5xx·browser error가 없음
-- [ ] 자동·수동·미검증 범위와 실제 결과가 Testing Documentation에 기록됨
-- [ ] 전체 기존 검사와 DEV-25 integration CI 통과
+- [x] 실제 스택을 한 명령으로 초기화·실행·종료
+- [x] API smoke와 Chromium suite가 DEV-6 누락 범위를 자동 검증
+- [x] Mock traffic·예상하지 않은 5xx·browser error가 없음
+- [x] 자동·수동·미검증 범위와 실제 결과가 Testing Documentation에 기록됨
+- [ ] 전체 기존 검사와 DEV-25 integration CI 통과(로컬 전체 통과, GitHub Actions 대기)
 - [ ] AI 1차 리뷰 후 사람 1명 승인, main에 squash merge
 
 ### 기록
 - 10/09 DEV-25를 Linear에서 In Progress로 만들고 GitHub #56 동기화 확인. PR #53·#55가 포함된 최신 main에서 Linear branch를 생성
+- 10/09 draft PR #57 생성. 기존 API-only `test:integration`을 유지하고 Playwright Chromium·전체 runner를 추가
+- 10/09 clean-seed 검사, 물량 증가/철회/반려/이력, 상세 제약, 주문 pagination/filter/window, 생산자 이름 가림 계약을 API smoke에 추가해 7/7 통과
+- 10/09 Chromium 8/8 통과: 익명 탐색·로그인 복귀, 실제 결제, 생산자 UI 수확/송장/출하, 소비자 배송 확인, 실패 문의 입력 보존, 생산자 5개 gate, 상품 초안·판매 중지/재개, 소식방 session, farm editor, 360/390/430/1440px
+- 10/09 최종 로컬 검증: Ruff 통과, pytest 133개, Alembic upgrade/check, 4개 workspace typecheck, Mock 11개, consumer/producer web export, full integration 7 API + 8 Chromium 통과. Mock 첫 실행 실패는 sandbox loopback EPERM이었고 권한 있는 동일 명령에서 통과
+- 10/09 자동화/기존 수동/미검증 범위를 영어 Testing Documentation에 분리 기록. 새 제품 Bug는 발견되지 않음
+- 10/09 인계: spec 커밋(987c752)만 push, draft PR #57의 server·apps CI는 그 커밋 기준. 로컬에 push 안 한 커밋 4개(runner `scripts/run-integration.mjs`, API smoke 확장 `scripts/test-integration.mjs`, Playwright `scripts/e2e/*`, CI `integration` job). 미커밋 변경 1개: `checkout-and-fulfillment.spec.ts`의 수확 시작·출하를 API 호출에서 생산자 화면 조작으로 바꾸는 중. `test:integration:full` 실행 결과·Testing Documentation·README는 아직 기록 없음
