@@ -7,6 +7,7 @@ from app.analytics.router import router as analytics_router
 from app.catalog.router import router as catalog_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
+from app.farms.router import home_router
 from app.farms.router import router as farms_router
 from app.messaging.router import router as messaging_router
 from app.orders.router import router as orders_router
@@ -32,6 +33,7 @@ def health() -> dict[str, str]:
 
 for module_router in (
     accounts_router,
+    home_router,
     farms_router,
     catalog_router,
     orders_router,
