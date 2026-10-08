@@ -138,6 +138,10 @@ def submit_producer_application(
     if fields:
         raise invalid(fields)
 
+    locked_user = db.scalar(select(User).where(User.id == user.id).with_for_update())
+    if locked_user is None:
+        raise not_found()
+    user = locked_user
     farm = farms.submit_application(
         db,
         producer_id=user.id,
