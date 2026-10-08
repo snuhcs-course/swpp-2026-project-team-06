@@ -42,6 +42,7 @@ class ReactionState(CamelModel):
 
 
 class NewsRoomSummary(CamelModel):
+    can_reply: bool
     farm_id: str
     farm_name: str
     farm_photo: str | None

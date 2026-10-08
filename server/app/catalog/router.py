@@ -23,6 +23,7 @@ from app.catalog.schemas import (
     VersionInput,
 )
 from app.core.db import get_db
+from app.core.detail import DetailDraft, DetailDraftInput
 from app.core.errors import forbidden, not_found
 from app.core.idempotency import run_idempotent
 from app.core.pagination import decode_cursor, encode_cursor, page_limit
@@ -72,6 +73,14 @@ def my_products(
 def my_product(db: Db, producer: ApprovedProducer, product_id: str):
     _, farm = producer
     return service.my_product(db, service.load_my_product(db, farm.id, product_id))
+
+
+@router.post("/mine/{product_id}/detail-draft", response_model=DetailDraft)
+def product_detail_draft(
+    db: Db, producer: ApprovedProducer, product_id: str, body: DetailDraftInput
+):
+    _, farm = producer
+    return service.create_detail_draft(db, farm.id, product_id, body)
 
 
 @router.post("", response_model=MyProduct)

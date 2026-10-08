@@ -16,6 +16,7 @@ class Farm(Base):
     name: Mapped[str] = mapped_column(String(100))
     region: Mapped[str] = mapped_column(String(100))
     intro: Mapped[str] = mapped_column(Text, default="")
+    detail_content: Mapped[dict | None] = mapped_column(JSON)
     photo: Mapped[str | None] = mapped_column(String(500))
     main_items: Mapped[str] = mapped_column(String(200), default="")
     contact_phone: Mapped[str] = mapped_column(String(32), default="")

@@ -40,6 +40,7 @@ from app.catalog.schemas import (
     StageView,
 )
 from app.core.clock import days_until, now, today
+from app.core.detail import DetailDraft, DetailDraftInput, detail_content
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
 
@@ -274,6 +275,7 @@ def product_detail(db: Session, product_id: str) -> ProductDetail | None:
         **base.model_dump(),
         variety=p.variety,
         description=p.description,
+        detail_content=detail_content(p.detail_content),
         grade=p.grade,
         measured_brix=p.measured_brix,
         measured_brix_at=p.measured_brix_at,
@@ -364,6 +366,7 @@ def my_product(db: Session, item: Loaded) -> MyProduct:
         photos=p.photos,
         variety=p.variety,
         description=p.description,
+        detail_content=detail_content(p.detail_content),
         grade=p.grade,
         expected_brix=p.expected_brix,
         measured_brix=p.measured_brix,
@@ -569,6 +572,8 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
     for key in simple:
         if key in data:
             setattr(p, key, data[key])
+    if "detail_content" in data:
+        p.detail_content = patch.detail_content.model_dump(by_alias=True)
     if "measured_brix" in data and data["measured_brix"] != p.measured_brix:
         p.measured_brix = data["measured_brix"]
         if p.measured_brix is not None:
@@ -607,6 +612,25 @@ def patch_product(db: Session, farm_id: str, product_id: str, patch: ProductPatc
     p.updated_at = now()
     db.flush()
     return my_product(db, load_products(db, [p])[0])
+
+
+def create_detail_draft(
+    db: Session, farm_id: str, product_id: str, body: DetailDraftInput
+) -> DetailDraft:
+    from app.ai import service as ai
+
+    item = load_my_product(db, farm_id, product_id)
+    product = item.product
+    if product.status in ("PENDING_APPROVAL", "CLOSED"):
+        raise conflict("INVALID_TRANSITION", "승인 대기·판매 종료 상품은 고칠 수 없어요.")
+    info = product.info or {}
+    return ai.detail_draft(
+        body,
+        name=product.name,
+        description=product.description,
+        registered_photos=list(product.photos),
+        facts=[product.variety, info.get("origin", ""), info.get("storage", "")],
+    )
 
 
 def _replace_options(db: Session, item: Loaded, options: list[ProductOptionInput]) -> None:

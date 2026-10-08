@@ -271,19 +271,21 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/09 상세 블록 검증은 공유 서버 스키마 한 곳에서 수행한다. 서버 저장 URI는 HTTPS 또는 서비스 상대 경로만 허용하고 Mock 전용 localhost/data URI는 허용하지 않는다
 - 10/09 상세 초안은 `app/ai` 어댑터만 호출한다. AI 키가 없으면 입력·등록 정보만 조합한 `mode=mock` 초안을 반환하고, 생성 자체는 DB에 저장하지 않는다
 - 10/09 공개 소식방은 optional user로 권한 필터를 먼저 적용한 뒤 요약·cursor를 계산한다. 공개 읽기는 팔로우를 만들지 않는다
+- 10/09 Mock schema 7 시드에는 저장된 상세가 없으므로 서버 시드도 기존 intro/description fallback을 유지한다. 저장 예시는 AC 테스트에서 만든다
 
 ### 작업
-- [ ] 모델·마이그레이션 0005: Farm/Product detailContent nullable JSON
-- [ ] DetailContent 검증, 농가·상품 응답·저장
-- [ ] 농가·상품 detail-draft API와 AI 어댑터
-- [ ] 비로그인·미팔로우 공개 소식방 읽기와 canReply
-- [ ] 시드 상세 콘텐츠와 AC 기반 테스트
+- [x] 모델·마이그레이션 0005: Farm/Product detailContent nullable JSON
+- [x] DetailContent 검증, 농가·상품 응답·저장
+- [x] 농가·상품 detail-draft API와 AI 어댑터
+- [x] 비로그인·미팔로우 공개 소식방 읽기와 canReply
+- [x] 시드 fallback 유지와 AC 기반 테스트
 
 ### 완료 조건
-- [ ] AC-02-4, AC-03-4, AC-07-5, AC-12-10, AC-15-6 서버 테스트
-- [ ] 기존 intro/description fallback과 빈 blocks 저장 구분
-- [ ] 테스트·ruff·alembic upgrade/downgrade/check, CI 통과
+- [x] AC-02-4, AC-03-4, AC-07-5, AC-12-10, AC-15-6 서버 테스트
+- [x] 기존 intro/description fallback과 빈 blocks 저장 구분
+- [x] 테스트·ruff·alembic upgrade/downgrade/check (로컬 통과, CI 대기)
 - [ ] AI 1차 리뷰 후 사람 리뷰·main 머지
 
 ### 기록
 - 10/09 PR #51 머지 후 main 갱신. storefront-1.5, 관련 FEAT·규칙, packages/api 타입·endpoints·Mock, 현재 farms/catalog/messaging/ai 코드 확인
+- 10/09 nullable 상세 저장·공통 검증·mock/AI 초안, 농가/상품 조회·수정, 공개 소식방 권한 필터·canReply 구현. Ruff, pytest 127개, alembic 0005 upgrade → 0004 downgrade → head upgrade, `alembic check` 통과

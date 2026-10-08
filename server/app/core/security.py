@@ -125,5 +125,6 @@ def require_approved_producer(
 CurrentUser = Annotated[object, Depends(get_current_user)]
 OptionalUser = Annotated[object, Depends(get_optional_user)]
 Consumer = Annotated[object, Depends(require_roles(Role.CONSUMER))]
+Producer = Annotated[object, Depends(require_roles(Role.PRODUCER))]
 ApprovedProducer = Annotated[tuple, Depends(require_approved_producer)]
 Admin = Annotated[object, Depends(require_roles(Role.ADMIN))]

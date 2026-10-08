@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import now
 from app.core.config import get_settings
-from app.core.errors import conflict, not_found
+from app.core.detail import DetailDraft, DetailDraftInput, detail_content
+from app.core.errors import conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
 from app.farms.models import Farm, FarmAiSettings, FarmAiSettingsHistory, Follow
 from app.farms.schemas import (
@@ -15,11 +16,13 @@ from app.farms.schemas import (
     FaqItem,
     FarmCard,
     FarmDetail,
+    FarmPatch,
     FarmSummary,
     FeaturedProduct,
     FollowState,
     Hero,
     Home,
+    MyFarm,
 )
 
 # 시즌 히어로 문구는 서버 설정 값이다(screens.md 결정 19). 운영자 관리는 I2.
@@ -106,20 +109,68 @@ def is_following(db: Session, consumer_id: str, farm_id: str) -> bool:
 
 def farm_detail(db: Session, farm_id: str, user) -> FarmDetail:
     from app.catalog import service as catalog
-    from app.messaging import service as messaging
 
     farm = get_approved_farm(db, farm_id)
     if farm is None:
         raise not_found("찾을 수 없는 농가예요.")
-    user_id = user.id if user else None
     following = bool(user and user.role == "CONSUMER" and is_following(db, user.id, farm.id))
     return FarmDetail(
         **_summary(farm),
         intro=farm.intro,
+        detail_content=detail_content(farm.detail_content),
         is_following=following,
         products=catalog.by_deadline(catalog.published_cards(db, [farm.id])),
-        latest_news=messaging.latest_public_news(db, farm, user_id),
         share_url=share_url(farm),
+    )
+
+
+def _my_farm_view(farm: Farm) -> MyFarm:
+    return MyFarm(
+        **_summary(farm),
+        intro=farm.intro,
+        detail_content=detail_content(farm.detail_content),
+        status=farm.approval_status,
+        share_url=share_url(farm) if farm.approval_status == "APPROVED" else None,
+    )
+
+
+def my_farm(db: Session, producer_id: str) -> MyFarm:
+    farm = get_farm_of_producer(db, producer_id)
+    if farm is None:
+        raise forbidden("생산자만 볼 수 있어요.")
+    return _my_farm_view(farm)
+
+
+def patch_my_farm(db: Session, producer_id: str, body: FarmPatch) -> MyFarm:
+    farm = get_farm_of_producer(db, producer_id)
+    if farm is None:
+        raise forbidden("생산자만 수정할 수 있어요.")
+    data = body.model_dump(exclude_unset=True)
+    fields = {}
+    if "name" in data and not (body.name or "").strip():
+        fields["name"] = "농가 이름을 적어 주세요"
+    if "region" in data and not (body.region or "").strip():
+        fields["region"] = "지역을 적어 주세요"
+    if fields:
+        raise invalid(fields)
+    for key in ("name", "region", "intro", "photo"):
+        if key in data:
+            setattr(farm, key, data[key])
+    if "detail_content" in data:
+        farm.detail_content = body.detail_content.model_dump(by_alias=True)
+    db.flush()
+    return _my_farm_view(farm)
+
+
+def create_detail_draft(farm: Farm, body: DetailDraftInput) -> DetailDraft:
+    from app.ai import service as ai
+
+    return ai.detail_draft(
+        body,
+        name=farm.name,
+        description=farm.intro,
+        registered_photos=[farm.photo] if farm.photo else [],
+        facts=[farm.region],
     )
 
 

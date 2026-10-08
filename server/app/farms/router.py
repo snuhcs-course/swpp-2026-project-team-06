@@ -4,10 +4,20 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.detail import DetailDraft, DetailDraftInput
 from app.core.idempotency import run_idempotent
-from app.core.security import ApprovedProducer, Consumer, OptionalUser
+from app.core.security import ApprovedProducer, Consumer, OptionalUser, Producer
 from app.farms import service
-from app.farms.schemas import AiPreview, AiPreviewInput, AiSettings, FarmDetail, FollowState, Home
+from app.farms.schemas import (
+    AiPreview,
+    AiPreviewInput,
+    AiSettings,
+    FarmDetail,
+    FarmPatch,
+    FollowState,
+    Home,
+    MyFarm,
+)
 
 router = APIRouter(prefix="/farms", tags=["farms"])
 home_router = APIRouter(tags=["farms"])
@@ -52,6 +62,27 @@ def preview_ai(db: Db, producer: ApprovedProducer, body: AiPreviewInput):
     """저장 없이 답·근거·전달 사유를 보여준다. settings를 주면 임시 값(settingsVersion=null)."""
     _, farm = producer
     return service.preview_ai(db, farm, body)
+
+
+# ---------------- 내 농가 상세 (FEAT-02·03) ----------------
+
+
+@router.post("/me/detail-draft", response_model=DetailDraft)
+def farm_detail_draft(_: Db, producer: ApprovedProducer, body: DetailDraftInput):
+    _, farm = producer
+    return service.create_detail_draft(farm, body)
+
+
+@router.get("/me", response_model=MyFarm)
+def my_farm(db: Db, user: Producer):
+    return service.my_farm(db, user.id)
+
+
+@router.patch("/me", response_model=MyFarm)
+def patch_my_farm(db: Db, user: Producer, body: FarmPatch):
+    result = service.patch_my_farm(db, user.id, body)
+    db.commit()
+    return result
 
 
 @router.get("/{farm_id}", response_model=FarmDetail)

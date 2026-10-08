@@ -33,6 +33,7 @@
 | 2026-10-07 | 홈(`GET /api/home`)은 farms가 별도 라우터로 맡는다 | 홈은 FEAT-06 확장(P22 결정) | AC-06-4, AC-06-5 |
 | 2026-10-07 | 홈은 소식 미리보기 대신 농가 둘러보기, 농가 상태 SUSPENDED, 팔로우는 소비자 계정만 | SWPP-81(screens.md 1.1) | AC-06-5 |
 | 2026-10-08 | 팔로워 수는 `Farm.follower_count`에 두고 팔로우·해제 때 행 잠금 안에서 바꾼다. 시즌 히어로 문구는 `HERO`, 상품은 설정 `HOME_HERO_PRODUCT_ID` | 시드 128명 유지, screens.md 결정 19 | AC-06-3 |
-| 2026-10-08 | 농가 페이지 응답에 `latestNews`(최신 공개 소식 한 개), `shareUrl`은 `/s/farms/{id}`(OG 페이지는 Should) | screens.md 7.2 farms | AC-19-1 |
+| 2026-10-09 | 농가 페이지의 `latestNews`는 제거하고 nullable `detailContent`를 제공한다. 값이 없으면 intro를 쓰고 빈 blocks는 명시적 제거다 | storefront-1.5 | AC-02-4, AC-03-4 |
+| 2026-10-09 | 내 농가 조회·수정은 모든 농가 소유 생산자, 상세 초안 생성은 승인 생산자만 허용한다 | storefront-1.5 | AC-03-4 |
 | 2026-10-08 | `FarmAiSettings`는 farms가 가진다. 행이 없으면 기본값(켜짐, version 1). 설정 API는 1.2 (2/2) | contracts-1.2 5장 | AC-13-7 |
 | 2026-10-08 | AI 설정 API는 `/api/farms/me/ai-settings`(조회·저장·미리보기), `/{farm_id}`보다 먼저 등록. 저장은 version 확인(STALE_VERSION)·멱등·이력, 미리보기는 쓰지 않음 | contracts-1.2 5장 | AC-32-1~4 |
