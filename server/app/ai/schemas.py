@@ -13,3 +13,32 @@ class DraftExtraction(BaseModel):
     grade: str | None = Field(default=None, max_length=20)
     delivery_window: str | None = Field(default=None, max_length=100)
     description: str | None = Field(default=None, max_length=2000)
+
+
+class Evidence(BaseModel):
+    """AI 응답 근거. 개인정보(연락처·주소·이름)는 넣지 않는다(M-18)."""
+
+    product_id: str | None = None
+    product_name: str | None = None
+    shipping_fee_type: str | None = None
+    shipping_fee: int | None = None
+    remote_area_fee: int | None = None
+    delivery_window: tuple[str, str] | None = None
+    measured_brix: float | None = None
+    expected_brix: float | None = None
+    order_id: str | None = None
+    order_status: str | None = None
+    order_delivery_window: tuple[str, str] | None = None
+    faqs: list[dict] = Field(default_factory=list)
+    small_order_policy: str = ""
+    reservation_shipping_policy: str = ""
+    handoff_topics: list[str] = Field(default_factory=list)
+
+
+class AiAnswer(BaseModel):
+    """ANSWER면 answer가 문자열, HANDOFF·DISABLED면 None(contracts-1.2 5장)."""
+
+    action: str
+    answer: str | None
+    reason: str
+    source_refs: list[str] = Field(default_factory=list)
