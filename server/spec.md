@@ -82,3 +82,7 @@ server/
 | 2026-10-07 | 오류 형식은 `{code, message, details}`, cursor 페이지네이션, 주문·결제 `Idempotency-Key` | P22 결정(screens.md 7.1) | AC-09-3 |
 | 2026-10-07 | I1 로그인은 Mock(시드 테스트 계정만, 설정 플래그), 카카오는 I2 | P22 결정, ADR 0009 | AC-01-4, AC-01-5 |
 | 2026-10-07 | 계정 하나는 역할 하나(`User.role`), 다른 앱 토큰은 403 `WRONG_APP`, Mock 로그인에 `app` | SWPP-81, ADR 0010 | AC-01-6 |
+| 2026-10-08 | ID는 문자열(시드는 Mock과 같은 `u-minji`·`f-kang`·`p-house`, 새 행은 접두어 + 랜덤), JSON은 camelCase(`core/schemas.CamelModel`) | 앱·Mock과 그대로 맞춤 | — |
+| 2026-10-08 | `core`: `errors.py`(오류 형식), `security.py`(JWT·WRONG_APP·승인 생산자), `pagination.py`, `idempotency.py`(`IdempotencyRecord`), `clock.py`(`FIXED_NOW`), `seed.py` | 공통 계약을 한 곳에 | AC-01-6, AC-09-3 |
+| 2026-10-08 | `JWT_SECRET`이 비면 local이 아닌 환경에서 시작 실패 | 이슈 #5(#19 리뷰) | — |
+| 2026-10-08 | 테스트는 `<DB>_test` DB에서 매 테스트 시드를 다시 넣고 돈다 | CI의 alembic 검사 DB와 분리 | — |

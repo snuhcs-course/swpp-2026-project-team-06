@@ -32,3 +32,5 @@
 | 2026-10-07 | 라우터 prefix는 `/farms`, 공유 링크는 별도 라우터 `/s` | ADR 0006 주소를 앱 API와 분리 | AC-19-1 |
 | 2026-10-07 | 홈(`GET /api/home`)은 farms가 별도 라우터로 맡는다 | 홈은 FEAT-06 확장(P22 결정) | AC-06-4, AC-06-5 |
 | 2026-10-07 | 홈은 소식 미리보기 대신 농가 둘러보기, 농가 상태 SUSPENDED, 팔로우는 소비자 계정만 | SWPP-81(screens.md 1.1) | AC-06-5 |
+| 2026-10-08 | 팔로워 수는 `Farm.follower_count`에 두고 팔로우·해제 때 행 잠금 안에서 바꾼다. 시즌 히어로 문구는 `HERO`, 상품은 설정 `HOME_HERO_PRODUCT_ID` | 시드 128명 유지, screens.md 결정 19 | AC-06-3 |
+| 2026-10-08 | 농가 페이지 응답에 `latestNews`(최신 공개 소식 한 개), `shareUrl`은 `/s/farms/{id}`(OG 페이지는 Should) | screens.md 7.2 farms | AC-19-1 |
