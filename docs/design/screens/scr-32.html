@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SCR-32 주문 문제 문의</title>
+</head>
+<body>
+<div class="x-dc">
+
+<style>
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format("woff2-variations")}
+body{margin:0;color-scheme:light;font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#111111;background:#FFFFFF;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:#111111;text-decoration:none}a:hover{color:#000000}
+button{font-family:inherit}
+.t34{font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
+.t22{font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.25}
+.t17{font-size:17px;line-height:1.5}
+.t15{font-size:15px;line-height:1.45}
+.muted{color:#6B6B6B}
+.chip{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;background:#F5F5F3;font-size:15px;font-weight:600;color:#111111}
+.ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#111111}
+.ov{position:absolute;top:4px;width:48px;height:48px;box-sizing:border-box;padding:4px;border-radius:999px;background:rgba(0,0,0,0.32);display:flex;align-items:center;justify-content:center;color:#FFFFFF;border:0;cursor:pointer;background-clip:content-box}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:16px;font-size:17px;font-weight:600;box-sizing:border-box;border:0;cursor:pointer}
+.btn-p{background:#C94F0C;color:#FFFFFF}
+.btn-s{background:#F5F5F3;color:#111111}
+.btn-o{background:#FFFFFF;color:#111111;border:1.5px solid #111111}
+.btn-off{background:#F5F5F3;color:#6B6B6B}
+.btn-t{display:flex;align-items:center;justify-content:center;min-height:48px;padding:0 4px;font-size:17px;font-weight:600;color:#111111}
+.prow{display:flex;gap:16px;padding:16px 0;align-items:center;color:#111111}
+.prow + .prow{border-top:1px solid #E8E8E6}
+.prow .nm{font-size:17px;font-weight:600;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tabbar{position:absolute;left:12px;right:12px;bottom:12px;height:64px;border-radius:999px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;padding:0 8px;box-sizing:border-box}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:600;color:#6B6B6B;border-radius:999px;position:relative}
+.tab.on{color:#111111;background:#F5F5F3}
+.badge{position:absolute;top:2px;left:50%;margin-left:8px;min-width:24px;height:24px;padding:0 8px;box-sizing:border-box;border-radius:999px;background:#C94F0C;color:#FFFFFF;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 20px 28px;background:rgba(255,255,255,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #E8E8E6;display:flex;flex-direction:column;gap:12px}
+
+.seg{display:flex;background:#F5F5F3;border-radius:8px;padding:4px}
+.seg a{flex:1;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:15px;font-weight:600;color:#6B6B6B}
+.seg a.on{background:#FFFFFF;color:#111111}
+.ph{width:104px;height:104px;border-radius:16px;flex:none;box-sizing:border-box}
+
+</style>
+
+<div style="width:390px;height:904px;box-sizing:border-box;position:relative;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
+  <header style="height:48px;display:flex;align-items:center;padding:0 8px;flex:none">
+    <a href="s-14-delivered.html" class="ib" aria-label="뒤로"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <span style="flex:1;text-align:center;font-size:17px;font-weight:600">주문 문제 문의</span>
+    <span style="width:48px"></span>
+  </header>
+
+  <div style="padding:20px;display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;gap:16px;align-items:center;padding:16px;border-radius:16px;background:#F5F5F3">
+      <img src="../assets/orchard-crate.jpg" alt="조생 감귤" style="width:64px;height:64px;border-radius:16px;object-fit:cover;flex:none">
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <span class="t17" style="font-weight:600">조생 감귤 5kg × 1</span>
+        <span class="t15 muted">강씨네 귤밭 · FC-0918-0007</span>
+        <span class="t15 muted">10월 4일 받음 · 21,000원</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="t15" style="font-weight:600" id="ty">어떤 문제인가요?</span>
+      <div class="seg" role="tablist" aria-labelledby="ty">
+        <a href="#" role="tab" aria-selected="true" class="on">파손</a>
+        <a href="#" role="tab" aria-selected="false">상태·품질</a>
+        <a href="#" role="tab" aria-selected="false">맛</a>
+        <a href="#" role="tab" aria-selected="false">기타</a>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label class="t15" style="font-weight:600" for="iq">어떤 점이 불편하셨나요?</label>
+      <textarea id="iq" placeholder="받으신 상품의 상태와 문의 내용을 알려 주세요" style="height:180px;border:1.5px solid #111111;border-radius:8px;padding:12px 16px;box-sizing:border-box;width:100%;font-size:16px;line-height:26px;font-family:inherit;color:#111111;background:#FFFFFF;resize:none">상자 한쪽이 눌려서 귤 3개가 터져 있었어요. 사진 같이 보내요.</textarea>
+      <span class="t15 muted" style="align-self:flex-end">36/1000</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="t15" style="font-weight:600">사진 <span class="muted" style="font-weight:400">선택 · 1/3</span></span>
+      <div style="display:flex;gap:16px">
+        <div style="position:relative" class="ph"><img src="../assets/orchard-crate.jpg" alt="첨부한 사진 1" class="ph" style="display:block;object-fit:cover"><button aria-label="사진 1 삭제" style="position:absolute;top:-8px;right:-8px;width:48px;height:48px;padding:12px;box-sizing:border-box;border:0;background:transparent;cursor:pointer"><span style="display:flex;width:24px;height:24px;border-radius:999px;background:#111111;color:#FFFFFF;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></button></div>
+        <label class="ph" style="border:1.5px dashed #6B6B6B;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#6B6B6B;cursor:pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span class="t15">사진 추가</span><input type="file" accept="image/jpeg,image/png,image/webp" aria-label="비공개 사진 첨부" style="display:none"></label>
+        <span class="ph" aria-hidden="true"></span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="t17" style="font-weight:600">보내면 농가가 직접 확인해요</span>
+      <span class="t15 muted">사진은 나와 해당 농가만 볼 수 있어요. 문의는 1:1 채팅으로 전달되며, 환불·보상은 별도 확인이 필요해요.</span>
+    </div>
+
+    <a href="scr-16.html" class="btn btn-p">문의 보내기</a>
+  </div>
+</div>
+</div>
+</body>
+</html>
