@@ -55,7 +55,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5)
 - 브랜치: `zahra/dev-4-i1-p24-implement-backend-prototype`
 - 기능·인수 조건: 스펙 1.1(`docs/spec/screens.md` bccb29a, PR #28)의 Must API 23개 — FEAT-01·02·03·04·05·06·07·08·09·10·14·15 / AC-01-1·3~7, AC-03-1~3, AC-04-1·3·4, AC-05-1~3, AC-06-1·4·5, AC-07-1·2, AC-08-1~5, AC-09-1~3, AC-15-1
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 진우·자라 노트(데모 코드 이어서 작업하기)대로 스펙 1.1(계정 분리, 새 필드, Must API부터)을 서버에 구현한다. 데모 프로토타입(Hyun Park 작성)의 Mock을 응답 모양·로직의 참고로 쓴다. 스펙 1.2~1.5는 다음 PR에서 한다.
@@ -95,7 +95,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [x] orders: 주문 생성, Mock 결제, 주문 상세, 생산자 현황
 - [x] messaging: 농가 공개 소식
 - [x] 테스트(AC ID), ruff, alembic check
-- [ ] AI 1차 리뷰 → ready for review
+- [x] AI 1차 리뷰 → ready for review
 
 ### 완료 조건
 - [x] 스펙 1.1의 Must API 23개 구현
@@ -109,3 +109,4 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/08 core·모델·시드·accounts·farms·catalog·orders·messaging 구현. pytest 65개(AC-09-1 동시 결제 포함), ruff, alembic upgrade·downgrade·check 통과
 - 10/08 로컬 서버 스모크: 로그인·WRONG_APP 403·홈·상품 상세·주문·같은 키 결제 2번(1번만 반영)·현황·운영자 승인 확인
 - 10/08 남은 일(후속 PR): 스펙 1.2~1.5 계약, Should API(주문 내역·취소·구매 확정·출하·소식 올리기·채팅 등), 공유 링크 OG(/s), 카카오(I2)
+- 10/08 AI 1차 리뷰(PR #48 코멘트): must 없음. should 2건 반영(공개 API 토큰 오류는 비로그인 처리, AC-08-3 테스트), 2건은 기록(REJECTED 상태 표기, openQuestions 0)
