@@ -14,7 +14,7 @@ export default defineConfig({
   outputDir: "test-results",
   use: {
     ...devices["Desktop Chrome"],
-    baseURL: process.env.FARMCLUB_CONSUMER_URL ?? "http://127.0.0.1:8081",
+    baseURL: process.env.FARMCLUB_CONSUMER_URL ?? "http://localhost:8081",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

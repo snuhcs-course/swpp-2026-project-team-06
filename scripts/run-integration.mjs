@@ -10,9 +10,9 @@ const artifacts = path.join(root, ".artifacts", "integration");
 const logs = path.join(artifacts, "logs");
 mkdirSync(logs, { recursive: true });
 
-const apiUrl = process.env.FARMCLUB_API_URL ?? "http://127.0.0.1:8000";
-const consumerUrl = process.env.FARMCLUB_CONSUMER_URL ?? "http://127.0.0.1:8081";
-const producerUrl = process.env.FARMCLUB_PRODUCER_URL ?? "http://127.0.0.1:8082";
+const apiUrl = process.env.FARMCLUB_API_URL ?? "http://localhost:8000";
+const consumerUrl = process.env.FARMCLUB_CONSUMER_URL ?? "http://localhost:8081";
+const producerUrl = process.env.FARMCLUB_PRODUCER_URL ?? "http://localhost:8082";
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgresql+psycopg://farmclub:farmclub@127.0.0.1:5432/farmclub";
