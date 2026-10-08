@@ -637,3 +637,22 @@ def approve_product(db: Session, product_id: str) -> MyProduct:
     product.updated_at = now()
     db.flush()
     return my_product(db, load_products(db, [product])[0])
+
+
+def lock_allocation(db: Session, stage_id: str, option_id: str) -> StageAllocation:
+    """결제 때 단계 물량 행을 잠근다(SELECT … FOR UPDATE, R-06)."""
+    allocation = db.scalar(
+        select(StageAllocation)
+        .where(StageAllocation.stage_id == stage_id, StageAllocation.option_id == option_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if allocation is None:
+        raise not_found("단계 물량을 찾을 수 없어요.")
+    return allocation
+
+
+def farm_products(db: Session, farm_id: str) -> list[Loaded]:
+    query = select(Product).where(Product.farm_id == farm_id).order_by(Product.id)
+    products = list(db.scalars(query))
+    return load_products(db, products)

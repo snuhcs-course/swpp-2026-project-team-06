@@ -136,3 +136,7 @@ def set_follow(db: Session, consumer_id: str, farm_id: str, on: bool) -> FollowS
 
 def summary(farm: Farm) -> FarmSummary:
     return FarmSummary(**_summary(farm))
+
+
+def get_farm(db: Session, farm_id: str) -> Farm | None:
+    return db.get(Farm, farm_id)
