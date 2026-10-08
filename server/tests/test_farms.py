@@ -2,8 +2,10 @@
 
 from sqlalchemy import update
 
+from app.ai import service as ai
 from app.catalog.models import Product
 from app.core.db import get_sessionmaker
+from app.core.detail import DetailContent, TextDetailBlock
 
 
 def test_home_has_hero_recommended_and_farm_cards(client):
@@ -38,15 +40,91 @@ def test_AC_06_5_home_without_products_on_sale(client):
     assert len(body["farms"]) == 4
 
 
-def test_farm_page_shows_products_and_latest_public_news(client, login):
+def test_AC_02_4_farm_page_shows_products_and_detail_fallback(client, login):
     body = client.get("/api/farms/f-kang", headers=login("u-minji")).json()
 
     assert body["isFollowing"] is True
     assert body["followerCount"] == 128
     assert [p["productId"] for p in body["products"]] == ["p-house", "p-redhyang"]
-    assert body["latestNews"]["broadcastId"] == "n-2"
-    assert body["latestNews"]["myReaction"] is True
+    assert "latestNews" not in body
+    assert "detailContent" not in body
+    assert body["intro"].startswith("3대째")
     assert body["shareUrl"] == "/s/farms/f-kang"
+
+
+def test_AC_02_4_and_03_4_farm_detail_save_empty_and_draft_without_save(client, login):
+    headers = login("u-kang")
+    draft = client.post(
+        "/api/farms/me/detail-draft",
+        headers=headers,
+        json={
+            "inputText": "10월 12일 3만원 무료배송으로 만나요. 정성껏 돌본 이야기예요.",
+            "photos": ["/photos/farmer.jpg"],
+        },
+    )
+
+    assert draft.status_code == 200, draft.text
+    assert draft.json()["mode"] == "mock"
+    text = " ".join(
+        block.get("body", "") for block in draft.json()["content"]["blocks"]
+    )
+    assert "3만원" not in text
+    assert "10월" not in text
+    assert "무료배송" not in text
+    assert "detailContent" not in client.get("/api/farms/f-kang").json()
+
+    saved = client.patch(
+        "/api/farms/me", headers=headers, json={"detailContent": {"blocks": []}}
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["detailContent"] == {"blocks": []}
+    assert client.get("/api/farms/f-kang").json()["detailContent"] == {"blocks": []}
+
+
+def test_AC_03_4_farm_detail_validation_and_authorization(client, login):
+    duplicate = {
+        "blocks": [
+            {"id": "same", "type": "text", "title": "소개", "body": "내용"},
+            {"id": "same", "type": "image", "uri": "/photos/a.jpg", "alt": "사진"},
+        ]
+    }
+    response = client.patch(
+        "/api/farms/me", headers=login("u-kang"), json={"detailContent": duplicate}
+    )
+    null_snake_case = client.patch(
+        "/api/farms/me", headers=login("u-kang"), json={"detail_content": None}
+    )
+    assert response.status_code == 400
+    assert null_snake_case.status_code == 400
+
+    unapproved = client.post(
+        "/api/farms/me/detail-draft",
+        headers=login("u-misook"),
+        json={"inputText": "농가 소개", "photos": []},
+    )
+    assert unapproved.status_code == 403
+
+
+def test_AC_03_4_valid_ai_detail_is_returned_without_save(client, login, monkeypatch):
+    generated = DetailContent(
+        blocks=[
+            TextDetailBlock(
+                id="ai-story", type="text", title="농가 이야기", body="등록 정보로 만든 소개예요."
+            )
+        ]
+    )
+    monkeypatch.setattr(ai.get_settings(), "anthropic_api_key", "test-key")
+    monkeypatch.setattr(ai, "_call_detail_claude", lambda payload: generated)
+
+    response = client.post(
+        "/api/farms/me/detail-draft",
+        headers=login("u-kang"),
+        json={"inputText": "농가 이야기", "photos": []},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"content": generated.model_dump(by_alias=True), "mode": "ai"}
+    assert "detailContent" not in client.get("/api/farms/f-kang").json()
 
 
 def test_AC_19_2_unapproved_farm_is_not_found(client):

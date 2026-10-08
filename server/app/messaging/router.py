@@ -97,8 +97,10 @@ def rooms(db: Db, user: CurrentUser, limit: Limit, cursor: str | None = None):
 
 
 @router.get("/rooms/{farm_id}/messages", response_model=NewsRoomPage)
-def room_messages(db: Db, user: CurrentUser, farm_id: str, limit: Limit, cursor: str | None = None):
-    """방송 + 소비자는 본인 답장만, 생산자는 모든 답장. 다른 소비자 답장은 나오지 않는다."""
+def room_messages(
+    db: Db, user: OptionalUser, farm_id: str, limit: Limit, cursor: str | None = None
+):
+    """공개 방송은 누구나, 팔로워는 팔로워 방송·본인 답장까지 볼 수 있다."""
     return service.room_page(db, user, farm_id, cursor, limit)
 
 

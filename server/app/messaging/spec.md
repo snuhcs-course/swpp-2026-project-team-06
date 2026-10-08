@@ -23,7 +23,7 @@
 - ‘틀렸어요’(M-17, AC-13-5)는 I2. I1에는 엔드포인트가 없다.
 - 다른 모듈과의 경계
   - ai: 질문이 오면 ai 어댑터에 문의 응답을 요청한다. 시간 초과·실패·답할 수 없음은 `Escalation`(전달)으로 처리한다(N-04, M-06). 연락처 가림은 이 모듈, AI 전송 전 개인정보 제거는 ai 모듈이 한다.
-  - farms: 팔로워 목록(M-01), 팔로우 여부 확인, 자동 팔로우는 farms service를 부른다. 농가 페이지의 최신 공개 소식 한 개는 이 모듈 service가 준다(홈 소식 미리보기는 없앰).
+  - farms: 팔로워 목록(M-01), 팔로우 여부 확인, 자동 팔로우는 farms service를 부른다.
   - catalog: AI 근거용 상품 정보는 catalog service에서 받는다.
   - analytics: `broadcast_sent`, `chat_message_sent`(채팅 질문), `reaction_toggled`, `ai_replied`, `escalated` 서버 이벤트(본문 없이, N-05).
 
@@ -40,3 +40,4 @@
 | 2026-10-08 | 생산자 답변은 저장과 HUMAN 전환을 함께, 지정한 전달 질문만 ANSWERED. 질문함 API(1.1)는 같은 Thread·Escalation을 쓴다 | M-09 | AC-13-2 |
 | 2026-10-08 | 첨부는 1.2 (2/2)에서. 지금은 `attachmentIds`가 비어 있지 않으면 404 (1.2 (2/2)에서 아래 행으로 대체) | 단계적 구현 | — |
 | 2026-10-08 | 비공개 사진은 `private_attachments`(I1은 DB 바이트), 업로드 때 형식 확인·메타데이터 제거(`core/images.py`), 조회는 `Cache-Control: private, no-store`. 문의는 `order_inquiries`, 대화를 HUMAN으로, 열린 문의는 답변 필요 | contracts-1.2 6장, M-21 | AC-33-1~4 |
+| 2026-10-09 | 승인 농가 소식방의 공개 방송은 비로그인·미팔로우도 읽는다. 팔로워만 전용 방송·본인 답장, 소유 생산자만 모든 답장을 보며 필터 뒤에 요약·cursor를 계산한다 | storefront-1.5 | AC-12-10, AC-15-6 |

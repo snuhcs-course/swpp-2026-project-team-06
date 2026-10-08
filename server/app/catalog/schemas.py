@@ -3,8 +3,9 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
+from app.core.detail import DetailContent
 from app.core.schemas import CamelModel
 
 ProductStatus = Literal["DRAFT", "PENDING_APPROVAL", "REJECTED", "PUBLISHED", "CLOSED"]
@@ -93,6 +94,9 @@ class ProductCard(SalesState):
 class ProductDetail(ProductCard):
     variety: str
     description: str
+    detail_content: DetailContent | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     grade: str | None
     measured_brix: float | None
     measured_brix_at: datetime | None
@@ -120,6 +124,9 @@ class MyProduct(SalesState):
     photos: list[str]
     variety: str
     description: str
+    detail_content: DetailContent | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     grade: str | None
     expected_brix: float | None
     measured_brix: float | None
@@ -176,6 +183,16 @@ class ProductPatch(CamelModel):
     remote_area_fee: int | None = Field(default=None, ge=0)
     photos: list[str] | None = None
     info: ProductInfo | None = None
+    detail_content: DetailContent | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_detail(cls, data):
+        if isinstance(data, dict) and any(
+            key in data and data[key] is None for key in ("detailContent", "detail_content")
+        ):
+            raise ValueError("detailContent는 null 대신 빈 blocks를 사용해 주세요")
+        return data
 
 
 class StageOptionInput(CamelModel):

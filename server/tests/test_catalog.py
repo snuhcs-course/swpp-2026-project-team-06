@@ -74,6 +74,70 @@ def test_AC_07_2_measured_brix_shown(client):
     assert body["expectedBrix"] == 12
 
 
+def test_AC_07_5_and_03_4_product_detail_save_and_draft_without_save(client, login):
+    headers = login("u-kang")
+    before = client.get("/api/products/mine/p-house", headers=headers).json()
+    assert "detailContent" not in before
+
+    draft = client.post(
+        "/api/products/mine/p-house/detail-draft",
+        headers=headers,
+        json={"inputText": "정성껏 키운 감귤입니다.", "photos": ["/photos/basket.jpg"]},
+    )
+    assert draft.status_code == 200, draft.text
+    assert draft.json()["mode"] == "mock"
+    assert "detailContent" not in client.get("/api/products/p-house").json()
+
+    content = {
+        "blocks": [
+            {"id": "story", "type": "text", "title": "밭 이야기", "body": "정성껏 키워요."},
+            {
+                "id": "photo",
+                "type": "image",
+                "uri": "/photos/basket.jpg",
+                "alt": "수확 바구니",
+            },
+        ]
+    }
+    saved = client.patch(
+        "/api/products/p-house",
+        headers=headers | key(),
+        json={"version": before["version"], "detailContent": content},
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["detailContent"] == content
+    assert client.get("/api/products/p-house").json()["detailContent"] == content
+
+
+def test_AC_03_4_product_detail_respects_owner_state_and_uri_validation(client, login):
+    other = client.post(
+        "/api/products/mine/p-noji/detail-draft",
+        headers=login("u-kang"),
+        json={"inputText": "소개", "photos": []},
+    )
+    closed = client.post(
+        "/api/products/mine/p-josaeng/detail-draft",
+        headers=login("u-kang"),
+        json={"inputText": "소개", "photos": []},
+    )
+    invalid_uri = client.post(
+        "/api/products/mine/p-house/detail-draft",
+        headers=login("u-kang"),
+        json={"inputText": "소개", "photos": ["http://example.com/photo.jpg"]},
+    )
+    null_snake_case = client.patch(
+        "/api/products/p-house",
+        headers=login("u-kang") | key(),
+        json={"version": 1, "detail_content": None},
+    )
+
+    assert other.status_code == 404
+    assert closed.status_code == 409
+    assert closed.json()["details"]["reason"] == "INVALID_TRANSITION"
+    assert invalid_uri.status_code == 400
+    assert null_snake_case.status_code == 400
+
+
 def test_AC_04_2_unpublished_product_not_visible(client):
     for product_id in ("p-cheonggyeon", "p-cheonhye", "p-hallabong", "p-josaeng"):
         assert client.get(f"/api/products/{product_id}").status_code == 404

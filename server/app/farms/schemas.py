@@ -2,11 +2,11 @@
 
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.catalog.schemas import ProductCard
+from app.core.detail import DetailContent
 from app.core.schemas import CamelModel
-from app.messaging.schemas import NewsItem
 
 
 class FarmSummary(CamelModel):
@@ -44,10 +44,38 @@ class Home(CamelModel):
 
 class FarmDetail(FarmSummary):
     intro: str
+    detail_content: DetailContent | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     is_following: bool
     products: list[ProductCard]
-    latest_news: NewsItem | None
     share_url: str
+
+
+class MyFarm(FarmSummary):
+    intro: str
+    detail_content: DetailContent | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    status: Literal["PENDING", "APPROVED", "REJECTED", "SUSPENDED"]
+    share_url: str | None
+
+
+class FarmPatch(CamelModel):
+    name: str | None = Field(default=None, max_length=100)
+    region: str | None = Field(default=None, max_length=100)
+    intro: str | None = None
+    photo: str | None = None
+    detail_content: DetailContent | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_detail(cls, data):
+        if isinstance(data, dict) and any(
+            key in data and data[key] is None for key in ("detailContent", "detail_content")
+        ):
+            raise ValueError("detailContent는 null 대신 빈 blocks를 사용해 주세요")
+        return data
 
 
 class FollowState(CamelModel):

@@ -47,6 +47,7 @@ def test_room_list_for_consumer_and_producer(client, login):
 
     assert {r["farmId"] for r in consumer["items"]} == {"f-kang", "f-halla", "f-hyodon"}
     assert [r["farmId"] for r in producer["items"]] == ["f-kang"]
+    assert all(room["canReply"] is True for room in consumer["items"])
 
 
 def test_AC_12_6_consumer_sees_only_own_replies(client, login):
@@ -94,16 +95,59 @@ def test_AC_12_6_room_cursor_does_not_leak(client, login):
     assert other.status_code == 400
 
 
-def test_unfollowed_room_is_forbidden(client, login):
-    response = client.get("/api/messaging/rooms/f-halla/messages", headers=login("u-seojun"))
+def test_AC_12_10_public_room_is_readable_without_login_or_follow(client, login):
+    anonymous = client.get("/api/messaging/rooms/f-kang/messages").json()
+    unfollowed = client.get(
+        "/api/messaging/rooms/f-halla/messages", headers=login("u-seojun")
+    ).json()
 
-    assert response.status_code == 403
+    assert anonymous["room"]["canReply"] is False
+    assert anonymous["room"]["lastMessage"].startswith("하우스 안 온도")
+    assert [message["messageId"] for message in anonymous["items"]] == ["n-2"]
+    assert unfollowed["room"]["canReply"] is False
+    assert [message["messageId"] for message in unfollowed["items"]] == ["n-3"]
+
+
+def test_AC_12_10_unfollow_hides_private_messages_and_blocks_reply(client, login):
+    headers = login("u-seojun")
+    before = client.get("/api/messaging/rooms/f-kang/messages", headers=headers).json()
+    assert before["room"]["canReply"] is True
+    assert {message["messageId"] for message in before["items"]} >= {"n-1", "n-2", "reply-2"}
+
+    client.delete("/api/farms/f-kang/follow", headers=headers)
+    after = client.get("/api/messaging/rooms/f-kang/messages", headers=headers).json()
+    reply = client.post(
+        "/api/messaging/rooms/f-kang/messages",
+        headers=headers | key(),
+        json={"text": "답장"},
+    )
+
+    assert after["room"]["canReply"] is False
+    assert [message["messageId"] for message in after["items"]] == ["n-2"]
+    assert reply.status_code == 403
+
+
+def test_AC_15_6_public_room_read_does_not_follow(client, login):
+    headers = login("u-seojun")
+    assert client.get("/api/farms/f-halla", headers=headers).json()["isFollowing"] is False
+    assert client.get("/api/messaging/rooms/f-halla/messages", headers=headers).status_code == 200
+    assert client.get("/api/farms/f-halla", headers=headers).json()["isFollowing"] is False
 
 
 def test_producer_cannot_open_other_farm_room(client, login):
     response = client.get("/api/messaging/rooms/f-halla/messages", headers=login("u-kang"))
 
     assert response.status_code == 404
+
+
+def test_AC_12_10_unapproved_producer_and_suspended_farm_are_hidden(client, login):
+    unapproved = client.get(
+        "/api/messaging/rooms/f-kang/messages", headers=login("u-misook")
+    )
+    suspended = client.get("/api/messaging/rooms/f-stop/messages")
+
+    assert unapproved.status_code == 403
+    assert suspended.status_code == 404
 
 
 def test_room_send_reply_and_broadcast(client, login):

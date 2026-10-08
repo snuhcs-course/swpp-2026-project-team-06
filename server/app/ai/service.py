@@ -6,6 +6,14 @@ import re
 from app.ai.schemas import AiAnswer, DraftExtraction, Evidence
 from app.core import masking
 from app.core.config import get_settings
+from app.core.detail import (
+    DetailContent,
+    DetailDraft,
+    DetailDraftInput,
+    ImageDetailBlock,
+    TextDetailBlock,
+)
+from app.core.errors import invalid
 
 _PRICE = re.compile(r"(\d+(?:\.\d+)?\s*만\s*원|\d{1,3}(?:,\d{3})+\s*원|\d{4,6}\s*원)")
 
@@ -16,6 +24,16 @@ _DRAFT_SYSTEM = """너는 농가 판매 문구에서 상품 정보를 뽑는 도
 - 문구에 없는 값은 null로 둔다. 당도·배송 시기를 지어내지 않는다.
 - 가격은 어떤 키에도 넣지 않는다.
 - description은 문구를 바탕으로 2~3문장 한국어."""
+
+_DETAIL_SYSTEM = """너는 농가·상품 소개 상세를 정리하는 도우미다.
+반드시 JSON 객체 하나만 출력한다: {"blocks": [...]}.
+블록은 {"id", "type":"text", "title", "body"} 또는
+{"id", "type":"image", "uri", "alt"} 형식이고 최대 30개다.
+입력 JSON에 있는 사실과 사진 주소만 사용한다. 가격, 할인, 무료배송, 날짜는 쓰지 않는다.
+연락처나 계좌 등 개인정보를 쓰지 않고, 없는 품질·재배·배송 정보를 지어내지 않는다."""
+_DETAIL_EXCLUDED = re.compile(
+    r"\d{1,2}월|\d{4}-\d{2}-\d{2}|무료\s*배송|할인", re.IGNORECASE
+)
 
 
 def strip_personal_info(text: str) -> str:
@@ -71,6 +89,109 @@ def draft_product(text: str) -> DraftExtraction | None:
     if all(value in (None, [], "") for value in result.model_dump().values()):
         return None
     return result
+
+
+def _clean_detail_text(value: str) -> str:
+    return "\n".join(
+        part.strip()
+        for part in re.split(r"\n|(?<=[.!?])\s+", strip_personal_info(value))
+        if part.strip() and not _PRICE.search(part) and not _DETAIL_EXCLUDED.search(part)
+    )
+
+
+def _mock_detail(
+    body: DetailDraftInput,
+    name: str,
+    description: str,
+    registered_photos: list[str],
+    facts: list[str],
+) -> DetailContent:
+    blocks = []
+
+    def add_text(title: str, value: str) -> None:
+        value = _clean_detail_text(value)
+        if value:
+            blocks.append(
+                TextDetailBlock(
+                    id=f"detail-{len(blocks)}",
+                    type="text",
+                    title=title[:100],
+                    body=value[:3000],
+                )
+            )
+
+    add_text(name, description)
+    photos = body.photos or registered_photos[:10]
+    for index, uri in enumerate(photos):
+        blocks.append(
+            ImageDetailBlock(
+                id=f"detail-{len(blocks)}",
+                type="image",
+                uri=uri,
+                alt=f"{name} 사진 {index + 1}"[:200],
+            )
+        )
+        if index == 0:
+            add_text("전하고 싶은 이야기", body.input_text)
+    if not photos:
+        add_text("전하고 싶은 이야기", body.input_text)
+    add_text("한눈에 살펴보기", "\n".join(value for value in facts if value))
+    if not blocks:
+        raise invalid({"inputText": "소개 글이나 사진을 넣어 주세요"})
+    return DetailContent(blocks=blocks)
+
+
+def _call_detail_claude(payload: dict) -> DetailContent:
+    import anthropic
+
+    settings = get_settings()
+    client = anthropic.Anthropic(
+        api_key=settings.anthropic_api_key, timeout=settings.ai_draft_timeout_seconds
+    )
+    message = client.messages.create(
+        model=settings.ai_model,
+        max_tokens=2048,
+        system=_DETAIL_SYSTEM,
+        messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+    )
+    raw = "".join(block.text for block in message.content if block.type == "text")
+    return DetailContent.model_validate_json(raw[raw.find("{") : raw.rfind("}") + 1])
+
+
+def detail_draft(
+    body: DetailDraftInput,
+    *,
+    name: str,
+    description: str,
+    registered_photos: list[str],
+    facts: list[str],
+) -> DetailDraft:
+    """등록 정보와 입력만으로 상세 초안을 만들며 DB에는 저장하지 않는다(AC-03-4)."""
+    fallback = _mock_detail(body, name, description, registered_photos, facts)
+    if not get_settings().anthropic_api_key:
+        return DetailDraft(content=fallback, mode="mock")
+    payload = {
+        "name": strip_personal_info(name),
+        "description": _clean_detail_text(description),
+        "inputText": _clean_detail_text(body.input_text),
+        "photos": body.photos or registered_photos[:10],
+        "facts": [_clean_detail_text(value) for value in facts if value],
+    }
+    try:
+        content = _call_detail_claude(payload)
+    except Exception:  # noqa: BLE001  AI 실패·지연·형식 오류는 검증된 mock 초안으로 대체한다
+        return DetailDraft(content=fallback, mode="mock")
+    if not content.blocks:
+        return DetailDraft(content=fallback, mode="mock")
+    allowed_photos = set(payload["photos"])
+    for block in content.blocks:
+        if isinstance(block, ImageDetailBlock) and block.uri not in allowed_photos:
+            return DetailDraft(content=fallback, mode="mock")
+        if isinstance(block, TextDetailBlock):
+            text = f"{block.title}\n{block.body}"
+            if _PRICE.search(text) or _DETAIL_EXCLUDED.search(text):
+                return DetailDraft(content=fallback, mode="mock")
+    return DetailDraft(content=content, mode="ai")
 
 
 # ---------------- 문의 응답 (FEAT-13, M-05~M-09·M-15·M-18·M-20) ----------------

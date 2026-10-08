@@ -6,7 +6,7 @@
 import re
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import and_, delete, false, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core import images, masking
@@ -205,31 +205,37 @@ def post_news(db: Session, farm, body: NewsInput) -> NewsPosted:
 
 
 def _room_access(db: Session, user, farm_id: str):
-    """소비자는 팔로우한 승인 농가, 생산자는 승인된 자기 농가만(contracts-1.2 1장)."""
+    """공개 읽기와 팔로워·소유 생산자의 답장 권한을 함께 계산한다."""
     from app.farms import service as farms
 
+    if user is None:
+        farm = farms.get_approved_farm(db, farm_id)
+        if farm is None:
+            raise not_found("지금은 이 농가의 소식방을 열 수 없어요.")
+        return farm, False
     if user.role == "PRODUCER":
         own = farms.get_farm_of_producer(db, user.id)
         if own is None or own.approval_status != "APPROVED":
             raise forbidden("승인된 농가만 소식방을 열 수 있어요.")
         if own.id != farm_id:
             raise not_found("내 농가의 소식방만 볼 수 있어요.")
-        return own
+        return own, True
     if user.role != "CONSUMER":
         raise forbidden()
     farm = farms.get_approved_farm(db, farm_id)
     if farm is None:
         raise not_found("지금은 이 농가의 소식방을 열 수 없어요.")
-    if not farms.is_following(db, user.id, farm_id):
-        raise forbidden("팔로우한 농가의 소식방만 열 수 있어요.")
-    return farm
+    return farm, farms.is_following(db, user.id, farm_id)
 
 
-def _room_rows(db: Session, user, farm, cursor: list | None, limit: int):
+def _room_rows(db: Session, user, farm, can_reply: bool, cursor: list | None, limit: int):
     """권한 필터를 먼저 걸고 (createdAt, id) 최신순으로 limit+1개를 합친다."""
     broadcasts = select(Broadcast).where(Broadcast.farm_id == farm.id)
     replies = select(RoomReply).where(RoomReply.farm_id == farm.id)
-    if user.role == "CONSUMER":
+    if not can_reply:
+        broadcasts = broadcasts.where(Broadcast.visibility == "PUBLIC")
+        replies = replies.where(false())
+    elif user.role == "CONSUMER":
         replies = replies.where(RoomReply.consumer_id == user.id)
     b_cond = _older_than(Broadcast.created_at, Broadcast.id, cursor)
     r_cond = _older_than(RoomReply.created_at, RoomReply.id, cursor)
@@ -253,7 +259,7 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
     names = accounts.get_users(db, [r.consumer_id for r in rows if isinstance(r, RoomReply)])
     mine: set[str] = set()
     broadcast_ids = [r.id for r in rows if isinstance(r, Broadcast)]
-    if broadcast_ids:
+    if user is not None and broadcast_ids:
         mine = set(
             db.scalars(
                 select(Reaction.broadcast_id).where(
@@ -287,7 +293,11 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     message_id=r.id,
                     farm_id=farm.id,
                     sender_id=r.consumer_id,
-                    sender_name=masked_name(name) if user.role == "PRODUCER" else (name or ""),
+                    sender_name=(
+                        masked_name(name)
+                        if user is not None and user.role == "PRODUCER"
+                        else (name or "")
+                    ),
                     sender_role="CONSUMER",
                     body=r.body,
                     photos=[],
@@ -301,13 +311,14 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
     return result
 
 
-def _room_summary(db: Session, user, farm) -> NewsRoomSummary:
-    last = _room_rows(db, user, farm, None, 0)
+def _room_summary(db: Session, user, farm, can_reply: bool) -> NewsRoomSummary:
+    last = _room_rows(db, user, farm, can_reply, None, 0)
     last = last[0] if last else None
     preview = None
     if last is not None:
         preview = last.body or "사진·영상 소식"
     return NewsRoomSummary(
+        can_reply=can_reply,
         farm_id=farm.id,
         farm_name=farm.name,
         farm_photo=farm.photo,
@@ -320,7 +331,9 @@ def rooms(db: Session, user, cursor: str | None, limit: int) -> Paged[NewsRoomSu
     from app.farms import service as farms
 
     if user.role == "PRODUCER":
-        farm = _room_access(db, user, getattr(farms.get_farm_of_producer(db, user.id), "id", ""))
+        farm, _ = _room_access(
+            db, user, getattr(farms.get_farm_of_producer(db, user.id), "id", "")
+        )
         found = [farm]
     else:
         found = [
@@ -328,7 +341,7 @@ def rooms(db: Session, user, cursor: str | None, limit: int) -> Paged[NewsRoomSu
             for f in farms.get_farms(db, farms.followed_farm_ids(db, user.id)).values()
             if f.approval_status == "APPROVED"
         ]
-    summaries = [_room_summary(db, user, f) for f in found]
+    summaries = [_room_summary(db, user, f, True) for f in found]
     summaries.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
     return _offset_page(summaries, cursor, limit)
 
@@ -344,20 +357,25 @@ def _scoped_cursor(scope: str, cursor: str | None) -> list | None:
 
 
 def room_page(db: Session, user, farm_id: str, cursor: str | None, limit: int) -> NewsRoomPage:
-    farm = _room_access(db, user, farm_id)
-    scope = f"{user.id}|room:{farm.id}"
-    rows = _room_rows(db, user, farm, _scoped_cursor(scope, cursor), limit)
+    farm, can_reply = _room_access(db, user, farm_id)
+    viewer = user.id if user is not None else "anonymous"
+    scope = f"{viewer}|room:{farm.id}|reply:{can_reply}"
+    rows = _room_rows(db, user, farm, can_reply, _scoped_cursor(scope, cursor), limit)
     next_cursor = None
     if len(rows) > limit:
         rows = rows[:limit]
         next_cursor = encode_cursor([scope, rows[-1].created_at.isoformat(), rows[-1].id])
     items = _room_messages(db, user, farm, list(reversed(rows)))
-    return NewsRoomPage(room=_room_summary(db, user, farm), items=items, next_cursor=next_cursor)
+    return NewsRoomPage(
+        room=_room_summary(db, user, farm, can_reply), items=items, next_cursor=next_cursor
+    )
 
 
 def send_room(db: Session, user, farm_id: str, text: str) -> NewsRoomMessage:
     """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 텍스트 답장. AI는 답하지 않는다."""
-    farm = _room_access(db, user, farm_id)
+    farm, can_reply = _room_access(db, user, farm_id)
+    if not can_reply:
+        raise forbidden("팔로우한 뒤 답장할 수 있어요.")
     limit = 2000 if user.role == "PRODUCER" else 1000
     text = text.strip()
     if not text or len(text) > limit:
