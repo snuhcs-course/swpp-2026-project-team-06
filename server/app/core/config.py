@@ -6,7 +6,7 @@ from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # local에서만 쓰는 JWT 비밀값. local이 아니면 JWT_SECRET이 반드시 있어야 한다(이슈 #5).
-LOCAL_JWT_SECRET = "local-dev-only-secret"
+LOCAL_JWT_SECRET = "local-dev-only-secret-do-not-use-in-production"
 
 
 class Settings(BaseSettings):
