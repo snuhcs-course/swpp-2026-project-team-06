@@ -386,3 +386,9 @@ def linked_order_summaries(
             }
         )
     return result
+
+
+def order_farm_id(db: Session, order: Order) -> str:
+    from app.catalog import service as catalog
+
+    return catalog.load_product(db, order.product_id).product.farm_id

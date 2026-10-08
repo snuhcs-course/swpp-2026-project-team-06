@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.idempotency import run_idempotent
-from app.core.security import ApprovedProducer, Consumer
+from app.core.pagination import page_limit
+from app.core.schemas import Paged
+from app.core.security import ApprovedProducer, Consumer, CurrentUser
+from app.messaging import service as messaging
+from app.messaging.schemas import InquiryCreated, InquiryInput, InquiryView
 from app.orders import service
 from app.orders.schemas import Dashboard, OrderInput, OrderView, PayInput, PayResult
 
@@ -46,3 +50,30 @@ def pay(db: Db, user: Consumer, order_id: str, body: PayInput, key: IdempotencyK
 @router.get("/{order_id}", response_model=OrderView)
 def get_order(db: Db, user: Consumer, order_id: str):
     return service.get_order(db, user.id, order_id)
+
+
+@router.post("/{order_id}/inquiries", response_model=InquiryCreated)
+def create_inquiry(
+    db: Db, user: Consumer, order_id: str, body: InquiryInput, key: IdempotencyKey = None
+):
+    """주문 문제 문의(SCR-32, FEAT-33). 본인 결제 주문만, 같은 키면 같은 문의를 돌려준다."""
+    return run_idempotent(
+        db,
+        user.id,
+        f"inquiry:{order_id}",
+        key,
+        body,
+        lambda: messaging.create_inquiry(db, user, order_id, body),
+    )
+
+
+@router.get("/{order_id}/inquiries", response_model=Paged[InquiryView])
+def list_inquiries(
+    db: Db,
+    user: CurrentUser,
+    order_id: str,
+    limit: Annotated[int, Depends(page_limit)],
+    cursor: str | None = None,
+):
+    """본인 소비자 또는 그 농가 생산자만."""
+    return messaging.list_inquiries(db, user, order_id, cursor, limit)
