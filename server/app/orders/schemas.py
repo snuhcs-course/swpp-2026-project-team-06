@@ -5,10 +5,21 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.catalog.schemas import DateRange
+from app.catalog.schemas import DateRange, SalesState
 from app.core.schemas import CamelModel
 
 OrderAction = Literal["cancel", "confirm", "respondDeliveryWindow"]
+OrderStatus = Literal[
+    "PENDING_PAYMENT",
+    "RESERVED",
+    "PREPARING",
+    "SHIPPED",
+    "DELIVERED",
+    "COMPLETED",
+    "CANCELED",
+    "REFUNDED",
+    "PARTIALLY_REFUNDED",
+]
 
 
 class Consents(CamelModel):
@@ -40,6 +51,8 @@ class PayInput(CamelModel):
 
 
 class OrderView(CamelModel):
+    unit_weight_grams: int
+    released_quantity: int
     order_id: str
     order_no: str
     product_id: str
@@ -80,13 +93,49 @@ class PayResult(CamelModel):
     fail_reason: str | None
 
 
+class DeliveryWindowResponse(CamelModel):
+    choice: Literal["accept", "refund"]
+
+
+class HarvestStartInput(CamelModel):
+    product_id: str
+
+
+class Changed(CamelModel):
+    changed: int
+
+
+class ShipInput(CamelModel):
+    tracking_number: str | None = Field(default=None, max_length=50)
+    carrier: Literal["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"] | None = None
+
+
+class ProducerOrder(CamelModel):
+    order_id: str
+    order_no: str
+    product_id: str
+    product_name: str
+    option_label: str
+    quantity: int
+    status: OrderStatus
+    delivery_note: str | None
+    carrier: str | None
+    tracking_number: str | None
+    created_at: datetime
+    recipient_name: str
+    recipient_phone: str
+    postal_code: str
+    address: str
+    address_detail: str
+
+
 class DashboardTodo(CamelModel):
     open_questions: int
     to_ship: int
     pending_products: int
 
 
-class DashboardProduct(CamelModel):
+class DashboardProduct(SalesState):
     product_id: str
     product_name: str
     reserved_count: int

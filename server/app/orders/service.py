@@ -11,6 +11,7 @@ from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
 from app.orders.models import ORDER_NO_SEQ, Order, Payment
 from app.orders.schemas import (
+    Changed,
     Dashboard,
     DashboardProduct,
     DashboardStage,
@@ -19,6 +20,7 @@ from app.orders.schemas import (
     OrderInput,
     OrderView,
     PayResult,
+    ProducerOrder,
     RecentOrder,
 )
 
@@ -88,6 +90,8 @@ def order_view(db: Session, o: Order) -> OrderView:
         option_id=o.option_id,
         option_label=option.label if option else "",
         quantity=o.quantity,
+        unit_weight_grams=o.unit_weight_grams,
+        released_quantity=o.released_quantity,
         unit_price=o.unit_price,
         shipping_fee=o.shipping_fee,
         remote_area_fee=o.remote_area_fee,
@@ -150,7 +154,14 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
             maxQuantity=p.max_quantity_per_order,
         )
     stage = catalog.current_stage(item)
-    if stage is None or item.remaining(stage, option.id) < body.quantity:
+    if p.sales_paused:
+        raise conflict("SALES_PAUSED", "농가가 잠시 예약을 쉬고 있어요.", productId=p.id)
+    if stage is None:
+        raise conflict("STAGE_CHANGED", "예약 기간이 바뀌었어요.", productId=p.id)
+    requested_grams = body.quantity * catalog.weight_grams(option.weight_kg)
+    if catalog.sales_state(db, item).remaining_grams < requested_grams:
+        raise conflict("TOTAL_LIMIT_REACHED", "상품의 전체 예약 물량이 소진됐어요.", productId=p.id)
+    if item.remaining(stage, option.id) < body.quantity:
         raise conflict("SOLD_OUT", "이 단계 물량이 다 팔렸어요.", productId=p.id)
 
     unit_price = item.prices[(stage.id, option.id)]
@@ -168,6 +179,8 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
         stage_id=stage.id,
         quantity=body.quantity,
         unit_price=unit_price,
+        unit_weight_grams=catalog.weight_grams(option.weight_kg),
+        released_quantity=0,
         shipping_fee=shipping_fee,
         remote_area_fee=remote_fee,
         total_amount=unit_price * body.quantity + shipping_fee + remote_fee,
@@ -216,20 +229,133 @@ def get_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
     return order_view(db, _my_order(db, consumer_id, order_id))
 
 
-def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayResult:
-    """Mock 카드 결제(FEAT-09). 단계 물량 행을 잠그고 차감한다(R-06, AC-09-1)."""
+def list_orders(db: Session, consumer_id: str) -> list[OrderView]:
+    orders = list(
+        db.scalars(
+            select(Order).where(
+                Order.consumer_id == consumer_id, Order.status != "PENDING_PAYMENT"
+            )
+        )
+    )
+    orders.sort(
+        key=lambda order: (
+            "respondDeliveryWindow" in _actions(order) or "confirm" in _actions(order),
+            order.created_at,
+        ),
+        reverse=True,
+    )
+    return [order_view(db, order) for order in orders]
+
+
+def _release_quantity(db: Session, order: Order, quantity: int) -> None:
     from app.catalog import service as catalog
 
+    if order.shipped_at or order.paid_at is None:
+        return
+    releasable = max(0, order.quantity - order.released_quantity)
+    released = min(max(quantity, 0), releasable)
+    if released == 0:
+        return
+    allocation = catalog.lock_allocation(db, order.stage_id, order.option_id)
+    if allocation.reserved_count < released:
+        raise conflict("INVALID_TRANSITION", "예약 물량이 일치하지 않아요.")
+    allocation.reserved_count -= released
+    order.released_quantity += released
+
+
+def _refund(db: Session, order: Order, reason: str) -> None:
+    if order.status == "REFUNDED":
+        return
+    _release_quantity(db, order, order.quantity - order.released_quantity)
+    order.status = "REFUNDED"
+    order.refunded_at = now()
+    order.refund_reason = reason
+
+
+def cancel_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
+    from app.catalog import service as catalog
+
+    existing = _my_order(db, consumer_id, order_id)
+    catalog.lock_product(db, existing.product_id)
+    order = _my_order(db, consumer_id, order_id, lock=True)
+    if order.status == "REFUNDED" and order.shipped_at is None:
+        return order_view(db, order)
+    if order.status not in ("RESERVED", "PREPARING"):
+        raise conflict("INVALID_TRANSITION", "출하 후에는 취소할 수 없어요.")
+    current = today()
+    _refund(db, order, f"{current.month}월 {current.day}일 직접 취소(출하 전)")
+    db.flush()
+    return order_view(db, order)
+
+
+def confirm_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
+    order = _my_order(db, consumer_id, order_id, lock=True)
+    if order.status != "DELIVERED":
+        raise conflict("INVALID_TRANSITION", "배송 완료 후에 구매 확정할 수 있어요.")
+    order.status = "COMPLETED"
+    order.completed_at = now()
+    db.flush()
+    return order_view(db, order)
+
+
+def respond_delivery_window(
+    db: Session, consumer_id: str, order_id: str, choice: str
+) -> OrderView:
+    from app.catalog import service as catalog
+
+    existing = _my_order(db, consumer_id, order_id)
+    catalog.lock_product(db, existing.product_id)
+    order = _my_order(db, consumer_id, order_id, lock=True)
+    if not order.proposed_delivery_start or order.status not in ("RESERVED", "PREPARING"):
+        raise conflict("INVALID_TRANSITION", "바뀐 받는 시기가 없어요.")
+    if choice == "accept":
+        order.delivery_start = order.proposed_delivery_start
+        order.delivery_end = order.proposed_delivery_end
+        order.proposed_delivery_start = None
+        order.proposed_delivery_end = None
+    else:
+        order.proposed_delivery_start = None
+        order.proposed_delivery_end = None
+        _refund(db, order, "받는 시기 변경에 동의하지 않아 전액 환불")
+    db.flush()
+    return order_view(db, order)
+
+
+def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayResult:
+    """Mock 결제. 상품 → 기간 물량 순서로 잠그고 박스·중량 한도를 함께 확보한다."""
+    from app.catalog import service as catalog
+
+    existing = _my_order(db, consumer_id, order_id)
+    item = catalog.lock_product(db, existing.product_id)
     order = _my_order(db, consumer_id, order_id, lock=True)
     if order.status != "PENDING_PAYMENT":
-        return PayResult(order=order_view(db, order), result="success", fail_reason=None)
-    item = catalog.load_product(db, order.product_id)
+        if order.paid_at and order.status in ACTIVE:
+            return PayResult(order=order_view(db, order), result="success", fail_reason=None)
+        raise conflict("INVALID_TRANSITION", "결제할 수 없는 주문이에요.")
+    if item.product.sales_paused:
+        raise conflict("SALES_PAUSED", "판매가 잠시 중지됐어요.", productId=order.product_id)
     current = catalog.current_stage(item)
     if item.product.status != "PUBLISHED" or current is None or current.id != order.stage_id:
         raise conflict("STAGE_CHANGED", "그사이 단계가 바뀌었어요.", productId=order.product_id)
+    option = next((row for row in item.options if row.id == order.option_id), None)
+    price = item.prices.get((order.stage_id, order.option_id))
+    if (
+        option is None
+        or price != order.unit_price
+        or catalog.weight_grams(option.weight_kg) != order.unit_weight_grams
+    ):
+        raise conflict("STAGE_CHANGED", "가격이나 옵션이 바뀌었어요.", productId=order.product_id)
     allocation = catalog.lock_allocation(db, order.stage_id, order.option_id)
     if allocation.quantity - allocation.reserved_count < order.quantity:
         raise conflict("SOLD_OUT", "이 단계 물량이 다 팔렸어요.", productId=order.product_id)
+    state = catalog.sales_state(db, item)
+    requested_grams = order.quantity * order.unit_weight_grams
+    if state.remaining_grams < requested_grams:
+        raise conflict(
+            "TOTAL_LIMIT_REACHED",
+            "추가 예약 가능한 공급 물량이 부족해요.",
+            productId=order.product_id,
+        )
     if mock_result == "fail":
         return PayResult(
             order=order_view(db, order),
@@ -283,6 +409,7 @@ def dashboard(db: Session, farm) -> Dashboard:
         mid = main.product.id
         cur = catalog.current_stage(main)
         product = DashboardProduct(
+            **catalog.sales_state(db, main).model_dump(),
             product_id=mid,
             product_name=main.product.name,
             reserved_count=reserved_people(db, [mid]).get(mid, 0),
@@ -331,6 +458,94 @@ def dashboard(db: Session, farm) -> Dashboard:
             for o in recent
         ],
     )
+
+
+def producer_order_view(db: Session, order: Order) -> ProducerOrder:
+    from app.catalog import service as catalog
+
+    item = catalog.load_product(db, order.product_id)
+    option = next((row for row in item.options if row.id == order.option_id), None)
+    return ProducerOrder(
+        order_id=order.id,
+        order_no=order.order_no,
+        product_id=order.product_id,
+        product_name=_short_name(item.product.name),
+        option_label=option.label if option else "",
+        quantity=order.quantity,
+        status=order.status,
+        delivery_note=order.delivery_note,
+        carrier=order.carrier,
+        tracking_number=order.tracking_number,
+        created_at=order.created_at,
+        recipient_name=order.recipient_name,
+        recipient_phone=order.recipient_phone,
+        postal_code=order.postal_code,
+        address=order.address,
+        address_detail=order.address_detail,
+    )
+
+
+def producer_orders(
+    db: Session, farm_id: str, status: str | None, product_id: str | None
+) -> list[ProducerOrder]:
+    from app.catalog import service as catalog
+
+    product_ids = [item.product.id for item in catalog.farm_products(db, farm_id)]
+    if not product_ids:
+        return []
+    query = select(Order).where(
+        Order.product_id.in_(product_ids), Order.status != "PENDING_PAYMENT"
+    )
+    if status:
+        query = query.where(Order.status == status)
+    if product_id:
+        if product_id not in product_ids:
+            raise not_found("찾을 수 없는 상품이에요.")
+        query = query.where(Order.product_id == product_id)
+    rows = db.scalars(query.order_by(Order.created_at.desc(), Order.id.desc()))
+    return [producer_order_view(db, row) for row in rows]
+
+
+def harvest_start(db: Session, farm_id: str, product_id: str) -> Changed:
+    from app.catalog import service as catalog
+
+    catalog.load_my_product(db, farm_id, product_id)
+    orders = list(
+        db.scalars(
+            select(Order).where(
+                Order.product_id == product_id, Order.status == "RESERVED"
+            ).with_for_update()
+        )
+    )
+    for order in orders:
+        order.status = "PREPARING"
+    db.flush()
+    return Changed(changed=len(orders))
+
+
+def ship_order(
+    db: Session,
+    farm_id: str,
+    order_id: str,
+    tracking_number: str | None,
+    carrier: str | None,
+) -> ProducerOrder:
+    from app.catalog import service as catalog
+
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order is None:
+        raise not_found("주문을 찾을 수 없어요.")
+    item = catalog.load_product(db, order.product_id)
+    if item is None or item.product.farm_id != farm_id:
+        raise not_found("주문을 찾을 수 없어요.")
+    if order.status != "PREPARING":
+        raise conflict("INVALID_TRANSITION", "출하 준비인 주문만 출하로 바꿀 수 있어요.")
+    order.status = "SHIPPED"
+    order.shipped_at = now()
+    order.tracking_number = (tracking_number or "").strip() or None
+    order.carrier = carrier
+    db.flush()
+    return producer_order_view(db, order)
 
 
 def get_any_order(db: Session, order_id: str) -> Order | None:
