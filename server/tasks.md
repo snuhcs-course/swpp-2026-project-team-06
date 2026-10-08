@@ -224,19 +224,24 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 
 ### 결정 사항
 - 10/08 시드 상품 승인량은 Mock과 같은 명시적 전환표(p-house 2,400kg 등)를 쓴다. 박스 한도에서 자동 추정하지 않는다(capacity-1.4 6장)
+- 10/08 마이그레이션은 기존 주문의 옵션 중량을 정확히 찾지 못하면 중단하고, 결제된 미반환 주문으로 단계 예약량을 다시 계산한다
+- 10/08 결제는 상품 행 다음 단계·옵션 물량 행 순서로 잠그며, 취소·미공급 반환은 `releasedQuantity`로 한 번만 반영한다
+- 10/08 받는 시기 변경은 기존 결제 주문의 스냅샷을 유지하고 RESERVED/PREPARING 주문에 제안 기간으로 기록한다
 
 ### 작업
-- [ ] 모델·마이그레이션 0004: Product(approvedSupplyGrams·salesLimitGrams·salesPaused·version, pending_reapproval 삭제), CapacityRequest, Order(unitWeightGrams·releasedQuantity)
-- [ ] 공급 신청·이력·철회, 운영자 승인·반려(구형 publish-request·admin approve 삭제)
-- [ ] 판매 설정, PATCH·stages version·PERIOD_LOCKED, 중량 집계·availability, 내 상품 목록
-- [ ] 결제 때 중량·기간 물량 확보(TOTAL_LIMIT_REACHED·SALES_PAUSED·STAGE_CHANGED)
-- [ ] 주문 내역·취소·구매 확정·받는 시기 응답, 생산자 주문·수확 시작·출하(반환·출하 집계)
-- [ ] 시드 전환, 테스트(AC ID), 기존 1.1 승인 테스트 교체
+- [x] 모델·마이그레이션 0004: Product(approvedSupplyGrams·salesLimitGrams·salesPaused·version, pending_reapproval 삭제), CapacityRequest, Order(unitWeightGrams·releasedQuantity)
+- [x] 공급 신청·이력·철회, 운영자 승인·반려(구형 publish-request·admin approve 삭제)
+- [x] 판매 설정, PATCH·stages version·PERIOD_LOCKED, 중량 집계·availability, 내 상품 목록
+- [x] 결제 때 중량·기간 물량 확보(TOTAL_LIMIT_REACHED·SALES_PAUSED·STAGE_CHANGED)
+- [x] 주문 내역·취소·구매 확정·받는 시기 응답, 생산자 주문·수확 시작·출하(반환·출하 집계)
+- [x] 시드 전환, 테스트(AC ID), 기존 1.1 승인 테스트 교체
 
 ### 완료 조건
-- [ ] AC-04-8·9, AC-05-6, AC-09-6, AC-10-6 테스트
+- [x] AC-04-8·9, AC-05-6, AC-09-6, AC-10-6 테스트
 - [ ] 테스트·ruff·alembic check, CI 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/08 브랜치·spec 작성. capacity-1.4, packages/api 계약·Mock, 현재 catalog·orders 서비스 확인 완료(구현 전)
+- 10/08 draft PR #51 생성(`Refs #5`). 모델·0004, 공급 승인, 판매 설정·버전, 중량 결제, 주문 처리, 시드 전환 구현
+- 10/08 `ruff check .`, pytest 119개, alembic 0004 upgrade → 0003 downgrade → head upgrade, `alembic check` 통과. CI·AI 리뷰 대기
