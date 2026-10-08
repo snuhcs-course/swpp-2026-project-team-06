@@ -19,3 +19,10 @@ def reserved_people(db: Session, product_ids: list[str]) -> dict[str, int]:
         .group_by(Order.product_id)
     )
     return dict(rows.all())
+
+
+def has_orders(db: Session, product_id: str, option_id: str | None = None) -> bool:
+    query = select(Order.id).where(Order.product_id == product_id)
+    if option_id is not None:
+        query = query.where(Order.option_id == option_id)
+    return db.scalar(query.limit(1)) is not None
