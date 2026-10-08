@@ -7,21 +7,26 @@ import {
   Photo,
   Screen,
   Scroll,
-  Section,
   Skeleton,
   T,
   md,
   period,
   tokens,
-  useAsync,
+  useLiveList,
   won,
 } from "@farmclub/ui";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback } from "react";
-import { Pressable, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 
 import { STATUS_LABEL } from "../../../lib/orderText";
-import { LoadError } from "../../../lib/views";
+import { useSession } from "../../../lib/session";
+import {
+  orderGroups,
+  orderGroup,
+  selectedOrderGroup,
+  compareOrders,
+} from "../../../lib/orderGroups";
 
 function headline(o: Order) {
   if (o.actions.includes("respondDeliveryWindow"))
@@ -41,25 +46,26 @@ function subline(o: Order) {
 
 export default function OrderList() {
   const router = useRouter();
-  const { data, error, loading, reload } = useAsync(
-    () =>
-      allPages((cursor) => orders.list({ limit: 50, cursor })).then(
-        (items) => ({ items }),
+  const { user } = useSession();
+  const { filter } = useLocalSearchParams<{ filter?: string }>();
+  const selected = selectedOrderGroup(filter);
+  const [active, setActive] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setActive(true);
+      return () => setActive(false);
+    }, []),
+  );
+  const load = useCallback(
+    (cancelled: () => boolean) =>
+      allPages((cursor) => orders.list({ limit: 50, cursor }), cancelled).then(
+        (items) =>
+          items.filter((o) => orderGroup(o) !== null).sort(compareOrders),
       ),
     [],
   );
-  useFocusEffect(
-    useCallback(() => {
-      void reload();
-    }, [reload]),
-  );
-  const items = data?.items ?? [];
-  const todo = items.filter(
-    (o) =>
-      o.actions.includes("confirm") ||
-      o.actions.includes("respondDeliveryWindow"),
-  );
-  const rest = items.filter((o) => !todo.includes(o));
+  const list = useLiveList(load, user?.userId ?? "", active && !!user, 8000);
+  const items = list.data?.filter((o) => orderGroup(o) === selected);
 
   const row = (o: Order, i: number) => (
     <Pressable
@@ -97,40 +103,89 @@ export default function OrderList() {
 
   return (
     <Screen>
+      <LargeTitle
+        title="내 주문"
+        subtitle="예약부터 받는 날까지, 한눈에 확인해요"
+      />
+      <View style={{ paddingVertical: 20 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+        >
+          {orderGroups.map((group) => (
+            <Pressable
+              key={group.value}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: selected === group.value }}
+              aria-selected={selected === group.value}
+              onPress={() => router.setParams({ filter: group.value })}
+              style={{
+                minHeight: 48,
+                paddingHorizontal: 16,
+                borderRadius: 24,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor:
+                  selected === group.value
+                    ? tokens.color.text
+                    : tokens.color.surface,
+              }}
+            >
+              <T
+                variant="sub"
+                weight="semibold"
+                color={selected === group.value ? "white" : tokens.color.text}
+              >
+                {group.label}
+              </T>
+              <T
+                variant="caption"
+                color={
+                  selected === group.value ? "white" : tokens.color.textMuted
+                }
+              >
+                {list.data
+                  ? list.data.filter((o) => orderGroup(o) === group.value)
+                      .length
+                  : "—"}
+              </T>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
       <Scroll bottom={tokens.height.tabBarClearance}>
-        <LargeTitle
-          title="내 주문"
-          subtitle="예약부터 받는 날까지, 한눈에 확인해요"
-        />
-        {error && !data ? <LoadError error={error} onRetry={reload} /> : null}
-        {loading && !data ? (
+        {list.error ? (
+          <View style={{ padding: 20 }}>
+            <T color={tokens.color.error}>{list.error}</T>
+            <Button label="다시 시도" variant="text" onPress={list.retry} />
+          </View>
+        ) : null}
+        {list.loading ? (
           <Skeleton width="90%" height={88} style={{ margin: 20 }} />
         ) : null}
-        {data && items.length === 0 ? (
+        {items?.length === 0 ? (
           <EmptyState
             icon="box"
-            title="아직 예약한 상품이 없어요"
+            title={
+              list.data?.length
+                ? `${orderGroups.find((g) => g.value === selected)!.label} 주문이 없어요`
+                : "아직 예약한 상품이 없어요"
+            }
             action={
-              <Button
-                label="홈으로"
-                variant="text"
-                onPress={() => router.replace("/")}
-                style={{ alignSelf: "center" }}
-              />
+              !list.data?.length ? (
+                <Button
+                  label="홈으로"
+                  variant="text"
+                  onPress={() => router.replace("/")}
+                  style={{ alignSelf: "center" }}
+                />
+              ) : undefined
             }
           />
         ) : null}
-        {todo.length ? (
-          <Section
-            title={`미확정 주문 ${todo.length}`}
-            style={{ paddingTop: 32 }}
-          >
-            {<View>{todo.map(row)}</View>}
-          </Section>
-        ) : null}
-        {rest.length ? (
-          <Section title="모든 주문">{<View>{rest.map(row)}</View>}</Section>
-        ) : null}
+        <View style={{ paddingHorizontal: 20 }}>{items?.map(row)}</View>
       </Scroll>
     </Screen>
   );

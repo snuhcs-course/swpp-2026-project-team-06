@@ -1,8 +1,19 @@
-import { Redirect, Stack, usePathname } from "expo-router";
+import {
+  Redirect,
+  Stack,
+  usePathname,
+  useGlobalSearchParams,
+} from "expo-router";
+import { selectedOrderGroup } from "../../../lib/orderGroups";
 import { useSession } from "../../../lib/session";
 export default function Layout() {
   const { user, ready } = useSession();
-  const next = usePathname();
+  const pathname = usePathname();
+  const { filter } = useGlobalSearchParams<{ filter?: string }>();
+  const next =
+    pathname === "/orders"
+      ? `/orders?filter=${selectedOrderGroup(filter)}`
+      : pathname;
   if (!ready) return null;
   if (!user)
     return <Redirect href={{ pathname: "/login", params: { next } }} />;

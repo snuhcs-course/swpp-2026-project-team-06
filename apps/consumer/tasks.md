@@ -181,3 +181,19 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 레거시 호환 점검: /news 목록 redirect는 main 이력에 없는 브랜치 중간 경로여서 제거. liveStages/liveOptions 승인값 선택 래퍼도 단일 판매값으로 통합하며 제거. 스키마 불일치는 명시적 오류로 처리.
 
 - PR #41 최종 리뷰 보완: 판매 재개 시 옵션 중량 비교도 Math.round 정수 g를 사용. 4.001kg 정확한 잔여량 경계 회귀 검증 추가.
+
+
+## DEV-3 소비자 주문 상태 탭
+- 브랜치: jinwoo/dev-3-order-tabs. 상태: 구현·자체 검토 완료, PR CI 확인 예정.
+- 목표: 생산자 상품 화면처럼 상단 상태 탭과 전체 건수를 제공한다(AC-10-6/7).
+- 범위: apps/consumer/src/**, apps/consumer/spec.md·tasks.md, scripts/test-navigation.mjs, docs/spec/screens.md·capacity-1.4.md·functional/FEAT-10-order-history.md, 관련 docs/wiki/*.md.
+- 비범위: 서버·API·DB 상태/계약, 생산자 화면. 기존 API에 없는 취소 주문을 새로 반환하지 않는다.
+- 결정: 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED. PENDING_PAYMENT 제외.
+- 결정: 순서 미확정/확정/취소·환불, 기본 미확정. filter=pending|confirmed|canceled. 미확정의 응답 필요 우선/최신순; 전체 페이지 집계. 선택은 상세 왕복·로그인 복귀에도 유지.
+- [x] 구현·명세/영문 Wiki 동기화
+- [x] 분류·정렬·전환·페이지 테스트, 타입·웹 빌드, 모바일 브라우저 확인
+- [ ] 자체 리뷰·PR CI 후 머지, 로컬 실행 유지
+
+- 검증: 소비자 typecheck·web export, Mock 9개 테스트 통과. 브라우저에서 구매 확정 시 건수 3/0/1→2/1/1, 상세 왕복/로그인 복귀 필터 유지, 빈 확정 탭, 360/390/430px 가로 넘침 없음 확인.
+- 자체 리뷰 수정: 중첩 layout의 useLocalSearchParams는 직접 링크 query를 놓쳐 로그인 복귀가 pending으로 바뀜. useGlobalSearchParams로 수정하고 confirmed 복귀 재검증. 기존 상품 테스트의 의미는 유지. API/DB 변경 없음.
+- 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건.
