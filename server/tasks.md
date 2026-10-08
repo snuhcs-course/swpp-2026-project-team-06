@@ -55,7 +55,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5)
 - 브랜치: `zahra/dev-4-i1-p24-implement-backend-prototype`
 - 기능·인수 조건: 스펙 1.1(`docs/spec/screens.md` bccb29a, PR #28)의 Must API 23개 — FEAT-01·02·03·04·05·06·07·08·09·10·14·15 / AC-01-1·3~7, AC-03-1~3, AC-04-1·3·4, AC-05-1~3, AC-06-1·4·5, AC-07-1·2, AC-08-1~5, AC-09-1~3, AC-15-1
-- 상태: 리뷰 중
+- 상태: 완료
 
 ### 목표
 진우·자라 노트(데모 코드 이어서 작업하기)대로 스펙 1.1(계정 분리, 새 필드, Must API부터)을 서버에 구현한다. 데모 프로토타입(Hyun Park 작성)의 Mock을 응답 모양·로직의 참고로 쓴다. 스펙 1.2~1.5는 다음 PR에서 한다.
@@ -103,7 +103,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [x] API 문서(`/docs`) 공유
 - [x] JWT_SECRET 비면 local 외 환경에서 시작 실패
 - [x] 테스트 통과(CI server job)
-- [ ] 리뷰 1명 승인 후 main 머지
+- [x] 리뷰 후 main 머지
 
 ### 기록
 - 10/08 spec 작성, 브랜치 생성
@@ -117,7 +117,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5, 이 PR은 닫지 않음)
 - 브랜치: `zahra/dev-4-spec-1-2-messaging`
 - 기능·인수 조건: FEAT-12(AC-12-1~8), FEAT-13(AC-13-1~4·6~8), FEAT-15(AC-15-2~6), M-01~09·14·16·19·20 / [contracts-1.2](../docs/spec/contracts-1.2.md) 1·4장
-- 상태: 진행 중
+- 상태: 완료
 
 ### 목표
 스펙 순서대로 1.2부터 서버에 반영한다. 이 PR은 소식방(방송 + 본인 비공개 답장), 소비자·생산자 1:1 채팅, AI 응답·전달·직접 응대(HUMAN/AUTO), 소식 올리기·좋아요를 만든다. 프론트(`packages/api`)가 이미 부르는 경로와 응답 모양을 따른다.
@@ -155,7 +155,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [x] 소비자 A의 답장·질문이 B의 목록·요약·cursor·API에 나오지 않음(AC-12-1·6)
 - [x] HUMAN/OFF에서 AI 답 없음, 왕복 전환 뒤 늦은 답 저장 안 함(AC-13-6·7)
 - [x] 테스트·ruff·alembic check, CI 통과
-- [ ] 리뷰 1명 승인 후 main 머지
+- [x] 리뷰 후 main 머지
 
 ### 기록
 - 10/08 브랜치·spec 작성
@@ -167,7 +167,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5, 이 PR은 닫지 않음)
 - 브랜치: `zahra/dev-4-spec-1-2-settings-inquiries`
 - 기능·인수 조건: FEAT-32(AC-32-1~4), FEAT-33(AC-33-1~4), FEAT-10(AC-10-4), M-20·M-21, R-15 / [contracts-1.2](../docs/spec/contracts-1.2.md) 5·6장
-- 상태: 리뷰 대기
+- 상태: 완료
 
 ### 목표
 1.2 (1/2)에 이어 농가 AI 응답 설정(저장·미리보기), 결제 주문의 문제 문의, 비공개 사진 첨부를 서버에 만든다. 1:1 채팅의 첨부·문의 예외(팔로우 해제 후 본인 결제 주문 문의)를 연다.
@@ -199,7 +199,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 ### 완료 조건
 - [x] AC-32-1~4, AC-33-1~4 테스트
 - [x] 테스트·ruff·alembic check, CI 통과
-- [ ] 리뷰 1명 승인 후 main 머지
+- [x] 리뷰 후 main 머지
 
 ### 기록
 - 10/08 브랜치·spec 작성
@@ -210,7 +210,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5, 이 PR은 닫지 않음)
 - 브랜치: `zahra/dev-4-spec-1-4-capacity-orders`
 - 기능·인수 조건: AC-04-8·9, AC-05-6, AC-09-6, AC-10-6, FEAT-10·11·17 / [capacity-1.4](../docs/spec/capacity-1.4.md)
-- 상태: 진행 중
+- 상태: 완료
 
 ### 목표
 1.1의 게시 요청·운영자 상품 승인·재승인(`pendingReapproval`)을 상품별 공급 물량 신청(g)과 판매 설정으로 바꾸고, 중량 집계(예약·출하·잔여)와 주문 처리(내역·취소·구매 확정·받는 시기 응답·생산자 주문·수확 시작·출하)를 서버에 만든다. 프론트 `packages/api`(endpoints.ts·types.ts)와 Mock(`capacity.ts`·`sales.ts`·`orders.ts`)을 따른다.
@@ -238,8 +238,8 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 
 ### 완료 조건
 - [x] AC-04-8·9, AC-05-6, AC-09-6, AC-10-6 테스트
-- [ ] 테스트·ruff·alembic check, CI 통과
-- [ ] 리뷰 1명 승인 후 main 머지
+- [x] 테스트·ruff·alembic check, CI 통과
+- [x] 리뷰 후 main 머지
 
 ### 기록
 - 10/08 브랜치·spec 작성. capacity-1.4, packages/api 계약·Mock, 현재 catalog·orders 서비스 확인 완료(구현 전)
@@ -248,3 +248,42 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/08 AI 재검토에서 catalog의 orders 모델 직접 조회를 발견해 orders service 경계 뒤로 이동
 - 10/08 `ruff check .`, pytest 120개, alembic 0004 upgrade → 0003 downgrade → head upgrade, `alembic check` 통과
 - 10/08 PR #51에 AI 1차 리뷰를 남기고 모든 must/should를 해결. GitHub Actions server/apps 통과, draft 해제·사람 리뷰 대기
+
+## DEV-4 스펙 1.5 — 농가·상품 상세와 공개 소식방
+
+- 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5, 이 PR에서 닫음)
+- 브랜치: `zahra/dev-4-spec-1-5-storefront`
+- 기능·인수 조건: AC-02-4, AC-03-4, AC-07-5, AC-12-10, AC-15-6 / [storefront-1.5](../docs/spec/storefront-1.5.md)
+- 상태: 진행 중
+
+### 목표
+농가·상품의 긴 상세 콘텐츠를 생성·검증·저장하고 공개 응답에 제공한다. 승인 농가의 공개 소식방은 비로그인·미팔로우도 읽되, 팔로워·소유 생산자의 기존 비공개 범위와 답장 권한은 유지한다.
+
+### 범위 (수정 허용 경로)
+- `server/**`
+
+### 비범위 (건드리지 않음)
+- `apps/**`, `packages/**`, `docs/spec/**`
+- 이미지 생성 AI, 미디어 업로드 저장소 변경, 화면 내비게이션·캐시 처리
+
+### 결정 사항
+- 10/09 기존 레코드의 fallback을 보존하도록 농가·상품 `detail_content`는 nullable JSON으로 추가하고, 빈 `blocks` 저장은 명시적 상세 제거로 구분한다
+- 10/09 상세 블록 검증은 공유 서버 스키마 한 곳에서 수행한다. 서버 저장 URI는 HTTPS 또는 서비스 상대 경로만 허용하고 Mock 전용 localhost/data URI는 허용하지 않는다
+- 10/09 상세 초안은 `app/ai` 어댑터만 호출한다. AI 키가 없으면 입력·등록 정보만 조합한 `mode=mock` 초안을 반환하고, 생성 자체는 DB에 저장하지 않는다
+- 10/09 공개 소식방은 optional user로 권한 필터를 먼저 적용한 뒤 요약·cursor를 계산한다. 공개 읽기는 팔로우를 만들지 않는다
+
+### 작업
+- [ ] 모델·마이그레이션 0005: Farm/Product detailContent nullable JSON
+- [ ] DetailContent 검증, 농가·상품 응답·저장
+- [ ] 농가·상품 detail-draft API와 AI 어댑터
+- [ ] 비로그인·미팔로우 공개 소식방 읽기와 canReply
+- [ ] 시드 상세 콘텐츠와 AC 기반 테스트
+
+### 완료 조건
+- [ ] AC-02-4, AC-03-4, AC-07-5, AC-12-10, AC-15-6 서버 테스트
+- [ ] 기존 intro/description fallback과 빈 blocks 저장 구분
+- [ ] 테스트·ruff·alembic upgrade/downgrade/check, CI 통과
+- [ ] AI 1차 리뷰 후 사람 리뷰·main 머지
+
+### 기록
+- 10/09 PR #51 머지 후 main 갱신. storefront-1.5, 관련 FEAT·규칙, packages/api 타입·endpoints·Mock, 현재 farms/catalog/messaging/ai 코드 확인
