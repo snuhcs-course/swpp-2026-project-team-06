@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync } from "node:fs";
+import { createWriteStream, mkdirSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const serverDir = path.join(root, "server");
 const artifacts = path.join(root, ".artifacts", "integration");
 const logs = path.join(artifacts, "logs");
+rmSync(artifacts, { recursive: true, force: true });
 mkdirSync(logs, { recursive: true });
 
 const apiUrl = process.env.FARMCLUB_API_URL ?? "http://localhost:8000";
