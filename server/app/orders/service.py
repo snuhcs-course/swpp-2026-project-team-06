@@ -262,6 +262,7 @@ def dashboard(db: Session, farm) -> Dashboard:
     """생산자 현황(FEAT-14). 배송 정보는 넣지 않고 이름 앞 글자만(R-15)."""
     from app.accounts import service as accounts
     from app.catalog import service as catalog
+    from app.messaging import service as messaging
 
     products = catalog.farm_products(db, farm.id)
     ids = [p.product.id for p in products]
@@ -311,8 +312,7 @@ def dashboard(db: Session, farm) -> Dashboard:
     buyers = accounts.get_users(db, [o.consumer_id for o in recent])
     return Dashboard(
         todo=DashboardTodo(
-            # 채팅(전달된 질문)은 후속 범위다. 지금은 0
-            open_questions=0,
+            open_questions=messaging.open_question_count(db, farm.id),
             to_ship=sum(1 for o in farm_orders if o.status == "PREPARING"),
             pending_products=sum(1 for p in products if p.product.status == "PENDING_APPROVAL"),
         ),
@@ -331,3 +331,58 @@ def dashboard(db: Session, farm) -> Dashboard:
             for o in recent
         ],
     )
+
+
+def get_any_order(db: Session, order_id: str) -> Order | None:
+    return db.get(Order, order_id)
+
+
+def get_paid_order_of(db: Session, consumer_id: str, order_id: str) -> Order | None:
+    """결제 이력이 있는 본인 주문(contracts-1.2 4·6장)."""
+    order = db.get(Order, order_id)
+    if order is None or order.consumer_id != consumer_id or order.paid_at is None:
+        return None
+    return order
+
+
+def order_belongs_to_farm(db: Session, order: Order, farm_id: str) -> bool:
+    from app.catalog import service as catalog
+
+    item = catalog.load_product(db, order.product_id)
+    return item is not None and item.product.farm_id == farm_id
+
+
+def order_context(db: Session, order: Order) -> str:
+    """전달 질문의 관련 예약 한 줄(예: '하우스 감귤 5kg 예약')."""
+    from app.catalog import service as catalog
+
+    item = catalog.load_product(db, order.product_id)
+    option = next((o for o in item.options if o.id == order.option_id), None)
+    return f"{_short_name(item.product.name)} {option.label if option else ''} 예약".replace(
+        "  ", " "
+    )
+
+
+def linked_order_summaries(
+    db: Session, consumer_id: str, farm_id: str, order_ids: list[str]
+) -> list[dict]:
+    """대화에 연결된 본인 결제 주문 요약(contracts-1.2 4장 orders)."""
+    from app.catalog import service as catalog
+
+    result = []
+    for oid in order_ids:
+        order = get_paid_order_of(db, consumer_id, oid)
+        if order is None or not order_belongs_to_farm(db, order, farm_id):
+            continue
+        item = catalog.load_product(db, order.product_id)
+        option = next((o for o in item.options if o.id == order.option_id), None)
+        result.append(
+            {
+                "order_id": order.id,
+                "product_name": item.product.name,
+                "option_label": option.label if option else "",
+                "quantity": order.quantity,
+                "status": order.status,
+            }
+        )
+    return result

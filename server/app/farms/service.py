@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import now
 from app.core.config import get_settings
 from app.core.errors import not_found
-from app.farms.models import Farm, Follow
+from app.farms.models import Farm, FarmAiSettings, Follow
 from app.farms.schemas import (
     FarmCard,
     FarmDetail,
@@ -140,3 +140,36 @@ def summary(farm: Farm) -> FarmSummary:
 
 def get_farm(db: Session, farm_id: str) -> Farm | None:
     return db.get(Farm, farm_id)
+
+
+def followed_farm_ids(db: Session, consumer_id: str) -> list[str]:
+    return list(db.scalars(select(Follow.farm_id).where(Follow.consumer_id == consumer_id)))
+
+
+def follower_ids(db: Session, farm_id: str) -> set[str]:
+    return set(db.scalars(select(Follow.consumer_id).where(Follow.farm_id == farm_id)))
+
+
+def get_farms(db: Session, farm_ids: list[str]) -> dict[str, Farm]:
+    if not farm_ids:
+        return {}
+    return {f.id: f for f in db.scalars(select(Farm).where(Farm.id.in_(farm_ids)))}
+
+
+def ai_settings(db: Session, farm_id: str, fresh: bool = False) -> FarmAiSettings:
+    """농가 AI 응답 설정. 행이 없으면 저장하지 않은 기본값(켜짐, version 1).
+
+    fresh=True면 세션 캐시를 건너뛰고 DB의 최신 값을 읽는다(AI 답 저장 직전 재확인).
+    """
+    row = db.get(FarmAiSettings, farm_id, populate_existing=fresh)
+    if row is None:
+        row = FarmAiSettings(
+            farm_id=farm_id,
+            enabled=True,
+            version=1,
+            small_order_policy="",
+            reservation_shipping_policy="",
+            faqs=[],
+            handoff_topics=[],
+        )
+    return row
