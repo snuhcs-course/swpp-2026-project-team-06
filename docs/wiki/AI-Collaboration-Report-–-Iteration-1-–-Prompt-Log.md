@@ -14,28 +14,55 @@ Back to [[AI Collaboration Report – Iteration 1|AI-Collaboration-Report-–-It
 
 ## Hyun Park
 
-### Prompts (verbatim)
-- <date · tool · target> — "<verbatim prompt>"
+Period: Oct 6–8, 2026. I used Claude Code (Claude Opus 5.5) for repo work and the Claude Design canvas for the screens. I wrote my prompts in Korean, so the ones below are my own English translations. I kept them close to what I actually typed.
+
+### Prompts (English translation of what I sent)
+
+**Process and AI rules (PR #15, DEV-10)**
+- 2026-10-06 · Claude Code · DEV-10 — "We are starting development work on farmclub. All work follows this order: Linear issue (the issue itself is the proposal) → branch → AI creates tasks.md (spec file) and pushes → draft PR to main → action → PR → review → merge (main into branch, then branch into main, then GitHub Actions deploys). Everything is spec-anchored: the spec file lives in the work folder and the diff goes to the AI. Actively borrow current AI development practice. The team of four should share one set of skills."
+
+**Specs and wiki (PRs #16, #18)**
+- 2026-10-06 · Claude Code · `docs/wiki/` — "Read docs/spec/README.md, then prd.md, ia.md, functional/README.md and the FEAT files, and tech-design/README.md. Update these existing pages in docs/wiki/ in English … Do not include fee rates, settlement cycle, suspension criteria or any content from policy.md. Do not include Notion links. End every page with one line: 'Source of truth: `docs/spec/...` (Korean).' Edit files only; do not commit." (sent in English)
+- 2026-10-06 · Claude Code · `docs/specs/i1` vs `docs/spec` — "Compare the old P14–P17 docs with the new docs/spec. Do not edit files. Output three Korean tables: (1) decisions, rules or features only in the old docs, (2) things the two decide differently (old value / new value), (3) remaining to-dos in the old tasks.md. Leave out wording differences and places where the new source is simply more detailed."
+- 2026-10-06 · Claude Code · PR #18 (ADR 0007/0008) — "Read adr/0007-backend-fastapi.md and 0008-operator-admin-api.md first. Apply the decision to switch the backend from Django to FastAPI, and operator handling from Django Admin to 'admin API + Swagger UI (screens in I2)', across all docs. Step 1: `grep -rn -i "django\|simplejwt\|django-storages\|drf" docs/` to find every mention. … Do not commit."
+
+**Implementation skeleton and CI (PRs #20, #22, #23)**
+- 2026-10-07 · Claude Code · PR #20 (DEV-12) — "Do DEV-12: create the implementation skeleton (apps, packages, server) and a spec.md/tasks.md per folder. Do not implement features. Read in this order: AGENTS.md, docs/spec/README.md, stack.md chapters 3–4, tech-design/README.md, ia.md chapters 2 and 4, the spec skill and its two templates. Before starting, check `git branch --show-current`; if it differs, stop and ask. One commit per step … Step 1: spec.md and tasks.md first (first commit, push right away) …"
+- 2026-10-07 · Claude Code · PR #23 (DEV-9) — "Continue. Pin setup-uv to the full version tag as upstream recommends instead of @v7 (check the latest v10 tag that actually exists). Other actions with a major tag keep the major tag. Update the tasks.md decisions too. Adding timeout-minutes is good: 15 minutes per job. Add .github/dependabot.yml for the github-actions ecosystem only, weekly (no npm or pip for now). If you need to wait for CI results, stop and tell me."
+
+**Final screen spec (PR #25, SWPP-26)**
+- 2026-10-07 · Claude Code · PR #25 — "Work on SWPP-26 (P22 spec finalization): merge Minsun's P21 screen spec with the confirmed spec in docs/spec … This message is 1/2. Until you receive 2/2, only read; do not change files. … Team decisions (I1; this table has the highest priority): follow P21 for 1–7 … follow docs/spec for 8–14 … Now: read everything and report a P21 ↔ ia.md SCR mapping draft, the files that must change with one line each, and any decisions that conflict or that I need to make."
+- 2026-10-07 · Claude Code · PR #25 — "Change the Must rule. Keep follow/unfollow APIs as Must; move like and start-chat APIs down to Should. Add one line to screens.md: 'Buttons that use a Should API stay hidden in the frontend until the API is ready.' Fix the Must API count above the table and record it in tasks.md decisions. Commit, push, and when CI finishes, check the result and report."
+
+**Screen design on the canvas (feeds PR #28)**
+- 2026-10-07 · Claude Design canvas — "Create a new canvas 'farmclub design'. Skip the lo-fi stage and go straight to finished screen design. … farmclub is not a store that sells tangerines; it is an app where you follow a farm you support until harvest. … Stage 1: draw SCR-03 and SCR-04 in three visual directions (A field journal, B fan app, C calm precision). Stop after stage 1 and tell me the differences and which direction you recommend, with reasons."
+- 2026-10-07 · Claude Design canvas — "The type sizes are right, but the producer screens still look like a different app. Match the way screens are built to the consumer app: 1. Accent-color buttons only at the bottom of the screen, like the consumer app. … Scope: producer screens, producer state frames and producer sheets only; leave consumer screens as they are. When done, check on a comparison board whether status, product list, shipping and inbox look like the same app as consumer home, checkout and chat, and report."
 
 ### Did well
-- <case · evidence (file:line, commit, PR)>
+- PR #47 (Oct 8): I split the canvas sync into four screen groups and ran one sub-agent per group. The whole canvas caught up with specs 1.2–1.5 in about an hour and a half.
+- PR #25 (Oct 7): I asked for a read-only first pass. It came back with a mapping of the 10 P21 screens to our SCR list and the decisions that clashed, so I could settle those before anything was edited.
+- PR #23 (Oct 7): The CI workflow came out the way I asked: setup-uv pinned to a full tag, major tags for the other actions, 15-minute timeouts, Dependabot only for actions. It was green on the PR before I started reviewing.
 
-### Hallucinations
-- After the producer login board was renamed, flow F-1's link broke and had to be exported again. **Draft from PR #28 — confirm**
+### Hallucinations and AI errors
+- PR #28 (Oct 7): After I renamed the producer login board (P-SCR-05 to P-SCR-19), the export still pointed flow F-1 at the old name. The broken-link check caught it and I had to export again.
+- PR #28 (Oct 7): The first export commit included `docs/design/feedback.md`, which is the evaluation source and should never be in the repo. I had to get it taken out of the history.
 
 ### Prompt revisions (before → after)
-- <before> → <after> — <why it worked>
+- PRs #23, #25: A long DEV-9 instruction got cut off when I pasted it, and that step stalled until I sent the rest. After that I split long instructions into parts ("this is 1/2, only read and report until 2/2"). I got a report first and could answer questions before any file changed.
+- PR #28: I first said to edit the HTML in docs/design directly. I changed it to "the canvas is the source, re-export it and just list what doesn't match". That kept the design in one place, and the next export didn't wipe out hand edits.
 
 ### Manual fixes
-- Told the AI to remove the evaluation source file that was included in the first commit from the history; decided account separation and the 5 producer seed accounts; approved the badge-number exception (15px bold). **Draft from PR #28 — confirm**
-- Decided that frames follow the design rules where the implementation broke them; chose the branch and issue key. **Draft from PR #47 — confirm**
+- PR #25: I wrote the 14-row decision table (which items follow P21 and which follow docs/spec) and the Must/Should API rule.
+- PR #47: Where the implemented app broke the design rules, I decided the canvas follows the rules, not the app.
 
 ### Where AI was NOT used
-- <TBD>
+- Creating Linear issues, picking issue keys and branch names, approving and merging PRs.
+- Team decisions: the tech stack (FastAPI, ADR 0007/0008), the P21 vs. spec table, account separation, Must/Should scope.
+- Picking the visual direction. The canvas showed three and I chose B.
 
 ### Tools, time, tokens recorded in PRs
-- PR #28: Claude Code (Claude Opus 5.5); about 3h agent time; tokens not measured. **Draft from PR #28 — confirm**
-- PR #47: Claude Code (Claude Opus 5.5), 4 sub-agents for screen groups; about 1.5h; about 1.1M tokens. **Draft from PR #47 — confirm**
+- PR #28: Claude Code (Claude Opus 5.5), about 3h, tokens not measured.
+- PR #47: Claude Code (Claude Opus 5.5) with 4 sub-agents, about 1.5h, about 1.1M tokens.
 
 ---
 
