@@ -13,6 +13,8 @@
 ### 범위 (수정 허용 경로)
 - `docs/submission/**`
 - `docs/wiki/Requirements-and-Specifications.md`
+- `docs/wiki/Proposal.md` (사용자 후속 요청: 개조식 정리·스펙 부록 통합·경쟁 설명 수정)
+- `docs/spec/prd.md` (Proposal과 중복된 경쟁 대안의 근거 없는 단정만 수정)
 - `docs/wiki/Design-Documentation.md`
 - `docs/wiki/Testing-Documentation.md` (오래된 상태 문구만)
 - `docs/wiki/images/i1-*`
@@ -28,6 +30,7 @@
 - 10/09 사용자 후속 요청으로 농사펀드(Nongsafund)를 경쟁 비교에 추가한다. 공식 사이트와 대표의 2025-12-28 글을 근거로 선구매·농부 관계·과정 공유의 공통점을 인정하고, Farmclub의 감귤 품질 정보·예약 규칙·생산자 업무 흐름을 비교한다.
 - 10/09 PDF 파일명: team6-iter1-reqspec.pdf, team6-iter1-design.pdf. 모든 페이지를 렌더링·검수한다.
 - 10/09 후속 지시: "pdf로는 일단 안 뽑아도됨". PDF 작업을 중단하고 작성한 빌더는 PR에서 제외한다. 기존 출력 초안은 저장소 밖 임시 폴더로 옮기며 납품본으로 제공하지 않는다. Wiki 그림은 유지한다.
+- 10/09 사용자가 Proposal의 긴 스펙 추가 문단과 경쟁 설명 수정을 요청했다. spec 1.3~1.5 요약을 주요 기능·MVP 항목에 통합하고 상세 계약은 Requirements/Design에 연결한다. 한국어 PRD의 동일한 경쟁 단정도 출처 기반 설명으로 맞춘다. 빈 팀·기기·데모 항목은 저장소에서 확인되는 범위로만 채운다.
 
 ### 작업
 - [x] 문서와 구현 근거 대조
@@ -46,3 +49,4 @@
 - 10/09 Abstract 200단어, 19개 Connextra 스토리와 Given/When/Then, 기존 AC ID, 이미지·소스 링크, 본문 API 경로를 자동 대조했다. 오류 응답 reason을 실제 STALE_VERSION으로 수정하고 첨부 업로드·조회 경로를 구분했다.
 - 10/09 다이어그램 5개, 화면 패널 3개를 시각 검수했다. 결제 순서도의 긴 라벨 잘림을 수정했다. 수정 경로는 허용 범위 안이며 AI 보고서·일정표·제품 코드 변경은 없다. CI는 docs-only 변경의 앱·서버 실행 단계를 건너뛰므로 제품 테스트 재실행으로 해석하지 않는다.
 - 10/09 scan-before-commit / scan-before-merge 및 저장소 pr-review 자체 검토: 남은 must 없음. 레거시·호환 코드 후보 0건; 그림의 fallback 문구는 기존 AI 동작 설명이며 호환 구현이 아니다.
+- 10/09 Proposal 후속 정리: 개요·동기는 짧은 문단, 기능·권한·목표·범위는 목록과 표로 정리하고 버전별 부록을 제거했다. 한국어 PRD는 경쟁 대안 문단만 수정했다. 문서 내부 링크·빈 제목·스펙 부록 제거·기존 요구사항 검증과 diff 검사를 통과했으며 제품 테스트는 재실행하지 않았다.
