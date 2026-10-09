@@ -85,92 +85,9 @@ ADR 0002 (Django) was replaced by ADR 0007/0008.
 
 Both apps are built from Expo Router screens. A screen loads data with the `useAsync` or `useLiveList` hook, calls an endpoint group from `packages/api`, and draws itself with components from `packages/ui`. The diagram shows the main classes and modules, not every file.
 
-```mermaid
-classDiagram
-  direction LR
-  class ConsumerApp {
-    <<app>>
-    +DiscoverTab
-    +MyOrdersTab
-    +ChatTab
-    +MeTab
-    +ProductScreen
-    +CheckoutScreen
-    +LoginScreen
-  }
-  class ProducerApp {
-    <<app>>
-    +DashboardTab
-    +ProductsTab
-    +ChatTab
-    +SettingsTab
-    +LoginScreen
-    +ApplyScreen
-    +ShipScreen
-  }
-  class ApiClient {
-    <<packages_api>>
-    +configureApi(namespace)
-    +request(method, path, opts)
-    +getToken()
-    +setToken(token)
-    +newIdempotencyKey()
-    +uploadAttachment(file)
-  }
-  class ApiError {
-    +status
-    +code
-    +message
-    +details
-  }
-  class Endpoints {
-    <<packages_api>>
-    +auth
-    +farms
-    +catalog
-    +orders
-    +messaging
-  }
-  class MockTransport {
-    <<packages_api>>
-    +demoData
-  }
-  class Hooks {
-    <<packages_ui>>
-    +useAsync(fn, deps)
-    +useLiveList(load, scope, active, interval)
-  }
-  class UIComponents {
-    <<packages_ui>>
-    +Screen
-    +HeaderBar
-    +TabBar
-    +BottomBar
-    +Sheet
-    +Button
-    +Input
-    +ChatThread
-    +ChatBubble
-    +NewsRoom
-    +DetailStory
-  }
-  class Tokens {
-    <<packages_ui>>
-    +colors
-    +typeScale
-    +spacing
-  }
-  ConsumerApp --> Endpoints : calls
-  ProducerApp --> Endpoints : calls
-  ConsumerApp --> Hooks
-  ProducerApp --> Hooks
-  ConsumerApp --> UIComponents
-  ProducerApp --> UIComponents
-  UIComponents --> Tokens
-  Endpoints --> ApiClient : request
-  ApiClient --> ApiError : throws
-  ApiClient ..> MockTransport : mock mode
-```
+![Frontend class diagram](images/i1-frontend-class.png)
+
+Figure 2. Frontend classes and modules. Arrows point from the caller to what it uses; the dashed arrow is used only in demo mode.
 
 | Module | What it does |
 | --- | --- |
@@ -185,95 +102,9 @@ classDiagram
 
 The server is split into domain modules. Each module has a `router` (HTTP and permission checks), `schemas` (Pydantic request/response models), `service` (business logic as functions) and `models` (SQLAlchemy tables). Modules call each other only through service functions. `core` holds shared infrastructure.
 
-```mermaid
-classDiagram
-  direction TB
-  class core {
-    <<module>>
-    +config
-    +db_session
-    +clock
-    +current_user()
-    +require_role()
-    +conflict(reason)
-    +run_idempotent()
-    +paginate()
-    +mask()
-  }
-  class accounts {
-    <<module>>
-    +test_accounts()
-    +test_login()
-    +submit_producer_application()
-    +add_address()
-    +save_order_address()
-  }
-  class farms {
-    <<module>>
-    +home()
-    +farm_detail()
-    +set_follow()
-    +patch_my_farm()
-    +save_ai_settings()
-    +preview_ai()
-  }
-  class catalog {
-    <<module>>
-    +create_draft()
-    +create_product()
-    +patch_product()
-    +put_stages()
-    +create_capacity_request()
-    +decide_capacity_request()
-    +update_sales_settings()
-  }
-  class orders {
-    <<module>>
-    +create_order()
-    +pay()
-    +cancel_order()
-    +confirm_order()
-    +respond_delivery_window()
-    +dashboard()
-    +harvest_start()
-    +ship_order()
-  }
-  class messaging {
-    <<module>>
-    +post_news()
-    +set_reaction()
-    +room_page()
-    +send_room()
-    +consumer_send()
-    +producer_send()
-    +set_ai_mode()
-    +create_inquiry()
-    +upload_attachment()
-  }
-  class ai {
-    <<module>>
-    +strip_personal_info()
-    +draft_product()
-    +detail_draft()
-    +answer_question()
-  }
-  class analytics {
-    <<module>>
-    +events_scaffold
-  }
-  orders --> catalog : stock and locks
-  orders --> accounts : saved address
-  messaging --> farms : follow and AI settings
-  messaging --> orders : paid order check
-  messaging --> ai : answer_question
-  catalog --> ai : draft_product
-  farms --> ai : detail_draft
-  accounts --> core
-  farms --> core
-  catalog --> core
-  orders --> core
-  messaging --> core
-```
+![Backend class diagram](images/i1-backend-class.png)
+
+Figure 3. Backend domain modules and their main service functions. Arrows point from the caller to the module it calls.
 
 | Module | Main tables it owns | Talks to |
 | --- | --- | --- |
@@ -293,7 +124,7 @@ When one action touches several modules (for example, payment updates `Order`, `
 
 ![Account and commerce ER diagram](images/i1-commerce-erd.png)
 
-Figure 2. PK = primary key, FK = foreign key, UK = unique constraint. Timestamps and display-only fields are left out.
+Figure 4. PK = primary key, FK = foreign key, UK = unique constraint. Timestamps and display-only fields are left out.
 
 | Table | Key data | Keys and relationships |
 | --- | --- | --- |
@@ -315,7 +146,7 @@ Figure 2. PK = primary key, FK = foreign key, UK = unique constraint. Timestamps
 
 ![Communication ER diagram](images/i1-messaging-erd.png)
 
-Figure 3. News (broadcasts and room replies) and 1:1 chat (threads) are stored separately. Some links, such as an attachment's order or thread, are checked in the service instead of by a database FK.
+Figure 5. News (broadcasts and room replies) and 1:1 chat (threads) are stored separately. Some links, such as an attachment's order or thread, are checked in the service instead of by a database FK.
 
 | Table | Key data and constraints |
 | --- | --- |
@@ -442,7 +273,7 @@ Room lists, read positions, question lists and inquiry status endpoints are also
 
 ![Reservation and payment sequence](images/i1-payment-flow.png)
 
-Figure 4. Checkout creates an unpaid order without holding stock. Stock is checked and taken only at payment.
+Figure 6. Checkout creates an unpaid order without holding stock. Stock is checked and taken only at payment.
 
 1. The consumer picks an option and quantity and accepts four consents.
 2. `POST /api/orders` checks the current period, price, limits and address, and copies them into a `PENDING_PAYMENT` order.
