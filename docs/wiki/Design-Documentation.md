@@ -89,59 +89,76 @@ Both apps are built from Expo Router screens. A screen loads data with the `useA
 classDiagram
   direction LR
   class ConsumerApp {
-    <<Expo Router>>
-    (tabs) Discover / My Orders / Chat / Me
-    products/[id]
-    checkout/[productId]
-    login
+    <<app>>
+    +DiscoverTab
+    +MyOrdersTab
+    +ChatTab
+    +MeTab
+    +ProductScreen
+    +CheckoutScreen
+    +LoginScreen
   }
   class ProducerApp {
-    <<Expo Router>>
-    (tabs) Dashboard / Products / Chat / Settings
-    login / apply / pending / suspended
-    ship / broadcast / news
+    <<app>>
+    +DashboardTab
+    +ProductsTab
+    +ChatTab
+    +SettingsTab
+    +LoginScreen
+    +ApplyScreen
+    +ShipScreen
   }
   class ApiClient {
-    <<packages/api client.ts>>
-    configureApi(namespace)
-    request~T~(method, path, opts)
-    getToken() / setToken()
-    newIdempotencyKey()
-    uploadAttachment()
+    <<packages_api>>
+    +configureApi(namespace)
+    +request(method, path, opts)
+    +getToken()
+    +setToken(token)
+    +newIdempotencyKey()
+    +uploadAttachment(file)
   }
   class ApiError {
-    status
-    code
-    message
-    details.reason
+    +status
+    +code
+    +message
+    +details
   }
   class Endpoints {
-    <<packages/api endpoints.ts>>
-    auth
-    farms
-    catalog
-    orders
-    messaging
+    <<packages_api>>
+    +auth
+    +farms
+    +catalog
+    +orders
+    +messaging
   }
   class MockTransport {
-    <<packages/api mock>>
-    demo data for EXPO_PUBLIC_API_MOCK=1
+    <<packages_api>>
+    +demoData
   }
   class Hooks {
-    <<packages/ui>>
-    useAsync(fn, deps)
-    useLiveList(load, scope, active, interval=2000)
+    <<packages_ui>>
+    +useAsync(fn, deps)
+    +useLiveList(load, scope, active, interval)
   }
   class UIComponents {
-    <<packages/ui>>
-    Screen, HeaderBar, TabBar, BottomBar, Sheet
-    Button, Input, Chip, Icon
-    ChatThread, ChatBubble, AiBadge
-    NewsRoom, ConversationRow, DetailStory
+    <<packages_ui>>
+    +Screen
+    +HeaderBar
+    +TabBar
+    +BottomBar
+    +Sheet
+    +Button
+    +Input
+    +ChatThread
+    +ChatBubble
+    +NewsRoom
+    +DetailStory
   }
   class Tokens {
-    <<packages/ui tokens.ts>>
-    colors, type scale, spacing
+    <<packages_ui>>
+    +colors
+    +typeScale
+    +spacing
   }
   ConsumerApp --> Endpoints : calls
   ProducerApp --> Endpoints : calls
@@ -150,9 +167,9 @@ classDiagram
   ConsumerApp --> UIComponents
   ProducerApp --> UIComponents
   UIComponents --> Tokens
-  Endpoints --> ApiClient : request()
+  Endpoints --> ApiClient : request
   ApiClient --> ApiError : throws
-  ApiClient ..> MockTransport : when mock mode is on
+  ApiClient ..> MockTransport : mock mode
 ```
 
 | Module | What it does |
@@ -173,67 +190,84 @@ classDiagram
   direction TB
   class core {
     <<module>>
-    config, db session, clock
-    security: current_user(), require_role()
-    errors: ApiError, conflict()
-    idempotency: run_idempotent()
-    pagination, masking, images
+    +config
+    +db_session
+    +clock
+    +current_user()
+    +require_role()
+    +conflict(reason)
+    +run_idempotent()
+    +paginate()
+    +mask()
   }
   class accounts {
     <<module>>
-    test_accounts() / test_login()
-    submit_producer_application()
-    add_address() / save_order_address()
+    +test_accounts()
+    +test_login()
+    +submit_producer_application()
+    +add_address()
+    +save_order_address()
   }
   class farms {
     <<module>>
-    home() / farm_detail()
-    set_follow()
-    patch_my_farm()
-    save_ai_settings() / preview_ai()
+    +home()
+    +farm_detail()
+    +set_follow()
+    +patch_my_farm()
+    +save_ai_settings()
+    +preview_ai()
   }
   class catalog {
     <<module>>
-    create_draft() / create_product()
-    patch_product() / put_stages()
-    create_capacity_request()
-    decide_capacity_request()
-    update_sales_settings()
+    +create_draft()
+    +create_product()
+    +patch_product()
+    +put_stages()
+    +create_capacity_request()
+    +decide_capacity_request()
+    +update_sales_settings()
   }
   class orders {
     <<module>>
-    create_order() / pay()
-    cancel_order() / confirm_order()
-    respond_delivery_window()
-    dashboard()
-    harvest_start() / ship_order()
+    +create_order()
+    +pay()
+    +cancel_order()
+    +confirm_order()
+    +respond_delivery_window()
+    +dashboard()
+    +harvest_start()
+    +ship_order()
   }
   class messaging {
     <<module>>
-    post_news() / set_reaction()
-    room_page() / send_room()
-    consumer_send() / producer_send()
-    set_ai_mode()
-    create_inquiry() / upload_attachment()
+    +post_news()
+    +set_reaction()
+    +room_page()
+    +send_room()
+    +consumer_send()
+    +producer_send()
+    +set_ai_mode()
+    +create_inquiry()
+    +upload_attachment()
   }
   class ai {
     <<module>>
-    strip_personal_info()
-    draft_product()
-    detail_draft()
-    answer_question()
+    +strip_personal_info()
+    +draft_product()
+    +detail_draft()
+    +answer_question()
   }
   class analytics {
     <<module>>
-    event boundary (scaffold)
+    +events_scaffold
   }
-  orders --> catalog : stock, prices, locks
+  orders --> catalog : stock and locks
   orders --> accounts : saved address
-  messaging --> farms : follow, AI settings
-  messaging --> orders : paid-order check
-  messaging --> ai : answer_question()
-  catalog --> ai : draft_product()
-  farms --> ai : detail_draft(), preview
+  messaging --> farms : follow and AI settings
+  messaging --> orders : paid order check
+  messaging --> ai : answer_question
+  catalog --> ai : draft_product
+  farms --> ai : detail_draft
   accounts --> core
   farms --> core
   catalog --> core
