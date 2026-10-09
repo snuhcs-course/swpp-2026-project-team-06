@@ -598,7 +598,7 @@ Key consumer screens:
 | **SCR-15 / SCR-18 Chat** | News Rooms (farms you follow) and 1:1 chats in one tab | Switch views, open a room or chat | Room → news room; chat → SCR-16 | No chats: "Ask a farm anything" with a link to farms. Other buyers' replies never appear |
 | **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers or "Sent to the farm" | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | Not following and no paid order: sent to SCR-03. Send fails: text and photos are kept for retry. AI fails or times out: question goes to the producer |
 | **SCR-17 Me** | Followed farms, address book, "Start as a farm", log out | Tap a farm, manage addresses, log out | Farm → SCR-03; addresses → address book; log out → SCR-01 | Starting a farm explains that the producer app needs its own account |
-| **SCR-32 Order problem** | Report damage, quality, taste or other with up to 3 private photos | Pick a type, describe it, attach photos, Send | Success → SCR-16 with the order attached | Not your order or not paid: cannot be sent. Upload or send fails: input is kept and a a retry never files it twice |
+| **SCR-32 Order problem** | Report damage, quality, taste or other with up to 3 private photos | Pick a type, describe it, attach photos, Send | Success → SCR-16 with the order attached | Not your order or not paid: cannot be sent. Upload or send fails: input is kept, and a retry never files it twice |
 
 ### 7.4 Producer app screens
 
