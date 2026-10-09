@@ -7,7 +7,6 @@ Back to [[AI Collaboration Report – Iteration 1|AI-Collaboration-Report-–-It
 - **Edit only your own section.** Each person commits their own section, so the commit history shows who wrote what.
 - **Quote prompts verbatim.** Copy the exact text you sent, typos included. Do not clean it up or summarize it.
 - **Tag every entry** with the date, the tool/model, and the target file or PR, e.g. `2026-10-07 · Claude Code (Claude Opus 5.5) · PR #28`.
-- Items marked **"Draft from PR #n — confirm"** were copied from that PR's "AI 사용" section or AI review comment. Confirm, correct or delete them, then remove the marker.
 - Leave a slot empty rather than guessing.
 
 ---
