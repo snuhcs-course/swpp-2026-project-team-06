@@ -74,7 +74,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 
 ### 4.1 Iteration boundary
 
-- **I1 core:** discovery and following, separate test-account login, farm and product setup, supply approval, reservation with mock payment, order history, cancellation, shipping, news rooms, private chat and AI assistance.
+- **I1 core:** discovery and following, separate test-account login, farm and product setup, supply approval, reservation with simulated payment, order history, cancellation, shipping, news rooms, private chat and AI assistance.
 - **Also in I1:** farm AI settings and order-problem inquiries (FEAT-32/33). These started as Should items and made it into the prototype.
 - **Later iterations:** Kakao login, real payment and settlement, courier integration, external notifications, a dedicated operator UI, natural-language shipping and reporting a wrong AI answer.
 
@@ -83,9 +83,9 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 | Area | Required behavior | Rules |
 | --- | --- | --- |
 | Approval | Farms are verified; an operator approves a product's initial supply and any increase | R-22, R-25 |
-| Payment | One full card payment per order; I1 simulates success or failure. Four consents and their version are recorded | R-01-03 |
+| Payment | One full card payment per order; I1 simulates success or failure. The four consents the buyer agreed to are recorded | R-01-03 |
 | Pricing | Earlier periods are cheaper and periods do not overlap. Changed terms are reconfirmed before payment; paid orders keep their price | R-17-18 |
-| Capacity | Reserved plus shipped weight <= sales limit <= approved weight. Shown in kg, calculated in whole grams | R-06, R-26 |
+| Capacity | Reserved plus shipped weight <= sales limit <= approved weight. Shown to producers in kg | R-06, R-26 |
 | Quantity | One option and one address per order, within the per-order and per-period box limits | R-23 |
 | Pause | The product stays visible, new orders and unpaid payments are blocked, existing paid orders can still ship | R-27 |
 | Cancellation | Full refund before shipment; eligible stock is restored once. Refunds after shipping do not restore capacity | R-07-08, R-26 |
@@ -97,7 +97,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 - News rooms and private 1:1 chat are separate. Consumers never talk to each other (M-01-04).
 - A consumer sees only their own replies; the farm owner sees every reply to their farm (M-02, M-19).
 - Phone numbers and other contact details are masked; inquiry photos are visible only to the people in that conversation (M-16, M-21).
-- AI answers automatically only when the farm has AI turned on and the thread is in AUTO. A producer reply switches the thread to HUMAN, and going back to AUTO is an explicit choice (M-05, M-09, M-20).
+- AI answers automatically only when the farm has turned AI on for that chat. Once the producer replies, the chat is handled by the producer, and AI answers again only if the producer turns it back on (M-05, M-09, M-20).
 - AI answers are labeled, show what they are based on, keep measured and expected sweetness apart, and hand off anything uncertain or sensitive (M-06-08, M-15).
 - Shipping details and private inquiry photos are never sent to the model (M-18, M-21).
 - A generated draft is never published by itself. The producer reviews and saves it, and AI never sets prices or promises compensation (M-10-13).
@@ -124,20 +124,20 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 **AC-01-3: Producer approval gate**
 - **GIVEN** I am a producer who has not been approved yet
-- **WHEN** I open a producer screen or call a producer API
+- **WHEN** I try to open a producer screen such as the dashboard
 - **THEN** the app sends me to the application status screen
-- **AND** the API refuses the request
+- **AND** the server refuses any producer action until I am approved
 
 **AC-01-5: Test login switched off**
-- **GIVEN** mock login is disabled on the server
-- **WHEN** the test account list or test login API is called
-- **THEN** both requests are refused
+- **GIVEN** test-account login has been turned off
+- **WHEN** I open the login screen or pick a test account
+- **THEN** I cannot log in and see "You can't log in right now"
 
 **AC-01-6: Accounts stay in their own app**
-- **GIVEN** there is a consumer token and a producer token
-- **WHEN** someone opens the producer login list, or calls an API with the other app's token
-- **THEN** the producer list shows producer accounts only
-- **AND** the wrong-role call is rejected with WRONG_APP
+- **GIVEN** I have a consumer account and a separate producer account
+- **WHEN** I open the producer app's login, or try to use one app while logged in with the other app's account
+- **THEN** the producer app lists producer accounts only
+- **AND** the other app refuses my account
 
 ### FEAT-02: Farm profile and story
 
@@ -196,7 +196,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 **AC-04-3: Initial approval**
 - **GIVEN** a product is waiting for approval
-- **WHEN** an operator approves it through the admin API
+- **WHEN** an operator approves it using the operator tools
 - **THEN** it becomes Selling and appears on the farm page
 
 **AC-04-4: Price change keeps old orders**
@@ -293,7 +293,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **THEN** the address is filled in for me
 - **AND** the order keeps its own copy, so later edits to my address book do not change it
 
-### FEAT-09: Mock card payment
+### FEAT-09: Card payment (simulated)
 
 **As a** consumer, **I want to** pay the full amount once, **so that** I am never charged twice and stock is never taken twice.
 
@@ -309,14 +309,14 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 **AC-09-3: Retry with the same key**
 - **GIVEN** I sent a payment request
-- **WHEN** it is sent again with the same idempotency key
-- **THEN** payment and stock deduction happen only once
+- **WHEN** the same request is sent again because the response was lost
+- **THEN** I am charged once and stock is reduced once
 - **AND** I get the same result as the first time
 
 **AC-09-6: Mixed weights**
 - **GIVEN** 5kg and 10kg options share one supply limit
 - **WHEN** orders are paid, canceled or shipped
-- **THEN** totals in grams never exceed the limit
+- **THEN** the total weight sold never goes over the limit
 - **AND** canceling twice cannot release stock twice
 
 ### FEAT-10: Order history
@@ -361,7 +361,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 **AC-12-1: Private chat stays private**
 - **GIVEN** consumer A asked the farm a question in 1:1 chat
-- **WHEN** consumer B opens the same farm's chat or calls the API
+- **WHEN** consumer B opens the same farm's chat
 - **THEN** A's question does not appear anywhere
 
 **AC-12-6: Room replies stay private**
@@ -379,14 +379,14 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **GIVEN** a room has public and follower-only posts
 - **WHEN** I follow, unfollow or log out
 - **THEN** I only see what my new role allows
-- **AND** cached posts I can no longer see are cleared
+- **AND** posts I can no longer see disappear right away
 
 ### FEAT-13: Answers and handoff
 
 **As a** producer, **I want** routine questions answered for me and judgment calls passed to me, **so that** I only spend time where I am needed.
 
 **AC-13-1: Delivery question**
-- **GIVEN** farm AI is on, the thread is AUTO and the product has a delivery window
+- **GIVEN** the farm has AI turned on and the product has a delivery window
 - **WHEN** a consumer asks "When will it arrive?"
 - **THEN** the AI answer uses that delivery window
 
@@ -404,8 +404,8 @@ Each feature below has a user story in Connextra format and its main acceptance 
 **AC-13-6: Producer takes over**
 - **GIVEN** automatic answering is on
 - **WHEN** the producer replies, or the AI settings change while an answer is being generated
-- **THEN** the thread switches to HUMAN and the outdated AI answer is not saved
-- **AND** switching back to AUTO only affects later questions
+- **THEN** the producer takes over the chat and the AI's half-finished answer is thrown away
+- **AND** if the producer turns AI back on, it only answers new questions
 
 ### FEAT-14: Producer dashboard
 
@@ -493,7 +493,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 **AC-32-1: Save settings**
 - **GIVEN** I changed AI on/off, my answering guidelines, FAQs or extra handoff topics
 - **WHEN** I save and reload
-- **THEN** the values and version are kept
+- **THEN** my settings are still there
 
 **AC-32-3: Preview**
 - **GIVEN** I am editing settings I have not saved
@@ -502,7 +502,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **AND** no conversation, inquiry or setting is changed
 
 **AC-32-4: Conflicting save**
-- **GIVEN** my version is out of date, or the settings belong to another farm
+- **GIVEN** someone else saved the settings after I opened them, or they belong to another farm
 - **WHEN** I try to save
 - **THEN** the save is refused and my input is kept
 
@@ -524,7 +524,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 **AC-33-3: Handled by the producer**
 - **GIVEN** an inquiry was sent
 - **WHEN** the farm replies or marks it resolved
-- **THEN** the thread is in HUMAN mode
+- **THEN** the producer handles the chat, not AI
 - **AND** resolving it does not change payment or refund status
 
 ## 6. Non-Functional Requirements
@@ -537,7 +537,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 | N-04 | Responsiveness | An AI product draft returns within 20 seconds. If it fails or times out, the producer can keep editing by hand, and chat questions go to the producer |
 | N-05 | Privacy | Collect only the recipient, phone and address needed for delivery, and keep them out of analytics and AI input |
 | N-06 | Security | Every role and ownership check happens on the server; hiding a button in the UI is never the only protection |
-| N-07 | Reproducibility | Seed accounts and states, a fixed demo clock, and mock payments that can be set to succeed or fail |
+| N-07 | Reproducibility | Ready-made test accounts and data, a fixed demo date, and simulated payments that can be set to succeed or fail |
 | N-08 | AI quality | At least 80% field-level accuracy when extracting a product draft, and no invented values for fields that are not in the source text |
 
 We have not measured the response-time and extraction-accuracy targets yet. How long personal data is kept is still an open policy question (Q-20).
@@ -574,22 +574,26 @@ Key consumer screens:
 | --- | --- | --- | --- |
 | <img src="images/i1-ui-scr-01.png" width="180" alt="SCR-01 Discover"> | <img src="images/i1-ui-scr-04.png" width="180" alt="SCR-04 Product detail"> | <img src="images/i1-ui-scr-10.png" width="180" alt="SCR-10 Checkout"> | <img src="images/i1-ui-scr-16.png" width="180" alt="SCR-16 1:1 chat"> |
 
+| SCR-03 Farm page | SCR-12 Order complete | SCR-13 My Orders | SCR-14 Order detail |
+| --- | --- | --- | --- |
+| <img src="images/i1-ui-scr-03.png" width="180" alt="SCR-03 Farm page"> | <img src="images/i1-ui-scr-12.png" width="180" alt="SCR-12 Order complete"> | <img src="images/i1-ui-scr-13.png" width="180" alt="SCR-13 My Orders"> | <img src="images/i1-ui-scr-14.png" width="180" alt="SCR-14 Order detail"> |
+
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
 | **SCR-01 Discover** | First screen: seasonal hero, recommended products, farms to browse | Tap search, hero, product card, farm card or "See all" | Search → SCR-02; product → SCR-04; farm → SCR-03 | No products on sale: shows "No products available right now" with farms only. A failed section shows Retry; the others stay |
 | **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms |
 | **SCR-03 Farm page** | Farm profile, follow, news room entry, 1:1 chat, products, farm story | Follow / Following, Chat, open the room, tap a product | Product → SCR-04; Chat → SCR-16; room → SCR-18 | Not logged in: login sheet first. Not following: Chat asks to follow first. Missing or revoked farm: "Farm not found" → SCR-02 |
 | **SCR-04 Product detail** | Photos, delivery window, price for each reservation period, sweetness and grade, disclosures | Reserve opens the option/quantity sheet; Chat; Share | "Go to checkout" → SCR-10; farm summary → SCR-03 | Paused, sold out, between periods or ended: Reserve is disabled and the reason is shown. Quantity is limited to the per-order maximum |
-| **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Mock login off: "You can't log in right now". Closing does nothing |
-| **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents | Change option or address, check consents, Pay | Address → address screen; Pay → SCR-11 | Pay is disabled until an address exists and all four consents are checked. Price or stock changed (409): screen refreshes with the latest values and keeps the input |
-| **SCR-11 Mock payment** | Pay the full amount; demo success/failure switch | Pay once (button locks while processing) | Success → SCR-12 | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: resent with the same idempotency key |
+| **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
+| **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents | Change option or address, check consents, Pay | Address → address screen; Pay → SCR-11 | Pay is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input |
+| **SCR-11 Payment (simulated)** | Pay the full amount; demo success/failure switch | Pay once (button locks while processing) | Success → SCR-12 | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
 | **SCR-12 Order complete** | Confirms the reservation and suggests following the farm | Follow, View news, Chat, My Orders, Home | SCR-18, SCR-16, SCR-13, SCR-01 | If loading the order fails, the screen stays and offers Retry |
 | **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
-| **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions | Cancel (confirm sheet), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. State already changed (409): refreshes to the latest state |
+| **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions | Cancel (confirm sheet), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
 | **SCR-15 / SCR-18 Chat** | News Rooms (farms you follow) and 1:1 chats in one tab | Switch views, open a room or chat | Room → news room; chat → SCR-16 | No chats: "Ask a farm anything" with a link to farms. Other buyers' replies never appear |
 | **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers or "Sent to the farm" | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | Not following and no paid order: sent to SCR-03. Send fails: text and photos are kept for retry. AI fails or times out: question goes to the producer |
 | **SCR-17 Me** | Followed farms, address book, "Start as a farm", log out | Tap a farm, manage addresses, log out | Farm → SCR-03; addresses → address book; log out → SCR-01 | Starting a farm explains that the producer app needs its own account |
-| **SCR-32 Order problem** | Report damage, quality, taste or other with up to 3 private photos | Pick a type, describe it, attach photos, Send | Success → SCR-16 with the order attached | Not your order or not paid: cannot be sent. Upload or send fails: input is kept and a retry uses the same key |
+| **SCR-32 Order problem** | Report damage, quality, taste or other with up to 3 private photos | Pick a type, describe it, attach photos, Send | Success → SCR-16 with the order attached | Not your order or not paid: cannot be sent. Upload or send fails: input is kept and a a retry never files it twice |
 
 ### 7.4 Producer app screens
 
@@ -603,22 +607,26 @@ Key producer screens:
 | --- | --- | --- | --- |
 | <img src="images/i1-ui-p-scr-22.png" width="180" alt="SCR-22 Dashboard"> | <img src="images/i1-ui-p-scr-24.png" width="180" alt="SCR-24 AI product draft"> | <img src="images/i1-ui-p-scr-25.png" width="180" alt="SCR-25 Product edit"> | <img src="images/i1-ui-p-scr-29.png" width="180" alt="SCR-29 Shipping"> |
 
+| SCR-21 Pending approval | SCR-26 Periods and prices | SCR-28 Chat | SCR-31 AI settings |
+| --- | --- | --- | --- |
+| <img src="images/i1-ui-p-scr-21.png" width="180" alt="SCR-21 Pending approval"> | <img src="images/i1-ui-p-scr-26.png" width="180" alt="SCR-26 Periods and prices"> | <img src="images/i1-ui-p-scr-28.png" width="180" alt="SCR-28 Chat"> | <img src="images/i1-ui-p-scr-31.png" width="180" alt="SCR-31 AI settings"> |
+
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
-| **SCR-19 Login** | Pick a producer test account, or apply as a new farm | Tap an account and Start; "Apply as a farm" | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Mock login off: "You can't log in right now" |
+| **SCR-19 Login** | Pick a producer test account, or apply as a new farm | Tap an account and Start; "Apply as a farm" | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Test login off: "You can't log in right now" |
 | **SCR-20 Application** | Farm details for joining; creates the producer account | Owner name, farm name, region, main crops, mobile number, policy consent; Apply | SCR-21 | Field errors keep the input. Already applied → SCR-21. Reapplying after rejection fills in the previous values |
 | **SCR-21 Pending approval** | Application status, refreshed every time the screen opens | View application, pull to refresh, log out, reapply if rejected | Approved → SCR-22 automatically; reapply → SCR-20 | Before approval, every other producer screen redirects here |
 | **SCR-22 Dashboard** | Today's tasks (questions, orders to ship, products under review) and kg per product | Tap a task | Questions → SCR-28 Needs reply; orders → SCR-29; review → SCR-23 | Nothing on sale: "No products on sale" with a link to SCR-24 |
 | **SCR-23 Products** | Products grouped by status with reservation counts and kg | Filter, tap a product, "+ New product" | Product → SCR-25; new → SCR-24 | No products: "Add your first product" |
 | **SCR-24 AI product draft** | Paste existing KakaoTalk or BAND text (max 3,000 characters) and get a draft | Paste text, Create draft, Edit or enter manually | SCR-25 | Button disabled while the text is empty. AI fails or takes over 20 seconds: text is kept and an empty editor opens. A price in the text is never filled in |
 | **SCR-25 Product edit** | Product details, quality, options, delivery window, shipping fee, sales settings | Save, set periods, Submit for approval, pause or resume | Periods → SCR-26 | Submit stays disabled until required fields and period prices are set. Unsaved changes: confirm before leaving. Changing the delivery window with existing orders asks buyers to accept or refund |
-| **SCR-26 Periods, prices and supply** | Date-based reservation periods with a price and box count per option | Add or remove periods, pick dates, enter prices and quantities, Save | Back to SCR-25 | Earlier price must be lower and periods cannot overlap. A period with reservations cannot be deleted or re-dated (PERIOD_LOCKED). Version conflict keeps the input |
+| **SCR-26 Periods, prices and supply** | Date-based reservation periods with a price and box count per option | Add or remove periods, pick dates, enter prices and quantities, Save | Back to SCR-25 | Earlier price must be lower and periods cannot overlap. A period with reservations cannot be deleted or re-dated If someone else saved first, the input is kept |
 | **SCR-28 Chat** | The farm's news room and every 1:1 chat, with an All / Needs reply filter | Switch views, open a chat, reply, attach | 1:1 → chat with that buyer; AI settings → SCR-31 | No chats or nothing needing a reply is shown separately. A failed load keeps the list |
 | **SCR-27 Post news** | Text with up to 5 photos (10MB each) or 1 video (60s, 100MB); public or followers only | Write, attach, choose visibility, Post | Back to the farm's own room | Wrong format or size: reason per file. Attachment fails: the text is kept |
-| **SCR-29 Shipping** | Start harvest and mark selected orders shipped with courier and tracking number | Start harvest (confirm), select orders, enter tracking, "Ship n orders" (confirm) | Back to the shipping list | Nothing to ship: "No orders to send right now". Some orders already changed (409): the rest are processed and the list refreshes. Producers cannot mark orders delivered |
+| **SCR-29 Shipping** | Start harvest and mark selected orders shipped with courier and tracking number | Start harvest (confirm), select orders, enter tracking, "Ship n orders" (confirm) | Back to the shipping list | Nothing to ship: "No orders to send right now". Some orders already changed: the rest are processed and the list refreshes. Producers cannot mark orders delivered |
 | **SCR-33 Settings** | Farm summary, profile and share link, AI settings, log out | Tap an item | SCR-30, SCR-31, SCR-19 | Retry if loading fails |
 | **SCR-30 Farm profile and link** | Edit name, region and introduction; copy or share the farm link | Copy, Share, edit one field, change photo | Field → single-field edit screen | Name and region cannot be empty. The link is hidden until the farm is approved |
-| **SCR-31 AI settings** | AI on/off, answering guidelines, FAQs, extra handoff topics, preview | Edit, Save, Preview | Back to SCR-33 | Unsaved changes are marked and confirmed before leaving. Field errors and version conflicts keep the input |
+| **SCR-31 AI settings** | AI on/off, answering guidelines, FAQs, extra handoff topics, preview | Edit, Save, Preview | Back to SCR-33 | Unsaved changes are marked and confirmed before leaving. Field errors and save conflicts keep the input |
 
 ### 7.5 Failure screens
 
@@ -626,10 +634,16 @@ Key producer screens:
 
 Figure 4. Missing consent, changed reservation terms and a rejected application. The app blocks the next step, asks the user to confirm the new terms, and lets a rejected farm apply again.
 
+More failure states:
+
+| Sold out (SCR-04) | Missing consent (SCR-10) | Payment failed (SCR-11) | AI draft failed (SCR-24) |
+| --- | --- | --- | --- |
+| <img src="images/i1-ui-s-04-soldout.png" width="180" alt="Sold out (SCR-04)"> | <img src="images/i1-ui-s-10-noconsent.png" width="180" alt="Missing consent (SCR-10)"> | <img src="images/i1-ui-s-11-fail.png" width="180" alt="Payment failed (SCR-11)"> | <img src="images/i1-ui-s-24-fail.png" width="180" alt="AI draft failed (SCR-24)"> |
+
 Rules that apply on every screen:
-- Buttons lock while a request is being processed. Creating an order and paying send an idempotency key so the same request is never processed twice.
+- Buttons lock while a request is being processed, and an order or payment is never processed twice even if the user taps again or the connection drops.
 - When a save fails (network, validation or conflict), what the user typed and the photos they picked are kept, including after a detour to login.
-- A permission error (403) shows "You can't view this screen" with a link to the first screen.
+- If the user is not allowed to see a screen, it shows "You can't view this screen" with a link to the first screen.
 - Network errors show "Your connection is unstable" with Retry. Success messages appear as a short toast.
 
 ### 7.6 Room permissions
@@ -646,14 +660,14 @@ Reading a room never follows the farm automatically.
 
 ## 8. Implementation Status and References
 
-The prototype runs the main flows against the real API: reservation, mock payment, fulfillment, capacity approval, private messaging, AI settings, order inquiries and farm stories. Integration results are recorded in [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation) ([PR #53](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/53), [PR #61](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/61)).
+The prototype runs the main flows on our real server: reservation, simulated payment, fulfillment, capacity approval, private messaging, AI settings, order inquiries and farm stories. Integration results are recorded in [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation) ([PR #53](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/53), [PR #61](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/61)).
 
 Not done yet in I1:
 - Server-generated link previews for KakaoTalk (AC-19-3).
-- Operator APIs other than capacity approval, automatic purchase confirmation after eight days, and scheduled refund jobs.
+- Operator tools other than capacity approval, automatic purchase confirmation after eight days, and scheduled refund jobs.
 - Production media storage and monitoring.
 - Moved to I2: reporting a wrong AI answer (AC-13-5) and natural-language shipping (AC-17-1). AC-01-2 was retired when consumer and producer accounts were separated.
 
-Mock payments, seed logins and the fallback AI path are for the demo; they are not a test of real payment providers or model quality.
+Simulated payments, test-account login and the AI fallback are for the demo; they are not a test of real payment providers or model quality.
 
 Sources: [PRD](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/prd.md), [functional criteria and rules](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/spec/functional), [screen specification](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/screens.md), [capacity 1.4](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/capacity-1.4.md), [storefront 1.5](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/storefront-1.5.md), [design frames](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/design).
