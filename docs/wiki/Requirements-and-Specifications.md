@@ -22,7 +22,7 @@ Team 6 | Farmclub | Iteration 1 | 9 October 2026
 | 0.2 | 2026-10-07 | Team 6 | Separate consumer and producer accounts; revised login and UI requirements |
 | 1.0 | 2026-10-09 | Team 6 | Submission edition: customers, competition, stories, criteria and UI flows; consolidate specs 1.2-1.5 |
 | 1.1 | 2026-10-09 | Team 6 | Add Nongsafund to the competitive comparison with official sources |
-| 1.2 | 2026-10-09 | Team 6 | Table of contents, O/X feature comparison, one scenario per acceptance criterion, screen-by-screen UI specification |
+| 1.2 | 2026-10-09 | Team 6 | Table of contents, O/X feature comparison, one scenario per acceptance criterion, screen-by-screen UI specification with screenshots, measurable non-functional targets |
 
 ## 1. Project Abstract
 
@@ -49,17 +49,17 @@ Our closest competitors are **Nongsafund** (agricultural funding and advance pur
 | Feature | Nongsafund | Wadiz | Local Line | Farmclub |
 | --- | --- | --- | --- | --- |
 | Buy before harvest (advance purchase / preorder) | O | O | O | O |
-| Farm story and growing-process updates | O | - | - | O |
-| Price set by reservation date (earlier is cheaper) | - | - | - | O |
-| Measured or expected sweetness shown per product | - | - | - | O |
-| Private 1:1 chat with the farm | - | - | - | O |
-| AI draft of the product page from existing sales text | - | - | - | O |
-| AI answers routine questions and hands off the rest | - | - | - | O |
-| Supply limit approved by the platform before sale | - | - | - | O |
+| Farm story and growing-process updates | O | O | X | O |
+| Price set by reservation date (earlier is cheaper) | X | X | X | O |
+| Measured or expected sweetness shown per product | X | X | X | O |
+| Private 1:1 chat with the farm | X | O | X | O |
+| AI draft of the product page from existing sales text | X | X | X | O |
+| AI answers routine questions and hands off the rest | X | X | X | O |
+| Supply limit approved by the platform before sale | X | X | X | O |
 | Many product categories | O | O | O | X |
-| Subscriptions | O | - | O | X |
+| Subscriptions | O | X | O | X |
 
-O = offered, X = not offered by Farmclub, - = not mentioned in the official material we reviewed. We do not read "-" as proof that the feature is missing.
+O = offered, X = not offered (for competitors: not found in the official material we reviewed).
 
 How Farmclub is different:
 - **Built for citrus.** One crop means we can show what matters for it: sweetness, grade and the harvest window.
@@ -539,8 +539,13 @@ Each feature below has a user story in Connextra format and its main acceptance 
 | N-06 | Security | Every role and ownership check happens on the server; hiding a button in the UI is never the only protection |
 | N-07 | Reproducibility | Ready-made test accounts and data, a fixed demo date, and simulated payments that can be set to succeed or fail |
 | N-08 | AI quality | At least 80% field-level accuracy when extracting a product draft, and no invented values for fields that are not in the source text |
+| N-09 | Response latency | Browsing, checkout and payment requests answer within 1 second for 95% of requests. An AI chat answer, or the handoff to the producer, arrives within 20 seconds |
+| N-10 | Scalability | The prototype handles 100 users at the same time without errors. The I2 pilot is sized for about 1,000 consumers and 20 farms |
+| N-11 | Availability | 99% monthly uptime once deployed for the I2 pilot |
+| N-12 | Data integrity | Stock is never oversold: payment and stock change succeed or fail together, and a repeated request never charges twice |
+| N-13 | Session security | HTTPS in deployment, login sessions expire after 7 days, and API keys and secrets live only in server environment variables |
 
-We have not measured the response-time and extraction-accuracy targets yet. How long personal data is kept is still an open policy question (Q-20).
+N-04, N-08, N-09 and N-10 are targets we will measure before the I2 pilot. How long personal data is kept is still an open policy question (Q-20).
 
 ## 7. User Interface Requirements
 
