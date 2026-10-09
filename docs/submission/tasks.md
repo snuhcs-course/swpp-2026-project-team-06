@@ -60,3 +60,22 @@
 - 비범위: 다른 Home 본문, 제품 코드, PDF, main 머지.
 - [x] 표 수정, 지정한 값과 diff 검증, 후속 PR #59 제출.
 - 검증: 지정한 역할·열 제목·기존 이름과 행 순서 일치, `git diff --check` 통과. 문서 변경만 있어 제품 테스트는 실행하지 않았다.
+
+## SWPP-34 Design Documentation 가이드라인 맞춤
+
+- 기준: main 8f2b8a5(747f588 이후 제품 코드 변경 없음). 브랜치 `nemodleo/swpp-34-design-documentation`.
+- 목표: 수업 가이드라인(3 - Design Documentation Guidelines)과 예시 4개(2025 team 16·07·09·04) 형식에 맞춰 Wiki 설계 문서를 보완한다.
+- 범위: `docs/wiki/Design-Documentation.md`, 이 섹션.
+- 비범위: Requirements and Specifications(별도 브랜치), 테스트 내용(Testing Documentation), 제품 코드, 그림 새로 만들기.
+
+### 결정 사항
+- 10/09 목차와 개정 이력 1.1을 추가한다.
+- 10/09 가이드라인 권장·예시 공통인 프론트엔드·백엔드 클래스 다이어그램을 Mermaid로 추가한다. 백엔드는 함수형 서비스 모듈이라 모듈 단위로 그린다.
+- 10/09 API는 주문 생성·결제와 AI 초안의 요청·응답 예시를 실제 스키마(`orders/schemas.py`, `catalog/schemas.py`)와 시드 ID로 넣는다.
+- 10/09 디자인 패턴은 I5 항목이라 후보 목록만 둔다.
+- 10/09 문체는 개발팀이 직접 쓴 평이한 문장으로 맞추고, 미구현 범위는 4장 표로 정리한다.
+
+### 작업
+- [x] 가이드라인·예시와 현재 문서 차이 정리
+- [x] 목차, 클래스 다이어그램, API 예시, 패턴 자리, 문체 정리
+- [ ] GitHub 렌더링 확인, 사람 리뷰
