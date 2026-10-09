@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="690" viewBox="0 0 1100 690">
+<rect width="1100" height="100%" fill="white"/>
+<text x="28" y="40" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#18352d">Farmclub / application boundaries</text>
+<rect x="30" y="85" width="320" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="45" y="114" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Consumer web</text>
+<text x="45" y="142" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Discover / reserve / orders</text>
+<text x="45" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">News rooms / private support</text>
+<rect x="750" y="85" width="320" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="765" y="114" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Producer web</text>
+<text x="765" y="142" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Catalog / demand / shipping</text>
+<text x="765" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">News / replies / AI settings</text>
+<rect x="390" y="90" width="320" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="405" y="119" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Shared packages</text>
+<text x="405" y="147" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">UI components + typed API</text>
+<text x="405" y="172" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">App-specific token storage</text>
+<polyline points="350,139 390,139" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="390,139 379.0,134.0 379.0,144.0" fill="#697b74"/>
+<polyline points="750,139 710,139" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="710,139 721.0,144.0 721.0,134.0" fill="#697b74"/>
+<polyline points="550,202 550,280" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="550,280 555.0,269.0 545.0,269.0" fill="#697b74"/>
+<text x="570" y="246" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">REST / JSON + bearer token</text>
+<rect x="260" y="280" width="580" height="122" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="275" y="309" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">FastAPI / authorization + domain services</text>
+<text x="275" y="337" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Accounts / farms / catalog / orders / messaging</text>
+<text x="275" y="362" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Validation, ownership, transactions, AI adapter</text>
+<rect x="30" y="490" width="450" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="45" y="519" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">PostgreSQL 16</text>
+<text x="45" y="547" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">SQLAlchemy sessions + Alembic</text>
+<text x="45" y="572" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Orders, messages, private bytes, replay records</text>
+<rect x="650" y="490" width="420" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="665" y="519" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Claude / optional server call</text>
+<text x="665" y="547" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Anthropic SDK, no client credentials</text>
+<text x="665" y="572" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Rules, structured validation and fallback</text>
+<polyline points="405,402 405,448 255,448 255,490" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="255,490 260.0,479.0 250.0,479.0" fill="#697b74"/>
+<text x="276" y="438" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">SQL</text>
+<polyline points="695,402 695,448 860,448 860,490" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="860,490 865.0,479.0 855.0,479.0" fill="#697b74"/>
+<text x="867" y="450" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">Conditional HTTPS</text>
+<text x="30" y="655" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Deployment plan: Vercel + Railway. Planned integrations: R2, PostHog, Sentry, Langfuse.</text>
+</svg>

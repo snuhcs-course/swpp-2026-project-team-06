@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="850" viewBox="0 0 1100 850">
+<rect width="1100" height="100%" fill="white"/>
+<text x="28" y="40" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#18352d">Farmclub / user journey and recovery</text>
+<text x="30" y="82" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#23674d">CONSUMER</text>
+<rect x="30" y="110" width="240" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="45" y="139" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Discover</text>
+<text x="45" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Farm / product</text>
+<text x="45" y="192" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Read quality and timing</text>
+<rect x="300" y="110" width="240" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="315" y="139" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Select</text>
+<text x="315" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Option + quantity</text>
+<text x="315" y="192" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Reserve action</text>
+<rect x="570" y="110" width="240" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="585" y="139" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Checkout</text>
+<text x="585" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Recipient + 4 consents</text>
+<text x="585" y="192" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Review current terms</text>
+<rect x="840" y="110" width="230" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="855" y="139" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Pay (mock)</text>
+<text x="855" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Success: RESERVED</text>
+<text x="855" y="192" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">No double allocation</text>
+<polyline points="270,158 300,158" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="300,158 289.0,153.0 289.0,163.0" fill="#697b74"/>
+<polyline points="540,158 570,158" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="570,158 559.0,153.0 559.0,163.0" fill="#697b74"/>
+<polyline points="810,158 840,158" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="840,158 829.0,153.0 829.0,163.0" fill="#697b74"/>
+<rect x="300" y="320" width="240" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="315" y="349" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Login if needed</text>
+<text x="315" y="377" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Consumer test account</text>
+<text x="315" y="402" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Return with selection</text>
+<polyline points="420,222 420,320" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="420,320 425.0,309.0 415.0,309.0" fill="#697b74"/>
+<text x="435" y="281" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">Protected action</text>
+<polyline points="540,376 690,376 690,222" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="690,222 685.0,233.0 695.0,233.0" fill="#697b74"/>
+<text x="606" y="363" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">Return</text>
+<rect x="840" y="320" width="230" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="855" y="349" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Recover / retry</text>
+<text x="855" y="377" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Failure: no allocation</text>
+<text x="855" y="402" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Changed terms: review</text>
+<polyline points="955,222 955,320" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="955,320 960.0,309.0 950.0,309.0" fill="#697b74"/>
+<text x="826" y="279" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">Failure / conflict</text>
+<polyline points="840,349 770,349 770,222" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="770,222 765.0,233.0 775.0,233.0" fill="#697b74"/>
+<text x="30" y="502" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#23674d">PRODUCER</text>
+<rect x="30" y="530" width="240" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="45" y="559" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Prepare</text>
+<text x="45" y="587" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Application / profile</text>
+<text x="45" y="612" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Draft and edit product</text>
+<rect x="300" y="530" width="240" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="315" y="559" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Approve supply</text>
+<text x="315" y="587" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Operator decision</text>
+<text x="315" y="612" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Set sales limit / periods</text>
+<rect x="570" y="530" width="240" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="585" y="559" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Manage demand</text>
+<text x="585" y="587" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Paid reservations</text>
+<text x="585" y="612" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Start harvest</text>
+<rect x="840" y="530" width="230" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="855" y="559" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Ship</text>
+<text x="855" y="587" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PREPARING required</text>
+<text x="855" y="612" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Confirm shipment</text>
+<polyline points="270,578 300,578" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="300,578 289.0,573.0 289.0,583.0" fill="#697b74"/>
+<polyline points="540,578 570,578" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="570,578 559.0,573.0 559.0,583.0" fill="#697b74"/>
+<polyline points="810,578 840,578" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="840,578 829.0,573.0 829.0,583.0" fill="#697b74"/>
+<polyline points="420,642 420,715 150,715 150,642" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="150,642 145.0,653.0 155.0,653.0" fill="#697b74"/>
+<text x="102" y="750" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">Rejected: revise and resubmit</text>
+<text x="570" y="705" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Consumer: delivered order -&gt; confirmation</text>
+<text x="570" y="739" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Unshipped cancellation -&gt; refund + one release</text>
+<text x="30" y="809" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">At the farm: follow -&gt; news / private chat. Sensitive or uncertain AI questions -&gt; producer.</text>
+</svg>

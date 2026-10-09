@@ -9,12 +9,12 @@ Consumers commit to produce before it is grown or harvested, and producers plan 
 
 ## Team 6
 
-| Name | Role |
+| Name | Roles(I1) |
 | -- | -- |
-| Hyun Park | |
-| Minsun Kim | |
-| Jinwoo Jang | |
-| Zahra | |
+| Hyun Park | PM |
+| Minsun Kim | Frontend & Consumer Survey |
+| Jinwoo Jang | Frontend & Producer Survey |
+| Zahra | Backend & Database |
 
 ## Documents
 

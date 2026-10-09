@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1070" viewBox="0 0 1100 1070">
+<rect width="1100" height="100%" fill="white"/>
+<text x="28" y="40" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#18352d">Commerce / principal database relationships</text>
+<rect x="35" y="80" width="300" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="50" y="109" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">User</text>
+<text x="50" y="137" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id</text>
+<text x="50" y="162" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">UK (kakao_id, role)</text>
+<rect x="405" y="80" width="290" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="420" y="109" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Farm</text>
+<text x="420" y="137" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id</text>
+<text x="420" y="162" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">FK / UK producer_id</text>
+<rect x="765" y="80" width="300" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="780" y="109" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">ShippingAddress</text>
+<text x="780" y="137" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK user_id</text>
+<text x="780" y="162" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Recipient / address values</text>
+<polyline points="335,126 405,126" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="405,126 394.0,121.0 394.0,131.0" fill="#697b74"/>
+<text x="347" y="115" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..1</text>
+<polyline points="185,80 185,60 915,60 915,80" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="915,80 920.0,69.0 910.0,69.0" fill="#697b74"/>
+<text x="643" y="53" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N addresses per user</text>
+<rect x="405" y="280" width="290" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="420" y="309" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Product</text>
+<text x="420" y="337" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK farm_id</text>
+<text x="420" y="362" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Capacity + version</text>
+<polyline points="550,192 550,280" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="550,280 555.0,269.0 545.0,269.0" fill="#697b74"/>
+<text x="566" y="241" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<rect x="35" y="480" width="300" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="50" y="509" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">ProductOption</text>
+<text x="50" y="537" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK (product_id, id)</text>
+<text x="50" y="562" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Weight / label</text>
+<rect x="405" y="480" width="290" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="420" y="509" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Stage</text>
+<text x="420" y="537" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK product_id</text>
+<text x="420" y="562" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Inclusive start / end dates</text>
+<rect x="765" y="480" width="300" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="780" y="509" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">CapacityRequest</text>
+<text x="780" y="537" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK product_id</text>
+<text x="780" y="562" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Initial / increase decisions</text>
+<polyline points="455,392 455,432 185,432 185,480" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="185,480 190.0,469.0 180.0,469.0" fill="#697b74"/>
+<text x="233" y="423" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<polyline points="550,392 550,480" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="550,480 555.0,469.0 545.0,469.0" fill="#697b74"/>
+<text x="566" y="445" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<polyline points="645,392 645,432 915,432 915,480" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="915,480 920.0,469.0 910.0,469.0" fill="#697b74"/>
+<text x="855" y="423" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<rect x="35" y="690" width="440" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="50" y="719" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">StagePrice / StageAllocation</text>
+<text x="50" y="747" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK (stage_id, option_id)</text>
+<text x="50" y="772" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">FK stage; composite FK product + option</text>
+<polyline points="185,592 185,690" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="185,690 190.0,679.0 180.0,679.0" fill="#697b74"/>
+<text x="201" y="642" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<polyline points="550,592 550,645 410,645 410,690" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="410,690 415.0,679.0 405.0,679.0" fill="#697b74"/>
+<text x="446" y="634" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<rect x="625" y="690" width="440" height="137" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="640" y="719" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Order</text>
+<text x="640" y="747" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; UK order_no; FK consumer_id</text>
+<text x="640" y="772" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">FK stage; composite FK product + option</text>
+<text x="640" y="797" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Paid price / weight / address snapshots</text>
+<rect x="625" y="910" width="440" height="89" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="640" y="939" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Payment</text>
+<text x="640" y="967" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK / UK order_id; MOCK provider</text>
+<polyline points="845,827 845,910" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="845,910 850.0,899.0 840.0,899.0" fill="#697b74"/>
+<text x="860" y="875" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..1 payment per order</text>
+<text x="35" y="897" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Each order references one buyer, stage and option.</text>
+<text x="35" y="928" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">User/product/option can have 0..N orders.</text>
+<text x="35" y="959" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Order addresses are copied, not linked to saved rows.</text>
+<text x="35" y="1037" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Also stored: Follow (consumer + farm), ProductDraft (farm), IdempotencyRecord (user + scope + key).</text>
+</svg>

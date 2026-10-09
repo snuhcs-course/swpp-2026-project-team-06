@@ -2,7 +2,7 @@
 
 ## Changes in this iteration
 
-- I1: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. They are listed in section 3. No tests have run yet.
+- I1 initial planning: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. This was a planning milestone, not an execution result. The completed DEV-6 run is recorded in the final section below.
 - I1 (P22): now 62 criteria. Added AC-01-4–5 (mock login), AC-06-4–5 (home), AC-09-3 (idempotency), AC-12-4–5 (chat), AC-15-3–5 (likes), AC-17-4–5 (shipping). AC-13-5 and AC-17-1 are deferred to I2.
 - I1 (SWPP-81): now 64 criteria, one retired. Consumer and producer accounts are separate (ADR 0010): AC-01-2 is retired and AC-01-6–7 are added. AC-06-5 and AC-17-2 follow screen spec 1.1. 61 criteria are tested in I1.
 
@@ -273,7 +273,7 @@ FastAPI access logs show the browser clients calling port 8000. No `/__mock` tra
 - [#54](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/54) was fixed by [#55](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/55). DEV-6 merged the resulting `main`, reset the database, and added the missing producer-application checks to the reusable smoke suite.
 - Post-fix validation passed: real API smoke 7/7, Ruff, 133 pytest tests, Alembic upgrade/check, all workspace typechecks, Mock contracts 11/11, and both Expo web exports.
 - The previously blocked browser scenario was rerun against FastAPI: pending and rejected applications rendered their expected content, the rejected form was prefilled, browser error logs were empty, and FastAPI logged `GET /api/auth/producer-application` as 200.
-- No release-blocking DEV-6 defect remains. Human review and merge are the remaining release gates.
+- No release-blocking defect remained in the executed DEV-6 matrix. PR #53 was merged on 2026-10-09 KST (main 747f588). This is the result for that matrix, not a claim that every product requirement or planned external integration is complete.
 
 ## Comprehensive Real-Stack Automation (DEV-25, 2026-10-09)
 

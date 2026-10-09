@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="780" viewBox="0 0 1100 780">
+<rect width="1100" height="100%" fill="white"/>
+<text x="28" y="40" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#18352d">Reservation / payment sequence</text>
+<rect x="35" y="75" width="220" height="52" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="50" y="104" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Consumer</text>
+<line x1="145" y1="127" x2="145" y2="695" stroke="#bacbc3" stroke-dasharray="6 6"/>
+<rect x="305" y="75" width="220" height="52" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="320" y="104" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Orders service</text>
+<line x1="415" y1="127" x2="415" y2="695" stroke="#bacbc3" stroke-dasharray="6 6"/>
+<rect x="575" y="75" width="220" height="52" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="590" y="104" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Catalog / locks</text>
+<line x1="685" y1="127" x2="685" y2="695" stroke="#bacbc3" stroke-dasharray="6 6"/>
+<rect x="845" y="75" width="220" height="52" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="860" y="104" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">PostgreSQL</text>
+<line x1="955" y1="127" x2="955" y2="695" stroke="#bacbc3" stroke-dasharray="6 6"/>
+<text x="155" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">1  Create order: selection, address, consents</text>
+<polyline points="145,180 415,180" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="415,180 404.0,175.0 404.0,185.0" fill="#697b74"/>
+<text x="425" y="237" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">2  Validate + write PENDING_PAYMENT snapshot; no stock hold</text>
+<polyline points="415,250 955,250" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="955,250 944.0,245.0 944.0,255.0" fill="#697b74"/>
+<text x="155" y="317" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">3  Pay with Idempotency-Key</text>
+<polyline points="145,330 415,330" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="415,330 404.0,325.0 404.0,335.0" fill="#697b74"/>
+<text x="425" y="392" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">4  Lock product / period-option; recheck terms + capacity</text>
+<polyline points="415,405 685,405" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="685,405 674.0,400.0 674.0,410.0" fill="#697b74"/>
+<text x="695" y="467" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">5  Write payment + RESERVED + stock</text>
+<polyline points="685,480 955,480" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="955,480 944.0,475.0 944.0,485.0" fill="#697b74"/>
+<text x="425" y="552" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">6  Commit result and idempotent response</text>
+<polyline points="955,565 415,565" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="415,565 426.0,570.0 426.0,560.0" fill="#697b74"/>
+<text x="155" y="627" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">7  Return order confirmation</text>
+<polyline points="415,640 145,640" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="145,640 156.0,645.0 156.0,635.0" fill="#697b74"/>
+<text x="30" y="732" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Conflict or mock failure: no allocation. An identical key/body replays the stored response.</text>
+</svg>
