@@ -154,7 +154,7 @@ My primary Iteration 1 contribution was product work rather than implementation:
 
 ### 1. Where AI Was Used
 
-AI reviewed the consumer order-history frontend and selected a low-risk maintainability improvement in `apps/consumer/src/app/(tabs)/orders/index.tsx`. The scope was intentionally narrow: remove repeated derived-data lookups while preserving the UI, Korean copy, routing, API behavior, order grouping, and screen specification. The result is isolated in draft PR #66 / commit `a19a618` (12 additions, 5 deletions).
+AI reviewed the consumer order-history frontend and selected a low-risk maintainability improvement in `apps/consumer/src/app/(tabs)/orders/index.tsx`. The scope was intentionally narrow: remove repeated derived-data lookups while preserving the UI, Korean copy, routing, API behavior, order grouping, and screen specification. The result is isolated in PR #66 / commit `a19a618` (12 additions, 5 deletions).
 
 ### 2. Prompt History
 
@@ -167,7 +167,7 @@ AI found a contained refactoring opportunity instead of expanding the task. Prev
 
 ### 4. Hallucinations / Errors
 
-No model hallucination was identified in this refactoring pass. I am recording that explicitly rather than manufacturing an error for the report. There is, however, a review limitation: the refactor has not been merged, and PR #66 remains a draft pending team review. Therefore the AI output should be treated as a proposed maintainability improvement, not as evidence that product behavior has been independently revalidated.
+No model hallucination was identified in this refactoring pass. I am recording that explicitly rather than manufacturing an error for the report. There is, however, a review limitation: the change was checked by reading the diff against the screen specification. The AI output is therefore a maintainability improvement, not evidence that product behavior was independently revalidated.
 
 ### 5. Prompt Revision / Scope Control
 
@@ -175,7 +175,7 @@ The useful revision was not “ask for more code,” but narrow the role of AI. 
 
 ### 6. Human Verification / Manual Decisions
 
-The product survey, wireframe, and screen specifications were my substantive Iteration 1 contributions; final product and UX decisions were not delegated to this refactoring pass. For PR #66, the human constraint was that refactoring must not change those decisions. The proposed diff is intentionally limited to derived presentation data: tab counts and the selected-group label. It does not modify the order status mapping, sorting rules, navigation, data loading, API calls, or displayed wording. Final acceptance and merge remain subject to human/team review.
+The product survey, wireframe, and screen specifications were my substantive Iteration 1 contributions; final product and UX decisions were not delegated to this refactoring pass. For PR #66, the human constraint was that refactoring must not change those decisions. The proposed diff is intentionally limited to derived presentation data: tab counts and the selected-group label. It does not modify the order status mapping, sorting rules, navigation, data loading, API calls, or displayed wording. Final acceptance and merge were left to team review.
 
 ### 7. Takeaway
 
