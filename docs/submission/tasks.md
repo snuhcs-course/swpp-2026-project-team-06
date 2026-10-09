@@ -79,3 +79,23 @@
 - [x] 가이드라인·예시 3개와 현재 문서 차이 정리
 - [x] 목차, O/X 비교표, 시나리오 분리, 화면별 UI 표, 8장 정리
 - [ ] 사람 리뷰
+## SWPP-34 Design Documentation 가이드라인 맞춤
+
+- 기준: main 8f2b8a5(747f588 이후 제품 코드 변경 없음). 브랜치 `nemodleo/swpp-34-design-documentation`.
+- 목표: 수업 가이드라인(3 - Design Documentation Guidelines)과 예시 4개(2025 team 16·07·09·04) 형식에 맞춰 Wiki 설계 문서를 보완한다.
+- 범위: `docs/wiki/Design-Documentation.md`, `docs/wiki/images/i1-*-class.png`, `docs/wiki/images/i1-ai-answer-sequence.png`, `docs/submission/class-diagrams.mmd`, 이 섹션.
+- 비범위: Requirements and Specifications(별도 브랜치), 테스트 내용(Testing Documentation), 제품 코드, 그림 새로 만들기.
+
+### 결정 사항
+- 10/09 목차와 개정 이력 1.1을 추가한다.
+- 10/09 가이드라인 권장·예시 공통인 프론트엔드·백엔드 클래스 다이어그램을 Mermaid로 추가한다. 백엔드는 함수형 서비스 모듈이라 모듈 단위로 그린다.
+- 10/09 API는 주문 생성·결제와 AI 초안의 요청·응답 예시를 실제 스키마(`orders/schemas.py`, `catalog/schemas.py`)와 시드 ID로 넣는다.
+- 10/09 GitHub가 클래스 다이어그램 Mermaid를 렌더링하지 못해(`startsWith` 오류, mermaid 11에서는 정상) PNG로 넣고 원본은 `docs/submission/class-diagrams.mmd`에 둔다.
+- 10/09 AI 질문 응답 시퀀스 다이어그램과 로그인·채팅·출하 API 예시를 추가한다(실제 스키마·시드 ID 기준).
+- 10/09 디자인 패턴은 I5 항목이라 후보 목록만 둔다.
+- 10/09 문체는 개발팀이 직접 쓴 평이한 문장으로 맞추고, 미구현 범위는 4장 표로 정리한다.
+
+### 작업
+- [x] 가이드라인·예시와 현재 문서 차이 정리
+- [x] 목차, 클래스 다이어그램, API 예시, 패턴 자리, 문체 정리
+- [ ] GitHub 렌더링 확인, 사람 리뷰

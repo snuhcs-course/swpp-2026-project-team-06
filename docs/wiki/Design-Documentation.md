@@ -2,6 +2,24 @@
 
 Team 6 | Farmclub | Iteration 1 | 9 October 2026
 
+This page is for the development team. It explains how the system is built so we can split work and so another developer can run and extend it. Test plans and results are in [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation).
+
+## Table of Contents
+
+- [Document Revision History](#document-revision-history)
+- [1. System Architecture](#1-system-architecture)
+- [2. Design Details](#2-design-details)
+  - [2.1 Frontend class diagram](#21-frontend-class-diagram)
+  - [2.2 Backend class diagram](#22-backend-class-diagram)
+  - [2.3 Database model](#23-database-model)
+  - [2.4 API specification](#24-api-specification)
+  - [2.5 Key flows](#25-key-flows)
+  - [2.6 AI components](#26-ai-components)
+  - [2.7 Implementation decisions](#27-implementation-decisions)
+- [3. Design Patterns](#3-design-patterns)
+- [4. Implementation Status](#4-implementation-status)
+- [5. Running Locally and Source Map](#5-running-locally-and-source-map)
+
 ## Document Revision History
 
 | Version | Date | Author | Major changes |
@@ -10,374 +28,405 @@ Team 6 | Farmclub | Iteration 1 | 9 October 2026
 | 0.2 | 2026-10-07 | Team 6 | Replace Django plan with FastAPI and operator API (ADR 0007/0008) |
 | 0.3 | 2026-10-07 | Team 6 | Separate accounts, screen/state details and seed contracts |
 | 0.4 | 2026-10-08 | Team 6 | Synchronize design frames with specs 1.2-1.5 |
-| 1.0 | 2026-10-09 | Team 6 | Submission edition: architecture, ER diagrams, API, AI and concurrency details; distinguish implementation from planned integrations |
+| 1.0 | 2026-10-09 | Team 6 | Submission edition: architecture, ER diagrams, API, AI and concurrency details |
+| 1.1 | 2026-10-09 | Team 6 | Table of contents, frontend and backend class diagrams, AI answer sequence diagram, API request/response examples, design-pattern section, restructured to the course guideline |
 
 ## 1. System Architecture
 
-### 1.1 Baseline and architecture
-
-This edition describes source commit **747f588**, including the backend and DEV-6 integration work. Farmclub uses two Expo web clients and one synchronous FastAPI application with PostgreSQL. The backend owns authorization, transaction rules, persistence and AI calls. The clients share visual components and an API package.
+Farmclub is a client-server system. Two Expo web apps (consumer and producer) talk to one FastAPI server over REST/JSON. The server owns every business rule, permission check, database write and AI call. The two apps share a UI package and an API client package. This page describes the code on `main` (commit 8f2b8a5); product code has not changed since the I1 baseline 747f588.
 
 ![I1 architecture and external boundaries](images/i1-architecture.png)
 
-Figure 1. Arrows show the implemented local request/data path. The Claude path is conditional on server credentials. Deployment/observability items in the footer are planned architecture, not verified operational services.
+Figure 1. Request and data flow. The call to Claude only happens when the server has an API key. Hosting and monitoring services at the bottom are the planned production setup.
 
-| Component | Responsibility | Boundary / interface |
+| Component | Responsibility | Interface |
 | --- | --- | --- |
-| Consumer app | Discovery, checkout, orders, rooms, private chat and inquiries | REST/JSON through shared API package |
-| Producer app | Approval gate, product/sales setup, dashboard, shipping and support | Same server, separate role and token namespace |
-| Shared UI | Tokens, reusable controls, layouts and interaction patterns | React Native components |
-| Shared API client | Typed endpoint wrappers, token storage, error mapping, real/Mock transport | fetch; Authorization bearer token; ApiError |
-| FastAPI | Routing, validation, access checks and transaction orchestration | /api resources; /admin capacity endpoints |
-| PostgreSQL | Accounts, catalog, orders, messages, private attachment bytes and idempotency | SQLAlchemy sessions and psycopg |
-| AI adapter | Draft extraction, detail generation and question answering | Anthropic SDK, with rules/fallbacks described in section 5 |
+| Consumer app | Discovery, checkout, orders, news rooms, private chat, order inquiries | REST/JSON through `packages/api` |
+| Producer app | Approval gate, products and sales settings, dashboard, shipping, chat | Same server; separate account role and token storage |
+| `packages/ui` | Design tokens and shared components (bars, chat, news room, story) | React Native components |
+| `packages/api` | Typed endpoint functions, token storage, error mapping, demo (mock) transport | `fetch` with `Authorization: Bearer`; `ApiError` |
+| FastAPI server | Routing, validation, access checks, transactions | `/api/...` resources; `/admin/...` capacity decisions |
+| PostgreSQL | Accounts, catalog, orders, messages, private attachments, idempotency records | SQLAlchemy 2.0 + psycopg |
+| AI adapter (`server/app/ai`) | Product draft extraction, story drafts, question answering | Anthropic SDK (Claude Haiku 4.5) with rule-based fallback |
 
-### 1.2 Stack and deployment status
+### 1.1 External libraries
 
-| Layer | Implemented dependency / mechanism | Status |
+| Layer | Libraries | Notes |
 | --- | --- | --- |
-| Web clients | Expo, React Native, Expo Router, TypeScript | Two web outputs |
-| API | FastAPI, Pydantic v2, pydantic-settings, Uvicorn | Local real API implemented |
-| Persistence | SQLAlchemy, psycopg, PostgreSQL 16 | Alembic revisions 0001-0005 |
-| Authentication | PyJWT, seeded users, role dependencies | Mock-login flag defaults OFF |
-| AI | Anthropic SDK; configured model claude-haiku-4-5 | Conditional external call; deterministic and failure paths supported |
-| Private images | python-multipart, format validation and EXIF sanitization | Bytes stored in PostgreSQL in I1 |
-| Hosting target | Vercel for clients; Railway for server/database | Intended deployment topology; no live deployment claim here |
-| Object storage | Cloudflare R2 / boto3 in the architecture plan | No R2 adapter in this inspected backend |
-| Observability | PostHog, Sentry and Langfuse in the stack plan | Analytics module is a scaffold; no completed SDK wiring established |
-| Payments | Payment rows with MOCK provider | No real payment gateway integration |
+| Web clients | Expo, React Native, Expo Router, TypeScript | Two web builds |
+| Server | FastAPI, Pydantic v2, pydantic-settings, Uvicorn | OpenAPI generated from routers and schemas |
+| Database | SQLAlchemy 2.0, psycopg, Alembic, PostgreSQL 16 | Migrations 0001-0005 |
+| Auth | PyJWT | I1 uses seeded test accounts; Kakao login is planned for I2 |
+| AI | Anthropic SDK | Model `claude-haiku-4-5` |
+| Images | python-multipart, image validation and EXIF removal | Private inquiry photos are stored in PostgreSQL in I1 |
+| Planned | Vercel (apps), Railway (server, DB), Cloudflare R2, PostHog, Sentry, Langfuse | Chosen in the stack; not wired up yet (see section 4) |
 
-Dependency manifests and lockfiles define exact installed versions. This table distinguishes a design choice from an operational integration.
+Exact versions are in `package-lock.json` and `server/uv.lock`.
 
-### 1.3 Decisions and rationale
+### 1.2 Architectural decisions
 
-| Decision | Reason | Implementation consequence |
+| Decision | Why | What it means in the code |
 | --- | --- | --- |
-| Two web apps (ADR 0001/0010) | Distinct consumer/producer tasks and permissions | Separate routes and token namespaces; server still checks roles |
-| FastAPI modular backend (ADR 0007) | Typed requests/responses and generated OpenAPI | Domain routers, schemas, services and models |
-| REST and polling | Existing clients use request/response resources; no WebSocket implementation | Focused screens refresh and merge responses; no push delivery guarantee |
-| PostgreSQL transactions | Payment, capacity and order state must remain consistent | Row locks and transactional changes |
-| Shared AI adapter (ADR 0004) | Keep provider details and credentials out of UI/domain callers | One module controls generation, validation and fallback |
-| Mock login (ADR 0009) | Reproduce role/approval states without external identities | Seed accounts only; explicit enable flag; no admin in selectable demo accounts |
-| Operator API first (ADR 0008) | Avoid building an operator UI in I1 | Capacity approvals are implemented; other operator functions remain gaps |
-| Order snapshots | Later product/address edits must not rewrite paid history | Copy price, weight, address and delivery fields into Order |
+| Two web apps instead of one (ADR 0001/0010) | Consumers and producers do different jobs and need different permissions | Separate routes and token storage; the server still checks the role on every call |
+| Client-server, all rules on the server | Payment, stock and order state must stay consistent across both apps | Apps never decide prices or stock; they show what the server returns |
+| FastAPI modular backend (ADR 0007) | Typed requests and responses and generated API docs | One folder per domain with `router`, `schemas`, `service`, `models` |
+| REST + polling, no WebSocket | Chat volume is small in I1 and REST is simpler to test | Open chat screens refresh every 2 seconds; no push delivery |
+| PostgreSQL transactions and row locks | Two people must never buy the same last box | Payment locks the product and period allocation before checking stock |
+| One AI adapter (ADR 0004) | Keep the API key and prompt details out of the rest of the code | Only `server/app/ai` calls the model; callers get structured results |
+| Seeded test login (ADR 0009) | Reproduce every account state (pending, rejected, suspended) without real identities | Test accounts only, behind an explicit on/off flag |
+| Operator API before operator UI (ADR 0008) | An operator screen is not needed to demo I1 | Capacity approval works through `/admin` and Swagger UI |
+| Copy order data at payment | Later edits to a product or address must not change paid orders | Price, weight, address and delivery window are copied into `Order` |
 
-The historical Django decision (ADR 0002) is superseded by ADR 0007/0008. Kakao authentication remains a later-iteration decision, not the current login mechanism.
+ADR 0002 (Django) was replaced by ADR 0007/0008.
 
-## 2. Component and Interaction Design
+## 2. Design Details
 
-### 2.1 Frontend organization
+### 2.1 Frontend class diagram
 
-| Area | Responsibility |
+Both apps are built from Expo Router screens. A screen loads data with the `useAsync` or `useLiveList` hook, calls an endpoint group from `packages/api`, and draws itself with components from `packages/ui`. The diagram shows the main classes and modules, not every file.
+
+![Frontend class diagram](images/i1-frontend-class.png)
+
+Figure 2. Frontend classes and modules. Arrows point from the caller to what it uses; the dashed arrow is used only in demo mode.
+
+| Module | What it does |
 | --- | --- |
-| apps/consumer | Expo Router screens for discovery, login, checkout, orders, Chat and Me |
-| apps/producer | Login/application gates, dashboard, products, Chat and Settings |
-| packages/ui | Shared design tokens and presentational components |
-| packages/api | Client configuration, endpoint wrappers, API types, pagination and local Mock implementation |
+| `configureApi(namespace)` | Each app calls it once with `consumer` or `producer`, so the two apps keep separate tokens in `localStorage` |
+| `request<T>()` | Adds the bearer token, sends JSON, and turns error responses into `ApiError` (status, code, message, details) |
+| `Endpoints` | One object per server domain (`auth`, `farms`, `catalog`, `orders`, `messaging`). Order creation and payment add an idempotency key automatically |
+| `useAsync` | Loads screen data and keeps what is already shown if a reload fails |
+| `useLiveList` | Polls an open chat or room every 2 seconds and merges new messages by ID |
+| `UIComponents` | Shared layout and chat components so both apps look like one product |
 
-- Each app configures its own storage namespace. Tokens persist in browser localStorage and are attached by the API client.
-- EXPO_PUBLIC_API_MOCK=1 selects demo behavior. The shared Mock URL, when present, takes precedence over the normal API URL.
-- For a real-backend run, disable Mock mode **and unset EXPO_PUBLIC_SHARED_MOCK_URL**; then set EXPO_PUBLIC_API_URL to FastAPI.
-- The typed API layer is maintained in the repository. Do not describe it as automatically generated merely because FastAPI exposes OpenAPI.
-- UI errors use the structured error message/reason; failed saves and sends retain local input.
-- Role changes, logout and follow changes invalidate inaccessible room content rather than leaving stale private content visible.
+### 2.2 Backend class diagram
 
-### 2.2 Navigation and states
+The server is split into domain modules. Each module has a `router` (HTTP and permission checks), `schemas` (Pydantic request/response models), `service` (business logic as functions) and `models` (SQLAlchemy tables). Modules call each other only through service functions. `core` holds shared infrastructure.
 
-| Consumer tabs | Producer tabs |
-| --- | --- |
-| Discover | Dashboard |
-| My Orders | Products |
-| Chat: News Rooms / 1:1 | Chat: own room / 1:1 |
-| Me | Settings: farm profile/link, AI settings, logout |
+![Backend class diagram](images/i1-backend-class.png)
 
-- **Orders:** Confirmed = COMPLETED; Unconfirmed = RESERVED/PREPARING/SHIPPED/DELIVERED; Canceled-Refunded = CANCELED/REFUNDED/PARTIALLY_REFUNDED. Exclude PENDING_PAYMENT. Preserve filter across detail/login return.
-- **Products:** Selling, Under review, Draft, Paused and Ended are mutually exclusive presentation groups. Initial approval belongs under review; a pending increase stays in its current group.
-- **Farm page:** Profile and actions, product list, then story blocks. News lives in its room rather than an inline farm-news tab.
-- **Producer posting:** Entry is the own-farm room. Attached-media success returns to that room.
-- **Layout:** 48px hit areas; 17px body, 16px inputs, 15px secondary text; 4px spacing grid; desktop content width capped at 480px.
-- **Recovery:** Preserve edits on server failure; confirm replacement/unsaved exit; display stale-version conflicts; do not silently overwrite newer data.
+Figure 3. Backend domain modules and their main service functions. Arrows point from the caller to the module it calls.
 
-### 2.3 Backend modules
-
-| Module | Main responsibility | Collaborations |
+| Module | Main tables it owns | Talks to |
 | --- | --- | --- |
-| core | Settings, DB session/Base, clock, IDs, JWT dependencies, error envelope, pagination, idempotency, masking/images | Shared infrastructure |
-| accounts | Seed login, producer application state, saved addresses | Farm application/profile |
-| farms | Public/owner profiles, follow, home, AI settings and story drafts | Catalog summary; AI preview/generation |
-| catalog | Products/options/periods, supply requests, sales edits and product drafts | Orders for usage; AI for extraction |
-| orders | Checkout/payment/cancellation, snapshots, dashboard, harvest/shipping and confirmation | Catalog locks/allocation; messaging inquiry entry |
-| messaging | Broadcasts, private replies/chats, unread state, handoff, inquiries/attachments | Farms for permission/settings; orders for ownership; AI evidence |
-| ai | Stateless model/rule adapter | Returns structured results; callers persist them |
-| analytics | Intended event boundary | Scaffold in this baseline |
+| `core` | `IdempotencyRecord` | Used by every module |
+| `accounts` | `User`, `ShippingAddress` | `farms` for producer applications |
+| `farms` | `Farm`, `Follow`, `FarmAiSettings`, `FarmAiSettingsHistory` | `catalog` for product summaries, `ai` for story drafts and previews |
+| `catalog` | `Product`, `ProductOption`, `Stage`, `StagePrice`, `StageAllocation`, `CapacityRequest`, `ProductDraft` | `orders` for usage, `ai` for draft extraction |
+| `orders` | `Order`, `Payment` | `catalog` for locks and allocation, `messaging` for inquiries |
+| `messaging` | `Broadcast`, `Reaction`, `RoomReply`, `Thread`, `ThreadMessage`, `Escalation`, `OrderInquiry`, `PrivateAttachment` | `farms`, `orders`, `ai` |
+| `ai` | None (stateless) | Returns structured results; the caller saves them |
 
-Routers validate inputs and dependencies, then call services. Cross-domain access is exposed through service functions. Services share a SQLAlchemy session where one transaction must cover multiple resources.
+When one action touches several modules (for example, payment updates `Order`, `Payment` and `StageAllocation`), the services share one SQLAlchemy session so everything commits or rolls back together.
 
-### 2.4 Reservation and payment sequence
+### 2.3 Database model
 
-![Reservation and payment sequence](images/i1-payment-flow.png)
-
-Figure 2. Checkout creates an unpaid snapshot without holding stock. Payment is the point at which availability is rechecked and allocation is consumed.
-
-1. The consumer selects an option/quantity and accepts four consents.
-2. POST /api/orders validates ownership context, current period, price, limits and address; copies fields into PENDING_PAYMENT.
-3. POST /api/orders/{id}/pay rechecks the order and current terms using the product/allocation lock.
-4. A changed period/price or unavailable supply returns a conflict for reconfirmation; mock failure leaves allocation unchanged.
-5. Success records Payment, paid_at and RESERVED and consumes quantity atomically.
-6. Retrying an identical request/key returns its stored result rather than charging or allocating again.
-
-### 2.5 Fulfillment and cancellation
-
-| From | Action | To | Capacity effect |
-| --- | --- | --- | --- |
-| PENDING_PAYMENT | Successful mock payment | RESERVED | Reserve boxes and their weight |
-| RESERVED | Producer starts harvest | PREPARING | No release |
-| RESERVED / PREPARING | Consumer cancels | REFUNDED | Release eligible unshipped quantity once |
-| PREPARING | Producer confirms shipment | SHIPPED | Weight moves from reserved to shipped; stays consumed |
-| SHIPPED | Delivery confirmation | DELIVERED | Intended operator/courier transition; not exposed by baseline operator API |
-| DELIVERED | Consumer confirms | COMPLETED | No release |
-
-- State changes outside authorized transitions are rejected.
-- Bulk shipment UI repeats the per-order ship call; it is not one atomic bulk transaction.
-- Refund status/reason/time are stored on Order and the payment state. There is **no separate Refund table** in this baseline.
-- Eight-day automatic confirmation, suspension-triggered refunds and operational refund jobs are product requirements without a corresponding scheduler/operator implementation here.
-- Seeded delivered/refunded examples are not evidence that all transitions have operational endpoints.
-
-## 3. Data Design
-
-### 3.1 Account and commerce schema
+#### Accounts and commerce
 
 ![Account and commerce ER diagram](images/i1-commerce-erd.png)
 
-Figure 3. Implemented tables and their principal cardinalities. PK = primary key, FK = foreign key, UK = unique constraint. Optional child rows are shown as 0..N or 0..1. The diagram omits routine timestamps and display fields.
+Figure 4. PK = primary key, FK = foreign key, UK = unique constraint. Timestamps and display-only fields are left out.
 
-| Entity | Important stored data | Key / relationship |
+| Table | Key data | Keys and relationships |
 | --- | --- | --- |
-| User | Role, test-account flag, name/phone, optional Kakao ID | String PK; unique (kakao_id, role) |
-| ShippingAddress | Recipient and full address, default flag | User 1:N addresses; Order copies values |
-| Farm | Producer, approval status/reason, profile and detail JSON | Unique producer_id; user 1:0..1 farm |
-| Follow | Consumer/farm IDs and creation time | Composite PK prevents duplicate follows |
-| Product | Farm, quality, delivery, fees, status, capacity, version and detail JSON | Farm 1:N products |
-| ProductOption | Option ID, weight_kg, label and sort order | Composite PK (product_id, id) |
-| Stage | Product, inclusive start/end dates and sort sequence | Product 1:N periods |
-| StagePrice / StageAllocation | Price; box quantity/reserved_count | PK (stage_id, option_id); composite option FK includes product_id |
-| CapacityRequest | Kind, requested_total_grams, decision/status/version | Product 1:N history entries |
-| Order | Buyer, product/option/period, quantity, price/weight/address snapshots, consent, state | Composite option FK; unique order_no |
-| Payment | Order, method/provider, amount, status/time | Unique order_id: order 1:0..1 payment |
-| ProductDraft | Original input, structured output, missing fields and failure flag | Farm-owned draft records |
-| IdempotencyRecord | User, scope, key, body hash, result/status and timestamp | UK (user_id, scope, key); 24-hour retention |
+| `User` | Role (consumer or producer), test-account flag, name, phone | String PK; one role per account |
+| `ShippingAddress` | Recipient, phone, address, default flag | User 1:N; orders copy the values |
+| `Farm` | Owner, approval status and reason, profile, story blocks (JSON) | UK producer_id; user 1:0..1 farm |
+| `Follow` | Consumer, farm, created time | PK (consumer_id, farm_id) blocks duplicate follows |
+| `Product` | Farm, quality, delivery window, fees, status, capacity, version, story blocks | Farm 1:N |
+| `ProductOption` | Weight in kg, label, sort order | PK (product_id, id) |
+| `Stage` | Start and end date (inclusive), order | Product 1:N |
+| `StagePrice` / `StageAllocation` | Price; box quantity and reserved count | PK (stage_id, option_id) |
+| `CapacityRequest` | Initial or increase, requested grams, decision, status, version | Product 1:N history |
+| `Order` | Buyer, product, option, period, quantity, copied price/weight/address, consents, status | UK order_no |
+| `Payment` | Method, provider (MOCK), amount, status, time | UK order_id; order 1:0..1 |
+| `ProductDraft` | Pasted text, extracted fields, missing fields, failed flag | Farm-owned |
+| `IdempotencyRecord` | User, scope, key, body hash, stored response | UK (user_id, scope, key); kept 24 hours |
 
-### 3.2 Communication schema
+#### Communication
 
 ![Communication ER diagram](images/i1-messaging-erd.png)
 
-Figure 4. Broadcasts/room replies are separate from Thread/ThreadMessage. Attachment order/thread references are checked by services; not every logical link is a database FK.
+Figure 5. News (broadcasts and room replies) and 1:1 chat (threads) are stored separately. Some links, such as an attachment's order or thread, are checked in the service instead of by a database FK.
 
-| Entity | Data and constraint |
+| Table | Key data and constraints |
 | --- | --- |
-| Broadcast | Farm, body/media URLs, PUBLIC/FOLLOWERS visibility and reaction count |
-| Reaction | Composite PK (broadcast_id, user_id); one like per accessible broadcast/user |
-| RoomReply | Farm and consumer FKs, masked text and timestamp; own-consumer visibility |
-| Thread | UK (farm_id, consumer_id); AUTO/HUMAN, mode version and per-role read positions |
-| ThreadMessage | Thread FK, monotonic unique sequence, sender type, masked body, attachments, evidence and handoff state |
-| Escalation | Thread/message FKs, reason/question, OPEN/ANSWERED and producer response |
-| FarmAiSettings | Farm PK, enabled, version, policies, FAQs and handoff topics |
-| FarmAiSettingsHistory | Farm/version snapshot, saving user and timestamp |
-| OrderInquiry | Order/thread/message FKs, problem type, OPEN/RESOLVED and version |
-| PrivateAttachment | Uploader FK, logical order/thread context, MIME, bytes, bound flag and timestamp |
+| `Broadcast` | Farm, text, media URLs, PUBLIC or FOLLOWERS, like count |
+| `Reaction` | PK (broadcast_id, user_id): one like per person per post |
+| `RoomReply` | Farm, consumer, masked text; only that consumer and the farm can read it |
+| `Thread` | UK (farm_id, consumer_id); AUTO or HUMAN mode, mode version, read positions |
+| `ThreadMessage` | Thread, increasing sequence number, sender type, masked text, attachments, AI evidence, handoff state |
+| `Escalation` | Question handed to the producer: reason, OPEN or ANSWERED, reply |
+| `FarmAiSettings` / `FarmAiSettingsHistory` | On/off, version, guidelines, FAQs, handoff topics, and each saved version |
+| `OrderInquiry` | Order, thread, problem type, OPEN or RESOLVED, version |
+| `PrivateAttachment` | Uploader, order or thread, MIME type, bytes, bound flag |
 
-### 3.3 Invariants and units
+#### Rules the data must keep
 
-- Money is stored as integer KRW. Capacity limits and order unit-weight snapshots use integer grams; ProductOption retains weight_kg.
-- Product capacity usage is derived from paid orders, their unit_weight_grams and released_quantity.
-- A paid order's allocated quantity is max(0, quantity - released_quantity). shipped_at determines whether that weight is reserved or shipped.
-- **reservedGrams + shippedGrams <= salesLimitGrams <= approvedSupplyGrams**.
-- StageAllocation enforces a separate box limit for a period/option.
-- A post-shipping refund never releases capacity merely because its status changed.
-- Existing order addresses do not reference mutable ShippingAddress rows.
-- Period start/end are inclusive KST dates; business clock helpers use FIXED_NOW only for controlled demos/tests.
+- Money is an integer in won. Supply limits and the weight copied into an order are integers in grams; `ProductOption` keeps `weight_kg` for display.
+- `reservedGrams + shippedGrams <= salesLimitGrams <= approvedSupplyGrams`. Usage is calculated from paid orders, their `unit_weight_grams` and `released_quantity`.
+- A paid order holds `max(0, quantity - released_quantity)` boxes. `shipped_at` decides whether that weight counts as reserved or shipped.
+- `StageAllocation` adds a separate box limit per period and option.
+- A refund after shipping never gives capacity back.
+- Period dates are inclusive and in KST. `FIXED_NOW` pins the clock for demos and tests.
 
-### 3.4 Schema evolution
-
-| Revision | Purpose |
+| Migration | Adds |
 | --- | --- |
-| 0001 | Initial accounts, farm, catalog and order model |
-| 0002 | Messaging and room/thread structures |
-| 0003 | AI settings, order inquiries and private attachments |
-| 0004 | Weight-based supply/capacity requests and order accounting |
-| 0005 | Farm/product detail content |
+| 0001 | Accounts, farms, catalog and orders |
+| 0002 | Messaging: rooms and threads |
+| 0003 | AI settings, order inquiries, private attachments |
+| 0004 | Weight-based supply and capacity requests |
+| 0005 | Farm and product story content |
 
-Use Alembic migrations for an existing database. Do not infer approved supply from legacy box counts. Destructive seed reset is for a disposable local integration database, not deployed data.
+### 2.4 API specification
 
-## 4. API and Authorization
+#### Common rules
 
-### 4.1 Common contracts
+- App endpoints are under `/api`; operator capacity decisions are under `/admin/products`. `GET /health` and `GET /openapi.json` are at the root, and Swagger UI is at `/docs`.
+- JSON fields are camelCase. Protected endpoints need `Authorization: Bearer <token>`.
+- Errors always look like `{ "code", "message", "details" }`: 400 `VALIDATION_ERROR`, 401 not logged in, 403 `FORBIDDEN` (with `details.reason = WRONG_APP` for the other app's account), 404 not found or hidden, 409 `CONFLICT` with a reason such as `STAGE_CHANGED`, `SOLD_OUT`, `INVALID_TRANSITION`, `STALE_VERSION` or `IDEMPOTENCY_MISMATCH`.
+- Lists use `limit` (default 20, max 50) and an opaque `cursor`, and return `{ items, nextCursor }`.
+- Order creation, payment and versioned edits require an `Idempotency-Key` header.
 
-- App resources are under /api; capacity decisions under /admin/products. GET /health and GET /openapi.json are root paths.
-- JSON uses the schemas' camelCase aliases. Requests use Authorization: Bearer for protected resources.
-- Error body: {code, message, details}. Invalid input is 400 VALIDATION_ERROR, missing login 401, forbidden role 403, hidden/missing resource 404, conflict 409.
-- WRONG_APP is a details.reason under FORBIDDEN. Business conflicts use code CONFLICT with details.reason such as STAGE_CHANGED, SOLD_OUT, INVALID_TRANSITION, STALE_VERSION or IDEMPOTENCY_MISMATCH where applicable.
-- Paged resources use limit (default 20, maximum 50) and opaque cursor, returning items and nextCursor. Some small resources, such as test accounts and saved addresses, return arrays.
-- Idempotency-Key is required on endpoints wired through run_idempotent, including order creation/payment and versioned catalog/settings mutations.
-- CORS allows the configured consumer and producer origins. Local URLs and ports must match those settings.
-- FastAPI generates OpenAPI from routers and Pydantic schemas. The source schemas, rather than this summary, define every field.
+#### Example: create an order and pay
 
-### 4.2 Main endpoint groups
+`POST /api/orders` (consumer, `Idempotency-Key` required)
 
-Paths use {id} as a readable placeholder; source routers use names such as {product_id}.
+```json
+{
+  "productId": "p-house",
+  "optionId": "opt-5",
+  "quantity": 1,
+  "recipientName": "Kim Minji",
+  "recipientPhone": "010-0000-0000",
+  "postalCode": "04001",
+  "address": "Seoul, Mapo-gu ...",
+  "addressDetail": "302",
+  "deliveryNote": "Leave at the door",
+  "consents": { "deliveryWindow": true, "delayRefund": true, "shortage": true, "cancelPolicy": true },
+  "consentVersion": "2026-10-07",
+  "saveAddress": true
+}
+```
 
-| Method and path | Caller | Input / result |
-| --- | --- | --- |
-| GET /api/auth/test-accounts | Public when enabled | app -> role-filtered seed accounts |
-| POST /api/auth/test-login | Public when enabled | userId, app -> JWT and user |
-| GET /api/auth/me | Authenticated | Current account |
-| GET / POST /api/auth/producer-application | Producer | Read/submit application; NONE read returns 404 |
-| GET / POST /api/auth/me/addresses | Consumer | List/save recipient address |
-| GET /api/home | Public | Hero, products and farm summaries |
-| GET /api/farms/{id} | Public | Approved farm detail |
-| GET / PATCH /api/farms/me | Producer owner | Own profile and detailContent |
-| PUT / DELETE /api/farms/{id}/follow | Consumer | Follow state |
-| GET /api/products/{id} | Public | Published product detail |
-| GET /api/products/mine | Approved producer | Paged own product summaries |
-| POST /api/products/drafts | Approved producer | inputText -> draft/missingFields/failed |
-| POST /api/products | Approved producer | New product |
-| PATCH /api/products/{id} | Owner | Versioned product changes |
-| PUT /api/products/{id}/stages | Owner | Reservation periods/prices/allocations |
-| PUT /api/products/{id}/sales-settings | Owner | Capacity limit/pause settings |
-| GET / POST /api/products/{id}/capacity-requests | Owner | Request history / new initial or increase request |
-| POST /api/products/{id}/capacity-requests/{requestId}/withdraw | Owner | Withdraw pending request |
-| POST /admin/products/{id}/capacity-requests/{requestId}/approve | Admin | Approve requested capacity |
-| POST /admin/products/{id}/capacity-requests/{requestId}/reject | Admin | Reject with reason |
+Response `200`: an unpaid order with the server's price.
 
-### 4.3 Orders, communication and AI endpoints
+```json
+{
+  "orderId": "o-...",
+  "orderNo": "FC-1007-0001",
+  "status": "PENDING_PAYMENT",
+  "quantity": 1,
+  "unitPrice": 29000,
+  "shippingFee": 0,
+  "remoteAreaFee": 0,
+  "totalAmount": 29000,
+  "deliveryWindow": { "start": "2026-11-10", "end": "2026-11-20" }
+}
+```
+
+`POST /api/orders/{orderId}/pay` with `{ "mockResult": "success" }` returns `{ "order": { ...status: "RESERVED" }, "result": "success", "failReason": null }`. If the period or price changed, or the last box was just sold, it returns:
+
+```json
+{ "code": "CONFLICT", "message": "이 단계 물량이 다 팔렸어요.", "details": { "reason": "SOLD_OUT", "productId": "p-house" } }
+```
+
+#### Example: AI product draft
+
+`POST /api/products/drafts` (approved producer) with `{ "inputText": "[강씨네 귤밭] 올해 하우스 감귤 ... 5키로 3만원" }` returns the extracted fields, a `missingFields` list and a `failed` flag. A price in the text is never copied into the draft. If the model fails or times out, `failed` is true and the producer fills in the product by hand.
+
+#### Example: log in with a test account
+
+`POST /api/auth/test-login` (only when test login is on)
+
+```json
+{ "userId": "u-minji", "app": "consumer" }
+```
+
+Response `200`: `{ "accessToken": "<JWT>", "user": { "userId": "u-minji", "name": "김민지", "role": "CONSUMER", ... } }`. Logging in to the producer app with a consumer account returns 403 with `details.reason = "WRONG_APP"`.
+
+#### Example: ask a farm a question
+
+`POST /api/messaging/chats/f-kang/messages` (consumer who follows the farm, or has a paid order with it)
+
+```json
+{ "text": "배송은 언제예요?", "attachmentIds": [], "orderId": null }
+```
+
+Response `200` when AI answers:
+
+```json
+{
+  "message": { "messageId": "m-...", "senderType": "CONSUMER", "body": "배송은 언제예요?", "masked": false, "handoffStatus": null },
+  "reply": { "messageId": "m-...", "senderType": "AI", "body": "11월 10일~20일 사이에 도착해요.", "sourceSummary": "Product delivery window", "needsHuman": false }
+}
+```
+
+For a handoff topic (for example "농약은 얼마나 치세요?") the question is saved with `"handoffStatus": "FORWARDED"` and `reply` is `null`; the producer sees it under Needs reply. If the farm has AI off or the producer has taken over, `reply` is also `null`.
+
+#### Example: ship an order
+
+`POST /api/orders/{orderId}/ship` (owning producer)
+
+```json
+{ "carrier": "CJ", "trackingNumber": "123-456" }
+```
+
+Response `200`: the order with `"status": "SHIPPED"`, the ship time, carrier and tracking number. Shipping an order that is not `PREPARING` returns 409 with `details.reason = "INVALID_TRANSITION"`.
+
+#### Endpoint groups
+
+Paths use `{id}` as a placeholder.
 
 | Method and path | Caller | Purpose |
 | --- | --- | --- |
-| POST /api/orders | Consumer | Create unpaid snapshot with consent |
-| POST /api/orders/{id}/pay | Order owner | Mock payment and atomic allocation |
-| GET /api/orders; GET /api/orders/{id} | Consumer owner | History/detail |
-| POST /api/orders/{id}/cancel | Consumer owner | Eligible pre-shipping refund |
-| POST /api/orders/{id}/confirm | Consumer owner | Confirm a delivered order |
-| POST /api/orders/{id}/delivery-window-response | Consumer owner | Accept/reject proposed window |
-| GET /api/orders/producer/dashboard | Approved producer | Own-farm demand and pending work |
-| GET /api/orders/producer | Approved producer | Fulfillment orders |
-| POST /api/orders/producer/harvest-start | Product owner | RESERVED -> PREPARING |
-| POST /api/orders/{id}/ship | Owning producer | PREPARING -> SHIPPED |
-| GET /api/messaging/rooms/{farmId}/messages | Visibility-dependent | Filtered room page |
-| POST /api/messaging/rooms/{farmId}/messages | Follower / owner | Private consumer reply / producer broadcast |
-| POST /api/messaging/news | Approved producer | Public/follower broadcast |
-| PUT / DELETE /api/messaging/news/{id}/reaction | Eligible consumer | Like/unlike |
-| GET / POST /api/messaging/chats | Consumer | Conversation list/start |
-| GET / POST /api/messaging/chats/{farmId}/messages | Consumer participant | Private history/send |
-| GET / POST /api/messaging/producer/chats/{consumerId}/messages | Owning producer | Private history/reply |
-| PUT /api/messaging/producer/chats/{consumerId}/ai-mode | Owning producer | Versioned AUTO/HUMAN |
-| POST /api/orders/{id}/inquiries | Paid-order owner | Idempotent contextual inquiry |
-| POST /api/messaging/attachments | Authorized uploader | Upload one private file with order/thread context |
-| GET /api/messaging/attachments/{id} | Participants | Read one private file after access checks |
-| GET / PUT /api/farms/me/ai-settings | Owning producer | Read/save settings |
-| POST /api/farms/me/ai-settings/preview | Owning producer | Side-effect-free preview |
-| POST /api/farms/me/detail-draft | Owning producer | Generate farm detail without saving |
-| POST /api/products/mine/{id}/detail-draft | Product owner | Generate product detail without saving |
+| GET /api/auth/test-accounts · POST /api/auth/test-login | Anyone, when test login is on | Account list for the app; login returns a JWT |
+| GET /api/auth/me | Logged in | Current account |
+| GET · POST /api/auth/producer-application | Producer | Read or submit the farm application |
+| GET · POST · PATCH · DELETE /api/auth/me/addresses | Consumer | Address book |
+| GET /api/home · GET /api/farms · GET /api/farms/{id} | Anyone | Home, farm list, farm page |
+| PUT · DELETE /api/farms/{id}/follow | Consumer | Follow and unfollow |
+| GET · PATCH /api/farms/me | Farm owner | Own profile and story |
+| GET · PUT /api/farms/me/ai-settings · POST .../preview | Farm owner | AI settings and preview |
+| GET /api/products/{id} | Anyone | Published product |
+| GET /api/products/mine · POST /api/products/drafts · POST /api/products | Approved producer | Own products, AI draft, new product |
+| PATCH /api/products/{id} · PUT /api/products/{id}/stages · PUT .../sales-settings | Owner | Edit product, periods and prices, sales limit and pause |
+| GET · POST /api/products/{id}/capacity-requests · POST .../{requestId}/withdraw | Owner | Supply requests |
+| POST /admin/products/{id}/capacity-requests/{requestId}/approve · .../reject | Operator | Approve or reject supply |
+| POST /api/orders · POST /api/orders/{id}/pay | Consumer | Create order, pay |
+| GET /api/orders · GET /api/orders/{id} | Order owner | History and detail |
+| POST /api/orders/{id}/cancel · .../confirm · .../delivery-window-response | Order owner | Cancel, confirm receipt, answer a window change |
+| GET /api/orders/producer/dashboard · GET /api/orders/producer | Approved producer | Dashboard and orders to ship |
+| POST /api/orders/producer/harvest-start · POST /api/orders/{id}/ship | Owning producer | RESERVED → PREPARING → SHIPPED |
+| GET · POST /api/messaging/rooms/{farmId}/messages · POST /api/messaging/news | Follower / owner | Room page, private reply, broadcast |
+| PUT · DELETE /api/messaging/news/{id}/reaction | Consumer | Like and unlike |
+| GET · POST /api/messaging/chats · .../chats/{farmId}/messages | Consumer | Chat list, start, history, send |
+| GET · POST /api/messaging/producer/chats/{consumerId}/messages · PUT .../ai-mode | Owning producer | Reply; switch AUTO or HUMAN |
+| POST /api/orders/{id}/inquiries | Paid-order owner | Order problem inquiry |
+| POST /api/messaging/attachments · GET .../{id} | Participants | Upload and read a private photo |
 
-The implementation also has room lists, read-position updates, question lists/answers and inquiry status endpoints. Full routes are discoverable through OpenAPI. A producer can never use a consumer token to bypass farm ownership.
+Room lists, read positions, question lists and inquiry status endpoints are also available; the full list is in OpenAPI at `/docs`.
 
-### 4.4 Data shapes and privacy
+### 2.5 Key flows
 
-| Shape | Key fields / constraint |
-| --- | --- |
-| Error | code, message, details; field errors or conflict reason |
-| Paged result | items, nextCursor |
-| DetailContent | blocks: text or image; <=30 blocks, unique block IDs |
-| Text block | id, type=text, title <=100 chars, body <=3,000; at least one nonempty text field |
-| Image block | id, type=image, uri, alt <=200; validated URI; no HTML execution |
-| Detail draft | content, mode=ai or mock; no implicit save |
-| Inquiry | orderId context, type, text, attachmentIds; resolving is not compensation approval |
+#### Reservation and payment
 
-- Filter room visibility **before** pagination, summaries and preview selection.
-- Before binding a private attachment, verify uploader, order/thread participation and single-use binding.
-- Private files are MIME/size checked and sanitized; they are not served through a public object URL.
-- Unbound files expire after 24 hours. Upload-time cleanup removes old unbound rows; this is not a scheduled cleanup worker.
-- An unfollowed consumer retains the ability to inquire about their own paid order. Ordinary new chat requires following.
+![Reservation and payment sequence](images/i1-payment-flow.png)
 
-## 5. AI and Implementation Decisions
+Figure 6. Checkout creates an unpaid order without holding stock. Stock is checked and taken only at payment.
 
-### 5.1 Product and story generation
+1. The consumer picks an option and quantity and accepts four consents.
+2. `POST /api/orders` checks the current period, price, limits and address, and copies them into a `PENDING_PAYMENT` order.
+3. `POST /api/orders/{id}/pay` locks the product and period allocation and checks the order against the current terms.
+4. If the period or price changed or stock ran out, it returns 409 and the app asks the user to confirm again. A simulated failure takes no stock.
+5. On success it records `Payment`, sets `RESERVED` and takes the stock in the same transaction.
+6. Sending the same request with the same key returns the saved result, so nothing is charged or taken twice.
 
-1. Accept producer source text and registered facts through authorized farm/catalog routes.
-2. Remove contact/account information; keep transaction prices/dates in sales settings rather than generated detail.
-3. For product extraction, call Claude with the fixed extraction schema. Missing credentials, invalid output or timeout returns a failed draft for manual completion.
-4. For story blocks, build a deterministic fallback from supplied/registered data. With credentials, try Claude; validate output blocks and chosen photograph URLs.
-5. Return mode=mock on missing credentials or invalid/failed detail generation. Return mode=ai only for accepted model output.
-6. Save only on the producer's explicit profile/product update. Generation itself performs no publication.
+#### Order states
 
-These two failure behaviors differ deliberately: failed product extraction allows empty/manual completion, whereas detail generation can return a structured fallback.
+| From | Action | To | Stock |
+| --- | --- | --- | --- |
+| PENDING_PAYMENT | Payment succeeds | RESERVED | Boxes and weight reserved |
+| RESERVED | Producer starts harvest | PREPARING | No change |
+| RESERVED / PREPARING | Consumer cancels | REFUNDED | Unshipped quantity released once |
+| PREPARING | Producer ships | SHIPPED | Weight moves from reserved to shipped |
+| SHIPPED | Delivery confirmed | DELIVERED | No change (operator/courier step, not in the I1 operator API) |
+| DELIVERED | Consumer confirms receipt | COMPLETED | No change |
 
-### 5.2 Question answering and takeover
+- Any other transition is rejected with `INVALID_TRANSITION`.
+- Shipping several orders at once calls the ship endpoint once per order; it is not one bulk transaction.
+- Refund status, reason and time are stored on `Order` and `Payment`. There is no separate refund table.
 
-1. Check farm AI enablement and thread mode.
-2. Detect mandatory handoff topics, including pesticide/cultivation claims, refunds, compensation, subjective taste, damage and delivery promises.
-3. Try deterministic answers for supported facts: delivery window/fee, measured or expected sweetness, eligible FAQ and policy text.
-4. Otherwise, call Claude only when credentials exist. Provide selected evidence rather than shipping personal data or private photos.
-5. Parse structured ANSWER/HANDOFF output. Missing credentials, model failure or inadequate evidence results in handoff.
-6. Persist the consumer message and AI guidance or escalation. Recheck captured thread/settings versions before storing the answer.
-7. An explicit producer reply changes the thread to HUMAN atomically; later AUTO applies only to subsequent messages.
+### 2.6 AI components
 
-The current send service runs synchronously while holding the thread transaction. It is not a background worker queue. Version checks exist, but model latency can extend transaction duration. The documentation does not present this as an asynchronous architecture.
+#### Product draft and story draft
 
-### 5.3 Concurrency and idempotency
+1. The producer sends text through a farm or catalog endpoint.
+2. `strip_personal_info()` removes phone numbers and account numbers. Prices and dates stay in sales settings, never in generated text.
+3. `draft_product()` asks Claude for a fixed JSON schema. No key, invalid output or a timeout returns a failed draft so the producer can fill it in by hand (N-04, 20-second budget).
+4. `detail_draft()` builds a rule-based story from the farm's own data first, then asks Claude to improve it when a key is set. Output blocks and chosen photo URLs are validated. The response says `mode: ai` or `mode: mock`.
+5. Nothing is published until the producer saves.
 
-| Concern | Mechanism | Why |
+#### Question answering and handoff
+
+![AI question answering sequence](images/i1-ai-answer-sequence.png)
+
+Figure 7. What happens when a consumer sends a 1:1 question. The thread row stays locked until the answer or handoff is saved.
+
+1. Check that the farm has AI on and the thread is AUTO.
+2. Questions on fixed handoff topics go straight to the producer: pesticide and growing claims, refunds, compensation, subjective taste, damage, delivery promises.
+3. Simple facts are answered by rules first: delivery window and fee, measured or expected sweetness, FAQ, policy text.
+4. Otherwise Claude is called with selected evidence only. Shipping details and private photos are never sent.
+5. The model returns ANSWER or HANDOFF. No key, a model error or weak evidence means HANDOFF.
+6. Before saving the answer, the service checks that the thread mode and AI settings version have not changed. A producer reply switches the thread to HUMAN; turning AUTO back on only affects later messages.
+
+The answer is generated inside the request while the thread row is locked. This keeps ordering simple in I1, but a slow model call makes the request slower. Moving it to a background worker is a candidate for a later iteration.
+
+### 2.7 Implementation decisions
+
+| Problem | What we do | Why |
 | --- | --- | --- |
-| Last capacity | Lock product, then period-option allocation; recheck current usage | Avoid two payments consuming the same capacity |
-| Paid snapshots | Store unit price and integer unit weight on Order | Product edits cannot rewrite paid history |
-| Repeated cancellation | released_quantity and shipped_at guard release | Restore only eligible unshipped quantity once |
-| Stale edits | Product/request/settings version checks | Reject lost updates rather than overwrite |
-| Retried writes | User + operation scope + key, body hash and stored result | Replay same request; reject changed body |
-| Idempotency retention | 24-hour records; expired rows removed on use | Bound replay lifetime |
-| AI takeover | Thread transaction, mode/settings versions, explicit AUTO | Prevent late stale answers after takeover |
-| Message order | Unique sequence plus stable identifiers | Stable read positions and merged conversation pages |
+| Two buyers, one box left | Lock the product, then the period/option allocation, then recheck usage | Only one payment can take the last box |
+| Product edits after payment | Copy unit price and unit weight into `Order` | Paid orders never change |
+| Cancel pressed twice | `released_quantity` and `shipped_at` guard the release | Stock is given back once, and never after shipping |
+| Two people editing the same product or settings | Version number on product, capacity request and AI settings | The second save gets `STALE_VERSION` instead of overwriting |
+| Retried requests | Store user + scope + key, a hash of the body, and the response | Same request gets the same answer; a changed body is rejected |
+| Old idempotency records | Kept 24 hours, cleaned up when touched | Keeps the table small |
+| Late AI answer after the producer takes over | Thread lock plus mode and settings versions | A stale AI answer is never saved |
+| Message order in chat | Unique sequence number per thread | Stable read positions and page merging |
+| Privacy in rooms | Filter by viewer before paging and previews | Other buyers' replies never leak into counts or previews |
+| Private photos | MIME and size checks, EXIF removed, served only after an access check, unbound files expire after 24 hours | Inquiry photos stay between buyer and farm |
+| Chat updates | Poll every 2 seconds on open screens only | Simple and enough for I1 traffic; no socket server to run |
 
-Idempotency stores successful results and handled 409 responses. A changed payload needs a new key after the user has reviewed the changed operation.
+## 3. Design Patterns
 
-### 5.4 Implementation gaps and planned services
+Detailed write-ups are due in Iteration 5. Patterns already in the code that we plan to document:
 
-| Requirement / plan | Inspected implementation | Consequence |
-| --- | --- | --- |
-| Server /s/farms/{id} OG page | No registered share-page route in main.py | Direct consumer navigation and server-generated preview are different; preview acceptance is not established |
-| Operator approval/refund/delivery APIs | Only catalog capacity admin router registered | Do not claim full operator workflow coverage |
-| Eight-day confirmation / automatic operational refunds | No corresponding job in orders/core | Seed states do not prove automated transitions |
-| R2 and public media processing | No completed backend R2 upload integration | Private DB attachments do not establish production public-media handling |
-| PostHog / Sentry / Langfuse | Planned stack, no completed integration in inspected modules | No telemetry delivery or trace-coverage claim |
-| Configurable remote delivery areas | orders service uses example postal/address matching | Producer-specific region policy remains follow-up work |
-| Dedicated Refund entity | Refund fields on Order plus Payment state | ERD reflects implemented storage rather than an unimplemented draft table |
+- **Adapter:** `server/app/ai` hides the Anthropic SDK behind `draft_product()`, `detail_draft()` and `answer_question()`, with a rule-based fallback.
+- **Service layer:** routers only validate and check permissions; business logic lives in each module's `service.py`.
+- **Idempotency key:** `core/idempotency.py` replays a stored response for a repeated request.
+- **Optimistic concurrency:** version numbers on products, capacity requests and AI settings.
+- **Snapshot:** orders copy price, weight and address at payment time.
 
-These are documentation findings, not newly executed failure tests or fixes. Product requirements are retained; resolving implementation gaps is separate engineering work.
+## 4. Implementation Status
 
-## 6. Reproduction and Source Map
+Working in I1 against the real server: reservation, simulated payment, fulfillment, capacity approval, private messaging, AI settings, order inquiries and farm stories.
 
-### 6.1 Local prerequisites and startup
+Not built yet:
 
-- Node.js version from .nvmrc; npm workspaces.
-- Python 3.12 and uv; PostgreSQL 16 from server/docker-compose.yml.
-- Server: uv sync; docker compose up -d; uv run alembic upgrade head.
-- Disposable demo database only: uv run python -m app.core.seed --reset.
-- Set MOCK_LOGIN_ENABLED=true and FIXED_NOW=2026-10-07T10:00:00+09:00 for the documented seed scenario.
-- Start uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 from server/.
-- Start each app with EXPO_PUBLIC_API_MOCK=0, EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 and no shared Mock URL. Use ports 8081 and 8082.
-- Outside local mode, configure JWT_SECRET. Never commit credentials. Anthropic credentials are needed only for actual external generation.
-
-### 6.2 Source map
-
-| Subject | Repository source |
+| Planned | Current state |
 | --- | --- |
-| Router registration and CORS | server/app/main.py |
-| Auth and role dependencies | server/app/core/security.py; server/app/accounts/router.py |
-| Transactions and capacity | server/app/orders/service.py; server/app/catalog/service.py |
-| Idempotency and errors | server/app/core/idempotency.py; server/app/core/errors.py |
-| Chat, privacy and attachments | server/app/messaging/service.py and models.py |
-| AI behavior | server/app/ai/service.py |
-| Database structure | server/app/*/models.py; server/migrations/versions/0001-0005 |
-| Frontend transport | packages/api/src/client.ts and endpoints.ts |
-| Visual design | docs/design/README.md; docs/design/screens/ |
+| Server-rendered share page `/s/farms/{id}` for KakaoTalk previews | No route yet; the farm link opens the consumer app directly |
+| Operator APIs for approval, refunds and delivery | Only capacity approval is available |
+| Automatic purchase confirmation after 8 days, scheduled refunds | No scheduler yet |
+| Cloudflare R2 for public media | Private photos are stored in PostgreSQL; public media upload is not wired up |
+| PostHog, Sentry, Langfuse | Chosen in the stack; not connected |
+| Producer-specific remote delivery areas | Uses an example postal-code rule |
 
-The [repository](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/747f588) provides the reproducible baseline. [Product contracts](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/spec) define intended behavior. Testing plans/results remain in [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation), separate from this design document. Detailed design-pattern reporting is due in Iteration 5.
+## 5. Running Locally and Source Map
+
+### 5.1 Setup
+
+1. Node.js from `.nvmrc` with npm workspaces; Python 3.12 with uv; PostgreSQL 16 from `server/docker-compose.yml`.
+2. Server: `uv sync`, `docker compose up -d`, `uv run alembic upgrade head`.
+3. Demo data (local database only): `uv run python -m app.core.seed --reset`.
+4. Set `MOCK_LOGIN_ENABLED=true` and `FIXED_NOW=2026-10-07T10:00:00+09:00` for the seeded scenario.
+5. Start the server from `server/`: `uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`.
+6. Start each app with `EXPO_PUBLIC_API_MOCK=0`, `EXPO_PUBLIC_API_URL=http://127.0.0.1:8000` and no `EXPO_PUBLIC_SHARED_MOCK_URL`, on ports 8081 and 8082.
+7. Outside local runs, set `JWT_SECRET`. An Anthropic key is only needed for real AI generation. Never commit secrets.
+
+### 5.2 Where to look in the code
+
+| Topic | Files |
+| --- | --- |
+| Routers and CORS | `server/app/main.py` |
+| Login and roles | `server/app/core/security.py`, `server/app/accounts/router.py` |
+| Orders, stock and capacity | `server/app/orders/service.py`, `server/app/catalog/service.py` |
+| Idempotency and errors | `server/app/core/idempotency.py`, `server/app/core/errors.py` |
+| Chat, privacy and attachments | `server/app/messaging/service.py`, `server/app/messaging/models.py` |
+| AI | `server/app/ai/service.py` |
+| Database | `server/app/*/models.py`, `server/migrations/versions/0001-0005` |
+| Frontend API client | `packages/api/src/client.ts`, `packages/api/src/endpoints.ts` |
+| Shared UI | `packages/ui/src/` |
+| Screen designs | `docs/design/README.md`, `docs/design/screens/` |
+
+Product behavior is defined in [docs/spec](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/spec).
