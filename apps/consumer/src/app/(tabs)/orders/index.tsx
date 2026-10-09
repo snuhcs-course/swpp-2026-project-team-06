@@ -66,6 +66,16 @@ export default function OrderList() {
   );
   const list = useLiveList(load, user?.userId ?? "", active && !!user, 8000);
   const items = list.data?.filter((o) => orderGroup(o) === selected);
+  const groupCounts = list.data
+    ? Object.fromEntries(
+        orderGroups.map((group) => [
+          group.value,
+          list.data.filter((o) => orderGroup(o) === group.value).length,
+        ]),
+      )
+    : null;
+  const selectedGroupLabel =
+    orderGroups.find((group) => group.value === selected)?.label ?? "";
 
   const row = (o: Order, i: number) => (
     <Pressable
@@ -146,10 +156,7 @@ export default function OrderList() {
                   selected === group.value ? "white" : tokens.color.textMuted
                 }
               >
-                {list.data
-                  ? list.data.filter((o) => orderGroup(o) === group.value)
-                      .length
-                  : "—"}
+                {groupCounts?.[group.value] ?? "—"}
               </T>
             </Pressable>
           ))}
@@ -170,7 +177,7 @@ export default function OrderList() {
             icon="box"
             title={
               list.data?.length
-                ? `${orderGroups.find((g) => g.value === selected)!.label} 주문이 없어요`
+                ? `${selectedGroupLabel} 주문이 없어요`
                 : "아직 예약한 상품이 없어요"
             }
             action={
