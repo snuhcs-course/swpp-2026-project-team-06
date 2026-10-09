@@ -61,6 +61,24 @@
 - [x] 표 수정, 지정한 값과 diff 검증, 후속 PR #59 제출.
 - 검증: 지정한 역할·열 제목·기존 이름과 행 순서 일치, `git diff --check` 통과. 문서 변경만 있어 제품 테스트는 실행하지 않았다.
 
+## SWPP-34 Requirements and Specifications 가이드라인 맞춤
+
+- 기준: main 8f2b8a5. 브랜치 `nemodleo/swpp-34-requirements-and-specifications`.
+- 목표: 수업 가이드라인(2 - Requirements & Specifications Guidelines)과 예시 3개(2025 team 16·07·09) 형식에 맞춰 Wiki 요구사항 문서를 완성한다.
+- 범위: `docs/wiki/Requirements-and-Specifications.md`, 이 섹션.
+- 비범위: Design Documentation(다음 브랜치), 스펙 원본(`docs/spec`) 내용 변경, 그림 새로 만들기, 제품 코드.
+
+### 결정 사항
+- 10/09 목차를 추가하고 개정 이력에 1.2를 남긴다.
+- 10/09 경쟁 비교는 가이드라인의 O/X 표로 바꾼다. 공식 자료에 없는 기능은 X가 아니라 '-'(확인 못 함)로 둔다.
+- 10/09 인수 조건은 한 시나리오씩 GIVEN/WHEN/THEN/AND로 나눈다. AC 번호와 내용은 `docs/spec/functional` 원문을 따른다(AC 집합은 이전 판과 같음).
+- 10/09 UI 요구사항에 화면별 표(하는 일, 입력·동작, 이동, 실패·금지)를 소비자·생산자 앱으로 나눠 추가한다. 근거는 `docs/spec/screens.md`와 `navigation-1.3.md`.
+- 10/09 문서 톤은 팀이 직접 쓴 평이한 문장으로 맞추고, 방어적인 단서 문장은 줄인다. 미구현 범위는 8장에 그대로 적는다.
+
+### 작업
+- [x] 가이드라인·예시 3개와 현재 문서 차이 정리
+- [x] 목차, O/X 비교표, 시나리오 분리, 화면별 UI 표, 8장 정리
+- [ ] 사람 리뷰
 ## SWPP-34 Design Documentation 가이드라인 맞춤
 
 - 기준: main 8f2b8a5(747f588 이후 제품 코드 변경 없음). 브랜치 `nemodleo/swpp-34-design-documentation`.
