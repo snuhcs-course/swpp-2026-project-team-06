@@ -9,6 +9,7 @@ Team 6 | Farmclub | Iteration 1 | 9 October 2026
 | 0.1 | 2026-10-07 | Team 6 | Initial specification from the product documents |
 | 0.2 | 2026-10-07 | Team 6 | Separate consumer and producer accounts; revised login and UI requirements |
 | 1.0 | 2026-10-09 | Team 6 | Submission edition: customers, competition, stories, criteria and UI flows; consolidate specs 1.2-1.5 |
+| 1.1 | 2026-10-09 | Team 6 | Add Nongsafund to the competitive comparison with official sources |
 
 ## 1. Project Abstract
 
@@ -32,15 +33,17 @@ This comparison describes documented offerings. An unmentioned capability is not
 
 | Alternative | Documented offering | Farmclub's intended distinction |
 | --- | --- | --- |
+| Nongsafund | Agricultural funding and advance purchases supporting farms before harvest; producer stories, growing-process updates and food subscriptions | Jeju citrus focus with measured/expected sweetness, date-based reservation prices, approved supply limits, AI-assisted drafting and private support |
 | Wadiz | Funding, preorder and store services for makers across categories, including food | A focused citrus journey with date-based prices, supply approval and ongoing farm communication |
 | Local Line | Farm storefronts, seasonal preorders, inventory, subscriptions and retail/wholesale tools | Consumer-facing Jeju citrus discovery combined with quality information, news rooms and private support |
 
+- **Closest comparison:** Nongsafund already connects advance purchasing with farmer relationships and growing updates. Farmclub's proposed distinction is the specific combination of citrus quality information, reservation rules and producer workflows.
 - **Reservation clarity:** Present current price, delivery timing and cancellation terms together.
 - **Farm relationship:** Connect public growing updates and private questions to the farm page.
 - **Producer assistance:** Draft from existing text and hand judgment-dependent questions to the farmer.
 - **Evidence boundary:** These are prototype design choices, not measured market superiority.
 
-Official sources reviewed on 9 October 2026: [Wadiz company brief, June 2026, pp. 12-16](https://static.wadiz.kr/file/ir/wadiz_company_brief_ko.pdf); [Local Line farm e-commerce](https://www.localline.co/suppliers/e-commerce-for-farmers).
+Official sources reviewed on 9 October 2026: [Nongsafund's explanation of funding and advance purchases, 28 December 2025](https://www.ffd.co.kr/think-ceo/?bmode=view&idx=169231526) and [storefront/subscriptions](https://www.ffd.co.kr/); [Wadiz company brief, June 2026, pp. 12-16](https://static.wadiz.kr/file/ir/wadiz_company_brief_ko.pdf); [Local Line farm e-commerce](https://www.localline.co/suppliers/e-commerce-for-farmers).
 
 ## 4. Scope and Shared Rules
 
