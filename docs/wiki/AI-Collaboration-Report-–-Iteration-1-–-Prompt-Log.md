@@ -39,41 +39,51 @@ Back to [[AI Collaboration Report – Iteration 1|AI-Collaboration-Report-–-It
 
 ---
 
-## Jinwoo Jang
+## Jinwoo — AI Collaboration (Iteration 1)
 
-### Prompts (verbatim)
-- PR #39 records a summarized instruction ("대표 지시"), not the original prompt — replace with the verbatim prompt.
-- PR #40 records a summarized instruction ("대표 지시"), not the original prompt — replace with the verbatim prompt.
-- PR #43 records a summarized request ("사용자 요청"), not the original prompt — replace with the verbatim prompt.
-- <date · tool · target> — "<verbatim prompt>"
+**Period covered:** October 1–9, 2026 (KST)
 
-### Did well
-- Self-review in the frontend PR fixed decimal-weight rounding (`packages/api/src/mock/catalog.ts:318`), reused the idempotency key on PATCH retry (`apps/producer/src/app/(tabs)/products/[id]/edit.tsx:268`), linked delivery-window changes to existing orders' consent (`packages/api/src/mock/catalog.ts:370`), fixed a login/async response race, removed an intermediate redirect, and fixed a test delivery-date fixture. **Draft from PR #41 — confirm**
-- Self-verification found the nested layout's local search params lost the filter after login; fixed with global search params (`apps/consumer/src/app/(tabs)/orders/_layout.tsx:12`). **Draft from PR #42 — confirm**
-- Review caught that HUMAN→AUTO / OFF→ON could save a stale AI answer; the contract now compares thread and AI-settings versions (`docs/spec/contracts-1.2.md:103`). **Draft from PR #38 — confirm**
-- Fixed during AI review: old preset/question-inbox text, "needs answer" when AI is OFF, table column counts and price-reconfirmation wording. **Draft from PR #38 — confirm**
-- Narrowed the old AC that banned news in the chat tab to 1:1 conversations only (FEAT-12 AC-12-5). **Draft from PR #39 — confirm**
-- Verification found and fixed a missing back destination after direct URL entry, optional-field differences on retry, and a product-row layout overlap. **Draft from PR #45 — confirm**
+**Tool / model:** Codex / `gpt-6-astra` (session records). Prompt excerpts below are English translations.
 
-### Hallucinations
-- <TBD>
+### 1. Where AI Was Used
 
-### Prompt revisions (before → after)
-- <before> → <after> — <why it worked>
+AI supported three connected workstreams: producer survey analysis and interview preparation; frontend implementation and specification refinement; and submission documentation. Its contributions included organizing research notes, drafting interview questions, implementing interfaces, synchronizing specifications, and structuring Wiki documents.
 
-### Manual fixes
-- The user set the direction of per-product total limits and spec-first branches. **Draft from PR #38 — confirm**
-- No human fixes recorded. **Draft from PR #46 — confirm**
+Producer interviews were conducted personally. AI assisted with preparation and subsequent analysis rather than replacing the conversations. Interpretation of interview findings and final product decisions remained subject to human review.
 
-### Where AI was NOT used
-- <TBD>
+### 2. Prompt History
 
-### Tools, time, tokens recorded in PRs
-- PR #38, #39: Codex / GPT-6; time and tokens not measured. **Draft from PR #38, #39 — confirm**
-- PR #40: Codex; about 0.3h (work log); tokens: no measuring tool. **Draft from PR #40 — confirm**
-- PR #41: Codex / GPT-6 (exact backend model ID not shown); about 0.7h for this work, earlier frontend sessions not measured; tokens not measured. **Draft from PR #41 — confirm**
-- PR #42: Codex; about 0.15h; tokens not measured. **Draft from PR #42 — confirm**
-- PR #43, #44, #45, #46: Codex; exact time and tokens not available. **Draft from PR #43–#46 — confirm**
+- **Producer research, October 1–7 — survey analysis, interview questions, and summaries:** An initial request to analyze survey results developed into interview preparation and follow-up. On October 5, the scope was refined: “Focus the interview questions on what the survey has not established and what still needs to be asked.”
+- **Frontend and specifications, October 7–8 — PRs #39–41:** The initial task was to implement the frontend from the supplied prototype. A follow-up established the workflow: “Make the specification changes on a separate branch and merge them before changing the frontend, since someone else is also working on the backend.”
+- **Submission documentation, October 9 — PR #58:** “Keep filling in the documents that can be completed without additional confirmation.” Subsequent feedback requested clearer lists and tables, consolidation of the proposal, and deferred PDF export.
+
+### 3. What AI Did Well
+
+Survey findings and interview notes were converted into reusable questions and concise summaries. Follow-up instructions were incorporated into the same research workflow, allowing revisions to build on the existing material.
+
+For development, revised navigation and supply-approval decisions were carried through specifications and frontend implementation. [PR #41](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/41) records passing type checks across four workspaces, eight Mock tests, and both web exports. [PR #58](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/58) records 19 user stories with acceptance scenarios and documentation checks against implementation. These are historical verification results. Time saved and total usage were not separately measured.
+
+### 4. Hallucinations / Errors
+
+An interview summary confused quantities intended for sale through the service with total production. Human review identified the distinction, and the October 6 summaries were revised. Participation wording was also challenged and then clarified to distinguish participating and non-participating interviewees. On October 7, a wholesale-related constraint was initially interpreted as uncertainty about when a producer would switch channels. The interpretation was corrected before the final summary was saved.
+
+Documentation checking found `VERSION_CONFLICT` where the implementation used `STALE_VERSION` (PR #58). That correction came from AI-assisted code comparison. The research errors required additional clarification and revision; correction time was not separately measured.
+
+### 5. Prompt Revisions
+
+**Research:** General survey analysis → interview preparation → questions focused on unresolved hypotheses and individual experience. The revisions supplied a concrete research objective instead of requesting repeated generic rewrites.
+
+**Frontend:** Prototype-based implementation → explicit navigation changes → approval of initial supply capacity and additional approval for increases. [PR #39](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/39) and [PR #40](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/40) record the specification changes. These were product decisions and workflow improvements, not all model hallucinations.
+
+### 6. Human Verification / Correction
+
+Outputs were checked against interview context and the intended service flow. Corrections distinguished sales intentions from production capacity and clarified participation statements. Interface review identified fragmented news and messaging, unclear access to orders, and product grouping that needed revision. Approval policy was reconsidered so that an approved supply limit could be managed without repeated approval for routine changes.
+
+AI implemented the resulting specification, interface, and documentation edits following this feedback. These examples demonstrate human-directed verification and correction; they do not establish direct hand-editing of code. Product decisions and factual corrections remained separate from AI's own code checks.
+
+### 7. Takeaway
+
+Retain human control over research interpretation and product decisions. Give AI specific corrections, update shared specifications before implementation, and verify the resulting behavior and documents against those decisions.
 
 ---
 
