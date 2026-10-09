@@ -29,7 +29,7 @@ This page is for the development team. It explains how the system is built so we
 | 0.3 | 2026-10-07 | Team 6 | Separate accounts, screen/state details and seed contracts |
 | 0.4 | 2026-10-08 | Team 6 | Synchronize design frames with specs 1.2-1.5 |
 | 1.0 | 2026-10-09 | Team 6 | Submission edition: architecture, ER diagrams, API, AI and concurrency details |
-| 1.1 | 2026-10-09 | Team 6 | Table of contents, frontend and backend class diagrams, API request/response examples, design-pattern section, restructured to the course guideline |
+| 1.1 | 2026-10-09 | Team 6 | Table of contents, frontend and backend class diagrams, AI answer sequence diagram, API request/response examples, design-pattern section, restructured to the course guideline |
 
 ## 1. System Architecture
 
@@ -234,6 +234,45 @@ Response `200`: an unpaid order with the server's price.
 
 `POST /api/products/drafts` (approved producer) with `{ "inputText": "[강씨네 귤밭] 올해 하우스 감귤 ... 5키로 3만원" }` returns the extracted fields, a `missingFields` list and a `failed` flag. A price in the text is never copied into the draft. If the model fails or times out, `failed` is true and the producer fills in the product by hand.
 
+#### Example: log in with a test account
+
+`POST /api/auth/test-login` (only when test login is on)
+
+```json
+{ "userId": "u-minji", "app": "consumer" }
+```
+
+Response `200`: `{ "accessToken": "<JWT>", "user": { "userId": "u-minji", "name": "김민지", "role": "CONSUMER", ... } }`. Logging in to the producer app with a consumer account returns 403 with `details.reason = "WRONG_APP"`.
+
+#### Example: ask a farm a question
+
+`POST /api/messaging/chats/f-kang/messages` (consumer who follows the farm, or has a paid order with it)
+
+```json
+{ "text": "배송은 언제예요?", "attachmentIds": [], "orderId": null }
+```
+
+Response `200` when AI answers:
+
+```json
+{
+  "message": { "messageId": "m-...", "senderType": "CONSUMER", "body": "배송은 언제예요?", "masked": false, "handoffStatus": null },
+  "reply": { "messageId": "m-...", "senderType": "AI", "body": "11월 10일~20일 사이에 도착해요.", "sourceSummary": "Product delivery window", "needsHuman": false }
+}
+```
+
+For a handoff topic (for example "농약은 얼마나 치세요?") the question is saved with `"handoffStatus": "FORWARDED"` and `reply` is `null`; the producer sees it under Needs reply. If the farm has AI off or the producer has taken over, `reply` is also `null`.
+
+#### Example: ship an order
+
+`POST /api/orders/{orderId}/ship` (owning producer)
+
+```json
+{ "carrier": "CJ", "trackingNumber": "123-456" }
+```
+
+Response `200`: the order with `"status": "SHIPPED"`, the ship time, carrier and tracking number. Shipping an order that is not `PREPARING` returns 409 with `details.reason = "INVALID_TRANSITION"`.
+
 #### Endpoint groups
 
 Paths use `{id}` as a placeholder.
@@ -308,6 +347,10 @@ Figure 6. Checkout creates an unpaid order without holding stock. Stock is check
 5. Nothing is published until the producer saves.
 
 #### Question answering and handoff
+
+![AI question answering sequence](images/i1-ai-answer-sequence.png)
+
+Figure 7. What happens when a consumer sends a 1:1 question. The thread row stays locked until the answer or handoff is saved.
 
 1. Check that the farm has AI on and the thread is AUTO.
 2. Questions on fixed handoff topics go straight to the producer: pesticide and growing claims, refunds, compensation, subjective taste, damage, delivery promises.
