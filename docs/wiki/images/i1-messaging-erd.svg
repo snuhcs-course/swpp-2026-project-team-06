@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1030" viewBox="0 0 1100 1030">
+<rect width="1100" height="100%" fill="white"/>
+<text x="28" y="40" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#18352d">Communication / principal database relationships</text>
+<rect x="40" y="80" width="440" height="87" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="55" y="109" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Farm</text>
+<text x="55" y="137" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; unique producer owner</text>
+<rect x="620" y="80" width="440" height="87" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="635" y="109" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">User (consumer)</text>
+<text x="635" y="137" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; participant / uploader</text>
+<rect x="40" y="285" width="440" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="55" y="314" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Broadcast</text>
+<text x="55" y="342" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK farm_id</text>
+<text x="55" y="367" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Visibility / body / media</text>
+<rect x="620" y="285" width="440" height="137" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="635" y="314" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Thread</text>
+<text x="635" y="342" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK farm_id, consumer_id</text>
+<text x="635" y="367" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">UK (farm_id, consumer_id)</text>
+<text x="635" y="392" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">AUTO / HUMAN; mode version</text>
+<polyline points="260,167 260,285" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="260,285 265.0,274.0 255.0,274.0" fill="#697b74"/>
+<text x="276" y="232" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<polyline points="840,167 840,285" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="840,285 845.0,274.0 835.0,274.0" fill="#697b74"/>
+<text x="856" y="232" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<polyline points="480,123 550,123 550,325 620,325" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="620,325 609.0,320.0 609.0,330.0" fill="#697b74"/>
+<text x="551" y="258" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<rect x="40" y="520" width="440" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="55" y="549" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Reaction</text>
+<text x="55" y="577" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK (broadcast_id, user_id)</text>
+<text x="55" y="602" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Both columns are FKs</text>
+<rect x="620" y="520" width="440" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="635" y="549" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">ThreadMessage</text>
+<text x="635" y="577" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK thread_id; UK sequence</text>
+<text x="635" y="602" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Sender / evidence / attachments</text>
+<polyline points="260,397 260,520" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="260,520 265.0,509.0 255.0,509.0" fill="#697b74"/>
+<text x="276" y="466" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<polyline points="840,422 840,520" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="840,520 845.0,509.0 835.0,509.0" fill="#697b74"/>
+<text x="856" y="471" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N</text>
+<rect x="40" y="745" width="440" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="55" y="774" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">RoomReply</text>
+<text x="55" y="802" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK farm_id, consumer_id</text>
+<text x="55" y="827" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Separate private room replies</text>
+<rect x="620" y="745" width="440" height="112" rx="10" fill="#eff6f1" stroke="#23674d" stroke-width="2"/>
+<text x="635" y="774" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#18352d">Escalation / OrderInquiry</text>
+<text x="635" y="802" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PK id; FK thread_id, message_id</text>
+<text x="635" y="827" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">Inquiry also has FK order_id</text>
+<polyline points="840,632 840,745" fill="none" stroke="#697b74" stroke-width="2.4"/>
+<polygon points="840,745 845.0,734.0 835.0,734.0" fill="#697b74"/>
+<text x="856" y="693" font-family="Arial, sans-serif" font-size="17" font-weight="400" fill="#697b74">0..N linked records</text>
+<text x="40" y="910" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">FarmAiSettings: farm PK + version. History: farm/version snapshots.</text>
+<text x="40" y="944" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">PrivateAttachment: uploader FK; order/thread IDs checked by services; bytes stored privately.</text>
+<text x="40" y="978" font-family="Arial, sans-serif" font-size="18" font-weight="400" fill="#18352d">RoomReply and ThreadMessage are different tables and visibility domains.</text>
+</svg>
