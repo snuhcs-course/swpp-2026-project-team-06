@@ -90,22 +90,31 @@ Retain human control over research interpretation and product decisions. Give AI
 ## Zahra Gholami
 
 ### Prompts (verbatim)
-- <date · tool · target> — "<verbatim prompt>"
+- 2026-10-08 · Codex · DEV-4 backend — "please read the repo, the codebase fully and understand all the rules. then read notion. and look at my recent acitivity and commit history to catch up. ask me questions if you need"
+- 2026-10-09 · Codex · DEV-6 integration testing — "please plan all the tests needed to make sure that the integration is intact and also pr/issue/commit stages"
+- 2026-10-09 · Codex · DEV-25 integration automation — "plan out a new pr, that is the comprehensive integration test and includes the tests that dev7 did not have. since that one is already merged, this one needs to build on it seperately"
 
 ### Did well
-- <case · evidence>
+- AI implemented and tested the FastAPI backend through specs 1.1–1.5, including migrations, seed conversion, authorization, messaging, capacity-safe orders, detail content, and acceptance-criteria tests (PRs #48–#52).
+- AI created and ran the real FastAPI/PostgreSQL integration smoke suite and browser matrix. This exposed the missing producer-application API as Bug #54; the fix was isolated in PR #55 and verified again in PR #53.
+- Human feedback that the first integration pass was not sufficiently repeatable led to DEV-25. AI then added deterministic real-stack orchestration, expanded API coverage, Playwright cross-app tests, failure artifacts, and the `integration` CI job (PR #61: API 7/7, Chromium 8/8).
 
 ### Hallucinations
-- <claim · why wrong · how found · cost>
+- During integration work, AI initially followed the wrong issue context instead of I1-P26/#7. Zahra corrected the task identity before implementation continued.
+- The first DEV-25 branch name did not follow the requested team prefix and English naming. Correcting it caused GitHub to close the original PR during the rename, so PR #61 had to replace it.
+- Some generated browser-test assumptions did not match the implemented UI, including which orders appeared in the producer fulfillment flow and how controls behaved after saving shipment data. Playwright traces and the accessibility tree exposed the mismatch, and the tests were corrected without changing product behavior.
 
 ### Prompt revisions (before → after)
-- <before> → <after> — <why it worked>
+- A general request to continue integration testing was refined into a plan tied to I1-P26/#7, the real FastAPI/PostgreSQL stack, explicit browser scenarios, defect isolation, and PR/issue/commit stages. This removed task ambiguity and made completion verifiable.
+- The initial API-smoke and manual-browser scope was revised into a separate comprehensive automation task after human review identified missing repeatable browser regression coverage. The revised prompt defined Playwright, CI, failure artifacts, allowed paths, and separation of product fixes from test automation.
 
 ### Manual fixes
-- <what · why>
+- Zahra manually corrected the integration task identity and required the comprehensive automation work to be created as a separate task and PR, preventing it from being mixed into already-merged DEV-6 or the Bug #54 fix.
+- Zahra reviewed the pretotype output from Claude Design and performed the deployment manually because deployment and account access remained a human responsibility.
 
 ### Where AI was NOT used
-- <TBD>
+- Zahra personally read the repository code, Markdown specifications, frontend contracts, and commit history to understand the architecture, define the backend scope, and verify the implementation pipeline before directing AI work.
+- Final scope decisions, test-completeness judgment, issue/PR separation, deployment, and acceptance of the results remained human decisions.
 
 ---
 
