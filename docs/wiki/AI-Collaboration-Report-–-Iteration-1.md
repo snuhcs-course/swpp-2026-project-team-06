@@ -1,4 +1,4 @@
-# AI Collaboration Report – Iteration 1 (2026-09-28 ~ 2026-10-09)
+# AI Collaboration Report – Iteration 1 (2026-09-28 ~ 2026-10-11)
 
 Written by: Team 6 | Contributors: Hyun Park, Jinwoo Jang, Zahra Gholami, Minsun Kim
 
@@ -13,7 +13,7 @@ Each member's raw prompts and notes are in the [[Prompt Log|AI-Collaboration-Rep
 | Hyun Park | AI rules and skills, spec migration and wiki summaries, implementation skeleton, CI, final screen spec, screen design on the canvas, design sync | Claude Code, Claude Design | #15, #16, #18, #20, #22, #23, #25, #28, #47 |
 | Jinwoo Jang | Producer survey analysis and interview prep, specs 1.2-1.5, consumer and producer frontend, submission docs | Codex | #38-#46, #58 |
 | Zahra Gholami | FastAPI backend for specs 1.1-1.5, real-stack integration tests, CI integration job | Codex | #48-#53, #55, #61 |
-| Minsun Kim | Small behavior-preserving refactor of the order history screen | ChatGPT | #66 (draft) |
+| Minsun Kim | Small behavior-preserving refactor of the order history screen | ChatGPT | #66 |
 
 Recorded time: #28 3h, #40 0.3h, #41 0.7h, #42 0.15h, #47 1.5h (1.1M tokens); other PRs did not measure it.
 
@@ -51,7 +51,7 @@ Recorded time: #28 3h, #40 0.3h, #41 0.7h, #42 0.15h, #47 1.5h (1.1M tokens); ot
 - Hyun wrote the history-rewrite commands for `docs/design/feedback.md` and the PR #25 decision table himself; history and product decisions are not left to AI.
 - Zahra split the automation into its own PR (#61) and deployed by hand.
 - Jinwoo corrected interview summaries directly and kept product decisions human-owned.
-- Minsun kept UX decisions out of the refactor; PR #66 waits for review.
+- Minsun kept product and UX decisions out of the refactor in PR #66, so it changes code quality only.
 
 ## 7. Takeaway for Iteration 2
 
