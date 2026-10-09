@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "design-canvas": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "tools/design-canvas/bin/mcp.mjs",
+        "--port",
+        "4317"
+      ],
+      "env": {}
+    }
+  }
+}

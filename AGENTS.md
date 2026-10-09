@@ -45,6 +45,7 @@
   - `packages/ui/`, `packages/api/` — 앱 공용 패키지
   - `server/` — FastAPI 서버. `app/` 안에 도메인 모듈(`core`, `accounts`, `farms`, `catalog`, `orders`, `messaging`, `ai`, `analytics`, 모듈마다 `router`·`models`·`schemas`·`service`), `migrations/`(Alembic)
   - `docs/spec/` — 제품 스펙 원본 (한국어)
+  - `docs/design/` — 화면 디자인(HTML 보드, board.json·comments.json). 로컬 캔버스와 MCP 연결은 [`tools/design-canvas/README.md`](tools/design-canvas/README.md)
   - `docs/wiki/` — 평가용 wiki 원본 (`meetings/YYYY-MM-DD-*.md`는 Meeting-Logs로 합쳐짐)
   - `docs/*.html` — 랜딩 페이지
   - `.agents/skills/` — 공용 스킬 원본 (`.claude/skills`는 이 폴더로의 심링크)
