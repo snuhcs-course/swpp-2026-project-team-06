@@ -1,3 +1,88 @@
+# farmclub · Iteration 1 Demo
+
+> This is the `iteration-1-demo` branch. It is `main` at the end of Iteration 1 plus the demo videos, a one-command demo launcher, and the scripts used to record the videos. The rest of this README (below the demo section) is the regular project README.
+
+## Demo videos
+
+farmclub has two apps, so there are two videos. Both run against the real stack: FastAPI + PostgreSQL, no Mock data layer.
+
+| App | Video | Length | What it shows |
+| --- | --- | --- | --- |
+| Consumer | [iteration1-consumer-demo.mp4](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/iteration-1-demo/demo/iteration1-consumer-demo.mp4) | 1:51 | Discovery home → farm page → public news room → test login → product detail with stage pricing → reservation order and mock payment → order history and cancellation before shipping → follow a farm → like and private reply in the news room → 1:1 chat with AI answers |
+| Producer | [iteration1-producer-demo.mp4](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/iteration-1-demo/demo/iteration1-producer-demo.mp4) | 2:42 | Farm sign-up request and pending state → dashboard → AI product draft from pasted KakaoTalk/BAND text (Claude Haiku 4.5) → filling the remaining fields → reservation stages and prices → supply capacity request → operator approval through the admin API → sales open → posting a farm update → answering a forwarded chat question → harvest, tracking number, and shipping |
+
+Each step in the videos is captioned with the feature and screen IDs from [`docs/spec/`](docs/spec/README.md) (`FEAT-xx`, `SCR-xx`).
+
+## Environment used for the demo
+
+- MacBook (Apple silicon), macOS
+- Node.js 24 (`.nvmrc`), npm 11
+- Python 3.12 through [uv](https://docs.astral.sh/uv/) 0.12
+- Docker Desktop 28 (local PostgreSQL 16)
+- Chromium (Playwright) for recording; any recent Chrome works for trying the apps
+
+## Run the demo
+
+### 1. Install
+
+```bash
+git clone https://github.com/snuhcs-course/swpp-2026-project-team-06.git
+cd swpp-2026-project-team-06
+git checkout iteration-1-demo
+npm ci
+cd server && uv sync --frozen && cp .env.example .env && cd ..
+```
+
+Optional: put an Anthropic API key in `server/.env` as `ANTHROPIC_API_KEY=...` to use the real AI product draft (FEAT-03), as in the producer video. Without a key, the app shows its documented fallback ("초안을 만들지 못했어요", AC-03-3) and the producer types the fields in by hand. Routine chat answers (FEAT-13) work without a key because they come from the farm's registered data. Never commit `server/.env`.
+
+### 2. Start everything
+
+Docker must be running, and ports 8000, 8081, and 8082 must be free.
+
+```bash
+npm run demo
+```
+
+This starts PostgreSQL (`docker compose`), applies migrations, **resets the I1 seed data**, then runs FastAPI and both Expo web apps with the demo date fixed to 2026-10-07. When everything is ready it prints:
+
+| | URL |
+| --- | --- |
+| Consumer app | http://localhost:8081 |
+| Producer app | http://localhost:8082 |
+| API docs (Swagger UI) | http://localhost:8000/docs |
+| Operator (admin) token | printed in the terminal |
+
+Stop with Ctrl+C. Running `npm run demo` again starts from fresh seed data.
+
+### 3. Reproduce the videos
+
+Test login is mocked in I1: pick a seeded account on each app's login screen.
+
+| App | Account | Used for |
+| --- | --- | --- |
+| Consumer | 김민지 | Ordering, follows, news room, 1:1 chat |
+| Producer | 신규 생산자 | Farm sign-up request (→ pending) |
+| Producer | 강영수 (강씨네 귤밭, approved) | Everything else in the producer video |
+
+Operator approval has no screen in I1 (planned for I2). It is a call to the admin API with the operator token printed by `npm run demo`:
+
+```bash
+curl -X POST "http://localhost:8000/admin/products/<productId>/capacity-requests/<requestId>/approve" \
+  -H "Authorization: Bearer <operator token>" -H "Content-Type: application/json" \
+  -d '{"version": <request version>}'
+```
+
+The videos were recorded with Playwright scripts that click through the apps exactly as shown. With `npm run demo` running in another terminal (and Playwright's Chromium installed once with `npx playwright install chromium`):
+
+```bash
+npm run demo:record:consumer
+FARMCLUB_ADMIN_TOKEN=<operator token> npm run demo:record:producer
+```
+
+Each script writes a `.webm` to `demo/.raw/`. Restart `npm run demo` (fresh seed) before each recording, because the scripts change data (orders, follows, products).
+
+---
+
 # farmclub
 
 **Reserve Jeju citrus before harvest, follow the farm while it grows, and get it in season.**
