@@ -34,6 +34,7 @@ Farmclub has two sides. Consumers buy seasonal citrus and care most about taste.
 
 | Customer | Context and need | Main task |
 | --- | --- | --- |
+| General audience | Korean buyers of seasonal citrus, and small farms that sell directly | Connect discovery, advance ordering and talking with the farm |
 | Primary consumer | Adults in their 40s-50s who put taste first and want evidence before paying in advance | Check sweetness, grade, growing updates and delivery timing; reserve with clear terms |
 | Family purchaser | Adults in their 20s-30s buying fruit for parents or someone else | Pick an option and send it to a recipient other than themselves |
 | Producer | Small Jeju citrus farms that already sell through messaging apps | Reuse existing sales text, manage demand, post updates and ship orders |
@@ -567,6 +568,12 @@ Figure 1. Arrows show user actions, the login detour, payment failure and the sh
 
 Figure 2. Discover (SCR-01), product detail (SCR-04) and checkout (SCR-10). The user picks a product, option and quantity, enters a recipient and agrees to four terms.
 
+Key consumer screens:
+
+| SCR-01 Discover | SCR-04 Product detail | SCR-10 Checkout | SCR-16 1:1 chat |
+| --- | --- | --- | --- |
+| <img src="images/i1-ui-scr-01.png" width="180" alt="SCR-01 Discover"> | <img src="images/i1-ui-scr-04.png" width="180" alt="SCR-04 Product detail"> | <img src="images/i1-ui-scr-10.png" width="180" alt="SCR-10 Checkout"> | <img src="images/i1-ui-scr-16.png" width="180" alt="SCR-16 1:1 chat"> |
+
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
 | **SCR-01 Discover** | First screen: seasonal hero, recommended products, farms to browse | Tap search, hero, product card, farm card or "See all" | Search → SCR-02; product → SCR-04; farm → SCR-03 | No products on sale: shows "No products available right now" with farms only. A failed section shows Retry; the others stay |
@@ -589,6 +596,12 @@ Figure 2. Discover (SCR-01), product detail (SCR-04) and checkout (SCR-10). The 
 ![Producer dashboard, sales and room](images/i1-producer-screens.png)
 
 Figure 3. Dashboard (SCR-22), sales settings and the farm's own news room. The producer checks demand, manages supply and prices, and posts updates from the room.
+
+Key producer screens:
+
+| SCR-22 Dashboard | SCR-24 AI product draft | SCR-25 Product edit | SCR-29 Shipping |
+| --- | --- | --- | --- |
+| <img src="images/i1-ui-p-scr-22.png" width="180" alt="SCR-22 Dashboard"> | <img src="images/i1-ui-p-scr-24.png" width="180" alt="SCR-24 AI product draft"> | <img src="images/i1-ui-p-scr-25.png" width="180" alt="SCR-25 Product edit"> | <img src="images/i1-ui-p-scr-29.png" width="180" alt="SCR-29 Shipping"> |
 
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
