@@ -145,22 +145,40 @@ Retain human control over research interpretation and product decisions. Give AI
 
 ---
 
-## Minsun Kim
+## Minsun Kim — AI Collaboration (Iteration 1)
 
-### Prompts (verbatim)
-- <date · tool · target> — "<verbatim prompt>"
+**Period covered:** October 9, 2026 (KST)
 
-### Did well
-- <case · evidence>
+**Tool / model:** ChatGPT / GPT-5.6 Sol
 
-### Hallucinations
-- <claim · why wrong · how found · cost>
+My primary Iteration 1 contribution was product work rather than implementation: product survey, wireframe, and screen specifications. I therefore did not invent a coding history for those artifacts. To add a concrete, reviewable AI-collaboration case, I used AI for a deliberately small frontend refactor in PR #66, with the existing product behavior and screen specification treated as hard constraints.
 
-### Prompt revisions (before → after)
-- <before> → <after> — <why it worked>
+### 1. Where AI Was Used
 
-### Manual fixes
-- <what · why>
+AI reviewed the consumer order-history frontend and selected a low-risk maintainability improvement in `apps/consumer/src/app/(tabs)/orders/index.tsx`. The scope was intentionally narrow: remove repeated derived-data lookups while preserving the UI, Korean copy, routing, API behavior, order grouping, and screen specification. The result is isolated in draft PR #66 / commit `a19a618` (12 additions, 5 deletions).
 
-### Where AI was NOT used
-- <TBD>
+### 2. Prompt History
+
+- **2026-10-09 · ChatGPT (GPT-5.6 Sol) · PR #66** — “뭐래 너가 지금 해 당장”
+- The preceding context constrained the task to a small frontend refactor that would not redesign the screen or introduce new functionality. I explicitly wanted a real PR that could be reviewed rather than a fabricated development contribution.
+
+### 3. What AI Did Well
+
+AI found a contained refactoring opportunity instead of expanding the task. Previously, the component repeatedly filtered the full order list inside each tab render to calculate counts and separately searched `orderGroups` again when constructing the empty-state label. PR #66 derives `groupCounts` and `selectedGroupLabel` once and reuses them. The change stays within one screen file and leaves the existing `orderGroup`, `selectedOrderGroup`, and `compareOrders` domain logic untouched. This made the diff small enough to audit directly against the screen specification.
+
+### 4. Hallucinations / Errors
+
+No model hallucination was identified in this refactoring pass. I am recording that explicitly rather than manufacturing an error for the report. There is, however, a review limitation: the refactor has not been merged, and PR #66 remains a draft pending team review. Therefore the AI output should be treated as a proposed maintainability improvement, not as evidence that product behavior has been independently revalidated.
+
+### 5. Prompt Revision / Scope Control
+
+The useful revision was not “ask for more code,” but narrow the role of AI. A generic request to “refactor the frontend” could easily produce unnecessary component extraction or behavioral cleanup. The working scope was reduced to a **small, low-risk, behavior-preserving refactor**. Product behavior, UI/UX, routing, API calls, Korean copy, and the existing screen specification were fixed constraints. This kept AI in a code-review/refactoring role rather than allowing it to reinterpret product requirements.
+
+### 6. Human Verification / Manual Decisions
+
+The product survey, wireframe, and screen specifications were my substantive Iteration 1 contributions; final product and UX decisions were not delegated to this refactoring pass. For PR #66, the human constraint was that refactoring must not change those decisions. The proposed diff is intentionally limited to derived presentation data: tab counts and the selected-group label. It does not modify the order status mapping, sorting rules, navigation, data loading, API calls, or displayed wording. Final acceptance and merge remain subject to human/team review.
+
+### 7. Takeaway
+
+AI was most useful when its authority was constrained: identify a small implementation-quality improvement, make the minimum change, and leave product intent untouched. For later iterations, I would keep the same pattern—use AI to surface and execute bounded technical improvements, while keeping requirements, UX trade-offs, and final acceptance explicitly human-owned.
+
