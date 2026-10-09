@@ -74,7 +74,7 @@
 
 ## AI 사용 기록
 - AI를 쓴 작업은 Linear 결과와 PR 본문에 `Agent 시간 / Tokens`를 적는다(시트 기록용).
-- 대표 프롬프트·AI가 틀린 사례는 `docs/wiki/AI-Collaboration-Report.md` 작성 때 쓰이므로 PR 본문 "AI 사용"에 한 줄 남긴다.
+- 대표 프롬프트·AI가 틀린 사례는 iteration별 `docs/wiki/AI-Collaboration-Report-–-Iteration-N.md`(I1: `AI-Collaboration-Report-–-Iteration-1.md`와 Prompt Log) 작성 때 쓰이므로 PR 본문 "AI 사용"에 한 줄 남긴다.
 
 ## 공용 스킬 (`.agents/skills/`)
 | 스킬 | 언제 |

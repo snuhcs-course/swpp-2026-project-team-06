@@ -24,5 +24,5 @@ Consumers commit to produce before it is grown or harvested, and producers plan 
 - [[Testing Documentation|Testing-Documentation]]
 - [[User Study Results|User-Study-Results]]
 - [[Risk Management|Risk-Management]]
-- [[AI Collaboration Report|AI-Collaboration-Report]]
+- [[AI Collaboration Report – Iteration 1|AI-Collaboration-Report-–-Iteration-1]]
 - [[Meeting Logs|Meeting-Logs]]
