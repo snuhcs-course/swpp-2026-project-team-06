@@ -266,4 +266,4 @@ DEV-6의 실제 API smoke와 수동 브라우저 결과를 반복 가능한 실�
 - 10/09 첫 integration CI는 Linux 접근성 이름에 `소식방`이 없는 농가 보기 버튼을 과도하게 한정해 7/8 실패. 제품 결함이 아니며 semantic name을 `/농가 보기/`로 맞춘 뒤 전체 CI 재실행
 - 10/09 Actions run 37819337425에서 server(133 pytest 포함), apps(typecheck·Mock 11·두 export), integration(API 7 + Chromium 8) 모두 통과. `origin/main` 병합 확인 결과 Already up to date
 - 10/09 인계: spec 커밋(987c752)만 push, draft PR #57의 server·apps CI는 그 커밋 기준. 로컬에 push 안 한 커밋 4개(runner `scripts/run-integration.mjs`, API smoke 확장 `scripts/test-integration.mjs`, Playwright `scripts/e2e/*`, CI `integration` job). 미커밋 변경 1개: `checkout-and-fulfillment.spec.ts`의 수확 시작·출하를 API 호출에서 생산자 화면 조작으로 바꾸는 중. `test:integration:full` 실행 결과·Testing Documentation·README는 아직 기록 없음
-- 10/09 위 인계 기록 뒤 구현·문서·AI 리뷰·CI를 모두 완료했다. 브랜치 prefix를 팀 규칙에 맞춰 `zahra/`로 수정하면서 GitHub가 PR #57을 자동 종료해 동일 HEAD의 replacement PR로 리뷰를 이어간다
+- 10/09 위 인계 기록 뒤 구현·문서·AI 리뷰·CI를 모두 완료했다. 브랜치 prefix를 팀 규칙에 맞춰 `zahra/`로 수정하면서 GitHub가 PR #57을 자동 종료해 동일 작업의 replacement PR #61로 리뷰를 이어간다
