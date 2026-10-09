@@ -210,10 +210,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/09 실제 생산자 앱에서 오미숙은 신청 일정·읽기 전용 신청 내용, 박순자는 반려 사유·이전 값이 채워진 재신청 폼을 확인. `/api/auth/producer-application` 200, browser error 없음. #54 blocker 해소
 - 10/09 AI 1차 diff 점검에서 integration scenario 이름의 AC 추적 ID 누락을 발견해 7개 흐름 모두 관련 AC ID를 붙임
 
-## DEV-25 [I1-P26-1] 종합 통합 테스트 자동화
+## DEV-25 [I1-P26-1] Comprehensive Integration Test Automation
 
 - 이슈: [DEV-25 / GitHub #56](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/56)
-- 브랜치: `zahragholami/dev-25-i1-p26-1-종합-통합-테스트-자동화`
+- 브랜치: `zahra/dev-25-i1-p26-1-comprehensive-integration-test-automation`
 - 기능·인수 조건: I1 P0 FEAT-01~15·17·19, 스펙 1.1~1.5 AC / `docs/wiki/Testing-Documentation.md`
 - 상태: 진행 중
 
@@ -266,3 +266,4 @@ DEV-6의 실제 API smoke와 수동 브라우저 결과를 반복 가능한 실�
 - 10/09 첫 integration CI는 Linux 접근성 이름에 `소식방`이 없는 농가 보기 버튼을 과도하게 한정해 7/8 실패. 제품 결함이 아니며 semantic name을 `/농가 보기/`로 맞춘 뒤 전체 CI 재실행
 - 10/09 Actions run 37819337425에서 server(133 pytest 포함), apps(typecheck·Mock 11·두 export), integration(API 7 + Chromium 8) 모두 통과. `origin/main` 병합 확인 결과 Already up to date
 - 10/09 인계: spec 커밋(987c752)만 push, draft PR #57의 server·apps CI는 그 커밋 기준. 로컬에 push 안 한 커밋 4개(runner `scripts/run-integration.mjs`, API smoke 확장 `scripts/test-integration.mjs`, Playwright `scripts/e2e/*`, CI `integration` job). 미커밋 변경 1개: `checkout-and-fulfillment.spec.ts`의 수확 시작·출하를 API 호출에서 생산자 화면 조작으로 바꾸는 중. `test:integration:full` 실행 결과·Testing Documentation·README는 아직 기록 없음
+- 10/09 위 인계 기록 뒤 구현·문서·AI 리뷰·CI를 모두 완료했다. 브랜치 prefix를 팀 규칙에 맞춰 `zahra/`로 수정하면서 GitHub가 PR #57을 자동 종료해 동일 HEAD의 replacement PR로 리뷰를 이어간다

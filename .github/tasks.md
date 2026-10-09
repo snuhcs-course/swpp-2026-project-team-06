@@ -60,10 +60,10 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 10/07 AI 1차 리뷰 PR 코멘트. 남은 판단: main push의 cancel-in-progress, Dependabot PR 제목의 이슈 키, Node 버전 고정 방식
 - 10/07 남은 일(DEV-9): CD는 SWPP-58 브랜치 전략 결정 후 DEV-8과 함께. 저장소 설정(필수 체크 server·apps, 승인 1명)은 사람이 직접
 
-## DEV-25 [I1-P26-1] 종합 통합 테스트 자동화 — CI
+## DEV-25 [I1-P26-1] Comprehensive Integration Test Automation — CI
 
 - 이슈: [DEV-25](https://linear.app/sswp6/issue/DEV-25) (GitHub #56)
-- 브랜치: `zahragholami/dev-25-i1-p26-1-종합-통합-테스트-자동화`
+- 브랜치: `zahra/dev-25-i1-p26-1-comprehensive-integration-test-automation`
 - 기능·인수 조건: I1 P0 실제 client↔server 통합 회귀
 - 상태: 진행 중
 
