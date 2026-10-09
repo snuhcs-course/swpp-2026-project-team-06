@@ -274,3 +274,28 @@ FastAPI access logs show the browser clients calling port 8000. No `/__mock` tra
 - Post-fix validation passed: real API smoke 7/7, Ruff, 133 pytest tests, Alembic upgrade/check, all workspace typechecks, Mock contracts 11/11, and both Expo web exports.
 - The previously blocked browser scenario was rerun against FastAPI: pending and rejected applications rendered their expected content, the rejected form was prefilled, browser error logs were empty, and FastAPI logged `GET /api/auth/producer-application` as 200.
 - No release-blocking defect remained in the executed DEV-6 matrix. PR #53 was merged on 2026-10-09 KST (main 747f588). This is the result for that matrix, not a claim that every product requirement or planned external integration is complete.
+
+## Comprehensive Real-Stack Automation (DEV-25, 2026-10-09)
+
+DEV-25 builds on merged PRs #53 and #55 without changing product code. `npm run test:integration:full` resets PostgreSQL, starts FastAPI and both Expo web apps with Mock disabled, runs the API suite, resets the seed again, runs serial Chromium tests, and always terminates its child processes. Localhost-only URL and free-port checks prevent accidental execution against deployed or unrelated services.
+
+### Automated coverage
+
+| Layer | Result | Repeatable evidence |
+| --- | --- | --- |
+| Real API contracts | PASS (7/7) | Authentication/app separation and producer gates; initial/increased capacity, withdrawal, rejection and history; detail ownership/state/version/URI rules; payment snapshots and exact capacity release; order pagination/filter/window response; masked producer identities; news privacy/reactions; chat AI/handoff; explicit detail publication |
+| Chromium cross-app | PASS (8/8) | Anonymous discovery and login return; consumer checkout; producer harvest, carrier/tracking and shipping; consumer shipped state; failed inquiry input retention; all producer account gates; product draft fallback and pause/resume; public-room session isolation; farm editor entry; 360/390/430/1440px discovery |
+| Browser guardrails | PASS | No `/__mock` or port 8083 traffic, unexpected HTTP 5xx, page errors, or unexplained console errors; API access and process logs retained locally |
+| Deterministic orchestration | PASS | Alembic upgrade, I1 seed reset before each phase, fixed clock, local admin token, port checks, and child-process cleanup all run from one command |
+
+The browser suite uses isolated contexts and serial execution. Administrative setup and assertions unavailable through the UI may use the API; the checkout, harvest, shipping, account-gate, sales-control, discovery, and resilience interactions use rendered controls.
+
+### Manually verified
+
+These observations remain supported by the DEV-6 browser record but are not a dedicated DEV-25 Chromium assertion: full farm/product block reordering and preview rendering, stopped-API detail-save retry, chat composer AI evidence rendering, two-consumer reply text comparison, private image preview, long-text/keyboard overlap, and historical-message scroll behavior. Their authorization and persistence contracts remain covered by the API smoke, Mock contracts, or pytest where noted in the DEV-6 matrix.
+
+### Not covered
+
+Railway/Vercel deployment, production secrets and branch protection are outside this local-stack task. Native iOS/Android, Firefox/WebKit, real payment providers, real Anthropic/R2/observability services, accessibility audits, load/soak tests, and penetration testing are also not covered. Repository administrators must add the `integration` job as a required branch-protection check after this PR merges.
+
+On failure, CI uploads the Playwright HTML report, traces, screenshots/videos, FastAPI/Expo process logs, and HTTP access logs for seven days. Product defects discovered by this suite must be filed as separate Bug issues rather than fixed in the test PR.

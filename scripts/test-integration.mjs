@@ -131,6 +131,15 @@ await scenario("AC-01-3/6: health, account separation, wrong-app access, and pro
     token: token("u-new"),
     expected: 404,
   });
+
+  const cleanSeedOrder = await request("GET", "/api/orders/o-07", {
+    token: token("u-minji"),
+  });
+  assert.equal(
+    cleanSeedOrder.status,
+    "DELIVERED",
+    "Integration seed is dirty. Run `cd server && uv run python -m app.core.seed --reset`.",
+  );
 });
 
 await scenario("AC-03-4/04-8/07-5: product detail, capacity request, and approval", async () => {
@@ -139,6 +148,7 @@ await scenario("AC-03-4/04-8/07-5: product detail, capacity request, and approva
     body: {},
   });
   state.productId = created.productId;
+  assert.equal("detailContent" in created, false);
 
   const patched = await request("PATCH", `/api/products/${state.productId}`, {
     token: token("u-kang"),
@@ -238,6 +248,23 @@ await scenario("AC-03-4/04-8/07-5: product detail, capacity request, and approva
   state.capacityRequestId = capacity.requestId;
   assert.equal(capacity.kind, "INITIAL");
 
+  const pendingDraft = await request(
+    "POST",
+    `/api/products/mine/${state.productId}/detail-draft`,
+    {
+      token: token("u-kang"),
+      body: { inputText: "심사 중에는 초안을 바꿀 수 없어야 합니다.", photos: [] },
+      expected: 409,
+    },
+  );
+  assert.equal(pendingDraft.details.reason, "INVALID_TRANSITION");
+
+  await request("POST", `/api/products/mine/${state.productId}/detail-draft`, {
+    token: token("u-misook"),
+    body: { inputText: "다른 농가 접근", photos: [] },
+    expected: 403,
+  });
+
   const approved = await request(
     "POST",
     `/admin/products/${state.productId}/capacity-requests/${capacity.requestId}/approve`,
@@ -254,6 +281,70 @@ await scenario("AC-03-4/04-8/07-5: product detail, capacity request, and approva
   assert.equal(publicProduct.approvedSupplyGrams, 50000);
   assert.equal(publicProduct.salesLimitGrams, 50000);
   assert.deepEqual(publicProduct.detailContent, detailContent);
+
+  let mine = await request("GET", `/api/products/mine/${state.productId}`, {
+    token: token("u-kang"),
+  });
+  const increase = await request("POST", `/api/products/${state.productId}/capacity-requests`, {
+    token: token("u-kang"),
+    idempotencyKey: key("capacity-increase-withdraw"),
+    body: { requestedTotalGrams: 60000, version: mine.version },
+  });
+  assert.equal(increase.kind, "INCREASE");
+  assert.equal(increase.status, "PENDING");
+  const whileReviewing = await request("GET", `/api/products/${state.productId}`);
+  assert.equal(whileReviewing.status, "PUBLISHED");
+  assert.equal(whileReviewing.approvedSupplyGrams, 50000);
+
+  const withdrawn = await request(
+    "POST",
+    `/api/products/${state.productId}/capacity-requests/${increase.requestId}/withdraw`,
+    {
+      token: token("u-kang"),
+      idempotencyKey: key("capacity-withdraw"),
+      body: { version: increase.version },
+    },
+  );
+  assert.equal(withdrawn.status, "WITHDRAWN");
+
+  mine = await request("GET", `/api/products/mine/${state.productId}`, {
+    token: token("u-kang"),
+  });
+  const rejectedRequest = await request(
+    "POST",
+    `/api/products/${state.productId}/capacity-requests`,
+    {
+      token: token("u-kang"),
+      idempotencyKey: key("capacity-increase-reject"),
+      body: { requestedTotalGrams: 65000, version: mine.version },
+    },
+  );
+  const rejected = await request(
+    "POST",
+    `/admin/products/${state.productId}/capacity-requests/${rejectedRequest.requestId}/reject`,
+    {
+      token: adminToken,
+      idempotencyKey: key("capacity-reject"),
+      body: { version: rejectedRequest.version, reason: "증빙 중량을 다시 확인해 주세요." },
+    },
+  );
+  assert.equal(rejected.status, "REJECTED");
+  assert.match(rejected.reason, /증빙/);
+
+  const history = await request("GET", `/api/products/${state.productId}/capacity-requests?limit=2`, {
+    token: token("u-kang"),
+  });
+  assert.equal(history.items.length, 2);
+  assert.ok(history.nextCursor);
+  const fullHistory = await request(
+    "GET",
+    `/api/products/${state.productId}/capacity-requests?limit=10`,
+    { token: token("u-kang") },
+  );
+  assert.deepEqual(
+    new Set(fullHistory.items.map((item) => item.status)),
+    new Set(["APPROVED", "REJECTED", "WITHDRAWN"]),
+  );
 });
 
 async function createAndPayOrder(userId, label) {
@@ -375,12 +466,30 @@ await scenario("AC-05-6/09-6: payment, exact release, pause, and paid snapshots"
 });
 
 await scenario("AC-10-6: producer fulfillment and consumer order visibility", async () => {
+  const firstConsumerPage = await request("GET", "/api/orders?limit=1", {
+    token: token("u-minji"),
+  });
+  assert.equal(firstConsumerPage.items.length, 1);
+  assert.ok(firstConsumerPage.nextCursor);
+
   const producerOrders = await request(
     "GET",
     `/api/orders/producer?productId=${state.productId}`,
     { token: token("u-kang") },
   );
   assert.ok(itemById(producerOrders, "orderId", state.primaryOrder.orderId));
+
+  const preparingOnly = await request("GET", "/api/orders/producer?status=PREPARING&limit=2", {
+    token: token("u-kang"),
+  });
+  assert.equal(preparingOnly.items.length, 2);
+  assert.ok(preparingOnly.items.every((order) => order.status === "PREPARING"));
+
+  const acceptedWindow = await request("POST", "/api/orders/o-11/delivery-window-response", {
+    token: token("u-minji"),
+    body: { choice: "accept" },
+  });
+  assert.equal(acceptedWindow.proposedDeliveryWindow, null);
 
   const changed = await request("POST", "/api/orders/producer/harvest-start", {
     token: token("u-kang"),
@@ -460,6 +569,8 @@ await scenario("AC-12-10/15-6: news privacy, reactions, and private replies", as
   });
   assert.ok(itemById(producerRoom, "messageId", minjiReply.messageId));
   assert.ok(itemById(producerRoom, "messageId", seojunReply.messageId));
+  assert.match(itemById(producerRoom, "messageId", minjiReply.messageId).senderName, /○/);
+  assert.match(itemById(producerRoom, "messageId", seojunReply.messageId).senderName, /○/);
 });
 
 await scenario("AC-13-1/2: chat auto-follow, factual AI, and sensitive handoff", async () => {

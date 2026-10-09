@@ -150,3 +150,88 @@ jobs:
         if: steps.changes.outputs.apps == 'true'
         working-directory: apps/producer
         run: npx expo export -p web
+
+  integration:
+    needs: [server, apps]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: farmclub
+          POSTGRES_PASSWORD: farmclub
+          POSTGRES_DB: farmclub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U farmclub"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://farmclub:farmclub@localhost:5432/farmclub
+      FARMCLUB_INTEGRATION_SKIP_DOCKER: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v4
+        with:
+          token: ""
+          filters: |
+            integration:
+              - "apps/**"
+              - "packages/**"
+              - "server/**"
+              - "scripts/**"
+              - "package.json"
+              - "package-lock.json"
+              - "playwright.config.ts"
+              - ".nvmrc"
+              - ".github/workflows/ci.yml"
+
+      - name: Skip (no integration changes)
+        if: steps.changes.outputs.integration != 'true'
+        run: echo "통합 경로 변경 없음. 검사를 건너뛴다."
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.integration == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        if: steps.changes.outputs.integration == 'true'
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: server/uv.lock
+
+      - name: Install application dependencies
+        if: steps.changes.outputs.integration == 'true'
+        run: |
+          npm ci
+          cd server
+          uv sync --frozen
+
+      - name: Install Chromium
+        if: steps.changes.outputs.integration == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Real-stack API and Chromium integration
+        if: steps.changes.outputs.integration == 'true'
+        run: npm run test:integration:full
+
+      - name: Upload integration failure artifacts
+        if: failure() && steps.changes.outputs.integration == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: integration-failure-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            playwright-report/
+            test-results/
+            .artifacts/integration/
