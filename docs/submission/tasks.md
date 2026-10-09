@@ -58,4 +58,5 @@
 - 범위: `docs/wiki/Home.md`의 팀 표, `docs/submission/tasks.md`의 이 섹션.
 - 결정: 열 제목은 `Roles(I1)`; 기존 영문 이름·행 순서를 유지한다. Hyun Park = PM, Minsun Kim = Frontend & Consumer Survey, Jinwoo Jang = Frontend & Producer Survey, Zahra = Backend & Database.
 - 비범위: 다른 Home 본문, 제품 코드, PDF, main 머지.
-- [ ] 표 수정, 지정한 값과 diff 검증, 후속 PR 제출.
+- [x] 표 수정, 지정한 값과 diff 검증, 후속 PR #59 제출.
+- 검증: 지정한 역할·열 제목·기존 이름과 행 순서 일치, `git diff --check` 통과. 문서 변경만 있어 제품 테스트는 실행하지 않았다.
