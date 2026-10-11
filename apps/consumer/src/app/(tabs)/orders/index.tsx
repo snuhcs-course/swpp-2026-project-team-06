@@ -65,12 +65,13 @@ export default function OrderList() {
     [],
   );
   const list = useLiveList(load, user?.userId ?? "", active && !!user, 8000);
-  const items = list.data?.filter((o) => orderGroup(o) === selected);
-  const groupCounts = list.data
+  const data = list.data;
+  const items = data?.filter((o) => orderGroup(o) === selected);
+  const groupCounts = data
     ? Object.fromEntries(
         orderGroups.map((group) => [
           group.value,
-          list.data.filter((o) => orderGroup(o) === group.value).length,
+          data.filter((o) => orderGroup(o) === group.value).length,
         ]),
       )
     : null;
