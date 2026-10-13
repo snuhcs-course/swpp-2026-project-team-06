@@ -364,21 +364,24 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/13 Langfuse는 일정상 후속으로 미룬다. M-08 근거 기록은 메시지의 `source_refs`, `source_summary`, `settings_version`으로 충족하고 N-08 provider tracing은 후속 작업으로 남긴다
 
 ### 작업
-- [ ] 공통 Anthropic client·20/20/8초 timeout·재시도 비활성화
-- [ ] 한국어 단위·필드별 상품 초안 grounding과 fallback 검증
-- [ ] 근거 reference·한국어 숫자/날짜·예상 당도·금지 답변 사후 검증
-- [ ] 정확한 결정 규칙·예약 출하 정책·Mock 동작 정렬
-- [ ] 커밋 후 환불 alert와 멱등 경쟁·실패 억제
+- [x] 공통 Anthropic client·20/20/8초 timeout·재시도 비활성화
+- [x] 한국어 단위·필드별 상품 초안 grounding과 fallback 검증
+- [x] 근거 reference·한국어 숫자/날짜·예상 당도·금지 답변 사후 검증
+- [x] 정확한 결정 규칙·예약 출하 정책·Mock 동작 정렬
+- [x] 커밋 후 환불 alert와 멱등 경쟁·실패 억제
 - [ ] FEAT/rules/contracts/AI spec/wiki 문서 동기화
 
 ### 완료 조건
-- [ ] P02 / AC-03-1~3 초안 grounding·실패 테스트 통과
-- [ ] C06 / AC-13-1~4·6~8 답변·전달·미리보기 테스트 통과
-- [ ] M-07 성공·AI OFF·rollback·경쟁 loser·cached replay·preview alert 테스트 통과
-- [ ] Mock 회귀 테스트와 전체 server pytest, `ruff check .` 통과
+- [x] P02 / AC-03-1~3 초안 grounding·실패 테스트 통과
+- [x] C06 / AC-13-1~4·6~8 답변·전달·미리보기 테스트 통과
+- [x] M-07 성공·AI OFF·rollback·경쟁 loser·cached replay·preview alert 테스트 통과
+- [x] Mock 회귀 테스트와 전체 server pytest, `ruff check .` 통과
 - [ ] `git diff origin/main...HEAD`가 이 범위와 일치
 - [ ] AI 1차 리뷰 후 사람 리뷰 1명 승인·main 머지
 
 ### 기록
 - 10/13 GitHub #76의 source T13·P02/C06·완료 조건을 DEV-31과 확인. 예상 시간을 4시간에서 8시간으로 조정하고 `origin/main`에서 별도 worktree·브랜치를 시작했다
 - 10/13 PR #98은 FEAT-13·Testing wiki만 겹치고 서버·Mock은 겹치지 않음을 확인. 구현은 즉시 시작하고 문서는 #98 이후 재조정한다
+- 10/13 공통 client, 초안/답변 grounding, 예약 출하 정책, 커밋 뒤 환불 alert와 멱등 race 억제를 구현. 집중 pytest 16개와 Ruff 통과, `test-spec12.mjs` 통과. 전체 Mock은 병렬 news-room mock server 1건이 종료되어 10/11였고 DEV-31이 수정한 spec 1.2 시나리오는 통과했다
+- 10/13 PR #98에 서버/Mock은 독립 진행하고 머지 뒤 FEAT-13·Testing wiki를 재조정한다는 coordination comment를 남겼다
+- 10/13 local port 권한으로 Mock 전체를 다시 실행해 11/11 통과. server 전체 pytest 147개와 `ruff check .`도 통과했다

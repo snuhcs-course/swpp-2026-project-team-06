@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     ai_model: str = "claude-haiku-4-5"
     ai_draft_timeout_seconds: float = 20.0
+    ai_answer_timeout_seconds: float = 8.0
 
     # 홈 (FEAT-06). 시즌 히어로는 설정 값, 운영자 관리는 I2.
     home_recommend_limit: int = 6

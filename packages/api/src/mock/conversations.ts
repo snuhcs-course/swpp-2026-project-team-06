@@ -264,6 +264,8 @@ function preview(
     settingsVersion: temporary ? null : s.version,
   });
   if (!s.enabled) return result("DISABLED", null, "농가 AI 응답이 꺼져 있어요");
+  const unsafePolicy =
+    /환불|보상|농약|약속|무조건|지시|프롬프트|할인|가격|흥정|깎|\d+(?:\.\d+)?\s*만\s*원|\d[\d,]*(?:\.\d+)?\s*원|배송.*변경/;
   if (
     /농약|재배|유기농|환불|보상|항의|불만|흥정|깎|파손|상했|썩|맛|신가|셔요|달아|달까|날짜.*변경|미뤄|당겨|약속/.test(
       q,
@@ -291,7 +293,7 @@ function preview(
       "등록 상품 정보",
       [`product:${p.productId}`],
     );
-  if (/배송|언제|받는/.test(q) && (o || p)?.deliveryWindow) {
+  if (/배송|도착|수령|받는|받을|출하/.test(q) && (o || p)?.deliveryWindow) {
     const w = (o || p)!.deliveryWindow!;
     return result(
       "ANSWER",
@@ -310,17 +312,12 @@ function preview(
       [`product:${p.productId}`],
     );
   const faq = s.faqs.find((f) => f.question.trim() === q.trim());
-  if (
-    faq &&
-    !/환불|보상|농약|약속|무조건|지시|프롬프트|할인|배송.*변경|원/.test(
-      faq.answer,
-    )
-  )
+  if (faq && !unsafePolicy.test(faq.answer))
     return result("ANSWER", mask(faq.answer).text, "농가 FAQ", ["farm:faq"]);
   if (
     /소량|최소/.test(q) &&
     s.smallOrderPolicy &&
-    !/환불|보상|무조건|약속|원|지시/.test(s.smallOrderPolicy)
+    !unsafePolicy.test(s.smallOrderPolicy)
   )
     return result(
       "ANSWER",
@@ -329,9 +326,9 @@ function preview(
       ["farm:smallOrderPolicy"],
     );
   if (
-    q === "예약·배송 안내 원칙" &&
+    /예약.*(?:배송|출하)|(?:배송|출하).*예약/.test(q) &&
     s.reservationShippingPolicy &&
-    !/환불|보상|무조건|약속|원|지시/.test(s.reservationShippingPolicy)
+    !unsafePolicy.test(s.reservationShippingPolicy)
   )
     return result(
       "ANSWER",
