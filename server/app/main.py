@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
 from app.ai.router import router as ai_router
 from app.analytics.router import router as analytics_router
@@ -11,6 +12,7 @@ from app.core.errors import install_error_handlers
 from app.farms.router import home_router
 from app.farms.router import router as farms_router
 from app.messaging.router import router as messaging_router
+from app.orders.router import admin_router as orders_admin_router
 from app.orders.router import router as orders_router
 
 app = FastAPI(title="Farmclub API")
@@ -45,5 +47,5 @@ for module_router in (
     app.include_router(module_router, prefix="/api")
 
 # 운영자 관리 API는 /admin 아래(ADR 0008). 모든 경로가 ADMIN 역할을 검사한다.
-for admin_router in (catalog_admin_router,):
+for admin_router in (accounts_admin_router, catalog_admin_router, orders_admin_router):
     app.include_router(admin_router)

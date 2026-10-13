@@ -7,11 +7,12 @@ from app.core.db import get_db
 from app.core.idempotency import run_idempotent
 from app.core.pagination import decode_cursor, encode_cursor, page_limit
 from app.core.schemas import Paged
-from app.core.security import ApprovedProducer, Consumer, CurrentUser
+from app.core.security import Admin, ApprovedProducer, Consumer, CurrentUser
 from app.messaging import service as messaging
 from app.messaging.schemas import InquiryCreated, InquiryInput, InquiryView
 from app.orders import service
 from app.orders.schemas import (
+    AdminRefundInput,
     Changed,
     Dashboard,
     DeliveryWindowResponse,
@@ -25,6 +26,7 @@ from app.orders.schemas import (
 )
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+admin_router = APIRouter(prefix="/admin/orders", tags=["admin"])
 
 Db = Annotated[Session, Depends(get_db)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
@@ -162,3 +164,17 @@ def list_inquiries(
 ):
     """본인 소비자 또는 그 농가 생산자만."""
     return messaging.list_inquiries(db, user, order_id, cursor, limit)
+
+
+@admin_router.post("/{order_id}/delivered", response_model=OrderView)
+def mark_delivered(db: Db, _: Admin, order_id: str):
+    result = service.mark_delivered(db, order_id)
+    db.commit()
+    return result
+
+
+@admin_router.post("/{order_id}/refund", response_model=OrderView)
+def refund_order(db: Db, _: Admin, order_id: str, body: AdminRefundInput):
+    result = service.admin_refund(db, order_id, body.reason)
+    db.commit()
+    return result

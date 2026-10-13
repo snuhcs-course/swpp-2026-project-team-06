@@ -12,6 +12,7 @@ from app.accounts.schemas import (
     LoginResult,
     ProducerApplication,
     ProducerApplicationInput,
+    ProducerDecision,
     TestAccount,
     UserView,
 )
@@ -153,6 +154,20 @@ def submit_producer_application(
     user.name = data.owner_name.strip()
     db.flush()
     return _application_view(user, farm)
+
+
+def decide_producer_application(
+    db: Session, farm_id: str, approved: bool, reason: str | None = None
+) -> ProducerDecision:
+    from app.farms import service as farms
+
+    farm = farms.decide_application(db, farm_id, approved, reason)
+    return ProducerDecision(
+        farm_id=farm.id,
+        status=farm.approval_status,
+        reject_reason=farm.reject_reason,
+        decided_at=farm.decided_at,
+    )
 
 
 def _address(a: ShippingAddress) -> Address:

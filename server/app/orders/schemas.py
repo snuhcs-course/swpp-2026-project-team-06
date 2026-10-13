@@ -50,6 +50,10 @@ class PayInput(CamelModel):
     mock_result: Literal["success", "fail"] = "success"
 
 
+class AdminRefundInput(CamelModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class OrderView(CamelModel):
     unit_weight_grams: int
     released_quantity: int
