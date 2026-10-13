@@ -219,7 +219,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: https://linear.app/sswp6/issue/DEV-51 · GitHub #97
 - 브랜치: `jinumeral/dev-51-dev-implement-conversation-centered-figma-frontend-and`
 - 기능: FEAT-02/06/07/09/12/14/15/17, R-17/18/19, M-14, N-02
-- 상태: 진행 중
+- 상태: 구현·로컬 검증·AI 리뷰 완료, PR CI/사람 리뷰 대기
 
 ### 목표
 확정 Figma v6를 양 앱에 구현하고 활성 제품 명세·구현 명세·영문 wiki를 동기화한다.
@@ -245,8 +245,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] 생산자 대시보드·채팅·출하 UI
 - [x] 공통 토큰·가격·접이식 상품 목록·숫자 한 줄
 - [x] 활성 명세·FEAT/IA/screens·앱 spec·영문 wiki 갱신
-- [ ] 타입 검사·mock·웹 빌드·통합/E2E·360/390/430 브라우저 검증
-- [ ] AI 리뷰 및 PR 최종화
+- [x] 타입 검사·Mock·웹 빌드·360/390/430 UI E2E (실서버 통합은 PR CI로 검증)
+- [x] AI 리뷰 반영 및 PR 작성 (CI 확인 후 리뷰 요청)
 
 ### 기록
 - 10/13 main 9d6b42e에서 시작. 확정 시안과 API/기존 구현 대조 완료, 구현 착수.
@@ -257,3 +257,6 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 10/13 최종 리뷰 추가: 최초 생산자 room 응답 전 입력이 지워지는 경합을 재현해 ready 후 입력 활성화로 수정. 긴 이미지 원비율·고정 구매/탭 및 긴 농가명 테스트 통과. 커밋 0ada553 PR 앱 CI 통과, 실서버 통합 진행 중.
 - 레거시 호환 점검: 후보 2건 — 지적 0건 / 정당 2건 (`/news/:farmId`, `description` fallback: origin/main 3cc2332 및 12251d2에 존재). 브랜치 중간 구조 호환 없음.
+
+- 최종 로컬 UI 검증: `npx playwright test scripts/e2e/conversation-ui.spec.ts` 6/6 통과. 커밋 전·브랜치 diff 검사와 명세 대조 완료. 소수 중량 옵션도 정수 g로 판정하고 생산자 상품 편집 복귀 시 판매 품목을 다시 읽는다.
+- PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/98 (머지하지 않음). 최신 실서버 CI 결과와 AI 리뷰는 PR에 기록. Linear MCP는 읽기 전용이며 브라우저 연결도 실패해 이슈 상태 직접 수정은 미완료.

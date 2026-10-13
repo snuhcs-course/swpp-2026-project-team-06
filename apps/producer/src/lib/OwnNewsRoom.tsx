@@ -6,7 +6,7 @@ import {
 } from "@farmclub/api";
 import { Button, NewsRoom, ProductShelf, T, useAsync } from "@farmclub/ui";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useSession } from "./session";
 
 export default function OwnNewsRoom({ active }: { active: boolean }) {
@@ -14,6 +14,9 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
   const router = useRouter();
   const farmId = user?.farmId ?? "";
   const farm = useAsync(() => farms.get(farmId), [farmId]);
+  useEffect(() => {
+    if (active) void farm.reload();
+  }, [active, farm.reload]);
   const products = useAsync(
     () => productPrices(farm.data?.products ?? []),
     [farm.data?.products],

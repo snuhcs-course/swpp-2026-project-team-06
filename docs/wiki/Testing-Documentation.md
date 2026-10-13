@@ -306,7 +306,7 @@ On failure, CI uploads the Playwright HTML report, traces, screenshots/videos, F
 
 - Local workspace typechecks: pass. Mock contracts: 12/12, including same-option last-period comparison, unavailable inventory and missing-price cases.
 - Both consumer and producer Expo web exports: pass.
-- Chromium v6 coverage: independent horizontal feeds at 360/390/430px, direct farm-room entry, expanded consumer/collapsed producer shelves, draft retention across folding, same-room replies, own-room default entry, fixed purchase/composer/tab regions, long farm-name layout and full-ratio story images. The initial producer-load draft race was reproduced and fixed by enabling input after the first room response.
+- Local Chromium v6 suite: 6/6 passed. Coverage: independent horizontal feeds at 360/390/430px, direct farm-room entry, expanded consumer/collapsed producer shelves, draft retention across folding, same-room replies, own-room default entry, fixed purchase/composer/tab regions, long farm-name layout and full-ratio story images. The initial producer-load draft race was reproduced and fixed by enabling input after the first room response.
 - Existing real-stack checkout/fulfillment tests now assert that reserved-order lookup does not transition state and the harvest action is absent. The retained API is used only to arrange a PREPARING fixture before testing invoice entry and shipping.
 - Local real-server integration was not run because Docker's engine was unavailable. The PR's isolated PostgreSQL CI runs the real API smoke and complete Chromium suite. Final CI result is recorded on PR #98.
 - Historical I1 images and dated validation records above are preserved; they are not evidence that the previous UI remains current.
