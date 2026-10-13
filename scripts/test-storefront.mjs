@@ -233,6 +233,10 @@ test("AC-07-6: comparison uses the same option in the last period and suppresses
   );
   assert.equal(referencePrice({ ...p, soldOut: true }), null);
   assert.equal(referencePrice({ ...p, remainingGrams: 4999 }), null);
+  const fractional = structuredClone(p);
+  fractional.options[0].weightKg = 4.001;
+  fractional.remainingGrams = 4001;
+  assert.equal(referencePrice(fractional), 36000);
   assert.equal(referencePrice({ ...p, currentStageId: "missing" }), null);
   assert.equal(referencePrice(p, "missing"), null);
   const final = p.stages.reduce((a, b) => (a.seq > b.seq ? a : b));

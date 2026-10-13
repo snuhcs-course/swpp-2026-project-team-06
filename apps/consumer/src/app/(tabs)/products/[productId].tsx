@@ -115,7 +115,7 @@ export default function ProductPage() {
   const firstOpt = p.options[0].optionId;
   const left = cur
     ? Math.min(
-        Math.floor(p.remainingGrams / (p.options[0].weightKg * 1000)),
+        Math.floor(p.remainingGrams / Math.round(p.options[0].weightKg * 1000)),
         cur.options[firstOpt].quantity - cur.options[firstOpt].reservedCount,
       )
     : 0;
@@ -202,7 +202,7 @@ export default function ProductPage() {
                 const sold =
                   !value ||
                   value.reservedCount >= value.quantity ||
-                  p.remainingGrams < o.weightKg * 1000;
+                  p.remainingGrams < Math.round(o.weightKg * 1000);
                 return (
                   <View
                     key={o.optionId}
