@@ -128,6 +128,7 @@ export function ConversationHeader({
   onBack,
   onProfile,
   right,
+  height = 76,
 }: {
   name: string;
   photo?: string | null;
@@ -135,6 +136,7 @@ export function ConversationHeader({
   onBack: () => void;
   onProfile?: () => void;
   right?: ReactNode;
+  height?: number;
 }) {
   const profile = (
     <>
@@ -152,7 +154,7 @@ export function ConversationHeader({
   return (
     <View
       style={{
-        minHeight: 76,
+        minHeight: height,
         flexDirection: "row",
         alignItems: "center",
         gap: 8,

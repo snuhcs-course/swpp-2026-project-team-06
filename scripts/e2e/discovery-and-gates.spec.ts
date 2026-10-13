@@ -2,16 +2,24 @@ import { expect, test } from "@playwright/test";
 
 import { consumerUrl, loginProducer, monitor, producerUrl } from "./helpers";
 
-test("AC-06/07/15: anonymous discovery, public news, and login return", async ({ page }) => {
+test("AC-06/07/15: anonymous discovery, public news, and login return", async ({
+  page,
+}) => {
   const assertClean = monitor(page);
   await page.goto(consumerUrl);
-  await expect(page.getByText("지금 예약하면 이득")).toBeVisible();
+  await expect(page.getByText("오늘, 농가에서")).toBeVisible();
 
-  await page.getByRole("link").filter({ hasText: "강씨네 귤밭" }).last().click();
-  await expect(page.getByRole("heading", { name: "강씨네 귤밭", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "소식방 입장" }).click();
-  await expect(page).toHaveURL(/\/news\/f-kang/);
-  await expect(page.getByRole("button", { name: /농가 보기/ }).first()).toBeVisible();
+  await page
+    .getByRole("link", { name: "강씨네 귤밭 소식방에서 이어 보기" })
+    .click();
+  await expect(page).toHaveURL(/\/farms\/f-kang/);
+  await expect(
+    page.getByRole("button", { name: "강씨네 귤밭 농가 보기" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "판매 품목" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
 
   await page.goto(`${consumerUrl}/products/p-house`);
   await page.getByRole("button", { name: "예약하기" }).click();
@@ -23,7 +31,9 @@ test("AC-06/07/15: anonymous discovery, public news, and login return", async ({
   assertClean();
 });
 
-test("AC-01-3: producer account gates use separate sessions", async ({ browser }) => {
+test("AC-01-3: producer account gates use separate sessions", async ({
+  browser,
+}) => {
   const gates = [
     ["오미숙", /\/pending$/, "확인 중이에요"],
     ["박순자", /\/pending$/, "신청이 반려됐어요"],
@@ -36,7 +46,9 @@ test("AC-01-3: producer account gates use separate sessions", async ({ browser }
     const assertClean = monitor(page);
     await loginProducer(page, account);
     await expect(page).toHaveURL(url);
-    await expect(page.getByText(heading, { exact: false }).first()).toBeVisible();
+    await expect(
+      page.getByText(heading, { exact: false }).first(),
+    ).toBeVisible();
     assertClean();
     await context.close();
   }
@@ -45,19 +57,25 @@ test("AC-01-3: producer account gates use separate sessions", async ({ browser }
   const approvedPage = await approved.newPage();
   const assertApprovedClean = monitor(approvedPage);
   await loginProducer(approvedPage, "강영수");
-  await expect(approvedPage).toHaveURL(new RegExp(`${producerUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?$`));
-  await expect(approvedPage.getByText("출하할 주문")).toBeVisible();
+  await expect(approvedPage).toHaveURL(
+    new RegExp(`${producerUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?$`),
+  );
+  await expect(approvedPage.getByText("주문·배송 현황")).toBeVisible();
   assertApprovedClean();
   await approved.close();
 });
 
-test("N-02: core discovery remains usable at supported widths", async ({ page }) => {
+test("N-02: core discovery remains usable at supported widths", async ({
+  page,
+}) => {
   const assertClean = monitor(page);
   for (const width of [360, 390, 430, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(consumerUrl);
-    await expect(page.getByText("지금 예약하면 이득")).toBeVisible();
-    await expect(page.getByRole("button", { name: "농가·상품 검색" })).toBeVisible();
+    await expect(page.getByText("오늘, 농가에서")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "농가·상품 검색" }),
+    ).toBeVisible();
   }
   assertClean();
 });

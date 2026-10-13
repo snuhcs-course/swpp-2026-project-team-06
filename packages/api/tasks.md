@@ -132,3 +132,14 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 구현·검증 완료: Mock 회귀 11건, 4 workspace typecheck, 두 앱 web export 통과. 별도 Mock 브라우저에서 농가/상품 생성→편집→저장→공개 조회, 생성/저장 실패와 취소 보존, 로그인 복귀·팔로우 후 답장, 모바일 넘침 확인.
 - 자체 리뷰 보완: 직접 진입한 상세 편집 뒤로 가기 확인·복귀, 권한 변경 후 늦은 메시지 응답 차단, optional 필드 응답과 멱등 재시도 모양 일치. 실제 데이터 백업·보존.
 - 레거시 호환 점검: 후보 1건 — 지적 0건 / 정당 1건 (intro/description: base 3cc2332). PR CI 후 머지 예정.
+
+## DEV-51 상품 표시 가격 조회
+- 상태: 진행 중. 이슈 https://linear.app/sswp6/issue/DEV-51
+- 범위: packages/api/src/productPresentation.ts, src/index.ts, spec.md, tasks.md; 기존 API 계약 변경 없음.
+- 결정: 마지막 기간의 동일 옵션 가격과 현재 가격을 비교하며 품절/누락/동일 금액은 취소선을 생략한다. 목록은 기존 상품 상세 API를 제한된 동시 요청으로 조회하고 실패 시 비교 금액만 생략한다.
+- 작업: [ ] 조회 도우미와 가격 기준 테스트; [ ] 검증 기록.
+- 10/13 범위 확장: packages/api/src/mock/db.ts의 p-house 신규 시드 detailContent에 기존 승인된 단일 AI 농가 이야기 이미지를 지정한다. 소비자/생산자 public/photos에 같은 원본을 복사한다. 기존 저장 데이터는 재설정하거나 마이그레이션하지 않는다.
+
+- 10/13 구현·명세/영문 wiki 동기화. 타입 검사, Mock 12/12, 양 앱 web export 통과. 소비자 360/390/430 가로 목록·방 진입·고정 구매/탭, 같은 방 답장, 생산자 방 기본 접힘·전송 검증. 최종 이미지/긴 이름 검사 진행 중.
+- 10/13 리뷰 보완: 웹 aria-expanded/aria-selected, 팔로우 요청의 농가·계정 변경 가드, 품절 옵션 비교 가격 숨김, 소식방 안전 영역, 짧은 농가 정보의 로그인·팔로우 안내 복귀를 보완.
+- 10/13 Docker 엔진 미실행으로 실서버 로컬 통합은 실행하지 않았다. PR CI의 전용 PostgreSQL에서 실서버 API/E2E 검증 예정. 사용자 DB는 변경하지 않았다.

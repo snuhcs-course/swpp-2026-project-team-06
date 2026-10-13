@@ -209,7 +209,7 @@ export type Home = {
     productId: string | null;
   };
   recommended: ProductCard[];
-  /** 디자인: 소식 미리보기 대신 농가 둘러보기 */
+  /** 홈 공개 소식 조회와 농가 검색에 사용하는 농가 집합 */
   farms: FarmCard[];
 };
 

@@ -1,5 +1,7 @@
 # Testing Documentation
 
+> DEV-51 updates current UI acceptance to [UI 1.6](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/conversation-ui-1.6.md). Dated I1 results below remain historical evidence, including former harvest controls. Current cross-app tests explicitly arrange PREPARING through the existing API as a test fixture, then exercise invoice/shipping through the UI; the app itself never performs that transition.
+
 ## Changes in this iteration
 
 - I1 initial planning: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. This was a planning milestone, not an execution result. The completed DEV-6 run is recorded in the final section below.
@@ -123,16 +125,16 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
 | AC-13-1 | Farm AI is ON, thread is AUTO, and the product has a delivery window | A consumer replies "When will it ship?" | The AI answer gives that window |
-| AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the needs-reply chat list |
+| AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the 1:1 chat list (server needsReply state) |
 | AC-13-3 | Farm AI is ON, thread is AUTO, and only expected sweetness is registered | A consumer replies "What is the registered Brix value?" | AI answers and says it is an expected value |
 | AC-13-4 | AI sent an answer | The conversation opens | The answer has an "AI answer" label |
-| AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's needs-reply chat list (SCR-28), marked as a wrong answer |
+| AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's 1:1 chat list (server needsReply state) (SCR-28), marked as a wrong answer |
 
 ### FEAT-14 Producer dashboard
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-14-1 | The producer is viewing the dashboard | A new order is paid | On reopening, that stage's reservation count is up and remaining quantity is down |
+| AC-14-1 | The producer is viewing the dashboard | A new order is paid | On reopening, order metrics and representative product reserved kg update |
 | AC-14-2 | An order has been delivered | The producer views it on the dashboard | Address and phone number are hidden |
 
 ### FEAT-15 Farm news and likes
@@ -151,7 +153,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-17-1 (I2) | AI found an order and asked for confirmation | Before the producer taps confirm | No order changes state |
 | AC-17-2 | An order is preparing shipment | The producer taps confirm | The consumer's order detail shows "In delivery" (state `SHIPPED`) and the cancel button disappears |
-| AC-17-3 | A product has 3 reserved orders | The producer taps "Start harvest" | All 3 become "preparing shipment", and consumers can still cancel |
+| AC-17-3 | A product has 3 reserved orders | The producer views reservations | All remain RESERVED; no harvest action or automatic transition; cancellation rules stay unchanged |
 | AC-17-4 | An order has shipped | The producer sends a request to mark it delivered | It is refused and the order stays shipped |
 | AC-17-5 | Tracking number "123-456" is entered on a preparing order | It is marked shipped | The ship date and tracking number are saved and shown on the consumer's order detail |
 

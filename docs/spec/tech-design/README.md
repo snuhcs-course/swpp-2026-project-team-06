@@ -83,7 +83,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | 상태 | 뜻 | 다음 상태 | 바꾸는 주체 |
 | --- | --- | --- | --- |
 | `PENDING_PAYMENT` | 동의 완료, 결제 전 | RESERVED, CANCELED | 시스템 |
-| `RESERVED` | 결제 완료, 출하 대기 (화면: 예약 완료) | PREPARING, REFUNDED | 생산자(수확 시작) / 소비자 취소 / 시스템(R-09) |
+| `RESERVED` | 결제 완료, 출하 대기 (화면: 예약 완료) | PREPARING, REFUNDED | 생산자 기존 API(현재 UI 없음, 자동 전이 없음) / 소비자 취소 / 시스템(R-09) |
 | `PREPARING` | 수확·출하 준비 중 | SHIPPED, REFUNDED, PARTIALLY\_REFUNDED | 생산자(출하, FEAT-17) / 소비자 취소 / 시스템(R-09·R-10) |
 | `SHIPPED` | 출하됨. 이후 소비자 단순 취소 불가 | DELIVERED | 운영자 |
 | `DELIVERED` | 배송 완료(택배 조회로 확인), 구매 확정 대기 | COMPLETED, REFUNDED, PARTIALLY\_REFUNDED | 소비자 구매 확정 / 시스템(배송 완료 8일 경과, PRD R-14) / 운영자(R-11) |

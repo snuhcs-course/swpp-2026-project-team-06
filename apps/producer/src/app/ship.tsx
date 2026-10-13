@@ -4,21 +4,18 @@ import {
   ApiError,
   CARRIERS,
   carrierLabel,
-  catalog,
+  allPages,
   orders,
   type Carrier,
-  type MyProductCard,
   type ProducerOrder,
 } from "@farmclub/api";
 import {
   BottomBar,
   Button,
-  EmptyState,
   HeaderBar,
   Icon,
   Input,
   Notice,
-  Photo,
   Screen,
   Scroll,
   Segmented,
@@ -28,9 +25,9 @@ import {
   focusRing,
   tokens,
 } from "@farmclub/ui";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, errMsg } from "../lib/views";
@@ -39,7 +36,7 @@ type Data = {
   reserved: ProducerOrder[];
   preparing: ProducerOrder[];
   shipped: ProducerOrder[];
-  products: MyProductCard[];
+  all: ProducerOrder[];
 };
 
 type Invoice = { carrier: Carrier | null; no: string };
@@ -54,41 +51,40 @@ const invoiceText = (
 
 export default function Ship() {
   const router = useRouter();
+  const { status } = useLocalSearchParams<{ status?: string }>();
   const { toast, failToast } = useSession();
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [tab, setTab] = useState<"PREPARING" | "SHIPPED">("PREPARING");
+  type Tab = "all" | "RESERVED" | "PREPARING" | "SHIPPED";
+  const tab: Tab =
+    status === "all" || status === "RESERVED" || status === "SHIPPED"
+      ? status
+      : "PREPARING";
+  const setTab = (value: Tab) => router.setParams({ status: value });
   const [picked, setPicked] = useState<string[]>([]);
   const [invoices, setInvoices] = useState<Record<string, Invoice>>({});
   const [invoiceFor, setInvoiceFor] = useState<ProducerOrder | null>(null);
   const [draft, setDraft] = useState<Invoice>({ carrier: null, no: "" });
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
-  const [harvestFor, setHarvestFor] = useState<{
-    productId: string;
-    name: string;
-    count: number;
-  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, p, s, prods] = await Promise.all([
-        orders.producerOrders({ status: "RESERVED", limit: 50 }),
-        orders.producerOrders({ status: "PREPARING", limit: 50 }),
-        orders.producerOrders({ status: "SHIPPED", limit: 50 }),
-        catalog.mine({ limit: 50 }),
-      ]);
+      const all = await allPages((cursor) =>
+        orders.producerOrders({ limit: 50, cursor }),
+      );
+      const preparing = all.filter((o) => o.status === "PREPARING");
       setData({
-        reserved: r.items,
-        preparing: p.items,
-        shipped: s.items,
-        products: prods.items,
+        all,
+        reserved: all.filter((o) => o.status === "RESERVED"),
+        preparing,
+        shipped: all.filter((o) => o.status === "SHIPPED"),
       });
       setPicked((old) =>
-        old.filter((id) => p.items.some((o) => o.orderId === id)),
+        old.filter((id) => preparing.some((o) => o.orderId === id)),
       );
     } catch (e) {
       setError(e);
@@ -104,7 +100,12 @@ export default function Ship() {
   if (!data) {
     return (
       <Screen>
-        <HeaderBar title="출하 처리" onBack={back} />
+        <HeaderBar
+          title={
+            tab === "all" || tab === "RESERVED" ? "주문 현황" : "배송 현황"
+          }
+          onBack={back}
+        />
         {error ? (
           <LoadError error={error} onRetry={load} />
         ) : (
@@ -114,60 +115,17 @@ export default function Ship() {
     );
   }
 
-  // 수확 시작 대상: 예약 완료 주문이 있는 상품
-  const harvest = data.products
-    .map((p) => ({
-      p,
-      count: data.reserved.filter((o) => o.productId === p.productId).length,
-    }))
-    .filter((x) => x.count > 0);
-  const empty =
-    harvest.length === 0 &&
-    data.preparing.length === 0 &&
-    data.shipped.length === 0;
-
-  if (empty) {
-    return (
-      <Screen>
-        <HeaderBar title="출하 처리" onBack={back} />
-        <EmptyState
-          icon="box"
-          title="지금 보낼 주문이 없어요"
-          body="수확을 시작하면 출하 준비 주문이 여기에 보여요."
-          action={
-            <Button
-              label="현황으로"
-              variant="text"
-              onPress={() => router.replace("/")}
-              style={{ alignSelf: "center", marginTop: 4 }}
-            />
-          }
-        />
-      </Screen>
-    );
-  }
-
-  const list = tab === "PREPARING" ? data.preparing : data.shipped;
+  const list =
+    tab === "all"
+      ? data.all
+      : tab === "RESERVED"
+        ? data.reserved
+        : tab === "PREPARING"
+          ? data.preparing
+          : data.shipped;
   const chosen = data.preparing.filter((o) => picked.includes(o.orderId));
   const has = (id: string) => !!(invoices[id]?.carrier || invoices[id]?.no);
   const withInvoice = chosen.filter((o) => has(o.orderId)).length;
-
-  async function startHarvest() {
-    if (!harvestFor) return;
-    setBusy(true);
-    try {
-      const r = await orders.harvestStart(harvestFor.productId);
-      setHarvestFor(null);
-      toast(`${r.changed}건이 출하 준비로 바뀌었어요`);
-      setTab("PREPARING");
-      await load();
-    } catch (e) {
-      setHarvestFor(null);
-      if (!failToast(e, () => void startHarvest())) setNotice(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function shipAll() {
     setBusy(true);
@@ -230,70 +188,44 @@ export default function Ship() {
 
   return (
     <Screen>
-      <HeaderBar title="출하 처리" onBack={back} />
+      <HeaderBar
+        title={tab === "all" || tab === "RESERVED" ? "주문 현황" : "배송 현황"}
+        onBack={back}
+      />
       <Scroll bottom={tab === "PREPARING" && data.preparing.length ? 170 : 60}>
-        {harvest.map(({ p, count }) => (
-          <View
-            key={p.productId}
-            style={{ paddingHorizontal: 20, paddingTop: 16, gap: 12 }}
-          >
-            <View
-              style={{ flexDirection: "row", gap: 16, alignItems: "center" }}
-            >
-              <Photo
-                uri={p.photo}
-                width={tokens.thumb.summary}
-                height={tokens.thumb.summary}
-                kind="product"
-                alt={p.name}
-              />
-              <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                <T variant="body" weight="semibold">
-                  {p.name}
-                </T>
-                <T variant="sub" muted>
-                  예약 완료 {count}건 · 아직 수확 전
-                </T>
-              </View>
-            </View>
-            <Button
-              label="수확 시작"
-              variant="outline"
-              size="producer"
-              onPress={() =>
-                setHarvestFor({ productId: p.productId, name: p.name, count })
-              }
-            />
-            <T variant="caption" muted>
-              누르면 {count}건이 모두 출하 준비로 바뀌어요.
-            </T>
-          </View>
-        ))}
         {notice ? (
           <Notice
             title={notice}
             style={{ marginHorizontal: 20, marginTop: 16 }}
           />
         ) : null}
-        <View style={{ paddingHorizontal: 20, paddingTop: 32 }}>
-          <Segmented
-            options={[
-              {
-                value: "PREPARING",
-                label: `출하 준비 ${data.preparing.length}`,
-              },
-              { value: "SHIPPED", label: `출하 ${data.shipped.length}` },
-            ]}
-            value={tab}
-            onChange={setTab}
-          />
-        </View>
+        <ScrollView
+          horizontal
+          style={{ flexGrow: 0 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 32 }}
+        >
+          <View style={{ minWidth: 400 }}>
+            <Segmented
+              options={[
+                { value: "all", label: `전체 ${data.all.length}` },
+                { value: "RESERVED", label: `예약 ${data.reserved.length}` },
+                {
+                  value: "PREPARING",
+                  label: `출하 준비 ${data.preparing.length}`,
+                },
+                { value: "SHIPPED", label: `출하 ${data.shipped.length}` },
+              ]}
+              value={tab}
+              onChange={setTab}
+            />
+          </View>
+        </ScrollView>
         <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
           {list.length === 0 ? (
             <T variant="sub" muted style={{ paddingVertical: 24 }}>
               {tab === "PREPARING"
-                ? "출하 준비 주문이 없어요. 수확을 시작하면 여기에 보여요."
-                : "아직 출하한 주문이 없어요."}
+                ? "출하 준비 주문이 없어요."
+                : "해당 상태의 주문이 없어요."}
             </T>
           ) : null}
           {list.map((o) => {
@@ -305,7 +237,7 @@ export default function Ship() {
             const filled = !!(inv?.carrier || inv?.no);
             const info = (
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                <T variant="sub" muted>
+                <T variant="sub" muted numberOfLines={1}>
                   {o.orderNo}
                 </T>
                 <T variant="body" weight="semibold">
@@ -325,7 +257,9 @@ export default function Ship() {
                     ? filled
                       ? `${invoiceText(inv?.carrier, inv?.no)} ›`
                       : "택배사·송장 번호 넣기 ›"
-                    : invoiceText(inv?.carrier, inv?.no)}
+                    : o.status === "RESERVED"
+                      ? "예약 완료"
+                      : invoiceText(inv?.carrier, inv?.no)}
                 </T>
               </View>
             );
@@ -573,31 +507,6 @@ export default function Ship() {
             style={{ flex: 2 }}
             loading={busy}
             onPress={shipAll}
-          />
-        </View>
-      </Sheet>
-
-      {/* 수확 시작 확인 */}
-      <Sheet visible={!!harvestFor} onClose={() => setHarvestFor(null)}>
-        <T variant="heading">수확을 시작할까요?</T>
-        <T variant="body">
-          {harvestFor?.name}의 예약 완료 {harvestFor?.count}건이 모두 출하
-          준비로 바뀌어요.
-        </T>
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-          <Button
-            label="아니요"
-            variant="secondary"
-            size="producer"
-            style={{ flex: 1 }}
-            onPress={() => setHarvestFor(null)}
-          />
-          <Button
-            label="수확 시작"
-            size="producer"
-            style={{ flex: 2 }}
-            loading={busy}
-            onPress={startHarvest}
           />
         </View>
       </Sheet>
