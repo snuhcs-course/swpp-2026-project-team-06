@@ -12,7 +12,8 @@
     "test:integration": "node scripts/test-integration.mjs",
     "test:e2e": "playwright test",
     "test:integration:full": "node scripts/run-integration.mjs",
-    "test:mock": "tsc -p scripts/mock-tsconfig.json && node --test scripts/test-news-rooms.mjs scripts/test-spec12.mjs scripts/test-capacity.mjs scripts/test-navigation.mjs scripts/test-storefront.mjs"
+    "test:mock": "tsc -p scripts/mock-tsconfig.json && node --test scripts/test-news-rooms.mjs scripts/test-spec12.mjs scripts/test-capacity.mjs scripts/test-navigation.mjs scripts/test-storefront.mjs",
+    "design": "npx -y easel-canvas@0.1.0 --dir docs/design"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0"

@@ -1,0 +1,323 @@
+{
+  "version": 1,
+  "title": "farmclub 디자인",
+  "pages": [],
+  "boards": {
+    "cover.html": {"x":0,"y":0,"w":1240,"h":1880,"title":"표지 · 화면 체크리스트"},
+
+    "ds.html": {"x":0,"y":11236,"w":1400,"h":4700,"title":"디자인 시스템"},
+
+    "f-1.html": {"x":0,"y":-1800,"w":2980,"h":1120,"title":"F-1 생산자 가입·상품 등록"},
+
+    "f-2.html": {"x":3260,"y":-1800,"w":2380,"h":1120,"title":"F-2 소비자 예약 주문"},
+
+    "f-3.html": {"x":5720,"y":-1800,"w":1480,"h":1120,"title":"F-3 질문 · AI 답 · 농가 답장"},
+
+    "f-4.html": {"x":7280,"y":-1800,"w":1780,"h":1120,"title":"F-4 수확 · 출하 · 배송 · 구매 확정"},
+
+    "f-5.html": {"x":9140,"y":-1800,"w":1180,"h":1120,"title":"F-5 취소 · 환불 · 받는 시기 변경"},
+
+    "icons.html": {"x":4280,"y":11236,"w":1400,"h":1480,"title":"앱 아이콘 · 파비콘"},
+
+    "p-scr-19.html": {"x":0,"y":2756,"w":390,"h":844,"title":"SCR-19 로그인 (생산자 앱)"},
+
+    "p-scr-20.html": {"x":470,"y":2756,"w":390,"h":1300,"title":"SCR-20 가입 신청"},
+
+    "p-scr-21.html": {"x":940,"y":2756,"w":390,"h":844,"title":"SCR-21 승인 대기"},
+
+    "p-scr-22.html": {"x":1410,"y":2756,"w":390,"h":1480,"title":"SCR-22 현황"},
+
+    "p-scr-23.html": {"x":1880,"y":2756,"w":390,"h":980,"title":"SCR-23 상품 목록"},
+
+    "p-scr-24-result.html": {"x":2820,"y":2756,"w":390,"h":1200,"title":"SCR-24 · 초안 결과"},
+
+    "p-scr-24.html": {"x":2350,"y":2756,"w":390,"h":844,"title":"SCR-24 AI 상품 초안"},
+
+    "p-scr-25-detail.html": {"x":4230,"y":2756,"w":390,"h":2880,"title":"P-SCR-25-detail"},
+
+    "p-scr-25-sales.html": {"x":3760,"y":2756,"w":390,"h":1640,"title":"P-SCR-25-sales"},
+
+    "p-scr-25.html": {"x":3290,"y":2756,"w":390,"h":2340,"title":"SCR-25 상품 편집"},
+
+    "p-scr-26.html": {"x":4700,"y":2756,"w":390,"h":2180,"title":"SCR-26 단계·가격·물량"},
+
+    "p-scr-27.html": {"x":5170,"y":2756,"w":390,"h":1420,"title":"SCR-27 소식 올리기"},
+
+    "p-scr-28-room.html": {"x":6110,"y":2756,"w":390,"h":1320,"title":"P-SCR-28-room"},
+
+    "p-scr-28.html": {"x":5640,"y":2756,"w":390,"h":844,"title":"SCR-28 질문함"},
+
+    "p-scr-29-sheet.html": {"x":7050,"y":2756,"w":390,"h":844,"title":"SCR-29 · 시트 출하 확인"},
+
+    "p-scr-29.html": {"x":6580,"y":2756,"w":390,"h":1180,"title":"SCR-29 출하 처리"},
+
+    "p-scr-30-detail.html": {"x":7990,"y":2756,"w":390,"h":1360,"title":"P-SCR-30-detail"},
+
+    "p-scr-30.html": {"x":7520,"y":2756,"w":390,"h":980,"title":"SCR-30 농가 프로필·링크"},
+
+    "p-scr-31.html": {"x":8460,"y":2756,"w":390,"h":2020,"title":"P-SCR-31"},
+
+    "p-scr-33.html": {"x":8930,"y":2756,"w":390,"h":844,"title":"P-SCR-33"},
+
+    "pc.html": {"x":1480,"y":11236,"w":1440,"h":960,"title":"PC 화면 · 최대 폭 480"},
+
+    "s-01-error.html": {"x":470,"y":6056,"w":390,"h":1260,"title":"SCR-01 · 네트워크 오류"},
+
+    "s-01-loading.html": {"x":0,"y":6056,"w":390,"h":844,"title":"SCR-01 · 로딩"},
+
+    "s-02-noresult.html": {"x":940,"y":6056,"w":390,"h":844,"title":"SCR-02 · 검색 결과 없음"},
+
+    "s-03-following.html": {"x":12220,"y":6056,"w":390,"h":844,"title":"SCR-03 · 팔로잉"},
+
+    "s-03-notfound.html": {"x":1410,"y":6056,"w":390,"h":844,"title":"SCR-03 · 찾을 수 없는 농가"},
+
+    "s-03-unfollowed.html": {"x":12690,"y":6056,"w":390,"h":844,"title":"SCR-03 · 팔로우 해제 토스트"},
+
+    "s-04-ended.html": {"x":2350,"y":6056,"w":390,"h":844,"title":"SCR-04 · 판매 종료"},
+
+    "s-04-soldout.html": {"x":1880,"y":6056,"w":390,"h":844,"title":"SCR-04 · 품절"},
+
+    "s-05-gate.html": {"x":2820,"y":6056,"w":390,"h":844,"title":"SCR-05 · 비로그인 관문"},
+
+    "s-10-address.html": {"x":9400,"y":6056,"w":390,"h":844,"title":"SCR-10 · 새 주소 입력"},
+
+    "s-10-noaddr.html": {"x":8930,"y":6056,"w":390,"h":1720,"title":"SCR-10 · 첫 주문(배송지 없음)"},
+
+    "s-10-noconsent.html": {"x":3290,"y":6056,"w":390,"h":1720,"title":"SCR-10 · 동의 전"},
+
+    "s-10-remote.html": {"x":3760,"y":6056,"w":390,"h":1760,"title":"SCR-10 · 도서산간 추가 운임"},
+
+    "s-10-stagechanged.html": {"x":4230,"y":6056,"w":390,"h":1820,"title":"SCR-10 · 결제 중 단계가 바뀜"},
+
+    "s-11-fail.html": {"x":4700,"y":6056,"w":390,"h":920,"title":"SCR-11 · 결제 실패"},
+
+    "s-12-detailfail.html": {"x":9870,"y":6056,"w":390,"h":1000,"title":"SCR-12 · 상세 조회 실패"},
+
+    "s-13-empty.html": {"x":10340,"y":6056,"w":390,"h":844,"title":"S-13-empty"},
+
+    "s-14-cancelsheet.html": {"x":7520,"y":6056,"w":390,"h":844,"title":"SCR-14 · 시트 예약 취소 확인"},
+
+    "s-14-delivered.html": {"x":6110,"y":6056,"w":390,"h":1140,"title":"SCR-14 · 배송 완료"},
+
+    "s-14-preparing.html": {"x":5170,"y":6056,"w":390,"h":1140,"title":"SCR-14 · 수확·포장 중"},
+
+    "s-14-refunded.html": {"x":6580,"y":6056,"w":390,"h":1140,"title":"SCR-14 · 환불됨"},
+
+    "s-14-shipped.html": {"x":5640,"y":6056,"w":390,"h":1180,"title":"SCR-14 · 배송 중"},
+
+    "s-14-window.html": {"x":7050,"y":6056,"w":390,"h":1220,"title":"SCR-14 · 받는 시기 변경"},
+
+    "s-15-empty.html": {"x":7990,"y":6056,"w":390,"h":844,"title":"SCR-15 · 채팅 없음"},
+
+    "s-17-addresses.html": {"x":10810,"y":6056,"w":390,"h":844,"title":"SCR-17 · 배송지 관리"},
+
+    "s-17-deletesheet.html": {"x":11280,"y":6056,"w":390,"h":844,"title":"SCR-17 · 시트 배송지 삭제 확인"},
+
+    "s-17-producer.html": {"x":13160,"y":6056,"w":390,"h":844,"title":"SCR-17 · 시트 농가로 시작하기"},
+
+    "s-18-nofollow.html": {"x":8460,"y":6056,"w":390,"h":844,"title":"SCR-18 · 팔로우한 농가 없음"},
+
+    "s-19-suspended.html": {"x":3290,"y":8296,"w":390,"h":844,"title":"SCR-19 · 생산자 정지 안내"},
+
+    "s-21-application.html": {"x":6580,"y":8296,"w":390,"h":844,"title":"SCR-21 · 시트 신청 내용"},
+
+    "s-21-rejected.html": {"x":0,"y":8296,"w":390,"h":844,"title":"SCR-21 · 반려"},
+
+    "s-23-filter.html": {"x":7990,"y":8296,"w":390,"h":960,"title":"S-23-filter"},
+
+    "s-24-fail.html": {"x":940,"y":8296,"w":390,"h":900,"title":"SCR-24 · AI 실패"},
+
+    "s-24-loading.html": {"x":470,"y":8296,"w":390,"h":844,"title":"SCR-24 · AI 처리 중"},
+
+    "s-25-datesheet.html": {"x":7050,"y":8296,"w":390,"h":844,"title":"SCR-25 · 시트 기간 선택"},
+
+    "s-25-disabled.html": {"x":1410,"y":8296,"w":390,"h":2320,"title":"SCR-25 · 게시 요청 꺼짐"},
+
+    "s-25-leavesheet.html": {"x":3760,"y":8296,"w":390,"h":844,"title":"SCR-25 · 시트 저장 안 하고 나가기"},
+
+    "s-25-pausesheet.html": {"x":8930,"y":8296,"w":390,"h":844,"title":"S-25-pausesheet"},
+
+    "s-25-salespending.html": {"x":8460,"y":8296,"w":390,"h":1760,"title":"S-25-salespending"},
+
+    "s-25-windowsheet.html": {"x":4230,"y":8296,"w":390,"h":844,"title":"SCR-25 · 시트 받는 시기 변경 안내"},
+
+    "s-26-datesheet.html": {"x":7520,"y":8296,"w":390,"h":844,"title":"SCR-26 · 시트 기간 겹침 오류"},
+
+    "s-26-error.html": {"x":1880,"y":8296,"w":390,"h":1120,"title":"SCR-26 · 검증 오류"},
+
+    "s-27-attacherror.html": {"x":4700,"y":8296,"w":390,"h":1560,"title":"SCR-27 · 첨부 오류"},
+
+    "s-28-chat.html": {"x":5170,"y":8296,"w":390,"h":1440,"title":"SCR-28 · 소비자별 채팅"},
+
+    "s-28-empty.html": {"x":2350,"y":8296,"w":390,"h":844,"title":"SCR-28 · 답할 질문 없음"},
+
+    "s-29-empty.html": {"x":2820,"y":8296,"w":390,"h":844,"title":"SCR-29 · 출하할 주문 없음"},
+
+    "s-29-invoice.html": {"x":5640,"y":8296,"w":390,"h":844,"title":"SCR-29 · 시트 택배사·송장 번호 입력"},
+
+    "s-30-detail-preview.html": {"x":9400,"y":8296,"w":390,"h":1760,"title":"S-30-detail-preview"},
+
+    "s-30-edit.html": {"x":6110,"y":8296,"w":390,"h":844,"title":"SCR-30 · 소개 고치기"},
+
+    "s-403.html": {"x":11750,"y":6056,"w":390,"h":844,"title":"공통 · 권한 오류"},
+
+    "scr-01.html": {"x":1320,"y":0,"w":390,"h":1300,"title":"SCR-01 홈·발견"},
+
+    "scr-02.html": {"x":1790,"y":0,"w":390,"h":1040,"title":"SCR-02 농가 목록"},
+
+    "scr-03.html": {"x":2260,"y":0,"w":390,"h":2060,"title":"SCR-03 농가 페이지"},
+
+    "scr-04-sheet.html": {"x":3200,"y":0,"w":390,"h":844,"title":"SCR-04 · 시트 옵션·수량"},
+
+    "scr-04.html": {"x":2730,"y":0,"w":390,"h":2336,"title":"SCR-04 상품 상세"},
+
+    "scr-05.html": {"x":3670,"y":0,"w":390,"h":844,"title":"SCR-05 로그인"},
+
+    "scr-10.html": {"x":4140,"y":0,"w":390,"h":1720,"title":"SCR-10 주문서"},
+
+    "scr-11.html": {"x":4610,"y":0,"w":390,"h":844,"title":"SCR-11 결제"},
+
+    "scr-12.html": {"x":5080,"y":0,"w":390,"h":1000,"title":"SCR-12 주문 완료"},
+
+    "scr-13.html": {"x":5550,"y":0,"w":390,"h":844,"title":"SCR-13 주문 내역"},
+
+    "scr-14.html": {"x":6020,"y":0,"w":390,"h":1140,"title":"SCR-14 주문 상세"},
+
+    "scr-15.html": {"x":6490,"y":0,"w":390,"h":844,"title":"SCR-15 채팅 목록"},
+
+    "scr-16.html": {"x":6960,"y":0,"w":390,"h":960,"title":"SCR-16 농가 채팅"},
+
+    "scr-17.html": {"x":7430,"y":0,"w":390,"h":1100,"title":"SCR-17 내 정보"},
+
+    "scr-18-room.html": {"x":8370,"y":0,"w":390,"h":1240,"title":"SCR-18-room"},
+
+    "scr-18.html": {"x":7900,"y":0,"w":390,"h":844,"title":"SCR-18 소식"},
+
+    "scr-32.html": {"x":8840,"y":0,"w":390,"h":904,"title":"SCR-32"},
+
+    "share-default.html": {"x":3000,"y":11986,"w":1200,"h":630,"title":"공유 미리보기 · 기본"},
+
+    "share-farm.html": {"x":3000,"y":11236,"w":1200,"h":630,"title":"공유 미리보기 · 농가 링크"}
+  },
+  "order": [
+    "scr-01.html",
+    "scr-02.html",
+    "scr-03.html",
+    "scr-04.html",
+    "scr-04-sheet.html",
+    "scr-05.html",
+    "scr-10.html",
+    "scr-11.html",
+    "scr-12.html",
+    "scr-13.html",
+    "scr-14.html",
+    "scr-15.html",
+    "scr-16.html",
+    "scr-17.html",
+    "scr-18.html",
+    "p-scr-19.html",
+    "p-scr-20.html",
+    "p-scr-21.html",
+    "p-scr-22.html",
+    "p-scr-23.html",
+    "p-scr-24.html",
+    "p-scr-24-result.html",
+    "p-scr-25.html",
+    "p-scr-26.html",
+    "p-scr-27.html",
+    "p-scr-28.html",
+    "p-scr-29.html",
+    "p-scr-29-sheet.html",
+    "p-scr-30.html",
+    "cover.html",
+    "s-01-loading.html",
+    "s-01-error.html",
+    "s-02-noresult.html",
+    "s-03-notfound.html",
+    "s-04-soldout.html",
+    "s-04-ended.html",
+    "s-05-gate.html",
+    "s-10-noconsent.html",
+    "s-10-remote.html",
+    "s-10-stagechanged.html",
+    "s-11-fail.html",
+    "s-14-preparing.html",
+    "s-14-shipped.html",
+    "s-14-delivered.html",
+    "s-14-refunded.html",
+    "s-14-window.html",
+    "s-14-cancelsheet.html",
+    "s-15-empty.html",
+    "s-18-nofollow.html",
+    "s-21-rejected.html",
+    "s-24-loading.html",
+    "s-24-fail.html",
+    "s-25-disabled.html",
+    "s-26-error.html",
+    "s-28-empty.html",
+    "s-29-empty.html",
+    "s-10-noaddr.html",
+    "s-10-address.html",
+    "s-12-detailfail.html",
+    "s-17-addresses.html",
+    "s-17-deletesheet.html",
+    "s-403.html",
+    "s-19-suspended.html",
+    "s-25-leavesheet.html",
+    "s-25-windowsheet.html",
+    "s-27-attacherror.html",
+    "s-28-chat.html",
+    "s-29-invoice.html",
+    "s-30-edit.html",
+    "f-1.html",
+    "f-2.html",
+    "ds.html",
+    "s-03-following.html",
+    "s-03-unfollowed.html",
+    "s-21-application.html",
+    "s-25-datesheet.html",
+    "s-26-datesheet.html",
+    "f-3.html",
+    "f-4.html",
+    "f-5.html",
+    "pc.html",
+    "share-farm.html",
+    "share-default.html",
+    "icons.html",
+    "s-17-producer.html",
+    "scr-18-room.html",
+    "scr-32.html",
+    "p-scr-25-sales.html",
+    "p-scr-25-detail.html",
+    "p-scr-28-room.html",
+    "p-scr-30-detail.html",
+    "p-scr-31.html",
+    "p-scr-33.html",
+    "s-13-empty.html",
+    "s-23-filter.html",
+    "s-25-salespending.html",
+    "s-25-pausesheet.html",
+    "s-30-detail-preview.html"
+  ],
+  "notes": {
+    "nb": {"kind":"sticky","x":0,"y":-210,"w":1330,"text":"글꼴 Pretendard 가변(한글 서브셋) · 숫자 tabular · 크기 34/22/17/16/15(16은 입력, 15는 보조·메타·채팅) · 굵기 400/600/700\n색: 글자 #111111 · 보조 #6B6B6B · 바탕 #FFFFFF · 면 #F5F5F3 · 선 #E8E8E6 · 강조 #C94F0C(흰 글자 4.56:1, 17px 600 이상, 화면당 한 곳)\n누르는 영역 48 · 간격 4 단위 · 썸네일 104/64/40 · 모서리 8 / 16 / 원형 · 카드는 누르는 것만 · 칩은 D-day·품절만 · 탭 발견·소식·채팅·내 정보"},
+
+    "np": {"kind":"sticky","x":0,"y":2546,"w":1330,"text":"생산자 앱도 소비자와 같은 글자 단계(34/22/17/15, 입력 16, 채팅 15)와 공용 부품(탭 바·입력칸·라디오·세그먼트·시트·배지)을 쓴다\n다른 점: 요약 숫자 22~34 · 주요 버튼 56(글자 17) · 목록 줄 최소 56 · 소식은 채팅 탭의 자기 소식방에서 쓴다(현황·환경설정에 떠 있는 버튼 없음)"},
+
+    "tb": {"kind":"title","x":0,"y":-320,"maxW":6970,"text":"소비자 앱 · 15화면 + 소식방 + 옵션 시트"},
+
+    "tcv": {"kind":"title","x":-1800,"y":-320,"maxW":1240,"text":"표지"},
+
+    "td": {"kind":"title","x":0,"y":10916,"maxW":1400,"text":"디자인 시스템"},
+
+    "tf": {"kind":"title","x":0,"y":-2120,"maxW":8000,"text":"흐름도"},
+
+    "tp": {"kind":"title","x":0,"y":2436,"maxW":6500,"text":"생산자 앱 · 14화면 + 초안 결과 · 판매 설정 · 상세 편집 · 소식방"},
+
+    "ts1": {"kind":"title","x":0,"y":5736,"maxW":8000,"text":"상태 프레임 · 소비자 26 + 시트 3"},
+
+    "ts2": {"kind":"title","x":0,"y":7976,"maxW":7910,"text":"상태 프레임 · 생산자 14 + 시트 7"},
+
+    "tx": {"kind":"title","x":1480,"y":10916,"maxW":4200,"text":"PC · 공유 미리보기 · 아이콘"}
+  }
+}

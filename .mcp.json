@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "easel": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "-p",
+        "easel-canvas@0.1.0",
+        "easel-mcp",
+        "--port",
+        "4317"
+      ],
+      "env": {}
+    }
+  }
+}

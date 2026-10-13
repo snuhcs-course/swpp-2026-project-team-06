@@ -45,6 +45,7 @@
   - `packages/ui/`, `packages/api/` — 앱 공용 패키지
   - `server/` — FastAPI 서버. `app/` 안에 도메인 모듈(`core`, `accounts`, `farms`, `catalog`, `orders`, `messaging`, `ai`, `analytics`, 모듈마다 `router`·`models`·`schemas`·`service`), `migrations/`(Alembic)
   - `docs/spec/` — 제품 스펙 원본 (한국어)
+  - `docs/design/` — 화면 디자인(HTML 보드, board.json·comments.json). 로컬 캔버스는 npm 패키지 [easel-canvas](https://www.npmjs.com/package/easel-canvas)(소스 [nemodleo/easel](https://github.com/nemodleo/easel))이고 `npm run design`으로 실행한다(따로 설치할 것 없음). AI 에이전트 연결은 루트 `.mcp.json`. 도구 자체를 고치려면 그 레포에 PR을 보낸다
   - `docs/wiki/` — 평가용 wiki 원본 (`meetings/YYYY-MM-DD-*.md`는 Meeting-Logs로 합쳐짐)
   - `docs/*.html` — 랜딩 페이지
   - `.agents/skills/` — 공용 스킬 원본 (`.claude/skills`는 이 폴더로의 심링크)
@@ -74,7 +75,7 @@
 
 ## AI 사용 기록
 - AI를 쓴 작업은 Linear 결과와 PR 본문에 `Agent 시간 / Tokens`를 적는다(시트 기록용).
-- 대표 프롬프트·AI가 틀린 사례는 `docs/wiki/AI-Collaboration-Report.md` 작성 때 쓰이므로 PR 본문 "AI 사용"에 한 줄 남긴다.
+- 대표 프롬프트·AI가 틀린 사례는 iteration별 `docs/wiki/AI-Collaboration-Report-–-Iteration-N.md`(I1: `AI-Collaboration-Report-–-Iteration-1.md`와 Prompt Log) 작성 때 쓰이므로 PR 본문 "AI 사용"에 한 줄 남긴다.
 
 ## 공용 스킬 (`.agents/skills/`)
 | 스킬 | 언제 |

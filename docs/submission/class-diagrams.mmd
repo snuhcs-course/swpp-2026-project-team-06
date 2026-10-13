@@ -1,0 +1,207 @@
+%% Frontend class diagram -> docs/wiki/images/i1-frontend-class.png
+classDiagram
+  direction LR
+  class ConsumerApp {
+    <<app>>
+    +DiscoverTab
+    +MyOrdersTab
+    +ChatTab
+    +MeTab
+    +ProductScreen
+    +CheckoutScreen
+    +LoginScreen
+  }
+  class ProducerApp {
+    <<app>>
+    +DashboardTab
+    +ProductsTab
+    +ChatTab
+    +SettingsTab
+    +LoginScreen
+    +ApplyScreen
+    +ShipScreen
+  }
+  class ApiClient {
+    <<packages_api>>
+    +configureApi(namespace)
+    +request(method, path, opts)
+    +getToken()
+    +setToken(token)
+    +newIdempotencyKey()
+    +uploadAttachment(file)
+  }
+  class ApiError {
+    +status
+    +code
+    +message
+    +details
+  }
+  class Endpoints {
+    <<packages_api>>
+    +auth
+    +farms
+    +catalog
+    +orders
+    +messaging
+  }
+  class MockTransport {
+    <<packages_api>>
+    +demoData
+  }
+  class Hooks {
+    <<packages_ui>>
+    +useAsync(fn, deps)
+    +useLiveList(load, scope, active, interval)
+  }
+  class UIComponents {
+    <<packages_ui>>
+    +Screen
+    +HeaderBar
+    +TabBar
+    +BottomBar
+    +Sheet
+    +Button
+    +Input
+    +ChatThread
+    +ChatBubble
+    +NewsRoom
+    +DetailStory
+  }
+  class Tokens {
+    <<packages_ui>>
+    +colors
+    +typeScale
+    +spacing
+  }
+  ConsumerApp --> Endpoints : calls
+  ProducerApp --> Endpoints : calls
+  ConsumerApp --> Hooks
+  ProducerApp --> Hooks
+  ConsumerApp --> UIComponents
+  ProducerApp --> UIComponents
+  UIComponents --> Tokens
+  Endpoints --> ApiClient : request
+  ApiClient --> ApiError : throws
+  ApiClient ..> MockTransport : mock mode
+
+%% Backend class diagram -> docs/wiki/images/i1-backend-class.png
+classDiagram
+  direction TB
+  class core {
+    <<module>>
+    +config
+    +db_session
+    +clock
+    +get_current_user()
+    +require_roles()
+    +require_approved_producer()
+    +conflict(reason)
+    +run_idempotent()
+    +encode_cursor()
+    +mask()
+  }
+  class accounts {
+    <<module>>
+    +test_accounts()
+    +test_login()
+    +submit_producer_application()
+    +add_address()
+    +save_order_address()
+  }
+  class farms {
+    <<module>>
+    +home()
+    +farm_detail()
+    +set_follow()
+    +patch_my_farm()
+    +save_ai_settings()
+    +preview_ai()
+  }
+  class catalog {
+    <<module>>
+    +create_draft()
+    +create_product()
+    +patch_product()
+    +put_stages()
+    +create_capacity_request()
+    +decide_capacity_request()
+    +update_sales_settings()
+  }
+  class orders {
+    <<module>>
+    +create_order()
+    +pay()
+    +cancel_order()
+    +confirm_order()
+    +respond_delivery_window()
+    +dashboard()
+    +harvest_start()
+    +ship_order()
+  }
+  class messaging {
+    <<module>>
+    +post_news()
+    +set_reaction()
+    +room_page()
+    +send_room()
+    +consumer_send()
+    +producer_send()
+    +set_ai_mode()
+    +create_inquiry()
+    +upload_attachment()
+  }
+  class ai {
+    <<module>>
+    +strip_personal_info()
+    +draft_product()
+    +detail_draft()
+    +answer_question()
+  }
+  class analytics {
+    <<module>>
+    +events_scaffold
+  }
+  orders --> catalog : stock and locks
+  orders --> accounts : saved address
+  messaging --> farms : follow and AI settings
+  messaging --> orders : paid order check
+  messaging --> ai : answer_question
+  catalog --> ai : draft_product
+  farms --> ai : detail_draft
+  accounts --> core
+  farms --> core
+  catalog --> core
+  orders --> core
+  messaging --> core
+
+%% AI question answering sequence -> docs/wiki/images/i1-ai-answer-sequence.png
+sequenceDiagram
+  autonumber
+  actor C as Consumer app
+  participant API as FastAPI messaging router
+  participant SV as messaging service
+  participant DB as PostgreSQL
+  participant AI as ai adapter
+  participant CL as Claude Haiku 4.5
+  C->>API: POST /api/messaging/chats/{farmId}/messages
+  API->>SV: consumer_send(consumer, farmId, body)
+  SV->>DB: lock Thread row, save masked question
+  SV->>DB: read farm AI settings and thread mode
+  alt AI off or thread is HUMAN
+    SV-->>API: question saved, reply = null
+  else handoff topic (pesticide, refund, taste, damage)
+    SV->>DB: create Escalation (FORWARDED)
+  else AUTO and AI on
+    SV->>AI: answer_question(question, evidence)
+    AI->>AI: rule-based answer for known facts
+    opt no rule answer and API key set
+      AI->>CL: question + selected evidence (no personal data)
+      CL-->>AI: ANSWER or HANDOFF
+    end
+    AI-->>SV: answer with sources, or handoff
+    SV->>DB: recheck mode and settings version
+    SV->>DB: save AI message or Escalation
+  end
+  SV-->>API: SendResult(message, reply)
+  API-->>C: 200 JSON
+  Note over C,API: open chat screens poll every 2 seconds for new messages
