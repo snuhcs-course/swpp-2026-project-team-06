@@ -11,7 +11,7 @@ from app.ai.schemas import DraftExtraction, Evidence
 
 def test_P02_AC_03_1_korean_units_and_field_grounding():
     grounded = grounding.ground_draft(
-        "하우스 감귤 5키로, 당도 12.5브릭스, 배송은 12월 11일~20일입니다.",
+        "하우스 감귤 5.0키로, 당도 12.5브릭스, 배송은 12월 11일~20일입니다.",
         DraftExtraction(
             name="하우스 감귤 5KG",
             variety="궁천조생",

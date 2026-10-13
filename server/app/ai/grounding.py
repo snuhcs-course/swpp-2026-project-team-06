@@ -44,7 +44,7 @@ _UNSAFE_MODEL = re.compile(
 
 
 def normalize_units(text: str) -> str:
-    return _WEIGHT.sub(lambda match: f"{match.group('value')}kg", text).lower()
+    return _WEIGHT.sub(lambda match: f"{_plain_number(match.group('value'))}kg", text).lower()
 
 
 def _compact(text: str) -> str:

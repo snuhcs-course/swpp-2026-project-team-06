@@ -145,6 +145,22 @@ def test_M_07_preview_emits_no_admin_alert(client, login, caplog):
     assert not [record for record in caplog.records if record.message == "manager_refund_request"]
 
 
+def test_M_07_photo_only_message_emits_no_admin_alert(client, login, caplog):
+    headers = login("u-seojun")
+    attachment = upload(client, headers, png(), threadId="thread-kang-seojun").json()
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        sent = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers | key(),
+            json={"text": "", "attachmentIds": [attachment["attachmentId"]]},
+        )
+
+    assert sent.status_code == 200
+    assert sent.json()["reply"] is None
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
+
+
 def test_preview_with_product_and_handoff_topic(client, login):
     headers = login("u-kang")
     product = client.post(
