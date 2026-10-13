@@ -158,7 +158,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 **AC-02-4: Farm page on a small screen**
 - **GIVEN** a farm has a long name or no products
 - **WHEN** its page opens at 360px width
-- **THEN** the profile actions, news room entry and story still work
+- **THEN** the direct room, adjacent follow action and collapsible product shelf remain usable; short information opens from the profile
 - **AND** products appear before the story
 
 ### FEAT-03: AI-assisted drafting

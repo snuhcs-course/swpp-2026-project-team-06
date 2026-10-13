@@ -392,7 +392,7 @@ export function NewsRoom({
                 accessibilityLabel="사진·영상 소식 첨부"
                 variant="text"
                 onPress={onAttach}
-                disabled={busy}
+                disabled={!ready || busy}
               />
             ) : null}
             <TextInput
@@ -401,7 +401,7 @@ export function NewsRoom({
               }
               value={body}
               onChangeText={setBody}
-              editable={!busy}
+              editable={ready && !busy}
               multiline
               maxLength={producer ? 2000 : 1000}
               placeholder={

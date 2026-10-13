@@ -68,7 +68,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | AC-06-2 | A farm has Hallabong as a variety | The user searches "Hallabong" | Only that farm appears |
 | AC-06-3 | A logged-in consumer | Follows a farm | The farm appears in My info, and its news appears in Chat > News Rooms |
 | AC-06-4 | Product A's stage ends tomorrow and product B's ends next week, both on sale | Home opens | A is shown before B in the recommended products |
-| AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the farm cards (browse farms) still show |
+| AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the news carousel remains available |
 
 ### FEAT-07 Product detail
 
@@ -301,3 +301,12 @@ These observations remain supported by the DEV-6 browser record but are not a de
 Railway/Vercel deployment, production secrets and branch protection are outside this local-stack task. Native iOS/Android, Firefox/WebKit, real payment providers, real Anthropic/R2/observability services, accessibility audits, load/soak tests, and penetration testing are also not covered. Repository administrators must add the `integration` job as a required branch-protection check after this PR merges.
 
 On failure, CI uploads the Playwright HTML report, traces, screenshots/videos, FastAPI/Expo process logs, and HTTP access logs for seven days. Product defects discovered by this suite must be filed as separate Bug issues rather than fixed in the test PR.
+
+## DEV-51 UI 1.6 validation (13 October 2026)
+
+- Local workspace typechecks: pass. Mock contracts: 12/12, including same-option last-period comparison, unavailable inventory and missing-price cases.
+- Both consumer and producer Expo web exports: pass.
+- Chromium v6 coverage: independent horizontal feeds at 360/390/430px, direct farm-room entry, expanded consumer/collapsed producer shelves, draft retention across folding, same-room replies, own-room default entry, fixed purchase/composer/tab regions, long farm-name layout and full-ratio story images. The initial producer-load draft race was reproduced and fixed by enabling input after the first room response.
+- Existing real-stack checkout/fulfillment tests now assert that reserved-order lookup does not transition state and the harvest action is absent. The retained API is used only to arrange a PREPARING fixture before testing invoice entry and shipping.
+- Local real-server integration was not run because Docker's engine was unavailable. The PR's isolated PostgreSQL CI runs the real API smoke and complete Chromium suite. Final CI result is recorded on PR #98.
+- Historical I1 images and dated validation records above are preserved; they are not evidence that the previous UI remains current.
