@@ -602,93 +602,104 @@ details[open] summary span {
 @font-face { font-family: 'Do Hyeon'; src: url('./assets/DoHyeon-Regular.woff2') format('woff2'); font-weight:400; font-display:swap; }
 @font-face { font-family: 'Gowun Batang'; src:url('./assets/GowunBatang-Regular.woff2') format('woff2'); font-weight:400; font-display:swap; }
 @font-face { font-family: 'Gowun Batang'; src:url('./assets/GowunBatang-Bold.woff2') format('woff2'); font-weight:700; font-display:swap; }
-.sales-page { --accent:#a23f1e; background:#f9f6eb; color:#242d22; overflow-wrap:anywhere; word-break:keep-all; line-height:1.7; }
-.page-top { display:flex; justify-content:space-between; align-items:center; padding:20px 24px; gap:16px; border-bottom:1px solid currentColor; }
-.page-top b { font-size:20px; font-weight:800; letter-spacing:-1px; }
-.page-top span { font-size:10px; letter-spacing:.5px; }
-.hero-copy { padding:38px 26px; }
-.sales-page .section-kicker { font-size:10px; font-weight:600; letter-spacing:1.8px; margin-bottom:20px; color:var(--accent); }
-.sales-page h1 { font-size:46px; line-height:1.2; letter-spacing:-1.5px; white-space:pre-wrap; text-wrap:balance; }
-.sales-page h2 { font-size:30px; line-height:1.5; white-space:pre-line; letter-spacing:-1px; text-wrap:balance; }
-.sales-page p { font-size:17px; line-height:1.95; white-space:pre-wrap; }
-.hero-copy .headline { margin-top:22px; font-size:17px; line-height:1.7; }
-.farm-line { display:flex; align-items:center; gap:10px; font-size:12px; margin-top:28px; }
-.farm-line:before { content:''; width:22px; height:1px; background:currentColor; }
+/* Product-detail panels use real photos at their original aspect ratio. */
+.sales-page { --accent:#b34519; background:#fff9ed; color:#29291e; overflow-wrap:anywhere; word-break:keep-all; line-height:1.7; }
+.page-top { display:flex; justify-content:space-between; align-items:center; gap:24px; padding:23px 27px; }
+.page-top b { flex:none; font-size:19px; letter-spacing:-1px; }
+.page-top span { font-size:12px; text-align:right; line-height:1.5; }
+.hero-copy { padding:29px 29px 36px; text-align:center; }
+.sales-page h1 { font-size:54px; font-weight:800; line-height:1.17; letter-spacing:-2px; white-space:pre-wrap; text-wrap:balance; }
+.sales-page h2 { font-size:23px; line-height:1.5; letter-spacing:-.7px; text-wrap:balance; }
+.sales-page p { margin:0; white-space:pre-wrap; }
+.hero-copy .origin-label { display:inline-block; font-size:12px; font-weight:650; letter-spacing:.3px; padding:5px 0; margin-bottom:17px; border-top:1px solid; border-bottom:1px solid; }
+.hero-copy .headline { margin:20px auto 0; font-size:17px; line-height:1.7; max-width:280px; }
 .photo { margin:0; min-width:0; }
 .photo img { display:block; width:100%; height:auto; object-fit:contain; }
-.photo figcaption { display:flex; gap:12px; font-size:11px; line-height:1.65; padding:14px 0; white-space:pre-wrap; }
-.photo-index { flex:none; opacity:.65; font-variant-numeric:tabular-nums; }
-.photo-empty { padding:38px 24px; min-height:250px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; border:1px dashed #9ba08d; background:#e9ebdf; text-align:center; }
-.empty-frame { font-size:40px; font-weight:250; }
-.photo-empty strong { font-size:16px; font-weight:500; }
+.photo figcaption { padding:12px 26px; font-size:11px; line-height:1.7; white-space:pre-wrap; opacity:.8; }
+.hero-photo { padding:0 22px 24px; }
+.hero-photo .photo { background:#fffdf5; }
+.hero-photo figcaption { color:#514f41; }
+.photo-empty { padding:40px 24px; min-height:250px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; border:1px dashed #aeb39e; background:#eceee4; color:#3d4939; text-align:center; }
+.empty-frame { font-size:38px; font-weight:250; }
+.photo-empty strong { font-size:16px; }
 .photo-empty small { font-size:12px; }
-.body-section { padding:52px 28px; }
-.story-paragraphs { display:grid; gap:24px; margin-top:26px; }
-.additional-photos { padding:0 24px 44px; display:grid; gap:28px; }
-.gallery-heading { display:flex; justify-content:space-between; gap:15px; border-top:1px solid #bfc2b0; padding-top:16px; font-size:10px; letter-spacing:1px; }
-.facts { margin:28px 0 0; }
-.fact-row { display:grid; grid-template-columns:76px minmax(0,1fr); gap:16px; padding:17px 0; border-top:1px solid #c7c9b9; }
-.fact-row dt { font-size:12px; color:#666a5e; }
-.fact-row dd { margin:0; font-size:16px; white-space:pre-wrap; }
-.page-footer { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:28px 24px; border-top:1px solid #c7c9b9; font-size:10px; }
-.page-footer strong { font-size:25px; letter-spacing:-1px; }
-.quick-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:0; border-bottom:1px solid #c7c9b9; padding:25px 15px; }
-.quick-facts>div { padding:0 12px; border-right:1px solid #c7c9b9; }
-.quick-facts>div:last-child { border:0; }
-.quick-facts dt { font-size:11px; margin-bottom:8px; }
-.quick-facts dd { margin:0; font-size:15px; font-weight:650; line-height:1.6; }
-/* Store: a bold product cover, then practical information. */
-.basic { --accent:#853413; background:#fff8e9; }
-.basic .page-top { background:#e86525; color:#3d2818; border-color:#b94e1c; }
-.basic .hero-copy { background:#e86525; color:#3d2818; text-align:center; padding:35px 27px 42px; }
-.basic h1 { font-family:'Do Hyeon',sans-serif; font-weight:400; font-size:54px; line-height:1.12; letter-spacing:-1.8px; }
-.basic .section-kicker { color:#5b2a16; }
-.basic .hero-copy .farm-line { justify-content:center; }
-.basic .hero-copy .farm-line:before { display:none; }
-.basic .hero-photo figcaption { padding:12px 24px; border-bottom:1px solid #d5c8ae; }
-.basic .story-section h2 { font-family:'Do Hyeon',sans-serif; font-weight:400; font-size:36px; line-height:1.35; }
-.basic .story-section { padding-top:48px; }
-.basic .facts-section { background:#eee8d2; }
-.basic .page-footer { background:#2d432f; color:#fff4d7; border:0; }
-/* Journal: image-first cover with a book-like serif headline. */
-.magazine { --accent:#883427; background:#f3f1e9; color:#413027; }
-.magazine .page-top { color:#6e2d24; margin:0 22px; padding:21px 0; border-bottom:3px double #aa8170; }
-.magazine .hero-photo { padding:24px 22px 0; }
-.magazine .hero-copy { padding:22px 27px 35px; border-bottom:1px solid #b6a18d; }
-.magazine h1 { font-family:'Gowun Batang',serif; font-weight:700; font-size:43px; line-height:1.4; letter-spacing:-2px; }
-.magazine .hero-copy .section-kicker { margin-bottom:14px; }
-.magazine h2 { font-family:'Gowun Batang',serif; font-weight:700; font-size:31px; }
-.magazine .hero-copy .headline { font-size:16px; color:#625144; }
-.magazine .farm-line { margin-top:20px; }
-.magazine .story-section { padding:45px 29px; }
-.magazine .additional-photos .photo:nth-of-type(odd) { margin-right:34px; }
-.magazine .additional-photos .photo:nth-of-type(even) { margin-left:34px; }
-.magazine .facts-section { margin:0 22px 32px; padding:28px 16px; border:1px solid #c1ae9d; }
-.magazine .facts-section h2 { font-size:25px; }
-.magazine .page-footer { color:#6e2d24; border-color:#b6a18d; }
-/* Letter: typography and the farmer's words lead, photographs follow. */
-.letter { --accent:#426344; background:#faf8ef; color:#334631; }
-.letter .page-top { border:0; padding:26px 28px 0; }
-.letter .page-top b { font-size:16px; font-weight:650; }
-.letter .page-top span { font-size:9px; }
-.letter .hero-copy { padding:47px 32px 38px; text-align:center; background:url('./assets/paper-wash.png') center/cover; }
-.letter .hero-copy .section-kicker { letter-spacing:3px; font-size:11px; }
-.letter h1 { font-family:'Gowun Batang',serif; font-weight:400; font-size:38px; line-height:1.5; letter-spacing:-1.5px; }
-.letter .hero-copy .headline { font-family:'Gowun Batang',serif; font-size:17px; line-height:1.9; }
-.letter .farm-line { justify-content:center; margin-top:26px; }
-.letter .farm-line:before { display:none; }
-.letter .story-section { margin:0 29px; padding:34px 4px 43px; border-top:1px solid #a8b29c; }
-.letter h2 { font-family:'Gowun Batang',serif; font-weight:400; font-size:29px; }
-.letter .story-paragraphs p { font-family:'Gowun Batang',serif; font-size:17px; line-height:2.1; }
-.letter .story-section .section-kicker { font-size:9px; margin-bottom:13px; }
-.letter .letter-signature { text-align:right; font-family:'Gowun Batang',serif; font-size:17px; margin-top:28px; }
-.letter .hero-photo { padding:0 28px 30px; }
-.letter .hero-photo .photo { border:1px solid #dcdccd; padding:10px; background:white; }
-.letter .hero-photo figcaption { padding:12px 4px 3px; }
-.letter .additional-photos { padding:0 28px 38px; gap:30px; }
-.letter .facts-section { background:#e8edde; padding:36px 28px; }
-.letter .facts-section h2 { font-size:26px; }
-.letter .page-footer { background:#e8edde; }
+.product-summary { padding:38px 27px 42px; background:#f0e7d3; }
+.product-summary h2 { font-size:19px; margin-bottom:22px; }
+.summary-facts { margin:0; display:grid; gap:0; }
+.summary-fact { display:grid; grid-template-columns:80px minmax(0,1fr); align-items:baseline; gap:18px; border-top:1px solid #d6cdbb; padding:15px 0; }
+.summary-fact:last-child { padding-bottom:0; }
+.summary-fact dt { font-size:12px; color:#626252; }
+.summary-fact dd { margin:0; font-size:20px; font-weight:700; line-height:1.5; white-space:pre-wrap; font-variant-numeric:tabular-nums; }
+.story-chapter { padding-bottom:30px; }
+.chapter-copy { padding:43px 29px 29px; }
+.chapter-label { display:flex; align-items:center; gap:10px; color:var(--accent); font-size:11px; font-weight:650; margin-bottom:21px; }
+.chapter-number { font-size:12px; display:grid; place-items:center; width:29px; height:29px; border:1px solid currentColor; border-radius:50%; }
+.sales-page .chapter-text { font-size:25px; font-weight:650; line-height:1.65; letter-spacing:-.8px; text-wrap:pretty; }
+.story-chapter .photo { margin:0 24px; }
+.story-chapter .photo figcaption { padding:12px 0 0; }
+.chapter-1 { background:#efe9dc; }
+.purchase-notes { padding:40px 27px; background:#f0e7d3; }
+.purchase-notes h2 { margin-bottom:24px; }
+.purchase-note { padding:22px 0; border-top:1px solid #ccc9b9; }
+.purchase-note:last-child { padding-bottom:0; }
+.purchase-note h3 { font-size:14px; margin-bottom:9px; }
+.purchase-note p { font-size:17px; line-height:1.85; }
+.page-footer { display:flex; flex-direction:column; align-items:center; gap:8px; padding:42px 25px; background:#273b2e; color:#fff9ec; text-align:center; }
+.page-footer p { font-size:13px; }
+.page-footer strong { font-size:29px; letter-spacing:-1px; }
+.page-footer span { font-size:10px; opacity:.75; }
+/* 01: bold orange lettering, a bordered product cover and numbered panels. */
+.basic .product-cover { border-top:7px solid #da581f; }
+.basic .page-top { color:#ae4019; }
+.basic h1 { font-family:'Do Hyeon',sans-serif; font-weight:400; font-size:58px; color:#bb4619; }
+.basic .hero-photo { padding:0 18px 22px; }
+.basic .hero-photo .photo { padding:8px 8px 0; border:1px solid #d6ad83; }
+.basic .hero-photo figcaption { text-align:center; }
+.basic .chapter-1 { background:#b64824; color:#fff9eb; }
+.basic .chapter-1 .chapter-label { color:#ffe2b4; }
+.basic .chapter-1 .photo { border:6px solid #fff5df; }
+.basic .chapter-1 figcaption { padding:9px 12px; color:#473525; background:#fff5df; }
+.basic .chapter-text { font-family:'Do Hyeon',sans-serif; font-weight:400; font-size:29px; line-height:1.5; }
+/* 02: dark green photo campaign; pale information breaks between chapters. */
+.magazine { --accent:#ad5b32; background:#fbf9ef; color:#26392d; }
+.magazine .product-cover { background:#203f34; color:#fff3d7; }
+.magazine .page-top { padding-bottom:18px; border-bottom:1px solid #587065; margin:0 24px; padding-left:0; padding-right:0; }
+.magazine .hero-copy { padding:31px 26px 32px; }
+.magazine h1 { font-family:'Gowun Batang',serif; font-size:46px; font-weight:700; line-height:1.35; }
+.magazine .origin-label { border:0; margin-bottom:12px; color:#dcc896; }
+.magazine .headline { color:#e2dec5; font-size:16px; }
+.magazine .hero-photo { padding:0; }
+.magazine .hero-photo .photo { background:transparent; }
+.magazine .hero-photo figcaption { color:#ede5cd; padding:14px 25px; }
+.magazine .product-summary { background:#ececde; }
+.magazine .chapter-copy { text-align:center; padding:45px 31px 30px; }
+.magazine .chapter-label { justify-content:center; }
+.magazine .chapter-number { border-radius:0; border:0; border-bottom:1px solid; }
+.magazine .chapter-text { font-family:'Gowun Batang',serif; font-size:24px; line-height:1.85; font-weight:700; }
+.magazine .story-chapter .photo { margin:0; }
+.magazine .story-chapter figcaption { padding:12px 25px 0; }
+.magazine .chapter-1 { background:#e3e6d6; }
+.magazine .purchase-notes { background:#ececde; }
+/* 03: photograph first, then a warm paper product label and source prose. */
+.letter { --accent:#975238; background:#fbf5e9; color:#493a2a; }
+.letter .page-top { border-top:6px solid #956348; }
+.letter .hero-photo { padding:0 20px; }
+.letter .hero-photo .photo { background:none; }
+.letter .hero-photo figcaption { padding:10px 0; }
+.letter .hero-copy { padding:25px 30px 39px; background:url('./assets/paper-wash.png') center/cover; }
+.letter h1 { font-family:'Gowun Batang',serif; font-size:42px; font-weight:700; line-height:1.4; }
+.letter .origin-label { border:0; margin-bottom:8px; }
+.letter .headline { font-size:16px; }
+.letter .product-summary { margin:0 23px; padding:27px 0 33px; border-top:1px solid #ad957a; border-bottom:1px solid #ad957a; background:none; }
+.letter .product-summary h2 { font-size:16px; }
+.letter .summary-fact dd { font-size:18px; }
+.letter .chapter-copy { padding:41px 29px 26px; }
+.letter .chapter-text { font-family:'Gowun Batang',serif; font-size:23px; line-height:1.9; font-weight:400; }
+.letter .chapter-label { color:#8d634c; }
+.letter .chapter-1 { background:#efe2d1; }
+.letter .chapter-1 .photo { margin-left:38px; margin-right:38px; }
+.letter .page-footer { background:#6a4835; }
+.letter .purchase-notes { background:#eae2d3; }
 .sales-page .empty-title { opacity:.72; }
 .demo-controls { display:flex; gap:8px; margin-top:20px; }
 .demo-controls button { flex:1; padding:0 10px; border:1px solid #c8d0bf; border-radius:6px; background:#f4f6ee; font-size:12px; }
@@ -885,10 +896,10 @@ details[open] summary span {
 }
 
 /* Studio chrome stays quiet so the composed pages lead. */
-.mini-layout.basic { background:#e86525; border-color:#c65926; }
+.mini-layout.basic { background:#fff3d9; border-color:#c65926; }
 .mini-layout.basic b { background:#63351e; }
-.mini-layout.magazine { background:#f3f1e9; border-color:#c4b4a3; }
-.mini-layout.magazine b { background:#814536; }
+.mini-layout.magazine { background:#203f34; border-color:#385849; }
+.mini-layout.magazine b { background:#efe3c3; }
 .mini-layout.magazine i { order:0; background:#b2b89c; }
 .canvas-intro { margin-top:24px; margin-bottom:18px; }
 .canvas-intro h2 { font-size:23px; margin:7px 0; }

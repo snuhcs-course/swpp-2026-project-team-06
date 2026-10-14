@@ -8,6 +8,7 @@ export const demoFields = {
 export const demoPhotos = [
   { name: 'basket.jpg', url: './assets/demo/basket.jpg', caption: '감귤 한 바구니' },
   { name: 'greenhouse.jpg', url: './assets/demo/greenhouse.jpg', caption: '농가의 풍경' },
+  { name: 'harvest-hand.jpg', url: './assets/demo/harvest-hand.jpg', caption: '감귤을 살펴보는 손길' },
   { name: 'tangerine-box.jpg', url: './assets/demo/tangerine-box.jpg', caption: '사진으로 살펴보는 구성' },
 ];
 export const demoNotice = '디자인 예시 · 기존 시안의 가상 농가 문구와 예시 사진입니다. 실제 판매 정보가 아닙니다.';

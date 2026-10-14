@@ -1,7 +1,7 @@
 export const templates = [
-  { id: 'basic', name: '산지 상점', en: '01 / FARM STORE', short: '도현 · 또렷하고 경쾌하게', description: '큰 제목과 선명한 색, 넉넉한 상품 사진. 산지의 활기를 담은 구성.' },
-  { id: 'magazine', name: '농가 매거진', en: '02 / FIELD JOURNAL', short: '고운바탕 Bold · 사진 중심', description: '사진으로 시작해 명조 제목과 이야기로 이어지는 한 편의 매거진.' },
-  { id: 'letter', name: '농가의 편지', en: '03 / A LETTER FROM', short: '고운바탕 · 조용하고 따뜻하게', description: '인사와 글을 먼저 읽고 사진을 만나는, 농가가 건네는 편지.' },
+  { id: 'basic', name: '산지 상점', en: '01 / 산지 상점', short: '큰 제목 · 선명한 상품 구성', description: '상품을 크게 보여주는 표지와 한눈에 읽히는 정보. 크림과 감귤빛으로 또렷하게.' },
+  { id: 'magazine', name: '산지 화보', en: '02 / 산지 화보', short: '깊은 초록 · 사진 중심', description: '사진과 짧은 설명이 번갈아 이어지는 구성. 깊은 초록과 명조 제목으로 차분하게.' },
+  { id: 'letter', name: '농가 이야기', en: '03 / 농가 이야기', short: '따뜻한 종이색 · 원문 중심', description: '상품 사진으로 시작해 농가의 이야기를 한 장면씩 읽는 구성. 담백하고 따뜻하게.' },
 ];
 export const fieldNames = ['farm', 'name', 'headline', 'story', 'origin', 'variety', 'weight', 'storage', 'delivery'];
 
@@ -11,86 +11,78 @@ export function element(tag, className, text) {
   if (text !== undefined) node.textContent = text;
   return node;
 }
-function photoFigure(photo, index) {
+function photoFigure(photo) {
   const figure = element('figure', 'photo');
   const image = element('img');
   image.src = photo.url;
   image.alt = photo.caption.trim() || '사용자가 제공한 사진';
   figure.append(image);
-  if (photo.caption.trim()) {
-    const caption = element('figcaption');
-    caption.append(element('span', 'photo-index', String(index + 1).padStart(2, '0')), element('span', '', photo.caption));
-    figure.append(caption);
-  }
+  if (photo.caption.trim()) figure.append(element('figcaption', '', photo.caption));
   return figure;
 }
 function emptyPhoto() {
   const empty = element('div', 'photo-empty');
-  empty.append(element('span', 'empty-frame', '＋'), element('strong', '', '우리 사진이 놓일 자리'), element('small', '', '사진을 추가하면 이 안내가 사라져요'));
+  empty.append(element('span', 'empty-frame', '＋'), element('strong', '', '상품 사진을 더해 주세요'), element('small', '', '첫 번째 사진이 표지에 들어가요'));
   return empty;
 }
-function titleBlock(id, data) {
-  const hero = element('header', 'hero-copy');
-  hero.append(element('div', 'section-kicker', id === 'letter' ? '농가에서 보내는 편지' : id === 'magazine' ? 'FIELD NOTES / 농가 기록' : '농가에서 만나는 상품'));
-  hero.append(element('h1', data.name.trim() ? '' : 'empty-title', data.name.trim() ? data.name : '상품 이름을\n넣어 주세요'));
-  if (data.headline.trim()) hero.append(element('p', 'headline', data.headline));
-  if (data.farm.trim()) hero.append(element('div', 'farm-line', data.farm));
-  return hero;
-}
-function storyBlock(id, data) {
-  if (!data.story.trim()) return null;
-  const story = element('section', 'body-section story-section');
-  story.append(element('div', 'section-kicker', id === 'letter' ? 'DEAR, YOU' : 'THE STORY'));
-  story.append(element('h2', '', id === 'letter' ? '안녕하세요.' : '농가의 이야기를\n전합니다.'));
-  const paragraphs = element('div', 'story-paragraphs');
-  for (const text of data.story.split(/\n\s*\n/).filter(text => text.trim())) paragraphs.append(element('p', '', text));
-  story.append(paragraphs);
-  if (id === 'letter' && data.farm.trim()) story.append(element('p', 'letter-signature', `${data.farm} 드림`));
-  return story;
+function productSummary(data) {
+  const entries = [['origin','원산지'], ['variety','품종'], ['weight','중량·구성']].filter(([key]) => data[key].trim());
+  if (!entries.length) return null;
+  const section = element('section', 'product-summary');
+  section.append(element('h2', '', '상품 한눈에 보기'));
+  const facts = element('dl', 'summary-facts');
+  for (const [key, label] of entries) {
+    const row = element('div', 'summary-fact');
+    row.append(element('dt', '', label), element('dd', '', data[key]));
+    facts.append(row);
+  }
+  section.append(facts);
+  return section;
 }
 export function renderPage(templateId, data, photos) {
   const page = element('article', `sales-page ${templateId}`);
   page.setAttribute('aria-label', `${templates.find(t => t.id === templateId).name} 상세 본문`);
+  const cover = element('header', 'product-cover');
   const top = element('div', 'page-top');
-  top.append(element('b', '', 'farmclub'), element('span', '', '농가의 이야기, 식탁까지'));
-  page.append(top);
-  const hero = titleBlock(templateId, data);
-  const heroPhoto = element('div', 'hero-photo');
-  heroPhoto.append(photos[0] ? photoFigure(photos[0], 0) : emptyPhoto());
-  const story = storyBlock(templateId, data);
-  if (templateId === 'magazine') page.append(heroPhoto, hero);
-  else page.append(hero);
-  if (templateId === 'basic') page.append(heroPhoto);
-  const quickFacts = [['origin','산지'], ['variety','품종'], ['weight','구성']].filter(([key]) => data[key].trim());
-  if (templateId === 'basic' && quickFacts.length) {
-    const strip = element('dl', 'quick-facts');
-    for (const [key, label] of quickFacts) {
-      const item = element('div'); item.append(element('dt', '', label), element('dd', '', data[key])); strip.append(item);
-    }
-    page.append(strip);
+  top.append(element('b', '', 'farmclub'), element('span', '', data.farm.trim() || '농가의 상품 이야기'));
+  const title = element('div', 'hero-copy');
+  if (data.origin.trim()) title.append(element('p', 'origin-label', data.origin));
+  title.append(element('h1', data.name.trim() ? '' : 'empty-title', data.name.trim() ? data.name : '우리 농가의\n상품 이름'));
+  if (data.headline.trim()) title.append(element('p', 'headline', data.headline));
+  const picture = element('div', 'hero-photo');
+  picture.append(photos[0] ? photoFigure(photos[0]) : emptyPhoto());
+  cover.append(top);
+  if (templateId === 'letter') cover.append(picture, title);
+  else cover.append(title, picture);
+  page.append(cover);
+  const summary = productSummary(data);
+  if (summary) page.append(summary);
+  const paragraphs = data.story.split(/\n\s*\n/).filter(text => text.trim());
+  const chapterCount = Math.max(paragraphs.length, photos.length - 1);
+  for (let index = 0; index < chapterCount; index++) {
+    const section = element('section', `story-chapter chapter-${index % 2}`);
+    const copy = element('div', 'chapter-copy');
+    const label = element('div', 'chapter-label');
+    label.append(element('span', 'chapter-number', String(index + 1).padStart(2, '0')), element('span', '', paragraphs[index] ? '농가 이야기' : '사진으로 살펴보기'));
+    copy.append(label);
+    if (paragraphs[index]) copy.append(element('p', 'chapter-text', paragraphs[index]));
+    section.append(copy);
+    if (photos[index + 1]) section.append(photoFigure(photos[index + 1]));
+    page.append(section);
   }
-  if (story) page.append(story);
-  if (templateId === 'letter') page.append(heroPhoto);
-  if (photos.length > 1) {
-    const gallery = element('section', 'additional-photos');
-    gallery.setAttribute('aria-label', '추가 사진');
-    const heading = element('div', 'gallery-heading');
-    heading.append(element('span', '', 'PHOTO NOTES'), element('span', '', '사진으로 전하는 농가'));
-    gallery.append(heading);
-    photos.slice(1).forEach((photo, index) => gallery.append(photoFigure(photo, index + 1)));
-    page.append(gallery);
-  }
-  const facts = [['origin','원산지'], ['variety','품종'], ['weight','중량·구성'], ['storage','보관 안내'], ['delivery','배송 안내']].filter(([key]) => data[key].trim());
-  if (facts.length) {
-    const section = element('section', 'body-section facts-section');
-    section.append(element('div', 'section-kicker', 'PRODUCT NOTES'), element('h2', '', '상품을 살펴보세요.'));
-    const list = element('dl', 'facts');
-    for (const [key, label] of facts) {
-      const row = element('div', 'fact-row'); row.append(element('dt', '', label), element('dd', '', data[key])); list.append(row);
+  const details = [['storage', '보관 안내'], ['delivery', '배송 안내']].filter(([key]) => data[key].trim());
+  if (details.length) {
+    const section = element('section', 'purchase-notes');
+    section.append(element('h2', '', '주문 전 확인해 주세요'));
+    for (const [key, label] of details) {
+      const row = element('div', 'purchase-note');
+      row.append(element('h3', '', label), element('p', '', data[key]));
+      section.append(row);
     }
-    section.append(list); page.append(section);
+    page.append(section);
   }
   const footer = element('footer', 'page-footer');
+  if (data.farm.trim()) footer.append(element('p', '', data.farm));
   footer.append(element('strong', '', 'farmclub'), element('span', '', '농가와 이어지는 이야기'));
   page.append(footer);
   return page;
