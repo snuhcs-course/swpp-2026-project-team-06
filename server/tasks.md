@@ -1,5 +1,21 @@
 # server tasks
 
+## DEV-54 기존 자료 일괄 분석 백엔드
+
+- 이슈: https://linear.app/sswp6/issue/DEV-54 · GitHub #103
+- 브랜치: jinumeral/dev-54-dev-implement-grounded-bulk-source-analysis-backend
+- 관련: FEAT-03/04/07, M-10~13/M-18, AC-SRC-1~8
+- 상태: 구현 중. 기존 리뷰 중 작업은 main에 있는 구현을 기준으로 보존한다.
+- 목표: 비공개 자료 등록 → 분석 → 근거 검토 → 상품별 상세 초안 저장.
+- 수정 허용 경로: server/**, docs/spec/source-analysis.md, docs/spec/README.md, docs/spec/functional/FEAT-03-ai-product-draft.md, docs/spec/functional/FEAT-04-product-edit.md, docs/spec/functional/FEAT-07-product-detail.md, docs/spec/ia.md, docs/spec/screens.md, docs/spec/tech-design/adr/**, docs/wiki/Source-Analysis.md.
+- 비범위: 앱 UI·공개 상품 변경·이미지 생성·배포·머지. 사용자가 제외한 내부 백엔드 계획 문서는 커밋하지 않는다.
+- 결정: 2026-10-14 Mock으로 검증하고 Sol은 별도 어댑터로 구현. 사용자 키·실제 자료 전송 없이 테스트한다. 작업 시간은 실제 UTC 시계를 사용해 데모 FIXED_NOW와 분리한다.
+- [ ] 자료 저장·전처리·개인정보 검토
+- [ ] 영속 큐·재시도·취소·근거 검증
+- [ ] 검토·18개 모듈 비공개 초안
+- [ ] Sol 어댑터·Mock·테스트·명세 동기화
+- 기록: 사용자 구현 지시로 DEV-54를 시작. Linear MCP는 읽기 전용이므로 상태 변경 불가. Agent 시간/Tokens 미측정.
+
 이슈별 작업 기록. 새 작업은 맨 아래에 섹션을 추가하고, 머지 후에도 지우지 않는다.
 
 ## DEV-12 [I1] 구현 뼈대: apps·packages·server 폴더와 폴더별 spec.md
