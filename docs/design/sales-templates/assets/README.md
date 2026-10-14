@@ -21,5 +21,5 @@
 
 ## 명시적 데모 자료
 - 사진: 기존 docs/design/assets/{basket,farmer,greenhouse,harvest-hand,tangerine-box,branch}.jpg를 그대로 복사. 실제 강씨네 귤밭/판매 구성임을 보증하는 사진이 아님. 새로 생성·합성하지 않음.
-- 원문: docs/design/screens/scr-03.html의 가상 농가 이름·소개·이야기·소식·산지·5kg 상품명과 scr-04.html의 “크기는 조금씩 달라도 맛은 고르게 골라 담아요.” 구성 원문. 단락을 나눠 동일 문구를 사용. 포장·배송·보관 정보는 만들지 않고 빈 상태.
+- 원문: docs/design/screens/scr-03.html의 가상 농가 이름·소개·이야기·소식·산지·5kg 상품명과 scr-04.html의 맛 소개(110행), 크기 편차(117행), 수확 당일 선별(117행), 5kg × 1 구성(126행) 원문. 단락을 나눠 동일 문구를 사용. 포장·배송·보관 정보는 만들지 않고 빈 상태.
 - demo.mjs에 출처용 디자인 예시 안내. 작업실에 항상 표시, JSON은 demo=true. 상점에 자동 게시하지 않음.

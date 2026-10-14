@@ -396,7 +396,7 @@ summary {
   align-items:center;
   justify-content:space-between;
 }
-details[open] summary span {
+details[open] > summary > span[aria-hidden="true"] {
   transform:rotate(45deg);
 }
 .detail-fields {
@@ -941,3 +941,24 @@ details[open] summary span {
 .dialog-actions { display:flex; gap:10px; margin-top:10px; }
 .dialog-actions button { flex:1; border:1px solid #bdc7b4; border-radius:7px; background:white; }
 .dialog-actions button:last-child { background:#2c4737; color:white; }
+
+/* Product facts answer buying questions before the longer farm story. */
+.product-details { padding:42px 28px 46px; background:#fffdf7; color:#30382d; border-bottom:1px solid #ded7c6; }
+.detail-kicker { display:block; font-size:10px; letter-spacing:1.8px; color:#786347; margin-bottom:10px; }
+.product-details h2 { margin-bottom:28px; }
+.detail-list { margin:0; }
+.detail-row { padding:21px 0; border-top:1px solid #ded7c6; }
+.detail-row:last-child { padding-bottom:0; }
+.detail-row dt { font-size:13px; font-weight:700; color:#805435; margin-bottom:8px; }
+.detail-row dd { margin:0; font-size:17px; line-height:1.9; white-space:pre-wrap; }
+.basic .product-details h2 { font-family:'Do Hyeon',sans-serif; font-size:32px; font-weight:400; }
+.magazine .product-details h2,.letter .product-details h2 { font-family:'Gowun Batang',serif; font-size:27px; }
+.magazine .detail-row dt { color:#3c6551; }
+.letter .product-details { background:#fbf5e9; }
+.sales-page .purchase-notes + .purchase-notes { border-top:1px solid #c9c8b3; }
+.sales-page .care-guide { background:#f8f6ed; color:#30382d; }
+.source-gaps { margin-top:26px; padding-top:18px; border-top:1px solid var(--line); }
+.source-gaps summary { font-size:14px; }
+#missing-count { font-size:12px; color:#657455; margin-left:8px; }
+.missing-fields { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+.missing-fields button { padding:8px 12px; min-height:48px; font-size:12px; background:#f7f7ef; color:#40523c; border:1px solid #d8dfce; border-radius:6px; }

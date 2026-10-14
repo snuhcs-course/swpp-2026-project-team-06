@@ -3,7 +3,14 @@ export const templates = [
   { id: 'magazine', name: '산지 화보', en: '02 / 산지 화보', short: '깊은 초록 · 사진 중심', description: '사진과 짧은 설명이 번갈아 이어지는 구성. 깊은 초록과 명조 제목으로 차분하게.' },
   { id: 'letter', name: '농가 이야기', en: '03 / 농가 이야기', short: '따뜻한 종이색 · 원문 중심', description: '상품 사진으로 시작해 농가의 이야기를 한 장면씩 읽는 구성. 담백하고 따뜻하게.' },
 ];
-export const fieldNames = ['farm', 'name', 'headline', 'story', 'origin', 'variety', 'weight', 'composition', 'updates', 'packing', 'storage', 'delivery'];
+export const productFields = [['flavor', '맛·식감'], ['size', '크기·편차'], ['quality', '품질 기록·인증'], ['harvest', '수확·출하']];
+export const guidanceGroups = [
+  ['before-buying', '구매 전 확인해 주세요', [['notice', '상품 유의사항'], ['support', '문의·문제 접수']]],
+  ['shipping-guide', '포장과 배송', [['packing', '포장 안내'], ['delivery', '배송 안내']]],
+  ['care-guide', '받은 뒤에는', [['storage', '보관 안내'], ['usage', '먹는 방법']]],
+];
+export const optionalProductFields = [...productFields, ...guidanceGroups.flatMap(([, , fields]) => fields)];
+export const fieldNames = ['farm', 'name', 'headline', 'story', 'origin', 'variety', 'weight', 'composition', 'updates', ...optionalProductFields.map(([key]) => key)];
 
 export function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -39,6 +46,20 @@ function productSummary(data) {
   section.append(facts);
   return section;
 }
+function productDetails(data) {
+  const entries = productFields.filter(([key]) => data[key].trim());
+  if (!entries.length) return null;
+  const section = element('section', 'product-details');
+  section.append(element('span', 'detail-kicker', 'PRODUCT NOTES'), element('h2', '', '상품을 더 자세히'));
+  const list = element('dl', 'detail-list');
+  for (const [key, label] of entries) {
+    const row = element('div', 'detail-row');
+    row.append(element('dt', '', label), element('dd', '', data[key]));
+    list.append(row);
+  }
+  section.append(list);
+  return section;
+}
 export function renderPage(templateId, data, photos) {
   const page = element('article', `sales-page ${templateId}`);
   page.setAttribute('aria-label', `${templates.find(t => t.id === templateId).name} 상세 본문`);
@@ -57,6 +78,8 @@ export function renderPage(templateId, data, photos) {
   page.append(cover);
   const summary = productSummary(data);
   if (summary) page.append(summary);
+  const productInfo = productDetails(data);
+  if (productInfo) page.append(productInfo);
   const paragraphs = data.story.split(/\n\s*\n/).filter(text => text.trim());
   const chapters = paragraphs.map(text => ({ kind: 'story', label: '농가 이야기', text }));
   for (const [key, label] of [['composition', '상품 구성'], ['updates', '농가 소식']]) {
@@ -81,10 +104,11 @@ export function renderPage(templateId, data, photos) {
     else { section.append(copy); if (photo) section.append(photo); }
     page.append(section);
   }
-  const details = [['packing', '포장 안내'], ['storage', '보관 안내'], ['delivery', '배송 안내']].filter(([key]) => data[key].trim());
-  if (details.length) {
-    const section = element('section', 'purchase-notes');
-    section.append(element('h2', '', '주문 전 확인해 주세요'));
+  for (const [className, heading, fields] of guidanceGroups) {
+    const details = fields.filter(([key]) => data[key].trim());
+    if (!details.length) continue;
+    const section = element('section', `purchase-notes ${className}`);
+    section.append(element('h2', '', heading));
     for (const [key, label] of details) {
       const row = element('div', 'purchase-note');
       row.append(element('h3', '', label), element('p', '', data[key]));

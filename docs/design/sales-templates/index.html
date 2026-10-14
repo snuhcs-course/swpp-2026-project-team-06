@@ -30,24 +30,34 @@
         <p id="upload-status" role="status" class="field-note"></p>
       </section>
       <section class="editor-section">
-        <div class="section-heading"><span class="step">03</span><h2>이야기 채우기</h2></div>
+        <div class="section-heading"><span class="step">03</span><h2>상품 정보와 이야기</h2></div>
         <form id="content-form" autocomplete="off">
           <label>농가 이름<input name="farm" maxlength="80" placeholder="농가 이름을 입력해 주세요"></label>
           <label>상품 이름<input name="name" maxlength="100" placeholder="예: 판매하실 상품의 이름"></label>
           <label>한 줄 소개<input name="headline" maxlength="140" placeholder="사용하던 소개 문구를 그대로 넣어 주세요"></label>
+          <details open class="product-inputs"><summary>상품을 더 자세히 <span aria-hidden="true">＋</span></summary><div class="detail-fields">
+            <label>맛·식감<textarea name="flavor" maxlength="500" rows="3" placeholder="생산자가 확인한 맛·향·과육의 특징"></textarea></label>
+            <label>크기·편차<textarea name="size" maxlength="500" rows="3" placeholder="선별 크기, 낱개 규격, 혼합 여부와 자연 편차"></textarea></label>
+            <label>품질 기록·인증<textarea name="quality" maxlength="500" rows="3" placeholder="측정값이 있다면 실측/예상 구분과 측정일. 인증은 확인된 내용만"></textarea></label>
+            <label>수확·출하<textarea name="harvest" maxlength="500" rows="3" placeholder="확정된 수확/출하 시기 또는 출하 방식"></textarea></label>
+          </div></details>
           <label>전하고 싶은 이야기<textarea name="story" maxlength="3000" rows="6" placeholder="어떻게 키우고, 어떤 마음으로 보내시나요? 직접 적은 글을 넣어 주세요."></textarea></label>
           <p class="field-note">빈 줄로 문단을 나누면 설명 장면이 하나씩 생겨요. 사진은 표지 → 이야기 문단 → 구성 안내 → 농가 소식 순서로 배치돼요. 글에 맞춰 사진 순서를 조정해 주세요.</p>
           <label>구성 안내 <small>(선택)</small><textarea name="composition" maxlength="1000" rows="3" placeholder="판매할 상품의 크기·구성에 대해 확인된 내용을 넣어 주세요."></textarea></label>
           <label>농가 소식 <small>(선택)</small><textarea name="updates" maxlength="1000" rows="3" placeholder="농가에서 전할 소식이나 기록을 직접 넣어 주세요."></textarea></label>
-          <details><summary>상품·배송 정보 <span aria-hidden="true">＋</span></summary><div class="detail-fields">
+          <details><summary>기본 정보·수령 안내 <span aria-hidden="true">＋</span></summary><div class="detail-fields">
             <label>원산지<input name="origin" maxlength="100" placeholder="확인된 원산지"></label>
             <label>품종<input name="variety" maxlength="100" placeholder="확인된 품종"></label>
             <label>중량·구성<input name="weight" maxlength="160" placeholder="판매할 중량과 구성"></label>
+            <label>상품 유의사항<textarea name="notice" maxlength="500" rows="3" placeholder="색·모양·외관 등 구매 전에 알아야 할 실제 특성"></textarea></label>
+            <label>문의·문제 접수<textarea name="support" maxlength="500" rows="3" placeholder="실제 문의 방법, 수령 후 문제 발생 시 접수 절차"></textarea></label>
             <label>포장 안내<textarea name="packing" maxlength="500" rows="3" placeholder="실제로 제공하는 포장 방식을 적어 주세요."></textarea></label>
             <label>보관 안내<textarea name="storage" maxlength="500" rows="3" placeholder="상품에 맞는 보관 안내"></textarea></label>
+            <label>먹는 방법<textarea name="usage" maxlength="500" rows="3" placeholder="해당 상품에 대해 제공받은 섭취·활용 안내"></textarea></label>
             <label>배송 안내<textarea name="delivery" maxlength="500" rows="3" placeholder="확정된 배송 안내"></textarea></label>
           </div></details>
         </form>
+        <details class="source-gaps"><summary>추가할 수 있는 상품 정보 <span id="missing-count"></span></summary><p class="field-note">가지고 있는 자료가 있는 항목만 채워 주세요. 빈 항목은 상세 본문에 나오지 않아요.</p><div id="missing-fields" class="missing-fields"></div></details>
       </section>
       <div class="local-notice"><span aria-hidden="true">◉</span><p>사진과 글은 이 탭 안에서만 보관해요.<br>새로고침하거나 닫으면 사라집니다.<br>내려받기는 글·구성·사진 파일명만 저장해요.</p></div>
     </aside>

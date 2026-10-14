@@ -1,5 +1,5 @@
 import { demoFields, demoPhotos, demoNotice } from './demo.mjs';
-import { templates, fieldNames, element, renderPage } from './templates.mjs';
+import { templates, fieldNames, optionalProductFields, element, renderPage } from './templates.mjs';
 
 const $ = id => document.getElementById(id);
 const data = Object.fromEntries(fieldNames.map(name => [name, '']));
@@ -44,6 +44,21 @@ for (const template of templates) {
 function render() {
   $('demo-notice').hidden = !demoMode;
   $('demo-notice').textContent = demoMode ? demoNotice : '';
+  const missing = optionalProductFields.filter(([key]) => !data[key].trim());
+  $('missing-count').textContent = String(missing.length);
+  $('missing-fields').replaceChildren();
+  for (const [key, label] of missing) {
+    const button = element('button', '', `${label} 추가`);
+    button.type = 'button';
+    button.addEventListener('click', () => {
+      const input = $('content-form').elements.namedItem(key);
+      const group = input.closest('details');
+      if (group) group.open = true;
+      input.focus();
+    });
+    $('missing-fields').append(button);
+  }
+  if (!missing.length) $('missing-fields').append(element('p', 'field-note', '선택 항목을 모두 채웠어요.'));
   const current = templates.find(template => template.id === selected);
   $('active-kicker').textContent = compare ? 'THREE WAYS TO TELL YOUR STORY' : current.en;
   $('active-title').textContent = compare ? '같은 이야기, 다른 인상.' : current.name;

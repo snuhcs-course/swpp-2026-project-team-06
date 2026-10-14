@@ -4,8 +4,12 @@ export const demoFields = {
   headline: '3대째 효돈 하우스 감귤.',
   story: '할아버지가 심은 나무를 아버지와 함께 돌보고 있어요.\n\n하우스 안 온도를 매일 기록하고, 물은 아껴 줘서 단맛이 진해지도록 키워요.\n\n수확하는 날 원물 그대로 선별해서 바로 보내드려요.',
   origin: '제주 서귀포 효돈', variety: '하우스 감귤', weight: '5kg',
-  composition: '크기는 조금씩 달라도 맛은 고르게 골라 담아요.',
+  composition: '하우스 감귤 5kg × 1',
   updates: '밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요.',
+  flavor: '물을 아껴 키워서 단맛이 꽉 찹니다.',
+  size: '크기는 조금씩 달라도 맛은 고르게 골라 담아요.',
+  harvest: '수확하는 날 원물 그대로 선별해 보내드려요.',
+  quality: '', notice: '', support: '', usage: '',
   packing: '', storage: '', delivery: ''
 };
 export const demoPhotos = [
