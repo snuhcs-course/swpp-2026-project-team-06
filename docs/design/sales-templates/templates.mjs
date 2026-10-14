@@ -3,7 +3,7 @@ export const templates = [
   { id: 'magazine', name: '산지 화보', en: '02 / 산지 화보', short: '깊은 초록 · 사진 중심', description: '사진과 짧은 설명이 번갈아 이어지는 구성. 깊은 초록과 명조 제목으로 차분하게.' },
   { id: 'letter', name: '농가 이야기', en: '03 / 농가 이야기', short: '따뜻한 종이색 · 원문 중심', description: '상품 사진으로 시작해 농가의 이야기를 한 장면씩 읽는 구성. 담백하고 따뜻하게.' },
 ];
-export const fieldNames = ['farm', 'name', 'headline', 'story', 'origin', 'variety', 'weight', 'storage', 'delivery'];
+export const fieldNames = ['farm', 'name', 'headline', 'story', 'origin', 'variety', 'weight', 'composition', 'updates', 'packing', 'storage', 'delivery'];
 
 export function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -58,19 +58,30 @@ export function renderPage(templateId, data, photos) {
   const summary = productSummary(data);
   if (summary) page.append(summary);
   const paragraphs = data.story.split(/\n\s*\n/).filter(text => text.trim());
-  const chapterCount = Math.max(paragraphs.length, photos.length - 1);
+  const chapters = paragraphs.map(text => ({ kind: 'story', label: '농가 이야기', text }));
+  for (const [key, label] of [['composition', '상품 구성'], ['updates', '농가 소식']]) {
+    if (data[key].trim()) chapters.push({ kind: key, label, text: data[key] });
+  }
+  const chapterCount = Math.max(chapters.length, photos.length - 1);
   for (let index = 0; index < chapterCount; index++) {
-    const section = element('section', `story-chapter chapter-${index % 2}`);
+    const chapter = chapters[index];
+    const section = element('section', `story-chapter chapter-${index % 2} ${chapter ? chapter.kind : 'gallery'}-chapter`);
     const copy = element('div', 'chapter-copy');
     const label = element('div', 'chapter-label');
-    label.append(element('span', 'chapter-number', String(index + 1).padStart(2, '0')), element('span', '', paragraphs[index] ? '농가 이야기' : '사진으로 살펴보기'));
+    label.append(element('span', 'chapter-number', String(index + 1).padStart(2, '0')));
+    if (!chapter || chapter.kind === 'story') label.append(element('span', '', chapter ? chapter.label : '사진으로 살펴보기'));
     copy.append(label);
-    if (paragraphs[index]) copy.append(element('p', 'chapter-text', paragraphs[index]));
-    section.append(copy);
-    if (photos[index + 1]) section.append(photoFigure(photos[index + 1]));
+    if (chapter) {
+      if (chapter.kind !== 'story') copy.append(element('h2', 'chapter-title', chapter.label));
+      if (chapter.kind === 'composition' && data.weight.trim()) copy.append(element('p', 'composition-weight', data.weight));
+      copy.append(element('p', `chapter-text${chapter.text.length > 120 ? ' long-copy' : ''}`, chapter.text));
+    }
+    const photo = photos[index + 1] ? photoFigure(photos[index + 1]) : null;
+    if (chapter?.kind === 'updates' && photo) section.append(photo, copy);
+    else { section.append(copy); if (photo) section.append(photo); }
     page.append(section);
   }
-  const details = [['storage', '보관 안내'], ['delivery', '배송 안내']].filter(([key]) => data[key].trim());
+  const details = [['packing', '포장 안내'], ['storage', '보관 안내'], ['delivery', '배송 안내']].filter(([key]) => data[key].trim());
   if (details.length) {
     const section = element('section', 'purchase-notes');
     section.append(element('h2', '', '주문 전 확인해 주세요'));

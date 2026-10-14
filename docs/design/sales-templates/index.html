@@ -36,11 +36,14 @@
           <label>상품 이름<input name="name" maxlength="100" placeholder="예: 판매하실 상품의 이름"></label>
           <label>한 줄 소개<input name="headline" maxlength="140" placeholder="사용하던 소개 문구를 그대로 넣어 주세요"></label>
           <label>전하고 싶은 이야기<textarea name="story" maxlength="3000" rows="6" placeholder="어떻게 키우고, 어떤 마음으로 보내시나요? 직접 적은 글을 넣어 주세요."></textarea></label>
-          <p class="field-note">빈 줄로 문단을 나누면 설명 장면이 하나씩 생겨요. 두 번째 사진부터 순서대로 배치되니, 문단에 맞춰 사진 순서를 조정해 주세요.</p>
+          <p class="field-note">빈 줄로 문단을 나누면 설명 장면이 하나씩 생겨요. 사진은 표지 → 이야기 문단 → 구성 안내 → 농가 소식 순서로 배치돼요. 글에 맞춰 사진 순서를 조정해 주세요.</p>
+          <label>구성 안내 <small>(선택)</small><textarea name="composition" maxlength="1000" rows="3" placeholder="판매할 상품의 크기·구성에 대해 확인된 내용을 넣어 주세요."></textarea></label>
+          <label>농가 소식 <small>(선택)</small><textarea name="updates" maxlength="1000" rows="3" placeholder="농가에서 전할 소식이나 기록을 직접 넣어 주세요."></textarea></label>
           <details><summary>상품·배송 정보 <span aria-hidden="true">＋</span></summary><div class="detail-fields">
             <label>원산지<input name="origin" maxlength="100" placeholder="확인된 원산지"></label>
             <label>품종<input name="variety" maxlength="100" placeholder="확인된 품종"></label>
             <label>중량·구성<input name="weight" maxlength="160" placeholder="판매할 중량과 구성"></label>
+            <label>포장 안내<textarea name="packing" maxlength="500" rows="3" placeholder="실제로 제공하는 포장 방식을 적어 주세요."></textarea></label>
             <label>보관 안내<textarea name="storage" maxlength="500" rows="3" placeholder="상품에 맞는 보관 안내"></textarea></label>
             <label>배송 안내<textarea name="delivery" maxlength="500" rows="3" placeholder="확정된 배송 안내"></textarea></label>
           </div></details>
