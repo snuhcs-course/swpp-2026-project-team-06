@@ -59,4 +59,3 @@ Responses API, Structured Outputs, store=false, tools 없음, SDK 자동 재시�
 API와 worker는 같은 PostgreSQL 및 같은 비공개 Local/R2 저장소를 사용해야 한다. R2 bucket은 공개하지 않는다. SOURCE_R2_* 키는 .env.example 참고. 새 API는 비활성 기본값이다.
 
 작업 취소는 이미 보낸 요청을 회수하지 않는다. 늦은 결과는 버전/lease 검사로 버리고 확인한 내용을 덮어쓰지 않는다. source 삭제는 참조 초안 삭제가 선행되어야 한다. batch 삭제는 논리 삭제 후 worker가 파일과 민감 자료를 정리한다. 고아 업로드는 24시간 이후 정리한다. 자동 worker 재시작은 배포 환경 프로세스 관리자가 담당한다.
-
