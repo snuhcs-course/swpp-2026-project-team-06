@@ -1,3 +1,4 @@
+import { demoFields, demoPhotos, demoNotice } from './demo.mjs';
 import { templates, fieldNames, element, renderPage } from './templates.mjs';
 
 const $ = id => document.getElementById(id);
@@ -7,6 +8,7 @@ let selected = 'basic';
 let compare = false;
 let uploading = false;
 let dirty = false;
+let demoMode = false;
 let toastTimer;
 
 function say(message) {
@@ -40,6 +42,8 @@ for (const template of templates) {
 }
 
 function render() {
+  $('demo-notice').hidden = !demoMode;
+  $('demo-notice').textContent = demoMode ? demoNotice : '';
   const current = templates.find(template => template.id === selected);
   $('active-kicker').textContent = compare ? 'THREE WAYS TO TELL YOUR STORY' : current.en;
   $('active-title').textContent = compare ? '같은 이야기, 다른 인상.' : current.name;
@@ -94,6 +98,8 @@ $('preview-width').addEventListener('change', () => {
 function photoList() {
   $('photo-count').textContent = `${photos.length} / 6`;
   $('photos').disabled = uploading || photos.length >= 6;
+  $('load-demo').disabled = uploading;
+  $('clear-content').disabled = uploading;
   $('photo-list').replaceChildren();
   photos.forEach((photo, index) => {
     const row = element('div', 'photo-row');
@@ -106,6 +112,7 @@ function photoList() {
     caption.setAttribute('aria-label', `사진 ${index + 1} 설명`);
     caption.placeholder = '사진 설명 (선택)';
     caption.maxLength = 200;
+    caption.disabled = uploading;
     caption.value = photo.caption;
     caption.addEventListener('input', () => { photo.caption = caption.value; dirty = true; render(); });
     details.append(caption);
@@ -171,7 +178,7 @@ $('photos').addEventListener('change', async event => {
 });
 
 $('export').addEventListener('click', () => {
-  const content = { templateId: selected, fields: { ...data }, photos: photos.map(({ name, caption }) => ({ filename: name, caption })), note: '사진 파일은 포함되지 않습니다. 실제 게시 데이터가 아닌 디자인 편집안입니다.' };
+  const content = { templateId: selected, demo: demoMode, fields: { ...data }, photos: photos.map(({ name, caption }) => ({ filename: name, caption })), note: (demoMode ? demoNotice + ' ' : '') + '사진 파일은 포함되지 않습니다. 실제 게시 데이터가 아닌 디자인 편집안입니다.' };
   const url = URL.createObjectURL(new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }));
   const link = element('a');
   link.href = url;
@@ -189,3 +196,56 @@ window.addEventListener('beforeunload', event => {
 });
 render();
 photoList();
+
+function hasContent() { return photos.length > 0 || Object.values(data).some(value => value.trim()); }
+function syncForm() { for (const name of fieldNames) $('content-form').elements.namedItem(name).value = data[name]; }
+function confirmReplacement(message) {
+  const dialog = $('replace-dialog');
+  if (dialog.open) return Promise.resolve(false);
+  $('replace-message').textContent = message;
+  dialog.returnValue = '';
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), { once: true });
+    dialog.showModal();
+  });
+}
+async function loadDemo() {
+  if (uploading || (hasContent() && !await confirmReplacement('현재 글과 사진을 예시 자료로 바꿀까요? 기존 입력은 사라집니다.'))) return;
+  uploading = true;
+  $('export').disabled = true;
+  photoList();
+  for (const control of $('content-form').elements) control.disabled = true;
+  try {
+    await Promise.all(demoPhotos.map(async photo => { const image = new Image(); image.src = photo.url; await image.decode(); }));
+    photos.forEach(photo => URL.revokeObjectURL(photo.url));
+    photos.splice(0, photos.length, ...demoPhotos.map(photo => ({ ...photo })));
+    Object.assign(data, demoFields);
+    demoMode = true;
+    dirty = true;
+    $('upload-status').textContent = '';
+    syncForm();
+    render();
+  } catch {
+    say('예시 사진을 불러오지 못했어요. 기존 입력은 유지됩니다.');
+  } finally {
+    for (const control of $('content-form').elements) control.disabled = false;
+    uploading = false;
+    $('export').disabled = false;
+    photoList();
+  }
+}
+$('load-demo').addEventListener('click', loadDemo);
+$('clear-content').addEventListener('click', async () => {
+  if (uploading || (hasContent() && !await confirmReplacement('입력한 글과 사진을 모두 비울까요?'))) return;
+  photos.forEach(photo => URL.revokeObjectURL(photo.url));
+  photos.length = 0;
+  for (const name of fieldNames) data[name] = '';
+  demoMode = false;
+  const url = new URL(location.href);
+  url.searchParams.delete('demo');
+  history.replaceState(null, '', url);
+  dirty = false;
+  $('upload-status').textContent = '';
+  syncForm(); photoList(); render();
+});
+if (new URLSearchParams(location.search).get('demo') === '1') { compare = true; loadDemo(); }

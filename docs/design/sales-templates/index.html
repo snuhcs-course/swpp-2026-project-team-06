@@ -18,6 +18,7 @@
   <main class="workspace">
     <aside id="editor" class="editor" aria-label="판매페이지 편집">
       <div class="editor-intro"><span class="eyebrow">YOUR STORY, YOUR WAY</span><h1>농가의 이야기를<br>담는 세 가지 방식.</h1><p>같은 사진, 같은 이야기.<br>우리 농가에 어울리는 구성을 찾아보세요.</p></div>
+      <div class="demo-controls"><button id="load-demo">예시 자료 채워보기</button><button id="clear-content">비우기</button></div>
       <section class="editor-section">
         <div class="section-heading"><span class="step">01</span><h2>구성 고르기</h2></div>
         <div id="template-picker" class="template-picker" role="group" aria-label="템플릿 선택"></div>
@@ -50,12 +51,16 @@
     <section id="canvas" class="canvas" aria-label="판매페이지 미리보기">
       <div class="canvas-toolbar"><div class="view-switch" role="group" aria-label="미리보기 방식"><button id="single-view" aria-pressed="true">선택한 시안</button><button id="compare-view" aria-pressed="false">3종 비교</button></div><label class="width-picker">너비 <select id="preview-width" aria-label="미리보기 너비"><option value="360">360px</option><option value="390" selected>390px</option><option value="430">430px</option></select></label></div>
       <div class="canvas-intro"><div><span id="active-kicker" class="eyebrow"></span><h2 id="active-title"></h2><p id="active-description"></p></div><span class="live-badge"><i></i>입력 즉시 반영</span></div>
+      <p id="demo-notice" class="demo-notice" role="status" hidden></p>
       <div id="previews" class="previews"></div>
       <p class="canvas-caption">판매 상세 본문 미리보기 · 실제 구매·게시 기능은 연결되지 않습니다.</p>
       <div class="principles"><span>사용자가 제공한 사진</span><span>수정 가능한 텍스트</span><span>근거 없는 정보 생성 없음</span></div>
     </section>
   </main>
   <nav class="mobile-jump" aria-label="작업실 빠른 이동"><a href="#editor">내용 편집 ↑</a><a href="#canvas">시안 미리보기 ↓</a></nav>
+  <dialog id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-message">
+    <form method="dialog"><h2 id="replace-title">편집 중인 내용이 있어요.</h2><p id="replace-message"></p><div class="dialog-actions"><button value="cancel" autofocus>취소</button><button value="confirm">계속</button></div></form>
+  </dialog>
   <div id="toast" class="toast" role="status"></div>
 </body>
 </html>
