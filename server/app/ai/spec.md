@@ -5,7 +5,7 @@
 > 흐름: docs/spec/tech-design/stack.md 5장 "AI 호출", ADR 0004
 
 ## 역할
-Claude API 호출 어댑터. 상품 초안, 문의 응답 두 작업(I2에 출하 문장 해석)의 입력 정리·호출·출력 검증·기록을 맡는다.
+Claude API 호출 어댑터. 상품 초안, 문의 응답 두 작업(I2에 출하 문장 해석)의 입력 정리·호출·출력 검증·기록을 맡는다. DEV-54의 source_analysis.py는 새 비공개 자료 분석만 담당하는 별도 Mock/Sol 어댑터다(ADR 0011). DB 쓰기 없이 검증 가능한 후보·사용량을 반환한다.
 
 ## 구조
 - `router.py` — prefix `/ai`. 앱에 직접 여는 경로는 두지 않을 예정(기능 API는 catalog·messaging·orders가 연다). 등록만 해 둔다.

@@ -12,8 +12,11 @@ from app.farms.router import home_router
 from app.farms.router import router as farms_router
 from app.messaging.router import router as messaging_router
 from app.orders.router import router as orders_router
+from app.source_analysis.middleware import SourceRequestMiddleware
+from app.source_analysis.router import router as source_analysis_router
 
 app = FastAPI(title="Farmclub API")
+app.add_middleware(SourceRequestMiddleware)
 install_error_handlers(app)
 
 # 두 앱(웹)과 API는 다른 주소다. 앱 주소만 허용한다.
@@ -41,6 +44,7 @@ for module_router in (
     messaging_router,
     ai_router,
     analytics_router,
+    source_analysis_router,
 ):
     app.include_router(module_router, prefix="/api")
 
