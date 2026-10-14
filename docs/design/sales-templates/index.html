@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>판매페이지 작업실 · 팜클럽</title>
+  <link rel="stylesheet" href="./studio.css">
+  <script type="module" src="./studio.mjs"></script>
+</head>
+<body>
+  <header class="studio-header">
+    <a class="wordmark" href="./index.html" aria-label="팜클럽 작업실 처음으로">farmclub<span class="brand-dot"></span></a>
+    <span class="header-divider"></span><span class="header-title">판매페이지 작업실</span>
+    <span class="prototype-label">디자인 미리보기</span>
+    <button id="export" class="button secondary">편집안 내려받기 <span aria-hidden="true">↗</span></button>
+  </header>
+  <main class="workspace">
+    <aside id="editor" class="editor" aria-label="판매페이지 편집">
+      <div class="editor-intro"><span class="eyebrow">YOUR STORY, YOUR WAY</span><h1>농가의 이야기를<br>담는 세 가지 방식.</h1><p>같은 사진, 같은 이야기.<br>우리 농가에 어울리는 구성을 찾아보세요.</p></div>
+      <section class="editor-section">
+        <div class="section-heading"><span class="step">01</span><h2>구성 고르기</h2></div>
+        <div id="template-picker" class="template-picker" role="group" aria-label="템플릿 선택"></div>
+      </section>
+      <section class="editor-section">
+        <div class="section-heading"><span class="step">02</span><h2>우리 사진</h2><span id="photo-count" class="count">0 / 6</span></div>
+        <label class="upload-zone" id="upload-zone"><span class="upload-symbol" aria-hidden="true">＋</span><strong>사진 추가</strong><span>직접 찍은 사진을 골라 주세요</span><small>JPG · PNG · WebP / 장당 최대 10MB</small><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="사진 추가"></label>
+        <div id="photo-list" class="photo-list"></div>
+        <p id="upload-status" role="status" class="field-note"></p>
+      </section>
+      <section class="editor-section">
+        <div class="section-heading"><span class="step">03</span><h2>이야기 채우기</h2></div>
+        <form id="content-form" autocomplete="off">
+          <label>농가 이름<input name="farm" maxlength="80" placeholder="농가 이름을 입력해 주세요"></label>
+          <label>상품 이름<input name="name" maxlength="100" placeholder="예: 판매하실 상품의 이름"></label>
+          <label>한 줄 소개<input name="headline" maxlength="140" placeholder="사용하던 소개 문구를 그대로 넣어 주세요"></label>
+          <label>전하고 싶은 이야기<textarea name="story" maxlength="3000" rows="6" placeholder="어떻게 키우고, 어떤 마음으로 보내시나요? 직접 적은 글을 넣어 주세요."></textarea></label>
+          <p class="field-note">입력한 문구를 그대로 표시해요. 없는 정보는 채우지 않아요.</p>
+          <details><summary>상품·배송 정보 <span aria-hidden="true">＋</span></summary><div class="detail-fields">
+            <label>원산지<input name="origin" maxlength="100" placeholder="확인된 원산지"></label>
+            <label>품종<input name="variety" maxlength="100" placeholder="확인된 품종"></label>
+            <label>중량·구성<input name="weight" maxlength="160" placeholder="판매할 중량과 구성"></label>
+            <label>보관 안내<textarea name="storage" maxlength="500" rows="3" placeholder="상품에 맞는 보관 안내"></textarea></label>
+            <label>배송 안내<textarea name="delivery" maxlength="500" rows="3" placeholder="확정된 배송 안내"></textarea></label>
+          </div></details>
+        </form>
+      </section>
+      <div class="local-notice"><span aria-hidden="true">◉</span><p>사진과 글은 이 탭 안에서만 보관해요.<br>새로고침하거나 닫으면 사라집니다.<br>내려받기는 글·구성·사진 파일명만 저장해요.</p></div>
+    </aside>
+    <section id="canvas" class="canvas" aria-label="판매페이지 미리보기">
+      <div class="canvas-toolbar"><div class="view-switch" role="group" aria-label="미리보기 방식"><button id="single-view" aria-pressed="true">선택한 시안</button><button id="compare-view" aria-pressed="false">3종 비교</button></div><label class="width-picker">너비 <select id="preview-width" aria-label="미리보기 너비"><option value="360">360px</option><option value="390" selected>390px</option><option value="430">430px</option></select></label></div>
+      <div class="canvas-intro"><div><span id="active-kicker" class="eyebrow"></span><h2 id="active-title"></h2><p id="active-description"></p></div><span class="live-badge"><i></i>입력 즉시 반영</span></div>
+      <div id="previews" class="previews"></div>
+      <p class="canvas-caption">판매 상세 본문 미리보기 · 실제 구매·게시 기능은 연결되지 않습니다.</p>
+      <div class="principles"><span>사용자가 제공한 사진</span><span>수정 가능한 텍스트</span><span>근거 없는 정보 생성 없음</span></div>
+    </section>
+  </main>
+  <nav class="mobile-jump" aria-label="작업실 빠른 이동"><a href="#editor">내용 편집 ↑</a><a href="#canvas">시안 미리보기 ↓</a></nav>
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>
