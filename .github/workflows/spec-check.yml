@@ -74,7 +74,10 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: spec-code-review-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .artifacts/spec-check/report.*
+          path: |
+            .artifacts/spec-check/report.json
+            .artifacts/spec-check/report.md
+          include-hidden-files: true # Only the two allowlisted reports, not the directory.
           if-no-files-found: warn
           retention-days: 7
 
@@ -121,6 +124,9 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: spec-code-demo-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .artifacts/spec-check/report.*
+          path: |
+            .artifacts/spec-check/report.json
+            .artifacts/spec-check/report.md
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

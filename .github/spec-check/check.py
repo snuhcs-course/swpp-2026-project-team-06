@@ -125,6 +125,7 @@ def collect(root, event, demo=None):
     merge_base = git(root, "merge-base", base, head).decode().strip()
     meta.update(merge_base_sha=merge_base, mode=f"demo-{demo}" if demo else "pr")
     files, previous, target = {}, {}, {}
+    meta["source_revisions"] = {}
     if demo:
         prefix = ".github/spec-check/fixtures/quantity/"
         specs, implementation = {prefix + "spec.md"}, {prefix + demo + ".py"}
@@ -157,6 +158,7 @@ def collect(root, event, demo=None):
         if current is None and old is None:
             raise Incomplete("A referenced file is missing at both captured revisions.")
         files[path] = current if current is not None else old
+        meta["source_revisions"][path] = head if current is not None else merge_base
         if old is not None and old != current:
             previous[path] = old
         at_base = read_file(root, base, path, optional=True)
