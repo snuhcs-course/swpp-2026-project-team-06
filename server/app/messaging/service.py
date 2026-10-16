@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import and_, delete, false, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import images, masking
@@ -431,7 +432,7 @@ def _thread_view(t: Thread) -> ThreadView:
     )
 
 
-def _message_view(m: ThreadMessage) -> ChatMessage:
+def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
     return ChatMessage(
         message_id=m.id,
         sender_type=m.sender_type,
@@ -447,7 +448,24 @@ def _message_view(m: ThreadMessage) -> ChatMessage:
         source_summary=m.source_summary,
         handoff_status=m.handoff_status,
         masked=m.masked,
+        reported=reported,
     )
+
+
+def _message_views(db: Session, rows: list[ThreadMessage]) -> list[ChatMessage]:
+    ids = [m.id for m in rows if m.sender_type == "AI"]
+    reported = (
+        set(
+            db.scalars(
+                select(Escalation.reported_message_id).where(
+                    Escalation.reported_message_id.in_(ids)
+                )
+            )
+        )
+        if ids
+        else set()
+    )
+    return [_message_view(m, m.id in reported) for m in rows]
 
 
 def _set_mode(t: Thread, mode: str) -> None:
@@ -598,7 +616,8 @@ def _escalation_view(db: Session, e: Escalation, t: Thread, with_thread: bool) -
         created_at=e.created_at,
         status=e.status,
         answer=e.answer,
-        thread=[_message_view(m) for m in _messages(db, t.id)] if with_thread else [],
+        reported_message_id=e.reported_message_id,
+        thread=_message_views(db, _messages(db, t.id)) if with_thread else [],
     )
 
 
@@ -623,7 +642,7 @@ def _chat_page(
         )
         escalations = [_escalation_view(db, e, t, False) for e in found]
     return ChatPage(
-        items=[_message_view(m) for m in rows],
+        items=_message_views(db, rows),
         next_cursor=next_cursor,
         thread=_thread_view(t),
         inquiries=[inquiry_view(db, i) for i in _thread_inquiries(db, t.id)],
@@ -690,6 +709,71 @@ def start_chat(db: Session, consumer, farm_id: str) -> StartChatResult:
 def consumer_page(db: Session, consumer, farm_id: str, cursor: str | None, limit: int) -> ChatPage:
     thread = _consumer_thread(db, consumer.id, farm_id)
     return _chat_page(db, consumer, thread, cursor, limit, producer=False)
+
+
+def report_ai_answer(db: Session, consumer, farm_id: str, message_id: str) -> EscalationView:
+    """Report an AI answer as an open producer question (FEAT-13 AC-13-5)."""
+    from app.orders import service as orders
+
+    thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
+    message = db.scalar(
+        select(ThreadMessage).where(
+            ThreadMessage.id == message_id, ThreadMessage.thread_id == thread.id
+        )
+    )
+    if message is None:
+        raise not_found("찾을 수 없는 메시지예요.")
+    if message.sender_type != "AI" or message.handoff_status == "FORWARDED":
+        raise invalid({"messageId": "신고할 수 있는 AI 답변이 아니에요"})
+
+    existing = db.scalar(
+        select(Escalation).where(Escalation.reported_message_id == message.id)
+    )
+    if existing:
+        return _escalation_view(db, existing, thread, False)
+
+    question = db.scalar(
+        select(ThreadMessage)
+        .where(
+            ThreadMessage.thread_id == thread.id,
+            ThreadMessage.sender_type == "CONSUMER",
+            ThreadMessage.seq < message.seq,
+        )
+        .order_by(ThreadMessage.seq.desc())
+        .limit(1)
+    )
+    if question is None:
+        raise invalid({"messageId": "연결할 소비자 질문이 없어요"})
+    context = None
+    if question.order_id:
+        order = orders.get_paid_order_of(db, consumer.id, question.order_id)
+        if order is not None and orders.order_belongs_to_farm(db, order, farm_id):
+            context = orders.order_context(db, order)
+
+    escalation = Escalation(
+        id=new_id("e"),
+        thread_id=thread.id,
+        thread_message_id=question.id,
+        reported_message_id=message.id,
+        context=context,
+        question=question.body,
+        reason="WRONG_ANSWER",
+        status="OPEN",
+        created_at=now(),
+    )
+    db.add(escalation)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        thread = _consumer_thread(db, consumer.id, farm_id)
+        existing = db.scalar(
+            select(Escalation).where(Escalation.reported_message_id == message_id)
+        )
+        if existing is None:
+            raise
+        return _escalation_view(db, existing, thread, False)
+    return _escalation_view(db, escalation, thread, False)
 
 
 def bind_attachments(

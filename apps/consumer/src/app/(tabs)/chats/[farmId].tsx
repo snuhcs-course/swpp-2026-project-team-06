@@ -103,6 +103,7 @@ export default function Chat() {
               key,
             )
           }
+          report={(messageId, key) => messaging.reportAiAnswer(farmId, messageId, key)}
         />
       ) : (
         <T muted>대화를 여는 중…</T>

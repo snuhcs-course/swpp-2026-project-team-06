@@ -90,6 +90,7 @@ class ChatMessage(CamelModel):
     source_summary: str | None
     handoff_status: Literal["FORWARDED"] | None
     masked: bool
+    reported: bool = False
 
 
 class ThreadView(CamelModel):
@@ -120,6 +121,7 @@ class EscalationView(CamelModel):
     created_at: datetime
     status: Literal["OPEN", "ANSWERED"]
     answer: str | None
+    reported_message_id: str | None = None
     thread: list[ChatMessage]
 
 

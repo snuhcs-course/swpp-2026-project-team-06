@@ -138,6 +138,7 @@ export type EscalationRec = {
   createdAt: string;
   status: "OPEN" | "ANSWERED";
   answer: string | null;
+  reportedMessageId?: string | null;
 };
 
 export type DB = {
