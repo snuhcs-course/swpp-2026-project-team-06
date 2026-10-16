@@ -55,6 +55,17 @@ class ProducerApplication(ProducerApplicationInput):
     decided_at: datetime | None
 
 
+class ProducerDecisionInput(CamelModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class ProducerDecision(CamelModel):
+    farm_id: str
+    status: Literal["APPROVED", "REJECTED"]
+    reject_reason: str | None
+    decided_at: datetime
+
+
 class AddressInput(CamelModel):
     recipient_name: str = ""
     recipient_phone: str = ""
