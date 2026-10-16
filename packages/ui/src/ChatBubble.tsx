@@ -5,7 +5,7 @@ import { T } from "./Text";
 import { tokens } from "./tokens";
 
 type Props = {
-  /** farm = 농가(면 색, 왼쪽) · me = 나(검정, 오른쪽) · ai = AI 안내(테두리 + 배지, 왼쪽) */
+  /** farm = 농가(면 색, 왼쪽) · me = 나(옅은 주황, 오른쪽) · ai = AI 안내(테두리 + 배지, 왼쪽) */
   kind: "farm" | "me" | "ai";
   text: string;
   /** 보낸 시각 */
@@ -19,7 +19,7 @@ type Props = {
   children?: ReactNode;
 };
 
-/** 채팅 말풍선: 15 · 줄 간격 1.45 · 안쪽 8/12 · 최대 폭 270 · 꼬리 쪽 모서리 4 */
+/** 채팅 말풍선: 17/25 · 안쪽 12/16 · 최대 폭 272 · 꼬리 쪽 모서리 4 */
 export function ChatBubble({
   kind,
   text,
@@ -46,30 +46,27 @@ export function ChatBubble({
           {[sender, time].filter(Boolean).join(" · ")}
         </T>
       ) : null}
-      {children}
       {text || basis ? (
         <View
           style={{
-            maxWidth: 270,
-            paddingVertical: 8,
-            paddingHorizontal: 12,
+            maxWidth: 272,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
             borderRadius: tokens.radius.md,
             ...(mine
               ? { borderTopRightRadius: tokens.radius.bubbleTail }
               : { borderTopLeftRadius: tokens.radius.bubbleTail }),
             backgroundColor:
               kind === "farm"
-                ? tokens.color.surface
+                ? tokens.color.background
                 : kind === "me"
-                  ? tokens.color.text
+                  ? "#FFF2E9"
                   : tokens.color.background,
             borderWidth: kind === "ai" ? 1 : 0,
             borderColor: tokens.color.text,
           }}
         >
-          <T variant="chat" color={mine ? "#FFFFFF" : undefined}>
-            {text}
-          </T>
+          <T variant="chat">{text}</T>
           {basis ? (
             <T variant="caption" muted style={{ marginTop: 4 }}>
               근거: {basis}
@@ -77,6 +74,7 @@ export function ChatBubble({
           ) : null}
         </View>
       ) : null}
+      {children}
       {mine && time ? (
         <T variant="caption" muted>
           {time}

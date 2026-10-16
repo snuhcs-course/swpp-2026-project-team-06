@@ -1,5 +1,5 @@
 // SCR-02 농가 목록 (FEAT-06) — design: scr-02, s-02-noresult
-import { farms, type FarmCard } from "@farmclub/api";
+import { catalog, farms, referencePrice, type FarmCard } from "@farmclub/api";
 import {
   Button,
   Chip,
@@ -7,13 +7,14 @@ import {
   HeaderBar,
   Icon,
   Photo,
+  Price,
+  useAsync,
   Screen,
   Scroll,
   Skeleton,
   T,
   dday,
   tokens,
-  won,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -181,14 +182,16 @@ export default function FarmList() {
                   <View
                     style={{
                       flexDirection: "row",
+                      flexWrap: "wrap",
                       alignItems: "center",
                       gap: 8,
                       marginTop: 4,
                     }}
                   >
-                    <T variant="body" weight="bold">
-                      {won(f.featured.currentPrice)}
-                    </T>
+                    <FeaturedPrice
+                      productId={f.featured.productId}
+                      current={f.featured.currentPrice}
+                    />
                     <Chip label={dday(f.featured.dDay)} />
                   </View>
                 ) : null}
@@ -215,5 +218,23 @@ export default function FarmList() {
         </View>
       </Scroll>
     </Screen>
+  );
+}
+
+function FeaturedPrice({
+  productId,
+  current,
+}: {
+  productId: string;
+  current: number;
+}) {
+  const product = useAsync(() => catalog.product(productId), [productId]);
+  return (
+    <Price
+      compact
+      current={product.data ? product.data.currentPrice : current}
+      reference={product.data ? referencePrice(product.data) : null}
+      soldOut={product.data?.soldOut}
+    />
   );
 }

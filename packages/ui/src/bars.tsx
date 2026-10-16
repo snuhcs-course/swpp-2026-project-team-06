@@ -149,11 +149,11 @@ export type TabItem = {
   onPress: () => void;
 };
 
-/** 떠 있는 둥근 탭 바: 좌우·아래 12(+안전 영역), 높이 64, 글자 15, 선택 탭만 면 색 알약 */
+/** 고정 4탭: 전체 너비, 높이 72 + 안전 영역, 선택 아이콘/라벨 주황. */
 export function TabBar({ items }: { items: TabItem[] }) {
   return (
     <View pointerEvents="box-none" style={styles.tabWrap}>
-      <View style={[styles.tabBar, glass]} accessibilityRole="tablist">
+      <View style={styles.tabBar} accessibilityRole="tablist">
         {items.map((it) => (
           <Pressable
             key={it.key}
@@ -164,19 +164,17 @@ export function TabBar({ items }: { items: TabItem[] }) {
               it.badge ? `${it.label}, 안 읽음 ${it.badge}` : it.label
             }
             onPress={it.onPress}
-            style={[
-              styles.tab,
-              it.active && { backgroundColor: tokens.color.surface },
-            ]}
+            style={[styles.tab]}
           >
             <Icon
               name={it.icon}
-              color={it.active ? tokens.color.text : tokens.color.textMuted}
+              color={it.active ? tokens.color.accent : tokens.color.textMuted}
             />
             <T
               variant="caption"
               weight="semibold"
-              color={it.active ? tokens.color.text : tokens.color.textMuted}
+              color={it.active ? tokens.color.accent : tokens.color.textMuted}
+              numberOfLines={1}
             >
               {it.label}
             </T>
@@ -199,6 +197,7 @@ export function Badge({ count }: { count: number }) {
         variant="caption"
         weight="bold"
         color={tokens.color.onAccent}
+        numberOfLines={1}
         style={{ lineHeight: 20 }}
       >
         {count > 99 ? "99+" : String(count)}
@@ -214,13 +213,24 @@ export function BottomBar({
   summary,
   summaryRight,
   children,
+  aboveTabs = false,
 }: {
   summary?: ReactNode;
   summaryRight?: ReactNode;
   children: ReactNode;
+  aboveTabs?: boolean;
 }) {
   return (
-    <View style={[styles.bottomBar, glass]}>
+    <View
+      style={[
+        styles.bottomBar,
+        glass,
+        aboveTabs && {
+          bottom: safe("bottom", tokens.height.tabBar),
+          paddingBottom: 16,
+        },
+      ]}
+    >
       {summary || summaryRight ? (
         <View style={styles.summary}>
           {typeof summary === "string" ? (
@@ -231,7 +241,12 @@ export function BottomBar({
             summary
           )}
           {typeof summaryRight === "string" ? (
-            <T variant="body" weight="bold">
+            <T
+              variant="body"
+              weight="bold"
+              numberOfLines={1}
+              style={{ flexShrink: 0 }}
+            >
               {summaryRight}
             </T>
           ) : (
@@ -351,24 +366,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 12,
-    paddingBottom: safe("bottom", 12),
+    paddingBottom: safe("bottom", 0),
+    backgroundColor: tokens.color.background,
     alignItems: "center",
   },
   tabBar: {
     width: "100%",
-    maxWidth: tokens.maxWidth - 24,
+    maxWidth: tokens.maxWidth,
     height: tokens.height.tabBar,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
+    borderTopWidth: 1,
+    borderColor: tokens.color.border,
+    backgroundColor: tokens.color.background,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
   },
   tab: {
     flex: 1,
-    height: 52,
+    height: tokens.height.tabBar,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",

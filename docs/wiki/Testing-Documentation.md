@@ -1,5 +1,7 @@
 # Testing Documentation
 
+> DEV-51 updates current UI acceptance to [UI 1.6](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/conversation-ui-1.6.md). Dated I1 results below remain historical evidence, including former harvest controls. Current cross-app tests explicitly arrange PREPARING through the existing API as a test fixture, then exercise invoice/shipping through the UI; the app itself never performs that transition.
+
 ## Changes in this iteration
 
 - I1 initial planning: wrote 50 acceptance criteria (Given / When / Then) for all 17 P0 features. This was a planning milestone, not an execution result. The completed DEV-6 run is recorded in the final section below.
@@ -66,7 +68,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | AC-06-2 | A farm has Hallabong as a variety | The user searches "Hallabong" | Only that farm appears |
 | AC-06-3 | A logged-in consumer | Follows a farm | The farm appears in My info, and its news appears in Chat > News Rooms |
 | AC-06-4 | Product A's stage ends tomorrow and product B's ends next week, both on sale | Home opens | A is shown before B in the recommended products |
-| AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the farm cards (browse farms) still show |
+| AC-06-5 | No product is on sale | Home opens | "No products open for reservation" is shown, and the news carousel remains available |
 
 ### FEAT-07 Product detail
 
@@ -123,16 +125,16 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
 | AC-13-1 | Farm AI is ON, thread is AUTO, and the product has a delivery window | A consumer replies "When will it ship?" | The AI answer gives that window |
-| AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the needs-reply chat list |
+| AC-13-2 | Even if the product description mentions growing methods | A consumer replies "How much pesticide do you use?" | AI does not answer and the question goes to the 1:1 chat list (server needsReply state) |
 | AC-13-3 | Farm AI is ON, thread is AUTO, and only expected sweetness is registered | A consumer replies "What is the registered Brix value?" | AI answers and says it is an expected value |
 | AC-13-4 | AI sent an answer | The conversation opens | The answer has an "AI answer" label |
-| AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's needs-reply chat list (SCR-28), marked as a wrong answer |
+| AC-13-5 (I2) | AI answered "ships in mid-January" | The consumer taps "This is wrong" | The question appears in the farm's 1:1 chat list (server needsReply state) (SCR-28), marked as a wrong answer |
 
 ### FEAT-14 Producer dashboard
 
 | ID | Given | When | Then |
 | -- | -- | -- | -- |
-| AC-14-1 | The producer is viewing the dashboard | A new order is paid | On reopening, that stage's reservation count is up and remaining quantity is down |
+| AC-14-1 | The producer is viewing the dashboard | A new order is paid | On reopening, order metrics and representative product reserved kg update |
 | AC-14-2 | An order has been delivered | The producer views it on the dashboard | Address and phone number are hidden |
 
 ### FEAT-15 Farm news and likes
@@ -151,7 +153,7 @@ Each criterion has an ID `AC-<feature>-<n>`. Test names include the AC ID (for e
 | -- | -- | -- | -- |
 | AC-17-1 (I2) | AI found an order and asked for confirmation | Before the producer taps confirm | No order changes state |
 | AC-17-2 | An order is preparing shipment | The producer taps confirm | The consumer's order detail shows "In delivery" (state `SHIPPED`) and the cancel button disappears |
-| AC-17-3 | A product has 3 reserved orders | The producer taps "Start harvest" | All 3 become "preparing shipment", and consumers can still cancel |
+| AC-17-3 | A product has 3 reserved orders | The producer views reservations | All remain RESERVED; no harvest action or automatic transition; cancellation rules stay unchanged |
 | AC-17-4 | An order has shipped | The producer sends a request to mark it delivered | It is refused and the order stays shipped |
 | AC-17-5 | Tracking number "123-456" is entered on a preparing order | It is marked shipped | The ship date and tracking number are saved and shown on the consumer's order detail |
 
@@ -299,3 +301,12 @@ These observations remain supported by the DEV-6 browser record but are not a de
 Railway/Vercel deployment, production secrets and branch protection are outside this local-stack task. Native iOS/Android, Firefox/WebKit, real payment providers, real Anthropic/R2/observability services, accessibility audits, load/soak tests, and penetration testing are also not covered. Repository administrators must add the `integration` job as a required branch-protection check after this PR merges.
 
 On failure, CI uploads the Playwright HTML report, traces, screenshots/videos, FastAPI/Expo process logs, and HTTP access logs for seven days. Product defects discovered by this suite must be filed as separate Bug issues rather than fixed in the test PR.
+
+## DEV-51 UI 1.6 validation (13 October 2026)
+
+- Local workspace typechecks: pass. Mock contracts: 12/12, including same-option last-period comparison, unavailable inventory and missing-price cases.
+- Both consumer and producer Expo web exports: pass.
+- Local Chromium v6 suite: 6/6 passed. Coverage: independent horizontal feeds at 360/390/430px, direct farm-room entry, expanded consumer/collapsed producer shelves, draft retention across folding, same-room replies, own-room default entry, fixed purchase/composer/tab regions, long farm-name layout and full-ratio story images. The initial producer-load draft race was reproduced and fixed by enabling input after the first room response.
+- Existing real-stack checkout/fulfillment tests now assert that reserved-order lookup does not transition state and the harvest action is absent. The retained API is used only to arrange a PREPARING fixture before testing invoice entry and shipping.
+- Local real-server integration was not run because Docker's engine was unavailable. The PR's isolated PostgreSQL CI runs the real API smoke and complete Chromium suite. Final CI result is recorded on PR #98.
+- Historical I1 images and dated validation records above are preserved; they are not evidence that the previous UI remains current.

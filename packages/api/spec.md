@@ -22,7 +22,7 @@
 - `POST /api/orders`, `POST /api/orders/{orderId}/pay`는 이 패키지가 `Idempotency-Key`(UUID)를 만들어 붙이고, 재시도할 때 같은 키를 다시 쓴다.
 - 이 패키지는 분석 이벤트에 개인정보를 넣지 않는다(N-05). 지표 SDK는 여기 두지 않는다.
 
-## 구현 결정
+## 구현 결정 이력 (현재 화면은 DEV-51 절 우선)
 | 날짜 | 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
 | 2026-10-07 | 빌드 없이 TS 소스(`src/index.ts`)를 `main`으로 둔다 | packages/ui와 같은 방식 | — |
@@ -60,3 +60,8 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 ## DEV-3 상세·공개 소식방 구현 (1.5)
 명세 PR #44의 storefront-1.5.md를 따른다. 상세는 text/image 블록과 공유 DetailStory 렌더러를 사용하며 생성은 저장 전 편집안이다. 기존 intro/description은 실제 기존 데이터의 기본 소개로 유지한다. 소식방 공개 읽기와 답장 권한을 분리하고 권한 변경 후 이전 비동기 메시지를 폐기한다. 실제 AI 호출은 구현하지 않으며 Mock임을 명시한다.
+
+## DEV-51 현재 프론트 구현 기준 (1.6)
+
+제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
+productPresentation은 동일 옵션 마지막 기간 비교 가격을 계산하고 목록 상세 조회를 최대 4개 동시 요청으로 제한한다. API 필드/엔드포인트는 바꾸지 않는다. p-house 신규 Mock seed만 승인된 단일 농가 이야기 이미지가 있다.
