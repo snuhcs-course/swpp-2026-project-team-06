@@ -330,8 +330,12 @@ def publish(report, output, summary=None, secrets=()):
     if report["status"] == "PASS":
         lines += ["No mismatch detected within the reviewed scope. Human review and normal tests still apply.", ""]
     for f in report.get("findings", []):
-        lines += ["## " + clean_text(f["id"]), "Requirement: " + clean_text(f["requirement"]),
-                  "Code: " + clean_text(f["code"]), clean_text(f["explanation"]),
+        requirement, code = f["requirement"], f["code"]
+        lines += ["## " + clean_text(f["id"]),
+                  "Requirement: " + clean_text(f"{requirement['path']}:{requirement['line']}"),
+                  "> " + clean_text(requirement["quote"]), "",
+                  "Code: " + clean_text(f"{code['path']}:{code['line']}"),
+                  "> " + clean_text(code["quote"]), "", clean_text(f["explanation"]),
                   "Reviewer action: " + clean_text(f["suggestion"]), ""]
     lines += ["## Reviewed files"] + ["- " + clean_text(p) for p in report.get("reviewed_files", [])]
     lines += ["", "## Missing context"] + ["- " + clean_text(p) for p in report.get("missing_context", [])]

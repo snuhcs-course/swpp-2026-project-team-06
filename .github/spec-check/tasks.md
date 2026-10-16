@@ -34,7 +34,7 @@
 - [x] 이슈·설계·기존 PR 템플릿/스펙 읽기, 범위 기록
 - [x] 수집기/결과 검증/Claude 클라이언트와 workflow 구현
 - [x] deterministic 계약 검증 및 실패 처리 확인
-- [ ] AI 1차 리뷰 및 수정
+- [x] AI 1차 리뷰 및 수정 (작성자 Codex 검토, PR 본문에 결과 기록; 독립 사람 검토 아님)
 - [ ] actual model mismatch/pass run과 사람 resolution 기록
 
 ### 완료 조건
