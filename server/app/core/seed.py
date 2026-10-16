@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.accounts.models import ShippingAddress, User
+from app.admin import models as _admin_models  # noqa: F401
 from app.catalog.models import (
     CapacityRequest,
     Product,
@@ -28,7 +29,7 @@ from app.messaging.models import (
     Thread,
     ThreadMessage,
 )
-from app.orders.models import Order, Payment
+from app.orders.models import Order, Payment, Refund
 
 KST = timezone(timedelta(hours=9))
 SEED_MARKER = "u-minji"
@@ -952,10 +953,23 @@ def seed(session: Session) -> None:
                 id=f"pay-{o.id}",
                 order_id=o.id,
                 amount=o.total_amount,
-                status="APPROVED",
+                status="REFUNDED" if o.status == "REFUNDED" else "APPROVED",
                 approved_at=o.paid_at,
             )
         )
+        if o.status == "REFUNDED":
+            session.add(
+                Refund(
+                    id=f"refund-legacy-{o.id}",
+                    order_id=o.id,
+                    amount=o.total_amount,
+                    reason=o.refund_reason or "기존 전액 환불",
+                    actor="SYSTEM",
+                    actor_user_id=None,
+                    manager_event_id=None,
+                    created_at=o.refunded_at or o.created_at,
+                )
+            )
 
     # 팔로워 수(follower_count)는 시드 표시 값이고, 아래는 테스트 계정의 팔로우다.
     follows = (

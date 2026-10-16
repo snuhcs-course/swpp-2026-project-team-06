@@ -33,6 +33,7 @@ server/
 | ai | FEAT-03, 13 (호출 어댑터, FEAT-17은 I2) | [app/ai/spec.md](./app/ai/spec.md) |
 | analytics | PRD 4장 지표 서버 이벤트 | [app/analytics/spec.md](./app/analytics/spec.md) |
 | source_analysis | FEAT-03/04/07 확장, AC-SRC-1~8 | [app/source_analysis/spec.md](./app/source_analysis/spec.md) |
+| admin | DEV-35 운영자 감사·예외 복구 | [app/admin/spec.md](./app/admin/spec.md) |
 
 ## 계약
 
@@ -50,7 +51,7 @@ server/
 - 시간은 DB에 UTC(timezone-aware)로 저장하고, 화면 표시는 KST(N-03). 금액은 원 단위 정수(N-03).
 
 **관리 API (ADR 0008)**
-- 생산자 승인·반려(accounts), 상품 승인·반려(catalog), 배송 완료·환불(orders), 농가 정지(farms, R-24), 메시지 삭제(messaging).
+- 생산자 승인·반려(accounts), 상품 승인·반려(catalog), 배송 완료·환불(orders), 예외 조회·복구(admin), 농가 정지(farms, R-24), 메시지 삭제(messaging).
 - 각 모듈이 `/admin/<자원>` 라우터를 갖고, 모든 경로에 `require_roles(ADMIN)`을 건다. 운영 환경 `/docs`는 공개하지 않는다.
 
 **공유 링크 (ADR 0006)**
@@ -63,7 +64,7 @@ server/
 
 **페이지네이션·멱등 키** (screens.md 7.1)
 - 목록은 `limit`(기본 20, 최대 50)과 `cursor`, 응답 `{"items": [...], "nextCursor": ... | null}`.
-- `POST /api/orders`, `POST /api/orders/{orderId}/pay`는 `Idempotency-Key` 헤더 필수. (사용자, 키)로 처음 결과를 24시간 저장하고 같은 키면 그대로 돌려준다. 본문이 다르면 409 `IDEMPOTENCY_MISMATCH`.
+- `POST /api/orders`, `POST /api/orders/{orderId}/pay`와 운영자 생산자 결정·배송 완료·환불은 `Idempotency-Key` 헤더 필수. (사용자, 범위, 키)로 처음 결과를 24시간 저장하고 같은 키면 그대로 돌려준다. 본문이 다르면 409 `IDEMPOTENCY_MISMATCH`.
 
 **테스트 방법**
 - `uv run pytest`(테스트), `uv run ruff check .`(린트). CI는 DEV-9.
@@ -88,3 +89,4 @@ server/
 | 2026-10-08 | `JWT_SECRET`이 비면 local이 아닌 환경에서 시작 실패 | 이슈 #5(#19 리뷰) | — |
 | 2026-10-08 | 테스트는 `<DB>_test` DB에서 매 테스트 시드를 다시 넣고 돈다 | CI의 alembic 검사 DB와 분리 | — |
 | 2026-10-08 | 연락처 가림은 `core/masking.py` 하나(전화번호, 숫자 10자리 이상 계좌). 날짜는 가리지 않는다 | M-16, M-18 | AC-12-2 |
+| 2026-10-16 | 운영자 작업은 기존 멱등 레코드와 별도 `ManagerEvent`에 정제된 감사 요약·실패 복구 상태를 저장한다 | DEV-35, 원문 비노출과 재시도 책임 분리 | M01~M03 |

@@ -64,3 +64,15 @@ class FarmAiSettingsHistory(Base):
     settings: Mapped[dict] = mapped_column(JSON)
     saved_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ProducerDecisionHistory(Base):
+    __tablename__ = "producer_decisions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), index=True)
+    application_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    decision: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str | None] = mapped_column(Text)
+    manager_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

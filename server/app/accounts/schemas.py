@@ -66,6 +66,16 @@ class ProducerDecision(CamelModel):
     decided_at: datetime
 
 
+class ProducerDecisionHistoryView(CamelModel):
+    decision_id: str
+    farm_id: str
+    application_at: datetime
+    decision: Literal["APPROVED", "REJECTED"]
+    reason: str | None
+    manager_id: str
+    decided_at: datetime
+
+
 class AddressInput(CamelModel):
     recipient_name: str = ""
     recipient_phone: str = ""

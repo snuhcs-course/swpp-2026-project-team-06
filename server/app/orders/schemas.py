@@ -52,6 +52,18 @@ class PayInput(CamelModel):
 
 class AdminRefundInput(CamelModel):
     reason: str = Field(min_length=1, max_length=500)
+    amount: int | None = None
+
+
+class RefundView(CamelModel):
+    refund_id: str
+    order_id: str
+    amount: int
+    reason: str
+    actor: Literal["MANAGER", "CONSUMER", "SYSTEM"]
+    actor_user_id: str | None
+    manager_event_id: str | None
+    created_at: datetime
 
 
 class OrderView(CamelModel):

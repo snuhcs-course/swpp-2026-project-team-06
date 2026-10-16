@@ -30,6 +30,6 @@
 
 ## 스펙 1.4
 
-- [ ] AC-10-6: 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다. 상세는 [1.4 계약](../capacity-1.4.md).
+- [ ] AC-10-6: 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED다. 과거 `PARTIALLY_REFUNDED` 주문은 읽기 호환을 위해 취소·환불에 계속 표시하지만, 신규 부분 환불은 주문 상태를 바꾸지 않아 기존 탭과 배송 흐름을 유지한다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 소비자에게 부분 환불 내역을 표시하는 UI·스펙은 T29 전 후속 작업이다. 상세는 [1.4 계약](../capacity-1.4.md).
 
 - [ ] AC-10-7: 구매 확정·환불 후 목록 복귀 시 탭 소속과 건수가 갱신된다. 초기 로딩, 탭별 빈 상태, 실패 재시도와 50건 초과 집계를 지원한다.

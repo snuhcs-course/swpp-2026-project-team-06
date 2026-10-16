@@ -17,7 +17,7 @@
 
 ## 계약
 - **상태 전이**는 tech-design/README.md "주문 상태" 표만 허용하고, 표에 없는 전이는 막는다(409). 전이 표는 service 한 곳에 둔다.
-- **R-06 물량 차감**: 주문 생성(결제 성공)과 `StageAllocation.reservedCount` 증가는 한 트랜잭션에서 하고, 해당 행을 `SELECT … FOR UPDATE`로 잠근 뒤 `reservedCount + quantity ≤ quantity`를 확인한다. 동시 결제에서 마지막 물량은 한 건만 성공한다(AC-09-1). 환불되면 그 수량만큼 되돌린다.
+- **R-06 물량 차감**: 주문 생성(결제 성공)과 `StageAllocation.reservedCount` 증가는 한 트랜잭션에서 하고, 해당 행을 `SELECT … FOR UPDATE`로 잠근 뒤 `reservedCount + quantity ≤ quantity`를 확인한다. 동시 결제에서 마지막 물량은 한 건만 성공한다(AC-09-1). 출하 전 최종 전액 환불에서만 남은 수량을 한 번 되돌린다.
 - `Order.unitPrice`는 주문 시점 `StagePrice` 복사본(R-17). `totalAmount = unitPrice × quantity`, 배송비 별도면 더해 결제(R-20). 금액은 원 단위 정수.
 - 결제일·배송 완료일·구매 확정일을 기록한다(R-13). 금전성 필드(잔액·포인트 등)는 만들지 않는다(R-08).
 - 받는 사람·연락처·주소는 주문 시점 값을 `Order`에 복사해 저장한다. `ShippingAddress`(accounts)를 참조하지 않는다 — 저장 배송지를 나중에 바꿔도 지난 주문이 바뀌지 않게.
@@ -43,3 +43,4 @@
 | 2026-10-08 | 주문 번호는 `FC-MMDD-NNNN`(`order_no_seq`). 도서산간은 우편번호·주소 예시 규칙, 생산자 지역 설정은 후속 | Mock과 같음, R-20 | AC-08-4 |
 | 2026-10-08 | 현황의 `openQuestions`는 채팅 구현 전까지 0, 대표 상품은 지금 단계가 가장 일찍 끝나는 판매 중 상품 | FEAT-14 | AC-14-1 |
 | 2026-10-08 | 주문 문의 API(`POST·GET /api/orders/{id}/inquiries`)는 orders 라우터, 로직은 messaging 서비스. 결제한 본인 주문·그 농가 생산자만 | contracts-1.2 6장 | AC-33-1 |
+| 2026-10-16 | 모든 환불 경로는 `_refund`에서 `Refund` 이력과 `Payment.status`를 함께 기록한다. 부분 환불은 주문 상태·환불 필드·물량을 바꾸지 않고 결제액(배송비 포함)의 잔액만 줄인다 | DEV-35 정책 결정 | AC-10-6, AC-11-3 |
