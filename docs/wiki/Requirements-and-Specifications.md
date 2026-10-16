@@ -117,7 +117,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 ### FEAT-01: Account access and application
 
-**As a** visitor, **I want to** browse before choosing a consumer or producer test account, **so that** I only sign in when I need to and always end up in the right app.
+**As a** visitor, **I want to** browse before signing in with Kakao or a test account, **so that** I only sign in when I need to and always end up in the right app.
 
 **AC-01-1: Return to checkout after login**
 - **GIVEN** I am not logged in and I am on a product page
@@ -134,6 +134,26 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **GIVEN** test-account login has been turned off
 - **WHEN** I open the login screen or pick a test account
 - **THEN** I cannot log in and see "You can't log in right now"
+
+**AC-01-8: First Kakao login (UI 1.6, DEV-32)**
+- **GIVEN** Kakao login is enabled and I am not logged in on a product page
+- **WHEN** I tap Reserve and sign in with Kakao
+- **THEN** a consumer account is created from my Kakao nickname only (no phone number) and I return to checkout
+
+**AC-01-9: Same Kakao account**
+- **GIVEN** I have signed in with this Kakao account before
+- **WHEN** I sign in with Kakao again
+- **THEN** I get the same account and no duplicate is created
+
+**AC-01-10: Separate producer account**
+- **GIVEN** I have a consumer account made with Kakao
+- **WHEN** the same Kakao account signs in to the producer app
+- **THEN** a separate producer account is created (server contract only; producer screen is out of DEV-32)
+
+**AC-01-11: Kakao login guarded**
+- **GIVEN** the Kakao key is missing, the redirect address is not one of the two apps, or Kakao rejects the code
+- **WHEN** the Kakao login API is called
+- **THEN** it is refused (404 or 400) and no account is created
 
 **AC-01-6: Accounts stay in their own app**
 - **GIVEN** I have a consumer account and a separate producer account
@@ -598,7 +618,7 @@ Key consumer screens:
 | **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms |
 | **SCR-03 Farm page** | Direct farm news room with profile and adjacent Follow button | Fold/unfold the product shelf, send a same-room reply, open short farm info | Product → SCR-04; profile → short info | Shelf expanded for consumers; public/follower access unchanged; no reply-privacy hint |
 | **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
-| **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
+| **SCR-05 Login** | Sign in with Kakao (returns through `/auth/kakao`) or pick a consumer test account while test login is on | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
 | **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents | Change option or address, check consents, Pay | Address → address screen; Pay → SCR-11 | Pay is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input |
 | **SCR-11 Payment (simulated)** | Pay the full amount; demo success/failure switch | Pay once (button locks while processing) | Success → SCR-12 | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
 | **SCR-12 Order complete** | Reservation information and following | Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
