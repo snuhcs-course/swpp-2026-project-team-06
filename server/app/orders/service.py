@@ -1,12 +1,15 @@
 """orders 모듈 업무 로직. 다른 모듈은 이 파일의 함수로만 부른다."""
 
+import json
 import re
 
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.catalog.schemas import DateRange
 from app.core.clock import now, today
+from app.core.config import get_settings
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
 from app.orders.models import ORDER_NO_SEQ, Order, Payment, Refund
@@ -19,6 +22,7 @@ from app.orders.schemas import (
     DashboardTodo,
     OrderInput,
     OrderView,
+    PaymentConfig,
     PayResult,
     ProducerOrder,
     RecentOrder,
@@ -48,9 +52,7 @@ def capacity_totals(db: Session, product_id: str) -> tuple[int, int, int]:
     return reserved_grams, shipped_grams, sold_quantity
 
 
-def propose_delivery_window(
-    db: Session, product_id: str, delivery_start, delivery_end
-) -> None:
+def propose_delivery_window(db: Session, product_id: str, delivery_start, delivery_end) -> None:
     orders = db.scalars(
         select(Order).where(
             Order.product_id == product_id,
@@ -263,9 +265,7 @@ def get_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
 def list_orders(db: Session, consumer_id: str) -> list[OrderView]:
     orders = list(
         db.scalars(
-            select(Order).where(
-                Order.consumer_id == consumer_id, Order.status != "PENDING_PAYMENT"
-            )
+            select(Order).where(Order.consumer_id == consumer_id, Order.status != "PENDING_PAYMENT")
         )
     )
     orders.sort(
@@ -307,9 +307,7 @@ def _refund(
 ) -> Refund | None:
     if order.status == "REFUNDED":
         return None
-    payment = db.scalar(
-        select(Payment).where(Payment.order_id == order.id).with_for_update()
-    )
+    payment = db.scalar(select(Payment).where(Payment.order_id == order.id).with_for_update())
     if payment is None:
         raise conflict("INVALID_TRANSITION", "결제 내역이 없어 환불할 수 없어요.")
     refunded = db.scalar(
@@ -425,9 +423,7 @@ def admin_refund(
     return order_view(db, order)
 
 
-def respond_delivery_window(
-    db: Session, consumer_id: str, order_id: str, choice: str
-) -> OrderView:
+def respond_delivery_window(db: Session, consumer_id: str, order_id: str, choice: str) -> OrderView:
     from app.catalog import service as catalog
 
     existing = _my_order(db, consumer_id, order_id)
@@ -454,10 +450,114 @@ def respond_delivery_window(
     return order_view(db, order)
 
 
-def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayResult:
-    """Mock 결제. 상품 → 기간 물량 순서로 잠그고 박스·중량 한도를 함께 확보한다."""
+# ---- PortOne 결제 확인 (FEAT-09 I2, DEV-36) ----
+
+PORTONE_API_URL = "https://api.portone.io"
+PORTONE_TIMEOUT_SECONDS = 8.0
+
+
+class PortoneError(Exception):
+    """PortOne 결제 조회 실패."""
+
+
+def payment_config() -> PaymentConfig:
+    s = get_settings()
+    enabled = bool(s.portone_api_secret and s.portone_store_id and s.portone_channel_key)
+    return PaymentConfig(
+        enabled=enabled,
+        provider="PORTONE" if enabled else "MOCK",
+        store_id=s.portone_store_id if enabled else None,
+        channel_key=s.portone_channel_key if enabled else None,
+    )
+
+
+def _portone_fetch(payment_id: str) -> dict:
+    """PortOne 결제 단건 조회 → {status, amount, order_id}. 테스트에서 바꿔 끼운다."""
+    s = get_settings()
+    with httpx.Client(timeout=PORTONE_TIMEOUT_SECONDS) as http:
+        res = http.get(
+            f"{PORTONE_API_URL}/payments/{payment_id}",
+            headers={"Authorization": f"PortOne {s.portone_api_secret}"},
+        )
+    if res.status_code != 200:
+        raise PortoneError(f"payment lookup failed: {res.status_code}")
+    body = res.json()
+    custom = body.get("customData")
+    if isinstance(custom, str):
+        try:
+            custom = json.loads(custom)
+        except ValueError:
+            custom = {}
+    custom = custom or {}
+    return {
+        "status": body.get("status"),
+        "amount": int((body.get("amount") or {}).get("total") or 0),
+        "order_id": custom.get("orderId"),
+        "store_id": (body.get("channel") or {}).get("storeId") or body.get("storeId"),
+    }
+
+
+def _verify_portone_payment(order: Order, payment_id: str, paid: dict | None = None) -> str | None:
+    """PG에서 결제가 승인됐고 금액·주문이 맞는지 본다. 문제가 있으면 실패 사유를 돌려준다.
+
+    웹훅처럼 이미 조회한 결과가 있으면 다시 조회하지 않는다.
+    """
+    if paid is None:
+        try:
+            paid = _portone_fetch(payment_id)
+        except (PortoneError, httpx.HTTPError):
+            return (
+                "결제 확인에 실패했어요. 잠시 뒤 다시 시도해 주세요. "
+                "결제가 됐다면 자동으로 반영돼요."
+            )
+    status = paid["status"]
+    if status in ("FAILED", "CANCELLED"):
+        return "카드사에서 승인을 거절했어요. 다른 카드로 다시 시도해 주세요. 돈은 나가지 않았어요."
+    if status != "PAID":
+        return "결제가 아직 끝나지 않았어요. 잠시 뒤 다시 시도해 주세요."
+    if paid["order_id"] != order.id:
+        return "이 주문의 결제가 아니에요. 다시 결제해 주세요."
+    if paid["amount"] != order.total_amount:
+        return "결제 금액이 주문 금액과 달라요. 운영팀이 확인한 뒤 환불해 드려요."
+    return None
+
+
+def portone_webhook(db: Session, payment_id: str) -> str:
+    """Transaction.Paid 웹훅: 결제를 조회해 결제 전 주문을 예약 완료로 바꾼다. 결과는 글자."""
+    if not get_settings().portone_api_secret:
+        raise not_found("지금은 PortOne 결제를 쓸 수 없어요.")
+    try:
+        paid = _portone_fetch(payment_id)
+    except (PortoneError, httpx.HTTPError) as exc:
+        raise conflict("PAYMENT_LOOKUP_FAILED", "결제 조회에 실패했어요.") from exc
+    order_id = paid.get("order_id")
+    order = db.get(Order, order_id) if order_id else None
+    if order is None:
+        return "ignored: unknown order"
+    if order.status != "PENDING_PAYMENT":
+        return "ignored: already processed"
+    if paid["status"] != "PAID":
+        return f"ignored: status {paid['status']}"
+    result = pay(db, order.consumer_id, order.id, "success", payment_id=payment_id, verified=paid)
+    return result.result
+
+
+def pay(
+    db: Session,
+    consumer_id: str,
+    order_id: str,
+    mock_result: str,
+    payment_id: str | None = None,
+    verified: dict | None = None,
+) -> PayResult:
+    """결제 확인. PortOne이 켜져 있으면 payment_id로 PG 승인을 검증하고, 아니면 Mock 결과를 쓴다.
+
+    상품 → 기간 물량 순서로 잠그고 박스·중량 한도를 함께 확보한다.
+    """
     from app.catalog import service as catalog
 
+    if payment_id and not get_settings().portone_api_secret:
+        raise invalid({"paymentId": "지금은 PG 결제를 쓸 수 없어요"}, "결제 방식을 확인해 주세요.")
     existing = _my_order(db, consumer_id, order_id)
     item = catalog.lock_product(db, existing.product_id)
     order = _my_order(db, consumer_id, order_id, lock=True)
@@ -489,7 +589,11 @@ def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayRe
             "추가 예약 가능한 공급 물량이 부족해요.",
             productId=order.product_id,
         )
-    if mock_result == "fail":
+    if payment_id:
+        reason = _verify_portone_payment(order, payment_id, verified)
+        if reason:
+            return PayResult(order=order_view(db, order), result="fail", fail_reason=reason)
+    elif mock_result == "fail":
         return PayResult(
             order=order_view(db, order),
             result="fail",
@@ -503,6 +607,8 @@ def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayRe
         Payment(
             id=new_id("pay"),
             order_id=order.id,
+            provider="PORTONE" if payment_id else "MOCK",
+            provider_payment_id=payment_id,
             amount=order.total_amount,
             status="APPROVED",
             approved_at=order.paid_at,
@@ -645,9 +751,9 @@ def harvest_start(db: Session, farm_id: str, product_id: str) -> Changed:
     catalog.load_my_product(db, farm_id, product_id)
     orders = list(
         db.scalars(
-            select(Order).where(
-                Order.product_id == product_id, Order.status == "RESERVED"
-            ).with_for_update()
+            select(Order)
+            .where(Order.product_id == product_id, Order.status == "RESERVED")
+            .with_for_update()
         )
     )
     for order in orders:
