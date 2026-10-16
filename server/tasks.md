@@ -521,3 +521,17 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/16 리뷰에서 같은 키·다른 본문 요청이 성공 감사를 REJECTED로 덮어쓰는 문제를 재현해 고쳤다. 테스트 이름을 AC·규칙 ID로 바꾸고 키 필수·ADMIN 권한·backfill SQL(결제 유무)·실패 이벤트 보존 회귀를 추가했다.
 - 10/16 draft PR #114를 열었다. 남은 단계는 PR #99 머지 뒤 환불 알림 영속화, AI 1차 리뷰, 사람 리뷰다.
 - 10/16 PR #99 머지 뒤 `main`을 병합했다(`server/tasks.md` 충돌만). `consumer_send`가 DEV-31 알림을 만들 때 같은 트랜잭션에서 `manager_refund_request` OPEN 이벤트를 저장하도록 통합했다. AI OFF 저장, 순차 replay·동시 경쟁 1건, rollback·preview·일반 메시지 미저장 회귀를 추가했고 Ruff·전체 pytest 206개가 통과했다.
+
+## DEV-59 AI 상품 초안 근거 확인: 중량·당도 정확 일치와 배송 구절 한정
+- 이슈: [DEV-59](https://linear.app/sswp6/issue/DEV-59) (GitHub [#115](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/115))
+- 브랜치: `zahra/dev-59-ai-draft-grounding`
+- 기능·인수 조건: P02 / FEAT-03 AC-03-1, 규칙 M-11
+- 상태: 리뷰 대기
+- 범위(수정 허용 경로): `server/app/ai/grounding.py`, `server/tests/test_ai_service.py`, `server/tasks.md`. 응답 형식·API 변경 없음
+- 결정 사항:
+  - 10/16 중량 옵션은 부분 문자열이 아니라 원문 중량 값 집합과 정확히 같을 때만 남긴다(`5kg`는 `15키로`의 일부가 아님). 중량이 없는 옵션은 기존처럼 원문 포함 여부로 본다.
+  - 10/16 당도는 원문의 당도·브릭스·brix 옆 숫자를 숫자 경계로 뽑아 값이 같을 때만 남긴다(`2`는 `12브릭스`의 일부가 아님).
+  - 10/16 AI 1차 리뷰: `브릭스` 뒤 숫자(`12브릭스 5키로`의 5)도 당도로 읽던 문제를 고쳐, 앞 키워드는 `당도`·`brix`만 쓰고 중량·금액·개수 단위가 붙은 숫자는 제외한다.
+  - 10/16 배송 예정 기간은 배송·수령 문맥이 있는 구절(줄바꿈·`!?;`·소수점/천 단위가 아닌 `.,`로 나눔)의 날짜로만 확인한다.
+- 작업: [x] 중량 옵션 정확 일치 [x] 당도 숫자 경계 [x] 배송 구절 한정 [x] AC-03-1 회귀 테스트 4개
+- 검증: Ruff, 전체 pytest 210개 통과.
