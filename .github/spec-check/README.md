@@ -15,6 +15,9 @@
 4. 이 환경에만 secret `SPEC_CHECK_API_KEY`, variable `SPEC_CHECK_MODEL`을 추가한다. 제품 키·Claude 앱 로그인·개인 CLI 인증을 재사용하지 않는다.
 5. 키 소유자는 별도 API workspace의 예산·사용량을 관리한다. 키 값·개인정보는 PR/Linear/로그에 넣지 않는다.
 6. PR에서 실행할 checker, prompt, workflow, action commit을 검토한 뒤에 환경 job을 승인한다. 환경 승인은 코드 리뷰의 Approve와 별개다.
+7. 팀이 live 실행을 시작할 준비가 되면 Settings → Secrets and variables → Actions → Variables에 repository variable `SPEC_CHECK_ENABLED`를 `true`로 설정한다. 이 값은 environment variable이 아니라 **repository variable**이어야 job 조건에서 읽을 수 있다. 비활성화하려면 삭제하거나 false로 바꾼다.
+
+사용자 요청에 따라 현재 live 실행은 보류한다. 활성화 변수를 설정하지 않았다. 비활성화 시 live job은 SKIPPED이며 모델 PASS가 생성되지 않는다. 활성화 후 접근 오류는 INCOMPLETE로 실패한다.
 
 모델 job에는 환경 설정을 읽는 `actions: read`도 필요하다. 설정을 읽지 못하거나 required reviewers/prevent-self-review가 없으면 API 호출 전에 INCOMPLETE가 된다. 저장소 설정 권한이 없는 작성자는 관리자가 처리해야 한다.
 
@@ -54,6 +57,7 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 - fork/bot PR은 SKIPPED 안내 후 수동 리뷰한다.
 - `checker-tests`는 키 없이 계약을 검증한다.
 - `spec-code-review`는 보호 환경 승인 후 고정한 PR revision을 읽고 실제 모델을 호출한다.
+- live job은 `SPEC_CHECK_ENABLED=true`일 때만 실행한다. 비활성화된 동안에도 키 없는 계약 검증은 실행한다.
 - Checks → 해당 run → Summary와 report artifact를 확인한다.
 
 | 결과 | 의미와 조치 |

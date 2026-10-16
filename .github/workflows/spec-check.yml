@@ -21,9 +21,12 @@ jobs:
       - name: Explain eligibility
         env:
           ELIGIBLE: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' }}
+          LIVE_ENABLED: ${{ vars.SPEC_CHECK_ENABLED }}
         run: |
-          if [ "$ELIGIBLE" = "true" ]; then
+          if [ "$ELIGIBLE" = "true" ] && [ "$LIVE_ENABLED" = "true" ]; then
             echo "Eligible PR. Live model review requires the protected spec-check environment." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$ELIGIBLE" = "true" ]; then
+            echo "SKIPPED: live model review is disabled (SPEC_CHECK_ENABLED is not true). Contract tests still run. No model PASS has been produced; apply human review." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "SKIPPED: fork or bot PR. Apply the manual Spec ↔ Code review." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -48,7 +51,7 @@ jobs:
       contents: read
       pull-requests: read
       actions: read # Verify required reviewers on the protected environment.
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
+    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
     needs: checker-tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -86,7 +89,7 @@ jobs:
       contents: read
       pull-requests: read
       actions: read
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' && contains(github.event.pull_request.body, '<!-- spec-check-demo -->')
+    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' && contains(github.event.pull_request.body, '<!-- spec-check-demo -->')
     needs: checker-tests
     strategy:
       fail-fast: false
