@@ -331,6 +331,26 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/09 accounts 집중 테스트 17개, 전체 pytest 133개, Ruff, Alembic upgrade·check 통과. DEV-6 실제 앱 전체 재검증은 이 PR 머지 후 진행
 - 10/09 AI 1차 diff 점검에서 첫 신청 동시 제출 시 농가 행이 아직 없어 잠금이 되지 않는 경쟁 조건을 발견. 생산자 계정 행을 먼저 잠그도록 수정하고 Ruff·전체 pytest 133개 재통과
 
+## DEV-54 기존 자료 일괄 분석 백엔드
+
+- 이슈: https://linear.app/sswp6/issue/DEV-54 · GitHub #103
+- 브랜치: jinumeral/dev-54-dev-implement-grounded-bulk-source-analysis-backend
+- 관련: FEAT-03/04/07, M-10~13/M-18, AC-SRC-1~8
+- 상태: 구현·로컬 검증 완료, PR #104 검토 중. 기존 리뷰 중 작업은 main에 있는 구현을 기준으로 보존한다.
+- 목표: 비공개 자료 등록 → 분석 → 근거 검토 → 상품별 상세 초안 저장.
+- 수정 허용 경로: server/**, docs/spec/source-analysis.md, docs/spec/README.md, docs/spec/functional/FEAT-03-ai-product-draft.md, docs/spec/functional/FEAT-04-product-edit.md, docs/spec/functional/FEAT-07-product-detail.md, docs/spec/ia.md, docs/spec/screens.md, docs/spec/tech-design/adr/**, docs/wiki/Source-Analysis.md.
+- 비범위: 앱 UI·공개 상품 변경·이미지 생성·배포·머지. 사용자가 제외한 내부 백엔드 계획 문서는 커밋하지 않는다.
+- 결정: 2026-10-14 Mock으로 검증하고 Sol은 별도 어댑터로 구현. 사용자 키·실제 자료 전송 없이 테스트한다. 작업 시간은 실제 UTC 시계를 사용해 데모 FIXED_NOW와 분리한다.
+- [x] 자료 저장·전처리·개인정보 검토
+- [x] 영속 큐·재시도·취소·근거 검증
+- [x] 검토·18개 모듈 비공개 초안
+- [x] Sol 어댑터·Mock·테스트·명세 동기화
+- 기록: 사용자 구현 지시로 DEV-54를 시작. Linear MCP는 읽기 전용이므로 상태 변경 불가. Agent 시간/Tokens 미측정.
+
+- 결정 사항: OCR은 별도 프로세스와 명시적 모델 설치를 사용하고, 모든 실제 전송은 가림 검토 후 진행한다. 원본 사진·수동 문구는 생산자가 확인하며 공개 Product에 쓰지 않는다. 삭제 정리는 tombstone 반영 후 파일을 제거한다.
+- 검증: PostgreSQL 16에서 pytest 151개 통과, Ruff 통과. Alembic 0006 upgrade/downgrade/re-upgrade/check 통과. 고정 모델 파일로 한국어 OCR 샘플 판독 확인. 실제 Sol·R2 연결 및 실제 농가 20묶음 평가는 미실행.
+- 기록: 로컬 Windows 자원 부족 오류와 테스트 DB 시간대 차이를 분리한 후 전체 테스트를 재실행했다. 자동 리뷰에서 삭제 플래그 flush 누락을 수정했다. 키·원본 자료·내부 구현 계획은 커밋에서 제외한다.
+
 ## DEV-30 [I2-T12] 운영자 승인·권한·예외 처리 핵심 API
 
 - 이슈: [DEV-30](https://linear.app/sswp6/issue/DEV-30) (GitHub [#75](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/75))
@@ -373,6 +393,15 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/13 DEV-35에 부분 환불 금액·환불 이력 저장, 기본 저장 사유를 넘는 상세 반려 사유 표시·이력, 운영자 예외 목록·진단, 실패 작업 표시·재시도·복구, 내부 테스트에서 발견되는 M01~M03 핵심 전이 밖의 추가 운영자 흐름을 명시적으로 위임한다. 전용 운영자 UI는 별도 배정 없이는 두 백엔드 작업 모두의 범위 밖이다.
 - 10/13 AI 1차 리뷰에서 지적 없음. PR #96 본문에 DEV-35 위임과 검증 결과를 갱신하고 사람 리뷰 요청 상태로 전환했다.
 - 10/16 `origin/main`(DEV-40·SWPP-89)을 병합하고 Ruff·전체 pytest 141개 재통과. 리뷰어 미지정 상태로 3일 대기해 DEV-35 착수를 위해 작성자가 직접 squash merge하기로 결정했다. 사후 리뷰를 요청한다.
+
+## DEV-38 농가 공유 링크 실제 진입
+- 목표: FEAT-19 AC-19-1/2/3의 서버 공유 페이지를 구현한다.
+- 범위: `app/farms/router.py`, `app/farms/share.py`, `app/farms/templates/farm-share.html`, `app/farms/spec.md`, `app/main.py`, `tests/test_farms.py`, `tests/test_farm_share.py`, `tasks.md`.
+- 결정: 기존 상대 shareUrl 계약을 서버 라우터에서 절대 URL로 완성한다. 승인 농가의 공개 필드만 OG에 쓰며 비승인/없는 농가는 동일 404 안내다. 사람은 소비자 농가 화면으로 이동하고 공유 크롤러는 정적 OG 태그를 읽는다. 자동 이스케이프, HTTP(S) 이미지만, no-store를 적용한다.
+- 작업: [x] 공유 HTML·절대 URL [x] 권한·메타데이터·이스케이프 테스트 [x] 프런트 링크 실제 진입
+- 기록: 10/16 DEV-29/38 브라우저 회귀 검사에서 발견. 사용자 요청한 생산자 공유 기능 범위이며 운영자·AI 구현은 제외.
+
+- 검증: 전체 pytest 162개·Ruff 및 실서버 API 7개/Chromium 19개 통과. 공유 링크 메타데이터·승인 취소·HTML 이스케이프와 비로그인 실제 진입 확인.
 
 ## DEV-31 Core AI draft, grounded answer, and producer escalation
 

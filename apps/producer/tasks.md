@@ -189,3 +189,94 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 구현·검증 완료: Mock 회귀 11건, 4 workspace typecheck, 두 앱 web export 통과. 별도 Mock 브라우저에서 농가/상품 생성→편집→저장→공개 조회, 생성/저장 실패와 취소 보존, 로그인 복귀·팔로우 후 답장, 모바일 넘침 확인.
 - 자체 리뷰 보완: 직접 진입한 상세 편집 뒤로 가기 확인·복귀, 권한 변경 후 늦은 메시지 응답 차단, optional 필드 응답과 멱등 재시도 모양 일치. 실제 데이터 백업·보존.
 - 레거시 호환 점검: 후보 1건 — 지적 0건 / 정당 1건 (intro/description: base 3cc2332). PR CI 후 머지 예정.
+
+## DEV-51 대화 중심 Figma v6 프론트 반영
+
+- 이슈: https://linear.app/sswp6/issue/DEV-51 · GitHub #97
+- 브랜치: `jinumeral/dev-51-dev-implement-conversation-centered-figma-frontend-and`
+- 기능: FEAT-02/06/07/09/12/14/15/17, R-17/18/19, M-14, N-02
+- 상태: 구현·로컬 검증·AI 리뷰 완료, PR CI/사람 리뷰 대기
+
+### 목표
+확정 Figma v6를 양 앱에 구현하고 활성 제품 명세·구현 명세·영문 wiki를 동기화한다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/**`, `apps/producer/**`, `packages/ui/**`
+- `packages/api/src/**`, `packages/api/spec.md`, `packages/api/tasks.md` (기존 API를 사용하는 표현/조회 도우미만)
+- `scripts/**`, `docs/spec/**`, `docs/wiki/**`, `docs/design/README.md`, 루트 `README.md`
+
+### 비범위
+서버/API 계약, 실제 주문 전이, Figma 원본, 기존 PR #72의 주문 목록 리팩터링, .cache 사용자 자료. 머지하지 않는다.
+
+### 결정 사항
+- 10/13 사용자 승인 계획 기준. 홈은 소식/상품 독립 가로 목록, 농가 URL은 소식방 직접 진입, 상세는 고정 구매/4개 탭이다.
+- 10/13 판매 품목은 소비자 펼침·생산자 접힘. 소비자 답장 안내 제거, 생산자 공개 안내는 본문 시스템 메시지.
+- 10/13 비교 가격은 동일 옵션의 마지막 기간 가격이 현재보다 높을 때만 표시. 시안 금액 하드코딩 및 품절 할인 금지.
+- 10/13 수확 시작 프론트 동작만 제거. 예약 주문 조회/기존 출하 준비 주문 처리는 유지하고 자동 전이는 추가하지 않는다.
+- 10/13 실제 detailContent를 보존한다. AI 농가 이야기 샘플은 해당 Mock 시드 상품에만 사용하며 일반 상품 fallback으로 넣지 않는다.
+- 10/13 기존 paging/polling/권한/계정 변경 폐기/멱등 재시도는 보존한다.
+
+### 작업
+- [x] 소비자 홈·농가 소식방·상품 상세·예약 완료
+- [x] 생산자 대시보드·채팅·출하 UI
+- [x] 공통 토큰·가격·접이식 상품 목록·숫자 한 줄
+- [x] 활성 명세·FEAT/IA/screens·앱 spec·영문 wiki 갱신
+- [x] 타입 검사·Mock·웹 빌드·360/390/430 UI E2E (실서버 통합은 PR CI로 검증)
+- [x] AI 리뷰 반영 및 PR 작성 (CI 확인 후 리뷰 요청)
+
+### 기록
+- 10/13 main 9d6b42e에서 시작. 확정 시안과 API/기존 구현 대조 완료, 구현 착수.
+
+- 10/13 구현·명세/영문 wiki 동기화. 타입 검사, Mock 12/12, 양 앱 web export 통과. 소비자 360/390/430 가로 목록·방 진입·고정 구매/탭, 같은 방 답장, 생산자 방 기본 접힘·전송 검증. 최종 이미지/긴 이름 검사 진행 중.
+- 10/13 리뷰 보완: 웹 aria-expanded/aria-selected, 팔로우 요청의 농가·계정 변경 가드, 품절 옵션 비교 가격 숨김, 소식방 안전 영역, 짧은 농가 정보의 로그인·팔로우 안내 복귀를 보완.
+- 10/13 Docker 엔진 미실행으로 실서버 로컬 통합은 실행하지 않았다. PR CI의 전용 PostgreSQL에서 실서버 API/E2E 검증 예정. 사용자 DB는 변경하지 않았다.
+
+- 10/13 최종 리뷰 추가: 최초 생산자 room 응답 전 입력이 지워지는 경합을 재현해 ready 후 입력 활성화로 수정. 긴 이미지 원비율·고정 구매/탭 및 긴 농가명 테스트 통과. 커밋 0ada553 PR 앱 CI 통과, 실서버 통합 진행 중.
+- 레거시 호환 점검: 후보 2건 — 지적 0건 / 정당 2건 (`/news/:farmId`, `description` fallback: origin/main 3cc2332 및 12251d2에 존재). 브랜치 중간 구조 호환 없음.
+
+- 최종 로컬 UI 검증: `npx playwright test scripts/e2e/conversation-ui.spec.ts` 6/6 통과. 커밋 전·브랜치 diff 검사와 명세 대조 완료. 소수 중량 옵션도 정수 g로 판정하고 생산자 상품 편집 복귀 시 판매 품목을 다시 읽는다.
+- PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/98 (머지하지 않음). 최신 실서버 CI 결과와 AI 리뷰는 PR에 기록. Linear MCP는 읽기 전용이며 브라우저 연결도 실패해 이슈 상태 직접 수정은 미완료.
+
+
+## DEV-29 생산자 I2 핵심 흐름 및 DEV-34·DEV-38 보완
+
+- 이슈: [DEV-29](https://linear.app/sswp6/issue/DEV-29), [DEV-34](https://linear.app/sswp6/issue/DEV-34), [DEV-38](https://linear.app/sswp6/issue/DEV-38)
+- 브랜치: `jinumeral/dev-29-i2-t11-finish-the-main-producer-onboarding-product-sales-and`
+- 기능·인수 조건: P01–P07 / FEAT-03 AC-03-1/3, FEAT-04 AC-04-1, FEAT-17 AC-17-2/5, FEAT-19 AC-19-1
+- 상태: 구현·로컬 검증·AI 1차 리뷰 완료. PR #109의 최종 CI와 머지 결과는 PR 및 Linear에서 확인한다.
+
+### 목표
+기존 생산자 흐름의 실제 구현을 확인하고 초안 복구·필수 입력·공유 실패·수동 출하의 빈틈을 수정한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/app/(tabs)/products/new.tsx`, `apps/producer/src/app/(tabs)/products/[id]/edit.tsx`
+- `apps/producer/src/app/(tabs)/farm/index.tsx`, `apps/producer/src/app/ship.tsx`
+- `apps/producer/spec.md`, `apps/producer/tasks.md`
+- `scripts/e2e/producer-and-privacy.spec.ts`, `scripts/e2e/producer-i2.spec.ts`
+- `docs/spec/functional/FEAT-03-ai-product-draft.md`, `docs/spec/functional/FEAT-04-product-edit.md`, `docs/spec/functional/FEAT-17-shipping.md`, `docs/spec/functional/FEAT-19-farm-link.md`
+- `docs/wiki/Testing-Documentation.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+로그인·결제 구현, AI 채팅, 배포, 운영자 API, 실제 농가 검증. 기존 미커밋 디자인 자료는 보존한다. DEV-43/46/49의 실제 자료 및 발견 결함 기반 완료를 이번 코드 검사로 대신하지 않는다.
+
+### 결정 사항
+- 10/16 사용자 지시에 따라 기존 PR #98/#104를 머지하며 본인 할당 범위만 계속한다. 별도 확인 없이 진행하라는 지시를 이번 구현 계획에도 적용한다.
+- 10/16 초안의 null뿐 아니라 빈 문자열·빈 옵션 배열을 미확인 항목으로 표시한다. 초안 생성과 상품 생성은 동시에 실행하지 않는다.
+- 10/16 원산지·보관 방법 누락을 편집 화면 필드 및 공급 신청 버튼에 반영한다. API 계약은 변경하지 않는다.
+- 10/16 Web Share 사용자 취소는 유지하고 다른 공유 실패는 링크 복사로 복구한다.
+- 10/16 출하 후 목록 갱신 실패를 화면에 표시하고 재시도할 수 있게 한다. 출하 처리 중 확인창을 닫거나 다시 요청할 수 없게 하며 기존 PREPARING→SHIPPED 전이만 유지한다.
+
+### 작업
+- [x] 기존 P01–P07 구현과 검증 근거 대조
+- [x] DEV-34 초안 실패·누락 표시·필수 입력 보완
+- [x] DEV-38 공유 및 수동 출하 오류 복구
+- [x] 타입 검사·실서버 Chromium 회귀 검사
+- [x] 스펙·영문 wiki와 PR 검증 근거 동기화
+
+### 기록
+- 10/16 PR #98 검증 브랜치를 작업 기준으로 사용하고 머지 후 main 위로 이번 커밋만 옮긴다. 별도 일회용 PostgreSQL 컨테이너(55436)에서 검증하며 사용자 DB를 사용하지 않는다. Agent 시간/Tokens는 미측정.
+
+- 10/16 회귀 검사에서 실서버 공유 페이지가 없고 상대 shareUrl이 생산자/소비자 앱 호스트로 해석되는 미구현을 확인. DEV-38의 AC-19-1/2/3을 위해 범위를 `server/app/farms/router.py`, `server/app/farms/share.py`, `server/app/farms/templates/farm-share.html`, `server/app/farms/spec.md`, `server/app/main.py`, `server/tasks.md`, `server/tests/test_farms.py`, `server/tests/test_farm_share.py`로 확장한다. 요청 URL의 서버 origin으로 절대 공유 URL을 만들고 Jinja2 자동 이스케이프 HTML·승인 확인·비승인 404·캐시 금지를 적용한다. 새 AI 호출이나 배포는 없다.
+
+- 10/16 PR #98(6343b24), #104(4d7eece) 머지 후 main 위로 이번 커밋만 재배치. 전체 pytest 162개·Ruff, 4 workspace 타입 검사, 실서버 API 7개·Chromium 19개 통과. 실제 AI/카카오톡 크롤러/농가 자료 검증과 배포는 미실행. 첫 공유 회귀 실패가 드러낸 서버 페이지 누락을 구현한 뒤 전체 통합을 재실행했다.
+- 10/16 커밋 전/브랜치 자체 점검: 범위 이탈·미커밋 중간 구조 호환 없음. 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건.

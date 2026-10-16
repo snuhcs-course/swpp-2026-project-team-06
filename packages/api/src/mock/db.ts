@@ -525,6 +525,16 @@ export function seed(): DB {
       "p-house": product({
         productId: "p-house",
         farmId: "f-kang",
+        detailContent: {
+          blocks: [
+            {
+              id: "farm-story",
+              type: "image",
+              uri: P("farm-story.png"),
+              alt: "강씨네 귤밭 농가 이야기 · AI 샘플 이미지",
+            },
+          ],
+        },
         name: "하우스 감귤 5kg / 10kg",
         variety: "궁천조생",
         photos: [P("basket.jpg"), P("greenhouse.jpg")],

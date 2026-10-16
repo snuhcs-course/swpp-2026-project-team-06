@@ -37,3 +37,6 @@
 | 2026-10-09 | 내 농가 조회·수정은 모든 농가 소유 생산자, 상세 초안 생성은 승인 생산자만 허용한다 | storefront-1.5 | AC-03-4 |
 | 2026-10-08 | `FarmAiSettings`는 farms가 가진다. 행이 없으면 기본값(켜짐, version 1). 설정 API는 1.2 (2/2) | contracts-1.2 5장 | AC-13-7 |
 | 2026-10-08 | AI 설정 API는 `/api/farms/me/ai-settings`(조회·저장·미리보기), `/{farm_id}`보다 먼저 등록. 저장은 version 확인(STALE_VERSION)·멱등·이력, 미리보기는 쓰지 않음 | contracts-1.2 5장 | AC-32-1~4 |
+
+
+DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML로 승인 농가의 OG 태그와 소비자 앱 이동을 제공한다. 농가 조회/내 농가/프로필 수정 응답의 shareUrl은 요청 서버 기준 절대 URL이다. 비승인·없는 농가는 no-store 404이며 농가 정보 없이 목록 링크만 표시한다. 상대 사진은 소비자 앱 기준 HTTP(S) URL로 만든다.

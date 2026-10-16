@@ -49,7 +49,7 @@ def test_AC_02_4_farm_page_shows_products_and_detail_fallback(client, login):
     assert "latestNews" not in body
     assert "detailContent" not in body
     assert body["intro"].startswith("3대째")
-    assert body["shareUrl"] == "/s/farms/f-kang"
+    assert body["shareUrl"] == "http://testserver/s/farms/f-kang"
 
 
 def test_AC_02_4_and_03_4_farm_detail_save_empty_and_draft_without_save(client, login):

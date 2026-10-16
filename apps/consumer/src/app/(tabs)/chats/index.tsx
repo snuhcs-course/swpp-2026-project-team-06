@@ -3,10 +3,10 @@ import {
   Button,
   ConversationRow,
   EmptyState,
-  LargeTitle,
+  BrandHeader,
+  ChatChoices,
   Screen,
   Scroll,
-  Segmented,
   Skeleton,
   T,
   tokens,
@@ -62,17 +62,11 @@ export default function Chats() {
     );
   return (
     <Screen>
-      <LargeTitle title="채팅" subtitle="농가의 일상과 나만의 대화" />
-      <View style={{ padding: 20 }}>
-        <Segmented
-          value={tab}
-          onChange={(value) => router.setParams({ view: value })}
-          options={[
-            { value: "news", label: "소식방" },
-            { value: "private", label: "1:1 채팅" },
-          ]}
-        />
-      </View>
+      <BrandHeader title="채팅" />
+      <ChatChoices
+        value={tab}
+        onChange={(value) => router.setParams({ view: value })}
+      />
       {(["news", "private"] as const).map((kind) => {
         const list = kind === "news" ? rooms : chats;
         return (
@@ -138,7 +132,7 @@ export default function Chats() {
                       key={chat.farmId}
                       name={chat.farmName}
                       photo={chat.farmPhoto}
-                      preview={`${chat.lastSenderType === "AI" ? "AI 안내 · " : chat.lastSenderType === "CONSUMER" ? "나: " : ""}${chat.lastMessage}`}
+                      preview={`${chat.lastSenderType === "CONSUMER" ? "나: " : ""}${chat.lastMessage}`}
                       at={chat.lastAt}
                       unread={chat.unreadCount}
                       onPress={() => router.push(`/chats/${chat.farmId}`)}

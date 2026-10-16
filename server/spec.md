@@ -32,6 +32,7 @@ server/
 | messaging | FEAT-12, 13, 15(좋아요) | [app/messaging/spec.md](./app/messaging/spec.md) |
 | ai | FEAT-03, 13 (호출 어댑터, FEAT-17은 I2) | [app/ai/spec.md](./app/ai/spec.md) |
 | analytics | PRD 4장 지표 서버 이벤트 | [app/analytics/spec.md](./app/analytics/spec.md) |
+| source_analysis | FEAT-03/04/07 확장, AC-SRC-1~8 | [app/source_analysis/spec.md](./app/source_analysis/spec.md) |
 
 ## 계약
 

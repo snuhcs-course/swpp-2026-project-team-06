@@ -1,24 +1,21 @@
-import { DetailStory } from "@farmclub/ui";
+import { DetailStory, Price } from "@farmclub/ui";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
-import { apiUrl, catalog, farms, isMock } from "@farmclub/api";
+import { catalog, farms, referencePrice } from "@farmclub/api";
 import {
   BottomBar,
   Button,
   EmptyState,
   HeaderBar,
   Icon,
-  IconButton,
   Photo,
   Screen,
   Scroll,
   Sheet,
   Skeleton,
-  StageBar,
   T,
   dday,
   md,
   period,
-  safe,
   tokens,
   useAsync,
   won,
@@ -27,15 +24,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
-import { useSession } from "../../lib/session";
-import { useToast } from "../../lib/toast";
-import {
-  Avatar,
-  LoadError,
-  OptionSheet,
-  copyText,
-  isStatus,
-} from "../../lib/views";
+import { useSession } from "../../../lib/session";
+import { useToast } from "../../../lib/toast";
+import { LoadError, OptionSheet, isStatus } from "../../../lib/views";
 
 export default function ProductPage() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
@@ -120,20 +111,14 @@ export default function ProductPage() {
     );
 
   const cur = p.stages.find((s) => s.stageId === p.currentStageId) ?? null;
-  const next =
-    p.stages.find((s) => cur && s.seq === cur.seq + 1) ??
-    p.stages.find((s) => s.startsAt > (cur?.endsAt ?? "")) ??
-    null;
   const opt = p.options.find((o) => o.optionId === optionId) ?? p.options[0];
   const firstOpt = p.options[0].optionId;
   const left = cur
     ? Math.min(
-        Math.floor(p.remainingGrams / (p.options[0].weightKg * 1000)),
+        Math.floor(p.remainingGrams / Math.round(p.options[0].weightKg * 1000)),
         cur.options[firstOpt].quantity - cur.options[firstOpt].reservedCount,
       )
     : 0;
-  const save = p.nextPrice && p.currentPrice ? p.nextPrice - p.currentPrice : 0;
-  const unit = cur?.options[opt.optionId]?.price ?? 0;
   const fee =
     p.shippingFeeType === "FREE" ? "무료배송" : `배송비 ${won(p.shippingFee)}`;
   const toggle = (k: NonNullable<typeof open>) =>
@@ -153,234 +138,111 @@ export default function ProductPage() {
     AVAILABLE: "예약 가능",
   }[p.availability];
   return (
-    <Screen fullBleed>
-      <Scroll bottom={150}>
-        <View style={{ height: 390 }}>
-          <Photo
-            uri={p.photo}
-            width="100%"
-            height={390}
-            radius={0}
-            alt={p.name}
-            kind="product"
-          />
-          <View style={{ position: "absolute", top: safe("top", 8), left: 8 }}>
-            <IconButton
-              icon="back"
-              label="뒤로"
-              onPhoto
-              onPress={() =>
-                router.canGoBack()
-                  ? router.back()
-                  : router.replace(`/farms/${p.farmId}`)
-              }
-            />
-          </View>
-          <View style={{ position: "absolute", top: safe("top", 8), right: 8 }}>
-            <IconButton
-              icon="share"
-              label="농가 링크 공유"
-              onPhoto
-              onPress={async () => {
-                // Mock 배포에는 /s 서버가 없어서 이 앱의 농가 주소를 쓴다
-                const url = isMock
-                  ? `${typeof window !== "undefined" ? window.location.origin : ""}/farms/${p.farmId}`
-                  : `${apiUrl}/s/farms/${p.farmId}`;
-                toast.show((await copyText(url)) ? "링크를 복사했어요" : url);
-              }}
-            />
-          </View>
-        </View>
+    <Screen>
+      <HeaderBar
+        title="상품 상세"
+        onBack={() =>
+          router.canGoBack()
+            ? router.back()
+            : router.replace(`/farms/${p.farmId}`)
+        }
+      />
+      <Scroll bottom={180}>
+        <Photo
+          uri={p.photo}
+          width="100%"
+          height={244}
+          radius={0}
+          alt={p.name}
+          kind="product"
+        />
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open === "window" }}
-          onPress={() => toggle("window")}
-          style={{
-            minHeight: 48,
-            paddingHorizontal: 20,
-            paddingVertical: 12,
-            backgroundColor: tokens.color.surface,
-            gap: 8,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
+        <View style={{ padding: 20, gap: 16 }}>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => router.push(`/farms/${p.farmId}`)}
+            style={{ minHeight: 48, justifyContent: "center" }}
           >
-            <T variant="sub" weight="semibold">
-              {period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착 예정
+            <T
+              variant="sub"
+              weight="semibold"
+              color={tokens.color.accent}
+              numberOfLines={1}
+            >
+              {p.farmName} ›
             </T>
-            <Icon
-              name={open === "window" ? "chevronDown" : "chevron"}
-              size={20}
-              color={tokens.color.textMuted}
-            />
-          </View>
-          {open === "window" ? (
-            <T variant="sub">
-              {period(p.deliveryWindow.start, p.deliveryWindow.end)} 사이에
-              받아요. 농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수
-              있어요. {md(p.maxDelayUntil)}까지 보내지 못하면 자동으로 전액
-              환불해 드려요.
-            </T>
-          ) : null}
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => router.push(`/farms/${p.farmId}`)}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            paddingHorizontal: 20,
-            paddingVertical: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: tokens.color.border,
-          }}
-        >
-          <Avatar uri={p.farmPhoto} name={p.farmName} />
-          <View style={{ flex: 1 }}>
-            <T variant="body" weight="semibold">
-              {p.farmName}
-            </T>
-            <T variant="sub" muted>
-              {p.farmRegion}
-            </T>
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <T variant="body" weight="bold">
-              당도 기록 {p.brixRecordCount}회
-            </T>
-            <T variant="caption" muted>
-              실측 공개
-            </T>
-          </View>
-        </Pressable>
-
-        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-          <T variant="heading" accessibilityRole="header">
+          </Pressable>
+          <T variant="title" accessibilityRole="header">
             {p.name}
           </T>
-        </View>
-
-        <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 4 }}>
+          <Fold
+            label={`${period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착 예정`}
+            open={open === "window"}
+            onPress={() => toggle("window")}
+          >
+            <T variant="sub">
+              농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.{" "}
+              {md(p.maxDelayUntil)}까지 보내지 못하면 자동으로 전액 환불해
+              드려요.
+            </T>
+          </Fold>
           {p.soldOut ? (
             <>
+              <T variant="heading">{availabilityText}</T>
               <T variant="sub" muted>
-                {cur
-                  ? `${md(cur.startsAt)} ~ ${md(cur.endsAt)} · ${won(cur.options[firstOpt].price)}`
-                  : "예약 일정"}
-              </T>
-              <T variant="title">{availabilityText}</T>
-              <T variant="sub" style={{ marginTop: 4 }}>
-                {p.salesPaused
-                  ? "농가가 잠시 새 예약을 쉬고 있어요. 기존 예약은 그대로 유지돼요."
-                  : p.availability === "TOTAL_SOLD_OUT"
-                    ? "농가가 정한 전체 판매 물량이 소진됐어요."
-                    : p.nextStageStartsAt
-                      ? `다음 예약은 ${md(p.nextStageStartsAt)}에 열려요.`
-                      : "지금은 새 예약을 받지 않아요."}
+                {p.nextStageStartsAt
+                  ? `다음 예약은 ${md(p.nextStageStartsAt)}에 열려요.`
+                  : "지금은 새 예약을 받지 않아요."}
               </T>
             </>
           ) : (
-            <>
-              <T variant="sub" muted>
-                지금 예약하면
-              </T>
-              <T variant="title">{won(p.currentPrice)}</T>
-              <T variant="sub" style={{ marginTop: 4 }}>
-                {[
-                  save > 0 ? `다음 기간보다 ${won(save)} 이득` : null,
-                  `마감 ${dday(p.dDay)}`,
-                  `${left}박스 남음`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </T>
-            </>
-          )}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: open === "fee" }}
-            onPress={() => toggle("fee")}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              minHeight: 48,
-            }}
-          >
-            <T variant="sub" muted>
-              배송비{" "}
-              {p.shippingFeeType === "FREE" ? "무료" : won(p.shippingFee)} ·
-              도서산간 추가
-            </T>
-            <Icon name="chevronDown" size={18} color={tokens.color.textMuted} />
-          </Pressable>
-          {open === "fee" ? (
-            <T variant="sub">
-              {p.shippingFeeType === "FREE"
-                ? "무료배송이에요."
-                : `배송비 ${won(p.shippingFee)}이 따로 붙어요.`}{" "}
-              도서산간 주소는 추가 운임 {won(p.remoteAreaFee)}이 붙어요.
-            </T>
-          ) : null}
-          <View style={{ marginTop: 20, gap: 10 }}>
-            <T weight="bold">예약 시기에 따른 가격</T>
-            {p.stages.map((s) => (
-              <View
-                key={s.stageId}
-                style={{
-                  padding: 16,
-                  borderRadius: 18,
-                  backgroundColor:
-                    s.stageId === p.currentStageId
-                      ? "#F3F0E8"
-                      : tokens.color.surface,
-                  gap: 8,
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    gap: 8,
-                  }}
-                >
-                  <T variant="sub" weight="semibold">
-                    {md(s.startsAt)} ~ {md(s.endsAt)}
-                  </T>
-                  {s.stageId === p.currentStageId ? (
-                    <T variant="caption" weight="bold">
-                      지금 예약
-                    </T>
-                  ) : null}
-                </View>
-                {p.options.map((o) => (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+              {p.options.map((o) => {
+                const value = cur?.options[o.optionId];
+                const sold =
+                  !value ||
+                  value.reservedCount >= value.quantity ||
+                  p.remainingGrams < Math.round(o.weightKg * 1000);
+                return (
                   <View
                     key={o.optionId}
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                    }}
+                    style={{ minWidth: 145, flex: 1, gap: 8 }}
                   >
-                    <T variant="sub" muted>
+                    <T weight="semibold" numberOfLines={1}>
                       {o.label}
                     </T>
-                    <T variant="sub" weight="semibold">
-                      {won(s.options[o.optionId]?.price)}
-                    </T>
+                    <Price
+                      large
+                      current={value?.price ?? null}
+                      reference={referencePrice(p, o.optionId)}
+                      soldOut={sold}
+                    />
                   </View>
-                ))}
-              </View>
-            ))}
-          </View>
+                );
+              })}
+            </View>
+          )}
+          {!p.soldOut ? (
+            <T variant="sub" muted numberOfLines={1}>
+              {left}박스 남음 · 마감 {dday(p.dDay)}
+            </T>
+          ) : null}
+          <Fold
+            label={fee + " · 도서산간 추가"}
+            open={open === "fee"}
+            onPress={() => toggle("fee")}
+          >
+            <T variant="sub">
+              도서산간 주소는 추가 운임 {won(p.remoteAreaFee)}이 붙어요.
+            </T>
+          </Fold>
         </View>
+
+        <DetailStory
+          content={p.detailContent}
+          fallback={p.description}
+          title="농가 이야기"
+        />
 
         <View
           style={{
@@ -413,12 +275,6 @@ export default function ProductPage() {
             <T variant="body">{p.farmerNote}</T>
           </View>
         ) : null}
-
-        <DetailStory
-          content={p.detailContent}
-          fallback={p.description}
-          title={p.name}
-        />
 
         <View style={{ marginHorizontal: 20, marginTop: 40 }}>
           <Fold
@@ -463,17 +319,10 @@ export default function ProductPage() {
         </View>
       </Scroll>
 
-      <BottomBar
-        summary={
-          p.soldOut
-            ? availabilityText
-            : `${p.name.split(" / ")[0].replace(/\s\d+kg$/, "")} ${opt.label} × ${qty} · ${fee}`
-        }
-        summaryRight={p.soldOut ? undefined : won(unit * qty)}
-      >
+      <BottomBar aboveTabs>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Button
-            label="1:1 채팅하기"
+            label="1:1 채팅"
             variant="secondary"
             onPress={() =>
               requireLogin("chat", here, () => void chatNow(p.farmId))

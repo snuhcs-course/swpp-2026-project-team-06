@@ -1,5 +1,7 @@
 # Design Documentation
 
+> Current frontend: [UI 1.6](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/conversation-ui-1.6.md), DEV-51, 13 October 2026. API/state contracts below are unchanged. The retained harvest endpoint is not called by the current UI. Earlier I1 screenshots and diagrams are historical.
+
 Team 6 | Farmclub | Iteration 1 | 9 October 2026
 
 This page is for the development team. It explains how the system is built so we can split work and so another developer can run and extend it. Test plans and results are in [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation).
@@ -326,7 +328,7 @@ Figure 6. Checkout creates an unpaid order without holding stock. Stock is check
 | From | Action | To | Stock |
 | --- | --- | --- | --- |
 | PENDING_PAYMENT | Payment succeeds | RESERVED | Boxes and weight reserved |
-| RESERVED | Producer starts harvest | PREPARING | No change |
+| RESERVED | Existing harvest API (not exposed in v6 UI; no automatic transition) | PREPARING | No change |
 | RESERVED / PREPARING | Consumer cancels | REFUNDED | Unshipped quantity released once |
 | PREPARING | Producer ships | SHIPPED | Weight moves from reserved to shipped |
 | SHIPPED | Delivery confirmed | DELIVERED | No change (operator/courier step, not in the I1 operator API) |
@@ -430,3 +432,11 @@ Not built yet:
 | Screen designs | `docs/design/README.md`, `docs/design/screens/` |
 
 Product behavior is defined in [docs/spec](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/spec).
+
+## UI 1.6 implementation decisions (DEV-51)
+
+- Shared `Storefront` components provide independently scrolling news/product carousels, same-option comparison prices, product shelves, chat choices, and brand headers. Pretendard and orange remain; type sizes are 28/22/17/15/13px, metrics 40px, with 48px minimum targets.
+- `/farms/:id` and legacy `/news/:id` render the same consumer room. Short information is at `/farms/:id/info`. Room replies stay in the room; authorization, cursor paging, polling and retry keys remain unchanged.
+- Product detail moves into the tab layout without changing `/products/:id`. Purchase actions sit above the fixed 72px tabs. Existing detail blocks render at original image aspect ratio. No live content is replaced with the demo sample.
+- The producer chat tab embeds its own room directly; it starts with the shelf collapsed, while consumers start expanded. Collapsing preserves the composer. The broadcast notice scrolls with messages. Hidden own-room polling stops in private-chat view.
+- Dashboard counters aggregate all order pages. Reserved orders are read-only. Invoice editing and shipping use the existing preparing-order flow. No server, order-state or approval changes are introduced.

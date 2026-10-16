@@ -6,3 +6,4 @@ from app.core import models as _core  # noqa: F401
 from app.farms import models as _farms  # noqa: F401
 from app.messaging import models as _messaging  # noqa: F401
 from app.orders import models as _orders  # noqa: F401
+from app.source_analysis import models as _source_analysis  # noqa: F401

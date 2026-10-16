@@ -1,353 +1,180 @@
-// SCR-22 현황 (FEAT-14, R-15, 결정 24·30, D-03·D-21·D-22) — design: p-scr-22. 출하 처리 버튼은 없다(할 일 ‘출하할 주문’이 대신)
-import { farms, orders, type Dashboard } from "@farmclub/api";
+// SCR-22 / FEAT-14: order and shipping management only.
+import { allPages, farms, orders } from "@farmclub/api";
 import {
+  BrandHeader,
   Button,
-  Icon,
-  Photo,
   Screen,
   Scroll,
   Skeleton,
   T,
-  maskName,
-  md,
-  mdw,
   tokens,
   useAsync,
-  won,
+  useLiveList,
 } from "@farmclub/ui";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
-
-import { LoadError, ORDER_STATUS, PhotoShade, TODAY } from "../../lib/views";
-
-function Todo({
-  n,
-  label,
-  onPress,
-  first,
-  last,
-}: {
-  n: number;
-  label: string;
-  onPress: () => void;
-  first?: boolean;
-  last?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`${label} ${n}`}
-      onPress={onPress}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 16,
-        minHeight: tokens.height.listRowProducer,
-        paddingVertical: 12,
-        borderTopWidth: first ? 0 : 1,
-        borderBottomWidth: last ? 1 : 0,
-        borderColor: tokens.color.border,
-      }}
-    >
-      <T
-        weight="bold"
-        style={{
-          fontSize: tokens.fontSize.display,
-          lineHeight: tokens.fontSize.display,
-          letterSpacing: -1,
-          width: 64,
-        }}
-      >
-        {n}
-      </T>
-      <T variant="body" weight="semibold" style={{ flex: 1 }}>
-        {label}
-      </T>
-      <Icon name="chevron" size={24} color={tokens.color.textMuted} />
-    </Pressable>
-  );
-}
-
-type DashStage = Dashboard["stages"][number];
-
-/** 단계 하나: 옵션별 예약 박스 / 물량 막대(D-03). 막대마다 화면 읽기 라벨(D-22) */
-function StageRow({ s }: { s: DashStage }) {
-  const muted = !s.current;
-  return (
-    <View
-      style={{
-        gap: 12,
-        padding: 18,
-        borderRadius: 20,
-        backgroundColor: s.current ? "#F3F0E8" : tokens.color.surface,
-      }}
-    >
-      <T variant="sub" weight={s.current ? "bold" : "semibold"} muted={muted}>
-        {s.stageName}
-        {s.current ? " · 지금" : ""}
-      </T>
-      {s.options.map((o) => {
-        const pct = o.quantity
-          ? Math.min(100, Math.round((o.reserved / o.quantity) * 100))
-          : 0;
-        const label = [
-          s.current ? `${s.stageName}, 현재 예약 기간` : s.stageName,
-          `${o.label} ${won(o.price)}`,
-          `${o.quantity}박스 중 ${o.reserved}박스 예약`,
-          s.current ? `${md(s.endsAt)}까지` : null,
-        ]
-          .filter(Boolean)
-          .join(", ");
-        return (
-          <View
-            key={o.optionId}
-            style={{ gap: 4 }}
-            accessible
-            accessibilityRole="progressbar"
-            accessibilityLabel={label}
-            accessibilityValue={{ min: 0, max: o.quantity, now: o.reserved }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-              }}
-            >
-              <T variant="sub" muted={muted}>
-                {o.label}
-              </T>
-              <T variant="sub" muted={muted}>
-                <T
-                  variant="sub"
-                  weight={s.current ? "bold" : "regular"}
-                  muted={muted}
-                >
-                  {o.reserved}
-                </T>{" "}
-                / {o.quantity}박스
-              </T>
-            </View>
-            <View
-              style={{
-                height: 6,
-                borderRadius: 999,
-                backgroundColor: tokens.color.border,
-                overflow: "hidden",
-              }}
-            >
-              <View
-                style={{
-                  width: `${pct}%`,
-                  height: "100%",
-                  backgroundColor: tokens.color.text,
-                }}
-              />
-            </View>
-          </View>
-        );
-      })}
-      {s.current ? (
-        <T variant="sub" muted>
-          {md(s.endsAt)}까지 ·{" "}
-          {s.options
-            .map(
-              (o) => `${o.label} ${Math.max(0, o.quantity - o.reserved)}박스`,
-            )
-            .join(", ")}{" "}
-          남음
-        </T>
-      ) : null}
-    </View>
-  );
-}
+import { useSession } from "../../lib/session";
+import { LoadError } from "../../lib/views";
 
 export default function Home() {
   const router = useRouter();
-  const dash = useAsync(() => orders.dashboard(), []);
-  const farm = useAsync(() => farms.mine(), []);
+  const { user } = useSession();
+  const [active, setActive] = useState(false);
+  const dash = useAsync(() => orders.dashboard(), [user?.userId]);
+  const farm = useAsync(() => farms.mine(), [user?.userId]);
+  const load = useCallback(
+    (cancelled: () => boolean) =>
+      allPages(
+        (cursor) => orders.producerOrders({ limit: 50, cursor }),
+        cancelled,
+      ),
+    [],
+  );
+  const list = useLiveList(load, user?.userId ?? "", active && !!user);
   useFocusEffect(
     useCallback(() => {
+      setActive(true);
       void dash.reload();
       void farm.reload();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
+      return () => setActive(false);
+    }, [dash.reload, farm.reload]),
   );
-
-  const d = dash.data;
-  const total = d
-    ? d.todo.openQuestions + d.todo.toShip + d.todo.pendingProducts
-    : 0;
-  const product = d?.product ?? null;
-  const hasPhoto = !!farm.data?.photo;
-  const onTop = hasPhoto ? "#FFFFFF" : tokens.color.text;
-
+  const data = list.data;
+  const metrics = [
+    {
+      label: "전체 주문",
+      count: data?.length,
+      hint: "전체 판매 기간",
+      tab: "all",
+    },
+    {
+      label: "예약 완료",
+      count: data?.filter((o) => o.status === "RESERVED").length,
+      hint: "예약이 완료된 주문",
+      tab: "RESERVED",
+    },
+    {
+      label: "출하 준비",
+      count: data?.filter((o) => o.status === "PREPARING").length,
+      hint: "택배사·송장 입력",
+      tab: "PREPARING",
+    },
+    {
+      label: "출하",
+      count: data?.filter((o) => o.status === "SHIPPED").length,
+      hint: "발송한 주문",
+      tab: "SHIPPED",
+    },
+  ];
+  const product = dash.data?.product;
   return (
     <Screen>
+      <BrandHeader title="농가 현황" />
       <Scroll bottom={tokens.height.tabBarClearance}>
-        <View
-          style={{
-            height: 200,
-            position: "relative",
-            backgroundColor: tokens.color.surface,
-          }}
-        >
-          {hasPhoto ? (
-            <Photo
-              uri={farm.data?.photo}
-              width="100%"
-              height={200}
-              radius={0}
-              kind="farm"
-              alt={`${farm.data?.name ?? ""} 사진`}
-            />
+        <View style={{ padding: 20, gap: 20 }}>
+          <T variant="sub" muted>
+            {farm.data?.name ?? "우리 농가"} ·{" "}
+            {new Date().toLocaleDateString("ko-KR", {
+              month: "long",
+              day: "numeric",
+            })}
+          </T>
+          <T variant="title">주문·배송 현황</T>
+          {list.error ? (
+            <>
+              <T color={tokens.color.error}>{list.error}</T>
+              <Button label="다시 시도" onPress={list.retry} />
+            </>
           ) : null}
-          {hasPhoto ? <PhotoShade height={200} from={0.05} /> : null}
-          <View
-            style={{
-              position: "absolute",
-              left: 20,
-              right: 20,
-              bottom: 16,
-              gap: 4,
-            }}
-          >
-            <T variant="heading" color={onTop} accessibilityRole="header">
-              {farm.data?.name ?? ""}
-            </T>
-            <T
-              variant="sub"
-              color={onTop}
-              style={{ opacity: hasPhoto ? 0.88 : 1 }}
-            >
-              {mdw(TODAY)}
-              {d ? ` · 오늘 할 일 ${total}` : ""}
-            </T>
+          {list.loading && !data ? (
+            <Skeleton width="100%" height={284} />
+          ) : (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+              {metrics.map((m) => (
+                <Pressable
+                  key={m.label}
+                  accessibilityRole="link"
+                  accessibilityLabel={`${m.label} ${m.count ?? 0}건`}
+                  onPress={() => router.push(`/ship?status=${m.tab}`)}
+                  style={{
+                    width: "47%",
+                    flexGrow: 1,
+                    minWidth: 0,
+                    minHeight: 132,
+                    padding: 16,
+                    gap: 8,
+                    borderRadius: 16,
+                    backgroundColor: tokens.color.surface,
+                  }}
+                >
+                  <T variant="sub" weight="semibold">
+                    {m.label}
+                  </T>
+                  <T variant="display" numberOfLines={1}>
+                    {(m.count ?? 0).toLocaleString("ko-KR")}
+                  </T>
+                  <T variant="caption" muted>
+                    {m.hint}
+                  </T>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <Button
+              label="주문 현황"
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={() => router.push("/ship?status=all")}
+            />
+            <Button
+              label="배송 현황"
+              style={{ flex: 1 }}
+              onPress={() => router.push("/ship?status=PREPARING")}
+            />
           </View>
-        </View>
-
-        {dash.error && !d ? (
-          <LoadError error={dash.error} onRetry={dash.reload} />
-        ) : null}
-        {!d && !dash.error ? (
-          <Skeleton width="90%" height={180} style={{ margin: 20 }} />
-        ) : null}
-
-        {d ? (
-          <>
-            <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-              <Todo
-                n={d.todo.openQuestions}
-                label="답변이 필요한 대화"
-                onPress={() => router.push("/chats?view=private&needsReply=1")}
-                first
-              />
-              <Todo
-                n={d.todo.toShip}
-                label="출하할 주문"
-                onPress={() => router.push("/ship")}
-              />
-              <Todo
-                n={d.todo.pendingProducts}
-                label="승인 대기 상품"
-                onPress={() => router.push("/products?filter=review")}
-                last
-              />
-            </View>
-
-            <View style={{ paddingHorizontal: 20, paddingTop: 40, gap: 16 }}>
-              <View>
-                <T variant="heading" accessibilityRole="header">
-                  예약 수량
-                </T>
-                {product ? (
-                  <T variant="sub" muted>
-                    {product.productName} · {product.reservedCount}명 예약,{" "}
-                    {product.orderCount}건
-                  </T>
-                ) : null}
-              </View>
-              {product ? (
-                <>
-                  <View style={{ paddingVertical: 16, gap: 6 }}>
-                    <T weight="semibold">
-                      예약 중 {product.reservedGrams / 1000}kg · 출하 완료{" "}
-                      {product.shippedGrams / 1000}kg
-                    </T>
-                    <T variant="sub" muted>
-                      승인 {product.approvedSupplyGrams / 1000}kg · 판매 한도{" "}
-                      {product.salesLimitGrams / 1000}kg
-                    </T>
-                    <T variant="sub" muted>
-                      추가 예약 가능 {product.remainingGrams / 1000}kg
-                    </T>
-                  </View>
-                  {d.stages.map((s) => (
-                    <StageRow key={s.stageName} s={s} />
-                  ))}
-                </>
-              ) : (
-                <View style={{ gap: 4 }}>
-                  <T variant="sub" muted>
-                    판매 중인 상품이 없어요
-                  </T>
-                  <Button
-                    label="새 상품 만들기"
-                    variant="text"
-                    onPress={() => router.push("/products/new")}
-                    style={{ alignSelf: "flex-start" }}
-                  />
-                </View>
-              )}
-            </View>
-
-            <View style={{ paddingHorizontal: 20, paddingTop: 40 }}>
-              <T
-                variant="heading"
-                accessibilityRole="header"
-                style={{ marginBottom: 8 }}
+          {dash.error ? (
+            <LoadError error={dash.error} onRetry={dash.reload} />
+          ) : null}
+          {product ? (
+            <>
+              <View
+                style={{
+                  padding: 16,
+                  gap: 16,
+                  borderRadius: 16,
+                  backgroundColor: tokens.color.surface,
+                }}
               >
-                최근 예약
-              </T>
-              {d.recentOrders.length === 0 ? (
-                <T variant="sub" muted style={{ paddingVertical: 8 }}>
-                  아직 예약이 없어요
-                </T>
-              ) : (
-                d.recentOrders.map((o, i) => (
-                  <View
-                    key={o.orderId}
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 12,
-                      minHeight: tokens.height.listRowProducer,
-                      paddingVertical: 8,
-                      borderTopWidth: 1,
-                      borderBottomWidth:
-                        i === d.recentOrders.length - 1 ? 1 : 0,
-                      borderColor: tokens.color.border,
-                    }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <T variant="sub" weight="semibold">
-                        {maskName(o.buyerName)} · {o.optionLabel} × {o.quantity}
-                      </T>
-                      <T variant="sub" muted>
-                        {md(o.createdAt)} · {o.region}
-                      </T>
-                    </View>
-                    <T variant="sub" weight="semibold">
-                      {ORDER_STATUS[o.status]}
+                <T weight="semibold">예약·출하 물량</T>
+                <View style={{ flexDirection: "row", gap: 16 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <T variant="heading" numberOfLines={1}>
+                      {(product.reservedGrams / 1000).toLocaleString()}kg
+                    </T>
+                    <T variant="sub" muted>
+                      예약 중
                     </T>
                   </View>
-                ))
-              )}
-            </View>
-          </>
-        ) : null}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <T variant="heading" numberOfLines={1}>
+                      {(product.shippedGrams / 1000).toLocaleString()}kg
+                    </T>
+                    <T variant="sub" muted>
+                      출하 완료
+                    </T>
+                  </View>
+                </View>
+              </View>
+              <T variant="sub" muted>
+                {product.productName}
+              </T>
+            </>
+          ) : !dash.loading ? (
+            <T muted>판매 중인 상품이 없어요</T>
+          ) : null}
+        </View>
       </Scroll>
     </Screen>
   );

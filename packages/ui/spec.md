@@ -14,14 +14,14 @@
 
 ## 계약
 - 앱은 `import { Button, Placeholder, tokens } from "@farmclub/ui"`로만 쓴다. 내부 파일 경로를 직접 import하지 않는다.
-- 글자 단계는 본문 17, 입력 16, 보조 15, 메타(날짜·칩·탭·‘n명 예약’·시각) 15(screens.md 3장, 디자인 토큰). 13은 쓰지 않는다. 누를 수 있는 요소는 `tokens.touchTarget.min`(48) 이상이고, 보이는 크기가 작으면 여백·hitSlop으로 넓힌다(N-02).
+- 글자 단계는 본문 17, 입력 16, 보조 15, 메타(날짜·칩·탭·시각) 13, 본문·채팅 17(1.6). 누를 수 있는 요소는 `tokens.touchTarget.min`(48) 이상이고, 보이는 크기가 작으면 여백·hitSlop으로 넓힌다(N-02).
 - 간격은 4 단위(4·8·12·16·20·24·32·40) 토큰만 쓴다. 썸네일은 104·64·40, 메신저 원형 프로필은 목록 48·헤더 40·설정 64를 쓴다(디자인 1.3). 사진이 없거나 로딩에 실패하면 이니셜을 표시한다.
 - 글꼴은 Pretendard 가변 웹폰트(한글 서브셋)를 첫 순위로, `color-scheme: light`, PC는 최대 폭 480 가운데 정렬, 위·아래는 안전 영역을 더한다.
-- 부품 상태: 버튼 눌림·로딩·비활성, 입력 포커스·비활성·오류, 키보드 포커스 링, 팔로우 토글, 토스트(성공·공통 오류). 규격은 `docs/design/screens/ds.html`.
+- 부품 상태: 버튼 눌림·로딩·비활성, 입력 포커스·비활성·오류, 키보드 포커스 링, 팔로우 토글, 토스트(성공·공통 오류). 현재 규격은 UI 1.6과 `tokens.ts`; `docs/design/screens/ds.html`은 이전 기록이다.
 - 탭·버튼·상태 이름은 ia.md 4장 레이블을 쓴다(예: ‘예약하기’, ‘품절’, ‘받는 시기’). 쓰지 않는 말(구매하기, 매진 등)은 쓰지 않는다.
 - `react`, `react-native`는 peerDependencies. 앱이 가진 버전을 쓴다.
 
-## 구현 결정
+## 구현 결정 이력 (현재 화면은 DEV-51 절 우선)
 | 날짜 | 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
 | 2026-10-07 | 빌드 없이 TS 소스(`src/index.ts`)를 `main`으로 둔다 | Metro가 워크스페이스 TS를 바로 번들, 설정 최소 | — |
@@ -58,3 +58,8 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 ## DEV-3 상세·공개 소식방 구현 (1.5)
 명세 PR #44의 storefront-1.5.md를 따른다. 상세는 text/image 블록과 공유 DetailStory 렌더러를 사용하며 생성은 저장 전 편집안이다. 기존 intro/description은 실제 기존 데이터의 기본 소개로 유지한다. 소식방 공개 읽기와 답장 권한을 분리하고 권한 변경 후 이전 비동기 메시지를 폐기한다. 실제 AI 호출은 구현하지 않으며 Mock임을 명시한다.
+
+## DEV-51 현재 프론트 구현 기준 (1.6)
+
+제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
+Storefront의 Price/ProductShelf/NewsCard/FeedCarousel/ChatChoices/BrandHeader는 API 없는 표현 컴포넌트다. 제목 28/36, 메타 13/18, 탭 72, 터치 48. ProductShelf의 local state로 전송/접기에서 대화를 재마운트하지 않는다. NewsRoom은 producer 시스템 안내를 본문에 두고 소비자 안내를 제거한다.
