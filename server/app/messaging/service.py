@@ -788,6 +788,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
 
     농가 AI ON + 방 AUTO일 때만 AI가 답한다(M-05·M-20). HUMAN/OFF면 직접 응대 대상으로 남긴다.
     """
+    from app.admin import service as admin
     from app.ai import service as ai
     from app.farms import service as farms
     from app.orders import service as orders
@@ -872,6 +873,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     alert = None
     if text and _REFUND_OR_COMPENSATION.search(text):
         alert = ManagerRefundAlert(farm_id=farm_id, thread_id=thread.id, message_id=message.id)
+        admin.record_refund_request(db, farm_id, thread.id, message.id)
     return ConsumerSendOutcome(result=result, alert=alert)
 
 

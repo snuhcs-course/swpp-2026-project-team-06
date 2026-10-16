@@ -255,6 +255,41 @@ def run_manager_action(
         raise
 
 
+def record_refund_request(db: Session, farm_id: str, thread_id: str, message_id: str) -> None:
+    """소비자 환불·보상 요청을 운영자 확인 대상으로 남긴다(M-07).
+
+    메시지와 같은 트랜잭션에서 쓰므로 rollback·멱등 경쟁 loser에서는 함께 사라진다.
+    본문·소비자 정보는 저장하지 않는다.
+    """
+    timestamp = now()
+    db.add(
+        ManagerEvent(
+            id=new_id("manager-event"),
+            event_type="manager_refund_request",
+            actor_id=None,
+            target_type="thread",
+            target_id=thread_id,
+            scope=None,
+            idempotency_key=None,
+            original_body=None,
+            request_summary={"farmId": farm_id, "category": "refund_or_compensation"},
+            status="OPEN",
+            retryable=False,
+            attempts=1,
+            result=None,
+            error_code=None,
+            error_message=None,
+            message_id=message_id,
+            last_retried_by=None,
+            created_at=timestamp,
+            updated_at=timestamp,
+            resolved_at=None,
+            resolved_by=None,
+        )
+    )
+    db.flush()
+
+
 def list_events(
     db: Session,
     status: str | None,

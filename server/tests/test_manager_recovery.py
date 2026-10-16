@@ -526,3 +526,87 @@ def test_AC_11_3_migration_backfills_legacy_refunds_with_and_without_payment():
         assert payment.status == "REFUNDED"
         assert without_payment.amount == order_without.total_amount
         session.rollback()
+
+
+def _refund_request_events() -> list[ManagerEvent]:
+    with get_sessionmaker()() as session:
+        return list(
+            session.scalars(
+                select(ManagerEvent).where(ManagerEvent.event_type == "manager_refund_request")
+            )
+        )
+
+
+def _send_chat(client, headers, text, **extra):
+    return client.post(
+        "/api/messaging/chats/f-kang/messages", headers=headers, json={"text": text, **extra}
+    )
+
+
+def test_M_07_refund_request_persists_open_event_when_ai_off(client, login, admin_headers):
+    from tests.test_messaging import ai_off
+
+    ai_off()
+
+    sent = _send_chat(client, keyed(login("u-seojun")), "환불 요청합니다")
+
+    assert sent.status_code == 200, sent.text
+    events = _refund_request_events()
+    assert len(events) == 1
+    event = events[0]
+    assert event.message_id == sent.json()["message"]["messageId"]
+    assert (event.status, event.retryable, event.actor_id) == ("OPEN", False, None)
+    assert event.request_summary == {"farmId": "f-kang", "category": "refund_or_compensation"}
+    stored = str({column.name: getattr(event, column.name) for column in event.__table__.c})
+    assert "환불 요청합니다" not in stored and "u-seojun" not in stored
+    listed = client.get("/admin/exceptions", headers=admin_headers).json()["items"]
+    assert [item["exceptionId"] for item in listed] == [event.id]
+
+
+def test_M_07_refund_request_replay_and_race_store_one_event(client, login):
+    headers = keyed(login("u-seojun"))
+
+    first = _send_chat(client, headers, "보상 요청합니다")
+    replay = _send_chat(client, headers, "보상 요청합니다")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        raced = list(
+            pool.map(
+                lambda _: _send_chat(client, keyed(login("u-seojun"), "race"), "환불 해주세요"),
+                range(2),
+            )
+        )
+
+    assert first.json() == replay.json()
+    assert [response.status_code for response in raced] == [200, 200]
+    message_ids = {event.message_id for event in _refund_request_events()}
+    assert message_ids == {
+        first.json()["message"]["messageId"],
+        raced[0].json()["message"]["messageId"],
+    }
+
+
+def test_M_07_refund_request_rollback_stores_no_event(client, login, monkeypatch):
+    from app.messaging import router
+
+    def rollback_instead_of_commit(db, user_id, scope, key, body, run):
+        run()
+        db.rollback()
+        raise OperationalError("commit", {}, RuntimeError("temporary"))
+
+    monkeypatch.setattr(router, "run_idempotent", rollback_instead_of_commit)
+    with pytest.raises(OperationalError):
+        _send_chat(client, keyed(login("u-seojun")), "환불 요청합니다")
+
+    assert _refund_request_events() == []
+
+
+def test_M_07_preview_and_non_refund_messages_store_no_event(client, login):
+    preview = client.post(
+        "/api/farms/me/ai-settings/preview",
+        headers=login("u-kang"),
+        json={"question": "환불 요청합니다"},
+    )
+    plain = _send_chat(client, keyed(login("u-seojun")), "배송비는 얼마예요?")
+
+    assert preview.status_code == 200 and plain.status_code == 200
+    assert _refund_request_events() == []
