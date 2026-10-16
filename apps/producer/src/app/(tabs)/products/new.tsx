@@ -13,7 +13,7 @@ import {
   tokens,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, TextInput, View } from "react-native";
 
 import { useHideTabBar } from "../../../lib/session";
@@ -41,6 +41,7 @@ function shown(k: keyof DraftFields, v: DraftFields[keyof DraftFields]) {
 export default function NewProduct() {
   useHideTabBar();
   const router = useRouter();
+  const operation = useRef(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -49,7 +50,8 @@ export default function NewProduct() {
   const [error, setError] = useState<string | null>(null);
 
   async function make() {
-    if (!text.trim() || busy) return;
+    if (!text.trim() || operation.current) return;
+    operation.current = true;
     setBusy(true);
     setFailed(false);
     setError(null);
@@ -63,11 +65,14 @@ export default function NewProduct() {
         setError(e.message);
       else setFailed(true);
     } finally {
+      operation.current = false;
       setBusy(false);
     }
   }
 
   async function toEdit(draftId?: string) {
+    if (operation.current) return;
+    operation.current = true;
     setCreating(true);
     setError(null);
     try {
@@ -76,6 +81,7 @@ export default function NewProduct() {
     } catch (e) {
       setError(errMsg(e, "만들지 못했어요. 다시 시도해 주세요."));
       setCreating(false);
+      operation.current = false;
     }
   }
 
@@ -90,7 +96,14 @@ export default function NewProduct() {
   if (draft) {
     const x = draft.extracted;
     // 받는 시기는 문구의 말(예: ‘11월 중순’)을 날짜로 다시 정해야 해서 늘 확인 필요
-    const need = KEYS.filter((k) => k === "deliveryWindow" || x[k] == null);
+    const need = KEYS.filter((k) => {
+      const value = x[k];
+      return (
+        k === "deliveryWindow" || value == null ||
+        (typeof value === "string" && !value.trim()) ||
+        (Array.isArray(value) && value.length === 0)
+      );
+    });
     const filled = KEYS.length - need.length;
     return (
       <Screen>
@@ -231,7 +244,7 @@ export default function NewProduct() {
             accessibilityLabel="카톡·밴드에 쓰던 문구"
             value={text}
             onChangeText={(v) => setText(v.slice(0, MAX))}
-            editable={!busy}
+            editable={!busy && !creating}
             multiline
             placeholder="카톡·밴드에 쓰던 문구를 붙여넣으세요"
             placeholderTextColor={tokens.color.textMuted}
@@ -317,6 +330,7 @@ export default function NewProduct() {
             />
             <Button
               label="다시 해 보기"
+              disabled={creating}
               variant="text"
               onPress={make}
               style={{ minHeight: 48 }}
@@ -327,7 +341,7 @@ export default function NewProduct() {
             <Button
               label="초안 만들기"
               size="producer"
-              disabled={!text.trim()}
+              disabled={!text.trim() || creating}
               onPress={make}
             />
             <Button

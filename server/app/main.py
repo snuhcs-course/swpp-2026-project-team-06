@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.errors import install_error_handlers
 from app.farms.router import home_router
 from app.farms.router import router as farms_router
+from app.farms.share import router as farm_share_router
 from app.messaging.router import router as messaging_router
 from app.orders.router import admin_router as orders_admin_router
 from app.orders.router import router as orders_router
@@ -49,6 +50,8 @@ for module_router in (
     source_analysis_router,
 ):
     app.include_router(module_router, prefix="/api")
+
+app.include_router(farm_share_router)
 
 # 운영자 관리 API는 /admin 아래(ADR 0008). 모든 경로가 ADMIN 역할을 검사한다.
 for admin_router in (accounts_admin_router, catalog_admin_router, orders_admin_router):

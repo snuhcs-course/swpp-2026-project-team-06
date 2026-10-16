@@ -91,10 +91,11 @@ export default function Farm() {
     if (nav?.share) {
       try {
         await nav.share({ title: data?.name, url: link });
-      } catch {
-        /* 사용자가 닫음 */
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        await copy();
       }
-    } else void copy();
+    } else await copy();
   }
   async function changePhoto() {
     setPhotoError(null);

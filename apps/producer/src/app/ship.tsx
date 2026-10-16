@@ -128,6 +128,7 @@ export default function Ship() {
   const withInvoice = chosen.filter((o) => has(o.orderId)).length;
 
   async function shipAll() {
+    if (busy || !chosen.length) return;
     setBusy(true);
     setNotice(null);
     let ok = 0;
@@ -154,7 +155,6 @@ export default function Ship() {
     }
     setConfirm(false);
     setPicked(left);
-    setBusy(false);
     if (conflicted)
       setNotice(
         `${conflicted}건은 이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.`,
@@ -162,6 +162,7 @@ export default function Ship() {
     if (lost) failToast(lost, () => setConfirm(true));
     else if (ok) toast(`${ok}건을 출하로 바꿨어요`);
     await load();
+    setBusy(false);
   }
 
   function openInvoice(o: ProducerOrder) {
@@ -193,6 +194,7 @@ export default function Ship() {
         onBack={back}
       />
       <Scroll bottom={tab === "PREPARING" && data.preparing.length ? 170 : 60}>
+        {error ? <LoadError error={error} onRetry={load} /> : null}
         {notice ? (
           <Notice
             title={notice}
@@ -280,6 +282,7 @@ export default function Ship() {
                     {/* 체크 칸: 보이는 24, 누르는 영역 48 */}
                     <Pressable
                       accessibilityRole="checkbox"
+                      disabled={busy}
                       accessibilityState={{ checked: sel }}
                       accessibilityLabel={`${o.orderNo} ${who(o)} 고르기`}
                       onPress={() =>
@@ -328,6 +331,7 @@ export default function Ship() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`${o.orderNo} ${who(o)}, ${filled ? invoiceText(inv?.carrier, inv?.no) : "택배사·송장 번호 넣기"}`}
+                      disabled={busy}
                       onPress={() => openInvoice(o)}
                       style={(st) =>
                         [
@@ -383,7 +387,7 @@ export default function Ship() {
                 : "출하로 바꾸기"
             }
             size="producer"
-            disabled={!chosen.length}
+            disabled={!chosen.length || busy || !!error}
             onPress={() => setConfirm(true)}
           />
         </BottomBar>
@@ -463,7 +467,10 @@ export default function Ship() {
       </Sheet>
 
       {/* 출하 확인 */}
-      <Sheet visible={confirm} onClose={() => setConfirm(false)}>
+      <Sheet
+        visible={confirm}
+        onClose={() => { if (!busy) setConfirm(false); }}
+      >
         <T variant="heading">{chosen.length}건을 출하로 바꿀까요?</T>
         <View>
           {chosen.map((o, i) => (
@@ -496,6 +503,7 @@ export default function Ship() {
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Button
             label="아니요"
+            disabled={busy}
             variant="secondary"
             size="producer"
             style={{ flex: 1 }}

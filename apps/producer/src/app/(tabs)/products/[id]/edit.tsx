@@ -215,6 +215,8 @@ export default function EditProduct() {
   const missing: Record<string, string> = {};
   if (!form.name.trim()) missing.name = "상품명을 적어 주세요";
   if (!form.variety.trim()) missing.variety = "품종을 적어 주세요";
+  if (!form.origin.trim()) missing.origin = "원산지를 적어 주세요";
+  if (!form.storage.trim()) missing.storage = "보관 방법을 적어 주세요";
   if (!form.options.length) missing.options = "중량 옵션을 골라 주세요";
   if (!form.deliveryWindow) missing.deliveryWindow = "받는 시기를 정해야 해요";
   if (!form.maxDelayUntil) missing.maxDelayUntil = "환불 기한을 정해야 해요";
@@ -498,6 +500,7 @@ export default function EditProduct() {
           <View style={{ flexDirection: "row", gap: 12 }}>
             <Input
               label="원산지"
+              error={err("origin")}
               value={form.origin}
               onChangeText={(v) => set("origin", v)}
               style={{ flex: 1 }}
@@ -505,6 +508,7 @@ export default function EditProduct() {
             />
             <Input
               label="보관"
+              error={err("storage")}
               value={form.storage}
               onChangeText={(v) => set("storage", v)}
               style={{ flex: 1 }}

@@ -310,3 +310,20 @@ On failure, CI uploads the Playwright HTML report, traces, screenshots/videos, F
 - Existing real-stack checkout/fulfillment tests now assert that reserved-order lookup does not transition state and the harvest action is absent. The retained API is used only to arrange a PREPARING fixture before testing invoice entry and shipping.
 - Local real-server integration was not run because Docker's engine was unavailable. The PR's isolated PostgreSQL CI runs the real API smoke and complete Chromium suite. Final CI result is recorded on PR #98.
 - Historical I1 images and dated validation records above are preserved; they are not evidence that the previous UI remains current.
+
+
+### I2 producer code verification (DEV-29/34/38)
+
+The producer pass uses a disposable local PostgreSQL database and seed data. It is not the real-farmer-data acceptance work in DEV-43/46/49.
+
+| Story | Automated coverage |
+| --- | --- |
+| P01 producer gates | `discovery-and-gates.spec.ts`, AC-01-3 |
+| P02 AI draft recovery and missing fields | `producer-i2.spec.ts`, AC-03-1/3; explicit injected provider failure and empty extraction |
+| P03 product, prices and capacity | `producer-and-privacy.spec.ts`; real-stack API capacity tests; `producer-i2.spec.ts`, AC-04-1 |
+| P04 farm link | `producer-i2.spec.ts`, AC-19-1; browser share failure/cancellation, server metadata and anonymous landing |
+| P05 dashboard | `conversation-ui.spec.ts` |
+| P06 producer news | `conversation-ui.spec.ts`; AI chat implementation is outside scope |
+| P07 manual shipping | `checkout-and-fulfillment.spec.ts` and `producer-i2.spec.ts`, AC-17-2/5; persisted carrier/tracking and failed refresh retry |
+
+2026-10-16: all 162 server tests and Ruff passed; all four workspace typechecks passed; the full real-stack run passed 7 API scenarios and 19 Chromium tests. The first browser run exposed the missing share endpoint; after implementing it, the complete suite passed. Live AI, actual Kakao preview crawling, deployment, and real-farmer acceptance were not run. Browser API interception is used only to induce failures or empty fields; product creation, shipment persistence and shared-page reads use the real local server.

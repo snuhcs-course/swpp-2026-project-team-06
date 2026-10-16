@@ -685,3 +685,10 @@ Not done yet in I1:
 Simulated payments, test-account login and the AI fallback are for the demo; they are not a test of real payment providers or model quality.
 
 Sources: [PRD](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/prd.md), [functional criteria and rules](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/spec/functional), [screen specification](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/screens.md), [capacity 1.4](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/capacity-1.4.md), [storefront 1.5](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/storefront-1.5.md), [design frames](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/design).
+
+
+### I2 producer recovery (DEV-29, DEV-34, DEV-38)
+
+Empty AI strings and option arrays require review. Manual product creation excludes concurrent generation/retry actions; failed AI calls preserve the source text. Missing origin or storage instructions block the initial supply request and show field guidance. Unsupported or failed browser sharing falls back to copying the server farm URL; cancellation remains silent. Manual shipping locks confirmation/selection while processing and exposes refresh failures with a retry without undoing successful shipments. Login, payment, AI chat and deployment are outside this change.
+
+Farm APIs return an absolute server share URL. The public share endpoint renders escaped Open Graph metadata for approved farms and directs visitors to the consumer farm page. Unapproved or missing farms receive the same uncached 404 page with a farm-list link and no private metadata.

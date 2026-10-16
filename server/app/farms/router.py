@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -24,6 +24,12 @@ home_router = APIRouter(tags=["farms"])
 
 Db = Annotated[Session, Depends(get_db)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
+
+
+def with_share_url(view: MyFarm | FarmDetail, request: Request):
+    if view.share_url:
+        view.share_url = str(request.url_for("share_farm", farm_id=view.farm_id))
+    return view
 
 
 @home_router.get("/home", response_model=Home)
@@ -74,21 +80,21 @@ def farm_detail_draft(_: Db, producer: ApprovedProducer, body: DetailDraftInput)
 
 
 @router.get("/me", response_model=MyFarm)
-def my_farm(db: Db, user: Producer):
-    return service.my_farm(db, user.id)
+def my_farm(db: Db, user: Producer, request: Request):
+    return with_share_url(service.my_farm(db, user.id), request)
 
 
 @router.patch("/me", response_model=MyFarm)
-def patch_my_farm(db: Db, user: Producer, body: FarmPatch):
+def patch_my_farm(db: Db, user: Producer, body: FarmPatch, request: Request):
     result = service.patch_my_farm(db, user.id, body)
     db.commit()
-    return result
+    return with_share_url(result, request)
 
 
 @router.get("/{farm_id}", response_model=FarmDetail)
-def farm_detail(db: Db, farm_id: str, user: OptionalUser):
+def farm_detail(db: Db, farm_id: str, user: OptionalUser, request: Request):
     """농가 페이지(SCR-03). 승인된 농가만, 아니면 404."""
-    return service.farm_detail(db, farm_id, user)
+    return with_share_url(service.farm_detail(db, farm_id, user), request)
 
 
 @router.put("/{farm_id}/follow", response_model=FollowState)
