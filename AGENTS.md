@@ -63,6 +63,8 @@
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
 
 ## 리뷰
+- CI 전용 Spec ↔ Code 보고 클라이언트는 `.github/spec-check/`에 둔다(DEV-40). 위의 `server/app/ai` 제한은 제품 AI 호출에 적용하며, CI는 별도 키·보호 환경을 사용하고 제품 어댑터/키를 재사용하지 않는다.
+
 - **AI 1차 리뷰**: 작성자가 draft 해제 전에 `pr-review` 스킬로 돌리고, 결과를 PR 코멘트로 남긴 뒤 must 항목을 해결한다.
 - **사람 리뷰**: 1명 Approve 필수. 리뷰어는 spec(`tasks.md`)과 diff가 맞는지, 범위 밖 변경이 없는지를 우선 본다.
 - 상세 규칙은 `.agents/skills/pr-review/SKILL.md`.

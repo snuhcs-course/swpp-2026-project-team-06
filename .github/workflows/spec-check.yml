@@ -1,0 +1,126 @@
+name: Spec-to-code review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: spec-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  eligibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Explain eligibility
+        env:
+          ELIGIBLE: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' }}
+        run: |
+          if [ "$ELIGIBLE" = "true" ]; then
+            echo "Eligible PR. Live model review requires the protected spec-check environment." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "SKIPPED: fork or bot PR. Apply the manual Spec ↔ Code review." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  checker-tests:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Verify checker contract without credentials
+        run: python -m unittest discover -s .github/spec-check -p 'test_*.py' -v
+
+  spec-code-review:
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read # Verify required reviewers on the protected environment.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
+    needs: checker-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: spec-check
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Review captured PR context
+        env:
+          SPEC_CHECK_API_KEY: ${{ secrets.SPEC_CHECK_API_KEY }}
+          SPEC_CHECK_MODEL: ${{ vars.SPEC_CHECK_MODEL }}
+          GH_READ_TOKEN: ${{ github.token }}
+          SPEC_CHECK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python .github/spec-check/check.py
+      - name: Retain report even for mismatch or unavailable access
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: spec-code-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/spec-check/report.*
+          if-no-files-found: warn
+          retention-days: 7
+
+  live-demo:
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' && contains(github.event.pull_request.body, '<!-- spec-check-demo -->')
+    needs: checker-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        sample: [mismatch, matched]
+    name: Live model demo (${{ matrix.sample }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: spec-check
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Run genuine model demonstration
+        env:
+          SAMPLE: ${{ matrix.sample }}
+          SPEC_CHECK_API_KEY: ${{ secrets.SPEC_CHECK_API_KEY }}
+          SPEC_CHECK_MODEL: ${{ vars.SPEC_CHECK_MODEL }}
+          GH_READ_TOKEN: ${{ github.token }}
+          SPEC_CHECK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python .github/spec-check/check.py --demo "$SAMPLE"
+      - name: Check expected demo outcome without changing the model report
+        if: always()
+        env:
+          SAMPLE: ${{ matrix.sample }}
+        run: |
+          python -c 'import json, os; from pathlib import Path; r=json.loads(Path(".artifacts/spec-check/report.json").read_text()); expected="MISMATCH" if os.environ["SAMPLE"] == "mismatch" else "PASS"; assert r["status"] == expected, "Expected " + expected + ", received " + r["status"]'
+      - name: Retain genuine demo result
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: spec-code-demo-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/spec-check/report.*
+          if-no-files-found: warn
+          retention-days: 7

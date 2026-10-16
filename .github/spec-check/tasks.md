@@ -27,11 +27,13 @@
 - 2026-10-16 spec-check 환경/키는 없음. 현재 GitHub 계정은 maintain 권한이며 admin은 아님. 임의 키 탐색·과금 활성화를 하지 않는다.
 - 2026-10-16 보호 환경 승인자는 실행할 checker/프롬프트/workflow의 정확한 commit을 확인한다. 키는 live 호출 단계에만 전달한다.
 - 2026-10-16 제품 AI 규칙의 CI 예외는 이 PR의 명시적 review point로 기록한다.
+- 2026-10-16 모델 job에 환경 설정 확인용 actions: read만 추가한다. required reviewers와 prevent-self-review가 없으면 호출을 중단한다.
+- 2026-10-16 비용 없는 계약 검증은 DEV-40/SWPP-90의 실패 처리·증거 요구사항에 포함한다. mock 결과를 genuine 모델 결과로 사용하지 않는다.
 
 ### 작업
 - [x] 이슈·설계·기존 PR 템플릿/스펙 읽기, 범위 기록
-- [ ] 수집기/결과 검증/Claude 클라이언트와 workflow 구현
-- [ ] deterministic 계약 검증 및 실패 처리 확인
+- [x] 수집기/결과 검증/Claude 클라이언트와 workflow 구현
+- [x] deterministic 계약 검증 및 실패 처리 확인
 - [ ] AI 1차 리뷰 및 수정
 - [ ] actual model mismatch/pass run과 사람 resolution 기록
 
@@ -43,3 +45,4 @@
 
 ### 기록
 - 2026-10-16 계획 작성. 실제 모델 접근·설계 승인 미확인. 확인 안 된 시간·토큰·승인은 기록하지 않는다.
+- 2026-10-16 draft PR #107 생성. 로컬 계약 검증 26개 통과, actionlint v1.7.12의 workflow 구문 검사 통과(shellcheck 별도 도구는 미설치). 제품 workflow 및 코드 변경 없음.
