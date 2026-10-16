@@ -41,6 +41,12 @@ export default function Login() {
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  // 카카오가 켜져 있으면 카카오가 기본이고 테스트 계정은 접어 둔다. 꺼져 있으면(CI·Mock 플래그만) 바로 펼친다
+  const [showTest, setShowTest] = useState(false);
+  useEffect(() => {
+    if (kakao.data && !kakao.data.enabled) setShowTest(true);
+    if (kakao.error) setShowTest(true);
+  }, [kakao.data, kakao.error]);
 
   useEffect(() => {
     if (data && !picked) setPicked(data[0]?.userId ?? null);
@@ -152,7 +158,16 @@ export default function Login() {
             </T>
           </View>
         ) : null}
-        {error ? (
+        {kakao.data?.enabled && !showTest ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 24, alignItems: "center" }}>
+            <Button
+              label="테스트 계정으로 로그인"
+              variant="text"
+              onPress={() => setShowTest(true)}
+            />
+          </View>
+        ) : null}
+        {!showTest ? null : error ? (
           isStatus(error, 404) ? (
             <EmptyState
               icon="lock"
@@ -245,12 +260,14 @@ export default function Login() {
           로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트
           서비스
         </T>
-        <Button
-          label={account ? `${ro(account.name)} 로그인` : "로그인"}
-          disabled={!account}
-          loading={busy}
-          onPress={login}
-        />
+        {showTest ? (
+          <Button
+            label={account ? `${ro(account.name)} 로그인` : "로그인"}
+            disabled={!account}
+            loading={busy}
+            onPress={login}
+          />
+        ) : null}
       </View>
     </Screen>
   );
