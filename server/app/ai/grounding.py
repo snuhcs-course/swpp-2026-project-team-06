@@ -20,6 +20,12 @@ _PRICE = re.compile(
 _RESERVATION_PERIOD = re.compile(r"예약\s*(?:기간|마감|시작|종료|접수)|\d+\s*차\s*예약")
 _CONTACT_OR_ACCOUNT = re.compile(r"(?:연락처|전화|휴대폰|계좌|입금)\s*[:：]?")
 _DELIVERY_CONTEXT = re.compile(r"배송|도착|수령|받는|받을|출하")
+# 문장·구절 경계. 소수점(5.0키로)과 천 단위 쉼표(3,000)는 나누지 않는다.
+_CLAUSE_BREAK = re.compile(r"[\n!?;]|[.,](?!\d)")
+_BRIX_NEAR = (
+    re.compile(r"(?:당도|브릭스|brix)[^\d]{0,12}(?<![\d.])(\d+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*(?:브릭스|brix)", re.IGNORECASE),
+)
 _ISO_DATE = re.compile(r"(?P<year>20\d{2})[-./](?P<month>\d{1,2})[-./](?P<day>\d{1,2})")
 _KOREAN_DATE = re.compile(
     r"(?:(?P<year>20\d{2})\s*년\s*)?(?P<month>\d{1,2})\s*월\s*(?P<day>\d{1,2})\s*일"
@@ -161,21 +167,34 @@ def _safe_generated_text(candidate: str | None, source: str) -> str | None:
     return candidate
 
 
+def _weights(text: str) -> set[str]:
+    return {_plain_number(match.group("value")) for match in _WEIGHT.finditer(text)}
+
+
+def _supported_option(option: str, source: str, source_compact: str) -> bool:
+    """중량 옵션은 원문 중량과 값이 정확히 같아야 한다(5kg는 15키로의 일부가 아니다)."""
+    weights = _weights(option)
+    if weights:
+        return weights <= _weights(source)
+    return _compact(option) in source_compact
+
+
 def _supported_brix(source: str, value: float | None) -> float | None:
+    """당도는 원문의 당도·Brix 옆 숫자와 값이 같을 때만 남긴다(2는 12브릭스의 일부가 아니다)."""
     if value is None:
         return None
-    number = _plain_number(str(value))
-    patterns = (
-        rf"(?:당도|브릭스|brix)[^\d]{{0,12}}{re.escape(number)}",
-        rf"{re.escape(number)}\s*(?:브릭스|brix)",
-    )
-    return value if any(re.search(pattern, source, re.IGNORECASE) for pattern in patterns) else None
+    found = {float(match.group(1)) for pattern in _BRIX_NEAR for match in pattern.finditer(source)}
+    return value if float(value) in found else None
 
 
 def _supported_delivery(source: str, value: str | None) -> str | None:
-    if not value or not _DELIVERY_CONTEXT.search(source):
+    """배송 예정 기간은 배송·수령 문맥이 있는 구절의 날짜로만 확인한다."""
+    if not value:
         return None
-    return value if _facts_supported(value, source) else None
+    clauses = [part for part in _CLAUSE_BREAK.split(source) if _DELIVERY_CONTEXT.search(part)]
+    if not clauses:
+        return None
+    return value if _facts_supported(value, "\n".join(clauses)) else None
 
 
 def ground_draft(source: str, draft: DraftExtraction) -> DraftExtraction:
@@ -184,7 +203,11 @@ def ground_draft(source: str, draft: DraftExtraction) -> DraftExtraction:
     def exact(value: str | None) -> str | None:
         return value if value and _compact(value) in source_compact else None
 
-    options = [option for option in (draft.options or []) if _compact(option) in source_compact]
+    options = [
+        option
+        for option in (draft.options or [])
+        if _supported_option(option, source, source_compact)
+    ]
     return DraftExtraction(
         name=_safe_generated_text(draft.name, source),
         variety=exact(draft.variety),
