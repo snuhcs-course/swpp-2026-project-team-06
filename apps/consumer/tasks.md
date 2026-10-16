@@ -306,3 +306,32 @@ I1의 "성공/실패 데모 스위치" 결제 화면을 실제 카드 결제처�
 ### 기록
 - 10/17 main 34c9009에서 시작. 서버 무변경, 화면·문서만.
 - 10/17 구현·문서 동기화 완료. `npm run typecheck` 4개 통과, `npm run test:mock` 12/12, Mock 화면 6장 확인(콘솔 오류 0), `node scripts/run-integration.mjs`(로컬 Docker PostgreSQL) 실서버 시나리오 7/7 + Playwright 19/19 통과. 실패 안내 문구 중복·완료 화면 라벨 줄바꿈 수정. Figma 반영은 머지 뒤 별도.
+
+
+## DEV-36 결제 화면 PortOne 샌드박스 연결
+
+- 이슈: [DEV-36](https://linear.app/sswp6/issue/DEV-36) · GitHub #81
+- 브랜치: `nemodleo/dev-36-i2-t19-finish-sandbox-payment-verification-failure-and` (DEV-37 위에 쌓음)
+- 기능·인수 조건: FEAT-09 I2 / AC-09-7 · 기존 AC-09-2·3 유지
+- 상태: 리뷰 중
+
+### 목표
+서버에 PortOne 테스트 채널이 설정돼 있으면 결제하기가 PortOne 카드 결제 창을 열고, 승인 뒤 서버 확인을 거쳐 완료 화면으로 간다. 설정이 없으면 DEV-37 Mock 카드 화면이 그대로 나온다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/checkout/[productId]/pay.tsx`, `apps/consumer/src/lib/portone.ts`(새 파일), `apps/consumer/spec.md`, `apps/consumer/tasks.md`
+
+### 비범위
+- 결제 수단 추가(무통장), 영수증 이메일, 환불 UI. Figma 반영(머지 뒤).
+
+### 결정 사항
+- 10/17 PortOne 브라우저 SDK는 npm 의존성 없이 CDN 스크립트(`cdn.portone.io/v2/browser-sdk.js`)를 한 번만 넣어 쓴다(의존성 추가 금지 규칙).
+- 10/17 결제 ID는 `fc-<orderId>-<시각>`으로 시도마다 새로 만들고 `customData`에 `orderId`를 넣어 서버가 대조한다. `redirectUrl`은 현재 결제 화면 주소라 모바일 리다이렉트로 돌아오면 쿼리 `paymentId`·`code`·`message`를 읽어 같은 흐름을 탄다.
+- 10/17 PG가 켜져 있으면 결제 수단은 ‘신용·체크카드’ 한 줄만 보이고 테스트 카드·직접 입력은 숨긴다. 완료 화면의 카드 끝 4자리는 PG 결제에서는 알 수 없어 ‘카드’로만 표시.
+
+### 작업
+- [x] `lib/portone.ts` SDK 로더·결제 요청 [x] `pay.tsx` PG 경로·리다이렉트 복귀 [x] `npm run typecheck`
+- [ ] 실제 샌드박스 승인 1건 확인(사용자가 PortOne 창에서 테스트 결제)
+
+### 기록
+- 10/17 PG 꺼진 Mock 경로는 DEV-37 e2e로 회귀 확인. 실제 테스트 결제는 사용자 확인 대기.
