@@ -166,7 +166,8 @@ register({
       }
       const p = ctx.db.products[o.productId];
       const s = assertSale(ctx.db, p, o.optionId, o.quantity, o);
-      if (ctx.body.mockResult === "fail") {
+      // Mock에는 PG가 없다. paymentId가 오면 승인된 것으로 본다(DEV-36)
+      if (!ctx.body.paymentId && ctx.body.mockResult === "fail") {
         return {
           order: order(ctx.db, o),
           result: "fail",
@@ -180,6 +181,13 @@ register({
       o.paidAt = nowIso();
       return { order: order(ctx.db, o), result: "success", failReason: null };
     }),
+
+  "GET /api/payments/config": () => ({
+    enabled: false,
+    provider: "MOCK",
+    storeId: null,
+    channelKey: null,
+  }),
 
   "GET /api/orders": (ctx) => {
     const uid = ctx.me().userId;

@@ -14,7 +14,7 @@
 ## 계약
 - 기준 주소: `process.env.EXPO_PUBLIC_API_URL` (예: 로컬 `http://localhost:8000`). 없으면 `http://localhost:8000`.
 - `health(): Promise<{ status: "ok" }>` → `GET /health`.
-- 인증 헤더(`Authorization: Bearer <JWT>`)는 DEV-3·DEV-4에서 이 패키지에 넣는다. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수, ADR 0009)으로 받고, 카카오·토큰 갱신은 I2(ADR 0003). 앱은 토큰을 직접 헤더에 붙이지 않는다.
+- 인증 헤더(`Authorization: Bearer <JWT>`)는 DEV-3·DEV-4에서 이 패키지에 넣는다. 결제 확인은 `orders.pay(orderId, { mockResult } | { paymentId })`, PG 설정은 `payments.config()`(DEV-36). I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수, ADR 0009)으로 받고, 카카오·토큰 갱신은 I2(ADR 0003). 앱은 토큰을 직접 헤더에 붙이지 않는다.
 - 계정은 앱별이다(ADR 0010). 앱이 시작할 때 자기 앱 이름(`consumer`·`producer`)을 설정하고, 이 패키지는 그 이름으로 테스트 계정 목록(`?app=`)과 로그인(`app`)을 부르며 토큰을 앱별 키로 따로 보관한다. 403 `WRONG_APP`이면 토큰을 지우고 로그아웃 이벤트를 낸다.
 - 1.1 응답 필드: 상품 `reservedCount`(예약한 사람 수), 상품 상세 농가 요약 `brixRecordCount`, 주문 `carrier`(택배사 코드 `CJ`·`EPOST`·`HANJIN`·`LOTTE`·`LOGEN`·`ETC`)·`trackingNumber`. 상품 상세에 최신 소식은 없다. 택배사별 배송 조회 주소 표는 이 패키지에 둔다.
 - 오류 응답은 `{code, message, details}`(screens.md 7.1). `ApiError`는 `status`와 함께 `code`·`message`·`details`를 꺼내 준다. 화면은 `message`를 그대로 보여주고 409는 `details`의 최신 값으로 다시 그린다.

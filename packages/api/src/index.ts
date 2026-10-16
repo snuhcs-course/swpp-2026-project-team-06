@@ -15,7 +15,15 @@ export {
   appName,
 } from "./client";
 export { CARRIERS, carrierLabel, trackingUrl } from "./carriers";
-export { auth, farms, catalog, orders, messaging, admin } from "./endpoints";
+export {
+  auth,
+  farms,
+  catalog,
+  orders,
+  payments,
+  messaging,
+  admin,
+} from "./endpoints";
 export type * from "./types";
 
 import { request } from "./client";
