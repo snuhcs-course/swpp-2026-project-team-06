@@ -337,3 +337,5 @@ I1의 "성공/실패 데모 스위치" 결제 화면을 실제 카드 결제처�
 - 10/17 PG 꺼진 Mock 경로는 DEV-37 e2e로 회귀 확인. 실제 테스트 결제는 사용자 확인 대기.
 - 10/17 실서버+PortOne 테스트 채널(KG이니시스 V2)로 결제 창까지 확인: 처음엔 PortOne prepare가 400(구매자 이메일 필수) → `customer.email` 추가(카카오 이메일 또는 자리 주소), SDK 예외 메시지를 화면에 표시. 수정 뒤 이니시스 테스트 결제 창(stgstdpay.inicis.com) 열림 확인. 카드 승인은 사용자 확인 대기.
 - 10/17 실제 PortOne 테스트 채널(KG이니시스 V2) 승인 확인: 사용자가 카드 승인까지 진행 → 서버 확인이 500(customData 이중 인코딩) → 06a3149로 수정 후 승인된 결제 `fc-o-f6ebf221ab-mvbfdfzg`를 웹훅 경로로 재확인해 주문 FC-1017-1020이 RESERVED, `payments.provider=PORTONE`. 재시도로 생긴 중복 승인 1건은 PortOne API로 취소(CANCELLED). 웹훅 중복 호출은 "already processed"로 무시됨 확인.
+- 10/17 두 번째 실결제 확인: 주문 FC-1017-1022(노지 감귤 27,000) 승인 → `POST /pay` 200 → RESERVED, `payments.provider=PORTONE`. 끝까지 통과. 이후 사용자가 내 주문에서 같은 상품의 시드 주문(FC-0921-0011, 배송 기간 변경 제안)의 ‘전액 환불’을 눌러 그 주문이 환불됐고 실제 주문은 ‘예약 취소하기’ 대상이라 그대로였음 → API로 취소(REFUNDED)하고 PortOne에서 결제 취소. 뒤로가기로 열린 옛 결제 화면이 취소된 주문의 PG 창을 열던 문제는 f7fe808로 막음.
+- 후속(별도 이슈 필요): 소비자 취소·운영자 환불이 DB만 바꾸고 PortOne `cancel`을 호출하지 않는다. 실결제 전에 `Payment.provider_payment_id`로 PG 취소를 같이 부르도록 해야 한다. 내 주문 목록에서 같은 상품의 주문이 여럿이면 어느 주문인지 구분이 어렵다(주문번호·금액 강조 검토).
