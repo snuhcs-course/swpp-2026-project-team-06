@@ -304,6 +304,13 @@ export function ChatThread({
                     setReporting(m.messageId);
                     try {
                       await callbacks.current.report?.(m.messageId, makeKey());
+                      setMessages((old) =>
+                        old.map((item) =>
+                          item.messageId === m.messageId
+                            ? { ...item, reported: true }
+                            : item,
+                        ),
+                      );
                       const p = await load();
                       merge(p.items);
                       setError("");

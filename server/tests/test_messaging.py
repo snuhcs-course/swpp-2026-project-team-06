@@ -297,6 +297,8 @@ def test_AC_13_5_report_maps_question_and_marks_consumer_and_producer_views(clie
         )
     sent = ai_answer(client, consumer, producer)
     answer_id = sent["reply"]["messageId"]
+    newer = ai_answer(client, consumer, producer)
+    assert newer["reply"]["messageId"] != answer_id
     path = f"/api/messaging/chats/f-kang/messages/{answer_id}/report"
     report = client.post(path, headers=consumer | key())
     assert report.status_code == 200, report.text
