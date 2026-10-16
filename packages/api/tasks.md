@@ -149,3 +149,19 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 최종 로컬 UI 검증: `npx playwright test scripts/e2e/conversation-ui.spec.ts` 6/6 통과. 커밋 전·브랜치 diff 검사와 명세 대조 완료. 소수 중량 옵션도 정수 g로 판정하고 생산자 상품 편집 복귀 시 판매 품목을 다시 읽는다.
 - PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/98 (머지하지 않음). 최신 실서버 CI 결과와 AI 리뷰는 PR에 기록. Linear MCP는 읽기 전용이며 브라우저 연결도 실패해 이슈 상태 직접 수정은 미완료.
+
+## DEV-32 카카오 로그인 클라이언트
+
+- 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) · GitHub #77
+- 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
+- 기능·인수 조건: FEAT-01 / AC-01-8, AC-01-9 · ADR 0003·0010
+- 상태: 리뷰 중
+
+### 범위 (수정 허용 경로)
+- `packages/api/src/types.ts`(`KakaoConfig`), `packages/api/src/endpoints.ts`(`auth.kakaoConfig`, `auth.kakaoLogin`), `packages/api/src/mock/auth.ts`(Mock 두 경로), `packages/api/spec.md`, `packages/api/tasks.md`
+
+### 결정 사항
+- 10/17 Mock 모드의 `POST /api/auth/kakao`는 인가 코드와 무관하게 그 앱의 첫 테스트 계정(소비자 김민지)으로 로그인한다. 카카오 리다이렉트 없이 화면 흐름만 확인하기 위함.
+
+### 작업
+- [x] 타입·엔드포인트·Mock 추가, `npm run typecheck` 통과

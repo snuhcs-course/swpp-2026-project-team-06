@@ -71,6 +71,13 @@ export type User = {
 
 export type LoginResult = { accessToken: string; user: User };
 
+/** 카카오 로그인 설정(ADR 0003). enabled=false면 버튼을 숨긴다. redirectPath는 각 앱의 복귀 경로 */
+export type KakaoConfig = {
+  enabled: boolean;
+  clientId: string | null;
+  redirectPath: string;
+};
+
 /** 앱 구분(ADR 0010). 테스트 로그인·계정 목록에 쓴다 */
 export type App = "consumer" | "producer";
 /** 택배사 코드(screens.md 7.1) */

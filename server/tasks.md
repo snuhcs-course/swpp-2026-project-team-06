@@ -535,3 +535,17 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
   - 10/16 배송 예정 기간은 배송·수령 문맥이 있는 구절(줄바꿈·`!?;`·소수점/천 단위가 아닌 `.,`로 나눔)의 날짜로만 확인한다.
 - 작업: [x] 중량 옵션 정확 일치 [x] 당도 숫자 경계 [x] 배송 구절 한정 [x] AC-03-1 회귀 테스트 4개
 - 검증: Ruff, 전체 pytest 210개 통과.
+
+## DEV-32 카카오 로그인 서버
+- 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) (GitHub [#77](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/77))
+- 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-8, AC-01-9, AC-01-10, AC-01-11 · ADR 0003·0010
+- 상태: 리뷰 중
+- 범위(수정 허용 경로): `server/app/accounts/{router,schemas,service,spec}.py|md`, `server/tests/test_accounts.py`, `server/.env.example`, `server/tasks.md`. DB 스키마 변경 없음(`users.kakao_id`·(kakao_id, role) 유니크는 이미 있음)
+- 결정 사항:
+  - 10/17 `GET /api/auth/kakao/config`(공개)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 토큰 교환은 httpx 동기 클라이언트, 8초 타임아웃. `_kakao_fetch`만 바꿔 끼워 테스트한다.
+  - 10/17 복귀 주소는 CORS 허용 목록과 같은 두 앱 주소의 `/auth/kakao`만 받는다(오픈 리다이렉트·코드 가로채기 방지).
+  - 10/17 (카카오 식별자, 역할)마다 계정 하나. 처음이면 카카오계정 이메일(`account_email`, 없으면 닉네임, 둘 다 없으면 ‘카카오 사용자’)을 이름으로 만들고, 자리 이름은 다음 로그인에서 바꾸며 `is_test_account=false`, 연락처 빈 값. 키가 비면 404, 교환 실패·주소 불일치는 400이며 계정을 만들지 않는다.
+  - 10/17 리프레시 토큰은 넣지 않는다(0009와 같은 7일 액세스 토큰). 테스트 기간에는 Mock 로그인 플래그를 함께 켠다.
+- 작업: [x] 스키마·서비스·라우터 [x] pytest AC-01-8~11 [x] Ruff
+- 검증: Ruff 통과, 전체 pytest 217개 통과(신규 7개). 로컬 `.env`에 카카오 키가 있어 "꺼짐" 테스트는 키를 명시적으로 비운다.

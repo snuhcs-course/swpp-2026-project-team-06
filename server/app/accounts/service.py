@@ -2,6 +2,7 @@
 
 import re
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.accounts.models import ShippingAddress, User
 from app.accounts.schemas import (
     Address,
     AddressInput,
+    KakaoConfig,
     LoginResult,
     ProducerApplication,
     ProducerApplicationInput,
@@ -97,6 +99,124 @@ def test_login(db: Session, user_id: str, app: str) -> LoginResult:
     return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
 
 
+# ---- 카카오 로그인 (FEAT-01 I2, ADR 0003·0010) ----
+
+KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
+KAKAO_ME_URL = "https://kapi.kakao.com/v2/user/me"
+# 각 앱의 복귀 경로. 카카오 개발자 콘솔에는 <앱 주소>/auth/kakao 를 등록한다
+KAKAO_REDIRECT_PATH = "/auth/kakao"
+KAKAO_TIMEOUT_SECONDS = 8.0
+
+
+class KakaoError(Exception):
+    """카카오 토큰 교환·사용자 조회 실패."""
+
+
+def kakao_config() -> KakaoConfig:
+    settings = get_settings()
+    enabled = bool(settings.kakao_rest_api_key)
+    return KakaoConfig(
+        enabled=enabled,
+        client_id=settings.kakao_rest_api_key if enabled else None,
+        redirect_path=KAKAO_REDIRECT_PATH,
+    )
+
+
+def _require_kakao() -> None:
+    if not get_settings().kakao_rest_api_key:
+        raise not_found("지금은 카카오 로그인을 쓸 수 없어요.")
+
+
+def _allowed_redirect(redirect_uri: str, app: str) -> bool:
+    """그 앱 주소의 /auth/kakao 만 허용한다(CORS 허용 목록과 같은 출처).
+
+    다른 앱 주소로 받은 코드는 거절한다.
+    """
+    settings = get_settings()
+    base = settings.consumer_app_url if app == "consumer" else settings.producer_app_url
+    return redirect_uri == f"{base.rstrip('/')}{KAKAO_REDIRECT_PATH}"
+
+
+KAKAO_PLACEHOLDER_NAME = "카카오 사용자"
+
+
+def _kakao_fetch(code: str, redirect_uri: str) -> tuple[str, str]:
+    """인가 코드 → (카카오 식별자, 표시 이름). 표시 이름은 이메일(account_email), 없으면 닉네임.
+
+    연락처는 받지 않는다(FEAT-01 FQ-01). 테스트에서 바꿔 끼운다.
+    """
+    settings = get_settings()
+    data = {
+        "grant_type": "authorization_code",
+        "client_id": settings.kakao_rest_api_key,
+        "redirect_uri": redirect_uri,
+        "code": code,
+    }
+    if settings.kakao_client_secret:
+        data["client_secret"] = settings.kakao_client_secret
+    with httpx.Client(timeout=KAKAO_TIMEOUT_SECONDS) as http:
+        token = http.post(
+            KAKAO_TOKEN_URL,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded;charset=utf-8"},
+        )
+        if token.status_code != 200:
+            raise KakaoError(f"token exchange failed: {token.status_code}")
+        access_token = token.json().get("access_token")
+        if not access_token:
+            raise KakaoError("token exchange returned no access_token")
+        me = http.get(KAKAO_ME_URL, headers={"Authorization": f"Bearer {access_token}"})
+        if me.status_code != 200:
+            raise KakaoError(f"user lookup failed: {me.status_code}")
+    body = me.json()
+    kakao_id = body.get("id")
+    if kakao_id is None:
+        raise KakaoError("user lookup returned no id")
+    account = body.get("kakao_account") or {}
+    display = (
+        account.get("email")
+        or (account.get("profile") or {}).get("nickname")
+        or (body.get("properties") or {}).get("nickname")
+        or ""
+    )
+    return str(kakao_id), str(display)
+
+
+def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginResult:
+    """카카오 인가 코드로 로그인. (카카오 식별자, 역할)마다 계정 하나(ADR 0010). 없으면 만든다."""
+    _require_kakao()
+    if not _allowed_redirect(redirect_uri, app):
+        raise invalid(
+            {"redirectUri": "허용된 복귀 주소가 아니에요"}, "카카오 로그인 주소를 확인해 주세요."
+        )
+    try:
+        kakao_id, display = _kakao_fetch(code, redirect_uri)
+    except (KakaoError, httpx.HTTPError) as exc:
+        raise invalid(
+            {"code": "카카오 인증에 실패했어요"}, "카카오 로그인에 실패했어요. 다시 시도해 주세요."
+        ) from exc
+    role = APP_ROLE[app]
+    name = (display.strip() or KAKAO_PLACEHOLDER_NAME)[:100]
+    user = db.scalar(select(User).where(User.kakao_id == kakao_id, User.role == role))
+    if user is None:
+        user = User(
+            id=new_id("u"),
+            kakao_id=kakao_id,
+            is_test_account=False,
+            role=role,
+            name=name,
+            phone="",
+            created_at=now(),
+        )
+        db.add(user)
+        db.flush()
+    elif user.name == KAKAO_PLACEHOLDER_NAME and name != KAKAO_PLACEHOLDER_NAME:
+        # 동의 항목이 늦게 켜진 계정: 자리 이름을 실제 표시 이름으로 바꾼다
+        user.name = name
+        db.flush()
+    return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
+
+
 def _application_view(user: User, farm) -> ProducerApplication:
     return ProducerApplication(
         farm_id=farm.id,
@@ -175,9 +295,7 @@ def decide_producer_application(
     )
 
 
-def producer_decision_history(
-    db: Session, farm_id: str
-) -> list[ProducerDecisionHistoryView]:
+def producer_decision_history(db: Session, farm_id: str) -> list[ProducerDecisionHistoryView]:
     from app.farms import service as farms
 
     return farms.decision_history(db, farm_id)

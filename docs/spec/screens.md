@@ -146,12 +146,12 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 ### SCR-05 로그인 `/login` (소비자 앱)
 
-- **관련**: FEAT-01(AC-01-1, 4~6) · 규칙: N-06 · ADR 0009, 0010 · 우선순위: Must
-- **목적**: I1 소비자 테스트 계정을 골라 로그인한다(카카오 로그인은 I2).
-- **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, 약관·개인정보 처리방침 링크, ‘테스트 서비스’ 표시. 생산자 계정은 목록에 없다.
-- **입력·출력**: `GET /api/auth/test-accounts?app=consumer`로 목록, 고르면 `POST /api/auth/test-login`(`userId`, `app: consumer`) → 액세스 토큰과 사용자. 토큰은 packages/api가 앱별로 보관한다.
+- **관련**: FEAT-01(AC-01-1, 4~6, 8~11) · 규칙: N-06 · ADR 0003, 0009, 0010 · 우선순위: Must
+- **목적**: 카카오로 로그인하거나(I2, DEV-32) 소비자 테스트 계정을 골라 로그인한다(Mock 플래그가 켜진 동안).
+- **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, ‘카카오로 시작하기’ 버튼(카카오 공식 문구 중 하나, 노랑 #FEE500, 설정이 꺼져 있으면 숨김), 카카오가 켜져 있으면 테스트 계정 로그인은 없음. 꺼져 있을 때(CI·Mock 플래그만)만 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, 약관·개인정보 처리방침 링크, ‘테스트 서비스’ 표시. 생산자 계정은 목록에 없다.
+- **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부·클라이언트 ID. 카카오 버튼 → 돌아갈 화면·행동을 sessionStorage에 두고 카카오 인가 화면(`state`=일회용 값) → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: consumer`) → 토큰과 사용자. 테스트 계정은 `GET /api/auth/test-accounts?app=consumer`로 목록, 고르면 `POST /api/auth/test-login`(`userId`, `app: consumer`). 토큰은 packages/api가 앱별로 보관한다.
 - **버튼 동작**: 계정 선택 → 로그인 후 누른 화면·행동으로 복귀(관문 시트에서 왔으면 그 행동을 이어서 실행).
-- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) ‘지금은 로그인할 수 없어요’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
+- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) 테스트 계정 목록 대신 ‘지금은 로그인할 수 없어요’(카카오 버튼은 설정대로). 카카오를 취소하거나(`error=access_denied`) `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’·‘홈으로’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
 
 ### SCR-10 주문서 `/checkout/:productId`
 
@@ -401,7 +401,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 ### 7.1 공통
 
 - **기준 주소**: 서버의 `/api`(앱), `/admin`(운영자, Swagger UI), `/s`(공유 링크). 버전 접두어는 쓰지 않는다([server/spec.md](/server/spec.md)).
-- **인증**: `Authorization: Bearer <액세스 토큰>`. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수)으로 받는다. 토큰에는 계정의 역할(`CONSUMER`·`PRODUCER`)이 들어 있다. 표의 ‘공개’는 토큰 없이 된다.
+- **인증**: `Authorization: Bearer <액세스 토큰>`. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수)으로 받고, I2 소비자 앱은 카카오 로그인(`POST /api/auth/kakao`)으로도 받는다(DEV-32). 토큰에는 계정의 역할(`CONSUMER`·`PRODUCER`)이 들어 있다. 표의 ‘공개’는 토큰 없이 된다.
 - **앱 간 토큰**: 소비자 계정과 생산자 계정은 따로다(ADR 0010). 소비자 API를 생산자 계정 토큰으로, 생산자 API를 소비자 계정 토큰으로 부르면 403 `FORBIDDEN`(`details.reason: WRONG_APP`). 앱은 이 응답을 받으면 토큰을 지우고 그 앱의 로그인으로 보낸다. 공개 API와 `GET /api/auth/me`는 두 계정 모두 된다.
 - **오류 형식**: 모든 오류는 `{"code": "...", "message": "...", "details": {}}`. `message`는 화면에 그대로 보일 한국어 문구(정책 문서), `details`는 필드별 오류·최신 값 등.
 
@@ -435,6 +435,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | --- | --- | --- | --- | --- | --- | --- |
 | `GET /api/auth/test-accounts` | 공개(Mock 플래그) | SCR-05, 19 | `app`(`consumer`·`producer`, 필수) | 그 앱의 시드 테스트 계정 목록(`userId`, 이름, 역할, 농가명, 농가 상태). 소비자 앱은 소비자 계정만, 생산자 앱은 생산자 계정만 | FEAT-01 | Must |
 | `POST /api/auth/test-login` | 공개(Mock 플래그) | SCR-05, 19 | `userId`, `app` | `accessToken`, 사용자(역할, 농가 상태). 시드 계정이 아니면 404, 플래그가 꺼지면 404, 계정 역할이 `app`과 다르면 403 `WRONG_APP` | FEAT-01 | Must |
+| `GET /api/auth/kakao/config` | 공개 | SCR-05 | — | `enabled`(REST API 키 유무), `clientId`, `redirectPath`(`/auth/kakao`) | FEAT-01 I2 | Must |
+| `POST /api/auth/kakao` | 공개 | `/auth/kakao` 복귀 | `code`, `redirectUri`(두 앱 주소의 `/auth/kakao`만), `app` | `accessToken`, 사용자. (카카오 식별자, 역할) 계정을 찾거나 만든다. 키가 없으면 404, 복귀 주소·카카오 인증 실패면 400 | FEAT-01 I2 | Must |
 | `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작, 정지 안내 | — | 사용자, 역할, 농가 상태(`NONE`·`PENDING`·`REJECTED`·`APPROVED`·`SUSPENDED`), 정지 사유 | FEAT-01 | Must |
 | `POST /api/auth/producer-application` | 생산자 계정 | SCR-20 | `ownerName`(대표자 이름), 농가명, 지역, 주 품목, 연락처, 입점 정책 동의 | 농가(`PENDING`), 계정 이름을 대표자 이름으로 | FEAT-01 | Should |
 | `GET /api/auth/producer-application` | 생산자 계정 | SCR-20, 21 | — | 신청 상태, 반려 사유, 신청 내용(대표자 이름·농가명·지역·주 품목·연락처, 신청일) | FEAT-01 | Should |

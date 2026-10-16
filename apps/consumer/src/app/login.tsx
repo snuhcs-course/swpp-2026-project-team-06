@@ -1,5 +1,5 @@
 // SCR-05 로그인 — 테스트 계정 선택(ADR 0009) — design: scr-05
-import { auth, type TestAccount } from "@farmclub/api";
+import { auth, isMock, type TestAccount } from "@farmclub/api";
 import {
   Button,
   EmptyState,
@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { beginKakaoLogin, kakaoRedirectUri } from "../lib/kakao";
 import { useSession } from "../lib/session";
 import { isStatus } from "../lib/views";
 
@@ -34,10 +35,14 @@ export default function Login() {
   const router = useRouter();
   const { refresh, resume, clearResume } = useSession();
   const { data: all, error, reload } = useAsync(() => auth.testAccounts(), []);
+  // 카카오 로그인 사용 여부(ADR 0003). 꺼져 있으면 버튼을 숨긴다
+  const kakao = useAsync(() => auth.kakaoConfig(), []);
   const data = consumerOnly(all);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  // 카카오가 켜져 있으면 카카오 로그인만 둔다(사용자 결정 10/17). 꺼져 있으면(CI·Mock 플래그만) 테스트 계정 목록을 보여 준다
+  const showTest = kakao.error ? true : kakao.data ? !kakao.data.enabled : false;
 
   useEffect(() => {
     if (data && !picked) setPicked(data[0]?.userId ?? null);
@@ -60,6 +65,36 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
+  }
+
+  const target = next && next.startsWith("/") ? next : "/";
+
+  // 카카오로 시작하기(FEAT-01 I2). 돌아갈 화면·행동을 저장하고 카카오 인가 화면으로 나간다. 복귀는 /auth/kakao
+  async function kakaoLogin() {
+    const cfg = kakao.data;
+    if (!cfg?.enabled || busy) return;
+    setFailed(null);
+    if (isMock) {
+      // Mock: 리다이렉트 없이 바로 로그인(김민지)
+      setBusy(true);
+      try {
+        await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));
+        await refresh();
+        if (resume && router.canGoBack()) router.back();
+        else router.replace(target as never);
+      } catch {
+        setFailed("카카오 로그인에 실패했어요. 다시 시도해 주세요.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    const url = beginKakaoLogin(cfg, target, resume);
+    if (!url) {
+      setFailed("이 브라우저에서는 카카오 로그인을 쓸 수 없어요. 테스트 계정으로 로그인해 주세요.");
+      return;
+    }
+    window.location.assign(url);
   }
 
   return (
@@ -93,7 +128,33 @@ export default function Login() {
             />
           ) : null}
         </View>
-        {error ? (
+        {kakao.data?.enabled ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="카카오로 시작하기"
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
+              onPress={() => void kakaoLogin()}
+              style={({ pressed }) => ({
+                minHeight: tokens.height.button,
+                borderRadius: 12,
+                backgroundColor: pressed ? "#F2D900" : "#FEE500",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: busy ? 0.6 : 1,
+              })}
+            >
+              <T variant="body" weight="semibold" color="#191919">
+                카카오로 시작하기
+              </T>
+            </Pressable>
+            <T variant="caption" muted center>
+              카카오에서는 계정 이메일만 받아요. 연락처는 주문할 때 입력해요.
+            </T>
+          </View>
+        ) : null}
+        {!showTest ? null : error ? (
           isStatus(error, 404) ? (
             <EmptyState
               icon="lock"
@@ -184,12 +245,14 @@ export default function Login() {
           로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트
           서비스
         </T>
-        <Button
-          label={account ? `${ro(account.name)} 로그인` : "로그인"}
-          disabled={!account}
-          loading={busy}
-          onPress={login}
-        />
+        {showTest ? (
+          <Button
+            label={account ? `${ro(account.name)} 로그인` : "로그인"}
+            disabled={!account}
+            loading={busy}
+            onPress={login}
+          />
+        ) : null}
       </View>
     </Screen>
   );

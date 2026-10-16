@@ -19,7 +19,8 @@
 | SCR-02 | 농가 목록 | `/farms` | `src/app/(tabs)/farms/index.tsx` | FEAT-06 |
 | SCR-03 | 농가 페이지 | `/farms/:farmId` | `src/app/(tabs)/farms/[farmId].tsx` | FEAT-02, 06, 12, 15, 19 |
 | SCR-04 | 상품 상세 | `/products/:productId` | `src/app/(tabs)/products/[productId].tsx` | FEAT-07 |
-| SCR-05 | 로그인(소비자 테스트 계정만) | `/login` | `src/app/login.tsx` | FEAT-01 |
+| SCR-05 | 로그인(카카오 · 소비자 테스트 계정) | `/login` | `src/app/login.tsx` | FEAT-01 |
+| SCR-05 하위 | 카카오 로그인 복귀 | `/auth/kakao` | `src/app/auth/kakao.tsx` | FEAT-01 |
 | SCR-10 | 주문서 | `/checkout/:productId` | `src/app/checkout/[productId]/index.tsx` | FEAT-08 |
 | SCR-10 하위 | 배송지 입력 | `/checkout/:productId/address` | `src/app/checkout/[productId]/address.tsx` | FEAT-08 |
 | SCR-11 | 결제 | `/checkout/:productId/pay` | `src/app/checkout/[productId]/pay.tsx` | FEAT-09 |
@@ -91,3 +92,7 @@ AC-10-6/7: orderGroups의 상태별 분류·정렬을 사용하고, 기존 전�
 
 제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
 FarmRoom은 `/farms/:id`와 `/news/:id`의 공용 컨테이너이고 `/farms/:id/info`는 짧은 정보다. 판매 품목 상태는 대화와 분리하며 권한 변경 때 메시지를 재마운트해 폐기한다. 상품 상세의 BottomBar는 aboveTabs로 고정한다. 홈의 공개 news와 제품 비교 가격은 기존 API를 조합한다.
+
+## DEV-32 카카오 로그인 (SCR-05 · `/auth/kakao`)
+
+카카오 로그인은 전체 페이지 리다이렉트라 React 상태(`resume`)가 사라진다. 그래서 `lib/kakao.ts`가 돌아갈 화면과 이어서 할 행동을 sessionStorage에 두고 인가 요청 `state`(일회용 값)와 함께 저장하며, `/auth/kakao`가 `state`를 대조한 뒤 한 번만 꺼내 `POST /api/auth/kakao` → `refresh()` → `restoreResume()` → `router.replace(next)` 순으로 복귀한다. 카카오 설정(`enabled`, `clientId`, `redirectPath`)은 서버 `GET /api/auth/kakao/config`에서 받고 앱 env에 키를 두지 않는다. Mock 모드는 리다이렉트 없이 바로 로그인한다. 테스트 계정 로그인은 Mock 플래그가 켜진 동안 같은 화면에 남는다. 리프레시 토큰·생산자 앱 카카오 화면은 범위 밖.
