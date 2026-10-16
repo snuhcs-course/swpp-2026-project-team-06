@@ -472,7 +472,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 
 ### 범위 (수정 허용 경로)
 - `server/**`
-- `docs/spec/screens.md`, `docs/spec/functional/**`, `docs/spec/tech-design/**`
+- `docs/spec/screens.md`, `docs/spec/functional/**`, `docs/spec/tech-design/**`, `docs/spec/contracts-1.2.md`(5장 환불 알림 영속화, 10/16 추가)
 - `docs/wiki/Design-Documentation.md`, `docs/wiki/Testing-Documentation.md`, `docs/wiki/Requirements-and-Specifications.md`
 
 ### 비범위 (건드리지 않음)
@@ -501,14 +501,14 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [x] 공통 환불 이력·부분/최종 환불·결제 상태와 주문 상태 불변 규칙
 - [x] 생산자 결정 이력과 공급 물량 결정 관리자 기록
 - [x] 운영자 작업 멱등·감사 failure wrapper와 예외 목록·상세·재시도·해결 API
-- [ ] PR #99 머지 뒤 환불 요청 알림 영속화 통합
+- [x] PR #99 머지 뒤 환불 요청 알림 영속화 통합
 - [x] 서버 구현 결정·한국어 스펙·영문 wiki 갱신
 
 ### 완료 조건
 - [x] 모든 환불 경로가 중복 없이 이력과 결제 상태를 기록하고 부분 환불이 주문 흐름을 바꾸지 않음
 - [x] 생산자 결정 이력과 운영자 예외 조회·허용된 재시도·해결이 ADMIN 전용으로 동작
 - [x] 원문 body·원 actor 재시도, 4xx·transient·commit failure·감사 이중 실패 회귀 테스트 통과
-- [ ] 환불 알림은 해결 가능·재시도 불가이며 preview·rollback·replay·race loser에서 생성되지 않음
+- [x] 환불 알림은 해결 가능·재시도 불가이며 preview·rollback·replay·race loser에서 생성되지 않음
 - [x] 집중 테스트, 전체 PostgreSQL pytest, Ruff, Alembic upgrade/downgrade/re-upgrade/check 통과
 - [ ] `git diff main...HEAD` 범위 감사와 AI 1차 리뷰 후 사람 리뷰 1명 승인
 
@@ -520,3 +520,4 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/16 `origin/main` 대비 범위를 감사해 변경이 허용된 `server/**`, 지정 `docs/spec/**`, `docs/wiki/**`에만 있음을 확인했다. Mock·앱·공용 패키지는 변경하지 않았다.
 - 10/16 리뷰에서 같은 키·다른 본문 요청이 성공 감사를 REJECTED로 덮어쓰는 문제를 재현해 고쳤다. 테스트 이름을 AC·규칙 ID로 바꾸고 키 필수·ADMIN 권한·backfill SQL(결제 유무)·실패 이벤트 보존 회귀를 추가했다.
 - 10/16 draft PR #114를 열었다. 남은 단계는 PR #99 머지 뒤 환불 알림 영속화, AI 1차 리뷰, 사람 리뷰다.
+- 10/16 PR #99 머지 뒤 `main`을 병합했다(`server/tasks.md` 충돌만). `consumer_send`가 DEV-31 알림을 만들 때 같은 트랜잭션에서 `manager_refund_request` OPEN 이벤트를 저장하도록 통합했다. AI OFF 저장, 순차 replay·동시 경쟁 1건, rollback·preview·일반 메시지 미저장 회귀를 추가했고 Ruff·전체 pytest 206개가 통과했다.

@@ -73,7 +73,7 @@
 - 모델 답은 `{action,answer,reason,sourceRefs}` JSON이며 `sourceRefs`는 모델에 실제 전달한 `product:{id}`, `order:{id}`, `farm:faq`, `farm:smallOrderPolicy`, `farm:reservationShippingPolicy` 문자열만 허용한다. 답의 숫자·날짜는 인용 근거에 있어야 하고 예상 당도만 있으면 ‘예상’을 표시한다. 기존 저장 문자열(`ai:evidence` 포함)은 계속 표시한다.
 - preview는 저장/메시지/전달 질문/AI 모드/운영자 환불 알림을 변경하지 않는다. settings가 있으면 임시 값, 없으면 저장 설정으로 답변과 근거를 보여준다. ANSWER에서만 answer가 문자열이고 나머지는 null이다. 주문은 자기 농가의 것만 조회하며 개인정보는 제거한다. 임시 설정 근거는 settingsVersion=null, 저장 버전 사용 시 해당 version.
 - 실응답마다 사용한 설정 버전과 상품/주문/농가 설정의 근거를 기록한다. UI에는 AI 안내를 표시한다. 질문뿐 아니라 상품명·FAQ·원칙의 모델 전송 복사본에서도 연락처·주소를 제거하고 민감한 사진은 전달하지 않는다.
-- 환불·보상 의도는 AI OFF·HUMAN에서도 감지하되 메시지 멱등 트랜잭션이 커밋된 뒤, 반환된 `messageId`가 그 요청에서 만든 메시지와 같을 때만 개인정보 없는 운영 로그를 한 번 남긴다. rollback/commit 실패, 순차 cached replay, 멱등 경쟁 loser에는 남기지 않는다.
+- 환불·보상 의도는 AI OFF·HUMAN에서도 감지하되 메시지 멱등 트랜잭션이 커밋된 뒤, 반환된 `messageId`가 그 요청에서 만든 메시지와 같을 때만 개인정보 없는 운영 로그를 한 번 남긴다. 같은 메시지 트랜잭션에 `messageId`로 유일한 운영자 예외 `OPEN` 이벤트(`manager_refund_request`)를 저장하며, 본문·소비자 정보는 저장하지 않는다. rollback/commit 실패, 순차 cached replay, 멱등 경쟁 loser에는 남기지 않는다.
 - Mock은 같은 입력·출력/우선순위를 검증하는 결정적 응답으로 구현하고 실제 AI 호출처럼 표시하지 않는다.
 
 ## 6. 주문 문제 문의·비공개 사진 (SCR-32, FEAT-33)
