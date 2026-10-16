@@ -84,6 +84,27 @@ def submit_application(
     return farm
 
 
+def decide_application(
+    db: Session, farm_id: str, approved: bool, reason: str | None = None
+) -> Farm:
+    farm = db.scalar(select(Farm).where(Farm.id == farm_id).with_for_update())
+    if farm is None:
+        raise not_found("신청 농가를 찾을 수 없어요.")
+    if farm.approval_status != "PENDING":
+        raise conflict("INVALID_TRANSITION", "대기 중인 신청만 처리할 수 있어요.")
+
+    reject_reason = (reason or "").strip()
+    if not approved and not reject_reason:
+        raise invalid({"reason": "반려 사유를 적어 주세요"})
+
+    farm.approval_status = "APPROVED" if approved else "REJECTED"
+    farm.reject_reason = None if approved else reject_reason
+    farm.suspend_reason = None
+    farm.decided_at = now()
+    db.flush()
+    return farm
+
+
 def get_approved_farm(db: Session, farm_id: str) -> Farm | None:
     farm = db.get(Farm, farm_id)
     return farm if farm and farm.approval_status == "APPROVED" else None

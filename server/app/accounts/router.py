@@ -11,14 +11,17 @@ from app.accounts.schemas import (
     LoginResult,
     ProducerApplication,
     ProducerApplicationInput,
+    ProducerDecision,
+    ProducerDecisionInput,
     TestAccount,
     TestLoginInput,
     UserView,
 )
 from app.core.db import get_db
-from app.core.security import Consumer, CurrentUser, Producer
+from app.core.security import Admin, Consumer, CurrentUser, Producer
 
 router = APIRouter(prefix="/auth", tags=["accounts"])
+admin_router = APIRouter(prefix="/admin/producers", tags=["admin"])
 
 Db = Annotated[Session, Depends(get_db)]
 
@@ -62,3 +65,17 @@ def add_address(db: Db, user: Consumer, body: AddressInput):
     address = service.add_address(db, user.id, body)
     db.commit()
     return address
+
+
+@admin_router.post("/{farm_id}/approve", response_model=ProducerDecision)
+def approve_producer(db: Db, _: Admin, farm_id: str):
+    result = service.decide_producer_application(db, farm_id, approved=True)
+    db.commit()
+    return result
+
+
+@admin_router.post("/{farm_id}/reject", response_model=ProducerDecision)
+def reject_producer(db: Db, _: Admin, farm_id: str, body: ProducerDecisionInput):
+    result = service.decide_producer_application(db, farm_id, approved=False, reason=body.reason)
+    db.commit()
+    return result
