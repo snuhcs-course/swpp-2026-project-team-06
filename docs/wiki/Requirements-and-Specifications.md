@@ -306,8 +306,8 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 **AC-09-2: Payment failure**
 - **GIVEN** I have an unpaid order
-- **WHEN** I choose the failure result
-- **THEN** stock does not go down and I return to checkout
+- **WHEN** I pay with a declined card (simulated: last four digits 0000)
+- **THEN** I see the reason, stock does not go down and I can return to checkout
 
 **AC-09-3: Retry with the same key**
 - **GIVEN** I sent a payment request
@@ -600,7 +600,7 @@ Key consumer screens:
 | **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
 | **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
 | **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents | Change option or address, check consents, Pay | Address → address screen; Pay → SCR-11 | Pay is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input |
-| **SCR-11 Payment (simulated)** | Pay the full amount; demo success/failure switch | Pay once (button locks while processing) | Success → SCR-12 | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
+| **SCR-11 Payment (simulated)** | Pay the full amount with a test card (no input) or by entering card number, expiry and CVC; the charge itself is still simulated | Pay once (button and back lock while processing) | Success → SCR-12 with payment time and card last four digits | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
 | **SCR-12 Order complete** | Reservation information and following | Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
 | **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
 | **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions | Cancel (confirm sheet), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
