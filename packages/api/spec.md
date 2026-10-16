@@ -65,3 +65,7 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
 productPresentation은 동일 옵션 마지막 기간 비교 가격을 계산하고 목록 상세 조회를 최대 4개 동시 요청으로 제한한다. API 필드/엔드포인트는 바꾸지 않는다. p-house 신규 Mock seed만 승인된 단일 농가 이야기 이미지가 있다.
+
+## DEV-56/57/58 integration
+
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.

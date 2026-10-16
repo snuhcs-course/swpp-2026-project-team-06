@@ -14,6 +14,7 @@ from app.core.security import ApprovedProducer
 from app.source_analysis import service as s
 from app.source_analysis.models import Asset, Batch, Draft, Page
 from app.source_analysis.schemas import (
+    ApplyDraft,
     Assignment,
     BatchCreate,
     BatchPatch,
@@ -118,7 +119,7 @@ def upload(
     else:
         if len(text) > 30_000:
             raise ApiError(413, "PAYLOAD_TOO_LARGE", "텍스트는 30,000자까지 넣어 주세요.")
-        data, name = text.encode("utf-8"), "source.txt"
+        data, name = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8"), "source.txt"
     return commit(
         db, s.upload(db, row, data, name, target_ids, common, batch_version, original_photo)
     )
@@ -220,7 +221,9 @@ def start(bid: str, body: RunStart, who: ApprovedProducer, db: DB, key: Key = No
             f"{bid}/runs",
             key,
             body.model_dump(),
-            lambda: s.start_run(db, s.batch(db, who[1].id, bid), body.batch_version),
+            lambda: s.start_run(
+                db, s.batch(db, who[1].id, bid), body.batch_version, visual_pages=body.visual_pages
+            ),
         ),
     )
 
@@ -315,3 +318,49 @@ def remove(bid: str, body: Version, who: ApprovedProducer, db: DB):
     row = s.batch(db, who[1].id, bid)
     s.version(row.version, body.version)
     return commit(db, s.delete_batch(db, row))
+
+
+@router.get("/batches/{bid}/runs")
+def runs(bid: str, who: ApprovedProducer, db: DB):
+    from app.source_analysis.models import Run
+
+    s.batch(db, who[1].id, bid, False)
+    return {
+        "items": [
+            s.run_view(db, r)
+            for r in db.scalars(
+                select(Run).where(Run.batch_id == bid).order_by(Run.created_at.desc())
+            )
+        ]
+    }
+
+
+@router.get("/batches/{bid}/drafts")
+def drafts(bid: str, who: ApprovedProducer, db: DB):
+    s.batch(db, who[1].id, bid, False)
+    return {
+        "items": [
+            s.json_row(d)
+            for d in db.scalars(
+                select(Draft).where(Draft.batch_id == bid).order_by(Draft.created_at.desc())
+            )
+        ]
+    }
+
+
+@router.post("/batches/{bid}/drafts/{did}/apply")
+def apply(bid: str, did: str, body: ApplyDraft, who: ApprovedProducer, db: DB, key: Key = None):
+    from app.source_analysis.publish import apply_draft
+
+    s.batch(db, who[1].id, bid, False)
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            f"{bid}/{did}/apply",
+            key,
+            body.model_dump(),
+            lambda: apply_draft(db, s.batch(db, who[1].id, bid), draft_for(db, bid, did), body),
+        ),
+    )

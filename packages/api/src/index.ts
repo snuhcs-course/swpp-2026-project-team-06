@@ -26,3 +26,5 @@ export function health(): Promise<{ status: "ok" }> {
 
 export { allPages } from "./pagination";
 export { referencePrice, productPrices } from "./productPresentation";
+
+export * from "./sourceAnalysis";

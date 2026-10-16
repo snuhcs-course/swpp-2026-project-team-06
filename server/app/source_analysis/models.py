@@ -71,7 +71,8 @@ class Run(Base):
     batch_id: Mapped[str] = mapped_column(ForeignKey("source_batches.id"), index=True)
     mode: Mapped[str] = mapped_column(String(16))
     model: Mapped[str] = mapped_column(String(100))
-    prompt_version: Mapped[str] = mapped_column(String(30), default="source-v1")
+    visual_pages: Mapped[dict] = mapped_column(JSON, default=dict)
+    prompt_version: Mapped[str] = mapped_column(String(30), default="source-v2")
     targets: Mapped[list] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(32), default="QUEUED")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -147,3 +148,20 @@ class RequestRecord(Base):
     key: Mapped[str] = mapped_column(String(128))
     digest: Mapped[str] = mapped_column(String(64))
     response: Mapped[dict] = mapped_column(JSON)
+
+
+class PublicPhoto(Base):
+    __tablename__ = "source_public_photos"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), index=True)
+    storage_key: Mapped[str] = mapped_column(String(300))
+
+
+class Spend(Base):
+    # No FK to jobs: deleting source material must never erase the cost ledger.
+    __tablename__ = "source_spend"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reserved_micros: Mapped[int] = mapped_column(Integer)
+    charged_micros: Mapped[int | None] = mapped_column(Integer)
+    evaluation: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

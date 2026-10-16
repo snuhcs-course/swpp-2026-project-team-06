@@ -1,4 +1,5 @@
-import { DetailStory, Price } from "@farmclub/ui";
+import { apiUrl } from "@farmclub/api";
+import { ModuleStory, DetailStory, Price } from "@farmclub/ui";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
 import { catalog, farms, referencePrice } from "@farmclub/api";
 import {
@@ -238,11 +239,18 @@ export default function ProductPage() {
           </Fold>
         </View>
 
-        <DetailStory
-          content={p.detailContent}
-          fallback={p.description}
-          title="농가 이야기"
-        />
+        {p.moduleDetail ? (
+          <ModuleStory
+            content={p.moduleDetail}
+            mediaUrl={(uri) => (uri.startsWith("/") ? apiUrl + uri : uri)}
+          />
+        ) : (
+          <DetailStory
+            content={p.detailContent}
+            fallback={p.description}
+            title="농가 이야기"
+          />
+        )}
 
         <View
           style={{

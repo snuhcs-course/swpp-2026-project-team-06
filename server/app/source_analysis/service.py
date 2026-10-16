@@ -324,7 +324,7 @@ def privacy(db, row, source, body):
     return asset_view(source)
 
 
-def start_run(db, row, expected, retry_items=None):
+def start_run(db, row, expected, retry_items=None, visual_pages=None):
     version(row.version, expected)
     if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         raise conflict("RUN_ACTIVE", "이미 분석하고 있어요.")
@@ -334,7 +334,22 @@ def start_run(db, row, expected, retry_items=None):
     if not sources:
         raise invalid({"sources": "자료를 먼저 넣어 주세요."})
     settings = get_settings()
+    visual_pages = visual_pages or {}
+    for sid, numbers in visual_pages.items():
+        source = next((a for a in sources if a.id == sid), None)
+        if source is None or source.status != "PREPARED" or not source.privacy_approved:
+            raise invalid({"visualPages": "가림 검토를 마친 자료만 시각 분석할 수 있어요."})
+        if (
+            not numbers
+            or len(set(numbers)) != len(numbers)
+            or any(
+                n not in {p.number for p in pages_for(db, source) if p.sanitized_key}
+                for n in numbers
+            )
+        ):
+            raise invalid({"visualPages": "이미지가 있는 페이지를 선택해 주세요."})
     run = Run(
+        visual_pages=visual_pages,
         batch_id=row.id,
         mode=settings.source_analysis_provider,
         model=settings.source_analysis_model,
@@ -363,7 +378,7 @@ def start_run(db, row, expected, retry_items=None):
                         status=(
                             "PRIVACY_REVIEW"
                             if old.phase == "EXTRACT"
-                            and run.mode == "openai"
+                            and run.mode != "mock"
                             and not source.privacy_approved
                             else "QUEUED"
                         ),
@@ -428,7 +443,7 @@ def retry(db, row, run, body):
         raise conflict(
             "RETRY_ACK_REQUIRED", "재호출 비용이 생길 수 있어요. 확인 후 재시도해 주세요."
         )
-    return start_run(db, row, row.version, items)
+    return start_run(db, row, row.version, items, run.visual_pages)
 
 
 def review(db, row):
@@ -631,13 +646,21 @@ def save_drafts(db, row, body):
                 modes.add(db.get(Run, db.get(Item, candidate.item_id).run_id).mode)
         snapshot = {
             "schemaVersion": 1,
+            "batchVersion": row.version,
+            "sourceVersions": {
+                sid: {
+                    "revision": asset(db, row.id, sid).revision,
+                    "sanitizationVersion": asset(db, row.id, sid).sanitization_version,
+                }
+                for sid in sources
+            },
             "targetId": target.target_id,
             "reviewVersion": row.review_version,
             "modules": modules,
             "warnings": warnings,
             "sourceIds": sorted(sources),
             "evidence": evidence,
-            "mode": "mock" if "mock" in modes else ("openai" if modes else "producer"),
+            "mode": "mock" if "mock" in modes else (sorted(modes)[0] if modes else "producer"),
             "previewModules": [
                 {
                     "id": m["id"],

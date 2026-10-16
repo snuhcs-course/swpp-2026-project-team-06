@@ -93,3 +93,7 @@ OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다
 ## I2 생산자 오류 복구 (DEV-29/34/38)
 
 SCR-24는 초안·상품 생성 요청을 하나씩 수행하고 빈 문자열·빈 배열을 확인 필요로 취급한다. SCR-25는 원산지·보관 필수값도 현재 폼에서 검사한다. SCR-30은 Web Share 취소와 실패를 구분하고 실패 시 기존 복사 경로를 사용한다. SCR-29는 출하 중 확인/선택을 잠그고 기존 데이터가 있어도 갱신 오류와 재시도를 표시한다. 농가 조회/수정 응답의 shareUrl은 실제 서버 공유 페이지의 절대 주소다. 나머지 서버 계약 변경 없음.
+
+## DEV-56/57/58 integration
+
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.

@@ -1,3 +1,5 @@
+> DEV-56/57/58 current integration contract: [source-integration.md](./source-integration.md). This supersedes the DEV-54 model and integration-status notes below.
+
 # 기존 자료 일괄 분석 · 제품 명세 (DEV-53)
 
 > 결정일: 2026-10-14. **DEV-54에서 비공개 백엔드 구현, 앱 UI·공개 반영은 후속 작업.** 기존 프로토타입의 로컬 처리와 기존 상세 API는 유지한다. 사용자 결정과 초기 운영 기본값을 구분한다.

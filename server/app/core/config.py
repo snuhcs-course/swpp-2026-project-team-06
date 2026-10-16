@@ -38,7 +38,14 @@ class Settings(BaseSettings):
 
     source_analysis_enabled: bool = False
     source_analysis_provider: str = "mock"
-    source_analysis_model: str = "gpt-6.1-sol"
+    source_analysis_model: str = "google/gemini-3.1-flash-lite"
+    openrouter_api_key: str = ""
+    source_visual_model: str = ""
+    source_openai_fallback_model: str = ""
+    source_budget_usd: float = 5.0
+    source_evaluation_budget_usd: float = 1.0
+    source_evaluation: bool = False
+    source_max_output_tokens: int = 4096
     openai_api_key: str = ""
     source_storage: str = "local"
     source_storage_dir: str = ".artifacts/private-sources"
@@ -54,8 +61,20 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _source_settings(self) -> "Settings":
         if self.source_analysis_enabled:
-            if self.source_analysis_provider not in ("mock", "openai"):
+            if self.source_analysis_provider not in ("mock", "openai", "openrouter"):
                 raise ValueError("Invalid source analysis provider")
+            if not (
+                0 < self.source_budget_usd <= 100
+                and 0 < self.source_evaluation_budget_usd <= self.source_budget_usd
+            ):
+                raise ValueError("Invalid source budget limits")
+            if not 256 <= self.source_max_output_tokens <= 8000:
+                raise ValueError("Invalid source output token limit")
+            if self.source_analysis_provider == "openrouter" and (
+                not self.openrouter_api_key
+                or self.source_analysis_model != "google/gemini-3.1-flash-lite"
+            ):
+                raise ValueError("OpenRouter key and budget-qualified Gemini model are required")
             if self.source_analysis_provider == "openai" and not self.openai_api_key:
                 raise ValueError("OPENAI_API_KEY is required for source analysis")
             if self.app_env != "local" and self.source_analysis_provider == "mock":

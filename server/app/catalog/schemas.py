@@ -97,6 +97,7 @@ class ProductDetail(ProductCard):
     detail_content: DetailContent | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    module_detail: dict | None = Field(default=None, exclude_if=lambda value: value is None)
     grade: str | None
     measured_brix: float | None
     measured_brix_at: datetime | None
@@ -127,6 +128,7 @@ class MyProduct(SalesState):
     detail_content: DetailContent | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    module_detail: dict | None = Field(default=None, exclude_if=lambda value: value is None)
     grade: str | None
     expected_brix: float | None
     measured_brix: float | None

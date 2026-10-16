@@ -48,6 +48,13 @@ export default function Products() {
   return (
     <Screen>
       <LargeTitle title="상품" subtitle="예약 현황을 보고 판매를 관리해요" />
+      <View style={{ paddingHorizontal: 20 }}>
+        <Button
+          label="자료로 상세 만들기"
+          variant="outline"
+          onPress={() => router.push("/products/source-analysis")}
+        />
+      </View>
       <View style={{ paddingVertical: 20 }}>
         <ScrollView
           horizontal

@@ -63,3 +63,7 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
 Storefront의 Price/ProductShelf/NewsCard/FeedCarousel/ChatChoices/BrandHeader는 API 없는 표현 컴포넌트다. 제목 28/36, 메타 13/18, 탭 72, 터치 48. ProductShelf의 local state로 전송/접기에서 대화를 재마운트하지 않는다. NewsRoom은 producer 시스템 안내를 본문에 두고 소비자 안내를 제거한다.
+
+## DEV-56/57/58 integration
+
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.

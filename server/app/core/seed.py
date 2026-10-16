@@ -29,6 +29,7 @@ from app.messaging.models import (
     ThreadMessage,
 )
 from app.orders.models import Order, Payment
+from app.source_analysis import models as _source_models  # noqa: F401
 
 KST = timezone(timedelta(hours=9))
 SEED_MARKER = "u-minji"

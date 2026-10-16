@@ -11,9 +11,11 @@ from threading import Event, Thread
 
 from sqlalchemy import delete, select
 
+from app.accounts import models as _account_models  # noqa: F401
 from app.ai.source_analysis import ExtractionError, extract
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
+from app.farms import models as _farm_models  # noqa: F401
 from app.source_analysis.models import (
     Asset,
     Batch,
@@ -21,6 +23,7 @@ from app.source_analysis.models import (
     Draft,
     Item,
     Page,
+    PublicPhoto,
     ReviewedField,
     Run,
     new_id,
@@ -147,7 +150,38 @@ def lock_context(db, item_id, token):
 
 
 def enqueue_extraction(db, source, run, item, pages):
+    if source.original_photo:
+        item.status = "SUCCEEDED"
+        return
     # One page per chunk is within the maximum-four-pages contract. Split long text.
+    prior_runs = list(
+        db.scalars(
+            select(Run).where(
+                Run.batch_id == run.batch_id,
+                Run.id != run.id,
+                Run.mode == run.mode,
+                Run.model == run.model,
+                Run.prompt_version == run.prompt_version,
+            )
+        )
+    )
+    prior_ids = [
+        r.id
+        for r in prior_runs
+        if r.targets == run.targets
+        and r.visual_pages.get(source.id, []) == run.visual_pages.get(source.id, [])
+    ]
+    previous = list(
+        db.scalars(
+            select(Item).where(
+                Item.run_id.in_(prior_ids),
+                Item.asset_id == source.id,
+                Item.revision == source.revision,
+                Item.sanitization_version == source.sanitization_version,
+                Item.phase == "EXTRACT",
+            )
+        )
+    )
     for page in pages:
         spans = page.redacted_spans
         groups, group, size = [], [], 0
@@ -160,6 +194,14 @@ def enqueue_extraction(db, source, run, item, pages):
             size += length
         groups.append(group)
         for group in groups:
+            requested = [{"number": page.number, "spanIds": group}]
+            if any(
+                old.status == "SUCCEEDED"
+                and old.pages == requested
+                and old.target_ids == item.target_ids
+                for old in previous
+            ):
+                continue
             db.add(
                 Item(
                     run_id=run.id,
@@ -187,6 +229,12 @@ def validate(extraction, chunk, allowed_targets):
 
         if numbers(candidate.value) - numbers(quotes):
             raise ExtractionError("UNSUPPORTED_NUMBER")
+        if (
+            candidate.field_key == "pieceCount"
+            and numbers(candidate.value)
+            and not re.search(r"\d+(?:\s*[~–-]\s*\d+)?\s*(?:개|과|알)", quotes)
+        ):
+            raise ExtractionError("UNSUPPORTED_PIECE_COUNT")
         for claim in ("무농약", "유기농", "GAP", "HACCP", "친환경", "인증", "실측"):
             if claim in candidate.value and claim not in quotes:
                 raise ExtractionError("UNSUPPORTED_CLAIM")
@@ -213,6 +261,7 @@ def validate(extraction, chunk, allowed_targets):
 
 def process(item_id, token):
     store = Storage()
+    reservation_id = None
     with get_sessionmaker()() as db:
         context = lock_context(db, item_id, token)
         if not context:
@@ -232,7 +281,7 @@ def process(item_id, token):
             return
         if phase == "EXTRACT":
             if source.sanitization_version != item.sanitization_version or (
-                run.mode == "openai" and not source.privacy_approved
+                run.mode != "mock" and not source.privacy_approved
             ):
                 item.status, item.error = "CANCELLED", "PRIVACY_CHANGED"
                 refresh_runs(db, batch.id)
@@ -257,7 +306,7 @@ def process(item_id, token):
                         ],
                     }
                 )
-                if page.sanitized_key:
+                if page.sanitized_key and page.number in run.visual_pages.get(source.id, []):
                     images.append(base64.b64encode(store.get(page.sanitized_key)).decode())
             if sum(map(len, images)) > 8 * 1024 * 1024:
                 raise PreparationError("CHUNK_IMAGE_LIMIT")
@@ -272,6 +321,10 @@ def process(item_id, token):
             # Names may contain personal data; only approved source contents are needed.
             selected_targets = [{"id": t["id"]} for t in selected_targets]
             mode, model = run.mode, run.model
+            if mode != "mock":
+                from app.source_analysis.budget import reserve
+
+                reservation_id = reserve(db, item, mode, chunk, selected_targets, images)
             item.sent = mode != "mock"
         db.commit()
     started = time.monotonic()
@@ -320,7 +373,20 @@ def process(item_id, token):
             refresh_runs(db, batch.id)
             db.commit()
     else:
-        response = extract(mode, model, chunk, selected_targets, images)
+        try:
+            response = extract(mode, model, chunk, selected_targets, images)
+        except ExtractionError as exc:
+            from app.source_analysis.budget import settle
+
+            with get_sessionmaker()() as accounting:
+                settle(accounting, reservation_id, exc.usage)
+                accounting.commit()
+            raise
+        from app.source_analysis.budget import settle
+
+        with get_sessionmaker()() as accounting:
+            settle(accounting, reservation_id, response.usage)
+            accounting.commit()
         try:
             validate(response.extraction, chunk, allowed)
         except ExtractionError as exc:
@@ -337,7 +403,7 @@ def process(item_id, token):
             if context:
                 batch, source, run, item = context
                 if source.sanitization_version != item.sanitization_version or (
-                    mode == "openai" and not source.privacy_approved
+                    mode != "mock" and not source.privacy_approved
                 ):
                     item.status, item.error = "CANCELLED", "PRIVACY_CHANGED"
                 else:
@@ -430,6 +496,7 @@ def cleanup():
             source.target_ids = []
         db.commit()
         used = set(db.scalars(select(Asset.storage_key).where(Asset.deleted.is_(False))))
+        used.update(db.scalars(select(PublicPhoto.storage_key)))
         for p in db.scalars(select(Page)):
             used.update(k for k in (p.image_key, p.sanitized_key) if k)
         for key in store.expired():

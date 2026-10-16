@@ -104,6 +104,7 @@ class Privacy(Input):
 
 class RunStart(Input):
     batch_version: int = Field(ge=1)
+    visual_pages: dict[str, list[int]] = Field(default_factory=dict, max_length=30)
 
 
 class Retry(Input):
@@ -156,3 +157,9 @@ class Extracted(Input):
 class Extraction(Input):
     candidates: list[Extracted] = Field(max_length=100)
     photo_requests: list[str] = Field(max_length=30)
+
+
+class ApplyDraft(Input):
+    product_id: Id
+    product_version: int = Field(ge=1)
+    draft_version: int = Field(ge=1)

@@ -1,3 +1,13 @@
+## DEV-56/57/58 integration (2026-10-16)
+
+The producer workflow now connects uploads, privacy review, evidence confirmation, the 18-module editor and explicit product application. A separate moduleDetail snapshot preserves legacy detailContent. Publication checks ownership and batch/review/source/product versions, copies sanitized original photos into independent storage, and excludes evidence/private source identifiers. Prices, stock, orders and publication status are preserved.
+
+The default live provider is OpenRouter google/gemini-3.1-flash-lite. OCR text is the default; only selected, approved pages include images. Expensive vision escalation and direct OpenAI fallback stay disabled. A persistent cost ledger enforces $1 evaluation/$5 feature caps using pre-request reservations. Unknown costs remain reserved even after cancellation/source deletion. Synthetic evaluation has 20 cases; fixed mock contracts, actual model quality and real-farmer acceptance are distinct. Deployment remains held.
+
+Live synthetic evaluation (2026-10-16, source-v2): 16 text cases matched all expected facts, with precision/recall 1.0 and zero critical errors. These are the same fixed cases used to refine the prompt, not a held-out benchmark. The rotated image produced no extracted facts; the PDF was rejected with INVALID_EVIDENCE. Visual quality and farmer acceptance remain incomplete. Final-run known cost: $0.0092095; all ledger attempts: $0.017 settled and $0.191654 still reserved. See [evaluation evidence](../spec/validation/source-integration-2026-10-16.json).
+
+Current contract: [source integration](../spec/source-integration.md). The following section records the original DEV-54 milestone.
+
 # Bulk source analysis — specification
 
 ## Bulk source analysis — private backend in DEV-54, UI integration pending

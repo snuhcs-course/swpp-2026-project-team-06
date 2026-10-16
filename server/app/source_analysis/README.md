@@ -1,3 +1,9 @@
+## Current integration (DEV-56/57/58)
+
+Use the producer /products/source-analysis page with both the API and worker running. Set SOURCE_ANALYSIS_PROVIDER=openrouter, SOURCE_ANALYSIS_MODEL=google/gemini-3.1-flash-lite and the server-only OPENROUTER_API_KEY. This is independent of AI CS. Expensive vision and direct fallback are disabled. The historical DEV-54 UI/publication/Sol statements below are superseded by docs/spec/source-integration.md.
+
+Generate synthetic cases from server with `python -m app.source_analysis.synthetic --output .artifacts/source-eval --font <Korean-font>`. Use a separate local database and explicitly add --live for paid evaluation. Default caps are $1 evaluation/$5 cumulative, with at most 4096 output tokens per request. Never interpret mock results as model quality or actual farmer acceptance. Deployment is held.
+
 # 자료 분석 백엔드 실행
 
 FEAT-03/04/07, AC-SRC-1~8. 공개 상품과 별개인 비공개 초안 API다. 앱 UI·공개 반영·이미지 생성은 포함하지 않는다.

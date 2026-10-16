@@ -262,6 +262,7 @@ export type ProductDetail = ProductCard & {
   variety: string;
   description: string;
   detailContent?: DetailContent;
+  moduleDetail?: import("./sourceAnalysis").ModuleDetail;
   grade: string | null;
   measuredBrix: number | null;
   measuredBrixAt: ISODate | null;
