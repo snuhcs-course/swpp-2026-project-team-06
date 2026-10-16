@@ -48,8 +48,8 @@ export function beginKakaoLogin(
     redirect_uri: kakaoRedirectUri(config),
     response_type: "code",
     state: nonce,
-    // 닉네임만 요청(FEAT-01 FQ-01). 콘솔 동의 항목에 ‘닉네임’이 켜져 있어야 내려온다
-    scope: "profile_nickname",
+    // 카카오계정 이메일만 요청(FEAT-01 FQ-01, 콘솔 동의 항목 ‘카카오계정(이메일)’ 필수 동의). 서버는 표시 이름으로만 쓴다
+    scope: "account_email",
   });
   return `${KAKAO_AUTHORIZE_URL}?${params.toString()}`;
 }

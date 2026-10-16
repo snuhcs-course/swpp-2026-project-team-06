@@ -87,7 +87,8 @@ export default function Me() {
         >
           <T variant="heading">{user.name}</T>
           <T variant="sub" muted>
-            테스트 계정 · {user.role === "CONSUMER" ? "소비자" : "생산자"}
+            {user.isTestAccount ? "테스트 계정" : "카카오 계정"} ·{" "}
+            {user.role === "CONSUMER" ? "소비자" : "생산자"}
           </T>
         </View>
 

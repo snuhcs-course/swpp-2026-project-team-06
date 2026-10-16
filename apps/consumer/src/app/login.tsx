@@ -148,7 +148,7 @@ export default function Login() {
               </T>
             </Pressable>
             <T variant="caption" muted center>
-              카카오에서는 이름만 받아요. 연락처는 주문할 때 입력해요.
+              카카오에서는 계정 이메일만 받아요. 연락처는 주문할 때 입력해요.
             </T>
           </View>
         ) : null}
