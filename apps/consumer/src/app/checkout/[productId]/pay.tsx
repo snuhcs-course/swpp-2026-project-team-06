@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { newPaymentId, requestCardPayment } from "../../../lib/portone";
+import { useSession } from "../../../lib/session";
 import { useToast } from "../../../lib/toast";
 import { LoadError } from "../../../lib/views";
 
@@ -50,6 +51,7 @@ export default function Pay() {
   } = useAsync(() => orders.get(orderId), [orderId]);
   const config = useAsync(() => payments.config(), []);
   const pg = config.data?.enabled === true;
+  const { user } = useSession();
   const [method, setMethod] = useState<Method>("test");
   const [number, setNumber] = useState("");
   const [expiry, setExpiry] = useState("");
@@ -113,7 +115,14 @@ export default function Pay() {
         orderId,
         orderName: `${o.productName} ${o.optionLabel} × ${o.quantity}`,
         totalAmount: o.totalAmount,
-        customer: { fullName: o.recipientName, phoneNumber: o.recipientPhone },
+        customer: {
+          fullName: o.recipientName,
+          phoneNumber: o.recipientPhone,
+          // 이니시스 V2는 구매자 이메일이 필수. 카카오 계정은 이름이 이메일이고, 아니면 자리 주소를 넣는다(수신용 아님)
+          email: user?.name.includes("@")
+            ? user.name
+            : `consumer-${user?.userId ?? "guest"}@farmclub.test`,
+        },
       });
       if (res.code) {
         setFail(res.message || "결제가 취소됐어요. 돈은 나가지 않았어요.");
@@ -127,7 +136,8 @@ export default function Pay() {
       // 리다이렉트 환경이면 여기로 돌아오지 않는다
       setBusy(false);
     } catch (e) {
-      setFail("결제 창을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      const detail = e instanceof Error && e.message ? ` (${e.message})` : "";
+      setFail(`결제 창을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.${detail}`);
       setBusy(false);
     }
   }

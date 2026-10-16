@@ -13,7 +13,7 @@ type RequestPaymentInput = {
   payMethod: "CARD";
   customData?: string;
   redirectUrl?: string;
-  customer?: { fullName?: string; phoneNumber?: string };
+  customer?: { fullName?: string; phoneNumber?: string; email?: string };
 };
 
 /** 실패면 code·message, 성공이면 paymentId만 온다(리다이렉트 환경에서는 돌아오지 않는다) */
@@ -78,13 +78,14 @@ export async function requestCardPayment(
     orderId: string;
     orderName: string;
     totalAmount: number;
-    customer?: { fullName?: string; phoneNumber?: string };
+    customer?: { fullName?: string; phoneNumber?: string; email?: string };
   },
 ): Promise<RequestPaymentResult> {
   if (!config.enabled || !config.storeId || !config.channelKey) {
     return { code: "DISABLED", message: "지금은 카드 결제를 쓸 수 없어요." };
   }
   const sdk = await loadPortOne();
+  // SDK는 결제 창을 못 열면 code 없이 예외를 던지기도 한다(예: 이니시스 V2는 구매자 이메일 필수). 메시지를 그대로 올린다
   return sdk.requestPayment({
     storeId: config.storeId,
     channelKey: config.channelKey,
