@@ -1,5 +1,5 @@
-// SCR-11 결제 (FEAT-09) — 카드 입력 화면. 결제 자체는 Mock(DEV-37, 서버 계약 무변경)
-import { ApiError, newIdempotencyKey, orders } from "@farmclub/api";
+// SCR-11 결제 (FEAT-09) — PortOne 카드 결제(DEV-36). PG가 꺼져 있으면 Mock 카드 입력 화면(DEV-37)
+import { ApiError, newIdempotencyKey, orders, payments } from "@farmclub/api";
 import {
   BottomBar,
   Button,
@@ -16,9 +16,10 @@ import {
   won,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { newPaymentId, requestCardPayment } from "../../../lib/portone";
 import { useToast } from "../../../lib/toast";
 import { LoadError } from "../../../lib/views";
 
@@ -30,18 +31,25 @@ export const FAIL_CARD_LAST4 = "0000";
 type Method = "test" | "other";
 
 export default function Pay() {
-  const { productId, orderId, optionId, quantity } = useLocalSearchParams<{
-    productId: string;
-    orderId: string;
-    optionId?: string;
-    quantity?: string;
-  }>();
+  // paymentId·code·message는 PortOne이 리다이렉트로 돌아올 때 붙인다
+  const { productId, orderId, optionId, quantity, paymentId, code, message } =
+    useLocalSearchParams<{
+      productId: string;
+      orderId: string;
+      optionId?: string;
+      quantity?: string;
+      paymentId?: string;
+      code?: string;
+      message?: string;
+    }>();
   const router = useRouter();
   const {
     data: o,
     error,
     reload,
   } = useAsync(() => orders.get(orderId), [orderId]);
+  const config = useAsync(() => payments.config(), []);
+  const pg = config.data?.enabled === true;
   const [method, setMethod] = useState<Method>("test");
   const [number, setNumber] = useState("");
   const [expiry, setExpiry] = useState("");
@@ -58,27 +66,74 @@ export default function Pay() {
   const last4 =
     method === "test" ? TEST_CARD_LAST4 : digits(number).slice(-4);
 
-  async function pay() {
-    if (method === "other" && formInvalid) {
-      setTouched(true);
-      return;
-    }
+  /** 서버에 결제 확인(PG면 paymentId, Mock이면 결과)을 보내고 완료 화면으로 */
+  async function confirm(input: { paymentId: string } | { mockResult: "success" | "fail" }) {
     setBusy(true);
     setFail(null);
-    // Mock 결과 규칙: 끝 4자리 0000이면 실패, 그 밖의 유효한 카드는 성공
-    const mock = last4 === FAIL_CARD_LAST4 ? "fail" : "success";
     try {
-      const r = await orders.pay(orderId, mock, key);
+      const r = await orders.pay(orderId, input, key);
       if (r.result === "success") {
         router.replace({
           pathname: "/orders/[orderId]/done",
-          params: { orderId, last4 },
+          params: { orderId, last4: "paymentId" in input ? "" : last4 },
         });
       } else {
         setFail(r.failReason ?? "카드사에서 승인을 거절했어요.");
         setKey(newIdempotencyKey());
       }
     } catch (e) {
+      handleError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // PortOne 리다이렉트 복귀: 성공이면 서버 확인, 실패면 사유 표시. 한 번만
+  const returned = useRef(false);
+  useEffect(() => {
+    if (returned.current || !o || !config.data) return;
+    if (!paymentId && !code) return;
+    returned.current = true;
+    if (code) {
+      setFail(message || "결제가 취소됐어요. 돈은 나가지 않았어요.");
+      return;
+    }
+    if (paymentId && pg) void confirm({ paymentId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [o, config.data, paymentId, code]);
+
+  /** PG 카드 결제(DEV-36): PortOne 창 → 승인 → 서버 확인 */
+  async function payWithPg() {
+    if (!o || !config.data) return;
+    setBusy(true);
+    setFail(null);
+    try {
+      const res = await requestCardPayment(config.data, {
+        paymentId: newPaymentId(orderId),
+        orderId,
+        orderName: `${o.productName} ${o.optionLabel} × ${o.quantity}`,
+        totalAmount: o.totalAmount,
+        customer: { fullName: o.recipientName, phoneNumber: o.recipientPhone },
+      });
+      if (res.code) {
+        setFail(res.message || "결제가 취소됐어요. 돈은 나가지 않았어요.");
+        setBusy(false);
+        return;
+      }
+      if (res.paymentId) {
+        await confirm({ paymentId: res.paymentId });
+        return;
+      }
+      // 리다이렉트 환경이면 여기로 돌아오지 않는다
+      setBusy(false);
+    } catch (e) {
+      setFail("결제 창을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      setBusy(false);
+    }
+  }
+
+  function handleError(e: unknown) {
+    {
       if (e instanceof ApiError && e.status === 409) {
         router.replace({
           pathname: "/checkout/[productId]",
@@ -96,9 +151,17 @@ export default function Pay() {
         setFail(e instanceof ApiError ? e.message : "결제하지 못했어요.");
         setKey(newIdempotencyKey());
       }
-    } finally {
-      setBusy(false);
     }
+  }
+
+  /** Mock 카드(DEV-37): 끝 4자리 0000이면 실패, 그 밖의 유효한 카드는 성공 */
+  async function pay() {
+    if (pg) return payWithPg();
+    if (method === "other" && formInvalid) {
+      setTouched(true);
+      return;
+    }
+    await confirm({ mockResult: last4 === FAIL_CARD_LAST4 ? "fail" : "success" });
   }
 
   function choose(m: Method) {
@@ -116,7 +179,13 @@ export default function Pay() {
           if (!busy) router.back();
         }}
       />
-      <TestBand text="테스트 서비스예요. 실제 돈은 나가지 않아요." />
+      <TestBand
+        text={
+          pg
+            ? "테스트 결제예요. 카드사 테스트 승인이라 실제 돈은 나가지 않아요."
+            : "테스트 서비스예요. 실제 돈은 나가지 않아요."
+        }
+      />
       {error && !o ? (
         <LoadError error={error} onRetry={reload} />
       ) : (
@@ -145,7 +214,39 @@ export default function Pay() {
             <T variant="heading" style={{ marginBottom: 8 }}>
               결제 수단
             </T>
-            {(
+            {pg ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 16,
+                  minHeight: 72,
+                  borderTopWidth: 1,
+                  borderTopColor: tokens.color.border,
+                  borderBottomWidth: 1,
+                  borderBottomColor: tokens.color.border,
+                }}
+              >
+                <Radio selected />
+                <View
+                  style={{
+                    width: 48,
+                    height: 32,
+                    borderRadius: 8,
+                    backgroundColor: tokens.color.text,
+                  }}
+                />
+                <View style={{ flex: 1 }}>
+                  <T variant="body" weight="semibold">
+                    신용·체크카드
+                  </T>
+                  <T variant="sub" muted>
+                    결제하기를 누르면 카드사 결제 창이 열려요
+                  </T>
+                </View>
+              </View>
+            ) : null}
+            {!pg ? (
               [
                 {
                   k: "test",
@@ -195,9 +296,9 @@ export default function Pay() {
                   </T>
                 </View>
               </Pressable>
-            ))}
+            )) : null}
 
-            {method === "other" ? (
+            {!pg && method === "other" ? (
               <View style={{ paddingTop: 24, gap: 16 }}>
                 <Input
                   label="카드 번호"
@@ -255,9 +356,9 @@ export default function Pay() {
                 ? `${won(o.totalAmount)} 결제하기`
                 : "결제하기"
           }
-          disabled={!o}
+          disabled={!o || config.data === null}
           loading={busy}
-          onPress={pay}
+          onPress={() => void pay()}
         />
         {fail ? (
           <Button
