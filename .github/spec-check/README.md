@@ -4,6 +4,8 @@
 구현 결정은 [spec.md](spec.md), 허용 경로·진행 기록은 [tasks.md](tasks.md).
 제품 동작은 바꾸지 않는 CI 전용 도구다.
 
+2026-10-16 사용자 승인으로 배포 범위를 분리했다. DEV-40/PR #107은 기본 비활성인 checker 기반을 제공한다. 아래 API 설정·실제 모델 mismatch/PASS·finding의 사람 판단은 [DEV-55](https://linear.app/sswp6/issue/DEV-55)에서 진행하며, core 머지나 다른 개발의 선행 조건이 아니다. Core PR 자체의 사람 승인 규칙은 유지한다.
+
 ## 1. 관리자가 한 번 설정할 항목
 
 현재 작성 시점(2026-10-16)에는 checker 전용 API 키·모델·보호 환경이 확인되지 않았다.

@@ -140,5 +140,5 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 이슈: https://linear.app/sswp6/issue/DEV-40
 - 작업·허용 경로·완료 조건: `spec-check/tasks.md#dev-40`
 - 구현 결정: `spec-check/spec.md`
-- 상태: 진행 중. 모델 접근 및 사람 리뷰는 미확인.
+- 상태: core 리뷰 중. live 모델 접근/증거는 사용자 승인으로 DEV-55에 이전했으며 core 머지를 막지 않는다. Core 사람 승인은 필요하다.
 - 기존 workflow/PR template/과거 이슈 기록을 보존한다.

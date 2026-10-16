@@ -5,6 +5,7 @@
 - 요구사항: [DEV-40](https://linear.app/sswp6/issue/DEV-40), 설계: [SWPP-90](https://linear.app/sswp6/issue/SWPP-90).
 - 기존 `.github/pull_request_template.md`의 Spec ↔ Code 표와 사람 확인란을 사용한다. 제품 FEAT/AC를 새로 정의하지 않는다.
 - 제품 AI 어댑터와 분리한 CI 전용 읽기·보고 클라이언트다. 제품 코드, 키, 기존 CI를 변경하지 않는다.
+- 2026-10-16 사용자 승인: DEV-40은 기본 비활성 기반 구현을 먼저 머지한다. API 소유권/설정·genuine 모델 증거·finding resolution은 [DEV-55](https://linear.app/sswp6/issue/DEV-55)의 완료 조건이다. 기본 비활성 및 사람의 core PR 승인을 유지한다.
 
 ## 구현 결정
 
