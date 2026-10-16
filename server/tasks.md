@@ -572,13 +572,15 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [x] AC-32-3 preview가 설정·대화·문의 기록을 바꾸지 않음
 - [x] AC-32-4 server refreshed-version save와 producer 화면 입력 보존·재저장 검증 통과
 - [x] 마이그레이션 upgrade/downgrade/check, 전체 허용 Mock·앱 테스트, spec/wiki 일치 확인
-- [ ] `git diff main...HEAD` 허용 범위 감사, AI 1차 리뷰와 사람 리뷰 1명 승인 후 main 머지
+- [x] `git diff main...HEAD` 허용 범위 감사 및 AI 1차 리뷰 코멘트 게시
+- [ ] 사람 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/16 Linear DEV-39를 Human 6h로 재산정하고 provisional HUMAN/older-answer 질문을 DEV-39에 게시했다. PR #113 작성자에게 migration 0008 순서를 확인 요청했다.
 - 10/16 API·Mock·소비자 신고 버튼·생산자 한국어 표기·STALE_VERSION 입력 보존 흐름과 pytest/Mock/Playwright 회귀 케이스 구현을 마쳤다.
 - 10/16 의존성 설치(`npm ci`, `uv sync`) 후 실행해 보니 새 AC-13-5 서버 테스트 4개와 Mock 테스트가 실패했다. 원인: API 키 없이는 "배송비" 질문이 주문·상품 없이 `FORWARDED`가 되고, Mock 시드에서는 `u-seojun`이 `f-kang`을 팔로우하지 않는다. 서버·Mock·Playwright 모두 소량 주문 원칙을 저장하고(Mock·Playwright는 대화를 AUTO로 돌린 뒤) "소량 주문 되나요?"로 규칙 답변을 받도록 고쳤다. Mock의 다른 소비자 404 검사는 그 소비자가 대화를 시작한 뒤 확인한다.
 - 10/16 AC-13-5 원문을 `FEAT-13-ai-reply.md`·wiki에서 복원했고(구현 용어로 바꾸지 않음), `screens.md`의 영어 표현을 한국어로 고쳤다. #113의 0007은 이미 main의 0007과 겹쳐 #113이 번호를 바꿔야 하므로, DEV-39는 0008(`down_revision="0007"`)로 진행한다.
-- 10/16 마이그레이션 `0008_ai_answer_report.py`(신고 답변 FK·unique)를 추가했다. 임시 DB에서 Alembic `upgrade head → downgrade 0007 → upgrade head → check`(새 작업 없음) 통과. 같은 임시 DB로 `npm run test:integration:full` 실행: 실서버 통합 7개, Playwright 21개 통과(AC-13-5 신고·양쪽 표시·reload, AC-32-4 STALE_VERSION 입력 보존·재저장 포함). 임시 DB는 삭제했다. 남은 것: 커밋·draft PR, AI 1차 리뷰.
+- 10/16 마이그레이션 `0008_ai_answer_report.py`(신고 답변 FK·unique)를 추가했다. 임시 DB에서 Alembic `upgrade head → downgrade 0007 → upgrade head → check`(새 작업 없음) 통과. 같은 임시 DB로 `npm run test:integration:full` 실행: 실서버 통합 7개, Playwright 21개 통과(AC-13-5 신고·양쪽 표시·reload, AC-32-4 STALE_VERSION 입력 보존·재저장 포함). 임시 DB는 삭제했다.
 - 10/16 최종 검증: Ruff 통과, pytest 211개 통과, `npm run typecheck` 통과, `npm run test:mock` 13개 통과. 마이그레이션 upgrade/downgrade/check와 실서버 통합·Playwright 결과는 위 기록 참조.
 - 10/16 PR 1차 검토에서 오래된 AI 답 신고 직후 해당 페이지가 refresh 결과에 없을 때 버튼 상태가 갱신되지 않는 경계를 보완했다. 성공 응답에서 현재 메시지를 바로 `reported`로 표시하고, 더 최신 답변이 있는 상태에서 이전 답변을 신고하는 AC-13-5 서버 회귀를 추가했다. 재검토에서 typecheck·diff check 통과. 이 worktree에는 `psycopg`가 없어 변경한 pytest는 여기서 재실행하지 못했다(위 전체 pytest 211개 통과 기록은 유지).
+- 10/16 1차 리뷰 커밋 `3b6ee08`, 리뷰 보완 `2ef8dbf`를 push하고 draft PR #119를 열었다. AI 1차 리뷰 코멘트 게시: must 없음. PR #113 작성자와 migration revision 조정 확인은 merge 전에 남아 있고, 사람 리뷰 1명 승인도 대기 중이다.
