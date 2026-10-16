@@ -50,7 +50,7 @@ def test_AC_01_3_admin_approves_pending_producer_and_clears_stale_state(
         farm.reject_reason = "이전 반려 사유"
         farm.suspend_reason = "이전 정지 사유"
 
-    response = client.post("/admin/producers/f-wimi/approve", headers=admin_headers)
+    response = client.post("/admin/producers/f-wimi/approve", headers=admin_headers | key())
 
     assert response.status_code == 200, response.text
     assert response.json() == {
@@ -68,7 +68,7 @@ def test_AC_01_3_admin_approves_pending_producer_and_clears_stale_state(
 
 def test_AC_01_3_admin_rejects_pending_producer_with_required_reason(client, admin_headers):
     blank = client.post(
-        "/admin/producers/f-wimi/reject", headers=admin_headers, json={"reason": "   "}
+        "/admin/producers/f-wimi/reject", headers=admin_headers | key(), json={"reason": "   "}
     )
 
     assert blank.status_code == 400
@@ -77,7 +77,7 @@ def test_AC_01_3_admin_rejects_pending_producer_with_required_reason(client, adm
 
     rejected = client.post(
         "/admin/producers/f-wimi/reject",
-        headers=admin_headers,
+        headers=admin_headers | key(),
         json={"reason": "  연락처 확인 필요  "},
     )
 
@@ -96,8 +96,10 @@ def test_AC_01_3_producer_decisions_require_admin_and_valid_pending_state(
         )
     assert farm_state("f-wimi") == ("PENDING", None, None, None)
 
-    missing = client.post("/admin/producers/f-missing/approve", headers=admin_headers)
-    invalid = client.post("/admin/producers/f-kang/approve", headers=admin_headers)
+    missing = client.post(
+        "/admin/producers/f-missing/approve", headers=admin_headers | key()
+    )
+    invalid = client.post("/admin/producers/f-kang/approve", headers=admin_headers | key())
 
     assert missing.status_code == 404
     assert invalid.status_code == 409
@@ -134,8 +136,8 @@ def test_AC_17_4_only_admin_marks_shipped_order_delivered(client, login, admin_h
         assert client.post(path, headers=headers).status_code == 403
     assert order_state("o-g4")[0] == "SHIPPED"
 
-    delivered = client.post(path, headers=admin_headers)
-    repeated = client.post(path, headers=admin_headers)
+    delivered = client.post(path, headers=admin_headers | key())
+    repeated = client.post(path, headers=admin_headers | key())
 
     assert delivered.status_code == 200, delivered.text
     assert delivered.json()["status"] == "DELIVERED"
@@ -150,13 +152,13 @@ def test_AC_11_3_pre_shipment_full_refund_releases_quantity_once(client, admin_h
 
     refunded = client.post(
         "/admin/orders/o-40/refund",
-        headers=admin_headers,
+        headers=admin_headers | key(),
         json={"reason": "  수확량 부족  "},
     )
     after = reserved_count()
     repeated = client.post(
         "/admin/orders/o-40/refund",
-        headers=admin_headers,
+        headers=admin_headers | key(),
         json={"reason": "다시 환불"},
     )
 
@@ -176,7 +178,7 @@ def test_AC_11_3_post_shipment_refund_preserves_committed_quantity(client, admin
 
     refunded = client.post(
         "/admin/orders/o-g4/refund",
-        headers=admin_headers,
+        headers=admin_headers | key(),
         json={"reason": "배송 중 파손"},
     )
 
@@ -196,13 +198,17 @@ def test_admin_order_failures_leave_data_unchanged(client, login, admin_headers)
         json={"reason": "권한 없음"},
     )
     blank = client.post(
-        "/admin/orders/o-42/refund", headers=admin_headers, json={"reason": "   "}
+        "/admin/orders/o-42/refund", headers=admin_headers | key(), json={"reason": "   "}
     )
-    invalid = client.post("/admin/orders/o-42/delivered", headers=admin_headers)
-    missing_delivery = client.post("/admin/orders/o-missing/delivered", headers=admin_headers)
+    invalid = client.post(
+        "/admin/orders/o-42/delivered", headers=admin_headers | key()
+    )
+    missing_delivery = client.post(
+        "/admin/orders/o-missing/delivered", headers=admin_headers | key()
+    )
     missing_refund = client.post(
         "/admin/orders/o-missing/refund",
-        headers=admin_headers,
+        headers=admin_headers | key(),
         json={"reason": "찾을 수 없음"},
     )
 

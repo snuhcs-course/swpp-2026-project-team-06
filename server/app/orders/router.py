@@ -22,6 +22,7 @@ from app.orders.schemas import (
     PayInput,
     PayResult,
     ProducerOrder,
+    RefundView,
     ShipInput,
 )
 
@@ -167,14 +168,48 @@ def list_inquiries(
 
 
 @admin_router.post("/{order_id}/delivered", response_model=OrderView)
-def mark_delivered(db: Db, _: Admin, order_id: str):
-    result = service.mark_delivered(db, order_id)
-    db.commit()
-    return result
+def mark_delivered(db: Db, admin: Admin, order_id: str, key: IdempotencyKey = None):
+    from app.admin.service import run_manager_action
+
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="order.deliver",
+        target_type="order",
+        target_id=order_id,
+        scope=f"order-deliver:{order_id}",
+        key=key,
+        body={},
+        run=lambda _: service.mark_delivered(db, order_id),
+    )
 
 
 @admin_router.post("/{order_id}/refund", response_model=OrderView)
-def refund_order(db: Db, _: Admin, order_id: str, body: AdminRefundInput):
-    result = service.admin_refund(db, order_id, body.reason)
-    db.commit()
-    return result
+def refund_order(
+    db: Db,
+    admin: Admin,
+    order_id: str,
+    body: AdminRefundInput,
+    key: IdempotencyKey = None,
+):
+    from app.admin.service import run_manager_action
+
+    raw = body.model_dump(by_alias=True, exclude_none=True)
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="order.refund",
+        target_type="order",
+        target_id=order_id,
+        scope=f"order-refund:{order_id}",
+        key=key,
+        body=raw,
+        run=lambda event_id: service.admin_refund(
+            db, order_id, body.reason, body.amount, admin.id, event_id
+        ),
+    )
+
+
+@admin_router.get("/{order_id}/refunds", response_model=list[RefundView])
+def refunds(db: Db, _: Admin, order_id: str):
+    return service.refund_history(db, order_id)

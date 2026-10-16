@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 # 모든 모듈의 models를 불러와 Base.metadata에 테이블을 모은다(autogenerate용).
 from app.accounts import models as _accounts_models  # noqa: F401
+from app.admin import models as _admin_models  # noqa: F401
 from app.ai import models as _ai_models  # noqa: F401
 from app.analytics import models as _analytics_models  # noqa: F401
 from app.catalog import models as _catalog_models  # noqa: F401

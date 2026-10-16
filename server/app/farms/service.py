@@ -8,7 +8,13 @@ from app.core.config import get_settings
 from app.core.detail import DetailDraft, DetailDraftInput, detail_content
 from app.core.errors import conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
-from app.farms.models import Farm, FarmAiSettings, FarmAiSettingsHistory, Follow
+from app.farms.models import (
+    Farm,
+    FarmAiSettings,
+    FarmAiSettingsHistory,
+    Follow,
+    ProducerDecisionHistory,
+)
 from app.farms.schemas import (
     AiPreview,
     AiPreviewInput,
@@ -85,7 +91,11 @@ def submit_application(
 
 
 def decide_application(
-    db: Session, farm_id: str, approved: bool, reason: str | None = None
+    db: Session,
+    farm_id: str,
+    approved: bool,
+    manager_id: str,
+    reason: str | None = None,
 ) -> Farm:
     farm = db.scalar(select(Farm).where(Farm.id == farm_id).with_for_update())
     if farm is None:
@@ -97,12 +107,51 @@ def decide_application(
     if not approved and not reject_reason:
         raise invalid({"reason": "반려 사유를 적어 주세요"})
 
-    farm.approval_status = "APPROVED" if approved else "REJECTED"
+    decision = "APPROVED" if approved else "REJECTED"
+    decided_at = now()
+    db.add(
+        ProducerDecisionHistory(
+            id=new_id("producer-decision"),
+            farm_id=farm.id,
+            application_at=farm.applied_at,
+            decision=decision,
+            reason=None if approved else reject_reason,
+            manager_id=manager_id,
+            decided_at=decided_at,
+        )
+    )
+    farm.approval_status = decision
     farm.reject_reason = None if approved else reject_reason
     farm.suspend_reason = None
-    farm.decided_at = now()
+    farm.decided_at = decided_at
     db.flush()
     return farm
+
+
+def decision_history(db: Session, farm_id: str):
+    from app.accounts.schemas import ProducerDecisionHistoryView
+
+    if db.get(Farm, farm_id) is None:
+        raise not_found("신청 농가를 찾을 수 없어요.")
+    rows = db.scalars(
+        select(ProducerDecisionHistory)
+        .where(ProducerDecisionHistory.farm_id == farm_id)
+        .order_by(
+            ProducerDecisionHistory.decided_at.desc(), ProducerDecisionHistory.id.desc()
+        )
+    )
+    return [
+        ProducerDecisionHistoryView(
+            decision_id=row.id,
+            farm_id=row.farm_id,
+            application_at=row.application_at,
+            decision=row.decision,
+            reason=row.reason,
+            manager_id=row.manager_id,
+            decided_at=row.decided_at,
+        )
+        for row in rows
+    ]
 
 
 def get_approved_farm(db: Session, farm_id: str) -> Farm | None:

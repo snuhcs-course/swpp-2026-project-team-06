@@ -13,6 +13,7 @@ from app.accounts.schemas import (
     ProducerApplication,
     ProducerApplicationInput,
     ProducerDecision,
+    ProducerDecisionHistoryView,
     TestAccount,
     UserView,
 )
@@ -157,17 +158,29 @@ def submit_producer_application(
 
 
 def decide_producer_application(
-    db: Session, farm_id: str, approved: bool, reason: str | None = None
+    db: Session,
+    farm_id: str,
+    approved: bool,
+    manager_id: str,
+    reason: str | None = None,
 ) -> ProducerDecision:
     from app.farms import service as farms
 
-    farm = farms.decide_application(db, farm_id, approved, reason)
+    farm = farms.decide_application(db, farm_id, approved, manager_id, reason)
     return ProducerDecision(
         farm_id=farm.id,
         status=farm.approval_status,
         reject_reason=farm.reject_reason,
         decided_at=farm.decided_at,
     )
+
+
+def producer_decision_history(
+    db: Session, farm_id: str
+) -> list[ProducerDecisionHistoryView]:
+    from app.farms import service as farms
+
+    return farms.decision_history(db, farm_id)
 
 
 def _address(a: ShippingAddress) -> Address:
