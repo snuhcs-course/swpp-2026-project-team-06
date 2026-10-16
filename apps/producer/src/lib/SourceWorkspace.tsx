@@ -118,11 +118,13 @@ function Field({
   value,
   onChange,
   multiline = false,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (s: string) => void;
   multiline?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <View style={{ gap: 6 }}>
@@ -132,6 +134,7 @@ function Field({
         value={value}
         onChangeText={onChange}
         multiline={multiline}
+        editable={!disabled}
         style={[inputStyle, multiline && { minHeight: 100 }]}
       />
     </View>
@@ -487,6 +490,7 @@ function ReviewEditor({
       ))}
       <Field
         label={`${label} 내용`}
+        disabled={busy}
         value={value}
         onChange={setValue}
         multiline
@@ -849,6 +853,7 @@ export function SourceWorkspace() {
               ))}
               <Field
                 label="새 상품 초안 이름 (선택)"
+                disabled={busy}
                 value={name}
                 onChange={setName}
               />
@@ -959,6 +964,7 @@ export function SourceWorkspace() {
                       <>
                         <Field
                           label="판매 문구 붙여넣기"
+                          disabled={busy}
                           value={text}
                           onChange={setText}
                           multiline
