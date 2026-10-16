@@ -260,3 +260,46 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 최종 로컬 UI 검증: `npx playwright test scripts/e2e/conversation-ui.spec.ts` 6/6 통과. 커밋 전·브랜치 diff 검사와 명세 대조 완료. 소수 중량 옵션도 정수 g로 판정하고 생산자 상품 편집 복귀 시 판매 품목을 다시 읽는다.
 - PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/98 (머지하지 않음). 최신 실서버 CI 결과와 AI 리뷰는 PR에 기록. Linear MCP는 읽기 전용이며 브라우저 연결도 실패해 이슈 상태 직접 수정은 미완료.
+
+## DEV-32 카카오 로그인과 원래 행동으로 복귀
+
+- 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) · GitHub #77
+- 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
+- 기능·인수 조건: FEAT-01 / AC-01-1, AC-01-8, AC-01-9, AC-01-11 · ADR 0003·0009·0010
+- 상태: 리뷰 중
+
+### 목표
+테스트 참가자가 자기 카카오 계정으로 소비자 앱에 로그인하고, 로그인 전에 누른 화면·행동(예약·팔로우·채팅·좋아요)으로 그대로 돌아간다. 테스트 계정 로그인은 Mock 플래그가 켜진 동안 함께 둔다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/login.tsx`, `apps/consumer/src/app/auth/kakao.tsx`(새 화면), `apps/consumer/src/lib/kakao.ts`(새 파일), `apps/consumer/src/lib/session.tsx`(`restoreResume`만)
+- `apps/consumer/spec.md`, `apps/consumer/tasks.md`
+- 서버·API 패키지·문서는 `server/tasks.md`, `packages/api/tasks.md`의 DEV-32 절 참조
+
+### 비범위 (건드리지 않음)
+- 생산자 앱 로그인 화면(SCR-19). 서버 계약은 `app: producer`로 동작하지만 화면은 별도 이슈.
+- 리프레시 토큰, 로그아웃 시 카카오 연결 끊기, 전화번호·이메일 동의 항목(비즈 앱 필요).
+- Figma 시안 반영(머지 뒤 별도). 기존 `@farmclub/ui` 부품만 쓴다.
+
+### 결정 사항
+- 10/17 복귀 경로는 `/auth/kakao`(stack.md 5장). 카카오 리다이렉트로 페이지가 새로 뜨므로 돌아갈 화면(`next`)과 이어서 할 행동(`resume`)을 sessionStorage에 두고 `state`(일회용 값)로 대조한 뒤 한 번만 꺼내 쓴다. 세션에 `restoreResume`를 추가해 복귀 화면이 행동을 되살린다.
+- 10/17 카카오에서는 닉네임만 받는다(FQ-01). 연락처는 주문서 배송지 입력으로 받는다. 비즈 앱 전환 없이 누구나 로그인된다.
+- 10/17 Mock 모드에서는 리다이렉트 없이 `POST /api/auth/kakao`를 바로 불러 김민지로 로그인한다(화면 흐름 확인용).
+- 10/17 카카오 설정(`enabled`, `clientId`)은 서버 `GET /api/auth/kakao/config`에서 받는다. 앱 env에 키를 두지 않는다.
+- 10/17 버튼 문구는 카카오 공식 변형 중 ‘카카오로 시작하기’. ‘…로그인’으로 끝나면 기존 e2e 도우미(`/로그인$/`)와 테스트 계정 버튼이 겹쳐 strict mode 위반이 나서 e2e를 건드리지 않고 문구로 피했다.
+
+### 작업
+- [x] `lib/kakao.ts`: 인가 주소 만들기·복귀 정보 저장/꺼내기
+- [x] `login.tsx`: ‘카카오로 시작하기’ 버튼(설정 꺼짐이면 숨김), 테스트 계정 목록 유지
+- [x] `auth/kakao.tsx`: 코드 교환·세션 갱신·행동 복원·복귀, 취소/만료/실패 안내
+- [x] `session.tsx`: `restoreResume`
+- [x] `npm run typecheck`, Mock 모드 화면 확인(버튼 → 로그인 → 복귀), 서버 pytest
+
+### 완료 조건
+- [ ] 로그인이 테스트 기기에서 되고 권한·복귀 경로가 통과하며 스펙과 코드가 맞는다(이슈 완료 조건). 실기기 확인은 카카오 키 등록 뒤.
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/17 main 34c9009에서 시작. 카카오 개발자 앱·REST API 키는 사용자가 발급해 `server/.env`에 넣는다(KAKAO_REST_API_KEY, 선택 KAKAO_CLIENT_SECRET). 콘솔 리다이렉트 URI: `<소비자 앱 주소>/auth/kakao`.
+- 10/17 구현·문서 동기화 완료. `npm run typecheck` 4개 통과, Mock 화면 4장(관문 → 카카오 → 주문서 복귀, 만료·취소 안내) 콘솔 오류 0, 서버 pytest 217/217, `node scripts/run-integration.mjs` 실서버 7/7 + Playwright 19/19. 실제 카카오 계정 로그인은 콘솔에 `<소비자 앱 주소>/auth/kakao` 등록 뒤 사용자가 확인(미완). 완료 조건의 "테스트 기기에서 로그인"은 그때 체크.
