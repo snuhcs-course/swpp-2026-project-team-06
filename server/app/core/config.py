@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     ai_model: str = "claude-haiku-4-5"
     ai_draft_timeout_seconds: float = 20.0
+    ai_answer_timeout_seconds: float = 8.0
 
     source_analysis_enabled: bool = False
     source_analysis_provider: str = "mock"
