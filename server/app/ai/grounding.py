@@ -22,8 +22,13 @@ _CONTACT_OR_ACCOUNT = re.compile(r"(?:연락처|전화|휴대폰|계좌|입금)\
 _DELIVERY_CONTEXT = re.compile(r"배송|도착|수령|받는|받을|출하")
 # 문장·구절 경계. 소수점(5.0키로)과 천 단위 쉼표(3,000)는 나누지 않는다.
 _CLAUSE_BREAK = re.compile(r"[\n!?;]|[.,](?!\d)")
+# 당도 숫자는 "당도 12", "Brix 12", "12브릭스" 형태만 본다.
+# 중량·금액·개수 단위가 붙은 숫자는 제외한다.
+_NOT_OTHER_UNIT = r"(?![\d.])(?!\s*(?:kg|키로|킬로|원|개|박스|과))"
 _BRIX_NEAR = (
-    re.compile(r"(?:당도|브릭스|brix)[^\d]{0,12}(?<![\d.])(\d+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(
+        r"(?:당도|brix)[^\d]{0,12}(?<![\d.])(\d+(?:\.\d+)?)" + _NOT_OTHER_UNIT, re.IGNORECASE
+    ),
     re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*(?:브릭스|brix)", re.IGNORECASE),
 )
 _ISO_DATE = re.compile(r"(?P<year>20\d{2})[-./](?P<month>\d{1,2})[-./](?P<day>\d{1,2})")

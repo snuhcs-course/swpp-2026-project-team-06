@@ -65,6 +65,14 @@ def test_P02_AC_03_1_brix_matches_exact_value_not_substring():
     assert grounding.ground_draft(source, DraftExtraction(expected_brix=12.5)).expected_brix == 12.5
 
 
+def test_P02_AC_03_1_brix_ignores_numbers_with_other_units_after_brix_word():
+    source = "당도 12브릭스 5키로 박스, Brix 13 선별, 당도 높은 3박스"
+
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=5)).expected_brix is None
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=3)).expected_brix is None
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=13)).expected_brix == 13
+
+
 def test_P02_AC_03_1_delivery_window_uses_only_delivery_clauses():
     source = "수확은 12월 1일에 하고, 배송은 12월 15일~20일이에요."
 
