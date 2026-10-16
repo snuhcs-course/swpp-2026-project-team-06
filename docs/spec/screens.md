@@ -416,7 +416,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
   | 5xx | `INTERNAL_ERROR` | 서버 오류. AI 실패는 오류로 돌려주지 않고 각 FEAT의 대체 동작(전달, 빈 초안)으로 처리 |
 
 - **페이지네이션**: 목록은 `limit`(기본 20, 최대 50)과 `cursor`. 응답 `{"items": [...], "nextCursor": "..." | null}`. 정렬은 각 화면의 순서를 따른다.
-- **멱등 키**: `POST /api/orders`와 `POST /api/orders/{orderId}/pay`는 `Idempotency-Key`(UUID) 헤더가 필수다. 같은 사용자·같은 키는 처음 결과를 그대로 돌려주고, 같은 키에 다른 본문이면 409 `IDEMPOTENCY_MISMATCH`. 키는 24시간 보관한다.
+- **멱등 키**: `POST /api/orders`, `POST /api/orders/{orderId}/pay`, 운영자 생산자 결정·공급량 결정·배송 완료·환불은 `Idempotency-Key`(UUID) 헤더가 필수다. 같은 사용자·범위·키는 처음 결과를 그대로 돌려주고, 같은 키에 다른 본문이면 409 `IDEMPOTENCY_MISMATCH`. 키는 24시간 보관한다.
 - **시간 제한**: AI 초안 20초, 문의 응답은 시간을 넘기면 전달(N-04).
 - **개인정보**: 응답·로그에 필요한 것만(N-05). 생산자에게 배송 정보(실명·연락처·주소)는 출하 처리 목록의 배송 완료 전 주문만(R-15). 현황·채팅은 이름 앞 글자만.
 - **세는 단위**: `reservedCount`는 그 상품을 예약한 사람 수(중복 없음, 화면 ‘n명 예약’), 단계·옵션별 수량은 박스(`StageAllocation.reservedCount`), 주문 수는 건(PRD 용어집).
@@ -507,12 +507,16 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 메서드·경로 | 권한 | 요청 | 응답 | FEAT·규칙 | I1 |
 | --- | --- | --- | --- | --- | --- |
-| `POST /admin/producers/{farmId}/approve` | 운영자 | — | 농가 `APPROVED` | FEAT-01, R-22 | Should |
-| `POST /admin/producers/{farmId}/reject` | 운영자 | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 | Should |
+| `POST /admin/producers/{farmId}/approve` | 운영자, `Idempotency-Key` | — | 농가 `APPROVED` | FEAT-01, R-22 | Should |
+| `POST /admin/producers/{farmId}/reject` | 운영자, `Idempotency-Key` | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 | Should |
+| `GET /admin/producers/{farmId}/decisions` | 운영자 | — | 신청 시각·결정·사유·결정 운영자 이력(최신순) | FEAT-01, R-22 | Should |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/approve` | 운영자 | version | 공급 총중량 승인. 1.4 계약 | FEAT-04, R-25 | Must |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/reject` | 운영자 | version,reason | 신청 반려, 기존 판매 유지 | FEAT-04 | Must |
-| `POST /admin/orders/{orderId}/delivered` | 운영자 | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
-| `POST /admin/orders/{orderId}/refund` | 운영자 | 금액(없으면 전액), `reason` | `REFUNDED`·`PARTIALLY_REFUNDED`, 환불 기록 | R-11, R-12 | Should |
+| `POST /admin/orders/{orderId}/delivered` | 운영자, `Idempotency-Key` | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
+| `POST /admin/orders/{orderId}/refund` | 운영자, `Idempotency-Key` | `amount?`(없으면 결제 잔액 전액), `reason` | 환불 이력. 부분 환불은 주문 상태·환불 필드를 유지하고 결제만 `PARTIALLY_REFUNDED`; 최종 전액은 주문·결제 `REFUNDED` | R-11, R-12 | Should |
+| `GET /admin/orders/{orderId}/refunds` | 운영자 | — | 금액·사유·actor·시각 환불 이력(최신순) | R-11, R-12 | Should |
+| `GET /admin/exceptions`·`GET /admin/exceptions/{id}` | 운영자 | `status?`, `type?`, `cursor?`, `limit?` | 정제된 운영자 예외 목록·상세 | M01~M03, M07 | Should |
+| `POST /admin/exceptions/{id}/retry`·`POST /admin/exceptions/{id}/resolve` | 운영자 | — | 일시 실패 재시도 또는 예외 해결. 환불 요청 알림은 해결만 가능 | M01~M03, M07 | Should |
 | `POST /admin/farms/{farmId}/suspend` | 운영자 | `reason` | 농가 정지, 출하 전 주문 전액 환불 수 | R-24 | Should |
 | `DELETE /admin/messages/{messageId}` | 운영자 | — | 204 | 정책 4장 | Should |
 
