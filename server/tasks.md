@@ -555,7 +555,7 @@ Verify manager approvals, access, exceptions, and AI handoffs on seeded local da
 - [x] Run server pytest and the requested Playwright specs; cite relevant `test_AC_…` names.
 - [x] Verify uncovered seeded API flows and access cases; record pass/fail/blocked with evidence.
 - [x] Check final runs; no in-scope product failures remained, so no Bug issues were needed for DEV-47.
-- [ ] Open a docs PR and record actual effort and evidence.
+- [x] Open draft docs PR [#118](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/118) and record actual effort and evidence.
 
 ### Completion criteria
 - [x] Approvals, access, exceptions, and AI handoffs each have pass/fail/blocked results and evidence.
@@ -567,4 +567,4 @@ Verify manager approvals, access, exceptions, and AI handoffs on seeded local da
 - 10/16 Full server suite passed (206); requested Playwright specs passed (11). A first Playwright attempt used mismatched API hostnames; aligning the route-intercept URL made all cases pass, so no product Bug was filed.
 - 10/16 Seeded HTTP checks passed: all 12 admin route patterns returned 401 without a token and 403 for Mock-login `u-minji`/`u-kang`; approval/rejection/capacity/delivery/refund flows, stale versions, key requirements/replay, exception lifecycle, AC-13-6/7, and AC-32-3 were verified. AI local paths passed without a provider key.
 - 10/16 AC-13-5 and AI-settings checks remain blocked by DEV-39 In Progress. Consumer-visible partial-refund history remains blocked by the documented frontend/spec follow-up. The two spec-only routes are recorded as absent and excluded from M01–M03.
-- 10/16 Agent time/tokens: usage totals are not exposed in this session; add the available estimate/details to the PR and Linear result.
+- 10/16 Draft PR #118 opened. Agent time estimate: 0.5h; token total is not exposed in this session. The same limitation is recorded transparently in the PR and Linear result.
