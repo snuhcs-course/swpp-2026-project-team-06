@@ -408,7 +408,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-31](https://linear.app/sswp6/issue/DEV-31) (GitHub [#76](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/76), source T13)
 - 브랜치: `zahra/dev-31-core-ai-draft-grounded-answer-handoff`
 - 기능·인수 조건: FEAT-03 / AC-03-1~3 / P02, FEAT-13 / AC-13-1~4·6~8 / C06, M-05~M-12·M-15·M-18·M-20·M-21, N-04·N-08 / [contracts-1.2](../docs/spec/contracts-1.2.md) 5장
-- 상태: 진행 중 (예상 8시간, T01·T04는 로컬 Mock 구현을 막지 않음)
+- 상태: 머지 (예상 8시간, T01·T04는 로컬 Mock 구현을 막지 않음)
 
 ### 목표
 상품 초안은 생산자 원문에서 확인되는 값만 채우고, AI 채팅 답변은 실제로 전달한 근거와 검증 가능한 사실만 사용하게 한다. 실패·위험 질문은 생산자에게 원자적으로 전달하고, 환불·보상 요청은 저장 성공 뒤 개인정보 없는 운영 로그를 한 번만 남긴다.
@@ -441,15 +441,15 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [x] 근거 reference·한국어 숫자/날짜·예상 당도·금지 답변 사후 검증
 - [x] 정확한 결정 규칙·예약 출하 정책·Mock 동작 정렬
 - [x] 커밋 후 환불 alert와 멱등 경쟁·실패 억제
-- [ ] FEAT/rules/contracts/AI spec/wiki 문서 동기화
+- [x] FEAT/rules/contracts/AI spec/wiki 문서 동기화
 
 ### 완료 조건
 - [x] P02 / AC-03-1~3 초안 grounding·실패 테스트 통과
 - [x] C06 / AC-13-1~4·6~8 답변·전달·미리보기 테스트 통과
 - [x] M-07 성공·AI OFF·rollback·경쟁 loser·cached replay·preview alert 테스트 통과
 - [x] Mock 회귀 테스트와 전체 server pytest, `ruff check .` 통과
-- [ ] `git diff origin/main...HEAD`가 이 범위와 일치
-- [ ] AI 1차 리뷰 후 사람 리뷰 1명 승인·main 머지
+- [x] `git diff origin/main...HEAD`가 이 범위와 일치
+- [x] main 머지 (일정 압박으로 사람 승인 없이 작성자 결정으로 머지, 기록 참고)
 
 ### 기록
 - 10/13 GitHub #76의 source T13·P02/C06·완료 조건을 DEV-31과 확인. 예상 시간을 4시간에서 8시간으로 조정하고 `origin/main`에서 별도 worktree·브랜치를 시작했다
@@ -457,3 +457,4 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/13 공통 client, 초안/답변 grounding, 예약 출하 정책, 커밋 뒤 환불 alert와 멱등 race 억제를 구현. 집중 pytest 16개와 Ruff 통과, `test-spec12.mjs` 통과. 전체 Mock은 병렬 news-room mock server 1건이 종료되어 10/11였고 DEV-31이 수정한 spec 1.2 시나리오는 통과했다
 - 10/13 PR #98에 서버/Mock은 독립 진행하고 머지 뒤 FEAT-13·Testing wiki를 재조정한다는 coordination comment를 남겼다
 - 10/13 local port 권한으로 Mock 전체를 다시 실행해 11/11 통과. server 전체 pytest 147개와 `ruff check .`도 통과했다
+- 10/16 PR #98·#104·#109 머지 뒤 `origin/main`을 병합하고 `server/tasks.md` 충돌만 해결했다. #98의 “1:1 목록(서버 needsReply 상태 유지)” 용어를 유지해 FEAT-13 예외 흐름·근거 검증과 Testing wiki를 갱신했다. 일정 압박으로 리뷰어 없이 작성자가 squash merge하고 사후 리뷰를 요청한다.
