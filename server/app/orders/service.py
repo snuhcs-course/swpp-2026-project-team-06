@@ -482,19 +482,30 @@ def _portone_fetch(payment_id: str) -> dict:
     if res.status_code != 200:
         raise PortoneError(f"payment lookup failed: {res.status_code}")
     body = res.json()
-    custom = body.get("customData")
-    if isinstance(custom, str):
-        try:
-            custom = json.loads(custom)
-        except ValueError:
-            custom = {}
-    custom = custom or {}
     return {
         "status": body.get("status"),
         "amount": int((body.get("amount") or {}).get("total") or 0),
-        "order_id": custom.get("orderId"),
+        "order_id": _custom_order_id(body.get("customData")),
         "store_id": (body.get("channel") or {}).get("storeId") or body.get("storeId"),
     }
+
+
+def _custom_order_id(custom) -> str | None:
+    """customData는 문자열로 저장되며 PortOne이 한 번 더 JSON으로 감싸 돌려줄 수 있다.
+
+    최대 두 번 푼다.
+    """
+    for _ in range(2):
+        if not isinstance(custom, str):
+            break
+        try:
+            custom = json.loads(custom)
+        except ValueError:
+            return None
+    if not isinstance(custom, dict):
+        return None
+    value = custom.get("orderId")
+    return str(value) if value is not None else None
 
 
 def _verify_portone_payment(order: Order, payment_id: str, paid: dict | None = None) -> str | None:

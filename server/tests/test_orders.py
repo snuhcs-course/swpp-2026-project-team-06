@@ -598,3 +598,16 @@ def test_webhook_signature_is_verified_when_secret_is_set(client, login, monkeyp
 
     assert bad.status_code == 401
     assert ok.json() == {"result": "success"}
+
+
+def test_portone_custom_data_is_decoded_even_when_double_encoded():
+    import json
+
+    from app.orders.service import _custom_order_id
+
+    once = json.dumps({"orderId": "o-1"})
+    assert _custom_order_id(once) == "o-1"
+    assert _custom_order_id(json.dumps(once)) == "o-1"
+    assert _custom_order_id({"orderId": "o-2"}) == "o-2"
+    assert _custom_order_id("not json") is None
+    assert _custom_order_id(None) is None
