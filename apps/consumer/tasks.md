@@ -260,3 +260,49 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 최종 로컬 UI 검증: `npx playwright test scripts/e2e/conversation-ui.spec.ts` 6/6 통과. 커밋 전·브랜치 diff 검사와 명세 대조 완료. 소수 중량 옵션도 정수 g로 판정하고 생산자 상품 편집 복귀 시 판매 품목을 다시 읽는다.
 - PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/98 (머지하지 않음). 최신 실서버 CI 결과와 AI 리뷰는 PR에 기록. Linear MCP는 읽기 전용이며 브라우저 연결도 실패해 이슈 상태 직접 수정은 미완료.
+
+## DEV-37 결제 화면: 카드 입력·성공·실패·취소·영수증
+
+- 이슈: [DEV-37](https://linear.app/sswp6/issue/DEV-37) · GitHub #82
+- 브랜치: `nemodleo/dev-37-i2-t20-finish-payment-screens-for-success-failure`
+- 기능·인수 조건: FEAT-09 / AC-09-1, AC-09-2, AC-09-3 · 규칙 R-01, R-02, R-13, R-17
+- 상태: 리뷰 중
+
+### 목표
+I1의 "성공/실패 데모 스위치" 결제 화면을 실제 카드 결제처럼 보이는 화면으로 바꾼다. 테스트 참가자가 카드 번호를 넣고 결제하며, 성공·실패·취소·영수증 네 결과가 각각 올바르게 보인다. 서버 계약은 그대로 둔다(결제 자체는 여전히 Mock).
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/checkout/[productId]/pay.tsx`
+- `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`
+- `apps/consumer/spec.md`, `apps/consumer/tasks.md`
+- `scripts/e2e/checkout-and-fulfillment.spec.ts` (결제 단계 입력만)
+- `docs/spec/screens.md` SCR-11 절, `docs/spec/functional/FEAT-09-mock-payment.md` 정상·예외 흐름 문구, `docs/spec/ia.md` SCR-11 행, `docs/wiki/Requirements-and-Specifications.md` SCR-11 행
+
+### 비범위 (건드리지 않음)
+- 서버 `POST /orders/{id}/pay` 계약(`mockResult`)과 `packages/api` 타입. 샌드박스/PortOne 연동은 DEV-36.
+- 결제수단 추가(무통장입금). R-01 개정은 팀 결정(SWPP-93) 뒤 별도 이슈.
+- 주문 상세(SCR-14)의 환불·취소 문구.
+- Figma 시안 작업. 결제 화면의 Figma 반영은 이 PR 머지 뒤 별도 작업으로 하고, 여기서는 기존 `@farmclub/ui` 부품만 쓴다.
+
+### 결정 사항
+- 10/17 결제 수단 목록은 "테스트 카드(···· 4242, 한 번에 결제)"와 "다른 카드(직접 입력)" 두 줄. 테스트 카드는 입력 없이 바로 결제해 e2e와 참가자 안내를 단순하게 유지한다.
+- 10/17 카드 입력은 카드 번호(16자리, 4자리 묶음 자동 포맷, Luhn 검사)·유효기간(MM/YY, 이번 달 이후)·CVC(3자리). 비밀번호·생년월일은 받지 않는다(Mock에 저장할 곳이 없고 개인정보).
+- 10/17 Mock 결과 규칙: 카드 번호가 `0000`으로 끝나면 `mockResult: fail`, 그 외 유효한 카드는 `success`. 개발용 "데모 결과" 세그먼트는 제거한다. 실패 사유는 서버 `failReason` 그대로.
+- 10/17 취소: 헤더 뒤로가기와 실패 뒤 "주문서로 돌아가기"는 주문을 PENDING_PAYMENT로 둔 채 SCR-10으로 돌아간다(기존 동작). 결제 중에는 뒤로가기·버튼을 잠근다.
+- 10/17 영수증: SCR-12에 결제일(`paidAt`, 한국 시간)과 결제 수단 표시(테스트 카드 ···· 4242 / 카드 ···· 끝 4자리)를 추가한다. 끝 4자리는 서버에 저장하지 않으므로 라우트 파라미터로만 넘기고, 직접 링크로 열면 결제일만 보인다.
+
+### 작업
+- [x] pay.tsx: 수단 선택 두 줄 + 카드 입력 폼 + 검증 + Mock 결과 규칙, 데모 세그먼트 제거
+- [x] done.tsx: 결제일·결제 수단 행
+- [x] e2e checkout 결제 단계를 테스트 카드 선택으로 갱신, 실패 카드(0000) 경로 1건 추가
+- [x] screens.md SCR-11, FEAT-09 흐름 문구, ia.md, 영문 wiki SCR-11 행 동기화
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright checkout spec 통과
+
+### 완료 조건
+- [x] 성공·실패·취소·영수증 네 결과가 화면에서 구분되고 결제된 주문은 주문 내역에 한 번만 나타난다(이슈 완료 조건)
+- [x] AC-09-2(실패 시 물량 유지·주문서 복귀), AC-09-3(같은 멱등 키 재시도) 회귀 없음
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/17 main 34c9009에서 시작. 서버 무변경, 화면·문서만.
+- 10/17 구현·문서 동기화 완료. `npm run typecheck` 4개 통과, `npm run test:mock` 12/12, Mock 화면 6장 확인(콘솔 오류 0), `node scripts/run-integration.mjs`(로컬 Docker PostgreSQL) 실서버 시나리오 7/7 + Playwright 19/19 통과. 실패 안내 문구 중복·완료 화면 라벨 줄바꿈 수정. Figma 반영은 머지 뒤 별도.
