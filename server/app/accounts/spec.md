@@ -5,7 +5,7 @@
 > API 원본: docs/spec/screens.md 7.2 accounts · 흐름: docs/spec/tech-design/stack.md 5장 "Mock 로그인", ADR 0009(I1), ADR 0003(카카오, I2)
 
 ## 역할
-사용자와 역할, I1 Mock 로그인(시드 테스트 계정) → JWT 발급, 생산자 가입 신청과 운영자 승인·반려, 사용자별 저장 배송지(내 정보 SCR-17). 소비자 앱 카카오 로그인(DEV-32): 인가 코드 → 카카오 식별자·닉네임 → (식별자, 역할)로 계정 찾기·만들기 → JWT.
+사용자와 역할, I1 Mock 로그인(시드 테스트 계정) → JWT 발급, 생산자 가입 신청과 운영자 승인·반려, 사용자별 저장 배송지(내 정보 SCR-17). 소비자 앱 카카오 로그인(DEV-32): 인가 코드 → 카카오 식별자·이메일(없으면 닉네임) → (식별자, 역할)로 계정 찾기·만들기 → JWT.
 
 ## 구조
 - `router.py` — prefix `/auth`(앱에서는 `/api/auth`). `GET /api/auth/test-accounts`, `POST /api/auth/test-login`, `GET /api/auth/me`, 생산자 신청 `POST`·`GET /api/auth/producer-application`, 배송지 `/api/auth/me/addresses`. 관리 API `/admin/producers/...`는 DEV-4. (I2) `POST /api/auth/kakao`.
@@ -34,4 +34,4 @@
 | 2026-10-08 | 테스트 계정 순서는 소비자 [u-minji, u-seojun], 생산자 [u-kang, u-misook, u-new, u-soonja, u-taeho]. 운영자 `u-admin`은 테스트 계정이 아니고 `python -m app.accounts.admin_token`으로 토큰을 받는다 | 화면 SCR-05·19, ADR 0008·0009 | AC-01-4 |
 | 2026-10-08 | 주문서의 기본 배송지 저장은 `save_order_address`(같은 주소면 기본으로만 바꿈) | FEAT-08 | AC-08-5 |
 | 2026-10-16 | 생산자 승인·반려마다 신청 시각·결정·사유·운영자·결정 시각을 이력으로 남기고 재신청은 현재 반려 필드만 지운다 | 재신청 뒤에도 운영 결정 추적 | AC-01-3 |
-| 2026-10-17 | 카카오 로그인은 `GET /api/auth/kakao/config`(사용 여부·클라이언트 ID·복귀 경로 `/auth/kakao`)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 복귀 주소는 CORS 허용 앱 주소의 `/auth/kakao`만 받는다. (카카오 식별자, 역할) 조합마다 계정 하나이며 처음이면 닉네임으로 만든다(`isTestAccount=false`, 연락처 빈 값). REST API 키가 비면 404. 리프레시 토큰은 아직 없다(0009와 같은 7일 토큰) | FEAT-01 I2, ADR 0003·0010, DEV-32 | AC-01-8, AC-01-9, AC-01-10 |
+| 2026-10-17 | 카카오 로그인은 `GET /api/auth/kakao/config`(사용 여부·클라이언트 ID·복귀 경로 `/auth/kakao`)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 복귀 주소는 CORS 허용 앱 주소의 `/auth/kakao`만 받는다. (카카오 식별자, 역할) 조합마다 계정 하나이며 처음이면 카카오계정 이메일(없으면 닉네임, 둘 다 없으면 ‘카카오 사용자’)을 이름으로 만든다(`isTestAccount=false`, 연락처 빈 값). 자리 이름이던 계정은 다음 로그인에서 실제 이름으로 바뀐다. REST API 키가 비면 404. 리프레시 토큰은 아직 없다(0009와 같은 7일 토큰) | FEAT-01 I2, ADR 0003·0010, DEV-32 | AC-01-8, AC-01-9, AC-01-10 |

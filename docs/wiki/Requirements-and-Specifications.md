@@ -138,7 +138,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 **AC-01-8: First Kakao login (UI 1.6, DEV-32)**
 - **GIVEN** Kakao login is enabled and I am not logged in on a product page
 - **WHEN** I tap Reserve and sign in with Kakao
-- **THEN** a consumer account is created from my Kakao nickname only (no phone number) and I return to checkout
+- **THEN** a consumer account is created with my Kakao account email as its display name (no phone number) and I return to checkout
 
 **AC-01-9: Same Kakao account**
 - **GIVEN** I have signed in with this Kakao account before
