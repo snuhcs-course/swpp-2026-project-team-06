@@ -40,3 +40,4 @@
 
 
 DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML로 승인 농가의 OG 태그와 소비자 앱 이동을 제공한다. 농가 조회/내 농가/프로필 수정 응답의 shareUrl은 요청 서버 기준 절대 URL이다. 비승인·없는 농가는 no-store 404이며 농가 정보 없이 목록 링크만 표시한다. 상대 사진은 소비자 앱 기준 HTTP(S) URL로 만든다.
+| 2026-10-17 | `GET /api/farms`(공개, `q`·`cursor`·`limit`)와 `GET /api/farms/following`(소비자)을 `/{farm_id}` 앞에 추가. 목록 정렬은 `farm_cards`와 같고 `q`는 농가명·지역·주 품목·판매 중 상품명 부분 일치. 팔로우 목록은 최근 팔로우가 위, 승인 취소 농가 제외. 페이지는 orders와 같은 offset cursor | Mock에만 있던 두 경로가 서버에 없어 소비자 검색·내 정보가 실서버에서 404(DEV-60) | AC-06-1, AC-06-3 |
