@@ -52,9 +52,7 @@ def submit_application(
     main_items: str,
     contact_phone: str,
 ) -> Farm:
-    farm = db.scalar(
-        select(Farm).where(Farm.producer_id == producer_id).with_for_update()
-    )
+    farm = db.scalar(select(Farm).where(Farm.producer_id == producer_id).with_for_update())
     if farm is None:
         farm = Farm(
             id=new_id("f"),
@@ -136,9 +134,7 @@ def decision_history(db: Session, farm_id: str):
     rows = db.scalars(
         select(ProducerDecisionHistory)
         .where(ProducerDecisionHistory.farm_id == farm_id)
-        .order_by(
-            ProducerDecisionHistory.decided_at.desc(), ProducerDecisionHistory.id.desc()
-        )
+        .order_by(ProducerDecisionHistory.decided_at.desc(), ProducerDecisionHistory.id.desc())
     )
     return [
         ProducerDecisionHistoryView(
@@ -201,6 +197,42 @@ def farm_cards(db: Session) -> list[FarmCard]:
         )
         cards.append(FarmCard(**_summary(f), featured=featured))
     return sorted(cards, key=lambda c: (c.featured is None, c.featured.d_day if c.featured else 0))
+
+
+def search_farms(db: Session, q: str | None) -> list[FarmCard]:
+    """농가 목록·검색(SCR-02, FEAT-06).
+
+    정렬은 farm_cards와 같고, q는 농가명·지역·주 품목·판매 중 상품명 부분 일치.
+    """
+    from app.catalog import service as catalog
+
+    cards = farm_cards(db)
+    needle = (q or "").strip()
+    if not needle:
+        return cards
+    farms = get_farms(db, [c.farm_id for c in cards])
+    grouped = catalog.group_by_farm(catalog.published_cards(db, list(farms)))
+    matched = []
+    for card in cards:
+        farm = farms[card.farm_id]
+        haystack = " ".join(
+            [farm.name, farm.region, farm.main_items or ""]
+            + [c.name for c in grouped.get(card.farm_id, [])]
+        )
+        if needle in haystack:
+            matched.append(card)
+    return matched
+
+
+def following_farms(db: Session, consumer_id: str) -> list[FarmSummary]:
+    """팔로우한 농가(내 정보 SCR-17, AC-06-3). 최근 팔로우가 위, 승인 취소된 농가는 뺀다."""
+    rows = db.execute(
+        select(Farm)
+        .join(Follow, Follow.farm_id == Farm.id)
+        .where(Follow.consumer_id == consumer_id, Farm.approval_status == "APPROVED")
+        .order_by(Follow.created_at.desc(), Farm.id)
+    ).scalars()
+    return [summary(f) for f in rows]
 
 
 def home(db: Session) -> Home:
