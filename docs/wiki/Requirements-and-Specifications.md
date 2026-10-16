@@ -1,6 +1,6 @@
 # Requirements and Specifications
 
-Team 6 | Farmclub | Iteration 1 | 9 October 2026
+Team 6 | Farmclub | Iteration 1 baseline, UI 1.6 update | 13 October 2026
 
 ## Table of Contents
 
@@ -23,6 +23,8 @@ Team 6 | Farmclub | Iteration 1 | 9 October 2026
 | 1.0 | 2026-10-09 | Team 6 | Submission edition: customers, competition, stories, criteria and UI flows; consolidate specs 1.2-1.5 |
 | 1.1 | 2026-10-09 | Team 6 | Add Nongsafund to the competitive comparison with official sources |
 | 1.2 | 2026-10-09 | Team 6 | Table of contents, O/X feature comparison, one scenario per acceptance criterion, screen-by-screen UI specification with screenshots, measurable non-functional targets |
+
+| 1.6 | 2026-10-13 | Team 6 | DEV-51: conversation-centered Figma v6, horizontal feeds, direct farm rooms, collapsible shelves, fulfillment dashboard; API contracts unchanged |
 
 ## 1. Project Abstract
 
@@ -156,7 +158,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 **AC-02-4: Farm page on a small screen**
 - **GIVEN** a farm has a long name or no products
 - **WHEN** its page opens at 360px width
-- **THEN** the profile actions, news room entry and story still work
+- **THEN** the direct room, adjacent follow action and collapsible product shelf remain usable; short information opens from the profile
 - **AND** products appear before the story
 
 ### FEAT-03: AI-assisted drafting
@@ -375,7 +377,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **WHEN** it is sent
 - **THEN** it is saved and shown with the number masked
 
-**AC-12-10 (spec 1.5): Access changes**
+**AC-12-11: Access changes**
 - **GIVEN** a room has public and follower-only posts
 - **WHEN** I follow, unfollow or log out
 - **THEN** I only see what my new role allows
@@ -394,7 +396,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **GIVEN** the product description mentions how it is grown
 - **WHEN** a consumer asks "How much pesticide do you use?"
 - **THEN** the AI does not answer
-- **AND** the chat goes to the producer's Needs reply list
+- **AND** the chat goes to the producer's 1:1 chat list
 
 **AC-13-8: Taste, quality and damage**
 - **GIVEN** a measured value is on record
@@ -409,17 +411,17 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 ### FEAT-14: Producer dashboard
 
-**As a** producer, **I want** demand and pending work summarized in one place, **so that** I can plan the harvest and customer replies.
+**As a** producer, **I want** demand and pending work summarized in one place, **so that** I can manage orders and shipments.
 
 **AC-14-1: New payment**
 - **GIVEN** I have the dashboard open
 - **WHEN** a new order is paid and I reload
-- **THEN** that period's reserved quantity goes up and remaining stock goes down
+- **THEN** the order metrics and representative product's reserved kg update
 
 **AC-14-3: Separate numbers**
 - **GIVEN** a product has reservations and shipments
 - **WHEN** I view the dashboard
-- **THEN** approved, sales limit, reserved, shipped and available kg are shown separately
+- **THEN** order counts and representative product reserved/shipped kg are shown separately; approved/available kg remain in product sales settings
 - **AND** they are not mixed up with the number of buyers or orders
 
 ### FEAT-15: Public news and reactions
@@ -436,20 +438,20 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **WHEN** I tap Like and then tap it again
 - **THEN** the count goes to 4 with my like shown, then back to 3
 
-**AC-15-6 (spec 1.5): Coming back to the room**
-- **GIVEN** I entered a room from the farm page, order completion or Chat
+**AC-15-7: Coming back to the room**
+- **GIVEN** I entered a room from Home, a farm link or Chat
 - **WHEN** I come back from login or tap Back
 - **THEN** the app returns me to the right room or screen
 
-### FEAT-17: Harvest and shipment
+### FEAT-17: Order lookup and shipment
 
-**As a** producer, **I want to** mark harvest and shipment, **so that** buyers can follow their order accurately.
+**As a** producer, **I want to** inspect reservations and ship preparing orders, **so that** buyers can follow their order accurately.
 
-**AC-17-3: Start harvest**
-- **GIVEN** a product has 3 reserved orders
-- **WHEN** I tap Start harvest
-- **THEN** all 3 move to Preparing
-- **AND** buyers can still cancel them
+**AC-17-3: Reserved orders remain read-only**
+- **GIVEN** a product has three reserved orders
+- **WHEN** I view them in the producer application
+- **THEN** they remain reserved, with no Start harvest control or automatic transition
+- **AND** only existing preparing orders can use the shipment flow
 
 **AC-17-2: Ship an order**
 - **GIVEN** an order is Preparing
@@ -563,6 +565,13 @@ N-04, N-08, N-09 and N-10 are targets we will measure before the I2 pilot. How l
 
 ### 7.2 Main flow and failure branches
 
+The images in sections 7.2–7.5 are archived I1 evaluation captures, not current v6 acceptance references. Current screen behavior is specified in the tables below and [UI 1.6](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/conversation-ui-1.6.md). The editable source is [Figma v6](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G).
+
+Current additions: AC-06-6 independent horizontal feeds; AC-07-6 same-option comparison and fixed purchase/tabs; AC-12-12 shelf defaults, draft retention and same-room replies; AC-14-4 fulfillment-only dashboard; AC-17-6 no harvest UI/automatic state transition. Chat previews do not show AI/direct-response badges; private-thread AI controls remain.
+
+The API still supports the existing harvest transition for compatibility, but the current frontend never invokes it. A new operational policy for transitioning reserved orders is outside DEV-51; this release only ships orders already in PREPARING. The approved AI farm-story sample is used only by the matching Mock seed product, never as fabricated live product content.
+
+
 ![Consumer and producer journey](images/i1-user-flow.png)
 
 Figure 1. Arrows show user actions, the login detour, payment failure and the shipping steps. A producer's AI draft is not published until the producer submits it and an operator approves it.
@@ -585,14 +594,14 @@ Key consumer screens:
 
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
-| **SCR-01 Discover** | First screen: seasonal hero, recommended products, farms to browse | Tap search, hero, product card, farm card or "See all" | Search → SCR-02; product → SCR-04; farm → SCR-03 | No products on sale: shows "No products available right now" with farms only. A failed section shows Retry; the others stay |
+| **SCR-01 Discover** | First screen: photo/text farm news, then products; each is an independent horizontal carousel | Search, open a news card or product | News/farm → direct room; product → SCR-04 | Each section has its own empty/error state; no profile-only row or seasonal hero |
 | **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms |
-| **SCR-03 Farm page** | Farm profile, follow, news room entry, 1:1 chat, products, farm story | Follow / Following, Chat, open the room, tap a product | Product → SCR-04; Chat → SCR-16; room → SCR-18 | Not logged in: login sheet first. Not following: Chat asks to follow first. Missing or revoked farm: "Farm not found" → SCR-02 |
-| **SCR-04 Product detail** | Photos, delivery window, price for each reservation period, sweetness and grade, disclosures | Reserve opens the option/quantity sheet; Chat; Share | "Go to checkout" → SCR-10; farm summary → SCR-03 | Paused, sold out, between periods or ended: Reserve is disabled and the reason is shown. Quantity is limited to the per-order maximum |
+| **SCR-03 Farm page** | Direct farm news room with profile and adjacent Follow button | Fold/unfold the product shelf, send a same-room reply, open short farm info | Product → SCR-04; profile → short info | Shelf expanded for consumers; public/follower access unchanged; no reply-privacy hint |
+| **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
 | **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
 | **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents | Change option or address, check consents, Pay | Address → address screen; Pay → SCR-11 | Pay is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input |
 | **SCR-11 Payment (simulated)** | Pay the full amount; demo success/failure switch | Pay once (button locks while processing) | Success → SCR-12 | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
-| **SCR-12 Order complete** | Confirms the reservation and suggests following the farm | Follow, View news, Chat, My Orders, Home | SCR-18, SCR-16, SCR-13, SCR-01 | If loading the order fails, the screen stays and offers Retry |
+| **SCR-12 Order complete** | Reservation information and following | Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
 | **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
 | **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions | Cancel (confirm sheet), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
 | **SCR-15 / SCR-18 Chat** | News Rooms (farms you follow) and 1:1 chats in one tab | Switch views, open a room or chat | Room → news room; chat → SCR-16 | No chats: "Ask a farm anything" with a link to farms. Other buyers' replies never appear |
@@ -621,14 +630,14 @@ Key producer screens:
 | **SCR-19 Login** | Pick a producer test account, or apply as a new farm | Tap an account and Start; "Apply as a farm" | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Test login off: "You can't log in right now" |
 | **SCR-20 Application** | Farm details for joining; creates the producer account | Owner name, farm name, region, main crops, mobile number, policy consent; Apply | SCR-21 | Field errors keep the input. Already applied → SCR-21. Reapplying after rejection fills in the previous values |
 | **SCR-21 Pending approval** | Application status, refreshed every time the screen opens | View application, pull to refresh, log out, reapply if rejected | Approved → SCR-22 automatically; reapply → SCR-20 | Before approval, every other producer screen redirects here |
-| **SCR-22 Dashboard** | Today's tasks (questions, orders to ship, products under review) and kg per product | Tap a task | Questions → SCR-28 Needs reply; orders → SCR-29; review → SCR-23 | Nothing on sale: "No products on sale" with a link to SCR-24 |
+| **SCR-22 Dashboard** | Large 2×2 total/reserved/preparing/shipped counts and representative product reserved/shipped kg | Open order or shipping management | SCR-29 filtered list | All cursor pages contribute to order counts; no chat tasks or news-writing entry |
 | **SCR-23 Products** | Products grouped by status with reservation counts and kg | Filter, tap a product, "+ New product" | Product → SCR-25; new → SCR-24 | No products: "Add your first product" |
 | **SCR-24 AI product draft** | Paste existing KakaoTalk or BAND text (max 3,000 characters) and get a draft | Paste text, Create draft, Edit or enter manually | SCR-25 | Button disabled while the text is empty. AI fails or takes over 20 seconds: text is kept and an empty editor opens. A price in the text is never filled in |
 | **SCR-25 Product edit** | Product details, quality, options, delivery window, shipping fee, sales settings | Save, set periods, Submit for approval, pause or resume | Periods → SCR-26 | Submit stays disabled until required fields and period prices are set. Unsaved changes: confirm before leaving. Changing the delivery window with existing orders asks buyers to accept or refund |
 | **SCR-26 Periods, prices and supply** | Date-based reservation periods with a price and box count per option | Add or remove periods, pick dates, enter prices and quantities, Save | Back to SCR-25 | Earlier price must be lower and periods cannot overlap. A period with reservations cannot be deleted or re-dated If someone else saved first, the input is kept |
-| **SCR-28 Chat** | The farm's news room and every 1:1 chat, with an All / Needs reply filter | Switch views, open a chat, reply, attach | 1:1 → chat with that buyer; AI settings → SCR-31 | No chats or nothing needing a reply is shown separately. A failed load keeps the list |
+| **SCR-28 Chat** | News Room / 1:1 Chat only; own room opens immediately by default | Send, attach, fold product shelf, switch to private chat list | Private thread or attachment composer | Producer shelf starts collapsed; broadcast notice is the first scrolling system message; composer is fixed above four tabs |
 | **SCR-27 Post news** | Text with up to 5 photos (10MB each) or 1 video (60s, 100MB); public or followers only | Write, attach, choose visibility, Post | Back to the farm's own room | Wrong format or size: reason per file. Attachment fails: the text is kept |
-| **SCR-29 Shipping** | Start harvest and mark selected orders shipped with courier and tracking number | Start harvest (confirm), select orders, enter tracking, "Ship n orders" (confirm) | Back to the shipping list | Nothing to ship: "No orders to send right now". Some orders already changed: the rest are processed and the list refreshes. Producers cannot mark orders delivered |
+| **SCR-29 Shipping** | Read all/reserved/preparing/shipped orders; ship existing preparing orders | Select preparing orders, edit invoice, confirm shipment | Back to shipping list | No Start harvest controls or calls; no automatic RESERVED → PREPARING; stale states refresh after conflict |
 | **SCR-33 Settings** | Farm summary, profile and share link, AI settings, log out | Tap an item | SCR-30, SCR-31, SCR-19 | Retry if loading fails |
 | **SCR-30 Farm profile and link** | Edit name, region and introduction; copy or share the farm link | Copy, Share, edit one field, change photo | Field → single-field edit screen | Name and region cannot be empty. The link is hidden until the farm is approved |
 | **SCR-31 AI settings** | AI on/off, answering guidelines, FAQs, extra handoff topics, preview | Edit, Save, Preview | Back to SCR-33 | Unsaved changes are marked and confirmed before leaving. Field errors and save conflicts keep the input |

@@ -10,7 +10,7 @@
 ## 구조
 - `src/app/` — Expo Router 라우트. 파일 하나가 화면 하나다.
 - 하단 탭 4개(ia.md 4장): 발견(SCR-01) · 내 주문(SCR-13) · 채팅(SCR-15·18) · 내 정보(SCR-17). `src/app/(tabs)/_layout.tsx`. 주문 내역·상세·완료는 내 주문 탭 안.
-- 탭 밖 화면은 루트 Stack에 둔다: 로그인, 상품 상세, 주문서, 결제.
+- 탭 밖 화면은 루트 Stack에 둔다: 로그인, 주문서, 결제. 상품 상세는 발견 탭 Stack 안에 둔다.
 - 현재 경로는 PR #39의 `docs/spec/navigation-1.3.md`를 따른다.
 
 | SCR | 화면 | 경로 | 파일 | FEAT |
@@ -18,7 +18,7 @@
 | SCR-01 | 홈·발견 | `/` | `src/app/(tabs)/index.tsx` | FEAT-06, 15 |
 | SCR-02 | 농가 목록 | `/farms` | `src/app/(tabs)/farms/index.tsx` | FEAT-06 |
 | SCR-03 | 농가 페이지 | `/farms/:farmId` | `src/app/(tabs)/farms/[farmId].tsx` | FEAT-02, 06, 12, 15, 19 |
-| SCR-04 | 상품 상세 | `/products/:productId` | `src/app/products/[productId].tsx` | FEAT-07 |
+| SCR-04 | 상품 상세 | `/products/:productId` | `src/app/(tabs)/products/[productId].tsx` | FEAT-07 |
 | SCR-05 | 로그인(소비자 테스트 계정만) | `/login` | `src/app/login.tsx` | FEAT-01 |
 | SCR-10 | 주문서 | `/checkout/:productId` | `src/app/checkout/[productId]/index.tsx` | FEAT-08 |
 | SCR-10 하위 | 배송지 입력 | `/checkout/:productId/address` | `src/app/checkout/[productId]/address.tsx` | FEAT-08 |
@@ -40,9 +40,9 @@
 - 내 정보의 ‘농가로 시작하기’는 ‘생산자 앱은 따로 가입해요’ 시트 뒤 생산자 앱 주소(`EXPO_PUBLIC_PRODUCER_URL`)의 로그인으로 보낸다(AC-01-7).
 - 로그인 관문(팔로우·예약·채팅하기·좋아요, 내 주문·채팅·내 정보 탭)은 안내 시트를 먼저 띄우고, 예약은 옵션·수량 시트의 ‘주문서로’에서 띄워 로그인 뒤 고른 값을 유지한다(screens.md 결정 25). 권한 표시는 화면에서 하되, 실제 권한 검사는 서버가 한다(N-06).
 - 레이블은 ia.md 4장: 소비자 화면에 ‘메시지’를 쓰지 않는다(‘소식’, ‘채팅’). 주문 상태는 소비자 문구(수확·포장 중, 배송 중)로 보인다.
-- 화면 모양·크기·문구는 `docs/design/`(screens/*.html, README 토큰·규칙)이 기준이다.
+- 화면 모양·크기·문구는 Figma v6와 `docs/spec/conversation-ui-1.6.md`가 기준이다. `docs/design/screens`는 이전 평가 기록이다.
 
-## 구현 결정
+## 구현 결정 이력 (현재 화면은 DEV-51 절 우선)
 | 날짜 | 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
 | 2026-10-07 | 라우트는 `src/app/`, 탭 화면은 `(tabs)` 그룹 안에 탭별 Stack으로 둔다. 상품 상세·주문서·결제·로그인은 탭 밖 루트 Stack | ia.md 2장 경로를 그대로 쓰면서 하단 탭 4개(ia.md 4장)를 유지 | — |
@@ -86,3 +86,8 @@ AC-10-6/7: orderGroups의 상태별 분류·정렬을 사용하고, 기존 전�
 
 ## DEV-3 상세·공개 소식방 구현 (1.5)
 명세 PR #44의 storefront-1.5.md를 따른다. 상세는 text/image 블록과 공유 DetailStory 렌더러를 사용하며 생성은 저장 전 편집안이다. 기존 intro/description은 실제 기존 데이터의 기본 소개로 유지한다. 소식방 공개 읽기와 답장 권한을 분리하고 권한 변경 후 이전 비동기 메시지를 폐기한다. 실제 AI 호출은 구현하지 않으며 Mock임을 명시한다.
+
+## DEV-51 현재 프론트 구현 기준 (1.6)
+
+제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
+FarmRoom은 `/farms/:id`와 `/news/:id`의 공용 컨테이너이고 `/farms/:id/info`는 짧은 정보다. 판매 품목 상태는 대화와 분리하며 권한 변경 때 메시지를 재마운트해 폐기한다. 상품 상세의 BottomBar는 aboveTabs로 고정한다. 홈의 공개 news와 제품 비교 가격은 기존 API를 조합한다.

@@ -5,7 +5,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Platform, ScrollView, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
+import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { T } from "./Text";
 import { Photo } from "./content";
@@ -56,7 +64,7 @@ export function RoomMedia({ uri }: { uri: string }) {
       style: { width: 250, borderRadius: 12 },
     })
   ) : (
-    <Photo uri={uri} width={250} height={180} alt="소식 사진" />
+    <Photo uri={uri} width={272} height={236} alt="소식 사진" />
   );
 }
 export function NewsRoom({
@@ -247,16 +255,9 @@ export function NewsRoom({
     }
   }
   return (
-    <View style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}>
-      <View style={{ padding: 12, backgroundColor: tokens.color.surface }}>
-        <T variant="caption" muted>
-          {producer
-            ? "소비자의 모든 답장이 보여요. 여기서 보내는 소식은 모든 팔로워에게 전달돼요."
-            : canReply
-              ? "농가의 소식과 내가 보낸 답장만 보여요. 내 답장은 농가만 볼 수 있어요."
-              : "공개 소식을 둘러보고 있어요. 팔로우하면 전용 소식도 보고 답장할 수 있어요."}
-        </T>
-      </View>
+    <View
+      style={{ flex: 1, minHeight: 0, backgroundColor: tokens.color.surface }}
+    >
       {error || loadError ? (
         <View accessibilityRole="alert" style={{ padding: 12 }}>
           <T color={tokens.color.error}>{error || loadError}</T>
@@ -290,6 +291,11 @@ export function NewsRoom({
           height.current = h;
         }}
       >
+        {producer ? (
+          <T variant="caption" muted center style={{ padding: 12 }}>
+            보내는 소식은 모든 팔로워에게 보여요
+          </T>
+        ) : null}
         {cursor ? (
           <Button
             label="이전 소식 보기"
@@ -370,7 +376,8 @@ export function NewsRoom({
         <View
           style={{
             padding: 12,
-            paddingBottom: safe("bottom", 12),
+            paddingBottom: producer ? 12 : safe("bottom", 12),
+            backgroundColor: tokens.color.background,
             borderTopWidth: 1,
             borderColor: tokens.color.border,
             gap: 8,
@@ -385,7 +392,7 @@ export function NewsRoom({
                 accessibilityLabel="사진·영상 소식 첨부"
                 variant="text"
                 onPress={onAttach}
-                disabled={busy}
+                disabled={!ready || busy}
               />
             ) : null}
             <TextInput
@@ -394,7 +401,7 @@ export function NewsRoom({
               }
               value={body}
               onChangeText={setBody}
-              editable={!busy}
+              editable={ready && !busy}
               multiline
               maxLength={producer ? 2000 : 1000}
               placeholder={
@@ -406,23 +413,38 @@ export function NewsRoom({
                 minHeight: 48,
                 maxHeight: 130,
                 padding: 12,
-                borderRadius: 16,
+                borderRadius: 24,
                 backgroundColor: tokens.color.surface,
                 fontSize: 16,
                 fontFamily: tokens.fontFamily,
               }}
             />
-            <Button
-              label="전송"
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="전송"
+              accessibilityState={{
+                disabled: !ready || !body.trim() || busy,
+                busy,
+              }}
               onPress={submit}
-              loading={busy}
-              disabled={!ready || !body.trim()}
-            />
+              disabled={!ready || !body.trim() || busy}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: tokens.color.accent,
+                opacity: !ready || !body.trim() || busy ? 0.35 : 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {busy ? (
+                <ActivityIndicator color={tokens.color.onAccent} />
+              ) : (
+                <Icon name="send" color={tokens.color.onAccent} />
+              )}
+            </Pressable>
           </View>
-          <T variant="caption" muted>
-            {body.length}/{producer ? 2000 : 1000}
-            {producer ? " · 전체 발송" : ""}
-          </T>
         </View>
       ) : (
         <View style={{ padding: 16, paddingBottom: safe("bottom", 16) }}>

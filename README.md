@@ -220,3 +220,5 @@ Local shared Mock: `npm run dev` compiles the API fixtures and starts a loopback
 - Changes to `packages/api/src/mock` require restarting `npm run dev` to recompile the shared backend. Frontend/UI edits use Fast Refresh. Stop the existing launcher first to retain ports 8081/8082/8083.
 - Mock schema 7 requires explicit local migration/reset on a schema mismatch. Existing local orders/messages were backed up and converted once; no legacy schema compatibility is shipped. Do not commit `.expo`, tokens or backups.
 - Scope: frontend + local Mock. DEV-4 implements the corresponding FastAPI endpoints and production transactions. These tests do not verify real payments, AI or server API implementation. Admin approval is a management API, never a producer self-approval button.
+
+현재 대화 중심 프론트의 동작·Figma 기준은 [UI 1.6 명세](docs/spec/conversation-ui-1.6.md)를 참고한다.

@@ -150,7 +150,7 @@ test("AC-03-4/07-5: detail drafts do not publish, edits persist and validation/o
   );
 });
 
-test("AC-12-10: public room pages/summaries/cursors never reveal follower broadcasts or replies", async () => {
+test("AC-12-11: public room pages/summaries/cursors never reveal follower broadcasts or replies", async () => {
   reset();
   const a = await login("u-minji", "consumer"),
     b = await login("u-seojun", "consumer"),
@@ -217,4 +217,38 @@ test("AC-12-10: public room pages/summaries/cursors never reveal follower broadc
   await ok("PUT", "/api/messaging/news/" + pub.broadcastId + "/reaction", a);
   db().farms["f-kang"].status = "SUSPENDED";
   assert.equal((await api("GET", room)).status, 404);
+});
+
+test("AC-07-6: comparison uses the same option in the last period and suppresses unavailable or non-discount prices", async () => {
+  reset();
+  const {
+    referencePrice,
+  } = require("../.expo/mock-build/productPresentation.js");
+  const p = await ok("GET", "/api/products/p-house");
+  assert.equal(referencePrice(p, p.options[0].optionId), 36000);
+  assert.equal(referencePrice(p, p.options[1].optionId), 68000);
+  assert.equal(
+    referencePrice({ ...p, stages: [...p.stages].reverse() }),
+    36000,
+  );
+  assert.equal(referencePrice({ ...p, soldOut: true }), null);
+  assert.equal(referencePrice({ ...p, remainingGrams: 4999 }), null);
+  const fractional = structuredClone(p);
+  fractional.options[0].weightKg = 4.001;
+  fractional.remainingGrams = 4001;
+  assert.equal(referencePrice(fractional), 36000);
+  assert.equal(referencePrice({ ...p, currentStageId: "missing" }), null);
+  assert.equal(referencePrice(p, "missing"), null);
+  const final = p.stages.reduce((a, b) => (a.seq > b.seq ? a : b));
+  assert.equal(referencePrice({ ...p, currentStageId: final.stageId }), null);
+  const empty = structuredClone(p);
+  const value = empty.stages.find((s) => s.stageId === empty.currentStageId)
+    .options[empty.options[0].optionId];
+  value.reservedCount = value.quantity;
+  assert.equal(referencePrice(empty), null);
+  assert.equal(
+    p.detailContent.blocks.filter((b) => b.type === "image").length,
+    1,
+  );
+  assert.equal(p.detailContent.blocks[0].uri, "/photos/farm-story.png");
 });

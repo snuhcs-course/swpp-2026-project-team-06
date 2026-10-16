@@ -1,290 +1,174 @@
-// SCR-01 홈·발견 (FEAT-06, 15) — design: scr-01, s-01-loading, s-01-error
-import { farms } from "@farmclub/api";
+// SCR-01 / AC-06-4: independent horizontal news and product feeds.
+import { farms, messaging, productPrices } from "@farmclub/api";
 import {
+  BrandHeader,
   Button,
-  Chip,
+  FeedCarousel,
   IconButton,
-  Notice,
+  NewsCard,
   Photo,
+  Price,
   Screen,
   Scroll,
-  Section,
   Skeleton,
   T,
-  dday,
-  period,
   tokens,
   useAsync,
-  won,
+  useFeedCardWidth,
+  period,
+  dday,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, View } from "react-native";
-
-import { PhotoShade, Wordmark } from "../../lib/views";
+import { Pressable, View } from "react-native";
+import { useSession } from "../../lib/session";
 
 export default function Home() {
   const router = useRouter();
-  const { data, error, loading, reload } = useAsync(() => farms.home(), []);
-
+  const { user } = useSession();
+  const home = useAsync(() => farms.home(), []);
+  const news = useAsync(async () => {
+    if (!home.data) return [];
+    const pages = await Promise.all(
+      home.data.farms.map((f) => messaging.farmNews(f.farmId, { limit: 3 })),
+    );
+    return pages
+      .flatMap((p) => p.items)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 12);
+  }, [home.data, user?.userId]);
+  const products = useAsync(
+    () => productPrices(home.data?.recommended ?? []),
+    [home.data],
+  );
+  const width = useFeedCardWidth();
   return (
     <Screen>
-      <View
-        style={{
-          height: 48,
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: tokens.space.gutter,
-        }}
-      >
-        <Wordmark />
-        {/* 검색 아이콘 → SCR-02 검색칸 포커스(결정 23, D-16) */}
-        <View style={{ marginLeft: "auto", marginRight: -12 }}>
+      <BrandHeader
+        title="farmclub"
+        right={
           <IconButton
             icon="search"
             label="농가·상품 검색"
-            onPress={() =>
-              router.push({ pathname: "/farms", params: { focus: "search" } })
-            }
+            onPress={() => router.push("/farms?focus=search")}
           />
-        </View>
-      </View>
-      {loading && !data ? (
-        <HomeSkeleton />
-      ) : (
-        <Scroll bottom={tokens.height.tabBarClearance}>
-          {data ? (
-            <Pressable
-              accessibilityRole="link"
-              disabled={!data.hero.productId}
-              onPress={() =>
-                data.hero.productId &&
-                router.push(`/products/${data.hero.productId}`)
-              }
-              style={{ height: 480 }}
-            >
-              <Photo
-                uri={data.hero.photo}
-                width="100%"
-                height={480}
-                radius={0}
-                alt="수확 상자가 놓인 서귀포 감귤 과수원"
-              />
-              <PhotoShade height={260} />
-              <View
-                style={{
-                  position: "absolute",
-                  left: 20,
-                  right: 20,
-                  bottom: 24,
-                  gap: 8,
-                }}
-              >
-                <T
-                  variant="caption"
-                  weight="semibold"
-                  color="rgba(255,255,255,0.85)"
-                >
-                  {data.hero.label}
-                </T>
-                <T variant="heading" color="#FFFFFF">
-                  {data.hero.title}
-                </T>
-                <T
-                  variant="sub"
-                  weight="semibold"
-                  color="rgba(255,255,255,0.92)"
-                  style={{ marginTop: 4 }}
-                >
-                  {data.hero.caption} →
-                </T>
-              </View>
-            </Pressable>
-          ) : null}
-
-          {error ? (
-            <View
-              style={{
-                paddingHorizontal: tokens.space.gutter,
-                paddingTop: tokens.space.section,
-              }}
-            >
-              <Notice
-                title="상품을 불러오지 못했어요"
-                body="인터넷 연결을 확인하고 다시 시도해 주세요."
-                action={
-                  <Button
-                    label="다시 시도"
-                    variant="outline"
-                    onPress={reload}
-                    style={{ alignSelf: "flex-start", marginTop: 8 }}
-                  />
-                }
-              />
-            </View>
-          ) : null}
-
-          {data ? (
-            <>
-              <Section
-                title="지금 예약하면 이득"
-                right={
-                  <T variant="sub" muted>
-                    마감 임박순
-                  </T>
-                }
-                bleed
-              >
-                {data.recommended.length === 0 ? (
-                  <T
-                    variant="body"
-                    muted
-                    style={{ paddingHorizontal: tokens.space.gutter }}
-                  >
-                    현재 예약 가능한 상품이 없어요
-                  </T>
-                ) : (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{
-                      gap: 12,
-                      paddingHorizontal: tokens.space.gutter,
-                    }}
-                  >
-                    {data.recommended.map((p) => (
-                      <Pressable
-                        key={p.productId}
-                        accessibilityRole="link"
-                        onPress={() => router.push(`/products/${p.productId}`)}
-                        style={{ width: 232, gap: 8 }}
-                      >
-                        <Photo
-                          uri={p.photo}
-                          width={232}
-                          height={160}
-                          alt={p.name}
-                          kind="product"
-                        />
-                        <View style={{ gap: 4 }}>
-                          <T variant="body" weight="semibold" numberOfLines={1}>
-                            {p.name.split(" / ")[0]}
-                          </T>
-                          <T variant="sub" muted numberOfLines={1}>
-                            {p.farmName} ·{" "}
-                            {period(
-                              p.deliveryWindow.start,
-                              p.deliveryWindow.end,
-                            )}{" "}
-                            도착
-                          </T>
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 8,
-                            }}
-                          >
-                            <T variant="body" weight="bold">
-                              {won(p.currentPrice)}
-                            </T>
-                            <Chip label={dday(p.dDay)} />
-                            <T
-                              variant="caption"
-                              muted
-                              style={{ marginLeft: "auto" }}
-                            >
-                              {p.reservedCount}명 예약
-                            </T>
-                          </View>
-                        </View>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                )}
-              </Section>
-
-              <Section
-                title="농가 둘러보기"
-                right={
-                  <Pressable
-                    accessibilityRole="link"
-                    onPress={() => router.push("/farms")}
-                    style={{
-                      minHeight: 48,
-                      minWidth: 48,
-                      justifyContent: "center",
-                    }}
-                  >
-                    <T variant="sub" weight="semibold" muted>
-                      모두 보기
-                    </T>
-                  </Pressable>
-                }
-                bleed
-              >
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{
-                    gap: 12,
-                    paddingHorizontal: tokens.space.gutter,
-                  }}
-                >
-                  {data.farms.map((f) => (
-                    <Pressable
-                      key={f.farmId}
-                      accessibilityRole="link"
-                      onPress={() => router.push(`/farms/${f.farmId}`)}
-                      style={{ width: 160, gap: 8 }}
-                    >
-                      <Photo
-                        uri={f.photo}
-                        width={160}
-                        height={200}
-                        alt={f.name}
-                        kind="farm"
-                      />
-                      <View>
-                        <T variant="body" weight="bold" numberOfLines={1}>
-                          {f.name}
-                        </T>
-                        <T variant="sub" muted numberOfLines={1}>
-                          {f.region} · 팔로워 {f.followerCount}명
-                        </T>
-                      </View>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </Section>
-            </>
-          ) : null}
-        </Scroll>
-      )}
-    </Screen>
-  );
-}
-
-function HomeSkeleton() {
-  return (
-    <View accessibilityLabel="불러오는 중">
-      <Skeleton width="100%" height={480} radius={0} />
-      <View
-        style={{
-          padding: tokens.space.gutter,
-          paddingTop: tokens.space.section,
-          gap: 16,
-        }}
-      >
-        <Skeleton width={180} height={22} />
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <View style={{ gap: 8 }}>
-            <Skeleton width={232} height={160} radius={16} />
-            <Skeleton width={140} height={17} />
-            <Skeleton width={200} height={15} />
+        }
+      />
+      <Scroll bottom={tokens.height.tabBarClearance}>
+        <View style={{ padding: 20, gap: 20 }}>
+          <T variant="title">오늘, 농가에서</T>
+          <T muted>농가의 일상과 제철을 함께 만나보세요.</T>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <T variant="heading">농가에서 온 소식</T>
+            <Button
+              label="모두 보기"
+              variant="text"
+              onPress={() => router.push("/chats?view=news")}
+            />
           </View>
-          <Skeleton width={120} height={160} radius={16} />
         </View>
-      </View>
-    </View>
+        {home.error || news.error ? (
+          <View style={{ padding: 20, gap: 8 }}>
+            <T muted>소식을 불러오지 못했어요</T>
+            <Button
+              label="다시 시도"
+              variant="outline"
+              onPress={() => {
+                void home.reload();
+                void news.reload();
+              }}
+            />
+          </View>
+        ) : null}
+        {home.loading || news.loading ? (
+          <Skeleton width={320} height={390} style={{ marginHorizontal: 20 }} />
+        ) : (
+          <FeedCarousel label="농가 소식 가로 목록">
+            {news.data?.length ? (
+              news.data.map((n) => (
+                <NewsCard
+                  key={n.broadcastId}
+                  news={n}
+                  onPress={() => router.push(`/farms/${n.farmId}`)}
+                />
+              ))
+            ) : (
+              <T muted>농가의 첫 소식을 기다려요</T>
+            )}
+          </FeedCarousel>
+        )}
+        <View
+          style={{
+            marginTop: 24,
+            padding: 20,
+            borderTopWidth: 1,
+            borderColor: tokens.color.border,
+          }}
+        >
+          <T variant="heading">농가의 제철 상품</T>
+        </View>
+        <FeedCarousel label="상품 가로 목록">
+          {(products.data ?? home.data?.recommended ?? []).map((p) => (
+            <View key={p.productId} style={{ width, gap: 12 }}>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={`${p.name} 상품 상세`}
+                onPress={() => router.push(`/products/${p.productId}`)}
+              >
+                <Photo
+                  uri={p.photo}
+                  width={width}
+                  height={200}
+                  alt={p.name}
+                  kind="product"
+                />
+              </Pressable>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => router.push(`/farms/${p.farmId}`)}
+                style={{ minHeight: 48, justifyContent: "center" }}
+              >
+                <T variant="sub" weight="semibold" muted numberOfLines={1}>
+                  {p.farmName} ›
+                </T>
+              </Pressable>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => router.push(`/products/${p.productId}`)}
+                style={{ gap: 12 }}
+              >
+                <T variant="heading" numberOfLines={2}>
+                  {p.name}
+                </T>
+                <T variant="sub" muted>
+                  {period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착
+                </T>
+                <Price
+                  current={p.currentPrice}
+                  reference={
+                    "referencePrice" in p &&
+                    typeof p.referencePrice === "number"
+                      ? p.referencePrice
+                      : undefined
+                  }
+                  soldOut={p.soldOut}
+                />
+                <T variant="caption" muted numberOfLines={1}>
+                  {p.reservedCount}명 예약 · 마감 {dday(p.dDay)}
+                </T>
+              </Pressable>
+            </View>
+          ))}
+          {home.data?.recommended.length === 0 ? (
+            <T muted>현재 예약 가능한 상품이 없어요</T>
+          ) : null}
+        </FeedCarousel>
+      </Scroll>
+    </Screen>
   );
 }
