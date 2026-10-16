@@ -137,8 +137,14 @@ def _allowed_redirect(redirect_uri: str, app: str) -> bool:
     return redirect_uri == f"{base.rstrip('/')}{KAKAO_REDIRECT_PATH}"
 
 
+KAKAO_PLACEHOLDER_NAME = "카카오 사용자"
+
+
 def _kakao_fetch(code: str, redirect_uri: str) -> tuple[str, str]:
-    """인가 코드 → (카카오 식별자, 닉네임). 이름만 받는다(FEAT-01 FQ-01). 테스트에서 바꿔 끼운다."""
+    """인가 코드 → (카카오 식별자, 표시 이름). 표시 이름은 이메일(account_email), 없으면 닉네임.
+
+    연락처는 받지 않는다(FEAT-01 FQ-01). 테스트에서 바꿔 끼운다.
+    """
     settings = get_settings()
     data = {
         "grant_type": "authorization_code",
@@ -167,12 +173,13 @@ def _kakao_fetch(code: str, redirect_uri: str) -> tuple[str, str]:
     if kakao_id is None:
         raise KakaoError("user lookup returned no id")
     account = body.get("kakao_account") or {}
-    nickname = (
-        (account.get("profile") or {}).get("nickname")
+    display = (
+        account.get("email")
+        or (account.get("profile") or {}).get("nickname")
         or (body.get("properties") or {}).get("nickname")
         or ""
     )
-    return str(kakao_id), str(nickname)
+    return str(kakao_id), str(display)
 
 
 def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginResult:
@@ -183,12 +190,13 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginRes
             {"redirectUri": "허용된 복귀 주소가 아니에요"}, "카카오 로그인 주소를 확인해 주세요."
         )
     try:
-        kakao_id, nickname = _kakao_fetch(code, redirect_uri)
+        kakao_id, display = _kakao_fetch(code, redirect_uri)
     except (KakaoError, httpx.HTTPError) as exc:
         raise invalid(
             {"code": "카카오 인증에 실패했어요"}, "카카오 로그인에 실패했어요. 다시 시도해 주세요."
         ) from exc
     role = APP_ROLE[app]
+    name = (display.strip() or KAKAO_PLACEHOLDER_NAME)[:100]
     user = db.scalar(select(User).where(User.kakao_id == kakao_id, User.role == role))
     if user is None:
         user = User(
@@ -196,11 +204,15 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginRes
             kakao_id=kakao_id,
             is_test_account=False,
             role=role,
-            name=(nickname.strip() or "카카오 사용자")[:100],
+            name=name,
             phone="",
             created_at=now(),
         )
         db.add(user)
+        db.flush()
+    elif user.name == KAKAO_PLACEHOLDER_NAME and name != KAKAO_PLACEHOLDER_NAME:
+        # 동의 항목이 늦게 켜진 계정: 자리 이름을 실제 표시 이름으로 바꾼다
+        user.name = name
         db.flush()
     return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
 

@@ -246,7 +246,7 @@ CONSUMER_REDIRECT = "http://localhost:8081/auth/kakao"
 PRODUCER_REDIRECT = "http://localhost:8082/auth/kakao"
 
 
-def _kakao_on(monkeypatch, fetch=("kakao-1001", "민지")):
+def _kakao_on(monkeypatch, fetch=("kakao-1001", "minji@example.com")):
     from app.accounts import service
 
     monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "test-rest-key")
@@ -285,7 +285,7 @@ def test_AC_01_8_first_kakao_login_creates_consumer_account(client, monkeypatch)
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["accessToken"]
-    assert body["user"]["name"] == "민지"
+    assert body["user"]["name"] == "minji@example.com"
     assert body["user"]["role"] == "CONSUMER"
     assert body["user"]["isTestAccount"] is False
     assert body["user"]["farmStatus"] == "NONE"
@@ -366,3 +366,21 @@ def test_kakao_exchange_failure_creates_no_account(client, monkeypatch):
 
     assert response.status_code == 400
     assert _kakao_users("kakao-1001") == []
+
+
+def test_kakao_placeholder_name_is_replaced_once_email_consent_arrives(client, monkeypatch):
+    from app.accounts import service
+
+    monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "test-rest-key")
+    payload = {"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
+
+    monkeypatch.setattr(service, "_kakao_fetch", lambda code, redirect_uri: ("kakao-1001", ""))
+    first = client.post("/api/auth/kakao", json=payload).json()["user"]
+    assert first["name"] == "카카오 사용자"
+
+    monkeypatch.setattr(
+        service, "_kakao_fetch", lambda code, redirect_uri: ("kakao-1001", "minji@example.com")
+    )
+    second = client.post("/api/auth/kakao", json=payload).json()["user"]
+    assert second["userId"] == first["userId"]
+    assert second["name"] == "minji@example.com"
