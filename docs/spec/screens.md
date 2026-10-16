@@ -175,7 +175,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **관련**: FEAT-09(AC-09-1~3) · 규칙: R-01, R-02, R-06, R-13, R-17 · 우선순위: Must
 - **목적**: 주문 금액을 카드로 한 번에 낸다. 결제 자체는 Mock이고(DEV-36에서 샌드박스로 교체) 화면은 실제 카드 결제와 같다(DEV-37).
 - **화면 요소·데이터**: 결제 금액·주문 요약, ‘테스트 서비스’ 띠, 결제 수단 두 줄(테스트 카드 ···· 4242: 입력 없이 결제 / 다른 카드: 카드 번호 16자리·유효기간 MM/YY·CVC 3자리 입력), 하단 고정 ‘n원 결제하기’. 카드 정보는 저장·전송하지 않는다.
-- **입력·출력**: 카드 입력은 화면에서만 검증(16자리·Luhn, 이번 달 이후, CVC 3자리)하고 서버에는 `POST /api/orders/{orderId}/pay`(`Idempotency-Key`, `mockResult`)만 보낸다. Mock 규칙: 카드 끝 4자리가 `0000`이면 `fail`, 그 밖에는 `success`. 성공이면 주문이 예약 완료, 실패면 사유.
+- **입력·출력**: 카드 입력은 화면에서만 검증(16자리·Luhn, 이번 달 이후, CVC 3자리)하고 서버에는 `POST /api/orders/{orderId}/pay`(`Idempotency-Key`, `mockResult`)만 보낸다. Mock 규칙: 카드 끝 4자리가 `0000`이면 `fail`, 그 밖에는 `success`. 성공이면 주문이 예약 완료, 실패면 사유. PortOne이 켜져 있으면(`GET /api/payments/config` `enabled`) 카드 입력 대신 PortOne 결제 창을 열고, 승인 뒤 `paymentId`를 `POST /api/orders/{orderId}/pay`(`paymentId`)로 보낸다. 리다이렉트로 돌아오면 쿼리 `paymentId`·`code`·`message`를 읽어 같은 처리를 한다(DEV-36).
 - **버튼 동작**: 결제 → 1회 요청, 처리 중 버튼·뒤로가기 잠금. 성공 → SCR-12(카드 끝 4자리를 넘겨 ‘결제’ 행에 표시). 실패 → 사유·‘물량은 그대로’ 안내와 다시 결제하기 또는 주문서로 돌아가기(SCR-10, 주문은 결제 전 상태 유지 = 취소). 뒤로가기도 같은 취소다.
 - **빈 상태·오류**: 결제 순간 물량 0(409) → 실패 처리, 품절 안내, SCR-10으로(AC-09-1). 응답을 못 받으면 같은 `Idempotency-Key`로 다시 보낸다(AC-09-3).
 
@@ -476,7 +476,9 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `POST /api/orders` | 소비자, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 4개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT` | FEAT-08 | Must |
-| `POST /api/orders/{orderId}/pay` | 소비자, `Idempotency-Key` | SCR-11 | `mockResult`(`success`·`fail`) | 성공: `RESERVED`, 결제일. 실패: 사유. 물량 0이면 409 `SOLD_OUT` | FEAT-09 | Must |
+| `POST /api/orders/{orderId}/pay` | 소비자, `Idempotency-Key` | SCR-11 | `mockResult`(`success`·`fail`) 또는 `paymentId`(PortOne, 켜져 있을 때만) | 성공: `RESERVED`, 결제일. 실패: 사유. 물량 0이면 409 `SOLD_OUT` | FEAT-09 | Must |
+| `GET /api/payments/config` | 공개 | SCR-11 | — | `enabled`, `provider`(`PORTONE`·`MOCK`), `storeId`, `channelKey`. API 시크릿은 내려가지 않는다 | FEAT-09 I2 | Must |
+| `POST /api/payments/portone/webhook` | PortOne(서명) | — | `type`, `data.paymentId` | `Transaction.Paid`면 결제 조회 후 결제 전 주문을 `RESERVED`로. 중복은 무시. 시크릿이 있으면 서명 틀리면 401 | FEAT-09 I2 | Should |
 | `GET /api/orders` | 소비자 | SCR-13 | `cursor`, `limit` | 내 주문 목록(할 일 먼저) | FEAT-10 | Should |
 | `GET /api/orders/{orderId}` | 소비자(본인) | SCR-12, 14 | — | 주문, 상품 요약, 상태, 받는 시기, `carrier`·`trackingNumber`, 할 수 있는 행동 | FEAT-10 | Must |
 | `POST /api/orders/{orderId}/cancel` | 소비자(본인) | SCR-14 | — | `REFUNDED`, 환불 기록. 출하 후면 409 | FEAT-11 | Should |
