@@ -184,6 +184,8 @@ These are required checks for follow-up implementation, not executed test result
 | AC-33-1~4 | Own paid-order inquiry works after unfollow; another buyer/farm cannot read the order/photo or rebind an attachment. Retry creates one inquiry. Resolution does not change order/refund state. |
 | Layout | 360/390/430/1440px, long text, big counts, photos, empty/loading/error states, keyboard, composer/tab overlap, and historical-message scrolling. |
 
+DEV-31 (I2-T13) server coverage: product drafts normalize kg/키로 weights and drop any field not traceable to the source text (prices and reservation periods are never filled). Chat answers accept only `sourceRefs` that were actually sent to the model, require every number/date in the answer to appear in the cited evidence, require "expected" wording for expected-only Brix, and hand off subjective, refund, discount, cultivation, delivery-promise and farmer-impersonation answers to the 1:1 list (server needsReply state). Anthropic calls never retry (drafts 20 s, answers 8 s). Refund or compensation intent is logged once, without personal data, only after the message transaction commits; preview, rollback, cached replay and idempotency-race losers log nothing.
+
 DEV-4 owns transaction, migration, authorization, API and AI boundary tests. DEV-3 owns the clients, shared Mock behavior, components and browser checks. An accepted spec does not close either entire implementation issue.
 
 ## Spec 1.3 acceptance scenarios (planned, not executed)

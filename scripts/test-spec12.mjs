@@ -270,6 +270,48 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
   });
   assert.equal(preview.action, "HANDOFF");
   assert.equal(preview.settingsVersion, null);
+  const groundedSettings = {
+    ...ai,
+    enabled: true,
+    smallOrderPolicy: "한 주문부터 접수해요.",
+    reservationShippingPolicy: "예약 순서대로 12월 중순에 출하해요.",
+    faqs: [
+      { question: "주문 안내가 있나요?", answer: "주문 안내를 확인해 주세요." },
+      { question: "가격은 얼마예요?", answer: "가격은 3,000원이에요." },
+    ],
+  };
+  const harvestWhen = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "언제 수확해요?", productId: "p-house", settings: groundedSettings },
+  );
+  assert.equal(harvestWhen.action, "HANDOFF");
+  const safeOrderText = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "주문 안내가 있나요?", settings: groundedSettings },
+  );
+  assert.equal(safeOrderText.action, "ANSWER");
+  assert.deepEqual(safeOrderText.sourceRefs, ["farm:faq"]);
+  const unsafeWonPrice = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "가격은 얼마예요?", settings: groundedSettings },
+  );
+  assert.equal(unsafeWonPrice.action, "HANDOFF");
+  const reservationPolicy = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "예약 상품은 언제 출하해요?", settings: groundedSettings },
+  );
+  assert.equal(reservationPolicy.action, "ANSWER");
+  assert.deepEqual(reservationPolicy.sourceRefs, [
+    "farm:reservationShippingPolicy",
+  ]);
   assert.equal(
     JSON.stringify({
       messages: db().threads,

@@ -1,5 +1,6 @@
 """FEAT-32 농가 AI 응답 설정, FEAT-33 주문 문제 문의·비공개 사진 (contracts-1.2 5·6장)."""
 
+import logging
 import struct
 import uuid
 import zlib
@@ -130,6 +131,34 @@ def test_AC_32_2_unsafe_faq_is_not_used(client, login):
 
     assert preview["action"] == "HANDOFF"
     assert preview["answer"] is None
+
+
+def test_M_07_preview_emits_no_admin_alert(client, login, caplog):
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        preview = client.post(
+            "/api/farms/me/ai-settings/preview",
+            headers=login("u-kang"),
+            json={"question": "환불 요청합니다", "settings": settings_body()},
+        )
+
+    assert preview.json()["action"] == "HANDOFF"
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
+
+
+def test_M_07_photo_only_message_emits_no_admin_alert(client, login, caplog):
+    headers = login("u-seojun")
+    attachment = upload(client, headers, png(), threadId="thread-kang-seojun").json()
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        sent = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers | key(),
+            json={"text": "", "attachmentIds": [attachment["attachmentId"]]},
+        )
+
+    assert sent.status_code == 200
+    assert sent.json()["reply"] is None
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
 
 
 def test_preview_with_product_and_handoff_topic(client, login):
