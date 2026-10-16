@@ -8,6 +8,8 @@ from app.accounts.schemas import (
     Address,
     AddressInput,
     App,
+    KakaoConfig,
+    KakaoLoginInput,
     LoginResult,
     ProducerApplication,
     ProducerApplicationInput,
@@ -38,6 +40,20 @@ def test_accounts(db: Db, app: Annotated[App, Query()]):
 def test_login(db: Db, body: TestLoginInput):
     """시드 테스트 계정으로 로그인. 앱과 역할이 다르면 403 WRONG_APP."""
     return service.test_login(db, body.user_id, body.app)
+
+
+@router.get("/kakao/config", response_model=KakaoConfig)
+def kakao_config():
+    """카카오 로그인 사용 여부와 클라이언트 ID(ADR 0003). REST API 키가 없으면 enabled=false."""
+    return service.kakao_config()
+
+
+@router.post("/kakao", response_model=LoginResult)
+def kakao_login(db: Db, body: KakaoLoginInput):
+    """카카오 인가 코드로 로그인. (식별자, 역할)로 그 앱 계정을 찾거나 만든다(ADR 0003·0010)."""
+    result = service.kakao_login(db, body.code, body.redirect_uri, body.app)
+    db.commit()
+    return result
 
 
 @router.get("/me", response_model=UserView)

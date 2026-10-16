@@ -39,6 +39,20 @@ class LoginResult(CamelModel):
     user: UserView
 
 
+class KakaoConfig(CamelModel):
+    """카카오 로그인 사용 여부(ADR 0003). REST API 키가 없으면 enabled=false."""
+
+    enabled: bool
+    client_id: str | None
+    redirect_path: str
+
+
+class KakaoLoginInput(CamelModel):
+    code: str = Field(min_length=1, max_length=512)
+    redirect_uri: str = Field(max_length=512)
+    app: App
+
+
 class ProducerApplicationInput(CamelModel):
     owner_name: str = Field(max_length=100)
     farm_name: str = Field(max_length=100)

@@ -238,3 +238,125 @@ def test_add_address_validates_and_becomes_default(client, login):
     assert set(bad.json()["details"]["fields"]) == {"recipientName", "recipientPhone", "address"}
     assert good.status_code == 200
     assert good.json()["isDefault"] is True
+
+
+# ---- 카카오 로그인 (FEAT-01 I2, ADR 0003·0010, DEV-32) ----
+
+CONSUMER_REDIRECT = "http://localhost:8081/auth/kakao"
+PRODUCER_REDIRECT = "http://localhost:8082/auth/kakao"
+
+
+def _kakao_on(monkeypatch, fetch=("kakao-1001", "민지")):
+    from app.accounts import service
+
+    monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "test-rest-key")
+    monkeypatch.setattr(service, "_kakao_fetch", lambda code, redirect_uri: fetch)
+
+
+def _kakao_users(kakao_id: str) -> list[tuple[str, str]]:
+    from sqlalchemy import select
+
+    from app.accounts.models import User
+    from app.core.db import get_sessionmaker
+
+    with get_sessionmaker()() as session:
+        rows = session.scalars(select(User).where(User.kakao_id == kakao_id)).all()
+        return [(u.id, u.role) for u in rows]
+
+
+def test_kakao_config_reports_enabled_state(client, monkeypatch):
+    # 로컬 .env에 키가 있어도 "꺼짐"부터 확인한다
+    monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "")
+    off = client.get("/api/auth/kakao/config").json()
+    assert off == {"enabled": False, "clientId": None, "redirectPath": "/auth/kakao"}
+
+    monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "test-rest-key")
+    on = client.get("/api/auth/kakao/config").json()
+    assert on == {"enabled": True, "clientId": "test-rest-key", "redirectPath": "/auth/kakao"}
+
+
+def test_AC_01_8_first_kakao_login_creates_consumer_account(client, monkeypatch):
+    _kakao_on(monkeypatch)
+
+    response = client.post(
+        "/api/auth/kakao", json={"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["accessToken"]
+    assert body["user"]["name"] == "민지"
+    assert body["user"]["role"] == "CONSUMER"
+    assert body["user"]["isTestAccount"] is False
+    assert body["user"]["farmStatus"] == "NONE"
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['accessToken']}"})
+    assert me.status_code == 200
+    assert me.json()["userId"] == body["user"]["userId"]
+    assert _kakao_users("kakao-1001") == [(body["user"]["userId"], "CONSUMER")]
+
+
+def test_AC_01_9_same_kakao_account_logs_into_same_user(client, monkeypatch):
+    _kakao_on(monkeypatch)
+    payload = {"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
+
+    first = client.post("/api/auth/kakao", json=payload).json()["user"]["userId"]
+    second = client.post("/api/auth/kakao", json=payload).json()["user"]["userId"]
+
+    assert first == second
+    assert len(_kakao_users("kakao-1001")) == 1
+
+
+def test_AC_01_10_same_kakao_id_gets_separate_producer_account(client, monkeypatch):
+    _kakao_on(monkeypatch)
+
+    consumer = client.post(
+        "/api/auth/kakao", json={"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
+    ).json()["user"]
+    producer = client.post(
+        "/api/auth/kakao", json={"code": "def", "redirectUri": PRODUCER_REDIRECT, "app": "producer"}
+    ).json()["user"]
+
+    assert consumer["userId"] != producer["userId"]
+    assert producer["role"] == "PRODUCER"
+    assert producer["farmStatus"] == "NONE"
+    assert sorted(role for _, role in _kakao_users("kakao-1001")) == ["CONSUMER", "PRODUCER"]
+
+
+def test_kakao_login_off_returns_404(client, monkeypatch):
+    monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "")
+    response = client.post(
+        "/api/auth/kakao", json={"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_kakao_login_rejects_unknown_redirect_origin(client, monkeypatch):
+    _kakao_on(monkeypatch)
+
+    response = client.post(
+        "/api/auth/kakao",
+        json={"code": "abc", "redirectUri": "https://evil.example/auth/kakao", "app": "consumer"},
+    )
+
+    assert response.status_code == 400
+    assert "redirectUri" in response.json()["details"]["fields"]
+    assert _kakao_users("kakao-1001") == []
+
+
+def test_kakao_exchange_failure_creates_no_account(client, monkeypatch):
+    from app.accounts import service
+
+    monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "test-rest-key")
+
+    def _boom(code, redirect_uri):
+        raise service.KakaoError("token exchange failed: 401")
+
+    monkeypatch.setattr(service, "_kakao_fetch", _boom)
+
+    response = client.post(
+        "/api/auth/kakao", json={"code": "bad", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
+    )
+
+    assert response.status_code == 400
+    assert _kakao_users("kakao-1001") == []
