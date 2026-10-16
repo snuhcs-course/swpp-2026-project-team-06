@@ -164,6 +164,7 @@ export default function Login() {
               label="테스트 계정으로 로그인"
               variant="text"
               onPress={() => setShowTest(true)}
+              style={{ alignSelf: "center" }}
             />
           </View>
         ) : null}
