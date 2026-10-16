@@ -51,6 +51,13 @@ export default function Pay() {
   } = useAsync(() => orders.get(orderId), [orderId]);
   const config = useAsync(() => payments.config(), []);
   const pg = config.data?.enabled === true;
+  // 결제 전 주문이 아니면 결제 창을 열지 않는다. 이미 결제됐으면 완료 화면, 취소·환불됐으면 안내만(뒤로가기로 옛 결제 화면에 온 경우)
+  const closed = !!o && o.status !== "PENDING_PAYMENT";
+  useEffect(() => {
+    if (o && o.status !== "PENDING_PAYMENT" && o.paidAt && o.status !== "CANCELED" && o.status !== "REFUNDED") {
+      router.replace({ pathname: "/orders/[orderId]/done", params: { orderId } });
+    }
+  }, [o, orderId, router]);
   const { user } = useSession();
   const [method, setMethod] = useState<Method>("test");
   const [number, setNumber] = useState("");
@@ -106,7 +113,7 @@ export default function Pay() {
 
   /** PG 카드 결제(DEV-36): PortOne 창 → 승인 → 서버 확인 */
   async function payWithPg() {
-    if (!o || !config.data) return;
+    if (!o || !config.data || closed) return;
     setBusy(true);
     setFail(null);
     try {
@@ -144,7 +151,15 @@ export default function Pay() {
 
   function handleError(e: unknown) {
     {
-      if (e instanceof ApiError && e.status === 409) {
+      if (
+        e instanceof ApiError &&
+        e.status === 409 &&
+        (e.details as { reason?: string } | undefined)?.reason === "INVALID_TRANSITION"
+      ) {
+        // 이미 결제됐거나 취소된 주문. 가격 변경이 아니므로 주문서로 보내지 않는다
+        setFail("이미 처리된 주문이에요. 결제가 됐다면 주문 내역에서 확인할 수 있어요.");
+        void reload();
+      } else if (e instanceof ApiError && e.status === 409) {
         router.replace({
           pathname: "/checkout/[productId]",
           params: {
@@ -166,6 +181,7 @@ export default function Pay() {
 
   /** Mock 카드(DEV-37): 끝 4자리 0000이면 실패, 그 밖의 유효한 카드는 성공 */
   async function pay() {
+    if (closed) return;
     if (pg) return payWithPg();
     if (method === "other" && formInvalid) {
       setTouched(true);
@@ -211,7 +227,21 @@ export default function Pay() {
                 : ""}
             </T>
           </View>
-          {fail ? (
+          {closed ? (
+            <Notice
+              title="결제할 수 없는 주문이에요"
+              body="이 주문은 이미 취소되었거나 결제가 끝났어요. 다시 예약하려면 상품에서 새로 주문해 주세요."
+              action={
+                <Button
+                  label="주문 내역 보기"
+                  variant="outline"
+                  onPress={() => router.replace("/orders")}
+                  style={{ marginTop: 8 }}
+                />
+              }
+              style={{ marginHorizontal: 20, marginTop: 20 }}
+            />
+          ) : fail ? (
             <Notice
               tone="error"
               title="결제하지 못했어요"
@@ -366,7 +396,7 @@ export default function Pay() {
                 ? `${won(o.totalAmount)} 결제하기`
                 : "결제하기"
           }
-          disabled={!o || config.data === null}
+          disabled={!o || config.data === null || closed}
           loading={busy}
           onPress={() => void pay()}
         />
