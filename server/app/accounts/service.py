@@ -127,11 +127,14 @@ def _require_kakao() -> None:
         raise not_found("지금은 카카오 로그인을 쓸 수 없어요.")
 
 
-def _allowed_redirect(redirect_uri: str) -> bool:
-    """두 앱 주소의 /auth/kakao 만 허용한다(CORS 허용 목록과 같은 출처)."""
+def _allowed_redirect(redirect_uri: str, app: str) -> bool:
+    """그 앱 주소의 /auth/kakao 만 허용한다(CORS 허용 목록과 같은 출처).
+
+    다른 앱 주소로 받은 코드는 거절한다.
+    """
     settings = get_settings()
-    bases = (settings.consumer_app_url, settings.producer_app_url)
-    return any(redirect_uri == f"{base.rstrip('/')}{KAKAO_REDIRECT_PATH}" for base in bases)
+    base = settings.consumer_app_url if app == "consumer" else settings.producer_app_url
+    return redirect_uri == f"{base.rstrip('/')}{KAKAO_REDIRECT_PATH}"
 
 
 def _kakao_fetch(code: str, redirect_uri: str) -> tuple[str, str]:
@@ -175,7 +178,7 @@ def _kakao_fetch(code: str, redirect_uri: str) -> tuple[str, str]:
 def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginResult:
     """카카오 인가 코드로 로그인. (카카오 식별자, 역할)마다 계정 하나(ADR 0010). 없으면 만든다."""
     _require_kakao()
-    if not _allowed_redirect(redirect_uri):
+    if not _allowed_redirect(redirect_uri, app):
         raise invalid(
             {"redirectUri": "허용된 복귀 주소가 아니에요"}, "카카오 로그인 주소를 확인해 주세요."
         )

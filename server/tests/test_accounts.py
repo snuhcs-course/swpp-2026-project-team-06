@@ -341,6 +341,12 @@ def test_kakao_login_rejects_unknown_redirect_origin(client, monkeypatch):
 
     assert response.status_code == 400
     assert "redirectUri" in response.json()["details"]["fields"]
+    # 다른 앱의 복귀 주소로 받은 코드도 거절한다(앱·주소 짝 맞춤)
+    crossed = client.post(
+        "/api/auth/kakao",
+        json={"code": "abc", "redirectUri": PRODUCER_REDIRECT, "app": "consumer"},
+    )
+    assert crossed.status_code == 400
     assert _kakao_users("kakao-1001") == []
 
 
