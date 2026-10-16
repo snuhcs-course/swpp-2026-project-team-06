@@ -87,6 +87,23 @@ register({
     return { accessToken: token, user: userView(db, u) };
   },
 
+  // 카카오 로그인 Mock(ADR 0003, DEV-32): 리다이렉트 없이 그 앱의 첫 테스트 계정으로 로그인한다
+  "GET /api/auth/kakao/config": () => ({
+    enabled: true,
+    clientId: "mock",
+    redirectPath: "/auth/kakao",
+  }),
+
+  "POST /api/auth/kakao": ({ db, body }) => {
+    const app = appOf(body.app);
+    if (!String(body.code ?? ""))
+      invalid({ code: "인가 코드가 없어요" }, "카카오 로그인에 실패했어요.");
+    const u = db.users[app === "consumer" ? "u-minji" : "u-kang"];
+    const token = `mock-${u.userId}-${Math.random().toString(36).slice(2, 10)}`;
+    db.tokens[token] = u.userId;
+    return { accessToken: token, user: userView(db, u) };
+  },
+
   "GET /api/auth/me": (ctx) => userView(ctx.db, ctx.me()),
 
   "POST /api/auth/producer-application": (ctx) => {
