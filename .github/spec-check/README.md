@@ -58,6 +58,7 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 - main 대상 PR의 생성/커밋/본문 수정/재오픈/ready 이벤트에 실행한다. draft에서도 실행한다.
 - fork/bot PR은 SKIPPED 안내 후 수동 리뷰한다.
 - `checker-tests`는 키 없이 계약을 검증한다.
+- checker 실행 파일은 GitHub의 고정 test-merge SHA에서 가져오므로 core 머지 전 생성된 feature branch에도 checker가 존재한다. 검토 대상의 head/base SHA는 바꾸지 않으며 실행 코드의 runner SHA를 별도로 기록한다.
 - `spec-code-review`는 보호 환경 승인 후 고정한 PR revision을 읽고 실제 모델을 호출한다.
 - live job은 `SPEC_CHECK_ENABLED=true`일 때만 실행한다. 비활성화된 동안에도 키 없는 계약 검증은 실행한다.
 - Checks → 해당 run → Summary와 report artifact를 확인한다.

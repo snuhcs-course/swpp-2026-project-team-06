@@ -123,7 +123,8 @@ def collect(root, event, demo=None):
     meta = metadata(event)
     base, head = meta["base_sha"], meta["head_sha"]
     merge_base = git(root, "merge-base", base, head).decode().strip()
-    meta.update(merge_base_sha=merge_base, mode=f"demo-{demo}" if demo else "pr")
+    meta.update(merge_base_sha=merge_base, mode=f"demo-{demo}" if demo else "pr",
+                runner_sha=os.environ.get("GITHUB_SHA", "local execution"))
     files, previous, target = {}, {}, {}
     meta["source_revisions"] = {}
     if demo:
