@@ -550,3 +550,4 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
   - 10/17 API 시크릿·상점 ID·채널 키 셋이 모두 있어야 켜진다. 비면 Mock 계약 그대로라 e2e·통합 테스트가 그대로 돈다.
 - 작업: [x] 설정·모델·마이그레이션 [x] 서비스·라우터·웹훅 [x] pytest 6개 [x] Ruff
 - 검증: Ruff 통과, 전체 pytest 216개 통과(신규 6개), `alembic upgrade head` 0007→0008 로컬 적용.
+- 10/17 실제 PortOne 테스트 채널(KG이니시스 V2) 승인 확인: 사용자가 카드 승인까지 진행 → 서버 확인이 500(customData 이중 인코딩) → 06a3149로 수정 후 승인된 결제 `fc-o-f6ebf221ab-mvbfdfzg`를 웹훅 경로로 재확인해 주문 FC-1017-1020이 RESERVED, `payments.provider=PORTONE`. 재시도로 생긴 중복 승인 1건은 PortOne API로 취소(CANCELLED). 웹훅 중복 호출은 "already processed"로 무시됨 확인.

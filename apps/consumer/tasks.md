@@ -331,8 +331,9 @@ I1의 "성공/실패 데모 스위치" 결제 화면을 실제 카드 결제처�
 
 ### 작업
 - [x] `lib/portone.ts` SDK 로더·결제 요청 [x] `pay.tsx` PG 경로·리다이렉트 복귀 [x] `npm run typecheck`
-- [ ] 실제 샌드박스 승인 1건 확인(사용자가 PortOne 창에서 테스트 결제)
+- [x] 실제 샌드박스 승인 1건 확인(사용자가 PortOne 창에서 테스트 결제)
 
 ### 기록
 - 10/17 PG 꺼진 Mock 경로는 DEV-37 e2e로 회귀 확인. 실제 테스트 결제는 사용자 확인 대기.
 - 10/17 실서버+PortOne 테스트 채널(KG이니시스 V2)로 결제 창까지 확인: 처음엔 PortOne prepare가 400(구매자 이메일 필수) → `customer.email` 추가(카카오 이메일 또는 자리 주소), SDK 예외 메시지를 화면에 표시. 수정 뒤 이니시스 테스트 결제 창(stgstdpay.inicis.com) 열림 확인. 카드 승인은 사용자 확인 대기.
+- 10/17 실제 PortOne 테스트 채널(KG이니시스 V2) 승인 확인: 사용자가 카드 승인까지 진행 → 서버 확인이 500(customData 이중 인코딩) → 06a3149로 수정 후 승인된 결제 `fc-o-f6ebf221ab-mvbfdfzg`를 웹훅 경로로 재확인해 주문 FC-1017-1020이 RESERVED, `payments.provider=PORTONE`. 재시도로 생긴 중복 승인 1건은 PortOne API로 취소(CANCELLED). 웹훅 중복 호출은 "already processed"로 무시됨 확인.
