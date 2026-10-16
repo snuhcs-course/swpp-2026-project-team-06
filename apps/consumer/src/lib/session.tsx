@@ -55,6 +55,8 @@ type Session = {
   /** 로그인 뒤 이어서 할 행동(없으면 null) */
   resume: Resume | null;
   clearResume: () => void;
+  /** 카카오 리다이렉트처럼 페이지가 새로 뜬 뒤 저장해 둔 행동을 되살린다(/auth/kakao) */
+  restoreResume: (r: Resume) => void;
   /** 사용자가 직접 로그아웃(토큰 삭제 후 첫 화면). before는 토큰을 지우기 전에 실행(데모 초기화 등) */
   logout: (before?: () => void) => void;
   tabBarHidden: boolean;
@@ -156,6 +158,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       requireLogin,
       resume,
       clearResume,
+      restoreResume: setResume,
       logout,
       tabBarHidden,
       setTabBarHidden,
