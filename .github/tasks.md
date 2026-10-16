@@ -102,3 +102,35 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 10/09 `integration` job을 `needs: [server, apps]`, PostgreSQL 16, Node 24, Python 3.12/uv, Chromium, 25분 제한으로 추가. 관련 경로가 없으면 skip 단계만 실행
 - 10/09 실패 시 `playwright-report/`, `test-results/`, `.artifacts/integration/`을 7일 artifact로 업로드하도록 구성. 로컬 YAML parse와 full integration 통과; GitHub Actions 결과는 push 후 확인
 - 10/09 첫 run 37818613030에서 Linux 전용 locator 차이를 artifact로 확인·수정. 재실행 run 37819337425에서 server 44초, apps 1분 28초, integration 2분 7초로 모두 통과
+
+
+## SWPP-89 [I2-T04] 리뷰 전 수동 Spec ↔ Code 확인 체크리스트
+
+- 이슈: https://linear.app/sswp6/issue/SWPP-89
+- 상태: 진행 중
+- 선행 작업: SWPP-88 — Done
+
+### 목표
+각 PR에서 적용·변경 스펙, 구현 위치, 실제 확인자를 확인할 수 있게 한다.
+
+### 범위
+- `.github/spec.md`
+- `.github/tasks.md`의 이 이슈 섹션
+- `.github/pull_request_template.md`
+
+### 결정 사항
+- 기존 PR 템플릿을 유지하고 Spec ↔ Code 확인란을 추가한다.
+- 스펙 변경이 없거나 제품 구현이 없는 경우 이유를 명시한다.
+- 사람의 확인 결과는 실제 검토 후 기록한다.
+- 확인 후 변경이 추가되면 영향받는 부분을 다시 검토한다.
+
+### 작업 및 완료 조건
+- [ ] PR 템플릿에 스펙·구현 위치·검증 근거·확인자 항목 추가
+- [ ] 이 PR 본문에 새 확인란을 작성하여 사용 예시 제시
+- [ ] Markdown 표시와 변경 범위 확인
+- [ ] AI 1차 리뷰 및 must 항목 해결
+- [ ] 사람 리뷰어 1명 승인
+- [ ] main에 머지하고 Linear에 결과 기록
+
+### 기록
+- 실제 검토 결과, 결정 변경, PR 링크와 완료 근거를 작업하면서 추가한다.
