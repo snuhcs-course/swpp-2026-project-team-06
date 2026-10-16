@@ -611,3 +611,95 @@ def test_portone_custom_data_is_decoded_even_when_double_encoded():
     assert _custom_order_id({"orderId": "o-2"}) == "o-2"
     assert _custom_order_id("not json") is None
     assert _custom_order_id(None) is None
+
+
+def _paid_portone_order(client, login, monkeypatch):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    _portone_on(monkeypatch, _paid(order))
+    paid = client.post(
+        f"/api/orders/{order['orderId']}/pay",
+        headers=headers | key(),
+        json={"paymentId": "fc-pg-1"},
+    ).json()
+    assert paid["result"] == "success"
+    return headers, order
+
+
+def test_AC_11_3_consumer_cancel_of_portone_order_cancels_at_pg_first(client, login, monkeypatch):
+    from app.orders import service
+
+    headers, order = _paid_portone_order(client, login, monkeypatch)
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        service, "_portone_cancel", lambda pid, amount, reason: calls.append((pid, amount, reason))
+    )
+    before = allocation().reserved_count
+
+    cancelled = client.post(f"/api/orders/{order['orderId']}/cancel", headers=headers | key())
+
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["status"] == "REFUNDED"
+    assert len(calls) == 1 and calls[0][0] == "fc-pg-1" and calls[0][1] is None
+    assert allocation().reserved_count == before - 1
+    assert _payment_row(order["orderId"]).status == "REFUNDED"
+
+
+def test_AC_11_3_pg_cancel_failure_leaves_order_and_payment_untouched(client, login, monkeypatch):
+    from app.orders import service
+
+    headers, order = _paid_portone_order(client, login, monkeypatch)
+
+    def boom(pid, amount, reason):
+        raise service.PortoneError("cancel failed: 502")
+
+    monkeypatch.setattr(service, "_portone_cancel", boom)
+    before = allocation().reserved_count
+
+    response = client.post(f"/api/orders/{order['orderId']}/cancel", headers=headers | key())
+
+    assert response.status_code == 409
+    assert response.json()["details"]["reason"] == "PAYMENT_CANCEL_FAILED"
+    assert (
+        client.get(f"/api/orders/{order['orderId']}", headers=headers).json()["status"]
+        == "RESERVED"
+    )
+    assert allocation().reserved_count == before
+    assert _payment_row(order["orderId"]).status == "APPROVED"
+
+
+def test_AC_11_3_admin_partial_refund_passes_amount_to_pg(
+    client, login, monkeypatch, admin_headers
+):
+    from app.orders import service
+
+    _, order = _paid_portone_order(client, login, monkeypatch)
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        service, "_portone_cancel", lambda pid, amount, reason: calls.append((pid, amount, reason))
+    )
+
+    partial = client.post(
+        f"/admin/orders/{order['orderId']}/refund",
+        headers=admin_headers | key(),
+        json={"reason": "일부 품질 보상", "amount": 5000},
+    )
+
+    assert partial.status_code == 200, partial.text
+    assert calls == [("fc-pg-1", 5000, "일부 품질 보상")]
+    assert _payment_row(order["orderId"]).status == "PARTIALLY_REFUNDED"
+
+
+def test_mock_payment_refund_does_not_call_pg(client, login, monkeypatch):
+    from app.orders import service
+
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    client.post(f"/api/orders/{order['orderId']}/pay", headers=headers | key(), json={})
+    monkeypatch.setattr(
+        service, "_portone_cancel", lambda *a: (_ for _ in ()).throw(AssertionError("PG called"))
+    )
+
+    cancelled = client.post(f"/api/orders/{order['orderId']}/cancel", headers=headers | key())
+
+    assert cancelled.json()["status"] == "REFUNDED"

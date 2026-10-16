@@ -320,6 +320,9 @@ def _refund(
     if requested > remaining:
         raise invalid({"amount": "남은 결제 금액보다 많이 환불할 수 없어요"})
 
+    # PortOne 결제는 PG 취소(전액이면 amount 없음, 부분이면 금액)가 성공한 뒤에만 기록한다(DEV-36)
+    _refund_at_pg(payment, None if requested == remaining else requested, reason)
+
     refund = Refund(
         id=new_id("refund"),
         order_id=order.id,
@@ -506,6 +509,47 @@ def _custom_order_id(custom) -> str | None:
         return None
     value = custom.get("orderId")
     return str(value) if value is not None else None
+
+
+def _portone_cancel(payment_id: str, amount: int | None, reason: str) -> None:
+    """PortOne 결제 취소(전액이면 amount 없음). 이미 취소된 결제는 성공으로 본다.
+
+    테스트에서 바꿔 끼운다.
+    """
+    s = get_settings()
+    body: dict = {"reason": reason[:200]}
+    if amount is not None:
+        body["amount"] = amount
+    with httpx.Client(timeout=PORTONE_TIMEOUT_SECONDS) as http:
+        res = http.post(
+            f"{PORTONE_API_URL}/payments/{payment_id}/cancel",
+            headers={"Authorization": f"PortOne {s.portone_api_secret}"},
+            json=body,
+        )
+    if res.status_code == 200:
+        return
+    error_type = ""
+    try:
+        error_type = str(res.json().get("type") or "")
+    except ValueError:
+        pass
+    if error_type == "PAYMENT_ALREADY_CANCELLED" and amount is None:
+        return
+    raise PortoneError(f"cancel failed: {res.status_code} {error_type}")
+
+
+def _refund_at_pg(payment: Payment, amount: int | None, reason: str) -> None:
+    """PG 결제면 DB를 바꾸기 전에 PG에서 먼저 취소한다. 실패하면 아무것도 바꾸지 않는다."""
+    if payment.provider != "PORTONE" or not payment.provider_payment_id:
+        return
+    if not get_settings().portone_api_secret:
+        raise conflict("PAYMENT_CANCEL_FAILED", "PG 설정이 없어 결제를 취소할 수 없어요.")
+    try:
+        _portone_cancel(payment.provider_payment_id, amount, reason)
+    except (PortoneError, httpx.HTTPError) as exc:
+        raise conflict(
+            "PAYMENT_CANCEL_FAILED", "결제사 취소에 실패했어요. 잠시 뒤 다시 시도해 주세요."
+        ) from exc
 
 
 def _verify_portone_payment(order: Order, payment_id: str, paid: dict | None = None) -> str | None:
