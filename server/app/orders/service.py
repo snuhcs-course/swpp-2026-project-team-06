@@ -329,6 +329,39 @@ def confirm_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
     return order_view(db, order)
 
 
+def mark_delivered(db: Session, order_id: str) -> OrderView:
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order is None:
+        raise not_found("주문을 찾을 수 없어요.")
+    if order.status != "SHIPPED":
+        raise conflict("INVALID_TRANSITION", "출하된 주문만 배송 완료로 바꿀 수 있어요.")
+    order.status = "DELIVERED"
+    order.delivered_at = now()
+    db.flush()
+    return order_view(db, order)
+
+
+def admin_refund(db: Session, order_id: str, reason: str) -> OrderView:
+    from app.catalog import service as catalog
+
+    refund_reason = reason.strip()
+    if not refund_reason:
+        raise invalid({"reason": "환불 사유를 적어 주세요"})
+
+    existing = db.get(Order, order_id)
+    if existing is None:
+        raise not_found("주문을 찾을 수 없어요.")
+    if existing.status in ("RESERVED", "PREPARING"):
+        catalog.lock_product(db, existing.product_id)
+
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order.status not in ("RESERVED", "PREPARING", "SHIPPED", "DELIVERED"):
+        raise conflict("INVALID_TRANSITION", "전액 환불할 수 없는 주문 상태예요.")
+    _refund(db, order, refund_reason)
+    db.flush()
+    return order_view(db, order)
+
+
 def respond_delivery_window(
     db: Session, consumer_id: str, order_id: str, choice: str
 ) -> OrderView:
