@@ -134,3 +134,11 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 
 ### 기록
 - 실제 검토 결과, 결정 변경, PR 링크와 완료 근거를 작업하면서 추가한다.
+
+## DEV-40 [I2-T23] AI-assisted spec-to-code GitHub Actions check
+
+- 이슈: https://linear.app/sswp6/issue/DEV-40
+- 작업·허용 경로·완료 조건: `spec-check/tasks.md#dev-40`
+- 구현 결정: `spec-check/spec.md`
+- 상태: 진행 중. 모델 접근 및 사람 리뷰는 미확인.
+- 기존 workflow/PR template/과거 이슈 기록을 보존한다.
