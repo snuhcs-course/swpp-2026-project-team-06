@@ -521,3 +521,50 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/16 리뷰에서 같은 키·다른 본문 요청이 성공 감사를 REJECTED로 덮어쓰는 문제를 재현해 고쳤다. 테스트 이름을 AC·규칙 ID로 바꾸고 키 필수·ADMIN 권한·backfill SQL(결제 유무)·실패 이벤트 보존 회귀를 추가했다.
 - 10/16 draft PR #114를 열었다. 남은 단계는 PR #99 머지 뒤 환불 알림 영속화, AI 1차 리뷰, 사람 리뷰다.
 - 10/16 PR #99 머지 뒤 `main`을 병합했다(`server/tasks.md` 충돌만). `consumer_send`가 DEV-31 알림을 만들 때 같은 트랜잭션에서 `manager_refund_request` OPEN 이벤트를 저장하도록 통합했다. AI OFF 저장, 순차 replay·동시 경쟁 1건, rollback·preview·일반 메시지 미저장 회귀를 추가했고 Ruff·전체 pytest 206개가 통과했다.
+
+## DEV-44 [I2-T29] Check all manager functions and AI handoffs internally
+
+- Issue: [DEV-44](https://linear.app/sswp6/issue/DEV-44)
+- Branch: `zahra/dev-44-manager-ai-checklist`
+- Feature and criteria: FEAT-01 / R-22; FEAT-04 / R-25; FEAT-10 / R-19; R-11 / R-12; M01–M03 / M07; FEAT-13 AC-13-6, AC-13-7; FEAT-32 AC-32-3
+- Status: In progress
+
+### Goal
+Verify manager approvals, access, exceptions, and AI handoffs on seeded local data. Publish an English pass/fail/blocked checklist and evidence without changing product code.
+
+### Scope (allowed paths)
+- `docs/wiki/Testing-Documentation.md`
+- `server/tasks.md`
+
+### Out of scope
+- Product source, product behavior, and automated test source changes
+- Real payment/refund integration and a dedicated manager UI
+- `POST /admin/farms/{farmId}/suspend` (R-24) and `DELETE /admin/messages/{messageId}` (policy): documented in `docs/spec/screens.md`, absent from server routes, outside M01–M03
+
+### Decisions
+- 10/16 Use local seeded data. Run server pytest plus `producer-i2` and `conversation-ui` Playwright specs; use existing AC-named tests as evidence and Swagger/API for uncovered seeded flows.
+- 10/16 Cover no-token 401 and Mock-login consumer `u-minji` / producer `u-kang` 403 for every implemented `/admin/...` route. Issue admin credentials with `cd server && uv run python -m app.accounts.admin_token` (default user `u-admin`) and authorize in Swagger.
+- 10/16 Check temporary-failure retry only for M01–M03; refund-request alerts are resolvable but not retryable; resolved/recovered events cannot be retried. Check stale capacity versions (409), missing required `Idempotency-Key` (400), and same-key replay of the original result.
+- 10/16 Check AC-13-6, AC-13-7, M-07 refund/compensation alert persistence in `GET /admin/exceptions`, and AC-32-3 preview with no writes. Without an API key, manually check disabled, forced handoff, local rule/FAQ, and fallback paths; cite pytest/monkeypatch evidence for Claude-grounded answers.
+- 10/16 DEV-39 remains In Progress; mark settings and AC-13-5 wrong-answer reporting blocked until its evidence is available. The wiki still says consumer-facing partial-refund history is a frontend/spec follow-up before T29; mark it blocked unless verified complete.
+- 10/16 Record that the spec lists the two absent admin routes above; their removal or implementation needs a follow-up decision/issue.
+- 10/16 Each failed in-scope case gets a Bug issue linked from the checklist for DEV-47 (T38). DEV-44 records findings and does not fix them.
+
+### Work
+- [x] Add the English results checklist to `docs/wiki/Testing-Documentation.md`.
+- [x] Run server pytest and the requested Playwright specs; cite relevant `test_AC_…` names.
+- [x] Verify uncovered seeded API flows and access cases; record pass/fail/blocked with evidence.
+- [x] Check final runs; no in-scope product failures remained, so no Bug issues were needed for DEV-47.
+- [ ] Open a docs PR and record actual effort and evidence.
+
+### Completion criteria
+- [x] Approvals, access, exceptions, and AI handoffs each have pass/fail/blocked results and evidence.
+- [x] Checklist, issue scope, decisions, test results, and any follow-up Bugs are linked and current.
+- [ ] Docs PR reviewed and merged by a human reviewer.
+
+### Log
+- 10/16 Started from `origin/main` in an isolated worktree on the user-approved branch. Confirmed DEV-39 is In Progress and the partial-refund-history follow-up remains documented as outstanding.
+- 10/16 Full server suite passed (206); requested Playwright specs passed (11). A first Playwright attempt used mismatched API hostnames; aligning the route-intercept URL made all cases pass, so no product Bug was filed.
+- 10/16 Seeded HTTP checks passed: all 12 admin route patterns returned 401 without a token and 403 for Mock-login `u-minji`/`u-kang`; approval/rejection/capacity/delivery/refund flows, stale versions, key requirements/replay, exception lifecycle, AC-13-6/7, and AC-32-3 were verified. AI local paths passed without a provider key.
+- 10/16 AC-13-5 and AI-settings checks remain blocked by DEV-39 In Progress. Consumer-visible partial-refund history remains blocked by the documented frontend/spec follow-up. The two spec-only routes are recorded as absent and excluded from M01–M03.
+- 10/16 Agent time/tokens: usage totals are not exposed in this session; add the available estimate/details to the PR and Linear result.
