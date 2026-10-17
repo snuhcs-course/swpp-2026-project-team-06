@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.ai.source_analysis import PROMPT_VERSION
 from app.core.db import Base
 
 
@@ -73,7 +74,7 @@ class Run(Base):
     mode: Mapped[str] = mapped_column(String(16))
     model: Mapped[str] = mapped_column(String(100))
     visual_pages: Mapped[dict] = mapped_column(JSON, default=dict)
-    prompt_version: Mapped[str] = mapped_column(String(30), default="source-v3")
+    prompt_version: Mapped[str] = mapped_column(String(30), default=PROMPT_VERSION)
     targets: Mapped[list] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(32), default="QUEUED")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

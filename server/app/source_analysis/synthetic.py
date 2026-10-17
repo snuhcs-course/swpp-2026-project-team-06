@@ -20,6 +20,7 @@ from app.ai.source_analysis import ExtractionError, extract
 from app.core.config import SOURCE_OPENROUTER_PRICES, get_settings
 from app.core.db import get_sessionmaker
 from app.source_analysis.budget import reserve, settle
+from app.source_analysis.coverage import audit_coverage
 from app.source_analysis.evaluate import evaluate
 from app.source_analysis.preprocess import PreparationError, prepare, redact
 from app.source_analysis.worker import validate
@@ -169,12 +170,15 @@ def main():
             response = extract("openrouter", model, chunk, targets, images)
             record["durationMs"] = round((time.monotonic() - started) * 1000)
             record["costUsd"] = response.usage.get("cost")
+            diagnostic["usage"] = response.usage
+            diagnostic["requestId"] = response.request_id
             with get_sessionmaker()() as db:
                 settle(db, reservation, response.usage)
                 db.commit()
             settled = True
             diagnostic["response"] = response.extraction.model_dump(by_alias=True)
             result = validate(response.extraction, chunk, {t["id"] for t in targets})
+            diagnostic["coverageAudit"] = audit_coverage(result, chunk)
             record["actual"] = [
                 {"targetId": c.target_id, "fieldKey": c.field_key, "value": c.value}
                 for c in result.candidates
@@ -190,6 +194,8 @@ def main():
             record["error"] = str(exc)
             diagnostic["error"] = {"code": str(exc), "details": getattr(exc, "details", {})}
             if isinstance(exc, ExtractionError) and not settled:
+                diagnostic["usage"] = exc.usage
+                diagnostic["requestId"] = exc.request_id
                 with get_sessionmaker()() as db:
                     settle(db, reservation, exc.usage)
                     db.commit()

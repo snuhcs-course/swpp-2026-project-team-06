@@ -200,11 +200,61 @@ def test_AC_SRC_5_identical_reanalysis_reuses_candidates(client, login):
     assert after == before
 
 
+def test_AC_SRC_5_changed_prompt_does_not_reuse_previous_success(client, login):
+    from app.ai.source_analysis import PROMPT_VERSION
+    from app.source_analysis.models import Item, Run
+
+    h = login("u-kang")
+    b = create(client, h)
+    upload(client, h, b)
+    start(client, h, b["id"])
+    drain()
+    with get_sessionmaker()() as db:
+        previous = db.scalar(select(Run).where(Run.batch_id == b["id"]))
+        previous.prompt_version = "source-v3"
+        previous_id = previous.id
+        db.commit()
+    start(client, h, b["id"])
+    drain()
+    with get_sessionmaker()() as db:
+        current = db.scalar(select(Run).where(Run.batch_id == b["id"], Run.id != previous_id))
+        assert current.prompt_version == PROMPT_VERSION
+        items = list(
+            db.scalars(select(Item).where(Item.run_id == current.id, Item.phase == "EXTRACT"))
+        )
+        assert items and all(i.status == "SUCCEEDED" for i in items)
+
+
+def test_AC_SRC_5_stale_queued_prompt_fails_before_call(client, login, monkeypatch):
+    from app.source_analysis.models import Item, Run
+
+    h = login("u-kang")
+    b = create(client, h)
+    upload(client, h, b)
+    start(client, h, b["id"])
+    with get_sessionmaker()() as db:
+        run = db.scalar(select(Run).where(Run.batch_id == b["id"]))
+        run.prompt_version = "source-v3"
+        rid = run.id
+        db.commit()
+
+    def must_not_call(*args, **kwargs):
+        pytest.fail("stale queued prompt must not reach the provider")
+
+    monkeypatch.setattr(worker, "extract", must_not_call)
+    drain()
+    with get_sessionmaker()() as db:
+        item = db.scalar(select(Item).where(Item.run_id == rid))
+        assert item.status == "FAILED" and item.error == "PROMPT_CHANGED"
+        assert item.sent is False
+
+
 @pytest.mark.parametrize(
     "model,prices,reasoning",
     [
         ("google/gemini-3.1-flash-lite", (0.25, 1.5), {"enabled": False}),
         ("google/gemini-3-flash-preview", (0.5, 3.0), {"effort": "minimal", "exclude": True}),
+        ("openai/gpt-6.1-sol", (2.0, 10.0), {"effort": "low", "exclude": True}),
     ],
 )
 def test_AC_SRC_6_openrouter_contract_and_cost(monkeypatch, model, prices, reasoning):
@@ -253,7 +303,11 @@ def test_AC_SRC_6_openrouter_contract_and_cost(monkeypatch, model, prices, reaso
 
 @pytest.mark.parametrize(
     "model,cap",
-    [("google/gemini-3.1-flash-lite", 0.012), ("google/gemini-3-flash-preview", 0.024)],
+    [
+        ("google/gemini-3.1-flash-lite", 0.012),
+        ("google/gemini-3-flash-preview", 0.024),
+        ("openai/gpt-6.1-sol", 0.10),
+    ],
 )
 def test_AC_SRC_5_concurrent_budget_and_unknown_cost_retained(monkeypatch, model, cap):
     from app.ai.source_analysis import ExtractionError
@@ -399,7 +453,9 @@ def test_AC_SRC_5_standalone_worker_registers_related_models(client, login):
     assert len(client.get(f"{PREFIX}/{b['id']}/review", headers=h).json()["candidates"]) == 3
 
 
-@pytest.mark.parametrize("model", ["google/gemini-3-flash-preview", "google/gemini-3.1-flash-lite"])
+@pytest.mark.parametrize(
+    "model", ["google/gemini-3-flash-preview", "google/gemini-3.1-flash-lite", "openai/gpt-6.1-sol"]
+)
 def test_AC_SRC_10_model_selection_is_budget_qualified(model):
     from pydantic import ValidationError
 
@@ -476,7 +532,9 @@ def test_AC_SRC_10_unpriced_model_never_calls_provider():
         extract("openrouter", "unpriced-model", {"pages": []}, [], [])
 
 
-@pytest.mark.parametrize("model", ["google/gemini-3-flash-preview", "google/gemini-3.1-flash-lite"])
+@pytest.mark.parametrize(
+    "model", ["google/gemini-3-flash-preview", "google/gemini-3.1-flash-lite", "openai/gpt-6.1-sol"]
+)
 def test_AC_SRC_10_evaluation_calls_and_reports_selected_model(monkeypatch, tmp_path, model):
     import json
     import sys
@@ -513,6 +571,9 @@ def test_AC_SRC_10_evaluation_calls_and_reports_selected_model(monkeypatch, tmp_
     report = json.loads((output / "report.json").read_text())
     assert report["model"] == model
     assert report["cases"][0]["status"] == "EVALUATED"
+    diagnostic = json.loads((output / "selection-diagnostic.json").read_text())
+    assert diagnostic["usage"] == {"cost": 0.001}
+    assert diagnostic["requestId"] == "test-request"
     with get_sessionmaker()() as db:
         row = db.scalar(select(Spend))
         assert row.evaluation and row.charged_micros == 1000

@@ -1,0 +1,355 @@
+{
+  "date": "2026-10-17",
+  "issue": "DEV-58",
+  "features": [
+    "FEAT-03",
+    "FEAT-04",
+    "FEAT-07"
+  ],
+  "purpose": "Direct image OCR experiment only; production OCR remains RapidOCR",
+  "protocol": {
+    "manifestSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+    "evaluationCapUsd": 0.916128,
+    "incrementalCapUsd": 0.5,
+    "models": {
+      "sol": "openai/gpt-6.1-sol",
+      "gemini": "google/gemini-3-flash-preview"
+    },
+    "jpegQuality": 85,
+    "imageDetail": "high",
+    "goldUnchanged": true,
+    "metricNote": "OCR whitespace-normalized reference quote coverage, NOT whole-document CER; final extraction exact tuples unchanged.",
+    "experimentScriptSha256": "ea14289b8d24550a53e6821eded59cbcc8545eb8e1fa8dadc3110c98c60c1e90"
+  },
+  "conditions": {
+    "images": 6,
+    "ocrCallsPerModel": 11,
+    "extractionCallsPerModel": 6,
+    "sameSanitizedImages": true,
+    "sameJpegCrops": true,
+    "extractionModel": "google/gemini-3-flash-preview",
+    "extractionPromptUnchanged": true,
+    "ocrGetsGoldOrPriorText": false,
+    "ocrMaxOutputTokens": 2048,
+    "extractMaxOutputTokens": 4096,
+    "automaticRetries": 0,
+    "solReasoning": "low",
+    "geminiReasoning": "minimal",
+    "baseline": "Saved RapidOCR + Flash six-image run; PNG input; not re-run"
+  },
+  "results": {
+    "rapidocr": {
+      "exact": {
+        "sets": 6,
+        "precision": 0.2222222222222222,
+        "recall": 0.19047619047619047,
+        "unsupportedOrIncorrect": 14,
+        "missing": 17,
+        "p50Ms": 2921.5,
+        "p95Ms": 6457,
+        "totalCostUsd": 0.013815000000000001,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "sets": 6,
+        "precision": 0.5,
+        "recall": 0.42857142857142855,
+        "unsupportedOrIncorrect": 9,
+        "missing": 12,
+        "p50Ms": 2921.5,
+        "p95Ms": 6457,
+        "totalCostUsd": 0.013815000000000001,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "ocrReferenceQuotes": 21,
+      "ocrReferenceQuotesFound": 15,
+      "ocrCostUsd": 0,
+      "cases": [
+        {
+          "id": "farm-mong",
+          "status": "EVALUATED",
+          "costUsd": 0.0014645,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-water",
+          "status": "EVALUATED",
+          "costUsd": 0.0017225,
+          "ocrReferenceQuotesFound": 0,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-citrus",
+          "status": "EVALUATED",
+          "costUsd": 0.0015005,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-yang",
+          "status": "EVALUATED",
+          "costUsd": 0.0016915,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-shin",
+          "status": "EVALUATED",
+          "costUsd": 0.0023825,
+          "ocrReferenceQuotesFound": 1,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "oasis-long",
+          "status": "EVALUATED",
+          "costUsd": 0.0050535,
+          "ocrReferenceQuotesFound": 8,
+          "ocrReferenceQuotes": 11
+        }
+      ]
+    },
+    "sol": {
+      "exact": {
+        "sets": 6,
+        "precision": 0.5789473684210527,
+        "recall": 0.5238095238095238,
+        "unsupportedOrIncorrect": 8,
+        "missing": 10,
+        "p50Ms": 7232.5,
+        "p95Ms": 27725,
+        "totalCostUsd": 0.035287,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "sets": 6,
+        "precision": 0.631578947368421,
+        "recall": 0.5714285714285714,
+        "unsupportedOrIncorrect": 7,
+        "missing": 9,
+        "p50Ms": 7232.5,
+        "p95Ms": 27725,
+        "totalCostUsd": 0.035287,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "ocrReferenceQuotes": 21,
+      "ocrReferenceQuotesFound": 19,
+      "ocrCostUsd": 0.025071,
+      "cases": [
+        {
+          "id": "oasis-long",
+          "status": "EVALUATED",
+          "costUsd": 0.019858999999999998,
+          "ocrReferenceQuotesFound": 11,
+          "ocrReferenceQuotes": 11
+        },
+        {
+          "id": "farm-citrus",
+          "status": "EVALUATED",
+          "costUsd": 0.002698,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-mong",
+          "status": "EVALUATED",
+          "costUsd": 0.002718,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-shin",
+          "status": "EVALUATED",
+          "costUsd": 0.0036305,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-water",
+          "status": "EVALUATED",
+          "costUsd": 0.0033295,
+          "ocrReferenceQuotesFound": 0,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-yang",
+          "status": "EVALUATED",
+          "costUsd": 0.003052,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        }
+      ]
+    },
+    "gemini": {
+      "exact": {
+        "sets": 6,
+        "precision": 0.5,
+        "recall": 0.42857142857142855,
+        "unsupportedOrIncorrect": 9,
+        "missing": 12,
+        "p50Ms": 4924.0,
+        "p95Ms": 21532,
+        "totalCostUsd": 0.0212935,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "sets": 6,
+        "precision": 0.5555555555555556,
+        "recall": 0.47619047619047616,
+        "unsupportedOrIncorrect": 8,
+        "missing": 11,
+        "p50Ms": 4924.0,
+        "p95Ms": 21532,
+        "totalCostUsd": 0.0212935,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "ocrReferenceQuotes": 21,
+      "ocrReferenceQuotesFound": 20,
+      "ocrCostUsd": 0.009320499999999999,
+      "cases": [
+        {
+          "id": "oasis-long",
+          "status": "EVALUATED",
+          "costUsd": 0.0099465,
+          "ocrReferenceQuotesFound": 11,
+          "ocrReferenceQuotes": 11
+        },
+        {
+          "id": "farm-citrus",
+          "status": "EVALUATED",
+          "costUsd": 0.0020404999999999998,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-mong",
+          "status": "EVALUATED",
+          "costUsd": 0.0020165,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-shin",
+          "status": "EVALUATED",
+          "costUsd": 0.0026165,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-water",
+          "status": "EVALUATED",
+          "costUsd": 0.0024330000000000003,
+          "ocrReferenceQuotesFound": 1,
+          "ocrReferenceQuotes": 2
+        },
+        {
+          "id": "farm-yang",
+          "status": "EVALUATED",
+          "costUsd": 0.0022405,
+          "ocrReferenceQuotesFound": 2,
+          "ocrReferenceQuotes": 2
+        }
+      ]
+    }
+  },
+  "sourceVerifiedLabelAudit": {
+    "case": "farm-water",
+    "field": "composition",
+    "change": "One date separator: frozen tilde vs source hyphen",
+    "verification": "Original PDF text layer plus visual inspection",
+    "originalGoldUnchanged": true,
+    "metrics": {
+      "rapidocr": {
+        "ocrReferenceQuotesFound": 15,
+        "ocrReferenceQuotes": 21,
+        "extraction": {
+          "sets": 6,
+          "precision": 0.2222222222222222,
+          "recall": 0.19047619047619047,
+          "unsupportedOrIncorrect": 14,
+          "missing": 17,
+          "p50Ms": 2921.5,
+          "p95Ms": 6457,
+          "totalCostUsd": 0.013815000000000001,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        }
+      },
+      "sol": {
+        "ocrReferenceQuotesFound": 19,
+        "ocrReferenceQuotes": 21,
+        "extraction": {
+          "sets": 6,
+          "precision": 0.5789473684210527,
+          "recall": 0.5238095238095238,
+          "unsupportedOrIncorrect": 8,
+          "missing": 10,
+          "p50Ms": 7232.5,
+          "p95Ms": 27725,
+          "totalCostUsd": 0.035287,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        }
+      },
+      "gemini": {
+        "ocrReferenceQuotesFound": 21,
+        "ocrReferenceQuotes": 21,
+        "extraction": {
+          "sets": 6,
+          "precision": 0.5555555555555556,
+          "recall": 0.47619047619047616,
+          "unsupportedOrIncorrect": 8,
+          "missing": 11,
+          "p50Ms": 4924.0,
+          "p95Ms": 21532,
+          "totalCostUsd": 0.0212935,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        }
+      }
+    }
+  },
+  "manualFindings": [
+    "Both VLMs corrected repeated Korean citrus OCR glyph errors and recovered all expected long-image reference passages.",
+    "Sol introduced two word errors in farm-water (farm name and picking activity); Gemini read these words correctly.",
+    "The remaining frozen Gemini quote mismatch was a gold-label date separator error verified against the original PDF.",
+    "Five of six model transcripts, including the long image, are identical after whitespace removal. Different downstream scores do not establish an OCR advantage for Sol.",
+    "Flash extraction still splits seasonal composition into two values, misses GAP certification/use suggestions, confuses process vs evidence and merges storage sentences.",
+    "OCR quote validation only establishes fidelity to the generated transcript; visual correctness still requires source review."
+  ],
+  "cost": {
+    "actualExperimentUsd": 0.0565805,
+    "before": {
+      "rows": 195,
+      "settledMicros": 224474,
+      "unknownReservedMicros": 191654,
+      "evaluationUsedMicros": 416128
+    },
+    "after": {
+      "rows": 229,
+      "settledMicros": 281061,
+      "unknownReservedMicros": 191654,
+      "evaluationUsedMicros": 472715
+    },
+    "teamTotalUsage": "Not measured"
+  },
+  "validation": {
+    "paidCalls": 34,
+    "successfulPaidCalls": 34,
+    "validatedExtractions": 12,
+    "comparisonPageCases": 6,
+    "comparisonPageCards": 3,
+    "mobileWidth": 390,
+    "horizontalOverflow": false,
+    "pageErrors": 0
+  },
+  "limits": [
+    "six reused development images, one run per model",
+    "quote coverage is not full OCR accuracy and does not penalize extraneous output",
+    "privacy-masked JPEGs and fixed crops used in both VLMs; baseline uses prior PNG RapidOCR",
+    "no deployment, default change, automatic retries or production OCR integration",
+    "One frozen gold label used ~ where the original PDF/image uses -. A separate source-verified diagnostic corrects only this label; frozen primary metrics remain unchanged."
+  ],
+  "recommendation": "Gemini Flash is the preferred OCR integration candidate on this small comparison; stabilize downstream segmentation/classification and validate independent documents before rollout.",
+  "privateArtifacts": "server/.artifacts/source-vision-comparison; server/app/ai/.artifacts/vision_ocr_experiment.py; .artifacts/source-quality/ocr.html",
+  "productionOcrChanged": false,
+  "deployed": false,
+  "merged": false
+}

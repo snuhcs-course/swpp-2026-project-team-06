@@ -12,7 +12,7 @@ from threading import Event, Thread
 from sqlalchemy import delete, select
 
 from app.accounts import models as _account_models  # noqa: F401
-from app.ai.source_analysis import ExtractionError, extract
+from app.ai.source_analysis import PROMPT_VERSION, ExtractionError, extract
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.farms import models as _farm_models  # noqa: F401
@@ -299,6 +299,8 @@ def process(item_id, token):
         if not context:
             return
         batch, source, run, item = context
+        if run.prompt_version != PROMPT_VERSION:
+            raise ExtractionError("PROMPT_CHANGED")
         phase, mime, key = item.phase, source.mime, source.storage_key
         already_prepared = source.status == "PREPARED"
         if already_prepared and source.preprocess_version != PREPROCESS_VERSION:

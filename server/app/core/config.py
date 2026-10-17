@@ -12,6 +12,7 @@ LOCAL_JWT_SECRET = "local-dev-only-secret-do-not-use-in-production"
 SOURCE_OPENROUTER_PRICES = {
     "google/gemini-3.1-flash-lite": (0.25, 1.5),
     "google/gemini-3-flash-preview": (0.5, 3.0),
+    "openai/gpt-6.1-sol": (2.0, 10.0),
 }
 
 
@@ -81,7 +82,7 @@ class Settings(BaseSettings):
                 not self.openrouter_api_key
                 or self.source_analysis_model not in SOURCE_OPENROUTER_PRICES
             ):
-                raise ValueError("OpenRouter key and budget-qualified Gemini model are required")
+                raise ValueError("OpenRouter key and budget-qualified model are required")
             if self.source_analysis_provider == "openai" and not self.openai_api_key:
                 raise ValueError("OPENAI_API_KEY is required for source analysis")
             if self.app_env != "local" and self.source_analysis_provider == "mock":
