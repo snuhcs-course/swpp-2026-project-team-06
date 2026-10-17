@@ -2,6 +2,7 @@ import {
   messaging,
   newIdempotencyKey,
   isMock,
+  ApiError,
   type AiSettings,
   type AiPreview,
 } from "@farmclub/api";
@@ -33,17 +34,28 @@ export default function Settings() {
     [question, setQuestion] = useState(""),
     [preview, setPreview] = useState<AiPreview | null>(null),
     [previewing, setPreviewing] = useState(false),
+    base = useRef<AiSettings | null>(null),
+    current = useRef<AiSettings | null>(null),
     pending = useRef<{ body: string; key: string } | null>(null);
   const load = () =>
     messaging
       .aiSettings()
-      .then(setForm)
+      .then((value) => {
+        base.current = value;
+        current.current = value;
+        setForm(value);
+      })
       .catch((e) => setError(String(e)));
   useEffect(() => {
     void load();
   }, []);
   function set(p: Partial<AiSettings>) {
-    setForm((f) => (f ? { ...f, ...p } : f));
+    setForm((f) => {
+      if (!f) return f;
+      const next = { ...f, ...p };
+      current.current = next;
+      return next;
+    });
     setNote("");
     setPreview(null);
   }
@@ -55,19 +67,56 @@ export default function Settings() {
     if (pending.current?.body !== body)
       pending.current = { body, key: newIdempotencyKey() };
     try {
-      setForm(
-        await messaging.saveAiSettings(
-          {
-            ...form,
-            handoffTopics: form.handoffTopics.filter((t) => t.trim()),
-          },
-          pending.current.key,
-        ),
+      const saved = await messaging.saveAiSettings(
+        {
+          ...form,
+          handoffTopics: form.handoffTopics.filter((t) => t.trim()),
+        },
+        pending.current.key,
       );
+      base.current = saved;
+      current.current = saved;
+      setForm(saved);
       pending.current = null;
       setNote("저장했어요. 이후 질문부터 적용돼요.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장하지 못했어요");
+      if (
+        e instanceof ApiError &&
+        e.status === 409 &&
+        e.details.reason === "STALE_VERSION"
+      ) {
+        try {
+          const latest = await messaging.aiSettings();
+          const edited = current.current ?? form;
+          const original = base.current ?? form;
+          const fields = [
+            "enabled",
+            "smallOrderPolicy",
+            "reservationShippingPolicy",
+            "faqs",
+            "handoffTopics",
+          ] as const;
+          const kept = { ...latest };
+          for (const field of fields) {
+            if (JSON.stringify(edited[field]) !== JSON.stringify(original[field]))
+              Object.assign(kept, { [field]: edited[field] });
+          }
+          base.current = latest;
+          current.current = kept;
+          setForm(kept);
+          pending.current = null;
+          setNote(
+            "설정이 다른 곳에서 변경됐어요. 입력한 내용은 유지했어요. 최신 설정으로 다시 저장해 주세요.",
+          );
+          setError("");
+        } catch (refreshError) {
+          setError(
+            refreshError instanceof Error
+              ? refreshError.message
+              : "최신 설정을 불러오지 못했어요",
+          );
+        }
+      } else setError(e instanceof Error ? e.message : "저장하지 못했어요");
     } finally {
       setSaving(false);
     }

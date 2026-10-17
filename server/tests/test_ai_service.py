@@ -48,6 +48,41 @@ def test_P02_AC_03_2_name_description_reject_price_reservation_and_contacts():
     assert grounded.options == ["5킬로"]
 
 
+def test_P02_AC_03_1_weight_options_match_exact_values_not_substrings():
+    grounded = grounding.ground_draft(
+        "하우스 감귤 15키로 박스", DraftExtraction(options=["5kg", "15kg", "15 KG"])
+    )
+
+    assert grounded.options == ["15kg", "15 KG"]
+
+
+def test_P02_AC_03_1_brix_matches_exact_value_not_substring():
+    source = "당도 12브릭스, 12.5 brix 선별"
+
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=2.0)).expected_brix is None
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=2.5)).expected_brix is None
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=12)).expected_brix == 12
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=12.5)).expected_brix == 12.5
+
+
+def test_P02_AC_03_1_brix_ignores_numbers_with_other_units_after_brix_word():
+    source = "당도 12브릭스 5키로 박스, Brix 13 선별, 당도 높은 3박스"
+
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=5)).expected_brix is None
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=3)).expected_brix is None
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=13)).expected_brix == 13
+
+
+def test_P02_AC_03_1_delivery_window_uses_only_delivery_clauses():
+    source = "수확은 12월 1일에 하고, 배송은 12월 15일~20일이에요."
+
+    harvest = grounding.ground_draft(source, DraftExtraction(delivery_window="12월 1일"))
+    delivery = grounding.ground_draft(source, DraftExtraction(delivery_window="12월 15일~20일"))
+
+    assert harvest.delivery_window is None
+    assert delivery.delivery_window == "12월 15일~20일"
+
+
 def test_C06_AC_13_1_precise_delivery_intent_and_reservation_policy():
     evidence = Evidence(
         product_id="p-1",

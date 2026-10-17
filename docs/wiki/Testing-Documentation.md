@@ -239,7 +239,7 @@ These are required checks for follow-up implementation, not executed test result
 | AC-05-3~5 | Blank/addable date ranges, strictly increasing prices, no overlap, stable IDs after reordering, locked sold periods, and no public exposure of unapproved edits. |
 | AC-12-6~8 | A consumer never sees another consumer's room reply through messages, previews, or cursors. Producers see every own-farm conversation. Active polling and pagination do not duplicate messages or move a reader's scroll position. |
 | AC-13-6~8 | HUMAN transition races with AI completion safely. Thread/settings version checks also reject old answers after HUMAN→AUTO or OFF→ON round trips and preserve unanswered work. Farm OFF overrides AUTO. Subjective taste, quality, and damage require handoff. |
-| AC-32-1~4 | Versioned settings survive reload; conflicting/stale/foreign writes fail; preview does not save settings, messages, inquiries, or mode changes. |
+| AC-32-1~4 | Versioned settings survive reload; stale writes return 409 and the producer screen retains edited fields for a refreshed-version retry; preview does not change settings, conversations, or inquiries. AC-32-4 server retry and Playwright screen recovery are checked separately. |
 | AC-33-1~4 | Own paid-order inquiry works after unfollow; another buyer/farm cannot read the order/photo or rebind an attachment. Retry creates one inquiry. Resolution does not change order/refund state. |
 | Layout | 360/390/430/1440px, long text, big counts, photos, empty/loading/error states, keyboard, composer/tab overlap, and historical-message scrolling. |
 

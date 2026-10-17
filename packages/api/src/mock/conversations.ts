@@ -508,6 +508,42 @@ register({
     });
   },
   "GET /api/messaging/chats/:farmId/messages": (ctx) => page(ctx, access(ctx)),
+  "POST /api/messaging/chats/:farmId/messages/:messageId/report": (ctx) => {
+    const t = access(ctx);
+    const messages = list(ctx.db, t);
+    const at = messages.findIndex((m) => m.messageId === ctx.params.messageId);
+    if (at < 0) notFound("찾을 수 없는 메시지예요.");
+    const target = messages[at];
+    if (target.senderType !== "AI" || target.handoffStatus === "FORWARDED")
+      invalid({ messageId: "신고할 수 있는 AI 답변이 아니에요" });
+    const previous = ctx.db.escalations.find(
+      (e) => e.reportedMessageId === target.messageId,
+    );
+    if (previous) return previous;
+    let question: ChatMessage | undefined;
+    for (let i = at - 1; i >= 0; i--) {
+      if (messages[i].senderType === "CONSUMER") {
+        question = messages[i];
+        break;
+      }
+    }
+    if (!question) invalid({ messageId: "연결할 소비자 질문이 없어요" });
+    const escalation = {
+      escalationId: nextId("e"),
+      farmId: t.farmId,
+      consumerId: t.consumerId,
+      consumerName: `${ctx.db.users[t.consumerId]?.name.slice(0, 1) ?? "고"}○○`,
+      context: question.orderId ?? null,
+      question: question.body,
+      reason: "WRONG_ANSWER",
+      createdAt: nowIso(),
+      status: "OPEN" as const,
+      answer: null, reportedMessageId: target.messageId,
+    };
+    target.reported = true;
+    ctx.db.escalations.push(escalation);
+    return escalation;
+  },
   "POST /api/messaging/chats/:farmId/messages": (ctx) =>
     send(ctx, access(ctx, true), false),
   "GET /api/messaging/producer/chats": (ctx) => {
