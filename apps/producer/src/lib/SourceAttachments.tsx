@@ -7,7 +7,7 @@ import {
 } from "@farmclub/api";
 import { Button, Icon, T, StoryImage, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Image, Pressable, TextInput, View } from "react-native";
 import { chooseSourceFiles } from "./sourceFiles";
 function Tile({
   batch,
@@ -35,6 +35,10 @@ function Tile({
   const [uri, setUri] = useState(""),
     [text, setText] = useState("");
   const [focused, setFocused] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => {
+    setImageFailed(false);
+  }, [uri, localUri]);
   const preview = text.trim().replace(/\s+/g, " ");
   useEffect(() => {
     let active = true,
@@ -61,17 +65,23 @@ function Tile({
   }, [batch, source.id, source.revision, source.pageCount]);
   return (
     <View
+      testID="attachment-tile"
       style={{
         width: "47%",
-        gap: 6,
-        padding: 8,
+        overflow: "hidden",
         borderWidth: 1,
         borderColor: tokens.color.border,
         borderRadius: 12,
       }}
     >
       <View
-        style={{ flexDirection: "row", justifyContent: "flex-end", height: 44 }}
+        style={{
+          position: "absolute",
+          top: 2,
+          right: 2,
+          zIndex: 1,
+          flexDirection: "row",
+        }}
       >
         {source.mime === "text/plain" && (
           <Pressable
@@ -86,7 +96,15 @@ function Tile({
               justifyContent: "center",
             }}
           >
-            <Icon name="pencil" size={17} strokeWidth={1.5} />
+            <View
+              style={{
+                padding: 6,
+                borderRadius: 20,
+                backgroundColor: "rgba(255,255,255,0.9)",
+              }}
+            >
+              <Icon name="pencil" size={17} strokeWidth={1.5} />
+            </View>
           </Pressable>
         )}
         <Pressable
@@ -103,10 +121,19 @@ function Tile({
             justifyContent: "center",
           }}
         >
-          <Icon name="close" size={18} strokeWidth={1.5} />
+          <View
+            style={{
+              padding: 6,
+              borderRadius: 20,
+              backgroundColor: "rgba(255,255,255,0.9)",
+            }}
+          >
+            <Icon name="close" size={18} strokeWidth={1.5} />
+          </View>
         </Pressable>
       </View>
       <Pressable
+        testID="attachment-preview"
         disabled={disabled || source.mime !== "text/plain"}
         accessibilityRole="button"
         accessibilityLabel={
@@ -114,27 +141,37 @@ function Tile({
         }
         onPress={onEdit}
         style={{
-          height: 110,
+          aspectRatio: 1,
           overflow: "hidden",
           backgroundColor: tokens.color.surface,
-          borderRadius: 8,
         }}
       >
-        {uri || localUri ? (
-          <StoryImage
-            uri={uri || localUri!}
-            alt={source.originalPhoto ? "상품사진" : "자료 미리보기"}
+        {(uri || localUri) && !imageFailed ? (
+          <Image
+            source={{ uri: uri || localUri! }}
+            accessibilityLabel={
+              source.originalPhoto ? "상품사진" : "자료 미리보기"
+            }
+            onError={() => setImageFailed(true)}
+            resizeMode="cover"
+            style={{ width: "100%", height: "100%" }}
           />
         ) : (
-          <T numberOfLines={5} variant="caption" style={{ padding: 8 }}>
-            {(preview
-              ? `[${preview.length > 48 ? preview.slice(0, 30) + "…" + preview.slice(-12) : preview}]`
-              : "") ||
-              (source.mime === "application/pdf"
-                ? "PDF · 미리보기 준비 중"
-                : source.mime === "text/plain"
-                  ? "텍스트"
-                  : "사진 · 준비 중")}
+          <T
+            numberOfLines={5}
+            variant="caption"
+            style={{ paddingHorizontal: 10, paddingTop: 46, paddingBottom: 10 }}
+          >
+            {imageFailed
+              ? "미리보기를 불러오지 못했어요"
+              : (preview
+                  ? `[${preview.length > 48 ? preview.slice(0, 30) + "…" + preview.slice(-12) : preview}]`
+                  : "") ||
+                (source.mime === "application/pdf"
+                  ? "PDF · 미리보기 준비 중"
+                  : source.mime === "text/plain"
+                    ? "텍스트"
+                    : "사진 · 준비 중")}
           </T>
         )}
       </Pressable>

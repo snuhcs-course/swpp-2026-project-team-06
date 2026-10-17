@@ -42,7 +42,6 @@ export function PageCanvas({
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
     [moving, setMoving] = useState<{ id: string; index: number } | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [picker, setPicker] = useState<string | null>(null);
   const [heights, setHeights] = useState<Record<string, number>>({});
   const title = (id: string) =>
@@ -225,7 +224,6 @@ export function PageCanvas({
                         if (!to.photos.some((p) => p.uri === photo.uri))
                           to.photos.push(photo);
                         to.enabled = true;
-                        setCollapsed((old) => ({ ...old, [to.id]: false }));
                         onChange(next);
                         setMoving(null);
                       }}
@@ -290,7 +288,6 @@ export function PageCanvas({
     ),
     wrap: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => {
       const current = displayModules.find((n) => n.id === m.id)!;
-      const folded = !current.enabled || !!collapsed[m.id];
       return (
         <View testID={`canvas-section-${m.id}`} style={{ gap: 8 }}>
           <View
@@ -341,47 +338,17 @@ export function PageCanvas({
                 update(m.id, (n) => {
                   n.enabled = value;
                 });
-                setCollapsed((old) => ({ ...old, [m.id]: !value }));
                 setSelected(null);
                 setPicker(null);
                 setMoving(null);
               }}
             />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${title(m.id)} ${folded ? "펼치기" : "접기"}`}
-              aria-expanded={!folded}
-              disabled={!current.enabled || busy || uploading}
-              onPress={() => {
-                setCollapsed((old) => ({ ...old, [m.id]: !folded }));
-                setSelected(null);
-                setPicker(null);
-                setMoving(null);
-              }}
-              style={{
-                width: 44,
-                minHeight: 44,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <View
-                style={{ transform: [{ rotate: folded ? "0deg" : "180deg" }] }}
-              >
-                <Icon
-                  name="chevronDown"
-                  size={18}
-                  color={tokens.color.textMuted}
-                  strokeWidth={1.5}
-                />
-              </View>
-            </Pressable>
           </View>
-          {!folded ? content : null}
-          {folded && blocked.includes(m.id) && selected === m.id
+          {current.enabled ? content : null}
+          {!current.enabled && blocked.includes(m.id) && selected === m.id
             ? details?.(m.id)
             : null}
-          {!folded && selected === m.id ? (
+          {current.enabled && selected === m.id ? (
             <View style={{ gap: 8 }}>
               {m.id === "sizePhoto" ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>

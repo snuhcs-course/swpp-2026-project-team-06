@@ -124,4 +124,4 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 
 - DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
 
-- DEV-58 편집 조작: 첨부 카드의 연필/×·설명 inline 저장, 점선 사진 추가 칸, 눈 아이콘과 독립 접기. 설명 저장 완료 후 최신 batch 버전으로 분석을 시작한다. 공개 내용에 접힘 상태를 저장하지 않는다. 상세 계약은 docs/spec/source-editor.md.
+- DEV-58 편집 조작: 첨부 카드의 연필/×·설명 inline 저장, 점선 사진 추가 칸, 눈 아이콘만 제공(별도 접기 제거). 설명 저장 완료 후 최신 batch 버전으로 분석을 시작한다. 별도 접힘 상태 없이 enabled만 사용한다. 상세 계약은 docs/spec/source-editor.md.

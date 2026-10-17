@@ -112,6 +112,27 @@ for (const width of [360, 390, 430]) {
     await page.goto(
       `${producerUrl}/products/source-analysis?batchId=ui-preview`,
     );
+    const card = page
+      .getByTestId("product-photo-box")
+      .getByTestId("attachment-tile")
+      .first();
+    const preview = card.getByTestId("attachment-preview");
+    const removal = card.getByRole("button", {
+      name: "상품사진 삭제",
+      exact: true,
+    });
+    await expect(preview.getByRole("img")).toBeVisible();
+    const bounds = await card.boundingBox();
+    const contentBounds = await preview.boundingBox();
+    const removeBounds = await removal.boundingBox();
+    expect(Math.abs(contentBounds!.y - bounds!.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(contentBounds!.width - bounds!.width)).toBeLessThanOrEqual(
+      2,
+    );
+    expect(removeBounds!.y - bounds!.y).toBeLessThan(5);
+    expect(removeBounds!.x + removeBounds!.width).toBeLessThanOrEqual(
+      bounds!.x + bounds!.width,
+    );
     const banner = page.getByTestId("source-analysis-status");
     await expect(banner).toContainText("분석 중이에요");
     await expect(

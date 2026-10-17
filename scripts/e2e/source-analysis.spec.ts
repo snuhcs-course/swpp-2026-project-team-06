@@ -132,21 +132,11 @@ for (const width of [360, 390, 430]) {
     await page
       .getByLabel("한눈에 보기 내용", { exact: true })
       .fill("제주산 감귤입니다.");
-    await page
-      .getByRole("button", { name: "한눈에 보기 접기", exact: true })
-      .click();
     await expect(
-      page.getByLabel("한눈에 보기 내용", { exact: true }),
+      page.getByRole("button", {
+        name: /^(한눈에 보기|보관 방법) (접기|펼치기)$/,
+      }),
     ).toHaveCount(0);
-    await expect(
-      page.getByRole("switch", { name: "한눈에 보기 표시", exact: true }),
-    ).toBeChecked();
-    await page
-      .getByRole("button", { name: "한눈에 보기 펼치기", exact: true })
-      .click();
-    await expect(
-      page.getByLabel("한눈에 보기 내용", { exact: true }),
-    ).toHaveValue("제주산 감귤입니다.");
     if (width === 360) {
       const visibility = page.getByRole("switch", {
         name: "한눈에 보기 표시",
@@ -164,9 +154,6 @@ for (const width of [360, 390, 430]) {
     await page
       .getByRole("switch", { name: "보관 방법 표시", exact: true })
       .uncheck();
-    await page
-      .getByRole("button", { name: "한눈에 보기 접기", exact: true })
-      .click();
     await page
       .getByRole("button", { name: "비공개 저장", exact: true })
       .click();

@@ -401,3 +401,13 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증 중 기존 파일명 선택자와 실행 입력 스냅샷 테스트 필드를 실제 계약에 맞췄다. 의도한503 테스트를 정상 네트워크 검사와 분리했다. 키보드 테스트는 확인창 닫기 애니메이션 종료를 기다린 뒤 검사한다. 웹 눈 아이콘은 기본 button의 Space/Enter 동작을 사용한다.
 
 - 영상2개를 새 카드 설명/눈 아이콘/접기/점선 사진 추가 UX로 재녹화했다: `.artifacts/in-app-v4/page-editor-review/index.html`. 격리 mock 제공자만 사용, 추가 유료 호출0. 녹화 브라우저 종료. 사용자 확인 전 PR113 Draft·미머지·미배포 유지. Agent 시간/Tokens 미측정.
+
+## DEV-58 첨부 오버레이·접기 제거
+- 승인: 첨부 내용이 카드 전체를 채우고 연필/×는 우측 상단 오버레이. 별도 접기 화살표/상태 제거, 기존 눈 ON/OFF만 유지. 큰 섹션 제목 접기 추가 없음.
+- 범위: apps/producer/src/lib/{SourceAttachments,PageCanvas}.tsx, scripts/e2e/{source-analysis,source-workspace-ui}.spec.ts, apps/producer/{spec,tasks}.md, docs/spec/source-editor.md, docs/wiki/Source-Analysis.md.
+- 결정: 첨부 이미지는 정사각 썸네일 cover, 공개 사진 원본 비율/프레임 유지. 텍스트는 최소 안쪽 여백과 아이콘 겹침 방지. 카드 아래 사진 설명 inline 유지. API/DB 변경 없음. PR113 미머지·미배포 유지.
+- [x] 구현·타입/브라우저·영상·커밋 스캔
+- 검증: 타입4 workspace 통과 후 미리보기 오류 안내 추가에 대해 생산자 타입 재검사 통과. 격리 mock API/DB Playwright12개(52.6초) 통과: 360/390/430px 카드 경계·오버레이 위치, 텍스트 수정/삭제, 설명 저장/재시도, 눈 Space/Enter·내용 복원·저장/공개. 첫 실행의 이미지 선택자가 SVG 아이콘까지 찾던 문제는 미리보기 영역으로 범위를 좁혔다.
+- scan-before-commit: 미리보기 이미지 오류 안내/URL 변경 복원, 아이콘 클릭 분리·44px 영역, 별도 접힘 상태 완전 제거 및 공개/충돌 처리 유지 확인. 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. 추가 유료 호출 없음.
+
+- 영상2개를 오버레이 카드/눈 아이콘만 있는 화면으로 갱신: `.artifacts/in-app-v4/page-editor-review/index.html`. 녹화 브라우저 종료. PR113 Draft·머지/배포 보류. Agent 시간/Tokens 미측정.
