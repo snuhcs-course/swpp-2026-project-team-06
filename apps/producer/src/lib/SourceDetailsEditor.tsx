@@ -195,8 +195,8 @@ export function SourceDetailsEditor({
           !entries.some((e) => e.field.photoAssetIds.includes(s.id)),
       ) ? (
         <T muted variant="sub">
-          아직 배치되지 않은 사진이 있어요. 원하는 항목의 편집 버튼에서 추가해
-          주세요.
+          아직 배치되지 않은 사진이 있어요. 원하는 항목의 + 사진 추가 칸에서
+          골라 주세요.
         </T>
       ) : null}
       {batch.targets.map((target) => (

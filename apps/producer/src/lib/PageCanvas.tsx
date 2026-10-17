@@ -2,12 +2,13 @@ import {
   ModuleStory,
   SOURCE_MODULES,
   Button,
+  Icon,
   T,
   StoryImage,
   tokens,
 } from "@farmclub/ui";
-import { useState, type ReactNode } from "react";
-import { TextInput, View, type TextStyle } from "react-native";
+import { Children, useState, type ReactNode } from "react";
+import { Pressable, TextInput, View, type TextStyle } from "react-native";
 import { SectionSwitch } from "./SectionSwitch";
 export type CanvasModule = {
   id: string;
@@ -41,6 +42,8 @@ export function PageCanvas({
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
     [moving, setMoving] = useState<{ id: string; index: number } | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [picker, setPicker] = useState<string | null>(null);
   const [heights, setHeights] = useState<Record<string, number>>({});
   const title = (id: string) =>
     SOURCE_MODULES.find(([key]) => key === id)?.[1] ?? id;
@@ -63,6 +66,7 @@ export function PageCanvas({
     };
   });
   const update = (id: string, fn: (m: CanvasModule) => void) => {
+    setMoving(null);
     const next = structuredClone(displayModules);
     fn(next.find((m) => m.id === id)!);
     onChange(next);
@@ -107,7 +111,44 @@ export function PageCanvas({
     ),
     photos: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => (
       <View style={{ gap: 8 }}>
-        {content}
+        {Children.toArray(content).map((photo, i) => (
+          <Pressable
+            key={i}
+            accessibilityRole="button"
+            accessibilityLabel={`${title(m.id)} 사진 ${i + 1} 편집`}
+            disabled={busy || uploading}
+            onPress={() => setSelected(selected === m.id ? null : m.id)}
+          >
+            {photo}
+          </Pressable>
+        ))}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${title(m.id)} 사진 추가`}
+          disabled={busy || uploading}
+          onPress={() => setPicker(picker === m.id ? null : m.id)}
+          style={{
+            minHeight: 104,
+            borderWidth: 1,
+            borderStyle: "dashed",
+            borderColor: tokens.color.border,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            marginVertical: 8,
+          }}
+        >
+          <Icon
+            name="plus"
+            size={22}
+            color={tokens.color.textMuted}
+            strokeWidth={1.5}
+          />
+          <T variant="caption" muted>
+            사진 추가
+          </T>
+        </Pressable>
         {selected === m.id ? (
           <View style={{ gap: 8 }}>
             {m.photos.map((p, i) => (
@@ -117,6 +158,7 @@ export function PageCanvas({
               >
                 <T variant="caption">사진 {i + 1}</T>
                 <Button
+                  compact
                   label="앞으로"
                   variant="text"
                   disabled={busy || uploading || i === 0}
@@ -130,6 +172,7 @@ export function PageCanvas({
                   }
                 />
                 <Button
+                  compact
                   label="뒤로"
                   variant="text"
                   disabled={busy || uploading || i === m.photos.length - 1}
@@ -143,12 +186,14 @@ export function PageCanvas({
                   }
                 />
                 <Button
+                  compact
                   label="위치 이동"
                   variant="text"
                   disabled={busy || uploading}
                   onPress={() => setMoving({ id: m.id, index: i })}
                 />
                 <Button
+                  compact
                   label={`사진 ${i + 1} 제외`}
                   variant="text"
                   disabled={busy || uploading}
@@ -167,6 +212,7 @@ export function PageCanvas({
                   .filter((n) => n.id !== m.id)
                   .map((n) => (
                     <Button
+                      compact
                       key={n.id}
                       label={title(n.id)}
                       disabled={busy || uploading || blocked.includes(n.id)}
@@ -179,6 +225,7 @@ export function PageCanvas({
                         if (!to.photos.some((p) => p.uri === photo.uri))
                           to.photos.push(photo);
                         to.enabled = true;
+                        setCollapsed((old) => ({ ...old, [to.id]: false }));
                         onChange(next);
                         setMoving(null);
                       }}
@@ -186,6 +233,10 @@ export function PageCanvas({
                   ))}
               </View>
             ) : null}
+          </View>
+        ) : null}
+        {picker === m.id ? (
+          <View style={{ gap: 8 }}>
             {availablePhotos
               .filter((p) => !m.photos.some((x) => x.uri === p.uri))
               .map((p) => (
@@ -194,12 +245,14 @@ export function PageCanvas({
                     <StoryImage uri={media(p.uri)} alt={p.alt} />
                   </View>
                   <Button
-                    label={`추가: ${p.alt || "상품 사진"}`}
+                    compact
+                    label={`상품사진 ${availablePhotos.indexOf(p) + 1} 추가`}
                     variant="outline"
                     disabled={busy || uploading}
                     onPress={() =>
                       update(m.id, (n) => {
                         n.photos.push(p);
+                        setPicker(null);
                       })
                     }
                   />
@@ -207,6 +260,7 @@ export function PageCanvas({
               ))}
             {onUpload ? (
               <Button
+                compact
                 label="새 사진 추가"
                 variant="outline"
                 disabled={busy || uploading}
@@ -220,6 +274,7 @@ export function PageCanvas({
                     update(m.id, (n) => {
                       n.photos.push(...added);
                     });
+                    if (added.length) setPicker(null);
                   } catch (e) {
                     setError(String(e));
                   } finally {
@@ -235,8 +290,9 @@ export function PageCanvas({
     ),
     wrap: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => {
       const current = displayModules.find((n) => n.id === m.id)!;
+      const folded = !current.enabled || !!collapsed[m.id];
       return (
-        <View style={{ gap: 8 }}>
+        <View testID={`canvas-section-${m.id}`} style={{ gap: 8 }}>
           <View
             style={{
               flexDirection: "row",
@@ -247,14 +303,32 @@ export function PageCanvas({
               borderRadius: 8,
             }}
           >
-            <View style={{ flex: 1 }}>
-              <Button
-                label={`${title(m.id)} 편집`}
-                variant="text"
+            <T
+              variant="caption"
+              style={{
+                flex: 1,
+                fontWeight: "400",
+                opacity: current.enabled ? 1 : 0.4,
+              }}
+            >
+              {title(m.id)}
+            </T>
+            {blocked.includes(m.id) && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${title(m.id)} 내용 확인`}
                 disabled={busy || uploading}
                 onPress={() => setSelected(selected === m.id ? null : m.id)}
-              />
-            </View>
+                style={{
+                  width: 44,
+                  minHeight: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name="pencil" size={18} />
+              </Pressable>
+            )}
             <SectionSwitch
               accessibilityLabel={`${title(m.id)} 표시`}
               value={current.enabled}
@@ -263,33 +337,52 @@ export function PageCanvas({
                 uploading ||
                 (!current.enabled && blocked.includes(m.id))
               }
-              onValueChange={(value) =>
+              onValueChange={(value) => {
                 update(m.id, (n) => {
                   n.enabled = value;
-                })
-              }
+                });
+                setCollapsed((old) => ({ ...old, [m.id]: !value }));
+                setSelected(null);
+                setPicker(null);
+                setMoving(null);
+              }}
             />
-          </View>
-          {current.enabled ? (
-            content
-          ) : (
-            <T muted variant="caption">
-              숨긴 항목 · 켜면 내용이 복원돼요
-            </T>
-          )}
-          {selected === m.id ? (
-            <View style={{ gap: 8 }}>
-              {!current.enabled ? (
-                <Button
-                  label="내용 추가·수정"
-                  variant="text"
-                  onPress={() =>
-                    update(m.id, (n) => {
-                      n.enabled = true;
-                    })
-                  }
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${title(m.id)} ${folded ? "펼치기" : "접기"}`}
+              aria-expanded={!folded}
+              disabled={!current.enabled || busy || uploading}
+              onPress={() => {
+                setCollapsed((old) => ({ ...old, [m.id]: !folded }));
+                setSelected(null);
+                setPicker(null);
+                setMoving(null);
+              }}
+              style={{
+                width: 44,
+                minHeight: 44,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <View
+                style={{ transform: [{ rotate: folded ? "0deg" : "180deg" }] }}
+              >
+                <Icon
+                  name="chevronDown"
+                  size={18}
+                  color={tokens.color.textMuted}
+                  strokeWidth={1.5}
                 />
-              ) : null}
+              </View>
+            </Pressable>
+          </View>
+          {!folded ? content : null}
+          {folded && blocked.includes(m.id) && selected === m.id
+            ? details?.(m.id)
+            : null}
+          {!folded && selected === m.id ? (
+            <View style={{ gap: 8 }}>
               {m.id === "sizePhoto" ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                   {[
@@ -299,6 +392,7 @@ export function PageCanvas({
                     ["large", "대과"],
                   ].map(([id, label]) => (
                     <Button
+                      compact
                       key={id}
                       label={label}
                       variant="text"
@@ -322,8 +416,8 @@ export function PageCanvas({
   return (
     <View style={{ gap: 12 }}>
       <T muted variant="sub">
-        문구를 눌러 바로 수정하세요. 사진은 항목의 편집 버튼에서 추가·제외할 수
-        있어요.
+        문구를 눌러 수정하고, + 칸에서 사진을 추가하세요. 눈 아이콘으로 공개
+        여부를 바꿀 수 있어요.
       </T>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
       <ModuleStory

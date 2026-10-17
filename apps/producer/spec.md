@@ -120,6 +120,8 @@ DEV-58 새 상품 진입: /products/new에서 새 비공개 상품과 연결된 
 ### DEV-58 통합 편집
 AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
 
-- DEV-58 상세 편집 스위치: 공통 SectionSwitch의 accent/회색 트랙과 흰 손잡이, 44px 터치 영역. switch 역할과 checked/disabled 상태, 웹 Space/Enter 조작을 유지한다.
+- DEV-58 상세 편집 스위치: 공통 SectionSwitch의 눈/눈 감김 아이콘, 44px 터치 영역. switch 역할과 checked/disabled 상태, 웹 Space/Enter 조작을 유지한다.
 
 - DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
+
+- DEV-58 편집 조작: 첨부 카드의 연필/×·설명 inline 저장, 점선 사진 추가 칸, 눈 아이콘과 독립 접기. 설명 저장 완료 후 최신 batch 버전으로 분석을 시작한다. 공개 내용에 접힘 상태를 저장하지 않는다. 상세 계약은 docs/spec/source-editor.md.

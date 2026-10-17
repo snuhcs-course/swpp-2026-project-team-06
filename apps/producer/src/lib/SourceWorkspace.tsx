@@ -191,6 +191,7 @@ function DraftPreview({
 }
 export function SourceWorkspace() {
   useHideTabBar();
+  const flushAttachments = useRef<(() => Promise<void>) | null>(null);
   const saveEditor = useRef<(() => void) | null>(null);
   const router = useRouter(),
     navigation = useNavigation(),
@@ -541,6 +542,7 @@ export function SourceWorkspace() {
               {tab === "자료" ? (
                 <>
                   <SourceAttachments
+                    flushRef={flushAttachments}
                     batch={batch}
                     busy={busy || !!activeRun}
                     refresh={load}
@@ -562,13 +564,15 @@ export function SourceWorkspace() {
                     }
                     onPress={() =>
                       mutate(async () => {
+                        await flushAttachments.current?.();
+                        const latest = await api.get(batch.id);
                         const pages = Object.fromEntries(
                           Object.entries(visual).filter(([, ns]) => ns.length),
                         );
                         await api.start(
                           batch.id,
-                          batch.version,
-                          keyFor("start", [batch.version, pages]),
+                          latest.version,
+                          keyFor("start", [latest.version, pages]),
                           pages,
                         );
                         pending.current.clear();

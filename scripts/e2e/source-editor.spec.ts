@@ -70,9 +70,6 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
     page.getByRole("switch", { name: "상품 소개 표시", exact: true }),
   ).toBeDisabled();
   await page
-    .getByRole("button", { name: "한눈에 보기 편집", exact: true })
-    .click();
-  await page
     .getByLabel("한눈에 보기 내용", { exact: true })
     .fill("직접 수정한 내용은 실패해도 남아요.");
   const keys: string[] = [];
@@ -103,9 +100,6 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
   await page.reload();
   await page
     .getByRole("button", { name: "상세페이지 편집", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "한눈에 보기 편집", exact: true })
     .click();
   await expect(
     page.getByLabel("한눈에 보기 내용", { exact: true }),
@@ -175,12 +169,115 @@ test("AC-SRC-11: photos without descriptions remain available for manual placeme
     .getByRole("switch", { name: "상품 소개 표시", exact: true })
     .check();
   await page
-    .getByRole("button", { name: "상품 소개 편집", exact: true })
+    .getByRole("button", { name: "상품 소개 사진 추가", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "추가: product.jpg", exact: true })
+    .getByRole("button", { name: "상품사진 1 추가", exact: true })
     .click();
   await expect(
     page.getByTestId("source-photo-frame").getByRole("img"),
   ).toBeVisible();
+});
+
+test("AC-SRC-11: inline photo description survives failure and flushes before analysis", async ({
+  page,
+}) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
+  const { readFileSync } = await import("node:fs");
+  await loginProducer(page, "강영수");
+  const token = await apiLogin(page.request, "u-kang", "producer");
+  const headers = { Authorization: `Bearer ${token}` };
+  const batch = await (
+    await page.request.post(`${apiUrl}/api/source-analysis/batches`, {
+      headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+      data: { targets: [{ name: "사진 설명 저장", productId: "p-house" }] },
+    })
+  ).json();
+  const photo = await (
+    await page.request.post(
+      `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
+      {
+        headers,
+        multipart: {
+          batchVersion: batch.version,
+          common: "true",
+          originalPhoto: "true",
+          file: {
+            name: "hidden-filename.jpg",
+            mimeType: "image/jpeg",
+            buffer: readFileSync(
+              "apps/consumer/public/photos/tangerine-box.jpg",
+            ),
+          },
+        },
+      },
+    )
+  ).json();
+  await page.goto(
+    `${producerUrl}/products/source-analysis?batchId=${batch.id}`,
+  );
+  let rejected = false;
+  await page.route(`**/sources/${photo.id}/details`, async (route) => {
+    if (route.request().method() === "PUT" && !rejected) {
+      rejected = true;
+      return route.fulfill({
+        status: 503,
+        json: { code: "UNAVAILABLE", message: "설명 저장 실패 검증" },
+      });
+    }
+    await route.continue();
+  });
+  const description = page.getByLabel("사진 한 줄 설명", { exact: true });
+  await description.fill("포장 사진");
+  await description.blur();
+  await expect(
+    page
+      .getByTestId("product-photo-box")
+      .getByText("설명을 저장하지 못했어요. 입력은 그대로 남아 있어요."),
+  ).toBeVisible();
+  await expect(description).toHaveValue("포장 사진");
+  await page
+    .getByRole("button", { name: "설명 저장 다시 시도", exact: true })
+    .click();
+  await expect
+    .poll(async () => {
+      const latest = await (
+        await page.request.get(
+          `${apiUrl}/api/source-analysis/batches/${batch.id}`,
+          { headers },
+        )
+      ).json();
+      return latest.sources[0].description;
+    })
+    .toBe("포장 사진");
+  await expect(
+    page.getByText("설명을 저장하지 못했어요. 입력은 그대로 남아 있어요."),
+  ).toHaveCount(0);
+  await description.fill("배송 박스 포장");
+  await page
+    .getByRole("button", { name: "자료 준비·분석 시작", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "분석 중이에요", exact: true }),
+  ).toBeDisabled();
+  const latest = await (
+    await page.request.get(
+      `${apiUrl}/api/source-analysis/batches/${batch.id}`,
+      { headers },
+    )
+  ).json();
+  expect(latest.sources[0].description).toBe("배송 박스 포장");
+  const runs = await (
+    await page.request.get(
+      `${apiUrl}/api/source-analysis/batches/${batch.id}/runs`,
+      { headers },
+    )
+  ).json();
+  expect(runs.items).toHaveLength(1);
+  expect(runs.items[0].inputs[0].description).toBe(
+    latest.sources[0].description,
+  );
+  await expect(page.getByTestId("product-photo-box")).not.toContainText(
+    "hidden-filename.jpg",
+  );
 });

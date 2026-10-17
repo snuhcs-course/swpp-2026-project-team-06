@@ -386,3 +386,18 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 영상: `.artifacts/in-app-v4/page-editor-review/index.html` (새 자료→직접 편집→저장/공개, 기존 상품 사진 추가/제외/복원/순서→저장/공개). mock 제공자 및 기존 저장 결과만 사용, 추가 유료 호출 0. 사진 설명 분류의 실제 모델 품질 평가는 별도 미실시.
 - scan-before-commit: 사진 업로드 중 중복 조작·사진 풀 중복·분류 재시도 중복·버전 충돌 보호 보완 후 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보3건 — 지적0건 / 커밋된 구조3건 (privacy_approved: 4d7eece, modules/blocks: 839503e, SourceRun inputs 없는 실행: 388d956).
 - 사용자 영상 확인 전 PR113 Draft/미머지·미배포 유지. Agent 시간/Tokens 미측정.
+
+## DEV-58 첨부 카드·사진 추가·눈 아이콘 편집 UX
+- 사용자 승인: 파일명 제거, 텍스트 요약 타일의 연필/×, 카드 내 사진 설명 즉시 편집, 얇고 작은 조작부, 점선 둥근 사진 추가 칸, 눈 아이콘으로 끄면 접고 흐리게/켜면 펼침. 켜진 항목만 별도 접기 가능.
+- 범위: apps/producer/src/lib/{SourceAttachments,SourceWorkspace,PageCanvas,SectionSwitch}.tsx, packages/ui/src/Icon.tsx, scripts/e2e/source*.spec.ts, apps/producer/{spec,tasks}.md, docs/spec/source-editor.md, docs/wiki/Source-Analysis.md.
+- 결정: 설명은 blur 및 분석 직전 저장, 실패 입력 보존/재시도. 기존 API/DB 유지. 접기 상태는 로컬 전용, 공개는 enabled만 사용. 기존 판매페이지 본문 디자인 유지. PR113 Draft/미머지/미배포, 유료 검증 없음.
+- [x] 구현·타입/관련 브라우저 회귀·영상·커밋 스캔
+- 범위 추가: packages/ui/src/Button.tsx — 편집 도구에만 opt-in compact(13px regular/44px/얇은 테두리)를 제공하며 기존 버튼 기본 규격은 유지한다.
+
+- 범위 추가: SourceDetailsEditor.tsx의 미배치 사진 안내를 기존 편집 버튼에서 새 + 사진 추가 칸으로 갱신한다.
+
+- 검증: 최종 격리 DB/API Playwright12개(52.3초) 통과. 360/390/430px, 파일명 미노출·텍스트 연필/삭제, 사진 설명 저장 실패/재시도·분석 직전 최신 입력, 눈 아이콘 Space/Enter·접기/복원·공개 화면 확인. 타입4 workspace 및 mock13개 통과. 이번 변경은 프론트만 수정하여 서버 전체 테스트는 재실행하지 않음(직전291개 및 CI 통과).
+- 스캔: 설명 저장 중 추가 입력·삭제/업로드 순서 보호, 사진 이동 중 목록 변경 보호, 충돌 항목 확인 경로 유지. 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
+- 검증 중 기존 파일명 선택자와 실행 입력 스냅샷 테스트 필드를 실제 계약에 맞췄다. 의도한503 테스트를 정상 네트워크 검사와 분리했다. 키보드 테스트는 확인창 닫기 애니메이션 종료를 기다린 뒤 검사한다. 웹 눈 아이콘은 기본 button의 Space/Enter 동작을 사용한다.
+
+- 영상2개를 새 카드 설명/눈 아이콘/접기/점선 사진 추가 UX로 재녹화했다: `.artifacts/in-app-v4/page-editor-review/index.html`. 격리 mock 제공자만 사용, 추가 유료 호출0. 녹화 브라우저 종료. 사용자 확인 전 PR113 Draft·미머지·미배포 유지. Agent 시간/Tokens 미측정.

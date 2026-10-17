@@ -50,10 +50,39 @@ for (const width of [360, 390, 430]) {
       .getByLabel("첨부 내용")
       .fill("테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.");
     await page.getByRole("button", { name: "내용 저장", exact: true }).click();
-    await expect(page.getByText("source.txt", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("source-material-box")).toContainText(
+    await expect(
+      page.getByRole("button", { name: "텍스트 수정", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByTestId("source-material-box")).not.toContainText(
       "source.txt",
     );
+    await page
+      .getByRole("button", { name: "텍스트 수정", exact: true })
+      .click();
+    await expect(page.getByLabel("첨부 내용")).toHaveValue(
+      "테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.",
+    );
+    await page.getByRole("button", { name: "취소", exact: true }).click();
+    if (width === 360) {
+      await page
+        .getByRole("button", { name: "텍스트 추가", exact: true })
+        .click();
+      await page.getByLabel("첨부 내용").fill("삭제할 임시 자료");
+      await page
+        .getByRole("button", { name: "내용 저장", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", { name: "자료 삭제", exact: true }),
+      ).toHaveCount(2);
+      await page
+        .getByRole("button", { name: "자료 삭제", exact: true })
+        .last()
+        .click();
+      await expect(
+        page.getByRole("button", { name: "자료 삭제", exact: true }),
+      ).toHaveCount(1);
+      await expect(page.getByLabel("첨부 내용")).toHaveCount(0);
+    }
     const chooser = page.waitForEvent("filechooser");
     await page
       .getByRole("button", { name: "상품사진 추가", exact: true })
@@ -62,12 +91,10 @@ for (const width of [360, 390, 430]) {
       await chooser
     ).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
     await page
-      .getByRole("button", { name: "어떤 사진인가요? 설명 추가", exact: true })
-      .click();
-    await page.getByLabel("첨부 내용").fill("배송 박스 포장");
-    await page.getByRole("button", { name: "내용 저장", exact: true }).click();
-    await expect(page.getByTestId("product-photo-box")).toContainText(
-      "배송 박스 포장",
+      .getByLabel("사진 한 줄 설명", { exact: true })
+      .fill("배송 박스 포장");
+    await expect(page.getByTestId("product-photo-box")).not.toContainText(
+      "tangerine-box.jpg",
     );
     await page
       .getByRole("button", { name: "자료 준비·분석 시작", exact: true })
@@ -88,9 +115,6 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("switch", { name: "한눈에 보기 표시", exact: true }),
     ).toBeChecked();
-    await page
-      .getByRole("button", { name: "한눈에 보기 편집", exact: true })
-      .click();
     await expect(
       page.getByLabel("한눈에 보기 내용", { exact: true }),
     ).toHaveValue("제주산 감귤입니다.");
@@ -102,12 +126,47 @@ for (const width of [360, 390, 430]) {
       page.getByText("저장하지 않은 내용을 닫을까요?"),
     ).toBeVisible();
     await page.getByRole("button", { name: "계속 편집", exact: true }).click();
+    await expect(
+      page.getByText("저장하지 않은 내용을 닫을까요?", { exact: true }),
+    ).toHaveCount(0);
     await page
       .getByLabel("한눈에 보기 내용", { exact: true })
       .fill("제주산 감귤입니다.");
     await page
+      .getByRole("button", { name: "한눈에 보기 접기", exact: true })
+      .click();
+    await expect(
+      page.getByLabel("한눈에 보기 내용", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("switch", { name: "한눈에 보기 표시", exact: true }),
+    ).toBeChecked();
+    await page
+      .getByRole("button", { name: "한눈에 보기 펼치기", exact: true })
+      .click();
+    await expect(
+      page.getByLabel("한눈에 보기 내용", { exact: true }),
+    ).toHaveValue("제주산 감귤입니다.");
+    if (width === 360) {
+      const visibility = page.getByRole("switch", {
+        name: "한눈에 보기 표시",
+        exact: true,
+      });
+      await visibility.focus();
+      await visibility.press("Space");
+      await expect(visibility).not.toBeChecked();
+      await expect(
+        page.getByLabel("한눈에 보기 내용", { exact: true }),
+      ).toHaveCount(0);
+      await visibility.press("Enter");
+      await expect(visibility).toBeChecked();
+    }
+    await page
       .getByRole("switch", { name: "보관 방법 표시", exact: true })
       .uncheck();
+    await page
+      .getByRole("button", { name: "한눈에 보기 접기", exact: true })
+      .click();
     await page
       .getByRole("button", { name: "비공개 저장", exact: true })
       .click();
@@ -121,9 +180,6 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("switch", { name: "보관 방법 표시", exact: true }),
     ).not.toBeChecked();
-    await page
-      .getByRole("button", { name: "보관 방법 편집", exact: true })
-      .click();
     await page
       .getByRole("switch", { name: "보관 방법 표시", exact: true })
       .check();

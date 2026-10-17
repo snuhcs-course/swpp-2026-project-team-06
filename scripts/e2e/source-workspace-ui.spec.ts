@@ -66,6 +66,10 @@ for (const width of [360, 390, 430]) {
           batch.sources.push(added);
           return route.fulfill({ json: added, status: 201 });
         }
+        if (path.endsWith("/text"))
+          return route.fulfill({
+            json: { text: "서늘한 곳에 보관해 주세요." },
+          });
         if (path.endsWith("/image")) {
           imageRequests++;
           return route.fulfill({
@@ -113,10 +117,10 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("button", { name: "분석 중이에요", exact: true }),
     ).toBeDisabled();
-    await expect(page.getByTestId("product-photo-box")).toContainText(
+    await expect(page.getByTestId("product-photo-box")).not.toContainText(
       "감귤 사진.jpg",
     );
-    await expect(page.getByTestId("source-material-box")).toContainText(
+    await expect(page.getByTestId("source-material-box")).not.toContainText(
       "판매 안내.pdf",
     );
     await expect(

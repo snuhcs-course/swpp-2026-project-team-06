@@ -1,5 +1,6 @@
-import { tokens } from "@farmclub/ui";
-import { Platform, Pressable, View } from "react-native";
+import { Icon, tokens } from "@farmclub/ui";
+import { createElement } from "react";
+import { Platform, Pressable } from "react-native";
 
 export function SectionSwitch({
   value,
@@ -12,55 +13,53 @@ export function SectionSwitch({
   accessibilityLabel: string;
   onValueChange: (value: boolean) => void;
 }) {
+  const icon = (
+    <Icon
+      name={value ? "eye" : "eyeOff"}
+      size={20}
+      color={tokens.color.textMuted}
+      strokeWidth={1.5}
+    />
+  );
+  const style = {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    opacity: disabled ? 0.45 : 1,
+  };
+  if (Platform.OS === "web")
+    return createElement(
+      "button",
+      {
+        type: "button",
+        role: "switch",
+        "aria-label": accessibilityLabel,
+        "aria-checked": value,
+        disabled,
+        onClick: () => onValueChange(!value),
+        style: {
+          ...style,
+          display: "flex",
+          padding: 0,
+          border: 0,
+          borderRadius: 6,
+          background: "transparent",
+          cursor: disabled ? "default" : "pointer",
+        },
+      },
+      icon,
+    );
   return (
     <Pressable
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
-      aria-checked={value}
-      aria-disabled={!!disabled}
+      accessibilityState={{ checked: value, disabled: !!disabled }}
       disabled={disabled}
-      {...(Platform.OS === "web"
-        ? {
-            onKeyDown: (event: {
-              key: string;
-              repeat: boolean;
-              preventDefault: () => void;
-            }) => {
-              if (event.key === " ") {
-                event.preventDefault();
-                if (!disabled && !event.repeat) onValueChange(!value);
-              }
-            },
-          }
-        : {})}
       onPress={() => onValueChange(!value)}
-      style={{
-        minWidth: 44,
-        minHeight: 44,
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: disabled ? 0.45 : 1,
-      }}
+      style={style}
     >
-      <View
-        style={{
-          width: 40,
-          height: 24,
-          padding: 3,
-          borderRadius: 12,
-          backgroundColor: value ? tokens.color.accent : tokens.color.border,
-          alignItems: value ? "flex-end" : "flex-start",
-        }}
-      >
-        <View
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: 9,
-            backgroundColor: "#FFFFFF",
-          }}
-        />
-      </View>
+      {icon}
     </Pressable>
   );
 }
