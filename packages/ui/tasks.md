@@ -329,3 +329,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 범위 추가: packages/ui/src/BrixReading.tsx, scripts/e2e/source-detail-design.spec.ts. 실제 화면에서 곡선과 그림/날짜가 가까워 실측 당도 상하 여백을96px로 확장한다. 손 영역64px는 충분해 유지한다.
 
 - 결과: 깨끗한 곡선/알파 경계 PNG 적용. 여백 수정 뒤 디자인 E2E4개 통과. 실제 화면 headless 확인. 커밋 전 스캔 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
+
+## DEV-57 과일 사이즈 강조 (2026-10-17)
+
+- 사용자 요청: 손 기준18cm는 작게, 과일 사이즈는 크게 표시.
+- 범위: packages/ui/src/ModuleStory.tsx, scripts/e2e/source-detail-design.spec.ts, packages/ui/{spec.md,tasks.md}, docs/spec/source-integration.md, docs/wiki/Source-Analysis.md.
+- 결정: 선택된 설명용 손 그림 small/medium/large에 맞춰 소과/중과/대과를40px bold로 표시. 기준 손 길이18cm와 비교용 가정은13px/20px 보조 문구로 유지. 실측 치수나 수치는 추정하지 않는다.
+- 검증: typecheck4 workspace, 디자인 E2E4개 통과. 소과/중과/대과40px와 기준13px, 한 줄 표시 확인. 실제 데모 캡처 확인. 커밋 전 스캔 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.

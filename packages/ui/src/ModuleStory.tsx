@@ -120,14 +120,11 @@ function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
           />
         </View>
         <View style={{ width: 120, gap: 4 }}>
-          <T style={{ fontSize: 17, lineHeight: 26 }} color={tokens.color.onAccent} center>
-            기준 손 길이
-          </T>
           <T weight="bold" center style={{ fontSize: 40, lineHeight: 48, color: tokens.color.onAccent }}>
-            18cm
+            {{ "hand-citrus-small": "소과", "hand-citrus-medium": "중과", "hand-citrus-large": "대과" }[id]}
           </T>
-          <T style={{ fontSize: 17, lineHeight: 26 }} color={tokens.color.onAccent} center>
-            {"손끝~손목\n비교용 가정"}
+          <T style={{ fontSize: 13, lineHeight: 20 }} color={tokens.color.onAccent} center>
+            {"기준 손 길이 18cm\n손끝~손목\n비교용 가정"}
           </T>
         </View>
       </View>

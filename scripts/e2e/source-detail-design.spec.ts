@@ -72,7 +72,7 @@ for (const width of [360, 390, 430]) {
         exact: true,
       }),
     ).toHaveCount(0);
-    await expect(detail.getByText("18cm", { exact: true })).toBeVisible();
+    await expect(detail.getByText(/기준 손 길이 18cm/)).toBeVisible();
     await expect(
       detail.getByText("자료 입력 전", { exact: false }),
     ).toHaveCount(0);
@@ -88,13 +88,15 @@ for (const width of [360, 390, 430]) {
     );
     const sizePanel = detail.getByTestId("source-size-panel");
     await expect(sizePanel).toHaveCSS("padding-top", "64px");
-    await expect(sizePanel.getByText("18cm", { exact: true })).toHaveCSS("font-size", "40px");
-    await expect(sizePanel.getByText("18cm", { exact: true })).toHaveCSS("font-weight", "700");
+    const sizeLabel = ({360: "소과", 390: "중과", 430: "대과"} as Record<number, string>)[width];
+    await expect(sizePanel.getByText(sizeLabel, { exact: true })).toHaveCSS("font-size", "40px");
+    await expect(sizePanel.getByText(/기준 손 길이 18cm/)).toHaveCSS("font-size", "13px");
+    await expect(sizePanel.getByText(sizeLabel, { exact: true })).toHaveCSS("font-weight", "700");
     await expect(sizePanel.getByText(/비교용 가정/)).toBeVisible();
     for (const edge of ["top", "bottom"]) {
       await expect(sizePanel.getByTestId(`illustration-fade-${edge}`)).toHaveCount(0);
     }
-    expect((await sizePanel.getByText("18cm", { exact: true }).boundingBox())!.height).toBeCloseTo(48, 0);
+    expect((await sizePanel.getByText(sizeLabel, { exact: true }).boundingBox())!.height).toBeCloseTo(48, 0);
     const handBox = await sizePanel.getByRole("img", { name: "설명용 감귤 크기 일러스트" }).boundingBox();
     expect(handBox).not.toBeNull();
     expect(handBox!.height).toBeCloseTo(handBox!.width, 0);
