@@ -126,4 +126,6 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 
 - DEV-58 편집 조작: 텍스트 카드 본문 클릭 편집/×·설명 inline 저장, 점선 사진 추가 칸, 눈 아이콘만 제공(별도 접기 제거). 설명 저장 완료 후 최신 batch 버전으로 분석을 시작한다. 별도 접힘 상태 없이 섹션 hiddenSectionIds와 항목 enabled를 사용한다. 상세 계약은 docs/spec/source-editor.md.
 
-- DEV-58 / AC-SRC-11: 큰 섹션 숨김은 `hiddenSectionIds` JSON 목록으로 저장하고 하위 항목의 `enabled`와 분리한다. 미리보기/공개 및 활성 근거 검증은 두 상태를 함께 적용한다. 기존 저장본은 빈 목록 기본값. UI는 큰 제목 왼쪽 눈, 항목/사진 우측 상단 ×와 복원 메뉴, 연한 placeholder. 상세 계약은 docs/spec/source-editor.md.
+- DEV-58 / AC-SRC-11: 큰 섹션 숨김은 `hiddenSectionIds` JSON 목록으로 저장하고 하위 항목의 `enabled`와 분리한다. 미리보기/공개 및 활성 근거 검증은 두 상태를 함께 적용한다. 기존 저장본은 빈 목록 기본값. UI는 큰 제목 줄 오른쪽 눈, 항목/사진 우측 상단 ×와 제자리 편집 복원, 연한 placeholder. 상세 계약은 docs/spec/source-editor.md.
+
+- DEV-58 / AC-SRC-11: 빈 항목은 연한 동일 placeholder로 항상 편집 가능하며 입력/사진 추가 시 활성화한다. 항목 추가 메뉴 제거, 공백을 포함한 빈 내용은 공개에서 제외. 빈 섹션 제목 흐림, 눈은 수동 숨김 상태 유지.

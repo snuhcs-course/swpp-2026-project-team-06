@@ -66,16 +66,13 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
   await expect(
     page.getByRole("switch", { name: "상품 소개 표시", exact: true }),
   ).toBeChecked();
-  await page
-    .getByTestId("source-cover")
-    .getByRole("button", { name: "+ 항목 추가", exact: true })
-    .click();
+  await expect(page.getByTestId("canvas-content-hero")).toHaveCSS(
+    "opacity",
+    "0.45",
+  );
   await expect(
-    page.getByRole("button", { name: "상품 소개 추가", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("button", { name: "상품 소개 내용 확인", exact: true })
-    .click();
+    page.getByRole("button", { name: "+ 항목 추가", exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByText(/내용 확인 필요/)).toBeVisible();
   await page
     .getByLabel("한눈에 보기 내용", { exact: true })
@@ -173,13 +170,6 @@ test("AC-SRC-11: photos without descriptions remain available for manual placeme
     .getByRole("button", { name: "상세페이지 편집", exact: true })
     .click();
   await expect(page.getByText(/아직 배치되지 않은 사진/)).toBeVisible();
-  await page
-    .getByTestId("source-cover")
-    .getByRole("button", { name: "+ 항목 추가", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "상품 소개 추가", exact: true })
-    .click();
   await page
     .getByRole("button", { name: "상품 소개 사진 추가", exact: true })
     .click();

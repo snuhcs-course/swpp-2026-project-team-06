@@ -146,6 +146,14 @@ export function SourceDetailsEditor({
     }
   }, [review, drafts, batch, dirty]);
   const change = (field: SourceField) => {
+    const id = SOURCE_MODULES.find(([id]) =>
+      keys(id).includes(field.fieldKey),
+    )?.[0];
+    if (id)
+      setEnabled((old) => ({
+        ...old,
+        [field.targetId]: [...new Set([...(old[field.targetId] ?? []), id])],
+      }));
     setEntries((old) =>
       old.map((e) =>
         identity(e.field) === identity(field) ? { field, status: "ready" } : e,

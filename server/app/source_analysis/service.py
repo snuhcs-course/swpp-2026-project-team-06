@@ -665,7 +665,9 @@ def save_drafts(db, row, body, *, editor=False):
         modules, warnings = [], []
         for module_id, keys in MODULE_FIELDS.items():
             selected = [f for f in fields if f.field_key in keys]
-            filled = any(f.value or f.photo_asset_ids or f.illustration_id for f in selected)
+            filled = any(
+                f.value.strip() or f.photo_asset_ids or f.illustration_id for f in selected
+            )
             enabled = module_id in target.enabled_module_ids
             module = {
                 "id": module_id,
@@ -727,7 +729,8 @@ def save_drafts(db, row, body, *, editor=False):
                 for m in modules
                 if m["id"] in visible_ids
                 and any(
-                    f["value"] or f["photoAssetIds"] or f["illustrationId"] for f in m["fields"]
+                    f["value"].strip() or f["photoAssetIds"] or f["illustrationId"]
+                    for f in m["fields"]
                 )
             ],
         }

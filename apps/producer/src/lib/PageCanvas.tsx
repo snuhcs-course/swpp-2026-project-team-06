@@ -46,7 +46,6 @@ export function PageCanvas({
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
     [moving, setMoving] = useState<{ id: string; index: number } | null>(null);
-  const [restoreOpen, setRestoreOpen] = useState<string | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
   const [heights, setHeights] = useState<Record<string, number>>({});
   const title = (id: string) =>
@@ -75,6 +74,22 @@ export function PageCanvas({
     const next = structuredClone(displayModules);
     fn(next.find((m) => m.id === id)!);
     onChange(next);
+  };
+  const filled = (m: CanvasModule) =>
+    m.texts.some((t) => t.value.trim()) ||
+    m.photos.length > 0 ||
+    !!m.illustrationId;
+  const active = (id: string) => {
+    const m = displayModules.find((m) => m.id === id)!;
+    return m.enabled && filled(m);
+  };
+  const activate = (id: string) => {
+    setSelected(id);
+    const m = displayModules.find((m) => m.id === id)!;
+    if (!m.enabled && filled(m) && !blocked.includes(id))
+      update(id, (n) => {
+        n.enabled = true;
+      });
   };
   const availablePhotos = [...new Map(photos.map((p) => [p.uri, p])).values()];
   const removeButton = (label: string, onPress: () => void) => (
@@ -107,6 +122,7 @@ export function PageCanvas({
   );
   const editing = {
     hiddenSectionIds,
+    active,
     sectionControl: (id: string, label: string) => (
       <SectionSwitch
         accessibilityLabel={`${label} 표시`}
@@ -121,60 +137,9 @@ export function PageCanvas({
           setSelected(null);
           setPicker(null);
           setMoving(null);
-          setRestoreOpen(null);
         }}
       />
     ),
-    restore: (ids: string[]) => {
-      const excluded = displayModules.filter(
-        (m) => ids.includes(m.id) && !m.enabled,
-      );
-      if (!excluded.length) return null;
-      return (
-        <View style={{ gap: 4 }}>
-          <Button
-            compact
-            variant="text"
-            label="+ 항목 추가"
-            disabled={busy || uploading}
-            onPress={() =>
-              setRestoreOpen(restoreOpen === ids[0] ? null : ids[0])
-            }
-          />
-          {restoreOpen === ids[0] &&
-            excluded.map((m) => (
-              <View key={m.id}>
-                <Button
-                  compact
-                  variant="text"
-                  label={`${title(m.id)} 추가`}
-                  disabled={busy || uploading || blocked.includes(m.id)}
-                  onPress={() => {
-                    update(m.id, (n) => {
-                      n.enabled = true;
-                    });
-                    setRestoreOpen(null);
-                  }}
-                />
-                {blocked.includes(m.id) ? (
-                  <>
-                    <Button
-                      compact
-                      variant="text"
-                      label={`${title(m.id)} 내용 확인`}
-                      disabled={busy || uploading}
-                      onPress={() =>
-                        setSelected(selected === m.id ? null : m.id)
-                      }
-                    />
-                    {selected === m.id ? details?.(m.id) : null}
-                  </>
-                ) : null}
-              </View>
-            ))}
-        </View>
-      );
-    },
     text: (
       m: Omit<CanvasModule, "enabled">,
       index: number,
@@ -193,21 +158,23 @@ export function PageCanvas({
         value={m.texts[index].value}
         editable={!busy && !uploading}
         maxLength={3000}
-        placeholder="내용을 입력해 주세요"
+        placeholder="내용을 입력해주세요"
         placeholderTextColor="#B5B5B5"
         style={{
           ...style,
           padding: 4,
+          paddingRight: m.texts[index].fieldKey === "name" ? 4 : 44,
           minHeight: 40,
           height: heights[`${m.id}:${index}`],
           borderWidth: 1,
           borderColor: selected === m.id ? tokens.color.border : "transparent",
           borderRadius: 4,
         }}
-        onFocus={() => setSelected(m.id)}
+        onFocus={() => activate(m.id)}
         onChangeText={(value) =>
           update(m.id, (n) => {
             n.texts[index].value = value;
+            n.enabled = true;
           })
         }
       />
@@ -220,7 +187,7 @@ export function PageCanvas({
               accessibilityRole="button"
               accessibilityLabel={`${title(m.id)} 사진 ${i + 1} 편집`}
               disabled={busy || uploading}
-              onPress={() => setSelected(selected === m.id ? null : m.id)}
+              onPress={() => activate(m.id)}
             >
               {photo}
             </Pressable>
@@ -349,6 +316,7 @@ export function PageCanvas({
                     onPress={() =>
                       update(m.id, (n) => {
                         n.photos.push(p);
+                        n.enabled = true;
                         setPicker(null);
                       })
                     }
@@ -370,6 +338,7 @@ export function PageCanvas({
                     const added = await onUpload();
                     update(m.id, (n) => {
                       n.photos.push(...added);
+                      if (added.length) n.enabled = true;
                     });
                     if (added.length) setPicker(null);
                   } catch (e) {
@@ -386,21 +355,26 @@ export function PageCanvas({
       </View>
     ),
     wrap: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => {
-      const current = displayModules.find((n) => n.id === m.id)!;
-      if (!current.enabled) return null;
+      const isActive = active(m.id);
       return (
         <View
           testID={`canvas-section-${m.id}`}
-          style={{ gap: 8, paddingTop: 12 }}
+          style={{ gap: 8, marginHorizontal: m.id === "hero" ? 24 : 0 }}
         >
-          {removeButton(`${title(m.id)} 제외`, () => {
-            update(m.id, (n) => {
-              n.enabled = false;
-            });
-            setSelected(null);
-            setPicker(null);
-          })}
-          <View style={{ paddingTop: 24 }}>{content}</View>
+          {isActive &&
+            removeButton(`${title(m.id)} 제외`, () => {
+              update(m.id, (n) => {
+                n.enabled = false;
+              });
+              setSelected(null);
+              setPicker(null);
+            })}
+          <View
+            testID={`canvas-content-${m.id}`}
+            style={{ opacity: isActive ? 1 : 0.45 }}
+          >
+            {content}
+          </View>
           {blocked.includes(m.id) || selected === m.id ? (
             <View style={{ gap: 8 }}>
               {m.id === "sizePhoto" ? (
@@ -420,6 +394,7 @@ export function PageCanvas({
                       onPress={() =>
                         update(m.id, (n) => {
                           n.illustrationId = id ? `hand-citrus-${id}` : null;
+                          n.enabled = true;
                         })
                       }
                     />

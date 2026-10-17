@@ -192,3 +192,15 @@ def test_AC_SRC_11_section_hidden_preserves_selection_and_revalidates(client, lo
     assert (
         client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body).status_code == 400
     )
+
+
+def test_AC_SRC_11_whitespace_only_content_not_published(client, login):
+    h, batch = ready(client, login)
+    body = body_for(client, h, batch)
+    field = next(f for f in body["fields"] if f["fieldKey"] == "summary")
+    field.update(value="   ", state="CONFIRMED", provenance="PRODUCER", candidateIds=[])
+    response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
+    assert response.status_code == 200, response.text
+    assert [m["id"] for m in response.json()["drafts"][0]["snapshot"]["previewModules"]] == [
+        "storage"
+    ]

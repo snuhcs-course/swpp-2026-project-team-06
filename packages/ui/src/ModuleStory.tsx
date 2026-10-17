@@ -39,7 +39,7 @@ export type StoryModule = {
 export type StoryEditing = {
   hiddenSectionIds: string[];
   sectionControl: (id: string, title: string) => ReactNode;
-  restore: (ids: string[]) => ReactNode;
+  active: (id: string) => boolean;
   text: (module: StoryModule, index: number, style: TextStyle) => ReactNode;
   photos: (module: StoryModule, content: ReactNode) => ReactNode;
   wrap: (module: StoryModule, content: ReactNode) => ReactNode;
@@ -189,7 +189,12 @@ function ModuleBody({
         <T
           accessibilityRole="header"
           weight="semibold"
-          style={{ fontSize: 18, lineHeight: 26, color: "#555" }}
+          style={{
+            fontSize: 18,
+            lineHeight: 26,
+            color: "#555",
+            ...(editing ? { paddingRight: 44, paddingVertical: 9 } : {}),
+          }}
         >
           {subheading}
         </T>
@@ -259,6 +264,8 @@ export function ModuleStory({
 }) {
   const hidden = editing?.hiddenSectionIds ?? content.hiddenSectionIds ?? [];
   const introHidden = hidden.includes("intro");
+  const introDim =
+    introHidden || !!(editing && !["hero", "summary"].some(editing.active));
   const filled = editing ? content.modules : content.modules.filter(hasContent);
   if (!filled.length) return null;
   const hero = filled.find((module) => module.id === "hero");
@@ -281,8 +288,7 @@ export function ModuleStory({
                 paddingHorizontal: 24,
               }}
             >
-              {editing.sectionControl("intro", "상품 소개")}
-              <View style={{ flex: 1, opacity: introHidden ? 0.35 : 1 }}>
+              <View style={{ flex: 1, opacity: introDim ? 0.35 : 1 }}>
                 {introHidden ? (
                   <T
                     style={{ fontSize: 38, lineHeight: 46, fontWeight: "600" }}
@@ -303,6 +309,7 @@ export function ModuleStory({
                   )
                 )}
               </View>
+              {editing.sectionControl("intro", "상품 소개")}
             </View>
           ) : null}
           {!introHidden ? (
@@ -310,7 +317,14 @@ export function ModuleStory({
               {hero && editing
                 ? editing.wrap(
                     hero,
-                    <View style={{ gap: 16, paddingHorizontal: 24 }}>
+                    <View style={{ gap: 16 }}>
+                      {hero.texts.map((t, i) =>
+                        t.fieldKey === "name" ? null : (
+                          <View key={i}>
+                            {editing.text(hero, i, bodyStyle)}
+                          </View>
+                        ),
+                      )}
                       {editing.photos(
                         hero,
                         hero.photos.map((p, i) => (
@@ -320,13 +334,6 @@ export function ModuleStory({
                             alt={p.alt}
                           />
                         )),
-                      )}
-                      {hero.texts.map((t, i) =>
-                        t.fieldKey === "name" ? null : (
-                          <View key={i}>
-                            {editing.text(hero, i, bodyStyle)}
-                          </View>
-                        ),
                       )}
                     </View>,
                   )
@@ -383,7 +390,6 @@ export function ModuleStory({
                   </View>
                 ) : null}
               </View>
-              {editing?.restore(["hero", "summary"])}
             </>
           ) : null}
         </View>
@@ -393,6 +399,8 @@ export function ModuleStory({
           filled.filter((module) => module.id === id),
         );
         const isHidden = hidden.includes(group.id);
+        const dim =
+          isHidden || !!(editing && !group.modules.some(editing.active));
         if (!modules.length || (!editing && isHidden)) return null;
         return (
           <View
@@ -413,15 +421,14 @@ export function ModuleStory({
                   style={{
                     width: 36,
                     height: 36,
-                    opacity: isHidden ? 0.35 : 1,
+                    opacity: dim ? 0.35 : 1,
                   }}
                 />
               ) : null}
-              {editing?.sectionControl(group.id, group.title)}
               <T
                 accessibilityRole="header"
                 style={{
-                  opacity: isHidden ? 0.35 : 1,
+                  opacity: dim ? 0.35 : 1,
                   fontSize: 26,
                   lineHeight: 35,
                   fontWeight: "600",
@@ -434,13 +441,14 @@ export function ModuleStory({
               </T>
               <View
                 style={{
-                  opacity: isHidden ? 0.35 : 1,
+                  opacity: dim ? 0.35 : 1,
                   height: 1,
                   minWidth: 12,
                   flexGrow: 1,
                   backgroundColor: "#bbb",
                 }}
               />
+              {editing?.sectionControl(group.id, group.title)}
             </View>
             {!isHidden &&
               modules.map((module) => (
@@ -451,7 +459,6 @@ export function ModuleStory({
                   editing={editing}
                 />
               ))}
-            {!isHidden && editing?.restore(group.modules)}
           </View>
         );
       })}

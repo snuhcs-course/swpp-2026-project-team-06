@@ -189,7 +189,7 @@ def test_AC_SRC_5_private_product_photo_requires_owner(client, login):
 def test_AC_SRC_11_section_visibility_survives_apply_and_individual_exclusion(client, login):
     modules = [
         {"id": name, "texts": [{"fieldKey": name, "value": name}], "photos": []}
-        for name in ["taste", "specification", "storage"]
+        for name in ["taste", "specification", "storage", "composition"]
     ]
     with get_sessionmaker()() as db:
         db.get(Product, "p-house").module_detail = {"schemaVersion": 1, "modules": modules}
@@ -198,6 +198,7 @@ def test_AC_SRC_11_section_visibility_survives_apply_and_individual_exclusion(cl
     snap = deepcopy(row["snapshot"])
     snap["hiddenSectionIds"] = ["taste"]
     snap["modules"][1]["enabled"] = False
+    snap["modules"][3]["texts"][0]["value"] = "   "
 
     def save_apply(row, snap):
         response = client.put(

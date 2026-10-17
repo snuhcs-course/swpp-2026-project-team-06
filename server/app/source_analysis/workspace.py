@@ -196,7 +196,13 @@ def apply(db, farm, pid, body):
             "modules": [
                 {k: v for k, v in m.items() if k != "enabled"}
                 for m in deepcopy(snap["modules"])
-                if m["enabled"] and m["id"] not in hidden_modules(snap.get("hiddenSectionIds", []))
+                if m["enabled"]
+                and m["id"] not in hidden_modules(snap.get("hiddenSectionIds", []))
+                and (
+                    any(t["value"].strip() for t in m["texts"])
+                    or m["photos"]
+                    or m.get("illustrationId")
+                )
             ],
         }
     else:

@@ -136,7 +136,12 @@ function Tile({
           <T
             numberOfLines={5}
             variant="caption"
-            style={{ paddingHorizontal: 10, paddingTop: 46, paddingBottom: 10 }}
+            style={{
+              paddingLeft: 10,
+              paddingRight: 46,
+              paddingTop: 14,
+              paddingBottom: 10,
+            }}
           >
             {imageFailed
               ? "미리보기를 불러오지 못했어요"

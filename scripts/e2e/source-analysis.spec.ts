@@ -53,6 +53,15 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("button", { name: "텍스트 내용 수정", exact: true }),
     ).toBeVisible();
+    const excerpt = page
+      .getByTestId("source-material-box")
+      .getByText(/^\[/)
+      .first();
+    expect(
+      await excerpt.evaluate((el) =>
+        parseFloat(getComputedStyle(el).paddingTop),
+      ),
+    ).toBeLessThan(20);
     await expect(page.getByTestId("source-material-box")).not.toContainText(
       "source.txt",
     );

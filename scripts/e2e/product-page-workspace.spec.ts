@@ -90,7 +90,10 @@ with get_sessionmaker()() as db:
     await expect(eye).toBeChecked();
     const eyeBox = await eye.boundingBox(),
       titleBox = await heading.boundingBox();
-    expect(eyeBox!.x + eyeBox!.width).toBeLessThanOrEqual(titleBox!.x);
+    expect(eyeBox!.x).toBeGreaterThanOrEqual(titleBox!.x + titleBox!.width);
+    await expect(
+      page.getByRole("button", { name: "+ 항목 추가", exact: true }),
+    ).toHaveCount(0);
     expect(
       Math.abs(
         eyeBox!.y + eyeBox!.height / 2 - titleBox!.y - titleBox!.height / 2,
@@ -99,7 +102,10 @@ with get_sessionmaker()() as db:
     await section
       .getByRole("button", { name: "규격 제외", exact: true })
       .click();
-    await expect(page.getByLabel("규격 내용", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS(
+      "opacity",
+      "0.45",
+    );
     await eye.uncheck();
     await expect(heading).toHaveCSS("opacity", "0.35");
     await expect(page.getByLabel("맛과 향 내용", { exact: true })).toHaveCount(
@@ -120,13 +126,15 @@ with get_sessionmaker()() as db:
     await expect(page.getByLabel("맛과 향 내용", { exact: true })).toHaveValue(
       "달고 상큼해요",
     );
-    await expect(page.getByLabel("규격 내용", { exact: true })).toHaveCount(0);
-    await section
-      .getByRole("button", { name: "+ 항목 추가", exact: true })
-      .click();
-    await section
-      .getByRole("button", { name: "규격 추가", exact: true })
-      .click();
+    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS(
+      "opacity",
+      "0.45",
+    );
+    await page.getByLabel("규격 내용", { exact: true }).click();
+    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS(
+      "opacity",
+      "1",
+    );
     await expect(page.getByLabel("규격 내용", { exact: true })).toHaveValue(
       "중과",
     );
@@ -136,7 +144,28 @@ with get_sessionmaker()() as db:
         .getByLabel("규격 내용", { exact: true })
         .evaluate((el) => getComputedStyle(el, "::placeholder").color),
     ).toBe("rgb(181, 181, 181)");
+    await page.getByLabel("맛과 향 내용", { exact: true }).fill("   ");
+    await expect(heading).toHaveCSS("opacity", "0.35");
+    await expect(eye).toBeChecked();
+    await expect(page.getByLabel("규격 내용", { exact: true })).toHaveAttribute(
+      "placeholder",
+      "내용을 입력해주세요",
+    );
+    await expect(
+      section.getByRole("button", { name: "규격 제외", exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByLabel("맛과 향 내용", { exact: true })
+      .fill("달고 상큼해요");
+    await expect(heading).toHaveCSS("opacity", "1");
     await page.getByLabel("규격 내용", { exact: true }).fill("중과");
+    const removeBox = await section
+      .getByRole("button", { name: "규격 제외", exact: true })
+      .boundingBox();
+    const subheadingBox = await section
+      .getByRole("heading", { name: "규격", exact: true })
+      .boundingBox();
+    expect(Math.abs(removeBox!.y - subheadingBox!.y)).toBeLessThan(2);
     await section.screenshot({
       path: `.artifacts/section-editor-${width}.png`,
     });
