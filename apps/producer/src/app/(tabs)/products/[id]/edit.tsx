@@ -366,7 +366,7 @@ export default function EditProduct() {
         </View>
         <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
           <Button
-            label="상품 상세 페이지 편집"
+            label="판매페이지 수정"
             variant="outline"
             onPress={() =>
               router.push({

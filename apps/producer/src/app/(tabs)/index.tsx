@@ -72,7 +72,7 @@ export default function Home() {
     <Screen>
       <BrandHeader title="농가 현황" />
       <Scroll bottom={tokens.height.tabBarClearance}>
-        <View style={{ padding: 20, gap: 20 }}>
+        <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           <T variant="sub" muted>
             {farm.data?.name ?? "우리 농가"} ·{" "}
             {new Date().toLocaleDateString("ko-KR", {
@@ -80,7 +80,7 @@ export default function Home() {
               day: "numeric",
             })}
           </T>
-          <T variant="title">주문·배송 현황</T>
+          <T variant="heading">주문·배송 현황</T>
           {list.error ? (
             <>
               <T color={tokens.color.error}>{list.error}</T>

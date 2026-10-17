@@ -12,7 +12,8 @@ from app.core.db import get_db
 from app.core.errors import ApiError, invalid, not_found
 from app.core.security import ApprovedProducer
 from app.source_analysis import service as s
-from app.source_analysis.models import Asset, Batch, Draft, Page
+from app.source_analysis import workspace as w
+from app.source_analysis.models import Asset, Batch, Draft, Page, PublicPhoto
 from app.source_analysis.schemas import (
     ApplyDraft,
     Assignment,
@@ -43,6 +44,66 @@ Key = Annotated[str | None, Header(alias="Idempotency-Key")]
 def commit(db, result):
     db.commit()
     return result
+
+
+@router.get("/product-workspaces/{pid}/photos/{photo_id}")
+def workspace_photo(pid: str, photo_id: str, who: ApprovedProducer, db: DB):
+    from app.catalog import service as catalog
+
+    catalog.load_my_product(db, who[1].id, pid)
+    photo = db.get(PublicPhoto, photo_id)
+    if photo is None or photo.product_id != pid:
+        raise not_found()
+    return Response(
+        Storage().get(photo.storage_key),
+        media_type="image/png",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.post("/product-workspaces")
+def open_product_workspace(body: w.OpenWorkspace, who: ApprovedProducer, db: DB, key: Key = None):
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "product-workspace",
+            key,
+            body.model_dump(),
+            lambda: w.open_workspace(db, who[1], body),
+        ),
+    )
+
+
+@router.put("/product-workspaces/{pid}")
+def save_product_page(pid: str, body: w.PageSave, who: ApprovedProducer, db: DB, key: Key = None):
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "page-save:" + pid,
+            key,
+            body.model_dump(),
+            lambda: w.save(db, who[1], pid, body),
+        ),
+    )
+
+
+@router.post("/product-workspaces/{pid}/apply")
+def apply_product_page(pid: str, body: Version, who: ApprovedProducer, db: DB, key: Key = None):
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            "page-apply:" + pid,
+            key,
+            body.model_dump(),
+            lambda: w.apply(db, who[1], pid, body),
+        ),
+    )
 
 
 @router.post("/batches", status_code=201)

@@ -66,7 +66,7 @@ test("AC-SRC-1: New Product opens uploads linked to a new private product", asyn
   await loginProducer(page, "강영수");
   let creates = 0;
   let productId = "";
-  await page.route("**/api/products", async route => {
+  await page.route("**/api/source-analysis/product-workspaces", async route => {
     if (route.request().method() !== "POST") return route.continue();
     creates++;
     const response = await route.fetch();
@@ -88,17 +88,22 @@ test("AC-SRC-1: workspace retry reuses the new product and idempotency key", asy
   await loginProducer(page, "강영수");
   let creates = 0;
   let batches = 0;
+  let firstProductId = "";
   const keys: string[] = [];
-  await page.route("**/api/products", async route => {
-    if (route.request().method() === "POST") creates++;
-    await route.continue();
-  });
-  await page.route("**/api/source-analysis/batches", async route => {
+  await page.route("**/api/source-analysis/product-workspaces", async route => {
     if (route.request().method() !== "POST") return route.continue();
     batches++;
     keys.push(route.request().headers()["idempotency-key"]);
-    if (batches === 1) return route.fulfill({ status: 503, json: { code: "UNAVAILABLE", message: "fixture" } });
-    return route.continue();
+    // Lose the response after the server commits; retry must return the same product.
+    const response = await route.fetch();
+    const body = await response.json();
+    if (batches === 1) {
+      creates++;
+      firstProductId = body.productId;
+      return route.fulfill({ status: 503, json: { code: "UNAVAILABLE", message: "fixture" } });
+    }
+    expect(body.productId).toBe(firstProductId);
+    return route.fulfill({ response });
   });
   await page.goto(`${producerUrl}/products/new`);
   await page.getByRole("button", { name: "자료 작업 다시 열기", exact: true }).click();

@@ -13,7 +13,7 @@ from app.catalog import service as catalog
 from app.core.db import get_db
 from app.core.errors import conflict, invalid, not_found
 from app.source_analysis import service as s
-from app.source_analysis.models import PublicPhoto
+from app.source_analysis.models import ProductWorkspace, PublicPhoto
 from app.source_analysis.storage import Storage
 
 public_router = APIRouter()
@@ -30,6 +30,9 @@ def apply_draft(db, batch, draft, body):
         raise invalid({"productId": "초안에 연결된 상품을 선택해 주세요."})
     product = catalog.load_my_product(db, batch.farm_id, body.product_id, lock=True).product
     s.version(product.version, body.product_version)
+    workspace = db.get(ProductWorkspace, product.id)
+    if workspace and workspace.snapshot != workspace.published_snapshot:
+        raise conflict("PAGE_DRAFT_EXISTS", "저장된 판매페이지 수정본을 먼저 반영해 주세요.")
     for sid, expected in snap["sourceVersions"].items():
         source = s.asset(db, batch.id, sid)
         s.version(source.revision, expected["revision"])
@@ -71,6 +74,13 @@ def apply_draft(db, batch, draft, body):
         )
     product.module_detail = {"schemaVersion": 1, "modules": modules}
     product.version += 1
+    if workspace:
+        from app.source_analysis.workspace import published
+
+        workspace.snapshot = published(product)
+        workspace.published_snapshot = deepcopy(workspace.snapshot)
+        workspace.base_product_version = product.version
+        workspace.version += 1
     db.flush()
     return {
         "productId": product.id,

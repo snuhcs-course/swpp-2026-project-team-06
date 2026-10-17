@@ -338,4 +338,12 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 ## DEV-58 생산자 전체 UI·상품 편집 동선 (2026-10-17)
 - 승인 계획/범위: server/tasks.md의 상품별 편집 작업·생산자 흐름 안정화와 동일. apps/producer/**, packages/ui/src의 생산자 공용 구성, packages/api/**, scripts/e2e/**, 관련 spec/wiki/tasks.
 - 기존4탭 유지. 상품 목록의 판매페이지 수정은 해당 상품의 초안/공개 내용을 직접 연다. 현황·주문/출하·농가·설정·상태 안내 공통 규격과 뒤로가기/오류/입력 보존을 점검. AI 채팅 기능은 제외.
-- [ ] 구현·회귀·완료 영상3개
+- [x] 구현·회귀·완료 영상3개
+
+- 구현 완료: 상품별 현재 내용 재개·비공개 저장·명시적 적용, 18모듈 추가/숨김/문구 편집 및 기존 블록 보존, 새 상품 원자 생성/응답 유실 멱등 재시도. source 적용과 수정본 충돌 보호, 삭제된 원본 작업과 독립 편집, 본인 전용 사진 조회를 포함한다.
+- 검증: 전체 `pytest -q` 281개, `npm run typecheck` 4 workspace, `npm run test:mock` 13개, Ruff 통과. 격리 API/DB의 생산자/자료 Playwright18개 통과, 사진 권한 보완 후 상품 편집·자료 적용4개 및 응답 유실 재시도2개 추가 통과. migration0011 upgrade/downgrade0010/re-upgrade 통과.
+- 화면 점검: 현황의 제목/여백, 상품 목록 카드/판매페이지 진입, 환경설정 카드, 농가 프로필/출하 간격을 공통 토큰에 맞췄다. 기존4탭·URL 상품 필터/출하 상태 및 기존 송장 오류 보존 계약을 유지한다. 로그인/승인/정지 안내는 기존 공용 컴포넌트 유지, AI 채팅 동작은 수정하지 않았다.
+- scan-before-commit: 새 상품 effect의 미커밋 중간 코드 제거, 잠금 대기 후 workspace 재조회, 비공개/숨김 사진 접근 보완. 최종 이슈 없음. 레거시 호환 점검: 후보2건 — 지적0건 / 커밋된 구조2건 (detailContent: b464eba, moduleDetail: 388d956).
+- 사용자 영상 확인 전 PR113 Draft/미머지 유지. 추가 AI 호출/배포 없음. Agent 시간/Tokens 미측정.
+
+- 영상: `.artifacts/in-app-v4/flow-review/index.html` 및01-create/02-edit/03-navigation.webm. 새 상품 사진 준비·개인정보 확인·사진 연결·초안 저장은 격리 mock 제공자, 기존 판매페이지 편집은 실제 Gemini 저장 결과 재사용. 녹화 환경의 모델 SHA 누락을 고쳐 사진 준비/썸네일/초안 포함까지 재녹화했다. 테스트 브라우저는 모두 닫았다.

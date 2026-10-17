@@ -167,3 +167,14 @@ class Spend(Base):
     charged_micros: Mapped[int | None] = mapped_column(Integer)
     evaluation: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ProductWorkspace(Base):
+    __tablename__ = "source_product_workspaces"
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), primary_key=True)
+    batch_id: Mapped[str] = mapped_column(ForeignKey("source_batches.id"), unique=True)
+    target_id: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    published_snapshot: Mapped[dict] = mapped_column(JSON)
+    base_product_version: Mapped[int] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(Integer, default=1)

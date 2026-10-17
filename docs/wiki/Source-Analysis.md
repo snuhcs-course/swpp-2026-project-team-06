@@ -107,3 +107,6 @@ The source workspace follows existing producer spacing, typography, 64px thumbna
 
 The New Product action creates a private product and its linked source workspace, then opens uploads directly without selecting an existing product. Product information and sales settings remain accessible. Draft creation does not bypass publication or supply approval. The previous text/manual form remains at /products/manual, also used by the mock-only environment.
 The redundant source-creation button is removed from the product list; New Product is the single creation entry. Existing saved-workspace editing remains available.
+
+### Product-bound page editing (DEV-58)
+The product list opens a private page workspace for the selected product. Existing module and block content, including public photos, is preserved without original source files. Save persists only the private revision; explicit Apply changes the product page and retains its approval status. Version conflicts prevent overwrites; discarding a private revision requires explicit confirmation. New product and source workspace creation is atomic and idempotent. Producer navigation retains its four tabs and uses shared spacing/card/touch tokens. AI chat behavior is outside this change. Migration chain: main 0008 → source integration 0009 → preprocessing 0010 → product workspace 0011.

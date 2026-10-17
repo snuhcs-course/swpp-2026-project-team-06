@@ -825,5 +825,13 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 ### 기록
 - 10/17 Railway 설정·URL·배포 단계가 레포 어디에도 없고, Vercel 앱 두 개가 Mock 모드(`EXPO_PUBLIC_API_MOCK=1`)로 빌드되어 실서버를 쓰지 않음을 확인했다. 테스트 2(실결제, SWPP-109)에는 실서버가 필요하다.
 - 10/17 `docker build` 성공(863MB). Railway처럼 `APP_ENV=production`, `PORT=8123`, `postgresql://` 형식 DATABASE_URL로 임시 DB에 띄워 확인: 마이그레이션 0001→0008 실행, `/health` `{"status":"ok"}`, 컨테이너 안 `python -m app.core.seed` 1회 성공·재실행은 건너뜀, Vercel 소비자 origin CORS 허용·다른 origin 거부, `u-minji` 테스트 로그인 후 채팅 목록 조회. 컨테이너·이미지·임시 DB는 삭제했다. Ruff 통과, pytest 218개 통과(DATABASE_URL 정규화 3개 추가).
+
+## DEV-58 상품별 판매페이지 편집 구현 기록
 - main 동기화: DEV-39의0008 보존, source integration0009/preprocessing0010로 재번호. 격리 DB upgrade→0008 downgrade→head 재업그레이드 및 전체 pytest275개 통과. 기존 데모/평가 DB는 변경하지 않았다.
 - 구현 결정: 상품별 Workspace에 비공개 판매페이지 스냅샷·기준 상품 버전·자료 batch 연결을 저장한다. 기존 moduleDetail와 detailContent를 그대로 보존하는 두 스냅샷 형식을 사용해 원본 자료 없이 편집한다. 모듈/기존 블록을 임의 변환하지 않는다. 새 API는 상품+batch+workspace 원자 생성/재개, 비공개 페이지 저장/명시적 적용. source 적용과 페이지 편집 사이 미공개 충돌은 차단한다. 범위 추가: server/app/core/seed.py(새 FK 정리 순서).
+
+- 구현 완료: 상품별 현재 내용 재개·비공개 저장·명시적 적용, 18모듈 추가/숨김/문구 편집 및 기존 블록 보존, 새 상품 원자 생성/응답 유실 멱등 재시도. source 적용과 수정본 충돌 보호, 삭제된 원본 작업과 독립 편집, 본인 전용 사진 조회를 포함한다.
+- 검증: 전체 `pytest -q` 281개, `npm run typecheck` 4 workspace, `npm run test:mock` 13개, Ruff 통과. 격리 API/DB의 생산자/자료 Playwright18개 통과, 사진 권한 보완 후 상품 편집·자료 적용4개 및 응답 유실 재시도2개 추가 통과. migration0011 upgrade/downgrade0010/re-upgrade 통과.
+- 화면 점검: 현황의 제목/여백, 상품 목록 카드/판매페이지 진입, 환경설정 카드, 농가 프로필/출하 간격을 공통 토큰에 맞췄다. 기존4탭·URL 상품 필터/출하 상태 및 기존 송장 오류 보존 계약을 유지한다. 로그인/승인/정지 안내는 기존 공용 컴포넌트 유지, AI 채팅 동작은 수정하지 않았다.
+- scan-before-commit: 새 상품 effect의 미커밋 중간 코드 제거, 잠금 대기 후 workspace 재조회, 비공개/숨김 사진 접근 보완. 최종 이슈 없음. 레거시 호환 점검: 후보2건 — 지적0건 / 커밋된 구조2건 (detailContent: b464eba, moduleDetail: 388d956).
+- 사용자 영상 확인 전 PR113 Draft/미머지 유지. 추가 AI 호출/배포 없음. Agent 시간/Tokens 미측정.
