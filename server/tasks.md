@@ -800,6 +800,7 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - `server/Dockerfile`, `server/.dockerignore`, `server/railway.json`
 - `server/app/core/config.py`(DATABASE_URL 형식 정규화만), `server/tests/`
 - `server/tasks.md`, `README.md`(배포 절)
+- 10/18 추가(자동 배포): `.github/workflows/deploy.yml`, `.github/workflows/ci.yml`(주석), `docs/wiki/Design-Documentation.md`(호스팅 상태 한 줄)
 
 ### 비범위 (건드리지 않음)
 - 제품 동작, API, 마이그레이션, 앱(`apps/**`)·`packages/**`
@@ -809,22 +810,31 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - 10/17 Railway 빌더는 Dockerfile로 고정한다. `uv.lock`으로 `uv sync --frozen --no-dev`, 시작 시 `alembic upgrade head` 후 `uvicorn`을 `$PORT`로 띄우고 헬스 체크는 `/health`.
 - 10/17 Railway가 주는 `postgresql://`·`postgres://` DATABASE_URL을 설정에서 `postgresql+psycopg://`로 바꾼다. 앱과 Alembic이 같은 설정을 읽으므로 한 곳만 고친다.
 - 10/17 시드는 자동 실행하지 않는다. 배포 후 한 번 수동으로 `python -m app.core.seed`(덮어쓰기 없음)를 실행한다.
+- 10/18 Railway·Vercel의 GitHub 연결 대신 GitHub Actions(`deploy.yml`)가 CLI로 배포한다(Hyun 제안). CI가 main push에서 성공한 뒤(`workflow_run`) 바뀐 쪽만 배포하고, 수동 실행은 둘 다 배포한다.
+- 10/18 비밀값이 없으면 해당 배포를 건너뛰고 성공한다. 테스트 1이 Mock 앱으로 진행되는 동안 Vercel 비밀값을 넣지 않으면 앱은 바뀌지 않는다.
+- 10/18 서버 배포가 실패하면 앱 배포를 하지 않는다. 앱 번들에 `API_URL`이 들어갔는지 확인한 뒤 올린다(비면 localhost로 빌드되는 것 방지).
+- 10/18 `railway up --ci`는 빌드 결과까지만 기다린다. 이후 `/health`를 확인하지만 이전 컨테이너도 응답하므로 새 버전 교체 여부는 Railway 대시보드에서 본다.
 
 ### 작업
 - [x] Dockerfile·.dockerignore·railway.json
 - [x] DATABASE_URL 정규화와 테스트
 - [x] README 배포 절(Railway 서비스 설정, 환경변수, 시드, Vercel 변수)
 - [x] 로컬 Docker 빌드·실행 검증(PostgreSQL 연결, 마이그레이션, `/health`)
+- [x] GitHub Actions 자동 배포 워크플로(`deploy.yml`)와 README 저장소 설정 표
 
 ### 완료 조건
 - [x] 이미지가 빌드되고 로컬 PostgreSQL로 시작해 마이그레이션 후 `/health` 응답
 - [x] Ruff·pytest 통과
-- [ ] PR 머지
-- [ ] Hyun 배포 후 배포 URL 확인
+- [x] PR 머지(#128)
+- [x] Hyun 배포 후 배포 URL 확인
+- [ ] 자동 배포 PR 머지 후 저장소 비밀값 설정, 첫 자동 배포 확인
 
 ### 기록
 - 10/17 Railway 설정·URL·배포 단계가 레포 어디에도 없고, Vercel 앱 두 개가 Mock 모드(`EXPO_PUBLIC_API_MOCK=1`)로 빌드되어 실서버를 쓰지 않음을 확인했다. 테스트 2(실결제, SWPP-109)에는 실서버가 필요하다.
 - 10/17 `docker build` 성공(863MB). Railway처럼 `APP_ENV=production`, `PORT=8123`, `postgresql://` 형식 DATABASE_URL로 임시 DB에 띄워 확인: 마이그레이션 0001→0008 실행, `/health` `{"status":"ok"}`, 컨테이너 안 `python -m app.core.seed` 1회 성공·재실행은 건너뜀, Vercel 소비자 origin CORS 허용·다른 origin 거부, `u-minji` 테스트 로그인 후 채팅 목록 조회. 컨테이너·이미지·임시 DB는 삭제했다. Ruff 통과, pytest 218개 통과(DATABASE_URL 정규화 3개 추가).
+- 10/18 Hyun이 Railway CLI로 배포: `https://farmclub-api-production.up.railway.app`. `/health` 200, `/docs` 200, Vercel 소비자 origin CORS 허용·다른 origin 400, `u-minji` 테스트 로그인 후 홈·상품 상세·주문 목록 200. 배포본은 마이그레이션 0008이고 main은 #113·#130 머지로 0013이라 경로 12개가 빠져 있다.
+- 10/18 0008 시드 DB → main head 업그레이드를 임시 PostgreSQL에서 확인: 0009~0013 실행 성공, 시드 재실행은 건너뜀. 첫 자동 배포가 운영 DB에 같은 경로로 적용된다.
+- 10/18 `deploy.yml` actionlint 1.7.7 통과. 소비자 앱을 `EXPO_PUBLIC_API_URL`=Railway 주소, Mock 없이 export해 번들에 주소가 들어간 것을 확인했다. 워크플로 자체는 main 머지 후에만 실행할 수 있다.
 
 ## DEV-58 상품별 판매페이지 편집 구현 기록
 - main 동기화: DEV-39의0008 보존, source integration0009/preprocessing0010로 재번호. 격리 DB upgrade→0008 downgrade→head 재업그레이드 및 전체 pytest275개 통과. 기존 데모/평가 DB는 변경하지 않았다.

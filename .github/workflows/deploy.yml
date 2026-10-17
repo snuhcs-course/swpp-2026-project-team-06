@@ -1,0 +1,156 @@
+name: Deploy
+
+# main에 머지되고 CI가 통과하면 바뀐 쪽만 배포한다(DEV-64).
+# - 서버: server/ 변경 → Railway CLI로 업로드. 컨테이너가 시작하며 마이그레이션을 실행한다.
+# - 앱: apps/·packages/ 변경 → 실서버 주소로 웹 export 후 Vercel 두 프로젝트에 업로드.
+# 비밀값이 없으면 해당 배포는 건너뛰고 성공한다. 설정 방법은 README "Deployment".
+#
+# 저장소 설정
+#   secrets: RAILWAY_TOKEN(프로젝트 토큰), VERCEL_TOKEN, VERCEL_ORG_ID,
+#            VERCEL_CONSUMER_PROJECT_ID, VERCEL_PRODUCER_PROJECT_ID
+#   variables: RAILWAY_SERVICE(서비스 이름), API_URL(Railway 공개 주소)
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # 배포는 순서대로 하나씩. 진행 중인 배포를 끊지 않는다.
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  changes:
+    # CI가 main push에서 성공했을 때만. 수동 실행은 둘 다 배포한다.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.diff.outputs.server }}
+      web: ${{ steps.diff.outputs.web }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+          fetch-depth: 2
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "server=true" >> "$GITHUB_OUTPUT"
+            echo "web=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # main은 squash merge라 커밋 하나가 PR 하나다.
+          files=$(git diff --name-only HEAD^ HEAD)
+          echo "$files"
+          has() { echo "$files" | grep -qE "$1" && echo true || echo false; }
+          echo "server=$(has '^(server/|\.github/workflows/deploy\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "web=$(has '^(apps/|packages/|package(-lock)?\.json$|\.nvmrc$|\.github/workflows/deploy\.yml$)')" >> "$GITHUB_OUTPUT"
+
+  server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+      API_URL: ${{ vars.API_URL }}
+    steps:
+      - name: Skip (no Railway token)
+        if: env.RAILWAY_TOKEN == ''
+        run: echo "RAILWAY_TOKEN이 없어 서버 배포를 건너뛴다."
+
+      - uses: actions/checkout@v7
+        if: env.RAILWAY_TOKEN != ''
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Upload to Railway
+        if: env.RAILWAY_TOKEN != ''
+        working-directory: server
+        run: |
+          test -n "$RAILWAY_SERVICE" || { echo "변수 RAILWAY_SERVICE가 비어 있어요"; exit 1; }
+          # --ci: 빌드 로그를 보여 주고 빌드가 실패하면 실패로 끝난다.
+          npx -y @railway/cli@5.63.1 up --ci --service "$RAILWAY_SERVICE"
+
+      - name: Health check
+        if: env.RAILWAY_TOKEN != '' && env.API_URL != ''
+        run: |
+          # 새 컨테이너가 마이그레이션 후 뜰 때까지 기다린다. Railway는 헬스 체크가 통과해야 교체한다.
+          for i in $(seq 1 30); do
+            if curl -fsS "$API_URL/health"; then echo; exit 0; fi
+            sleep 10
+          done
+          echo "$API_URL/health 응답 없음"; exit 1
+
+  web:
+    needs: [changes, server]
+    # 서버 배포를 건너뛰었어도 실행하고, 서버 배포가 실패하면 앱은 올리지 않는다.
+    if: >-
+      !cancelled() && needs.changes.outputs.web == 'true' &&
+      (needs.server.result == 'success' || needs.server.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: consumer
+            project: VERCEL_CONSUMER_PROJECT_ID
+          - app: producer
+            project: VERCEL_PRODUCER_PROJECT_ID
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets[matrix.project] }}
+      EXPO_PUBLIC_API_URL: ${{ vars.API_URL }}
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - name: Skip (no Vercel token)
+        if: env.VERCEL_TOKEN == ''
+        run: echo "VERCEL_TOKEN이 없어 ${{ matrix.app }} 배포를 건너뛴다."
+
+      - uses: actions/checkout@v7
+        if: env.VERCEL_TOKEN != ''
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: actions/setup-node@v7
+        if: env.VERCEL_TOKEN != ''
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        if: env.VERCEL_TOKEN != ''
+        run: npm ci
+
+      - name: Web export (real API)
+        if: env.VERCEL_TOKEN != ''
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          test -n "$VERCEL_ORG_ID" -a -n "$VERCEL_PROJECT_ID" || { echo "VERCEL_ORG_ID 또는 ${{ matrix.project }}가 비어 있어요"; exit 1; }
+          test -n "$EXPO_PUBLIC_API_URL" || { echo "변수 API_URL이 비어 있어요. 비우면 localhost로 빌드돼요"; exit 1; }
+          npx expo export -p web
+          # SPA 라우팅 rewrite는 dist에 같이 올려야 한다.
+          cp vercel.json dist/
+          # Mock이 아닌 실서버 주소로 빌드됐는지 확인한다.
+          grep -rqF "$EXPO_PUBLIC_API_URL" dist/_expo/static/js || { echo "번들에 API_URL이 없어요"; exit 1; }
+
+      - name: Upload to Vercel
+        if: env.VERCEL_TOKEN != ''
+        working-directory: apps/${{ matrix.app }}/dist
+        run: npx -y vercel@62.2.0 deploy --prod --yes --token "$VERCEL_TOKEN"

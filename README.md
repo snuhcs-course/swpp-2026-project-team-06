@@ -164,9 +164,10 @@ and screenshots are written to `playwright-report/` and `test-results/`.
 container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway checks
 `/health`.
 
-1. Create a Railway project, add a service from this GitHub repo, set its **root
-   directory** to `server` and its deploy branch to `main`. If Railway does not pick up
-   the config, set the config file path to `/server/railway.json`.
+The live server is `https://farmclub-api-production.up.railway.app`.
+
+1. Create a Railway project with an empty service. Deploys come from GitHub Actions
+   (below) or from `railway up` in `server/`, so the service needs no GitHub link.
 2. Add a **PostgreSQL** database to the same project.
 3. Set these variables on the server service:
 
@@ -186,10 +187,32 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 
 ### Apps on Vercel
 
-For both `farmclub-consumer` and `farmclub-producer`, set `EXPO_PUBLIC_API_URL` to the
-Railway domain, remove `EXPO_PUBLIC_API_MOCK` (and `EXPO_PUBLIC_SHARED_MOCK_URL` if
-set), then redeploy. With `EXPO_PUBLIC_API_MOCK=1` the apps keep data in each browser
+The Vercel projects `farmclub-consumer` and `farmclub-producer` serve a prebuilt web
+export (`apps/<app>/dist` plus `vercel.json`). `EXPO_PUBLIC_*` values are fixed at
+export time, so build with `EXPO_PUBLIC_API_URL` set to the Railway domain and without
+`EXPO_PUBLIC_API_MOCK`. With `EXPO_PUBLIC_API_MOCK=1` the apps keep data in each browser
 and never call the server.
+
+### Automatic deploys (GitHub Actions)
+
+`.github/workflows/deploy.yml` runs after CI passes on a push to `main`. It deploys the
+server when `server/` changed and both apps when `apps/`, `packages/` or the root
+package files changed. It can also be run by hand from the Actions tab (deploys all).
+A deploy without its secrets is skipped, not failed.
+
+| Repository setting | Kind | Value |
+| -- | -- | -- |
+| `RAILWAY_TOKEN` | Secret | Railway project token (project settings → Tokens, production environment) |
+| `RAILWAY_SERVICE` | Variable | Name of the server service in Railway |
+| `API_URL` | Variable | `https://farmclub-api-production.up.railway.app` |
+| `VERCEL_TOKEN` | Secret | Vercel account token |
+| `VERCEL_ORG_ID` | Secret | `orgId` from `.vercel/project.json` of a linked app |
+| `VERCEL_CONSUMER_PROJECT_ID` | Secret | `projectId` of `farmclub-consumer` |
+| `VERCEL_PRODUCER_PROJECT_ID` | Secret | `projectId` of `farmclub-producer` |
+
+The server job uploads `server/` with the Railway CLI and waits for `/health`. The app
+job exports each app with `EXPO_PUBLIC_API_URL=$API_URL`, checks that the bundle
+contains that URL, and uploads `dist` to Vercel as a production deploy.
 
 ## Documentation
 

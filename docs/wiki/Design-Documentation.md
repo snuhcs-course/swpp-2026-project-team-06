@@ -61,7 +61,8 @@ Figure 1. Request and data flow. The call to Claude only happens when the server
 | Auth | PyJWT | I1 uses seeded test accounts; Kakao login is planned for I2 |
 | AI | Anthropic SDK | Model `claude-haiku-4-5` |
 | Images | python-multipart, image validation and EXIF removal | Private inquiry photos are stored in PostgreSQL in I1 |
-| Planned | Vercel (apps), Railway (server, DB), Cloudflare R2, PostHog, Sentry, Langfuse | Chosen in the stack; not wired up yet (see section 4) |
+| Hosting | Vercel (apps), Railway (server, PostgreSQL) | Server live at `farmclub-api-production.up.railway.app`; `.github/workflows/deploy.yml` deploys after CI passes on `main` |
+| Planned | Cloudflare R2, PostHog, Sentry, Langfuse | Chosen in the stack; not wired up yet (see section 4) |
 
 Exact versions are in `package-lock.json` and `server/uv.lock`.
 

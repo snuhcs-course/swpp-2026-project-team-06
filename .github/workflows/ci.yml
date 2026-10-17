@@ -1,6 +1,6 @@
 name: CI
 
-# PR 검사(CI). 배포(CD)는 브랜치 전략(SWPP-58) 결정 후 DEV-8에서 따로 만든다.
+# PR 검사(CI). 배포(CD)는 이 워크플로가 main에서 성공한 뒤 deploy.yml이 한다(DEV-64).
 # job은 항상 실행하고, 관련 파일이 바뀌지 않았으면 단계만 건너뛰고 성공한다.
 # (branch protection의 필수 체크 server·apps가 막히지 않게)
 
