@@ -84,7 +84,7 @@ for (const width of [360, 390, 430]) {
     await expect(detail.getByTestId("source-photo-panel")).toHaveCount(0);
     await expect(detail.getByTestId("source-size-panel").getByTestId("illustration-backdrop")).toHaveCSS(
       "background-color",
-      "rgb(201, 79, 12)",
+      "rgb(255, 255, 255)",
     );
     const sizePanel = detail.getByTestId("source-size-panel");
     await expect(sizePanel).toHaveCSS("padding-top", "64px");
@@ -92,8 +92,7 @@ for (const width of [360, 390, 430]) {
     await expect(sizePanel.getByText("18cm", { exact: true })).toHaveCSS("font-weight", "700");
     await expect(sizePanel.getByText(/비교용 가정/)).toBeVisible();
     for (const edge of ["top", "bottom"]) {
-      await expect(sizePanel.getByTestId(`illustration-fade-${edge}`)).toHaveCSS("height", "48px");
-      await expect(sizePanel.getByTestId(`illustration-fade-${edge}`)).toHaveCSS("background-image", /linear-gradient/);
+      await expect(sizePanel.getByTestId(`illustration-fade-${edge}`)).toHaveCount(0);
     }
     expect((await sizePanel.getByText("18cm", { exact: true }).boundingBox())!.height).toBeCloseTo(48, 0);
     const handBox = await sizePanel.getByRole("img", { name: "설명용 감귤 크기 일러스트" }).boundingBox();
@@ -209,7 +208,7 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
     await page.goto(`${consumerUrl}/products/p-house`);
     const card = page.getByTestId("brix-reading");
     await expect(card.getByTestId("illustration-backdrop")).toHaveCSS(
-      "background-color", "rgb(201, 79, 12)",
+      "background-color", "rgb(255, 255, 255)",
     );
     expect((await card.getByTestId("illustration-backdrop").boundingBox())!.width).toBeCloseTo(width, 0);
     await expect(card).toHaveCSS("padding-top", "64px");

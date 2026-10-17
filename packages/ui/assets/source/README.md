@@ -10,4 +10,4 @@
 
 농가 소식은 내장 ImageGen으로 새로 만든 `headings/updates.png`를 사용한다. 기존 제목 아이콘을 직접 참조한 [최종 프롬프트](headings/updates-prompt.md)와 생성 원본 알파를 보존한다. 기존7종에 소식1종을 더해 큰 제목 아이콘은8종이며 작은 제목에는 추가하지 않는다. 당도계는 사용자 확정 [그림과 생성 기록](brix-meter-prompt.md)을 사용한다.
 
-손3종은 [흰색 채움 편집 프롬프트](white-hand-prompts.md)에 따라 built-in ImageGen으로 편집했다. 손 내부는 흰색, 바깥은 투명이며 기존 원본은 docs/design/sales-templates/assets/size-guide에 보존한다. 손·당도 영역의48px 위아래 페이드는 공통 컴포넌트가 렌더링한다.
+손3종은 [흰색 채움 편집 프롬프트](white-hand-prompts.md)에 따라 built-in ImageGen으로 편집했다. 손 내부는 흰색, 바깥은 투명이며 기존 원본은 docs/design/sales-templates/assets/size-guide에 보존한다. 손·당도 영역은 코드 그라디언트 없이 생성 이미지 자체의 흰 종이 경계로 연결한다.

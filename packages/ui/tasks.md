@@ -310,3 +310,12 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 검증: typecheck4 workspace·mock12개·디자인 E2E4개 통과. 18cm 줄바꿈 수정 뒤 E2E4개 재통과. 양 앱 웹 export 성공, 저장된11개 값 및 양 앱 상세 원문 일치 확인. 실제 데모 손/당도 화면 headless 캡처·육안 확인.
 - scan-before-commit: 전체 diff·자산/새 프롬프트·호출부·의존성/lock·문서 점검 완료. 무관한 제목 간격 변경은 되돌렸다. 최종 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
+
+## DEV-57 이미지 자체의 종이 경계 (2026-10-17)
+
+- 사용자 요청: 코드 그라디언트를 제거하고 배경 이미지 자체가 흰 페이지에 자연스럽게 이어지도록 편집한다.
+- 범위: packages/ui/src/IllustrationBackdrop.tsx, packages/ui/assets/source/decor/{orange-paper.png,orange-paper-prompt.md}, packages/ui/assets/source/README.md, packages/ui/{spec.md,tasks.md,package.json}, package-lock.json, docs/spec/source-integration.md, docs/wiki/Source-Analysis.md, scripts/e2e/source-detail-design.spec.ts.
+- 결정: 기존 종이 질감을 직접 참조해 위아래에 흰 종이와 불규칙한 안료 경계를 생성한다. 이미지 전체 경계를 보존하도록 stretch 표시, 흰색 바탕/원본100% 사용. 숫자·손·여백은 유지한다. UI 직접 gradient 의존성만 제거하며 앱 의존성은 유지한다.
+- 상태: 진행 중. PR #113 머지·배포 없음.
+
+- 결과: 이미지 자체의 종이 경계 적용, 그라디언트와 UI 직접 의존성 제거. typecheck4 workspace 및 디자인 E2E4개 통과. 실제 데모 손·당도 headless 캡처 확인. 커밋 전 스캔 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
