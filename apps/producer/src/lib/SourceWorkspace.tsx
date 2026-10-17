@@ -219,7 +219,6 @@ export function SourceWorkspace() {
     version: number;
     name: string;
   } | null>(null);
-  const [showPhotoRequests, setShowPhotoRequests] = useState(false);
   const activeRun = runs.find((r) => ACTIVE.includes(r.status));
   const working = !!activeRun && activeRun.status !== "PRIVACY_REVIEW";
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
@@ -658,34 +657,6 @@ export function SourceWorkspace() {
                 </>
               ) : review ? (
                 <>
-                  {review.sourcePhotoRequests.length ? (
-                    <Button
-                      label={
-                        showPhotoRequests
-                          ? "사진 추가 제안 닫기"
-                          : "사진 추가 제안"
-                      }
-                      variant="text"
-                      onPress={() => setShowPhotoRequests(!showPhotoRequests)}
-                    />
-                  ) : null}
-                  {showPhotoRequests
-                    ? review.sourcePhotoRequests.map((request, i) => (
-                        <View key={`${request.sourceId}-${i}`} style={panel}>
-                          <T>
-                            추가 자료 확인 ·{" "}
-                            {
-                              batch.sources.find(
-                                (s) => s.id === request.sourceId,
-                              )?.filename
-                            }
-                          </T>
-                          {request.requests.map((message, j) => (
-                            <T key={j}>{message}</T>
-                          ))}
-                        </View>
-                      ))
-                    : null}
                   <SourceDetailsEditor
                     key={batch.id}
                     batch={batch}

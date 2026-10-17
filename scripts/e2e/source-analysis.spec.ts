@@ -122,6 +122,22 @@ for (const width of [360, 390, 430]) {
         .locator("img"),
     ).toBeVisible();
     await expect(
+      page.getByRole("button", { name: /사진 추가 제안/ }),
+    ).toHaveCount(0);
+    const nameInput = page.getByLabel("상품 이름 내용", { exact: true });
+    await expect(nameInput).toHaveCSS("text-align", "center");
+    await expect(page.getByLabel("상품 소개 내용", { exact: true })).toHaveCSS(
+      "text-align",
+      "center",
+    );
+    const nameBox = await nameInput.boundingBox();
+    const coverBox = await page.getByTestId("source-cover").boundingBox();
+    expect(
+      Math.abs(
+        nameBox!.x + nameBox!.width / 2 - coverBox!.x - coverBox!.width / 2,
+      ),
+    ).toBeLessThan(2);
+    await expect(
       page.getByRole("button", { name: "근거 검토", exact: true }),
     ).toHaveCount(0);
     await expect(

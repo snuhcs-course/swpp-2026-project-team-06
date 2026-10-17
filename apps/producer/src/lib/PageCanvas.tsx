@@ -161,9 +161,14 @@ export function PageCanvas({
         placeholder="내용을 입력해주세요"
         placeholderTextColor="#B5B5B5"
         style={{
+          fontFamily: tokens.fontFamily,
           ...style,
           padding: 4,
           paddingRight: m.texts[index].fieldKey === "name" ? 4 : 44,
+          paddingLeft:
+            style.textAlign === "center" && m.texts[index].fieldKey !== "name"
+              ? 44
+              : 4,
           minHeight: 40,
           height: heights[`${m.id}:${index}`],
           borderWidth: 1,

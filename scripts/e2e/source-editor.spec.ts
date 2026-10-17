@@ -52,6 +52,9 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
   await page.route(`**/batches/${batch.id}/review`, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
+    body.sourcePhotoRequests = [
+      { sourceId: "fixture", requests: ["추가 원본 사진 요청"] },
+    ];
     body.editorFields.find(
       (e: { field: { fieldKey: string } }) => e.field.fieldKey === "hero",
     ).status = "conflict";
@@ -74,6 +77,12 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
     page.getByRole("button", { name: "+ 항목 추가", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText(/내용 확인 필요/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /사진 추가 제안/ }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("추가 원본 사진 요청", { exact: true }),
+  ).toHaveCount(0);
   await page
     .getByLabel("한눈에 보기 내용", { exact: true })
     .fill("직접 수정한 내용은 실패해도 남아요.");

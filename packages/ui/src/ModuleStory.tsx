@@ -100,6 +100,18 @@ const groups = [
   },
 ];
 const bodyStyle: TextStyle = { fontSize: 17, lineHeight: 28, color: "#242424" };
+const heroTextStyle = (fieldKey: string): TextStyle => ({
+  ...(fieldKey === "name"
+    ? {
+        fontSize: 38,
+        lineHeight: 46,
+        fontWeight: "600" as const,
+        letterSpacing: -1.8,
+        color: "#484848",
+      }
+    : bodyStyle),
+  textAlign: "center",
+});
 const hasContent = (module: StoryModule) =>
   module.texts.some((text) => text.value.trim()) ||
   module.photos.length > 0 ||
@@ -283,16 +295,14 @@ export function ModuleStory({
           {hero && editing ? (
             <View
               style={{
-                flexDirection: "row",
-                alignItems: "center",
                 paddingHorizontal: 24,
               }}
             >
-              <View style={{ flex: 1, opacity: introDim ? 0.35 : 1 }}>
+              <View
+                style={{ paddingHorizontal: 44, opacity: introDim ? 0.35 : 1 }}
+              >
                 {introHidden ? (
-                  <T
-                    style={{ fontSize: 38, lineHeight: 46, fontWeight: "600" }}
-                  >
+                  <T style={heroTextStyle("name")}>
                     {hero.texts.find((t) => t.fieldKey === "name")?.value ||
                       "상품 소개"}
                   </T>
@@ -300,16 +310,13 @@ export function ModuleStory({
                   editing.text(
                     hero,
                     hero.texts.findIndex((t) => t.fieldKey === "name"),
-                    {
-                      fontSize: 38,
-                      lineHeight: 46,
-                      fontWeight: "600",
-                      color: "#484848",
-                    },
+                    heroTextStyle("name"),
                   )
                 )}
               </View>
-              {editing.sectionControl("intro", "상품 소개")}
+              <View style={{ position: "absolute", right: 24, top: 0 }}>
+                {editing.sectionControl("intro", "상품 소개")}
+              </View>
             </View>
           ) : null}
           {!introHidden ? (
@@ -321,7 +328,7 @@ export function ModuleStory({
                       {hero.texts.map((t, i) =>
                         t.fieldKey === "name" ? null : (
                           <View key={i}>
-                            {editing.text(hero, i, bodyStyle)}
+                            {editing.text(hero, i, heroTextStyle(t.fieldKey))}
                           </View>
                         ),
                       )}
@@ -355,17 +362,7 @@ export function ModuleStory({
                         accessibilityRole={
                           text.fieldKey === "name" ? "header" : "text"
                         }
-                        style={
-                          text.fieldKey === "name"
-                            ? {
-                                fontSize: 38,
-                                lineHeight: 46,
-                                fontWeight: "600",
-                                letterSpacing: -1.8,
-                                color: "#484848",
-                              }
-                            : bodyStyle
-                        }
+                        style={heroTextStyle(text.fieldKey)}
                       >
                         {text.value}
                       </T>
