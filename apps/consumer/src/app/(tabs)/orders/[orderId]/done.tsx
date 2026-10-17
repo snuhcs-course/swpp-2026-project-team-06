@@ -7,7 +7,9 @@ import {
   Screen,
   Scroll,
   T,
+  md,
   period,
+  time,
   tokens,
   useAsync,
   won,
@@ -22,7 +24,11 @@ import { Avatar, copyText } from "../../../../lib/views";
 
 export default function Done() {
   useHideTabBar();
-  const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  // last4는 결제 화면이 넘겨 주는 카드 끝 4자리(서버에 저장하지 않음). 직접 링크로 열면 없다
+  const { orderId, last4 } = useLocalSearchParams<{
+    orderId: string;
+    last4?: string;
+  }>();
   const router = useRouter();
   const {
     data: o,
@@ -115,6 +121,14 @@ export default function Done() {
               v={`${o.productName} ${o.optionLabel} × ${o.quantity}`}
             />
             <KV k="합계" v={won(o.totalAmount)} bold />
+            {o.paidAt ? (
+              <KV
+                k="결제"
+                v={`${md(o.paidAt)} ${time(o.paidAt)}${
+                  last4 ? ` · 카드 ···· ${last4}` : " · 카드"
+                }`}
+              />
+            ) : null}
             <KV k="배송지" v={`${o.recipientName} · ${o.address}`} last />
           </View>
         ) : error ? (
@@ -239,7 +253,7 @@ function KV({
         borderBottomColor: tokens.color.border,
       }}
     >
-      <T variant="body" muted>
+      <T variant="body" muted style={{ flexShrink: 0 }}>
         {k}
       </T>
       {children ?? (

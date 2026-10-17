@@ -41,8 +41,19 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
   await consumerPage.getByRole("button", { name: "결제하기" }).click();
   await expect(consumerPage).toHaveURL(/\/pay/);
+  // AC-09-2: 끝 4자리 0000 카드는 Mock 실패 → 사유 표시, 물량 그대로, 주문은 결제 전 상태
+  await consumerPage.getByRole("radio", { name: "다른 카드" }).click();
+  await consumerPage.getByLabel("카드 번호").fill("4242000000000000");
+  await consumerPage.getByLabel("유효기간").fill("1230");
+  await consumerPage.getByLabel("CVC").fill("123");
+  await consumerPage.getByRole("button", { name: /결제하기$/ }).click();
+  await expect(consumerPage.getByText("결제하지 못했어요")).toBeVisible();
+  await expect(consumerPage).toHaveURL(/\/pay/);
+  // 테스트 카드(···· 4242)는 입력 없이 성공
+  await consumerPage.getByRole("radio", { name: "테스트 카드" }).click();
   await consumerPage.getByRole("button", { name: /결제하기$/ }).click();
   await expect(consumerPage).toHaveURL(/\/orders\/[^/]+\/done/);
+  await expect(consumerPage.getByText(/카드 ···· 4242/)).toBeVisible();
   const orderId = consumerPage.url().match(/\/orders\/([^/]+)\/done/)?.[1];
   expect(orderId).toBeTruthy();
   await expect(

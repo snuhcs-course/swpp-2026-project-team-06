@@ -1,14 +1,14 @@
-// SCR-11 결제(Mock) (FEAT-09) — design: scr-11, s-11-fail
+// SCR-11 결제 (FEAT-09) — 카드 입력 화면. 결제 자체는 Mock(DEV-37, 서버 계약 무변경)
 import { ApiError, newIdempotencyKey, orders } from "@farmclub/api";
 import {
   BottomBar,
   Button,
   HeaderBar,
+  Input,
   Notice,
   Radio,
   Screen,
   Scroll,
-  Segmented,
   T,
   TestBand,
   tokens,
@@ -21,6 +21,13 @@ import { Pressable, View } from "react-native";
 
 import { useToast } from "../../../lib/toast";
 import { LoadError } from "../../../lib/views";
+
+/** 한 번에 결제되는 테스트 카드. 입력 없이 바로 결제한다 */
+export const TEST_CARD_LAST4 = "4242";
+/** 끝 4자리가 이 값이면 Mock 결제가 실패한다(AC-09-2 확인용). 예: 4242 0000 0000 0000 */
+export const FAIL_CARD_LAST4 = "0000";
+
+type Method = "test" | "other";
 
 export default function Pay() {
   const { productId, orderId, optionId, quantity } = useLocalSearchParams<{
@@ -35,23 +42,40 @@ export default function Pay() {
     error,
     reload,
   } = useAsync(() => orders.get(orderId), [orderId]);
-  const [card, setCard] = useState<"test" | "other">("test");
-  const [demo, setDemo] = useState<"success" | "fail">("success");
+  const [method, setMethod] = useState<Method>("test");
+  const [number, setNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvc, setCvc] = useState("");
+  const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState<string | null>(null);
   // 응답을 못 받으면 같은 키로 다시 보낸다(AC-09-3)
   const [key, setKey] = useState(newIdempotencyKey);
   const toast = useToast();
 
+  const errors = method === "other" ? validate(number, expiry, cvc) : {};
+  const formInvalid = Object.keys(errors).length > 0;
+  const last4 =
+    method === "test" ? TEST_CARD_LAST4 : digits(number).slice(-4);
+
   async function pay() {
+    if (method === "other" && formInvalid) {
+      setTouched(true);
+      return;
+    }
     setBusy(true);
     setFail(null);
+    // Mock 결과 규칙: 끝 4자리 0000이면 실패, 그 밖의 유효한 카드는 성공
+    const mock = last4 === FAIL_CARD_LAST4 ? "fail" : "success";
     try {
-      const r = await orders.pay(orderId, demo, key);
+      const r = await orders.pay(orderId, mock, key);
       if (r.result === "success") {
-        router.replace(`/orders/${orderId}/done`);
+        router.replace({
+          pathname: "/orders/[orderId]/done",
+          params: { orderId, last4 },
+        });
       } else {
-        setFail(r.failReason ?? "결제하지 못했어요.");
+        setFail(r.failReason ?? "카드사에서 승인을 거절했어요.");
         setKey(newIdempotencyKey());
       }
     } catch (e) {
@@ -77,9 +101,21 @@ export default function Pay() {
     }
   }
 
+  function choose(m: Method) {
+    if (busy) return;
+    setMethod(m);
+    setFail(null);
+  }
+
   return (
     <Screen>
-      <HeaderBar title="결제" onBack={() => router.back()} />
+      <HeaderBar
+        title="결제"
+        onBack={() => {
+          // 결제 중에는 취소 불가. 그 밖에는 주문을 결제 전 상태로 둔 채 주문서로(취소)
+          if (!busy) router.back();
+        }}
+      />
       <TestBand text="테스트 서비스예요. 실제 돈은 나가지 않아요." />
       {error && !o ? (
         <LoadError error={error} onRetry={reload} />
@@ -111,19 +147,24 @@ export default function Pay() {
             </T>
             {(
               [
-                { k: "test", title: "테스트 카드", sub: "···· 1234 · 일시불" },
+                {
+                  k: "test",
+                  title: "테스트 카드",
+                  sub: `···· ${TEST_CARD_LAST4} · 일시불 · 입력 없이 바로 결제`,
+                },
                 {
                   k: "other",
                   title: "다른 카드",
-                  sub: "카드로 내는 간편결제 포함",
+                  sub: "카드 번호를 직접 입력해요",
                 },
               ] as const
             ).map((c, i) => (
               <Pressable
                 key={c.k}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: card === c.k }}
-                onPress={() => setCard(c.k)}
+                accessibilityLabel={c.title}
+                accessibilityState={{ selected: method === c.k }}
+                onPress={() => choose(c.k)}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -135,7 +176,7 @@ export default function Pay() {
                   borderBottomColor: tokens.color.border,
                 }}
               >
-                <Radio selected={card === c.k} />
+                <Radio selected={method === c.k} />
                 <View
                   style={{
                     width: 48,
@@ -155,37 +196,53 @@ export default function Pay() {
                 </View>
               </Pressable>
             ))}
-            <T variant="sub" muted style={{ marginTop: 12 }}>
-              예약할 때 전액을 한 번에 결제해요.
-            </T>
-          </View>
 
-          <View
-            style={{
-              margin: 20,
-              marginTop: 32,
-              padding: 16,
-              borderWidth: 1.5,
-              borderStyle: "dashed",
-              borderColor: tokens.color.textMuted,
-              borderRadius: 16,
-              gap: 8,
-            }}
-          >
-            <T variant="caption" weight="semibold" muted>
-              개발용 · 실제 서비스에는 없음
+            {method === "other" ? (
+              <View style={{ paddingTop: 24, gap: 16 }}>
+                <Input
+                  label="카드 번호"
+                  value={number}
+                  onChangeText={(v) => setNumber(formatCardNumber(v))}
+                  placeholder="0000 0000 0000 0000"
+                  keyboardType="number-pad"
+                  maxLength={19}
+                  editable={!busy}
+                  error={touched ? errors.number : undefined}
+                />
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <Input
+                    label="유효기간"
+                    value={expiry}
+                    onChangeText={(v) => setExpiry(formatExpiry(v))}
+                    placeholder="MM/YY"
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    editable={!busy}
+                    error={touched ? errors.expiry : undefined}
+                    style={{ flex: 1 }}
+                  />
+                  <Input
+                    label="CVC"
+                    value={cvc}
+                    onChangeText={(v) => setCvc(digits(v).slice(0, 3))}
+                    placeholder="뒷면 3자리"
+                    keyboardType="number-pad"
+                    maxLength={3}
+                    editable={!busy}
+                    error={touched ? errors.cvc : undefined}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+                <T variant="caption" muted>
+                  카드 정보는 저장하지 않아요. 할부는 일시불만 돼요.
+                </T>
+              </View>
+            ) : null}
+
+            <T variant="sub" muted style={{ marginTop: 12 }}>
+              예약할 때 전액을 한 번에 결제해요. 신용·체크카드와 카드로 내는
+              간편결제만 돼요.
             </T>
-            <T variant="sub" weight="semibold">
-              데모 결과
-            </T>
-            <Segmented
-              value={demo}
-              onChange={setDemo}
-              options={[
-                { value: "success", label: "성공" },
-                { value: "fail", label: "실패" },
-              ]}
-            />
           </View>
         </Scroll>
       )}
@@ -214,4 +271,64 @@ export default function Pay() {
       {toast.node}
     </Screen>
   );
+}
+
+// ---- 카드 입력 도우미 (화면 전용. 서버로는 보내지 않는다) ----
+
+export function digits(v: string) {
+  return v.replace(/\D/g, "");
+}
+
+/** 4자리씩 띄어 쓴다. 최대 16자리 */
+export function formatCardNumber(v: string) {
+  return (digits(v).slice(0, 16).match(/.{1,4}/g) ?? []).join(" ");
+}
+
+/** MM/YY. 월 첫 자리가 2~9면 앞에 0을 붙인다 */
+export function formatExpiry(v: string) {
+  let d = digits(v).slice(0, 4);
+  if (d.length === 1 && Number(d) > 1) d = `0${d}`;
+  return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+}
+
+export function luhn(n: string) {
+  let sum = 0;
+  let dbl = false;
+  for (let i = n.length - 1; i >= 0; i--) {
+    let x = Number(n[i]);
+    if (dbl) {
+      x *= 2;
+      if (x > 9) x -= 9;
+    }
+    sum += x;
+    dbl = !dbl;
+  }
+  return n.length > 0 && sum % 10 === 0;
+}
+
+/** 이번 달 이후인지. now는 테스트용 주입 */
+export function expiryValid(mmYY: string, now = new Date()) {
+  const m = /^(\d{2})\/(\d{2})$/.exec(mmYY);
+  if (!m) return false;
+  const month = Number(m[1]);
+  const year = 2000 + Number(m[2]);
+  if (month < 1 || month > 12) return false;
+  const cur = now.getFullYear() * 12 + now.getMonth(); // 0-based month index
+  return year * 12 + (month - 1) >= cur;
+}
+
+export function validate(
+  number: string,
+  expiry: string,
+  cvc: string,
+  now = new Date(),
+) {
+  const e: { number?: string; expiry?: string; cvc?: string } = {};
+  const n = digits(number);
+  if (n.length !== 16) e.number = "카드 번호 16자리를 입력해 주세요";
+  else if (!luhn(n)) e.number = "카드 번호를 다시 확인해 주세요";
+  if (!/^\d{2}\/\d{2}$/.test(expiry)) e.expiry = "MM/YY로 입력해 주세요";
+  else if (!expiryValid(expiry, now)) e.expiry = "유효기간이 지났어요";
+  if (!/^\d{3}$/.test(cvc)) e.cvc = "뒷면 3자리를 입력해 주세요";
+  return e;
 }
