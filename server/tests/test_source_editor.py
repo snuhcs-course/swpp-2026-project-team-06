@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import pytest
 from sqlalchemy import select
 
 from app.core.db import get_sessionmaker
@@ -133,7 +134,8 @@ def test_AC_SRC_11_stale_off_does_not_block_other_sections(client, login):
     ]
 
 
-def test_AC_SRC_11_hidden_changed_photo_retained_until_repaired(client, login):
+@pytest.mark.parametrize("field_key", ["hero", "specification"])
+def test_AC_SRC_11_hidden_changed_photo_retained_until_repaired(client, login, field_key):
     from app.source_analysis.models import Asset
 
     h, batch = ready(client, login)
@@ -145,18 +147,18 @@ def test_AC_SRC_11_hidden_changed_photo_retained_until_repaired(client, login):
         pid = photo.id
         db.commit()
     body = body_for(client, h, batch)
-    hero = next(f for f in body["fields"] if f["fieldKey"] == "hero")
-    hero["state"] = "CONFIRMED"
+    hero = next(f for f in body["fields"] if f["fieldKey"] == field_key)
+    hero["state"] = "CONFIRMED" if field_key == "hero" else "UNREVIEWED"
     hero["photoAssetIds"] = [pid]
     response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
     assert response.status_code == 200, response.text
     rec = client.get(f"{PREFIX}/{batch['id']}/review", headers=h).json()
     assert (
-        next(e for e in rec["editorFields"] if e["field"]["fieldKey"] == "hero")["status"]
+        next(e for e in rec["editorFields"] if e["field"]["fieldKey"] == field_key)["status"]
         == "outdated"
     )
     body = body_for(client, h, batch)
-    body["targets"][0]["enabledModuleIds"].append("hero")
+    body["targets"][0]["enabledModuleIds"].append(field_key)
     assert (
         client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body).status_code == 409
     )
@@ -204,3 +206,118 @@ def test_AC_SRC_11_whitespace_only_content_not_published(client, login):
     assert [m["id"] for m in response.json()["drafts"][0]["snapshot"]["previewModules"]] == [
         "storage"
     ]
+
+
+def test_AC_SRC_11_basic_info_required_optional_and_private(client, login):
+    h = login("u-kang")
+    batch = client.post(PREFIX, headers=key(h), json={"targets": [{"name": "새 상품"}]}).json()
+    upload(client, h, batch)
+    current = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    denied = client.post(
+        f"{PREFIX}/{batch['id']}/runs", headers=key(h), json={"batchVersion": current["version"]}
+    )
+    assert denied.status_code == 400
+    assert "variety" in denied.json()["details"]["fields"]
+    endpoint = f"{PREFIX}/{batch['id']}/basic-info"
+    payload = {
+        "version": current["version"],
+        "targets": [
+            {
+                "targetId": batch["targets"][0]["id"],
+                "basicInfo": {"variety": "  온주밀감  ", "size": "", "expectedBrix": None},
+            }
+        ],
+    }
+    for brix in [-1, 101]:
+        invalid = deepcopy(payload)
+        invalid["targets"][0]["basicInfo"]["expectedBrix"] = brix
+        assert client.put(endpoint, headers=h, json=invalid).status_code == 400
+    response = client.put(endpoint, headers=h, json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["targets"][0]["basicInfo"] == {
+        "variety": "온주밀감",
+        "size": "",
+        "expectedBrix": None,
+    }
+    assert client.put(endpoint, headers=h, json=payload).status_code == 409
+    payload["version"] = response.json()["version"]
+    assert client.put(endpoint, headers=login("u-misook"), json=payload).status_code in (403, 404)
+    start(client, h, batch["id"])
+    assert client.put(endpoint, headers=h, json=payload).status_code == 409
+    drain()
+    assert (
+        client.get(f"{PREFIX}/{batch['id']}", headers=h).json()["targets"][0]["basicInfo"][
+            "variety"
+        ]
+        == "온주밀감"
+    )
+
+
+def test_AC_SRC_11_basic_info_defaults_and_manual_precedence(client, login):
+    h = login("u-kang")
+    from app.catalog.models import Product
+
+    with get_sessionmaker()() as db:
+        product = db.get(Product, "p-house")
+        product.variety = "온주밀감"
+        product.info = {**product.info, "size": "중과"}
+        product.expected_brix = 12.5
+        product.measured_brix = 14.0
+        db.commit()
+    batch = client.post(
+        PREFIX, headers=key(h), json={"targets": [{"name": "기본값 확인", "productId": "p-house"}]}
+    ).json()
+    tid = batch["targets"][0]["id"]
+    assert batch["targets"][0]["basicInfo"] == {
+        "variety": "온주밀감",
+        "size": "중과",
+        "expectedBrix": 12.5,
+    }
+    upload(client, h, batch)
+    start(client, h, batch["id"])
+    drain()
+    body = body_for(client, h, batch)
+    fields = {f["fieldKey"]: f for f in body["fields"]}
+    assert fields["specification"]["value"] == "품종: 온주밀감\n사이즈: 중과"
+    assert fields["qualityEvidence"]["value"] == "예상 당도: 12.5 °Bx"
+    assert fields["qualityEvidence"]["candidateIds"] == []
+    body["targets"][0]["enabledModuleIds"] += ["specification", "qualityEvidence"]
+    response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
+    assert response.status_code == 200, response.text
+    endpoint = f"{PREFIX}/{batch['id']}/basic-info"
+    current = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    response = client.put(
+        endpoint,
+        headers=h,
+        json={
+            "version": current["version"],
+            "targets": [
+                {
+                    "targetId": tid,
+                    "basicInfo": {"variety": "천혜향", "size": "대과", "expectedBrix": 13.2},
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert (
+        client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body).status_code == 409
+    )
+    body = body_for(client, h, batch)
+    fields = {f["fieldKey"]: f for f in body["fields"]}
+    assert fields["specification"]["value"] == "품종: 천혜향\n사이즈: 대과"
+    assert fields["qualityEvidence"]["value"] == "예상 당도: 13.2 °Bx"
+    for name, value in [("specification", "직접 수정한 규격"), ("qualityEvidence", "")]:
+        fields[name].update(value=value, state="CONFIRMED", provenance="PRODUCER", candidateIds=[])
+    response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
+    assert response.status_code == 200, response.text
+    start(client, h, batch["id"])
+    drain()
+    fields = {f["fieldKey"]: f for f in body_for(client, h, batch)["fields"]}
+    assert fields["specification"]["value"] == "직접 수정한 규격"
+    assert fields["qualityEvidence"]["value"] == ""
+    with get_sessionmaker()() as db:
+        product = db.get(Product, "p-house")
+        assert product.variety == "온주밀감"
+        assert product.expected_brix == 12.5
+        assert product.measured_brix == 14.0

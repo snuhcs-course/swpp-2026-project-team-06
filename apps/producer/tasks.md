@@ -450,3 +450,17 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: 타입4 workspace 및 최종 생산자 타입 검사 통과. 격리 DB/API Playwright15개(1.1분) 통과, 모바일3폭 상품명 중심 좌표·소개 중앙 정렬·사진 요청이 있는 응답의 제안 UI 미노출·저장/공개 확인. 이번 UI 변경은 서버/mock 동작 변경 없어 직전 서버58개/mock13개 결과 유지(이번 재실행 아님).
 - scan-before-commit: 삭제된 토글 상태/호출부, 편집·공개 공통 스타일 및 조작부 중심 간섭 검토. 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
 - 기존 영상2개를 최신 중앙 정렬 화면으로 재녹화: `.artifacts/in-app-v4/page-editor-review/index.html`. 추가 유료 호출0, 녹화 브라우저 종료. PR113 Draft/미머지·미배포. Agent 시간/Tokens 미측정.
+
+
+## DEV-58 기본 정보 입력과 빈 항목 안내 (AC-SRC-11, FEAT-03/04/07)
+- 범위: apps/producer/src/lib/{SourceWorkspace,SourceBasicInfo,PageCanvas}.tsx, packages/api/src/sourceAnalysis.ts, server/app/source_analysis/{schemas,service,router,editor}.py, server/tests/test_source*.py, scripts/e2e/source*.spec.ts, 관련 spec/tasks/wiki 및 로컬 검토 영상.
+- 결정: 품종 필수, 사이즈·예상 당도 선택. 대상별 basicInfo JSON 저장, 기존 상품 기본값 복사, 분석 전 저장/필수 검증. 직접 편집 CONFIRMED/EXCLUDED > 기본 정보 > 추출 결과. 실측값으로 변환하지 않음. 기본 정보 저장만으로 공개 상품 변경 없음.
+- 결정: 기본 정보만 변경할 때 추출 근거는 무효화하지 않으며 reviewVersion을 증가시켜 오래된 편집 저장을 막는다. 기본 정보에서 만든 미확정 제안은 변경 시 새로 만들고 직접 편집은 유지한다.
+- [x] 구현·API/mock 타입·관련 문서 갱신
+- [x] backend/typecheck/mock/브라우저 검증 및 headless 영상 갱신
+- [x] 커밋 전 스캔, PR #113 갱신 (미머지)
+
+- 검증: server/에서 관련 pytest 61개 통과(15.39초). npm run typecheck 4 workspace, npm run test:mock 13개, 격리 DB/API Playwright 16개(1.1분), 변경 Python Ruff 및 git diff --check 통과.
+- 스캔: 기본 정보 우선순위가 오래된 사진 검증을 생략하던 경로를 보완하고, 화면 전환 후 늦은 응답/flush 참조 수명을 수정했다. 수정 후 관련 검증 통과. 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보 2건 — 지적 0건 / 커밋된 구조 2건 (SourceTarget:388d956, Batch.targets:4d7eece).
+- 화면 확인: .artifacts/basic-info-390.png. 기존 영상 페이지 .artifacts/in-app-v4/page-editor-review/index.html에 기본 정보 입력부터 분석·편집·저장·공개 영상(32.68초)과 기존 상품 사진 편집(12.4초)을 갱신하고 재생 확인. headless 브라우저 종료, 추가 유료 호출 0. 기존 실제 데모 DB를 보존해 로컬 API만 갱신했다.
+- PR113 Draft/미머지/미배포 유지. Agent 시간/Tokens 미측정.

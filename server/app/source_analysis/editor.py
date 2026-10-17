@@ -20,6 +20,24 @@ class EditorSave(DraftSave):
 def suggestions(review, photos=None):
     result = []
     for target in review["targets"]:
+        basic = target.get("basicInfo") or {}
+        specification = "\n".join(
+            filter(
+                None,
+                [
+                    f"품종: {basic['variety']}" if basic.get("variety") else "",
+                    f"사이즈: {basic['size']}" if basic.get("size") else "",
+                ],
+            )
+        )
+        basic_values = {
+            "specification": specification,
+            "qualityEvidence": (
+                f"예상 당도: {basic['expectedBrix']:g} °Bx"
+                if basic.get("expectedBrix") is not None
+                else ""
+            ),
+        }
         for key in dict.fromkeys(k for keys in MODULE_FIELDS.values() for k in keys):
             saved = next(
                 (
@@ -56,7 +74,28 @@ def suggestions(review, photos=None):
                 photoAssetIds=[],
                 illustrationId=None,
             )
-            if saved:
+            if basic_values.get(key) and (not saved or saved["state"] == "UNREVIEWED"):
+                field = {
+                    **field,
+                    "value": basic_values[key],
+                    "provenance": "PRODUCER",
+                    "candidateIds": [],
+                    "state": "UNREVIEWED",
+                }
+                status = "ready"
+                if photos is not None and any(
+                    not any(
+                        p.id == pid
+                        and not p.deleted
+                        and p.status == "PREPARED"
+                        and p.original_photo
+                        and (p.common or target["id"] in p.target_ids)
+                        for p in photos
+                    )
+                    for pid in field["photoAssetIds"]
+                ):
+                    status = "outdated"
+            elif saved:
                 old = any(
                     c["outdated"] and set(c["candidateIds"]) & set(saved["candidateIds"])
                     for c in review["candidates"]

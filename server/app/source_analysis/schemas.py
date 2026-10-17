@@ -77,10 +77,23 @@ def hidden_modules(section_ids):
 ILLUSTRATIONS = {"hand-citrus-small", "hand-citrus-medium", "hand-citrus-large"}
 
 
+class BasicInfo(Input):
+    variety: str = Field(default="", max_length=100)
+    size: str = Field(default="", max_length=200)
+    expected_brix: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def trimmed(self):
+        self.variety = self.variety.strip()
+        self.size = self.size.strip()
+        return self
+
+
 class Target(Input):
     id: Id | None = None
     name: Short
     product_id: Id | None = None
+    basic_info: BasicInfo | None = None
 
 
 class BatchCreate(Input):
@@ -89,6 +102,15 @@ class BatchCreate(Input):
 
 class Version(Input):
     version: int = Field(ge=1)
+
+
+class TargetBasicInfo(Input):
+    target_id: Id
+    basic_info: BasicInfo
+
+
+class BasicInfoPatch(Version):
+    targets: list[TargetBasicInfo] = Field(min_length=1, max_length=10)
 
 
 class BatchPatch(Version, BatchCreate):

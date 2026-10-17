@@ -292,3 +292,124 @@ test("AC-SRC-11: inline photo description survives failure and flushes before an
     "hidden-filename.jpg",
   );
 });
+
+test("AC-SRC-11: basic information saves, validates, survives failures and fills the editor", async ({
+  page,
+}) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginProducer(page, "강영수");
+  const token = await apiLogin(page.request, "u-kang", "producer");
+  const headers = { Authorization: `Bearer ${token}` };
+  const batch = await (
+    await page.request.post(`${apiUrl}/api/source-analysis/batches`, {
+      headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+      data: { targets: [{ name: "기본 정보 테스트" }] },
+    })
+  ).json();
+  await page.request.post(
+    `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
+    {
+      headers,
+      multipart: {
+        batchVersion: batch.version,
+        text: "테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.",
+        common: "false",
+        targetIds: batch.targets[0].id,
+      },
+    },
+  );
+  await page.goto(
+    `${producerUrl}/products/source-analysis?batchId=${batch.id}`,
+  );
+  const variety = page.getByLabel("과일 품종명", { exact: true });
+  const size = page.getByLabel("사이즈", { exact: true });
+  const brix = page.getByLabel("예상 당도 (°Bx)", { exact: true });
+  const start = page.getByRole("button", {
+    name: "자료 준비·분석 시작",
+    exact: true,
+  });
+  await start.click();
+  await expect(page.getByTestId("source-basic-info")).toContainText(
+    "과일 품종명을 입력해 주세요.",
+  );
+  await variety.fill("온주밀감");
+  await size.fill("중과, 지름 6~7cm");
+  await brix.fill("101");
+  await brix.blur();
+  await expect(page.getByTestId("source-basic-info")).toContainText("0~100");
+  let reject = true;
+  await page.route(`**/batches/${batch.id}/basic-info`, async (route) => {
+    if (reject)
+      return route.fulfill({
+        status: 503,
+        json: { code: "UNAVAILABLE", message: "기본 정보 저장 실패 검증" },
+      });
+    await route.continue();
+  });
+  await brix.fill("12.5");
+  await brix.blur();
+  await expect(page.getByTestId("source-basic-info")).toContainText(
+    "기본 정보 저장 실패 검증",
+  );
+  await expect(brix).toHaveValue("12.5");
+  reject = false;
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith("/basic-info") && r.status() === 200,
+  );
+  await brix.focus();
+  await brix.blur();
+  await saved;
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await page.request.get(
+              `${apiUrl}/api/source-analysis/batches/${batch.id}`,
+              { headers },
+            )
+          ).json()
+        ).targets[0].basicInfo.expectedBrix,
+    )
+    .toBe(12.5);
+  await page.reload();
+  await expect(variety).toHaveValue("온주밀감");
+  await expect(size).toHaveValue("중과, 지름 6~7cm");
+  await expect(brix).toHaveValue("12.5");
+  await page.screenshot({ path: ".artifacts/basic-info-390.png" });
+  await brix.fill("13.2");
+  const started = page.waitForResponse(
+    (r) =>
+      r.url().endsWith("/runs") &&
+      r.request().method() === "POST" &&
+      r.status() === 202,
+  );
+  await start.click();
+  await started;
+  await expect(variety).not.toBeEditable();
+  await expect(brix).not.toBeEditable();
+  execFileSync(
+    path.resolve("server/.venv/bin/python"),
+    [
+      "-c",
+      "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
+    ],
+    { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
+  );
+  const edit = page.getByRole("button", {
+    name: "상세페이지 편집",
+    exact: true,
+  });
+  await expect(edit).toBeEnabled();
+  await edit.click();
+  await expect(
+    page.getByText(/내용을 비워놓은 부분은 구매자에게 표시되지 않아요\./),
+  ).toBeVisible();
+  await expect(page.getByLabel("규격 내용", { exact: true })).toHaveValue(
+    "품종: 온주밀감\n사이즈: 중과, 지름 6~7cm",
+  );
+  await expect(page.getByLabel("품질 확인 내용", { exact: true })).toHaveValue(
+    "예상 당도: 13.2 °Bx",
+  );
+});

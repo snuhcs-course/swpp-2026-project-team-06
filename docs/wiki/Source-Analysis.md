@@ -131,3 +131,8 @@ Private snapshots and draft target requests persist `hiddenSectionIds` independe
 Empty items remain editable in place with the same light-gray input placeholder. There is no Add item button or menu. Typing or adding a photo activates the item. A section with no active content has a dimmed heading, decoration and divider without changing its manual eye state. Empty and whitespace-only content is omitted from preview/publication, including empty section headings. Attachment text and item text start on the same row as the overlaid ×; empty items have no removal button.
 
 Product name and hero copy share centered typography between editing, preview and publication. Editor controls reserve balanced space to preserve the center. The optional AI photo-request panel is removed; manual photo insertion remains available.
+
+
+### Basic product information (DEV-58, AC-SRC-11)
+The source screen starts with required fruit variety and optional size and expected Brix inputs. Values are saved privately per target on blur and flushed before analysis; failed saves preserve local input and prevent analysis. Existing products initialize these inputs from variety, size, and expected Brix, never measured Brix. Existing work remains readable/editable, while starting a new analysis requires a nonblank variety.
+Basic inputs populate specification and quality text without an extra AI call. Explicit detail edits (including deliberate blanks) take precedence over basic information, which takes precedence over extracted suggestions. Basic-info updates increment the review version without invalidating unrelated evidence. Publication still requires explicit application. The editor explains that empty content is omitted from the buyer page.

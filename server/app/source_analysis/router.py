@@ -18,6 +18,7 @@ from app.source_analysis.models import Asset, Batch, Draft, Page, PublicPhoto
 from app.source_analysis.schemas import (
     ApplyDraft,
     Assignment,
+    BasicInfoPatch,
     BatchCreate,
     BatchPatch,
     DraftSave,
@@ -152,6 +153,11 @@ def detail(bid: str, who: ApprovedProducer, db: DB):
             )
         ],
     }
+
+
+@router.put("/batches/{bid}/basic-info")
+def basic_info(bid: str, body: BasicInfoPatch, who: ApprovedProducer, db: DB):
+    return commit(db, s.patch_basic_info(db, s.batch(db, who[1].id, bid), body))
 
 
 @router.patch("/batches/{bid}")

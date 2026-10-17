@@ -417,7 +417,8 @@ export function PageCanvas({
     <View style={{ gap: 12 }}>
       <T muted variant="sub">
         문구를 눌러 수정하고, + 칸에서 사진을 추가하세요. 눈 아이콘으로 공개
-        여부를 바꿀 수 있어요.
+        여부를 바꿀 수 있어요. 내용을 비워놓은 부분은 구매자에게 표시되지
+        않아요.
       </T>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
       <ModuleStory

@@ -1,3 +1,4 @@
+import { SourceBasicInfo } from "./SourceBasicInfo";
 import { SourceAttachments } from "./SourceAttachments";
 import {
   allPages,
@@ -223,7 +224,11 @@ export function SourceWorkspace() {
   const working = !!activeRun && activeRun.status !== "PRIVACY_REVIEW";
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
   const allowLeave = useRef(false);
-  const dirty = editing;
+  const [basicDirty, setBasicDirty] = useState(false);
+  const flushBasicInfo = useRef<
+    ((required?: boolean) => Promise<void>) | undefined
+  >(undefined);
+  const dirty = editing || basicDirty;
   useEffect(
     () =>
       navigation.addListener("beforeRemove", (event) => {
@@ -527,6 +532,7 @@ export function SourceWorkspace() {
                         setEditing(false);
                         if (t === "상세 편집")
                           mutate(async () => {
+                            await flushBasicInfo.current?.();
                             await load();
                             setTab(t);
                           });
@@ -540,6 +546,17 @@ export function SourceWorkspace() {
               </View>
               {tab === "자료" ? (
                 <>
+                  <SourceBasicInfo
+                    key={batch.id}
+                    batch={batch}
+                    disabled={busy || !!activeRun}
+                    flushRef={flushBasicInfo}
+                    onDirty={(dirty) => {
+                      setBasicDirty(dirty);
+                      if (dirty) setError("");
+                    }}
+                    onSaved={setBatch}
+                  />
                   <SourceAttachments
                     flushRef={flushAttachments}
                     batch={batch}
@@ -564,6 +581,7 @@ export function SourceWorkspace() {
                     onPress={() =>
                       mutate(async () => {
                         await flushAttachments.current?.();
+                        await flushBasicInfo.current?.(true);
                         const latest = await api.get(batch.id);
                         const pages = Object.fromEntries(
                           Object.entries(visual).filter(([, ns]) => ns.length),

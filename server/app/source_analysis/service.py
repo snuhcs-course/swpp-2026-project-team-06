@@ -108,17 +108,31 @@ def idempotent(db, farm_id, scope, key, body, action):
 
 
 def targets(db, farm_id, inputs, current=None):
-    old = {t["id"] for t in current or []}
+    old = {t["id"]: t for t in current or []}
     result = []
     for entry in inputs:
         if entry.id and entry.id not in old:
             raise invalid({"targets": "새 대상 ID는 서버에서 발급해요."})
         if not entry.name.strip():
             raise invalid({"targets": "상품 이름이 필요해요."})
+        basic = entry.basic_info.model_dump(by_alias=True) if entry.basic_info else None
+        if entry.id and basic is None:
+            basic = old[entry.id].get("basicInfo")
         if entry.product_id:
-            catalog.load_my_product(db, farm_id, entry.product_id)
+            product = catalog.load_my_product(db, farm_id, entry.product_id).product
+            if basic is None:
+                basic = {
+                    "variety": product.variety,
+                    "size": (product.info or {}).get("size", ""),
+                    "expectedBrix": product.expected_brix,
+                }
         result.append(
-            {"id": entry.id or new_id(), "name": entry.name.strip(), "productId": entry.product_id}
+            {
+                "id": entry.id or new_id(),
+                "name": entry.name.strip(),
+                "productId": entry.product_id,
+                "basicInfo": basic or {"variety": "", "size": "", "expectedBrix": None},
+            }
         )
     if len({t["id"] for t in result}) != len(result):
         raise invalid({"targets": "같은 상품을 두 번 지정할 수 없어요."})
@@ -146,6 +160,39 @@ def patch_batch(db, row, body):
     row.version += 1
     row.review_version += 1
     db.execute(update(Candidate).where(Candidate.batch_id == row.id).values(outdated=True))
+    return json_row(row)
+
+
+def patch_basic_info(db, row, body):
+    version(row.version, body.version)
+    if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
+        raise conflict("RUN_ACTIVE", "분석 후 기본 정보를 수정해 주세요.")
+    incoming = {t.target_id: t.basic_info.model_dump(by_alias=True) for t in body.targets}
+    if len(incoming) != len(body.targets) or not set(incoming) <= {t["id"] for t in row.targets}:
+        raise invalid({"targets": "작업에 포함된 상품을 중복 없이 선택해 주세요."})
+    updated = deepcopy(row.targets)
+    changed = set()
+    for target in updated:
+        if target["id"] in incoming and target.get("basicInfo") != incoming[target["id"]]:
+            target["basicInfo"] = incoming[target["id"]]
+            changed.add(target["id"])
+    if changed:
+        # Only regenerate untouched basic-info suggestions; explicit edits (including
+        # deliberate blank values) and extracted evidence remain intact.
+        for field in db.scalars(
+            select(ReviewedField).where(
+                ReviewedField.batch_id == row.id,
+                ReviewedField.target_id.in_(changed),
+                ReviewedField.field_key.in_(["specification", "qualityEvidence"]),
+                ReviewedField.state == "UNREVIEWED",
+                ReviewedField.provenance == "PRODUCER",
+            )
+        ):
+            if not field.candidate_ids:
+                field.value = ""
+        row.targets = updated
+        row.version += 1
+        row.review_version += 1
     return json_row(row)
 
 
@@ -333,6 +380,8 @@ def privacy(db, row, source, body):
 
 def start_run(db, row, expected, retry_items=None, visual_pages=None):
     version(row.version, expected)
+    if any(not (t.get("basicInfo") or {}).get("variety", "").strip() for t in row.targets):
+        raise invalid({"variety": "과일 품종명을 입력해 주세요."})
     if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         raise conflict("RUN_ACTIVE", "이미 분석하고 있어요.")
     sources = list(

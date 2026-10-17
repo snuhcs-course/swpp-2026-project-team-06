@@ -44,7 +44,12 @@ def create(client, headers, count=1):
     response = client.post(
         PREFIX,
         headers=key(headers),
-        json={"targets": [{"name": f"테스트 감귤 {i}"} for i in range(count)]},
+        json={
+            "targets": [
+                {"name": f"테스트 감귤 {i}", "basicInfo": {"variety": "온주밀감"}}
+                for i in range(count)
+            ]
+        },
     )
     assert response.status_code == 201, response.text
     return response.json()

@@ -1,8 +1,14 @@
 import { ApiError, apiUrl, getToken, isMock, request } from "./client";
+export type SourceBasicInfo = {
+  variety: string;
+  size: string;
+  expectedBrix: number | null;
+};
 export type SourceTarget = {
   id: string;
   name: string;
   productId: string | null;
+  basicInfo?: SourceBasicInfo;
 };
 export type SourceAsset = {
   id: string;
@@ -158,6 +164,14 @@ export const sourceAnalysis = {
     request<SourceBatch>("POST", base, {
       body: { targets },
       idempotencyKey: key,
+    }),
+  saveBasicInfo: (
+    bid: string,
+    version: number,
+    targets: { targetId: string; basicInfo: SourceBasicInfo }[],
+  ) =>
+    request<SourceBatch>("PUT", `${at(bid)}/basic-info`, {
+      body: { version, targets },
     }),
   get: (bid: string) => request<SourceBatch>("GET", at(bid)),
   page: (bid: string, sid: string, number: number) =>
