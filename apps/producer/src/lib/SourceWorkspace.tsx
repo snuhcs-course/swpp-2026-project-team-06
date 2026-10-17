@@ -1016,6 +1016,15 @@ export function SourceWorkspace() {
               <T variant="sub" muted numberOfLines={2}>
                 {batch.targets.map((t) => t.name).join(" · ")}
               </T>
+              {batch.targets.length === 1 && batch.targets[0].productId ? (
+                <Button
+                  label="상품 정보·판매 설정"
+                  variant="text"
+                  icon="box"
+                  disabled={busy || dirty}
+                  onPress={() => router.push(`/products/${batch.targets[0].productId}/edit`)}
+                />
+              ) : null}
               {activeRun ? (
                 <View
                   testID="source-analysis-status"

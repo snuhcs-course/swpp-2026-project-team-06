@@ -3,7 +3,7 @@ import { apiLogin, apiUrl, consumerUrl, loginProducer, producerUrl } from "./hel
 
 test("P02 AC-03-3: AI failure preserves text and manual creation excludes a concurrent retry", async ({ page }) => {
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/new`);
+  await page.goto(`${producerUrl}/products/manual`);
   const input = page.getByLabel("카톡·밴드에 쓰던 문구");
   await input.fill("실패해도 남는 생산자 판매 문구");
   await page.route(`${apiUrl}/api/products/drafts`, route => route.fulfill({
@@ -43,7 +43,7 @@ test("P02 AC-03-1: empty extraction strings and option arrays remain missing", a
     await sessionGate;
     await route.continue();
   });
-  await page.goto(`${producerUrl}/products/new`);
+  await page.goto(`${producerUrl}/products/manual`);
   await expect(page.getByLabel("화면을 준비하고 있어요")).toBeVisible();
   await expect(page.getByLabel("카톡·밴드에 쓰던 문구")).toHaveCount(0);
   releaseSession();

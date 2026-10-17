@@ -61,3 +61,50 @@ for (const width of [360, 390, 430]) {
     clean();
   });
 }
+
+test("AC-SRC-1: New Product opens uploads linked to a new private product", async ({ page }) => {
+  await loginProducer(page, "강영수");
+  let creates = 0;
+  let productId = "";
+  await page.route("**/api/products", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    creates++;
+    const response = await route.fetch();
+    productId = (await response.json()).productId;
+    await route.fulfill({ response });
+  });
+  await page.goto(`${producerUrl}/products`);
+  await page.getByRole("button", { name: "새 상품", exact: true }).click();
+  await expect(page).toHaveURL(/source-analysis\?batchId=/);
+  await expect(page.getByRole("button", { name: "파일 선택·업로드", exact: true })).toBeVisible();
+  await expect(page.getByText("상세를 만들 상품 선택 (최대 10개)", { exact: true })).toHaveCount(0);
+  expect(creates).toBe(1);
+  await page.getByRole("button", { name: "상품 정보·판매 설정", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/products/${productId}/edit$`));
+  await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
+});
+
+test("AC-SRC-1: workspace retry reuses the new product and idempotency key", async ({ page }) => {
+  await loginProducer(page, "강영수");
+  let creates = 0;
+  let batches = 0;
+  const keys: string[] = [];
+  await page.route("**/api/products", async route => {
+    if (route.request().method() === "POST") creates++;
+    await route.continue();
+  });
+  await page.route("**/api/source-analysis/batches", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    batches++;
+    keys.push(route.request().headers()["idempotency-key"]);
+    if (batches === 1) return route.fulfill({ status: 503, json: { code: "UNAVAILABLE", message: "fixture" } });
+    return route.continue();
+  });
+  await page.goto(`${producerUrl}/products/new`);
+  await page.getByRole("button", { name: "자료 작업 다시 열기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "파일 선택·업로드", exact: true })).toBeVisible();
+  expect(creates).toBe(1);
+  expect(batches).toBe(2);
+  expect(keys[0]).toBeTruthy();
+  expect(keys[1]).toBe(keys[0]);
+});

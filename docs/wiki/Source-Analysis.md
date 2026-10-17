@@ -104,3 +104,5 @@ Pipeline version source-v5-gemini-ocr prevents reuse of prior results. Each OCR 
 
 ### Compact producer workspace
 The source workspace follows existing producer spacing, typography, 64px thumbnails and minimum 48px touch targets. An above-tab progress banner distinguishes active analysis from privacy approval waiting. Uploaded images get local previews immediately; prepared images and PDFs use authenticated sanitized first-page thumbnails. Text files, pending PDFs and failed previews show file-type tiles. Object URLs are released on deletion, batch change and unmount. Assignment/deletion/extra visual settings and pasted text remain accessible through expandable controls. Saving and explicit publication are unchanged.
+
+The New Product action creates a private product and its linked source workspace, then opens uploads directly without selecting an existing product. Product information and sales settings remain accessible. Draft creation does not bypass publication or supply approval. The previous text/manual form remains at /products/manual, also used by the mock-only environment.

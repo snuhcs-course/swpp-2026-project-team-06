@@ -322,3 +322,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 검증: 타입4 workspace/mock12개 통과. 격리 mock API·DB의 source-analysis/source-workspace-ui Playwright6개 통과(360/390/430px 업로드·편집·저장·공개, 진행 상태 전환, 준비 전/후 썸네일, 가로 넘침/콘솔 오류 없음). 최초 격리 환경은 테이블 미생성과 별도 포트 CORS 누락으로 실행 실패해 환경을 수정한 뒤 최종6개 통과. 실제 데모 DB와 유료 호출은 변경하지 않았다.
 - scan-before-commit: 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. object URL 해제·가림 이미지 전환·기존 조작 경로 및 신규 테스트 전체 확인.
+## DEV-58 새 상품 진입 연결 (2026-10-17)
+- 사용자 요청: 새 상품 버튼에서 자료 업로드 화면으로 바로 진입.
+- 범위: apps/producer/src/app/(tabs)/products/{new,manual}.tsx, apps/producer/src/lib/SourceWorkspace.tsx, apps/producer/{spec.md,tasks.md}, scripts/e2e/{source-workspace-ui,producer-i2,producer-and-privacy}.spec.ts, docs/spec/source-integration.md, docs/wiki/Source-Analysis.md.
+- 결정: 새 비공개 상품 생성 후 연결된 자료 작업을 생성해 업로드 화면을 연다. 기존 입력 경로는 manual로 유지. 같은 effect의 생성 Promise를 공유하고 작업 재시도는 기존 상품과 멱등 키를 사용한다. 상품 정보/판매 설정 이동을 제공한다. 공개/승인은 기존 계약을 유지한다.
+- [x] 경로 연결 및 회귀 검증
+- 검증: 타입4 workspace, mock12개, 격리 API/DB의 producer-i2/producer-and-privacy/source-analysis/source-workspace-ui Playwright16개 통과(46초). 새 상품 버튼→업로드 직접 진입·동일 상품 기본 정보 편집, batch 실패 시 상품1회 생성·멱등 키 유지 확인. 기존 manual 폼은 이전 커밋 파일과 바이트 동일. 추가 AI 호출 없음.
+- scan-before-commit: 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. 신규 진입·재시도·unmount·기존 직접 입력 경로/호출부 확인. PR #113 머지 보류 유지.
