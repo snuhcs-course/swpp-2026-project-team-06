@@ -171,3 +171,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 ## DEV-58 상품별 판매페이지 작업
 - 범위: src/productWorkspace.ts, src/index.ts 및 spec/tasks. productWorkspace open/save/apply/인증 사진 클라이언트. 신규 생성은 단일 원자 API, 기존 상세는 비공개 수정본으로 보존. 타입4 workspace/mock13개 및 생산자 브라우저18개 통과.
+
+## DEV-58 상세 편집 통합·항목별 ON/OFF
+- 사용자 승인: 근거 검토 별도 탭/개별 확정 제거, 기존18항목별 스위치, 자동 채움·직접 편집·선택적 원문 보기.
+- 범위: apps/producer/src/lib/{SourceWorkspace,SourceDetailsEditor,ProductPageEditor}.tsx, packages/api/src/sourceAnalysis.ts, server/app/source_analysis/**, server/tests/**, scripts/e2e/**, 해당 spec/tasks 및 docs/spec/source-integration.md/docs/wiki/Source-Analysis.md.
+- 결정: 유효한 단일 후보만 자동 채움(UNREVIEWED 유지), 충돌/과거/오래된/불명확한 후보 제외. 기존 저장 내용/선택 우선, OFF내용 보존. 편집값+모듈 선택 원자 저장 API와 기존 API 병행. 사진 승인/버전/명시적 공개 유지. 추가 AI 호출·머지·배포 없음.
+- [ ] 구현/회귀/영상/커밋 스캔
