@@ -1,9 +1,7 @@
-# 손·당도계 영역 주황 종이 배경
+# 매끈한 주황 곡선 배경
 
-2026-10-17 built-in ImageGen 편집. 기존 주황 종이 배경을 직접 참조하여 위아래에 불규칙한 흰 종이·마른 붓 경계를 넣었다. 생성 원본을 후처리 없이 orange-paper.png로 복사했다. 흰 바탕/불투명도100%/stretch로 표시해 코드 그라디언트와 경계 잘림 없이 페이지에 연결한다.
-
-생성 ID: exec-cd1394aa-0871-43f1-8834-881467d2ce71.png. 참조 원본은 이전 git 버전의 orange-paper.png.
+built-in ImageGen, transparent_background=true. 선택 원본 exec-1d53ad73-4c5e-430d-8885-e5f89682dabd.png를 후처리 없이 orange-paper.png로 저장. 기존 파일명은 참조 안정성을 위해 유지. 거친 붓질을 제거하고 부드러운 곡선과 투명 경계를 사용한다. 최초 편집 결과는 중앙 명암이 과해 제외했다.
 
 ## 최종 프롬프트
 
-Use case: precise-object-edit. Edit this orange paper background for an editorial mobile app. Preserve the handmade gouache paper grain and subtle overlapping organic orange paper shapes. Rich dark burnt tangerine center close to #C94F0C, readable under white text. Change ONLY the upper and lower edges: make the orange pigment naturally end in irregular delicate dry-brush / deckled-paper fiber edges into PURE WHITE #FFFFFF page. The topmost and bottommost 2% rows must be perfectly solid pure white edge to edge. Transition confined to the top 9% and bottom 9%; the central 82% remains uninterrupted dark orange all the way to left and right edges. Art-directed subtle asymmetrical torn fiber / brushed pigment boundary, NOT a smooth digital gradient, NOT blur or a misty glow. No white sides, no frame, no border, no objects, text or shadows. Flat front-facing background artwork, opaque square canvas. Edges are part of the illustration itself. Keep enough consistent dark orange for large white typography.
+Create a minimal FLAT VECTOR STYLE orange background panel for a mobile editorial page. Square PNG with transparent background. Main shape: one broad solid burnt-orange #C94F0C area occupying the central 80% height and the entire width. Top and bottom boundaries are extremely shallow smooth elegant asymmetric curves. Leave completely transparent blank breathing space at the topmost 6% and bottommost 6%. The curves transition to transparency through only a narrow 2% soft alpha fade. Inside main area: flat uniform SOLID orange, with just two broad restrained smooth corner curves in very similar orange shades. NO lighting, NO shadow, NO shading, NO large gradient, NO dark patches, NO texture, NO paper fibers, NO brush marks, NO noise, NO speckles. Absolutely clean smooth vector-like flat color. No objects, text or border. Central 75% is completely quiet and fully opaque burnt orange for white typography. Transparency only at top and bottom.

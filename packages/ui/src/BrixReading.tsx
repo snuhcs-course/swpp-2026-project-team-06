@@ -21,8 +21,8 @@ export function BrixReading({
       style={{
         paddingHorizontal: 20,
         marginTop: hasMeasurement ? 40 : 0,
-        paddingTop: hasMeasurement ? 64 : 40,
-        paddingBottom: hasMeasurement ? 64 : 0,
+        paddingTop: hasMeasurement ? 96 : 40,
+        paddingBottom: hasMeasurement ? 96 : 0,
         flexDirection: hasMeasurement ? "column" : "row",
         alignItems: "center",
         gap: 16,

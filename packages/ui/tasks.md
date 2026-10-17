@@ -319,3 +319,13 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 상태: 진행 중. PR #113 머지·배포 없음.
 
 - 결과: 이미지 자체의 종이 경계 적용, 그라디언트와 UI 직접 의존성 제거. typecheck4 workspace 및 디자인 E2E4개 통과. 실제 데모 손·당도 headless 캡처 확인. 커밋 전 스캔 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
+
+## DEV-57 매끈한 벡터형 배경 경계 (2026-10-17)
+
+- 사용자 요청: 거친 붓질을 제거하고 벡터 그래픽 스타일로 변경. 위아래 여백을 확보하고 끝부분만 약한 그라디언트 또는 투명 처리로 흰 페이지에 연결.
+- 범위: packages/ui/assets/source/decor/{orange-paper.png,orange-paper-prompt.md}, packages/ui/assets/source/README.md, packages/ui/{spec.md,tasks.md}, docs/spec/source-integration.md, docs/wiki/Source-Analysis.md.
+- 결정: built-in ImageGen으로 매끈한 주황 유기 곡선과 투명한 위아래 경계를 생성. 상하 경계는 이미지의 각10% 이내에 두어 기존64px 콘텐츠 여백과 겹치지 않게 한다. 기존 흰 바탕/stretch 렌더러 유지.
+
+- 범위 추가: packages/ui/src/BrixReading.tsx, scripts/e2e/source-detail-design.spec.ts. 실제 화면에서 곡선과 그림/날짜가 가까워 실측 당도 상하 여백을96px로 확장한다. 손 영역64px는 충분해 유지한다.
+
+- 결과: 깨끗한 곡선/알파 경계 PNG 적용. 여백 수정 뒤 디자인 E2E4개 통과. 실제 화면 headless 확인. 커밋 전 스캔 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.

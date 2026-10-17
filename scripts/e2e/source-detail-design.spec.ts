@@ -211,8 +211,8 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
       "background-color", "rgb(255, 255, 255)",
     );
     expect((await card.getByTestId("illustration-backdrop").boundingBox())!.width).toBeCloseTo(width, 0);
-    await expect(card).toHaveCSS("padding-top", "64px");
-    await expect(card).toHaveCSS("padding-bottom", "64px");
+    await expect(card).toHaveCSS("padding-top", "96px");
+    await expect(card).toHaveCSS("padding-bottom", "96px");
     await expect(
       card.getByText("13.5 Brix", { exact: true }),
     ).toBeVisible();
