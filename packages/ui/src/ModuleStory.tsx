@@ -105,12 +105,12 @@ function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
         marginTop: 16,
         marginHorizontal: -inset,
         paddingHorizontal: 24,
-        paddingVertical: 28,
+        paddingVertical: 64,
         overflow: "hidden",
       }}
     >
       <IllustrationBackdrop />
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <View style={{ flex: 1, aspectRatio: 1 }}>
           <Image
             source={illustrations[id]}
@@ -119,21 +119,18 @@ function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
             style={{ width: "100%", height: "100%" }}
           />
         </View>
-        <View style={{ width: 70, gap: 4 }}>
-          <T variant="caption" color={tokens.color.onAccent} center>
+        <View style={{ width: 120, gap: 4 }}>
+          <T style={{ fontSize: 17, lineHeight: 26 }} color={tokens.color.onAccent} center>
             기준 손 길이
           </T>
-          <T center style={{ fontSize: 25, lineHeight: 35, color: tokens.color.onAccent }}>
+          <T weight="bold" center style={{ fontSize: 40, lineHeight: 48, color: tokens.color.onAccent }}>
             18cm
           </T>
-          <T variant="caption" color={tokens.color.onAccent} center>
+          <T style={{ fontSize: 17, lineHeight: 26 }} color={tokens.color.onAccent} center>
             {"손끝~손목\n비교용 가정"}
           </T>
         </View>
       </View>
-      <T variant="caption" color={tokens.color.onAccent} center>
-        크기 설명용 일러스트 · 실제 규격 아님
-      </T>
     </View>
   );
 }

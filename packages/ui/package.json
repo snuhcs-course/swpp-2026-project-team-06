@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "expo-asset": "57.0.19"
+    "expo-asset": "57.0.19",
+    "expo-linear-gradient": "57.0.2"
   }
 }

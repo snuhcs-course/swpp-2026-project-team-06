@@ -21,8 +21,8 @@ export function BrixReading({
       style={{
         paddingHorizontal: 20,
         marginTop: hasMeasurement ? 40 : 0,
-        paddingTop: hasMeasurement ? 28 : 40,
-        paddingBottom: hasMeasurement ? 28 : 0,
+        paddingTop: hasMeasurement ? 64 : 40,
+        paddingBottom: hasMeasurement ? 64 : 0,
         flexDirection: hasMeasurement ? "column" : "row",
         alignItems: "center",
         gap: 16,
@@ -43,16 +43,23 @@ export function BrixReading({
       )}
       <View style={{ flex: hasMeasurement ? undefined : 1, gap: 4 }}>
         <T
+          style={hasMeasurement ? { fontSize: 17, lineHeight: 26 } : undefined}
           variant="body"
           weight="semibold"
           center={hasMeasurement}
           color={hasMeasurement ? tokens.color.onAccent : undefined}
         >
           {hasMeasurement
-            ? `당도 실측 ${measured}Brix`
+            ? "당도 실측"
             : `당도 예상 ${expected ?? "-"}Brix`}
         </T>
+        {hasMeasurement ? (
+          <T weight="bold" center color={tokens.color.onAccent} style={{ fontSize: 40, lineHeight: 48 }}>
+            {`${measured} Brix`}
+          </T>
+        ) : null}
         <T
+          style={hasMeasurement ? { fontSize: 17, lineHeight: 26 } : undefined}
           variant="sub"
           muted={!hasMeasurement}
           center={hasMeasurement}

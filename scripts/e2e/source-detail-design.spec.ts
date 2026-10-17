@@ -49,7 +49,7 @@ for (const width of [360, 390, 430]) {
       ].includes(id)
         ? [{ uri: photo, alt: `${id} 가상 예시 사진` }]
         : [],
-      illustrationId: id === "sizePhoto" ? "hand-citrus-medium" : null,
+      illustrationId: id === "sizePhoto" ? `hand-citrus-${({360: "small", 390: "medium", 430: "large"} as Record<number, string>)[width]}` : null,
     }));
     await page.route(`${apiUrl}/api/products/p-house`, (route) =>
       route.fulfill({
@@ -71,7 +71,7 @@ for (const width of [360, 390, 430]) {
       detail.getByText("크기 설명용 일러스트 · 실제 규격 아님", {
         exact: true,
       }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(detail.getByText("18cm", { exact: true })).toBeVisible();
     await expect(
       detail.getByText("자료 입력 전", { exact: false }),
@@ -87,7 +87,15 @@ for (const width of [360, 390, 430]) {
       "rgb(201, 79, 12)",
     );
     const sizePanel = detail.getByTestId("source-size-panel");
-    await expect(sizePanel).toHaveCSS("padding-top", "28px");
+    await expect(sizePanel).toHaveCSS("padding-top", "64px");
+    await expect(sizePanel.getByText("18cm", { exact: true })).toHaveCSS("font-size", "40px");
+    await expect(sizePanel.getByText("18cm", { exact: true })).toHaveCSS("font-weight", "700");
+    await expect(sizePanel.getByText(/비교용 가정/)).toBeVisible();
+    for (const edge of ["top", "bottom"]) {
+      await expect(sizePanel.getByTestId(`illustration-fade-${edge}`)).toHaveCSS("height", "48px");
+      await expect(sizePanel.getByTestId(`illustration-fade-${edge}`)).toHaveCSS("background-image", /linear-gradient/);
+    }
+    expect((await sizePanel.getByText("18cm", { exact: true }).boundingBox())!.height).toBeCloseTo(48, 0);
     const handBox = await sizePanel.getByRole("img", { name: "설명용 감귤 크기 일러스트" }).boundingBox();
     expect(handBox).not.toBeNull();
     expect(handBox!.height).toBeCloseTo(handBox!.width, 0);
@@ -204,17 +212,20 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
       "background-color", "rgb(201, 79, 12)",
     );
     expect((await card.getByTestId("illustration-backdrop").boundingBox())!.width).toBeCloseTo(width, 0);
-    await expect(card).toHaveCSS("padding-top", "28px");
-    await expect(card).toHaveCSS("padding-bottom", "28px");
+    await expect(card).toHaveCSS("padding-top", "64px");
+    await expect(card).toHaveCSS("padding-bottom", "64px");
     await expect(
-      card.getByText("당도 실측 13.5Brix", { exact: true }),
+      card.getByText("13.5 Brix", { exact: true }),
     ).toBeVisible();
+    await expect(card.getByText("당도 실측", { exact: true })).toBeVisible();
+    await expect(card.getByText("13.5 Brix", { exact: true })).toHaveCSS("font-size", "40px");
+    await expect(card.getByText("13.5 Brix", { exact: true })).toHaveCSS("font-weight", "700");
     await expect(card.getByText(/측정$/)).toBeVisible();
     const image = card.getByTestId("brix-meter-illustration");
     await expect(image).toBeVisible();
     const imageBox = await image.boundingBox();
     const readingBox = await card
-      .getByText("당도 실측 13.5Brix", { exact: true })
+      .getByText("13.5 Brix", { exact: true })
       .boundingBox();
     expect(imageBox).not.toBeNull();
     expect(readingBox).not.toBeNull();
@@ -242,7 +253,7 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
   await expect(
     page
       .getByTestId("brix-reading")
-      .getByText("당도 실측 0Brix", { exact: true }),
+      .getByText("0 Brix", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("측정일 미등록", { exact: true })).toBeVisible();
   await expect(page.getByTestId("brix-meter-illustration")).toBeVisible();

@@ -289,3 +289,24 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: typecheck4 workspace, mock12개, 디자인 Playwright4개(360/390/430px 전체폭·정사각 손·사진 프레임/비율·8아이콘·빈 항목·당도0/미측정/날짜없음) 통과. 양 앱 API모드 웹 export 성공. 실제 생산자/소비자 원문11개 값 동일 확인. 전체 옵션 데모의 손·당도 배경을 headless 캡처·육안 확인했다.
 - 최초 타입 검사에서 현재 RN 타입에 없는 absoluteFillObject를 확인해 지원하는 StyleSheet.absoluteFill로 수정하고 타입·화면 검증을 다시 통과했다. 배경은 버튼 토큰 위에 생성 원본35%로 겹쳐 원본 변형 없이 색조를 맞춘다.
 - 커밋 전 스캔: 변경 전체·새 공통 배경/자산/프롬프트·호출부·inset 전달·lock·문서 확인, 이슈 없음. 레거시 호환 후보0/지적0/커밋된 구조0. 원격 CI는 최신 push 후 별도 추적한다.
+
+## DEV-57 강조 숫자·흰 손·배경 페이드 (2026-10-17)
+
+- 사용자 승인 계획: 주황 질감 위아래48px 흰색 그라디언트, 영역 상하64px 여백, 손3종 내부 흰색 채움, 하단 일러스트 설명 삭제. 손 옆 비교용 가정은 유지한다. 핵심은 본문과 대비되는 숫자 강조다. FEAT-03/04/07, AC-SRC-7/9, AC-TPL-4/5/10.
+- 범위: `packages/ui/src/{IllustrationBackdrop,ModuleStory,BrixReading}.tsx`, `packages/ui/assets/source/{outline-small.png,outline-medium.png,outline-large.png,white-hand-prompts.md,README.md}`, `packages/ui/{package.json,spec.md,tasks.md}`, `package-lock.json`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`, `scripts/e2e/source-detail-design.spec.ts`.
+- 결정: 손 안내120px/간격12px, 18cm와 실측 숫자는40/48 bold 흰색, 손 안내·당도 제목·측정일은17/26. 당도 제목→값→날짜로 분리하고 미측정 안내는 유지한다. 손 형태·귤·바깥 투명도는 보존하고 ImageGen으로 내부만 흰색 채움. 기존 expo-linear-gradient57.0.2를 UI에 명시한다. 사진 프레임·다른 구역·API/저장 계약은 유지한다.
+- 상태: 리뷰 중. PR #113 Draft, 머지/배포 없음.
+- [x] 손3종 편집·그라디언트·텍스트 강조
+- [x] 360/390/430px 손3종·당도 상태·타입/화면/양쪽 빌드 검증
+- [x] 문서/PR 갱신·커밋 전 스캔
+
+### PR #113 마이그레이션 팀원 전달 사항 (2026-10-17)
+
+- 사용자 전달: 팀원 DEV-39에서 0008을 main에 머지할 예정이므로, main 반영 뒤 #113의 충돌하는 0007을 0009로 변경하고 `down_revision = "0008"`로 연결해야 한다.
+- 다음 main 동기화 때 실제 DEV-39 머지 상태와 revision 충돌·연결을 대조한다. 이번 전달만으로 main 병합이나 마이그레이션 변경을 실행하지 않는다.
+- 기록 시점 로컬에는 이미 `0007_manager_exception_recovery` → `0008_source_integration` → `0009_source_preprocessing` 연결이 있다. 전달받은 번호만으로 재번호하지 않고 최신 main의 파일 내용과 비교하여 필요한 변경을 결정한다.
+
+- 화면 검증 수정: 104px 안내 폭에서 18cm가 줄바꿈되어120px로 확장했다. 숫자40px를 유지하고 한 줄 높이48px를 회귀 검증한다.
+
+- 검증: typecheck4 workspace·mock12개·디자인 E2E4개 통과. 18cm 줄바꿈 수정 뒤 E2E4개 재통과. 양 앱 웹 export 성공, 저장된11개 값 및 양 앱 상세 원문 일치 확인. 실제 데모 손/당도 화면 headless 캡처·육안 확인.
+- scan-before-commit: 전체 diff·자산/새 프롬프트·호출부·의존성/lock·문서 점검 완료. 무관한 제목 간격 변경은 되돌렸다. 최종 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
