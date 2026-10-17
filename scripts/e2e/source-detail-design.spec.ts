@@ -161,3 +161,71 @@ for (const width of [360, 390, 430]) {
     clean();
   });
 }
+
+test("AC-07-2: generated meter accompanies only real Brix readings", async ({
+  page,
+}) => {
+  const clean = monitor(page);
+  const product = await (
+    await page.request.get(`${apiUrl}/api/products/p-house`)
+  ).json();
+  let reading = {
+    measuredBrix: 13.5 as number | null,
+    measuredBrixAt: "2026-10-16T01:00:00Z" as string | null,
+    expectedBrix: 12 as number | null,
+  };
+  await page.route(`${apiUrl}/api/products/p-house`, (route) =>
+    route.fulfill({ json: { ...product, ...reading } }),
+  );
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 850 });
+    await page.goto(`${consumerUrl}/products/p-house`);
+    const card = page.getByTestId("brix-reading");
+    await expect(
+      card.getByText("당도 실측 13.5Brix", { exact: true }),
+    ).toBeVisible();
+    await expect(card.getByText(/측정$/)).toBeVisible();
+    const image = card.getByTestId("brix-meter-illustration");
+    await expect(image).toBeVisible();
+    await expect
+      .poll(() =>
+        image
+          .locator("img")
+          .evaluate(
+            (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
+          ),
+      )
+      .toBeTruthy();
+    await card.scrollIntoViewIfNeeded();
+    expect(
+      await card.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBeTruthy();
+    await page.screenshot({ path: `.artifacts/brix-meter-${width}.png` });
+  }
+  reading = { measuredBrix: 0, measuredBrixAt: null, expectedBrix: 12 };
+  await page.reload();
+  await expect(
+    page
+      .getByTestId("brix-reading")
+      .getByText("당도 실측 0Brix", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("측정일 미등록", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("brix-meter-illustration")).toBeVisible();
+  reading = { measuredBrix: null, measuredBrixAt: null, expectedBrix: 12 };
+  await page.reload();
+  await expect(
+    page
+      .getByTestId("brix-reading")
+      .getByText("당도 예상 12Brix", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByTestId("brix-meter-illustration")).toHaveCount(0);
+  reading = { measuredBrix: null, measuredBrixAt: null, expectedBrix: null };
+  await page.reload();
+  await expect(
+    page
+      .getByTestId("brix-reading")
+      .getByText("당도 예상 -Brix", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByTestId("brix-meter-illustration")).toHaveCount(0);
+  clean();
+});

@@ -78,3 +78,5 @@ export { useLiveList } from "./useLiveList";
 export { DetailStory, StoryImage } from "./DetailStory";
 
 export { ModuleStory, SOURCE_MODULES } from "./ModuleStory";
+
+export { BrixReading } from "./BrixReading";

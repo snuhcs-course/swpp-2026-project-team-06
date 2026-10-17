@@ -242,3 +242,17 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 로컬 저장 Gemini OCR/source-v4 결과를 재사용한 별도 DB의 실제 앱 화면에서 공정·품질·보관 구획과 아이콘을 확인했다. 다중 맛/보관 문장은 기존 편집기의 생산자 수정으로 원문 그대로 합쳐 저장한 결과이며 자동 병합 기능을 추가하지 않았다.
 - scan-before-commit: 변경 전체·신규 파일·ModuleStory 호출부2곳·자산 출처·lock 변경·범위/공백/비밀값 검토, 최종 이슈 없음. 레거시 호환 후보0건/지적0건/커밋된 구조0건. 서버/OCR/AI CS 변경 없음.
 - 초반 npm 범위 설치는 최신 Expo peer를 선택하려다 충돌했다. 현재 앱과 같은 Expo57 peer 및 기존 expo-asset57.0.19를 명시해 버전 업그레이드 없이 해결했다. 초기 시각 검사는 오래 실행된 CI 모드 Metro가 이전 렌더러를 제공해 실패했고, 서버 재시작 후 통과했다.
+
+## DEV-57 당도계 일러스트 (2026-10-17)
+
+- 사용자 요청: 기존 손 일러스트와 같은 스타일의 ImageGen 당도계 그림을 실제 당도 영역에 표시하고 현재 PR #113에 포함한다. FEAT-07 / AC-07-2, M-11.
+- 범위: `packages/ui/assets/source/brix-meter.png`, `packages/ui/assets/source/brix-meter-prompt.md`, `packages/ui/src/BrixReading.tsx`, `packages/ui/src/index.ts`, `packages/ui/{spec,tasks}.md`, `apps/consumer/src/app/(tabs)/products/[productId].tsx`, `apps/consumer/{spec,tasks}.md`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`, `scripts/e2e/source-detail-design.spec.ts`.
+- 결정: 내장 ImageGen으로 투명 배경/회갈색 윤곽선·세이지·주황 악센트의 휴대용 디지털 당도계1종을 생성한다. 그림의 LCD에는 수치를 넣지 않는다. 실제 수치/측정일은 기존 API값으로 렌더한다. 실측값이 있을 때 그림을 표시하고 미측정일 때 예상값·안내를 유지한다. 0도 유효한 실측값으로 표시하고 날짜 없음을 임의 측정일로 대체하지 않는다.
+- 상태: 리뷰 중. 머지·배포 없음.
+- [x] 생성·투명도/가독성 검토 및 앱 연결
+- [x] 실측/미측정/0/날짜 없음·모바일 표시 검증, 타입·빌드
+- [x] 문서·PR 갱신 및 커밋 전 스캔
+- [ ] 최신 push의 원격 CI 확인 — PR #113에서 추적
+
+- 검증: 내장 ImageGen 원본1254×1254 RGBA/알파0~255 및 무수치 LCD 확인. 타입4 workspace, mock12개, source-detail-design Playwright4개 통과(360/390/430px + 실측13.5/0/미측정/날짜없음/예상값없음). 소비자 API모드 웹 export 성공 및 생성 PNG 해시 포함 확인. API 수치/측정일 수정 없음.
+- 커밋 전 스캔: 전체 diff·신규 컴포넌트/자산/프롬프트·호출부·서명/타입/범위·문서 확인, 이슈 없음. 레거시 호환 후보0/지적0/커밋된 구조0. API/서버 변경이 없어 전체 서버/결제 흐름은 이번 작은 표시 변경에서 재실행하지 않았다.
