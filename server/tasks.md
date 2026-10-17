@@ -810,7 +810,7 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - 10/17 Railway 빌더는 Dockerfile로 고정한다. `uv.lock`으로 `uv sync --frozen --no-dev`, 시작 시 `alembic upgrade head` 후 `uvicorn`을 `$PORT`로 띄우고 헬스 체크는 `/health`.
 - 10/17 Railway가 주는 `postgresql://`·`postgres://` DATABASE_URL을 설정에서 `postgresql+psycopg://`로 바꾼다. 앱과 Alembic이 같은 설정을 읽으므로 한 곳만 고친다.
 - 10/17 시드는 자동 실행하지 않는다. 배포 후 한 번 수동으로 `python -m app.core.seed`(덮어쓰기 없음)를 실행한다.
-- 10/18 Railway·Vercel의 GitHub 연결 대신 GitHub Actions(`deploy.yml`)가 CLI로 배포한다(Hyun 제안). CI가 main push에서 성공한 뒤(`workflow_run`) 바뀐 쪽만 배포하고, 수동 실행은 둘 다 배포한다.
+- 10/18 Railway·Vercel의 GitHub 연결 대신 GitHub Actions(`deploy.yml`)가 CLI로 배포한다(Hyun 제안). CI가 main push에서 성공한 뒤(`workflow_run`) 또는 main에서 수동 실행할 때 서버와 앱을 모두 배포한다. 바뀐 쪽만 고르면 머지가 몰릴 때 대기 실행이 최신 하나로 대체되어 앞 커밋의 서버 변경이 빠질 수 있어서 매번 전체를 올린다(리뷰 반영).
 - 10/18 비밀값이 없으면 해당 배포를 건너뛰고 성공한다. 테스트 1이 Mock 앱으로 진행되는 동안 Vercel 비밀값을 넣지 않으면 앱은 바뀌지 않는다.
 - 10/18 서버 배포가 실패하면 앱 배포를 하지 않는다. 앱 번들에 `API_URL`이 들어갔는지 확인한 뒤 올린다(비면 localhost로 빌드되는 것 방지).
 - 10/18 `railway up --ci`는 빌드 결과까지만 기다린다. 이후 `/health`를 확인하지만 이전 컨테이너도 응답하므로 새 버전 교체 여부는 Railway 대시보드에서 본다.

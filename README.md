@@ -195,10 +195,11 @@ and never call the server.
 
 ### Automatic deploys (GitHub Actions)
 
-`.github/workflows/deploy.yml` runs after CI passes on a push to `main`. It deploys the
-server when `server/` changed and both apps when `apps/`, `packages/` or the root
-package files changed. It can also be run by hand from the Actions tab (deploys all).
-A deploy without its secrets is skipped, not failed.
+`.github/workflows/deploy.yml` runs after CI passes on a push to `main` and deploys the
+server, then both apps, from that commit. It can also be run by hand on `main` from the
+Actions tab. It always deploys everything, because GitHub keeps only the newest pending
+run when merges queue up. A deploy without its secrets is skipped, not failed, and the
+apps are not deployed if the server deploy fails.
 
 | Repository setting | Kind | Value |
 | -- | -- | -- |
