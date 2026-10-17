@@ -101,3 +101,5 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 ## DEV-58 초기 입력 보존
 
 세션 확인이 완료된 뒤에 Tabs를 표시한다. 사용자 식별 전 입력 화면을 열면 userId key 변경으로 화면이 다시 만들어져 초기 문구가 사라질 수 있다. 기존 사용자 변경 시 상태 초기화는 유지한다(AC-03-3, AC-SRC-5).
+
+DEV-58: 가림 승인 전에 이미지/PDF 전체 가림 페이지가 AI 문자인식에 전송됨을 안내한다. OpenRouter Gemini OCR 모드의 기본 문자 인식과 선택적 시각 분석 설정을 구분한다. 저장·상품 적용·공개 계약은 유지한다.

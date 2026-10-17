@@ -648,3 +648,17 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 검증: 집중31개/전체 pytest256개, Ruff, 타입4 workspace, mock12개, 실제 API7개·Chromium22개 통과. 전후 비교 화면6사례×2개 ModuleStory, 390px 가로 넘침0/JS 오류0. 금번 렌더 스크립트의 초기 JS 줄바꿈 오류를 수정한 뒤 최종 검증 통과. 현재 URL http://127.0.0.1:18084/extraction.html.
 - 범위: 기본 OCR은 RapidOCR, 추출 모델은 기존Flash 유지. 채팅/배포/머지 없음. 누락 점검은 평가용 보조 진단이며 생산자용 자동 보완이나 무조건 통과 처리로 연결하지 않는다. DEV-58 품질95% 기준과 실제 농가 인수는 미완료.
 - 커밋 전 scan-before-commit 점검: 회귀/버그/불필요 추가/미커밋 호환 이슈 없음. 모델·예약·평가 호출부와 source-v4 캐시/구버전 차단을 확인했고, 새 누락 진단은 원문/값을 변경하지 않는다. 전후 지연시간은 이전 OCR 포함/이후 추출만이라 속도 비교에 쓰지 않도록 메타데이터에 명시했다. 레거시 호환 점검: 후보2건 — 지적0건 / 커밋된 구조2건(Lite:388d956, Flash:cbe1d6f). 구버전 source-v3는4047e06에 실재하며 새 작업은 이를 수용하지 않고 재분석을 요구한다.
+
+## DEV-58 사용자 채택 Gemini OCR 제품 통합 (2026-10-17)
+
+- 사용자 결정: 동일 저장 Gemini OCR6건 + source-v4 추출의 P/R85.71% 버전을 채택해 PR #113 수정. 과거95% 목표를 이번 채택의 강제 머지 조건으로 유지하지 않는다. 독립 성능/농가 인수 완료로 주장하지 않는다.
+- 범위: server/app/ai/{source_analysis.py,source_ocr.py}, server/app/source_analysis/{worker.py,budget.py,service.py,spec.md}, server/tests/test_source*.py, server/tasks.md, apps/producer/src/lib/SourceWorkspace.tsx, apps/producer/{spec.md,tasks.md}, docs/spec/source-integration.md, docs/wiki/Source-Analysis.md, docs/spec/validation/source-gemini-production-2026-10-17.json, PR #113/Linear DEV-58.
+- 결정: OpenRouter 이미지/PDF는 가림 승인 후 Gemini Flash OCR(2048 tokens/minimal)→기존 source-v4 추출 문구로 처리. 로컬 RapidOCR은 가림 좌표용으로 유지. 원본 사진은 분석 제외, 텍스트/mock/OpenAI 경로 유지. OCR용 가림 JPEG85만 전송, 긴 자료는 제한된 비중첩 조각. OCR/추출 각각 독립 비용 예약·정산, 불확실한 전송 자동 재시도 금지. OCR spans는 해당 Item.pages에 비공개 보존하여 페이지 원본 좌표를 덮어쓰지 않는다. 신규 pipeline version으로 이전 성공결과 재사용 차단. 이전 수치와 새 제품 경로 회귀 검증은 구분.
+- DB 스키마 변경 없이 기존 작업 JSON 활용. main 충돌 해결·마이그레이션 재번호·머지는 이번 OCR 구현과 분리하며 PR 최신 상태에 명시.
+- [x] OCR 어댑터/제품 worker/사용자 안내 연결
+- [x] 가림·예산·취소·실패·근거·장문/텍스트 회귀 검증
+- [ ] 명세/평가 한계/PR/Linear 갱신 및 커밋 전 스캔
+
+- 검증: 전체 pytest267개, mock12개, 타입4 workspace, Ruff 통과. 실제 팀 OpenRouter로 긴 이미지 OCR6회+추출1회28.364초/$0.011443, 가림 준비3.578초. 실제 UI 업로드→가림→검토/설정→비공개 저장→명시적 적용→공개 본문 일치 확인. 기존 승인 상품 수정이며 사용자 직접 인수는 대기. 자동 테스트가 저장 후 열린 미리보기를 다시 눌러 닫은 뒤 같은 초안에서 재개했으며 유료 호출은 반복하지 않았다. 원문/영상/키는 ignored artifacts에만 보관한다.
+
+- 커밋 전 scan-before-commit: 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보1건 — 지적0건 / 커밋된 구조1건 (Item.pages number/spanIds:388d956). 예약 함수 전체 호출부와 신규 어댑터/테스트 포함 확인. PR/Linear 기록은 UI 추가 요청 반영 후 함께 갱신한다.

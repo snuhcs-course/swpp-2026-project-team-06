@@ -307,3 +307,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] 타입/전체 브라우저 회귀 및 커밋 스캔
 
 - 검증: 4 workspace 타입 검사, 실제 API7개 및 Chromium22개 통과. 세션 응답을 명시적으로 지연시켜 입력창이 준비 후에만 열리는 것을 확인했다. 초기 실패 기록은 .artifacts/main-sync-failure에 보존했다. 추가 커밋 스캔 이슈 없음, 레거시 호환 후보0건.
+
+## DEV-58 Gemini OCR 제품 연결 안내 (2026-10-17)
+- 사용자 채택 버전을 실제 경로에 연결. 범위: src/lib/SourceWorkspace.tsx, spec.md, tasks.md.
+- 이미지/PDF는 가림 승인 후 문자인식에 전송됨을 알리고 기존 선택적 추가 시각 분석 안내와 구분한다. API 계약은 유지한다.
+
+- [x] 전송 안내 반영, 타입4 workspace/mock12개 및 실제 제공자 UI 전체 흐름 검증. 사용자 직접 인수는 대기.

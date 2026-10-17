@@ -13,6 +13,7 @@ from sqlalchemy import delete, select
 
 from app.accounts import models as _account_models  # noqa: F401
 from app.ai.source_analysis import PROMPT_VERSION, ExtractionError, extract
+from app.ai.source_ocr import OCR_MAX_TOKENS, OCR_MODEL, OCR_PROMPT, crops, transcribe
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.farms import models as _farm_models  # noqa: F401
@@ -199,11 +200,14 @@ def enqueue_extraction(db, source, run, item, pages):
             group.append(span["id"])
             size += length
         groups.append(group)
+        if run.mode == "openrouter" and page.sanitized_key:
+            groups = [[s["id"] for s in spans]]
         for group in groups:
             requested = [{"number": page.number, "spanIds": group}]
             if any(
                 old.status == "SUCCEEDED"
-                and old.pages == requested
+                and [{"number": p["number"], "spanIds": p["spanIds"]} for p in old.pages]
+                == requested
                 and old.target_ids == item.target_ids
                 for old in previous
             ):
@@ -291,6 +295,95 @@ def validate(extraction, chunk, allowed_targets):
     return extraction
 
 
+def paid_vision_call(item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None):
+    """Fence every individual request, reserve before sending, settle even after cancellation."""
+    from app.source_analysis.budget import reserve, settle
+
+    with get_sessionmaker()() as db:
+        context = lock_context(db, item_id, token)
+        if not context:
+            raise ExtractionError("SOURCE_CHANGED")
+        _, source, run, item = context
+        if not source.privacy_approved or source.sanitization_version != item.sanitization_version:
+            raise ExtractionError("PRIVACY_CHANGED")
+        reservation = reserve(
+            db,
+            item,
+            run.mode,
+            model,
+            chunk,
+            targets,
+            images,
+            stage=stage,
+            output_tokens=output_tokens,
+        )
+        item.sent = True
+        db.commit()
+    try:
+        response = fn()
+    except ExtractionError as exc:
+        with get_sessionmaker()() as db:
+            settle(db, reservation, exc.usage)
+            db.commit()
+        # Earlier OCR tiles may have completed; replaying the job is never automatic.
+        exc.retry_after = None
+        raise
+    with get_sessionmaker()() as db:
+        settle(db, reservation, response.usage)
+        db.commit()
+    return response
+
+
+def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
+    for page in chunk["pages"]:
+        image = page_images.get(page["number"])
+        if image is None:
+            raise PreparationError("PAGE_IMAGE_MISSING")
+        spans = []
+        for index, encoded in enumerate(crops(image)):
+            result = paid_vision_call(
+                item_id,
+                token,
+                f"ocr-{page['number']}-{index}",
+                OCR_MODEL,
+                {"prompt": OCR_PROMPT},
+                [],
+                [encoded],
+                lambda encoded=encoded: transcribe(encoded),
+                OCR_MAX_TOKENS,
+            )
+            for line in result.lines:
+                text = scrub(line).strip()
+                if text and "[판독불가]" not in text and "[가림]" not in text:
+                    spans.append({"id": f"vision-gemini-{len(spans)}", "text": text})
+            if sum(len(s["text"]) for s in spans) > 20_000:
+                raise ExtractionError("OCR_TEXT_LIMIT")
+        if not spans:
+            raise ExtractionError("OCR_UNCERTAIN")
+        page["spans"] = spans
+    # Preserve the exact OCR evidence with this private job, never replace privacy-review geometry.
+    with get_sessionmaker()() as db:
+        context = lock_context(db, item_id, token)
+        if not context:
+            raise ExtractionError("SOURCE_CHANGED")
+        _, source, _, item = context
+        if not source.privacy_approved or source.sanitization_version != item.sanitization_version:
+            raise ExtractionError("PRIVACY_CHANGED")
+        by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
+        item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
+        db.commit()
+    return paid_vision_call(
+        item_id,
+        token,
+        "extract",
+        model,
+        chunk,
+        targets,
+        [],
+        lambda: extract(mode, model, chunk, targets, []),
+    )
+
+
 def process(item_id, token):
     store = Storage()
     reservation_id = None
@@ -323,7 +416,8 @@ def process(item_id, token):
                 refresh_runs(db, batch.id)
                 db.commit()
                 return
-            images, payload = [], []
+            images, payload, page_images = [], [], {}
+            use_vision_ocr = run.mode == "openrouter" and source.mime != "text/plain"
             for requested in item.pages:
                 page = db.scalar(
                     select(Page).where(
@@ -342,7 +436,9 @@ def process(item_id, token):
                         ],
                     }
                 )
-                if page.sanitized_key and page.number in run.visual_pages.get(source.id, []):
+                if use_vision_ocr and page.sanitized_key:
+                    page_images[page.number] = store.get(page.sanitized_key)
+                elif page.sanitized_key and page.number in run.visual_pages.get(source.id, []):
                     images.append(base64.b64encode(store.get(page.sanitized_key)).decode())
             if sum(map(len, images)) > 8 * 1024 * 1024:
                 raise PreparationError("CHUNK_IMAGE_LIMIT")
@@ -357,11 +453,11 @@ def process(item_id, token):
             # Names may contain personal data; only approved source contents are needed.
             selected_targets = [{"id": t["id"]} for t in selected_targets]
             mode, model = run.mode, run.model
-            if mode != "mock":
+            if mode != "mock" and not use_vision_ocr:
                 from app.source_analysis.budget import reserve
 
                 reservation_id = reserve(db, item, mode, model, chunk, selected_targets, images)
-            item.sent = mode != "mock"
+            item.sent = mode != "mock" and not use_vision_ocr
         db.commit()
     started = time.monotonic()
     if phase == "PREPARE":
@@ -411,7 +507,11 @@ def process(item_id, token):
             db.commit()
     else:
         try:
-            response = extract(mode, model, chunk, selected_targets, images)
+            response = (
+                vision_extraction(item_id, token, chunk, selected_targets, mode, model, page_images)
+                if use_vision_ocr
+                else extract(mode, model, chunk, selected_targets, images)
+            )
         except ExtractionError as exc:
             from app.source_analysis.budget import settle
 

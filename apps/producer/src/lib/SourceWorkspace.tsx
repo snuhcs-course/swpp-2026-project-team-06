@@ -365,7 +365,8 @@ function PrivacyEditor({
       />
       <T variant="caption">
         모든 페이지의 가림 결과를 확인한 후 승인해 주세요. 승인하면 대기 중인
-        분석에 가림 처리된 자료가 전송돼요.
+        분석에 가림 처리된 자료가 전송돼요. 이미지·PDF의 모든 쪽은
+        문자인식을 위해 가림 이미지가 AI에 전달돼요.
       </T>
       <Button
         label={
@@ -1063,8 +1064,10 @@ export function SourceWorkspace() {
                           s.mime !== "text/plain" ? (
                             <View style={{ gap: 8 }}>
                               <T>
-                                시각 분석이 필요한 쪽만 선택해 주세요. 선택하지
-                                않으면 읽어낸 글자만 분석해요.
+                                이미지·PDF는 가림 승인 후 문자인식을 위해 AI에
+                                전송돼요. 추가 시각 분석이 필요한 쪽을 선택할 수
+                                있으며, Gemini 문자인식 모드에서는 모든 쪽의
+                                가림 이미지를 읽고 글자만 분석해요.
                               </T>
                               {Array.from({ length: s.pageCount }, (_, i) => (
                                 <Choice

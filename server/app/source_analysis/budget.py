@@ -10,7 +10,7 @@ from app.core.config import SOURCE_OPENROUTER_PRICES, get_settings
 from app.source_analysis.models import Spend
 
 
-def reserve(db, item, mode, model, chunk, targets, images):
+def reserve(db, item, mode, model, chunk, targets, images, *, stage=None, output_tokens=None):
     cfg = get_settings()
     # UTF-8 bytes upper-bound text tokens; encoded image bytes deliberately over-reserve.
     input_bound = (
@@ -29,7 +29,9 @@ def reserve(db, item, mode, model, chunk, targets, images):
         input_rate, output_rate = SOURCE_OPENROUTER_PRICES[model]
     else:
         input_rate, output_rate = (2, 10)
-    amount = math.ceil(input_bound * input_rate + cfg.source_max_output_tokens * output_rate)
+    amount = math.ceil(
+        input_bound * input_rate + (output_tokens or cfg.source_max_output_tokens) * output_rate
+    )
     db.execute(text("SELECT pg_advisory_xact_lock(563158)"))
     used = func.coalesce(Spend.charged_micros, Spend.reserved_micros)
     total = db.scalar(select(func.coalesce(func.sum(used), 0)))
@@ -42,6 +44,8 @@ def reserve(db, item, mode, model, chunk, targets, images):
     ):
         raise ExtractionError("BUDGET_EXCEEDED")
     reservation_id = f"{item.id}:{item.attempt}"
+    if stage:
+        reservation_id += f":{stage}"
     db.add(Spend(id=reservation_id, reserved_micros=amount, evaluation=cfg.source_evaluation))
     db.flush()
     return reservation_id
