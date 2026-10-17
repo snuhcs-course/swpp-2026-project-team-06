@@ -19,7 +19,7 @@ export function BrixReading({
       style={{
         paddingHorizontal: 20,
         paddingTop: 40,
-        flexDirection: "row",
+        flexDirection: hasMeasurement ? "column" : "row",
         alignItems: "center",
         gap: 16,
       }}
@@ -31,18 +31,18 @@ export function BrixReading({
           resizeMode="contain"
           accessible={false}
           aria-hidden
-          style={{ width: 88, height: 104 }}
+          style={{ width: 280, height: 280, maxWidth: "100%" }}
         />
       ) : (
         <Icon name="drop" />
       )}
-      <View style={{ flex: 1, gap: 4 }}>
-        <T variant="body" weight="semibold">
+      <View style={{ flex: hasMeasurement ? undefined : 1, gap: 4 }}>
+        <T variant="body" weight="semibold" center={hasMeasurement}>
           {hasMeasurement
             ? `당도 실측 ${measured}Brix`
             : `당도 예상 ${expected ?? "-"}Brix`}
         </T>
-        <T variant="sub" muted>
+        <T variant="sub" muted center={hasMeasurement}>
           {hasMeasurement
             ? measuredAt
               ? `${md(measuredAt)} 측정`

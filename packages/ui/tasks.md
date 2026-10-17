@@ -249,6 +249,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 범위: `packages/ui/assets/source/brix-meter.png`, `packages/ui/assets/source/brix-meter-prompt.md`, `packages/ui/src/BrixReading.tsx`, `packages/ui/src/index.ts`, `packages/ui/{spec,tasks}.md`, `apps/consumer/src/app/(tabs)/products/[productId].tsx`, `apps/consumer/{spec,tasks}.md`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`, `scripts/e2e/source-detail-design.spec.ts`.
 - 결정: 내장 ImageGen으로 기존 귤·맛·냉장고·선별 아이콘4종을 직접 참조해, 채워진 종이 질감과 크림·세이지·주황 색감의 평면 디지털 당도계1종을 생성한다. 손의 윤곽선만 참조했던 초기안은 사용자 피드백에 따라 교체한다. 원근·옆면·음영은 넣지 않는다. 그림의 LCD에는 수치를 넣지 않는다. 실제 수치/측정일은 기존 API값으로 렌더한다. 실측값이 있을 때 그림을 표시하고 미측정일 때 예상값·안내를 유지한다. 0도 유효한 실측값으로 표시하고 날짜 없음을 임의 측정일로 대체하지 않는다.
 - 상태: 리뷰 중. 머지·배포 없음.
+- 최종 배치·형태 결정: 사용자가 다시 지정한 윤곽 당도계의 외형·측정부·액정·버튼1개 위치를 보존하고 기존 귤/냉장고/선별 아이콘의 채색 종이 질감을 적용했다. 사용자가 최종 이미지를 확인했다. 실측일 때 그림을 최대280px 정사각 영역 중앙에 놓고 값·날짜를 아래 중앙 정렬한다. 미측정 안내는 기존 작은 행 배치를 유지한다.
+- 상세 통합 후속 범위: `packages/ui/src/ModuleStory.tsx`의 설명 없는 공정 장식3종 행을 제거한다. 섹션 제목 아이콘과 원문 내용은 유지한다.
 - [x] 생성·투명도/가독성 검토 및 앱 연결
 - [x] 실측/미측정/0/날짜 없음·모바일 표시 검증, 타입·빌드
 - [x] 문서·PR 갱신 및 커밋 전 스캔
@@ -257,3 +259,5 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: 내장 ImageGen 원본1254×1254 RGBA/알파0~255 및 무수치 LCD 확인. 타입4 workspace, mock12개, source-detail-design Playwright4개 통과(360/390/430px + 실측13.5/0/미측정/날짜없음/예상값없음). 소비자 API모드 웹 export 성공 및 생성 PNG 해시 포함 확인. API 수치/측정일 수정 없음.
 - 커밋 전 스캔: 전체 diff·신규 컴포넌트/자산/프롬프트·호출부·서명/타입/범위·문서 확인, 이슈 없음. 레거시 호환 후보0/지적0/커밋된 구조0. API/서버 변경이 없어 전체 서버/결제 흐름은 이번 작은 표시 변경에서 재실행하지 않았다.
 - 스타일 수정 검증: 기존 아이콘4종을 직접 참조한 평면 PNG로 교체 후 Playwright 당도 표시1개 통과(360/390/430px 및 실측/0/미측정), 소비자 웹 export 성공. 실제 로컬 상품11.8Brix 표시와 냉장고 아이콘의 색·질감을 화면에서 함께 확인했다. 이미지·프롬프트·spec/tasks만 변경했으며 재스캔 이슈 없음, 레거시 호환 후보0/지적0/커밋된 구조0.
+
+- 최종 검증: 사용자 확정 당도계 형태/채색 및 중앙280×280 배치, 공정 장식 행 제거 후 typecheck4 workspace·Playwright4개·소비자 웹 export 통과. 원본 이미지 높이가 웹 레이아웃에 반영되는 문제를 명시적 표시 높이로 수정하고 360/390/430px 크기/중앙/값의 세로 배치를 검증했다. 커밋 전 스캔 최종 이슈 없음. 레거시 호환 후보0/지적0/커밋된 구조0.

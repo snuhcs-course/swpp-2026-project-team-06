@@ -83,11 +83,6 @@ const groups = [
   },
   { id: "updates", title: "농가 소식", modules: ["farmUpdates"], icon: null },
 ];
-const processIcons: ImageSourcePropType[] = [
-  require("../assets/source/icons/harvest.png"),
-  require("../assets/source/icons/select.png"),
-  require("../assets/source/icons/send.png"),
-];
 const bodyStyle: TextStyle = { fontSize: 17, lineHeight: 28, color: "#242424" };
 const hasContent = (module: Module) =>
   module.texts.some((text) => text.value.trim()) ||
@@ -182,33 +177,6 @@ function ModuleBody({
       ))}
       {module.illustrationId && illustrations[module.illustrationId] ? (
         <Illustration id={module.illustrationId} />
-      ) : null}
-      {module.id === "productionProcess" &&
-      module.texts.some((text) => text.value.trim()) ? (
-        <View
-          testID="source-process-decoration"
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          aria-hidden
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-around",
-            borderTopWidth: 1,
-            borderColor: "#dedbd5",
-            paddingTop: 24,
-            marginTop: 8,
-          }}
-        >
-          {processIcons.map((icon, i) => (
-            <Image
-              key={i}
-              source={icon}
-              accessible={false}
-              resizeMode="contain"
-              style={{ width: 64, height: 64 }}
-            />
-          ))}
-        </View>
       ) : null}
     </View>
   );

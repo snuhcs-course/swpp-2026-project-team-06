@@ -187,6 +187,16 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
     await expect(card.getByText(/측정$/)).toBeVisible();
     const image = card.getByTestId("brix-meter-illustration");
     await expect(image).toBeVisible();
+    const imageBox = await image.boundingBox();
+    const readingBox = await card
+      .getByText("당도 실측 13.5Brix", { exact: true })
+      .boundingBox();
+    expect(imageBox).not.toBeNull();
+    expect(readingBox).not.toBeNull();
+    expect(imageBox!.height).toBeLessThanOrEqual(280);
+    expect(imageBox!.width).toBeGreaterThanOrEqual(240);
+    expect(Math.abs(imageBox!.x + imageBox!.width / 2 - width / 2)).toBeLessThan(2);
+    expect(readingBox!.y).toBeGreaterThanOrEqual(imageBox!.y + imageBox!.height);
     await expect
       .poll(() =>
         image

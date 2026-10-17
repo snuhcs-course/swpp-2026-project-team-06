@@ -1,19 +1,18 @@
 # 당도계 설명용 일러스트
 
-2026-10-17 내장 `image_gen`으로 생성했다. 사용자 피드백에 따라 손 윤곽선 중심의 초기안을 교체했다. 아래 기존 자산4개를 실제 이미지 참조 입력으로 전달해 채워진 과슈·종이 질감, 크림·세이지·귤색을 맞추고 원근 없는 평면으로 생성했다.
+2026-10-17 내장 `image_gen`으로 생성하고 사용자가 최종안을 확인했다. 사용자가 지정한 당도계 윤곽 이미지의 형태·측정부·액정·버튼1개 위치를 보존하고 기존 귤·냉장고·선별 아이콘의 채색 종이 질감을 입혔다.
 
-- `docs/design/sales-templates/assets/icons/fruit.png`
-- `packages/ui/assets/source/headings/taste.png`
-- `packages/ui/assets/source/headings/storage.png`
-- `packages/ui/assets/source/icons/select.png`
+참조 입력:
+- 형태/편집 대상: 사용자 지정 생성 이미지 `exec-3d996999-bcba-4148-9e13-21c4c17b9c9a.png`
+- 스타일: `docs/design/sales-templates/assets/icons/fruit.png`
+- 스타일: `packages/ui/assets/source/headings/storage.png`
+- 스타일: `packages/ui/assets/source/icons/select.png`
 
-생성 PNG를 재가공 없이 복사하고 투명 알파를 보존했다. 실제 기기 사진/측정 증빙이 아닌 설명용 장식이며 LCD에는 수치를 넣지 않았다. 실측값이 있을 때만 표시하고 숫자·측정일은 API 값으로 따로 렌더한다.
+생성 PNG를 재가공 없이 복사하고 투명 알파를 보존했다. 실제 기기 사진/측정 증빙이 아닌 설명용 장식이며 LCD에는 수치를 넣지 않았다. 실측값이 있을 때만 중앙에 크게 표시하고 숫자·측정일은 API 값으로 아래에 따로 렌더한다.
 
 ## 최종 프롬프트
 
-Use case: stylized-concept.
-Create ONE small raster UI illustration of a digital fruit Brix refractometer to belong to the EXACT SAME ICON SET as the four supplied images.
-References are STYLE references only: Image 1 whole tangerine, image 2 taste tangerines, image 3 cream refrigerator, image 4 magnifying glass. Match their MATTE GOUACHE / HANDMADE CUT-PAPER style, softly irregular filled silhouettes, visible fine paper grain, restrained orange #ee953f, sage #81876b, cream #e7dcc5 and tiny charcoal details. In particular use the refrigerator's flat filled cream body and sage details. These are filled colored paper shapes, NOT thin outline drawings.
-Subject: one compact digital refractometer facing the viewer as a FLAT ORTHOGRAPHIC PLAN of its broad face. Upright rounded rectangular cream filled body, simple perfectly circular sage sample pad near the top with a tiny charcoal center, blank small sage LCD rectangle below, one orange circular button near the bottom. All shapes lie in ONE flat plane, no visible side or top planes, no foreshortening, no recessed 3D bowl, no dimensional edges. Same simple chunky friendly shapes and minimal details as the references, legible at 88px.
-Do not copy any fruit, leaf, fridge or magnifying glass into the result. Only the meter. No thin contour outlines, no glossy plastic, no lighting gradients, no shadows, no photorealism, no perspective. No numbers, text, labels, logos, badges, or invented readings; leave the screen blank.
-Centered, whole object visible, occupies 80% canvas height, square canvas. True TRANSPARENT BACKGROUND with preserved alpha, body itself filled cream textured paper.
+Use case: style-transfer.
+EDIT IMAGE 1. The user explicitly chose THIS EXACT METER SHAPE. Preserve its outer silhouette, proportions, symmetric waist, round upper sample stage and all its internal contours, rectangular LCD position and size, and SINGLE orange circular button position and size. Do not redesign the instrument. Do not add a second button or substitute a different device. Retain image 1's exact composition and orientation.
+Images 2–4 are STYLE AND COLOR references only: existing tangerine, refrigerator and inspection icons. Apply their filled matte gouache / handmade cut-paper appearance, fine paper grain, warm cream body, restrained sage details and warm orange button to the exact geometry in image 1. Fill the currently transparent instrument interior with warm cream textured paper. Fill the sample area with flat nested muted cream/sage/gray paper shapes that follow the existing contours. LCD should be pale sage and completely blank. Preserve the existing body seams as subtle boundaries between paper shapes, not heavy dark outlines. The result should look like a colored paper illustration belonging to the same family as images 2–4, while anyone comparing it to image 1 sees the SAME instrument shape and all the same parts in the same locations.
+Use flat colors and paper texture, no directional lighting, glossy reflections, photographic material, added shadows or added perspective. Do not simplify away the recognizable sample well, body seams, screen bezel or waisted silhouette. No text, numbers, logo, labels, readings, fruit, leaves or hands. Keep true transparent background and full object uncropped with the original margin.
