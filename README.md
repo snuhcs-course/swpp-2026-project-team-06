@@ -187,15 +187,19 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 The project `farmclub` (service `farmclub-api`, domain
 `https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
 
-### Automatic deploys (DEV-65)
+### Automatic deploys (DEV-65, DEV-66)
 
 The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App
 cannot be connected without an organization admin. Instead,
-`.github/workflows/deploy-railway.yml` deploys from GitHub Actions: on every push to
-`main` that touches `server/**` it runs
+`.github/workflows/deploy-railway.yml` deploys from GitHub Actions. It waits for the
+**CI** workflow on `main` and runs only when CI succeeded, so a commit that fails tests
+is never deployed. It checks out the exact commit CI tested, and if that commit touches
+`server/**` (or the deploy workflow itself) it runs
 `railway up ./server --path-as-root --service farmclub-api --environment production --ci`
-and then polls `/health` until it answers. The workflow can also be started by hand from
-the Actions tab (**Run workflow**), for example after a variable change.
+and then polls `/health` until it answers; otherwise it skips the deploy and passes.
+Changes are read from that single commit, which matches the squash-merge rule. The
+workflow can also be started by hand from the Actions tab (**Run workflow**), for example
+after a variable change; a manual run always deploys the current `main`.
 
 One-time setup (a human does this; never paste the token into the repo, an issue or a PR):
 
