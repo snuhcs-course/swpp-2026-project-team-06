@@ -313,3 +313,12 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이미지/PDF는 가림 승인 후 문자인식에 전송됨을 알리고 기존 선택적 추가 시각 분석 안내와 구분한다. API 계약은 유지한다.
 
 - [x] 전송 안내 반영, 타입4 workspace/mock12개 및 실제 제공자 UI 전체 흐름 검증. 사용자 직접 인수는 대기.
+
+## DEV-58 자료 작업 화면 정리 (2026-10-17)
+- 사용자 요청: 분석 상태를 눈에 띄게 표시하고 업로드 사진/파일 썸네일, 기존 생산자 규격의 컴팩트한 화면으로 정리.
+- 범위: apps/producer/src/lib/SourceWorkspace.tsx, apps/producer/{spec.md,tasks.md}, scripts/e2e/{source-workspace-ui,source-analysis}.spec.ts, docs/spec/source-integration.md, docs/wiki/Source-Analysis.md.
+- 결정: 공용 토큰(20px 좌우/16px 카드/64px 썸네일/48px 터치)을 사용. 진행 상태는 탭 위에서 표시하고 개인정보 승인 대기는 구분한다. 이미지 업로드 직후 로컬 미리보기, 준비 후 권한 보호된 가림 페이지 썸네일. PDF는 준비 후 첫 쪽, TXT는 파일 타일. 연결/삭제·추가 시각 설정은 펼쳐보기로 보존한다. 키/원문을 공개 저장하지 않는다.
+- [x] 상태·썸네일·컴팩트 UI 반영 및 브라우저 확인
+
+- 검증: 타입4 workspace/mock12개 통과. 격리 mock API·DB의 source-analysis/source-workspace-ui Playwright6개 통과(360/390/430px 업로드·편집·저장·공개, 진행 상태 전환, 준비 전/후 썸네일, 가로 넘침/콘솔 오류 없음). 최초 격리 환경은 테이블 미생성과 별도 포트 CORS 누락으로 실행 실패해 환경을 수정한 뒤 최종6개 통과. 실제 데모 DB와 유료 호출은 변경하지 않았다.
+- scan-before-commit: 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. object URL 해제·가림 이미지 전환·기존 조작 경로 및 신규 테스트 전체 확인.

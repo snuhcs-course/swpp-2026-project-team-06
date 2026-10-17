@@ -20,6 +20,7 @@ import {
 import {
   Button,
   HeaderBar,
+  Icon,
   ModuleStory,
   Screen,
   Scroll,
@@ -31,7 +32,13 @@ import {
 } from "@farmclub/ui";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  TextInput,
+  View,
+} from "react-native";
 import { useHideTabBar } from "./session";
 const inputStyle = {
   borderWidth: 1,
@@ -50,6 +57,88 @@ const panel = {
   borderColor: tokens.color.border,
   borderRadius: 16,
 };
+function SourceThumbnail({
+  bid,
+  source,
+  localUri,
+}: {
+  bid: string;
+  source: SourceAsset;
+  localUri?: string;
+}) {
+  const [uri, setUri] = useState("");
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true,
+      objectUrl = "";
+    setUri("");
+    setFailed(false);
+    if (source.pageCount && source.mime !== "text/plain") {
+      void sourcePageImage(bid, source.id, 1)
+        .then((url) => {
+          objectUrl = url;
+          if (alive) setUri(url);
+          else URL.revokeObjectURL(url);
+        })
+        .catch(() => {
+          if (alive) setFailed(true);
+        });
+    }
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [
+    bid,
+    source.id,
+    source.revision,
+    source.sanitizationVersion,
+    source.pageCount,
+  ]);
+  const preview = uri || (!source.pageCount ? localUri : undefined);
+  const kind =
+    source.mime === "application/pdf"
+      ? "PDF"
+      : source.mime === "text/plain"
+        ? "TXT"
+        : "사진";
+  return (
+    <View
+      testID={`source-thumbnail-${source.id}`}
+      style={{
+        width: tokens.thumb.summary,
+        height: tokens.thumb.summary,
+        borderRadius: tokens.radius.sm,
+        overflow: "hidden",
+        backgroundColor: tokens.color.surface,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 2,
+      }}
+    >
+      {preview && !failed ? (
+        <Image
+          accessibilityLabel={`${source.filename} 미리보기`}
+          source={{ uri: preview }}
+          resizeMode="cover"
+          onError={() => setFailed(true)}
+          style={{ width: 64, height: 64 }}
+        />
+      ) : (
+        <>
+          <Icon
+            name={kind === "사진" ? "photo" : "news"}
+            size={24}
+            color={tokens.color.textMuted}
+          />
+          <T variant="caption" muted>
+            {kind}
+          </T>
+        </>
+      )}
+    </View>
+  );
+}
 const ACTIVE = ["QUEUED", "PREPARING", "ANALYZING", "PRIVACY_REVIEW"];
 const states: Record<string, string> = {
   QUEUED: "대기",
@@ -102,7 +191,7 @@ function Choice({
         minHeight: 48,
         padding: 10,
         borderRadius: 10,
-        backgroundColor: selected ? "#E8F2E4" : "#F5F5F2",
+        backgroundColor: selected ? "#FFF3EB" : tokens.color.surface,
         justifyContent: "center",
       }}
     >
@@ -365,8 +454,8 @@ function PrivacyEditor({
       />
       <T variant="caption">
         모든 페이지의 가림 결과를 확인한 후 승인해 주세요. 승인하면 대기 중인
-        분석에 가림 처리된 자료가 전송돼요. 이미지·PDF의 모든 쪽은
-        문자인식을 위해 가림 이미지가 AI에 전달돼요.
+        분석에 가림 처리된 자료가 전송돼요. 이미지·PDF의 모든 쪽은 문자인식을
+        위해 가림 이미지가 AI에 전달돼요.
       </T>
       <Button
         label={
@@ -663,6 +752,22 @@ export function SourceWorkspace() {
     version: number;
     name: string;
   } | null>(null);
+  const [showText, setShowText] = useState(false);
+  const [uploadOptions, setUploadOptions] = useState(false);
+  const [sourceOptions, setSourceOptions] = useState<string | null>(null);
+  const [localPreviews, setLocalPreviews] = useState<Record<string, string>>(
+    {},
+  );
+  const previewUrls = useRef(new Map<string, string>());
+  useEffect(
+    () => () => {
+      for (const url of previewUrls.current.values()) URL.revokeObjectURL(url);
+      previewUrls.current.clear();
+    },
+    [batchId],
+  );
+  const activeRun = runs.find((r) => ACTIVE.includes(r.status));
+  const working = !!activeRun && activeRun.status !== "PRIVACY_REVIEW";
   const [privacyDirty, setPrivacyDirty] = useState(false);
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
   const allowLeave = useRef(false);
@@ -797,7 +902,7 @@ export function SourceWorkspace() {
   const upload = async (input: File | string) => {
     if (!batch) return;
     const b = await api.get(batch.id);
-    await uploadSource(
+    const uploaded = await uploadSource(
       b.id,
       b.version,
       common ? [] : uploadTargets,
@@ -805,12 +910,23 @@ export function SourceWorkspace() {
       original,
       input,
     );
+    if (
+      typeof input !== "string" &&
+      input.type.startsWith("image/") &&
+      alive.current
+    ) {
+      const old = previewUrls.current.get(uploaded.id);
+      if (old) URL.revokeObjectURL(old);
+      const url = URL.createObjectURL(input);
+      previewUrls.current.set(uploaded.id, url);
+      setLocalPreviews((previous) => ({ ...previous, [uploaded.id]: url }));
+    }
   };
   return (
     <Screen>
       <HeaderBar title="자료로 상세 만들기" onBack={() => router.back()} />
       <Scroll>
-        <View style={{ padding: 20, gap: 18 }}>
+        <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           {error ? (
             <View accessibilityRole="alert" style={panel}>
               <T>{error}</T>
@@ -834,7 +950,7 @@ export function SourceWorkspace() {
             </T>
           ) : !batchId ? (
             <>
-              <T variant="title">상세를 만들 상품 선택 (최대 10개)</T>
+              <T variant="heading">상세를 만들 상품 선택 (최대 10개)</T>
               {products.map((p) => (
                 <Choice
                   key={p.productId}
@@ -883,7 +999,7 @@ export function SourceWorkspace() {
                   })
                 }
               />
-              <T variant="title">이전 작업 이어하기</T>
+              <T variant="heading">이전 작업 이어하기</T>
               {batches.map((b) => (
                 <Button
                   key={b.id}
@@ -897,14 +1013,61 @@ export function SourceWorkspace() {
             <T>작업 불러오는 중…</T>
           ) : (
             <>
-              <T>{batch.targets.map((t) => t.name).join(" · ")}</T>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              <T variant="sub" muted numberOfLines={2}>
+                {batch.targets.map((t) => t.name).join(" · ")}
+              </T>
+              {activeRun ? (
+                <View
+                  testID="source-analysis-status"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    ...panel,
+                    backgroundColor: tokens.color.surface,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  {working ? (
+                    <ActivityIndicator color={tokens.color.accent} />
+                  ) : (
+                    <Icon name="lock" color={tokens.color.accent} />
+                  )}
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <T weight="semibold">
+                      {working
+                        ? "분석 중이에요"
+                        : "개인정보 가림을 확인해 주세요"}
+                    </T>
+                    <T variant="caption" muted>
+                      {activeRun.status === "PREPARING"
+                        ? "자료를 읽고 가림 영역을 준비하고 있어요."
+                        : activeRun.status === "PRIVACY_REVIEW"
+                          ? "아래 자료의 가림 결과를 승인하면 분석을 이어가요."
+                          : "자료에서 상품 정보를 찾고 있어요. 잠시만 기다려 주세요."}
+                    </T>
+                  </View>
+                </View>
+              ) : null}
+              <View
+                style={{
+                  flexDirection: "row",
+                  padding: 4,
+                  backgroundColor: tokens.color.surface,
+                  borderRadius: tokens.radius.md,
+                }}
+              >
                 {["자료", "근거 검토", "상세 편집"].map((t) => (
                   <Button
                     key={t}
                     label={t}
                     disabled={!!editing || privacyDirty || busy}
-                    variant={tab === t ? "secondary" : "outline"}
+                    variant="text"
+                    style={{
+                      flex: 1,
+                      alignSelf: "stretch",
+                      backgroundColor: tab === t ? "white" : "transparent",
+                      borderRadius: 12,
+                    }}
                     onPress={() => setTab(t)}
                   />
                 ))}
@@ -912,34 +1075,57 @@ export function SourceWorkspace() {
               {tab === "자료" ? (
                 <>
                   <View style={panel}>
-                    <T variant="title">자료 추가</T>
-                    <T>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                      }}
+                    >
+                      <T variant="heading">자료 추가</T>
+                      <Button
+                        label={
+                          uploadOptions ? "연결 설정 접기" : "자료 연결 설정"
+                        }
+                        variant="text"
+                        icon="settings"
+                        onPress={() => setUploadOptions(!uploadOptions)}
+                      />
+                    </View>
+                    <T variant="caption" muted>
                       JPG·PNG·WebP·HEIC·PDF·TXT, 파일당 20MB, 최대 30개·총
                       100MB. PDF는 파일당 20쪽, 합계 60쪽까지예요.
                     </T>
-                    <Choice
-                      label="농가 공통 자료"
-                      selected={common}
-                      disabled={busy}
-                      onPress={() => setCommon(!common)}
-                    />
-                    {!common
-                      ? batch.targets.map((t) => (
-                          <Choice
-                            key={t.id}
-                            label={t.name}
-                            selected={uploadTargets.includes(t.id)}
-                            disabled={busy}
-                            onPress={() =>
-                              setUploadTargets(
-                                uploadTargets.includes(t.id)
-                                  ? uploadTargets.filter((id) => id !== t.id)
-                                  : [...uploadTargets, t.id],
-                              )
-                            }
-                          />
-                        ))
-                      : null}
+                    {uploadOptions ? (
+                      <>
+                        <Choice
+                          label="농가 공통 자료"
+                          selected={common}
+                          disabled={busy}
+                          onPress={() => setCommon(!common)}
+                        />
+                        {!common
+                          ? batch.targets.map((t) => (
+                              <Choice
+                                key={t.id}
+                                label={t.name}
+                                selected={uploadTargets.includes(t.id)}
+                                disabled={busy}
+                                onPress={() =>
+                                  setUploadTargets(
+                                    uploadTargets.includes(t.id)
+                                      ? uploadTargets.filter(
+                                          (id) => id !== t.id,
+                                        )
+                                      : [...uploadTargets, t.id],
+                                  )
+                                }
+                              />
+                            ))
+                          : null}
+                      </>
+                    ) : null}
                     <Choice
                       label="상품에 사용할 원본 사진"
                       selected={original}
@@ -948,6 +1134,7 @@ export function SourceWorkspace() {
                     />
                     <Button
                       label="파일 선택·업로드"
+                      icon="plus"
                       variant="outline"
                       disabled={busy || (!common && !uploadTargets.length)}
                       onPress={() =>
@@ -962,6 +1149,16 @@ export function SourceWorkspace() {
                       }
                     />
                     {!original ? (
+                      <Button
+                        label={
+                          showText ? "문구 입력 접기" : "판매 문구 붙여넣기"
+                        }
+                        variant="text"
+                        icon="copy"
+                        onPress={() => setShowText(!showText)}
+                      />
+                    ) : null}
+                    {!original && showText ? (
                       <>
                         <Field
                           label="판매 문구 붙여넣기"
@@ -990,51 +1187,101 @@ export function SourceWorkspace() {
                   </View>
                   {batch.sources.map((s) => (
                     <View key={s.id} style={panel}>
-                      <T variant="title">{s.filename}</T>
-                      <T>
-                        {states[s.status] ?? s.status} ·{" "}
-                        {s.common
-                          ? "농가 공통"
-                          : batch.targets
-                              .filter((t) => s.targetIds.includes(t.id))
-                              .map((t) => t.name)
-                              .join(" · ")}
-                        {s.originalPhoto ? " · 원본 사진" : ""}
-                      </T>
-                      {s.error ? <T>{sourceError(s.error)}</T> : null}
                       <View
                         style={{
                           flexDirection: "row",
-                          flexWrap: "wrap",
-                          gap: 8,
+                          gap: 12,
+                          alignItems: "center",
                         }}
                       >
-                        <Button
-                          label="공통 자료로 연결"
-                          variant="text"
-                          disabled={busy || s.common}
-                          onPress={() =>
-                            mutate(async () => {
-                              await api.assign(batch.id, s, [], true);
-                              await load();
-                            })
-                          }
+                        <SourceThumbnail
+                          bid={batch.id}
+                          source={s}
+                          localUri={localPreviews[s.id]}
                         />
-                        {batch.targets.map((t) => (
+                        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                          <T weight="semibold" numberOfLines={2}>
+                            {s.filename}
+                          </T>
+                          <T variant="caption" muted>
+                            {states[s.status] ?? s.status}
+                            {s.pageCount ? ` · ${s.pageCount}쪽` : ""}
+                            {s.originalPhoto ? " · 상품 사진" : ""}
+                          </T>
+                          <T variant="caption" muted numberOfLines={1}>
+                            {s.common
+                              ? "농가 공통"
+                              : batch.targets
+                                  .filter((t) => s.targetIds.includes(t.id))
+                                  .map((t) => t.name)
+                                  .join(" · ")}
+                          </T>
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            sourceOptions === s.id
+                              ? "자료 관리 접기"
+                              : "자료 관리"
+                          }
+                          accessibilityState={{
+                            expanded: sourceOptions === s.id,
+                          }}
+                          onPress={() =>
+                            setSourceOptions(
+                              sourceOptions === s.id ? null : s.id,
+                            )
+                          }
+                          style={{
+                            width: 48,
+                            height: 48,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Icon
+                            name="settings"
+                            size={22}
+                            color={tokens.color.textMuted}
+                          />
+                        </Pressable>
+                      </View>
+                      {s.error ? <T>{sourceError(s.error)}</T> : null}
+                      {sourceOptions === s.id ? (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            flexWrap: "wrap",
+                            gap: 8,
+                          }}
+                        >
                           <Button
-                            key={t.id}
-                            label={`${t.name}에 연결`}
+                            label="공통 자료로 연결"
                             variant="text"
-                            disabled={busy}
+                            disabled={busy || s.common}
                             onPress={() =>
                               mutate(async () => {
-                                await api.assign(batch.id, s, [t.id], false);
+                                await api.assign(batch.id, s, [], true);
                                 await load();
                               })
                             }
                           />
-                        ))}
-                      </View>
+                          {batch.targets.map((t) => (
+                            <Button
+                              key={t.id}
+                              label={`${t.name}에 연결`}
+                              variant="text"
+                              disabled={busy}
+                              onPress={() =>
+                                mutate(async () => {
+                                  await api.assign(batch.id, s, [t.id], false);
+                                  await load();
+                                })
+                              }
+                            />
+                          ))}
+                        </View>
+                      ) : null}
                       {s.status === "PREPARED" ? (
                         <>
                           <Button
@@ -1059,7 +1306,8 @@ export function SourceWorkspace() {
                               onDirty={setPrivacyDirty}
                             />
                           ) : null}
-                          {!s.originalPhoto &&
+                          {sourceOptions === s.id &&
+                          !s.originalPhoto &&
                           s.privacyApproved &&
                           s.mime !== "text/plain" ? (
                             <View style={{ gap: 8 }}>
@@ -1095,21 +1343,37 @@ export function SourceWorkspace() {
                           ) : null}
                         </>
                       ) : null}
-                      <Button
-                        label="자료 삭제"
-                        variant="text"
-                        disabled={busy}
-                        onPress={() =>
-                          mutate(async () => {
-                            await api.removeSource(batch.id, s);
-                            await load();
-                          })
-                        }
-                      />
+                      {sourceOptions === s.id ? (
+                        <Button
+                          label="자료 삭제"
+                          variant="text"
+                          disabled={busy}
+                          onPress={() =>
+                            mutate(async () => {
+                              await api.removeSource(batch.id, s);
+                              const url = previewUrls.current.get(s.id);
+                              if (url) URL.revokeObjectURL(url);
+                              previewUrls.current.delete(s.id);
+                              setLocalPreviews((previous) => {
+                                const next = { ...previous };
+                                delete next[s.id];
+                                return next;
+                              });
+                              await load();
+                            })
+                          }
+                        />
+                      ) : null}
                     </View>
                   ))}
                   <Button
-                    label="자료 준비·분석 시작"
+                    label={
+                      working
+                        ? "분석 중이에요"
+                        : activeRun?.status === "PRIVACY_REVIEW"
+                          ? "가림 승인 후 분석을 이어가요"
+                          : "자료 준비·분석 시작"
+                    }
                     disabled={
                       busy ||
                       !batch.sources.length ||
