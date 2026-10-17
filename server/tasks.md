@@ -941,7 +941,7 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - [x] 구현·마이그레이션·제품 스펙/영문 위키 동기화
 - [x] 무료 서버/앱/브라우저 회귀 및 마이그레이션 검증
 - [x] 실제 자료 재검증·숫자 실험·보고서/영상
-- [ ] 커밋/브랜치 스캔·PR/CI·Linear 기록
+- [x] 커밋/브랜치 스캔·PR·Linear 기록 (최신 원격 CI 결과는 PR에 기록)
 - 기록: 원격 main d4efd6d, migration head0012 확인. 기존 테스트/데모 DB 보존.
 
 - 구현: 후보별 검증, PARTIAL 종료/명시 재시도, 동일 후보 ID 재사용, 재응답에서 누락된 확정 후보·생산자 편집 보존. source-parser-v3/source-v6-candidate-validation, migration0013.
@@ -952,3 +952,4 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - 산출물: `.artifacts/source-recovery-1017/index.html` 및 3개 편집/저장/공개 영상. 실제 자료3개 로컬 공개까지 PASS(명시적 수동 수정 후). 원본 첫 평가 보존. 배포/농가 인수 미실행. Agent 시간/Tokens 미측정.
 - 잔여: 숫자 원문 검토, 같은 필드 후보 충돌 수동 조정, PDF13% 할인 누락, 농가 인수. DEV-58 전체 Done 아님.
 - 커밋/브랜치 스캔: 전체 diff·새 파일·호출부·취소/비공개/예산/재시도 경로 확인. 확정 후보가 재응답에서 누락되는 사례도 추가 검증. 이슈 없음. 레거시 호환 점검: 후보1건 — 지적0건 / 정당1건(기존 source_items 진단 빈 객체 backfill, origin/main 4d7eece의 Item). 브랜치 중간 형식 호환 추가 없음.
+- PR130 ready for review, ce38486 구현 push 및 AI 리뷰 코멘트 완료. Linear DEV-58에 구현/비용/실험/잔여 항목 반영, In Progress 유지. 최신 head CI 완료 여부는 PR 체크를 참조. 머지/배포 없음.
