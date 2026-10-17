@@ -1,5 +1,6 @@
 import {
   ModuleStory,
+  Photo,
   SOURCE_MODULES,
   Button,
   Icon,
@@ -19,6 +20,8 @@ export type CanvasModule = {
 };
 export function PageCanvas({
   modules,
+  representativeUri,
+  onRepresentativeChange,
   hiddenSectionIds,
   onHiddenSectionsChange,
   onChange,
@@ -30,6 +33,8 @@ export function PageCanvas({
   onUploading,
   blocked = [],
 }: {
+  representativeUri?: string | null;
+  onRepresentativeChange?: (uri: string) => void;
   modules: CanvasModule[];
   hiddenSectionIds: string[];
   onHiddenSectionsChange: (ids: string[]) => void;
@@ -196,6 +201,41 @@ export function PageCanvas({
             >
               {photo}
             </Pressable>
+            {onRepresentativeChange && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  representativeUri === m.photos[i]?.uri
+                    ? "대표사진"
+                    : "대표로 지정"
+                }
+                accessibilityState={{
+                  selected: representativeUri === m.photos[i]?.uri,
+                }}
+                aria-pressed={representativeUri === m.photos[i]?.uri}
+                disabled={busy || uploading}
+                onPress={() => onRepresentativeChange(m.photos[i].uri)}
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  right: 46,
+                  width: 44,
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(255,255,255,0.9)",
+                  borderRadius: 22,
+                }}
+              >
+                <Icon
+                  name={
+                    representativeUri === m.photos[i]?.uri ? "starFill" : "star"
+                  }
+                  size={18}
+                  strokeWidth={1.5}
+                />
+              </Pressable>
+            )}
             {removeButton(`${title(m.id)} 사진 ${i + 1} 제외`, () =>
               update(m.id, (n) => {
                 n.photos.splice(i, 1);
@@ -421,6 +461,14 @@ export function PageCanvas({
         않아요.
       </T>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
+      {representativeUri ? (
+        <Photo
+          uri={media(representativeUri)}
+          width="100%"
+          height={244}
+          alt="대표사진"
+        />
+      ) : null}
       <ModuleStory
         content={{ modules: displayModules }}
         mediaUrl={media}

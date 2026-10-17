@@ -41,29 +41,35 @@ def apply_draft(db, batch, draft, body):
         raise invalid({"modules": "확정된 상세 내용이 필요해요."})
     # Copy sanitized full original photos into independent keys. EXIF is never copied.
     copied, store = {}, Storage()
+    from app.source_analysis.representative import selected
+
+    representative = selected(db, batch.id, target, required=True)
+    if snap.get("representativeAssetId") != representative.id:
+        raise conflict("PHOTO_CHANGED", "대표사진을 확인한 뒤 초안을 다시 저장해 주세요.")
+
+    def copy_photo(sid):
+        source = s.asset(db, batch.id, sid)
+        if not source.original_photo or source.status != "PREPARED":
+            raise conflict("PHOTO_NOT_PREPARED", "상품사진 준비를 완료해 주세요.")
+        if not source.common and draft.target_id not in source.target_ids:
+            raise conflict("PHOTO_CHANGED", "상품의 원본 사진 연결을 확인해 주세요.")
+        if sid not in copied:
+            pages = s.pages_for(db, source)
+            if len(pages) != 1 or not pages[0].sanitized_key:
+                raise conflict("PHOTO_NOT_PREPARED", "원본 사진 처리를 완료해 주세요.")
+            with Image.open(io.BytesIO(store.get(pages[0].sanitized_key))) as image:
+                output = io.BytesIO()
+                image.convert("RGB").save(output, format="PNG")
+            photo = PublicPhoto(product_id=product.id, storage_key=store.put(output.getvalue()))
+            db.add(photo)
+            db.flush()
+            copied[sid] = photo.id
+        return {"uri": f"/api/source-media/{copied[sid]}", "alt": "생산자가 제공한 상품사진"}
+
+    cover = copy_photo(representative.id)
     modules = []
     for module in snap["previewModules"]:
-        photos = []
-        for sid in module["photoAssetIds"]:
-            source = s.asset(db, batch.id, sid)
-            if not source.original_photo or source.status != "PREPARED":
-                raise conflict("PHOTO_NOT_PREPARED", "상품사진 준비를 완료해 주세요.")
-            if not source.common and draft.target_id not in source.target_ids:
-                raise conflict("PHOTO_CHANGED", "상품의 원본 사진 연결을 확인해 주세요.")
-            if sid not in copied:
-                pages = s.pages_for(db, source)
-                if len(pages) != 1 or not pages[0].sanitized_key:
-                    raise conflict("PHOTO_NOT_PREPARED", "원본 사진 처리를 완료해 주세요.")
-                with Image.open(io.BytesIO(store.get(pages[0].sanitized_key))) as image:
-                    output = io.BytesIO()
-                    image.convert("RGB").save(output, format="PNG")
-                photo = PublicPhoto(product_id=product.id, storage_key=store.put(output.getvalue()))
-                db.add(photo)
-                db.flush()
-                copied[sid] = photo.id
-            photos.append(
-                {"uri": f"/api/source-media/{copied[sid]}", "alt": "생산자가 제공한 원본 사진"}
-            )
+        photos = [copy_photo(sid) for sid in module["photoAssetIds"]]
         modules.append(
             {
                 "id": module["id"],
@@ -72,6 +78,7 @@ def apply_draft(db, batch, draft, body):
                 "illustrationId": module["illustrationId"],
             }
         )
+    product.photos = [cover["uri"], *[p for p in product.photos if p != cover["uri"]]]
     product.module_detail = {"schemaVersion": 1, "modules": modules}
     product.version += 1
     if workspace:
@@ -96,7 +103,8 @@ def public_photo(photo_id: str, db: Annotated[Session, Depends(get_db)]):
         raise not_found()
     detail = catalog.product_detail(db, photo.product_id)
     referenced = detail is not None and (
-        any(
+        f"/api/source-media/{photo_id}" == detail.photo
+        or any(
             p["uri"] == f"/api/source-media/{photo_id}"
             for m in (detail.module_detail or {}).get("modules", [])
             for p in m["photos"]

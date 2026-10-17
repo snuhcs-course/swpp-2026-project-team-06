@@ -242,6 +242,14 @@ export function SourceDetailsEditor({
                 ["conflict", "outdated", "unassigned"].includes(e.status),
             ),
           ).map(([id]) => id)}
+          representativeUri={
+            target.representativeAssetId ||
+            batch.sources.find(
+              (s) =>
+                s.originalPhoto &&
+                (s.common || s.targetIds.includes(target.id)),
+            )?.id
+          }
           media={(uri) => photoUrls[uri] ?? ""}
           modules={SOURCE_MODULES.map(([id]) => ({
             id,

@@ -132,6 +132,7 @@ def targets(db, farm_id, inputs, current=None):
                 "name": entry.name.strip(),
                 "productId": entry.product_id,
                 "basicInfo": basic or {"variety": "", "size": "", "expectedBrix": None},
+                "representativeAssetId": old.get(entry.id, {}).get("representativeAssetId"),
             }
         )
     if len({t["id"] for t in result}) != len(result):
@@ -157,6 +158,9 @@ def patch_batch(db, row, body):
             "TARGET_IN_USE", "기존 대상은 유지하고 이름을 수정하거나 새 작업을 만들어 주세요."
         )
     row.targets = replacement
+    from app.source_analysis.representative import reconcile
+
+    reconcile(db, row)
     row.version += 1
     row.review_version += 1
     db.execute(update(Candidate).where(Candidate.batch_id == row.id).values(outdated=True))
@@ -252,6 +256,9 @@ def upload(db, row, data, filename, ids, common, expected, original):
         except PreparationError as exc:
             raise invalid({"file": str(exc)}) from exc
         db.flush()
+        from app.source_analysis.representative import reconcile
+
+        reconcile(db, row)
     return asset_view(result)
 
 
@@ -279,12 +286,18 @@ def patch_asset(db, row, source, body):
     source.privacy_approved = False
     source.status = "UPLOADED"
     invalidate(db, row, source)
+    from app.source_analysis.representative import reconcile
+
+    reconcile(db, row)
     return asset_view(source)
 
 
 def remove_asset(db, row, source):
     source.deleted = True
     invalidate(db, row, source)
+    from app.source_analysis.representative import reconcile
+
+    reconcile(db, row)
     return {"deleted": True}
 
 
@@ -384,6 +397,10 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
         raise invalid({"variety": "과일 품종명을 입력해 주세요."})
     if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         raise conflict("RUN_ACTIVE", "이미 분석하고 있어요.")
+    from app.source_analysis.representative import selected
+
+    for target in row.targets:
+        selected(db, row.id, target, required=True)
     sources = list(
         db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
     )
@@ -745,7 +762,15 @@ def save_drafts(db, row, body, *, editor=False):
                 )
             ):
                 modes.add(db.get(Run, db.get(Item, candidate.item_id).run_id).mode)
+        from app.source_analysis.representative import selected
+
+        representative = selected(
+            db, row.id, next(t for t in row.targets if t["id"] == target.target_id)
+        )
+        if representative:
+            sources.add(representative.id)
         snapshot = {
+            "representativeAssetId": representative.id if representative else None,
             "schemaVersion": 1,
             "hiddenSectionIds": target.hidden_section_ids,
             "batchVersion": row.version,

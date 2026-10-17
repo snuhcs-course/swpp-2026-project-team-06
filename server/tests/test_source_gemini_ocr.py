@@ -22,15 +22,22 @@ from tests.test_source_analysis import create, source_settings, start, upload  #
 def ready(client, login, *, approved=True, height=100):
     h = login("u-kang")
     b = create(client, h)
-    upload(client, h, b)
+    uploaded = upload(client, h, b)
     r = start(client, h, b["id"])
+    # Isolate the OCR job from the required cover photo preparation.
+    with get_sessionmaker()() as db:
+        for cover_item in db.scalars(
+            select(Item).join(Asset).where(Item.run_id == r["id"], Asset.original_photo.is_(True))
+        ):
+            cover_item.status = "SUCCEEDED"
+        db.commit()
     assert worker.run_once()  # local preparation only
     out = io.BytesIO()
     Image.new("RGB", (100, height), "black").save(out, "PNG")
     with get_sessionmaker()() as db:
         run = db.get(Run, r["id"])
         run.mode, run.model = "openrouter", OCR_MODEL
-        source = db.scalar(select(Asset).where(Asset.batch_id == b["id"]))
+        source = db.get(Asset, uploaded["id"])
         source.mime = "image/png"
         source.privacy_approved = approved
         page = db.scalar(select(Page).where(Page.asset_id == source.id))

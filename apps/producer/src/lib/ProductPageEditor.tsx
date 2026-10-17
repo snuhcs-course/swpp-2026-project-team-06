@@ -14,6 +14,7 @@ import {
   DetailStory,
   HeaderBar,
   ModuleStory,
+  Photo,
   Screen,
   Scroll,
   Sheet,
@@ -133,6 +134,9 @@ function Editor({ productId }: { productId: string }) {
     const urls: string[] = [];
     const sources = [
       ...new Set([
+        ...(row.snapshot.representativeUri
+          ? [row.snapshot.representativeUri]
+          : []),
         ...row.snapshot.modules.flatMap((m) => m.photos.map((p) => p.uri)),
         ...row.snapshot.content.blocks.flatMap((b) =>
           b.type === "image" ? [b.uri] : [],
@@ -275,6 +279,14 @@ function Editor({ productId }: { productId: string }) {
             ) : null
           ) : preview ? (
             <View testID="product-page-preview">
+              {snapshot.representativeUri ? (
+                <Photo
+                  uri={media(snapshot.representativeUri)}
+                  width="100%"
+                  height={244}
+                  alt="대표사진"
+                />
+              ) : null}
               {snapshot.kind === "modules" ? (
                 <ModuleStory
                   content={{
@@ -297,6 +309,12 @@ function Editor({ productId }: { productId: string }) {
             <>
               {snapshot.kind === "modules" ? (
                 <PageCanvas
+                  representativeUri={snapshot.representativeUri}
+                  onRepresentativeChange={(uri) =>
+                    update((s) => {
+                      s.representativeUri = uri;
+                    })
+                  }
                   hiddenSectionIds={snapshot.hiddenSectionIds ?? []}
                   onHiddenSectionsChange={(ids) =>
                     update((s) => {
@@ -338,6 +356,10 @@ function Editor({ productId }: { productId: string }) {
                       setPhotoUrls((old) => ({ ...old, [photo.uri]: url }));
                       added.push(photo);
                     }
+                    if (!snapshot.representativeUri && added[0])
+                      update((s) => {
+                        s.representativeUri = added[0].uri;
+                      });
                     setExtraPhotos((old) => [...old, ...added]);
                     return added;
                   }}

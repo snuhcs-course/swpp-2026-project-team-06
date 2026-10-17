@@ -9,6 +9,7 @@ export type SourceTarget = {
   name: string;
   productId: string | null;
   basicInfo?: SourceBasicInfo;
+  representativeAssetId?: string | null;
 };
 export type SourceAsset = {
   id: string;
@@ -123,6 +124,7 @@ export type SourceDraft = {
   targetId: string;
   version: number;
   snapshot: {
+    representativeAssetId?: string | null;
     hiddenSectionIds?: string[];
     reviewVersion: number;
     mode: string;
@@ -164,6 +166,15 @@ export const sourceAnalysis = {
     request<SourceBatch>("POST", base, {
       body: { targets },
       idempotencyKey: key,
+    }),
+  setRepresentative: (
+    bid: string,
+    version: number,
+    targetIds: string[],
+    assetId: string,
+  ) =>
+    request<SourceBatch>("PUT", `${at(bid)}/representative`, {
+      body: { version, targetIds, assetId },
     }),
   saveBasicInfo: (
     bid: string,

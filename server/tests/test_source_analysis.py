@@ -64,7 +64,24 @@ def upload(client, headers, batch, text=MOCK_TEXT, common=False):
     return response.json()
 
 
+def add_cover(client, headers, bid, color="orange"):
+    batch = client.get(f"{PREFIX}/{bid}", headers=headers).json()
+    image = io.BytesIO()
+    Image.new("RGB", (24, 24), color).save(image, format="PNG")
+    response = client.post(
+        f"{PREFIX}/{bid}/sources",
+        headers=headers,
+        data={"batchVersion": batch["version"], "common": "true", "originalPhoto": "true"},
+        files={"file": ("product.png", image.getvalue(), "image/png")},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 def start(client, headers, bid):
+    batch = client.get(f"{PREFIX}/{bid}", headers=headers).json()
+    if not any(s["originalPhoto"] for s in batch["sources"]):
+        add_cover(client, headers, bid)
     batch = client.get(f"{PREFIX}/{bid}", headers=headers).json()
     response = client.post(
         f"{PREFIX}/{bid}/runs", headers=key(headers), json={"batchVersion": batch["version"]}
@@ -163,7 +180,8 @@ def test_AC_SRC_6_real_mode_proceeds_without_privacy_review(client, login, monke
     batch = create(client, h)
     source = upload(client, h, batch, text="담당자: 예시이름\n이메일: example@example.test\n감귤")
     run = start(client, h, batch["id"])
-    assert worker.run_once()
+    assert worker.run_once()  # Text preparation.
+    assert worker.run_once()  # Required representative photo preparation.
     url = f"{PREFIX}/{batch['id']}"
     assert client.get(f"{url}/runs/{run['id']}", headers=h).json()["status"] == "ANALYZING"
     page = client.get(f"{url}/sources/{source['id']}/pages/1", headers=h).json()
@@ -228,6 +246,13 @@ def test_AC_SRC_5_worker_claim_is_exclusive_and_expired_sent_not_recalled(client
     batch = create(client, h)
     upload(client, h, batch)
     run = start(client, h, batch["id"])
+    # Isolate the text job under test from the representative photo's separate preparation job.
+    with get_sessionmaker()() as db:
+        for item in db.scalars(
+            select(Item).join(Asset).where(Item.run_id == run["id"], Asset.original_photo.is_(True))
+        ):
+            item.status = "SUCCEEDED"
+        db.commit()
     with ThreadPoolExecutor(max_workers=2) as pool:
         jobs = list(pool.map(lambda _: worker.claim(), range(2)))
     claimed = [j for j in jobs if j]
@@ -239,7 +264,8 @@ def test_AC_SRC_5_worker_claim_is_exclusive_and_expired_sent_not_recalled(client
         db.commit()
     assert worker.claim() is None
     result = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
-    assert result["items"][0]["error"] == "REQUEST_UNCERTAIN"
+    claimed_result = next(i for i in result["items"] if i["id"] == claimed[0][0])
+    assert claimed_result["error"] == "REQUEST_UNCERTAIN"
 
 
 def test_AC_SRC_7_idempotent_concurrency_and_versions(client, login):
@@ -346,6 +372,7 @@ def test_AC_SRC_5_late_result_after_cancel_discarded(client, login, monkeypatch)
     upload(client, h, batch)
     run = start(client, h, batch["id"])
     assert worker.run_once()
+    assert worker.run_once()  # Prepare the required representative photo before extraction.
     original = worker.extract
 
     def cancel_then_return(*args):

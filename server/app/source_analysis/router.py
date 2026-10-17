@@ -9,12 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.errors import ApiError, invalid, not_found
+from app.core.errors import ApiError, conflict, invalid, not_found
 from app.core.security import ApprovedProducer
 from app.source_analysis import editor as e
 from app.source_analysis import service as s
 from app.source_analysis import workspace as w
-from app.source_analysis.models import Asset, Batch, Draft, Page, PublicPhoto
+from app.source_analysis.models import Asset, Batch, Draft, Page, PublicPhoto, Run
 from app.source_analysis.schemas import (
     ApplyDraft,
     Assignment,
@@ -23,6 +23,7 @@ from app.source_analysis.schemas import (
     BatchPatch,
     DraftSave,
     Privacy,
+    RepresentativePatch,
     Retry,
     ReviewPatch,
     RunStart,
@@ -149,10 +150,24 @@ def detail(bid: str, who: ApprovedProducer, db: DB):
         "sources": [
             s.asset_view(a)
             for a in db.scalars(
-                select(Asset).where(Asset.batch_id == bid, Asset.deleted.is_(False))
+                select(Asset)
+                .where(Asset.batch_id == bid, Asset.deleted.is_(False))
+                .order_by(Asset.created_at, Asset.id)
             )
         ],
     }
+
+
+@router.put("/batches/{bid}/representative")
+def representative(bid: str, body: RepresentativePatch, who: ApprovedProducer, db: DB):
+    from app.source_analysis.representative import choose
+
+    row = s.batch(db, who[1].id, bid)
+    s.version(row.version, body.version)
+    if db.scalar(select(Run.id).where(Run.batch_id == bid, Run.status.in_(s.ACTIVE))):
+        raise conflict("RUN_ACTIVE", "분석 후 대표사진을 바꿔 주세요.")
+    choose(db, row, body.target_ids, body.asset_id)
+    return commit(db, s.json_row(row))
 
 
 @router.put("/batches/{bid}/basic-info")

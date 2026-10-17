@@ -19,6 +19,7 @@ import {
   HeaderBar,
   Icon,
   ModuleStory,
+  Photo,
   Screen,
   Scroll,
   Sheet,
@@ -152,7 +153,12 @@ function DraftPreview({
     setPhotos({});
     setError("");
     const ids = [
-      ...new Set(draft.snapshot.previewModules.flatMap((m) => m.photoAssetIds)),
+      ...new Set([
+        ...(draft.snapshot.representativeAssetId
+          ? [draft.snapshot.representativeAssetId]
+          : []),
+        ...draft.snapshot.previewModules.flatMap((m) => m.photoAssetIds),
+      ]),
     ];
     Promise.all(
       ids.map(async (id) => {
@@ -176,6 +182,14 @@ function DraftPreview({
   return (
     <>
       {error ? <T>{error}</T> : null}
+      {draft.snapshot.representativeAssetId ? (
+        <Photo
+          uri={photos[draft.snapshot.representativeAssetId]}
+          width="100%"
+          height={244}
+          alt="대표사진"
+        />
+      ) : null}
       <ModuleStory
         content={{
           modules: draft.snapshot.previewModules.map((m) => ({
@@ -558,6 +572,7 @@ export function SourceWorkspace() {
                     onSaved={setBatch}
                   />
                   <SourceAttachments
+                    key={`attachments-${batch.id}`}
                     flushRef={flushAttachments}
                     batch={batch}
                     busy={busy || !!activeRun}
@@ -565,6 +580,13 @@ export function SourceWorkspace() {
                     onBusy={setBusy}
                     onDirty={setEditing}
                   />
+                  {!batch.sources.some(
+                    (s) => s.originalPhoto && s.status === "PREPARED",
+                  ) ? (
+                    <T variant="caption" muted>
+                      대표 상품사진을 한 장 이상 올려야 분석을 시작할 수 있어요.
+                    </T>
+                  ) : null}
                   <Button
                     label={
                       working
@@ -575,7 +597,9 @@ export function SourceWorkspace() {
                     }
                     disabled={
                       busy ||
-                      !batch.sources.length ||
+                      !batch.sources.some(
+                        (s) => s.originalPhoto && s.status === "PREPARED",
+                      ) ||
                       runs.some((r) => ACTIVE.includes(r.status))
                     }
                     onPress={() =>

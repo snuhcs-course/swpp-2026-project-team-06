@@ -109,6 +109,11 @@ class TargetBasicInfo(Input):
     basic_info: BasicInfo
 
 
+class RepresentativePatch(Version):
+    target_ids: list[Id] = Field(min_length=1, max_length=10)
+    asset_id: Id
+
+
 class BasicInfoPatch(Version):
     targets: list[TargetBasicInfo] = Field(min_length=1, max_length=10)
 

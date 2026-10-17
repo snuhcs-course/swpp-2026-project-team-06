@@ -321,3 +321,77 @@ def test_AC_SRC_11_basic_info_defaults_and_manual_precedence(client, login):
         assert product.variety == "온주밀감"
         assert product.expected_brix == 12.5
         assert product.measured_brix == 14.0
+
+
+def test_AC_SRC_11_representative_required_select_and_delete(client, login):
+    from tests.test_source_analysis import add_cover
+
+    h = login("u-kang")
+    batch = create(client, h)
+    bid, tid = batch["id"], batch["targets"][0]["id"]
+    upload(client, h, batch)
+    current = client.get(f"{PREFIX}/{bid}", headers=h).json()
+    assert (
+        client.post(
+            f"{PREFIX}/{bid}/runs", headers=key(h), json={"batchVersion": current["version"]}
+        ).status_code
+        == 400
+    )
+    first = add_cover(client, h, bid)
+    second = add_cover(client, h, bid, "blue")
+    endpoint = f"{PREFIX}/{bid}/representative"
+    current = client.get(f"{PREFIX}/{bid}", headers=h).json()
+    assert current["targets"][0]["representativeAssetId"] == first["id"]
+    body = {"version": current["version"], "targetIds": [tid], "assetId": second["id"]}
+    assert client.put(endpoint, headers=login("u-misook"), json=body).status_code == 403
+    changed = client.put(endpoint, headers=h, json=body)
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["targets"][0]["representativeAssetId"] == second["id"]
+    assert client.put(endpoint, headers=h, json=body).status_code == 409
+    body["version"] = changed.json()["version"]
+    text_id = next(s["id"] for s in current["sources"] if not s["originalPhoto"])
+    body["assetId"] = text_id
+    assert client.put(endpoint, headers=h, json=body).status_code == 400
+    for photo, expected in [(second, first["id"]), (first, None)]:
+        result = client.delete(
+            f"{PREFIX}/{bid}/sources/{photo['id']}?version={photo['revision']}", headers=h
+        )
+        assert result.status_code == 202, result.text
+        latest = client.get(f"{PREFIX}/{bid}", headers=h).json()
+        assert latest["targets"][0]["representativeAssetId"] == expected
+    assert (
+        client.post(
+            f"{PREFIX}/{bid}/runs", headers=key(h), json={"batchVersion": latest["version"]}
+        ).status_code
+        == 400
+    )
+
+
+def test_AC_SRC_11_representative_survives_hidden_intro_and_publishes_cover(client, login):
+    h, batch = ready(client, login)
+    current = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    cover_id = current["targets"][0]["representativeAssetId"]
+    body = body_for(client, h, batch)
+    body["targets"][0]["hiddenSectionIds"] = ["intro"]
+    body["targets"][0]["enabledModuleIds"] = ["storage"]
+    saved = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
+    assert saved.status_code == 200, saved.text
+    draft = saved.json()["drafts"][0]
+    assert draft["snapshot"]["representativeAssetId"] == cover_id
+    assert cover_id in draft["snapshot"]["sourceVersions"]
+    before = client.get("/api/products/mine/p-house", headers=h).json()
+    assert not before["photo"].startswith("/api/source-media/")
+    applied = client.post(
+        f"{PREFIX}/{batch['id']}/drafts/{draft['id']}/apply",
+        headers=key(h),
+        json={
+            "productId": "p-house",
+            "productVersion": before["version"],
+            "draftVersion": draft["version"],
+        },
+    )
+    assert applied.status_code == 200, applied.text
+    public = client.get("/api/products/p-house").json()
+    assert public["photo"].startswith("/api/source-media/")
+    assert client.get(public["photo"]).status_code == 200
+    assert [m["id"] for m in public["moduleDetail"]["modules"]] == ["storage"]

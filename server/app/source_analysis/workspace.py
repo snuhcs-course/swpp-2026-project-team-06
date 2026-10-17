@@ -61,6 +61,7 @@ class PageModule(Input):
 
 
 class PageSnapshot(Input):
+    representative_uri: str | None = Field(default=None, max_length=2000)
     hidden_section_ids: list[SectionId] = Field(default_factory=list, max_length=9)
     kind: Literal["modules", "blocks"]
     modules: list[PageModule] = Field(default_factory=list, max_length=18)
@@ -83,12 +84,16 @@ class PageSave(Version):
 
 def published(product):
     if product.module_detail is not None:
-        return PageSnapshot(kind="modules", modules=product.module_detail["modules"]).model_dump(
-            by_alias=True
-        )
-    return PageSnapshot(kind="blocks", content=product.detail_content or {"blocks": []}).model_dump(
-        by_alias=True
-    )
+        return PageSnapshot(
+            kind="modules",
+            modules=product.module_detail["modules"],
+            representative_uri=product.photos[0] if product.photos else None,
+        ).model_dump(by_alias=True)
+    return PageSnapshot(
+        kind="blocks",
+        content=product.detail_content or {"blocks": []},
+        representative_uri=product.photos[0] if product.photos else None,
+    ).model_dump(by_alias=True)
 
 
 def view(row):
@@ -119,6 +124,11 @@ def open_workspace(db, farm, body):
     if body.product_id:
         product, row = product_lock(db, farm, body.product_id)
         if row:
+            if "representativeUri" not in row.snapshot:
+                cover = product.photos[0] if product.photos else None
+                row.snapshot = {**row.snapshot, "representativeUri": cover}
+                row.published_snapshot = {**row.published_snapshot, "representativeUri": cover}
+                row.version += 1
             current = published(product)
             if body.discard_changes:
                 s.version(row.version, body.version)
@@ -164,6 +174,10 @@ def save(db, farm, pid, body):
     product, row = owned(db, farm, pid)
     s.version(row.version, body.version)
     snapshot = body.snapshot.model_dump(by_alias=True)
+    if "representative_uri" not in body.snapshot.model_fields_set:
+        snapshot["representativeUri"] = row.snapshot.get(
+            "representativeUri", product.photos[0] if product.photos else None
+        )
     # Only retain photos already belonging to this product; never accept another farm's private URI.
     allowed = set(product.photos)
     allowed.update(
@@ -175,6 +189,8 @@ def save(db, farm, pid, body):
     allowed.update(b["uri"] for b in base["content"]["blocks"] if b["type"] == "image")
     requested = [p["uri"] for m in snapshot["modules"] for p in m["photos"]]
     requested += [b["uri"] for b in snapshot["content"]["blocks"] if b["type"] == "image"]
+    if snapshot.get("representativeUri"):
+        requested.append(snapshot["representativeUri"])
     if any(uri not in allowed for uri in requested):
         raise invalid({"photos": "현재 상품의 사진만 사용할 수 있어요."})
     if snapshot["kind"] != base["kind"]:
@@ -190,6 +206,10 @@ def apply(db, farm, pid, body):
     s.version(row.version, body.version)
     s.version(product.version, row.base_product_version)
     snap = row.snapshot
+    representative = snap.get("representativeUri", product.photos[0] if product.photos else None)
+    if not representative:
+        raise invalid({"representativePhoto": "대표 상품사진을 한 장 이상 지정해 주세요."})
+    product.photos = [representative, *[p for p in product.photos if p != representative]]
     if snap["kind"] == "modules":
         product.module_detail = {
             "schemaVersion": 1,

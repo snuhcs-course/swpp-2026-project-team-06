@@ -2,6 +2,7 @@ import { request, apiUrl, getToken } from "./client";
 import type { DetailContent } from "./types";
 import type { ModuleDetail } from "./sourceAnalysis";
 export type PageSnapshot = {
+  representativeUri?: string | null;
   hiddenSectionIds?: string[];
   kind: "modules" | "blocks";
   modules: (ModuleDetail["modules"][number] & { enabled: boolean })[];

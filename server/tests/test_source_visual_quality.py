@@ -169,7 +169,8 @@ def test_AC_SRC_5_old_queued_work_cannot_reuse_previous_privacy_geometry(client,
     batch = create(client, h)
     source = upload(client, h, batch)
     start(client, h, batch["id"])
-    assert worker.run_once()  # preparation only; extraction remains queued
+    assert worker.run_once()  # text and required cover preparation; extraction remains queued
+    assert worker.run_once()
     with get_sessionmaker()() as db:
         db.get(Asset, source["id"]).preprocess_version = None
         db.commit()

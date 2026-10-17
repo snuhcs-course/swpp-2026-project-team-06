@@ -28,6 +28,31 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
       },
     },
   );
+  await page.request.post(
+    `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
+    {
+      headers,
+      multipart: {
+        batchVersion: (
+          await (
+            await page.request.get(
+              `${apiUrl}/api/source-analysis/batches/${batch.id}`,
+              { headers },
+            )
+          ).json()
+        ).version,
+        common: "true",
+        originalPhoto: "true",
+        file: {
+          name: "cover.jpg",
+          mimeType: "image/jpeg",
+          buffer: (await import("node:fs")).readFileSync(
+            "apps/consumer/public/photos/tangerine-box.jpg",
+          ),
+        },
+      },
+    },
+  );
   const current = await (
     await page.request.get(
       `${apiUrl}/api/source-analysis/batches/${batch.id}`,
@@ -319,6 +344,31 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
       },
     },
   );
+  await page.request.post(
+    `${apiUrl}/api/source-analysis/batches/${batch.id}/sources`,
+    {
+      headers,
+      multipart: {
+        batchVersion: (
+          await (
+            await page.request.get(
+              `${apiUrl}/api/source-analysis/batches/${batch.id}`,
+              { headers },
+            )
+          ).json()
+        ).version,
+        common: "true",
+        originalPhoto: "true",
+        file: {
+          name: "cover.jpg",
+          mimeType: "image/jpeg",
+          buffer: (await import("node:fs")).readFileSync(
+            "apps/consumer/public/photos/tangerine-box.jpg",
+          ),
+        },
+      },
+    },
+  );
   await page.goto(
     `${producerUrl}/products/source-analysis?batchId=${batch.id}`,
   );
@@ -412,4 +462,110 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
   await expect(page.getByLabel("품질 확인 내용", { exact: true })).toHaveValue(
     "예상 당도: 13.2 °Bx",
   );
+});
+
+test("AC-SRC-11: text edits stay inside cards and representative selection survives reload and deletion", async ({
+  page,
+}) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/new`);
+  const materials = page.getByTestId("source-material-box");
+  const photos = page.getByTestId("product-photo-box");
+  const start = page.getByRole("button", {
+    name: "자료 준비·분석 시작",
+    exact: true,
+  });
+  await expect(page.getByLabel("과일 품종명")).toHaveAttribute(
+    "placeholder",
+    "예: 온주밀감",
+  );
+  await page.getByLabel("과일 품종명").fill("온주밀감");
+  await page.getByLabel("과일 품종명").blur();
+  await expect(start).toBeDisabled();
+  await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();
+  await expect(materials.getByLabel("첨부 내용")).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "내용 저장", exact: true }),
+  ).toHaveCount(0);
+  let fail = true;
+  await page.route("**/batches/*/sources", async (route) => {
+    if (fail && route.request().method() === "POST")
+      return route.fulfill({
+        status: 503,
+        json: { code: "UNAVAILABLE", message: "텍스트 저장 실패 검증" },
+      });
+    await route.continue();
+  });
+  await materials
+    .getByLabel("첨부 내용")
+    .fill("테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.");
+  await materials.getByLabel("첨부 내용").blur();
+  await expect(materials.getByTestId("attachment-tile")).toContainText(
+    "텍스트 저장 실패 검증",
+  );
+  await expect(materials.getByLabel("첨부 내용")).toHaveValue(/테스트 감귤/);
+  fail = false;
+  await materials.getByLabel("첨부 내용").focus();
+  await materials.getByLabel("첨부 내용").blur();
+  await expect(materials.getByLabel("첨부 내용")).toHaveCount(0);
+  await materials.getByRole("button", { name: "텍스트 내용 수정" }).click();
+  await expect(materials.getByLabel("첨부 내용")).toBeFocused();
+  await materials.getByLabel("첨부 내용").blur();
+  await expect(materials.getByLabel("첨부 내용")).toHaveCount(0);
+  for (const file of ["tangerine-box.jpg", "branch.jpg"]) {
+    const chooser = page.waitForEvent("filechooser");
+    await page
+      .getByRole("button", { name: "상품사진 추가", exact: true })
+      .click();
+    await (await chooser).setFiles(`apps/consumer/public/photos/${file}`);
+    await expect(
+      photos.getByRole("button", { name: "대표사진", exact: true }),
+    ).toHaveCount(1);
+  }
+  const cards = photos.getByTestId("attachment-tile");
+  await expect(cards).toHaveCount(2);
+  await expect(
+    cards.first().getByRole("button", { name: "대표사진", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await cards
+    .last()
+    .getByRole("button", { name: "대표로 지정", exact: true })
+    .click();
+  await expect(
+    cards.last().getByRole("button", { name: "대표사진", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    cards.last().getByRole("button", { name: "대표사진", exact: true }),
+  ).toBeVisible();
+  const star = await cards
+    .last()
+    .getByRole("button", { name: "대표사진", exact: true })
+    .boundingBox();
+  const remove = await cards
+    .last()
+    .getByRole("button", { name: "상품사진 삭제" })
+    .boundingBox();
+  expect(star!.x + star!.width).toBeLessThanOrEqual(remove!.x + 1);
+  await cards.last().getByRole("button", { name: "상품사진 삭제" }).click();
+  await expect(cards).toHaveCount(1);
+  await expect(
+    cards.first().getByRole("button", { name: "대표사진", exact: true }),
+  ).toBeVisible();
+  await cards.first().getByRole("button", { name: "상품사진 삭제" }).click();
+  await expect(cards).toHaveCount(0);
+  await expect(start).toBeDisabled();
+  await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();
+  await expect(materials.getByLabel("첨부 내용")).toBeFocused();
+  await materials.getByLabel("첨부 내용").fill("삭제할 미저장 카드");
+  await materials
+    .getByTestId("attachment-tile")
+    .filter({ has: page.getByLabel("첨부 내용") })
+    .getByRole("button", { name: "자료 삭제" })
+    .click();
+  await expect(materials.getByTestId("attachment-tile")).toHaveCount(1);
+  await page.reload();
+  await expect(materials.getByTestId("attachment-tile")).toHaveCount(1);
 });

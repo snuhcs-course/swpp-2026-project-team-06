@@ -20,7 +20,13 @@ function Tile({
   onDescription,
   onDescriptionBlur,
   descriptionError,
+  representative,
+  onRepresentative,
+  editor,
 }: {
+  representative?: boolean;
+  onRepresentative?: () => void;
+  editor?: React.ReactNode;
   descriptionError?: string;
   description: string;
   onDescription: (value: string) => void;
@@ -83,6 +89,36 @@ function Tile({
           flexDirection: "row",
         }}
       >
+        {source.originalPhoto && onRepresentative ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={representative ? "대표사진" : "대표로 지정"}
+            accessibilityState={{ selected: representative }}
+            aria-pressed={representative}
+            disabled={disabled}
+            onPress={onRepresentative}
+            style={{
+              width: 44,
+              minHeight: 44,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <View
+              style={{
+                padding: 6,
+                borderRadius: 20,
+                backgroundColor: "rgba(255,255,255,0.9)",
+              }}
+            >
+              <Icon
+                name={representative ? "starFill" : "star"}
+                size={18}
+                strokeWidth={1.5}
+              />
+            </View>
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -108,54 +144,56 @@ function Tile({
           </View>
         </Pressable>
       </View>
-      <Pressable
-        testID="attachment-preview"
-        disabled={disabled || source.mime !== "text/plain"}
-        accessibilityRole="button"
-        accessibilityLabel={
-          source.mime === "text/plain" ? "텍스트 내용 수정" : "첨부 미리보기"
-        }
-        onPress={onEdit}
-        style={{
-          aspectRatio: 1,
-          overflow: "hidden",
-          backgroundColor: tokens.color.surface,
-        }}
-      >
-        {(uri || localUri) && !imageFailed ? (
-          <Image
-            source={{ uri: uri || localUri! }}
-            accessibilityLabel={
-              source.originalPhoto ? "상품사진" : "자료 미리보기"
-            }
-            onError={() => setImageFailed(true)}
-            resizeMode="cover"
-            style={{ width: "100%", height: "100%" }}
-          />
-        ) : (
-          <T
-            numberOfLines={5}
-            variant="caption"
-            style={{
-              paddingLeft: 10,
-              paddingRight: 46,
-              paddingTop: 14,
-              paddingBottom: 10,
-            }}
-          >
-            {imageFailed
-              ? "미리보기를 불러오지 못했어요"
-              : (preview
-                  ? `[${preview.length > 48 ? preview.slice(0, 30) + "…" + preview.slice(-12) : preview}]`
-                  : "") ||
-                (source.mime === "application/pdf"
-                  ? "PDF · 미리보기 준비 중"
-                  : source.mime === "text/plain"
-                    ? "텍스트"
-                    : "사진 · 준비 중")}
-          </T>
-        )}
-      </Pressable>
+      {editor || (
+        <Pressable
+          testID="attachment-preview"
+          disabled={disabled || source.mime !== "text/plain"}
+          accessibilityRole="button"
+          accessibilityLabel={
+            source.mime === "text/plain" ? "텍스트 내용 수정" : "첨부 미리보기"
+          }
+          onPress={onEdit}
+          style={{
+            aspectRatio: 1,
+            overflow: "hidden",
+            backgroundColor: tokens.color.surface,
+          }}
+        >
+          {(uri || localUri) && !imageFailed ? (
+            <Image
+              source={{ uri: uri || localUri! }}
+              accessibilityLabel={
+                source.originalPhoto ? "상품사진" : "자료 미리보기"
+              }
+              onError={() => setImageFailed(true)}
+              resizeMode="cover"
+              style={{ width: "100%", height: "100%" }}
+            />
+          ) : (
+            <T
+              numberOfLines={5}
+              variant="caption"
+              style={{
+                paddingLeft: 10,
+                paddingRight: 46,
+                paddingTop: 14,
+                paddingBottom: 10,
+              }}
+            >
+              {imageFailed
+                ? "미리보기를 불러오지 못했어요"
+                : (preview
+                    ? `[${preview.length > 48 ? preview.slice(0, 30) + "…" + preview.slice(-12) : preview}]`
+                    : "") ||
+                  (source.mime === "application/pdf"
+                    ? "PDF · 미리보기 준비 중"
+                    : source.mime === "text/plain"
+                      ? "텍스트"
+                      : "사진 · 준비 중")}
+            </T>
+          )}
+        </Pressable>
+      )}
       {source.originalPhoto ? (
         <TextInput
           accessibilityLabel="사진 한 줄 설명"
@@ -254,17 +292,87 @@ export function SourceAttachments({
     });
     return saving.current;
   };
+  type TextDraft = {
+    source: SourceAsset | null;
+    value: string;
+    original: string;
+  };
+  const textDraft = useRef<TextDraft | null>(null);
+  const textSaving = useRef<Promise<void> | null>(null);
+  const discardText = useRef(false);
+  const skipTextBlur = useRef(false);
+  const [editing, setEditing] = useState<TextDraft | null>(null);
+  const [textError, setTextError] = useState("");
+  const [working, setWorking] = useState(false),
+    [error, setError] = useState(""),
+    [failed, setFailed] = useState<{ file: File; photo: boolean }[]>([]);
+  const setTextDraft = (draft: TextDraft | null) => {
+    textDraft.current = draft;
+    setEditing(draft);
+  };
+  const flushText = (): Promise<void> => {
+    if (textSaving.current) return textSaving.current;
+    const task = async () => {
+      setTextError("");
+      try {
+        while (textDraft.current) {
+          const draft = textDraft.current;
+          if (!draft.value.trim()) {
+            if (draft.source)
+              throw new Error("내용을 입력하거나 ×로 카드를 삭제해 주세요.");
+            return;
+          }
+          if (draft.source && draft.value === draft.original) {
+            setTextDraft(null);
+            return;
+          }
+          const updated = draft.source
+            ? await api.editSource(batch.id, draft.source, {
+                text: draft.value,
+              })
+            : await uploadSource(
+                batch.id,
+                (await api.get(batch.id)).version,
+                [],
+                true,
+                false,
+                draft.value,
+              );
+          if (discardText.current && !draft.source) {
+            await api.removeSource(batch.id, updated);
+            setTextDraft(null);
+          } else if (textDraft.current === draft) setTextDraft(null);
+          else if (textDraft.current)
+            setTextDraft({
+              ...textDraft.current,
+              source: updated,
+              original: draft.value,
+            });
+          await refresh();
+        }
+      } catch (e) {
+        setTextError(
+          "텍스트를 저장하지 못했어요. " +
+            (e instanceof Error ? e.message : "다시 시도해 주세요."),
+        );
+        throw e;
+      }
+    };
+    textSaving.current = task().finally(() => {
+      textSaving.current = null;
+    });
+    return textSaving.current;
+  };
+  const flushAll = async () => {
+    await flushText();
+    await flushDescriptions();
+  };
   useEffect(() => {
-    flushRef.current = flushDescriptions;
+    flushRef.current = flushAll;
     return () => {
       flushRef.current = null;
     };
   });
-  const [editing, setEditing] = useState<SourceAsset | "new" | null>(null),
-    [value, setValue] = useState(""),
-    [working, setWorking] = useState(false),
-    [error, setError] = useState(""),
-    [failed, setFailed] = useState<{ file: File; photo: boolean }[]>([]);
   const [pending, setPending] = useState<
     { file: File; photo: boolean; uri: string }[]
   >([]);
@@ -291,11 +399,14 @@ export function SourceAttachments({
     }
   };
   useEffect(() => {
-    onDirty(editing !== null || Object.keys(descriptions).length > 0);
+    onDirty(
+      (!!editing && (!!editing.source || !!editing.value.trim())) ||
+        Object.keys(descriptions).length > 0,
+    );
     return () => onDirty(false);
   }, [editing, descriptions, onDirty]);
   const upload = async (file: File, photo: boolean) => {
-    await flushDescriptions();
+    await flushAll();
     const latest = await api.get(batch.id);
     const uri = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
     if (uri) urls.current.push(uri);
@@ -329,9 +440,47 @@ export function SourceAttachments({
     });
   const edit = (source: SourceAsset) =>
     void act(async () => {
-      setValue((await api.text(batch.id, source.id)).text);
-      setEditing(source);
+      await flushAll();
+      const value = (await api.text(batch.id, source.id)).text;
+      setTextDraft({ source, value, original: value });
     });
+  const inlineInput = editing ? (
+    <View style={{ aspectRatio: 1, backgroundColor: tokens.color.surface }}>
+      <TextInput
+        autoFocus
+        accessibilityLabel="첨부 내용"
+        multiline
+        maxLength={30000}
+        value={editing.value}
+        placeholder="내용을 입력해주세요"
+        placeholderTextColor="#B5B5B5"
+        editable={!busy && !working}
+        onChangeText={(value) => {
+          if (textDraft.current) setTextDraft({ ...textDraft.current, value });
+        }}
+        onBlur={() => {
+          if (!skipTextBlur.current) void flushText().catch(() => {});
+        }}
+        style={{
+          flex: 1,
+          paddingTop: 14,
+          paddingLeft: 10,
+          paddingRight: 46,
+          paddingBottom: 10,
+          fontFamily: tokens.fontFamily,
+          fontSize: 13,
+          fontWeight: "400",
+          color: tokens.color.text,
+          textAlignVertical: "top",
+        }}
+      />
+      {textError ? (
+        <T variant="caption" color={tokens.color.error}>
+          {textError}
+        </T>
+      ) : null}
+    </View>
+  ) : null;
   return (
     <View style={{ gap: 16 }}>
       <T variant="sub" muted>
@@ -356,10 +505,54 @@ export function SourceAttachments({
           </T>
           <T variant="caption" muted>
             {photo
-              ? "판매페이지에 넣을 사진과 한 줄 설명을 추가해 주세요."
+              ? "대표 상품사진 한 장은 필수예요. 첫 사진이 대표로 지정되며 별을 눌러 바꿀 수 있어요."
               : "텍스트·이미지·PDF·TXT를 넣어 주세요. 자료 이미지는 판매페이지에 들어가지 않아요."}
           </T>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            {!photo && editing && !editing.source ? (
+              <View
+                testID="attachment-tile"
+                style={{
+                  width: "47%",
+                  borderWidth: 1,
+                  borderColor: tokens.color.border,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                }}
+              >
+                {inlineInput}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="자료 삭제"
+                  onPressIn={() => {
+                    skipTextBlur.current = true;
+                  }}
+                  onPressOut={() => {
+                    skipTextBlur.current = false;
+                  }}
+                  onPress={() => {
+                    void act(async () => {
+                      discardText.current = true;
+                      await textSaving.current?.catch(() => {});
+                      setTextDraft(null);
+                      discardText.current = false;
+                      setTextError("");
+                    });
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    right: 2,
+                    width: 44,
+                    height: 44,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon name="close" size={18} strokeWidth={1.5} />
+                </Pressable>
+              </View>
+            ) : null}
             {pending
               .filter((p) => p.photo === photo)
               .map((p, i) => (
@@ -381,6 +574,32 @@ export function SourceAttachments({
                 <Tile
                   key={s.id}
                   batch={batch.id}
+                  editor={
+                    editing?.source?.id === s.id ? inlineInput : undefined
+                  }
+                  representative={batch.targets.some(
+                    (t) =>
+                      (t.representativeAssetId ??
+                        batch.sources.find(
+                          (p) =>
+                            p.originalPhoto &&
+                            (p.common || p.targetIds.includes(t.id)),
+                        )?.id) === s.id,
+                  )}
+                  onRepresentative={() =>
+                    void act(async () => {
+                      await flushAll();
+                      const latest = await api.get(batch.id);
+                      await api.setRepresentative(
+                        batch.id,
+                        latest.version,
+                        latest.targets
+                          .filter((t) => s.common || s.targetIds.includes(t.id))
+                          .map((t) => t.id),
+                        s.id,
+                      );
+                    })
+                  }
                   descriptionError={
                     failedDescription === s.id ? descriptionError : undefined
                   }
@@ -402,8 +621,15 @@ export function SourceAttachments({
                   onEdit={() => edit(s)}
                   onRemove={() =>
                     void act(async () => {
+                      await textSaving.current?.catch(() => {});
+                      if (textDraft.current?.source?.id === s.id)
+                        setTextDraft(null);
                       await saving.current?.catch(() => {});
-                      await api.removeSource(batch.id, s);
+                      const latest = await api.get(batch.id);
+                      await api.removeSource(
+                        batch.id,
+                        latest.sources.find((p) => p.id === s.id) || s,
+                      );
                       delete drafts.current[s.id];
                       setDescriptions((old) => {
                         const next = { ...old };
@@ -472,69 +698,16 @@ export function SourceAttachments({
                 variant="outline"
                 disabled={busy || working}
                 onPress={() => {
-                  setValue("");
-                  setEditing("new");
+                  void act(async () => {
+                    await flushAll();
+                    setTextDraft({ source: null, value: "", original: "" });
+                  });
                 }}
               />
             ) : null}
           </View>
         </View>
       ))}
-      {editing ? (
-        <View
-          style={{
-            padding: 16,
-            gap: 12,
-            borderWidth: 1,
-            borderColor: tokens.color.border,
-            borderRadius: 12,
-          }}
-        >
-          <T weight="semibold">텍스트 내용</T>
-          <TextInput
-            accessibilityLabel="첨부 내용"
-            multiline
-            value={value}
-            onChangeText={setValue}
-            maxLength={30000}
-            style={{
-              padding: 12,
-              minHeight: 80,
-              borderWidth: 1,
-              borderColor: tokens.color.border,
-              borderRadius: 8,
-            }}
-          />
-          <Button
-            compact
-            label="내용 저장"
-            disabled={working || !value.trim()}
-            onPress={() =>
-              void act(async () => {
-                if (editing === "new") {
-                  const latest = await api.get(batch.id);
-                  await uploadSource(
-                    batch.id,
-                    latest.version,
-                    [],
-                    true,
-                    false,
-                    value,
-                  );
-                } else await api.editSource(batch.id, editing, { text: value });
-                setEditing(null);
-              })
-            }
-          />
-          <Button
-            compact
-            label="취소"
-            variant="text"
-            disabled={working}
-            onPress={() => setEditing(null)}
-          />
-        </View>
-      ) : null}
     </View>
   );
 }
