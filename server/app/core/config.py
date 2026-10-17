@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # local에서만 쓰는 JWT 비밀값. local이 아니면 JWT_SECRET이 반드시 있어야 한다(이슈 #5).
@@ -18,6 +18,15 @@ class Settings(BaseSettings):
 
     # 로컬 기본값은 docker-compose.yml의 PostgreSQL과 같다.
     database_url: str = "postgresql+psycopg://farmclub:farmclub@localhost:5432/farmclub"
+
+    @field_validator("database_url")
+    @classmethod
+    def _psycopg_driver(cls, value: str) -> str:
+        """Railway 등은 `postgresql://`·`postgres://`를 준다. 드라이버를 psycopg 3으로 고정한다."""
+        for scheme in ("postgresql://", "postgres://"):
+            if value.startswith(scheme):
+                return "postgresql+psycopg://" + value[len(scheme) :]
+        return value
 
     # 인증 (ADR 0009 Mock 로그인, ADR 0003 카카오는 I2)
     jwt_secret: str = ""
