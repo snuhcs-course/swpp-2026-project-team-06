@@ -75,6 +75,8 @@ class Payment(Base):
     order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"), unique=True)
     method: Mapped[str] = mapped_column(String(16), default="CARD")
     provider: Mapped[str] = mapped_column(String(16), default="MOCK")
+    # PG 쪽 결제 ID(PortOne paymentId). Mock은 NULL. 환불·웹훅 대조에 쓴다(DEV-36)
+    provider_payment_id: Mapped[str | None] = mapped_column(String(64), index=True)
     amount: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(24))
     approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -460,6 +460,17 @@ export type PayResult = {
   failReason: string | null;
 };
 
+/** 결제 확인 입력(FEAT-09). PortOne이 켜져 있으면 paymentId, 아니면 Mock 결과 */
+export type PayInput = { mockResult?: "success" | "fail"; paymentId?: string };
+
+/** 결제 설정(SCR-11, DEV-36). enabled=false면 Mock 카드 화면 */
+export type PaymentConfig = {
+  enabled: boolean;
+  provider: "PORTONE" | "MOCK";
+  storeId: string | null;
+  channelKey: string | null;
+};
+
 export type Dashboard = {
   todo: { openQuestions: number; toShip: number; pendingProducts: number };
   /** 판매 중 대표 상품 요약(예약한 사람 수·주문 수) */

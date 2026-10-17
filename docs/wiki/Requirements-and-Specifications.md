@@ -295,7 +295,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **THEN** the address is filled in for me
 - **AND** the order keeps its own copy, so later edits to my address book do not change it
 
-### FEAT-09: Card payment (simulated)
+### FEAT-09: Card payment (simulated → PortOne sandbox)
 
 **As a** consumer, **I want to** pay the full amount once, **so that** I am never charged twice and stock is never taken twice.
 
@@ -314,6 +314,17 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **WHEN** the same request is sent again because the response was lost
 - **THEN** I am charged once and stock is reduced once
 - **AND** I get the same result as the first time
+
+**AC-09-7: PortOne sandbox confirmation (DEV-36)**
+- **GIVEN** PortOne sandbox keys are configured and I have an unpaid order
+- **WHEN** the payment window approves and the app sends the payment ID
+- **THEN** the server checks the payment with PortOne (paid, same amount, same order) before reserving stock once
+- **AND** a failed, cancelled or mismatched payment leaves the order unpaid with a reason
+
+**AC-09-8: Payment webhook**
+- **GIVEN** PortOne sends `Transaction.Paid` for an unpaid order
+- **WHEN** the same webhook arrives twice
+- **THEN** only the first reserves the order and a bad signature is refused when a webhook secret is set
 
 **AC-09-6: Mixed weights**
 - **GIVEN** 5kg and 10kg options share one supply limit
@@ -600,7 +611,7 @@ Key consumer screens:
 | **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
 | **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
 | **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents | Change option or address, check consents, Pay | Address → address screen; Pay → SCR-11 | Pay is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input |
-| **SCR-11 Payment (simulated)** | Pay the full amount with a test card (no input) or by entering card number, expiry and CVC; the charge itself is still simulated | Pay once (button and back lock while processing) | Success → SCR-12 with payment time and card last four digits | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
+| **SCR-11 Payment** | With PortOne sandbox keys the Pay button opens the PortOne card window and the server verifies the payment; without them, a test card (no input) or manual card entry with a simulated charge | Pay once (button and back lock while processing) | Success → SCR-12 with payment time and card last four digits | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
 | **SCR-12 Order complete** | Reservation information and following | Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
 | **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
 | **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions | Cancel (confirm sheet), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |

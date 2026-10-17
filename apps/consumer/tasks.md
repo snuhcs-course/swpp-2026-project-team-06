@@ -306,3 +306,36 @@ I1의 "성공/실패 데모 스위치" 결제 화면을 실제 카드 결제처�
 ### 기록
 - 10/17 main 34c9009에서 시작. 서버 무변경, 화면·문서만.
 - 10/17 구현·문서 동기화 완료. `npm run typecheck` 4개 통과, `npm run test:mock` 12/12, Mock 화면 6장 확인(콘솔 오류 0), `node scripts/run-integration.mjs`(로컬 Docker PostgreSQL) 실서버 시나리오 7/7 + Playwright 19/19 통과. 실패 안내 문구 중복·완료 화면 라벨 줄바꿈 수정. Figma 반영은 머지 뒤 별도.
+
+
+## DEV-36 결제 화면 PortOne 샌드박스 연결
+
+- 이슈: [DEV-36](https://linear.app/sswp6/issue/DEV-36) · GitHub #81
+- 브랜치: `nemodleo/dev-36-i2-t19-finish-sandbox-payment-verification-failure-and` (DEV-37 위에 쌓음)
+- 기능·인수 조건: FEAT-09 I2 / AC-09-7 · 기존 AC-09-2·3 유지
+- 상태: 리뷰 중
+
+### 목표
+서버에 PortOne 테스트 채널이 설정돼 있으면 결제하기가 PortOne 카드 결제 창을 열고, 승인 뒤 서버 확인을 거쳐 완료 화면으로 간다. 설정이 없으면 DEV-37 Mock 카드 화면이 그대로 나온다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/checkout/[productId]/pay.tsx`, `apps/consumer/src/lib/portone.ts`(새 파일), `apps/consumer/spec.md`, `apps/consumer/tasks.md`
+
+### 비범위
+- 결제 수단 추가(무통장), 영수증 이메일, 환불 UI. Figma 반영(머지 뒤).
+
+### 결정 사항
+- 10/17 PortOne 브라우저 SDK는 npm 의존성 없이 CDN 스크립트(`cdn.portone.io/v2/browser-sdk.js`)를 한 번만 넣어 쓴다(의존성 추가 금지 규칙).
+- 10/17 결제 ID는 `fc-<orderId>-<시각>`으로 시도마다 새로 만들고 `customData`에 `orderId`를 넣어 서버가 대조한다. `redirectUrl`은 현재 결제 화면 주소라 모바일 리다이렉트로 돌아오면 쿼리 `paymentId`·`code`·`message`를 읽어 같은 흐름을 탄다.
+- 10/17 PG가 켜져 있으면 결제 수단은 ‘신용·체크카드’ 한 줄만 보이고 테스트 카드·직접 입력은 숨긴다. 완료 화면의 카드 끝 4자리는 PG 결제에서는 알 수 없어 ‘카드’로만 표시.
+
+### 작업
+- [x] `lib/portone.ts` SDK 로더·결제 요청 [x] `pay.tsx` PG 경로·리다이렉트 복귀 [x] `npm run typecheck`
+- [x] 실제 샌드박스 승인 1건 확인(사용자가 PortOne 창에서 테스트 결제)
+
+### 기록
+- 10/17 PG 꺼진 Mock 경로는 DEV-37 e2e로 회귀 확인. 실제 테스트 결제는 사용자 확인 대기.
+- 10/17 실서버+PortOne 테스트 채널(KG이니시스 V2)로 결제 창까지 확인: 처음엔 PortOne prepare가 400(구매자 이메일 필수) → `customer.email` 추가(카카오 이메일 또는 자리 주소), SDK 예외 메시지를 화면에 표시. 수정 뒤 이니시스 테스트 결제 창(stgstdpay.inicis.com) 열림 확인. 카드 승인은 사용자 확인 대기.
+- 10/17 실제 PortOne 테스트 채널(KG이니시스 V2) 승인 확인: 사용자가 카드 승인까지 진행 → 서버 확인이 500(customData 이중 인코딩) → 06a3149로 수정 후 승인된 결제 `fc-o-f6ebf221ab-mvbfdfzg`를 웹훅 경로로 재확인해 주문 FC-1017-1020이 RESERVED, `payments.provider=PORTONE`. 재시도로 생긴 중복 승인 1건은 PortOne API로 취소(CANCELLED). 웹훅 중복 호출은 "already processed"로 무시됨 확인.
+- 10/17 두 번째 실결제 확인: 주문 FC-1017-1022(노지 감귤 27,000) 승인 → `POST /pay` 200 → RESERVED, `payments.provider=PORTONE`. 끝까지 통과. 이후 사용자가 내 주문에서 같은 상품의 시드 주문(FC-0921-0011, 배송 기간 변경 제안)의 ‘전액 환불’을 눌러 그 주문이 환불됐고 실제 주문은 ‘예약 취소하기’ 대상이라 그대로였음 → API로 취소(REFUNDED)하고 PortOne에서 결제 취소. 뒤로가기로 열린 옛 결제 화면이 취소된 주문의 PG 창을 열던 문제는 f7fe808로 막음.
+- 후속 1(처리됨, 서버 커밋): 소비자 취소·운영자 환불이 PortOne `cancel`을 먼저 호출하도록 `_refund`에 묶음. 내 주문 목록에서 같은 상품의 주문이 여럿이면 어느 주문인지 구분이 어렵다(주문번호·금액 강조 검토).

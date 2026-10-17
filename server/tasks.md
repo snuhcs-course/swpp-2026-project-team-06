@@ -535,3 +535,21 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
   - 10/16 배송 예정 기간은 배송·수령 문맥이 있는 구절(줄바꿈·`!?;`·소수점/천 단위가 아닌 `.,`로 나눔)의 날짜로만 확인한다.
 - 작업: [x] 중량 옵션 정확 일치 [x] 당도 숫자 경계 [x] 배송 구절 한정 [x] AC-03-1 회귀 테스트 4개
 - 검증: Ruff, 전체 pytest 210개 통과.
+
+## DEV-36 PortOne 샌드박스 결제 확인·실패·중복 처리
+- 이슈: [DEV-36](https://linear.app/sswp6/issue/DEV-36) (GitHub [#81](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/81))
+- 브랜치: `nemodleo/dev-36-i2-t19-finish-sandbox-payment-verification-failure-and` (DEV-37 `#120` 위에 쌓음)
+- 기능·인수 조건: FEAT-09 I2 / AC-09-7, AC-09-8 · 기존 AC-09-1~3 회귀
+- 상태: 리뷰 중
+- 범위(수정 허용 경로): `server/app/core/config.py`, `server/app/orders/{models,schemas,service,router,spec}.py|md`, `server/app/main.py`, `server/migrations/versions/0009_portone_payment_id.py`, `server/tests/test_orders.py`, `server/.env.example`, `server/tasks.md`
+- 결정 사항:
+  - 10/17 결제 확인은 기존 `POST /orders/{id}/pay`에 `paymentId`를 더해 받는다(새 엔드포인트 없음). 멱등 키·잠금·차감 로직은 Mock과 공유.
+  - 10/17 서버가 PortOne 단건 조회로 `PAID`·금액·`customData.orderId`를 검증한다. 앱이 보낸 금액은 믿지 않는다. `FAILED`/`CANCELLED`/금액 불일치/다른 주문은 실패 사유로 돌려주고 물량·상태를 바꾸지 않는다.
+  - 10/17 `Payment.provider_payment_id` 컬럼 추가(0008). 환불·웹훅 대조용. 테스트는 `_portone_fetch`를 바꿔 끼운다.
+  - 10/17 웹훅은 `Transaction.Paid`만 처리, 결제 전 주문만, 조회 결과를 확인 단계에 넘겨 재조회 없음. 서명은 Standard Webhooks(v1 HMAC-SHA256), 시크릿이 비면 생략(로컬 전용, 운영에서는 필수로 둘 것).
+  - 10/17 API 시크릿·상점 ID·채널 키 셋이 모두 있어야 켜진다. 비면 Mock 계약 그대로라 e2e·통합 테스트가 그대로 돈다.
+- 작업: [x] 설정·모델·마이그레이션 [x] 서비스·라우터·웹훅 [x] pytest 6개 [x] Ruff
+- 검증: Ruff 통과, 전체 pytest 216개 통과(신규 6개), `alembic upgrade head` 로컬 적용(main의 DEV-39 0008 뒤 0009로 번호 조정).
+- 10/17 실제 PortOne 테스트 채널(KG이니시스 V2) 승인 확인: 사용자가 카드 승인까지 진행 → 서버 확인이 500(customData 이중 인코딩) → 06a3149로 수정 후 승인된 결제 `fc-o-f6ebf221ab-mvbfdfzg`를 웹훅 경로로 재확인해 주문 FC-1017-1020이 RESERVED, `payments.provider=PORTONE`. 재시도로 생긴 중복 승인 1건은 PortOne API로 취소(CANCELLED). 웹훅 중복 호출은 "already processed"로 무시됨 확인.
+  - 10/17 환불도 PG와 묶음: `_refund`가 PortOne 결제면 PG 취소를 먼저 호출(전액/부분), 실패 시 409 `PAYMENT_CANCEL_FAILED`·무변경. pytest 4개 추가(소비자 취소→PG 취소, PG 실패→무변경, 운영자 부분 환불 금액 전달, Mock은 PG 호출 없음). 전체 pytest 221개 통과.
+  - 10/17 실측(사용자): 주문 FC-1017-1023 승인 → 앱에서 ‘예약 취소하기’ → 서버가 PortOne 취소 SUCCEEDED 뒤 REFUNDED 기록. DB `payments.status=REFUNDED`, PortOne `CANCELLED` 일치 확인.

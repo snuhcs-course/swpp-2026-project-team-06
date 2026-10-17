@@ -95,3 +95,7 @@ FarmRoom은 `/farms/:id`와 `/news/:id`의 공용 컨테이너이고 `/farms/:id
 ## DEV-37 결제 화면 (SCR-11·SCR-12)
 
 결제 화면은 실제 카드 결제와 같은 입력(테스트 카드 / 카드 번호·유효기간·CVC)을 받되 서버 계약은 I1 Mock(`POST /orders/{id}/pay`의 `mockResult`)을 그대로 쓴다. 카드 값은 화면에서만 검증(16자리·Luhn, 이번 달 이후, CVC 3자리)하고 서버로 보내지 않는다. Mock 결과 규칙은 끝 4자리 `0000`이면 `fail`, 그 밖에는 `success`이며 e2e의 AC-09-2 경로가 이 규칙을 쓴다. 성공 시 카드 끝 4자리는 라우트 파라미터 `last4`로만 SCR-12에 넘겨 ‘결제’ 행(결제일·카드)에 표시하고 저장하지 않는다. 결제 중에는 버튼과 뒤로가기를 잠그며, 뒤로가기·‘주문서로 돌아가기’는 주문을 PENDING_PAYMENT로 둔 채 SCR-10으로 가는 취소다. DEV-36에서 PortOne 샌드박스로 바꿀 때 입력 폼은 PG 창으로 대체하고 테스트 카드 줄만 남긴다.
+
+## DEV-36 결제 화면 PortOne 연결 (SCR-11)
+
+`payments.config()`가 `enabled`면 결제하기는 `lib/portone.ts`로 PortOne 브라우저 SDK(CDN, 한 번 로드)를 불러 카드 결제 창을 열고, 승인 응답의 `paymentId`를 `orders.pay(orderId, { paymentId }, key)`로 보낸다. 리다이렉트로 돌아오면 쿼리 `paymentId`·`code`·`message`를 읽어 같은 처리를 한 번만 한다. 설정이 꺼져 있으면 DEV-37 Mock 카드 화면·`{ mockResult }` 경로 그대로다. 금액·주문 검증은 서버가 한다.

@@ -259,9 +259,7 @@ def test_AC_09_6_mixed_weight_release_and_shipping_accounting(client, login):
     before = client.get("/api/products/mine/p-house", headers=producer).json()
     committed = before["reservedGrams"] + before["shippedGrams"]
 
-    five = client.post(
-        "/api/orders", headers=consumer | key(), json=order_body(quantity=2)
-    ).json()
+    five = client.post("/api/orders", headers=consumer | key(), json=order_body(quantity=2)).json()
     client.post(f"/api/orders/{five['orderId']}/pay", headers=consumer | key(), json={})
     ten = client.post(
         "/api/orders", headers=consumer | key(), json=order_body(optionId="opt-10")
@@ -366,9 +364,10 @@ def test_AC_14_1_dashboard_counts(client, login):
     body = client.get("/api/orders/producer/dashboard", headers=login("u-kang")).json()
 
     assert body["todo"] == {"openQuestions": 3, "toShip": 7, "pendingProducts": 1}
-    assert {key: body["product"][key] for key in (
-        "productId", "productName", "reservedCount", "orderCount"
-    )} == {
+    assert {
+        key: body["product"][key]
+        for key in ("productId", "productName", "reservedCount", "orderCount")
+    } == {
         "productId": "p-house",
         "productName": "하우스 감귤 5kg / 10kg",
         "reservedCount": 37,
@@ -409,3 +408,298 @@ def test_AC_08_3_separate_shipping_fee_in_total(client, login):
     order = client.post("/api/orders", headers=login("u-seojun") | key(), json=order_body()).json()
 
     assert (order["unitPrice"], order["shippingFee"], order["totalAmount"]) == (29000, 4000, 33000)
+
+
+# ---- PortOne 샌드박스 결제 확인 (FEAT-09 I2, DEV-36) ----
+
+
+def _portone_on(monkeypatch, result):
+    from app.core import config
+    from app.orders import service
+
+    settings = config.get_settings()
+    monkeypatch.setattr(settings, "portone_api_secret", "test-secret")
+    monkeypatch.setattr(settings, "portone_store_id", "store-test")
+    monkeypatch.setattr(settings, "portone_channel_key", "channel-key-test")
+    calls: list[str] = []
+
+    def fetch(payment_id: str):
+        calls.append(payment_id)
+        return result(payment_id) if callable(result) else result
+
+    monkeypatch.setattr(service, "_portone_fetch", fetch)
+    return calls
+
+
+def _paid(order, **over):
+    return {"status": "PAID", "amount": order["totalAmount"], "order_id": order["orderId"]} | over
+
+
+def _payment_row(order_id: str):
+    from sqlalchemy import select
+
+    from app.core.db import get_sessionmaker
+    from app.orders.models import Payment
+
+    with get_sessionmaker()() as session:
+        return session.scalar(select(Payment).where(Payment.order_id == order_id))
+
+
+def test_payment_config_reports_pg_state(client, monkeypatch):
+    from app.core import config
+
+    monkeypatch.setattr(config.get_settings(), "portone_api_secret", "")
+    off = client.get("/api/payments/config").json()
+    assert off == {"enabled": False, "provider": "MOCK", "storeId": None, "channelKey": None}
+
+    _portone_on(monkeypatch, {})
+    on = client.get("/api/payments/config").json()
+    assert on == {
+        "enabled": True,
+        "provider": "PORTONE",
+        "storeId": "store-test",
+        "channelKey": "channel-key-test",
+    }
+
+
+def test_AC_09_7_portone_paid_payment_reserves_once(client, login, monkeypatch):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    calls = _portone_on(monkeypatch, _paid(order))
+    same = headers | key()
+
+    first = client.post(
+        f"/api/orders/{order['orderId']}/pay", headers=same, json={"paymentId": "fc-1"}
+    )
+    second = client.post(
+        f"/api/orders/{order['orderId']}/pay", headers=same, json={"paymentId": "fc-1"}
+    )
+
+    assert first.status_code == 200, first.text
+    assert first.json()["result"] == "success"
+    assert first.json()["order"]["status"] == "RESERVED"
+    assert first.json() == second.json()
+    assert calls == ["fc-1"]
+    assert allocation().reserved_count == 39
+    row = _payment_row(order["orderId"])
+    assert (row.provider, row.provider_payment_id, row.amount) == (
+        "PORTONE",
+        "fc-1",
+        order["totalAmount"],
+    )
+
+
+def test_AC_09_7_portone_failed_or_mismatched_payment_keeps_quantity(client, login, monkeypatch):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+
+    _portone_on(monkeypatch, _paid(order, status="FAILED"))
+    failed = client.post(
+        f"/api/orders/{order['orderId']}/pay", headers=headers | key(), json={"paymentId": "fc-2"}
+    ).json()
+    assert failed["result"] == "fail" and "거절" in failed["failReason"]
+
+    _portone_on(monkeypatch, _paid(order, amount=order["totalAmount"] - 1000))
+    short = client.post(
+        f"/api/orders/{order['orderId']}/pay", headers=headers | key(), json={"paymentId": "fc-3"}
+    ).json()
+    assert short["result"] == "fail" and "금액" in short["failReason"]
+
+    _portone_on(monkeypatch, _paid(order, order_id="o-other"))
+    other = client.post(
+        f"/api/orders/{order['orderId']}/pay", headers=headers | key(), json={"paymentId": "fc-4"}
+    ).json()
+    assert other["result"] == "fail" and "이 주문의 결제가 아니에요" in other["failReason"]
+
+    assert allocation().reserved_count == 38
+    assert _payment_row(order["orderId"]) is None
+    assert (
+        client.get(f"/api/orders/{order['orderId']}", headers=headers).json()["status"]
+        == "PENDING_PAYMENT"
+    )
+
+
+def test_AC_09_7_payment_id_rejected_when_pg_disabled(client, login, monkeypatch):
+    from app.core import config
+
+    monkeypatch.setattr(config.get_settings(), "portone_api_secret", "")
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+
+    response = client.post(
+        f"/api/orders/{order['orderId']}/pay", headers=headers | key(), json={"paymentId": "fc-5"}
+    )
+
+    assert response.status_code == 400
+    assert "paymentId" in response.json()["details"]["fields"]
+
+
+def test_AC_09_7_webhook_reserves_pending_order_once(client, login, monkeypatch):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    calls = _portone_on(monkeypatch, _paid(order))
+    body = {"type": "Transaction.Paid", "data": {"paymentId": "fc-6", "storeId": "store-test"}}
+
+    first = client.post("/api/payments/portone/webhook", json=body)
+    second = client.post("/api/payments/portone/webhook", json=body)
+    other = client.post(
+        "/api/payments/portone/webhook",
+        json={"type": "Transaction.Cancelled", "data": {"paymentId": "fc-6"}},
+    )
+
+    assert first.json() == {"result": "success"}
+    assert second.json() == {"result": "ignored: already processed"}
+    assert other.json() == {"result": "ignored: Transaction.Cancelled"}
+    assert calls == ["fc-6", "fc-6"]
+    assert allocation().reserved_count == 39
+    assert (
+        client.get(f"/api/orders/{order['orderId']}", headers=headers).json()["status"]
+        == "RESERVED"
+    )
+
+
+def test_webhook_signature_is_verified_when_secret_is_set(client, login, monkeypatch):
+    import base64
+    import hashlib
+    import hmac
+    import json
+
+    from app.core import config
+
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    _portone_on(monkeypatch, _paid(order))
+    secret_bytes = b"0123456789abcdef0123456789abcdef"
+    monkeypatch.setattr(
+        config.get_settings(),
+        "portone_webhook_secret",
+        "whsec_" + base64.b64encode(secret_bytes).decode(),
+    )
+    raw = json.dumps({"type": "Transaction.Paid", "data": {"paymentId": "fc-7"}}).encode()
+    good = base64.b64encode(
+        hmac.new(secret_bytes, b"msg_1.1700000000." + raw, hashlib.sha256).digest()
+    ).decode()
+    signed = {
+        "webhook-id": "msg_1",
+        "webhook-timestamp": "1700000000",
+        "Content-Type": "application/json",
+    }
+
+    bad = client.post(
+        "/api/payments/portone/webhook",
+        content=raw,
+        headers=signed | {"webhook-signature": "v1,AAAA"},
+    )
+    ok = client.post(
+        "/api/payments/portone/webhook",
+        content=raw,
+        headers=signed | {"webhook-signature": f"v1,{good}"},
+    )
+
+    assert bad.status_code == 401
+    assert ok.json() == {"result": "success"}
+
+
+def test_portone_custom_data_is_decoded_even_when_double_encoded():
+    import json
+
+    from app.orders.service import _custom_order_id
+
+    once = json.dumps({"orderId": "o-1"})
+    assert _custom_order_id(once) == "o-1"
+    assert _custom_order_id(json.dumps(once)) == "o-1"
+    assert _custom_order_id({"orderId": "o-2"}) == "o-2"
+    assert _custom_order_id("not json") is None
+    assert _custom_order_id(None) is None
+
+
+def _paid_portone_order(client, login, monkeypatch):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    _portone_on(monkeypatch, _paid(order))
+    paid = client.post(
+        f"/api/orders/{order['orderId']}/pay",
+        headers=headers | key(),
+        json={"paymentId": "fc-pg-1"},
+    ).json()
+    assert paid["result"] == "success"
+    return headers, order
+
+
+def test_AC_11_3_consumer_cancel_of_portone_order_cancels_at_pg_first(client, login, monkeypatch):
+    from app.orders import service
+
+    headers, order = _paid_portone_order(client, login, monkeypatch)
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        service, "_portone_cancel", lambda pid, amount, reason: calls.append((pid, amount, reason))
+    )
+    before = allocation().reserved_count
+
+    cancelled = client.post(f"/api/orders/{order['orderId']}/cancel", headers=headers | key())
+
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["status"] == "REFUNDED"
+    assert len(calls) == 1 and calls[0][0] == "fc-pg-1" and calls[0][1] is None
+    assert allocation().reserved_count == before - 1
+    assert _payment_row(order["orderId"]).status == "REFUNDED"
+
+
+def test_AC_11_3_pg_cancel_failure_leaves_order_and_payment_untouched(client, login, monkeypatch):
+    from app.orders import service
+
+    headers, order = _paid_portone_order(client, login, monkeypatch)
+
+    def boom(pid, amount, reason):
+        raise service.PortoneError("cancel failed: 502")
+
+    monkeypatch.setattr(service, "_portone_cancel", boom)
+    before = allocation().reserved_count
+
+    response = client.post(f"/api/orders/{order['orderId']}/cancel", headers=headers | key())
+
+    assert response.status_code == 409
+    assert response.json()["details"]["reason"] == "PAYMENT_CANCEL_FAILED"
+    assert (
+        client.get(f"/api/orders/{order['orderId']}", headers=headers).json()["status"]
+        == "RESERVED"
+    )
+    assert allocation().reserved_count == before
+    assert _payment_row(order["orderId"]).status == "APPROVED"
+
+
+def test_AC_11_3_admin_partial_refund_passes_amount_to_pg(
+    client, login, monkeypatch, admin_headers
+):
+    from app.orders import service
+
+    _, order = _paid_portone_order(client, login, monkeypatch)
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        service, "_portone_cancel", lambda pid, amount, reason: calls.append((pid, amount, reason))
+    )
+
+    partial = client.post(
+        f"/admin/orders/{order['orderId']}/refund",
+        headers=admin_headers | key(),
+        json={"reason": "일부 품질 보상", "amount": 5000},
+    )
+
+    assert partial.status_code == 200, partial.text
+    assert calls == [("fc-pg-1", 5000, "일부 품질 보상")]
+    assert _payment_row(order["orderId"]).status == "PARTIALLY_REFUNDED"
+
+
+def test_mock_payment_refund_does_not_call_pg(client, login, monkeypatch):
+    from app.orders import service
+
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    client.post(f"/api/orders/{order['orderId']}/pay", headers=headers | key(), json={})
+    monkeypatch.setattr(
+        service, "_portone_cancel", lambda *a: (_ for _ in ()).throw(AssertionError("PG called"))
+    )
+
+    cancelled = client.post(f"/api/orders/{order['orderId']}/cancel", headers=headers | key())
+
+    assert cancelled.json()["status"] == "REFUNDED"

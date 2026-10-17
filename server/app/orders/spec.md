@@ -10,10 +10,10 @@
 예약 주문, Mock 결제, 출하 전 취소·환불, 수확 시작·출하, 배송 완료, 구매 확정. 운영자의 배송 완료·환불.
 
 ## 구조
-- `router.py` — prefix `/orders`(앱에서는 `/api/orders`). 관리 API `/admin/orders/...`는 기능 이슈에서 추가.
+- `router.py` — prefix `/orders`(앱에서는 `/api/orders`)와 `payments_router`(`/api/payments/config`, `/api/payments/portone/webhook`). 관리 API `/admin/orders/...`는 기능 이슈에서 추가.
 - `models.py` — 담당 엔티티: `Order`, `Payment`, `Refund`
 - `schemas.py` — 주문서·주문 내역·주문 상세·결제·출하 입출력
-- `service.py` — 주문 생성(차감 포함), 상태 전이, 환불, 출하 반영
+- `service.py` — 주문 생성(차감 포함), 결제 확인(Mock / PortOne 조회·검증 `_portone_fetch`, 웹훅), 상태 전이, 환불, 출하 반영
 
 ## 계약
 - **상태 전이**는 tech-design/README.md "주문 상태" 표만 허용하고, 표에 없는 전이는 막는다(409). 전이 표는 service 한 곳에 둔다.
@@ -44,3 +44,5 @@
 | 2026-10-08 | 현황의 `openQuestions`는 채팅 구현 전까지 0, 대표 상품은 지금 단계가 가장 일찍 끝나는 판매 중 상품 | FEAT-14 | AC-14-1 |
 | 2026-10-08 | 주문 문의 API(`POST·GET /api/orders/{id}/inquiries`)는 orders 라우터, 로직은 messaging 서비스. 결제한 본인 주문·그 농가 생산자만 | contracts-1.2 6장 | AC-33-1 |
 | 2026-10-16 | 모든 환불 경로는 `_refund`에서 `Refund` 이력과 `Payment.status`를 함께 기록한다. 부분 환불은 주문 상태·환불 필드·물량을 바꾸지 않고 결제액(배송비 포함)의 잔액만 줄인다 | DEV-35 정책 결정 | AC-10-6, AC-11-3 |
+| 2026-10-17 | PortOne 결제 확인은 `POST /orders/{id}/pay`의 `paymentId`로 받고, 서버가 `GET api.portone.io/payments/{id}`로 `PAID`·금액·`customData.orderId`를 검증한 뒤 기존 Mock 성공 경로(잠금·차감·`Payment`)를 그대로 탄다. `Payment.provider=PORTONE`, `provider_payment_id`에 PG 결제 ID(마이그레이션 0009). 웹훅은 결제 전 주문만 처리하고 조회 결과를 확인 단계에 넘겨 두 번 조회하지 않는다. 설정이 없으면 `paymentId`는 400 | DEV-36, FEAT-09 I2. 실결제 전환은 키 교체만 | AC-09-7, AC-09-8 |
+| 2026-10-17 | 모든 환불 경로(`_refund`: 소비자 취소·배송 기간 거절·운영자 전액/부분 환불)는 PortOne 결제면 DB를 바꾸기 전에 `POST /payments/{id}/cancel`(부분이면 `amount`)을 먼저 부르고, 실패하면 409 `PAYMENT_CANCEL_FAILED`로 아무것도 바꾸지 않는다. 이미 취소된 결제(전액)는 성공으로 본다. Mock 결제는 PG 호출 없음 | 실결제 때 환불이 DB에만 남는 사고 방지(DEV-36 후속, 사용자 요청 10/17) | AC-11-3, AC-09-7 |

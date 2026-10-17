@@ -15,6 +15,7 @@ from app.farms.router import router as farms_router
 from app.farms.share import router as farm_share_router
 from app.messaging.router import router as messaging_router
 from app.orders.router import admin_router as orders_admin_router
+from app.orders.router import payments_router as payments_router
 from app.orders.router import router as orders_router
 from app.source_analysis.middleware import SourceRequestMiddleware
 from app.source_analysis.router import router as source_analysis_router
@@ -45,6 +46,7 @@ for module_router in (
     farms_router,
     catalog_router,
     orders_router,
+    payments_router,
     messaging_router,
     ai_router,
     analytics_router,

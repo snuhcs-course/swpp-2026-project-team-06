@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     kakao_rest_api_key: str = ""
     kakao_client_secret: str = ""
 
+    # 결제 (FEAT-09 I2, DEV-36). PortOne V2 테스트 채널. API 시크릿이 비면 Mock 결제만 동작한다.
+    portone_store_id: str = ""
+    portone_channel_key: str = ""
+    portone_api_secret: str = ""
+    # 웹훅 서명 검증(Standard Webhooks, whsec_...). 비면 서명 검증을 건너뛴다(로컬 전용)
+    portone_webhook_secret: str = ""
+
     # 앱 주소: CORS, 공유 링크 이동(ADR 0006)
     consumer_app_url: str = "http://localhost:8081"
     producer_app_url: str = "http://localhost:8082"

@@ -47,7 +47,30 @@ class OrderInput(CamelModel):
 
 
 class PayInput(CamelModel):
+    """결제 확인 입력. PortOne이 켜져 있으면 `payment_id`로 검증하고, 아니면 Mock 결과를 쓴다."""
+
     mock_result: Literal["success", "fail"] = "success"
+    payment_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class PaymentConfig(CamelModel):
+    """결제 설정(SCR-11). enabled=false면 앱은 Mock 카드 화면을 쓴다."""
+
+    enabled: bool
+    provider: Literal["PORTONE", "MOCK"]
+    store_id: str | None
+    channel_key: str | None
+
+
+class PortoneWebhookData(CamelModel):
+    payment_id: str
+    store_id: str | None = None
+    transaction_id: str | None = None
+
+
+class PortoneWebhook(CamelModel):
+    type: str
+    data: PortoneWebhookData
 
 
 class AdminRefundInput(CamelModel):

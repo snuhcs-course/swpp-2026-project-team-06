@@ -66,6 +66,13 @@ export const farms = {
   ) => request<A.MyFarm>("PATCH", "/api/farms/me", { body: patch }),
 };
 
+/* ---------------- payments (/api/payments) ---------------- */
+
+export const payments = {
+  /** PG(PortOne) 사용 여부와 공개 키. 서버 API 시크릿은 내려오지 않는다 */
+  config: () => request<A.PaymentConfig>("GET", "/api/payments/config"),
+};
+
 /* ---------------- catalog (/api/products) ---------------- */
 
 export const catalog = {
@@ -158,13 +165,14 @@ export const orders = {
   /** 멱등 키를 넘기지 않으면 새로 만든다. 재시도 때는 같은 키를 넘긴다. */
   create: (input: A.OrderInput, idempotencyKey: string = newIdempotencyKey()) =>
     request<A.Order>("POST", "/api/orders", { body: input, idempotencyKey }),
+  /** 결제 확인. PortOne이 켜져 있으면 `{ paymentId }`, 아니면 `{ mockResult }` */
   pay: (
     orderId: string,
-    mockResult: "success" | "fail",
+    input: A.PayInput,
     idempotencyKey: string = newIdempotencyKey(),
   ) =>
     request<A.PayResult>("POST", `/api/orders/${orderId}/pay`, {
-      body: { mockResult },
+      body: input,
       idempotencyKey,
     }),
   list: (q: A.PageQuery = {}) =>

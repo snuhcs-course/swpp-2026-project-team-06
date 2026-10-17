@@ -149,3 +149,20 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 최종 로컬 UI 검증: `npx playwright test scripts/e2e/conversation-ui.spec.ts` 6/6 통과. 커밋 전·브랜치 diff 검사와 명세 대조 완료. 소수 중량 옵션도 정수 g로 판정하고 생산자 상품 편집 복귀 시 판매 품목을 다시 읽는다.
 - PR: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/98 (머지하지 않음). 최신 실서버 CI 결과와 AI 리뷰는 PR에 기록. Linear MCP는 읽기 전용이며 브라우저 연결도 실패해 이슈 상태 직접 수정은 미완료.
+
+
+## DEV-36 결제 설정·PG 결제 확인 클라이언트
+
+- 이슈: [DEV-36](https://linear.app/sswp6/issue/DEV-36) · GitHub #81
+- 브랜치: `nemodleo/dev-36-i2-t19-finish-sandbox-payment-verification-failure-and`
+- 기능·인수 조건: FEAT-09 I2 / AC-09-7
+- 상태: 리뷰 중
+
+### 범위 (수정 허용 경로)
+- `packages/api/src/types.ts`(`PayInput`, `PaymentConfig`), `packages/api/src/endpoints.ts`(`payments.config`, `orders.pay(orderId, input, key)`), `packages/api/src/index.ts`, `packages/api/src/mock/orders.ts`, `packages/api/spec.md`, `packages/api/tasks.md`
+
+### 결정 사항
+- 10/17 `orders.pay`의 두 번째 인자를 `{ mockResult }` 또는 `{ paymentId }` 객체로 바꿈. Mock 서버는 PG가 없으므로 `paymentId`가 오면 승인된 것으로 보고 `GET /api/payments/config`는 `enabled=false`.
+
+### 작업
+- [x] 타입·엔드포인트·Mock, `npm run typecheck` 통과

@@ -31,7 +31,7 @@
 | AI 관측 | Langfuse Cloud(무료) | AI 입력·출력·근거 기록(M-08), 정확도 평가(N-08) | 0004 |
 | 지표 | PostHog Cloud(무료), I1부터 | PRD 4장 지표, 개인정보 없이 | [0005](./adr/0005-analytics-posthog.md) |
 | 에러 | Sentry(앱·서버, 무료) | | — |
-| 결제 | I1 Mock. I2부터 PortOne(NHN KCP) | 주문·결제 모델은 PortOne 연동을 가정 | — |
+| 결제 | I1 Mock. I2 PortOne V2 테스트 채널(브라우저 SDK + 서버 결제 조회·웹훅, DEV-36). 실결제는 PG 계약 뒤 채널 키 교체 | 주문·결제 모델은 PortOne 연동을 가정 | — |
 | CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크 → Railway·Vercel 자동 배포 | | — |
 | 패키지 | npm workspaces(앱), uv 또는 pip(서버) | 설정 최소 | — |
 
