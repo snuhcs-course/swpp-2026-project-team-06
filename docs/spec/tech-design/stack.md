@@ -32,7 +32,7 @@
 | 지표 | PostHog Cloud(무료), I1부터 | PRD 4장 지표, 개인정보 없이 | [0005](./adr/0005-analytics-posthog.md) |
 | 에러 | Sentry(앱·서버, 무료) | | — |
 | 결제 | I1 Mock. I2부터 PortOne(NHN KCP) | 주문·결제 모델은 PortOne 연동을 가정 | — |
-| CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크 → Railway·Vercel 자동 배포 | | — |
+| CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크(ci.yml). 서버 배포는 main의 `server/**` 변경 시 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65; GitHub App은 조직 승인 문제로 미연결). 앱은 로컬 `expo export` 결과를 Vercel CLI로 업로드(수동) | | — |
 | 패키지 | npm workspaces(앱), uv 또는 pip(서버) | 설정 최소 | — |
 
 [0002](./adr/0002-backend-django-admin.md)(Django + DRF, Django Admin)는 [0007](./adr/0007-backend-fastapi.md)·[0008](./adr/0008-operator-admin-api.md)로 대체됐다.
