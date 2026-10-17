@@ -927,3 +927,19 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - 리뷰 수정: 첫 사진 업로드의 대표 지정 덮어쓰기 수정, PageSnapshot 브랜치 전용 호환 제거, 현재 스펙 우선순위/마이그레이션 설명 정정. 새 첫 업로드·저장·재접속 및 누락/다른 상품 사진/null 대표 계약 회귀 테스트 추가. 커밋 전 스캔 이슈 없음, 신규 호환 후보 0건.
 - 머지 스캔: 후보 7건 — 지적 1건(수정 완료) / 정당 6건. ProductWorkspace.snapshot은 origin/main 이력 0건(브랜치839503e→b36fe10)이라 제거. Batch.targets·Draft.snapshot·Run.inputs·Page.spans·Asset.privacy_approved는 base4d7eece, Product.detail_content는 baseb464eba에 존재해 유지. 새 사진 저장 이후 공개 참조·소유권·버전·예약/취소 경로 검토.
 - 사용자 승인: Draft 해제·리뷰 수정 후 머지 명시 요청. 기존 사람 승인 병목 없이 각자 충돌 해소 후 머지하는 팀 방침에 따라 진행. Agent 시간/Tokens 미측정, 추가 유료 AI 호출 0.
+
+## DEV-58 공개자료 후속 안정화 (FEAT-03/04/07, AC-SRC-4/5/9/10/11)
+- 이슈: https://linear.app/sswp6/issue/DEV-58
+- 브랜치: jinumeral/dev-58-dev-integrate-budgeted-openrouter-gemini-and-synthetic-pre
+- 상태: 진행 중. 2026-10-17 사용자 계획 승인.
+- 목표: 정상 문구 가림, 후보 단위 오류의 전체 전파, 자료 연락처 자동 반영을 수정한다. 숫자 OCR 한계는 별도 실험으로 측정한다.
+- 범위: server/app/source_analysis/**, server/app/ai/source_analysis.py, server/migrations/versions/0013_source_diagnostics.py, server/tests/test_source*.py, packages/api/src/sourceAnalysis.ts, apps/producer/src/lib/SourceWorkspace.tsx, scripts/e2e/source-analysis.spec.ts, 관련 spec/tasks/wiki/validation 및 .artifacts 후속 평가.
+- 비범위: AI CS, 운영 OCR 모델/크롭 변경, 배포, 농가 인수.
+- 결정: 기존 엄격 검증은 유지하고 후보별 통과만 저장. Item PARTIAL 및 Run PARTIAL, 채택/거절 개수와 비공개 JSON 진단. 전부 거절은 FAILED. 재시도는 명시적으로만 하며 기존 후보 중복/생산자 편집 덮어쓰기 방지.
+- 결정: 개인정보 라벨은 항목 경계에서 인식하고 '대표 특산물' 같은 설명 보존. 자료 전화/이메일은 자동 추출 제외, 생산자 직접 편집 허용. 처리 버전 갱신.
+- 결정: 원본/첫 평가를 보존하고 동일 모델 숫자 크롭 비교와 3자료 재검증은 기존 비용 포함 $0.50 이내. 동일 자료 재사용 결과는 독립 평가로 표시하지 않음.
+- [ ] 구현·마이그레이션·제품 스펙/영문 위키 동기화
+- [ ] 무료 서버/앱/브라우저 회귀 및 마이그레이션 검증
+- [ ] 실제 자료 재검증·숫자 실험·보고서/영상
+- [ ] 커밋/브랜치 스캔·PR/CI·Linear 기록
+- 기록: 원격 main d4efd6d, migration head0012 확인. 기존 테스트/데모 DB 보존.
