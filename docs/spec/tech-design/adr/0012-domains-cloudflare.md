@@ -45,17 +45,24 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 
 | 타입 | 이름 | 값 | 프록시 |
 | -- | -- | -- | -- |
-| A 또는 CNAME | `@` | Vercel이 `farmclub.kr` 추가 때 보여 주는 값(보통 A `76.76.21.21`) | DNS only |
-| CNAME | `www` | Vercel이 보여 주는 값(보통 `cname.vercel-dns.com`) | DNS only |
-| CNAME | `farm` | Vercel이 보여 주는 값(보통 `cname.vercel-dns.com`) | DNS only |
-| CNAME | `api` | Railway가 커스텀 도메인 추가 때 보여 주는 `*.up.railway.app` 값 | DNS only |
+| CNAME | `@` | Vercel이 `farmclub.kr` 추가 때 보여 주는 프로젝트 값(`<id>.vercel-dns-017.com`). Cloudflare가 apex CNAME을 펼쳐 응답한다 | Proxied |
+| CNAME | `www` | `@`와 같은 Vercel 값. Vercel에서 `farmclub.kr`로 308 리다이렉트 | Proxied |
+| CNAME | `farm` | Vercel이 `farm.farmclub.kr` 추가 때 보여 주는 값 | Proxied |
+| CNAME | `api` | Railway가 커스텀 도메인 추가 때 보여 주는 `*.up.railway.app` 값 | DNS only(인증서 발급 뒤 결정) |
 | TXT | Railway·Vercel이 요구하는 검증 이름(예: `_railway-verify.api`) | 콘솔이 보여 주는 값 | — |
 | MX | `@` | `0 .`(null MX, 메일 받지 않음) | — |
 | TXT | `@` | `v=spf1 -all` | — |
 | TXT | `_dmarc` | `v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s` | — |
 
-- Vercel·Railway 레코드는 프록시를 끈다(회색 구름). 두 곳 모두 자체 인증서를 발급하고, Vercel은 앞에 다른 프록시를 두지 않기를 권한다. `api`는 인증서 발급이 끝난 뒤 WAF·Access가 필요해지면 프록시를 켤 수 있다.
-- SSL/TLS 모드는 **Full (strict)**, Always Use HTTPS 켬. Flexible은 쓰지 않는다(프록시를 켜는 순간 리다이렉트 루프와 평문 구간이 생김).
+- Vercel 레코드(`@`·`www`·`farm`)는 **프록시를 켠다**(주황 구름, 2026-10-18 사용자 결정). 방문자는 Cloudflare를 거쳐 Vercel로 간다. Vercel은 이때 "Proxy Detected" 경고를 띄우고, 자체 봇·DDoS 차단이 방문자를 모두 Cloudflare IP로 보게 되어 그 역할은 Cloudflare가 맡는다.
+- 프록시를 켠 동안 지킬 설정:
+  - SSL/TLS 모드 **Full (strict)**. Flexible이면 Cloudflare–Vercel 구간이 평문이 되고 리다이렉트 루프가 생긴다.
+  - **Bot Fight Mode 끔**. 켜면 카카오톡 미리보기 크롤러(`/s/farms/<id>`)와 Vercel 인증서 확인 요청이 막힌다.
+  - **Rocket Loader 끔**. 스크립트 순서를 바꿔 Expo 웹 앱이 빈 화면이 될 수 있다.
+  - 이름이 고정된 정적 파일(`og.jpg`, 파비콘)을 바꾸면 Caching → Purge Cache.
+- Vercel 도메인이 Invalid로 바뀌거나 인증서 갱신 경고가 오거나 배포 뒤 옛 화면이 계속 보이면 해당 레코드를 DNS only로 바꾼다. 되돌리기는 스위치 하나다.
+- `api`(Railway)는 인증서 발급이 끝날 때까지 DNS only로 두고, 켜면 서버가 보는 클라이언트 IP가 Cloudflare IP가 된다는 점을 확인한 뒤 정한다.
+- Always Use HTTPS 켬.
 - 메일은 쓰지 않으므로 null MX·SPF·DMARC로 우리 도메인을 사칭한 메일을 거부하게 한다. 고객센터 메일이 필요해지면 Cloudflare Email Routing을 켜고 이 세 레코드를 그에 맞게 바꾼다.
 - DNSSEC: Cloudflare에서 켜고, 호스팅케이알이 `.kr` DS 레코드 입력을 지원하면 그 값을 넣는다.
 

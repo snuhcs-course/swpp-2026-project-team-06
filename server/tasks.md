@@ -999,6 +999,7 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
   - 10/18 공유 링크는 소비자 앱 `vercel.json` rewrite `/s/:path*` → `https://api.farmclub.kr/s/:path*`(SPA 규칙보다 앞). 서버는 `SHARE_BASE_URL`이 있으면 `<base>/s/farms/<id>`, 없으면 지금처럼 `url_for`. 기본값 빈 문자열이라 로컬·테스트 동작은 그대로.
   - 10/18 `admin`·`dev`·`staging`은 대상이 없어 DNS 레코드를 만들지 않음(서브도메인 탈취 방지). 운영자는 `api.farmclub.kr/docs`.
   - 10/18 Vercel·Railway 레코드는 DNS only, SSL Full(strict). 메일 미사용: null MX, `v=spf1 -all`, DMARC reject.
+  - 10/18 사용자 결정으로 Vercel 레코드(`@`·`www`·`farm`)는 Cloudflare 프록시 켬으로 바꿈. SSL Full(strict) 필수, Bot Fight Mode·Rocket Loader 끔. `api`는 Railway 인증서 발급 전까지 DNS only. ADR 0012·README 반영.
   - 10/18 `README.md`의 2026-10-17 Railway 생성 기록 문장은 사실 기록이라 옛 주소를 그대로 둠.
 - 작업: [x] ADR 0012 [x] stack.md·wiki·README [x] 공유 주소 설정·테스트 [x] 하드코딩 주소 교체 [ ] 사람: 도메인 연결 후 머지
 - 검증: 아래 기록 참고.
