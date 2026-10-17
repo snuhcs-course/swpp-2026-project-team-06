@@ -329,3 +329,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] 경로 연결 및 회귀 검증
 - 검증: 타입4 workspace, mock12개, 격리 API/DB의 producer-i2/producer-and-privacy/source-analysis/source-workspace-ui Playwright16개 통과(46초). 새 상품 버튼→업로드 직접 진입·동일 상품 기본 정보 편집, batch 실패 시 상품1회 생성·멱등 키 유지 확인. 기존 manual 폼은 이전 커밋 파일과 바이트 동일. 추가 AI 호출 없음.
 - scan-before-commit: 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. 신규 진입·재시도·unmount·기존 직접 입력 경로/호출부 확인. PR #113 머지 보류 유지.
+
+### DEV-58 중복 진입 버튼 제거
+- 사용자 요청: 상품 목록의 자료로 상세 만들기 버튼 삭제, 새 상품 진입으로 통일.
+- 범위 추가: apps/producer/src/app/(tabs)/products/index.tsx. 기존 상품의 저장 작업 편집 경로는 유지한다.
+- 검증: 생산자 타입 검사 및 새 상품 진입/재시도 Playwright2개 통과. 앞선 관련 전체16개 통과 이후 버튼 삭제만 반영. scan-before-commit 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건.
