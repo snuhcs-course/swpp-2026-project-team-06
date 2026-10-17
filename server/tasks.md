@@ -586,6 +586,8 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 ## DEV-58 최신 main 동기화 (2026-10-17)
 - 범위: 기존 DEV-56/57/58 경로 내 core/seed.py, migrations, source spec, 검증 기록. main 변경은 원본 그대로 보존한다.
 - 결정: main에 운영자 migration0007이 먼저 병합되어, 미배포 브랜치의 source integration은0008, preprocessing은0009로 재번호를 부여한다. 기존 로컬 평가 DB와 비용 원장은 dump로 보존하고 별도 새 DB에서 migration/전체 회귀를 검증한다. PR 머지는 하지 않는다.
-- [ ] 충돌 해결·전체 검증·커밋 스캔·CI 확인
+- [x] 충돌 해결·전체 로컬 검증·커밋 스캔·main 동기화 커밋 CI 확인
 
 - OCR 반환 좌표가 NumPy float32일 때 JSON 직렬화되는지 확인하는 회귀 테스트를 위해 numpy를 개발 의존성에 명시한다. CI의 기본 uv sync에서도 해당 테스트를 건너뛰지 않고 실행한다.
+
+- 최종 통합: b8d33f3 원격 server/apps/integration CI 통과. 로컬에서 발견된 초기 입력 손실과 배송지 E2E 경쟁은 producer readiness/응답 대기로 보완한 뒤 실제 API7개·Chromium22개 전부 통과했다. 서버238개·타입4개·mock12개도 통과. 마지막 UI 보완 커밋의 원격 CI 상태는 PR #113에서 추적하며 Draft/미머지를 유지한다.

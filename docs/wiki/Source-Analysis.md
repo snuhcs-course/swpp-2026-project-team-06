@@ -47,3 +47,5 @@ AC-SRC-1–8 cover product separation, source navigation/review, conflicting or 
 ### Main synchronization (2026-10-17)
 
 Main now owns manager migration0007. Unreleased source integration and preprocessing revisions are renumbered to0008/0009. A separate fresh database passed upgrade/downgrade/re-upgrade/schema checks, 238 server tests, all four workspace type checks and twelve mock scenarios. The original evaluation database and private dump preserve all153 spend rows; its old branch revision stamp must not be treated as the new main migration chain. No new paid calls used the reset integration database. PRs remain unmerged.
+
+The producer tab tree now waits for session initialization before exposing editable screens. This prevents an initial guest-to-user remount from erasing newly typed draft text; user-switch isolation stays intact. The draft E2E explicitly delays the session response and verifies that input opens only after readiness. Checkout E2E waits for the address-list response before choosing the existing-address branch.

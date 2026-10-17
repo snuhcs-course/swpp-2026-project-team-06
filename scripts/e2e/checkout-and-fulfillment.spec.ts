@@ -21,12 +21,16 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await loginConsumer(consumerPage);
   await consumerPage.goto(`${consumerUrl}/products/p-house`);
   await consumerPage.getByRole("button", { name: "예약하기" }).click();
+  const addressResponse = consumerPage.waitForResponse(response =>
+    response.url() === `${apiUrl}/api/auth/me/addresses` &&
+    response.request().method() === "GET",
+  );
   await consumerPage.getByRole("button", { name: "주문서로" }).click();
-  const emptyAddress = consumerPage.getByRole("button", {
-    name: "받는 사람과 주소 입력",
-  });
-  if (await emptyAddress.isVisible()) await emptyAddress.click();
-  else {
+  const loadedAddresses = await addressResponse;
+  expect(loadedAddresses.ok()).toBeTruthy();
+  if ((await loadedAddresses.json()).length === 0) {
+    await consumerPage.getByRole("button", { name: "받는 사람과 주소 입력" }).click();
+  } else {
     await consumerPage.getByRole("button", { name: "다른 배송지" }).click();
     await consumerPage.getByRole("button", { name: "새 주소 입력" }).click();
   }

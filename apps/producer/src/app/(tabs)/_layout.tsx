@@ -2,6 +2,7 @@ import { allPages, messaging } from "@farmclub/api";
 import { TabBar, type IconName } from "@farmclub/ui";
 import { Tabs, usePathname } from "expo-router";
 import { useEffect, useState } from "react";
+import { ActivityIndicator } from "react-native";
 
 import { useSession } from "../../lib/session";
 
@@ -14,7 +15,7 @@ const TABS: { name: string; label: string; icon: IconName }[] = [
 ];
 
 export default function TabsLayout() {
-  const { user, tabBarHidden } = useSession();
+  const { user, ready, tabBarHidden } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(0);
 
@@ -39,6 +40,8 @@ export default function TabsLayout() {
       clearInterval(t);
     };
   }, [user, pathname]);
+
+  if (!ready) return <ActivityIndicator accessibilityLabel="화면을 준비하고 있어요" />;
 
   return (
     <Tabs

@@ -52,3 +52,5 @@
 - 상세 메타데이터·비용·실패 요인은 [후속 검증 기록](validation/source-visual-2026-10-16.json)에 남긴다. 원문·정답·생성 문구·진단은 비공개 로컬 `.artifacts/`에만 있다. DEV-58은 진행 중이며 이미지/PDF 정확도 개선과 실제 농가 인수가 남아 있다.
 
 - 10/17 최신 main(34c9009) 동기화: main의 운영자 migration0007을 유지하고, 미배포 source integration은0008, preprocessing은0009로 재번호를 부여했다. 새 DB의 upgrade/downgrade/re-upgrade/check 및 전체 pytest238개, 타입4개, mock12개 통과. 기존 평가 비용 원장은 별도 DB/dump로 보존한다.
+
+- 초기 진입 시 세션 확인이 끝나기 전에는 생산자 탭 입력 화면을 열지 않는다. 사용자 key 변경에 따른 초안 문구 초기화를 방지하며 사용자 전환 시 기존 상태 초기화는 유지한다.

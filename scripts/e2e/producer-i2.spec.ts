@@ -37,8 +37,18 @@ test("P02 AC-03-1: empty extraction strings and option arrays remain missing", a
     extracted: { name: "감귤", variety: "", options: [], expectedBrix: null, grade: null, deliveryWindow: null, description: "   " },
     missingFields: ["variety", "options", "expectedBrix", "grade", "deliveryWindow", "description"],
   } }));
+  let releaseSession!: () => void;
+  const sessionGate = new Promise<void>(resolve => { releaseSession = resolve; });
+  await page.route(`${apiUrl}/api/auth/me`, async route => {
+    await sessionGate;
+    await route.continue();
+  });
   await page.goto(`${producerUrl}/products/new`);
+  await expect(page.getByLabel("화면을 준비하고 있어요")).toBeVisible();
+  await expect(page.getByLabel("카톡·밴드에 쓰던 문구")).toHaveCount(0);
+  releaseSession();
   await page.getByLabel("카톡·밴드에 쓰던 문구").fill("감귤");
+  await expect(page.getByLabel("카톡·밴드에 쓰던 문구")).toHaveValue("감귤");
   await page.getByRole("button", { name: "초안 만들기" }).click();
   for (const field of ["품종", "중량 옵션", "예상 당도", "등급", "받는 시기", "설명"]) {
     await expect(page.getByText(`확인 필요 · ${field}`, { exact: true })).toBeVisible();

@@ -416,6 +416,13 @@
     "typecheck": "4 workspaces passed",
     "mockTests": 12,
     "migration": "fresh upgrade -> 0009, downgrade -> 0007, re-upgrade/check passed",
-    "note": "Original 153-row cost ledger and applied snapshots retained in the pre-sync database and private dump. Integration uses a separate fresh database; no paid calls on the reset test DB."
+    "note": "Original 153-row cost ledger and applied snapshots retained in the pre-sync database and private dump. Integration uses a separate fresh database; no paid calls on the reset test DB.",
+    "realApiScenarios": 7,
+    "chromiumTests": 22,
+    "initialLocalBrowserRuns": [
+      "21 passed / 1 timeout",
+      "20 passed / 2 timeouts"
+    ],
+    "resolution": "Producer waits for session readiness before mounting tabs; delayed-session regression preserves input. Checkout test waits for address response. Final full API/Chromium rerun passed."
   }
 }
