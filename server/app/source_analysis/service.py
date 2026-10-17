@@ -170,7 +170,9 @@ def upload(db, row, data, filename, ids, common, expected, original):
         raise invalid({"originalPhoto": "원본 사진은 이미지 파일만 지정할 수 있어요."})
     rows = list(db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False))))
     checksum = hashlib.sha256(data).hexdigest()
-    duplicate = next((a for a in rows if a.checksum == checksum), None)
+    duplicate = next(
+        (a for a in rows if a.checksum == checksum and a.original_photo == original), None
+    )
     if duplicate:
         raise conflict("DUPLICATE_SOURCE", "이미 등록한 자료예요.", sourceId=duplicate.id)
     chars = len(data.decode("utf-8-sig")) if mime == "text/plain" else 0
@@ -195,6 +197,14 @@ def upload(db, row, data, filename, ids, common, expected, original):
     row.version += 1
     row.review_version += 1
     db.flush()
+    if original:
+        from app.source_analysis.photos import ready_photo
+
+        try:
+            ready_photo(db, result, data)
+        except PreparationError as exc:
+            raise invalid({"file": str(exc)}) from exc
+        db.flush()
     return asset_view(result)
 
 
@@ -226,9 +236,6 @@ def patch_asset(db, row, source, body):
 
 
 def remove_asset(db, row, source):
-    for draft in db.scalars(select(Draft).where(Draft.batch_id == row.id)):
-        if source.id in draft.snapshot.get("sourceIds", []):
-            raise conflict("SOURCE_IN_USE", "자료를 참조하는 초안을 먼저 삭제해 주세요.")
     source.deleted = True
     invalidate(db, row, source)
     return {"deleted": True}
@@ -337,8 +344,8 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
     visual_pages = visual_pages or {}
     for sid, numbers in visual_pages.items():
         source = next((a for a in sources if a.id == sid), None)
-        if source is None or source.status != "PREPARED" or not source.privacy_approved:
-            raise invalid({"visualPages": "가림 검토를 마친 자료만 시각 분석할 수 있어요."})
+        if source is None or source.status != "PREPARED":
+            raise invalid({"visualPages": "준비가 끝난 자료만 시각 분석할 수 있어요."})
         if (
             not numbers
             or len(set(numbers)) != len(numbers)
@@ -350,6 +357,9 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
             raise invalid({"visualPages": "이미지가 있는 페이지를 선택해 주세요."})
     from app.source_analysis.preprocess import PREPROCESS_VERSION
 
+    for source in sources:
+        if source.status == "PREPARED":
+            source.privacy_approved = True
     reparsed = set()
     for source in sources:
         if retry_items is not None and not any(i.asset_id == source.id for i in retry_items):
@@ -363,6 +373,9 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
             reparsed.add(source.id)
     visual_pages = {sid: nums for sid, nums in visual_pages.items() if sid not in reparsed}
     run = Run(
+        inputs=[
+            {"id": p.id, "revision": p.revision, "description": p.description} for p in sources
+        ],
         visual_pages=visual_pages,
         batch_id=row.id,
         mode=settings.source_analysis_provider,
@@ -378,6 +391,8 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
         ids = [t["id"] for t in row.targets] if source.common else source.target_ids
         if previous and source.id not in reparsed:
             for old in previous:
+                if old.phase == "PLACE_PHOTOS":
+                    continue  # Rebuild a single batched placement job below.
                 if old.revision != source.revision:
                     raise conflict("SOURCE_CHANGED", "자료가 바뀌었으니 새 분석을 시작해 주세요.")
                 db.add(
@@ -402,6 +417,9 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
             db.add(
                 Item(run_id=run.id, asset_id=source.id, revision=source.revision, target_ids=ids)
             )
+    from app.source_analysis.photos import enqueue
+
+    enqueue(db, row, run)
     row.version += 1
     db.flush()
     return run_view(db, run)

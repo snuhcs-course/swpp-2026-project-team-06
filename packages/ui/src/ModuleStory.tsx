@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Image,
   View,
@@ -29,11 +30,16 @@ export const SOURCE_MODULES = [
   ["farmUpdates", "농가 소식"],
 ] as const;
 
-type Module = {
+export type StoryModule = {
   id: string;
   texts: { fieldKey: string; value: string }[];
   photos: { uri: string; alt: string }[];
   illustrationId?: string | null;
+};
+export type StoryEditing = {
+  text: (module: StoryModule, index: number, style: TextStyle) => ReactNode;
+  photos: (module: StoryModule, content: ReactNode) => ReactNode;
+  wrap: (module: StoryModule, content: ReactNode) => ReactNode;
 };
 const illustrations: Record<string, ImageSourcePropType> = {
   "hand-citrus-small": require("../assets/source/outline-small.png"),
@@ -91,7 +97,7 @@ const groups = [
   },
 ];
 const bodyStyle: TextStyle = { fontSize: 17, lineHeight: 28, color: "#242424" };
-const hasContent = (module: Module) =>
+const hasContent = (module: StoryModule) =>
   module.texts.some((text) => text.value.trim()) ||
   module.photos.length > 0 ||
   !!(module.illustrationId && illustrations[module.illustrationId]);
@@ -120,10 +126,28 @@ function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
           />
         </View>
         <View style={{ width: 120, gap: 4 }}>
-          <T weight="bold" center style={{ fontSize: 40, lineHeight: 48, color: tokens.color.onAccent }}>
-            {{ "hand-citrus-small": "소과", "hand-citrus-medium": "중과", "hand-citrus-large": "대과" }[id]}
+          <T
+            weight="bold"
+            center
+            style={{
+              fontSize: 40,
+              lineHeight: 48,
+              color: tokens.color.onAccent,
+            }}
+          >
+            {
+              {
+                "hand-citrus-small": "소과",
+                "hand-citrus-medium": "중과",
+                "hand-citrus-large": "대과",
+              }[id]
+            }
           </T>
-          <T style={{ fontSize: 13, lineHeight: 20 }} color={tokens.color.onAccent} center>
+          <T
+            style={{ fontSize: 13, lineHeight: 20 }}
+            color={tokens.color.onAccent}
+            center
+          >
             {"기준 손 길이 18cm\n손끝~손목\n비교용 가정"}
           </T>
         </View>
@@ -136,8 +160,10 @@ function ModuleBody({
   module,
   mediaUrl,
   inset = 22,
+  editing,
 }: {
-  module: Module;
+  editing?: StoryEditing;
+  module: StoryModule;
   mediaUrl: (uri: string) => string;
   inset?: number;
 }) {
@@ -154,7 +180,7 @@ function ModuleBody({
   ].includes(module.id)
     ? SOURCE_MODULES.find(([id]) => id === module.id)?.[1]
     : null;
-  return (
+  const body = (
     <View testID={`source-module-${module.id}`} style={{ gap: 14 }}>
       {subheading ? (
         <T
@@ -166,46 +192,69 @@ function ModuleBody({
         </T>
       ) : null}
       {module.texts
-        .filter((text) => text.value.trim())
-        .map((text, i) => (
-          <T
-            key={`${text.fieldKey}-${i}`}
-            style={[
-              bodyStyle,
-              module.id === "composition" && {
-                fontSize: 20,
-                lineHeight: 32,
-                fontWeight: "600",
-              },
-              module.id === "taste" && { fontSize: 19, lineHeight: 31 },
-              module.id === "farmStory" && { fontSize: 20, lineHeight: 32 },
-            ]}
-          >
-            {text.value}
-          </T>
-        ))}
-      {module.photos.map((photo, i) => (
-        <SourcePhoto
-          key={`${photo.uri}-${i}`}
-          uri={mediaUrl(photo.uri)}
-          alt={photo.alt}
-        />
-      ))}
+        .filter((text) => editing || text.value.trim())
+        .map((text, i) =>
+          editing ? (
+            <View key={`${text.fieldKey}-${i}`}>
+              {editing.text(module, i, {
+                ...bodyStyle,
+                ...(module.id === "taste"
+                  ? { fontSize: 19, lineHeight: 31 }
+                  : {}),
+                ...(module.id === "farmStory"
+                  ? { fontSize: 20, lineHeight: 32 }
+                  : {}),
+                ...(module.id === "composition"
+                  ? { fontSize: 20, lineHeight: 32, fontWeight: "600" as const }
+                  : {}),
+              })}
+            </View>
+          ) : (
+            <T
+              key={`${text.fieldKey}-${i}`}
+              style={[
+                bodyStyle,
+                module.id === "composition" && {
+                  fontSize: 20,
+                  lineHeight: 32,
+                  fontWeight: "600",
+                },
+                module.id === "taste" && { fontSize: 19, lineHeight: 31 },
+                module.id === "farmStory" && { fontSize: 20, lineHeight: 32 },
+              ]}
+            >
+              {text.value}
+            </T>
+          ),
+        )}
+      {editing
+        ? editing.photos(
+            module,
+            module.photos.map((photo, i) => (
+              <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />
+            )),
+          )
+        : module.photos.map((photo, i) => (
+            <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />
+          ))}
       {module.illustrationId && illustrations[module.illustrationId] ? (
         <Illustration id={module.illustrationId} inset={inset} />
       ) : null}
     </View>
   );
+  return editing ? editing.wrap(module, body) : body;
 }
 
 export function ModuleStory({
   content,
   mediaUrl = (uri: string) => uri,
+  editing,
 }: {
-  content: { modules: Module[] };
+  editing?: StoryEditing;
+  content: { modules: StoryModule[] };
   mediaUrl?: (uri: string) => string;
 }) {
-  const filled = content.modules.filter(hasContent);
+  const filled = editing ? content.modules : content.modules.filter(hasContent);
   if (!filled.length) return null;
   const hero = filled.find((module) => module.id === "hero");
   const summary = filled.find((module) => module.id === "summary");
@@ -219,38 +268,68 @@ export function ModuleStory({
           testID="source-cover"
           style={{ paddingTop: 12, paddingBottom: 18 }}
         >
-          {hero?.photos.map((photo, i) => (
-            <SourcePhoto
-              key={`${photo.uri}-${i}`}
-              uri={mediaUrl(photo.uri)}
-              alt={photo.alt}
-            />
-          ))}
-          <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
-            {hero?.texts
-              .filter((text) => text.value.trim())
-              .map((text, i) => (
-                <T
-                  key={`${text.fieldKey}-${i}`}
-                  center
-                  accessibilityRole={
-                    text.fieldKey === "name" ? "header" : "text"
-                  }
-                  style={
-                    text.fieldKey === "name"
-                      ? {
-                          fontSize: 38,
-                          lineHeight: 46,
-                          fontWeight: "600",
-                          letterSpacing: -1.8,
-                          color: "#484848",
-                        }
-                      : bodyStyle
-                  }
-                >
-                  {text.value}
-                </T>
+          {hero && editing
+            ? editing.wrap(
+                hero,
+                <View style={{ gap: 16, paddingHorizontal: 24 }}>
+                  {editing.photos(
+                    hero,
+                    hero.photos.map((p, i) => (
+                      <SourcePhoto key={i} uri={mediaUrl(p.uri)} alt={p.alt} />
+                    )),
+                  )}
+                  {hero.texts.map((t, i) => (
+                    <View key={i}>
+                      {editing.text(
+                        hero,
+                        i,
+                        t.fieldKey === "name"
+                          ? {
+                              fontSize: 38,
+                              lineHeight: 46,
+                              fontWeight: "600",
+                              color: "#484848",
+                              textAlign: "center",
+                            }
+                          : bodyStyle,
+                      )}
+                    </View>
+                  ))}
+                </View>,
+              )
+            : hero?.photos.map((photo, i) => (
+                <SourcePhoto
+                  key={i}
+                  uri={mediaUrl(photo.uri)}
+                  alt={photo.alt}
+                />
               ))}
+          <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
+            {!editing &&
+              hero?.texts
+                .filter((text) => editing || text.value.trim())
+                .map((text, i) => (
+                  <T
+                    key={`${text.fieldKey}-${i}`}
+                    center
+                    accessibilityRole={
+                      text.fieldKey === "name" ? "header" : "text"
+                    }
+                    style={
+                      text.fieldKey === "name"
+                        ? {
+                            fontSize: 38,
+                            lineHeight: 46,
+                            fontWeight: "600",
+                            letterSpacing: -1.8,
+                            color: "#484848",
+                          }
+                        : bodyStyle
+                    }
+                  >
+                    {text.value}
+                  </T>
+                ))}
             {hero?.illustrationId && illustrations[hero.illustrationId] ? (
               <Illustration id={hero.illustrationId} inset={24} />
             ) : null}
@@ -262,7 +341,12 @@ export function ModuleStory({
                   paddingTop: 20,
                 }}
               >
-                <ModuleBody module={summary} mediaUrl={mediaUrl} inset={24} />
+                <ModuleBody
+                  module={summary}
+                  mediaUrl={mediaUrl}
+                  inset={24}
+                  editing={editing}
+                />
               </View>
             ) : null}
           </View>
@@ -315,7 +399,12 @@ export function ModuleStory({
               />
             </View>
             {modules.map((module) => (
-              <ModuleBody key={module.id} module={module} mediaUrl={mediaUrl} />
+              <ModuleBody
+                key={module.id}
+                module={module}
+                mediaUrl={mediaUrl}
+                editing={editing}
+              />
             ))}
           </View>
         );

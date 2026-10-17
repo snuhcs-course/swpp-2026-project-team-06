@@ -128,7 +128,11 @@ def test_AC_SRC_1_2_7_full_flow_and_private_draft(client, login):
     with get_sessionmaker()() as db:
         assert not list(db.scalars(select(Product).where(Product.name == "테스트 감귤")))
     response = client.delete(f"{PREFIX}/{batch['id']}/sources/{source['id']}?version=1", headers=h)
-    assert response.status_code == 409
+    assert response.status_code == 202
+    assert (
+        client.get(f"{PREFIX}/{batch['id']}/drafts", headers=h).json()["items"][0]["id"]
+        == draft["id"]
+    )
     assert client.delete(f"{url}/{draft['id']}?version=1", headers=h).status_code == 200
 
 
@@ -147,7 +151,7 @@ def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch):
     assert client.get(url, headers=h).status_code == 404
 
 
-def test_AC_SRC_6_real_mode_waits_for_privacy(client, login, monkeypatch):
+def test_AC_SRC_6_real_mode_proceeds_without_privacy_review(client, login, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "source_analysis_provider", "openai")
     h = login("u-kang")
@@ -155,11 +159,10 @@ def test_AC_SRC_6_real_mode_waits_for_privacy(client, login, monkeypatch):
     source = upload(client, h, batch, text="담당자: 예시이름\n이메일: example@example.test\n감귤")
     run = start(client, h, batch["id"])
     assert worker.run_once()
-    assert not worker.run_once()
     url = f"{PREFIX}/{batch['id']}"
-    assert client.get(f"{url}/runs/{run['id']}", headers=h).json()["status"] == "PRIVACY_REVIEW"
+    assert client.get(f"{url}/runs/{run['id']}", headers=h).json()["status"] == "ANALYZING"
     page = client.get(f"{url}/sources/{source['id']}/pages/1", headers=h).json()
-    assert "example@example.test" not in str(page["redactedSpans"])
+    assert "example@example.test" in str(page["redactedSpans"])
     received = []
     from app.ai.source_analysis import ExtractionResponse
     from app.source_analysis.schemas import Extraction
@@ -171,15 +174,9 @@ def test_AC_SRC_6_real_mode_waits_for_privacy(client, login, monkeypatch):
         )
 
     monkeypatch.setattr(worker, "extract", fake)
-    response = client.patch(
-        f"{url}/sources/{source['id']}/privacy",
-        headers=h,
-        json={"sourceRevision": 1, "sanitizationVersion": 1, "approved": True},
-    )
-    assert response.status_code == 200, response.text
     drain()
     assert len(received) == 1
-    assert "example@example.test" not in str(received)
+    assert "example@example.test" in str(received)
 
 
 def test_AC_SRC_5_reanalysis_preserves_review_and_cancel(client, login):

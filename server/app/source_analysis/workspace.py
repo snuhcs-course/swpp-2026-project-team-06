@@ -11,7 +11,7 @@ from app.core.clock import now
 from app.core.detail import DetailContent
 from app.core.errors import invalid
 from app.source_analysis import service as s
-from app.source_analysis.models import Batch, ProductWorkspace
+from app.source_analysis.models import Batch, ProductWorkspace, PublicPhoto
 from app.source_analysis.schemas import (
     ILLUSTRATIONS,
     MODULE_FIELDS,
@@ -163,6 +163,10 @@ def save(db, farm, pid, body):
     snapshot = body.snapshot.model_dump(by_alias=True)
     # Only retain photos already belonging to this product; never accept another farm's private URI.
     allowed = set(product.photos)
+    allowed.update(
+        f"/api/source-media/{p.id}"
+        for p in db.scalars(select(PublicPhoto).where(PublicPhoto.product_id == pid))
+    )
     base = row.published_snapshot
     allowed.update(p["uri"] for m in base["modules"] for p in m["photos"])
     allowed.update(b["uri"] for b in base["content"]["blocks"] if b["type"] == "image")

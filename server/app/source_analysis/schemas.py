@@ -82,6 +82,13 @@ class Assignment(Input):
     original_photo: bool = False
 
 
+class SourceEdit(Input):
+    description_version: int | None = Field(default=None, ge=1)
+    source_version: int = Field(ge=1)
+    text: str | None = Field(default=None, max_length=30000)
+    description: str | None = Field(default=None, max_length=300)
+
+
 class Region(Input):
     page: int = Field(ge=1, le=20)
     box: list[float] = Field(min_length=4, max_length=4)

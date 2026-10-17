@@ -1,3 +1,5 @@
+import { PageCanvas } from "./PageCanvas";
+import { chooseSourceFiles } from "./sourceFiles";
 import {
   apiUrl,
   catalog,
@@ -15,21 +17,13 @@ import {
   Screen,
   Scroll,
   Sheet,
-  SOURCE_MODULES,
   StoryImage,
   T,
   tokens,
 } from "@farmclub/ui";
 import { useNavigation, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  Platform,
-  Switch,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, TextInput, View } from "react-native";
 import { useHideTabBar, useSession } from "./session";
 import { DetailEditor } from "./DetailEditor";
 import { isMock } from "@farmclub/api";
@@ -80,7 +74,16 @@ function Editor({ productId }: { productId: string }) {
     [notice, setNotice] = useState("");
   const [preview, setPreview] = useState(false),
     [confirm, setConfirm] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const extraUrls = useRef<string[]>([]);
+  useEffect(
+    () => () => {
+      extraUrls.current.forEach(URL.revokeObjectURL);
+    },
+    [],
+  );
+  const [extraPhotos, setExtraPhotos] = useState<
+    { uri: string; alt: string }[]
+  >([]);
   const [leave, setLeave] = useState<(() => void) | null>(null);
   const lock = useRef(false),
     alive = useRef(true),
@@ -129,9 +132,12 @@ function Editor({ productId }: { productId: string }) {
     let cancelled = false;
     const urls: string[] = [];
     const sources = [
-      ...new Set(
-        row.snapshot.modules.flatMap((m) => m.photos.map((p) => p.uri)),
-      ),
+      ...new Set([
+        ...row.snapshot.modules.flatMap((m) => m.photos.map((p) => p.uri)),
+        ...row.snapshot.content.blocks.flatMap((b) =>
+          b.type === "image" ? [b.uri] : [],
+        ),
+      ]),
     ].filter((uri) => uri.startsWith("/api/source-media/"));
     void Promise.all(
       sources.map(async (uri) => {
@@ -289,136 +295,53 @@ function Editor({ productId }: { productId: string }) {
           ) : (
             <>
               {snapshot.kind === "modules" ? (
-                snapshot.modules.map((m, index) => (
-                  <View key={m.id} style={card}>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 12,
-                      }}
-                    >
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ?? m.id} 수정`}
-                        accessibilityState={{ expanded: expanded === m.id }}
-                        onPress={() =>
-                          setExpanded(expanded === m.id ? null : m.id)
-                        }
-                        style={{
-                          flex: 1,
-                          minHeight: 48,
-                          justifyContent: "center",
-                        }}
-                      >
-                        <T weight="semibold">
-                          {SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ??
-                            m.id}
-                        </T>
-                        <T variant="caption" muted numberOfLines={2}>
-                          {m.enabled
-                            ? m.texts.map((t) => t.value).join(" · ") ||
-                              `사진 ${m.photos.length}장`
-                            : "페이지에서 숨김"}
-                        </T>
-                      </Pressable>
-                      <Switch
-                        thumbColor="#FFFFFF"
-                        {...(Platform.OS === "web"
-                          ? { activeThumbColor: "#FFFFFF" }
-                          : {})}
-                        accessibilityLabel={`${SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ?? m.id} 표시`}
-                        value={m.enabled}
-                        disabled={busy}
-                        trackColor={{
-                          false: tokens.color.border,
-                          true: tokens.color.accent,
-                        }}
-                        onValueChange={(value) =>
-                          update((s) => {
-                            s.modules[index].enabled = value;
-                          })
-                        }
-                      />
-                    </View>
-                    {expanded === m.id ? (
-                      <>
-                        {!m.texts.length ? (
-                          <Button
-                            label="문구 추가"
-                            variant="outline"
-                            disabled={busy}
-                            onPress={() =>
-                              update((s) => {
-                                s.modules[index].texts.push({
-                                  fieldKey: m.id,
-                                  value: "",
-                                });
-                              })
-                            }
-                          />
-                        ) : null}
-                        {m.texts.map((t, ti) => (
-                          <TextInput
-                            key={`${t.fieldKey}-${ti}`}
-                            accessibilityLabel={`${SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ?? m.id} 내용 ${ti + 1}`}
-                            multiline
-                            editable={!busy}
-                            value={t.value}
-                            maxLength={3000}
-                            style={fieldStyle}
-                            onChangeText={(value) =>
-                              update((s) => {
-                                s.modules[index].texts[ti].value = value;
-                              })
-                            }
-                          />
-                        ))}
-                        {m.photos.map((p, pi) => (
-                          <View key={`${p.uri}-${pi}`} style={{ gap: 8 }}>
-                            <StoryImage uri={media(p.uri)} alt={p.alt} />
-                            <Button
-                              label={`사진 ${pi + 1} 제외`}
-                              variant="text"
-                              disabled={busy}
-                              onPress={() =>
-                                update((s) => {
-                                  s.modules[index].photos.splice(pi, 1);
-                                })
-                              }
-                            />
-                          </View>
-                        ))}
-                        {m.illustrationId ? (
-                          <View style={{ gap: 8 }}>
-                            {["small", "medium", "large"].map((size, i) => (
-                              <Button
-                                key={size}
-                                label={["소과", "중과", "대과"][i]}
-                                variant={
-                                  m.illustrationId === `hand-citrus-${size}`
-                                    ? "secondary"
-                                    : "outline"
-                                }
-                                disabled={busy}
-                                onPress={() =>
-                                  update((s) => {
-                                    s.modules[index].illustrationId =
-                                      `hand-citrus-${size}`;
-                                  })
-                                }
-                              />
-                            ))}
-                          </View>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </View>
-                ))
+                <PageCanvas
+                  modules={snapshot.modules}
+                  media={media}
+                  busy={busy}
+                  onUploading={setBusy}
+                  onChange={(modules) =>
+                    update((s) => {
+                      s.modules = modules;
+                    })
+                  }
+                  photos={[
+                    ...new Map(
+                      [
+                        ...extraPhotos,
+                        ...row.snapshot.modules.flatMap((m) => m.photos),
+                        ...row.publishedSnapshot.modules.flatMap(
+                          (m) => m.photos,
+                        ),
+                        ...snapshot.modules.flatMap((m) => m.photos),
+                      ].map((p) => [p.uri, p]),
+                    ).values(),
+                  ]}
+                  onUpload={async () => {
+                    const files = await chooseSourceFiles(true);
+                    const added: { uri: string; alt: string }[] = [];
+                    for (const file of files) {
+                      const photo = await productWorkspace.uploadPhoto(
+                        productId,
+                        file,
+                      );
+                      const id = photo.uri.split("/").pop()!;
+                      const url = await productWorkspace.photo(productId, id);
+                      extraUrls.current.push(url);
+                      setPhotoUrls((old) => ({ ...old, [photo.uri]: url }));
+                      added.push(photo);
+                    }
+                    setExtraPhotos((old) => [...old, ...added]);
+                    return added;
+                  }}
+                />
               ) : (
                 <>
                   {snapshot.content.blocks.map((block, index) => (
-                    <View key={block.id} style={card}>
+                    <View
+                      key={block.id}
+                      style={{ gap: 12, paddingVertical: 16 }}
+                    >
                       {block.type === "text" ? (
                         <>
                           <TextInput
@@ -426,7 +349,12 @@ function Editor({ productId }: { productId: string }) {
                             editable={!busy}
                             value={block.title}
                             maxLength={100}
-                            style={{ ...fieldStyle, minHeight: 48 }}
+                            style={{
+                              ...fieldStyle,
+                              borderWidth: 0,
+                              fontSize: 24,
+                              minHeight: 48,
+                            }}
                             onChangeText={(value) =>
                               update((s) => {
                                 const b = s.content.blocks[index];
@@ -440,7 +368,7 @@ function Editor({ productId }: { productId: string }) {
                             editable={!busy}
                             value={block.body}
                             maxLength={3000}
-                            style={fieldStyle}
+                            style={{ ...fieldStyle, borderWidth: 0 }}
                             onChangeText={(value) =>
                               update((s) => {
                                 const b = s.content.blocks[index];
@@ -465,6 +393,35 @@ function Editor({ productId }: { productId: string }) {
                     </View>
                   ))}
                   <Button
+                    label="사진 추가"
+                    variant="outline"
+                    disabled={busy}
+                    onPress={() =>
+                      void act(async () => {
+                        const files = await chooseSourceFiles(true);
+                        const next = copy(snapshot);
+                        for (const file of files) {
+                          const photo = await productWorkspace.uploadPhoto(
+                            productId,
+                            file,
+                          );
+                          next.content.blocks.push({
+                            id: newIdempotencyKey(),
+                            type: "image",
+                            ...photo,
+                          });
+                          const url = await productWorkspace.photo(
+                            productId,
+                            photo.uri.split("/").pop()!,
+                          );
+                          extraUrls.current.push(url);
+                          setPhotoUrls((old) => ({ ...old, [photo.uri]: url }));
+                        }
+                        setSnapshot(next);
+                      })
+                    }
+                  />
+                  <Button
                     label="설명 추가"
                     variant="outline"
                     disabled={busy}
@@ -481,37 +438,6 @@ function Editor({ productId }: { productId: string }) {
                   />
                 </>
               )}
-              {snapshot.kind === "modules" ? (
-                <View style={card}>
-                  <T weight="semibold">상세 항목 추가</T>
-                  <View
-                    style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
-                  >
-                    {SOURCE_MODULES.filter(
-                      ([id]) => !snapshot.modules.some((m) => m.id === id),
-                    ).map(([id, label]) => (
-                      <Button
-                        key={id}
-                        label={label}
-                        variant="outline"
-                        disabled={busy}
-                        onPress={() => {
-                          update((s) => {
-                            s.modules.push({
-                              id,
-                              enabled: true,
-                              texts: [{ fieldKey: id, value: "" }],
-                              photos: [],
-                              illustrationId: null,
-                            });
-                          });
-                          setExpanded(id);
-                        }}
-                      />
-                    ))}
-                  </View>
-                </View>
-              ) : null}
               <Button
                 label="상품 정보·판매 설정"
                 variant="text"

@@ -46,8 +46,8 @@ def apply_draft(db, batch, draft, body):
         photos = []
         for sid in module["photoAssetIds"]:
             source = s.asset(db, batch.id, sid)
-            if not source.original_photo or not source.privacy_approved:
-                raise conflict("PHOTO_PRIVACY_REQUIRED", "원본 사진의 가림 검토를 승인해 주세요.")
+            if not source.original_photo or source.status != "PREPARED":
+                raise conflict("PHOTO_NOT_PREPARED", "상품사진 준비를 완료해 주세요.")
             if not source.common and draft.target_id not in source.target_ids:
                 raise conflict("PHOTO_CHANGED", "상품의 원본 사진 연결을 확인해 주세요.")
             if sid not in copied:
@@ -95,15 +95,21 @@ def public_photo(photo_id: str, db: Annotated[Session, Depends(get_db)]):
     if photo is None:
         raise not_found()
     detail = catalog.product_detail(db, photo.product_id)
-    if (
-        detail is None
-        or not detail.module_detail
-        or not any(
+    referenced = detail is not None and (
+        any(
             p["uri"] == f"/api/source-media/{photo_id}"
-            for m in detail.module_detail["modules"]
+            for m in (detail.module_detail or {}).get("modules", [])
             for p in m["photos"]
         )
-    ):
+        or any(
+            b.get("uri") == f"/api/source-media/{photo_id}"
+            for b in (detail.detail_content.model_dump() if detail.detail_content else {}).get(
+                "blocks", []
+            )
+            if b.get("type") == "image"
+        )
+    )
+    if not referenced:
         raise not_found()
     return Response(
         Storage().get(photo.storage_key),

@@ -152,7 +152,7 @@ def test_AC_SRC_5_parser_upgrade_invalidates_old_candidates(client, login):
         asset = db.get(Asset, source["id"])
         assert asset.revision == 2
         assert asset.preprocess_version == p.PREPROCESS_VERSION
-        assert not asset.privacy_approved
+        assert asset.privacy_approved
         from sqlalchemy import select
 
         candidates = list(db.scalars(select(Candidate).where(Candidate.batch_id == batch["id"])))

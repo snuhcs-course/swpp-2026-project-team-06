@@ -89,6 +89,21 @@ def suggestions(review, photos=None):
                 for c in review["candidates"]
             ):
                 status = "unassigned"
+            if not saved and photos is not None:
+                placed = [
+                    p.id
+                    for p in photos
+                    if p.original_photo
+                    and not p.deleted
+                    and p.status == "PREPARED"
+                    and (p.common or target["id"] in p.target_ids)
+                    and p.placement.get("revision") == p.revision
+                    and p.placement.get("fieldKey") == key
+                ]
+                if placed:
+                    field = {**field, "photoAssetIds": placed}
+                    if status == "missing":
+                        status = "ready"
             field = {
                 k: field[k]
                 for k in (

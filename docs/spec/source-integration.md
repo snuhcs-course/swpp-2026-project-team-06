@@ -1,3 +1,5 @@
+> Current DEV-58 editor contract: [source-editor.md](./source-editor.md). This supersedes the earlier redaction approval and form-only editing flow.
+
 # 자료 기반 상세 통합 (DEV-56/57/58)
 
 2026-10-16 사용자 승인. FEAT-03/04/07, AC-SRC-1~10. 기존 source-analysis.md의 비공개 백엔드를 확장한다. Sol 기본 선택·UI/공개 반영 미구현 설명은 DEV-54 당시 기록이며 이 문서가 최신 통합 기준이다.

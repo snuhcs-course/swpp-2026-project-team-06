@@ -1,5 +1,9 @@
+import { PageCanvas } from "./PageCanvas";
+import { chooseSourceFiles } from "./sourceFiles";
 import {
   newIdempotencyKey,
+  sourcePageImage,
+  uploadSource,
   sourceAnalysis,
   type SourceBatch,
   type SourceDraft,
@@ -9,15 +13,8 @@ import {
 } from "@farmclub/api";
 import { Button, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, Switch, TextInput, View } from "react-native";
+import { View } from "react-native";
 
-const card = {
-  padding: 16,
-  gap: 12,
-  borderRadius: 16,
-  borderWidth: 1,
-  borderColor: tokens.color.border,
-};
 const identity = (f: SourceField) => `${f.targetId}:${f.fieldKey}`;
 const filled = (f: SourceField) =>
   !!(f.value.trim() || f.photoAssetIds.length || f.illustrationId);
@@ -60,10 +57,12 @@ export function SourceDetailsEditor({
   onDirty,
   onSaved,
   onBusy,
+  saveRef,
 }: {
   batch: SourceBatch;
   review: SourceReview;
   drafts: SourceDraft[];
+  saveRef: { current: (() => void) | null };
   onDirty: (dirty: boolean) => void;
   onBusy: (busy: boolean) => void;
   onSaved: (draft: SourceDraft) => Promise<void>;
@@ -77,8 +76,41 @@ export function SourceDetailsEditor({
   const [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [opened, setOpened] = useState<string | null>(null),
-    [evidence, setEvidence] = useState<string | null>(null);
+  const extraUrls = useRef<string[]>([]);
+  useEffect(
+    () => () => {
+      extraUrls.current.forEach(URL.revokeObjectURL);
+    },
+    [],
+  );
+  const [evidenceOpen, setEvidenceOpen] = useState<string | null>(null);
+  const [extraPhotos, setExtraPhotos] = useState<
+    { uri: string; alt: string; targetId: string }[]
+  >([]);
+  const [uploading, setUploading] = useState(false);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    const urls: string[] = [];
+    Promise.all(
+      batch.sources
+        .filter((s) => s.originalPhoto && s.status === "PREPARED")
+        .map(async (s) => {
+          const url = await sourcePageImage(batch.id, s.id, 1);
+          urls.push(url);
+          return [s.id, url] as const;
+        }),
+    )
+      .then((pairs) => {
+        if (alive) setPhotoUrls(Object.fromEntries(pairs));
+        else urls.forEach(URL.revokeObjectURL);
+      })
+      .catch(() => setError("사진을 불러오지 못했어요. 다시 열어 주세요."));
+    return () => {
+      alive = false;
+      urls.forEach(URL.revokeObjectURL);
+    };
+  }, [batch.id, batch.sources]);
   const version = useRef(review.reviewVersion),
     lock = useRef(false),
     alive = useRef(true);
@@ -145,298 +177,236 @@ export function SourceDetailsEditor({
       }
     }
   };
+  useEffect(() => {
+    saveRef.current = () => {
+      if (!busy && !uploading) void save();
+    };
+    return () => {
+      saveRef.current = null;
+    };
+  });
   return (
     <View style={{ gap: 16 }}>
-      <T variant="sub" muted>
-        넣을 항목만 켜 주세요. 문구는 바로 수정할 수 있어요.
-      </T>
-      {error ? (
-        <View accessibilityRole="alert">
-          <T color={tokens.color.error}>{error}</T>
-        </View>
+      {error ? <T color={tokens.color.error}>{error}</T> : null}
+      {batch.sources.some(
+        (s) =>
+          s.originalPhoto &&
+          !s.placement?.fieldKey &&
+          !entries.some((e) => e.field.photoAssetIds.includes(s.id)),
+      ) ? (
+        <T muted variant="sub">
+          아직 배치되지 않은 사진이 있어요. 원하는 항목의 편집 버튼에서 추가해
+          주세요.
+        </T>
       ) : null}
       {batch.targets.map((target) => (
-        <View key={target.id} style={{ gap: 12 }}>
-          {batch.targets.length > 1 ? (
-            <T variant="heading">{target.name}</T>
-          ) : null}
-          {SOURCE_MODULES.map(([id, title]) => {
-            const group = entries.filter(
+        <PageCanvas
+          key={target.id}
+          busy={busy}
+          onUploading={(v) => {
+            setUploading(v);
+            onBusy(v);
+          }}
+          blocked={SOURCE_MODULES.filter(([id]) =>
+            entries.some(
               (e) =>
                 e.field.targetId === target.id &&
-                keys(id).includes(e.field.fieldKey),
+                keys(id).includes(e.field.fieldKey) &&
+                ["conflict", "outdated", "unassigned"].includes(e.status),
+            ),
+          ).map(([id]) => id)}
+          media={(uri) => photoUrls[uri] ?? ""}
+          modules={SOURCE_MODULES.map(([id]) => ({
+            id,
+            enabled: enabled[target.id]?.includes(id) ?? false,
+            texts: entries
+              .filter(
+                (e) =>
+                  e.field.targetId === target.id &&
+                  keys(id).includes(e.field.fieldKey),
+              )
+              .map((e) => ({
+                fieldKey: e.field.fieldKey,
+                value: e.field.value,
+              })),
+            photos: entries
+              .filter(
+                (e) =>
+                  e.field.targetId === target.id &&
+                  keys(id).includes(e.field.fieldKey),
+              )
+              .flatMap((e) =>
+                e.field.photoAssetIds.map((uri) => ({
+                  uri,
+                  alt:
+                    batch.sources.find((s) => s.id === uri)?.description ||
+                    "상품 사진",
+                })),
+              ),
+            illustrationId: entries.find(
+              (e) => e.field.targetId === target.id && e.field.fieldKey === id,
+            )?.field.illustrationId,
+          }))}
+          photos={[
+            ...extraPhotos.filter((p) => p.targetId === target.id),
+            ...batch.sources
+              .filter(
+                (s) =>
+                  s.originalPhoto &&
+                  s.status === "PREPARED" &&
+                  (s.common || s.targetIds.includes(target.id)),
+              )
+              .map((s) => ({ uri: s.id, alt: s.description || s.filename })),
+          ]}
+          onUpload={async () => {
+            const files = await chooseSourceFiles(true);
+            const added: { uri: string; alt: string }[] = [];
+            for (const file of files) {
+              const latest = await sourceAnalysis.get(batch.id);
+              if (latest.reviewVersion !== version.current)
+                throw new Error(
+                  "다른 곳에서 내용이 바뀌었어요. 현재 입력을 보관하고 다시 열어 주세요.",
+                );
+              const asset = await uploadSource(
+                batch.id,
+                latest.version,
+                [target.id],
+                false,
+                true,
+                file,
+              );
+              version.current += 1;
+              added.push({ uri: asset.id, alt: file.name });
+              const url = await sourcePageImage(batch.id, asset.id, 1);
+              extraUrls.current.push(url);
+              setPhotoUrls((old) => ({ ...old, [asset.id]: url }));
+            }
+            setExtraPhotos((old) => [
+              ...old,
+              ...added.map((p) => ({ ...p, targetId: target.id })),
+            ]);
+            return added;
+          }}
+          onChange={(modules) => {
+            setEnabled((old) => ({
+              ...old,
+              [target.id]: modules.filter((m) => m.enabled).map((m) => m.id),
+            }));
+            setEntries((old) =>
+              old.map((entry) => {
+                if (entry.field.targetId !== target.id) return entry;
+                const f = entry.field;
+                const m = modules.find((m) => keys(m.id).includes(f.fieldKey))!;
+                const value =
+                  m.texts.find((t) => t.fieldKey === f.fieldKey)?.value ??
+                  f.value;
+                const photoAssetIds =
+                  f.fieldKey === "name"
+                    ? f.photoAssetIds
+                    : m.photos.map((p) => p.uri);
+                const illustrationId = m.illustrationId ?? null;
+                if (
+                  value === f.value &&
+                  JSON.stringify(photoAssetIds) ===
+                    JSON.stringify(f.photoAssetIds) &&
+                  illustrationId === f.illustrationId
+                )
+                  return entry;
+                return {
+                  status: "ready" as const,
+                  field: {
+                    ...f,
+                    value,
+                    photoAssetIds,
+                    illustrationId,
+                    state: "CONFIRMED" as const,
+                    provenance: "PRODUCER" as const,
+                    candidateIds: [],
+                  },
+                };
+              }),
             );
-            const needsAttention = group.some((e) =>
-              ["conflict", "outdated", "unassigned"].includes(e.status),
-            );
-            const on = enabled[target.id]?.includes(id) ?? false;
-            const sectionKey = `${target.id}:${id}`,
-              expanded = opened === sectionKey;
-            return (
-              <View key={id} style={card}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                  }}
-                >
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${title} 편집`}
-                    accessibilityState={{ expanded }}
-                    disabled={busy}
-                    onPress={() => setOpened(expanded ? null : sectionKey)}
-                    style={{ flex: 1, minHeight: 48, justifyContent: "center" }}
-                  >
-                    <T weight="semibold">{title}</T>
-                    <T variant="caption" muted>
-                      {needsAttention
-                        ? "확인 필요 · 값을 선택하거나 수정해 주세요"
-                        : on
-                          ? group
-                              .map((e) => e.field.value)
-                              .filter(Boolean)
-                              .join(" · ") || "사진·일러스트 포함"
-                          : "페이지에서 숨김"}
+            setDirty(true);
+          }}
+          details={(id) => (
+            <View style={{ gap: 8 }}>
+              <Button
+                label={
+                  evidenceOpen === `${target.id}:${id}`
+                    ? "원문 닫기"
+                    : "원문 보기"
+                }
+                variant="text"
+                onPress={() =>
+                  setEvidenceOpen(
+                    evidenceOpen === `${target.id}:${id}`
+                      ? null
+                      : `${target.id}:${id}`,
+                  )
+                }
+              />
+              {evidenceOpen === `${target.id}:${id}`
+                ? review.candidates
+                    .filter(
+                      (c) =>
+                        keys(id).includes(c.fieldKey) &&
+                        (c.targetId === target.id || c.targetId === null),
+                    )
+                    .flatMap((c) =>
+                      c.evidence.map((e, i) => (
+                        <T key={`${c.id}:${i}`} variant="caption" muted>
+                          {
+                            batch.sources.find((s) => s.id === e.sourceId)
+                              ?.filename
+                          }{" "}
+                          {e.page}쪽: {e.quote}
+                        </T>
+                      )),
+                    )
+                : null}
+              {entries
+                .filter(
+                  (e) =>
+                    e.field.targetId === target.id &&
+                    keys(id).includes(e.field.fieldKey) &&
+                    ["conflict", "outdated", "unassigned"].includes(e.status),
+                )
+                .map((e) => (
+                  <View key={e.field.fieldKey}>
+                    <T>
+                      내용 확인 필요 · 사용할 문구를 선택하거나 직접 수정해
+                      주세요.
                     </T>
-                  </Pressable>
-                  <Switch
-                    thumbColor="#FFFFFF"
-                    {...(Platform.OS === "web"
-                      ? { activeThumbColor: "#FFFFFF" }
-                      : {})}
-                    accessibilityLabel={`${title} 표시`}
-                    value={on}
-                    disabled={busy || (needsAttention && !on)}
-                    trackColor={{
-                      false: tokens.color.border,
-                      true: tokens.color.accent,
-                    }}
-                    onValueChange={(value) => {
-                      setEnabled((old) => ({
-                        ...old,
-                        [target.id]: value
-                          ? [...old[target.id], id]
-                          : old[target.id].filter((x) => x !== id),
-                      }));
-                      if (value)
-                        setEntries((old) =>
-                          old.map((e) =>
-                            e.field.targetId === target.id &&
-                            keys(id).includes(e.field.fieldKey) &&
-                            e.field.state === "EXCLUDED"
-                              ? {
-                                  ...e,
-                                  field: { ...e.field, state: "CONFIRMED" },
-                                }
-                              : e,
-                          ),
-                        );
-                      setDirty(true);
-                    }}
-                  />
-                </View>
-                {expanded
-                  ? group.map((entry) => {
-                      const f = entry.field,
-                        fid = identity(f),
-                        label = f.fieldKey === "name" ? "상품 이름" : title;
-                      const choices = review.candidates.filter(
+                    {review.candidates
+                      .filter(
                         (c) =>
-                          !c.historical &&
                           !c.outdated &&
-                          c.fieldKey === f.fieldKey &&
+                          !c.historical &&
+                          c.fieldKey === e.field.fieldKey &&
                           (c.targetId === target.id || c.targetId === null),
-                      );
-                      return (
-                        <View key={fid} style={{ gap: 8 }}>
-                          {id === "hero" ? (
-                            <T variant="caption">{label}</T>
-                          ) : null}
-                          <TextInput
-                            accessibilityLabel={`${label} 내용`}
-                            multiline
-                            editable={!busy}
-                            value={f.value}
-                            maxLength={3000}
-                            style={{
-                              borderWidth: 1,
-                              borderColor: tokens.color.border,
-                              borderRadius: 12,
-                              padding: 12,
-                              fontSize: 16,
-                              lineHeight: 24,
-                              minHeight: 88,
-                              color: tokens.color.text,
-                            }}
-                            onChangeText={(value) =>
-                              change({
-                                ...f,
-                                value,
-                                state: "CONFIRMED",
-                                provenance: "PRODUCER",
-                                candidateIds: [],
-                              })
-                            }
-                          />
-                          <Button
-                            label={evidence === fid ? "원문 닫기" : "원문 보기"}
-                            variant="text"
-                            disabled={busy}
-                            onPress={() =>
-                              setEvidence(evidence === fid ? null : fid)
-                            }
-                          />
-                          {evidence === fid ||
-                          ["conflict", "outdated", "unassigned"].includes(
-                            entry.status,
-                          ) ? (
-                            <View style={{ gap: 8 }}>
-                              {choices.length ? (
-                                choices.map((c) => (
-                                  <View
-                                    key={c.id}
-                                    style={{
-                                      padding: 12,
-                                      gap: 8,
-                                      backgroundColor: tokens.color.surface,
-                                      borderRadius: 12,
-                                    }}
-                                  >
-                                    <T variant="sub">{c.value}</T>
-                                    {evidence === fid
-                                      ? c.evidence.map((e, i) => (
-                                          <T key={i} variant="caption" muted>
-                                            {
-                                              batch.sources.find(
-                                                (s) => s.id === e.sourceId,
-                                              )?.filename
-                                            }{" "}
-                                            {e.page}쪽: {e.quote}
-                                          </T>
-                                        ))
-                                      : null}
-                                    <Button
-                                      label="이 내용 선택"
-                                      variant="outline"
-                                      disabled={busy}
-                                      onPress={() =>
-                                        change({
-                                          ...f,
-                                          value: c.value,
-                                          state: "CONFIRMED",
-                                          provenance: "EXTRACTED",
-                                          candidateIds: c.candidateIds,
-                                        })
-                                      }
-                                    />
-                                  </View>
-                                ))
-                              ) : (
-                                <T variant="caption" muted>
-                                  현재 사용할 수 있는 원문이 없어요. 내용을 직접
-                                  입력할 수 있어요.
-                                </T>
-                              )}
-                            </View>
-                          ) : null}
-                          {[
-                            "hero",
-                            "sizePhoto",
-                            "crossSectionPhoto",
-                            "packagePhoto",
-                            "farmPhotos",
-                          ].includes(f.fieldKey)
-                            ? batch.sources
-                                .filter(
-                                  (s) =>
-                                    s.originalPhoto &&
-                                    s.status === "PREPARED" &&
-                                    (s.common ||
-                                      s.targetIds.includes(target.id)),
-                                )
-                                .map((photo) => (
-                                  <Pressable
-                                    key={photo.id}
-                                    accessibilityRole="checkbox"
-                                    accessibilityLabel={photo.filename}
-                                    accessibilityState={{
-                                      checked: f.photoAssetIds.includes(
-                                        photo.id,
-                                      ),
-                                    }}
-                                    disabled={busy}
-                                    style={{
-                                      minHeight: 48,
-                                      justifyContent: "center",
-                                    }}
-                                    onPress={() =>
-                                      change({
-                                        ...f,
-                                        state: "CONFIRMED",
-                                        photoAssetIds: f.photoAssetIds.includes(
-                                          photo.id,
-                                        )
-                                          ? f.photoAssetIds.filter(
-                                              (p) => p !== photo.id,
-                                            )
-                                          : [...f.photoAssetIds, photo.id],
-                                      })
-                                    }
-                                  >
-                                    <T variant="sub">
-                                      {f.photoAssetIds.includes(photo.id)
-                                        ? "✓"
-                                        : "○"}{" "}
-                                      {photo.filename}
-                                    </T>
-                                  </Pressable>
-                                ))
-                            : null}
-                          {f.fieldKey === "sizePhoto" ? (
-                            <View style={{ gap: 8 }}>
-                              {[
-                                [null, "그림 없음"],
-                                ["hand-citrus-small", "소과"],
-                                ["hand-citrus-medium", "중과"],
-                                ["hand-citrus-large", "대과"],
-                              ].map(([value, label]) => (
-                                <Button
-                                  key={label}
-                                  label={label!}
-                                  variant={
-                                    f.illustrationId === value
-                                      ? "secondary"
-                                      : "outline"
-                                  }
-                                  disabled={busy}
-                                  onPress={() =>
-                                    change({
-                                      ...f,
-                                      state: "CONFIRMED",
-                                      illustrationId: value,
-                                    })
-                                  }
-                                />
-                              ))}
-                            </View>
-                          ) : null}
-                        </View>
-                      );
-                    })
-                  : null}
-              </View>
-            );
-          })}
-        </View>
+                      )
+                      .map((c) => (
+                        <Button
+                          key={c.id}
+                          label={c.value}
+                          variant="outline"
+                          onPress={() =>
+                            change({
+                              ...e.field,
+                              value: c.value,
+                              candidateIds: c.candidateIds,
+                              provenance: "EXTRACTED",
+                              state: "CONFIRMED",
+                            })
+                          }
+                        />
+                      ))}
+                  </View>
+                ))}
+            </View>
+          )}
+        />
       ))}
-      <Button
-        label="미리보기 · 비공개 저장"
-        loading={busy}
-        disabled={busy}
-        onPress={() => void save()}
-      />
     </View>
   );
 }

@@ -90,3 +90,5 @@ server/
 | 2026-10-08 | 테스트는 `<DB>_test` DB에서 매 테스트 시드를 다시 넣고 돈다 | CI의 alembic 검사 DB와 분리 | — |
 | 2026-10-08 | 연락처 가림은 `core/masking.py` 하나(전화번호, 숫자 10자리 이상 계좌). 날짜는 가리지 않는다 | M-16, M-18 | AC-12-2 |
 | 2026-10-16 | 운영자 작업은 기존 멱등 레코드와 별도 `ManagerEvent`에 정제된 감사 요약·실패 복구 상태를 저장한다 | DEV-35, 원문 비노출과 재시도 책임 분리 | M01~M03 |
+
+- DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.

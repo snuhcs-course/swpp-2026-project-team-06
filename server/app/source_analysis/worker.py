@@ -34,7 +34,6 @@ from app.source_analysis.preprocess import (
     PREPROCESS_VERSION,
     PreparationError,
     prepare,
-    redact,
     scrub,
 )
 from app.source_analysis.service import refresh_runs
@@ -385,6 +384,11 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
 
 
 def process(item_id, token):
+    with get_sessionmaker()() as lookup:
+        if lookup.get(Item, item_id).phase == "PLACE_PHOTOS":
+            from app.source_analysis.photos import process as place_photos
+
+            return place_photos(item_id, token)
     store = Storage()
     reservation_id = None
     with get_sessionmaker()() as db:
@@ -404,6 +408,7 @@ def process(item_id, token):
                     select(Page).where(Page.asset_id == source.id, Page.revision == source.revision)
                 )
             )
+            source.privacy_approved = True
             enqueue_extraction(db, source, run, item, pages)
             refresh_runs(db, batch.id)
             db.commit()
@@ -461,7 +466,14 @@ def process(item_id, token):
         db.commit()
     started = time.monotonic()
     if phase == "PREPARE":
-        prepared = prepare(store.get(key), mime)
+        if source.original_photo:
+            from app.source_analysis.photos import prepare_photo
+
+            prepared = [
+                {"image": base64.b64encode(prepare_photo(store.get(key))).decode(), "spans": []}
+            ]
+        else:
+            prepared = prepare(store.get(key), mime)
         with get_sessionmaker()() as db:
             context = lock_context(db, item_id, token)
             if not context:
@@ -483,14 +495,15 @@ def process(item_id, token):
             pages = []
             for number, raw in enumerate(prepared, 1):
                 image = base64.b64decode(raw["image"]) if raw["image"] else None
-                safe_image, safe = redact(image, raw["spans"], raw.get("regions", []))
+                # Uploaders remove personal information before submitting materials.
+                safe_image, safe = image, raw["spans"]
                 page = Page(
                     asset_id=source.id,
                     revision=source.revision,
                     number=number,
                     spans=raw["spans"],
                     redacted_spans=safe,
-                    redactions=raw.get("regions", []),
+                    redactions=[],
                     image_key=store.put(image) if image else None,
                     sanitized_key=store.put(safe_image) if safe_image else None,
                 )
@@ -500,7 +513,7 @@ def process(item_id, token):
             source.preprocess_version = PREPROCESS_VERSION
             source.page_count = len(prepared)
             source.sanitization_version += 1
-            source.privacy_approved = False
+            source.privacy_approved = True
             enqueue_extraction(db, source, run, item, pages)
             item.duration_ms = int((time.monotonic() - started) * 1000)
             refresh_runs(db, batch.id)
@@ -629,6 +642,8 @@ def cleanup():
                 db.delete(page)
             store.delete(source.storage_key)
             source.filename = "deleted"
+            source.description = ""
+            source.placement = {}
             source.status = "DELETED"
             source.target_ids = []
         db.commit()

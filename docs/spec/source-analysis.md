@@ -1,3 +1,5 @@
+> Current DEV-58 editor contract: [source-editor.md](./source-editor.md). This supersedes the earlier redaction approval and form-only editing flow.
+
 > DEV-56/57/58 current integration contract: [source-integration.md](./source-integration.md). This supersedes the DEV-54 model and integration-status notes below.
 
 # 기존 자료 일괄 분석 · 제품 명세 (DEV-53)

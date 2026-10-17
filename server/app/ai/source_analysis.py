@@ -125,7 +125,7 @@ def provider_schema():
     return compact(Extraction.model_json_schema())
 
 
-def extract(mode, model, chunk, targets, images):
+def extract(mode, model, chunk, targets, images, *, prompt=PROMPT):
     if mode == "mock":
         if chunk["checksum"] != MOCK_SHA:
             raise ExtractionError("UNSUPPORTED_MOCK_SOURCE")
@@ -198,7 +198,7 @@ def extract(mode, model, chunk, targets, images):
             result = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": PROMPT},
+                    {"role": "system", "content": prompt},
                     {"role": "user", "content": parts},
                 ],
                 response_format={
@@ -231,7 +231,7 @@ def extract(mode, model, chunk, targets, images):
             return ExtractionResponse(extraction, usage, result.id)
         result = client.responses.parse(
             model=model,
-            instructions=PROMPT,
+            instructions=prompt,
             input=[{"role": "user", "content": content}],
             text_format=Extraction,
             reasoning={"effort": "medium"},

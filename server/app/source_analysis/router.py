@@ -25,6 +25,7 @@ from app.source_analysis.schemas import (
     Retry,
     ReviewPatch,
     RunStart,
+    SourceEdit,
     Version,
 )
 from app.source_analysis.storage import Storage
@@ -197,6 +198,78 @@ def source(bid: str, sid: str, who: ApprovedProducer, db: DB):
 def source_patch(bid: str, sid: str, body: Assignment, who: ApprovedProducer, db: DB):
     row = s.batch(db, who[1].id, bid)
     return commit(db, s.patch_asset(db, row, s.asset(db, bid, sid), body))
+
+
+@router.get("/batches/{bid}/sources/{sid}/text")
+def source_text(bid: str, sid: str, who: ApprovedProducer, db: DB):
+    s.batch(db, who[1].id, bid, False)
+    source = s.asset(db, bid, sid)
+    if source.mime != "text/plain":
+        raise invalid({"text": "텍스트 자료만 수정할 수 있어요."})
+    return {
+        "text": Storage().get(source.storage_key).decode("utf-8-sig"),
+        "sourceVersion": source.revision,
+    }
+
+
+@router.put("/batches/{bid}/sources/{sid}/details")
+def source_details(bid: str, sid: str, body: SourceEdit, who: ApprovedProducer, db: DB):
+    import hashlib
+
+    row = s.batch(db, who[1].id, bid)
+    source = s.asset(db, bid, sid)
+    s.version(source.revision, body.source_version)
+    if body.text is not None:
+        if source.mime != "text/plain" or not body.text.strip():
+            raise invalid({"text": "내용이 있는 텍스트 자료만 수정할 수 있어요."})
+        others = list(
+            db.scalars(
+                select(Asset).where(
+                    Asset.batch_id == bid, Asset.id != sid, Asset.deleted.is_(False)
+                )
+            )
+        )
+        data = body.text.replace("\r\n", "\n").replace("\r", "\n").encode()
+        if sum(a.char_count for a in others) + len(data.decode()) > 30000:
+            raise invalid({"text": "텍스트는 합계 30,000자까지예요."})
+        checksum = hashlib.sha256(data).hexdigest()
+        if any(a.checksum == checksum for a in others):
+            raise invalid({"text": "이미 등록한 내용이에요."})
+        source.storage_key, source.checksum = Storage().put(data), checksum
+        source.size, source.char_count = len(data), len(data.decode())
+        source.revision += 1
+        source.status, source.privacy_approved = "UPLOADED", False
+        s.invalidate(db, row, source)
+    if body.description is not None:
+        if not source.original_photo:
+            raise invalid({"description": "상품사진에만 설명을 넣을 수 있어요."})
+        s.version(source.description_version, body.description_version)
+        source.description_version += 1
+        source.description = body.description.strip()
+        # Description revisions do not invalidate image geometry or saved photo references.
+        source.placement = {}
+        row.version += 1
+        row.review_version += 1
+    return commit(db, s.asset_view(source))
+
+
+@router.post("/product-workspaces/{pid}/photos", status_code=201)
+def upload_page_photo(pid: str, who: ApprovedProducer, db: DB, file: Annotated[UploadFile, File()]):
+    from app.source_analysis.photos import prepare_photo
+    from app.source_analysis.preprocess import PreparationError
+
+    _, workspace = w.owned(db, who[1], pid)
+    data = file.file.read(20 * 1024 * 1024 + 1)
+    if not data or len(data) > 20 * 1024 * 1024:
+        raise invalid({"file": "사진은 20MB 이하로 올려 주세요."})
+    try:
+        prepared = prepare_photo(data)
+    except PreparationError as exc:
+        raise invalid({"file": str(exc)}) from exc
+    photo = PublicPhoto(product_id=pid, storage_key=Storage().put(prepared))
+    db.add(photo)
+    db.flush()
+    return commit(db, {"uri": f"/api/source-media/{photo.id}", "alt": "상품 사진"})
 
 
 @router.delete("/batches/{bid}/sources/{sid}", status_code=202)

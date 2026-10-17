@@ -128,7 +128,7 @@ def test_AC_SRC_10_deleting_sources_preserves_cost_ledger(client, login):
         assert db.get(Spend, "uncertain-call").reserved_micros == 10000
 
 
-def test_AC_SRC_6_public_photo_is_independent_and_requires_approval(client, login):
+def test_AC_SRC_6_public_photo_is_independent_and_requires_preparation(client, login):
     h = login("u-kang")
     b, d = saved(client, h)
     from app.source_analysis.storage import Storage
@@ -146,7 +146,7 @@ def test_AC_SRC_6_public_photo_is_independent_and_requires_approval(client, logi
             target_ids=[b["targets"][0]["id"]],
             common=False,
             original_photo=True,
-            status="PREPARED",
+            status="UPLOADED",
             page_count=1,
         )
         db.add(source)
@@ -172,7 +172,7 @@ def test_AC_SRC_6_public_photo_is_independent_and_requires_approval(client, logi
         db.commit()
     assert apply(client, h, b, d).status_code == 409
     with get_sessionmaker()() as db:
-        db.get(Asset, sid).privacy_approved = True
+        db.get(Asset, sid).status = "PREPARED"
         db.commit()
     result = apply(client, h, b, d)
     assert result.status_code == 200, result.text

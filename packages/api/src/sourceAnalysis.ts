@@ -11,6 +11,9 @@ export type SourceAsset = {
   targetIds: string[];
   common: boolean;
   originalPhoto: boolean;
+  description?: string;
+  descriptionVersion?: number;
+  placement?: { revision?: number; fieldKey?: string | null };
   revision: number;
   sanitizationVersion: number;
   privacyApproved: boolean;
@@ -84,6 +87,7 @@ export type SourceReview = {
   }[];
 };
 export type SourceRun = {
+  inputs?: { id: string; revision: number; description: string }[];
   id: string;
   mode: string;
   model: string;
@@ -93,6 +97,7 @@ export type SourceRun = {
   items: {
     id: string;
     assetId: string;
+    revision: number;
     status: string;
     error: string | null;
     phase: string;
@@ -127,6 +132,23 @@ export type SourceDraft = {
 const base = "/api/source-analysis/batches";
 const at = (bid: string) => `${base}/${encodeURIComponent(bid)}`;
 export const sourceAnalysis = {
+  text: (bid: string, sid: string) =>
+    request<{ text: string; sourceVersion: number }>(
+      "GET",
+      `${at(bid)}/sources/${sid}/text`,
+    ),
+  editSource: (
+    bid: string,
+    source: SourceAsset,
+    values: { text?: string; description?: string },
+  ) =>
+    request<SourceAsset>("PUT", `${at(bid)}/sources/${source.id}/details`, {
+      body: {
+        sourceVersion: source.revision,
+        descriptionVersion: source.descriptionVersion,
+        ...values,
+      },
+    }),
   list: (cursor?: string) =>
     request<{ items: SourceBatch[]; nextCursor: string | null }>("GET", base, {
       query: { cursor, limit: 50 },
