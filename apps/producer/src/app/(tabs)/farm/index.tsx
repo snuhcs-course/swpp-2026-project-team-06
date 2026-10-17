@@ -22,7 +22,7 @@ import { LoadError, PhotoShade, copyText, errMsg } from "../../../lib/views";
 
 const CONSUMER_URL =
   process.env.EXPO_PUBLIC_CONSUMER_URL ??
-  "https://farmclub-consumer.vercel.app";
+  "https://farmclub.kr";
 
 function Row({
   label,
