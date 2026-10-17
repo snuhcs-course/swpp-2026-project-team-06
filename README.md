@@ -215,13 +215,28 @@ Variables to add on the Railway service as features land, in merge order:
 | PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://farmclub-api-production.up.railway.app/api/payments/portone/webhook` as the PortOne webhook |
 | Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
 
-### Apps on Vercel
+### Apps on Vercel (DEV-67)
 
 The Vercel projects `farmclub-consumer` and `farmclub-producer` are not connected to
 GitHub; each deployment is an exported `dist/` uploaded with the Vercel CLI. Expo bakes
 `EXPO_PUBLIC_*` values in at export time, so changing variables in the Vercel dashboard
-has no effect. To point the apps at the server, export each app with the server URL and
-upload it:
+has no effect.
+
+`.github/workflows/deploy-vercel.yml` automates this. After **CI** succeeds on `main`, if
+the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc` or the
+workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
+answers 200. It can also be run by hand from the Actions tab; a manual run always deploys
+the current `main`.
+
+| Setting | Where | Effect |
+| -- | -- | -- |
+| `VERCEL_TOKEN` | Repository **secret** (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
+| `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://farmclub-api-production.up.railway.app`: the apps call the server. |
+
+Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
+users see. Do it outside user tests, and merge the server routes the apps call (for
+example `GET /api/farms` and `/api/farms/following`, PR #123) before switching to the
+server. To do the same by hand:
 
 ```
 EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://farmclub-api-production.up.railway.app \
