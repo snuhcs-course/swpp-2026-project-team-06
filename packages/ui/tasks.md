@@ -261,3 +261,18 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 스타일 수정 검증: 기존 아이콘4종을 직접 참조한 평면 PNG로 교체 후 Playwright 당도 표시1개 통과(360/390/430px 및 실측/0/미측정), 소비자 웹 export 성공. 실제 로컬 상품11.8Brix 표시와 냉장고 아이콘의 색·질감을 화면에서 함께 확인했다. 이미지·프롬프트·spec/tasks만 변경했으며 재스캔 이슈 없음, 레거시 호환 후보0/지적0/커밋된 구조0.
 
 - 최종 검증: 사용자 확정 당도계 형태/채색 및 중앙280×280 배치, 공정 장식 행 제거 후 typecheck4 workspace·Playwright4개·소비자 웹 export 통과. 원본 이미지 높이가 웹 레이아웃에 반영되는 문제를 명시적 표시 높이로 수정하고 360/390/430px 크기/중앙/값의 세로 배치를 검증했다. 커밋 전 스캔 최종 이슈 없음. 레거시 호환 후보0/지적0/커밋된 구조0.
+
+## DEV-57 상세 이미지 배경·소식 아이콘 (2026-10-17)
+
+- 사용자 승인 계획: 큰 섹션 제목 중 농가 소식만 36px 아이콘을 추가한다. 작은 제목은 텍스트, 공정 장식 행은 제거 상태를 유지한다. FEAT-03/04/07, AC-SRC-7/9, AC-TPL-4/5/10.
+- 범위: `packages/ui/src/{ModuleStory,SourcePhoto,BrixReading}.tsx`, `packages/ui/assets/source/headings/{updates.png,updates-prompt.md}`, `packages/ui/{spec,tasks}.md`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`, `scripts/e2e/source-detail-design.spec.ts`.
+- 결정: 사진은 프레임 대신 크림 #F6F1E7 배경/16px 여백에 캡션까지 포함한다. 손 비교는 세이지 #EEF1E8/20px 여백, 실측 당도는 살구 #FBF0E3/상하28px 배경 안에 기존280×280 그림·값·날짜를 중앙 배치한다. 직사각 면이며 테두리·그림자·둥근 카드는 없다. 본문은 흰색, 이미지 원본 비율·텍스트·API 계약을 보존한다. 미측정에는 배경을 넣지 않는다.
+- 상태: 리뷰 중. 현재 PR #113에 반영하고 머지·배포하지 않는다.
+- [x] 소식 아이콘 생성 및 배경 구현
+- [x] 360/390/430px 전체/빈 항목/사진 비율/당도 상태 검증, 타입·mock·양쪽 앱 빌드
+- [x] 문서/PR 최신화 및 커밋 전 스캔
+- 정리 범위 추가: 프레임 제거로 사용처가 사라진 UI의 직접 `expo-asset` 의존성을 `packages/ui/package.json`·`package-lock.json`에서 제거한다. Expo 자체의 전이 의존성과 설치 버전은 유지한다.
+- 자산 기록 범위: `packages/ui/assets/source/README.md`의 프레임/공정 아이콘 사용 설명을 현재 상태로 갱신한다.
+- 검증: typecheck4 workspace·mock12개·source-detail-design4개 통과, 생산자/소비자 웹 export 성공. 실제 저장11개 값과 양 앱 원문 동일 확인. 전체18개 옵션 데모의 사진/손/당도/소식 배경을 캡처해 육안 확인했다. 브라우저는 headless로 실행·종료했다.
+- 수정: 손 그림의 원본 높이가 행 높이를 늘리는 문제를 정사각 래퍼로 해결하고 세 모바일 폭에서 비율/높이를 검증했다. 이미지 원본/내용/API는 변경하지 않았다.
+- scan-before-commit: 전체 diff·새 아이콘/프롬프트·호출부·의존성/lock·문서 범위 점검, 최종 이슈 없음. 레거시 호환 후보0건/지적0건/커밋된 구조0건. 원격 CI는 최신 push 후 별도 추적한다.

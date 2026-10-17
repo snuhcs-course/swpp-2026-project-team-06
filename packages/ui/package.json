@@ -12,8 +12,5 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "expo-asset": "57.0.19"
   }
 }

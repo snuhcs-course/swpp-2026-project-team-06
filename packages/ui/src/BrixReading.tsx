@@ -18,7 +18,10 @@ export function BrixReading({
       testID="brix-reading"
       style={{
         paddingHorizontal: 20,
-        paddingTop: 40,
+        marginTop: hasMeasurement ? 40 : 0,
+        paddingTop: hasMeasurement ? 28 : 40,
+        paddingBottom: hasMeasurement ? 28 : 0,
+        backgroundColor: hasMeasurement ? "#FBF0E3" : undefined,
         flexDirection: hasMeasurement ? "column" : "row",
         alignItems: "center",
         gap: 16,

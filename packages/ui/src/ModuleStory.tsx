@@ -81,7 +81,12 @@ const groups = [
     modules: ["farmStory", "farmPhotos"],
     icon: require("../assets/source/headings/farm.png"),
   },
-  { id: "updates", title: "농가 소식", modules: ["farmUpdates"], icon: null },
+  {
+    id: "updates",
+    title: "농가 소식",
+    modules: ["farmUpdates"],
+    icon: require("../assets/source/headings/updates.png"),
+  },
 ];
 const bodyStyle: TextStyle = { fontSize: 17, lineHeight: 28, color: "#242424" };
 const hasContent = (module: Module) =>
@@ -91,14 +96,19 @@ const hasContent = (module: Module) =>
 
 function Illustration({ id }: { id: string }) {
   return (
-    <View style={{ gap: 8, marginTop: 16 }}>
+    <View
+      testID="source-size-panel"
+      style={{ gap: 8, marginTop: 16, padding: 20, backgroundColor: "#EEF1E8" }}
+    >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Image
-          source={illustrations[id]}
-          accessibilityLabel="설명용 감귤 크기 일러스트"
-          resizeMode="contain"
-          style={{ flex: 1, aspectRatio: 1 }}
-        />
+        <View style={{ flex: 1, aspectRatio: 1 }}>
+          <Image
+            source={illustrations[id]}
+            accessibilityLabel="설명용 감귤 크기 일러스트"
+            resizeMode="contain"
+            style={{ width: "100%", height: "100%" }}
+          />
+        </View>
         <View style={{ width: 70, gap: 4 }}>
           <T variant="caption" muted center>
             기준 손 길이

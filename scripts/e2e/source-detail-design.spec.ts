@@ -66,7 +66,7 @@ for (const width of [360, 390, 430]) {
     await expect(detail.locator("script")).toHaveCount(0);
     await expect(
       detail.locator('[data-testid^="source-heading-icon-"]'),
-    ).toHaveCount(7);
+    ).toHaveCount(8);
     await expect(
       detail.getByText("크기 설명용 일러스트 · 실제 규격 아님", {
         exact: true,
@@ -79,31 +79,47 @@ for (const width of [360, 390, 430]) {
     // A decoration must not invent three completed stages or their sequence.
     for (const claim of ["수확", "선별", "출하"])
       await expect(detail.getByText(claim, { exact: true })).toHaveCount(0);
-    const frames = detail.getByTestId("source-photo-frame");
-    await expect(frames).toHaveCount(4);
-    for (const frame of await frames.all()) {
+    const panels = detail.getByTestId("source-photo-panel");
+    await expect(panels).toHaveCount(4);
+    await expect(detail.getByTestId("source-photo-frame")).toHaveCount(0);
+    await expect(detail.getByTestId("source-size-panel")).toHaveCSS(
+      "background-color",
+      "rgb(238, 241, 232)",
+    );
+    const sizePanel = detail.getByTestId("source-size-panel");
+    await expect(sizePanel).toHaveCSS("padding", "20px");
+    const handBox = await sizePanel.locator("img").boundingBox();
+    expect(handBox).not.toBeNull();
+    expect(handBox!.height).toBeCloseTo(handBox!.width, 0);
+    expect(handBox!.height).toBeLessThan(width);
+    expect((await sizePanel.boundingBox())!.height).toBeLessThan(width + 100);
+    for (const panel of await panels.all()) {
       await expect
         .poll(() =>
-          frame
+          panel
             .locator("img")
             .evaluate(
               (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
             ),
         )
         .toBeTruthy();
-      const geometry = await frame.evaluate((el) => {
+      const geometry = await panel.evaluate((el) => {
         const style = getComputedStyle(el),
           img = el.querySelector("img")!;
         const host = img.parentElement!.getBoundingClientRect();
         return {
           border: style.borderLeftWidth,
           source: style.borderImageSource,
+          padding: style.padding,
+          background: style.backgroundColor,
           displayedRatio: host.width / host.height,
           originalRatio: img.naturalWidth / img.naturalHeight,
         };
       });
-      expect(geometry.border).toBe("14px");
-      expect(geometry.source).toContain("photo-frame");
+      expect(geometry.border).toBe("0px");
+      expect(geometry.source).toBe("none");
+      expect(geometry.padding).toBe("16px");
+      expect(geometry.background).toBe("rgb(246, 241, 231)");
       expect(geometry.displayedRatio).toBeCloseTo(geometry.originalRatio, 1);
     }
     await expect
@@ -142,7 +158,8 @@ for (const width of [360, 390, 430]) {
       detail.locator('[data-testid^="source-section-"]'),
     ).toHaveCount(1);
     await expect(detail.getByTestId("source-cover")).toHaveCount(0);
-    await expect(detail.getByTestId("source-photo-frame")).toHaveCount(0);
+    await expect(detail.getByTestId("source-photo-panel")).toHaveCount(0);
+    await expect(detail.getByTestId("source-size-panel")).toHaveCount(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -181,6 +198,9 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
     await page.setViewportSize({ width, height: 850 });
     await page.goto(`${consumerUrl}/products/p-house`);
     const card = page.getByTestId("brix-reading");
+    await expect(card).toHaveCSS("background-color", "rgb(251, 240, 227)");
+    await expect(card).toHaveCSS("padding-top", "28px");
+    await expect(card).toHaveCSS("padding-bottom", "28px");
     await expect(
       card.getByText("당도 실측 13.5Brix", { exact: true }),
     ).toBeVisible();
@@ -229,6 +249,10 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
       .getByText("당도 예상 12Brix", { exact: true }),
   ).toBeVisible();
   await expect(page.getByTestId("brix-meter-illustration")).toHaveCount(0);
+  await expect(page.getByTestId("brix-reading")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
   reading = { measuredBrix: null, measuredBrixAt: null, expectedBrix: null };
   await page.reload();
   await expect(
