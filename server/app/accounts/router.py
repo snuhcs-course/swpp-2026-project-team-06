@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.accounts import service
@@ -12,6 +12,7 @@ from app.accounts.schemas import (
     ProducerApplication,
     ProducerApplicationInput,
     ProducerDecision,
+    ProducerDecisionHistoryView,
     ProducerDecisionInput,
     TestAccount,
     TestLoginInput,
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/auth", tags=["accounts"])
 admin_router = APIRouter(prefix="/admin/producers", tags=["admin"])
 
 Db = Annotated[Session, Depends(get_db)]
+IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 
 @router.get("/test-accounts", response_model=list[TestAccount])
@@ -68,14 +70,48 @@ def add_address(db: Db, user: Consumer, body: AddressInput):
 
 
 @admin_router.post("/{farm_id}/approve", response_model=ProducerDecision)
-def approve_producer(db: Db, _: Admin, farm_id: str):
-    result = service.decide_producer_application(db, farm_id, approved=True)
-    db.commit()
-    return result
+def approve_producer(db: Db, admin: Admin, farm_id: str, key: IdempotencyKey = None):
+    from app.admin.service import run_manager_action
+
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="producer.approve",
+        target_type="farm",
+        target_id=farm_id,
+        scope=f"producer-approve:{farm_id}",
+        key=key,
+        body={},
+        run=lambda _: service.decide_producer_application(db, farm_id, True, admin.id),
+    )
 
 
 @admin_router.post("/{farm_id}/reject", response_model=ProducerDecision)
-def reject_producer(db: Db, _: Admin, farm_id: str, body: ProducerDecisionInput):
-    result = service.decide_producer_application(db, farm_id, approved=False, reason=body.reason)
-    db.commit()
-    return result
+def reject_producer(
+    db: Db,
+    admin: Admin,
+    farm_id: str,
+    body: ProducerDecisionInput,
+    key: IdempotencyKey = None,
+):
+    from app.admin.service import run_manager_action
+
+    raw = body.model_dump(by_alias=True)
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="producer.reject",
+        target_type="farm",
+        target_id=farm_id,
+        scope=f"producer-reject:{farm_id}",
+        key=key,
+        body=raw,
+        run=lambda _: service.decide_producer_application(
+            db, farm_id, False, admin.id, body.reason
+        ),
+    )
+
+
+@admin_router.get("/{farm_id}/decisions", response_model=list[ProducerDecisionHistoryView])
+def producer_decisions(db: Db, _: Admin, farm_id: str):
+    return service.producer_decision_history(db, farm_id)

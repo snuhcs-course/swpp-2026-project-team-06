@@ -76,5 +76,20 @@ class Payment(Base):
     method: Mapped[str] = mapped_column(String(16), default="CARD")
     provider: Mapped[str] = mapped_column(String(16), default="MOCK")
     amount: Mapped[int] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(24))
     approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Refund(Base):
+    __tablename__ = "refunds"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(Text)
+    actor: Mapped[str] = mapped_column(String(16))
+    actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
+    manager_event_id: Mapped[str | None] = mapped_column(
+        ForeignKey("manager_events.id"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

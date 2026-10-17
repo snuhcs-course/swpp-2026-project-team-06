@@ -406,5 +406,16 @@
     "offlineOcrNetworkBlocked": true
   },
   "deploymentGate": "HELD_PENDING_QUALITY_AND_FARMER_REVIEW",
-  "note": "Successful parsing/API responses are not a claim of acceptable generated-page quality. Final real quality gate fails. Fixed synthetic cases were used for prompt development; no generalization claim."
+  "note": "Successful parsing/API responses are not a claim of acceptable generated-page quality. Final real quality gate fails. Fixed synthetic cases were used for prompt development; no generalization claim.",
+  "mainSync": {
+    "date": "2026-10-17",
+    "main": "34c9009",
+    "sourceIntegrationRevision": "0008",
+    "preprocessingRevision": "0009",
+    "pytest": 238,
+    "typecheck": "4 workspaces passed",
+    "mockTests": 12,
+    "migration": "fresh upgrade -> 0009, downgrade -> 0007, re-upgrade/check passed",
+    "note": "Original 153-row cost ledger and applied snapshots retained in the pre-sync database and private dump. Integration uses a separate fresh database; no paid calls on the reset test DB."
+  }
 }

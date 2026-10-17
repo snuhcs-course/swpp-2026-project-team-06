@@ -9,7 +9,7 @@ from app.catalog.schemas import DateRange
 from app.core.clock import now, today
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
-from app.orders.models import ORDER_NO_SEQ, Order, Payment
+from app.orders.models import ORDER_NO_SEQ, Order, Payment, Refund
 from app.orders.schemas import (
     Changed,
     Dashboard,
@@ -22,6 +22,7 @@ from app.orders.schemas import (
     PayResult,
     ProducerOrder,
     RecentOrder,
+    RefundView,
 )
 
 # 결제된 주문(예약한 사람 수·주문 수에 센다)
@@ -294,13 +295,54 @@ def _release_quantity(db: Session, order: Order, quantity: int) -> None:
     order.released_quantity += released
 
 
-def _refund(db: Session, order: Order, reason: str) -> None:
+def _refund(
+    db: Session,
+    order: Order,
+    reason: str,
+    *,
+    actor: str,
+    actor_user_id: str | None,
+    amount: int | None = None,
+    manager_event_id: str | None = None,
+) -> Refund | None:
     if order.status == "REFUNDED":
-        return
+        return None
+    payment = db.scalar(
+        select(Payment).where(Payment.order_id == order.id).with_for_update()
+    )
+    if payment is None:
+        raise conflict("INVALID_TRANSITION", "결제 내역이 없어 환불할 수 없어요.")
+    refunded = db.scalar(
+        select(func.coalesce(func.sum(Refund.amount), 0)).where(Refund.order_id == order.id)
+    )
+    remaining = payment.amount - int(refunded or 0)
+    requested = remaining if amount is None else amount
+    if requested <= 0:
+        raise invalid({"amount": "환불 금액은 0보다 커야 해요"})
+    if requested > remaining:
+        raise invalid({"amount": "남은 결제 금액보다 많이 환불할 수 없어요"})
+
+    refund = Refund(
+        id=new_id("refund"),
+        order_id=order.id,
+        amount=requested,
+        reason=reason,
+        actor=actor,
+        actor_user_id=actor_user_id,
+        manager_event_id=manager_event_id,
+        created_at=now(),
+    )
+    db.add(refund)
+    if requested < remaining:
+        payment.status = "PARTIALLY_REFUNDED"
+        return refund
+
     _release_quantity(db, order, order.quantity - order.released_quantity)
+    payment.status = "REFUNDED"
     order.status = "REFUNDED"
     order.refunded_at = now()
     order.refund_reason = reason
+    return refund
 
 
 def cancel_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
@@ -314,7 +356,13 @@ def cancel_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
     if order.status not in ("RESERVED", "PREPARING"):
         raise conflict("INVALID_TRANSITION", "출하 후에는 취소할 수 없어요.")
     current = today()
-    _refund(db, order, f"{current.month}월 {current.day}일 직접 취소(출하 전)")
+    _refund(
+        db,
+        order,
+        f"{current.month}월 {current.day}일 직접 취소(출하 전)",
+        actor="CONSUMER",
+        actor_user_id=consumer_id,
+    )
     db.flush()
     return order_view(db, order)
 
@@ -341,7 +389,14 @@ def mark_delivered(db: Session, order_id: str) -> OrderView:
     return order_view(db, order)
 
 
-def admin_refund(db: Session, order_id: str, reason: str) -> OrderView:
+def admin_refund(
+    db: Session,
+    order_id: str,
+    reason: str,
+    amount: int | None,
+    manager_id: str,
+    manager_event_id: str | None = None,
+) -> OrderView:
     from app.catalog import service as catalog
 
     refund_reason = reason.strip()
@@ -357,7 +412,15 @@ def admin_refund(db: Session, order_id: str, reason: str) -> OrderView:
     order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
     if order.status not in ("RESERVED", "PREPARING", "SHIPPED", "DELIVERED"):
         raise conflict("INVALID_TRANSITION", "전액 환불할 수 없는 주문 상태예요.")
-    _refund(db, order, refund_reason)
+    _refund(
+        db,
+        order,
+        refund_reason,
+        actor="MANAGER",
+        actor_user_id=manager_id,
+        amount=amount,
+        manager_event_id=manager_event_id,
+    )
     db.flush()
     return order_view(db, order)
 
@@ -380,7 +443,13 @@ def respond_delivery_window(
     else:
         order.proposed_delivery_start = None
         order.proposed_delivery_end = None
-        _refund(db, order, "받는 시기 변경에 동의하지 않아 전액 환불")
+        _refund(
+            db,
+            order,
+            "받는 시기 변경에 동의하지 않아 전액 환불",
+            actor="CONSUMER",
+            actor_user_id=consumer_id,
+        )
     db.flush()
     return order_view(db, order)
 
@@ -614,6 +683,29 @@ def ship_order(
 
 def get_any_order(db: Session, order_id: str) -> Order | None:
     return db.get(Order, order_id)
+
+
+def refund_history(db: Session, order_id: str) -> list[RefundView]:
+    if db.get(Order, order_id) is None:
+        raise not_found("주문을 찾을 수 없어요.")
+    rows = db.scalars(
+        select(Refund)
+        .where(Refund.order_id == order_id)
+        .order_by(Refund.created_at.desc(), Refund.id.desc())
+    )
+    return [
+        RefundView(
+            refund_id=row.id,
+            order_id=row.order_id,
+            amount=row.amount,
+            reason=row.reason,
+            actor=row.actor,
+            actor_user_id=row.actor_user_id,
+            manager_event_id=row.manager_event_id,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
 
 
 def get_paid_order_of(db: Session, consumer_id: str, order_id: str) -> Order | None:

@@ -872,6 +872,7 @@ def decide_capacity_request(
     version: int,
     approved: bool,
     reason: str | None = None,
+    manager_id: str | None = None,
 ) -> CapacityRequestView:
     product, request = _capacity_request(db, product_id, request_id, version)
     reason = (reason or "").strip()
@@ -899,6 +900,7 @@ def decide_capacity_request(
         request.status = "REJECTED"
         request.reason = reason
     request.decided_at = now()
+    request.decided_by = manager_id
     request.version += 1
     product.version += 1
     product.updated_at = now()

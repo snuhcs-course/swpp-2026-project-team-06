@@ -29,7 +29,9 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | `StageAllocation` | stageId, optionId, quantity, reservedCount(예약 박스 수) | Stage × Option → 1. 상품 응답의 `reservedCount`(예약한 사람 수, 중복 없음)와 다르다. 그건 결제된 주문의 소비자 수로 계산한다 |
 | `Order` | id, consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, carrier?(택배사 코드: CJ/EPOST/HANJIN/LOTTE/LOGEN/ETC), trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt? | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
 | `Payment` | id, orderId, method(CARD), provider(MOCK/PG), amount, status, approvedAt | Order 1 : 1 Payment |
-| `Refund` | id, orderId, amount, reason, refundedAt | Order 1 : N Refund |
+| `Refund` | id, orderId, amount, reason, actor, actorUserId?, managerEventId?, createdAt | Order 1 : N Refund |
+| `ProducerDecisionHistory` | farmId, applicationAt, decision, reason?, managerId, decidedAt | Farm 1 : N Decision |
+| `ManagerEvent` | action/target, original body(private), sanitized summary, status, retry metadata | Audit only; idempotency remains `IdempotencyRecord` |
 | `Broadcast` | id, farmId, body, attachments?(사진·영상), visibility(PUBLIC/FOLLOWERS), createdAt | Farm 1 : N Broadcast. 화면 이름은 ‘소식’ |
 | `Reaction` | broadcastId, userId, createdAt | Broadcast × User → 0 또는 1(한 사람 한 번). 종류는 ‘좋아요’ 하나라 필드 없음. 볼 수 있는 소식에만(FEAT-15) |
 | `Thread` | id, farmId, consumerId | (Farm, Consumer)당 1개. 화면 이름은 ‘채팅’ |
@@ -84,15 +86,15 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | --- | --- | --- | --- |
 | `PENDING_PAYMENT` | 동의 완료, 결제 전 | RESERVED, CANCELED | 시스템 |
 | `RESERVED` | 결제 완료, 출하 대기 (화면: 예약 완료) | PREPARING, REFUNDED | 생산자 기존 API(현재 UI 없음, 자동 전이 없음) / 소비자 취소 / 시스템(R-09) |
-| `PREPARING` | 수확·출하 준비 중 | SHIPPED, REFUNDED, PARTIALLY\_REFUNDED | 생산자(출하, FEAT-17) / 소비자 취소 / 시스템(R-09·R-10) |
+| `PREPARING` | 수확·출하 준비 중 | SHIPPED, REFUNDED | 생산자(출하, FEAT-17) / 소비자 취소 / 시스템(R-09·R-10) |
 | `SHIPPED` | 출하됨. 이후 소비자 단순 취소 불가 | DELIVERED | 운영자 |
-| `DELIVERED` | 배송 완료(택배 조회로 확인), 구매 확정 대기 | COMPLETED, REFUNDED, PARTIALLY\_REFUNDED | 소비자 구매 확정 / 시스템(배송 완료 8일 경과, PRD R-14) / 운영자(R-11) |
+| `DELIVERED` | 배송 완료(택배 조회로 확인), 구매 확정 대기 | COMPLETED, REFUNDED | 소비자 구매 확정 / 시스템(배송 완료 8일 경과, PRD R-14) / 운영자(R-11) |
 | `COMPLETED` | 구매 확정. 농가 정산 대상(PRD R-14) | — | — |
 | `CANCELED` | 결제 없이 종료 | — | — |
 | `REFUNDED` | 전액 환불 | — | — |
-| `PARTIALLY_REFUNDED` | 일부 환불 후 나머지 배송 진행 | SHIPPED, DELIVERED | 운영자 |
+| `PARTIALLY_REFUNDED` | 과거 데이터 읽기 호환용. 신규 부분 환불은 주문 상태를 바꾸지 않고 `Payment.status`에만 기록 | — | — |
 
-표에 없는 전이는 막는다. 환불되면 해당 수량만큼 `StageAllocation.reservedCount`를 되돌린다.
+표에 없는 전이는 막는다. 부분 환불은 주문 흐름과 물량을 바꾸지 않는다. 최종 전액 환불이면 출하 전 남은 수량만 한 번 되돌리고, 출하 후에는 되돌리지 않는다.
 
 ## 용어 ↔ 코드 식별자
 

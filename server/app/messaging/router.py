@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Response, UploadFile
@@ -42,6 +43,7 @@ from app.messaging.schemas import (
 )
 
 router = APIRouter(prefix="/messaging", tags=["messaging"])
+_safety_logger = logging.getLogger("farmclub.ai.safety")
 
 Db = Annotated[Session, Depends(get_db)]
 Limit = Annotated[int, Depends(page_limit)]
@@ -145,14 +147,35 @@ def chat_messages(db: Db, user: Consumer, farm_id: str, limit: Limit, cursor: st
 @router.post("/chats/{farm_id}/messages", response_model=SendResult)
 def send_chat(db: Db, user: Consumer, farm_id: str, body: SendInput, key: IdempotencyKey = None):
     """질문 → AI 안내 또는 '농가에 전달'. HUMAN·AI OFF면 reply=null."""
-    return run_idempotent(
+    alert: service.ManagerRefundAlert | None = None
+
+    def send():
+        nonlocal alert
+        outcome = service.consumer_send(db, user, farm_id, body)
+        alert = outcome.alert
+        return outcome.result
+
+    result = run_idempotent(
         db,
         user.id,
         f"send:{farm_id}",
         key,
         body,
-        lambda: service.consumer_send(db, user, farm_id, body),
+        send,
     )
+    committed_message_id = result.get("message", {}).get("messageId")
+    if alert is not None and alert.message_id == committed_message_id:
+        _safety_logger.info(
+            "manager_refund_request",
+            extra={
+                "event": "manager_refund_request",
+                "farmId": alert.farm_id,
+                "threadId": alert.thread_id,
+                "messageId": alert.message_id,
+                "category": "refund_or_compensation",
+            },
+        )
+    return result
 
 
 @router.put("/chats/{farm_id}/read", response_model=UnreadState)

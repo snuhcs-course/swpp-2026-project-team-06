@@ -304,6 +304,7 @@ ocr = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "numpy" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -334,6 +335,7 @@ provides-extras = ["ocr"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "numpy", specifier = ">=2" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.16.10" },
 ]

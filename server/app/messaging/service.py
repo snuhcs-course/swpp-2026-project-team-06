@@ -4,6 +4,7 @@
 """
 
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import and_, delete, false, func, or_, select
@@ -55,6 +56,20 @@ from app.messaging.schemas import (
 _VIDEO = re.compile(r"^data:video|\.(mp4|webm|mov)$", re.IGNORECASE)
 FORWARDED_TEXT = "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요."
 ATTACHMENT_TTL = timedelta(hours=24)
+_REFUND_OR_COMPENSATION = re.compile(r"환불|보상|돈\s*돌려|refund|compensat", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class ManagerRefundAlert:
+    farm_id: str
+    thread_id: str
+    message_id: str
+
+
+@dataclass(frozen=True)
+class ConsumerSendOutcome:
+    result: SendResult
+    alert: ManagerRefundAlert | None = None
 
 
 def mask(text: str) -> tuple[str, bool]:
@@ -768,11 +783,12 @@ def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
     )
 
 
-def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendResult:
+def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> ConsumerSendOutcome:
     """소비자 질문(FEAT-12·13). 대화 행을 잠그고 AI 답까지 같은 트랜잭션에 저장한다(AC-13-6).
 
     농가 AI ON + 방 AUTO일 때만 AI가 답한다(M-05·M-20). HUMAN/OFF면 직접 응대 대상으로 남긴다.
     """
+    from app.admin import service as admin
     from app.ai import service as ai
     from app.farms import service as farms
     from app.orders import service as orders
@@ -851,7 +867,14 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendR
         else:
             message.needs_human = True
     db.flush()
-    return SendResult(message=_message_view(message), reply=_message_view(reply) if reply else None)
+    result = SendResult(
+        message=_message_view(message), reply=_message_view(reply) if reply else None
+    )
+    alert = None
+    if text and _REFUND_OR_COMPENSATION.search(text):
+        alert = ManagerRefundAlert(farm_id=farm_id, thread_id=thread.id, message_id=message.id)
+        admin.record_refund_request(db, farm_id, thread.id, message.id)
+    return ConsumerSendOutcome(result=result, alert=alert)
 
 
 def mark_read(db: Session, thread: Thread, message_id: str, producer: bool) -> UnreadState:

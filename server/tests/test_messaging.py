@@ -1,13 +1,16 @@
 """FEAT-12 소식방·1:1 채팅, FEAT-13 AI 응답·전달·직접 응대, FEAT-15 좋아요 (contracts-1.2 4장)."""
 
+import logging
 import uuid
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from sqlalchemy import update
 
 from app.core.db import get_sessionmaker
 from app.farms.models import FarmAiSettings
 from app.messaging.models import Thread
+from app.messaging.schemas import SendInput
 
 
 def key() -> dict[str, str]:
@@ -311,6 +314,105 @@ def test_AC_13_7_farm_ai_off_overrides_auto(client, login):
 
     assert result["reply"] is None
     assert result["message"]["needsHuman"] is True
+
+
+def test_M_07_refund_alert_when_ai_off(client, login, caplog):
+    ai_off()
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        result = send(client, login("u-seojun"), "f-kang", "환불 요청합니다").json()
+
+    records = [record for record in caplog.records if record.message == "manager_refund_request"]
+    assert result["reply"] is None
+    assert len(records) == 1
+    assert records[0].event == "manager_refund_request"
+    assert records[0].farmId == "f-kang"
+    assert records[0].messageId == result["message"]["messageId"]
+    assert records[0].category == "refund_or_compensation"
+    assert "환불 요청합니다" not in str(records[0].__dict__)
+    assert "u-seojun" not in str(records[0].__dict__)
+
+
+def test_M_07_sequential_idempotent_replay_logs_once(client, login, caplog):
+    headers = login("u-seojun") | key()
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        first = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers,
+            json={"text": "보상 요청합니다"},
+        )
+        second = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers,
+            json={"text": "보상 요청합니다"},
+        )
+
+    records = [record for record in caplog.records if record.message == "manager_refund_request"]
+    assert first.json() == second.json()
+    assert len(records) == 1
+
+
+def test_M_07_commit_failure_emits_no_alert(monkeypatch, caplog):
+    from app.messaging import router, service
+
+    alert = service.ManagerRefundAlert("f-kang", "thread-1", "loser-message")
+    outcome = service.ConsumerSendOutcome(
+        result={"message": {"messageId": "loser-message"}}, alert=alert
+    )
+
+    monkeypatch.setattr(service, "consumer_send", lambda *args: outcome)
+
+    def commit_failure(*args):
+        run = args[-1]
+        run()
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(router, "run_idempotent", commit_failure)
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        try:
+            router.send_chat(
+                db=object(),
+                user=SimpleNamespace(id="u-1"),
+                farm_id="f-kang",
+                body=SendInput(text="환불"),
+                key="same-key",
+            )
+        except RuntimeError:
+            pass
+
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
+
+
+def test_M_07_idempotency_integrity_error_loser_emits_no_alert(monkeypatch, caplog):
+    from app.messaging import router, service
+
+    alert = service.ManagerRefundAlert("f-kang", "thread-1", "loser-message")
+    outcome = service.ConsumerSendOutcome(
+        result={"message": {"messageId": "loser-message"}}, alert=alert
+    )
+
+    monkeypatch.setattr(service, "consumer_send", lambda *args: outcome)
+
+    def integrity_error_recovery(*args):
+        run = args[-1]
+        run()
+        return {"message": {"messageId": "winner-message"}, "reply": None}
+
+    monkeypatch.setattr(router, "run_idempotent", integrity_error_recovery)
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        result = router.send_chat(
+            db=object(),
+            user=SimpleNamespace(id="u-1"),
+            farm_id="f-kang",
+            body=SendInput(text="환불"),
+            key="same-key",
+        )
+
+    assert result["message"]["messageId"] == "winner-message"
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
 
 
 def test_AC_13_6_producer_answer_switches_to_human(client, login):

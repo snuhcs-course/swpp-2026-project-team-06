@@ -43,3 +43,7 @@ Initial limits are 10 products, 30 files and 100MB per job; 20MB per file; 20 pa
 AC-SRC-1–8 cover product separation, source navigation/review, conflicting or historical facts, original-photo requests, failure/reconnect/edit preservation, access/privacy protection, private draft isolation and legacy behavior. DEV-54 implements the backend portion with an additive migration and synchronizes FEAT/IA/screens/ADR documentation. The 360/390/430px UI acceptance checks remain for frontend integration. The internal implementation plan is not committed.
 
 **Optional producer-added AI-generated imagery is under consideration only.** Generation subjects, workflow and model are undecided and excluded from the committed implementation scope. This does not change the existing pre-generated decorative asset workflow.
+
+### Main synchronization (2026-10-17)
+
+Main now owns manager migration0007. Unreleased source integration and preprocessing revisions are renumbered to0008/0009. A separate fresh database passed upgrade/downgrade/re-upgrade/schema checks, 238 server tests, all four workspace type checks and twelve mock scenarios. The original evaluation database and private dump preserve all153 spend rows; its old branch revision stamp must not be treated as the new main migration chain. No new paid calls used the reset integration database. PRs remain unmerged.

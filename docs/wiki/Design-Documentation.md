@@ -336,7 +336,7 @@ Figure 6. Checkout creates an unpaid order without holding stock. Stock is check
 
 - Any other transition is rejected with `INVALID_TRANSITION`.
 - Shipping several orders at once calls the ship endpoint once per order; it is not one bulk transaction.
-- Refund status, reason and time are stored on `Order` and `Payment`. There is no separate refund table.
+- Every refund path writes a `Refund` history row and updates `Payment.status`. A partial refund leaves `Order.status`, its refund fields, and fulfillment unchanged; only a final full refund marks the order refunded and releases unshipped stock once.
 
 ### 2.6 AI components
 
@@ -398,7 +398,7 @@ Not built yet:
 | Planned | Current state |
 | --- | --- |
 | Server-rendered share page `/s/farms/{id}` for KakaoTalk previews | No route yet; the farm link opens the consumer app directly |
-| Operator APIs for approval, refunds and delivery | Only capacity approval is available |
+| Dedicated operator UI | Approval, delivery, refund-history and exception-recovery APIs exist; a dedicated UI is not assigned |
 | Automatic purchase confirmation after 8 days, scheduled refunds | No scheduler yet |
 | Cloudflare R2 for public media | Private photos are stored in PostgreSQL; public media upload is not wired up |
 | PostHog, Sentry, Langfuse | Chosen in the stack; not connected |

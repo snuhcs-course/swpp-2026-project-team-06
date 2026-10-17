@@ -242,14 +242,20 @@ def approve_capacity(
     body: VersionInput,
     key: IdempotencyKey = None,
 ):
-    return run_idempotent(
+    from app.admin.service import run_manager_action
+
+    raw = body.model_dump(by_alias=True)
+    return run_manager_action(
         db,
-        admin.id,
-        f"capacity-approve:{request_id}",
-        key,
-        body,
-        lambda: service.decide_capacity_request(
-            db, product_id, request_id, body.version, True
+        actor_id=admin.id,
+        action="capacity.approve",
+        target_type="capacity_request",
+        target_id=f"{product_id}:{request_id}",
+        scope=f"capacity-approve:{request_id}",
+        key=key,
+        body=raw,
+        run=lambda _: service.decide_capacity_request(
+            db, product_id, request_id, body.version, True, manager_id=admin.id
         ),
     )
 
@@ -266,13 +272,25 @@ def reject_capacity(
     body: CapacityDecisionInput,
     key: IdempotencyKey = None,
 ):
-    return run_idempotent(
+    from app.admin.service import run_manager_action
+
+    raw = body.model_dump(by_alias=True)
+    return run_manager_action(
         db,
-        admin.id,
-        f"capacity-reject:{request_id}",
-        key,
-        body,
-        lambda: service.decide_capacity_request(
-            db, product_id, request_id, body.version, False, body.reason
+        actor_id=admin.id,
+        action="capacity.reject",
+        target_type="capacity_request",
+        target_id=f"{product_id}:{request_id}",
+        scope=f"capacity-reject:{request_id}",
+        key=key,
+        body=raw,
+        run=lambda _: service.decide_capacity_request(
+            db,
+            product_id,
+            request_id,
+            body.version,
+            False,
+            body.reason,
+            admin.id,
         ),
     )
