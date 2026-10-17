@@ -184,12 +184,49 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 5. Load the seed data once from the service shell: `python -m app.core.seed`. It skips
    when data exists; `--reset` erases everything, so do not use it on a live database.
 
+The project `farmclub` (service `farmclub-api`, domain
+`https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
+
+### Automatic deploys (DEV-65)
+
+The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App
+cannot be connected without an organization admin. Instead,
+`.github/workflows/deploy-railway.yml` deploys from GitHub Actions: on every push to
+`main` that touches `server/**` it runs
+`railway up ./server --path-as-root --service farmclub-api --environment production --ci`
+and then polls `/health` until it answers. The workflow can also be started by hand from
+the Actions tab (**Run workflow**), for example after a variable change.
+
+One-time setup (a human does this; never paste the token into the repo, an issue or a PR):
+
+1. Railway → project `farmclub` → **Settings → Tokens** → create a **Project Token**.
+2. GitHub → repository **Settings → Secrets and variables → Actions** → add `RAILWAY_TOKEN`.
+3. Run the workflow once from the Actions tab and check that `/health` returns `{"status":"ok"}`.
+
+Variables to add on the Railway service as features land, in merge order:
+
+| When | Variables |
+| -- | -- |
+| Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub-consumer.vercel.app/auth/kakao` as a redirect URI in the Kakao console |
+| PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://farmclub-api-production.up.railway.app/api/payments/portone/webhook` as the PortOne webhook |
+| Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
+
 ### Apps on Vercel
 
-For both `farmclub-consumer` and `farmclub-producer`, set `EXPO_PUBLIC_API_URL` to the
-Railway domain, remove `EXPO_PUBLIC_API_MOCK` (and `EXPO_PUBLIC_SHARED_MOCK_URL` if
-set), then redeploy. With `EXPO_PUBLIC_API_MOCK=1` the apps keep data in each browser
-and never call the server.
+The Vercel projects `farmclub-consumer` and `farmclub-producer` are not connected to
+GitHub; each deployment is an exported `dist/` uploaded with the Vercel CLI. Expo bakes
+`EXPO_PUBLIC_*` values in at export time, so changing variables in the Vercel dashboard
+has no effect. To point the apps at the server, export each app with the server URL and
+upload it:
+
+```
+EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://farmclub-api-production.up.railway.app \
+  npx expo export -p web   # run inside apps/consumer and apps/producer
+vercel deploy --prod       # from the exported dist/
+```
+
+With `EXPO_PUBLIC_API_MOCK=1` (what `npm run build:web` produces) the apps keep data in
+each browser and never call the server.
 
 ## Documentation
 
