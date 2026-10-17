@@ -29,6 +29,7 @@ class Product(Base):
     variety: Mapped[str] = mapped_column(String(100), default="")
     description: Mapped[str] = mapped_column(Text, default="")
     detail_content: Mapped[dict | None] = mapped_column(JSON)
+    module_detail: Mapped[dict | None] = mapped_column(JSON)
     farmer_note: Mapped[str] = mapped_column(Text, default="")
     photos: Mapped[list[str]] = mapped_column(JSON, default=list)
     grade: Mapped[str | None] = mapped_column(String(20))

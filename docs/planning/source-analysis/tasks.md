@@ -3,7 +3,7 @@
 - 이슈: [DEV-53](https://linear.app/sswp6/issue/DEV-53) · [GitHub #102](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/102)
 - 브랜치: `jinumeral/dev-53-dev-specify-bulk-source-analysis-and-backend-implementation`
 - 기준: origin/main 9d6b42e. DEV-52 작업 폴더/미커밋 디자인은 변경하지 않는다.
-- 상태: 문서 작업 진행 중. 백엔드 구현 미착수. Linear 쓰기 도구가 없어 상태는 Backlog로 남아 있다.
+- 상태: DEV-53 명세 완료 및 DEV-54 백엔드 PR #104 머지 완료. 아래 체크리스트는 당시 기록이며 후속 통합은 DEV-56/57/58에서 진행한다.
 - 관련: FEAT-03/04/07 · M-10~13/M-18 · AC-SRC-1~8
 
 ## 목표

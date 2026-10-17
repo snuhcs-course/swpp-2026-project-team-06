@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.ai.source_analysis import PROMPT_VERSION
 from app.core.db import Base
 
 
@@ -40,11 +41,15 @@ class Asset(Base):
     target_ids: Mapped[list] = mapped_column(JSON)
     common: Mapped[bool] = mapped_column(default=False)
     original_photo: Mapped[bool] = mapped_column(default=False)
+    description: Mapped[str] = mapped_column(String(300), default="")
+    description_version: Mapped[int] = mapped_column(default=1)
+    placement: Mapped[dict] = mapped_column(JSON, default=dict)
     revision: Mapped[int] = mapped_column(default=1)
     sanitization_version: Mapped[int] = mapped_column(default=0)
     privacy_approved: Mapped[bool] = mapped_column(default=False)
     status: Mapped[str] = mapped_column(String(32), default="UPLOADED")
     error: Mapped[str | None] = mapped_column(String(64))
+    preprocess_version: Mapped[str | None] = mapped_column(String(40))
     page_count: Mapped[int] = mapped_column(default=0)
     char_count: Mapped[int] = mapped_column(default=0)
     deleted: Mapped[bool] = mapped_column(default=False)
@@ -71,7 +76,9 @@ class Run(Base):
     batch_id: Mapped[str] = mapped_column(ForeignKey("source_batches.id"), index=True)
     mode: Mapped[str] = mapped_column(String(16))
     model: Mapped[str] = mapped_column(String(100))
-    prompt_version: Mapped[str] = mapped_column(String(30), default="source-v1")
+    visual_pages: Mapped[dict] = mapped_column(JSON, default=dict)
+    inputs: Mapped[list] = mapped_column(JSON, default=list)
+    prompt_version: Mapped[str] = mapped_column(String(30), default=PROMPT_VERSION)
     targets: Mapped[list] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(32), default="QUEUED")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -147,3 +154,31 @@ class RequestRecord(Base):
     key: Mapped[str] = mapped_column(String(128))
     digest: Mapped[str] = mapped_column(String(64))
     response: Mapped[dict] = mapped_column(JSON)
+
+
+class PublicPhoto(Base):
+    __tablename__ = "source_public_photos"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), index=True)
+    storage_key: Mapped[str] = mapped_column(String(300))
+
+
+class Spend(Base):
+    # No FK to jobs: deleting source material must never erase the cost ledger.
+    __tablename__ = "source_spend"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reserved_micros: Mapped[int] = mapped_column(Integer)
+    charged_micros: Mapped[int | None] = mapped_column(Integer)
+    evaluation: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ProductWorkspace(Base):
+    __tablename__ = "source_product_workspaces"
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), primary_key=True)
+    batch_id: Mapped[str] = mapped_column(ForeignKey("source_batches.id"), unique=True)
+    target_id: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    published_snapshot: Mapped[dict] = mapped_column(JSON)
+    base_product_version: Mapped[int] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(Integer, default=1)

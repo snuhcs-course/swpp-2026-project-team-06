@@ -48,7 +48,7 @@ export default function Products() {
   return (
     <Screen>
       <LargeTitle title="상품" subtitle="예약 현황을 보고 판매를 관리해요" />
-      <View style={{ paddingVertical: 20 }}>
+      <View style={{ paddingVertical: tokens.space.md }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -135,7 +135,7 @@ export default function Products() {
               padding: 16,
               borderWidth: 1,
               borderColor: tokens.color.border,
-              borderRadius: 20,
+              borderRadius: tokens.radius.md,
               gap: 16,
             }}
           >
@@ -196,6 +196,7 @@ export default function Products() {
                 {product.remainingGrams / 1000}kg
               </T>
             </View>
+            <Button label="판매페이지 수정" variant="outline" onPress={() => router.push(`/products/${product.productId}/detail`)} />
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
               <Button
                 label="판매 설정"

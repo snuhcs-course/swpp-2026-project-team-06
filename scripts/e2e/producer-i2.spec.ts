@@ -28,7 +28,7 @@ test("FEAT-32 AC-32-4: settings edits survive STALE_VERSION and save with refres
 
 test("P02 AC-03-3: AI failure preserves text and manual creation excludes a concurrent retry", async ({ page }) => {
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/new`);
+  await page.goto(`${producerUrl}/products/manual`);
   const input = page.getByLabel("카톡·밴드에 쓰던 문구");
   await input.fill("실패해도 남는 생산자 판매 문구");
   await page.route(`${apiUrl}/api/products/drafts`, route => route.fulfill({
@@ -62,8 +62,18 @@ test("P02 AC-03-1: empty extraction strings and option arrays remain missing", a
     extracted: { name: "감귤", variety: "", options: [], expectedBrix: null, grade: null, deliveryWindow: null, description: "   " },
     missingFields: ["variety", "options", "expectedBrix", "grade", "deliveryWindow", "description"],
   } }));
-  await page.goto(`${producerUrl}/products/new`);
+  let releaseSession!: () => void;
+  const sessionGate = new Promise<void>(resolve => { releaseSession = resolve; });
+  await page.route(`${apiUrl}/api/auth/me`, async route => {
+    await sessionGate;
+    await route.continue();
+  });
+  await page.goto(`${producerUrl}/products/manual`);
+  await expect(page.getByLabel("화면을 준비하고 있어요")).toBeVisible();
+  await expect(page.getByLabel("카톡·밴드에 쓰던 문구")).toHaveCount(0);
+  releaseSession();
   await page.getByLabel("카톡·밴드에 쓰던 문구").fill("감귤");
+  await expect(page.getByLabel("카톡·밴드에 쓰던 문구")).toHaveValue("감귤");
   await page.getByRole("button", { name: "초안 만들기" }).click();
   for (const field of ["품종", "중량 옵션", "예상 당도", "등급", "받는 시기", "설명"]) {
     await expect(page.getByText(`확인 필요 · ${field}`, { exact: true })).toBeVisible();

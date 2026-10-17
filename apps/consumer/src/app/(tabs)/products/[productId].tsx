@@ -1,4 +1,5 @@
-import { DetailStory, Price } from "@farmclub/ui";
+import { apiUrl } from "@farmclub/api";
+import { ModuleStory, DetailStory, Price, BrixReading } from "@farmclub/ui";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
 import { catalog, farms, referencePrice } from "@farmclub/api";
 import {
@@ -238,34 +239,24 @@ export default function ProductPage() {
           </Fold>
         </View>
 
-        <DetailStory
-          content={p.detailContent}
-          fallback={p.description}
-          title="농가 이야기"
-        />
+        {p.moduleDetail ? (
+          <ModuleStory
+            content={p.moduleDetail}
+            mediaUrl={(uri) => (uri.startsWith("/") ? apiUrl + uri : uri)}
+          />
+        ) : (
+          <DetailStory
+            content={p.detailContent}
+            fallback={p.description}
+            title="농가 이야기"
+          />
+        )}
 
-        <View
-          style={{
-            paddingHorizontal: 20,
-            paddingTop: 40,
-            flexDirection: "row",
-            gap: 12,
-          }}
-        >
-          <Icon name="drop" />
-          <View style={{ flex: 1, gap: 4 }}>
-            <T variant="body" weight="semibold">
-              {p.measuredBrix
-                ? `당도 실측 ${p.measuredBrix}Brix`
-                : `당도 예상 ${p.expectedBrix ?? "-"}Brix`}
-            </T>
-            <T variant="sub" muted>
-              {p.measuredBrix
-                ? `${md(p.measuredBrixAt)} 측정`
-                : "실측 당도가 등록되면 이곳에서 확인할 수 있어요"}
-            </T>
-          </View>
-        </View>
+        <BrixReading
+          measured={p.measuredBrix}
+          measuredAt={p.measuredBrixAt}
+          expected={p.expectedBrix}
+        />
 
         {p.farmerNote ? (
           <View style={{ paddingHorizontal: 20, paddingTop: 40, gap: 8 }}>

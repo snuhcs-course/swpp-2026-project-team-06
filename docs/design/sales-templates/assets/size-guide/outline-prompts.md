@@ -1,0 +1,12 @@
+# 윤곽선 손 + 종이 감귤
+
+내장 ImageGen 편집으로 생성한 현재 적용본 outline-small/medium/large.png. 기존 fruit.png를 스타일 참조로 사용했다. 손은 채색/명암/피부 묘사 없이 윤곽선만 남겼다. 실제 규격을 나타내지 않는다. 이전 hand-*.png는 보존본이다.
+
+## outline-small.png
+Edit this outline-hand-and-paper-tangerine illustration. Resize ONLY the orange fruit together with its stem/leaf to 65% of its current dimensions around its current center on the palm. Preserve the exact hand outline, its size, finger positions, thin line weight, empty transparent interior and square canvas. Preserve flat cut-paper orange and sage colors, simple scattered dots, paper grain. No skin fill, palm lines, fingernails, shading, realistic peel detail, cast shadows or added text. Keep whole composition and hand unchanged so this forms a consistent size set. Transparent background.
+
+## outline-medium.png
+Image 1 is the edit target, hand with tangerine. Image 2 is the approved FRUIT STYLE reference. Redraw image 1 as a very simple editorial size illustration. HAND: ONLY a thin continuous muted grey-brown outer contour, empty transparent inside, NO flesh color, NO fill, NO palm creases, NO knuckle details, NO fingernails, NO veins, NO skin texture, NO shading. Simplify into a friendly clean five-finger outline, not realistic anatomy rendering. Maintain the original palm-up silhouette and wrist position. FRUIT: replace it with a smaller version of the flat matte cut-paper tangerine in reference 2, same warm orange, sparse simple darker dots, muted sage single leaf, paper grain, absolutely NO realistic peel texture, no reflected highlights, no cast shadow, no 3D volume. Fruit centered on palm, medium size around 65% palm width. The only filled color is the fruit and leaf. Clear quiet drawing, generously spaced on square transparent canvas. No text, no measurements, no objects, no backdrop. Keep hand line about 5px on 1254px canvas so it reads gently at 320px.
+
+## outline-large.png
+Edit this outline-hand-and-paper-tangerine illustration. Resize ONLY the orange fruit together with its stem/leaf to 135% of its current dimensions around its current center on the palm. Preserve the exact hand outline, its size, finger positions, thin line weight, empty transparent interior and square canvas. Preserve flat cut-paper orange and sage colors, simple scattered dots, paper grain. No skin fill, palm lines, fingernails, shading, realistic peel detail, cast shadows or added text. Keep whole composition and hand unchanged so this forms a consistent size set. Transparent background.

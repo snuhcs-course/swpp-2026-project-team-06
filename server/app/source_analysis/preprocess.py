@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageOps
 from app.core.config import get_settings
 
 Image.MAX_IMAGE_PIXELS = 40_000_000
+PREPROCESS_VERSION = "source-parser-v2"
 
 
 class PreparationError(Exception):
@@ -30,7 +31,7 @@ PII = re.compile(
     r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|"
     r"\b\d{2,6}[- ]\d{2,6}[- ]\d{3,8}\b|"
     r"\b\d{10,}\b|"
-    r"(?:성명|성함|담당자|대표자?|예금주|수취인|연락처|주소|계좌)\s*[:：]?[^\n]+|"
+    r"(?:성명|성함|담당자|대표자?|예금주|수취인|연락\s*처|주\s*소|계좌)\s*[:：]?[^\n]+|"
     r"[가-힣]+(?:로|길)\s*\d+[^\n]*|"
     r"[가-힣]+(?:읍|면|동|리)\s*\d+[^\n]*)"
 )
@@ -116,57 +117,266 @@ def _ocr_engine():
     manifest_bytes = (directory / "manifest.json").read_bytes()
     if hashlib.sha256(manifest_bytes).hexdigest() != settings.source_ocr_model_sha256:
         raise PreparationError("OCR_MODEL_MISMATCH")
-    manifest = json.loads(manifest_bytes)
-    required = {
-        f"{kind}/inference.{ext}" for kind in ("det", "rec") for ext in ("pdmodel", "pdiparams")
-    }
-    if not required.issubset(manifest["files"]):
-        raise PreparationError("OCR_MODEL_MISMATCH")
-    for name, digest in manifest["files"].items():
-        path = (directory / name).resolve()
-        if (
-            directory.resolve() not in path.parents
-            or hashlib.sha256(path.read_bytes()).hexdigest() != digest
-        ):
+    try:
+        manifest = json.loads(manifest_bytes)
+        required = {"det.onnx", "rec.onnx", "keys.txt"}
+        if manifest["engine"] != "rapidocr-3.10.0" or set(manifest["files"]) != required:
             raise PreparationError("OCR_MODEL_MISMATCH")
-    from paddleocr import PaddleOCR
+        for name, digest in manifest["files"].items():
+            path = (directory / name).resolve()
+            if (
+                directory.resolve() not in path.parents
+                or hashlib.sha256(path.read_bytes()).hexdigest() != digest
+            ):
+                raise PreparationError("OCR_MODEL_MISMATCH")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise PreparationError("OCR_MODEL_MISMATCH") from exc
+    from rapidocr import ModelType, OCRVersion, RapidOCR
 
-    engine = PaddleOCR(
-        lang="korean",
-        use_gpu=False,
-        show_log=False,
-        use_angle_cls=False,
-        det_model_dir=str(directory / "det"),
-        rec_model_dir=str(directory / "rec"),
-        cls_model_dir=str(directory / "det"),
-        enable_mkldnn=False,
+    return RapidOCR(
+        params={
+            "Global.use_cls": False,
+            "Global.log_level": "error",
+            "Global.max_side_len": 2800,
+            "Det.model_path": str(directory / "det.onnx"),
+            "Det.ocr_version": OCRVersion.PPOCRV5,
+            "Det.model_type": ModelType.MOBILE,
+            "Det.limit_type": "max",
+            "Det.limit_side_len": 960,
+            "Rec.model_path": str(directory / "rec.onnx"),
+            "Rec.rec_keys_path": str(directory / "keys.txt"),
+            "Rec.lang_type": "korean",
+            "Rec.ocr_version": OCRVersion.PPOCRV5,
+            "Rec.model_type": ModelType.MOBILE,
+            "Rec.rec_batch_num": 1,
+            "EngineConfig.onnxruntime.intra_op_num_threads": 2,
+            "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+        }
     )
-    return engine
 
 
 def _ocr(image):
     import numpy as np
 
-    result = _ocr_engine().ocr(np.asarray(image), cls=False)
+    result = _ocr_engine()(np.asarray(image), use_det=True, use_rec=True, use_cls=False)
+    if result.boxes is None or result.txts is None:
+        return []
     spans = []
-    for index, line in enumerate((result or [[]])[0] or []):
-        points, (text, score) = line
-        if score < 0.60:
-            raise PreparationError("OCR_UNCERTAIN")
+    for index, (points, text, score) in enumerate(
+        zip(result.boxes, result.txts, result.scores, strict=True)
+    ):
         xs, ys = zip(*points, strict=True)
         spans.append(
             {
                 "id": f"s{index}",
                 "text": text,
+                "confidence": float(score),
                 "box": [
-                    max(0, min(xs) / image.width),
-                    max(0, min(ys) / image.height),
-                    min(1, max(xs) / image.width),
-                    min(1, max(ys) / image.height),
+                    max(0, float(min(xs)) / image.width),
+                    max(0, float(min(ys)) / image.height),
+                    min(1, float(max(xs)) / image.width),
+                    min(1, float(max(ys)) / image.height),
                 ],
             }
         )
     return spans
+
+
+def _orientation_score(spans, width, height):
+    return sum(
+        len(s["text"].strip())
+        * s["confidence"] ** 3
+        * (
+            1
+            if (s["box"][2] - s["box"][0]) * width >= (s["box"][3] - s["box"][1]) * height
+            else 0.1
+        )
+        for s in spans
+        if s["confidence"] >= 0.6
+    )
+
+
+def _orientation_angles(image):
+    import numpy as np
+
+    engine = _ocr_engine()
+    boxes = engine(np.asarray(image), use_rec=False, use_cls=False).boxes
+    if boxes is None or not len(boxes):
+        return (0,)
+    # Restrict recognition to the two plausible orientations before scoring text.
+    horizontal = sum(
+        float(b[:, 0].max() - b[:, 0].min()) >= float(b[:, 1].max() - b[:, 1].min()) for b in boxes
+    )
+    return (0, 180) if horizontal >= len(boxes) / 2 else (90, 270)
+
+
+def _upright(image):
+    # Use a bounded orientation probe; recognition keeps the full reading resolution.
+    probe = image.copy()
+    probe.thumbnail((960, 960))
+    choices = []
+    for angle in _orientation_angles(probe):
+        rotated = probe.rotate(angle, expand=True)
+        choices.append((angle, _orientation_score(_ocr(rotated), *rotated.size)))
+    angle = max(choices, key=lambda pair: pair[1])[0]
+    return image.rotate(angle, expand=True), angle
+
+
+def _intersection(a, b):
+    area = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    smallest = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+    return area / smallest if smallest > 0 else 0
+
+
+def _lines(spans, aspect=1):
+    """Group baselines first, then split wide columns; detection order is unstable."""
+    rows = []
+    for span in sorted(spans, key=lambda s: (s["box"][1], s["box"][0])):
+        box = span["box"]
+        row = next(
+            (
+                r
+                for r in rows
+                if any(
+                    min(box[3], s["box"][3]) - max(box[1], s["box"][1])
+                    > 0.6 * min(box[3] - box[1], s["box"][3] - s["box"][1])
+                    for s in r
+                )
+            ),
+            None,
+        )
+        if row is None:
+            rows.append([span])
+        else:
+            row.append(span)
+    groups = []
+    for row in rows:
+        group = []
+        for span in sorted(row, key=lambda s: s["box"][0]):
+            if group:
+                box, last = span["box"], group[-1]["box"]
+                height = min(box[3] - box[1], last[3] - last[1])
+                if box[0] - last[2] > height * aspect * 2:
+                    groups.append(group)
+                    group = []
+            group.append(span)
+        groups.append(group)
+    return [
+        {
+            "id": f"s{i}",
+            "text": " ".join(s["text"] for s in group),
+            "confidence": min(s["confidence"] for s in group),
+            "box": [
+                min(s["box"][0] for s in group),
+                min(s["box"][1] for s in group),
+                max(s["box"][2] for s in group),
+                max(s["box"][3] for s in group),
+            ],
+        }
+        for i, group in enumerate(groups)
+    ]
+
+
+def _tiled_ocr(image):
+    # Keep one page/coordinate system for privacy review even when OCR uses tiles.
+    spans = []
+    edge, step = 960, 832
+    # Full-width strips avoid cutting Korean sentences at horizontal tile seams.
+    working = image.copy()
+    if working.width > 2800:
+        working = working.resize((2800, round(working.height * 2800 / working.width)))
+    if (working.height + step - 1) // step > 40:
+        raise PreparationError("IMAGE_LIMIT")
+    for y in range(0, max(1, working.height - edge + step), step):
+        tile = working.crop((0, y, working.width, min(y + edge, working.height)))
+        for s in _ocr(tile):
+            left, top, right, bottom = s["box"]
+            s["box"] = [
+                left,
+                (y + top * tile.height) / working.height,
+                right,
+                (y + bottom * tile.height) / working.height,
+            ]
+            duplicate = next(
+                (old for old in spans if _intersection(old["box"], s["box"]) > 0.8), None
+            )
+            if duplicate is None:
+                spans.append(s)
+            else:
+
+                def quality(span):
+                    box = span["box"]
+                    return (box[2] - box[0]) * (box[3] - box[1]) * span["confidence"]
+
+                if quality(s) > quality(duplicate):
+                    duplicate.update(s)
+
+    return _lines(spans, image.height / image.width)
+
+
+def _pdf_spans(page):
+    """Use character boxes in PDF coordinates, not a full-page privacy rectangle."""
+    width, height = page.get_size()
+    left, bottom, right, top = page.get_bbox()
+    rotation = page.get_rotation()
+
+    def normalized(box):
+        def point(x, y):
+            if rotation == 90:
+                return (y - bottom) / width, (x - left) / height
+            if rotation == 180:
+                return (right - x) / width, (y - bottom) / height
+            if rotation == 270:
+                return (top - y) / width, (right - x) / height
+            return (x - left) / width, (top - y) / height
+
+        pts = [point(x, y) for x in (box[0], box[2]) for y in (box[1], box[3])]
+        return [
+            max(0, min(x for x, y in pts)),
+            max(0, min(y for x, y in pts)),
+            min(1, max(x for x, y in pts)),
+            min(1, max(y for x, y in pts)),
+        ]
+
+    result, current = [], []
+
+    def flush():
+        if current:
+            text = "".join(c[0] for c in current).strip()
+            boxes = [c[1] for c in current if c[1] is not None]
+            if text and boxes:
+                result.append(
+                    {
+                        "id": f"pdf-s{len(result)}",
+                        "text": text,
+                        "box": [
+                            min(b[0] for b in boxes),
+                            min(b[1] for b in boxes),
+                            max(b[2] for b in boxes),
+                            max(b[3] for b in boxes),
+                        ],
+                    }
+                )
+            current.clear()
+
+    textpage = page.get_textpage()
+    try:
+        for i in range(textpage.count_chars()):
+            char = textpage.get_text_range(i, 1)
+            if char in ("\r", "\n") or len(current) >= 1500:
+                flush()
+            if char not in ("\r", "\n"):
+                box = textpage.get_charbox(i) if char.strip() else None
+                if box is not None:
+                    box = normalized(box)
+                    if box[0] >= box[2] or box[1] >= box[3]:
+                        flush()
+                        continue
+                current.append((char, box))
+        flush()
+    finally:
+        textpage.close()
+    return result
 
 
 def qr_regions(image):
@@ -216,19 +426,7 @@ def parse(data, mime):
                     width, height = page.get_size()
                     scale = min(200 / 72, (8_000_000 / (width * height)) ** 0.5)
                     image = page.render(scale=scale).to_pil().convert("RGB")
-                    textpage = page.get_textpage()
-                    text = textpage.get_text_range()
-                    # PDF text boxes are conservative: privacy candidates mask the page.
-                    lines = [
-                        line[start : start + 1500]
-                        for line in text.splitlines()
-                        for start in range(0, len(line), 1500)
-                        if line[start : start + 1500].strip()
-                    ]
-                    spans = [
-                        {"id": f"s{i}", "text": line, "box": [0, 0, 1, 1]}
-                        for i, line in enumerate(lines)
-                    ]
+                    spans = _pdf_spans(page)
                     images.append((image, spans or None))
         except PreparationError:
             raise
@@ -244,7 +442,6 @@ def parse(data, mime):
                     raise PreparationError("IMAGE_LIMIT")
                 raw.load()
                 image = ImageOps.exif_transpose(raw).convert("RGB")
-                image.thumbnail((2800, 2800))
                 images.append((image, None))
         except PreparationError:
             raise
@@ -252,18 +449,32 @@ def parse(data, mime):
             raise PreparationError("INVALID_IMAGE") from exc
     output = []
     for image, spans in images:
-        ocr_spans = _ocr(image)
+        angle = 0
+        if spans is None:
+            image, angle = _upright(image)
+        ocr_spans = _tiled_ocr(image)
         if spans is not None:
-            spans = [{**s, "id": "pdf-" + s["id"]} for s in spans] + ocr_spans
+            # Native text is authoritative where it covers the same visible text.
+            ocr_spans = [
+                s
+                for s in ocr_spans
+                if not any(_intersection(s["box"], p["box"]) > 0.6 for p in spans)
+            ]
+            spans = spans + ocr_spans
         else:
             spans = ocr_spans
-        # QR/barcode-bearing images require manual full-region redaction review.
-        # Every image is reviewed in real mode; no confidence-only auto-approval.
+        uncertain = [s["box"] for s in spans if s.get("confidence", 1) < 0.6]
+        if spans and len(uncertain) == len(spans):
+            raise PreparationError("OCR_UNCERTAIN")
+        # Uncertain OCR is never forwarded as a fact, including in the image.
+        # The original remains available for the producer's local privacy review.
         output.append(
             {
                 "spans": spans,
                 "image": base64.b64encode(_png(image)).decode(),
-                "regions": qr_regions(image),
+                "regions": qr_regions(image) + uncertain,
+                "rotation": angle,
+                "preprocessVersion": PREPROCESS_VERSION,
             }
         )
     return output
@@ -295,6 +506,8 @@ def prepare(data, mime):
                 except psutil.NoSuchProcess:
                     pass
                 time.sleep(0.1)
+            if process.returncode != 0 or not (root / "output").exists():
+                raise PreparationError("PARSER_FAILED")
             result = json.loads((root / "output").read_text(encoding="utf-8"))
             if "error" in result:
                 raise PreparationError(result["error"])

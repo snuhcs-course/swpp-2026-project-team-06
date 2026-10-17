@@ -25,7 +25,7 @@ from app.source_analysis.models import (
     new_id,
 )
 from app.source_analysis.preprocess import PreparationError, identify, redact
-from app.source_analysis.schemas import ILLUSTRATIONS, MODULE_FIELDS
+from app.source_analysis.schemas import ILLUSTRATIONS, MODULE_FIELDS, hidden_modules
 from app.source_analysis.storage import Storage
 
 ACTIVE = {"QUEUED", "PREPARING", "PRIVACY_REVIEW", "ANALYZING"}
@@ -108,17 +108,32 @@ def idempotent(db, farm_id, scope, key, body, action):
 
 
 def targets(db, farm_id, inputs, current=None):
-    old = {t["id"] for t in current or []}
+    old = {t["id"]: t for t in current or []}
     result = []
     for entry in inputs:
         if entry.id and entry.id not in old:
             raise invalid({"targets": "새 대상 ID는 서버에서 발급해요."})
         if not entry.name.strip():
             raise invalid({"targets": "상품 이름이 필요해요."})
+        basic = entry.basic_info.model_dump(by_alias=True) if entry.basic_info else None
+        if entry.id and basic is None:
+            basic = old[entry.id].get("basicInfo")
         if entry.product_id:
-            catalog.load_my_product(db, farm_id, entry.product_id)
+            product = catalog.load_my_product(db, farm_id, entry.product_id).product
+            if basic is None:
+                basic = {
+                    "variety": product.variety,
+                    "size": (product.info or {}).get("size", ""),
+                    "expectedBrix": product.expected_brix,
+                }
         result.append(
-            {"id": entry.id or new_id(), "name": entry.name.strip(), "productId": entry.product_id}
+            {
+                "id": entry.id or new_id(),
+                "name": entry.name.strip(),
+                "productId": entry.product_id,
+                "basicInfo": basic or {"variety": "", "size": "", "expectedBrix": None},
+                "representativeAssetId": old.get(entry.id, {}).get("representativeAssetId"),
+            }
         )
     if len({t["id"] for t in result}) != len(result):
         raise invalid({"targets": "같은 상품을 두 번 지정할 수 없어요."})
@@ -143,9 +158,45 @@ def patch_batch(db, row, body):
             "TARGET_IN_USE", "기존 대상은 유지하고 이름을 수정하거나 새 작업을 만들어 주세요."
         )
     row.targets = replacement
+    from app.source_analysis.representative import reconcile
+
+    reconcile(db, row)
     row.version += 1
     row.review_version += 1
     db.execute(update(Candidate).where(Candidate.batch_id == row.id).values(outdated=True))
+    return json_row(row)
+
+
+def patch_basic_info(db, row, body):
+    version(row.version, body.version)
+    if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
+        raise conflict("RUN_ACTIVE", "분석 후 기본 정보를 수정해 주세요.")
+    incoming = {t.target_id: t.basic_info.model_dump(by_alias=True) for t in body.targets}
+    if len(incoming) != len(body.targets) or not set(incoming) <= {t["id"] for t in row.targets}:
+        raise invalid({"targets": "작업에 포함된 상품을 중복 없이 선택해 주세요."})
+    updated = deepcopy(row.targets)
+    changed = set()
+    for target in updated:
+        if target["id"] in incoming and target.get("basicInfo") != incoming[target["id"]]:
+            target["basicInfo"] = incoming[target["id"]]
+            changed.add(target["id"])
+    if changed:
+        # Only regenerate untouched basic-info suggestions; explicit edits (including
+        # deliberate blank values) and extracted evidence remain intact.
+        for field in db.scalars(
+            select(ReviewedField).where(
+                ReviewedField.batch_id == row.id,
+                ReviewedField.target_id.in_(changed),
+                ReviewedField.field_key.in_(["specification", "qualityEvidence"]),
+                ReviewedField.state == "UNREVIEWED",
+                ReviewedField.provenance == "PRODUCER",
+            )
+        ):
+            if not field.candidate_ids:
+                field.value = ""
+        row.targets = updated
+        row.version += 1
+        row.review_version += 1
     return json_row(row)
 
 
@@ -170,7 +221,9 @@ def upload(db, row, data, filename, ids, common, expected, original):
         raise invalid({"originalPhoto": "원본 사진은 이미지 파일만 지정할 수 있어요."})
     rows = list(db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False))))
     checksum = hashlib.sha256(data).hexdigest()
-    duplicate = next((a for a in rows if a.checksum == checksum), None)
+    duplicate = next(
+        (a for a in rows if a.checksum == checksum and a.original_photo == original), None
+    )
     if duplicate:
         raise conflict("DUPLICATE_SOURCE", "이미 등록한 자료예요.", sourceId=duplicate.id)
     chars = len(data.decode("utf-8-sig")) if mime == "text/plain" else 0
@@ -195,6 +248,17 @@ def upload(db, row, data, filename, ids, common, expected, original):
     row.version += 1
     row.review_version += 1
     db.flush()
+    if original:
+        from app.source_analysis.photos import ready_photo
+
+        try:
+            ready_photo(db, result, data)
+        except PreparationError as exc:
+            raise invalid({"file": str(exc)}) from exc
+        db.flush()
+        from app.source_analysis.representative import reconcile
+
+        reconcile(db, row)
     return asset_view(result)
 
 
@@ -222,15 +286,18 @@ def patch_asset(db, row, source, body):
     source.privacy_approved = False
     source.status = "UPLOADED"
     invalidate(db, row, source)
+    from app.source_analysis.representative import reconcile
+
+    reconcile(db, row)
     return asset_view(source)
 
 
 def remove_asset(db, row, source):
-    for draft in db.scalars(select(Draft).where(Draft.batch_id == row.id)):
-        if source.id in draft.snapshot.get("sourceIds", []):
-            raise conflict("SOURCE_IN_USE", "자료를 참조하는 초안을 먼저 삭제해 주세요.")
     source.deleted = True
     invalidate(db, row, source)
+    from app.source_analysis.representative import reconcile
+
+    reconcile(db, row)
     return {"deleted": True}
 
 
@@ -324,17 +391,58 @@ def privacy(db, row, source, body):
     return asset_view(source)
 
 
-def start_run(db, row, expected, retry_items=None):
+def start_run(db, row, expected, retry_items=None, visual_pages=None):
     version(row.version, expected)
+    if any(not (t.get("basicInfo") or {}).get("variety", "").strip() for t in row.targets):
+        raise invalid({"variety": "과일 품종명을 입력해 주세요."})
     if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         raise conflict("RUN_ACTIVE", "이미 분석하고 있어요.")
+    from app.source_analysis.representative import selected
+
+    for target in row.targets:
+        selected(db, row.id, target, required=True)
     sources = list(
         db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
     )
     if not sources:
         raise invalid({"sources": "자료를 먼저 넣어 주세요."})
     settings = get_settings()
+    visual_pages = visual_pages or {}
+    for sid, numbers in visual_pages.items():
+        source = next((a for a in sources if a.id == sid), None)
+        if source is None or source.status != "PREPARED":
+            raise invalid({"visualPages": "준비가 끝난 자료만 시각 분석할 수 있어요."})
+        if (
+            not numbers
+            or len(set(numbers)) != len(numbers)
+            or any(
+                n not in {p.number for p in pages_for(db, source) if p.sanitized_key}
+                for n in numbers
+            )
+        ):
+            raise invalid({"visualPages": "이미지가 있는 페이지를 선택해 주세요."})
+    from app.source_analysis.preprocess import PREPROCESS_VERSION
+
+    for source in sources:
+        if source.status == "PREPARED":
+            source.privacy_approved = True
+    reparsed = set()
+    for source in sources:
+        if retry_items is not None and not any(i.asset_id == source.id for i in retry_items):
+            continue
+        if source.status == "PREPARED" and source.preprocess_version != PREPROCESS_VERSION:
+            # Previously approved geometry cannot authorize a newly parsed image.
+            source.revision += 1
+            source.status = "UPLOADED"
+            source.privacy_approved = False
+            invalidate(db, row, source)
+            reparsed.add(source.id)
+    visual_pages = {sid: nums for sid, nums in visual_pages.items() if sid not in reparsed}
     run = Run(
+        inputs=[
+            {"id": p.id, "revision": p.revision, "description": p.description} for p in sources
+        ],
+        visual_pages=visual_pages,
         batch_id=row.id,
         mode=settings.source_analysis_provider,
         model=settings.source_analysis_model,
@@ -347,8 +455,10 @@ def start_run(db, row, expected, retry_items=None):
         if retry_items is not None and not previous:
             continue
         ids = [t["id"] for t in row.targets] if source.common else source.target_ids
-        if previous:
+        if previous and source.id not in reparsed:
             for old in previous:
+                if old.phase == "PLACE_PHOTOS":
+                    continue  # Rebuild a single batched placement job below.
                 if old.revision != source.revision:
                     raise conflict("SOURCE_CHANGED", "자료가 바뀌었으니 새 분석을 시작해 주세요.")
                 db.add(
@@ -363,7 +473,7 @@ def start_run(db, row, expected, retry_items=None):
                         status=(
                             "PRIVACY_REVIEW"
                             if old.phase == "EXTRACT"
-                            and run.mode == "openai"
+                            and run.mode != "mock"
                             and not source.privacy_approved
                             else "QUEUED"
                         ),
@@ -373,6 +483,9 @@ def start_run(db, row, expected, retry_items=None):
             db.add(
                 Item(run_id=run.id, asset_id=source.id, revision=source.revision, target_ids=ids)
             )
+    from app.source_analysis.photos import enqueue
+
+    enqueue(db, row, run)
     row.version += 1
     db.flush()
     return run_view(db, run)
@@ -428,7 +541,7 @@ def retry(db, row, run, body):
         raise conflict(
             "RETRY_ACK_REQUIRED", "재호출 비용이 생길 수 있어요. 확인 후 재시도해 주세요."
         )
-    return start_run(db, row, row.version, items)
+    return start_run(db, row, row.version, items, run.visual_pages)
 
 
 def review(db, row):
@@ -458,7 +571,7 @@ def review(db, row):
         for evidence in candidate.evidence:
             if evidence not in merged["evidence"]:
                 merged["evidence"].append(evidence)
-    return {
+    result = {
         "reviewVersion": row.review_version,
         "targets": row.targets,
         "candidates": list(unique.values()),
@@ -493,8 +606,15 @@ def review(db, row):
         ],
     }
 
+    from app.source_analysis.editor import suggestions
 
-def patch_review(db, row, body):
+    result["editorFields"] = suggestions(
+        result, list(db.scalars(select(Asset).where(Asset.batch_id == row.id)))
+    )
+    return result
+
+
+def patch_review(db, row, body, *, inactive=frozenset()):
     version(row.review_version, body.review_version)
     seen = set()
     for entry in body.fields:
@@ -510,7 +630,7 @@ def patch_review(db, row, body):
             )
         )
         if len(candidates) != len(set(entry.candidate_ids)) or any(
-            c.outdated
+            (c.outdated and (entry.target_id, entry.field_key) not in inactive)
             or c.field_key != entry.field_key
             or c.target_id not in (None, entry.target_id)
             for c in candidates
@@ -523,6 +643,11 @@ def patch_review(db, row, body):
         if entry.field_key == "historicalSales" and entry.state == "CONFIRMED":
             raise invalid({"fieldKey": "과거 판매 정보는 참고용이며 상세 초안에 넣지 않아요."})
         for photo_id in entry.photo_asset_ids:
+            if (entry.target_id, entry.field_key) in inactive:
+                photo = db.get(Asset, photo_id)
+                if photo is None or photo.batch_id != row.id:
+                    raise invalid({"photoAssetIds": "이 작업의 사진만 사용할 수 있어요."})
+                continue
             photo = asset(db, row.id, photo_id)
             if (
                 not photo.original_photo
@@ -555,7 +680,7 @@ def patch_review(db, row, body):
     return review(db, row)
 
 
-def save_drafts(db, row, body):
+def save_drafts(db, row, body, *, editor=False):
     version(row.review_version, body.review_version)
     if len({t.target_id for t in body.targets}) != len(body.targets):
         raise invalid({"targets": "상품을 중복 지정할 수 없어요."})
@@ -571,12 +696,18 @@ def save_drafts(db, row, body):
                 select(ReviewedField).where(
                     ReviewedField.batch_id == row.id,
                     ReviewedField.target_id == target.target_id,
-                    ReviewedField.state == "CONFIRMED",
+                    ReviewedField.state.in_(
+                        ["CONFIRMED", "UNREVIEWED"] if editor else ["CONFIRMED"]
+                    ),
                 )
             )
         )
+        visible_ids = set(target.enabled_module_ids) - hidden_modules(target.hidden_section_ids)
         sources, evidence = set(), {}
+        active_keys = {k for m in visible_ids for k in MODULE_FIELDS[m]}
         for field in fields:
+            if editor and field.field_key not in active_keys:
+                continue
             candidates = list(
                 db.scalars(
                     select(Candidate).where(
@@ -600,7 +731,9 @@ def save_drafts(db, row, body):
         modules, warnings = [], []
         for module_id, keys in MODULE_FIELDS.items():
             selected = [f for f in fields if f.field_key in keys]
-            filled = any(f.value or f.photo_asset_ids or f.illustration_id for f in selected)
+            filled = any(
+                f.value.strip() or f.photo_asset_ids or f.illustration_id for f in selected
+            )
             enabled = module_id in target.enabled_module_ids
             module = {
                 "id": module_id,
@@ -618,7 +751,7 @@ def save_drafts(db, row, body):
                 else None,
             }
             modules.append(module)
-            if enabled and not filled:
+            if module_id in visible_ids and not filled:
                 warnings.append({"moduleId": module_id, "code": "MISSING_CONFIRMED_CONTENT"})
         modes = set()
         if evidence:
@@ -629,15 +762,32 @@ def save_drafts(db, row, body):
                 )
             ):
                 modes.add(db.get(Run, db.get(Item, candidate.item_id).run_id).mode)
+        from app.source_analysis.representative import selected
+
+        representative = selected(
+            db, row.id, next(t for t in row.targets if t["id"] == target.target_id)
+        )
+        if representative:
+            sources.add(representative.id)
         snapshot = {
+            "representativeAssetId": representative.id if representative else None,
             "schemaVersion": 1,
+            "hiddenSectionIds": target.hidden_section_ids,
+            "batchVersion": row.version,
+            "sourceVersions": {
+                sid: {
+                    "revision": asset(db, row.id, sid).revision,
+                    "sanitizationVersion": asset(db, row.id, sid).sanitization_version,
+                }
+                for sid in sources
+            },
             "targetId": target.target_id,
             "reviewVersion": row.review_version,
             "modules": modules,
             "warnings": warnings,
             "sourceIds": sorted(sources),
             "evidence": evidence,
-            "mode": "mock" if "mock" in modes else ("openai" if modes else "producer"),
+            "mode": "mock" if "mock" in modes else (sorted(modes)[0] if modes else "producer"),
             "previewModules": [
                 {
                     "id": m["id"],
@@ -651,9 +801,10 @@ def save_drafts(db, row, body):
                     "illustrationLabel": m["illustrationLabel"],
                 }
                 for m in modules
-                if m["enabled"]
+                if m["id"] in visible_ids
                 and any(
-                    f["value"] or f["photoAssetIds"] or f["illustrationId"] for f in m["fields"]
+                    f["value"].strip() or f["photoAssetIds"] or f["illustrationId"]
+                    for f in m["fields"]
                 )
             ],
         }

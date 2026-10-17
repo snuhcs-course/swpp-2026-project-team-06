@@ -5,7 +5,7 @@ import { consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from 
 test("AC-03/04/05: producer draft and sales controls are wired to the real server", async ({ page }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/new`);
+  await page.goto(`${producerUrl}/products/manual`);
   await page
     .getByLabel("카톡·밴드에 쓰던 문구")
     .fill("DEV25 하우스 감귤 5kg, 예상 당도 12.5브릭스, 11월 중순 배송입니다.");

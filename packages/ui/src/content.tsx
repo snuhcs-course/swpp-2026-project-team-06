@@ -1,3 +1,4 @@
+declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
 import { useEffect, type ReactNode } from "react";
 import {
   Image,
@@ -185,7 +186,13 @@ export function Photo({
       ) : null}
       {uri ? (
         <Image
-          source={{ uri }}
+          source={{
+            uri: uri.startsWith("/api/source-media/")
+              ? (
+                  process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000"
+                ).replace(/\/+$/, "") + uri
+              : uri,
+          }}
           accessibilityLabel={alt}
           resizeMode="cover"
           style={[

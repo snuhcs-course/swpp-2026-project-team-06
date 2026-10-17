@@ -1,3 +1,5 @@
+> DEV-56/57/58 current integration contract: [source-integration.md](./source-integration.md). This supersedes the DEV-54 model and integration-status notes below.
+
 # docs/spec — 스펙 문서 안내
 
 > 현재 프론트 화면 기준: [대화 중심 UI 1.6](./conversation-ui-1.6.md). 이전 화면 배치를 대체하며 API·권한·주문 전이는 유지한다.

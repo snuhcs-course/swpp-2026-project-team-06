@@ -44,7 +44,12 @@ def create(client, headers, count=1):
     response = client.post(
         PREFIX,
         headers=key(headers),
-        json={"targets": [{"name": f"테스트 감귤 {i}"} for i in range(count)]},
+        json={
+            "targets": [
+                {"name": f"테스트 감귤 {i}", "basicInfo": {"variety": "온주밀감"}}
+                for i in range(count)
+            ]
+        },
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -59,7 +64,24 @@ def upload(client, headers, batch, text=MOCK_TEXT, common=False):
     return response.json()
 
 
+def add_cover(client, headers, bid, color="orange"):
+    batch = client.get(f"{PREFIX}/{bid}", headers=headers).json()
+    image = io.BytesIO()
+    Image.new("RGB", (24, 24), color).save(image, format="PNG")
+    response = client.post(
+        f"{PREFIX}/{bid}/sources",
+        headers=headers,
+        data={"batchVersion": batch["version"], "common": "true", "originalPhoto": "true"},
+        files={"file": ("product.png", image.getvalue(), "image/png")},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 def start(client, headers, bid):
+    batch = client.get(f"{PREFIX}/{bid}", headers=headers).json()
+    if not any(s["originalPhoto"] for s in batch["sources"]):
+        add_cover(client, headers, bid)
     batch = client.get(f"{PREFIX}/{bid}", headers=headers).json()
     response = client.post(
         f"{PREFIX}/{bid}/runs", headers=key(headers), json={"batchVersion": batch["version"]}
@@ -128,7 +150,11 @@ def test_AC_SRC_1_2_7_full_flow_and_private_draft(client, login):
     with get_sessionmaker()() as db:
         assert not list(db.scalars(select(Product).where(Product.name == "테스트 감귤")))
     response = client.delete(f"{PREFIX}/{batch['id']}/sources/{source['id']}?version=1", headers=h)
-    assert response.status_code == 409
+    assert response.status_code == 202
+    assert (
+        client.get(f"{PREFIX}/{batch['id']}/drafts", headers=h).json()["items"][0]["id"]
+        == draft["id"]
+    )
     assert client.delete(f"{url}/{draft['id']}?version=1", headers=h).status_code == 200
 
 
@@ -147,19 +173,19 @@ def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch):
     assert client.get(url, headers=h).status_code == 404
 
 
-def test_AC_SRC_6_real_mode_waits_for_privacy(client, login, monkeypatch):
+def test_AC_SRC_6_real_mode_proceeds_without_privacy_review(client, login, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "source_analysis_provider", "openai")
     h = login("u-kang")
     batch = create(client, h)
     source = upload(client, h, batch, text="담당자: 예시이름\n이메일: example@example.test\n감귤")
     run = start(client, h, batch["id"])
-    assert worker.run_once()
-    assert not worker.run_once()
+    assert worker.run_once()  # Text preparation.
+    assert worker.run_once()  # Required representative photo preparation.
     url = f"{PREFIX}/{batch['id']}"
-    assert client.get(f"{url}/runs/{run['id']}", headers=h).json()["status"] == "PRIVACY_REVIEW"
+    assert client.get(f"{url}/runs/{run['id']}", headers=h).json()["status"] == "ANALYZING"
     page = client.get(f"{url}/sources/{source['id']}/pages/1", headers=h).json()
-    assert "example@example.test" not in str(page["redactedSpans"])
+    assert "example@example.test" in str(page["redactedSpans"])
     received = []
     from app.ai.source_analysis import ExtractionResponse
     from app.source_analysis.schemas import Extraction
@@ -171,15 +197,9 @@ def test_AC_SRC_6_real_mode_waits_for_privacy(client, login, monkeypatch):
         )
 
     monkeypatch.setattr(worker, "extract", fake)
-    response = client.patch(
-        f"{url}/sources/{source['id']}/privacy",
-        headers=h,
-        json={"sourceRevision": 1, "sanitizationVersion": 1, "approved": True},
-    )
-    assert response.status_code == 200, response.text
     drain()
     assert len(received) == 1
-    assert "example@example.test" not in str(received)
+    assert "example@example.test" in str(received)
 
 
 def test_AC_SRC_5_reanalysis_preserves_review_and_cancel(client, login):
@@ -226,6 +246,13 @@ def test_AC_SRC_5_worker_claim_is_exclusive_and_expired_sent_not_recalled(client
     batch = create(client, h)
     upload(client, h, batch)
     run = start(client, h, batch["id"])
+    # Isolate the text job under test from the representative photo's separate preparation job.
+    with get_sessionmaker()() as db:
+        for item in db.scalars(
+            select(Item).join(Asset).where(Item.run_id == run["id"], Asset.original_photo.is_(True))
+        ):
+            item.status = "SUCCEEDED"
+        db.commit()
     with ThreadPoolExecutor(max_workers=2) as pool:
         jobs = list(pool.map(lambda _: worker.claim(), range(2)))
     claimed = [j for j in jobs if j]
@@ -237,7 +264,8 @@ def test_AC_SRC_5_worker_claim_is_exclusive_and_expired_sent_not_recalled(client
         db.commit()
     assert worker.claim() is None
     result = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
-    assert result["items"][0]["error"] == "REQUEST_UNCERTAIN"
+    claimed_result = next(i for i in result["items"] if i["id"] == claimed[0][0])
+    assert claimed_result["error"] == "REQUEST_UNCERTAIN"
 
 
 def test_AC_SRC_7_idempotent_concurrency_and_versions(client, login):
@@ -344,6 +372,7 @@ def test_AC_SRC_5_late_result_after_cancel_discarded(client, login, monkeypatch)
     upload(client, h, batch)
     run = start(client, h, batch["id"])
     assert worker.run_once()
+    assert worker.run_once()  # Prepare the required representative photo before extraction.
     original = worker.extract
 
     def cancel_then_return(*args):
