@@ -25,7 +25,7 @@ concurrency:
 env:
   RAILWAY_SERVICE: farmclub-api
   RAILWAY_ENVIRONMENT: production
-  HEALTH_URL: https://farmclub-api-production.up.railway.app/health
+  HEALTH_URL: https://api.farmclub.kr/health
 
 jobs:
   deploy:

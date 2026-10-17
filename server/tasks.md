@@ -985,3 +985,24 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
   - 10/18 `actions/checkout`·`setup-node`는 `ci.yml`과 같은 v7로 맞춤.
 - 작업: [x] 워크플로 트리거·변경 판단 [x] README·stack.md [x] actionlint
 - 검증: `actionlint .github/workflows/deploy-railway.yml` 통과. 실제 흐름(머지 → CI 성공 → 배포)은 머지 뒤 1회 실행으로 확인 예정.
+
+## DEV-69 farmclub.kr 도메인 연결(Cloudflare DNS)과 서브도메인 설계
+- 이슈: [DEV-69](https://linear.app/sswp6/issue/DEV-69)
+- 브랜치: `nemodleo/dev-69-dev-farmclubkr-도메인-연결cloudflare-dns과-서브도메인`
+- 기능·인수 조건: FEAT-19 공유 링크(AC-19-1), 배포. 결정은 [ADR 0012](../docs/spec/tech-design/adr/0012-domains-cloudflare.md)
+- 상태: 리뷰 중. **도메인이 실제로 연결된 뒤 머지**(ADR 0012 전환 순서 4번)
+- 목표: 호스팅 기본 주소를 `farmclub.kr`·`farm.farmclub.kr`·`api.farmclub.kr`로 바꾸고, 공유 링크를 `farmclub.kr/s/farms/<id>`로 낸다.
+- 범위(수정 허용 경로): `docs/spec/tech-design/adr/0012-*`, `docs/spec/tech-design/stack.md`, `docs/wiki/Design-Documentation.md`, `README.md` 배포 절, `server/.env.example`, `server/app/core/config.py`, `server/app/farms/share.py`·`router.py`, `server/tests/test_farm_share.py`, `apps/consumer/vercel.json`, `apps/*/public/index.html`, 앱 기본 URL 상수(`apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/producer/src/app/(tabs)/farm/index.tsx`), `packages/api/src/mock/farms.ts`, `.github/workflows/deploy-railway.yml`·`deploy-vercel.yml`
+- 비범위: 도메인 구매, Cloudflare·Vercel·Railway·카카오·PortOne 콘솔 설정(사람), `admin`·`dev`·`staging` 환경 구성, 운영 `/docs` 닫기(ADR 0008)
+- 결정 사항:
+  - 10/18 `.kr`은 Cloudflare Registrar 지원 TLD가 아니고 KISA는 직접 팔지 않음 → 인증 등록대행자 호스팅케이알(hosting.kr)에서 구매(사용자 결정) + 네임서버만 Cloudflare.
+  - 10/18 공유 링크는 소비자 앱 `vercel.json` rewrite `/s/:path*` → `https://api.farmclub.kr/s/:path*`(SPA 규칙보다 앞). 서버는 `SHARE_BASE_URL`이 있으면 `<base>/s/farms/<id>`, 없으면 지금처럼 `url_for`. 기본값 빈 문자열이라 로컬·테스트 동작은 그대로.
+  - 10/18 `admin`·`dev`·`staging`은 대상이 없어 DNS 레코드를 만들지 않음(서브도메인 탈취 방지). 운영자는 `api.farmclub.kr/docs`.
+  - 10/18 Vercel·Railway 레코드는 DNS only, SSL Full(strict). 메일 미사용: null MX, `v=spf1 -all`, DMARC reject.
+  - 10/18 `README.md`의 2026-10-17 Railway 생성 기록 문장은 사실 기록이라 옛 주소를 그대로 둠.
+- 작업: [x] ADR 0012 [x] stack.md·wiki·README [x] 공유 주소 설정·테스트 [x] 하드코딩 주소 교체 [ ] 사람: 도메인 연결 후 머지
+- 검증: 아래 기록 참고.
+- 기록:
+  - 10/18 `server/`에서 `uv sync --frozen` 후 `uv run pytest -q` 325 통과(새 테스트 `test_AC_19_1_share_url_uses_public_domain_when_configured` 포함), `ruff check app tests` 통과.
+  - 10/18 루트 `npm ci` 후 `npm run typecheck` 통과, `npm run test:mock` 13 통과. `actionlint`(두 배포 워크플로) 통과.
+  - 10/18 실제 DNS·Vercel rewrite·카톡 미리보기는 도메인이 없어 확인하지 못함. 전환 순서 5~6번에서 사람이 확인.
