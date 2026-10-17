@@ -79,20 +79,22 @@ for (const width of [360, 390, 430]) {
     // A decoration must not invent three completed stages or their sequence.
     for (const claim of ["수확", "선별", "출하"])
       await expect(detail.getByText(claim, { exact: true })).toHaveCount(0);
-    const panels = detail.getByTestId("source-photo-panel");
+    const panels = detail.getByTestId("source-photo-frame");
     await expect(panels).toHaveCount(4);
-    await expect(detail.getByTestId("source-photo-frame")).toHaveCount(0);
-    await expect(detail.getByTestId("source-size-panel")).toHaveCSS(
+    await expect(detail.getByTestId("source-photo-panel")).toHaveCount(0);
+    await expect(detail.getByTestId("source-size-panel").getByTestId("illustration-backdrop")).toHaveCSS(
       "background-color",
-      "rgb(238, 241, 232)",
+      "rgb(201, 79, 12)",
     );
     const sizePanel = detail.getByTestId("source-size-panel");
-    await expect(sizePanel).toHaveCSS("padding", "20px");
-    const handBox = await sizePanel.locator("img").boundingBox();
+    await expect(sizePanel).toHaveCSS("padding-top", "28px");
+    const handBox = await sizePanel.getByRole("img", { name: "설명용 감귤 크기 일러스트" }).boundingBox();
     expect(handBox).not.toBeNull();
     expect(handBox!.height).toBeCloseTo(handBox!.width, 0);
     expect(handBox!.height).toBeLessThan(width);
     expect((await sizePanel.boundingBox())!.height).toBeLessThan(width + 100);
+    expect((await sizePanel.boundingBox())!.width).toBeCloseTo(width, 0);
+    expect((await sizePanel.boundingBox())!.x).toBeCloseTo(0, 0);
     for (const panel of await panels.all()) {
       await expect
         .poll(() =>
@@ -116,10 +118,10 @@ for (const width of [360, 390, 430]) {
           originalRatio: img.naturalWidth / img.naturalHeight,
         };
       });
-      expect(geometry.border).toBe("0px");
-      expect(geometry.source).toBe("none");
-      expect(geometry.padding).toBe("16px");
-      expect(geometry.background).toBe("rgb(246, 241, 231)");
+      expect(geometry.border).toBe("14px");
+      expect(geometry.source).toContain("photo-frame");
+      expect(geometry.padding).toBe("0px");
+      expect(geometry.background).toBe("rgba(0, 0, 0, 0)");
       expect(geometry.displayedRatio).toBeCloseTo(geometry.originalRatio, 1);
     }
     await expect
@@ -158,7 +160,7 @@ for (const width of [360, 390, 430]) {
       detail.locator('[data-testid^="source-section-"]'),
     ).toHaveCount(1);
     await expect(detail.getByTestId("source-cover")).toHaveCount(0);
-    await expect(detail.getByTestId("source-photo-panel")).toHaveCount(0);
+    await expect(detail.getByTestId("source-photo-frame")).toHaveCount(0);
     await expect(detail.getByTestId("source-size-panel")).toHaveCount(0);
     expect(
       await page.evaluate(
@@ -198,7 +200,10 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
     await page.setViewportSize({ width, height: 850 });
     await page.goto(`${consumerUrl}/products/p-house`);
     const card = page.getByTestId("brix-reading");
-    await expect(card).toHaveCSS("background-color", "rgb(251, 240, 227)");
+    await expect(card.getByTestId("illustration-backdrop")).toHaveCSS(
+      "background-color", "rgb(201, 79, 12)",
+    );
+    expect((await card.getByTestId("illustration-backdrop").boundingBox())!.width).toBeCloseTo(width, 0);
     await expect(card).toHaveCSS("padding-top", "28px");
     await expect(card).toHaveCSS("padding-bottom", "28px");
     await expect(
@@ -249,6 +254,7 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
       .getByText("당도 예상 12Brix", { exact: true }),
   ).toBeVisible();
   await expect(page.getByTestId("brix-meter-illustration")).toHaveCount(0);
+  await expect(page.getByTestId("brix-reading").getByTestId("illustration-backdrop")).toHaveCount(0);
   await expect(page.getByTestId("brix-reading")).toHaveCSS(
     "background-color",
     "rgba(0, 0, 0, 0)",

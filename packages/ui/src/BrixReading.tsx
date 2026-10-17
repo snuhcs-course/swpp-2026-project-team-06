@@ -2,6 +2,8 @@ import { Image, View } from "react-native";
 import { T } from "./Text";
 import { Icon } from "./Icon";
 import { md } from "./format";
+import { IllustrationBackdrop } from "./IllustrationBackdrop";
+import { tokens } from "./tokens";
 
 export function BrixReading({
   measured,
@@ -21,12 +23,12 @@ export function BrixReading({
         marginTop: hasMeasurement ? 40 : 0,
         paddingTop: hasMeasurement ? 28 : 40,
         paddingBottom: hasMeasurement ? 28 : 0,
-        backgroundColor: hasMeasurement ? "#FBF0E3" : undefined,
         flexDirection: hasMeasurement ? "column" : "row",
         alignItems: "center",
         gap: 16,
       }}
     >
+      {hasMeasurement ? <IllustrationBackdrop /> : null}
       {hasMeasurement ? (
         <Image
           testID="brix-meter-illustration"
@@ -40,12 +42,22 @@ export function BrixReading({
         <Icon name="drop" />
       )}
       <View style={{ flex: hasMeasurement ? undefined : 1, gap: 4 }}>
-        <T variant="body" weight="semibold" center={hasMeasurement}>
+        <T
+          variant="body"
+          weight="semibold"
+          center={hasMeasurement}
+          color={hasMeasurement ? tokens.color.onAccent : undefined}
+        >
           {hasMeasurement
             ? `당도 실측 ${measured}Brix`
             : `당도 예상 ${expected ?? "-"}Brix`}
         </T>
-        <T variant="sub" muted center={hasMeasurement}>
+        <T
+          variant="sub"
+          muted={!hasMeasurement}
+          center={hasMeasurement}
+          color={hasMeasurement ? tokens.color.onAccent : undefined}
+        >
           {hasMeasurement
             ? measuredAt
               ? `${md(measuredAt)} 측정`

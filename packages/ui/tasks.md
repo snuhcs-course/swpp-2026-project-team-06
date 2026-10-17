@@ -276,3 +276,16 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: typecheck4 workspace·mock12개·source-detail-design4개 통과, 생산자/소비자 웹 export 성공. 실제 저장11개 값과 양 앱 원문 동일 확인. 전체18개 옵션 데모의 사진/손/당도/소식 배경을 캡처해 육안 확인했다. 브라우저는 headless로 실행·종료했다.
 - 수정: 손 그림의 원본 높이가 행 높이를 늘리는 문제를 정사각 래퍼로 해결하고 세 모바일 폭에서 비율/높이를 검증했다. 이미지 원본/내용/API는 변경하지 않았다.
 - scan-before-commit: 전체 diff·새 아이콘/프롬프트·호출부·의존성/lock·문서 범위 점검, 최종 이슈 없음. 레거시 호환 후보0건/지적0건/커밋된 구조0건. 원격 CI는 최신 push 후 별도 추적한다.
+
+## DEV-57 주황 질감 배경·사진 프레임 복원 (2026-10-17)
+
+- 사용자 요청: 사진은 기존 종이 프레임으로 복원하고 손·당도계 영역만 버튼과 같은 짙은 주황색으로 전체 폭을 채운 ImageGen 배경을 적용한다. FEAT-03/04/07, AC-SRC-7/9, AC-TPL-4/5/10.
+- 범위: `packages/ui/src/{SourcePhoto,ModuleStory,BrixReading,IllustrationBackdrop}.tsx`, `packages/ui/assets/source/decor/{orange-paper.png,orange-paper-prompt.md}`, `packages/ui/assets/source/README.md`, `packages/ui/{package.json,spec.md,tasks.md}`, `package-lock.json`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`, `scripts/e2e/source-detail-design.spec.ts`.
+- 결정: 버튼 토큰 accent #C94F0C를 바탕색으로 사용하고 기존 아이콘과 어울리는 과슈/종이 질감 배경을 생성한다. 배경은 장식으로만 사용하며 그림·수치·문구는 기존 컴포넌트로 유지한다. 손 영역은 섹션 안쪽 여백 밖까지 배경을 확장하고 당도계는 기존 전체 폭을 사용한다. 텍스트는 밝은 색으로 대비를 확보한다. 작은 제목과 농가 소식 아이콘은 유지한다. 미측정에는 주황 배경을 넣지 않는다.
+- 상태: 리뷰 중. PR #113 Draft 유지, 머지/배포 없음.
+- [x] 배경 생성·사진 프레임 복원·전체 폭 배치
+- [x] 모바일/빈 자료/당도 상태·타입/mock/양 앱 export 검증
+- [x] spec/wiki/PR·커밋 전 스캔
+- 검증: typecheck4 workspace, mock12개, 디자인 Playwright4개(360/390/430px 전체폭·정사각 손·사진 프레임/비율·8아이콘·빈 항목·당도0/미측정/날짜없음) 통과. 양 앱 API모드 웹 export 성공. 실제 생산자/소비자 원문11개 값 동일 확인. 전체 옵션 데모의 손·당도 배경을 headless 캡처·육안 확인했다.
+- 최초 타입 검사에서 현재 RN 타입에 없는 absoluteFillObject를 확인해 지원하는 StyleSheet.absoluteFill로 수정하고 타입·화면 검증을 다시 통과했다. 배경은 버튼 토큰 위에 생성 원본35%로 겹쳐 원본 변형 없이 색조를 맞춘다.
+- 커밋 전 스캔: 변경 전체·새 공통 배경/자산/프롬프트·호출부·inset 전달·lock·문서 확인, 이슈 없음. 레거시 호환 후보0/지적0/커밋된 구조0. 원격 CI는 최신 push 후 별도 추적한다.

@@ -1,0 +1,7 @@
+# 손·당도계 영역 주황 종이 배경
+
+2026-10-17 내장 `image_gen` 사용. 기존 `headings/taste.png`, `headings/storage.png`를 직접 참조해 생성했다. 원본을 재가공 없이 저장한다. 버튼과 같은 `tokens.color.accent` (#C94F0C) 위에35% 불투명도로 겹쳐 색조를 맞추며 질감·종이 곡선을 유지한다. 손·당도계 영역만 전체 폭으로 채우는 장식이고 문자·측정값은 포함하지 않는다.
+
+## 최종 프롬프트
+
+Use case: stylized-concept. Create a BACKGROUND ONLY for a Korean farm-product editorial app. The supplied tangerine and refrigerator illustrations are STYLE references only: match their matte gouache pigment and handmade cut-paper fibers, do NOT reproduce their objects. Full-bleed square, no transparent edges. Dominant color must be the app button's rich burnt tangerine orange HEX #C94F0C, NOT bright yellow-orange, peach, cream or brown. An elegant printed orange handmade-paper field, fine tactile paper grain and restrained uneven gouache pigment. Broad very subtle overlapping organic paper-cut curves sweep along the outer corners in close shades of dark orange and terracotta; center 70% remains quiet and evenly dark orange for placing a separate hand/fruit illustration or a cream device and light readable text. Tonal differences should be small but visibly handmade, no flat uniform digital fill. Keep the entire field orange including corners. No central circle, inset panel, card, border or frame. No white patch. No fruit, leaves, hands, devices, objects, lettering, numbers or logos. No glossy 3D, dramatic lighting, vignette, drop shadow or photo. Simple sophisticated warm paper texture matching the reference icon family. Opaque edge-to-edge background.

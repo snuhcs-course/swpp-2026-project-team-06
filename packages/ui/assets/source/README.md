@@ -6,6 +6,6 @@
 
 `headings/*.png` 7종, `decor/photo-frame.png`, `icons/{harvest,select,send}.png`는 기존 `docs/design/sales-templates/assets/`의 같은 파일을 바이트 변경 없이 복사했다. 새 이미지 생성/가공은 하지 않았다. 생성 도구·최종 프롬프트는 원본의 [소제목 기록](../../../../docs/design/sales-templates/assets/headings/README.md), [테두리 기록](../../../../docs/design/sales-templates/assets/decor/README.md), [아이콘 기록](../../../../docs/design/sales-templates/assets/icons/README.md)에 보존한다.
 
-소제목 아이콘은 36px 장식이며 읽을 수 있는 제목을 별도로 둔다. 후속 사용자 결정으로 공정 아이콘3종 행과 사진 프레임은 더 이상 렌더하지 않는다. 사진·손 비교·실측 당도는 각각 크림·세이지·살구색 배경을 사용한다. 이전 생성 구획선은 이식하지 않고 일반 선을 유지한다. 원산지/품종 아이콘은 해당 구조화 정보가 없는 모듈에 임의로 붙이지 않는다.
+소제목 아이콘은 36px 장식이며 읽을 수 있는 제목을 별도로 둔다. 공정 아이콘3종 행은 표시하지 않는다. 후속 사용자 결정으로 사진은 기존 종이 프레임을 복원했다. 손 비교·실측 당도만 버튼색 #C94F0C 바탕과 [ImageGen 주황 종이 질감](decor/orange-paper-prompt.md)으로 전체 폭을 채운다. 이전 생성 구획선은 이식하지 않고 일반 선을 유지한다. 원산지/품종 아이콘은 해당 구조화 정보가 없는 모듈에 임의로 붙이지 않는다.
 
 농가 소식은 내장 ImageGen으로 새로 만든 `headings/updates.png`를 사용한다. 기존 제목 아이콘을 직접 참조한 [최종 프롬프트](headings/updates-prompt.md)와 생성 원본 알파를 보존한다. 기존7종에 소식1종을 더해 큰 제목 아이콘은8종이며 작은 제목에는 추가하지 않는다. 당도계는 사용자 확정 [그림과 생성 기록](brix-meter-prompt.md)을 사용한다.

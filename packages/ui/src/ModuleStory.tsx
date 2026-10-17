@@ -6,6 +6,8 @@ import {
 } from "react-native";
 import { T } from "./Text";
 import { SourcePhoto } from "./SourcePhoto";
+import { IllustrationBackdrop } from "./IllustrationBackdrop";
+import { tokens } from "./tokens";
 export const SOURCE_MODULES = [
   ["hero", "상품 소개"],
   ["summary", "한눈에 보기"],
@@ -94,12 +96,20 @@ const hasContent = (module: Module) =>
   module.photos.length > 0 ||
   !!(module.illustrationId && illustrations[module.illustrationId]);
 
-function Illustration({ id }: { id: string }) {
+function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
   return (
     <View
       testID="source-size-panel"
-      style={{ gap: 8, marginTop: 16, padding: 20, backgroundColor: "#EEF1E8" }}
+      style={{
+        gap: 8,
+        marginTop: 16,
+        marginHorizontal: -inset,
+        paddingHorizontal: 24,
+        paddingVertical: 28,
+        overflow: "hidden",
+      }}
     >
+      <IllustrationBackdrop />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <View style={{ flex: 1, aspectRatio: 1 }}>
           <Image
@@ -110,18 +120,18 @@ function Illustration({ id }: { id: string }) {
           />
         </View>
         <View style={{ width: 70, gap: 4 }}>
-          <T variant="caption" muted center>
+          <T variant="caption" color={tokens.color.onAccent} center>
             기준 손 길이
           </T>
-          <T center style={{ fontSize: 25, lineHeight: 35, color: "#766e60" }}>
+          <T center style={{ fontSize: 25, lineHeight: 35, color: tokens.color.onAccent }}>
             18cm
           </T>
-          <T variant="caption" muted center>
+          <T variant="caption" color={tokens.color.onAccent} center>
             {"손끝~손목\n비교용 가정"}
           </T>
         </View>
       </View>
-      <T variant="caption" muted center>
+      <T variant="caption" color={tokens.color.onAccent} center>
         크기 설명용 일러스트 · 실제 규격 아님
       </T>
     </View>
@@ -131,9 +141,11 @@ function Illustration({ id }: { id: string }) {
 function ModuleBody({
   module,
   mediaUrl,
+  inset = 22,
 }: {
   module: Module;
   mediaUrl: (uri: string) => string;
+  inset?: number;
 }) {
   const subheading = [
     "pieceCount",
@@ -186,7 +198,7 @@ function ModuleBody({
         />
       ))}
       {module.illustrationId && illustrations[module.illustrationId] ? (
-        <Illustration id={module.illustrationId} />
+        <Illustration id={module.illustrationId} inset={inset} />
       ) : null}
     </View>
   );
@@ -246,7 +258,7 @@ export function ModuleStory({
                 </T>
               ))}
             {hero?.illustrationId && illustrations[hero.illustrationId] ? (
-              <Illustration id={hero.illustrationId} />
+              <Illustration id={hero.illustrationId} inset={24} />
             ) : null}
             {summary ? (
               <View
@@ -256,7 +268,7 @@ export function ModuleStory({
                   paddingTop: 20,
                 }}
               >
-                <ModuleBody module={summary} mediaUrl={mediaUrl} />
+                <ModuleBody module={summary} mediaUrl={mediaUrl} inset={24} />
               </View>
             ) : null}
           </View>
