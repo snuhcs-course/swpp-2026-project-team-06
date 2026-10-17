@@ -995,7 +995,7 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - 범위(수정 허용 경로): `docs/spec/tech-design/adr/0012-*`, `docs/spec/tech-design/stack.md`, `docs/wiki/Design-Documentation.md`, `README.md` 배포 절, `server/.env.example`, `server/app/core/config.py`, `server/app/farms/share.py`·`router.py`, `server/tests/test_farm_share.py`, `apps/consumer/vercel.json`, `apps/*/public/index.html`, 앱 기본 URL 상수(`apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/producer/src/app/(tabs)/farm/index.tsx`), `packages/api/src/mock/farms.ts`, `.github/workflows/deploy-railway.yml`·`deploy-vercel.yml`
 - 비범위: 도메인 구매, Cloudflare·Vercel·Railway·카카오·PortOne 콘솔 설정(사람), `admin`·`dev`·`staging` 환경 구성, 운영 `/docs` 닫기(ADR 0008)
 - 결정 사항:
-  - 10/18 `.kr`은 Cloudflare Registrar 지원 TLD가 아님 → 국내 등록대행자 구매 + 네임서버만 Cloudflare.
+  - 10/18 `.kr`은 Cloudflare Registrar 지원 TLD가 아니고 KISA는 직접 팔지 않음 → 인증 등록대행자 호스팅케이알(hosting.kr)에서 구매(사용자 결정) + 네임서버만 Cloudflare.
   - 10/18 공유 링크는 소비자 앱 `vercel.json` rewrite `/s/:path*` → `https://api.farmclub.kr/s/:path*`(SPA 규칙보다 앞). 서버는 `SHARE_BASE_URL`이 있으면 `<base>/s/farms/<id>`, 없으면 지금처럼 `url_for`. 기본값 빈 문자열이라 로컬·테스트 동작은 그대로.
   - 10/18 `admin`·`dev`·`staging`은 대상이 없어 DNS 레코드를 만들지 않음(서브도메인 탈취 방지). 운영자는 `api.farmclub.kr/docs`.
   - 10/18 Vercel·Railway 레코드는 DNS only, SSL Full(strict). 메일 미사용: null MX, `v=spf1 -all`, DMARC reject.

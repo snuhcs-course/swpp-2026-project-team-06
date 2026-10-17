@@ -250,7 +250,7 @@ each browser and never call the server.
 
 ### Domains (DEV-69)
 
-`farmclub.kr` is registered with a Korean registrar (Cloudflare Registrar does not sell
+`farmclub.kr` is registered with hosting.kr, a Korean registrar (Cloudflare Registrar does not sell
 `.kr`) and its DNS is on Cloudflare. Decision, record table and cut-over order:
 [ADR 0012](docs/spec/tech-design/adr/0012-domains-cloudflare.md).
 
@@ -267,7 +267,7 @@ are **DNS only** (grey cloud) and SSL/TLS mode is **Full (strict)**.
 
 Accounts, purchases and console changes are done by a person. In order:
 
-1. Buy `farmclub.kr`, add it to Cloudflare (Free), and switch the registrar's name
+1. Buy `farmclub.kr` on hosting.kr, add it to Cloudflare (Free), and switch the registrar's name
    servers to the two Cloudflare ones.
 2. Add the custom domains in Vercel (both projects) and Railway, copy the records they
    show into Cloudflare, and check `https://api.farmclub.kr/health`.

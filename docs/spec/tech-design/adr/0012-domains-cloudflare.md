@@ -9,8 +9,8 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 ## 결정
 
 ### 등록처와 DNS
-- `farmclub.kr`은 국내 등록대행자(가비아·후이즈·카페24 등)에서 산다. Cloudflare Registrar는 `.kr`을 팔지 않는다(지원 TLD 목록에 없음, 2026-10 확인). `.kr`은 KISA가 관리하고 등록자는 국내 연락처·주소를 적는다.
-- 네임서버만 Cloudflare(Free 플랜)로 옮기고 DNS는 Cloudflare에서 관리한다. 등록대행자에는 갱신·네임서버·(지원하면) DNSSEC DS 레코드만 남는다.
+- `farmclub.kr`은 KISA 인증 등록대행자인 호스팅케이알(hosting.kr)에서 산다. Cloudflare Registrar는 `.kr`을 팔지 않고(지원 TLD 목록에 없음, 2026-10 확인), KISA는 직접 팔지 않으며 인증 등록대행자만 등록할 수 있다. 등록자는 국내 연락처·주소를 적고, 소유자는 등록대행자가 아니라 우리로 기록되므로 나중에 다른 등록대행자로 옮길 수 있다.
+- 네임서버만 Cloudflare(Free 플랜)로 옮기고 DNS는 Cloudflare에서 관리한다. 호스팅케이알에는 갱신·네임서버·(지원하면) DNSSEC DS 레코드만 남는다.
 
 ### 주소
 
@@ -57,7 +57,7 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 - Vercel·Railway 레코드는 프록시를 끈다(회색 구름). 두 곳 모두 자체 인증서를 발급하고, Vercel은 앞에 다른 프록시를 두지 않기를 권한다. `api`는 인증서 발급이 끝난 뒤 WAF·Access가 필요해지면 프록시를 켤 수 있다.
 - SSL/TLS 모드는 **Full (strict)**, Always Use HTTPS 켬. Flexible은 쓰지 않는다(프록시를 켜는 순간 리다이렉트 루프와 평문 구간이 생김).
 - 메일은 쓰지 않으므로 null MX·SPF·DMARC로 우리 도메인을 사칭한 메일을 거부하게 한다. 고객센터 메일이 필요해지면 Cloudflare Email Routing을 켜고 이 세 레코드를 그에 맞게 바꾼다.
-- DNSSEC: Cloudflare에서 켜고, 등록대행자가 `.kr` DS 레코드 입력을 지원하면 그 값을 넣는다.
+- DNSSEC: Cloudflare에서 켜고, 호스팅케이알이 `.kr` DS 레코드 입력을 지원하면 그 값을 넣는다.
 
 ### 같이 바꾸는 설정
 
@@ -70,7 +70,7 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 | PortOne 콘솔 | 웹훅 주소 `https://api.farmclub.kr/api/payments/portone/webhook`(DEV-36, 결제 연동 머지 뒤) |
 
 ### 전환 순서
-1. 도메인 구매 → Cloudflare에 사이트 추가 → 등록대행자에서 네임서버를 Cloudflare 값 2개로 변경 → Cloudflare가 Active가 될 때까지 대기.
+1. 호스팅케이알에서 도메인 구매 → Cloudflare에 사이트 추가 → 호스팅케이알에서 네임서버를 Cloudflare 값 2개로 변경 → Cloudflare가 Active가 될 때까지 대기.
 2. SSL/TLS·메일 거부 레코드 설정.
 3. Vercel 두 프로젝트와 Railway에 커스텀 도메인 추가 → 보여 주는 레코드를 Cloudflare에 넣음 → 세 주소가 HTTPS로 열리는지 확인(`https://api.farmclub.kr/health`).
 4. Railway 변수 `CONSUMER_APP_URL`·`PRODUCER_APP_URL` 변경, 카카오 콘솔에 새 도메인 추가(옛 vercel.app 주소는 전환이 끝날 때까지 남김).
