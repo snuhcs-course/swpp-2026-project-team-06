@@ -6,6 +6,16 @@ The default live provider is OpenRouter google/gemini-3.1-flash-lite. OCR text i
 
 Live synthetic evaluation (2026-10-16, source-v2): 16 text cases matched all expected facts, with precision/recall 1.0 and zero critical errors. These are the same fixed cases used to refine the prompt, not a held-out benchmark. The rotated image produced no extracted facts; the PDF was rejected with INVALID_EVIDENCE. Visual quality and farmer acceptance remain incomplete. Final-run known cost: $0.0092095; all ledger attempts: $0.017 settled and $0.191654 still reserved. See [evaluation evidence](../spec/validation/source-integration-2026-10-16.json).
 
+### OCR replacement and public-source validation
+
+RapidOCR 3.10.0 / ONNX Runtime 1.31.0 now uses pinned PP-OCRv5 mobile detection and Korean recognition weights. Provisioning is explicit; runtime checksum checks and an offline execution check prevent implicit downloads. The long sales image and raster PDF that exceeded 2GB with Paddle now finish below the unchanged 1GB cap (measured peak RSS 596.8MB). Orientation correction, overlapping full-width strips, native PDF character coordinates and geometry deduplication preserve readable evidence. Parser upgrades invalidate old candidates and require renewed privacy approval. Quotes may differ only in whitespace layout, and are restored to exact source substrings.
+
+All twelve public-source cases completed parsing and extraction in the final run, but **the quality gate still fails**. Exact-match precision/recall: text 100%/100%, images 18.75%/14.29%, PDFs 42.86%/37.5%. These strict scores count spacing and punctuation differences, but actual OCR glyph mistakes, omissions and field mapping errors also remain. Zero automated forbidden-field errors is not a completed human critical-fact review.
+
+The final synthetic run passes all sixteen text cases and the PDF case. The rotated image extracts the package but merges a separate unknown-count statement into its value, failing exact match. Earlier passing runs are retained rather than substituted for the final result. Four initially frozen holdout cases share a broader twelve-case corpus sourced from three public URLs, including different farm profiles in one brochure. Subsequent runs are not fresh holdout estimates. Two PDF cases preserve native brochure text; one is a raster conversion of a seller image.
+
+Raw source documents, gold labels, model responses and the local original/renderer comparison stay in ignored private artifacts. Only source URLs, hashes, aggregate metrics and limitations are committed in [the follow-up report](../spec/validation/source-visual-2026-10-16.json). DEV-58 remains In Progress; visual accuracy and actual farmer acceptance are incomplete. No deployment occurred.
+
 Current contract: [source integration](../spec/source-integration.md). The following section records the original DEV-54 milestone.
 
 # Bulk source analysis — specification

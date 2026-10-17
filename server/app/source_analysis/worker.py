@@ -29,7 +29,13 @@ from app.source_analysis.models import (
     new_id,
     utcnow,
 )
-from app.source_analysis.preprocess import PreparationError, prepare, redact, scrub
+from app.source_analysis.preprocess import (
+    PREPROCESS_VERSION,
+    PreparationError,
+    prepare,
+    redact,
+    scrub,
+)
 from app.source_analysis.service import refresh_runs
 from app.source_analysis.storage import Storage
 
@@ -219,9 +225,24 @@ def enqueue_extraction(db, source, run, item, pages):
     item.status = "SUCCEEDED"
 
 
+def canonical_quote(quote, source):
+    """Recover exact source offsets when only whitespace layout differs."""
+    if not quote.strip():
+        return None
+    if quote in source:
+        return quote
+    tokens = list(re.finditer(r"\s+|\S", source))
+    normalized = "".join(" " if t.group().isspace() else t.group() for t in tokens)
+    wanted = re.sub(r"\s+", " ", quote).strip()
+    start = normalized.find(wanted)
+    if start < 0:
+        return None
+    return source[tokens[start].start() : tokens[start + len(wanted) - 1].end()]
+
+
 def validate(extraction, chunk, allowed_targets):
     span_map = {(p["number"], s["id"]): s["text"] for p in chunk["pages"] for s in p["spans"]}
-    for candidate in extraction.candidates:
+    for candidate_index, candidate in enumerate(extraction.candidates):
         quotes = "\n".join(e.quote for e in candidate.evidence)
 
         def numbers(value):
@@ -250,12 +271,23 @@ def validate(extraction, chunk, allowed_targets):
             if evidence.source_id != chunk["sourceId"] or (
                 evidence.source_revision != chunk["sourceRevision"]
             ):
-                raise ExtractionError("INVALID_EVIDENCE")
+                raise ExtractionError(
+                    "INVALID_EVIDENCE",
+                    details={"candidate": candidate_index, "reason": "SOURCE_REVISION"},
+                )
             if any((evidence.page, sid) not in span_map for sid in evidence.span_ids):
-                raise ExtractionError("INVALID_EVIDENCE")
+                raise ExtractionError(
+                    "INVALID_EVIDENCE",
+                    details={"candidate": candidate_index, "reason": "UNKNOWN_SPAN"},
+                )
             quoted = "\n".join(span_map[(evidence.page, sid)] for sid in evidence.span_ids)
-            if evidence.quote not in quoted or "[가림]" in evidence.quote:
-                raise ExtractionError("INVALID_EVIDENCE")
+            exact = canonical_quote(evidence.quote, quoted)
+            if exact is None or "[가림]" in exact:
+                raise ExtractionError(
+                    "INVALID_EVIDENCE",
+                    details={"candidate": candidate_index, "reason": "QUOTE_NOT_VERBATIM"},
+                )
+            evidence.quote = exact
     return extraction
 
 
@@ -269,6 +301,8 @@ def process(item_id, token):
         batch, source, run, item = context
         phase, mime, key = item.phase, source.mime, source.storage_key
         already_prepared = source.status == "PREPARED"
+        if already_prepared and source.preprocess_version != PREPROCESS_VERSION:
+            raise PreparationError("PARSER_CHANGED")
         if phase == "PREPARE" and already_prepared:
             pages = list(
                 db.scalars(
@@ -365,6 +399,7 @@ def process(item_id, token):
                 db.add(page)
                 pages.append(page)
             source.status, source.error = "PREPARED", None
+            source.preprocess_version = PREPROCESS_VERSION
             source.page_count = len(prepared)
             source.sanitization_version += 1
             source.privacy_approved = False

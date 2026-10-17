@@ -348,6 +348,20 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
             )
         ):
             raise invalid({"visualPages": "이미지가 있는 페이지를 선택해 주세요."})
+    from app.source_analysis.preprocess import PREPROCESS_VERSION
+
+    reparsed = set()
+    for source in sources:
+        if retry_items is not None and not any(i.asset_id == source.id for i in retry_items):
+            continue
+        if source.status == "PREPARED" and source.preprocess_version != PREPROCESS_VERSION:
+            # Previously approved geometry cannot authorize a newly parsed image.
+            source.revision += 1
+            source.status = "UPLOADED"
+            source.privacy_approved = False
+            invalidate(db, row, source)
+            reparsed.add(source.id)
+    visual_pages = {sid: nums for sid, nums in visual_pages.items() if sid not in reparsed}
     run = Run(
         visual_pages=visual_pages,
         batch_id=row.id,
@@ -362,7 +376,7 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
         if retry_items is not None and not previous:
             continue
         ids = [t["id"] for t in row.targets] if source.common else source.target_ids
-        if previous:
+        if previous and source.id not in reparsed:
             for old in previous:
                 if old.revision != source.revision:
                     raise conflict("SOURCE_CHANGED", "자료가 바뀌었으니 새 분석을 시작해 주세요.")

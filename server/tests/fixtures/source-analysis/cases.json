@@ -17,6 +17,6 @@
  {"id":"16-missing-count","kind":"text","text":"구성: 감귤 5kg이며 개수는 확인되지 않았습니다.","expected":[["composition","감귤 5kg이며 개수는 확인되지 않았습니다.","구성: 감귤 5kg이며 개수는 확인되지 않았습니다."]],"forbiddenFields":["pieceCount"]},
  {"id":"17-duplicate","kind":"duplicate","text":"테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.","expectedError":"DUPLICATE_SOURCE","expected":[]},
  {"id":"18-empty","kind":"empty","text":"","expectedError":"PAYLOAD_TOO_LARGE","expected":[]},
- {"id":"19-rotated-image","kind":"image","text":"가상 검증 자료\n감귤 5kg\n수량은 미확인","visual":true,"expected":[],"forbiddenFields":["pieceCount","qualityEvidence"],"manualReview":true},
- {"id":"20-pdf-table","kind":"pdf","text":"가상 상품 구성표\n감귤 | 5kg\n배송일 | 미확정","visual":true,"expected":[],"manualReview":true}
+ {"id":"19-rotated-image","kind":"image","text":"가상 검증 자료\n감귤 5kg\n수량은 미확인","visual":true,"expected":[["composition","감귤 5kg","감귤 5kg"]],"forbiddenFields":["pieceCount","qualityEvidence"],"manualReview":true},
+ {"id":"20-pdf-table","kind":"pdf","text":"가상 상품 구성표\n감귤 | 5kg\n배송일 | 미확정","visual":true,"expected":[["composition","감귤 5kg","감귤 5kg"]],"manualReview":true,"forbiddenFields":["pieceCount","delivery","qualityEvidence"]}
 ]

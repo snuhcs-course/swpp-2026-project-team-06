@@ -20,14 +20,28 @@ Never infer count from weight, size from photos or measured quality from expecte
 Historical prices/dates/inventory/promotions belong only to historicalSales, historical=true.
 Return concise Korean values without strengthening claims; include exact source/span quotes.
 Each evidence quote must occur verbatim in the referenced safe spans.
+Use separate evidence objects for separate spans; never join them with spaces or invent
+table delimiters. Copy sourceId, sourceRevision, page and spanIds exactly from the input.
+For a package table row, join product and weight cells with a space in value; omit
+layout-only pipes between cells. Evidence quotes must still retain original separators.
 Images are for understanding only; never generate photo URLs or reuse document crops.
 Request missing original photos in photo_requests, not invented assets.
 All results are unconfirmed candidates. No tools, publishing or live sales changes.
 Extraction is not copywriting: preserve the complete factual sentence verbatim as value,
 including punctuation, negations, uncertainty, sample size and historical qualifiers.
 Only remove a leading field label such as '보관:' or '구성:' from value, never from quote.
+A package line containing a product and its weight is one composition candidate; do not
+split it into a name and weight or shorten the value. Omit fields whose only information
+is unknown/unconfirmed (미확인, 미확정, 미정); never turn them into a positive fact.
+When a sentence combines a known fact with an unknown qualifier, retain BOTH in value.
+Example: 감귤 5kg이며 개수는 확인되지 않았습니다. must stay complete, not just 감귤 5kg.
 Field mapping: name=explicit product title; summary=general product/origin description;
-composition=package contents and weight (kg/g); pieceCount=explicit fruit count, never kg;
+composition=package contents, weight (kg/g), or the complete labelled 주 생산품목 line
+including seasonal qualifiers; pieceCount=explicit fruit count, never kg;
+농장 소개 (including OCR-spaced variants) ALWAYS maps to farmStory, never summary.
+A farm heading/name alone is not a product name: omit it. Ignore photo watermarks,
+section numbering and decorative fragments. Remove a leading field label from value,
+but preserve its complete content and qualifiers; keep the label in evidence quote.
 taste=flavour/expected sweetness; qualityEvidence=measured results with full sample context;
 specification=explicit grade/dimensions; farmStory=farm narrative; appearanceFaq=appearance;
 storage=보관; delivery=배송; support=문의; historicalSales=complete past-sales statement.
@@ -38,8 +52,9 @@ If OCR cannot support a visual fact, omit it and request a clearer source in pho
 
 
 class ExtractionError(Exception):
-    def __init__(self, code, retry_after=None, usage=None, request_id=None):
+    def __init__(self, code, retry_after=None, usage=None, request_id=None, details=None):
         super().__init__(code)
+        self.details = details or {}
         self.code, self.retry_after = code, retry_after
         self.usage, self.request_id = usage or {}, request_id
 

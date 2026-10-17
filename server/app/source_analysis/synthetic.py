@@ -6,6 +6,7 @@ Add --live only with configured OPENROUTER_API_KEY. No production DB or source i
 
 import argparse
 import base64
+import hashlib
 import io
 import json
 import time
@@ -43,10 +44,28 @@ def material(case, font_path=None):
     return output.getvalue(), "application/pdf", ".pdf"
 
 
+def group_result(rows):
+    metrics = evaluate(rows)
+    return {
+        **metrics,
+        "failed": sum(r["status"] == "FAILED" for r in rows),
+        "evaluated": sum(r["status"] == "EVALUATED" for r in rows),
+        "passed": bool(rows)
+        and all(r["status"] == "EVALUATED" for r in rows)
+        and all(r.get("criticalErrors", 0) == 0 for r in rows)
+        and (metrics["recall"] or 0) >= 0.95
+        and (metrics["precision"] or 0) >= 0.95,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--font", type=str)
+    parser.add_argument("--cases", type=Path, default=CASES)
+    parser.add_argument("--only", nargs="*")
+    parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--key-prompt", action="store_true")
     parser.add_argument("--live", action="store_true")
     args = parser.parse_args()
     cfg = get_settings()
@@ -54,17 +73,33 @@ def main():
         h in cfg.database_url for h in ("@127.0.0.1:", "@localhost:")
     ):
         raise SystemExit("Synthetic evaluation requires a local database")
+    if args.live and args.key_prompt:
+        from getpass import getpass
+
+        cfg.openrouter_api_key = getpass("OpenRouter key (not stored): ")
     if args.live and not cfg.openrouter_api_key:
         raise SystemExit("OPENROUTER_API_KEY is missing; no paid calls were made")
     cfg.source_evaluation = True
-    args.output.mkdir(parents=True, exist_ok=True)
-    cases = json.loads(CASES.read_text())
+    args.output.mkdir(parents=True, exist_ok=True, mode=0o700)
+    args.output.chmod(0o700)
+    cases = json.loads(args.cases.read_text())
+    if args.only:
+        cases = [c for c in cases if c["id"] in args.only]
     records = []
     for case in cases:
-        data, mime, suffix = material(case, args.font)
+        if "file" in case:
+            path = args.cases.parent / case["file"]
+            data, mime, suffix = path.read_bytes(), case["mime"], path.suffix
+            if hashlib.sha256(data).hexdigest() != case["sha256"]:
+                raise SystemExit(f"Source changed: {case['id']}")
+        else:
+            data, mime, suffix = material(case, args.font)
         (args.output / (case["id"] + suffix)).write_bytes(data)
         record = {
             "id": case["id"],
+            "kind": case["kind"],
+            "split": case.get("split", "development"),
+            "sourceUrl": case.get("url"),
             "status": "NOT_RUN",
             "expected": [],
             "actual": [],
@@ -80,18 +115,23 @@ def main():
             record["status"] = "API_CONTRACT_CASE"
             records.append(record)
             continue
-        if not args.live:
+        if not args.live and not args.prepare_only:
             records.append(record)
             continue
         reservation = None
+        settled = False
+        diagnostic = {}
         try:
             raw = prepare(data, mime)
+            diagnostic["preparation"] = [{k: v for k, v in p.items() if k != "image"} for p in raw]
             pages = []
             images = []
             for number, p in enumerate(raw, 1):
                 image = base64.b64decode(p["image"]) if p["image"] else None
                 safe, spans = redact(image, p["spans"], p.get("regions", []))
                 pages.append({"number": number, "spans": spans})
+                if safe:
+                    (args.output / f"{case['id']}-page-{number}.png").write_bytes(safe)
                 if case.get("visual") and safe:
                     images.append(base64.b64encode(safe).decode())
             chunk = {
@@ -103,6 +143,14 @@ def main():
             targets = [{"id": "synthetic-product"}] + (
                 [{"id": "synthetic-other"}] if case.get("ambiguous") else []
             )
+            diagnostic["safeInput"] = chunk
+            if args.prepare_only:
+                record["status"] = "PREPARED"
+                records.append(record)
+                (args.output / (case["id"] + "-diagnostic.json")).write_text(
+                    json.dumps(diagnostic, ensure_ascii=False, indent=2)
+                )
+                continue
             with get_sessionmaker()() as db:
                 reservation = reserve(
                     db,
@@ -120,6 +168,8 @@ def main():
             with get_sessionmaker()() as db:
                 settle(db, reservation, response.usage)
                 db.commit()
+            settled = True
+            diagnostic["response"] = response.extraction.model_dump(by_alias=True)
             result = validate(response.extraction, chunk, {t["id"] for t in targets})
             record["actual"] = [
                 {"targetId": c.target_id, "fieldKey": c.field_key, "value": c.value}
@@ -130,40 +180,53 @@ def main():
             record["criticalErrors"] = sum(
                 word in text for word in case.get("forbidden", [])
             ) + sum(c.field_key in case.get("forbiddenFields", []) for c in result.candidates)
-            record["status"] = "REVIEW_REQUIRED" if case.get("manualReview") else "EVALUATED"
+            record["status"] = "EVALUATED"
         except (ExtractionError, PreparationError) as exc:
             record["status"] = "FAILED"
             record["error"] = str(exc)
-            if isinstance(exc, ExtractionError):
+            diagnostic["error"] = {"code": str(exc), "details": getattr(exc, "details", {})}
+            if isinstance(exc, ExtractionError) and not settled:
                 with get_sessionmaker()() as db:
                     settle(db, reservation, exc.usage)
                     db.commit()
-            if str(exc) == "BUDGET_EXCEEDED":
-                records.append(record)
-                break
+        (args.output / (case["id"] + "-diagnostic.json")).write_text(
+            json.dumps(diagnostic, ensure_ascii=False, indent=2)
+        )
         records.append(record)
         (args.output / "results.json").write_text(json.dumps(records, ensure_ascii=False, indent=2))
-    scored = [r for r in records if r["status"] == "EVALUATED"]
+    scored = [r for r in records if r["status"] != "API_CONTRACT_CASE"]
+
+    groups = {
+        kind: group_result([r for r in scored if r["kind"] == kind])
+        for kind in {r["kind"] for r in scored}
+    }
     report = {
         "model": "google/gemini-3.1-flash-lite",
         "live": args.live,
         "metrics": evaluate(scored),
+        "byFormat": groups,
+        "bySplit": {
+            split: group_result([r for r in scored if r["split"] == split])
+            for split in {r["split"] for r in scored}
+        },
         "cases": records,
-        "textGatePassed": len(scored) == 16
-        and all(r.get("criticalErrors", 0) == 0 for r in scored)
-        and (evaluate(scored)["recall"] or 0) >= 0.95
-        and (evaluate(scored)["precision"] or 0) >= 0.95,
-        "deploymentGate": "HELD_PENDING_VISUAL_AND_FARMER_REVIEW",
+        "textGatePassed": groups.get("text", {}).get("passed", False),
+        "qualityGatePassed": bool(groups) and all(g["passed"] for g in groups.values()),
+        "deploymentGate": (
+            "HELD_PENDING_FARMER_REVIEW"
+            if groups and all(g["passed"] for g in groups.values())
+            else "HELD_PENDING_QUALITY_AND_FARMER_REVIEW"
+        ),
         "totalKnownCostUsd": sum(r["costUsd"] or 0 for r in records),
-        "note": ("Mock is not model-quality evidence. "
-                 "Visual cases require manual review; deployment remains held."),
+        "note": "Failures and empty results count toward recall. Exact-match grading. "
+        "Public source validation does not replace farmer acceptance.",
     }
     (args.output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
     print(
         json.dumps(
             {
                 "sets": len(records),
-                "evaluated": len(scored),
+                "evaluated": sum(r["status"] == "EVALUATED" for r in scored),
                 "textGatePassed": report["textGatePassed"],
                 "report": str(args.output / "report.json"),
             }
