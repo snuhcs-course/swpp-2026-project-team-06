@@ -20,8 +20,8 @@ permissions:
 env:
   # Vercel 계정·프로젝트 식별자(비밀값 아님). 계정: nemodleo-4232's projects
   VERCEL_ORG_ID: team_6lUgON5wzspF2xO89ivHAZEf
-  CONSUMER_URL: https://farmclub-consumer.vercel.app
-  PRODUCER_URL: https://farmclub-producer.vercel.app
+  CONSUMER_URL: https://farmclub.kr
+  PRODUCER_URL: https://farm.farmclub.kr
 
 jobs:
   deploy:
@@ -37,10 +37,10 @@ jobs:
         include:
           - app: consumer
             project_id: prj_maiNsmueKvOPCuxgwl889DdUmByA
-            url: https://farmclub-consumer.vercel.app
+            url: https://farmclub.kr
           - app: producer
             project_id: prj_Uz2IIY7l6h2PKZOGNekOn1MnZ457
-            url: https://farmclub-producer.vercel.app
+            url: https://farm.farmclub.kr
     concurrency:
       group: vercel-deploy-${{ matrix.app }}
       cancel-in-progress: false
