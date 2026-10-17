@@ -584,6 +584,9 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/16 최종 검증: Ruff 통과, pytest 211개 통과, `npm run typecheck` 통과, `npm run test:mock` 13개 통과. 마이그레이션 upgrade/downgrade/check와 실서버 통합·Playwright 결과는 위 기록 참조.
 - 10/16 PR 1차 검토에서 오래된 AI 답 신고 직후 해당 페이지가 refresh 결과에 없을 때 버튼 상태가 갱신되지 않는 경계를 보완했다. 성공 응답에서 현재 메시지를 바로 `reported`로 표시하고, 더 최신 답변이 있는 상태에서 이전 답변을 신고하는 AC-13-5 서버 회귀를 추가했다. 재검토에서 typecheck·diff check 통과. 이 worktree에는 `psycopg`가 없어 변경한 pytest는 여기서 재실행하지 못했다(위 전체 pytest 211개 통과 기록은 유지).
 - 10/16 1차 리뷰 커밋 `3b6ee08`, 리뷰 보완 `2ef8dbf`를 push하고 PR #119를 열었다. AI 1차 리뷰 코멘트 게시: must 없음. I2 승인 규칙은 사용자가 면제했다. PR #113의 0008/0009 migration revision은 DEV-39 병합 뒤 충돌이 없게 조정해야 한다.
+- 10/17 `main`을 병합해 `server/tasks.md`의 DEV-39/DEV-59 섹션을 보존했다. main의 AI grounding 변경까지 포함한 재검증: Ruff 통과, pytest 215개 통과, `npm run typecheck` 통과, `npm run test:mock` 13개 통과.
+- 10/17 별도 로컬 DB `farmclub_dev39_ship_test`에서 Alembic upgrade/check 통과. `npm run test:integration:full`은 localhost만 대상으로 서버 통합 7개와 Playwright 21개 통과. Railway에는 연결하지 않았다.
+- 10/17 GitHub PR #113 실제 diff를 확인해 migration 충돌 정보를 바로잡고 PR #119에 정정 코멘트를 남겼다. DEV-39 merge 이후 PR #113 migration을 새 main head 뒤로 재배치해야 한다.
 
 ## DEV-59 AI 상품 초안 근거 확인: 중량·당도 정확 일치와 배송 구절 한정
 - 이슈: [DEV-59](https://linear.app/sswp6/issue/DEV-59) (GitHub [#115](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/115))
