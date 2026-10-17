@@ -250,6 +250,8 @@ def test_C06_FEAT_13_model_non_answers_are_detected():
         "무료배송이에요. 도서산간은 추가 운임 3,000원이 붙어요.",
         "예상 당도는 12Brix이고 실측값은 아직 없어요.",
         "12월 15일 ~ 12월 20일에 받을 예정이에요.",
+        "상품 정보상 추가 비용 없이 무료배송이에요.",
+        "농장에서 확인한 실측 당도는 11.8Brix예요.",
     ]:
         assert not grounding.is_non_answer(answer), answer
 
