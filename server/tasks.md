@@ -927,3 +927,29 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
 - 리뷰 수정: 첫 사진 업로드의 대표 지정 덮어쓰기 수정, PageSnapshot 브랜치 전용 호환 제거, 현재 스펙 우선순위/마이그레이션 설명 정정. 새 첫 업로드·저장·재접속 및 누락/다른 상품 사진/null 대표 계약 회귀 테스트 추가. 커밋 전 스캔 이슈 없음, 신규 호환 후보 0건.
 - 머지 스캔: 후보 7건 — 지적 1건(수정 완료) / 정당 6건. ProductWorkspace.snapshot은 origin/main 이력 0건(브랜치839503e→b36fe10)이라 제거. Batch.targets·Draft.snapshot·Run.inputs·Page.spans·Asset.privacy_approved는 base4d7eece, Product.detail_content는 baseb464eba에 존재해 유지. 새 사진 저장 이후 공개 참조·소유권·버전·예약/취소 경로 검토.
 - 사용자 승인: Draft 해제·리뷰 수정 후 머지 명시 요청. 기존 사람 승인 병목 없이 각자 충돌 해소 후 머지하는 팀 방침에 따라 진행. Agent 시간/Tokens 미측정, 추가 유료 AI 호출 0.
+
+## DEV-58 공개자료 후속 안정화 (FEAT-03/04/07, AC-SRC-4/5/9/10/11)
+- 이슈: https://linear.app/sswp6/issue/DEV-58
+- 브랜치: jinumeral/dev-58-dev-integrate-budgeted-openrouter-gemini-and-synthetic-pre
+- 상태: 진행 중. 2026-10-17 사용자 계획 승인.
+- 목표: 정상 문구 가림, 후보 단위 오류의 전체 전파, 자료 연락처 자동 반영을 수정한다. 숫자 OCR 한계는 별도 실험으로 측정한다.
+- 범위: server/app/source_analysis/**, server/app/ai/source_analysis.py, server/migrations/versions/0013_source_diagnostics.py, server/tests/test_source*.py, packages/api/src/sourceAnalysis.ts, apps/producer/src/lib/SourceWorkspace.tsx, scripts/e2e/source-analysis.spec.ts, 관련 spec/tasks/wiki/validation 및 .artifacts 후속 평가.
+- 비범위: AI CS, 운영 OCR 모델/크롭 변경, 배포, 농가 인수.
+- 결정: 기존 엄격 검증은 유지하고 후보별 통과만 저장. Item PARTIAL 및 Run PARTIAL, 채택/거절 개수와 비공개 JSON 진단. 전부 거절은 FAILED. 재시도는 명시적으로만 하며 기존 후보 중복/생산자 편집 덮어쓰기 방지.
+- 결정: 개인정보 라벨은 항목 경계에서 인식하고 '대표 특산물' 같은 설명 보존. 자료 전화/이메일은 자동 추출 제외, 생산자 직접 편집 허용. 처리 버전 갱신.
+- 결정: 원본/첫 평가를 보존하고 동일 모델 숫자 크롭 비교와 3자료 재검증은 기존 비용 포함 $0.50 이내. 동일 자료 재사용 결과는 독립 평가로 표시하지 않음.
+- [x] 구현·마이그레이션·제품 스펙/영문 위키 동기화
+- [x] 무료 서버/앱/브라우저 회귀 및 마이그레이션 검증
+- [x] 실제 자료 재검증·숫자 실험·보고서/영상
+- [x] 커밋/브랜치 스캔·PR·Linear 기록 (최신 원격 CI 결과는 PR에 기록)
+- 기록: 원격 main d4efd6d, migration head0012 확인. 기존 테스트/데모 DB 보존.
+
+- 구현: 후보별 검증, PARTIAL 종료/명시 재시도, 동일 후보 ID 재사용, 재응답에서 누락된 확정 후보·생산자 편집 보존. source-parser-v3/source-v6-candidate-validation, migration0013.
+- 무료 검증: 최종 전체 pytest324(37.93초), 최종 recovery24 통과. 타입4 workspace, mock13, 웹export2, migration head/check→0012→head/check 통과. 관련 브라우저18개 중17개 통과 후 바뀐 source-analysis3개 재실행 전부 통과(안내 문자열 선택자와 재시도 후 최신 초안 재저장 순서 수정). 기존 라이브 데모 DB/8000·8081·8082 보존.
+- 실제 회귀: 기존 정답17그룹/원본 유지, 3자료 각1회. 정밀도17/18, 완전 회수14/17, 엄격 필드/값7/18·7/17. 동일 자료 재사용이므로 일반 정확도/수정 인과효과로 해석하지 않는다. 후보 충돌로 편집란이 빈 경우는 직접 보완했으며 자동 점수에 포함하지 않는다.
+- 숫자 실험: 1000의 두 위치 모두 기존/문맥2배 확대가 100으로 오독. 대조군5kg(5–6과)는 양쪽 통과. 운영 OCR/크롭 변경하지 않음.
+- 비용: 3자료 재검증 $0.027342 + 숫자6회 $0.007345 = 추가 $0.034687. 기존 포함 $0.060098/36호출, 미정산0, 예산$0.50 이내. 자동 재호출 없음.
+- 산출물: `.artifacts/source-recovery-1017/index.html` 및 3개 편집/저장/공개 영상. 실제 자료3개 로컬 공개까지 PASS(명시적 수동 수정 후). 원본 첫 평가 보존. 배포/농가 인수 미실행. Agent 시간/Tokens 미측정.
+- 잔여: 숫자 원문 검토, 같은 필드 후보 충돌 수동 조정, PDF13% 할인 누락, 농가 인수. DEV-58 전체 Done 아님.
+- 커밋/브랜치 스캔: 전체 diff·새 파일·호출부·취소/비공개/예산/재시도 경로 확인. 확정 후보가 재응답에서 누락되는 사례도 추가 검증. 이슈 없음. 레거시 호환 점검: 후보1건 — 지적0건 / 정당1건(기존 source_items 진단 빈 객체 backfill, origin/main 4d7eece의 Item). 브랜치 중간 형식 호환 추가 없음.
+- PR130 ready for review, ce38486 구현 push 및 AI 리뷰 코멘트 완료. Linear DEV-58에 구현/비용/실험/잔여 항목 반영, In Progress 유지. 최신 head CI 완료 여부는 PR 체크를 참조. 머지/배포 없음.

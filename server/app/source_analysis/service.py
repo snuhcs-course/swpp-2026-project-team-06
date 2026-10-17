@@ -494,8 +494,17 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
 def run_view(db, run):
     result = json_row(run)
     items = list(db.scalars(select(Item).where(Item.run_id == run.id).order_by(Item.id)))
-    result["items"] = [json_row(i, ("lease_token", "lease_until", "sent")) for i in items]
-    result["completed"] = sum(i.status in ("SUCCEEDED", "FAILED", "CANCELLED") for i in items)
+    result["items"] = [
+        {
+            **json_row(i, ("lease_token", "lease_until", "sent", "diagnostics")),
+            "acceptedCount": i.diagnostics.get("acceptedCount", 0),
+            "rejectedCount": i.diagnostics.get("rejectedCount", 0),
+        }
+        for i in items
+    ]
+    result["completed"] = sum(
+        i.status in ("SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED") for i in items
+    )
     result["total"] = len(items)
     return result
 
@@ -515,7 +524,7 @@ def refresh_runs(db, batch_id):
             run.status = "PRIVACY_REVIEW"
         elif states == {"SUCCEEDED"}:
             run.status = "SUCCEEDED"
-        elif any(i.phase == "EXTRACT" and i.status == "SUCCEEDED" for i in items):
+        elif any(i.phase == "EXTRACT" and i.status in ("SUCCEEDED", "PARTIAL") for i in items):
             run.status = "PARTIAL"
         else:
             run.status = "FAILED"
@@ -535,8 +544,10 @@ def cancel(db, run):
 
 def retry(db, row, run, body):
     items = list(db.scalars(select(Item).where(Item.run_id == run.id, Item.id.in_(body.item_ids))))
-    if len(items) != len(set(body.item_ids)) or any(i.status != "FAILED" for i in items):
-        raise invalid({"itemIds": "실패한 항목만 다시 분석할 수 있어요."})
+    if len(items) != len(set(body.item_ids)) or any(
+        i.status not in ("FAILED", "PARTIAL") for i in items
+    ):
+        raise invalid({"itemIds": "실패하거나 일부 완료된 항목만 다시 분석할 수 있어요."})
     if any(i.error == "REQUEST_UNCERTAIN" for i in items) and not body.acknowledge_uncertain:
         raise conflict(
             "RETRY_ACK_REQUIRED", "재호출 비용이 생길 수 있어요. 확인 후 재시도해 주세요."
@@ -595,7 +606,7 @@ def review(db, row):
                 .join(Asset, Asset.id == Item.asset_id)
                 .where(
                     Run.batch_id == row.id,
-                    Item.status == "SUCCEEDED",
+                    Item.status.in_(["SUCCEEDED", "PARTIAL"]),
                     Item.phase == "EXTRACT",
                     Asset.deleted.is_(False),
                     Item.revision == Asset.revision,

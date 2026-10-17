@@ -68,6 +68,8 @@ function sourceError(code: string) {
       "자료 분석 예산 한도에 도달했어요. 담당자에게 확인해 주세요.",
     INVALID_EVIDENCE:
       "자료에서 근거를 확인하지 못했어요. 선명한 자료를 넣거나 직접 내용을 확인해 주세요.",
+    CANDIDATES_REJECTED:
+      "근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.",
     REQUEST_UNCERTAIN: "분석 요청의 완료 여부를 확인하지 못했어요.",
     UNSUPPORTED_NUMBER: "자료에 없는 수치가 포함되어 결과를 사용하지 않았어요.",
     UNSUPPORTED_PIECE_COUNT: "상품 개수의 근거를 확인하지 못했어요.",
@@ -627,7 +629,7 @@ export function SourceWorkspace() {
                         {r.status === "SUCCEEDED"
                           ? "분석이 완료됐어요"
                           : r.status === "PARTIAL"
-                            ? "일부 자료를 분석하지 못했어요"
+                            ? "일부 내용을 반영하지 못했어요. 원문을 확인해 주세요."
                             : r.status === "PRIVACY_REVIEW"
                               ? "이전 분석을 취소한 뒤 다시 시작해 주세요"
                               : (states[r.status] ?? r.status)}
@@ -657,7 +659,9 @@ export function SourceWorkspace() {
                           }
                         />
                       ) : null}
-                      {r.items.some((i) => i.status === "FAILED") ? (
+                      {r.items.some((i) =>
+                        ["FAILED", "PARTIAL"].includes(i.status),
+                      ) ? (
                         <>
                           <Choice
                             label="결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요"
@@ -666,7 +670,11 @@ export function SourceWorkspace() {
                             onPress={() => setAck(!ack)}
                           />
                           <Button
-                            label="실패한 항목 재시도"
+                            label={
+                              r.items.some((i) => i.status === "PARTIAL")
+                                ? "미완료 항목 재시도"
+                                : "실패한 항목 재시도"
+                            }
                             variant="outline"
                             disabled={
                               busy ||
@@ -678,7 +686,9 @@ export function SourceWorkspace() {
                             onPress={() =>
                               mutate(async () => {
                                 const ids = r.items
-                                  .filter((i) => i.status === "FAILED")
+                                  .filter((i) =>
+                                    ["FAILED", "PARTIAL"].includes(i.status),
+                                  )
                                   .map((i) => i.id);
                                 await api.retry(
                                   batch.id,

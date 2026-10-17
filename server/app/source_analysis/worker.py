@@ -294,6 +294,107 @@ def validate(extraction, chunk, allowed_targets):
     return extraction
 
 
+def validate_candidates(extraction, chunk, allowed_targets):
+    """Keep strict per-candidate checks; a bad quote cannot discard unrelated facts."""
+    accepted, rejected = [], []
+    for index, candidate in enumerate(extraction.candidates):
+        single = extraction.model_copy(
+            update={"candidates": [candidate.model_copy(deep=True)]}
+        )
+        try:
+            validate(single, chunk, allowed_targets)
+        except ExtractionError as exc:
+            rejected.append(
+                {
+                    "index": index,
+                    "code": exc.code,
+                    "reason": exc.details.get("reason"),
+                    "candidate": candidate.model_dump(by_alias=True),
+                }
+            )
+        else:
+            accepted.extend(single.candidates)
+    return extraction.model_copy(update={"candidates": accepted}), {
+        "acceptedCount": len(accepted),
+        "rejectedCount": len(rejected),
+        "rejected": rejected,
+    }
+
+
+def store_candidates(db, batch, item, extraction):
+    """Replace the same chunk's automatic suggestions without invalidating confirmed edits."""
+
+    def scope(pages):
+        return [(p["number"], p["spanIds"]) for p in pages]
+
+    previous = list(
+        db.scalars(
+            select(Item).where(
+                Item.asset_id == item.asset_id,
+                Item.id != item.id,
+                Item.phase == "EXTRACT",
+                Item.revision == item.revision,
+                Item.sanitization_version == item.sanitization_version,
+            )
+        )
+    )
+    prior_ids = [
+        i.id
+        for i in previous
+        if i.target_ids == item.target_ids and scope(i.pages) == scope(item.pages)
+    ]
+    old = list(
+        db.scalars(
+            select(Candidate).where(
+                Candidate.item_id.in_(prior_ids),
+                Candidate.outdated.is_(False),
+            )
+        )
+    )
+    confirmed = {
+        cid
+        for field in db.scalars(
+            select(ReviewedField).where(
+                ReviewedField.batch_id == batch.id,
+                ReviewedField.state == "CONFIRMED",
+            )
+        )
+        for cid in field.candidate_ids
+    }
+    retained = set()
+    for value in extraction.candidates:
+        evidence = [e.model_dump(by_alias=True) for e in value.evidence]
+        same = next(
+            (
+                c
+                for c in old
+                if c.target_id == value.target_id
+                and c.field_key == value.field_key
+                and c.value == value.value
+                and c.historical == value.historical
+                and c.evidence == evidence
+            ),
+            None,
+        )
+        if same:
+            retained.add(same.id)
+        else:
+            db.add(
+                Candidate(
+                    batch_id=batch.id,
+                    item_id=item.id,
+                    target_id=value.target_id,
+                    field_key=value.field_key,
+                    value=value.value,
+                    historical=value.historical,
+                    evidence=evidence,
+                )
+            )
+    for candidate in old:
+        if candidate.id not in retained | confirmed:
+            candidate.outdated = True
+
+
 def paid_vision_call(item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None):
     """Fence every individual request, reserve before sending, settle even after cancellation."""
     from app.source_analysis.budget import reserve, settle
@@ -537,11 +638,7 @@ def process(item_id, token):
         with get_sessionmaker()() as accounting:
             settle(accounting, reservation_id, response.usage)
             accounting.commit()
-        try:
-            validate(response.extraction, chunk, allowed)
-        except ExtractionError as exc:
-            exc.usage, exc.request_id = response.usage, response.request_id
-            raise
+        extraction, diagnostics = validate_candidates(response.extraction, chunk, allowed)
         with get_sessionmaker()() as db:
             # Account for completed provider usage even if cancellation fenced the result.
             context = lock_context(db, item_id, token)
@@ -557,19 +654,15 @@ def process(item_id, token):
                 ):
                     item.status, item.error = "CANCELLED", "PRIVACY_CHANGED"
                 else:
-                    for value in response.extraction.candidates:
-                        db.add(
-                            Candidate(
-                                batch_id=batch.id,
-                                item_id=item.id,
-                                target_id=value.target_id,
-                                field_key=value.field_key,
-                                value=value.value,
-                                historical=value.historical,
-                                evidence=[e.model_dump(by_alias=True) for e in value.evidence],
-                            )
-                        )
-                    item.status = "SUCCEEDED"
+                    item.diagnostics = diagnostics
+                    if diagnostics["rejectedCount"]:
+                        item.status = "PARTIAL" if extraction.candidates else "FAILED"
+                        item.error = "CANDIDATES_REJECTED"
+                    else:
+                        item.status, item.error = "SUCCEEDED", None
+                    # A wholly rejected reply leaves prior usable suggestions intact.
+                    if extraction.candidates or not diagnostics["rejectedCount"]:
+                        store_candidates(db, batch, item, extraction)
                     item.photo_requests = response.extraction.photo_requests
                     batch.review_version += 1
                 refresh_runs(db, batch.id)

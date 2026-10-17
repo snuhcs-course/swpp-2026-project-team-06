@@ -10,13 +10,23 @@ import {
 } from "./helpers";
 
 const sourceEnabled = process.env.SOURCE_ANALYSIS_ENABLED === "true";
-function work() {
+function work(partial = false) {
   const cwd = path.resolve("server");
   execFileSync(
     path.join(cwd, ".venv/bin/python"),
     [
       "-c",
-      "from app.source_analysis.worker import run_once;\nfor _ in range(100):\n if not run_once(): break",
+      (partial
+        ? "from app.source_analysis import worker\n" +
+          "original = worker.extract\n" +
+          "def reply(*args, **kwargs):\n" +
+          " result = original(*args, **kwargs)\n" +
+          " bad = result.extraction.candidates[0].model_copy(deep=True)\n" +
+          " bad.evidence[0].quote = 'invalid test quote'\n" +
+          " result.extraction.candidates.append(bad)\n" +
+          " return result\nworker.extract = reply\n"
+        : "") +
+        "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
     ],
     { cwd, env: process.env, timeout: 120000, stdio: "pipe" },
   );
@@ -113,7 +123,13 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("button", { name: "상세페이지 편집", exact: true }),
     ).toBeDisabled();
-    work();
+    work(width === 360);
+    if (width === 360) {
+      await expect(page.getByText(
+        "일부 내용을 반영하지 못했어요. 원문을 확인해 주세요.",
+      )).toBeVisible();
+      await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeVisible();
+    }
     await page
       .getByRole("button", { name: "상세페이지 편집", exact: true })
       .click();
@@ -223,6 +239,18 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("switch", { name: "보관 방법 표시", exact: true }),
     ).toBeChecked();
+    if (width === 360) {
+      await page.getByRole("button", { name: "자료", exact: true }).click();
+      await page.getByRole("button", { name: "미완료 항목 재시도", exact: true }).click();
+      work();
+      await expect(page.getByText("분석이 완료됐어요")).toBeVisible();
+      await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+      await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("제주산 감귤입니다.");
+      await expect(page.getByRole("switch", { name: "보관 방법 표시", exact: true })).toBeChecked();
+      // Retrying changes the source version; confirm the preserved editor before publishing.
+      await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+      await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.")).toBeVisible();
+    }
     await page
       .getByRole("button", { name: "구매자 화면 미리보기", exact: true })
       .first()
