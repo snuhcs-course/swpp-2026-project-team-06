@@ -61,7 +61,7 @@ class PageModule(Input):
 
 
 class PageSnapshot(Input):
-    representative_uri: str | None = Field(default=None, max_length=2000)
+    representative_uri: str | None = Field(max_length=2000)
     hidden_section_ids: list[SectionId] = Field(default_factory=list, max_length=9)
     kind: Literal["modules", "blocks"]
     modules: list[PageModule] = Field(default_factory=list, max_length=18)
@@ -124,11 +124,6 @@ def open_workspace(db, farm, body):
     if body.product_id:
         product, row = product_lock(db, farm, body.product_id)
         if row:
-            if "representativeUri" not in row.snapshot:
-                cover = product.photos[0] if product.photos else None
-                row.snapshot = {**row.snapshot, "representativeUri": cover}
-                row.published_snapshot = {**row.published_snapshot, "representativeUri": cover}
-                row.version += 1
             current = published(product)
             if body.discard_changes:
                 s.version(row.version, body.version)
@@ -174,10 +169,6 @@ def save(db, farm, pid, body):
     product, row = owned(db, farm, pid)
     s.version(row.version, body.version)
     snapshot = body.snapshot.model_dump(by_alias=True)
-    if "representative_uri" not in body.snapshot.model_fields_set:
-        snapshot["representativeUri"] = row.snapshot.get(
-            "representativeUri", product.photos[0] if product.photos else None
-        )
     # Only retain photos already belonging to this product; never accept another farm's private URI.
     allowed = set(product.photos)
     allowed.update(
@@ -206,7 +197,7 @@ def apply(db, farm, pid, body):
     s.version(row.version, body.version)
     s.version(product.version, row.base_product_version)
     snap = row.snapshot
-    representative = snap.get("representativeUri", product.photos[0] if product.photos else None)
+    representative = snap["representativeUri"]
     if not representative:
         raise invalid({"representativePhoto": "대표 상품사진을 한 장 이상 지정해 주세요."})
     product.photos = [representative, *[p for p in product.photos if p != representative]]
@@ -217,7 +208,7 @@ def apply(db, farm, pid, body):
                 {k: v for k, v in m.items() if k != "enabled"}
                 for m in deepcopy(snap["modules"])
                 if m["enabled"]
-                and m["id"] not in hidden_modules(snap.get("hiddenSectionIds", []))
+                and m["id"] not in hidden_modules(snap["hiddenSectionIds"])
                 and (
                     any(t["value"].strip() for t in m["texts"])
                     or m["photos"]

@@ -228,3 +228,34 @@ def test_AC_SRC_11_section_visibility_survives_apply_and_individual_exclusion(cl
             "storage",
         ]
     assert not open_page(client, login).json()["snapshot"]["modules"][1]["enabled"]
+
+
+def test_AC_SRC_11_representative_contract_and_private_clear(client, login):
+    row = open_page(client, login).json()
+    snap = deepcopy(row["snapshot"])
+    original = snap["representativeUri"]
+    assert original
+
+    def save(snapshot):
+        return client.put(
+            BASE + "/p-house",
+            headers={**login("u-kang"), "Idempotency-Key": str(uuid4())},
+            json={"version": row["version"], "snapshot": snapshot},
+        )
+
+    del snap["representativeUri"]
+    assert save(snap).status_code == 400
+    snap["representativeUri"] = "/api/private/other-farm-photo"
+    assert save(snap).status_code == 400
+    snap["representativeUri"] = None
+    saved = save(snap)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["snapshot"]["representativeUri"] is None
+    applied = client.post(
+        BASE + "/p-house/apply",
+        headers={**login("u-kang"), "Idempotency-Key": str(uuid4())},
+        json={"version": saved.json()["version"]},
+    )
+    assert applied.status_code == 400
+    with get_sessionmaker()() as db:
+        assert db.get(Product, "p-house").photos[0] == original

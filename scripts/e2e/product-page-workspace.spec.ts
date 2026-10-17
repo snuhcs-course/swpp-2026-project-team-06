@@ -206,3 +206,48 @@ with get_sessionmaker()() as db:
     clean();
   });
 }
+
+test("AC-SRC-11: first editor upload preserves both representative and module placement", async ({ page }) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
+  const { apiUrl, apiLogin } = await import("./helpers");
+  const token = await apiLogin(page.request, "u-kang", "producer");
+  const created = await page.request.post(`${apiUrl}/api/products`, {
+    headers: { Authorization: `Bearer ${token}` }, data: {},
+  });
+  expect(created.ok()).toBeTruthy();
+  const pid = (await created.json()).productId;
+  const { execFileSync } = await import("node:child_process");
+  const path = await import("node:path");
+  execFileSync(path.resolve("server/.venv/bin/python"), ["-c", `
+from tests import migrations_models
+from app.core.db import get_sessionmaker
+from app.catalog.models import Product
+import sys
+with get_sessionmaker()() as db:
+ p = db.get(Product, sys.argv[1])
+ p.module_detail = {'schemaVersion': 1, 'modules': []}
+ db.commit()
+`, pid], { cwd: path.resolve("server"), env: process.env });
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/${pid}/detail`);
+  await page.getByRole("button", { name: "상품 소개 사진 추가", exact: true }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "새 사진 추가", exact: true }).click();
+  await (await chooser).setFiles("apps/consumer/public/photos/branch.jpg");
+  await expect(page.getByRole("button", { name: "대표사진", exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "대표사진", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
+  await expect(page.getByText("수정본을 저장했어요. 아직 상품에는 반영되지 않았어요.", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "대표사진", exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "대표사진", exact: true })).toBeVisible();
+  const response = await page.request.post(`${apiUrl}/api/source-analysis/product-workspaces`, {
+    headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `inspect-${pid}` },
+    data: { productId: pid },
+  });
+  expect(response.ok()).toBeTruthy();
+  const { snapshot } = await response.json();
+  expect(snapshot.representativeUri).toBe(snapshot.modules.find((m: { id: string }) => m.id === "hero").photos[0].uri);
+  clean();
+});

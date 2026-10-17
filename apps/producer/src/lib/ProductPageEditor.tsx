@@ -207,9 +207,12 @@ function Editor({ productId }: { productId: string }) {
   };
   const update = (fn: (next: PageSnapshot) => void) => {
     if (!snapshot || busy) return;
-    const next = copy(snapshot);
-    fn(next);
-    setSnapshot(next);
+    setSnapshot((current) => {
+      if (!current) return current;
+      const next = copy(current);
+      fn(next);
+      return next;
+    });
     setNotice("");
   };
   const reset = () =>
@@ -315,7 +318,7 @@ function Editor({ productId }: { productId: string }) {
                       s.representativeUri = uri;
                     })
                   }
-                  hiddenSectionIds={snapshot.hiddenSectionIds ?? []}
+                  hiddenSectionIds={snapshot.hiddenSectionIds}
                   onHiddenSectionsChange={(ids) =>
                     update((s) => {
                       s.hiddenSectionIds = ids;
