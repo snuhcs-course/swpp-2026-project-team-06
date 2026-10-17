@@ -1,5 +1,6 @@
 """DEV-31 AI grounding and provider adapter regressions."""
 
+import json
 from types import SimpleNamespace
 
 import anthropic
@@ -223,4 +224,64 @@ def test_provider_paths_use_20_20_8_second_timeouts(monkeypatch):
     )
 
     assert timeouts == [20, 20, 8]
+    assert result is not None and result.action == "ANSWER"
+
+
+# DEV-47: Railway에서 Claude가 ANSWER로 낸 비답변(내부 테스트 A-10).
+# 근거가 없으면 전달한다(FEAT-13 정상 흐름 3).
+RAILWAY_NON_ANSWERS = [
+    "죄송하지만, 제공된 정보에 원산지가 명시되어 있지 않습니다. 상품명은 '하우스 감귤'이고, "
+    "당도(Brix) 등의 품질 정보는 있으나 원산지 정보는 확인할 수 없습니다.",
+    "죄송하지만, 제공된 등록 정보에 원산지 데이터가 없어서 정확히 안내해드릴 수 없습니다. "
+    "판매자에게 직접 확인해주시기 바랍니다.",
+    "죄송하지만, 제공된 제품 정보에 원산지에 대한 내용이 없어 답변드릴 수 없습니다. "
+    "자세한 원산지 정보는 판매자에게 직접 문의해주시기 바랍니다.",
+    "해당 상품은 5kg 또는 10kg 두 가지 용량으로 제공됩니다. "
+    "더 자세한 크기 정보(예: 박스 규격)는 근거에 없습니다.",
+]
+
+
+def test_C06_FEAT_13_model_non_answers_are_detected():
+    for answer in RAILWAY_NON_ANSWERS:
+        assert grounding.is_non_answer(answer), answer
+    for answer in [
+        "하우스 감귤 5kg / 10kg입니다.",
+        "선물 포장 가능합니다.",
+        "무료배송이에요. 도서산간은 추가 운임 3,000원이 붙어요.",
+        "예상 당도는 12Brix이고 실측값은 아직 없어요.",
+        "12월 15일 ~ 12월 20일에 받을 예정이에요.",
+    ]:
+        assert not grounding.is_non_answer(answer), answer
+
+
+def _fake_claude_answering(monkeypatch, answer):
+    """보낸 근거의 첫 sourceRef를 인용해 ANSWER를 돌려주는 가짜 Claude."""
+
+    class Messages:
+        def create(self, *, messages, **kwargs):
+            content = messages[0]["content"]
+            payload = json.loads(content[len("근거: ") : content.index("\n질문: ")])
+            ref = payload["evidence"][0]["sourceRef"]
+            raw = json.dumps(
+                {"action": "ANSWER", "answer": answer, "reason": "근거", "sourceRefs": [ref]},
+                ensure_ascii=False,
+            )
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=raw)])
+
+    monkeypatch.setattr(ai, "_client", lambda timeout: SimpleNamespace(messages=Messages()))
+
+
+def test_C06_FEAT_13_model_non_answer_becomes_handoff(monkeypatch):
+    evidence = Evidence(
+        product_id="p-house", product_name="하우스 감귤 5kg / 10kg", measured_brix=11.8
+    )
+
+    for answer in RAILWAY_NON_ANSWERS:
+        _fake_claude_answering(monkeypatch, answer)
+        result = ai._claude_answer("원산지가 어디예요?", evidence)
+        assert result is not None and result.action == "HANDOFF", answer
+        assert result.answer is None
+
+    _fake_claude_answering(monkeypatch, "하우스 감귤 5kg / 10kg입니다.")
+    result = ai._claude_answer("이 상품 이름이 정확히 뭐예요?", evidence)
     assert result is not None and result.action == "ANSWER"

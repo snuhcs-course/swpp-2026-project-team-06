@@ -1015,13 +1015,15 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
 - 10/18 프롬프트에도 "근거에 없다는 답은 ANSWER가 아니라 HANDOFF"를 적어 모델이 처음부터 전달을 고르게 한다.
 
 ### 작업
-- [ ] 비답변 판별(`grounding.is_non_answer`)과 `_claude_answer`의 HANDOFF 처리
-- [ ] 프롬프트 보강
-- [ ] 회귀 테스트: 실제 Railway 출력 3개 판별, 정상 답 오탐 없음, 가짜 Claude로 `_claude_answer` HANDOFF, 채팅 전송 시 FORWARDED·needsReply
+- [x] 비답변 판별(`grounding.is_non_answer`)과 `_claude_answer`의 HANDOFF 처리
+- [x] 프롬프트 보강
+- [x] 회귀 테스트: 실제 Railway 출력 3개 판별, 정상 답 오탐 없음, 가짜 Claude로 `_claude_answer` HANDOFF, 채팅 전송 시 FORWARDED·needsReply
 - [ ] pytest·Ruff, 관련 Playwright(conversation-ui) 통과
 
 ### 완료 조건
-- [ ] 회귀 테스트 포함 pytest·Ruff 통과
+- [x] 회귀 테스트 포함 pytest·Ruff 통과
 - [ ] 머지 후 Railway에서 같은 질문이 HANDOFF인지 확인
 
 ### 기록
+- 10/18 회귀 테스트 3개를 먼저 추가해 수정 전 실패를 확인했다(판별 함수 없음, `_claude_answer`가 ANSWER 반환, 채팅 답 `handoffStatus` None). 채팅 테스트는 처음에 f-kang 근거가 비어 가짜 Claude가 예외를 내고 기존 실패 경로로 전달되어 버그 없이도 통과했다. f-kang AI 설정에 FAQ를 넣고 Claude 호출 여부를 확인하도록 고쳤다.
+- 10/18 수정 후 pytest 327개 통과(3개 추가), Ruff 통과.

@@ -52,6 +52,17 @@ _UNSAFE_MODEL = re.compile(
     r"배송.{0,8}(?:확정|보장|약속)|"
     r"(?:확정|보장|약속).{0,8}(?:배송|도착)"
 )
+# 근거에 없다고 말하거나 판매자 문의로 돌리는 답은 전달 대상이다(FEAT-13 정상 흐름 3, DEV-47).
+_NON_ANSWER = re.compile(
+    r"(?:정보|내용|데이터|근거|항목)[^.!?\n]{0,20}?"
+    r"(?:없|부재|명시되어\s*있지\s*않|포함되(?:어\s*있)?지\s*않)|"
+    r"(?:답|안내|확인|알려)[가-힣]{0,6}\s*수\s*(?:가\s*)?없|"
+    r"(?:판매자|농가|생산자|농장)[가-힣]{0,3}\s*(?:직접\s*)?(?:문의|확인|연락)|"
+    r"죄송|모르겠|"
+    r"\b(?:no information|not (?:provided|available|specified)|cannot answer|"
+    r"contact the (?:seller|farm))\b",
+    re.IGNORECASE,
+)
 
 
 def normalize_units(text: str) -> str:
@@ -295,6 +306,11 @@ def evidence_payload(ev: Evidence, sanitizer) -> tuple[list[dict[str, Any]], dic
             [ev.reservation_shipping_policy],
         )
     return payload, texts
+
+
+def is_non_answer(answer: str) -> bool:
+    """모델이 ANSWER로 냈지만 실제로는 근거가 없다는 답이면 True."""
+    return bool(_NON_ANSWER.search(answer))
 
 
 def validate_model_answer(
