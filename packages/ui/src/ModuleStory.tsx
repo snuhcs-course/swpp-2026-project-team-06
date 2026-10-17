@@ -1,7 +1,11 @@
-import { Image, View, type ImageSourcePropType } from "react-native";
+import {
+  Image,
+  View,
+  type ImageSourcePropType,
+  type TextStyle,
+} from "react-native";
 import { T } from "./Text";
-import { StoryImage } from "./DetailStory";
-import { tokens } from "./tokens";
+import { SourcePhoto } from "./SourcePhoto";
 export const SOURCE_MODULES = [
   ["hero", "상품 소개"],
   ["summary", "한눈에 보기"],
@@ -22,82 +26,313 @@ export const SOURCE_MODULES = [
   ["farmPhotos", "농가 사진"],
   ["farmUpdates", "농가 소식"],
 ] as const;
-const illustrations: Record<string, ImageSourcePropType> = {
-  "hand-citrus-small":
-    require("../assets/source/outline-small.png") as ImageSourcePropType,
-  "hand-citrus-medium":
-    require("../assets/source/outline-medium.png") as ImageSourcePropType,
-  "hand-citrus-large":
-    require("../assets/source/outline-large.png") as ImageSourcePropType,
+
+type Module = {
+  id: string;
+  texts: { fieldKey: string; value: string }[];
+  photos: { uri: string; alt: string }[];
+  illustrationId?: string | null;
 };
+const illustrations: Record<string, ImageSourcePropType> = {
+  "hand-citrus-small": require("../assets/source/outline-small.png"),
+  "hand-citrus-medium": require("../assets/source/outline-medium.png"),
+  "hand-citrus-large": require("../assets/source/outline-large.png"),
+};
+const groups = [
+  {
+    id: "composition",
+    title: "받으실 구성",
+    modules: ["composition", "pieceCount"],
+    icon: require("../assets/source/headings/composition.png"),
+  },
+  {
+    id: "taste",
+    title: "맛과 크기",
+    modules: ["taste", "specification", "sizePhoto", "crossSectionPhoto"],
+    icon: require("../assets/source/headings/taste.png"),
+  },
+  {
+    id: "production",
+    title: "품질과 생산 과정",
+    modules: ["qualityEvidence", "productionProcess"],
+    icon: require("../assets/source/headings/production.png"),
+  },
+  {
+    id: "packing",
+    title: "포장과 배송",
+    modules: ["packagePhoto", "delivery"],
+    icon: require("../assets/source/headings/packing.png"),
+  },
+  {
+    id: "storage",
+    title: "보관 방법",
+    modules: ["storage"],
+    icon: require("../assets/source/headings/storage.png"),
+  },
+  {
+    id: "faq",
+    title: "구매 전 확인",
+    modules: ["appearanceFaq", "support"],
+    icon: require("../assets/source/headings/faq.png"),
+  },
+  {
+    id: "farm",
+    title: "농가 이야기",
+    modules: ["farmStory", "farmPhotos"],
+    icon: require("../assets/source/headings/farm.png"),
+  },
+  { id: "updates", title: "농가 소식", modules: ["farmUpdates"], icon: null },
+];
+const processIcons: ImageSourcePropType[] = [
+  require("../assets/source/icons/harvest.png"),
+  require("../assets/source/icons/select.png"),
+  require("../assets/source/icons/send.png"),
+];
+const bodyStyle: TextStyle = { fontSize: 17, lineHeight: 28, color: "#242424" };
+const hasContent = (module: Module) =>
+  module.texts.some((text) => text.value.trim()) ||
+  module.photos.length > 0 ||
+  !!(module.illustrationId && illustrations[module.illustrationId]);
+
+function Illustration({ id }: { id: string }) {
+  return (
+    <View style={{ gap: 8, marginTop: 16 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Image
+          source={illustrations[id]}
+          accessibilityLabel="설명용 감귤 크기 일러스트"
+          resizeMode="contain"
+          style={{ flex: 1, aspectRatio: 1 }}
+        />
+        <View style={{ width: 70, gap: 4 }}>
+          <T variant="caption" muted center>
+            기준 손 길이
+          </T>
+          <T center style={{ fontSize: 25, lineHeight: 35, color: "#766e60" }}>
+            18cm
+          </T>
+          <T variant="caption" muted center>
+            {"손끝~손목\n비교용 가정"}
+          </T>
+        </View>
+      </View>
+      <T variant="caption" muted center>
+        크기 설명용 일러스트 · 실제 규격 아님
+      </T>
+    </View>
+  );
+}
+
+function ModuleBody({
+  module,
+  mediaUrl,
+}: {
+  module: Module;
+  mediaUrl: (uri: string) => string;
+}) {
+  const subheading = [
+    "pieceCount",
+    "specification",
+    "sizePhoto",
+    "crossSectionPhoto",
+    "qualityEvidence",
+    "productionProcess",
+    "delivery",
+    "appearanceFaq",
+    "support",
+  ].includes(module.id)
+    ? SOURCE_MODULES.find(([id]) => id === module.id)?.[1]
+    : null;
+  return (
+    <View testID={`source-module-${module.id}`} style={{ gap: 14 }}>
+      {subheading ? (
+        <T
+          accessibilityRole="header"
+          weight="semibold"
+          style={{ fontSize: 18, lineHeight: 26, color: "#555" }}
+        >
+          {subheading}
+        </T>
+      ) : null}
+      {module.texts
+        .filter((text) => text.value.trim())
+        .map((text, i) => (
+          <T
+            key={`${text.fieldKey}-${i}`}
+            style={[
+              bodyStyle,
+              module.id === "composition" && {
+                fontSize: 20,
+                lineHeight: 32,
+                fontWeight: "600",
+              },
+              module.id === "taste" && { fontSize: 19, lineHeight: 31 },
+              module.id === "farmStory" && { fontSize: 20, lineHeight: 32 },
+            ]}
+          >
+            {text.value}
+          </T>
+        ))}
+      {module.photos.map((photo, i) => (
+        <SourcePhoto
+          key={`${photo.uri}-${i}`}
+          uri={mediaUrl(photo.uri)}
+          alt={photo.alt}
+        />
+      ))}
+      {module.illustrationId && illustrations[module.illustrationId] ? (
+        <Illustration id={module.illustrationId} />
+      ) : null}
+      {module.id === "productionProcess" &&
+      module.texts.some((text) => text.value.trim()) ? (
+        <View
+          testID="source-process-decoration"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          aria-hidden
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-around",
+            borderTopWidth: 1,
+            borderColor: "#dedbd5",
+            paddingTop: 24,
+            marginTop: 8,
+          }}
+        >
+          {processIcons.map((icon, i) => (
+            <Image
+              key={i}
+              source={icon}
+              accessible={false}
+              resizeMode="contain"
+              style={{ width: 64, height: 64 }}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function ModuleStory({
   content,
   mediaUrl = (uri: string) => uri,
 }: {
-  content: {
-    modules: {
-      id: string;
-      texts: { fieldKey: string; value: string }[];
-      photos: { uri: string; alt: string }[];
-      illustrationId?: string | null;
-    }[];
-  };
+  content: { modules: Module[] };
   mediaUrl?: (uri: string) => string;
 }) {
+  const filled = content.modules.filter(hasContent);
+  if (!filled.length) return null;
+  const hero = filled.find((module) => module.id === "hero");
+  const summary = filled.find((module) => module.id === "summary");
   return (
-    <View style={{ gap: 24, paddingVertical: 24 }}>
-      {SOURCE_MODULES.map(([id, title]) => {
-        const module = content.modules.find((m) => m.id === id);
-        if (
-          !module ||
-          (!module.texts.length &&
-            !module.photos.length &&
-            !module.illustrationId)
-        )
-          return null;
-        return (
-          <View key={id} style={{ gap: 14 }}>
-            <View
-              style={{
-                marginHorizontal: 20,
-                paddingTop: 16,
-                borderTopWidth: 1,
-                borderColor: tokens.color.border,
-              }}
-            >
-              <T variant="title" accessibilityRole="header">
-                {title}
-              </T>
-            </View>
-            {module.texts.map((text, i) => (
-              <View
-                key={`${text.fieldKey}-${i}`}
-                style={{ paddingHorizontal: 24 }}
-              >
-                <T style={{ lineHeight: 27 }}>{text.value}</T>
-              </View>
-            ))}
-            {module.photos.map((photo) => (
-              <StoryImage
-                key={photo.uri}
-                uri={mediaUrl(photo.uri)}
-                alt={photo.alt}
-              />
-            ))}
-            {module.illustrationId && illustrations[module.illustrationId] ? (
-              <View style={{ paddingHorizontal: 24, gap: 8 }}>
-                <Image
-                  source={illustrations[module.illustrationId]}
-                  accessibilityLabel="설명용 감귤 크기 일러스트"
-                  resizeMode="contain"
-                  style={{ width: "100%", height: 230 }}
-                />
-                <T variant="caption">
-                  설명용 일러스트 · 기준 손 길이 18cm (손끝~손목, 비교용 가정).
-                  실제 상품 치수가 아니에요.
+    <View
+      testID="source-detail"
+      style={{ backgroundColor: "#fff", paddingBottom: 24 }}
+    >
+      {hero || summary ? (
+        <View
+          testID="source-cover"
+          style={{ paddingTop: 12, paddingBottom: 18 }}
+        >
+          {hero?.photos.map((photo, i) => (
+            <SourcePhoto
+              key={`${photo.uri}-${i}`}
+              uri={mediaUrl(photo.uri)}
+              alt={photo.alt}
+            />
+          ))}
+          <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
+            {hero?.texts
+              .filter((text) => text.value.trim())
+              .map((text, i) => (
+                <T
+                  key={`${text.fieldKey}-${i}`}
+                  center
+                  accessibilityRole={
+                    text.fieldKey === "name" ? "header" : "text"
+                  }
+                  style={
+                    text.fieldKey === "name"
+                      ? {
+                          fontSize: 38,
+                          lineHeight: 46,
+                          fontWeight: "600",
+                          letterSpacing: -1.8,
+                          color: "#484848",
+                        }
+                      : bodyStyle
+                  }
+                >
+                  {text.value}
                 </T>
+              ))}
+            {hero?.illustrationId && illustrations[hero.illustrationId] ? (
+              <Illustration id={hero.illustrationId} />
+            ) : null}
+            {summary ? (
+              <View
+                style={{
+                  borderTopWidth: 1,
+                  borderColor: "#bdbdbd",
+                  paddingTop: 20,
+                }}
+              >
+                <ModuleBody module={summary} mediaUrl={mediaUrl} />
               </View>
             ) : null}
+          </View>
+        </View>
+      ) : null}
+      {groups.map((group) => {
+        const modules = group.modules.flatMap((id) =>
+          filled.filter((module) => module.id === id),
+        );
+        if (!modules.length) return null;
+        return (
+          <View
+            key={group.id}
+            testID={`source-section-${group.id}`}
+            style={{ paddingHorizontal: 22, paddingVertical: 28, gap: 22 }}
+          >
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              {group.icon ? (
+                <Image
+                  testID={`source-heading-icon-${group.id}`}
+                  source={group.icon}
+                  accessible={false}
+                  aria-hidden
+                  resizeMode="contain"
+                  style={{ width: 36, height: 36 }}
+                />
+              ) : null}
+              <T
+                accessibilityRole="header"
+                style={{
+                  fontSize: 26,
+                  lineHeight: 35,
+                  fontWeight: "600",
+                  color: "#555",
+                  letterSpacing: -0.8,
+                  flexShrink: 1,
+                }}
+              >
+                {group.title}
+              </T>
+              <View
+                style={{
+                  height: 1,
+                  minWidth: 12,
+                  flexGrow: 1,
+                  backgroundColor: "#bbb",
+                }}
+              />
+            </View>
+            {modules.map((module) => (
+              <ModuleBody key={module.id} module={module} mediaUrl={mediaUrl} />
+            ))}
           </View>
         );
       })}

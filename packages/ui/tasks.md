@@ -201,3 +201,44 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 2026-10-16 구현/검증: 서버 전체173개 + 추가 회귀2개(신규 파일13개 통과), Ruff, 타입4개, mock12개, 실제 API7개, Chromium22개, 두 앱 웹 빌드 통과. 신규 UI는 360/390/430px에서 저장·재진입·미저장 이탈 확인·적용을 검증했다.
 - 실제 Gemini 텍스트16세트 정확일치 precision/recall 1.0, 중요 오류0. 동일 고정 사례로 프롬프트를 개선한 결과이며 홀드아웃 성능이 아니다. 이미지19 추출 보류/PDF20 근거 거부로 시각 품질은 미완료; DEV-58 및 배포를 완료 처리하지 않는다. docs/spec/validation/source-integration-2026-10-16.json 참고.
 - 커밋 전 수정: 독립 워커 모델 등록, CRLF 정규화, kg→개수 오분류 차단, 가림 이미지 전환/선택 표시, 미저장 편집 이탈 확인, CI 신규 E2E 활성화. 기존 디자인 worktree는 보존했고 복사본의 미커밋 v1 호환 분기만 제거했다.
+
+## DEV-57 상세 템플릿 시각 통합 보완 (2026-10-17)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-57
+- 브랜치: `jinumeral/dev-56-dev-build-producer-source-upload-evidence-review-and-private`
+- 기능·인수 조건: FEAT-03/04/07, AC-SRC-7/9, AC-TPL-4/5/10, M-11/12
+- 상태: 리뷰 중. 사용자 요청으로 기존 PR #113에 포함, 머지/배포 금지.
+
+### 목표
+자료 검토·적용은 연결됐지만 DEV-52 최종 단일 상세 템플릿의 구역 구성, ImageGen 아이콘과 사진 테두리가 ModuleStory에 누락됐다. 생산자 미리보기와 구매자 상세에 같은 시각 디자인을 적용한다.
+
+### 범위
+- `packages/ui/src/ModuleStory.tsx`, `packages/ui/src/SourcePhoto.tsx`, `packages/ui/assets/source/**`, `packages/ui/package.json`, `package-lock.json`
+- `packages/ui/spec.md`, `packages/ui/tasks.md`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`
+- `scripts/e2e/source-analysis.spec.ts`, `scripts/e2e/source-detail-design.spec.ts`
+
+### 결정 사항
+- 기존 `docs/design/sales-templates/all-sections.*`와 자산 기록을 원본으로 사용한다. HTML 작업실의 예시 상품·미입력 자리 표시·선택 패널은 공개 본문에 이식하지 않는다.
+- 18개 저장 모듈은 그대로 두고 표지/구성/맛·크기/품질·과정/포장·배송/보관/구매 전 확인/농가/소식으로 표시한다. 빈 구역은 숨기며 문구·숫자·사진은 보존한다.
+- 소제목 아이콘7종·종이 사진 테두리·손 위 일러스트를 재사용한다. 최종 디자인에서 되돌린 생성 구획선은 복원하지 않는다. 사진은 원본 비율을 유지하고 테두리는 사진 밖에 둔다.
+- 출처 없는 원산지/품종 요약값과 수확→선별→출하 문구를 자동 채우지 않는다. 공정 아이콘은 장식으로만 사용하고 새 사실·순서를 주장하지 않는다.
+- 이미지 URI는 Expo의 이미 설치된 expo-asset 57.0.19를 공통 패키지의 명시적 의존성으로 선언해 개발/웹 export 양쪽에서 해석한다. 웹의 종이 테두리는 원본과 같은 border-image 9%/14px; 네이티브 사진은 기존 비율 렌더러를 유지한다.
+- 기존 API/저장 스키마·OCR/모델·다중 후보 선택 UX·AI CS는 변경하지 않는다. 기존 다른 worktree의 미커밋 수정은 건드리지 않는다.
+
+### 작업
+- [x] 공통 렌더러와 생성 자산 이식
+- [x] 가상 전체18개/빈 모듈/긴 문구/사진 비율/일러스트 및 실제 로컬 결과 화면 확인
+- [x] 타입·mock·실제 API 및 브라우저 회귀·웹 빌드
+- [x] spec/wiki 갱신 및 커밋 전 스캔
+- [ ] 원격 CI 확인 — PR #113에서 추적
+
+
+### 검증 기록
+- `npm run typecheck`: 4 workspace 통과. `npm run test:mock`: 12개 통과.
+- `npx playwright test scripts/e2e/source-detail-design.spec.ts`: 3개 통과(360/390/430px 전체18개·빈 항목·긴 원문·실제 사진 비율·7아이콘·일러스트·원문 HTML 비실행).
+- `npm run test:integration:full`: 실제 API7개 통과, 브라우저22개 통과/신규 문구 동일성 assertion3개 실패. 미리보기 innerText와 소비자 textContent를 비교한 테스트 오류였다. 양쪽 innerText로 비교하도록 수정한 후 `.artifacts/run-source-design-validation.mjs`로 같은 실제 스택의 API7개 및 해당3개를 재실행하여 전부 통과했다. 실패를 숨기거나 검증 조건을 제거하지 않았다.
+- 두 앱 각각 `EXPO_PUBLIC_API_MOCK=0 ... expo export --platform web`: 성공. export 산출물에 원본과 동일한 장식11개 SHA-256이 포함됨을 확인했다.
+- 원본 소제목7종/테두리1종/공정3종을 바이트 변경 없이 복사한 것을 확인했다. 새 이미지 생성/모델 호출 없음.
+- 로컬 저장 Gemini OCR/source-v4 결과를 재사용한 별도 DB의 실제 앱 화면에서 공정·품질·보관 구획과 아이콘을 확인했다. 다중 맛/보관 문장은 기존 편집기의 생산자 수정으로 원문 그대로 합쳐 저장한 결과이며 자동 병합 기능을 추가하지 않았다.
+- scan-before-commit: 변경 전체·신규 파일·ModuleStory 호출부2곳·자산 출처·lock 변경·범위/공백/비밀값 검토, 최종 이슈 없음. 레거시 호환 후보0건/지적0건/커밋된 구조0건. 서버/OCR/AI CS 변경 없음.
+- 초반 npm 범위 설치는 최신 Expo peer를 선택하려다 충돌했다. 현재 앱과 같은 Expo57 peer 및 기존 expo-asset57.0.19를 명시해 버전 업그레이드 없이 해결했다. 초기 시각 검사는 오래 실행된 CI 모드 Metro가 이전 렌더러를 제공해 실패했고, 서버 재시작 후 통과했다.

@@ -5,11 +5,15 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "peerDependencies": {
+    "expo": "~57.0.27",
     "react": "*",
     "react-native": "*",
     "react-native-svg": "*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo-asset": "57.0.19"
   }
 }

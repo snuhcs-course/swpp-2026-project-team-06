@@ -1,7 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { apiUrl, producerUrl, loginProducer, monitor } from "./helpers";
+import {
+  apiUrl,
+  producerUrl,
+  consumerUrl,
+  loginProducer,
+  monitor,
+} from "./helpers";
 
 const sourceEnabled = process.env.SOURCE_ANALYSIS_ENABLED === "true";
 function work() {
@@ -57,9 +63,15 @@ for (const width of [360, 390, 430]) {
       await page
         .getByRole("button", { name: "이 근거 사용", exact: true })
         .click();
-      await page.getByRole("button", { name: "편집 닫기", exact: true }).click();
-      await expect(page.getByText("저장하지 않은 내용을 닫을까요?")).toBeVisible();
-      await page.getByRole("button", { name: "계속 편집", exact: true }).click();
+      await page
+        .getByRole("button", { name: "편집 닫기", exact: true })
+        .click();
+      await expect(
+        page.getByText("저장하지 않은 내용을 닫을까요?"),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "계속 편집", exact: true })
+        .click();
       await page
         .getByRole("button", { name: "확정 저장", exact: true })
         .click();
@@ -80,6 +92,8 @@ for (const width of [360, 390, 430]) {
       .getByRole("button", { name: "구매자 화면 미리보기", exact: true })
       .click();
     await expect(page.getByText("제주산 감귤입니다.").last()).toBeVisible();
+    const previewText = await page.getByTestId("source-detail").innerText();
+    await expect(page.getByTestId("source-heading-icon-storage")).toBeVisible();
     await page
       .getByRole("button", { name: "상품 상세에 적용 검토", exact: true })
       .click();
@@ -104,6 +118,9 @@ for (const width of [360, 390, 430]) {
       path: `.artifacts/source-${width}.png`,
       fullPage: true,
     });
+    await page.goto(`${consumerUrl}/products/p-house`);
+    await expect(page.getByTestId("source-detail")).toHaveText(previewText, { useInnerText: true });
+    await expect(page.getByTestId("source-heading-icon-storage")).toBeVisible();
     clean();
   });
 }

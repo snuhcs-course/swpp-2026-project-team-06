@@ -67,3 +67,9 @@ Storefront의 Price/ProductShelf/NewsCard/FeedCarousel/ChatChoices/BrandHeader�
 ## DEV-56/57/58 integration
 
 Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
+
+## DEV-57 단일 상세 템플릿 시각 통합
+
+`ModuleStory`는 DEV-52 최종 `docs/design/sales-templates/all-sections.*`의 상품 표지, 구역 묶음, 제목·본문 크기, 36px ImageGen 소제목 아이콘, 사진 종이 테두리와 손 위 일러스트 배치를 사용한다. 18개 모듈의 저장 계약은 유지하고 구매자 순서의 9개 구역으로 표시한다. 빈 구역·공백뿐인 문구는 숨긴다. 생산자 DraftPreview와 소비자 moduleDetail은 같은 컴포넌트를 사용한다.
+
+원문 텍스트는 줄바꿈·숫자·기호를 보존한다. 작업실의 예시/자료 입력 전 자리 표시·원산지/품종 기본값·공정 순서를 추가하지 않는다. 공정 PNG는 비낭독 장식이다. 공개 사진은 SourcePhoto/StoryImage로 원본 비율을 유지하며 웹에서는 원본 9% 분할/14px 종이 테두리를 바깥에 붙인다. expo-asset은 웹 개발·export 번들의 이미지 URI 해석에 사용한다. 네이티브 사진은 기존 렌더러를 유지한다. 실제 상품 사진과 설명용 일러스트를 구분하며 후자에만 기준 손18cm/가정/실제 규격 아님을 표시한다.
