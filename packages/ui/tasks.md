@@ -245,9 +245,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 ## DEV-57 당도계 일러스트 (2026-10-17)
 
-- 사용자 요청: 기존 손 일러스트와 같은 스타일의 ImageGen 당도계 그림을 실제 당도 영역에 표시하고 현재 PR #113에 포함한다. FEAT-07 / AC-07-2, M-11.
+- 사용자 요청: 기존 아이콘·귤과 같은 채색 종이 질감의 평면 ImageGen 당도계 그림을 실제 당도 영역에 표시하고 현재 PR #113에 포함한다. FEAT-07 / AC-07-2, M-11.
 - 범위: `packages/ui/assets/source/brix-meter.png`, `packages/ui/assets/source/brix-meter-prompt.md`, `packages/ui/src/BrixReading.tsx`, `packages/ui/src/index.ts`, `packages/ui/{spec,tasks}.md`, `apps/consumer/src/app/(tabs)/products/[productId].tsx`, `apps/consumer/{spec,tasks}.md`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`, `scripts/e2e/source-detail-design.spec.ts`.
-- 결정: 내장 ImageGen으로 투명 배경/회갈색 윤곽선·세이지·주황 악센트의 휴대용 디지털 당도계1종을 생성한다. 그림의 LCD에는 수치를 넣지 않는다. 실제 수치/측정일은 기존 API값으로 렌더한다. 실측값이 있을 때 그림을 표시하고 미측정일 때 예상값·안내를 유지한다. 0도 유효한 실측값으로 표시하고 날짜 없음을 임의 측정일로 대체하지 않는다.
+- 결정: 내장 ImageGen으로 기존 귤·맛·냉장고·선별 아이콘4종을 직접 참조해, 채워진 종이 질감과 크림·세이지·주황 색감의 평면 디지털 당도계1종을 생성한다. 손의 윤곽선만 참조했던 초기안은 사용자 피드백에 따라 교체한다. 원근·옆면·음영은 넣지 않는다. 그림의 LCD에는 수치를 넣지 않는다. 실제 수치/측정일은 기존 API값으로 렌더한다. 실측값이 있을 때 그림을 표시하고 미측정일 때 예상값·안내를 유지한다. 0도 유효한 실측값으로 표시하고 날짜 없음을 임의 측정일로 대체하지 않는다.
 - 상태: 리뷰 중. 머지·배포 없음.
 - [x] 생성·투명도/가독성 검토 및 앱 연결
 - [x] 실측/미측정/0/날짜 없음·모바일 표시 검증, 타입·빌드
@@ -256,3 +256,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 검증: 내장 ImageGen 원본1254×1254 RGBA/알파0~255 및 무수치 LCD 확인. 타입4 workspace, mock12개, source-detail-design Playwright4개 통과(360/390/430px + 실측13.5/0/미측정/날짜없음/예상값없음). 소비자 API모드 웹 export 성공 및 생성 PNG 해시 포함 확인. API 수치/측정일 수정 없음.
 - 커밋 전 스캔: 전체 diff·신규 컴포넌트/자산/프롬프트·호출부·서명/타입/범위·문서 확인, 이슈 없음. 레거시 호환 후보0/지적0/커밋된 구조0. API/서버 변경이 없어 전체 서버/결제 흐름은 이번 작은 표시 변경에서 재실행하지 않았다.
+- 스타일 수정 검증: 기존 아이콘4종을 직접 참조한 평면 PNG로 교체 후 Playwright 당도 표시1개 통과(360/390/430px 및 실측/0/미측정), 소비자 웹 export 성공. 실제 로컬 상품11.8Brix 표시와 냉장고 아이콘의 색·질감을 화면에서 함께 확인했다. 이미지·프롬프트·spec/tasks만 변경했으며 재스캔 이슈 없음, 레거시 호환 후보0/지적0/커밋된 구조0.
