@@ -102,6 +102,7 @@ class Item(Base):
     sent: Mapped[bool] = mapped_column(default=False)
     error: Mapped[str | None] = mapped_column(String(64))
     usage: Mapped[dict] = mapped_column(JSON, default=dict)
+    diagnostics: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
     photo_requests: Mapped[list] = mapped_column(JSON, default=list)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     provider_request_id: Mapped[str | None] = mapped_column(String(150))

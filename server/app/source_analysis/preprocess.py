@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw, ImageOps
 from app.core.config import get_settings
 
 Image.MAX_IMAGE_PIXELS = 40_000_000
-PREPROCESS_VERSION = "source-parser-v2"
+PREPROCESS_VERSION = "source-parser-v3"
 
 
 class PreparationError(Exception):
@@ -27,11 +27,14 @@ class PreparationError(Exception):
 
 
 PII = re.compile(
-    r"(?:\b01[016789][- .]?\d{3,4}[- .]?\d{4}\b|"
+    r"(?:\b0(?:2|[3-6][1-5]|70|80|1[016789])[- .)]*\d{3,4}[- .]?\d{4}\b|"
+    r"\b1[568]\d{2}[- .]\d{4}\b|"
     r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|"
     r"\b\d{2,6}[- ]\d{2,6}[- ]\d{3,8}\b|"
     r"\b\d{10,}\b|"
-    r"(?:성명|성함|담당자|대표자?|예금주|수취인|연락\s*처|주\s*소|계좌)\s*[:：]?[^\n]+|"
+    r"(?:^|\n)[ \t]*(?:성명|성함|담당자|대표자|예금주|수취인|연락\s*처|주\s*소|계좌)"
+    r"\s*[:：]?[^\n]+|"
+    r"(?:^|\n)[ \t]*대표[ \t]*[:：][^\n]+|"
     r"[가-힣]+(?:로|길)\s*\d+[^\n]*|"
     r"[가-힣]+(?:읍|면|동|리)\s*\d+[^\n]*)"
 )

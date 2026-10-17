@@ -391,3 +391,46 @@ The producer pass uses a disposable local PostgreSQL database and seed data. It 
 | P07 manual shipping | `checkout-and-fulfillment.spec.ts` and `producer-i2.spec.ts`, AC-17-2/5; persisted carrier/tracking and failed refresh retry |
 
 2026-10-16: all 162 server tests and Ruff passed; all four workspace typechecks passed; the full real-stack run passed 7 API scenarios and 19 Chromium tests. The first browser run exposed the missing share endpoint; after implementing it, the complete suite passed. Live AI, actual Kakao preview crawling, deployment, and real-farmer acceptance were not run. Browser API interception is used only to induce failures or empty fields; product creation, shipment persistence and shared-page reads use the real local server.
+
+### DEV-58: candidate recovery and document contact filtering
+
+Source analysis validates each candidate independently using the existing strict evidence,
+revision, numeric and certification checks. Valid candidates survive unrelated rejections;
+partially accepted items/runs finish as PARTIAL and fully rejected replies fail. Explicit
+retries preserve confirmed producer edits and reuse identical candidate identities. Rejected
+candidate content stays in private diagnostics; the owner-facing run API exposes counts only.
+Document phone/email details are not automatically turned into producer support information,
+while ordinary descriptions such as a region's representative specialty are retained.
+Direct producer edits remain available. Parser/pipeline versions invalidate old cached results.
+Migration 0013 adds private diagnostics after 0012. Numerical OCR remains fallible; crop
+experiments are separate from production changes.
+
+
+The 2026-10-17 regression reused the same three public documents and the frozen 17 fact
+groups from the first evaluation; it is not an independent holdout or a causal estimate of
+the code changes. All three analyses completed. Source-supported candidate precision was
+17/18 (94.4%), complete-group recall 14/17 (82.4%), and exact field/value matches 7/18
+(precision) and 7/17 (recall). The earlier pass yielded 7/8, 7/17 and 5 exact matches.
+Extraction coverage does **not** equal prefilled-editor coverage: conflicting candidates
+for one field still need manual reconciliation. The long image retained a 1000→100 error;
+the PDF recovered historical prices but omitted the 13% discount. Public catalog phone
+attribution did not recur, and the representative-specialty sentence was retained.
+
+A single paired Gemini crop experiment tested two numeric-error locations and one positive
+control. Both standard tiles and contextual 2× crops misread both 1000 values as 100;
+both variants read `5kg (5-6과)` correctly. Production OCR/cropping is unchanged.
+The three real local upload/edit/save/reload/publish flows passed **after documented manual
+edits**. Their headless videos, raw outputs and before/after report remain local at
+`.artifacts/source-recovery-1017/index.html`; no deployment or real-farmer acceptance occurred.
+Paid regression calls cost $0.027342, the six crop probes $0.007345, and the cumulative cost
+including the original pass was $0.060098 (36 calls; no unsettled reservations; $0.50 cap).
+The committed [validation summary](../spec/validation/source-recovery-2026-10-17.json)
+records the scoring definitions and remaining limitations without private source data.
+
+Local checks: the final full server suite passed 324 tests (37.93 seconds); the recovery
+suite passed 24 tests. All four workspace typechecks, 13 Mock
+contracts, both Expo web exports, and migration upgrade/check/downgrade/re-upgrade/check
+passed. The four relevant browser specs covered 18 distinct tests: 17 passed in the suite,
+then all three source-analysis cases passed after fixing the test's combined-text selector
+and re-saving the draft after retry (the source version had changed). These corrections
+preserve the UI's existing explicit-save requirement before publication.

@@ -108,6 +108,8 @@ export type SourceRun = {
     status: string;
     error: string | null;
     phase: string;
+    acceptedCount: number;
+    rejectedCount: number;
   }[];
 };
 export type ModuleDetail = {
