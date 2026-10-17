@@ -301,8 +301,9 @@ Paths use `{id}` as a placeholder.
 | POST /api/orders/producer/harvest-start · POST /api/orders/{id}/ship | Owning producer | RESERVED → PREPARING → SHIPPED |
 | GET · POST /api/messaging/rooms/{farmId}/messages · POST /api/messaging/news | Follower / owner | Room page, private reply, broadcast |
 | PUT · DELETE /api/messaging/news/{id}/reaction | Consumer | Like and unlike |
-| GET · POST /api/messaging/chats · .../chats/{farmId}/messages | Consumer | Chat list, start, history, send |
-| GET · POST /api/messaging/producer/chats/{consumerId}/messages · PUT .../ai-mode | Owning producer | Reply; switch AUTO or HUMAN |
+| GET · POST /api/messaging/chats · .../chats/{farmId}/messages | Consumer | Chat list, start, history, send; AI message rows include server-derived `reported` |
+| POST /api/messaging/chats/{farmId}/messages/{messageId}/report | Owning consumer | Report an AI answer as an open `WRONG_ANSWER` escalation; duplicate reports return the existing escalation |
+| GET · POST /api/messaging/producer/chats/{consumerId}/messages · PUT .../ai-mode | Owning producer | AI message rows include server-derived `reported`; reply; switch AUTO or HUMAN |
 | POST /api/orders/{id}/inquiries | Paid-order owner | Order problem inquiry |
 | POST /api/messaging/attachments · GET .../{id} | Participants | Upload and read a private photo |
 

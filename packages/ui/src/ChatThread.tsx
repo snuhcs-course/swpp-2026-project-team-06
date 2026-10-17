@@ -15,6 +15,8 @@ type Message = {
   attachmentIds?: string[];
   inquiryId?: string;
   orderId?: string;
+  reported?: boolean;
+  handoffStatus?: string | null;
 };
 type Page = { items: Message[]; nextCursor: string | null };
 type Props = {
@@ -22,6 +24,7 @@ type Props = {
   active: boolean;
   load: (cursor?: string) => Promise<Page>;
   send: (text: string, ids: string[], key: string) => Promise<unknown>;
+  report?: (messageId: string, key: string) => Promise<unknown>;
   read: (id: string) => Promise<unknown>;
   makeKey: () => string;
   loadPhoto: (id: string) => Promise<string>;
@@ -33,6 +36,7 @@ export function ChatThread({
   active,
   load,
   send,
+  report,
   read,
   makeKey,
   loadPhoto,
@@ -61,8 +65,9 @@ export function ChatThread({
     lock = useRef(false),
     alive = useRef(true),
     lastRead = useRef("");
-  const callbacks = useRef({ send, read, upload });
-  callbacks.current = { send, read, upload };
+  const [reporting, setReporting] = useState<string | null>(null);
+  const callbacks = useRef({ send, read, upload, report });
+  callbacks.current = { send, read, upload, report };
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -286,6 +291,43 @@ export function ChatThread({
               {m.attachmentIds?.map((id) => (
                 <PrivatePhoto key={id} id={id} load={loadPhoto} />
               ))}
+              {!producer &&
+              m.senderType === "AI" &&
+              m.handoffStatus !== "FORWARDED" &&
+              report ? (
+                <Button
+                  label={m.reported ? "신고했어요" : "틀렸어요"}
+                  variant="text"
+                  disabled={Boolean(m.reported) || reporting === m.messageId}
+                  loading={reporting === m.messageId}
+                  onPress={async () => {
+                    setReporting(m.messageId);
+                    try {
+                      await callbacks.current.report?.(m.messageId, makeKey());
+                      setMessages((old) =>
+                        old.map((item) =>
+                          item.messageId === m.messageId
+                            ? { ...item, reported: true }
+                            : item,
+                        ),
+                      );
+                      const p = await load();
+                      merge(p.items);
+                      setError("");
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : "신고하지 못했어요",
+                      );
+                    } finally {
+                      setReporting(null);
+                    }
+                  }}
+                />
+              ) : m.reported ? (
+                <T variant="caption" muted>
+                  소비자가 신고한 답변
+                </T>
+              ) : null}
             </ChatBubble>
           </View>
         ))}
