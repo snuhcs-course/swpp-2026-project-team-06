@@ -22,7 +22,14 @@ import {
 } from "@farmclub/ui";
 import { useNavigation, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  Platform,
+  Switch,
+  TextInput,
+  View,
+} from "react-native";
 import { useHideTabBar, useSession } from "./session";
 import { DetailEditor } from "./DetailEditor";
 import { isMock } from "@farmclub/api";
@@ -284,45 +291,58 @@ function Editor({ productId }: { productId: string }) {
               {snapshot.kind === "modules" ? (
                 snapshot.modules.map((m, index) => (
                   <View key={m.id} style={card}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ?? m.id} 수정`}
-                      accessibilityState={{ expanded: expanded === m.id }}
-                      onPress={() =>
-                        setExpanded(expanded === m.id ? null : m.id)
-                      }
-                      style={{ minHeight: 48, justifyContent: "center" }}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                      }}
                     >
-                      <T weight="semibold">
-                        {SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ??
-                          m.id}
-                      </T>
-                      <T variant="caption" muted numberOfLines={2}>
-                        {m.enabled
-                          ? m.texts.map((t) => t.value).join(" · ") ||
-                            `사진 ${m.photos.length}장`
-                          : "페이지에서 숨김"}
-                      </T>
-                    </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ?? m.id} 수정`}
+                        accessibilityState={{ expanded: expanded === m.id }}
+                        onPress={() =>
+                          setExpanded(expanded === m.id ? null : m.id)
+                        }
+                        style={{
+                          flex: 1,
+                          minHeight: 48,
+                          justifyContent: "center",
+                        }}
+                      >
+                        <T weight="semibold">
+                          {SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ??
+                            m.id}
+                        </T>
+                        <T variant="caption" muted numberOfLines={2}>
+                          {m.enabled
+                            ? m.texts.map((t) => t.value).join(" · ") ||
+                              `사진 ${m.photos.length}장`
+                            : "페이지에서 숨김"}
+                        </T>
+                      </Pressable>
+                      <Switch
+                        thumbColor="#FFFFFF"
+                        {...(Platform.OS === "web"
+                          ? { activeThumbColor: "#FFFFFF" }
+                          : {})}
+                        accessibilityLabel={`${SOURCE_MODULES.find(([id]) => id === m.id)?.[1] ?? m.id} 표시`}
+                        value={m.enabled}
+                        disabled={busy}
+                        trackColor={{
+                          false: tokens.color.border,
+                          true: tokens.color.accent,
+                        }}
+                        onValueChange={(value) =>
+                          update((s) => {
+                            s.modules[index].enabled = value;
+                          })
+                        }
+                      />
+                    </View>
                     {expanded === m.id ? (
                       <>
-                        <Pressable
-                          accessibilityRole="checkbox"
-                          accessibilityLabel="페이지에 표시"
-                          accessibilityState={{
-                            checked: m.enabled,
-                            disabled: busy,
-                          }}
-                          disabled={busy}
-                          onPress={() =>
-                            update((s) => {
-                              s.modules[index].enabled = !m.enabled;
-                            })
-                          }
-                          style={{ minHeight: 48, justifyContent: "center" }}
-                        >
-                          <T>{m.enabled ? "✓" : "○"} 페이지에 표시</T>
-                        </Pressable>
                         {!m.texts.length ? (
                           <Button
                             label="문구 추가"

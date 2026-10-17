@@ -4,7 +4,7 @@
 
 ## 화면과 공개 계약
 
-- 생산자 `/products/source-analysis`: 상품 지정 → 자료 업로드 → 가림 검토 → 근거 확인 → 18개 모듈 편집/비공개 저장 → 상품 적용.
+- 생산자 `/products/source-analysis`: 상품 지정 → 자료 업로드 → 가림 검토 → 자동 채움·18개 항목 ON/OFF·직접 편집/비공개 저장 → 상품 적용.
 - 기존 파일/페이지/상품 수 제한과 권한을 유지한다. GET batches/:id/runs 및 drafts로 재진입한다. 직접 수정한 값은 PRODUCER로 기록한다.
 - POST runs의 visualPages는 source ID별 이미지 페이지 번호다. 가림 승인이 선행되어야 하며 기본값은 빈 값이다. 원본 사진은 자동 유료 분석하지 않는다.
 - 동일 자료 revision·가림버전·모델·prompt·대상·시각 선택의 성공 결과는 재사용한다. 취소/재분석으로 생산자 편집을 덮어쓰지 않는다.
@@ -124,3 +124,10 @@ OCR을 고정하고 의미 문장/라벨 목록 단위 추출, 과정·인증·�
 - 새 상품은 상품+연결 자료 작업을 한 트랜잭션으로 생성한다. 멱등 키 재시도로 응답 유실 시 중복 생성하지 않는다.
 - API: POST `/api/source-analysis/product-workspaces` (선택 productId), PUT `/{productId}` (version/snapshot), POST `/{productId}/apply` (version). 초기화는 POST의 discardChanges/version으로 명시한다. 승인 농가 소유권·상품/수정본 버전·사진 소유 참조를 검증한다.
 - 생산자 4탭은 유지한다. 공통 좌우20px/카드16px/카드반경16px/터치48px 규격을 사용한다. AI 채팅 기능은 이번 변경 범위에서 제외한다.
+
+### AC-SRC-11: 통합 상세 편집·항목별 ON/OFF (2026-10-17)
+- 자료/상세 편집 2탭. 별도 근거 검토 탭과 개별 확정 저장은 없애고, 각 카드의 원문 보기는 선택적으로 펼친다.
+- 최신 비과거·명확한 상품 연결·단일 후보만 자동 채운다. 자동 값은 EXTRACTED/UNREVIEWED이며 사람이 확인했다고 기록하지 않는다. 기존 사용자 수정/선택을 우선한다. 충돌/오래된/상품 미지정 후보는 확인 필요로 표시하고 선택·수정 전에는 새로 켤 수 없다.
+- 항목별 기본값은 유효한 내용이 있으면 ON, 빈 항목은 OFF. 기존 초안 선택을 우선 복원하며 OFF해도 문구/사진/일러스트를 보존한다. 미리보기와 명시적 적용에는 ON 내용만 포함한다.
+- GET review의 editorFields는 입력값과 ready/missing/conflict/outdated/unassigned 상태를 반환한다. PUT batches/:bid/editor는 reviewVersion/전체 fields/targets.enabledModuleIds를 받고 단일 트랜잭션으로 입력값과 비공개 초안을 저장한다. Idempotency-Key 재시도 및 버전 충돌을 검증한다. 기존 review/drafts API는 유지한다.
+- OFF된 오래된 근거/사진은 다른 항목의 저장을 막지 않으며 공개 출처 버전 참조에 포함하지 않는다. 다시 켤 때는 최신 근거/사진 연결을 검사한다. 개인정보 승인·최종 명시적 상품 적용은 유지한다.

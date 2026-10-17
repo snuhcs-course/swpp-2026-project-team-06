@@ -62,7 +62,12 @@ export type SourceCandidate = {
   outdated: boolean;
   historical: boolean;
 };
+export type SourceEditorField = {
+  field: SourceField;
+  status: "ready" | "missing" | "conflict" | "outdated" | "unassigned";
+};
 export type SourceReview = {
+  editorFields: SourceEditorField[];
   reviewVersion: number;
   targets: SourceTarget[];
   fields: SourceField[];
@@ -198,6 +203,17 @@ export const sourceAnalysis = {
     }),
   drafts: (bid: string) =>
     request<{ items: SourceDraft[] }>("GET", `${at(bid)}/drafts`),
+  saveEditor: (
+    bid: string,
+    reviewVersion: number,
+    fields: SourceField[],
+    targets: { targetId: string; enabledModuleIds: string[] }[],
+    key: string,
+  ) =>
+    request<{ drafts: SourceDraft[] }>("PUT", `${at(bid)}/editor`, {
+      body: { reviewVersion, fields, targets },
+      idempotencyKey: key,
+    }),
   saveDraft: (
     bid: string,
     reviewVersion: number,

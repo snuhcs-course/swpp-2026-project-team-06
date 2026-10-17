@@ -9,13 +9,10 @@ import {
   type MyProductCard,
   type SourceAsset,
   type SourceBatch,
-  type SourceCandidate,
   type SourceDraft,
-  type SourceField,
   type SourcePage,
   type SourceReview,
   type SourceRun,
-  type SourceTarget,
 } from "@farmclub/api";
 import {
   Button,
@@ -25,7 +22,6 @@ import {
   Screen,
   Scroll,
   Sheet,
-  SOURCE_MODULES,
   StoryImage,
   T,
   tokens,
@@ -39,6 +35,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { useHideTabBar } from "./session";
 const inputStyle = {
   borderWidth: 1,
@@ -482,184 +479,6 @@ function PrivacyEditor({
     </View>
   );
 }
-function ReviewEditor({
-  batch,
-  review,
-  target,
-  fieldKey,
-  busy,
-  save,
-  close,
-}: {
-  batch: SourceBatch;
-  review: SourceReview;
-  target: SourceTarget;
-  fieldKey: string;
-  busy: boolean;
-  save: (field: SourceField, version: number) => void;
-  close: () => void;
-}) {
-  const existing = review.fields.find(
-    (f) => f.targetId === target.id && f.fieldKey === fieldKey,
-  );
-  const [value, setValue] = useState(existing?.value ?? ""),
-    [chosen, setChosen] = useState<SourceCandidate | null>(null);
-  const [photos, setPhotos] = useState(existing?.photoAssetIds ?? []),
-    [illustration, setIllustration] = useState<string | null>(
-      existing?.illustrationId ?? null,
-    );
-  const [baseline] = useState(review.reviewVersion);
-  const candidates = review.candidates.filter(
-    (c) =>
-      !c.outdated &&
-      (c.targetId === target.id || c.targetId === null) &&
-      c.fieldKey === fieldKey,
-  );
-  const label = SOURCE_MODULES.find(([id]) => id === fieldKey)?.[1] ?? fieldKey;
-  const submit = (state: SourceField["state"]) => {
-    const fromCandidate = chosen && chosen.value === value;
-    const unchanged = !chosen && existing?.value === value;
-    save(
-      {
-        targetId: target.id,
-        fieldKey,
-        value,
-        state,
-        provenance: fromCandidate
-          ? "EXTRACTED"
-          : unchanged
-            ? existing!.provenance
-            : "PRODUCER",
-        candidateIds: fromCandidate
-          ? chosen.candidateIds
-          : unchanged
-            ? existing!.candidateIds
-            : [],
-        photoAssetIds: photos,
-        illustrationId: illustration,
-      },
-      baseline,
-    );
-  };
-  return (
-    <View style={panel}>
-      <T variant="title">
-        {target.name} · {label}
-      </T>
-      {candidates.length > 1 ? (
-        <T>
-          후보가 여러 개예요. 원문을 비교해 하나를 선택하거나 직접 수정해
-          주세요.
-        </T>
-      ) : null}
-      {candidates.map((c) => (
-        <View key={c.id} style={panel}>
-          <T>{c.value}</T>
-          {c.targetId === null ? (
-            <T variant="caption">
-              상품 미지정 자료 · 이 상품의 정보인지 확인해 주세요.
-            </T>
-          ) : null}
-          {c.evidence.map((e, i) => (
-            <T key={i} variant="caption">
-              {batch.sources.find((s) => s.id === e.sourceId)?.filename ??
-                "자료"}{" "}
-              {e.page}쪽: “{e.quote}”
-            </T>
-          ))}
-          <Button
-            label="이 근거 사용"
-            variant="outline"
-            disabled={busy}
-            onPress={() => {
-              setChosen(c);
-              setValue(c.value);
-            }}
-          />
-        </View>
-      ))}
-      <Field
-        label={`${label} 내용`}
-        disabled={busy}
-        value={value}
-        onChange={setValue}
-        multiline
-      />
-      <T variant="caption">직접 수정한 문구는 생산자 제공 내용으로 기록돼요.</T>
-      {[
-        "hero",
-        "sizePhoto",
-        "crossSectionPhoto",
-        "packagePhoto",
-        "farmPhotos",
-      ].includes(fieldKey) ? (
-        <>
-          {batch.sources
-            .filter(
-              (s) =>
-                s.originalPhoto &&
-                s.status === "PREPARED" &&
-                (s.common || s.targetIds.includes(target.id)),
-            )
-            .map((s) => (
-              <Choice
-                key={s.id}
-                label={s.filename}
-                selected={photos.includes(s.id)}
-                onPress={() =>
-                  setPhotos(
-                    photos.includes(s.id)
-                      ? photos.filter((id) => id !== s.id)
-                      : [...photos, s.id],
-                  )
-                }
-                disabled={busy}
-              />
-            ))}
-        </>
-      ) : null}
-      {fieldKey === "sizePhoto" ? (
-        <>
-          {[
-            null,
-            "hand-citrus-small",
-            "hand-citrus-medium",
-            "hand-citrus-large",
-          ].map((id, i) => (
-            <Choice
-              key={id ?? "none"}
-              label={
-                ["일러스트 없음", "설명용 소과", "설명용 중과", "설명용 대과"][
-                  i
-                ]
-              }
-              selected={illustration === id}
-              onPress={() => setIllustration(id)}
-              disabled={busy}
-            />
-          ))}
-        </>
-      ) : null}
-      <Button
-        label="확정 저장"
-        disabled={busy || (!value.trim() && !photos.length && !illustration)}
-        onPress={() => submit("CONFIRMED")}
-      />
-      <Button
-        label="이 항목 제외"
-        variant="outline"
-        disabled={busy}
-        onPress={() => submit("EXCLUDED")}
-      />
-      <Button
-        label="편집 닫기"
-        variant="text"
-        disabled={busy}
-        onPress={close}
-      />
-    </View>
-  );
-}
 function DraftPreview({
   batch,
   draft,
@@ -737,12 +556,8 @@ export function SourceWorkspace() {
     [notice, setNotice] = useState("");
   const [tab, setTab] = useState("자료"),
     [privacyId, setPrivacyId] = useState<string | null>(null),
-    [editing, setEditing] = useState<{
-      target: SourceTarget;
-      field: string;
-    } | null>(null);
-  const [enabled, setEnabled] = useState<Record<string, string[]>>({}),
-    [visual, setVisual] = useState<Record<string, number[]>>({});
+    [editing, setEditing] = useState(false);
+  const [visual, setVisual] = useState<Record<string, number[]>>({});
   const [ack, setAck] = useState(false),
     [preview, setPreview] = useState<string | null>(null),
     [applyTarget, setApplyTarget] = useState<Record<string, string>>({});
@@ -753,6 +568,7 @@ export function SourceWorkspace() {
     name: string;
   } | null>(null);
   const [showText, setShowText] = useState(false);
+  const [showPhotoRequests, setShowPhotoRequests] = useState(false);
   const [uploadOptions, setUploadOptions] = useState(false);
   const [sourceOptions, setSourceOptions] = useState<string | null>(null);
   const [localPreviews, setLocalPreviews] = useState<Record<string, string>>(
@@ -771,20 +587,7 @@ export function SourceWorkspace() {
   const [privacyDirty, setPrivacyDirty] = useState(false);
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
   const allowLeave = useRef(false);
-  const dirty =
-    !!editing ||
-    privacyDirty ||
-    !!text.trim() ||
-    Object.entries(enabled).some(([targetId, ids]) => {
-      const saved =
-        drafts
-          .find((d) => d.targetId === targetId)
-          ?.snapshot.modules.filter((m) => m.enabled)
-          .map((m) => m.id) ?? SOURCE_MODULES.map(([id]) => id);
-      return (
-        ids.length !== saved.length || ids.some((id) => !saved.includes(id))
-      );
-    });
+  const dirty = editing || privacyDirty || !!text.trim();
   useEffect(
     () =>
       navigation.addListener("beforeRemove", (event) => {
@@ -839,17 +642,6 @@ export function SourceWorkspace() {
     setReview(r);
     setRuns(jobs.items);
     setDrafts(ds.items);
-    setEnabled((previous) => {
-      const next = { ...previous };
-      for (const t of b.targets)
-        if (!next[t.id])
-          next[t.id] =
-            ds.items
-              .find((d) => d.targetId === t.id)
-              ?.snapshot.modules.filter((m) => m.enabled)
-              .map((m) => m.id) ?? SOURCE_MODULES.map(([id]) => id);
-      return next;
-    });
   }, [batchId]);
   const mutate = (fn: () => Promise<void>) => {
     if (lock.current) return;
@@ -891,6 +683,8 @@ export function SourceWorkspace() {
           if (alive.current) {
             setBatch(b);
             setRuns(r.items);
+            if (!r.items.some((job) => ACTIVE.includes(job.status)))
+              return load();
           }
         })
         .catch((e) => {
@@ -898,7 +692,7 @@ export function SourceWorkspace() {
         });
     }, 2500);
     return () => clearInterval(timer);
-  }, [batchId, runs]);
+  }, [batchId, runs, load]);
   const upload = async (input: File | string) => {
     if (!batch) return;
     const b = await api.get(batch.id);
@@ -1022,7 +816,9 @@ export function SourceWorkspace() {
                   variant="text"
                   icon="box"
                   disabled={busy || dirty}
-                  onPress={() => router.push(`/products/${batch.targets[0].productId}/edit`)}
+                  onPress={() =>
+                    router.push(`/products/${batch.targets[0].productId}/edit`)
+                  }
                 />
               ) : null}
               {activeRun ? (
@@ -1065,11 +861,11 @@ export function SourceWorkspace() {
                   borderRadius: tokens.radius.md,
                 }}
               >
-                {["자료", "근거 검토", "상세 편집"].map((t) => (
+                {["자료", "상세 편집"].map((t) => (
                   <Button
                     key={t}
                     label={t}
-                    disabled={!!editing || privacyDirty || busy}
+                    disabled={privacyDirty || busy}
                     variant="text"
                     style={{
                       flex: 1,
@@ -1077,7 +873,20 @@ export function SourceWorkspace() {
                       backgroundColor: tab === t ? "white" : "transparent",
                       borderRadius: 12,
                     }}
-                    onPress={() => setTab(t)}
+                    onPress={() => {
+                      if (t === tab) return;
+                      const go = () => {
+                        setEditing(false);
+                        if (t === "상세 편집")
+                          mutate(async () => {
+                            await load();
+                            setTab(t);
+                          });
+                        else setTab(t);
+                      };
+                      if (editing) setLeaving(() => go);
+                      else go();
+                    }}
                   />
                 ))}
               </View>
@@ -1480,135 +1289,56 @@ export function SourceWorkspace() {
                     onPress={() =>
                       mutate(async () => {
                         await load();
-                        setTab("근거 검토");
+                        setTab("상세 편집");
                       })
                     }
                   />
                 </>
               ) : review ? (
                 <>
-                  {review.sourcePhotoRequests.map((request, i) => (
-                    <View key={`${request.sourceId}-${i}`} style={panel}>
-                      <T>
-                        추가 자료 확인 ·{" "}
-                        {
-                          batch.sources.find((s) => s.id === request.sourceId)
-                            ?.filename
-                        }
-                      </T>
-                      {request.requests.map((message, j) => (
-                        <T key={j}>{message}</T>
-                      ))}
-                    </View>
-                  ))}
-                  {editing ? (
-                    <ReviewEditor
-                      key={`${editing.target.id}:${editing.field}`}
-                      batch={batch}
-                      review={review}
-                      target={editing.target}
-                      fieldKey={editing.field}
-                      busy={busy}
-                      close={() => setLeaving(() => () => setEditing(null))}
-                      save={(field, version) =>
-                        mutate(async () => {
-                          await api.saveReview(batch.id, version, [field]);
-                          setEditing(null);
-                          await load();
-                        })
+                  {review.sourcePhotoRequests.length ? (
+                    <Button
+                      label={
+                        showPhotoRequests
+                          ? "사진 추가 제안 닫기"
+                          : "사진 추가 제안"
                       }
+                      variant="text"
+                      onPress={() => setShowPhotoRequests(!showPhotoRequests)}
                     />
                   ) : null}
-                  {batch.targets.map((t) => (
-                    <View key={t.id} style={panel}>
-                      <T variant="title">{t.name}</T>
-                      {SOURCE_MODULES.map(([id, title]) => {
-                        const fields = review.fields.filter(
-                          (f) =>
-                            f.targetId === t.id &&
-                            (f.fieldKey === id ||
-                              (id === "hero" && f.fieldKey === "name")),
-                        );
-                        return (
-                          <View key={id} style={{ gap: 6 }}>
-                            {tab === "상세 편집" ? (
-                              <Choice
-                                label={title}
-                                selected={(enabled[t.id] ?? []).includes(id)}
-                                disabled={busy}
-                                onPress={() =>
-                                  setEnabled({
-                                    ...enabled,
-                                    [t.id]: (enabled[t.id] ?? []).includes(id)
-                                      ? enabled[t.id].filter((m) => m !== id)
-                                      : [...(enabled[t.id] ?? []), id],
-                                  })
-                                }
-                              />
-                            ) : (
-                              <T>
-                                {title} ·{" "}
-                                {fields.some((f) => f.state === "CONFIRMED")
-                                  ? "확정됨"
-                                  : "확인 필요"}
-                              </T>
-                            )}
-                            {fields
-                              .filter((f) => f.state === "CONFIRMED" && f.value)
-                              .map((f) => (
-                                <T key={f.fieldKey} variant="caption">
-                                  {f.value}
-                                </T>
-                              ))}
-                            <Button
-                              label={`${title} 근거·내용 편집`}
-                              variant="text"
-                              disabled={busy || !!editing}
-                              onPress={() =>
-                                setEditing({ target: t, field: id })
-                              }
-                            />
-                            {id === "hero" ? (
-                              <Button
-                                label="상품 이름 근거·내용 편집"
-                                variant="text"
-                                disabled={busy || !!editing}
-                                onPress={() =>
-                                  setEditing({ target: t, field: "name" })
-                                }
-                              />
-                            ) : null}
-                          </View>
-                        );
-                      })}
-                      <Button
-                        label={`${t.name} 비공개 초안 저장`}
-                        disabled={busy || !!editing}
-                        onPress={() =>
-                          mutate(async () => {
-                            const targets = [
-                              {
-                                targetId: t.id,
-                                enabledModuleIds: enabled[t.id] ?? [],
-                              },
-                            ];
-                            const result = await api.saveDraft(
-                              batch.id,
-                              review.reviewVersion,
-                              targets,
-                              keyFor("draft", [review.reviewVersion, targets]),
-                            );
-                            pending.current.clear();
-                            await load();
-                            setPreview(result.drafts[0].id);
-                            setNotice(
-                              "비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.",
-                            );
-                          })
-                        }
-                      />
-                    </View>
-                  ))}
+                  {showPhotoRequests
+                    ? review.sourcePhotoRequests.map((request, i) => (
+                        <View key={`${request.sourceId}-${i}`} style={panel}>
+                          <T>
+                            추가 자료 확인 ·{" "}
+                            {
+                              batch.sources.find(
+                                (s) => s.id === request.sourceId,
+                              )?.filename
+                            }
+                          </T>
+                          {request.requests.map((message, j) => (
+                            <T key={j}>{message}</T>
+                          ))}
+                        </View>
+                      ))
+                    : null}
+                  <SourceDetailsEditor
+                    key={batch.id}
+                    batch={batch}
+                    review={review}
+                    drafts={drafts}
+                    onDirty={setEditing}
+                    onBusy={setBusy}
+                    onSaved={async (draft) => {
+                      await load();
+                      setPreview(draft.id);
+                      setNotice(
+                        "비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.",
+                      );
+                    }}
+                  />
                   {review.candidates.some(
                     (c) => c.historical || c.fieldKey === "historicalSales",
                   ) ? (
@@ -1759,7 +1489,7 @@ export function SourceWorkspace() {
       </Scroll>
       <Sheet visible={!!leaving} onClose={() => setLeaving(null)}>
         <T variant="title">저장하지 않은 내용을 닫을까요?</T>
-        <T>확정 저장한 근거와 비공개 초안은 그대로 남아요.</T>
+        <T>저장한 비공개 초안은 그대로 남아요.</T>
         <Button label="계속 편집" onPress={() => setLeaving(null)} />
         <Button
           label="저장하지 않고 닫기"

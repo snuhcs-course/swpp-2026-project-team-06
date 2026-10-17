@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.errors import ApiError, invalid, not_found
 from app.core.security import ApprovedProducer
+from app.source_analysis import editor as e
 from app.source_analysis import service as s
 from app.source_analysis import workspace as w
 from app.source_analysis.models import Asset, Batch, Draft, Page, PublicPhoto
@@ -325,6 +326,22 @@ def review(bid: str, who: ApprovedProducer, db: DB):
 @router.patch("/batches/{bid}/review")
 def review_patch(bid: str, body: ReviewPatch, who: ApprovedProducer, db: DB):
     return commit(db, s.patch_review(db, s.batch(db, who[1].id, bid), body))
+
+
+@router.put("/batches/{bid}/editor")
+def save_editor(bid: str, body: e.EditorSave, who: ApprovedProducer, db: DB, key: Key = None):
+    s.batch(db, who[1].id, bid, False)
+    return commit(
+        db,
+        s.idempotent(
+            db,
+            who[1].id,
+            f"{bid}/editor",
+            key,
+            body.model_dump(),
+            lambda: e.save(db, s.batch(db, who[1].id, bid), body),
+        ),
+    )
 
 
 @router.post("/batches/{bid}/drafts", status_code=201)

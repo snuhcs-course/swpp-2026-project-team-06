@@ -487,7 +487,7 @@ def review(db, row):
         for evidence in candidate.evidence:
             if evidence not in merged["evidence"]:
                 merged["evidence"].append(evidence)
-    return {
+    result = {
         "reviewVersion": row.review_version,
         "targets": row.targets,
         "candidates": list(unique.values()),
@@ -522,8 +522,15 @@ def review(db, row):
         ],
     }
 
+    from app.source_analysis.editor import suggestions
 
-def patch_review(db, row, body):
+    result["editorFields"] = suggestions(
+        result, list(db.scalars(select(Asset).where(Asset.batch_id == row.id)))
+    )
+    return result
+
+
+def patch_review(db, row, body, *, inactive=frozenset()):
     version(row.review_version, body.review_version)
     seen = set()
     for entry in body.fields:
@@ -539,7 +546,7 @@ def patch_review(db, row, body):
             )
         )
         if len(candidates) != len(set(entry.candidate_ids)) or any(
-            c.outdated
+            (c.outdated and (entry.target_id, entry.field_key) not in inactive)
             or c.field_key != entry.field_key
             or c.target_id not in (None, entry.target_id)
             for c in candidates
@@ -552,6 +559,11 @@ def patch_review(db, row, body):
         if entry.field_key == "historicalSales" and entry.state == "CONFIRMED":
             raise invalid({"fieldKey": "과거 판매 정보는 참고용이며 상세 초안에 넣지 않아요."})
         for photo_id in entry.photo_asset_ids:
+            if (entry.target_id, entry.field_key) in inactive:
+                photo = db.get(Asset, photo_id)
+                if photo is None or photo.batch_id != row.id:
+                    raise invalid({"photoAssetIds": "이 작업의 사진만 사용할 수 있어요."})
+                continue
             photo = asset(db, row.id, photo_id)
             if (
                 not photo.original_photo
@@ -584,7 +596,7 @@ def patch_review(db, row, body):
     return review(db, row)
 
 
-def save_drafts(db, row, body):
+def save_drafts(db, row, body, *, editor=False):
     version(row.review_version, body.review_version)
     if len({t.target_id for t in body.targets}) != len(body.targets):
         raise invalid({"targets": "상품을 중복 지정할 수 없어요."})
@@ -600,12 +612,17 @@ def save_drafts(db, row, body):
                 select(ReviewedField).where(
                     ReviewedField.batch_id == row.id,
                     ReviewedField.target_id == target.target_id,
-                    ReviewedField.state == "CONFIRMED",
+                    ReviewedField.state.in_(
+                        ["CONFIRMED", "UNREVIEWED"] if editor else ["CONFIRMED"]
+                    ),
                 )
             )
         )
         sources, evidence = set(), {}
+        active_keys = {k for m in target.enabled_module_ids for k in MODULE_FIELDS[m]}
         for field in fields:
+            if editor and field.field_key not in active_keys:
+                continue
             candidates = list(
                 db.scalars(
                     select(Candidate).where(
