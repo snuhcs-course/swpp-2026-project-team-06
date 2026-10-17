@@ -156,6 +156,41 @@ server clock, disables Mock mode, resets the I1 seed before both phases, and kee
 process logs under `.artifacts/integration/`. Playwright reports, traces, videos,
 and screenshots are written to `playwright-report/` and `test-results/`.
 
+## Deployment
+
+### Server on Railway (DEV-64)
+
+`server/Dockerfile` and `server/railway.json` define the service. On every start the
+container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway checks
+`/health`.
+
+1. Create a Railway project, add a service from this GitHub repo, set its **root
+   directory** to `server` and its deploy branch to `main`. If Railway does not pick up
+   the config, set the config file path to `/server/railway.json`.
+2. Add a **PostgreSQL** database to the same project.
+3. Set these variables on the server service:
+
+| Variable | Value |
+| -- | -- |
+| `DATABASE_URL` | Reference the database's `DATABASE_URL`. The `postgresql://` form is accepted as is. |
+| `APP_ENV` | `production` |
+| `JWT_SECRET` | A long random string. The server does not start without it outside `local`. |
+| `CONSUMER_APP_URL` | `https://farmclub-consumer.vercel.app` (CORS and share links) |
+| `PRODUCER_APP_URL` | `https://farmclub-producer.vercel.app` |
+| `MOCK_LOGIN_ENABLED` | `true` while test accounts are used (Kakao login is not built yet) |
+| `ANTHROPIC_API_KEY` | Optional. Without it, AI answers come from registered rules and other questions go to the producer. |
+
+4. Deploy, then generate a public domain under the service's networking settings.
+5. Load the seed data once from the service shell: `python -m app.core.seed`. It skips
+   when data exists; `--reset` erases everything, so do not use it on a live database.
+
+### Apps on Vercel
+
+For both `farmclub-consumer` and `farmclub-producer`, set `EXPO_PUBLIC_API_URL` to the
+Railway domain, remove `EXPO_PUBLIC_API_MOCK` (and `EXPO_PUBLIC_SHARED_MOCK_URL` if
+set), then redeploy. With `EXPO_PUBLIC_API_MOCK=1` the apps keep data in each browser
+and never call the server.
+
 ## Documentation
 
 | Where | What |

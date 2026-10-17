@@ -10,6 +10,66 @@
 
 ## 1. Testing Plan and Results (Iteration 2~)
 
+### DEV-44 (I2-T29) — Manager and AI checklist
+
+This checklist records the internal seeded-data verification of manager approvals, access, exceptions, and AI handoffs. Results use **Pass**, **Fail**, **Blocked**, or **Not run**; a failure links to a Bug issue for DEV-47 (T38). DEV-44 records findings only and makes no product-code fixes.
+
+**Environment and repeatability:** use the local seeded database and Swagger UI at `/docs`. From `server/`, issue the seeded admin credential with `uv run python -m app.accounts.admin_token` (default account `u-admin`), then use Swagger **Authorize**. Get consumer and producer tokens via the local Mock-login endpoint for `u-minji` and `u-kang`. Do not connect a real payment/refund integration. The chat AI has no deterministic API mock: without `ANTHROPIC_API_KEY`, manually exercise disabled, forced handoff, local rule/FAQ, and fallback behavior. A Claude-grounded answer needs a real key or a pytest monkeypatch; cite the test evidence below.
+
+**Manager behavior and invalid requests**
+
+| Check | Expected result | Test/evidence | Result |
+| -- | -- | -- | -- |
+| Producer approval, rejection reason, and decision history (FEAT-01 / R-22) | Pending producer can be approved or rejected with a reason; history records the decision. | `test_AC_01_3_admin_approves_pending_producer_and_clears_stale_state`; `test_AC_01_3_admin_rejects_pending_producer_with_required_reason`; `test_AC_01_3_reject_history_survives_reapplication`; seeded API flows | Pass — approve and reject both recorded in history; same-key replay returned the original result |
+| Capacity approve/reject (FEAT-04 / R-25) | ADMIN can decide a pending request; a stale version on approve or reject returns 409 and does not change the request. | `test_AC_04_8_capacity_decisions_remain_admin_only_and_version_safe`; `test_AC_04_8_9_capacity_lifecycle_and_increase`; seeded API flows | Pass — approve/reject succeeded; both stale versions returned 409 `STALE_VERSION` |
+| Delivery completion (FEAT-10 / R-19) | ADMIN can mark an eligible order delivered; other roles cannot. | `test_AC_17_4_only_admin_marks_shipped_order_delivered`; seeded API flow | Pass — seeded delivery completed; same-key replay returned the original result |
+| Refunds and refund history (R-11 / R-12) | Partial refund preserves order/fulfillment state; full refund records history and releases pre-shipment quantity only once. | `test_AC_11_3_partial_then_consumer_final_refund_preserves_order_until_final`; `test_AC_11_3_pre_shipment_full_refund_releases_quantity_once`; `test_AC_11_3_post_shipment_refund_preserves_committed_quantity`; seeded API flow | Pass — partial refund and one refund-history row confirmed; same-key replay returned the original result |
+| Partial-refund history visible to consumers | Verify the frontend/spec follow-up noted below before marking pass. | Testing follow-up note below | Blocked — follow-up still outstanding in the current wiki/spec |
+| Required `Idempotency-Key` missing | A manager mutation requiring the key returns 400 and creates no partial action. | `test_AC_11_3_manager_mutations_require_idempotency_key`; seeded API calls on producer, capacity, delivery, and refund mutations | Pass — all six mutation route patterns returned 400 |
+| Same key repeated | The repeat returns the first result and performs the action once. | `test_AC_11_3_success_audit_is_sanitized_and_cached_replay_is_single`; `test_AC_11_3_concurrent_same_key_creates_one_refund_and_audit`; seeded approve/reject, capacity, delivery, and refund API flows | Pass — repeated requests returned the original response |
+
+**Access: every implemented admin route**
+
+For each route pattern below, call once without a token, once with the `u-minji` Mock-login token, and once with the `u-kang` Mock-login token. Expected status is 401, 403, and 403 respectively. Run with representative seeded resource IDs; for retry/resolve, also use valid event IDs so authorization is checked on the actual operation.
+
+| Implemented route | Expected access result | Evidence | Result |
+| -- | -- | -- | -- |
+| `POST /admin/producers/{farmId}/approve` and `/reject` | No token 401; consumer/producer 403 | `test_AC_01_3_producer_decisions_require_admin_and_valid_pending_state`; live seeded API | Pass — all three identities returned expected status |
+| `GET /admin/producers/{farmId}/decisions` | No token 401; consumer/producer 403 | `test_AC_01_3_manager_history_and_exception_apis_require_admin`; live seeded API | Pass — all three identities returned expected status |
+| `POST /admin/products/{productId}/capacity-requests/{requestId}/approve` and `/reject` | No token 401; consumer/producer 403 | `test_AC_04_8_capacity_decisions_remain_admin_only_and_version_safe`; live seeded API | Pass — all three identities returned expected status |
+| `POST /admin/orders/{orderId}/delivered` and `/refund` | No token 401; consumer/producer 403 | `test_AC_17_4_only_admin_marks_shipped_order_delivered`; `test_AC_11_3_manager_mutations_require_idempotency_key`; live seeded API | Pass — all three identities returned expected status |
+| `GET /admin/orders/{orderId}/refunds` | No token 401; consumer/producer 403 | `test_AC_01_3_manager_history_and_exception_apis_require_admin`; live seeded API | Pass — all three identities returned expected status |
+| `GET /admin/exceptions` and `GET /admin/exceptions/{id}` | No token 401; consumer/producer 403 | `test_AC_01_3_manager_history_and_exception_apis_require_admin`; live seeded API | Pass — all three identities returned expected status |
+| `POST /admin/exceptions/{id}/retry` and `/resolve` | No token 401; consumer/producer 403 | `test_AC_01_3_manager_history_and_exception_apis_require_admin`; live seeded API with valid refund-event ID | Pass — anonymous/consumer/producer returned 401/403/403 on valid events |
+
+**Exceptions and AI handoffs**
+
+| Check | Expected result | Test/evidence | Result |
+| -- | -- | -- | -- |
+| Exception list and detail (M01–M03 / M07) | ADMIN can list and inspect sanitized exception details. | `test_AC_01_3_manager_history_and_exception_apis_require_admin`; seeded refund-event API response | Pass — listed event, opened detail, and verified sanitized summary |
+| Temporary M01–M03 failure retry | Retry succeeds only for retryable temporary failures, using the original actor/body; recovered events cannot be retried again. | `test_AC_11_3_transient_retry_uses_original_actor_and_exact_body`; seeded recovered-event retry | Pass — temporary retry recovered; recovered retry returned 409 `RETRY_NOT_ALLOWED` |
+| Refund-request alert resolution | Alert appears OPEN in `GET /admin/exceptions`, can be resolved, cannot be retried; resolved event cannot be retried again. | `test_M_07_refund_alert_can_resolve_but_not_retry`; `test_M_07_refund_request_persists_open_event_when_ai_off`; seeded chat-to-admin API flow | Pass — listed/detail visible; open retry rejected; resolution succeeded; resolved retry rejected |
+| Producer reply changes AI mode (AC-13-6) | Reply switches thread to HUMAN; later consumer messages receive no AI answer until AUTO is explicitly restored. | `test_AC_13_6_producer_answer_switches_to_human`; seeded chat API flow | Pass — HUMAN mode persisted; later message had no AI reply and needed a producer reply |
+| AI OFF (AC-13-7) | No AI reply is created and the thread remains marked as needing a producer reply. | `test_AC_13_7_farm_ai_off_overrides_auto`; seeded chat API flow | Pass — no AI reply; producer reply needed |
+| Settings preview (AC-32-3) | Preview returns its result without writing settings, messages, escalations, or manager alerts. | `test_AC_32_3_preview_answers_without_writing`; `test_M_07_preview_emits_no_admin_alert`; seeded API state comparison | Pass — settings, message count, and exception count unchanged |
+| Disabled, forced handoff, local rule/FAQ, fallback | Disabled yields no answer; mandatory topics hand off; deterministic registered facts may answer; unsupported/ambiguous questions hand off without guessing. | `test_AC_13_2_pesticide_question_is_forwarded`; `test_AC_13_7_farm_ai_off_overrides_auto`; seeded API results without `ANTHROPIC_API_KEY` | Pass — all four paths matched expectations |
+| Claude-grounded answer path | Answer cites only supplied evidence and is stored with the grounded response. | `test_provider_paths_use_20_20_8_second_timeouts` (fake Claude response); `test_C06_AC_13_3_model_fact_normalization_and_expected_label`; grounding validation tests | Pass — fake provider and evidence validation passed; no live API key used |
+| Wrong-answer report (AC-13-5) and AI settings (DEV-39 / T22) | Consumer report creates an open producer question; reported state survives reload on both sides. Stale settings saves preserve edits and can be retried with the refreshed version. | `test_AC_13_5_*`; AC-13-5 Playwright; `test_AC_32_4_*`; AC-32-4 Playwright; [DEV-39 PR #119](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/119) | Pass — post-main run: pytest 215, Mock 13, integration 7, Playwright 21, typecheck, Ruff, and Alembic check passed. |
+
+**Documented routes absent from code:** `screens.md` also lists `POST /admin/farms/{farmId}/suspend` (R-24) and `DELETE /admin/messages/{messageId}` (policy item), but the server has no corresponding routes. They are excluded from M01–M03 results and recorded for a follow-up decision to remove or implement them.
+
+**Outstanding partial-refund UI/spec prerequisite:** the current testing/spec documentation says consumer-facing partial-refund history is a frontend/spec follow-up before T29. It is blocked unless a completed follow-up is verified; manager-side refund history remains covered above.
+
+**Execution record:**
+
+| Date | Command or API flow | Result and evidence |
+| -- | -- | -- |
+| 2026-10-16 | `cd server && /Users/zahra/swpp-2026-project-team-06/server/.venv/bin/python -m pytest` | Pass — 206 tests passed. |
+| 2026-10-16 | `FARMCLUB_API_URL=http://127.0.0.1:8000 ./node_modules/.bin/playwright test scripts/e2e/producer-i2.spec.ts scripts/e2e/conversation-ui.spec.ts` | Pass — 11 tests passed (5 producer-i2, 6 conversation-ui). Initial run had a mismatch between Expo's API URL and Playwright route intercepts; aligned the URL and reran successfully. No product bug was filed for the setup mismatch. |
+| 2026-10-16 | Seeded local HTTP API checks; admin token from `uv run python -m app.accounts.admin_token` | Pass — 12 implemented admin route patterns × 3 identities (anonymous 401, `u-minji` 403, `u-kang` 403); six required-key mutations returned 400; approve/reject/capacity/delivery/refund same-key replay returned the original result; both stale capacity decisions returned 409. |
+| 2026-10-16 | Seeded manager and chat API flows with `ANTHROPIC_API_KEY` unset | Pass — producer decisions/history, capacity decisions, delivery/refund history, rule answer, forced/fallback handoff, AC-13-6/7, M-07 exception list/detail/resolve/retry guards, and AC-32-3 no-write preview verified. |
+| 2026-10-16 | Re-verification on current `main` (`34c9009`, includes #116 and #117) in a fresh worktree after `npm ci` and `uv sync --frozen`, scratch database | Pass — `pytest` 210 passed; `npm run test:integration:full`: 7 real-server scenarios and 19 Playwright tests passed (11 in `producer-i2` and `conversation-ui`). A scripted seeded-API run passed 46/46 checks: 12 admin routes × 3 identities (401/403/403); producer approve/reject and history; capacity stale 409 and approve; delivered and refund without key 400 (4 manager actions), same-key replay, one refund-history row; refund-request alert list/detail, retry refused (409 `RETRY_NOT_ALLOWED`), resolve, retry after resolve refused; AC-32-3 no-write preview; rule answer, forced and fallback handoff; AC-13-6 and AC-13-7. Transient-failure retry recovery was not reproduced over HTTP; `test_AC_11_3_transient_retry_uses_original_actor_and_exact_body` covers it. |
+
 ## 2. AI Module Testing (Iteration 3~)
 
 ## 3. Acceptance Testing (Iteration 4)
@@ -180,7 +240,7 @@ These are required checks for follow-up implementation, not executed test result
 | AC-05-3~5 | Blank/addable date ranges, strictly increasing prices, no overlap, stable IDs after reordering, locked sold periods, and no public exposure of unapproved edits. |
 | AC-12-6~8 | A consumer never sees another consumer's room reply through messages, previews, or cursors. Producers see every own-farm conversation. Active polling and pagination do not duplicate messages or move a reader's scroll position. |
 | AC-13-6~8 | HUMAN transition races with AI completion safely. Thread/settings version checks also reject old answers after HUMAN→AUTO or OFF→ON round trips and preserve unanswered work. Farm OFF overrides AUTO. Subjective taste, quality, and damage require handoff. |
-| AC-32-1~4 | Versioned settings survive reload; conflicting/stale/foreign writes fail; preview does not save settings, messages, inquiries, or mode changes. |
+| AC-32-1~4 | Versioned settings survive reload; stale writes return 409 and the producer screen retains edited fields for a refreshed-version retry; preview does not change settings, conversations, or inquiries. AC-32-4 server retry and Playwright screen recovery are checked separately. |
 | AC-33-1~4 | Own paid-order inquiry works after unfollow; another buyer/farm cannot read the order/photo or rebind an attachment. Retry creates one inquiry. Resolution does not change order/refund state. |
 | Layout | 360/390/430/1440px, long text, big counts, photos, empty/loading/error states, keyboard, composer/tab overlap, and historical-message scrolling. |
 

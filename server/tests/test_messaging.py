@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -9,7 +10,7 @@ from sqlalchemy import update
 
 from app.core.db import get_sessionmaker
 from app.farms.models import FarmAiSettings
-from app.messaging.models import Thread
+from app.messaging.models import Escalation, Thread
 from app.messaging.schemas import SendInput
 
 
@@ -39,6 +40,21 @@ def ai_off(farm_id="f-kang"):
                 updated_at=datetime.now(UTC),
             )
         )
+
+
+def ai_answer(client, consumer, producer):
+    """API 키 없이도 전달되지 않는 AI 답변을 만든다(소량 주문 원칙 규칙 답변)."""
+    settings = client.get("/api/farms/me/ai-settings", headers=producer).json()
+    saved = client.put(
+        "/api/farms/me/ai-settings",
+        headers=producer | key(),
+        json={**settings, "smallOrderPolicy": "1kg부터 주문할 수 있어요."},
+    )
+    assert saved.status_code == 200, saved.text
+    sent = send(client, consumer, "f-kang", "소량 주문 되나요?").json()
+    assert sent["reply"]["senderType"] == "AI"
+    assert sent["reply"]["handoffStatus"] is None
+    return sent
 
 
 # ---------------- 소식방 (M-19) ----------------
@@ -270,6 +286,116 @@ def test_AC_13_1_ai_answers_delivery_window(client, login):
     assert "2026-11-10" in result["reply"]["body"]
     assert result["reply"]["handoffStatus"] is None
     assert result["reply"]["sourceRefs"] == ["order:o-38"]
+
+
+def test_AC_13_5_report_maps_question_and_marks_consumer_and_producer_views(client, login):
+    consumer = login("u-seojun")
+    producer = login("u-kang")
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Escalation).where(Escalation.id == "e-2").values(status="ANSWERED")
+        )
+    sent = ai_answer(client, consumer, producer)
+    answer_id = sent["reply"]["messageId"]
+    newer = ai_answer(client, consumer, producer)
+    assert newer["reply"]["messageId"] != answer_id
+    path = f"/api/messaging/chats/f-kang/messages/{answer_id}/report"
+    report = client.post(path, headers=consumer | key())
+    assert report.status_code == 200, report.text
+    data = report.json()
+    assert data["reason"] == "WRONG_ANSWER"
+    assert data["question"] == sent["message"]["body"]
+    assert data["status"] == "OPEN"
+    assert data["reportedMessageId"] == answer_id
+    with get_sessionmaker()() as session:
+        escalation = session.get(Escalation, data["escalationId"])
+        assert escalation.thread_message_id == sent["message"]["messageId"]
+        assert escalation.reported_message_id == answer_id
+    consumer_page = client.get(
+        "/api/messaging/chats/f-kang/messages", headers=consumer
+    ).json()
+    producer_page = client.get(
+        "/api/messaging/producer/chats/u-seojun/messages", headers=producer
+    ).json()
+    for page in (consumer_page, producer_page):
+        assert next(m for m in page["items"] if m["messageId"] == answer_id)["reported"] is True
+    summaries = client.get(
+        "/api/messaging/producer/chats",
+        headers=producer,
+        params={"needsReply": "true"},
+    ).json()["items"]
+    assert any(row["consumerId"] == "u-seojun" and row["needsReply"] for row in summaries)
+
+
+def test_AC_13_5_duplicate_report_returns_existing_escalation(client, login):
+    consumer = login("u-seojun")
+    answer = ai_answer(client, consumer, login("u-kang"))["reply"]
+    path = f"/api/messaging/chats/f-kang/messages/{answer['messageId']}/report"
+    first = client.post(path, headers=consumer | key())
+    second = client.post(path, headers=consumer | key())
+    assert first.status_code == second.status_code == 200
+    assert first.json()["escalationId"] == second.json()["escalationId"]
+
+
+def test_AC_13_5_concurrent_duplicate_reports_return_existing_escalation(client, login):
+    consumer = login("u-seojun")
+    answer = ai_answer(client, consumer, login("u-kang"))["reply"]
+    path = f"/api/messaging/chats/f-kang/messages/{answer['messageId']}/report"
+
+    def report(_):
+        return client.post(path, headers=consumer | key())
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(report, range(2)))
+    assert [r.status_code for r in responses] == [200, 200]
+    assert responses[0].json()["escalationId"] == responses[1].json()["escalationId"]
+
+
+def test_AC_13_5_unselected_report_stays_open_after_producer_reply(client, login):
+    consumer = login("u-seojun")
+    producer = login("u-kang")
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Escalation).where(Escalation.id == "e-2").values(status="ANSWERED")
+        )
+    answer = ai_answer(client, consumer, producer)["reply"]
+    report = client.post(
+        f"/api/messaging/chats/f-kang/messages/{answer['messageId']}/report",
+        headers=consumer | key(),
+    ).json()
+    replied = client.post(
+        "/api/messaging/producer/chats/u-seojun/messages",
+        headers=producer | key(),
+        json={"text": "배송비는 주문 상세에서 확인해 주세요.", "answerToEscalationIds": []},
+    )
+    assert replied.status_code == 200, replied.text
+    open_questions = client.get(
+        "/api/messaging/questions", headers=producer, params={"status": "OPEN"}
+    ).json()["items"]
+    assert report["escalationId"] in [e["escalationId"] for e in open_questions]
+    summaries = client.get(
+        "/api/messaging/producer/chats", headers=producer, params={"needsReply": "true"}
+    ).json()["items"]
+    assert any(row["consumerId"] == "u-seojun" and row["needsReply"] for row in summaries)
+
+
+def test_AC_13_5_rejects_non_ai_forwarded_and_other_consumer_messages(client, login):
+    consumer = login("u-seojun")
+    other = login("u-minji")
+    sent = ai_answer(client, consumer, login("u-kang"))
+    answer_id = sent["reply"]["messageId"]
+    route = f"/api/messaging/chats/f-kang/messages/{answer_id}/report"
+    assert client.post(route, headers=other | key()).status_code == 404
+    assert client.post(
+        f"/api/messaging/chats/f-kang/messages/{sent['message']['messageId']}/report",
+        headers=consumer | key(),
+    ).status_code == 400
+    forwarded = send(client, consumer, "f-kang", "농약을 언제 살포했나요?").json()["reply"]
+    assert forwarded["handoffStatus"] == "FORWARDED"
+    assert client.post(
+        f"/api/messaging/chats/f-kang/messages/{forwarded['messageId']}/report",
+        headers=consumer | key(),
+    ).status_code == 400
 
 
 def test_AC_13_2_pesticide_question_is_forwarded(client, login):

@@ -569,6 +569,72 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 10/16 draft PR #114를 열었다. 남은 단계는 PR #99 머지 뒤 환불 알림 영속화, AI 1차 리뷰, 사람 리뷰다.
 - 10/16 PR #99 머지 뒤 `main`을 병합했다(`server/tasks.md` 충돌만). `consumer_send`가 DEV-31 알림을 만들 때 같은 트랜잭션에서 `manager_refund_request` OPEN 이벤트를 저장하도록 통합했다. AI OFF 저장, 순차 replay·동시 경쟁 1건, rollback·preview·일반 메시지 미저장 회귀를 추가했고 Ruff·전체 pytest 206개가 통과했다.
 
+## DEV-39 [I2-T22] Add AI answer feedback and verify producer AI settings
+
+- 이슈: [DEV-39](https://linear.app/sswp6/issue/DEV-39)
+- 브랜치: `zahra/dev-39-ai-answer-feedback`
+- 기능·인수 조건: C09 / FEAT-13 AC-13-5·M-17; P08 / FEAT-32 AC-32-1~4
+- 상태: 진행 중
+- 예상: Human 6시간 / Agent 0시간
+
+### 목표
+소비자가 잘못된 AI 답을 농가에 전달하고 생산자가 바로잡을 수 있게 한다. AI 설정의 저장·미리보기·버전 충돌 흐름을 합의된 인수 조건으로 검증하고, 오래된 버전 저장 뒤에도 편집 입력을 보존한다.
+
+### 범위 (수정 허용 경로)
+- `server/**`
+- `packages/api/**` (Mock 포함)
+- `packages/ui/**`
+- `apps/consumer/**`
+- `apps/producer/**`
+- `scripts/**`
+- `package.json` (`test:mock` 목록만)
+- `docs/spec/screens.md`
+- `docs/spec/functional/FEAT-13-ai-reply.md`
+- `docs/wiki/Design-Documentation.md`
+- `docs/wiki/Requirements-and-Specifications.md`
+- `docs/wiki/Testing-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 위 허용 경로 이외의 파일
+- 운영자 예외 알림·화면 추가, AI 답변 내용 수정·철회
+
+### 결정 사항
+- 10/16 잠정 기본값: 오답 신고는 채팅을 HUMAN으로 바꾸지 않는다. 이전 AI 답변을 포함해 해당 대화의 모든 AI 답변을 신고할 수 있다. 이 두 질문을 Linear DEV-39에 올려 확인을 구했으며 팀 답변이 다르면 동작을 조정한다.
+- 10/16 오답 신고는 기존 `Escalation` 흐름을 재사용한다. `reason="WRONG_ANSWER"`, `thread_message_id`는 질문 메시지, unique `reported_message_id`는 신고한 AI 답변이다. 질문은 같은 thread에서 해당 AI 답보다 `seq`가 작은 마지막 CONSUMER 메시지다. `question`에는 마스킹된 본문, `context`에는 전달 질문과 같은 주문 문맥을 복사한다.
+- 10/16 동일 답변 중복 신고는 기존 Escalation을 200으로 반환한다. 동시 unique 충돌은 IntegrityError rollback 후 기존 행을 다시 읽는다. 전달된 AI 답은 이미 열린 질문이므로 400으로 거부한다.
+- 10/16 생산자가 질문함 항목을 선택하지 않고 답하면 이 신고는 OPEN으로 남고 `needsReply`도 true다. 별도 다른 농가 AC-32-4 테스트는 `/farms/me/...`가 로그인 농가를 사용하므로 만들지 않는다.
+- 10/16 `reported`는 서버가 AI 메시지에 계산해 소비자·생산자 양쪽 GET messages 응답에 제공한다. 생산자는 WRONG_ANSWER 코드를 한국어 레이블로 본다.
+- 10/16 AI 설정 저장이 STALE_VERSION이면 최신 version을 다시 불러오되 편집 필드를 유지하며, 최신 version으로 재저장할 수 있게 한다.
+- 10/16 PR #113 작성자에게 migration 순서 확인을 요청했다. 현재 main의 0007 뒤로 DEV-39는 0008을 쓴다. PR #113에는 0008(`down_revision="0007"`)·0009가 있어 revision이 충돌하므로, PR #113의 migration 순서를 DEV-39 병합 후 main 기준으로 조정해야 한다.
+
+### 작업
+- [x] 메시지 신고 모델·migration·권한 검사·동시 중복 회복 API 구현
+- [x] 소비자 버튼·신고 상태·생산자 WRONG_ANSWER 레이블 및 두 앱 message API 반영
+- [x] Mock와 `scripts/test-ai-feedback.mjs`, root `test:mock` 목록 반영
+- [x] AC-32 stale-version 입력 보존·재저장 구현 및 AC-32-3 부작용 회귀 보강
+- [x] API·Mock·Playwright 검증, 스펙·위키 갱신, AC-13-5 체크
+
+### 완료 조건
+- [x] AC-13-5 서버·Mock·브라우저 검증 통과(질문 격리, 중복·동시 신고, 보고 상태 양쪽 reload 포함)
+- [x] AC-32-3 preview가 설정·대화·문의 기록을 바꾸지 않음
+- [x] AC-32-4 server refreshed-version save와 producer 화면 입력 보존·재저장 검증 통과
+- [x] 마이그레이션 upgrade/downgrade/check, 전체 허용 Mock·앱 테스트, spec/wiki 일치 확인
+- [x] `git diff main...HEAD` 허용 범위 감사 및 AI 1차 리뷰 코멘트 게시
+- [x] 사용자가 I2 승인 규칙 면제와 squash merge를 명시적으로 승인함
+
+### 기록
+- 10/16 Linear DEV-39를 Human 6h로 재산정하고 provisional HUMAN/older-answer 질문을 DEV-39에 게시했다. PR #113 작성자에게 migration 0008 순서를 확인 요청했다.
+- 10/16 API·Mock·소비자 신고 버튼·생산자 한국어 표기·STALE_VERSION 입력 보존 흐름과 pytest/Mock/Playwright 회귀 케이스 구현을 마쳤다.
+- 10/16 의존성 설치(`npm ci`, `uv sync`) 후 실행해 보니 새 AC-13-5 서버 테스트 4개와 Mock 테스트가 실패했다. 원인: API 키 없이는 "배송비" 질문이 주문·상품 없이 `FORWARDED`가 되고, Mock 시드에서는 `u-seojun`이 `f-kang`을 팔로우하지 않는다. 서버·Mock·Playwright 모두 소량 주문 원칙을 저장하고(Mock·Playwright는 대화를 AUTO로 돌린 뒤) "소량 주문 되나요?"로 규칙 답변을 받도록 고쳤다. Mock의 다른 소비자 404 검사는 그 소비자가 대화를 시작한 뒤 확인한다.
+- 10/16 AC-13-5 원문을 `FEAT-13-ai-reply.md`·wiki에서 복원했고(구현 용어로 바꾸지 않음), `screens.md`의 영어 표현을 한국어로 고쳤다. 당시 확인한 PR #113 migration 정보와 revision 충돌은 아래 결정 사항 기록을 참조한다.
+- 10/16 마이그레이션 `0008_ai_answer_report.py`(신고 답변 FK·unique)를 추가했다. 임시 DB에서 Alembic `upgrade head → downgrade 0007 → upgrade head → check`(새 작업 없음) 통과. 같은 임시 DB로 `npm run test:integration:full` 실행: 실서버 통합 7개, Playwright 21개 통과(AC-13-5 신고·양쪽 표시·reload, AC-32-4 STALE_VERSION 입력 보존·재저장 포함). 임시 DB는 삭제했다.
+- 10/16 최종 검증: Ruff 통과, pytest 211개 통과, `npm run typecheck` 통과, `npm run test:mock` 13개 통과. 마이그레이션 upgrade/downgrade/check와 실서버 통합·Playwright 결과는 위 기록 참조.
+- 10/16 PR 1차 검토에서 오래된 AI 답 신고 직후 해당 페이지가 refresh 결과에 없을 때 버튼 상태가 갱신되지 않는 경계를 보완했다. 성공 응답에서 현재 메시지를 바로 `reported`로 표시하고, 더 최신 답변이 있는 상태에서 이전 답변을 신고하는 AC-13-5 서버 회귀를 추가했다. 재검토에서 typecheck·diff check 통과. 이 worktree에는 `psycopg`가 없어 변경한 pytest는 여기서 재실행하지 못했다(위 전체 pytest 211개 통과 기록은 유지).
+- 10/16 1차 리뷰 커밋 `3b6ee08`, 리뷰 보완 `2ef8dbf`를 push하고 PR #119를 열었다. AI 1차 리뷰 코멘트 게시: must 없음. I2 승인 규칙은 사용자가 면제했다. PR #113의 0008/0009 migration revision은 DEV-39 병합 뒤 충돌이 없게 조정해야 한다.
+- 10/17 `main`을 병합해 `server/tasks.md`의 DEV-39/DEV-59 섹션을 보존했다. main의 AI grounding 변경까지 포함한 재검증: Ruff 통과, pytest 215개 통과, `npm run typecheck` 통과, `npm run test:mock` 13개 통과.
+- 10/17 별도 로컬 DB `farmclub_dev39_ship_test`에서 Alembic upgrade/check 통과. `npm run test:integration:full`은 localhost만 대상으로 서버 통합 7개와 Playwright 21개 통과. Railway에는 연결하지 않았다.
+- 10/17 GitHub PR #113 실제 diff를 확인해 migration 충돌 정보를 바로잡고 PR #119에 정정 코멘트를 남겼다. DEV-39 merge 이후 PR #113 migration을 새 main head 뒤로 재배치해야 한다.
+
 ## DEV-59 AI 상품 초안 근거 확인: 중량·당도 정확 일치와 배송 구절 한정
 - 이슈: [DEV-59](https://linear.app/sswp6/issue/DEV-59) (GitHub [#115](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/115))
 - 브랜치: `zahra/dev-59-ai-draft-grounding`
@@ -671,3 +737,93 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - [ ] 상품별 편집/원자 생성 API·회귀
 - [ ] 생산자 전체 화면 규격·이동/저장 정리
 - [ ] 회귀·영상3개·스펙/Linear/PR·커밋 스캔
+## DEV-44 [I2-T29] 운영자 기능·AI 전달 내부 점검
+
+- 이슈: [DEV-44](https://linear.app/sswp6/issue/DEV-44)
+- 브랜치: `zahra/dev-44-manager-ai-checklist`
+- 기능·인수 조건: FEAT-01 / R-22, FEAT-04 / R-25, FEAT-10 / R-19, R-11 / R-12, M01~M03 / M07, FEAT-13 AC-13-6·AC-13-7, FEAT-32 AC-32-3
+- 상태: 진행 중
+
+### 목표
+시드 로컬 데이터로 운영자 승인·권한·예외·AI 전달을 점검하고, 영문 통과/실패/보류 체크리스트와 근거를 남긴다. 제품 코드는 바꾸지 않는다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/Testing-Documentation.md`
+- `server/tasks.md`
+
+### 비범위 (건드리지 않음)
+- 제품 소스·제품 동작·자동 테스트 소스 변경
+- 실제 결제·환불 연동, 운영자 전용 UI
+- `POST /admin/farms/{farmId}/suspend`(R-24)와 `DELETE /admin/messages/{messageId}`(정책): `docs/spec/screens.md`에는 있으나 서버 라우트가 없고 M01~M03 밖이다
+
+### 결정 사항
+- 10/16 시드 로컬 데이터를 쓴다. 서버 pytest와 Playwright `producer-i2`·`conversation-ui`를 실행하고, 기존 AC 이름 테스트를 근거로 인용하며, 테스트가 없는 흐름은 Swagger/API로 확인한다.
+- 10/16 구현된 모든 `/admin/...` 라우트에 대해 토큰 없음 401, Mock 로그인 소비자 `u-minji`·생산자 `u-kang` 403을 확인한다. 운영자 토큰은 `cd server && uv run python -m app.accounts.admin_token`(기본 `u-admin`)으로 받아 Swagger Authorize에 넣는다.
+- 10/16 일시 실패 재시도는 M01~M03에만 허용, 환불 요청 알림은 해결만 가능·재시도 불가, 해결·복구된 이벤트는 재시도 불가를 확인한다. 오래된 공급 물량 버전(409), 필수 `Idempotency-Key` 누락(400), 같은 키 반복 시 첫 결과 반환을 확인한다.
+- 10/16 AC-13-6, AC-13-7, M-07 환불·보상 알림의 `GET /admin/exceptions` 저장, AC-32-3 미리보기 무기록을 확인한다. API 키 없이 AI OFF·강제 전달·로컬 규칙/FAQ·기본 전달 경로를 직접 확인하고, Claude 근거 답변은 pytest(monkeypatch) 근거를 인용한다.
+- 10/17 DEV-39가 main에 병합되어 AI 설정과 AC-13-5 재검증을 완료했다. 결과는 `docs/wiki/Testing-Documentation.md`에 기록했다. wiki에 소비자 부분 환불 이력이 T29 전 프론트·스펙 후속 작업으로 남아 있으므로, 완료가 확인되지 않으면 보류로 둔다.
+- 10/16 스펙에만 있고 코드에 없는 위 두 운영자 라우트를 기록한다. 삭제할지 구현할지는 후속 이슈에서 정한다.
+- 10/16 범위 안의 실패마다 Bug 이슈를 만들어 체크리스트에 연결하고 DEV-47(T38)로 넘긴다. DEV-44는 기록만 하고 고치지 않는다.
+
+### 작업
+- [x] `docs/wiki/Testing-Documentation.md`에 영문 결과 체크리스트 추가
+- [x] 서버 pytest와 지정 Playwright spec 실행, 관련 `test_AC_…` 인용
+- [x] 테스트가 없는 시드 API 흐름과 권한 확인, 통과/실패/보류와 근거 기록
+- [x] 최종 실행 확인. 범위 안 제품 실패가 없어 DEV-47용 Bug 이슈는 만들지 않음
+- [x] draft 문서 PR [#118](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/118) 열고 실제 소요·근거 기록
+
+### 완료 조건
+- [x] 승인·권한·예외·AI 전달마다 통과/실패/보류 결과와 근거가 있음
+- [x] 체크리스트·이슈 범위·결정·테스트 결과·후속 Bug가 연결되고 최신임
+- [ ] 문서 PR 리뷰 후 머지
+
+### 기록
+- 10/16 `origin/main`에서 분리된 worktree로 시작. DEV-39가 진행 중이고 부분 환불 이력 후속 작업이 아직 남아 있음을 확인했다.
+- 10/16 서버 전체 테스트 통과(206), 지정 Playwright spec 통과(11). 첫 Playwright 실행은 API 호스트 이름이 맞지 않았고, route intercept URL을 맞춘 뒤 모두 통과해 제품 Bug는 만들지 않았다.
+- 10/16 시드 HTTP 확인 통과: 운영자 라우트 12개 모두 토큰 없음 401, Mock 로그인 `u-minji`·`u-kang` 403. 승인·반려·공급 물량·배송 완료·환불 흐름, 오래된 버전, 키 필수·반복, 예외 수명주기, AC-13-6·7, AC-32-3을 확인했다. AI 로컬 경로는 API 키 없이 통과했다.
+- 10/17 AC-13-5와 AI 설정 점검은 DEV-39 병합 후 재검증했다. 소비자 부분 환불 이력은 문서화된 프론트·스펙 후속 작업 때문에 보류. 스펙에만 있는 두 라우트는 없음으로 기록하고 M01~M03에서 제외했다.
+- 10/16 draft PR #118을 열었다. Agent 시간 추정 0.5h, 토큰 합계는 이 세션에서 제공되지 않아 PR과 Linear 결과에도 그대로 적었다.
+- 10/16 재검증: 위 실행 기록은 의존성이 없는 worktree에서 나온 것이라 출처를 확인할 수 없어 다시 실행했다. 현재 `main`(`34c9009`, #116·#117 포함)을 별도 worktree에 두고 `npm ci`·`uv sync --frozen` 후 임시 DB로 실행: pytest 210개 통과, `npm run test:integration:full` 실서버 통합 7개·Playwright 19개 통과(`producer-i2`·`conversation-ui` 11개 포함). 시드 API 점검 스크립트 46개 항목 통과(라우트 12개 × 3계정 권한, 승인·반려·이력, 공급 물량 409·승인, 배송 완료·환불 키 필수(4개 작업)·같은 키 반복·환불 이력 1건, 환불 요청 알림 목록·상세·재시도 거부·해결·해결 후 재시도 거부, AC-32-3, 규칙 답변·강제 전달·기본 전달, AC-13-6·7). 일시 실패 재시도 복구는 HTTP로 재현하지 않았고 `test_AC_11_3_transient_retry_uses_original_actor_and_exact_body` 통과로 대신한다. 임시 DB·worktree는 삭제했다.
+- 10/17 DEV-39(#119)가 main에 squash-merge되어 AC-13-5를 재검증했다. 현재 main에서 서버 pytest 215개, integration 7개, Playwright 21개, Mock 13개와 typecheck/Ruff/Alembic check가 통과했다. Railway는 별도 URL 미확인 상태로 미검증이다.
+
+## DEV-64 Railway 서버 배포 설정 준비
+- 이슈: [DEV-64](https://linear.app/sswp6/issue/DEV-64)
+- 브랜치: `zahra/dev-64-railway-deploy-config`
+- 기능·인수 조건: 해당 없음(배포 설정). 스택 `docs/spec/tech-design/stack.md`(백엔드·DB는 Railway)
+- 상태: 진행 중
+- 예상: 1시간
+
+### 목표
+Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비한다. 계정 작업(프로젝트·DB 생성, 변수 설정, 배포, Vercel 변수 변경)은 Hyun이 머지 후 한다.
+
+### 범위 (수정 허용 경로)
+- `server/Dockerfile`, `server/.dockerignore`, `server/railway.json`
+- `server/app/core/config.py`(DATABASE_URL 형식 정규화만), `server/tests/`
+- `server/tasks.md`, `README.md`(배포 절)
+
+### 비범위 (건드리지 않음)
+- 제품 동작, API, 마이그레이션, 앱(`apps/**`)·`packages/**`
+- 실제 Railway·Vercel 계정 작업과 비밀값
+
+### 결정 사항
+- 10/17 Railway 빌더는 Dockerfile로 고정한다. `uv.lock`으로 `uv sync --frozen --no-dev`, 시작 시 `alembic upgrade head` 후 `uvicorn`을 `$PORT`로 띄우고 헬스 체크는 `/health`.
+- 10/17 Railway가 주는 `postgresql://`·`postgres://` DATABASE_URL을 설정에서 `postgresql+psycopg://`로 바꾼다. 앱과 Alembic이 같은 설정을 읽으므로 한 곳만 고친다.
+- 10/17 시드는 자동 실행하지 않는다. 배포 후 한 번 수동으로 `python -m app.core.seed`(덮어쓰기 없음)를 실행한다.
+
+### 작업
+- [x] Dockerfile·.dockerignore·railway.json
+- [x] DATABASE_URL 정규화와 테스트
+- [x] README 배포 절(Railway 서비스 설정, 환경변수, 시드, Vercel 변수)
+- [x] 로컬 Docker 빌드·실행 검증(PostgreSQL 연결, 마이그레이션, `/health`)
+
+### 완료 조건
+- [x] 이미지가 빌드되고 로컬 PostgreSQL로 시작해 마이그레이션 후 `/health` 응답
+- [x] Ruff·pytest 통과
+- [ ] PR 머지
+- [ ] Hyun 배포 후 배포 URL 확인
+
+### 기록
+- 10/17 Railway 설정·URL·배포 단계가 레포 어디에도 없고, Vercel 앱 두 개가 Mock 모드(`EXPO_PUBLIC_API_MOCK=1`)로 빌드되어 실서버를 쓰지 않음을 확인했다. 테스트 2(실결제, SWPP-109)에는 실서버가 필요하다.
+- 10/17 `docker build` 성공(863MB). Railway처럼 `APP_ENV=production`, `PORT=8123`, `postgresql://` 형식 DATABASE_URL로 임시 DB에 띄워 확인: 마이그레이션 0001→0008 실행, `/health` `{"status":"ok"}`, 컨테이너 안 `python -m app.core.seed` 1회 성공·재실행은 건너뜀, Vercel 소비자 origin CORS 허용·다른 origin 거부, `u-minji` 테스트 로그인 후 채팅 목록 조회. 컨테이너·이미지·임시 DB는 삭제했다. Ruff 통과, pytest 218개 통과(DATABASE_URL 정규화 3개 추가).
+- main 동기화: DEV-39의0008 보존, source integration0009/preprocessing0010로 재번호. 격리 DB upgrade→0008 downgrade→head 재업그레이드 및 전체 pytest275개 통과. 기존 데모/평가 DB는 변경하지 않았다.
+- 구현 결정: 상품별 Workspace에 비공개 판매페이지 스냅샷·기준 상품 버전·자료 batch 연결을 저장한다. 기존 moduleDetail와 detailContent를 그대로 보존하는 두 스냅샷 형식을 사용해 원본 자료 없이 편집한다. 모듈/기존 블록을 임의 변환하지 않는다. 새 API는 상품+batch+workspace 원자 생성/재개, 비공개 페이지 저장/명시적 적용. source 적용과 페이지 편집 사이 미공개 충돌은 차단한다. 범위 추가: server/app/core/seed.py(새 FK 정리 순서).

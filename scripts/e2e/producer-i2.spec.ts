@@ -1,6 +1,31 @@
 import { expect, test } from "@playwright/test";
 import { apiLogin, apiUrl, consumerUrl, loginProducer, producerUrl } from "./helpers";
 
+test("FEAT-32 AC-32-4: settings edits survive STALE_VERSION and save with refreshed version", async ({ page, request }) => {
+  const token = await apiLogin(request, "u-kang", "producer");
+  const settingsUrl = `${apiUrl}/api/farms/me/ai-settings`;
+  const currentResponse = await request.get(settingsUrl, { headers: { Authorization: `Bearer ${token}` } });
+  const current = await currentResponse.json();
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/farm/ai-settings`);
+  const policy = page.getByLabel("소량 주문 원칙", { exact: true });
+  await expect(policy).toBeVisible();
+  const draft = `편집 내용 보존 ${Date.now()}`;
+  await policy.fill(draft);
+  const competing = await request.put(settingsUrl, {
+    headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `ac32-competitor-${Date.now()}` },
+    data: { ...current, smallOrderPolicy: "다른 탭 변경", version: current.version },
+  });
+  expect(competing.ok()).toBeTruthy();
+  await page.getByRole("button", { name: "설정 저장", exact: true }).click();
+  await expect(page.getByText(/최신 설정으로 다시 저장해 주세요/)).toBeVisible();
+  await expect(policy).toHaveValue(draft);
+  await page.getByRole("button", { name: "설정 저장", exact: true }).click();
+  await expect(page.getByText("저장했어요. 이후 질문부터 적용돼요.", { exact: true })).toBeVisible();
+  const saved = await request.get(settingsUrl, { headers: { Authorization: `Bearer ${token}` } });
+  expect((await saved.json()).smallOrderPolicy).toBe(draft);
+});
+
 test("P02 AC-03-3: AI failure preserves text and manual creation excludes a concurrent retry", async ({ page }) => {
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/manual`);
