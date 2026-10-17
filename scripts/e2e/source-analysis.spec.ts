@@ -51,13 +51,13 @@ for (const width of [360, 390, 430]) {
       .fill("테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.");
     await page.getByRole("button", { name: "내용 저장", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "텍스트 수정", exact: true }),
+      page.getByRole("button", { name: "텍스트 내용 수정", exact: true }),
     ).toBeVisible();
     await expect(page.getByTestId("source-material-box")).not.toContainText(
       "source.txt",
     );
     await page
-      .getByRole("button", { name: "텍스트 수정", exact: true })
+      .getByRole("button", { name: "텍스트 내용 수정", exact: true })
       .click();
     await expect(page.getByLabel("첨부 내용")).toHaveValue(
       "테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.",

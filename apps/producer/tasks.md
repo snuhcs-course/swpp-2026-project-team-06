@@ -411,3 +411,11 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - scan-before-commit: 미리보기 이미지 오류 안내/URL 변경 복원, 아이콘 클릭 분리·44px 영역, 별도 접힘 상태 완전 제거 및 공개/충돌 처리 유지 확인. 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. 추가 유료 호출 없음.
 
 - 영상2개를 오버레이 카드/눈 아이콘만 있는 화면으로 갱신: `.artifacts/in-app-v4/page-editor-review/index.html`. 녹화 브라우저 종료. PR113 Draft·머지/배포 보류. Agent 시간/Tokens 미측정.
+
+## DEV-58 텍스트 카드 클릭 편집
+- 사용자 요청: 첨부 텍스트 연필 제거, 카드 본문 클릭으로 전체 내용 수정. 우측 상단 삭제 × 유지.
+- 범위: apps/producer/src/lib/SourceAttachments.tsx, scripts/e2e/source-analysis.spec.ts, apps/producer/{tasks,spec}.md, docs/spec/source-editor.md, docs/wiki/Source-Analysis.md.
+- 기존 카드 onEdit/API 사용. 상세페이지 충돌 해결의 연필은 별도 기능이므로 유지. 머지·배포 없음.
+- [x] 구현·타입·기존 흐름 검증·커밋 스캔
+
+- 생산자 타입 검사 통과, 기존 source-analysis Playwright3개(360/390/430px,23.9초) 통과. 카드 본문 클릭으로 전체 텍스트를 열고 삭제 시 편집 화면이 열리지 않는 동작, 저장/공개까지 확인. scan-before-commit 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. 추가 AI 호출/머지/배포 없음.

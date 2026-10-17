@@ -83,30 +83,6 @@ function Tile({
           flexDirection: "row",
         }}
       >
-        {source.mime === "text/plain" && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="텍스트 수정"
-            disabled={disabled}
-            onPress={onEdit}
-            style={{
-              width: 44,
-              minHeight: 44,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <View
-              style={{
-                padding: 6,
-                borderRadius: 20,
-                backgroundColor: "rgba(255,255,255,0.9)",
-              }}
-            >
-              <Icon name="pencil" size={17} strokeWidth={1.5} />
-            </View>
-          </Pressable>
-        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
