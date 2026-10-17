@@ -662,3 +662,12 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 검증: 전체 pytest267개, mock12개, 타입4 workspace, Ruff 통과. 실제 팀 OpenRouter로 긴 이미지 OCR6회+추출1회28.364초/$0.011443, 가림 준비3.578초. 실제 UI 업로드→가림→검토/설정→비공개 저장→명시적 적용→공개 본문 일치 확인. 기존 승인 상품 수정이며 사용자 직접 인수는 대기. 자동 테스트가 저장 후 열린 미리보기를 다시 눌러 닫은 뒤 같은 초안에서 재개했으며 유료 호출은 반복하지 않았다. 원문/영상/키는 ignored artifacts에만 보관한다.
 
 - 커밋 전 scan-before-commit: 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보1건 — 지적0건 / 커밋된 구조1건 (Item.pages number/spanIds:388d956). 예약 함수 전체 호출부와 신규 어댑터/테스트 포함 확인. PR/Linear 기록은 UI 추가 요청 반영 후 함께 갱신한다.
+
+## DEV-58 상품별 편집 작업·생산자 흐름 안정화 (2026-10-17)
+- 사용자 승인 계획: 판매 중 상품에서 현재 판매페이지 직접 수정, 신규 상품/작업 원자 생성, 생산자 앱 전체 공통 UI·흐름, 영상3개. 탭4개 유지, AI 채팅 기능/배포/머지 제외.
+- 범위: server/app/source_analysis/**, server/app/catalog/{models,schemas,service}.py, server/migrations/**, server/tests/**, server/tasks.md, apps/producer/**, packages/api/**, packages/ui/{src,spec.md,tasks.md}, scripts/e2e/**, docs/spec/{source-integration,validation/**}.md, docs/wiki/Source-Analysis.md. main 동기화 충돌 파일은 main 변경 보존.
+- 결정: 상품별 비공개 작업 연결을 보존하고 생성/재개 API를 멱등 처리. 현재 공개 모듈을 원본 없이도 편집 가능하게 복원하며 기존 공개 사진 보존, 근거 추정 금지. 신규 상품/작업은 한 트랜잭션. 저장/공개 분리·버전/권한 유지.
+- [ ] main 동기화·마이그레이션 충돌 정리
+- [ ] 상품별 편집/원자 생성 API·회귀
+- [ ] 생산자 전체 화면 규격·이동/저장 정리
+- [ ] 회귀·영상3개·스펙/Linear/PR·커밋 스캔
