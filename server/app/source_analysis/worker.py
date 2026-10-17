@@ -358,7 +358,7 @@ def process(item_id, token):
             if mode != "mock":
                 from app.source_analysis.budget import reserve
 
-                reservation_id = reserve(db, item, mode, chunk, selected_targets, images)
+                reservation_id = reserve(db, item, mode, model, chunk, selected_targets, images)
             item.sent = mode != "mock"
         db.commit()
     started = time.monotonic()

@@ -17,7 +17,7 @@ from uuid import uuid4
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from app.ai.source_analysis import ExtractionError, extract
-from app.core.config import get_settings
+from app.core.config import SOURCE_OPENROUTER_PRICES, get_settings
 from app.core.db import get_sessionmaker
 from app.source_analysis.budget import reserve, settle
 from app.source_analysis.evaluate import evaluate
@@ -69,6 +69,9 @@ def main():
     parser.add_argument("--live", action="store_true")
     args = parser.parse_args()
     cfg = get_settings()
+    model = cfg.source_analysis_model
+    if args.live and model not in SOURCE_OPENROUTER_PRICES:
+        raise SystemExit("Evaluation requires a budget-qualified OpenRouter model")
     if cfg.app_env != "local" or not any(
         h in cfg.database_url for h in ("@127.0.0.1:", "@localhost:")
     ):
@@ -156,13 +159,14 @@ def main():
                     db,
                     SimpleNamespace(id="eval_" + uuid4().hex, attempt=1),
                     "openrouter",
+                    model,
                     chunk,
                     targets,
                     images,
                 )
                 db.commit()
             started = time.monotonic()
-            response = extract("openrouter", "google/gemini-3.1-flash-lite", chunk, targets, images)
+            response = extract("openrouter", model, chunk, targets, images)
             record["durationMs"] = round((time.monotonic() - started) * 1000)
             record["costUsd"] = response.usage.get("cost")
             with get_sessionmaker()() as db:
@@ -201,7 +205,7 @@ def main():
         for kind in {r["kind"] for r in scored}
     }
     report = {
-        "model": "google/gemini-3.1-flash-lite",
+        "model": model,
         "live": args.live,
         "metrics": evaluate(scored),
         "byFormat": groups,

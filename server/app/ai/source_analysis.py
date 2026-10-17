@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from pydantic import ValidationError
 
-from app.core.config import get_settings
+from app.core.config import SOURCE_OPENROUTER_PRICES, get_settings
 from app.source_analysis.schemas import Extraction
 
 MOCK_TEXT = "테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요."
@@ -127,6 +127,8 @@ def extract(mode, model, chunk, targets, images):
             None,
         )
     settings = get_settings()
+    if mode == "openrouter" and model not in SOURCE_OPENROUTER_PRICES:
+        raise ExtractionError("UNSUPPORTED_MODEL")
     client = OpenAI(
         api_key=settings.openrouter_api_key if mode == "openrouter" else settings.openai_api_key,
         base_url="https://openrouter.ai/api/v1" if mode == "openrouter" else None,
@@ -144,6 +146,7 @@ def extract(mode, model, chunk, targets, images):
     )
     try:
         if mode == "openrouter":
+            input_rate, output_rate = SOURCE_OPENROUTER_PRICES[model]
             parts = [{"type": "text", "text": content[0]["text"]}]
             parts.extend(
                 {"type": "image_url", "image_url": {"url": "data:image/png;base64," + i}}
@@ -165,11 +168,15 @@ def extract(mode, model, chunk, targets, images):
                 },
                 max_tokens=settings.source_max_output_tokens,
                 extra_body={
-                    "reasoning": {"enabled": False},
+                    "reasoning": (
+                        {"effort": "minimal", "exclude": True}
+                        if model == "google/gemini-3-flash-preview"
+                        else {"enabled": False}
+                    ),
                     "provider": {
                         "require_parameters": True,
                         "allow_fallbacks": False,
-                        "max_price": {"prompt": 0.25, "completion": 1.5},
+                        "max_price": {"prompt": input_rate, "completion": output_rate},
                     },
                 },
             )

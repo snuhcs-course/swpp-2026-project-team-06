@@ -6,11 +6,11 @@ import math
 from sqlalchemy import func, select, text
 
 from app.ai.source_analysis import PROMPT, ExtractionError
-from app.core.config import get_settings
+from app.core.config import SOURCE_OPENROUTER_PRICES, get_settings
 from app.source_analysis.models import Spend
 
 
-def reserve(db, item, mode, chunk, targets, images):
+def reserve(db, item, mode, model, chunk, targets, images):
     cfg = get_settings()
     # UTF-8 bytes upper-bound text tokens; encoded image bytes deliberately over-reserve.
     input_bound = (
@@ -23,7 +23,12 @@ def reserve(db, item, mode, chunk, targets, images):
         + 8192
     )
     # USD per million tokens equals micro-USD per token.
-    input_rate, output_rate = (0.25, 1.5) if mode == "openrouter" else (2, 10)
+    if mode == "openrouter":
+        if model not in SOURCE_OPENROUTER_PRICES:
+            raise ExtractionError("UNSUPPORTED_MODEL")
+        input_rate, output_rate = SOURCE_OPENROUTER_PRICES[model]
+    else:
+        input_rate, output_rate = (2, 10)
     amount = math.ceil(input_bound * input_rate + cfg.source_max_output_tokens * output_rate)
     db.execute(text("SELECT pg_advisory_xact_lock(563158)"))
     used = func.coalesce(Spend.charged_micros, Spend.reserved_micros)

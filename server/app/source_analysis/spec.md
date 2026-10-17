@@ -18,3 +18,9 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 - `source-parser-v2`와 Asset.preprocess_version(migration0009; main 동기화 후 번호)으로 재사용을 통제한다. 이전 전처리 결과의 재분석은 revision·후보·가림 승인을 무효화한다. 이미 큐에 들어간 구버전 자료도 PARSER_CHANGED로 차단한다. 엔진/좌표/모델 변경 시 이 버전을 갱신한다.
 - source-v3 프롬프트는 구성/농장 소개와 불확실한 조건을 보존한다. 인용은 공백 배치만 정규화해 원문 오프셋으로 복원하며 숫자·문자·구두점 변경은 허용하지 않는다. 진단 사유는 비공개 평가에만 저장한다.
 - 평가 도구는 고정 SHA 원문 manifest와 정답을 받는다. 실패·빈 결과를 분모에서 빼지 않으며 이미지/PDF도 형식별95% 게이트에 포함한다. 실제 공개자료 평가와 실제 농가 인수는 별개다. 현재 실제 시각 자료 정확도는 기준 미달이며 상세 결과는 docs/spec/validation/source-visual-2026-10-16.json을 따른다.
+
+## DEV-58 모델 상향 (2026-10-17)
+
+- 기본 모델은 `google/gemini-3-flash-preview`, 추론 수준은 `minimal`이며 반환에서 추론 텍스트는 제외한다. 출력 상한4096토큰에 추론 토큰도 포함한다.
+- `core.config.SOURCE_OPENROUTER_PRICES`를 설정 허용목록·제공자 단가 상한·비용 예약에 공유한다. Flash 입력/출력은100만토큰당 $0.50/$3.00, Lite는 $0.25/$1.50이다. Lite는 명시적 비교용 선택이며 자동 fallback은 없다.
+- 예약은 Run에 저장한 모델로 계산하며 평가 CLI도 설정 모델로 호출하고 같은 모델명을 보고서에 기록한다. $1/$5 한도와 미정산 예약은 유지한다. OCR/프롬프트/정답은 모델 비교 중 바꾸지 않는다.

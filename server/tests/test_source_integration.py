@@ -200,7 +200,14 @@ def test_AC_SRC_5_identical_reanalysis_reuses_candidates(client, login):
     assert after == before
 
 
-def test_AC_SRC_6_openrouter_contract_and_cost(monkeypatch):
+@pytest.mark.parametrize(
+    "model,prices,reasoning",
+    [
+        ("google/gemini-3.1-flash-lite", (0.25, 1.5), {"enabled": False}),
+        ("google/gemini-3-flash-preview", (0.5, 3.0), {"effort": "minimal", "exclude": True}),
+    ],
+)
+def test_AC_SRC_6_openrouter_contract_and_cost(monkeypatch, model, prices, reasoning):
     from app.ai import source_analysis as adapter
 
     calls = {}
@@ -227,29 +234,39 @@ def test_AC_SRC_6_openrouter_contract_and_cost(monkeypatch):
             pass
 
     monkeypatch.setattr(adapter, "OpenAI", Client)
-    result = adapter.extract("openrouter", "google/gemini-3.1-flash-lite", {"pages": []}, [], [])
+    result = adapter.extract("openrouter", model, {"pages": []}, [], [])
     assert result.usage["cost"] == 0.002
     assert calls["client"]["base_url"] == "https://openrouter.ai/api/v1"
     assert calls["client"]["max_retries"] == 0
     req = calls["request"]
     assert req["response_format"]["type"] == "json_schema"
-    assert req["extra_body"]["provider"]["max_price"] == {"prompt": 0.25, "completion": 1.5}
-    assert req["extra_body"]["reasoning"]["enabled"] is False
+    assert req["model"] == model
+    assert req["max_tokens"] == 4096
+    assert req["extra_body"]["provider"]["max_price"] == {
+        "prompt": prices[0],
+        "completion": prices[1],
+    }
+    assert req["extra_body"]["provider"]["allow_fallbacks"] is False
+    assert req["extra_body"]["reasoning"] == reasoning
     assert all(p["type"] == "text" for p in req["messages"][1]["content"])
 
 
-def test_AC_SRC_5_concurrent_budget_and_unknown_cost_retained(monkeypatch):
+@pytest.mark.parametrize(
+    "model,cap",
+    [("google/gemini-3.1-flash-lite", 0.012), ("google/gemini-3-flash-preview", 0.024)],
+)
+def test_AC_SRC_5_concurrent_budget_and_unknown_cost_retained(monkeypatch, model, cap):
     from app.ai.source_analysis import ExtractionError
     from app.source_analysis.budget import reserve, settle
 
     cfg = get_settings()
-    monkeypatch.setattr(cfg, "source_budget_usd", 0.012)
+    monkeypatch.setattr(cfg, "source_budget_usd", cap)
 
     def attempt(i):
         with get_sessionmaker()() as db:
             try:
                 rid = reserve(
-                    db, SimpleNamespace(id=f"job{i}", attempt=1), "openrouter", {}, [], []
+                    db, SimpleNamespace(id=f"job{i}", attempt=1), "openrouter", model, {}, [], []
                 )
                 db.commit()
                 return rid
@@ -294,7 +311,15 @@ def test_AC_SRC_5_evaluation_budget_separate(monkeypatch):
     monkeypatch.setattr(cfg, "source_evaluation_budget_usd", 0.001)
     with get_sessionmaker()() as db:
         with pytest.raises(ExtractionError, match="BUDGET_EXCEEDED"):
-            reserve(db, SimpleNamespace(id="eval", attempt=1), "openrouter", {}, [], [])
+            reserve(
+                db,
+                SimpleNamespace(id="eval", attempt=1),
+                "openrouter",
+                cfg.source_analysis_model,
+                {},
+                [],
+                [],
+            )
         db.rollback()
         assert list(db.scalars(select(Spend))) == []
 
@@ -372,3 +397,122 @@ def test_AC_SRC_5_standalone_worker_registers_related_models(client, login):
         timeout=30,
     )
     assert len(client.get(f"{PREFIX}/{b['id']}/review", headers=h).json()["candidates"]) == 3
+
+
+@pytest.mark.parametrize("model", ["google/gemini-3-flash-preview", "google/gemini-3.1-flash-lite"])
+def test_AC_SRC_10_model_selection_is_budget_qualified(model):
+    from pydantic import ValidationError
+
+    from app.core.config import Settings
+
+    cfg = Settings(
+        _env_file=None,
+        source_analysis_enabled=True,
+        source_analysis_provider="openrouter",
+        openrouter_api_key="test",
+        source_analysis_model=model,
+    )
+    assert cfg.source_analysis_model == model
+    assert Settings(_env_file=None).source_analysis_model == "google/gemini-3-flash-preview"
+    with pytest.raises(ValidationError, match="budget-qualified"):
+        Settings(
+            _env_file=None,
+            source_analysis_enabled=True,
+            source_analysis_provider="openrouter",
+            openrouter_api_key="test",
+            source_analysis_model="unpriced-model",
+        )
+
+
+def test_AC_SRC_10_reservation_uses_run_model_not_current_default(monkeypatch):
+    from app.ai.source_analysis import ExtractionError
+    from app.source_analysis.budget import reserve
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_analysis_model", "google/gemini-3.1-flash-lite")
+    monkeypatch.setattr(cfg, "source_budget_usd", 0.012)
+    with get_sessionmaker()() as db:
+        # A queued Flash request cannot use the cheaper current default's reservation.
+        with pytest.raises(ExtractionError, match="BUDGET_EXCEEDED"):
+            reserve(
+                db,
+                SimpleNamespace(id="flash", attempt=1),
+                "openrouter",
+                "google/gemini-3-flash-preview",
+                {},
+                [],
+                [],
+            )
+        db.rollback()
+        monkeypatch.setattr(cfg, "source_analysis_model", "google/gemini-3-flash-preview")
+        rid = reserve(
+            db,
+            SimpleNamespace(id="lite", attempt=1),
+            "openrouter",
+            "google/gemini-3.1-flash-lite",
+            {},
+            [],
+            [],
+        )
+        assert db.get(Spend, rid).reserved_micros <= 12000
+        db.rollback()
+        with pytest.raises(ExtractionError, match="UNSUPPORTED_MODEL"):
+            reserve(
+                db,
+                SimpleNamespace(id="unknown", attempt=1),
+                "openrouter",
+                "unpriced-model",
+                {},
+                [],
+                [],
+            )
+        assert list(db.scalars(select(Spend))) == []
+
+
+def test_AC_SRC_10_unpriced_model_never_calls_provider():
+    from app.ai.source_analysis import ExtractionError, extract
+
+    with pytest.raises(ExtractionError, match="UNSUPPORTED_MODEL"):
+        extract("openrouter", "unpriced-model", {"pages": []}, [], [])
+
+
+@pytest.mark.parametrize("model", ["google/gemini-3-flash-preview", "google/gemini-3.1-flash-lite"])
+def test_AC_SRC_10_evaluation_calls_and_reports_selected_model(monkeypatch, tmp_path, model):
+    import json
+    import sys
+
+    from app.ai.source_analysis import ExtractionResponse
+    from app.source_analysis import synthetic
+    from app.source_analysis.schemas import Extraction
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "openrouter_api_key", "test")
+    monkeypatch.setattr(cfg, "source_analysis_model", model)
+    # main() enables evaluation for the invocation; restore it after this test.
+    monkeypatch.setattr(cfg, "source_evaluation", True)
+    cases = tmp_path / "cases.json"
+    cases.write_text(
+        json.dumps([{"id": "selection", "kind": "text", "text": "fixture", "expected": []}])
+    )
+    monkeypatch.setattr(synthetic, "prepare", lambda *_: [{"image": None, "spans": []}])
+    calls = []
+
+    def extract(mode, selected_model, chunk, targets, images):
+        calls.append((mode, selected_model))
+        return ExtractionResponse(
+            Extraction(candidates=[], photo_requests=[]), {"cost": 0.001}, "test-request"
+        )
+
+    monkeypatch.setattr(synthetic, "extract", extract)
+    output = tmp_path / "output"
+    monkeypatch.setattr(
+        sys, "argv", ["synthetic", "--live", "--cases", str(cases), "--output", str(output)]
+    )
+    synthetic.main()
+    assert calls == [("openrouter", model)]
+    report = json.loads((output / "report.json").read_text())
+    assert report["model"] == model
+    assert report["cases"][0]["status"] == "EVALUATED"
+    with get_sessionmaker()() as db:
+        row = db.scalar(select(Spend))
+        assert row.evaluation and row.charged_micros == 1000
