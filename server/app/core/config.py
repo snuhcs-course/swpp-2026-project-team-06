@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # 앱 주소: CORS, 공유 링크 이동(ADR 0006)
     consumer_app_url: str = "http://localhost:8081"
     producer_app_url: str = "http://localhost:8082"
+    # 공유 링크 /s/farms/<id>의 앞부분(ADR 0012). 운영은 https://farmclub.kr
+    # (소비자 앱이 /s/를 서버로 프록시). 비우면 요청이 들어온 서버 주소를 쓴다.
+    share_base_url: str = ""
 
     # AI (ADR 0004). 키가 없으면 AI 초안은 실패로 처리한다(AC-03-3).
     anthropic_api_key: str = ""
