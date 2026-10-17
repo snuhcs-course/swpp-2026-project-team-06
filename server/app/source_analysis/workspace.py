@@ -19,8 +19,10 @@ from app.source_analysis.schemas import (
     FieldKey,
     Id,
     Input,
+    SectionId,
     Target,
     Version,
+    hidden_modules,
 )
 
 
@@ -59,6 +61,7 @@ class PageModule(Input):
 
 
 class PageSnapshot(Input):
+    hidden_section_ids: list[SectionId] = Field(default_factory=list, max_length=9)
     kind: Literal["modules", "blocks"]
     modules: list[PageModule] = Field(default_factory=list, max_length=18)
     content: DetailContent = Field(default_factory=lambda: DetailContent(blocks=[]))
@@ -193,7 +196,7 @@ def apply(db, farm, pid, body):
             "modules": [
                 {k: v for k, v in m.items() if k != "enabled"}
                 for m in deepcopy(snap["modules"])
-                if m["enabled"]
+                if m["enabled"] and m["id"] not in hidden_modules(snap.get("hiddenSectionIds", []))
             ],
         }
     else:

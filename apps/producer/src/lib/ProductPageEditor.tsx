@@ -278,6 +278,7 @@ function Editor({ productId }: { productId: string }) {
               {snapshot.kind === "modules" ? (
                 <ModuleStory
                   content={{
+                    hiddenSectionIds: snapshot.hiddenSectionIds,
                     modules: snapshot.modules.filter((m) => m.enabled),
                   }}
                   mediaUrl={media}
@@ -296,6 +297,12 @@ function Editor({ productId }: { productId: string }) {
             <>
               {snapshot.kind === "modules" ? (
                 <PageCanvas
+                  hiddenSectionIds={snapshot.hiddenSectionIds ?? []}
+                  onHiddenSectionsChange={(ids) =>
+                    update((s) => {
+                      s.hiddenSectionIds = ids;
+                    })
+                  }
                   modules={snapshot.modules}
                   media={media}
                   busy={busy}

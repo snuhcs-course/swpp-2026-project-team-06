@@ -92,3 +92,5 @@ server/
 | 2026-10-16 | 운영자 작업은 기존 멱등 레코드와 별도 `ManagerEvent`에 정제된 감사 요약·실패 복구 상태를 저장한다 | DEV-35, 원문 비노출과 재시도 책임 분리 | M01~M03 |
 
 - DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
+
+- DEV-58 / AC-SRC-11: 큰 섹션 숨김은 `hiddenSectionIds` JSON 목록으로 저장하고 하위 항목의 `enabled`와 분리한다. 미리보기/공개 및 활성 근거 검증은 두 상태를 함께 적용한다. 기존 저장본은 빈 목록 기본값. UI는 큰 제목 왼쪽 눈, 항목/사진 우측 상단 ×와 복원 메뉴, 연한 placeholder. 상세 계약은 docs/spec/source-editor.md.

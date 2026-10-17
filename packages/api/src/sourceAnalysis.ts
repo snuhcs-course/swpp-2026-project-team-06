@@ -117,6 +117,7 @@ export type SourceDraft = {
   targetId: string;
   version: number;
   snapshot: {
+    hiddenSectionIds?: string[];
     reviewVersion: number;
     mode: string;
     warnings: { moduleId: string; code: string }[];
@@ -229,7 +230,11 @@ export const sourceAnalysis = {
     bid: string,
     reviewVersion: number,
     fields: SourceField[],
-    targets: { targetId: string; enabledModuleIds: string[] }[],
+    targets: {
+      targetId: string;
+      enabledModuleIds: string[];
+      hiddenSectionIds?: string[];
+    }[],
     key: string,
   ) =>
     request<{ drafts: SourceDraft[] }>("PUT", `${at(bid)}/editor`, {
@@ -239,7 +244,11 @@ export const sourceAnalysis = {
   saveDraft: (
     bid: string,
     reviewVersion: number,
-    targets: { targetId: string; enabledModuleIds: string[] }[],
+    targets: {
+      targetId: string;
+      enabledModuleIds: string[];
+      hiddenSectionIds?: string[];
+    }[],
     key: string,
   ) =>
     request<{ drafts: SourceDraft[] }>("POST", `${at(bid)}/drafts`, {

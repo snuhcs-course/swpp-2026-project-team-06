@@ -50,6 +50,15 @@ const initialSelection = (
         ).map(([id]) => id),
     ]),
   );
+const initialHidden = (drafts: SourceDraft[]) => {
+  const hidden: Record<string, string[]> = {};
+  // Drafts arrive newest first, matching initialSelection.
+  for (const draft of drafts) {
+    if (!(draft.targetId in hidden))
+      hidden[draft.targetId] = draft.snapshot.hiddenSectionIds ?? [];
+  }
+  return hidden;
+};
 export function SourceDetailsEditor({
   batch,
   review,
@@ -72,6 +81,9 @@ export function SourceDetailsEditor({
   );
   const [enabled, setEnabled] = useState<Record<string, string[]>>(() =>
     initialSelection(batch, review, drafts),
+  );
+  const [hidden, setHidden] = useState<Record<string, string[]>>(() =>
+    initialHidden(drafts),
   );
   const [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
@@ -129,6 +141,7 @@ export function SourceDetailsEditor({
     if (!dirty) {
       setEntries(review.editorFields);
       setEnabled(initialSelection(batch, review, drafts));
+      setHidden(initialHidden(drafts));
       version.current = review.reviewVersion;
     }
   }, [review, drafts, batch, dirty]);
@@ -150,6 +163,7 @@ export function SourceDetailsEditor({
     const targets = batch.targets.map((t) => ({
       targetId: t.id,
       enabledModuleIds: enabled[t.id],
+      hiddenSectionIds: hidden[t.id] ?? [],
     }));
     const signature = JSON.stringify([version.current, fields, targets]);
     if (!requests.current.has(signature))
@@ -202,6 +216,11 @@ export function SourceDetailsEditor({
       {batch.targets.map((target) => (
         <PageCanvas
           key={target.id}
+          hiddenSectionIds={hidden[target.id] ?? []}
+          onHiddenSectionsChange={(ids) => {
+            setHidden((old) => ({ ...old, [target.id]: ids }));
+            setDirty(true);
+          }}
           busy={busy}
           onUploading={(v) => {
             setUploading(v);

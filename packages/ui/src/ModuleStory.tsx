@@ -37,6 +37,9 @@ export type StoryModule = {
   illustrationId?: string | null;
 };
 export type StoryEditing = {
+  hiddenSectionIds: string[];
+  sectionControl: (id: string, title: string) => ReactNode;
+  restore: (ids: string[]) => ReactNode;
   text: (module: StoryModule, index: number, style: TextStyle) => ReactNode;
   photos: (module: StoryModule, content: ReactNode) => ReactNode;
   wrap: (module: StoryModule, content: ReactNode) => ReactNode;
@@ -251,9 +254,11 @@ export function ModuleStory({
   editing,
 }: {
   editing?: StoryEditing;
-  content: { modules: StoryModule[] };
+  content: { modules: StoryModule[]; hiddenSectionIds?: string[] };
   mediaUrl?: (uri: string) => string;
 }) {
+  const hidden = editing?.hiddenSectionIds ?? content.hiddenSectionIds ?? [];
+  const introHidden = hidden.includes("intro");
   const filled = editing ? content.modules : content.modules.filter(hasContent);
   if (!filled.length) return null;
   const hero = filled.find((module) => module.id === "hero");
@@ -263,100 +268,132 @@ export function ModuleStory({
       testID="source-detail"
       style={{ backgroundColor: "#fff", paddingBottom: 24 }}
     >
-      {hero || summary ? (
+      {(hero || summary) && (editing || !introHidden) ? (
         <View
           testID="source-cover"
           style={{ paddingTop: 12, paddingBottom: 18 }}
         >
-          {hero && editing
-            ? editing.wrap(
-                hero,
-                <View style={{ gap: 16, paddingHorizontal: 24 }}>
-                  {editing.photos(
-                    hero,
-                    hero.photos.map((p, i) => (
-                      <SourcePhoto key={i} uri={mediaUrl(p.uri)} alt={p.alt} />
-                    )),
-                  )}
-                  {hero.texts.map((t, i) => (
-                    <View key={i}>
-                      {editing.text(
-                        hero,
-                        i,
-                        t.fieldKey === "name"
-                          ? {
-                              fontSize: 38,
-                              lineHeight: 46,
-                              fontWeight: "600",
-                              color: "#484848",
-                              textAlign: "center",
-                            }
-                          : bodyStyle,
-                      )}
-                    </View>
-                  ))}
-                </View>,
-              )
-            : hero?.photos.map((photo, i) => (
-                <SourcePhoto
-                  key={i}
-                  uri={mediaUrl(photo.uri)}
-                  alt={photo.alt}
-                />
-              ))}
-          <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
-            {!editing &&
-              hero?.texts
-                .filter((text) => editing || text.value.trim())
-                .map((text, i) => (
+          {hero && editing ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 24,
+              }}
+            >
+              {editing.sectionControl("intro", "상품 소개")}
+              <View style={{ flex: 1, opacity: introHidden ? 0.35 : 1 }}>
+                {introHidden ? (
                   <T
-                    key={`${text.fieldKey}-${i}`}
-                    center
-                    accessibilityRole={
-                      text.fieldKey === "name" ? "header" : "text"
-                    }
-                    style={
-                      text.fieldKey === "name"
-                        ? {
-                            fontSize: 38,
-                            lineHeight: 46,
-                            fontWeight: "600",
-                            letterSpacing: -1.8,
-                            color: "#484848",
-                          }
-                        : bodyStyle
-                    }
+                    style={{ fontSize: 38, lineHeight: 46, fontWeight: "600" }}
                   >
-                    {text.value}
+                    {hero.texts.find((t) => t.fieldKey === "name")?.value ||
+                      "상품 소개"}
                   </T>
-                ))}
-            {hero?.illustrationId && illustrations[hero.illustrationId] ? (
-              <Illustration id={hero.illustrationId} inset={24} />
-            ) : null}
-            {summary ? (
-              <View
-                style={{
-                  borderTopWidth: 1,
-                  borderColor: "#bdbdbd",
-                  paddingTop: 20,
-                }}
-              >
-                <ModuleBody
-                  module={summary}
-                  mediaUrl={mediaUrl}
-                  inset={24}
-                  editing={editing}
-                />
+                ) : (
+                  editing.text(
+                    hero,
+                    hero.texts.findIndex((t) => t.fieldKey === "name"),
+                    {
+                      fontSize: 38,
+                      lineHeight: 46,
+                      fontWeight: "600",
+                      color: "#484848",
+                    },
+                  )
+                )}
               </View>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
+          {!introHidden ? (
+            <>
+              {hero && editing
+                ? editing.wrap(
+                    hero,
+                    <View style={{ gap: 16, paddingHorizontal: 24 }}>
+                      {editing.photos(
+                        hero,
+                        hero.photos.map((p, i) => (
+                          <SourcePhoto
+                            key={i}
+                            uri={mediaUrl(p.uri)}
+                            alt={p.alt}
+                          />
+                        )),
+                      )}
+                      {hero.texts.map((t, i) =>
+                        t.fieldKey === "name" ? null : (
+                          <View key={i}>
+                            {editing.text(hero, i, bodyStyle)}
+                          </View>
+                        ),
+                      )}
+                    </View>,
+                  )
+                : hero?.photos.map((photo, i) => (
+                    <SourcePhoto
+                      key={i}
+                      uri={mediaUrl(photo.uri)}
+                      alt={photo.alt}
+                    />
+                  ))}
+              <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
+                {!editing &&
+                  hero?.texts
+                    .filter((text) => editing || text.value.trim())
+                    .map((text, i) => (
+                      <T
+                        key={`${text.fieldKey}-${i}`}
+                        center
+                        accessibilityRole={
+                          text.fieldKey === "name" ? "header" : "text"
+                        }
+                        style={
+                          text.fieldKey === "name"
+                            ? {
+                                fontSize: 38,
+                                lineHeight: 46,
+                                fontWeight: "600",
+                                letterSpacing: -1.8,
+                                color: "#484848",
+                              }
+                            : bodyStyle
+                        }
+                      >
+                        {text.value}
+                      </T>
+                    ))}
+                {hero?.illustrationId && illustrations[hero.illustrationId] ? (
+                  <Illustration id={hero.illustrationId} inset={24} />
+                ) : null}
+                {summary ? (
+                  <View
+                    style={{
+                      borderTopWidth: 1,
+                      borderColor: "#bdbdbd",
+                      paddingTop: 20,
+                    }}
+                  >
+                    <ModuleBody
+                      module={summary}
+                      mediaUrl={mediaUrl}
+                      inset={24}
+                      editing={editing}
+                    />
+                  </View>
+                ) : null}
+              </View>
+              {editing?.restore(["hero", "summary"])}
+            </>
+          ) : null}
         </View>
       ) : null}
       {groups.map((group) => {
         const modules = group.modules.flatMap((id) =>
           filled.filter((module) => module.id === id),
         );
-        if (!modules.length) return null;
+        const isHidden = hidden.includes(group.id);
+        if (!modules.length || (!editing && isHidden)) return null;
         return (
           <View
             key={group.id}
@@ -373,12 +410,18 @@ export function ModuleStory({
                   accessible={false}
                   aria-hidden
                   resizeMode="contain"
-                  style={{ width: 36, height: 36 }}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    opacity: isHidden ? 0.35 : 1,
+                  }}
                 />
               ) : null}
+              {editing?.sectionControl(group.id, group.title)}
               <T
                 accessibilityRole="header"
                 style={{
+                  opacity: isHidden ? 0.35 : 1,
                   fontSize: 26,
                   lineHeight: 35,
                   fontWeight: "600",
@@ -391,6 +434,7 @@ export function ModuleStory({
               </T>
               <View
                 style={{
+                  opacity: isHidden ? 0.35 : 1,
                   height: 1,
                   minWidth: 12,
                   flexGrow: 1,
@@ -398,14 +442,16 @@ export function ModuleStory({
                 }}
               />
             </View>
-            {modules.map((module) => (
-              <ModuleBody
-                key={module.id}
-                module={module}
-                mediaUrl={mediaUrl}
-                editing={editing}
-              />
-            ))}
+            {!isHidden &&
+              modules.map((module) => (
+                <ModuleBody
+                  key={module.id}
+                  module={module}
+                  mediaUrl={mediaUrl}
+                  editing={editing}
+                />
+              ))}
+            {!isHidden && editing?.restore(group.modules)}
           </View>
         );
       })}

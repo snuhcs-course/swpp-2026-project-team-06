@@ -160,3 +160,35 @@ def test_AC_SRC_11_hidden_changed_photo_retained_until_repaired(client, login):
     assert (
         client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body).status_code == 409
     )
+
+
+def test_AC_SRC_11_section_hidden_preserves_selection_and_revalidates(client, login):
+    h, batch = ready(client, login)
+    body = body_for(client, h, batch)
+    body["targets"][0]["hiddenSectionIds"] = ["storage"]
+    response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
+    assert response.status_code == 200, response.text
+    snap = response.json()["drafts"][0]["snapshot"]
+    assert snap["hiddenSectionIds"] == ["storage"]
+    assert next(m for m in snap["modules"] if m["id"] == "storage")["enabled"]
+    assert [m["id"] for m in snap["previewModules"]] == ["summary"]
+    with get_sessionmaker()() as db:
+        for c in db.scalars(
+            select(Candidate).where(
+                Candidate.batch_id == batch["id"], Candidate.field_key == "storage"
+            )
+        ):
+            c.outdated = True
+        db.commit()
+    body = body_for(client, h, batch)
+    body["targets"][0]["hiddenSectionIds"] = ["storage"]
+    saved = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
+    assert saved.status_code == 200, saved.text
+    body = body_for(client, h, batch)
+    assert (
+        client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body).status_code == 409
+    )
+    body["targets"][0]["hiddenSectionIds"] = ["unknown"]
+    assert (
+        client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body).status_code == 400
+    )

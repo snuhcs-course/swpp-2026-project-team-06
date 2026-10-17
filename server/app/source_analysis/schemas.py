@@ -53,6 +53,26 @@ MODULE_FIELDS = {
     "farmPhotos": ["farmPhotos"],
     "farmUpdates": ["farmUpdates"],
 }
+SECTION_MODULES = {
+    "intro": {"hero", "summary"},
+    "composition": {"composition", "pieceCount"},
+    "taste": {"taste", "specification", "sizePhoto", "crossSectionPhoto"},
+    "production": {"qualityEvidence", "productionProcess"},
+    "packing": {"packagePhoto", "delivery"},
+    "storage": {"storage"},
+    "faq": {"appearanceFaq", "support"},
+    "farm": {"farmStory", "farmPhotos"},
+    "updates": {"farmUpdates"},
+}
+SectionId = Literal[
+    "intro", "composition", "taste", "production", "packing", "storage", "faq", "farm", "updates"
+]
+
+
+def hidden_modules(section_ids):
+    return {module for section in section_ids for module in SECTION_MODULES[section]}
+
+
 # IDs refer to the pre-generated, labeled illustrations; no runtime generation.
 ILLUSTRATIONS = {"hand-citrus-small", "hand-citrus-medium", "hand-citrus-large"}
 
@@ -138,6 +158,7 @@ class ReviewPatch(Input):
 class DraftTarget(Input):
     target_id: Id
     enabled_module_ids: list[str] = Field(max_length=18)
+    hidden_section_ids: list[SectionId] = Field(default_factory=list, max_length=9)
 
 
 class DraftSave(Input):

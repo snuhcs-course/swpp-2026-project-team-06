@@ -107,13 +107,16 @@ for (const width of [360, 390, 430]) {
       .getByRole("button", { name: "상세페이지 편집", exact: true })
       .click();
     await expect(
-      page.getByTestId("source-module-packagePhoto").getByRole("img"),
+      page
+        .getByTestId("source-module-packagePhoto")
+        .getByTestId("source-photo-frame")
+        .locator("img"),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "근거 검토", exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("switch", { name: "한눈에 보기 표시", exact: true }),
+      page.getByRole("switch", { name: "상품 소개 표시", exact: true }),
     ).toBeChecked();
     await expect(
       page.getByLabel("한눈에 보기 내용", { exact: true }),
@@ -139,7 +142,7 @@ for (const width of [360, 390, 430]) {
     ).toHaveCount(0);
     if (width === 360) {
       const visibility = page.getByRole("switch", {
-        name: "한눈에 보기 표시",
+        name: "상품 소개 표시",
         exact: true,
       });
       await visibility.focus();
@@ -154,6 +157,11 @@ for (const width of [360, 390, 430]) {
     await page
       .getByRole("switch", { name: "보관 방법 표시", exact: true })
       .uncheck();
+    await expect(
+      page
+        .getByTestId("source-section-storage")
+        .getByRole("heading", { name: "보관 방법" }),
+    ).toHaveCSS("opacity", "0.35");
     await page
       .getByRole("button", { name: "비공개 저장", exact: true })
       .click();
@@ -185,13 +193,20 @@ for (const width of [360, 390, 430]) {
     await page
       .getByRole("button", { name: "상세페이지 편집", exact: true })
       .click();
+    await expect(
+      page.getByRole("switch", { name: "보관 방법 표시", exact: true }),
+    ).toBeChecked();
     await page
       .getByRole("button", { name: "구매자 화면 미리보기", exact: true })
       .first()
       .click();
     await expect(page.getByText("제주산 감귤입니다.").last()).toBeVisible();
     await expect(
-      page.getByTestId("source-module-packagePhoto").last().getByRole("img"),
+      page
+        .getByTestId("source-module-packagePhoto")
+        .last()
+        .getByTestId("source-photo-frame")
+        .locator("img"),
     ).toBeVisible();
     const previewText = await page
       .getByTestId("source-detail")

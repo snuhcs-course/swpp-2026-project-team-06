@@ -184,3 +184,46 @@ def test_AC_SRC_5_private_product_photo_requires_owner(client, login):
     assert (
         client.get(BASE + f"/p-other/photos/{photo_id}", headers=login("u-kang")).status_code == 404
     )
+
+
+def test_AC_SRC_11_section_visibility_survives_apply_and_individual_exclusion(client, login):
+    modules = [
+        {"id": name, "texts": [{"fieldKey": name, "value": name}], "photos": []}
+        for name in ["taste", "specification", "storage"]
+    ]
+    with get_sessionmaker()() as db:
+        db.get(Product, "p-house").module_detail = {"schemaVersion": 1, "modules": modules}
+        db.commit()
+    row = open_page(client, login).json()
+    snap = deepcopy(row["snapshot"])
+    snap["hiddenSectionIds"] = ["taste"]
+    snap["modules"][1]["enabled"] = False
+
+    def save_apply(row, snap):
+        response = client.put(
+            BASE + "/p-house",
+            headers={**login("u-kang"), "Idempotency-Key": str(uuid4())},
+            json={"version": row["version"], "snapshot": snap},
+        )
+        assert response.status_code == 200, response.text
+        response = client.post(
+            BASE + "/p-house/apply",
+            headers={**login("u-kang"), "Idempotency-Key": str(uuid4())},
+            json={"version": response.json()["version"]},
+        )
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    save_apply(row, snap)
+    row = open_page(client, login).json()
+    assert row["snapshot"] == snap
+    with get_sessionmaker()() as db:
+        assert [m["id"] for m in db.get(Product, "p-house").module_detail["modules"]] == ["storage"]
+    snap["hiddenSectionIds"] = []
+    save_apply(row, snap)
+    with get_sessionmaker()() as db:
+        assert [m["id"] for m in db.get(Product, "p-house").module_detail["modules"]] == [
+            "taste",
+            "storage",
+        ]
+    assert not open_page(client, login).json()["snapshot"]["modules"][1]["enabled"]

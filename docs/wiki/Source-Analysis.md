@@ -122,3 +122,8 @@ Users remove personal information before upload. The previous in-app redaction a
 
 ### Attachment cards and direct photo editing
 Filenames are hidden. Attachment content fills each card with a remove action overlaid at its top-right corner. Text cards show a short bracketed excerpt and open full-text editing when clicked, without a separate pencil; product-photo descriptions are edited inside their cards and saved before analysis. Failed saves retain input and offer retry. Dashed rounded photo placeholders open existing-photo selection or upload without an edit-mode step. Eye controls hide and collapse sections or reveal and expand them; there is no separate fold control or fold state. Public pages render all enabled content expanded. Small regular-weight tools preserve the existing sales-page typography.
+
+### Section visibility and item removal (DEV-58, AC-SRC-11)
+The eye sits immediately before each large section heading, without a separate toolbar. Hiding a section dims its heading, decoration and divider and hides its body. Individual items and photos use an overlaid top-right ×; excluded items can be restored through Add item, and photos through the existing photo picker. Toggling the parent does not restore excluded children. Empty input placeholders use light gray.
+
+Private snapshots and draft target requests persist `hiddenSectionIds` independently from per-module `enabled`. Existing snapshots default to an empty list. Preview and publication omit hidden sections; hidden evidence remains private and is revalidated when made visible. JSON storage is reused without a database migration. The intro control sits beside the product name. Public pages contain no editing controls.

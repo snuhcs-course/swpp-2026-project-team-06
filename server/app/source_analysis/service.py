@@ -25,7 +25,7 @@ from app.source_analysis.models import (
     new_id,
 )
 from app.source_analysis.preprocess import PreparationError, identify, redact
-from app.source_analysis.schemas import ILLUSTRATIONS, MODULE_FIELDS
+from app.source_analysis.schemas import ILLUSTRATIONS, MODULE_FIELDS, hidden_modules
 from app.source_analysis.storage import Storage
 
 ACTIVE = {"QUEUED", "PREPARING", "PRIVACY_REVIEW", "ANALYZING"}
@@ -636,8 +636,9 @@ def save_drafts(db, row, body, *, editor=False):
                 )
             )
         )
+        visible_ids = set(target.enabled_module_ids) - hidden_modules(target.hidden_section_ids)
         sources, evidence = set(), {}
-        active_keys = {k for m in target.enabled_module_ids for k in MODULE_FIELDS[m]}
+        active_keys = {k for m in visible_ids for k in MODULE_FIELDS[m]}
         for field in fields:
             if editor and field.field_key not in active_keys:
                 continue
@@ -682,7 +683,7 @@ def save_drafts(db, row, body, *, editor=False):
                 else None,
             }
             modules.append(module)
-            if enabled and not filled:
+            if module_id in visible_ids and not filled:
                 warnings.append({"moduleId": module_id, "code": "MISSING_CONFIRMED_CONTENT"})
         modes = set()
         if evidence:
@@ -695,6 +696,7 @@ def save_drafts(db, row, body, *, editor=False):
                 modes.add(db.get(Run, db.get(Item, candidate.item_id).run_id).mode)
         snapshot = {
             "schemaVersion": 1,
+            "hiddenSectionIds": target.hidden_section_ids,
             "batchVersion": row.version,
             "sourceVersions": {
                 sid: {
@@ -723,7 +725,7 @@ def save_drafts(db, row, body, *, editor=False):
                     "illustrationLabel": m["illustrationLabel"],
                 }
                 for m in modules
-                if m["enabled"]
+                if m["id"] in visible_ids
                 and any(
                     f["value"] or f["photoAssetIds"] or f["illustrationId"] for f in m["fields"]
                 )

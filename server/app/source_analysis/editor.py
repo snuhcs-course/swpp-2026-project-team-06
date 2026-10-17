@@ -4,7 +4,13 @@ from pydantic import Field
 
 from app.core.errors import conflict, invalid
 from app.source_analysis import service as s
-from app.source_analysis.schemas import MODULE_FIELDS, DraftSave, FieldReview, ReviewPatch
+from app.source_analysis.schemas import (
+    MODULE_FIELDS,
+    DraftSave,
+    FieldReview,
+    ReviewPatch,
+    hidden_modules,
+)
 
 
 class EditorSave(DraftSave):
@@ -133,6 +139,7 @@ def save(db, row, body):
         (t.target_id, k)
         for t in body.targets
         for m in t.enabled_module_ids
+        if m not in hidden_modules(t.hidden_section_ids)
         for k in MODULE_FIELDS.get(m, [])
     }
     current = s.review(db, row)
