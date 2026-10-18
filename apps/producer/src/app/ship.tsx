@@ -618,19 +618,21 @@ export default function Ship() {
           통장에 같은 입금자명과 금액이 들어왔을 때만 눌러 주세요. 확인하면
           소비자에게 예약 완료로 보여요.
         </T>
-        <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: "row", gap: 8 }}>
           <Button
-            label="확인했어요 · 예약 완료로"
-            size="producer"
-            loading={busy}
-            onPress={() => void confirmDeposit()}
-          />
-          <Button
-            label="아직이에요"
+            label="아니요"
             variant="secondary"
             size="producer"
             disabled={busy}
+            style={{ flex: 1 }}
             onPress={() => setDepositFor(null)}
+          />
+          <Button
+            label="입금 확인"
+            size="producer"
+            style={{ flex: 2 }}
+            loading={busy}
+            onPress={() => void confirmDeposit()}
           />
         </View>
       </Sheet>

@@ -15,7 +15,7 @@ import {
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { useToast } from "../../../lib/toast";
 import { DepositCard } from "../../../lib/DepositCard";
@@ -36,7 +36,6 @@ export default function DepositGuide() {
     setData,
   } = useAsync(() => orders.get(orderId), [orderId]);
   const [busy, setBusy] = useState(false);
-  const [escrow, setEscrow] = useState(false);
   const toast = useToast();
 
   // 기한이 지나 취소된 주문은 주문서로 돌려보낸다(R-28)
@@ -125,27 +124,11 @@ export default function DepositGuide() {
                   body={`거래 당사자가 아니에요. 상품·배송·환불의 책임은 판매자인 ${o.sellerInfo?.farmName ?? o.farmName}에 있어요.`}
                   style={{ marginTop: 12 }}
                 />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: escrow }}
-                  onPress={() => setEscrow((v) => !v)}
-                  style={{ minHeight: 48, justifyContent: "center" }}
-                >
-                  <T variant="sub" muted>
-                    더 안전하게 보내고 싶다면{" "}
-                    <T variant="sub" weight="semibold">
-                      에스크로이체
-                    </T>{" "}
-                    {escrow ? "⌃" : "⌄"}
-                  </T>
-                </Pressable>
-                {escrow ? (
-                  <T variant="caption" muted>
-                    내 은행 앱의 에스크로이체(국민·우리 등)로 이 계좌에 보낼 수
-                    있어요. 가격은 같고 은행 수수료는 보내는 사람이 내요.
-                    farmclub이나 농가가 따로 가입할 것은 없어요.
-                  </T>
-                ) : null}
+                {/* 구매안전서비스 고지(전자상거래법 13조② 10호): 권유 없이 사실만 한 줄 */}
+                <T variant="caption" muted style={{ marginTop: 12 }}>
+                  구매안전서비스(은행 에스크로이체)는 소비자가 원할 때 자기
+                  은행에서 이용할 수 있어요. 가격은 같아요.
+                </T>
               </View>
             </>
           ) : null}

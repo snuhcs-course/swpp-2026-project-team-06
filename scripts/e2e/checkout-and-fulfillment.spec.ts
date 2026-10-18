@@ -73,7 +73,7 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   ).toBeVisible();
   await producerPage.getByRole("button", { name: "입금 확인" }).first().click();
   await producerPage
-    .getByRole("button", { name: "확인했어요 · 예약 완료로" })
+    .getByRole("button", { name: "입금 확인", exact: true })
     .click();
   await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
   await expect(
