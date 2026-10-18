@@ -1,6 +1,6 @@
 import { needsReply } from "./conversations";
 import { assertSale, releaseQuantity, salesState } from "./sales";
-// /api/orders Mock (FEAT-08 주문서, 09 결제, 10 주문 내역, 11 취소, 14 현황, 17 출하)
+// /api/orders Mock (FEAT-08 주문서, 09 무통장 입금(DEV-68), 10 주문 내역, 11 취소, 14 현황, 17 출하)
 import type { Carrier, Dashboard, HarvestProduct, OrderInput } from "../types";
 
 const CARRIERS: Carrier[] = ["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"];
@@ -23,6 +23,17 @@ const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 const REMOTE = (postal: string, address: string) =>
   /^(63|40[0-2]|23[01]|54[0-9]{2}?)/.test(postal) ||
   /(울릉|옹진|도서)/.test(address);
+
+/** 주문 번호 `FC-MMDD-NNNN`: NNNN은 무작위 4자리(연번이면 거래 건수가 드러난다, DEV-68) */
+function newOrderNo(ctx: Ctx): string {
+  const prefix = `FC-${TODAY.slice(5, 7)}${TODAY.slice(8, 10)}-`;
+  for (let i = 0; i < 50; i += 1) {
+    const candidate = `${prefix}${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`;
+    if (!Object.values(ctx.db.orders).some((o) => o.orderNo === candidate))
+      return candidate;
+  }
+  conflict("INVALID_TRANSITION", "주문 번호를 만들지 못했어요. 다시 시도해 주세요.");
+}
 
 function myOrder(ctx: Ctx): OrderRec {
   const o = ctx.db.orders[ctx.params.orderId];
@@ -67,6 +78,47 @@ function refund(ctx: Ctx, o: OrderRec, reason: string) {
   o.refundReason = reason;
 }
 
+/** 입금 기한(시간). 서버 DEPOSIT_DEADLINE_HOURS와 같다(R-28) */
+const DEPOSIT_DEADLINE_HOURS = 24;
+const DEPOSIT_EXPIRED = "입금 기한 초과";
+
+/** 입금 대기 주문을 결제 없이 끝낸다. 잡아 둔 물량은 한 번만 돌려준다(R-28) */
+function cancelAwaiting(ctx: Ctx, o: OrderRec, reason: string) {
+  const p = ctx.db.products[o.productId];
+  if (p) releaseQuantity(p, o, o.quantity - o.releasedQuantity);
+  o.status = "CANCELED";
+  o.cancelReason = reason;
+}
+
+/** 기한이 지난 입금 대기 주문을 조회 시점에 취소한다(지연 검사). 바뀐 수를 돌려준다 */
+function expireOverdue(ctx: Ctx, pick: (o: OrderRec) => boolean = () => true) {
+  const now = nowIso();
+  let changed = 0;
+  for (const o of Object.values(ctx.db.orders)) {
+    if (
+      o.status === "AWAITING_DEPOSIT" &&
+      o.depositDueAt &&
+      o.depositDueAt <= now &&
+      // 입금했다고 알린 주문은 취소하지 않는다. 운영자가 생산자에게 연락한다(DEV-68)
+      !o.depositReportedAt &&
+      pick(o)
+    ) {
+      cancelAwaiting(ctx, o, DEPOSIT_EXPIRED);
+      changed += 1;
+    }
+  }
+  return changed;
+}
+
+function farmProductIds(ctx: Ctx) {
+  const u = ctx.me();
+  return new Set(
+    Object.values(ctx.db.products)
+      .filter((p) => p.farmId === u.farmId)
+      .map((p) => p.productId),
+  );
+}
+
 const SORT_ACTION = (o: OrderRec) =>
   (o.proposedDeliveryWindow &&
     (o.status === "RESERVED" || o.status === "PREPARING")) ||
@@ -97,7 +149,7 @@ register({
       const remoteFee = REMOTE(b.postalCode, b.address) ? p.remoteAreaFee : 0;
       const o: OrderRec = {
         orderId: nextId("o"),
-        orderNo: `FC-${TODAY.slice(5, 7)}${TODAY.slice(8, 10)}-${String(ctx.db.seq).padStart(4, "0")}`,
+        orderNo: newOrderNo(ctx),
         consumerId: u.userId,
         buyerName: u.name,
         productId: p.productId,
@@ -123,6 +175,10 @@ register({
         deliveredAt: null,
         refundedAt: null,
         refundReason: null,
+        depositDueAt: null,
+        depositReportedAt: null,
+        cancelReason: null,
+        refundSettledAt: null,
         recipientName: b.recipientName.trim(),
         recipientPhone: b.recipientPhone.trim(),
         postalCode: b.postalCode.trim(),
@@ -155,44 +211,109 @@ register({
       return order(ctx.db, o);
     }),
 
-  "POST /api/orders/:orderId/pay": (ctx) =>
-    idempotent(ctx, `pay:${ctx.params.orderId}`, () => {
+  // 입금 안내(FEAT-09 개정): 물량을 선점하고 입금 대기로. 같은 키면 처음 결과(AC-09-3)
+  "POST /api/orders/:orderId/deposit": (ctx) =>
+    idempotent(ctx, `deposit:${ctx.params.orderId}`, () => {
       const o = myOrder(ctx);
       if (o.status !== "PENDING_PAYMENT") {
-        if (o.paidAt && ACTIVE.has(o.status))
-          return {
-            order: order(ctx.db, o),
-            result: "success",
-            failReason: null,
-          };
-        conflict("INVALID_TRANSITION", "결제할 수 없는 주문이에요.");
+        if (o.status === "AWAITING_DEPOSIT" || (o.paidAt && ACTIVE.has(o.status)))
+          return order(ctx.db, o);
+        conflict("INVALID_TRANSITION", "입금 안내를 받을 수 없는 주문이에요.");
       }
       const p = ctx.db.products[o.productId];
+      const farm = ctx.db.farms[p?.farmId ?? ""];
+      if (!farm?.bankName || !farm.accountNumber || !farm.accountHolder)
+        conflict("NO_FARM_ACCOUNT", "농가가 아직 입금 계좌를 등록하지 않았어요.");
       const s = assertSale(ctx.db, p, o.optionId, o.quantity, o);
-      if (ctx.body.mockResult === "fail") {
-        return {
-          order: order(ctx.db, o),
-          result: "fail",
-          failReason:
-            "카드 한도를 넘었어요. 다른 카드를 고르거나 다시 시도해 주세요. 돈은 나가지 않았어요.",
-        };
-      }
       s.options[o.optionId].reservedCount += o.quantity;
-      if (!hasActiveOrder(ctx, o.consumerId, p.productId)) p.reservedCount += 1;
-      o.status = "RESERVED";
-      o.paidAt = nowIso();
-      return { order: order(ctx.db, o), result: "success", failReason: null };
+      o.status = "AWAITING_DEPOSIT";
+      o.depositDueAt = new Date(
+        Date.now() + DEPOSIT_DEADLINE_HOURS * 3600_000,
+      ).toISOString();
+      return order(ctx.db, o);
     }),
+
+  // 소비자 '입금했어요' 신호. 상태는 바꾸지 않는다(DEV-68 결정 4)
+  "POST /api/orders/:orderId/deposit-reported": (ctx) => {
+    const o = myOrder(ctx);
+    expireOverdue(ctx, (x) => x.orderId === o.orderId);
+    if (o.status !== "AWAITING_DEPOSIT")
+      conflict("INVALID_TRANSITION", "입금 대기 주문이 아니에요.", {
+        order: order(ctx.db, o),
+      });
+    o.depositReportedAt ??= nowIso();
+    return order(ctx.db, o);
+  },
+
+  // 생산자 입금 확인(AC-09-8): 입금 대기 → 예약 완료. 이미 확인됐으면 그대로
+  "POST /api/orders/:orderId/confirm-deposit": (ctx) => {
+    const o = farmOrder(ctx);
+    if (o.paidAt && ACTIVE.has(o.status)) return producerOrder(ctx.db, o);
+    expireOverdue(ctx, (x) => x.orderId === o.orderId);
+    if (o.status !== "AWAITING_DEPOSIT")
+      conflict("INVALID_TRANSITION", "입금 대기 주문만 확인할 수 있어요.", {
+        status: o.status,
+      });
+    const p = ctx.db.products[o.productId];
+    if (p && !hasActiveOrder(ctx, o.consumerId, p.productId))
+      p.reservedCount += 1;
+    o.status = "RESERVED";
+    o.paidAt = nowIso();
+    o.depositIssue = null;
+    return producerOrder(ctx.db, o);
+  },
+
+  // 입금 미승인(DEV-68): 사유 필수. cancel이면 취소·물량 해제, 아니면 입금 대기로 두고 사유를 보여 준다
+  "POST /api/orders/:orderId/reject-deposit": (ctx) => {
+    const o = farmOrder(ctx);
+    const reason = String(ctx.body.reason ?? "").trim();
+    if (!reason) invalid({ reason: "사유를 적어 주세요" });
+    if (reason.length > 200) invalid({ reason: "사유는 200자까지예요" });
+    expireOverdue(ctx, (x) => x.orderId === o.orderId);
+    if (o.status !== "AWAITING_DEPOSIT")
+      conflict("INVALID_TRANSITION", "입금 대기 주문만 미승인할 수 있어요.", {
+        status: o.status,
+      });
+    if (ctx.body.cancel) {
+      cancelAwaiting(ctx, o, `입금 미승인 · ${reason}`);
+      o.depositIssue = null;
+    } else {
+      o.depositIssue = reason;
+      o.depositReportedAt = null;
+    }
+    return producerOrder(ctx.db, o);
+  },
+
+  // 환불 미승인(DEV-68): 아직 송금하지 못한 사유(필수). 송금 대기는 그대로
+  "POST /api/orders/:orderId/refund-issue": (ctx) => {
+    const o = farmOrder(ctx);
+    const reason = String(ctx.body.reason ?? "").trim();
+    if (!reason) invalid({ reason: "사유를 적어 주세요" });
+    if (reason.length > 200) invalid({ reason: "사유는 200자까지예요" });
+    if (o.status !== "REFUNDED")
+      conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.");
+    if (o.refundSettledAt)
+      conflict("INVALID_TRANSITION", "이미 환불을 마친 주문이에요.");
+    o.refundIssue = reason;
+    return producerOrder(ctx.db, o);
+  },
+
+  // 농가가 입금했던 계좌로 환불 송금을 마쳤다고 표시(AC-17-7)
+  "POST /api/orders/:orderId/refund-settled": (ctx) => {
+    const o = farmOrder(ctx);
+    if (o.status !== "REFUNDED")
+      conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.");
+    o.refundSettledAt ??= nowIso();
+    o.refundIssue = null;
+    return producerOrder(ctx.db, o);
+  },
 
   "GET /api/orders": (ctx) => {
     const uid = ctx.me().userId;
+    expireOverdue(ctx, (o) => o.consumerId === uid);
+    // 입금 전 취소·기한 만료(CANCELED)도 사유와 함께 보인다(DEV-68)
     const list = Object.values(ctx.db.orders)
-      .filter(
-        (o) =>
-          o.consumerId === uid &&
-          o.status !== "PENDING_PAYMENT" &&
-          o.status !== "CANCELED",
-      )
+      .filter((o) => o.consumerId === uid && o.status !== "PENDING_PAYMENT")
       .sort(
         (a, b) =>
           Number(SORT_ACTION(b)) - Number(SORT_ACTION(a)) ||
@@ -204,6 +325,8 @@ register({
 
   "GET /api/orders/producer/dashboard": (ctx): Dashboard => {
     const u = ctx.me();
+    expireOverdue(ctx, (o) => farmProductIds(ctx).has(o.productId));
+    const farm = u.farmId ? ctx.db.farms[u.farmId] : null;
     const products = Object.values(ctx.db.products).filter(
       (p) => p.farmId === u.farmId,
     );
@@ -223,6 +346,13 @@ register({
         toShip: farmOrders.filter((o) => o.status === "PREPARING").length,
         pendingProducts: products.filter((p) => p.status === "PENDING_APPROVAL")
           .length,
+        awaitingDeposit: farmOrders.filter((o) => o.status === "AWAITING_DEPOSIT")
+          .length,
+        refundsToSettle: farmOrders.filter(
+          (o) => o.status === "REFUNDED" && !o.refundSettledAt,
+        ).length,
+        hasAccount:
+          !!farm?.bankName && !!farm.accountNumber && !!farm.accountHolder,
       },
       product: main
         ? {
@@ -270,11 +400,14 @@ register({
 
   "GET /api/orders/producer": (ctx) => {
     const u = ctx.me();
+    expireOverdue(ctx, (o) => farmProductIds(ctx).has(o.productId));
     const list = Object.values(ctx.db.orders)
       .filter(
         (o) =>
           ctx.db.products[o.productId]?.farmId === u.farmId &&
-          o.status !== "PENDING_PAYMENT",
+          o.status !== "PENDING_PAYMENT" &&
+          // 돈을 낸 적 없이 끝난 취소는 생산자 목록에서 뺀다(R-15)
+          !(o.status === "CANCELED" && !o.paidAt),
       )
       .filter((o) => !ctx.query.status || o.status === ctx.query.status)
       .filter(
@@ -322,11 +455,26 @@ register({
     return producerOrder(ctx.db, o);
   },
 
-  "GET /api/orders/:orderId": (ctx) => order(ctx.db, myOrder(ctx)),
+  "GET /api/orders/:orderId": (ctx) => {
+    const o = myOrder(ctx);
+    expireOverdue(ctx, (x) => x.orderId === o.orderId);
+    return order(ctx.db, o);
+  },
 
   "POST /api/orders/:orderId/cancel": (ctx) => {
     const o = myOrder(ctx);
-    if (o.status === "REFUNDED" && !o.shippedAt) return order(ctx.db, o);
+    expireOverdue(ctx, (x) => x.orderId === o.orderId);
+    if ((o.status === "REFUNDED" || o.status === "CANCELED") && !o.shippedAt)
+      return order(ctx.db, o);
+    if (o.status === "AWAITING_DEPOSIT") {
+      // 입금 전 취소: 돈이 없으므로 환불 없이 물량만 돌려준다(DEV-68 결정 5)
+      cancelAwaiting(
+        ctx,
+        o,
+        `${Number(TODAY.slice(5, 7))}월 ${Number(TODAY.slice(8, 10))}일 직접 취소(입금 전)`,
+      );
+      return order(ctx.db, o);
+    }
     if (o.status !== "RESERVED" && o.status !== "PREPARING")
       conflict("INVALID_TRANSITION", "출하 후에는 취소할 수 없어요.", {
         order: order(ctx.db, o),

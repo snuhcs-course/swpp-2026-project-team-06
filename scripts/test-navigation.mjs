@@ -101,6 +101,7 @@ test("AC-12-9: cancelled lists stop fetching and failed pages never return a par
 test("AC-10-6/7: purchase-status tabs partition orders, prioritize actions, and move after confirmation/refund", async () => {
   const expected = {
     PENDING_PAYMENT: null,
+    AWAITING_DEPOSIT: "pending",
     RESERVED: "pending",
     PREPARING: "pending",
     SHIPPED: "pending",

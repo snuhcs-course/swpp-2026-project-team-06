@@ -79,6 +79,8 @@ export default function Checkout() {
     params.changed ? "예약 기간 또는 가격이 바뀌었어요" : null,
   );
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
+  // 입금 안내(물량 선점)도 멱등 키로 한 번만(AC-09-3)
+  const [depositKey, setDepositKey] = useState(newIdempotencyKey);
   const [saveAddress, setSaveAddress] = useState(false);
   const toast = useToast();
   const addressHref = {
@@ -180,6 +182,8 @@ export default function Checkout() {
         },
         idemKey,
       );
+      // DEV-68: 주문을 만든 뒤 바로 입금 안내를 받는다(물량 선점, 입금 대기)
+      await orders.deposit(o.orderId, depositKey);
       router.push({
         pathname: "/checkout/[productId]/pay",
         params: {
@@ -194,6 +198,7 @@ export default function Checkout() {
         // 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받는다
         setConflictMsg(e.message);
         setIdemKey(newIdempotencyKey());
+        setDepositKey(newIdempotencyKey());
         await product.reload();
       } else if (e instanceof ApiError && e.details.fields) {
         setErrors(e.details.fields);
@@ -228,7 +233,7 @@ export default function Checkout() {
             : router.replace(`/products/${params.productId}`)
         }
       />
-      <TestBand text="테스트 서비스예요. 실제 결제·배송은 일어나지 않아요." />
+      <TestBand text="테스트 서비스예요. 실제 입금·배송은 일어나지 않아요." />
       <Scroll bottom={170}>
         {conflictMsg && p ? (
           <Notice
@@ -382,7 +387,7 @@ export default function Checkout() {
           </T>
         </Section>
 
-        <Section title="결제 전 확인">
+        <Section title="예약 전 확인">
           <Checkbox
             checked={allAgreed}
             label="모두 동의해요"
@@ -432,6 +437,12 @@ export default function Checkout() {
               {errors.consents}
             </T>
           ) : null}
+          {/* 통신판매중개자 고지·입금 안내(policy 2장, DEV-68) */}
+          <T variant="sub" muted>
+            예약하면 농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면
+            예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고, 상품·배송·환불의
+            책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
+          </T>
           <T variant="caption" muted>
             이용약관 · 개인정보 처리방침
           </T>
@@ -447,11 +458,11 @@ export default function Checkout() {
         summary={
           !recipient ? (
             <T variant="sub" style={{ flex: 1 }}>
-              받는 곳을 입력하면 결제할 수 있어요
+              받는 곳을 입력하면 예약할 수 있어요
             </T>
           ) : !allAgreed ? (
             <T variant="sub" style={{ flex: 1 }}>
-              4개 중 {agreed}개 동의했어요. 모두 동의하면 결제할 수 있어요.
+              4개 중 {agreed}개 동의했어요. 모두 동의하면 예약할 수 있어요.
             </T>
           ) : (
             `${opt?.label ?? ""} × ${qty} · ${remoteFee ? `도서산간 ${won(remoteFee)}` : shipping ? `배송비 ${won(shipping)}` : "무료배송"}`
@@ -461,7 +472,7 @@ export default function Checkout() {
       >
         <Button
           label={
-            conflictMsg && !p?.soldOut ? "바뀐 금액으로 결제하기" : "결제하기"
+            conflictMsg && !p?.soldOut ? "바뀐 금액으로 예약하기" : "예약하기"
           }
           disabled={!canPay}
           loading={busy}

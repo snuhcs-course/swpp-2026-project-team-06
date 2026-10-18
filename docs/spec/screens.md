@@ -166,11 +166,11 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-08(AC-08-1~5), FEAT-01(AC-01-1) · 규칙: R-03, R-06, R-17, R-20, R-23 · 정책 2장 · 우선순위: Must
 - **목적**: 옵션·수량·받는 곳을 확인하고 조건에 동의해 결제로 간다.
-- **화면 요소·데이터**: 상품 요약(썸네일 64, 옵션·수량, 지금 단계 가격, ‘변경’ → 옵션 시트), 받는 곳(저장한 기본 배송지 요약과 ‘변경’, 없으면 ‘받는 사람과 주소 입력’ → 배송지 입력 하위 화면), 배송 메모(선택), 금액(상품 금액 + 배송비 + 도서산간 추가금 = 합계), 결제 전 동의 4개(정책 2장)와 전체 동의, 하단 바 ‘결제하기’.
+- **화면 요소·데이터**: 상품 요약(썸네일 64, 옵션·수량, 지금 단계 가격, ‘변경’ → 옵션 시트), 받는 곳(저장한 기본 배송지 요약과 ‘변경’, 없으면 ‘받는 사람과 주소 입력’ → 배송지 입력 하위 화면), 배송 메모(선택), 금액(상품 금액 + 배송비 + 도서산간 추가금 = 합계), 예약 전 동의 4개(정책 2장)와 전체 동의, 그 아래 중개자 고지·입금 안내 문단(DEV-68), 하단 바 ‘예약하기’.
 - **입력**: `optionId`, `quantity`, `recipientName`, `recipientPhone`(휴대폰 형식), `postalCode`, `address`, 선택 `addressDetail`, `deliveryNote`(100자 이하), 동의 4개, `saveAddress`. 저장한 기본 배송지가 있으면 채워 두고 ‘다른 배송지’ 시트에서 저장 목록(최대 50개) 중 고르거나 새 주소를 넣는다(AC-08-5, `GET /api/auth/me/addresses`). 저장 배송지가 없으면 배송지 입력의 받는 사람·연락처를 가입 정보(이름·휴대폰)로 채운다. 50개가 찼으면 시트와 배송지 입력에 ‘이번 주문에만 쓰고 저장하지 않아요’를 보이고 저장 체크를 숨긴다. 가입 온보딩이 남은 계정이 열면 SCR-06으로 보낸다(AC-01-12).
-- **출력**: `POST /api/orders`(`Idempotency-Key`) → 결제 전 주문(`orderId`, `unitPrice`, `shippingFee`, `totalAmount`). 서버 합계를 보여주고 SCR-11로 간다.
-- **버튼 동작**: 옵션·수량·주소 변경 → 합계 미리보기 갱신. 결제하기 → 필수값·동의 검증 후 1회 요청, 처리 중 잠금. 뒤로 → SCR-04.
-- **빈 상태·오류**: 받는 곳이 없으면 결제하기를 끄고 ‘받는 곳을 입력하면 결제할 수 있어요’. 동의 누락 → 넘어가지 않음(AC-08-1). 409(기간/가격 변경·판매 중지·총 한도/기간 물량 소진·수량 초과) → 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받음. 네트워크 오류 → 입력 유지, 다시 시도.
+- **출력**: `POST /api/orders`(`Idempotency-Key`) → 결제 전 주문(`orderId`, `unitPrice`, `shippingFee`, `totalAmount`), 이어서 `POST /api/orders/{orderId}/deposit`(`Idempotency-Key`) → 물량 선점·입금 대기(`AWAITING_DEPOSIT`)·계좌·기한. 서버 합계를 보여주고 SCR-11로 간다.
+- **버튼 동작**: 옵션·수량·주소 변경 → 합계 미리보기 갱신. 예약하기 → 필수값·동의 검증 후 주문 생성과 입금 안내를 각 1회 요청, 처리 중 잠금. 뒤로 → SCR-04.
+- **빈 상태·오류**: 받는 곳이 없으면 예약하기를 끄고 ‘받는 곳을 입력하면 예약할 수 있어요’. 동의 누락 → 넘어가지 않음(AC-08-1). 409(기간/가격 변경·판매 중지·총 한도/기간 물량 소진·수량 초과) → 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받음. 네트워크 오류 → 입력 유지, 다시 시도.
 
 #### SCR-10 하위: 배송지 입력 `/checkout/:productId/address`
 
@@ -179,18 +179,18 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **입력·출력**: 필드 검증은 SCR-10과 같다. ‘이 주소로 받기’ → 값을 SCR-10에 채우고 돌아간다. ‘기본 배송지로 저장’이면 주문 때 `saveAddress`.
 - **빈 상태·오류**: 필드 아래 형식 오류. 닫기 → 입력 버리고 SCR-10.
 
-### SCR-11 결제(Mock) `/checkout/:productId/pay?orderId=`
+### SCR-11 입금 안내 `/checkout/:productId/pay?orderId=`
 
-- **관련**: FEAT-09(AC-09-1~3) · 규칙: R-01, R-02, R-06, R-13, R-17 · 우선순위: Must
-- **목적**: 주문 금액을 카드로 한 번에 낸다(I1 Mock).
-- **화면 요소·데이터**: 결제 금액, 카드 결제(Mock) 버튼, 데모용 성공·실패 선택, ‘테스트 서비스’ 표시.
-- **입력·출력**: `POST /api/orders/{orderId}/pay`(`Idempotency-Key`, `mockResult`: `success`·`fail`) → 성공이면 주문이 예약 완료, 실패면 사유.
-- **버튼 동작**: 결제 → 1회 요청, 처리 중 잠금. 성공 → SCR-12. 실패 → 사유와 다시 시도 또는 SCR-10.
-- **빈 상태·오류**: 결제 순간 물량 0(409) → 실패 처리, 품절 안내, SCR-10으로(AC-09-1). 응답을 못 받으면 같은 `Idempotency-Key`로 다시 보낸다(AC-09-3).
+- **관련**: FEAT-09(AC-09-2·3·7) · 규칙: R-01, R-02, R-28 · 정책 2·6장 · 우선순위: Must · 디자인: DEV-68 Before/After 보드
+- **목적**: 소비자가 농가 계좌로 주문 금액을 직접 입금할 수 있게 계좌·입금자명·기한을 안내한다(DEV-68). 이 화면은 돈을 받지 않는다. 경로 이름 `pay`는 링크 호환을 위해 유지한다.
+- **화면 요소·데이터**: ‘테스트 서비스’ 띠, 입금할 금액(큰 숫자)·상품 요약, 입금 정보 Row 목록(기존 주문 완료와 같은 부품, 순서·강조: **입금액** · **은행 계좌번호**+복사 · 예금주(농가명) · **입금자명**=주문 번호+복사 · 입금 기한 `depositDueAt`; 굵게는 이 셋만), 안내 ‘입금자명을 주문 번호로 적어야 농가가 주문을 찾아요. 기한이 지나면 자동 취소’, 판매자(농가명 · 대표자 · 지역 · 연락처, `sellerInfo`), ‘farmclub은 통신판매중개자’ 고지(Notice 부품), 구매안전서비스 고지 한 줄(13, 권유 없음), 하단 바 ‘입금을 마쳤어요’와 글자 버튼 ‘나중에 입금할게요’. ‘결제’라는 말은 쓰지 않는다.
+- **입력·출력**: `GET /api/orders/{orderId}`(`depositAccount`·`sellerInfo`·`depositDueAt`·`actions`). ‘입금을 마쳤어요’ → `POST /api/orders/{orderId}/deposit-reported`(`depositReportedAt` 기록, 상태는 그대로).
+- **버튼 동작**: 복사 → 토스트 ‘계좌번호를/입금자명을 복사했어요’. 입금을 마쳤어요 → 1회 요청 후 SCR-12. 나중에 입금할게요 → SCR-12. 뒤로 → 주문서(주문은 입금 대기로 남고 SCR-13·14에서 이어서 입금할 수 있다).
+- **빈 상태·오류**: 기한이 지나 취소된 주문(`CANCELED`)이면 주문서(SCR-10)로 돌려보내고 바뀐 물량으로 다시 확인받는다. 응답을 못 받으면 같은 `Idempotency-Key`로 다시 보낸다(AC-09-3). 농가 계좌가 없으면(409 `NO_FARM_ACCOUNT`) 주문서에서 안내한다.
 
-### SCR-12 주문 완료 `/orders/:orderId/done`
+### SCR-12 주문 접수·입금 확인 중 `/orders/:orderId/done`
 
-- **관련**: FEAT-09/06. 예약 완료·주문번호·상품/금액·배송 정보·팔로우 권유를 표시한다.
+- **관련**: FEAT-09/06, DEV-68. 입금 대기면 제목 ‘입금 확인 중’(아이콘은 기존 검정 체크 원 그대로)과 입금 정보 Row(입금액·계좌·예금주·입금자명·기한, 복사는 계좌번호·입금자명 2개)를 보여 주고, 그 아래는 상품·배송지만(주문 번호=입금자명, 합계=입금액이라 겹치는 줄은 뺀다). 입금이 확인된 뒤 열면 ‘예약 완료’와 주문 번호·상품·합계·배송지. 주문 번호 ‘복사’ 버튼은 없앤다(쓸 데가 없다). 팔로우 권유는 그대로.
 - **조회**: GET /api/orders/:id. 상세 실패 시 다시 시도.
 - **동작**: 팔로우 토글, 주문 내역 → SCR-13, 홈 → SCR-01. 소식방 입장 버튼은 없다.
 
@@ -198,7 +198,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-10(AC-10-1) · 탭: 내 주문(두 번째 탭) · 우선순위: Should
 - **목적**: 내 주문의 진행을 보고 할 일이 있는 주문을 찾는다.
-- **화면 요소·데이터**: 주문 카드(상품, 상태, 받는 시기, 합계). 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다.
+- **화면 요소·데이터**: 주문 카드(상품, 상태, 받는 시기, 합계). 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다. (DEV-68) 입금 대기 카드 제목은 ‘입금 확인 중 · 입금해 주세요’, 농가가 미승인하면 ‘입금 확인 안 됨 · 사유를 봐 주세요’. 환불 카드 부제는 ‘환불 송금 대기/송금 늦어짐(미승인)/완료’.
 - **입력·출력**: `GET /api/orders?cursor=&limit=`.
 - **버튼 동작**: 상태 탭 → 선택한 목록. 카드 → SCR-14. 제목·탭은 고정하고 목록만 스크롤한다.
 - **빈 상태·오류**: 전체 주문 없음 → ‘아직 예약한 상품이 없어요’와 홈으로. 선택한 탭만 비면 ‘{탭 이름} 주문이 없어요’. 로딩 중 건수는 —, 실패는 다시 시도와 기존 목록 유지.
@@ -207,9 +207,9 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-10(AC-10-1~3), FEAT-11(AC-11-1·2), FEAT-17(AC-17-2·5) · 규칙: R-05, R-07, R-14, R-21, R-24 · 우선순위: Should
 - **목적**: 상태·받는 시기를 보고 취소·구매 확정·기간 변경 응답을 한다.
-- **화면 요소·데이터**: 주문 번호·예약일, 상태 제목과 단계 막대(소비자 문구: 예약 완료 · 수확·포장 중 · 배송 중 · 배송 완료. 상태값 `RESERVED`·`PREPARING`·`SHIPPED`·`DELIVERED`는 그대로, 결정 33), 받는 시기(바뀌었으면 새 기간과 선택), 배송 중이면 ‘택배사 · 송장 번호 · 복사 · 배송 조회’, 상품(썸네일 64)·금액·받는 사람·배송 메모, 지금 할 수 있는 행동, 환불이면 사유.
+- **화면 요소·데이터**: 주문 번호·예약일, 상태 제목과 단계 막대(소비자 문구: 예약 완료 · 수확·포장 중 · 배송 중 · 배송 완료. 상태값 `RESERVED`·`PREPARING`·`SHIPPED`·`DELIVERED`는 그대로, 결정 33), 받는 시기(바뀌었으면 새 기간과 선택), 배송 중이면 ‘택배사 · 송장 번호 · 복사 · 배송 조회’, 상품(썸네일 64)·금액·받는 사람·배송 메모, 지금 할 수 있는 행동, 환불이면 사유. **입금 대기(`AWAITING_DEPOSIT`, DEV-68)**: 제목 ‘입금 확인 중’, 부제에 기한, 막대는 모두 비움, 그 아래 입금 정보 Row(계좌·예금주·입금자명·입금액, 복사)와 ‘입금을 마쳤어요’(아직 안 눌렀을 때) 또는 ‘입금했다고 알렸어요’ 문구. **환불됨**: 송금 전 ‘농가가 입금했던 계좌로 3영업일 안에 보내요’, 송금 뒤 ‘○월 ○일 환불 완료’(`refundSettledAt`). **취소됨(`CANCELED`)**: 기한 초과면 제목 ‘입금 기한이 지나 취소됐어요’, 사유 줄 `cancelReason`. (DEV-68) 농가 미승인 사유는 제목 아래 Notice로 보인다: 입금 대기 ‘농가가 입금을 확인하지 못했어요 · 사유’(다시 ‘입금했어요’ 가능), 환불 ‘환불 송금이 늦어지고 있어요 · 사유’. 미승인 취소는 ‘사유 · 입금 미승인 · …’.
 - **입력·출력**: `GET /api/orders/{orderId}`(`carrier`, `trackingNumber` 포함). 취소 `POST /api/orders/{orderId}/cancel`, 구매 확정 `POST /api/orders/{orderId}/confirm`, 기간 변경 응답 `POST /api/orders/{orderId}/delivery-window-response`.
-- **버튼 동작**: 취소 → 확인 시트 → 전액 환불(예약 완료·출하 준비만), 토스트 ‘예약을 취소했어요’. 구매 확정 → 배송 완료 후. 새 기간 동의 / 전액 환불 → 기록. 복사 → 송장 번호 복사. 배송 조회 → 택배사 조회 페이지를 새 창으로(택배사별 조회 주소는 앱이 둔다).
+- **버튼 동작**: 취소 → 확인 시트 → 전액 환불(예약 완료·출하 준비: 시트 문구 ‘농가가 입금했던 계좌로 3영업일 안에 보내요’) 또는 입금 대기면 환불 없이 즉시 취소(시트 문구 ‘아직 입금 전이라 바로 취소돼요’), 토스트 ‘예약을 취소했어요’. 입금을 마쳤어요 → `POST /api/orders/{orderId}/deposit-reported`. 구매 확정 → 배송 완료 후. 새 기간 동의 / 전액 환불 → 기록. 복사 → 송장 번호 복사. 배송 조회 → 택배사 조회 페이지를 새 창으로(택배사별 조회 주소는 앱이 둔다).
 - **빈 상태·오류**: 남의 주문 주소 → SCR-13. 409(이미 상태가 바뀜) → 최신 상태로 다시 그림. 배송 중 이후에는 취소 버튼이 없다(AC-11-2). 송장 번호가 없으면 택배사만, 배송 조회는 숨긴다. 결제 이력 주문은 ‘주문 문제 문의’ → SCR-32와 해당 농가 1:1 채팅을 제공한다.
 
 ### SCR-15 채팅 `/chats`
@@ -302,9 +302,9 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 ### SCR-22 현황 `/`
 
 - **관련**: FEAT-14, AC-14-1/2/3/4, R-15. 현황 탭.
-- **화면**: 농가명·오늘 날짜, 전체/예약/출하 준비/출하 2×2 큰 지표, 주문/배송 관리 버튼, 대표 상품 예약·출하 kg와 상품명. 채팅 정보·소식 작성·답변 진입 없음.
-- **조회**: producer orders 전체 cursor의 실제 건수(전체 판매 기간). dashboard의 대표 상품 kg를 별도 표시한다. 숫자는 한 줄.
-- **동작**: 전체·예약 → SCR-29 해당 조회, 출하 준비·출하 → 해당 관리. 예약 조회는 상태를 바꾸지 않는다.
+- **화면**: 농가명·오늘 날짜, 제목 아래 할 일 목록(DEV-68, 환경설정과 같은 ListRow: ‘입금 계좌를 등록해 주세요’(`hasAccount` false) / ‘입금 확인할 주문 n건’(`awaitingDeposit`) / ‘환불 보낼 주문 n건’(`refundsToSettle`)), 전체(입금 대기 포함)/예약 완료(입금 확인된 주문)/출하 준비/출하 2×2 큰 지표, 주문/배송 관리 버튼, 대표 상품 예약·출하 kg와 상품명. 채팅 정보·소식 작성·답변 진입 없음.
+- **조회**: producer orders 전체 cursor의 실제 건수(전체 판매 기간). dashboard의 `todo.awaitingDeposit`·`refundsToSettle`·`hasAccount`와 대표 상품 kg를 별도 표시한다. 숫자는 한 줄.
+- **동작**: 할 일 줄 → `/farm/account` 또는 SCR-29 `?status=AWAITING_DEPOSIT`·`REFUNDED`. 전체·예약 → SCR-29 해당 조회, 출하 준비·출하 → 해당 관리. 예약 조회는 상태를 바꾸지 않는다.
 - **상태**: 0건·상품 없음·로딩·오류 재시도. 배송 개인정보는 대시보드에 표시하지 않는다.
 
 ### SCR-23 상품 목록 `/products`
@@ -332,7 +332,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면 요소·데이터**: 상태와 반려 사유, 사진(첫 사진이 목록에서 잘려 보이는 104·64 미리보기), 기본 정보(상품명, 품종, 설명, 원산지, 보관 방법), 품질(예상·실측 당도, 등급), 중량 옵션·상품 최대 판매 박스 수·한 주문 최대 수량, 받는 시기(배송 예정 기간)와 최대 지연 기한(누르면 기간 선택 달력 시트), 배송비(무료·별도)·도서산간, 예약 기간·가격·물량 요약 줄, 판매/총 한도/잔여 요약, 판매 중지·재개, 하단 바 저장 + 게시 요청.
 - **입력·출력**: `GET /api/products/mine/{productId}`, 저장 `PATCH /api/products/{productId}`, 공급 승인 요청 `POST /api/products/{productId}/capacity-requests`. 판매 한도·한 주문 상한·중지는 `PUT /api/products/{productId}/sales-settings`(계약 2장).
 - **버튼 동작**: 저장 → 초안 유지. 예약 기간 설정으로 → SCR-26. 게시 요청 → 필수값·단계 가격이 모두 있을 때만 활성(AC-04-1) → 승인 대기. 판매 중 가격·옵션·기간 변경은 신규 주문부터 즉시 반영하고 기존 결제 주문은 보존한다(R-25).
-- **빈 상태·오류**: 빠진 항목 수(‘빈 칸 n개를 채우면 게시를 요청할 수 있어요’)와 칸별 오류 표시. 저장 실패 → 입력 유지. 나가기 전 저장하지 않은 변경이 있으면 확인 시트. 예약이 있는 상품의 배송 예정 기간을 바꾸면 주문자 동의·환불 안내 시트(R-21). 저장 성공 → 토스트.
+- **빈 상태·오류**: 빠진 항목 수(‘빈 칸 n개를 채우면 게시를 요청할 수 있어요’)와 칸별 오류 표시. 저장 실패 → 입력 유지. 나가기 전 저장하지 않은 변경이 있으면 확인 시트. 예약이 있는 상품의 배송 예정 기간을 바꾸면 주문자 동의·환불 안내 시트(R-21). 저장 성공 → 토스트. (DEV-68) 입금 계좌가 없는 농가의 첫 공급 승인 요청은 409 `NO_FARM_ACCOUNT` → 물량·판매 설정(P16)의 확인 시트 안에 오류 문구 ‘입금 계좌를 먼저 등록해 주세요. 소비자가 그 계좌로 직접 입금해요. (환경설정 › 농가 프로필 › 입금 계좌)’. 별도 화면 없음.
 
 ### SCR-26 예약 기간·가격·물량 `/products/:id/stages`
 
@@ -362,22 +362,30 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 #### SCR-28 하위: 1:1 채팅 `/chats/:consumerId`
 - 대화 내부 AI 표시/근거·HUMAN 전환·AI 다시 켜기·주문 문의 해결/재열기는 기존 계약 유지. `WRONG_ANSWER` escalation은 코드 대신 “소비자가 AI 답변을 신고했어요” 한국어 레이블로 표시한다. 읽는 것만으로 해결하지 않는다. 실패 시 입력 유지.
 
-### SCR-29 출하 처리 `/ship`
+### SCR-29 주문·출하 처리 `/ship`
 
-- **관련**: FEAT-17, AC-17-2/3/4/5/6, R-07/15/19.
-- **화면**: 전체/예약/출하 준비/출하 조회, 주문번호·받는 사람·배송 정보, 준비 주문 선택·택배사/송장 시트·출하 확인. 수확 시작 UI/확인/완료 없음.
-- **조회**: GET /api/orders/producer 전체 cursor. 예약은 조회만, 자동 전이 없음. 기존 PREPARING 주문에만 송장·출하 동작을 제공한다.
-- **동작**: 송장 저장은 로컬 편집·선택, 출하 확인 후 주문별 POST /api/orders/:id/ship. 기존 harvest-start 서버 API는 유지하지만 현재 프론트에서 호출하지 않는다. 배송 완료 변경 권한은 없다.
+- **관련**: FEAT-17, AC-17-2/3/4/5/6/7/8, FEAT-09 AC-09-8/9, R-07/15/19/28 · 디자인: DEV-68 보드, Figma 「현재 시안 · 생산자」 DEV-68 줄.
+- **화면**: 전체/입금 대기/예약/출하 준비/출하/환불 탭(가로 스크롤), 주문번호·받는 사람·배송 정보, 준비 주문 선택·택배사/송장 시트·출하 확인. 수확 시작 UI/확인/완료 없음. **입금 대기 줄(DEV-68)**: 주문 번호·기한, 이름·옵션, 입금액·입금자명(=주문 번호), ‘소비자가 입금했다고 알렸어요’ 줄(`depositReportedAt`), 미승인했던 줄은 ‘미승인 사유: …’(`depositIssue`). 배송지는 보여 주지 않는다(R-15). **환불 줄**: 입금액·‘입금했던 계좌로 돌려보내요’, 미승인했던 줄은 ‘미승인 사유: …’(`refundIssue`), 송금을 마친 줄은 ‘○월 ○일 송금 완료’. **두 줄 모두** 아래에 기존 버튼 한 쌍 ‘미승인’(secondary) 1 : ‘승인’(primary) 2. 확인 창·시트 없이 승인은 바로 처리. 미승인은 그 줄 안에 펼쳐진다: (입금만) ‘미승인하면’ 아래 ‘입금 대기로 두기’/‘주문 취소’ 고르기, ‘미승인 사유’ 아래 Radio 줄 4개(로그인 계정 고르기와 같은 부품: 사유 3개 + ‘직접 입력’, 하나만 켜짐, 다시 누르면 꺼짐). ‘직접 입력’을 켜면 그 아래 라벨 없는 입력 칸(필수, 200자)이 바로 열린다. 사유를 고르지 않았거나 직접 입력이 비면 ‘미승인’을 누를 수 없다. ‘닫기’ 1 : ‘미승인’(취소를 고르면 ‘미승인 · 주문 취소’) 2. 탭 아래 안내 문구는 탭마다 다르다(입금 대기: 통장 대조 뒤 누르기·24시간 자동 취소, 환불: 입금했던 계좌로 보내기).
+- **조회**: GET /api/orders/producer 전체 cursor(`totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt` 포함). 조회 시점에 기한 지난 입금 대기는 서버가 취소한다. 예약은 조회만, 자동 전이 없음. 기존 PREPARING 주문에만 송장·출하 동작을 제공한다.
+- **동작**: 입금 승인 → POST /api/orders/:id/confirm-deposit, 환불 승인 → POST /api/orders/:id/refund-settled, 입금 미승인 → POST /api/orders/:id/reject-deposit `{reason, cancel}`, 환불 미승인 → POST /api/orders/:id/refund-issue `{reason}` → 토스트, 목록 갱신. 409면 최신 상태로 다시 그린다. 송장 저장은 로컬 편집·선택, 출하 확인 후 주문별 POST /api/orders/:id/ship. 기존 harvest-start 서버 API는 유지하지만 현재 프론트에서 호출하지 않는다. 배송 완료 변경 권한은 없다.
 - **상태**: 없음·로딩·오류 재시도, 부분 실패/409는 성공분 보존·실패분 재시도. 배송 완료 주문 개인정보는 서버 마스킹 유지.
 
 ### SCR-30 농가 프로필·링크 `/farm`
 
 - **관련**: FEAT-02(AC-02-1·2), FEAT-19(AC-19-1~3) · 진입: 환경설정(SCR-33) · 우선순위: Should
 - **목적**: 프로필을 고치고 농가 링크를 단골에게 보낸다.
-- **화면 요소·데이터**: 농가 링크(글자 한 줄 + 복사·보내기), 프로필 미리보기(대표 사진과 ‘사진 바꾸기’, 농가명, 지역 · 팔로워 수), 항목 줄(농가 이름·지역·소개 ›), ‘소비자 앱에서 내 농가 보기 ›’.
-- **입력·출력**: `GET`·`PATCH /api/farms/me`. 링크는 응답의 `shareUrl`(`/s/farms/{farmId}`).
+- **화면 요소·데이터**: 농가 링크(글자 한 줄 + 복사·보내기), 프로필 미리보기(대표 사진과 ‘사진 바꾸기’, 농가명, 지역 · 팔로워 수), 항목 줄(농가 이름·지역·소개·입금 계좌 ›; 계좌가 없으면 값 자리에 오류색 ‘계좌를 등록해 주세요’, DEV-68), 안내 ‘소비자가 예약할 때 입금 계좌로 직접 입금해요. 계좌가 없으면 상품 승인을 요청할 수 없어요’, ‘소비자 앱에서 내 농가 보기 ›’.
+- **입력·출력**: `GET`·`PATCH /api/farms/me`(`bankName`·`accountNumber`·`accountHolder` 포함). 링크는 응답의 `shareUrl`(`/s/farms/{farmId}`).
 - **버튼 동작**: 복사 → 토스트 ‘링크를 복사했어요’. 보내기 → 휴대폰 공유 창. 항목 줄 → 하위 화면. 사진 바꾸기 → 사진 고르기 → 저장. 소비자 앱에서 내 농가 보기 → 소비자 앱 SCR-03.
 - **빈 상태·오류**: 승인 전에는 링크를 보여주지 않는다.
+
+#### SCR-30 하위: 입금 계좌 `/farm/account` (DEV-68)
+
+- **목적**: 소비자가 직접 입금할 농가 계좌를 등록·수정한다. 가입 신청(SCR-20)에는 넣지 않고 승인 뒤 여기서 등록한다. 작업 화면이라 탭 바를 숨긴다.
+- **화면 요소·데이터**: 48 바(뒤로 + ‘입금 계좌’), 입력 16 세 칸(은행 · 계좌번호(숫자·하이픈) · 예금주), 예금주가 대표자 이름과 다르면 안내 한 줄, 안내 ‘입금 확인은 농가가 직접 해요. farmclub은 이 계좌로 돈을 받거나 보내지 않아요’, 하단 ‘저장’ 56.
+- **입력·출력**: `PATCH /api/farms/me`(세 칸을 함께). 계좌번호는 숫자·하이픈 6~32자. 하나라도 비면 저장하지 않고 칸 아래 오류.
+- **버튼 동작**: 저장 → 검증 후 저장, 토스트 ‘입금 계좌를 저장했어요’, SCR-30.
+- **빈 상태·오류**: 실패 → 입력 유지. 계좌 없는 농가는 상품 초기 승인 요청에서 409 `NO_FARM_ACCOUNT`(SCR-25 물량 설정에 ‘환경설정 › 농가 프로필 › 입금 계좌’ 안내).
 
 #### SCR-30 하위: 프로필 항목 고치기 `/farm/edit/:field`
 
@@ -473,8 +481,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `PUT /api/farms/{farmId}/follow` | 소비자 | SCR-03, 12 | — | 팔로우 상태, 팔로워 수 | FEAT-06 | Must |
 | `DELETE /api/farms/{farmId}/follow` | 소비자 | SCR-03, 17 | — | 팔로우 상태, 팔로워 수 | FEAT-06 | Must |
 | `GET /api/farms/following` | 소비자 | SCR-17 | `cursor`, `limit` | 팔로우한 농가 목록 | FEAT-06 | Should |
-| `GET /api/farms/me` | 생산자 | SCR-30 | — | 내 농가 프로필, `shareUrl` | FEAT-02, 19 | Should |
-| `PATCH /api/farms/me` | 생산자 | SCR-30(하위 화면 포함) | 농가명, 지역, 소개, 대표 사진 중 바꿀 필드 | 저장된 프로필 | FEAT-02 | Should |
+| `GET /api/farms/me` | 생산자 | SCR-30 | — | 내 농가 프로필, `shareUrl`, 입금 계좌 세 칸(`bankName`·`accountNumber`·`accountHolder`, DEV-68) | FEAT-02, 19 | Should |
+| `PATCH /api/farms/me` | 생산자 | SCR-30(하위 화면 포함) | 농가명, 지역, 소개, 대표 사진 중 바꿀 필드, 입금 계좌 세 칸(함께) | 저장된 프로필 | FEAT-02, 09 | Should |
 | `GET /s/farms/{farmId}` | 공개 | (카톡 미리보기) | — | OG 태그 HTML → 소비자 앱 `/farms/{farmId}` | FEAT-19 | Should |
 
 **catalog** (`/api/products`)
@@ -496,14 +504,17 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `POST /api/orders` | 소비자, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 4개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT` | FEAT-08 | Must |
-| `POST /api/orders/{orderId}/pay` | 소비자, `Idempotency-Key` | SCR-11 | `mockResult`(`success`·`fail`) | 성공: `RESERVED`, 결제일. 실패: 사유. 물량 0이면 409 `SOLD_OUT` | FEAT-09 | Must |
+| `POST /api/orders/{orderId}/deposit` | 소비자, `Idempotency-Key` | SCR-10 → 11 | — | 물량 선점 후 `AWAITING_DEPOSIT`, `depositAccount`·`sellerInfo`·`depositDueAt`(안내 시각 + 24시간). 물량 0이면 409 `SOLD_OUT`, 계좌 없으면 409 `NO_FARM_ACCOUNT` (DEV-68) | FEAT-09 | Must |
+| `POST /api/orders/{orderId}/deposit-reported` | 소비자(본인) | SCR-11, 14 | — | `depositReportedAt` 기록, 상태 그대로. 입금 대기가 아니면 409 | FEAT-09 | Should |
+| `POST /api/orders/{orderId}/confirm-deposit` | 생산자(자기 농가) | SCR-29 | — | `RESERVED`, 결제일(=확인 시각), `Payment` 생성. 이미 확인됐으면 그대로(멱등). 입금 대기가 아니면 409 `INVALID_TRANSITION`, 남의 농가 404 | FEAT-09 | Must |
+| `POST /api/orders/{orderId}/refund-settled` | 생산자(자기 농가) | SCR-29 | — | 환불 송금 완료 시각(`refundSettledAt`). 환불 주문이 아니면 409 | FEAT-17 | Should |
 | `GET /api/orders` | 소비자 | SCR-13 | `cursor`, `limit` | 내 주문 목록(할 일 먼저) | FEAT-10 | Should |
-| `GET /api/orders/{orderId}` | 소비자(본인) | SCR-12, 14 | — | 주문, 상품 요약, 상태, 받는 시기, `carrier`·`trackingNumber`, 할 수 있는 행동 | FEAT-10 | Must |
-| `POST /api/orders/{orderId}/cancel` | 소비자(본인) | SCR-14 | — | `REFUNDED`, 환불 기록. 출하 후면 409 | FEAT-11 | Should |
+| `GET /api/orders/{orderId}` | 소비자(본인) | SCR-11, 12, 14 | — | 주문, 상품 요약, 상태, 받는 시기, `carrier`·`trackingNumber`, 할 수 있는 행동(`reportDeposit` 포함), 입금 대기 이후면 `depositAccount`·`sellerInfo`·`depositDueAt`·`depositReportedAt`, `cancelReason`·`refundSettledAt`. 기한 지난 입금 대기는 조회 시점에 취소된다 | FEAT-10 | Must |
+| `POST /api/orders/{orderId}/cancel` | 소비자(본인) | SCR-14 | — | 입금 대기면 `CANCELED`(환불 없음, 물량 복구). 예약 완료·출하 준비면 `REFUNDED`, 환불 기록. 출하 후면 409 | FEAT-11, 09 | Should |
 | `POST /api/orders/{orderId}/confirm` | 소비자(본인) | SCR-14 | — | `COMPLETED`, 구매 확정일 | FEAT-10 | Should |
 | `POST /api/orders/{orderId}/delivery-window-response` | 소비자(본인) | SCR-14 | `choice`(`accept`·`refund`) | 바뀐 주문 | FEAT-10 | Should |
-| `GET /api/orders/producer/dashboard` | 생산자 | SCR-22 | — | 할 일 수, 상품별 `reservedCount`·주문 수, 단계·옵션별 예약 수량과 남은 물량, 최근 주문(이름 앞 글자) | FEAT-14 | Must |
-| `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(배송 완료 전만 배송 정보), `carrier`·`trackingNumber` | FEAT-14, 17 | Should |
+| `GET /api/orders/producer/dashboard` | 생산자 | SCR-22 | — | 할 일 수(`awaitingDeposit`·`refundsToSettle`·`hasAccount` 포함), 상품별 `reservedCount`·주문 수, 단계·옵션별 예약 수량과 남은 물량, 최근 주문(이름 앞 글자) | FEAT-14 | Must |
+| `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(입금 대기 포함, 배송 완료 전·입금 후만 배송 정보), `carrier`·`trackingNumber`, `totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt` | FEAT-14, 17 | Should |
 | `POST /api/orders/producer/harvest-start` | 생산자 | SCR-29 | `productId` | 출하 준비로 바뀐 주문 수 | FEAT-17 | Should |
 | `POST /api/orders/{orderId}/ship` | 생산자(자기 농가) | SCR-29 | `carrier`(선택, 택배사 코드 7.1), `trackingNumber`(선택, 50자 이하). 여러 건은 주문마다 호출 | `SHIPPED`, 출하일, 택배사·송장. 출하 준비가 아니면 409 `INVALID_TRANSITION` | FEAT-17 | Should |
 
@@ -534,6 +545,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/approve` | 운영자 | version | 공급 총중량 승인. 1.4 계약 | FEAT-04, R-25 | Must |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/reject` | 운영자 | version,reason | 신청 반려, 기존 판매 유지 | FEAT-04 | Must |
 | `POST /admin/orders/{orderId}/delivered` | 운영자, `Idempotency-Key` | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
+| `POST /admin/orders/{orderId}/confirm-deposit` | 운영자, `Idempotency-Key` | — | 생산자 대신 입금 확인 → `RESERVED` (DEV-68) | FEAT-09, R-28 | Should |
+| `POST /admin/orders/expire-deposits` | 운영자 | — | 기한 지난 입금 대기 주문을 일괄 취소·물량 복구, 바뀐 수 | FEAT-09, R-28 | Should |
 | `POST /admin/orders/{orderId}/refund` | 운영자, `Idempotency-Key` | `amount?`(없으면 결제 잔액 전액), `reason` | 환불 이력. 부분 환불은 주문 상태·환불 필드를 유지하고 결제만 `PARTIALLY_REFUNDED`; 최종 전액은 주문·결제 `REFUNDED` | R-11, R-12 | Should |
 | `GET /admin/orders/{orderId}/refunds` | 운영자 | — | 금액·사유·actor·시각 환불 이력(최신순) | R-11, R-12 | Should |
 | `GET /admin/exceptions`·`GET /admin/exceptions/{id}` | 운영자 | `status?`, `type?`, `cursor?`, `limit?` | 정제된 운영자 예외 목록·상세 | M01~M03, M07 | Should |
@@ -582,6 +595,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 날짜 | 버전 | 내용 |
 | --- | --- | --- |
+| 2026-10-18 | 1.7 | DEV-68: 무통장 입금(농가 계좌 직접). SCR-10 ‘예약하기’·중개자 고지, SCR-11 입금 안내, SCR-12 입금 확인 중, SCR-14 입금 대기·만료·환불 송금, SCR-22 할 일 목록(ListRow), SCR-29 입금 대기·환불 탭과 입금 확인·환불 완료 시트, 새 부품 없이 기존 Figma v6 부품만, SCR-30 하위 입금 계좌. API: `/pay` 삭제, `deposit`·`deposit-reported`·`confirm-deposit`·`refund-settled`, 관리 `confirm-deposit`·`expire-deposits`, `farms/me` 계좌 |
 | 2026-10-07 | 1.3 | DEV-3: 세 번째 채팅·내 주문·환경설정 SCR-33·상품 그룹·소식 작성 진입. API 1.2 유지 |
 | 2026-10-07 | 1.2 | DEV-3·DEV-4: 상품 총 한도·판매 중지, 날짜 가격, 소식방·생산자 전체 1:1, AI 설정(SCR-31), 주문 문제 문의(SCR-32), 권한·동시성 계약. 문서만 변경 |
 | 2026-10-07 | 1.1 | SWPP-81: 확정 디자인과 동기화(결정 22~37). 소비자·생산자 계정 분리와 앱별 로그인(SCR-19 새 절, ADR 0010), 하위 화면 경로(배송지 입력·배송지 관리·정지 안내·소비자별 채팅·프로필 항목 고치기), `reservedCount`·`brixRecordCount`·`carrier`, 상품 상세 최신 소식 제거, 홈 농가 둘러보기, 관문 시트, 크기·토스트 규칙. 화면 26개, API 57개(그대로) |

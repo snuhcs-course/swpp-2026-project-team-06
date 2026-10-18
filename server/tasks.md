@@ -1067,12 +1067,82 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
 - 작업: [x] 두 워크플로 조건·environment [x] Environment `production`(main 전용) 생성 [x] README [x] actionlint [ ] 토큰 이동(사람)
 - 검증: `actionlint` 두 파일 통과. 머지 뒤 main 배포가 environment 아래에서 정상 동작하는지 확인 예정.
 
+## DEV-60 농가 목록·검색과 팔로우 목록 API
+- 이슈: [DEV-60](https://linear.app/sswp6/issue/DEV-60) (GitHub [#122](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/122))
+- 브랜치: `nemodleo/dev-60-dev-add-get-apifarms-and-get-apifarmsfollowing-consumer-farm`
+- 기능·인수 조건: FEAT-06 / AC-06-1, AC-06-3 · screens.md 7.2 farms(`GET /api/farms`, `GET /api/farms/following`)
+- 상태: 리뷰 중
+- 목표: Mock에만 있던 두 경로가 서버에 없어 소비자 앱 검색(SCR-02)과 내 정보 팔로우 목록(SCR-17)이 실서버에서 404. 스펙 표대로 서버에 추가한다.
+- 범위(수정 허용 경로): `server/app/farms/{router,service}.py`, `server/tests/test_farms.py`, `server/app/farms/spec.md`, `server/tasks.md`. 앱·Mock·docs/spec 변경 없음(표에 이미 있음)
+- 결정 사항:
+  - 10/17 고정 경로 두 개를 `/{farm_id}` 앞에 둔다. 페이지는 orders 라우터와 같은 offset cursor.
+  - 10/17 검색은 Mock과 같은 부분 일치(농가명·지역·주 품목·판매 중 상품명). 품종은 상품 카드에 없어 제외.
+  - 10/17 팔로우 목록은 최근 팔로우가 위, 승인 취소(SUSPENDED 등) 농가는 뺀다.
+- 작업: [x] 서비스·라우터 [x] pytest 4개 [x] Ruff [x] 실서버에서 내 정보·검색 화면 확인
+- 검증: Ruff 통과, 전체 pytest 214개 통과(신규 4개). 로컬 실서버에서 `/api/farms`(정렬·검색)·`/api/farms/following`(401/200) 확인, 소비자 앱 `/farms`·`/me` 렌더링 확인.
+- 10/18 main(a7e41db) 병합: 충돌은 `server/tasks.md`(섹션 추가끼리, 둘 다 유지)뿐. `/farms` 아래 다른 고정 경로 추가 없음. Ruff check 통과, 전체 pytest 332개 통과(별도 DB `farmclub_dev60`; 공용 `farmclub` DB에 다른 브랜치 테이블이 있어 drop 실패), typecheck 4 workspace 통과, 실서버 API 시나리오 7개 통과. Playwright는 다른 세션의 Expo가 `[::1]:8081`을 쓰고 있어 로컬에서는 돌리지 못했고 CI integration으로 확인.
+
+## DEV-68 무통장 입금(소비자 → 농가 계좌 직접): 생산자 계좌·입금 대기·입금 확인·환불 송금
+
+- 이슈: [DEV-68](https://linear.app/sswp6/issue/DEV-68)
+- 브랜치: `nemodleo/dev-68-dev-무통장-입금소비자-농가-계좌-직접-생산자-계좌`
+- 기능·인수 조건: FEAT-09(개정, AC-09-1·2·3·7·8), FEAT-14, FEAT-17(AC-17-7·8) / 규칙 R-01·R-02·R-13 개정, R-28 신설
+- 상태: 진행 중 (2026-10-18 박현 제안 승인 → 스펙·구현)
+
+### 목표
+PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생산자가 통장과 대조해 앱에서 입금을 확인한다. farmclub은 통신판매중개자로 돈을 만지지 않는다.
+
+### 범위 (수정 허용 경로)
+- `server/app/orders/**` (모델·스키마·서비스·라우터·spec.md)
+- `server/app/farms/**` (Farm 계좌 3칸, MyFarm·FarmPatch)
+- `server/app/catalog/service.py` (계좌 없는 농가 초기 승인 요청 차단 한 곳)
+- `server/app/core/config.py` (`deposit_deadline_hours`), `server/app/core/seed.py` (농가 계좌·입금 대기 주문 시드)
+- `server/migrations/versions/0014_*.py`
+- `server/tests/test_orders.py`, `server/tests/test_farms.py`
+- `docs/spec/**`, `docs/wiki/**` (스펙·영문 동기화)
+
+### 비범위 (건드리지 않음)
+- PortOne·카드 코드(#124 DEV-36, #120 DEV-37 브랜치). 계좌조회 API 자동 매칭, 수수료 정산, 알림(FEAT-18).
+- `server/app/admin/**` 감사 구조(관리 API는 orders admin_router에 추가만).
+
+### 결정 사항
+- 10/18 상태 `AWAITING_DEPOSIT` 신설. `PENDING_PAYMENT`(동의만) → `POST /orders/{id}/deposit`(멱등, 물량 선점) → `AWAITING_DEPOSIT` → 생산자/운영자 `confirm-deposit` → `RESERVED`(`paid_at`=확인 시각). 기존 `/pay`·`mockResult` 삭제.
+- 10/18 입금자명 = `order_no`. 금액 변형 없음. 주문 번호 형식 `FC-MMDD-NNNN`은 유지하고 NNNN만 연번 대신 무작위 4자리(소비자가 거래 건수를 못 세게, 박현 결정 10/18). 시드·Mock·문서도 같은 형식.
+- 10/18 디자인은 새 요소 없이 기존 앱(Figma v6) 부품·패턴만 쓴다(박현): 입금 정보는 면색 카드 대신 기존 Row 목록, 복사는 글자 버튼, 고지는 Notice, 주문 접수 아이콘은 기존 검정 체크 원, 생산자 줄의 동작은 버튼 대신 기존 ‘… ›’ 글자 링크, 현황 할 일은 ListRow. 기한 `deposit_due_at = 안내 시각 + DEPOSIT_DEADLINE_HOURS(24)`.
+- 10/18 만료는 지연 검사(소비자 조회·취소, 생산자 목록·확인 시점에 `expire_overdue_deposits`) + `POST /admin/orders/expire-deposits` 일괄. 만료 주문 `CANCELED`, `cancel_reason="입금 기한 초과"`, 물량 해제.
+- 10/18 소비자 `POST /orders/{id}/deposit-reported` → `deposit_reported_at`(힌트). 입금 대기 취소 → `CANCELED`(환불 없음), 물량 해제.
+- 10/18 환불은 입금했던 계좌로 농가가 송금. `Refund.settled_at`, 생산자 `POST /orders/{id}/refund-settled`. `Payment.method=BANK_TRANSFER`, `provider=FARM_ACCOUNT`.
+- 10/18 박현 피드백: 입금·환불 확인 창(시트)을 없애고 줄에서 바로 ‘미승인’ 1 : ‘승인’ 2. 미승인은 사유 필수(소비자에게 그대로 보임). 입금 미승인은 ‘입금 대기로 두기’(사유 표시, 소비자가 다시 입금했어요 가능) 또는 ‘주문 취소’(`입금 미승인 · 사유`, 물량 해제)를 생산자가 고른다. 환불 미승인은 송금 대기 유지 + 사유(계좌 확인·연락 중·환불 대상 아님 등 바로 고르기 + 직접 입력). AC-09-9·AC-17-8 신설. 서버: `POST /orders/{id}/reject-deposit {reason, cancel}`, `POST /orders/{id}/refund-issue {reason}`, 마이그레이션 0015(`orders.deposit_issue·deposit_issue_at·refund_issue·refund_issue_at`), OrderView·ProducerOrder `depositIssue`·`refundIssue`.
+- 10/18 Farm `bank_name`·`account_number`·`account_holder`·`account_updated_at`. 계좌 없으면 `create_capacity_request` INITIAL에서 409 `NO_FARM_ACCOUNT`. 소비자 `OrderView.depositAccount`·`sellerInfo`는 본인 주문에서만.
+
+### 작업
+- [x] 마이그레이션 0014: farms 계좌 4칸, orders `deposit_due_at`·`deposit_reported_at`·`deposit_confirmed_by`·`cancel_reason`, refunds `settled_at`
+- [x] orders: `deposit`·`deposit_reported`·`confirm_deposit`·`refund_settled`·`expire_overdue_deposits`, 상태 전이·물량, OrderView/ProducerOrder/Dashboard 필드
+- [x] farms: MyFarm·FarmPatch 계좌, 검증(숫자·하이픈 6~32자)
+- [x] catalog: 계좌 없는 초기 승인 요청 409
+- [x] admin: `confirm-deposit`, `expire-deposits`
+- [x] 시드: 농가 계좌 4곳 (입금 대기 주문 시드는 넣지 않음 — 대시보드·e2e 건수 기준이 바뀌지 않게, 테스트가 직접 만든다)
+- [x] pytest: AC-09-1(동시 마지막 물량, deposit), AC-09-2(입금 대기 취소 물량 복구), AC-09-3(멱등), AC-09-7(만료), AC-09-8(입금 확인), AC-17-7(환불 송금 완료), 계좌 없는 승인 요청
+- [x] docs/spec·wiki 개정(rules·FEAT-09·14·17·policy·screens·ia·tech-design·R&S·Design-Documentation)
+- [x] 농가 미승인: reject-deposit·refund-issue, 0015, pytest AC-09-9·AC-17-8
+
+### 완료 조건
+- [ ] 생산자 계좌 등록·수정 API, 소비자 입금 안내 응답, 입금 확인 → RESERVED, 24시간 만료 자동 취소, 환불 송금 완료 표시
+- [ ] pytest 통과, Mock·통합 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 제안·Before/After 보드 https://claude.ai/artifact/Pfj8bHERB3FXqH4iD1D6HL 승인. 스펙 섹션 작성.
+- 10/18 서버·API·Mock·앱·문서 구현. `uv run pytest`: 332 중 328 통과, 4 실패는 로컬 `server/.env`의 AI 키 때문(.env를 치우고 돌리면 4/4 통과, 이번 변경과 무관). 범위 추가: `server/.env.example`(DEPOSIT_DEADLINE_HOURS), `packages/ui/src/format.ts`(deadline), `apps/consumer/src/lib/DepositCard.tsx`, `apps/producer/src/app/(tabs)/farm/account.tsx`.
+- 10/18 농가 미승인 반영 후 실행: `uv run pytest` 339 중 335 통과(실패 4는 로컬 `server/.env` AI 키, 기존과 같음), `alembic upgrade head`·`alembic check` 통과(전용 DB), `npm run typecheck` 통과, `npm run test:mock` 14/14, `npm run test:integration:full` API 7 + Playwright 43/43 통과(전용 DB `farmclub_dev68_mig`).
+- 10/18 리뷰(자라, Request changes) 반영: main(f31c7b0) 병합(충돌 3파일 모두 양쪽 유지), ruff 8건 정리, R-15(생산자 목록에서 `paid_at` 없는 취소 제외·입금 전 배송 정보 비움), 박현 결정 — 입금했다고 알린 주문은 기한이 지나도 취소하지 않고 운영자 목록 `GET /admin/orders/deposit-overdue`, 부분 환불 송금 표시는 나중 고려. `expire-deposits` 멱등 키·감사 기록, 주문 번호 충돌 재시도, 0014 downgrade server_default 원복. pytest 345 중 341 통과(실패 4는 로컬 `.env` AI 설정, 이번 변경과 무관), alembic 0013↔0015 왕복·check 통과.
+
 ## DEV-32 카카오 로그인 서버
 - 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) (GitHub [#77](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/77))
 - 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
 - 기능·인수 조건: FEAT-01 I2 / AC-01-8~15 · ADR 0003·0010
 - 상태: 리뷰 중
-- 범위(수정 허용 경로): `server/app/accounts/{models,router,schemas,service,spec}.py|md`, `server/app/core/security.py`(`OnboardedConsumer`), `server/app/{orders,farms,messaging}/router.py`(관문 의존성만), `server/app/messaging/service.py`·`server/app/orders/service.py`(소비자 표시 이름·소식방 답장 관문만), `server/migrations/versions/0014_user_onboarding.py`, `server/tests/test_accounts.py`, `server/.env.example`, `server/tasks.md`. 10/18 온보딩 승인으로 범위 넓힘. 동작 변경과 함께 고치는 문서: `docs/spec/{functional/FEAT-01-login.md,functional/README.md,screens.md,ia.md,policy.md,tech-design/README.md}`, `docs/wiki/Requirements-and-Specifications.md`
+- 범위(수정 허용 경로): `server/app/accounts/{models,router,schemas,service,spec}.py|md`, `server/app/core/security.py`(`OnboardedConsumer`), `server/app/{orders,farms,messaging}/router.py`(관문 의존성만), `server/app/messaging/service.py`·`server/app/orders/service.py`(소비자 표시 이름·소식방 답장 관문만), `server/migrations/versions/0016_user_onboarding.py`, `server/tests/test_accounts.py`, `server/.env.example`, `server/tasks.md`. 10/18 온보딩 승인으로 범위 넓힘. 동작 변경과 함께 고치는 문서: `docs/spec/{functional/FEAT-01-login.md,functional/README.md,screens.md,ia.md,policy.md,tech-design/README.md}`, `docs/wiki/Requirements-and-Specifications.md`
 - 결정 사항:
   - 10/17 `GET /api/auth/kakao/config`(공개)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 토큰 교환은 httpx 동기 클라이언트, 8초 타임아웃. `_kakao_fetch`만 바꿔 끼워 테스트한다.
   - 10/17 복귀 주소는 CORS 허용 목록과 같은 두 앱 주소의 `/auth/kakao`만 받는다(오픈 리다이렉트·코드 가로채기 방지).
@@ -1084,8 +1154,9 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
 - 10/18 결정: 온보딩 미완료 판단은 서버(`needs_onboarding`)가 하고 `UserView.needsOnboarding`으로 내려준다. 농가에 닿는 쓰기(주문·팔로우·좋아요·채팅 시작·보내기·소식방 답장)만 403 `ONBOARDING_REQUIRED`, 조회와 내 정보·배송지는 막지 않는다. 동의는 `user_consents`(user, kind)당 한 줄, 결제 동의(R-03)처럼 버전·시각을 남긴다. 농가에 보이는 소비자 이름은 닉네임(없으면 기존 가림 이름).
 - 10/18 결정: 주문의 ‘기본 배송지로 저장’은 50개가 차 있으면 주문은 그대로 두고 저장만 건너뛴다(주문이 배송지 한도에 막히지 않게). 기본 배송지를 지우면 가장 최근 배송지가 기본.
 - 10/18 main(0013까지) 머지 뒤 마이그레이션 0014(`users.nickname`·`email`, `user_consents`). **번호 충돌**: DEV-68 PR #141도 main 0013 위에 `0014_bank_transfer.py`를 둔다. 먼저 머지되는 PR이 0014를 갖고, 나중 PR은 main을 받아 0015(`down_revision`=먼저 들어간 0014)로 옮긴다. DEV-36 PR #124의 0009는 보류 중이라 다시 열면 그 뒤 번호로 옮긴다. 로컬 공용 DB `farmclub`는 DEV-68의 0014에 올라가 있어 이 브랜치 통합 테스트는 `farmclub_dev32` DB로 돌렸다.
-- 작업(10/18): [x] 모델·마이그레이션 0014 [x] `KakaoProfile`·온보딩 판단·`PATCH /me`·동의 API [x] 관문 의존성 [x] 배송지 PATCH·DELETE·50개 [x] pytest AC-01-12~15 [x] Ruff
+- 작업(10/18): [x] 모델·마이그레이션 0016(처음 0014, DEV-68 머지 뒤 번호 이동) [x] `KakaoProfile`·온보딩 판단·`PATCH /me`·동의 API [x] 관문 의존성 [x] 배송지 PATCH·DELETE·50개 [x] pytest AC-01-12~15 [x] Ruff
 - 검증(10/18): Ruff 통과, 전체 pytest 344개 통과(신규·수정 11개), 빈 DB에 `alembic upgrade head` → `downgrade 0013` → `upgrade head`, `alembic check` 변경 없음.
 - 10/18 AI 1차 리뷰 반영: 카카오로 처음 만든 생산자 계정은 이름이 비지 않게 ‘카카오 사용자’(소비자는 온보딩에서 받음). 기본 배송지 승계 정렬에 id를 두 번째 키로. 배송지 PATCH의 null·`isDefault=false` 의미를 스키마 주석에 적음. 테스트 추가: 좋아요·채팅 시작·보내기·소식방 답장 403, 생산자 채팅 목록에 닉네임만 보이고 이름·연락처는 없음, 주문 ‘기본 배송지로 저장’이 50개에서 건너뜀.
 - 10/18 결정(리뷰 확인 필요 항목): `needs_onboarding`은 동의 문구 **버전**을 비교하지 않는다. 약관·처리방침 개정 때 재동의를 강제하는 것은 정식 약관이 나온 뒤(현재는 테스트 서비스 요지만 있음) 별도 이슈로 한다. 버전은 이미 기록하므로 그때 현재 버전 상수와 비교만 더하면 된다. 배송지 50개는 동시 저장 경합에서 넘을 수 있으나 테스트 서비스 규모에서 허용.
 - 검증(10/18 리뷰 반영 뒤): Ruff 통과, 전체 pytest 346개 통과.
+- 10/18 DEV-68 PR #141 머지(main에 0014_bank_transfer·0015_deposit_issue)에 따라 main을 다시 병합하고 온보딩 마이그레이션을 `0016_user_onboarding`(`down_revision`=0015)으로 옮겼다. 문서 충돌(ia·policy·screens·tech-design·wiki·tasks)은 양쪽 내용을 합쳤다. policy.md 동의 문단은 DEV-68의 중개자 구조 문장으로 바꾸고 예전 ‘직매입·처리 위탁’ 문장은 뺐다.

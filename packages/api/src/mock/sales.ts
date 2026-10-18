@@ -1,8 +1,11 @@
 import type { SalesState, Stage, StageInput } from "../types";
 import { TODAY, nextId, type DB, type ProductRec, type OrderRec } from "./db";
 import { conflict, invalid, notFound } from "./router";
+/** 물량을 잡고 있는 주문: 입금 대기(안내 시점 선점) 또는 입금 확인된 주문(DEV-68) */
+export const holdsStock = (o: OrderRec) =>
+  o.status === "AWAITING_DEPOSIT" || !!o.paidAt;
 export const allocatedBoxes = (o: OrderRec) =>
-  o.paidAt ? o.quantity - o.releasedQuantity : 0;
+  holdsStock(o) ? o.quantity - o.releasedQuantity : 0;
 export function soldQuantity(d: DB, p: ProductRec) {
   return Object.values(d.orders)
     .filter((o) => o.productId === p.productId)
@@ -53,7 +56,7 @@ export function salesState(d: DB, p: ProductRec): SalesState {
 export function releaseQuantity(p: ProductRec, o: OrderRec, quantity: number) {
   if (
     o.shippedAt ||
-    !o.paidAt ||
+    !holdsStock(o) ||
     !Number.isSafeInteger(quantity) ||
     quantity < 0 ||
     quantity > o.quantity - o.releasedQuantity
@@ -147,7 +150,9 @@ export function validatePeriods(
   for (const old of p.stages) {
     const used = Object.values(d.orders).some(
       (o) =>
-        o.productId === p.productId && o.stageId === old.stageId && o.paidAt,
+        o.productId === p.productId &&
+        o.stageId === old.stageId &&
+        holdsStock(o),
     );
     const r = rows.find((r) => r.stageId === old.stageId);
     if (used && (!r || r.startsAt !== old.startsAt || r.endsAt !== old.endsAt))

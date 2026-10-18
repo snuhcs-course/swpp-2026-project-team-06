@@ -30,6 +30,8 @@ export type ConflictReason =
   | "CAPACITY_REQUEST_PENDING"
   | "STALE_VERSION"
   | "PERIOD_LOCKED"
+  /** 농가가 입금 계좌를 등록하지 않음(DEV-68) */
+  | "NO_FARM_ACCOUNT"
   | "NOT_RESUMABLE"
   /** 저장 배송지가 계정당 50개를 넘음(details.limit) */
   | "ADDRESS_LIMIT";
@@ -260,6 +262,10 @@ export type FarmDetail = FarmSummary & {
 
 export type MyFarm = FarmSummary & {
   intro: string;
+  /** 입금 계좌(DEV-68). 셋 다 있거나 셋 다 null */
+  bankName: string | null;
+  accountNumber: string | null;
+  accountHolder: string | null;
   detailContent?: DetailContent;
   status: FarmStatus;
   shareUrl: string | null;
@@ -425,6 +431,7 @@ export type StageInput = {
 
 export type OrderStatus =
   | "PENDING_PAYMENT"
+  | "AWAITING_DEPOSIT"
   | "RESERVED"
   | "PREPARING"
   | "SHIPPED"
@@ -457,7 +464,24 @@ export type OrderInput = Recipient & {
   saveAddress?: boolean;
 };
 
-export type OrderAction = "cancel" | "confirm" | "respondDeliveryWindow";
+export type OrderAction =
+  | "cancel"
+  | "confirm"
+  | "respondDeliveryWindow"
+  | "reportDeposit";
+/** 농가 입금 계좌(DEV-68). 소비자에게는 본인 주문(입금 안내 이후)에서만 온다 */
+export type DepositAccount = {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+};
+/** 통신판매중개자 고지용 판매자 정보(policy 6장) */
+export type SellerInfo = {
+  farmName: string;
+  ownerName: string;
+  region: string;
+  phone: string;
+};
 
 export type Order = Recipient & {
   unitWeightGrams: number;
@@ -489,17 +513,33 @@ export type Order = Recipient & {
   deliveredAt: ISODate | null;
   refundedAt: ISODate | null;
   refundReason: string | null;
+  /** 무통장 입금(DEV-68) */
+  depositAccount: DepositAccount | null;
+  sellerInfo: SellerInfo | null;
+  depositDueAt: ISODate | null;
+  depositReportedAt: ISODate | null;
+  cancelReason: string | null;
+  /** 환불된 주문: 농가가 입금했던 계좌로 송금을 마친 시각 */
+  refundSettledAt: ISODate | null;
+  /** 농가 미승인 사유(DEV-68): 입금 대기로 남은 주문, 송금 보류 중인 환불 */
+  depositIssue: string | null;
+  refundIssue: string | null;
   actions: OrderAction[];
 };
 
-export type PayResult = {
-  order: Order;
-  result: "success" | "fail";
-  failReason: string | null;
-};
 
 export type Dashboard = {
-  todo: { openQuestions: number; toShip: number; pendingProducts: number };
+  todo: {
+    openQuestions: number;
+    toShip: number;
+    pendingProducts: number;
+    /** 입금 확인할 주문 수(DEV-68) */
+    awaitingDeposit: number;
+    /** 농가가 아직 송금하지 않은 환불 수 */
+    refundsToSettle: number;
+    /** 입금 계좌 등록 여부 */
+    hasAccount: boolean;
+  };
   /** 판매 중 대표 상품 요약(예약한 사람 수·주문 수) */
   product:
     | (SalesState & {
@@ -545,6 +585,12 @@ export type ProducerOrder = Recipient & {
   carrier: Carrier | null;
   trackingNumber: string | null;
   createdAt: ISODate;
+  totalAmount: number;
+  depositDueAt: ISODate | null;
+  depositReportedAt: ISODate | null;
+  refundSettledAt: ISODate | null;
+  depositIssue: string | null;
+  refundIssue: string | null;
 };
 
 export type HarvestProduct = {

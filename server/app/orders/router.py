@@ -19,10 +19,10 @@ from app.orders.schemas import (
     HarvestStartInput,
     OrderInput,
     OrderView,
-    PayInput,
-    PayResult,
     ProducerOrder,
+    RefundIssueInput,
     RefundView,
+    RejectDepositInput,
     ShipInput,
 )
 
@@ -76,17 +76,61 @@ def harvest_start(db: Db, producer: ApprovedProducer, body: HarvestStartInput):
     return result
 
 
-@router.post("/{order_id}/pay", response_model=PayResult)
-def pay(db: Db, user: Consumer, order_id: str, body: PayInput, key: IdempotencyKey = None):
-    """Mock 결제(FEAT-09). 결제와 물량 차감은 한 번만 일어난다(AC-09-1·3)."""
+@router.post("/{order_id}/deposit", response_model=OrderView)
+def request_deposit(db: Db, user: Consumer, order_id: str, key: IdempotencyKey = None):
+    """입금 안내(FEAT-09 개정). 물량 선점과 입금 대기 전환은 한 번만 일어난다(AC-09-1·3)."""
     return run_idempotent(
         db,
         user.id,
-        f"pay:{order_id}",
+        f"deposit:{order_id}",
         key,
-        body,
-        lambda: service.pay(db, user.id, order_id, body.mock_result),
+        {},
+        lambda: service.request_deposit(db, user.id, order_id),
     )
+
+
+@router.post("/{order_id}/deposit-reported", response_model=OrderView)
+def deposit_reported(db: Db, user: Consumer, order_id: str):
+    """소비자 '입금했어요' 신호. 상태는 바뀌지 않는다."""
+    result = service.report_deposit(db, user.id, order_id)
+    db.commit()
+    return result
+
+
+@router.post("/{order_id}/confirm-deposit", response_model=ProducerOrder)
+def confirm_deposit(db: Db, producer: ApprovedProducer, order_id: str):
+    """생산자가 통장과 대조한 뒤 입금을 확인한다(AC-09-8). 입금 대기 → 예약 완료."""
+    _, farm = producer
+    order = service.confirm_deposit(db, order_id, farm_id=farm.id, confirmed_by="PRODUCER")
+    db.commit()
+    return service.producer_order_view(db, order)
+
+
+@router.post("/{order_id}/reject-deposit", response_model=ProducerOrder)
+def reject_deposit(db: Db, producer: ApprovedProducer, order_id: str, body: RejectDepositInput):
+    """입금 미승인(DEV-68). 사유 필수. cancel이면 주문 취소, 아니면 입금 대기로 둔다."""
+    _, farm = producer
+    order = service.reject_deposit(db, farm.id, order_id, body.reason, cancel=body.cancel)
+    db.commit()
+    return service.producer_order_view(db, order)
+
+
+@router.post("/{order_id}/refund-issue", response_model=ProducerOrder)
+def refund_issue(db: Db, producer: ApprovedProducer, order_id: str, body: RefundIssueInput):
+    """환불 미승인(DEV-68). 아직 송금하지 못한 사유를 남긴다. 사유 필수."""
+    _, farm = producer
+    result = service.refund_issue(db, farm.id, order_id, body.reason)
+    db.commit()
+    return result
+
+
+@router.post("/{order_id}/refund-settled", response_model=ProducerOrder)
+def refund_settled(db: Db, producer: ApprovedProducer, order_id: str):
+    """농가가 입금했던 계좌로 환불 송금을 마쳤다고 표시한다(AC-17-7)."""
+    _, farm = producer
+    result = service.settle_refund(db, farm.id, order_id)
+    db.commit()
+    return result
 
 
 @router.get("", response_model=Paged[OrderView])
@@ -206,6 +250,55 @@ def refund_order(
             db, order_id, body.reason, body.amount, admin.id, event_id
         ),
     )
+
+
+@admin_router.post("/{order_id}/confirm-deposit", response_model=OrderView)
+def admin_confirm_deposit(db: Db, admin: Admin, order_id: str, key: IdempotencyKey = None):
+    from app.admin.service import run_manager_action
+
+    def run(_):
+        order = service.confirm_deposit(db, order_id, farm_id=None, confirmed_by="ADMIN")
+        return service.order_view(db, order)
+
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="order.confirm_deposit",
+        target_type="order",
+        target_id=order_id,
+        scope=f"order-confirm-deposit:{order_id}",
+        key=key,
+        body={},
+        run=run,
+    )
+
+
+@admin_router.post("/expire-deposits", response_model=Changed)
+def expire_deposits(db: Db, admin: Admin, key: IdempotencyKey = None):
+    """기한이 지난 입금 대기 주문을 일괄 취소하고 물량을 돌려준다(R-28).
+
+    다른 운영자 변경 API처럼 멱등 키와 감사 기록(manager event)을 남긴다.
+    입금했다고 알린 주문은 취소하지 않는다(deposit-overdue 목록으로 확인).
+    """
+    from app.admin.service import run_manager_action
+
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="order.expire_deposits",
+        target_type="order",
+        target_id="*",
+        scope="order-expire-deposits",
+        key=key,
+        body={},
+        run=lambda _: Changed(changed=service.expire_overdue_deposits(db)),
+    )
+
+
+@admin_router.get("/deposit-overdue", response_model=list[OrderView])
+def deposit_overdue(db: Db, _: Admin):
+    """입금했다고 알렸는데 기한까지 생산자가 확인하지 않은 주문. 운영자가 생산자에게 연락한다."""
+    return [service.order_view(db, o) for o in service.reported_overdue_deposits(db)]
 
 
 @admin_router.get("/{order_id}/refunds", response_model=list[RefundView])
