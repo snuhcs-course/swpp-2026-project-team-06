@@ -199,13 +199,23 @@ is never deployed. It checks out the exact commit CI tested, and if that commit 
 `railway up ./server --path-as-root --service farmclub-api --environment production --ci`
 and then polls `/health` until it answers; otherwise it skips the deploy and passes.
 Changes are read from that single commit, which matches the squash-merge rule. The
-workflow can also be started by hand from the Actions tab (**Run workflow**), for example
-after a variable change; a manual run always deploys the current `main`.
+workflow can also be started by hand from the Actions tab (**Run workflow**) with the
+`main` branch selected, for example after a variable change; a manual run always deploys
+the current `main`.
+
+Both deploy workflows (this one and the Vercel one below) are locked to `main` (DEV-70):
+
+- The job runs only when `github.ref` is `refs/heads/main`, so pressing **Run workflow**
+  on another branch skips the deploy.
+- The job uses the GitHub Environment `production`, which allows deployments from the
+  `main` branch only, and the deploy tokens live in that environment. A branch that edits
+  the workflow file still cannot read the tokens.
 
 One-time setup (a human does this; never paste the token into the repo, an issue or a PR):
 
 1. Railway → project `farmclub` → **Settings → Tokens** → create a **Project Token**.
-2. GitHub → repository **Settings → Secrets and variables → Actions** → add `RAILWAY_TOKEN`.
+2. GitHub → repository **Settings → Environments → production → Environment secrets** →
+   add `RAILWAY_TOKEN`. Do not keep a repository-level copy.
 3. Run the workflow once from the Actions tab and check that `/health` returns `{"status":"ok"}`.
 
 Variables to add on the Railway service as features land, in merge order:
@@ -226,12 +236,12 @@ has no effect.
 `.github/workflows/deploy-vercel.yml` automates this. After **CI** succeeds on `main`, if
 the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc` or the
 workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
-answers 200. It can also be run by hand from the Actions tab; a manual run always deploys
-the current `main`.
+answers 200. It can also be run by hand from the Actions tab with the `main` branch
+selected; a manual run always deploys the current `main`.
 
 | Setting | Where | Effect |
 | -- | -- | -- |
-| `VERCEL_TOKEN` | Repository **secret** (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
+| `VERCEL_TOKEN` | **Environment secret** in `production` (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
 | `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live

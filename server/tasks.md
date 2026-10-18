@@ -1053,6 +1053,35 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
   - 10/18 도메인 연결: 호스팅케이알 구매 → 네임서버 Cloudflare. `farmclub.kr`·`www`(→ apex 308)·`farm`·`api` 모두 Cloudflare 프록시 켬. `https://farmclub.kr`·`https://farm.farmclub.kr` 200(x-vercel-id), `https://api.farmclub.kr/health` 200, `/s/farms/f-kang` 200, 카톡 크롤러 UA 200.
   - 10/18 main(DEV-47) 병합 후 pytest 328 통과.
 
+## DEV-70 배포 워크플로 수동 실행을 main으로 제한, 토큰을 production Environment로
+- 이슈: [DEV-70](https://linear.app/sswp6/issue/DEV-70)
+- 브랜치: `nemodleo/dev-70-dev-배포-워크플로-수동-실행을-main으로-제한하고`
+- 기능·인수 조건: 배포 보안(DEV-65·66·67 후속). 제품 FEAT·AC 없음
+- 상태: 리뷰 중
+- 목표: 다른 브랜치에서 Run workflow를 눌러도 그 브랜치가 운영(Railway·Vercel)에 올라가지 않게 한다(팀원 제보).
+- 범위(수정 허용 경로): `.github/workflows/deploy-railway.yml`, `.github/workflows/deploy-vercel.yml`, `README.md` Deployment 절, `server/tasks.md`, 레포 Environment 설정. 서버·앱 코드 변경 없음
+- 결정 사항:
+  - 10/18 두 job `if`에 `github.ref == 'refs/heads/main'`을 앞에 붙임. `workflow_run`은 기본 브랜치 ref로 돌아 영향 없음. 수동 실행은 main에서만 통과.
+  - 10/18 `if`만으로는 부족: 수동 실행은 고른 브랜치의 워크플로 파일로 돌아, 그 줄이 없는 예전 브랜치나 지운 브랜치는 통과한다. 그래서 job에 `environment: production`을 붙이고, 레포 Environment `production`의 배포 브랜치를 `main`만 허용(커스텀 정책)으로 만들었다(10/18 gh api로 생성). 토큰을 이 Environment 시크릿으로 옮기면 main이 아닌 실행은 토큰을 받지 못한다.
+  - 10/18 토큰 이동은 사람 몫(에이전트는 값을 다루지 않음): `RAILWAY_TOKEN`·`VERCEL_TOKEN`을 Environment 시크릿으로 다시 등록하고 레포 수준 시크릿은 삭제. 옮기기 전에도 Environment 브랜치 정책 때문에 main이 아닌 실행에서 `environment: production` job은 시작하지 못한다.
+- 작업: [x] 두 워크플로 조건·environment [x] Environment `production`(main 전용) 생성 [x] README [x] actionlint [ ] 토큰 이동(사람)
+- 검증: `actionlint` 두 파일 통과. 머지 뒤 main 배포가 environment 아래에서 정상 동작하는지 확인 예정.
+
+## DEV-60 농가 목록·검색과 팔로우 목록 API
+- 이슈: [DEV-60](https://linear.app/sswp6/issue/DEV-60) (GitHub [#122](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/122))
+- 브랜치: `nemodleo/dev-60-dev-add-get-apifarms-and-get-apifarmsfollowing-consumer-farm`
+- 기능·인수 조건: FEAT-06 / AC-06-1, AC-06-3 · screens.md 7.2 farms(`GET /api/farms`, `GET /api/farms/following`)
+- 상태: 리뷰 중
+- 목표: Mock에만 있던 두 경로가 서버에 없어 소비자 앱 검색(SCR-02)과 내 정보 팔로우 목록(SCR-17)이 실서버에서 404. 스펙 표대로 서버에 추가한다.
+- 범위(수정 허용 경로): `server/app/farms/{router,service}.py`, `server/tests/test_farms.py`, `server/app/farms/spec.md`, `server/tasks.md`. 앱·Mock·docs/spec 변경 없음(표에 이미 있음)
+- 결정 사항:
+  - 10/17 고정 경로 두 개를 `/{farm_id}` 앞에 둔다. 페이지는 orders 라우터와 같은 offset cursor.
+  - 10/17 검색은 Mock과 같은 부분 일치(농가명·지역·주 품목·판매 중 상품명). 품종은 상품 카드에 없어 제외.
+  - 10/17 팔로우 목록은 최근 팔로우가 위, 승인 취소(SUSPENDED 등) 농가는 뺀다.
+- 작업: [x] 서비스·라우터 [x] pytest 4개 [x] Ruff [x] 실서버에서 내 정보·검색 화면 확인
+- 검증: Ruff 통과, 전체 pytest 214개 통과(신규 4개). 로컬 실서버에서 `/api/farms`(정렬·검색)·`/api/farms/following`(401/200) 확인, 소비자 앱 `/farms`·`/me` 렌더링 확인.
+- 10/18 main(a7e41db) 병합: 충돌은 `server/tasks.md`(섹션 추가끼리, 둘 다 유지)뿐. `/farms` 아래 다른 고정 경로 추가 없음. Ruff check 통과, 전체 pytest 332개 통과(별도 DB `farmclub_dev60`; 공용 `farmclub` DB에 다른 브랜치 테이블이 있어 drop 실패), typecheck 4 workspace 통과, 실서버 API 시나리오 7개 통과. Playwright는 다른 세션의 Expo가 `[::1]:8081`을 쓰고 있어 로컬에서는 돌리지 못했고 CI integration으로 확인.
+
 ## DEV-68 무통장 입금(소비자 → 농가 계좌 직접): 생산자 계좌·입금 대기·입금 확인·환불 송금
 
 - 이슈: [DEV-68](https://linear.app/sswp6/issue/DEV-68)

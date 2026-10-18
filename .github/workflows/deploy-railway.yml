@@ -5,7 +5,8 @@ name: Deploy server to Railway
 # DEV-66: main의 CI(ci.yml)가 성공한 뒤에만 배포한다. CI가 검사한 그 커밋(head_sha)을 올리고,
 # 그 커밋에서 server/** 또는 이 워크플로가 바뀌었을 때만 배포한다(squash 머지라 커밋 하나 = PR 하나).
 # 시크릿 RAILWAY_TOKEN(Railway 프로젝트 토큰)이 있어야 하고, 값은 레포에 적지 않는다.
-# 수동 실행: Actions 탭 → 이 워크플로 → Run workflow (workflow_dispatch). 수동 실행은 변경 여부와 상관없이 지금 main을 올린다.
+# 수동 실행: Actions 탭 → 이 워크플로 → Run workflow (workflow_dispatch). 브랜치는 main을 골라야 하고(다른 브랜치는 건너뜀),
+# 변경 여부와 상관없이 지금 main을 올린다. 토큰은 production Environment(main 전용)에 둔다(DEV-70).
 
 on:
   workflow_run:
@@ -29,11 +30,17 @@ env:
 
 jobs:
   deploy:
-    # CI가 main push에서 성공했을 때, 또는 수동 실행일 때만
+    # CI가 main push에서 성공했을 때, 또는 main에서 수동 실행일 때만
+    # DEV-70: 수동 실행은 main에서만. 다른 브랜치에서 Run workflow를 눌러도 운영에 올리지 않는다.
+    # workflow_run은 기본 브랜치(main) 정의·ref로 돌아서 github.ref가 항상 main이다.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push')
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'))
+    # 토큰은 production Environment 시크릿. 이 Environment는 main 브랜치에서만 배포를 허용하므로
+    # 워크플로 파일을 고친 다른 브랜치에서 실행해도 토큰을 받지 못한다.
+    environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
