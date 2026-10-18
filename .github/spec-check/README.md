@@ -70,6 +70,8 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 | INCOMPLETE (exit 2) | 키/모델/환경/문맥/응답 오류 또는 크기 제한. 원인을 해소하고 재실행 |
 | SKIPPED (exit 0 + 명시 안내) | v1 지원 대상이 아님. PASS가 아님 |
 
+모델 응답의 `thinking`·`redacted_thinking` 블록(adaptive thinking 기본값인 모델)은 읽지 않고 버리고, text 블록의 리뷰 JSON만 검증한다(DEV-79). text 블록이 없거나 다른 블록(`tool_use` 등)이 섞이면 `Unexpected model content type: <type>.` INCOMPLETE이며, 메시지에는 블록 type 이름만 남는다.
+
 보고서는 metadata의 head/base/merge-base SHA, PR 본문 digest, mode, 모델/프롬프트 버전과 실행 URL에 연결된다.
 코드나 PR 본문이 바뀌면 과거 결과를 최신 검토 증거로 사용하지 않는다.
 상세/JSON 보고서는 7일 보관한다. 주요 finding과 사람 판단은 만료 전에 PR/Linear에 복사한다.
