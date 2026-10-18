@@ -1,4 +1,5 @@
 // SCR-11 결제(Mock) (FEAT-09) — design: scr-11, s-11-fail
+import { track } from "@farmclub/analytics";
 import { ApiError, newIdempotencyKey, orders } from "@farmclub/api";
 import {
   BottomBar,
@@ -48,6 +49,8 @@ export default function Pay() {
     setFail(null);
     try {
       const r = await orders.pay(orderId, demo, key);
+      // 구매 퍼널 4단계(DEV-71). 결제 확정(order_paid)은 서버가 보낸다
+      track("payment_submitted", { orderId, result: r.result });
       if (r.result === "success") {
         router.replace(`/orders/${orderId}/done`);
       } else {

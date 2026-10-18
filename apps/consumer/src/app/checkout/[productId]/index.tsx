@@ -1,4 +1,5 @@
 // SCR-10 주문서 (FEAT-08, R-03 동의 4개는 policy.md 2장 문구) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
+import { track } from "@farmclub/analytics";
 import {
   ApiError,
   auth,
@@ -115,6 +116,11 @@ export default function Checkout() {
   }, [addresses.data, recipient]);
 
   const p = product.data;
+  // 구매 퍼널 2단계: 로그인한 사용자에게 주문서가 열림(트래킹 플랜 checkout_started, DEV-71)
+  const startedId = user && p ? p.productId : null;
+  useEffect(() => {
+    if (startedId) track("checkout_started", { productId: startedId });
+  }, [startedId]);
   useEffect(() => {
     if (p && !optionId) setOptionId(p.options[0].optionId);
   }, [p, optionId]);
@@ -180,6 +186,12 @@ export default function Checkout() {
         },
         idemKey,
       );
+      // 구매 퍼널 3단계: 주문서 제출 → 결제 화면(DEV-71). 받는 사람·주소는 보내지 않는다
+      track("checkout_submitted", {
+        productId: p.productId,
+        orderId: o.orderId,
+        quantity: qty,
+      });
       router.push({
         pathname: "/checkout/[productId]/pay",
         params: {

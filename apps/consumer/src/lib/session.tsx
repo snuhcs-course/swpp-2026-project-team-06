@@ -7,6 +7,7 @@ import {
   type Recipient,
   type User,
 } from "@farmclub/api";
+import { useAnalytics } from "@farmclub/analytics";
 import { Button, Sheet, T } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
@@ -147,6 +148,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [router],
   );
+
+  // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
+  useAnalytics("consumer", user, ready);
 
   const value = useMemo<Session>(
     () => ({
