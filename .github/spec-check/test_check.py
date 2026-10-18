@@ -121,6 +121,38 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(check.Incomplete):
                 check.model_review(context(), "prompt", "key", "model", Client([data]))
 
+    def test_thinking_blocks_are_ignored_but_text_is_required(self):
+        # DEV-79: claude-sonnet-5-5 runs adaptive thinking when the request omits it.
+        text = envelope(result("MISMATCH"))["content"][0]
+        thinking = {"type": "thinking", "thinking": "", "signature": "opaque"}
+        redacted = {"type": "redacted_thinking", "data": "opaque"}
+        for content in ([thinking, text], [redacted, thinking, text], [text, thinking]):
+            with self.subTest(content=[b["type"] for b in content]):
+                data, _ = check.model_review(context(), "prompt", "key", "model",
+                                             Client([{**envelope(), "content": content}]))
+                self.assertEqual(check.validate(data, context())["status"], "MISMATCH")
+        for content in ([], [thinking], [thinking, redacted]):
+            with self.subTest(content=[b["type"] for b in content]):
+                with self.assertRaisesRegex(check.Incomplete, "no text block"):
+                    check.model_review(context(), "prompt", "key", "model",
+                                       Client([{**envelope(), "content": content}]))
+
+    def test_other_block_types_stay_incomplete_and_name_only_the_type(self):
+        text = envelope()["content"][0]
+        thinking = {"type": "thinking", "thinking": "private reasoning", "signature": "opaque"}
+        for content, expected in (([thinking, {"type": "tool_use", "input": {"x": "secret body"}}, text], "tool_use"),
+                                  ([text, {"type": "Weird Type <b>"}], "unknown"),
+                                  ([text, {"text": "no type"}], "unknown"),
+                                  ([text, "not a block"], "content type.")):
+            with self.subTest(expected=expected):
+                with self.assertRaises(check.Incomplete) as caught:
+                    check.model_review(context(), "prompt", "key", "model",
+                                       Client([{**envelope(), "content": content}]))
+                message = str(caught.exception)
+                self.assertTrue(message.endswith(expected) or message.endswith(expected + "."), message)
+                for leaked in ("secret body", "private reasoning", "Weird", "no type"):
+                    self.assertNotIn(leaked, message)
+
     def test_retry_is_bounded(self):
         for failure in (TimeoutError(), error.HTTPError("https://api.anthropic.com", 429, "limit", {"Retry-After": "0"}, None),
                         error.HTTPError("https://api.anthropic.com", 503, "busy", {}, None)):
