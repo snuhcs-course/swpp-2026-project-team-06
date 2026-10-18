@@ -16,6 +16,14 @@ router = APIRouter(tags=["farms"])
 templates = Jinja2Templates(directory=Path(__file__).with_name("templates"))
 
 
+def farm_share_url(request: Request, farm_id: str) -> str:
+    """농가 공유 주소. SHARE_BASE_URL이 있으면 그 도메인으로(ADR 0012), 없으면 요청 서버 주소로."""
+    base = get_settings().share_base_url.rstrip("/")
+    if base:
+        return f"{base}/s/farms/{quote(farm_id, safe='')}"
+    return str(request.url_for("share_farm", farm_id=farm_id))
+
+
 @router.get("/s/farms/{farm_id}", name="share_farm", include_in_schema=False)
 def share_farm(request: Request, farm_id: str, db: Annotated[Session, Depends(get_db)]):
     farm = get_approved_farm(db, farm_id)
@@ -29,7 +37,7 @@ def share_farm(request: Request, farm_id: str, db: Annotated[Session, Depends(ge
         context={
             "farm": farm,
             "image": image,
-            "share_url": str(request.url_for("share_farm", farm_id=farm_id)),
+            "share_url": farm_share_url(request, farm_id),
             "destination": (
                 f"{consumer}/farms/{quote(farm.id, safe='')}" if farm else f"{consumer}/farms"
             ),

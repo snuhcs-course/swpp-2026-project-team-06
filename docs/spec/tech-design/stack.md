@@ -21,6 +21,7 @@
 | --- | --- | --- | --- |
 | 프론트엔드 | Expo(React Native, TypeScript) + Expo Router, **웹 출력**으로 소비자 앱·생산자 앱 2개 | 한 코드로 웹을 먼저 내고 I2에 Android·iOS로 넓힐 수 있음 | [0001](./adr/0001-frontend-expo-web.md) |
 | 웹 호스팅 | Vercel(정적 웹 출력), 앱마다 프로젝트 1개 | 무료, 브랜치 미리보기 | 0001 |
+| 도메인 | `farmclub.kr`(소비자 앱), `farm.farmclub.kr`(생산자 앱), `api.farmclub.kr`(서버). 호스팅케이알(KISA 인증 등록대행자)에서 사고 DNS는 Cloudflare. 공유 링크는 소비자 앱이 `/s/*`를 서버로 프록시해 `farmclub.kr/s/farms/<id>` | `.kr`은 Cloudflare Registrar가 팔지 않음. 대상 없는 서브도메인(`admin`·`dev`·`staging`)은 레코드를 만들지 않음 | [0012](./adr/0012-domains-cloudflare.md) |
 | 백엔드 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic, Railway | 타입 기반 API 정의, 코드에서 나온 OpenAPI 스키마로 `packages/api` 클라이언트 생성, 트랜잭션과 `SELECT … FOR UPDATE`로 물량 차감(R-06) | [0007](./adr/0007-backend-fastapi.md) |
 | 운영자 화면 | 관리 API(`/admin/...`) + Swagger UI, 전용 화면은 I2 | 승인·배송 완료·환불을 I1부터 화면 없이 처리, 모든 관리 API에서 `ADMIN` 역할 검사(N-06) | [0008](./adr/0008-operator-admin-api.md) |
 | 인증 | I1: Mock 로그인(시드 테스트 계정 선택, 설정 플래그) → 서버가 JWT 발급(PyJWT). I2: 카카오 로그인(OAuth 인가 코드) | 데모를 외부 계정 없이 재현. 두 웹 앱과 API가 다른 도메인이어도 동작 | [0009](./adr/0009-mock-login.md), [0003](./adr/0003-auth-kakao.md) |
@@ -32,7 +33,7 @@
 | 지표 | PostHog Cloud(무료), I1부터 | PRD 4장 지표, 개인정보 없이 | [0005](./adr/0005-analytics-posthog.md) |
 | 에러 | Sentry(앱·서버, 무료) | | — |
 | 결제 | I1 Mock. I2부터 PortOne(NHN KCP) | 주문·결제 모델은 PortOne 연동을 가정 | — |
-| CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크(ci.yml). 서버 배포는 main CI 성공 뒤, 그 커밋에 `server/**` 변경이 있으면 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65·66; GitHub App은 조직 승인 문제로 미연결). 앱은 로컬 `expo export` 결과를 Vercel CLI로 업로드(수동) | | — |
+| CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크(ci.yml). 서버 배포는 main CI 성공 뒤, 그 커밋에 `server/**` 변경이 있으면 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65·66; GitHub App은 조직 승인 문제로 미연결). 앱은 main CI 성공 뒤 앱 관련 변경이 있으면 Actions가 `expo export` → `vercel deploy --prod`(deploy-vercel.yml, DEV-67; `VERCEL_TOKEN` 등록 시에만 동작, 레포 변수 `APP_API_URL`이 비면 Mock 빌드) | | — |
 | 패키지 | npm workspaces(앱), uv 또는 pip(서버) | 설정 최소 | — |
 
 [0002](./adr/0002-backend-django-admin.md)(Django + DRF, Django Admin)는 [0007](./adr/0007-backend-fastapi.md)·[0008](./adr/0008-operator-admin-api.md)로 대체됐다.
@@ -139,7 +140,7 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 ## 8. 열린 질문
 
 - [ ] TQ-01. PostHog·Langfuse 리전(미국/EU)
-- [ ] TQ-02. 도메인(I1은 Railway·Vercel 기본 도메인)
+- [x] TQ-02. 도메인(I1은 Railway·Vercel 기본 도메인) → `farmclub.kr`, DNS는 Cloudflare([ADR 0012](./adr/0012-domains-cloudflare.md))
 
 ## 9. 변경 이력
 
@@ -148,3 +149,4 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 | 2026-10-07 | 0.1 | 9/30 추천안(docs/specs/i1/P19-tech-stack.md)을 현재 스펙에 맞게 다시 씀: 웹 출력 2개, 카카오 로그인, Django Admin, 공유 링크 OG, Claude Haiku 4.5, PostHog I1 |
 | 2026-10-07 | 0.2 | 백엔드 Django → FastAPI, 운영자 처리 Django Admin → 관리 API + Swagger UI(ADR 0007·0008) |
 | 2026-10-07 | 0.3 | P22(SWPP-26): 인증 I1 Mock 로그인(ADR 0009), 카카오는 I2. FEAT ↔ 코드 폴더표(홈, 소식·채팅, 반응, 출하 처리의 `ai`는 I2) |
+| 2026-10-18 | 0.4 | DEV-69: 도메인 `farmclub.kr`과 서브도메인, Cloudflare DNS, 공유 링크 경로(ADR 0012). TQ-02 닫음 |

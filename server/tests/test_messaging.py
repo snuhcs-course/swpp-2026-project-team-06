@@ -1,5 +1,6 @@
 """FEAT-12 소식방·1:1 채팅, FEAT-13 AI 응답·전달·직접 응대, FEAT-15 좋아요 (contracts-1.2 4장)."""
 
+import json
 import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -405,6 +406,56 @@ def test_AC_13_2_pesticide_question_is_forwarded(client, login):
     producer = login("u-kang")
     flagged = client.get(
         "/api/messaging/producer/chats", headers=producer, params={"needsReply": "true"}
+    ).json()
+    assert "u-seojun" in [c["consumerId"] for c in flagged["items"]]
+
+
+def test_C06_FEAT_13_model_non_answer_is_forwarded_to_producer(client, login, monkeypatch):
+    """DEV-47: Claude가 '근거에 없어 답할 수 없어요'를 ANSWER로 내도 needsReply로 전달한다."""
+    from app.ai import service as ai
+
+    with get_sessionmaker()() as session, session.begin():
+        session.merge(
+            FarmAiSettings(
+                farm_id="f-kang",
+                enabled=True,
+                version=2,
+                small_order_policy="",
+                reservation_shipping_policy="",
+                faqs=[{"question": "선물 포장 되나요?", "answer": "선물 포장 가능해요."}],
+                handoff_topics=[],
+                updated_at=datetime.now(UTC),
+            )
+        )
+    calls = []
+
+    class Messages:
+        def create(self, *, messages, **kwargs):
+            calls.append(1)
+            content = messages[0]["content"]
+            payload = json.loads(content[len("근거: ") : content.index("\n질문: ")])
+            raw = json.dumps(
+                {
+                    "action": "ANSWER",
+                    "answer": "죄송하지만, 제공된 정보에 원산지에 대한 내용이 없어 답변드릴 수 "
+                    "없습니다. 판매자에게 직접 문의해주시기 바랍니다.",
+                    "reason": "근거",
+                    "sourceRefs": [payload["evidence"][0]["sourceRef"]],
+                },
+                ensure_ascii=False,
+            )
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=raw)])
+
+    monkeypatch.setattr(ai.get_settings(), "anthropic_api_key", "test-key")
+    monkeypatch.setattr(ai, "_client", lambda timeout: SimpleNamespace(messages=Messages()))
+
+    result = send(client, login("u-seojun"), "f-kang", "원산지가 어디예요?").json()
+
+    assert calls, "Claude 경로를 타야 한다"
+
+    assert result["reply"]["handoffStatus"] == "FORWARDED"
+    flagged = client.get(
+        "/api/messaging/producer/chats", headers=login("u-kang"), params={"needsReply": "true"}
     ).json()
     assert "u-seojun" in [c["consumerId"] for c in flagged["items"]]
 
