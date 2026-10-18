@@ -1160,3 +1160,9 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 - 10/18 결정(리뷰 확인 필요 항목): `needs_onboarding`은 동의 문구 **버전**을 비교하지 않는다. 약관·처리방침 개정 때 재동의를 강제하는 것은 정식 약관이 나온 뒤(현재는 테스트 서비스 요지만 있음) 별도 이슈로 한다. 버전은 이미 기록하므로 그때 현재 버전 상수와 비교만 더하면 된다. 배송지 50개는 동시 저장 경합에서 넘을 수 있으나 테스트 서비스 규모에서 허용.
 - 검증(10/18 리뷰 반영 뒤): Ruff 통과, 전체 pytest 346개 통과.
 - 10/18 DEV-68 PR #141 머지(main에 0014_bank_transfer·0015_deposit_issue)에 따라 main을 다시 병합하고 온보딩 마이그레이션을 `0016_user_onboarding`(`down_revision`=0015)으로 옮겼다. 문서 충돌(ia·policy·screens·tech-design·wiki·tasks)은 양쪽 내용을 합쳤다. policy.md 동의 문단은 DEV-68의 중개자 구조 문장으로 바꾸고 예전 ‘직매입·처리 위탁’ 문장은 뺐다.
+
+## DEV-74 생산자 앱 카카오 로그인 — 서버 테스트
+
+- 이슈: [DEV-74](https://linear.app/sswp6/issue/DEV-74) · 기준 절: `apps/producer/tasks.md#dev-74`
+- 범위: `server/tests/test_accounts.py`만. 서버 로직은 DEV-32에서 `app: producer`를 이미 지원(생산자 자리 이름 ‘카카오 사용자’, 온보딩 대상 아님).
+- [x] `test_AC_01_16_kakao_producer_signs_up_through_application`: 카카오 생산자 → 농가 없음·온보딩 없음 → 가입 신청 → PENDING, 대표자 이름 반영, 재로그인 시 같은 계정
