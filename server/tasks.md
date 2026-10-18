@@ -1080,3 +1080,4 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
   - 10/17 팔로우 목록은 최근 팔로우가 위, 승인 취소(SUSPENDED 등) 농가는 뺀다.
 - 작업: [x] 서비스·라우터 [x] pytest 4개 [x] Ruff [x] 실서버에서 내 정보·검색 화면 확인
 - 검증: Ruff 통과, 전체 pytest 214개 통과(신규 4개). 로컬 실서버에서 `/api/farms`(정렬·검색)·`/api/farms/following`(401/200) 확인, 소비자 앱 `/farms`·`/me` 렌더링 확인.
+- 10/18 main(a7e41db) 병합: 충돌은 `server/tasks.md`(섹션 추가끼리, 둘 다 유지)뿐. `/farms` 아래 다른 고정 경로 추가 없음. Ruff check 통과, 전체 pytest 332개 통과(별도 DB `farmclub_dev60`; 공용 `farmclub` DB에 다른 브랜치 테이블이 있어 drop 실패), typecheck 4 workspace 통과, 실서버 API 시나리오 7개 통과. Playwright는 다른 세션의 Expo가 `[::1]:8081`을 쓰고 있어 로컬에서는 돌리지 못했고 CI integration으로 확인.
