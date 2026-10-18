@@ -5,7 +5,8 @@ name: Deploy apps to Vercel
 # - main의 CI(ci.yml)가 성공한 뒤, CI가 검사한 커밋(head_sha)에 앱 관련 변경이 있을 때만 배포한다.
 # - 레포 변수 APP_API_URL이 비어 있으면 Mock 빌드(브라우저 안 가짜 데이터), 값이 있으면 그 서버로 붙는 빌드.
 # - 시크릿 VERCEL_TOKEN이 없으면 배포를 건너뛴다(옵트인). 토큰 등록이 곧 자동 배포를 켜는 일이다.
-# 수동 실행: Actions 탭 → 이 워크플로 → Run workflow. 수동 실행은 변경 여부와 상관없이 현재 main을 두 앱 모두 올린다.
+# 수동 실행: Actions 탭 → 이 워크플로 → Run workflow. 브랜치는 main을 골라야 하고(다른 브랜치는 건너뜀),
+# 변경 여부와 상관없이 현재 main을 두 앱 모두 올린다. 토큰은 production Environment(main 전용)에 둔다(DEV-70).
 
 on:
   workflow_run:
@@ -25,10 +26,16 @@ env:
 
 jobs:
   deploy:
+    # DEV-70: 수동 실행은 main에서만. 다른 브랜치에서 Run workflow를 눌러도 운영에 올리지 않는다.
+    # workflow_run은 기본 브랜치(main) 정의·ref로 돌아서 github.ref가 항상 main이다.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push')
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'))
+    # 토큰은 production Environment 시크릿. 이 Environment는 main 브랜치에서만 배포를 허용하므로
+    # 워크플로 파일을 고친 다른 브랜치에서 실행해도 토큰을 받지 못한다.
+    environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
