@@ -7,10 +7,12 @@ from pydantic import Field
 
 from app.catalog.schemas import DateRange, SalesState
 from app.core.schemas import CamelModel
+from app.farms.schemas import DepositAccount, SellerInfo
 
-OrderAction = Literal["cancel", "confirm", "respondDeliveryWindow"]
+OrderAction = Literal["cancel", "confirm", "respondDeliveryWindow", "reportDeposit"]
 OrderStatus = Literal[
     "PENDING_PAYMENT",
+    "AWAITING_DEPOSIT",
     "RESERVED",
     "PREPARING",
     "SHIPPED",
@@ -46,10 +48,6 @@ class OrderInput(CamelModel):
     save_address: bool = False
 
 
-class PayInput(CamelModel):
-    mock_result: Literal["success", "fail"] = "success"
-
-
 class AdminRefundInput(CamelModel):
     reason: str = Field(min_length=1, max_length=500)
     amount: int | None = None
@@ -64,6 +62,7 @@ class RefundView(CamelModel):
     actor_user_id: str | None
     manager_event_id: str | None
     created_at: datetime
+    settled_at: datetime | None
 
 
 class OrderView(CamelModel):
@@ -95,18 +94,19 @@ class OrderView(CamelModel):
     delivered_at: datetime | None
     refunded_at: datetime | None
     refund_reason: str | None
+    # 무통장 입금(DEV-68). 계좌·판매자 정보는 입금 안내 이후 본인 주문에서만
+    deposit_account: DepositAccount | None
+    seller_info: SellerInfo | None
+    deposit_due_at: datetime | None
+    deposit_reported_at: datetime | None
+    cancel_reason: str | None
+    refund_settled_at: datetime | None
     recipient_name: str
     recipient_phone: str
     postal_code: str
     address: str
     address_detail: str
     actions: list[OrderAction]
-
-
-class PayResult(CamelModel):
-    order: OrderView
-    result: Literal["success", "fail"]
-    fail_reason: str | None
 
 
 class DeliveryWindowResponse(CamelModel):
@@ -138,6 +138,10 @@ class ProducerOrder(CamelModel):
     carrier: str | None
     tracking_number: str | None
     created_at: datetime
+    total_amount: int
+    deposit_due_at: datetime | None
+    deposit_reported_at: datetime | None
+    refund_settled_at: datetime | None
     recipient_name: str
     recipient_phone: str
     postal_code: str
@@ -149,6 +153,9 @@ class DashboardTodo(CamelModel):
     open_questions: int
     to_ship: int
     pending_products: int
+    awaiting_deposit: int
+    refunds_to_settle: int
+    has_account: bool
 
 
 class DashboardProduct(SalesState):

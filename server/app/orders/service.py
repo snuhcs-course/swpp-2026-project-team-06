@@ -6,7 +6,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.catalog.schemas import DateRange
+from datetime import timedelta
+
 from app.core.clock import now, today
+from app.core.config import get_settings
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
 from app.orders.models import ORDER_NO_SEQ, Order, Payment, Refund
@@ -19,7 +22,6 @@ from app.orders.schemas import (
     DashboardTodo,
     OrderInput,
     OrderView,
-    PayResult,
     ProducerOrder,
     RecentOrder,
     RefundView,
@@ -27,6 +29,15 @@ from app.orders.schemas import (
 
 # 결제된 주문(예약한 사람 수·주문 수에 센다)
 ACTIVE = ("RESERVED", "PREPARING", "SHIPPED", "DELIVERED", "COMPLETED")
+# 생산자 화면에 보이는 주문(결제 전만 뺀다). 입금 대기는 물량을 잡고 있으므로 보인다(DEV-68)
+VISIBLE = Order.status != "PENDING_PAYMENT"
+# 입금 대기 주문의 취소 사유(R-28)
+DEPOSIT_EXPIRED = "입금 기한 초과"
+
+
+def holds_stock(order: Order) -> bool:
+    """물량을 잡고 있는 주문: 입금 대기(안내 시점 선점) 또는 입금 확인된 주문."""
+    return order.status == "AWAITING_DEPOSIT" or order.paid_at is not None
 # 도서산간(예시): 제주·울릉·옹진 우편번호 앞자리 또는 주소. 생산자 지역 설정은 후속(R-20)
 _REMOTE_POSTAL = re.compile(r"^(63|40[0-2]|23[01])")
 _REMOTE_ADDRESS = re.compile(r"(울릉|옹진|도서)")
@@ -34,10 +45,10 @@ _REMOTE_ADDRESS = re.compile(r"(울릉|옹진|도서)")
 
 def capacity_totals(db: Session, product_id: str) -> tuple[int, int, int]:
     reserved_grams = shipped_grams = sold_quantity = 0
-    orders = db.scalars(
-        select(Order).where(Order.product_id == product_id, Order.paid_at.is_not(None))
-    )
+    orders = db.scalars(select(Order).where(Order.product_id == product_id))
     for order in orders:
+        if not holds_stock(order):
+            continue
         allocated = max(0, order.quantity - order.released_quantity)
         sold_quantity += allocated
         grams = allocated * order.unit_weight_grams
@@ -54,7 +65,7 @@ def propose_delivery_window(
     orders = db.scalars(
         select(Order).where(
             Order.product_id == product_id,
-            Order.status.in_(("RESERVED", "PREPARING")),
+            Order.status.in_(("AWAITING_DEPOSIT", "RESERVED", "PREPARING")),
         )
     )
     for order in orders:
@@ -83,8 +94,10 @@ def has_orders(db: Session, product_id: str, option_id: str | None = None) -> bo
 
 def _actions(o: Order) -> list[str]:
     actions = []
-    if o.status in ("RESERVED", "PREPARING"):
+    if o.status in ("AWAITING_DEPOSIT", "RESERVED", "PREPARING"):
         actions.append("cancel")
+    if o.status == "AWAITING_DEPOSIT" and o.deposit_reported_at is None:
+        actions.append("reportDeposit")
     if o.status == "DELIVERED":
         actions.append("confirm")
     if o.proposed_delivery_start and o.status in ("RESERVED", "PREPARING"):
@@ -139,12 +152,31 @@ def order_view(db: Session, o: Order) -> OrderView:
         delivered_at=o.delivered_at,
         refunded_at=o.refunded_at,
         refund_reason=o.refund_reason,
+        # 계좌·판매자 정보는 입금 안내 이후(물량을 잡은 뒤)에만 내려준다(DEV-68 결정 6)
+        deposit_account=farms.deposit_account(farm) if farm and holds_stock(o) else None,
+        seller_info=farms.seller_info(db, farm) if farm and holds_stock(o) else None,
+        deposit_due_at=o.deposit_due_at,
+        deposit_reported_at=o.deposit_reported_at,
+        cancel_reason=o.cancel_reason,
+        refund_settled_at=_refund_settled_at(db, o),
         recipient_name=o.recipient_name,
         recipient_phone=o.recipient_phone,
         postal_code=o.postal_code,
         address=o.address,
         address_detail=o.address_detail,
         actions=_actions(o),
+    )
+
+
+def _refund_settled_at(db: Session, o: Order):
+    """전액 환불된 주문의 농가 송금 완료 시각. 환불 행이 없거나 아직 송금 전이면 None."""
+    if o.status != "REFUNDED":
+        return None
+    return db.scalar(
+        select(Refund.settled_at)
+        .where(Refund.order_id == o.id)
+        .order_by(Refund.created_at.desc())
+        .limit(1)
     )
 
 
@@ -256,11 +288,16 @@ def _my_order(db: Session, consumer_id: str, order_id: str, lock: bool = False) 
 
 
 def get_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
-    """본인 주문만. 남의 주문은 404(AC-10, IA 예외 경로)."""
-    return order_view(db, _my_order(db, consumer_id, order_id))
+    """본인 주문만. 남의 주문은 404(AC-10, IA 예외 경로). 기한이 지난 입금 대기는 먼저 취소한다."""
+    order = _my_order(db, consumer_id, order_id)
+    if _expire_if_overdue(db, order):
+        db.commit()
+    return order_view(db, order)
 
 
 def list_orders(db: Session, consumer_id: str) -> list[OrderView]:
+    if expire_overdue_deposits(db, consumer_id=consumer_id):
+        db.commit()
     orders = list(
         db.scalars(
             select(Order).where(
@@ -282,7 +319,7 @@ def list_orders(db: Session, consumer_id: str) -> list[OrderView]:
 def _release_quantity(db: Session, order: Order, quantity: int) -> None:
     from app.catalog import service as catalog
 
-    if order.shipped_at or order.paid_at is None:
+    if order.shipped_at or not holds_stock(order):
         return
     releasable = max(0, order.quantity - order.released_quantity)
     released = min(max(quantity, 0), releasable)
@@ -351,7 +388,13 @@ def cancel_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
     existing = _my_order(db, consumer_id, order_id)
     catalog.lock_product(db, existing.product_id)
     order = _my_order(db, consumer_id, order_id, lock=True)
-    if order.status == "REFUNDED" and order.shipped_at is None:
+    if order.status in ("REFUNDED", "CANCELED") and order.shipped_at is None:
+        return order_view(db, order)
+    if order.status == "AWAITING_DEPOSIT":
+        # 입금 전 취소: 돈이 없으므로 환불 없이 끝내고 물량만 돌려준다(DEV-68 결정 5)
+        current = today()
+        _cancel_awaiting(db, order, f"{current.month}월 {current.day}일 직접 취소(입금 전)")
+        db.flush()
         return order_view(db, order)
     if order.status not in ("RESERVED", "PREPARING"):
         raise conflict("INVALID_TRANSITION", "출하 후에는 취소할 수 없어요.")
@@ -454,17 +497,75 @@ def respond_delivery_window(
     return order_view(db, order)
 
 
-def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayResult:
-    """Mock 결제. 상품 → 기간 물량 순서로 잠그고 박스·중량 한도를 함께 확보한다."""
+def _cancel_awaiting(db: Session, order: Order, reason: str) -> None:
+    """입금 대기 주문을 결제 없이 끝낸다. 잡아 둔 물량은 한 번만 돌려준다(R-28)."""
+    _release_quantity(db, order, order.quantity - order.released_quantity)
+    order.status = "CANCELED"
+    order.cancel_reason = reason
+
+
+def _expire_if_overdue(db: Session, order: Order) -> bool:
+    if (
+        order.status != "AWAITING_DEPOSIT"
+        or order.deposit_due_at is None
+        or order.deposit_due_at > now()
+    ):
+        return False
     from app.catalog import service as catalog
+
+    catalog.lock_product(db, order.product_id)
+    locked = db.scalar(select(Order).where(Order.id == order.id).with_for_update())
+    if locked is None or locked.status != "AWAITING_DEPOSIT":
+        return False
+    _cancel_awaiting(db, locked, DEPOSIT_EXPIRED)
+    db.flush()
+    return True
+
+
+def expire_overdue_deposits(
+    db: Session, *, consumer_id: str | None = None, farm_id: str | None = None
+) -> int:
+    """기한이 지난 입금 대기 주문을 취소하고 물량을 돌려준다(R-28, AC-09-7).
+
+    조회 시점 지연 검사와 운영자 일괄 API가 같이 쓴다. 바뀐 주문 수를 돌려준다.
+    """
+    query = select(Order).where(
+        Order.status == "AWAITING_DEPOSIT", Order.deposit_due_at <= now()
+    )
+    if consumer_id:
+        query = query.where(Order.consumer_id == consumer_id)
+    if farm_id:
+        from app.catalog import service as catalog
+
+        ids = [item.product.id for item in catalog.farm_products(db, farm_id)]
+        if not ids:
+            return 0
+        query = query.where(Order.product_id.in_(ids))
+    changed = 0
+    for order in list(db.scalars(query)):
+        if _expire_if_overdue(db, order):
+            changed += 1
+    return changed
+
+
+def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
+    """입금 안내(FEAT-09 개정). 상품 → 기간 물량 순서로 잠그고 박스·중량을 선점한 뒤 입금 대기로 바꾼다.
+
+    같은 멱등 키로 다시 오면 라우터가 처음 결과를 돌려준다(AC-09-3). 이미 입금 대기·확인된 주문은 그대로 돌려준다.
+    """
+    from app.catalog import service as catalog
+    from app.farms import service as farms
 
     existing = _my_order(db, consumer_id, order_id)
     item = catalog.lock_product(db, existing.product_id)
     order = _my_order(db, consumer_id, order_id, lock=True)
     if order.status != "PENDING_PAYMENT":
-        if order.paid_at and order.status in ACTIVE:
-            return PayResult(order=order_view(db, order), result="success", fail_reason=None)
-        raise conflict("INVALID_TRANSITION", "결제할 수 없는 주문이에요.")
+        if holds_stock(order) and order.status in ("AWAITING_DEPOSIT", *ACTIVE):
+            return order_view(db, order)
+        raise conflict("INVALID_TRANSITION", "입금 안내를 받을 수 없는 주문이에요.")
+    farm = farms.get_farm(db, item.product.farm_id)
+    if farm is None or not farms.has_deposit_account(farm):
+        raise conflict("NO_FARM_ACCOUNT", "농가가 아직 입금 계좌를 등록하지 않았어요.")
     if item.product.sales_paused:
         raise conflict("SALES_PAUSED", "판매가 잠시 중지됐어요.", productId=order.product_id)
     current = catalog.current_stage(item)
@@ -489,16 +590,49 @@ def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayRe
             "추가 예약 가능한 공급 물량이 부족해요.",
             productId=order.product_id,
         )
-    if mock_result == "fail":
-        return PayResult(
-            order=order_view(db, order),
-            result="fail",
-            fail_reason="카드 한도를 넘었어요. 다른 카드를 고르거나 다시 시도해 주세요. "
-            "돈은 나가지 않았어요.",
-        )
     allocation.reserved_count += order.quantity
+    order.status = "AWAITING_DEPOSIT"
+    order.deposit_due_at = now() + timedelta(hours=get_settings().deposit_deadline_hours)
+    db.flush()
+    return order_view(db, order)
+
+
+def report_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
+    """소비자 '입금했어요' 신호. 상태는 바꾸지 않고 생산자 줄의 힌트로만 쓴다(DEV-68 결정 4)."""
+    order = _my_order(db, consumer_id, order_id, lock=True)
+    if _expire_if_overdue(db, order):
+        raise conflict("INVALID_TRANSITION", "입금 기한이 지나 취소된 주문이에요.")
+    if order.status != "AWAITING_DEPOSIT":
+        raise conflict("INVALID_TRANSITION", "입금 대기 주문이 아니에요.")
+    if order.deposit_reported_at is None:
+        order.deposit_reported_at = now()
+    db.flush()
+    return order_view(db, order)
+
+
+def confirm_deposit(
+    db: Session, order_id: str, *, farm_id: str | None, confirmed_by: str
+) -> Order:
+    """입금 확인(AC-09-8). 생산자(자기 농가) 또는 운영자. 이미 확인됐으면 그대로 돌려준다(멱등).
+
+    결제일(`paid_at`, R-13)은 확인 시각이다. 입금 대기가 아니면 409.
+    """
+    from app.catalog import service as catalog
+
+    existing = db.get(Order, order_id)
+    if existing is None or (farm_id and not order_belongs_to_farm(db, existing, farm_id)):
+        raise not_found("주문을 찾을 수 없어요.")
+    catalog.lock_product(db, existing.product_id)
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order.paid_at is not None and order.status in ACTIVE:
+        return order
+    if _expire_if_overdue(db, order):
+        raise conflict("INVALID_TRANSITION", "입금 기한이 지나 취소된 주문이에요.")
+    if order.status != "AWAITING_DEPOSIT":
+        raise conflict("INVALID_TRANSITION", "입금 대기 주문만 확인할 수 있어요.")
     order.status = "RESERVED"
     order.paid_at = now()
+    order.deposit_confirmed_by = confirmed_by
     db.add(
         Payment(
             id=new_id("pay"),
@@ -509,7 +643,24 @@ def pay(db: Session, consumer_id: str, order_id: str, mock_result: str) -> PayRe
         )
     )
     db.flush()
-    return PayResult(order=order_view(db, order), result="success", fail_reason=None)
+    return order
+
+
+def settle_refund(db: Session, farm_id: str, order_id: str) -> ProducerOrder:
+    """농가가 입금했던 계좌로 송금을 마쳤다고 표시한다(AC-17-7). 환불 행이 없으면 409."""
+    order = db.get(Order, order_id)
+    if order is None or not order_belongs_to_farm(db, order, farm_id):
+        raise not_found("주문을 찾을 수 없어요.")
+    refunds = list(
+        db.scalars(select(Refund).where(Refund.order_id == order_id).with_for_update())
+    )
+    if not refunds:
+        raise conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.")
+    for refund in refunds:
+        if refund.settled_at is None:
+            refund.settled_at = now()
+    db.flush()
+    return producer_order_view(db, order)
 
 
 def _masked_name(user) -> str:
@@ -521,18 +672,32 @@ def dashboard(db: Session, farm) -> Dashboard:
     """생산자 현황(FEAT-14). 배송 정보는 넣지 않고 이름 앞 글자만(R-15)."""
     from app.accounts import service as accounts
     from app.catalog import service as catalog
+    from app.farms import service as farms
     from app.messaging import service as messaging
 
+    if expire_overdue_deposits(db, farm_id=farm.id):
+        db.commit()
     products = catalog.farm_products(db, farm.id)
     ids = [p.product.id for p in products]
     farm_orders = (
         list(
             db.scalars(
-                select(Order).where(Order.product_id.in_(ids), Order.status != "PENDING_PAYMENT")
+                select(Order).where(Order.product_id.in_(ids), VISIBLE)
             )
         )
         if ids
         else []
+    )
+    unsettled = (
+        set(
+            db.scalars(
+                select(Refund.order_id).where(
+                    Refund.order_id.in_([o.id for o in farm_orders]), Refund.settled_at.is_(None)
+                )
+            )
+        )
+        if farm_orders
+        else set()
     )
     live = [p for p in products if p.product.status == "PUBLISHED" and catalog.current_stage(p)]
     live.sort(key=lambda p: catalog.current_stage(p).ends_at)
@@ -575,6 +740,11 @@ def dashboard(db: Session, farm) -> Dashboard:
             open_questions=messaging.open_question_count(db, farm.id),
             to_ship=sum(1 for o in farm_orders if o.status == "PREPARING"),
             pending_products=sum(1 for p in products if p.product.status == "PENDING_APPROVAL"),
+            awaiting_deposit=sum(1 for o in farm_orders if o.status == "AWAITING_DEPOSIT"),
+            refunds_to_settle=sum(
+                1 for o in farm_orders if o.status == "REFUNDED" and o.id in unsettled
+            ),
+            has_account=farms.has_deposit_account(farm),
         ),
         product=product,
         stages=stages or [],
@@ -598,6 +768,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
 
     item = catalog.load_product(db, order.product_id)
     option = next((row for row in item.options if row.id == order.option_id), None)
+    awaiting = order.status == "AWAITING_DEPOSIT"
     return ProducerOrder(
         order_id=order.id,
         order_no=order.order_no,
@@ -610,11 +781,16 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         carrier=order.carrier,
         tracking_number=order.tracking_number,
         created_at=order.created_at,
+        total_amount=order.total_amount,
+        deposit_due_at=order.deposit_due_at,
+        deposit_reported_at=order.deposit_reported_at,
+        refund_settled_at=_refund_settled_at(db, order),
+        # 입금 전에는 배송지를 보여 주지 않는다(R-15 최소 노출)
         recipient_name=order.recipient_name,
-        recipient_phone=order.recipient_phone,
-        postal_code=order.postal_code,
-        address=order.address,
-        address_detail=order.address_detail,
+        recipient_phone="" if awaiting else order.recipient_phone,
+        postal_code="" if awaiting else order.postal_code,
+        address="" if awaiting else order.address,
+        address_detail="" if awaiting else order.address_detail,
     )
 
 
@@ -623,12 +799,12 @@ def producer_orders(
 ) -> list[ProducerOrder]:
     from app.catalog import service as catalog
 
+    if expire_overdue_deposits(db, farm_id=farm_id):
+        db.commit()
     product_ids = [item.product.id for item in catalog.farm_products(db, farm_id)]
     if not product_ids:
         return []
-    query = select(Order).where(
-        Order.product_id.in_(product_ids), Order.status != "PENDING_PAYMENT"
-    )
+    query = select(Order).where(Order.product_id.in_(product_ids), VISIBLE)
     if status:
         query = query.where(Order.status == status)
     if product_id:
@@ -703,6 +879,7 @@ def refund_history(db: Session, order_id: str) -> list[RefundView]:
             actor_user_id=row.actor_user_id,
             manager_event_id=row.manager_event_id,
             created_at=row.created_at,
+            settled_at=row.settled_at,
         )
         for row in rows
     ]
