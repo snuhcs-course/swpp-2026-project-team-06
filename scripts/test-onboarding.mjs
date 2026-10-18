@@ -77,6 +77,28 @@ test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async (
     assert.equal(me.body.needsOnboarding, false);
     assert.equal((await api("PUT", "/api/farms/f-kang/follow", t)).status, 200);
 
+    // 생산자 앱 카카오(DEV-74): 농가 없는 생산자 → 온보딩 없음 → 가입 신청 → 확인 중
+    const farm = await api("POST", "/api/auth/kakao", null, {
+      code: "mock",
+      redirectUri: "http://localhost:8082/auth/kakao",
+      app: "producer",
+    });
+    assert.equal(farm.status, 200);
+    assert.equal(farm.body.user.role, "PRODUCER");
+    assert.equal(farm.body.user.farmStatus, "NONE");
+    assert.equal(farm.body.user.needsOnboarding, false);
+    const applied = await api("POST", "/api/auth/producer-application", farm.body.accessToken, {
+      ownerName: "김새농",
+      farmName: "카카오 농장",
+      region: "제주 서귀포시",
+      mainItems: "감귤",
+      phone: "010-9876-5432",
+    });
+    assert.equal(applied.status, 200);
+    assert.equal(applied.body.status, "PENDING");
+    const farmMe = await api("GET", "/api/auth/me", farm.body.accessToken);
+    assert.equal(farmMe.body.name, "김새농");
+
     // 테스트 계정은 온보딩 대상이 아니다
     const minji = await api("POST", "/api/auth/test-login", null, { userId: "u-minji", app: "consumer" });
     assert.equal(minji.body.user.needsOnboarding, false);
