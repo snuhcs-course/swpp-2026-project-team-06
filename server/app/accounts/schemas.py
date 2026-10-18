@@ -19,6 +19,10 @@ class TestAccount(CamelModel):
     farm_name: str | None
 
 
+ConsentKind = Literal["TERMS", "PRIVACY", "AGE14", "MARKETING"]
+REQUIRED_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY", "AGE14")
+
+
 class UserView(CamelModel):
     user_id: str
     name: str
@@ -27,6 +31,36 @@ class UserView(CamelModel):
     farm_id: str | None
     farm_status: FarmStatus
     suspend_reason: str | None = None
+    # 가입 온보딩(FEAT-01 I2). 소비자 카카오 계정만 의미 있고 테스트 계정·생산자는 항상 false
+    nickname: str | None = None
+    email: str | None = None
+    phone: str = ""
+    needs_onboarding: bool = False
+
+
+class MeUpdateInput(CamelModel):
+    """내 정보 고치기(온보딩 1장·SCR-17 프로필). 보낸 필드만 바꾼다."""
+
+    nickname: str | None = Field(default=None, max_length=50)
+    name: str | None = Field(default=None, max_length=100)
+    phone: str | None = Field(default=None, max_length=32)
+
+
+class ConsentInput(CamelModel):
+    kind: ConsentKind
+    version: str = Field(min_length=1, max_length=32)
+    agreed: bool = True
+
+
+class ConsentsInput(CamelModel):
+    consents: list[ConsentInput] = Field(min_length=1, max_length=8)
+
+
+class ConsentView(CamelModel):
+    kind: ConsentKind
+    version: str
+    agreed: bool
+    agreed_at: datetime
 
 
 class TestLoginInput(CamelModel):
@@ -98,6 +132,18 @@ class AddressInput(CamelModel):
     address_detail: str = ""
     label: str | None = Field(default=None, max_length=50)
     is_default: bool = False
+
+
+class AddressPatchInput(CamelModel):
+    """배송지 수정. 보낸 필드만 바꾼다."""
+
+    recipient_name: str | None = None
+    recipient_phone: str | None = None
+    postal_code: str | None = None
+    address: str | None = None
+    address_detail: str | None = None
+    label: str | None = Field(default=None, max_length=50)
+    is_default: bool | None = None
 
 
 class Address(CamelModel):

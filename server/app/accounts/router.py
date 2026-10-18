@@ -7,10 +7,14 @@ from app.accounts import service
 from app.accounts.schemas import (
     Address,
     AddressInput,
+    AddressPatchInput,
     App,
+    ConsentsInput,
+    ConsentView,
     KakaoConfig,
     KakaoLoginInput,
     LoginResult,
+    MeUpdateInput,
     ProducerApplication,
     ProducerApplicationInput,
     ProducerDecision,
@@ -61,6 +65,27 @@ def me(db: Db, user: CurrentUser):
     return service.user_view(db, user)
 
 
+@router.patch("/me", response_model=UserView)
+def update_me(db: Db, user: Consumer, body: MeUpdateInput):
+    """온보딩 1장·프로필 수정(FEAT-01 I2): 닉네임·이름·휴대폰. 보낸 필드만 바꾼다."""
+    result = service.update_me(db, user, body)
+    db.commit()
+    return result
+
+
+@router.get("/me/consents", response_model=list[ConsentView])
+def my_consents(db: Db, user: Consumer):
+    return service.consent_views(db, user.id)
+
+
+@router.post("/me/consents", response_model=list[ConsentView])
+def save_consents(db: Db, user: Consumer, body: ConsentsInput):
+    """가입 동의 기록(AC-01-14). 항목·버전·시각을 남긴다."""
+    result = service.save_consents(db, user, body)
+    db.commit()
+    return result
+
+
 @router.post("/producer-application", response_model=ProducerApplication)
 def submit_producer_application(db: Db, user: Producer, body: ProducerApplicationInput):
     service.submit_producer_application(db, user, body)
@@ -80,9 +105,24 @@ def my_addresses(db: Db, user: Consumer):
 
 @router.post("/me/addresses", response_model=Address)
 def add_address(db: Db, user: Consumer, body: AddressInput):
+    """배송지 저장. 계정당 50개까지, 넘으면 409 ADDRESS_LIMIT."""
     address = service.add_address(db, user.id, body)
     db.commit()
     return address
+
+
+@router.patch("/me/addresses/{address_id}", response_model=Address)
+def update_address(db: Db, user: Consumer, address_id: str, body: AddressPatchInput):
+    address = service.update_address(db, user.id, address_id, body.model_dump(exclude_unset=True))
+    db.commit()
+    return address
+
+
+@router.delete("/me/addresses/{address_id}", status_code=204)
+def delete_address(db: Db, user: Consumer, address_id: str):
+    service.delete_address(db, user.id, address_id)
+    db.commit()
+    return None
 
 
 @admin_router.post("/{farm_id}/approve", response_model=ProducerDecision)

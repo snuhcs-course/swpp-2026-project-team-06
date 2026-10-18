@@ -20,7 +20,28 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16))
     name: Mapped[str] = mapped_column(String(100))
     phone: Mapped[str] = mapped_column(String(32), default="")
+    # 가입 온보딩(FEAT-01 I2, DEV-32): 농가에 보이는 표시 이름과 카카오계정 이메일.
+    # 식별은 kakao_id로 한다
+    nickname: Mapped[str | None] = mapped_column(String(50))
+    email: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class UserConsent(Base):
+    """가입 동의 기록(이용약관·개인정보·만 14세·마케팅).
+
+    항목마다 최근 동의 한 줄을 두고 시각·버전을 남긴다.
+    """
+
+    __tablename__ = "user_consents"
+    __table_args__ = (UniqueConstraint("user_id", "kind"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    version: Mapped[str] = mapped_column(String(32))
+    agreed: Mapped[bool] = mapped_column(Boolean, default=True)
+    agreed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ShippingAddress(Base):

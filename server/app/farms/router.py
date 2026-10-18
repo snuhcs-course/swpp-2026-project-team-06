@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.detail import DetailDraft, DetailDraftInput
 from app.core.idempotency import run_idempotent
-from app.core.security import ApprovedProducer, Consumer, OptionalUser, Producer
+from app.core.security import ApprovedProducer, Consumer, OnboardedConsumer, OptionalUser, Producer
 from app.farms import service
 from app.farms.schemas import (
     AiPreview,
@@ -99,7 +99,7 @@ def farm_detail(db: Db, farm_id: str, user: OptionalUser, request: Request):
 
 
 @router.put("/{farm_id}/follow", response_model=FollowState)
-def follow(db: Db, farm_id: str, user: Consumer):
+def follow(db: Db, farm_id: str, user: OnboardedConsumer):
     state = service.set_follow(db, user.id, farm_id, True)
     db.commit()
     return state
