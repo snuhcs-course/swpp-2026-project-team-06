@@ -135,18 +135,6 @@ export default function FarmAccount() {
               맞는지 한 번 더 확인해 주세요.
             </T>
           ) : null}
-          <View style={{ gap: 4 }}>
-            <T variant="caption" muted>
-              소비자 입금 안내에 이렇게 보여요
-            </T>
-            <T variant="body">
-              {bank.trim() || "은행"} {number.trim() || "계좌번호"}
-            </T>
-            <T variant="sub" muted>
-              예금주 {holder.trim() || "이름"}
-              {farm.data ? ` (${farm.data.name})` : ""}
-            </T>
-          </View>
           <T variant="caption" muted>
             입금 확인은 농가가 직접 해요. farmclub은 이 계좌로 돈을 받거나
             보내지 않아요.
