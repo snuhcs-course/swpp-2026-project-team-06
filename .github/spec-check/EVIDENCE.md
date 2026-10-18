@@ -42,15 +42,15 @@ Redacted configuration; key values are never recorded here.
 Owned by DEV-55. Populate only after inspecting actual reports. Keep both reports before artifact expiry.
 
 - Core implementation PR: snuhcs-course/swpp-2026-project-team-06#107
-- Follow-up live-evidence PR (record actual PR):
-- Reviewed commit:
-- API key/billing owner (name only):
-- Approved model ID:
-- Mismatch run URL / artifact / finding:
-- Matched run URL / artifact:
-- Model/prompt version and usage:
-- Did the normal whole-PR check complete? Record separately:
-- Limitations or false findings:
+- Follow-up live-evidence PR (record actual PR): snuhcs-course/swpp-2026-project-team-06#150
+- Reviewed commit: aee76a0 (head of #150 at the run)
+- API key/billing owner (name only): Hyun Park (nemodleo)
+- Approved model ID: claude-sonnet-5-5 (confirmation requested from Minsun Kim on DEV-55)
+- Mismatch run URL / artifact / finding: https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/39124913548, job "Live model demo (mismatch)", artifact `spec-code-demo-mismatch-39124913548-1`. Status MISMATCH (red job). Finding SC-001 cites `.github/spec-check/fixtures/quantity/spec.md` line 3 "quantity 0 must be rejected" and `.github/spec-check/fixtures/quantity/mismatch.py` line 2 "return quantity >= 0".
+- Matched run URL / artifact: https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/39124913548, job "Live model demo (matched)", artifact `spec-code-demo-matched-39124913548-1`. Status PASS (green job) for `return quantity > 0`.
+- Model/prompt version and usage: claude-sonnet-5-5, prompt `dev40-v1`. Mismatch 1,400 input / 469 output tokens; matched 1,389 input / 202 output tokens.
+- Did the normal whole-PR check complete? No. Same run, job "spec-code-review", artifact `spec-code-review-39124913548-1`: INCOMPLETE "Prompt plus complete context exceeds 60 KiB; split the PR." No model call was made. The PR changes only two files, but the checker sends the complete referenced files (`tasks.md`, `README.md`, `EVIDENCE.md`), which exceed the budget.
+- Limitations or false findings: no false finding in the two demo runs. The 60 KiB budget makes whole-PR review INCOMPLETE even for small PRs that touch long tasks/README files; this needs a team decision (larger budget or excerpted context) and is tracked on DEV-55.
 
 ## Reviewer resolution
 
