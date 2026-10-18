@@ -53,3 +53,37 @@
 - 10/06 ! 작업 중 워킹트리가 main으로 전환돼 규칙 커밋이 origin/main에 직접 push됨 → 브랜치로 옮김, origin/main을 bc6965e로 force-with-lease 원복 완료
 - 10/06 결정: 같은 폴더에서 여러 세션이 브랜치를 바꾸지 않는다 → AGENTS.md에 worktree 규칙 추가
 - 10/06 개인 규칙 예시 파일 추가 (사용자 요청)
+
+## SWPP-115 Claude Code 커밋·PR 공동 작성자 표기 끄기
+
+- 이슈: [SWPP-115](https://linear.app/sswp6/issue/SWPP-115)
+- 브랜치: `nemodleo/swpp-115-claude-code-커밋pr-공동-작성자co-authored-by-표기-끄기`
+- PR: #157
+- 상태: 리뷰 대기
+
+### 목표
+GitHub 기여자 목록에 "claude"가 따로 잡히지 않게, 이 레포에서 Claude Code가 커밋·PR에 공동 작성자 줄과 서명 줄을 붙이지 않도록 한다.
+
+### 범위 (수정 허용 경로)
+- `.claude/settings.json`, `CLAUDE.md`, `.agents/tasks.md`
+
+### 비범위 (건드리지 않음)
+- 이미 main에 있는 커밋(기록 재작성·force push 안 함)
+- GitHub squash 기본 메시지 설정(관리자 수동, 팀 결정 필요)
+- `AGENTS.md`의 AI 사용 기록 규칙(PR 본문 "AI 사용"은 그대로)
+
+### 작업
+- [x] Linear 이슈 작성, In Progress
+- [x] `.claude/settings.json`에 `attribution` commit·pr 빈 문자열
+- [x] `CLAUDE.md` 안내 한 줄
+- [x] draft PR, AI 1차 리뷰, ready for review
+
+### 완료 조건
+- [ ] 머지 뒤 첫 Claude Code 커밋에 공동 작성자 줄이 없음
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 원인: Claude Code 기본 attribution + squash 메시지(COMMIT_MESSAGES)가 브랜치 커밋 메시지를 모음. main 30개(nemodleo 20, xozier 10)
+- 10/18 결정: 공유 프로젝트 설정이 사용자 전역 설정보다 우선하므로 레포 `.claude/settings.json`에 둔다. 개인 `settings.local.json`만 덮어쓸 수 있음
+- 10/18 결정: 기존 30개는 그대로 둔다(74개 커밋 해시 변경·열린 PR 8개 영향)
+- 10/18 실제 Claude Code 커밋 검증은 headless 인증 만료로 못 함 → 머지 뒤 확인
