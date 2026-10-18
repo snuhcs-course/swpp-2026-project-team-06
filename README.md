@@ -175,8 +175,9 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 | `DATABASE_URL` | Reference the database's `DATABASE_URL`. The `postgresql://` form is accepted as is. |
 | `APP_ENV` | `production` |
 | `JWT_SECRET` | A long random string. The server does not start without it outside `local`. |
-| `CONSUMER_APP_URL` | `https://farmclub-consumer.vercel.app` (CORS and share links) |
-| `PRODUCER_APP_URL` | `https://farmclub-producer.vercel.app` |
+| `CONSUMER_APP_URL` | `https://farmclub.kr` (CORS, share-link redirects, Kakao return address). No trailing slash. |
+| `PRODUCER_APP_URL` | `https://farm.farmclub.kr` |
+| `SHARE_BASE_URL` | `https://farmclub.kr`. Set it after the consumer app with the `/s/*` proxy is live (see Domains). Empty: share links use the server's own address. |
 | `MOCK_LOGIN_ENABLED` | `true` while test accounts are used (Kakao login is not built yet) |
 | `ANTHROPIC_API_KEY` | Optional. Without it, AI answers come from registered rules and other questions go to the producer. |
 
@@ -211,8 +212,8 @@ Variables to add on the Railway service as features land, in merge order:
 
 | When | Variables |
 | -- | -- |
-| Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub-consumer.vercel.app/auth/kakao` as a redirect URI in the Kakao console |
-| PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://farmclub-api-production.up.railway.app/api/payments/portone/webhook` as the PortOne webhook |
+| Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub.kr/auth/kakao` as a redirect URI in the Kakao console |
+| PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://api.farmclub.kr/api/payments/portone/webhook` as the PortOne webhook |
 | Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
 
 ### Apps on Vercel (DEV-67)
@@ -231,7 +232,7 @@ the current `main`.
 | Setting | Where | Effect |
 | -- | -- | -- |
 | `VERCEL_TOKEN` | Repository **secret** (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
-| `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://farmclub-api-production.up.railway.app`: the apps call the server. |
+| `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
 users see. Do it outside user tests, and merge the server routes the apps call (for
@@ -239,13 +240,46 @@ example `GET /api/farms` and `/api/farms/following`, PR #123) before switching t
 server. To do the same by hand:
 
 ```
-EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://farmclub-api-production.up.railway.app \
+EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://api.farmclub.kr \
   npx expo export -p web   # run inside apps/consumer and apps/producer
 vercel deploy --prod       # from the exported dist/
 ```
 
 With `EXPO_PUBLIC_API_MOCK=1` (what `npm run build:web` produces) the apps keep data in
 each browser and never call the server.
+
+### Domains (DEV-69)
+
+`farmclub.kr` is registered with hosting.kr, a Korean registrar (Cloudflare Registrar does not sell
+`.kr`) and its DNS is on Cloudflare. Decision, record table and cut-over order:
+[ADR 0012](docs/spec/tech-design/adr/0012-domains-cloudflare.md).
+
+| Address | Serves | Host |
+| -- | -- | -- |
+| `farmclub.kr` (`www` redirects here) | Consumer app and farm share links `/s/farms/<id>` | Vercel `farmclub-consumer` |
+| `farm.farmclub.kr` | Producer app | Vercel `farmclub-producer` |
+| `api.farmclub.kr` | FastAPI server, Swagger UI at `/docs` | Railway `farmclub-api` |
+
+`admin`, `dev` and `staging` are reserved; no DNS records exist until they have a target.
+The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
+KakaoTalk reads the server's OG page under the consumer domain. All four records (`@`,
+`www`, `farm`, `api`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
+"Proxy Detected" warning; keep SSL/TLS mode **Full (strict)** and leave **Bot Fight Mode**
+and **Rocket Loader** off, or KakaoTalk previews and the app break. If a Vercel or Railway
+certificate stops renewing, switch that record to DNS only.
+
+Accounts, purchases and console changes are done by a person. In order:
+
+1. Buy `farmclub.kr` on hosting.kr, add it to Cloudflare (Free), and switch the registrar's name
+   servers to the two Cloudflare ones.
+2. Add the custom domains in Vercel (both projects) and Railway, copy the records they
+   show into Cloudflare, and check `https://api.farmclub.kr/health`.
+3. Change `CONSUMER_APP_URL` and `PRODUCER_APP_URL` on Railway, and add the new domains
+   in the Kakao console (keep the old ones until the switch is done).
+4. Merge the DEV-69 pull request. The deploy workflows and the apps now use the new
+   addresses, so merging earlier makes the deploy checks fail.
+5. Set `SHARE_BASE_URL=https://farmclub.kr` on Railway and send a farm link in KakaoTalk
+   to check the preview.
 
 ## Documentation
 

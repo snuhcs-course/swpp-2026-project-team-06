@@ -1028,3 +1028,27 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
 - 10/18 회귀 테스트 3개를 먼저 추가해 수정 전 실패를 확인했다(판별 함수 없음, `_claude_answer`가 ANSWER 반환, 채팅 답 `handoffStatus` None). 채팅 테스트는 처음에 f-kang 근거가 비어 가짜 Claude가 예외를 내고 기존 실패 경로로 전달되어 버그 없이도 통과했다. f-kang AI 설정에 FAQ를 넣고 Claude 호출 여부를 확인하도록 고쳤다.
 - 10/18 수정 후 pytest 327개 통과(3개 추가), Ruff 통과.
 - 10/18 AI 1차 리뷰: '정보상 추가 비용 없이'·'농장에서 확인한 당도'가 비답변으로 오탐되어 정규식을 좁혔다(명사+조사 바로 뒤 '없'(없이 제외), '판매자·농가에게/께 문의·확인'만). 두 문장을 오탐 방지 테스트에 추가. pytest 327 통과, Ruff 통과.
+
+## DEV-69 farmclub.kr 도메인 연결(Cloudflare DNS)과 서브도메인 설계
+- 이슈: [DEV-69](https://linear.app/sswp6/issue/DEV-69)
+- 브랜치: `nemodleo/dev-69-dev-farmclubkr-도메인-연결cloudflare-dns과-서브도메인`
+- 기능·인수 조건: FEAT-19 공유 링크(AC-19-1), 배포. 결정은 [ADR 0012](../docs/spec/tech-design/adr/0012-domains-cloudflare.md)
+- 상태: 리뷰 중. 도메인 연결 완료(10/18), 사람 리뷰 뒤 머지. 머지 배포 뒤 Railway `SHARE_BASE_URL` 설정(ADR 0012 전환 순서 6번)
+- 목표: 호스팅 기본 주소를 `farmclub.kr`·`farm.farmclub.kr`·`api.farmclub.kr`로 바꾸고, 공유 링크를 `farmclub.kr/s/farms/<id>`로 낸다.
+- 범위(수정 허용 경로): `docs/spec/tech-design/adr/0012-*`, `docs/spec/tech-design/stack.md`, `docs/wiki/Design-Documentation.md`, `README.md` 배포 절, `server/.env.example`, `server/app/core/config.py`, `server/app/farms/share.py`·`router.py`, `server/tests/test_farm_share.py`, `apps/consumer/vercel.json`, `apps/*/public/index.html`, 앱 기본 URL 상수(`apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/producer/src/app/(tabs)/farm/index.tsx`), `packages/api/src/mock/farms.ts`, `.github/workflows/deploy-railway.yml`·`deploy-vercel.yml`
+- 비범위: 도메인 구매, Cloudflare·Vercel·Railway·카카오·PortOne 콘솔 설정(사람), `admin`·`dev`·`staging` 환경 구성, 운영 `/docs` 닫기(ADR 0008)
+- 결정 사항:
+  - 10/18 `.kr`은 Cloudflare Registrar 지원 TLD가 아니고 KISA는 직접 팔지 않음 → 인증 등록대행자 호스팅케이알(hosting.kr)에서 구매(사용자 결정) + 네임서버만 Cloudflare.
+  - 10/18 공유 링크는 소비자 앱 `vercel.json` rewrite `/s/:path*` → `https://api.farmclub.kr/s/:path*`(SPA 규칙보다 앞). 서버는 `SHARE_BASE_URL`이 있으면 `<base>/s/farms/<id>`, 없으면 지금처럼 `url_for`. 기본값 빈 문자열이라 로컬·테스트 동작은 그대로.
+  - 10/18 `admin`·`dev`·`staging`은 대상이 없어 DNS 레코드를 만들지 않음(서브도메인 탈취 방지). 운영자는 `api.farmclub.kr/docs`.
+  - 10/18 Vercel·Railway 레코드는 DNS only, SSL Full(strict). 메일 미사용: null MX, `v=spf1 -all`, DMARC reject.
+  - 10/18 사용자 결정으로 Vercel 레코드(`@`·`www`·`farm`)는 Cloudflare 프록시 켬으로 바꿈. SSL Full(strict) 필수, Bot Fight Mode·Rocket Loader 끔. `api`는 Railway 인증서 발급 전까지 DNS only. ADR 0012·README 반영.
+  - 10/18 `README.md`의 2026-10-17 Railway 생성 기록 문장은 사실 기록이라 옛 주소를 그대로 둠.
+- 작업: [x] ADR 0012 [x] stack.md·wiki·README [x] 공유 주소 설정·테스트 [x] 하드코딩 주소 교체 [ ] 사람: 도메인 연결 후 머지
+- 검증: 아래 기록 참고.
+- 기록:
+  - 10/18 `server/`에서 `uv sync --frozen` 후 `uv run pytest -q` 325 통과(새 테스트 `test_AC_19_1_share_url_uses_public_domain_when_configured` 포함), `ruff check app tests` 통과.
+  - 10/18 루트 `npm ci` 후 `npm run typecheck` 통과, `npm run test:mock` 13 통과. `actionlint`(두 배포 워크플로) 통과.
+  - 10/18 실제 DNS·Vercel rewrite·카톡 미리보기는 도메인이 없어 확인하지 못함. 전환 순서 5~6번에서 사람이 확인.
+  - 10/18 도메인 연결: 호스팅케이알 구매 → 네임서버 Cloudflare. `farmclub.kr`·`www`(→ apex 308)·`farm`·`api` 모두 Cloudflare 프록시 켬. `https://farmclub.kr`·`https://farm.farmclub.kr` 200(x-vercel-id), `https://api.farmclub.kr/health` 200, `/s/farms/f-kang` 200, 카톡 크롤러 UA 200.
+  - 10/18 main(DEV-47) 병합 후 pytest 328 통과.

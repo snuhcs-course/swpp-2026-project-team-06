@@ -78,6 +78,7 @@ Exact versions are in `package-lock.json` and `server/uv.lock`.
 | Seeded test login (ADR 0009) | Reproduce every account state (pending, rejected, suspended) without real identities | Test accounts only, behind an explicit on/off flag |
 | Operator API before operator UI (ADR 0008) | An operator screen is not needed to demo I1 | Capacity approval works through `/admin` and Swagger UI |
 | Copy order data at payment | Later edits to a product or address must not change paid orders | Price, weight, address and delivery window are copied into `Order` |
+| One domain, DNS on Cloudflare (ADR 0012) | Share links, Kakao login return addresses and the payment webhook all depend on fixed addresses | `farmclub.kr` serves the consumer app, `farm.farmclub.kr` the producer app and `api.farmclub.kr` the server. The consumer app proxies `/s/*` to the server, so farm links read `https://farmclub.kr/s/farms/{id}` (`SHARE_BASE_URL`) |
 
 ADR 0002 (Django) was replaced by ADR 0007/0008.
 
@@ -398,7 +399,6 @@ Not built yet:
 
 | Planned | Current state |
 | --- | --- |
-| Server-rendered share page `/s/farms/{id}` for KakaoTalk previews | No route yet; the farm link opens the consumer app directly |
 | Dedicated operator UI | Approval, delivery, refund-history and exception-recovery APIs exist; a dedicated UI is not assigned |
 | Automatic purchase confirmation after 8 days, scheduled refunds | No scheduler yet |
 | Cloudflare R2 for public media | Private photos are stored in PostgreSQL; public media upload is not wired up |
