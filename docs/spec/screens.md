@@ -170,7 +170,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **입력**: `optionId`, `quantity`, `recipientName`, `recipientPhone`(휴대폰 형식), `postalCode`, `address`, 선택 `addressDetail`, `deliveryNote`(100자 이하), 동의 4개, `saveAddress`. 저장한 기본 배송지가 있으면 채워 두고 ‘다른 배송지’ 시트에서 저장 목록(최대 50개) 중 고르거나 새 주소를 넣는다(AC-08-5, `GET /api/auth/me/addresses`). 저장 배송지가 없으면 배송지 입력의 받는 사람·연락처를 가입 정보(이름·휴대폰)로 채운다. 50개가 찼으면 시트와 배송지 입력에 ‘이번 주문에만 쓰고 저장하지 않아요’를 보이고 저장 체크를 숨긴다. 가입 온보딩이 남은 계정이 열면 SCR-06으로 보낸다(AC-01-12).
 - **출력**: `POST /api/orders`(`Idempotency-Key`) → 결제 전 주문(`orderId`, `unitPrice`, `shippingFee`, `totalAmount`), 이어서 `POST /api/orders/{orderId}/deposit`(`Idempotency-Key`) → 물량 선점·입금 대기(`AWAITING_DEPOSIT`)·계좌·기한. 서버 합계를 보여주고 SCR-11로 간다.
 - **버튼 동작**: 옵션·수량·주소 변경 → 합계 미리보기 갱신. 예약하기 → 필수값·동의 검증 후 주문 생성과 입금 안내를 각 1회 요청, 처리 중 잠금. 뒤로 → SCR-04.
-- **빈 상태·오류**: 받는 곳이 없으면 예약하기를 끄고 ‘받는 곳을 입력하면 예약할 수 있어요’. 동의 누락 → 넘어가지 않음(AC-08-1). 409(기간/가격 변경·판매 중지·총 한도/기간 물량 소진·수량 초과) → 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받음. 네트워크 오류 → 입력 유지, 다시 시도.
+- **빈 상태·오류**: 받는 곳이 없으면 예약하기를 끄고 ‘받는 곳을 입력하면 예약할 수 있어요’. 동의 누락 → 넘어가지 않음(AC-08-1). 409(기간/가격 변경·판매 중지·총 한도/기간 물량 소진·수량 초과·농가 계좌 없음) → 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 서버 메시지를 안내로 보인다. 버튼을 ‘바뀐 금액으로 예약하기’로 바꾸는 것은 기간/가격 변경(`STAGE_CHANGED`)일 때만이다. 판매 중지(`SALES_PAUSED`)·농가 계좌 없음(`NO_FARM_ACCOUNT`)은 다시 눌러도 같으므로 예약하기를 끄고 하단 바 요약에 사유를 보인다(DEV-72). 네트워크 오류 → 입력 유지, 다시 시도.
 
 #### SCR-10 하위: 배송지 입력 `/checkout/:productId/address`
 
@@ -503,7 +503,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `POST /api/orders` | 소비자, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 4개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT` | FEAT-08 | Must |
+| `POST /api/orders` | 소비자, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 4개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT`·`SALES_PAUSED`·`TOTAL_LIMIT_REACHED`, 농가 계좌가 없으면 `NO_FARM_ACCOUNT`(주문을 만들지 않음, DEV-72) | FEAT-08, 09 | Must |
 | `POST /api/orders/{orderId}/deposit` | 소비자, `Idempotency-Key` | SCR-10 → 11 | — | 물량 선점 후 `AWAITING_DEPOSIT`, `depositAccount`·`sellerInfo`·`depositDueAt`(안내 시각 + 24시간). 물량 0이면 409 `SOLD_OUT`, 계좌 없으면 409 `NO_FARM_ACCOUNT` (DEV-68) | FEAT-09 | Must |
 | `POST /api/orders/{orderId}/deposit-reported` | 소비자(본인) | SCR-11, 14 | — | `depositReportedAt` 기록, 상태 그대로. 입금 대기가 아니면 409 | FEAT-09 | Should |
 | `POST /api/orders/{orderId}/confirm-deposit` | 생산자(자기 농가) | SCR-29 | — | `RESERVED`, 결제일(=확인 시각), `Payment` 생성. 이미 확인됐으면 그대로(멱등). 입금 대기가 아니면 409 `INVALID_TRANSITION`, 남의 농가 404 | FEAT-09 | Must |
@@ -595,6 +595,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 날짜 | 버전 | 내용 |
 | --- | --- | --- |
+| 2026-10-18 | 1.8 | DEV-72: 계좌 없는 농가 상품은 `POST /api/orders`에서 409 `NO_FARM_ACCOUNT`(결제 전 주문을 남기지 않음). SCR-10 409 사유별 안내, ‘바뀐 금액으로 예약하기’는 `STAGE_CHANGED`만 |
 | 2026-10-18 | 1.7 | DEV-68: 무통장 입금(농가 계좌 직접). SCR-10 ‘예약하기’·중개자 고지, SCR-11 입금 안내, SCR-12 입금 확인 중, SCR-14 입금 대기·만료·환불 송금, SCR-22 할 일 목록(ListRow), SCR-29 입금 대기·환불 탭과 입금 확인·환불 완료 시트, 새 부품 없이 기존 Figma v6 부품만, SCR-30 하위 입금 계좌. API: `/pay` 삭제, `deposit`·`deposit-reported`·`confirm-deposit`·`refund-settled`, 관리 `confirm-deposit`·`expire-deposits`, `farms/me` 계좌 |
 | 2026-10-07 | 1.3 | DEV-3: 세 번째 채팅·내 주문·환경설정 SCR-33·상품 그룹·소식 작성 진입. API 1.2 유지 |
 | 2026-10-07 | 1.2 | DEV-3·DEV-4: 상품 총 한도·판매 중지, 날짜 가격, 소식방·생산자 전체 1:1, AI 설정(SCR-31), 주문 문제 문의(SCR-32), 권한·동시성 계약. 문서만 변경 |
