@@ -6,6 +6,7 @@ import {
   newIdempotencyKey,
   orders,
   type Address,
+  type ConflictReason,
   type Recipient,
 } from "@farmclub/api";
 import {
@@ -78,6 +79,14 @@ export default function Checkout() {
   const [conflictMsg, setConflictMsg] = useState<string | null>(
     params.changed ? "예약 기간 또는 가격이 바뀌었어요" : null,
   );
+  // 409 사유(DEV-72). 가격·기간 변경(STAGE_CHANGED)만 '바뀐 금액으로 예약하기'로 다시 확인받는다
+  const [conflictReason, setConflictReason] = useState<ConflictReason | null>(
+    params.changed ? "STAGE_CHANGED" : null,
+  );
+  const priceChanged = conflictReason === "STAGE_CHANGED";
+  // 다시 눌러도 같은 결과인 사유는 버튼을 막는다
+  const blocked =
+    conflictReason === "NO_FARM_ACCOUNT" || conflictReason === "SALES_PAUSED";
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
   // 입금 안내(물량 선점)도 멱등 키로 한 번만(AC-09-3)
   const [depositKey, setDepositKey] = useState(newIdempotencyKey);
@@ -132,7 +141,7 @@ export default function Checkout() {
   const total = unit * qty + shipping + remoteFee;
   const agreed = Object.values(consents).filter(Boolean).length;
   const allAgreed = agreed === 4;
-  const canPay = !!recipient && allAgreed && !!p && !p.soldOut;
+  const canPay = !!recipient && allAgreed && !!p && !p.soldOut && !blocked;
 
   const consentText = useMemo(() => {
     if (!p) return null;
@@ -197,6 +206,7 @@ export default function Checkout() {
       if (e instanceof ApiError && e.status === 409) {
         // 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받는다
         setConflictMsg(e.message);
+        setConflictReason((e.details.reason as ConflictReason) ?? null);
         setIdemKey(newIdempotencyKey());
         setDepositKey(newIdempotencyKey());
         await product.reload();
@@ -240,9 +250,15 @@ export default function Checkout() {
             style={{ margin: 20, marginBottom: 0 }}
             title={conflictMsg}
             body={
-              p.soldOut
-                ? "지금은 예약할 수 없어요. 다음 예약 기간가 열리면 다시 예약해 주세요."
-                : `지금 가격은 ${won(unit)}이에요. 입력한 내용은 그대로 두었어요.`
+              conflictReason === "NO_FARM_ACCOUNT"
+                ? "농가가 입금 계좌를 등록하면 예약할 수 있어요. 주문은 만들어지지 않았어요."
+                : conflictReason === "SALES_PAUSED"
+                  ? "농가가 예약을 다시 열면 예약할 수 있어요. 주문은 만들어지지 않았어요."
+                  : p.soldOut
+                    ? "지금은 예약할 수 없어요. 다음 예약 기간가 열리면 다시 예약해 주세요."
+                    : priceChanged
+                      ? `지금 가격은 ${won(unit)}이에요. 입력한 내용은 그대로 두었어요.`
+                      : "입력한 내용은 그대로 두었어요. 수량을 바꾸거나 다시 확인해 주세요."
             }
           />
         ) : null}
@@ -456,7 +472,11 @@ export default function Checkout() {
 
       <BottomBar
         summary={
-          !recipient ? (
+          blocked && conflictMsg ? (
+            <T variant="sub" style={{ flex: 1 }}>
+              {conflictMsg}
+            </T>
+          ) : !recipient ? (
             <T variant="sub" style={{ flex: 1 }}>
               받는 곳을 입력하면 예약할 수 있어요
             </T>
@@ -472,7 +492,7 @@ export default function Checkout() {
       >
         <Button
           label={
-            conflictMsg && !p?.soldOut ? "바뀐 금액으로 예약하기" : "예약하기"
+            priceChanged && !p?.soldOut ? "바뀐 금액으로 예약하기" : "예약하기"
           }
           disabled={!canPay}
           loading={busy}
