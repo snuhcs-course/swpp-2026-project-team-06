@@ -1,0 +1,39 @@
+{
+  "packageId": "kr.farmclub.consumer",
+  "host": "farmclub.kr",
+  "name": "farmclub",
+  "launcherName": "farmclub",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#FFFFFF",
+  "themeColorDark": "#FFFFFF",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#FFFFFF",
+  "navigationDividerColor": "#E5E5E5",
+  "navigationDividerColorDark": "#E5E5E5",
+  "backgroundColor": "#FFFFFF",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://farmclub.kr/icons/icon-512.png",
+  "maskableIconUrl": "https://farmclub.kr/icons/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "~/.farmclub/android/farmclub-release.keystore",
+    "alias": "farmclub"
+  },
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://farmclub.kr/",
+  "minSdkVersion": 24,
+  "fingerprints": [
+    { "name": "farmclub-release", "value": "DE:8D:8D:4B:14:D9:DA:02:8D:B3:E0:8F:84:33:37:E0:14:5A:9D:CF:92:57:AA:27:49:1B:67:3B:B8:AD:33:31" }
+  ]
+}

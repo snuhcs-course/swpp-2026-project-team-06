@@ -1,0 +1,11 @@
+# Gradle·빌드 산출물
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.idsig
+# 서명 키(비밀값). 키스토어는 레포 밖 ~/.farmclub/android/ 에 둔다
+*.keystore
+*.jks
+dist/
