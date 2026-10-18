@@ -13,7 +13,9 @@ def upgrade():
     op.add_column("farms", sa.Column("bank_name", sa.String(50), nullable=True))
     op.add_column("farms", sa.Column("account_number", sa.String(32), nullable=True))
     op.add_column("farms", sa.Column("account_holder", sa.String(50), nullable=True))
-    op.add_column("farms", sa.Column("account_updated_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column(
+        "farms", sa.Column("account_updated_at", sa.DateTime(timezone=True), nullable=True)
+    )
     op.add_column("orders", sa.Column("deposit_due_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column(
         "orders", sa.Column("deposit_reported_at", sa.DateTime(timezone=True), nullable=True)
@@ -27,6 +29,9 @@ def upgrade():
 
 
 def downgrade():
+    # 0013까지는 server_default가 없었다(ORM 기본값만)
+    op.alter_column("payments", "provider", server_default=None)
+    op.alter_column("payments", "method", server_default=None)
     op.drop_column("refunds", "settled_at")
     for name in ("cancel_reason", "deposit_confirmed_by", "deposit_reported_at", "deposit_due_at"):
         op.drop_column("orders", name)

@@ -2,13 +2,13 @@
 
 import re
 import secrets
+from datetime import timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.catalog.schemas import DateRange
-from datetime import timedelta
-
 from app.core.clock import now, today
 from app.core.config import get_settings
 from app.core.errors import conflict, invalid, not_found
@@ -32,6 +32,8 @@ from app.orders.schemas import (
 ACTIVE = ("RESERVED", "PREPARING", "SHIPPED", "DELIVERED", "COMPLETED")
 # 생산자 화면에 보이는 주문(결제 전만 뺀다). 입금 대기는 물량을 잡고 있으므로 보인다(DEV-68)
 VISIBLE = Order.status != "PENDING_PAYMENT"
+# 생산자 목록: 돈을 낸 적 없이 끝난 취소(입금 기한 초과·입금 전 취소·입금 미승인 취소)는 뺀다(R-15)
+PRODUCER_VISIBLE = VISIBLE & ~((Order.status == "CANCELED") & Order.paid_at.is_(None))
 # 입금 대기 주문의 취소 사유(R-28)
 DEPOSIT_EXPIRED = "입금 기한 초과"
 
@@ -200,7 +202,8 @@ def _reason(text: str, field: str = "reason") -> str:
 def _new_order_no(db: Session) -> str:
     """주문 번호 `FC-MMDD-NNNN`. 입금자명으로 쓴다(R-28).
 
-    NNNN은 연번이 아니라 무작위 4자리다. 연번이면 소비자가 거래 건수를 셀 수 있어서다(2026-10-18 결정).
+    NNNN은 연번이 아니라 무작위 4자리다. 연번이면 소비자가 거래 건수를 셀 수 있어서다
+    (2026-10-18 결정).
     같은 날 같은 번호가 이미 있으면 다시 뽑는다(order_no는 UNIQUE).
     """
     prefix = f"FC-{today():%m%d}-"
@@ -290,7 +293,17 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
         consent_version=body.consent_version.strip(),
         created_at=created,
     )
-    db.add(order)
+    # 무작위 주문 번호가 동시에 같은 값을 뽑으면 UNIQUE 위반이 난다. 그때만 새 번호로 다시 넣는다
+    for attempt in range(5):
+        try:
+            with db.begin_nested():
+                db.add(order)
+                db.flush()
+            break
+        except IntegrityError as exc:
+            if attempt == 4 or "order_no" not in str(exc.orig):
+                raise
+            order.order_no = _new_order_no(db)
     if body.save_address:
         accounts.save_order_address(
             db,
@@ -536,21 +549,46 @@ def _cancel_awaiting(db: Session, order: Order, reason: str) -> None:
 
 
 def _expire_if_overdue(db: Session, order: Order) -> bool:
+    """기한 지난 입금 대기를 취소한다. 소비자가 '입금했어요'를 보낸 주문은 취소하지 않는다.
+
+    돈이 이미 농가 계좌에 들어갔을 수 있어서다. 운영자가 `GET /admin/orders/deposit-overdue`로 찾아
+    생산자에게 연락한다(2026-10-18 박현 결정).
+    """
     if (
         order.status != "AWAITING_DEPOSIT"
         or order.deposit_due_at is None
         or order.deposit_due_at > now()
+        or order.deposit_reported_at is not None
     ):
         return False
     from app.catalog import service as catalog
 
     catalog.lock_product(db, order.product_id)
     locked = db.scalar(select(Order).where(Order.id == order.id).with_for_update())
-    if locked is None or locked.status != "AWAITING_DEPOSIT":
+    if (
+        locked is None
+        or locked.status != "AWAITING_DEPOSIT"
+        or locked.deposit_reported_at is not None
+    ):
         return False
     _cancel_awaiting(db, locked, DEPOSIT_EXPIRED)
     db.flush()
     return True
+
+
+def reported_overdue_deposits(db: Session) -> list[Order]:
+    """소비자는 입금했다고 알렸는데 기한까지 생산자가 확인하지 않은 주문(운영자가 연락할 대상)."""
+    return list(
+        db.scalars(
+            select(Order)
+            .where(
+                Order.status == "AWAITING_DEPOSIT",
+                Order.deposit_due_at <= now(),
+                Order.deposit_reported_at.is_not(None),
+            )
+            .order_by(Order.deposit_due_at, Order.id)
+        )
+    )
 
 
 def expire_overdue_deposits(
@@ -561,7 +599,9 @@ def expire_overdue_deposits(
     조회 시점 지연 검사와 운영자 일괄 API가 같이 쓴다. 바뀐 주문 수를 돌려준다.
     """
     query = select(Order).where(
-        Order.status == "AWAITING_DEPOSIT", Order.deposit_due_at <= now()
+        Order.status == "AWAITING_DEPOSIT",
+        Order.deposit_due_at <= now(),
+        Order.deposit_reported_at.is_(None),
     )
     if consumer_id:
         query = query.where(Order.consumer_id == consumer_id)
@@ -580,9 +620,11 @@ def expire_overdue_deposits(
 
 
 def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
-    """입금 안내(FEAT-09 개정). 상품 → 기간 물량 순서로 잠그고 박스·중량을 선점한 뒤 입금 대기로 바꾼다.
+    """입금 안내(FEAT-09 개정). 상품 → 기간 물량 순서로 잠그고 박스·중량을 선점한 뒤
+    입금 대기로 바꾼다.
 
-    같은 멱등 키로 다시 오면 라우터가 처음 결과를 돌려준다(AC-09-3). 이미 입금 대기·확인된 주문은 그대로 돌려준다.
+    같은 멱등 키로 다시 오면 라우터가 처음 결과를 돌려준다(AC-09-3).
+    이미 입금 대기·확인된 주문은 그대로 돌려준다.
     """
     from app.catalog import service as catalog
     from app.farms import service as farms
@@ -854,6 +896,8 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
     item = catalog.load_product(db, order.product_id)
     option = next((row for row in item.options if row.id == order.option_id), None)
     awaiting = order.status == "AWAITING_DEPOSIT"
+    # 결제(입금 확인) 전 주문은 배송지를 보여 주지 않는다(R-15 최소 노출)
+    hide = order.paid_at is None
     return ProducerOrder(
         order_id=order.id,
         order_no=order.order_no,
@@ -862,7 +906,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         option_label=option.label if option else "",
         quantity=order.quantity,
         status=order.status,
-        delivery_note=order.delivery_note,
+        delivery_note=None if hide else order.delivery_note,
         carrier=order.carrier,
         tracking_number=order.tracking_number,
         created_at=order.created_at,
@@ -874,10 +918,10 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         refund_issue=_refund_issue(db, order),
         # 입금 전에는 배송지를 보여 주지 않는다(R-15 최소 노출)
         recipient_name=order.recipient_name,
-        recipient_phone="" if awaiting else order.recipient_phone,
-        postal_code="" if awaiting else order.postal_code,
-        address="" if awaiting else order.address,
-        address_detail="" if awaiting else order.address_detail,
+        recipient_phone="" if hide else order.recipient_phone,
+        postal_code="" if hide else order.postal_code,
+        address="" if hide else order.address,
+        address_detail="" if hide else order.address_detail,
     )
 
 
@@ -891,7 +935,7 @@ def producer_orders(
     product_ids = [item.product.id for item in catalog.farm_products(db, farm_id)]
     if not product_ids:
         return []
-    query = select(Order).where(Order.product_id.in_(product_ids), VISIBLE)
+    query = select(Order).where(Order.product_id.in_(product_ids), PRODUCER_VISIBLE)
     if status:
         query = query.where(Order.status == status)
     if product_id:

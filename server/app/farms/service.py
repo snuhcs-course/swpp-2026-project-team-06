@@ -19,6 +19,7 @@ from app.farms.schemas import (
     AiPreview,
     AiPreviewInput,
     AiSettings,
+    DepositAccount,
     FaqItem,
     FarmCard,
     FarmDetail,
@@ -27,7 +28,6 @@ from app.farms.schemas import (
     FeaturedProduct,
     FollowState,
     Hero,
-    DepositAccount,
     Home,
     MyFarm,
     SellerInfo,
@@ -314,7 +314,11 @@ def patch_my_farm(db: Session, producer_id: str, body: FarmPatch) -> MyFarm:
         bank = (body.bank_name or "").strip()
         holder = (body.account_holder or "").strip()
         if not bank or not holder:
-            raise invalid({"bankName": "은행을 적어 주세요"} if not bank else {"accountHolder": "예금주를 적어 주세요"})
+            raise invalid(
+                {"bankName": "은행을 적어 주세요"}
+                if not bank
+                else {"accountHolder": "예금주를 적어 주세요"}
+            )
         farm.bank_name = bank
         farm.account_number = body.account_number.strip()
         farm.account_holder = holder

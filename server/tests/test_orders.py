@@ -1,4 +1,5 @@
-"""FEAT-08 예약 주문, FEAT-09 무통장 입금(입금 안내·확인, DEV-68), FEAT-10 주문 상세, FEAT-14 생산자 현황."""
+"""FEAT-08 예약 주문, FEAT-09 무통장 입금(입금 안내·확인, DEV-68),
+FEAT-10 주문 상세, FEAT-14 생산자 현황."""
 
 import re
 import uuid
@@ -196,6 +197,57 @@ def test_AC_09_9_reject_deposit_can_cancel_and_release_quantity(client, login):
     assert again.status_code == 409
 
 
+def test_R_15_unpaid_orders_hide_shipping_info_from_producer(client, login):
+    headers = login("u-seojun")
+    producer = login("u-kang")
+    waiting = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    deposit(client, headers, waiting["orderId"])
+    canceled = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    deposit(client, headers, canceled["orderId"])
+    client.post(f"/api/orders/{canceled['orderId']}/cancel", headers=headers)
+
+    rows = {
+        o["orderId"]: o
+        for o in client.get("/api/orders/producer?limit=50", headers=producer).json()["items"]
+    }
+    # 입금 전 취소(돈을 낸 적 없음)는 생산자 목록에 없다
+    assert canceled["orderId"] not in rows
+    row = rows[waiting["orderId"]]
+    assert (row["recipientPhone"], row["postalCode"], row["address"], row["addressDetail"]) == (
+        "",
+        "",
+        "",
+        "",
+    )
+    assert row["deliveryNote"] is None
+
+
+def test_AC_09_7_reported_deposit_is_not_canceled_after_deadline(client, login):
+    from app.core import config
+
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    deposit(client, headers, order["orderId"])
+    client.post(f"/api/orders/{order['orderId']}/deposit-reported", headers=headers)
+    admin = _admin(client)
+
+    config.get_settings().fixed_now = "2026-10-08T10:00:01+09:00"
+    try:
+        detail = client.get(f"/api/orders/{order['orderId']}", headers=headers).json()
+        assert detail["status"] == "AWAITING_DEPOSIT"
+        assert client.post("/admin/orders/expire-deposits", headers=admin | key()).json() == {
+            "changed": 0
+        }
+        overdue = client.get("/admin/orders/deposit-overdue", headers=admin).json()
+        assert [o["orderId"] for o in overdue] == [order["orderId"]]
+        assert allocation().reserved_count == 39
+        late = confirm(client, order["orderId"], login("u-kang"))
+        assert late.json()["status"] == "RESERVED"
+        assert client.get("/admin/orders/deposit-overdue", headers=admin).json() == []
+    finally:
+        config.get_settings().fixed_now = "2026-10-07T10:00:00+09:00"
+
+
 def _admin(client):
     from app.core.security import issue_token
 
@@ -229,11 +281,17 @@ def test_AC_09_7_admin_expires_overdue_deposits_in_bulk(client, login):
     order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
     deposit(client, headers, order["orderId"])
     admin = _admin(client)
-    assert client.post("/admin/orders/expire-deposits", headers=admin).json() == {"changed": 0}
+    # 다른 운영자 변경 API처럼 멱등 키가 필요하고 감사 기록이 남는다
+    assert client.post("/admin/orders/expire-deposits", headers=admin).status_code == 400
+    first = admin | key()
+    assert client.post("/admin/orders/expire-deposits", headers=first).json() == {"changed": 0}
+    # 같은 키로 다시 보내면 처음 결과 그대로
+    assert client.post("/admin/orders/expire-deposits", headers=first).json() == {"changed": 0}
 
     config.get_settings().fixed_now = "2026-10-08T12:00:00+09:00"
     try:
-        assert client.post("/admin/orders/expire-deposits", headers=admin).json() == {"changed": 1}
+        expired = client.post("/admin/orders/expire-deposits", headers=admin | key())
+        assert expired.json() == {"changed": 1}
         assert allocation().reserved_count == 38
     finally:
         config.get_settings().fixed_now = "2026-10-07T10:00:00+09:00"

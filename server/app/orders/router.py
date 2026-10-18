@@ -276,11 +276,31 @@ def admin_confirm_deposit(db: Db, admin: Admin, order_id: str, key: IdempotencyK
 
 
 @admin_router.post("/expire-deposits", response_model=Changed)
-def expire_deposits(db: Db, _: Admin):
-    """기한이 지난 입금 대기 주문을 일괄 취소하고 물량을 돌려준다(R-28)."""
-    changed = service.expire_overdue_deposits(db)
-    db.commit()
-    return Changed(changed=changed)
+def expire_deposits(db: Db, admin: Admin, key: IdempotencyKey = None):
+    """기한이 지난 입금 대기 주문을 일괄 취소하고 물량을 돌려준다(R-28).
+
+    다른 운영자 변경 API처럼 멱등 키와 감사 기록(manager event)을 남긴다.
+    입금했다고 알린 주문은 취소하지 않는다(deposit-overdue 목록으로 확인).
+    """
+    from app.admin.service import run_manager_action
+
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="order.expire_deposits",
+        target_type="order",
+        target_id="*",
+        scope="order-expire-deposits",
+        key=key,
+        body={},
+        run=lambda _: Changed(changed=service.expire_overdue_deposits(db)),
+    )
+
+
+@admin_router.get("/deposit-overdue", response_model=list[OrderView])
+def deposit_overdue(db: Db, _: Admin):
+    """입금했다고 알렸는데 기한까지 생산자가 확인하지 않은 주문. 운영자가 생산자에게 연락한다."""
+    return [service.order_view(db, o) for o in service.reported_overdue_deposits(db)]
 
 
 @admin_router.get("/{order_id}/refunds", response_model=list[RefundView])
