@@ -18,8 +18,9 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 
 | 엔티티 | 필수 필드 | 관계 |
 | --- | --- | --- |
-| `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone | (kakaoId, role)당 1개. 같은 사람이라도 소비자·생산자 계정은 따로(ADR 0010) |
-| `ShippingAddress` | id, userId, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5) |
+| `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone, nickname?(I2 온보딩, 농가에 보이는 이름), email?(I2 카카오계정 이메일, 연락용) | (kakaoId, role)당 1개. 같은 사람이라도 소비자·생산자 계정은 따로(ADR 0010). 소비자 카카오 계정은 nickname·name·phone·필수 동의가 모두 있어야 온보딩 완료(FEAT-01 AC-01-12) |
+| `UserConsent` | id, userId, kind(TERMS·PRIVACY·AGE14·MARKETING), version, agreed, agreedAt | User 1 : N, (userId, kind)당 1개. 다시 동의하면 버전·시각 갱신(AC-01-14) |
+| `ShippingAddress` | id, userId, label?, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5). 계정당 50개, 기본을 지우면 가장 최근 것이 기본(AC-01-15) |
 | `Farm` | id, producerId, name, region, intro, mainItems(주 품목), contactPhone(신청 연락처), approvalStatus(PENDING/APPROVED/REJECTED/SUSPENDED), rejectReason?, suspendReason?, appliedAt, decidedAt? | User(role = PRODUCER) 1 : 1 Farm. 가입 신청 때 생기고, 신청한 대표자 이름은 `User.name` |
 | `Follow` | consumerId, farmId, createdAt | User(role = CONSUMER) N : M Farm |
 | `Product` | id, farmId, name, variety, description, deliveryWindow(start, end), maxDelayUntil, expectedBrix?, measuredBrix?, grade?, status(DRAFT/PENDING\_APPROVAL/PUBLISHED/CLOSED), shippingFeeType(FREE/SEPARATE), shippingFee?, maxQuantityPerOrder | Farm 1 : N Product |
