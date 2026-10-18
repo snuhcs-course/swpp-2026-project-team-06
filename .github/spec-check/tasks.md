@@ -86,3 +86,41 @@ spec-code-review를 승인자 1명의 승인으로 실행하되, PR 작성자 �
 - 10/18 main 0639fbf에서 시작.
 - 10/18 PR #147 머지(c3c721d). 설정: 승인자 4명(nemodleo·jangjinuite·xozier·llovablanche), 본인 승인 금지 꺼짐, 관리자 우회 꺼짐, `SPEC_CHECK_ENABLED=true`. EVIDENCE.md에 키 값 없이 설정 기록. 시연 PR로 live 실행 확인 중.
 - 10/18 PR #150에서 첫 live 실행(https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/39124913548): 시연 mismatch → MISMATCH(SC-001, DEMO-AC-01과 `>= 0` 인용), 시연 matched → PASS. 일반 검사는 60 KiB 초과로 INCOMPLETE(모델 호출 없음). 사람 판단(완료 조건 6)은 리뷰어 몫으로 남김.
+
+## DEV-79 [I2-T23 follow-up] spec-check: thinking 블록 섞인 모델 응답을 INCOMPLETE로 처리하는 문제
+
+- 이슈: https://linear.app/sswp6/issue/DEV-79 (관련: DEV-55)
+- 브랜치: `nemodleo/dev-79-i2-t23-follow-up-spec-check-thinking-블록-섞인-모델`
+- 기능·인수 조건: infra. 제품 동작 변경 없음.
+- 상태: 진행 중
+
+### 목표
+모델 응답에 `thinking`/`redacted_thinking` 블록이 섞여도 text 블록의 리뷰 JSON으로 검증을 계속한다. 그 외 형식은 지금처럼 INCOMPLETE.
+
+### 범위 (수정 허용 경로)
+- `.github/spec-check/check.py`(`model_review`), `.github/spec-check/test_check.py`, `.github/spec-check/README.md`, `.github/spec-check/spec.md`, `.github/spec-check/tasks.md`
+
+### 비범위
+- workflow, 프롬프트, 수집·검증(`validate`) 로직, 출력 한도(4096 tokens), 저장소 설정·키, EVIDENCE.md
+
+### 결정 사항
+- 10/18 현상: PR #157 run 39128411038 INCOMPLETE "Unexpected model content type."(model `claude-sonnet-5-5`, usage {}). artifact `report.json`에는 블록 type이 남지 않아 실제 타입은 확인할 수 없다.
+- 10/18 원인 가설(문서 근거): Claude API 문서(Sonnet 5.5 마이그레이션)상 `claude-sonnet-5-5`는 `thinking`을 생략하면 adaptive thinking으로 돌고, 응답이 빈 `thinking` 블록(기본 display "omitted")으로 시작할 수 있다. checker는 text 외 블록을 모두 거부했다. PR #150 시연은 입력이 작아 thinking을 건너뛰었을 수 있다(간헐).
+- 10/18 (b)안 채택: `thinking`·`redacted_thinking`은 내용을 읽지 않고 버리고 text 블록만 이어 붙인다. text 블록이 없거나 그 외 타입(tool_use 등)이면 INCOMPLETE. (a)안(요청에서 thinking 끄기)은 쓰지 않는다: 이 모델에서 `{type: "disabled"}`는 400이고, 대안 `{type: "between_tools"}`는 Sonnet 5.5 전용이라 `SPEC_CHECK_MODEL`을 바꾸면 400이 난다(모델 fallback 금지 원칙과 같은 이유로 모델별 분기를 두지 않음).
+- 10/18 원인 확인용으로 INCOMPLETE 메시지에 허용되지 않은 블록의 type 이름만 붙인다(`[a-z_]` 40자 이하만, 그 외는 `unknown`). 본문·thinking 내용·비밀값은 남기지 않는다.
+- 10/18 남은 위험: thinking 토큰도 `max_tokens` 4096에 포함되므로 긴 thinking이면 `stop_reason: max_tokens` → INCOMPLETE(안전한 실패)가 날 수 있다. 한도 조정은 spec.md 결정 변경이라 이 이슈에서 하지 않고, 재발하면 후속 이슈로 다룬다.
+
+### 작업
+- [x] `model_review`: thinking/redacted_thinking 무시, text 필수, 그 외 타입은 type 이름과 함께 INCOMPLETE
+- [x] 계약 테스트: thinking·redacted_thinking 섞인 정상 응답, thinking만 있는 응답, tool_use 섞인 응답, 이상한 type 이름 정리
+- [x] README·spec 갱신
+- [ ] 로컬 `python -m unittest` 실행, GitHub checker-tests 확인
+
+### 완료 조건
+- [ ] 계약 테스트 통과(로컬·GitHub)
+- [ ] live 재실행에서 이 오류가 다시 나지 않는지 확인(환경 승인 필요, 사람 몫)
+- [ ] 사람 1명 승인 후 main 머지
+
+### 기록
+- 10/18 main 56ac959에서 시작.
+- 10/18 로컬 `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'`(Python 3.14.7): 28개 통과. 새 테스트 2개는 main의 check.py로 돌리면 실패(failures=6, errors=3)하는 것을 확인. GitHub checker-tests(Python 3.12)는 PR에서 확인 예정.
