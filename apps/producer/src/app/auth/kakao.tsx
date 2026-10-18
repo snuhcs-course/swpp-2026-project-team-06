@@ -40,8 +40,10 @@ export default function KakaoCallback() {
     void (async () => {
       try {
         await auth.kakaoLogin(code, `${window.location.origin}/auth/kakao`);
-        // 관문이 농가 상태(없음 → 가입 신청, 확인 중·반려 → 대기, 승인 → 현황, 정지 → 안내)로 보낸다
-        await refresh();
+        // 관문이 농가 상태(없음 → 가입 신청, 확인 중·반려 → 대기, 승인 → 현황, 정지 → 안내)로 보낸다.
+        // 사용자 조회가 실패하면 이 화면에 머물지 않게 안내한다
+        const u = await refresh();
+        if (!u) setFailed("로그인 정보를 불러오지 못했어요. 다시 시도해 주세요.");
       } catch (e) {
         setFailed(
           e instanceof ApiError
