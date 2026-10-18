@@ -24,11 +24,19 @@ test("N-05: order, checkout, chat and account screens are masked in replays", ()
     "/me/addresses/edit",
   ])
     assert.equal(isPrivatePath("consumer", path), true, path);
-  for (const path of ["/chats", "/chats/c1", "/ship", "/pending", "/apply"])
+  for (const path of [
+    "/chats",
+    "/chats/c1",
+    "/ship",
+    "/pending",
+    "/apply",
+    "/farm/account",
+  ])
     assert.equal(isPrivatePath("producer", path), true, path);
   for (const path of ["/", "/products/p1", "/farms/f1", "/meet", "/ordersx"])
     assert.equal(isPrivatePath("consumer", path), false, path);
   assert.equal(isPrivatePath("producer", "/products/p1/edit"), false);
+  assert.equal(isPrivatePath("producer", "/farm"), false);
 });
 
 test("N-05: replay text is masked on private paths and inside data-ph-private", () => {
@@ -56,12 +64,12 @@ test("N-05: event properties keep only tracking-plan keys", () => {
     { productId: "p1", orderId: "o1", quantity: 2 },
   );
   assert.deepEqual(
-    cleanProps("payment_submitted", {
+    cleanProps("deposit_reported", {
       orderId: "o1",
-      result: "fail",
-      memo: "x",
+      depositorName: "김귤",
+      accountNumber: "123-456",
     }),
-    { orderId: "o1", result: "fail" },
+    { orderId: "o1" },
   );
   assert.deepEqual(
     cleanProps("product_viewed", { productId: { nested: 1 }, farmId: "f1" }),
@@ -92,5 +100,15 @@ test("N-05: URL properties lose their query and hash", () => {
     $initial_current_url: "https://farm.farmclub.kr/ship",
     $pathname: "/farms",
     productId: "p1",
+  });
+  const heat = {
+    $heatmap_data: {
+      "https://farmclub.kr/login?next=%2Forders": [{ x: 1 }],
+      "https://farmclub.kr/login": [{ x: 2 }],
+    },
+  };
+  scrubUrls(heat);
+  assert.deepEqual(heat.$heatmap_data, {
+    "https://farmclub.kr/login": [{ x: 1 }, { x: 2 }],
   });
 });

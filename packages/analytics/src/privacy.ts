@@ -5,12 +5,12 @@
 export type AppName = "consumer" | "producer";
 
 /**
- * 주문서·배송지·주문·채팅·내 정보처럼 이름·연락처·주소·메시지 본문이 보이는 경로.
+ * 주문서·입금 안내·배송지·주문·채팅·입금 계좌·내 정보처럼 이름·연락처·주소·메시지 본문이 보이는 경로.
  * 모달(Sheet)은 화면 밖 portal에 그려져 영역 표시가 닿지 않으므로 경로 단위로 가린다.
  */
 export const PRIVATE_PATHS: Record<AppName, readonly string[]> = {
   consumer: ["/checkout", "/orders", "/chats", "/me"],
-  producer: ["/chats", "/ship", "/pending", "/apply"],
+  producer: ["/chats", "/ship", "/pending", "/apply", "/farm/account"],
 };
 
 /** 화면 일부만 가릴 때 붙이는 속성. react-native-web은 className을 받지 않아 dataSet(data-*)을 쓴다 */
@@ -53,7 +53,7 @@ export type AppEvents = {
   product_viewed: { productId: string; farmId: string };
   checkout_started: { productId: string };
   checkout_submitted: { productId: string; orderId: string; quantity: number };
-  payment_submitted: { orderId: string; result: "success" | "fail" };
+  deposit_reported: { orderId: string };
 };
 export type AppEventName = keyof AppEvents;
 
@@ -62,7 +62,7 @@ const ALLOWED_PROPS: { [E in AppEventName]: readonly (keyof AppEvents[E])[] } =
     product_viewed: ["productId", "farmId"],
     checkout_started: ["productId"],
     checkout_submitted: ["productId", "orderId", "quantity"],
-    payment_submitted: ["orderId", "result"],
+    deposit_reported: ["orderId"],
   };
 
 /** 타입을 우회해 들어온 속성(이름·주소 등)도 런타임에 한 번 더 걸러 낸다 */
@@ -91,5 +91,16 @@ export function scrubUrls(props: Props): void {
   for (const [k, v] of Object.entries(props)) {
     if (typeof v === "string" && /url|referrer/i.test(k))
       props[k] = stripQuery(v);
+  }
+  // 히트맵은 페이지 URL을 키로 모은다({ [url]: 클릭[] }). 쿼리를 지우고 같은 경로끼리 합친다
+  const heat = props.$heatmap_data;
+  if (heat && typeof heat === "object") {
+    const merged: Record<string, unknown[]> = {};
+    for (const [url, items] of Object.entries(heat as Record<string, unknown>))
+      merged[stripQuery(url)] = [
+        ...(merged[stripQuery(url)] ?? []),
+        ...(Array.isArray(items) ? items : []),
+      ];
+    props.$heatmap_data = merged;
   }
 }
