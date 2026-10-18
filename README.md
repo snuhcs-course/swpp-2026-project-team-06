@@ -243,6 +243,8 @@ selected; a manual run always deploys the current `main`.
 | -- | -- | -- |
 | `VERCEL_TOKEN` | **Environment secret** in `production` (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
 | `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
+| `APP_POSTHOG_KEY` | Repository **variable** | PostHog project API key (`phc_…`, public). Empty: no analytics or session replay. Set: screen events, replays and heatmaps go to PostHog (DEV-71). |
+| `APP_POSTHOG_HOST` | Repository **variable** | Optional. Empty: `https://us.i.posthog.com` (US Cloud). |
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
 users see. Do it outside user tests, and merge the server routes the apps call (for
