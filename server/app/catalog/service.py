@@ -807,6 +807,14 @@ def create_capacity_request(
         raise invalid({"requestedTotalGrams": "기존 승인량보다 큰 총중량을 입력해 주세요"})
     kind = "INITIAL" if p.approved_supply_grams == 0 else "INCREASE"
     if kind == "INITIAL":
+        from app.farms import service as farms
+
+        farm = farms.get_farm(db, farm_id)
+        if farm is None or not farms.has_deposit_account(farm):
+            raise conflict(
+                "NO_FARM_ACCOUNT",
+                "입금 계좌를 먼저 등록해 주세요. 소비자가 그 계좌로 직접 입금해요.",
+            )
         missing = missing_fields(item)
         if missing:
             raise invalid(

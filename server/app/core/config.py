@@ -115,6 +115,9 @@ class Settings(BaseSettings):
     home_recommend_limit: int = 6
     home_hero_product_id: str = "p-house"
 
+    # 무통장 입금 기한(시간). 입금 안내 시각부터 세고, 지나면 자동 취소·물량 해제(R-28).
+    deposit_deadline_hours: int = 24
+
     # 데모·테스트용 고정 시각(ISO 8601). 비면 실제 시각을 쓴다.
     fixed_now: str = ""
 
