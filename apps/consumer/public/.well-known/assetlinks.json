@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "kr.farmclub.consumer",
+      "sha256_cert_fingerprints": [
+        "DE:8D:8D:4B:14:D9:DA:02:8D:B3:E0:8F:84:33:37:E0:14:5A:9D:CF:92:57:AA:27:49:1B:67:3B:B8:AD:33:31"
+      ]
+    }
+  }
+]

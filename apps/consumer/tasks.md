@@ -393,3 +393,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증(10/18): `npm run typecheck` 4개 통과, `npm run test:mock` 13/13. Mock 화면 흐름(관문 → 카카오 → 온보딩 1(다음 비활성 → 입력·모두 동의 → 다음) → 2(주소 저장) → 주문서 복귀(기본 배송지 채워짐) → 내 정보·고치기·배송지 → 로그아웃 뒤 다시 카카오 → 온보딩 없이 복귀) 콘솔 오류 0. 실서버 통합은 아래 기록.
 - 10/18 AI 1차 리뷰 반영(must 1): 관문을 거치지 않는 소식 좋아요·답장·채팅 보내기가 403 `ONBOARDING_REQUIRED`를 받으면 세션이 온보딩을 연다(`onOnboardingRequired`). 주문서로 직접 들어와 온보딩을 닫으면 그 상품 화면으로(주문서 ↔ 온보딩 고리 제거). 10/17에 만든 계정의 이름 자리(이메일·‘카카오 사용자’)는 온보딩 이름 칸에 채우지 않음. 로그인 Mock 주석 갱신. Mock 확인: 관문에서 닫기 → 상품 화면, 주문서에서 닫기 → 상품 화면, 온보딩 전 좋아요 → 온보딩, 콘솔 오류 0. 범위에 `scripts/test-onboarding.mjs` 추가.
 - 10/18 남긴 리뷰 항목: 온보딩 e2e(Playwright)는 실서버 통합이 카카오 키 없이 돌아 카카오 첫 가입을 만들 수 없어 넣지 않았다. 대신 Mock 계약 테스트(`test-onboarding.mjs`)와 서버 pytest가 규칙을 덮고, 화면 흐름은 Mock Playwright 스크립트로 확인했다. 소식방에서 본인 답장 이름이 실명으로 보이는 것은 기존 동작이라 그대로 둠.
+
+## DEV-33 설치형 Android 앱(TWA)용 웹 manifest·assetlinks
+
+- 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 작업 기록 본문은 [`apps/android-twa/tasks.md`](../android-twa/tasks.md) DEV-33 절
+- 이 폴더 범위: `public/manifest.webmanifest`(새 파일), `public/.well-known/assetlinks.json`(새 파일), `public/index.html`(manifest 링크·홈 화면 메타). 화면·로직 변경 없음
+- 10/19 확인: `npx expo export -p web` 결과 `dist/`에 `.well-known/assetlinks.json`·`manifest.webmanifest`가 복사됨. Vercel은 파일을 `vercel.json` rewrite보다 먼저 주므로 SPA 폴백에 막히지 않는다

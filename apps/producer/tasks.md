@@ -572,3 +572,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/18 main 56ac959에서 시작.
 - 10/18 구현·검증: Ruff·pytest 364/364(신규 1), `npm run typecheck` 4개, `npm run test:mock` 15/15, 통합(카카오 꺼짐, 별도 DB) 실서버 7/7 + Playwright 43/43. Mock 화면: 카카오와 테스트 목록 함께 → 카카오로 시작 → `/apply`, 잘못된 state → 만료 안내, 콘솔 오류 0. 로컬 실서버(카카오 켜짐): 테스트 계정 0개·‘농가로 시작하세요’·카카오 버튼만, 누르면 카카오 로그인 화면(redirect_uri `http://localhost:8082/auth/kakao`). 실제 카카오 계정 생산자 로그인은 카카오 콘솔에 생산자 복귀 주소 등록 뒤 확인(아래).
 - 10/18 실제 카카오 계정(로컬 실서버 + 생산자 앱, 별도 DB): 카카오로 시작하기 → 새 생산자 계정(자리 이름 ‘카카오 사용자’, 이메일 저장) → `/apply` → 테스트 값으로 신청 → `/pending`(확인 중), 계정 이름이 대표자 이름으로 바뀜. 로그아웃 뒤 다시 카카오 → 같은 계정으로 `/pending`. 카카오 계정 1개만 생성.
+
+## DEV-33 홈 화면 추가용 웹 manifest
+
+- 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 작업 기록 본문은 [`apps/android-twa/tasks.md`](../android-twa/tasks.md) DEV-33 절
+- 이 폴더 범위: `public/manifest.webmanifest`(새 파일), `public/index.html`(manifest 링크·`mobile-web-app-capable`·`apple-mobile-web-app-capable`·status-bar-style 메타). 화면·로직 변경 없음
+- 10/19 배경: 내부 테스트 C-22에서 iPhone 홈 화면에 추가한 생산자 앱만 Safari 주소창·도구막대가 보임 → manifest(start_url·scope `/`, standalone)로 전체 화면. 생산자 TWA·assetlinks는 이번 범위 아님
