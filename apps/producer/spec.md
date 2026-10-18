@@ -93,3 +93,47 @@ OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다
 ## I2 생산자 오류 복구 (DEV-29/34/38)
 
 SCR-24는 초안·상품 생성 요청을 하나씩 수행하고 빈 문자열·빈 배열을 확인 필요로 취급한다. SCR-25는 원산지·보관 필수값도 현재 폼에서 검사한다. SCR-30은 Web Share 취소와 실패를 구분하고 실패 시 기존 복사 경로를 사용한다. SCR-29는 출하 중 확인/선택을 잠그고 기존 데이터가 있어도 갱신 오류와 재시도를 표시한다. 농가 조회/수정 응답의 shareUrl은 실제 서버 공유 페이지의 절대 주소다. 나머지 서버 계약 변경 없음.
+
+## DEV-56/57/58 integration
+
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
+
+## DEV-58 초기 입력 보존
+
+세션 확인이 완료된 뒤에 Tabs를 표시한다. 사용자 식별 전 입력 화면을 열면 userId key 변경으로 화면이 다시 만들어져 초기 문구가 사라질 수 있다. 기존 사용자 변경 시 상태 초기화는 유지한다(AC-03-3, AC-SRC-5).
+
+DEV-58: 가림 승인 전에 이미지/PDF 전체 가림 페이지가 AI 문자인식에 전송됨을 안내한다. OpenRouter Gemini OCR 모드의 기본 문자 인식과 선택적 시각 분석 설정을 구분한다. 저장·상품 적용·공개 계약은 유지한다.
+
+DEV-58 자료 작업 UI: 공용 토큰의 20px 좌우 여백·16px 카드·64px 썸네일·최소48px 터치를 따른다. 작업 중 탭 위 스피너와 “분석 중이에요”를 표시하고 개인정보 승인 대기는 별도 안내한다. 업로드 직후 이미지는 로컬 object URL, 전처리 후 이미지/PDF는 인증된 가림 첫 쪽으로 표시한다. TXT·준비 전 PDF·미리보기 실패는 파일 형식 타일을 사용한다. 로컬 URL은 삭제/작업 전환/화면 종료 시 해제한다. 연결·삭제·추가 시각 설정과 문구 입력은 펼쳐보기에 보존하며 기존 저장/적용 계약은 유지한다.
+
+DEV-58 새 상품 진입: /products/new에서 새 비공개 상품과 연결된 자료 작업을 만들고 업로드 화면으로 바로 이동한다. 이전 문구/직접 입력은 /products/manual에 유지한다. 상품 생성 응답이 확인된 경우 같은 상품·작업 멱등 키로 재시도하며 불확실하면 상품 목록 확인을 안내한다. 자료 화면에서 상품 정보·판매 설정으로 이동한다. Mock 전용 환경은 자료 API가 없어 manual을 사용한다.
+상품 목록의 별도 자료로 상세 만들기 버튼은 제거하며 새 상품 버튼을 단일 신규 진입으로 사용한다. 기존 상품의 저장 작업 편집 진입은 유지한다.
+
+### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
+- 상품 목록의 `판매페이지 수정`은 해당 상품의 비공개 수정본을 연다. 없으면 현재 `moduleDetail` 또는 `detailContent`를 사진 URI/문구 그대로 보존하여 시작한다. 원본 자료가 없어도 수정할 수 있다.
+- `수정본 저장`은 공개 내용을 변경하지 않는다. `상품에 반영` 확인 후에만 상품 상세가 변경된다. 판매 중인 상품은 구매자 페이지에 즉시 반영되며, 초안/심사 상태는 바꾸지 않는다.
+- 상품 버전이 바뀌면 적용을 거절한다. 수정본을 자동 폐기하지 않고, 사용자가 명시적으로 현재 상품 불러오기를 선택해야 폐기한다. 저장하지 않은 입력에는 이탈 확인을 표시한다.
+- 새 상품은 상품+연결 자료 작업을 한 트랜잭션으로 생성한다. 멱등 키 재시도로 응답 유실 시 중복 생성하지 않는다.
+- API: POST `/api/source-analysis/product-workspaces` (선택 productId), PUT `/{productId}` (version/snapshot), POST `/{productId}/apply` (version). 초기화는 POST의 discardChanges/version으로 명시한다. 승인 농가 소유권·상품/수정본 버전·사진 소유 참조를 검증한다.
+- 생산자 4탭은 유지한다. 공통 좌우20px/카드16px/카드반경16px/터치48px 규격을 사용한다. AI 채팅 기능은 이번 변경 범위에서 제외한다.
+
+### DEV-58 통합 편집
+AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
+
+- DEV-58 상세 편집 스위치: 공통 SectionSwitch의 눈/눈 감김 아이콘, 44px 터치 영역. switch 역할과 checked/disabled 상태, 웹 Space/Enter 조작을 유지한다.
+
+- DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
+
+- DEV-58 편집 조작: 텍스트 카드 본문 클릭 편집/×·설명 inline 저장, 점선 사진 추가 칸, 눈 아이콘만 제공(별도 접기 제거). 설명 저장 완료 후 최신 batch 버전으로 분석을 시작한다. 별도 접힘 상태 없이 섹션 hiddenSectionIds와 항목 enabled를 사용한다. 상세 계약은 docs/spec/source-editor.md.
+
+- DEV-58 / AC-SRC-11: 큰 섹션 숨김은 `hiddenSectionIds` JSON 목록으로 저장하고 하위 항목의 `enabled`와 분리한다. 미리보기/공개 및 활성 근거 검증은 두 상태를 함께 적용한다. 기존 저장본은 빈 목록 기본값. UI는 큰 제목 줄 오른쪽 눈, 항목/사진 우측 상단 ×와 제자리 편집 복원, 연한 placeholder. 상세 계약은 docs/spec/source-editor.md.
+
+- DEV-58 / AC-SRC-11: 빈 항목은 연한 동일 placeholder로 항상 편집 가능하며 입력/사진 추가 시 활성화한다. 항목 추가 메뉴 제거, 공백을 포함한 빈 내용은 공개에서 제외. 빈 섹션 제목 흐림, 눈은 수동 숨김 상태 유지.
+
+- DEV-58: 상품명/소개 문구는 편집·미리보기·공개에서 같은 중앙 정렬/글꼴 스타일을 사용하며 오른쪽 조작부에 의해 중심이 이동하지 않는다. 나머지 본문 정렬은 기존 디자인 유지. 사진 추가 제안 버튼/목록 제거; 수동 사진 추가는 유지.
+
+- DEV-58 / AC-SRC-11 기본 정보: 대상별 basicInfo(variety/size/expectedBrix)를 JSON에 보관하며 PUT /source-analysis/batches/:bid/basic-info로 버전 검사 후 저장한다. 기존 상품은 품종·info.size·예상 당도만 초기값으로 복사한다. 새 분석에는 품종 필수, 나머지는 선택. 직접 확정한 상세 문구/삭제 > 기본 정보 > 추출 제안 우선순위. 기존 작업 열람과 직접 편집은 허용하고 공개 상품은 명시적 반영 전 변경하지 않는다. 입력 blur 및 분석 전 flush, 실패 시 입력 보존. 편집에 빈 내용 구매자 비노출 안내를 표시한다.
+
+- DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
+
+DEV-58 PR113 최종 리뷰: 상품 편집 snapshot은 대표 URI/null을 명시하며 연속 대표 지정·사진 배치는 함수형 상태 갱신으로 모두 유지한다. 중간 PageSnapshot 형태의 런타임 호환 분기는 제공하지 않는다.

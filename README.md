@@ -156,6 +156,141 @@ server clock, disables Mock mode, resets the I1 seed before both phases, and kee
 process logs under `.artifacts/integration/`. Playwright reports, traces, videos,
 and screenshots are written to `playwright-report/` and `test-results/`.
 
+## Deployment
+
+### Server on Railway (DEV-64)
+
+`server/Dockerfile` and `server/railway.json` define the service. On every start the
+container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway checks
+`/health`.
+
+1. Create a Railway project, add a service from this GitHub repo, set its **root
+   directory** to `server` and its deploy branch to `main`. If Railway does not pick up
+   the config, set the config file path to `/server/railway.json`.
+2. Add a **PostgreSQL** database to the same project.
+3. Set these variables on the server service:
+
+| Variable | Value |
+| -- | -- |
+| `DATABASE_URL` | Reference the database's `DATABASE_URL`. The `postgresql://` form is accepted as is. |
+| `APP_ENV` | `production` |
+| `JWT_SECRET` | A long random string. The server does not start without it outside `local`. |
+| `CONSUMER_APP_URL` | `https://farmclub.kr` (CORS, share-link redirects, Kakao return address). No trailing slash. |
+| `PRODUCER_APP_URL` | `https://farm.farmclub.kr` |
+| `SHARE_BASE_URL` | `https://farmclub.kr`. Set it after the consumer app with the `/s/*` proxy is live (see Domains). Empty: share links use the server's own address. |
+| `MOCK_LOGIN_ENABLED` | `true` while test accounts are used (Kakao login is not built yet) |
+| `ANTHROPIC_API_KEY` | Optional. Without it, AI answers come from registered rules and other questions go to the producer. |
+
+4. Deploy, then generate a public domain under the service's networking settings.
+5. Load the seed data once from the service shell: `python -m app.core.seed`. It skips
+   when data exists; `--reset` erases everything, so do not use it on a live database.
+
+The project `farmclub` (service `farmclub-api`, domain
+`https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
+
+### Automatic deploys (DEV-65, DEV-66)
+
+The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App
+cannot be connected without an organization admin. Instead,
+`.github/workflows/deploy-railway.yml` deploys from GitHub Actions. It waits for the
+**CI** workflow on `main` and runs only when CI succeeded, so a commit that fails tests
+is never deployed. It checks out the exact commit CI tested, and if that commit touches
+`server/**` (or the deploy workflow itself) it runs
+`railway up ./server --path-as-root --service farmclub-api --environment production --ci`
+and then polls `/health` until it answers; otherwise it skips the deploy and passes.
+Changes are read from that single commit, which matches the squash-merge rule. The
+workflow can also be started by hand from the Actions tab (**Run workflow**) with the
+`main` branch selected, for example after a variable change; a manual run always deploys
+the current `main`.
+
+Both deploy workflows (this one and the Vercel one below) are locked to `main` (DEV-70):
+
+- The job runs only when `github.ref` is `refs/heads/main`, so pressing **Run workflow**
+  on another branch skips the deploy.
+- The job uses the GitHub Environment `production`, which allows deployments from the
+  `main` branch only, and the deploy tokens live in that environment. A branch that edits
+  the workflow file still cannot read the tokens.
+
+One-time setup (a human does this; never paste the token into the repo, an issue or a PR):
+
+1. Railway → project `farmclub` → **Settings → Tokens** → create a **Project Token**.
+2. GitHub → repository **Settings → Environments → production → Environment secrets** →
+   add `RAILWAY_TOKEN`. Do not keep a repository-level copy.
+3. Run the workflow once from the Actions tab and check that `/health` returns `{"status":"ok"}`.
+
+Variables to add on the Railway service as features land, in merge order:
+
+| When | Variables |
+| -- | -- |
+| Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub.kr/auth/kakao` as a redirect URI in the Kakao console |
+| PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://api.farmclub.kr/api/payments/portone/webhook` as the PortOne webhook |
+| Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
+
+### Apps on Vercel (DEV-67)
+
+The Vercel projects `farmclub-consumer` and `farmclub-producer` are not connected to
+GitHub; each deployment is an exported `dist/` uploaded with the Vercel CLI. Expo bakes
+`EXPO_PUBLIC_*` values in at export time, so changing variables in the Vercel dashboard
+has no effect.
+
+`.github/workflows/deploy-vercel.yml` automates this. After **CI** succeeds on `main`, if
+the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc` or the
+workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
+answers 200. It can also be run by hand from the Actions tab with the `main` branch
+selected; a manual run always deploys the current `main`.
+
+| Setting | Where | Effect |
+| -- | -- | -- |
+| `VERCEL_TOKEN` | **Environment secret** in `production` (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
+| `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
+
+Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
+users see. Do it outside user tests, and merge the server routes the apps call (for
+example `GET /api/farms` and `/api/farms/following`, PR #123) before switching to the
+server. To do the same by hand:
+
+```
+EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://api.farmclub.kr \
+  npx expo export -p web   # run inside apps/consumer and apps/producer
+vercel deploy --prod       # from the exported dist/
+```
+
+With `EXPO_PUBLIC_API_MOCK=1` (what `npm run build:web` produces) the apps keep data in
+each browser and never call the server.
+
+### Domains (DEV-69)
+
+`farmclub.kr` is registered with hosting.kr, a Korean registrar (Cloudflare Registrar does not sell
+`.kr`) and its DNS is on Cloudflare. Decision, record table and cut-over order:
+[ADR 0012](docs/spec/tech-design/adr/0012-domains-cloudflare.md).
+
+| Address | Serves | Host |
+| -- | -- | -- |
+| `farmclub.kr` (`www` redirects here) | Consumer app and farm share links `/s/farms/<id>` | Vercel `farmclub-consumer` |
+| `farm.farmclub.kr` | Producer app | Vercel `farmclub-producer` |
+| `api.farmclub.kr` | FastAPI server, Swagger UI at `/docs` | Railway `farmclub-api` |
+
+`admin`, `dev` and `staging` are reserved; no DNS records exist until they have a target.
+The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
+KakaoTalk reads the server's OG page under the consumer domain. All four records (`@`,
+`www`, `farm`, `api`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
+"Proxy Detected" warning; keep SSL/TLS mode **Full (strict)** and leave **Bot Fight Mode**
+and **Rocket Loader** off, or KakaoTalk previews and the app break. If a Vercel or Railway
+certificate stops renewing, switch that record to DNS only.
+
+Accounts, purchases and console changes are done by a person. In order:
+
+1. Buy `farmclub.kr` on hosting.kr, add it to Cloudflare (Free), and switch the registrar's name
+   servers to the two Cloudflare ones.
+2. Add the custom domains in Vercel (both projects) and Railway, copy the records they
+   show into Cloudflare, and check `https://api.farmclub.kr/health`.
+3. Change `CONSUMER_APP_URL` and `PRODUCER_APP_URL` on Railway, and add the new domains
+   in the Kakao console (keep the old ones until the switch is done).
+4. Merge the DEV-69 pull request. The deploy workflows and the apps now use the new
+   addresses, so merging earlier makes the deploy checks fail.
+5. Set `SHARE_BASE_URL=https://farmclub.kr` on Railway and send a farm link in KakaoTalk
+   to check the preview.
+
 ## Documentation
 
 | Where | What |

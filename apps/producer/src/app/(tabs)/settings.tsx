@@ -44,9 +44,9 @@ export default function Settings() {
           <View
             style={{
               margin: 20,
-              padding: 20,
+              padding: tokens.space.md,
               backgroundColor: tokens.color.surface,
-              borderRadius: 20,
+              borderRadius: tokens.radius.md,
               flexDirection: "row",
               alignItems: "center",
               gap: 16,

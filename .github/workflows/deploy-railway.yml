@@ -1,0 +1,107 @@
+name: Deploy server to Railway
+
+# 서버 자동 배포(DEV-65, DEV-66). Railway GitHub App을 조직 레포에 연결할 수 없어(snuhcs-course 조직 승인 필요)
+# Actions가 Railway CLI로 server/ 디렉터리를 올린다.
+# DEV-66: main의 CI(ci.yml)가 성공한 뒤에만 배포한다. CI가 검사한 그 커밋(head_sha)을 올리고,
+# 그 커밋에서 server/** 또는 이 워크플로가 바뀌었을 때만 배포한다(squash 머지라 커밋 하나 = PR 하나).
+# 시크릿 RAILWAY_TOKEN(Railway 프로젝트 토큰)이 있어야 하고, 값은 레포에 적지 않는다.
+# 수동 실행: Actions 탭 → 이 워크플로 → Run workflow (workflow_dispatch). 브랜치는 main을 골라야 하고(다른 브랜치는 건너뜀),
+# 변경 여부와 상관없이 지금 main을 올린다. 토큰은 production Environment(main 전용)에 둔다(DEV-70).
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: railway-deploy
+  # 배포는 순서대로. 진행 중인 배포를 취소하지 않고 다음 것이 기다린다.
+  cancel-in-progress: false
+
+env:
+  RAILWAY_SERVICE: farmclub-api
+  RAILWAY_ENVIRONMENT: production
+  HEALTH_URL: https://api.farmclub.kr/health
+
+jobs:
+  deploy:
+    # CI가 main push에서 성공했을 때, 또는 main에서 수동 실행일 때만
+    # DEV-70: 수동 실행은 main에서만. 다른 브랜치에서 Run workflow를 눌러도 운영에 올리지 않는다.
+    # workflow_run은 기본 브랜치(main) 정의·ref로 돌아서 github.ref가 항상 main이다.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'))
+    # 토큰은 production Environment 시크릿. 이 Environment는 main 브랜치에서만 배포를 허용하므로
+    # 워크플로 파일을 고친 다른 브랜치에서 실행해도 토큰을 받지 못한다.
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check the Railway token is configured
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN secret is missing. Create a Project Token in Railway (project Settings → Tokens) and add it under the repository Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          # CI가 검사한 커밋을 올린다. 그사이 main이 더 나갔어도 검증되지 않은 커밋은 올리지 않는다.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Detect server changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run: deploying $(git rev-parse --short HEAD)."
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qE '^(server/|\.github/workflows/deploy-railway\.yml$)'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "No server/ or deploy workflow changes in $(git rev-parse --short HEAD). Skipping the deploy."
+          fi
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.deploy == 'true'
+        with:
+          node-version: "22"
+
+      - name: Install Railway CLI
+        if: steps.changes.outputs.deploy == 'true'
+        run: npm install -g @railway/cli@4
+
+      - name: Upload server/ and deploy
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        # server/ 안의 Dockerfile·railway.json을 아카이브 루트로 올린다(README Deployment 절과 같은 명령).
+        run: railway up ./server --path-as-root --service "$RAILWAY_SERVICE" --environment "$RAILWAY_ENVIRONMENT" --ci
+
+      - name: Wait for /health
+        if: steps.changes.outputs.deploy == 'true'
+        run: |
+          for i in $(seq 1 18); do
+            if body=$(curl -fsS --max-time 15 "$HEALTH_URL"); then
+              echo "health: $body"
+              exit 0
+            fi
+            echo "attempt $i: not healthy yet, retrying in 10s"
+            sleep 10
+          done
+          echo "::error::$HEALTH_URL did not return 200 within 3 minutes after the deploy."
+          exit 1

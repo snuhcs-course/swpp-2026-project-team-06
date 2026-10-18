@@ -63,3 +63,24 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
 Storefront의 Price/ProductShelf/NewsCard/FeedCarousel/ChatChoices/BrandHeader는 API 없는 표현 컴포넌트다. 제목 28/36, 메타 13/18, 탭 72, 터치 48. ProductShelf의 local state로 전송/접기에서 대화를 재마운트하지 않는다. NewsRoom은 producer 시스템 안내를 본문에 두고 소비자 안내를 제거한다.
+
+## DEV-56/57/58 integration
+
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
+
+## DEV-57 단일 상세 템플릿 시각 통합
+
+`ModuleStory`는 DEV-52 최종 `docs/design/sales-templates/all-sections.*`의 상품 표지, 구역 묶음, 제목·본문 크기와 손 위 일러스트를 사용한다. 후속 사용자 결정으로 농가 소식을 포함한36px 제목 아이콘8종과 이미지 배경을 적용한다. 작은 제목은 텍스트로 유지한다. 18개 모듈의 저장 계약은 유지하고 구매자 순서의9개 구역으로 표시한다. 빈 구역·공백뿐인 문구는 숨긴다. 생산자 DraftPreview와 소비자 moduleDetail은 같은 컴포넌트를 사용한다.
+
+원문 텍스트는 줄바꿈·숫자·기호를 보존한다. 작업실의 예시/자리 표시·원산지/품종 기본값·공정 순서를 추가하지 않는다. 설명 없는 공정 장식3종은 표시하지 않는다. 공개 사진은 SourcePhoto/StoryImage로 원본 비율을 유지하며 웹에서는 기존 종이 프레임(9% 분할/14px border-image)을 사진 밖에 표시한다. 네이티브는 기존 사진 렌더러를 유지한다. 크림색 사진 배경은 제거한다. 손 크기 비교는 섹션 여백 밖까지 확장한 전체 폭에 버튼과 같은 accent #C94F0C 및 ImageGen 벡터형 주황 배경을 적용한다. 안쪽24px/상하64px 여백에 그림과 기준 손 길이를 함께 배치하고 글자는 흰색으로 표시한다. 실제 상품 사진과 설명용 일러스트를 구분하며 후자에만 기준 손18cm/비교용 가정을 표시한다.
+
+
+## DEV-57 당도계 일러스트
+`brix-meter.png`는 사용자 지정 당도계 형태에 기존 귤·냉장고·선별 아이콘의 채색 종이 질감을 적용한 일러스트다. 크림·세이지·귤색을 공유한다. 최종 생성 프롬프트와 참조 경로는 자산 옆에 기록한다.
+`BrixReading`은 API 실측값이 null이 아닐 때 당도계 장식을280×280 영역 중앙에 크게 표시하고 실제 값/측정일을 아래 중앙에 배치한다. 그림·값·날짜 전체에 버튼 accent #C94F0C/상하96px의 전체 폭 배경과 ImageGen 벡터형 주황 배경을 적용한다. 글자는 흰색이다. 공통 IllustrationBackdrop은 흰 바탕에 생성 원본100%를 stretch로 표시해 위아래 경계를 보존하며 접근성 트리/터치를 방해하지 않는다. 0을 예상값으로 대체하지 않으며 날짜 미등록은 명시한다. 실측값이 없으면 배경과 그림 없이 기존 예상값/대기 안내 행을 유지한다. 그림 자체에는 숫자나 인증 표시가 없다.
+
+손·실측 당도 강조 영역은 이미지 자체의 매끈한 주황 곡선·투명 경계로 본문 배경과 연결한다. 손3종 내부는 흰색이고 바깥 알파는 유지한다. 하단 일러스트 설명은 제거하며 손 옆 비교용 가정은 유지한다. 선택한 과일 사이즈(소과/중과/대과) 및 실측 당도 숫자는40px/48px bold이다. 기준 손 길이18cm와 비교용 가정은13px/20px, 당도 제목·날짜는17px/26px 흰색이다. 실측은 제목/값/날짜로 분리하고 미측정 안내는 유지한다.
+
+실측 당도 영역은 투명 곡선과 그림·날짜가 겹치지 않도록 상하96px 여백을 확보한다. 손 비교 영역은64px를 유지한다.
+
+- DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.

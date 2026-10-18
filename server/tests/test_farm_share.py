@@ -70,3 +70,16 @@ def test_AC_19_3_share_metadata_escapes_text_and_omits_non_http_images(client):
     metadata = Metadata(response.text)
     assert metadata.meta["og:title"] == name
     assert "og:image" not in metadata.meta
+
+
+def test_AC_19_1_share_url_uses_public_domain_when_configured(client, login, monkeypatch):
+    """ADR 0012: 운영은 SHARE_BASE_URL=https://farmclub.kr, 소비자 앱이 /s/를 서버로 프록시한다."""
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "share_base_url", "https://farmclub.kr/")
+    mine = client.get("/api/farms/me", headers=login("u-kang")).json()
+    public = client.get("/api/farms/f-kang").json()
+    assert mine["shareUrl"] == public["shareUrl"] == "https://farmclub.kr/s/farms/f-kang"
+    response = client.get("/s/farms/f-kang")
+    assert response.status_code == 200
+    assert Metadata(response.text).meta["og:url"] == "https://farmclub.kr/s/farms/f-kang"

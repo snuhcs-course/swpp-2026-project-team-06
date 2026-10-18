@@ -144,6 +144,8 @@ async function main() {
     MOCK_LOGIN_ENABLED: "true",
     FIXED_NOW: "2026-10-07T10:00:00+09:00",
     ENVIRONMENT: "local",
+    SOURCE_ANALYSIS_ENABLED: "true",
+    SOURCE_ANALYSIS_PROVIDER: "mock",
   };
   await resetSeed(serverEnv);
   const tokenResult = await command(

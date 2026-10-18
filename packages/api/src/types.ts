@@ -262,6 +262,7 @@ export type ProductDetail = ProductCard & {
   variety: string;
   description: string;
   detailContent?: DetailContent;
+  moduleDetail?: import("./sourceAnalysis").ModuleDetail;
   grade: string | null;
   measuredBrix: number | null;
   measuredBrixAt: ISODate | null;
@@ -555,6 +556,7 @@ export type ChatMessage = {
   handoffStatus: "FORWARDED" | null;
   /** 연락처 가림이 적용됐는지 */
   masked: boolean;
+  reported?: boolean;
 };
 
 export type StartChatResult = { farmId: string; autoFollowed: boolean };
@@ -574,6 +576,7 @@ export type Escalation = {
   createdAt: ISODate;
   status: "OPEN" | "ANSWERED";
   answer: string | null;
+  reportedMessageId?: string | null;
   /** 그 소비자와의 채팅 전체(AI 안내 포함). screens.md SCR-28 "전달된 질문과 그 채팅" */
   thread: ChatMessage[];
 };

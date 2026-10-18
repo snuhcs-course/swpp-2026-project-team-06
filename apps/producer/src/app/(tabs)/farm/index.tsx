@@ -22,7 +22,7 @@ import { LoadError, PhotoShade, copyText, errMsg } from "../../../lib/views";
 
 const CONSUMER_URL =
   process.env.EXPO_PUBLIC_CONSUMER_URL ??
-  "https://farmclub-consumer.vercel.app";
+  "https://farmclub.kr";
 
 function Row({
   label,
@@ -140,7 +140,7 @@ export default function Farm() {
         {data ? (
           <>
             {link ? (
-              <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 8 }}>
+              <View style={{ paddingHorizontal: 20, paddingTop: tokens.space.md, gap: 8 }}>
                 <T variant="heading">농가 링크</T>
                 <T variant="body">{link.replace(/^https?:\/\//, "")}</T>
                 <T variant="sub" muted>
@@ -152,7 +152,7 @@ export default function Farm() {
                 </View>
               </View>
             ) : null}
-            <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+            <View style={{ paddingHorizontal: 20, paddingTop: tokens.space.md, gap: 12 }}>
               <T variant="heading">프로필</T>
               <View
                 style={{

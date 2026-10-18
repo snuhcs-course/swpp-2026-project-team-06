@@ -1,0 +1,278 @@
+{
+  "date": "2026-10-17",
+  "issue": "DEV-58",
+  "features": [
+    "FEAT-03",
+    "FEAT-04",
+    "FEAT-07"
+  ],
+  "promptVersion": "source-v4",
+  "promptSha256": "fa9dbeb1b1af4222b2f2ff6f5b1b059872275df41895293eb5eaf1ff118a6ca5",
+  "goldManifestSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+  "changes": [
+    "Semantic sentences and complete labelled continuation lists instead of physical OCR lines",
+    "Explicit priority for process, certification, taste, preservation and usage fields",
+    "Prompt self-check against candidate values plus an offline advisory span/value omission audit",
+    "Prompt-version cache invalidation and pre-send rejection of queued old-version runs"
+  ],
+  "conditions": {
+    "visionCases": 6,
+    "sameSavedOcr": true,
+    "ocrModel": "google/gemini-3-flash-preview",
+    "extractionModel": "google/gemini-3-flash-preview",
+    "goldUnchanged": true,
+    "ocrCalls": 0,
+    "automaticRetries": 0,
+    "promptOnlyComparison": true,
+    "regressionUsesSavedSafeInputs": true
+  },
+  "visionComparison": {
+    "before": {
+      "frozen": {
+        "sets": 6,
+        "precision": 0.5,
+        "recall": 0.42857142857142855,
+        "unsupportedOrIncorrect": 9,
+        "missing": 12,
+        "p50Ms": 4924.0,
+        "p95Ms": 21532,
+        "totalCostUsd": 0.0212935,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "sets": 6,
+        "precision": 0.5555555555555556,
+        "recall": 0.47619047619047616,
+        "unsupportedOrIncorrect": 8,
+        "missing": 11,
+        "p50Ms": 4924.0,
+        "p95Ms": 21532,
+        "totalCostUsd": 0.0212935,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "sourceAuditedDiagnostic": {
+        "sets": 6,
+        "precision": 0.5555555555555556,
+        "recall": 0.47619047619047616,
+        "unsupportedOrIncorrect": 8,
+        "missing": 11,
+        "p50Ms": 4924.0,
+        "p95Ms": 21532,
+        "totalCostUsd": 0.0212935,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      }
+    },
+    "after": {
+      "frozen": {
+        "sets": 6,
+        "precision": 0.8571428571428571,
+        "recall": 0.8571428571428571,
+        "unsupportedOrIncorrect": 3,
+        "missing": 3,
+        "p50Ms": 2904.5,
+        "p95Ms": 6296,
+        "totalCostUsd": 0.013377,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "sets": 6,
+        "precision": 0.9047619047619048,
+        "recall": 0.9047619047619048,
+        "unsupportedOrIncorrect": 2,
+        "missing": 2,
+        "p50Ms": 2904.5,
+        "p95Ms": 6296,
+        "totalCostUsd": 0.013377,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "sourceAuditedDiagnostic": {
+        "sets": 6,
+        "precision": 0.9047619047619048,
+        "recall": 0.9047619047619048,
+        "unsupportedOrIncorrect": 2,
+        "missing": 2,
+        "p50Ms": 2904.5,
+        "p95Ms": 6296,
+        "totalCostUsd": 0.013377,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      }
+    },
+    "beforeExtractionOnlyCostUsd": 0.011973,
+    "afterExtractionOnlyCostUsd": 0.013377,
+    "equivalentPipelineCostUsd": {
+      "before": 0.0212935,
+      "after": 0.0226975
+    },
+    "costComparisonNote": "Original before metrics include the old OCR run; after metrics include only new text extraction. Use the explicitly separated cost fields for a like-for-like comparison.",
+    "timingNote": "Before latency includes OCR plus extraction; after includes extraction only. Do not interpret these timings as a prompt speed comparison."
+  },
+  "regressions": {
+    "real": {
+      "before": {
+        "sets": 12,
+        "precision": 0.3870967741935484,
+        "recall": 0.36363636363636365,
+        "unsupportedOrIncorrect": 19,
+        "missing": 21,
+        "p50Ms": 2724.0,
+        "p95Ms": 6457,
+        "totalCostUsd": 0.023114,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "after": {
+        "sets": 12,
+        "precision": 0.43243243243243246,
+        "recall": 0.48484848484848486,
+        "unsupportedOrIncorrect": 21,
+        "missing": 17,
+        "p50Ms": 2786.0,
+        "p95Ms": 6003,
+        "totalCostUsd": 0.027815,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "failed": 0,
+      "automaticForbiddenChecks": 0,
+      "byFormat": {
+        "image": {
+          "sets": 6,
+          "precision": 0.3333333333333333,
+          "recall": 0.38095238095238093,
+          "unsupportedOrIncorrect": 16,
+          "missing": 13,
+          "p50Ms": 2897.5,
+          "p95Ms": 6003,
+          "totalCostUsd": 0.016743,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        },
+        "text": {
+          "sets": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "unsupportedOrIncorrect": 0,
+          "missing": 0,
+          "p50Ms": 2276,
+          "p95Ms": 2299,
+          "totalCostUsd": 0.004301,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        },
+        "pdf": {
+          "sets": 3,
+          "precision": 0.4444444444444444,
+          "recall": 0.5,
+          "unsupportedOrIncorrect": 5,
+          "missing": 4,
+          "p50Ms": 3085,
+          "p95Ms": 3882,
+          "totalCostUsd": 0.006771,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        }
+      }
+    },
+    "synthetic": {
+      "before": {
+        "sets": 18,
+        "precision": 0.9,
+        "recall": 0.9,
+        "unsupportedOrIncorrect": 2,
+        "missing": 2,
+        "p50Ms": 1865.0,
+        "p95Ms": 2657,
+        "totalCostUsd": 0.018023,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "after": {
+        "sets": 18,
+        "precision": 0.9,
+        "recall": 0.9,
+        "unsupportedOrIncorrect": 2,
+        "missing": 2,
+        "p50Ms": 2088.5,
+        "p95Ms": 3091,
+        "totalCostUsd": 0.02214,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "failed": 0,
+      "automaticForbiddenChecks": 0,
+      "byFormat": {
+        "image": {
+          "sets": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "unsupportedOrIncorrect": 1,
+          "missing": 1,
+          "p50Ms": 3091,
+          "p95Ms": 3091,
+          "totalCostUsd": 0.001298,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        },
+        "text": {
+          "sets": 16,
+          "precision": 0.9444444444444444,
+          "recall": 0.9444444444444444,
+          "unsupportedOrIncorrect": 1,
+          "missing": 1,
+          "p50Ms": 1991.5,
+          "p95Ms": 2479,
+          "totalCostUsd": 0.0195465,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        },
+        "pdf": {
+          "sets": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "unsupportedOrIncorrect": 0,
+          "missing": 0,
+          "p50Ms": 2296,
+          "p95Ms": 2296,
+          "totalCostUsd": 0.0012955,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+        }
+      }
+    }
+  },
+  "cost": {
+    "visionComparisonUsd": 0.013377,
+    "realRegressionUsd": 0.027815,
+    "syntheticRegressionUsd": 0.02214,
+    "totalThisChangeUsd": 0.063332,
+    "incrementalCapUsd": 0.25,
+    "effectiveEvaluationCapUsd": 0.722715,
+    "ledgerRows": 265,
+    "cumulativeSettledUsd": 0.344402,
+    "unknownReservedUsd": 0.191654,
+    "teamTotalUsage": "Not measured"
+  },
+  "manualReview": [
+    "Seasonal composition now remains one candidate across wrapped lines.",
+    "The long-image process is productionProcess; taste sentences and usage suggestion are restored.",
+    "Three storage instructions remain three complete candidates.",
+    "Certification is restored using the longer original badge wording, which fails the frozen short-label exact match.",
+    "Remaining frozen mismatches: one already-audited date separator gold error, one internal whitespace difference, and certification wording.",
+    "The omission audit still flags decorative headings/repeated badges and a direct-sale slogan; it is advisory, not proof that all facts were recovered."
+  ],
+  "validation": {
+    "pytest": 256,
+    "sourceFocusedTests": 31,
+    "ruff": "passed",
+    "typecheckWorkspaces": 4,
+    "mockTests": 12,
+    "realApiScenarios": 7,
+    "chromiumTests": 22,
+    "liveExtractions": 36,
+    "validatedExtractions": 36,
+    "comparisonCases": 6,
+    "previewCards": 2,
+    "mobileWidth": 390,
+    "horizontalOverflow": false,
+    "pageErrors": 0
+  },
+  "limitations": [
+    "One repeat on development data used to design these instructions; no independent holdout.",
+    "95% quality gate remains unmet; synthetic exact match stays 90%/90%.",
+    "Advisory literal omission checks can flag headings, paraphrases and duplicates. They neither validate field semantics nor invent replacements.",
+    "Vision OCR remains experimental; production OCR is RapidOCR, whose OCR typos still propagate."
+  ],
+  "privateArtifacts": "server/.artifacts/source-extraction-v4; .artifacts/source-quality/extraction.html",
+  "merged": false,
+  "deployed": false
+}

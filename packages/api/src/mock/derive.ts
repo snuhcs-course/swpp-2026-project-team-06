@@ -249,6 +249,7 @@ export function chatMessage(
     sourceSummary: null,
     handoffStatus: null,
     masked: false,
+    reported: false,
     ...partial,
   };
 }

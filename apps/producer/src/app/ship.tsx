@@ -204,7 +204,7 @@ export default function Ship() {
         <ScrollView
           horizontal
           style={{ flexGrow: 0 }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 32 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: tokens.space.md }}
         >
           <View style={{ minWidth: 400 }}>
             <Segmented

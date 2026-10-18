@@ -7,7 +7,7 @@ import { fail, notFound, paginate, register } from "./router";
 
 // Mock에는 /s 미리보기 서버가 없으니 배포된 소비자 앱의 농가 주소로 공유한다
 declare const process: { env: { EXPO_PUBLIC_CONSUMER_URL?: string } };
-const SHARE_BASE = `${(process.env.EXPO_PUBLIC_CONSUMER_URL || "https://farmclub-consumer.vercel.app").replace(/\/+$/, "")}/farms`;
+const SHARE_BASE = `${(process.env.EXPO_PUBLIC_CONSUMER_URL || "https://farmclub.kr").replace(/\/+$/, "")}/farms`;
 
 function approvedFarms(ctx: Ctx) {
   return Object.values(ctx.db.farms).filter((f) => f.status === "APPROVED");
