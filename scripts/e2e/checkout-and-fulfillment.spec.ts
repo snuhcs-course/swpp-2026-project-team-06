@@ -43,14 +43,19 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await consumerPage.getByLabel("상세 주소").fill("통합동 101호");
   await consumerPage.getByRole("button", { name: "이 주소로 받기" }).click();
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
-  await consumerPage.getByRole("button", { name: "결제하기" }).click();
+  await consumerPage.getByRole("button", { name: "예약하기" }).click();
+  // DEV-68: 입금 안내(농가 계좌·입금자명=주문 번호·기한·중개자 고지) → 입금했어요 → 입금 확인 중
   await expect(consumerPage).toHaveURL(/\/pay/);
-  await consumerPage.getByRole("button", { name: /결제하기$/ }).click();
+  await expect(consumerPage.getByText("101-23-456789")).toBeVisible();
+  await expect(
+    consumerPage.getByText(/farmclub은 통신판매중개자이고 거래 당사자가 아니에요/),
+  ).toBeVisible();
+  await consumerPage.getByRole("button", { name: "입금을 마쳤어요" }).click();
   await expect(consumerPage).toHaveURL(/\/orders\/[^/]+\/done/);
   const orderId = consumerPage.url().match(/\/orders\/([^/]+)\/done/)?.[1];
   expect(orderId).toBeTruthy();
   await expect(
-    consumerPage.getByRole("heading", { name: "예약 완료" }),
+    consumerPage.getByRole("heading", { name: "입금 확인 중" }),
   ).toBeVisible();
 
   const producer = await browser.newContext();
@@ -60,8 +65,22 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await expect(
     consumerPage.getByRole("button", { name: "소식방 입장" }),
   ).toHaveCount(0);
+  // AC-09-8: 생산자가 통장과 대조한 뒤 입금 확인 → 예약 완료
+  await producerPage.goto(`${producerUrl}/ship?status=AWAITING_DEPOSIT`);
+  await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
+  await expect(
+    producerPage.getByText("입금했다고 알렸어요").first(),
+  ).toBeVisible();
+  await producerPage.getByRole("button", { name: "입금 확인" }).first().click();
+  await producerPage
+    .getByRole("button", { name: "확인했어요 · 예약 완료로" })
+    .click();
+  await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
+  await expect(
+    consumerPage.getByRole("heading", { name: "예약 완료" }),
+  ).toBeVisible();
   await producerPage.goto(`${producerUrl}/ship?status=RESERVED`);
-  await expect(producerPage.getByText("DEV25 구매자")).toBeVisible();
+  await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
   await expect(
     producerPage.getByRole("button", { name: "수확 시작" }),
   ).toHaveCount(0);

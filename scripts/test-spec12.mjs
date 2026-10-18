@@ -106,16 +106,16 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
   const results = await Promise.all([
     api(
       "POST",
-      `/api/orders/${o1.orderId}/pay`,
+      `/api/orders/${o1.orderId}/deposit`,
       a,
-      { mockResult: "success" },
+      {},
       "pay1",
     ),
     api(
       "POST",
-      `/api/orders/${o2.orderId}/pay`,
+      `/api/orders/${o2.orderId}/deposit`,
       b,
-      { mockResult: "success" },
+      {},
       "pay2",
     ),
   ]);
@@ -131,9 +131,9 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
       : { o: o2, t: b, k: "pay2" };
   await ok(
     "POST",
-    `/api/orders/${winning.o.orderId}/pay`,
+    `/api/orders/${winning.o.orderId}/deposit`,
     winning.t,
-    { mockResult: "success" },
+    {},
     winning.k,
   );
   assert.equal((await get()).soldQuantity, 45);

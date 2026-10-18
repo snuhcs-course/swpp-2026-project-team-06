@@ -52,6 +52,11 @@ async function setup() {
   ).accessToken;
   return { p, c, a: "fixture-admin-token" };
 }
+/** 입금 안내 + 생산자 입금 확인 = 예약 완료(DEV-68) */
+async function reserve(orderId, c, p) {
+  await ok("POST", `/api/orders/${orderId}/deposit`, c, {});
+  return ok("POST", `/api/orders/${orderId}/confirm-deposit`, p, {});
+}
 const input = (productId = "p-house", optionId = "opt-5", quantity = 1) => ({
   productId,
   optionId,
@@ -184,9 +189,7 @@ test("AC-04-8/9: initial and increased kg capacity require ADMIN, single pending
     version: product.version,
   });
   const order = await ok("POST", "/api/orders", c, input("p-fixture"));
-  await ok("POST", `/api/orders/${order.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(order.orderId, c, p);
   assert.equal((await get()).reservedGrams, 5000);
   await ok("POST", adminPath(inc) + "/reject", a, {
     version: 1,
@@ -250,13 +253,9 @@ test("AC-05-6/09-6: mixed weights, paid snapshots, immediate price, unpaid recon
   let product = await get();
   const original = product.reservedGrams + product.shippedGrams;
   const one = await ok("POST", "/api/orders", c, input("p-house", "opt-5", 2));
-  await ok("POST", `/api/orders/${one.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(one.orderId, c, p);
   const two = await ok("POST", "/api/orders", c, input("p-house", "opt-10", 1));
-  await ok("POST", `/api/orders/${two.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(two.orderId, c, p);
   product = await get();
   assert.equal(product.reservedGrams + product.shippedGrams, original + 20000);
   const unpaid = await ok("POST", "/api/orders", c, input());
@@ -280,9 +279,7 @@ test("AC-05-6/09-6: mixed weights, paid snapshots, immediate price, unpaid recon
   );
   assert.equal(
     (
-      await api("POST", `/api/orders/${unpaid.orderId}/pay`, c, {
-        mockResult: "success",
-      })
+      await api("POST", `/api/orders/${unpaid.orderId}/deposit`, c, {})
     ).body.details.reason,
     "STAGE_CHANGED",
   );
@@ -346,9 +343,7 @@ test("AC-04-3 / R-21: changed delivery window needs paid buyer consent; gram pre
   const { p, c } = await setup();
   const initial = await ok("GET", "/api/products/mine/p-house", p);
   const order = await ok("POST", "/api/orders", c, input());
-  await ok("POST", `/api/orders/${order.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(order.orderId, c, p);
   const window = { start: "2027-02-01", end: "2027-02-05" };
   await ok(
     "PATCH",
