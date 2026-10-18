@@ -121,7 +121,7 @@ actionlint .github/workflows/spec-check.yml
 
 계약 검증은 API 응답을 mock하며 비용이 없다. genuine API 결과와 구분한다.
 제품 코드를 실행/설치/import하지 않는다. Python 표준 라이브러리만 사용한다.
-review input와 prompt 합계 256 KiB, 출력 16000 tokens(thinking 포함), 요청 120초, transient retry 1회, job 5분이다.
+review input와 prompt 합계 256 KiB, 출력 16000 tokens(thinking 포함), 요청 90초, transient retry 1회, job 5분이다.
 문맥을 잘라 PASS로 만들지 않는다. 바이너리/비밀 파일/누락 경로/큰 파일은 INCOMPLETE로 수동 검토가 필요하다.
 v1은 명시적 경로 표를 사용한다. 자동 의미 검색·외부 문서 수집·모든 종류의 비밀 탐지·정확성 보증을 제공하지 않는다.
 비밀로 의심되는 선택 문맥은 전송하지 않지만, 검토자는 선택한 파일에 민감 정보가 없는지 확인해야 한다.
