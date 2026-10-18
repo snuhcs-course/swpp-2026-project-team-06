@@ -178,6 +178,12 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **WHEN** I edit, delete, or try to save a 51st address
 - **THEN** edits only check the fields I sent, deleting the default makes my most recent address the default, and the 51st save is refused with `ADDRESS_LIMIT` (an order's "save as default" keeps the order and just skips saving)
 
+**AC-01-16: Producer starts with Kakao (DEV-74)**
+- **GIVEN** Kakao login is enabled and I open the producer app
+- **WHEN** I start with Kakao for the first time
+- **THEN** a producer account without a farm is created and I go to the farm application (SCR-20), without the consumer sign-up screens
+- **AND** the owner name on my application becomes my account name, and signing in again takes me to the screen for my farm status
+
 **AC-01-6: Accounts stay in their own app**
 - **GIVEN** I have a consumer account and a separate producer account
 - **WHEN** I open the producer app's login, or try to use one app while logged in with the other app's account
@@ -703,7 +709,7 @@ Key producer screens:
 
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
-| **SCR-19 Login** | Pick a producer test account, or apply as a new farm | Tap an account and Start; "Apply as a farm" | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Test login off: "You can't log in right now" |
+| **SCR-19 Login** | Start with Kakao (returns through `/auth/kakao`); test accounts appear only while Kakao is off (the Mock keeps both for demos) | Tap Kakao, or an account and Start | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Test login off: "You can't log in right now" |
 | **SCR-20 Application** | Farm details for joining; creates the producer account | Owner name, farm name, region, main crops, mobile number, policy consent; Apply | SCR-21 | Field errors keep the input. Already applied → SCR-21. Reapplying after rejection fills in the previous values |
 | **SCR-21 Pending approval** | Application status, refreshed every time the screen opens | View application, pull to refresh, log out, reapply if rejected | Approved → SCR-22 automatically; reapply → SCR-20 | Before approval, every other producer screen redirects here |
 | **SCR-22 Dashboard** | To-do band (deposits to confirm, refunds to send, register a bank account), large 2×2 total/reserved/preparing/shipped counts and representative product reserved/shipped kg | Open a to-do, order or shipping management | SCR-29 filtered list, bank account screen | All cursor pages contribute to order counts (orders awaiting a deposit included); no chat tasks or news-writing entry |
