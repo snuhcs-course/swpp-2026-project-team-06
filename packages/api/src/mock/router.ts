@@ -80,7 +80,7 @@ function needsOnboarded(method: string, path: string): boolean {
   return (
     (method === "POST" && path === "/api/orders") ||
     (method === "PUT" && path === "/api/farms/:farmId/follow") ||
-    (method === "POST" && path === "/api/messaging/news/:broadcastId/reaction") ||
+    (method === "PUT" && path === "/api/messaging/news/:broadcastId/reaction") ||
     (method === "POST" && path === "/api/messaging/chats") ||
     (method === "POST" && path === "/api/messaging/chats/:farmId/messages")
   );

@@ -201,3 +201,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 ### 작업
 - [x] 타입·엔드포인트·Mock 추가, `npm run typecheck` 통과
 - [x] 10/18 온보딩·동의·배송지 50개 타입·엔드포인트·Mock, `npm run typecheck` 4개 통과, `npm run test:mock` 13/13
+- [x] 10/18 AI 리뷰 반영: 클라이언트가 403 `ONBOARDING_REQUIRED`를 받으면 `onOnboardingRequired` 구독자에게 알림(토큰은 유지). Mock 관문 표의 좋아요를 실제 경로대로 `PUT`으로 고침, Mock 주문 ‘기본 배송지로 저장’도 50개면 건너뜀. Mock 계약 테스트 `scripts/test-onboarding.mjs` 추가(범위에 `scripts/test-onboarding.mjs`, 루트 `package.json`의 `test:mock` 한 줄 추가). `npm run test:mock` 14/14

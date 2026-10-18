@@ -417,7 +417,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **기준 주소**: 서버의 `/api`(앱), `/admin`(운영자, Swagger UI), `/s`(공유 링크). 버전 접두어는 쓰지 않는다([server/spec.md](/server/spec.md)).
 - **인증**: `Authorization: Bearer <액세스 토큰>`. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수)으로 받고, I2 소비자 앱은 카카오 로그인(`POST /api/auth/kakao`)으로도 받는다(DEV-32). 토큰에는 계정의 역할(`CONSUMER`·`PRODUCER`)이 들어 있다. 표의 ‘공개’는 토큰 없이 된다.
 - **앱 간 토큰**: 소비자 계정과 생산자 계정은 따로다(ADR 0010). 소비자 API를 생산자 계정 토큰으로, 생산자 API를 소비자 계정 토큰으로 부르면 403 `FORBIDDEN`(`details.reason: WRONG_APP`). 앱은 이 응답을 받으면 토큰을 지우고 그 앱의 로그인으로 보낸다. 공개 API와 `GET /api/auth/me`는 두 계정 모두 된다.
-- **가입 온보딩**: 소비자 카카오 계정이 온보딩을 마치기 전(`needsOnboarding=true`)에 `POST /api/orders`, `PUT /api/farms/{farmId}/follow`, `POST /api/messaging/news/{broadcastId}/reaction`, `POST /api/messaging/chats`, `POST /api/messaging/chats/{farmId}/messages`, 소비자의 `POST /api/messaging/rooms/{farmId}/messages`를 부르면 403 `FORBIDDEN`(`details.reason: ONBOARDING_REQUIRED`). 토큰은 지우지 않고 앱이 SCR-06으로 보낸다(FEAT-01 AC-01-12).
+- **가입 온보딩**: 소비자 카카오 계정이 온보딩을 마치기 전(`needsOnboarding=true`)에 `POST /api/orders`, `PUT /api/farms/{farmId}/follow`, `PUT /api/messaging/news/{broadcastId}/reaction`, `POST /api/messaging/chats`, `POST /api/messaging/chats/{farmId}/messages`, 소비자의 `POST /api/messaging/rooms/{farmId}/messages`를 부르면 403 `FORBIDDEN`(`details.reason: ONBOARDING_REQUIRED`). 토큰은 지우지 않고 앱이 SCR-06으로 보낸다(FEAT-01 AC-01-12).
 - **오류 형식**: 모든 오류는 `{"code": "...", "message": "...", "details": {}}`. `message`는 화면에 그대로 보일 한국어 문구(정책 문서), `details`는 필드별 오류·최신 값 등.
 
   | 상태 | code | 언제 |

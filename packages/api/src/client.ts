@@ -102,6 +102,18 @@ export function onAuthChange(fn: () => void) {
   };
 }
 
+const onboardingListeners = new Set<() => void>();
+/**
+ * 가입 온보딩을 마치지 않은 계정이 농가에 닿는 행동을 해서 403 ONBOARDING_REQUIRED를 받았을 때 알림.
+ * 토큰은 지우지 않는다. 앱은 온보딩 화면을 연다(screens.md 7.1)
+ */
+export function onOnboardingRequired(fn: () => void) {
+  onboardingListeners.add(fn);
+  return () => {
+    onboardingListeners.delete(fn);
+  };
+}
+
 /* ---------------- request ---------------- */
 
 export type RequestOptions = {
@@ -170,6 +182,12 @@ export async function request<T>(
       "WRONG_APP"
   )
     setToken(null);
+  if (
+    res.status === 403 &&
+    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
+      "ONBOARDING_REQUIRED"
+  )
+    onboardingListeners.forEach((l) => l());
   if (res.status >= 400) throw new ApiError(res.status, res.body);
   return res.body as T;
 }
