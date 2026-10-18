@@ -3,6 +3,7 @@
 import { readStore, writeStore } from "../client";
 import type {
   AiSettings,
+  Consent,
   CapacityRequest,
   Thread,
   Inquiry,
@@ -34,7 +35,26 @@ export type UserRec = {
   name: string;
   role: Role;
   farmId: string | null;
+  /** 카카오로 만든 계정(Mock 카카오 로그인). 테스트 계정은 없음 → 온보딩 대상 아님 */
+  kakao?: boolean;
+  nickname?: string | null;
+  email?: string | null;
+  phone?: string;
+  /** 가입 동의(FEAT-01 I2) */
+  consents?: Consent[];
 };
+const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
+
+/** 첫 가입 온보딩이 남았는가(서버 needs_onboarding과 같은 규칙). 테스트 계정은 항상 false */
+export function needsOnboarding(u: UserRec): boolean {
+  if (u.role !== "CONSUMER" || !u.kakao) return false;
+  if (!u.nickname?.trim() || !u.name.trim() || !u.phone?.trim()) return true;
+  const agreed = new Set(
+    (u.consents ?? []).filter((c) => c.agreed).map((c) => c.kind),
+  );
+  return REQUIRED_CONSENTS.some((k) => !agreed.has(k));
+}
+
 export type FarmRec = {
   farmId: string;
   ownerId: string;

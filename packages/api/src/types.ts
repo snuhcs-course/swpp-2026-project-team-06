@@ -30,9 +30,14 @@ export type ConflictReason =
   | "CAPACITY_REQUEST_PENDING"
   | "STALE_VERSION"
   | "PERIOD_LOCKED"
-  | "NOT_RESUMABLE";
-/** 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010) */
-export type ForbiddenReason = "WRONG_APP";
+  | "NOT_RESUMABLE"
+  /** 저장 배송지가 계정당 50개를 넘음(details.limit) */
+  | "ADDRESS_LIMIT";
+/**
+ * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
+ * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
+ */
+export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED";
 
 export type ErrorBody = {
   code: ErrorCode;
@@ -67,6 +72,31 @@ export type User = {
   farmStatus: FarmStatus;
   /** 정지 사유(farmStatus=SUSPENDED) */
   suspendReason?: string | null;
+  /** 농가에 보이는 표시 이름(온보딩에서 입력). 없으면 이름을 가려 보여 준다 */
+  nickname?: string | null;
+  /** 카카오계정 이메일(연락용, 식별은 카카오 회원번호) */
+  email?: string | null;
+  /** 휴대폰 번호(온보딩에서 입력) */
+  phone?: string;
+  /** 첫 가입 온보딩(SCR-06)이 남았는가. 소비자 카카오 계정만 true가 될 수 있다 */
+  needsOnboarding?: boolean;
+};
+
+/** 내 정보 고치기(온보딩 1장·SCR-17). 보낸 필드만 바꾼다 */
+export type MeUpdateInput = {
+  nickname?: string;
+  name?: string;
+  phone?: string;
+};
+
+/** 가입 동의 항목. TERMS·PRIVACY·AGE14는 필수, MARKETING은 선택 */
+export type ConsentKind = "TERMS" | "PRIVACY" | "AGE14" | "MARKETING";
+export type ConsentInput = { kind: ConsentKind; version: string; agreed?: boolean };
+export type Consent = {
+  kind: ConsentKind;
+  version: string;
+  agreed: boolean;
+  agreedAt: ISODate;
 };
 
 export type LoginResult = { accessToken: string; user: User };

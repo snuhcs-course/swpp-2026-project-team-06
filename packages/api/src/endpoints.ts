@@ -28,6 +28,15 @@ export const auth = {
   },
   logout: () => setToken(null),
   me: () => request<A.User>("GET", "/api/auth/me"),
+  /** 온보딩 1장·프로필 수정(닉네임·이름·휴대폰) */
+  updateMe: (input: A.MeUpdateInput) =>
+    request<A.User>("PATCH", "/api/auth/me", { body: input }),
+  consents: () => request<A.Consent[]>("GET", "/api/auth/me/consents"),
+  /** 가입 동의 기록(항목·버전·시각) */
+  saveConsents: (consents: A.ConsentInput[]) =>
+    request<A.Consent[]>("POST", "/api/auth/me/consents", {
+      body: { consents },
+    }),
   apply: (input: A.ProducerApplicationInput) =>
     request<A.ProducerApplication>("POST", "/api/auth/producer-application", {
       body: input,
