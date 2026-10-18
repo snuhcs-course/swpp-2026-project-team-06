@@ -1,4 +1,5 @@
-// SCR-12 주문 완료 (FEAT-09, 06) — design: scr-12, s-12-detailfail
+// SCR-12 주문 접수·입금 확인 중 (FEAT-09 개정 DEV-68, 06) — design: scr-12, s-12-detailfail
+// 입금 대기면 「입금 확인 중」과 계좌·입금자명·기한을, 확인된 뒤에 열면 「예약 완료」를 보여 준다.
 import { farms, orders } from "@farmclub/api";
 import {
   Button,
@@ -16,6 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
 
+import { DepositCard } from "../../../../lib/DepositCard";
 import { useHideTabBar } from "../../../../lib/session";
 import { useToast } from "../../../../lib/toast";
 import { Avatar, copyText } from "../../../../lib/views";
@@ -63,6 +65,9 @@ export default function Done() {
     }
   }
 
+  const awaiting = !o || o.status === "AWAITING_DEPOSIT";
+  const copy = async (text: string, what: string) =>
+    (await copyText(text)) && toast.show(`${what}를 복사했어요`);
   return (
     <Screen>
       <Scroll bottom={60}>
@@ -72,29 +77,41 @@ export default function Done() {
               width: 56,
               height: 56,
               borderRadius: 999,
-              backgroundColor: tokens.color.text,
+              backgroundColor: awaiting
+                ? tokens.color.surface
+                : tokens.color.text,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Icon name="check" size={28} color="#FFFFFF" />
+            <Icon
+              name={awaiting ? "lock" : "check"}
+              size={28}
+              color={awaiting ? tokens.color.text : "#FFFFFF"}
+            />
           </View>
           <T
             variant="title"
             style={{ marginTop: 16 }}
             accessibilityRole="header"
           >
-            예약 완료
+            {awaiting ? "입금 확인 중" : "예약 완료"}
           </T>
           <T variant="body">
             {o
-              ? `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
-              : "예약은 완료됐어요."}
+              ? awaiting
+                ? `농가가 입금을 확인하면 예약 완료로 바뀌어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
+                : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
+              : "주문을 접수했어요."}
           </T>
         </View>
 
+        {o && awaiting ? (
+          <DepositCard o={o} onCopy={copy} style={{ marginTop: 32 }} />
+        ) : null}
+
         {o ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 32 }}>
+          <View style={{ paddingHorizontal: 20, paddingTop: awaiting ? 16 : 32 }}>
             <KV k="주문 번호">
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
