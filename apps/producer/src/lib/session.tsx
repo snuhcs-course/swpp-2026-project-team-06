@@ -54,7 +54,12 @@ function homeFor(user: User | null): {
   allowed: (p: string) => boolean;
   home: string;
 } {
-  if (!user) return { allowed: (p) => p === "/login", home: "/login" };
+  // 비로그인: 로그인과 카카오 복귀(/auth/kakao)만 열린다
+  if (!user)
+    return {
+      allowed: (p) => p === "/login" || p === "/auth/kakao",
+      home: "/login",
+    };
   switch (user.farmStatus) {
     case "NONE":
       return { allowed: (p) => p === "/apply", home: "/apply" };

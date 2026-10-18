@@ -356,6 +356,46 @@ def test_AC_01_10_same_kakao_id_gets_separate_producer_account(client, monkeypat
     assert sorted(role for _, role in _kakao_users("kakao-1001")) == ["CONSUMER", "PRODUCER"]
 
 
+def test_AC_01_16_kakao_producer_signs_up_through_application(client, monkeypatch):
+    """생산자 앱 카카오 로그인(DEV-74): 처음이면 농가 없는 생산자 계정 → 가입 신청 → 확인 중.
+
+    생산자는 소비자 온보딩을 거치지 않고, 가입 신청의 대표자 이름이 계정 이름이 된다.
+    """
+    _kakao_on(monkeypatch)
+    body = client.post(
+        "/api/auth/kakao", json={"code": "abc", "redirectUri": PRODUCER_REDIRECT, "app": "producer"}
+    ).json()
+    user, headers = body["user"], {"Authorization": f"Bearer {body['accessToken']}"}
+    assert user["role"] == "PRODUCER"
+    assert user["farmStatus"] == "NONE"
+    assert user["needsOnboarding"] is False
+    assert user["name"] == "카카오 사용자"
+
+    applied = client.post(
+        "/api/auth/producer-application",
+        headers=headers,
+        json={
+            "ownerName": "김새농",
+            "farmName": "카카오 농장",
+            "region": "제주 서귀포시",
+            "mainItems": "감귤",
+            "phone": "010-9876-5432",
+        },
+    )
+    assert applied.status_code == 200, applied.text
+    assert applied.json()["status"] == "PENDING"
+    me = client.get("/api/auth/me", headers=headers).json()
+    assert me["farmStatus"] == "PENDING"
+    assert me["name"] == "김새농"
+
+    # 다시 카카오로 들어와도 같은 생산자 계정(확인 중)
+    again = client.post(
+        "/api/auth/kakao", json={"code": "def", "redirectUri": PRODUCER_REDIRECT, "app": "producer"}
+    ).json()["user"]
+    assert again["userId"] == user["userId"]
+    assert again["farmStatus"] == "PENDING"
+
+
 def test_kakao_login_off_returns_404(client, monkeypatch):
     monkeypatch.setattr(config.get_settings(), "kakao_rest_api_key", "")
     response = client.post(

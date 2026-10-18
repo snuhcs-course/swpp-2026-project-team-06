@@ -17,6 +17,8 @@ export const ADDRESS_LIMIT = 50;
 const CONSENT_KINDS: ConsentKind[] = ["TERMS", "PRIVACY", "AGE14", "MARKETING"];
 /** Mock 카카오 로그인이 만드는 소비자 계정. 처음엔 온보딩이 남아 있다 */
 export const MOCK_KAKAO_USER = "u-kakao";
+/** Mock 카카오 로그인이 만드는 생산자 계정(DEV-74). 처음엔 농가가 없어 가입 신청으로 간다 */
+export const MOCK_KAKAO_PRODUCER = "u-kakao-farm";
 
 /** 농가에 보이는 소비자 이름(R-15): 닉네임, 없으면 이름 앞 글자 + ○○ */
 export function publicName(u: UserRec | undefined | null): string {
@@ -105,8 +107,8 @@ register({
     return { accessToken: token, user: userView(db, u) };
   },
 
-  // 카카오 로그인 Mock(ADR 0003, DEV-32): 리다이렉트 없이 로그인한다.
-  // 소비자 앱은 카카오 계정 u-kakao(처음엔 이메일만 있어 온보딩이 남음), 생산자 앱은 첫 테스트 계정
+  // 카카오 로그인 Mock(ADR 0003, DEV-32·74): 리다이렉트 없이 로그인한다.
+  // 소비자 앱은 카카오 계정 u-kakao(처음엔 이메일만 있어 온보딩이 남음), 생산자 앱은 농가 없는 u-kakao-farm(가입 신청으로 감)
   "GET /api/auth/kakao/config": () => ({
     enabled: true,
     clientId: "mock",
@@ -128,7 +130,18 @@ register({
         phone: "",
         consents: [],
       };
-    const u = db.users[app === "consumer" ? MOCK_KAKAO_USER : "u-kang"];
+    if (app === "producer" && !db.users[MOCK_KAKAO_PRODUCER])
+      db.users[MOCK_KAKAO_PRODUCER] = {
+        userId: MOCK_KAKAO_PRODUCER,
+        name: "카카오 사용자",
+        role: "PRODUCER",
+        farmId: null,
+        kakao: true,
+        email: "kakao.farm@example.com",
+        phone: "",
+        consents: [],
+      };
+    const u = db.users[app === "consumer" ? MOCK_KAKAO_USER : MOCK_KAKAO_PRODUCER];
     const token = `mock-${u.userId}-${Math.random().toString(36).slice(2, 10)}`;
     db.tokens[token] = u.userId;
     return { accessToken: token, user: userView(db, u) };
