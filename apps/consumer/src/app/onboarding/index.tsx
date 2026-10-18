@@ -46,7 +46,9 @@ export default function OnboardingProfile() {
   useEffect(() => {
     if (!user || filled) return;
     setNickname(user.nickname ?? "");
-    setName(user.name ?? "");
+    // 10/17에 만든 카카오 계정은 이름 자리에 이메일이나 ‘카카오 사용자’가 들어 있다. 그 값은 채우지 않는다
+    const legacy = !user.name || user.name.includes("@") || user.name === "카카오 사용자";
+    setName(legacy ? "" : user.name);
     setPhone(user.phone ?? "");
     setFilled(true);
   }, [user, filled]);
@@ -79,6 +81,9 @@ export default function OnboardingProfile() {
     const back = hasResume && router.canGoBack();
     clearResume();
     if (back) router.back();
+    // 주문서는 온보딩 없이 열 수 없으니 그 상품 화면으로 돌아간다(닫기가 다시 온보딩으로 돌아오지 않게)
+    else if (next.startsWith("/checkout/"))
+      router.replace(`/products/${next.split("/")[2]?.split("?")[0] ?? ""}` as never);
     else router.replace(next as never);
   }
 

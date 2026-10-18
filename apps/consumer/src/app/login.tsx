@@ -75,7 +75,7 @@ export default function Login() {
     if (!cfg?.enabled || busy) return;
     setFailed(null);
     if (isMock) {
-      // Mock: 리다이렉트 없이 바로 로그인(김민지)
+      // Mock: 리다이렉트 없이 바로 로그인(카카오 계정 u-kakao, 처음이면 온보딩)
       setBusy(true);
       try {
         const res = await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));

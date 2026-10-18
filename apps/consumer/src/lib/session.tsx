@@ -3,6 +3,7 @@ import {
   auth,
   configureApi,
   onAuthChange,
+  onOnboardingRequired,
   getToken,
   type Recipient,
   type User,
@@ -124,6 +125,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     hadUser.current = !!user;
   }, [user]);
+
+  // 관문을 거치지 않는 행동(소식 좋아요·답장, 채팅 보내기 등)이 403 ONBOARDING_REQUIRED를 받으면
+  // 온보딩을 연다. 끝나면 보던 화면으로 돌아온다(AC-01-12)
+  useEffect(
+    () =>
+      onOnboardingRequired(() => {
+        void refresh();
+        if (here.current.startsWith("/onboarding")) return;
+        router.push({ pathname: "/onboarding", params: { next: here.current } });
+      }),
+    [refresh, router],
+  );
 
   const requireLogin = useCallback(
     (
