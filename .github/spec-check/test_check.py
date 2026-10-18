@@ -121,6 +121,25 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(check.Incomplete):
                 check.model_review(context(), "prompt", "key", "model", Client([data]))
 
+    def test_request_limits_leave_room_for_thinking(self):
+        # DEV-79: limits raised so checker-sized PRs reach the model and thinking is not cut off.
+        seen = {}
+
+        class Capture(Client):
+            def open(self, req, timeout):
+                seen.update(body=json.loads(req.data), timeout=timeout)
+                return super().open(req, timeout)
+
+        check.model_review(context(), "prompt", "key", "model", Capture([envelope()]))
+        self.assertEqual(check.MAX_INPUT, 256 * 1024)
+        self.assertEqual(seen["body"]["max_tokens"], check.MAX_OUTPUT_TOKENS)
+        self.assertGreaterEqual(check.MAX_OUTPUT_TOKENS, 16000)
+        self.assertEqual(seen["timeout"], check.REQUEST_TIMEOUT)
+        self.assertLessEqual(2 * check.REQUEST_TIMEOUT + 20, 5 * 60)  # Retry still fits the 5-minute job.
+        self.assertNotIn("thinking", seen["body"])  # No model-specific thinking setting (no fallback/branching).
+        with self.assertRaisesRegex(check.Incomplete, "256 KiB"):
+            check.model_review({"text": "x" * check.MAX_INPUT}, "prompt", "key", "model", Client([]))
+
     def test_thinking_blocks_are_ignored_but_text_is_required(self):
         # DEV-79: claude-sonnet-5-5 runs adaptive thinking when the request omits it.
         text = envelope(result("MISMATCH"))["content"][0]
