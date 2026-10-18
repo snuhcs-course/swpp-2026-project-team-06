@@ -27,6 +27,16 @@ User decision (2026-10-16): **Keep live runs pending for now.** Live jobs now re
 | DEV-55 matched sample passes | Genuine live-model matched report/run URL | Deferred to follow-up |
 | DEV-55 finding resolution | Named human disposition with requirement/code evidence | Deferred to follow-up |
 
+## Live setup (DEV-55, 2026-10-18)
+
+Redacted configuration; key values are never recorded here.
+
+- Provider/model: Claude Messages API, `SPEC_CHECK_MODEL=claude-sonnet-5-5` (environment variable on `spec-check`). Model choice was posted to DEV-55 for Minsun Kim to confirm against `claude-haiku-4-5`.
+- Credential owner: Hyun Park (nemodleo). Secret `SPEC_CHECK_API_KEY` exists only on the `spec-check` environment and is separate from the product key.
+- Repository administrator who configured it: nemodleo.
+- Protection: Required reviewers = nemodleo, jangjinuite, xozier, llovablanche. Prevent self-review is off by team decision (PR #147). Administrator bypass is off.
+- Enable switch: repository variable `SPEC_CHECK_ENABLED=true` since 2026-10-18 11:50 UTC.
+
 ## Genuine run record
 
 Owned by DEV-55. Populate only after inspecting actual reports. Keep both reports before artifact expiry.

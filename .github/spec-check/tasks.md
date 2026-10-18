@@ -84,3 +84,4 @@ spec-code-review를 승인자 1명의 승인으로 실행하되, PR 작성자 �
 
 ### 기록
 - 10/18 main 0639fbf에서 시작.
+- 10/18 PR #147 머지(c3c721d). 설정: 승인자 4명(nemodleo·jangjinuite·xozier·llovablanche), 본인 승인 금지 꺼짐, 관리자 우회 꺼짐, `SPEC_CHECK_ENABLED=true`. EVIDENCE.md에 키 값 없이 설정 기록. 시연 PR로 live 실행 확인 중.
