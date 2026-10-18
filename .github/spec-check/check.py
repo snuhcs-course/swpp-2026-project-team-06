@@ -17,6 +17,7 @@ MAX_RESPONSE = 1024 * 1024
 ENDPOINT = "https://api.anthropic.com/v1/messages"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 SECRET = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bsk-ant-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}")
+THINKING = {"thinking", "redacted_thinking"}
 
 
 class Incomplete(Exception):
@@ -205,6 +206,12 @@ def check_environment(event, token):
         raise Incomplete("Protected spec-check environment could not be verified; ask the repository administrator.") from exc
 
 
+def block_type(block):
+    """Name an unexpected block for the report without echoing provider text."""
+    value = block.get("type")
+    return value if isinstance(value, str) and re.fullmatch(r"[a-z_]{1,40}", value) else "unknown"
+
+
 def model_review(context, prompt, api_key, model, opener=None, sleep=time.sleep):
     if not api_key or not model:
         raise Incomplete("Configure SPEC_CHECK_API_KEY and SPEC_CHECK_MODEL in the protected spec-check environment.")
@@ -227,8 +234,15 @@ def model_review(context, prompt, api_key, model, opener=None, sleep=time.sleep)
             if envelope.get("stop_reason") != "end_turn":
                 raise Incomplete("Model output was truncated or did not complete normally.")
             blocks = envelope.get("content", [])
-            if not isinstance(blocks, list) or not blocks or any(not isinstance(b, dict) or b.get("type") != "text" for b in blocks):
+            if not isinstance(blocks, list) or any(not isinstance(b, dict) for b in blocks):
                 raise Incomplete("Unexpected model content type.")
+            # DEV-79: adaptive thinking blocks are dropped unread; only text carries the review.
+            blocks = [b for b in blocks if b.get("type") not in THINKING]
+            unexpected = sorted({block_type(b) for b in blocks if b.get("type") != "text"})
+            if unexpected:
+                raise Incomplete("Unexpected model content type: " + ", ".join(unexpected) + ".")
+            if not blocks:
+                raise Incomplete("Unexpected model content type: no text block.")
             usage = envelope.get("usage", {})
             if not isinstance(usage, dict):
                 raise Incomplete("Unexpected usage metadata.")
