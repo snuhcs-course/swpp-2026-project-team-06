@@ -408,7 +408,7 @@ export default function Ship() {
         </View>
         {preset === CUSTOM ? (
           <Input
-            label="사유 직접 쓰기"
+            accessibilityLabel="미승인 사유 직접 쓰기"
             value={reason}
             onChangeText={(v) => {
               setReason(v);
