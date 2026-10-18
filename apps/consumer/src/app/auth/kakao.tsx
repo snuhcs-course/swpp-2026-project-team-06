@@ -41,10 +41,13 @@ export default function KakaoCallback() {
     }
     void (async () => {
       try {
-        await auth.kakaoLogin(code, `${window.location.origin}/auth/kakao`);
+        const res = await auth.kakaoLogin(code, `${window.location.origin}/auth/kakao`);
         await refresh();
         if (saved.resume) restoreResume(saved.resume);
-        router.replace(target as never);
+        // 처음 가입이면 온보딩(SCR-06) → 원래 화면. 다시 온 회원은 바로 원래 화면(AC-01-13)
+        if (res.user.needsOnboarding)
+          router.replace({ pathname: "/onboarding", params: { next: target } });
+        else router.replace(target as never);
       } catch (e) {
         setFailed(
           e instanceof ApiError

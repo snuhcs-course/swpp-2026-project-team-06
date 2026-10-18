@@ -302,20 +302,22 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) · GitHub #77
 - 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
-- 기능·인수 조건: FEAT-01 / AC-01-1, AC-01-8, AC-01-9, AC-01-11 · ADR 0003·0009·0010
+- 기능·인수 조건: FEAT-01 / AC-01-1, AC-01-8, AC-01-9, AC-01-11, AC-01-12~15 · ADR 0003·0009·0010
 - 상태: 리뷰 중
 
 ### 목표
 테스트 참가자가 자기 카카오 계정으로 소비자 앱에 로그인하고, 로그인 전에 누른 화면·행동(예약·팔로우·채팅·좋아요)으로 그대로 돌아간다. 테스트 계정 로그인은 Mock 플래그가 켜진 동안 함께 둔다.
 
 ### 범위 (수정 허용 경로)
-- `apps/consumer/src/app/login.tsx`, `apps/consumer/src/app/auth/kakao.tsx`(새 화면), `apps/consumer/src/lib/kakao.ts`(새 파일), `apps/consumer/src/lib/session.tsx`(`restoreResume`만)
+- `apps/consumer/src/app/login.tsx`, `apps/consumer/src/app/auth/kakao.tsx`(새 화면), `apps/consumer/src/lib/kakao.ts`(새 파일), `apps/consumer/src/lib/session.tsx`(`restoreResume`, 10/18 온보딩 관문·`resume` 숨김)
+- 10/18 온보딩 승인으로 추가: `apps/consumer/src/app/onboarding/{index,address}.tsx`(새 화면 SCR-06), `apps/consumer/src/lib/onboarding.ts`(새 파일), `apps/consumer/src/lib/AddressForm.tsx`(온보딩·연락처 기본값·50개 옵션), `apps/consumer/src/app/(tabs)/me/{index,profile}.tsx`, `apps/consumer/src/app/(tabs)/me/addresses/{index,edit}.tsx`, `apps/consumer/src/app/checkout/[productId]/{index,address}.tsx`
 - `apps/consumer/spec.md`, `apps/consumer/tasks.md`
 - 서버·API 패키지·문서는 `server/tasks.md`, `packages/api/tasks.md`의 DEV-32 절 참조
 
 ### 비범위 (건드리지 않음)
 - 생산자 앱 로그인 화면(SCR-19). 서버 계약은 `app: producer`로 동작하지만 화면은 별도 이슈.
-- 리프레시 토큰, 로그아웃 시 카카오 연결 끊기, 전화번호·이메일 동의 항목(비즈 앱 필요).
+- 리프레시 토큰, 로그아웃 시 카카오 연결 끊기, 이름·전화번호 동의 항목(비즈 앱 심사 필요, 2단계).
+- 우편번호 찾기(결정 27, I1처럼 직접 입력), 약관·처리방침 전문 페이지(‘보기’는 요지 시트), 탈퇴.
 - Figma 시안 반영(머지 뒤 별도). 기존 `@farmclub/ui` 부품만 쓴다.
 
 ### 결정 사항
@@ -343,3 +345,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/17 실제 카카오 계정으로 로컬(실서버 + 소비자 앱) 로그인 확인: `POST /api/auth/kakao` 200, 소비자 계정 생성(`isTestAccount=false`), 홈 복귀, 복귀 정보 소거. 이름이 ‘카카오 사용자’로 저장됨 → 콘솔 동의 항목에 닉네임이 꺼져 있어 `kakao_account.profile`이 안 내려옴. 인가 요청에 `scope=profile_nickname`을 넣었고, 콘솔에서 ‘닉네임’ 동의 항목(필수)을 켜야 이름이 들어온다. 기존 버그 발견: 내 정보가 부르는 `GET /api/farms/following`이 서버에 없어 404(별도 이슈).
 - 10/17 사용자 피드백: 로그인 화면에서 카카오와 테스트 계정 로그인이 같이 보여 충돌 → 카카오가 켜져 있으면 카카오만 기본으로 보이고 테스트 계정은 ‘테스트 계정으로 로그인’을 눌러야 펼쳐진다(하단 ‘○○로 로그인’ 버튼도 그때만). 카카오가 꺼진 CI·Mock 플래그 환경은 기존대로 바로 펼침이라 e2e 영향 없음. 로컬 실서버는 카카오 키가 있어 e2e `loginConsumer`가 접힌 목록을 못 찾으므로 통합 테스트는 `.env`를 치우고 돌린다.
 - 10/17 사용자 결정: 카카오가 켜져 있으면 테스트 계정 로그인을 아예 없앤다(접기 아님). 꺼진 환경(CI e2e, Mock)에서는 테스트 계정 목록 유지. 로컬에서 테스트 계정이 필요하면 KAKAO_REST_API_KEY를 비우거나 Mock 모드.
+- 10/18 사용자 승인(제안 아티팩트 v4 https://claude.ai/artifact/WfH3HbEMwhAmvLq5f57xEp): 카카오에서는 이메일만, 식별은 회원번호. 첫 가입 온보딩 2장(① 닉네임·이름·휴대폰·동의 4개 ② 기본 배송지, 건너뛰기 가능). 빠진 정보는 직접 입력. 배송지 관리 50개·수정·삭제, 주문서는 저장 목록에서 고른다.
+- 10/18 결정: 온보딩 중 `resume`을 숨긴다. 숨기지 않으면 스택 아래의 상품 화면이 1장 저장 직후 예약을 이어 실행해 2장을 건너뛰거나 온보딩이 두 겹 쌓였다(Mock 실측). 끝나면 관문에서 왔을 때 `router.back()`으로 원래 화면에 돌아가 그 화면이 행동을 잇는다(로그인 화면과 같은 방식).
+- 10/18 결정: 온보딩 닫기는 계정을 남기고 행동은 실행하지 않는다. 다음 관문(`requireLogin`)·주문서·내 정보 ‘가입 마치기’에서 다시 연다. 탭 열기(소식·채팅·내 정보)는 막지 않는다.
+- 10/18 결정: ‘보기’는 정책 5장 요지를 담은 시트(전문 페이지는 정식 오픈 전). 동의 문구 버전 `2026-10-18`(`lib/onboarding.ts`).
+- 10/18 결정: 로그인 하단 문구는 카카오가 켜져 있으면 ‘동의는 처음 가입할 때 받아요’, 꺼져 있으면(테스트 계정) 기존 안내.
+- 작업(10/18): [x] 온보딩 1·2장 [x] 카카오 복귀·Mock 로그인 분기 [x] 세션 관문·`resume` 숨김 [x] 주문서 온보딩 분기·연락처 기본값·50개 안내 [x] 배송지 관리 50개 [x] 내 정보 닉네임·가입 마치기·`/me/profile`
+- 검증(10/18): `npm run typecheck` 4개 통과, `npm run test:mock` 13/13. Mock 화면 흐름(관문 → 카카오 → 온보딩 1(다음 비활성 → 입력·모두 동의 → 다음) → 2(주소 저장) → 주문서 복귀(기본 배송지 채워짐) → 내 정보·고치기·배송지 → 로그아웃 뒤 다시 카카오 → 온보딩 없이 복귀) 콘솔 오류 0. 실서버 통합은 아래 기록.

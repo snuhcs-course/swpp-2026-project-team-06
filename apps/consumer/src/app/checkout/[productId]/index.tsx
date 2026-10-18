@@ -37,6 +37,8 @@ import { isNetworkError, useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet } from "../../../lib/views";
 
 const CONSENT_VERSION = "policy-2026-10-06";
+/** 저장 배송지 한도(서버 ADDRESS_LIMIT) */
+const ADDRESS_LIMIT = 50;
 const isRemote = (postal: string, address: string) =>
   /^(63|40[0-2]|23[01])/.test(postal) || /(울릉|옹진|도서)/.test(address);
 /** policy.md 2장 날짜 표기: "11월 10일~11월 20일" */
@@ -84,15 +86,13 @@ export default function Checkout() {
     params: { productId: params.productId },
   };
 
-  // 로그인 안 했으면 로그인으로 (주문은 로그인 필요)
+  // 로그인 안 했으면 로그인으로, 가입 온보딩이 남았으면 온보딩으로 (주문은 둘 다 필요, AC-01-12)
   useEffect(() => {
+    const here = `/checkout/${params.productId}?optionId=${encodeURIComponent(optionId)}&quantity=${qty}`;
     if (ready && !user)
-      router.replace({
-        pathname: "/login",
-        params: {
-          next: `/checkout/${params.productId}?optionId=${encodeURIComponent(optionId)}&quantity=${qty}`,
-        },
-      });
+      router.replace({ pathname: "/login", params: { next: here } });
+    else if (ready && user?.needsOnboarding)
+      router.replace({ pathname: "/onboarding", params: { next: here } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user, params.productId, router]);
 
@@ -515,6 +515,11 @@ export default function Checkout() {
             </T>
           </Pressable>
         ))}
+        {(addresses.data?.length ?? 0) >= ADDRESS_LIMIT ? (
+          <T variant="sub" muted style={{ paddingTop: 8 }}>
+            배송지가 {ADDRESS_LIMIT}개라 새 주소는 이번 주문에만 쓰고 저장하지 않아요.
+          </T>
+        ) : null}
         <Button
           label="새 주소 입력"
           variant="outline"

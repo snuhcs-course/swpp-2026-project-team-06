@@ -78,9 +78,11 @@ export default function Login() {
       // Mock: 리다이렉트 없이 바로 로그인(김민지)
       setBusy(true);
       try {
-        await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));
+        const res = await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));
         await refresh();
-        if (resume && router.canGoBack()) router.back();
+        if (res.user.needsOnboarding)
+          router.replace({ pathname: "/onboarding", params: { next: target } });
+        else if (resume && router.canGoBack()) router.back();
         else router.replace(target as never);
       } catch {
         setFailed("카카오 로그인에 실패했어요. 다시 시도해 주세요.");
@@ -150,7 +152,8 @@ export default function Login() {
               </T>
             </Pressable>
             <T variant="caption" muted center>
-              카카오에서는 계정 이메일만 받아요. 연락처는 주문할 때 입력해요.
+              카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만
+              입력해요.
             </T>
           </View>
         ) : null}
@@ -242,8 +245,9 @@ export default function Login() {
           </T>
         ) : null}
         <T variant="caption" muted center>
-          로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트
-          서비스
+          {kakao.data?.enabled
+            ? "이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요 · 테스트 서비스"
+            : "로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트 서비스"}
         </T>
         {showTest ? (
           <Button
