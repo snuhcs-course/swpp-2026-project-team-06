@@ -105,7 +105,7 @@ export default function Home() {
               {dash.data.todo.refundsToSettle ? (
                 <ListRow
                   label={`환불 보낼 주문 ${dash.data.todo.refundsToSettle}건`}
-                  sub="입금했던 계좌로 보낸 뒤 송금 완료로 표시해요"
+                  sub="입금했던 계좌로 보낸 뒤 환불했다고 기록해요"
                   onPress={() => router.push("/ship?status=REFUNDED")}
                   last
                 />

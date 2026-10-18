@@ -87,6 +87,8 @@ export default function Ship() {
   const [notice, setNotice] = useState<string | null>(null);
   // 입금 확인 시트(DEV-68): 통장과 대조한 뒤 누른다
   const [depositFor, setDepositFor] = useState<ProducerOrder | null>(null);
+  // 환불 송금 완료 시트(DEV-68): 농가가 돌려보냈다고 직접 기록한다
+  const [refundFor, setRefundFor] = useState<ProducerOrder | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -232,17 +234,20 @@ export default function Ship() {
     }
   }
 
-  // 환불 송금 완료(AC-17-7)
-  async function settleRefund(o: ProducerOrder) {
-    if (busy) return;
+  // 환불 송금 완료(AC-17-7): 시트에서 확인한 뒤 기록한다
+  async function settleRefund() {
+    const o = refundFor;
+    if (!o || busy) return;
     setBusy(true);
     setNotice(null);
     try {
       await orders.refundSettled(o.orderId);
-      toast("송금 완료로 표시했어요");
+      setRefundFor(null);
+      toast(`${o.orderNo} 환불 완료로 기록했어요`);
       await load();
     } catch (e) {
-      if (isConnectionError(e)) failToast(e, () => void settleRefund(o));
+      setRefundFor(null);
+      if (isConnectionError(e)) failToast(e, () => setRefundFor(o));
       else {
         setNotice(errMsg(e));
         await load();
@@ -373,11 +378,11 @@ export default function Ship() {
                       accessibilityRole="button"
                       accessibilityLabel={`${o.orderNo} 송금 완료로 표시`}
                       disabled={busy}
-                      onPress={() => void settleRefund(o)}
+                      onPress={() => setRefundFor(o)}
                       style={{ minHeight: 48, justifyContent: "center" }}
                     >
                       <T variant="sub" weight="semibold">
-                        송금 완료로 표시 ›
+                        환불했어요 ›
                       </T>
                     </Pressable>
                   )
@@ -499,7 +504,7 @@ export default function Ship() {
             {tab === "AWAITING_DEPOSIT"
               ? "통장에서 입금자명(주문 번호)과 금액을 확인한 뒤 「입금 확인」을 눌러 주세요. 확인하면 소비자에게 예약 완료로 보여요. 24시간 안에 입금이 없으면 자동으로 취소돼요."
               : tab === "REFUNDED"
-                ? "환불은 소비자가 입금했던 계좌로 직접 보내 주세요. 보낸 뒤 「송금 완료」를 누르면 소비자 주문 상세에 환불 완료로 보여요."
+                ? "환불은 소비자가 입금했던 계좌로 직접 보내 주세요. 보낸 뒤 「환불했어요」를 눌러 기록하면 소비자 주문 상세에 환불 완료로 보여요."
                 : "배송 완료는 farmclub이 확인해서 바꿔요."}
           </T>
         </View>
@@ -633,6 +638,44 @@ export default function Ship() {
             style={{ flex: 2 }}
             loading={busy}
             onPress={() => void confirmDeposit()}
+          />
+        </View>
+      </Sheet>
+
+      {/* 환불 완료 시트(DEV-68 AC-17-7): 입금했던 계좌로 돌려보낸 뒤 농가가 기록 */}
+      <Sheet
+        visible={!!refundFor}
+        onClose={() => {
+          if (!busy) setRefundFor(null);
+        }}
+      >
+        <T variant="heading">
+          {refundFor ? won(refundFor.totalAmount) : ""}을 돌려보냈나요?
+        </T>
+        {refundFor ? (
+          <T variant="sub" muted>
+            {who(refundFor)} · 입금자명 {refundFor.orderNo}
+          </T>
+        ) : null}
+        <T variant="sub">
+          소비자가 입금했던 계좌로 전액을 보낸 뒤에 눌러 주세요. 기록하면
+          소비자 주문 상세에 환불 완료로 보여요.
+        </T>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button
+            label="아니요"
+            variant="secondary"
+            size="producer"
+            disabled={busy}
+            style={{ flex: 1 }}
+            onPress={() => setRefundFor(null)}
+          />
+          <Button
+            label="환불 완료"
+            size="producer"
+            style={{ flex: 2 }}
+            loading={busy}
+            onPress={() => void settleRefund()}
           />
         </View>
       </Sheet>
