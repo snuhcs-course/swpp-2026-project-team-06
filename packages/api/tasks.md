@@ -215,3 +215,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/18 섹션 작성.
 - 10/18 범위 추가: `packages/api/src/mock/{auth,capacity,catalog}.ts`(가입 농가 레코드 계좌 칸, NO_FARM_ACCOUNT, holdsStock 집계).
 - 10/18 `npm run typecheck`·`npm run test:mock`(13 통과) 확인. 범위 추가: `packages/ui/src/{format,index}.ts`(deadline 포맷).
+- 10/18 농가 미승인: `orders.rejectDeposit(id, reason, cancel)`·`orders.refundIssue(id, reason)`, `Order`·`ProducerOrder`에 `depositIssue`·`refundIssue`, Mock 핸들러 같은 규칙(사유 필수 400, 409). Mock DB 필드는 선택이라 DB_VERSION 유지. test-capacity에 AC-09-9/AC-17-8.

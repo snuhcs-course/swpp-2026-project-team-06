@@ -1083,6 +1083,7 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 - 10/18 만료는 지연 검사(소비자 조회·취소, 생산자 목록·확인 시점에 `expire_overdue_deposits`) + `POST /admin/orders/expire-deposits` 일괄. 만료 주문 `CANCELED`, `cancel_reason="입금 기한 초과"`, 물량 해제.
 - 10/18 소비자 `POST /orders/{id}/deposit-reported` → `deposit_reported_at`(힌트). 입금 대기 취소 → `CANCELED`(환불 없음), 물량 해제.
 - 10/18 환불은 입금했던 계좌로 농가가 송금. `Refund.settled_at`, 생산자 `POST /orders/{id}/refund-settled`. `Payment.method=BANK_TRANSFER`, `provider=FARM_ACCOUNT`.
+- 10/18 박현 피드백: 입금·환불 확인 창(시트)을 없애고 줄에서 바로 ‘미승인’ 1 : ‘승인’ 2. 미승인은 사유 필수(소비자에게 그대로 보임). 입금 미승인은 ‘입금 대기로 두기’(사유 표시, 소비자가 다시 입금했어요 가능) 또는 ‘주문 취소’(`입금 미승인 · 사유`, 물량 해제)를 생산자가 고른다. 환불 미승인은 송금 대기 유지 + 사유(계좌 확인·연락 중·환불 대상 아님 등 바로 고르기 + 직접 입력). AC-09-9·AC-17-8 신설. 서버: `POST /orders/{id}/reject-deposit {reason, cancel}`, `POST /orders/{id}/refund-issue {reason}`, 마이그레이션 0015(`orders.deposit_issue·deposit_issue_at·refund_issue·refund_issue_at`), OrderView·ProducerOrder `depositIssue`·`refundIssue`.
 - 10/18 Farm `bank_name`·`account_number`·`account_holder`·`account_updated_at`. 계좌 없으면 `create_capacity_request` INITIAL에서 409 `NO_FARM_ACCOUNT`. 소비자 `OrderView.depositAccount`·`sellerInfo`는 본인 주문에서만.
 
 ### 작업
@@ -1094,6 +1095,7 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 - [x] 시드: 농가 계좌 4곳 (입금 대기 주문 시드는 넣지 않음 — 대시보드·e2e 건수 기준이 바뀌지 않게, 테스트가 직접 만든다)
 - [x] pytest: AC-09-1(동시 마지막 물량, deposit), AC-09-2(입금 대기 취소 물량 복구), AC-09-3(멱등), AC-09-7(만료), AC-09-8(입금 확인), AC-17-7(환불 송금 완료), 계좌 없는 승인 요청
 - [x] docs/spec·wiki 개정(rules·FEAT-09·14·17·policy·screens·ia·tech-design·R&S·Design-Documentation)
+- [x] 농가 미승인: reject-deposit·refund-issue, 0015, pytest AC-09-9·AC-17-8
 
 ### 완료 조건
 - [ ] 생산자 계좌 등록·수정 API, 소비자 입금 안내 응답, 입금 확인 → RESERVED, 24시간 만료 자동 취소, 환불 송금 완료 표시
@@ -1103,3 +1105,4 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 ### 기록
 - 10/18 제안·Before/After 보드 https://claude.ai/artifact/Pfj8bHERB3FXqH4iD1D6HL 승인. 스펙 섹션 작성.
 - 10/18 서버·API·Mock·앱·문서 구현. `uv run pytest`: 332 중 328 통과, 4 실패는 로컬 `server/.env`의 AI 키 때문(.env를 치우고 돌리면 4/4 통과, 이번 변경과 무관). 범위 추가: `server/.env.example`(DEPOSIT_DEADLINE_HOURS), `packages/ui/src/format.ts`(deadline), `apps/consumer/src/lib/DepositCard.tsx`, `apps/producer/src/app/(tabs)/farm/account.tsx`.
+- 10/18 농가 미승인 반영 후 실행: `uv run pytest` 339 중 335 통과(실패 4는 로컬 `server/.env` AI 키, 기존과 같음), `alembic upgrade head`·`alembic check` 통과(전용 DB), `npm run typecheck` 통과, `npm run test:mock` 14/14, `npm run test:integration:full` API 7 + Playwright 43/43 통과(전용 DB `farmclub_dev68_mig`).

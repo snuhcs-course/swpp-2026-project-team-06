@@ -334,6 +334,11 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **WHEN** the producer of that farm (or an operator) confirms the deposit
 - **THEN** the order becomes reserved with a payment date, confirming again changes nothing, and another farm gets 404
 
+**AC-09-9: Producer rejects the deposit with a reason (DEV-68)**
+- **GIVEN** an order awaiting a deposit
+- **WHEN** the producer taps "Not approved" on the row and writes a reason (required)
+- **THEN** with "Keep waiting" the order stays awaiting a deposit, the buyer sees the reason and can report the deposit again; with "Cancel order" it is canceled with the reason and the stock goes back
+
 ### FEAT-10: Order history
 
 **As a** consumer, **I want to** see each order's status and anything I need to do, **so that** I can respond to changes and confirm when it arrives.
@@ -483,8 +488,13 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 
 **AC-17-7: Refund sent by the farm (DEV-68)**
 - **GIVEN** an order was fully refunded
-- **WHEN** I send the money back to the account the buyer paid from and tap "I refunded" and confirm in the sheet
+- **WHEN** I send the money back to the account the buyer paid from and tap "Approve" on the row (no confirmation sheet)
 - **THEN** the settlement time is recorded, the buyer's order detail shows "Refund complete", and the dashboard's refund to-do count goes down
+
+**AC-17-8: Refund not sent yet, with a reason (DEV-68)**
+- **GIVEN** a refunded order whose money has not been sent back
+- **WHEN** I tap "Not approved" on the row and write a reason (required)
+- **THEN** the refund stays pending, the buyer sees "Refund delayed" with the reason, and approving later clears it
 - **AND** the buyer sees the tracking number on the order page
 
 **AC-17-4: Producers cannot mark delivered**
