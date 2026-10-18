@@ -16,8 +16,27 @@ export const auth = {
     setToken(res.accessToken);
     return res;
   },
+  /** 카카오 로그인 사용 여부(ADR 0003) */
+  kakaoConfig: () => request<A.KakaoConfig>("GET", "/api/auth/kakao/config"),
+  /** 카카오 인가 코드로 로그인. redirectUri는 인가 요청에 쓴 값과 같아야 한다 */
+  async kakaoLogin(code: string, redirectUri: string) {
+    const res = await request<A.LoginResult>("POST", "/api/auth/kakao", {
+      body: { code, redirectUri, app: appName() },
+    });
+    setToken(res.accessToken);
+    return res;
+  },
   logout: () => setToken(null),
   me: () => request<A.User>("GET", "/api/auth/me"),
+  /** 온보딩 1장·프로필 수정(닉네임·이름·휴대폰) */
+  updateMe: (input: A.MeUpdateInput) =>
+    request<A.User>("PATCH", "/api/auth/me", { body: input }),
+  consents: () => request<A.Consent[]>("GET", "/api/auth/me/consents"),
+  /** 가입 동의 기록(항목·버전·시각) */
+  saveConsents: (consents: A.ConsentInput[]) =>
+    request<A.Consent[]>("POST", "/api/auth/me/consents", {
+      body: { consents },
+    }),
   apply: (input: A.ProducerApplicationInput) =>
     request<A.ProducerApplication>("POST", "/api/auth/producer-application", {
       body: input,
@@ -62,6 +81,9 @@ export const farms = {
       intro: string;
       detailContent: A.DetailContent;
       photo: string | null;
+      bankName: string;
+      accountNumber: string;
+      accountHolder: string;
     }>,
   ) => request<A.MyFarm>("PATCH", "/api/farms/me", { body: patch }),
 };
@@ -158,15 +180,33 @@ export const orders = {
   /** 멱등 키를 넘기지 않으면 새로 만든다. 재시도 때는 같은 키를 넘긴다. */
   create: (input: A.OrderInput, idempotencyKey: string = newIdempotencyKey()) =>
     request<A.Order>("POST", "/api/orders", { body: input, idempotencyKey }),
-  pay: (
-    orderId: string,
-    mockResult: "success" | "fail",
-    idempotencyKey: string = newIdempotencyKey(),
-  ) =>
-    request<A.PayResult>("POST", `/api/orders/${orderId}/pay`, {
-      body: { mockResult },
+  /** 입금 안내(DEV-68): 물량을 선점하고 입금 대기로. 재시도 때는 같은 키를 넘긴다. */
+  deposit: (orderId: string, idempotencyKey: string = newIdempotencyKey()) =>
+    request<A.Order>("POST", `/api/orders/${orderId}/deposit`, {
+      body: {},
       idempotencyKey,
     }),
+  /** 소비자 '입금했어요' 신호. 상태는 바뀌지 않는다 */
+  depositReported: (orderId: string) =>
+    request<A.Order>("POST", `/api/orders/${orderId}/deposit-reported`),
+  /** 생산자 입금 확인 → 예약 완료 */
+  confirmDeposit: (orderId: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/confirm-deposit`),
+  /** 생산자 입금 미승인. 사유 필수, cancel이면 주문 취소(아니면 입금 대기 유지) */
+  rejectDeposit: (orderId: string, reason: string, cancel = false) =>
+    request<A.ProducerOrder>(
+      "POST",
+      `/api/orders/${orderId}/reject-deposit`,
+      { body: { reason, cancel } },
+    ),
+  /** 생산자 환불 미승인: 아직 송금하지 못한 사유(필수) */
+  refundIssue: (orderId: string, reason: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-issue`, {
+      body: { reason },
+    }),
+  /** 생산자가 입금했던 계좌로 환불 송금을 마쳤다고 표시 */
+  refundSettled: (orderId: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-settled`),
   list: (q: A.PageQuery = {}) =>
     request<A.Paged<A.Order>>("GET", "/api/orders", { query: q }),
   get: (orderId: string) => request<A.Order>("GET", `/api/orders/${orderId}`),

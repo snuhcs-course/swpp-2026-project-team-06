@@ -18,6 +18,7 @@ import {
   register,
   type Ctx,
 } from "./router";
+import { publicName } from "./auth";
 const key = (f: string, c: string) => `${f}:${c}`;
 const following = (d: DB, f: string, c: string) =>
   d.follows.some((x) => x.farmId === f && x.userId === c);
@@ -451,7 +452,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
             escalationId: nextId("e"),
             farmId: t.farmId,
             consumerId: t.consumerId,
-            consumerName: `${ctx.me().name.slice(0, 1)}○○`,
+            consumerName: publicName(ctx.me()),
             context: orderId ?? null,
             question: m.text,
             reason: a.reason,
@@ -532,7 +533,7 @@ register({
       escalationId: nextId("e"),
       farmId: t.farmId,
       consumerId: t.consumerId,
-      consumerName: `${ctx.db.users[t.consumerId]?.name.slice(0, 1) ?? "고"}○○`,
+      consumerName: publicName(ctx.db.users[t.consumerId]),
       context: question.orderId ?? null,
       question: question.body,
       reason: "WRONG_ANSWER",
@@ -555,7 +556,7 @@ register({
         return {
           threadId: t.threadId,
           consumerId: t.consumerId,
-          consumerName: `${ctx.db.users[t.consumerId]?.name.slice(0, 1) ?? "고"}○○`,
+          consumerName: publicName(ctx.db.users[t.consumerId]),
           lastMessage: m?.body ?? "대화를 시작해 보세요",
           lastAt: m?.createdAt ?? "",
           unreadCount: unread(ctx.db, t, true),

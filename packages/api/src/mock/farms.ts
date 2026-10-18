@@ -101,6 +101,9 @@ register({
     return {
       ...farmSummary(f),
       intro: f.intro,
+      bankName: f.bankName,
+      accountNumber: f.accountNumber,
+      accountHolder: f.accountHolder,
       ...(f.detailContent ? { detailContent: f.detailContent } : {}),
       status: f.status,
       shareUrl: f.status === "APPROVED" ? `${SHARE_BASE}/${f.farmId}` : null,
@@ -114,12 +117,24 @@ register({
       region: string;
       intro: string;
       photo: string | null;
+      bankName: string;
+      accountNumber: string;
+      accountHolder: string;
     }>;
     const fields: Record<string, string> = {};
     if (b.name !== undefined && !b.name.trim())
       fields.name = "농가 이름을 적어 주세요";
     if (b.region !== undefined && !b.region.trim())
       fields.region = "지역을 적어 주세요";
+    // 입금 계좌 세 칸은 함께(DEV-68). 계좌번호는 숫자·하이픈 6~32자
+    const account = ["bankName", "accountNumber", "accountHolder"] as const;
+    if (account.some((k) => b[k] !== undefined)) {
+      if (!(b.bankName ?? "").trim()) fields.bankName = "은행을 골라 주세요";
+      if (!/^[0-9][0-9-]{4,30}[0-9]$/.test((b.accountNumber ?? "").trim()))
+        fields.accountNumber = "계좌번호는 숫자와 하이픈으로 6~32자예요";
+      if (!(b.accountHolder ?? "").trim())
+        fields.accountHolder = "예금주를 적어 주세요";
+    }
     if (Object.keys(fields).length)
       fail(400, "VALIDATION_ERROR", "빈 칸을 채워 주세요.", { fields });
     const detail =
@@ -129,10 +144,18 @@ register({
     for (const key of ["name", "region", "intro", "photo"] as const) {
       if (key in b) Object.assign(f, { [key]: b[key] });
     }
+    if (b.accountNumber !== undefined) {
+      f.bankName = (b.bankName ?? "").trim();
+      f.accountNumber = (b.accountNumber ?? "").trim();
+      f.accountHolder = (b.accountHolder ?? "").trim();
+    }
     if (detail) f.detailContent = detail;
     return {
       ...farmSummary(f),
       intro: f.intro,
+      bankName: f.bankName,
+      accountNumber: f.accountNumber,
+      accountHolder: f.accountHolder,
       ...(f.detailContent ? { detailContent: f.detailContent } : {}),
       status: f.status,
       shareUrl: f.status === "APPROVED" ? `${SHARE_BASE}/${f.farmId}` : null,

@@ -1,5 +1,5 @@
 import { validateDetail } from "./detailContent";
-import { salesState, validatePeriods } from "./sales";
+import { salesState, validatePeriods, holdsStock } from "./sales";
 import { db, TODAY } from "./db";
 // /api/products Mock (FEAT-03 AI 초안, 04 상품 편집, 05 단계·가격·물량, 07 상품 상세)
 import type {
@@ -327,7 +327,7 @@ register({
               "중복 없는 옵션과 소수 셋째 자리 이내의 kg을 입력해 주세요",
           });
         for (const o of Object.values(ctx.db.orders).filter(
-          (o) => o.productId === p.productId && o.paidAt,
+          (o) => o.productId === p.productId && holdsStock(o),
         )) {
           const opt = b.options.find((v) => v.optionId === o.optionId);
           if (!opt || Math.round(opt.weightKg * 1000) !== o.unitWeightGrams)

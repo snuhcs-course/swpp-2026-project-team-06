@@ -137,3 +137,7 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 - DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
 
 DEV-58 PR113 최종 리뷰: 상품 편집 snapshot은 대표 URI/null을 명시하며 연속 대표 지정·사진 배치는 함수형 상태 갱신으로 모두 유지한다. 중간 PageSnapshot 형태의 런타임 호환 분기는 제공하지 않는다.
+
+## DEV-74 카카오 로그인 (SCR-19 · `/auth/kakao`)
+
+카카오 설정(`enabled`, `clientId`, `redirectPath`)은 서버 `GET /api/auth/kakao/config`에서 받는다. 카카오 버튼 → `lib/kakao.ts`가 `state` 일회용 값을 sessionStorage(`farmclub-producer:kakao-return`)에 두고 인가 화면으로 보낸다 → `/auth/kakao`가 `state`를 대조해 `POST /api/auth/kakao`(`app: producer`) → `refresh()`. 갈 화면은 세션 관문(`homeFor`)이 농가 상태로 정한다(없음 → `/apply`, 확인 중·반려 → `/pending`, 승인 → `/`, 정지 → `/suspended`). 비로그인 관문은 `/login`과 `/auth/kakao`만 연다. 실서버에서 카카오가 켜져 있으면 테스트 계정 목록을 숨기고, Mock은 상태별 시연 계정 때문에 함께 둔다. 생산자는 소비자 온보딩을 거치지 않는다(가입 신청이 대표자 이름·연락처를 받음).

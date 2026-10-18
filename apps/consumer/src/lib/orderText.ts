@@ -2,7 +2,8 @@
 import type { Order } from "@farmclub/api";
 
 export const STATUS_LABEL: Record<Order["status"], string> = {
-  PENDING_PAYMENT: "결제 전",
+  PENDING_PAYMENT: "입금 안내 전",
+  AWAITING_DEPOSIT: "입금 확인 중",
   RESERVED: "예약 완료",
   PREPARING: "수확·포장 중",
   SHIPPED: "배송 중",

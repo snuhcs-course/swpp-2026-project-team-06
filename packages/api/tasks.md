@@ -182,3 +182,65 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: 전체 pytest284개 통과 후 오래된 OFF 사진 케이스 추가/보완을 포함한 최종 관련22개 통과. Ruff, 타입4 workspace, mock13개 통과. 기존 생산자·자료 Playwright18개 + 저장 실패/동일 요청 재시도1개 통과; 직접 탭 진입/분석 완료 갱신 보완 후 관련9개 재검증 통과.
 - scan-before-commit: 상세 편집 탭 직접 진입 시 최신 결과를 읽지 않던 경로와 분석 중 열린 편집 화면의 초기 선택 갱신을 보완. 미저장 입력은 기존 버전에 고정해 충돌 시 보존한다. 최종 이슈 없음. 레거시 호환 점검: 후보1건 — 지적0건 / 커밋된 구조1건 (기존 review/drafts CONFIRMED 계약: 4d7eece).
 - 영상: .artifacts/in-app-v4/toggle-review/index.html. 새 상품 mock 분석의 자동 채움/OFF저장/재진입/ON복원, 기존 실제 Gemini 생성 상품의 수정/반영을 녹화. 추가 유료 AI 호출0, PR113 Draft·머지/배포 보류. Agent 시간/Tokens 미측정.
+
+## DEV-68 무통장 입금 API·Mock
+- 이슈: [DEV-68](https://linear.app/sswp6/issue/DEV-68) · 브랜치 `nemodleo/dev-68-dev-무통장-입금소비자-농가-계좌-직접-생산자-계좌` · FEAT-09(개정)·14·17 · 상태: 진행 중
+
+### 목표
+서버와 같은 계약으로 types·endpoints·Mock을 바꾼다. 결제(`pay`, `mockResult`)를 입금 안내(`deposit`)·입금 확인(`confirmDeposit`)으로 교체한다.
+
+### 범위 (수정 허용 경로)
+- `packages/api/src/types.ts`, `packages/api/src/endpoints.ts`
+- `packages/api/src/mock/{db,derive,orders,farms,sales}.ts`
+- `scripts/test-capacity.mjs`, `scripts/test-spec12.mjs`, `scripts/test-navigation.mjs`, `scripts/test-integration.mjs`, `scripts/e2e/checkout-and-fulfillment.spec.ts`
+
+### 비범위
+- PortOne 클라이언트(#124). 소식·채팅 Mock.
+
+### 결정 사항
+- 10/18 `OrderStatus`에 `AWAITING_DEPOSIT`. `Order`에 `depositAccount`(bankName·accountNumber·accountHolder)·`depositDueAt`·`depositReportedAt`·`cancelReason`·`refundSettledAt`·`sellerInfo`(farmName·ownerName·region·phone). `ProducerOrder`에 `totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt`. `Dashboard.todo`에 `awaitingDeposit`·`refundsToSettle`·`hasAccount`. `MyFarm`에 `bankName`·`accountNumber`·`accountHolder`.
+- 10/18 Mock 시드: 농가 4곳 계좌, 입금 대기 주문 1건(김민지). Mock 테스트 스크립트는 `deposit` → 생산자 `confirm-deposit`으로 예약 완료를 만든다.
+
+### 작업
+- [x] types·endpoints 교체(`orders.deposit`·`depositReported`·`confirmDeposit`·`refundSettled`, `farms.updateMine` 계좌)
+- [x] Mock orders: deposit·confirm·expire(지연)·reported·refund-settled, 목록 필터·대시보드
+- [x] Mock farms: 계좌 GET/PATCH 검증, 초기 승인 요청 409 `NO_FARM_ACCOUNT`
+- [x] Mock 테스트·통합 테스트·e2e 스크립트 갱신 후 `npm run test:mock`·`npm run typecheck` 통과
+
+### 완료 조건
+- [ ] 소비자·생산자 앱이 Mock과 실서버에서 같은 흐름으로 동작
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 섹션 작성.
+- 10/18 범위 추가: `packages/api/src/mock/{auth,capacity,catalog}.ts`(가입 농가 레코드 계좌 칸, NO_FARM_ACCOUNT, holdsStock 집계).
+- 10/18 `npm run typecheck`·`npm run test:mock`(13 통과) 확인. 범위 추가: `packages/ui/src/{format,index}.ts`(deadline 포맷).
+- 10/18 농가 미승인: `orders.rejectDeposit(id, reason, cancel)`·`orders.refundIssue(id, reason)`, `Order`·`ProducerOrder`에 `depositIssue`·`refundIssue`, Mock 핸들러 같은 규칙(사유 필수 400, 409). Mock DB 필드는 선택이라 DB_VERSION 유지. test-capacity에 AC-09-9/AC-17-8.
+- 10/18 Mock도 서버와 같게: 입금했다고 알린 주문은 기한이 지나도 취소하지 않음, 생산자 목록에서 `paidAt` 없는 취소 제외·`paidAt` 없으면 배송 정보 숨김.
+
+## DEV-32 카카오 로그인 클라이언트
+
+- 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) · GitHub #77
+- 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
+- 기능·인수 조건: FEAT-01 / AC-01-8, AC-01-9, AC-01-12~15 · ADR 0003·0010
+- 상태: 리뷰 중
+
+### 범위 (수정 허용 경로)
+- `packages/api/src/types.ts`(`KakaoConfig`, 10/18 `User` 온보딩 필드·`MeUpdateInput`·`Consent*`·`ONBOARDING_REQUIRED`·`ADDRESS_LIMIT`), `packages/api/src/endpoints.ts`(`auth.kakaoConfig`, `auth.kakaoLogin`, 10/18 `auth.updateMe`·`consents`·`saveConsents`), `packages/api/src/mock/{auth,db,router,conversations,rooms}.ts`, `packages/api/spec.md`, `packages/api/tasks.md`
+
+### 결정 사항
+- 10/17 Mock 모드의 `POST /api/auth/kakao`는 인가 코드와 무관하게 그 앱의 첫 테스트 계정(소비자 김민지)으로 로그인한다. 카카오 리다이렉트 없이 화면 흐름만 확인하기 위함.
+- 10/18 위 결정을 바꿈: 소비자 앱 Mock 카카오 로그인은 카카오 계정 `u-kakao`(처음엔 이메일만, 온보딩 남음)를 만들어 들어간다. 온보딩 화면을 Mock에서도 확인하기 위함. 생산자 앱은 그대로 강영수. 테스트 계정(`kakao` 없음)은 온보딩 대상이 아니다.
+- 10/18 Mock도 서버와 같은 규칙: `needsOnboarding`(db.ts), 관문 경로 403 `ONBOARDING_REQUIRED`(라우터 표의 `gated`), 동의 저장, 배송지 50개 409·수정 검증·기본 삭제 시 최근 것이 기본, 농가에 보이는 이름은 `publicName`(닉네임 우선). 저장소 `DB_VERSION`은 올리지 않음(새 필드는 모두 선택이라 기존 Mock 데이터와 호환).
+
+### 작업
+- [x] 타입·엔드포인트·Mock 추가, `npm run typecheck` 통과
+- [x] 10/18 온보딩·동의·배송지 50개 타입·엔드포인트·Mock, `npm run typecheck` 4개 통과, `npm run test:mock` 13/13
+- [x] 10/18 AI 리뷰 반영: 클라이언트가 403 `ONBOARDING_REQUIRED`를 받으면 `onOnboardingRequired` 구독자에게 알림(토큰은 유지). Mock 관문 표의 좋아요를 실제 경로대로 `PUT`으로 고침, Mock 주문 ‘기본 배송지로 저장’도 50개면 건너뜀. Mock 계약 테스트 `scripts/test-onboarding.mjs` 추가(범위에 `scripts/test-onboarding.mjs`, 루트 `package.json`의 `test:mock` 한 줄 추가). `npm run test:mock` 14/14
+
+## DEV-74 생산자 앱 카카오 로그인 — Mock
+
+- 이슈: [DEV-74](https://linear.app/sswp6/issue/DEV-74) · 기준 절: `apps/producer/tasks.md#dev-74`
+- 범위: `packages/api/src/mock/auth.ts`(Mock 생산자 카카오 계정 `u-kakao-farm`), `scripts/test-onboarding.mjs`(생산자 카카오 → 가입 신청 확인)
+- 10/18 결정: Mock 생산자 카카오 로그인은 강영수(승인) 대신 농가 없는 `u-kakao-farm`(이름 ‘카카오 사용자’)으로 들어가 가입 신청 흐름을 보여 준다. 상태별 시연은 테스트 계정 목록으로 계속 한다.
+- [x] Mock 계정과 계약 테스트, `npm run test:mock` 15/15
