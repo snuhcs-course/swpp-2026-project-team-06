@@ -114,7 +114,7 @@ spec-code-review를 승인자 1명의 승인으로 실행하되, PR 작성자 �
 - [x] `model_review`: thinking/redacted_thinking 무시, text 필수, 그 외 타입은 type 이름과 함께 INCOMPLETE
 - [x] 계약 테스트: thinking·redacted_thinking 섞인 정상 응답, thinking만 있는 응답, tool_use 섞인 응답, 이상한 type 이름 정리
 - [x] README·spec 갱신
-- [ ] 로컬 `python -m unittest` 실행, GitHub checker-tests 확인
+- [x] 로컬 `python -m unittest` 실행, GitHub checker-tests 확인
 
 ### 완료 조건
 - [ ] 계약 테스트 통과(로컬·GitHub)
@@ -124,3 +124,6 @@ spec-code-review를 승인자 1명의 승인으로 실행하되, PR 작성자 �
 ### 기록
 - 10/18 main 56ac959에서 시작.
 - 10/18 로컬 `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'`(Python 3.14.7): 28개 통과. 새 테스트 2개는 main의 check.py로 돌리면 실패(failures=6, errors=3)하는 것을 확인. GitHub checker-tests(Python 3.12)는 PR에서 확인 예정.
+- 10/18 draft PR #160. GitHub checker-tests 통과(run 39129046460).
+- 10/18 live spec-code-review run 39129046460(환경 승인 후): INCOMPLETE "Unmapped changed files: .github/spec-check/test_check.py", 모델 호출 없음. PR 본문 표에서 `test_check.py`를 셋째 열(근거)에만 적어서 생긴 작성자 실수였고, 같은 표의 함수 이름 backtick도 경로로 읽혔다. 본문을 고쳤다.
+- 10/18 고친 본문으로 `collect()`를 로컬에서 재현: "Complete context exceeds 60 KiB"(checker 22 KiB·테스트 19 KiB·README·tasks 포함). 이 PR의 일반 검사로는 thinking 수정의 live 검증이 불가능하다. 머지 뒤 작은 PR에 새 이벤트를 만들어(#157은 브랜치 갱신 등, 단순 re-run은 옛 merge SHA의 checker를 씀) 승인·실행해 확인한다.
