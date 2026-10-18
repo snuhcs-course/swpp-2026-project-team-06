@@ -52,6 +52,11 @@ async function setup() {
   ).accessToken;
   return { p, c, a: "fixture-admin-token" };
 }
+/** 입금 안내 + 생산자 입금 확인 = 예약 완료(DEV-68) */
+async function reserve(orderId, c, p) {
+  await ok("POST", `/api/orders/${orderId}/deposit`, c, {});
+  return ok("POST", `/api/orders/${orderId}/confirm-deposit`, p, {});
+}
 const input = (productId = "p-house", optionId = "opt-5", quantity = 1) => ({
   productId,
   optionId,
@@ -184,9 +189,7 @@ test("AC-04-8/9: initial and increased kg capacity require ADMIN, single pending
     version: product.version,
   });
   const order = await ok("POST", "/api/orders", c, input("p-fixture"));
-  await ok("POST", `/api/orders/${order.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(order.orderId, c, p);
   assert.equal((await get()).reservedGrams, 5000);
   await ok("POST", adminPath(inc) + "/reject", a, {
     version: 1,
@@ -250,13 +253,9 @@ test("AC-05-6/09-6: mixed weights, paid snapshots, immediate price, unpaid recon
   let product = await get();
   const original = product.reservedGrams + product.shippedGrams;
   const one = await ok("POST", "/api/orders", c, input("p-house", "opt-5", 2));
-  await ok("POST", `/api/orders/${one.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(one.orderId, c, p);
   const two = await ok("POST", "/api/orders", c, input("p-house", "opt-10", 1));
-  await ok("POST", `/api/orders/${two.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(two.orderId, c, p);
   product = await get();
   assert.equal(product.reservedGrams + product.shippedGrams, original + 20000);
   const unpaid = await ok("POST", "/api/orders", c, input());
@@ -280,9 +279,7 @@ test("AC-05-6/09-6: mixed weights, paid snapshots, immediate price, unpaid recon
   );
   assert.equal(
     (
-      await api("POST", `/api/orders/${unpaid.orderId}/pay`, c, {
-        mockResult: "success",
-      })
+      await api("POST", `/api/orders/${unpaid.orderId}/deposit`, c, {})
     ).body.details.reason,
     "STAGE_CHANGED",
   );
@@ -346,9 +343,7 @@ test("AC-04-3 / R-21: changed delivery window needs paid buyer consent; gram pre
   const { p, c } = await setup();
   const initial = await ok("GET", "/api/products/mine/p-house", p);
   const order = await ok("POST", "/api/orders", c, input());
-  await ok("POST", `/api/orders/${order.orderId}/pay`, c, {
-    mockResult: "success",
-  });
+  await reserve(order.orderId, c, p);
   const window = { start: "2027-02-01", end: "2027-02-05" };
   await ok(
     "PATCH",
@@ -420,4 +415,63 @@ test("AC-04-3 / R-21: changed delivery window needs paid buyer consent; gram pre
     },
   );
   assert.equal(resumed.availability, "AVAILABLE");
+});
+
+test("AC-09-9 / AC-17-8: producer rejects deposit or refund inline with a required reason", async () => {
+  const { p, c } = await setup();
+  const before = salesState(db(), db().products["p-house"]).reservedGrams;
+  const a = await ok("POST", "/api/orders", c, input());
+  await ok("POST", `/api/orders/${a.orderId}/deposit`, c, {});
+  await ok("POST", `/api/orders/${a.orderId}/deposit-reported`, c, {});
+
+  const blank = await api("POST", `/api/orders/${a.orderId}/reject-deposit`, p, {
+    reason: "  ",
+  });
+  assert.equal(blank.status, 400);
+
+  const kept = await ok("POST", `/api/orders/${a.orderId}/reject-deposit`, p, {
+    reason: "금액이 달라요",
+  });
+  assert.equal(kept.status, "AWAITING_DEPOSIT");
+  assert.equal(kept.depositIssue, "금액이 달라요");
+  const seen = await ok("GET", `/api/orders/${a.orderId}`, c);
+  assert.equal(seen.depositIssue, "금액이 달라요");
+  assert.equal(seen.depositReportedAt, null);
+  assert.ok(seen.actions.includes("reportDeposit"));
+  const confirmed = await ok("POST", `/api/orders/${a.orderId}/confirm-deposit`, p, {});
+  assert.equal(confirmed.status, "RESERVED");
+  assert.equal(confirmed.depositIssue, null);
+
+  const b = await ok("POST", "/api/orders", c, input());
+  await ok("POST", `/api/orders/${b.orderId}/deposit`, c, {});
+  const canceled = await ok("POST", `/api/orders/${b.orderId}/reject-deposit`, p, {
+    reason: "입금이 들어오지 않았어요",
+    cancel: true,
+  });
+  assert.equal(canceled.status, "CANCELED");
+  const gone = await ok("GET", `/api/orders/${b.orderId}`, c);
+  assert.equal(gone.cancelReason, "입금 미승인 · 입금이 들어오지 않았어요");
+  assert.equal(
+    salesState(db(), db().products["p-house"]).reservedGrams,
+    before + 5000,
+    "only the approved order keeps its quantity",
+  );
+
+  await ok("POST", `/api/orders/${a.orderId}/cancel`, c, {});
+  const issue = await ok("POST", `/api/orders/${a.orderId}/refund-issue`, p, {
+    reason: "환불받을 계좌를 확인해야 해요",
+  });
+  assert.equal(issue.refundIssue, "환불받을 계좌를 확인해야 해요");
+  assert.equal(
+    (await ok("GET", `/api/orders/${a.orderId}`, c)).refundIssue,
+    "환불받을 계좌를 확인해야 해요",
+  );
+  await ok("POST", `/api/orders/${a.orderId}/refund-settled`, p, {});
+  const settled = await ok("GET", `/api/orders/${a.orderId}`, c);
+  assert.ok(settled.refundSettledAt);
+  assert.equal(settled.refundIssue, null);
+  const late = await api("POST", `/api/orders/${a.orderId}/refund-issue`, p, {
+    reason: "x",
+  });
+  assert.equal(late.status, 409);
 });

@@ -19,6 +19,7 @@ from app.farms.schemas import (
     AiPreview,
     AiPreviewInput,
     AiSettings,
+    DepositAccount,
     FaqItem,
     FarmCard,
     FarmDetail,
@@ -29,6 +30,7 @@ from app.farms.schemas import (
     Hero,
     Home,
     MyFarm,
+    SellerInfo,
 )
 
 # 시즌 히어로 문구는 서버 설정 값이다(screens.md 결정 19). 운영자 관리는 I2.
@@ -276,6 +278,9 @@ def _my_farm_view(farm: Farm) -> MyFarm:
     return MyFarm(
         **_summary(farm),
         intro=farm.intro,
+        bank_name=farm.bank_name,
+        account_number=farm.account_number,
+        account_holder=farm.account_holder,
         detail_content=detail_content(farm.detail_content),
         status=farm.approval_status,
         share_url=share_url(farm) if farm.approval_status == "APPROVED" else None,
@@ -304,6 +309,20 @@ def patch_my_farm(db: Session, producer_id: str, body: FarmPatch) -> MyFarm:
     for key in ("name", "region", "intro", "photo"):
         if key in data:
             setattr(farm, key, data[key])
+    if body.account_number is not None:
+        # 세 칸이 함께 온 것은 스키마가 보장한다. 공백만 있으면 저장하지 않는다(삭제 경로는 없다)
+        bank = (body.bank_name or "").strip()
+        holder = (body.account_holder or "").strip()
+        if not bank or not holder:
+            raise invalid(
+                {"bankName": "은행을 적어 주세요"}
+                if not bank
+                else {"accountHolder": "예금주를 적어 주세요"}
+            )
+        farm.bank_name = bank
+        farm.account_number = body.account_number.strip()
+        farm.account_holder = holder
+        farm.account_updated_at = now()
     if "detail_content" in data:
         farm.detail_content = body.detail_content.model_dump(by_alias=True)
     db.flush()
@@ -468,4 +487,31 @@ def preview_ai(db: Session, farm, body: AiPreviewInput) -> AiPreview:
         reason=answer.reason,
         source_refs=answer.source_refs,
         settings_version=None if temporary else settings.version,
+    )
+
+
+def has_deposit_account(farm: Farm) -> bool:
+    """입금 계좌 세 칸이 모두 있어야 상품 초기 승인 요청과 입금 안내를 할 수 있다(DEV-68)."""
+    return bool(farm.bank_name and farm.account_number and farm.account_holder)
+
+
+def deposit_account(farm: Farm) -> DepositAccount | None:
+    if not has_deposit_account(farm):
+        return None
+    return DepositAccount(
+        bank_name=farm.bank_name or "",
+        account_number=farm.account_number or "",
+        account_holder=farm.account_holder or "",
+    )
+
+
+def seller_info(db: Session, farm: Farm) -> SellerInfo:
+    from app.accounts.models import User
+
+    owner = db.get(User, farm.producer_id)
+    return SellerInfo(
+        farm_name=farm.name,
+        owner_name=owner.name if owner else "",
+        region=farm.region,
+        phone=farm.contact_phone,
     )

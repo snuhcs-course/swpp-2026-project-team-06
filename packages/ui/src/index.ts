@@ -59,6 +59,7 @@ export {
   dday,
   maskName,
   ro,
+  deadline,
 } from "./format";
 export { useAsync, type AsyncState } from "./useAsync";
 

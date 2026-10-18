@@ -64,6 +64,10 @@ ADMIN = ("u-admin", "farmclub 운영자")
 FARMS = [
     dict(
         id="f-kang",
+        bank_name="제주은행",
+        account_number="101-23-456789",
+        account_holder="강영수",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-kang",
         name="강씨네 귤밭",
         region="제주 서귀포",
@@ -78,6 +82,10 @@ FARMS = [
     ),
     dict(
         id="f-halla",
+        bank_name="농협",
+        account_number="302-0123-4567-89",
+        account_holder="한○○",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-halla",
         name="한라네 과수원",
         region="제주 제주시",
@@ -92,6 +100,10 @@ FARMS = [
     ),
     dict(
         id="f-hyodon",
+        bank_name="국민은행",
+        account_number="123456-01-234567",
+        account_holder="고○○",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-hyodon",
         name="효돈 하우스농원",
         region="제주 서귀포",
@@ -106,6 +118,10 @@ FARMS = [
     ),
     dict(
         id="f-namwon",
+        bank_name="농협",
+        account_number="351-0987-6543-21",
+        account_holder="남○○",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-namwon",
         name="남원 귤빛농원",
         region="제주 남원",

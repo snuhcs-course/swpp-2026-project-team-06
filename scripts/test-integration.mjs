@@ -371,20 +371,27 @@ async function createAndPayOrder(userId, label) {
       saveAddress: false,
     },
   });
+  // DEV-68: 입금 안내(멱등) → 생산자 입금 확인 = 예약 완료
   const paymentKey = key(`payment-${label}`);
-  const paid = await request("POST", `/api/orders/${order.orderId}/pay`, {
+  const awaiting = await request("POST", `/api/orders/${order.orderId}/deposit`, {
     token: token(userId),
     idempotencyKey: paymentKey,
-    body: { mockResult: "success" },
+    body: {},
   });
-  const repeated = await request("POST", `/api/orders/${order.orderId}/pay`, {
+  const repeated = await request("POST", `/api/orders/${order.orderId}/deposit`, {
     token: token(userId),
     idempotencyKey: paymentKey,
-    body: { mockResult: "success" },
+    body: {},
   });
-  assert.deepEqual(repeated, paid);
-  assert.equal(paid.order.unitWeightGrams, 5000);
-  return paid.order;
+  assert.deepEqual(repeated, awaiting);
+  assert.equal(awaiting.status, "AWAITING_DEPOSIT");
+  assert.equal(awaiting.unitWeightGrams, 5000);
+  assert.ok(awaiting.depositAccount?.accountNumber);
+  const confirmed = await request("POST", `/api/orders/${order.orderId}/confirm-deposit`, {
+    token: token("u-kang"),
+  });
+  assert.equal(confirmed.status, "RESERVED");
+  return request("GET", `/api/orders/${order.orderId}`, { token: token(userId) });
 }
 
 await scenario("AC-05-6/09-6: payment, exact release, pause, and paid snapshots", async () => {

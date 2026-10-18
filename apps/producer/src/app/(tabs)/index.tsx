@@ -3,6 +3,7 @@ import { allPages, farms, orders } from "@farmclub/api";
 import {
   BrandHeader,
   Button,
+  ListRow,
   Screen,
   Scroll,
   Skeleton,
@@ -45,13 +46,13 @@ export default function Home() {
     {
       label: "전체 주문",
       count: data?.length,
-      hint: "전체 판매 기간",
+      hint: "입금 대기 포함",
       tab: "all",
     },
     {
       label: "예약 완료",
       count: data?.filter((o) => o.status === "RESERVED").length,
-      hint: "예약이 완료된 주문",
+      hint: "입금이 확인된 주문",
       tab: "RESERVED",
     },
     {
@@ -81,6 +82,36 @@ export default function Home() {
             })}
           </T>
           <T variant="heading">주문·배송 현황</T>
+          {/* 할 일(DEV-68): 기존 환경설정과 같은 ListRow */}
+          {dash.data &&
+          (dash.data.todo.hasAccount === false ||
+            dash.data.todo.awaitingDeposit ||
+            dash.data.todo.refundsToSettle) ? (
+            <View>
+              {dash.data.todo.hasAccount === false ? (
+                <ListRow
+                  label="입금 계좌를 등록해 주세요"
+                  sub="소비자가 예약할 때 이 계좌로 직접 입금해요"
+                  onPress={() => router.push("/farm/account")}
+                />
+              ) : null}
+              {dash.data.todo.awaitingDeposit ? (
+                <ListRow
+                  label={`입금 확인할 주문 ${dash.data.todo.awaitingDeposit}건`}
+                  sub="통장과 대조한 뒤 입금 확인을 눌러 주세요"
+                  onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
+                />
+              ) : null}
+              {dash.data.todo.refundsToSettle ? (
+                <ListRow
+                  label={`환불 보낼 주문 ${dash.data.todo.refundsToSettle}건`}
+                  sub="입금했던 계좌로 보낸 뒤 환불했다고 기록해요"
+                  onPress={() => router.push("/ship?status=REFUNDED")}
+                  last
+                />
+              ) : null}
+            </View>
+          ) : null}
           {list.error ? (
             <>
               <T color={tokens.color.error}>{list.error}</T>
