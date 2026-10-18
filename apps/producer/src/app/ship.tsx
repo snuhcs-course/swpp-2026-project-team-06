@@ -341,20 +341,9 @@ export default function Ship() {
                   </T>
                 )}
                 {awaiting && o.depositReportedAt ? (
-                  <View style={{ flexDirection: "row" }}>
-                    <View
-                      style={{
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: 999,
-                        backgroundColor: tokens.color.surface,
-                      }}
-                    >
-                      <T variant="caption" weight="semibold">
-                        입금했다고 알렸어요
-                      </T>
-                    </View>
-                  </View>
+                  <T variant="sub" muted>
+                    소비자가 입금했다고 알렸어요
+                  </T>
                 ) : null}
                 {o.deliveryNote ? (
                   <T variant="sub" muted>
@@ -362,26 +351,35 @@ export default function Ship() {
                   </T>
                 ) : null}
                 {awaiting ? (
-                  <Button
-                    label="입금 확인"
-                    variant="outline"
+                  // 기존 출하 준비 줄의 ‘택배사·송장 번호 넣기 ›’와 같은 글자 링크
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${o.orderNo} 입금 확인`}
                     disabled={busy}
                     onPress={() => setDepositFor(o)}
-                    style={{ marginTop: 8 }}
-                  />
+                    style={{ minHeight: 48, justifyContent: "center" }}
+                  >
+                    <T variant="sub" weight="semibold">
+                      입금 확인 ›
+                    </T>
+                  </Pressable>
                 ) : refunded ? (
                   o.refundSettledAt ? (
                     <T variant="sub" weight="semibold" muted>
                       {md(o.refundSettledAt)} 송금 완료
                     </T>
                   ) : (
-                    <Button
-                      label="송금 완료"
-                      variant="outline"
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${o.orderNo} 송금 완료로 표시`}
                       disabled={busy}
                       onPress={() => void settleRefund(o)}
-                      style={{ marginTop: 8 }}
-                    />
+                      style={{ minHeight: 48, justifyContent: "center" }}
+                    >
+                      <T variant="sub" weight="semibold">
+                        송금 완료로 표시 ›
+                      </T>
+                    </Pressable>
                   )
                 ) : (
                   <T variant="sub" weight="semibold" muted={!filled}>

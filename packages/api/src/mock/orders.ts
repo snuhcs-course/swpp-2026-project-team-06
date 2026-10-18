@@ -23,9 +23,9 @@ const REMOTE = (postal: string, address: string) =>
   /^(63|40[0-2]|23[01]|54[0-9]{2}?)/.test(postal) ||
   /(울릉|옹진|도서)/.test(address);
 
-/** 주문 번호 `MMDD-NNNN`: NNNN은 무작위 4자리(연번이면 거래 건수가 드러난다, DEV-68) */
+/** 주문 번호 `FC-MMDD-NNNN`: NNNN은 무작위 4자리(연번이면 거래 건수가 드러난다, DEV-68) */
 function newOrderNo(ctx: Ctx): string {
-  const prefix = `${TODAY.slice(5, 7)}${TODAY.slice(8, 10)}-`;
+  const prefix = `FC-${TODAY.slice(5, 7)}${TODAY.slice(8, 10)}-`;
   for (let i = 0; i < 50; i += 1) {
     const candidate = `${prefix}${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`;
     if (!Object.values(ctx.db.orders).some((o) => o.orderNo === candidate))

@@ -5,11 +5,11 @@ import {
   BottomBar,
   Button,
   HeaderBar,
+  Notice,
   Screen,
   Scroll,
   T,
   TestBand,
-  tokens,
   useAsync,
   won,
 } from "@farmclub/ui";
@@ -120,21 +120,11 @@ export default function DepositGuide() {
                     .filter(Boolean)
                     .join(" · ")}
                 </T>
-                <View
-                  style={{
-                    marginTop: 12,
-                    padding: 16,
-                    borderWidth: 1,
-                    borderColor: tokens.color.border,
-                    borderRadius: 16,
-                  }}
-                >
-                  <T variant="sub">
-                    farmclub은 통신판매중개자이고 거래 당사자가 아니에요.
-                    상품·배송·환불의 책임은 판매자인{" "}
-                    {o.sellerInfo?.farmName ?? o.farmName}에 있어요.
-                  </T>
-                </View>
+                <Notice
+                  title="farmclub은 통신판매중개자예요"
+                  body={`거래 당사자가 아니에요. 상품·배송·환불의 책임은 판매자인 ${o.sellerInfo?.farmName ?? o.farmName}에 있어요.`}
+                  style={{ marginTop: 12 }}
+                />
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ expanded: escrow }}

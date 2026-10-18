@@ -217,7 +217,7 @@ Response `200`: an unpaid order with the server's price.
 ```json
 {
   "orderId": "o-...",
-  "orderNo": "1007-4831",
+  "orderNo": "FC-1007-4831",
   "status": "PENDING_PAYMENT",
   "quantity": 1,
   "unitPrice": 29000,

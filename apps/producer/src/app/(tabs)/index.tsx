@@ -3,6 +3,7 @@ import { allPages, farms, orders } from "@farmclub/api";
 import {
   BrandHeader,
   Button,
+  ListRow,
   Screen,
   Scroll,
   Skeleton,
@@ -81,27 +82,35 @@ export default function Home() {
             })}
           </T>
           <T variant="heading">주문·배송 현황</T>
-          {/* 할 일 띠(DEV-68): 입금 확인 · 환불 송금 · 계좌 등록 */}
-          {dash.data?.todo.hasAccount === false ? (
-            <Todo
-              label="입금 계좌를 등록해 주세요"
-              action="등록하기 ›"
-              onPress={() => router.push("/farm/account")}
-            />
-          ) : null}
-          {dash.data?.todo.awaitingDeposit ? (
-            <Todo
-              label={`입금 확인할 주문 ${dash.data.todo.awaitingDeposit}건`}
-              action="확인하기 ›"
-              onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
-            />
-          ) : null}
-          {dash.data?.todo.refundsToSettle ? (
-            <Todo
-              label={`환불 보낼 주문 ${dash.data.todo.refundsToSettle}건`}
-              action="보기 ›"
-              onPress={() => router.push("/ship?status=REFUNDED")}
-            />
+          {/* 할 일(DEV-68): 기존 환경설정과 같은 ListRow */}
+          {dash.data &&
+          (dash.data.todo.hasAccount === false ||
+            dash.data.todo.awaitingDeposit ||
+            dash.data.todo.refundsToSettle) ? (
+            <View>
+              {dash.data.todo.hasAccount === false ? (
+                <ListRow
+                  label="입금 계좌를 등록해 주세요"
+                  sub="소비자가 예약할 때 이 계좌로 직접 입금해요"
+                  onPress={() => router.push("/farm/account")}
+                />
+              ) : null}
+              {dash.data.todo.awaitingDeposit ? (
+                <ListRow
+                  label={`입금 확인할 주문 ${dash.data.todo.awaitingDeposit}건`}
+                  sub="통장과 대조한 뒤 입금 확인을 눌러 주세요"
+                  onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
+                />
+              ) : null}
+              {dash.data.todo.refundsToSettle ? (
+                <ListRow
+                  label={`환불 보낼 주문 ${dash.data.todo.refundsToSettle}건`}
+                  sub="입금했던 계좌로 보낸 뒤 송금 완료로 표시해요"
+                  onPress={() => router.push("/ship?status=REFUNDED")}
+                  last
+                />
+              ) : null}
+            </View>
           ) : null}
           {list.error ? (
             <>
@@ -199,42 +208,5 @@ export default function Home() {
         </View>
       </Scroll>
     </Screen>
-  );
-}
-
-/** 할 일 한 줄: 면색 띠, 글자만 강조색 */
-function Todo({
-  label,
-  action,
-  onPress,
-}: {
-  label: string;
-  action: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`${label}, ${action}`}
-      onPress={onPress}
-      style={{
-        minHeight: tokens.height.listRowProducer,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 16,
-        backgroundColor: tokens.color.surface,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-      }}
-    >
-      <T variant="body" weight="semibold" style={{ flexShrink: 1 }}>
-        {label}
-      </T>
-      <T variant="body" weight="bold" color={tokens.color.accent}>
-        {action}
-      </T>
-    </Pressable>
   );
 }

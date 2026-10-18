@@ -182,12 +182,12 @@ def _refund_settled_at(db: Session, o: Order):
 
 
 def _new_order_no(db: Session) -> str:
-    """주문 번호 `MMDD-NNNN`. 입금자명으로 쓴다(R-28).
+    """주문 번호 `FC-MMDD-NNNN`. 입금자명으로 쓴다(R-28).
 
     NNNN은 연번이 아니라 무작위 4자리다. 연번이면 소비자가 거래 건수를 셀 수 있어서다(2026-10-18 결정).
     같은 날 같은 번호가 이미 있으면 다시 뽑는다(order_no는 UNIQUE).
     """
-    prefix = f"{today():%m%d}-"
+    prefix = f"FC-{today():%m%d}-"
     for _ in range(50):
         candidate = f"{prefix}{secrets.randbelow(10000):04d}"
         if db.scalar(select(Order.id).where(Order.order_no == candidate)) is None:

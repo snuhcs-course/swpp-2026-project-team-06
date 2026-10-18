@@ -48,7 +48,7 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await expect(consumerPage).toHaveURL(/\/pay/);
   await expect(consumerPage.getByText("101-23-456789")).toBeVisible();
   await expect(
-    consumerPage.getByText(/farmclub은 통신판매중개자이고 거래 당사자가 아니에요/),
+    consumerPage.getByText("farmclub은 통신판매중개자예요"),
   ).toBeVisible();
   await consumerPage.getByRole("button", { name: "입금을 마쳤어요" }).click();
   await expect(consumerPage).toHaveURL(/\/orders\/[^/]+\/done/);

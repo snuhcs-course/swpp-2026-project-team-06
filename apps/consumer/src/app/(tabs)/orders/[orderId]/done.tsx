@@ -77,18 +77,12 @@ export default function Done() {
               width: 56,
               height: 56,
               borderRadius: 999,
-              backgroundColor: awaiting
-                ? tokens.color.surface
-                : tokens.color.text,
+              backgroundColor: tokens.color.text,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Icon
-              name={awaiting ? "lock" : "check"}
-              size={28}
-              color={awaiting ? tokens.color.text : "#FFFFFF"}
-            />
+            <Icon name="check" size={28} color="#FFFFFF" />
           </View>
           <T
             variant="title"
@@ -111,7 +105,7 @@ export default function Done() {
         ) : null}
 
         {o ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: awaiting ? 16 : 32 }}>
+          <View style={{ paddingHorizontal: 20, paddingTop: awaiting ? 0 : 32 }}>
             <KV k="주문 번호">
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}

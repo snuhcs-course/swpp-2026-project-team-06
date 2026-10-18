@@ -27,7 +27,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | `Stage` | id, productId, seq, name, startsAt, endsAt | Product 1 : N Stage |
 | `StagePrice` | stageId, optionId, price(원) | Stage × Option → 1 |
 | `StageAllocation` | stageId, optionId, quantity, reservedCount(예약 박스 수) | Stage × Option → 1. 상품 응답의 `reservedCount`(예약한 사람 수, 중복 없음)와 다르다. 그건 결제된 주문의 소비자 수로 계산한다 |
-| `Order` | id, orderNo(`MMDD-NNNN`, NNNN 무작위 4자리·UNIQUE, 입금자명), consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, carrier?(택배사 코드: CJ/EPOST/HANJIN/LOTTE/LOGEN/ETC), trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt?, depositDueAt?(입금 기한)·depositReportedAt?(소비자 ‘입금했어요’)·depositConfirmedBy?(PRODUCER/ADMIN)·cancelReason?(DEV-68) | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
+| `Order` | id, orderNo(`FC-MMDD-NNNN`, NNNN 무작위 4자리·UNIQUE, 입금자명), consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, carrier?(택배사 코드: CJ/EPOST/HANJIN/LOTTE/LOGEN/ETC), trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt?, depositDueAt?(입금 기한)·depositReportedAt?(소비자 ‘입금했어요’)·depositConfirmedBy?(PRODUCER/ADMIN)·cancelReason?(DEV-68) | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
 | `Payment` | id, orderId, method(BANK_TRANSFER; 과거 행은 CARD), provider(FARM_ACCOUNT; 과거 행은 MOCK), amount, status, approvedAt(=입금 확인 시각) | Order 1 : 1 Payment. 입금 확인 때 만들어진다(DEV-68) |
 | `Refund` | id, orderId, amount, reason, actor, actorUserId?, managerEventId?, createdAt, settledAt?(농가가 입금했던 계좌로 송금을 마친 시각, DEV-68) | Order 1 : N Refund |
 | `ProducerDecisionHistory` | farmId, applicationAt, decision, reason?, managerId, decidedAt | Farm 1 : N Decision |
@@ -65,7 +65,7 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | 3단계 (11월 6일~9일) | 5kg 36,000원 · 40박스 / 10kg 68,000원 · 15박스 |
 | 예약 | 37명(`reservedCount`), 40건. 5kg 34건 38박스(42박스 남음), 10kg 6건 6박스(14박스 남음) |
 | 주문 상태 | 예약 완료 30건, 출하 준비 7건, 출하 3건 (합 40) |
-| 김민지 주문 | 1007-0042, 5kg × 2, 10월 7일 예약, 예약 완료(30건 안). 출하 준비 목록 예시는 10월 6일까지 들어온 주문만 |
+| 김민지 주문 | FC-1007-0042, 5kg × 2, 10월 7일 예약, 예약 완료(30건 안). 출하 준비 목록 예시는 10월 6일까지 들어온 주문만 |
 | 생산자 현황 | 답할 질문 3, 출하할 주문 7, 승인 대기 상품 1 → 오늘 할 일 11 |
 
 ## 데이터 불변 조건

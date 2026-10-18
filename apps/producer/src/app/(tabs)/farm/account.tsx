@@ -10,7 +10,6 @@ import {
   Screen,
   Scroll,
   T,
-  tokens,
   useAsync,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
@@ -136,14 +135,7 @@ export default function FarmAccount() {
               맞는지 한 번 더 확인해 주세요.
             </T>
           ) : null}
-          <View
-            style={{
-              padding: 16,
-              borderRadius: tokens.radius.md,
-              backgroundColor: tokens.color.surface,
-              gap: 4,
-            }}
-          >
+          <View style={{ gap: 4 }}>
             <T variant="caption" muted>
               소비자 입금 안내에 이렇게 보여요
             </T>
