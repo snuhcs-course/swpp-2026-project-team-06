@@ -21,6 +21,7 @@
 | --- | --- | --- | --- |
 | 프론트엔드 | Expo(React Native, TypeScript) + Expo Router, **웹 출력**으로 소비자 앱·생산자 앱 2개 | 한 코드로 웹을 먼저 내고 I2에 Android·iOS로 넓힐 수 있음 | [0001](./adr/0001-frontend-expo-web.md) |
 | 웹 호스팅 | Vercel(정적 웹 출력), 앱마다 프로젝트 1개 | 무료, 브랜치 미리보기 | 0001 |
+| 설치형 앱 | Android: 배포된 웹을 감싼 TWA(Trusted Web Activity), Bubblewrap 생성 프로젝트 `apps/android-twa/<앱>`, APK 직접 배포(GitHub Release). 서명 키는 레포 밖. iOS 설치형은 없음 | 카카오 로그인·사진 첨부·로그인 유지가 Chrome과 같고, 웹 수정이 재빌드 없이 반영. 네이티브(EAS)는 웹 전용 코드·카카오 딥링크를 다시 맞춰야 해 보류 | [0013](./adr/0013-android-twa.md) |
 | 도메인 | `farmclub.kr`(소비자 앱), `farm.farmclub.kr`(생산자 앱), `api.farmclub.kr`(서버). 호스팅케이알(KISA 인증 등록대행자)에서 사고 DNS는 Cloudflare. 공유 링크는 소비자 앱이 `/s/*`를 서버로 프록시해 `farmclub.kr/s/farms/<id>` | `.kr`은 Cloudflare Registrar가 팔지 않음. 대상 없는 서브도메인(`admin`·`dev`·`staging`)은 레코드를 만들지 않음 | [0012](./adr/0012-domains-cloudflare.md) |
 | 백엔드 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic, Railway | 타입 기반 API 정의, 코드에서 나온 OpenAPI 스키마로 `packages/api` 클라이언트 생성, 트랜잭션과 `SELECT … FOR UPDATE`로 물량 차감(R-06) | [0007](./adr/0007-backend-fastapi.md) |
 | 운영자 화면 | 관리 API(`/admin/...`) + Swagger UI, 전용 화면은 I2 | 승인·배송 완료·환불을 I1부터 화면 없이 처리, 모든 관리 API에서 `ADMIN` 역할 검사(N-06) | [0008](./adr/0008-operator-admin-api.md) |
@@ -44,6 +45,7 @@
 apps/
   consumer/        소비자 앱 (Expo Router, 웹 출력)
   producer/        생산자 앱 (Expo Router, 웹 출력)
+  android-twa/     설치형 Android 앱(TWA). consumer/ = kr.farmclub.consumer. npm workspace 아님
 packages/
   ui/              공통 컴포넌트·디자인 토큰 (N-02 크기 기준 포함)
   api/             API 클라이언트·타입
@@ -131,7 +133,7 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 ## 7. I2 이후
 
 - 결제: PortOne(NHN KCP) 실결제.
-- 앱: 같은 Expo 코드로 Android·iOS 빌드(EAS).
+- 앱: Android는 TWA로 먼저 낸다([0013](./adr/0013-android-twa.md)). 같은 Expo 코드의 네이티브 빌드(EAS)·iOS는 그 뒤에 검토.
 - AI: 비용·품질을 보고 자체 모델 서빙을 검토. 어댑터만 바꾼다.
 - 알림(FEAT-18), 택배 조회(FEAT-22), 신고(FEAT-31).
 - 로그인: 카카오(ADR 0003)로 바꾸고 Mock 로그인을 끈다(ADR 0009).
@@ -150,3 +152,4 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 | 2026-10-07 | 0.2 | 백엔드 Django → FastAPI, 운영자 처리 Django Admin → 관리 API + Swagger UI(ADR 0007·0008) |
 | 2026-10-07 | 0.3 | P22(SWPP-26): 인증 I1 Mock 로그인(ADR 0009), 카카오는 I2. FEAT ↔ 코드 폴더표(홈, 소식·채팅, 반응, 출하 처리의 `ai`는 I2) |
 | 2026-10-18 | 0.4 | DEV-69: 도메인 `farmclub.kr`과 서브도메인, Cloudflare DNS, 공유 링크 경로(ADR 0012). TQ-02 닫음 |
+| 2026-10-19 | 0.5 | 설치형 Android 앱을 TWA로(ADR 0013, DEV-33): 2장 설치형 앱 행, 3장 `apps/android-twa`, 7장 |
