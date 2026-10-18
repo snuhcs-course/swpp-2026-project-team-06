@@ -127,3 +127,4 @@ spec-code-review를 승인자 1명의 승인으로 실행하되, PR 작성자 �
 - 10/18 draft PR #160. GitHub checker-tests 통과(run 39129046460).
 - 10/18 live spec-code-review run 39129046460(환경 승인 후): INCOMPLETE "Unmapped changed files: .github/spec-check/test_check.py", 모델 호출 없음. PR 본문 표에서 `test_check.py`를 셋째 열(근거)에만 적어서 생긴 작성자 실수였고, 같은 표의 함수 이름 backtick도 경로로 읽혔다. 본문을 고쳤다.
 - 10/18 고친 본문으로 `collect()`를 로컬에서 재현: "Complete context exceeds 60 KiB"(checker 22 KiB·테스트 19 KiB·README·tasks 포함). 이 PR의 일반 검사로는 thinking 수정의 live 검증이 불가능하다. 머지 뒤 작은 PR에 새 이벤트를 만들어(#157은 브랜치 갱신 등, 단순 re-run은 옛 merge SHA의 checker를 씀) 승인·실행해 확인한다.
+- 10/18 live spec-code-review run 39134152845(head 181bdaf, 환경 승인 후): 예상대로 "Complete context exceeds 60 KiB" INCOMPLETE, 모델 호출 없음(usage {}). thinking 수정의 live 검증은 아직 안 됨. 남은 방법은 머지 뒤 작은 PR에서 새 이벤트로 실행하거나, 이 PR 본문에 시연 마커를 넣어 시연 job으로 확인하는 것(사용자 결정 대기).
