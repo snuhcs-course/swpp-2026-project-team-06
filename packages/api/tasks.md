@@ -213,4 +213,5 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 ### 기록
 - 10/18 섹션 작성.
+- 10/18 범위 추가: `packages/api/src/mock/{auth,capacity,catalog}.ts`(가입 농가 레코드 계좌 칸, NO_FARM_ACCOUNT, holdsStock 집계).
 - 10/18 `npm run typecheck`·`npm run test:mock`(13 통과) 확인. 범위 추가: `packages/ui/src/{format,index}.ts`(deadline 포맷).

@@ -557,7 +557,7 @@ def test_AC_17_7_refund_settled_by_producer(client, login):
     assert dash["todo"]["refundsToSettle"] == 2
 
     not_refunded = client.post("/api/orders/o-g1/refund-settled", headers=producer)
-    assert not_refunded.status_code in (404, 409)
+    assert not_refunded.status_code == 409
     settled = client.post("/api/orders/o-42/refund-settled", headers=producer)
     assert settled.status_code == 200, settled.text
     assert settled.json()["refundSettledAt"]

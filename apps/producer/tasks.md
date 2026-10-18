@@ -522,4 +522,6 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 ### 기록
 - 10/18 섹션 작성.
+- 10/18 범위 수정: 409 `NO_FARM_ACCOUNT` 안내는 `products/[id]/edit.tsx`가 아니라 승인 요청이 있는 `products/[id]/sales.tsx`에 넣었고, 상태 문구 표 `src/lib/views.tsx`(AWAITING_DEPOSIT) 추가.
+- 10/18 AI 1차 리뷰 반영: 취소·입금 안내 재요청 시 만료 검사, 환불 송금 완료는 REFUNDED만, 입금했어요 잠금 순서(상품 → 주문), 입금 안내 화면 만료 리다이렉트를 useEffect로.
 - 10/18 구현 완료, typecheck 통과. 결정: 계좌 화면은 `/farm/account`(세 칸 한 화면), SCR-29 탭 6개(전체·입금 대기·예약·출하 준비·출하·환불), 입금 확인 시트는 주황 56 버튼.

@@ -1087,7 +1087,7 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 ### 작업
 - [x] 마이그레이션 0014: farms 계좌 4칸, orders `deposit_due_at`·`deposit_reported_at`·`deposit_confirmed_by`·`cancel_reason`, refunds `settled_at`
 - [x] orders: `deposit`·`deposit_reported`·`confirm_deposit`·`refund_settled`·`expire_overdue_deposits`, 상태 전이·물량, OrderView/ProducerOrder/Dashboard 필드
-- [x] farms: MyFarm·FarmPatch 계좌, 검증(숫자·하이픈 6~20자)
+- [x] farms: MyFarm·FarmPatch 계좌, 검증(숫자·하이픈 6~32자)
 - [x] catalog: 계좌 없는 초기 승인 요청 409
 - [x] admin: `confirm-deposit`, `expire-deposits`
 - [x] 시드: 농가 계좌 4곳 (입금 대기 주문 시드는 넣지 않음 — 대시보드·e2e 건수 기준이 바뀌지 않게, 테스트가 직접 만든다)

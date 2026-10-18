@@ -277,10 +277,15 @@ def patch_my_farm(db: Session, producer_id: str, body: FarmPatch) -> MyFarm:
     for key in ("name", "region", "intro", "photo"):
         if key in data:
             setattr(farm, key, data[key])
-    if "account_number" in data:
-        farm.bank_name = (body.bank_name or "").strip()
-        farm.account_number = (body.account_number or "").strip()
-        farm.account_holder = (body.account_holder or "").strip()
+    if body.account_number is not None:
+        # 세 칸이 함께 온 것은 스키마가 보장한다. 공백만 있으면 저장하지 않는다(삭제 경로는 없다)
+        bank = (body.bank_name or "").strip()
+        holder = (body.account_holder or "").strip()
+        if not bank or not holder:
+            raise invalid({"bankName": "은행을 적어 주세요"} if not bank else {"accountHolder": "예금주를 적어 주세요"})
+        farm.bank_name = bank
+        farm.account_number = body.account_number.strip()
+        farm.account_holder = holder
         farm.account_updated_at = now()
     if "detail_content" in data:
         farm.detail_content = body.detail_content.model_dump(by_alias=True)

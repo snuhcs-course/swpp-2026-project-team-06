@@ -14,7 +14,7 @@ import {
   won,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { useToast } from "../../../lib/toast";
@@ -40,7 +40,9 @@ export default function DepositGuide() {
   const toast = useToast();
 
   // 기한이 지나 취소된 주문은 주문서로 돌려보낸다(R-28)
-  if (o && o.status === "CANCELED") {
+  const expired = o?.status === "CANCELED";
+  useEffect(() => {
+    if (!expired) return;
     router.replace({
       pathname: "/checkout/[productId]",
       params: {
@@ -50,8 +52,8 @@ export default function DepositGuide() {
         changed: "1",
       },
     });
-    return null;
-  }
+  }, [expired, router, productId, optionId, quantity]);
+  if (expired) return null;
 
   async function reported() {
     if (!o) return;

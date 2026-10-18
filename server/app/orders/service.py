@@ -388,6 +388,7 @@ def cancel_order(db: Session, consumer_id: str, order_id: str) -> OrderView:
     existing = _my_order(db, consumer_id, order_id)
     catalog.lock_product(db, existing.product_id)
     order = _my_order(db, consumer_id, order_id, lock=True)
+    _expire_if_overdue(db, order)  # 기한이 지났으면 '입금 기한 초과'로 끝낸다(R-28)
     if order.status in ("REFUNDED", "CANCELED") and order.shipped_at is None:
         return order_view(db, order)
     if order.status == "AWAITING_DEPOSIT":
@@ -559,6 +560,8 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
     existing = _my_order(db, consumer_id, order_id)
     item = catalog.lock_product(db, existing.product_id)
     order = _my_order(db, consumer_id, order_id, lock=True)
+    if _expire_if_overdue(db, order):
+        raise conflict("INVALID_TRANSITION", "입금 기한이 지나 취소된 주문이에요.")
     if order.status != "PENDING_PAYMENT":
         if holds_stock(order) and order.status in ("AWAITING_DEPOSIT", *ACTIVE):
             return order_view(db, order)
@@ -599,9 +602,10 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
 
 def report_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
     """소비자 '입금했어요' 신호. 상태는 바꾸지 않고 생산자 줄의 힌트로만 쓴다(DEV-68 결정 4)."""
-    order = _my_order(db, consumer_id, order_id, lock=True)
-    if _expire_if_overdue(db, order):
+    # 잠금 순서는 다른 경로와 같게 상품 → 주문(만료 검사가 상품을 먼저 잠근다)
+    if _expire_if_overdue(db, _my_order(db, consumer_id, order_id)):
         raise conflict("INVALID_TRANSITION", "입금 기한이 지나 취소된 주문이에요.")
+    order = _my_order(db, consumer_id, order_id, lock=True)
     if order.status != "AWAITING_DEPOSIT":
         raise conflict("INVALID_TRANSITION", "입금 대기 주문이 아니에요.")
     if order.deposit_reported_at is None:
@@ -651,11 +655,13 @@ def settle_refund(db: Session, farm_id: str, order_id: str) -> ProducerOrder:
     order = db.get(Order, order_id)
     if order is None or not order_belongs_to_farm(db, order, farm_id):
         raise not_found("주문을 찾을 수 없어요.")
+    if order.status != "REFUNDED":
+        raise conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.")
     refunds = list(
         db.scalars(select(Refund).where(Refund.order_id == order_id).with_for_update())
     )
     if not refunds:
-        raise conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.")
+        raise conflict("INVALID_TRANSITION", "환불 기록이 없어요.")
     for refund in refunds:
         if refund.settled_at is None:
             refund.settled_at = now()
