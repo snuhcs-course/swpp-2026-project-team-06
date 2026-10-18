@@ -106,26 +106,13 @@ export default function Done() {
 
         {o ? (
           <View style={{ paddingHorizontal: 20, paddingTop: awaiting ? 0 : 32 }}>
-            <KV k="주문 번호">
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                <T variant="body">{o.orderNo}</T>
-                <Button
-                  label="복사"
-                  variant="text"
-                  onPress={async () =>
-                    (await copyText(o.orderNo)) &&
-                    toast.show("주문 번호를 복사했어요")
-                  }
-                />
-              </View>
-            </KV>
+            {/* 입금 대기면 주문 번호(=입금자명)·합계(=입금액)는 위 입금 정보와 겹치므로 상품·배송지만 */}
+            {!awaiting ? <KV k="주문 번호" v={o.orderNo} /> : null}
             <KV
               k="상품"
               v={`${o.productName} ${o.optionLabel} × ${o.quantity}`}
             />
-            <KV k="합계" v={won(o.totalAmount)} bold />
+            {!awaiting ? <KV k="합계" v={won(o.totalAmount)} bold /> : null}
             <KV k="배송지" v={`${o.recipientName} · ${o.address}`} last />
           </View>
         ) : error ? (

@@ -16,10 +16,12 @@ export function DepositCard({
   const a = o.depositAccount;
   return (
     <View style={[{ paddingHorizontal: 20 }, style]}>
-      <Row k="은행" v={a?.bankName ?? "—"} />
+      {/* 강조는 입금액·계좌번호·입금자명 셋(박현 10/18). 복사는 은행 앱에 붙여 넣을 두 값만 */}
+      <Row k="입금액" v={won(o.totalAmount)} bold />
       <Row k="계좌번호">
         <Value
-          text={a?.accountNumber ?? "—"}
+          text={a ? `${a.bankName} ${a.accountNumber}` : "—"}
+          bold
           onCopy={a ? () => onCopy(a.accountNumber, "계좌번호") : undefined}
         />
       </Row>
@@ -27,7 +29,6 @@ export function DepositCard({
       <Row k="입금자명">
         <Value text={o.orderNo} bold onCopy={() => onCopy(o.orderNo, "입금자명")} />
       </Row>
-      <Row k="입금액" v={won(o.totalAmount)} bold />
       <Row k="입금 기한" v={`${deadline(o.depositDueAt)}까지`} last />
     </View>
   );
