@@ -16,7 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-# 주문 번호 FC-MMDD-NNNN의 NNNN
+# 예전 주문 번호 연번. 2026-10-18부터 NNNN은 무작위 4자리(DEV-68)라 쓰지 않지만
+# DB 시퀀스를 지우는 마이그레이션은 두지 않는다.
 ORDER_NO_SEQ = Sequence("order_no_seq", start=1000, metadata=Base.metadata)
 
 
@@ -66,6 +67,16 @@ class Order(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refund_reason: Mapped[str | None] = mapped_column(Text)
+    # 무통장 입금(DEV-68): 입금 기한, 소비자 '입금했어요' 신호, 확인 주체(PRODUCER·ADMIN), 취소 사유
+    deposit_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deposit_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deposit_confirmed_by: Mapped[str | None] = mapped_column(String(16))
+    cancel_reason: Mapped[str | None] = mapped_column(Text)
+    # 농가 미승인(DEV-68): 입금 미승인 사유(입금 대기 유지), 환불을 아직 못 보낸 사유
+    deposit_issue: Mapped[str | None] = mapped_column(Text)
+    deposit_issue_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refund_issue: Mapped[str | None] = mapped_column(Text)
+    refund_issue_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Payment(Base):
@@ -73,8 +84,9 @@ class Payment(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"), unique=True)
-    method: Mapped[str] = mapped_column(String(16), default="CARD")
-    provider: Mapped[str] = mapped_column(String(16), default="MOCK")
+    # BANK_TRANSFER / FARM_ACCOUNT: 소비자가 농가 계좌로 직접 입금(DEV-68)
+    method: Mapped[str] = mapped_column(String(16), default="BANK_TRANSFER")
+    provider: Mapped[str] = mapped_column(String(16), default="FARM_ACCOUNT")
     amount: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(24))
     approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -93,3 +105,5 @@ class Refund(Base):
         ForeignKey("manager_events.id"), index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # 농가가 입금했던 계좌로 송금한 시각(DEV-68). 없으면 송금 대기
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

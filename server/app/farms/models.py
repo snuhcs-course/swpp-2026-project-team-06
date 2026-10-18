@@ -26,6 +26,11 @@ class Farm(Base):
     suspend_reason: Mapped[str | None] = mapped_column(Text)
     # 팔로워 수. 팔로우·해제 때 같은 트랜잭션에서 바꾼다.
     follower_count: Mapped[int] = mapped_column(Integer, default=0)
+    # 입금 계좌(DEV-68, R-01). 소비자는 본인 주문 안에서만 본다.
+    bank_name: Mapped[str | None] = mapped_column(String(50))
+    account_number: Mapped[str | None] = mapped_column(String(32))
+    account_holder: Mapped[str | None] = mapped_column(String(50))
+    account_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

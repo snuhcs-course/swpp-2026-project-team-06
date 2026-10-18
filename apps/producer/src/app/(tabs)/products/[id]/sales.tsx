@@ -63,6 +63,9 @@ export default function Sales() {
     setPerOrder(String(product.maxQuantityPerOrder));
   }
   function failure(e: unknown) {
+    // 입금 계좌가 없으면 초기 승인 요청을 막는다(DEV-68). 어디서 등록하는지 함께 알린다
+    if (e instanceof ApiError && e.details.reason === "NO_FARM_ACCOUNT")
+      return setError(`${e.message} (환경설정 › 농가 프로필 › 입금 계좌)`);
     setError(
       e instanceof ApiError && e.details.fields
         ? Object.values(e.details.fields).join("\n")

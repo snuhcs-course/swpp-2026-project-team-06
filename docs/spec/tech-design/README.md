@@ -20,16 +20,16 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | --- | --- | --- |
 | `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone | (kakaoId, role)당 1개. 같은 사람이라도 소비자·생산자 계정은 따로(ADR 0010) |
 | `ShippingAddress` | id, userId, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5) |
-| `Farm` | id, producerId, name, region, intro, mainItems(주 품목), contactPhone(신청 연락처), approvalStatus(PENDING/APPROVED/REJECTED/SUSPENDED), rejectReason?, suspendReason?, appliedAt, decidedAt? | User(role = PRODUCER) 1 : 1 Farm. 가입 신청 때 생기고, 신청한 대표자 이름은 `User.name` |
+| `Farm` | id, producerId, name, region, intro, mainItems(주 품목), contactPhone(신청 연락처), approvalStatus(PENDING/APPROVED/REJECTED/SUSPENDED), rejectReason?, suspendReason?, appliedAt, decidedAt?, bankName?·accountNumber?·accountHolder?·accountUpdatedAt?(입금 계좌, DEV-68) | User(role = PRODUCER) 1 : 1 Farm. 가입 신청 때 생기고, 신청한 대표자 이름은 `User.name` |
 | `Follow` | consumerId, farmId, createdAt | User(role = CONSUMER) N : M Farm |
 | `Product` | id, farmId, name, variety, description, deliveryWindow(start, end), maxDelayUntil, expectedBrix?, measuredBrix?, grade?, status(DRAFT/PENDING\_APPROVAL/PUBLISHED/CLOSED), shippingFeeType(FREE/SEPARATE), shippingFee?, maxQuantityPerOrder | Farm 1 : N Product |
 | `ProductOption` | id, productId, weightKg | Product 1 : N Option |
 | `Stage` | id, productId, seq, name, startsAt, endsAt | Product 1 : N Stage |
 | `StagePrice` | stageId, optionId, price(원) | Stage × Option → 1 |
 | `StageAllocation` | stageId, optionId, quantity, reservedCount(예약 박스 수) | Stage × Option → 1. 상품 응답의 `reservedCount`(예약한 사람 수, 중복 없음)와 다르다. 그건 결제된 주문의 소비자 수로 계산한다 |
-| `Order` | id, consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, carrier?(택배사 코드: CJ/EPOST/HANJIN/LOTTE/LOGEN/ETC), trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt? | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
-| `Payment` | id, orderId, method(CARD), provider(MOCK/PG), amount, status, approvedAt | Order 1 : 1 Payment |
-| `Refund` | id, orderId, amount, reason, actor, actorUserId?, managerEventId?, createdAt | Order 1 : N Refund |
+| `Order` | id, orderNo(`FC-MMDD-NNNN`, NNNN 무작위 4자리·UNIQUE, 입금자명), consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, carrier?(택배사 코드: CJ/EPOST/HANJIN/LOTTE/LOGEN/ETC), trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt?, depositDueAt?(입금 기한)·depositReportedAt?(소비자 ‘입금했어요’)·depositConfirmedBy?(PRODUCER/ADMIN)·cancelReason?(DEV-68) | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
+| `Payment` | id, orderId, method(BANK_TRANSFER; 과거 행은 CARD), provider(FARM_ACCOUNT; 과거 행은 MOCK), amount, status, approvedAt(=입금 확인 시각) | Order 1 : 1 Payment. 입금 확인 때 만들어진다(DEV-68) |
+| `Refund` | id, orderId, amount, reason, actor, actorUserId?, managerEventId?, createdAt, settledAt?(농가가 입금했던 계좌로 송금을 마친 시각, DEV-68) | Order 1 : N Refund |
 | `ProducerDecisionHistory` | farmId, applicationAt, decision, reason?, managerId, decidedAt | Farm 1 : N Decision |
 | `ManagerEvent` | action/target, original body(private), sanitized summary, status, retry metadata | Audit only; idempotency remains `IdempotencyRecord` |
 | `Broadcast` | id, farmId, body, attachments?(사진·영상), visibility(PUBLIC/FOLLOWERS), createdAt | Farm 1 : N Broadcast. 화면 이름은 ‘소식’ |
@@ -84,17 +84,18 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 
 | 상태 | 뜻 | 다음 상태 | 바꾸는 주체 |
 | --- | --- | --- | --- |
-| `PENDING_PAYMENT` | 동의 완료, 결제 전 | RESERVED, CANCELED | 시스템 |
-| `RESERVED` | 결제 완료, 출하 대기 (화면: 예약 완료) | PREPARING, REFUNDED | 생산자 기존 API(현재 UI 없음, 자동 전이 없음) / 소비자 취소 / 시스템(R-09) |
+| `PENDING_PAYMENT` | 동의 완료, 입금 안내 전. 물량을 잡지 않는다 | AWAITING_DEPOSIT, CANCELED | 시스템 |
+| `AWAITING_DEPOSIT` | 입금 안내를 받음. 물량을 잡고 있고 입금 기한(안내 + 24시간)이 있다 (화면: 입금 확인 중, DEV-68) | RESERVED, CANCELED | 생산자·운영자 입금 확인 / 소비자 취소(환불 없음) / 시스템(기한 만료, R-28) |
+| `RESERVED` | 입금 확인 완료(결제일 = 확인 시각), 출하 대기 (화면: 예약 완료) | PREPARING, REFUNDED | 생산자 기존 API(현재 UI 없음, 자동 전이 없음) / 소비자 취소 / 시스템(R-09) |
 | `PREPARING` | 수확·출하 준비 중 | SHIPPED, REFUNDED | 생산자(출하, FEAT-17) / 소비자 취소 / 시스템(R-09·R-10) |
 | `SHIPPED` | 출하됨. 이후 소비자 단순 취소 불가 | DELIVERED | 운영자 |
 | `DELIVERED` | 배송 완료(택배 조회로 확인), 구매 확정 대기 | COMPLETED, REFUNDED | 소비자 구매 확정 / 시스템(배송 완료 8일 경과, PRD R-14) / 운영자(R-11) |
 | `COMPLETED` | 구매 확정. 농가 정산 대상(PRD R-14) | — | — |
-| `CANCELED` | 결제 없이 종료 | — | — |
+| `CANCELED` | 입금 없이 종료(입금 전 취소 또는 기한 초과, `cancelReason`). 잡았던 물량은 한 번 돌려준다 | — | — |
 | `REFUNDED` | 전액 환불 | — | — |
 | `PARTIALLY_REFUNDED` | 과거 데이터 읽기 호환용. 신규 부분 환불은 주문 상태를 바꾸지 않고 `Payment.status`에만 기록 | — | — |
 
-표에 없는 전이는 막는다. 부분 환불은 주문 흐름과 물량을 바꾸지 않는다. 최종 전액 환불이면 출하 전 남은 수량만 한 번 되돌리고, 출하 후에는 되돌리지 않는다.
+표에 없는 전이는 막는다. 부분 환불은 주문 흐름과 물량을 바꾸지 않는다. 최종 전액 환불이면 출하 전 남은 수량만 한 번 되돌리고, 출하 후에는 되돌리지 않는다. 환불 송금은 농가가 소비자가 입금했던 계좌로 직접 하고, 앱은 `Refund.settledAt`으로 완료만 기록한다(DEV-68).
 
 ## 용어 ↔ 코드 식별자
 
