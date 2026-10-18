@@ -328,6 +328,7 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **GIVEN** an order awaiting a deposit passed its 24-hour deadline
 - **WHEN** the consumer or producer loads it, or an operator runs the bulk expiry
 - **THEN** it is canceled with the reason "deposit deadline passed", the stock goes back, and a late confirmation is rejected with 409
+- **AND** if the buyer already reported the deposit, the order is not canceled; it stays awaiting and appears in the operator list (`GET /admin/orders/deposit-overdue`) so we can contact the farm, and the farm can still approve it
 
 **AC-09-8: Producer confirms the deposit**
 - **GIVEN** an order awaiting a deposit
