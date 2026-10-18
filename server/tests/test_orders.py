@@ -5,7 +5,7 @@ import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app.catalog.models import StageAllocation
 from app.core.db import get_sessionmaker
@@ -307,6 +307,22 @@ def test_deposit_requires_farm_account(client, login):
     response = deposit(client, headers, order["orderId"])
     assert response.status_code == 409
     assert response.json()["details"]["reason"] == "NO_FARM_ACCOUNT"
+    assert allocation().reserved_count == 38
+
+
+def test_create_order_requires_farm_account_and_leaves_no_order(client, login):
+    """FEAT-09 E5(DEV-72): 계좌 없는 농가 상품은 주문 생성에서 막아 결제 전 주문을 남기지 않는다."""
+    from app.farms.models import Farm
+    from app.orders.models import Order
+
+    with get_sessionmaker()() as session, session.begin():
+        before = session.scalar(select(func.count()).select_from(Order))
+        session.execute(update(Farm).where(Farm.id == "f-kang").values(account_number=None))
+    response = client.post("/api/orders", headers=login("u-seojun") | key(), json=order_body())
+    assert response.status_code == 409
+    assert response.json()["details"]["reason"] == "NO_FARM_ACCOUNT"
+    with get_sessionmaker()() as session:
+        assert session.scalar(select(func.count()).select_from(Order)) == before
     assert allocation().reserved_count == 38
 
 

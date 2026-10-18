@@ -222,11 +222,8 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
     from app.farms import service as farms
 
     item = catalog.load_product(db, body.product_id)
-    if (
-        item is None
-        or item.product.status != "PUBLISHED"
-        or farms.get_approved_farm(db, item.product.farm_id) is None
-    ):
+    farm = farms.get_approved_farm(db, item.product.farm_id) if item else None
+    if item is None or item.product.status != "PUBLISHED" or farm is None:
         raise not_found("판매 중이 아닌 상품이에요.")
     p = item.product
     fields = accounts.validate_recipient(
@@ -249,6 +246,14 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
             "QUANTITY_LIMIT",
             f"한 번에 최대 {p.max_quantity_per_order}개까지 예약할 수 있어요.",
             maxQuantity=p.max_quantity_per_order,
+        )
+    # 계좌 없는 농가는 입금 안내를 못 하므로 결제 전 주문을 남기지 않게 먼저 막는다
+    # (FEAT-09 E5, DEV-72)
+    if not farms.has_deposit_account(farm):
+        raise conflict(
+            "NO_FARM_ACCOUNT",
+            "농가가 아직 입금 계좌를 등록하지 않았어요.",
+            productId=p.id,
         )
     stage = catalog.current_stage(item)
     if p.sales_paused:
