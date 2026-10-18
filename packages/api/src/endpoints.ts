@@ -62,6 +62,9 @@ export const farms = {
       intro: string;
       detailContent: A.DetailContent;
       photo: string | null;
+      bankName: string;
+      accountNumber: string;
+      accountHolder: string;
     }>,
   ) => request<A.MyFarm>("PATCH", "/api/farms/me", { body: patch }),
 };
@@ -158,15 +161,21 @@ export const orders = {
   /** 멱등 키를 넘기지 않으면 새로 만든다. 재시도 때는 같은 키를 넘긴다. */
   create: (input: A.OrderInput, idempotencyKey: string = newIdempotencyKey()) =>
     request<A.Order>("POST", "/api/orders", { body: input, idempotencyKey }),
-  pay: (
-    orderId: string,
-    mockResult: "success" | "fail",
-    idempotencyKey: string = newIdempotencyKey(),
-  ) =>
-    request<A.PayResult>("POST", `/api/orders/${orderId}/pay`, {
-      body: { mockResult },
+  /** 입금 안내(DEV-68): 물량을 선점하고 입금 대기로. 재시도 때는 같은 키를 넘긴다. */
+  deposit: (orderId: string, idempotencyKey: string = newIdempotencyKey()) =>
+    request<A.Order>("POST", `/api/orders/${orderId}/deposit`, {
+      body: {},
       idempotencyKey,
     }),
+  /** 소비자 '입금했어요' 신호. 상태는 바뀌지 않는다 */
+  depositReported: (orderId: string) =>
+    request<A.Order>("POST", `/api/orders/${orderId}/deposit-reported`),
+  /** 생산자 입금 확인 → 예약 완료 */
+  confirmDeposit: (orderId: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/confirm-deposit`),
+  /** 생산자가 입금했던 계좌로 환불 송금을 마쳤다고 표시 */
+  refundSettled: (orderId: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-settled`),
   list: (q: A.PageQuery = {}) =>
     request<A.Paged<A.Order>>("GET", "/api/orders", { query: q }),
   get: (orderId: string) => request<A.Order>("GET", `/api/orders/${orderId}`),

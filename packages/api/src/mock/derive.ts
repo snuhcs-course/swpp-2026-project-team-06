@@ -1,4 +1,4 @@
-import { salesState } from "./sales";
+import { holdsStock, salesState } from "./sales";
 // 저장 레코드 → API 응답 모양으로 바꾸는 함수들
 import type {
   ChatMessage,
@@ -153,7 +153,14 @@ export function productDetail(
 
 export function orderActions(o: OrderRec): OrderAction[] {
   const a: OrderAction[] = [];
-  if (o.status === "RESERVED" || o.status === "PREPARING") a.push("cancel");
+  if (
+    o.status === "AWAITING_DEPOSIT" ||
+    o.status === "RESERVED" ||
+    o.status === "PREPARING"
+  )
+    a.push("cancel");
+  if (o.status === "AWAITING_DEPOSIT" && !o.depositReportedAt)
+    a.push("reportDeposit");
   if (o.status === "DELIVERED") a.push("confirm");
   if (
     o.proposedDeliveryWindow &&
@@ -166,6 +173,10 @@ export function orderActions(o: OrderRec): OrderAction[] {
 export function order(d: DB, o: OrderRec): Order {
   const p = d.products[o.productId];
   const opt = p?.options.find((x) => x.optionId === o.optionId);
+  const farm = d.farms[p?.farmId ?? ""];
+  const owner = farm ? d.users[farm.ownerId] : undefined;
+  const hasAccount =
+    !!farm?.bankName && !!farm.accountNumber && !!farm.accountHolder;
   return {
     orderId: o.orderId,
     orderNo: o.orderNo,
@@ -195,6 +206,28 @@ export function order(d: DB, o: OrderRec): Order {
     deliveredAt: o.deliveredAt,
     refundedAt: o.refundedAt,
     refundReason: o.refundReason,
+    // 계좌·판매자 정보는 입금 안내 이후(물량을 잡은 뒤)에만(DEV-68 결정 6)
+    depositAccount:
+      farm && hasAccount && holdsStock(o)
+        ? {
+            bankName: farm.bankName ?? "",
+            accountNumber: farm.accountNumber ?? "",
+            accountHolder: farm.accountHolder ?? "",
+          }
+        : null,
+    sellerInfo:
+      farm && holdsStock(o)
+        ? {
+            farmName: farm.name,
+            ownerName: owner?.name ?? "",
+            region: farm.region,
+            phone: farm.phone,
+          }
+        : null,
+    depositDueAt: o.depositDueAt,
+    depositReportedAt: o.depositReportedAt,
+    cancelReason: o.cancelReason,
+    refundSettledAt: o.refundSettledAt,
     recipientName: o.recipientName,
     recipientPhone: o.recipientPhone,
     postalCode: o.postalCode,
@@ -207,8 +240,11 @@ export function order(d: DB, o: OrderRec): Order {
 export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
   const p = d.products[o.productId];
   const opt = p?.options.find((x) => x.optionId === o.optionId);
-  // R-15: 배송 완료 전 주문만 배송 정보를 보여준다
-  const hide = o.status === "DELIVERED" || o.status === "COMPLETED";
+  // R-15: 배송 완료 전 주문만 배송 정보를 보여준다. 입금 전에도 배송지는 숨긴다(DEV-68)
+  const hide =
+    o.status === "DELIVERED" ||
+    o.status === "COMPLETED" ||
+    o.status === "AWAITING_DEPOSIT";
   return {
     orderId: o.orderId,
     orderNo: o.orderNo,
@@ -221,6 +257,10 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
     carrier: o.carrier ?? null,
     trackingNumber: o.trackingNumber,
     createdAt: o.createdAt,
+    totalAmount: o.unitPrice * o.quantity + o.shippingFee + o.remoteAreaFee,
+    depositDueAt: o.depositDueAt,
+    depositReportedAt: o.depositReportedAt,
+    refundSettledAt: o.refundSettledAt,
     recipientName: o.recipientName,
     recipientPhone: hide ? "" : o.recipientPhone,
     postalCode: hide ? "" : o.postalCode,

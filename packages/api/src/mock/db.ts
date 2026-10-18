@@ -47,6 +47,9 @@ export type FarmRec = {
   status: Exclude<FarmStatus, "NONE">;
   mainItems: string;
   phone: string;
+  bankName: string | null;
+  accountNumber: string | null;
+  accountHolder: string | null;
   rejectReason: string | null;
   suspendReason: string | null;
   submittedAt: string;
@@ -126,6 +129,10 @@ export type OrderRec = Recipient & {
   deliveredAt: string | null;
   refundedAt: string | null;
   refundReason: string | null;
+  depositDueAt: string | null;
+  depositReportedAt: string | null;
+  cancelReason: string | null;
+  refundSettledAt: string | null;
 };
 export type EscalationRec = {
   escalationId: string;
@@ -181,7 +188,8 @@ export type DB = {
   >;
 };
 
-const DB_VERSION = 7;
+// 8: 농가 입금 계좌·입금 대기 주문 필드(DEV-68). 이전 state.json은 설정 › 데모 데이터 초기화 또는 파일 삭제 후 다시 시작
+const DB_VERSION = 8;
 let cache: DB | null = null;
 let persistence = {
   read: () => readStore("mock-db"),
@@ -414,6 +422,9 @@ export function seed(): DB {
           "3대째 효돈 하우스 감귤. 밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요.",
         mainItems: "하우스 감귤, 레드향",
         phone: "010-2222-3333",
+        bankName: "제주은행",
+        accountNumber: "101-23-456789",
+        accountHolder: "강영수",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-01"),
@@ -430,6 +441,9 @@ export function seed(): DB {
         intro: "노지에서 햇볕 듬뿍 받고 자란 귤을 보내요.",
         mainItems: "노지 감귤",
         phone: "010-4444-5555",
+        bankName: "농협",
+        accountNumber: "302-0123-4567-89",
+        accountHolder: "한○○",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-02"),
@@ -446,6 +460,9 @@ export function seed(): DB {
         intro: "작은 하우스에서 한 그루씩 돌봐요.",
         mainItems: "하우스 감귤",
         phone: "010-6666-7777",
+        bankName: "국민은행",
+        accountNumber: "123456-01-234567",
+        accountHolder: "고○○",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-05"),
@@ -462,6 +479,9 @@ export function seed(): DB {
         intro: "11월에 첫 상품을 올릴 예정이에요.",
         mainItems: "노지 감귤",
         phone: "010-8888-9999",
+        bankName: "농협",
+        accountNumber: "351-0987-6543-21",
+        accountHolder: "남○○",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-10"),
@@ -478,6 +498,9 @@ export function seed(): DB {
         intro: "",
         mainItems: "노지 감귤, 레드향",
         phone: "010-4321-8765",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-10-07"),
@@ -494,6 +517,9 @@ export function seed(): DB {
         intro: "",
         mainItems: "노지 감귤",
         phone: "010-1111-0000",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
         rejectReason:
           "적어 주신 번호로 세 번 연락했지만 닿지 않았어요. 받을 수 있는 번호로 다시 신청해 주세요.",
         suspendReason: null,
@@ -511,6 +537,9 @@ export function seed(): DB {
         intro: "",
         mainItems: "하우스 감귤",
         phone: "010-2020-3030",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
         rejectReason: null,
         suspendReason: "메시지에 연락처를 적어 직거래를 유도했어요 (10월 9일)",
         submittedAt: at("2026-09-01"),
@@ -939,6 +968,10 @@ export function seed(): DB {
     deliveredAt: null,
     refundedAt: null,
     refundReason: null,
+    depositDueAt: null,
+    depositReportedAt: null,
+    cancelReason: null,
+    refundSettledAt: null,
     ...o,
   });
   const list: OrderRec[] = [
