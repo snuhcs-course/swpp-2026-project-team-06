@@ -141,6 +141,15 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 | `draft_created` | AI 초안 생성 | AI 초안 게시율 |
 | `draft_published` | 초안 게시(수정 필드 수 포함) | AI 초안 게시율 |
 | `reaction_toggled` | 소식 좋아요 켬·끔(속성: on/off) | 소식 반응(참고 지표, I1은 측정만) |
+| `checkout_submitted` | 주문서 제출 → 결제 화면(속성: productId, orderId, quantity) | 주문 전환율(퍼널 단계) |
+| `payment_submitted` | 결제 버튼 결과(속성: orderId, result success·fail) | 주문 전환율(퍼널 단계), 결제 실패율 |
+
+앱이 보내는 것과 서버가 보내는 것(ADR 0005, DEV-71):
+- 앱(`packages/analytics`): 화면 전환마다 `$pageview`, `product_viewed`(productId, farmId), `checkout_started`(productId), `checkout_submitted`, `payment_submitted`. 세션 녹화·히트맵도 앱이 켠다.
+- 서버(`server/app/analytics`, 다음 이슈): `order_paid`·`order_canceled`·`farm_followed` 등 확정 사실.
+- 구매 퍼널: `product_viewed` → `checkout_started` → `checkout_submitted` → `payment_submitted`(result = success). 서버 이벤트가 붙으면 마지막 단계를 `order_paid`로 바꾼다.
+- 사용자 구분은 내부 `userId`(identify)와 사람 속성 `app`·`role`·`isTestAccount`만. 이벤트 속성은 위 표의 ID·수량·결과만 보내고, URL의 쿼리는 보내기 전에 지운다.
+- 세션 녹화: 입력칸은 모두 가린다. 소비자 `/checkout`·`/orders`·`/chats`·`/me`, 생산자 `/chats`·`/ship`·`/pending`·`/apply`는 화면 글자를 모두 가리고, 채팅·소식방 메시지 영역은 어느 화면에서든 가린다. 네트워크·콘솔은 녹화하지 않는다.
 
 ## 스펙 1.2 데이터·트랜잭션
 

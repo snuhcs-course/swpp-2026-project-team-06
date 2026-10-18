@@ -118,6 +118,7 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 - 화면 이벤트는 앱에서, 결제·취소·구매 확정처럼 확정된 사실은 서버에서 보낸다.
 - 이벤트에 이름·연락처·주소·메시지 본문을 넣지 않는다(N-05). 사용자 구분은 내부 ID만 쓴다.
 - 이벤트 이름과 속성은 [트래킹 플랜](./README.md)을 따른다.
+- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71).
 
 ## 6. 이번에 정한 값
 
@@ -139,7 +140,7 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 
 ## 8. 열린 질문
 
-- [ ] TQ-01. PostHog·Langfuse 리전(미국/EU)
+- [ ] TQ-01. PostHog·Langfuse 리전(미국/EU) → PostHog는 US Cloud(`https://us.i.posthog.com`, DEV-71). Langfuse는 미정
 - [x] TQ-02. 도메인(I1은 Railway·Vercel 기본 도메인) → `farmclub.kr`, DNS는 Cloudflare([ADR 0012](./adr/0012-domains-cloudflare.md))
 
 ## 9. 변경 이력
@@ -150,3 +151,4 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 | 2026-10-07 | 0.2 | 백엔드 Django → FastAPI, 운영자 처리 Django Admin → 관리 API + Swagger UI(ADR 0007·0008) |
 | 2026-10-07 | 0.3 | P22(SWPP-26): 인증 I1 Mock 로그인(ADR 0009), 카카오는 I2. FEAT ↔ 코드 폴더표(홈, 소식·채팅, 반응, 출하 처리의 `ai`는 I2) |
 | 2026-10-18 | 0.4 | DEV-69: 도메인 `farmclub.kr`과 서브도메인, Cloudflare DNS, 공유 링크 경로(ADR 0012). TQ-02 닫음 |
+| 2026-10-18 | 0.5 | DEV-71: 앱 PostHog 연결(`packages/analytics`), PostHog 리전 US Cloud |
