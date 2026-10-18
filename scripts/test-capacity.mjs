@@ -475,3 +475,13 @@ test("AC-09-9 / AC-17-8: producer rejects deposit or refund inline with a requir
   });
   assert.equal(late.status, 409);
 });
+
+test("FEAT-09 E5 / DEV-72: farm without deposit account rejects order creation and leaves no order", async () => {
+  const { c } = await setup();
+  db().farms["f-kang"].accountNumber = null;
+  const before = Object.keys(db().orders).length;
+  const r = await api("POST", "/api/orders", c, input());
+  assert.equal(r.status, 409, JSON.stringify(r));
+  assert.equal(r.body.details.reason, "NO_FARM_ACCOUNT");
+  assert.equal(Object.keys(db().orders).length, before);
+});

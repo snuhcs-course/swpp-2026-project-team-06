@@ -4,7 +4,7 @@ import { assertSale, releaseQuantity, salesState } from "./sales";
 import type { Carrier, Dashboard, HarvestProduct, OrderInput } from "../types";
 
 const CARRIERS: Carrier[] = ["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"];
-import { nextId, nowIso, TODAY, type OrderRec } from "./db";
+import { nextId, nowIso, TODAY, type FarmRec, type OrderRec } from "./db";
 import { currentStage, order, producerOrder, remaining } from "./derive";
 import type { Ctx } from "./router";
 import {
@@ -33,6 +33,11 @@ function newOrderNo(ctx: Ctx): string {
       return candidate;
   }
   conflict("INVALID_TRANSITION", "주문 번호를 만들지 못했어요. 다시 시도해 주세요.");
+}
+
+/** 입금 계좌 세 칸이 모두 있어야 주문·입금 안내를 받는다(DEV-68, DEV-72) */
+function hasDepositAccount(farm: FarmRec | undefined): boolean {
+  return !!(farm?.bankName && farm.accountNumber && farm.accountHolder);
 }
 
 function myOrder(ctx: Ctx): OrderRec {
@@ -145,6 +150,11 @@ register({
       if (!c.deliveryWindow || !c.delayRefund || !c.shortage || !c.cancelPolicy)
         fields.consents = "결제 전 확인 4개에 모두 동의해 주세요";
       if (Object.keys(fields).length) invalid(fields);
+      // 계좌 없는 농가는 결제 전 주문을 남기지 않게 먼저 막는다(FEAT-09 E5, DEV-72)
+      if (!hasDepositAccount(ctx.db.farms[p.farmId]))
+        conflict("NO_FARM_ACCOUNT", "농가가 아직 입금 계좌를 등록하지 않았어요.", {
+          productId: p.productId,
+        });
       const s = assertSale(ctx.db, p, b.optionId, b.quantity);
       const remoteFee = REMOTE(b.postalCode, b.address) ? p.remoteAreaFee : 0;
       const o: OrderRec = {
@@ -221,8 +231,7 @@ register({
         conflict("INVALID_TRANSITION", "입금 안내를 받을 수 없는 주문이에요.");
       }
       const p = ctx.db.products[o.productId];
-      const farm = ctx.db.farms[p?.farmId ?? ""];
-      if (!farm?.bankName || !farm.accountNumber || !farm.accountHolder)
+      if (!hasDepositAccount(ctx.db.farms[p?.farmId ?? ""]))
         conflict("NO_FARM_ACCOUNT", "농가가 아직 입금 계좌를 등록하지 않았어요.");
       const s = assertSale(ctx.db, p, o.optionId, o.quantity, o);
       s.options[o.optionId].reservedCount += o.quantity;
