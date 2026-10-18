@@ -135,7 +135,9 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(seen["body"]["max_tokens"], check.MAX_OUTPUT_TOKENS)
         self.assertGreaterEqual(check.MAX_OUTPUT_TOKENS, 16000)
         self.assertEqual(seen["timeout"], check.REQUEST_TIMEOUT)
-        self.assertLessEqual(2 * check.REQUEST_TIMEOUT + 20, 5 * 60)  # Retry still fits the 5-minute job.
+        # Two model attempts, the retry sleep and three GitHub API checks (current x2, environment)
+        # must fit the 5-minute job with room left for checkout and setup.
+        self.assertLessEqual(2 * check.REQUEST_TIMEOUT + 2 + 3 * check.GITHUB_TIMEOUT, 5 * 60 - 40)
         self.assertNotIn("thinking", seen["body"])  # No model-specific thinking setting (no fallback/branching).
         with self.assertRaisesRegex(check.Incomplete, "256 KiB"):
             check.model_review({"text": "x" * check.MAX_INPUT}, "prompt", "key", "model", Client([]))
