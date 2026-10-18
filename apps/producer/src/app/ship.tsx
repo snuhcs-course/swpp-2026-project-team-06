@@ -1,5 +1,5 @@
-// SCR-29 출하 처리 (FEAT-17, R-07·15·19, 결정 32, D-02·D-07·D-21) — design: p-scr-29, p-scr-29-sheet, s-29-empty, s-29-invoice
-// 받는 사람 실명·전체 주소는 이 화면에서만 보인다(배송 목적, R-15). 여러 건 출하는 주문마다 ship API를 반복 호출한다.
+// SCR-29 주문·출하 처리 (FEAT-17, FEAT-09 AC-09-8 입금 확인, AC-17-7 환불 송금, R-07·15·19·28, DEV-68) — design: p-scr-29, DEV-68 보드
+// 받는 사람 실명·전체 주소는 이 화면에서만 보인다(배송 목적, R-15). 입금 대기 줄에는 배송지가 없다. 여러 건 출하는 주문마다 ship API를 반복 호출한다.
 import {
   ApiError,
   CARRIERS,
@@ -22,8 +22,11 @@ import {
   Sheet,
   Skeleton,
   T,
+  deadline,
   focusRing,
+  md,
   tokens,
+  won,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -33,14 +36,17 @@ import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, errMsg } from "../lib/views";
 
 type Data = {
+  awaiting: ProducerOrder[];
   reserved: ProducerOrder[];
   preparing: ProducerOrder[];
   shipped: ProducerOrder[];
+  refunded: ProducerOrder[];
   all: ProducerOrder[];
 };
 
 type Invoice = { carrier: Carrier | null; no: string };
 
+const SHIP_TABS = new Set(["PREPARING", "SHIPPED"]);
 const who = (o: ProducerOrder) =>
   `${o.recipientName} · ${o.optionLabel} × ${o.quantity}`;
 /** "CJ대한통운 6012-3456-7890" / "송장 없음" */
@@ -55,9 +61,19 @@ export default function Ship() {
   const { toast, failToast } = useSession();
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<unknown>(null);
-  type Tab = "all" | "RESERVED" | "PREPARING" | "SHIPPED";
+  type Tab =
+    | "all"
+    | "AWAITING_DEPOSIT"
+    | "RESERVED"
+    | "PREPARING"
+    | "SHIPPED"
+    | "REFUNDED";
   const tab: Tab =
-    status === "all" || status === "RESERVED" || status === "SHIPPED"
+    status === "all" ||
+    status === "AWAITING_DEPOSIT" ||
+    status === "RESERVED" ||
+    status === "SHIPPED" ||
+    status === "REFUNDED"
       ? status
       : "PREPARING";
   const setTab = (value: Tab) => router.setParams({ status: value });
@@ -69,6 +85,8 @@ export default function Ship() {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // 입금 확인 시트(DEV-68): 통장과 대조한 뒤 누른다
+  const [depositFor, setDepositFor] = useState<ProducerOrder | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -79,9 +97,11 @@ export default function Ship() {
       const preparing = all.filter((o) => o.status === "PREPARING");
       setData({
         all,
+        awaiting: all.filter((o) => o.status === "AWAITING_DEPOSIT"),
         reserved: all.filter((o) => o.status === "RESERVED"),
         preparing,
         shipped: all.filter((o) => o.status === "SHIPPED"),
+        refunded: all.filter((o) => o.status === "REFUNDED"),
       });
       setPicked((old) =>
         old.filter((id) => preparing.some((o) => o.orderId === id)),
@@ -101,9 +121,7 @@ export default function Ship() {
     return (
       <Screen>
         <HeaderBar
-          title={
-            tab === "all" || tab === "RESERVED" ? "주문 현황" : "배송 현황"
-          }
+          title={SHIP_TABS.has(tab) ? "배송 현황" : "주문 현황"}
           onBack={back}
         />
         {error ? (
@@ -118,11 +136,15 @@ export default function Ship() {
   const list =
     tab === "all"
       ? data.all
-      : tab === "RESERVED"
-        ? data.reserved
-        : tab === "PREPARING"
-          ? data.preparing
-          : data.shipped;
+      : tab === "AWAITING_DEPOSIT"
+        ? data.awaiting
+        : tab === "RESERVED"
+          ? data.reserved
+          : tab === "PREPARING"
+            ? data.preparing
+            : tab === "REFUNDED"
+              ? data.refunded
+              : data.shipped;
   const chosen = data.preparing.filter((o) => picked.includes(o.orderId));
   const has = (id: string) => !!(invoices[id]?.carrier || invoices[id]?.no);
   const withInvoice = chosen.filter((o) => has(o.orderId)).length;
@@ -187,10 +209,53 @@ export default function Ship() {
     toast("송장을 저장했어요");
   }
 
+  // 입금 확인(AC-09-8): 입금 대기 → 예약 완료. 409면 최신 상태로 다시 그린다
+  async function confirmDeposit() {
+    const o = depositFor;
+    if (!o || busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await orders.confirmDeposit(o.orderId);
+      setDepositFor(null);
+      toast(`${o.orderNo} 입금을 확인했어요 · 예약 완료`);
+      await load();
+    } catch (e) {
+      setDepositFor(null);
+      if (e instanceof ApiError && e.status === 409) {
+        setNotice("이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.");
+        await load();
+      } else if (isConnectionError(e)) failToast(e, () => setDepositFor(o));
+      else setNotice(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 환불 송금 완료(AC-17-7)
+  async function settleRefund(o: ProducerOrder) {
+    if (busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await orders.refundSettled(o.orderId);
+      toast("송금 완료로 표시했어요");
+      await load();
+    } catch (e) {
+      if (isConnectionError(e)) failToast(e, () => void settleRefund(o));
+      else {
+        setNotice(errMsg(e));
+        await load();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Screen>
       <HeaderBar
-        title={tab === "all" || tab === "RESERVED" ? "주문 현황" : "배송 현황"}
+        title={SHIP_TABS.has(tab) ? "배송 현황" : "주문 현황"}
         onBack={back}
       />
       <Scroll bottom={tab === "PREPARING" && data.preparing.length ? 170 : 60}>
@@ -206,16 +271,21 @@ export default function Ship() {
           style={{ flexGrow: 0 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: tokens.space.md }}
         >
-          <View style={{ minWidth: 400 }}>
+          <View style={{ minWidth: 640 }}>
             <Segmented
               options={[
                 { value: "all", label: `전체 ${data.all.length}` },
+                {
+                  value: "AWAITING_DEPOSIT",
+                  label: `입금 대기 ${data.awaiting.length}`,
+                },
                 { value: "RESERVED", label: `예약 ${data.reserved.length}` },
                 {
                   value: "PREPARING",
                   label: `출하 준비 ${data.preparing.length}`,
                 },
                 { value: "SHIPPED", label: `출하 ${data.shipped.length}` },
+                { value: "REFUNDED", label: `환불 ${data.refunded.length}` },
               ]}
               value={tab}
               onChange={setTab}
@@ -227,7 +297,11 @@ export default function Ship() {
             <T variant="sub" muted style={{ paddingVertical: 24 }}>
               {tab === "PREPARING"
                 ? "출하 준비 주문이 없어요."
-                : "해당 상태의 주문이 없어요."}
+                : tab === "AWAITING_DEPOSIT"
+                  ? "입금을 기다리는 주문이 없어요."
+                  : tab === "REFUNDED"
+                    ? "환불할 주문이 없어요."
+                    : "해당 상태의 주문이 없어요."}
             </T>
           ) : null}
           {list.map((o) => {
@@ -237,32 +311,89 @@ export default function Ship() {
                 ? invoices[o.orderId]
                 : { carrier: o.carrier, no: o.trackingNumber ?? "" };
             const filled = !!(inv?.carrier || inv?.no);
+            const awaiting = o.status === "AWAITING_DEPOSIT";
+            const refunded = o.status === "REFUNDED";
             const info = (
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                 <T variant="sub" muted numberOfLines={1}>
                   {o.orderNo}
+                  {awaiting ? ` · 기한 ${deadline(o.depositDueAt)}` : ""}
                 </T>
                 <T variant="body" weight="semibold">
                   {who(o)}
                 </T>
-                <T variant="sub" muted>
-                  {[o.address, o.addressDetail].filter(Boolean).join(" ")}
-                  {o.deliveryNote ? " · 메모 있음" : ""}
-                </T>
+                {awaiting ? (
+                  // 입금 전에는 배송지 대신 금액·입금자명(R-15, DEV-68)
+                  <T variant="body">
+                    {won(o.totalAmount)} · 입금자명{" "}
+                    <T variant="body" weight="bold">
+                      {o.orderNo}
+                    </T>
+                  </T>
+                ) : refunded ? (
+                  <T variant="body">
+                    {won(o.totalAmount)} · 입금했던 계좌로 돌려보내요
+                  </T>
+                ) : (
+                  <T variant="sub" muted>
+                    {[o.address, o.addressDetail].filter(Boolean).join(" ")}
+                    {o.deliveryNote ? " · 메모 있음" : ""}
+                  </T>
+                )}
+                {awaiting && o.depositReportedAt ? (
+                  <View style={{ flexDirection: "row" }}>
+                    <View
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 999,
+                        backgroundColor: tokens.color.surface,
+                      }}
+                    >
+                      <T variant="caption" weight="semibold">
+                        입금했다고 알렸어요
+                      </T>
+                    </View>
+                  </View>
+                ) : null}
                 {o.deliveryNote ? (
                   <T variant="sub" muted>
                     메모: {o.deliveryNote}
                   </T>
                 ) : null}
-                <T variant="sub" weight="semibold" muted={!filled}>
-                  {tab === "PREPARING"
-                    ? filled
-                      ? `${invoiceText(inv?.carrier, inv?.no)} ›`
-                      : "택배사·송장 번호 넣기 ›"
-                    : o.status === "RESERVED"
-                      ? "예약 완료"
-                      : invoiceText(inv?.carrier, inv?.no)}
-                </T>
+                {awaiting ? (
+                  <Button
+                    label="입금 확인"
+                    variant="outline"
+                    disabled={busy}
+                    onPress={() => setDepositFor(o)}
+                    style={{ marginTop: 8 }}
+                  />
+                ) : refunded ? (
+                  o.refundSettledAt ? (
+                    <T variant="sub" weight="semibold" muted>
+                      {md(o.refundSettledAt)} 송금 완료
+                    </T>
+                  ) : (
+                    <Button
+                      label="송금 완료"
+                      variant="outline"
+                      disabled={busy}
+                      onPress={() => void settleRefund(o)}
+                      style={{ marginTop: 8 }}
+                    />
+                  )
+                ) : (
+                  <T variant="sub" weight="semibold" muted={!filled}>
+                    {tab === "PREPARING"
+                      ? filled
+                        ? `${invoiceText(inv?.carrier, inv?.no)} ›`
+                        : "택배사·송장 번호 넣기 ›"
+                      : o.status === "RESERVED"
+                        ? "예약 완료"
+                        : invoiceText(inv?.carrier, inv?.no)}
+                  </T>
+                )}
               </View>
             );
             return (
@@ -367,7 +498,11 @@ export default function Ship() {
             />
           ) : null}
           <T variant="sub" muted style={{ marginTop: 16 }}>
-            배송 완료는 farmclub이 확인해서 바꿔요.
+            {tab === "AWAITING_DEPOSIT"
+              ? "통장에서 입금자명(주문 번호)과 금액을 확인한 뒤 「입금 확인」을 눌러 주세요. 확인하면 소비자에게 예약 완료로 보여요. 24시간 안에 입금이 없으면 자동으로 취소돼요."
+              : tab === "REFUNDED"
+                ? "환불은 소비자가 입금했던 계좌로 직접 보내 주세요. 보낸 뒤 「송금 완료」를 누르면 소비자 주문 상세에 환불 완료로 보여요."
+                : "배송 완료는 farmclub이 확인해서 바꿔요."}
           </T>
         </View>
       </Scroll>
@@ -464,6 +599,42 @@ export default function Ship() {
           onPress={saveInvoice}
           style={{ marginTop: 8 }}
         />
+      </Sheet>
+
+      {/* 입금 확인 시트(DEV-68 결정 4): 금액·입금자명을 다시 보여 주고 확인한다 */}
+      <Sheet
+        visible={!!depositFor}
+        onClose={() => {
+          if (!busy) setDepositFor(null);
+        }}
+      >
+        <T variant="heading">
+          {depositFor ? won(depositFor.totalAmount) : ""} 입금을 확인했나요?
+        </T>
+        {depositFor ? (
+          <T variant="sub" muted>
+            입금자명 {depositFor.orderNo} · {who(depositFor)}
+          </T>
+        ) : null}
+        <T variant="sub">
+          통장에 같은 입금자명과 금액이 들어왔을 때만 눌러 주세요. 확인하면
+          소비자에게 예약 완료로 보여요.
+        </T>
+        <View style={{ gap: 8 }}>
+          <Button
+            label="확인했어요 · 예약 완료로"
+            size="producer"
+            loading={busy}
+            onPress={() => void confirmDeposit()}
+          />
+          <Button
+            label="아직이에요"
+            variant="secondary"
+            size="producer"
+            disabled={busy}
+            onPress={() => setDepositFor(null)}
+          />
+        </View>
       </Sheet>
 
       {/* 출하 확인 */}

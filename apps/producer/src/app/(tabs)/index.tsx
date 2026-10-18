@@ -45,13 +45,13 @@ export default function Home() {
     {
       label: "전체 주문",
       count: data?.length,
-      hint: "전체 판매 기간",
+      hint: "입금 대기 포함",
       tab: "all",
     },
     {
       label: "예약 완료",
       count: data?.filter((o) => o.status === "RESERVED").length,
-      hint: "예약이 완료된 주문",
+      hint: "입금이 확인된 주문",
       tab: "RESERVED",
     },
     {
@@ -81,6 +81,28 @@ export default function Home() {
             })}
           </T>
           <T variant="heading">주문·배송 현황</T>
+          {/* 할 일 띠(DEV-68): 입금 확인 · 환불 송금 · 계좌 등록 */}
+          {dash.data?.todo.hasAccount === false ? (
+            <Todo
+              label="입금 계좌를 등록해 주세요"
+              action="등록하기 ›"
+              onPress={() => router.push("/farm/account")}
+            />
+          ) : null}
+          {dash.data?.todo.awaitingDeposit ? (
+            <Todo
+              label={`입금 확인할 주문 ${dash.data.todo.awaitingDeposit}건`}
+              action="확인하기 ›"
+              onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
+            />
+          ) : null}
+          {dash.data?.todo.refundsToSettle ? (
+            <Todo
+              label={`환불 보낼 주문 ${dash.data.todo.refundsToSettle}건`}
+              action="보기 ›"
+              onPress={() => router.push("/ship?status=REFUNDED")}
+            />
+          ) : null}
           {list.error ? (
             <>
               <T color={tokens.color.error}>{list.error}</T>
@@ -177,5 +199,42 @@ export default function Home() {
         </View>
       </Scroll>
     </Screen>
+  );
+}
+
+/** 할 일 한 줄: 면색 띠, 글자만 강조색 */
+function Todo({
+  label,
+  action,
+  onPress,
+}: {
+  label: string;
+  action: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`${label}, ${action}`}
+      onPress={onPress}
+      style={{
+        minHeight: tokens.height.listRowProducer,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16,
+        backgroundColor: tokens.color.surface,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      <T variant="body" weight="semibold" style={{ flexShrink: 1 }}>
+        {label}
+      </T>
+      <T variant="body" weight="bold" color={tokens.color.accent}>
+        {action}
+      </T>
+    </Pressable>
   );
 }

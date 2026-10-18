@@ -29,11 +29,14 @@ function Row({
   value,
   onPress,
   last,
+  error,
 }: {
   label: string;
   value: string;
   onPress: () => void;
   last?: boolean;
+  /** 비어 있어 등록이 필요한 값(오류색 글자만) */
+  error?: boolean;
 }) {
   return (
     <Pressable
@@ -54,7 +57,12 @@ function Row({
       <T variant="sub" muted style={{ width: 72 }}>
         {label}
       </T>
-      <T variant="body" numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
+      <T
+        variant="body"
+        numberOfLines={1}
+        color={error ? tokens.color.error : undefined}
+        style={{ flex: 1, minWidth: 0 }}
+      >
         {value}
       </T>
       <Icon name="chevron" size={20} color={tokens.color.textMuted} />
@@ -222,9 +230,24 @@ export default function Farm() {
                   label="소개"
                   value={data.intro || "소개를 적어 주세요"}
                   onPress={() => router.push("/farm/edit/intro")}
+                />
+                {/* 입금 계좌(DEV-68): 소비자가 예약할 때 이 계좌로 직접 입금한다 */}
+                <Row
+                  label="입금 계좌"
+                  value={
+                    data.accountNumber
+                      ? `${data.bankName} ${data.accountNumber}`
+                      : "계좌를 등록해 주세요"
+                  }
+                  error={!data.accountNumber}
+                  onPress={() => router.push("/farm/account")}
                   last
                 />
               </View>
+              <T variant="caption" muted>
+                소비자가 예약할 때 입금 계좌로 직접 입금해요. 계좌가 없으면 상품
+                승인을 요청할 수 없어요.
+              </T>
               <Button
                 label="농가 상세 페이지 편집"
                 variant="outline"
