@@ -254,6 +254,42 @@ register({
       p.reservedCount += 1;
     o.status = "RESERVED";
     o.paidAt = nowIso();
+    o.depositIssue = null;
+    return producerOrder(ctx.db, o);
+  },
+
+  // 입금 미승인(DEV-68): 사유 필수. cancel이면 취소·물량 해제, 아니면 입금 대기로 두고 사유를 보여 준다
+  "POST /api/orders/:orderId/reject-deposit": (ctx) => {
+    const o = farmOrder(ctx);
+    const reason = String(ctx.body.reason ?? "").trim();
+    if (!reason) invalid({ reason: "사유를 적어 주세요" });
+    if (reason.length > 200) invalid({ reason: "사유는 200자까지예요" });
+    expireOverdue(ctx, (x) => x.orderId === o.orderId);
+    if (o.status !== "AWAITING_DEPOSIT")
+      conflict("INVALID_TRANSITION", "입금 대기 주문만 미승인할 수 있어요.", {
+        status: o.status,
+      });
+    if (ctx.body.cancel) {
+      cancelAwaiting(ctx, o, `입금 미승인 · ${reason}`);
+      o.depositIssue = null;
+    } else {
+      o.depositIssue = reason;
+      o.depositReportedAt = null;
+    }
+    return producerOrder(ctx.db, o);
+  },
+
+  // 환불 미승인(DEV-68): 아직 송금하지 못한 사유(필수). 송금 대기는 그대로
+  "POST /api/orders/:orderId/refund-issue": (ctx) => {
+    const o = farmOrder(ctx);
+    const reason = String(ctx.body.reason ?? "").trim();
+    if (!reason) invalid({ reason: "사유를 적어 주세요" });
+    if (reason.length > 200) invalid({ reason: "사유는 200자까지예요" });
+    if (o.status !== "REFUNDED")
+      conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.");
+    if (o.refundSettledAt)
+      conflict("INVALID_TRANSITION", "이미 환불을 마친 주문이에요.");
+    o.refundIssue = reason;
     return producerOrder(ctx.db, o);
   },
 
@@ -263,6 +299,7 @@ register({
     if (o.status !== "REFUNDED")
       conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.");
     o.refundSettledAt ??= nowIso();
+    o.refundIssue = null;
     return producerOrder(ctx.db, o);
   },
 

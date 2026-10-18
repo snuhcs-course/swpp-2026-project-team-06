@@ -173,6 +173,18 @@ export const orders = {
   /** 생산자 입금 확인 → 예약 완료 */
   confirmDeposit: (orderId: string) =>
     request<A.ProducerOrder>("POST", `/api/orders/${orderId}/confirm-deposit`),
+  /** 생산자 입금 미승인. 사유 필수, cancel이면 주문 취소(아니면 입금 대기 유지) */
+  rejectDeposit: (orderId: string, reason: string, cancel = false) =>
+    request<A.ProducerOrder>(
+      "POST",
+      `/api/orders/${orderId}/reject-deposit`,
+      { body: { reason, cancel } },
+    ),
+  /** 생산자 환불 미승인: 아직 송금하지 못한 사유(필수) */
+  refundIssue: (orderId: string, reason: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-issue`, {
+      body: { reason },
+    }),
   /** 생산자가 입금했던 계좌로 환불 송금을 마쳤다고 표시 */
   refundSettled: (orderId: string) =>
     request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-settled`),

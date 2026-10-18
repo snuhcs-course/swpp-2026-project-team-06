@@ -133,6 +133,8 @@ export type OrderRec = Recipient & {
   depositReportedAt: string | null;
   cancelReason: string | null;
   refundSettledAt: string | null;
+  depositIssue?: string | null;
+  refundIssue?: string | null;
 };
 export type EscalationRec = {
   escalationId: string;

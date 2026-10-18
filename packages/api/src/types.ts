@@ -484,6 +484,9 @@ export type Order = Recipient & {
   cancelReason: string | null;
   /** 환불된 주문: 농가가 입금했던 계좌로 송금을 마친 시각 */
   refundSettledAt: ISODate | null;
+  /** 농가 미승인 사유(DEV-68): 입금 대기로 남은 주문, 송금 보류 중인 환불 */
+  depositIssue: string | null;
+  refundIssue: string | null;
   actions: OrderAction[];
 };
 
@@ -549,6 +552,8 @@ export type ProducerOrder = Recipient & {
   depositDueAt: ISODate | null;
   depositReportedAt: ISODate | null;
   refundSettledAt: ISODate | null;
+  depositIssue: string | null;
+  refundIssue: string | null;
 };
 
 export type HarvestProduct = {

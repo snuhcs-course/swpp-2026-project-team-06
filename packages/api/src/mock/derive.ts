@@ -228,6 +228,12 @@ export function order(d: DB, o: OrderRec): Order {
     depositReportedAt: o.depositReportedAt,
     cancelReason: o.cancelReason,
     refundSettledAt: o.refundSettledAt,
+    depositIssue:
+      o.status === "AWAITING_DEPOSIT" ? (o.depositIssue ?? null) : null,
+    refundIssue:
+      o.status === "REFUNDED" && !o.refundSettledAt
+        ? (o.refundIssue ?? null)
+        : null,
     recipientName: o.recipientName,
     recipientPhone: o.recipientPhone,
     postalCode: o.postalCode,
@@ -261,6 +267,12 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
     depositDueAt: o.depositDueAt,
     depositReportedAt: o.depositReportedAt,
     refundSettledAt: o.refundSettledAt,
+    depositIssue:
+      o.status === "AWAITING_DEPOSIT" ? (o.depositIssue ?? null) : null,
+    refundIssue:
+      o.status === "REFUNDED" && !o.refundSettledAt
+        ? (o.refundIssue ?? null)
+        : null,
     recipientName: o.recipientName,
     recipientPhone: hide ? "" : o.recipientPhone,
     postalCode: hide ? "" : o.postalCode,
