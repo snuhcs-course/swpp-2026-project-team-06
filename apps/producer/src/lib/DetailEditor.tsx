@@ -262,6 +262,24 @@ function Editor({ productId }: { productId?: string }) {
       ),
     );
   }
+  if (record && "moduleDetail" in record && record.moduleDetail)
+    return (
+      <Screen>
+        <HeaderBar title="상품 상세 편집" onBack={back} />
+        <Scroll>
+          <View style={{ padding: 24, gap: 16 }}>
+            <T>
+              이 상품은 자료로 만든 섹션 상세를 사용하고 있어요. 저장한 자료
+              작업에서 내용을 수정한 뒤 다시 적용해 주세요.
+            </T>
+            <Button
+              label="자료 작업에서 상세 편집"
+              onPress={() => router.push("/products/source-analysis")}
+            />
+          </View>
+        </Scroll>
+      </Screen>
+    );
   return (
     <Screen>
       <HeaderBar

@@ -18,6 +18,7 @@ from app.farms.schemas import (
     Home,
     MyFarm,
 )
+from app.farms.share import farm_share_url
 
 router = APIRouter(prefix="/farms", tags=["farms"])
 home_router = APIRouter(tags=["farms"])
@@ -28,7 +29,7 @@ IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 def with_share_url(view: MyFarm | FarmDetail, request: Request):
     if view.share_url:
-        view.share_url = str(request.url_for("share_farm", farm_id=view.farm_id))
+        view.share_url = farm_share_url(request, view.farm_id)
     return view
 
 

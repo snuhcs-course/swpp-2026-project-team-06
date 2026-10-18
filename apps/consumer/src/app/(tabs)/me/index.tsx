@@ -23,7 +23,7 @@ import { Avatar, openExternal } from "../../../lib/views";
 declare const process: { env: { EXPO_PUBLIC_PRODUCER_URL?: string } };
 const PRODUCER_URL =
   process.env.EXPO_PUBLIC_PRODUCER_URL ||
-  "https://farmclub-producer.vercel.app";
+  "https://farm.farmclub.kr";
 
 export default function Me() {
   const router = useRouter();

@@ -2,11 +2,18 @@
 
 from functools import lru_cache
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # local에서만 쓰는 JWT 비밀값. local이 아니면 JWT_SECRET이 반드시 있어야 한다(이슈 #5).
 LOCAL_JWT_SECRET = "local-dev-only-secret-do-not-use-in-production"
+
+# USD per million tokens; shared by provider caps and pre-request reservations.
+SOURCE_OPENROUTER_PRICES = {
+    "google/gemini-3.1-flash-lite": (0.25, 1.5),
+    "google/gemini-3-flash-preview": (0.5, 3.0),
+    "openai/gpt-6.1-sol": (2.0, 10.0),
+}
 
 
 class Settings(BaseSettings):
@@ -19,6 +26,15 @@ class Settings(BaseSettings):
     # 로컬 기본값은 docker-compose.yml의 PostgreSQL과 같다.
     database_url: str = "postgresql+psycopg://farmclub:farmclub@localhost:5432/farmclub"
 
+    @field_validator("database_url")
+    @classmethod
+    def _psycopg_driver(cls, value: str) -> str:
+        """Railway 등은 `postgresql://`·`postgres://`를 준다. 드라이버를 psycopg 3으로 고정한다."""
+        for scheme in ("postgresql://", "postgres://"):
+            if value.startswith(scheme):
+                return "postgresql+psycopg://" + value[len(scheme) :]
+        return value
+
     # 인증 (ADR 0009 Mock 로그인, ADR 0003 카카오는 I2)
     jwt_secret: str = ""
     jwt_ttl_minutes: int = 60 * 24 * 7
@@ -30,6 +46,9 @@ class Settings(BaseSettings):
     # 앱 주소: CORS, 공유 링크 이동(ADR 0006)
     consumer_app_url: str = "http://localhost:8081"
     producer_app_url: str = "http://localhost:8082"
+    # 공유 링크 /s/farms/<id>의 앞부분(ADR 0012). 운영은 https://farmclub.kr
+    # (소비자 앱이 /s/를 서버로 프록시). 비우면 요청이 들어온 서버 주소를 쓴다.
+    share_base_url: str = ""
 
     # AI (ADR 0004). 키가 없으면 AI 초안은 실패로 처리한다(AC-03-3).
     anthropic_api_key: str = ""
@@ -39,7 +58,14 @@ class Settings(BaseSettings):
 
     source_analysis_enabled: bool = False
     source_analysis_provider: str = "mock"
-    source_analysis_model: str = "gpt-6.1-sol"
+    source_analysis_model: str = "google/gemini-3-flash-preview"
+    openrouter_api_key: str = ""
+    source_visual_model: str = ""
+    source_openai_fallback_model: str = ""
+    source_budget_usd: float = 5.0
+    source_evaluation_budget_usd: float = 1.0
+    source_evaluation: bool = False
+    source_max_output_tokens: int = 4096
     openai_api_key: str = ""
     source_storage: str = "local"
     source_storage_dir: str = ".artifacts/private-sources"
@@ -55,8 +81,20 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _source_settings(self) -> "Settings":
         if self.source_analysis_enabled:
-            if self.source_analysis_provider not in ("mock", "openai"):
+            if self.source_analysis_provider not in ("mock", "openai", "openrouter"):
                 raise ValueError("Invalid source analysis provider")
+            if not (
+                0 < self.source_budget_usd <= 100
+                and 0 < self.source_evaluation_budget_usd <= self.source_budget_usd
+            ):
+                raise ValueError("Invalid source budget limits")
+            if not 256 <= self.source_max_output_tokens <= 8000:
+                raise ValueError("Invalid source output token limit")
+            if self.source_analysis_provider == "openrouter" and (
+                not self.openrouter_api_key
+                or self.source_analysis_model not in SOURCE_OPENROUTER_PRICES
+            ):
+                raise ValueError("OpenRouter key and budget-qualified model are required")
             if self.source_analysis_provider == "openai" and not self.openai_api_key:
                 raise ValueError("OPENAI_API_KEY is required for source analysis")
             if self.app_env != "local" and self.source_analysis_provider == "mock":

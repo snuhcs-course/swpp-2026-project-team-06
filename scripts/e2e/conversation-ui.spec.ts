@@ -4,6 +4,8 @@ import {
   producerUrl,
   loginConsumer,
   loginProducer,
+  apiLogin,
+  apiUrl,
 } from "./helpers";
 
 for (const width of [360, 390, 430]) {
@@ -97,6 +99,42 @@ test("AC-12-12: consumer sends in the same room and folding preserves draft", as
   await expect(input).toHaveValue("");
   await expect(page).toHaveURL(/\/farms\/f-kang$/);
   await page.screenshot({ path: info.outputPath("consumer-room.png") });
+});
+
+test("FEAT-13 AC-13-5: consumer reports an AI answer and both sides see the server marker", async ({ page, request }) => {
+  // API 키 없이도 전달되지 않는 AI 답변을 받도록 소량 주문 원칙을 저장하고 대화를 AUTO로 돌린다.
+  const producerToken = await apiLogin(request, "u-kang", "producer");
+  const auth = { Authorization: `Bearer ${producerToken}` };
+  const settings = await (await request.get(`${apiUrl}/api/farms/me/ai-settings`, { headers: auth })).json();
+  const savedSettings = await request.put(`${apiUrl}/api/farms/me/ai-settings`, {
+    headers: { ...auth, "Idempotency-Key": `ac13-5-settings-${Date.now()}` },
+    data: { ...settings, smallOrderPolicy: "1kg부터 주문할 수 있어요." },
+  });
+  expect(savedSettings.ok()).toBeTruthy();
+  const chat = await (await request.get(`${apiUrl}/api/messaging/producer/chats/u-seojun/messages`, { headers: auth })).json();
+  const auto = await request.put(`${apiUrl}/api/messaging/producer/chats/u-seojun/ai-mode`, {
+    headers: { ...auth, "Idempotency-Key": `ac13-5-mode-${Date.now()}` },
+    data: { mode: "AUTO", version: chat.thread.version },
+  });
+  expect(auto.ok()).toBeTruthy();
+
+  await loginConsumer(page, "이서준");
+  await page.goto(`${consumerUrl}/chats/f-kang?start=1`);
+  const prompt = "소량 주문 되나요?";
+  await page.getByRole("textbox", { name: "메시지" }).fill(prompt);
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  await expect(page.getByText(prompt, { exact: true })).toBeVisible();
+  const reportButton = page.getByRole("button", { name: "틀렸어요", exact: true });
+  await expect(reportButton).toBeVisible({ timeout: 15_000 });
+  await reportButton.click();
+  await expect(page.getByRole("button", { name: "신고했어요", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "신고했어요", exact: true })).toBeVisible();
+
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/chats/u-seojun`);
+  await expect(page.getByText("소비자가 신고한 답변", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/소비자가 AI 답변을 신고했어요/)).toBeVisible();
 });
 
 test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collapsed room", async ({

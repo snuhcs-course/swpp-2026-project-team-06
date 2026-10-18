@@ -53,14 +53,47 @@ MODULE_FIELDS = {
     "farmPhotos": ["farmPhotos"],
     "farmUpdates": ["farmUpdates"],
 }
+SECTION_MODULES = {
+    "intro": {"hero", "summary"},
+    "composition": {"composition", "pieceCount"},
+    "taste": {"taste", "specification", "sizePhoto", "crossSectionPhoto"},
+    "production": {"qualityEvidence", "productionProcess"},
+    "packing": {"packagePhoto", "delivery"},
+    "storage": {"storage"},
+    "faq": {"appearanceFaq", "support"},
+    "farm": {"farmStory", "farmPhotos"},
+    "updates": {"farmUpdates"},
+}
+SectionId = Literal[
+    "intro", "composition", "taste", "production", "packing", "storage", "faq", "farm", "updates"
+]
+
+
+def hidden_modules(section_ids):
+    return {module for section in section_ids for module in SECTION_MODULES[section]}
+
+
 # IDs refer to the pre-generated, labeled illustrations; no runtime generation.
 ILLUSTRATIONS = {"hand-citrus-small", "hand-citrus-medium", "hand-citrus-large"}
+
+
+class BasicInfo(Input):
+    variety: str = Field(default="", max_length=100)
+    size: str = Field(default="", max_length=200)
+    expected_brix: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def trimmed(self):
+        self.variety = self.variety.strip()
+        self.size = self.size.strip()
+        return self
 
 
 class Target(Input):
     id: Id | None = None
     name: Short
     product_id: Id | None = None
+    basic_info: BasicInfo | None = None
 
 
 class BatchCreate(Input):
@@ -69,6 +102,20 @@ class BatchCreate(Input):
 
 class Version(Input):
     version: int = Field(ge=1)
+
+
+class TargetBasicInfo(Input):
+    target_id: Id
+    basic_info: BasicInfo
+
+
+class RepresentativePatch(Version):
+    target_ids: list[Id] = Field(min_length=1, max_length=10)
+    asset_id: Id
+
+
+class BasicInfoPatch(Version):
+    targets: list[TargetBasicInfo] = Field(min_length=1, max_length=10)
 
 
 class BatchPatch(Version, BatchCreate):
@@ -80,6 +127,13 @@ class Assignment(Input):
     target_ids: list[Id] = Field(default_factory=list, max_length=10)
     common: bool = False
     original_photo: bool = False
+
+
+class SourceEdit(Input):
+    description_version: int | None = Field(default=None, ge=1)
+    source_version: int = Field(ge=1)
+    text: str | None = Field(default=None, max_length=30000)
+    description: str | None = Field(default=None, max_length=300)
 
 
 class Region(Input):
@@ -104,6 +158,7 @@ class Privacy(Input):
 
 class RunStart(Input):
     batch_version: int = Field(ge=1)
+    visual_pages: dict[str, list[int]] = Field(default_factory=dict, max_length=30)
 
 
 class Retry(Input):
@@ -130,6 +185,7 @@ class ReviewPatch(Input):
 class DraftTarget(Input):
     target_id: Id
     enabled_module_ids: list[str] = Field(max_length=18)
+    hidden_section_ids: list[SectionId] = Field(default_factory=list, max_length=9)
 
 
 class DraftSave(Input):
@@ -156,3 +212,9 @@ class Extracted(Input):
 class Extraction(Input):
     candidates: list[Extracted] = Field(max_length=100)
     photo_requests: list[str] = Field(max_length=30)
+
+
+class ApplyDraft(Input):
+    product_id: Id
+    product_version: int = Field(ge=1)
+    draft_version: int = Field(ge=1)

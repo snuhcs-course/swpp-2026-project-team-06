@@ -270,6 +270,16 @@ export const messaging = {
     request<A.ChatPage>("GET", `/api/messaging/chats/${farmId}/messages`, {
       query: q,
     }),
+  reportAiAnswer: (
+    farmId: string,
+    messageId: string,
+    idempotencyKey: string = newIdempotencyKey(),
+  ) =>
+    request<A.Escalation>(
+      "POST",
+      `/api/messaging/chats/${farmId}/messages/${messageId}/report`,
+      { idempotencyKey },
+    ),
   send: (
     farmId: string,
     text: string,

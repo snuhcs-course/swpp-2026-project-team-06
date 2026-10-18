@@ -170,7 +170,7 @@ export default function Chat() {
                     : ids.filter((id) => id !== e.escalationId),
                 )
               }
-              label={`이 답변으로 해결: ${e.question}`}
+              label={`${e.reason === "WRONG_ANSWER" ? "소비자가 AI 답변을 신고했어요 · " : ""}이 답변으로 해결: ${e.question}`}
             />
           ))}
         {page?.inquiries.map((i) => (

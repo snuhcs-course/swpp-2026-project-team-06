@@ -101,6 +101,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 - Phone numbers and other contact details are masked; inquiry photos are visible only to the people in that conversation (M-16, M-21).
 - AI answers automatically only when the farm has turned AI on for that chat. Once the producer replies, the chat is handled by the producer, and AI answers again only if the producer turns it back on (M-05, M-09, M-20).
 - AI answers are labeled, show what they are based on, keep measured and expected sweetness apart, and hand off anything uncertain or sensitive (M-06-08, M-15).
+- The consumer can report any non-forwarded AI answer in their conversation. A report links that answer to its preceding consumer question, opens a producer question, and stays visible from server state (M-17).
 - Shipping details and private inquiry photos are never sent to the model (M-18, M-21).
 - A generated draft is never published by itself. The producer reviews and saves it, and AI never sets prices or promises compensation (M-10-13).
 
@@ -418,6 +419,11 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **THEN** the AI does not answer
 - **AND** the chat goes to the producer's 1:1 chat list
 
+**AC-13-5 (I2): Report a wrong answer**
+- **GIVEN** the AI answered "ships in mid-January"
+- **WHEN** the consumer taps "This is wrong"
+- **THEN** the question appears in the farm's 1:1 chat list (server needsReply state) (SCR-28), marked as a wrong answer
+
 **AC-13-8: Taste, quality and damage**
 - **GIVEN** a measured value is on record
 - **WHEN** a consumer asks about subjective taste, quality or damage
@@ -660,7 +666,7 @@ Key producer screens:
 | **SCR-29 Shipping** | Read all/reserved/preparing/shipped orders; ship existing preparing orders | Select preparing orders, edit invoice, confirm shipment | Back to shipping list | No Start harvest controls or calls; no automatic RESERVED → PREPARING; stale states refresh after conflict |
 | **SCR-33 Settings** | Farm summary, profile and share link, AI settings, log out | Tap an item | SCR-30, SCR-31, SCR-19 | Retry if loading fails |
 | **SCR-30 Farm profile and link** | Edit name, region and introduction; copy or share the farm link | Copy, Share, edit one field, change photo | Field → single-field edit screen | Name and region cannot be empty. The link is hidden until the farm is approved |
-| **SCR-31 AI settings** | AI on/off, answering guidelines, FAQs, extra handoff topics, preview | Edit, Save, Preview | Back to SCR-33 | Unsaved changes are marked and confirmed before leaving. Field errors and save conflicts keep the input |
+| **SCR-31 AI settings** | AI on/off, answering guidelines, FAQs, extra handoff topics, preview | Edit, Save, Preview | Back to SCR-33 | Unsaved changes are marked and confirmed before leaving. On `STALE_VERSION`, fetch the latest version while keeping producer edits so they can save again |
 
 ### 7.5 Failure screens
 
@@ -700,7 +706,8 @@ Not done yet in I1:
 - Server-generated link previews for KakaoTalk (AC-19-3).
 - Operator tools other than capacity approval, automatic purchase confirmation after eight days, and scheduled refund jobs.
 - Production media storage and monitoring.
-- Moved to I2: reporting a wrong AI answer (AC-13-5) and natural-language shipping (AC-17-1). AC-01-2 was retired when consumer and producer accounts were separated.
+- M-17: Each non-forwarded AI answer can be reported by its conversation's consumer. The report is kept in the producer question flow, identifies the exact answer and preceding consumer question, and remains visible from server state after reload. Duplicate reports reuse the open report.
+- Moved to I2: reporting a wrong AI answer (AC-13-5) and natural-language shipping (AC-17-1). DEV-39 implements AC-13-5; AC-01-2 was retired when consumer and producer accounts were separated.
 
 Simulated payments, test-account login and the AI fallback are for the demo; they are not a test of real payment providers or model quality.
 

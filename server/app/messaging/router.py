@@ -144,6 +144,21 @@ def chat_messages(db: Db, user: Consumer, farm_id: str, limit: Limit, cursor: st
     return service.consumer_page(db, user, farm_id, cursor, limit)
 
 
+@router.post("/chats/{farm_id}/messages/{message_id}/report", response_model=EscalationView)
+def report_ai_answer(
+    db: Db,
+    user: Consumer,
+    farm_id: str,
+    message_id: str,
+    key: IdempotencyKey = None,
+):
+    # The unique reported_message_id constraint is the idempotency guarantee;
+    # the optional key is accepted consistently with other messaging POSTs.
+    result = service.report_ai_answer(db, user, farm_id, message_id)
+    db.commit()
+    return result
+
+
 @router.post("/chats/{farm_id}/messages", response_model=SendResult)
 def send_chat(db: Db, user: Consumer, farm_id: str, body: SendInput, key: IdempotencyKey = None):
     """질문 → AI 안내 또는 '농가에 전달'. HUMAN·AI OFF면 reply=null."""

@@ -105,10 +105,13 @@ class Escalation(Base):
     """AI가 답하지 않고 농가에 넘긴 질문(전달, M-06·M-07)."""
 
     __tablename__ = "escalations"
+    __table_args__ = (UniqueConstraint("reported_message_id"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), index=True)
     thread_message_id: Mapped[str | None] = mapped_column(ForeignKey("thread_messages.id"))
+    # AI answer reported by the consumer; one escalation per reported answer.
+    reported_message_id: Mapped[str | None] = mapped_column(ForeignKey("thread_messages.id"))
     context: Mapped[str | None] = mapped_column(String(200))
     question: Mapped[str] = mapped_column(Text)
     reason: Mapped[str] = mapped_column(String(200))

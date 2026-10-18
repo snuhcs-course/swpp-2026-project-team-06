@@ -214,12 +214,12 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 ### SCR-16 농가 1:1 채팅 `/chats/:farmId`
 
-- **관련**: FEAT-12(AC-12-1·2·4·5), FEAT-13(AC-13-1~4, AC-13-5는 I2) · 규칙: M-02, M-04~M-09, M-15, M-16, M-18, N-04 · 우선순위: Should
+- **관련**: FEAT-12(AC-12-1·2·4·5), FEAT-13(AC-13-1~5) · 규칙: M-02, M-04~M-09, M-15~M-18, N-04 · 우선순위: Should
 - **목적**: 농가에 질문한다. 농가 AI ON·방 AUTO에서만 AI가 답하며 HUMAN/OFF이면 직접 답변 대기. 결제 주문 문의는 팔로우 예외를 적용한다. 활성 화면 2초 갱신·읽음 처리는 계약 4장을 따른다.
 - **화면 요소·데이터**: 농가 헤더(→ SCR-03), 시간순 타임라인(내 질문, AI 안내 배지가 붙은 답과 근거 요약, 농가 답, ‘농가에 전달했어요’ 상태), 입력창(글, 사진 최대 3장), 보내기. 처음이면 ‘팔로우하고 대화를 시작해요’ 한 줄.
 - **입력**: `text`(1,000자 이하), `attachmentIds`(최대 3개), 주문 문맥 `orderId`. 본문·사진 중 하나 필수. 업로드는 비공개 첨부 API.
-- **출력**: 들어오면 `GET /api/messaging/chats/{farmId}/messages?cursor=`(대화는 농가·소비자당 1개라 `farmId`로 찾는다). 보내기 `POST /api/messaging/chats/{farmId}/messages` → 저장된 질문(연락처 가림)과 AI 안내 또는 전달 상태(`handoffStatus`). 직접 응대/AI OFF에서는 `reply=null`. 자동 팔로우는 여기서 하지 않고 SCR-03·04·18의 채팅하기·질문하기가 `POST /api/messaging/chats`로 한다.
-- **버튼 동작**: 보내기 → 1회, 처리 중 잠금. AI 안내는 등록된 정보로만 답하고, 근거가 없거나 전달 주제면 ‘농가에 전달했어요’(M-06·M-07). 위로 → 이전 cursor. ‘틀렸어요’ 버튼은 I1에 없다(M-17, I2).
+- **출력**: 들어오면 `GET /api/messaging/chats/{farmId}/messages?cursor=`(대화는 농가·소비자당 1개라 `farmId`로 찾는다). AI 메시지에는 서버가 신고 여부 `reported`를 포함한다. 보내기 `POST /api/messaging/chats/{farmId}/messages` → 저장된 질문(연락처 가림)과 AI 안내 또는 전달 상태(`handoffStatus`). 직접 응대/AI OFF에서는 `reply=null`. 자동 팔로우는 여기서 하지 않고 SCR-03·04·18의 채팅하기·질문하기가 `POST /api/messaging/chats`로 한다.
+- **버튼 동작**: 보내기 → 1회, 처리 중 잠금. AI 안내는 등록된 정보로만 답하고, 근거가 없거나 전달 주제면 ‘농가에 전달했어요’(M-06·M-07). 소비자는 전달되지 않은 AI 답변마다 ‘틀렸어요’를 눌러 신고할 수 있다. `POST /api/messaging/chats/{farmId}/messages/{messageId}/report`는 기존 질문함 흐름으로 오답 Escalation을 만들고, 중복 신고는 기존 신고를 반환한다. 위로 → 이전 cursor.
 - **빈 상태·오류**: 아직 질문이 없으면 ‘궁금한 점을 물어보세요’. 본인 결제 주문 문의 예외 없이 팔로우하지 않은 농가의 채팅 주소로 바로 들어오면(403) 그 농가 SCR-03으로 보낸다(IA 5장 예외 경로). 보내기 실패 → 입력창에 글·사진 유지, 다시 보내기. AI 실패·시간 초과 → 전달로 처리(N-04). 불러오기 실패 → 이미 보인 것을 유지하고 다시 시도.
 
 ### SCR-17 내 정보 `/me`
@@ -346,7 +346,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **상태**: 접기/전송은 입력·접힘 선택을 유지. 빈 대화·로딩·실패 재시도, 권한/비활성 polling 중단은 유지.
 
 #### SCR-28 하위: 1:1 채팅 `/chats/:consumerId`
-- 대화 내부 AI 표시/근거·HUMAN 전환·AI 다시 켜기·주문 문의 해결/재열기는 기존 계약 유지. 읽는 것만으로 해결하지 않는다. 실패 시 입력 유지.
+- 대화 내부 AI 표시/근거·HUMAN 전환·AI 다시 켜기·주문 문의 해결/재열기는 기존 계약 유지. `WRONG_ANSWER` escalation은 코드 대신 “소비자가 AI 답변을 신고했어요” 한국어 레이블로 표시한다. 읽는 것만으로 해결하지 않는다. 실패 시 입력 유지.
 
 ### SCR-29 출하 처리 `/ship`
 
@@ -379,7 +379,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면**: AI 사용 스위치, 소량 주문·예약 배송 응대 원칙, FAQ, 추가 전달 주제, 고정 전달 주제 안내, 저장, 질문 미리보기.
 - **입출력**: `/api/farms/me/ai-settings` GET/PUT, `/preview` POST. 필드 제한·버전·우선순위는 계약 5장.
 - **동작**: 저장 전 변경 표시, 나가기 확인. 미리보기는 답변/전달 사유·근거를 보여주고 임시 설정임을 표시한다.
-- **오류**: 필드 오류·409·네트워크 실패 시 입력 유지. OFF여도 HUMAN 상태와 기존 대화는 보존한다.
+- **오류**: 필드 오류·네트워크 실패 시 입력 유지. 저장에서 `409 STALE_VERSION`이면 최신 버전을 불러오면서 사용자가 편집한 필드는 유지하고, 그 최신 버전으로 다시 저장할 수 있다. OFF여도 HUMAN 상태와 기존 대화는 보존한다.
 
 ### SCR-32 주문 문제 문의 `/orders/:orderId/inquiry`
 
@@ -500,8 +500,9 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /api/messaging/news` | 생산자 | SCR-27 | 본문, 첨부, `visibility`(`PUBLIC`·`FOLLOWERS`) | `broadcastId`, 작성 시각, 받을 팔로워 수 | FEAT-12 | Should |
 | `GET /api/messaging/chats` | 소비자 | SCR-15 | `cursor`, `limit` | 팔로우 중이거나 본인 결제 주문 문의가 있는 농가와의 1:1 목록 | FEAT-12 | Should |
 | `POST /api/messaging/chats` | 소비자 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Should |
-| `GET /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`) | FEAT-12, 13 | Should |
+| `GET /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`). AI 답변 행에는 서버가 계산한 신고 여부 `reported` | FEAT-12, 13 | Should |
 | `POST /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `text`, `attachmentIds`, `orderId?` | `{message,reply}`; 직접 응대/OFF는 reply=null, 계약 4장 | FEAT-12, 13 | Should |
+| `POST /api/messaging/chats/{farmId}/messages/{messageId}/report` | 해당 대화의 소비자 | SCR-16, 28 | 선택 `Idempotency-Key` | 신고한 AI 답변을 가리키는 열린 `WRONG_ANSWER` 질문. 같은 답변을 다시 신고하면 기존 결과를 200으로 돌려준다 | FEAT-13 AC-13-5, M-17 | Should |
 | `GET /api/messaging/questions` | 생산자 | SCR-28(하위 화면 포함) | `status`(`OPEN`·`ANSWERED`), `cursor`, `limit` | 전달된 질문(이름 앞 글자, 관련 예약, 넘긴 이유)과 그 소비자 채팅(`thread`) | FEAT-13 | Should |
 | `POST /api/messaging/questions/{escalationId}/answer` | 생산자 | SCR-28 하위 | `text` | 답(그 소비자 채팅에만), 질문 상태 `ANSWERED` | FEAT-13 | Should |
 
@@ -534,7 +535,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | GET /api/messaging/rooms | 소비자/승인 생산자, 각각 허용 방 | SCR-18·28 · Should |
 | GET/POST /api/messaging/rooms/{farmId}/messages | 팔로워 또는 해당 생산자 | SCR-18·28 · Should |
 | GET/POST /api/messaging/producer/chats | 해당 생산자 | SCR-28 · Should |
-| GET/POST /api/messaging/producer/chats/{consumerId}/messages | 해당 생산자 | SCR-28 · Should |
+| GET/POST /api/messaging/producer/chats/{consumerId}/messages | 해당 생산자. GET의 AI 답변 행에는 서버가 계산한 신고 여부 `reported` | SCR-28 · Should |
 | PUT /api/messaging/producer/chats/{consumerId}/ai-mode | 해당 생산자 | SCR-28 · Should |
 | PUT /api/messaging/producer/chats/{consumerId}/read | 해당 생산자 | SCR-28 · Should |
 | PUT /api/messaging/chats/{farmId}/read | 본인 소비자 | SCR-16 · Should |
