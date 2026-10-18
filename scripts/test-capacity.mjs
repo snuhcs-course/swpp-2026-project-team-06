@@ -484,4 +484,9 @@ test("FEAT-09 E5 / DEV-72: farm without deposit account rejects order creation a
   assert.equal(r.status, 409, JSON.stringify(r));
   assert.equal(r.body.details.reason, "NO_FARM_ACCOUNT");
   assert.equal(Object.keys(db().orders).length, before);
+  // 승인되지 않은 농가는 계좌보다 승인 검사가 먼저다(서버와 같은 404)
+  db().farms["f-kang"].status = "SUSPENDED";
+  const hidden = await api("POST", "/api/orders", c, input());
+  assert.equal(hidden.status, 404, JSON.stringify(hidden));
+  assert.equal(Object.keys(db().orders).length, before);
 });

@@ -150,8 +150,10 @@ register({
       if (!c.deliveryWindow || !c.delayRefund || !c.shortage || !c.cancelPolicy)
         fields.consents = "결제 전 확인 4개에 모두 동의해 주세요";
       if (Object.keys(fields).length) invalid(fields);
-      // 계좌 없는 농가는 결제 전 주문을 남기지 않게 먼저 막는다(FEAT-09 E5, DEV-72)
-      if (!hasDepositAccount(ctx.db.farms[p.farmId]))
+      // 계좌 없는 농가는 결제 전 주문을 남기지 않게 먼저 막는다(FEAT-09 E5, DEV-72).
+      // 승인 농가만 본다. 그 밖은 서버처럼 assertSale의 404
+      const farm = ctx.db.farms[p.farmId];
+      if (farm?.status === "APPROVED" && !hasDepositAccount(farm))
         conflict("NO_FARM_ACCOUNT", "농가가 아직 입금 계좌를 등록하지 않았어요.", {
           productId: p.productId,
         });

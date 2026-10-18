@@ -1188,6 +1188,7 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 ### 결정 사항
 - 10/18 `POST /api/orders`도 `request_deposit`과 같은 기준(`farms.has_deposit_account`)으로 계좌를 먼저 검사해, 없으면 409 `NO_FARM_ACCOUNT`이고 주문을 만들지 않는다. deposit 쪽 검사는 그대로 둔다(주문 생성 뒤 계좌가 바뀌는 경우 대비). 결제 전 주문은 물량을 잡지 않으므로(`holds_stock`) 기존 고아 주문은 물량 문제는 없다.
 - 10/18 주문서 409 분기(하단 바 요약에도 사유를 보인다 — Notice가 스크롤 맨 위라 동의 영역에서 안 보여서): `STAGE_CHANGED`(가격·옵션·기간 변경)만 최신 가격으로 다시 그리고 「바뀐 금액으로 예약하기」. 그 밖의 사유(`NO_FARM_ACCOUNT`·`SALES_PAUSED`·`SOLD_OUT`·`TOTAL_LIMIT_REACHED`·`QUANTITY_LIMIT` 등)는 서버 메시지를 안내로 보여 주고 버튼 문구는 「예약하기」 그대로. `NO_FARM_ACCOUNT`·`SALES_PAUSED`는 다시 눌러도 같은 결과라 버튼을 막는다.
+- 10/18 AI 1차 리뷰 반영: Mock 주문 생성의 계좌 검사는 승인 농가일 때만(정지·반려 농가는 서버처럼 404). must 없음, nit 3건은 PR 코멘트에 이유와 함께 유지.
 
 ### 작업
 - [x] 서버: `create_order` 계좌 검사 + pytest(AC-09 E5)
@@ -1205,3 +1206,4 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 ### 기록
 - 10/18 이슈·브랜치·섹션 생성. 운영 백필은 운영 작업(쓰기 전 확인), o-775b6a0ea2는 수동 정리됨.
 - 10/18 검증: Ruff 통과, pytest 364개 통과, `npm run typecheck` 통과(4 워크스페이스), `npm run test:mock` 16개 통과, Playwright `checkout-and-fulfillment.spec.ts` 2개 통과(별도 DB `farmclub_dev72`, 포트 8100·8181·8182 — 로컬 8000·8081이 다른 세션에서 사용 중). e2e의 생산자 승인 셀렉터는 이미 `/입금 승인$/`라 수정 불필요. 계좌 비운 f-kang으로 주문서를 Playwright로 수동 확인: `POST /api/orders` 409 `NO_FARM_ACCOUNT`, 주문 수 그대로, 안내·하단 바 사유, 예약하기 비활성.
+- 10/18 AI 1차 리뷰(PR 코멘트) 후 should 반영, `npm run test:mock` 16개·`npm run typecheck` 다시 통과.
