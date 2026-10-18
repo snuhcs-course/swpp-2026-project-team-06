@@ -177,3 +177,53 @@ def test_public_pages_ignore_stale_token(client):
 
     assert response.status_code == 200
     assert response.json()["isFollowing"] is False
+
+
+def test_DEV_68_producer_registers_deposit_account(client, login):
+    headers = login("u-kang")
+    mine = client.get("/api/farms/me", headers=headers).json()
+    assert mine["bankName"] == "제주은행" and mine["accountHolder"] == "강영수"
+
+    partial = client.patch("/api/farms/me", headers=headers, json={"bankName": "농협"})
+    assert partial.status_code == 400
+    bad_number = client.patch(
+        "/api/farms/me",
+        headers=headers,
+        json={"bankName": "농협", "accountNumber": "12-ab", "accountHolder": "강영수"},
+    )
+    assert bad_number.status_code == 400
+
+    saved = client.patch(
+        "/api/farms/me",
+        headers=headers,
+        json={"bankName": "농협", "accountNumber": "302-0123-4567-89", "accountHolder": "강영수"},
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["accountNumber"] == "302-0123-4567-89"
+    # 공개 농가 페이지에는 계좌가 없다
+    public = client.get("/api/farms/f-kang").json()
+    assert "accountNumber" not in public and "bankName" not in public
+
+
+def test_DEV_68_initial_capacity_request_needs_account(client, login):
+    from sqlalchemy import update
+
+    from app.core.db import get_sessionmaker
+    from app.farms.models import Farm
+
+    headers = login("u-kang")
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(update(Farm).where(Farm.id == "f-kang").values(account_number=None))
+    mine = client.get("/api/products/mine", headers=headers).json()
+    items = mine["items"] if isinstance(mine, dict) else mine
+    draft = next(
+        p for p in items if p["status"] in ("DRAFT", "REJECTED") and p["approvedSupplyGrams"] == 0
+    )
+    product = client.get(f"/api/products/mine/{draft['productId']}", headers=headers).json()
+    response = client.post(
+        f"/api/products/{draft['productId']}/capacity-requests",
+        headers=headers | {"Idempotency-Key": "dev68-no-account"},
+        json={"requestedTotalGrams": 100_000, "version": product["version"]},
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["details"]["reason"] == "NO_FARM_ACCOUNT"
