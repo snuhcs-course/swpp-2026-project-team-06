@@ -41,7 +41,7 @@
 | 2026-10-07 | 출하는 주문별 상태 변경 + 송장 번호(`trackingNumber`), 자연어·AI는 I2 | P22 결정 | AC-17-2, AC-17-5 |
 | 2026-10-07 | `Order.carrier`(택배사 코드) 추가, 여러 건 출하는 주문별 ship 반복, 대시보드에 상품별 `reservedCount`·주문 수, 주문 API는 소비자 계정만 | SWPP-81(screens.md 1.1 결정 32) | AC-17-2 |
 | 2026-10-08 | 결제는 `catalog.lock_allocation`(FOR UPDATE)으로 잠근 뒤 차감, 주문 생성은 물량을 잡지 않는다. 409(STAGE_CHANGED·SOLD_OUT)도 멱등 결과로 저장 | FQ-03, contracts 1장 | AC-09-1, AC-09-3 |
-| 2026-10-08 | 주문 번호는 `FC-MMDD-NNNN`(`order_no_seq`). 도서산간은 우편번호·주소 예시 규칙, 생산자 지역 설정은 후속 | Mock과 같음, R-20 | AC-08-4 |
+| 2026-10-08 | 주문 번호는 `FC-MMDD-NNNN`(`order_no_seq`). (2026-10-18 DEV-68: `MMDD-NNNN`, NNNN은 무작위 4자리·충돌 시 재시도. 입금자명으로 쓰며 연번이면 거래 건수가 드러나서 바꿈. 시퀀스는 미사용) 도서산간은 우편번호·주소 예시 규칙, 생산자 지역 설정은 후속 | Mock과 같음, R-20 | AC-08-4 |
 | 2026-10-08 | 현황의 `openQuestions`는 채팅 구현 전까지 0, 대표 상품은 지금 단계가 가장 일찍 끝나는 판매 중 상품 | FEAT-14 | AC-14-1 |
 | 2026-10-08 | 주문 문의 API(`POST·GET /api/orders/{id}/inquiries`)는 orders 라우터, 로직은 messaging 서비스. 결제한 본인 주문·그 농가 생산자만 | contracts-1.2 6장 | AC-33-1 |
 | 2026-10-16 | 모든 환불 경로는 `_refund`에서 `Refund` 이력과 `Payment.status`를 함께 기록한다. 부분 환불은 주문 상태·환불 필드·물량을 바꾸지 않고 결제액(배송비 포함)의 잔액만 줄인다 | DEV-35 정책 결정 | AC-10-6, AC-11-3 |

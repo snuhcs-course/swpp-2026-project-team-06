@@ -977,7 +977,7 @@ export function seed(): DB {
   const list: OrderRec[] = [
     mk({
       orderId: "o-42",
-      orderNo: "FC-1007-0042",
+      orderNo: "1007-0042",
       consumerId: "u-minji",
       buyerName: "김민지",
       productId: "p-house",
@@ -990,7 +990,7 @@ export function seed(): DB {
     }),
     mk({
       orderId: "o-11",
-      orderNo: "FC-0921-0011",
+      orderNo: "0921-0011",
       consumerId: "u-minji",
       buyerName: "김민지",
       productId: "p-noji",
@@ -1003,7 +1003,7 @@ export function seed(): DB {
     }),
     mk({
       orderId: "o-07",
-      orderNo: "FC-0918-0007",
+      orderNo: "0918-0007",
       consumerId: "u-minji",
       buyerName: "김민지",
       productId: "p-josaeng",
@@ -1019,7 +1019,7 @@ export function seed(): DB {
     }),
     mk({
       orderId: "o-03",
-      orderNo: "FC-0915-0003",
+      orderNo: "0915-0003",
       consumerId: "u-minji",
       buyerName: "김민지",
       productId: "p-redhyang",
@@ -1033,7 +1033,7 @@ export function seed(): DB {
     }),
     mk({
       orderId: "o-40",
-      orderNo: "FC-1006-0040",
+      orderNo: "1006-0040",
       consumerId: "u-buyer-choi",
       buyerName: "최유진",
       productId: "p-house",
@@ -1049,7 +1049,7 @@ export function seed(): DB {
     }),
     mk({
       orderId: "o-38",
-      orderNo: "FC-1006-0038",
+      orderNo: "1006-0038",
       consumerId: "u-seojun",
       buyerName: "이서준",
       productId: "p-house",
@@ -1065,7 +1065,7 @@ export function seed(): DB {
     }),
     mk({
       orderId: "o-35",
-      orderNo: "FC-1006-0035",
+      orderNo: "1006-0035",
       consumerId: "u-buyer-park",
       buyerName: "박지윤",
       productId: "p-house",
@@ -1198,7 +1198,7 @@ export function seed(): DB {
     list.push(
       mk({
         orderId: o.id,
-        orderNo: `FC-${mmdd}-${String(n).padStart(4, "0")}`,
+        orderNo: `${mmdd}-${String(n).padStart(4, "0")}`,
         consumerId: o.consumerId,
         buyerName: o.name,
         productId: "p-house",

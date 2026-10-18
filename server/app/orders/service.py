@@ -1,6 +1,7 @@
 """orders 모듈 업무 로직. 다른 모듈은 이 파일의 함수로만 부른다."""
 
 import re
+import secrets
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -12,7 +13,7 @@ from app.core.clock import now, today
 from app.core.config import get_settings
 from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
-from app.orders.models import ORDER_NO_SEQ, Order, Payment, Refund
+from app.orders.models import Order, Payment, Refund
 from app.orders.schemas import (
     Changed,
     Dashboard,
@@ -180,6 +181,20 @@ def _refund_settled_at(db: Session, o: Order):
     )
 
 
+def _new_order_no(db: Session) -> str:
+    """주문 번호 `MMDD-NNNN`. 입금자명으로 쓴다(R-28).
+
+    NNNN은 연번이 아니라 무작위 4자리다. 연번이면 소비자가 거래 건수를 셀 수 있어서다(2026-10-18 결정).
+    같은 날 같은 번호가 이미 있으면 다시 뽑는다(order_no는 UNIQUE).
+    """
+    prefix = f"{today():%m%d}-"
+    for _ in range(50):
+        candidate = f"{prefix}{secrets.randbelow(10000):04d}"
+        if db.scalar(select(Order.id).where(Order.order_no == candidate)) is None:
+            return candidate
+    raise conflict("INVALID_TRANSITION", "주문 번호를 만들지 못했어요. 다시 시도해 주세요.")
+
+
 def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
     """예약 주문(FEAT-08). 물량은 잡아두지 않고 결제 순간 선착순으로 확정한다(FQ-03)."""
     from app.accounts import service as accounts
@@ -232,10 +247,9 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
     remote = bool(_REMOTE_POSTAL.match(body.postal_code) or _REMOTE_ADDRESS.search(body.address))
     remote_fee = p.remote_area_fee if remote else 0
     created = now()
-    number = db.execute(ORDER_NO_SEQ.next_value()).scalar_one()
     order = Order(
         id=new_id("o"),
-        order_no=f"FC-{today():%m%d}-{number % 10000:04d}",
+        order_no=_new_order_no(db),
         consumer_id=consumer.id,
         product_id=p.id,
         option_id=option.id,

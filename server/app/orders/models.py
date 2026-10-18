@@ -16,7 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-# 주문 번호 FC-MMDD-NNNN의 NNNN
+# 예전 주문 번호(FC-MMDD-NNNN) 연번. 2026-10-18부터 번호는 `MMDD-NNNN`(무작위 4자리, DEV-68)이라 쓰지 않지만
+# DB 시퀀스를 지우는 마이그레이션은 두지 않는다.
 ORDER_NO_SEQ = Sequence("order_no_seq", start=1000, metadata=Base.metadata)
 
 

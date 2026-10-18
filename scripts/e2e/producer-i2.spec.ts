@@ -133,7 +133,7 @@ test("P04 AC-19-1: sharing failure copies the live link; cancellation does not c
 test("P07 AC-17-2/5: shipment persists carrier and tracking before a failed refresh can be retried", async ({ page, request }) => {
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/ship?status=PREPARING`);
-  await page.getByRole("button", { name: /FC-1006-0040.*택배사·송장 번호 넣기/ }).click();
+  await page.getByRole("button", { name: /1006-0040.*택배사·송장 번호 넣기/ }).click();
   await page.getByLabel("송장 번호", { exact: true }).fill("I2-0040");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByText("택배사를 골라 주세요", { exact: true })).toBeVisible();

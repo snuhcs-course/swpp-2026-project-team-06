@@ -1,5 +1,6 @@
 """FEAT-08 예약 주문, FEAT-09 무통장 입금(입금 안내·확인, DEV-68), FEAT-10 주문 상세, FEAT-14 생산자 현황."""
 
+import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
@@ -69,7 +70,7 @@ def test_create_deposit_and_confirm_order(client, login):
     assert order["unitPrice"] == 29000
     assert order["totalAmount"] == 58000
     assert order["productName"] == "하우스 감귤"
-    assert order["orderNo"].startswith("FC-1007-")
+    assert re.fullmatch(r"1007-\d{4}", order["orderNo"])
     # 입금 안내 전에는 계좌·판매자 정보가 없고 물량도 잡지 않는다
     assert order["depositAccount"] is None and order["sellerInfo"] is None
     assert allocation().reserved_count == 38
@@ -489,7 +490,7 @@ def test_other_consumers_order_is_not_found(client, login):
 def test_order_detail_for_owner(client, login):
     body = client.get("/api/orders/o-11", headers=login("u-minji")).json()
 
-    assert body["orderNo"] == "FC-0921-0011"
+    assert body["orderNo"] == "0921-0011"
     assert body["proposedDeliveryWindow"] == {"start": "2026-12-08", "end": "2026-12-22"}
     assert body["actions"] == ["cancel", "respondDeliveryWindow"]
 

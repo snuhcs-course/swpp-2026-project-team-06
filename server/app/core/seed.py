@@ -619,7 +619,7 @@ def _example_orders() -> list[dict]:
     return [
         dict(
             id="o-42",
-            order_no="FC-1007-0042",
+            order_no="1007-0042",
             consumer_id="u-minji",
             product_id="p-house",
             option_id="opt-5",
@@ -632,7 +632,7 @@ def _example_orders() -> list[dict]:
         ),
         dict(
             id="o-11",
-            order_no="FC-0921-0011",
+            order_no="0921-0011",
             consumer_id="u-minji",
             product_id="p-noji",
             option_id="opt-10",
@@ -646,7 +646,7 @@ def _example_orders() -> list[dict]:
         ),
         dict(
             id="o-07",
-            order_no="FC-0918-0007",
+            order_no="0918-0007",
             consumer_id="u-minji",
             product_id="p-josaeng",
             option_id="opt-5",
@@ -662,7 +662,7 @@ def _example_orders() -> list[dict]:
         ),
         dict(
             id="o-03",
-            order_no="FC-0915-0003",
+            order_no="0915-0003",
             consumer_id="u-minji",
             product_id="p-redhyang",
             option_id="opt-3",
@@ -676,7 +676,7 @@ def _example_orders() -> list[dict]:
         ),
         dict(
             id="o-40",
-            order_no="FC-1006-0040",
+            order_no="1006-0040",
             consumer_id="u-buyer-choi",
             product_id="p-house",
             option_id="opt-5",
@@ -692,7 +692,7 @@ def _example_orders() -> list[dict]:
         ),
         dict(
             id="o-38",
-            order_no="FC-1006-0038",
+            order_no="1006-0038",
             consumer_id="u-seojun",
             product_id="p-house",
             option_id="opt-10",
@@ -708,7 +708,7 @@ def _example_orders() -> list[dict]:
         ),
         dict(
             id="o-35",
-            order_no="FC-1006-0035",
+            order_no="1006-0035",
             consumer_id="u-buyer-park",
             product_id="p-house",
             option_id="opt-5",
@@ -833,7 +833,7 @@ def _house_orders() -> tuple[list[dict], dict[str, str]]:
         orders.append(
             dict(
                 id=o["id"],
-                order_no=f"FC-{o['day'][5:7]}{o['day'][8:10]}-{n:04d}",
+                order_no=f"{o['day'][5:7]}{o['day'][8:10]}-{n:04d}",
                 consumer_id=o["consumer"],
                 product_id="p-house",
                 option_id=o["opt"],

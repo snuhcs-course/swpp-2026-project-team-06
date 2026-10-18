@@ -1078,7 +1078,7 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 
 ### 결정 사항
 - 10/18 상태 `AWAITING_DEPOSIT` 신설. `PENDING_PAYMENT`(동의만) → `POST /orders/{id}/deposit`(멱등, 물량 선점) → `AWAITING_DEPOSIT` → 생산자/운영자 `confirm-deposit` → `RESERVED`(`paid_at`=확인 시각). 기존 `/pay`·`mockResult` 삭제.
-- 10/18 입금자명 = `order_no`. 금액 변형 없음. 기한 `deposit_due_at = 안내 시각 + DEPOSIT_DEADLINE_HOURS(24)`.
+- 10/18 입금자명 = `order_no`. 금액 변형 없음. 주문 번호는 `FC-` 접두어를 빼고 `MMDD-NNNN`, NNNN은 연번 대신 무작위 4자리(소비자가 거래 건수를 못 세게, 박현 결정). 시드·Mock·문서도 같은 형식. 기한 `deposit_due_at = 안내 시각 + DEPOSIT_DEADLINE_HOURS(24)`.
 - 10/18 만료는 지연 검사(소비자 조회·취소, 생산자 목록·확인 시점에 `expire_overdue_deposits`) + `POST /admin/orders/expire-deposits` 일괄. 만료 주문 `CANCELED`, `cancel_reason="입금 기한 초과"`, 물량 해제.
 - 10/18 소비자 `POST /orders/{id}/deposit-reported` → `deposit_reported_at`(힌트). 입금 대기 취소 → `CANCELED`(환불 없음), 물량 해제.
 - 10/18 환불은 입금했던 계좌로 농가가 송금. `Refund.settled_at`, 생산자 `POST /orders/{id}/refund-settled`. `Payment.method=BANK_TRANSFER`, `provider=FARM_ACCOUNT`.
