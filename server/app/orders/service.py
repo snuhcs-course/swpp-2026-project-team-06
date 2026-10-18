@@ -160,6 +160,8 @@ def order_view(db: Session, o: Order) -> OrderView:
         deposit_reported_at=o.deposit_reported_at,
         cancel_reason=o.cancel_reason,
         refund_settled_at=_refund_settled_at(db, o),
+        deposit_issue=o.deposit_issue if o.status == "AWAITING_DEPOSIT" else None,
+        refund_issue=_refund_issue(db, o),
         recipient_name=o.recipient_name,
         recipient_phone=o.recipient_phone,
         postal_code=o.postal_code,
@@ -179,6 +181,20 @@ def _refund_settled_at(db: Session, o: Order):
         .order_by(Refund.created_at.desc())
         .limit(1)
     )
+
+
+def _refund_issue(db: Session, o: Order) -> str | None:
+    """농가가 아직 송금하지 못한 사유(환불 미승인). 송금을 마쳤으면 None."""
+    if o.status != "REFUNDED" or o.refund_issue is None or _refund_settled_at(db, o) is not None:
+        return None
+    return o.refund_issue
+
+
+def _reason(text: str, field: str = "reason") -> str:
+    reason = text.strip()
+    if not reason:
+        raise invalid({field: "사유를 적어 주세요"})
+    return reason
 
 
 def _new_order_no(db: Session) -> str:
@@ -628,6 +644,37 @@ def report_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
     return order_view(db, order)
 
 
+def reject_deposit(
+    db: Session, farm_id: str, order_id: str, reason: str, *, cancel: bool
+) -> Order:
+    """입금 미승인(DEV-68). 사유는 필수이고 소비자에게 그대로 보인다.
+
+    cancel이면 주문을 취소하고 물량을 돌려준다(`cancel_reason="입금 미승인 · 사유"`).
+    아니면 입금 대기로 두고 사유만 남긴다. 소비자가 다시 '입금했어요'를 누를 수 있게 신호를 지운다.
+    """
+    from app.catalog import service as catalog
+
+    text = _reason(reason)
+    existing = db.get(Order, order_id)
+    if existing is None or not order_belongs_to_farm(db, existing, farm_id):
+        raise not_found("주문을 찾을 수 없어요.")
+    catalog.lock_product(db, existing.product_id)
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if _expire_if_overdue(db, order):
+        raise conflict("INVALID_TRANSITION", "입금 기한이 지나 취소된 주문이에요.")
+    if order.status != "AWAITING_DEPOSIT":
+        raise conflict("INVALID_TRANSITION", "입금 대기 주문만 미승인할 수 있어요.")
+    if cancel:
+        _cancel_awaiting(db, order, f"입금 미승인 · {text}")
+        order.deposit_issue = None
+    else:
+        order.deposit_issue = text
+        order.deposit_reported_at = None
+    order.deposit_issue_at = now()
+    db.flush()
+    return order
+
+
 def confirm_deposit(
     db: Session, order_id: str, *, farm_id: str | None, confirmed_by: str
 ) -> Order:
@@ -651,6 +698,7 @@ def confirm_deposit(
     order.status = "RESERVED"
     order.paid_at = now()
     order.deposit_confirmed_by = confirmed_by
+    order.deposit_issue = None
     db.add(
         Payment(
             id=new_id("pay"),
@@ -679,6 +727,23 @@ def settle_refund(db: Session, farm_id: str, order_id: str) -> ProducerOrder:
     for refund in refunds:
         if refund.settled_at is None:
             refund.settled_at = now()
+    order.refund_issue = None
+    db.flush()
+    return producer_order_view(db, order)
+
+
+def refund_issue(db: Session, farm_id: str, order_id: str, reason: str) -> ProducerOrder:
+    """환불 미승인(DEV-68). 아직 송금하지 못한 사유를 남긴다. 환불 송금 대기는 그대로다."""
+    text = _reason(reason)
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order is None or not order_belongs_to_farm(db, order, farm_id):
+        raise not_found("주문을 찾을 수 없어요.")
+    if order.status != "REFUNDED":
+        raise conflict("INVALID_TRANSITION", "환불할 주문이 아니에요.")
+    if _refund_settled_at(db, order) is not None:
+        raise conflict("INVALID_TRANSITION", "이미 환불을 마친 주문이에요.")
+    order.refund_issue = text
+    order.refund_issue_at = now()
     db.flush()
     return producer_order_view(db, order)
 
@@ -805,6 +870,8 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         deposit_due_at=order.deposit_due_at,
         deposit_reported_at=order.deposit_reported_at,
         refund_settled_at=_refund_settled_at(db, order),
+        deposit_issue=order.deposit_issue if awaiting else None,
+        refund_issue=_refund_issue(db, order),
         # 입금 전에는 배송지를 보여 주지 않는다(R-15 최소 노출)
         recipient_name=order.recipient_name,
         recipient_phone="" if awaiting else order.recipient_phone,

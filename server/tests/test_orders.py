@@ -145,6 +145,57 @@ def test_AC_09_8_admin_confirms_deposit(client, login):
     assert confirmed.json()["status"] == "RESERVED"
 
 
+def test_AC_09_9_reject_deposit_keeps_waiting_with_reason(client, login):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    deposit(client, headers, order["orderId"])
+    client.post(f"/api/orders/{order['orderId']}/deposit-reported", headers=headers)
+    url = f"/api/orders/{order['orderId']}/reject-deposit"
+
+    blank = client.post(url, headers=login("u-kang"), json={"reason": "  "})
+    assert blank.status_code == 400
+    missing = client.post(url, headers=login("u-kang"), json={})
+    assert missing.status_code == 400
+
+    kept = client.post(url, headers=login("u-kang"), json={"reason": "금액이 달라요"})
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["status"] == "AWAITING_DEPOSIT"
+    assert kept.json()["depositIssue"] == "금액이 달라요"
+    detail = client.get(f"/api/orders/{order['orderId']}", headers=headers).json()
+    assert detail["depositIssue"] == "금액이 달라요"
+    assert detail["depositReportedAt"] is None
+    assert "reportDeposit" in detail["actions"]
+    assert allocation().reserved_count == 39
+
+    confirmed = confirm(client, order["orderId"], login("u-kang"))
+    assert confirmed.json()["status"] == "RESERVED"
+    after = client.get(f"/api/orders/{order['orderId']}", headers=headers).json()
+    assert after["depositIssue"] is None
+
+
+def test_AC_09_9_reject_deposit_can_cancel_and_release_quantity(client, login):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
+    deposit(client, headers, order["orderId"])
+    url = f"/api/orders/{order['orderId']}/reject-deposit"
+
+    from app.core.security import issue_token
+
+    other = {"Authorization": f"Bearer {issue_token('u-halla', 'PRODUCER')}"}
+    assert client.post(url, headers=other, json={"reason": "x", "cancel": True}).status_code == 404
+
+    body = {"reason": "입금이 들어오지 않았어요", "cancel": True}
+    canceled = client.post(url, headers=login("u-kang"), json=body)
+    assert canceled.status_code == 200, canceled.text
+    assert canceled.json()["status"] == "CANCELED"
+    detail = client.get(f"/api/orders/{order['orderId']}", headers=headers).json()
+    assert detail["cancelReason"] == "입금 미승인 · 입금이 들어오지 않았어요"
+    assert detail["depositIssue"] is None
+    assert allocation().reserved_count == 38
+    again = client.post(url, headers=login("u-kang"), json=body)
+    assert again.status_code == 409
+
+
 def _admin(client):
     from app.core.security import issue_token
 
@@ -182,9 +233,7 @@ def test_AC_09_7_admin_expires_overdue_deposits_in_bulk(client, login):
 
     config.get_settings().fixed_now = "2026-10-08T12:00:00+09:00"
     try:
-        assert client.post("/admin/orders/expire-deposits", headers=admin).json() == {
-            "changed": 1
-        }
+        assert client.post("/admin/orders/expire-deposits", headers=admin).json() == {"changed": 1}
         assert allocation().reserved_count == 38
     finally:
         config.get_settings().fixed_now = "2026-10-07T10:00:00+09:00"
@@ -394,9 +443,7 @@ def test_AC_09_6_mixed_weight_release_and_shipping_accounting(client, login):
     before = client.get("/api/products/mine/p-house", headers=producer).json()
     committed = before["reservedGrams"] + before["shippedGrams"]
 
-    five = client.post(
-        "/api/orders", headers=consumer | key(), json=order_body(quantity=2)
-    ).json()
+    five = client.post("/api/orders", headers=consumer | key(), json=order_body(quantity=2)).json()
     reserve(client, consumer, five["orderId"], login=login)
     ten = client.post(
         "/api/orders", headers=consumer | key(), json=order_body(optionId="opt-10")
@@ -506,9 +553,10 @@ def test_AC_14_1_dashboard_counts(client, login):
         "refundsToSettle": 1,
         "hasAccount": True,
     }
-    assert {key: body["product"][key] for key in (
-        "productId", "productName", "reservedCount", "orderCount"
-    )} == {
+    assert {
+        key: body["product"][key]
+        for key in ("productId", "productName", "reservedCount", "orderCount")
+    } == {
         "productId": "p-house",
         "productName": "하우스 감귤 5kg / 10kg",
         "reservedCount": 37,
@@ -569,6 +617,32 @@ def test_AC_17_7_refund_settled_by_producer(client, login):
         ]
         == 1
     )
+
+
+def test_AC_17_8_refund_issue_records_reason_until_settled(client, login):
+    consumer = login("u-minji")
+    producer = login("u-kang")
+    client.post("/api/orders/o-42/cancel", headers=consumer)
+
+    assert (
+        client.post("/api/orders/o-g1/refund-issue", headers=producer, json={"reason": "x"})
+    ).status_code == 409
+    blank = client.post("/api/orders/o-42/refund-issue", headers=producer, json={"reason": " "})
+    assert blank.status_code == 400
+
+    body = {"reason": "계좌 정보가 맞지 않아요. 채팅으로 계좌를 알려 주세요"}
+    issued = client.post("/api/orders/o-42/refund-issue", headers=producer, json=body)
+    assert issued.status_code == 200, issued.text
+    assert issued.json()["refundIssue"] == body["reason"]
+    assert issued.json()["refundSettledAt"] is None
+    detail = client.get("/api/orders/o-42", headers=consumer).json()
+    assert detail["status"] == "REFUNDED" and detail["refundIssue"] == body["reason"]
+
+    client.post("/api/orders/o-42/refund-settled", headers=producer)
+    settled = client.get("/api/orders/o-42", headers=consumer).json()
+    assert settled["refundSettledAt"] and settled["refundIssue"] is None
+    late = client.post("/api/orders/o-42/refund-issue", headers=producer, json={"reason": "x"})
+    assert late.status_code == 409
 
 
 def test_AC_08_3_separate_shipping_fee_in_total(client, login):

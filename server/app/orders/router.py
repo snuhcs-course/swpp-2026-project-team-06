@@ -20,7 +20,9 @@ from app.orders.schemas import (
     OrderInput,
     OrderView,
     ProducerOrder,
+    RefundIssueInput,
     RefundView,
+    RejectDepositInput,
     ShipInput,
 )
 
@@ -102,6 +104,24 @@ def confirm_deposit(db: Db, producer: ApprovedProducer, order_id: str):
     order = service.confirm_deposit(db, order_id, farm_id=farm.id, confirmed_by="PRODUCER")
     db.commit()
     return service.producer_order_view(db, order)
+
+
+@router.post("/{order_id}/reject-deposit", response_model=ProducerOrder)
+def reject_deposit(db: Db, producer: ApprovedProducer, order_id: str, body: RejectDepositInput):
+    """입금 미승인(DEV-68). 사유 필수. cancel이면 주문 취소, 아니면 입금 대기로 둔다."""
+    _, farm = producer
+    order = service.reject_deposit(db, farm.id, order_id, body.reason, cancel=body.cancel)
+    db.commit()
+    return service.producer_order_view(db, order)
+
+
+@router.post("/{order_id}/refund-issue", response_model=ProducerOrder)
+def refund_issue(db: Db, producer: ApprovedProducer, order_id: str, body: RefundIssueInput):
+    """환불 미승인(DEV-68). 아직 송금하지 못한 사유를 남긴다. 사유 필수."""
+    _, farm = producer
+    result = service.refund_issue(db, farm.id, order_id, body.reason)
+    db.commit()
+    return result
 
 
 @router.post("/{order_id}/refund-settled", response_model=ProducerOrder)

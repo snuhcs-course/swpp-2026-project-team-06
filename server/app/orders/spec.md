@@ -45,4 +45,5 @@
 | 2026-10-08 | 현황의 `openQuestions`는 채팅 구현 전까지 0, 대표 상품은 지금 단계가 가장 일찍 끝나는 판매 중 상품 | FEAT-14 | AC-14-1 |
 | 2026-10-08 | 주문 문의 API(`POST·GET /api/orders/{id}/inquiries`)는 orders 라우터, 로직은 messaging 서비스. 결제한 본인 주문·그 농가 생산자만 | contracts-1.2 6장 | AC-33-1 |
 | 2026-10-16 | 모든 환불 경로는 `_refund`에서 `Refund` 이력과 `Payment.status`를 함께 기록한다. 부분 환불은 주문 상태·환불 필드·물량을 바꾸지 않고 결제액(배송비 포함)의 잔액만 줄인다 | DEV-35 정책 결정 | AC-10-6, AC-11-3 |
+| 2026-10-18 | 농가 미승인: `reject-deposit {reason, cancel}`(사유 필수, 입금 대기 유지 또는 취소 `cancel_reason="입금 미승인 · 사유"`), `refund-issue {reason}`(송금 보류 사유). `orders.deposit_issue·refund_issue(_at)`(0015). 승인·송금 완료 시 사유를 지운다. |
 | 2026-10-18 | `AWAITING_DEPOSIT` 신설, `/pay`·`mockResult` 삭제 → `deposit`·`deposit-reported`·`confirm-deposit`·`refund-settled`, 관리 `confirm-deposit`·`expire-deposits`. 만료는 지연 검사 + 일괄 API(스케줄러 없음). 입금 대기 줄의 배송지는 생산자에게 숨김 | DEV-68(C안: farmclub은 통신판매중개자), R-28 | AC-09-1·2·3·7·8, AC-17-7 |

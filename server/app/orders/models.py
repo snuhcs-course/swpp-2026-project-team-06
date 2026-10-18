@@ -72,6 +72,11 @@ class Order(Base):
     deposit_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deposit_confirmed_by: Mapped[str | None] = mapped_column(String(16))
     cancel_reason: Mapped[str | None] = mapped_column(Text)
+    # 농가 미승인(DEV-68): 입금 미승인 사유(입금 대기 유지), 환불을 아직 못 보낸 사유
+    deposit_issue: Mapped[str | None] = mapped_column(Text)
+    deposit_issue_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refund_issue: Mapped[str | None] = mapped_column(Text)
+    refund_issue_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Payment(Base):

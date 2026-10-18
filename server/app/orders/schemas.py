@@ -101,6 +101,9 @@ class OrderView(CamelModel):
     deposit_reported_at: datetime | None
     cancel_reason: str | None
     refund_settled_at: datetime | None
+    # 농가 미승인 사유(DEV-68). 입금 대기로 남은 주문·송금 보류 중인 환불에만
+    deposit_issue: str | None
+    refund_issue: str | None
     recipient_name: str
     recipient_phone: str
     postal_code: str
@@ -111,6 +114,19 @@ class OrderView(CamelModel):
 
 class DeliveryWindowResponse(CamelModel):
     choice: Literal["accept", "refund"]
+
+
+class RejectDepositInput(CamelModel):
+    """입금 미승인(DEV-68). 사유는 필수이고 소비자에게 그대로 보인다. cancel이면 주문을 취소한다."""
+
+    reason: str = Field(min_length=1, max_length=200)
+    cancel: bool = False
+
+
+class RefundIssueInput(CamelModel):
+    """환불 미승인(DEV-68). 송금하지 못한 사유. 소비자에게 그대로 보인다."""
+
+    reason: str = Field(min_length=1, max_length=200)
 
 
 class HarvestStartInput(CamelModel):
@@ -142,6 +158,8 @@ class ProducerOrder(CamelModel):
     deposit_due_at: datetime | None
     deposit_reported_at: datetime | None
     refund_settled_at: datetime | None
+    deposit_issue: str | None
+    refund_issue: str | None
     recipient_name: str
     recipient_phone: str
     postal_code: str
