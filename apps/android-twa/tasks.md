@@ -39,13 +39,13 @@ test2(2026-10-20) 참여자가 링크에서 APK를 받아 설치하고, 웹과 �
 - [x] 키스토어 생성(사용자) → 서명 APK 빌드 → SHA-256으로 `assetlinks.json`
 - [x] 에뮬레이터 설치·실행·주요 화면·카카오 버튼 이동 확인(검증 플래그로 주소창 없음 확인)
 - [ ] 배포 뒤 `https://farmclub.kr/.well-known/assetlinks.json` 200 `application/json`, Digital Asset Links API 확인
-- [ ] APK 다운로드 링크(GitHub Release, 사용자 확인 뒤) · 참여자 설치 안내
+- [x] APK 다운로드 링크(GitHub Release, 사용자 확인 뒤) · 참여자 설치 안내
 - [x] 문서(ADR 0013, stack.md, wiki), 참여자 설치 안내 초안 `INSTALL.md`
 
 ### 완료 조건
 - [x] 서명된 release APK가 에뮬레이터에 설치·실행되고 farmclub.kr이 뜬다
 - [ ] 배포 뒤 주소창 없이 뜬다(assetlinks 검증)
-- [ ] 비공개 다운로드 링크에서 받아 설치할 수 있다
+- [ ] 다운로드 링크에서 받아 설치할 수 있다(링크 준비 완료, 실기기 설치는 DEV-41)
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
@@ -53,3 +53,4 @@ test2(2026-10-20) 참여자가 링크에서 APK를 받아 설치하고, 웹과 �
 - 10/19 서명 APK `farmclub-consumer-1.0.0.apk`(versionCode 1, 서명 SHA-256 `DE:8D:…:33:31`, apksigner v2·v3 검증 통과).
 - 10/19 에뮬레이터(Android 17 이미지, Chrome 153): 설치 → 실행 → 홈(발견) → 내 정보 탭 → 로그인 시트 → 로그인 화면 → ‘카카오로 시작하기’ → accounts.kakao.com(앱 안, 범위 밖이라 상단 주소 막대·X) → 뒤로가기로 로그인 화면 복귀. Chrome 명령줄 `--disable-digital-asset-link-verification-for-url=https://farmclub.kr`일 때 주소창 없음, 플래그를 빼면 `farmclub.kr` 주소 막대가 보임(assetlinks 미배포라 예상대로). 첫 실행 때 Chrome 첫 화면(약관)이 먼저 뜰 수 있어 에뮬레이터는 `--disable-fre`로 건너뜀(약관 동의 안 함). 실제 카카오 로그인은 미확인(사용자).
 - 10/19 테스트: `npm run typecheck` 통과(4개 workspace), `npm run test:mock` 15/15 통과. 소비자·생산자 `expo export -p web` 성공(manifest·`.well-known` 포함).
+- 10/19 사용자 결정: 레포가 공개라 Release도 공개 링크지만 괜찮음(APK에 비밀값 없음). prerelease `android-consumer-v1.0.0`(대상 4aaac48), 본문은 `INSTALL.md`. 링크 https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/android-consumer-v1.0.0 — 직접 받기 200 `application/vnd.android.package-archive`, SHA-256 `36789a6c…8d1b` 로컬 파일과 일치.

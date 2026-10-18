@@ -14,6 +14,10 @@ npm workspace가 아니다(`package.json` 없음). 앱 하나는 Bubblewrap이 �
 - JDK 17 또는 21(Android Studio 내장 JBR 21 가능). `build-apk.sh`가 `java_home`으로 찾는다.
 - 서명 키스토어 `~/.farmclub/android/farmclub-release.keystore`(레포 밖, 아래).
 
+## 배포된 APK
+- 소비자 1.0.0: GitHub Release [`android-consumer-v1.0.0`](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/android-consumer-v1.0.0)(prerelease, 공개). 본문은 `INSTALL.md`.
+- 새 버전: `appVersionCode`를 올려 빌드한 뒤 `gh release create android-consumer-v<버전> apps/android-twa/dist/farmclub-consumer-<버전>.apk --prerelease --notes-file …`
+
 ## APK 빌드
 ```bash
 apps/android-twa/build-apk.sh consumer
