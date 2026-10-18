@@ -224,6 +224,10 @@ def _allowed_redirect(redirect_uri: str, app: str) -> bool:
     return redirect_uri == f"{base.rstrip('/')}{KAKAO_REDIRECT_PATH}"
 
 
+# 이름이 없는 카카오 생산자 계정의 자리 이름(가입 신청 SCR-20에서 대표자 이름으로 바뀐다)
+KAKAO_PLACEHOLDER_NAME = "카카오 사용자"
+
+
 @dataclass(frozen=True)
 class KakaoProfile:
     """카카오에서 받은 것. 식별은 kakao_id, 이메일은 연락용.
@@ -311,12 +315,16 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginRes
     kakao_phone = _kakao_phone(profile.phone)
     user = db.scalar(select(User).where(User.kakao_id == profile.kakao_id, User.role == role))
     if user is None:
+        # 소비자는 온보딩에서 이름을 받는다. 생산자는 가입 신청(SCR-20) 전까지 자리 이름
+        name = profile.name.strip()[:100]
+        if not name and role == "PRODUCER":
+            name = KAKAO_PLACEHOLDER_NAME
         user = User(
             id=new_id("u"),
             kakao_id=profile.kakao_id,
             is_test_account=False,
             role=role,
-            name=profile.name.strip()[:100],
+            name=name,
             phone=kakao_phone,
             email=profile.email.strip()[:200] or None,
             created_at=now(),
@@ -536,7 +544,7 @@ def delete_address(db: Session, user_id: str, address_id: str) -> None:
         latest = db.scalar(
             select(ShippingAddress)
             .where(ShippingAddress.user_id == user_id)
-            .order_by(ShippingAddress.created_at.desc())
+            .order_by(ShippingAddress.created_at.desc(), ShippingAddress.id.desc())
             .limit(1)
         )
         if latest is not None:

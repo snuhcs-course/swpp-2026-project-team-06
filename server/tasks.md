@@ -1072,7 +1072,7 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
 - 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
 - 기능·인수 조건: FEAT-01 I2 / AC-01-8~15 · ADR 0003·0010
 - 상태: 리뷰 중
-- 범위(수정 허용 경로): `server/app/accounts/{models,router,schemas,service,spec}.py|md`, `server/app/core/security.py`(`OnboardedConsumer`), `server/app/{orders,farms,messaging}/router.py`(관문 의존성만), `server/app/messaging/service.py`·`server/app/orders/service.py`(소비자 표시 이름·소식방 답장 관문만), `server/migrations/versions/0014_user_onboarding.py`, `server/tests/test_accounts.py`, `server/.env.example`, `server/tasks.md`. 10/18 온보딩 승인으로 범위 넓힘
+- 범위(수정 허용 경로): `server/app/accounts/{models,router,schemas,service,spec}.py|md`, `server/app/core/security.py`(`OnboardedConsumer`), `server/app/{orders,farms,messaging}/router.py`(관문 의존성만), `server/app/messaging/service.py`·`server/app/orders/service.py`(소비자 표시 이름·소식방 답장 관문만), `server/migrations/versions/0014_user_onboarding.py`, `server/tests/test_accounts.py`, `server/.env.example`, `server/tasks.md`. 10/18 온보딩 승인으로 범위 넓힘. 동작 변경과 함께 고치는 문서: `docs/spec/{functional/FEAT-01-login.md,functional/README.md,screens.md,ia.md,policy.md,tech-design/README.md}`, `docs/wiki/Requirements-and-Specifications.md`
 - 결정 사항:
   - 10/17 `GET /api/auth/kakao/config`(공개)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 토큰 교환은 httpx 동기 클라이언트, 8초 타임아웃. `_kakao_fetch`만 바꿔 끼워 테스트한다.
   - 10/17 복귀 주소는 CORS 허용 목록과 같은 두 앱 주소의 `/auth/kakao`만 받는다(오픈 리다이렉트·코드 가로채기 방지).
@@ -1086,3 +1086,6 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
 - 10/18 main(0013까지) 머지 뒤 마이그레이션 0014(`users.nickname`·`email`, `user_consents`). **번호 충돌**: DEV-68 PR #141도 main 0013 위에 `0014_bank_transfer.py`를 둔다. 먼저 머지되는 PR이 0014를 갖고, 나중 PR은 main을 받아 0015(`down_revision`=먼저 들어간 0014)로 옮긴다. DEV-36 PR #124의 0009는 보류 중이라 다시 열면 그 뒤 번호로 옮긴다. 로컬 공용 DB `farmclub`는 DEV-68의 0014에 올라가 있어 이 브랜치 통합 테스트는 `farmclub_dev32` DB로 돌렸다.
 - 작업(10/18): [x] 모델·마이그레이션 0014 [x] `KakaoProfile`·온보딩 판단·`PATCH /me`·동의 API [x] 관문 의존성 [x] 배송지 PATCH·DELETE·50개 [x] pytest AC-01-12~15 [x] Ruff
 - 검증(10/18): Ruff 통과, 전체 pytest 344개 통과(신규·수정 11개), 빈 DB에 `alembic upgrade head` → `downgrade 0013` → `upgrade head`, `alembic check` 변경 없음.
+- 10/18 AI 1차 리뷰 반영: 카카오로 처음 만든 생산자 계정은 이름이 비지 않게 ‘카카오 사용자’(소비자는 온보딩에서 받음). 기본 배송지 승계 정렬에 id를 두 번째 키로. 배송지 PATCH의 null·`isDefault=false` 의미를 스키마 주석에 적음. 테스트 추가: 좋아요·채팅 시작·보내기·소식방 답장 403, 생산자 채팅 목록에 닉네임만 보이고 이름·연락처는 없음, 주문 ‘기본 배송지로 저장’이 50개에서 건너뜀.
+- 10/18 결정(리뷰 확인 필요 항목): `needs_onboarding`은 동의 문구 **버전**을 비교하지 않는다. 약관·처리방침 개정 때 재동의를 강제하는 것은 정식 약관이 나온 뒤(현재는 테스트 서비스 요지만 있음) 별도 이슈로 한다. 버전은 이미 기록하므로 그때 현재 버전 상수와 비교만 더하면 된다. 배송지 50개는 동시 저장 경합에서 넘을 수 있으나 테스트 서비스 규모에서 허용.
+- 검증(10/18 리뷰 반영 뒤): Ruff 통과, 전체 pytest 346개 통과.

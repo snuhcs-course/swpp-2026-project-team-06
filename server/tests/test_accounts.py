@@ -523,18 +523,67 @@ def test_test_accounts_and_producers_never_need_onboarding(client, login):
     assert client.patch("/api/auth/me", json=PROFILE, headers=login("u-kang")).status_code == 403
 
 
-def test_nickname_is_what_farms_see(client, login, monkeypatch):
-    """농가 쪽 이름은 닉네임, 없으면 가린 이름(R-15)."""
-    from app.accounts import service
+def test_AC_01_12_every_farm_facing_write_is_gated(client, monkeypatch):
+    """좋아요·채팅 시작·채팅 보내기·소식방 답장도 온보딩 전에는 403(서비스 안의 검사 포함)."""
+    _kakao_on(monkeypatch)
+    _, headers = _kakao_consumer(client)
+    calls = [
+        ("put", "/api/messaging/news/n-1/reaction", None),
+        ("post", "/api/messaging/chats", {"farmId": "f-kang"}),
+        ("post", "/api/messaging/chats/f-kang/messages", {"text": "안녕하세요"}),
+        ("post", "/api/messaging/rooms/f-kang/messages", {"text": "잘 받았어요"}),
+    ]
+    for i, (method, url, body) in enumerate(calls):
+        kwargs = {"headers": {**headers, "Idempotency-Key": f"gate-{i}"}}
+        if body is not None:
+            kwargs["json"] = body
+        response = getattr(client, method)(url, **kwargs)
+        assert response.status_code == 403, (url, response.text)
+        assert response.json()["details"]["reason"] == "ONBOARDING_REQUIRED", url
 
+
+def test_nickname_is_what_farms_see(client, login, monkeypatch):
+    """농가가 보는 소비자 이름은 닉네임이고 실명은 나가지 않는다(R-15)."""
     _kakao_on(monkeypatch)
     _, headers = _kakao_consumer(client)
     _finish_onboarding(client, headers)
-    assert (
-        service.public_name(type("U", (), {"nickname": "귤러버", "name": "김민지"})()) == "귤러버"
+    assert client.put("/api/farms/f-kang/follow", headers=headers).status_code == 200
+    started = client.post(
+        "/api/messaging/chats",
+        json={"farmId": "f-kang"},
+        headers={**headers, "Idempotency-Key": "nick-start"},
     )
-    assert service.public_name(type("U", (), {"nickname": None, "name": "김민지"})()) == "김○○"
-    assert service.public_name(None) == "고○○"
+    assert started.status_code == 200, started.text
+    sent = client.post(
+        "/api/messaging/chats/f-kang/messages",
+        json={"text": "언제 보내 주세요?"},
+        headers={**headers, "Idempotency-Key": "nick-send"},
+    )
+    assert sent.status_code == 200, sent.text
+
+    chats = client.get("/api/messaging/producer/chats", headers=login("u-kang")).json()["items"]
+    names = [c["consumerName"] for c in chats]
+    assert "귤러버" in names
+    assert PROFILE["name"] not in str(chats)
+    assert PROFILE["phone"] not in str(chats)
+
+
+def test_AC_01_15_order_save_address_skips_when_book_is_full(client, login):
+    from app.accounts.service import ADDRESS_LIMIT
+    from tests.test_orders import order_body
+
+    headers = login("u-seojun")
+    have = len(client.get("/api/auth/me/addresses", headers=headers).json())
+    for i in range(ADDRESS_LIMIT - have):
+        added = client.post("/api/auth/me/addresses", json=_address_body(i), headers=headers)
+        assert added.status_code == 200
+    order = client.post(
+        "/api/orders",
+        json=order_body(saveAddress=True, address="제주 서귀포시 새주소 1"),
+        headers={**headers, "Idempotency-Key": "full-book"},
+    )
+    assert order.status_code == 200, order.text
+    assert len(client.get("/api/auth/me/addresses", headers=headers).json()) == ADDRESS_LIMIT
 
 
 # ---- 배송지 수정·삭제·50개 제한 (SCR-17 하위, 사용자 결정 10/18) ----
@@ -578,7 +627,7 @@ def test_AC_01_15_address_update_and_delete_with_default_succession(client, logi
     assert client.delete("/api/auth/me/addresses/a-2", headers=headers).status_code == 204
     after = client.get("/api/auth/me/addresses", headers=headers).json()
     assert [a["addressId"] for a in after if a["isDefault"]] == [newest["addressId"]]
-    assert client.get("/api/auth/me/addresses/a-2", headers=headers).status_code in (404, 405)
+    assert "a-2" not in [a["addressId"] for a in after]
 
 
 def test_AC_01_15_addresses_capped_at_50_per_account(client, login):

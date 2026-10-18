@@ -135,7 +135,11 @@ class AddressInput(CamelModel):
 
 
 class AddressPatchInput(CamelModel):
-    """배송지 수정. 보낸 필드만 바꾼다."""
+    """배송지 수정. 보낸 필드만 바꾼다.
+
+    null은 ‘바꾸지 않음’이다(배송지 이름을 지우려면 빈 문자열). `isDefault=false`는 무시한다:
+    기본은 다른 배송지를 기본으로 바꾸거나 지울 때만 옮긴다.
+    """
 
     recipient_name: str | None = None
     recipient_phone: str | None = None
