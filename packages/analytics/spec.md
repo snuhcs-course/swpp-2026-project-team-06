@@ -22,5 +22,6 @@
 | 2026-10-18 | 화면 전환 pageview는 Expo Router `usePathname`으로 직접 보낸다(`capture_pageview: false`) | 앱 경로 단위로 퍼널을 만든다 | DEV-71 |
 | 2026-10-18 | identify는 내부 `userId`만, 사람 속성은 `app`·`role`·`isTestAccount`만 | N-05 | DEV-71 |
 | 2026-10-18 | 녹화는 입력칸 전부, 개인정보 경로(`PRIVATE_PATHS`)의 글자 전부, `data-ph-private` 영역의 글자를 가린다. 네트워크·콘솔 녹화 끔 | N-05. RNW는 `className`을 받지 않아 `ph-no-capture` 대신 속성을 쓰고, Sheet는 portal이라 경로 기준을 함께 쓴다 | DEV-71 |
-| 2026-10-18 | 자동 수집은 요소 글자·속성을 보내지 않는다(`mask_all_text`·`mask_all_element_attributes`), URL 쿼리는 `before_send`에서 지운다 | 클릭한 카드의 주소·이름, 검색어·복귀 경로가 섞이지 않게 | DEV-71 |
+| 2026-10-18 | 자동 수집은 요소 글자·속성을 보내지 않는다(`mask_all_text`·`mask_all_element_attributes`), URL 쿼리는 `before_send`에서 지운다(히트맵 `$heatmap_data`의 URL 키 포함) | 클릭한 카드의 주소·이름, 검색어·복귀 경로가 섞이지 않게 | DEV-71 |
+| 2026-10-18 | 소비자 앱 퍼널 끝은 ‘입금을 마쳤어요’(`deposit_reported`). 입금 확인(`order_paid`)은 서버가 보낸다 | DEV-68 무통장 입금 | DEV-71 |
 | 2026-10-18 | `track` 속성은 트래킹 플랜 키만 남긴다(`cleanProps`) | 타입을 우회한 개인정보 차단 | DEV-71 |
