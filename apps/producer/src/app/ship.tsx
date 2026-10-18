@@ -17,6 +17,7 @@ import {
   Icon,
   Input,
   Notice,
+  Radio,
   Screen,
   Scroll,
   Segmented,
@@ -303,7 +304,6 @@ export default function Ship() {
     label: string,
     on: boolean,
     onPress: () => void,
-    wide = false,
   ) => (
     <Pressable
       key={label}
@@ -315,11 +315,12 @@ export default function Ship() {
       style={(st) =>
         [
           {
-            ...(wide ? {} : { flexBasis: "45%", flexGrow: 1 }),
+            flexBasis: "45%",
+            flexGrow: 1,
             minHeight: 48,
-            paddingHorizontal: wide ? 16 : 12,
+            paddingHorizontal: 12,
             borderRadius: tokens.radius.sm,
-            alignItems: wide ? "flex-start" : "center",
+            alignItems: "center",
             justifyContent: "center",
             backgroundColor: tokens.color.background,
             borderWidth: on ? 1.5 : 1,
@@ -329,12 +330,39 @@ export default function Ship() {
         ] as never
       }
     >
-      <T
-        variant="sub"
-        weight="semibold"
-        muted={!on}
-        style={{ textAlign: wide ? "left" : "center" }}
-      >
+      <T variant="sub" weight="semibold" muted={!on} style={{ textAlign: "center" }}>
+        {label}
+      </T>
+    </Pressable>
+  );
+
+  // 로그인 화면 계정 고르기와 같은 Radio 줄(눌러서 켜고, 다시 누르면 끈다)
+  const radioRow = (label: string, on: boolean, onPress: () => void, last: boolean) => (
+    <Pressable
+      key={label}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={label}
+      disabled={busy}
+      onPress={onPress}
+      style={(st) =>
+        [
+          {
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            minHeight: 52,
+            borderTopWidth: 1,
+            borderTopColor: tokens.color.border,
+            borderBottomWidth: last ? 1 : 0,
+            borderBottomColor: tokens.color.border,
+          },
+          (st as { focused?: boolean }).focused && focusRing,
+        ] as never
+      }
+    >
+      <Radio selected={on} />
+      <T variant="body" style={{ flex: 1 }}>
         {label}
       </T>
     </Pressable>
@@ -365,26 +393,22 @@ export default function Ship() {
         <T variant="sub" weight="semibold">
           미승인 사유
         </T>
-        <View
-          accessibilityRole="radiogroup"
-          accessibilityLabel="미승인 사유"
-          style={{ gap: 8 }}
-        >
-          {[...presets, CUSTOM].map((p) =>
-            choice(
+        <View accessibilityRole="radiogroup" accessibilityLabel="미승인 사유">
+          {[...presets, CUSTOM].map((p, i, all) =>
+            radioRow(
               p,
               preset === p,
               () => {
                 setPreset((cur) => (cur === p ? null : p));
                 setReasonError(null);
               },
-              true,
+              i === all.length - 1,
             ),
           )}
         </View>
         {preset === CUSTOM ? (
           <Input
-            label="직접 입력"
+            label="사유 직접 쓰기"
             value={reason}
             onChangeText={(v) => {
               setReason(v);
