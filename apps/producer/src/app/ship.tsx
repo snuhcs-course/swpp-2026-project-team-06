@@ -49,7 +49,8 @@ type Invoice = { carrier: Carrier | null; no: string };
 
 const SHIP_TABS = new Set(["PREPARING", "SHIPPED"]);
 type Reject = { orderId: string; kind: "deposit" | "refund" };
-// 미승인 사유 바로 고르기. 고르면 사유 칸에 채워지고 고쳐 쓸 수 있다
+// 미승인 사유: 하나를 골라 켜고(토글), ‘직접 입력’을 켜면 입력 칸이 열린다
+const CUSTOM = "직접 입력";
 const DEPOSIT_REASONS = [
   "입금이 아직 들어오지 않았어요",
   "금액이 달라요",
@@ -100,6 +101,7 @@ export default function Ship() {
   const [notice, setNotice] = useState<string | null>(null);
   // 줄 안 미승인 칸(DEV-68). 한 번에 한 줄만 펼친다
   const [reject, setReject] = useState<Reject | null>(null);
+  const [preset, setPreset] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [cancelOrder, setCancelOrder] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -268,6 +270,7 @@ export default function Ship() {
       orderId: o.orderId,
       kind: o.status === "AWAITING_DEPOSIT" ? "deposit" : "refund",
     });
+    setPreset(null);
     setReason("");
     setCancelOrder(false);
     setReasonError(null);
@@ -275,8 +278,11 @@ export default function Ship() {
 
   // 미승인(AC-09-9·AC-17-8): 사유 필수, 소비자에게 그대로 보인다
   function sendReject(o: ProducerOrder) {
-    const text = reason.trim();
-    if (!text) return setReasonError("미승인 사유를 적어 주세요");
+    const text = preset === CUSTOM ? reason.trim() : (preset ?? "");
+    if (!text)
+      return setReasonError(
+        preset === CUSTOM ? "사유를 적어 주세요" : "미승인 사유를 골라 주세요",
+      );
     if (reject?.kind === "deposit")
       return act(
         () => orders.rejectDeposit(o.orderId, text, cancelOrder),
@@ -297,11 +303,11 @@ export default function Ship() {
     label: string,
     on: boolean,
     onPress: () => void,
-    role: "radio" = "radio",
+    wide = false,
   ) => (
     <Pressable
       key={label}
-      accessibilityRole={role}
+      accessibilityRole="radio"
       accessibilityState={{ checked: on }}
       accessibilityLabel={label}
       disabled={busy}
@@ -309,12 +315,11 @@ export default function Ship() {
       style={(st) =>
         [
           {
-            flexBasis: "45%",
-            flexGrow: 1,
+            ...(wide ? {} : { flexBasis: "45%", flexGrow: 1 }),
             minHeight: 48,
-            paddingHorizontal: 12,
+            paddingHorizontal: wide ? 16 : 12,
             borderRadius: tokens.radius.sm,
-            alignItems: "center",
+            alignItems: wide ? "flex-start" : "center",
             justifyContent: "center",
             backgroundColor: tokens.color.background,
             borderWidth: on ? 1.5 : 1,
@@ -324,7 +329,12 @@ export default function Ship() {
         ] as never
       }
     >
-      <T variant="sub" weight="semibold" muted={!on} style={{ textAlign: "center" }}>
+      <T
+        variant="sub"
+        weight="semibold"
+        muted={!on}
+        style={{ textAlign: wide ? "left" : "center" }}
+      >
         {label}
       </T>
     </Pressable>
@@ -352,32 +362,50 @@ export default function Ship() {
             </View>
           </>
         ) : null}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {presets.map((p) =>
-            choice(p, reason === p, () => {
-              setReason(p);
-              setReasonError(null);
-            }),
+        <T variant="sub" weight="semibold">
+          미승인 사유
+        </T>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel="미승인 사유"
+          style={{ gap: 8 }}
+        >
+          {[...presets, CUSTOM].map((p) =>
+            choice(
+              p,
+              preset === p,
+              () => {
+                setPreset((cur) => (cur === p ? null : p));
+                setReasonError(null);
+              },
+              true,
+            ),
           )}
         </View>
-        <Input
-          label="미승인 사유"
-          value={reason}
-          onChangeText={(v) => {
-            setReason(v);
-            setReasonError(null);
-          }}
-          placeholder="소비자에게 그대로 보여요"
-          maxLength={200}
-          error={reasonError ?? undefined}
-          hint={
-            deposit
-              ? cancelOrder
-                ? "주문이 취소되고 물량이 돌아가요."
-                : "주문은 입금 대기로 남고, 소비자가 다시 입금했다고 알릴 수 있어요."
-              : "환불 송금 대기로 남아요. 보낸 뒤 「승인」을 눌러 주세요."
-          }
-        />
+        {preset === CUSTOM ? (
+          <Input
+            label="직접 입력"
+            value={reason}
+            onChangeText={(v) => {
+              setReason(v);
+              setReasonError(null);
+            }}
+            placeholder="소비자에게 그대로 보여요"
+            maxLength={200}
+            error={reasonError ?? undefined}
+          />
+        ) : reasonError ? (
+          <T variant="sub" color={tokens.color.error}>
+            {reasonError}
+          </T>
+        ) : null}
+        <T variant="sub" muted>
+          {deposit
+            ? cancelOrder
+              ? "주문이 취소되고 물량이 돌아가요. 사유는 소비자에게 그대로 보여요."
+              : "주문은 입금 대기로 남고, 소비자가 다시 입금했다고 알릴 수 있어요. 사유는 소비자에게 그대로 보여요."
+            : "환불 송금 대기로 남아요. 보낸 뒤 「승인」을 눌러 주세요. 사유는 소비자에게 그대로 보여요."}
+        </T>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Button
             label="닫기"
@@ -392,7 +420,7 @@ export default function Ship() {
             size="producer"
             style={{ flex: 2 }}
             loading={busy}
-            disabled={!reason.trim()}
+            disabled={!preset || (preset === CUSTOM && !reason.trim())}
             onPress={() => void sendReject(o)}
           />
         </View>
