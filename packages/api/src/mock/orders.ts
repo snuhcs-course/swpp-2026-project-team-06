@@ -98,6 +98,8 @@ function expireOverdue(ctx: Ctx, pick: (o: OrderRec) => boolean = () => true) {
       o.status === "AWAITING_DEPOSIT" &&
       o.depositDueAt &&
       o.depositDueAt <= now &&
+      // 입금했다고 알린 주문은 취소하지 않는다. 운영자가 생산자에게 연락한다(DEV-68)
+      !o.depositReportedAt &&
       pick(o)
     ) {
       cancelAwaiting(ctx, o, DEPOSIT_EXPIRED);
@@ -400,7 +402,9 @@ register({
       .filter(
         (o) =>
           ctx.db.products[o.productId]?.farmId === u.farmId &&
-          o.status !== "PENDING_PAYMENT",
+          o.status !== "PENDING_PAYMENT" &&
+          // 돈을 낸 적 없이 끝난 취소는 생산자 목록에서 뺀다(R-15)
+          !(o.status === "CANCELED" && !o.paidAt),
       )
       .filter((o) => !ctx.query.status || o.status === ctx.query.status)
       .filter(

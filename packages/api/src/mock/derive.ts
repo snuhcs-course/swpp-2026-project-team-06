@@ -250,7 +250,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
   const hide =
     o.status === "DELIVERED" ||
     o.status === "COMPLETED" ||
-    o.status === "AWAITING_DEPOSIT";
+    !o.paidAt;
   return {
     orderId: o.orderId,
     orderNo: o.orderNo,
