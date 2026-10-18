@@ -7,7 +7,7 @@ from app.core.db import get_db
 from app.core.idempotency import run_idempotent
 from app.core.pagination import decode_cursor, encode_cursor, page_limit
 from app.core.schemas import Paged
-from app.core.security import Admin, ApprovedProducer, Consumer, CurrentUser
+from app.core.security import Admin, ApprovedProducer, Consumer, CurrentUser, OnboardedConsumer
 from app.messaging import service as messaging
 from app.messaging.schemas import InquiryCreated, InquiryInput, InquiryView
 from app.orders import service
@@ -41,7 +41,7 @@ def _page(items: list, cursor: str | None, limit: int) -> Paged:
 
 
 @router.post("", response_model=OrderView)
-def create_order(db: Db, user: Consumer, body: OrderInput, key: IdempotencyKey = None):
+def create_order(db: Db, user: OnboardedConsumer, body: OrderInput, key: IdempotencyKey = None):
     """예약 주문(FEAT-08). Idempotency-Key 필수, 같은 키면 처음 결과를 돌려준다."""
     return run_idempotent(
         db, user.id, "orders", key, body, lambda: service.create_order(db, user, body)
@@ -158,9 +158,7 @@ def confirm_order(db: Db, user: Consumer, order_id: str):
 
 
 @router.post("/{order_id}/delivery-window-response", response_model=OrderView)
-def delivery_window_response(
-    db: Db, user: Consumer, order_id: str, body: DeliveryWindowResponse
-):
+def delivery_window_response(db: Db, user: Consumer, order_id: str, body: DeliveryWindowResponse):
     result = service.respond_delivery_window(db, user.id, order_id, body.choice)
     db.commit()
     return result

@@ -19,7 +19,8 @@
 | SCR-02 | 농가 목록 | `/farms` | `src/app/(tabs)/farms/index.tsx` | FEAT-06 |
 | SCR-03 | 농가 페이지 | `/farms/:farmId` | `src/app/(tabs)/farms/[farmId].tsx` | FEAT-02, 06, 12, 15, 19 |
 | SCR-04 | 상품 상세 | `/products/:productId` | `src/app/(tabs)/products/[productId].tsx` | FEAT-07 |
-| SCR-05 | 로그인(소비자 테스트 계정만) | `/login` | `src/app/login.tsx` | FEAT-01 |
+| SCR-05 | 로그인(카카오 · 소비자 테스트 계정) | `/login` | `src/app/login.tsx` | FEAT-01 |
+| SCR-05 하위 | 카카오 로그인 복귀 | `/auth/kakao` | `src/app/auth/kakao.tsx` | FEAT-01 |
 | SCR-10 | 주문서 | `/checkout/:productId` | `src/app/checkout/[productId]/index.tsx` | FEAT-08 |
 | SCR-10 하위 | 배송지 입력 | `/checkout/:productId/address` | `src/app/checkout/[productId]/address.tsx` | FEAT-08 |
 | SCR-11 | 결제 | `/checkout/:productId/pay` | `src/app/checkout/[productId]/pay.tsx` | FEAT-09 |
@@ -95,3 +96,9 @@ FarmRoom은 `/farms/:id`와 `/news/:id`의 공용 컨테이너이고 `/farms/:id
 
 ## DEV-57 실측 당도 표시
 상품 상세의 기존 당도 영역은 공통 BrixReading을 사용한다. 생성 당도계 그림은 실측값이 있는 경우에만 장식으로 표시하고 API 수치/날짜를 그대로 전달한다. API/측정 등록 흐름과 상품 사실을 생성하지 않는다.
+
+## DEV-32 카카오 로그인 (SCR-05 · `/auth/kakao`)
+
+**첫 가입 온보딩(SCR-06, 10/18)**: `POST /api/auth/kakao` 응답의 `user.needsOnboarding`이 true면 `/auth/kakao`(실제)·`/login`(Mock)이 `/onboarding?next=`로 보낸다. `/onboarding`(닉네임·이름·휴대폰·동의 4개, `saveConsents` → `updateMe` → `refresh`) → `/onboarding/address`(`AddressForm` manage 모드, `alwaysDefault`, ‘주문할 때 입력할게요’) → 관문에서 왔으면 `router.back()`, 아니면 `next`. 세션은 온보딩이 남았거나 `/onboarding*` 경로에 있는 동안 `resume`을 숨겨 스택 아래 화면이 먼저 행동을 실행하지 않게 하고(`hasResume`으로 돌아갈 곳만 판단), `requireLogin`은 온보딩이 남은 계정을 온보딩으로 보낸다(탭 열기는 제외). 주문서는 온보딩이 남은 계정을 온보딩으로 보낸다. 배송지 50개: 배송지 관리는 추가 버튼을 끄고, 주문서는 새 주소를 그 주문에만 쓴다. 내 정보는 닉네임을 머리에 두고 `/me/profile`에서 고친다. Mock 카카오 로그인은 소비자 계정 `u-kakao`(처음엔 이메일만)로 들어가 온보딩을 탄다.
+
+카카오 로그인은 전체 페이지 리다이렉트라 React 상태(`resume`)가 사라진다. 그래서 `lib/kakao.ts`가 돌아갈 화면과 이어서 할 행동을 sessionStorage에 두고 인가 요청 `state`(일회용 값)와 함께 저장하며, `/auth/kakao`가 `state`를 대조한 뒤 한 번만 꺼내 `POST /api/auth/kakao` → `refresh()` → `restoreResume()` → `router.replace(next)` 순으로 복귀한다. 카카오 설정(`enabled`, `clientId`, `redirectPath`)은 서버 `GET /api/auth/kakao/config`에서 받고 앱 env에 키를 두지 않는다. Mock 모드는 리다이렉트 없이 바로 로그인한다. 테스트 계정 로그인은 Mock 플래그가 켜진 동안 같은 화면에 남는다. 리프레시 토큰·생산자 앱 카카오 화면은 범위 밖.

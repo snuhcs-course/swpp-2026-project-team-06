@@ -146,19 +146,28 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 ### SCR-05 로그인 `/login` (소비자 앱)
 
-- **관련**: FEAT-01(AC-01-1, 4~6) · 규칙: N-06 · ADR 0009, 0010 · 우선순위: Must
-- **목적**: I1 소비자 테스트 계정을 골라 로그인한다(카카오 로그인은 I2).
-- **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, 약관·개인정보 처리방침 링크, ‘테스트 서비스’ 표시. 생산자 계정은 목록에 없다.
-- **입력·출력**: `GET /api/auth/test-accounts?app=consumer`로 목록, 고르면 `POST /api/auth/test-login`(`userId`, `app: consumer`) → 액세스 토큰과 사용자. 토큰은 packages/api가 앱별로 보관한다.
-- **버튼 동작**: 계정 선택 → 로그인 후 누른 화면·행동으로 복귀(관문 시트에서 왔으면 그 행동을 이어서 실행).
-- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) ‘지금은 로그인할 수 없어요’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
+- **관련**: FEAT-01(AC-01-1, 4~6, 8~13) · 규칙: N-06 · ADR 0003, 0009, 0010 · 우선순위: Must
+- **목적**: 카카오로 로그인하거나(I2, DEV-32) 소비자 테스트 계정을 골라 로그인한다(Mock 플래그가 켜진 동안).
+- **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, ‘카카오로 시작하기’ 버튼(카카오 공식 문구 중 하나, 노랑 #FEE500, 설정이 꺼져 있으면 숨김), 카카오가 켜져 있으면 테스트 계정 로그인은 없음. 꺼져 있을 때(CI·Mock 플래그만)만 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, ‘테스트 서비스’ 표시. 카카오 버튼 아래 ‘카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요.’ 카카오가 켜져 있으면 하단은 ‘이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요’(동의는 SCR-06에서 명시적으로), 꺼져 있으면 기존 안내. 생산자 계정은 목록에 없다.
+- **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부·클라이언트 ID. 카카오 버튼 → 돌아갈 화면·행동을 sessionStorage에 두고 카카오 인가 화면(`state`=일회용 값) → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: consumer`) → 토큰과 사용자. 테스트 계정은 `GET /api/auth/test-accounts?app=consumer`로 목록, 고르면 `POST /api/auth/test-login`(`userId`, `app: consumer`). 토큰은 packages/api가 앱별로 보관한다.
+- **버튼 동작**: 계정 선택 → 로그인 후 누른 화면·행동으로 복귀(관문 시트에서 왔으면 그 행동을 이어서 실행). 카카오 응답의 사용자가 `needsOnboarding=true`(처음 가입)면 SCR-06을 거쳐 복귀한다.
+- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) 테스트 계정 목록 대신 ‘지금은 로그인할 수 없어요’(카카오 버튼은 설정대로). 카카오를 취소하거나(`error=access_denied`) `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’·‘홈으로’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
+
+### SCR-06 첫 가입 온보딩 `/onboarding` → `/onboarding/address` (소비자 앱)
+
+- **관련**: FEAT-01(AC-01-8, 12~15) · 규칙: R-03(동의 기록 방식), R-15, N-05 · 정책 5장 · 우선순위: Must · 사용자 결정 10/18
+- **목적**: 카카오로 처음 가입한 소비자에게 지금 서비스가 쓰는 정보(닉네임·이름·휴대폰·가입 동의, 기본 배송지)를 한 번에 받는다. 다시 온 회원은 거치지 않는다.
+- **화면 요소·데이터**: ① `/onboarding` ‘1 / 2’, 제목 ‘farmclub에서 쓸 정보예요’, 카카오계정 이메일 칩(바꿀 수 없음), 닉네임(2~12자, ‘농가 채팅과 소식방에 이 이름으로 보여요’), 이름(2~20자), 휴대폰 번호(입력 중 010-0000-0000 꼴로 맞춤, ‘인증번호는 보내지 않아요’), ‘모두 동의해요’와 개별 동의 4개(이용약관·개인정보 수집·이용·만 14세 이상 필수, 농가 소식·혜택 알림 선택, 요지 ‘보기’ 시트), 하단 ‘다음’(필수 입력·필수 동의가 맞을 때만 켜짐). ② `/onboarding/address` ‘2 / 2’, 제목 ‘귤을 받을 곳이에요’, 배송지 입력과 같은 칸(받는 사람·연락처는 ①로 채움), 하단 ‘저장하고 시작하기’와 ‘주문할 때 입력할게요’.
+- **입력·출력**: ① `POST /api/auth/me/consents`(항목·버전·동의 여부) → `PATCH /api/auth/me`(`nickname`, `name`, `phone`) → `GET /api/auth/me`. 카카오에서 온 값(2단계: 이름·전화번호)은 미리 채운다. ② `POST /api/auth/me/addresses`(`isDefault=true`).
+- **버튼 동작**: 다음 → ②. 저장하고 시작하기·주문할 때 입력할게요 → 관문에서 왔으면 원래 화면으로 돌아가 그 행동을 잇고, 아니면 `next`. 닫기(①) → 계정은 남고 행동은 실행하지 않으며 원래 화면, 다음 관문에서 다시 ①. 온보딩 화면에 있는 동안에는 이어서 할 행동을 실행하지 않는다.
+- **빈 상태·오류**: 비로그인으로 열면 SCR-05. 이미 마친 계정이 열면 `next`로. 저장 실패 → 입력 유지, 필드 오류는 칸 아래, 연결 실패는 공통 토스트와 다시 시도.
 
 ### SCR-10 주문서 `/checkout/:productId`
 
 - **관련**: FEAT-08(AC-08-1~5), FEAT-01(AC-01-1) · 규칙: R-03, R-06, R-17, R-20, R-23 · 정책 2장 · 우선순위: Must
 - **목적**: 옵션·수량·받는 곳을 확인하고 조건에 동의해 결제로 간다.
 - **화면 요소·데이터**: 상품 요약(썸네일 64, 옵션·수량, 지금 단계 가격, ‘변경’ → 옵션 시트), 받는 곳(저장한 기본 배송지 요약과 ‘변경’, 없으면 ‘받는 사람과 주소 입력’ → 배송지 입력 하위 화면), 배송 메모(선택), 금액(상품 금액 + 배송비 + 도서산간 추가금 = 합계), 예약 전 동의 4개(정책 2장)와 전체 동의, 그 아래 중개자 고지·입금 안내 문단(DEV-68), 하단 바 ‘예약하기’.
-- **입력**: `optionId`, `quantity`, `recipientName`, `recipientPhone`(휴대폰 형식), `postalCode`, `address`, 선택 `addressDetail`, `deliveryNote`(100자 이하), 동의 4개, `saveAddress`. 저장한 기본 배송지가 있으면 채워 두고 바꿀 수 있다(AC-08-5, `GET /api/auth/me/addresses`).
+- **입력**: `optionId`, `quantity`, `recipientName`, `recipientPhone`(휴대폰 형식), `postalCode`, `address`, 선택 `addressDetail`, `deliveryNote`(100자 이하), 동의 4개, `saveAddress`. 저장한 기본 배송지가 있으면 채워 두고 ‘다른 배송지’ 시트에서 저장 목록(최대 50개) 중 고르거나 새 주소를 넣는다(AC-08-5, `GET /api/auth/me/addresses`). 저장 배송지가 없으면 배송지 입력의 받는 사람·연락처를 가입 정보(이름·휴대폰)로 채운다. 50개가 찼으면 시트와 배송지 입력에 ‘이번 주문에만 쓰고 저장하지 않아요’를 보이고 저장 체크를 숨긴다. 가입 온보딩이 남은 계정이 열면 SCR-06으로 보낸다(AC-01-12).
 - **출력**: `POST /api/orders`(`Idempotency-Key`) → 결제 전 주문(`orderId`, `unitPrice`, `shippingFee`, `totalAmount`), 이어서 `POST /api/orders/{orderId}/deposit`(`Idempotency-Key`) → 물량 선점·입금 대기(`AWAITING_DEPOSIT`)·계좌·기한. 서버 합계를 보여주고 SCR-11로 간다.
 - **버튼 동작**: 옵션·수량·주소 변경 → 합계 미리보기 갱신. 예약하기 → 필수값·동의 검증 후 주문 생성과 입금 안내를 각 1회 요청, 처리 중 잠금. 뒤로 → SCR-04.
 - **빈 상태·오류**: 받는 곳이 없으면 예약하기를 끄고 ‘받는 곳을 입력하면 예약할 수 있어요’. 동의 누락 → 넘어가지 않음(AC-08-1). 409(기간/가격 변경·판매 중지·총 한도/기간 물량 소진·수량 초과) → 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받음. 네트워크 오류 → 입력 유지, 다시 시도.
@@ -226,7 +235,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-06(AC-06-3), FEAT-08(AC-08-5), FEAT-10, FEAT-01(AC-01-7) · 탭: 내 정보 · 우선순위: Should
 - **목적**: 팔로우·배송지를 관리하고, 농가를 열려면 생산자 앱 가입으로 간다.
-- **화면 요소·데이터**: 프로필(이름, 테스트 계정 · 소비자), 팔로우한 농가 목록, 설정(배송지 관리 → 하위 화면, 농가로 시작하기, 로그아웃).
+- **화면 요소·데이터**: 프로필(닉네임, 없으면 이름 · ‘카카오 계정’/‘테스트 계정’ · 소비자, 카카오 계정은 이름·휴대폰·이메일 한 줄), 온보딩이 남았으면 ‘가입을 마쳐 주세요’ 안내와 ‘가입 마치기’ → SCR-06, 팔로우한 농가 목록, 설정(내 정보 고치기 → `/me/profile`(카카오 계정, 온보딩 끝난 뒤), 배송지 관리 → 하위 화면, 농가로 시작하기, 로그아웃).
 - **입력·출력**: `GET /api/auth/me`, `GET /api/farms/following`.
 - **버튼 동작**: 팔로우한 농가 → SCR-03. 배송지 관리 → `/me/addresses`. 농가로 시작하기 → 시트 ‘생산자 앱은 따로 가입해요’(소비자 계정으로는 농가를 열 수 없고, 생산자 앱 가입 신청이 생산자 계정을 따로 만든다는 안내) → ‘생산자 앱에서 가입하기’ → 생산자 앱 SCR-19(가입 신청 링크). 로그아웃 → 토큰 삭제, SCR-01.
 - **빈 상태·오류**: 팔로우 없음 → ‘팔로우한 농가가 없어요’와 농가 둘러보기.
@@ -236,8 +245,13 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **목적**: 저장한 배송지를 보고 고치거나 지운다(결정 28). 작업 화면이라 탭 바를 숨긴다.
 - **화면 요소·데이터**: 배송지 카드(받는 사람·연락처·주소, 기본 표시, 수정·삭제, ‘기본으로’), 새 배송지 추가(배송지 입력과 같은 화면).
 - **입력·출력**: `GET`·`POST`·`PATCH`·`DELETE /api/auth/me/addresses`.
-- **버튼 동작**: 수정 → 배송지 입력 화면(값 채움). 삭제 → 확인 시트 → 지움, 토스트. 기본으로 → `PATCH`(`isDefault`). 저장 → 토스트 ‘저장했어요’.
-- **빈 상태·오류**: 배송지 없음 → ‘저장한 배송지가 없어요’와 추가. 저장 실패 → 입력 유지.
+- **버튼 동작**: 수정 → 배송지 입력 화면(값 채움). 삭제 → 확인 시트 → 지움, 토스트. 기본 배송지를 지우면 가장 최근 배송지가 기본이 된다. 기본으로 → `PATCH`(`isDefault`). 저장 → 토스트 ‘저장했어요’. 하단 ‘새 배송지 추가 (n/50)’.
+- **빈 상태·오류**: 배송지 없음 → ‘저장한 배송지가 없어요’와 추가. 50개 → 추가 버튼을 끄고 ‘배송지는 50개까지 저장할 수 있어요. 안 쓰는 배송지를 지워 주세요’(서버 409 `ADDRESS_LIMIT`). 저장 실패 → 입력 유지.
+
+#### SCR-17 하위: 내 정보 고치기 `/me/profile`
+
+- **목적**: 카카오 계정의 닉네임·이름·휴대폰 번호를 고친다(FEAT-01 I2). 이메일은 카카오계정 값이라 읽기만 한다.
+- **입력·출력**: `PATCH /api/auth/me`(검증은 SCR-06과 같다). 저장 → 내 정보로 돌아가 토스트 ‘저장했어요’. 실패 → 입력 유지.
 
 ### SCR-18 소식방 목록 `/chats?view=news`
 
@@ -409,8 +423,9 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 ### 7.1 공통
 
 - **기준 주소**: 서버의 `/api`(앱), `/admin`(운영자, Swagger UI), `/s`(공유 링크). 버전 접두어는 쓰지 않는다([server/spec.md](/server/spec.md)).
-- **인증**: `Authorization: Bearer <액세스 토큰>`. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수)으로 받는다. 토큰에는 계정의 역할(`CONSUMER`·`PRODUCER`)이 들어 있다. 표의 ‘공개’는 토큰 없이 된다.
+- **인증**: `Authorization: Bearer <액세스 토큰>`. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수)으로 받고, I2 소비자 앱은 카카오 로그인(`POST /api/auth/kakao`)으로도 받는다(DEV-32). 토큰에는 계정의 역할(`CONSUMER`·`PRODUCER`)이 들어 있다. 표의 ‘공개’는 토큰 없이 된다.
 - **앱 간 토큰**: 소비자 계정과 생산자 계정은 따로다(ADR 0010). 소비자 API를 생산자 계정 토큰으로, 생산자 API를 소비자 계정 토큰으로 부르면 403 `FORBIDDEN`(`details.reason: WRONG_APP`). 앱은 이 응답을 받으면 토큰을 지우고 그 앱의 로그인으로 보낸다. 공개 API와 `GET /api/auth/me`는 두 계정 모두 된다.
+- **가입 온보딩**: 소비자 카카오 계정이 온보딩을 마치기 전(`needsOnboarding=true`)에 `POST /api/orders`, `PUT /api/farms/{farmId}/follow`, `PUT /api/messaging/news/{broadcastId}/reaction`, `POST /api/messaging/chats`, `POST /api/messaging/chats/{farmId}/messages`, 소비자의 `POST /api/messaging/rooms/{farmId}/messages`를 부르면 403 `FORBIDDEN`(`details.reason: ONBOARDING_REQUIRED`). 토큰은 지우지 않고 앱이 SCR-06으로 보낸다(FEAT-01 AC-01-12).
 - **오류 형식**: 모든 오류는 `{"code": "...", "message": "...", "details": {}}`. `message`는 화면에 그대로 보일 한국어 문구(정책 문서), `details`는 필드별 오류·최신 값 등.
 
   | 상태 | code | 언제 |
@@ -443,13 +458,18 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | --- | --- | --- | --- | --- | --- | --- |
 | `GET /api/auth/test-accounts` | 공개(Mock 플래그) | SCR-05, 19 | `app`(`consumer`·`producer`, 필수) | 그 앱의 시드 테스트 계정 목록(`userId`, 이름, 역할, 농가명, 농가 상태). 소비자 앱은 소비자 계정만, 생산자 앱은 생산자 계정만 | FEAT-01 | Must |
 | `POST /api/auth/test-login` | 공개(Mock 플래그) | SCR-05, 19 | `userId`, `app` | `accessToken`, 사용자(역할, 농가 상태). 시드 계정이 아니면 404, 플래그가 꺼지면 404, 계정 역할이 `app`과 다르면 403 `WRONG_APP` | FEAT-01 | Must |
-| `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작, 정지 안내 | — | 사용자, 역할, 농가 상태(`NONE`·`PENDING`·`REJECTED`·`APPROVED`·`SUSPENDED`), 정지 사유 | FEAT-01 | Must |
+| `GET /api/auth/kakao/config` | 공개 | SCR-05 | — | `enabled`(REST API 키 유무), `clientId`, `redirectPath`(`/auth/kakao`) | FEAT-01 I2 | Must |
+| `POST /api/auth/kakao` | 공개 | `/auth/kakao` 복귀 | `code`, `redirectUri`(두 앱 주소의 `/auth/kakao`만), `app` | `accessToken`, 사용자. (카카오 식별자, 역할) 계정을 찾거나 만든다. 키가 없으면 404, 복귀 주소·카카오 인증 실패면 400 | FEAT-01 I2 | Must |
+| `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작, 정지 안내 | — | 사용자, 역할, 농가 상태(`NONE`·`PENDING`·`REJECTED`·`APPROVED`·`SUSPENDED`), 정지 사유, `nickname`, `email`, `phone`, `needsOnboarding`(소비자 카카오 계정만 true 가능) | FEAT-01 | Must |
+| `PATCH /api/auth/me` | 소비자 | SCR-06, SCR-17 하위 | 선택 `nickname`(2~12자), `name`(2~20자), `phone`(휴대폰 형식). 보낸 필드만 | 사용자(위와 같음). 검증 실패 400 `fields` | FEAT-01 I2 | Must |
+| `GET /api/auth/me/consents` | 소비자 | SCR-06 | — | 가입 동의 목록(`kind`, `version`, `agreed`, `agreedAt`) | FEAT-01 I2 | Should |
+| `POST /api/auth/me/consents` | 소비자 | SCR-06 | `consents[]`: `kind`(`TERMS`·`PRIVACY`·`AGE14`·`MARKETING`), `version`, `agreed`(기본 true) | 가입 동의 목록. 항목마다 한 줄, 다시 보내면 버전·시각 갱신 | FEAT-01 I2 | Must |
 | `POST /api/auth/producer-application` | 생산자 계정 | SCR-20 | `ownerName`(대표자 이름), 농가명, 지역, 주 품목, 연락처, 입점 정책 동의 | 농가(`PENDING`), 계정 이름을 대표자 이름으로 | FEAT-01 | Should |
 | `GET /api/auth/producer-application` | 생산자 계정 | SCR-20, 21 | — | 신청 상태, 반려 사유, 신청 내용(대표자 이름·농가명·지역·주 품목·연락처, 신청일) | FEAT-01 | Should |
 | `GET /api/auth/me/addresses` | 소비자 | SCR-10, 17 | — | 저장 배송지 목록(기본 표시) | FEAT-08 | Must |
-| `POST /api/auth/me/addresses` | 소비자 | SCR-10, 17 | 받는 사람, 연락처, 우편번호, 주소, 상세 주소, 기본 여부 | 저장된 배송지 | FEAT-08 | Must |
-| `PATCH /api/auth/me/addresses/{addressId}` | 소비자 | SCR-17 | 바꿀 필드 | 저장된 배송지 | FEAT-08 | Should |
-| `DELETE /api/auth/me/addresses/{addressId}` | 소비자 | SCR-17 | — | 204 | FEAT-08 | Should |
+| `POST /api/auth/me/addresses` | 소비자 | SCR-06, 10, 17 | 받는 사람, 연락처, 우편번호, 주소, 상세 주소, 기본 여부 | 저장된 배송지. 계정당 50개, 넘으면 409 `ADDRESS_LIMIT`(`details.limit`) | FEAT-08, FEAT-01 I2 | Must |
+| `PATCH /api/auth/me/addresses/{addressId}` | 소비자 | SCR-17 | 바꿀 필드(보낸 것만 검증) | 저장된 배송지. 남의 배송지 404 | FEAT-08 | Must |
+| `DELETE /api/auth/me/addresses/{addressId}` | 소비자 | SCR-17 | — | 204. 기본을 지우면 가장 최근 배송지가 기본. 지난 주문은 그대로 | FEAT-08 | Must |
 
 **farms** (`/api/home`, `/api/farms`, `/s`)
 

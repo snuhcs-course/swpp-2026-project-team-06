@@ -1136,3 +1136,27 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 - 10/18 서버·API·Mock·앱·문서 구현. `uv run pytest`: 332 중 328 통과, 4 실패는 로컬 `server/.env`의 AI 키 때문(.env를 치우고 돌리면 4/4 통과, 이번 변경과 무관). 범위 추가: `server/.env.example`(DEPOSIT_DEADLINE_HOURS), `packages/ui/src/format.ts`(deadline), `apps/consumer/src/lib/DepositCard.tsx`, `apps/producer/src/app/(tabs)/farm/account.tsx`.
 - 10/18 농가 미승인 반영 후 실행: `uv run pytest` 339 중 335 통과(실패 4는 로컬 `server/.env` AI 키, 기존과 같음), `alembic upgrade head`·`alembic check` 통과(전용 DB), `npm run typecheck` 통과, `npm run test:mock` 14/14, `npm run test:integration:full` API 7 + Playwright 43/43 통과(전용 DB `farmclub_dev68_mig`).
 - 10/18 리뷰(자라, Request changes) 반영: main(f31c7b0) 병합(충돌 3파일 모두 양쪽 유지), ruff 8건 정리, R-15(생산자 목록에서 `paid_at` 없는 취소 제외·입금 전 배송 정보 비움), 박현 결정 — 입금했다고 알린 주문은 기한이 지나도 취소하지 않고 운영자 목록 `GET /admin/orders/deposit-overdue`, 부분 환불 송금 표시는 나중 고려. `expire-deposits` 멱등 키·감사 기록, 주문 번호 충돌 재시도, 0014 downgrade server_default 원복. pytest 345 중 341 통과(실패 4는 로컬 `.env` AI 설정, 이번 변경과 무관), alembic 0013↔0015 왕복·check 통과.
+
+## DEV-32 카카오 로그인 서버
+- 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) (GitHub [#77](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/77))
+- 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-8~15 · ADR 0003·0010
+- 상태: 리뷰 중
+- 범위(수정 허용 경로): `server/app/accounts/{models,router,schemas,service,spec}.py|md`, `server/app/core/security.py`(`OnboardedConsumer`), `server/app/{orders,farms,messaging}/router.py`(관문 의존성만), `server/app/messaging/service.py`·`server/app/orders/service.py`(소비자 표시 이름·소식방 답장 관문만), `server/migrations/versions/0016_user_onboarding.py`, `server/tests/test_accounts.py`, `server/.env.example`, `server/tasks.md`. 10/18 온보딩 승인으로 범위 넓힘. 동작 변경과 함께 고치는 문서: `docs/spec/{functional/FEAT-01-login.md,functional/README.md,screens.md,ia.md,policy.md,tech-design/README.md}`, `docs/wiki/Requirements-and-Specifications.md`
+- 결정 사항:
+  - 10/17 `GET /api/auth/kakao/config`(공개)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 토큰 교환은 httpx 동기 클라이언트, 8초 타임아웃. `_kakao_fetch`만 바꿔 끼워 테스트한다.
+  - 10/17 복귀 주소는 CORS 허용 목록과 같은 두 앱 주소의 `/auth/kakao`만 받는다(오픈 리다이렉트·코드 가로채기 방지).
+  - 10/17 (카카오 식별자, 역할)마다 계정 하나. 처음이면 카카오계정 이메일(`account_email`, 없으면 닉네임, 둘 다 없으면 ‘카카오 사용자’)을 이름으로 만들고, 자리 이름은 다음 로그인에서 바꾸며 `is_test_account=false`, 연락처 빈 값. 키가 비면 404, 교환 실패·주소 불일치는 400이며 계정을 만들지 않는다.
+  - 10/17 리프레시 토큰은 넣지 않는다(0009와 같은 7일 액세스 토큰). 테스트 기간에는 Mock 로그인 플래그를 함께 켠다.
+- 작업: [x] 스키마·서비스·라우터 [x] pytest AC-01-8~11 [x] Ruff
+- 검증: Ruff 통과, 전체 pytest 217개 통과(신규 7개). 로컬 `.env`에 카카오 키가 있어 "꺼짐" 테스트는 키를 명시적으로 비운다.
+- 10/18 결정(사용자 승인, 제안 아티팩트 v4): 카카오에서는 회원번호·이메일만 받는다(닉네임 안 받음). 첫 가입 온보딩에서 닉네임·이름·휴대폰·가입 동의, 기본 배송지(건너뛰기 가능)를 받는다. 이름·전화번호 동의 항목은 비즈 앱 심사 뒤(2단계) 추가해 빈 칸에만 채운다. 배송지는 계정당 50개, 수정·삭제 가능.
+- 10/18 결정: 온보딩 미완료 판단은 서버(`needs_onboarding`)가 하고 `UserView.needsOnboarding`으로 내려준다. 농가에 닿는 쓰기(주문·팔로우·좋아요·채팅 시작·보내기·소식방 답장)만 403 `ONBOARDING_REQUIRED`, 조회와 내 정보·배송지는 막지 않는다. 동의는 `user_consents`(user, kind)당 한 줄, 결제 동의(R-03)처럼 버전·시각을 남긴다. 농가에 보이는 소비자 이름은 닉네임(없으면 기존 가림 이름).
+- 10/18 결정: 주문의 ‘기본 배송지로 저장’은 50개가 차 있으면 주문은 그대로 두고 저장만 건너뛴다(주문이 배송지 한도에 막히지 않게). 기본 배송지를 지우면 가장 최근 배송지가 기본.
+- 10/18 main(0013까지) 머지 뒤 마이그레이션 0014(`users.nickname`·`email`, `user_consents`). **번호 충돌**: DEV-68 PR #141도 main 0013 위에 `0014_bank_transfer.py`를 둔다. 먼저 머지되는 PR이 0014를 갖고, 나중 PR은 main을 받아 0015(`down_revision`=먼저 들어간 0014)로 옮긴다. DEV-36 PR #124의 0009는 보류 중이라 다시 열면 그 뒤 번호로 옮긴다. 로컬 공용 DB `farmclub`는 DEV-68의 0014에 올라가 있어 이 브랜치 통합 테스트는 `farmclub_dev32` DB로 돌렸다.
+- 작업(10/18): [x] 모델·마이그레이션 0016(처음 0014, DEV-68 머지 뒤 번호 이동) [x] `KakaoProfile`·온보딩 판단·`PATCH /me`·동의 API [x] 관문 의존성 [x] 배송지 PATCH·DELETE·50개 [x] pytest AC-01-12~15 [x] Ruff
+- 검증(10/18): Ruff 통과, 전체 pytest 344개 통과(신규·수정 11개), 빈 DB에 `alembic upgrade head` → `downgrade 0013` → `upgrade head`, `alembic check` 변경 없음.
+- 10/18 AI 1차 리뷰 반영: 카카오로 처음 만든 생산자 계정은 이름이 비지 않게 ‘카카오 사용자’(소비자는 온보딩에서 받음). 기본 배송지 승계 정렬에 id를 두 번째 키로. 배송지 PATCH의 null·`isDefault=false` 의미를 스키마 주석에 적음. 테스트 추가: 좋아요·채팅 시작·보내기·소식방 답장 403, 생산자 채팅 목록에 닉네임만 보이고 이름·연락처는 없음, 주문 ‘기본 배송지로 저장’이 50개에서 건너뜀.
+- 10/18 결정(리뷰 확인 필요 항목): `needs_onboarding`은 동의 문구 **버전**을 비교하지 않는다. 약관·처리방침 개정 때 재동의를 강제하는 것은 정식 약관이 나온 뒤(현재는 테스트 서비스 요지만 있음) 별도 이슈로 한다. 버전은 이미 기록하므로 그때 현재 버전 상수와 비교만 더하면 된다. 배송지 50개는 동시 저장 경합에서 넘을 수 있으나 테스트 서비스 규모에서 허용.
+- 검증(10/18 리뷰 반영 뒤): Ruff 통과, 전체 pytest 346개 통과.
+- 10/18 DEV-68 PR #141 머지(main에 0014_bank_transfer·0015_deposit_issue)에 따라 main을 다시 병합하고 온보딩 마이그레이션을 `0016_user_onboarding`(`down_revision`=0015)으로 옮겼다. 문서 충돌(ia·policy·screens·tech-design·wiki·tasks)은 양쪽 내용을 합쳤다. policy.md 동의 문단은 DEV-68의 중개자 구조 문장으로 바꾸고 예전 ‘직매입·처리 위탁’ 문장은 뺐다.

@@ -16,6 +16,7 @@ import {
   paginate,
   register,
 } from "./router";
+import { ADDRESS_LIMIT } from "./auth";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 /** 도서산간(예시): 제주·울릉·옹진 등 우편번호 앞자리 */
@@ -185,7 +186,9 @@ register({
         addressDetail: b.addressDetail?.trim() ?? "",
       };
       ctx.db.orders[o.orderId] = o;
-      if (b.saveAddress) {
+      // 저장 배송지가 50개면 주문은 그대로 두고 저장만 건너뛴다(서버 save_order_address와 같다)
+      const book = ctx.db.addresses[u.userId] ?? [];
+      if (b.saveAddress && book.length < ADDRESS_LIMIT) {
         const list = (ctx.db.addresses[u.userId] ??= []);
         if (
           !list.some(

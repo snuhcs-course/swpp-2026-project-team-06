@@ -25,6 +25,7 @@ export default function AddressEdit() {
       mode="manage"
       initial={initial}
       defaultName={user?.name}
+      defaultPhone={user?.phone}
       onClose={back}
       onDone={() => {
         setFlash("저장했어요");

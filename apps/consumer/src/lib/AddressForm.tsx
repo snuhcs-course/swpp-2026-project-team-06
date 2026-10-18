@@ -12,7 +12,7 @@ import {
   T,
   tokens,
 } from "@farmclub/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
 
 import { isNetworkError, useToast } from "./toast";
@@ -25,9 +25,25 @@ type Props = {
   /** 수정할 배송지(manage) */
   initial?: Address | null;
   defaultName?: string;
+  /** 받는 사람 연락처 기본값(가입 때 입력한 휴대폰) */
+  defaultPhone?: string;
   onClose: () => void;
   /** checkout: 고른 값. manage: 저장 끝 */
   onDone: (value: AddressValue) => void;
+  /** 머리 막대 제목. 기본 ‘받는 곳’ */
+  title?: string;
+  /** 입력칸 위 안내(온보딩 단계 표시 등) */
+  intro?: ReactNode;
+  /** 주 버튼 문구. 기본 checkout ‘이 주소로 받기’, manage ‘저장’ */
+  submitLabel?: string;
+  /** 주 버튼 아래 텍스트 버튼(온보딩 ‘주문할 때 입력할게요’) */
+  secondary?: { label: string; onPress: () => void };
+  /** ‘기본 배송지로 저장’ 체크를 숨기고 기본으로 저장한다(온보딩 첫 배송지) */
+  alwaysDefault?: boolean;
+  /** checkout에서 저장 배송지가 50개라 더 저장할 수 없을 때 안내하고 저장 체크를 끈다 */
+  saveBlocked?: string;
+  /** 닫기 대신 뒤로 화살표 */
+  back?: boolean;
 };
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
@@ -36,15 +52,23 @@ export function AddressForm({
   mode,
   initial,
   defaultName,
+  defaultPhone,
   onClose,
   onDone,
+  title = "받는 곳",
+  intro,
+  submitLabel,
+  secondary,
+  alwaysDefault,
+  saveBlocked,
+  back,
 }: Props) {
   const [name, setName] = useState(defaultName ?? "");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(defaultPhone ?? "");
   const [postal, setPostal] = useState("");
   const [address, setAddress] = useState("");
   const [detail, setDetail] = useState("");
-  const [isDefault, setIsDefault] = useState(true);
+  const [isDefault, setIsDefault] = useState(!saveBlocked);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const toast = useToast(120);
@@ -75,7 +99,7 @@ export function AddressForm({
       postalCode: postal.trim(),
       address: address.trim(),
       addressDetail: detail.trim() || undefined,
-      saveAddress: isDefault,
+      saveAddress: !saveBlocked && (alwaysDefault || isDefault),
     };
     if (mode === "checkout") {
       onDone(value);
@@ -89,7 +113,7 @@ export function AddressForm({
         postalCode: value.postalCode,
         address: value.address,
         addressDetail: value.addressDetail ?? "",
-        isDefault,
+        isDefault: alwaysDefault || isDefault,
       };
       if (initial) await auth.updateAddress(initial.addressId, body);
       else await auth.addAddress(body);
@@ -113,9 +137,10 @@ export function AddressForm({
 
   return (
     <Screen>
-      <HeaderBar title="받는 곳" close onBack={onClose} />
-      <Scroll bottom={140}>
+      <HeaderBar title={title} close={!back} onBack={onClose} />
+      <Scroll bottom={secondary ? 190 : 140}>
         <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 20 }}>
+          {intro}
           <Input
             label="받는 사람"
             value={name}
@@ -156,11 +181,17 @@ export function AddressForm({
               error={errors.addressDetail}
             />
           </View>
-          <Checkbox
-            checked={isDefault}
-            label="기본 배송지로 저장"
-            onPress={() => setIsDefault((v) => !v)}
-          />
+          {alwaysDefault ? null : saveBlocked ? (
+            <T variant="sub" muted>
+              {saveBlocked}
+            </T>
+          ) : (
+            <Checkbox
+              checked={isDefault}
+              label="기본 배송지로 저장"
+              onPress={() => setIsDefault((v) => !v)}
+            />
+          )}
           {errors._ ? (
             <T variant="sub" color={tokens.color.error}>
               {errors._}
@@ -170,10 +201,18 @@ export function AddressForm({
       </Scroll>
       <BottomBar>
         <Button
-          label={mode === "checkout" ? "이 주소로 받기" : "저장"}
+          label={submitLabel ?? (mode === "checkout" ? "이 주소로 받기" : "저장")}
           loading={busy}
           onPress={submit}
         />
+        {secondary ? (
+          <Button
+            label={secondary.label}
+            variant="text"
+            onPress={secondary.onPress}
+            style={{ alignSelf: "center" }}
+          />
+        ) : null}
       </BottomBar>
       {toast.node}
     </Screen>

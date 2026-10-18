@@ -122,9 +122,28 @@ def require_approved_producer(
     return user, farm
 
 
+_consumer_role = require_roles(Role.CONSUMER)
+
+
+def require_onboarded_consumer(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[object, Depends(_consumer_role)],
+):
+    """CONSUMER 역할 + 첫 가입 온보딩 완료(AC-01-12). 주문·팔로우·채팅처럼 농가에 닿는 행동에 쓴다.
+
+    미완료면 403 FORBIDDEN(details.reason: ONBOARDING_REQUIRED). 앱은 온보딩 화면으로 보낸다.
+    """
+    from app.accounts import service as accounts
+
+    if accounts.needs_onboarding(db, user):
+        raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
+    return user
+
+
 CurrentUser = Annotated[object, Depends(get_current_user)]
 OptionalUser = Annotated[object, Depends(get_optional_user)]
-Consumer = Annotated[object, Depends(require_roles(Role.CONSUMER))]
+Consumer = Annotated[object, Depends(_consumer_role)]
+OnboardedConsumer = Annotated[object, Depends(require_onboarded_consumer)]
 Producer = Annotated[object, Depends(require_roles(Role.PRODUCER))]
 ApprovedProducer = Annotated[tuple, Depends(require_approved_producer)]
 Admin = Annotated[object, Depends(require_roles(Role.ADMIN))]

@@ -7,6 +7,7 @@ export {
   configureApi,
   getToken,
   onAuthChange,
+  onOnboardingRequired,
   request,
   newIdempotencyKey,
   resetDemoData,
