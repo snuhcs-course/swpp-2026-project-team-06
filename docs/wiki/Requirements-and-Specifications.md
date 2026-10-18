@@ -25,10 +25,11 @@ Team 6 | Farmclub | Iteration 1 baseline, UI 1.6 update | 13 October 2026
 | 1.2 | 2026-10-09 | Team 6 | Table of contents, O/X feature comparison, one scenario per acceptance criterion, screen-by-screen UI specification with screenshots, measurable non-functional targets |
 
 | 1.6 | 2026-10-13 | Team 6 | DEV-51: conversation-centered Figma v6, horizontal feeds, direct farm rooms, collapsible shelves, fulfillment dashboard; API contracts unchanged |
+| 1.7 | 2026-10-18 | Team 6 | DEV-68: payment becomes a direct bank transfer to the farm's account (farmclub is a marketplace intermediary and never holds money). Deposit instructions, 24-hour deposit deadline, producer deposit confirmation, refunds sent back by the farm, farm bank account registration; R-01/02/13 revised, R-28 added |
 
 ## 1. Project Abstract
 
-Farmclub is a mobile web service that connects consumers with small Jeju citrus farms before harvest. Consumers discover farms, compare product quality and expected delivery windows, and reserve fruit at prices defined for successive reservation periods. They can follow a farm, read growing updates, ask private questions, and track an order through harvest and shipping. Producers manage their farm profile, product descriptions, reservation periods, prices, and available supply. AI assists with drafting product information from existing sales text and answering factual questions, while uncertain or sensitive questions go to the producer. Farmclub approves initial product supply and later capacity increases; producers manage sales within the approved limit. The first iteration targets consumers who value taste and trustworthy quality information, including people ordering fruit for family members, and farmers who already sell through messaging channels. Its prototype uses separate consumer and producer test accounts and simulated card payments, without moving real money. The main experience combines reservation ordering, farm communication, and producer fulfillment across two connected applications. Explicit consent, private conversations, approval controls, and cancellation before shipping support understandable transactions. Subsequent iterations can add real authentication, payment integration, notifications, and operational tools after the team evaluates the prototype and user feedback.
+Farmclub is a mobile web service that connects consumers with small Jeju citrus farms before harvest. Consumers discover farms, compare product quality and expected delivery windows, and reserve fruit at prices defined for successive reservation periods. They can follow a farm, read growing updates, ask private questions, and track an order through harvest and shipping. Producers manage their farm profile, product descriptions, reservation periods, prices, and available supply. AI assists with drafting product information from existing sales text and answering factual questions, while uncertain or sensitive questions go to the producer. Farmclub approves initial product supply and later capacity increases; producers manage sales within the approved limit. The first iteration targets consumers who value taste and trustworthy quality information, including people ordering fruit for family members, and farmers who already sell through messaging channels. Its prototype uses separate consumer and producer test accounts; since DEV-68 the buyer pays by bank transfer directly to the farm's account and the producer confirms the deposit, so farmclub never holds money (no real money moves in the prototype). The main experience combines reservation ordering, farm communication, and producer fulfillment across two connected applications. Explicit consent, private conversations, approval controls, and cancellation before shipping support understandable transactions. Subsequent iterations can add real authentication, payment integration, notifications, and operational tools after the team evaluates the prototype and user feedback.
 
 ## 2. Customers
 
@@ -76,21 +77,21 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 
 ### 4.1 Iteration boundary
 
-- **I1 core:** discovery and following, separate test-account login, farm and product setup, supply approval, reservation with simulated payment, order history, cancellation, shipping, news rooms, private chat and AI assistance.
+- **I1 core:** discovery and following, separate test-account login, farm and product setup, supply approval, reservation with simulated payment (replaced in I2 by a bank transfer to the farm with producer confirmation, DEV-68), order history, cancellation, shipping, news rooms, private chat and AI assistance.
 - **Also in I1:** farm AI settings and order-problem inquiries (FEAT-32/33). These started as Should items and made it into the prototype.
-- **Later iterations:** Kakao login, real payment and settlement, courier integration, external notifications, a dedicated operator UI, natural-language shipping and reporting a wrong AI answer.
+- **Later iterations:** Kakao login, automatic deposit matching through a bank-statement API and fee settlement, courier integration, external notifications, a dedicated operator UI, natural-language shipping and reporting a wrong AI answer.
 
 ### 4.2 Transaction rules
 
 | Area | Required behavior | Rules |
 | --- | --- | --- |
 | Approval | Farms are verified; an operator approves a product's initial supply and any increase | R-22, R-25 |
-| Payment | One full card payment per order; I1 simulates success or failure. The four consents the buyer agreed to are recorded | R-01-03 |
+| Payment | One full **bank transfer to the farm's own account** per order (DEV-68). Reserving takes the stock and starts a 24-hour deposit deadline; the depositor name is the order number; the producer confirms the deposit after checking the bank statement, and only then is the order reserved. farmclub is a marketplace intermediary and never receives or holds money. The four consents the buyer agreed to are recorded | R-01-03, R-28 |
 | Pricing | Earlier periods are cheaper and periods do not overlap. Changed terms are reconfirmed before payment; paid orders keep their price | R-17-18 |
 | Capacity | Reserved plus shipped weight <= sales limit <= approved weight. Shown to producers in kg | R-06, R-26 |
 | Quantity | One option and one address per order, within the per-order and per-period box limits | R-23 |
 | Pause | The product stays visible, new orders and unpaid payments are blocked, existing paid orders can still ship | R-27 |
-| Cancellation | Full refund before shipment; eligible stock is restored once. Refunds after shipping do not restore capacity | R-07-08, R-26 |
+| Cancellation | Before the deposit: canceled immediately with no refund and stock restored. After the deposit: full refund before shipment, sent by the farm back to the account the buyer paid from, and eligible stock is restored once. Refunds after shipping do not restore capacity | R-07-08, R-26, R-28 |
 | Delivery change | The buyer accepts the new window or takes a full refund | R-21 |
 | Shipment | The producer confirms preparation and shipping but cannot mark an order delivered | R-19 |
 
@@ -296,31 +297,42 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **THEN** the address is filled in for me
 - **AND** the order keeps its own copy, so later edits to my address book do not change it
 
-### FEAT-09: Card payment (simulated)
+### FEAT-09: Bank transfer to the farm (deposit and confirmation)
 
-**As a** consumer, **I want to** pay the full amount once, **so that** I am never charged twice and stock is never taken twice.
+**As a** consumer, **I want to** pay the full amount once by transferring it to the farm's account, **so that** stock is never taken twice and the farm, not a platform, receives my money. (Revised in DEV-68, 2026-10-18: card payment was put on hold; farmclub is a marketplace intermediary.)
+
+Flow: Reserve on the checkout screen → the server takes the stock and sets the order to `AWAITING_DEPOSIT` with a deadline 24 hours later → the deposit screen shows the farm's bank, account number, account holder, the depositor name (= order number), the amount, the deadline, seller information, the intermediary notice and an optional escrow hint → the consumer transfers from their own bank and may tap "I made the deposit" (a hint only) → the producer compares the bank statement with the order and taps "Confirm deposit" → `RESERVED`, with the payment date set to the confirmation time.
 
 **AC-09-1: Last box**
 - **GIVEN** one box is left
-- **WHEN** two consumers pay at the same time
-- **THEN** one succeeds and the other is told it is sold out
+- **WHEN** two consumers request deposit instructions at the same time
+- **THEN** one gets the instructions and the other is told it is sold out
 
-**AC-09-2: Payment failure**
-- **GIVEN** I have an unpaid order
-- **WHEN** I choose the failure result
-- **THEN** stock does not go down and I return to checkout
+**AC-09-2: Cancel before the deposit**
+- **GIVEN** my order is awaiting a deposit
+- **WHEN** I cancel it
+- **THEN** it is canceled without a refund, the stock goes back and the order stays in my history with the reason
 
 **AC-09-3: Retry with the same key**
-- **GIVEN** I sent a payment request
+- **GIVEN** I requested deposit instructions
 - **WHEN** the same request is sent again because the response was lost
-- **THEN** I am charged once and stock is reduced once
-- **AND** I get the same result as the first time
+- **THEN** the stock is taken once and I get the same result as the first time
 
 **AC-09-6: Mixed weights**
 - **GIVEN** 5kg and 10kg options share one supply limit
-- **WHEN** orders are paid, canceled or shipped
-- **THEN** the total weight sold never goes over the limit
+- **WHEN** orders are reserved, canceled or shipped
+- **THEN** the total weight sold never goes over the limit (orders awaiting a deposit count as reserved weight)
 - **AND** canceling twice cannot release stock twice
+
+**AC-09-7: Deposit deadline**
+- **GIVEN** an order awaiting a deposit passed its 24-hour deadline
+- **WHEN** the consumer or producer loads it, or an operator runs the bulk expiry
+- **THEN** it is canceled with the reason "deposit deadline passed", the stock goes back, and a late confirmation is rejected with 409
+
+**AC-09-8: Producer confirms the deposit**
+- **GIVEN** an order awaiting a deposit
+- **WHEN** the producer of that farm (or an operator) confirms the deposit
+- **THEN** the order becomes reserved with a payment date, confirming again changes nothing, and another farm gets 404
 
 ### FEAT-10: Order history
 
@@ -468,6 +480,11 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **GIVEN** I entered tracking number "123-456" for a preparing order
 - **WHEN** I mark it shipped
 - **THEN** the ship date and tracking number are recorded
+
+**AC-17-7: Refund sent by the farm (DEV-68)**
+- **GIVEN** an order was fully refunded
+- **WHEN** I send the money back to the account the buyer paid from and tap "Transfer done"
+- **THEN** the settlement time is recorded, the buyer's order detail shows "Refund complete", and the dashboard's refund to-do count goes down
 - **AND** the buyer sees the tracking number on the order page
 
 **AC-17-4: Producers cannot mark delivered**
@@ -605,11 +622,11 @@ Key consumer screens:
 | **SCR-03 Farm page** | Direct farm news room with profile and adjacent Follow button | Fold/unfold the product shelf, send a same-room reply, open short farm info | Product → SCR-04; profile → short info | Shelf expanded for consumers; public/follower access unchanged; no reply-privacy hint |
 | **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
 | **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
-| **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents | Change option or address, check consents, Pay | Address → address screen; Pay → SCR-11 | Pay is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input |
-| **SCR-11 Payment (simulated)** | Pay the full amount; demo success/failure switch | Pay once (button locks while processing) | Success → SCR-12 | Failure: reason with Retry or back to SCR-10, and no stock is used. Sold out at payment: sold-out message → SCR-10. Lost response: retried without charging twice |
-| **SCR-12 Order complete** | Reservation information and following | Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
+| **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents, intermediary notice | Change option or address, check consents, Reserve | Address → address screen; Reserve → SCR-11 | Reserve is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input. The farm has no bank account: 409 explained on the checkout |
+| **SCR-11 Deposit instructions** | Amount, farm bank account (copy), account holder, depositor name = order number (copy), 24-hour deadline, seller information, "farmclub is a marketplace intermediary" notice, collapsed escrow hint | "I made the deposit" (hint only), "I'll deposit later" | Both → SCR-12 | Deadline passed: back to SCR-10 with the latest stock. Lost response on the deposit request: retried with the same key without taking stock twice |
+| **SCR-12 Order received** | "Awaiting deposit confirmation" with the account card while unconfirmed; "Reserved" once the producer confirmed; following | Copy account or depositor name, Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
 | **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
-| **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions | Cancel (confirm sheet), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
+| **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions; while awaiting a deposit: the account card, deadline and "I made the deposit"; refunded: "the farm sends it back within 3 business days" or "Refund complete <date>"; expired: "canceled because the deposit deadline passed" | Cancel (confirm sheet; no refund before the deposit), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
 | **SCR-15 / SCR-18 Chat** | News Rooms (farms you follow) and 1:1 chats in one tab | Switch views, open a room or chat | Room → news room; chat → SCR-16 | No chats: "Ask a farm anything" with a link to farms. Other buyers' replies never appear |
 | **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers or "Sent to the farm" | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | Not following and no paid order: sent to SCR-03. Send fails: text and photos are kept for retry. AI fails or times out: question goes to the producer |
 | **SCR-17 Me** | Followed farms, address book, "Start as a farm", log out | Tap a farm, manage addresses, log out | Farm → SCR-03; addresses → address book; log out → SCR-01 | Starting a farm explains that the producer app needs its own account |
@@ -636,16 +653,16 @@ Key producer screens:
 | **SCR-19 Login** | Pick a producer test account, or apply as a new farm | Tap an account and Start; "Apply as a farm" | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Test login off: "You can't log in right now" |
 | **SCR-20 Application** | Farm details for joining; creates the producer account | Owner name, farm name, region, main crops, mobile number, policy consent; Apply | SCR-21 | Field errors keep the input. Already applied → SCR-21. Reapplying after rejection fills in the previous values |
 | **SCR-21 Pending approval** | Application status, refreshed every time the screen opens | View application, pull to refresh, log out, reapply if rejected | Approved → SCR-22 automatically; reapply → SCR-20 | Before approval, every other producer screen redirects here |
-| **SCR-22 Dashboard** | Large 2×2 total/reserved/preparing/shipped counts and representative product reserved/shipped kg | Open order or shipping management | SCR-29 filtered list | All cursor pages contribute to order counts; no chat tasks or news-writing entry |
+| **SCR-22 Dashboard** | To-do band (deposits to confirm, refunds to send, register a bank account), large 2×2 total/reserved/preparing/shipped counts and representative product reserved/shipped kg | Open a to-do, order or shipping management | SCR-29 filtered list, bank account screen | All cursor pages contribute to order counts (orders awaiting a deposit included); no chat tasks or news-writing entry |
 | **SCR-23 Products** | Products grouped by status with reservation counts and kg | Filter, tap a product, "+ New product" | Product → SCR-25; new → SCR-24 | No products: "Add your first product" |
 | **SCR-24 AI product draft** | Paste existing KakaoTalk or BAND text (max 3,000 characters) and get a draft | Paste text, Create draft, Edit or enter manually | SCR-25 | Button disabled while the text is empty. AI fails or takes over 20 seconds: text is kept and an empty editor opens. A price in the text is never filled in |
 | **SCR-25 Product edit** | Product details, quality, options, delivery window, shipping fee, sales settings | Save, set periods, Submit for approval, pause or resume | Periods → SCR-26 | Submit stays disabled until required fields and period prices are set. Unsaved changes: confirm before leaving. Changing the delivery window with existing orders asks buyers to accept or refund |
 | **SCR-26 Periods, prices and supply** | Date-based reservation periods with a price and box count per option | Add or remove periods, pick dates, enter prices and quantities, Save | Back to SCR-25 | Earlier price must be lower and periods cannot overlap. A period with reservations cannot be deleted or re-dated If someone else saved first, the input is kept |
 | **SCR-28 Chat** | News Room / 1:1 Chat only; own room opens immediately by default | Send, attach, fold product shelf, switch to private chat list | Private thread or attachment composer | Producer shelf starts collapsed; broadcast notice is the first scrolling system message; composer is fixed above four tabs |
 | **SCR-27 Post news** | Text with up to 5 photos (10MB each) or 1 video (60s, 100MB); public or followers only | Write, attach, choose visibility, Post | Back to the farm's own room | Wrong format or size: reason per file. Attachment fails: the text is kept |
-| **SCR-29 Shipping** | Read all/reserved/preparing/shipped orders; ship existing preparing orders | Select preparing orders, edit invoice, confirm shipment | Back to shipping list | No Start harvest controls or calls; no automatic RESERVED → PREPARING; stale states refresh after conflict |
+| **SCR-29 Orders and shipping** | Read all/awaiting deposit/reserved/preparing/shipped/refunded orders; confirm deposits; mark refunds as sent; ship existing preparing orders | "Confirm deposit" → sheet with amount and depositor name → confirm; "Transfer done" on refunded orders; select preparing orders, edit invoice, confirm shipment | Back to the list | Rows awaiting a deposit hide the delivery address. No Start harvest controls or calls; no automatic RESERVED → PREPARING; stale states refresh after conflict |
 | **SCR-33 Settings** | Farm summary, profile and share link, AI settings, log out | Tap an item | SCR-30, SCR-31, SCR-19 | Retry if loading fails |
-| **SCR-30 Farm profile and link** | Edit name, region and introduction; copy or share the farm link | Copy, Share, edit one field, change photo | Field → single-field edit screen | Name and region cannot be empty. The link is hidden until the farm is approved |
+| **SCR-30 Farm profile and link** | Edit name, region, introduction and the deposit bank account (bank, account number, holder); copy or share the farm link | Copy, Share, edit one field, change photo, register the account | Field → single-field edit screen; account → bank account screen | Name and region cannot be empty. The link is hidden until the farm is approved. Without a bank account the first capacity approval request is rejected (`NO_FARM_ACCOUNT`) |
 | **SCR-31 AI settings** | AI on/off, answering guidelines, FAQs, extra handoff topics, preview | Edit, Save, Preview | Back to SCR-33 | Unsaved changes are marked and confirmed before leaving. On `STALE_VERSION`, fetch the latest version while keeping producer edits so they can save again |
 
 ### 7.5 Failure screens

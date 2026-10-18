@@ -32,6 +32,7 @@ This page is for the development team. It explains how the system is built so we
 | 0.4 | 2026-10-08 | Team 6 | Synchronize design frames with specs 1.2-1.5 |
 | 1.0 | 2026-10-09 | Team 6 | Submission edition: architecture, ER diagrams, API, AI and concurrency details |
 | 1.1 | 2026-10-09 | Team 6 | Table of contents, frontend and backend class diagrams, AI answer sequence diagram, API request/response examples, design-pattern section, restructured to the course guideline |
+| 1.2 | 2026-10-18 | Team 6 | DEV-68: bank transfer to the farm's account replaces the simulated card payment. `AWAITING_DEPOSIT` state, deposit deadline, producer deposit confirmation, refund settlement by the farm, farm bank account fields |
 
 ## 1. System Architecture
 
@@ -140,7 +141,7 @@ Figure 4. PK = primary key, FK = foreign key, UK = unique constraint. Timestamps
 | `StagePrice` / `StageAllocation` | Price; box quantity and reserved count | PK (stage_id, option_id) |
 | `CapacityRequest` | Initial or increase, requested grams, decision, status, version | Product 1:N history |
 | `Order` | Buyer, product, option, period, quantity, copied price/weight/address, consents, status | UK order_no |
-| `Payment` | Method, provider (MOCK), amount, status, time | UK order_id; order 1:0..1 |
+| `Payment` | Method (BANK_TRANSFER), provider (FARM_ACCOUNT), amount, status, confirmation time | UK order_id; order 1:0..1. Created when the producer or an operator confirms the deposit (DEV-68) |
 | `ProductDraft` | Pasted text, extracted fields, missing fields, failed flag | Farm-owned |
 | `IdempotencyRecord` | User, scope, key, body hash, stored response | UK (user_id, scope, key); kept 24 hours |
 
@@ -226,7 +227,7 @@ Response `200`: an unpaid order with the server's price.
 }
 ```
 
-`POST /api/orders/{orderId}/pay` with `{ "mockResult": "success" }` returns `{ "order": { ...status: "RESERVED" }, "result": "success", "failReason": null }`. If the period or price changed, or the last box was just sold, it returns:
+`POST /api/orders/{orderId}/deposit` (idempotency key required) takes the stock and returns the same order with `status: "AWAITING_DEPOSIT"`, `depositAccount` (bank, account number, holder), `sellerInfo`, and `depositDueAt` 24 hours later. The producer later calls `POST /api/orders/{orderId}/confirm-deposit`, which sets `RESERVED` and the payment date (DEV-68). If the period or price changed, or the last box was just sold, the deposit request returns:
 
 ```json
 { "code": "CONFLICT", "message": "이 단계 물량이 다 팔렸어요.", "details": { "reason": "SOLD_OUT", "productId": "p-house" } }
@@ -294,7 +295,9 @@ Paths use `{id}` as a placeholder.
 | PATCH /api/products/{id} · PUT /api/products/{id}/stages · PUT .../sales-settings | Owner | Edit product, periods and prices, sales limit and pause |
 | GET · POST /api/products/{id}/capacity-requests · POST .../{requestId}/withdraw | Owner | Supply requests |
 | POST /admin/products/{id}/capacity-requests/{requestId}/approve · .../reject | Operator | Approve or reject supply |
-| POST /api/orders · POST /api/orders/{id}/pay | Consumer | Create order, pay |
+| POST /api/orders · POST /api/orders/{id}/deposit · POST .../deposit-reported | Consumer | Create order, request deposit instructions (takes stock), report the deposit |
+| POST /api/orders/{id}/confirm-deposit · POST .../refund-settled | Approved producer (own farm) | Confirm a deposit, mark a refund as sent |
+| POST /admin/orders/{id}/confirm-deposit · POST /admin/orders/expire-deposits | Operator | Confirm on behalf of a farm, expire overdue deposits |
 | GET /api/orders · GET /api/orders/{id} | Order owner | History and detail |
 | POST /api/orders/{id}/cancel · .../confirm · .../delivery-window-response | Order owner | Cancel, confirm receipt, answer a window change |
 | GET /api/orders/producer/dashboard · GET /api/orders/producer | Approved producer | Dashboard and orders to ship |
@@ -315,20 +318,23 @@ Room lists, read positions, question lists and inquiry status endpoints are also
 
 ![Reservation and payment sequence](images/i1-payment-flow.png)
 
-Figure 6. Checkout creates an unpaid order without holding stock. Stock is checked and taken only at payment.
+Figure 6. Checkout creates an unpaid order without holding stock. Stock is taken when the deposit instructions are issued, and the order becomes reserved when the producer confirms the deposit (DEV-68; the figure still shows the earlier card step).
 
 1. The consumer picks an option and quantity and accepts four consents.
 2. `POST /api/orders` checks the current period, price, limits and address, and copies them into a `PENDING_PAYMENT` order.
-3. `POST /api/orders/{id}/pay` locks the product and period allocation and checks the order against the current terms.
-4. If the period or price changed or stock ran out, it returns 409 and the app asks the user to confirm again. A simulated failure takes no stock.
-5. On success it records `Payment`, sets `RESERVED` and takes the stock in the same transaction.
-6. Sending the same request with the same key returns the saved result, so nothing is charged or taken twice.
+3. `POST /api/orders/{id}/deposit` locks the product and period allocation, checks the order against the current terms and the farm's bank account, takes the stock and sets `AWAITING_DEPOSIT` with a deadline 24 hours later.
+4. If the period or price changed or stock ran out, it returns 409 and the app asks the user to confirm again.
+5. The consumer transfers the amount to the farm's account with the order number as the depositor name. `POST .../deposit-reported` only records a hint.
+6. `POST /api/orders/{id}/confirm-deposit` (producer of that farm, or the operator route) records `Payment`, sets `RESERVED` and the payment date. Overdue orders are canceled and their stock released when they are loaded or when the operator runs `expire-deposits`.
+7. Sending the deposit request again with the same key returns the saved result, so stock is never taken twice.
 
 #### Order states
 
 | From | Action | To | Stock |
 | --- | --- | --- | --- |
-| PENDING_PAYMENT | Payment succeeds | RESERVED | Boxes and weight reserved |
+| PENDING_PAYMENT | Deposit instructions issued | AWAITING_DEPOSIT | Boxes and weight reserved |
+| AWAITING_DEPOSIT | Producer or operator confirms the deposit | RESERVED | No change |
+| AWAITING_DEPOSIT | Consumer cancels, or the 24-hour deadline passes | CANCELED | Quantity released once, no refund |
 | RESERVED | Existing harvest API (not exposed in v6 UI; no automatic transition) | PREPARING | No change |
 | RESERVED / PREPARING | Consumer cancels | REFUNDED | Unshipped quantity released once |
 | PREPARING | Producer ships | SHIPPED | Weight moves from reserved to shipped |
@@ -337,7 +343,7 @@ Figure 6. Checkout creates an unpaid order without holding stock. Stock is check
 
 - Any other transition is rejected with `INVALID_TRANSITION`.
 - Shipping several orders at once calls the ship endpoint once per order; it is not one bulk transaction.
-- Every refund path writes a `Refund` history row and updates `Payment.status`. A partial refund leaves `Order.status`, its refund fields, and fulfillment unchanged; only a final full refund marks the order refunded and releases unshipped stock once.
+- Refunds are sent by the farm to the account the buyer paid from; the producer marks them settled (`Refund.settledAt`). Every refund path writes a `Refund` history row and updates `Payment.status`. A partial refund leaves `Order.status`, its refund fields, and fulfillment unchanged; only a final full refund marks the order refunded and releases unshipped stock once.
 
 ### 2.6 AI components
 
