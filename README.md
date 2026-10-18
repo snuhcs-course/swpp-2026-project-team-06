@@ -262,11 +262,11 @@ each browser and never call the server.
 
 `admin`, `dev` and `staging` are reserved; no DNS records exist until they have a target.
 The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
-KakaoTalk reads the server's OG page under the consumer domain. The Vercel records (`@`,
-`www`, `farm`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a "Proxy
-Detected" warning; keep SSL/TLS mode **Full (strict)** and leave **Bot Fight Mode** and
-**Rocket Loader** off, or KakaoTalk previews and the app break. `api` stays DNS only until
-Railway issues its certificate.
+KakaoTalk reads the server's OG page under the consumer domain. All four records (`@`,
+`www`, `farm`, `api`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
+"Proxy Detected" warning; keep SSL/TLS mode **Full (strict)** and leave **Bot Fight Mode**
+and **Rocket Loader** off, or KakaoTalk previews and the app break. If a Vercel or Railway
+certificate stops renewing, switch that record to DNS only.
 
 Accounts, purchases and console changes are done by a person. In order:
 

@@ -1033,7 +1033,7 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
 - 이슈: [DEV-69](https://linear.app/sswp6/issue/DEV-69)
 - 브랜치: `nemodleo/dev-69-dev-farmclubkr-도메인-연결cloudflare-dns과-서브도메인`
 - 기능·인수 조건: FEAT-19 공유 링크(AC-19-1), 배포. 결정은 [ADR 0012](../docs/spec/tech-design/adr/0012-domains-cloudflare.md)
-- 상태: 리뷰 중. **도메인이 실제로 연결된 뒤 머지**(ADR 0012 전환 순서 4번)
+- 상태: 리뷰 중. 도메인 연결 완료(10/18), 사람 리뷰 뒤 머지. 머지 배포 뒤 Railway `SHARE_BASE_URL` 설정(ADR 0012 전환 순서 6번)
 - 목표: 호스팅 기본 주소를 `farmclub.kr`·`farm.farmclub.kr`·`api.farmclub.kr`로 바꾸고, 공유 링크를 `farmclub.kr/s/farms/<id>`로 낸다.
 - 범위(수정 허용 경로): `docs/spec/tech-design/adr/0012-*`, `docs/spec/tech-design/stack.md`, `docs/wiki/Design-Documentation.md`, `README.md` 배포 절, `server/.env.example`, `server/app/core/config.py`, `server/app/farms/share.py`·`router.py`, `server/tests/test_farm_share.py`, `apps/consumer/vercel.json`, `apps/*/public/index.html`, 앱 기본 URL 상수(`apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/producer/src/app/(tabs)/farm/index.tsx`), `packages/api/src/mock/farms.ts`, `.github/workflows/deploy-railway.yml`·`deploy-vercel.yml`
 - 비범위: 도메인 구매, Cloudflare·Vercel·Railway·카카오·PortOne 콘솔 설정(사람), `admin`·`dev`·`staging` 환경 구성, 운영 `/docs` 닫기(ADR 0008)
@@ -1050,3 +1050,5 @@ Claude가 `action=ANSWER`로 "정보가 없어 답할 수 없어요, 판매자�
   - 10/18 `server/`에서 `uv sync --frozen` 후 `uv run pytest -q` 325 통과(새 테스트 `test_AC_19_1_share_url_uses_public_domain_when_configured` 포함), `ruff check app tests` 통과.
   - 10/18 루트 `npm ci` 후 `npm run typecheck` 통과, `npm run test:mock` 13 통과. `actionlint`(두 배포 워크플로) 통과.
   - 10/18 실제 DNS·Vercel rewrite·카톡 미리보기는 도메인이 없어 확인하지 못함. 전환 순서 5~6번에서 사람이 확인.
+  - 10/18 도메인 연결: 호스팅케이알 구매 → 네임서버 Cloudflare. `farmclub.kr`·`www`(→ apex 308)·`farm`·`api` 모두 Cloudflare 프록시 켬. `https://farmclub.kr`·`https://farm.farmclub.kr` 200(x-vercel-id), `https://api.farmclub.kr/health` 200, `/s/farms/f-kang` 200, 카톡 크롤러 UA 200.
+  - 10/18 main(DEV-47) 병합 후 pytest 328 통과.

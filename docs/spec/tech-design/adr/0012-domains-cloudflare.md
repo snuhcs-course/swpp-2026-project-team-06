@@ -48,7 +48,7 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 | CNAME | `@` | Vercel이 `farmclub.kr` 추가 때 보여 주는 프로젝트 값(`<id>.vercel-dns-017.com`). Cloudflare가 apex CNAME을 펼쳐 응답한다 | Proxied |
 | CNAME | `www` | `@`와 같은 Vercel 값. Vercel에서 `farmclub.kr`로 308 리다이렉트 | Proxied |
 | CNAME | `farm` | Vercel이 `farm.farmclub.kr` 추가 때 보여 주는 값 | Proxied |
-| CNAME | `api` | Railway가 커스텀 도메인 추가 때 보여 주는 `*.up.railway.app` 값 | DNS only(인증서 발급 뒤 결정) |
+| CNAME | `api` | Railway가 커스텀 도메인 추가 때 보여 주는 `*.up.railway.app` 값 | Proxied |
 | TXT | Railway·Vercel이 요구하는 검증 이름(예: `_railway-verify.api`) | 콘솔이 보여 주는 값 | — |
 | MX | `@` | `0 .`(null MX, 메일 받지 않음) | — |
 | TXT | `@` | `v=spf1 -all` | — |
@@ -61,7 +61,7 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
   - **Rocket Loader 끔**. 스크립트 순서를 바꿔 Expo 웹 앱이 빈 화면이 될 수 있다.
   - 이름이 고정된 정적 파일(`og.jpg`, 파비콘)을 바꾸면 Caching → Purge Cache.
 - Vercel 도메인이 Invalid로 바뀌거나 인증서 갱신 경고가 오거나 배포 뒤 옛 화면이 계속 보이면 해당 레코드를 DNS only로 바꾼다. 되돌리기는 스위치 하나다.
-- `api`(Railway)는 인증서 발급이 끝날 때까지 DNS only로 두고, 켜면 서버가 보는 클라이언트 IP가 Cloudflare IP가 된다는 점을 확인한 뒤 정한다.
+- `api`(Railway)도 프록시를 켰다(2026-10-18, `/health` 200 확인). 서버가 보는 클라이언트 IP는 Cloudflare IP이고, 실제 IP는 `CF-Connecting-IP` 헤더에 있다. 지금 서버는 클라이언트 IP를 쓰지 않는다. Railway 인증서 갱신에 문제가 생기면 이 레코드를 DNS only로 바꾼다.
 - Always Use HTTPS 켬.
 - 메일은 쓰지 않으므로 null MX·SPF·DMARC로 우리 도메인을 사칭한 메일을 거부하게 한다. 고객센터 메일이 필요해지면 Cloudflare Email Routing을 켜고 이 세 레코드를 그에 맞게 바꾼다.
 - DNSSEC: Cloudflare에서 켜고, 호스팅케이알이 `.kr` DS 레코드 입력을 지원하면 그 값을 넣는다.
