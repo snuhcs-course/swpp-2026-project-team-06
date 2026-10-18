@@ -14,7 +14,8 @@ from urllib import error, request
 
 MAX_INPUT = 256 * 1024
 MAX_OUTPUT_TOKENS = 16000  # Includes adaptive thinking tokens (DEV-79).
-REQUEST_TIMEOUT = 120
+REQUEST_TIMEOUT = 90
+GITHUB_TIMEOUT = 20
 LIMIT = f"{MAX_INPUT // 1024} KiB"
 MAX_RESPONSE = 1024 * 1024
 ENDPOINT = "https://api.anthropic.com/v1/messages"
@@ -184,7 +185,7 @@ def check_current(event, token):
     req = request.Request(f"https://api.github.com/repos/{meta['repository']}/pulls/{meta['pr']}",
                           headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
     try:
-        with request.build_opener(NoRedirect()).open(req, timeout=20) as response:
+        with request.build_opener(NoRedirect()).open(req, timeout=GITHUB_TIMEOUT) as response:
             current = json.loads(response.read(MAX_RESPONSE + 1))
         if (current["head"]["sha"] != meta["head_sha"] or current["base"]["sha"] != meta["base_sha"]
                 or digest(current.get("body") or "") != meta["body_digest"]):
@@ -198,7 +199,7 @@ def check_environment(event, token):
     req = request.Request(f"https://api.github.com/repos/{meta['repository']}/environments/spec-check",
                           headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
     try:
-        with request.build_opener(NoRedirect()).open(req, timeout=20) as response:
+        with request.build_opener(NoRedirect()).open(req, timeout=GITHUB_TIMEOUT) as response:
             environment = json.loads(response.read(MAX_RESPONSE + 1))
         reviewers = [r for r in environment.get("protection_rules", [])
                      if r.get("type") == "required_reviewers" and r.get("reviewers")]
