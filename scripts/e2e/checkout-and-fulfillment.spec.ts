@@ -65,15 +65,15 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await expect(
     consumerPage.getByRole("button", { name: "소식방 입장" }),
   ).toHaveCount(0);
-  // AC-09-8: 생산자가 통장과 대조한 뒤 입금 확인 → 예약 완료
+  // AC-09-8: 생산자가 통장과 대조한 뒤 줄에서 바로 승인 → 예약 완료(확인 창 없음)
   await producerPage.goto(`${producerUrl}/ship?status=AWAITING_DEPOSIT`);
   await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
   await expect(
     producerPage.getByText("입금했다고 알렸어요").first(),
   ).toBeVisible();
-  await producerPage.getByRole("button", { name: "입금 확인" }).first().click();
   await producerPage
-    .getByRole("button", { name: "입금 확인", exact: true })
+    .getByRole("button", { name: /입금 승인$/ })
+    .first()
     .click();
   await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
   await expect(

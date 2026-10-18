@@ -10,6 +10,7 @@ import {
   BottomBar,
   Button,
   HeaderBar,
+  Notice,
   Icon,
   Photo,
   Screen,
@@ -164,6 +165,21 @@ export default function OrderDetail() {
               <T variant="sub" weight="semibold" style={{ marginTop: 8 }}>
                 사유 · {o.cancelReason}
               </T>
+            ) : null}
+            {/* 농가 미승인(DEV-68 AC-09-9·AC-17-8): 사유를 그대로 보여 준다 */}
+            {awaiting && o.depositIssue ? (
+              <Notice
+                title="농가가 입금을 확인하지 못했어요"
+                body={`사유 · ${o.depositIssue}\n확인한 뒤 다시 입금했다고 알려 주세요. 궁금하면 농가에 물어보세요.`}
+                style={{ marginTop: 8 }}
+              />
+            ) : null}
+            {o.status === "REFUNDED" && o.refundIssue ? (
+              <Notice
+                title="환불 송금이 늦어지고 있어요"
+                body={`사유 · ${o.refundIssue}\n궁금하면 농가에 물어보세요.`}
+                style={{ marginTop: 8 }}
+              />
             ) : null}
             {stepIndex(o) > 0 || awaiting ? (
               <View

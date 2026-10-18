@@ -1,4 +1,5 @@
-// SCR-29 주문·출하 처리 (FEAT-17, FEAT-09 AC-09-8 입금 확인, AC-17-7 환불 송금, R-07·15·19·28, DEV-68) — design: p-scr-29, DEV-68 보드
+// SCR-29 주문·출하 처리 (FEAT-17, FEAT-09 AC-09-8 입금 확인·AC-09-9 미승인, AC-17-7 환불 송금·AC-17-8 미승인, R-07·15·19·28, DEV-68) — design: p-scr-29, DEV-68 보드
+// 입금 대기·환불 줄은 확인 창 없이 줄 안에서 바로 승인한다. 미승인은 줄 안에 사유(필수) 칸이 펼쳐진다.
 // 받는 사람 실명·전체 주소는 이 화면에서만 보인다(배송 목적, R-15). 입금 대기 줄에는 배송지가 없다. 여러 건 출하는 주문마다 ship API를 반복 호출한다.
 import {
   ApiError,
@@ -47,6 +48,18 @@ type Data = {
 type Invoice = { carrier: Carrier | null; no: string };
 
 const SHIP_TABS = new Set(["PREPARING", "SHIPPED"]);
+type Reject = { orderId: string; kind: "deposit" | "refund" };
+// 미승인 사유 바로 고르기. 고르면 사유 칸에 채워지고 고쳐 쓸 수 있다
+const DEPOSIT_REASONS = [
+  "입금이 아직 들어오지 않았어요",
+  "금액이 달라요",
+  "입금자명이 주문 번호와 달라요",
+];
+const REFUND_REASONS = [
+  "환불받을 계좌를 확인해야 해요",
+  "소비자와 연락하고 있어요",
+  "환불 대상이 아니에요",
+];
 const who = (o: ProducerOrder) =>
   `${o.recipientName} · ${o.optionLabel} × ${o.quantity}`;
 /** "CJ대한통운 6012-3456-7890" / "송장 없음" */
@@ -85,10 +98,11 @@ export default function Ship() {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  // 입금 확인 시트(DEV-68): 통장과 대조한 뒤 누른다
-  const [depositFor, setDepositFor] = useState<ProducerOrder | null>(null);
-  // 환불 송금 완료 시트(DEV-68): 농가가 돌려보냈다고 직접 기록한다
-  const [refundFor, setRefundFor] = useState<ProducerOrder | null>(null);
+  // 줄 안 미승인 칸(DEV-68). 한 번에 한 줄만 펼친다
+  const [reject, setReject] = useState<Reject | null>(null);
+  const [reason, setReason] = useState("");
+  const [cancelOrder, setCancelOrder] = useState(false);
+  const [reasonError, setReasonError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -211,51 +225,180 @@ export default function Ship() {
     toast("송장을 저장했어요");
   }
 
-  // 입금 확인(AC-09-8): 입금 대기 → 예약 완료. 409면 최신 상태로 다시 그린다
-  async function confirmDeposit() {
-    const o = depositFor;
-    if (!o || busy) return;
+  // 승인·미승인 공통: 409면 최신 상태로 다시 그린다
+  async function act(run: () => Promise<unknown>, done: string, retry: () => void) {
+    if (busy) return;
     setBusy(true);
     setNotice(null);
     try {
-      await orders.confirmDeposit(o.orderId);
-      setDepositFor(null);
-      toast(`${o.orderNo} 입금을 확인했어요 · 예약 완료`);
+      await run();
+      setReject(null);
+      toast(done);
       await load();
     } catch (e) {
-      setDepositFor(null);
       if (e instanceof ApiError && e.status === 409) {
+        setReject(null);
         setNotice("이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.");
         await load();
-      } else if (isConnectionError(e)) failToast(e, () => setDepositFor(o));
+      } else if (isConnectionError(e)) failToast(e, retry);
+      else if (e instanceof ApiError && e.details.fields?.reason)
+        setReasonError(String(e.details.fields.reason));
       else setNotice(errMsg(e));
     } finally {
       setBusy(false);
     }
   }
 
-  // 환불 송금 완료(AC-17-7): 시트에서 확인한 뒤 기록한다
-  async function settleRefund() {
-    const o = refundFor;
-    if (!o || busy) return;
-    setBusy(true);
-    setNotice(null);
-    try {
-      await orders.refundSettled(o.orderId);
-      setRefundFor(null);
-      toast(`${o.orderNo} 환불 완료로 기록했어요`);
-      await load();
-    } catch (e) {
-      setRefundFor(null);
-      if (isConnectionError(e)) failToast(e, () => setRefundFor(o));
-      else {
-        setNotice(errMsg(e));
-        await load();
-      }
-    } finally {
-      setBusy(false);
-    }
+  // 입금 승인(AC-09-8)·환불 완료(AC-17-7): 확인 창 없이 줄에서 바로
+  const approve = (o: ProducerOrder) =>
+    o.status === "AWAITING_DEPOSIT"
+      ? act(
+          () => orders.confirmDeposit(o.orderId),
+          `${o.orderNo} 입금을 승인했어요 · 예약 완료`,
+          () => void approve(o),
+        )
+      : act(
+          () => orders.refundSettled(o.orderId),
+          `${o.orderNo} 환불 완료로 기록했어요`,
+          () => void approve(o),
+        );
+
+  function openReject(o: ProducerOrder) {
+    setReject({
+      orderId: o.orderId,
+      kind: o.status === "AWAITING_DEPOSIT" ? "deposit" : "refund",
+    });
+    setReason("");
+    setCancelOrder(false);
+    setReasonError(null);
   }
+
+  // 미승인(AC-09-9·AC-17-8): 사유 필수, 소비자에게 그대로 보인다
+  function sendReject(o: ProducerOrder) {
+    const text = reason.trim();
+    if (!text) return setReasonError("미승인 사유를 적어 주세요");
+    if (reject?.kind === "deposit")
+      return act(
+        () => orders.rejectDeposit(o.orderId, text, cancelOrder),
+        cancelOrder
+          ? `${o.orderNo} 주문을 취소했어요`
+          : `${o.orderNo} 미승인 사유를 소비자에게 알렸어요`,
+        () => sendReject(o),
+      );
+    return act(
+      () => orders.refundIssue(o.orderId, text),
+      `${o.orderNo} 환불 미승인 사유를 소비자에게 알렸어요`,
+      () => sendReject(o),
+    );
+  }
+
+  // 기존 송장 시트의 택배사 고르기와 같은 칸
+  const choice = (
+    label: string,
+    on: boolean,
+    onPress: () => void,
+    role: "radio" = "radio",
+  ) => (
+    <Pressable
+      key={label}
+      accessibilityRole={role}
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={label}
+      disabled={busy}
+      onPress={onPress}
+      style={(st) =>
+        [
+          {
+            flexBasis: "45%",
+            flexGrow: 1,
+            minHeight: 48,
+            paddingHorizontal: 12,
+            borderRadius: tokens.radius.sm,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: tokens.color.background,
+            borderWidth: on ? 1.5 : 1,
+            borderColor: on ? tokens.color.text : tokens.color.border,
+          },
+          (st as { focused?: boolean }).focused && focusRing,
+        ] as never
+      }
+    >
+      <T variant="sub" weight="semibold" muted={!on} style={{ textAlign: "center" }}>
+        {label}
+      </T>
+    </Pressable>
+  );
+
+  const rejectForm = (o: ProducerOrder) => {
+    const deposit = reject?.kind === "deposit";
+    const presets = deposit ? DEPOSIT_REASONS : REFUND_REASONS;
+    return (
+      <View style={{ gap: 12, paddingTop: 8 }}>
+        {deposit ? (
+          <>
+            <T variant="sub" weight="semibold">
+              미승인하면
+            </T>
+            <View
+              accessibilityRole="radiogroup"
+              accessibilityLabel="미승인하면"
+              style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+            >
+              {choice("입금 대기로 두기", !cancelOrder, () =>
+                setCancelOrder(false),
+              )}
+              {choice("주문 취소", cancelOrder, () => setCancelOrder(true))}
+            </View>
+          </>
+        ) : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {presets.map((p) =>
+            choice(p, reason === p, () => {
+              setReason(p);
+              setReasonError(null);
+            }),
+          )}
+        </View>
+        <Input
+          label="미승인 사유"
+          value={reason}
+          onChangeText={(v) => {
+            setReason(v);
+            setReasonError(null);
+          }}
+          placeholder="소비자에게 그대로 보여요"
+          maxLength={200}
+          error={reasonError ?? undefined}
+          hint={
+            deposit
+              ? cancelOrder
+                ? "주문이 취소되고 물량이 돌아가요."
+                : "주문은 입금 대기로 남고, 소비자가 다시 입금했다고 알릴 수 있어요."
+              : "환불 송금 대기로 남아요. 보낸 뒤 「승인」을 눌러 주세요."
+          }
+        />
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button
+            label="닫기"
+            variant="secondary"
+            size="producer"
+            disabled={busy}
+            style={{ flex: 1 }}
+            onPress={() => setReject(null)}
+          />
+          <Button
+            label={deposit && cancelOrder ? "미승인 · 주문 취소" : "미승인"}
+            size="producer"
+            style={{ flex: 2 }}
+            loading={busy}
+            disabled={!reason.trim()}
+            onPress={() => void sendReject(o)}
+          />
+        </View>
+      </View>
+    );
+  };
 
   return (
     <Screen>
@@ -355,36 +498,44 @@ export default function Ship() {
                     메모: {o.deliveryNote}
                   </T>
                 ) : null}
-                {awaiting ? (
-                  // 기존 출하 준비 줄의 ‘택배사·송장 번호 넣기 ›’와 같은 글자 링크
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${o.orderNo} 입금 확인`}
-                    disabled={busy}
-                    onPress={() => setDepositFor(o)}
-                    style={{ minHeight: 48, justifyContent: "center" }}
-                  >
-                    <T variant="sub" weight="semibold">
-                      입금 확인 ›
-                    </T>
-                  </Pressable>
-                ) : refunded ? (
-                  o.refundSettledAt ? (
-                    <T variant="sub" weight="semibold" muted>
-                      {md(o.refundSettledAt)} 송금 완료
-                    </T>
+                {awaiting && o.depositIssue ? (
+                  <T variant="sub" muted>
+                    미승인 사유: {o.depositIssue}
+                  </T>
+                ) : null}
+                {refunded && o.refundIssue ? (
+                  <T variant="sub" muted>
+                    미승인 사유: {o.refundIssue}
+                  </T>
+                ) : null}
+                {refunded && o.refundSettledAt ? (
+                  <T variant="sub" weight="semibold" muted>
+                    {md(o.refundSettledAt)} 송금 완료
+                  </T>
+                ) : awaiting || refunded ? (
+                  // 확인 창 없이 줄에서 바로 승인·미승인(DEV-68)
+                  reject?.orderId === o.orderId ? (
+                    rejectForm(o)
                   ) : (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${o.orderNo} 송금 완료로 표시`}
-                      disabled={busy}
-                      onPress={() => setRefundFor(o)}
-                      style={{ minHeight: 48, justifyContent: "center" }}
-                    >
-                      <T variant="sub" weight="semibold">
-                        환불했어요 ›
-                      </T>
-                    </Pressable>
+                    <View style={{ flexDirection: "row", gap: 8, paddingTop: 8 }}>
+                      <Button
+                        label="미승인"
+                        variant="secondary"
+                        size="producer"
+                        disabled={busy}
+                        style={{ flex: 1 }}
+                        accessibilityLabel={`${o.orderNo} ${awaiting ? "입금" : "환불"} 미승인`}
+                        onPress={() => openReject(o)}
+                      />
+                      <Button
+                        label="승인"
+                        size="producer"
+                        disabled={busy}
+                        style={{ flex: 2 }}
+                        accessibilityLabel={`${o.orderNo} ${awaiting ? "입금 승인" : "환불 완료"}`}
+                        onPress={() => void approve(o)}
+                      />
+                    </View>
                   )
                 ) : (
                   <T variant="sub" weight="semibold" muted={!filled}>
@@ -502,9 +653,9 @@ export default function Ship() {
           ) : null}
           <T variant="sub" muted style={{ marginTop: 16 }}>
             {tab === "AWAITING_DEPOSIT"
-              ? "통장에서 입금자명(주문 번호)과 금액을 확인한 뒤 「입금 확인」을 눌러 주세요. 확인하면 소비자에게 예약 완료로 보여요. 24시간 안에 입금이 없으면 자동으로 취소돼요."
+              ? "통장에서 입금자명(주문 번호)과 금액을 확인하고 「승인」을 누르면 소비자에게 예약 완료로 보여요. 맞지 않으면 「미승인」에 사유를 적어 주세요. 24시간 안에 입금이 없으면 자동으로 취소돼요."
               : tab === "REFUNDED"
-                ? "환불은 소비자가 입금했던 계좌로 직접 보내 주세요. 보낸 뒤 「환불했어요」를 눌러 기록하면 소비자 주문 상세에 환불 완료로 보여요."
+                ? "환불은 소비자가 입금했던 계좌로 직접 보내 주세요. 보낸 뒤 「승인」을 누르면 소비자 주문 상세에 환불 완료로 보여요. 보내지 못하면 「미승인」에 사유를 적어 주세요."
                 : "배송 완료는 farmclub이 확인해서 바꿔요."}
           </T>
         </View>
@@ -602,82 +753,6 @@ export default function Ship() {
           onPress={saveInvoice}
           style={{ marginTop: 8 }}
         />
-      </Sheet>
-
-      {/* 입금 확인 시트(DEV-68 결정 4): 금액·입금자명을 다시 보여 주고 확인한다 */}
-      <Sheet
-        visible={!!depositFor}
-        onClose={() => {
-          if (!busy) setDepositFor(null);
-        }}
-      >
-        <T variant="heading">
-          {depositFor ? won(depositFor.totalAmount) : ""} 입금을 확인했나요?
-        </T>
-        {depositFor ? (
-          <T variant="sub" muted>
-            입금자명 {depositFor.orderNo} · {who(depositFor)}
-          </T>
-        ) : null}
-        <T variant="sub">
-          통장에 같은 입금자명과 금액이 들어왔을 때만 눌러 주세요. 확인하면
-          소비자에게 예약 완료로 보여요.
-        </T>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button
-            label="아니요"
-            variant="secondary"
-            size="producer"
-            disabled={busy}
-            style={{ flex: 1 }}
-            onPress={() => setDepositFor(null)}
-          />
-          <Button
-            label="입금 확인"
-            size="producer"
-            style={{ flex: 2 }}
-            loading={busy}
-            onPress={() => void confirmDeposit()}
-          />
-        </View>
-      </Sheet>
-
-      {/* 환불 완료 시트(DEV-68 AC-17-7): 입금했던 계좌로 돌려보낸 뒤 농가가 기록 */}
-      <Sheet
-        visible={!!refundFor}
-        onClose={() => {
-          if (!busy) setRefundFor(null);
-        }}
-      >
-        <T variant="heading">
-          {refundFor ? won(refundFor.totalAmount) : ""}을 돌려보냈나요?
-        </T>
-        {refundFor ? (
-          <T variant="sub" muted>
-            {who(refundFor)} · 입금자명 {refundFor.orderNo}
-          </T>
-        ) : null}
-        <T variant="sub">
-          소비자가 입금했던 계좌로 전액을 보낸 뒤에 눌러 주세요. 기록하면
-          소비자 주문 상세에 환불 완료로 보여요.
-        </T>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button
-            label="아니요"
-            variant="secondary"
-            size="producer"
-            disabled={busy}
-            style={{ flex: 1 }}
-            onPress={() => setRefundFor(null)}
-          />
-          <Button
-            label="환불 완료"
-            size="producer"
-            style={{ flex: 2 }}
-            loading={busy}
-            onPress={() => void settleRefund()}
-          />
-        </View>
       </Sheet>
 
       {/* 출하 확인 */}
