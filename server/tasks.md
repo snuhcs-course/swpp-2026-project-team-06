@@ -1160,3 +1160,47 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 - 10/18 결정(리뷰 확인 필요 항목): `needs_onboarding`은 동의 문구 **버전**을 비교하지 않는다. 약관·처리방침 개정 때 재동의를 강제하는 것은 정식 약관이 나온 뒤(현재는 테스트 서비스 요지만 있음) 별도 이슈로 한다. 버전은 이미 기록하므로 그때 현재 버전 상수와 비교만 더하면 된다. 배송지 50개는 동시 저장 경합에서 넘을 수 있으나 테스트 서비스 규모에서 허용.
 - 검증(10/18 리뷰 반영 뒤): Ruff 통과, 전체 pytest 346개 통과.
 - 10/18 DEV-68 PR #141 머지(main에 0014_bank_transfer·0015_deposit_issue)에 따라 main을 다시 병합하고 온보딩 마이그레이션을 `0016_user_onboarding`(`down_revision`=0015)으로 옮겼다. 문서 충돌(ia·policy·screens·tech-design·wiki·tasks)은 양쪽 내용을 합쳤다. policy.md 동의 문단은 DEV-68의 중개자 구조 문장으로 바꾸고 예전 ‘직매입·처리 위탁’ 문장은 뺐다.
+
+## DEV-72 계좌 없는 농가 상품 주문 시 고아 결제 전 주문·잘못된 409 안내 막기
+
+- 이슈: [DEV-72](https://linear.app/sswp6/issue/DEV-72)
+- 브랜치: `nemodleo/dev-72-계좌-없는-농가-상품-주문-시-고아-결제-전`
+- 기능·인수 조건: FEAT-09 E5(`NO_FARM_ACCOUNT`) 확장, FEAT-08 주문서 / 규칙 R-01, R-27, R-28
+- 상태: 진행 중
+
+### 목표
+2026-10-18 실서버 내부 테스트 C-13. 운영 DB 시드 농가는 DEV-68 전에 승인돼 입금 계좌가 비어 있다. 이 상품을 주문하면 결제 전 주문(`PENDING_PAYMENT`, actions 없음)이 남고, 주문서는 deposit의 409 `NO_FARM_ACCOUNT`를 가격 변경으로 보여 「바뀐 금액으로 예약하기」를 띄운다. 고아 주문이 생기지 않게 하고 사유별로 안내한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/orders/service.py`(주문 생성 계좌 검사), `server/app/orders/spec.md`
+- `server/tests/test_orders.py`
+- `packages/api/src/mock/orders.ts`, `packages/api/src/mock/*.test.ts`(Mock 동일 동작·테스트)
+- `apps/consumer/src/app/checkout/[productId]/index.tsx`(409 reason 분기)
+- `scripts/e2e/checkout-and-fulfillment.spec.ts`(낡은 셀렉터가 있으면)
+- `docs/spec/functional/FEAT-09-mock-payment.md`, `docs/spec/screens.md`, `docs/wiki/**`(영문 요약)
+- `server/tasks.md`(이 섹션)
+
+### 비범위 (건드리지 않음)
+- 운영 DB 시드 농가 계좌 백필: 코드(마이그레이션)가 아니라 운영 작업으로 한다. 운영 DB에 쓰기 전 사람 확인.
+- 상품 상세에서 미리 막기(후보 a): 스펙에 없는 새 화면 동작이라 질문으로 남긴다.
+- Figma·디자인 보드.
+
+### 결정 사항
+- 10/18 `POST /api/orders`도 `request_deposit`과 같은 기준(`farms.has_deposit_account`)으로 계좌를 먼저 검사해, 없으면 409 `NO_FARM_ACCOUNT`이고 주문을 만들지 않는다. deposit 쪽 검사는 그대로 둔다(주문 생성 뒤 계좌가 바뀌는 경우 대비). 결제 전 주문은 물량을 잡지 않으므로(`holds_stock`) 기존 고아 주문은 물량 문제는 없다.
+- 10/18 주문서 409 분기: `STAGE_CHANGED`(가격·옵션·기간 변경)만 최신 가격으로 다시 그리고 「바뀐 금액으로 예약하기」. 그 밖의 사유(`NO_FARM_ACCOUNT`·`SALES_PAUSED`·`SOLD_OUT`·`TOTAL_LIMIT_REACHED`·`QUANTITY_LIMIT` 등)는 서버 메시지를 안내로 보여 주고 버튼 문구는 「예약하기」 그대로. `NO_FARM_ACCOUNT`·`SALES_PAUSED`는 다시 눌러도 같은 결과라 버튼을 막는다.
+
+### 작업
+- [ ] 서버: `create_order` 계좌 검사 + pytest(AC-09 E5)
+- [ ] Mock: `POST /api/orders` 같은 검사 + 테스트
+- [ ] 주문서: 409 reason 분기
+- [ ] 스펙·wiki 갱신
+- [ ] pytest, `npm run typecheck`, `npm run test:mock`, Playwright `checkout-and-fulfillment` 실행
+
+### 완료 조건
+- [ ] 계좌 없는 농가 상품 주문 시 주문이 생기지 않고 409 `NO_FARM_ACCOUNT`
+- [ ] 주문서가 가격 변경이 아닌 409에 「바뀐 금액으로 예약하기」를 띄우지 않음
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 이슈·브랜치·섹션 생성. 운영 백필은 운영 작업(쓰기 전 확인), o-775b6a0ea2는 수동 정리됨.
