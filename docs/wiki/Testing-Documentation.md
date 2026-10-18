@@ -97,6 +97,8 @@ Reruns the manager and AI story tests on `main` `a7e41db` (2026-10-18), after th
 | Railway, read-only, deploy `a7e41db`: 24 admin route patterns × anonymous/consumer/producer; AI settings preview | Pass — 72 requests refused with 401/403/403; AI preview as in the C06 row |
 | Railway, admin reads with a token issued in the Railway shell (2026-10-18 02:20, deploy `850a1a9`) | Pass — exception list, 4 farm decision histories and 2 refund histories returned 200 (all empty on the fresh seed); unknown IDs returned 404 |
 
+**Recheck after later merges (2026-10-19, `main` `c98be9b` merged into this branch):** DEV-68 (#141, bank transfer, refunds) and the Kakao login PRs (#121, #158) landed after the run above, so the server and app checks were repeated. `uv run pytest` 364 passed and Ruff clean; story subsets unchanged (M01 13, M02 4, M03 30, C06 33); `npm run test:mock` 15 passed; `npm run typecheck` passed in 4 workspaces.
+
 ## 2. AI Module Testing (Iteration 3~)
 
 ## 3. Acceptance Testing (Iteration 4)

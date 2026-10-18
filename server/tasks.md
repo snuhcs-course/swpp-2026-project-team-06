@@ -55,7 +55,7 @@ DEV-4(백엔드) 구현을 바로 시작할 수 있게, stack.md 3장 구조대�
 - 이슈: [DEV-4](https://linear.app/sswp6/issue/DEV-4) (GitHub #5)
 - 브랜치: `zahra/dev-4-i1-p24-implement-backend-prototype`
 - 기능·인수 조건: 스펙 1.1(`docs/spec/screens.md` bccb29a, PR #28)의 Must API 23개 — FEAT-01·02·03·04·05·06·07·08·09·10·14·15 / AC-01-1·3~7, AC-03-1~3, AC-04-1·3·4, AC-05-1~3, AC-06-1·4·5, AC-07-1·2, AC-08-1~5, AC-09-1~3, AC-15-1
-- 상태: 리뷰 대기
+- 상태: 완료
 
 ### 목표
 진우·자라 노트(데모 코드 이어서 작업하기)대로 스펙 1.1(계정 분리, 새 필드, Must API부터)을 서버에 구현한다. 데모 프로토타입(Hyun Park 작성)의 Mock을 응답 모양·로직의 참고로 쓴다. 스펙 1.2~1.5는 다음 PR에서 한다.
@@ -1187,3 +1187,4 @@ I2 수정(DEV-30·31·35·39·59·47) 뒤 운영자·AI 테스트를 main에서 
 ### 기록
 - 10/18 main `a7e41db`: pytest 328 통과, Ruff 통과. 스토리별 M01 13·M02 4·M03 30·C06 33 통과. mock 13, typecheck 4 workspace 통과. `test:integration:full` 실서버 7 + Chromium 43 통과(재시도 없음). 첫 실행은 시작 중에 `npm ci`를 같이 돌려 Expo가 뜨지 못해 실패했고, 단독 재실행으로 통과. 로컬 HTTP 체크 49/49.
 - 10/18 Railway(배포 `a7e41db`) AI 미리보기: "원산지가 어디예요?" ×2 HANDOFF, 상품명 ANSWER(`product:p-house`), 실측 당도 ANSWER, 농약 HANDOFF. 비운영자 72요청 401/403/403. 운영자 조회 7개 200은 02:20 배포 `850a1a9`에서 현님이 발급한 토큰으로 확인(새 시드라 목록은 비어 있음).
+- 10/19 main `c98be9b`(DEV-68 #141, 카카오 로그인 #121·#158 포함)를 병합해 다시 확인: pytest 364 통과, Ruff 통과, 스토리별 M01 13·M02 4·M03 30·C06 33 그대로, mock 15, typecheck 4 workspace 통과. 로컬 typecheck가 처음엔 `/farm/account`·`/onboarding` 경로 오류로 실패했는데, 예전 `expo start`가 만든 `.expo/types/router.d.ts`(gitignore)가 낡아서였고 지운 뒤 통과(CI에는 이 파일이 없음).
