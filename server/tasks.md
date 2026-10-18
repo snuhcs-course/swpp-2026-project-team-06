@@ -1018,14 +1018,14 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 - 10/18 Farm `bank_name`·`account_number`·`account_holder`·`account_updated_at`. 계좌 없으면 `create_capacity_request` INITIAL에서 409 `NO_FARM_ACCOUNT`. 소비자 `OrderView.depositAccount`·`sellerInfo`는 본인 주문에서만.
 
 ### 작업
-- [ ] 마이그레이션 0014: farms 계좌 4칸, orders `deposit_due_at`·`deposit_reported_at`·`deposit_confirmed_by`·`cancel_reason`, refunds `settled_at`
-- [ ] orders: `deposit`·`deposit_reported`·`confirm_deposit`·`refund_settled`·`expire_overdue_deposits`, 상태 전이·물량, OrderView/ProducerOrder/Dashboard 필드
-- [ ] farms: MyFarm·FarmPatch 계좌, 검증(숫자·하이픈 6~20자)
-- [ ] catalog: 계좌 없는 초기 승인 요청 409
-- [ ] admin: `confirm-deposit`, `expire-deposits`
-- [ ] 시드: 농가 계좌 4곳, 입금 대기 주문 1건
-- [ ] pytest: AC-09-1(동시 마지막 물량, deposit), AC-09-2(입금 대기 취소 물량 복구), AC-09-3(멱등), AC-09-7(만료), AC-09-8(입금 확인), AC-17-7(환불 송금 완료), 계좌 없는 승인 요청
-- [ ] docs/spec·wiki 개정(rules·FEAT-09·14·17·policy·screens·ia·tech-design·R&S·Design-Documentation)
+- [x] 마이그레이션 0014: farms 계좌 4칸, orders `deposit_due_at`·`deposit_reported_at`·`deposit_confirmed_by`·`cancel_reason`, refunds `settled_at`
+- [x] orders: `deposit`·`deposit_reported`·`confirm_deposit`·`refund_settled`·`expire_overdue_deposits`, 상태 전이·물량, OrderView/ProducerOrder/Dashboard 필드
+- [x] farms: MyFarm·FarmPatch 계좌, 검증(숫자·하이픈 6~20자)
+- [x] catalog: 계좌 없는 초기 승인 요청 409
+- [x] admin: `confirm-deposit`, `expire-deposits`
+- [x] 시드: 농가 계좌 4곳 (입금 대기 주문 시드는 넣지 않음 — 대시보드·e2e 건수 기준이 바뀌지 않게, 테스트가 직접 만든다)
+- [x] pytest: AC-09-1(동시 마지막 물량, deposit), AC-09-2(입금 대기 취소 물량 복구), AC-09-3(멱등), AC-09-7(만료), AC-09-8(입금 확인), AC-17-7(환불 송금 완료), 계좌 없는 승인 요청
+- [x] docs/spec·wiki 개정(rules·FEAT-09·14·17·policy·screens·ia·tech-design·R&S·Design-Documentation)
 
 ### 완료 조건
 - [ ] 생산자 계좌 등록·수정 API, 소비자 입금 안내 응답, 입금 확인 → RESERVED, 24시간 만료 자동 취소, 환불 송금 완료 표시
@@ -1034,3 +1034,4 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 
 ### 기록
 - 10/18 제안·Before/After 보드 https://claude.ai/artifact/Pfj8bHERB3FXqH4iD1D6HL 승인. 스펙 섹션 작성.
+- 10/18 서버·API·Mock·앱·문서 구현. `uv run pytest`: 332 중 328 통과, 4 실패는 로컬 `server/.env`의 AI 키 때문(.env를 치우고 돌리면 4/4 통과, 이번 변경과 무관). 범위 추가: `server/.env.example`(DEPOSIT_DEADLINE_HOURS), `packages/ui/src/format.ts`(deadline), `apps/consumer/src/lib/DepositCard.tsx`, `apps/producer/src/app/(tabs)/farm/account.tsx`.

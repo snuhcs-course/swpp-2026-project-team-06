@@ -287,11 +287,11 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/18 주문 내역 그룹: 입금 대기는 '진행 중'(pending), 취소(CANCELED)는 '취소·환불' 탭.
 
 ### 작업
-- [ ] 주문서 버튼·deposit 호출
-- [ ] SCR-11 입금 안내 재작성(복사 2개, 기한, 판매자, 고지, 에스크로 접힘)
-- [ ] SCR-12 입금 확인 중 표(계좌·입금액·기한·복사)
-- [ ] SCR-14 입금 대기·만료·환불 송금 상태, 취소 시트 문구
-- [ ] 주문 내역 상태 문구·그룹
+- [x] 주문서 버튼·deposit 호출
+- [x] SCR-11 입금 안내 재작성(복사 2개, 기한, 판매자, 고지, 에스크로 접힘)
+- [x] SCR-12 입금 확인 중 표(계좌·입금액·기한·복사)
+- [x] SCR-14 입금 대기·만료·환불 송금 상태, 취소 시트 문구
+- [x] 주문 내역 상태 문구·그룹
 - [ ] `npm run typecheck`, e2e checkout 스펙 통과
 
 ### 완료 조건
@@ -299,3 +299,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 ### 기록
 - 10/18 섹션 작성.
+- 10/18 구현 완료, typecheck 통과. 결정: DepositCard는 `src/lib/DepositCard.tsx`로 분리(라우트 파일은 default만 export). 입금 대기·취소(CANCELED)도 주문 내역에 보인다(Mock도 동일).

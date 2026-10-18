@@ -202,10 +202,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/18 Mock 시드: 농가 4곳 계좌, 입금 대기 주문 1건(김민지). Mock 테스트 스크립트는 `deposit` → 생산자 `confirm-deposit`으로 예약 완료를 만든다.
 
 ### 작업
-- [ ] types·endpoints 교체(`orders.deposit`·`depositReported`·`confirmDeposit`·`refundSettled`, `farms.updateMine` 계좌)
-- [ ] Mock orders: deposit·confirm·expire(지연)·reported·refund-settled, 목록 필터·대시보드
-- [ ] Mock farms: 계좌 GET/PATCH 검증, 초기 승인 요청 409 `NO_FARM_ACCOUNT`
-- [ ] Mock 테스트·통합 테스트·e2e 스크립트 갱신 후 `npm run test:mock`·`npm run typecheck` 통과
+- [x] types·endpoints 교체(`orders.deposit`·`depositReported`·`confirmDeposit`·`refundSettled`, `farms.updateMine` 계좌)
+- [x] Mock orders: deposit·confirm·expire(지연)·reported·refund-settled, 목록 필터·대시보드
+- [x] Mock farms: 계좌 GET/PATCH 검증, 초기 승인 요청 409 `NO_FARM_ACCOUNT`
+- [x] Mock 테스트·통합 테스트·e2e 스크립트 갱신 후 `npm run test:mock`·`npm run typecheck` 통과
 
 ### 완료 조건
 - [ ] 소비자·생산자 앱이 Mock과 실서버에서 같은 흐름으로 동작
@@ -213,3 +213,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 ### 기록
 - 10/18 섹션 작성.
+- 10/18 `npm run typecheck`·`npm run test:mock`(13 통과) 확인. 범위 추가: `packages/ui/src/{format,index}.ts`(deadline 포맷).
