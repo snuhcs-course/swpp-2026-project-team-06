@@ -489,3 +489,36 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 리뷰 수정: 첫 사진 업로드의 대표 지정 덮어쓰기 수정, PageSnapshot 브랜치 전용 호환 제거, 현재 스펙 우선순위/마이그레이션 설명 정정. 새 첫 업로드·저장·재접속 및 누락/다른 상품 사진/null 대표 계약 회귀 테스트 추가. 커밋 전 스캔 이슈 없음, 신규 호환 후보 0건.
 - 머지 스캔: 후보 7건 — 지적 1건(수정 완료) / 정당 6건. ProductWorkspace.snapshot은 origin/main 이력 0건(브랜치839503e→b36fe10)이라 제거. Batch.targets·Draft.snapshot·Run.inputs·Page.spans·Asset.privacy_approved는 base4d7eece, Product.detail_content는 baseb464eba에 존재해 유지. 새 사진 저장 이후 공개 참조·소유권·버전·예약/취소 경로 검토.
 - 사용자 승인: Draft 해제·리뷰 수정 후 머지 명시 요청. 기존 사람 승인 병목 없이 각자 충돌 해소 후 머지하는 팀 방침에 따라 진행. Agent 시간/Tokens 미측정, 추가 유료 AI 호출 0.
+
+## DEV-68 무통장 입금: 입금 계좌(SCR-30 하위)·입금 대기 탭·입금 확인·환불 송금(SCR-29)·현황 할 일(SCR-22)
+- 이슈: [DEV-68](https://linear.app/sswp6/issue/DEV-68) · 브랜치 `nemodleo/dev-68-dev-무통장-입금소비자-농가-계좌-직접-생산자-계좌` · FEAT-14, FEAT-17 AC-17-7·8, FEAT-09 AC-09-8 · 상태: 진행 중
+
+### 목표
+생산자가 입금 계좌를 등록하고, 주문 현황에서 통장과 대조해 「입금 확인」을 누르며, 환불은 송금 뒤 「송금 완료」로 닫는다. 디자인: https://claude.ai/artifact/Pfj8bHERB3FXqH4iD1D6HL
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/app/(tabs)/farm/index.tsx`, `apps/producer/src/app/(tabs)/farm/edit/[field].tsx`, (필요 시) `apps/producer/src/app/(tabs)/farm/account.tsx`
+- `apps/producer/src/app/ship.tsx`, `apps/producer/src/app/(tabs)/index.tsx`
+- `apps/producer/src/app/(tabs)/products/[id]/edit.tsx` (409 `NO_FARM_ACCOUNT` 안내 한 곳)
+- `apps/producer/spec.md`, `apps/producer/tasks.md`
+
+### 비범위
+- 가입 신청(SCR-20)에는 계좌를 넣지 않는다. 계좌조회 자동 매칭. 채팅·소식.
+
+### 결정 사항
+- 10/18 계좌 입력은 별도 화면 `/farm/account`(은행·계좌번호·예금주 세 칸 한 화면, 미리보기, 저장 56). 프로필 줄 「입금 계좌」에서 진입.
+- 10/18 SCR-29 탭: 전체·입금 대기·예약·출하 준비·출하·환불할 것. 입금 대기 줄은 배송지를 보여 주지 않는다(R-15). 「입금 확인」 → 시트 → `confirmDeposit`. 환불할 것 줄은 「송금 완료」 → `refundSettled`.
+- 10/18 SCR-22: 제목 아래 할 일 띠(입금 확인 n건 / 환불 송금 n건 / 계좌 등록). 전체 주문 수에 입금 대기 포함.
+
+### 작업
+- [ ] 농가 프로필 「입금 계좌」 줄 + `/farm/account` 화면
+- [ ] 현황 할 일 띠
+- [ ] 주문 현황 입금 대기·환불할 것 탭, 확인 시트, 송금 완료
+- [ ] 상품 편집 승인 요청 409 `NO_FARM_ACCOUNT` 안내
+- [ ] `npm run typecheck`, e2e 통과
+
+### 완료 조건
+- [ ] 이슈 완료 조건(생산자 항목) · 테스트 통과 · 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 섹션 작성.

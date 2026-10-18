@@ -985,3 +985,52 @@ Railway에 서버와 PostgreSQL을 올릴 수 있게 레포 쪽 설정을 준비
   - 10/18 `actions/checkout`·`setup-node`는 `ci.yml`과 같은 v7로 맞춤.
 - 작업: [x] 워크플로 트리거·변경 판단 [x] README·stack.md [x] actionlint
 - 검증: `actionlint .github/workflows/deploy-railway.yml` 통과. 실제 흐름(머지 → CI 성공 → 배포)은 머지 뒤 1회 실행으로 확인 예정.
+
+## DEV-68 무통장 입금(소비자 → 농가 계좌 직접): 생산자 계좌·입금 대기·입금 확인·환불 송금
+
+- 이슈: [DEV-68](https://linear.app/sswp6/issue/DEV-68)
+- 브랜치: `nemodleo/dev-68-dev-무통장-입금소비자-농가-계좌-직접-생산자-계좌`
+- 기능·인수 조건: FEAT-09(개정, AC-09-1·2·3·7·8), FEAT-14, FEAT-17(AC-17-7·8) / 규칙 R-01·R-02·R-13 개정, R-28 신설
+- 상태: 진행 중 (2026-10-18 박현 제안 승인 → 스펙·구현)
+
+### 목표
+PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생산자가 통장과 대조해 앱에서 입금을 확인한다. farmclub은 통신판매중개자로 돈을 만지지 않는다.
+
+### 범위 (수정 허용 경로)
+- `server/app/orders/**` (모델·스키마·서비스·라우터·spec.md)
+- `server/app/farms/**` (Farm 계좌 3칸, MyFarm·FarmPatch)
+- `server/app/catalog/service.py` (계좌 없는 농가 초기 승인 요청 차단 한 곳)
+- `server/app/core/config.py` (`deposit_deadline_hours`), `server/app/core/seed.py` (농가 계좌·입금 대기 주문 시드)
+- `server/migrations/versions/0014_*.py`
+- `server/tests/test_orders.py`, `server/tests/test_farms.py`
+- `docs/spec/**`, `docs/wiki/**` (스펙·영문 동기화)
+
+### 비범위 (건드리지 않음)
+- PortOne·카드 코드(#124 DEV-36, #120 DEV-37 브랜치). 계좌조회 API 자동 매칭, 수수료 정산, 알림(FEAT-18).
+- `server/app/admin/**` 감사 구조(관리 API는 orders admin_router에 추가만).
+
+### 결정 사항
+- 10/18 상태 `AWAITING_DEPOSIT` 신설. `PENDING_PAYMENT`(동의만) → `POST /orders/{id}/deposit`(멱등, 물량 선점) → `AWAITING_DEPOSIT` → 생산자/운영자 `confirm-deposit` → `RESERVED`(`paid_at`=확인 시각). 기존 `/pay`·`mockResult` 삭제.
+- 10/18 입금자명 = `order_no`. 금액 변형 없음. 기한 `deposit_due_at = 안내 시각 + DEPOSIT_DEADLINE_HOURS(24)`.
+- 10/18 만료는 지연 검사(소비자 조회·취소, 생산자 목록·확인 시점에 `expire_overdue_deposits`) + `POST /admin/orders/expire-deposits` 일괄. 만료 주문 `CANCELED`, `cancel_reason="입금 기한 초과"`, 물량 해제.
+- 10/18 소비자 `POST /orders/{id}/deposit-reported` → `deposit_reported_at`(힌트). 입금 대기 취소 → `CANCELED`(환불 없음), 물량 해제.
+- 10/18 환불은 입금했던 계좌로 농가가 송금. `Refund.settled_at`, 생산자 `POST /orders/{id}/refund-settled`. `Payment.method=BANK_TRANSFER`, `provider=FARM_ACCOUNT`.
+- 10/18 Farm `bank_name`·`account_number`·`account_holder`·`account_updated_at`. 계좌 없으면 `create_capacity_request` INITIAL에서 409 `NO_FARM_ACCOUNT`. 소비자 `OrderView.depositAccount`·`sellerInfo`는 본인 주문에서만.
+
+### 작업
+- [ ] 마이그레이션 0014: farms 계좌 4칸, orders `deposit_due_at`·`deposit_reported_at`·`deposit_confirmed_by`·`cancel_reason`, refunds `settled_at`
+- [ ] orders: `deposit`·`deposit_reported`·`confirm_deposit`·`refund_settled`·`expire_overdue_deposits`, 상태 전이·물량, OrderView/ProducerOrder/Dashboard 필드
+- [ ] farms: MyFarm·FarmPatch 계좌, 검증(숫자·하이픈 6~20자)
+- [ ] catalog: 계좌 없는 초기 승인 요청 409
+- [ ] admin: `confirm-deposit`, `expire-deposits`
+- [ ] 시드: 농가 계좌 4곳, 입금 대기 주문 1건
+- [ ] pytest: AC-09-1(동시 마지막 물량, deposit), AC-09-2(입금 대기 취소 물량 복구), AC-09-3(멱등), AC-09-7(만료), AC-09-8(입금 확인), AC-17-7(환불 송금 완료), 계좌 없는 승인 요청
+- [ ] docs/spec·wiki 개정(rules·FEAT-09·14·17·policy·screens·ia·tech-design·R&S·Design-Documentation)
+
+### 완료 조건
+- [ ] 생산자 계좌 등록·수정 API, 소비자 입금 안내 응답, 입금 확인 → RESERVED, 24시간 만료 자동 취소, 환불 송금 완료 표시
+- [ ] pytest 통과, Mock·통합 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 제안·Before/After 보드 https://claude.ai/artifact/Pfj8bHERB3FXqH4iD1D6HL 승인. 스펙 섹션 작성.
