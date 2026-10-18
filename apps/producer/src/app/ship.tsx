@@ -517,7 +517,11 @@ export default function Ship() {
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                 <T variant="sub" muted numberOfLines={1}>
                   {o.orderNo}
-                  {awaiting ? ` · 기한 ${deadline(o.depositDueAt)}` : ""}
+                  {awaiting
+                    ? o.depositDueAt && Date.parse(o.depositDueAt) <= Date.now()
+                      ? " · 기한 지남"
+                      : ` · 기한 ${deadline(o.depositDueAt)}`
+                    : ""}
                 </T>
                 <T variant="body" weight="semibold">
                   {who(o)}

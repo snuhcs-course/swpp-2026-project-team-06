@@ -111,7 +111,11 @@ export default function OrderDetail() {
                 ? `${md(o.refundSettledAt)}에 농가가 ${won(o.totalAmount)}을 입금했던 계좌로 보냈어요.`
                 : `농가가 ${won(o.totalAmount)}을 입금했던 계좌로 3영업일 안에 보내요.`
               : o.status === "AWAITING_DEPOSIT"
-                ? `${deadline(o.depositDueAt)}까지 입금해 주세요. 농가가 확인하면 예약 완료로 바뀌어요.`
+                ? o.depositReportedAt &&
+                  o.depositDueAt &&
+                  Date.parse(o.depositDueAt) <= Date.now()
+                  ? "입금했다고 알려 주셨어요. 농가 확인이 늦어져 farmclub이 농가에 연락하고 있어요. 주문은 취소되지 않아요."
+                  : `${deadline(o.depositDueAt)}까지 입금해 주세요. 농가가 확인하면 예약 완료로 바뀌어요.`
                 : o.status === "CANCELED"
                   ? "물량은 다른 분께 돌아갔어요. 다시 예약할 수 있어요."
                   : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`;
