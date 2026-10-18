@@ -70,6 +70,33 @@ For each route pattern below, call once without a token, once with the `u-minji`
 | 2026-10-16 | Seeded manager and chat API flows with `ANTHROPIC_API_KEY` unset | Pass — producer decisions/history, capacity decisions, delivery/refund history, rule answer, forced/fallback handoff, AC-13-6/7, M-07 exception list/detail/resolve/retry guards, and AC-32-3 no-write preview verified. |
 | 2026-10-16 | Re-verification on current `main` (`34c9009`, includes #116 and #117) in a fresh worktree after `npm ci` and `uv sync --frozen`, scratch database | Pass — `pytest` 210 passed; `npm run test:integration:full`: 7 real-server scenarios and 19 Playwright tests passed (11 in `producer-i2` and `conversation-ui`). A scripted seeded-API run passed 46/46 checks: 12 admin routes × 3 identities (401/403/403); producer approve/reject and history; capacity stale 409 and approve; delivered and refund without key 400 (4 manager actions), same-key replay, one refund-history row; refund-request alert list/detail, retry refused (409 `RETRY_NOT_ALLOWED`), resolve, retry after resolve refused; AC-32-3 no-write preview; rule answer, forced and fallback handoff; AC-13-6 and AC-13-7. Transient-failure retry recovery was not reproduced over HTTP; `test_AC_11_3_transient_retry_uses_original_actor_and_exact_body` covers it. |
 
+### DEV-50 (I2-T41) — Manager and AI regression after fixes
+
+Reruns the manager and AI story tests on `main` `a7e41db` (2026-10-18), after the I2 fixes, and links each result to the user story it covers. Local runs use a seeded scratch database; the Railway checks are read-only (no approvals, refunds or chat messages were created on the shared server).
+
+| Story | Changed by | Regression tests (pytest) | HTTP and browser checks | Railway (read-only) | Result |
+| -- | -- | -- | -- | -- | -- |
+| **M01** Approve or reject new producers | DEV-30 (#96), DEV-35 (#114) | 13 `test_AC_01_3_*` (approve, reject with reason, history across reapplication, ADMIN-only access) | Seeded API: approve/reject, history, re-login keeps `APPROVED`, missing key 400, same-key replay | Admin routes refuse anonymous/consumer/producer (401/403/403); decision history readable with an admin token | Pass |
+| **M02** Approve or reject capacity requests | DEV-30 (#96) | 4 `test_AC_04_8_*` (ADMIN-only, version-safe, lifecycle) | Seeded API: stale approve/reject 409 `STALE_VERSION`, current version approves | Capacity routes refuse non-admins | Pass |
+| **M03** Track and resolve order and refund exceptions | DEV-35 (#114) | 30 `test_AC_11_3_*`, `test_AC_17_4_*`, `test_M_07_*` (refund balance, idempotency, concurrency, transient retry, refund-request alerts) | Seeded API: delivered, partial refund with one history row (amount and order match), refund-request alert list/detail, retry refused, resolve | Exception and refund-history reads return 200 with an admin token; non-admins refused | Pass |
+| **C06** Ask privately, get an evidence-based answer or a handoff | DEV-31 (#99), DEV-59 (#116), DEV-39 (#119), DEV-47 (#140) | 33: `test_C06_*`, `test_AC_13_*`, `test_AC_32_*`, `test_AC_03_3_*`, `test_P02_AC_03_1_*` | Seeded API: rule answer, forced and fallback handoff, AC-13-6 HUMAN switch, AC-13-7 AI off; Chromium AC-13-5 report and AC-32-4 settings conflict | Live Claude (settings preview): no-evidence question → handoff, product-name question answered with `product:p-house`, measured brix answered, pesticide question → handoff | Pass |
+
+**Defect fixed in this cycle (C06):** internal test A-10 found that, for a question with no evidence ("원산지가 어디예요?"), live Claude returned `ANSWER` with "no information, ask the seller", so the question never reached the producer's reply list (FEAT-13 normal flow 3). [#140](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/140) turns such answers into a handoff and tells the prompt the same. Regression tests `test_C06_FEAT_13_model_non_answers_are_detected`, `test_C06_FEAT_13_model_non_answer_becomes_handoff` and `test_C06_FEAT_13_model_non_answer_is_forwarded_to_producer` failed before the fix and pass after it. The same question on Railway returned a handoff after the deploy.
+
+**Not covered:** data-changing manager actions on Railway (kept off the shared seed used by consumer test 2), and server-side records from consumer test 1, which ran on Mock builds that keep data in each browser.
+
+**Execution record (2026-10-18, `main` `a7e41db`):**
+
+| Command or flow | Result |
+| -- | -- |
+| `cd server && uv run pytest` | Pass — 328 passed; Ruff clean |
+| Story subsets (`-k` by AC/story ID) | Pass — M01 13, M02 4, M03 30, C06 33 |
+| `npm run test:mock`; `npm run typecheck` | Pass — 13 tests; 4 workspaces |
+| `npm run test:integration:full` | Pass — 7 real-server scenarios and 43 Chromium tests, no retries. A first attempt failed to start because dependencies were reinstalled during startup; the rerun was the only change. |
+| Seeded local HTTP checks (DEV-44 script plus re-login and refund-row checks) | Pass — 49/49 |
+| Railway, read-only, deploy `a7e41db`: 24 admin route patterns × anonymous/consumer/producer; AI settings preview | Pass — 72 requests refused with 401/403/403; AI preview as in the C06 row |
+| Railway, admin reads with a token issued in the Railway shell (2026-10-18 02:20, deploy `850a1a9`) | Pass — exception list, 4 farm decision histories and 2 refund histories returned 200 (all empty on the fresh seed); unknown IDs returned 404 |
+
 ## 2. AI Module Testing (Iteration 3~)
 
 ## 3. Acceptance Testing (Iteration 4)
