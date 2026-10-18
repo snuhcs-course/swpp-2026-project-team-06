@@ -198,8 +198,9 @@ def check_environment(event, token):
             environment = json.loads(response.read(MAX_RESPONSE + 1))
         reviewers = [r for r in environment.get("protection_rules", [])
                      if r.get("type") == "required_reviewers" and r.get("reviewers")]
-        if not reviewers or not reviewers[0].get("prevent_self_review"):
-            raise Incomplete("spec-check must require an independent reviewer and prevent self-review.")
+        # 2026-10-18 팀 결정(DEV-55): 승인자는 계속 필수, PR 작성자 본인의 승인은 허용한다
+        if not reviewers:
+            raise Incomplete("spec-check must require a reviewer approval before the model call.")
     except (error.URLError, ValueError, KeyError, TypeError, AttributeError) as exc:
         raise Incomplete("Protected spec-check environment could not be verified; ask the repository administrator.") from exc
 

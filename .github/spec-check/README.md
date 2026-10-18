@@ -13,7 +13,7 @@
 
 1. 키/과금 소유자, 사용할 Claude API model ID, 사용 한도를 합의한다. 모델 ID를 추측하거나 fallback하지 않는다.
 2. GitHub repository Settings → Environments → spec-check를 생성한다.
-3. Required reviewers에 독립적인 팀원을 추가하고 Prevent self-review를 켠다. 관리자의 우회 승인도 사용하지 않는다.
+3. Required reviewers에 팀원을 추가한다. 2026-10-18 팀 결정(DEV-55)으로 Prevent self-review는 필수가 아니다. PR 작성자가 승인자 목록에 있으면 자기 PR의 실행을 직접 승인할 수 있다. 관리자의 우회 승인(Allow administrators to bypass)은 끈다.
 4. 이 환경에만 secret `SPEC_CHECK_API_KEY`, variable `SPEC_CHECK_MODEL`을 추가한다. 제품 키·Claude 앱 로그인·개인 CLI 인증을 재사용하지 않는다.
 5. 키 소유자는 별도 API workspace의 예산·사용량을 관리한다. 키 값·개인정보는 PR/Linear/로그에 넣지 않는다.
 6. PR에서 실행할 checker, prompt, workflow, action commit을 검토한 뒤에 환경 job을 승인한다. 환경 승인은 코드 리뷰의 Approve와 별개다.
@@ -21,7 +21,7 @@
 
 사용자 요청에 따라 현재 live 실행은 보류한다. 활성화 변수를 설정하지 않았다. 비활성화 시 live job은 SKIPPED이며 모델 PASS가 생성되지 않는다. 활성화 후 접근 오류는 INCOMPLETE로 실패한다.
 
-모델 job에는 환경 설정을 읽는 `actions: read`도 필요하다. 설정을 읽지 못하거나 required reviewers/prevent-self-review가 없으면 API 호출 전에 INCOMPLETE가 된다. 저장소 설정 권한이 없는 작성자는 관리자가 처리해야 한다.
+모델 job에는 환경 설정을 읽는 `actions: read`도 필요하다. 설정을 읽지 못하거나 required reviewers가 없으면 API 호출 전에 INCOMPLETE가 된다(prevent-self-review는 확인하지 않는다). 저장소 설정 권한이 없는 작성자는 관리자가 처리해야 한다.
 
 ## 2. 일반 PR 작성
 
