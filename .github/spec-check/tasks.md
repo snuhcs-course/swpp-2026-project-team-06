@@ -109,7 +109,7 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 
 ### 결정 사항
 - 10/19 형식은 한 줄 `Figma: <값> — <내용>`. 값은 `반영함`(Figma 링크 또는 node-id `123:456`), `해당 없음`(이유), `후속`(`DEV-숫자`). 구분자는 `—`·`–`·`-`·`:`·공백 모두 받는다. HTML 주석 안 줄은 세지 않고, 줄이 둘 이상이면 실패.
-- 10/19 대상 경로는 `apps/*/src/**`, `packages/ui/src/**`, `scripts/admin-web/**`(테스트 파일 제외). `apps/*/src`는 화면·화면 부품·문구 파일이 섞여 있어 전부 대상으로 두고, 로직만 바꾼 PR은 `해당 없음 — 이유`로 통과한다.
+- 10/19 대상 경로는 `apps/*/src/**`, `packages/ui/src/**`, `scripts/admin-web/**`(테스트·문서·설정 파일 제외: 점 파일, `*.md`, `package.json`, `vercel.json`). `apps/*/src`는 화면·화면 부품·문구 파일이 섞여 있어 전부 대상으로 두고, 로직만 바꾼 PR은 `해당 없음 — 이유`로 통과한다.
 - 10/19 checker-tests처럼 test-merge 커밋(`github.sha`)을 checkout하고 첫 부모와의 `git diff --name-only --no-renames`로 바뀐 파일을 구한다. 토큰·API 호출 없음. 본문은 이벤트 파일에서 읽어 `edited` 때 새 본문으로 다시 돈다.
 - 10/19 봇 PR(Dependabot)은 건너뛴다. fork PR은 키가 필요 없으니 돈다.
 - 10/19 처음에는 branch protection 필수 체크로 등록하지 않는다(spec-check 기존 방침). 빨간 잡으로 보인다.
@@ -129,3 +129,4 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 ### 기록
 - 10/19 main b6ee11a에서 시작.
 - 10/19 계기 사례 확인: PR #158(DEV-74)의 실제 본문·바뀐 파일로 `figma_line.evaluate`를 돌리면 FAIL(화면 경로 4개, "Figma 줄이 없다"). README 7절에 사례를 적음.
+- 10/19 사용자 지시로 소문자 `figma:`·굵게 `**Figma:**`도 Figma 줄로 인식. 최근 머지 PR 25개에 돌려 보니 `scripts/admin-web/README.md`·`.gitignore`·`.vercelignore`만 바뀐 경우도 대상이 돼 문서·설정 파일을 대상에서 뺌.

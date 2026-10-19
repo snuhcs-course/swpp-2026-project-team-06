@@ -136,7 +136,7 @@ v1은 명시적 경로 표를 사용한다. 자동 의미 검색·외부 문서 
 만든 계기: [DEV-74](https://linear.app/sswp6/issue/DEV-74)(PR #158, 생산자 앱 카카오 로그인)는 `apps/producer/src/app/login.tsx`의 로그인 화면(P02)을 바꿨지만 `tasks.md` 비범위에 "Figma"를 적고 넘어갔다. 머지 뒤 Figma P02만 옛 화면으로 남아 10/19에 손으로 맞췄다. #158 본문과 바뀐 파일로 이 검사를 돌리면 "Figma 줄이 없다"로 실패한다.
 
 `figma-line` 잡은 모델·키 없이 도는 결정적 검사다(`figma_line.py`, 테스트 `test_figma_line.py`는 checker-tests가 함께 돌린다).
-`apps/*/src/**`, `packages/ui/src/**`, `scripts/admin-web/**`(테스트 파일 제외)가 바뀐 PR은 본문 `## Figma` 절에 한 줄을 적어야 한다.
+`apps/*/src/**`, `packages/ui/src/**`, `scripts/admin-web/**`(테스트·문서·설정 파일 제외: 점 파일, `*.md`, `package.json`, `vercel.json`)가 바뀐 PR은 본문 `## Figma` 절에 한 줄을 적어야 한다.
 
 ```text
 Figma: 반영함 — https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=343-5945
