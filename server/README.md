@@ -68,5 +68,6 @@ as well when stopping processing. Preserve DB, source objects and spend reservat
 Do not erase uncertain reservations or automatically retry paid calls.
 
 Operational success does not certify extraction completeness or farmer acceptance.
-Producers still review numbers and conflicts. DEV-92 tracks basic-info blur saving
-racing immediate upload; wait for basic-info persistence or retry the retained file.
+Producers still review numbers and conflicts. DEV-92 waits for basic-info blur saving before new file/text upload and preserves
+manual input. If basic-info saving fails, upload is blocked and the retained file
+can be retried explicitly after correcting the input or connection.

@@ -1338,7 +1338,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 ### Work
 - [x] Worker build/config, draft PR and local isolated-DB regression.
 - [x] Production worker/API activation, three material types and private persistence/apply. Recovery documented; no production flag-toggle regression performed during this check.
-- [ ] Deck/video/screenshots and complete visual/playback QA, maximum 13 slides.
+- [ ] Deck/video/screenshots and complete visual/playback QA; preserve the latest user/team slide set without adding slides.
 - [ ] Spec/wiki/Linear current state, limitations and verification evidence synchronized.
 
 ### Record
@@ -1346,3 +1346,5 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 
 - 10/19 validation: isolated source pytest117, typecheck4 workspaces, mock15, source browser17 passed. Production image/long/PDF SUCCEEDED; private save/reload/apply3/3, public DRAFT404. Actual producer UI edit/section hide/restore/save/reopen/apply passed. Ledger20 paid calls/$0.032994/unsettled0. PDF completeness and farmer acceptance remain incomplete.
 - 10/19 DEV-92 created for observed basic-info blur/upload version race. Production selling not exercised: test farm has no deposit account. Main CI deploy workflow now includes the same-commit worker rollout and exact deployment-ID polling. Deck work remains in progress outside the repository.
+
+- 10/19 main2ed8b28 deployed by Actions39261814494: API1473f970/workerf72b6735 SUCCESS, OCR engine ready/PID1 worker, main CI367 server/API7/browser45 passed2 skipped. Follow-up DEV-92 fixes the observed save/upload race before final media capture. The user/team expanded the shared PPTX to15 slides; no agent-added slide. Final delivery and updated recording are tracked in DEV-90/92 and the existing Drive file.

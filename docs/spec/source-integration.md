@@ -7,7 +7,7 @@
 - 사용자 승인으로 운영 API와 `farmclub-source-worker`의 `SOURCE_ANALYSIS_ENABLED=true`를 적용했다. `GET https://api.farmclub.kr/api/source-analysis/config`는 `enabled:true`다. 아래 날짜별 배포 보류/미머지 기록은 당시 이력이며 현재 상태를 뜻하지 않는다.
 - API는 기존 이미지, worker는 `Dockerfile.worker`의 OCR extras·검증된 모델을 사용한다. 같은 PostgreSQL(migration0016)과 비공개 R2를 공유한다. 모델은 OpenRouter Gemini 3 Flash Preview, 누적 비용 한도 $5 유지. 현재 parser/prompt는 `source-parser-v3` / `source-v6-candidate-validation`이다.
 - 운영 통제 자료 이미지·긴 이미지·PDF 각1건 분석 SUCCEEDED, 비공개 저장·재조회·상품 반영3/3 통과. 실제 생산자 UI의 새 상품 진입·분석·문구 수정·섹션 숨김/복원·저장 후 재진입·명시적 반영도 확인했다. 비공개 상품 공개 API는404를 유지한다. [검증 기록](validation/source-production-2026-10-19.json).
-- 배포 성공은 자동 추출의 완전성/일반 정확도/실제 농가 인수를 뜻하지 않는다. PDF는 이 통제 자료에서도 반환 후보가1개여서 누락 검토가 필요하다. 숫자 OCR 오독·동일 필드 충돌·실제 농가 인수는 DEV-58 잔여 범위다. 기본 정보 blur 저장과 즉시 업로드의 경합은 [DEV-92](https://linear.app/sswp6/issue/DEV-92)에서 별도로 추적한다.
+- 배포 성공은 자동 추출의 완전성/일반 정확도/실제 농가 인수를 뜻하지 않는다. PDF는 이 통제 자료에서도 반환 후보가1개여서 누락 검토가 필요하다. 숫자 OCR 오독·동일 필드 충돌·실제 농가 인수는 DEV-58 잔여 범위다. 기본 정보 blur 저장과 즉시 업로드의 경합은 [DEV-92](https://linear.app/sswp6/issue/DEV-92)에서 첨부 전 저장 완료 대기로 수정한다. 저장 실패 시 직접 입력과 첨부 파일을 보존하고 자동 재시도하지 않는다.
 - 실제 판매 공개는 기존 입금계좌·필수 상품 정보·공급 승인 절차를 따른다. 이번 운영 검증은 승인 테스트 농가의 DRAFT 상품에만 반영했으며 실제 주문/결제는 수행하지 않았다. 판매페이지의 소비자 렌더링·공개 일치는 격리 DB 브라우저 회귀로 별도 검증한다.
 - 복구: API flag를false로 배포하면 새 상품/상세 편집은 DEV-84의 기존 경로를 사용한다. 필요하면 worker도false로 내려 새 작업 처리를 멈춘다. 비용 원장과 저장 자료는 초기화하지 않는다. 배포 절차는 `server/README.md`.
 
