@@ -45,6 +45,7 @@ export default function Home() {
     <Screen>
       <BrandHeader
         title="farmclub"
+        logo="wordmark"
         right={
           <IconButton
             icon="search"

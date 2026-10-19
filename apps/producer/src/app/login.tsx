@@ -1,6 +1,7 @@
 // SCR-19 로그인(생산자 앱) — 카카오로 시작하기(I2, DEV-74) 또는 생산자 테스트 계정 선택(ADR 0009·0010) — design: p-scr-19
 import { auth, isMock, type TestAccount } from "@farmclub/api";
 import {
+  BrandLogo,
   Button,
   EmptyState,
   Radio,
@@ -15,11 +16,11 @@ import {
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, useWindowDimensions } from "react-native";
 
 import { beginKakaoLogin, kakaoRedirectUri } from "../lib/kakao";
 import { useSession } from "../lib/session";
-import { Wordmark, isStatus } from "../lib/views";
+import { isStatus } from "../lib/views";
 
 const SUB: Record<string, string> = {
   APPROVED: "승인됨",
@@ -42,6 +43,9 @@ const sub = (a: TestAccount) =>
 const NEW_PRODUCER = "u-new";
 
 export default function Login() {
+  const { width } = useWindowDimensions();
+  // Reserve 140px for the two title lines, 40px gutters, and the 8px gap.
+  const logoWidth = Math.min(172, Math.max(96, width - 188));
   const router = useRouter();
   const { refresh } = useSession();
   const { data, error, reload } = useAsync(
@@ -137,10 +141,24 @@ export default function Login() {
     <Screen>
       <Scroll bottom={170}>
         <View style={{ paddingHorizontal: 20, paddingTop: 64, gap: 24 }}>
-          <Wordmark />
-          <T variant="title" accessibilityRole="header">
-            {showTest ? "계정을 골라\n시작하세요" : "농가로\n시작하세요"}
-          </T>
+          <View
+            style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+          >
+            <T
+              variant="title"
+              weight="semibold"
+              accessibilityRole="header"
+              style={{ flex: 1, minWidth: 0, fontSize: 30, lineHeight: 32 }}
+            >
+              {showTest ? "계정을 골라\n시작하세요" : "농가로\n시작하세요"}
+            </T>
+            <BrandLogo
+              variant="full"
+              width={logoWidth}
+              // Align the FARM/CLUB lettering, which sits below the PNG center.
+              style={{ transform: [{ translateX: -16 }, { translateY: -10 }] }}
+            />
+          </View>
           {kakaoOn && !showTest ? (
             <T variant="body" muted>
               처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요. 카카오에서는
