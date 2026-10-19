@@ -5,6 +5,7 @@ import {
   catalog,
   newIdempotencyKey,
   productWorkspace,
+  sourceAnalysis,
   type PageSnapshot,
   type ProductWorkspace,
 } from "@farmclub/api";
@@ -21,6 +22,7 @@ import {
   StoryImage,
   T,
   tokens,
+  useAsync,
 } from "@farmclub/ui";
 import { useNavigation, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -52,8 +54,35 @@ const copy = (value: PageSnapshot): PageSnapshot =>
   JSON.parse(JSON.stringify(value));
 export function ProductPageEditor({ productId }: { productId: string }) {
   const { user } = useSession();
-  if (isMock) return <DetailEditor productId={productId} />;
-  return <Editor key={`${user?.userId}:${productId}`} productId={productId} />;
+  // 자료 분석이 꺼진 서버(운영 배포 보류)는 기존 상세 편집을 쓴다(DEV-84)
+  const source = useAsync(
+    () =>
+      isMock ? Promise.resolve({ enabled: false }) : sourceAnalysis.config(),
+    [],
+  );
+  if (isMock || source.data?.enabled === false)
+    return <DetailEditor productId={productId} />;
+  if (source.data)
+    return (
+      <Editor key={`${user?.userId}:${productId}`} productId={productId} />
+    );
+  return (
+    <Screen>
+      <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
+        {source.error ? (
+          <>
+            <T>판매페이지 편집을 열지 못했어요. 다시 시도해 주세요.</T>
+            <Button
+              label="다시 불러오기"
+              onPress={() => void source.reload()}
+            />
+          </>
+        ) : (
+          <ActivityIndicator color={tokens.color.accent} />
+        )}
+      </View>
+    </Screen>
+  );
 }
 function Editor({ productId }: { productId: string }) {
   useHideTabBar();
