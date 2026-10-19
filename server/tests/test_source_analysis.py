@@ -173,6 +173,22 @@ def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch):
     assert client.get(url, headers=h).status_code == 404
 
 
+def test_DEV_84_config_reports_feature_flag_without_auth(client, login, monkeypatch):
+    """꺼진 서버에서도 설정 조회는 200이라 앱이 404(상품 없음)와 구분한다."""
+    assert client.get("/api/source-analysis/config").json() == {"enabled": True}
+    monkeypatch.setattr(get_settings(), "source_analysis_enabled", False)
+    response = client.get("/api/source-analysis/config")
+    assert response.status_code == 200
+    assert response.json() == {"enabled": False}
+    # 기능 API는 그대로 막힌다.
+    workspace = client.post(
+        "/api/source-analysis/product-workspaces",
+        json={},
+        headers={**login("u-kang"), "Idempotency-Key": "dev84-off"},
+    )
+    assert workspace.status_code == 404
+
+
 def test_AC_SRC_6_real_mode_proceeds_without_privacy_review(client, login, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "source_analysis_provider", "openai")
