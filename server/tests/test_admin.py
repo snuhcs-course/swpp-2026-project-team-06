@@ -241,3 +241,41 @@ def test_DEV_82_admin_lists_producer_applications_by_status(client, admin_header
     assert client.get("/admin/producers?status=WRONG", headers=admin_headers).status_code == 400
     assert client.get("/admin/producers").status_code == 401
     assert client.get("/admin/producers", headers=login("u-kang")).status_code == 403
+
+
+def test_DEV_87_admin_lists_capacity_requests_by_status(client, admin_headers, login):
+    """운영자 공급 물량 신청 목록: 기본 심사 중, 상태별·전체, 상품·농가, 운영자만(DEV-87)."""
+    pending = client.get("/admin/capacity-requests", headers=admin_headers)
+    assert pending.status_code == 200, pending.text
+    rows = pending.json()
+    assert rows and all(r["status"] == "PENDING" for r in rows)
+    row = next(r for r in rows if r["requestId"] == "capacity-p-cheonggyeon")
+    assert row["productId"] == "p-cheonggyeon"
+    assert row["productName"] and row["farmId"] and row["farmName"]
+    assert row["kind"] in ("INITIAL", "INCREASE")
+    assert row["requestedTotalGrams"] > row["approvedSupplyGrams"]
+    assert row["version"] == 1 and row["createdAt"]
+
+    every = client.get("/admin/capacity-requests?status=ALL", headers=admin_headers).json()
+    assert len(every) >= len(rows)
+    times = [r["createdAt"] for r in every]
+    assert times == sorted(times, reverse=True)
+
+    # 승인하면 심사 중 목록에서 빠지고 승인 목록에 승인량과 함께 나온다
+    approved = client.post(
+        "/admin/products/p-cheonggyeon/capacity-requests/capacity-p-cheonggyeon/approve",
+        headers=admin_headers | key(),
+        json={"version": row["version"]},
+    )
+    assert approved.is_success, approved.text
+    after = client.get("/admin/capacity-requests", headers=admin_headers).json()
+    assert "capacity-p-cheonggyeon" not in [r["requestId"] for r in after]
+    done = client.get("/admin/capacity-requests?status=APPROVED", headers=admin_headers).json()
+    mine = next(r for r in done if r["requestId"] == "capacity-p-cheonggyeon")
+    assert mine["approvedSupplyGrams"] == mine["requestedTotalGrams"]
+    assert mine["decidedAt"]
+
+    wrong = client.get("/admin/capacity-requests?status=WRONG", headers=admin_headers)
+    assert wrong.status_code == 400
+    assert client.get("/admin/capacity-requests").status_code == 401
+    assert client.get("/admin/capacity-requests", headers=login("u-kang")).status_code == 403

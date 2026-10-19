@@ -543,6 +543,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /admin/producers/{farmId}/approve` | 운영자, `Idempotency-Key` | — | 농가 `APPROVED` | FEAT-01, R-22 | Should |
 | `POST /admin/producers/{farmId}/reject` | 운영자, `Idempotency-Key` | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 | Should |
 | `GET /admin/producers/{farmId}/decisions` | 운영자 | — | 신청 시각·결정·사유·결정 운영자 이력(최신순) | FEAT-01, R-22 | Should |
+| `GET /admin/capacity-requests` | 운영자 | `status`(`PENDING` 기본·`APPROVED`·`REJECTED`·`WITHDRAWN`·`ALL`) | 공급 물량 신청 목록(신청 필드 + 상품 이름·상태, 농가 ID·이름, 현재 승인량·판매 한도), 신청 최신순. 관리자 페이지 공급 물량 승인(DEV-87)이 쓴다 | FEAT-04, R-25 | Should |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/approve` | 운영자 | version | 공급 총중량 승인. 1.4 계약 | FEAT-04, R-25 | Must |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/reject` | 운영자 | version,reason | 신청 반려, 기존 판매 유지 | FEAT-04 | Must |
 | `POST /admin/orders/{orderId}/delivered` | 운영자, `Idempotency-Key` | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
