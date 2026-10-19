@@ -1320,7 +1320,7 @@ DEV-82 임시 승인 웹을 여러 관리 기능을 담을 관리자 페이지�
 - 상태: 진행 중
 
 ### 범위 (수정 허용 경로)
-- 문서: `docs/spec/tech-design/adr/0012-domains-cloudflare.md`, `README.md` 도메인 절, `scripts/admin-web/README.md`, `docs/spec/ia.md` 운영자 안내, `server/tasks.md`
+- 문서: `docs/spec/tech-design/adr/0012-domains-cloudflare.md`, `README.md` 도메인 절, `scripts/admin-web/README.md`, `docs/spec/ia.md` 운영자 안내(10·86·146행 근처), `docs/spec/prd.md` FEAT-23 행, `docs/spec/tech-design/stack.md` 운영자 화면 행, `server/tasks.md`
 - 콘솔(코드 아님): Vercel `farmclub-admin` 도메인 추가(에이전트), Cloudflare `admin` CNAME(사용자)
 
 ### 비범위
@@ -1343,3 +1343,4 @@ DEV-82 임시 승인 웹을 여러 관리 기능을 담을 관리자 페이지�
 
 ### 기록
 - 10/19 main 61a8034에서 시작. 문서만 바꿔 실행할 테스트 없음.
+- 10/19 리뷰 지적: ia.md 10·146행("I1은 화면 없이 Swagger UI, 전용 화면은 I2")이 86행(관리자 페이지 있음)과 어긋남 → 세 곳과 prd.md FEAT-23 행, stack.md 운영자 화면 행을 "I1은 Swagger, I2 관리자 페이지(가입 신청·공급 물량), 나머지는 Swagger"로 맞춤.

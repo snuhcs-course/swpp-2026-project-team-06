@@ -23,7 +23,7 @@
 | 웹 호스팅 | Vercel(정적 웹 출력), 앱마다 프로젝트 1개 | 무료, 브랜치 미리보기 | 0001 |
 | 도메인 | `farmclub.kr`(소비자 앱), `farm.farmclub.kr`(생산자 앱), `api.farmclub.kr`(서버). 호스팅케이알(KISA 인증 등록대행자)에서 사고 DNS는 Cloudflare. 공유 링크는 소비자 앱이 `/s/*`를 서버로 프록시해 `farmclub.kr/s/farms/<id>` | `.kr`은 Cloudflare Registrar가 팔지 않음. 대상 없는 서브도메인(`admin`·`dev`·`staging`)은 레코드를 만들지 않음 | [0012](./adr/0012-domains-cloudflare.md) |
 | 백엔드 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic, Railway | 타입 기반 API 정의, 코드에서 나온 OpenAPI 스키마로 `packages/api` 클라이언트 생성, 트랜잭션과 `SELECT … FOR UPDATE`로 물량 차감(R-06) | [0007](./adr/0007-backend-fastapi.md) |
-| 운영자 화면 | 관리 API(`/admin/...`) + Swagger UI, 전용 화면은 I2 | 승인·배송 완료·환불을 I1부터 화면 없이 처리, 모든 관리 API에서 `ADMIN` 역할 검사(N-06) | [0008](./adr/0008-operator-admin-api.md) |
+| 운영자 화면 | 관리 API(`/admin/...`) + Swagger UI. I2 임시 관리자 페이지(`scripts/admin-web`, `admin.farmclub.kr`, Vercel 함수 중계)에 가입 신청·공급 물량 승인 | 승인·배송 완료·환불을 I1부터 화면 없이 처리, 모든 관리 API에서 `ADMIN` 역할 검사(N-06) | [0008](./adr/0008-operator-admin-api.md) |
 | 인증 | I1: Mock 로그인(시드 테스트 계정 선택, 설정 플래그) → 서버가 JWT 발급(PyJWT). I2: 카카오 로그인(OAuth 인가 코드) | 데모를 외부 계정 없이 재현. 두 웹 앱과 API가 다른 도메인이어도 동작 | [0009](./adr/0009-mock-login.md), [0003](./adr/0003-auth-kakao.md) |
 | DB | PostgreSQL(Railway). 로컬은 Docker Postgres | 백엔드와 같은 프로젝트 | 0007 |
 | 파일 | Cloudflare R2 + boto3 | 송신 무료, S3 호환 | 0007 |
