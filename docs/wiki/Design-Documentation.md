@@ -447,3 +447,8 @@ Product behavior is defined in [docs/spec](https://github.com/snuhcs-course/swpp
 - Product detail moves into the tab layout without changing `/products/:id`. Purchase actions sit above the fixed 72px tabs. Existing detail blocks render at original image aspect ratio. No live content is replaced with the demo sample.
 - The producer chat tab embeds its own room directly; it starts with the shelf collapsed, while consumers start expanded. Collapsing preserves the composer. The broadcast notice scrolls with messages. Hidden own-room polling stops in private-chat view.
 - Dashboard counters aggregate all order pages. Reserved orders are read-only. Invoice editing and shipping use the existing preparing-order flow. No server, order-state or approval changes are introduced.
+
+
+## Approved brand assets (DEV-85)
+
+The consumer home uses the FARM CLUB wordmark beside the existing search action. The producer dashboard uses the standalone symbol beside its title at the approved original size (36×40 px). Producer login removes the upper wordmark and places the full logo beside its two-line heading. The approved 30/32 px heading and 172×129 px logo align the visible FARM/CLUB lines using a −16/−10 px optical offset; the image scales proportionally on narrower screens. Kakao/test-account login and account-state routing remain unchanged. Four original transparent PNGs live in `packages/ui/assets/brand/`; the portable static review is in `docs/design/brand-review/index.html`.
