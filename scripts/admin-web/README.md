@@ -9,10 +9,10 @@
 
 ```sh
 cd server
-railway run uv run python -m app.accounts.admin_token
+railway ssh -- .venv/bin/python -m app.accounts.admin_token
 ```
 
-운영 DB의 운영자 계정(`u-admin`)과 운영 `JWT_SECRET`으로 발급된다. 토큰은 비밀번호처럼 다루고 저장소·채팅에 붙이지 않는다.
+API 서버 컨테이너 안에서 실행해 운영 DB의 운영자 계정(`u-admin`)과 운영 `JWT_SECRET`으로 발급된다. `railway run`은 내 컴퓨터에서 실행하므로 내부 주소(`postgres.railway.internal`)인 운영 DB에 닿지 않는다. Railway에 연결된 체크아웃(`railway link`)에서 실행한다. 토큰은 비밀번호처럼 다루고 저장소·채팅에 붙이지 않는다.
 
 ## 로컬 실행
 
