@@ -13,6 +13,7 @@
 - 제품 스펙 원본은 `docs/spec/`(한국어)이고, `docs/wiki/`는 영문 요약이다. 안내(문서 위치, 읽는 순서, 문서끼리 다를 때 규칙)는 `docs/spec/README.md`.
 - 기능 작업 전 `docs/spec/README.md`의 순서대로 읽는다: `prd.md` → `functional/FEAT-xx-*.md` → `functional/rules.md` → `ia.md` → 작업 폴더 `spec.md`·`tasks.md`.
 - 동작·규칙을 바꾸는 PR은 같은 PR에서 `docs/spec/`과 `docs/wiki/` 영문 요약을 함께 고친다.
+- 화면 모양·문구가 바뀌면 같은 PR에서 Figma v6도 고친다. 못 하면 PR에 후속 이슈를 적는다(PR 본문 `Figma:` 줄, CI `figma-line`이 검사).
 - 문서끼리 다르거나 스펙에 없으면 추측해 구현하지 않는다. PR·이슈에 질문으로 남긴다.
 - 커밋·PR에 FEAT·규칙 ID를 적고, 테스트 이름에 AC ID를 넣는다(예: `test_AC_09_1_...`).
 
