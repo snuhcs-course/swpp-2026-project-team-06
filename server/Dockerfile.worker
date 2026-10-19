@@ -1,0 +1,30 @@
+# 자료 분석 worker (Railway farmclub-source-worker, DEV-86). API 이미지(Dockerfile)와 같은 코드에
+# OCR extra(rapidocr·onnxruntime)와 해시 검증된 OCR 모델을 더한다. OCR은 worker만 쓰므로 API 이미지는 그대로 둔다.
+FROM python:3.12-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.10.12 /uv /uvx /bin/
+
+WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    SOURCE_OCR_MODEL_DIR=/opt/ocr-models \
+    # app/source_analysis/ocr-manifest.json의 SHA-256. manifest를 바꾸면 이 값도 바꿔야 빌드가 통과한다.
+    SOURCE_OCR_MODEL_SHA256=9f64ef4f9d20e41cb506a6015af66d4b0da3939b23286f89a0ff32f98d122049
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --extra ocr
+
+# 모델은 빌드 때만 받는다(worker 실행 중에는 다운로드하지 않음). provision_ocr가 파일별 SHA-256을 검증하고,
+# 출력한 manifest 해시가 위 고정값과 다르면 빌드를 실패시킨다. 이 층은 manifest가 바뀔 때만 다시 만든다.
+COPY app/source_analysis/ocr-manifest.json app/source_analysis/provision_ocr.py /tmp/ocr/
+RUN out="$(python /tmp/ocr/provision_ocr.py "$SOURCE_OCR_MODEL_DIR")" \
+    && test "$out" = "SOURCE_OCR_MODEL_SHA256=$SOURCE_OCR_MODEL_SHA256" \
+    || { echo "OCR model manifest hash mismatch: $out" >&2; exit 1; }
+
+COPY . .
+
+# 마이그레이션은 API가 기동 때 맡는다. worker는 같은 DB·R2로 대기열만 처리한다.
+CMD ["python", "-m", "app.source_analysis.worker"]
