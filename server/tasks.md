@@ -1211,6 +1211,7 @@ I2 수정(DEV-30·31·35·39·59·47) 뒤 운영자·AI 테스트를 main에서 
 - 10/19 신청 목록은 `GET /admin/producers?status=PENDING|REJECTED|APPROVED|SUSPENDED|ALL`(기본 PENDING), 응답은 기존 `ProducerApplication` 모양 목록(신청 최신순). 운영자 토큰만.
 - 10/19 승인 웹은 로컬 전용. 실서버 CORS는 소비자·생산자 앱 주소만 허용하므로, 웹을 띄우는 로컬 Node 서버가 `/admin/*` 요청을 실서버(기본 `https://api.farmclub.kr`)로 대신 보낸다. 127.0.0.1에만 열린다.
 - 10/19 운영자 토큰은 사용자가 발급(`railway ssh -- .venv/bin/python -m app.accounts.admin_token`, 서버 컨테이너 안에서. `railway run`은 로컬 실행이라 내부 DB 주소에 닿지 않음)해 화면에 붙여 넣는다. 브라우저 sessionStorage에만 두고 저장소·서버 로그에 남기지 않는다.
+- 10/19 (위를 바꿈) 접속은 공용 비밀번호로 한다. 운영자 토큰은 중계 환경 변수(`ADMIN_TOKEN`)에만 두고, 비밀번호(`ADMIN_WEB_PASSWORD`)가 맞을 때만 붙인다. 링크·비밀번호를 아는 사람은 누구나 승인·반려하고 결정은 `u-admin`으로 기록된다(사람별 기록은 후속). 토큰 7일 만료 시 재발급. 실서버 코드는 그대로.
 - 10/19 같은 폴더를 Vercel 별도 프로젝트(`farmclub-admin`)로 임시 배포한다. 중계는 서버리스 함수(`api/proxy.js`) 하나로 로컬과 같은 코드를 쓰고, `/admin/producers` 아래 경로와 GET·POST만 넘긴다. `noindex` 헤더를 붙이고, 화면만으로는 아무것도 못 하며 운영자 토큰이 있어야 동작한다.
 
 ### 작업

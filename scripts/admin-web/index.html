@@ -62,17 +62,16 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background:
 
   <section class="card" aria-labelledby="tok">
     <div class="row" style="justify-content: space-between">
-      <strong id="tok">운영자 토큰</strong>
+      <strong id="tok">접속 비밀번호</strong>
       <span class="hint" id="api"></span>
     </div>
     <div class="row" style="margin-top: 8px; flex-wrap: nowrap">
-      <input id="token" type="password" autocomplete="off" placeholder="토큰을 붙여 넣으세요" aria-label="운영자 토큰">
-      <button class="primary" id="save">불러오기</button>
-      <button class="text" id="clear">지우기</button>
+      <input id="token" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요" aria-label="접속 비밀번호">
+      <button class="primary" id="save">들어가기</button>
+      <button class="text" id="clear">나가기</button>
     </div>
     <p class="hint" style="margin: 8px 0 0">
-      토큰은 이 브라우저 탭에만 보관하고 닫으면 지워져요. 발급(7일 유효):
-      <code>cd server &amp;&amp; railway ssh -- .venv/bin/python -m app.accounts.admin_token</code>
+      비밀번호는 이 브라우저 탭에만 보관하고 닫으면 지워져요. 승인·반려는 운영자 계정(u-admin) 이름으로 기록돼요.
     </p>
   </section>
 
@@ -84,7 +83,7 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background:
 <script>
 const STATUS = { PENDING: "확인 중", REJECTED: "반려", APPROVED: "승인", SUSPENDED: "정지" };
 const TABS = ["PENDING", "REJECTED", "APPROVED", "SUSPENDED", "ALL"];
-const KEY = "farmclub-admin:token";
+const KEY = "farmclub-admin:password";
 let tab = "PENDING", rows = null, busy = false;
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -97,15 +96,13 @@ function toast(msg, err) {
 }
 
 async function call(path, method = "GET", body) {
-  const headers = { Authorization: "Bearer " + token() };
+  const headers = { "X-Admin-Password": token() };
   if (method === "POST") { headers["Idempotency-Key"] = crypto.randomUUID(); headers["Content-Type"] = "application/json"; }
   const r = await fetch("/api/proxy?path=" + encodeURIComponent(path), { method, headers, body: body ? JSON.stringify(body) : undefined });
   const data = await r.json().catch(() => null);
   if (!r.ok) {
-    const msg = r.status === 401 ? "토큰이 없거나 만료됐어요. 새로 발급해 붙여 넣어 주세요."
-      : r.status === 403 ? "운영자 토큰이 아니에요."
-      : (data && data.message) || `요청이 실패했어요 (${r.status})`;
-    throw new Error(msg);
+    if (data && data.code === "BAD_PASSWORD") { try { sessionStorage.removeItem(KEY); } catch {} placeholder(); }
+    throw new Error((data && data.message) || `요청이 실패했어요 (${r.status})`);
   }
   return data;
 }
@@ -143,7 +140,7 @@ function card(r) {
 
 function renderList() {
   renderTabs();
-  if (!token()) { $("#list").innerHTML = `<p class="empty">운영자 토큰을 붙여 넣고 불러오기를 눌러 주세요.</p>`; return; }
+  if (!token()) { $("#list").innerHTML = `<p class="empty">비밀번호를 입력하고 들어가기를 눌러 주세요.</p>`; return; }
   if (!rows) { $("#list").innerHTML = `<p class="empty">불러오는 중…</p>`; return; }
   const shown = tab === "ALL" ? rows : rows.filter((r) => r.status === tab);
   $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<p class="empty">${tab === "PENDING" ? "확인할 신청이 없어요." : "해당하는 신청이 없어요."}</p>`;
@@ -158,12 +155,13 @@ async function load() {
 
 $("#save").onclick = () => {
   const v = $("#token").value.trim();
-  if (!v) return toast("토큰을 붙여 넣어 주세요.", true);
+  if (!v) return toast("비밀번호를 입력해 주세요.", true);
   try { sessionStorage.setItem(KEY, v); } catch {}
-  $("#token").value = ""; $("#token").placeholder = "토큰 저장됨 · 바꾸려면 다시 붙여 넣기";
+  $("#token").value = ""; placeholder();
   load();
 };
-$("#clear").onclick = () => { try { sessionStorage.removeItem(KEY); } catch {} rows = null; $("#token").placeholder = "토큰을 붙여 넣으세요"; renderList(); };
+$("#token").onkeydown = (e) => { if (e.key === "Enter") $("#save").click(); };
+$("#clear").onclick = () => { try { sessionStorage.removeItem(KEY); } catch {} rows = null; placeholder(); renderList(); };
 $("#tabs").onclick = (e) => { const b = e.target.closest("button[data-tab]"); if (b) { tab = b.dataset.tab; renderList(); } };
 
 $("#list").onclick = async (e) => {
@@ -199,7 +197,8 @@ $("#list").onclick = async (e) => {
 };
 
 $("#api").textContent = location.hostname === "127.0.0.1" || location.hostname === "localhost" ? "로컬 중계 → 실서버" : "Vercel 중계 → 실서버";
-if (token()) $("#token").placeholder = "토큰 저장됨 · 바꾸려면 다시 붙여 넣기";
+function placeholder() { $("#token").placeholder = token() ? "들어와 있어요" : "비밀번호를 입력하세요"; }
+placeholder();
 load();
 </script>
 </body>
