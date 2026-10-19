@@ -92,7 +92,7 @@ spec-code-review를 승인자 1명의 승인으로 실행하되, PR 작성자 �
 - 이슈: [DEV-88](https://linear.app/sswp6/issue/DEV-88)
 - 브랜치: `nemodleo/dev-88-dev-화면이-바뀌면-figma-v6도-맞추게-하기pr-본문-figma`
 - 기능·인수 조건: infra. 제품 동작 변경 없음. 화면 모양 기준 Figma v6(DEV-51)
-- 상태: 리뷰 중
+- 상태: 완료
 
 ### 목표
 DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화면으로 남았다. 문장 규칙만으로는 약하므로 원칙(AGENTS.md)·PR 템플릿·CI 결정적 검사로 막는다.
@@ -122,11 +122,12 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 - [x] DEV-74 기록
 
 ### 완료 조건
-- [ ] 계약 테스트 통과(로컬·GitHub checker-tests)
-- [ ] 이 PR에서 `figma-line` 통과
-- [ ] 사람 1명 승인 후 main 머지
+- [x] 계약 테스트 통과(로컬·GitHub checker-tests)
+- [x] 이 PR에서 `figma-line` 통과
+- [x] main 머지(10/19 사용자가 직접 머지, 사람 Approve 없음)
 
 ### 기록
 - 10/19 main b6ee11a에서 시작.
 - 10/19 계기 사례 확인: PR #158(DEV-74)의 실제 본문·바뀐 파일로 `figma_line.evaluate`를 돌리면 FAIL(화면 경로 4개, "Figma 줄이 없다"). README 7절에 사례를 적음.
 - 10/19 사용자 지시로 소문자 `figma:`·굵게 `**Figma:**`도 Figma 줄로 인식. 최근 머지 PR 25개에 돌려 보니 `scripts/admin-web/README.md`·`.gitignore`·`.vercelignore`만 바뀐 경우도 대상이 돼 문서·설정 파일을 대상에서 뺌.
+- 10/19 GitHub에서 figma-line·checker-tests·apps·server 통과(2933123). spec-code-review는 보호 환경 승인 대기인 채로 머지.
