@@ -10,11 +10,13 @@ import re
 import subprocess
 import sys
 
-# 화면 모양·문구에 닿는 경로. 테스트 파일은 뺀다.
+# 화면 모양·문구에 닿는 경로. 테스트·문서·설정 파일(점 파일, *.md, package.json, vercel.json)은 뺀다.
 SCREEN_GLOBS = ("apps/*/src/*", "packages/ui/src/*", "scripts/admin-web/*")
-TEST_RE = re.compile(r"(^|/)(__tests__/|[^/]+\.(test|spec)\.[^/]+$)")
+SKIP_RE = re.compile(r"(^|/)(__tests__/|[^/]+\.(test|spec)\.[^/]+$|\.[^/]+$|[^/]+\.md$|package\.json$|vercel\.json$)")
 
-LINE_RE = re.compile(r"^\s*(?:[-*]\s+)?Figma\s*:(.*)$", re.MULTILINE)
+# 대소문자·굵게(`**Figma:**`, `**Figma**:`)는 가리지 않는다.
+LINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*|__)?figma(?:\*\*|__)?\s*:(?:\*\*|__)?(.*)$",
+                     re.MULTILINE | re.IGNORECASE)
 VALUE_RE = re.compile(r"^\s*(반영함|해당 없음|후속)(?:\s*[—–:-]\s*|\s+)(.*)$")
 COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 FIGMA_URL_RE = re.compile(r"https://(?:www\.)?figma\.com/\S+")
@@ -29,7 +31,7 @@ USAGE = ("PR 본문에 다음 중 하나를 한 줄로 적는다: "
 def screen_files(paths):
     """바뀐 파일 중 Figma 확인 대상만 고른다."""
     return [p for p in paths
-            if any(fnmatch.fnmatchcase(p, g) for g in SCREEN_GLOBS) and not TEST_RE.search(p)]
+            if any(fnmatch.fnmatchcase(p, g) for g in SCREEN_GLOBS) and not SKIP_RE.search(p)]
 
 
 def check_body(body):

@@ -21,14 +21,18 @@ class ScreenFilesTests(unittest.TestCase):
     def test_targets(self):
         for path in ("apps/consumer/src/app/(tabs)/index.tsx", "apps/producer/src/lib/kakao.ts",
                      "packages/ui/src/tokens.ts", "scripts/admin-web/index.html",
-                     "scripts/admin-web/api/farms.js"):
+                     "scripts/admin-web/api/_views/capacity.html", "scripts/admin-web/assets/admin.css",
+                     "scripts/admin-web/server.mjs"):
             with self.subTest(path=path):
                 self.assertEqual(figma_line.screen_files([path]), [path])
 
     def test_non_targets(self):
         for path in ("server/app/main.py", "packages/api/src/client.ts", "apps/producer/tasks.md",
                      "apps/producer/app.json", "docs/spec/screens.md", "scripts/run-integration.mjs",
-                     "packages/ui/src/format.test.ts", "apps/consumer/src/lib/__tests__/x.tsx"):
+                     "packages/ui/src/format.test.ts", "apps/consumer/src/lib/__tests__/x.tsx",
+                     "scripts/admin-web/admin.test.mjs", "scripts/admin-web/README.md",
+                     "scripts/admin-web/.gitignore", "scripts/admin-web/.vercelignore",
+                     "scripts/admin-web/package.json", "scripts/admin-web/vercel.json"):
             with self.subTest(path=path):
                 self.assertEqual(figma_line.screen_files([path]), [])
 
@@ -42,6 +46,11 @@ class BodyTests(unittest.TestCase):
             "Figma: 후속 — DEV-90": "후속",
             "Figma: 후속 - DEV-90 관리자 화면": "후속",
             "Figma:해당 없음: 타입만 정리": "해당 없음",
+            "figma: 해당 없음 — 소문자도 받는다": "해당 없음",
+            "FIGMA: 후속 — DEV-90": "후속",
+            f"**Figma:** 반영함 — {LINK}": "반영함",
+            "**Figma**: 해당 없음 — 굵게도 받는다": "해당 없음",
+            "- __Figma__: 후속 — DEV-91": "후속",
         }
         for line, value in cases.items():
             with self.subTest(line=line):
@@ -61,6 +70,8 @@ class BodyTests(unittest.TestCase):
             "Figma: 후속 — SWPP-12": "DEV-숫자",
             "Figma: 했음 — 링크": "하나가 아니다",        # 세 값 밖
             "Figma: 반영함/해당 없음/후속": "하나가 아니다",
+            "**Figma:**": "줄이 비어 있다",
+            "Figma: 반영함 — x\nfigma: 해당 없음 — 대소문자 섞인 중복": "2개",
             f"Figma: 반영함 — {LINK}\nFigma: 해당 없음 — 중복": "2개",
         }
         for line, message in cases.items():
