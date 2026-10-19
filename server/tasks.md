@@ -1228,3 +1228,45 @@ I2 수정(DEV-30·31·35·39·59·47) 뒤 운영자·AI 테스트를 main에서 
 
 ### 기록
 - 10/19 main 7b2b123에서 시작.
+
+## DEV-86 운영에서 자료 분석 켜기 준비: OCR 포함 worker 이미지·Railway 서비스·런북
+
+- 이슈: [DEV-86](https://linear.app/sswp6/issue/DEV-86)
+- 브랜치: `nemodleo/dev-86-dev-운영에서-자료-분석-켜기-준비-ocr-포함-worker`
+- 기능·인수 조건: FEAT-03/04/07 자료 분석(AC-SRC-1~8) 운영 배포 준비. 동작·규칙 변경 없음(`docs/spec/source-integration.md`)
+- 상태: 진행 중
+
+### 목표
+자료 분석(DEV-56/57/58)은 운영에서 꺼져 있고 켤 준비(OCR 포함 worker, Railway 서비스, 변수 순서)가 없다. 사용자가 Railway 변수만 넣으면 켤 수 있게 이미지·배포·런북을 준비한다.
+
+### 범위 (수정 허용 경로)
+- `server/Dockerfile.worker`, `server/railway.worker.json`(새 파일)
+- `.github/workflows/deploy-railway.yml`(worker 서비스 배포 단계)
+- `server/app/source_analysis/README.md`, `server/app/source_analysis/runbook.md`(새 파일), `server/app/source_analysis/spec.md`(배포 구현 결정)
+- `server/README.md` Deployment 절(해당 시), `server/tasks.md`
+
+### 비범위 (건드리지 않음)
+- API 이미지(`server/Dockerfile`, `server/railway.json`), 자료 분석 동작·프롬프트·예산 코드
+- 운영 Railway 변수 입력·서비스 생성·배포 보류 해제(사용자), 유료 모델 호출(사용자 승인 없이 안 함)
+
+### 결정 사항
+- 10/19 OCR은 worker만 쓴다(`preprocess.prepare`는 worker·synthetic에서만 호출, API는 PIL만). API 이미지는 그대로 두고 worker 전용 `Dockerfile.worker`를 둔다 → API 크기·기동 시간 영향 없음.
+- 10/19 OCR 모델은 빌드 때 `provision_ocr`로 받아 이미지에 넣고, 출력 해시가 Dockerfile에 고정한 `SOURCE_OCR_MODEL_SHA256`과 다르면 빌드를 실패시킨다. 런타임 다운로드 없음(기존 원칙).
+- 10/19 worker 서비스는 같은 `server/`를 올리고 Railway 서비스 설정의 config 파일 경로를 `/railway.worker.json`으로 지정한다(헬스체크 없음). 변수는 API 서비스 참조(`${{farmclub-api.VAR}}`)로 맞춘다.
+- 10/19 배포 워크플로는 저장소 변수 `RAILWAY_WORKER_SERVICE`가 있을 때만 API 배포·헬스 확인 뒤 worker를 올린다(서비스 만들기 전 머지해도 실패하지 않음).
+
+### 작업
+- [ ] `Dockerfile.worker`·`railway.worker.json`
+- [ ] 배포 워크플로 worker 단계
+- [ ] 런북(키 발급, 변수 목록·순서, 확인, 롤백)
+- [ ] 로컬: worker 이미지 빌드·OCR 해시 검증·OCR 실행, API 이미지 크기 비교
+- [ ] 로컬: R2 저장소로 mock 분석 1건(OpenRouter 키 없으면 실모델 미실행으로 보고)
+- [ ] pytest·ruff
+
+### 완료 조건
+- [ ] 사용자가 런북대로 Railway 변수만 넣으면 운영에서 켤 수 있다
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/19 main b6ee11a에서 시작. (DEV-82 섹션 상태가 "진행 중"으로 남아 있으나 #168로 머지됨, 이 작업과 파일 겹침 없음)
