@@ -613,3 +613,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 ### 기록
 - 10/19 main 79eaea7에서 시작. 실서버 재현: u-kang `POST /api/products/drafts` 200, `POST /api/source-analysis/product-workspaces` 404 NOT_FOUND(인증 없이도 404 → 기능 게이트).
 - 10/19 검증: Ruff 통과, pytest 366/366(신규 1), `npm run typecheck` 4개 통과, `npm run test:mock` 15/15. 통합(별도 DB `farmclub_dev84`) 꺼짐 `SOURCE_ANALYSIS_ENABLED=false`: API 7/7, Playwright 5/5(source-disabled 2 + producer-and-privacy 3). 켜짐: API 7/7, Playwright 18 통과·2 건너뜀(꺼짐 전용) — source-workspace-ui·product-page-workspace·source-editor·producer-and-privacy.
+- 10/19 AI 1차 리뷰 반영: 판매페이지 수정의 설정 조회 대기·오류 화면에 뒤로 가기 헤더 추가. 재검증: typecheck 통과, test:mock 15/15, 통합 꺼짐 source-disabled 2/2, 켜짐 product-page-workspace 5/5.

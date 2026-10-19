@@ -54,6 +54,7 @@ const copy = (value: PageSnapshot): PageSnapshot =>
   JSON.parse(JSON.stringify(value));
 export function ProductPageEditor({ productId }: { productId: string }) {
   const { user } = useSession();
+  const router = useRouter();
   // 자료 분석이 꺼진 서버(운영 배포 보류)는 기존 상세 편집을 쓴다(DEV-84)
   const source = useAsync(
     () =>
@@ -68,6 +69,12 @@ export function ProductPageEditor({ productId }: { productId: string }) {
     );
   return (
     <Screen>
+      <HeaderBar
+        title="판매페이지 수정"
+        onBack={() =>
+          router.canGoBack() ? router.back() : router.replace("/products")
+        }
+      />
       <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
         {source.error ? (
           <>
