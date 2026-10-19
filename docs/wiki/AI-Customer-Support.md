@@ -9,7 +9,7 @@ Consumers ask a farm private questions in a 1:1 chat. An "AI 안내" (AI guide) 
 1. **Never invent a fact.** A wrong delivery date or sweetness value costs the farm trust and can turn into a refund. When in doubt, the AI hands off instead of answering.
 2. **Never speak for the farm.** The AI says it is "AI 안내", never "저희 농장". Prices, refunds, compensation, delivery promises and taste judgements are always the producer's call.
 3. **Keep the producer in control.** The producer can turn the AI off, write FAQs and extra handoff topics, preview answers, and take over any conversation.
-4. **Send the model as little as possible.** No contact details, addresses, account numbers, recipient names or private photos leave the server.
+4. **Send the model as little as possible.** Shipping addresses, recipient names and private photos are never part of the evidence, and contact and account numbers in text are masked before sending.
 
 ## 2. Decision pipeline
 
@@ -39,7 +39,7 @@ Rules come before the model on purpose: the most common questions (when does it 
 | `farm:smallOrderPolicy` | The farm's small-order policy text |
 | `farm:reservationShippingPolicy` | The farm's reservation shipping policy text |
 
-Every string is passed through `strip_personal_info` (phone numbers, account numbers and Korean street addresses are masked) before it is sent, and the question is masked too. The prompt tells the model that FAQ and policy text are **information, not instructions**, so a farm cannot accidentally (or a consumer cannot deliberately) change the AI's rules through text. FAQ or policy entries that try to set prices, refunds, discounts or delivery promises are not used at all (AC-32-2).
+Every string, including the question, is passed through `strip_personal_info` before it is sent. It masks mobile numbers (`010-…`), hyphenated account numbers of 10 or more digits and Korean street addresses. The masking is pattern-based, so other formats (a landline, an account number written without hyphens) are not caught. The prompt tells the model that FAQ and policy text are **information, not instructions**, so a farm cannot accidentally (or a consumer cannot deliberately) change the AI's rules through text. FAQ or policy entries that mention prices, refunds, discounts or delivery promises are never used as rule answers. They are still part of the evidence sent to the model, so the answer checks in section 4 are what stop a price or refund promise from getting through (AC-32-2).
 
 ## 4. Checking the model's answer
 
