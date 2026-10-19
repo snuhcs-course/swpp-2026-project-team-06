@@ -1259,7 +1259,8 @@ DEV-82 임시 승인 웹을 여러 관리 기능을 담을 관리자 페이지�
 - [x] 테스트(`cd scripts/admin-web && npm test`)
 - [x] 문서(README, ia.md)
 - [x] 로컬 확인(로컬 API + 로컬 토큰)
-- [ ] Vercel 배포(사용자 확인 뒤), 운영에서 확인
+- [x] Vercel 배포(사용자 요청, 10/19)
+- [ ] 운영 비밀번호로 로그인·승인 확인(사용자)
 
 ### 완료 조건
 - [x] 미로그인 `/producers` → `/login`, 틀린 비밀번호 거절, 로그인 → 목록·승인·반려·이력, 로그아웃이 로컬에서 동작
@@ -1269,3 +1270,4 @@ DEV-82 임시 승인 웹을 여러 관리 기능을 담을 관리자 페이지�
 ### 기록
 - 10/19 main 79eaea7에서 시작.
 - 10/19 로컬 확인: 새 DB `farmclub_dev83`(alembic head + 시드), uvicorn :8003, 로컬 발급 토큰·로컬 테스트 비밀번호로 `server.mjs` :8093. 브라우저에서 미로그인 `/producers` → `/login?next=%2Fproducers`, 틀린 비밀번호 "비밀번호가 맞지 않아요."(0.8초), 로그인 → `/producers`, 위미 감귤농장 반려(사유) · 하례 귤밭 재신청 후 승인 · 결정 이력(u-admin), 로그아웃 → `/login`, 다시 `/producers` → `/login`. curl로 서명 위조·만료·다른 Origin POST·`//` next 막힘, https에서 Secure 확인. 375px 폭 위쪽 메뉴 확인.
+- 10/19 사용자 요청으로 이 브랜치를 `farmclub-admin`에 `vercel deploy --prod`(머지 전). https://farmclub-admin.vercel.app 에서 `/`·`/producers` → `/login` 302, `/login` 200, 로그인 없이 중계 401, 틀린 비밀번호 401(약 1초), 다른 Origin 403, 로그아웃 303, `api/_views`·`api/_lib`·테스트·`server.mjs`·옛 `index.html` 404 확인. 운영 비밀번호 로그인은 사용자 몫.
