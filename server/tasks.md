@@ -1243,7 +1243,7 @@ I2 수정(DEV-30·31·35·39·59·47) 뒤 운영자·AI 테스트를 main에서 
 - `server/Dockerfile.worker`, `server/railway.worker.json`(새 파일)
 - `.github/workflows/deploy-railway.yml`(worker 서비스 배포 단계)
 - `server/app/source_analysis/README.md`, `server/app/source_analysis/runbook.md`(새 파일), `server/app/source_analysis/spec.md`(배포 구현 결정)
-- `server/README.md` Deployment 절(해당 시), `server/tasks.md`
+- 루트 `README.md` Deployment 절(변수 표·자동 배포 한 줄), `server/tasks.md`
 
 ### 비범위 (건드리지 않음)
 - API 이미지(`server/Dockerfile`, `server/railway.json`), 자료 분석 동작·프롬프트·예산 코드
@@ -1253,15 +1253,16 @@ I2 수정(DEV-30·31·35·39·59·47) 뒤 운영자·AI 테스트를 main에서 
 - 10/19 OCR은 worker만 쓴다(`preprocess.prepare`는 worker·synthetic에서만 호출, API는 PIL만). API 이미지는 그대로 두고 worker 전용 `Dockerfile.worker`를 둔다 → API 크기·기동 시간 영향 없음.
 - 10/19 OCR 모델은 빌드 때 `provision_ocr`로 받아 이미지에 넣고, 출력 해시가 Dockerfile에 고정한 `SOURCE_OCR_MODEL_SHA256`과 다르면 빌드를 실패시킨다. 런타임 다운로드 없음(기존 원칙).
 - 10/19 worker 서비스는 같은 `server/`를 올리고 Railway 서비스 설정의 config 파일 경로를 `/railway.worker.json`으로 지정한다(헬스체크 없음). 변수는 API 서비스 참조(`${{farmclub-api.VAR}}`)로 맞춘다.
+- 10/19 worker는 `SOURCE_ANALYSIS_ENABLED`가 꺼져 있으면 exit 1로 끝난다(기존 동작). 롤백 때는 API 변수를 끄고 worker 배포를 Remove한다(런북 7). 코드는 바꾸지 않는다.
 - 10/19 배포 워크플로는 저장소 변수 `RAILWAY_WORKER_SERVICE`가 있을 때만 API 배포·헬스 확인 뒤 worker를 올린다(서비스 만들기 전 머지해도 실패하지 않음).
 
 ### 작업
-- [ ] `Dockerfile.worker`·`railway.worker.json`
-- [ ] 배포 워크플로 worker 단계
-- [ ] 런북(키 발급, 변수 목록·순서, 확인, 롤백)
-- [ ] 로컬: worker 이미지 빌드·OCR 해시 검증·OCR 실행, API 이미지 크기 비교
-- [ ] 로컬: R2 저장소로 mock 분석 1건(OpenRouter 키 없으면 실모델 미실행으로 보고)
-- [ ] pytest·ruff
+- [x] `Dockerfile.worker`·`railway.worker.json`
+- [x] 배포 워크플로 worker 단계
+- [x] 런북(키 발급, 변수 목록·순서, 확인, 롤백)
+- [x] 로컬: worker 이미지 빌드·OCR 해시 검증·OCR 실행, API 이미지 크기 비교
+- [x] 로컬: R2 저장소로 mock 분석 1건(OpenRouter 키 없으면 실모델 미실행으로 보고)
+- [x] pytest·ruff
 
 ### 완료 조건
 - [ ] 사용자가 런북대로 Railway 변수만 넣으면 운영에서 켤 수 있다
@@ -1270,3 +1271,10 @@ I2 수정(DEV-30·31·35·39·59·47) 뒤 운영자·AI 테스트를 main에서 
 
 ### 기록
 - 10/19 main b6ee11a에서 시작. (DEV-82 섹션 상태가 "진행 중"으로 남아 있으나 #168로 머지됨, 이 작업과 파일 겹침 없음)
+- 10/19 로컬 확인(이 브랜치, 유료 호출 없음):
+  - `docker build --platform linux/amd64` API(`Dockerfile`, 변경 없음) 194MB·44초, worker(`Dockerfile.worker`) 486MB·72초. 모델 다운로드·해시 검증 단계 통과(`/opt/ocr-models` 18MB, `.venv` 588MB).
+  - worker 이미지 `--network none`: `_ocr_engine()` 1.74초 로드, `prepare(PNG)`가 영문 두 줄을 신뢰도 0.98·0.99로 인식. `APP_ENV=production`·꺼진 설정으로 기본 CMD 실행 → "SOURCE_ANALYSIS_ENABLED must be true", exit 1.
+  - 실제 R2 버킷(메인 체크아웃 `server/.env`의 `SOURCE_R2_*`, 값은 출력하지 않음) + mock 공급자로 업로드→분석(worker.run_once)→검토→R2 원본 읽기→batch 삭제→`cleanup()` 뒤 R2 객체 삭제(head_object 404) 확인. 1 passed, 쓴 객체 3개 모두 정리. 일회성 테스트 파일은 커밋하지 않고 지움.
+  - `uv run pytest -q` 366 passed, `uv run ruff check .` 통과, `actionlint` 통과. (`ruff format --check`는 main부터 14개 파일 차이, 이 PR은 Python 변경 없음)
+  - OpenRouter 실모델 호출(텍스트·이미지 각 1건)은 사용자 승인 전이라 실행하지 않았다.
+- 10/19 질문(후속): worker가 대기열이 비면 2초마다 `cleanup()`을 돌려 R2 버킷 전체 목록(Class A)과 모든 Page를 읽는다. 하루 약 4.3만 회 = 월 약 130만 회로 R2 무료 Class A 100만 회를 넘고 DB도 계속 읽는다. 켜기 전에 정리 주기를 늘릴지 결정 필요(이 PR 범위 밖, 코드 변경 없음).
