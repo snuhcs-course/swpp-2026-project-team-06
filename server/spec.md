@@ -6,6 +6,8 @@
 > 스택·레포 구조: docs/spec/tech-design/stack.md 2·3장, 데이터 모델·주문 상태: docs/spec/tech-design/README.md, 결정: docs/spec/tech-design/adr/
 
 ## 역할
+
+DEV-90 (2026-10-19): 운영 자료 분석은 API와 별도 Railway worker를 사용한다. `Dockerfile.worker`/`railway-worker.json`, 빌드 시 pinned OCR 모델 배치, 동일 DB·private R2 참조 및 $5 원장을 유지한다. API는 migration, worker는 head/모델 검증 후 polling을 담당한다. 운영 검증·복구 절차는 `server/README.md`, 현재 제품/잔여 인수 상태는 `docs/spec/source-integration.md`를 따른다.
 FastAPI 서버 하나(ADR 0007). 두 앱의 API, 운영자 관리 API(ADR 0008), 농가 공유 링크 OG 페이지(ADR 0006)를 맡는다. Railway에 배포하고 DB는 PostgreSQL이다.
 
 ## 구조
