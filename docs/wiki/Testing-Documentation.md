@@ -10,6 +10,38 @@
 
 ## 1. Testing Plan and Results (Iteration 2~)
 
+### Iteration 2 · Test 1 — Internal testing (17–19 October 2026)
+
+The team used the internal testing tracker to verify consumer, producer, manager/AI, and cross-role flows before the planned 20 October user test. Functional checks were performed by the listed role owners; the PM ran integrated scenarios. The reported results below reflect the workbook snapshot dated 19 October and distinguish executed checks from blocked and not-ready checks.
+
+**Summary:** 77 checks were listed. 69 were executed (66 Pass, 3 Fail); 6 were Blocked and 2 were Not Ready. The pass rate among executed checks was 95.7% (66/69); this does not include blocked or not-ready items. The PM integration sheet reports 9 Pass, 3 Fail, and 6 Blocked out of 18.
+
+| Test area | Total | Pass | Fail | Blocked | Not Ready | Environment / notes |
+| -- | --: | --: | --: | --: | --: | -- |
+| Consumer unit and deployed-flow checks | 23 | 21 | 0 | 0 | 2 | Deployed web app at `farmclub.kr` with real API calls; C-21 Android APK was unavailable, and C-23 payment sandbox was out of scope/deferred. |
+| Producer unit checks | 18 | 18 | 0 | 0 | 0 | Local implementation/API and data checks; the tracker explicitly distinguishes local verification from deployed verification. |
+| Manager and AI checks | 18 | 18 | 0 | 0 | 0 | Local/API/DB checks and deployed Railway checks where recorded. |
+| PM integration scenarios | 18 | 9 | 3 | 6 | 0 | Deployed web/API flows and API/DB checks; tested deployment recorded as `c98be9b`. |
+| **Total** | **77** | **66** | **3** | **6** | **2** | **69 executed; 8 not completed.** |
+
+**Failures found in deployed integration checks**
+
+| Test case | Result | Finding |
+| -- | -- | -- |
+| I-09, consumer ↔ producer chat | Fail | Starting a first conversation from an order’s “Ask the farm” path remained on a start/loading state and did not allow sending. Existing alternative product chat worked. Messages with matching or nearby timestamps appeared in reverse order, and the date could be one day off around the Korea Standard Time boundary (F-04, F-05, F-06). API-level two-way message checks passed, so the failure is specifically recorded for the deployed UI flow. |
+| I-15, stability / retry | Fail | After cancelling Kakao login, the recovery path suggested test-account login even though the deployed login screen exposed Kakao only (F-01). The tracker also records missing selection-state accessibility feedback for checkbox/radio controls (F-03). Order retry/idempotency and session persistence checks passed. |
+| I-17, release regression | Fail | The `c98be9b` deployment passed the login, order, cancellation, and history regression checks, but reproduced the first-conversation chat failure (F-04). CI results are separate from this deployed UI failure and do not supersede it. |
+
+**Blocked and not-ready scope**
+
+- **Blocked (I-06, I-07):** a new producer product remained a draft/pending approval, so publication to consumers and propagation of a public product edit could not be verified. Existing public product fields matched across the two apps, but that does not establish the new publication path.
+- **Blocked (I-10, I-11):** an AI-assisted draft could be edited and saved, but its consumer-publication flow was not verified; manager approval and the resulting producer permission change were also not run because manager access was unavailable for this deployed test.
+- **Blocked (I-13):** the manager-authorized refund/exception history and recovery path was not exercised. The consumer-side cancellation/refund and inventory restoration checks were recorded separately; no real money was transferred.
+- **Blocked (I-16):** responsive browser checks at 360, 390, and 430 px passed, but no physical Android Chrome or iPhone Safari device run was performed.
+- **Not Ready (C-21, C-23):** the Android package was not available for installation; the PortOne sandbox was deferred after the payment flow changed to direct bank transfer to the farm. Neither is counted as a failed execution.
+
+**Automated evidence and limits:** the tracker records a local run of 324 server tests, Ruff, 13 Mock contracts, four workspace typechecks, 7 real-stack API scenarios, 43 Chromium tests, and 49/49 manager/AI HTTP checks. Its separate release-regression entry cites CI results of 364 pytest tests, 7 API scenarios, 43 Chromium tests, and 15 Mock contracts. These are separate recorded runs with different counts, so they are not combined into a single run total. The internal tracker does not report test coverage percentages. Results are a 19 October snapshot; they do not include the planned 20 October consumer Test 2 or establish production payment, native-device, or real-user acceptance.
+
 ### DEV-44 (I2-T29) — Manager and AI checklist
 
 This checklist records the internal seeded-data verification of manager approvals, access, exceptions, and AI handoffs. Results use **Pass**, **Fail**, **Blocked**, or **Not run**; a failure links to a Bug issue for DEV-47 (T38). DEV-44 records findings only and makes no product-code fixes.
