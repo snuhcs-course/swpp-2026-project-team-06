@@ -181,5 +181,53 @@
     "screenshots": "ignored .artifacts/dev90/final-*.png",
     "video": "ignored .artifacts/dev90/FarmClub_Source_Analysis_Production_Demo.mp4",
     "deck": "User-provided existing PPTX, maximum two added slides"
+  },
+  "mainReleaseVerification": {
+    "verifiedAt": "2026-10-19T13:47:09.680765+00:00",
+    "commit": "2ed8b281e4a8065375c65bcd0b688c42a013ffe1",
+    "deploymentWorkflow": "https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/39261814494",
+    "apiDeployment": "1473f970-5e47-47a7-8ce1-b410bc404bd4",
+    "workerDeployment": "f72b6735-8895-4f08-9ca6-270671c821f3",
+    "ocrEngineReady": true,
+    "workerPID1": true,
+    "ci": {
+      "serverPassed": 367,
+      "realAPIscenariosPassed": 7,
+      "browserPassed": 45,
+      "browserSkipped": 2
+    },
+    "producerUI": {
+      "marks": {
+        "upload": 3.817,
+        "editor": 26.129,
+        "end": 36.295
+      },
+      "release": "2ed8b281e4a8065375c65bcd0b688c42a013ffe1",
+      "startedAt": "2026-10-19T13:41:15.965Z",
+      "finishedAt": "2026-10-19T13:41:52.809Z",
+      "batchId": "src_eabbd4332dbd43b79868e4b4120321e3",
+      "productId": "p-21c958b000",
+      "status": "DRAFT",
+      "publicDraftStatus": 404,
+      "saveReloadAndApply": "PASS",
+      "moduleCount": 6,
+      "errors": []
+    }
+  },
+  "uploadRaceRemediation": {
+    "issue": "DEV-92",
+    "pullRequest": "https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/188",
+    "behavior": "New file/text uploads wait for basic-info persistence before reading batch.version. Manual input, version checks and failed-file retry are preserved.",
+    "localChecks": {
+      "sourceBrowserPassed": 24,
+      "newOrderingAndRetryCases": 7,
+      "workspaceTypechecks": 4,
+      "mockPassed": 15,
+      "webExports": [
+        "consumer",
+        "producer"
+      ]
+    },
+    "note": "The initial limitations and ledger above describe the original dated smoke-check snapshot; current rollout/media state is maintained in DEV-90/DEV-92."
   }
 }

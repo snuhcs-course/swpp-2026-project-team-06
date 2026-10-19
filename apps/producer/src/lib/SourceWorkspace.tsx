@@ -576,6 +576,9 @@ export function SourceWorkspace() {
                   <SourceAttachments
                     key={`attachments-${batch.id}`}
                     flushRef={flushAttachments}
+                    beforeUpload={async () => {
+                      await flushBasicInfo.current?.();
+                    }}
                     batch={batch}
                     busy={busy || !!activeRun}
                     refresh={load}
