@@ -2,6 +2,7 @@
 // 메뉴를 늘리려면 NAV에 한 줄 추가하고 api/page.js PAGES·vercel.json rewrites에도 넣는다.
 const NAV = [
   { href: "/producers", label: "가입 신청" },
+  { href: "/capacity", label: "공급 물량 승인" },
 ];
 
 const $ = (s) => document.querySelector(s);

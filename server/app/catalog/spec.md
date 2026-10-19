@@ -10,7 +10,7 @@
 상품, 중량 옵션, 단계·단계 가격·단계 물량, AI 상품 초안 저장, 운영자의 상품 승인·반려.
 
 ## 구조
-- `router.py` — prefix `/products`(앱에서는 `/api/products`). 관리 API `/admin/products/...`는 기능 이슈에서 추가.
+- `router.py` — prefix `/products`(앱에서는 `/api/products`). 관리 API `/admin/products/{productId}/capacity-requests/{requestId}/approve·reject`, 공급 물량 신청 목록 `GET /admin/capacity-requests?status=`(DEV-87, 상품·농가 이름과 현재 승인량 포함).
 - `models.py` — 담당 엔티티: `Product`, `ProductOption`, `Stage`, `StagePrice`, `StageAllocation`, `ProductDraft`
 - `schemas.py` — 상품 상세·편집, 단계 설정, 초안 입출력
 - `service.py` — 상품 상태 전이(DRAFT/PENDING_APPROVAL/PUBLISHED/CLOSED), 현재 단계 찾기, 기본값 단계 구성, 재승인 판단(R-25)

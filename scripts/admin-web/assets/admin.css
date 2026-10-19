@@ -28,6 +28,23 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background:
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; border-radius: 999px; padding: 10px 18px; font-size: 14px; max-width: calc(100% - 32px); }
 .toast.err { background: var(--error); }
 
+/* 신청 목록 화면 공용: 상태 탭, 카드 속 항목, 상태 배지, 이력, 반려 사유 칸(가입 신청·공급 물량) */
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.tabs button { min-height: 36px; padding: 0 14px; font-size: 14px; }
+.tabs button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: #fff; }
+.app h2 { font-size: 18px; margin: 0; }
+.meta { display: grid; grid-template-columns: 96px 1fr; gap: 4px 12px; margin: 12px 0; font-size: 14px; }
+.meta dt { color: var(--muted); }
+.meta dd { margin: 0; }
+.badge { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
+.s-PENDING { background: #FFF3E8; color: var(--accent); }
+.s-APPROVED { background: #E9F5EE; color: var(--ok); }
+.s-WITHDRAWN { background: var(--surface); color: var(--muted); }
+.s-REJECTED, .s-SUSPENDED { background: #FDECEA; color: var(--error); }
+.history { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; font-size: 13px; }
+.history li { margin-bottom: 6px; }
+.reject-box { margin-top: 12px; display: grid; gap: 8px; }
+
 /* 관리자 레이아웃: 왼쪽 사이드바 + 본문. 좁은 화면은 위쪽 메뉴 */
 .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
 .side { background: var(--bg); border-right: 1px solid var(--border); padding: 24px 12px; display: flex; flex-direction: column; gap: 24px; position: sticky; top: 0; height: 100vh; }

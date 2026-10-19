@@ -107,3 +107,28 @@ test("로그아웃은 쿠키를 지우고 /login으로", async () => {
   assert.equal(r.headers.location, "/login");
   assert.match(r.headers["set-cookie"], /^fc_admin=; Path=\/; Max-Age=0;/);
 });
+
+test("중계는 가입 신청·공급 물량 경로만 넘기고 나머지 관리 API는 400 (DEV-87)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/capacity-requests?status=ALL", "GET"],
+    ["/admin/products/p-1/capacity-requests/capacity-p-1/approve", "POST"],
+    ["/admin/products/p-1/capacity-requests/capacity-p-1/reject", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of ["/admin/orders/o-1/refund", "/admin/products/p-1/capacity-requests", "/admin/capacity-requests/../orders"]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
+test("공급 물량 승인 화면도 로그인해야 열린다 (DEV-87)", async () => {
+  const r = await call(page, { url: "/api/page?name=capacity" });
+  assert.equal(r.headers.location, "/login?next=%2Fcapacity");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=capacity", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /공급 물량 승인/);
+});
