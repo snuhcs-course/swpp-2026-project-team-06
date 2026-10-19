@@ -42,9 +42,7 @@ def reserved_count(stage_id: str = "st-house-1", option_id: str = "opt-5") -> in
         return allocation.reserved_count
 
 
-def test_AC_01_3_admin_approves_pending_producer_and_clears_stale_state(
-    client, admin_headers
-):
+def test_AC_01_3_admin_approves_pending_producer_and_clears_stale_state(client, admin_headers):
     with get_sessionmaker()() as session, session.begin():
         farm = session.get(Farm, "f-wimi")
         farm.reject_reason = "이전 반려 사유"
@@ -91,14 +89,10 @@ def test_AC_01_3_producer_decisions_require_admin_and_valid_pending_state(
     client, login, admin_headers
 ):
     for headers in (login("u-minji"), login("u-kang")):
-        assert (
-            client.post("/admin/producers/f-wimi/approve", headers=headers).status_code == 403
-        )
+        assert client.post("/admin/producers/f-wimi/approve", headers=headers).status_code == 403
     assert farm_state("f-wimi") == ("PENDING", None, None, None)
 
-    missing = client.post(
-        "/admin/producers/f-missing/approve", headers=admin_headers | key()
-    )
+    missing = client.post("/admin/producers/f-missing/approve", headers=admin_headers | key())
     invalid = client.post("/admin/producers/f-kang/approve", headers=admin_headers | key())
 
     assert missing.status_code == 404
@@ -200,9 +194,7 @@ def test_admin_order_failures_leave_data_unchanged(client, login, admin_headers)
     blank = client.post(
         "/admin/orders/o-42/refund", headers=admin_headers | key(), json={"reason": "   "}
     )
-    invalid = client.post(
-        "/admin/orders/o-42/delivered", headers=admin_headers | key()
-    )
+    invalid = client.post("/admin/orders/o-42/delivered", headers=admin_headers | key())
     missing_delivery = client.post(
         "/admin/orders/o-missing/delivered", headers=admin_headers | key()
     )
@@ -220,3 +212,32 @@ def test_admin_order_failures_leave_data_unchanged(client, login, admin_headers)
     assert missing_refund.status_code == 404
     assert order_state("o-42") == original
     assert reserved_count() == before
+
+
+def test_DEV_82_admin_lists_producer_applications_by_status(client, admin_headers, login):
+    """운영자 가입 신청 목록: 기본 확인 중, 상태별·전체, 운영자만(DEV-82)."""
+    pending = client.get("/admin/producers", headers=admin_headers)
+    assert pending.status_code == 200, pending.text
+    rows = pending.json()
+    assert rows and all(r["status"] == "PENDING" for r in rows)
+    wimi = next(r for r in rows if r["farmId"] == "f-wimi")
+    assert wimi["ownerName"] and wimi["farmName"] and wimi["phone"]
+    assert wimi["submittedAt"]
+
+    rejected = client.get("/admin/producers?status=REJECTED", headers=admin_headers).json()
+    assert rejected and all(r["status"] == "REJECTED" for r in rejected)
+    assert all(r["rejectReason"] for r in rejected)
+
+    every = client.get("/admin/producers?status=ALL", headers=admin_headers).json()
+    assert {r["status"] for r in every} >= {"PENDING", "REJECTED", "APPROVED", "SUSPENDED"}
+    times = [r["submittedAt"] for r in every]
+    assert times == sorted(times, reverse=True)
+
+    # 승인하면 확인 중 목록에서 빠진다
+    assert client.post("/admin/producers/f-wimi/approve", headers=admin_headers | key()).is_success
+    after = client.get("/admin/producers", headers=admin_headers).json()
+    assert "f-wimi" not in [r["farmId"] for r in after]
+
+    assert client.get("/admin/producers?status=WRONG", headers=admin_headers).status_code == 400
+    assert client.get("/admin/producers").status_code == 401
+    assert client.get("/admin/producers", headers=login("u-kang")).status_code == 403
