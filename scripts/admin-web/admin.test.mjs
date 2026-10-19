@@ -68,8 +68,6 @@ test("중계는 세션 없거나 서명이 틀리면 401, 다른 사이트 POST�
   const [ver, exp, mac] = cookie.split("=")[1].split(".");
   const forged = `fc_admin=${ver}.${Number(exp) + 1000}.${mac}`;
   assert.equal((await call(proxy, { url: path, headers: { cookie: forged } })).status, 401);
-  const expired = await call(proxy, { url: path, headers: { cookie: "fc_admin=v1.1000." + mac } });
-  assert.equal(expired.status, 401);
   const post = await call(proxy, {
     method: "POST", url: "/api/proxy?path=" + encodeURIComponent("/admin/producers/f-1/approve"),
     headers: { cookie, origin: "https://evil.example" },
@@ -77,6 +75,19 @@ test("중계는 세션 없거나 서명이 틀리면 401, 다른 사이트 POST�
   assert.equal(post.status, 403);
   const ok = await call(proxy, { url: path, headers: { cookie } });
   assert.equal(ok.status, 502); // 세션 통과 → 실서버 호출까지 감
+});
+
+test("12시간이 지나면 세션이 끝난다", async () => {
+  const cookie = await signIn();
+  const now = Date.now;
+  Date.now = () => now() + 12 * 3600 * 1000 + 1000;
+  try {
+    const r = await call(page, { url: "/api/page?name=producers", headers: { cookie } });
+    assert.equal(r.status, 302);
+  } finally {
+    Date.now = now;
+  }
+  assert.equal((await call(page, { url: "/api/page?name=producers", headers: { cookie } })).status, 200);
 });
 
 test("비밀번호를 바꾸면 기존 세션이 풀린다", async () => {
