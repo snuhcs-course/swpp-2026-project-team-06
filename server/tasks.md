@@ -1,5 +1,35 @@
 # server tasks
 
+## DEV-90 production source analysis and evidence reconciliation (2026-10-19)
+
+- Issue: https://linear.app/sswp6/issue/DEV-90
+- Branch: `jinumeral/dev-90-dev-enable-production-source-analysis-worker-and-reconcile`
+- Contract: FEAT-03/04/07, AC-SRC-1~11, M-11/13/18, N-05/06.
+- Status: In Progress; the user approved the plan, deployment, deck edits and spec/Linear reconciliation.
+
+### Goal and allowed paths
+Deploy a dedicated production worker with pinned OCR models; validate image/long-image/PDF analysis, edit, save and apply. Preserve the target PPTX file ID/design and add at most two slides.
+
+- `server/{Dockerfile.worker,railway-worker.json,README.md,spec.md,tasks.md}` and `server/app/source_analysis/spec.md`.
+- `docs/spec/{source-integration.md,source-editor.md,source-analysis.md}`, `docs/spec/functional/{FEAT-03-ai-product-draft.md,FEAT-07-product-detail.md}`, `docs/wiki/Source-Analysis.md`, `docs/spec/validation/source-production-2026-10-19.json`.
+- Ignored `.artifacts/dev90/**` for deployment/evidence scripts, screenshots, video and PPTX; no committed secrets.
+- Railway source worker/API settings, Linear DEV-56~58/DEV-90 and the user-specified Drive deck/media.
+
+### Decisions
+- Keep Gemini/OpenRouter and the existing cumulative $5 feature cap. Build OCR extras and checksum-verified models into a dedicated worker image; preserve the existing API image and wire contracts.
+- Inspect the latest migration first. Never initialize/seed production or change real customer products. Use the explicitly approved test farm and clearly named demo products; no real payments.
+- Deployment and farmer acceptance/accuracy are distinct. Keep historical records with a current-state summary. Do not mark incomplete verification as passed.
+- No merge without human approval. User-authorized worker deployment can use the tested branch image, with deployment provenance recorded.
+
+### Work
+- [ ] Worker build/config, draft PR and local isolated-DB regression.
+- [ ] Production worker/API activation, three material types, persistence/apply and rollback verification.
+- [ ] Deck/video/screenshots and complete visual/playback QA, maximum 13 slides.
+- [ ] Spec/wiki/Linear current state, limitations and verification evidence synchronized.
+
+### Record
+- 10/19: R2 HEAD and OpenRouter key authentication passed. API source flag false; no independent worker. Mock15 passed. Source pytest blocked before execution by stopped local PostgreSQL; prepare an isolated local database.
+
 이슈별 작업 기록. 새 작업은 맨 아래에 섹션을 추가하고, 머지 후에도 지우지 않는다.
 
 ## DEV-12 [I1] 구현 뼈대: apps·packages·server 폴더와 폴더별 spec.md
