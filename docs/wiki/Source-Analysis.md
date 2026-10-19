@@ -106,6 +106,7 @@ Pipeline version source-v5-gemini-ocr prevents reuse of prior results. Each OCR 
 The source workspace follows existing producer spacing, typography, 64px thumbnails and minimum 48px touch targets. An above-tab progress banner distinguishes active analysis from privacy approval waiting. Uploaded images get local previews immediately; prepared images and PDFs use authenticated sanitized first-page thumbnails. Text files, pending PDFs and failed previews show file-type tiles. Object URLs are released on deletion, batch change and unmount. Assignment/deletion/extra visual settings and pasted text remain accessible through expandable controls. Saving and explicit publication are unchanged.
 
 The New Product action creates a private product and its linked source workspace, then opens uploads directly without selecting an existing product. Product information and sales settings remain accessible. Draft creation does not bypass publication or supply approval. The previous text/manual form remains at /products/manual, also used by the mock-only environment.
+When the server has source analysis disabled (production while deployment is held), `GET /api/source-analysis/config` returns `enabled: false` and the producer app sends New Product to /products/manual and sales-page editing to the legacy detail editor (DEV-84).
 The redundant source-creation button is removed from the product list; New Product is the single creation entry. Existing saved-workspace editing remains available.
 
 ### Product-bound page editing (DEV-58)
