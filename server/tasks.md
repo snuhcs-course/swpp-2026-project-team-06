@@ -1323,6 +1323,7 @@ DEV-82 임시 승인 웹을 여러 관리 기능을 담을 관리자 페이지�
 Deploy a dedicated production worker with pinned OCR models; validate image/long-image/PDF analysis, edit, save and apply. Preserve the target PPTX file ID/design and add at most two slides.
 
 - `server/{Dockerfile.worker,railway-worker.json,README.md,spec.md,tasks.md}` and `server/app/source_analysis/spec.md`.
+- `.github/workflows/deploy-railway.yml` to deploy the worker from the same CI-verified main commit as the API.
 - `docs/spec/{source-integration.md,source-editor.md,source-analysis.md}`, `docs/spec/functional/{FEAT-03-ai-product-draft.md,FEAT-07-product-detail.md}`, `docs/wiki/Source-Analysis.md`, `docs/spec/validation/source-production-2026-10-19.json`.
 - Ignored `.artifacts/dev90/**` for deployment/evidence scripts, screenshots, video and PPTX; no committed secrets.
 - Railway source worker/API settings, Linear DEV-56~58/DEV-90 and the user-specified Drive deck/media.
@@ -1332,13 +1333,16 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - Inspect the latest migration first. Never initialize/seed production or change real customer products. Use the explicitly approved test farm and clearly named demo products; no real payments.
 - Deployment and farmer acceptance/accuracy are distinct. Keep historical records with a current-state summary. Do not mark incomplete verification as passed.
 - No merge without human approval. User-authorized worker deployment can use the tested branch image, with deployment provenance recorded.
+- 10/19 follow-up: the user requested merging before the final deployment/capture. After final review/CI, use the main commit for both services and replace the branch-deployment demo evidence. Keep worker autodeployment in the existing CI-gated Railway workflow so later API releases cannot silently leave its source worker behind.
 
 ### Work
-- [ ] Worker build/config, draft PR and local isolated-DB regression.
-- [ ] Production worker/API activation, three material types, persistence/apply and rollback verification.
+- [x] Worker build/config, draft PR and local isolated-DB regression.
+- [x] Production worker/API activation, three material types and private persistence/apply. Recovery documented; no production flag-toggle regression performed during this check.
 - [ ] Deck/video/screenshots and complete visual/playback QA, maximum 13 slides.
 - [ ] Spec/wiki/Linear current state, limitations and verification evidence synchronized.
 
 ### Record
 - 10/19: R2 HEAD and OpenRouter key authentication passed. API source flag false; no independent worker. Mock15 passed. Source pytest blocked before execution by stopped local PostgreSQL; prepare an isolated local database.
 
+- 10/19 validation: isolated source pytest117, typecheck4 workspaces, mock15, source browser17 passed. Production image/long/PDF SUCCEEDED; private save/reload/apply3/3, public DRAFT404. Actual producer UI edit/section hide/restore/save/reopen/apply passed. Ledger20 paid calls/$0.032994/unsettled0. PDF completeness and farmer acceptance remain incomplete.
+- 10/19 DEV-92 created for observed basic-info blur/upload version race. Production selling not exercised: test farm has no deposit account. Main CI deploy workflow now includes the same-commit worker rollout and exact deployment-ID polling. Deck work remains in progress outside the repository.

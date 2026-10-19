@@ -1,4 +1,14 @@
-## DEV-56/57/58 integration (2026-10-16)
+## Current delivery status — 19 October 2026 (DEV-90)
+
+Production source analysis is enabled. The API reports `enabled:true`; a separate `farmclub-source-worker` shares PostgreSQL (migration0016) and private R2. Its dedicated image installs the pinned OCR extra and checksum-verified models at build time, then checks the schema and OCR engine before polling. Gemini/OpenRouter and the cumulative $5 feature cap are unchanged. Parser/prompt: source-parser-v3/source-v6-candidate-validation.
+
+Three controlled production materials (image, long image, PDF) completed analysis and private save/reload/application. A producer browser flow verified New Product, analysis, text editing, section hide/restore, private persistence and explicit application. Draft products remain unavailable to the public API (404). Local source regressions passed117 server tests, four workspace typechecks,15 mock tests and17 browser scenarios. See [production evidence](../spec/validation/source-production-2026-10-19.json).
+
+Processing success is not extraction completeness or farmer acceptance: the PDF returned only one candidate, and historical numeric OCR errors/conflicts still need human review. DEV-58 remains In Progress. [DEV-92](https://linear.app/sswp6/issue/DEV-92) tracks a reproduced race between basic-info blur saving and immediate upload; wait for the save or retry the retained failed file. Actual selling still requires the existing bank-account, required-field and capacity-approval workflow. Production verification changed only clearly identified private demo products; it did not place orders or publish them for sale. The consumer publication/rendering contract was checked separately in the isolated browser suite.
+
+Current editing follows [source-editor](../spec/source-editor.md): remove personal data before upload; new materials do not wait for a redaction-approval step. Materials and product photos use separate input boxes; only photo descriptions are classified by AI. Producers edit the shared18-module renderer, save privately and explicitly apply. Earlier dated statements about held deployment, privacy approval and unmerged PRs below describe historical milestones, not current runtime status.
+
+## DEV-56/57/58 integration (2026-10-16, historical)
 
 The producer workflow now connects uploads, privacy review, evidence confirmation, the 18-module editor and explicit product application. A separate moduleDetail snapshot preserves legacy detailContent. Publication checks ownership and batch/review/source/product versions, copies sanitized original photos into independent storage, and excludes evidence/private source identifiers. Prices, stock, orders and publication status are preserved.
 
