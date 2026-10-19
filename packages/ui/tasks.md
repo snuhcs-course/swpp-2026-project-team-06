@@ -383,12 +383,12 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] 원본 4종·최종 정적 미리보기 보존
 - [x] 스펙·영문 디자인 문서 반영
 - [x] typecheck, Mock 테스트, 양 앱 웹 export, 실제 화면 검증
-- [ ] 커밋 전·브랜치 스캔, push 및 draft PR 갱신
+- [x] 커밋 전·브랜치 스캔, push 및 draft PR 갱신
 
 ### 완료 조건
 - [x] 360/390px에서 제목 두 줄·로고 정렬·검색/로그인 버튼이 유지된다.
 - [x] 카카오/테스트 로그인과 상태별 접근 제어를 보존한다.
-- [ ] 관련 검증 통과 및 draft PR 생성
+- [x] 관련 로컬 검증 통과 및 draft PR 생성 (원격 CI 별도 확인)
 - [ ] 사람 리뷰 후 main 머지 (이번 작업에서는 하지 않음)
 
 ### 기록
@@ -399,3 +399,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/19 새 Playwright spec 별도 타입 검사(`tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --esModuleInterop --skipLibCheck --types node`) 통과. 원본 PNG 4개의 SHA-256 일치 및 미리보기 로컬 링크 검증 완료.
 - 10/19 커밋 전 스캔 지적 없음. BrandHeader에서 logo 미지정 시 기존 헤더를 유지하는 것은 main 6343b24의 공개 API 사용처를 보존한다. 레거시 호환 점검: 후보 0건 — 지적 0건 / 커밋된 구조 0건.
 - 10/19 PR #173 draft 생성. 로컬은 관련 앱 검증만 수행했다. 전체 실제 서버/DB 통합은 최신 push의 원격 CI 결과로 구분해 확인한다. Agent 시간/Tokens 미측정.
+- 10/19 origin/main 79eaea7 대비 최종 diff 스캔: 범위 이탈·새 버그·미사용 Wordmark 잔재 없음. 원본 4종 외 이전 시안·중간 캡처는 제외했다. 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건. 최신 원격 CI는 이전 실행 뒤 대기 중이며 통과로 표시하지 않는다. Draft·미머지 유지.
