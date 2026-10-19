@@ -1,5 +1,12 @@
 {
-  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/api/page?name=home" },
+    { "source": "/login", "destination": "/api/page?name=login" },
+    { "source": "/producers", "destination": "/api/page?name=producers" }
+  ],
+  "functions": {
+    "api/page.js": { "includeFiles": "api/_views/**" }
+  },
   "headers": [
     {
       "source": "/(.*)",

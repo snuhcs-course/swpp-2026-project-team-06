@@ -1,32 +1,13 @@
-// 운영자 승인 웹의 중계(DEV-82). 브라우저 → 이 함수 → 실서버 /admin/producers.
+// 관리자 페이지의 중계(DEV-82, DEV-83). 브라우저 → 이 함수 → 실서버 /admin/producers.
 // 실서버 CORS는 소비자·생산자 앱 주소만 허용하므로 서버 쪽에서 대신 부른다.
-// /admin/producers 아래 경로만 넘긴다. 접속 비밀번호(ADMIN_WEB_PASSWORD)가 맞으면
+// /admin/producers 아래 경로만 넘긴다. 로그인 세션 쿠키가 맞으면
 // 이 함수 환경 변수에 둔 운영자 토큰(ADMIN_TOKEN)을 붙인다. 토큰은 브라우저로 가지 않는다.
-import { createHash, timingSafeEqual } from "node:crypto";
+import { configured, loggedIn, readBody, sameOrigin, sendJson } from "./_lib/session.js";
 
 const API_BASE = (process.env.FARMCLUB_API_URL || "https://api.farmclub.kr").replace(/\/+$/, "");
 const ALLOWED = /^\/admin\/producers(\/[A-Za-z0-9_-]+\/(approve|reject|decisions))?(\?[A-Za-z0-9=&_-]*)?$/;
 
-const digest = (v) => createHash("sha256").update(String(v)).digest();
-const passwordOk = (given) =>
-  Boolean(given) && timingSafeEqual(digest(given), digest(process.env.ADMIN_WEB_PASSWORD));
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function send(res, status, code, message) {
-  res.statusCode = status;
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Cache-Control", "no-store");
-  res.end(JSON.stringify({ code, message }));
-}
-
-async function readBody(req) {
-  if (req.body !== undefined) {
-    return typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-  }
-  const chunks = [];
-  for await (const c of req) chunks.push(c);
-  return chunks.length ? Buffer.concat(chunks).toString("utf8") : undefined;
-}
+const send = (res, status, code, message) => sendJson(res, status, { code, message });
 
 export default async function handler(req, res) {
   const url = new URL(req.url, "http://local");
@@ -34,12 +15,14 @@ export default async function handler(req, res) {
   if (!ALLOWED.test(path) || !["GET", "POST"].includes(req.method)) {
     return send(res, 400, "BAD_PROXY_PATH", "허용하지 않는 경로예요.");
   }
-  if (!process.env.ADMIN_WEB_PASSWORD || !process.env.ADMIN_TOKEN) {
+  if (!configured()) {
     return send(res, 503, "NOT_CONFIGURED", "중계에 비밀번호·운영자 토큰이 설정되지 않았어요.");
   }
-  if (!passwordOk(req.headers["x-admin-password"])) {
-    await sleep(800); // 비밀번호 대입을 느리게 한다
-    return send(res, 401, "BAD_PASSWORD", "비밀번호가 맞지 않아요.");
+  if (!loggedIn(req)) {
+    return send(res, 401, "NOT_LOGGED_IN", "로그인이 필요해요.");
+  }
+  if (req.method === "POST" && !sameOrigin(req)) {
+    return send(res, 403, "BAD_ORIGIN", "다른 사이트에서 보낸 요청이에요.");
   }
   const headers = { Accept: "application/json", Authorization: "Bearer " + process.env.ADMIN_TOKEN };
   for (const h of ["idempotency-key", "content-type"]) {
