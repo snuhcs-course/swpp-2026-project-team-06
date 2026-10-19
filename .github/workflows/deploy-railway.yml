@@ -105,3 +105,13 @@ jobs:
           done
           echo "::error::$HEALTH_URL did not return 200 within 3 minutes after the deploy."
           exit 1
+
+      # DEV-86: 자료 분석 worker. API가 마이그레이션을 끝내고 /health가 뜬 뒤에 올린다.
+      # 저장소 변수 RAILWAY_WORKER_SERVICE(예: farmclub-source-worker)가 없으면 건너뛴다. Railway 서비스를 만들고
+      # config 파일 경로를 /railway.worker.json으로 지정한 뒤에 변수를 넣는다(server/app/source_analysis/runbook.md).
+      - name: Upload server/ and deploy the source-analysis worker
+        if: steps.changes.outputs.deploy == 'true' && vars.RAILWAY_WORKER_SERVICE != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_WORKER_SERVICE: ${{ vars.RAILWAY_WORKER_SERVICE }}
+        run: railway up ./server --path-as-root --service "$RAILWAY_WORKER_SERVICE" --environment "$RAILWAY_ENVIRONMENT" --ci
