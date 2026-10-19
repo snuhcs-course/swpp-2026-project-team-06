@@ -350,3 +350,46 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: server/에서 `DATABASE_URL=… .venv/bin/pytest -q --tb=short tests/test_source_*.py tests/test_product_workspace.py` 99 passed. `npm run typecheck` 4 workspace, `npm run test:mock` 13 passed. 격리 API/DB Playwright 4 spec 17 passed. Ruff 및 git diff --check 통과.
 - 스캔: 공개 대표사진 접근 판정, 자동 지정 전 DB flush, 카드 sibling key 중복, 신규 카드 삭제/blur 경합 보완. 미해결 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보 3건 — 지적 0건 / 커밋된 구조 3건 (SourceTarget:388d956, Batch.targets:4d7eece, PageSnapshot:839503e).
 - 화면: 기존 영상 페이지 `.artifacts/in-app-v4/page-editor-review/index.html` 갱신, 36.24초/12.28초 재생 확인. 카드 입력/대표사진 캡처 포함. headless 브라우저 종료, 추가 유료 호출 0. 실제 데모 DB 보존 후 로컬 API 갱신. Agent 시간/Tokens 미측정.
+
+
+## DEV-85 Apply approved Farmclub logo variants
+
+- 이슈: [DEV-85](https://linear.app/sswp6/issue/DEV-85/apply-approved-farmclub-logo-variants-to-app-headers-and-producer)
+- 브랜치: `jinumeral/dev-85-apply-approved-farmclub-logo-variants-to-app-headers-and`
+- 기능·인수 조건: FEAT-01 / AC-01-3·6, FEAT-06 / AC-06-6, FEAT-14 / AC-14-4, N-02
+- 상태: 진행 중
+
+### 목표
+사용자가 최종 검토한 로고 원본과 화면 배치를 실제 앱에 반영하고 별도 PR로 올린다.
+
+### 범위 (수정 허용 경로)
+- `packages/ui/assets/brand/**`, `packages/ui/src/BrandLogo.tsx`, `packages/ui/src/{Storefront,index}.tsx` 또는 `index.ts`, `packages/ui/{spec,tasks}.md`
+- `apps/consumer/src/app/(tabs)/index.tsx`
+- `apps/producer/src/app/(tabs)/index.tsx`, `apps/producer/src/app/login.tsx`, `apps/producer/src/lib/views.tsx` (더 이상 쓰지 않는 Wordmark 제거)
+- `docs/design/brand-review/**`, `docs/spec/conversation-ui-1.6.md`, `docs/wiki/Design-Documentation.md`
+- `scripts/e2e/brand-logo.spec.ts`
+
+### 비범위
+인증·API·DB·배포 설정·잠금파일·기존 다른 작업, 미검토 랜딩/파비콘/공유이미지 재설계. main 머지.
+
+### 결정 사항
+- 10/19 소비자 홈은 글자형으로 통일, 검색 버튼 유지. 생산자 현황은 확대 전 36×40px·좌우 12px·제목 간격 12px로 복원.
+- 10/19 로그인 상단의 글자형 제거, ‘계정을 골라/시작하세요’ 오른쪽에 조합형. 172×129px, 제목 30/32px, gap 8px, 조합형 translate(-16,-10) 승인. 카카오 환경의 ‘농가로/시작하세요’에도 동일 배치.
+- 10/19 보이는 FARM/CLUB 두 줄을 제목 두 줄과 맞춘 광학 정렬이며 원본 알파와 비율은 보존. 원본 4종을 저장하고 실제 화면은 3종만 사용한다.
+- 10/19 사용자 ‘다 푸쉬’ 요청을 승인된 범위의 커밋·push 및 draft PR 생성 승인으로 적용. 별도 worktree로 기존 미커밋 작업을 보존한다.
+
+### 작업
+- [ ] 공용 로고 및 승인된 세 화면 적용
+- [ ] 원본 4종·최종 정적 미리보기 보존
+- [ ] 스펙·영문 디자인 문서 반영
+- [ ] typecheck, Mock 테스트, 양 앱 웹 export, 실제 화면 검증
+- [ ] 커밋 전·브랜치 스캔, push 및 draft PR 갱신
+
+### 완료 조건
+- [ ] 360/390px에서 제목 두 줄·로고 정렬·검색/로그인 버튼이 유지된다.
+- [ ] 카카오/테스트 로그인과 상태별 접근 제어를 보존한다.
+- [ ] 관련 검증 통과 및 draft PR 생성
+- [ ] 사람 리뷰 후 main 머지 (이번 작업에서는 하지 않음)
+
+### 기록
+- 10/19 origin/main 79eaea7에서 격리 worktree 생성, npm ci 완료. 사용자 승인 배치를 구현 전 기록.
