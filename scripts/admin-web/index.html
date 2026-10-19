@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>farmclub 운영자 · 농가 가입 신청</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* farmclub 토큰(packages/ui/src/tokens.ts)과 같은 색·글자. 운영자 전용 로컬·임시 화면(DEV-82) */
+:root {
+  --text: #111111; --muted: #6B6B6B; --surface: #F5F5F3; --border: #E8E8E6;
+  --accent: #C94F0C; --error: #B42318; --ok: #1F7A3A; --bg: #FFFFFF;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--text);
+  font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.brand { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+.brand i { display: inline-block; width: 6px; height: 6px; border-radius: 99px; background: var(--accent); margin-left: 2px; }
+.tag { font-size: 13px; color: var(--muted); }
+h1 { font-size: 24px; margin: 4px 0 0; width: 100%; letter-spacing: -0.02em; }
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+input, textarea { font: inherit; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-height: 44px; width: 100%; }
+input:focus, textarea:focus { outline: 2px solid var(--text); outline-offset: -1px; }
+button { font: inherit; font-weight: 600; border-radius: 999px; min-height: 44px; padding: 0 18px; cursor: pointer; white-space: nowrap; flex-shrink: 0; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--error); border-color: #F1C9C5; }
+button.danger.solid { background: var(--error); border-color: var(--error); color: #fff; }
+button.text { border: 0; background: transparent; padding: 0 8px; color: var(--muted); }
+button:disabled { opacity: .5; cursor: default; }
+.hint { font-size: 13px; color: var(--muted); }
+code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--surface); padding: 2px 6px; border-radius: 6px; word-break: break-all; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 20px 0 12px; }
+.tabs button { min-height: 36px; padding: 0 14px; font-size: 14px; }
+.tabs button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: #fff; }
+.app h2 { font-size: 18px; margin: 0; }
+.meta { display: grid; grid-template-columns: 96px 1fr; gap: 4px 12px; margin: 12px 0; font-size: 14px; }
+.meta dt { color: var(--muted); }
+.meta dd { margin: 0; }
+.badge { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
+.s-PENDING { background: #FFF3E8; color: var(--accent); }
+.s-APPROVED { background: #E9F5EE; color: var(--ok); }
+.s-REJECTED, .s-SUSPENDED { background: #FDECEA; color: var(--error); }
+.history { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; font-size: 13px; }
+.history li { margin-bottom: 6px; }
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; border-radius: 999px; padding: 10px 18px; font-size: 14px; max-width: calc(100% - 32px); }
+.toast.err { background: var(--error); }
+.reject-box { margin-top: 12px; display: grid; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="brand">farmclub<i></i></span><span class="tag">운영자</span>
+    <h1>농가 가입 신청</h1>
+  </header>
+
+  <section class="card" aria-labelledby="tok">
+    <div class="row" style="justify-content: space-between">
+      <strong id="tok">접속 비밀번호</strong>
+      <span class="hint" id="api"></span>
+    </div>
+    <div class="row" style="margin-top: 8px; flex-wrap: nowrap">
+      <input id="token" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요" aria-label="접속 비밀번호">
+      <button class="primary" id="save">들어가기</button>
+      <button class="text" id="clear">나가기</button>
+    </div>
+    <p class="hint" style="margin: 8px 0 0">
+      비밀번호는 이 브라우저 탭에만 보관하고 닫으면 지워져요. 승인·반려는 운영자 계정(u-admin) 이름으로 기록돼요.
+    </p>
+  </section>
+
+  <nav class="tabs" id="tabs" aria-label="상태"></nav>
+  <main id="list" aria-live="polite"></main>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const STATUS = { PENDING: "확인 중", REJECTED: "반려", APPROVED: "승인", SUSPENDED: "정지" };
+const TABS = ["PENDING", "REJECTED", "APPROVED", "SUSPENDED", "ALL"];
+const KEY = "farmclub-admin:password";
+let tab = "PENDING", rows = null, busy = false;
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = (iso) => iso ? new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium", timeStyle: "short" }) : "—";
+const token = () => { try { return sessionStorage.getItem(KEY) || ""; } catch { return ""; } };
+
+function toast(msg, err) {
+  const t = $("#toast"); t.textContent = msg; t.className = "toast" + (err ? " err" : ""); t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 3000);
+}
+
+async function call(path, method = "GET", body) {
+  const headers = { "X-Admin-Password": token() };
+  if (method === "POST") { headers["Idempotency-Key"] = crypto.randomUUID(); headers["Content-Type"] = "application/json"; }
+  const r = await fetch("/api/proxy?path=" + encodeURIComponent(path), { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) {
+    if (data && data.code === "BAD_PASSWORD") { try { sessionStorage.removeItem(KEY); } catch {} placeholder(); }
+    throw new Error((data && data.message) || `요청이 실패했어요 (${r.status})`);
+  }
+  return data;
+}
+
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map((s) => {
+    const n = rows ? (s === "ALL" ? rows.length : rows.filter((r) => r.status === s).length) : "";
+    return `<button aria-pressed="${s === tab}" data-tab="${s}">${s === "ALL" ? "전체" : STATUS[s]}${n !== "" ? " " + n : ""}</button>`;
+  }).join("");
+}
+
+function card(r) {
+  const pending = r.status === "PENDING";
+  return `<article class="card app" data-id="${esc(r.farmId)}">
+    <div class="row" style="justify-content: space-between">
+      <h2>${esc(r.farmName)}</h2><span class="badge s-${esc(r.status)}">${STATUS[r.status] || esc(r.status)}</span>
+    </div>
+    <dl class="meta">
+      <dt>대표자</dt><dd>${esc(r.ownerName)}</dd>
+      <dt>연락처</dt><dd>${esc(r.phone)}</dd>
+      <dt>지역</dt><dd>${esc(r.region)}</dd>
+      <dt>주로 키우는 것</dt><dd>${esc(r.mainItems)}</dd>
+      <dt>신청</dt><dd>${when(r.submittedAt)}</dd>
+      ${r.decidedAt ? `<dt>결정</dt><dd>${when(r.decidedAt)}</dd>` : ""}
+      ${r.rejectReason ? `<dt>반려 사유</dt><dd>${esc(r.rejectReason)}</dd>` : ""}
+      <dt>농가 ID</dt><dd><code>${esc(r.farmId)}</code></dd>
+    </dl>
+    <div class="row">
+      ${pending ? `<button class="primary" data-act="approve">승인</button><button class="danger" data-act="reject">반려</button>` : ""}
+      <button class="text" data-act="history">결정 이력</button>
+    </div>
+    <div class="slot"></div>
+  </article>`;
+}
+
+function renderList() {
+  renderTabs();
+  if (!token()) { $("#list").innerHTML = `<p class="empty">비밀번호를 입력하고 들어가기를 눌러 주세요.</p>`; return; }
+  if (!rows) { $("#list").innerHTML = `<p class="empty">불러오는 중…</p>`; return; }
+  const shown = tab === "ALL" ? rows : rows.filter((r) => r.status === tab);
+  $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<p class="empty">${tab === "PENDING" ? "확인할 신청이 없어요." : "해당하는 신청이 없어요."}</p>`;
+}
+
+async function load() {
+  if (!token()) return renderList();
+  rows = null; renderList();
+  try { rows = await call("/admin/producers?status=ALL"); renderList(); }
+  catch (e) { rows = []; renderList(); toast(e.message, true); }
+}
+
+$("#save").onclick = () => {
+  const v = $("#token").value.trim();
+  if (!v) return toast("비밀번호를 입력해 주세요.", true);
+  try { sessionStorage.setItem(KEY, v); } catch {}
+  $("#token").value = ""; placeholder();
+  load();
+};
+$("#token").onkeydown = (e) => { if (e.key === "Enter") $("#save").click(); };
+$("#clear").onclick = () => { try { sessionStorage.removeItem(KEY); } catch {} rows = null; placeholder(); renderList(); };
+$("#tabs").onclick = (e) => { const b = e.target.closest("button[data-tab]"); if (b) { tab = b.dataset.tab; renderList(); } };
+
+$("#list").onclick = async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b || busy) return;
+  const el = b.closest("article"), id = el.dataset.id, slot = el.querySelector(".slot"), act = b.dataset.act;
+  const row = rows.find((r) => r.farmId === id);
+  if (act === "approve") {
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = `${row.farmName} 승인할까요? 한 번 더 누르기`; return; }
+    busy = true; b.disabled = true;
+    try { await call(`/admin/producers/${id}/approve`, "POST"); toast(`${row.farmName}을(를) 승인했어요`); await load(); }
+    catch (err) { toast(err.message, true); b.disabled = false; }
+    finally { busy = false; }
+  } else if (act === "reject") {
+    slot.innerHTML = `<div class="reject-box"><textarea rows="3" maxlength="500" placeholder="반려 사유(농가에 보여요)" aria-label="반려 사유"></textarea>
+      <div class="row"><button class="danger solid" data-act="reject-send">반려하기</button><button class="text" data-act="cancel">취소</button></div></div>`;
+    slot.querySelector("textarea").focus();
+  } else if (act === "reject-send") {
+    const reason = slot.querySelector("textarea").value.trim();
+    if (!reason) return toast("반려 사유를 적어 주세요.", true);
+    busy = true; b.disabled = true;
+    try { await call(`/admin/producers/${id}/reject`, "POST", { reason }); toast(`${row.farmName}을(를) 반려했어요`); await load(); }
+    catch (err) { toast(err.message, true); b.disabled = false; }
+    finally { busy = false; }
+  } else if (act === "cancel") {
+    slot.innerHTML = "";
+  } else if (act === "history") {
+    if (slot.querySelector(".history")) { slot.innerHTML = ""; return; }
+    try {
+      const h = await call(`/admin/producers/${id}/decisions`);
+      slot.innerHTML = `<div class="history">${h.length ? `<ul>${h.map((d) => `<li>${when(d.decidedAt)} · ${d.decision === "APPROVED" ? "승인" : "반려"}${d.reason ? " · " + esc(d.reason) : ""} <span class="hint">(${esc(d.managerId)}, 신청 ${when(d.applicationAt)})</span></li>`).join("")}</ul>` : "결정 이력이 없어요."}</div>`;
+    } catch (err) { toast(err.message, true); }
+  }
+};
+
+$("#api").textContent = location.hostname === "127.0.0.1" || location.hostname === "localhost" ? "로컬 중계 → 실서버" : "Vercel 중계 → 실서버";
+function placeholder() { $("#token").placeholder = token() ? "들어와 있어요" : "비밀번호를 입력하세요"; }
+placeholder();
+load();
+</script>
+</body>
+</html>

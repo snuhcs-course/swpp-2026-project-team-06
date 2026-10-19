@@ -539,6 +539,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 메서드·경로 | 권한 | 요청 | 응답 | FEAT·규칙 | I1 |
 | --- | --- | --- | --- | --- | --- |
+| `GET /admin/producers` | 운영자 | `status`(`PENDING` 기본·`REJECTED`·`APPROVED`·`SUSPENDED`·`ALL`) | 가입 신청 목록(농가 ID, 대표자 이름, 농가명, 지역, 주 품목, 연락처, 상태, 신청·결정 시각, 반려 사유), 신청 최신순. 운영자 승인 웹(DEV-82)이 쓴다 | FEAT-01, R-22 | Should |
 | `POST /admin/producers/{farmId}/approve` | 운영자, `Idempotency-Key` | — | 농가 `APPROVED` | FEAT-01, R-22 | Should |
 | `POST /admin/producers/{farmId}/reject` | 운영자, `Idempotency-Key` | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 | Should |
 | `GET /admin/producers/{farmId}/decisions` | 운영자 | — | 신청 시각·결정·사유·결정 운영자 이력(최신순) | FEAT-01, R-22 | Should |

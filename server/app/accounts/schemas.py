@@ -9,6 +9,8 @@ from app.core.schemas import CamelModel
 
 App = Literal["consumer", "producer"]
 FarmStatus = Literal["NONE", "PENDING", "REJECTED", "APPROVED", "SUSPENDED"]
+# 운영자 가입 신청 목록 필터(DEV-82)
+ApplicationFilter = Literal["PENDING", "REJECTED", "APPROVED", "SUSPENDED", "ALL"]
 
 
 class TestAccount(CamelModel):
