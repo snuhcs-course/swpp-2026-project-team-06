@@ -2,7 +2,7 @@
 
 Use the producer /products/source-analysis page with both the API and worker running. Set SOURCE_ANALYSIS_PROVIDER=openrouter, SOURCE_ANALYSIS_MODEL=google/gemini-3-flash-preview and the server-only OPENROUTER_API_KEY. This is independent of AI CS. Expensive vision and direct fallback are disabled. The historical DEV-54 UI/publication/Sol statements below are superseded by docs/spec/source-integration.md.
 
-Generate synthetic cases from server with `python -m app.source_analysis.synthetic --output .artifacts/source-eval --font <Korean-font>`. Use a separate local database and explicitly add --live for paid evaluation. Default caps are $1 evaluation/$5 cumulative, with at most 4096 output tokens per request. Never interpret mock results as model quality or actual farmer acceptance. Deployment is held.
+Generate synthetic cases from server with `python -m app.source_analysis.synthetic --output .artifacts/source-eval --font <Korean-font>`. Use a separate local database and explicitly add --live for paid evaluation. Default caps are $1 evaluation/$5 cumulative, with at most 4096 output tokens per request. Never interpret mock results as model quality or actual farmer acceptance. Production deployment is held; to enable it, follow [runbook.md](runbook.md) (worker image `server/Dockerfile.worker`, Railway service `farmclub-source-worker`, DEV-86).
 
 # 자료 분석 백엔드 실행
 
@@ -63,6 +63,8 @@ Responses API, Structured Outputs, store=false, tools 없음, SDK 자동 재시�
 ## 운영 경계
 
 API와 worker는 같은 PostgreSQL 및 같은 비공개 Local/R2 저장소를 사용해야 한다. R2 bucket은 공개하지 않는다. SOURCE_R2_* 키는 .env.example 참고. 새 API는 비활성 기본값이다.
+
+운영 배포는 `server/Dockerfile.worker`(OCR extra와 해시 검증된 모델 포함)로 worker를 별도 Railway 서비스로 띄운다. 변수 순서·확인·롤백은 [runbook.md](runbook.md).
 
 작업 취소는 이미 보낸 요청을 회수하지 않는다. 늦은 결과는 버전/lease 검사로 버리고 확인한 내용을 덮어쓰지 않는다. source 삭제는 참조 초안 삭제가 선행되어야 한다. batch 삭제는 논리 삭제 후 worker가 파일과 민감 자료를 정리한다. 고아 업로드는 24시간 이후 정리한다. 자동 worker 재시작은 배포 환경 프로세스 관리자가 담당한다.
 

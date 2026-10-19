@@ -66,3 +66,9 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 
 ### DEV-84 사용 여부 조회
 `SOURCE_ANALYSIS_ENABLED`가 꺼지면 `/api/source-analysis/**`는 모두 404다(`enabled()` 게이트). 앱이 이것을 "상품 없음" 404와 구분하도록 게이트 밖 `config_router`의 `GET /api/source-analysis/config`가 `{ enabled }`를 200으로 돌려준다(인증 불필요, 카카오 config 선례). 운영은 배포 보류로 꺼져 있고 생산자 앱은 이때 기존 문구/직접 입력·상세 편집을 쓴다.
+
+## DEV-86 운영 배포 구성
+
+- OCR(rapidocr·onnxruntime·모델)은 worker 전용이다. `preprocess.prepare`는 worker·synthetic에서만 부른다. API 이미지(`server/Dockerfile`)는 OCR 없이 두고 worker는 `server/Dockerfile.worker`(`--extra ocr`)로 따로 만든다. 로컬 amd64 빌드 기준 API 194MB, worker 486MB(.venv 588MB 압축 전, 모델 18MB).
+- 모델은 빌드 때 `provision_ocr`로 받고 manifest 해시를 Dockerfile의 `SOURCE_OCR_MODEL_SHA256`과 비교해 다르면 빌드를 실패시킨다. `ocr-manifest.json`을 바꾸면 이 값도 함께 바꾼다.
+- Railway `farmclub-source-worker`는 같은 `server/`를 올리고 config 파일 `/railway.worker.json`(헬스체크 없음, ON_FAILURE 재시작)을 쓴다. 배포 워크플로는 저장소 변수 `RAILWAY_WORKER_SERVICE`가 있을 때만 API 다음에 올린다. 켜기·끄기는 [runbook.md](runbook.md).

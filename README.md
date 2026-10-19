@@ -198,6 +198,8 @@ is never deployed. It checks out the exact commit CI tested, and if that commit 
 `server/**` (or the deploy workflow itself) it runs
 `railway up ./server --path-as-root --service farmclub-api --environment production --ci`
 and then polls `/health` until it answers; otherwise it skips the deploy and passes.
+When the repository variable `RAILWAY_WORKER_SERVICE` is set, it then uploads the same
+`server/` to that service (the source-analysis worker, DEV-86); without it the worker step is skipped.
 Changes are read from that single commit, which matches the squash-merge rule. The
 workflow can also be started by hand from the Actions tab (**Run workflow**) with the
 `main` branch selected, for example after a variable change; a manual run always deploys
@@ -224,6 +226,7 @@ Variables to add on the Railway service as features land, in merge order:
 | -- | -- |
 | Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub.kr/auth/kakao` as a redirect URI in the Kakao console |
 | PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://api.farmclub.kr/api/payments/portone/webhook` as the PortOne webhook |
+| Source analysis (DEV-86) | `SOURCE_ANALYSIS_*`, `OPENROUTER_API_KEY`, `SOURCE_STORAGE=r2`, `SOURCE_R2_*` on `farmclub-api`, plus a second service `farmclub-source-worker` (`server/Dockerfile.worker`, config file `/railway.worker.json`) and the repository variable `RAILWAY_WORKER_SERVICE`. Set them all at once; see `server/app/source_analysis/runbook.md` |
 | Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
 
 ### Apps on Vercel (DEV-67)
