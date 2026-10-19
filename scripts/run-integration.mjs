@@ -144,7 +144,8 @@ async function main() {
     MOCK_LOGIN_ENABLED: "true",
     FIXED_NOW: "2026-10-07T10:00:00+09:00",
     ENVIRONMENT: "local",
-    SOURCE_ANALYSIS_ENABLED: "true",
+    // 기본은 켜짐. 운영처럼 꺼진 서버 흐름은 SOURCE_ANALYSIS_ENABLED=false로 실행한다(DEV-84)
+    SOURCE_ANALYSIS_ENABLED: process.env.SOURCE_ANALYSIS_ENABLED ?? "true",
     SOURCE_ANALYSIS_PROVIDER: "mock",
   };
   await resetSeed(serverEnv);
@@ -194,7 +195,10 @@ async function main() {
   };
   await command(process.execPath, ["scripts/test-integration.mjs"], { env: testEnv });
   await resetSeed(serverEnv);
-  await command(path.join(root, "node_modules", ".bin", "playwright"), ["test"], { env: testEnv });
+  // 뒤에 붙인 인자(spec 경로 등)는 Playwright에 넘긴다(DEV-84)
+  await command(path.join(root, "node_modules", ".bin", "playwright"), ["test", ...process.argv.slice(2)], {
+    env: testEnv,
+  });
 }
 
 try {
