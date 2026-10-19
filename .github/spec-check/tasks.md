@@ -113,6 +113,7 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 - 10/19 checker-tests처럼 test-merge 커밋(`github.sha`)을 checkout하고 첫 부모와의 `git diff --name-only --no-renames`로 바뀐 파일을 구한다. 토큰·API 호출 없음. 본문은 이벤트 파일에서 읽어 `edited` 때 새 본문으로 다시 돈다.
 - 10/19 봇 PR(Dependabot)은 건너뛴다. fork PR은 키가 필요 없으니 돈다.
 - 10/19 처음에는 branch protection 필수 체크로 등록하지 않는다(spec-check 기존 방침). 빨간 잡으로 보인다.
+- 10/19 이 검사는 본문 형식만 보고 Figma 내용은 보지 않는다. `반영함` node-id가 Figma에 실제로 있는지 REST API로 확인하는 일은 [DEV-89](https://linear.app/sswp6/issue/DEV-89)로 뺐다(사용자 결정). 버전 시각·문구·스크린샷 비교는 오탐이 많아 하지 않는다.
 
 ### 작업
 - [x] `figma_line.py` 검사, `test_figma_line.py`(빈 줄·형식 오류·후속 키 없음·대상 경로·진입점)
