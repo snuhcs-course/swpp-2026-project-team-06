@@ -98,33 +98,6 @@ export function LoadError({
   );
 }
 
-export function Wordmark() {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-      <T
-        variant="body"
-        weight="bold"
-        style={{ fontSize: 20, lineHeight: 22, letterSpacing: -0.6 }}
-      >
-        farmclub
-      </T>
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 999,
-          backgroundColor: tokens.color.accent,
-          marginLeft: 4,
-          marginBottom: 4,
-        }}
-      />
-      <T variant="caption" muted weight="semibold" style={{ marginLeft: 8 }}>
-        농가용
-      </T>
-    </View>
-  );
-}
-
 /** Mock 전용 개발 상자(점선). 실제 서비스에는 없다. */
 export function DevBox({
   title,
