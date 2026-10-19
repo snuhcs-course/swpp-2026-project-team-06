@@ -39,6 +39,8 @@ def check_body(body):
         raise ValueError("Figma 줄이 없다.")
     if len(lines) > 1:
         raise ValueError(f"Figma 줄이 {len(lines)}개다. 하나만 남긴다.")
+    if not lines[0].strip():
+        raise ValueError("Figma 줄이 비어 있다. 반영함/해당 없음/후속 중 하나를 적는다.")
     match = VALUE_RE.match(lines[0].strip() + " ")
     if not match:
         raise ValueError(f"Figma 값이 반영함/해당 없음/후속 중 하나가 아니다: `{lines[0].strip()}`")

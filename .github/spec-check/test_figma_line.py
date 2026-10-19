@@ -50,8 +50,8 @@ class BodyTests(unittest.TestCase):
     def test_invalid_lines(self):
         cases = {
             "": "없다",                                  # 줄 자체가 없음(주석 안 예시만 있음)
-            "Figma:": "하나가 아니다",                    # 빈 Figma 줄
-            "Figma:   ": "하나가 아니다",
+            "Figma:": "줄이 비어 있다",                   # 빈 Figma 줄(템플릿 그대로)
+            "Figma:   ": "줄이 비어 있다",
             "Figma: 반영함": "비어 있다",                 # 값 뒤가 빔
             "Figma: 반영함 —": "비어 있다",
             "Figma: 해당 없음 — <이유>": "비어 있다",     # 템플릿 자리표시 그대로
@@ -80,6 +80,12 @@ class EvaluateTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("FAIL", summary)
         self.assertIn("apps/producer/src/app/login.tsx", summary)
+
+    def test_unfilled_template_fails(self):
+        template = Path(__file__).resolve().parents[1] / "pull_request_template.md"
+        ok, summary = figma_line.evaluate(template.read_text(encoding="utf-8"), SCREEN)
+        self.assertFalse(ok)
+        self.assertIn("비어 있다", summary)
 
     def test_valid_line_passes(self):
         ok, summary = figma_line.evaluate(body("Figma: 후속 — DEV-90"), SCREEN + ["server/app/main.py"])
