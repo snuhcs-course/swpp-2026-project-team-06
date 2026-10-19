@@ -371,6 +371,8 @@ Figure 7. What happens when a consumer sends a 1:1 question. The thread row stay
 
 The answer is generated inside the request while the thread row is locked. This keeps ordering simple in I1, but a slow model call makes the request slower. Moving it to a background worker is a candidate for a later iteration.
 
+The full pipeline, answer checks, tests and known limitations are on [[AI Customer Support|AI-Customer-Support]].
+
 ### 2.7 Implementation decisions
 
 | Problem | What we do | Why |
