@@ -50,7 +50,9 @@ ADMIN_WEB_PASSWORD=… ADMIN_TOKEN=… node scripts/admin-web/server.mjs   # htt
 # (server/에서 같은 DATABASE_URL·JWT_SECRET으로 uv run python -m app.accounts.admin_token)
 ```
 
-## Vercel 임시 배포
+## Vercel 배포
+
+운영 주소는 https://admin.farmclub.kr (DEV-91, Cloudflare `admin` CNAME Proxied → Vercel `farmclub-admin`). `farmclub-admin.vercel.app`도 같은 배포다. 배포는 자동이 아니다. 서버(`/admin/...` API)가 바뀌는 변경은 main 머지 → Railway 배포가 끝난 뒤에 main 기준으로 올린다.
 
 이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`)로 올린다. `api/proxy.js`가 서버리스 함수가 된다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다.
 

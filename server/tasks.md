@@ -1311,3 +1311,35 @@ DEV-82 임시 승인 웹을 여러 관리 기능을 담을 관리자 페이지�
 ### 기록
 - 10/19 DEV-83 브랜치(bf5683d, main b6ee11a 병합)에서 시작.
 - 10/19 로컬 확인: DB `farmclub_dev83` + uvicorn :8003 + `server.mjs` :8093. 미로그인 `/capacity` → `/login?next=%2Fcapacity` → 로그인 후 `/capacity`. 심사 중 3건(시드 청견 첫 판매 + 테스트 생산자로 만든 하우스 감귤·레드향 증량). 하우스 감귤 3,000kg 승인(두 번 눌러 확인), 레드향 빈 사유 거절 후 사유 반려, 청견 첫 판매 승인 → DB에서 청견 PUBLISHED·한도 250kg, 하우스 승인량 3,000kg(판매 한도 2,400kg 유지), 레드향 승인량 300kg 유지·반려 사유, 결정자 u-admin. 가입 신청 화면 그대로, 콘솔 오류 없음.
+
+## DEV-91 관리자 페이지 admin.farmclub.kr 연결과 도메인 문서 갱신
+
+- 이슈: [DEV-91](https://linear.app/sswp6/issue/DEV-91)
+- 브랜치: `nemodleo/dev-91-dev-관리자-페이지-adminfarmclubkr-연결과-도메인-문서`
+- 관련: [ADR 0012](../docs/spec/tech-design/adr/0012-domains-cloudflare.md), DEV-69(도메인), DEV-83·DEV-87(관리자 페이지)
+- 상태: 진행 중
+
+### 범위 (수정 허용 경로)
+- 문서: `docs/spec/tech-design/adr/0012-domains-cloudflare.md`, `README.md` 도메인 절, `scripts/admin-web/README.md`, `docs/spec/ia.md` 운영자 안내, `server/tasks.md`
+- 콘솔(코드 아님): Vercel `farmclub-admin` 도메인 추가(에이전트), Cloudflare `admin` CNAME(사용자)
+
+### 비범위
+- Cloudflare Access(운영자 이메일 제한), 예전 `farmclub-admin.vercel.app` 막기·리다이렉트, 코드 변경
+
+### 결정 사항
+- 10/19 `admin.farmclub.kr` → Vercel `farmclub-admin`. Cloudflare CNAME `admin`(Vercel 프로젝트 값) Proxied, 다른 Vercel 레코드와 같은 방식.
+- 10/19 Cloudflare Access는 아직 켜지 않음(운영자 이메일은 사용자가 콘솔에서 넣을 일). ADR 0012 운영자 절에 남은 일로 적음.
+- 10/19 Vercel이 `farm` 추가 때 만든 `www.farm.farmclub.kr`은 두 단계 서브도메인이라 Cloudflare 무료 인증서가 덮지 않음 → 쓰지 않고 지움(ADR에 규칙으로 적음).
+
+### 작업
+- [x] Vercel `farmclub-admin`에 `admin.farmclub.kr` 추가
+- [x] Cloudflare `admin` CNAME Proxied(사용자)
+- [x] 운영 확인: `https://admin.farmclub.kr/login` 200, `/producers`·`/capacity` → `/login?next=…` 302, `server: cloudflare`·`x-vercel-id`, 사용자 로그인 성공
+- [x] 문서 갱신
+
+### 완료 조건
+- [x] 새 주소로 관리자 페이지에 로그인할 수 있다
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/19 main 61a8034에서 시작. 문서만 바꿔 실행할 테스트 없음.
