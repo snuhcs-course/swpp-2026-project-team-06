@@ -130,3 +130,20 @@ v1은 명시적 경로 표를 사용한다. 자동 의미 검색·외부 문서 
 - [GitHub protected environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
 - [Claude Messages API](https://platform.claude.com/docs/en/api/messages/create)
 - [Claude workspace limits](https://platform.claude.com/docs/en/manage-claude/workspaces)
+
+## 7. Figma 줄 검사 (DEV-88)
+
+`figma-line` 잡은 모델·키 없이 도는 결정적 검사다(`figma_line.py`, 테스트 `test_figma_line.py`는 checker-tests가 함께 돌린다).
+`apps/*/src/**`, `packages/ui/src/**`, `scripts/admin-web/**`(테스트 파일 제외)가 바뀐 PR은 본문 `## Figma` 절에 한 줄을 적어야 한다.
+
+```text
+Figma: 반영함 — https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=343-5945
+Figma: 해당 없음 — 서버 호출만 바꿨고 화면은 같다
+Figma: 후속 — DEV-90
+```
+
+줄이 없거나, 둘 이상이거나, 세 값 밖이거나, 값 뒤가 비었거나, `반영함`에 Figma 링크·node-id가 없거나, `후속`에 `DEV-숫자`가 없으면 실패한다. HTML 주석 안 줄은 세지 않는다. 본문을 고치면 다시 돈다.
+
+```sh
+python3 -m unittest discover -s .github/spec-check -p 'test_figma_line.py' -v
+```
