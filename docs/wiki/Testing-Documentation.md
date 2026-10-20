@@ -99,6 +99,43 @@ Reruns the manager and AI story tests on `main` `a7e41db` (2026-10-18), after th
 
 **Recheck after later merges (2026-10-19, `main` `c98be9b` merged into this branch):** DEV-68 (#141, bank transfer, refunds) and the Kakao login PRs (#121, #158) landed after the run above, so the server and app checks were repeated. `uv run pytest` 364 passed and Ruff clean; story subsets unchanged (M01 13, M02 4, M03 30, C06 33); `npm run test:mock` 15 passed; `npm run typecheck` passed in 4 workspaces.
 
+### SWPP-118 — Operator checks on the live server (2026-10-20)
+
+The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked** because nobody had admin access on the deployed server. This run executes them on `api.farmclub.kr` (deploy `271fe87`) with an admin token issued in the Railway shell.
+
+**Safety:** only clearly labelled test data was changed. The producer is a new Kakao account with the farm and product named `ZAHRA 운영자 테스트 1020 (삭제 예정)`; the consumer is the seeded test account `u-seojun`. Seeded farms and products (including the pending `f-wimi` application and `capacity-p-cheonggyeon`) were not touched. `POST /admin/orders/expire-deposits` was not called, because it cancels every overdue order on the server; AC-09-7 tests cover it. No money moved.
+
+| Step | Story / check | Expected | Result |
+| -- | -- | -- | -- |
+| A1 | Kakao producer applies (FEAT-01) | Application listed as PENDING in `GET /admin/producers` | Pass |
+| A2 | M01 reject with reason (R-22) | 200 `REJECTED`; producer app shows the reason and a prefilled reapply form | Pass |
+| A3 | Reapply, then approve | 200 `APPROVED`; producer app opens the dashboard (I-10, I-11) | Pass |
+| A4 | Decision history | Two decisions, newest first, by `u-admin`, each tied to its application time | Pass |
+| A5 | Approve again with the same `Idempotency-Key` | Same response, no new decision | Pass — identical body and `decidedAt` |
+| A6 | Reject without a token / as consumer | 401 / 403 | Pass — 401 / 403 |
+| B1 | Producer creates a product with a 5 kg INITIAL capacity request (FEAT-04) | Request `PENDING` | Pass — `p-20e7eef1fb` / `capacity-74c18eb1ac` v1 `PENDING` |
+| B2 | M02 approve capacity with an old version (AC-04-8) | 409 `STALE_VERSION`, request unchanged, rejection audited | Pass — 409; REJECTED event in `GET /admin/exceptions?status=REJECTED` |
+| B2 | Approve with the current version | 200 `APPROVED`; product `PUBLISHED`, 5 kg approved = sales limit | Pass |
+| B3 | Product shown to consumers; public edit propagates (I-06, I-07) | Visible on `farmclub.kr`; edited field shown after reload | Pass |
+| C1 | Bank-transfer order (FEAT-09) | `AWAITING_DEPOSIT` with farm account, seller info and a 24-hour deadline | Pass |
+| C2 | Admin `confirm-deposit`, sent twice with one key (AC-09-8) | `RESERVED` once, same `paidAt`, stock held once | Pass — remaining 5,000 g → 2,000 g |
+| C3 | M03 partial refund of ₩500 (R-11/R-12) | Order stays `RESERVED`; one refund row with manager event | Pass |
+| C3 | Buyer's order view after the partial refund | Order view unchanged (screens.md 7.2, refund) | As specified — buyer sees ₩1,000 `RESERVED` with no refund information (see Known limits) |
+| C4 | Final refund (remaining balance) | `REFUNDED`; two rows; stock released once | Pass — remaining 2,000 g → 5,000 g |
+| C5 | Duplicate refund with a new key | 4xx, audited, no third row (I-13) | Pass — 409 `INVALID_TRANSITION`; REJECTED `order.refund` event |
+| C6 | Producer marks the refund as sent (AC-17-7) | Order and both refund rows settled | Pass — the producer saw one ₩1,000 item, only after the final refund |
+| C7 | `GET /admin/orders/deposit-overdue` | 200 | Pass — empty list |
+| D1 | Producer pauses sales; consumer tries to order | Not orderable | Pass — 409 `SALES_PAUSED`; the paused product and farm remain listed, as designed |
+
+**Not run on the live server:** the `NO_FARM_ACCOUNT` block (the test farm already had an account; covered by the DEV-68 pytest), `expire-deposits` (see above), and temporary-failure retry (covered by `test_AC_11_3_transient_retry_uses_original_actor_and_exact_body`).
+
+**Known limits (by spec):** these behaved as the spec says. They are recorded so that readers do not take them for bugs.
+- **Buyer's order view:** a partial refund leaves the order status and refund fields unchanged; only the payment becomes `PARTIALLY_REFUNDED` (`docs/spec/screens.md` 7.2, `POST /admin/orders/{orderId}/refund`). The spec does not say whether buyers should see a partial-refund history; that is open in DEV-62.
+- **Farm's refund list:** the producer's "refund sent" step covers fully refunded orders only. Partial refunds are explicitly out of scope ("to consider later", AC-17-7). With direct bank transfer this means nobody is prompted to send a partial refund until the order is fully refunded; follow-up DEV-96.
+- **Live login:** the deployed consumer login shows Kakao only, so the seeded test accounts work through the API but not in the app. This is intended: test-account login is shown only while Kakao is off (SCR-05 in `docs/spec/screens.md`; related to internal-test finding F-01).
+
+**Leftover data (hidden, not deleted):** farm `f-16b05f2b68`, product `p-20e7eef1fb` (sales paused), order `o-7e7694e1d2` (`REFUNDED`, settled), refunds `refund-cf4a1cb937` and `refund-62c31d5c89`, and two REJECTED audit events. After DEV-93 (`664d59d`) the farm was hidden with `python -m app.admin.retire_test_farm f-16b05f2b68 --commit`: it is now `SUSPENDED`, so the farm page, share page and product return 404 and the farm is gone from the farm list and home. The rows stay; permanent deletion waits for the retention policy (PQ-06, DEV-94).
+
 ## 2. AI Module Testing (Iteration 3~)
 
 ## 3. Acceptance Testing (Iteration 4)
