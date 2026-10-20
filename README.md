@@ -188,18 +188,19 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 The project `farmclub` (service `farmclub-api`, domain
 `https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
 
-**Cleaning up test data (DEV-93).** Name farms you create for live checks with
-`(삭제 예정)` and order only with test accounts. Remove such a farm and everything linked
-to it from the service shell:
+**Hiding a test farm (DEV-93).** Order from farms you create for live checks only with test
+accounts. When the check is done, hide the farm from everyone from the service shell. Nothing is
+deleted: the farm becomes `SUSPENDED`, which every public path already hides.
 
 ```bash
-railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_test_farm <farmId>           # dry run: counts, then rollback
-railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_test_farm <farmId> --commit  # delete
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId>                     # dry run
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --commit            # hide
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --restore --commit  # undo
 ```
 
-It refuses a farm without the marker, a farm with orders from real (non-test) accounts,
-and more than 500 rows. Deleting real users' data waits for the retention policy (PQ-06,
-DEV-94).
+It refuses a farm that is not approved or has orders from real (non-test) accounts, since
+suspension means refunding those (R-24). `--restore` only reopens farms this command hid.
+Permanently deleting data waits for the retention policy (PQ-06, DEV-94).
 
 ### Automatic deploys (DEV-65, DEV-66)
 
