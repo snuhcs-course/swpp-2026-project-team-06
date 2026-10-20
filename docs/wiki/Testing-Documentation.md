@@ -101,7 +101,7 @@ Reruns the manager and AI story tests on `main` `a7e41db` (2026-10-18), after th
 
 ### SWPP-118 — Operator checks on the live server (2026-10-20)
 
-The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked** because nobody had admin access on the deployed server. This run executes them on `api.farmclub.kr` (deploy `271fe87`) with an admin token issued in the Railway shell.
+The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked**, mainly because nobody had admin access on the deployed server. This run covers **I-06, I-07, I-11 and I-13** on `api.farmclub.kr` (deploy `271fe87`) with an admin token issued in the Railway shell. **I-10** (AI draft → producer edit → consumer display, DEV-59) was not run: no AI draft was created here, so it stays Blocked; its blocker, manager approval for publication, can now be run the same way.
 
 **Safety:** only clearly labelled test data was changed. The producer is a new Kakao account with the farm and product named `ZAHRA 운영자 테스트 1020 (삭제 예정)`; the consumer is the seeded test account `u-seojun`. Seeded farms and products (including the pending `f-wimi` application and `capacity-p-cheonggyeon`) were not touched. `POST /admin/orders/expire-deposits` was not called, because it cancels every overdue order on the server; AC-09-7 tests cover it. No money moved.
 
@@ -109,7 +109,7 @@ The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked** be
 | -- | -- | -- | -- |
 | A1 | Kakao producer applies (FEAT-01) | Application listed as PENDING in `GET /admin/producers` | Pass |
 | A2 | M01 reject with reason (R-22) | 200 `REJECTED`; producer app shows the reason and a prefilled reapply form | Pass |
-| A3 | Reapply, then approve | 200 `APPROVED`; producer app opens the dashboard (I-10, I-11) | Pass |
+| A3 | Reapply, then approve | 200 `APPROVED`; producer app opens the dashboard (I-11) | Pass |
 | A4 | Decision history | Two decisions, newest first, by `u-admin`, each tied to its application time | Pass |
 | A5 | Approve again with the same `Idempotency-Key` | Same response, no new decision | Pass — identical body and `decidedAt` |
 | A6 | Reject without a token / as consumer | 401 / 403 | Pass — 401 / 403 |
