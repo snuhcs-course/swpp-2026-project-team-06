@@ -500,6 +500,21 @@ def test_AC_13_3_two_product_farm_without_product_forwards(client, login):
     assert result["reply"]["handoffStatus"] == "FORWARDED"
 
 
+def test_AC_13_1_order_context_wins_over_product(client, login):
+    """주문과 상품이 함께 오면 주문 상품을 근거로 쓴다(build_evidence 우선순위, DEV-97)."""
+    client.put(
+        "/api/messaging/producer/chats/u-seojun/ai-mode",
+        headers=login("u-kang") | key(),
+        json={"mode": "AUTO", "version": 1},
+    )
+    headers = login("u-seojun")
+    extra = {"orderId": "o-38", "productId": "p-redhyang"}
+    result = send(client, headers, "f-kang", "배송은 언제예요?", **extra).json()
+
+    assert "2026-11-10" in result["reply"]["body"]
+    assert result["reply"]["sourceRefs"] == ["order:o-38"]
+
+
 def test_AC_13_3_product_of_other_farm_or_not_published_is_404(client, login):
     headers = login("u-minji")
     before = client.get("/api/messaging/chats/f-kang/messages", headers=headers).json()
