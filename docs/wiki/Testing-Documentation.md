@@ -123,7 +123,7 @@ The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked**, m
 | C3 | Buyer's order view after the partial refund | Order view unchanged (screens.md 7.2, refund) | As specified — buyer sees ₩1,000 `RESERVED` with no refund information (see Known limits) |
 | C4 | Final refund (remaining balance) | `REFUNDED`; two rows; stock released once | Pass — remaining 2,000 g → 5,000 g |
 | C5 | Duplicate refund with a new key | 4xx, audited, no third row (I-13) | Pass — 409 `INVALID_TRANSITION`; REJECTED `order.refund` event |
-| C6 | Producer marks the refund as sent (AC-17-7) | Order and both refund rows settled | Pass — the producer saw one ₩1,000 item, only after the final refund |
+| C6 | Producer marks the refund as sent (AC-17-7) | Order and both refund rows settled | Pass — after the final refund the producer saw one ₩1,000 item (screenshot). The refund tab was not opened between the partial and the final refund |
 | C7 | `GET /admin/orders/deposit-overdue` | 200 | Pass — empty list |
 | D1 | Producer pauses sales; consumer tries to order | Not orderable | Pass — 409 `SALES_PAUSED`; the paused product and farm remain listed, as designed |
 
@@ -131,7 +131,7 @@ The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked**, m
 
 **Known limits (by spec):** these behaved as the spec says. They are recorded so that readers do not take them for bugs.
 - **Buyer's order view:** a partial refund leaves the order status and refund fields unchanged; only the payment becomes `PARTIALLY_REFUNDED` (`docs/spec/screens.md` 7.2, `POST /admin/orders/{orderId}/refund`). The spec does not say whether buyers should see a partial-refund history; that is open in DEV-62.
-- **Farm's refund list:** the producer's "refund sent" step covers fully refunded orders only. Partial refunds are explicitly out of scope ("to consider later", AC-17-7). With direct bank transfer this means nobody is prompted to send a partial refund until the order is fully refunded; follow-up DEV-96.
+- **Farm's refund list:** the producer's "refund sent" step covers fully refunded orders only. Partial refunds are explicitly out of scope ("to consider later", AC-17-7). The producer refund tab and its settle actions only accept `REFUNDED` orders (`apps/producer/src/app/ship.tsx`, `server/app/orders/service.py`; checked in the code, not on screen), so with direct bank transfer the farm is not prompted to send a partial refund. Partial refunds can only be made by an operator through the API, and until this is built the operator tells the farm directly. Follow-up DEV-62 (DEV-96 merged into it).
 - **Live login:** the deployed consumer login shows Kakao only, so the seeded test accounts work through the API but not in the app. This is intended: test-account login is shown only while Kakao is off (SCR-05 in `docs/spec/screens.md`; related to internal-test finding F-01).
 
 **Leftover data (hidden, not deleted):** farm `f-16b05f2b68`, product `p-20e7eef1fb` (sales paused), order `o-7e7694e1d2` (`REFUNDED`, settled), refunds `refund-cf4a1cb937` and `refund-62c31d5c89`, and two REJECTED audit events. After DEV-93 (`664d59d`) the farm was hidden with `python -m app.admin.retire_test_farm f-16b05f2b68 --commit`: it is now `SUSPENDED`, so the farm page, share page and product return 404 and the farm is gone from the farm list and home. The rows stay; permanent deletion waits for the retention policy (PQ-06, DEV-94).
