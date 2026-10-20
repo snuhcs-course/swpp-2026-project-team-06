@@ -133,7 +133,7 @@ The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked** be
 - Under direct bank transfer the farm sends refunds, but a partial-only refund never appears in the producer's refund list. Nobody is prompted to send it until the order is fully refunded.
 - The deployed consumer login shows Kakao only, so the seeded test accounts can be used through the API but not in the app (related to internal-test finding F-01).
 
-**Leftover data (no delete API):** farm `f-16b05f2b68` (approved), product `p-20e7eef1fb` (sales paused, still listed), order `o-7e7694e1d2` (`REFUNDED`, settled), refunds `refund-cf4a1cb937` and `refund-62c31d5c89`, and two REJECTED audit events.
+**Leftover data (hidden, not deleted):** farm `f-16b05f2b68`, product `p-20e7eef1fb` (sales paused), order `o-7e7694e1d2` (`REFUNDED`, settled), refunds `refund-cf4a1cb937` and `refund-62c31d5c89`, and two REJECTED audit events. After DEV-93 (`664d59d`) the farm was hidden with `python -m app.admin.retire_test_farm f-16b05f2b68 --commit`: it is now `SUSPENDED`, so the farm page, share page and product return 404 and the farm is gone from the farm list and home. The rows stay; permanent deletion waits for the retention policy (PQ-06, DEV-94).
 
 ## 2. AI Module Testing (Iteration 3~)
 

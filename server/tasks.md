@@ -1429,3 +1429,4 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 운영자 토큰은 `railway ssh --service farmclub-api`로 발급. 전 단계 통과, `NO_FARM_ACCOUNT`는 계좌가 이미 있어 운영에서 미실행(DEV-68 pytest).
 - 10/20 발견: 부분 환불은 소비자 주문 조회에 전혀 보이지 않고, 부분 환불만 있으면 생산자 환불 송금 목록에도 나오지 않는다(최종 환불 뒤에야 ₩1,000 한 건으로 보임). 계좌이체 구조에서는 부분 환불을 보낼 사람이 안내받지 못한다.
 - 10/20 남은 운영 데이터: 농가 `f-16b05f2b68`(승인), 상품 `p-20e7eef1fb`(판매 중지, 목록에는 보임), 주문 `o-7e7694e1d2`(환불·송금 완료), 환불 `refund-cf4a1cb937`·`refund-62c31d5c89`, REJECTED 감사 이벤트 2건.
+- 10/20 DEV-93 머지(`664d59d`) 뒤 `retire_test_farm f-16b05f2b68 --commit`으로 농가를 숨겼다(`SUSPENDED`, 행은 남김). 확인: 농가 상세·공유 페이지·상품 `p-20e7eef1fb` 404, 농가 목록·홈에 없음, 다른 농가 7곳 그대로. 다른 사람의 테스트 농가는 건드리지 않았다.
