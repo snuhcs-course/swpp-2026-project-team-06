@@ -1398,3 +1398,4 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 삭제 명령을 `retire_test_farm`(숨김)으로 바꿨다. 상품 목록·상세·주문 생성도 `get_approved_farm`/`approved_farm_names`로 농가 승인을 보므로 농가 상태만 바꾼다. 검증: `uv run pytest -q tests/test_retire_test_farm.py` 5 passed, 전체 `uv run pytest -q` 372 passed, `uv run ruff check .` 통과, 새 파일 `ruff format --check` 통과.
 - 10/20 리뷰 반영(감사 이벤트, 주문 개수, 문구). 테스트 작성 중 `expected`를 같은 세션에서 세어 틀렸다(sessionmaker `autoflush=False`). 커밋 뒤 새 세션으로 고침. 명령은 `_result`가 주문만 읽어 영향 없음.
 - 10/20 검증(리뷰 반영 후): `uv run pytest -q tests/test_retire_test_farm.py` 7 passed, 전체 `uv run pytest -q` 374 passed, `uv run ruff check .` 통과, 새 파일 `ruff format --check` 통과.
+- 10/20 AI 1차 리뷰(pr-review): must 없음. should 반영: 모르는 옵션 거부(`--restor --commit`이 숨김으로 실행되던 문제). 검증: `tests/test_retire_test_farm.py` 8 passed, 전체 `uv run pytest -q` 375 passed, `ruff check .`·새 파일 format 통과.
