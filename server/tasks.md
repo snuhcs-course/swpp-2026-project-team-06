@@ -1348,3 +1348,37 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/19 DEV-92 created for observed basic-info blur/upload version race. Production selling not exercised: test farm has no deposit account. Main CI deploy workflow now includes the same-commit worker rollout and exact deployment-ID polling. Deck work remains in progress outside the repository.
 
 - 10/19 main2ed8b28 deployed by Actions39261814494: API1473f970/workerf72b6735 SUCCESS, OCR engine ready/PID1 worker, main CI367 server/API7/browser45 passed2 skipped. Follow-up DEV-92 fixes the observed save/upload race before final media capture. The user/team expanded the shared PPTX to15 slides; no agent-added slide. Final delivery and updated recording are tracked in DEV-90/92 and the existing Drive file.
+
+## DEV-93 운영 서버 테스트 데이터 정리 명령(purge_test_farm)
+- 이슈: [DEV-93](https://linear.app/sswp6/issue/DEV-93)
+- 브랜치: `zahra/dev-93-purge-test-farm`
+- 기능·인수 조건: 운영 도구(제품 동작 변경 없음). 관련 규칙 R-25(주문 보존), 정책 PQ-06(미정)
+- 상태: 진행 중
+
+### 목표
+운영 검증에 쓴 테스트 농가와 거기 연결된 데이터를 안전하게 지우는 서버 명령을 만든다. 실제 사용자 데이터 삭제(회원 탈퇴 등)는 PQ-06 결정 뒤 DEV-94에서 한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/purge_test_farm.py`(새 파일), `server/app/admin/spec.md`
+- `server/tests/test_purge_test_farm.py`(새 파일)
+- `server/tasks.md`, `README.md`(배포 절의 운영 명령 안내만)
+
+### 비범위 (건드리지 않음)
+- HTTP API·앱 화면·마이그레이션, 제품 스펙(`docs/spec/**`)
+- 실제 사용자·농가 삭제, 회원 탈퇴(DEV-75, DEV-94)
+
+### 결정 사항
+- 10/20 HTTP API가 아니라 `python -m app.admin.purge_test_farm <farmId> [--commit]` 명령으로 만든다. `admin_token`처럼 서버 컨테이너 안에서만 실행되고(`railway ssh`), 공개 API에 삭제 경로를 열지 않는다.
+- 10/20 기본은 시험 실행: 한 트랜잭션에서 지운 뒤 롤백하고 표별 행 수를 보여 준다. FK 위반도 시험 실행에서 드러난다. `--commit`일 때만 남긴다.
+- 10/20 안전 조건: 농가 이름에 `(삭제 예정)`이 있어야 하고(DEV-84·SWPP-118 표기), 그 농가 주문의 소비자가 모두 테스트 계정이어야 한다(실사용자 거래 기록은 PQ-06 전까지 지우지 않음). 행 수가 상한(500)을 넘으면 거부.
+- 10/20 지울 행은 운영 DB 스키마를 읽어(FK) 농가에서 자식 방향으로 모은다. 문자열로만 가리키는 운영자 감사 이벤트(`target_id`)와 멱등 기록(`scope`)은 모은 농가·상품·주문·물량 신청 ID로 찾는다.
+- 10/20 생산자 계정은 테스트 계정이 아니면(카카오로 만든 검증용 계정) 같이 지운다. 시드 테스트 계정은 남긴다.
+
+### 작업
+- [ ] 명령과 안전 조건
+- [ ] pytest(거부 2종, 시험 실행 무변경, 삭제 후 다른 데이터 보존)
+- [ ] admin spec.md·README 안내
+- [ ] 운영 시험 실행 → commit(SWPP-118 농가), 결과 기록
+
+### 기록
+- 10/20 main `271fe87`에서 시작.
