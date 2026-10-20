@@ -199,7 +199,11 @@ railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_
 ```
 
 It refuses a farm that is not approved or has orders from real (non-test) accounts, since
-suspension means refunding those (R-24). `--restore` only reopens farms this command hid.
+suspension means refunding those (R-24). Each `--commit` writes one `ManagerEvent`.
+Pre-shipment test orders are counted, not refused: they may stay open while the farm is hidden.
+Orders whose buyer reported a deposit never auto-cancel and appear in `deposit-overdue` after the
+deadline, so cancel them first if you want that list clean. `--restore` only reopens farms this
+command hid; orders that expired in the meantime stay cancelled.
 Permanently deleting data waits for the retention policy (PQ-06, DEV-94).
 
 ### Automatic deploys (DEV-65, DEV-66)
