@@ -209,6 +209,8 @@ class SendInput(CamelModel):
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
     order_id: str | None = None
+    # 상품 페이지에서 연 채팅의 상품. AI 근거로만 쓰고 저장하지 않는다(DEV-97)
+    product_id: str | None = None
 
 
 class SendResult(CamelModel):

@@ -469,6 +469,51 @@ def test_AC_13_3_expected_brix_is_labeled(client, login):
     assert "예상 당도는 12" in result["reply"]["body"]
 
 
+def auto_minji_kang(client, login):
+    """시드 대화(f-kang·u-minji)는 농가 답이 있어 HUMAN이다. AI 답을 받으려면 AUTO로 돌린다."""
+    switched = client.put(
+        "/api/messaging/producer/chats/u-minji/ai-mode",
+        headers=login("u-kang") | key(),
+        json={"mode": "AUTO", "version": 2},
+    )
+    assert switched.status_code == 200, switched.text
+
+
+def test_AC_13_3_two_product_farm_answers_brix_from_given_product(client, login):
+    """판매 중 상품이 2개인 농가: 상품 페이지에서 연 채팅은 그 상품 당도로 답한다(DEV-97)."""
+    headers = login("u-minji")
+    auto_minji_kang(client, login)
+
+    house = send(client, headers, "f-kang", "당도가 몇이에요?", productId="p-house").json()
+    redhyang = send(client, headers, "f-kang", "당도가 몇이에요?", productId="p-redhyang").json()
+
+    assert house["reply"]["handoffStatus"] is None
+    assert "11.8" in house["reply"]["body"]
+    assert house["reply"]["sourceRefs"] == ["product:p-house"]
+    assert "예상 당도는 13" in redhyang["reply"]["body"]
+
+
+def test_AC_13_3_two_product_farm_without_product_forwards(client, login):
+    auto_minji_kang(client, login)
+    result = send(client, login("u-minji"), "f-kang", "당도가 몇이에요?").json()
+
+    assert result["reply"]["handoffStatus"] == "FORWARDED"
+
+
+def test_AC_13_3_product_of_other_farm_or_not_published_is_404(client, login):
+    headers = login("u-minji")
+    before = client.get("/api/messaging/chats/f-kang/messages", headers=headers).json()
+
+    for product_id in ("p-hallabong", "p-cheonggyeon", "p-none"):
+        response = send(client, headers, "f-kang", "당도가 몇이에요?", productId=product_id)
+        assert response.status_code == 404, product_id
+    other_farm = send(client, headers, "f-kang", "당도가 몇이에요?", productId="p-hyodon")
+    assert other_farm.status_code == 404
+
+    after = client.get("/api/messaging/chats/f-kang/messages", headers=headers).json()
+    assert [m["messageId"] for m in after["items"]] == [m["messageId"] for m in before["items"]]
+
+
 def test_AC_13_4_ai_reply_is_labeled(client, login):
     result = send(client, login("u-minji"), "f-halla", "배송비는 얼마예요?").json()
 
