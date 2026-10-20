@@ -1474,4 +1474,5 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 
 ### 기록
 - 10/20 main `1c8ec35`에서 시작.
-- 10/20 구현. 시드 대화 f-kang·u-minji는 HUMAN(version 2)이라 테스트에서 AUTO로 돌린다. 새 pytest 3개는 수정 전 코드에서 2개 실패(당도·404), 수정 후 통과. 검증: `uv run pytest` 378 passed, `ruff check` 통과(`ruff format --check`의 14파일은 main에도 있던 것), `npm run test:mock` 16/16, `npm run typecheck` 4개 통과. 남은 일: 소비자 앱 Mock 화면 확인, AI 1차 리뷰.
+- 10/20 구현. 시드 대화 f-kang·u-minji는 HUMAN(version 2)이라 테스트에서 AUTO로 돌린다. 새 pytest 3개는 수정 전 코드에서 2개 실패(당도·404), 수정 후 통과. 검증: `uv run pytest` 378 passed, `ruff check` 통과(`ruff format --check`의 14파일은 main에도 있던 것), `npm run test:mock` 16/16, `npm run typecheck` 4개 통과. 남은 일: AI 1차 리뷰.
+- 10/20 소비자 앱 Mock 화면 확인(Chrome): 비로그인 → 하우스 감귤 상품 페이지 ‘1:1 채팅’ → 카카오(Mock) 로그인·온보딩 → ‘팔로우하고 대화 시작’ 시트 → 채팅 URL `/chats/f-kang?start=1&productId=p-house` → “당도가 몇이에요?” → AI 안내 ‘등록된 실측 당도는 11.8Brix예요.’ 같은 대화를 상품 없이(`/chats/f-kang`) 열고 같은 질문 → ‘농가에 전달했어요’. 콘솔 오류 0.
