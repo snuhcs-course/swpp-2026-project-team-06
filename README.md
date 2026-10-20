@@ -188,6 +188,19 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 The project `farmclub` (service `farmclub-api`, domain
 `https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
 
+**Cleaning up test data (DEV-93).** Name farms you create for live checks with
+`(삭제 예정)` and order only with test accounts. Remove such a farm and everything linked
+to it from the service shell:
+
+```bash
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_test_farm <farmId>           # dry run: counts, then rollback
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_test_farm <farmId> --commit  # delete
+```
+
+It refuses a farm without the marker, a farm with orders from real (non-test) accounts,
+and more than 500 rows. Deleting real users' data waits for the retention policy (PQ-06,
+DEV-94).
+
 ### Automatic deploys (DEV-65, DEV-66)
 
 The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App

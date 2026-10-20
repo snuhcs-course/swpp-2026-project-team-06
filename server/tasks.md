@@ -1375,10 +1375,13 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 생산자 계정은 테스트 계정이 아니면(카카오로 만든 검증용 계정) 같이 지운다. 시드 테스트 계정은 남긴다.
 
 ### 작업
-- [ ] 명령과 안전 조건
-- [ ] pytest(거부 2종, 시험 실행 무변경, 삭제 후 다른 데이터 보존)
-- [ ] admin spec.md·README 안내
+- [x] 명령과 안전 조건
+- [x] pytest(거부 2종, 시험 실행 무변경, 삭제 후 다른 데이터 보존, 비테스트 생산자 계정 삭제)
+- [x] admin spec.md·README 안내
 - [ ] 운영 시험 실행 → commit(SWPP-118 농가), 결과 기록
 
 ### 기록
 - 10/20 main `271fe87`에서 시작.
+- 10/20 첫 구현은 FK를 열 하나씩 따라가 복합 FK(주문 → `(product_id, option_id)`)에서 다른 상품의 같은 옵션 ID(`opt-5`) 주문까지 모았다. 삭제 후 다른 농가 주문 수를 보는 테스트가 잡았고(0 ≠ 1), FK 제약 단위 묶음 비교로 고쳤다. 같은 방식이던 scratchpad 일회용 스크립트는 운영에서 실행하지 않았다.
+- 10/20 감사 이벤트·멱등 기록의 ID 매칭을 부분 문자열에서 ID 글자 경계 정규식으로 바꿨다(`o-1`이 `o-11`에 맞지 않게). 다른 농가 주문(o-11)의 이벤트가 남는지 테스트에 추가.
+- 10/20 검증: `uv run pytest -q tests/test_purge_test_farm.py` 5 passed, 전체 `uv run pytest -q` 372 passed, `uv run ruff check .` 통과. 새 파일 `ruff format` 통과(기존 14개 파일 미포맷은 main 그대로).
