@@ -253,8 +253,10 @@ Response `200`: `{ "accessToken": "<JWT>", "user": { "userId": "u-minji", "name"
 `POST /api/messaging/chats/f-kang/messages` (consumer who follows the farm, or has a paid order with it)
 
 ```json
-{ "text": "배송은 언제예요?", "attachmentIds": [], "orderId": null }
+{ "text": "배송은 언제예요?", "attachmentIds": [], "orderId": null, "productId": "p-house" }
 ```
+
+`productId` is optional. The consumer app sends it when the chat was opened from a product page, so the AI answers from that product even when the farm sells more than one. It must be a published product of this farm, or the request returns 404. It is used only as AI evidence and is not stored. If `orderId` is also sent, the order's product wins.
 
 Response `200` when AI answers:
 

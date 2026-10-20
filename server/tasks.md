@@ -1460,11 +1460,11 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 - 10/20 주문과 상품이 함께 오면 주문이 이긴다(`build_evidence` 그대로). Mock `preview`는 상품이 주문보다 앞서므로 Mock 보내기는 주문이 없을 때만 상품을 넘긴다.
 
 ### 작업
-- [ ] 서버: `SendInput.product_id`, 검증(다른 농가·미판매 404, 저장 전), `_evidence`에 전달
-- [ ] pytest: 상품 2개 농가가 지정 상품 당도로 답함 / 상품 없으면 전달 / 다른 농가·미판매 상품 404·메시지 미저장
-- [ ] `packages/api`: `messaging.send(…, productId?)`, Mock 검증·전달, `test-ai-feedback.mjs` 케이스
-- [ ] 소비자 앱: 상품 페이지 채팅하기 두 곳이 `productId`를 넘기고 채팅 화면이 보내기에 싣는다
-- [ ] 문서: screens.md·wiki 보내기 행, `messaging/spec.md` 구현 결정
+- [x] 서버: `SendInput.product_id`, 검증(다른 농가·미판매 404, 저장 전), `_evidence`에 전달
+- [x] pytest: 상품 2개 농가가 지정 상품 당도로 답함 / 상품 없으면 전달 / 다른 농가·미판매 상품 404·메시지 미저장
+- [x] `packages/api`: `messaging.send(…, productId?)`, Mock 검증·전달, `test-ai-feedback.mjs` 케이스
+- [x] 소비자 앱: 상품 페이지 채팅하기 두 곳이 `productId`를 넘기고 채팅 화면이 보내기에 싣는다
+- [x] 문서: screens.md·wiki 보내기 행, `messaging/spec.md` 구현 결정
 - [ ] SWPP-116 8절 한계 문구(위 결정대로, 머지 순서에 따라)
 
 ### 완료 조건
@@ -1474,3 +1474,4 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 
 ### 기록
 - 10/20 main `1c8ec35`에서 시작.
+- 10/20 구현. 시드 대화 f-kang·u-minji는 HUMAN(version 2)이라 테스트에서 AUTO로 돌린다. 새 pytest 3개는 수정 전 코드에서 2개 실패(당도·404), 수정 후 통과. 검증: `uv run pytest` 378 passed, `ruff check` 통과(`ruff format --check`의 14파일은 main에도 있던 것), `npm run test:mock` 16/16, `npm run typecheck` 4개 통과. 남은 일: 소비자 앱 Mock 화면 확인, AI 1차 리뷰.
