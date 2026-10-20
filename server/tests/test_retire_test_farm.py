@@ -1,12 +1,21 @@
 """DEV-93 운영 테스트 농가 숨김 명령."""
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app.accounts.models import User
-from app.admin.retire_test_farm import RETIRE_REASON, RetireRefused, restore, retire
+from app.admin.models import ManagerEvent
+from app.admin.retire_test_farm import (
+    OPEN_STATUSES,
+    RETIRE_REASON,
+    RetireRefused,
+    main,
+    restore,
+    retire,
+)
 from app.catalog.models import Product
 from app.core.db import get_sessionmaker
 from app.farms.models import Farm
@@ -40,6 +49,17 @@ def farm_state(farm_id: str) -> tuple[str, str | None]:
         return farm.approval_status, farm.suspend_reason
 
 
+def farm_events(farm_id: str) -> list[ManagerEvent]:
+    with get_sessionmaker()() as session:
+        return list(
+            session.scalars(
+                select(ManagerEvent)
+                .where(ManagerEvent.target_type == "farm", ManagerEvent.target_id == farm_id)
+                .order_by(ManagerEvent.created_at)
+            )
+        )
+
+
 def make_order_consumers_test_accounts(farm_id: str) -> None:
     # 시드 f-kang에는 테스트 계정이 아닌 구매자(u-buyer-*) 주문이 있다.
     with get_sessionmaker()() as session, session.begin():
@@ -64,17 +84,21 @@ def test_DEV_93_refuses_unknown_or_unapproved_farm():
         retire("f-unknown", commit=True)
     with pytest.raises(RetireRefused, match="승인된 농가가 아니라"):
         retire("f-wimi", commit=True)
+    with pytest.raises(RetireRefused, match="이미 숨겨진"):
+        retire("f-stop", commit=True)
 
     assert farm_state("f-wimi")[0] == "PENDING"
+    assert farm_state("f-stop")[0] == "SUSPENDED"
 
 
 def test_DEV_93_dry_run_changes_nothing():
     make_order_consumers_test_accounts("f-kang")
 
-    farm = retire("f-kang")
+    result = retire("f-kang")
 
-    assert farm.name and farm.approval_status == "APPROVED"
+    assert result.farm_id == "f-kang" and result.name
     assert farm_state("f-kang") == ("APPROVED", None)
+    assert farm_events("f-kang") == []
 
 
 def test_DEV_93_retired_farm_is_hidden_everywhere(client, login):
@@ -112,8 +136,59 @@ def test_DEV_93_restore_reopens_only_farms_this_command_hid(client):
     restore("f-kang", commit=True)
 
     assert farm_state("f-kang") == ("APPROVED", None)
+    assert [e.event_type for e in farm_events("f-kang")] == [
+        "test_farm_retired",
+        "test_farm_restored",
+    ]
     assert client.get("/api/farms/f-kang").status_code == 200
     # 제재로 정지된 농가는 풀지 않는다.
     with pytest.raises(RetireRefused, match="이 명령으로 숨긴 농가가 아니에요"):
         restore("f-stop", commit=True)
     assert farm_state("f-stop")[0] == "SUSPENDED"
+
+
+def test_DEV_93_commit_writes_one_audit_event_outside_the_exception_list(client, admin_headers):
+    make_order_consumers_test_accounts("f-kang")
+
+    retire("f-kang", commit=True)
+
+    [event] = farm_events("f-kang")
+    assert event.event_type == "test_farm_retired" and event.actor_id is None
+    assert event.status == "SUCCEEDED"
+    assert event.request_summary == {"via": "cli", "previousStatus": "APPROVED"}
+    assert event.result == {"status": "SUSPENDED"}
+    listed = client.get("/admin/exceptions", headers=admin_headers).json()["items"]
+    assert event.id not in {e["id"] for e in listed}
+
+
+def test_DEV_93_dry_run_reports_open_orders_and_reported_deposits(capsys):
+    make_order_consumers_test_accounts("f-kang")
+    with get_sessionmaker()() as session, session.begin():
+        order = session.scalars(
+            select(Order)
+            .join(Product, Product.id == Order.product_id)
+            .where(Product.farm_id == "f-kang")
+            .order_by(Order.id)
+        ).first()
+        order.status = "AWAITING_DEPOSIT"
+        order.deposit_reported_at = datetime(2026, 10, 20, tzinfo=UTC)
+    with get_sessionmaker()() as session:
+        expected = dict(
+            session.execute(
+                select(Order.status, func.count())
+                .join(Product, Product.id == Order.product_id)
+                .where(Product.farm_id == "f-kang", Order.status.in_(OPEN_STATUSES))
+                .group_by(Order.status)
+            ).all()
+        )
+
+    result = retire("f-kang")
+
+    assert result.open_orders == expected and result.open_orders["AWAITING_DEPOSIT"] >= 1
+    assert result.reported_deposits == 1
+    main(["f-kang"])
+    out = capsys.readouterr().out
+    assert "열린 채로 남을 수 있어요" in out
+    assert "입금했다고 알린 주문 1개" in out and "deposit-overdue" in out
+    assert "시험 실행이라 바꾸지 않았어요" in out
+    assert farm_state("f-kang") == ("APPROVED", None)
