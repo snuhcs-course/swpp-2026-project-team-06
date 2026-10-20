@@ -366,7 +366,8 @@ function bind(ctx: Ctx, aa: Attachment[]) {
 function send(ctx: Ctx, t: Thread, producer: boolean) {
   return idempotent(ctx, `send:${t.threadId}`, () => {
     const text = String(ctx.body.text ?? "").trim(),
-      orderId = ctx.body.orderId ? String(ctx.body.orderId) : undefined;
+      orderId = ctx.body.orderId ? String(ctx.body.orderId) : undefined,
+      productId = ctx.body.productId ? String(ctx.body.productId) : undefined;
     if (orderId) {
       const o = paidOrder(ctx, orderId);
       if (
@@ -374,6 +375,11 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
         o.consumerId !== t.consumerId
       )
         notFound();
+    }
+    // 상품 페이지에서 연 채팅의 상품(DEV-97): 그 농가의 판매 중 상품만
+    if (productId) {
+      const p = ctx.db.products[productId];
+      if (p?.farmId !== t.farmId || p.status !== "PUBLISHED") notFound();
     }
     const aa = attachments(ctx, t, orderId);
     if ((!text && !aa.length) || text.length > 1000)
@@ -429,7 +435,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
         text,
         settings,
         false,
-        undefined,
+        // 서버처럼 주문이 상품보다 먼저다. preview는 상품을 먼저 보므로 주문이 없을 때만 넘긴다
+        orderId ? undefined : productId,
         orderId,
       );
       if (
