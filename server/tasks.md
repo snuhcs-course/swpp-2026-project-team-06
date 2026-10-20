@@ -1403,7 +1403,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 ## SWPP-118 운영 서버 운영자 점검 (I-06/07/10/11/13)
 - 이슈: [SWPP-118](https://linear.app/sswp6/issue/SWPP-118)
 - 브랜치: `zahra/swpp-118-live-operator-checks`
-- 기능·인수 조건: M01·M02·M03 / FEAT-01 AC-01-3, FEAT-04 AC-04-8, FEAT-09 AC-09-8, R-11·R-12·R-22·R-25·R-28
+- 기능·인수 조건: M01·M02·M03 / FEAT-01 AC-01-3, FEAT-04 AC-04-8, FEAT-09 AC-09-7·AC-09-8, FEAT-17 AC-17-7, R-11·R-12·R-22·R-25·R-28
 - 상태: 진행 중
 
 ### 목표
@@ -1417,13 +1417,15 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 운영 데이터 변경은 이름 붙은 테스트 데이터로만 한다(DEV-84·DEV-90 선례). 농가·상품 이름 `ZAHRA 운영자 테스트 1020 (삭제 예정)`, 생산자는 본인 카카오 계정, 소비자는 테스트 계정 `u-seojun`.
 - 10/20 시드 농가·상품(f-wimi, capacity-p-cheonggyeon, f-kang 등)은 건드리지 않는다. `POST /admin/orders/expire-deposits`는 운영의 모든 기한 지난 주문을 취소하므로 운영에서 부르지 않는다(AC-09-7 pytest로 대신).
 - 10/20 삭제 API가 없어 끝난 뒤 상품을 판매 중지하고 남은 ID를 기록한다.
+- 10/20 PR #189 리뷰 반영: 발견 3건은 스펙대로의 동작이라 wiki에서 "Gaps found" 대신 "Known limits (by spec)"로 쓰고 근거를 단다(소비자 부분 환불 미표시 screens.md 7.2·DEV-62, 농가 부분 환불 송금 AC-17-7 나중 고려, 카카오만 보이는 로그인 SCR-05). 무통장 입금에서 부분 환불 송금 안내가 없는 문제는 DEV-96으로 남긴다.
 
 ### 작업
 - [x] A 생산자 승인: 반려 → 재신청 → 승인, 같은 키 반복, 결정 이력, 401/403
 - [x] B 공급 물량: 오래된 version 409 → 승인, 소비자 노출·공개 필드 수정 반영
 - [x] C 입금·환불: 입금 안내 → 운영자 입금 확인(반복) → 부분 환불 → 최종 환불 → 중복 환불 409 → 생산자 환불 송금 완료, deposit-overdue 조회
 - [x] D 판매 중지 후 주문 거부 확인, 남은 데이터 기록
-- [ ] Testing wiki 절, 내부 테스트 시트 갱신, PR
+- [x] Testing wiki 절, PR #189
+- [ ] 내부 테스트 시트 I-06·I-07·I-10·I-11·I-13 → Pass (사람)
 
 ### 기록
 - 10/20 운영자 토큰은 `railway ssh --service farmclub-api`로 발급. 전 단계 통과, `NO_FARM_ACCOUNT`는 계좌가 이미 있어 운영에서 미실행(DEV-68 pytest).
