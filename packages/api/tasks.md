@@ -244,3 +244,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 범위: `packages/api/src/mock/auth.ts`(Mock 생산자 카카오 계정 `u-kakao-farm`), `scripts/test-onboarding.mjs`(생산자 카카오 → 가입 신청 확인)
 - 10/18 결정: Mock 생산자 카카오 로그인은 강영수(승인) 대신 농가 없는 `u-kakao-farm`(이름 ‘카카오 사용자’)으로 들어가 가입 신청 흐름을 보여 준다. 상태별 시연은 테스트 계정 목록으로 계속 한다.
 - [x] Mock 계정과 계약 테스트, `npm run test:mock` 15/15
+
+## DEV-97 채팅 보내기 `productId`
+
+- 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97) · 기준 절: `server/tasks.md#dev-97`
+- 범위: `src/endpoints.ts`(`messaging.send` 마지막 인자 `productId?`), `src/mock/conversations.ts`(`send`: 그 농가의 판매 중 상품이 아니면 404, 주문이 없을 때만 AI 근거로 넘김), `scripts/test-ai-feedback.mjs`
+- [ ] 엔드포인트·Mock, `npm run test:mock`

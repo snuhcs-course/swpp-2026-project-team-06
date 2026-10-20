@@ -1432,3 +1432,45 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 발견: 부분 환불은 소비자 주문 조회에 전혀 보이지 않고, 부분 환불만 있으면 생산자 환불 송금 목록에도 나오지 않는다(최종 환불 뒤에야 ₩1,000 한 건으로 보임). 계좌이체 구조에서는 부분 환불을 보낼 사람이 안내받지 못한다.
 - 10/20 남은 운영 데이터: 농가 `f-16b05f2b68`(승인), 상품 `p-20e7eef1fb`(판매 중지, 목록에는 보임), 주문 `o-7e7694e1d2`(환불·송금 완료), 환불 `refund-cf4a1cb937`·`refund-62c31d5c89`, REJECTED 감사 이벤트 2건.
 - 10/20 DEV-93 머지(`664d59d`) 뒤 `retire_test_farm f-16b05f2b68 --commit`으로 농가를 숨겼다(`SUSPENDED`, 행은 남김). 확인: 농가 상세·공유 페이지·상품 `p-20e7eef1fb` 404, 농가 목록·홈에 없음, 다른 농가 7곳 그대로. 다른 사람의 테스트 농가는 건드리지 않았다.
+
+## DEV-97 소비자 채팅 AI가 상품 페이지에서 연 채팅의 상품을 모름
+- 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97)
+- 브랜치: `zahra/dev-97-chat-product-context`
+- 기능·인수 조건: FEAT-13 AC-13-1·AC-13-3, FEAT-12(SCR-04 채팅하기 → SCR-16), M-18
+- 상태: 진행 중
+
+### 목표
+AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 순으로 상품을 고르는데, 소비자 채팅 보내기는 상품을 넘기지 않는다. 판매 중 상품이 2개 이상인 농가(`f-kang`)에서 상품 페이지로 연 채팅의 당도·배송 질문이 등록 정보가 있어도 농가에 전달된다. 상품 페이지에서 연 채팅이 그 상품을 근거로 쓰게 한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/messaging/schemas.py`(`SendInput`), `server/app/messaging/service.py`(`consumer_send`, `_evidence`), `server/app/messaging/spec.md`(구현 결정 한 줄), `server/tests/test_messaging.py`, `server/tasks.md`
+- `packages/api/src/endpoints.ts`(`messaging.send`), `packages/api/src/mock/conversations.ts`(`send`), `scripts/test-ai-feedback.mjs`, `packages/api/tasks.md`
+- `apps/consumer/src/app/(tabs)/products/[productId].tsx`(채팅하기 경로), `apps/consumer/src/app/(tabs)/chats/[farmId].tsx`(보내기), `apps/consumer/tasks.md`
+- `docs/spec/screens.md`(보내기 API 행), `docs/wiki/Design-Documentation.md`(보내기 행)
+
+### 비범위 (건드리지 않음)
+- `Thread` 모델·Alembic 마이그레이션(상품 문맥을 대화에 저장하지 않음)
+- `build_evidence`의 우선순위, 생산자 AI 미리보기(`farms/service.py`), ai 어댑터·프롬프트
+- 채팅 목록·주문 상세에서 여는 채팅 경로
+
+### 결정 사항
+- 10/20 상품 문맥은 메시지마다 보낸다(사용자 결정). 대화에 저장하지 않아 마이그레이션이 없다. 채팅 목록에서 다시 열면 기존 대체 규칙(판매 중 상품 1개면 그 상품, 아니면 없음).
+- 10/20 `productId`는 그 농가의 판매 중(PUBLISHED) 상품만. 아니면 404 `찾을 수 없는 상품이에요.`이고 메시지를 저장하지 않는다(미리보기와 같은 문구). 판매 중이 아닌 상품을 근거로 쓰면 판매하지 않는 상품의 배송 기간을 안내할 수 있어서다.
+- 10/20 SWPP-116 wiki 페이지(`docs/wiki/AI-Customer-Support.md`)는 아직 main에 없다(브랜치 `zahra/swpp-116-ai-cs-wiki`). 8절의 이 한계 문구는 이 PR이 먼저 머지되면 SWPP-116 브랜치에서 고치고, 반대면 이 PR에 범위를 추가한다.
+- 10/20 주문과 상품이 함께 오면 주문이 이긴다(`build_evidence` 그대로). Mock `preview`는 상품이 주문보다 앞서므로 Mock 보내기는 주문이 없을 때만 상품을 넘긴다.
+
+### 작업
+- [ ] 서버: `SendInput.product_id`, 검증(다른 농가·미판매 404, 저장 전), `_evidence`에 전달
+- [ ] pytest: 상품 2개 농가가 지정 상품 당도로 답함 / 상품 없으면 전달 / 다른 농가·미판매 상품 404·메시지 미저장
+- [ ] `packages/api`: `messaging.send(…, productId?)`, Mock 검증·전달, `test-ai-feedback.mjs` 케이스
+- [ ] 소비자 앱: 상품 페이지 채팅하기 두 곳이 `productId`를 넘기고 채팅 화면이 보내기에 싣는다
+- [ ] 문서: screens.md·wiki 보내기 행, `messaging/spec.md` 구현 결정
+- [ ] SWPP-116 8절 한계 문구(위 결정대로, 머지 순서에 따라)
+
+### 완료 조건
+- [ ] 이슈 완료 조건(서버 `productId`·404, 소비자 앱 전달, Mock 일치, 문서)
+- [ ] 테스트 통과: `uv run pytest`, `npm run test:mock`, `npm run typecheck`
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/20 main `1c8ec35`에서 시작.
