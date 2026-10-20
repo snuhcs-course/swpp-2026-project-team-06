@@ -1437,7 +1437,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97)
 - 브랜치: `zahra/dev-97-chat-product-context`
 - 기능·인수 조건: FEAT-13 AC-13-1·AC-13-3, FEAT-12(SCR-04 채팅하기 → SCR-16), M-18
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 순으로 상품을 고르는데, 소비자 채팅 보내기는 상품을 넘기지 않는다. 판매 중 상품이 2개 이상인 농가(`f-kang`)에서 상품 페이지로 연 채팅의 당도·배송 질문이 등록 정보가 있어도 농가에 전달된다. 상품 페이지에서 연 채팅이 그 상품을 근거로 쓰게 한다.
@@ -1469,10 +1469,11 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 
 ### 완료 조건
 - [ ] 이슈 완료 조건(서버 `productId`·404, 소비자 앱 전달, Mock 일치, 문서)
-- [ ] 테스트 통과: `uv run pytest`, `npm run test:mock`, `npm run typecheck`
+- [x] 테스트 통과: `uv run pytest`, `npm run test:mock`, `npm run typecheck`
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/20 main `1c8ec35`에서 시작.
 - 10/20 구현. 시드 대화 f-kang·u-minji는 HUMAN(version 2)이라 테스트에서 AUTO로 돌린다. 새 pytest 3개는 수정 전 코드에서 2개 실패(당도·404), 수정 후 통과. 검증: `uv run pytest` 378 passed, `ruff check` 통과(`ruff format --check`의 14파일은 main에도 있던 것), `npm run test:mock` 16/16, `npm run typecheck` 4개 통과. 남은 일: AI 1차 리뷰.
 - 10/20 소비자 앱 Mock 화면 확인(Chrome): 비로그인 → 하우스 감귤 상품 페이지 ‘1:1 채팅’ → 카카오(Mock) 로그인·온보딩 → ‘팔로우하고 대화 시작’ 시트 → 채팅 URL `/chats/f-kang?start=1&productId=p-house` → “당도가 몇이에요?” → AI 안내 ‘등록된 실측 당도는 11.8Brix예요.’ 같은 대화를 상품 없이(`/chats/f-kang`) 열고 같은 질문 → ‘농가에 전달했어요’. 콘솔 오류 0.
+- 10/20 AI 1차 리뷰(PR 코멘트): must 없음. should 반영 — 주문+상품 동시 전송 시 주문 우선 테스트 추가(pytest 379 passed). 후속 제안: 전달된 질문에 상품 문맥이 없어 농가가 어느 상품 질문인지 모름(범위 밖). draft 해제, 사람 리뷰 대기.
