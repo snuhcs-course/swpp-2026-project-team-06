@@ -192,3 +192,13 @@ def test_DEV_93_dry_run_reports_open_orders_and_reported_deposits(capsys):
     assert "입금했다고 알린 주문 1개" in out and "deposit-overdue" in out
     assert "시험 실행이라 바꾸지 않았어요" in out
     assert farm_state("f-kang") == ("APPROVED", None)
+
+
+def test_DEV_93_unknown_option_is_refused_before_any_change():
+    make_order_consumers_test_accounts("f-kang")
+
+    with pytest.raises(SystemExit, match="사용법"):
+        main(["f-kang", "--restor", "--commit"])
+
+    assert farm_state("f-kang") == ("APPROVED", None)
+    assert farm_events("f-kang") == []

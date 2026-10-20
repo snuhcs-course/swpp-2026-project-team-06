@@ -147,7 +147,8 @@ def restore(farm_id: str, commit: bool = False) -> Result:
 
 def main(argv: list[str]) -> None:
     args = [a for a in argv if not a.startswith("--")]
-    if len(args) != 1:
+    # 오타(--restor 등)가 다른 동작으로 이어지지 않게 모르는 옵션은 거부한다.
+    if len(args) != 1 or set(argv) - set(args) - {"--commit", "--restore"}:
         sys.exit("사용법: python -m app.admin.retire_test_farm <농가 ID> [--restore] [--commit]")
     commit = "--commit" in argv
     undo = "--restore" in argv
