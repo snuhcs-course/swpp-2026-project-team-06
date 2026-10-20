@@ -188,6 +188,24 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 The project `farmclub` (service `farmclub-api`, domain
 `https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
 
+**Hiding a test farm (DEV-93).** Order from farms you create for live checks only with test
+accounts. When the check is done, hide the farm from everyone from the service shell. Nothing is
+deleted: the farm becomes `SUSPENDED`, which every public path already hides.
+
+```bash
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId>                     # dry run
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --commit            # hide
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --restore --commit  # undo
+```
+
+It refuses a farm that is not approved or has orders from real (non-test) accounts, since
+suspension means refunding those (R-24). Each `--commit` writes one `ManagerEvent`.
+Pre-shipment test orders are counted, not refused: they may stay open while the farm is hidden.
+Orders whose buyer reported a deposit never auto-cancel and appear in `deposit-overdue` after the
+deadline, so cancel them first if you want that list clean. `--restore` only reopens farms this
+command hid; orders that expired in the meantime stay cancelled.
+Permanently deleting data waits for the retention policy (PQ-06, DEV-94).
+
 ### Automatic deploys (DEV-65, DEV-66)
 
 The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App
