@@ -5,11 +5,20 @@
 export type AppName = "consumer" | "producer";
 
 /**
- * 주문서·입금 안내·배송지·주문·채팅·입금 계좌·내 정보·가입 온보딩·카카오 로그인 복귀처럼 이름·연락처·주소·메시지 본문이 보이는 경로.
- * 모달(Sheet)은 화면 밖 portal에 그려져 영역 표시가 닿지 않으므로 경로 단위로 가린다.
+ * 화면 글자를 통째로 가리는 경로. 화면 대부분이 개인정보(이름·연락처·주소·계좌·메시지 본문)이거나 입력 화면인 곳만 둔다.
+ * `*`는 경로 한 칸(예: 상품 ID). 그 밖의 화면(내 정보·주문·주문서·입금 안내 등)은 개인정보 글자만
+ * `T masked`·`data-ph-private`로 가린다(DEV-104). 시트(모달)는 화면 밖 portal이라 시트 안 글자에도 직접 표시한다.
  */
 export const PRIVATE_PATHS: Record<AppName, readonly string[]> = {
-  consumer: ["/checkout", "/orders", "/chats", "/me", "/onboarding", "/auth"],
+  consumer: [
+    "/chats",
+    "/me/profile",
+    "/me/addresses",
+    "/checkout/*/address",
+    "/orders/*/inquiry",
+    "/onboarding",
+    "/auth",
+  ],
   producer: ["/chats", "/ship", "/pending", "/apply", "/farm/account", "/auth"],
 };
 
@@ -21,10 +30,16 @@ export const privateArea = { dataSet: { phPrivate: "1" } } as Record<
   unknown
 >;
 
+/** 패턴의 칸 수만큼 앞에서부터 맞으면(그 아래 경로 포함) 가린다 */
 export function isPrivatePath(app: AppName, pathname: string): boolean {
-  return PRIVATE_PATHS[app].some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+  const parts = pathname.split("/").filter(Boolean);
+  return PRIVATE_PATHS[app].some((pattern) => {
+    const want = pattern.split("/").filter(Boolean);
+    return (
+      parts.length >= want.length &&
+      want.every((seg, i) => seg === "*" || seg === parts[i])
+    );
+  });
 }
 
 type MaskTarget =

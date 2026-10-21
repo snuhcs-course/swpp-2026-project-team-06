@@ -1,4 +1,5 @@
 // SCR-14 주문 상세 (FEAT-10, 11, R-07, R-14, R-21, R-28 입금 대기 DEV-68) — design: scr-14, s-14-*
+import { privateArea } from "@farmclub/analytics";
 import {
   ApiError,
   carrierLabel,
@@ -161,29 +162,34 @@ export default function OrderDetail() {
               </T>
             ) : null}
             {o.status === "REFUNDED" && o.refundReason ? (
-              <T variant="sub" weight="semibold" style={{ marginTop: 8 }}>
+              <T variant="sub" weight="semibold" style={{ marginTop: 8 }} masked>
                 사유 · {o.refundReason}
               </T>
             ) : null}
             {o.status === "CANCELED" && o.cancelReason ? (
-              <T variant="sub" weight="semibold" style={{ marginTop: 8 }}>
+              <T variant="sub" weight="semibold" style={{ marginTop: 8 }} masked>
                 사유 · {o.cancelReason}
               </T>
             ) : null}
             {/* 농가 미승인(DEV-68 AC-09-9·AC-17-8): 사유를 그대로 보여 준다 */}
+            {/* 농가가 적은 사유는 자유 글이라 녹화에서 가린다(DEV-104) */}
             {awaiting && o.depositIssue ? (
-              <Notice
-                title="농가가 입금을 확인하지 못했어요"
-                body={`사유 · ${o.depositIssue}\n확인한 뒤 다시 입금했다고 알려 주세요. 궁금하면 농가에 물어보세요.`}
-                style={{ marginTop: 8 }}
-              />
+              <View {...privateArea}>
+                <Notice
+                  title="농가가 입금을 확인하지 못했어요"
+                  body={`사유 · ${o.depositIssue}\n확인한 뒤 다시 입금했다고 알려 주세요. 궁금하면 농가에 물어보세요.`}
+                  style={{ marginTop: 8 }}
+                />
+              </View>
             ) : null}
             {o.status === "REFUNDED" && o.refundIssue ? (
-              <Notice
-                title="환불 송금이 늦어지고 있어요"
-                body={`사유 · ${o.refundIssue}\n궁금하면 농가에 물어보세요.`}
-                style={{ marginTop: 8 }}
-              />
+              <View {...privateArea}>
+                <Notice
+                  title="환불 송금이 늦어지고 있어요"
+                  body={`사유 · ${o.refundIssue}\n궁금하면 농가에 물어보세요.`}
+                  style={{ marginTop: 8 }}
+                />
+              </View>
             ) : null}
             {stepIndex(o) > 0 || awaiting ? (
               <View
@@ -313,12 +319,17 @@ export default function OrderDetail() {
                 ) : null}
               </T>
             </Row>
-            <Row k="받는 사람" v={`${o.recipientName} · ${o.recipientPhone}`} />
+            <Row
+              k="받는 사람"
+              v={`${o.recipientName} · ${o.recipientPhone}`}
+              masked
+            />
             <Row
               k="주소"
               v={`${o.address}${o.addressDetail ? `, ${o.addressDetail}` : ""}`}
+              masked
             />
-            <Row k="배송 메모" v={o.deliveryNote ?? "없음"} last />
+            <Row k="배송 메모" v={o.deliveryNote ?? "없음"} last masked />
           </View>
           <Button
             label="농가에 물어보기 ›"
@@ -481,7 +492,9 @@ function Tracking({ o, onCopied }: { o: Order; onCopied: () => void }) {
       <View style={{ alignItems: "flex-end", flexShrink: 1 }}>
         <T variant="body" style={{ textAlign: "right" }}>
           {carrierLabel(o.carrier)}
-          {o.trackingNumber ? ` · ${o.trackingNumber}` : ""}
+          {o.trackingNumber ? (
+            <T variant="body" masked>{` · ${o.trackingNumber}`}</T>
+          ) : null}
         </T>
         {o.trackingNumber ? (
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -534,12 +547,15 @@ function Row({
   children,
   bold,
   last,
+  masked,
 }: {
   k: string;
   v?: string;
   children?: ReactNode;
   bold?: boolean;
   last?: boolean;
+  /** 값이 개인정보면 녹화에서 값만 가린다(DEV-104) */
+  masked?: boolean;
 }) {
   return (
     <View
@@ -564,6 +580,7 @@ function Row({
           variant="body"
           weight={bold ? "bold" : "regular"}
           style={{ flexShrink: 1, textAlign: "right" }}
+          masked={masked}
         >
           {v}
         </T>

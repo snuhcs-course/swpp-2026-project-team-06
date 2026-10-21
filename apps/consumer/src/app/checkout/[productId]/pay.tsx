@@ -113,11 +113,13 @@ export default function DepositGuide() {
                 <T variant="heading">판매자</T>
                 <T variant="body">
                   {o.sellerInfo?.farmName ?? o.farmName}
-                  {o.sellerInfo?.ownerName
-                    ? ` · 대표 ${o.sellerInfo.ownerName}`
-                    : ""}
+                  {o.sellerInfo?.ownerName ? (
+                    <T variant="body" masked>
+                      {` · 대표 ${o.sellerInfo.ownerName}`}
+                    </T>
+                  ) : null}
                 </T>
-                <T variant="sub" muted>
+                <T variant="sub" muted masked>
                   {[o.sellerInfo?.region, o.sellerInfo?.phone]
                     .filter(Boolean)
                     .join(" · ")}
