@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from app.core.detail import MediaUri
 from app.core.schemas import CamelModel
 
 SenderType = Literal["CONSUMER", "PRODUCER", "AI"]
@@ -25,8 +26,8 @@ class NewsItem(CamelModel):
 
 class NewsInput(CamelModel):
     body: str = ""
-    photos: list[str] = Field(default_factory=list)
-    videos: list[str] = Field(default_factory=list)
+    photos: list[MediaUri] = Field(default_factory=list)
+    videos: list[MediaUri] = Field(default_factory=list)
     visibility: Literal["PUBLIC", "FOLLOWERS"] = "FOLLOWERS"
 
 

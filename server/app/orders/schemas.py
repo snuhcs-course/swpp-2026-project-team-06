@@ -37,11 +37,11 @@ class OrderInput(CamelModel):
     product_id: str
     option_id: str
     quantity: int
-    recipient_name: str = ""
-    recipient_phone: str = ""
-    postal_code: str = ""
-    address: str = ""
-    address_detail: str = ""
+    recipient_name: str = Field(default="", max_length=100)
+    recipient_phone: str = Field(default="", max_length=32)
+    postal_code: str = Field(default="", max_length=16)
+    address: str = Field(default="", max_length=300)
+    address_detail: str = Field(default="", max_length=300)
     delivery_note: str | None = None
     consents: Consents = Field(default_factory=Consents)
     consent_version: str = Field(default="", max_length=32)

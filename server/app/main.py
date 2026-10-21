@@ -14,6 +14,7 @@ from app.core.errors import install_error_handlers
 from app.farms.router import home_router
 from app.farms.router import router as farms_router
 from app.farms.share import router as farm_share_router
+from app.media.router import router as media_router
 from app.messaging.router import router as messaging_router
 from app.orders.router import admin_router as orders_admin_router
 from app.orders.router import router as orders_router
@@ -49,6 +50,7 @@ for module_router in (
     catalog_router,
     orders_router,
     messaging_router,
+    media_router,
     ai_router,
     analytics_router,
     source_config_router,
