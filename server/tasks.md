@@ -1485,7 +1485,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 
 ### 범위 (수정 허용 경로)
 - `server/app/admin/users.py`(새), `server/app/admin/schemas.py`(끝에 추가), `server/app/main.py`(라우터 한 줄)
-- `server/app/accounts/models.py`(`ops_tester` 열), `server/migrations/versions/0017_user_ops_tester.py`(새)
+- `server/app/accounts/models.py`(`ops_tester` 열), `server/migrations/versions/0018_user_ops_tester.py`(새)
 - `server/app/admin/retire_test_farm.py`(실사용자 주문 검사 조건), `server/app/admin/farms.py`(생산자 테스트 여부 한 줄)
 - `server/tests/test_admin_users.py`(새), `server/tasks.md`, `server/app/admin/spec.md`
 - `scripts/admin-web/**`, `docs/spec/screens.md`·`ia.md`·`tech-design/README.md`(User 행), `docs/wiki/Design-Documentation.md`
@@ -1501,7 +1501,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/21 중계의 사용자 목록 경로는 한글 검색어가 퍼센트 인코딩되어 오므로 쿼리에 `%`·`+`·`.`까지 받는다(슬래시는 거부).
 
 ### 작업
-- [x] `ops_tester` 열·마이그레이션 0017, 실사용자 주문 검사에 반영
+- [x] `ops_tester` 열·마이그레이션 0018, 실사용자 주문 검사에 반영
 - [x] `/admin/users` 목록·검색, 표시·해제 API, pytest 8개
 - [x] 관리자 페이지 `/users` 화면, 메뉴, 중계 허용 경로, node 테스트 2개
 - [x] 문서: screens 운영자 API 표, ia, tech-design User 행, wiki(API 표·User 행), admin spec.md, admin-web README
