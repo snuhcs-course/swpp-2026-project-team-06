@@ -5,6 +5,7 @@ from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
 from app.admin.farms import router as admin_farms_router
 from app.admin.router import router as admin_exceptions_router
+from app.admin.users import router as admin_users_router
 from app.ai.router import router as ai_router
 from app.analytics.router import router as analytics_router
 from app.catalog.router import admin_router as catalog_admin_router
@@ -70,5 +71,6 @@ for admin_router in (
     orders_admin_router,
     admin_exceptions_router,
     admin_farms_router,
+    admin_users_router,
 ):
     app.include_router(admin_router)

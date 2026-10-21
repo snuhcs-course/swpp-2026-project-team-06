@@ -556,6 +556,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /admin/farms/{farmId}/suspend` | 운영자 | `reason` | 농가 정지, 출하 전 주문 전액 환불 수 | R-24 | Should |
 | `GET /admin/farms`·`GET /admin/farms/{farmId}/preview` | 운영자 | — | 공개 중 농가와 테스트로 숨긴 농가 목록(생산자·테스트 계정 여부·상품 수), 숨기기·되돌리기 시험 실행(거부 사유, 출하 전 테스트 주문 수). 관리자 페이지 테스트 농가(DEV-98)가 쓴다 | R-24 | Should |
 | `POST /admin/farms/{farmId}/retire`·`POST /admin/farms/{farmId}/restore` | 운영자, `Idempotency-Key` | — | 테스트 농가를 숨김(`SUSPENDED`, 고정 사유) 또는 다시 공개. 테스트 계정이 아닌 소비자 주문이 있으면 409 `TEST_FARM_REFUSED`. 행은 지우지 않는다(DEV-93·DEV-98) | R-24 | Should |
+| `GET /admin/users` | 운영자 | `q?`(이름·닉네임·ID·농가 이름, 숫자 4자리 이상이면 전화 끝자리), `role?`(`CONSUMER`·`PRODUCER`), `kind?`(`test`·`real`), `limit?`(기본 50, 최대 200) | 운영자 계정을 뺀 사용자 목록(가입 방식 시드·카카오, 테스트 여부, 전화 끝 4자리, 가입일, 주문 수, 소유 농가), 가입 최신순, 전체 수. 관리자 페이지 사용자(DEV-107)가 쓴다 | — | Should |
+| `POST /admin/users/{userId}/mark-tester`·`POST /admin/users/{userId}/unmark-tester` | 운영자, `Idempotency-Key` | — | 운영 검증 계정 표시(`opsTester`) 켜기·끄기. 테스트 농가 숨기기의 실사용자 주문 검사에서 테스트로 센다. 로그인·온보딩·앱 화면은 바뀌지 않는다. 운영자 계정·시드 테스트 계정은 409(`ADMIN_ACCOUNT`·`SEED_TEST_ACCOUNT`) (DEV-107) | — | Should |
 | `DELETE /admin/messages/{messageId}` | 운영자 | — | 204 | 정책 4장 | Should |
 
 1.1 엔드포인트 목록에 아래 1.2 계약을 합쳐 구현한다. 공통 오류 envelope와 계정 분리는 유지한다.

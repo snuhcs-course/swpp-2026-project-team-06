@@ -135,7 +135,7 @@ Figure 4. PK = primary key, FK = foreign key, UK = unique constraint. Timestamps
 
 | Table | Key data | Keys and relationships |
 | --- | --- | --- |
-| `User` | Role (consumer or producer), test-account flag, name, phone | String PK; one role per account |
+| `User` | Role (consumer or producer), test-account flag, operator-set ops-tester flag (DEV-107), name, phone | String PK; one role per account |
 | `ShippingAddress` | Recipient, phone, address, default flag | User 1:N; orders copy the values |
 | `Farm` | Owner, approval status and reason, profile, story blocks (JSON) | UK producer_id; user 1:0..1 farm |
 | `Follow` | Consumer, farm, created time | PK (consumer_id, farm_id) blocks duplicate follows |
@@ -303,6 +303,7 @@ Paths use `{id}` as a placeholder.
 | POST /api/orders/{id}/confirm-deposit · POST .../refund-settled | Approved producer (own farm) | Confirm a deposit, mark a refund as sent |
 | POST /admin/orders/{id}/confirm-deposit · POST /admin/orders/expire-deposits | Operator | Confirm on behalf of a farm, expire overdue deposits |
 | GET /admin/farms · GET .../{id}/preview · POST .../{id}/retire · .../restore | Operator | Hide a test farm from every public screen or show it again; refused when a non-test consumer has ordered (DEV-98) |
+| GET /admin/users · POST /admin/users/{id}/mark-tester · .../unmark-tester | Operator | Search users (phone shows only the last 4 digits) and mark a team member's real Kakao account as an ops tester, so test-farm hiding counts its orders as test orders (DEV-107) |
 | GET /api/orders · GET /api/orders/{id} | Order owner | History and detail |
 | POST /api/orders/{id}/cancel · .../confirm · .../delivery-window-response | Order owner | Cancel, confirm receipt, answer a window change |
 | GET /api/orders/producer/dashboard · GET /api/orders/producer | Approved producer | Dashboard and orders to ship |

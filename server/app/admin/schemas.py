@@ -64,3 +64,26 @@ class TestFarmResult(CamelModel):
     hidden: bool
     open_orders: dict[str, int]
     reported_deposits: int
+
+
+class AdminUserView(CamelModel):
+    """관리자 페이지 사용자 목록 한 줄(DEV-107). 전화는 끝 4자리만 보인다."""
+
+    user_id: str
+    name: str
+    nickname: str | None
+    role: str
+    signup: str  # SEED(kakao_id 없음) | KAKAO
+    is_test_account: bool
+    ops_tester: bool
+    phone_last4: str | None
+    created_at: datetime
+    order_count: int
+    farm_id: str | None
+    farm_name: str | None
+    farm_status: str | None
+
+
+class AdminUserPage(CamelModel):
+    items: list[AdminUserView]
+    total: int

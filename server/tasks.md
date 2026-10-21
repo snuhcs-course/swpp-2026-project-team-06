@@ -1523,3 +1523,42 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/21 main에서 시작. 시드 f-kang에 테스트 계정이 아닌 구매자 주문이 있어 성공 테스트는 DEV-93 테스트의 `make_order_consumers_test_accounts`를 쓴다.
 - 10/21 검증: `uv run pytest -q` 383 passed(새 `tests/test_admin_farms.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 12 passed.
 - 10/21 AI 1차 리뷰(pr-review): must 없음. should 반영: 생산자가 테스트 계정이 아닌 농가(실사용자 가입, 아직 주문 없음)를 숨길 때 미리보기에 경고 문구. 서울증류소처럼 본인 카카오로 가입한 운영 검증 농가도 이 경우라 막지 않고 알리기만 한다.
+
+## DEV-107 관리자 페이지 사용자 목록·검색과 테스트 계정 표시
+- 이슈: [DEV-107](https://linear.app/sswp6/issue/DEV-107)
+- 브랜치: `nemodleo/dev-107-dev-관리자-페이지-사용자-목록검색과-테스트-계정-표시` (DEV-98 브랜치 위에 쌓음, #202 머지 뒤 main 기준으로 최신화)
+- 기능·인수 조건: 운영 도구. 관련 FEAT-01(테스트 계정·카카오 계정), ADR 0009(Mock 로그인), DEV-93·DEV-98(테스트 농가 숨기기)
+- 상태: 리뷰 대기
+
+### 목표
+팀원이 카카오로 가입해 운영 검증에 쓴 계정을 관리자 페이지에서 찾아 "테스트"로 표시한다. 그러면 그 계정의 주문이 있는 테스트 농가(서울증류소 등)를 운영 DB를 직접 고치지 않고 숨길 수 있다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/users.py`(새), `server/app/admin/schemas.py`(끝에 추가), `server/app/main.py`(라우터 한 줄)
+- `server/app/accounts/models.py`(`ops_tester` 열), `server/migrations/versions/0018_user_ops_tester.py`(새)
+- `server/app/admin/retire_test_farm.py`(실사용자 주문 검사 조건), `server/app/admin/farms.py`(생산자 테스트 여부 한 줄)
+- `server/tests/test_admin_users.py`(새), `server/tasks.md`, `server/app/admin/spec.md`
+- `scripts/admin-web/**`, `docs/spec/screens.md`·`ia.md`·`tech-design/README.md`(User 행), `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- `is_test_account` 의미와 Mock 로그인·온보딩·앱 화면, 탈퇴·삭제(DEV-94), 사용자 상세·주문 내역(별도 이슈)
+
+### 결정 사항
+- 10/21 **`is_test_account`를 켜지 않고 새 열 `users.ops_tester`를 둔다.** `is_test_account`는 Mock 로그인 대상(`test_login`이 ID만으로 JWT 발급), 온보딩 생략(`needs_onboarding`), 소비자 앱 '테스트 계정' 표시·'내 정보 고치기' 숨김에 쓰인다. 카카오 계정에 켜면 Mock 로그인이 켜진 환경에서 ID만 알면 그 계정으로 로그인된다. 그래서 테스트 농가 숨기기의 실사용자 주문 검사에서만 `is_test_account OR ops_tester`를 테스트로 본다.
+- 10/21 API는 PUT·DELETE 대신 `POST .../mark-tester`·`.../unmark-tester`. 관리자 중계(`proxy.js`)가 GET·POST만 넘기고, 다른 작업과 겹치지 않게 중계 공통 코드는 고치지 않는다.
+- 10/21 목록은 운영자 계정을 빼고, 전화는 끝 4자리만 내보낸다. 검색어가 숫자 4자리 이상이면 전화 끝자리로, 아니면 이름·닉네임·ID·농가 이름 부분 일치(와일드카드 글자 그대로). 가입 최신순, 기본 50·최대 200, 전체 수를 같이 준다.
+- 10/21 운영자 계정은 409 `ADMIN_ACCOUNT`, 시드 테스트 계정은 409 `SEED_TEST_ACCOUNT`(이미 테스트로 센다). 거부도 `REJECTED` 감사 이벤트로 남는다.
+- 10/21 중계의 사용자 목록 경로는 한글 검색어가 퍼센트 인코딩되어 오므로 쿼리에 `%`·`+`·`.`까지 받는다(슬래시는 거부).
+
+### 작업
+- [x] `ops_tester` 열·마이그레이션 0018, 실사용자 주문 검사에 반영
+- [x] `/admin/users` 목록·검색, 표시·해제 API, pytest 8개
+- [x] 관리자 페이지 `/users` 화면, 메뉴, 중계 허용 경로, node 테스트 2개
+- [x] 문서: screens 운영자 API 표, ia, tech-design User 행, wiki(API 표·User 행), admin spec.md, admin-web README
+- [ ] 머지 뒤 운영 마이그레이션(배포 시 자동) 확인, Vercel `farmclub-admin` 재배포
+
+### 기록
+- 10/21 DEV-98 브랜치(`679d36d`)에서 시작.
+- 10/21 감사 이벤트 순서를 `created_at`으로 비교한 테스트가 전체 실행에서만 한 번 실패했다. 테스트 시계가 고정이라 두 이벤트 시각이 같다. 집합 비교로 고쳤다(DEV-98 `test_DEV_98_audit_names_the_admin`도 같은 방식이라 같은 위험이 있다).
+- 10/21 검증: `uv run pytest -q` 391 passed(새 `tests/test_admin_users.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, 새 DB에서 `alembic upgrade head` → `alembic check` 변경 없음, `node --test scripts/admin-web/admin.test.mjs` 14 passed.
+- 10/21 로컬 확인(새 DB 마이그레이션·시드, 로컬 API + `server.mjs`): `/users` 45명, 한글 검색 "강씨네" → 강영수(시드 테스트, 버튼 없음), u-buyer-choi 「테스트로 표시」 두 번 → "테스트(운영 검증)" 배지·토스트, 콘솔 오류 없음.

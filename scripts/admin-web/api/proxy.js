@@ -12,6 +12,9 @@ const ALLOWED = [
   new RegExp(`^/admin/capacity-requests${QUERY}$`),
   new RegExp(`^/admin/products/${ID}/capacity-requests/${ID}/(approve|reject)$`),
   new RegExp(`^/admin/farms(/${ID}/(preview|retire|restore))?$`),
+  // 사용자 검색어는 한글이라 퍼센트 인코딩(%·+·.)까지 받는다(DEV-107)
+  new RegExp(`^/admin/users(\\?[A-Za-z0-9=&_%.+-]*)?$`),
+  new RegExp(`^/admin/users/${ID}/(mark|unmark)-tester$`),
 ];
 
 const send = (res, status, code, message) => sendJson(res, status, { code, message });
