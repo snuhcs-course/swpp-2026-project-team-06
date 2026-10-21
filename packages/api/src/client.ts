@@ -210,12 +210,36 @@ export async function resetDemoData() {
   setToken(null);
 }
 
-export async function uploadMockMedia(dataUrl: string): Promise<string> {
-  if (!sharedMockUrl) return dataUrl;
-  const result = await request<{ url: string }>("POST", "/__mock/media", {
-    body: { dataUrl },
+function readDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(blob);
   });
-  return result.url;
+}
+
+/** 공개 사진·영상(농가 프로필·상품·소식·상세)을 올리고 저장할 주소를 돌려준다(DEV-102).
+ *  실제 서버는 POST /api/media, 공유 Mock은 /__mock/media, 브라우저 Mock은 data URL 그대로. */
+export async function uploadMedia(file: Blob, name: string): Promise<string> {
+  if (isMock && !sharedMockUrl) return readDataUrl(file);
+  if (sharedMockUrl) {
+    const result = await request<{ url: string }>("POST", "/__mock/media", {
+      body: { dataUrl: await readDataUrl(file) },
+    });
+    return result.url;
+  }
+  const form = new FormData();
+  form.append("file", file, name);
+  const res = await fetch(`${apiUrl}/api/media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    body: form,
+  });
+  const body = await res.json();
+  if (!res.ok) throw new ApiError(res.status, body);
+  // 소비자 앱·공유 미리보기가 그대로 쓰도록 API 주소를 붙여 저장한다
+  return apiUrl + (body as { url: string }).url;
 }
 
 /** Private images travel with authentication. Never use the public news-media endpoint. */
