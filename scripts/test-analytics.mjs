@@ -22,6 +22,10 @@ test("N-05: order, checkout, chat and account screens are masked in replays", ()
     "/orders/o1/done",
     "/chats/f1",
     "/me/addresses/edit",
+    "/me/profile",
+    "/onboarding",
+    "/onboarding/address",
+    "/auth/kakao",
   ])
     assert.equal(isPrivatePath("consumer", path), true, path);
   for (const path of [
@@ -31,6 +35,7 @@ test("N-05: order, checkout, chat and account screens are masked in replays", ()
     "/pending",
     "/apply",
     "/farm/account",
+    "/auth/kakao",
   ])
     assert.equal(isPrivatePath("producer", path), true, path);
   for (const path of ["/", "/products/p1", "/farms/f1", "/meet", "/ordersx"])

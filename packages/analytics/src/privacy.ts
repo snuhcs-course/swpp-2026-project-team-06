@@ -5,12 +5,12 @@
 export type AppName = "consumer" | "producer";
 
 /**
- * 주문서·입금 안내·배송지·주문·채팅·입금 계좌·내 정보처럼 이름·연락처·주소·메시지 본문이 보이는 경로.
+ * 주문서·입금 안내·배송지·주문·채팅·입금 계좌·내 정보·가입 온보딩·카카오 로그인 복귀처럼 이름·연락처·주소·메시지 본문이 보이는 경로.
  * 모달(Sheet)은 화면 밖 portal에 그려져 영역 표시가 닿지 않으므로 경로 단위로 가린다.
  */
 export const PRIVATE_PATHS: Record<AppName, readonly string[]> = {
-  consumer: ["/checkout", "/orders", "/chats", "/me"],
-  producer: ["/chats", "/ship", "/pending", "/apply", "/farm/account"],
+  consumer: ["/checkout", "/orders", "/chats", "/me", "/onboarding", "/auth"],
+  producer: ["/chats", "/ship", "/pending", "/apply", "/farm/account", "/auth"],
 };
 
 /** 화면 일부만 가릴 때 붙이는 속성. react-native-web은 className을 받지 않아 dataSet(data-*)을 쓴다 */
