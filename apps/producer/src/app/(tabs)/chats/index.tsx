@@ -16,6 +16,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
+import { HelpButton } from "../../../lib/HelpGuide";
 import { useSession } from "../../../lib/session";
 import OwnNewsRoom from "../../../lib/OwnNewsRoom";
 
@@ -46,7 +47,7 @@ export default function Chats() {
   );
   return (
     <Screen style={{ paddingBottom: safe("bottom", tokens.height.tabBar) }}>
-      <BrandHeader title="채팅" />
+      <BrandHeader title="채팅" right={<HelpButton />} />
       <ChatChoices
         value={tab}
         onChange={(value) => router.setParams({ view: value })}

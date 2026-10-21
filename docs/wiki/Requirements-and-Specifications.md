@@ -699,6 +699,8 @@ Figure 3. Dashboard (SCR-22), sales settings and the farm's own news room. The p
 
 Key producer screens:
 
+**Help guide (DEV-109).** All four tab screens (SCR-22, 23, 28, 33) have a round question-mark "Help" button at the top right. It opens a six-step "How to use farmclub" sheet with Previous and Next buttons. The steps are: welcome, adding a new product, AI sales-page drafts, chat rooms (News Room and 1:1 Chat), AI auto-replies (switching to direct replies and AI settings), and how to get help. The help step only says to ask the farmclub operator; it lists no contact details. The sheet opens once automatically on the producer's first visit to SCR-22. Closing it, or tapping Start on the last step, records it as seen in the app's localStorage, and after that it opens only from the button. It always reopens at step 1. Work screens with a back button have no Help button.
+
 | SCR-22 Dashboard | SCR-24 AI product draft | SCR-25 Product edit | SCR-29 Shipping |
 | --- | --- | --- | --- |
 | <img src="images/i1-ui-p-scr-22.png" width="180" alt="SCR-22 Dashboard"> | <img src="images/i1-ui-p-scr-24.png" width="180" alt="SCR-24 AI product draft"> | <img src="images/i1-ui-p-scr-25.png" width="180" alt="SCR-25 Product edit"> | <img src="images/i1-ui-p-scr-29.png" width="180" alt="SCR-29 Shipping"> |

@@ -16,6 +16,7 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
+import { HelpButton } from "../../lib/HelpGuide";
 import { useSession } from "../../lib/session";
 import { LoadError } from "../../lib/views";
 export default function Settings() {
@@ -36,6 +37,7 @@ export default function Settings() {
         <LargeTitle
           title="환경설정"
           subtitle="농가 정보와 응대 방식을 관리해요"
+          right={<HelpButton />}
         />
         {farm.error ? (
           <LoadError error={farm.error} onRetry={farm.reload} />

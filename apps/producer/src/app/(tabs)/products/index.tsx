@@ -15,6 +15,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { HelpButton } from "../../../lib/HelpGuide";
 import { useSession } from "../../../lib/session";
 import {
   productGroup,
@@ -47,7 +48,11 @@ export default function Products() {
   );
   return (
     <Screen>
-      <LargeTitle title="상품" subtitle="예약 현황을 보고 판매를 관리해요" />
+      <LargeTitle
+        title="상품"
+        subtitle="예약 현황을 보고 판매를 관리해요"
+        right={<HelpButton />}
+      />
       <View style={{ paddingVertical: tokens.space.md }}>
         <ScrollView
           horizontal

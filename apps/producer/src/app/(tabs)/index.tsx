@@ -15,6 +15,7 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
+import { HelpButton } from "../../lib/HelpGuide";
 import { useSession } from "../../lib/session";
 import { LoadError } from "../../lib/views";
 
@@ -71,7 +72,11 @@ export default function Home() {
   const product = dash.data?.product;
   return (
     <Screen>
-      <BrandHeader title="농가 현황" logo="icon" />
+      <BrandHeader
+        title="농가 현황"
+        logo="icon"
+        right={<HelpButton autoOpen />}
+      />
       <Scroll bottom={tokens.height.tabBarClearance}>
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           <T variant="sub" muted>

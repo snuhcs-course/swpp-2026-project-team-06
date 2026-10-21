@@ -76,12 +76,24 @@ export function HeaderBar({ title, onBack, close, right, border }: BarProps) {
 export function LargeTitle({
   title,
   subtitle,
+  right,
   style,
 }: {
   title: string;
   subtitle?: string;
+  /** 제목 줄 오른쪽(예: 도움말 버튼) */
+  right?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const heading = (
+    <T
+      variant="title"
+      accessibilityRole="header"
+      style={right ? { flex: 1 } : undefined}
+    >
+      {title}
+    </T>
+  );
   return (
     <View
       style={[
@@ -89,9 +101,14 @@ export function LargeTitle({
         style,
       ]}
     >
-      <T variant="title" accessibilityRole="header">
-        {title}
-      </T>
+      {right ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {heading}
+          {right}
+        </View>
+      ) : (
+        heading
+      )}
       {subtitle ? (
         <T variant="sub" muted>
           {subtitle}
