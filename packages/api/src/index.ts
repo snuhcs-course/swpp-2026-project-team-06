@@ -12,7 +12,7 @@ export {
   newIdempotencyKey,
   resetDemoData,
   sharedMockUrl,
-  uploadMockMedia,
+  uploadMedia,
   appName,
 } from "./client";
 export { CARRIERS, carrierLabel, trackingUrl } from "./carriers";

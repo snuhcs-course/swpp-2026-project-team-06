@@ -1435,3 +1435,53 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 DEV-93 머지(`664d59d`) 뒤 `retire_test_farm f-16b05f2b68 --commit`으로 농가를 숨겼다(`SUSPENDED`, 행은 남김). 확인: 농가 상세·공유 페이지·상품 `p-20e7eef1fb` 404, 농가 목록·홈에 없음, 다른 농가 7곳 그대로. 다른 사람의 테스트 농가는 건드리지 않았다.
 - 10/20 정정: 내부 테스트 시트의 I-10은 'AI 초안 생성 → 생산자 편집 → 소비자 표시'(DEV-59)로, 이번 점검에서 AI 초안을 만들지 않아 덮지 못했다. A3(승인 후 대시보드)는 I-11만 해당. wiki 104·112줄을 고치고, 시트에는 I-06·I-07·I-11·I-13만 PASS로 적는다. I-10의 막힘 원인(공개에 필요한 운영자 승인)은 이제 운영에서 실행할 수 있다.
 - 10/20 내부 테스트 시트(SWPP_Internal_Testing_2026-10-17.xlsx, PM_통합) I-06·I-07·I-11·I-13을 PASS로 입력(사람). 05:13 저장본에서 F~H 원문 유지, I~N 결과 확인, 요약 PM Integration 4 PASS. I-10은 NOT TESTED 그대로.
+
+## DEV-102 농가 프로필 사진 저장 500: 공개 사진 업로드 API
+- 이슈: [DEV-102](https://linear.app/sswp6/issue/DEV-102)
+- 브랜치: `jinumeral/dev-102-bug-농가-프로필-사진-저장-500-공개-사진-업로드-api가`
+- 기능·인수 조건: FEAT-02 AC-02-3, FEAT-19 AC-19-3, FEAT-12 AC-12-10, FEAT-15, FQ-05(stack.md), storefront-1.5
+- 상태: 진행 중
+
+### 목표
+운영에서 농가 프로필 사진 변경이 500(`farms.photo` varchar(500)에 base64 data URL)으로 실패한다. 공개 사진 업로드 API가 없어서 생산자 앱 `pickMedia`가 data URL을 URL 자리로 보내기 때문이다. 공개 사진·영상을 파일로 올려 기존 R2 저장소에 두고 URL만 저장한다. 서버는 data URL과 컬럼보다 긴 입력을 500 대신 400으로 거부한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/media/`(새 모듈), `server/app/main.py`, `server/app/core/{config,detail,seed}.py`, `server/app/source_analysis/worker.py`(정리 작업 보호만)
+- `server/app/{farms,catalog,messaging,accounts,orders}/schemas.py`(사진 URI·길이 검증만)
+- `server/migrations/env.py`, `server/migrations/versions/0017_public_media.py`, `server/tests/`
+- `packages/api/src/{client,index}.ts`, `apps/producer/src/lib/pick.ts`, `scripts/e2e/public-media.spec.ts`(새 e2e)
+- 문서: `server/app/media/spec.md`, `server/spec.md`, `server/tasks.md`, `docs/spec/contracts-1.2.md`, `docs/spec/storefront-1.5.md`, `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 채팅·문의 비공개 첨부(Postgres bytea) → DEV-103
+- 5xx를 "연결이 불안정해요"로 보여주는 앱 공통 처리
+- 화면 모양·문구(Figma 변경 없음)
+
+### 결정 사항
+- 10/21 새 R2 버킷을 만들지 않고 자료 분석의 `Storage`(비공개 버킷)를 재사용한다. 조회는 API가 `GET /api/media/{id}.{ext}`로 내보내고 내용이 바뀌지 않으므로 긴 캐시를 준다. CDN 공개 버킷은 나중에 바꿀 수 있다.
+- 10/21 업로드는 농가가 있는 생산자면 된다(승인 대기 중에도 농가 프로필을 고칠 수 있음, `PATCH /api/farms/me`와 같은 기준).
+- 10/21 URL에 확장자를 붙인다. 앱(`RoomMedia`)과 서버(`messaging/service.py`)가 확장자로 영상을 판별한다.
+- 10/21 앱은 `apiUrl + url`의 절대 URL을 저장한다. 소비자 앱 이미지와 공유 미리보기(`farms/share.py`)가 별도 접두 없이 보인다.
+- 10/21 local이 아니면 저장소가 R2여야 한다는 검사를 자료 분석 설정과 무관하게 적용한다(컨테이너 디스크에 저장하면 배포 때 사라짐).
+- 10/21 사진 주소는 기존 상세 이미지 규칙(10/09: HTTPS 또는 서비스 상대 경로)을 농가 사진·상품 사진·소식 사진/영상에도 적용하고 500자 상한을 둔다. 예외로 `APP_ENV=local`에서만 `http://localhost`를 받는다(로컬 실제 서버 업로드 주소). 운영 데이터에는 남지 않는다.
+- 10/21 MP4·MOV(ftyp) 영상은 `video/mp4`·`.mp4`로 저장한다. 앱·서버의 영상 판별이 mp4·webm 기준이다.
+- 10/21 기존 data URL 이전은 `server/scripts/` 대신 `retire_test_farm`처럼 모듈 명령(`python -m app.media.migrate_inline`, 기본 시험 실행·`--commit`)으로 만든다. 시험 실행도 형식 검사까지 해서 옮길/남길 개수가 정확하다.
+- 10/21 배포 직후 이전 명령을 실행해야 한다. 이전 전에는 base64 사진이 남은 상품 3건을 사진 목록째 다시 저장하면 새 검증에 걸려 400이 난다(운영 실행은 사용자 확인 후).
+
+### 작업
+- [x] 서버 `media` 모듈: 모델·마이그레이션 0017, `POST /api/media`, `GET /api/media/{id}.{ext}`
+- [x] worker 정리 작업이 `PublicMedia` 키를 지우지 않게
+- [x] 사진 URI 검증(data URL 거부)·텍스트 `max_length`
+- [x] `packages/api` `uploadMedia`, `pickMedia` 실제 서버 모드 업로드
+- [x] 기존 base64 이전 명령(기본 시험 실행). 운영 실행은 배포 후 따로 확인
+- [x] 문서 갱신
+- [x] 검증: pytest·ruff·alembic check·typecheck·test:mock·integration full
+- [x] AI 1차 리뷰(must 0) 반영
+- [ ] 배포 후 운영 이전 명령 실행·농가 사진 변경 200 확인
+
+### 기록
+- 10/21 운영 api 로그: `PATCH /api/farms/me` 6건 중 5건 500(`StringDataRightTruncation`). 운영 DB 읽기 전용 조회: `farms.photo` data URL 0/15, `products.photos` 3/28(239kB, products 테이블 384kB), 소식·채팅·상세 0.
+- 10/21 e2e 첫 실행 뒤 `seed --reset`이 `public_media` FK로 실패했다. `python -m app.core.seed`는 직접 import한 모델만 지우는데 media 모델이 빠져 있었다(pytest는 `migrations_models`로 import해서 드러나지 않음). `seed.py`에 import 추가.
+- 10/21 검증: `uv run ruff check .` 통과, `uv run pytest -q` 388 passed(신규 `tests/test_media.py` 13개), 새 DB에서 `alembic upgrade head`(0016→0017)·`alembic check` 통과(로컬 기본 DB는 이전 스키마가 남아 있어 새 DB 사용), `npm run typecheck` 오류 없음, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 시나리오 7 passed + Playwright 53 passed·2 skipped(자료 분석 설정 조건부 스킵, 기존과 같음). 새 e2e `public-media.spec.ts`: 생산자 앱에서 농가 사진 변경 → `POST /api/media` 201 → `PATCH /api/farms/me` 200 → 저장 값이 `http://localhost:8000/api/media/med-….jpg`.
+- 10/21 AI 1차 리뷰(별도 에이전트, pr-review): must 0, should 6, nit 5. 반영: 업로드 핸들러 동기화(스레드풀), ftyp brand 허용 목록, GET Range 206, 비 JSON 오류 처리, 계약 문서 보강(FQ-05 길이는 앱 검사), 테스트 보강, migrate https 강제. 후속: 본문 크기 선검사·빈도 제한·안 쓰인 파일 정리·소식 초과 업로드·공유 Mock 권한 차이·스트리밍 조회 → DEV-105.
+- 10/21 리뷰 반영 후 검증: `ruff check .` 통과, `pytest -q` 390 passed, `npm run typecheck` 오류 0, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 7 passed + Playwright 53 passed·2 skipped.
