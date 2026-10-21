@@ -3,6 +3,7 @@
 const NAV = [
   { href: "/producers", label: "가입 신청" },
   { href: "/capacity", label: "공급 물량 승인" },
+  { href: "/farms", label: "테스트 농가" },
 ];
 
 const $ = (s) => document.querySelector(s);

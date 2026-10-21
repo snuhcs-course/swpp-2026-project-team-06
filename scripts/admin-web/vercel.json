@@ -3,7 +3,8 @@
     { "source": "/", "destination": "/api/page?name=home" },
     { "source": "/login", "destination": "/api/page?name=login" },
     { "source": "/producers", "destination": "/api/page?name=producers" },
-    { "source": "/capacity", "destination": "/api/page?name=capacity" }
+    { "source": "/capacity", "destination": "/api/page?name=capacity" },
+    { "source": "/farms", "destination": "/api/page?name=farms" }
   ],
   "functions": {
     "api/page.js": { "includeFiles": "api/_views/**" }
