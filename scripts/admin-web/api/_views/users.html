@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>farmclub 관리자 · 사용자</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/assets/admin.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side"></aside>
+  <div class="content"><div class="wrap">
+    <header class="page-head">
+      <h1>사용자</h1>
+      <p class="hint" style="margin: 4px 0 0">이름·닉네임·ID·농가 이름, 또는 전화 끝 4자리로 찾아요. 팀원이 카카오로 가입해 운영 검증에 쓴 계정은 「테스트로 표시」하면 테스트 농가 숨기기에서 테스트 계정처럼 세요. 로그인·화면은 그대로예요.</p>
+    </header>
+    <form id="search" class="row" style="gap: 8px; margin: 12px 0" role="search">
+      <input id="q" type="search" placeholder="이름, 닉네임, ID, 농가 이름, 전화 끝 4자리" aria-label="검색어" autocomplete="off">
+      <button class="primary" type="submit">찾기</button>
+    </form>
+    <nav class="tabs" id="roles" aria-label="역할"></nav>
+    <nav class="tabs" id="kinds" aria-label="계정 종류"></nav>
+    <p class="hint" id="count"></p>
+    <section id="list" aria-live="polite"></section>
+  </div></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="/assets/admin.js"></script>
+<script>
+// 사용자 목록·검색과 운영 검증 계정 표시(DEV-107). 시드 테스트 계정은 바꾸지 않고, 운영자 계정은 목록에 없다.
+const ROLES = { ALL: "전체", CONSUMER: "소비자", PRODUCER: "생산자" };
+const KINDS = { ALL: "모든 계정", test: "테스트", real: "실사용자" };
+const ROLE_LABEL = { CONSUMER: "소비자", PRODUCER: "생산자" };
+const FARM = { APPROVED: "공개 중", PENDING: "확인 중", REJECTED: "반려", SUSPENDED: "정지" };
+let role = "ALL", kind = "ALL", q = "", rows = null, total = 0, busy = false;
+
+function renderTabs() {
+  $("#roles").innerHTML = Object.entries(ROLES).map(([k, l]) => `<button aria-pressed="${k === role}" data-role="${k}">${l}</button>`).join("");
+  $("#kinds").innerHTML = Object.entries(KINDS).map(([k, l]) => `<button aria-pressed="${k === kind}" data-kind="${k}">${l}</button>`).join("");
+}
+
+function badge(u) {
+  if (u.isTestAccount) return `<span class="badge s-PENDING">시드 테스트</span>`;
+  if (u.opsTester) return `<span class="badge s-PENDING">테스트(운영 검증)</span>`;
+  return `<span class="badge s-APPROVED">실사용자</span>`;
+}
+
+function card(u) {
+  const farm = u.farmId ? `${esc(u.farmName)} <span class="hint">· ${FARM[u.farmStatus] || esc(u.farmStatus)}</span> <code>${esc(u.farmId)}</code>` : "—";
+  const action = u.isTestAccount
+    ? `<p class="hint">시드 테스트 계정이라 이미 테스트로 세요.</p>`
+    : `<div class="row"><button class="${u.opsTester ? "text" : "primary"}" data-act="${u.opsTester ? "unmark" : "mark"}">${u.opsTester ? "테스트 표시 해제" : "테스트로 표시"}</button></div>`;
+  return `<article class="card app" data-id="${esc(u.userId)}">
+    <div class="row" style="justify-content: space-between">
+      <h2>${esc(u.nickname || u.name || "이름 없음")}${u.nickname && u.name ? ` <span class="hint">${esc(u.name)}</span>` : ""}</h2>${badge(u)}
+    </div>
+    <dl class="meta">
+      <dt>역할</dt><dd>${ROLE_LABEL[u.role] || esc(u.role)} <span class="hint">· ${u.signup === "KAKAO" ? "카카오 가입" : "시드"}</span></dd>
+      <dt>전화</dt><dd>${u.phoneLast4 ? "끝 " + esc(u.phoneLast4) : "—"}</dd>
+      <dt>가입일</dt><dd>${esc(new Date(u.createdAt).toLocaleDateString("ko-KR"))}</dd>
+      ${u.role === "CONSUMER" ? `<dt>주문</dt><dd>${u.orderCount}건</dd>` : `<dt>농가</dt><dd>${farm}</dd>`}
+      <dt>ID</dt><dd><code>${esc(u.userId)}</code></dd>
+    </dl>
+    ${action}
+  </article>`;
+}
+
+function renderList() {
+  renderTabs();
+  if (!rows) { $("#count").textContent = ""; $("#list").innerHTML = `<p class="empty">불러오는 중…</p>`; return; }
+  $("#count").textContent = rows.length < total ? `${total}명 중 최근 가입 ${rows.length}명` : `${total}명`;
+  $("#list").innerHTML = rows.length ? rows.map(card).join("") : `<p class="empty">해당하는 사용자가 없어요.</p>`;
+}
+
+async function load() {
+  rows = null; renderList();
+  const params = new URLSearchParams({ limit: "100" });
+  if (q) params.set("q", q);
+  if (role !== "ALL") params.set("role", role);
+  if (kind !== "ALL") params.set("kind", kind);
+  try { const page = await call("/admin/users?" + params); rows = page.items; total = page.total; renderList(); }
+  catch (e) { rows = []; total = 0; renderList(); toast(e.message, true); }
+}
+
+$("#search").onsubmit = (e) => { e.preventDefault(); q = $("#q").value.trim(); load(); };
+$("#roles").onclick = (e) => { const b = e.target.closest("button[data-role]"); if (b) { role = b.dataset.role; load(); } };
+$("#kinds").onclick = (e) => { const b = e.target.closest("button[data-kind]"); if (b) { kind = b.dataset.kind; load(); } };
+
+$("#list").onclick = async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b || busy) return;
+  const id = b.closest("article").dataset.id, act = b.dataset.act;
+  const u = rows.find((r) => r.userId === id), who = u.nickname || u.name || id;
+  if (b.dataset.confirm !== "1") {
+    b.dataset.confirm = "1";
+    b.textContent = act === "mark" ? `${who}을(를) 테스트로 표시할까요? 한 번 더 누르기` : `${who}의 테스트 표시를 풀까요? 한 번 더 누르기`;
+    return;
+  }
+  busy = true; b.disabled = true;
+  try {
+    const next = await call(`/admin/users/${id}/${act}-tester`, "POST", {});
+    rows = rows.map((r) => (r.userId === id ? next : r));
+    renderList();
+    toast(act === "mark" ? `${who}을(를) 테스트로 표시했어요` : `${who}의 테스트 표시를 풀었어요`);
+  } catch (err) { toast(err.message, true); await load(); }
+  finally { busy = false; }
+};
+
+load();
+</script>
+</body>
+</html>
