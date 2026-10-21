@@ -1449,7 +1449,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - `server/app/admin/retire_test_farm.py`(조건·실행 함수 분리, CLI 동작 유지), `server/app/admin/farms.py`(새 파일), `server/app/admin/schemas.py`, `server/app/main.py`, `server/app/admin/spec.md`
 - `server/tests/test_admin_farms.py`(새 파일)
 - `scripts/admin-web/**`(farms 화면, 메뉴, 중계 허용 경로, 테스트, README)
-- `docs/spec/ia.md`(관리자 페이지 절), `docs/wiki/Design-Documentation.md`(API 표 한 줄), `server/tasks.md`
+- `docs/spec/ia.md`(관리자 페이지 절), `docs/spec/screens.md`(운영자 API 표), `docs/wiki/Design-Documentation.md`(API 표 한 줄), `server/tasks.md`
 
 ### 비범위 (건드리지 않음)
 - 행 삭제·영구 삭제(DEV-94), 정지 때 자동 환불(R-24), 마이그레이션, 소비자·생산자 앱
@@ -1466,7 +1466,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - [x] `/admin/farms` 목록·미리보기·숨기기·되돌리기 API, pytest 8개
 - [x] 관리자 페이지 `/farms` 화면, 메뉴, 중계 허용 경로, node 테스트
 - [x] 로컬 확인: 강씨네 미리보기 거부 문구, 남원 숨기기 → 소비자 API 404 → 다시 공개 → 200, 감사 이벤트 2개
-- [x] 문서: admin spec.md, admin-web README, ia.md, wiki API 표
+- [x] 문서: admin spec.md, admin-web README, ia.md, screens.md 운영자 API 표, wiki API 표
 - [ ] 머지 후 Vercel `farmclub-admin` 재배포, 운영에서 서울증류소(f-d10e34e748) 숨김
 
 ### 기록
