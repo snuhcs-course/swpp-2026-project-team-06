@@ -151,7 +151,7 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 - 서버(`server/app/analytics`, DEV-100): `order_paid`(무통장 입금에서는 생산자·운영자의 입금 확인 시점, DEV-68)·`order_canceled`·`farm_followed` 등 확정 사실.
 - 구매 퍼널(상품 → 주문서 → 입금 안내 → 입금했어요): `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`. 서버 이벤트가 붙으면 입금 확인 단계 `order_paid`를 뒤에 더한다.
 - 사용자 구분은 내부 `userId`(identify)와 사람 속성 `app`·`role`·`isTestAccount`만. 이벤트 속성은 위 표의 ID·수량·결과만 보내고, URL의 쿼리는 보내기 전에 지운다.
-- 세션 녹화: 입력칸은 모두 가린다. 소비자 `/checkout`·`/orders`·`/chats`·`/me`·`/onboarding`·`/auth`, 생산자 `/chats`·`/ship`·`/pending`·`/apply`·`/farm/account`·`/auth`는 화면 글자를 모두 가리고, 채팅·소식방 메시지 영역과 농가 프로필의 입금 계좌 줄은 어느 화면에서든 가린다. 네트워크·콘솔은 녹화하지 않는다.
+- 세션 녹화: 입력칸은 모두 가린다. 화면 대부분이 개인정보이거나 입력 화면인 곳은 화면 글자를 모두 가린다: 소비자 `/chats`·`/me/profile`·`/me/addresses`·`/checkout/*/address`·`/orders/*/inquiry`·`/onboarding`·`/auth`, 생산자 `/chats`·`/ship`·`/pending`·`/apply`·`/farm/account`·`/auth`. 그 밖의 화면(내 정보·주문 목록·주문 상세·주문서·입금 안내 등)은 개인정보 글자만 가린다: 이름·연락처·이메일, 받는 사람·주소·배송 메모, 송장 번호, 입금 계좌·예금주, 판매자 대표·연락처, 농가가 적은 사유, 채팅·소식방 메시지, 농가 프로필의 입금 계좌 줄(DEV-104). 네트워크·콘솔은 녹화하지 않는다.
 
 ## 스펙 1.2 데이터·트랜잭션
 

@@ -13,7 +13,7 @@
 ## 계약
 - 빌드 변수 `EXPO_PUBLIC_POSTHOG_KEY`(없으면 꺼짐), `EXPO_PUBLIC_POSTHOG_HOST`(기본 `https://us.i.posthog.com`). 배포는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`
 - 앱은 `SessionProvider`에서 `useAnalytics`를 한 번 부르고, 화면은 `track`만 쓴다
-- 화면 일부만 녹화에서 가릴 때는 `data-ph-private` 속성(`privateArea`를 View에 펼침, 또는 `dataSet: { phPrivate: "1" }`)
+- 화면 일부만 녹화에서 가릴 때는 글자에 `<T masked>`(packages/ui), 영역에 `data-ph-private` 속성(`privateArea`를 View에 펼침)
 
 ## 구현 결정
 | 날짜 | 결정 | 이유 | 관련 |
@@ -25,3 +25,4 @@
 | 2026-10-18 | 자동 수집은 요소 글자·속성을 보내지 않는다(`mask_all_text`·`mask_all_element_attributes`), URL 쿼리는 `before_send`에서 지운다(히트맵 `$heatmap_data`의 URL 키 포함) | 클릭한 카드의 주소·이름, 검색어·복귀 경로가 섞이지 않게 | DEV-71 |
 | 2026-10-18 | 소비자 앱 퍼널 끝은 ‘입금을 마쳤어요’(`deposit_reported`). 입금 확인(`order_paid`)은 서버가 보낸다 | DEV-68 무통장 입금 | DEV-71 |
 | 2026-10-18 | `track` 속성은 트래킹 플랜 키만 남긴다(`cleanProps`) | 타입을 우회한 개인정보 차단 | DEV-71 |
+| 2026-10-21 | 내 정보·주문·주문서·입금 안내는 경로째 가리지 않고 개인정보 글자만 `T masked`(packages/ui)·`privateArea`로 가린다. 경로 패턴은 `*`로 한 칸을 맞춘다 | 경로째 가리면 메뉴·버튼까지 `***`가 돼 test2 녹화를 읽을 수 없었다 | DEV-104 |
