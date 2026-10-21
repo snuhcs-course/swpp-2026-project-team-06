@@ -88,6 +88,7 @@
 - 사진 업로드: POST /api/messaging/attachments (multipart file, orderId 또는 threadId 하나 필수) → {attachmentId,mimeType,size}. 본인 주문/대화 권한 및 JPEG/PNG/WebP,10MB 제한 검사, 서버가 실제 MIME 검증·EXIF 제거.
 - GET /api/messaging/attachments/{attachmentId}는 연결된 주문/대화 권한 검사 후 바이트 또는 단기 서명 URL을 반환한다. 공개 소식 사진 URL과 분리한다. 임시 업로드는 업로더만 접근하며 접수/전송 성공 시 자원에 귀속한다.
 - 타인의 attachmentId 재사용, 다른 주문에 연결된 파일 재사용은 거부한다. 실패/취소 시 파일을 공개하지 않으며 미연결 파일은 24시간 후 삭제한다.
+- 공개 미디어(DEV-102): POST /api/media (multipart file, 농가가 있는 생산자) → {url,kind,mimeType,size}. 사진 JPEG/PNG/WebP 10MB(EXIF 제거), 영상 MP4/WebM 100MB(FQ-05). url은 /api/media/{id}.{ext}이고 앱은 API 주소를 붙여 저장한다. GET은 인증 없이 바이트를 반환한다. 농가 사진·상품 사진·소식 photos/videos·상세 이미지에는 이 주소(HTTPS 또는 서비스 상대 경로, 500자 이하)만 저장하며 data URL은 400. 비공개 첨부와 섞지 않는다.
 - 직접 응대·접수까지만 I1 범위. 환불/교환 심사 UI·자동 보상·실결제·배송사 책임 판정은 이번 변경에 없다.
 
 ## 7. 이관·구현 분담·인수 시나리오

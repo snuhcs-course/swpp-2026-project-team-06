@@ -409,7 +409,7 @@ Not built yet:
 | --- | --- |
 | Dedicated operator UI | Approval, delivery, refund-history and exception-recovery APIs exist; a dedicated UI is not assigned |
 | Automatic purchase confirmation after 8 days, scheduled refunds | No scheduler yet |
-| Cloudflare R2 for public media | Private photos are stored in PostgreSQL; public media upload is not wired up |
+| Cloudflare R2 for private photos | Public media (farm, product, news and detail photos, news video) is uploaded with `POST /api/media` and stored in R2 (DEV-102). Private chat and inquiry photos are still stored in PostgreSQL (DEV-103) |
 | PostHog | The two web apps send page views, the purchase funnel (product → order form → deposit instructions → "I've paid": `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`), session replays and heatmaps to PostHog US Cloud when the `APP_POSTHOG_KEY` build variable is set. Users are identified only by internal user ID. Replays mask every input, all text on checkout, deposit instructions, order, chat, account and the producer's bank account screens, plus chat and news message areas and the bank account row on the farm profile; network and console are not recorded. Server events (`order_paid` etc.) are not connected yet |
 | Sentry, Langfuse | Chosen in the stack; not connected |
 | Producer-specific remote delivery areas | Uses an example postal-code rule |
