@@ -21,6 +21,7 @@ from app.catalog.models import (
 )
 from app.core.db import Base, get_sessionmaker
 from app.farms.models import Farm, Follow
+from app.media import models as _media_models  # noqa: F401  시드 초기화가 public_media도 지운다
 from app.messaging.models import (
     Broadcast,
     Escalation,

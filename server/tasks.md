@@ -1446,10 +1446,10 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 운영에서 농가 프로필 사진 변경이 500(`farms.photo` varchar(500)에 base64 data URL)으로 실패한다. 공개 사진 업로드 API가 없어서 생산자 앱 `pickMedia`가 data URL을 URL 자리로 보내기 때문이다. 공개 사진·영상을 파일로 올려 기존 R2 저장소에 두고 URL만 저장한다. 서버는 data URL과 컬럼보다 긴 입력을 500 대신 400으로 거부한다.
 
 ### 범위 (수정 허용 경로)
-- `server/app/media/`(새 모듈), `server/app/main.py`, `server/app/core/{config,detail}.py`, `server/app/source_analysis/worker.py`(정리 작업 보호만)
+- `server/app/media/`(새 모듈), `server/app/main.py`, `server/app/core/{config,detail,seed}.py`, `server/app/source_analysis/worker.py`(정리 작업 보호만)
 - `server/app/{farms,catalog,messaging,accounts,orders}/schemas.py`(사진 URI·길이 검증만)
 - `server/migrations/env.py`, `server/migrations/versions/0017_public_media.py`, `server/tests/`, `server/scripts/migrate_inline_media.py`
-- `packages/api/src/client.ts`, `apps/producer/src/lib/pick.ts`
+- `packages/api/src/{client,index}.ts`, `apps/producer/src/lib/pick.ts`, `scripts/e2e/public-media.spec.ts`(새 e2e)
 - 문서: `server/spec.md`, `server/tasks.md`, `docs/spec/contracts-1.2.md`, `docs/spec/storefront-1.5.md`, `docs/wiki/Design-Documentation.md`
 
 ### 비범위 (건드리지 않음)
