@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { loggedIn, redirect, safeNext } from "./_lib/session.js";
 
 // 관리 화면 목록. 메뉴를 늘리려면 여기와 vercel.json rewrites, assets/admin.js NAV에 함께 추가한다.
-const PAGES = { producers: "producers.html", capacity: "capacity.html", farms: "farms.html", users: "users.html" };
+const PAGES = { producers: "producers.html", capacity: "capacity.html", farms: "farms.html", users: "users.html", user: "user.html" };
 const LOGIN = new URL("./_views/login.html", import.meta.url);
 const views = Object.fromEntries(Object.entries(PAGES).map(([k, f]) => [k, new URL("./_views/" + f, import.meta.url)]));
 
@@ -25,6 +25,9 @@ export default function handler(req, res) {
   }
   if (name === "home") return redirect(res, authed ? "/producers" : "/login");
   if (!views[name]) return redirect(res, "/");
-  if (!authed) return redirect(res, "/login?next=" + encodeURIComponent("/" + name));
+  // 사용자 상세(DEV-106)는 /users/<id>로 돌아온다
+  const id = url.searchParams.get("id") || "";
+  const back = name === "user" && /^[A-Za-z0-9_-]+$/.test(id) ? "/users/" + id : "/" + name;
+  if (!authed) return redirect(res, "/login?next=" + encodeURIComponent(back));
   html(res, views[name]);
 }

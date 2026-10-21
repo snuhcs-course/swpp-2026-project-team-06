@@ -62,7 +62,7 @@ function card(u) {
       <dt>전화</dt><dd>${u.phoneLast4 ? "끝 " + esc(u.phoneLast4) : "—"}</dd>
       <dt>가입일</dt><dd>${esc(new Date(u.createdAt).toLocaleDateString("ko-KR"))}</dd>
       ${u.role === "CONSUMER" ? `<dt>주문</dt><dd>${u.orderCount}건</dd>` : `<dt>농가</dt><dd>${farm}</dd>`}
-      <dt>ID</dt><dd><code>${esc(u.userId)}</code></dd>
+      <dt>ID</dt><dd><code>${esc(u.userId)}</code> · <a href="/users/${encodeURIComponent(u.userId)}">주문·입금 내역</a></dd>
     </dl>
     ${action}
   </article>`;

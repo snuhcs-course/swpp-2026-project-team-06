@@ -15,6 +15,9 @@ const ALLOWED = [
   // 사용자 검색어는 한글이라 퍼센트 인코딩(%·+·.)까지 받는다(DEV-107)
   new RegExp(`^/admin/users(\\?[A-Za-z0-9=&_%.+-]*)?$`),
   new RegExp(`^/admin/users/${ID}/(mark|unmark)-tester$`),
+  // 사용자 상세와 그 화면의 주문 처리 버튼(DEV-106). 운영 API는 기존 것을 그대로 쓴다
+  new RegExp(`^/admin/users/(${ID}|by-order/${ID})$`),
+  new RegExp(`^/admin/orders/${ID}/(confirm-deposit|refund|refunds|delivered)$`),
 ];
 
 const send = (res, status, code, message) => sendJson(res, status, { code, message });
