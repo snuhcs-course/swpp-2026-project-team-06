@@ -8,6 +8,7 @@ import {
   onAuthChange,
   type User,
 } from "@farmclub/api";
+import { useAnalytics } from "@farmclub/analytics";
 import { Toast } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
@@ -139,6 +140,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const g = homeFor(user);
     if (!g.allowed(pathname)) router.replace(g.home as never);
   }, [ready, user, pathname, router]);
+
+  // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
+  useAnalytics("producer", user, ready);
 
   const value = useMemo<Session>(
     () => ({
