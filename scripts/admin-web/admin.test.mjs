@@ -132,3 +132,29 @@ test("공급 물량 승인 화면도 로그인해야 열린다 (DEV-87)", async 
   assert.equal(ok.status, 200);
   assert.match(ok.body, /공급 물량 승인/);
 });
+
+test("중계는 테스트 농가 목록·미리보기·숨기기·되돌리기만 넘긴다 (DEV-98)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/farms", "GET"],
+    ["/admin/farms/f-kang/preview", "GET"],
+    ["/admin/farms/f-kang/retire", "POST"],
+    ["/admin/farms/f-kang/restore", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of ["/admin/farms/f-kang", "/admin/farms/f-kang/delete", "/admin/farms/../orders", "/admin/farms/f-kang/retire?x=1"]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
+test("테스트 농가 화면도 로그인해야 열린다 (DEV-98)", async () => {
+  const r = await call(page, { url: "/api/page?name=farms" });
+  assert.equal(r.headers.location, "/login?next=%2Ffarms");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=farms", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /테스트 농가/);
+});

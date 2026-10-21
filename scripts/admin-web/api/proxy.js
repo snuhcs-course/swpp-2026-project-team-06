@@ -1,6 +1,6 @@
-// 관리자 페이지의 중계(DEV-82, DEV-83, DEV-87). 브라우저 → 이 함수 → 실서버 /admin/….
+// 관리자 페이지의 중계(DEV-82, DEV-83, DEV-87, DEV-98). 브라우저 → 이 함수 → 실서버 /admin/….
 // 실서버 CORS는 소비자·생산자 앱 주소만 허용하므로 서버 쪽에서 대신 부른다.
-// 아래 ALLOWED 경로만 넘긴다(가입 신청, 공급 물량 신청). 로그인 세션 쿠키가 맞으면
+// 아래 ALLOWED 경로만 넘긴다(가입 신청, 공급 물량 신청, 테스트 농가 숨기기 DEV-98). 로그인 세션 쿠키가 맞으면
 // 이 함수 환경 변수에 둔 운영자 토큰(ADMIN_TOKEN)을 붙인다. 토큰은 브라우저로 가지 않는다.
 import { configured, loggedIn, readBody, sameOrigin, sendJson } from "./_lib/session.js";
 
@@ -11,6 +11,7 @@ const ALLOWED = [
   new RegExp(`^/admin/producers(/${ID}/(approve|reject|decisions))?${QUERY}$`),
   new RegExp(`^/admin/capacity-requests${QUERY}$`),
   new RegExp(`^/admin/products/${ID}/capacity-requests/${ID}/(approve|reject)$`),
+  new RegExp(`^/admin/farms(/${ID}/(preview|retire|restore))?$`),
 ];
 
 const send = (res, status, code, message) => sendJson(res, status, { code, message });
