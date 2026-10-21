@@ -99,19 +99,20 @@ class Settings(BaseSettings):
                 raise ValueError("OPENAI_API_KEY is required for source analysis")
             if self.app_env != "local" and self.source_analysis_provider == "mock":
                 raise ValueError("Mock source analysis is local-only")
-            if self.source_storage not in ("local", "r2"):
-                raise ValueError("Invalid source storage")
-            if self.app_env != "local" and self.source_storage != "r2":
-                raise ValueError("Private R2 storage is required outside local")
-            if self.source_storage == "r2" and not all(
-                (
-                    self.source_r2_endpoint,
-                    self.source_r2_bucket,
-                    self.source_r2_access_key,
-                    self.source_r2_secret_key,
-                )
-            ):
-                raise ValueError("Private R2 source storage is not configured")
+        # 공개 미디어(DEV-102)도 같은 저장소를 쓰므로 자료 분석을 꺼도 검사한다.
+        if self.source_storage not in ("local", "r2"):
+            raise ValueError("Invalid source storage")
+        if self.app_env != "local" and self.source_storage != "r2":
+            raise ValueError("Private R2 storage is required outside local")
+        if self.source_storage == "r2" and not all(
+            (
+                self.source_r2_endpoint,
+                self.source_r2_bucket,
+                self.source_r2_access_key,
+                self.source_r2_secret_key,
+            )
+        ):
+            raise ValueError("Private R2 source storage is not configured")
         return self
 
     # 홈 (FEAT-06). 시즌 히어로는 설정 값, 운영자 관리는 I2.
