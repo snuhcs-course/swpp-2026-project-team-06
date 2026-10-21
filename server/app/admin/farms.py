@@ -57,7 +57,7 @@ def list_farms(db: Db, _: Admin):
             region=farm.region,
             producer_id=farm.producer_id,
             producer_name=user.name,
-            producer_is_test_account=user.is_test_account,
+            producer_is_test_account=user.is_test_account or user.ops_tester,
             hidden=is_retired(farm),
             product_count=count,
         )

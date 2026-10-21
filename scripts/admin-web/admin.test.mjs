@@ -160,6 +160,23 @@ test("테스트 농가 화면도 로그인해야 열린다 (DEV-98)", async () =
   assert.match(ok.body, /테스트 농가/);
 });
 
+test("중계는 사용자 목록(검색어 인코딩 포함)과 테스트 표시·해제만 넘긴다 (DEV-107)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/users", "GET"],
+    ["/admin/users?" + new URLSearchParams({ q: "서울증류소", role: "PRODUCER", kind: "real", limit: "100" }), "GET"],
+    ["/admin/users/u-kakao-1/mark-tester", "POST"],
+    ["/admin/users/u-kakao-1/unmark-tester", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of ["/admin/users/u-1/delete", "/admin/users/../orders", "/admin/users?q=a/b", "/admin/users/u-1/mark-tester?x=1"]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
 test("중계는 사용자 상세와 주문 처리 버튼 경로만 넘긴다 (DEV-106)", async () => {
   const cookie = await signIn();
   const go = (path, method = "GET") =>
@@ -182,7 +199,16 @@ test("중계는 사용자 상세와 주문 처리 버튼 경로만 넘긴다 (DE
   }
 });
 
-test("사용자 화면은 로그인해야 열리고 /users/<id>로 돌아온다 (DEV-106)", async () => {
+test("사용자 화면도 로그인해야 열린다 (DEV-107)", async () => {
+  const r = await call(page, { url: "/api/page?name=users" });
+  assert.equal(r.headers.location, "/login?next=%2Fusers");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=users", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /테스트로 표시/);
+});
+
+test("사용자 상세 화면은 로그인해야 열리고 /users/<id>로 돌아온다 (DEV-106)", async () => {
   const r = await call(page, { url: "/api/page?name=user&id=u-g4" });
   assert.equal(r.headers.location, "/login?next=%2Fusers%2Fu-g4");
   const bad = await call(page, { url: "/api/page?name=user&id=..%2Fx" });

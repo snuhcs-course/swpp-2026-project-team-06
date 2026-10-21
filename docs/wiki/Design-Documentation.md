@@ -33,6 +33,8 @@ This page is for the development team. It explains how the system is built so we
 | 1.0 | 2026-10-09 | Team 6 | Submission edition: architecture, ER diagrams, API, AI and concurrency details |
 | 1.1 | 2026-10-09 | Team 6 | Table of contents, frontend and backend class diagrams, AI answer sequence diagram, API request/response examples, design-pattern section, restructured to the course guideline |
 | 1.2 | 2026-10-18 | Team 6 | DEV-68: bank transfer to the farm's account replaces the simulated card payment. `AWAITING_DEPOSIT` state, deposit deadline, producer deposit confirmation, refund settlement by the farm, farm bank account fields |
+| 1.3 | 2026-10-18 | Team 6 | PostHog analytics in both web apps (DEV-71): US Cloud, screen events, purchase funnel up to the deposit report, masked session replay |
+| 1.4 | 2026-10-21 | Team 6 | DEV-104: session replays mask only personal fields on account, order and checkout screens |
 
 ## 1. System Architecture
 
@@ -62,7 +64,8 @@ Figure 1. Request and data flow. The call to Claude only happens when the server
 | Auth | PyJWT | I1 uses seeded test accounts; Kakao login is planned for I2 |
 | AI | Anthropic SDK | Model `claude-haiku-4-5` |
 | Images | python-multipart, image validation and EXIF removal | Private inquiry photos are stored in PostgreSQL in I1 |
-| Planned | Vercel (apps), Railway (server, DB), Cloudflare R2, PostHog, Sentry, Langfuse | Chosen in the stack; not wired up yet (see section 4) |
+| Analytics | posthog-js (`packages/analytics`) | Web apps only, on when a project key is set at build time (DEV-71) |
+| Planned | Vercel (apps), Railway (server, DB), Cloudflare R2, PostHog server events, Sentry, Langfuse | Chosen in the stack; not wired up yet (see section 4) |
 
 Exact versions are in `package-lock.json` and `server/uv.lock`.
 
@@ -132,7 +135,7 @@ Figure 4. PK = primary key, FK = foreign key, UK = unique constraint. Timestamps
 
 | Table | Key data | Keys and relationships |
 | --- | --- | --- |
-| `User` | Role (consumer or producer), test-account flag, name, phone | String PK; one role per account |
+| `User` | Role (consumer or producer), test-account flag, operator-set ops-tester flag (DEV-107), name, phone | String PK; one role per account |
 | `ShippingAddress` | Recipient, phone, address, default flag | User 1:N; orders copy the values |
 | `Farm` | Owner, approval status and reason, profile, story blocks (JSON) | UK producer_id; user 1:0..1 farm |
 | `Follow` | Consumer, farm, created time | PK (consumer_id, farm_id) blocks duplicate follows |
@@ -301,6 +304,7 @@ Paths use `{id}` as a placeholder.
 | POST /admin/orders/{id}/confirm-deposit · POST /admin/orders/expire-deposits | Operator | Confirm on behalf of a farm, expire overdue deposits |
 | GET /admin/users/{id} · GET /admin/users/by-order/{orderIdOrNo} | Operator | One user's profile and recent orders with deposits and refunds, for support; no recipient phone or address (DEV-106) |
 | GET /admin/farms · GET .../{id}/preview · POST .../{id}/retire · .../restore | Operator | Hide a test farm from every public screen or show it again; refused when a non-test consumer has ordered (DEV-98) |
+| GET /admin/users · POST /admin/users/{id}/mark-tester · .../unmark-tester | Operator | Search users (phone shows only the last 4 digits) and mark a team member's real Kakao account as an ops tester, so test-farm hiding counts its orders as test orders (DEV-107) |
 | GET /api/orders · GET /api/orders/{id} | Order owner | History and detail |
 | POST /api/orders/{id}/cancel · .../confirm · .../delivery-window-response | Order owner | Cancel, confirm receipt, answer a window change |
 | GET /api/orders/producer/dashboard · GET /api/orders/producer | Approved producer | Dashboard and orders to ship |
@@ -409,8 +413,9 @@ Not built yet:
 | --- | --- |
 | Dedicated operator UI | Approval, delivery, refund-history and exception-recovery APIs exist; a dedicated UI is not assigned |
 | Automatic purchase confirmation after 8 days, scheduled refunds | No scheduler yet |
-| Cloudflare R2 for public media | Private photos are stored in PostgreSQL; public media upload is not wired up |
-| PostHog, Sentry, Langfuse | Chosen in the stack; not connected |
+| Cloudflare R2 for private photos | Public media (farm, product, news and detail photos, news video) is uploaded with `POST /api/media` and stored in R2 (DEV-102). Private chat and inquiry photos are still stored in PostgreSQL (DEV-103) |
+| PostHog | The two web apps send page views, the purchase funnel (product → order form → deposit instructions → "I've paid": `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`), session replays and heatmaps to PostHog US Cloud when the `APP_POSTHOG_KEY` build variable is set. Users are identified only by internal user ID. Replays mask every input, all text on screens that are mostly personal data (chat, profile and address editing, address entry, order inquiry, onboarding, Kakao login return, producer shipping, sign-up and bank account), and elsewhere only what is legally personal data (buyer names, phone numbers, emails, addresses, delivery notes, tracking numbers, bank account numbers and holders, chat and news messages); seller details that the e-commerce law requires to be shown and cancel or refund reasons stay visible, so order, checkout and account screens stay readable; network and console are not recorded. Server events (`order_paid` etc.) are not connected yet |
+| Sentry, Langfuse | Chosen in the stack; not connected |
 | Producer-specific remote delivery areas | Uses an example postal-code rule |
 
 ## 5. Running Locally and Source Map

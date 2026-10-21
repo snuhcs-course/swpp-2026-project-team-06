@@ -99,9 +99,10 @@ def test_DEV_98_audit_names_the_admin(client, admin_headers):
     client.post("/admin/farms/f-kang/retire", headers=admin_headers | key())
     client.post("/admin/farms/f-kang/restore", headers=admin_headers | key())
     events = farm_events("f-kang")
-    assert [(e.event_type, e.actor_id, e.status) for e in events] == [
-        ("test_farm.retire", "u-admin", "SUCCEEDED"),
+    # 테스트 시계가 고정이라 created_at이 같을 수 있다 → 순서 없이 비교
+    assert sorted((e.event_type, e.actor_id, e.status) for e in events) == [
         ("test_farm.restore", "u-admin", "SUCCEEDED"),
+        ("test_farm.retire", "u-admin", "SUCCEEDED"),
     ]
 
 

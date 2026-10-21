@@ -1436,6 +1436,56 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 정정: 내부 테스트 시트의 I-10은 'AI 초안 생성 → 생산자 편집 → 소비자 표시'(DEV-59)로, 이번 점검에서 AI 초안을 만들지 않아 덮지 못했다. A3(승인 후 대시보드)는 I-11만 해당. wiki 104·112줄을 고치고, 시트에는 I-06·I-07·I-11·I-13만 PASS로 적는다. I-10의 막힘 원인(공개에 필요한 운영자 승인)은 이제 운영에서 실행할 수 있다.
 - 10/20 내부 테스트 시트(SWPP_Internal_Testing_2026-10-17.xlsx, PM_통합) I-06·I-07·I-11·I-13을 PASS로 입력(사람). 05:13 저장본에서 F~H 원문 유지, I~N 결과 확인, 요약 PM Integration 4 PASS. I-10은 NOT TESTED 그대로.
 
+## DEV-102 농가 프로필 사진 저장 500: 공개 사진 업로드 API
+- 이슈: [DEV-102](https://linear.app/sswp6/issue/DEV-102)
+- 브랜치: `jinumeral/dev-102-bug-농가-프로필-사진-저장-500-공개-사진-업로드-api가`
+- 기능·인수 조건: FEAT-02 AC-02-3, FEAT-19 AC-19-3, FEAT-12 AC-12-10, FEAT-15, FQ-05(stack.md), storefront-1.5
+- 상태: 진행 중
+
+### 목표
+운영에서 농가 프로필 사진 변경이 500(`farms.photo` varchar(500)에 base64 data URL)으로 실패한다. 공개 사진 업로드 API가 없어서 생산자 앱 `pickMedia`가 data URL을 URL 자리로 보내기 때문이다. 공개 사진·영상을 파일로 올려 기존 R2 저장소에 두고 URL만 저장한다. 서버는 data URL과 컬럼보다 긴 입력을 500 대신 400으로 거부한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/media/`(새 모듈), `server/app/main.py`, `server/app/core/{config,detail,seed}.py`, `server/app/source_analysis/worker.py`(정리 작업 보호만)
+- `server/app/{farms,catalog,messaging,accounts,orders}/schemas.py`(사진 URI·길이 검증만)
+- `server/migrations/env.py`, `server/migrations/versions/0017_public_media.py`, `server/tests/`
+- `packages/api/src/{client,index}.ts`, `apps/producer/src/lib/pick.ts`, `scripts/e2e/public-media.spec.ts`(새 e2e)
+- 문서: `server/app/media/spec.md`, `server/spec.md`, `server/tasks.md`, `docs/spec/contracts-1.2.md`, `docs/spec/storefront-1.5.md`, `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 채팅·문의 비공개 첨부(Postgres bytea) → DEV-103
+- 5xx를 "연결이 불안정해요"로 보여주는 앱 공통 처리
+- 화면 모양·문구(Figma 변경 없음)
+
+### 결정 사항
+- 10/21 새 R2 버킷을 만들지 않고 자료 분석의 `Storage`(비공개 버킷)를 재사용한다. 조회는 API가 `GET /api/media/{id}.{ext}`로 내보내고 내용이 바뀌지 않으므로 긴 캐시를 준다. CDN 공개 버킷은 나중에 바꿀 수 있다.
+- 10/21 업로드는 농가가 있는 생산자면 된다(승인 대기 중에도 농가 프로필을 고칠 수 있음, `PATCH /api/farms/me`와 같은 기준).
+- 10/21 URL에 확장자를 붙인다. 앱(`RoomMedia`)과 서버(`messaging/service.py`)가 확장자로 영상을 판별한다.
+- 10/21 앱은 `apiUrl + url`의 절대 URL을 저장한다. 소비자 앱 이미지와 공유 미리보기(`farms/share.py`)가 별도 접두 없이 보인다.
+- 10/21 local이 아니면 저장소가 R2여야 한다는 검사를 자료 분석 설정과 무관하게 적용한다(컨테이너 디스크에 저장하면 배포 때 사라짐).
+- 10/21 사진 주소는 기존 상세 이미지 규칙(10/09: HTTPS 또는 서비스 상대 경로)을 농가 사진·상품 사진·소식 사진/영상에도 적용하고 500자 상한을 둔다. 예외로 `APP_ENV=local`에서만 `http://localhost`를 받는다(로컬 실제 서버 업로드 주소). 운영 데이터에는 남지 않는다.
+- 10/21 MP4·MOV(ftyp) 영상은 `video/mp4`·`.mp4`로 저장한다. 앱·서버의 영상 판별이 mp4·webm 기준이다.
+- 10/21 기존 data URL 이전은 `server/scripts/` 대신 `retire_test_farm`처럼 모듈 명령(`python -m app.media.migrate_inline`, 기본 시험 실행·`--commit`)으로 만든다. 시험 실행도 형식 검사까지 해서 옮길/남길 개수가 정확하다.
+- 10/21 배포 직후 이전 명령을 실행해야 한다. 이전 전에는 base64 사진이 남은 상품 3건을 사진 목록째 다시 저장하면 새 검증에 걸려 400이 난다(운영 실행은 사용자 확인 후).
+
+### 작업
+- [x] 서버 `media` 모듈: 모델·마이그레이션 0017, `POST /api/media`, `GET /api/media/{id}.{ext}`
+- [x] worker 정리 작업이 `PublicMedia` 키를 지우지 않게
+- [x] 사진 URI 검증(data URL 거부)·텍스트 `max_length`
+- [x] `packages/api` `uploadMedia`, `pickMedia` 실제 서버 모드 업로드
+- [x] 기존 base64 이전 명령(기본 시험 실행). 운영 실행은 배포 후 따로 확인
+- [x] 문서 갱신
+- [x] 검증: pytest·ruff·alembic check·typecheck·test:mock·integration full
+- [x] AI 1차 리뷰(must 0) 반영
+- [ ] 배포 후 운영 이전 명령 실행·농가 사진 변경 200 확인
+
+### 기록
+- 10/21 운영 api 로그: `PATCH /api/farms/me` 6건 중 5건 500(`StringDataRightTruncation`). 운영 DB 읽기 전용 조회: `farms.photo` data URL 0/15, `products.photos` 3/28(239kB, products 테이블 384kB), 소식·채팅·상세 0.
+- 10/21 e2e 첫 실행 뒤 `seed --reset`이 `public_media` FK로 실패했다. `python -m app.core.seed`는 직접 import한 모델만 지우는데 media 모델이 빠져 있었다(pytest는 `migrations_models`로 import해서 드러나지 않음). `seed.py`에 import 추가.
+- 10/21 검증: `uv run ruff check .` 통과, `uv run pytest -q` 388 passed(신규 `tests/test_media.py` 13개), 새 DB에서 `alembic upgrade head`(0016→0017)·`alembic check` 통과(로컬 기본 DB는 이전 스키마가 남아 있어 새 DB 사용), `npm run typecheck` 오류 없음, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 시나리오 7 passed + Playwright 53 passed·2 skipped(자료 분석 설정 조건부 스킵, 기존과 같음). 새 e2e `public-media.spec.ts`: 생산자 앱에서 농가 사진 변경 → `POST /api/media` 201 → `PATCH /api/farms/me` 200 → 저장 값이 `http://localhost:8000/api/media/med-….jpg`.
+- 10/21 AI 1차 리뷰(별도 에이전트, pr-review): must 0, should 6, nit 5. 반영: 업로드 핸들러 동기화(스레드풀), ftyp brand 허용 목록, GET Range 206, 비 JSON 오류 처리, 계약 문서 보강(FQ-05 길이는 앱 검사), 테스트 보강, migrate https 강제. 후속: 본문 크기 선검사·빈도 제한·안 쓰인 파일 정리·소식 초과 업로드·공유 Mock 권한 차이·스트리밍 조회 → DEV-105.
+- 10/21 리뷰 반영 후 검증: `ruff check .` 통과, `pytest -q` 390 passed, `npm run typecheck` 오류 0, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 7 passed + Playwright 53 passed·2 skipped.
+
 ## DEV-98 관리자 페이지 테스트 농가 숨기기·되돌리기
 - 이슈: [DEV-98](https://linear.app/sswp6/issue/DEV-98)
 - 브랜치: `nemodleo/dev-98-dev-관리자-페이지에서-테스트-농가-숨기기되돌리기`
@@ -1473,6 +1523,45 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/21 main에서 시작. 시드 f-kang에 테스트 계정이 아닌 구매자 주문이 있어 성공 테스트는 DEV-93 테스트의 `make_order_consumers_test_accounts`를 쓴다.
 - 10/21 검증: `uv run pytest -q` 383 passed(새 `tests/test_admin_farms.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 12 passed.
 - 10/21 AI 1차 리뷰(pr-review): must 없음. should 반영: 생산자가 테스트 계정이 아닌 농가(실사용자 가입, 아직 주문 없음)를 숨길 때 미리보기에 경고 문구. 서울증류소처럼 본인 카카오로 가입한 운영 검증 농가도 이 경우라 막지 않고 알리기만 한다.
+
+## DEV-107 관리자 페이지 사용자 목록·검색과 테스트 계정 표시
+- 이슈: [DEV-107](https://linear.app/sswp6/issue/DEV-107)
+- 브랜치: `nemodleo/dev-107-dev-관리자-페이지-사용자-목록검색과-테스트-계정-표시` (DEV-98 브랜치 위에 쌓음, #202 머지 뒤 main 기준으로 최신화)
+- 기능·인수 조건: 운영 도구. 관련 FEAT-01(테스트 계정·카카오 계정), ADR 0009(Mock 로그인), DEV-93·DEV-98(테스트 농가 숨기기)
+- 상태: 리뷰 대기
+
+### 목표
+팀원이 카카오로 가입해 운영 검증에 쓴 계정을 관리자 페이지에서 찾아 "테스트"로 표시한다. 그러면 그 계정의 주문이 있는 테스트 농가(서울증류소 등)를 운영 DB를 직접 고치지 않고 숨길 수 있다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/users.py`(새), `server/app/admin/schemas.py`(끝에 추가), `server/app/main.py`(라우터 한 줄)
+- `server/app/accounts/models.py`(`ops_tester` 열), `server/migrations/versions/0018_user_ops_tester.py`(새)
+- `server/app/admin/retire_test_farm.py`(실사용자 주문 검사 조건), `server/app/admin/farms.py`(생산자 테스트 여부 한 줄)
+- `server/tests/test_admin_users.py`(새), `server/tasks.md`, `server/app/admin/spec.md`
+- `scripts/admin-web/**`, `docs/spec/screens.md`·`ia.md`·`tech-design/README.md`(User 행), `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- `is_test_account` 의미와 Mock 로그인·온보딩·앱 화면, 탈퇴·삭제(DEV-94), 사용자 상세·주문 내역(별도 이슈)
+
+### 결정 사항
+- 10/21 **`is_test_account`를 켜지 않고 새 열 `users.ops_tester`를 둔다.** `is_test_account`는 Mock 로그인 대상(`test_login`이 ID만으로 JWT 발급), 온보딩 생략(`needs_onboarding`), 소비자 앱 '테스트 계정' 표시·'내 정보 고치기' 숨김에 쓰인다. 카카오 계정에 켜면 Mock 로그인이 켜진 환경에서 ID만 알면 그 계정으로 로그인된다. 그래서 테스트 농가 숨기기의 실사용자 주문 검사에서만 `is_test_account OR ops_tester`를 테스트로 본다.
+- 10/21 API는 PUT·DELETE 대신 `POST .../mark-tester`·`.../unmark-tester`. 관리자 중계(`proxy.js`)가 GET·POST만 넘기고, 다른 작업과 겹치지 않게 중계 공통 코드는 고치지 않는다.
+- 10/21 목록은 운영자 계정을 빼고, 전화는 끝 4자리만 내보낸다. 검색어가 숫자 4자리 이상이면 전화 끝자리로, 아니면 이름·닉네임·ID·농가 이름 부분 일치(와일드카드 글자 그대로). 가입 최신순, 기본 50·최대 200, 전체 수를 같이 준다.
+- 10/21 운영자 계정은 409 `ADMIN_ACCOUNT`, 시드 테스트 계정은 409 `SEED_TEST_ACCOUNT`(이미 테스트로 센다). 거부도 `REJECTED` 감사 이벤트로 남는다.
+- 10/21 중계의 사용자 목록 경로는 한글 검색어가 퍼센트 인코딩되어 오므로 쿼리에 `%`·`+`·`.`까지 받는다(슬래시는 거부).
+
+### 작업
+- [x] `ops_tester` 열·마이그레이션 0018, 실사용자 주문 검사에 반영
+- [x] `/admin/users` 목록·검색, 표시·해제 API, pytest 8개
+- [x] 관리자 페이지 `/users` 화면, 메뉴, 중계 허용 경로, node 테스트 2개
+- [x] 문서: screens 운영자 API 표, ia, tech-design User 행, wiki(API 표·User 행), admin spec.md, admin-web README
+- [ ] 머지 뒤 운영 마이그레이션(배포 시 자동) 확인, Vercel `farmclub-admin` 재배포
+
+### 기록
+- 10/21 DEV-98 브랜치(`679d36d`)에서 시작.
+- 10/21 감사 이벤트 순서를 `created_at`으로 비교한 테스트가 전체 실행에서만 한 번 실패했다. 테스트 시계가 고정이라 두 이벤트 시각이 같다. 집합 비교로 고쳤다(DEV-98 `test_DEV_98_audit_names_the_admin`도 같은 방식이라 같은 위험이 있다).
+- 10/21 검증: `uv run pytest -q` 391 passed(새 `tests/test_admin_users.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, 새 DB에서 `alembic upgrade head` → `alembic check` 변경 없음, `node --test scripts/admin-web/admin.test.mjs` 14 passed.
+- 10/21 로컬 확인(새 DB 마이그레이션·시드, 로컬 API + `server.mjs`): `/users` 45명, 한글 검색 "강씨네" → 강영수(시드 테스트, 버튼 없음), u-buyer-choi 「테스트로 표시」 두 번 → "테스트(운영 검증)" 배지·토스트, 콘솔 오류 없음.
 
 ## DEV-106 관리자 페이지 사용자 상세: 주문·입금·환불 내역과 처리 버튼
 - 이슈: [DEV-106](https://linear.app/sswp6/issue/DEV-106)
