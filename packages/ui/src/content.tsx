@@ -308,10 +308,13 @@ export function ListRow({
   icon,
   last,
   right,
+  subMasked,
 }: {
   label: string;
   value?: string;
   sub?: string;
+  /** sub가 개인정보면 녹화에서 sub만 가린다(DEV-104) */
+  subMasked?: boolean;
   onPress?: () => void;
   chevron?: boolean;
   icon?: IconName;
@@ -325,7 +328,7 @@ export function ListRow({
           {label}
         </T>
         {sub ? (
-          <T variant="sub" muted numberOfLines={2}>
+          <T variant="sub" muted numberOfLines={2} masked={subMasked}>
             {sub}
           </T>
         ) : null}

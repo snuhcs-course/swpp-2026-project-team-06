@@ -23,7 +23,12 @@ type Props = {
   style?: StyleProp<TextStyle>;
   children?: ReactNode;
   accessibilityRole?: "header" | "text" | "link";
+  /** 개인정보(이름·연락처·주소·계좌 등). 세션 녹화에서 이 글자만 가린다(N-05, DEV-104) */
+  masked?: boolean;
 };
+
+/** react-native-web이 data-ph-private로 내보낸다. RN 타입에는 dataSet이 없어 넓은 타입으로 둔다 */
+const MASKED = { dataSet: { phPrivate: "1" } } as object;
 
 const letterSpacing: Partial<Record<TextVariant, number>> = {
   display: -0.96,
@@ -48,10 +53,12 @@ export function T({
   style,
   children,
   accessibilityRole,
+  masked,
 }: Props) {
   const w = weight ?? defaultWeight[variant] ?? "regular";
   return (
     <RNText
+      {...(masked ? MASKED : null)}
       accessibilityRole={accessibilityRole}
       numberOfLines={numberOfLines}
       style={[
