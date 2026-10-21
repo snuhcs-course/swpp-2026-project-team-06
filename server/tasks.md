@@ -1435,3 +1435,43 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 DEV-93 머지(`664d59d`) 뒤 `retire_test_farm f-16b05f2b68 --commit`으로 농가를 숨겼다(`SUSPENDED`, 행은 남김). 확인: 농가 상세·공유 페이지·상품 `p-20e7eef1fb` 404, 농가 목록·홈에 없음, 다른 농가 7곳 그대로. 다른 사람의 테스트 농가는 건드리지 않았다.
 - 10/20 정정: 내부 테스트 시트의 I-10은 'AI 초안 생성 → 생산자 편집 → 소비자 표시'(DEV-59)로, 이번 점검에서 AI 초안을 만들지 않아 덮지 못했다. A3(승인 후 대시보드)는 I-11만 해당. wiki 104·112줄을 고치고, 시트에는 I-06·I-07·I-11·I-13만 PASS로 적는다. I-10의 막힘 원인(공개에 필요한 운영자 승인)은 이제 운영에서 실행할 수 있다.
 - 10/20 내부 테스트 시트(SWPP_Internal_Testing_2026-10-17.xlsx, PM_통합) I-06·I-07·I-11·I-13을 PASS로 입력(사람). 05:13 저장본에서 F~H 원문 유지, I~N 결과 확인, 요약 PM Integration 4 PASS. I-10은 NOT TESTED 그대로.
+
+## DEV-102 농가 프로필 사진 저장 500: 공개 사진 업로드 API
+- 이슈: [DEV-102](https://linear.app/sswp6/issue/DEV-102)
+- 브랜치: `jinumeral/dev-102-bug-농가-프로필-사진-저장-500-공개-사진-업로드-api가`
+- 기능·인수 조건: FEAT-02 AC-02-3, FEAT-19 AC-19-3, FEAT-12 AC-12-10, FEAT-15, FQ-05(stack.md), storefront-1.5
+- 상태: 진행 중
+
+### 목표
+운영에서 농가 프로필 사진 변경이 500(`farms.photo` varchar(500)에 base64 data URL)으로 실패한다. 공개 사진 업로드 API가 없어서 생산자 앱 `pickMedia`가 data URL을 URL 자리로 보내기 때문이다. 공개 사진·영상을 파일로 올려 기존 R2 저장소에 두고 URL만 저장한다. 서버는 data URL과 컬럼보다 긴 입력을 500 대신 400으로 거부한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/media/`(새 모듈), `server/app/main.py`, `server/app/core/{config,detail}.py`, `server/app/source_analysis/worker.py`(정리 작업 보호만)
+- `server/app/{farms,catalog,messaging,accounts,orders}/schemas.py`(사진 URI·길이 검증만)
+- `server/migrations/env.py`, `server/migrations/versions/0017_public_media.py`, `server/tests/`, `server/scripts/migrate_inline_media.py`
+- `packages/api/src/client.ts`, `apps/producer/src/lib/pick.ts`
+- 문서: `server/spec.md`, `server/tasks.md`, `docs/spec/contracts-1.2.md`, `docs/spec/storefront-1.5.md`, `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 채팅·문의 비공개 첨부(Postgres bytea) → DEV-103
+- 5xx를 "연결이 불안정해요"로 보여주는 앱 공통 처리
+- 화면 모양·문구(Figma 변경 없음)
+
+### 결정 사항
+- 10/21 새 R2 버킷을 만들지 않고 자료 분석의 `Storage`(비공개 버킷)를 재사용한다. 조회는 API가 `GET /api/media/{id}.{ext}`로 내보내고 내용이 바뀌지 않으므로 긴 캐시를 준다. CDN 공개 버킷은 나중에 바꿀 수 있다.
+- 10/21 업로드는 농가가 있는 생산자면 된다(승인 대기 중에도 농가 프로필을 고칠 수 있음, `PATCH /api/farms/me`와 같은 기준).
+- 10/21 URL에 확장자를 붙인다. 앱(`RoomMedia`)과 서버(`messaging/service.py`)가 확장자로 영상을 판별한다.
+- 10/21 앱은 `apiUrl + url`의 절대 URL을 저장한다. 소비자 앱 이미지와 공유 미리보기(`farms/share.py`)가 별도 접두 없이 보인다.
+- 10/21 local이 아니면 저장소가 R2여야 한다는 검사를 자료 분석 설정과 무관하게 적용한다(컨테이너 디스크에 저장하면 배포 때 사라짐).
+
+### 작업
+- [ ] 서버 `media` 모듈: 모델·마이그레이션 0017, `POST /api/media`, `GET /api/media/{id}.{ext}`
+- [ ] worker 정리 작업이 `PublicMedia` 키를 지우지 않게
+- [ ] 사진 URI 검증(data URL 거부)·텍스트 `max_length`
+- [ ] `packages/api` `uploadMedia`, `pickMedia` 실제 서버 모드 업로드
+- [ ] 기존 base64 이전 스크립트(`--dry-run` 기본, 운영 실행은 따로 확인)
+- [ ] 문서 갱신
+- [ ] 검증: pytest·ruff·alembic check·typecheck·test:mock
+
+### 기록
+- 10/21 운영 api 로그: `PATCH /api/farms/me` 6건 중 5건 500(`StringDataRightTruncation`). 운영 DB 읽기 전용 조회: `farms.photo` data URL 0/15, `products.photos` 3/28(239kB, products 테이블 384kB), 소식·채팅·상세 0.
