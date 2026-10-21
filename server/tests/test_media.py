@@ -96,8 +96,24 @@ def test_FQ_05_video_upload_and_limit(client, login, monkeypatch):
     assert uploaded.json()["url"].endswith(".mp4")
     assert client.get(uploaded.json()["url"]).headers["content-type"] == "video/mp4"
 
+    # HEIC 사진·M4A 오디오처럼 ftyp만 같은 다른 형식은 영상으로 받지 않는다
+    heic = MP4[:8] + b"heic" + MP4[12:]
+    assert upload(client, headers, heic, "a.heic", "image/heic").status_code == 400
+
     monkeypatch.setattr(media, "VIDEO_MAX_BYTES", len(MP4) - 1)
     assert upload(client, headers, MP4, "a.mp4", "video/mp4").status_code == 400
+
+
+def test_AC_12_10_video_supports_range_requests(client, login):
+    url = upload(client, login("u-kang"), MP4, "a.mp4", "video/mp4").json()["url"]
+    part = client.get(url, headers={"Range": "bytes=0-9"})
+    assert part.status_code == 206
+    assert part.content == MP4[:10]
+    assert part.headers["content-range"] == f"bytes 0-9/{len(MP4)}"
+    tail = client.get(url, headers={"Range": "bytes=-4"})
+    assert tail.status_code == 206 and tail.content == MP4[-4:]
+    whole = client.get(url, headers={"Range": "items=0-1"})
+    assert whole.status_code == 200 and whole.headers["accept-ranges"] == "bytes"
 
 
 def test_read_unknown_or_wrong_extension_is_404(client, login):
@@ -174,7 +190,7 @@ def test_storage_cleanup_keeps_public_media(client, login, storage, monkeypatch)
     assert client.get(url).status_code == 200
 
 
-def test_migrate_inline_moves_data_urls_and_keeps_bad_ones(client, login, capsys):
+def test_migrate_inline_moves_data_urls_and_keeps_bad_ones(client, login, capsys, storage):
     import base64
 
     from sqlalchemy import select
@@ -193,6 +209,7 @@ def test_migrate_inline_moves_data_urls_and_keeps_bad_ones(client, login, capsys
     assert "옮김 2개, 형식 오류로 남김 1개" in capsys.readouterr().out
     with get_sessionmaker()() as session:
         assert session.get(Product, "p-house").photos[0] == good
+    assert not [p for p in storage.rglob("*") if p.is_file()]
 
     assert migrate_inline.main(["--base-url", "https://api.farmclub.kr", "--commit"]) == 0
     with get_sessionmaker()() as session:

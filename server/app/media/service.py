@@ -18,9 +18,24 @@ _IMAGE_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 _VIDEO_EXT = {"video/mp4": "mp4", "video/webm": "webm"}
 
 
+# MP4·MOV의 major brand. HEIC·AVIF 사진, 3GP, 오디오(M4A) 같은 다른 ISO BMFF는 받지 않는다.
+_VIDEO_BRANDS = {
+    b"isom",
+    b"iso2",
+    b"iso4",
+    b"iso5",
+    b"iso6",
+    b"mp41",
+    b"mp42",
+    b"avc1",
+    b"M4V ",
+    b"qt  ",
+}
+
+
 def _sniff_video(data: bytes) -> str | None:
-    # MP4·MOV는 ISO BMFF(4~8바이트 ftyp), WebM은 EBML 헤더
-    if data[4:8] == b"ftyp":
+    # MP4·MOV는 ISO BMFF(4~8바이트 ftyp + brand), WebM은 EBML 헤더
+    if data[4:8] == b"ftyp" and data[8:12] in _VIDEO_BRANDS:
         return "video/mp4"
     if data[:4] == b"\x1a\x45\xdf\xa3":
         return "video/webm"

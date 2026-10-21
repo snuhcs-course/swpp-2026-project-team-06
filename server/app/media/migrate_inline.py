@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.accounts import models as _accounts_models  # noqa: F401
 from app.catalog.models import Product
+from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.errors import ApiError
 from app.farms.models import Farm
@@ -112,7 +113,9 @@ def main(argv: list[str]) -> int:
     commit = "--commit" in args
     if commit:
         args.remove("--commit")
-    if len(args) != 2 or args[0] != "--base-url" or not args[1].startswith(("https://", "http://")):
+    # 저장한 주소가 사진 주소 검증(core/detail.MediaUri)을 통과해야 하므로 local만 http를 받는다
+    schemes = ("https://", "http://") if get_settings().app_env == "local" else ("https://",)
+    if len(args) != 2 or args[0] != "--base-url" or not args[1].startswith(schemes):
         print(__doc__)
         return 2
     with get_sessionmaker()() as session:

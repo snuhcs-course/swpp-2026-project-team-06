@@ -14,9 +14,9 @@
 
 ## 계약
 - 업로드는 농가가 있는 생산자면 된다(승인 대기 포함, `PATCH /api/farms/me`와 같은 기준). 소비자·농가 없는 생산자는 403, 비로그인 401.
-- 사진은 `core/images.sanitize`(JPEG·PNG·WebP, 10MB, EXIF·메타데이터 제거), 영상은 MP4(ftyp)·WebM(EBML) 100MB. 영상 길이 60초는 앱이 확인한다. 형식·용량 위반은 400 `VALIDATION_ERROR`(`details.fields.file`).
+- 사진은 `core/images.sanitize`(JPEG·PNG·WebP, 10MB, EXIF·메타데이터 제거), 영상은 MP4·MOV(ftyp + 허용 brand)·WebM(EBML) 100MB. HEIC·AVIF·M4A처럼 brand가 다른 ISO BMFF는 400. 영상 길이 60초는 앱이 확인한다(서버는 디코드하지 않음). 형식·용량 위반은 400 `VALIDATION_ERROR`(`details.fields.file`).
 - 응답 `{url, kind, mimeType, size}`. `url`은 `/api/media/<id>.<ext>`이고 앱은 `apiUrl`을 붙여 절대 주소로 저장한다.
-- 조회는 인증 없이, 저장한 MIME으로, `Cache-Control: public, max-age=31536000, immutable`. id·확장자가 맞지 않으면 404.
+- 조회는 인증 없이, 저장한 MIME으로, `Cache-Control: public, max-age=31536000, immutable`. id·확장자가 맞지 않으면 404. `Range: bytes=a-b` 하나는 206으로 응답한다(iOS Safari 영상 재생). 업로드는 저장소 쓰기가 길어 동기 핸들러로 스레드풀에서 돈다.
 - 저장소는 `source_analysis.storage.Storage`를 그대로 쓴다. 자료 분석 worker의 24시간 정리 작업은 `PublicMedia.storage_key`를 지우지 않는다.
 - 사진 필드(농가 `photo`, 상품 `photos`, 소식 `photos`·`videos`, 상세 이미지 블록)는 `core/detail.MediaUri`로 HTTPS 또는 서비스 상대 경로, 500자까지만 받는다. data URL은 400.
 
@@ -28,3 +28,4 @@
 | 2026-10-21 | 앱은 절대 주소(`apiUrl + url`)를 저장한다 | 소비자 앱 이미지·공유 미리보기(`farms/share.py`)가 접두 처리 없이 표시 | AC-19-3 |
 | 2026-10-21 | MP4·MOV(ftyp) 영상은 모두 `video/mp4`, `.mp4`로 저장한다 | 앱·서버의 영상 판별이 mp4·webm 기준. 휴대폰 MOV도 올릴 수 있게 | AC-12-10 |
 | 2026-10-21 | 쓰이지 않는 업로드(올렸지만 저장하지 않은 파일)는 지우지 않는다 | 참조 추적 없이 시작. 용량 문제가 생기면 정리 작업을 추가 | — |
+| 2026-10-21 | 요청 본문 크기 선검사·업로드 빈도 제한·쓰이지 않는 업로드 정리, R2 서명 URL·스트리밍 조회는 후속으로 둔다(AI 1차 리뷰 should) | FastAPI는 핸들러 전에 multipart를 받으므로 크기 선검사는 미들웨어가 필요하다. 지금 규모(사진 수십 장)에서는 메모리 조회로 충분 | — |

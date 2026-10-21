@@ -236,7 +236,8 @@ export async function uploadMedia(file: Blob, name: string): Promise<string> {
     headers: { Authorization: `Bearer ${getToken() ?? ""}` },
     body: form,
   });
-  const body = await res.json();
+  // 프록시의 413·502처럼 JSON이 아닌 오류도 ApiError로 넘겨 화면이 '읽지 못했어요'로 오해하지 않게 한다
+  const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, body);
   // 소비자 앱·공유 미리보기가 그대로 쓰도록 API 주소를 붙여 저장한다
   return apiUrl + (body as { url: string }).url;
