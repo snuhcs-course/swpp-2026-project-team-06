@@ -1,4 +1,5 @@
 // SCR-10 주문서 (FEAT-08, R-03 동의 4개는 policy.md 2장 문구) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
+import { track } from "@farmclub/analytics";
 import {
   ApiError,
   auth,
@@ -117,6 +118,11 @@ export default function Checkout() {
   }, [addresses.data, recipient]);
 
   const p = product.data;
+  // 구매 퍼널 2단계: 로그인한 사용자에게 주문서가 열림(트래킹 플랜 checkout_started, DEV-71)
+  const startedId = user && p ? p.productId : null;
+  useEffect(() => {
+    if (startedId) track("checkout_started", { productId: startedId });
+  }, [startedId]);
   useEffect(() => {
     if (p && !optionId) setOptionId(p.options[0].optionId);
   }, [p, optionId]);
@@ -184,6 +190,12 @@ export default function Checkout() {
       );
       // DEV-68: 주문을 만든 뒤 바로 입금 안내를 받는다(물량 선점, 입금 대기)
       await orders.deposit(o.orderId, depositKey);
+      // 구매 퍼널 3단계: 주문서 제출 → 입금 안내(DEV-71). 받는 사람·주소는 보내지 않는다
+      track("checkout_submitted", {
+        productId: p.productId,
+        orderId: o.orderId,
+        quantity: qty,
+      });
       router.push({
         pathname: "/checkout/[productId]/pay",
         params: {
@@ -440,8 +452,8 @@ export default function Checkout() {
           {/* 통신판매중개자 고지·입금 안내(policy 2장, DEV-68) */}
           <T variant="sub" muted>
             예약하면 농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면
-            예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고, 상품·배송·환불의
-            책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
+            예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고,
+            상품·배송·환불의 책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
           </T>
           <T variant="caption" muted>
             이용약관 · 개인정보 처리방침
