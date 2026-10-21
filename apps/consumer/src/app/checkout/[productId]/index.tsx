@@ -311,14 +311,14 @@ export default function Checkout() {
         >
           {recipient ? (
             <View style={{ gap: 4 }}>
-              <T variant="body" weight="semibold">
+              <T variant="body" weight="semibold" masked>
                 {recipient.recipientName} · {recipient.recipientPhone}
               </T>
-              <T variant="body">
+              <T variant="body" masked>
                 {recipient.address}
                 {recipient.addressDetail ? `, ${recipient.addressDetail}` : ""}
               </T>
-              <T variant="sub" muted>
+              <T variant="sub" muted masked>
                 {recipient.postalCode}
                 {"isDefault" in recipient && (recipient as Address).isDefault
                   ? " · 기본 배송지"
@@ -529,11 +529,11 @@ export default function Checkout() {
               gap: 4,
             }}
           >
-            <T variant="body" weight="semibold">
+            <T variant="body" weight="semibold" masked>
               {a.recipientName} · {a.recipientPhone}
               {a.isDefault ? "  기본" : a.label ? `  ${a.label}` : ""}
             </T>
-            <T variant="sub" muted>
+            <T variant="sub" muted masked>
               {a.address} {a.addressDetail}
             </T>
           </Pressable>

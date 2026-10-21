@@ -34,6 +34,7 @@ This page is for the development team. It explains how the system is built so we
 | 1.1 | 2026-10-09 | Team 6 | Table of contents, frontend and backend class diagrams, AI answer sequence diagram, API request/response examples, design-pattern section, restructured to the course guideline |
 | 1.2 | 2026-10-18 | Team 6 | DEV-68: bank transfer to the farm's account replaces the simulated card payment. `AWAITING_DEPOSIT` state, deposit deadline, producer deposit confirmation, refund settlement by the farm, farm bank account fields |
 | 1.3 | 2026-10-18 | Team 6 | PostHog analytics in both web apps (DEV-71): US Cloud, screen events, purchase funnel up to the deposit report, masked session replay |
+| 1.4 | 2026-10-21 | Team 6 | DEV-104: session replays mask only personal fields on account, order and checkout screens |
 
 ## 1. System Architecture
 
@@ -410,7 +411,7 @@ Not built yet:
 | Dedicated operator UI | Approval, delivery, refund-history and exception-recovery APIs exist; a dedicated UI is not assigned |
 | Automatic purchase confirmation after 8 days, scheduled refunds | No scheduler yet |
 | Cloudflare R2 for private photos | Public media (farm, product, news and detail photos, news video) is uploaded with `POST /api/media` and stored in R2 (DEV-102). Private chat and inquiry photos are still stored in PostgreSQL (DEV-103) |
-| PostHog | The two web apps send page views, the purchase funnel (product → order form → deposit instructions → "I've paid": `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`), session replays and heatmaps to PostHog US Cloud when the `APP_POSTHOG_KEY` build variable is set. Users are identified only by internal user ID. Replays mask every input, all text on checkout, deposit instructions, order, chat, account and the producer's bank account screens, plus chat and news message areas and the bank account row on the farm profile; network and console are not recorded. Server events (`order_paid` etc.) are not connected yet |
+| PostHog | The two web apps send page views, the purchase funnel (product → order form → deposit instructions → "I've paid": `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`), session replays and heatmaps to PostHog US Cloud when the `APP_POSTHOG_KEY` build variable is set. Users are identified only by internal user ID. Replays mask every input, all text on screens that are mostly personal data (chat, profile and address editing, address entry, order inquiry, onboarding, Kakao login return, producer shipping, sign-up and bank account), and elsewhere only what is legally personal data (buyer names, phone numbers, emails, addresses, delivery notes, tracking numbers, bank account numbers and holders, chat and news messages); seller details that the e-commerce law requires to be shown and cancel or refund reasons stay visible, so order, checkout and account screens stay readable; network and console are not recorded. Server events (`order_paid` etc.) are not connected yet |
 | Sentry, Langfuse | Chosen in the stack; not connected |
 | Producer-specific remote delivery areas | Uses an example postal-code rule |
 

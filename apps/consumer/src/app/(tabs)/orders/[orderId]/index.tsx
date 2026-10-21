@@ -313,12 +313,17 @@ export default function OrderDetail() {
                 ) : null}
               </T>
             </Row>
-            <Row k="받는 사람" v={`${o.recipientName} · ${o.recipientPhone}`} />
+            <Row
+              k="받는 사람"
+              v={`${o.recipientName} · ${o.recipientPhone}`}
+              masked
+            />
             <Row
               k="주소"
               v={`${o.address}${o.addressDetail ? `, ${o.addressDetail}` : ""}`}
+              masked
             />
-            <Row k="배송 메모" v={o.deliveryNote ?? "없음"} last />
+            <Row k="배송 메모" v={o.deliveryNote ?? "없음"} last masked />
           </View>
           <Button
             label="농가에 물어보기 ›"
@@ -481,7 +486,9 @@ function Tracking({ o, onCopied }: { o: Order; onCopied: () => void }) {
       <View style={{ alignItems: "flex-end", flexShrink: 1 }}>
         <T variant="body" style={{ textAlign: "right" }}>
           {carrierLabel(o.carrier)}
-          {o.trackingNumber ? ` · ${o.trackingNumber}` : ""}
+          {o.trackingNumber ? (
+            <T variant="body" masked>{` · ${o.trackingNumber}`}</T>
+          ) : null}
         </T>
         {o.trackingNumber ? (
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -534,12 +541,15 @@ function Row({
   children,
   bold,
   last,
+  masked,
 }: {
   k: string;
   v?: string;
   children?: ReactNode;
   bold?: boolean;
   last?: boolean;
+  /** 값이 개인정보면 녹화에서 값만 가린다(DEV-104) */
+  masked?: boolean;
 }) {
   return (
     <View
@@ -564,6 +574,7 @@ function Row({
           variant="body"
           weight={bold ? "bold" : "regular"}
           style={{ flexShrink: 1, textAlign: "right" }}
+          masked={masked}
         >
           {v}
         </T>
