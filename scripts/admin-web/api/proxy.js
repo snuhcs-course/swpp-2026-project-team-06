@@ -12,6 +12,9 @@ const ALLOWED = [
   new RegExp(`^/admin/capacity-requests${QUERY}$`),
   new RegExp(`^/admin/products/${ID}/capacity-requests/${ID}/(approve|reject)$`),
   new RegExp(`^/admin/farms(/${ID}/(preview|retire|restore))?$`),
+  // 사용자 상세와 그 화면의 주문 처리 버튼(DEV-106). 운영 API는 기존 것을 그대로 쓴다
+  new RegExp(`^/admin/users/(${ID}|by-order/${ID})$`),
+  new RegExp(`^/admin/orders/${ID}/(confirm-deposit|refund|refunds|delivered)$`),
 ];
 
 const send = (res, status, code, message) => sendJson(res, status, { code, message });

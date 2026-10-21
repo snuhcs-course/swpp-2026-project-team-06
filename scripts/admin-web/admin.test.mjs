@@ -119,7 +119,8 @@ test("중계는 가입 신청·공급 물량 경로만 넘기고 나머지 관�
   ]) {
     assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
   }
-  for (const path of ["/admin/orders/o-1/refund", "/admin/products/p-1/capacity-requests", "/admin/capacity-requests/../orders"]) {
+  // 주문 환불은 DEV-106 사용자 화면에서 허용했다. 여전히 막는 운영 API로 확인한다
+  for (const path of ["/admin/orders/expire-deposits", "/admin/products/p-1/capacity-requests", "/admin/capacity-requests/../orders"]) {
     assert.equal((await go(path, "POST")).status, 400, path);
   }
 });
@@ -157,4 +158,37 @@ test("테스트 농가 화면도 로그인해야 열린다 (DEV-98)", async () =
   const ok = await call(page, { url: "/api/page?name=farms", headers: { cookie } });
   assert.equal(ok.status, 200);
   assert.match(ok.body, /테스트 농가/);
+});
+
+test("중계는 사용자 상세와 주문 처리 버튼 경로만 넘긴다 (DEV-106)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/users/u-g4", "GET"],
+    ["/admin/users/by-order/FC-1021-1234", "GET"],
+    ["/admin/orders/o-g4/confirm-deposit", "POST"],
+    ["/admin/orders/o-g4/refund", "POST"],
+    ["/admin/orders/o-g4/refunds", "GET"],
+    ["/admin/orders/o-g4/delivered", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path);
+  }
+  for (const path of [
+    "/admin/users/u-g4/orders", "/admin/users/by-order/o-1/x", "/admin/orders/expire-deposits",
+    "/admin/orders/o-g4", "/admin/orders/o-g4/refund?amount=1", "/admin/users/../orders",
+  ]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
+test("사용자 화면은 로그인해야 열리고 /users/<id>로 돌아온다 (DEV-106)", async () => {
+  const r = await call(page, { url: "/api/page?name=user&id=u-g4" });
+  assert.equal(r.headers.location, "/login?next=%2Fusers%2Fu-g4");
+  const bad = await call(page, { url: "/api/page?name=user&id=..%2Fx" });
+  assert.equal(bad.headers.location, "/login?next=%2Fuser");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=user&id=u-g4", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /사용자/);
 });
