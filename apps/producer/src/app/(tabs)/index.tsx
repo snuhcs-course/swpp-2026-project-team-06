@@ -71,7 +71,7 @@ export default function Home() {
   const product = dash.data?.product;
   return (
     <Screen>
-      <BrandHeader title="농가 현황" />
+      <BrandHeader title="농가 현황" logo="icon" />
       <Scroll bottom={tokens.height.tabBarClearance}>
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           <T variant="sub" muted>

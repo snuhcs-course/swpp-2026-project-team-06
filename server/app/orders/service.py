@@ -791,8 +791,10 @@ def refund_issue(db: Session, farm_id: str, order_id: str, reason: str) -> Produ
 
 
 def _masked_name(user) -> str:
-    """이름 앞 글자 + ○○ (R-15)."""
-    return f"{(user.name if user else '?')[:1]}○○"
+    """농가에 보이는 소비자 이름(R-15): 닉네임, 없으면 이름 앞 글자 + ○○."""
+    from app.accounts import service as accounts
+
+    return accounts.public_name(user)
 
 
 def dashboard(db: Session, farm) -> Dashboard:

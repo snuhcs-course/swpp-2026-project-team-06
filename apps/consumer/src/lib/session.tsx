@@ -3,6 +3,7 @@ import {
   auth,
   configureApi,
   onAuthChange,
+  onOnboardingRequired,
   getToken,
   type Recipient,
   type User,
@@ -53,9 +54,13 @@ type Session = {
     run?: () => void,
     data?: Record<string, string>,
   ) => void;
-  /** 로그인 뒤 이어서 할 행동(없으면 null) */
+  /** 로그인 뒤 이어서 할 행동(없으면 null). 가입 온보딩이 남은 동안에는 null */
   resume: Resume | null;
+  /** 숨겨 둔 것까지 포함해 이어서 할 행동이 있는가(온보딩 끝 화면이 돌아갈 곳을 고를 때) */
+  hasResume: boolean;
   clearResume: () => void;
+  /** 카카오 리다이렉트처럼 페이지가 새로 뜬 뒤 저장해 둔 행동을 되살린다(/auth/kakao) */
+  restoreResume: (r: Resume) => void;
   /** 사용자가 직접 로그아웃(토큰 삭제 후 첫 화면). before는 토큰을 지우기 전에 실행(데모 초기화 등) */
   logout: (before?: () => void) => void;
   tabBarHidden: boolean;
@@ -80,6 +85,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [pendingRecipient, setPendingRecipient] =
     useState<Session["pendingRecipient"]>(null);
   const hadUser = useRef(false);
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
   const here = useRef(pathname);
   here.current = pathname;
 
@@ -120,6 +127,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     hadUser.current = !!user;
   }, [user]);
 
+  // 관문을 거치지 않는 행동(소식 좋아요·답장, 채팅 보내기 등)이 403 ONBOARDING_REQUIRED를 받으면
+  // 온보딩을 연다. 끝나면 보던 화면으로 돌아온다(AC-01-12)
+  useEffect(
+    () =>
+      onOnboardingRequired(() => {
+        void refresh();
+        if (here.current.startsWith("/onboarding")) return;
+        router.push({ pathname: "/onboarding", params: { next: here.current } });
+      }),
+    [refresh, router],
+  );
+
   const requireLogin = useCallback(
     (
       action: GateAction,
@@ -128,12 +147,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       data?: Record<string, string>,
     ) => {
       if (getToken()) {
+        // 카카오로 가입만 하고 온보딩을 안 마쳤으면 온보딩(SCR-06)부터. 끝나면 이 화면으로 돌아와 행동을 잇는다
+        // 탭 열기(소식·채팅·내 정보 둘러보기)는 그대로 둔다
+        if (userRef.current?.needsOnboarding && action !== "tab") {
+          setResume({ action, next, data });
+          router.push({ pathname: "/onboarding", params: { next } });
+          return;
+        }
         run?.();
         return;
       }
       setGate({ action, next, data });
     },
-    [],
+    [router],
   );
 
   const clearResume = useCallback(() => setResume(null), []);
@@ -152,14 +178,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
   useAnalytics("consumer", user, ready);
 
+  // 가입 온보딩이 남았거나 온보딩 화면(1/2, 2/2)에 있는 동안에는 이어서 할 행동을 숨긴다.
+  // 스택 아래의 원래 화면이 먼저 행동을 실행하지 않게 하고, 온보딩을 마치고 돌아가면 보인다
+  const onboarding = pathname.startsWith("/onboarding");
+  const visibleResume = user?.needsOnboarding || onboarding ? null : resume;
   const value = useMemo<Session>(
     () => ({
       user,
       ready,
       refresh,
       requireLogin,
-      resume,
+      resume: visibleResume,
+      hasResume: !!resume,
       clearResume,
+      restoreResume: setResume,
       logout,
       tabBarHidden,
       setTabBarHidden,
@@ -171,6 +203,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       ready,
       refresh,
       requireLogin,
+      visibleResume,
       resume,
       clearResume,
       logout,

@@ -78,10 +78,6 @@ def mask(text: str) -> tuple[str, bool]:
     return masking.mask(text)
 
 
-def masked_name(name: str | None) -> str:
-    return f"{(name or '고')[:1]}○○"
-
-
 # ---------------- 농가 공개 소식·팔로우 소식 (FEAT-15) ----------------
 
 
@@ -303,16 +299,17 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                 )
             )
         else:
-            name = names[r.consumer_id].name if r.consumer_id in names else None
+            sender = names.get(r.consumer_id)
             result.append(
                 NewsRoomMessage(
                     message_id=r.id,
                     farm_id=farm.id,
                     sender_id=r.consumer_id,
+                    # 농가에는 닉네임(없으면 가린 이름), 본인에게는 자기 이름
                     sender_name=(
-                        masked_name(name)
+                        accounts.public_name(sender)
                         if user is not None and user.role == "PRODUCER"
-                        else (name or "")
+                        else (sender.name if sender else "")
                     ),
                     sender_role="CONSUMER",
                     body=r.body,
@@ -389,6 +386,10 @@ def room_page(db: Session, user, farm_id: str, cursor: str | None, limit: int) -
 
 def send_room(db: Session, user, farm_id: str, text: str) -> NewsRoomMessage:
     """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 텍스트 답장. AI는 답하지 않는다."""
+    from app.accounts import service as accounts
+
+    if user.role == "CONSUMER" and accounts.needs_onboarding(db, user):
+        raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
     farm, can_reply = _room_access(db, user, farm_id)
     if not can_reply:
         raise forbidden("팔로우한 뒤 답장할 수 있어요.")
@@ -609,7 +610,7 @@ def _escalation_view(db: Session, e: Escalation, t: Thread, with_thread: bool) -
     return EscalationView(
         escalation_id=e.id,
         consumer_id=t.consumer_id,
-        consumer_name=masked_name(user.name if user else None),
+        consumer_name=accounts.public_name(user),
         context=e.context,
         question=e.question,
         reason=e.reason,
@@ -1007,7 +1008,7 @@ def producer_chats(
             ProducerChatSummary(
                 thread_id=t.id,
                 consumer_id=t.consumer_id,
-                consumer_name=masked_name(user.name if user else None),
+                consumer_name=accounts.public_name(user),
                 last_message=last.body if last else "대화를 시작해 보세요",
                 last_at=last.created_at if last else None,
                 unread_count=_unread(db, t, producer=True),

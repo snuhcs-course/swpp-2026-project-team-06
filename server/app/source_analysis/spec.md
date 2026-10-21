@@ -1,12 +1,18 @@
 # source_analysis
 
+## 현재 배포·구현 계약 (DEV-90, 2026-10-19)
+
+운영 API와 독립 `farmclub-source-worker`가 활성화되어 있다. `docs/spec/source-integration.md`의 현재 운영 상태와 `server/README.md`를 따른다. 기존 배포 보류는 과거 이력이다. 이미지·긴 이미지·PDF 운영 분석/비공개 반영3/3, 생산자 UI 저장·재접속·반영 및 격리 DB 브라우저17개를 검증했다. 일반 정확도·실제 농가 인수는 미완료이며 DEV-58은 In Progress다. 기본 정보 저장 직후 업로드 경합은 DEV-92에 남아 있다.
+
+API 이미지에는 OCR 의존성을 추가하지 않는다. `Dockerfile.worker`는 고정 RapidOCR/ONNX와 checksum 모델을 빌드 시 설치하고 시작 시 migration head·모델 무결성을 검사한다. 같은 private R2/DB를 참조하며 Run/비용 원장/기존 $5 한도는 유지한다. parser/prompt는 source-parser-v3/source-v6-candidate-validation이다.
+
 현재 제품 동작은 `docs/spec/source-editor.md`가 아래 구현 이력의 개인정보 검토·카드 스위치 설명보다 우선한다. 새 자료는 업로드 전 개인정보 제거 안내 후 승인 대기 없이 분석하며, 명시적 적용으로 상품 상세를 갱신한다. 아래 날짜별 기록은 당시 결정과 검증 이력이다.
 
 FEAT-03/04/07 · M-10~13/M-18 · AC-SRC-1~8. 제품 기준: docs/spec/source-analysis.md.
 
-비공개 원본·분석 작업·출처 후보·생산자 검토·18개 요소 상세 초안을 소유한다. Product/주문은 변경하지 않는다. 외부 모델 호출은 app/ai/source_analysis.py에 한정한다.
+비공개 원본·분석 작업·출처 후보·생산자 검토·18개 요소 상세 초안을 소유한다. 명시적 반영에서 Product.moduleDetail/대표사진을 갱신하며 가격·재고·공개 상태·주문은 변경하지 않는다. 외부 모델 호출은 app/ai/source_analysis.py·source_ocr.py 어댑터를 사용한다.
 
-PostgreSQL 작업 테이블과 독립 worker를 사용한다. 농가 소유권·revision·멱등 키를 검사하며 재분석은 확인한 값을 덮어쓰지 않는다. Mock은 명시적 fixture만 처리하고 실제 API 실패를 대체하지 않는다. 개인정보 검토를 통과한 파생 자료만 실제 모드에 전송한다.
+PostgreSQL 작업 테이블과 독립 worker를 사용한다. 농가 소유권·revision·멱등 키를 검사하며 재분석은 확인한 값을 덮어쓰지 않는다. Mock은 명시적 fixture만 처리하고 실제 API 실패를 대체하지 않는다. 새 자료는 업로더가 개인정보를 제거한 뒤 분석에 전송하며 이전 가림본·버전 보호는 유지한다.
 
 ## DEV-56/57/58 integration
 
@@ -63,3 +69,6 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 - 승인 계획: 후보별 엄격 검증, 유효 후보 보존, PARTIAL 상태와 공개 개수/비공개 진단 분리. 전부 거절은 실패이며 자동 재호출하지 않는다.
 - 단어 자체가 아닌 개인정보 항목 문맥을 기준으로 가림 처리한다. 자료 연락처는 상품 문의에 자동 반영하지 않으며 직접 편집과 분리한다.
 - 처리 버전 변경 시 이전 결과 재사용을 차단한다. 명시적 재시도 결과가 이전 자동 후보를 대체해도 확정된 생산자 편집은 보존한다.
+
+### DEV-84 사용 여부 조회
+`SOURCE_ANALYSIS_ENABLED`가 꺼지면 `/api/source-analysis/**`는 모두 404다(`enabled()` 게이트). 앱이 이것을 "상품 없음" 404와 구분하도록 게이트 밖 `config_router`의 `GET /api/source-analysis/config`가 `{ enabled }`를 200으로 돌려준다(인증 불필요, 카카오 config 선례). 운영은 배포 보류로 꺼져 있고 생산자 앱은 이때 기존 문구/직접 입력·상세 편집을 쓴다.

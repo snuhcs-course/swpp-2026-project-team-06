@@ -13,7 +13,7 @@
 
 1. 키/과금 소유자, 사용할 Claude API model ID, 사용 한도를 합의한다. 모델 ID를 추측하거나 fallback하지 않는다.
 2. GitHub repository Settings → Environments → spec-check를 생성한다.
-3. Required reviewers에 독립적인 팀원을 추가하고 Prevent self-review를 켠다. 관리자의 우회 승인도 사용하지 않는다.
+3. Required reviewers에 팀원을 추가한다. 2026-10-18 팀 결정(DEV-55)으로 Prevent self-review는 필수가 아니다. PR 작성자가 승인자 목록에 있으면 자기 PR의 실행을 직접 승인할 수 있다. 관리자의 우회 승인(Allow administrators to bypass)은 끈다.
 4. 이 환경에만 secret `SPEC_CHECK_API_KEY`, variable `SPEC_CHECK_MODEL`을 추가한다. 제품 키·Claude 앱 로그인·개인 CLI 인증을 재사용하지 않는다.
 5. 키 소유자는 별도 API workspace의 예산·사용량을 관리한다. 키 값·개인정보는 PR/Linear/로그에 넣지 않는다.
 6. PR에서 실행할 checker, prompt, workflow, action commit을 검토한 뒤에 환경 job을 승인한다. 환경 승인은 코드 리뷰의 Approve와 별개다.
@@ -21,7 +21,7 @@
 
 사용자 요청에 따라 현재 live 실행은 보류한다. 활성화 변수를 설정하지 않았다. 비활성화 시 live job은 SKIPPED이며 모델 PASS가 생성되지 않는다. 활성화 후 접근 오류는 INCOMPLETE로 실패한다.
 
-모델 job에는 환경 설정을 읽는 `actions: read`도 필요하다. 설정을 읽지 못하거나 required reviewers/prevent-self-review가 없으면 API 호출 전에 INCOMPLETE가 된다. 저장소 설정 권한이 없는 작성자는 관리자가 처리해야 한다.
+모델 job에는 환경 설정을 읽는 `actions: read`도 필요하다. 설정을 읽지 못하거나 required reviewers가 없으면 API 호출 전에 INCOMPLETE가 된다(prevent-self-review는 확인하지 않는다). 저장소 설정 권한이 없는 작성자는 관리자가 처리해야 한다.
 
 ## 2. 일반 PR 작성
 
@@ -130,3 +130,22 @@ v1은 명시적 경로 표를 사용한다. 자동 의미 검색·외부 문서 
 - [GitHub protected environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
 - [Claude Messages API](https://platform.claude.com/docs/en/api/messages/create)
 - [Claude workspace limits](https://platform.claude.com/docs/en/manage-claude/workspaces)
+
+## 7. Figma 줄 검사 (DEV-88)
+
+만든 계기: [DEV-74](https://linear.app/sswp6/issue/DEV-74)(PR #158, 생산자 앱 카카오 로그인)는 `apps/producer/src/app/login.tsx`의 로그인 화면(P02)을 바꿨지만 `tasks.md` 비범위에 "Figma"를 적고 넘어갔다. 머지 뒤 Figma P02만 옛 화면으로 남아 10/19에 손으로 맞췄다. #158 본문과 바뀐 파일로 이 검사를 돌리면 "Figma 줄이 없다"로 실패한다.
+
+`figma-line` 잡은 모델·키 없이 도는 결정적 검사다(`figma_line.py`, 테스트 `test_figma_line.py`는 checker-tests가 함께 돌린다).
+`apps/*/src/**`, `packages/ui/src/**`, `scripts/admin-web/**`(테스트·문서·설정 파일 제외: 점 파일, `*.md`, `package.json`, `vercel.json`)가 바뀐 PR은 본문 `## Figma` 절에 한 줄을 적어야 한다.
+
+```text
+Figma: 반영함 — https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=343-5945
+Figma: 해당 없음 — 서버 호출만 바꿨고 화면은 같다
+Figma: 후속 — DEV-90
+```
+
+줄이 없거나, 둘 이상이거나, 세 값 밖이거나, 값 뒤가 비었거나, `반영함`에 Figma 링크·node-id가 없거나, `후속`에 `DEV-숫자`가 없으면 실패한다. HTML 주석 안 줄은 세지 않는다. 본문을 고치면 다시 돈다.
+
+```sh
+python3 -m unittest discover -s .github/spec-check -p 'test_figma_line.py' -v
+```

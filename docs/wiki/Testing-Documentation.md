@@ -70,6 +70,72 @@ For each route pattern below, call once without a token, once with the `u-minji`
 | 2026-10-16 | Seeded manager and chat API flows with `ANTHROPIC_API_KEY` unset | Pass — producer decisions/history, capacity decisions, delivery/refund history, rule answer, forced/fallback handoff, AC-13-6/7, M-07 exception list/detail/resolve/retry guards, and AC-32-3 no-write preview verified. |
 | 2026-10-16 | Re-verification on current `main` (`34c9009`, includes #116 and #117) in a fresh worktree after `npm ci` and `uv sync --frozen`, scratch database | Pass — `pytest` 210 passed; `npm run test:integration:full`: 7 real-server scenarios and 19 Playwright tests passed (11 in `producer-i2` and `conversation-ui`). A scripted seeded-API run passed 46/46 checks: 12 admin routes × 3 identities (401/403/403); producer approve/reject and history; capacity stale 409 and approve; delivered and refund without key 400 (4 manager actions), same-key replay, one refund-history row; refund-request alert list/detail, retry refused (409 `RETRY_NOT_ALLOWED`), resolve, retry after resolve refused; AC-32-3 no-write preview; rule answer, forced and fallback handoff; AC-13-6 and AC-13-7. Transient-failure retry recovery was not reproduced over HTTP; `test_AC_11_3_transient_retry_uses_original_actor_and_exact_body` covers it. |
 
+### DEV-50 (I2-T41) — Manager and AI regression after fixes
+
+Reruns the manager and AI story tests on `main` `a7e41db` (2026-10-18), after the I2 fixes, and links each result to the user story it covers. Local runs use a seeded scratch database; the Railway checks are read-only (no approvals, refunds or chat messages were created on the shared server).
+
+| Story | Changed by | Regression tests (pytest) | HTTP and browser checks | Railway (read-only) | Result |
+| -- | -- | -- | -- | -- | -- |
+| **M01** Approve or reject new producers | DEV-30 (#96), DEV-35 (#114) | 13 `test_AC_01_3_*` (approve, reject with reason, history across reapplication, ADMIN-only access) | Seeded API: approve/reject, history, re-login keeps `APPROVED`, missing key 400, same-key replay | Admin routes refuse anonymous/consumer/producer (401/403/403); decision history readable with an admin token | Pass |
+| **M02** Approve or reject capacity requests | DEV-30 (#96) | 4 `test_AC_04_8_*` (ADMIN-only, version-safe, lifecycle) | Seeded API: stale approve/reject 409 `STALE_VERSION`, current version approves | Capacity routes refuse non-admins | Pass |
+| **M03** Track and resolve order and refund exceptions | DEV-35 (#114) | 30 `test_AC_11_3_*`, `test_AC_17_4_*`, `test_M_07_*` (refund balance, idempotency, concurrency, transient retry, refund-request alerts) | Seeded API: delivered, partial refund with one history row (amount and order match), refund-request alert list/detail, retry refused, resolve | Exception and refund-history reads return 200 with an admin token; non-admins refused | Pass |
+| **C06** Ask privately, get an evidence-based answer or a handoff | DEV-31 (#99), DEV-59 (#116), DEV-39 (#119), DEV-47 (#140) | 33: `test_C06_*`, `test_AC_13_*`, `test_AC_32_*`, `test_AC_03_3_*`, `test_P02_AC_03_1_*` | Seeded API: rule answer, forced and fallback handoff, AC-13-6 HUMAN switch, AC-13-7 AI off; Chromium AC-13-5 report and AC-32-4 settings conflict | Live Claude (settings preview): no-evidence question → handoff, product-name question answered with `product:p-house`, measured brix answered, pesticide question → handoff | Pass |
+
+**Defect fixed in this cycle (C06):** internal test A-10 found that, for a question with no evidence ("원산지가 어디예요?"), live Claude returned `ANSWER` with "no information, ask the seller", so the question never reached the producer's reply list (FEAT-13 normal flow 3). [#140](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/140) turns such answers into a handoff and tells the prompt the same. Regression tests `test_C06_FEAT_13_model_non_answers_are_detected`, `test_C06_FEAT_13_model_non_answer_becomes_handoff` and `test_C06_FEAT_13_model_non_answer_is_forwarded_to_producer` failed before the fix and pass after it. The same question on Railway returned a handoff after the deploy.
+
+**Not covered:** data-changing manager actions on Railway (kept off the shared seed used by consumer test 2), and server-side records from consumer test 1, which ran on Mock builds that keep data in each browser.
+
+**Execution record (2026-10-18, `main` `a7e41db`):**
+
+| Command or flow | Result |
+| -- | -- |
+| `cd server && uv run pytest` | Pass — 328 passed; Ruff clean |
+| Story subsets (`-k` by AC/story ID) | Pass — M01 13, M02 4, M03 30, C06 33 |
+| `npm run test:mock`; `npm run typecheck` | Pass — 13 tests; 4 workspaces |
+| `npm run test:integration:full` | Pass — 7 real-server scenarios and 43 Chromium tests, no retries. A first attempt failed to start because dependencies were reinstalled during startup; the rerun was the only change. |
+| Seeded local HTTP checks (DEV-44 script plus re-login and refund-row checks) | Pass — 49/49 |
+| Railway, read-only, deploy `a7e41db`: 24 admin route patterns × anonymous/consumer/producer; AI settings preview | Pass — 72 requests refused with 401/403/403; AI preview as in the C06 row |
+| Railway, admin reads with a token issued in the Railway shell (2026-10-18 02:20, deploy `850a1a9`) | Pass — exception list, 4 farm decision histories and 2 refund histories returned 200 (all empty on the fresh seed); unknown IDs returned 404 |
+
+**Recheck after later merges (2026-10-19, `main` `c98be9b` merged into this branch):** DEV-68 (#141, bank transfer, refunds) and the Kakao login PRs (#121, #158) landed after the run above, so the server and app checks were repeated. `uv run pytest` 364 passed and Ruff clean; story subsets unchanged (M01 13, M02 4, M03 30, C06 33); `npm run test:mock` 15 passed; `npm run typecheck` passed in 4 workspaces.
+
+### SWPP-118 — Operator checks on the live server (2026-10-20)
+
+The 19 October internal test left I-06, I-07, I-10, I-11 and I-13 **Blocked**, mainly because nobody had admin access on the deployed server. This run covers **I-06, I-07, I-11 and I-13** on `api.farmclub.kr` (deploy `271fe87`) with an admin token issued in the Railway shell. **I-10** (AI draft → producer edit → consumer display, DEV-59) was not run: no AI draft was created here, so it stays Blocked; its blocker, manager approval for publication, can now be run the same way.
+
+**Safety:** only clearly labelled test data was changed. The producer is a new Kakao account with the farm and product named `ZAHRA 운영자 테스트 1020 (삭제 예정)`; the consumer is the seeded test account `u-seojun`. Seeded farms and products (including the pending `f-wimi` application and `capacity-p-cheonggyeon`) were not touched. `POST /admin/orders/expire-deposits` was not called, because it cancels every overdue order on the server; AC-09-7 tests cover it. No money moved.
+
+| Step | Story / check | Expected | Result |
+| -- | -- | -- | -- |
+| A1 | Kakao producer applies (FEAT-01) | Application listed as PENDING in `GET /admin/producers` | Pass |
+| A2 | M01 reject with reason (R-22) | 200 `REJECTED`; producer app shows the reason and a prefilled reapply form | Pass |
+| A3 | Reapply, then approve | 200 `APPROVED`; producer app opens the dashboard (I-11) | Pass |
+| A4 | Decision history | Two decisions, newest first, by `u-admin`, each tied to its application time | Pass |
+| A5 | Approve again with the same `Idempotency-Key` | Same response, no new decision | Pass — identical body and `decidedAt` |
+| A6 | Reject without a token / as consumer | 401 / 403 | Pass — 401 / 403 |
+| B1 | Producer creates a product with a 5 kg INITIAL capacity request (FEAT-04) | Request `PENDING` | Pass — `p-20e7eef1fb` / `capacity-74c18eb1ac` v1 `PENDING` |
+| B2 | M02 approve capacity with an old version (AC-04-8) | 409 `STALE_VERSION`, request unchanged, rejection audited | Pass — 409; REJECTED event in `GET /admin/exceptions?status=REJECTED` |
+| B2 | Approve with the current version | 200 `APPROVED`; product `PUBLISHED`, 5 kg approved = sales limit | Pass |
+| B3 | Product shown to consumers; public edit propagates (I-06, I-07) | Visible on `farmclub.kr`; edited field shown after reload | Pass |
+| C1 | Bank-transfer order (FEAT-09) | `AWAITING_DEPOSIT` with farm account, seller info and a 24-hour deadline | Pass |
+| C2 | Admin `confirm-deposit`, sent twice with one key (AC-09-8) | `RESERVED` once, same `paidAt`, stock held once | Pass — remaining 5,000 g → 2,000 g |
+| C3 | M03 partial refund of ₩500 (R-11/R-12) | Order stays `RESERVED`; one refund row with manager event | Pass |
+| C3 | Buyer's order view after the partial refund | Order view unchanged (screens.md 7.2, refund) | As specified — buyer sees ₩1,000 `RESERVED` with no refund information (see Known limits) |
+| C4 | Final refund (remaining balance) | `REFUNDED`; two rows; stock released once | Pass — remaining 2,000 g → 5,000 g |
+| C5 | Duplicate refund with a new key | 4xx, audited, no third row (I-13) | Pass — 409 `INVALID_TRANSITION`; REJECTED `order.refund` event |
+| C6 | Producer marks the refund as sent (AC-17-7) | Order and both refund rows settled | Pass — after the final refund the producer saw one ₩1,000 item (screenshot). The refund tab was not opened between the partial and the final refund |
+| C7 | `GET /admin/orders/deposit-overdue` | 200 | Pass — empty list |
+| D1 | Producer pauses sales; consumer tries to order | Not orderable | Pass — 409 `SALES_PAUSED`; the paused product and farm remain listed, as designed |
+
+**Not run on the live server:** the `NO_FARM_ACCOUNT` block (the test farm already had an account; covered by the DEV-68 pytest), `expire-deposits` (see above), and temporary-failure retry (covered by `test_AC_11_3_transient_retry_uses_original_actor_and_exact_body`).
+
+**Known limits (by spec):** these behaved as the spec says. They are recorded so that readers do not take them for bugs.
+- **Buyer's order view:** a partial refund leaves the order status and refund fields unchanged; only the payment becomes `PARTIALLY_REFUNDED` (`docs/spec/screens.md` 7.2, `POST /admin/orders/{orderId}/refund`). The spec does not say whether buyers should see a partial-refund history; that is open in DEV-62.
+- **Farm's refund list:** the producer's "refund sent" step covers fully refunded orders only. Partial refunds are explicitly out of scope ("to consider later", AC-17-7). The producer refund tab and its settle actions only accept `REFUNDED` orders (`apps/producer/src/app/ship.tsx`, `server/app/orders/service.py`; checked in the code, not on screen), so with direct bank transfer the farm is not prompted to send a partial refund. Partial refunds can only be made by an operator through the API, and until this is built the operator tells the farm directly. Follow-up DEV-62 (DEV-96 merged into it).
+- **Live login:** the deployed consumer login shows Kakao only, so the seeded test accounts work through the API but not in the app. This is intended: test-account login is shown only while Kakao is off (SCR-05 in `docs/spec/screens.md`; related to internal-test finding F-01).
+
+**Leftover data (hidden, not deleted):** farm `f-16b05f2b68`, product `p-20e7eef1fb` (sales paused), order `o-7e7694e1d2` (`REFUNDED`, settled), refunds `refund-cf4a1cb937` and `refund-62c31d5c89`, and two REJECTED audit events. After DEV-93 (`664d59d`) the farm was hidden with `python -m app.admin.retire_test_farm f-16b05f2b68 --commit`: it is now `SUSPENDED`, so the farm page, share page and product return 404 and the farm is gone from the farm list and home. The rows stay; permanent deletion waits for the retention policy (PQ-06, DEV-94).
+
 ## 2. AI Module Testing (Iteration 3~)
 
 ## 3. Acceptance Testing (Iteration 4)

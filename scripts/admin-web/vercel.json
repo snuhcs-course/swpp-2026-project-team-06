@@ -1,0 +1,21 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/api/page?name=home" },
+    { "source": "/login", "destination": "/api/page?name=login" },
+    { "source": "/producers", "destination": "/api/page?name=producers" },
+    { "source": "/capacity", "destination": "/api/page?name=capacity" }
+  ],
+  "functions": {
+    "api/page.js": { "includeFiles": "api/_views/**" }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}

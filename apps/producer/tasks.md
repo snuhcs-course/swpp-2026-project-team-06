@@ -530,3 +530,126 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/18 박현 피드백: 사유 바로 고르기를 ‘미승인 사유’ 아래 토글(사유 3개 + ‘직접 입력’)로 옮김. 직접 입력을 켜야 입력 칸이 열림. Mock 생산자 앱(크롬)에서 환불 줄 미승인 → 직접 입력 → 보내기 → 줄에 ‘미승인 사유: …’ 확인.
 - 10/18 박현 피드백: 사유 선택이 입력 칸과 똑같아 보여 헷갈림 → 사유 선택은 기존 Radio 줄(로그인 계정 고르기 부품), 입력 칸은 ‘직접 입력’을 켰을 때만 ‘사유 직접 쓰기’ 라벨과 함께. Mock 앱(크롬)·Figma에서 확인.
 - 10/18 입금 대기 줄 기한이 지나면 ‘· 기한 지남’(입금했다고 알린 주문은 취소되지 않고 남음).
+
+## DEV-74 생산자 앱 카카오 로그인(SCR-19)과 가입 신청 연결
+
+- 이슈: [DEV-74](https://linear.app/sswp6/issue/DEV-74)
+- 브랜치: `nemodleo/dev-74-dev-생산자-앱-카카오-로그인scr-19과-가입-신청-연결`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-10(서버 계약은 DEV-32), AC-01-16(신규) · ADR 0003·0010
+- 상태: 진행 중
+
+### 목표
+실제 농가가 카카오로 생산자 앱에 가입·로그인한다. 처음이면 생산자 계정이 생기고(농가 없음) 기존 관문이 가입 신청(SCR-20)으로 보낸다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/app/login.tsx`, `apps/producer/src/app/auth/kakao.tsx`(새 화면), `apps/producer/src/lib/kakao.ts`(새 파일), `apps/producer/src/lib/session.tsx`(관문에 `/auth/kakao` 허용만)
+- `packages/api/src/mock/auth.ts`(Mock 생산자 카카오 계정), `server/tests/test_accounts.py`(생산자 카카오 → 가입 신청 테스트)
+- `apps/producer/spec.md`, `apps/producer/tasks.md`, `packages/api/tasks.md`, `server/tasks.md`
+- 문서: `docs/spec/functional/FEAT-01-login.md`, `docs/spec/screens.md`(SCR-19), `docs/spec/ia.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+- 서버 카카오 로그인 로직(DEV-32에서 `app: producer` 이미 지원), 소비자 온보딩(생산자는 SCR-20이 대표자 이름·연락처를 받음), 탈퇴·리프레시 토큰(DEV-75·76), Figma
+
+### 결정 사항
+- 10/18 실서버에서 카카오가 켜져 있으면 테스트 계정 목록과 ‘처음이세요? 농가로 가입 신청’을 숨기고 ‘카카오로 시작하기’만 둔다(소비자 앱과 같은 규칙). 처음 온 농가도 카카오로 시작하면 관문이 SCR-20으로 보낸다.
+- 10/18 Mock 모드는 카카오와 테스트 계정 목록을 함께 둔다. 승인·확인 중·반려·정지 계정을 시연·디자인 검토에 계속 써야 하기 때문. Mock 카카오 로그인은 농가 없는 새 생산자 `u-kakao-farm`으로 들어가 가입 신청 흐름을 보여 준다.
+- 10/18 복귀 정보는 sessionStorage `farmclub-producer:kakao-return`에 `state` 일회용 값만 둔다. 생산자 앱은 이어서 할 행동(resume)이 없고, 갈 곳은 세션 관문이 농가 상태로 정한다.
+
+### 작업
+- [x] `lib/kakao.ts`, `auth/kakao.tsx`, `login.tsx`, 관문
+- [x] Mock 생산자 카카오 계정
+- [x] pytest(생산자 카카오 → 농가 없음 → 가입 신청 → PENDING, 대표자 이름 반영)
+- [x] 스펙·wiki
+- [x] typecheck, test:mock, Mock 화면 확인, 통합 테스트
+
+### 완료 조건
+- [x] 카카오로 생산자 앱 로그인 → 농가 상태별 화면(가입 신청·대기·대시보드·정지)
+- [x] 테스트 통과
+- [x] 카카오 콘솔에 생산자 앱 `<PRODUCER_APP_URL>/auth/kakao` 등록(사용자, 10/18)
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 main 56ac959에서 시작.
+- 10/18 구현·검증: Ruff·pytest 364/364(신규 1), `npm run typecheck` 4개, `npm run test:mock` 15/15, 통합(카카오 꺼짐, 별도 DB) 실서버 7/7 + Playwright 43/43. Mock 화면: 카카오와 테스트 목록 함께 → 카카오로 시작 → `/apply`, 잘못된 state → 만료 안내, 콘솔 오류 0. 로컬 실서버(카카오 켜짐): 테스트 계정 0개·‘농가로 시작하세요’·카카오 버튼만, 누르면 카카오 로그인 화면(redirect_uri `http://localhost:8082/auth/kakao`). 실제 카카오 계정 생산자 로그인은 카카오 콘솔에 생산자 복귀 주소 등록 뒤 확인(아래).
+- 10/18 실제 카카오 계정(로컬 실서버 + 생산자 앱, 별도 DB): 카카오로 시작하기 → 새 생산자 계정(자리 이름 ‘카카오 사용자’, 이메일 저장) → `/apply` → 테스트 값으로 신청 → `/pending`(확인 중), 계정 이름이 대표자 이름으로 바뀜. 로그아웃 뒤 다시 카카오 → 같은 계정으로 `/pending`. 카카오 계정 1개만 생성.
+- 10/19 Figma P02 반영(DEV-74 수정 프레임). 비범위로 넘긴 Figma를 사후에 맞춤. 같은 일이 반복되지 않게 DEV-88에서 PR 본문 `Figma:` 줄과 CI 검사를 추가.
+
+## DEV-84 운영 생산자 앱 새 상품 추가 불가: 자료 분석 꺼진 서버에서 기존 흐름으로 전환
+
+- 이슈: [DEV-84](https://linear.app/sswp6/issue/DEV-84)
+- 브랜치: `nemodleo/dev-84-dev-운영-생산자-앱-새-상품-추가-불가-자료-분석`
+- 기능·인수 조건: FEAT-03(AC-03-3 문구 초안), FEAT-07 상세 편집, `docs/spec/source-integration.md` DEV-58 새 상품 진입·판매페이지 수정
+- 상태: 완료
+
+### 목표
+운영 서버는 자료 분석이 배포 보류(`SOURCE_ANALYSIS_ENABLED` 꺼짐)라 `/api/source-analysis/**`가 모두 404다. DEV-58 이후 실서버 모드의 `/products/new`·판매페이지 편집이 이 API만 불러 새 상품을 추가할 수 없다. 꺼진 서버에서는 기존 문구/직접 입력·상세 편집으로 가게 한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/router.py`(설정 조회 라우터), `server/app/main.py`(라우터 등록), `server/tests/test_source_analysis.py`
+- `packages/api/src/sourceAnalysis.ts`(config 호출)
+- `apps/producer/src/app/(tabs)/products/new.tsx`, `apps/producer/src/lib/ProductPageEditor.tsx`
+- `scripts/run-integration.mjs`(SOURCE_ANALYSIS_ENABLED 덮어쓰기, 뒤 인자를 Playwright에 전달), `scripts/e2e/source-disabled.spec.ts`(새 파일)
+- `apps/producer/spec.md`, `apps/producer/tasks.md`, `server/app/source_analysis/spec.md`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`
+
+### 비범위
+- 운영 서버에서 자료 분석 켜기(OpenRouter 키·R2·worker 필요, 배포 보류 결정은 별도), 자료 분석 기능 자체, Mock 흐름(이미 manual), Figma
+
+### 결정 사항
+- 10/19 사용 여부는 `GET /api/source-analysis/config` → `{ enabled }`로 알린다. 인증 불필요(카카오 `GET /api/auth/kakao/config` 선례), 기능 게이트(`enabled()`) 밖의 별도 라우터라 꺼져도 200. 404로 추정하지 않는 이유: 기존 상품 편집에서는 404가 "상품 없음"과 구분되지 않는다.
+- 10/19 꺼진 서버: `/products/new` → `/products/manual`(Mock과 같은 기존 경로), 판매페이지 편집 → `DetailEditor`. 설정 조회 실패면 지금처럼 오류와 다시 시도 버튼을 보인다(추측으로 다른 경로로 보내지 않음).
+
+### 작업
+- [x] 서버 config 라우터 + pytest(꺼짐·켜짐)
+- [x] api 클라이언트, new.tsx·ProductPageEditor 분기
+- [x] 통합 하네스 덮어쓰기 + 꺼짐 Playwright spec
+- [x] 스펙·wiki
+- [x] Ruff·pytest, typecheck, test:mock, 통합(꺼짐/켜짐 관련 spec)
+
+### 완료 조건
+- [x] 자료 분석이 꺼진 서버에서 새 상품 → 문구/직접 입력으로 상품 추가, 판매페이지 편집 → 기존 상세 편집
+- [x] 켜진 서버 흐름 그대로
+- [x] 테스트 통과
+- [x] 배포 후 실서버 재확인, 테스트 상품 정리(삭제 API 없음 → 비공개 DRAFT로 이름 표시)
+
+### 기록
+- 10/19 main 79eaea7에서 시작. 실서버 재현: u-kang `POST /api/products/drafts` 200, `POST /api/source-analysis/product-workspaces` 404 NOT_FOUND(인증 없이도 404 → 기능 게이트).
+- 10/19 검증: Ruff 통과, pytest 366/366(신규 1), `npm run typecheck` 4개 통과, `npm run test:mock` 15/15. 통합(별도 DB `farmclub_dev84`) 꺼짐 `SOURCE_ANALYSIS_ENABLED=false`: API 7/7, Playwright 5/5(source-disabled 2 + producer-and-privacy 3). 켜짐: API 7/7, Playwright 18 통과·2 건너뜀(꺼짐 전용) — source-workspace-ui·product-page-workspace·source-editor·producer-and-privacy.
+- 10/19 AI 1차 리뷰 반영: 판매페이지 수정의 설정 조회 대기·오류 화면에 뒤로 가기 헤더 추가. 재검증: typecheck 통과, test:mock 15/15, 통합 꺼짐 source-disabled 2/2, 켜짐 product-page-workspace 5/5.
+- 10/19 #174 squash merge(abe28df) → main CI·Railway·Vercel 배포 성공. 운영 확인: `GET /api/source-analysis/config` → `{"enabled":false}` 200. farm.farmclub.kr에서 u-kang으로 새 상품 → `/products/manual` → AI 초안 200 → `POST /api/products` 200 → `/products/p-89186c4fe1/edit`, p-house 판매페이지 수정 → 기존 상세 편집, product-workspaces 호출 0, 콘솔 오류 0.
+- 10/19 남긴 운영 데이터: 비공개 DRAFT 상품 p-89186c4fe1(이름 `DEV84 검증용(삭제 예정)`, 공개 조회 404)과 AI 초안 2건(d-2ba36f9f25 외 1). 상품 삭제 API가 없어 남겼다.
+- 후속: 운영에서 자료 분석을 켜려면 R2·OpenRouter 키, OCR 포함 이미지, worker 서비스가 필요(별도 작업).
+
+
+## DEV-92 기본 정보 저장 중 즉시 첨부 경합
+
+- 이슈: https://linear.app/sswp6/issue/DEV-92
+- 브랜치: `jinumeral/dev-92-bug-source-upload-can-race-basic-info-blur-save-and-return`
+- 기준: FEAT-03, AC-SRC-1/5/11, M-11/13, docs/spec/source-editor.md
+- 상태: 진행 중
+
+### 목표
+사용자 수동 입력을 우선 보존하면서 기본 정보 blur 저장과 새 파일/텍스트 업로드의 버전 경합을 제거한다. DEV-90 최종 운영 증빙/발표자료를 수정 배포 후 촬영한다.
+
+### 범위
+- `apps/producer/src/lib/{SourceWorkspace,SourceAttachments}.tsx`, `apps/producer/{spec,tasks}.md`
+- `scripts/e2e/source-workspace-ui.spec.ts`
+- `docs/spec/{README,source-editor,source-integration}.md`, `docs/wiki/Source-Analysis.md`
+- `server/{tasks,README}.md`, `docs/spec/validation/source-production-2026-10-19.json`: DEV-90 최종 배포/기록 정합성만
+- ignored `.artifacts/dev90/**`, 사용자 승인 Railway/Vercel 배포와 기존 Drive PPTX/영상, Linear DEV-90/92
+
+### 결정 사항
+- 10/19 사용자 후속 지시: 손으로 쓴 값의 우선순위를 유지한다. 기본 정보 flush를 첨부 컴포넌트에 주입해 파일/새 텍스트의 버전 조회 전에 저장 완료를 기다린다. 버전 검사를 제거하거나 다른 편집자의 입력을 덮어쓰지 않는다. 실패 시 파일/입력은 보존하고 명시적으로 재시도한다.
+- 화면·레이블·모양은 변경하지 않는다(Figma N/A). 유료 모델 재시도/자동 업로드 재시도는 추가하지 않는다.
+- DEV-90 당시 13장 상한은 이후 사용자가 만든 슬롯/팀원 추가 장을 삭제한다는 뜻이 아니다. 최신 공유 장 수를 유지하고 우리 작업은 새 장을 추가하지 않는다.
+
+### 작업
+- [x] 저장 완료 대기 연결 및 실패/수동 입력 보존
+- [x] 지연 PUT을 넣은 파일/텍스트 회귀, 모바일3폭, 기존 관련 묶음
+- [ ] spec/wiki/Linear 및 DEV-90 배포 증빙 마무리
+- [ ] CI/AI 리뷰, main 머지와 배포 후 재녹화·원본 발표자료 갱신
+
+### 기록
+- 10/19 main2ed8b28(API/worker 배포 성공, source367 pytest/API7/브라우저45 통과2건너뜀)에서 시작. 기존 운영 UI도 새 상품부터 private save/reload/apply 성공했으나 즉시 업로드 경합은 별도 재현되므로 수정 후 최종 기록으로 교체한다. Agent 시간/Tokens 미측정.
+
+- 10/19 검증: typecheck4 workspace/mock15/관련 Playwright24(신규7 포함) 및 소비자·생산자 web export 통과. SourceBasicInfo 기존 충돌 보호와 직접 입력 우선순위는 그대로 유지한다. 최종 운영/자료 완료 상태는 Linear DEV-90/92에서 후속 갱신한다.
+- 10/19 수정 전 코드를 일시 복원한 동일 지연 PUT 검사1건은 예상대로 실패(저장 완료 전 source uploaded). finally에서 수정 코드를 바이트 동일하게 복원했으며, 수정본 전체24 통과 결과와 대조했다. 커밋/브랜치 스캔 지적0, 레거시 호환 후보0.

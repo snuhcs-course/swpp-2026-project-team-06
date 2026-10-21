@@ -119,7 +119,7 @@ Each feature below has a user story in Connextra format and its main acceptance 
 
 ### FEAT-01: Account access and application
 
-**As a** visitor, **I want to** browse before choosing a consumer or producer test account, **so that** I only sign in when I need to and always end up in the right app.
+**As a** visitor, **I want to** browse before signing in with Kakao or a test account, **so that** I only sign in when I need to and always end up in the right app.
 
 **AC-01-1: Return to checkout after login**
 - **GIVEN** I am not logged in and I am on a product page
@@ -136,6 +136,53 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **GIVEN** test-account login has been turned off
 - **WHEN** I open the login screen or pick a test account
 - **THEN** I cannot log in and see "You can't log in right now"
+
+**AC-01-8: First Kakao login (UI 1.6, DEV-32)**
+- **GIVEN** Kakao login is enabled and I am not logged in on a product page
+- **WHEN** I tap Reserve and sign in with Kakao for the first time
+- **THEN** a consumer account is created from my Kakao member number with only my Kakao email stored, I finish the sign-up screens (SCR-06), and then I return to checkout
+
+**AC-01-9: Same Kakao account**
+- **GIVEN** I have signed in with this Kakao account before
+- **WHEN** I sign in with Kakao again
+- **THEN** I get the same account and no duplicate is created
+
+**AC-01-10: Separate producer account**
+- **GIVEN** I have a consumer account made with Kakao
+- **WHEN** the same Kakao account signs in to the producer app
+- **THEN** a separate producer account is created (server contract only; producer screen is out of DEV-32)
+
+**AC-01-11: Kakao login guarded**
+- **GIVEN** the Kakao key is missing, the redirect address is not one of the two apps, or Kakao rejects the code
+- **WHEN** the Kakao login API is called
+- **THEN** it is refused (404 or 400) and no account is created
+
+**AC-01-12: Finish sign-up before acting (DEV-32)**
+- **GIVEN** I signed up with Kakao but have not finished the sign-up screens
+- **WHEN** I reserve, follow, like, chat or reply in a news room
+- **THEN** the server refuses with `ONBOARDING_REQUIRED` and the app opens sign-up
+- **AND** once my nickname (2-12 characters), name (2-20), mobile number and the three required consents are saved, the action I tapped continues
+
+**AC-01-13: Returning member skips sign-up**
+- **GIVEN** I finished sign-up before
+- **WHEN** I sign in with Kakao again
+- **THEN** I go straight back to the screen and action that asked for login
+
+**AC-01-14: Consents are recorded**
+- **GIVEN** I agree on the sign-up screen
+- **WHEN** the consents are saved
+- **THEN** each item (terms, privacy, age 14+, farm news alerts) keeps one row with my choice, the wording version and the time, and agreeing again updates that row
+
+**AC-01-15: Address book**
+- **GIVEN** I have saved addresses
+- **WHEN** I edit, delete, or try to save a 51st address
+- **THEN** edits only check the fields I sent, deleting the default makes my most recent address the default, and the 51st save is refused with `ADDRESS_LIMIT` (an order's "save as default" keeps the order and just skips saving)
+
+**AC-01-16: Producer starts with Kakao (DEV-74)**
+- **GIVEN** Kakao login is enabled and I open the producer app
+- **WHEN** I start with Kakao for the first time
+- **THEN** a producer account without a farm is created and I go to the farm application (SCR-20), without the consumer sign-up screens
+- **AND** the owner name on my application becomes my account name, and signing in again takes me to the screen for my farm status
 
 **AC-01-6: Accounts stay in their own app**
 - **GIVEN** I have a consumer account and a separate producer account
@@ -632,15 +679,16 @@ Key consumer screens:
 | **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms |
 | **SCR-03 Farm page** | Direct farm news room with profile and adjacent Follow button | Fold/unfold the product shelf, send a same-room reply, open short farm info | Product → SCR-04; profile → short info | Shelf expanded for consumers; public/follower access unchanged; no reply-privacy hint |
 | **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
-| **SCR-05 Login** | Pick a consumer test account (Kakao login comes in I2) | Tap an account; close | Back to the screen and action that asked for login | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
-| **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents, intermediary notice | Change option or address, check consents, Reserve | Address → address screen; Reserve → SCR-11 | Reserve is disabled until an address exists and all four consents are checked. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input. The farm has no bank account: 409 explained on the checkout |
+| **SCR-05 Login** | Sign in with Kakao (returns through `/auth/kakao`); test accounts appear only while Kakao is off | Tap Kakao or an account; close | Back to the screen and action that asked for login; first sign-up goes through SCR-06 | Producer accounts are not listed. Test login off: "You can't log in right now". Closing does nothing |
+| **SCR-06 Sign-up** | First Kakao sign-up only: (1) nickname, name, mobile number, consents (terms, privacy, age 14+ required; farm news alerts optional) (2) default delivery address | Fill in, agree, Next; save the address or skip it | Back to the screen and action that asked for login | Next stays off until required fields and consents are valid. Closing keeps the account and asks again at the next login gate. Kakao values are prefilled; only missing ones are typed |
+| **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, four consents, intermediary notice | Change option, pick another saved address or enter a new one, check consents, Reserve | Address → address screen; Reserve → SCR-11 | Reserve is disabled until an address exists and all four consents are checked. Unfinished sign-up → SCR-06. With 50 saved addresses a new one is used for this order only. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input. The farm has no bank account: 409 explained on the checkout |
 | **SCR-11 Deposit instructions** | Rows in the existing list style: amount, bank and account number (copy), account holder, depositor name = order number (copy), 24-hour deadline (amount, account number and depositor name in bold); seller information; "farmclub is a marketplace intermediary" notice; one factual line that buyers may use their own bank's escrow transfer (no recommendation) | "I made the deposit" (hint only), "I'll deposit later" | Both → SCR-12 | Deadline passed: back to SCR-10 with the latest stock. Lost response on the deposit request: retried with the same key without taking stock twice |
 | **SCR-12 Order received** | While unconfirmed: "Awaiting deposit confirmation" with the deposit rows, then product and address only (order number and total are not repeated). After confirmation: "Reserved" with order number, product, total and address; following | Copy account number or depositor name, Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
 | **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
 | **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions; while awaiting a deposit: the account card, deadline and "I made the deposit"; refunded: "the farm sends it back within 3 business days" or "Refund complete <date>"; expired: "canceled because the deposit deadline passed" | Cancel (confirm sheet; no refund before the deposit), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
 | **SCR-15 / SCR-18 Chat** | News Rooms (farms you follow) and 1:1 chats in one tab | Switch views, open a room or chat | Room → news room; chat → SCR-16 | No chats: "Ask a farm anything" with a link to farms. Other buyers' replies never appear |
 | **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers or "Sent to the farm" | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | Not following and no paid order: sent to SCR-03. Send fails: text and photos are kept for retry. AI fails or times out: question goes to the producer |
-| **SCR-17 Me** | Followed farms, address book, "Start as a farm", log out | Tap a farm, manage addresses, log out | Farm → SCR-03; addresses → address book; log out → SCR-01 | Starting a farm explains that the producer app needs its own account |
+| **SCR-17 Me** | Nickname, followed farms, edit profile, address book (up to 50, edit and delete), "Start as a farm", log out | Tap a farm, edit profile, manage addresses, log out | Farm → SCR-03; profile → `/me/profile`; addresses → address book; log out → SCR-01 | Unfinished sign-up shows "Finish signing up". Starting a farm explains that the producer app needs its own account. 50 addresses: adding is off until one is deleted |
 | **SCR-32 Order problem** | Report damage, quality, taste or other with up to 3 private photos | Pick a type, describe it, attach photos, Send | Success → SCR-16 with the order attached | Not your order or not paid: cannot be sent. Upload or send fails: input is kept, and a retry never files it twice |
 
 ### 7.4 Producer app screens
@@ -661,7 +709,7 @@ Key producer screens:
 
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
-| **SCR-19 Login** | Pick a producer test account, or apply as a new farm | Tap an account and Start; "Apply as a farm" | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Test login off: "You can't log in right now" |
+| **SCR-19 Login** | Start with Kakao (returns through `/auth/kakao`); test accounts appear only while Kakao is off (the Mock keeps both for demos) | Tap Kakao, or an account and Start | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice | Consumer accounts are not listed. Test login off: "You can't log in right now" |
 | **SCR-20 Application** | Farm details for joining; creates the producer account | Owner name, farm name, region, main crops, mobile number, policy consent; Apply | SCR-21 | Field errors keep the input. Already applied → SCR-21. Reapplying after rejection fills in the previous values |
 | **SCR-21 Pending approval** | Application status, refreshed every time the screen opens | View application, pull to refresh, log out, reapply if rejected | Approved → SCR-22 automatically; reapply → SCR-20 | Before approval, every other producer screen redirects here |
 | **SCR-22 Dashboard** | To-do band (deposits to confirm, refunds to send, register a bank account), large 2×2 total/reserved/preparing/shipped counts and representative product reserved/shipped kg | Open a to-do, order or shipping management | SCR-29 filtered list, bank account screen | All cursor pages contribute to order counts (orders awaiting a deposit included); no chat tasks or news-writing entry |

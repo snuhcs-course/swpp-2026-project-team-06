@@ -74,6 +74,20 @@ class CapacityRequestView(CamelModel):
     version: int
 
 
+CapacityFilter = Literal["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "ALL"]
+
+
+class AdminCapacityRequest(CapacityRequestView):
+    """운영자 공급 물량 신청 목록 한 줄(DEV-87). 상품·농가와 현재 승인량을 함께 준다."""
+
+    product_name: str
+    product_status: ProductStatus
+    farm_id: str
+    farm_name: str
+    approved_supply_grams: int
+    sales_limit_grams: int
+
+
 class ProductCard(SalesState):
     product_id: str
     name: str

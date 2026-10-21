@@ -1136,3 +1136,302 @@ PG 보류(C안). 소비자가 농가 계좌로 직접 무통장 입금하고 생
 - 10/18 서버·API·Mock·앱·문서 구현. `uv run pytest`: 332 중 328 통과, 4 실패는 로컬 `server/.env`의 AI 키 때문(.env를 치우고 돌리면 4/4 통과, 이번 변경과 무관). 범위 추가: `server/.env.example`(DEPOSIT_DEADLINE_HOURS), `packages/ui/src/format.ts`(deadline), `apps/consumer/src/lib/DepositCard.tsx`, `apps/producer/src/app/(tabs)/farm/account.tsx`.
 - 10/18 농가 미승인 반영 후 실행: `uv run pytest` 339 중 335 통과(실패 4는 로컬 `server/.env` AI 키, 기존과 같음), `alembic upgrade head`·`alembic check` 통과(전용 DB), `npm run typecheck` 통과, `npm run test:mock` 14/14, `npm run test:integration:full` API 7 + Playwright 43/43 통과(전용 DB `farmclub_dev68_mig`).
 - 10/18 리뷰(자라, Request changes) 반영: main(f31c7b0) 병합(충돌 3파일 모두 양쪽 유지), ruff 8건 정리, R-15(생산자 목록에서 `paid_at` 없는 취소 제외·입금 전 배송 정보 비움), 박현 결정 — 입금했다고 알린 주문은 기한이 지나도 취소하지 않고 운영자 목록 `GET /admin/orders/deposit-overdue`, 부분 환불 송금 표시는 나중 고려. `expire-deposits` 멱등 키·감사 기록, 주문 번호 충돌 재시도, 0014 downgrade server_default 원복. pytest 345 중 341 통과(실패 4는 로컬 `.env` AI 설정, 이번 변경과 무관), alembic 0013↔0015 왕복·check 통과.
+
+## DEV-32 카카오 로그인 서버
+- 이슈: [DEV-32](https://linear.app/sswp6/issue/DEV-32) (GitHub [#77](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/77))
+- 브랜치: `nemodleo/dev-32-i2-t14-implement-real-user-login-and-return-users-to-their`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-8~15 · ADR 0003·0010
+- 상태: 리뷰 중
+- 범위(수정 허용 경로): `server/app/accounts/{models,router,schemas,service,spec}.py|md`, `server/app/core/security.py`(`OnboardedConsumer`), `server/app/{orders,farms,messaging}/router.py`(관문 의존성만), `server/app/messaging/service.py`·`server/app/orders/service.py`(소비자 표시 이름·소식방 답장 관문만), `server/migrations/versions/0016_user_onboarding.py`, `server/tests/test_accounts.py`, `server/.env.example`, `server/tasks.md`. 10/18 온보딩 승인으로 범위 넓힘. 동작 변경과 함께 고치는 문서: `docs/spec/{functional/FEAT-01-login.md,functional/README.md,screens.md,ia.md,policy.md,tech-design/README.md}`, `docs/wiki/Requirements-and-Specifications.md`
+- 결정 사항:
+  - 10/17 `GET /api/auth/kakao/config`(공개)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 토큰 교환은 httpx 동기 클라이언트, 8초 타임아웃. `_kakao_fetch`만 바꿔 끼워 테스트한다.
+  - 10/17 복귀 주소는 CORS 허용 목록과 같은 두 앱 주소의 `/auth/kakao`만 받는다(오픈 리다이렉트·코드 가로채기 방지).
+  - 10/17 (카카오 식별자, 역할)마다 계정 하나. 처음이면 카카오계정 이메일(`account_email`, 없으면 닉네임, 둘 다 없으면 ‘카카오 사용자’)을 이름으로 만들고, 자리 이름은 다음 로그인에서 바꾸며 `is_test_account=false`, 연락처 빈 값. 키가 비면 404, 교환 실패·주소 불일치는 400이며 계정을 만들지 않는다.
+  - 10/17 리프레시 토큰은 넣지 않는다(0009와 같은 7일 액세스 토큰). 테스트 기간에는 Mock 로그인 플래그를 함께 켠다.
+- 작업: [x] 스키마·서비스·라우터 [x] pytest AC-01-8~11 [x] Ruff
+- 검증: Ruff 통과, 전체 pytest 217개 통과(신규 7개). 로컬 `.env`에 카카오 키가 있어 "꺼짐" 테스트는 키를 명시적으로 비운다.
+- 10/18 결정(사용자 승인, 제안 아티팩트 v4): 카카오에서는 회원번호·이메일만 받는다(닉네임 안 받음). 첫 가입 온보딩에서 닉네임·이름·휴대폰·가입 동의, 기본 배송지(건너뛰기 가능)를 받는다. 이름·전화번호 동의 항목은 비즈 앱 심사 뒤(2단계) 추가해 빈 칸에만 채운다. 배송지는 계정당 50개, 수정·삭제 가능.
+- 10/18 결정: 온보딩 미완료 판단은 서버(`needs_onboarding`)가 하고 `UserView.needsOnboarding`으로 내려준다. 농가에 닿는 쓰기(주문·팔로우·좋아요·채팅 시작·보내기·소식방 답장)만 403 `ONBOARDING_REQUIRED`, 조회와 내 정보·배송지는 막지 않는다. 동의는 `user_consents`(user, kind)당 한 줄, 결제 동의(R-03)처럼 버전·시각을 남긴다. 농가에 보이는 소비자 이름은 닉네임(없으면 기존 가림 이름).
+- 10/18 결정: 주문의 ‘기본 배송지로 저장’은 50개가 차 있으면 주문은 그대로 두고 저장만 건너뛴다(주문이 배송지 한도에 막히지 않게). 기본 배송지를 지우면 가장 최근 배송지가 기본.
+- 10/18 main(0013까지) 머지 뒤 마이그레이션 0014(`users.nickname`·`email`, `user_consents`). **번호 충돌**: DEV-68 PR #141도 main 0013 위에 `0014_bank_transfer.py`를 둔다. 먼저 머지되는 PR이 0014를 갖고, 나중 PR은 main을 받아 0015(`down_revision`=먼저 들어간 0014)로 옮긴다. DEV-36 PR #124의 0009는 보류 중이라 다시 열면 그 뒤 번호로 옮긴다. 로컬 공용 DB `farmclub`는 DEV-68의 0014에 올라가 있어 이 브랜치 통합 테스트는 `farmclub_dev32` DB로 돌렸다.
+- 작업(10/18): [x] 모델·마이그레이션 0016(처음 0014, DEV-68 머지 뒤 번호 이동) [x] `KakaoProfile`·온보딩 판단·`PATCH /me`·동의 API [x] 관문 의존성 [x] 배송지 PATCH·DELETE·50개 [x] pytest AC-01-12~15 [x] Ruff
+- 검증(10/18): Ruff 통과, 전체 pytest 344개 통과(신규·수정 11개), 빈 DB에 `alembic upgrade head` → `downgrade 0013` → `upgrade head`, `alembic check` 변경 없음.
+- 10/18 AI 1차 리뷰 반영: 카카오로 처음 만든 생산자 계정은 이름이 비지 않게 ‘카카오 사용자’(소비자는 온보딩에서 받음). 기본 배송지 승계 정렬에 id를 두 번째 키로. 배송지 PATCH의 null·`isDefault=false` 의미를 스키마 주석에 적음. 테스트 추가: 좋아요·채팅 시작·보내기·소식방 답장 403, 생산자 채팅 목록에 닉네임만 보이고 이름·연락처는 없음, 주문 ‘기본 배송지로 저장’이 50개에서 건너뜀.
+- 10/18 결정(리뷰 확인 필요 항목): `needs_onboarding`은 동의 문구 **버전**을 비교하지 않는다. 약관·처리방침 개정 때 재동의를 강제하는 것은 정식 약관이 나온 뒤(현재는 테스트 서비스 요지만 있음) 별도 이슈로 한다. 버전은 이미 기록하므로 그때 현재 버전 상수와 비교만 더하면 된다. 배송지 50개는 동시 저장 경합에서 넘을 수 있으나 테스트 서비스 규모에서 허용.
+- 검증(10/18 리뷰 반영 뒤): Ruff 통과, 전체 pytest 346개 통과.
+- 10/18 DEV-68 PR #141 머지(main에 0014_bank_transfer·0015_deposit_issue)에 따라 main을 다시 병합하고 온보딩 마이그레이션을 `0016_user_onboarding`(`down_revision`=0015)으로 옮겼다. 문서 충돌(ia·policy·screens·tech-design·wiki·tasks)은 양쪽 내용을 합쳤다. policy.md 동의 문단은 DEV-68의 중개자 구조 문장으로 바꾸고 예전 ‘직매입·처리 위탁’ 문장은 뺐다.
+
+## DEV-74 생산자 앱 카카오 로그인 — 서버 테스트
+
+- 이슈: [DEV-74](https://linear.app/sswp6/issue/DEV-74) · 기준 절: `apps/producer/tasks.md#dev-74`
+- 범위: `server/tests/test_accounts.py`만. 서버 로직은 DEV-32에서 `app: producer`를 이미 지원(생산자 자리 이름 ‘카카오 사용자’, 온보딩 대상 아님).
+- [x] `test_AC_01_16_kakao_producer_signs_up_through_application`: 카카오 생산자 → 농가 없음·온보딩 없음 → 가입 신청 → PENDING, 대표자 이름 반영, 재로그인 시 같은 계정
+
+## DEV-50 운영자·AI 스토리 테스트 재실행 (수정 후)
+- 이슈: [DEV-50](https://linear.app/sswp6/issue/DEV-50) (GitHub [#95](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/95))
+- 브랜치: `zahra/dev-50-manager-ai-regression`
+- 스토리: M01·M02·M03·C06 (Linear 문서 "I2 user stories")
+- 상태: 완료
+
+### 목표
+I2 수정(DEV-30·31·35·39·59·47) 뒤 운영자·AI 테스트를 main에서 다시 돌리고, 결과를 스토리별로 연결해 `docs/wiki/Testing-Documentation.md`에 남긴다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/Testing-Documentation.md`(DEV-50 절만), `server/tasks.md`
+- 제품 코드·테스트 변경 없음
+
+### 결정 사항
+- 10/18 Railway에서는 읽기만 한다(접근 차단, 운영자 조회, AI 미리보기). 승인·환불 같은 변경은 테스트 2 공용 시드를 지키려고 로컬에서만 한다.
+- 10/18 테스트 1은 Mock 빌드라 서버 기록이 없어 이 재실행 범위에 넣지 않는다.
+
+### 기록
+- 10/18 main `a7e41db`: pytest 328 통과, Ruff 통과. 스토리별 M01 13·M02 4·M03 30·C06 33 통과. mock 13, typecheck 4 workspace 통과. `test:integration:full` 실서버 7 + Chromium 43 통과(재시도 없음). 첫 실행은 시작 중에 `npm ci`를 같이 돌려 Expo가 뜨지 못해 실패했고, 단독 재실행으로 통과. 로컬 HTTP 체크 49/49.
+- 10/18 Railway(배포 `a7e41db`) AI 미리보기: "원산지가 어디예요?" ×2 HANDOFF, 상품명 ANSWER(`product:p-house`), 실측 당도 ANSWER, 농약 HANDOFF. 비운영자 72요청 401/403/403. 운영자 조회 7개 200은 02:20 배포 `850a1a9`에서 현님이 발급한 토큰으로 확인(새 시드라 목록은 비어 있음).
+- 10/19 main `c98be9b`(DEV-68 #141, 카카오 로그인 #121·#158 포함)를 병합해 다시 확인: pytest 364 통과, Ruff 통과, 스토리별 M01 13·M02 4·M03 30·C06 33 그대로, mock 15, typecheck 4 workspace 통과. 로컬 typecheck가 처음엔 `/farm/account`·`/onboarding` 경로 오류로 실패했는데, 예전 `expo start`가 만든 `.expo/types/router.d.ts`(gitignore)가 낡아서였고 지운 뒤 통과(CI에는 이 파일이 없음).
+
+## DEV-82 운영자 생산자 승인 웹(로컬)과 가입 신청 목록 API
+
+- 이슈: [DEV-82](https://linear.app/sswp6/issue/DEV-82)
+- 브랜치: `nemodleo/dev-82-dev-운영자-생산자-승인-웹로컬과-가입-신청-목록`
+- 기능·인수 조건: FEAT-01 AC-01-3(승인 관문), R-22 · ADR 0008(운영자 관리 API)
+- 상태: 진행 중
+
+### 목표
+운영자가 확인 중인 생산자 가입 신청을 목록으로 보고 승인·반려한다. 지금은 Swagger에서 농가 ID를 알아야만 승인할 수 있다.
+
+### 범위 (수정 허용 경로)
+- 서버: `server/app/accounts/{router,schemas,service,spec}.py|md`(`GET /admin/producers`), `server/app/farms/service.py`(`list_applications`), `server/tests/test_admin.py`, `server/tasks.md`
+- 승인 웹: `scripts/admin-web/**`(새 폴더, 빌드 없는 한 페이지 + 중계 함수 + 로컬 서버, Vercel 임시 배포 설정)
+- 문서: `docs/spec/screens.md`(7.2 운영자 행), `docs/spec/ia.md`(운영자 화면 안내), `docs/wiki/Requirements-and-Specifications.md`(해당 시)
+
+### 비범위
+- 운영자 웹 정식 배포·도메인, 운영자 로그인(카카오 등), 주문·환불·상품 승인 화면, CORS 설정 변경
+
+### 결정 사항
+- 10/19 신청 목록은 `GET /admin/producers?status=PENDING|REJECTED|APPROVED|SUSPENDED|ALL`(기본 PENDING), 응답은 기존 `ProducerApplication` 모양 목록(신청 최신순). 운영자 토큰만.
+- 10/19 승인 웹은 로컬 전용. 실서버 CORS는 소비자·생산자 앱 주소만 허용하므로, 웹을 띄우는 로컬 Node 서버가 `/admin/*` 요청을 실서버(기본 `https://api.farmclub.kr`)로 대신 보낸다. 127.0.0.1에만 열린다.
+- 10/19 운영자 토큰은 사용자가 발급(`railway ssh -- .venv/bin/python -m app.accounts.admin_token`, 서버 컨테이너 안에서. `railway run`은 로컬 실행이라 내부 DB 주소에 닿지 않음)해 화면에 붙여 넣는다. 브라우저 sessionStorage에만 두고 저장소·서버 로그에 남기지 않는다.
+- 10/19 (위를 바꿈) 접속은 공용 비밀번호로 한다. 운영자 토큰은 중계 환경 변수(`ADMIN_TOKEN`)에만 두고, 비밀번호(`ADMIN_WEB_PASSWORD`)가 맞을 때만 붙인다. 링크·비밀번호를 아는 사람은 누구나 승인·반려하고 결정은 `u-admin`으로 기록된다(사람별 기록은 후속). 토큰 7일 만료 시 재발급. 실서버 코드는 그대로.
+- 10/19 같은 폴더를 Vercel 별도 프로젝트(`farmclub-admin`)로 임시 배포한다. 중계는 서버리스 함수(`api/proxy.js`) 하나로 로컬과 같은 코드를 쓰고, `/admin/producers` 아래 경로와 GET·POST만 넘긴다. `noindex` 헤더를 붙이고, 화면만으로는 아무것도 못 하며 운영자 토큰이 있어야 동작한다.
+
+### 작업
+- [x] 서버 목록 API와 테스트
+- [x] 승인 웹(목록·상태 탭·승인·반려 사유·결정 이력)과 중계
+- [x] 문서
+- [x] 로컬 서버로 확인(목록·탭·반려·새 신청 승인·결정 이력, 401 안내)
+- [ ] Vercel 임시 배포, 머지·배포 뒤 운영 서버로 확인
+
+### 완료 조건
+- [ ] 로컬 승인 웹에서 운영 서버의 확인 중 신청을 보고 승인·반려할 수 있다
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/19 main 7b2b123에서 시작.
+
+## DEV-83 관리자 페이지: 로그인 페이지 분리와 메뉴 레이아웃(승인 웹 확장)
+
+- 이슈: [DEV-83](https://linear.app/sswp6/issue/DEV-83)
+- 브랜치: `nemodleo/dev-83-dev-관리자-페이지-로그인-페이지-분리와-메뉴`
+- 기능·인수 조건: FEAT-01 AC-01-3(승인 관문), R-22 · ADR 0008(운영자 관리 API). DEV-82 승인 웹을 잇는다
+- 상태: 진행 중
+
+### 목표
+DEV-82 임시 승인 웹을 여러 관리 기능을 담을 관리자 페이지로 키울 토대를 만든다. 로그인 페이지를 따로 두고, 비밀번호를 매 요청 헤더로 보내는 대신 로그인 세션을 쓰며, 메뉴를 붙일 레이아웃을 둔다.
+
+### 범위 (수정 허용 경로)
+- 관리자 페이지: `scripts/admin-web/**`
+- 문서: `docs/spec/ia.md`(운영자 화면 안내), `server/tasks.md`
+
+### 비범위
+- 사람별 운영자 계정(서버 운영자 로그인 API·계정·결정 기록에 사람 ID), 주문·환불·상품 승인 화면, 정식 도메인, 서버·CORS 변경
+
+### 결정 사항
+- 10/19 경로: `/login`(로그인), `/producers`(가입 신청), `/`는 로그인 상태에 따라 둘 중 하나로. 화면은 함수(`api/page.js`)가 내려 주며 세션이 없으면 302 `/login?next=…`. 로그인 뒤 `next`(같은 사이트 경로만)로 돌아간다.
+- 10/19 세션: 로그인 때 공용 비밀번호를 한 번 확인하고 `fc_admin` 서명 쿠키(HMAC-SHA256, 12시간, HttpOnly·SameSite=Strict, https에서 Secure). 서명 키는 비밀번호에서 만든다 → 새 환경 변수 없음, 비밀번호를 바꾸면 모든 로그인이 풀림. 로그아웃은 POST로 쿠키 삭제. 다른 Origin의 POST는 403.
+- 10/19 중계는 `X-Admin-Password` 헤더 대신 세션 쿠키를 확인한다(없으면 401 `NOT_LOGGED_IN` → 화면이 `/login`으로). 틀린 비밀번호는 로그인에서 0.8초 늦게 거절.
+- 10/19 레이아웃: 왼쪽 사이드바(좁은 화면은 위쪽 메뉴), 지금 메뉴는 '가입 신청' 하나. 메뉴는 `assets/admin.js` NAV·`api/page.js` PAGES·`vercel.json` rewrites에 한 줄씩 추가. 공용 스타일·스크립트는 `assets/`, 화면 HTML·공용 함수는 `api/_views`·`api/_lib`(밑줄 폴더라 함수·정적 파일로 안 나감). 로컬 `server.mjs`는 `vercel.json` rewrites를 읽어 같은 경로 규칙을 쓴다.
+- 10/19 공용 비밀번호 유지(사용자 결정). 사람별 계정은 서버 변경이 필요해 후속.
+
+### 작업
+- [x] 세션 쿠키 로그인·로그아웃, 중계 세션 확인
+- [x] 로그인 페이지, 관리자 레이아웃, 가입 신청 화면 이전
+- [x] 테스트(`cd scripts/admin-web && npm test`)
+- [x] 문서(README, ia.md)
+- [x] 로컬 확인(로컬 API + 로컬 토큰)
+- [x] Vercel 배포(사용자 요청, 10/19)
+- [ ] 운영 비밀번호로 로그인·승인 확인(사용자)
+
+### 완료 조건
+- [x] 미로그인 `/producers` → `/login`, 틀린 비밀번호 거절, 로그인 → 목록·승인·반려·이력, 로그아웃이 로컬에서 동작
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/19 main 79eaea7에서 시작.
+- 10/19 로컬 확인: 새 DB `farmclub_dev83`(alembic head + 시드), uvicorn :8003, 로컬 발급 토큰·로컬 테스트 비밀번호로 `server.mjs` :8093. 브라우저에서 미로그인 `/producers` → `/login?next=%2Fproducers`, 틀린 비밀번호 "비밀번호가 맞지 않아요."(0.8초), 로그인 → `/producers`, 위미 감귤농장 반려(사유) · 하례 귤밭 재신청 후 승인 · 결정 이력(u-admin), 로그아웃 → `/login`, 다시 `/producers` → `/login`. curl로 서명 위조·만료·다른 Origin POST·`//` next 막힘, https에서 Secure 확인. 375px 폭 위쪽 메뉴 확인.
+- 10/19 사용자 요청으로 이 브랜치를 `farmclub-admin`에 `vercel deploy --prod`(머지 전). https://farmclub-admin.vercel.app 에서 `/`·`/producers` → `/login` 302, `/login` 200, 로그인 없이 중계 401, 틀린 비밀번호 401(약 1초), 다른 Origin 403, 로그아웃 303, `api/_views`·`api/_lib`·테스트·`server.mjs`·옛 `index.html` 404 확인. 운영 비밀번호 로그인은 사용자 몫.
+
+## DEV-87 관리자 페이지: 공급 물량 승인 화면과 신청 목록 API
+
+- 이슈: [DEV-87](https://linear.app/sswp6/issue/DEV-87)
+- 브랜치: `nemodleo/dev-87-dev-관리자-페이지-공급-물량-승인-화면과-신청` (DEV-83 브랜치 위에서 시작, DEV-83 머지 뒤 main으로 다시 맞춘다)
+- 기능·인수 조건: FEAT-04 AC-04-3·AC-04-8, R-25, [1.4 계약](../docs/spec/capacity-1.4.md), ADR 0008
+- 상태: 진행 중
+
+### 목표
+운영자가 여러 상품의 공급 물량 신청(첫 판매·증량)을 한 화면에서 보고 승인·반려한다. 지금은 Swagger에서 상품·신청 ID를 알아야 한다.
+
+### 범위 (수정 허용 경로)
+- 서버: `server/app/catalog/{router,schemas,service,spec}.py|md`(`GET /admin/capacity-requests`), `server/app/main.py`(라우터 등록), `server/tests/test_admin.py`, `server/tasks.md`
+- 관리자 페이지: `scripts/admin-web/**`
+- 문서: `docs/spec/screens.md`(7.2 운영자 행), `docs/spec/ia.md`(운영자 안내)
+
+### 비범위
+- 승인·반려 규칙(부분 승인 없음, 버전 검사 등) 변경, 상품 상세 보기·편집, 사람별 운영자 계정, 페이지네이션
+
+### 결정 사항
+- 10/19 목록은 `GET /admin/capacity-requests?status=PENDING|APPROVED|REJECTED|WITHDRAWN|ALL`(기본 PENDING), 신청 최신순. 응답은 `CapacityRequestView` + 상품 이름·상태, 농가 ID·이름, 현재 승인량·판매 한도(`AdminCapacityRequest`). 운영자만. 상품별 기존 `GET /api/products/{id}/capacity-requests`는 그대로.
+- 10/19 화면 `/capacity`는 가입 신청과 같은 모양(상태 탭 → 카드 → 승인 두 번 눌러 확인 / 반려 사유). 승인·반려는 기존 API에 목록의 `version`을 보낸다. 버전이 바뀌었으면(409) 알림 후 목록을 다시 불러온다. 증량은 증가분(+kg)을 같이 보여 준다.
+- 10/19 중계 허용 경로를 목록(정규식 배열)으로 바꿔 `/admin/capacity-requests`와 `/admin/products/{id}/capacity-requests/{id}/approve|reject`를 더한다. 다른 관리 API는 계속 400.
+- 10/19 목록 화면 공용 스타일(탭·카드 항목·배지·반려 칸)을 `producers.html`에서 `assets/admin.css`로 옮겨 두 화면이 같이 쓴다.
+
+### 작업
+- [x] 서버 목록 API와 테스트
+- [x] 관리자 페이지 공급 물량 승인 화면·메뉴·중계 경로·테스트
+- [x] 문서(screens.md, ia.md, catalog spec.md, README)
+- [x] 로컬 확인
+- [ ] Vercel 배포, 운영 서버 배포 뒤 확인
+
+### 완료 조건
+- [x] 관리자 페이지에서 심사 중 공급 물량 신청을 보고 승인·반려할 수 있다(로컬)
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지(DEV-83 다음)
+
+### 기록
+- 10/19 DEV-83 브랜치(bf5683d, main b6ee11a 병합)에서 시작.
+- 10/19 로컬 확인: DB `farmclub_dev83` + uvicorn :8003 + `server.mjs` :8093. 미로그인 `/capacity` → `/login?next=%2Fcapacity` → 로그인 후 `/capacity`. 심사 중 3건(시드 청견 첫 판매 + 테스트 생산자로 만든 하우스 감귤·레드향 증량). 하우스 감귤 3,000kg 승인(두 번 눌러 확인), 레드향 빈 사유 거절 후 사유 반려, 청견 첫 판매 승인 → DB에서 청견 PUBLISHED·한도 250kg, 하우스 승인량 3,000kg(판매 한도 2,400kg 유지), 레드향 승인량 300kg 유지·반려 사유, 결정자 u-admin. 가입 신청 화면 그대로, 콘솔 오류 없음.
+
+## DEV-90 production source analysis and evidence reconciliation (2026-10-19)
+
+- Issue: https://linear.app/sswp6/issue/DEV-90
+- Branch: `jinumeral/dev-90-dev-enable-production-source-analysis-worker-and-reconcile`
+- Contract: FEAT-03/04/07, AC-SRC-1~11, M-11/13/18, N-05/06.
+- Status: In Progress; the user approved the plan, deployment, deck edits and spec/Linear reconciliation.
+
+### Goal and allowed paths
+Deploy a dedicated production worker with pinned OCR models; validate image/long-image/PDF analysis, edit, save and apply. Preserve the target PPTX file ID/design and add at most two slides.
+
+- `server/{Dockerfile.worker,railway-worker.json,README.md,spec.md,tasks.md}` and `server/app/source_analysis/spec.md`.
+- `.github/workflows/deploy-railway.yml` to deploy the worker from the same CI-verified main commit as the API.
+- `docs/spec/{source-integration.md,source-editor.md,source-analysis.md}`, `docs/spec/functional/{FEAT-03-ai-product-draft.md,FEAT-07-product-detail.md}`, `docs/wiki/Source-Analysis.md`, `docs/spec/validation/source-production-2026-10-19.json`.
+- Ignored `.artifacts/dev90/**` for deployment/evidence scripts, screenshots, video and PPTX; no committed secrets.
+- Railway source worker/API settings, Linear DEV-56~58/DEV-90 and the user-specified Drive deck/media.
+
+### Decisions
+- Keep Gemini/OpenRouter and the existing cumulative $5 feature cap. Build OCR extras and checksum-verified models into a dedicated worker image; preserve the existing API image and wire contracts.
+- Inspect the latest migration first. Never initialize/seed production or change real customer products. Use the explicitly approved test farm and clearly named demo products; no real payments.
+- Deployment and farmer acceptance/accuracy are distinct. Keep historical records with a current-state summary. Do not mark incomplete verification as passed.
+- No merge without human approval. User-authorized worker deployment can use the tested branch image, with deployment provenance recorded.
+- 10/19 follow-up: the user requested merging before the final deployment/capture. After final review/CI, use the main commit for both services and replace the branch-deployment demo evidence. Keep worker autodeployment in the existing CI-gated Railway workflow so later API releases cannot silently leave its source worker behind.
+
+### Work
+- [x] Worker build/config, draft PR and local isolated-DB regression.
+- [x] Production worker/API activation, three material types and private persistence/apply. Recovery documented; no production flag-toggle regression performed during this check.
+- [ ] Deck/video/screenshots and complete visual/playback QA; preserve the latest user/team slide set without adding slides.
+- [ ] Spec/wiki/Linear current state, limitations and verification evidence synchronized.
+
+### Record
+- 10/19: R2 HEAD and OpenRouter key authentication passed. API source flag false; no independent worker. Mock15 passed. Source pytest blocked before execution by stopped local PostgreSQL; prepare an isolated local database.
+
+- 10/19 validation: isolated source pytest117, typecheck4 workspaces, mock15, source browser17 passed. Production image/long/PDF SUCCEEDED; private save/reload/apply3/3, public DRAFT404. Actual producer UI edit/section hide/restore/save/reopen/apply passed. Ledger20 paid calls/$0.032994/unsettled0. PDF completeness and farmer acceptance remain incomplete.
+- 10/19 DEV-92 created for observed basic-info blur/upload version race. Production selling not exercised: test farm has no deposit account. Main CI deploy workflow now includes the same-commit worker rollout and exact deployment-ID polling. Deck work remains in progress outside the repository.
+
+- 10/19 main2ed8b28 deployed by Actions39261814494: API1473f970/workerf72b6735 SUCCESS, OCR engine ready/PID1 worker, main CI367 server/API7/browser45 passed2 skipped. Follow-up DEV-92 fixes the observed save/upload race before final media capture. The user/team expanded the shared PPTX to15 slides; no agent-added slide. Final delivery and updated recording are tracked in DEV-90/92 and the existing Drive file.
+
+## DEV-93 운영 서버 테스트 농가 정리 명령(retire_test_farm)
+- 이슈: [DEV-93](https://linear.app/sswp6/issue/DEV-93)
+- 브랜치: `zahra/dev-93-purge-test-farm`
+- 기능·인수 조건: 운영 도구(제품 동작 변경 없음). 관련 규칙 R-24(농가 정지 시 출하 전 주문 환불), R-25(주문 보존), 정책 PQ-06(미정)
+- 상태: 진행 중
+
+### 목표
+운영 검증에 쓴 테스트 농가를 모든 사용자에게서 숨기는 서버 명령을 만든다. 행은 지우지 않는다. 실제 삭제(테스트 데이터 영구 삭제, 회원 탈퇴)는 PQ-06 결정 뒤 DEV-94에서 한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/retire_test_farm.py`(새 파일), `server/app/admin/spec.md`
+- `server/tests/test_retire_test_farm.py`(새 파일)
+- `server/app/admin/purge_test_farm.py`, `server/tests/test_purge_test_farm.py`(이 브랜치에서 만든 파일 삭제)
+- `server/tasks.md`, `README.md`(배포 절의 운영 명령 안내만)
+
+### 비범위 (건드리지 않음)
+- HTTP API·앱 화면·마이그레이션, 제품 스펙(`docs/spec/**`)
+- 행 삭제, 실제 사용자·농가 삭제, 회원 탈퇴(DEV-75, DEV-94)
+- 정지 때 출하 전 주문 자동 환불(R-24). 이 명령은 실사용자 주문이 있으면 거부하고 사람이 처리한다
+
+### 결정 사항
+- 10/20 (아래 10/20 정리 방식 변경으로 대체) HTTP API가 아니라 `python -m app.admin.purge_test_farm <farmId> [--commit]` 명령으로 만든다. `admin_token`처럼 서버 컨테이너 안에서만 실행되고(`railway ssh`), 공개 API에 삭제 경로를 열지 않는다.
+- 10/20 (대체됨) 기본은 시험 실행: 한 트랜잭션에서 지운 뒤 롤백하고 표별 행 수를 보여 준다. `--commit`일 때만 남긴다.
+- 10/20 (대체됨) 안전 조건: 농가 이름에 `(삭제 예정)`, 주문 소비자 모두 테스트 계정, 행 수 상한 500.
+- 10/20 (대체됨) 지울 행은 운영 DB 스키마를 읽어(FK) 농가에서 자식 방향으로 모은다. 감사 이벤트·멱등 기록은 ID 경계로 찾는다.
+- 10/20 (대체됨) 생산자 계정은 테스트 계정이 아니면 같이 지운다.
+- 10/20 **정리 방식 변경: 삭제 대신 숨김.** 삭제 명령 리뷰에서 실사용자 팔로우·대화·좋아요가 주문 검사 없이 지워지고, 운영자 감사 기록이 사라지며, 비공개 첨부·R2 파일이 남는 문제가 나왔다. 이름 표시 대신 `farms.is_test` 플래그(마이그레이션)도 검토했지만, 숨기기만 하면 되는 문제에 비해 크다. 그래서 농가를 `SUSPENDED`로 바꾸는 명령 `python -m app.admin.retire_test_farm <farmId> [--commit | --restore]`로 바꾼다. 공개 경로(농가 목록·상세·공유, 상품 목록·상세, 주문 생성, 소식·대화)는 이미 `APPROVED` 농가만 보여 주므로 상품 상태는 바꾸지 않는다. 삭제 구현은 커밋 `929225b`에 남기고 DEV-94에서 참고한다.
+- 10/20 안전 조건: `APPROVED` 농가만 숨긴다. 그 농가에 테스트 계정이 아닌 소비자 주문이 하나라도 있으면 거부한다(R-24 환불은 사람이 처리). 기본은 시험 실행이고 `--commit`일 때만 바꾼다.
+- 10/20 정지 사유는 고정 문구 `RETIRE_REASON`이다. `--restore`는 사유가 이 문구인 농가만 `APPROVED`로 되돌린다(실제 제재로 정지된 농가는 풀지 않는다). 생산자는 정지 안내 화면을 보게 된다.
+- 10/20 리뷰 반영: 숨김·복원을 `--commit`할 때 `ManagerEvent`(`test_farm_retired`·`test_farm_restored`, `target_type=farm`, `status=SUCCEEDED`)를 하나 남긴다. 서버 셸 실행이라 운영자 계정이 없어 `actor_id`는 비운다(환불 요청 알림과 같은 방식, `u-admin`으로 적으면 하지 않은 사람을 적게 된다). 생산자 결정 이력(`producer_decisions`)은 가입 승인·반려용이라 쓰지 않는다.
+- 10/20 리뷰 반영: 출하 전 테스트 주문(`AWAITING_DEPOSIT`·`RESERVED`·`PREPARING`)은 거부하지 않고 상태별 개수를 보여 준다. 숨긴 농가의 물량은 아무도 살 수 없어 해가 없다. 입금 기한 만료는 지연 검사라 생산자가 잠기고 `expire-deposits`를 운영에서 돌리지 않으면 열린 채로 남을 수 있다. '입금했어요'를 누른 입금 대기는 자동 취소되지 않고(AC-09-7) 기한 뒤 `deposit-overdue`에 남으므로 따로 센다. 복원은 농가만 되돌리고, 숨긴 동안 만료된 주문은 되살리지 않는다.
+- 10/20 리뷰 반영: 이미 `SUSPENDED`인 농가는 '이미 숨겨진(정지된) 농가'로 거부한다.
+
+### 작업
+- [x] (대체됨) 삭제 명령과 안전 조건, pytest, 안내
+- [x] 삭제 명령·테스트 제거, `retire_test_farm` 명령
+- [x] pytest(숨김 후 공개 경로 404, 실사용자 주문 거부, 시험 실행 무변경, 복원, 다른 이유로 정지된 농가 복원 거부)
+- [x] admin spec.md·README 안내
+- [x] 리뷰 반영: 감사 이벤트, 출하 전 주문·입금 알림 개수 표시, 이미 숨긴 농가 문구
+- [ ] 운영 시험 실행 → commit(SWPP-118 농가), 결과 기록
+
+### 기록
+- 10/20 main `271fe87`에서 시작.
+- 10/20 첫 구현은 FK를 열 하나씩 따라가 복합 FK(주문 → `(product_id, option_id)`)에서 다른 상품의 같은 옵션 ID(`opt-5`) 주문까지 모았다. 삭제 후 다른 농가 주문 수를 보는 테스트가 잡았고(0 ≠ 1), FK 제약 단위 묶음 비교로 고쳤다. 같은 방식이던 scratchpad 일회용 스크립트는 운영에서 실행하지 않았다.
+- 10/20 감사 이벤트·멱등 기록의 ID 매칭을 부분 문자열에서 ID 글자 경계 정규식으로 바꿨다(`o-1`이 `o-11`에 맞지 않게). 다른 농가 주문(o-11)의 이벤트가 남는지 테스트에 추가.
+- 10/20 검증: `uv run pytest -q tests/test_purge_test_farm.py` 5 passed, 전체 `uv run pytest -q` 372 passed, `uv run ruff check .` 통과. 새 파일 `ruff format` 통과(기존 14개 파일 미포맷은 main 그대로).
+- 10/20 삭제 명령을 `retire_test_farm`(숨김)으로 바꿨다. 상품 목록·상세·주문 생성도 `get_approved_farm`/`approved_farm_names`로 농가 승인을 보므로 농가 상태만 바꾼다. 검증: `uv run pytest -q tests/test_retire_test_farm.py` 5 passed, 전체 `uv run pytest -q` 372 passed, `uv run ruff check .` 통과, 새 파일 `ruff format --check` 통과.
+- 10/20 리뷰 반영(감사 이벤트, 주문 개수, 문구). 테스트 작성 중 `expected`를 같은 세션에서 세어 틀렸다(sessionmaker `autoflush=False`). 커밋 뒤 새 세션으로 고침. 명령은 `_result`가 주문만 읽어 영향 없음.
+- 10/20 검증(리뷰 반영 후): `uv run pytest -q tests/test_retire_test_farm.py` 7 passed, 전체 `uv run pytest -q` 374 passed, `uv run ruff check .` 통과, 새 파일 `ruff format --check` 통과.
+- 10/20 AI 1차 리뷰(pr-review): must 없음. should 반영: 모르는 옵션 거부(`--restor --commit`이 숨김으로 실행되던 문제). 검증: `tests/test_retire_test_farm.py` 8 passed, 전체 `uv run pytest -q` 375 passed, `ruff check .`·새 파일 format 통과.
+
+## SWPP-118 운영 서버 운영자 점검 (I-06/07/10/11/13)
+- 이슈: [SWPP-118](https://linear.app/sswp6/issue/SWPP-118)
+- 브랜치: `zahra/swpp-118-live-operator-checks`
+- 기능·인수 조건: M01·M02·M03 / FEAT-01 AC-01-3, FEAT-04 AC-04-8, FEAT-09 AC-09-7·AC-09-8, FEAT-17 AC-17-7, R-11·R-12·R-22·R-25·R-28
+- 상태: 완료
+
+### 목표
+10/19 내부 테스트(PR #166)에서 운영자 권한이 없어 막힌 I-06·I-07·I-10·I-11·I-13을 운영 서버(`api.farmclub.kr`, 배포 `271fe87`)에서 실행하고 결과를 남긴다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/Testing-Documentation.md`(이 이슈 절만), `server/tasks.md`
+- 제품 코드·테스트 변경 없음
+
+### 결정 사항
+- 10/20 운영 데이터 변경은 이름 붙은 테스트 데이터로만 한다(DEV-84·DEV-90 선례). 농가·상품 이름 `ZAHRA 운영자 테스트 1020 (삭제 예정)`, 생산자는 본인 카카오 계정, 소비자는 테스트 계정 `u-seojun`.
+- 10/20 시드 농가·상품(f-wimi, capacity-p-cheonggyeon, f-kang 등)은 건드리지 않는다. `POST /admin/orders/expire-deposits`는 운영의 모든 기한 지난 주문을 취소하므로 운영에서 부르지 않는다(AC-09-7 pytest로 대신).
+- 10/20 삭제 API가 없어 끝난 뒤 상품을 판매 중지하고 남은 ID를 기록한다.
+- 10/20 PR #189 리뷰 반영: 발견 3건은 스펙대로의 동작이라 wiki에서 "Gaps found" 대신 "Known limits (by spec)"로 쓰고 근거를 단다(소비자 부분 환불 미표시 screens.md 7.2·DEV-62, 농가 부분 환불 송금 AC-17-7 나중 고려, 카카오만 보이는 로그인 SCR-05). 무통장 입금에서 부분 환불 송금 안내가 없는 문제는 DEV-96으로 남긴다.
+- 10/20 DEV-96은 DEV-62(부분 환불 표시: 소비자 이력 + 농가 송금 안내, Low, I3 후보)로 합쳤다. 의도한 보류(DEV-35 결정, AC-17-7)이고 부분 환불은 운영자 API로만 생기므로, 그때까지 부분 환불을 한 운영자가 농가에 직접 알린다. wiki의 "생산자는 최종 환불 뒤에만 봤다"는 화면으로 확인한 것이 아니라 코드 확인으로 고쳐 쓴다.
+
+### 작업
+- [x] A 생산자 승인: 반려 → 재신청 → 승인, 같은 키 반복, 결정 이력, 401/403
+- [x] B 공급 물량: 오래된 version 409 → 승인, 소비자 노출·공개 필드 수정 반영
+- [x] C 입금·환불: 입금 안내 → 운영자 입금 확인(반복) → 부분 환불 → 최종 환불 → 중복 환불 409 → 생산자 환불 송금 완료, deposit-overdue 조회
+- [x] D 판매 중지 후 주문 거부 확인, 남은 데이터 기록
+- [x] Testing wiki 절, PR #189
+- [x] 내부 테스트 시트 I-06·I-07·I-11·I-13 → Pass (사람). I-10은 이번 점검 범위가 아니라 그대로 둔다
+
+### 기록
+- 10/20 운영자 토큰은 `railway ssh --service farmclub-api`로 발급. 전 단계 통과, `NO_FARM_ACCOUNT`는 계좌가 이미 있어 운영에서 미실행(DEV-68 pytest).
+- 10/20 발견: 부분 환불은 소비자 주문 조회에 전혀 보이지 않고, 부분 환불만 있으면 생산자 환불 송금 목록에도 나오지 않는다(코드 확인: `ship.tsx`·`settle_refund`가 `REFUNDED`만 받음. 화면은 최종 환불 뒤 ₩1,000 한 건으로 보인 것만 확인, 부분 환불 직후에는 열어 보지 않음). 계좌이체 구조에서는 부분 환불을 보낼 사람이 안내받지 못한다.
+- 10/20 남은 운영 데이터: 농가 `f-16b05f2b68`(승인), 상품 `p-20e7eef1fb`(판매 중지, 목록에는 보임), 주문 `o-7e7694e1d2`(환불·송금 완료), 환불 `refund-cf4a1cb937`·`refund-62c31d5c89`, REJECTED 감사 이벤트 2건.
+- 10/20 DEV-93 머지(`664d59d`) 뒤 `retire_test_farm f-16b05f2b68 --commit`으로 농가를 숨겼다(`SUSPENDED`, 행은 남김). 확인: 농가 상세·공유 페이지·상품 `p-20e7eef1fb` 404, 농가 목록·홈에 없음, 다른 농가 7곳 그대로. 다른 사람의 테스트 농가는 건드리지 않았다.
+- 10/20 정정: 내부 테스트 시트의 I-10은 'AI 초안 생성 → 생산자 편집 → 소비자 표시'(DEV-59)로, 이번 점검에서 AI 초안을 만들지 않아 덮지 못했다. A3(승인 후 대시보드)는 I-11만 해당. wiki 104·112줄을 고치고, 시트에는 I-06·I-07·I-11·I-13만 PASS로 적는다. I-10의 막힘 원인(공개에 필요한 운영자 승인)은 이제 운영에서 실행할 수 있다.
+- 10/20 내부 테스트 시트(SWPP_Internal_Testing_2026-10-17.xlsx, PM_통합) I-06·I-07·I-11·I-13을 PASS로 입력(사람). 05:13 저장본에서 F~H 원문 유지, I~N 결과 확인, 요약 PM Integration 4 PASS. I-10은 NOT TESTED 그대로.

@@ -16,8 +16,27 @@ export const auth = {
     setToken(res.accessToken);
     return res;
   },
+  /** 카카오 로그인 사용 여부(ADR 0003) */
+  kakaoConfig: () => request<A.KakaoConfig>("GET", "/api/auth/kakao/config"),
+  /** 카카오 인가 코드로 로그인. redirectUri는 인가 요청에 쓴 값과 같아야 한다 */
+  async kakaoLogin(code: string, redirectUri: string) {
+    const res = await request<A.LoginResult>("POST", "/api/auth/kakao", {
+      body: { code, redirectUri, app: appName() },
+    });
+    setToken(res.accessToken);
+    return res;
+  },
   logout: () => setToken(null),
   me: () => request<A.User>("GET", "/api/auth/me"),
+  /** 온보딩 1장·프로필 수정(닉네임·이름·휴대폰) */
+  updateMe: (input: A.MeUpdateInput) =>
+    request<A.User>("PATCH", "/api/auth/me", { body: input }),
+  consents: () => request<A.Consent[]>("GET", "/api/auth/me/consents"),
+  /** 가입 동의 기록(항목·버전·시각) */
+  saveConsents: (consents: A.ConsentInput[]) =>
+    request<A.Consent[]>("POST", "/api/auth/me/consents", {
+      body: { consents },
+    }),
   apply: (input: A.ProducerApplicationInput) =>
     request<A.ProducerApplication>("POST", "/api/auth/producer-application", {
       body: input,

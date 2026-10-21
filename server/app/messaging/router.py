@@ -10,7 +10,13 @@ from app.core.errors import not_found
 from app.core.idempotency import run_idempotent
 from app.core.pagination import page_limit
 from app.core.schemas import Paged
-from app.core.security import ApprovedProducer, Consumer, CurrentUser, OptionalUser
+from app.core.security import (
+    ApprovedProducer,
+    Consumer,
+    CurrentUser,
+    OnboardedConsumer,
+    OptionalUser,
+)
 from app.farms import service as farms
 from app.messaging import service
 from app.messaging.schemas import (
@@ -76,7 +82,7 @@ def farm_news(db: Db, farm_id: str, user: OptionalUser, limit: Limit, cursor: st
 
 
 @router.put("/news/{broadcast_id}/reaction", response_model=ReactionState)
-def react(db: Db, user: Consumer, broadcast_id: str):
+def react(db: Db, user: OnboardedConsumer, broadcast_id: str):
     state = service.set_reaction(db, user.id, broadcast_id, True)
     db.commit()
     return state
@@ -127,7 +133,7 @@ def chats(db: Db, user: Consumer, limit: Limit, cursor: str | None = None):
 
 
 @router.post("/chats", response_model=StartChatResult)
-def start_chat(db: Db, user: Consumer, body: StartChatInput, key: IdempotencyKey = None):
+def start_chat(db: Db, user: OnboardedConsumer, body: StartChatInput, key: IdempotencyKey = None):
     """채팅하기·질문하기. 팔로우하지 않았으면 자동 팔로우(AC-12-4)."""
     return run_idempotent(
         db,
@@ -160,7 +166,9 @@ def report_ai_answer(
 
 
 @router.post("/chats/{farm_id}/messages", response_model=SendResult)
-def send_chat(db: Db, user: Consumer, farm_id: str, body: SendInput, key: IdempotencyKey = None):
+def send_chat(
+    db: Db, user: OnboardedConsumer, farm_id: str, body: SendInput, key: IdempotencyKey = None
+):
     """질문 → AI 안내 또는 '농가에 전달'. HUMAN·AI OFF면 reply=null."""
     alert: service.ManagerRefundAlert | None = None
 

@@ -287,9 +287,12 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(check.Incomplete):
                 check.collect(directory, candidate)
 
-    def test_environment_requires_independent_review(self):
+    def test_environment_requires_reviewer_but_allows_self_review(self):
         valid = {"type": "required_reviewers", "reviewers": [{"type": "User"}], "prevent_self_review": True}
-        for rules, allowed in (([], False), ([valid], True), ([{**valid, "prevent_self_review": False}], False)):
+        no_reviewers = {"type": "required_reviewers", "reviewers": [], "prevent_self_review": False}
+        cases = (([], False), ([no_reviewers], False), ([valid], True),
+                 ([{**valid, "prevent_self_review": False}], True))
+        for rules, allowed in cases:
             with patch.object(check.request, "build_opener", return_value=Client([{"protection_rules": rules}])):
                 if allowed:
                     check.check_environment(event(), "token")
