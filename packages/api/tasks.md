@@ -244,3 +244,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 범위: `packages/api/src/mock/auth.ts`(Mock 생산자 카카오 계정 `u-kakao-farm`), `scripts/test-onboarding.mjs`(생산자 카카오 → 가입 신청 확인)
 - 10/18 결정: Mock 생산자 카카오 로그인은 강영수(승인) 대신 농가 없는 `u-kakao-farm`(이름 ‘카카오 사용자’)으로 들어가 가입 신청 흐름을 보여 준다. 상태별 시연은 테스트 계정 목록으로 계속 한다.
 - [x] Mock 계정과 계약 테스트, `npm run test:mock` 15/15
+
+## DEV-109 readStore·writeStore 내보내기
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109 · 상세 기록은 `apps/producer/tasks.md` DEV-109
+- 범위: `packages/api/src/index.ts`에서 기존 `readStore`·`writeStore`(앱별 이름공간 localStorage)를 내보낸다. 생산자 도움말 본 기록에 쓴다. 동작 변경 없음.

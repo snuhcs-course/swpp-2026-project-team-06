@@ -403,3 +403,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/19 head eb84fce의 원격 CI 39225825560에서 apps/server/integration 모두 success 확인. server는 변경 없음으로 실제 서버 검사 생략이며 integration은 실제 서버/DB/Chromium 검사다. 유료 spec-check는 승인 대기로 호출하지 않았다.
 - 10/19 사용자가 로고 시각 검토 후 명시적으로 main 머지를 지시했다. 이를 최종 사람 승인으로 기록하며 GitHub의 별도 Approve 리뷰를 대신 작성하지 않는다. 기존 비범위였던 main 머지를 이번 지시에 따라 허용한다.
 - 10/19 최신 origin/main abe28df를 충돌 없이 병합했다. 이후 typecheck 4 workspace, Mock 15 passed, 로고 화면 E2E 2 passed 재확인. 최종 브랜치 스캔 이슈 없음. 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건. 실제 squash merge 결과는 PR #173에서 확인한다.
+
+## DEV-109 LargeTitle 오른쪽 슬롯 (생산자 도움말 버튼)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109 · 상세 기록은 `apps/producer/tasks.md` DEV-109
+- 범위: `packages/ui/src/bars.tsx`의 `LargeTitle`에 선택 prop `right` 추가. 넘기지 않으면 지금과 똑같이 그린다.
+- 결정: 버튼은 기존 `IconButton` + `Icon` `"question"`을 쓰고 새 컴포넌트는 만들지 않는다.

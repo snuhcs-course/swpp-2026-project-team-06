@@ -653,3 +653,55 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 10/19 검증: typecheck4 workspace/mock15/관련 Playwright24(신규7 포함) 및 소비자·생산자 web export 통과. SourceBasicInfo 기존 충돌 보호와 직접 입력 우선순위는 그대로 유지한다. 최종 운영/자료 완료 상태는 Linear DEV-90/92에서 후속 갱신한다.
 - 10/19 수정 전 코드를 일시 복원한 동일 지연 PUT 검사1건은 예상대로 실패(저장 완료 전 source uploaded). finally에서 수정 코드를 바이트 동일하게 복원했으며, 수정본 전체24 통과 결과와 대조했다. 커밋/브랜치 스캔 지적0, 레거시 호환 후보0.
+
+## DEV-109 생산자 앱: 오른쪽 위 도움말(?) 버튼과 온보딩 튜토리얼
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109
+- 브랜치: `jinumeral/dev-109-생산자-앱-오른쪽-위-도움말-버튼과-온보딩-튜토리얼`
+- 기준: docs/spec/screens.md 6장 "공통: 도움말", SCR-22/23/28/33, FEAT-03·12·13·32(안내 문구가 가리키는 기능)
+- 상태: 진행 중
+
+### 목표
+생산자들이 앱을 이해하기 어렵다는 피드백이 있어서, 하단 탭 네 화면의 헤더 오른쪽 위에 동그라미 물음표 버튼을 두고 해요체로 쓴 6단계 안내 시트를 연다. 다루는 내용은 환영, 새 상품 등록, AI 판매페이지 초안, 채팅방, AI 자동 안내, 문의다. 현황에 처음 들어오면 한 번 자동으로 띄운다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/HelpGuide.tsx`(새 파일), `apps/producer/src/app/(tabs)/{index,settings}.tsx`, `apps/producer/src/app/(tabs)/{products,chats}/index.tsx`, `apps/producer/tasks.md`
+- `packages/ui/src/bars.tsx`(`LargeTitle`의 `right` 슬롯), `packages/ui/tasks.md`
+- `packages/api/src/index.ts`(`readStore`·`writeStore` 내보내기), `packages/api/tasks.md`
+- `scripts/e2e/helpers.ts`, `scripts/e2e/{brand-logo,producer-help-guide}.spec.ts`
+- `docs/spec/screens.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위 (건드리지 않음)
+- 작업 화면(HeaderBar, 뒤로 가기 있는 화면)의 버튼, 단계별 바로 가기 이동
+- `suspended.tsx`의 `[운영팀 연락처]` 자리표시자, 서버·API 변경, 새 의존성
+- Figma v6 반영(후속 이슈로 PR `Figma:` 줄에 남김)
+
+### 결정 사항
+- 10/21 사용자 결정: 버튼은 탭 네 화면에만 둔다. 처음 한 번 자동으로 띄운다. 문의 단계는 "운영자에게 편하게 문의해 주세요"만 쓰고 연락처는 적지 않는다(생산자들이 운영자 연락처를 이미 알고 있음).
+- 10/21 본 기록은 사용자별이 아닌 앱별 localStorage 키 `help-guide-seen`(`farmclub-producer:` 이름공간)으로 둔다. 생산자는 각자 기기를 쓰고 언제든 버튼으로 다시 볼 수 있어서다. 닫기와 마지막 단계 '시작하기' 모두 본 것으로 기록한다.
+- 10/21 자동 표시는 승인된 생산자(`farmStatus === "APPROVED"`)일 때만 한다. 관문이 리다이렉트하기 전에 시트가 깜빡이지 않게 하려는 것이다. 새 기능이라 별도 AC가 없어서 테스트 이름에는 DEV-109를 쓴다.
+- 10/21 AI 판매페이지 단계는 자료 분석 켜짐/꺼짐 두 흐름에 모두 맞도록 "문구나 사진, 자료를 넣으면"으로 쓴다.
+- 10/21 자동으로 열린 시트가 기존 e2e 클릭을 가리지 않게, `loginProducer`는 기본으로 본 기록을 미리 심는다(`{ helpGuide: true }`일 때만 끔). brand-logo spec도 `skipHelpGuide`를 쓴다.
+
+### 작업
+- [x] `LargeTitle` `right` 슬롯, `readStore`·`writeStore` 내보내기
+- [x] `HelpGuide.tsx`(버튼·6단계 시트·자동 표시)와 탭 네 화면 연결
+- [x] e2e helper와 새 spec `producer-help-guide.spec.ts`
+- [x] screens.md·wiki 반영
+- [x] typecheck·mock·실제 스택 Playwright 통과 확인
+- [ ] 커밋 전 스캔, draft PR, AI 리뷰
+
+### 완료 조건
+- [x] 탭 네 화면 오른쪽 위에 '도움말' 버튼이 보이고, 누르면 1단계부터 열린다.
+- [x] 첫 현황 진입 때만 자동으로 열리고, 닫은 뒤 새로고침하면 다시 열리지 않는다.
+- [x] 6단계를 이전·다음으로 넘길 수 있고, 마지막 단계에 문의 안내가 있다.
+- [x] 기존 Playwright spec이 그대로 통과한다.
+
+### 기록
+- 10/21 origin/main adef22b에서 새 worktree를 만들고 npm ci, server uv sync를 실행했다.
+- 10/21 로컬 공용 DB `farmclub`는 다른 브랜치 마이그레이션이 적용된 상태라 `alembic upgrade`가 DuplicateColumn으로 실패했다. 공용 DB는 그대로 두고 같은 컨테이너에 `farmclub_dev109`를 만들어 `DATABASE_URL`로 지정했다.
+- 10/21 `npm run typecheck`: 4 workspace 통과. `npm run test:mock`: 19 passed, 0 failed.
+- 10/21 `npm run test:integration:full`(전체): API 시나리오 7 passed, Playwright 54 passed, 2 skipped, 1 failed. 실패한 1건은 소비자 AC-10-6(checkout-and-fulfillment, getByText strict mode)이다. 이 테스트는 생산자 코드와 `loginProducer`를 쓰지 않고, main adef22b CI에서는 통과했다. 같은 명령으로 checkout-and-fulfillment, producer-help-guide, brand-logo만 다시 돌렸을 때 6 passed, 0 failed였다. 그래서 일시적 실패로 기록한다.
+- 10/21 새 spec 스크린샷(375px)으로 현황 시트 2단계와 상품 헤더의 버튼 정렬을 확인했다. Agent 시간/Tokens 미측정.
+- 10/21 커밋 전 스캔에서 WARNING 1건과 INFO 6건이 나왔고 모두 반영했다. 2·3단계 문구를 실제 흐름(빈칸 채우기 → 게시 요청 → 운영자 확인)에 맞췄고, 자동 표시는 승인된 생산자만 하도록 바꿨다. 쓰지 않는 export는 뺐다. 단계 표시는 눈에 보이는 "n / 6" 텍스트로 바꾸고 범위 파일명도 고쳤다. 다시 실행한 결과: typecheck 4 workspace 통과, mock 19 passed. `test:integration:full`에 생산자 관련 7개 spec을 지정해 돌린 결과 API 7 passed, Playwright 28 passed, 0 failed.
+- 10/21 재스캔: CRITICAL·WARNING 0건, INFO 3건. e2e는 실제 API로만 돌고 `monitor()`가 Mock 트래픽을 실패로 처리하므로 shared-v1 키 심기는 다시 뺐다. bars.tsx의 긴 줄을 정리했다. 제목 줄이 48px 버튼 높이로 몇 px 커지는 것은 375px 스크린샷으로 확인했고 의도한 배치로 둔다.
