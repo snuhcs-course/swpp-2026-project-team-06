@@ -290,7 +290,7 @@ ADR 0005대로 두 웹앱에 PostHog를 붙여 test2 사용자 테스트에서 �
 - `docs/spec/tech-design/README.md`(트래킹 플랜), `docs/spec/tech-design/stack.md`(TQ-01, 지표), `docs/spec/tech-design/adr/0005-analytics-posthog.md`, `docs/wiki/Design-Documentation.md`
 
 ### 비범위 (건드리지 않음)
-- 서버 이벤트(`server/app/analytics`, `order_paid`·`order_canceled`·`farm_followed` 등): 다음 이슈. 서버 의존성 추가 없음
+- 서버 이벤트(`server/app/analytics`, `order_paid`·`order_canceled`·`farm_followed` 등): [DEV-100](https://linear.app/sswp6/issue/DEV-100)(test2 뒤). 서버 의존성 추가 없음
 - PostHog 계정·프로젝트·대시보드 설정(사람이 함), Figma, Meta Pixel(쓰지 않음)
 - Android·iOS(EAS) 빌드용 posthog-react-native
 
@@ -336,3 +336,6 @@ ADR 0005대로 두 웹앱에 PostHog를 붙여 test2 사용자 테스트에서 �
 - 10/18 병합 뒤 `npm run typecheck` 통과(오래된 `.expo/types` 생성 파일을 지운 뒤. CI에는 없음), `npm run test:mock` 18/18 통과
 
 - 10/18 병합 뒤 실서버 통합(포트 8100·8181·8182, DB farmclub_dev71, 끝나고 삭제): API smoke 7/7, Playwright Chromium 43/43 통과
+- 10/21 main(b7d3417) 병합. 충돌 2곳(소비자 `session.tsx`: 온보딩 resume 숨김과 `useAnalytics` 둘 다 유지, `package.json` test:mock: test-onboarding·test-analytics 둘 다). 카카오 로그인(DEV-32·74)으로 생긴 소비자 `/onboarding`·`/auth`, 생산자 `/auth`를 가릴 경로에 추가. 카카오 복귀 URL의 `?code=`는 이벤트에서 쿼리 제거로 빠진다
+- 10/21 서버 이벤트를 Linear DEV-100(Backlog, DEV-71과 관련 연결)으로 분리
+- 10/21 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 19/19 통과. 실서버 통합 1회차: API 7/7, Playwright 51/52(AC-SRC-11 상품 작업공간 API 직접 호출이 `ECONNRESET`, API 로그에 오류 없음, 분석 코드와 무관) → 2회차 API 7/7, Playwright 52/52 통과
