@@ -16,7 +16,7 @@ SCR-04는 상품 사진·상품명·가격·예약 정보 다음에 사진/제�
 - FarmDetail/MyFarm/ProductDetail/MyProduct에 detailContent?: DetailContent 추가. 없는 값은 기존 intro/description, 빈 blocks 저장은 사용자 작성 상세 제거를 뜻한다.
 - PATCH /api/farms/me, PATCH /api/products/:productId에 detailContent 추가. 농가는 본인만, 상품은 기존 version·멱등 키·수정 가능 상태 검사 유지.
 - POST /api/farms/me/detail-draft 및 POST /api/products/mine/:productId/detail-draft. 본인 생산자만. 입력 {inputText, photos:string[]} (글 최대 3000자, 사진 최대 10개); 등록 정보는 서버가 조회한다. 응답 {content:DetailContent, mode:"mock"|"ai"}. 생성은 저장하지 않는다. 오류는 기존 공통 오류 응답. 실제 AI 지연·실패는 편집안을 유지하고 직접 편집을 허용한다.
-- 실제 미디어는 기존 업로드 경로의 URL, 로컬은 공유 Mock 업로드 사용. DB에 상세가 없는 기존 레코드를 지우거나 초기화하지 않는다.
+- 실제 미디어는 공개 미디어 업로드(POST /api/media, contracts-1.2)의 URL, 로컬은 공유 Mock 업로드 사용. DB에 상세가 없는 기존 레코드를 지우거나 초기화하지 않는다.
 
 ## 소식방 (FEAT-12/15)
 GET /api/messaging/rooms/:farmId/messages는 승인 농가의 공개 소식 읽기를 비로그인/미팔로우에도 허용한다. 팔로워는 전체 방송+본인 답장, 소유 생산자는 전체 방송+모든 소비자 답장을 본다. 다른 농가 생산자·미승인 생산자는 기존 접근 거부를 유지한다. 소비자가 팔로우 해제하면 공개 방송만 반환한다. 삭제/정지 농가는 404.
