@@ -67,11 +67,12 @@ async function load() {
   catch (e) { rows = []; renderList(); toast(e.message, true); }
 }
 
-function previewBox(p) {
+function previewBox(p, row) {
   const orders = Object.entries(p.openOrders || {}).map(([s, n]) => `${ORDER[s] || esc(s)} ${n}건`).join(", ");
   const restore = p.action === "restore";
   const notes = [];
   if (orders) notes.push(`출하 전 테스트 주문: ${orders}. ${restore ? "숨긴 동안 만료된 주문은 되살리지 않아요." : "숨긴 동안 열린 채로 남을 수 있어요."}`);
+  if (!restore && row && !row.producerIsTestAccount) notes.push("생산자가 테스트 계정이 아니에요(카카오 가입 등). 숨기면 이 생산자는 앱에서 정지 안내를 보게 돼요. 운영 검증용 농가가 맞는지 확인하세요.");
   if (!restore && p.reportedDeposits) notes.push(`입금했다고 알린 주문 ${p.reportedDeposits}건은 자동 취소되지 않고 기한 뒤 입금 지연 목록에 남아요.`);
   if (p.refusal) {
     return `<div class="reject-box"><p><strong>${restore ? "다시 공개할" : "숨길"} 수 없어요.</strong> ${esc(p.refusal)}</p>
@@ -92,7 +93,7 @@ $("#list").onclick = async (e) => {
   const row = rows.find((r) => r.farmId === id);
   if (act === "preview") {
     busy = true; b.disabled = true;
-    try { slot.innerHTML = previewBox(await call(`/admin/farms/${id}/preview`)); }
+    try { slot.innerHTML = previewBox(await call(`/admin/farms/${id}/preview`), row); }
     catch (err) { toast(err.message, true); }
     finally { busy = false; b.disabled = false; }
   } else if (act === "retire" || act === "restore") {

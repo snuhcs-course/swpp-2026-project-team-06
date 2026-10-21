@@ -1472,3 +1472,4 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 ### 기록
 - 10/21 main에서 시작. 시드 f-kang에 테스트 계정이 아닌 구매자 주문이 있어 성공 테스트는 DEV-93 테스트의 `make_order_consumers_test_accounts`를 쓴다.
 - 10/21 검증: `uv run pytest -q` 383 passed(새 `tests/test_admin_farms.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 12 passed.
+- 10/21 AI 1차 리뷰(pr-review): must 없음. should 반영: 생산자가 테스트 계정이 아닌 농가(실사용자 가입, 아직 주문 없음)를 숨길 때 미리보기에 경고 문구. 서울증류소처럼 본인 카카오로 가입한 운영 검증 농가도 이 경우라 막지 않고 알리기만 한다.
