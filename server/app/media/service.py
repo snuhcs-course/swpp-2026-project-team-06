@@ -31,35 +31,44 @@ def url_of(media: PublicMedia) -> str:
     return f"/api/media/{media.id}.{media.ext}"
 
 
-def upload(db: Session, user, data: bytes, declared: str | None) -> MediaView:
-    farm = farms.get_farm_of_producer(db, user.id)
-    if farm is None:
-        raise forbidden("농가 신청 후 사진을 올릴 수 있어요.")
+def check(data: bytes, declared: str | None) -> tuple[str, str, bytes]:
+    """(image|video, 실제 형식, 저장할 바이트). 형식·용량이 맞지 않으면 400."""
     if not data:
         raise invalid({"file": "파일을 골라 주세요"})
     video = _sniff_video(data)
     if video:
         if len(data) > VIDEO_MAX_BYTES:
             raise invalid({"file": "영상은 100MB까지예요"})
-        kind, mime, cleaned = "video", video, data
-    else:
-        mime, cleaned = images.sanitize(data, declared)
-        kind = "image"
-    ext = {**_IMAGE_EXT, **_VIDEO_EXT}[mime]
+        return "video", video, data
+    mime, cleaned = images.sanitize(data, declared)
+    return "image", mime, cleaned
+
+
+def save(db: Session, farm, data: bytes, declared: str | None) -> PublicMedia:
+    """검사한 뒤 저장소에 두고 행을 만든다. 업로드와 data URL 이전(migrate_inline)이 같이 쓴다."""
+    kind, mime, cleaned = check(data, declared)
     row = PublicMedia(
         id=new_id("med"),
         farm_id=farm.id,
-        uploader_id=user.id,
+        uploader_id=farm.producer_id,
         kind=kind,
         mime_type=mime,
-        ext=ext,
+        ext={**_IMAGE_EXT, **_VIDEO_EXT}[mime],
         size=len(cleaned),
         storage_key=Storage().put(cleaned),
         created_at=now(),
     )
     db.add(row)
     db.flush()
-    return MediaView(url=url_of(row), kind=kind, mime_type=mime, size=row.size)
+    return row
+
+
+def upload(db: Session, user, data: bytes, declared: str | None) -> MediaView:
+    farm = farms.get_farm_of_producer(db, user.id)
+    if farm is None:
+        raise forbidden("농가 신청 후 사진을 올릴 수 있어요.")
+    row = save(db, farm, data, declared)
+    return MediaView(url=url_of(row), kind=row.kind, mime_type=row.mime_type, size=row.size)
 
 
 def read(db: Session, name: str) -> tuple[PublicMedia, bytes]:

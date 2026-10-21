@@ -172,3 +172,34 @@ def test_storage_cleanup_keeps_public_media(client, login, storage, monkeypatch)
 
     assert files[0].exists()
     assert client.get(url).status_code == 200
+
+
+def test_migrate_inline_moves_data_urls_and_keeps_bad_ones(client, login, capsys):
+    import base64
+
+    from sqlalchemy import select
+
+    from app.catalog.models import Product
+    from app.core.db import get_sessionmaker
+    from app.media import migrate_inline
+
+    good = "data:image/png;base64," + base64.b64encode(png()).decode()
+    bad = "data:image/png;base64," + base64.b64encode(b"not an image").decode()
+    with get_sessionmaker()() as session, session.begin():
+        product = session.scalar(select(Product).where(Product.id == "p-house"))
+        product.photos = [good, "/photos/basket.jpg", bad, good]
+
+    assert migrate_inline.main(["--base-url", "https://api.farmclub.kr"]) == 0
+    assert "옮김 2개, 형식 오류로 남김 1개" in capsys.readouterr().out
+    with get_sessionmaker()() as session:
+        assert session.get(Product, "p-house").photos[0] == good
+
+    assert migrate_inline.main(["--base-url", "https://api.farmclub.kr", "--commit"]) == 0
+    with get_sessionmaker()() as session:
+        photos = session.get(Product, "p-house").photos
+    assert photos[0].startswith("https://api.farmclub.kr/api/media/") and photos[0] == photos[3]
+    assert photos[1:3] == ["/photos/basket.jpg", bad]
+    served = client.get(photos[0].removeprefix("https://api.farmclub.kr"))
+    assert served.status_code == 200 and b"GPS" not in served.content
+
+    assert migrate_inline.main([]) == 2
