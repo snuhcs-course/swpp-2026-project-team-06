@@ -353,22 +353,24 @@ ADR 0005대로 두 웹앱에 PostHog를 붙여 test2 사용자 테스트에서 �
 ### 범위 (수정 허용 경로)
 - `packages/analytics/src/privacy.ts`, `packages/analytics/spec.md`, `packages/tasks.md`, `scripts/test-analytics.mjs`
 - `packages/ui/src/Text.tsx`(`masked`), `packages/ui/src/content.tsx`(`ListRow subMasked`)
-- 소비자: `apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`, `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/src/app/checkout/[productId]/pay.tsx`, `apps/consumer/src/lib/DepositCard.tsx`
+- 소비자: `apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`, `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/src/lib/DepositCard.tsx`
 - `docs/spec/tech-design/README.md`(트래킹 플랜 세션 녹화 줄), `docs/wiki/Design-Documentation.md`
 
 ### 비범위 (건드리지 않음)
+- 입금 안내 `pay.tsx`(판매자 정보는 열어 둬서 바꿀 것 없음)
 - 생산자 앱 마스킹(경로째 그대로), 이벤트 이름·속성, 서버 이벤트(DEV-100)
 - 건드린 파일의 기존 서식(Prettier 일괄 정리 안 함)
 
 ### 결정 사항
 - 10/21 경로째 가리는 곳은 화면 대부분이 개인정보이거나 입력 화면인 곳만: 소비자 `/chats`·`/me/profile`·`/me/addresses`·`/checkout/*/address`·`/orders/*/inquiry`·`/onboarding`·`/auth`(생산자 목록은 그대로). 경로 패턴 `*`는 한 칸
 - 10/21 나머지는 개인정보 글자만: 공용 글자 컴포넌트 `T`에 `masked`(RNText `dataSet` → `data-ph-private`), `ListRow`에 `subMasked`, 화면 안 `Row`·`KV`·`Value`에 `masked`(라벨은 남기고 값만)
-- 10/21 가리는 값: 이름·연락처·이메일, 기본 배송지 주소, 받는 사람·주소·우편번호·배송 메모(주문서·배송지 시트·주문 상세·완료), 송장 번호, 입금 계좌·예금주, 판매자 대표·지역·연락처, 취소·환불 사유와 농가가 적은 입금 미확인·환불 지연 사유(자유 글이라 알림 상자째)
+- 10/21 가리는 값은 법적으로 개인정보인 것만(사용자 결정): 소비자 이름·연락처·이메일, 기본 배송지 주소, 받는 사람·주소·우편번호·배송 메모(R-15, 주문서·배송지 시트·주문 상세·완료), 송장 번호(조회하면 받는 사람이 드러남), 입금 계좌번호·예금주
+- 10/21 열어 두는 값(사용자 결정): 판매자 상호·대표·지역·연락처(전자상거래법 통신판매업자 공개 표시 항목, 공개 농가 정보 화면에도 그대로 보임), 취소·환불 사유, 농가가 적은 입금 미확인·환불 지연 사유
 
 ### 작업
 - [x] 경로 패턴(`*`)과 경로 목록 축소
 - [x] `T masked`, `ListRow subMasked`
-- [x] 내 정보·주문 상세·주문 완료·주문서(배송지 시트 포함)·입금 안내·입금 카드에 표시
+- [x] 내 정보·주문 상세·주문 완료·주문서(배송지 시트 포함)·입금 카드에 표시
 - [x] `scripts/test-analytics.mjs` 경로·라벨/값 테스트
 - [x] 트래킹 플랜·analytics spec·wiki
 
@@ -383,3 +385,4 @@ ADR 0005대로 두 웹앱에 PostHog를 붙여 test2 사용자 테스트에서 �
 - 10/21 Prettier가 건드린 파일의 기존 줄(4곳)과 `DepositCard.tsx` 전체를 다시 감싸서 되돌리고 바꾼 줄만 남김
 - 10/21 Mock export에서 `data-ph-private`가 붙은 글자만 뽑아 확인: `/me` 이름·기본 배송지, 주문서 받는 사람·주소·우편번호, 주문 상세 받는 사람·주소·배송 메모, 입금 안내 계좌·예금주·대표·지역/연락처. 메뉴·라벨·버튼은 표시 없음. 화면 모양 변화 없음(스크린샷)
 - 10/21 `npm run typecheck` 통과, `npm run test:mock` 19/19 통과, 실서버 통합(포트 8100·8181·8182, DB farmclub_dev104, 끝나고 삭제) API 7/7, Playwright 52/52 통과
+- 10/21 사용자 지시 "법적으로 문제되지 않는 정도 빼고는 모두 열어": 사유 3종과 판매자 대표·지역·연락처 가리기를 해제(`pay.tsx`는 main 그대로)
