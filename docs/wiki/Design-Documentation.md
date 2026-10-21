@@ -299,6 +299,7 @@ Paths use `{id}` as a placeholder.
 | POST /api/orders · POST /api/orders/{id}/deposit · POST .../deposit-reported | Consumer | Create order, request deposit instructions (takes stock), report the deposit |
 | POST /api/orders/{id}/confirm-deposit · POST .../refund-settled | Approved producer (own farm) | Confirm a deposit, mark a refund as sent |
 | POST /admin/orders/{id}/confirm-deposit · POST /admin/orders/expire-deposits | Operator | Confirm on behalf of a farm, expire overdue deposits |
+| GET /admin/users/{id} · GET /admin/users/by-order/{orderIdOrNo} | Operator | One user's profile and recent orders with deposits and refunds, for support; no recipient phone or address (DEV-106) |
 | GET /admin/farms · GET .../{id}/preview · POST .../{id}/retire · .../restore | Operator | Hide a test farm from every public screen or show it again; refused when a non-test consumer has ordered (DEV-98) |
 | GET /api/orders · GET /api/orders/{id} | Order owner | History and detail |
 | POST /api/orders/{id}/cancel · .../confirm · .../delivery-window-response | Order owner | Cancel, confirm receipt, answer a window change |

@@ -1473,3 +1473,40 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/21 main에서 시작. 시드 f-kang에 테스트 계정이 아닌 구매자 주문이 있어 성공 테스트는 DEV-93 테스트의 `make_order_consumers_test_accounts`를 쓴다.
 - 10/21 검증: `uv run pytest -q` 383 passed(새 `tests/test_admin_farms.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 12 passed.
 - 10/21 AI 1차 리뷰(pr-review): must 없음. should 반영: 생산자가 테스트 계정이 아닌 농가(실사용자 가입, 아직 주문 없음)를 숨길 때 미리보기에 경고 문구. 서울증류소처럼 본인 카카오로 가입한 운영 검증 농가도 이 경우라 막지 않고 알리기만 한다.
+
+## DEV-106 관리자 페이지 사용자 상세: 주문·입금·환불 내역과 처리 버튼
+- 이슈: [DEV-106](https://linear.app/sswp6/issue/DEV-106)
+- 브랜치: `nemodleo/dev-106-dev-관리자-페이지-사용자-상세-주문입금환불-내역과` (DEV-98 #202 위)
+- 기능·인수 조건: 운영 도구. 관련 규칙 R-11·R-12(환불), R-19(배송 완료), R-28(입금 확인). 새 규칙 없음
+- 상태: 리뷰 대기
+
+### 목표
+문의가 오면 운영자가 관리자 페이지에서 사용자 ID·주문 ID·주문 번호(입금자명)로 사용자를 찾아 주문·입금·환불 내역을 보고, 기존 운영 API(입금 확인 대행, 환불, 배송 완료)를 버튼으로 부른다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/user_detail.py`(새 파일), `server/app/main.py`(라우터 한 줄), `server/app/admin/spec.md`
+- `server/tests/test_admin_user_detail.py`(새 파일)
+- `scripts/admin-web/**`(user 화면, 메뉴, 라우팅, `server.mjs` 경로 조각, 중계 허용 경로, 테스트, README)
+- `docs/spec/screens.md`(운영자 API 표), `docs/spec/ia.md`, `docs/wiki/Design-Documentation.md`(API 표 한 줄), `server/tasks.md`
+
+### 비범위 (건드리지 않음)
+- 사용자 목록·검색·테스트 계정 표시(별도 작업, `/admin/users` 목록), 환불·입금·배송 규칙, 생산자 쪽 주문 화면, 기한 지난 입금 일괄 취소(`expire-deposits`)
+
+### 결정 사항
+- 10/21 읽기 API만 새로 만든다. 처리는 기존 `/admin/orders/{id}/confirm-deposit`·`refund`·`delivered`를 그대로 불러 규칙·감사·멱등이 한 곳에 남게 한다.
+- 10/21 API는 새 파일 `app/admin/user_detail.py`(prefix `/admin/users`)에 둔다. 목록 작업이 같은 prefix에 `GET /admin/users`를 만들어도 경로가 겹치지 않는다(`/{userId}`, `/by-order/{ref}`).
+- 10/21 개인정보: 받는 사람은 앞 글자 + ○○, 받는 사람 전화·주소·우편번호와 계정 전화·이메일은 내려 주지 않는다. 같은 주문인지는 주문 번호·상품·금액으로 맞춘다. 계정 이름은 운영자 화면이라 그대로 보인다.
+- 10/21 주문 번호(`FC-MMDD-NNNN`, 입금자명)는 대소문자를 가리지 않고 찾는다. 소비자가 문의에 적는 번호가 이것이라서다.
+- 10/21 버튼 표시는 상태만 본다(입금 대기 → 입금 확인 대행, 출하됨 → 배송 완료, 예약 완료~배송 완료이고 남은 결제 금액이 있으면 → 환불). 기한 초과 등 실제 허용은 기존 API가 다시 검사하고 거부 메시지를 그대로 보여 준다.
+- 10/21 화면 경로는 `/users/<id>`(목록에서 링크), ID 없이 들어오는 `/user`. 로컬 `server.mjs`가 Vercel처럼 `:id` 경로 조각을 받게 했다. 로그인 후 `/users/<id>`로 돌아온다.
+- 10/21 중계 허용 경로를 넓혀 기존 DEV-87 node 테스트의 "주문 환불은 400" 예시가 맞지 않게 됐다. 여전히 막는 `expire-deposits`로 바꿔 테스트 강도는 유지했다.
+
+### 작업
+- [x] `GET /admin/users/{id}`, `GET /admin/users/by-order/{ref}`, pytest 6개
+- [x] 관리자 페이지 `/user`·`/users/<id>` 화면, 메뉴 `사용자 찾기`, 라우팅, 중계 허용 경로, node 테스트 2개
+- [x] 로컬 확인: 주문 ID·주문 번호(소문자)로 찾기, 부분 환불 3,000원 → 남은 금액·환불 이력, 배송 완료, 생산자 상세
+- [x] 문서: admin spec.md, admin-web README, ia.md, screens.md, wiki API 표
+
+### 기록
+- 10/21 DEV-98 브랜치(`679d36d`)에서 시작. 시드 소비자(u-g*)는 테스트 계정이 아니고, 결제 상태 값은 `APPROVED`라 테스트 기대값을 고쳤다.
+- 10/21 검증: 전체 `uv run pytest -q` 389 passed(새 `tests/test_admin_user_detail.py` 6개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 14 passed.
