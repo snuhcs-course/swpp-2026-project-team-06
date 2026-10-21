@@ -1476,9 +1476,12 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - [x] 기존 base64 이전 명령(기본 시험 실행). 운영 실행은 배포 후 따로 확인
 - [x] 문서 갱신
 - [x] 검증: pytest·ruff·alembic check·typecheck·test:mock·integration full
-- [ ] AI 1차 리뷰, 배포 후 운영 이전 명령 실행·농가 사진 변경 200 확인
+- [x] AI 1차 리뷰(must 0) 반영
+- [ ] 배포 후 운영 이전 명령 실행·농가 사진 변경 200 확인
 
 ### 기록
 - 10/21 운영 api 로그: `PATCH /api/farms/me` 6건 중 5건 500(`StringDataRightTruncation`). 운영 DB 읽기 전용 조회: `farms.photo` data URL 0/15, `products.photos` 3/28(239kB, products 테이블 384kB), 소식·채팅·상세 0.
 - 10/21 e2e 첫 실행 뒤 `seed --reset`이 `public_media` FK로 실패했다. `python -m app.core.seed`는 직접 import한 모델만 지우는데 media 모델이 빠져 있었다(pytest는 `migrations_models`로 import해서 드러나지 않음). `seed.py`에 import 추가.
 - 10/21 검증: `uv run ruff check .` 통과, `uv run pytest -q` 388 passed(신규 `tests/test_media.py` 13개), 새 DB에서 `alembic upgrade head`(0016→0017)·`alembic check` 통과(로컬 기본 DB는 이전 스키마가 남아 있어 새 DB 사용), `npm run typecheck` 오류 없음, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 시나리오 7 passed + Playwright 53 passed·2 skipped(자료 분석 설정 조건부 스킵, 기존과 같음). 새 e2e `public-media.spec.ts`: 생산자 앱에서 농가 사진 변경 → `POST /api/media` 201 → `PATCH /api/farms/me` 200 → 저장 값이 `http://localhost:8000/api/media/med-….jpg`.
+- 10/21 AI 1차 리뷰(별도 에이전트, pr-review): must 0, should 6, nit 5. 반영: 업로드 핸들러 동기화(스레드풀), ftyp brand 허용 목록, GET Range 206, 비 JSON 오류 처리, 계약 문서 보강(FQ-05 길이는 앱 검사), 테스트 보강, migrate https 강제. 후속: 본문 크기 선검사·빈도 제한·안 쓰인 파일 정리·소식 초과 업로드·공유 Mock 권한 차이·스트리밍 조회 → DEV-105.
+- 10/21 리뷰 반영 후 검증: `ruff check .` 통과, `pytest -q` 390 passed, `npm run typecheck` 오류 0, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 7 passed + Playwright 53 passed·2 skipped.
