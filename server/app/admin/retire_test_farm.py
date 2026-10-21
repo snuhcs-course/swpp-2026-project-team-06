@@ -118,7 +118,11 @@ def check_retire(session: Session, farm: Farm | None, farm_id: str) -> None:
         select(Order.consumer_id)
         .join(Product, Product.id == Order.product_id)
         .join(User, User.id == Order.consumer_id)
-        .where(Product.farm_id == farm_id, User.is_test_account.is_(False))
+        .where(
+            Product.farm_id == farm_id,
+            User.is_test_account.is_(False),
+            User.ops_tester.is_(False),  # 운영 검증 계정(DEV-107)도 테스트로 센다
+        )
         .distinct()
     ).all()
     if real:
