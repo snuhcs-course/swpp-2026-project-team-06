@@ -8,7 +8,7 @@ import type {
   TestAccount,
   User,
 } from "../types";
-import { needsOnboarding, nextId, nowIso, type DB, type UserRec } from "./db";
+import { consentRequired, needsOnboarding, nextId, nowIso, type DB, type UserRec } from "./db";
 import { conflict, fail, invalid, notFound, register } from "./router";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
@@ -55,6 +55,7 @@ export function userView(d: DB, u: UserRec): User {
     email: u.email ?? null,
     phone: u.phone ?? "",
     needsOnboarding: needsOnboarding(u),
+    consentRequired: consentRequired(u),
   };
 }
 

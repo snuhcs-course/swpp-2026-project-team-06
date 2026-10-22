@@ -114,6 +114,18 @@ export function onOnboardingRequired(fn: () => void) {
   };
 }
 
+const consentListeners = new Set<() => void>();
+/**
+ * 생산자가 지금 버전 약관·개인정보에 동의하지 않아 403 CONSENT_REQUIRED를 받았을 때 알림(DEV-113).
+ * 토큰은 지우지 않는다. 생산자 앱은 내 정보를 다시 읽고 동의 화면(/consent)으로 보낸다
+ */
+export function onConsentRequired(fn: () => void) {
+  consentListeners.add(fn);
+  return () => {
+    consentListeners.delete(fn);
+  };
+}
+
 /* ---------------- request ---------------- */
 
 export type RequestOptions = {
@@ -188,6 +200,12 @@ export async function request<T>(
       "ONBOARDING_REQUIRED"
   )
     onboardingListeners.forEach((l) => l());
+  if (
+    res.status === 403 &&
+    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
+      "CONSENT_REQUIRED"
+  )
+    consentListeners.forEach((l) => l());
   if (res.status >= 400) throw new ApiError(res.status, res.body);
   return res.body as T;
 }

@@ -45,15 +45,28 @@ export type UserRec = {
   consents?: Consent[];
 };
 const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
+const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;
+/** 지금 시행 중인 약관·처리방침 버전(서버 accounts.schemas.CONSENT_VERSION과 같은 값, DEV-113) */
+export const CONSENT_VERSION = "2026-10-22";
+
+/** 지금 버전의 필수 동의가 빠졌는가(서버 consent_required와 같은 규칙). 테스트 계정은 항상 false */
+export function consentRequired(u: UserRec): boolean {
+  if (!u.kakao || (u.role !== "CONSUMER" && u.role !== "PRODUCER")) return false;
+  const required =
+    u.role === "CONSUMER" ? REQUIRED_CONSENTS : REQUIRED_PRODUCER_CONSENTS;
+  const agreed = new Set(
+    (u.consents ?? [])
+      .filter((c) => c.agreed && c.version === CONSENT_VERSION)
+      .map((c) => c.kind),
+  );
+  return required.some((k) => !agreed.has(k));
+}
 
 /** 첫 가입 온보딩이 남았는가(서버 needs_onboarding과 같은 규칙). 테스트 계정은 항상 false */
 export function needsOnboarding(u: UserRec): boolean {
   if (u.role !== "CONSUMER" || !u.kakao) return false;
   if (!u.nickname?.trim() || !u.name.trim() || !u.phone?.trim()) return true;
-  const agreed = new Set(
-    (u.consents ?? []).filter((c) => c.agreed).map((c) => c.kind),
-  );
-  return REQUIRED_CONSENTS.some((k) => !agreed.has(k));
+  return consentRequired(u);
 }
 
 export type FarmRec = {

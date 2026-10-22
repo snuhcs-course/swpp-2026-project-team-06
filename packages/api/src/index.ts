@@ -8,6 +8,7 @@ export {
   getToken,
   onAuthChange,
   onOnboardingRequired,
+  onConsentRequired,
   request,
   newIdempotencyKey,
   resetDemoData,
