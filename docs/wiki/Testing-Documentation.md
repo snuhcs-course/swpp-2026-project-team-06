@@ -215,6 +215,38 @@ Recorded safeguards include order idempotency, manager replay protection, author
 
 The summary excludes real/PG/sandbox payments and AI wrong-answer reporting from planned UT. A-13 internal PASS does not remove its external exclusion. No subsequent restricted-scope approval or actual 20 October UT result is established.
 
+### 3.6 Producer coverage results (DEV-118)
+
+Measured on **23 October 2026** at commit `0637847` (branch `jinumeral/dev-118-producer-coverage`), macOS, Node 24.15.0, Chromium from Playwright 1.64, local PostgreSQL 16 in Docker. Targets were committed in `307e57c` before the first measurement.
+
+| Component | Frameworks | Target | Actual | Result | Command / report |
+| --- | --- | --- | --- | --- | --- |
+| Producer logic (`apps/producer/src/lib/{gate,kakao,productGroups}.ts`) | Node test runner, `--experimental-test-coverage` | Lines ≥ 90%, branches ≥ 80% | **Lines 100%, branches 100%** (16 tests, 16 pass) | Met | `npm run coverage:producer` (also `make coverage-producer` once DEV-118's Makefile PR merges) |
+| Producer screens/UI (`apps/producer/src/**/*.tsx`, `lib/pick.ts`, `lib/sourceFiles.ts`; 45 files) | Playwright Chromium V8 coverage, monocart-coverage-reports source-map remapping | Lines ≥ 60% | **Lines 66.03%** (7,726 / 11,700); branches 53.25%, functions 52.68% | Met | `FARMCLUB_COVERAGE=1 npm run test:integration:full` then `npm run coverage:producer-ui` → `.artifacts/coverage/producer-ui/index.html` |
+
+Reproduce with the Section 2.3 setup, using a disposable database because the runner reseeds it:
+
+~~~sh
+export DATABASE_URL='postgresql+psycopg://farmclub:farmclub@127.0.0.1:5432/farmclub_dev118'
+export FARMCLUB_INTEGRATION_SKIP_DOCKER=1 EXPO_NO_TELEMETRY=1
+npm run coverage:producer
+rm -rf .artifacts/coverage
+FARMCLUB_COVERAGE=1 npm run test:integration:full
+npm run coverage:producer-ui   # generates the report once and then clears the coverage cache
+~~~
+
+**Test counts.** Logic: 16 tests, 16 pass, 0 fail, 0 skipped. Coverage run of the real-stack suite: 7/7 API scenarios and 65 Chromium tests passed, 0 failed, 2 skipped. The two skips come from the specs' own `test.skip` environment guards (for example `SOURCE_ANALYSIS_ENABLED` in `product-page-workspace.spec.ts`); DEV-118 did not change them and did not identify the exact two cases. Coverage collection is off unless `FARMCLUB_COVERAGE=1`; CI runs the same specs without it.
+
+**Baseline and change.** Before DEV-118 the logic layer measured 84.13% lines with only `gate.ts` and `productGroups.ts` loaded; `kakao.ts` had no test (0%) and `productStatus()` was untested. DEV-118 added `scripts/test-producer-kakao.mjs` (one-time Kakao state, AC-01-11/16) and `scripts/test-producer-status.mjs` (status labels, AC-04-7) to `npm run test:mock`.
+
+**Gaps.** The UI layer meets its line target, but branch coverage (53.25%) shows that many error/loading/platform branches are not driven end to end. Lowest files: `app/broadcast/new.tsx` (≈14% lines), `app/(tabs)/farm/account.tsx` (≈17%), `app/(tabs)/products/[id]/stages.tsx` (≈20%), `app/(tabs)/farm/edit/[field].tsx` (≈23%), and `lib/sourceFiles.ts` (11%; the browser file dialog is replaced by Playwright file choosers). These are Iteration 3 candidates for producer E2E cases. The console summary counts lines with V8 byte ranges; the JSON summary of the same run reports 64.89% lines because it counts lines differently; both exceed the target, and the table uses the console/HTML figure shown in the screenshot.
+
+![Producer logic coverage: 100% lines and branches](images/i2-producer-coverage-logic.png)
+
+![Producer screens/UI coverage summary: 66.03% lines](images/i2-producer-coverage-ui-summary.png)
+
+![Producer screens/UI coverage HTML report](images/i2-producer-coverage-ui-report.png)
+
 ## 4. AI Module Testing (Iteration 3)
 
 ### Plan
@@ -254,10 +286,10 @@ This matrix follows Guideline 4, pp. 1–2 and submission rules on p. 5. Later r
 | Component responsibility/new-code policy | Section 1 | Owner review. |
 | Timing/merge criteria | Section 1/CI | Preserve actual executed/skipped steps. |
 | Frameworks/isolation/scope | Section 2.1 | Recover missing historical environment details. |
-| Architectural coverage goals/rationale | Section 2.2 | **Unmet:** numerical targets/include-exclude rules before measurement. |
+| Architectural coverage goals/rationale | Section 2.2 | **Partly met:** producer logic/UI targets and exclusions committed before measurement (DEV-118); consumer, shared, and server targets still required. |
 | Exact test/coverage commands/environment | Section 2.3 | **Partly met:** coverage configuration/command missing; some local/manual SHAs/browser versions absent. |
 | Result date/commit/command | Section 3/Appendix A | **Partly met:** exact workbook-only local SHAs/commands and app/server pairs needed. |
-| Actual coverage versus target/screenshot | Unavailable-result table | **Unmet:** genuine measured reports/screenshots required. |
+| Actual coverage versus target/screenshot | Section 3.6 (producer) | **Partly met:** producer measured with screenshots (logic 100%, UI 66.03% lines, both met); consumer, shared, and server measurements still required. |
 | Counts, failure/skip reasons, actions | Section 3/all 77 cases | Supply referenced artifacts; retest after fixes/dependency resolution. |
 | Preserve plans/explain revisions | Appendix B/immutable prior version | Keep original and revised future commitments. |
 | English/separate Wiki | This source/[Wiki][wiki] | Reviewed main merge/Wiki sync required for this local revision. |
