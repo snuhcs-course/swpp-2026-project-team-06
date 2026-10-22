@@ -42,8 +42,9 @@
 ### 완료 조건
 - [x] 타깃이 CI와 같은 명령을 부르고 운영 명령은 없음
 - [x] 테스트 추가 규칙을 Makefile 주석·README·AGENTS.md에 적음
-- [ ] 테스트 통과 (`make lint`, `make test`)
+- [x] 테스트 통과 (`make lint`, `make test` — 브랜치 전용 DB에서)
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/22 이슈·브랜치 생성, Makefile·문서 작성. AGENTS.md는 #231과 worktree 준비 줄 한 곳이 겹친다(#231이 바로 아래에 줄을 추가) — 뒤에 머지하는 쪽이 두 변경을 모두 남기면 된다.
+- 10/22 검증: lint 통과, pytest 422 passed, alembic check 통과(farmclub_dev117), test:mock 22/22, typecheck 5 workspace, admin-web 18/18. PR #236 AI 1차 리뷰 반영(RESET·CONFIRM=1만) 후 ready.
