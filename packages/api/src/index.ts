@@ -20,6 +20,7 @@ export {
 export { CARRIERS, carrierLabel, trackingUrl } from "./carriers";
 export { auth, farms, catalog, orders, messaging, admin } from "./endpoints";
 export type * from "./types";
+export { SUPPORT_ID } from "./types";
 
 import { request } from "./client";
 

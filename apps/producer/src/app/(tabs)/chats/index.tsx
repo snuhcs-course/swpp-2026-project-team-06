@@ -19,6 +19,7 @@ import { View } from "react-native";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import OwnNewsRoom from "../../../lib/OwnNewsRoom";
+import { SupportAvatar } from "../../../lib/views";
 
 export default function Chats() {
   const router = useRouter();
@@ -45,6 +46,8 @@ export default function Chats() {
     user?.userId ?? "",
     active && !!user && tab === "private",
   );
+  // farmclub 문의 대화방(DEV-111)을 뺀 첫 소비자 대화
+  const firstConsumer = chats.data?.find((c) => !c.isSupport)?.threadId;
   return (
     <Screen style={{ paddingBottom: safe("bottom", tokens.height.tabBar) }}>
       <BrandHeader title="채팅" right={<HelpButton />} />
@@ -72,10 +75,22 @@ export default function Chats() {
           {chats.loading ? (
             <Skeleton height={88} width="90%" style={{ margin: 20 }} />
           ) : null}
-          {chats.data?.map((chat, i) => (
+          {chats.data?.map((chat) => (
             <ConversationRow
               key={chat.threadId}
-              testID={i === 0 ? "chat-row-first" : undefined}
+              testID={
+                chat.isSupport
+                  ? "chat-row-farmclub"
+                  : chat.threadId === firstConsumer
+                    ? "chat-row-first"
+                    : undefined
+              }
+              avatar={chat.isSupport ? <SupportAvatar /> : undefined}
+              status={
+                chat.isSupport
+                  ? "farmclub 운영팀 · 궁금한 점을 물어보세요"
+                  : undefined
+              }
               name={chat.consumerName}
               preview={chat.lastMessage || "대화를 시작해 보세요"}
               at={chat.lastAt}
@@ -91,14 +106,12 @@ export default function Chats() {
               }
             />
           ))}
-          {chats.data?.length === 0 ? (
-            <View testID="chat-empty">
-              <EmptyState
-                icon="chat"
-                title="아직 1:1 대화가 없어요"
-                body="소비자의 질문과 주문 문의가 이곳에 모여요."
-              />
-            </View>
+          {chats.data && !firstConsumer ? (
+            <EmptyState
+              icon="chat"
+              title="아직 손님과 나눈 1:1 대화가 없어요"
+              body="소비자의 질문과 주문 문의가 이곳에 모여요."
+            />
           ) : null}
         </Scroll>
       </View>

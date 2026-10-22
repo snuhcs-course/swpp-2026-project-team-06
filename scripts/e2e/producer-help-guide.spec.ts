@@ -50,10 +50,10 @@ test("DEV-109: first dashboard visit starts the spotlight tour and walks the rea
   await next(page);
   await atStep(page, 6, "1:1 채팅: 손님 질문 모아 보기");
   await visible(page, "chat-choice-private").click();
-  await atStep(page, 7, "대화를 열어 볼까요?");
-  await visible(page, "chat-row-first").click();
-  await expect(page).toHaveURL(/\/chats\/[^/?]+/);
-  await atStep(page, 8, "반복되는 질문은 AI가 대신 답해 드려요");
+  await atStep(page, 7, "farmclub 대화방을 열어 볼까요?");
+  await visible(page, "chat-row-farmclub").click();
+  await expect(page).toHaveURL(/\/chats\/u-farmclub/);
+  await atStep(page, 8, "궁금한 건 여기에 물어보세요");
   await page.screenshot({ path: testInfo.outputPath("tour-step-8.png") });
   await next(page);
   await atStep(page, 9, "채팅 목록으로 돌아가요");
@@ -62,7 +62,7 @@ test("DEV-109: first dashboard visit starts the spotlight tour and walks the rea
   await atStep(page, 10, "거의 다 왔어요!");
   await visible(page, "tab-settings").click();
   await expect(page).toHaveURL(/\/settings$/);
-  await atStep(page, 11, "AI 응답 설정");
+  await atStep(page, 11, "반복되는 질문은 AI가 대신 답해 드려요");
   await visible(page, "ai-settings-row").click();
   await expect(page).toHaveURL(/\/farm\/ai-settings/);
   await atStep(page, 12, "AI에게 우리 농가를 알려 주세요");
@@ -70,7 +70,7 @@ test("DEV-109: first dashboard visit starts the spotlight tour and walks the rea
 
   const card = await atStep(page, 13, "다시 보고 싶으면 이 버튼을 누르세요!");
   await expect(page).toHaveURL(home);
-  await expect(card.getByText("모르는 게 있으면 운영자에게 편하게 문의해 주세요.", { exact: false })).toBeVisible();
+  await expect(card.getByText("모르는 게 있으면 채팅의 farmclub 대화방에 편하게 물어봐 주세요.", { exact: false })).toBeVisible();
   // 본문 속 ? 자리에 실제 도움말 아이콘이 들어간다
   await expect(card.getByRole("img", { name: "도움말" })).toBeVisible();
   await expect(card.getByText("[?]", { exact: false })).toHaveCount(0);
@@ -108,7 +108,7 @@ test("DEV-109: skipping ends the tour for good and the help button restarts it f
   assertClean();
 });
 
-test("DEV-109: a farm with no 1:1 chats skips the room steps", async ({ page }) => {
+test("DEV-109 AC-34-5: without a farmclub room the tour offers Next and skips the room steps", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const assertClean = monitor(page);
   await page.route(`${apiUrl}/api/messaging/producer/chats**`, (route) =>
@@ -126,7 +126,9 @@ test("DEV-109: a farm with no 1:1 chats skips the room steps", async ({ page }) 
   await visible(page, "tab-chats").click();
   await next(page);
   await visible(page, "chat-choice-private").click();
-  await expect(page.getByText("아직 1:1 대화가 없어요")).toBeVisible();
+  await atStep(page, 7, "farmclub 대화방을 열어 볼까요?");
+  await expect(page.getByText("이 화면에서는 안내할 곳을 찾지 못했어요", { exact: false })).toBeVisible();
+  await next(page);
   await atStep(page, 10, "거의 다 왔어요!");
   assertClean();
 });
@@ -160,6 +162,6 @@ test("DEV-109: restarting after 1:1 use waits for a real tap and keeps cards on 
   await page.waitForTimeout(800);
   await atStep(page, 6, "1:1 채팅: 손님 질문 모아 보기");
   await visible(page, "chat-choice-private").click();
-  await atStep(page, 7, "대화를 열어 볼까요?");
+  await atStep(page, 7, "farmclub 대화방을 열어 볼까요?");
   assertClean();
 });

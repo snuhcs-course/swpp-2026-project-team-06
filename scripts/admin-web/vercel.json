@@ -7,7 +7,8 @@
     { "source": "/farms", "destination": "/api/page?name=farms" },
     { "source": "/users", "destination": "/api/page?name=users" },
     { "source": "/user", "destination": "/api/page?name=user" },
-    { "source": "/users/:id", "destination": "/api/page?name=user&id=:id" }
+    { "source": "/users/:id", "destination": "/api/page?name=user&id=:id" },
+    { "source": "/inbox", "destination": "/api/page?name=inbox" }
   ],
   "functions": {
     "api/page.js": { "includeFiles": "api/_views/**" }

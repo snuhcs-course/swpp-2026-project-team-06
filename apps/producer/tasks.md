@@ -738,3 +738,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/22 스캔 WARNING 반영: 목표·결정 사항·완료 조건을 13단계와 '새 상품은 설명만' 기준으로 고쳐 썼다. 아이콘에 접근성 이름 '도움말'을 붙이고, e2e에 본문에 `[?]` 글자가 남지 않는지 확인하는 검사를 넣었다.
 - 10/22 재스캔 반영: 새 상품 화면 단계를 빼면서 쓰지 않게 된 `HeaderBar` 뒤로 가기 testID를 되돌렸다. 본문 아이콘에 `role="img"`를 붙이고, e2e는 이름('도움말')으로 아이콘을 확인한다.
 - 10/22 13단계·아이콘 변경 검증: typecheck 4 workspace 통과. 띄워 둔 실제 스택(자료 분석 켜짐, `farmclub_dev109`)에서 producer-help-guide 4 passed. 투어 중 `/product-workspaces` POST가 0건인지도 확인한다. 3·13단계 스크린샷으로 카드와 아이콘 정렬을 확인했다. 확인 스캔 CRITICAL·WARNING 0건.
+
+## DEV-111 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
+- 10/22 DEV-111 변경: farmclub 문의 대화방이 생겨 투어 대화 단계는 farmclub 방(`chat-row-farmclub`)을 열고 문의 방법(`support-intro`)을 안내한다. 빈 상태(`chat-empty`)로 건너뛰던 방식(`emptyIf`)은 지웠고, 방을 찾지 못하면 카드의 '다음'이 `skipTo`로 건너뛴다. 마지막 문의 문구는 farmclub 대화방을 가리킨다. 목록·방 화면과 `SupportAvatar`(views.tsx) 변경도 DEV-111에 있다.
