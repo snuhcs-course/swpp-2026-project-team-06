@@ -662,17 +662,17 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 상태: 진행 중
 
 ### 목표
-생산자들이 앱을 이해하기 어렵다는 피드백이 있어서, 하단 탭 네 화면의 헤더 오른쪽 위에 동그라미 물음표 버튼을 둔다. 누르면 15단계 스포트라이트 투어를 시작한다. 화면을 어둡게 하고 대상만 밝게 보이며, 생산자가 직접 눌러 앱 흐름을 이동한다. 다루는 내용은 새 상품 등록, AI 판매페이지 초안, 채팅방, AI 자동 안내, AI 응답 설정, 문의다. 현황에 처음 들어오면 한 번 자동으로 시작한다.
+생산자들이 앱을 이해하기 어렵다는 피드백이 있어서, 하단 탭 네 화면의 헤더 오른쪽 위에 동그라미 물음표 버튼을 둔다. 누르면 13단계 스포트라이트 투어를 시작한다. 화면을 어둡게 하고 대상만 밝게 보이며, 생산자가 직접 눌러 앱 흐름을 이동한다. 다루는 내용은 새 상품 등록, AI 판매페이지 초안, 채팅방, AI 자동 안내, AI 응답 설정, 문의다. 현황에 처음 들어오면 한 번 자동으로 시작한다.
 
 ### 범위 (수정 허용 경로)
-- `apps/producer/src/lib/Tour.tsx`(새 파일, 처음 만든 `HelpGuide.tsx`를 대체), `apps/producer/src/app/_layout.tsx`, `apps/producer/src/app/(tabs)/{_layout,index,settings}.tsx`, `apps/producer/src/app/(tabs)/{products,chats}/index.tsx`, `apps/producer/src/app/(tabs)/products/manual.tsx`, `apps/producer/src/app/(tabs)/chats/[consumerId].tsx`, `apps/producer/src/app/(tabs)/farm/ai-settings.tsx`, `apps/producer/tasks.md`
-- `packages/ui/src/bars.tsx`(`LargeTitle`의 `right` 슬롯, `IconButton`·`Fab`·`TabItem` testID, `HeaderBar` 뒤로 가기 testID), `packages/ui/src/Storefront.tsx`(`ChatChoices` testID), `packages/ui/src/Messenger.tsx`(`ConversationRow` testID, `ConversationHeader` 뒤로 가기 testID), `packages/ui/tasks.md`
+- `apps/producer/src/lib/Tour.tsx`(새 파일, 처음 만든 `HelpGuide.tsx`를 대체), `apps/producer/src/app/_layout.tsx`, `apps/producer/src/app/(tabs)/{_layout,index,settings}.tsx`, `apps/producer/src/app/(tabs)/{products,chats}/index.tsx`, `apps/producer/src/app/(tabs)/chats/[consumerId].tsx`, `apps/producer/src/app/(tabs)/farm/ai-settings.tsx`, `apps/producer/tasks.md`
+- `packages/ui/src/bars.tsx`(`LargeTitle`의 `right` 슬롯, `IconButton`·`Fab`·`TabItem` testID), `packages/ui/src/Storefront.tsx`(`ChatChoices` testID), `packages/ui/src/Messenger.tsx`(`ConversationRow` testID, `ConversationHeader` 뒤로 가기 testID), `packages/ui/tasks.md`
 - `packages/api/src/index.ts`(`readStore`·`writeStore` 내보내기), `packages/api/tasks.md`
 - `scripts/e2e/helpers.ts`, `scripts/e2e/{brand-logo,producer-help-guide}.spec.ts`
 - `docs/spec/screens.md`, `docs/wiki/Requirements-and-Specifications.md`
 
 ### 비범위 (건드리지 않음)
-- 작업 화면(HeaderBar, 뒤로 가기 있는 화면)의 ? 버튼, 투어가 서버 상태를 바꾸는 버튼(초안 만들기·분석 시작·AI 전환·설정 저장)을 누르게 하는 것
+- 작업 화면(HeaderBar, 뒤로 가기 있는 화면)의 ? 버튼, 투어가 서버 상태를 바꾸는 버튼('새 상품' 열기·초안 만들기·분석 시작·AI 전환·설정 저장)을 누르게 하는 것
 - `suspended.tsx`의 `[운영팀 연락처]` 자리표시자, 서버·API 변경, 새 의존성
 - Figma v6 반영(후속 이슈로 PR `Figma:` 줄에 남김)
 
@@ -680,12 +680,12 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/21 사용자 결정: 버튼은 탭 네 화면에만 둔다. 처음 한 번 자동으로 띄운다. 문의 단계는 "운영자에게 편하게 문의해 주세요"만 쓰고 연락처는 적지 않는다(생산자들이 운영자 연락처를 이미 알고 있음).
 - 10/21 본 기록은 사용자별이 아닌 앱별 localStorage 키 `help-guide-seen`(`farmclub-producer:` 이름공간)으로 둔다. 생산자는 각자 기기를 쓰고 언제든 버튼으로 다시 볼 수 있어서다. 마지막 '알겠어요', X, Esc 모두 본 것으로 기록한다.
 - 10/21 자동 표시는 승인된 생산자(`farmStatus === "APPROVED"`)일 때만 한다. 관문이 리다이렉트하기 전에 투어가 깜빡이지 않게 하려는 것이다. 새 기능이라 별도 AC가 없어서 테스트 이름에는 DEV-109를 쓴다.
-- 10/21 AI 초안 단계(4·5)는 자료 분석 켜짐/꺼짐 흐름에 맞춰 찾은 화면에 따라 본문을 고른다(`bodyFor`).
 - 10/21 자동으로 시작한 투어 오버레이가 기존 e2e 클릭을 가리지 않게, `loginProducer`는 기본으로 본 기록을 미리 심는다(`{ helpGuide: true }`일 때만 끔). brand-logo spec도 `skipHelpGuide`를 쓴다.
-- 10/21 사용자 후속 지시: 하단 시트 대신 스포트라이트 투어로 바꾼다. 화면을 어둡게 하고 대상만 밝게 보이며, 화살표로 가리키고, 생산자가 실제로 눌러 앱 흐름을 이동한다. 15단계 흐름은 docs/spec/screens.md "공통: 도움말"에 적었다.
-- 10/21 사용자 결정: '새 상품'은 실제로 누르게 한다. 실제 서버에서는 작성 중 상품이 생기므로 "'작성 중'에 남아 나중에 이어서 완성할 수 있어요"라고 안내한다. 채팅방 '직접 응대로 전환'은 서버 상태가 바뀌므로 강조와 설명만 한다.
+- 10/21 사용자 후속 지시: 하단 시트 대신 스포트라이트 투어로 바꾼다. 화면을 어둡게 하고 대상만 밝게 보이며, 화살표로 가리키고, 생산자가 실제로 눌러 앱 흐름을 이동한다. 13단계 흐름은 docs/spec/screens.md "공통: 도움말"에 적었다.
+- 10/21 사용자 결정: 채팅방 '직접 응대로 전환'은 서버 상태가 바뀌므로 강조와 설명만 한다.
 - 10/21 대상은 testID(웹 `data-testid`)로 찾는다. DOM에서 가장 뒤에 있으면서 보이는 요소를 쓰고, `aria-hidden` 안의 요소는 뺀다. 위치는 100ms마다 다시 잰다. 어둡게 하는 막은 구멍 주위 4장으로 깔아서, 누르기 단계에서는 실제 버튼이 그대로 눌린다. 설명 단계에서는 구멍도 막는다. 다음 단계로 넘어가는 판단은 클릭을 가로채지 않고 경로(`usePathname`·`useGlobalSearchParams`)로 한다.
-- 10/21 ?는 어느 탭에서 눌러도 현황으로 이동한 뒤 1단계부터 시작한다. 1:1 대화가 없으면 대화 단계 세 개(9~11)를 건너뛴다. 대상을 3초 동안 찾지 못하면 가운데 카드에 '다음'을 띄운다.
+- 10/21 ?는 어느 탭에서 눌러도 현황으로 이동한 뒤 1단계부터 시작한다. 1:1 대화가 없으면 대화 단계 세 개(7~9)를 건너뛴다. 대상을 3초 동안 찾지 못하면 가운데 카드에 '다음'을 띄운다.
+- 10/22 '새 상품'은 설명만 하고 넘어간다(눌러도 들어가지 않음). 실제 서버에서는 새 상품을 여는 순간 작성 중 상품이 생기기 때문이다. AI 초안 설명(분석 자료·상품사진)은 이 카드에 합친다. 운영 서버는 자료 분석이 켜져 있어 그 화면 기준으로 쓴다. 키보드 Tab 차단(`inert`)은 하지 않는다(사용자 결정). 그래서 키보드로는 뒤쪽 버튼을 누를 수 있다는 한계가 있다.
 
 ### 작업
 - [x] `LargeTitle` `right` 슬롯, `readStore`·`writeStore` 내보내기
@@ -695,12 +695,13 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] typecheck·mock·실제 스택 Playwright 통과 확인
 - [x] 커밋 전 스캔, draft PR
 - [x] 스포트라이트 투어로 전환(Tour.tsx, testID, spec·wiki, e2e)
+- [x] 투어가 작성 중 상품을 만들지 않게 13단계로 축소, 본문 ? 아이콘
 - [ ] AI 리뷰(`pr-review`)
 
 ### 완료 조건
 - [x] 탭 네 화면 오른쪽 위에 '도움말' 버튼이 보이고, 누르면 현황으로 가서 1단계부터 시작한다.
 - [x] 첫 현황 진입 때만 자동으로 시작하고, 끝내거나 건너뛴 뒤 새로고침하면 다시 시작하지 않는다.
-- [x] 15단계를 실제 클릭으로 진행하고 어두운 곳은 눌리지 않는다. 마지막 단계에 문의 안내가 있다.
+- [x] 13단계를 실제 클릭으로 진행하고 어두운 곳은 눌리지 않는다. 마지막 단계에 문의 안내가 있다.
 - [x] 기존 Playwright spec이 그대로 통과한다.
 
 ### 기록
@@ -733,3 +734,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/22 INFO 반영 뒤 검증: typecheck 통과, mock 19 passed. 관련 spec(help-guide, brand-logo, producer-i2, conversation-ui)의 첫 실행은 밤사이 잠자기로 13.9h가 걸려 시간 초과 8건이 났다. 같은 명령을 다시 돌리니 19 passed, 0 failed(29.3s)였다.
 - 10/22 재스캔: CRITICAL·WARNING 0건. 반영한 것은 세 가지다. 7단계는 대화방 경로에서 들어와도 `view=news`로 맞춘다. wiki 흐름에 환영 단계를 넣고 '작성 중' 안내에 조건을 붙였다. 결정 사항은 최종 동작 기준으로 정리했다. 키보드 Tab·스크린리더로 설명 단계의 뒤쪽 버튼에 갈 수 있는 문제(`inert`)는 후속으로 남긴다.
 - 10/22 확인 스캔: CRITICAL·WARNING 0건. INFO 4건은 고치지 않고 남긴다. 업데이터 안의 `writeStore`(같은 값이라 동작은 같음), 네이티브에서 대상 단계가 멈추는 문제(웹 출력 전용), 투어 중 로그아웃 리다이렉트 시 오버레이가 남는 문제(X·Esc로 나갈 수 있음), e2e의 고정 대기 부정 확인이다. 후속에서 `inert`와 함께 정리를 검토한다.
+- 10/22 사용자 후속 지시: 투어가 작성 중 상품을 만들지 않게 한다. 3단계 '새 상품'을 설명 단계로 바꾸고 AI 초안 설명(분석 자료·상품사진)을 합쳤다. 새 상품 화면 안의 두 단계(AI 초안 영역, 뒤로 가기)를 빼서 15단계가 13단계가 됐다. 이에 따라 `bodyFor`와 manual 화면의 `ai-draft` testID를 지웠다. 마지막 단계 본문의 '?'는 실제 도움말 아이콘으로 보여 준다(`withIcons`). 키보드 Tab 차단(`inert`)은 하지 않기로 했다(사용자 결정).
+- 10/22 스캔 WARNING 반영: 목표·결정 사항·완료 조건을 13단계와 '새 상품은 설명만' 기준으로 고쳐 썼다. 아이콘에 접근성 이름 '도움말'을 붙이고, e2e에 본문에 `[?]` 글자가 남지 않는지 확인하는 검사를 넣었다.
+- 10/22 재스캔 반영: 새 상품 화면 단계를 빼면서 쓰지 않게 된 `HeaderBar` 뒤로 가기 testID를 되돌렸다. 본문 아이콘에 `role="img"`를 붙이고, e2e는 이름('도움말')으로 아이콘을 확인한다.
+- 10/22 13단계·아이콘 변경 검증: typecheck 4 workspace 통과. 띄워 둔 실제 스택(자료 분석 켜짐, `farmclub_dev109`)에서 producer-help-guide 4 passed. 투어 중 `/product-workspaces` POST가 0건인지도 확인한다. 3·13단계 스크린샷으로 카드와 아이콘 정렬을 확인했다. 확인 스캔 CRITICAL·WARNING 0건.

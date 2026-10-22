@@ -54,7 +54,6 @@ export function HeaderBar({ title, onBack, close, right, border }: BarProps) {
           icon={close ? "close" : "back"}
           label={close ? "닫기" : "뒤로"}
           onPress={onBack}
-          testID={close ? "header-close" : "header-back"}
         />
       ) : (
         <View style={styles.side} />

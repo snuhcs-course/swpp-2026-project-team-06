@@ -2,10 +2,11 @@
 // 화면을 어둡게 덮고 눌러야 할 곳만 뚫어 밝게 보여 준다. 생산자가 실제로 눌러 화면이 바뀌면 다음 단계로 간다.
 // 대상은 testID(웹에서 data-testid)로 찾는다. 현황(SCR-22)에서 승인된 생산자에게 처음 한 번 자동으로 시작한다.
 import { readStore, writeStore } from "@farmclub/api";
-import { Button, IconButton, T, tokens } from "@farmclub/ui";
+import { Button, Icon, IconButton, T, tokens } from "@farmclub/ui";
 import { useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -33,12 +34,9 @@ const PAD = 6;
 type Route = { path: string; params: Record<string, unknown> };
 type Step = {
   title: string;
-  /** 고정 본문. bodyFor가 있으면 그쪽을 쓴다 */
-  body?: string;
+  body: string;
   /** 강조할 testID 후보. 먼저 보이는 것을 쓴다. 없으면 가운데 카드 */
   target?: string[];
-  /** 화면에 따라 본문을 바꾼다. 자료 분석이 켜진 서버는 자료·사진 칸, 꺼진 서버·Mock은 문구 붙여넣기 화면이다 */
-  bodyFor?: (c: { path: string; found?: string }) => string;
   /** 누르기 단계: 이 조건이 되면(화면이 바뀌면) 다음 단계로 */
   until?: (r: Route) => boolean;
   /** 이 testID가 보이면(예: 1:1 대화가 없는 빈 목록) skipTo로 건너뛴다 */
@@ -60,30 +58,12 @@ const STEPS: Step[] = [
     until: (r) => r.path.startsWith("/products"),
   },
   {
-    title: "새 상품은 여기서 올려요",
+    title: "새 상품은 이 버튼으로 올려요",
+    body: "'새 상품'을 누르면 판매페이지 만들기가 시작돼요. 카톡·밴드에 올리던 홍보 글, 가격표나 전단지 사진, PDF를 '분석 자료'에 넣으면 AI가 내용을 읽고 품종, 원산지, 보관 방법 같은 상품 정보를 채우고 판매페이지 초안까지 만들어 드려요. 판매페이지에 보여 줄 상품 사진은 '상품사진'에 따로 넣으면 돼요. 지금은 둘러보기만 하고, 첫 상품은 안내가 끝난 뒤에 올려 보세요.",
+    target: ["new-product"],
     enter: (r, router) => {
       if (r.path !== "/products") router.navigate("/products");
     },
-    body: "새 상품을 올릴 땐 이 '새 상품' 버튼을 누르면 돼요. 지금 한번 눌러 보세요!",
-    target: ["new-product"],
-    until: (r) => /^\/products\/(new|manual|source-analysis)/.test(r.path),
-  },
-  {
-    title: "AI가 상품 정보를 채워 드려요",
-    bodyFor: ({ found }) =>
-      found === "source-material-box"
-        ? "카톡·밴드에 올리던 홍보 글, 가격표나 전단지 사진, PDF를 여기 '분석 자료'에 넣어 보세요. AI가 내용을 읽고 품종, 원산지, 보관 방법 같은 상품 정보를 채우고 판매페이지 초안까지 만들어 드려요. 판매페이지에 보여 줄 상품 사진은 바로 아래 '상품사진'에 따로 넣어 주시면 돼요."
-        : "카톡·밴드에 올리던 홍보 글을 여기에 붙여넣어 보세요. AI가 글을 읽고 품종, 원산지, 보관 방법 같은 상품 정보를 채워 초안을 만들어 드려요. 다 만들어지면 틀린 부분만 고쳐서 게시를 요청하시면 돼요.",
-    target: ["ai-draft", "source-material-box"],
-  },
-  {
-    title: "오늘은 구경만 해도 괜찮아요",
-    bodyFor: ({ path }) =>
-      path.startsWith("/products/source-analysis")
-        ? "뒤로 가기를 눌러 보세요. 만들던 상품은 상품 목록 '작성 중'에 남아 있어서, 나중에 언제든 이어서 완성할 수 있어요."
-        : "뒤로 가기를 눌러 보세요. 나중에 '새 상품'을 누르면 언제든 다시 시작할 수 있어요.",
-    target: ["header-back"],
-    until: (r) => r.path === "/products",
   },
   {
     title: "이번엔 손님과 이야기하는 곳이에요",
@@ -113,7 +93,7 @@ const STEPS: Step[] = [
     target: ["chat-row-first"],
     until: (r) => /^\/chats\/[^/]+/.test(r.path),
     emptyIf: "chat-empty",
-    skipTo: 11,
+    skipTo: 9,
   },
   {
     title: "반복되는 질문은 AI가 대신 답해 드려요",
@@ -145,13 +125,36 @@ const STEPS: Step[] = [
   },
   {
     title: "다시 보고 싶으면 이 버튼을 누르세요!",
-    body: "안내는 여기까지예요. 수고 많으셨어요! 나중에 헷갈리면 화면 오른쪽 위 이 ? 버튼을 눌러 보세요. 언제든 이 안내를 처음부터 다시 볼 수 있어요. 그래도 모르는 게 있으면 운영자에게 편하게 문의해 주세요.",
+    body: "안내는 여기까지예요. 수고 많으셨어요! 나중에 헷갈리면 화면 오른쪽 위 이 [?] 버튼을 눌러 보세요. 언제든 이 안내를 처음부터 다시 볼 수 있어요. 그래도 모르는 게 있으면 운영자에게 편하게 문의해 주세요.",
     target: ["help-button"],
     enter: (r, router) => {
       if (r.path !== "/") router.navigate("/");
     },
   },
 ];
+
+/** 본문의 [?]를 실제 도움말 아이콘으로 바꿔 보여 준다 */
+function withIcons(text: string): ReactNode {
+  return text.split("[?]").map((part, i) =>
+    i === 0 ? (
+      part
+    ) : (
+      <Fragment key={i}>
+        <View
+          role="img"
+          aria-label="도움말"
+          style={[
+            { verticalAlign: "middle" } as ViewStyle,
+            { marginHorizontal: 2 },
+          ]}
+        >
+          <Icon name="question" size={20} />
+        </View>
+        {part}
+      </Fragment>
+    ),
+  );
+}
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -241,7 +244,6 @@ function TourOverlay({
   const path = usePathname();
   const params = useGlobalSearchParams();
   const [rect, setRect] = useState<Rect | null>(null);
-  const [found, setFound] = useState<string>();
   const [missing, setMissing] = useState(false);
   const scrolled = useRef(false);
 
@@ -281,7 +283,6 @@ function TourOverlay({
         if (r.y < 0 || r.y + r.h > window.innerHeight)
           hit.el.scrollIntoView({ block: "center" });
       }
-      if (hit) setFound(hit.id);
       setRect((prev) =>
         same(prev, hit?.rect ?? null) ? prev : (hit?.rect ?? null),
       );
@@ -531,9 +532,7 @@ function TourOverlay({
         <T style={{ marginTop: tokens.space.sm }}>
           {missing
             ? "이 화면에서는 안내할 곳을 찾지 못했어요. 다음으로 넘어갈게요."
-            : waiting && step.bodyFor
-              ? "화면을 여는 중이에요. 잠시만 기다려 주세요."
-              : (step.bodyFor?.({ path, found }) ?? step.body)}
+            : withIcons(step.body)}
         </T>
         {waiting ? null : tap ? (
           <View
