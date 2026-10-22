@@ -1,4 +1,4 @@
-# 관리자 페이지 (DEV-82, DEV-83, DEV-87, DEV-98, DEV-106, DEV-107)
+# 관리자 페이지 (DEV-82, DEV-83, DEV-87, DEV-98, DEV-106, DEV-107, DEV-114)
 
 운영자가 쓰는 임시 관리자 페이지다. 지금은 생산자 가입 신청과 상품 공급 물량 신청을 목록으로 보고 승인·반려하는 화면 두 개와 테스트 농가를 숨기는 화면, 사용자 검색·테스트 표시 화면이 있고, 왼쪽 메뉴에 관리 화면을 하나씩 늘려 간다. 빌드 없는 HTML 화면과 Vercel 함수(로컬은 `server.mjs`)로 되어 있다.
 
@@ -54,9 +54,14 @@ ADMIN_WEB_PASSWORD=… ADMIN_TOKEN=… node scripts/admin-web/server.mjs   # htt
 # (server/에서 같은 DATABASE_URL·JWT_SECRET으로 uv run python -m app.accounts.admin_token)
 ```
 
-## Vercel 임시 배포
+## Vercel 배포
 
-이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`)로 올린다. `api/proxy.js`가 서버리스 함수가 된다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다.
+이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`, https://admin.farmclub.kr)로 올린다. 빌드는 없고, Vercel이 `vercel.json`대로 `api/*.js`를 서버리스 함수로 만든다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다. 환경 변수는 Vercel 프로젝트에서만 바꾸고 워크플로·저장소에는 두지 않는다.
+
+- **테스트(CI)**: PR·main push에서 `scripts/admin-web/**`가 바뀌면 `ci.yml`의 `admin-web` job이 `node --test scripts/admin-web/admin.test.mjs`를 돌린다(DEV-114).
+- **자동 배포**: main CI가 성공하고 그 커밋에 `scripts/admin-web/` 변경이 있으면 `deploy-vercel.yml`의 `deploy-admin` job이 `vercel deploy scripts/admin-web --prod`로 올리고 `https://admin.farmclub.kr/login`이 200인지 확인한다. 앱 배포와 같은 `VERCEL_TOKEN`(production Environment)을 쓰고, 토큰이 없으면 건너뛴다.
+- **수동 실행**: Actions 탭 → `Deploy apps to Vercel` → Run workflow(브랜치 main). 변경 여부와 상관없이 두 앱과 관리자 페이지를 모두 올린다.
+- **로컬에서 직접**(급할 때, Vercel 팀 권한 필요):
 
 ```sh
 cd scripts/admin-web
