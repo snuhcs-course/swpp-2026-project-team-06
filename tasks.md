@@ -50,3 +50,4 @@
 - 10/22 이슈·브랜치 생성, Makefile·문서 작성. AGENTS.md는 #231과 worktree 준비 줄 한 곳이 겹친다(#231이 바로 아래에 줄을 추가) — 뒤에 머지하는 쪽이 두 변경을 모두 남기면 된다.
 - 10/22 검증: lint 통과, pytest 422 passed, alembic check 통과(farmclub_dev117), test:mock 22/22, typecheck 5 workspace, admin-web 18/18. PR #236 AI 1차 리뷰 반영(RESET·CONFIRM=1만) 후 ready.
 - 10/22 리뷰 중 변경: clean-worktrees를 Makefile 셸로 옮기고 Makefile 가독성 정리. 재검증 `make check`(farmclub_dev117) 통과 — ruff 통과, pytest 422 passed, alembic check 통과, test:mock 22/22, admin-web 18/18. clean-worktrees 시험 실행 결과 동일(대상 3), gh 없을 때 멈춤 확인.
+- 10/22 Makefile 주석·help 설명·출력 메시지를 영어로(사용자 요청). 명령은 그대로, help·가드·seed·setup·lint·test-admin 재확인.
