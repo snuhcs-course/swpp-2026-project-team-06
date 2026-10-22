@@ -2,7 +2,7 @@
 
 Contributors: Minsun, Hyun, Jinwoo, Zahra
 
-Tools and models used: Minsun — ChatGPT/Codex (GPT-6.1 Sol); [add other members’ tools/models].
+Tools and models used: Minsun — ChatGPT/Codex (GPT-6.1 Sol); Jinwoo — Codex (GPT-6 per PR bodies, Oct 13–15; GPT-6 Astra, Oct 16–18, and GPT-6.1 Sol, Oct 19, per session metadata), Claude Code (Claude Opus 5.5, Oct 21–23); product AI: Gemini 3 Flash Preview via OpenRouter; [add other members’ tools/models].
 
 > Keep the completed report to roughly one page (500–700 words). This is a team report: collect each member’s input prompts and notes, review the team’s relevant AI-agent interaction histories, and write findings supported by verifiable evidence. Be candid; “no AI used” and “output was unusable” are valid findings. Do not include full agent responses or a full interaction transcript.
 
@@ -11,11 +11,14 @@ Tools and models used: Minsun — ChatGPT/Codex (GPT-6.1 Sol); [add other member
 | Member | Feature, files, or task | Tool and model/version | Evidence (file/lines, commit, PR, or issue) |
 | -- | -- | -- | -- |
 | Minsun Kim (PM) | Task decomposition, role/dependency mapping, effort tracking, review governance (SWPP-89/90), checker delivery (DEV-40/55), and internal testing | ChatGPT/Codex; GPT-6.1 Sol | E1–E4 and P1–P12 in Section 2; PRs #106/#107; I2 Linear project; October 19 PM testing artifacts |
+| Jinwoo Jang | Figma v6 frontend for both apps (DEV-51), source-analysis backend and producer source upload / page editor (DEV-54/56/57/58), producer drafts and shipping (DEV-29), logo (DEV-85), production worker and upload race (DEV-90/92), profile photo 500 fix (DEV-102), help tour (DEV-109), farmclub inquiry room (DEV-111), producer coverage (DEV-118) | Codex (GPT-6 Astra, GPT-6.1 Sol); Claude Code (Claude Opus 5.5) | 11 merged PRs (Oct 13–22) plus [#238](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/238)/[#239](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/239) (merged Oct 23 KST), e.g. [#98](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/98), [#104](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/104), [#113](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113), [#130](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/130), [#205](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/205), [#218](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/218), [#221](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/221); the "AI 사용" block in each PR body |
 | [Other member] | [Specific work; include file paths] | [Tool / model] | [Link or reference] |
 
 **Minsun:** As Iteration 2 PM, I used ChatGPT/Codex for task decomposition, ownership and dependency mapping, effort-record standardization, review-process design, and internal-test execution and reporting. The central management problem was establishing what the team could deliver and demonstrate under changing technical and coordination constraints. AI supplied drafts, explanations, and test evidence; I supplied contextual corrections, priorities, access decisions, and scope boundaries. [E1–E4]
 
-**Where we deliberately did not use AI:** Minsun retained ownership of priorities, role corrections, scope decisions, and approval. AI did not substitute for human PR approval, Kakao authentication, or actual Android/iPhone checks; unavailable execution remained explicitly incomplete. [Other members: add decisions/work retained by humans.]
+**Jinwoo:** I used a coding agent for almost all of my I2 implementation: Codex until Oct 19, then Claude Code. My part was deciding scope, cost, and what the producer screens should look like, and checking the result in the browser before merge. Only three of my PRs record agent time, all as approximations: [#205](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/205) (about 1.5h, 0.6M tokens), [#238](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/238) (about 1.0h) and [#239](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/239) (about 0.2h), so I do not give totals.
+
+**Where we deliberately did not use AI:** Minsun retained ownership of priorities, role corrections, scope decisions, and approval. AI did not substitute for human PR approval, Kakao authentication, or actual Android/iPhone checks; unavailable execution remained explicitly incomplete. Jinwoo kept the model and budget choice for source analysis (OpenRouter first, Gemini for cost, a stronger model only where vision is needed), left the AI chat feature to its owner, and did the Railway login and SSH key registration himself. [Other members: add decisions/work retained by humans.]
 
 ## 2. Prompt History
 
@@ -26,6 +29,9 @@ Record the input prompts actually sent, quoted verbatim. Do not clean up wording
 - **Minsun · 2026-10-12, 00:37:34 KST · ChatGPT/Codex (GPT-6.1 Sol) · staged user testing and review gate · E1/P11, turn `01a12b9c-bc7d-7f63-a10c-72331a4e64b5` — verbatim excerpts:** “-testing 2: the same pool of consumers will be asked to test all consumer functions once again, but this time, including actual payment for at least 1 order.” / “workflow revisions: pm needs to check sync for all (spec file)<→2(code) before review-> add as task”
 - **Minsun · 2026-10-12 · ChatGPT/Codex (GPT-6.1 Sol) · cross-role testing:** “good job, but after the two consumer tests, related producer functions and app manager functions should also be monitored, so add this each to zahra and jinwoo for both tests.”
 - **Minsun · 2026-10-19 · Codex (GPT-6.1 Sol) · operator-access limitation:** “Record the operator tests as blocked”
+- **Jinwoo · 2026-10-17, 19:02 → 20:07 KST · Codex (GPT-6 Astra) · DEV-56, PR #113:** see Section 5 (before → after).
+- **Jinwoo · 2026-10-21, 13:16 KST · Claude Code (Claude Opus 5.5) · DEV-102, PR #205:** “다른 부분에도 비슷한 문제 생길일없냐” [Could the same problem happen anywhere else?]
+- My other prompts are in the [Prompt Log, Jinwoo Jang section](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log#jinwoo-jang).
 - **[Other member] · [YYYY-MM-DD] · [Tool/model] · [task/PR/issue]:** “[Paste exact prompt here]”
 
 **Full input prompt log:** [Iteration 2 – Prompt Log](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log) ([branch/repository source](AI-Collaboration-Report---Iteration-2---Prompt-Log.md)). The page contains 141 privacy-redacted input records from the October 22 export snapshot. The eTL report can cite this Wiki URL without duplicating the full log. The selected examples and evidence register below remain for analysis.
@@ -212,6 +218,10 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 
 **Minsun — internal testing and limits of assurance:** I directed AI to test the deployed consumer and producer flows and report failures before making changes. When operator access was unavailable, I explicitly chose “Record the operator tests as blocked”; testing resumed when an approval page became available. The retained October 19 evidence records 18 PM scenarios: nine PASS, six FAIL, and three BLOCKED. Approval succeeded, while product creation and approved-producer re-login failed; public-product editing, operator refund/recovery, and physical-device checks remained blocked. Crucially, the readiness-assessment scenario’s PASS meant that assessment was performed, not that release readiness was established. The report withheld full sign-off. These results strengthened visibility into risk without converting limited execution into comprehensive assurance. [P9–P10; E4]
 
+**Jinwoo — source-analysis pipeline:** Over Oct 14–17, Codex built the grounded extraction backend and then upload, Gemini OCR, a budget cap, and the producer review and editing screens ([#104](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/104), [#113](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113)). It kept a cost log for every paid call: the checked UI run cost $0.011 for 6 OCR calls and one extraction, and after [#130](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/130) the cumulative paid total was $0.060 under a $0.50 cap (#130 itself added $0.035). When I asked it to find "anything that can certainly be fixed" in the OCR errors, it added per-candidate checks and blocked contact details from leaking into fields; candidate precision on the same fixed set went from 7/8 to 17/18, while OCR misreads it could not ground were left as they were rather than auto-corrected ([#130](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/130)). These are repeated development sets, not an independent accuracy test, and the PR does not claim the change caused the gain.
+
+**Jinwoo — production bug from a one-line report:** A producer said the farm photo upload "says the connection is unstable." Claude Code read the production logs and database read-only, found the 500 (the app saved the photo as a base64 data URL in the profile field), and added a public upload API. When I asked whether the same problem could happen elsewhere, it found the same pattern in product photos and news attachments, made those fields reject data URLs with 400 instead of 500, and added a migration for existing base64 photos. Chat attachments (still in Postgres) and the remaining checks I split off as DEV-103/105 ([#205](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/205)).
+
 **Estimated time saved:** Not measured. The retained verification files establish the reported task and test counts; these counts do not establish causal productivity gains. [Other members: add cases and verification.]
 
 ## 4. Hallucinations / Errors
@@ -219,6 +229,12 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 **Minsun — incorrect accountability:** The initial AI plan assigned business/PG approvals to Jinwoo. I caught the contextual error and corrected ownership to Hyun, under whose name the company was registered. The next response acknowledged the error; the role allocation was revised (E1/P2–P3).
 
 **Minsun — incomplete review guidance:** The PR #106 review found that the earlier AI-guided description omitted required evidence and reviewer fields. Follow-up guidance acknowledged the incomplete example and supplied the missing structure (E3/P7). Both cases caused clarification and rework; elapsed cost was not measured. [Other members: add errors or the reviewed basis for identifying none.]
+
+**Jinwoo — "done" while image/PDF quality was unchecked:** On Oct 16 Codex reported #113 as implemented with CI green. The text cases passed, but the two simplest image and PDF fixtures ("감귤 5kg") produced no accepted result. It had noted image/PDF checking as "remaining" but did not say the simple cases already failed. I caught it by asking to see the generated output. Cost: the OCR fix and re-evaluation took the rest of the evening and the next afternoon (session `01a1442e`, Oct 16–17).
+
+**Jinwoo — wrong claim about storage:** In DEV-102 Claude Code first said chat attachments use R2. It guessed before reading the code; reading the code showed they are Postgres `bytea`. It corrected itself in the same session, so the cost was small (not measured), and the storage move became DEV-103 ([#205](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/205) PR body).
+
+**Jinwoo — tour written for the Mock screen:** The text the agent first wrote for step 4 of the DEV-109 help tour (and step 5 with it) described the Mock UI, not the deployed one (no photo/source slots in "new product"), because it had developed and checked the tour in Mock mode. I noticed in the running app ("이거 지금 메인 ui맞냐?"); the cost was rewriting those steps against the real screen (time not measured) ([#218](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/218) PR body).
 
 ## 5. Prompt Revisions
 
@@ -228,11 +244,23 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 - **After — verbatim excerpt:** “please suggest a list of user stories we MUST consider, then create a list of tasks (small enough to estimate, has one clear owner, has an observable completion state, and produces visible output) for our second iteration.”
 - **Why the revision worked:** It made task quality assessable through size, ownership, completion evidence, and visible outputs. The same revised request reserved review before upload. Subsequent prompts corrected role assignments and added producer/manager monitoring; the generated workbook and transfer records document the resulting plan (P1–P6). [Other members: add revisions.]
 
+**Jinwoo · 2026-10-17 · Codex (GPT-6 Astra) · producer page editor (DEV-56, PR #113):**
+- **Before:** “그리고 이거 내용 수정하는거 걍 미리보기 화면 쭈루룩 나오고 그 화면에서 바로 고칠수있는 스타일로 다시 만들어봐.. 지금 너무 시안성이 떨어진다” [Rebuild the content editing so the preview runs down the page and you edit right there. It's too hard to read now.]
+- **After:** “걍 그 점선 둥근 사가경에 + 가운데 박아놓고 추가하세요 그 ux 모름? 글케 하면 되잖아..” / “연필이랑 x는 그 카드 최상단에 오버레이 해놓으삼. 뭔말알? 카드에 텍스트/파일 꽉차게 하라고. 카톡 첨부파일 넣을때처럼..” [Just put a + in the middle of a dashed rounded box, the usual "add" UX. / Overlay the pencil and x at the top of the card; fill the card with the text/file, like adding an attachment in KakaoTalk.]
+- **Why the revision worked:** Asking for an editor-like view left the layout to the agent, and between 19:02 and 21:16 it took eight plan → implement rounds. Naming a UI the agent already knows (dashed "+" box, KakaoTalk attachment card) gave it a concrete target, and the later rounds were small fixes (icon position, placeholder text).
+
+**Jinwoo · Oct 16–19 · Codex · plan mode when I could not name what I wanted:** Often I did not know the right term for a UI part or a technical option. Instead of guessing a name and getting the wrong thing built, I switched to plan mode: the agent wrote down what it would build, naming the parts in its own words, and I corrected the plan in plain language before any code was written. I approved 23 plans this way ("Implement the plan."), and when a request was still vague I asked for the plan first: “계획 세우고 해” [Make a plan first] (Oct 17, 20:37) and “계획한 다음에 ㄱㄱ” [Plan it, then go] (Oct 19, 23:03).
+
 ## 6. Manual Fixes and Why
 
 **Minsun:** The ownership error required re-planning; incomplete PR guidance required clarification and description rework. Their elapsed costs were not measured. My corrections were made through explicit instructions; the accessible record does not establish which final repository lines I edited manually. Assistant-authored review fixes must therefore not be reported as my manual code fixes. Likewise, no defensible time-saving estimate follows from task counts or test counts. The evidence supports improved organization and traceability, while causal productivity gains and full-team session coverage remain unmeasured. [E1–E4]
 
 The documented human interventions changed ownership, validation scope, and the DEV-40/DEV-55 delivery boundary through prompts. No specific hand-edited repository lines can be attributed to Minsun from these records. [Other members: add manual edits with file/line or PR evidence.]
+
+**Jinwoo:** I did not edit product code by hand in I2; changes went through prompts, and one PR body says so explicitly ([#104](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/104): "사람이 수정한 코드 없음"). What I did by hand:
+- **Logo placement (DEV-85, [#173](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/173)):** the agent proposed placements; I picked the wordmark as default, rolled back the enlarged symbol, and nudged the combined logo 16px left by eye. These are recorded as human decisions in the PR body.
+- **Effort hours (Oct 18):** the agent drafted Linear effort lines from the session logs but put agent time far too low for coding-agent work; I corrected the numbers in the markdown myself before they went to Linear.
+- **Credentials:** Railway login and SSH key registration (Oct 19, 21), because they need my account.
 
 ## Session History and Privacy Review
 
@@ -250,10 +278,14 @@ The reviewed records are E1–E5, with the specific quoted turns and local verif
 
 The supplied shared URLs [6ad858b0…](https://chatgpt.com/share/e/6ad858b0-e5b0-8342-805d-20685f154aa1) and [6ad85923…](https://chatgpt.com/share/e/6ad85923-43c4-8343-86d4-10ebb491cca5) could not be read: the first reached an authentication error and the second displayed a login dialog. No claims or quotations are attributed to their unseen contents, and no equivalence with a native thread is assumed. The supplied filesystem paths identify workspaces, not independent chat transcripts.
 
+**Jinwoo's review record:** Prepared on 2026-10-23, Asia/Seoul, with Session Exporter 0.1.0 (commit `3251f63`). `--repo` pointed at the project folder that contains the repository, because my sessions start there and move into worktrees; with `--repo` set to the repository itself all four candidate sessions were excluded for that reason. The export selected 10 sessions (3 Codex, Oct 16–19; 7 Claude Code, Oct 21–23) with 376 input records. Oct 11–15 (DEV-51/52/54) is not in my local history; for that work I rely on the PR bodies cited in Section 1. The automatic redaction missed one team API key pasted into a prompt; that prompt is not quoted anywhere, and I deleted the ZIP after the review. Prompts with credentials, links to team documents, production data, or rude wording are left out of the Prompt Log.
+
 [Add team reviewers, exporter version/commit, full iteration range, private export location, and completed privacy-review details when available. Do not publish raw session ZIPs or credentials.]
 
 ## 7. Takeaway for Iteration 3 (optional)
 
 **Minsun’s reflection:** This collaboration illustrates how AI can support the development of engineering judgment when students actively interrogate its output. Correcting ownership exercised contextual reasoning; defining dependencies required prioritization; retaining BLOCKED results required an honest account of uncertainty. Academic progress should be assessed through these decisions, their evidence, and the student’s ability to explain them. In the next iteration, I will record rationale and actual effort alongside AI-assisted work, verify claims against project artifacts, and preserve unresolved cases. AI is most educationally useful when its suggestions become material for criticism, testing, and revision, with students retaining authorship of the reasoning and responsibility for the outcome.
+
+**Jinwoo:** Describe UI by pointing at a pattern the agent already knows instead of adjectives; when I can't name it, start in plan mode and fix the plan, not the code. Ask the agent to list what it has not verified before it says "done."
 
 [Other members: add a takeaway; consolidate the final team conclusion before submission.]

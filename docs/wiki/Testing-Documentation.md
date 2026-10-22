@@ -8,7 +8,7 @@ The final internal workbook contains **77 cases: 66 PASS, 6 FAIL, 3 BLOCKED, and
 
 This report uses `SWPP_Internal_Testing_1_Final.xlsx` as the sole authority for these 77 outcomes. Prepared on 17 October, it records observations through **19 October 2026, 17:28 KST**. Separately verified GitHub logs supply historical automated-run evidence. A supplementary local execution on **22 October 2026**, explicitly requested for coverage measurement, uses product commit `691949e985080f372a45d54fa950191e88adb8ce`. Neither evidence set changes the workbook FAIL/BLOCKED states. Section 3.6 reports the new execution separately.
 
-**Coverage evidence added:** targets were saved before the 22 October supplementary execution; actual per-component reports and genuine report screenshots now appear below. Server statement/branch coverage is **90.90% / 75.47%**. Some component targets remain unmet, including consumer lines and admin JavaScript. Historical environment/attachment gaps and deployed retests remain open; measurements are not release approval (Section 7).
+**Coverage evidence added:** the 22 October supplementary plan and the separate producer-owner targets committed on 23 October are retained; actual per-component reports and genuine report screenshots now appear below. Server statement/branch coverage is **90.90% / 75.47%**. Some component targets remain unmet, including consumer lines and admin JavaScript. Historical environment/attachment gaps and deployed retests remain open; measurements are not release approval (Section 7).
 
 ## Contents
 
@@ -88,6 +88,17 @@ The 17–19 October workbook and inspected historical GitHub records did not est
 Tests/harnesses, dependencies, generated declarations, build/bundle outputs, static HTML/CSS/assets, native wrappers/configuration and database migrations are outside these application-source boundaries. Temporary compiled Mock/Metro files supply maps but are not counted again as original sources. Source inclusion is fixed by the plan/configuration; no low-coverage application file is removed to improve a result. Statement/branch or line totals use covered/total counters, not a mean of per-file percentages, and Python/V8 metrics are never averaged together. V8 mapped line coverage is a different metric from Python executable-statement coverage.
 
 Collection-only changes add maps/preload/configuration without altering existing assertions, retries or worker count. Browser video recording is off because the FFmpeg download failed; the installed full Chromium executable is selected explicitly. The source-enabled run's two conditional skips are run in a second source-disabled configuration. Full setup, commands, versions, tool-generated reports and raw-counter files are retained in the [evidence directory](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/submission/evidence/iteration-2). These main-branch evidence URLs become available after reviewed merge; the local files are the review source until then.
+
+### Owner-specific producer plan added on 23 October (DEV-118)
+
+The following owner-declared split supplements the 22 October whole-producer target above. It uses a later commit, different collector and separate logic/UI denominators. Keep both dated measurements; do not interpret their percentages as a like-for-like increase or regression.
+
+| Producer-owner scope | Predeclared target | Measurement / maintenance |
+| --- | --- | --- |
+| Logic: `apps/producer/src/lib/{gate,kakao,productGroups}.ts` | Lines ≥90%; branches ≥80% | Node experimental coverage; Jinwoo; `npm run coverage:producer` / `make coverage-producer`; results in Section 3.7 |
+| Screens/UI: `apps/producer/src/**/*.tsx`, `pick.ts`, `sourceFiles.ts` | Lines ≥60% | Playwright V8/source maps; Jinwoo; `make coverage-producer-ui`; results in Section 3.7 |
+
+**Producer targets (Jinwoo, DEV-118; committed before the first producer measurement).** The producer client is split into two layers because they are reachable by different tools. *Logic* (session gate, product grouping/status labels, Kakao state round-trip) is plain TypeScript that Node can import directly; it decides which screen a producer may open and what status a product shows, so it gets the higher target (lines ≥ 90%, branches ≥ 80%). *Screens/UI* are React Native Web components that only run inside the Expo web bundle in a browser, together with the browser file-picker/canvas glue in `pick.ts` and `sourceFiles.ts`; they are measured from the Playwright producer journeys and get a lower target (lines ≥ 60%) because layout branches, loading/error placeholders, and platform fallbacks are expensive to drive end-to-end. Excluded from both: shared `packages/*` (shared with the consumer app, not producer-owned), `node_modules`, Expo-generated files, and test files. External dependencies are isolated as in Section 2.1 (seeded local API, mock source-analysis provider, stubbed `window`/`sessionStorage` in Node).
 
 ### 2.3 Reproducible regression procedure
 
@@ -298,6 +309,39 @@ Figure T2. Genuine c8 HTML report screenshot. Combined in-scope V8 line coverage
 
 The two conditional browser skips are resolved within the local matrix, not silently omitted. The successful local runs still do not close the workbook's deployed defects, supply missing physical-device evidence, establish live OAuth/provider/real-transfer correctness, or validate the NFR latency/load/uptime goals. Retest the six deployed failures with recorded account/app/server revisions before changing readiness.
 
+### 3.7 Producer-owner coverage results — 23 October (DEV-118)
+
+
+Measured on **23 October 2026** at commit `0637847` (branch `jinumeral/dev-118-producer-coverage`), macOS, Node 24.15.0, Chromium from Playwright 1.64, local PostgreSQL 16 in Docker. Targets were committed in `307e57c` before the first measurement.
+
+| Component | Frameworks | Target | Actual | Result | Command / report |
+| --- | --- | --- | --- | --- | --- |
+| Producer logic (`apps/producer/src/lib/{gate,kakao,productGroups}.ts`) | Node test runner, `--experimental-test-coverage` | Lines ≥ 90%, branches ≥ 80% | **Lines 100%, branches 100%** (16 tests, 16 pass) | Met | `npm run coverage:producer` (also `make coverage-producer` once DEV-118's Makefile PR merges) |
+| Producer screens/UI (`apps/producer/src/**/*.tsx`, `lib/pick.ts`, `lib/sourceFiles.ts`; 45 files) | Playwright Chromium V8 coverage, monocart-coverage-reports source-map remapping | Lines ≥ 60% | **Lines 66.03%** (7,726 / 11,700); branches 53.25%, functions 52.68% | Met | `FARMCLUB_COVERAGE=1 npm run test:integration:full` then `npm run coverage:producer-ui` → `.artifacts/coverage/producer-ui/index.html` |
+
+Reproduce with the Section 2.3 setup, using a disposable database because the runner reseeds it:
+
+~~~sh
+export DATABASE_URL='postgresql+psycopg://farmclub:farmclub@127.0.0.1:5432/farmclub_dev118'
+export FARMCLUB_INTEGRATION_SKIP_DOCKER=1 EXPO_NO_TELEMETRY=1
+npm run coverage:producer
+rm -rf .artifacts/coverage
+FARMCLUB_COVERAGE=1 npm run test:integration:full
+npm run coverage:producer-ui   # generates the report once and then clears the coverage cache
+~~~
+
+**Test counts.** Logic: 16 tests, 16 pass, 0 fail, 0 skipped. Coverage run of the real-stack suite: 7/7 API scenarios and 65 Chromium tests passed, 0 failed, 2 skipped. The two skips come from the specs' own `test.skip` environment guards (for example `SOURCE_ANALYSIS_ENABLED` in `product-page-workspace.spec.ts`); DEV-118 did not change them and did not identify the exact two cases. Coverage collection is off unless `FARMCLUB_COVERAGE=1`; CI runs the same specs without it.
+
+**Baseline and change.** Before DEV-118 the logic layer measured 84.13% lines over `gate.ts` and `productGroups.ts` only; `kakao.ts` had no test, so no test loaded it and it was absent from that figure rather than counted as 0%, and `productStatus()` was untested. DEV-118 added `scripts/test-producer-kakao.mjs` (one-time Kakao state, AC-01-16) and `scripts/test-producer-status.mjs` (status labels, AC-04-7) to `npm run test:mock`.
+
+**Gaps.** The UI layer meets its line target, but branch coverage (53.25%) shows that many error/loading/platform branches are not driven end to end. Lowest files (per-file line figures from the JSON summary): `app/broadcast/new.tsx` (≈14% lines), `app/(tabs)/farm/account.tsx` (≈17%), `app/(tabs)/products/[id]/stages.tsx` (≈20%), `app/(tabs)/farm/edit/[field].tsx` (≈23%), and `lib/sourceFiles.ts` (11%; the browser file dialog is replaced by Playwright file choosers). These are Iteration 3 candidates for producer E2E cases. Limits of the method: both collectors count only files that the tests load (the logic command lists its test files explicitly, and the UI report covers files in the producer web bundle), so a new untested `lib/*.ts` file or a file outside the bundle would be missing rather than reported as 0%; all 45 declared UI files are present in this run. The console summary counts lines with V8 byte ranges; the JSON summary of the same run reports 64.89% lines because it counts lines differently; both exceed the target, and the table uses the console/HTML figure shown in the screenshot.
+
+![Producer logic coverage: 100% lines and branches](images/i2-producer-coverage-logic.png)
+
+![Producer screens/UI coverage summary: 66.03% lines](images/i2-producer-coverage-ui-summary.png)
+
+![Producer screens/UI coverage HTML report](images/i2-producer-coverage-ui-report.png)
+
 ## 4. AI Module Testing (Iteration 3)
 
 ### Plan
@@ -338,9 +382,9 @@ This matrix follows Guideline 4, pp. 1–2 and submission rules on p. 5. Later r
 | Timing/merge criteria | Section 1/CI | Preserve actual executed/skipped steps. |
 | Frameworks/isolation/scope | Section 2.1 | Recover missing historical environment details. |
 | Architectural coverage goals/rationale | Section 2.2 / saved 22 October plan | Supplementary targets declared before measurement; owner review pending. Historical absence remains explicit. |
-| Exact test/coverage commands/environment | Sections 2.3/2.5 / evidence scripts | Supplementary configuration/commands/runtime recorded; some historical manual SHAs/browser versions remain absent. |
+| Exact test/coverage commands/environment | Sections 2.3/2.5/3.7 / evidence scripts | Supplementary configuration/commands/runtime recorded; some historical manual SHAs/browser versions remain absent. |
 | Result date/commit/command | Section 3/Appendix A | **Partly met:** exact workbook-only local SHAs/commands and app/server pairs needed. |
-| Actual coverage versus target/screenshot | Section 3.6 / native reports and screenshots | Measured and retained; follow up missed component targets without revising them retrospectively. |
+| Actual coverage versus target/screenshot | Sections 3.6/3.7 / native reports and screenshots | Measured and retained; follow up missed component targets without revising them retrospectively. |
 | Counts, failure/skip reasons, actions | Sections 3.1–3.6 / all 77 cases | Supply referenced artifacts; retest after fixes/dependency resolution. |
 | Preserve plans/explain revisions | Appendix B/immutable prior version | Keep original and revised future commitments. |
 | English/separate Wiki | This source/[Wiki][wiki] | Reviewed main merge/Wiki sync required for this local revision. |
