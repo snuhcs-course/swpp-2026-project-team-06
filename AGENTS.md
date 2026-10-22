@@ -59,6 +59,9 @@
 - 브랜치 이름과 커밋 메시지, PR 제목에 **이슈 키(`DEV-12`, `SWPP-34`)를 반드시 넣는다** — PR이 Linear 이슈에 자동 연결된다. 개발은 `DEV-xx`, 기획·문서는 `SWPP-xx`.
 - 브랜치 이름은 `<github 아이디>/<이슈 키 소문자>-<영어 요약 2~5단어>`(소문자·숫자·하이픈만, 예: `nemodleo/swpp-119-ascii-branch-names`). **한글을 쓰지 않는다** — Linear "Copy git branch name"은 한글 제목을 넣으므로 쓰지 않는다. 이슈 키만 있으면 Linear가 PR을 연결한다.
 - PR을 연 뒤에는 브랜치 이름을 바꾸지 않는다(GitHub가 PR을 닫는다).
+- 다른 작업 브랜치 위에 PR을 쌓지 않는다. base는 항상 `main`이고, 선행 작업이 필요하면 선행 PR이 머지된 뒤 `origin/main`에서 브랜치를 만든다. 상세는 `pr-context` 스킬.
+- PR base를 바꾼 뒤에는 push해서 server·apps·integration CI가 새로 돌았는지 확인한다(base 변경만으로는 CI가 돌지 않는다).
+- 마이그레이션을 추가한 PR은 머지 직전 `main`을 병합하고 `alembic heads`가 1개인지 확인한다. 리비전 번호가 겹치면 뒤에 머지하는 쪽이 번호를 올린다.
 - 커밋: `type(scope): 요약 (DEV-12)` — type은 `feat` `fix` `docs` `refactor` `test` `chore`. 한 커밋은 한 가지 변경.
 - PR 제목: `[DEV-12] 요약`. 본문은 `.github/pull_request_template.md`를 채운다.
   - Dependabot 등 봇이 만든 PR은 이슈 키 예외.
@@ -66,6 +69,8 @@
 - 에이전트는 커밋·push 직전에 `git branch --show-current`로 작업 브랜치인지 확인하고, push는 `git push origin HEAD`처럼 브랜치를 명시한다.
 - 여러 작업(세션)을 동시에 돌릴 때는 같은 폴더에서 브랜치를 바꾸지 말고 `git worktree`로 폴더를 나눈다.
 - 새 worktree에는 의존성이 없다(`node_modules`, `server/.venv`는 git이 복사하지 않음). 에이전트에게 넘기기 전에 루트에서 `npm ci`, `server/`에서 `uv sync --frozen`을 실행하고, pytest용 PostgreSQL(`DATABASE_URL`)이 연결되는지 확인한다. 준비할 수 없으면 에이전트를 main 체크아웃에서 실행한다.
+- 로컬 DB는 브랜치마다 따로 쓴다(예: `farmclub_dev12`). 공용 `farmclub`에는 다른 브랜치의 마이그레이션이 섞여 `alembic upgrade`·테스트가 깨진다.
+- 머지됐거나 버린 브랜치의 worktree는 `git worktree remove <경로>`로 정리한다(쌓이면 디스크가 차서 새 worktree를 못 만든다).
 - 머지는 사람 1명 Approve 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
 
