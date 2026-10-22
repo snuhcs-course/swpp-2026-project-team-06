@@ -12,7 +12,7 @@ PR 본문은 리뷰어가 코드를 열기 전에 "무엇을, 왜, 어디까지"
 - `git log main..HEAD --oneline`, `git diff main...HEAD --stat`, 필요한 부분의 `git diff main...HEAD`
 
 ## draft PR 열기 (spec 첫 커밋 직후)
-1. 브랜치를 push한다.
+1. 브랜치 이름이 영어 슬러그(`<github 아이디>/<이슈 키 소문자>-<영어 요약>`, 한글 없음)인지 확인하고 push한다. PR을 연 뒤에는 이름을 바꾸지 않는다.
 2. `.github/pull_request_template.md`를 채워 본문을 만든다. "Spec"에는 이 이슈의 `tasks.md` 섹션(경로#이슈 키)과 관련 FEAT·AC ID를 적는다. 변경 요약은 `tasks.md`의 작업 목록으로 대신해도 된다.
 3. `gh pr create --draft --base main --title "[DEV-12] <요약>" --body-file <본문 파일>`
 4. 관련자 알림 문구를 만들어 사용자에게 보여준다. **에이전트가 직접 메시지를 보내지 않는다.**

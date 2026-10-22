@@ -19,7 +19,7 @@
 
 ## 작업 순서 (Spec-Anchored)
 1. **Linear 이슈** = 작업 지시서. 개발 템플릿(왜 / 완료 조건 / 기록 / 결과)을 채우고 In Progress로 바꾼 뒤 관련자에게 알린다.
-2. **브랜치**: Linear의 "Copy git branch name"으로 `main`에서 만든다.
+2. **브랜치**: `origin/main`에서 직접 만든다. 이름은 아래 "브랜치·커밋·PR"의 영어 슬러그 규칙을 따른다(Linear "Copy git branch name"은 쓰지 않는다).
 3. **spec**: 작업 폴더에 `spec.md`가 없으면 만들고, `tasks.md`에 이 이슈 섹션을 추가해(`spec` 스킬) 첫 커밋으로 push한다.
 4. **draft PR**: branch → `main` draft PR을 연다(`pr-context` 스킬). 관련자에게 알린다.
 5. **구현**: `tasks.md`를 기준으로 작업하고, 체크리스트·결정 사항을 계속 갱신한다.
@@ -57,6 +57,8 @@
 
 ## 브랜치·커밋·PR
 - 브랜치 이름과 커밋 메시지, PR 제목에 **이슈 키(`DEV-12`, `SWPP-34`)를 반드시 넣는다** — PR이 Linear 이슈에 자동 연결된다. 개발은 `DEV-xx`, 기획·문서는 `SWPP-xx`.
+- 브랜치 이름은 `<github 아이디>/<이슈 키 소문자>-<영어 요약 2~5단어>`(소문자·숫자·하이픈만, 예: `nemodleo/swpp-119-ascii-branch-names`). **한글을 쓰지 않는다** — Linear "Copy git branch name"은 한글 제목을 넣으므로 쓰지 않는다. 이슈 키만 있으면 Linear가 PR을 연결한다.
+- PR을 연 뒤에는 브랜치 이름을 바꾸지 않는다(GitHub가 PR을 닫는다).
 - 커밋: `type(scope): 요약 (DEV-12)` — type은 `feat` `fix` `docs` `refactor` `test` `chore`. 한 커밋은 한 가지 변경.
 - PR 제목: `[DEV-12] 요약`. 본문은 `.github/pull_request_template.md`를 채운다.
   - Dependabot 등 봇이 만든 PR은 이슈 키 예외.
