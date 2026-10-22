@@ -189,6 +189,55 @@
 - 10/22 GitHub 원문 로그에서 c98be9b의 pytest 364/Mock 15/API 7/Chromium 43과 79eaea7의 pytest 365/API 7/Chromium 43을 확인했다. 숫자/목표/coverage screenshot은 찾지 못해 미충족으로 표시했다. 커밋·push·PR·제품 테스트·PDF 생성은 실행하지 않았다.
 - 10/22 후속 PR 준비: 원격 main은 기준 a262714와 동일하다. `git diff --check`와 3개 문서 허용 범위를 확인했다. 문서 전용 변경으로 새 애플리케이션 테스트는 실행하지 않는다. 최종 커밋 SHA·PR 링크·게시 결과는 완료 보고와 PR에 기록한다.
 
+## SWPP-112 I2 최종 산출물 로컬 검토
+
+- 기준: main `691949e985080f372a45d54fa950191e88adb8ce` (#233 머지), 요구사항/설계/테스트 가이드 전 페이지, 현재 제품 스펙·코드, 확인된 일별 진행 기록, 발표 자료에 연결된 데모 사이트.
+- 브랜치: `llovablanche-final-deliverables-for-iteration-2` (검토된 demo README 통합). 별도 `iteration-2-demo` 로컬 작업 트리는 보존한다.
+- 상태: 10/23 사용자 요청에 따라 지정 브랜치에 로컬 커밋. Push·PR·main 머지는 별도 확인 전 진행하지 않는다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/Requirements-and-Specifications.md`
+- `docs/wiki/Design-Documentation.md`
+- `docs/wiki/Testing-Documentation.md` (새 측정·증빙과 readiness 갱신; 기존 77건 상태 유지)
+- `docs/wiki/meetings/2026-10-12-*.md` ~ `2026-10-21-*.md`
+- `docs/wiki/images/i2-*` (현재 다이어그램·실제 coverage 보고서 캡처)
+- `docs/submission/evidence/iteration-2/**` (coverage 사전 계획·설정·실행 스크립트·집계/실행 근거)
+- `docs/submission/spec.md`, `docs/submission/tasks.md`의 이 작업 절
+- 루트 `README.md` (검토된 별도 데모 작업 트리의 README를 지정 산출물 브랜치에도 통합) 및 관련 spec/tasks 기록
+
+### 결정 사항
+- 10/22 #233은 사용자가 머지한 상태다. 새 문서는 그 결과를 보존한 최신 main에서 준비한다.
+- 10/22 기존 원격 `iteration-2-demo`는 10/19 기준이며 main보다 35커밋 뒤에 있다. 로컬 데모 브랜치는 최신 main에서 만들고, 이전 기록을 삭제하지 않는다. 앱의 기능 코드는 바꾸지 않는다.
+- 10/22 제공 자료의 일별 기록은 10/21 14:58까지다. 10/22–23 회의나 사용자 테스트 완료를 만들어 채우지 않는다. 일별 로그는 참석이 확정되지 않은 사람을 Attendees로 단정하지 않고 Contributors로 표시한다.
+- 10/22 영상은 발표 자료의 demo.farmclub.kr에서 확인한 story/consumer/producer/admin MP4 네 개를 연결한다. 영상의 공개 안내와 코드 스냅샷·로컬 mock 실행·실서버/유료 모델의 차이를 설명한다.
+- 10/22 사용자 명시 승인으로 로컬 테스트·coverage 측정을 추가한다. PostgreSQL은 별도 임시 클러스터로 준비하고, collector는 개발 도구로만 설치한다. 제품 의존성·잠금파일·테스트를 임의로 수정하지 않는다.
+
+### 작업
+- [x] 현재 코드/가이드/기존 로그/발표 자료/4개 영상 페이지 확인
+- [x] 측정 전 coverage 목표·분모·도구·실행 조건 기록
+- [x] 로컬 테스트·coverage 실행 및 원문 보고서/스크린샷 확보
+- [x] 요구사항과 설계 본문·도식·구현 상태 갱신
+- [x] 10/12–21 일별 로그 작성 및 근거·개인정보 검토
+- [x] demo README에 네 영상·환경·설정·실행·기능·한계 정리
+- [x] 전체 링크·AC·형식·코드 대응·허용 범위 검토 후 사용자에게 검토본 제공
+- [x] 사용자 로컬 커밋 승인 (10/23 지정 브랜치 생성·커밋 요청; 제출 확정·PR 승인과는 별도)
+
+### 기록
+- 10/22 외부 서비스와 원본 자료는 읽기만 했다. 로컬 작업 폴더는 원본 미러의 sources 밖 outputs이며, 미가공 기록은 Git 밖에 둔다. 이 채팅의 프로젝트 미러는 Git 저장소가 아니어서 앱 관리 worktree 도구 대신 실제 저장소에 별도 로컬 Git worktree를 만들었다.
+- 10/22 수치 목표를 저장한 뒤 제품 691949e에서 측정했다. 최초 pytest 420 PASS/2 FAIL은 로컬 DB timezone에 따른 동일 시각의 문자열 차이였다. UTC 설정 후 422 PASS/0 FAIL, 제품 코드나 assertion 변경 없음. Mock 22/admin 18 통과; source-enabled API 7 및 Chromium 65 통과/2 조건부 skip, disabled 설정에서 같은 API 7 및 fallback 2 통과. workspace typecheck 5개, Ruff, Alembic check 통과.
+- 10/22 서버 statement 90.90%/branch 75.47%, consumer 54.34%, producer 72.22%, API 86.02%, UI 85.66%, admin JS 68.15%, analytics 79.13% line coverage. accounts/orders/source branch 및 consumer/admin line 목표 미달을 그대로 보고했다. 원본 Python 93개, TS/TSX 142개, admin JS 7개 분모를 확인했다. native HTML ZIP/JSON/로그/실제 HTML 캡처를 보존했다.
+- 10/22 Chromium 설치 후 FFmpeg 다운로드가 DNS 문제로 실패했다. 설치된 full Chromium과 video off 설정으로 기존 테스트를 실행했다. c8의 virtual shim 출력 실패는 remap 후 원본 소스 필터 및 출력 옵션을 바로잡아 해결했으며 목표/소스 분모/테스트는 바꾸지 않았다.
+- 10/22 Appendix A의 기존 77건은 기준 main과 바이트 단위 동일하다. Req abstract 200단어, 기존 AC 보존, source/support GWT, 현행 구조/상태/입력/실패 도식과 그림 참조를 확인했다. 공개 증빙에 원본 대화/비밀값/개인 로컬 경로를 포함하지 않았다.
+- 10/22 원격 main=691949e, demo=7b2b123 유지. 측정용 PostgreSQL과 통합 테스트 서버를 종료했다. 로컬에 uv/PostgreSQL 16 도구를 설치했으며 기록/데이터는 비공개 outputs에 보존한다. 사용자는 누락된 과거 PM HTML/DEV-41 스크린샷을 새로 만들지 않고 현재 근거로 검토하겠다고 답했다.
+- 10/22 AI 작성자 1차 검토: 허용 범위/수치/기존 결과 보존/그림/링크/개인정보 확인. 필수 과거 첨부자료 누락과 미달 목표는 문서에 표시했다. 커밋/push/PR/외부 편집 없음. 사용자 검토 승인은 미완료다.
+
+- 10/23 사용자가 `llovablanche-final-deliverables-for-iteration-2` 생성 및 검토본 전체 커밋을 명시 요청했다. 새 브랜치에 문서·일별 로그·도식·coverage 증빙과 검토된 demo README를 함께 포함한다. 기존 demo 작업 트리/브랜치는 보존하고 push·PR·main 변경은 진행하지 않는다. 문서/증빙 커밋 단계이므로 새 제품 테스트는 실행하지 않고 이전 실제 실행 결과와 정적 대조를 사용한다.
+
+- 10/23 커밋 직전 독립 읽기 전용 검토에서 미해결 must 없음. 원본 77건, 21개 증빙 체크섬, 실제 counter 재계산, 200단어 abstract, 로컬 링크, 비밀값/경로 점검 통과. revision history 표의 끊긴 행을 정리했다. 사용자가 승인한 변경 파일만 지정해 stage하고 SWPP-112 문서 커밋으로 기록한다.
+
+- 10/23 stage 후 전체 whitespace 검사에서 자동 생성 로그의 후행 공백/마지막 빈 줄을 발견해 공개 사본의 서식만 정리했다. 모든 공백 제외 token은 원문과 동일함을 확인했고 checksum을 갱신했다. 원본 출력은 비공개 artifacts에 그대로 보존했다.
+
+
 ## SWPP-121 I2 AI 협업 보고서 — 장진우 절
 
 - 이슈: [SWPP-121](https://linear.app/sswp6/issue/SWPP-121)
@@ -217,3 +266,5 @@ I2 AI 협업 보고서에 장진우 절을 근거(로컬 세션 export, PR 본�
 
 ### 기록
 - 10/23 문서만 변경이라 실행할 테스트 없음. `git diff --check` 통과.
+
+- 10/23 사용자가 지정 브랜치 push 및 main 대상 PR 생성을 명시 승인했다. 최신 main c884e90의 Makefile 안내, DEV-118 생산자 별도 coverage 결과, SWPP-121 AI 보고서 기여를 보존하며 병합한다. 변경된 테스트 도구를 10/22 측정에 소급 적용하지 않으며 새 제품 테스트를 실행했다고 주장하지 않는다. PR은 draft로 만들고 main 머지는 수행하지 않는다.
