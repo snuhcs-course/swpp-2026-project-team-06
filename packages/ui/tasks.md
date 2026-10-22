@@ -409,3 +409,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: https://linear.app/sswp6/issue/DEV-109 · 상세 기록은 `apps/producer/tasks.md` DEV-109
 - 범위: `packages/ui/src/bars.tsx`의 `LargeTitle`에 선택 prop `right` 추가. 넘기지 않으면 지금과 똑같이 그린다.
 - 결정: 버튼은 기존 `IconButton` + `Icon` `"question"`을 쓰고 새 컴포넌트는 만들지 않는다.
+- 10/21 후속(투어): `IconButton`·`Fab`·`TabItem`·`ConversationRow`에 선택 prop `testID`를 추가했다. `HeaderBar`(닫기 모드는 `header-close`)와 `ConversationHeader`의 뒤로 가기에는 `header-back`, `ChatChoices`에는 `chat-choice-news`/`chat-choice-private`를 달았다. 보이는 모습과 동작은 바뀌지 않는다.

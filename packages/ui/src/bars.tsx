@@ -54,6 +54,7 @@ export function HeaderBar({ title, onBack, close, right, border }: BarProps) {
           icon={close ? "close" : "back"}
           label={close ? "닫기" : "뒤로"}
           onPress={onBack}
+          testID={close ? "header-close" : "header-back"}
         />
       ) : (
         <View style={styles.side} />
@@ -124,10 +125,12 @@ export function IconButton({
   onPress,
   onPhoto,
   size = 24,
+  testID,
 }: {
   icon: IconName;
   label: string;
   onPress?: () => void;
+  testID?: string;
   /** 사진 위 버튼: 검정 32% 원형 40 + 흰 아이콘 */
   onPhoto?: boolean;
   size?: number;
@@ -137,6 +140,7 @@ export function IconButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
+      testID={testID}
       style={(st) =>
         [
           styles.iconBtn,
@@ -164,6 +168,7 @@ export type TabItem = {
   active: boolean;
   badge?: number;
   onPress: () => void;
+  testID?: string;
 };
 
 /** 고정 4탭: 전체 너비, 높이 72 + 안전 영역, 선택 아이콘/라벨 주황. */
@@ -181,6 +186,7 @@ export function TabBar({ items }: { items: TabItem[] }) {
               it.badge ? `${it.label}, 안 읽음 ${it.badge}` : it.label
             }
             onPress={it.onPress}
+            testID={it.testID}
             style={[styles.tab]}
           >
             <Icon
@@ -280,15 +286,18 @@ export function BottomBar({
 export function Fab({
   label,
   onPress,
+  testID,
 }: {
   label: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
+      testID={testID}
       style={({ pressed }) => [
         styles.fab,
         {

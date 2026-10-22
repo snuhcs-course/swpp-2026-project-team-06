@@ -15,7 +15,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { HelpButton } from "../../../lib/HelpGuide";
+import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import {
   productGroup,
@@ -223,7 +223,11 @@ export default function Products() {
           </View>
         ))}
       </Scroll>
-      <Fab label="새 상품" onPress={() => router.push("/products/new")} />
+      <Fab
+        label="새 상품"
+        testID="new-product"
+        onPress={() => router.push("/products/new")}
+      />
     </Screen>
   );
 }

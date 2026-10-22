@@ -61,6 +61,7 @@ export function ConversationRow({
   unread = 0,
   status,
   onPress,
+  testID,
 }: {
   name: string;
   photo?: string | null;
@@ -69,12 +70,14 @@ export function ConversationRow({
   unread?: number;
   status?: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${preview}${unread ? `, 안 읽음 ${unread}` : ""}`}
       onPress={onPress}
+      testID={testID}
       style={({ pressed, ...state }) => [
         {
           flexDirection: "row",
@@ -164,7 +167,12 @@ export function ConversationHeader({
         borderBottomColor: tokens.color.border,
       }}
     >
-      <IconButton icon="back" label="뒤로" onPress={onBack} />
+      <IconButton
+        icon="back"
+        label="뒤로"
+        onPress={onBack}
+        testID="header-back"
+      />
       {onProfile ? (
         <Pressable
           accessibilityRole="button"

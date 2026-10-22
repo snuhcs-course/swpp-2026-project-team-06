@@ -15,7 +15,7 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
-import { HelpButton } from "../../lib/HelpGuide";
+import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
 import { LoadError } from "../../lib/views";
 

@@ -234,6 +234,7 @@ export default function NewProduct() {
           />
         ) : null}
         <View
+          testID="ai-draft"
           style={{
             paddingHorizontal: 20,
             paddingTop: failed ? 16 : 24,
