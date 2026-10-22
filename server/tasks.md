@@ -1603,7 +1603,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 ## DEV-111 farmclub 환영 대화방과 생산자→운영자 문의 창구
 
 - 이슈: https://linear.app/sswp6/issue/DEV-111 (GitHub #219)
-- 브랜치: `jinumeral/dev-111-farmclub-환영-대화방-농가-승인-시-자동-생성` (DEV-109 브랜치 위에 쌓는다. 투어 문구가 이 대화방을 가리키기 때문)
+- 브랜치: `jinumeral/dev-111-farmclub-환영-대화방-농가-승인-시-자동-생성` (DEV-109 위에서 시작했고, DEV-109가 main에 머지(#218, 9c309d7)된 뒤 main 위로 옮겼다) · PR #221
 - 기준: 새 FEAT-34(farmclub 문의), 새 규칙 M-22, FEAT-12 1:1, SCR-28, 관리자 페이지(ia.md)
 - 상태: 진행 중
 
@@ -1638,14 +1638,14 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - [x] 생산자 앱: 목록의 farmclub 행(로고), 방 화면, 말풍선 'farmclub' 표시, 투어 문구
 - [x] 관리자 페이지 '문의함'
 - [x] 스펙(FEAT-34, M-22, SCR-28, 관리자 화면, policy)과 wiki
-- [ ] pytest·mock·typecheck·Playwright·admin-web 테스트, 스캔, draft PR
+- [x] pytest·mock·typecheck·Playwright·admin-web 테스트, 스캔, draft PR
 
 ### 완료 조건
-- [ ] 농가를 승인하면 farmclub 방과 환영 메시지가 한 번만 생긴다. 기존 승인 농가도 마이그레이션 뒤에 방이 있다.
-- [ ] 생산자 1:1 채팅 목록에 farmclub이 있고(고정하지 않음), 안 읽은 환영 메시지가 표시된다. 방에는 AI 전환 바와 주문 패널이 없다.
-- [ ] 생산자가 보낸 문의가 관리자 문의함에 '답변 대기'로 보이고, 운영자 답장이 생산자 방에 'farmclub'으로 보인다.
-- [ ] 소비자 앱 어디에도 이 방이 보이지 않는다.
-- [ ] 투어가 farmclub 방을 열어 문의 방법을 안내하고, 마지막 문의 문구가 이 방을 가리킨다.
+- [x] 농가를 승인하면 farmclub 방과 환영 메시지가 한 번만 생긴다. 기존 승인 농가도 마이그레이션 뒤에 방이 있다.
+- [x] 생산자 1:1 채팅 목록에 farmclub이 있고(고정하지 않음), 안 읽은 환영 메시지가 표시된다. 방에는 AI 전환 바와 주문 패널이 없다.
+- [x] 생산자가 보낸 문의가 관리자 문의함에 '답변 대기'로 보이고, 운영자 답장이 생산자 방에 'farmclub'으로 보인다.
+- [x] 소비자 앱 어디에도 이 방이 보이지 않는다.
+- [x] 투어가 farmclub 방을 열어 문의 방법을 안내하고, 마지막 문의 문구가 이 방을 가리킨다.
 
 ### 기록
 - 10/22 DEV-109 브랜치(5671fd2)에서 시작.
@@ -1661,3 +1661,4 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
   - support.py가 service.py 내부 함수를 같은 패키지 안에서 쓰는 점.
   - 환영 문구가 서버·마이그레이션·Mock 세 곳에 있는 점: 서버 둘은 테스트로 맞춘다. 서버 시드와 마이그레이션은 환영 시각이 now()라 갓 시드한 DB에서는 farmclub 방이 맨 위에 보인다(고정 아님).
 - 10/22 사용자가 커밋·검사·머지·배포를 지시했다. DEV-109 PR #218은 머지 전 스캔 CRITICAL·WARNING 0건, 원격 CI 통과였으나, 머지 명령이 로컬 자동 권한 검사(리뷰 없는 머지)에서 거부되어 사용자 확인을 기다린다.
+- 10/22 사용자가 DEV-109 PR #218을 직접 머지했다(9c309d7). DEV-111 커밋 2개를 main 위로 rebase하고(내용은 그대로, 차이는 main의 문서 커밋뿐) PR #221의 기준을 main으로 바꿨다. 머지 전 스캔 결과는 CRITICAL·WARNING 0건이다. INFO 2건 중 상태 표기는 이 기록으로 맞췄고, 0019 downgrade에서 이 방의 비공개 첨부를 먼저 지우게 했다. 스캐너가 별도 DB에서 시드 뒤 downgrade·upgrade로 승인 농가 4곳에만 환영 메시지가 들어가는 것을 확인했다.

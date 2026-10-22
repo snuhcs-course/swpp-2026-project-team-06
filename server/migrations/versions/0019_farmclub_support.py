@@ -63,6 +63,11 @@ def upgrade():
 
 
 def downgrade():
+    # 생산자가 이 방에 올린 비공개 첨부(thread_id는 FK가 아닌 문자열 칸)
+    op.execute(
+        "DELETE FROM private_attachments WHERE thread_id IN "
+        "(SELECT id FROM threads WHERE consumer_id = 'u-farmclub')"
+    )
     op.execute(
         "DELETE FROM thread_messages WHERE thread_id IN "
         "(SELECT id FROM threads WHERE consumer_id = 'u-farmclub')"
