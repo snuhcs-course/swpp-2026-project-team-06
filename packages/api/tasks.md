@@ -249,3 +249,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-109 · 상세 기록은 `apps/producer/tasks.md` DEV-109
 - 범위: `packages/api/src/index.ts`에서 기존 `readStore`·`writeStore`(앱별 이름공간 localStorage)를 내보낸다. 생산자 도움말 본 기록에 쓴다. 동작 변경 없음.
+
+## DEV-111 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.

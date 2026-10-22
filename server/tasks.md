@@ -1599,3 +1599,53 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 ### 기록
 - 10/21 DEV-98 브랜치(`679d36d`)에서 시작. 시드 소비자(u-g*)는 테스트 계정이 아니고, 결제 상태 값은 `APPROVED`라 테스트 기대값을 고쳤다.
 - 10/21 검증: 전체 `uv run pytest -q` 389 passed(새 `tests/test_admin_user_detail.py` 6개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 14 passed.
+
+## DEV-111 farmclub 환영 대화방과 생산자→운영자 문의 창구
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 (GitHub #219)
+- 브랜치: `jinumeral/dev-111-farmclub-환영-대화방-농가-승인-시-자동-생성` (DEV-109 브랜치 위에 쌓는다. 투어 문구가 이 대화방을 가리키기 때문)
+- 기준: 새 FEAT-34(farmclub 문의), 새 규칙 M-22, FEAT-12 1:1, SCR-28, 관리자 페이지(ia.md)
+- 상태: 진행 중
+
+### 목표
+- 농가가 승인되면 서버가 'farmclub' 대화방을 만들고 환영 메시지를 넣는다.
+- 생산자는 채팅 → 1:1 채팅 맨 위의 farmclub 방에서 운영자에게 문의한다.
+- 운영자는 관리자 페이지 '문의함'에서 받은 문의를 보고 답한다.
+- DEV-109 투어의 대화 단계와 마지막 문의 안내를 이 방으로 바꾼다.
+
+### 범위 (수정 허용 경로)
+- `server/app/messaging/{models,schemas,service,router,spec}.py|md`, 새 `server/app/messaging/support.py`, 새 `server/app/admin/support.py`, `server/app/admin/{schemas,spec}.py|md`, `server/app/main.py`, `server/app/accounts/service.py`(승인 훅), `server/app/core/seed.py`, 새 `server/migrations/versions/0019_farmclub_support.py`, `server/tests/**`, `server/tasks.md`
+- `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{index,db,conversations}.ts`, `packages/api/tasks.md`
+- `packages/ui/src/{ChatThread,Messenger}.tsx`, `packages/ui/tasks.md`
+- `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`, `apps/producer/src/lib/Tour.tsx`, `apps/producer/tasks.md`
+- `scripts/admin-web/**`
+- `scripts/e2e/**`, `scripts/test-*.mjs`
+- `docs/spec/{functional/FEAT-34-farmclub-support.md,functional/README.md,functional/rules.md,policy.md,screens.md,ia.md}`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+- 소비자 앱 노출, 푸시 알림, 운영자 첨부 사진 보기(사진은 '사진 N장'으로만 표시), 운영자 여러 명 배정·상태 관리
+
+### 결정 사항
+- 10/22 사용자 결정: 승인 때 자동으로 만들고 생산자가 답장할 수 있다. 문의 창구는 이 방이다. 투어가 이 방을 안내한다.
+- 10/22 기존 1:1 `Thread`를 그대로 쓴다. 상대는 시스템 계정 `u-farmclub`(role ADMIN, 이름 'farmclub')이고, 운영자 메시지는 `senderType = OPERATOR`다. (농가, 상대) 유일 제약 덕분에 농가당 한 방이고 다시 만들어도 안전하다. ADMIN 계정이라 소비자 채팅 목록(소비자 본인 ID로 거름)과 관리자 사용자 목록(ADMIN 제외)에 나오지 않는다. 별도 테이블을 두는 안은 생산자 목록·방 API를 따로 만들어야 해서 택하지 않았다.
+- 10/22 이 방은 AI를 쓰지 않는다(`ai_mode` HUMAN 고정, AI 모드 변경 거부). 주문·질문함·문의 패널은 자연히 비어 있다. 생산자 쪽 안 읽음은 OPERATOR 메시지도 센다.
+- 10/22 운영자 읽음 위치는 기존 `consumer_last_read_message_id` 칸을 쓰고, 운영자 쪽 안 읽음은 PRODUCER 메시지만 센다. 운영자 답장은 `run_manager_action`으로 감사 기록을 남긴다.
+- 10/22 이미 승인된 농가에는 마이그레이션 0019가 계정·방·환영 메시지를 넣는다(DDL 없음).
+
+### 작업
+- [ ] 서버: 지원 방 생성(승인 훅·마이그레이션·시드), 생산자 목록·방·답장, 관리 API, 테스트
+- [ ] packages/api 타입·엔드포인트·Mock
+- [ ] 생산자 앱: 목록 고정 행, 방 화면, 말풍선 'farmclub' 표시, 투어 문구
+- [ ] 관리자 페이지 '문의함'
+- [ ] 스펙(FEAT-34, M-22, SCR-28, 관리자 화면, policy)과 wiki
+- [ ] pytest·mock·typecheck·Playwright·admin-web 테스트, 스캔, draft PR
+
+### 완료 조건
+- [ ] 농가를 승인하면 farmclub 방과 환영 메시지가 한 번만 생긴다. 기존 승인 농가도 마이그레이션 뒤에 방이 있다.
+- [ ] 생산자 1:1 채팅 목록 맨 위에 farmclub이 있고, 안 읽은 환영 메시지가 표시된다. 방에는 AI 전환 바와 주문 패널이 없다.
+- [ ] 생산자가 보낸 문의가 관리자 문의함에 '답변 대기'로 보이고, 운영자 답장이 생산자 방에 'farmclub'으로 보인다.
+- [ ] 소비자 앱 어디에도 이 방이 보이지 않는다.
+- [ ] 투어가 farmclub 방을 열어 문의 방법을 안내하고, 마지막 문의 문구가 이 방을 가리킨다.
+
+### 기록
+- 10/22 DEV-109 브랜치(5671fd2)에서 시작.
