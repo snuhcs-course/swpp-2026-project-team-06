@@ -6,6 +6,7 @@ import {
   configureApi,
   getToken,
   onAuthChange,
+  onConsentRequired,
   type User,
 } from "@farmclub/api";
 import { useAnalytics } from "@farmclub/analytics";
@@ -63,6 +64,9 @@ function homeFor(user: User | null): {
       allowed: (p) => p === "/login" || p === "/auth/kakao",
       home: "/login",
     };
+  // 지금 버전 약관·개인정보 동의가 없으면 동의 화면만(DEV-113, AC-01-18). 승인 상태보다 먼저 본다
+  if (user.consentRequired)
+    return { allowed: (p) => p === "/consent", home: "/consent" };
   switch (user.farmStatus) {
     case "NONE":
       return { allowed: (p) => p === "/apply", home: "/apply" };
@@ -78,7 +82,7 @@ function homeFor(user: User | null): {
     default:
       return {
         allowed: (p) =>
-          !["/login", "/apply", "/pending", "/suspended"].includes(p),
+          !["/login", "/apply", "/pending", "/suspended", "/consent"].includes(p),
         home: "/",
       };
   }
@@ -133,7 +137,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
-    return onAuthChange(() => void refresh());
+    const offAuth = onAuthChange(() => void refresh());
+    // 쓰는 중에 약관 버전이 바뀌어 403 CONSENT_REQUIRED를 받으면 다시 읽어 관문이 동의 화면으로 보낸다
+    const offConsent = onConsentRequired(() => void refresh());
+    return () => {
+      offAuth();
+      offConsent();
+    };
   }, [refresh]);
 
   // 관문: 승인 전에는 다른 생산자 화면 주소로 가도 대기 화면으로(AC-01-3)

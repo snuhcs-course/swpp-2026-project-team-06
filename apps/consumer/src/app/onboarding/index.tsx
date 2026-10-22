@@ -1,4 +1,5 @@
 // SCR-06 첫 가입 온보딩 1/2 `/onboarding` (FEAT-01 I2, AC-01-12·14) — 닉네임·이름·휴대폰·가입 동의
+// 프로필을 이미 채운 회원이 약관·처리방침 버전이 바뀌어 오면(AC-01-17, DEV-113) 동의만 다시 받고 배송지 단계는 건너뛴다.
 // 카카오로 처음 로그인한 소비자만 온다. 카카오에서 온 값(이메일, 심사 뒤 이름·전화번호)은 미리 채우고 빠진 것만 입력한다.
 import { ApiError, auth } from "@farmclub/api";
 import {
@@ -39,6 +40,7 @@ export default function OnboardingProfile() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState<(typeof SIGNUP_CONSENTS)[number] | null>(null);
+  const [reconsent, setReconsent] = useState(false);
   const toast = useToast(160);
 
   // 카카오에서 온 값과 이전에 입력하다 만 값을 한 번 채운다
@@ -50,6 +52,11 @@ export default function OnboardingProfile() {
     const legacy = !user.name || user.name.includes("@") || user.name === "카카오 사용자";
     setName(legacy ? "" : user.name);
     setPhone(user.phone ?? "");
+    // 프로필이 다 있고 동의만 빠졌으면 재동의 모드(처음 채울 때 한 번 정한다)
+    const nick = (user.nickname ?? "").trim().length;
+    setReconsent(
+      !!user.consentRequired && nick >= 2 && nick <= 12 && !legacy && PHONE.test((user.phone ?? "").trim()),
+    );
     setFilled(true);
   }, [user, filled]);
 
@@ -105,6 +112,13 @@ export default function OnboardingProfile() {
           agreed: !!agreed[c.kind],
         })),
       );
+      if (reconsent) {
+        // 재동의: 프로필·배송지는 그대로 두고 보던 화면·하려던 행동으로 돌아간다
+        await refresh();
+        if (hasResume && router.canGoBack()) router.back();
+        else router.replace(next as never);
+        return;
+      }
       await auth.updateMe({
         nickname: nickname.trim(),
         name: name.trim(),
@@ -129,16 +143,20 @@ export default function OnboardingProfile() {
       <HeaderBar close onBack={close} />
       <Scroll bottom={150}>
         <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 8 }}>
-          <T variant="sub" muted>
-            1 / 2
-          </T>
+          {reconsent ? null : (
+            <T variant="sub" muted>
+              1 / 2
+            </T>
+          )}
           <T variant="title" accessibilityRole="header">
-            {"farmclub에서 쓸\n정보예요"}
+            {reconsent ? "약관이\n바뀌었어요" : "farmclub에서 쓸\n정보예요"}
           </T>
           <T variant="body" muted>
-            농가와 이야기하고 주문할 때 필요한 것만 받아요.
+            {reconsent
+              ? "바뀐 이용약관과 개인정보 처리방침에 동의해야 주문·팔로우·채팅을 계속할 수 있어요."
+              : "농가와 이야기하고 주문할 때 필요한 것만 받아요."}
           </T>
-          {user?.email ? (
+          {!reconsent && user?.email ? (
             <View
               style={{
                 alignSelf: "flex-start",
@@ -159,34 +177,36 @@ export default function OnboardingProfile() {
           ) : null}
         </View>
 
-        <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 20 }}>
-          <Input
-            label="닉네임"
-            value={nickname}
-            onChangeText={setNickname}
-            maxLength={12}
-            placeholder="2~12자"
-            hint="농가 채팅과 소식방에 이 이름으로 보여요."
-            error={errors.nickname}
-          />
-          <Input
-            label="이름"
-            value={name}
-            onChangeText={setName}
-            maxLength={20}
-            hint="주문서의 받는 사람에 미리 채워요."
-            error={errors.name}
-          />
-          <Input
-            label="휴대폰 번호"
-            value={phone}
-            onChangeText={(v) => setPhone(formatPhone(v))}
-            keyboardType="phone-pad"
-            placeholder="010-0000-0000"
-            hint="배송 연락과 농가 문의에만 써요. 인증번호는 보내지 않아요."
-            error={errors.phone}
-          />
-        </View>
+        {reconsent ? null : (
+          <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 20 }}>
+            <Input
+              label="닉네임"
+              value={nickname}
+              onChangeText={setNickname}
+              maxLength={12}
+              placeholder="2~12자"
+              hint="농가 채팅과 소식방에 이 이름으로 보여요."
+              error={errors.nickname}
+            />
+            <Input
+              label="이름"
+              value={name}
+              onChangeText={setName}
+              maxLength={20}
+              hint="주문서의 받는 사람에 미리 채워요."
+              error={errors.name}
+            />
+            <Input
+              label="휴대폰 번호"
+              value={phone}
+              onChangeText={(v) => setPhone(formatPhone(v))}
+              keyboardType="phone-pad"
+              placeholder="010-0000-0000"
+              hint="배송 연락과 농가 문의에만 써요. 인증번호는 보내지 않아요."
+              error={errors.phone}
+            />
+          </View>
+        )}
 
         <View style={{ paddingHorizontal: 20, paddingTop: 28 }}>
           <Checkbox
@@ -251,7 +271,7 @@ export default function OnboardingProfile() {
       </Scroll>
       <BottomBar>
         <Button
-          label="다음"
+          label={reconsent ? "동의하고 계속하기" : "다음"}
           disabled={!valid || !requiredAgreed}
           loading={busy}
           onPress={() => void submit()}
