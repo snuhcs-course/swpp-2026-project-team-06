@@ -109,16 +109,12 @@ def test_create_deposit_and_confirm_order(client, login):
     assert allocation().reserved_count == 40
 
 
-def test_AC_09_8_confirm_deposit_is_idempotent_and_farm_scoped(client, login):
+def test_AC_09_8_confirm_deposit_is_idempotent_and_farm_scoped(client, login, other_farm_headers):
     headers = login("u-seojun")
     order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
     assert deposit(client, headers, order["orderId"]).status_code == 200
 
-    from app.core.security import issue_token
-
-    other_farm = confirm(
-        client, order["orderId"], {"Authorization": f"Bearer {issue_token('u-halla', 'PRODUCER')}"}
-    )
+    other_farm = confirm(client, order["orderId"], other_farm_headers)
     assert other_farm.status_code == 404
 
     first = confirm(client, order["orderId"], login("u-kang"))
@@ -174,15 +170,13 @@ def test_AC_09_9_reject_deposit_keeps_waiting_with_reason(client, login):
     assert after["depositIssue"] is None
 
 
-def test_AC_09_9_reject_deposit_can_cancel_and_release_quantity(client, login):
+def test_AC_09_9_reject_deposit_can_cancel_and_release_quantity(client, login, other_farm_headers):
     headers = login("u-seojun")
     order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
     deposit(client, headers, order["orderId"])
     url = f"/api/orders/{order['orderId']}/reject-deposit"
 
-    from app.core.security import issue_token
-
-    other = {"Authorization": f"Bearer {issue_token('u-halla', 'PRODUCER')}"}
+    other = other_farm_headers
     assert client.post(url, headers=other, json={"reason": "x", "cancel": True}).status_code == 404
 
     body = {"reason": "입금이 들어오지 않았어요", "cancel": True}

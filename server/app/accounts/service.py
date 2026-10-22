@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.accounts.models import ShippingAddress, User, UserConsent
 from app.accounts.schemas import (
+    CONSENT_VERSION,
     REQUIRED_CONSENTS,
+    REQUIRED_PRODUCER_CONSENTS,
     Address,
     AddressInput,
     ConsentsInput,
@@ -70,18 +72,33 @@ def list_consents(db: Session, user_id: str) -> list[UserConsent]:
     return list(db.scalars(select(UserConsent).where(UserConsent.user_id == user_id)))
 
 
-def needs_onboarding(db: Session, user: User) -> bool:
-    """첫 가입 온보딩이 남았는가(FEAT-01 I2, AC-01-12). 소비자 카카오 계정만 해당한다.
+def consent_required(db: Session, user: User) -> bool:
+    """지금 버전의 필수 동의가 빠졌는가(DEV-113, AC-01-17·18).
 
-    닉네임·이름·연락처 중 하나라도 없거나 필수 동의(약관·개인정보·만 14세)가 빠지면 true.
+    소비자는 약관·개인정보·만 14세, 생산자는 약관·개인정보. 동의했어도 버전이
+    `CONSENT_VERSION`이 아니면 다시 받는다. 테스트 계정과 운영자는 항상 false.
+    """
+    if user.is_test_account or user.role not in ("CONSUMER", "PRODUCER"):
+        return False
+    required = REQUIRED_CONSENTS if user.role == "CONSUMER" else REQUIRED_PRODUCER_CONSENTS
+    agreed = {
+        c.kind for c in list_consents(db, user.id) if c.agreed and c.version == CONSENT_VERSION
+    }
+    return any(kind not in agreed for kind in required)
+
+
+def needs_onboarding(db: Session, user: User) -> bool:
+    """첫 가입 온보딩이 남았는가(FEAT-01 I2, AC-01-12·17). 소비자 카카오 계정만 해당한다.
+
+    닉네임·이름·연락처 중 하나라도 없거나 지금 버전의 필수 동의(약관·개인정보·만 14세)가
+    빠지면 true.
     테스트 계정은 시드가 채운 것으로 보고 항상 false.
     """
     if user.role != "CONSUMER" or user.is_test_account:
         return False
     if not (user.nickname or "").strip() or not user.name.strip() or not user.phone.strip():
         return True
-    agreed = {c.kind for c in list_consents(db, user.id) if c.agreed}
-    return any(kind not in agreed for kind in REQUIRED_CONSENTS)
+    return consent_required(db, user)
 
 
 def user_view(db: Session, user: User) -> UserView:
@@ -100,6 +117,7 @@ def user_view(db: Session, user: User) -> UserView:
         email=user.email,
         phone=user.phone,
         needs_onboarding=needs_onboarding(db, user),
+        consent_required=consent_required(db, user),
     )
 
 

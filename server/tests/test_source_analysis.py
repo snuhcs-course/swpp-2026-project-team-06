@@ -12,7 +12,6 @@ from sqlalchemy import select
 from app.ai.source_analysis import MOCK_TEXT
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
-from app.core.security import issue_token
 from app.source_analysis import worker
 from app.source_analysis.models import Asset, Candidate, Item, Run, utcnow
 from app.source_analysis.schemas import MODULE_FIELDS
@@ -158,12 +157,12 @@ def test_AC_SRC_1_2_7_full_flow_and_private_draft(client, login):
     assert client.delete(f"{url}/{draft['id']}?version=1", headers=h).status_code == 200
 
 
-def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch):
+def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch, other_farm_headers):
     h = login("u-kang")
     batch = create(client, h)
     source = upload(client, h, batch)
     url = f"{PREFIX}/{batch['id']}"
-    other = {"Authorization": "Bearer " + issue_token("u-halla", "PRODUCER")}
+    other = other_farm_headers
     for suffix in ("", f"/sources/{source['id']}", f"/sources/{source['id']}/content", "/review"):
         assert client.get(url + suffix, headers=other).status_code == 404
     assert client.get(url, headers=login("u-minji")).status_code == 403

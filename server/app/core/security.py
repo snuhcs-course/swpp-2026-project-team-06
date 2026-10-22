@@ -109,9 +109,24 @@ def require_roles(*roles: Role) -> Callable[..., object]:
 _producer_role = require_roles(Role.PRODUCER)
 
 
-def require_approved_producer(
+def require_consented_producer(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[object, Depends(_producer_role)],
+):
+    """PRODUCER 역할 + 지금 버전의 약관·개인정보 동의(DEV-113, AC-01-18).
+
+    빠졌으면 403 FORBIDDEN(details.reason: CONSENT_REQUIRED). 앱은 동의 화면(/consent)으로 보낸다.
+    """
+    from app.accounts import service as accounts
+
+    if accounts.consent_required(db, user):
+        raise forbidden("약관에 동의하면 쓸 수 있어요.", reason="CONSENT_REQUIRED")
+    return user
+
+
+def require_approved_producer(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[object, Depends(require_consented_producer)],
 ):
     """PRODUCER 역할 + Farm.approvalStatus = APPROVED (AC-01-3). 돌려주는 값은 (User, Farm)."""
     from app.farms import service as farms
@@ -144,6 +159,6 @@ CurrentUser = Annotated[object, Depends(get_current_user)]
 OptionalUser = Annotated[object, Depends(get_optional_user)]
 Consumer = Annotated[object, Depends(_consumer_role)]
 OnboardedConsumer = Annotated[object, Depends(require_onboarded_consumer)]
-Producer = Annotated[object, Depends(require_roles(Role.PRODUCER))]
+Producer = Annotated[object, Depends(require_consented_producer)]
 ApprovedProducer = Annotated[tuple, Depends(require_approved_producer)]
 Admin = Annotated[object, Depends(require_roles(Role.ADMIN))]
