@@ -1662,3 +1662,8 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
   - 환영 문구가 서버·마이그레이션·Mock 세 곳에 있는 점: 서버 둘은 테스트로 맞춘다. 서버 시드와 마이그레이션은 환영 시각이 now()라 갓 시드한 DB에서는 farmclub 방이 맨 위에 보인다(고정 아님).
 - 10/22 사용자가 커밋·검사·머지·배포를 지시했다. DEV-109 PR #218은 머지 전 스캔 CRITICAL·WARNING 0건, 원격 CI 통과였으나, 머지 명령이 로컬 자동 권한 검사(리뷰 없는 머지)에서 거부되어 사용자 확인을 기다린다.
 - 10/22 사용자가 DEV-109 PR #218을 직접 머지했다(9c309d7). DEV-111 커밋 2개를 main 위로 rebase하고(내용은 그대로, 차이는 main의 문서 커밋뿐) PR #221의 기준을 main으로 바꿨다. 머지 전 스캔 결과는 CRITICAL·WARNING 0건이다. INFO 2건 중 상태 표기는 이 기록으로 맞췄고, 0019 downgrade에서 이 방의 비공개 첨부를 먼저 지우게 했다. 스캐너가 별도 DB에서 시드 뒤 downgrade·upgrade로 승인 농가 4곳에만 환영 메시지가 들어가는 것을 확인했다.
+
+## DEV-113 약관·처리방침 재동의 (서버 부분)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
+- 10/22 `accounts.schemas.CONSENT_VERSION`(2026-10-22), `service.consent_required`(소비자 3개·생산자 2개, 지금 버전만 인정, 테스트 계정 제외), `needs_onboarding`이 버전까지 검사, `UserView.consent_required`, `/me/consents`를 생산자에게도 열고 `security.require_consented_producer`가 생산자 API를 403 `CONSENT_REQUIRED`로 막는다. 테스트: AC-01-17·18, 다른 농가 격리 테스트는 `other_farm_headers` 픽스처(동의한 u-halla).

@@ -436,8 +436,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - `docs/farmclub-consumer.html`, `docs/farmclub-producer.html`(약관·처리방침 링크)
 - `docs/spec/{ia,policy}.md`, `docs/wiki/` 영문 한두 줄, `README.md`(배포 변수 표)
 
+- (10/22 추가, 재동의) `server/app/accounts/{schemas,service,router}.py`, `server/app/core/security.py`, `server/tests/test_accounts.py`, `packages/api/src/{types.ts,mock/db.ts,mock/auth.ts,mock/router.ts}`, `apps/consumer/src/app/onboarding/{index,address}.tsx`, `apps/producer/src/app/consent.tsx`, `docs/spec/functional/FEAT-01-login.md`, `docs/spec/screens.md`
+
 ### 비범위 (건드리지 않음)
-- 서버(동의 API·탈퇴 기능), Figma v6, 생산자 입점 동의 화면(SCR-20 동의 체크), 법률 검토 자체, 사업자 정보 값
+- 탈퇴 기능, DB 스키마 변경, 결제 전 동의(R-03, `consentVersion`), Figma v6, 생산자 입점 동의 화면(SCR-20 동의 체크), 법률 검토 자체, 사업자 정보 값
 
 ### 결정 사항
 - 10/22 같은 요청으로 이전에 만들어진 DEV-113(GitHub #224)이 있어, 이 세션이 만든 DEV-115를 중복 처리하고 DEV-113으로 진행한다. DEV-113의 빈 브랜치(main과 같은 커밋)를 지우고 작업 브랜치 이름을 DEV-113 것으로 바꿨다.
@@ -451,6 +453,12 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/22 Sentry·Langfuse는 스택 문서(stack.md)에는 있지만 코드에 연결돼 있지 않다. 국외 이전 표에 ‘도입 예정’으로 적는다. Railway 서버 지역·Langfuse 지역(TQ-01 미정)·수탁사 연락처(공식 웹사이트로 적음)는 사람 확인 필요.
 - 10/22 rules.md R-08(“환불은 카드 승인 취소로만”)은 DEV-68 뒤 policy.md 1장·R-28(농가가 입금 계좌로 송금)과 다르다. 약관은 R-28·policy를 따른다. R-08 정정은 이 PR 범위 밖이라 PR 질문으로 남긴다.
 
+- 10/22 (사용자 지시) 배포 전에 이미 가입한 회원과 새 회원 모두 현재 약관·처리방침(시행 2026-10-22)에 동의해야 쓸 수 있게 한다. 동의 문구 버전을 `2026-10-22`로 올리고, 서버가 필수 동의의 버전까지 검사한다(서버 `accounts.schemas.CONSENT_VERSION`, 앱·Mock은 같은 값, `test-legal.mjs`가 셋이 같은지 본다).
+- 10/22 소비자: 필수 동의(약관·개인정보·만 14세)가 없거나 버전이 다르면 `needsOnboarding=true` → 기존 403 `ONBOARDING_REQUIRED` 관문(주문·팔로우·좋아요·채팅)과 온보딩 화면을 그대로 쓴다. 프로필이 이미 채워진 회원은 같은 화면이 ‘약관이 바뀌었어요’ 재동의 모드로 열리고 배송지 단계는 건너뛴다. 동의 시트 요지의 "탈퇴하면 지워요"는 법정 보관 기간과 맞게 고친다.
+- 10/22 생산자: 필수 동의는 약관·개인정보 2개(만 14세는 소비자만). 없거나 버전이 다르면 `consentRequired=true`, 생산자 API(가입 신청·내 농가·사진 올리기·승인 농가 API 전부)는 403 `CONSENT_REQUIRED`. 생산자 앱 관문은 로그인 다음에 `/consent`(새 화면)만 연다. 새 생산자는 동의 → 가입 신청 순서가 된다.
+- 10/22 테스트 계정(`is_test_account`, 관리자 페이지 ‘테스트로 표시’ 포함)은 지금처럼 동의 검사에서 빠진다(시드·E2E가 그대로 돈다).
+- 10/22 `GET/POST /api/auth/me/consents`를 소비자 전용에서 소비자·생산자로 연다. 저장 버전은 앱이 보낸 값 그대로 남긴다(R-03과 같은 방식).
+
 ### 작업
 - [x] `legalContent.ts`(문안·사업자 정보) + `LegalFooter`·`LegalDocument`
 - [x] 두 앱 `/privacy`·`/terms` 라우트, 생산자 관문 예외
@@ -458,6 +466,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] `scripts/legal-pages.mjs` 정적 페이지·noscript, local.mjs·deploy-vercel.yml 연결, vercel.json rewrite
 - [x] 랜딩 링크, README 변수 표, ia·policy·wiki 동기화
 - [x] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`, 브라우저 확인
+
+- [x] 재동의: 서버 버전 검사·생산자 동의·`CONSENT_REQUIRED`, Mock 동일 규칙, 소비자 재동의 모드, 생산자 `/consent` 화면, FEAT-01 AC-01-17·18, pytest
 
 ### 완료 조건
 - [x] 두 앱 첫 화면(소비자 홈, 생산자 로그인) 하단에 사업자 정보(값 있는 항목)와 약관·처리방침 링크
@@ -472,3 +482,5 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/22 Mock 스택(`npm run dev`)에서 `npx playwright test scripts/e2e/legal-pages.spec.ts` 2 passed. 같은 Mock에서 discovery-and-gates·producer-help-guide 7개가 실패했는데, Mock 트래픽 금지·카카오+테스트 버튼 동시 노출 때문인 실서버 전용 spec이라 아래 실서버로 다시 돌렸다.
 - 10/22 `DATABASE_URL=…/farmclub_dev115 npm run test:integration:full`(같은 Postgres 컨테이너의 임시 DB, 끝나고 DROP): 실서버 시나리오 7 passed, Chromium 61 passed / 2 skipped / 0 failed(legal-pages 2개 포함).
 - 10/22 가짜 사업자 값으로 `node scripts/local.mjs export consumer` → `dist/privacy.html`·`terms.html`·index.html noscript 생성, 값이 JS 번들에 들어간 것 확인. 로컬 정적 서버 375px에서 홈 하단 푸터, 앱 안 `/privacy`, 정적 `terms.html`을 눈으로 확인. 산출물은 지웠다.
+- 10/22 재동의 추가 후: `uv run pytest` 424 passed(격리 DB), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 24 passed / 0 failed, Mock 스택 `legal-consent.spec.ts` 2 passed(소비자 재동의 모드·생산자 /consent → 가입 신청), 실서버 `test:integration:full` 61 passed / 4 skipped(카카오가 없는 실서버에서 Mock 전용 2개 포함) / 0 failed. 생산자 `/consent` 375px 화면 확인. 임시 DB는 지웠다.
+- 10/22 GitHub Actions 변수: BUSINESS_NAME·OWNER·REGISTRATION_NO·ADDRESS·PHONE·EMAIL·PRIVACY_OFFICER 입력됨(값은 여기 쓰지 않음). 통신판매업 신고번호는 신고 후 입력 예정.
