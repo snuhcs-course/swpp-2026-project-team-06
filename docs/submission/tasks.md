@@ -99,3 +99,42 @@
 - [x] 가이드라인·예시와 현재 문서 차이 정리
 - [x] 목차, 클래스 다이어그램, API 예시, 패턴 자리, 문체 정리
 - [ ] GitHub 렌더링 확인, 사람 리뷰
+
+## SWPP-112 I2 AI 협업 보고서 — Minsun PM 기여
+
+- 이슈: https://linear.app/sswp6/issue/SWPP-112
+- 브랜치: `violetsunshades/swpp-112-i2-t47-coordinate-final-revisions-and-verify-submission`
+- 상태: 기여 초안 작성 및 AI 자체 검토 완료, 사람 리뷰 예정. 전체 SWPP-112 완료를 의미하지 않는다.
+- 기준: `docs/submission/spec.md`의 I2 AI 협업 보고서 기여분, 기존 Wiki 템플릿, 수업 AI Collaboration Report Guidelines v1.1, Session Exporter 안내, 사용자 승인 대화와 실제 기록.
+
+### 목표
+기존 보고서 형식을 유지하면서 PM의 계획·역할 교정·리뷰 거버넌스·범위 분리·내부 테스트 판단을 검증 가능한 원문 근거와 함께 기록한다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/AI-Collaboration-Report---Iteration-2.md`
+- `docs/submission/spec.md`의 I2 AI 협업 보고서 기여분
+- `docs/submission/tasks.md`의 이 이슈 섹션
+
+### 비범위
+- 제품 코드·설정·API·UI·기능 스펙·Figma 변경
+- 다른 팀원의 기여 작성, Session Exporter 실행 또는 완료 주장
+- PDF·일정표·제출 ZIP·원본 세션 공개, 승인 없는 main 직접 push
+
+### 결정 사항
+- 10/22 사용자 요청으로 커밋과 main 대상 PR을 준비한다. 별도 기여 보고서는 만들지 않고 기존 파일에 반영한다.
+- 기존 1~7장과 기여 표·Exporter 체크리스트를 유지한다. 자세한 P1~P12 프롬프트와 E1~E5 출처는 같은 페이지 접이식 영역에 둔다.
+- 51개 I2 이관 태스크와 128개 I1/I2 effort-format 수정, 9 PASS/6 FAIL/3 BLOCKED PM 시나리오를 서로 구분한다. 당시 기록을 현재 배포 상태로 표현하지 않는다.
+- 전체 팀 보고서의 분량 조정·나머지 기여·전체 세션 검토는 후속 작업이다. 이 PR을 전체 제출 완료로 처리하지 않는다.
+
+### 작업 및 완료 조건
+- [x] 사용자 승인 PM 기여와 원문 프롬프트를 기존 보고서 구조에 통합
+- [x] 선택 대화·원문 turn ID·당시 산출물로 근거를 추적하고 불명확한 수치는 미측정으로 표시
+- [x] 문서 범위 및 원래 장 구조를 정적 확인
+- [x] AI 자체 검토: 남은 must 없음; PR에 검토 결과 코멘트 기록 예정
+- [ ] main 대상 PR 제출 및 사람 리뷰
+- [ ] 사람 승인 후 main 머지 (미완료)
+
+### 기록
+- 10/22 main/origin/main 동기 상태 확인 후 Linear에서 제공한 SWPP-112 브랜치 이름을 사용한다. 변경 전 로컬 수정은 보고서 한 파일이었다.
+- 10/22 문서만 변경한다. 애플리케이션 테스트를 재실행하거나 10/19 내부 테스트를 새로 수행한 것으로 기록하지 않는다.
+- 10/22 정적 검토: 원래 장 순서·표, P1~P12·E1~E5, details/code fence 짝, 미완료 Exporter 5항목, 선언한 3개 파일 범위, 알려진 자격증명 문자열 제외와 `git diff --check`를 통과했다. AI 작성자 자체 검토는 사람 승인과 구분한다.
