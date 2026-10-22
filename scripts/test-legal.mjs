@@ -66,3 +66,15 @@ test("DEV-113: index.html gets business info in <noscript>", () => {
   const inserted = pages.withNoscriptFooter("<body><div id=root></div></body>");
   assert.match(inserted, /<noscript>.*<\/noscript><\/body>/s);
 });
+
+test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const server = (await readFile("server/app/accounts/schemas.py", "utf8")).match(/^CONSENT_VERSION = "([^"]+)"/m)?.[1];
+  const mock = (await readFile("packages/api/src/mock/db.ts", "utf8")).match(/CONSENT_VERSION = "([^"]+)"/)?.[1];
+  assert.ok(server, "server CONSENT_VERSION");
+  assert.equal(mock, server);
+  assert.equal(content.LEGAL_VERSION, server);
+  // 화면의 시행일과 버전이 같은 날짜다
+  const [y, m, d] = server.split("-").map(Number);
+  assert.equal(content.privacyPolicy.effective, `${y}년 ${m}월 ${d}일`);
+});
