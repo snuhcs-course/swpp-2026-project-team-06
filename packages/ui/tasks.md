@@ -416,3 +416,55 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
 - 10/22 DEV-111: `ConversationRow`·`ConversationHeader`에 선택 prop `avatar`(사진 대신 그림), `ChatThread` 말풍선에서 `OPERATOR`의 이름을 'farmclub'으로 표시. 넘기지 않으면 지금과 같다.
+
+## DEV-113 사이트 하단 사업자 정보와 개인정보 처리방침·이용약관 페이지
+
+- 이슈: [DEV-113](https://linear.app/sswp6/issue/DEV-113)
+- 브랜치: `nemodleo/dev-113-dev-사이트-사업자-정보-표시`
+- 기능·규칙: R-16(법정 표시), policy.md 1·2·5·6장, R-01·02·05·07~12·14·17·20·21·23·24·28, M-02·06·07·08·16·18·21, FEAT-01 SCR-05·06·19
+- 상태: 진행 중
+
+### 목표
+카카오 비즈 앱 전환 심사가 "사이트에서 사업자 정보가 확인되지 않음"으로 반려됐다. 두 앱 첫 화면 하단에 사업자 정보를 보이고, 개인정보 처리방침(`/privacy`)·이용약관(`/terms`) 전문을 로그인 없이 읽히게 한다.
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{legalContent.ts,Legal.tsx,index.ts}`, `packages/ui/{spec,tasks}.md`
+- `apps/consumer/src/app/{privacy,terms,login}.tsx`, `apps/consumer/src/app/(tabs)/{index,me/index}.tsx`, `apps/consumer/src/app/onboarding/index.tsx`, `apps/consumer/src/lib/onboarding.ts`, `apps/consumer/vercel.json`, `apps/consumer/tasks.md`
+- `apps/producer/src/app/{privacy,terms,login}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx`, `apps/producer/src/lib/session.tsx`(공개 경로), `apps/producer/vercel.json`, `apps/producer/tasks.md`
+- `scripts/legal-pages.mjs`, `scripts/local.mjs`(export 후 정적 페이지), `scripts/test-legal.mjs`, `scripts/e2e/legal-pages.spec.ts`, `package.json`(test:mock에 추가)
+- `.github/workflows/deploy-vercel.yml`(사업자 정보 변수 전달·정적 페이지 생성)
+- `docs/farmclub-consumer.html`, `docs/farmclub-producer.html`(약관·처리방침 링크)
+- `docs/spec/{ia,policy}.md`, `docs/wiki/` 영문 한두 줄, `README.md`(배포 변수 표)
+
+### 비범위 (건드리지 않음)
+- 서버(동의 API·탈퇴 기능), Figma v6, 생산자 입점 동의 화면(SCR-20 동의 체크), 법률 검토 자체, 사업자 정보 값
+
+### 결정 사항
+- 10/22 같은 요청으로 이전에 만들어진 DEV-113(GitHub #224)이 있어, 이 세션이 만든 DEV-115를 중복 처리하고 DEV-113으로 진행한다. DEV-113의 빈 브랜치(main과 같은 커밋)를 지우고 작업 브랜치 이름을 DEV-113 것으로 바꿨다.
+- 10/22 사업자 정보 값(상호·대표자·사업자등록번호·통신판매업 신고번호·주소·연락처·이메일·개인정보 보호책임자)은 레포·이슈·PR에 쓰지 않는다(AGENTS.md 금지). 빌드 때 `EXPO_PUBLIC_BUSINESS_*`·`EXPO_PUBLIC_PRIVACY_OFFICER`로 읽고, 값 없는 항목은 빼고 그린다. 하나도 없으면 policy.md 6장대로 ‘테스트 서비스’만 표시한다.
+- 10/22 앱 빌드는 Vercel이 아니라 GitHub Actions(`deploy-vercel.yml`, production Environment)가 `expo export`로 하고 결과물만 Vercel에 올린다. 그래서 값은 Vercel 환경 변수가 아니라 GitHub Actions 변수(`BUSINESS_*`, `PRIVACY_OFFICER`)에 넣는다. 넣은 뒤 워크플로를 수동 실행해야 반영된다.
+- 10/22 두 앱은 SPA(`web.output: single`)라 JS 없이 읽히지 않는다. 문안은 `packages/ui/src/legalContent.ts` 한 곳에 두고, 앱 화면(`/privacy`·`/terms` 라우트)과 export 뒤 생성하는 정적 HTML(`dist/privacy.html`·`dist/terms.html`, vercel.json에서 catch-all보다 먼저 rewrite)이 같은 데이터를 쓴다. `dist/index.html`의 `<noscript>`에도 사업자 정보와 링크를 넣는다.
+- 10/22 생산자 앱 관문(session.tsx)은 비로그인을 `/login`으로 보내므로 `/privacy`·`/terms`를 모든 상태에서 열리게 예외로 둔다.
+- 10/22 주문 배송 정보의 농가 전달은 PQ-07(‘처리 위탁’)이 아니라 DEV-68 이후 policy.md 5장 문단(‘판매자에게 제공’)을 따라 ‘제3자 제공’으로 쓴다(사람·법률 확인 필요).
+- 10/22 가입 동의 문구 버전(`SIGNUP_CONSENT_VERSION` 2026-10-18)은 올리지 않는다. 동의 시트 요지는 그대로이고 전문 링크만 붙인다. 서버는 버전과 상관없이 항목만 검사해 올려도 기존 회원 재동의가 일어나지 않는다. 법률 검토로 내용이 바뀌면 그때 올린다(사람 확인 필요).
+- 10/22 PQ-06(보유 기간) 미정 부분은 현재 동작 기준으로 쓴다: 앱 안 탈퇴 기능이 없어 이메일로 요청받아 처리, 소식·채팅은 탈퇴 시까지, 거래 기록은 전자상거래법 기간. 사람·법률 확인 필요.
+- 10/22 Sentry·Langfuse는 스택 문서(stack.md)에는 있지만 코드에 연결돼 있지 않다. 국외 이전 표에 ‘도입 예정’으로 적는다. Railway 서버 지역·Langfuse 지역(TQ-01 미정)·수탁사 연락처(공식 웹사이트로 적음)는 사람 확인 필요.
+- 10/22 rules.md R-08(“환불은 카드 승인 취소로만”)은 DEV-68 뒤 policy.md 1장·R-28(농가가 입금 계좌로 송금)과 다르다. 약관은 R-28·policy를 따른다. R-08 정정은 이 PR 범위 밖이라 PR 질문으로 남긴다.
+
+### 작업
+- [ ] `legalContent.ts`(문안·사업자 정보) + `LegalFooter`·`LegalDocument`
+- [ ] 두 앱 `/privacy`·`/terms` 라우트, 생산자 관문 예외
+- [ ] 푸터 배치: 소비자 홈·로그인·마이, 생산자 로그인·환경설정. 가입 동의 시트에 전문 링크
+- [ ] `scripts/legal-pages.mjs` 정적 페이지·noscript, local.mjs·deploy-vercel.yml 연결, vercel.json rewrite
+- [ ] 랜딩 링크, README 변수 표, ia·policy·wiki 동기화
+- [ ] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`, 브라우저 확인
+
+### 완료 조건
+- [ ] 두 앱 첫 화면(소비자 홈, 생산자 로그인) 하단에 사업자 정보(값 있는 항목)와 약관·처리방침 링크
+- [ ] `/privacy`·`/terms`가 로그인 없이 열리고, 배포 산출물에 정적 HTML로 있다
+- [ ] 처리방침 필수 항목, 약관의 중개자 고지·선주문·취소·환불 규칙이 R-xx와 일치
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/22 origin/main 1f1a243에서 브랜치 생성, `npm ci`·`uv sync --frozen` 완료.
