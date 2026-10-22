@@ -82,3 +82,13 @@ export { DetailStory, StoryImage } from "./DetailStory";
 export { ModuleStory, SOURCE_MODULES } from "./ModuleStory";
 
 export { BrixReading } from "./BrixReading";
+export { LegalFooter, LegalDocument } from "./Legal";
+export {
+  business,
+  businessLines,
+  legalDocs,
+  privacyPolicy,
+  termsOfService,
+  type BusinessInfo,
+  type LegalPath,
+} from "./legalContent";
