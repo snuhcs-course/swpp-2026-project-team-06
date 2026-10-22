@@ -188,3 +188,33 @@
 - 10/22 정적 대조 결과: TC 77개 고유 ID·상태·행 위치·확인 시각·7개 필드 그룹, 원본의 계정/상품/이슈 ID 및 주요 기술 토큰 보존 확인. 집계 66/6/3/2와 UT 26/46/5, 15개 참조 링크 정의·목차 앵커·코드 fence·`git diff --check` 통과. 수정은 선언한 기존 문서 3개뿐이다.
 - 10/22 GitHub 원문 로그에서 c98be9b의 pytest 364/Mock 15/API 7/Chromium 43과 79eaea7의 pytest 365/API 7/Chromium 43을 확인했다. 숫자/목표/coverage screenshot은 찾지 못해 미충족으로 표시했다. 커밋·push·PR·제품 테스트·PDF 생성은 실행하지 않았다.
 - 10/22 후속 PR 준비: 원격 main은 기준 a262714와 동일하다. `git diff --check`와 3개 문서 허용 범위를 확인했다. 문서 전용 변경으로 새 애플리케이션 테스트는 실행하지 않는다. 최종 커밋 SHA·PR 링크·게시 결과는 완료 보고와 PR에 기록한다.
+
+## SWPP-120 I2 AI 협업 보고서 — 박현 절
+
+- 이슈: [SWPP-120](https://linear.app/sswp6/issue/SWPP-120)
+- 브랜치: `nemodleo/swpp-120-ai-report-i2-hyun`
+- 상태: 리뷰 중
+
+### 목표
+I2 AI 협업 보고서에 박현 절을 근거(PR 본문 "AI 사용", Linear Effort 줄, 로컬 Claude Code 세션)가 있는 사실만으로 채우고, Prompt Log에 박현 입력 프롬프트를 덧붙인다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/AI-Collaboration-Report---Iteration-2.md` — 박현 행·문단 추가만. 다른 사람 절과 공용 placeholder는 지우지 않는다.
+- `docs/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log.md` — 맨 아래 `## Hyun Park` 절 추가만.
+- `docs/wiki/Home.md` — I2 보고서 링크 한 줄.
+- `docs/submission/tasks.md`의 이 절.
+
+### 결정 사항
+- 10/22 숫자는 PR 본문 "AI 사용"을 기준으로 한다. 머지 PR 25건 중 Agent 시간 기록 23건(약 25h), Tokens 기록 12건(약 14M, 하한). Linear와 다르면(DEV-32) PR 본문을 쓴다.
+- 10/22 프롬프트는 로컬 세션 파일(10/18~22)에서 원문 그대로 옮기고 영어 번역을 괄호로 단다. 10/18 이전은 원문이 없어 PR 본문 "대표 요청"을 요약으로 표시한다(원문 아님 명시).
+- 10/22 연락처·사업자 서류가 들어간 프롬프트는 싣지 않는다.
+- 10/22 Session Exporter는 실행하지 않았다(보고서에 명시). Railway 비밀값 교체 사고는 레포·Linear·로컬 세션에서 근거를 찾지 못해 쓰지 않았다.
+
+### 작업
+- [x] 템플릿·I1 보고서·Prompt Log 형식 확인
+- [x] 근거 수집(PR 37건 "AI 사용", Linear Effort, 로컬 세션 12개)
+- [x] 보고서 박현 절, Prompt Log 박현 절, Home 링크
+- [ ] AI 1차 리뷰 → ready, 사람 리뷰
+
+### 기록
+- 10/22 문서만 변경이라 실행할 테스트 없음. `git diff --check` 통과.
