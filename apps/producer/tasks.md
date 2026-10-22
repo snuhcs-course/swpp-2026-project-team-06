@@ -744,7 +744,58 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
 - 10/22 DEV-111 변경: farmclub 문의 대화방이 생겨 투어 대화 단계는 farmclub 방(`chat-row-farmclub`)을 열고 문의 방법(`support-intro`)을 안내한다. 빈 상태(`chat-empty`)로 건너뛰던 방식(`emptyIf`)은 지웠고, 방을 찾지 못하면 카드의 '다음'이 `skipTo`로 건너뛴다. 마지막 문의 문구는 farmclub 대화방을 가리킨다. 목록·방 화면과 `SupportAvatar`(views.tsx) 변경도 DEV-111에 있다.
 
+## DEV-108 카카오 복귀 화면 멈춤·새로고침 오류와 로딩 화면 정리
+
+- 이슈: [DEV-108](https://linear.app/sswp6/issue/DEV-108)
+- 브랜치: `nemodleo/dev-108-dev-생산자-앱-카카오-복귀-화면-멈춤새로고침-오류와`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-3, AC-01-16 · 화면 SCR-19(`/auth/kakao`) · 관련 DEV-74, DEV-88(Figma 줄)
+- 상태: 진행 중
+
+### 목표
+운영 생산자 앱에서 카카오 로그인 뒤 ‘카카오로 로그인하는 중’에 머무는 문제(승인 계정)와, 그 화면에서 새로고침하면 ‘로그인 요청이 만료됐어요’가 뜨는 문제를 고친다. 복귀 화면 모양을 로딩 표시 + 한 줄로 정리한다.
+
+### 원인
+- 관문 `homeFor`의 승인 분기가 `/login`·`/apply`·`/pending`·`/suspended`만 막고 `/auth/kakao`는 막지 않았다. 복귀 화면은 `refresh()` 뒤 이동을 관문에만 맡겨서, 승인 계정은 로그인이 끝나도 그대로 남았다. 다른 상태는 허용 주소가 하나라 정상으로 넘어갔다.
+- 복귀 화면이 일회용 `state`를 지운 뒤라 다시 열면 대조가 실패해 만료 오류를 보였다. 실제로는 토큰이 있어 로그인된 상태였다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/gate.ts`(새 파일, `homeFor`를 session.tsx에서 옮김), `apps/producer/src/lib/session.tsx`, `apps/producer/src/app/auth/kakao.tsx`
+- 테스트: `scripts/test-producer-gate.mjs`(새 파일), `package.json`(test:mock에 추가), `scripts/e2e/producer-kakao.spec.ts`(새 파일)
+- 문서: `apps/producer/spec.md`, `apps/producer/tasks.md`, `docs/spec/screens.md`(SCR-19), `docs/spec/functional/FEAT-01-login.md`(AC-01-16 한 문장), `docs/wiki/Requirements-and-Specifications.md`(SCR-19 줄)
+- Figma 스크립트: 레포 밖 `figma-plugins/farmclub-dev108/`
+
+### 비범위
+- 소비자 앱 복귀 화면(같은 스켈레톤 모양이지만 직접 이동하므로 멈춤은 없음. 모양 맞추기는 후속), 서버, Mock 카카오 계정
+
+### 결정 사항
+- 10/21 관문: 로그인된 사용자는 농가 상태와 상관없이 `/login`·`/auth/kakao`를 허용하지 않는다(로그인 입구 목록 하나를 비로그인 허용과 로그인 차단에 같이 씀). `homeFor`는 React 없이 테스트하려고 `lib/gate.ts`로 뺐다.
+- 10/21 복귀 화면은 로그인 뒤 `homeFor(user).home`으로 직접 `router.replace`한다(소비자 앱과 같은 방식). 관문도 같은 곳으로 보내므로 충돌하지 않고, 관문이 먼저 화면을 바꿨으면(언마운트) 다시 이동하지 않는다.
+- 10/21 새로고침: `state`가 없거나 다른데 토큰이 있으면 이미 로그인된 것으로 보고 `refresh()` 뒤 상태별 화면으로 간다. 토큰이 무효면 지금처럼 만료 안내.
+- 10/21 시간 제한 15초(카카오 로그인 + 사용자 조회). 넘으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’ + ‘다시 로그인’. 요청은 취소하지 않으므로 늦게 성공하면 토큰이 생겨 관문이 상태별 화면으로 보낸다(성공한 로그인을 버리지 않음).
+- 10/21 로딩 화면: 가운데 `ActivityIndicator`(large, 보조 글자색) + `T` body muted ‘카카오 로그인 중이에요’. `@farmclub/ui`에 스피너 부품이 없어 다른 생산자 화면처럼 React Native `ActivityIndicator`를 쓰고 새 부품은 만들지 않았다(쓰는 곳이 화면별로 크기·색이 달라 공용화는 따로 판단). 강조색은 쓰지 않는다(화면당 강조 하나 규칙, 이 화면엔 행동이 없음).
+- 10/21 소비자 앱 복귀 화면도 같은 큰 제목 + 설명 + 스켈레톤 모양이지만 이 PR에서는 바꾸지 않는다. 소비자 앱은 직접 이동해서 멈춤이 없고, 바꾸면 소비자 Figma·e2e까지 범위가 커진다. 후속 이슈로 제안.
+
+### 작업
+- [x] 관문(`gate.ts`)과 session.tsx 연결
+- [x] 복귀 화면: 직접 이동, 새로고침 처리, 15초 제한, 로딩 모양
+- [x] 관문 단위 테스트(test:mock), Playwright(승인·확인 중·농가 없음 복귀 → 각 화면, 다시 열기 → 오류 없음)
+- [x] 스펙(screens.md SCR-19, FEAT-01 AC-01-16, wiki)
+- [x] Figma v6 P02 근처 카카오 복귀 로딩 화면
+- [x] typecheck, test:mock, Playwright 통과 확인
+
+### 완료 조건
+- [x] 승인 계정이 카카오 로그인 뒤 멈추지 않는다
+- [x] 새로고침해도 오류 없이 넘어간다
+- [x] 로딩 화면 정리, 테스트·스펙·Figma가 같은 PR
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/21 origin/main adef22b에서 시작.
+- 10/21 검증: `npm run typecheck` 5개 워크스페이스 통과, `npm run test:mock` 22/22(관문 3개 새로). 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, 별도 DB `farmclub_dev108`, `node scripts/run-integration.mjs scripts/e2e/producer-kakao.spec.ts scripts/e2e/discovery-and-gates.spec.ts`): 실서버 시나리오 7/7, Playwright 7/7. 새 spec을 origin/main의 session.tsx·kakao.tsx로 돌리면 승인 계정 1건만 실패(`/auth/kakao`에 남음)해 보고된 증상과 같음을 확인.
+- 10/21 Playwright는 카카오 인가 화면을 열 수 없어 `POST /api/auth/kakao`만 가로채 시드 생산자의 test-login 토큰으로 답한다. 그 뒤 `/api/auth/me`·관문·화면은 실서버 그대로.
+- 10/22 Figma v6 ‘현재 시안 · 생산자’에 `DEV-108 · P02-1 카카오 복귀 · /auth/kakao`(node 456:2115)와 명세 상자(456:2120)를 그렸다. 자리는 P02와 같은 줄, DEV-74 ‘수정 전 · P02’ 사본 오른쪽(x 3940). 스크립트는 레포 밖 `figma-plugins/farmclub-dev108/code.js`(이름으로 찾아 같은 노드를 다시 그림, 두 번 실행해 노드 2개·같은 id 확인). 사용자 Chrome의 Figma 웹 편집기 콘솔에서 실행.
+
 ## DEV-113 사이트 하단 사업자 정보와 약관·처리방침
 
 - 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
-- 10/22 `/privacy`·`/terms` 라우트(관문 `session.tsx`에서 모든 상태에 공개), 로그인·환경설정 하단 `LegalFooter`, vercel.json에서 정적 HTML로 rewrite.
+- 10/22 `/privacy`·`/terms` 라우트(관문 `lib/gate.ts`에서 모든 상태에 공개, 동의 전에는 `/consent`만), 로그인·환경설정 하단 `LegalFooter`, vercel.json에서 정적 HTML로 rewrite.

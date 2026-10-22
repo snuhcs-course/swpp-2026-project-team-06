@@ -143,6 +143,8 @@ DEV-58 PR113 최종 리뷰: 상품 편집 snapshot은 대표 URI/null을 명시�
 
 카카오 설정(`enabled`, `clientId`, `redirectPath`)은 서버 `GET /api/auth/kakao/config`에서 받는다. 카카오 버튼 → `lib/kakao.ts`가 `state` 일회용 값을 sessionStorage(`farmclub-producer:kakao-return`)에 두고 인가 화면으로 보낸다 → `/auth/kakao`가 `state`를 대조해 `POST /api/auth/kakao`(`app: producer`) → `refresh()`. 갈 화면은 세션 관문(`homeFor`)이 농가 상태로 정한다(없음 → `/apply`, 확인 중·반려 → `/pending`, 승인 → `/`, 정지 → `/suspended`). 비로그인 관문은 `/login`과 `/auth/kakao`만 연다. 실서버에서 카카오가 켜져 있으면 테스트 계정 목록을 숨기고, Mock은 상태별 시연 계정 때문에 함께 둔다. 생산자는 소비자 온보딩을 거치지 않는다(가입 신청이 대표자 이름·연락처를 받음).
 
+DEV-108: 관문은 `lib/gate.ts`의 `homeFor`. 로그인된 사용자는 농가 상태와 상관없이 `/login`·`/auth/kakao`에 머물지 않는다. `/auth/kakao`는 로그인 뒤 `homeFor(user).home`으로 직접 `router.replace`하고(관문과 같은 목적지), `state`가 없거나 달라도 토큰이 있으면(새로고침) `refresh()` 뒤 같은 곳으로 간다. 로그인+사용자 조회는 15초 제한, 넘으면 오류와 ‘다시 로그인’. 화면은 가운데 `ActivityIndicator` + ‘카카오 로그인 중이에요’ 한 줄.
+
 
 ## DEV-92 첨부 전 수동 입력 저장 순서
 
