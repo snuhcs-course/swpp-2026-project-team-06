@@ -28,7 +28,7 @@ Record the input prompts actually sent, quoted verbatim. Do not clean up wording
 - **Minsun · 2026-10-19 · Codex (GPT-6.1 Sol) · operator-access limitation:** “Record the operator tests as blocked”
 - **[Other member] · [YYYY-MM-DD] · [Tool/model] · [task/PR/issue]:** “[Paste exact prompt here]”
 
-**Full prompt log:** Minsun’s selected prompts, dates, source turn IDs, and supporting artifacts are retained below in this same file.
+**Full input prompt log:** [Iteration 2 – Prompt Log](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log) ([branch/repository source](AI-Collaboration-Report---Iteration-2---Prompt-Log.md)). The page contains 141 privacy-redacted input records from the October 22 export snapshot. The eTL report can cite this Wiki URL without duplicating the full log. The selected examples and evidence register below remain for analysis.
 
 <details>
 <summary>Minsun — exact-source evidence and selected prompt log (P1–P12)</summary>
@@ -246,7 +246,7 @@ Before drawing iteration-level findings, review relevant Codex and Claude Code i
 
 **Minsun’s review record:** Prepared on 2026-10-21, Asia/Seoul, from selected records dated October 11–21. This is a member contribution draft, not the October 23 deadline snapshot or a completed team report.
 
-The reviewed records are E1–E5, with the specific quoted turns and local verification artifacts above. This is a selected member-level evidence review, not a complete export of every team member's sessions. The Session Exporter was not run; selection/exclusion review, exporter privacy findings, final re-scan, and any privately retained export ZIP remain pending.
+The reviewed records are E1–E5, with the specific quoted turns and local verification artifacts above. **October 22 export update:** the course Session Exporter (0.1.0, commit `3251f6338e647fda5e7abb6f6108f6f176b5ae9f`) was used to stage and review 20 relevant local sessions plus one explicitly labelled supplemental continuation for the October 12–23 window (Asia/Seoul). The local snapshot contains activity through October 22; final re-scan and archive-integrity checks passed, with no unreadable lines omitted. The [input-only Prompt Log](AI-Collaboration-Report---Iteration-2---Prompt-Log) contains 141 retained records with additional device/proxy redactions for publication. Raw session ZIP/JSONL and responses remain private. This is not a completed all-members or deadline-final review; the team-level checklist above remains unchecked.
 
 The supplied shared URLs [6ad858b0…](https://chatgpt.com/share/e/6ad858b0-e5b0-8342-805d-20685f154aa1) and [6ad85923…](https://chatgpt.com/share/e/6ad85923-43c4-8343-86d4-10ebb491cca5) could not be read: the first reached an authentication error and the second displayed a login dialog. No claims or quotations are attributed to their unseen contents, and no equivalence with a native thread is assumed. The supplied filesystem paths identify workspaces, not independent chat transcripts.
 
