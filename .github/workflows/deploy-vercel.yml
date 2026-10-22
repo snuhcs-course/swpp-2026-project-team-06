@@ -6,6 +6,10 @@ name: Deploy apps to Vercel
 # - 레포 변수 APP_API_URL이 비어 있으면 Mock 빌드(브라우저 안 가짜 데이터), 값이 있으면 그 서버로 붙는 빌드.
 # - 레포 변수 APP_POSTHOG_KEY(phc_…, 공개 키)가 있으면 PostHog 화면 이벤트·세션 녹화를 켠다(DEV-71). 비면 꺼진다.
 #   APP_POSTHOG_HOST가 비면 앱 기본값 https://us.i.posthog.com(US Cloud, TQ-01)을 쓴다.
+# - 사이트 하단 사업자 정보(DEV-113, R-16)는 Actions 변수 BUSINESS_NAME·BUSINESS_OWNER·BUSINESS_REGISTRATION_NO·
+#   BUSINESS_MAIL_ORDER_NO·BUSINESS_ADDRESS·BUSINESS_PHONE·BUSINESS_EMAIL·PRIVACY_OFFICER로 넣는다(값은 레포에 두지 않는다).
+#   빈 변수는 화면에서 빠지고, 모두 비면 ‘테스트 서비스’만 보인다. 바꾼 뒤에는 이 워크플로를 수동 실행해야 반영된다.
+#   export 뒤 scripts/legal-pages.mjs가 같은 값으로 /privacy·/terms 정적 HTML과 index.html의 <noscript>를 만든다.
 # - 시크릿 VERCEL_TOKEN이 없으면 배포를 건너뛴다(옵트인). 토큰 등록이 곧 자동 배포를 켜는 일이다.
 # 수동 실행: Actions 탭 → 이 워크플로 → Run workflow. 브랜치는 main을 골라야 하고(다른 브랜치는 건너뜀),
 # 변경 여부와 상관없이 현재 main을 두 앱 모두 올린다. 토큰은 production Environment(main 전용)에 둔다(DEV-70).
@@ -83,7 +87,7 @@ jobs:
           fi
           changed=$(git diff --name-only HEAD~1 HEAD)
           echo "$changed"
-          if echo "$changed" | grep -qE '^(apps/|packages/|package\.json$|package-lock\.json$|\.nvmrc$|\.github/workflows/deploy-vercel\.yml$)'; then
+          if echo "$changed" | grep -qE '^(apps/|packages/|package\.json$|package-lock\.json$|\.nvmrc$|scripts/legal-pages\.mjs$|\.github/workflows/deploy-vercel\.yml$)'; then
             echo "deploy=true" >> "$GITHUB_OUTPUT"
           else
             echo "deploy=false" >> "$GITHUB_OUTPUT"
@@ -110,6 +114,14 @@ jobs:
           EXPO_PUBLIC_SHARED_MOCK_URL: ""
           EXPO_PUBLIC_CONSUMER_URL: ${{ env.CONSUMER_URL }}
           EXPO_PUBLIC_PRODUCER_URL: ${{ env.PRODUCER_URL }}
+          EXPO_PUBLIC_BUSINESS_NAME: ${{ vars.BUSINESS_NAME }}
+          EXPO_PUBLIC_BUSINESS_OWNER: ${{ vars.BUSINESS_OWNER }}
+          EXPO_PUBLIC_BUSINESS_REGISTRATION_NO: ${{ vars.BUSINESS_REGISTRATION_NO }}
+          EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO: ${{ vars.BUSINESS_MAIL_ORDER_NO }}
+          EXPO_PUBLIC_BUSINESS_ADDRESS: ${{ vars.BUSINESS_ADDRESS }}
+          EXPO_PUBLIC_BUSINESS_PHONE: ${{ vars.BUSINESS_PHONE }}
+          EXPO_PUBLIC_BUSINESS_EMAIL: ${{ vars.BUSINESS_EMAIL }}
+          EXPO_PUBLIC_PRIVACY_OFFICER: ${{ vars.PRIVACY_OFFICER }}
           EXPO_NO_TELEMETRY: "1"
           CI: "1"
         run: |
@@ -126,6 +138,7 @@ jobs:
             echo "::notice::${{ matrix.app }}: PostHog off (APP_POSTHOG_KEY repository variable is empty)"
           fi
           npx expo export -p web
+          node --no-warnings ../../scripts/legal-pages.mjs dist
           cp vercel.json dist/vercel.json
 
       - name: Deploy to Vercel (production)

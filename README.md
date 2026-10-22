@@ -252,8 +252,8 @@ GitHub; each deployment is an exported `dist/` uploaded with the Vercel CLI. Exp
 has no effect.
 
 `.github/workflows/deploy-vercel.yml` automates this. After **CI** succeeds on `main`, if
-the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc` or the
-workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
+the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc`,
+`scripts/legal-pages.mjs` or the workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
 answers 200. It can also be run by hand from the Actions tab with the `main` branch
 selected; a manual run always deploys the current `main`.
 
@@ -263,6 +263,23 @@ selected; a manual run always deploys the current `main`.
 | `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
 | `APP_POSTHOG_KEY` | Repository **variable** | PostHog project API key (`phc_…`, public). Empty: no analytics or session replay. Set: screen events, replays and heatmaps go to PostHog (DEV-71). |
 | `APP_POSTHOG_HOST` | Repository **variable** | Optional. Empty: `https://us.i.posthog.com` (US Cloud). |
+| `BUSINESS_NAME` | Repository or `production` **variable** | Footer business info (DEV-113): trade name (상호), exactly as on the business registration certificate. |
+| `BUSINESS_OWNER` | same | Representative (대표자). |
+| `BUSINESS_REGISTRATION_NO` | same | Business registration number (사업자등록번호), e.g. `000-00-00000`. Also turns on the 사업자정보 확인 link (ftc.go.kr). |
+| `BUSINESS_MAIL_ORDER_NO` | same | Mail-order business report number (통신판매업 신고번호), e.g. `제0000-서울00-0000호`. |
+| `BUSINESS_ADDRESS` | same | Business address (주소). |
+| `BUSINESS_PHONE` | same | Customer contact number (연락처). |
+| `BUSINESS_EMAIL` | same | Contact email; also used for privacy requests. |
+| `PRIVACY_OFFICER` | same | Privacy officer (개인정보 보호책임자), e.g. `이름 (직책)`. |
+
+The business values are public on the live site but must never be committed (they are
+personal/company details and the repository is mirrored publicly). Each one maps to
+`EXPO_PUBLIC_<NAME>` at export time; an empty variable is left out of the footer, and with
+none set the footer shows "farmclub · 테스트 서비스". After changing them, run the workflow
+by hand so both apps are rebuilt. After `expo export`, `scripts/legal-pages.mjs` writes
+`dist/privacy.html` and `dist/terms.html` (served at `/privacy` and `/terms` via
+`vercel.json`) and puts the same footer in `index.html`'s `<noscript>`, so the pages read
+without JavaScript.
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
 users see. Do it outside user tests, and merge the server routes the apps call (for
@@ -272,6 +289,7 @@ server. To do the same by hand:
 ```
 EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://api.farmclub.kr \
   npx expo export -p web   # run inside apps/consumer and apps/producer
+node ../../scripts/legal-pages.mjs dist   # static /privacy and /terms (DEV-113)
 vercel deploy --prod       # from the exported dist/
 ```
 
