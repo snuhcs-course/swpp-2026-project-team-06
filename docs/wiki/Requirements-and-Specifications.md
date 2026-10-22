@@ -630,6 +630,8 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 
 N-04, N-08, N-09 and N-10 are targets we will measure before the I2 pilot. How long personal data is kept is still an open policy question (Q-20).
 
+**Legal pages (DEV-113, R-16).** Both apps show a footer with the business information (trade name, representative, business and mail-order registration numbers, address, contact, privacy officer) on the first screen, plus links to the Privacy Policy (`/privacy`) and Terms of Service (`/terms`). Both pages open without login and are also served as static HTML so they can be read without JavaScript. The business values come from build-time variables and are never stored in the repository; until they are set, the footer only says "test service". The current retention periods follow how the service behaves today and still need legal review.
+
 ## 7. User Interface Requirements
 
 ### 7.1 Navigation
