@@ -1,4 +1,4 @@
-// 생산자 화면 커버리지 수집(DEV-118). FARMCLUB_COVERAGE=1일 때만 켜지고, 꺼져 있으면 @playwright/test 그대로다.
+// 생산자 화면 커버리지 수집(DEV-118). FARMCLUB_COVERAGE=1일 때만 켜지고, 꺼져 있으면 @playwright/test의 test를 그대로 내보낸다.
 // 테스트가 연 모든 페이지(기본 page·browser.newContext로 만든 페이지)의 V8 JS 커버리지를 모아
 // 생산자 앱 번들만 소스맵과 함께 monocart 캐시에 넣는다. 보고서는 scripts/producer-ui-coverage.mjs가 만든다.
 import { test as base, expect, type BrowserContext, type Page } from "@playwright/test";
@@ -20,22 +20,23 @@ function sourceMapFor(url: string, source: string) {
   const ref = source.match(/\/\/# sourceMappingURL=(\S+)\s*$/)?.[1];
   if (!ref || ref.startsWith("data:")) return undefined;
   const mapUrl = new URL(ref, url).href;
-  if (!maps.has(mapUrl)) maps.set(mapUrl, fetch(mapUrl).then((r) => (r.ok ? r.json() : undefined)));
+  if (!maps.has(mapUrl))
+    maps.set(mapUrl, fetch(mapUrl).then((r) => (r.ok ? r.json() : undefined)).catch(() => undefined));
   return maps.get(mapUrl);
 }
 
+// 스펙이 page.close()로 먼저 닫은 페이지는 모으지 못한다(현재 스펙에는 없음). 수집 실패는 테스트 실패로 만들지 않는다.
 async function collect(page: Page, report: CoverageReport) {
   if (page.isClosed()) return;
   const entries = await page.coverage.stopJSCoverage().catch(() => []);
   const own = entries.filter((e) => e.url.startsWith(producerUrl) && e.source);
   for (const e of own) Object.assign(e, { sourceMap: await sourceMapFor(e.url, e.source!) });
-  if (own.length) await report.add(own);
+  if (own.length) await report.add(own).catch((e) => console.warn(`producer coverage not saved: ${e}`));
 }
 
-export const test = base.extend<{ producerCoverage: void }>({
+const withCoverage = base.extend<{ producerCoverage: void }>({
   producerCoverage: [
     async ({ browser, context }, use) => {
-      if (!enabled) return use();
       const report = new CoverageReport(coverageOptions);
       const pending: Promise<void>[] = [];
       const track = (c: BrowserContext) => {
@@ -68,3 +69,5 @@ export const test = base.extend<{ producerCoverage: void }>({
     { auto: true },
   ],
 });
+
+export const test = enabled ? withCoverage : base;

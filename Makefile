@@ -96,7 +96,8 @@ test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 test-e2e: ## Chromium only, against an already-running real stack
 	npm run test:e2e
 
-# Coverage (Testing Documentation 3.6). The UI report needs the coverage run first and clears its cache after one report.
+# Coverage (Testing Documentation 3.6): local measurement only, not run in CI.
+# The UI report needs the coverage run first and clears its cache after one report.
 coverage-producer: ## Producer logic line/branch coverage (Node test runner)
 	npm run coverage:producer
 
