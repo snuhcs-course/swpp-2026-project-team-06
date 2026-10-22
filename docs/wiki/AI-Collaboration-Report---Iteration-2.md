@@ -1,8 +1,8 @@
-# AI Collaboration Report – Iteration 2 ([YYYY-MM-DD] ~ [YYYY-MM-DD])
+# AI Collaboration Report – Iteration 2 (2026-10-11 ~ 2026-10-23)
 
-Written by: [name(s)] | Contributors: [all team members]
+Contributors: Minsun, Hyun, Jinwoo, Zahra
 
-Tools and models used: Minsun — ChatGPT/Codex (exact model versions not recorded in the accessible histories); [add other members’ tools/models].
+Tools and models used: Minsun — ChatGPT/Codex (GPT-6.1 Sol); [add other members’ tools/models].
 
 > Keep the completed report to roughly one page (500–700 words). This is a team report: collect each member’s input prompts and notes, review the team’s relevant AI-agent interaction histories, and write findings supported by verifiable evidence. Be candid; “no AI used” and “output was unusable” are valid findings. Do not include full agent responses or a full interaction transcript.
 
@@ -10,10 +10,10 @@ Tools and models used: Minsun — ChatGPT/Codex (exact model versions not record
 
 | Member | Feature, files, or task | Tool and model/version | Evidence (file/lines, commit, PR, or issue) |
 | -- | -- | -- | -- |
-| Minsun Kim (PM) | Task decomposition, role/dependency mapping, effort tracking, review governance (SWPP-89/90), checker delivery (DEV-40/55), and internal testing | ChatGPT/Codex; exact versions not recorded | E1–E4 and P1–P12 in Section 2; PRs #106/#107; I2 Linear project; October 19 PM testing artifacts |
+| Minsun Kim (PM) | Task decomposition, role/dependency mapping, effort tracking, review governance (SWPP-89/90), checker delivery (DEV-40/55), and internal testing | ChatGPT/Codex; GPT-6.1 Sol | E1–E4 and P1–P12 in Section 2; PRs #106/#107; I2 Linear project; October 19 PM testing artifacts |
 | [Other member] | [Specific work; include file paths] | [Tool / model] | [Link or reference] |
 
-**Minsun:** As Iteration 2 PM, I used ChatGPT/Codex for task decomposition, ownership and dependency mapping, effort-record standardization, review-process design, and internal-test execution and reporting. The central management problem was establishing what the team could deliver and demonstrate under changing technical and coordination constraints. AI supplied drafts, explanations, and test evidence; I supplied contextual corrections, priorities, access decisions, and scope boundaries. The accessible histories do not reliably identify model versions. [E1–E4]
+**Minsun:** As Iteration 2 PM, I used ChatGPT/Codex for task decomposition, ownership and dependency mapping, effort-record standardization, review-process design, and internal-test execution and reporting. The central management problem was establishing what the team could deliver and demonstrate under changing technical and coordination constraints. AI supplied drafts, explanations, and test evidence; I supplied contextual corrections, priorities, access decisions, and scope boundaries. [E1–E4]
 
 **Where we deliberately did not use AI:** Minsun retained ownership of priorities, role corrections, scope decisions, and approval. AI did not substitute for human PR approval, Kakao authentication, or actual Android/iPhone checks; unavailable execution remained explicitly incomplete. [Other members: add decisions/work retained by humans.]
 
@@ -21,11 +21,11 @@ Tools and models used: Minsun — ChatGPT/Codex (exact model versions not record
 
 Record the input prompts actually sent, quoted verbatim. Do not clean up wording. Include member, date, tool/model, and task or PR/issue context. Record prompts only; responses and full transcripts are not required. If the prompt history does not fit the one-page report, put the full input-prompt log on a linked Wiki sub-page and summarize the relevant examples here.
 
-- **Minsun · 2026-10-11, 21:28:14 KST · ChatGPT/Codex (version unrecorded) · task quality and human review · E1/P1, turn `01a12aef-6707-7ad0-864c-011e5da61280` — verbatim excerpt:** “please suggest a list of user stories we MUST consider, then create a list of tasks (small enough to estimate, has one clear owner, has an observable completion state, and produces visible output) for our second iteration. The list of tasks should be good enough quality to actually use in our iteration, so please take your time to think and logically create results. before uploading to the excel sheet, please give it to me first, I will review the quality then upload.”
-- **Minsun · 2026-10-11, 22:28:58 KST · ChatGPT/Codex (version unrecorded) · implementation baseline and scope prioritization · E1/P12, turn `01a12b27-00ee-7a72-9cf1-60a7b9c5a591` — complete request:** “can you check which user stories are already implemented, and what user stories should be classified as main function/supplementary functions”
-- **Minsun · 2026-10-12, 00:37:34 KST · ChatGPT/Codex (version unrecorded) · staged user testing and review gate · E1/P11, turn `01a12b9c-bc7d-7f63-a10c-72331a4e64b5` — verbatim excerpts:** “-testing 2: the same pool of consumers will be asked to test all consumer functions once again, but this time, including actual payment for at least 1 order.” / “workflow revisions: pm needs to check sync for all (spec file)<→2(code) before review-> add as task”
-- **Minsun · 2026-10-12 · ChatGPT/Codex (version unrecorded) · cross-role testing:** “good job, but after the two consumer tests, related producer functions and app manager functions should also be monitored, so add this each to zahra and jinwoo for both tests.”
-- **Minsun · 2026-10-19 · Codex (version unrecorded) · operator-access limitation:** “Record the operator tests as blocked”
+- **Minsun · 2026-10-11, 21:28:14 KST · ChatGPT/Codex (GPT-6.1 Sol) · task quality and human review · E1/P1, turn `01a12aef-6707-7ad0-864c-011e5da61280` — verbatim excerpt:** “please suggest a list of user stories we MUST consider, then create a list of tasks (small enough to estimate, has one clear owner, has an observable completion state, and produces visible output) for our second iteration. The list of tasks should be good enough quality to actually use in our iteration, so please take your time to think and logically create results. before uploading to the excel sheet, please give it to me first, I will review the quality then upload.”
+- **Minsun · 2026-10-11, 22:28:58 KST · ChatGPT/Codex (GPT-6.1 Sol) · implementation baseline and scope prioritization · E1/P12, turn `01a12b27-00ee-7a72-9cf1-60a7b9c5a591` — complete request:** “can you check which user stories are already implemented, and what user stories should be classified as main function/supplementary functions”
+- **Minsun · 2026-10-12, 00:37:34 KST · ChatGPT/Codex (GPT-6.1 Sol) · staged user testing and review gate · E1/P11, turn `01a12b9c-bc7d-7f63-a10c-72331a4e64b5` — verbatim excerpts:** “-testing 2: the same pool of consumers will be asked to test all consumer functions once again, but this time, including actual payment for at least 1 order.” / “workflow revisions: pm needs to check sync for all (spec file)<→2(code) before review-> add as task”
+- **Minsun · 2026-10-12 · ChatGPT/Codex (GPT-6.1 Sol) · cross-role testing:** “good job, but after the two consumer tests, related producer functions and app manager functions should also be monitored, so add this each to zahra and jinwoo for both tests.”
+- **Minsun · 2026-10-19 · Codex (GPT-6.1 Sol) · operator-access limitation:** “Record the operator tests as blocked”
 - **[Other member] · [YYYY-MM-DD] · [Tool/model] · [task/PR/issue]:** “[Paste exact prompt here]”
 
 **Full prompt log:** Minsun’s selected prompts, dates, source turn IDs, and supporting artifacts are retained below in this same file.
@@ -49,7 +49,9 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P1 — Request a substantive Iteration 2 plan
 
-**Date:** 2026-10-11, turn start 21:09:44 KST. **Source:** E1, turn `01a12ade-748f-7062-87da-e1b2ce2f5d07`. **Tool/model:** ChatGPT/Codex; exact version not recorded. **Verbatim excerpt:**
+**Date:** 2026-10-11, turn start 21:09:44 KST. **Source:** E1, turn `01a12ade-748f-7062-87da-e1b2ce2f5d07`. **Tool/model:** ChatGPT/Codex; GPT-6.1 Sol
+
+**Verbatim excerpt:**
 
 > this is the schedule per iteration we have currently for our project. Our first iteration is ending today, and i'm the PM for the second iteration. below is a description of what the PM should do, and what we should be doing for the second iteration. Please suggest a plan for a list of appropriate tasks accordingly, as a highly skilled project manajer would, for the upcoming second iteration.
 
@@ -69,7 +71,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P2 — Correct accountability for approvals
 
-**Date:** 2026-10-11, turn start 22:23:04 KST. **Source:** E1, turn `01a12b21-9967-7522-b928-c39ed2a20b78`. **Tool/model:** ChatGPT/Codex; version not recorded. **Complete request:**
+**Date:** 2026-10-11, turn start 22:23:04 KST. **Source:** E1, turn `01a12b21-9967-7522-b928-c39ed2a20b78`. **Tool/model:** ChatGPT/Codex; GPT-6.1 Sol. **Complete request:**
 
 > not jinwoo, hyun is in charge of the business approvals as our company is under his name.
 
@@ -77,7 +79,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P3 — Supply authoritative roles and story classifications
 
-**Date:** 2026-10-11, turn start 22:42:21 KST. **Source:** E1, turn `01a12b33-3e46-7d23-a790-e42d1e693c80`. **Tool/model:** ChatGPT/Codex; version not recorded. **Complete request:**
+**Date:** 2026-10-11, turn start 22:42:21 KST. **Source:** E1, turn `01a12b33-3e46-7d23-a790-e42d1e693c80`. **Tool/model:** ChatGPT/Codex; GPT-6.1 Sol. **Complete request:**
 
 > sorry these are the right roles. please re-coordinate and assign workers to the tasks, and give me the result in excel file format.
 > zahra -> backend implementation (ai feature, app managing/manager's functions) + sns advertisement
@@ -91,7 +93,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P4 — Extend testing beyond the consumer interface
 
-**Date:** 2026-10-12, turn start 00:49:33 KST. **Source:** E1, turn `01a12ba7-b5be-7cd0-90f1-6739d6841a22`. **Tool/model:** ChatGPT/Codex; version not recorded. **Complete request:**
+**Date:** 2026-10-12, turn start 00:49:33 KST. **Source:** E1, turn `01a12ba7-b5be-7cd0-90f1-6739d6841a22`. **Tool/model:** ChatGPT/Codex; GPT-6.1 Sol. **Complete request:**
 
 > good job, but after the two consumer tests, related producer functions and app manager functions should also be monitored, so add this each to zahra and jinwoo for both tests.
 
@@ -99,7 +101,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P5 — Transfer agreed work into the team's tracking system
 
-**Date:** 2026-10-13. **Source:** E2, turn `01a132ee-467a-7742-bbfc-e81e0e1ce59f`; preceding source link points to the planning sheet. **Tool/model:** ChatGPT/Codex; version not recorded. **Verbatim request-text excerpt:**
+**Date:** 2026-10-13. **Source:** E2, turn `01a132ee-467a-7742-bbfc-e81e0e1ce59f`; preceding source link points to the planning sheet. **Tool/model:** ChatGPT/Codex; GPT-6.1 Sol. **Verbatim request-text excerpt:**
 
 > can you update all the tasks for iteration 2 made here, into our group's linear?
 
@@ -107,7 +109,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P6 — Make human and agent effort separately visible
 
-**Date:** 2026-10-14. **Source:** E2, turn `01a139bd-3e20-7293-af63-c262177898f6`. **Tool/model:** ChatGPT/Codex; version not recorded. **Verbatim excerpts from one request:**
+**Date:** 2026-10-14. **Source:** E2, turn `01a139bd-3e20-7293-af63-c262177898f6`. **Tool/model:** ChatGPT/Codex; GPT-6.1 Sol. **Verbatim excerpts from one request:**
 
 > For each issue we created for iteration 2, I want to make it easier to mark effort. Therefore, for all of the iterations, I want to change the content as below, all into the same format. please do so:&#x20;
 
@@ -117,7 +119,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P7 — Request a review tied to specifications and human verification
 
-**Date:** 2026-10-16, turn start 17:00:02 KST. **Source:** E2, turn `01a143b9-a5d7-7833-bf05-5da6f38a7bff`. **Tool/model:** Codex; version not recorded. **Complete request:**
+**Date:** 2026-10-16, turn start 17:00:02 KST. **Source:** E2, turn `01a143b9-a5d7-7833-bf05-5da6f38a7bff`. **Tool/model:** Codex; GPT-6.1 Sol. **Complete request:**
 
 > Please perform the repository’s pr-review review of [https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/106](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/106).
 > Read AGENTS.md, .agents/skills/pr-review/SKILL.md, the changed specification, and the SWPP-89 task section. Compare them with the PR changes and description.
@@ -128,7 +130,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P8 — Remove an avoidable dependency without misrepresenting completion
 
-**Date:** 2026-10-16. **Source:** E3, turn `01a14401-4f27-7a82-8e8f-fd77668afb6e`. **Tool/model:** Codex; version not recorded. **Complete request:**
+**Date:** 2026-10-16. **Source:** E3, turn `01a14401-4f27-7a82-8e8f-fd77668afb6e`. **Tool/model:** Codex; GPT-6.1 Sol. **Complete request:**
 
 > can we separate this part into a follow-up development task on linear, then merge the first development parts first into the main branch? further communication and meetings are needed to go on with the Claude API key, but I dont want this to be stopping other developments
 
@@ -136,7 +138,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P9 — Execute internal tests while preserving failure evidence
 
-**Date:** 2026-10-19, containing turn start 06:22:55 KST. **Source:** E4, turn `01a150e5-6d47-7d11-9e77-801c1cdaf407`. **Tool/model:** Codex; version not recorded. **Verbatim excerpt:**
+**Date:** 2026-10-19, containing turn start 06:22:55 KST. **Source:** E4, turn `01a150e5-6d47-7d11-9e77-801c1cdaf407`. **Tool/model:** Codex; GPT-6.1 Sol. **Verbatim excerpt:**
 
 > After performing all tests, please follow the guide to provide detail on test results and possible failure. If any tests fail, please flag them first without making any changes.
 
@@ -144,7 +146,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P10 — Preserve an unresolved access limitation
 
-**Date:** 2026-10-19, containing turn start 06:47:03 KST. **Source:** E4, turn `01a150fb-83cf-77e1-a53a-dba5c72dea16`, user reply to operator-access question `call_4lussSUxJwZuu1tvOAUUU1Xh`. **Tool/model:** Codex; version not recorded. **Complete user answer:**
+**Date:** 2026-10-19, containing turn start 06:47:03 KST. **Source:** E4, turn `01a150fb-83cf-77e1-a53a-dba5c72dea16`, user reply to operator-access question `call_4lussSUxJwZuu1tvOAUUU1Xh`. **Tool/model:** Codex; GPT-6.1 Sol. **Complete user answer:**
 
 > Record the operator tests as blocked
 
@@ -152,7 +154,7 @@ Local artifact paths in E2–E4 are relative to the supplied ChatGPT-project wor
 
 ### P11 — Specify the delivery timeline, two test rounds, and a specification-to-code review gate
 
-**Date:** 2026-10-12, turn start 00:37:34 KST. **Source:** E1, turn `01a12b9c-bc7d-7f63-a10c-72331a4e64b5`. **Tool/model:** ChatGPT/Codex; exact version not recorded. **Complete substantive request:** The source’s original escaping and entity text are preserved below; a separate empty user message in the same turn is omitted.
+**Date:** 2026-10-12, turn start 00:37:34 KST. **Source:** E1, turn `01a12b9c-bc7d-7f63-a10c-72331a4e64b5`. **Tool/model:** ChatGPT/Codex; exact GPT-6.1 Sol. **Complete substantive request:** The source’s original escaping and entity text are preserved below; a separate empty user message in the same turn is omitted.
 
 ```text
 please revise the excel plan by taking all these revising considering all of these new decisions:
@@ -194,7 +196,7 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 
 ### P12 — Establish implementation status before assigning scope
 
-**Date:** 2026-10-11, turn start 22:28:58 KST. **Source:** E1, turn `01a12b27-00ee-7a72-9cf1-60a7b9c5a591`. **Tool/model:** ChatGPT/Codex; exact version not recorded. **Complete request:**
+**Date:** 2026-10-11, turn start 22:28:58 KST. **Source:** E1, turn `01a12b27-00ee-7a72-9cf1-60a7b9c5a591`. **Tool/model:** ChatGPT/Codex; GPT-6.1 Sol. **Complete request:**
 
 > can you check which user stories are already implemented, and what user stories should be classified as main function/supplementary functions
 
@@ -220,7 +222,7 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 
 ## 5. Prompt Revisions
 
-**Minsun · 2026-10-11 · ChatGPT/Codex (version unrecorded) · planning (E1/P1):**
+**Minsun · 2026-10-11 · ChatGPT/Codex (GPT-6.1 Sol) · planning (E1/P1):**
 
 - **Before — verbatim excerpt:** “Please suggest a plan for a list of appropriate tasks accordingly, as a highly skilled project manajer would, for the upcoming second iteration.”
 - **After — verbatim excerpt:** “please suggest a list of user stories we MUST consider, then create a list of tasks (small enough to estimate, has one clear owner, has an observable completion state, and produces visible output) for our second iteration.”
