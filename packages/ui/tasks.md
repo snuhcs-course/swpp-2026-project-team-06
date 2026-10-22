@@ -430,7 +430,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 ### 범위 (수정 허용 경로)
 - `packages/ui/src/{legalContent.ts,Legal.tsx,index.ts}`, `packages/ui/{spec,tasks}.md`
 - `apps/consumer/src/app/{privacy,terms,login}.tsx`, `apps/consumer/src/app/(tabs)/{index,me/index}.tsx`, `apps/consumer/src/app/onboarding/index.tsx`, `apps/consumer/src/lib/onboarding.ts`, `apps/consumer/vercel.json`, `apps/consumer/tasks.md`
-- `apps/producer/src/app/{privacy,terms,login}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx`, `apps/producer/src/lib/session.tsx`(공개 경로), `apps/producer/vercel.json`, `apps/producer/tasks.md`
+- `apps/producer/src/app/{privacy,terms,login}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx`, `apps/producer/src/lib/{session.tsx,gate.ts}`(공개 경로·동의 관문), `scripts/test-producer-gate.mjs`, `apps/producer/vercel.json`, `apps/producer/tasks.md`
 - `scripts/legal-pages.mjs`, `scripts/local.mjs`(export 후 정적 페이지), `scripts/test-legal.mjs`, `scripts/e2e/legal-pages.spec.ts`, `package.json`(test:mock에 추가)
 - `.github/workflows/deploy-vercel.yml`(사업자 정보 변수 전달·정적 페이지 생성)
 - `docs/farmclub-consumer.html`, `docs/farmclub-producer.html`(약관·처리방침 링크)
@@ -484,3 +484,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/22 가짜 사업자 값으로 `node scripts/local.mjs export consumer` → `dist/privacy.html`·`terms.html`·index.html noscript 생성, 값이 JS 번들에 들어간 것 확인. 로컬 정적 서버 375px에서 홈 하단 푸터, 앱 안 `/privacy`, 정적 `terms.html`을 눈으로 확인. 산출물은 지웠다.
 - 10/22 재동의 추가 후: `uv run pytest` 424 passed(격리 DB), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 24 passed / 0 failed, Mock 스택 `legal-consent.spec.ts` 2 passed(소비자 재동의 모드·생산자 /consent → 가입 신청), 실서버 `test:integration:full` 61 passed / 4 skipped(카카오가 없는 실서버에서 Mock 전용 2개 포함) / 0 failed. 생산자 `/consent` 375px 화면 확인. 임시 DB는 지웠다.
 - 10/22 GitHub Actions 변수: BUSINESS_NAME·OWNER·REGISTRATION_NO·ADDRESS·PHONE·EMAIL·PRIVACY_OFFICER 입력됨(값은 여기 쓰지 않음). 통신판매업 신고번호는 신고 후 입력 예정.
+- 10/22 origin/main(691949e, DEV-108·112·114 등) 병합. 충돌: 생산자 관문이 `lib/gate.ts`로 옮겨져 동의 규칙·`PUBLIC_PATHS`를 그쪽으로 옮기고 `test-producer-gate.mjs`에 AC-01-18 관문 테스트를 더했다. package.json test:mock은 두 쪽 스크립트를 모두 둔다. 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 28 passed / 0 failed, Mock `legal-*` 4 passed, 실서버 `test:integration:full` 67 passed / 4 skipped / 0 failed(새 카카오 복귀 spec 포함).
