@@ -6,9 +6,9 @@
 
 The final internal workbook contains **77 cases: 66 PASS, 6 FAIL, 3 BLOCKED, and 2 NOT READY**. Of these, 72 were executed: **93.5% execution** and **91.7% pass among executed cases**. The PM withheld full-scope GO for the planned 20 October user test. I-18 is PASS because the readiness review was completed; it is not a release approval.
 
-This report uses `SWPP_Internal_Testing_1_Final.xlsx` as the sole authority for these 77 outcomes. Prepared on 17 October, it records observations through **19 October 2026, 17:28 KST**. Separately verified GitHub logs supply automated-run and configuration evidence. They do not change workbook FAIL/BLOCKED states. No application tests were newly run for this documentation revision.
+This report uses `SWPP_Internal_Testing_1_Final.xlsx` as the sole authority for these 77 outcomes. Prepared on 17 October, it records observations through **19 October 2026, 17:28 KST**. Separately verified GitHub logs supply historical automated-run evidence. A supplementary local execution on **22 October 2026**, explicitly requested for coverage measurement, uses product commit `691949e985080f372a45d54fa950191e88adb8ce`. Neither evidence set changes the workbook FAIL/BLOCKED states. Section 3.6 reports the new execution separately.
 
-**Submission limitation:** numerical code coverage targets, component coverage measurements, and coverage-report screenshots were not established by the workbook or inspected GitHub records. These mandatory I2 requirements remain unmet. Section 7 identifies the remaining evidence gaps.
+**Coverage evidence added:** targets were saved before the 22 October supplementary execution; actual per-component reports and genuine report screenshots now appear below. Server statement/branch coverage is **90.90% / 75.47%**. Some component targets remain unmet, including consumer lines and admin JavaScript. Historical environment/attachment gaps and deployed retests remain open; measurements are not release approval (Section 7).
 
 ## Contents
 
@@ -45,6 +45,7 @@ The workbook's “unit testing” means verification of an owner's functional ar
 | 17 October | Functional owners execute sheets and record environment/evidence/follow-up. | Producer entries at 23:06 KST; other observations continue on 18–19 October. |
 | 18–19 October | PM checks core journeys and cross-role integration. | Morning run on 19 October; manager-enabled additional run 17:16–17:26 KST. |
 | 19 October 17:28 KST | Review deployed P0 flows, failures, and E2E feasibility for planned 20 October UT. | I-18 review completed; full-scope GO withheld. |
+| 22 October, supplementary | Declare coverage scopes/targets before measurement; run unchanged suites against isolated local dependencies. | Section 3.6: server/Node/API/Chromium results and component reports; original 77 outcomes preserved. |
 | After fixes/dependency resolution | Repeat failed paths and affected regressions in their original environments. | Follow-up plan; no later outcome inferred for workbook cases. |
 | 23 October 23:59 | Freeze reviewed Wiki/PDF snapshot for submission. | Submission step, not established by this workbook. |
 
@@ -69,16 +70,24 @@ Appendix A retains every procedure, observable criterion, outcome, environment, 
 
 ### 2.2 Coverage goals and measurement
 
-No numerical code coverage target or percentage was found in the workbook, prior Testing Documentation, inspected repository configuration/history, searched GitHub PRs, or identified CI records. Inspected Python dependencies include pytest/Ruff without a coverage collector; the JavaScript test command does not collect coverage. `test_source_coverage.py` tests source-analysis behavior and is not a code coverage report. This bounded search does not exclude unuploaded/private records.
+The 17–19 October workbook and inspected historical GitHub records did not establish numerical coverage goals or reports. `test_source_coverage.py` verifies source-analysis behavior; its name does not make it a coverage report. The revision therefore adds a **prospective supplementary plan saved on 22 October before local execution**, rather than assigning targets retrospectively to those earlier runs. It remains a local review draft under the user's no-commit-before-review instruction. [Saved plan and rationale](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/submission/evidence/iteration-2/coverage-plan.md).
 
-| Architectural component | Framework/collector status | Predeclared target | Actual coverage | Required action |
-| --- | --- | --- | --- | --- |
-| Consumer client | Node tests/Playwright; collector not established | Not recorded | Unavailable | Hyun declares metric/target/scope/tool and retains report/screenshot. |
-| Producer client | Node tests/Playwright; collector not established | Not recorded | Unavailable | Jinwoo declares target/scope/tool and retains report/screenshot. |
-| Shared API/UI | Typechecks/Mock contracts; no coverage report | Not recorded | Unavailable | Client owners assign/report targets separately for shared logic and rendering. |
-| Server services, authorization, AI adapters, persistence | pytest; no recorded coverage collector/report | Not recorded | Unavailable | Zahra declares component targets/configuration and retains report/screenshot. |
+| Component / included original sources | Metric / target | Reason for target |
+| --- | --- | --- |
+| All server `app/**/*.py` | Statements ≥85%; branches ≥75% | Broad transactional/authorization logic requires deterministic verification. |
+| Accounts, orders, messaging, each separately | Statements ≥90%; branches ≥80% | Identity, private data and state/stock transitions warrant stronger goals. |
+| Source-analysis module | Statements ≥80%; branches ≥70% | Worker/parser/failure handling includes third-party/process boundaries; real model accuracy is evaluated separately. |
+| Consumer `apps/consumer/src/**/*.ts,tsx` | Lines ≥60% | Rendering/platform branches coexist with business-facing routes; all routes stay included. |
+| Producer `apps/producer/src/**/*.ts,tsx` | Lines ≥60% | Same UI scope, including asynchronous editor and approval gates. |
+| Shared API `packages/api/src/**/*.ts` | Lines ≥80% | Shared transport/data/Mock contracts need stronger goals than rendering. |
+| Shared UI `packages/ui/src/**/*.ts,tsx` | Lines ≥60% | Shared rendering and hooks are included. |
+| Admin `api/**/*.js`, `assets/*.js`, `server.mjs` | Lines ≥80% | Session/proxy guards and runtime/browser entry points remain in scope. |
 
-Business logic and authorization warrant stronger targets than rendering/platform glue because failures affect transactions and data. Owners must commit numerical goals, explain differences, and state whether generated code, third-party code, migrations, and test utilities are included **before the next measurement**. No exclusions, targets, or achievements are backdated. Functional pass percentages cannot substitute for code coverage.
+**Collectors and denominator.** pytest-cov 7.1.0 / coverage.py 7.16.2 use `--cov=app --cov-branch`; all 93 application Python modules are included, even unexecuted modules. Node V8 coverage and Chromium JavaScript coverage are merged by c8 12.0.0 with original source maps and `all: true`. All 142 original client/shared TypeScript/TSX source files and seven admin JavaScript files are present in the final report. Unexecuted modules remain at zero. Analytics' two TypeScript files are reported as additional measured scope; no target was predeclared for that separate package and no retrospective pass/fail is assigned.
+
+Tests/harnesses, dependencies, generated declarations, build/bundle outputs, static HTML/CSS/assets, native wrappers/configuration and database migrations are outside these application-source boundaries. Temporary compiled Mock/Metro files supply maps but are not counted again as original sources. Source inclusion is fixed by the plan/configuration; no low-coverage application file is removed to improve a result. Statement/branch or line totals use covered/total counters, not a mean of per-file percentages, and Python/V8 metrics are never averaged together. V8 mapped line coverage is a different metric from Python executable-statement coverage.
+
+Collection-only changes add maps/preload/configuration without altering existing assertions, retries or worker count. Browser video recording is off because the FFmpeg download failed; the installed full Chromium executable is selected explicitly. The source-enabled run's two conditional skips are run in a second source-disabled configuration. Full setup, commands, versions, tool-generated reports and raw-counter files are retained in the [evidence directory](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/submission/evidence/iteration-2). These main-branch evidence URLs become available after reviewed merge; the local files are the review source until then.
 
 ### 2.3 Reproducible regression procedure
 
@@ -120,7 +129,7 @@ npm run test:integration:full
 
 The pinned runner uses `FIXED_NOW=2026-10-07T10:00:00+09:00`, seeded login, local API/client URLs, and `SOURCE_ANALYSIS_PROVIDER=mock`. [Playwright][playwright] uses one worker, zero retries, line/HTML reporters, `playwright-report/` and failure traces/screenshots/videos in `test-results/`. Process logs go to `.artifacts/integration/logs/`. CI uploads failure artifacts for seven days; neither inspected successful run has uploaded artifacts.
 
-These commands **do not produce code coverage**. Coverage tool/version/configuration/command, reports, and screenshots remain required.
+These historical commands do not produce code coverage. For the 22 October measurement at `691949e`, use section 2.5 and its saved coverage configuration; do not confuse the two revisions/environments.
 
 ### 2.4 Manual replay
 
@@ -131,6 +140,31 @@ These commands **do not produce code coverage**. Coverage tool/version/configura
 5. Repeat the failed deployed path after a fix, then affected regressions. Keep API-only, local, CI, and deployed UI outcomes distinct.
 
 Some workbook runs lack exact SHAs, browser versions, commands, or accessible screenshots/PM HTML. Appendix A preserves those limits.
+
+### 2.5 Supplementary coverage reproduction (22 October)
+
+The run used **macOS / Apple Silicon, Python 3.12.14, uv 0.13.5, PostgreSQL 16.15 (UTC), Node 24.19.0, npm 11.19.0, pytest 9.1.1, pytest-cov 7.1.0, coverage.py 7.16.2, c8 12.0.0, Playwright 1.64.0 and Chromium 156.0.8078.4**. Product dependencies were installed from the existing lockfiles. Coverage tools were installed separately without editing product dependencies/locks. The source hash is `691949e985080f372a45d54fa950191e88adb8ce`; only documentation/diagnostic files differed locally. This is additional local evidence, not a reproduction of the mutable deployed environment.
+
+PostgreSQL ran as an isolated cluster bound to `127.0.0.1:55432`, with database `farmclub_i2_coverage`; pytest used its separate `_test` database. Every reset was local/disposable. Mock external providers and cleared AI keys prevented paid model calls. No production writes, real bank transfer or live Kakao sign-in occurred. The browser tests exercise mocked/intercepted external conditions where specified, not real provider quality.
+
+The evidence folder contains `collect-coverage.sh`, `browser-coverage.cjs`, `playwright.coverage.config.ts`, `c8-config.json` and a run record. From a fresh copy of the reviewed files at that product revision, install `npm ci`, run `cd server && uv sync --frozen`, prepare an empty local PostgreSQL database with UTC timezone, and install Chromium. Then:
+
+~~~sh
+# Disposable local URL only; the runner resets its database.
+export DATABASE_URL='postgresql+psycopg://farmclub@127.0.0.1:55432/farmclub_i2_coverage'
+export FARMCLUB_INTEGRATION_SKIP_DOCKER=1
+# Optional when using an already installed full Chromium:
+export FARMCLUB_COVERAGE_BROWSER='/absolute/path/to/chromium-executable'
+bash docs/submission/evidence/iteration-2/collect-coverage.sh
+~~~
+
+The script refuses to overwrite an existing coverage artifact directory. It runs the existing pytest suite, compiles existing Mock fixtures with source maps, executes the unchanged Node/admin suites, runs real-stack API/Chromium checks in source-enabled and source-disabled configurations, and generates c8 HTML/JSON. Under `server/`, the exact Python collection command is:
+
+~~~sh
+uv run --frozen --with pytest-cov==7.1.0 pytest --cov=app --cov-branch   --cov-report=term --cov-report=html:../.artifacts/i2-coverage/server-html   --cov-report=json:../.artifacts/i2-coverage/server-coverage.json   --cov-report=xml:../.artifacts/i2-coverage/server-coverage.xml   --junitxml=../.artifacts/i2-coverage/server-junit.xml
+~~~
+
+`COVERAGE_FILE` is set to the artifact directory by the script. The supplied run record distinguishes the actually executed commands from the packaged reproduction helper, which was assembled from them afterward and was not itself rerun as one script. Preserve original reports for any subsequent run rather than replacing this dated evidence.
 
 ## 3. Unit and Integration Testing — Results
 
@@ -172,7 +206,7 @@ Executed = PASS + FAIL. Execution rate = executed / total; executed-case pass ra
 | 19 October 16:55–17:03; `79eaea724fa5ad1462958c111df14a967d357553` | Server: `cd server && uv run pytest` | 365 / 0 / 0; 365 collected, 68.53 s | [CI #39219190202 server][server-log-later] |
 | Same later run | `npm run test:integration:full` | API 7 / 0 / 0; Chromium 43 / 0 / 0 | [Integration][integration-log-later]; browser 3.7 min, zero retries configured |
 
-Automated success does not resolve the six deployed PM failures or establish successful first-order chat, new-product entry, or approved-producer re-login in that environment. No skipped cases appear in these specific summaries; that does not establish that every feature was tested. Component code coverage remains unavailable.
+Automated success does not resolve the six deployed PM failures or establish successful first-order chat, new-product entry, or approved-producer re-login in that environment. No skipped cases appear in these specific summaries; that does not establish that every feature was tested. These historical CI runs did not collect component code coverage; the separate 22 October measurement is below.
 
 ### 3.4 Failures, blockers, and required retests
 
@@ -211,6 +245,58 @@ Recorded safeguards include order idempotency, manager replay protection, author
 | **Total** | **26** | **46** | **5** |
 
 The summary excludes real/PG/sandbox payments and AI wrong-answer reporting from planned UT. A-13 internal PASS does not remove its external exclusion. No subsequent restricted-scope approval or actual 20 October UT result is established.
+
+### 3.6 Supplementary local regression and coverage — 22 October 2026
+
+**Source:** product commit `691949e985080f372a45d54fa950191e88adb8ce`; environment/commands in section 2.5. The saved plan preceded execution. [Execution record and files](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/main/docs/submission/evidence/iteration-2). Source-enabled and disabled runs share the same unchanged test suite and isolated database; their repeated API checks are not 14 unique scenarios.
+
+| Run / command | PASS | FAIL | Skipped | Elapsed / interpretation |
+| --- | ---: | ---: | ---: | --- |
+| Initial pytest + coverage | 420 | 2 | 0 | 148.92 s; two timestamp serialization assertions under the cluster's initial Asia/Seoul timezone |
+| Final pytest + coverage after DB timezone correction | **422** | **0** | **0** | 72.76 s; final server report generated 22:03:55 KST |
+| Existing Mock contracts (`node --test`, original script file list; source-map compile) | 22 | 0 | 0 | 27.055 s; not deployed API/model accuracy |
+| Admin Node suite (`node --test scripts/admin-web/admin.test.mjs`) | 18 | 0 | 0 | 0.894 s; handler/session/proxy checks, not full admin browser coverage |
+| Real API integration, source enabled | 7 | 0 | 0 | Existing local cross-role scenarios |
+| Chromium, source enabled | **65** | **0** | **2** | 5.4 min; two source-disabled fallback cases skipped by their original flag condition |
+| Real API integration, source disabled | 7 | 0 | 0 | Same seven scenarios repeated for the second configuration |
+| Chromium, source-disabled file only | **2** | **0** | **0** | 4.5 s; both previously conditional fallback cases pass |
+| TypeScript workspace checks | 5 checks | 0 | 0 | Consumer, producer, analytics, API and UI; static checks, not additional runtime cases |
+| Ruff / Alembic check | Both pass | 0 | 0 | Lint plus no new schema upgrade operations detected |
+
+**Initial failure analysis.** `test_AC_01_3_pending_and_rejected_producers_can_read_application` and `test_AC_01_7_rejected_producer_can_reapply_with_same_farm` compared the same instant serialized as `2026-10-07T10:00:00+09:00` versus `2026-10-07T01:00:00Z`. The isolated PostgreSQL cluster initially inherited Asia/Seoul. Setting that cluster to UTC and rerunning resolved both without changing product code or assertions. The original failing log remains in the evidence folder. This establishes a local environment dependency and a UTC reproduction condition; it does not prove behavior under every deployment timezone.
+
+**Server coverage.** Statement = covered executable lines / statements; branch = covered branches / branches. Component rows are subsets of the total, not additional independent totals.
+
+| Server component | Statement coverage (covered/total) | Target | Branch coverage (covered/total) | Target | Assessment |
+| --- | ---: | ---: | ---: | ---: | --- |
+| All application Python | **90.90% (7,676/8,444)** | ≥85% | **75.47% (1,674/2,218)** | ≥75% | Both met |
+| Accounts | 92.41% (499/540) | ≥90% | 77.69% (101/130) | ≥80% | Branch goal missed by 2.31 percentage points |
+| Orders | 94.55% (833/881) | ≥90% | 75.73% (156/206) | ≥80% | Branch goal missed by 4.27 points |
+| Messaging | 95.03% (1,052/1,107) | ≥90% | 81.20% (190/234) | ≥80% | Both met |
+| Source analysis | 83.28% (2,042/2,452) | ≥80% | 69.53% (559/804) | ≥70% | Branch goal missed by 0.47 points |
+
+![Actual coverage.py report, 22 October](images/i2-coverage-server.png)
+
+Figure T1. Genuine coverage.py 7.16.2 HTML report screenshot. Its header **88%** combines statement and branch opportunities and is rounded; it is **not** the statement-only 90.90% above. The complete navigable report, including all files, is retained in `coverage-html-reports.zip` (`server-html/index.html`).
+
+**Client/shared/admin coverage.** These are V8 observations mapped to original sources, combining Node contracts with both Chromium configurations. All unexecuted in-scope files remain in the denominator. Percentages are calculated from counters and rounded to two decimals; c8's native display may truncate at the second decimal.
+
+| Component | Line coverage (covered/total) | Predeclared line goal | Functions | Branches | Assessment |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Consumer | **54.34% (3,431/6,314)** | ≥60% | 46.83% | 69.46% | Missed by 5.66 points |
+| Producer | **72.22% (8,780/12,158)** | ≥60% | 51.53% | 79.18% | Met |
+| Shared API | **86.02% (6,278/7,298)** | ≥80% | 66.43% | 75.07% | Met |
+| Shared UI | **85.66% (4,051/4,729)** | ≥60% | 80.14% | 82.54% | Met |
+| Admin JavaScript | **68.15% (214/314)** | ≥80% | 92.31% | 73.15% | Missed by 11.85 points |
+| Analytics (additional scope) | 79.13% (201/254) | None declared | 81.25% | 80.77% | Measured; no retrospective target |
+
+![Actual c8 original-source report, 22 October](images/i2-coverage-client.png)
+
+Figure T2. Genuine c8 HTML report screenshot. Combined in-scope V8 line coverage is 22,955/31,067 (**73.89%** rounded; native c8 displays **73.88%** truncated). It is not averaged with Python. The entire client report is retained in the same ZIP (`client-html/index.html`); `client-coverage.json`, summaries and server JSON preserve file counters and uncovered locations. Published JSON replaces only local absolute paths with repository-relative paths; counters are unchanged.
+
+**Interpretation and action.** Consumer coverage is particularly weak in onboarding/profile/address and some order/list interactions, despite core checkout scenarios passing. Admin Node tests exercise handlers, but `assets/admin.js` and `server.mjs` are unexecuted in this collection and remain at zero. Hyun should add consumer interaction regressions; the operator/server owner should cover the browser glue/local entry and remaining proxy/session paths. Zahra should use the retained uncovered branch lists to extend account/order failure and source-worker recovery tests, preserving the original goals. Target misses describe unobserved paths, not proof that every such path is defective. Do not exclude those paths or weaken assertions to improve a percentage.
+
+The two conditional browser skips are resolved within the local matrix, not silently omitted. The successful local runs still do not close the workbook's deployed defects, supply missing physical-device evidence, establish live OAuth/provider/real-transfer correctness, or validate the NFR latency/load/uptime goals. Retest the six deployed failures with recorded account/app/server revisions before changing readiness.
 
 ## 4. AI Module Testing (Iteration 3)
 
@@ -251,11 +337,11 @@ This matrix follows Guideline 4, pp. 1–2 and submission rules on p. 5. Later r
 | Component responsibility/new-code policy | Section 1 | Owner review. |
 | Timing/merge criteria | Section 1/CI | Preserve actual executed/skipped steps. |
 | Frameworks/isolation/scope | Section 2.1 | Recover missing historical environment details. |
-| Architectural coverage goals/rationale | Section 2.2 | **Unmet:** numerical targets/include-exclude rules before measurement. |
-| Exact test/coverage commands/environment | Section 2.3 | **Partly met:** coverage configuration/command missing; some local/manual SHAs/browser versions absent. |
+| Architectural coverage goals/rationale | Section 2.2 / saved 22 October plan | Supplementary targets declared before measurement; owner review pending. Historical absence remains explicit. |
+| Exact test/coverage commands/environment | Sections 2.3/2.5 / evidence scripts | Supplementary configuration/commands/runtime recorded; some historical manual SHAs/browser versions remain absent. |
 | Result date/commit/command | Section 3/Appendix A | **Partly met:** exact workbook-only local SHAs/commands and app/server pairs needed. |
-| Actual coverage versus target/screenshot | Unavailable-result table | **Unmet:** genuine measured reports/screenshots required. |
-| Counts, failure/skip reasons, actions | Section 3/all 77 cases | Supply referenced artifacts; retest after fixes/dependency resolution. |
+| Actual coverage versus target/screenshot | Section 3.6 / native reports and screenshots | Measured and retained; follow up missed component targets without revising them retrospectively. |
+| Counts, failure/skip reasons, actions | Sections 3.1–3.6 / all 77 cases | Supply referenced artifacts; retest after fixes/dependency resolution. |
 | Preserve plans/explain revisions | Appendix B/immutable prior version | Keep original and revised future commitments. |
 | English/separate Wiki | This source/[Wiki][wiki] | Reviewed main merge/Wiki sync required for this local revision. |
 | PDF at iteration close | Source for subsequent export | Export/inspect `team6-iter2-testing.pdf` before 23 October 23:59; not exported/submitted here. |
@@ -1528,6 +1614,7 @@ The [document at `a262714`][prior] preserves the submitted AC catalogue, spec 1.
 | EAS APK | TWA replaces packaging plan; native work deferred | Original criterion and revised plan both retained in C-21. |
 | Earlier AC catalogue/spec supplements | Prior version retained; formal I3 freeze/I4 results future | Changing development criteria are not completed UAT. |
 | Historical I1/DEV-44/50/51/model-development counts | Linked history outside current register | Avoid mixing dates/environments/experiments/overlapping counts. |
+| No recorded historical numerical coverage plan/report | 22 October plan before supplementary measurement; unchanged suites and genuine reports | Fill missing I2 evidence without backdating targets, overwriting workbook outcomes or hiding target misses. |
 
 ### Source references
 

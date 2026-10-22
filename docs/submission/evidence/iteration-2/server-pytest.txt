@@ -1,0 +1,141 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: <repository>/server
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, anyio-4.15.1
+collected 422 items
+
+tests/test_accounts.py ....................................              [  8%]
+tests/test_admin.py ..........                                           [ 10%]
+tests/test_admin_farms.py ........                                       [ 12%]
+tests/test_admin_user_detail.py ......                                   [ 14%]
+tests/test_admin_users.py ........                                       [ 16%]
+tests/test_ai_service.py ...............                                 [ 19%]
+tests/test_catalog.py .........................                          [ 25%]
+tests/test_core.py .......                                               [ 27%]
+tests/test_farm_share.py ....                                            [ 28%]
+tests/test_farms.py ...................                                  [ 32%]
+tests/test_health.py ...                                                 [ 33%]
+tests/test_manager_recovery.py .............................             [ 40%]
+tests/test_media.py ..............                                       [ 43%]
+tests/test_messaging.py ............................................     [ 54%]
+tests/test_orders.py ................................                    [ 61%]
+tests/test_product_workspace.py ........                                 [ 63%]
+tests/test_retire_test_farm.py ........                                  [ 65%]
+tests/test_settings_inquiries.py ...................                     [ 69%]
+tests/test_source_analysis.py ...................                        [ 74%]
+tests/test_source_coverage.py ....                                       [ 75%]
+tests/test_source_editor.py ...........                                  [ 77%]
+tests/test_source_gemini_ocr.py ...........                              [ 80%]
+tests/test_source_integration.py ...........................             [ 86%]
+tests/test_source_photo_placement.py ......                              [ 88%]
+tests/test_source_recovery.py ........................                   [ 94%]
+tests/test_source_visual_quality.py ...............                      [ 97%]
+tests/test_support.py ..........                                         [100%]
+
+- generated xml file: <repository>/.artifacts/i2-coverage/server-junit.xml -
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.12.14-final-0 _______________
+
+Name                                    Stmts   Miss Branch BrPart  Cover
+-------------------------------------------------------------------------
+app/__init__.py                             0      0      0      0   100%
+app/accounts/__init__.py                    0      0      0      0   100%
+app/accounts/admin_token.py                13     13      4      0     0%
+app/accounts/models.py                     38      0      0      0   100%
+app/accounts/router.py                     82      0      0      0   100%
+app/accounts/schemas.py                   108      0      0      0   100%
+app/accounts/service.py                   299     28    126     15    88%
+app/admin/__init__.py                       0      0      0      0   100%
+app/admin/farms.py                         57      0      6      0   100%
+app/admin/models.py                        29      0      0      0   100%
+app/admin/retire_test_farm.py             100      6     32      6    91%
+app/admin/router.py                        22      1      0      0    95%
+app/admin/schemas.py                       89      0      0      0   100%
+app/admin/service.py                      154     15     40     11    86%
+app/admin/support.py                       26      0      0      0   100%
+app/admin/user_detail.py                  106      0     14      0   100%
+app/admin/users.py                         61      0     16      0   100%
+app/ai/__init__.py                          0      0      0      0   100%
+app/ai/grounding.py                       168     11     70      9    91%
+app/ai/models.py                            0      0      0      0   100%
+app/ai/router.py                            2      0      0      0   100%
+app/ai/schemas.py                          30      0      0      0   100%
+app/ai/service.py                         157     17     66     18    84%
+app/ai/source_analysis.py                  85     17     26      3    80%
+app/ai/source_ocr.py                       61      6     16      4    87%
+app/analytics/__init__.py                   0      0      0      0   100%
+app/analytics/models.py                     0      0      0      0   100%
+app/analytics/router.py                     2      0      0      0   100%
+app/analytics/schemas.py                    0      0      0      0   100%
+app/analytics/service.py                    0      0      0      0   100%
+app/catalog/__init__.py                     0      0      0      0   100%
+app/catalog/models.py                      89      0      0      0   100%
+app/catalog/router.py                     104      4     10      3    92%
+app/catalog/schemas.py                    216      0      2      0   100%
+app/catalog/service.py                    524     64    234     56    84%
+app/core/__init__.py                        0      0      0      0   100%
+app/core/clock.py                          13      1      2      1    87%
+app/core/config.py                         85      6     28      6    89%
+app/core/db.py                             18      0      0      0   100%
+app/core/detail.py                         53      1      6      1    97%
+app/core/errors.py                         45      0      0      0   100%
+app/core/idempotency.py                    49      2     12      1    95%
+app/core/ids.py                             3      0      0      0   100%
+app/core/images.py                         70     19     36      3    72%
+app/core/masking.py                        19      0      4      0   100%
+app/core/models.py                         16      0      0      0   100%
+app/core/pagination.py                     21      3      4      1    84%
+app/core/schemas.py                         7      0      0      0   100%
+app/core/security.py                       82      3     18      3    94%
+app/core/seed.py                          162     10     62      1    93%
+app/farms/__init__.py                       0      0      0      0   100%
+app/farms/models.py                        57      0      0      0   100%
+app/farms/router.py                        72      0      2      0   100%
+app/farms/schemas.py                       97      0      4      0   100%
+app/farms/service.py                      236     13     70     11    92%
+app/farms/share.py                         24      0      4      0   100%
+app/main.py                                40      0      4      0   100%
+app/media/__init__.py                       0      0      0      0   100%
+app/media/migrate_inline.py               105     14     36      3    82%
+app/media/models.py                        15      0      0      0   100%
+app/media/router.py                        36      0      6      0   100%
+app/media/schemas.py                        7      0      0      0   100%
+app/media/service.py                       50      1     14      1    97%
+app/messaging/__init__.py                   0      0      0      0   100%
+app/messaging/models.py                    93      0      0      0   100%
+app/messaging/router.py                   132      5      4      1    96%
+app/messaging/schemas.py                  177      0      0      0   100%
+app/messaging/service.py                  624     50    220     37    89%
+app/messaging/support.py                   81      0     10      0   100%
+app/orders/__init__.py                      0      0      0      0   100%
+app/orders/models.py                       71      0      0      0   100%
+app/orders/router.py                      129      1      0      0    99%
+app/orders/schemas.py                     155      0      0      0   100%
+app/orders/service.py                     526     47    206     42    87%
+app/source_analysis/__init__.py             0      0      0      0   100%
+app/source_analysis/budget.py              34      0     12      0   100%
+app/source_analysis/coverage.py            37      0     22      0   100%
+app/source_analysis/editor.py              71      4     42      6    91%
+app/source_analysis/evaluate.py            26      5      8      1    82%
+app/source_analysis/middleware.py          32      3     12      2    89%
+app/source_analysis/models.py             152      0      0      0   100%
+app/source_analysis/photos.py              91     13     20      4    85%
+app/source_analysis/preprocess.py         312    101    124     27    65%
+app/source_analysis/provision_ocr.py       30     30     10      0     0%
+app/source_analysis/publish.py             82     12     26      9    81%
+app/source_analysis/representative.py      35      1     16      3    92%
+app/source_analysis/router.py             251     36     36     12    82%
+app/source_analysis/schemas.py            111      4      2      0    95%
+app/source_analysis/service.py            430     90    196     41    75%
+app/source_analysis/storage.py             54     11     28      9    68%
+app/source_analysis/synthetic.py          146     42     36     13    66%
+app/source_analysis/worker.py             427     52    180     26    86%
+app/source_analysis/workspace.py          131      6     34      6    93%
+-------------------------------------------------------------------------
+TOTAL                                    8444    768   2218    396    88%
+Coverage HTML written to dir ../.artifacts/i2-coverage/server-html
+Coverage XML written to file ../.artifacts/i2-coverage/server-coverage.xml
+Coverage JSON written to file ../.artifacts/i2-coverage/server-coverage.json
+======================== 422 passed in 72.76s (0:01:12) ========================

@@ -1,0 +1,19 @@
+digraph G {
+ graph[rankdir=LR,bgcolor=white,pad="0.3",nodesep="0.4",ranksep="0.65",label="Farmclub · Iteration 2 · Order lifecycle",labelloc=t,fontsize=22];node[shape=box,style="rounded,filled",fillcolor="#FFF4E8",color="#A75E25",fontname=Arial,fontsize=12];edge[fontname=Arial,fontsize=10,color="#637184"];
+ pending[label="PENDING_PAYMENT
+No stock held"];await[label="AWAITING_DEPOSIT
+Stock held / 24-hour deadline"];reserved[label="RESERVED
+Verified deposit recorded"];prep[label="PREPARING"];shipped[label="SHIPPED"];delivered[label="DELIVERED"];done[label="COMPLETED"];cancel[label="CANCELED
+Release held stock once"];refund[label="REFUNDED
+Farm sends refund
+Eligible unshipped stock released"];reported[label="Buyer report / deposit issue
+Still awaiting confirmation
+No automatic expiry",shape=note,fillcolor="#EAF3FF",color="#476B9A"];partial[label="Partial refund
+History/payment only
+Fulfillment and stock unchanged",shape=note,fillcolor="#EEF7EC",color="#547B48"];
+ pending->await[label="issue instructions
+lock + recheck + idempotency"];pending->cancel[label="cancel"];await->reserved[label="farm/operator confirms"];await->cancel[label="cancel / overdue
+only if unreported"];await->reported[label="report / issue"];reported->await[style=dotted,label="reconcile"];reserved->prep[style=dashed,label="retained harvest API
+NO current UI button"];prep->shipped[label="producer + tracking"];shipped->delivered[label="operator delivery"];delivered->done[label="consumer receipt"];reserved->refund[label="full cancellation"];prep->refund[label="full cancellation"];shipped->refund[label="operator full refund
+no shipped-stock release"];reserved->partial[style=dotted,label="operator partial refund"];partial->reserved[style=dotted,label="same fulfillment state"];
+}
