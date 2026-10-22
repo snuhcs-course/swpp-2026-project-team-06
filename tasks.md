@@ -81,7 +81,9 @@ Testing Documentation(I2) 2.2 표의 Producer client 행을 채운다. 목표를
 - 10/23 통합 테스트는 공용 로컬 DB를 리셋하지 않게 브랜치 전용 DB `farmclub_dev118`에서 돌렸다.
 - 10/23 의존성 추가(`monocart-coverage-reports`, devDependency)는 진우가 요청한 생산자 커버리지 측정에 필요해 추가했다(AGENTS.md "요청하지 않은 의존성 추가 금지"에 해당하지 않음). 제품 번들에는 들어가지 않는다.
 - 10/23 AI 1차 리뷰 반영: 커버리지를 끄면 `scripts/e2e/fixtures.ts`가 `@playwright/test`의 `test`를 그대로 내보내도록 바꿨다(전에는 끈 상태에서도 auto 픽스처가 기본 컨텍스트를 만들었다). 소스맵 fetch·보고서 저장 실패는 테스트 실패가 아닌 경고로. 측정 커밋 `0637847` 뒤의 픽스처 변경이라 3.6 수치는 다시 재지 않았다(켠 상태의 수집 경로는 같음).
-- 10/23 Makefile 타깃은 별도 PR(DEV-118 Makefile)로 분리했다. 이 PR에서 Makefile은 main과 같다.
+- 10/23 Makefile 타깃은 별도 PR(브랜치 `jinumeral/dev-118-make-coverage`)로 분리했다. 테스팅 PR에서 Makefile은 main과 같다.
+- 10/23 Makefile PR: `coverage-producer`, `coverage-producer-ui`(`LOCAL_DB_ONLY` 검사 뒤 캐시 삭제 → 커버리지 켠 통합 → 보고서), help 이름 칸 17 → 20자(새 이름이 20자), README make 절 한 줄.
+- 10/23 Makefile PR AI 1차 리뷰 반영: coverage 두 타깃은 CI에 없는 로컬 측정용이라고 주석에 밝혔다. 가드가 `server/.env` 원격 주소에도 멈추는 점(안전한 쪽 오탐)과 기존 `test-integration`에 같은 가드가 없는 점은 범위 밖으로 두었다.
 
 ### 작업
 - [x] 목표·범위·제외 규칙 문서화 (측정 전 커밋)
