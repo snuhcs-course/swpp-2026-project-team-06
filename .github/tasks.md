@@ -142,3 +142,51 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 구현 결정: `spec-check/spec.md`
 - 상태: core 리뷰 중. live 모델 접근/증거는 사용자 승인으로 DEV-55에 이전했으며 core 머지를 막지 않는다. Core 사람 승인은 필요하다.
 - 기존 workflow/PR template/과거 이슈 기록을 보존한다.
+
+## DEV-114 관리자 페이지(admin-web) CI 테스트 + main 머지 뒤 Vercel 자동 배포
+
+- 이슈: [DEV-114](https://linear.app/sswp6/issue/DEV-114)
+- 브랜치: `nemodleo/dev-114-관리자-페이지admin-web-ci-테스트-main-머지-뒤-vercel-자동`
+- 기능·인수 조건: 없음(인프라). 관련: `scripts/admin-web/README.md`, DEV-67(앱 자동 배포), DEV-70(production Environment), DEV-91(admin.farmclub.kr)
+- 상태: 진행 중
+
+### 목표
+관리자 페이지(`scripts/admin-web`, Vercel 프로젝트 `farmclub-admin`)의 테스트를 PR CI에서 돌리고, main에 관리자 페이지 변경이 머지되면 CI 성공 뒤 자동으로 운영에 올린다. 지금은 수동 `vercel deploy --prod`라 DEV-98·106·107·111처럼 머지돼도 반영되지 않을 수 있다.
+
+### 범위 (수정 허용 경로)
+- `.github/workflows/ci.yml` (job `admin-web` 추가, 상단 주석)
+- `.github/workflows/deploy-vercel.yml` (job `deploy-admin` 추가, 상단 주석)
+- `scripts/admin-web/README.md` (배포 절)
+- `docs/spec/tech-design/stack.md` (CI/CD 줄)
+- `.github/tasks.md` (이 절)
+
+### 비범위 (건드리지 않음)
+- Vercel 프로젝트 환경 변수(`ADMIN_WEB_PASSWORD`·`ADMIN_TOKEN`·`FARMCLUB_API_URL`)와 `ADMIN_TOKEN` 교체(JWT_SECRET 교체와 함께 사용자가 따로)
+- 저장소 설정(필수 체크, secrets, Environment), 관리자 페이지 코드, 소비자·생산자 앱 배포 단계
+
+### 결정 사항
+- 10/22 CI는 기존 잡에 단계를 넣지 않고 job `admin-web`을 따로 둔다. 의존성 설치 없이 `node --test scripts/admin-web/admin.test.mjs`만 돌려 `apps`의 `npm ci`·export를 기다리지 않는다. 필터: `scripts/admin-web/**`, `.nvmrc`, `ci.yml`. 기존처럼 변경이 없으면 단계만 건너뛰고 성공
+- 10/22 배포는 matrix(consumer·producer)를 넓히지 않고 job `deploy-admin`을 따로 둔다. 빌드·`npm ci`가 없고 변경 감지 경로가 달라서 matrix 안에 조건을 섞는 것보다 읽기 쉽다. 트리거·`if`·production Environment·`VERCEL_TOKEN` 옵트인은 앱 잡과 같다
+- 10/22 업로드는 `vercel deploy scripts/admin-web --prod`(빌드 없이 원본 업로드, Vercel이 `vercel.json` rewrites·functions로 함수를 만든다). 지금까지의 수동 배포(`cd scripts/admin-web && vercel deploy --prod`)와 같은 방식이라 `vercel build`/`--prebuilt`는 쓰지 않는다. 로컬 `vercel build`는 `vercel pull`로 환경 변수를 디스크에 받아야 해서 하지 않는다
+- 10/22 프로젝트 ID `prj_ex1siKHTosUuGYJM7jQh3571yecU`(`vercel project inspect farmclub-admin`, Root Directory `.`, Node 24.x). 비밀값 아님, 워크플로에 적는다
+- 10/22 변경 감지: CI가 검사한 커밋의 `HEAD~1..HEAD`에 `scripts/admin-web/` 또는 `deploy-vercel.yml` 변경이 있을 때. 수동 실행은 앱과 함께 항상 올린다
+- 10/22 배포 뒤 확인: `https://admin.farmclub.kr/login`이 200인지(로그인 전 화면, 비밀값 불필요)
+
+### 작업
+- [x] tasks.md 절
+- [x] `ci.yml` job `admin-web`
+- [x] `deploy-vercel.yml` job `deploy-admin`
+- [x] README 배포 절, stack.md CI/CD 줄
+- [x] 로컬: `node --test scripts/admin-web/admin.test.mjs`, actionlint
+- [ ] draft PR에서 `admin-web` job 실행·통과
+- [ ] AI 1차 리뷰 반영
+
+### 완료 조건
+- [ ] PR에서 `admin-web` job이 테스트를 돌리고 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+- [ ] 머지 뒤 `Deploy apps to Vercel`의 `deploy-admin`이 성공하고 admin.farmclub.kr에 반영(사람이 확인)
+
+### 기록
+- 10/22 tasks.md 작성. 로컬 `node --test scripts/admin-web/admin.test.mjs` 18개 통과(origin/main 1f1a243)
+- 10/22 job 추가 후 로컬: `node --test scripts/admin-web/admin.test.mjs` 18/18 통과, `actionlint ci.yml deploy-vercel.yml` 경고 없음. 실제 배포는 main 머지 뒤라 PR에서는 하지 않는다
+- 10/22 참고: `deploy-vercel.yml`을 고치면 앱 matrix의 변경 감지에도 걸려 이 PR 머지 때 소비자·생산자 앱도 다시 올라간다(기존 규칙, 같은 main 내용)
