@@ -148,7 +148,7 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 이슈: [DEV-114](https://linear.app/sswp6/issue/DEV-114)
 - 브랜치: `nemodleo/dev-114-관리자-페이지admin-web-ci-테스트-main-머지-뒤-vercel-자동`
 - 기능·인수 조건: 없음(인프라). 관련: `scripts/admin-web/README.md`, DEV-67(앱 자동 배포), DEV-70(production Environment), DEV-91(admin.farmclub.kr)
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 관리자 페이지(`scripts/admin-web`, Vercel 프로젝트 `farmclub-admin`)의 테스트를 PR CI에서 돌리고, main에 관리자 페이지 변경이 머지되면 CI 성공 뒤 자동으로 운영에 올린다. 지금은 수동 `vercel deploy --prod`라 DEV-98·106·107·111처럼 머지돼도 반영되지 않을 수 있다.
@@ -178,11 +178,11 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - [x] `deploy-vercel.yml` job `deploy-admin`
 - [x] README 배포 절, stack.md CI/CD 줄
 - [x] 로컬: `node --test scripts/admin-web/admin.test.mjs`, actionlint
-- [ ] draft PR에서 `admin-web` job 실행·통과
-- [ ] AI 1차 리뷰 반영
+- [x] draft PR에서 `admin-web` job 실행·통과
+- [x] AI 1차 리뷰 반영
 
 ### 완료 조건
-- [ ] PR에서 `admin-web` job이 테스트를 돌리고 통과
+- [x] PR에서 `admin-web` job이 테스트를 돌리고 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 - [ ] 머지 뒤 `Deploy apps to Vercel`의 `deploy-admin`이 성공하고 admin.farmclub.kr에 반영(사람이 확인)
 
@@ -190,3 +190,5 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 10/22 tasks.md 작성. 로컬 `node --test scripts/admin-web/admin.test.mjs` 18개 통과(origin/main 1f1a243)
 - 10/22 job 추가 후 로컬: `node --test scripts/admin-web/admin.test.mjs` 18/18 통과, `actionlint ci.yml deploy-vercel.yml` 경고 없음. 실제 배포는 main 머지 뒤라 PR에서는 하지 않는다
 - 10/22 참고: `deploy-vercel.yml`을 고치면 앱 matrix의 변경 감지에도 걸려 이 PR 머지 때 소비자·생산자 앱도 다시 올라간다(기존 규칙, 같은 main 내용)
+- 10/22 PR #228: `admin-web` job 18/18 통과(run 39728193563), server·apps·figma-line 통과. `integration`은 첫 실행에서 e2e AC-10-6(`checkout-and-fulfillment.spec.ts:135`, 같은 문구 2곳 strict mode)이 실패 → 앱·e2e 변경 없고 main 1f1a243 통과라 flaky로 보고 재실행해 통과
+- 10/22 AI 1차 리뷰 코멘트(must 없음). 머지 뒤 사람 확인: 첫 `deploy-admin` 성공(403이면 `VERCEL_TOKEN` 범위), admin.farmclub.kr에 DEV-98·106·107·111 화면
