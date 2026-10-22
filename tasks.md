@@ -64,7 +64,10 @@ Testing Documentation(I2) 2.2 표의 Producer client 행을 채운다. 목표를
 
 ### 범위 (수정 허용 경로)
 - `docs/wiki/Testing-Documentation.md` 생산자 행·2.2 생산자 목표 문단·3.6(새 절), `docs/wiki/images/i2-producer-coverage-*.png`
-- `scripts/test-producer-*.mjs`(새 테스트), `scripts/e2e/` 커버리지 수집 부분, `package.json` scripts, `Makefile` 한 줄, `tasks.md`
+- `scripts/test-producer-*.mjs`(새 테스트), `scripts/producer-ui-coverage.mjs`(새 보고서 스크립트)
+- `scripts/e2e/fixtures.ts`(새 픽스처)와 `scripts/e2e/*.spec.ts`의 `test` import 한 줄(17개 파일)
+- `package.json` scripts·devDependencies(`monocart-coverage-reports`), `package-lock.json`
+- 별도 Makefile PR: `Makefile` coverage 타깃 2개·help 이름 칸 폭, `README.md` make 절 한 줄, `tasks.md`
 
 ### 비범위
 - 소비자·서버·공용 `packages/*` 커버리지(각 담당자), 생산자 앱 동작 변경, CI 워크플로
@@ -76,6 +79,8 @@ Testing Documentation(I2) 2.2 표의 Producer client 행을 채운다. 목표를
 - 10/23 monocart는 보고서를 만든 뒤 캐시를 지운다. 그래서 순서는 통합 테스트(커버리지 켬) → `npm run coverage:producer-ui` 1회.
 - 10/23 첫 측정 때 범위 필터 정규식이 `pick.ts`·`sourceFiles.ts`를 빠뜨렸다(슬래시 하나 더 요구). 고친 뒤 다시 돌린 결과만 기록한다.
 - 10/23 통합 테스트는 공용 로컬 DB를 리셋하지 않게 브랜치 전용 DB `farmclub_dev118`에서 돌렸다.
+- 10/23 의존성 추가(`monocart-coverage-reports`, devDependency)는 진우가 요청한 생산자 커버리지 측정에 필요해 추가했다(AGENTS.md "요청하지 않은 의존성 추가 금지"에 해당하지 않음). 제품 번들에는 들어가지 않는다.
+- 10/23 AI 1차 리뷰 반영: 커버리지를 끄면 `scripts/e2e/fixtures.ts`가 `@playwright/test`의 `test`를 그대로 내보내도록 바꿨다(전에는 끈 상태에서도 auto 픽스처가 기본 컨텍스트를 만들었다). 소스맵 fetch·보고서 저장 실패는 테스트 실패가 아닌 경고로. 측정 커밋 `0637847` 뒤의 픽스처 변경이라 3.6 수치는 다시 재지 않았다(켠 상태의 수집 경로는 같음).
 - 10/23 Makefile 타깃은 별도 PR(DEV-118 Makefile)로 분리했다. 이 PR에서 Makefile은 main과 같다.
 
 ### 작업

@@ -76,7 +76,7 @@ test("AC-01-16: each login start issues a new state", () => {
   });
 });
 
-test("AC-01-11: no Kakao key means no login URL", () => {
+test("AC-01-16: without a Kakao key the app builds no login URL", () => {
   withBrowser(memoryStorage(), () => {
     assert.equal(beginKakaoLogin({ ...config, clientId: "" }), null);
     assert.equal(takeKakaoNonce(), null);
