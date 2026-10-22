@@ -422,7 +422,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: [DEV-113](https://linear.app/sswp6/issue/DEV-113)
 - 브랜치: `nemodleo/dev-113-dev-사이트-사업자-정보-표시`
 - 기능·규칙: R-16(법정 표시), policy.md 1·2·5·6장, R-01·02·05·07~12·14·17·20·21·23·24·28, M-02·06·07·08·16·18·21, FEAT-01 SCR-05·06·19
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 카카오 비즈 앱 전환 심사가 "사이트에서 사업자 정보가 확인되지 않음"으로 반려됐다. 두 앱 첫 화면 하단에 사업자 정보를 보이고, 개인정보 처리방침(`/privacy`)·이용약관(`/terms`) 전문을 로그인 없이 읽히게 한다.
@@ -452,19 +452,23 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/22 rules.md R-08(“환불은 카드 승인 취소로만”)은 DEV-68 뒤 policy.md 1장·R-28(농가가 입금 계좌로 송금)과 다르다. 약관은 R-28·policy를 따른다. R-08 정정은 이 PR 범위 밖이라 PR 질문으로 남긴다.
 
 ### 작업
-- [ ] `legalContent.ts`(문안·사업자 정보) + `LegalFooter`·`LegalDocument`
-- [ ] 두 앱 `/privacy`·`/terms` 라우트, 생산자 관문 예외
-- [ ] 푸터 배치: 소비자 홈·로그인·마이, 생산자 로그인·환경설정. 가입 동의 시트에 전문 링크
-- [ ] `scripts/legal-pages.mjs` 정적 페이지·noscript, local.mjs·deploy-vercel.yml 연결, vercel.json rewrite
-- [ ] 랜딩 링크, README 변수 표, ia·policy·wiki 동기화
-- [ ] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`, 브라우저 확인
+- [x] `legalContent.ts`(문안·사업자 정보) + `LegalFooter`·`LegalDocument`
+- [x] 두 앱 `/privacy`·`/terms` 라우트, 생산자 관문 예외
+- [x] 푸터 배치: 소비자 홈·로그인·마이, 생산자 로그인·환경설정. 가입 동의 시트에 전문 링크
+- [x] `scripts/legal-pages.mjs` 정적 페이지·noscript, local.mjs·deploy-vercel.yml 연결, vercel.json rewrite
+- [x] 랜딩 링크, README 변수 표, ia·policy·wiki 동기화
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`, 브라우저 확인
 
 ### 완료 조건
-- [ ] 두 앱 첫 화면(소비자 홈, 생산자 로그인) 하단에 사업자 정보(값 있는 항목)와 약관·처리방침 링크
-- [ ] `/privacy`·`/terms`가 로그인 없이 열리고, 배포 산출물에 정적 HTML로 있다
-- [ ] 처리방침 필수 항목, 약관의 중개자 고지·선주문·취소·환불 규칙이 R-xx와 일치
-- [ ] 테스트 통과
+- [x] 두 앱 첫 화면(소비자 홈, 생산자 로그인) 하단에 사업자 정보(값 있는 항목)와 약관·처리방침 링크
+- [x] `/privacy`·`/terms`가 로그인 없이 열리고, 배포 산출물에 정적 HTML로 있다
+- [x] 처리방침 필수 항목, 약관의 중개자 고지·선주문·취소·환불 규칙이 R-xx와 일치
+- [x] 테스트 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/22 origin/main 1f1a243에서 브랜치 생성, `npm ci`·`uv sync --frozen` 완료.
+- 10/22 `npm run typecheck` 4 workspace 통과. `npm run test:mock` 23 passed / 0 failed(새 `test-legal.mjs` 4개 포함).
+- 10/22 Mock 스택(`npm run dev`)에서 `npx playwright test scripts/e2e/legal-pages.spec.ts` 2 passed. 같은 Mock에서 discovery-and-gates·producer-help-guide 7개가 실패했는데, Mock 트래픽 금지·카카오+테스트 버튼 동시 노출 때문인 실서버 전용 spec이라 아래 실서버로 다시 돌렸다.
+- 10/22 `DATABASE_URL=…/farmclub_dev115 npm run test:integration:full`(같은 Postgres 컨테이너의 임시 DB, 끝나고 DROP): 실서버 시나리오 7 passed, Chromium 61 passed / 2 skipped / 0 failed(legal-pages 2개 포함).
+- 10/22 가짜 사업자 값으로 `node scripts/local.mjs export consumer` → `dist/privacy.html`·`terms.html`·index.html noscript 생성, 값이 JS 번들에 들어간 것 확인. 로컬 정적 서버 375px에서 홈 하단 푸터, 앱 안 `/privacy`, 정적 `terms.html`을 눈으로 확인. 산출물은 지웠다.
