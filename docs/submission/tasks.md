@@ -193,7 +193,7 @@
 
 - 이슈: [SWPP-121](https://linear.app/sswp6/issue/SWPP-121)
 - 브랜치: `jinumeral/swpp-121-ai-report-i2-jinwoo`
-- 상태: 리뷰 요청 전
+- 상태: 완료
 
 ### 목표
 I2 AI 협업 보고서에 장진우 절을 근거(로컬 세션 export, PR 본문 "AI 사용")가 있는 사실만으로 채우고, Prompt Log에 장진우 입력 프롬프트를 덧붙인다.
@@ -213,7 +213,7 @@ I2 AI 협업 보고서에 장진우 절을 근거(로컬 세션 export, PR 본�
 ### 작업
 - [x] 세션 export·검토, PR 11건 "AI 사용" 확인
 - [x] 보고서 진우 절, Prompt Log 진우 절
-- [ ] AI 1차 리뷰 → ready, 사람 리뷰
+- [x] AI 1차 리뷰 반영(사실 정정) → 진우 지시로 사람 Approve 없이 머지
 
 ### 기록
 - 10/23 문서만 변경이라 실행할 테스트 없음. `git diff --check` 통과.
