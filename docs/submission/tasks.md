@@ -151,3 +151,40 @@
 - [x] 사용자 지정 브랜치로 전달할 문서 변경 준비 (커밋 SHA와 push 결과는 완료 보고로 추적)
 - [ ] main 머지 후 Wiki 자동 동기화 확인 (이번 요청의 브랜치 push와 구분)
 - 검토 결과: 원문 대비 추가 가림은 기기명 5곳·메일 이미지 프록시 URL 9곳뿐이다. 문서 스캔에서 추가 자격증명·알려진 이름/계정·학번 패턴은 남지 않았다. 원래 보고서 장 구성과 미완료 팀 검토 5항목은 유지한다. 기본 `git diff --check`는 새 Prompt Log의 원문 코드 블록 3행(565·725·1058)의 끝 공백을 지적한다. 원문 보존을 위해 유지하며, 세 위치가 모두 원문 블록 안임을 확인했다. 나머지 공백 검사는 `git -c core.whitespace=-blank-at-eol diff --check`로 확인한다. 문서만 바꾸므로 애플리케이션 테스트는 재실행하지 않았다.
+
+## SWPP-112 I2 Testing Documentation 최종 대조
+
+- 이슈: https://linear.app/sswp6/issue/SWPP-112
+- 브랜치: `llovablanche-testing-documentation-revision` (사용자 지정)
+- 상태: 문서 개정·원본 대조 완료, main 대상 PR 준비. 필수 coverage 증빙은 미충족이며 제출 완료가 아니다. Linear의 기존 Done 상태를 이 문서 작업의 완료 증거로 사용하지 않는다.
+- 기준: `origin/main` a2627148b2a4b842133fe361e6b1c4d1c59be36c, Guideline 4, 사용자 제공 최종 워크북 및 후속 승인된 GitHub 증빙 조회.
+
+### 목표
+기존 Wiki 문서와 최종 내부 시험 기록을 완전히 대조하고, I2 필수 계획·결과를 출처와 함께 읽을 수 있도록 정리한다. 증빙 없는 필수 항목은 가려서 완료로 만들지 않는다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/Testing-Documentation.md`
+- `docs/submission/spec.md`의 I2 Testing Documentation 절
+- `docs/submission/tasks.md`의 이 절
+
+### 결정 사항
+- 10/22 깨끗한 기존 SWPP-112 브랜치를 최신 main으로 fast-forward하여 재사용한다. 커밋·push·PR은 이번 요청에서 실행하지 않는다.
+- 10/22 원본 워크북 전체 77건을 영어로 옮기며 TC ID와 시트/행 위치를 유지한다. 합계는 상태 셀을 직접 집계한다: 66 PASS, 6 FAIL, 3 BLOCKED, 2 NOT READY. 기존 3 FAIL/6 BLOCKED 요약을 대체한다.
+- 10/22 사용자 후속 요청에 따라 GitHub에서 coverage와 자동화 실행 근거를 찾는다. c98be9b/79eaea7 CI 결과는 별도 실행으로 인용하며 workbook 행의 FAIL/BLOCKED를 해제하지 않는다.
+- 10/22 기존 계획/과거 실행 기록은 기준 커밋에 영구 연결해 보존한다. 현재 결과는 workbook과 구분된 GitHub 실행만 사용하고 I1·10/20·모델 개발 실험을 같은 집계에 섞지 않는다.
+- 10/22 사전 커버리지 목표·측정 보고서가 없으면 미충족으로 보고한다. 임의 목표·수치·모델 평가·결함 F-03의 내용을 만들지 않는다.
+- 10/22 후속 사용자 요청으로 `llovablanche-testing-documentation-revision` 브랜치 생성·커밋·push·main 대상 PR을 진행한다. 사용자 지정 이름이 일반 이슈 키 브랜치 규칙보다 우선하며 커밋·PR 제목에는 SWPP-112를 포함한다. 앞선 로컬 편집 한정 결정을 이 범위에서 대체한다. main 머지는 요청되지 않았다.
+
+### 작업 및 완료 조건
+- [x] Guideline 4 전 페이지와 워크북 6탭·주석·링크 전체 추출
+- [x] GitHub의 기존 계획·설정·PR·c98be9b/79eaea7 CI 원문 확인
+- [x] I2 본문·전체 77건·불일치·후속 조치·가이드 충족표 반영
+- [x] 모든 TC/필드·합계·출처 링크·허용 범위·문서 구조 검토
+- [x] 작성자 AI 1차 리뷰: 문서 범위/원본 추적/불일치 명시 확인, 미해결 must 없음 (필수 coverage 증빙 미충족은 본문과 PR에서 유지)
+- [ ] 사람 검토 후 미충족 필수 증빙 보완 및 제출 확정
+
+### 기록
+- 10/22 원본 SHA-256: `aee26d3da0d62626bbc51381514addea836513edd5405cc893d36b378ef7d961`. 임시 추출본은 저장소 밖 작업 outputs에만 둔다. 새 애플리케이션 테스트는 실행하지 않는다.
+- 10/22 정적 대조 결과: TC 77개 고유 ID·상태·행 위치·확인 시각·7개 필드 그룹, 원본의 계정/상품/이슈 ID 및 주요 기술 토큰 보존 확인. 집계 66/6/3/2와 UT 26/46/5, 15개 참조 링크 정의·목차 앵커·코드 fence·`git diff --check` 통과. 수정은 선언한 기존 문서 3개뿐이다.
+- 10/22 GitHub 원문 로그에서 c98be9b의 pytest 364/Mock 15/API 7/Chromium 43과 79eaea7의 pytest 365/API 7/Chromium 43을 확인했다. 숫자/목표/coverage screenshot은 찾지 못해 미충족으로 표시했다. 커밋·push·PR·제품 테스트·PDF 생성은 실행하지 않았다.
+- 10/22 후속 PR 준비: 원격 main은 기준 a262714와 동일하다. `git diff --check`와 3개 문서 허용 범위를 확인했다. 문서 전용 변경으로 새 애플리케이션 테스트는 실행하지 않는다. 최종 커밋 SHA·PR 링크·게시 결과는 완료 보고와 PR에 기록한다.
