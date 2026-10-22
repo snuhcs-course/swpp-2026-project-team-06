@@ -76,7 +76,8 @@ Testing Documentation(I2) 2.2 표의 Producer client 행을 채운다. 목표를
 - 10/23 monocart는 보고서를 만든 뒤 캐시를 지운다. 그래서 순서는 통합 테스트(커버리지 켬) → `npm run coverage:producer-ui` 1회.
 - 10/23 첫 측정 때 범위 필터 정규식이 `pick.ts`·`sourceFiles.ts`를 빠뜨렸다(슬래시 하나 더 요구). 고친 뒤 다시 돌린 결과만 기록한다.
 - 10/23 통합 테스트는 공용 로컬 DB를 리셋하지 않게 브랜치 전용 DB `farmclub_dev118`에서 돌렸다.
-- 10/23 Makefile 타깃은 별도 PR(DEV-118 Makefile)로 분리했다. 이 PR에서 Makefile은 main과 같다.
+- 10/23 Makefile 타깃은 별도 PR(브랜치 `jinumeral/dev-118-make-coverage`)로 분리했다. 테스팅 PR에서 Makefile은 main과 같다.
+- 10/23 Makefile PR: `coverage-producer`, `coverage-producer-ui`(`LOCAL_DB_ONLY` 검사 뒤 캐시 삭제 → 커버리지 켠 통합 → 보고서), help 이름 칸 17 → 20자(새 이름이 20자), README make 절 한 줄.
 
 ### 작업
 - [x] 목표·범위·제외 규칙 문서화 (측정 전 커밋)

@@ -102,6 +102,9 @@ make check          # before a PR: lint (ruff check) + test
 - `make test` runs `test-server` (pytest + alembic check), `test-apps` (`npm run test:mock`,
   `npm run typecheck`) and `test-admin` (`node --test`). Each also runs on its own.
   `test-integration` and `test-e2e` are heavy and stay out of `make test`.
+- `make coverage-producer` prints producer logic coverage; `make coverage-producer-ui` runs the
+  real-stack suite with `FARMCLUB_COVERAGE=1` and writes `.artifacts/coverage/producer-ui/index.html`
+  (heavy, reseeds the local database; see Testing Documentation 3.6).
 - The local PostgreSQL container is shared by every worktree, so the `alembic check` in
   `test-server` fails on a `farmclub` database that another branch migrated. Use a database
   per branch: `docker compose -f server/docker-compose.yml exec db createdb -U farmclub farmclub_dev12`,

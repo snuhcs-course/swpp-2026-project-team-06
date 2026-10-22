@@ -25,7 +25,7 @@ LOCAL_DB_ONLY = url="$${DATABASE_URL:-$$(sed -n 's/^DATABASE_URL=//p' server/.en
 help: ## List targets
 	@grep -hE '^##@|^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk ' \
 		/^##@/ { printf "\n%s\n", substr($$0, 5); next } \
-		{ split($$0, part, ":.*## "); printf "  \033[36m%-17s\033[0m %s\n", part[1], part[2] }'
+		{ split($$0, part, ":.*## "); printf "  \033[36m%-20s\033[0m %s\n", part[1], part[2] }'
 
 
 ##@ Setup
@@ -69,7 +69,7 @@ dev-api: ## FastAPI server on the local database with Mock login
 
 
 ##@ Check (same commands as CI; add new test suites to the matching test-*)
-.PHONY: check lint test test-server test-apps test-admin test-integration test-e2e
+.PHONY: check lint test test-server test-apps test-admin test-integration test-e2e coverage-producer coverage-producer-ui
 
 check: lint test ## Run once before a PR: lint + test
 
@@ -95,6 +95,16 @@ test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 
 test-e2e: ## Chromium only, against an already-running real stack
 	npm run test:e2e
+
+# Coverage (Testing Documentation 3.6). The UI report needs the coverage run first and clears its cache after one report.
+coverage-producer: ## Producer logic line/branch coverage (Node test runner)
+	npm run coverage:producer
+
+coverage-producer-ui: ## Producer screens coverage over the real-stack suite (heavy, reseeds the local DB)
+	@$(LOCAL_DB_ONLY)
+	rm -rf .artifacts/coverage
+	FARMCLUB_COVERAGE=1 npm run test:integration:full
+	npm run coverage:producer-ui
 
 
 ##@ Clean up
