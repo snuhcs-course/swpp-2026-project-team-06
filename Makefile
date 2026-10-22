@@ -46,7 +46,7 @@ migrate: ## 로컬 DB에 alembic upgrade head
 
 seed: ## 로컬 DB에 데모 시드 (RESET=1이면 지우고 다시)
 	@$(LOCAL_DB_ONLY)
-	cd server && uv run python -m app.core.seed $(if $(RESET),--reset)
+	cd server && uv run python -m app.core.seed $(if $(filter 1,$(RESET)),--reset)
 
 # ---- 실행 -------------------------------------------------------------------
 
@@ -88,4 +88,4 @@ check: lint test ## PR 전 한 번에: lint + test
 # ---- 정리 -------------------------------------------------------------------
 
 clean-worktrees: ## 머지된 .claude/worktrees/* 정리 (기본 시험 실행, CONFIRM=1이면 삭제)
-	node scripts/clean-worktrees.mjs $(if $(CONFIRM),--confirm)
+	node scripts/clean-worktrees.mjs $(if $(filter 1,$(CONFIRM)),--confirm)
