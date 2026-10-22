@@ -218,3 +218,29 @@ test("사용자 상세 화면은 로그인해야 열리고 /users/<id>로 돌아
   assert.equal(ok.status, 200);
   assert.match(ok.body, /사용자/);
 });
+
+test("중계는 문의함 목록·대화 보기·답장·읽음만 넘긴다 (DEV-111)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/support", "GET"],
+    ["/admin/support/f-kang/messages", "GET"],
+    ["/admin/support/f-kang/messages", "POST"],
+    ["/admin/support/f-kang/read", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of ["/admin/support/f-kang", "/admin/support/f-kang/delete", "/admin/support/../orders", "/admin/support?x=1"]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
+
+test("문의함 화면도 로그인해야 열린다 (DEV-111)", async () => {
+  const r = await call(page, { url: "/api/page?name=inbox" });
+  assert.equal(r.headers.location, "/login?next=%2Finbox");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=inbox", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /문의함/);
+});

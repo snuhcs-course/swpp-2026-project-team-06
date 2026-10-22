@@ -163,14 +163,16 @@ export default function Settings() {
             <Button label="설정 다시 불러오기" onPress={load} />
           ) : (
             <>
-              <Segmented
-                options={[
-                  { value: "on", label: "자동 응답 켜기" },
-                  { value: "off", label: "자동 응답 끄기" },
-                ]}
-                value={form.enabled ? "on" : "off"}
-                onChange={(v) => set({ enabled: v === "on" })}
-              />
+              <View testID="ai-enabled">
+                <Segmented
+                  options={[
+                    { value: "on", label: "자동 응답 켜기" },
+                    { value: "off", label: "자동 응답 끄기" },
+                  ]}
+                  value={form.enabled ? "on" : "off"}
+                  onChange={(v) => set({ enabled: v === "on" })}
+                />
+              </View>
               <T variant="caption" muted>
                 꺼도 채팅은 계속할 수 있어요. 직접 응대 중인 방은 별도로 AI를
                 재개해야 해요.

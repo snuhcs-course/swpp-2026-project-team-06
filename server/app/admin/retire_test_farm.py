@@ -163,6 +163,10 @@ def restore_in(session: Session, farm_id: str, commit: bool, audit: bool = True)
     if commit:
         farm.approval_status = "APPROVED"
         farm.suspend_reason = None
+        # 숨긴 동안 배포된 마이그레이션 0019가 넣지 못한 farmclub 문의 대화방을 연다(DEV-111)
+        from app.messaging.support import ensure_support_thread
+
+        ensure_support_thread(session, farm.id)
         if audit:
             _audit(session, farm, "test_farm_restored", "SUSPENDED")
     return _result(session, farm)

@@ -420,6 +420,11 @@ def decide_producer_application(
     from app.farms import service as farms
 
     farm = farms.decide_application(db, farm_id, approved, manager_id, reason)
+    if approved:
+        # 승인과 같은 트랜잭션에서 farmclub 문의 대화방을 연다(DEV-111, FEAT-34)
+        from app.messaging.support import ensure_support_thread
+
+        ensure_support_thread(db, farm.id)
     return ProducerDecision(
         farm_id=farm.id,
         status=farm.approval_status,

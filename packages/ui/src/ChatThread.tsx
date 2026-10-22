@@ -283,7 +283,9 @@ export function ChatThread({
                     ? "농가"
                     : m.senderType === "CONSUMER"
                       ? "소비자"
-                      : undefined
+                      : m.senderType === "OPERATOR"
+                        ? "farmclub"
+                        : undefined
               }
               time={time(m.createdAt)}
               basis={m.sourceSummary ?? undefined}
