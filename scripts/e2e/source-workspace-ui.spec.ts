@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { loginProducer, producerUrl, monitor } from "./helpers";
 
 for (const width of [360, 390, 430]) {

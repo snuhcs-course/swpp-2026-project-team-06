@@ -51,3 +51,40 @@
 - 10/22 검증: lint 통과, pytest 422 passed, alembic check 통과(farmclub_dev117), test:mock 22/22, typecheck 5 workspace, admin-web 18/18. PR #236 AI 1차 리뷰 반영(RESET·CONFIRM=1만) 후 ready.
 - 10/22 리뷰 중 변경: clean-worktrees를 Makefile 셸로 옮기고 Makefile 가독성 정리. 재검증 `make check`(farmclub_dev117) 통과 — ruff 통과, pytest 422 passed, alembic check 통과, test:mock 22/22, admin-web 18/18. clean-worktrees 시험 실행 결과 동일(대상 3), gh 없을 때 멈춤 확인.
 - 10/22 Makefile 주석·help 설명·출력 메시지를 영어로(사용자 요청). 명령은 그대로, help·가드·seed·setup·lint·test-admin 재확인.
+
+## DEV-118 생산자 앱 코드 커버리지 목표 선언·측정
+
+- 이슈: [DEV-118](https://linear.app/sswp6/issue/DEV-118)
+- 브랜치: `jinumeral/dev-118-producer-coverage`
+- 기능·인수 조건: 해당 없음 (테스트 측정·평가 문서). 테스트 이름에는 기존 AC ID를 쓴다
+- 상태: 리뷰 요청 전
+
+### 목표
+Testing Documentation(I2) 2.2 표의 Producer client 행을 채운다. 목표를 측정 전에 커밋하고, 생산자 로직(Node)·화면(Playwright) 커버리지를 재현 가능한 명령으로 잰다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/Testing-Documentation.md` 생산자 행·2.2 생산자 목표 문단·3.6(새 절), `docs/wiki/images/i2-producer-coverage-*.png`
+- `scripts/test-producer-*.mjs`(새 테스트), `scripts/producer-ui-coverage.mjs`(새 보고서 스크립트)
+- `scripts/e2e/fixtures.ts`(새 픽스처)와 `scripts/e2e/*.spec.ts`의 `test` import 한 줄(17개 파일)
+- `package.json` scripts·devDependencies(`monocart-coverage-reports`), `package-lock.json`
+- 별도 Makefile PR: `Makefile` coverage 타깃 2개·help 이름 칸 폭, `README.md` make 절 한 줄, `tasks.md`
+
+### 비범위
+- 소비자·서버·공용 `packages/*` 커버리지(각 담당자), 생산자 앱 동작 변경, CI 워크플로
+
+### 결정 사항
+- 10/23 목표: 로직 lines ≥ 90%·branches ≥ 80%, 화면/UI lines ≥ 60%. 첫 측정 전에 커밋한다(가이드라인: 목표 사후 설정 금지).
+- 10/23 로직 커버리지는 Node 내장 `--experimental-test-coverage`(새 의존성 없음).
+- 10/23 화면 커버리지는 Playwright V8 JS 커버리지 + `monocart-coverage-reports`(devDependency, Metro 소스맵으로 원본 파일에 매핑). `scripts/e2e/fixtures.ts`가 `FARMCLUB_COVERAGE=1`일 때만 수집하고, 스펙은 import 한 줄만 `./fixtures`로 바꿨다. 꺼져 있으면 동작이 같다.
+- 10/23 monocart는 보고서를 만든 뒤 캐시를 지운다. 그래서 순서는 통합 테스트(커버리지 켬) → `npm run coverage:producer-ui` 1회.
+- 10/23 첫 측정 때 범위 필터 정규식이 `pick.ts`·`sourceFiles.ts`를 빠뜨렸다(슬래시 하나 더 요구). 고친 뒤 다시 돌린 결과만 기록한다.
+- 10/23 통합 테스트는 공용 로컬 DB를 리셋하지 않게 브랜치 전용 DB `farmclub_dev118`에서 돌렸다.
+- 10/23 의존성 추가(`monocart-coverage-reports`, devDependency)는 진우가 요청한 생산자 커버리지 측정에 필요해 추가했다(AGENTS.md "요청하지 않은 의존성 추가 금지"에 해당하지 않음). 제품 번들에는 들어가지 않는다.
+- 10/23 AI 1차 리뷰 반영: 커버리지를 끄면 `scripts/e2e/fixtures.ts`가 `@playwright/test`의 `test`를 그대로 내보내도록 바꿨다(전에는 끈 상태에서도 auto 픽스처가 기본 컨텍스트를 만들었다). 소스맵 fetch·보고서 저장 실패는 테스트 실패가 아닌 경고로. 측정 커밋 `0637847` 뒤의 픽스처 변경이라 3.6 수치는 다시 재지 않았다(켠 상태의 수집 경로는 같음).
+- 10/23 Makefile 타깃은 별도 PR(DEV-118 Makefile)로 분리했다. 이 PR에서 Makefile은 main과 같다.
+
+### 작업
+- [x] 목표·범위·제외 규칙 문서화 (측정 전 커밋)
+- [x] 로직 커버리지 명령 + 기준선 측정 (84.13% lines, kakao.ts 0% → 테스트 2개 추가 후 100/100)
+- [x] 화면 커버리지(Playwright V8) 측정 (lines 66.03%, 65 passed / 2 skipped)
+- [x] 3.6 결과·스크린샷 (`docs/wiki/images/i2-producer-coverage-*.png`)
