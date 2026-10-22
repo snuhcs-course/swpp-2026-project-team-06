@@ -13,7 +13,7 @@
 흩어진 로컬 준비·실행·검사 명령(npm 스크립트, `server/` uv 명령, admin-web node 테스트, docker compose)을 루트 Makefile 하나로 부른다. 로직은 기존 스크립트에 두고 Makefile은 얇게 부르기만 한다.
 
 ### 범위 (수정 허용 경로)
-- `Makefile` (새 파일), `scripts/clean-worktrees.mjs` (새 파일), `tasks.md` (이 파일)
+- `Makefile` (새 파일), `tasks.md` (이 파일)
 - `README.md` "Local run (`make`)" 절, `AGENTS.md` 두 줄(파일 구조 끝 한 줄 추가, 새 worktree 준비 문구)
 
 ### 비범위 (건드리지 않음)
@@ -28,14 +28,15 @@
 - 10/22 `test-integration`은 CI와 같은 `npm run test:integration:full`(스택을 직접 띄움), `test-e2e`는 `npm run test:e2e`.
 - 10/22 `migrate`·`seed`·`dev-api`·`test-server`는 `DATABASE_URL`(환경 변수 > `server/.env` > 기본값)이 localhost가 아니면 멈춘다.
 - 10/22 `dev`는 기존 `npm run dev`(앱 2개 + Mock API, `scripts/local.mjs`). 실제 FastAPI는 `dev-api`로 따로 둔다.
-- 10/22 `clean-worktrees`는 셸 대신 `scripts/clean-worktrees.mjs`(다른 scripts와 같은 node)로 둔다. squash merge를 쓰므로 `gh`로 본 머지된 PR head에 worktree HEAD가 포함될 때만 머지로 본다(main에서 막 만든 빈 브랜치 오인 방지). gh를 못 읽으면 아무것도 지우지 않는다.
+- 10/22 `clean-worktrees`는 Makefile 안 셸로 둔다(처음엔 `scripts/clean-worktrees.mjs`였으나 PR을 Makefile에 집중하려고 사용자 요청으로 옮김). squash merge를 쓰므로 `gh`로 본 머지된 PR의 head 브랜치 이름으로 판단하고, 변경 있는 worktree·현재 worktree는 건너뛴다. 브랜치는 지우지 않으므로 머지 뒤 커밋이 있어도 잃지 않는다. gh를 못 읽으면 아무것도 지우지 않는다.
+- 10/22 가독성: help에 `##@` 절 제목(준비·실행·검사·정리), 절마다 `.PHONY`, `SERVER`·`LOCK_STAMP` 변수, 설명은 한 줄로 짧게. 118줄.
 - 10/22 로컬 PostgreSQL 컨테이너(compose 프로젝트 `server`)는 모든 worktree가 같이 쓴다. 공용 `farmclub` DB에는 다른 브랜치 마이그레이션이 섞여 `alembic check`가 실패하므로, README에 브랜치별 DB(`DATABASE_URL=…/farmclub_devNN make test`) 안내를 넣었다.
 - 10/22 루트에 `spec.md`는 만들지 않는다. 오래 남을 내용은 Makefile 상단 주석과 README "Local run" 절에 있다.
 
 ### 작업
 - [x] CI·package.json·docker-compose·server 명령 확인
 - [x] `Makefile` (help·setup·db·db-down·migrate·seed·dev·dev-api·test·test-*·lint·check·clean-worktrees)
-- [x] `scripts/clean-worktrees.mjs`
+- [x] `clean-worktrees` (Makefile 셸, 스크립트 삭제), Makefile 가독성 정리
 - [x] README "Local run (`make`)", AGENTS.md 두 줄
 - [x] macOS make 3.81로 `make help`·`setup`·`db`·`lint`·`test`·`clean-worktrees` 실행
 
@@ -48,3 +49,4 @@
 ### 기록
 - 10/22 이슈·브랜치 생성, Makefile·문서 작성. AGENTS.md는 #231과 worktree 준비 줄 한 곳이 겹친다(#231이 바로 아래에 줄을 추가) — 뒤에 머지하는 쪽이 두 변경을 모두 남기면 된다.
 - 10/22 검증: lint 통과, pytest 422 passed, alembic check 통과(farmclub_dev117), test:mock 22/22, typecheck 5 workspace, admin-web 18/18. PR #236 AI 1차 리뷰 반영(RESET·CONFIRM=1만) 후 ready.
+- 10/22 리뷰 중 변경: clean-worktrees를 Makefile 셸로 옮기고 Makefile 가독성 정리. 재검증 `make check`(farmclub_dev117) 통과 — ruff 통과, pytest 422 passed, alembic check 통과, test:mock 22/22, admin-web 18/18. clean-worktrees 시험 실행 결과 동일(대상 3), gh 없을 때 멈춤 확인.
