@@ -1052,6 +1052,12 @@ def seed(session: Session) -> None:
                 )
             )
             session.flush()
+    # 승인 농가마다 farmclub 문의 대화방과 환영 메시지(DEV-111). 실제 승인 흐름과 같은 함수를 쓴다
+    from app.messaging.support import ensure_support_thread
+
+    for f in FARMS:
+        if f["approval_status"] == "APPROVED":
+            ensure_support_thread(session, f["id"])
     for eid, farm, consumer, mid, context, question, reason, when in ESCALATIONS:
         session.add(
             Escalation(

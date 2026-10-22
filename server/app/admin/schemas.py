@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from app.core.schemas import CamelModel
+from app.messaging.schemas import ChatMessage
 
 
 class ManagerEventView(CamelModel):
@@ -87,3 +88,37 @@ class AdminUserView(CamelModel):
 class AdminUserPage(CamelModel):
     items: list[AdminUserView]
     total: int
+
+
+class SupportThreadView(CamelModel):
+    """문의함 한 줄(DEV-111). waiting은 마지막 메시지가 생산자 문의라 답장이 필요한 상태."""
+
+    farm_id: str
+    farm_name: str
+    region: str
+    producer_name: str
+    last_message: str
+    last_sender_type: str
+    last_at: datetime
+    unread_count: int
+    waiting: bool
+
+
+class SupportThreadPage(CamelModel):
+    farm_id: str
+    farm_name: str
+    producer_name: str
+    items: list[ChatMessage]
+    unread_count: int
+
+
+class SupportSendInput(CamelModel):
+    text: str
+
+
+class SupportReadInput(CamelModel):
+    message_id: str
+
+
+class SupportReadResult(CamelModel):
+    unread_count: int

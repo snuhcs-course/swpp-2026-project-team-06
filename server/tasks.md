@@ -1609,15 +1609,15 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 
 ### 목표
 - 농가가 승인되면 서버가 'farmclub' 대화방을 만들고 환영 메시지를 넣는다.
-- 생산자는 채팅 → 1:1 채팅 맨 위의 farmclub 방에서 운영자에게 문의한다.
+- 생산자는 채팅 → 1:1 채팅의 farmclub 방에서 운영자에게 문의한다.
 - 운영자는 관리자 페이지 '문의함'에서 받은 문의를 보고 답한다.
 - DEV-109 투어의 대화 단계와 마지막 문의 안내를 이 방으로 바꾼다.
 
 ### 범위 (수정 허용 경로)
-- `server/app/messaging/{models,schemas,service,router,spec}.py|md`, 새 `server/app/messaging/support.py`, 새 `server/app/admin/support.py`, `server/app/admin/{schemas,spec}.py|md`, `server/app/main.py`, `server/app/accounts/service.py`(승인 훅), `server/app/core/seed.py`, 새 `server/migrations/versions/0019_farmclub_support.py`, `server/tests/**`, `server/tasks.md`
+- `server/app/messaging/{models,schemas,service,router,spec}.py|md`, 새 `server/app/messaging/support.py`, 새 `server/app/admin/support.py`, `server/app/admin/{schemas,spec}.py|md`, `server/app/admin/retire_test_farm.py`(다시 공개할 때 방 열기), `server/app/main.py`, `server/app/accounts/service.py`(승인 훅), `server/app/core/seed.py`, 새 `server/migrations/versions/0019_farmclub_support.py`, `server/tests/**`, `server/tasks.md`
 - `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{index,db,conversations}.ts`, `packages/api/tasks.md`
 - `packages/ui/src/{ChatThread,Messenger}.tsx`, `packages/ui/tasks.md`
-- `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`, `apps/producer/src/lib/Tour.tsx`, `apps/producer/tasks.md`
+- `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`, `apps/producer/src/lib/{Tour,views}.tsx`(views: farmclub 로고 프로필 `SupportAvatar`), `apps/producer/tasks.md`
 - `scripts/admin-web/**`
 - `scripts/e2e/**`, `scripts/test-*.mjs`
 - `docs/spec/{functional/FEAT-34-farmclub-support.md,functional/README.md,functional/rules.md,policy.md,screens.md,ia.md}`, `docs/wiki/Requirements-and-Specifications.md`
@@ -1633,19 +1633,31 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/22 이미 승인된 농가에는 마이그레이션 0019가 계정·방·환영 메시지를 넣는다(DDL 없음).
 
 ### 작업
-- [ ] 서버: 지원 방 생성(승인 훅·마이그레이션·시드), 생산자 목록·방·답장, 관리 API, 테스트
-- [ ] packages/api 타입·엔드포인트·Mock
-- [ ] 생산자 앱: 목록 고정 행, 방 화면, 말풍선 'farmclub' 표시, 투어 문구
-- [ ] 관리자 페이지 '문의함'
-- [ ] 스펙(FEAT-34, M-22, SCR-28, 관리자 화면, policy)과 wiki
+- [x] 서버: 지원 방 생성(승인 훅·마이그레이션·시드), 생산자 목록·방·답장, 관리 API, 테스트
+- [x] packages/api 타입·엔드포인트·Mock
+- [x] 생산자 앱: 목록의 farmclub 행(로고), 방 화면, 말풍선 'farmclub' 표시, 투어 문구
+- [x] 관리자 페이지 '문의함'
+- [x] 스펙(FEAT-34, M-22, SCR-28, 관리자 화면, policy)과 wiki
 - [ ] pytest·mock·typecheck·Playwright·admin-web 테스트, 스캔, draft PR
 
 ### 완료 조건
 - [ ] 농가를 승인하면 farmclub 방과 환영 메시지가 한 번만 생긴다. 기존 승인 농가도 마이그레이션 뒤에 방이 있다.
-- [ ] 생산자 1:1 채팅 목록 맨 위에 farmclub이 있고, 안 읽은 환영 메시지가 표시된다. 방에는 AI 전환 바와 주문 패널이 없다.
+- [ ] 생산자 1:1 채팅 목록에 farmclub이 있고(고정하지 않음), 안 읽은 환영 메시지가 표시된다. 방에는 AI 전환 바와 주문 패널이 없다.
 - [ ] 생산자가 보낸 문의가 관리자 문의함에 '답변 대기'로 보이고, 운영자 답장이 생산자 방에 'farmclub'으로 보인다.
 - [ ] 소비자 앱 어디에도 이 방이 보이지 않는다.
 - [ ] 투어가 farmclub 방을 열어 문의 방법을 안내하고, 마지막 문의 문구가 이 방을 가리킨다.
 
 ### 기록
 - 10/22 DEV-109 브랜치(5671fd2)에서 시작.
+- 10/22 사용자 결정: farmclub 대화방을 목록 맨 위에 고정하지 않는다. 다른 대화와 같이 최근 메시지 순이고 로고로 구분한다.
+- 10/22 검증: ruff check 통과. 전체 pytest 420 passed(새 `test_support.py` 8개 포함, 고정 제거 뒤 support·messaging 52 passed). 빈 DB에서 alembic upgrade head → `alembic check` 변경 없음 → downgrade 0018 → upgrade 다시 성공. typecheck 4 workspace, mock 19 passed, admin-web 18 passed(새 2개).
+- 10/22 `test:integration:full`(전체, `farmclub_dev109`): API 7, Playwright 58 passed, 2 skipped, 1 failed였다. 실패는 새 farmclub spec의 로케이터(뒤에 남은 목록 미리보기와 방 말풍선이 같이 잡힘)였다. 앱 문제가 아니어서 방 안 요소를 집게 고쳤다. 고정 제거 뒤 farmclub-support·producer-help-guide·conversation-ui·producer-i2를 다시 돌려 19 passed, 0 failed.
+- 10/22 커밋 전 스캔에서 CRITICAL 0건, WARNING 4건이 나왔고 모두 반영했다. 운영자 답장이 읽음 위치를 옮기지 않게 했다(대화를 연 뒤 온 문의가 안 읽음으로 남게, 테스트 추가). e2e는 공유 DB에서 f-wimi를 승인하지 않고 시드의 강영수 방을 쓴다. README의 '맨 위' 문구를 고쳤고, 범위에 `views.tsx`를 넣었다. INFO 중에서는 `SupportThreadPage.items`를 `list[ChatMessage]`로 바꿨고, 연락처 가림(M-16) 유지와 정지·숨김 농가 방 표시를 FEAT-34에 적었다. 각 tasks.md에도 변경을 기록했다. 문의함 N+1 조회와 재시도 시 답장 중복(기존 화면과 같은 멱등 키 패턴)은 지금 규모에서 남겨 둔다.
+- 10/22 스캔 반영 뒤 검증: ruff check 통과, 전체 pytest 421 passed, typecheck 4 workspace, mock 19 passed, admin-web 18 passed. `test:integration:full`(전체, `farmclub_dev109`): API 7 passed, Playwright 59 passed, 2 skipped, 0 failed. 로컬 실제 스택으로 생산자 목록·방(로고 80% 크기)과 관리자 문의함 화면을 스크린샷으로 확인했다.
+- 10/22 재스캔에서 CRITICAL 0건, WARNING 1건이 나왔고 반영했다. 숨긴 테스트 농가를 다시 공개할 때(`restore_in`) farmclub 방이 없으면 연다. 숨긴 동안 0019가 건너뛴 농가를 위해서이고, 테스트를 추가했다. INFO 3건도 반영했다. 문의함은 답장 뒤 다시 불러올 때 읽음을 옮기지 않고, 사진만 온 문의는 목록에 '(사진)'으로 보인다. `operator_send`가 `ChatMessage`를 돌려줘서 admin이 messaging 내부 함수를 쓰지 않는다.
+- 10/22 확인 스캔: CRITICAL·WARNING 0건. INFO 4건은 남긴다.
+  - e2e가 시드 직후 상태(안 읽음 1)에 기대는 점: run-integration이 시드를 다시 만든다.
+  - 문의함 카드 배지가 다시 불러올 때 갱신되는 점.
+  - support.py가 service.py 내부 함수를 같은 패키지 안에서 쓰는 점.
+  - 환영 문구가 서버·마이그레이션·Mock 세 곳에 있는 점: 서버 둘은 테스트로 맞춘다. 서버 시드와 마이그레이션은 환영 시각이 now()라 갓 시드한 DB에서는 farmclub 방이 맨 위에 보인다(고정 아님).
+- 10/22 사용자가 커밋·검사·머지·배포를 지시했다. DEV-109 PR #218은 머지 전 스캔 CRITICAL·WARNING 0건, 원격 CI 통과였으나, 머지 명령이 로컬 자동 권한 검사(리뷰 없는 머지)에서 거부되어 사용자 확인을 기다린다.

@@ -6,6 +6,7 @@ const NAV = [
   { href: "/farms", label: "테스트 농가" },
   { href: "/users", label: "사용자" },
   { href: "/user", label: "사용자 찾기" },
+  { href: "/inbox", label: "문의함" },
 ];
 
 const $ = (s) => document.querySelector(s);

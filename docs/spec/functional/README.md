@@ -100,6 +100,7 @@ PRD 7.1의 P0 기능 17개를 FEAT ID별로 쓴다. 기능마다 같은 틀을 �
 | --- | --- | --- | --- |
 | [FEAT-32 농가 AI 응답 설정](./FEAT-32-ai-settings.md) | SCR-31 | [공통 계약 5장](../contracts-1.2.md) | AC-32-1~4 |
 | [FEAT-33 주문 문제 문의](./FEAT-33-order-inquiries.md) | SCR-32 | [공통 계약 6장](../contracts-1.2.md) | AC-33-1~4 |
+| [FEAT-34 farmclub 문의 대화방](./FEAT-34-farmclub-support.md) | SCR-28 하위, 관리자 문의함 | screens.md 7장 messaging·admin | AC-34-1~5 |
 
 FEAT-04·05·07~15의 추가 AC도 같은 변경 범위다. API 판매 핵심은 Must, 채팅·AI 설정·문의는 I1 Should이며 명세 승인과 구현 완료를 구분한다.
 

@@ -39,8 +39,6 @@ type Step = {
   target?: string[];
   /** 누르기 단계: 이 조건이 되면(화면이 바뀌면) 다음 단계로 */
   until?: (r: Route) => boolean;
-  /** 이 testID가 보이면(예: 1:1 대화가 없는 빈 목록) skipTo로 건너뛴다 */
-  emptyIf?: string;
   skipTo?: number;
   /** 단계에 들어올 때 화면을 맞춘다. 탭은 이전 하위 화면·파라미터를 복원하기 때문이다 */
   enter?: (r: Route, router: ReturnType<typeof useRouter>) => void;
@@ -83,22 +81,21 @@ const STEPS: Step[] = [
   },
   {
     title: "1:1 채팅: 손님 질문 모아 보기",
-    body: "손님이 따로 물어본 질문과 주문 문의는 여기로 모여요. '1:1 채팅'을 눌러 보세요.",
+    body: "손님이 따로 물어본 질문과 주문 문의, 그리고 farmclub 운영팀과의 대화가 여기로 모여요. '1:1 채팅'을 눌러 보세요.",
     target: ["chat-choice-private"],
     until: (r) => r.path === "/chats" && r.params.view === "private",
   },
   {
-    title: "대화를 열어 볼까요?",
-    body: "손님 대화를 하나 눌러서 열어 보세요.",
-    target: ["chat-row-first"],
+    title: "farmclub 대화방을 열어 볼까요?",
+    body: "farmclub 로고가 있는 대화방은 운영팀과 이야기하는 방이에요. 환영 메시지가 와 있으니 눌러서 열어 보세요.",
+    target: ["chat-row-farmclub"],
     until: (r) => /^\/chats\/[^/]+/.test(r.path),
-    emptyIf: "chat-empty",
     skipTo: 9,
   },
   {
-    title: "반복되는 질문은 AI가 대신 답해 드려요",
-    body: "'배송은 언제 와요?'처럼 자주 받는 질문은 AI가 상품 정보를 보고 바로 답해 드려요. '농약은 얼마나 치세요?'처럼 판단이 필요한 질문은 AI가 답하지 않고 직접 답하실 수 있게 넘겨 드려요. 지금 누가 답하는지는 이 줄에 보이고, 이 줄의 버튼으로 직접 답하기와 AI에게 맡기기를 바꿀 수 있어요.",
-    target: ["ai-mode"],
+    title: "궁금한 건 여기에 물어보세요",
+    body: "앱 사용법, 정산, 상품 등록처럼 모르는 게 생기면 아래 입력창에 적어 보내 주세요. farmclub 운영팀이 확인하고 답해 드려요. 이 방은 AI가 아니라 사람이 답해요.",
+    target: ["support-intro"],
   },
   {
     title: "채팅 목록으로 돌아가요",
@@ -113,19 +110,19 @@ const STEPS: Step[] = [
     until: (r) => r.path === "/settings",
   },
   {
-    title: "AI 응답 설정",
-    body: "AI가 손님에게 어떻게 답할지 정하는 곳이에요. 'AI 응답 설정'을 눌러 보세요.",
+    title: "반복되는 질문은 AI가 대신 답해 드려요",
+    body: "'배송은 언제 와요?'처럼 손님이 자주 묻는 질문은 AI가 상품 정보를 보고 바로 답해 드려요. '농약은 얼마나 치세요?'처럼 판단이 필요한 질문은 AI가 답하지 않고 직접 답하실 수 있게 넘겨 드려요. 'AI 응답 설정'을 눌러 보세요.",
     target: ["ai-settings-row"],
     until: (r) => r.path === "/farm/ai-settings",
   },
   {
     title: "AI에게 우리 농가를 알려 주세요",
-    body: "여기서 AI 자동 응답을 켜고 끌 수 있어요. 아래로 내리면 배송 안내 원칙이나 자주 묻는 질문과 답을 적어 둘 수 있는데, 많이 적어 둘수록 AI가 더 정확하게 답해 드려요. 바꾼 뒤에는 꼭 '설정 저장'을 눌러 주세요.",
+    body: "여기서 AI 자동 응답을 켜고 끌 수 있어요. 손님 대화방마다 '직접 응대로 전환'으로 바꿀 수도 있어요. 아래로 내리면 배송 안내 원칙이나 자주 묻는 질문과 답을 적어 둘 수 있는데, 많이 적어 둘수록 AI가 더 정확하게 답해 드려요. 바꾼 뒤에는 꼭 '설정 저장'을 눌러 주세요.",
     target: ["ai-enabled"],
   },
   {
     title: "다시 보고 싶으면 이 버튼을 누르세요!",
-    body: "안내는 여기까지예요. 수고 많으셨어요! 나중에 헷갈리면 화면 오른쪽 위 이 [?] 버튼을 눌러 보세요. 언제든 이 안내를 처음부터 다시 볼 수 있어요. 그래도 모르는 게 있으면 운영자에게 편하게 문의해 주세요.",
+    body: "안내는 여기까지예요. 수고 많으셨어요! 나중에 헷갈리면 화면 오른쪽 위 이 [?] 버튼을 눌러 보세요. 언제든 이 안내를 처음부터 다시 볼 수 있어요. 그래도 모르는 게 있으면 채팅의 farmclub 대화방에 편하게 물어봐 주세요.",
     target: ["help-button"],
     enter: (r, router) => {
       if (r.path !== "/") router.navigate("/");
@@ -272,10 +269,6 @@ function TourOverlay({
     if (!step.target || Platform.OS !== "web") return;
     const since = Date.now();
     const tick = () => {
-      if (step.emptyIf && findTarget([step.emptyIf])) {
-        onNext(step.skipTo);
-        return;
-      }
       const hit = findTarget(step.target!);
       if (hit && !scrolled.current) {
         scrolled.current = true;

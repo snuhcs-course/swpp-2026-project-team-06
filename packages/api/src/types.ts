@@ -620,7 +620,11 @@ export type ChatSummary = {
   unreadCount: number;
 };
 
-export type SenderType = "CONSUMER" | "PRODUCER" | "AI";
+/** OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111) */
+export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
+
+/** farmclub 문의 대화방의 상대 계정. 생산자 채팅 API에서 consumerId 자리에 쓴다(DEV-111) */
+export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
   messageId: string;
@@ -682,6 +686,8 @@ export type ProducerChatSummary = {
   unreadCount: number;
   needsReply: boolean;
   aiMode: Thread["aiMode"];
+  /** farmclub 문의 대화방. 다른 대화와 같이 최근 순이고 로고로 구분한다 */
+  isSupport?: boolean;
 };
 export type AiSettings = {
   enabled: boolean;

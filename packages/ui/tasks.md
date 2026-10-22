@@ -415,3 +415,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 ## DEV-111 farmclub 문의 대화방
 
 - 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
+- 10/22 DEV-111: `ConversationRow`·`ConversationHeader`에 선택 prop `avatar`(사진 대신 그림), `ChatThread` 말풍선에서 `OPERATOR`의 이름을 'farmclub'으로 표시. 넘기지 않으면 지금과 같다.
