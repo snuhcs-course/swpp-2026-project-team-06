@@ -4,6 +4,7 @@ import {
   BrandLogo,
   Button,
   EmptyState,
+  LegalFooter,
   Radio,
   Screen,
   Scroll,
@@ -266,6 +267,7 @@ export default function Login() {
             </Pressable>
           </View>
         )}
+        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <View
         style={{

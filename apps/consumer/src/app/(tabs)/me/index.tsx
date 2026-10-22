@@ -4,6 +4,7 @@ import {
   Button,
   EmptyState,
   LargeTitle,
+  LegalFooter,
   ListRow,
   Notice,
   Screen,
@@ -211,6 +212,7 @@ export default function Me() {
             />
           </View>
         ) : null}
+        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <Sheet visible={confirmReset} onClose={() => setConfirmReset(false)}>
         <T variant="heading">데모 데이터를 처음으로 돌릴까요?</T>

@@ -259,6 +259,21 @@ export default function OnboardingProfile() {
       </BottomBar>
       <Sheet visible={!!reading} onClose={() => setReading(null)} title={reading?.label}>
         <T variant="body">{reading?.summary}</T>
+        {reading?.fullText ? (
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => {
+              const path = reading.fullText;
+              setReading(null);
+              if (path) router.push(path);
+            }}
+            style={{ minHeight: 48, justifyContent: "center", alignSelf: "flex-start" }}
+          >
+            <T variant="body" weight="semibold">
+              {`${reading.label} 전문 보기 ›`}
+            </T>
+          </Pressable>
+        ) : null}
         <T variant="sub" muted>
           {`버전 ${SIGNUP_CONSENT_VERSION} · 테스트 서비스`}
         </T>

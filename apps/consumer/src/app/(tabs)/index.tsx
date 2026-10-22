@@ -5,6 +5,7 @@ import {
   Button,
   FeedCarousel,
   IconButton,
+  LegalFooter,
   NewsCard,
   Photo,
   Price,
@@ -169,6 +170,7 @@ export default function Home() {
             <T muted>현재 예약 가능한 상품이 없어요</T>
           ) : null}
         </FeedCarousel>
+        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
     </Screen>
   );

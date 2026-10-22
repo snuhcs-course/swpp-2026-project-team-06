@@ -50,6 +50,8 @@ export const isConnectionError = (e: unknown) =>
 
 const Ctx = createContext<Session | null>(null);
 
+const PUBLIC_PATHS = ["/privacy", "/terms"];
+
 /** 승인 상태별로 열 수 있는 화면. 나머지 주소로 오면 여기로 보낸다(screens.md SCR-05 버튼 동작). */
 function homeFor(user: User | null): {
   allowed: (p: string) => boolean;
@@ -135,8 +137,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   // 관문: 승인 전에는 다른 생산자 화면 주소로 가도 대기 화면으로(AC-01-3)
+  // 약관·처리방침(DEV-113)은 로그인·승인 상태와 상관없이 열린다
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || PUBLIC_PATHS.includes(pathname)) return;
     const g = homeFor(user);
     if (!g.allowed(pathname)) router.replace(g.home as never);
   }, [ready, user, pathname, router]);
