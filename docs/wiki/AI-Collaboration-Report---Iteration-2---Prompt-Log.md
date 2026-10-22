@@ -1703,3 +1703,48 @@ Session: `01a15d68-99ad-7380-a01e-2763524cccc3`. Archive source: `codex/01a15d68
 ````text
 does document 5 require the exact log for AI use? then please use the session exporter document to extract the chat history we used for this iteration 2(2026-10-12~2026-10-23)
 ````
+
+---
+
+## Jinwoo Jang
+
+Period: Oct 16–22, 2026 (KST). Tools: Codex (GPT-6 Astra; GPT-6.1 Sol) and Claude Code (Claude Opus 5.5). Source: Session Exporter 0.1.0 export of 10 local sessions (376 input records). This is a selection, not the full list. Prompts are in Korean as I typed them, typos included, with my English translation in brackets. Left out: prompts containing a credential, team document links, production data or command output, and prompts with rude wording. The session shown on each line is the first eight characters of the session ID.
+
+### Prompts
+
+**Source analysis: scope and model choice (DEV-56/57, PR [#113](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113))**
+- 2026-10-16 19:14 · `01a1442e` — "아 ai 채팅은 하지말고 그건 다른사람 범위라." [Don't do the AI chat; that's someone else's scope.]
+- 2026-10-16 20:01 · `01a1442e` — "왜냐면 ai cs 피쳐도 저거 써야돼서 좀 여유있는걸로하자. 가성비로 유명한 애들로 찾아바" [The AI CS feature has to use this budget too, so leave room. Look for models known for value.]
+- 2026-10-16 20:02 · `01a1442e` — "gemini 3.1로 해보고 시각기능 필요한거만 비싼애들 쓰자" [Try Gemini 3.1 and use expensive models only where vision is needed.]
+- 2026-10-16 21:18 · `01a1442e` — "이미지 pdf 품질 검증이라고 너가 말한게 이거 확인하는거 아니엇어?" [Wasn't the "image/PDF quality check" you mentioned exactly this?]
+- 2026-10-17 14:34 · `01a1442e` — "그러면 ocr sol이랑 gemini로 테스트해서 기존보다 나아지는지 테스트 ㄱ" [Then test OCR with Sol and Gemini and see if it beats the current one.]
+- 2026-10-17 17:06 · `01a1442e` — "근데 머지하기 전에 그 플로우는 내가 눈으로 봐야될듯. 사진 넣고 내용 상제 설정하고 페이지 뽑아서 저장하고 공개까지 하는거" [Before merging I need to see the flow myself: add photos, set details, generate the page, save, and publish.]
+
+**Producer page editor (DEV-56, PR [#113](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113))**
+- 2026-10-17 19:02 · `01a1442e` — "그리고 이거 내용 수정하는거 걍 미리보기 화면 쭈루룩 나오고 그 화면에서 바로 고칠수있는 스타일로 다시 만들어봐.. 지금 너무 시안성이 떨어진다" [Rebuild the content editing so the preview runs down the page and you edit right there. It's too hard to read now.]
+- 2026-10-17 19:46 · `01a1442e` — "걍 그 점선 둥근 사가경에 + 가운데 박아놓고 추가하세요 그 ux 모름? 글케 하면 되잖아.." [Just put a + in the middle of a dashed rounded box, the usual "add" UX.]
+- 2026-10-17 20:07 · `01a1442e` — "연필이랑 x는 그 카드 최상단에 오버레이 해놓으삼. 뭔말알? 카드에 텍스트/파일 꽉차게 하라고. 카톡 첨부파일 넣을때처럼.. 그리고 접기는 그 큰 섹션 제목까지 포괄하게 둬야지. 아 근데 걍 접기 빼고 눈만 놔." [Overlay the pencil and x at the top of the card; fill the card like a KakaoTalk attachment. Folding should cover the section title. Actually, drop folding and keep only the eye icon.]
+- 2026-10-17 20:52 · `01a1442e` — "내용을 비워놓은 부분은 구매자에게 표시되지 않아요. 이것도 넣어놓으삼 그리고 자료 넣을때 최상단에 기본적인 과일 품종명, 사이즈, 당도 정도는 직접  입력하게 하삼." [Add the note "Empty parts are not shown to buyers." And at the top of the upload, have producers type the variety, size and Brix themselves.]
+
+**OCR errors (DEV-58, PR [#130](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/130))**
+- 2026-10-17 23:33 · `01a1442e` — "뭐 오독같은건 어쩔 수 없지 않나? 아닌가? 어느정도 오차는 감안해야된다고 생각하긴 하는데 확실히 고칠 수 있는 영역이나 실험해봐야되는 것들이 있으면 좀 해봐" [Some misreads can't be helped, right? I think some error is acceptable, but if there are parts that can certainly be fixed or are worth an experiment, try them.]
+
+**Logo (DEV-85, PR [#173](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/173))**
+- 2026-10-19 16:40 · `01a15319` — "그거로 지금 로고 변경하는거 pr 넣어놓을ㄹ라고. 용도에 맞춰서 넣어야될때 넣기. 어디어디 넣어야겠냐? 그리고 각각 경로 좀 보내줘 내가 눈으로 보게" [I want a PR that swaps in the logo, used where each version fits. Where should it go? Send me each path so I can check by eye.]
+- 2026-10-19 17:29 · `01a15319` — "앵간하면 글자형으로 통일. 그리고 기본조합형은 계정을 골라 시작하세요 옆에 조합형 로고를 두자. 아이콘형은 위치랑 크기 세팅 좀 더 잘해봐" [Use the wordmark wherever possible. Put the combined logo next to "Choose an account to start." Set the icon's position and size better.]
+
+**Upload race (DEV-92, PR [#188](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/188))**
+- 2026-10-19 22:41 · `01a1534b` — "이건 걍 사용자가 넣은걸 우선하면 되는거 아님? 손으로 써서 넣은걸?" [Can't we just let what the user typed by hand win?]
+
+**Profile photo 500 (DEV-102, PR [#205](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/205))**
+- 2026-10-21 13:11 · `f6fcb065` — "너 지금 운영 로그 볼수있냐? 생산자가 농가 프로필 사진 넣을라고 하면 연결 불안정하다고 오류 뜬다는데" [Can you see the production logs? A producer says adding a farm profile photo shows a "connection unstable" error.]
+- 2026-10-21 13:16 · `f6fcb065` — "다른 부분에도 비슷한 문제 생길일없냐" [Could the same problem happen anywhere else?]
+- 2026-10-21 14:15 · `f6fcb065` — "103 105는 걍 이번 iteration에 안해도될거같아서 빼놓으삼" [Leave 103 and 105 out; they don't need to be in this iteration.]
+
+**Login screen privacy (DEV-108 report)**
+- 2026-10-21 19:26 · `46814a2c` — "지금 농가 첫 페이지 로그인 탭에서 다른 농가들 이름들이 뜨고 있나? 확인해봐. 뜨면 안되는거아닌가? 굳이 왜 띄우지" [Are other farms' names showing on the producer login tab? Check. They shouldn't, right? Why show them?]
+
+**Help tour and inquiry room (DEV-109, PR [#218](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/218); DEV-111, PR [#221](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/221))**
+- 2026-10-21 20:32 · `c91cf8ca` — "마지막에 다시 할라면 이 버튼 누르세요! 도 있어야지 그리고 사진 넣으면 ai가뭐뭐해드려요, 반복되는 질문은 이게 해드려요, 그리고 뭐뭐를 해보세요 이런식으로 좀 친절하게 좀 더 말하삼" [At the end it needs "Press this button to see it again!" And phrase it more kindly: "Add photos and AI does X," "Repeated questions are handled by this," "Try doing Y."]
+- 2026-10-21 20:41 · `c91cf8ca` — "이거 지금 메인 ui맞냐? 왜 새 상품에 사진 넣는거 없지" [Is this the main UI? Why is there no photo upload in "new product"?]
+- 2026-10-22 11:19 · `c91cf8ca` — "오른쪽 위 ?할때 ?에 아이콘 들어가게 하셈. 그리고 그 채팅 알려줄때 farmclub이름 그거 받고 그걸로 우리 cs까지 받기로하지 않았냐 왜 안했냐 그거" [Use an icon for the "?" at the top right. And didn't we decide the farmclub-named chat would also take our CS? Why wasn't that done?]
