@@ -69,7 +69,7 @@ dev-api: ## FastAPI server on the local database with Mock login
 
 
 ##@ Check (same commands as CI; add new test suites to the matching test-*)
-.PHONY: check lint test test-server test-apps test-admin test-integration test-e2e coverage-producer
+.PHONY: check lint test test-server test-apps test-admin test-integration test-e2e
 
 check: lint test ## Run once before a PR: lint + test
 
@@ -95,9 +95,6 @@ test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 
 test-e2e: ## Chromium only, against an already-running real stack
 	npm run test:e2e
-
-coverage-producer: ## Producer logic line/branch coverage (Testing Documentation 3.6)
-	npm run coverage:producer
 
 
 ##@ Clean up
