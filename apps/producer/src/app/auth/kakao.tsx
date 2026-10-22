@@ -63,14 +63,19 @@ export default function KakaoCallback() {
     // state가 없거나 다른데 토큰이 있으면 이미 로그인한 뒤 다시 연 것(새로고침·뒤로 가기)
     if (!error && (!nonce || nonce !== state) && getToken()) {
       void (async () => {
+        let timedOut = false;
         try {
           const u = await withTimeout(refresh(), KAKAO_LOGIN_TIMEOUT_MS);
           if (u) return goHome(u);
-        } catch {
-          // 아래 만료 안내로
+        } catch (e) {
+          timedOut = e instanceof Timeout;
         }
         if (mounted.current)
-          setFailed("로그인 요청이 만료됐어요. 다시 시도해 주세요.");
+          setFailed(
+            timedOut
+              ? "로그인이 오래 걸리고 있어요. 다시 시도해 주세요."
+              : "로그인 요청이 만료됐어요. 다시 시도해 주세요.",
+          );
       })();
       return;
     }
