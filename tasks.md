@@ -51,3 +51,30 @@
 - 10/22 검증: lint 통과, pytest 422 passed, alembic check 통과(farmclub_dev117), test:mock 22/22, typecheck 5 workspace, admin-web 18/18. PR #236 AI 1차 리뷰 반영(RESET·CONFIRM=1만) 후 ready.
 - 10/22 리뷰 중 변경: clean-worktrees를 Makefile 셸로 옮기고 Makefile 가독성 정리. 재검증 `make check`(farmclub_dev117) 통과 — ruff 통과, pytest 422 passed, alembic check 통과, test:mock 22/22, admin-web 18/18. clean-worktrees 시험 실행 결과 동일(대상 3), gh 없을 때 멈춤 확인.
 - 10/22 Makefile 주석·help 설명·출력 메시지를 영어로(사용자 요청). 명령은 그대로, help·가드·seed·setup·lint·test-admin 재확인.
+
+## DEV-118 생산자 앱 코드 커버리지 목표 선언·측정
+
+- 이슈: [DEV-118](https://linear.app/sswp6/issue/DEV-118)
+- 브랜치: `jinumeral/dev-118-producer-coverage`
+- 기능·인수 조건: 해당 없음 (테스트 측정·평가 문서). 테스트 이름에는 기존 AC ID를 쓴다
+- 상태: 진행 중
+
+### 목표
+Testing Documentation(I2) 2.2 표의 Producer client 행을 채운다. 목표를 측정 전에 커밋하고, 생산자 로직(Node)·화면(Playwright) 커버리지를 재현 가능한 명령으로 잰다.
+
+### 범위 (수정 허용 경로)
+- `docs/wiki/Testing-Documentation.md` 생산자 행·2.2 생산자 목표 문단·3.6(새 절), `docs/wiki/images/i2-producer-coverage-*.png`
+- `scripts/test-producer-*.mjs`(새 테스트), `scripts/e2e/` 커버리지 수집 부분, `package.json` scripts, `Makefile` 한 줄, `tasks.md`
+
+### 비범위
+- 소비자·서버·공용 `packages/*` 커버리지(각 담당자), 생산자 앱 동작 변경, CI 워크플로
+
+### 결정 사항
+- 10/23 목표: 로직 lines ≥ 90%·branches ≥ 80%, 화면/UI lines ≥ 60%. 첫 측정 전에 커밋한다(가이드라인: 목표 사후 설정 금지).
+- 10/23 로직 커버리지는 Node 내장 `--experimental-test-coverage`(새 의존성 없음).
+
+### 작업
+- [x] 목표·범위·제외 규칙 문서화 (측정 전 커밋)
+- [ ] 로직 커버리지 명령 + 기준선 측정
+- [ ] 화면 커버리지(Playwright V8) 측정
+- [ ] 3.6 결과·스크린샷

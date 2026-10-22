@@ -74,11 +74,14 @@ No numerical code coverage target or percentage was found in the workbook, prior
 | Architectural component | Framework/collector status | Predeclared target | Actual coverage | Required action |
 | --- | --- | --- | --- | --- |
 | Consumer client | Node tests/Playwright; collector not established | Not recorded | Unavailable | Hyun declares metric/target/scope/tool and retains report/screenshot. |
-| Producer client | Node tests/Playwright; collector not established | Not recorded | Unavailable | Jinwoo declares target/scope/tool and retains report/screenshot. |
+| Producer client — logic (`apps/producer/src/lib/*.ts` except browser file-picker glue) | Node built-in test runner + `--experimental-test-coverage` (DEV-118) | **Lines ≥ 90%, branches ≥ 80%** (declared 23 October 2026, before first measurement) | See Section 3.6 | Jinwoo; `npm run coverage:producer`. |
+| Producer client — screens/UI (`apps/producer/src/**/*.tsx`, `pick.ts`, `sourceFiles.ts`) | Playwright Chromium V8 JS coverage mapped to sources (DEV-118) | **Lines ≥ 60%** (declared 23 October 2026, before first measurement) | See Section 3.6 | Jinwoo; command in Section 3.6. |
 | Shared API/UI | Typechecks/Mock contracts; no coverage report | Not recorded | Unavailable | Client owners assign/report targets separately for shared logic and rendering. |
 | Server services, authorization, AI adapters, persistence | pytest; no recorded coverage collector/report | Not recorded | Unavailable | Zahra declares component targets/configuration and retains report/screenshot. |
 
 Business logic and authorization warrant stronger targets than rendering/platform glue because failures affect transactions and data. Owners must commit numerical goals, explain differences, and state whether generated code, third-party code, migrations, and test utilities are included **before the next measurement**. No exclusions, targets, or achievements are backdated. Functional pass percentages cannot substitute for code coverage.
+
+**Producer targets (Jinwoo, DEV-118; committed before the first producer measurement).** The producer client is split into two layers because they are reachable by different tools. *Logic* (session gate, product grouping/status labels, Kakao state round-trip) is plain TypeScript that Node can import directly; it decides which screen a producer may open and what status a product shows, so it gets the higher target (lines ≥ 90%, branches ≥ 80%). *Screens/UI* are React Native Web components that only run inside the Expo web bundle in a browser, together with the browser file-picker/canvas glue in `pick.ts` and `sourceFiles.ts`; they are measured from the Playwright producer journeys and get a lower target (lines ≥ 60%) because layout branches, loading/error placeholders, and platform fallbacks are expensive to drive end-to-end. Excluded from both: shared `packages/*` (shared with the consumer app, not producer-owned), `node_modules`, Expo-generated files, and test files. External dependencies are isolated as in Section 2.1 (seeded local API, mock source-analysis provider, stubbed `window`/`sessionStorage` in Node).
 
 ### 2.3 Reproducible regression procedure
 
