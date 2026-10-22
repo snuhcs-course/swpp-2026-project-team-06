@@ -653,3 +653,88 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 10/19 검증: typecheck4 workspace/mock15/관련 Playwright24(신규7 포함) 및 소비자·생산자 web export 통과. SourceBasicInfo 기존 충돌 보호와 직접 입력 우선순위는 그대로 유지한다. 최종 운영/자료 완료 상태는 Linear DEV-90/92에서 후속 갱신한다.
 - 10/19 수정 전 코드를 일시 복원한 동일 지연 PUT 검사1건은 예상대로 실패(저장 완료 전 source uploaded). finally에서 수정 코드를 바이트 동일하게 복원했으며, 수정본 전체24 통과 결과와 대조했다. 커밋/브랜치 스캔 지적0, 레거시 호환 후보0.
+
+## DEV-109 생산자 앱: 오른쪽 위 도움말(?) 버튼과 온보딩 튜토리얼
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109
+- 브랜치: `jinumeral/dev-109-생산자-앱-오른쪽-위-도움말-버튼과-온보딩-튜토리얼`
+- 기준: docs/spec/screens.md 6장 "공통: 도움말", SCR-22/23/28/33, FEAT-03·12·13·32(안내 문구가 가리키는 기능)
+- 상태: 진행 중
+
+### 목표
+생산자들이 앱을 이해하기 어렵다는 피드백이 있어서, 하단 탭 네 화면의 헤더 오른쪽 위에 동그라미 물음표 버튼을 둔다. 누르면 13단계 스포트라이트 투어를 시작한다. 화면을 어둡게 하고 대상만 밝게 보이며, 생산자가 직접 눌러 앱 흐름을 이동한다. 다루는 내용은 새 상품 등록, AI 판매페이지 초안, 채팅방, AI 자동 안내, AI 응답 설정, 문의다. 현황에 처음 들어오면 한 번 자동으로 시작한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/Tour.tsx`(새 파일, 처음 만든 `HelpGuide.tsx`를 대체), `apps/producer/src/app/_layout.tsx`, `apps/producer/src/app/(tabs)/{_layout,index,settings}.tsx`, `apps/producer/src/app/(tabs)/{products,chats}/index.tsx`, `apps/producer/src/app/(tabs)/chats/[consumerId].tsx`, `apps/producer/src/app/(tabs)/farm/ai-settings.tsx`, `apps/producer/tasks.md`
+- `packages/ui/src/bars.tsx`(`LargeTitle`의 `right` 슬롯, `IconButton`·`Fab`·`TabItem` testID), `packages/ui/src/Storefront.tsx`(`ChatChoices` testID), `packages/ui/src/Messenger.tsx`(`ConversationRow` testID, `ConversationHeader` 뒤로 가기 testID), `packages/ui/tasks.md`
+- `packages/api/src/index.ts`(`readStore`·`writeStore` 내보내기), `packages/api/tasks.md`
+- `scripts/e2e/helpers.ts`, `scripts/e2e/{brand-logo,producer-help-guide}.spec.ts`
+- `docs/spec/screens.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위 (건드리지 않음)
+- 작업 화면(HeaderBar, 뒤로 가기 있는 화면)의 ? 버튼, 투어가 서버 상태를 바꾸는 버튼('새 상품' 열기·초안 만들기·분석 시작·AI 전환·설정 저장)을 누르게 하는 것
+- `suspended.tsx`의 `[운영팀 연락처]` 자리표시자, 서버·API 변경, 새 의존성
+- Figma v6 반영(후속 이슈로 PR `Figma:` 줄에 남김)
+
+### 결정 사항
+- 10/21 사용자 결정: 버튼은 탭 네 화면에만 둔다. 처음 한 번 자동으로 띄운다. 문의 단계는 "운영자에게 편하게 문의해 주세요"만 쓰고 연락처는 적지 않는다(생산자들이 운영자 연락처를 이미 알고 있음).
+- 10/21 본 기록은 사용자별이 아닌 앱별 localStorage 키 `help-guide-seen`(`farmclub-producer:` 이름공간)으로 둔다. 생산자는 각자 기기를 쓰고 언제든 버튼으로 다시 볼 수 있어서다. 마지막 '알겠어요', X, Esc 모두 본 것으로 기록한다.
+- 10/21 자동 표시는 승인된 생산자(`farmStatus === "APPROVED"`)일 때만 한다. 관문이 리다이렉트하기 전에 투어가 깜빡이지 않게 하려는 것이다. 새 기능이라 별도 AC가 없어서 테스트 이름에는 DEV-109를 쓴다.
+- 10/21 자동으로 시작한 투어 오버레이가 기존 e2e 클릭을 가리지 않게, `loginProducer`는 기본으로 본 기록을 미리 심는다(`{ helpGuide: true }`일 때만 끔). brand-logo spec도 `skipHelpGuide`를 쓴다.
+- 10/21 사용자 후속 지시: 하단 시트 대신 스포트라이트 투어로 바꾼다. 화면을 어둡게 하고 대상만 밝게 보이며, 화살표로 가리키고, 생산자가 실제로 눌러 앱 흐름을 이동한다. 13단계 흐름은 docs/spec/screens.md "공통: 도움말"에 적었다.
+- 10/21 사용자 결정: 채팅방 '직접 응대로 전환'은 서버 상태가 바뀌므로 강조와 설명만 한다.
+- 10/21 대상은 testID(웹 `data-testid`)로 찾는다. DOM에서 가장 뒤에 있으면서 보이는 요소를 쓰고, `aria-hidden` 안의 요소는 뺀다. 위치는 100ms마다 다시 잰다. 어둡게 하는 막은 구멍 주위 4장으로 깔아서, 누르기 단계에서는 실제 버튼이 그대로 눌린다. 설명 단계에서는 구멍도 막는다. 다음 단계로 넘어가는 판단은 클릭을 가로채지 않고 경로(`usePathname`·`useGlobalSearchParams`)로 한다.
+- 10/21 ?는 어느 탭에서 눌러도 현황으로 이동한 뒤 1단계부터 시작한다. 1:1 대화가 없으면 대화 단계 세 개(7~9)를 건너뛴다. 대상을 3초 동안 찾지 못하면 가운데 카드에 '다음'을 띄운다.
+- 10/22 '새 상품'은 설명만 하고 넘어간다(눌러도 들어가지 않음). 실제 서버에서는 새 상품을 여는 순간 작성 중 상품이 생기기 때문이다. AI 초안 설명(분석 자료·상품사진)은 이 카드에 합친다. 운영 서버는 자료 분석이 켜져 있어 그 화면 기준으로 쓴다. 키보드 Tab 차단(`inert`)은 하지 않는다(사용자 결정). 그래서 키보드로는 뒤쪽 버튼을 누를 수 있다는 한계가 있다.
+
+### 작업
+- [x] `LargeTitle` `right` 슬롯, `readStore`·`writeStore` 내보내기
+- [x] `HelpGuide.tsx`(버튼·6단계 시트·자동 표시)와 탭 네 화면 연결
+- [x] e2e helper와 새 spec `producer-help-guide.spec.ts`
+- [x] screens.md·wiki 반영
+- [x] typecheck·mock·실제 스택 Playwright 통과 확인
+- [x] 커밋 전 스캔, draft PR
+- [x] 스포트라이트 투어로 전환(Tour.tsx, testID, spec·wiki, e2e)
+- [x] 투어가 작성 중 상품을 만들지 않게 13단계로 축소, 본문 ? 아이콘
+- [ ] AI 리뷰(`pr-review`)
+
+### 완료 조건
+- [x] 탭 네 화면 오른쪽 위에 '도움말' 버튼이 보이고, 누르면 현황으로 가서 1단계부터 시작한다.
+- [x] 첫 현황 진입 때만 자동으로 시작하고, 끝내거나 건너뛴 뒤 새로고침하면 다시 시작하지 않는다.
+- [x] 13단계를 실제 클릭으로 진행하고 어두운 곳은 눌리지 않는다. 마지막 단계에 문의 안내가 있다.
+- [x] 기존 Playwright spec이 그대로 통과한다.
+
+### 기록
+- 10/21 origin/main adef22b에서 새 worktree를 만들고 npm ci, server uv sync를 실행했다.
+- 10/21 로컬 공용 DB `farmclub`는 다른 브랜치 마이그레이션이 적용된 상태라 `alembic upgrade`가 DuplicateColumn으로 실패했다. 공용 DB는 그대로 두고 같은 컨테이너에 `farmclub_dev109`를 만들어 `DATABASE_URL`로 지정했다.
+- 10/21 `npm run typecheck`: 4 workspace 통과. `npm run test:mock`: 19 passed, 0 failed.
+- 10/21 `npm run test:integration:full`(전체): API 시나리오 7 passed, Playwright 54 passed, 2 skipped, 1 failed. 실패한 1건은 소비자 AC-10-6(checkout-and-fulfillment, getByText strict mode)이다. 이 테스트는 생산자 코드와 `loginProducer`를 쓰지 않고, main adef22b CI에서는 통과했다. 같은 명령으로 checkout-and-fulfillment, producer-help-guide, brand-logo만 다시 돌렸을 때 6 passed, 0 failed였다. 그래서 일시적 실패로 기록한다.
+- 10/21 새 spec 스크린샷(375px)으로 현황 시트 2단계와 상품 헤더의 버튼 정렬을 확인했다. Agent 시간/Tokens 미측정.
+- 10/21 커밋 전 스캔에서 WARNING 1건과 INFO 6건이 나왔고 모두 반영했다. 2·3단계 문구를 실제 흐름(빈칸 채우기 → 게시 요청 → 운영자 확인)에 맞췄고, 자동 표시는 승인된 생산자만 하도록 바꿨다. 쓰지 않는 export는 뺐다. 단계 표시는 눈에 보이는 "n / 6" 텍스트로 바꾸고 범위 파일명도 고쳤다. 다시 실행한 결과: typecheck 4 workspace 통과, mock 19 passed. `test:integration:full`에 생산자 관련 7개 spec을 지정해 돌린 결과 API 7 passed, Playwright 28 passed, 0 failed.
+- 10/21 재스캔: CRITICAL·WARNING 0건, INFO 3건. e2e는 실제 API로만 돌고 `monitor()`가 Mock 트래픽을 실패로 처리하므로 shared-v1 키 심기는 다시 뺐다. bars.tsx의 긴 줄을 정리했다. 제목 줄이 48px 버튼 높이로 몇 px 커지는 것은 375px 스크린샷으로 확인했고 의도한 배치로 둔다.
+- 10/21 투어 전환 검증: typecheck 4 workspace 통과. Mock 앱 390px에서 15단계를 실제 클릭으로 끝까지 진행했고 콘솔 오류는 0건이었다. 10단계 문구는 김민지 방이 '농가 직접 응대' 상태라 두 상태에 모두 맞게 고쳤다. `test:integration:full`(전체, `farmclub_dev109`): API 7 passed, Playwright 56 passed, 2 skipped, 0 failed. 새 spec 3개(전체 흐름·어두운 곳 클릭 차단, 건너뛰기와 탭별 재시작, 대화 0개일 때 건너뛰기)를 포함한다.
+- 10/21 투어 스캔에서 WARNING 2건과 INFO 4건이 나와 모두 반영했다.
+  - 재실행할 때 탭이 이전 하위 화면과 `view=private`를 복원하는 문제: 3·7·15단계에 진입 시 화면을 맞추는 처리를 넣었다. 누르기 단계는 들어올 때 이미 조건이 맞으면 한 번 벗어났다 다시 맞을 때만 넘어간다.
+  - 카드가 작은 화면 밖으로 나가는 문제: 카드 높이를 재서 화면 안(16px 여백)에 둔다.
+  - 대화 단계 건너뛰기는 시간 기준을 빼고, 빈 상태(`chat-empty`)가 보일 때만 건너뛴다.
+  - `HeaderBar`가 닫기 모드일 때는 `header-close`를 쓴다. 웹 전용 가드를 넣고, 목표·비범위·완료 조건을 정리했다.
+  - e2e에 재실행과 375×667 케이스를 추가했다.
+- 10/21 사용자 후속 지시: 문구를 더 친절하고 구체적으로 바꿨다. AI가 해 주는 일을 예로 들어 설명한다(글·사진을 넣으면 품종·원산지·보관 방법을 채우고 판매페이지 초안을 만든다, '배송은 언제 와요?'에는 답하고 '농약' 질문은 넘긴다 — prd.md 시나리오). 마지막 단계 제목은 '다시 보고 싶으면 이 버튼을 누르세요!'이고 ? 버튼을 강조한다. 단계 수 15는 사용자 확인 후 유지했다.
+- 10/21 검증: typecheck 통과. `test:integration:full` 전체 실행에서 API 7, Playwright 56 passed, 2 skipped, 1 failed가 나왔다. 실패는 새 재실행 spec 1건이었다. 대화방에서 뒤로 나오면 채팅 목록이 스택에 두 번 쌓이는데(기존 `router.navigate("/chats?view=private")` 동작), spec이 숨은 쪽 요소를 집은 것이 원인이었다. 앱은 보이는 쪽을 맞게 강조했다. spec 로케이터를 `:visible`로 고친 뒤 producer-help-guide 4 passed.
+- 10/21 재스캔 반영과 사용자 후속 지시를 처리했다.
+  - 4·5단계 본문을 실제 화면에 맞춰 고른다. 자료 분석 켜짐(`source-material-box`, `/products/source-analysis`)이면 분석 자료·상품사진 칸과 '작성 중' 안내를, 꺼짐·Mock(`ai-draft`, `/products/manual`)이면 문구 붙여넣기와 다시 시작 안내를 보여 준다. 4단계 제목은 'AI가 상품 정보를 채워 드려요'로 두 흐름에 공통으로 쓴다.
+  - 쓰지 않는 `useTour` export를 뺐다.
+  - 레이아웃: 카드는 좌우 gutter 20에 맞춰 가운데 두고, 넓은 화면에서는 최대 400px로 제한한다. 여백은 padding 24, 제목 16, 본문 8, 버튼 24로 정리했다. 진행 막대를 넣고, 누르기 안내도 버튼과 같은 높이의 칸으로 바꿨다. 강조 테두리는 radius 8이다.
+  - 줄바꿈: react-native-web이 `wordBreak` 스타일을 넘기지 않아서, 카드 안에만 `word-break: keep-all` CSS를 넣었다(390/1280에서 computed keep-all 확인).
+  - 모바일/PC 문구: '클릭'·Esc 안내 없이 '눌러 보세요'만 쓴다. PC에서도 앱이 같은 세로 열 배치라 '아래'·'오른쪽 위' 표현이 맞다(1280×800 스크린샷 확인).
+- 10/21 사용자 결정: 새 농가 1:1 대화가 비는 문제는 별도 이슈로 다룬다. 농가가 승인되면 farmclub 환영 대화방을 자동으로 만들고, 생산자가 답장해 운영자에게 문의할 수 있게 하는 실제 기능이다. 이 PR에서는 지금처럼 빈 상태(`chat-empty`)일 때 9~11단계를 건너뛴다.
+- 10/21 사용자 결정: 문의 창구도 그 farmclub 대화방으로 정한다. 투어 마지막 단계의 '운영자에게 편하게 문의해 주세요' 문구는 대화방이 생기는 후속 이슈에서 '채팅의 farmclub 대화방으로 물어봐 주세요'로 바꾼다. 이 PR에서는 아직 없는 곳을 가리키지 않도록 지금 문구를 유지한다.
+- 10/21 레이아웃·문구 반영 뒤 검증: typecheck 4 workspace 통과. mock 19 passed. `test:integration:full`(전체, `farmclub_dev109`): API 7 passed, Playwright 57 passed, 2 skipped, 0 failed(투어 spec 4개 포함). 실제 서버(자료 분석 켜짐)에서 390×844와 1280×800으로 1·2·4·5·10·15단계 스크린샷을 확인했다.
+- 10/21 최종 스캔: CRITICAL·WARNING 0건, INFO 8건. 반영한 것은 4단계 대기 중 다른 흐름 문구 깜빡임('화면을 여는 중이에요'), 10단계 문구를 AI·직접 응대 두 상태에 맞춤, `useWindowDimensions`로 창 크기 반영, 변수 이름(`hit`)과 `body` 선택 필드 정리다. 남긴 것은 두 가지다. 키보드 Tab 이동 차단(`inert`)은 후속으로 검토한다. 투어를 다시 볼 때마다 빈 작성 중 상품이 쌓이는 문제는 사용자 결정 동작이며 DEV-111 이후 빈 workspace 재사용을 검토한다.
+- 10/22 INFO 반영 뒤 검증: typecheck 통과, mock 19 passed. 관련 spec(help-guide, brand-logo, producer-i2, conversation-ui)의 첫 실행은 밤사이 잠자기로 13.9h가 걸려 시간 초과 8건이 났다. 같은 명령을 다시 돌리니 19 passed, 0 failed(29.3s)였다.
+- 10/22 재스캔: CRITICAL·WARNING 0건. 반영한 것은 세 가지다. 7단계는 대화방 경로에서 들어와도 `view=news`로 맞춘다. wiki 흐름에 환영 단계를 넣고 '작성 중' 안내에 조건을 붙였다. 결정 사항은 최종 동작 기준으로 정리했다. 키보드 Tab·스크린리더로 설명 단계의 뒤쪽 버튼에 갈 수 있는 문제(`inert`)는 후속으로 남긴다.
+- 10/22 확인 스캔: CRITICAL·WARNING 0건. INFO 4건은 고치지 않고 남긴다. 업데이터 안의 `writeStore`(같은 값이라 동작은 같음), 네이티브에서 대상 단계가 멈추는 문제(웹 출력 전용), 투어 중 로그아웃 리다이렉트 시 오버레이가 남는 문제(X·Esc로 나갈 수 있음), e2e의 고정 대기 부정 확인이다. 후속에서 `inert`와 함께 정리를 검토한다.
+- 10/22 사용자 후속 지시: 투어가 작성 중 상품을 만들지 않게 한다. 3단계 '새 상품'을 설명 단계로 바꾸고 AI 초안 설명(분석 자료·상품사진)을 합쳤다. 새 상품 화면 안의 두 단계(AI 초안 영역, 뒤로 가기)를 빼서 15단계가 13단계가 됐다. 이에 따라 `bodyFor`와 manual 화면의 `ai-draft` testID를 지웠다. 마지막 단계 본문의 '?'는 실제 도움말 아이콘으로 보여 준다(`withIcons`). 키보드 Tab 차단(`inert`)은 하지 않기로 했다(사용자 결정).
+- 10/22 스캔 WARNING 반영: 목표·결정 사항·완료 조건을 13단계와 '새 상품은 설명만' 기준으로 고쳐 썼다. 아이콘에 접근성 이름 '도움말'을 붙이고, e2e에 본문에 `[?]` 글자가 남지 않는지 확인하는 검사를 넣었다.
+- 10/22 재스캔 반영: 새 상품 화면 단계를 빼면서 쓰지 않게 된 `HeaderBar` 뒤로 가기 testID를 되돌렸다. 본문 아이콘에 `role="img"`를 붙이고, e2e는 이름('도움말')으로 아이콘을 확인한다.
+- 10/22 13단계·아이콘 변경 검증: typecheck 4 workspace 통과. 띄워 둔 실제 스택(자료 분석 켜짐, `farmclub_dev109`)에서 producer-help-guide 4 passed. 투어 중 `/product-workspaces` POST가 0건인지도 확인한다. 3·13단계 스크린샷으로 카드와 아이콘 정렬을 확인했다. 확인 스캔 CRITICAL·WARNING 0건.

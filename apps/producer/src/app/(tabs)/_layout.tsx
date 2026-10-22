@@ -65,6 +65,7 @@ export default function TabsLayout() {
                 icon: t.icon,
                 active,
                 badge: t.name === "chats" ? open : undefined,
+                testID: `tab-${t.name}`,
                 onPress: () => {
                   if (active) navigation.navigate(t.name, { screen: "index" });
                   else navigation.navigate(t.name);

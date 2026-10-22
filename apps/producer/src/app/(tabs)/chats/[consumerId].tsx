@@ -79,6 +79,7 @@ export default function Chat() {
         }}
       >
         <View
+          testID="ai-mode"
           style={{
             flexDirection: "row",
             justifyContent: "space-between",

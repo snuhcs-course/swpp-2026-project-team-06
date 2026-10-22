@@ -263,6 +263,7 @@ export function ChatChoices({
           accessibilityState={{ selected: value === v }}
           aria-selected={value === v}
           onPress={() => onChange(v)}
+          testID={`chat-choice-${v}`}
           style={{
             flex: 1,
             minWidth: 0,

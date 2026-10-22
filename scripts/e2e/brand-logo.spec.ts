@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { consumerUrl, producerUrl } from "./helpers";
+import { consumerUrl, producerUrl, skipHelpGuide } from "./helpers";
 
 for (const width of [360, 390]) {
   test(`DEV-85 AC-06-6 AC-01-6 AC-14-4: approved logos preserve search and producer login at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
+    await skipHelpGuide(page);
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
 

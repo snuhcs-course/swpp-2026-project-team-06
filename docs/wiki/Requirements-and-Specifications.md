@@ -699,6 +699,14 @@ Figure 3. Dashboard (SCR-22), sales settings and the farm's own news room. The p
 
 Key producer screens:
 
+**Help guide (DEV-109).** All four tab screens (SCR-22, 23, 28, 33) have a round question-mark "Help" button at the top right. Tapping it returns to the dashboard and starts a 13-step hands-on spotlight tour.
+- **Display:** The screen is dimmed except for the element being explained, which is outlined. A card and an arrow point to that element.
+- **Steps:** In "tap" steps the producer must tap the highlighted element and the real screen changes; taps on the dimmed area are blocked. "Explain" steps use Next.
+- **Flow:** Welcome → Products tab → New product button (explained only: it opens the sales-page builder, where the AI reads text, photos and PDFs in Source materials to fill product details and draft the sales page, while product photos go in their own box) → Chat tab → News Room → 1:1 Chat → first conversation → AI reply mode (explained only, not toggled) → back → Settings tab → AI reply settings → auto-reply on/off (saved only with Save) → the Help button ("tap this button to see the guide again!", with the real Help icon in the text) with "please ask the operator" (no contact details). The copy is friendly and gives concrete examples of what the AI does.
+- **Exceptions:** With no 1:1 chats the conversation steps are skipped. If a target cannot be found for 3 seconds the card is centred with Next. X or Esc ends the tour at any time.
+- **Auto-start:** It starts once automatically on an approved producer's first dashboard visit. Finishing or skipping records it in the app's localStorage.
+- **Server state:** The tour never presses a server-changing button. New product is only explained because opening it creates a draft product on a real server (SCR-24).
+
 | SCR-22 Dashboard | SCR-24 AI product draft | SCR-25 Product edit | SCR-29 Shipping |
 | --- | --- | --- | --- |
 | <img src="images/i1-ui-p-scr-22.png" width="180" alt="SCR-22 Dashboard"> | <img src="images/i1-ui-p-scr-24.png" width="180" alt="SCR-24 AI product draft"> | <img src="images/i1-ui-p-scr-25.png" width="180" alt="SCR-25 Product edit"> | <img src="images/i1-ui-p-scr-29.png" width="180" alt="SCR-29 Shipping"> |
