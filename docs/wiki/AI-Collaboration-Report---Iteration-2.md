@@ -2,7 +2,7 @@
 
 Contributors: Minsun, Hyun, Jinwoo, Zahra
 
-Tools and models used: Minsun — ChatGPT/Codex (GPT-6.1 Sol); [add other members’ tools/models].
+Tools and models used: Minsun — ChatGPT/Codex (GPT-6.1 Sol); Hyun — Claude Code (Claude Opus 5.5, and Claude Fable 5.1 for the first PRs of Oct 16–17) with Playwright; [add other members’ tools/models].
 
 > Keep the completed report to roughly one page (500–700 words). This is a team report: collect each member’s input prompts and notes, review the team’s relevant AI-agent interaction histories, and write findings supported by verifiable evidence. Be candid; “no AI used” and “output was unusable” are valid findings. Do not include full agent responses or a full interaction transcript.
 
@@ -11,11 +11,14 @@ Tools and models used: Minsun — ChatGPT/Codex (GPT-6.1 Sol); [add other member
 | Member | Feature, files, or task | Tool and model/version | Evidence (file/lines, commit, PR, or issue) |
 | -- | -- | -- | -- |
 | Minsun Kim (PM) | Task decomposition, role/dependency mapping, effort tracking, review governance (SWPP-89/90), checker delivery (DEV-40/55), and internal testing | ChatGPT/Codex; GPT-6.1 Sol | E1–E4 and P1–P12 in Section 2; PRs #106/#107; I2 Linear project; October 19 PM testing artifacts |
+| Hyun Park | Kakao login (DEV-32/74/108/112), bank-transfer payment (DEV-68), deploy workflows and domain (DEV-65/66/67/69/70), PostHog (DEV-71/104), admin web (DEV-82/83/87/98/106/107/114), live fix (DEV-84), spec-check and team AI rules (DEV-55/79/80, SWPP-119) | Claude Code; Claude Opus 5.5, Claude Fable 5.1 | 25 merged PRs (Oct 17–22), e.g. [#121](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/121), [#141](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/141), [#174](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/174), [#212](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/212), [#213](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/213); the "AI 사용" block in each PR body |
 | [Other member] | [Specific work; include file paths] | [Tool / model] | [Link or reference] |
 
 **Minsun:** As Iteration 2 PM, I used ChatGPT/Codex for task decomposition, ownership and dependency mapping, effort-record standardization, review-process design, and internal-test execution and reporting. The central management problem was establishing what the team could deliver and demonstrate under changing technical and coordination constraints. AI supplied drafts, explanations, and test evidence; I supplied contextual corrections, priorities, access decisions, and scope boundaries. [E1–E4]
 
-**Where we deliberately did not use AI:** Minsun retained ownership of priorities, role corrections, scope decisions, and approval. AI did not substitute for human PR approval, Kakao authentication, or actual Android/iPhone checks; unavailable execution remained explicitly incomplete. [Other members: add decisions/work retained by humans.]
+**Hyun:** I used Claude Code for nearly all of my I2 implementation. Each time I wrote the Linear issue; the agent wrote the `tasks.md` section, opened a draft PR, implemented, ran the tests and the `pr-review` skill; then I reviewed. Each PR body has an "AI 사용" (AI use) block. Of my 25 merged I2 PRs, 23 record agent time (about 25 hours in total) and 12 record tokens (about 14M), so the token figure is a lower bound. Where Linear and the PR body disagree (DEV-32: about 5h in [#121](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/121), 7h in Linear), I use the PR body.
+
+**Where we deliberately did not use AI:** Minsun retained ownership of priorities, role corrections, scope decisions, and approval. AI did not substitute for human PR approval, Kakao authentication, or actual Android/iPhone checks; unavailable execution remained explicitly incomplete. Hyun kept the payment rules in DEV-68 (refund to the paying account, 24-hour deposit deadline), the production database backfill (run by hand in the Railway console instead of the agent's PR #149), moving the deploy tokens into the `production` Environment (DEV-70), and the APK signing passwords (DEV-33). [Other members: add decisions/work retained by humans.]
 
 ## 2. Prompt History
 
@@ -26,6 +29,9 @@ Record the input prompts actually sent, quoted verbatim. Do not clean up wording
 - **Minsun · 2026-10-12, 00:37:34 KST · ChatGPT/Codex (GPT-6.1 Sol) · staged user testing and review gate · E1/P11, turn `01a12b9c-bc7d-7f63-a10c-72331a4e64b5` — verbatim excerpts:** “-testing 2: the same pool of consumers will be asked to test all consumer functions once again, but this time, including actual payment for at least 1 order.” / “workflow revisions: pm needs to check sync for all (spec file)<→2(code) before review-> add as task”
 - **Minsun · 2026-10-12 · ChatGPT/Codex (GPT-6.1 Sol) · cross-role testing:** “good job, but after the two consumer tests, related producer functions and app manager functions should also be monitored, so add this each to zahra and jinwoo for both tests.”
 - **Minsun · 2026-10-19 · Codex (GPT-6.1 Sol) · operator-access limitation:** “Record the operator tests as blocked”
+- **Hyun · 2026-10-18, 21:09–21:11 KST · Claude Code (Claude Opus 5.5) · DEV-72, PR #149 (sent in Korean, my translation in brackets):** “db 백필만 하는거 아니었어?” … “백필 SQL은 내가 Railway 콘솔에서 직접 실행할게. SQL만 다시 정리해줘.” [Wasn't this only a DB backfill? … I'll run the backfill SQL in the Railway console myself. Just clean up the SQL.]
+- **Hyun · 2026-10-21, 14:30 KST · Claude Code (Claude Opus 5.5) · DEV-104, PR #212:** “농가가 적은 입금 미확인·환불 지연 사유 -> 이런거는 가릴이유가 없잖아? 법적으로 문제되지 않는 정도 빼고는 모두 열어” [Reasons a farm wrote for an unconfirmed deposit or a late refund: there's no reason to hide those, right? Unmask everything except what is legally a problem.]
+- My other prompts are in the [Prompt Log, Hyun Park section](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log#hyun-park).
 - **[Other member] · [YYYY-MM-DD] · [Tool/model] · [task/PR/issue]:** “[Paste exact prompt here]”
 
 **Full input prompt log:** [Iteration 2 – Prompt Log](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log) ([branch/repository source](AI-Collaboration-Report---Iteration-2---Prompt-Log.md)). The page contains 141 privacy-redacted input records from the October 22 export snapshot. The eTL report can cite this Wiki URL without duplicating the full log. The selected examples and evidence register below remain for analysis.
@@ -212,6 +218,10 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 
 **Minsun — internal testing and limits of assurance:** I directed AI to test the deployed consumer and producer flows and report failures before making changes. When operator access was unavailable, I explicitly chose “Record the operator tests as blocked”; testing resumed when an approval page became available. The retained October 19 evidence records 18 PM scenarios: nine PASS, six FAIL, and three BLOCKED. Approval succeeded, while product creation and approved-producer re-login failed; public-product editing, operator refund/recovery, and physical-device checks remained blocked. Crucially, the readiness-assessment scenario’s PASS meant that assessment was performed, not that release readiness was established. The report withheld full sign-off. These results strengthened visibility into risk without converting limited execution into comprehensive assurance. [P9–P10; E4]
 
+**Hyun — admin web in four days:** At the start of I2 there was no operator screen; operators used Swagger. Between Oct 19 and 22 the agent built producer approval, supply approval, test-farm hiding, the user list and user detail, and then CI and auto-deploy for the admin web ([#168](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/168), [#170](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/170), [#179](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/179), [#202](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/202), [#211](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/211), [#213](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/213), [#228](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/228)). The six PRs with numbers record about 6.9 agent hours and 10.3M tokens. AI helped most here because the screens share one pattern and the server rules already existed.
+
+**Hyun — live bug and self-checks:** Producers could not add a new product on the live server because source analysis is off there; the agent found the cause and routed new products back to the manual flow ([#174](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/174), DEV-84; Linear: Human 0.2h / Agent 1.3h). Tests also caught the agent's own slips: in DEV-68 ([#141](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/141)) it overwrote `done.tsx` with an empty file and the e2e run failed before I reviewed.
+
 **Estimated time saved:** Not measured. The retained verification files establish the reported task and test counts; these counts do not establish causal productivity gains. [Other members: add cases and verification.]
 
 ## 4. Hallucinations / Errors
@@ -219,6 +229,12 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 **Minsun — incorrect accountability:** The initial AI plan assigned business/PG approvals to Jinwoo. I caught the contextual error and corrected ownership to Hyun, under whose name the company was registered. The next response acknowledged the error; the role allocation was revised (E1/P2–P3).
 
 **Minsun — incomplete review guidance:** The PR #106 review found that the earlier AI-guided description omitted required evidence and reviewer fields. Follow-up guidance acknowledged the incomplete example and supplied the missing structure (E3/P7). Both cases caused clarification and rework; elapsed cost was not measured. [Other members: add errors or the reviewed basis for identifying none.]
+
+**Hyun — wrong safety comment on deploys:** In DEV-65/66 the agent's workflow comments said a manual run deploys `main`; it actually deploys whichever branch is picked. A teammate noticed. [#143](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/143) (DEV-70) added a `main` check and a `production` Environment, and I moved the tokens myself.
+
+**Hyun — order-dependent tests:** Twice the agent compared `created_at` order under a fixed test clock, where rows share a timestamp ([#123](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/123); [#213](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/213), which failed only in the full run). Both now compare by ID or as a set.
+
+**Hyun — other errors:** The DEV-86 runbook ([#177](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/177)) described a masking confirmation screen the product does not have. In [#212](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/212) a `sed` also changed another issue's status line and Prettier reformatted whole files; both were reverted. Once, updating a PR body, it replaced the whole body and deleted an image I had uploaded. There is no repository record of that one; it led to the "read the current body first" rule in [#231](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/231).
 
 ## 5. Prompt Revisions
 
@@ -228,11 +244,24 @@ workflow revisions: pm needs to check sync for all (spec file)<→2(code) before
 - **After — verbatim excerpt:** “please suggest a list of user stories we MUST consider, then create a list of tasks (small enough to estimate, has one clear owner, has an observable completion state, and produces visible output) for our second iteration.”
 - **Why the revision worked:** It made task quality assessable through size, ownership, completion evidence, and visible outputs. The same revised request reserved review before upload. Subsequent prompts corrected role assignments and added producer/manager monitoring; the generated workbook and transfer records document the resulting plan (P1–P6). [Other members: add revisions.]
 
+**Hyun · 2026-10-18 → 2026-10-21 · Claude Code (Claude Opus 5.5) · PostHog masking (DEV-71 → DEV-104):**
+
+- **Before (sent in English):** “Add any new producer screens that show personal data to the masking list, then rerun the tests and the AI first-pass review.”
+- **After (sent in Korean):** “너무 다 지운거 아닌가?” / “개인정보만 가리게끔한다.” / “법적으로 문제되지 않는 정도 빼고는 모두 열어” [Isn't too much blanked out? / Mask personal data only. / Unmask everything except what is legally a problem.]
+- **Why the revision worked:** “Screens that show personal data” let the agent mask whole screens by path, labels and buttons included. The legal line gave it a test it could apply field by field. In [#212](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/212) only names, contacts, addresses, delivery notes, tracking numbers and account numbers are masked; labels, buttons, the seller's public details and the reasons farms write stay visible.
+
 ## 6. Manual Fixes and Why
 
 **Minsun:** The ownership error required re-planning; incomplete PR guidance required clarification and description rework. Their elapsed costs were not measured. My corrections were made through explicit instructions; the accessible record does not establish which final repository lines I edited manually. Assistant-authored review fixes must therefore not be reported as my manual code fixes. Likewise, no defensible time-saving estimate follows from task counts or test counts. The evidence supports improved organization and traceability, while causal productivity gains and full-team session coverage remain unmeasured. [E1–E4]
 
 The documented human interventions changed ownership, validation scope, and the DEV-40/DEV-55 delivery boundary through prompts. No specific hand-edited repository lines can be attributed to Minsun from these records. [Other members: add manual edits with file/line or PR evidence.]
+
+**Hyun:**
+
+- **Payment rules (DEV-68, [#141](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/141)):** at the proposal stage I dropped collecting a refund account from each buyer and decided refunds go back to the account the money came from, with a 24-hour deposit deadline and no approval request for a farm without an account.
+- **Production data (DEV-72):** the agent wrote a guard PR ([#149](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/149)), but the cause was seed farms approved before DEV-68 with no account. I closed it and ran the backfill SQL in the Railway console myself.
+- **Test accounts (DEV-107, [#213](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/213)):** the plan reused `is_test_account`, which also allows Mock login by ID alone; setting it on a real user would have opened their account. It became a separate column.
+- **Stacked PRs:** I ran admin-web work in parallel sessions, and some PRs were based on another work branch instead of `main` ([#179](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/179), [#211](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/211), [#213](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/213)). After squash merges this gave conflicts, one merge without CI re-running, and colliding Alembic numbers (0017 → 0018 in #213, 0014 → 0016 in #121). I sorted these out by hand and then wrote the no-stacking and `alembic heads` rules ([#231](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/231)).
 
 ## Session History and Privacy Review
 
@@ -250,10 +279,14 @@ The reviewed records are E1–E5, with the specific quoted turns and local verif
 
 The supplied shared URLs [6ad858b0…](https://chatgpt.com/share/e/6ad858b0-e5b0-8342-805d-20685f154aa1) and [6ad85923…](https://chatgpt.com/share/e/6ad85923-43c4-8343-86d4-10ebb491cca5) could not be read: the first reached an authentication error and the second displayed a login dialog. No claims or quotations are attributed to their unseen contents, and no equivalence with a native thread is assumed. The supplied filesystem paths identify workspaces, not independent chat transcripts.
 
+**Hyun's review record:** Prepared on 2026-10-22, Asia/Seoul. I have not run the Session Exporter yet. I read the 12 Claude Code session files kept locally for this repository's worktrees; they only cover Oct 18–22, so for Oct 12–17 (DEV-32, DEV-60, DEV-65 to DEV-69) I rely on the PR bodies and Linear. Prompts that contained contact details or a business document are left out of this report and the Prompt Log.
+
 [Add team reviewers, exporter version/commit, full iteration range, private export location, and completed privacy-review details when available. Do not publish raw session ZIPs or credentials.]
 
 ## 7. Takeaway for Iteration 3 (optional)
 
 **Minsun’s reflection:** This collaboration illustrates how AI can support the development of engineering judgment when students actively interrogate its output. Correcting ownership exercised contextual reasoning; defining dependencies required prioritization; retaining BLOCKED results required an honest account of uncertainty. Academic progress should be assessed through these decisions, their evidence, and the student’s ability to explain them. In the next iteration, I will record rationale and actual effort alongside AI-assisted work, verify claims against project artifacts, and preserve unresolved cases. AI is most educationally useful when its suggestions become material for criticism, testing, and revision, with students retaining authorship of the reasoning and responsibility for the outcome.
+
+**Hyun's reflection:** Most of what went wrong for me in I2 was process, not code: stacked PRs, colliding migration numbers, tests that depend on row order, a PR body overwritten. Most of these happened two or more times before I turned them into rules ([#231](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/231)). In I3 I want to write the rule after the first repeat. I also want tokens recorded in every PR; about half of mine have none, which is why the totals above are lower bounds.
 
 [Other members: add a takeaway; consolidate the final team conclusion before submission.]
