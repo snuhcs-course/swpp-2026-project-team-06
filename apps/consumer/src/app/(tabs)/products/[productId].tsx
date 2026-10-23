@@ -75,7 +75,7 @@ export default function ProductPage() {
       if (f.isFollowing)
         router.push({
           pathname: "/chats/[farmId]",
-          params: { farmId, start: "1" },
+          params: { farmId, start: "1", productId },
         });
       else setChatConfirm(true);
     } catch (e) {
@@ -374,7 +374,10 @@ export default function ProductPage() {
             label="시작하기"
             onPress={() => {
               setChatConfirm(false);
-              router.push(`/chats/${p.farmId}?start=1`);
+              router.push({
+                pathname: "/chats/[farmId]",
+                params: { farmId: p.farmId, start: "1", productId },
+              });
             }}
             style={{ flex: 2 }}
           />

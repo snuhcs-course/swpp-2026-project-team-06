@@ -151,7 +151,8 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, ‘카카오로 시작하기’ 버튼(카카오 공식 문구 중 하나, 노랑 #FEE500, 설정이 꺼져 있으면 숨김), 카카오가 켜져 있으면 테스트 계정 로그인은 없음. 꺼져 있을 때(CI·Mock 플래그만)만 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, ‘테스트 서비스’ 표시. 카카오 버튼 아래 ‘카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요.’ 카카오가 켜져 있으면 하단은 ‘이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요’(동의는 SCR-06에서 명시적으로), 꺼져 있으면 기존 안내. 생산자 계정은 목록에 없다.
 - **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부·클라이언트 ID. 카카오 버튼 → 돌아갈 화면·행동을 sessionStorage에 두고 카카오 인가 화면(`state`=일회용 값) → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: consumer`) → 토큰과 사용자. 테스트 계정은 `GET /api/auth/test-accounts?app=consumer`로 목록, 고르면 `POST /api/auth/test-login`(`userId`, `app: consumer`). 토큰은 packages/api가 앱별로 보관한다.
 - **버튼 동작**: 계정 선택 → 로그인 후 누른 화면·행동으로 복귀(관문 시트에서 왔으면 그 행동을 이어서 실행). 카카오 응답의 사용자가 `needsOnboarding=true`(처음 가입)면 SCR-06을 거쳐 복귀한다.
-- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) 테스트 계정 목록 대신 ‘지금은 로그인할 수 없어요’(카카오 버튼은 설정대로). 카카오를 취소하거나(`error=access_denied`) `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’·‘홈으로’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
+- **카카오 복귀 `/auth/kakao`**: 닫기와 가운데 로딩 표시, 한 줄 ‘카카오 로그인 중이에요’만 둔다(제목·설명·스켈레톤 없음, 생산자 앱 SCR-19와 같은 모양). 끝나면 위 버튼 동작대로 원래 화면·행동(처음 가입이면 SCR-06)으로 간다. 이미 로그인된 채 다시 열면(새로고침·뒤로 가기, `state`는 이미 쓰임) 오류 없이 홈(온보딩이 남았으면 SCR-06)으로 간다. 서버가 15초 안에 답하지 않으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’와 ‘다시 로그인’·‘홈으로’(DEV-112).
+- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) 테스트 계정 목록 대신 ‘지금은 로그인할 수 없어요’(카카오 버튼은 설정대로). 카카오를 취소하거나(`error=access_denied`) 로그인되지 않은 채 `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’·‘홈으로’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
 
 ### SCR-06 첫 가입 온보딩 `/onboarding` → `/onboarding/address` (소비자 앱)
 
@@ -281,7 +282,8 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면 요소·데이터**: 워드마크 ‘농가용’, 생산자 테스트 계정 목록(이름, 농가명 · 상태: 승인됨·확인 중·반려됨·정지됨·아직 농가 등록 안 함), ‘생산자 테스트 계정만 보여요’ 한 줄, ‘처음이세요? 농가로 가입 신청 ›’, 약관·개인정보 처리방침 링크, ‘테스트 서비스’, 하단 ‘○○으로 시작하기’. 소비자 계정은 목록에 없다. 실서버에서 카카오가 켜져 있으면 제목 ‘농가로 시작하세요’, ‘처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요. 카카오에서는 이메일만 받고, 대표자 이름·연락처는 가입 신청에서 입력해요.’, 하단 ‘카카오로 시작하기’만 두고 테스트 계정 목록·가입 신청 링크는 숨긴다. Mock 모드는 상태별 시연 계정이 필요해 카카오 버튼과 테스트 계정 목록을 함께 둔다(Mock 카카오는 농가 없는 새 생산자).
 - **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부. 카카오 버튼 → `state` 일회용 값을 sessionStorage에 두고 카카오 인가 화면 → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: producer`) → 토큰과 사용자(농가 상태). 테스트 계정은 `GET /api/auth/test-accounts?app=producer`, 고르면 `POST /api/auth/test-login`(`userId`, `app: producer`).
 - **버튼 동작**: 시작하기 → 상태에 따라 농가 없음 → SCR-20, 확인 중·반려 → SCR-21, 승인 → SCR-22, 정지 → 정지 안내 `/suspended`. 농가로 가입 신청 → SCR-20(I1은 ‘신규 생산자’ 계정으로 로그인해 신청한다. I2는 카카오로 생산자 계정을 만들며 신청).
-- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) ‘지금은 로그인할 수 없어요’. 실패하면 다시 시도. 카카오를 취소하거나 `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’. 비로그인 관문은 `/login`과 `/auth/kakao`만 연다.
+- **카카오 복귀 `/auth/kakao`**: 가운데 로딩 표시와 한 줄 ‘카카오 로그인 중이에요’만 둔다(제목·설명·스켈레톤 없음). 로그인이 끝나면 위 버튼 동작의 농가 상태별 화면으로 바로 간다. 이미 로그인된 채 다시 열면(새로고침·뒤로 가기, `state`는 이미 쓰임) 오류 없이 같은 상태별 화면으로 간다. 서버가 15초 안에 답하지 않으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’와 ‘다시 로그인’(DEV-108).
+- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) ‘지금은 로그인할 수 없어요’. 실패하면 다시 시도. 카카오를 취소하거나 로그인되지 않은 채 `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’. 비로그인 관문은 `/login`과 `/auth/kakao`만 연다. 로그인된 생산자는 농가 상태와 상관없이 `/login`·`/auth/kakao`에 머물지 않고 상태별 화면으로 간다.
 
 #### SCR-19 하위: 정지 안내 `/suspended`
 
@@ -542,7 +544,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /api/messaging/chats` | 소비자 | SCR-15 | `cursor`, `limit` | 팔로우 중이거나 본인 결제 주문 문의가 있는 농가와의 1:1 목록 | FEAT-12 | Should |
 | `POST /api/messaging/chats` | 소비자 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Should |
 | `GET /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`). AI 답변 행에는 서버가 계산한 신고 여부 `reported` | FEAT-12, 13 | Should |
-| `POST /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `text`, `attachmentIds`, `orderId?` | `{message,reply}`; 직접 응대/OFF는 reply=null, 계약 4장 | FEAT-12, 13 | Should |
+| `POST /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `text`, `attachmentIds`, `orderId?`, `productId?`(SCR-04에서 연 채팅의 상품. 그 농가의 판매 중 상품이 아니면 404. AI 근거로만 쓰고 저장하지 않으며 `orderId`가 있으면 주문이 우선, DEV-97) | `{message,reply}`; 직접 응대/OFF는 reply=null, 계약 4장 | FEAT-12, 13 | Should |
 | `POST /api/messaging/chats/{farmId}/messages/{messageId}/report` | 해당 대화의 소비자 | SCR-16, 28 | 선택 `Idempotency-Key` | 신고한 AI 답변을 가리키는 열린 `WRONG_ANSWER` 질문. 같은 답변을 다시 신고하면 기존 결과를 200으로 돌려준다 | FEAT-13 AC-13-5, M-17 | Should |
 | `GET /api/messaging/questions` | 생산자 | SCR-28(하위 화면 포함) | `status`(`OPEN`·`ANSWERED`), `cursor`, `limit` | 전달된 질문(이름 앞 글자, 관련 예약, 넘긴 이유)과 그 소비자 채팅(`thread`) | FEAT-13 | Should |
 | `POST /api/messaging/questions/{escalationId}/answer` | 생산자 | SCR-28 하위 | `text` | 답(그 소비자 채팅에만), 질문 상태 `ANSWERED` | FEAT-13 | Should |

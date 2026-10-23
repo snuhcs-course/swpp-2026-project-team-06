@@ -55,6 +55,7 @@
   - `docs/*.html` — 랜딩 페이지
   - `.agents/skills/` — 공용 스킬 원본 (`.claude/skills`는 이 폴더로의 심링크)
   - `.github/` — 워크플로, PR 템플릿
+- 로컬 작업 입구는 루트 `Makefile` 하나다(`make help`). 새 테스트 묶음을 만들면 해당 `test-*` 타깃에 한 줄 추가한다.
 
 ## 브랜치·커밋·PR
 - 브랜치 이름과 커밋 메시지, PR 제목에 **이슈 키(`DEV-12`, `SWPP-34`)를 반드시 넣는다** — PR이 Linear 이슈에 자동 연결된다. 개발은 `DEV-xx`, 기획·문서는 `SWPP-xx`.
@@ -68,7 +69,7 @@
 - `main`에 직접 push하지 않는다. force push는 자기 브랜치에서만.
 - 에이전트는 커밋·push 직전에 `git branch --show-current`로 작업 브랜치인지 확인하고, push는 `git push origin HEAD`처럼 브랜치를 명시한다.
 - 여러 작업(세션)을 동시에 돌릴 때는 같은 폴더에서 브랜치를 바꾸지 말고 `git worktree`로 폴더를 나눈다.
-- 새 worktree에는 의존성이 없다(`node_modules`, `server/.venv`는 git이 복사하지 않음). 에이전트에게 넘기기 전에 루트에서 `npm ci`, `server/`에서 `uv sync --frozen`을 실행하고, pytest용 PostgreSQL(`DATABASE_URL`)이 연결되는지 확인한다. 준비할 수 없으면 에이전트를 main 체크아웃에서 실행한다.
+- 새 worktree에는 의존성이 없다(`node_modules`, `server/.venv`는 git이 복사하지 않음). 에이전트에게 넘기기 전에 루트에서 `make setup`(= 루트 `npm ci` + `server/`에서 `uv sync --frozen`)을 실행하고, pytest용 PostgreSQL(`DATABASE_URL`, `make db`)이 연결되는지 확인한다. 준비할 수 없으면 에이전트를 main 체크아웃에서 실행한다.
 - 로컬 DB는 브랜치마다 따로 쓴다: `DATABASE_URL`의 DB 이름을 바꾼다(예: `farmclub_dev12`, pytest는 `_test`를 붙인 DB를 따로 만든다). 공용 `farmclub`에는 다른 브랜치의 마이그레이션이 섞여 `alembic upgrade`·테스트가 깨진다.
 - 머지는 사람 1명 Approve 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.

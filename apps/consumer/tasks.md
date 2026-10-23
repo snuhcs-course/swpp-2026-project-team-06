@@ -393,3 +393,51 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증(10/18): `npm run typecheck` 4개 통과, `npm run test:mock` 13/13. Mock 화면 흐름(관문 → 카카오 → 온보딩 1(다음 비활성 → 입력·모두 동의 → 다음) → 2(주소 저장) → 주문서 복귀(기본 배송지 채워짐) → 내 정보·고치기·배송지 → 로그아웃 뒤 다시 카카오 → 온보딩 없이 복귀) 콘솔 오류 0. 실서버 통합은 아래 기록.
 - 10/18 AI 1차 리뷰 반영(must 1): 관문을 거치지 않는 소식 좋아요·답장·채팅 보내기가 403 `ONBOARDING_REQUIRED`를 받으면 세션이 온보딩을 연다(`onOnboardingRequired`). 주문서로 직접 들어와 온보딩을 닫으면 그 상품 화면으로(주문서 ↔ 온보딩 고리 제거). 10/17에 만든 계정의 이름 자리(이메일·‘카카오 사용자’)는 온보딩 이름 칸에 채우지 않음. 로그인 Mock 주석 갱신. Mock 확인: 관문에서 닫기 → 상품 화면, 주문서에서 닫기 → 상품 화면, 온보딩 전 좋아요 → 온보딩, 콘솔 오류 0. 범위에 `scripts/test-onboarding.mjs` 추가.
 - 10/18 남긴 리뷰 항목: 온보딩 e2e(Playwright)는 실서버 통합이 카카오 키 없이 돌아 카카오 첫 가입을 만들 수 없어 넣지 않았다. 대신 Mock 계약 테스트(`test-onboarding.mjs`)와 서버 pytest가 규칙을 덮고, 화면 흐름은 Mock Playwright 스크립트로 확인했다. 소식방에서 본인 답장 이름이 실명으로 보이는 것은 기존 동작이라 그대로 둠.
+
+## DEV-112 카카오 복귀 화면을 생산자 앱(DEV-108)과 맞추기
+
+- 이슈: [DEV-112](https://linear.app/sswp6/issue/DEV-112)
+- 브랜치: `nemodleo/dev-112-dev-소비자-앱-카카오-복귀-화면을-생산자-앱dev-108과`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-13 · 화면 SCR-05 하위 `/auth/kakao` · 관련 DEV-32, DEV-108
+- 상태: 진행 중
+
+### 목표
+소비자 앱 카카오 복귀 화면을 생산자 앱처럼 로딩 표시 + 한 줄로 정리하고, 새로고침 오류(일회용 `state` 소진으로 ‘로그인 요청이 만료됐어요’)와 응답 지연(무한 대기)을 처리한다. 소비자 앱은 로그인 뒤 직접 이동하므로 생산자 앱 같은 멈춤은 없었다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/auth/kakao.tsx`
+- 테스트: `scripts/e2e/consumer-kakao.spec.ts`(새 파일)
+- 문서: `apps/consumer/spec.md`, `apps/consumer/tasks.md`, `docs/spec/screens.md`(SCR-05), `docs/wiki/Requirements-and-Specifications.md`(SCR-05 줄)
+- Figma 스크립트: 레포 밖 `figma-plugins/farmclub-dev112/`
+
+### 비범위
+- 소비자 세션 관문(`lib/session.tsx`), `lib/kakao.ts` 저장 형식, 서버, 오류 화면 문구(‘테스트 계정 로그인으로도 계속할 수 있어요.’ 등)
+
+### 결정 사항
+- 10/22 새로고침 판단은 생산자와 같다: `state`가 없거나 다른데 토큰이 있으면 로그인된 것으로 본다. 소비자 세션의 `refresh()`는 사용자를 돌려주지 않아 `auth.me()`를 직접 불러 `needsOnboarding`을 본다. 돌아갈 화면(`next`)은 첫 복귀 때 이미 꺼내 지웠으므로 홈으로 보낸다.
+- 10/22 시간 제한 15초, 문구는 생산자와 같다. 요청은 취소하지 않으므로 늦게 성공하면 토큰이 남고, ‘다시 로그인’·‘홈으로’ 어느 쪽을 눌러도 로그인된 채 이어진다.
+- 10/22 로딩 화면: 닫기(`HeaderBar close`)는 남기고 그 아래를 가운데 `ActivityIndicator`(large, 보조 글자색) + `T` body muted ‘카카오 로그인 중이에요’로. 새 공용 부품은 만들지 않는다(DEV-108과 같은 판단).
+
+### 작업
+- [x] 복귀 화면: 모양, 새로고침, 15초 제한
+- [x] Playwright(복귀 → 저장한 화면, 다시 열기 → 오류 없음, 로그인 안 된 채 state 불일치 → 만료 안내)
+- [x] 스펙(screens.md SCR-05, wiki), `spec.md`
+- [x] Figma v6 소비자 로그인 근처 복귀 로딩 화면
+- [x] typecheck, test:mock, Playwright 통과 확인
+
+### 완료 조건
+- [x] 로딩 화면 정리, 새로고침해도 오류 없음
+- [x] 테스트·스펙·Figma가 같은 PR
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/22 origin/main 1f1a243에서 시작.
+- 10/22 검증: `npm run typecheck` 통과, `npm run test:mock` 19/19. 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, 별도 DB, `node scripts/run-integration.mjs scripts/e2e/consumer-kakao.spec.ts scripts/e2e/discovery-and-gates.spec.ts`): 실서버 시나리오 7/7, Playwright 5/5. 새 spec을 origin/main의 `kakao.tsx`로 돌리면 새로고침 테스트 1건이 실패(만료 안내에 남음)해 고친 증상과 같음을 확인.
+- 10/22 Figma v6 ‘현재 시안 · 소비자’에 `DEV-112 · C02-1 카카오 복귀 · /auth/kakao`(node 460:4936, C02 닫기 머리 복제)와 명세 상자(460:4955). 자리는 C02와 같은 줄 x 4410(3940에는 다른 ‘수정 전’ 사본이 있어 한 칸 옆). 스크립트는 레포 밖 `figma-plugins/farmclub-dev112/code.js`(같은 노드 재사용, 두 번 실행해 확인).
+
+## DEV-97 상품 페이지에서 연 채팅에 상품 전달
+
+- 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97) · 브랜치 `zahra/dev-97-chat-product-context` · 기준 절: `server/tasks.md#dev-97` · 상태: 완료(#197)
+- 범위: `src/app/(tabs)/products/[productId].tsx`(채팅하기·확인 시트 ‘시작하기’ 경로에 `productId`), `src/app/(tabs)/chats/[farmId].tsx`(경로의 `productId`를 보내기에)
+- 10/20 결정: 화면·문구 변경 없음(Figma 해당 없음). 주문 문맥이 있으면 서버가 주문을 우선한다.
+- [x] 두 화면 수정, `npm run typecheck` 4개 통과

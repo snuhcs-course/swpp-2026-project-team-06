@@ -1,0 +1,24 @@
+[WARN] The "workspaces" field in package.json is not supported by pnpm. Create a "pnpm-workspace.yaml" file instead.
+
+> typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> @farmclub/consumer@1.0.0 typecheck
+> tsc --noEmit
+
+
+> @farmclub/producer@1.0.0 typecheck
+> tsc --noEmit
+
+
+> @farmclub/analytics@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @farmclub/api@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @farmclub/ui@0.1.0 typecheck
+> tsc --noEmit
