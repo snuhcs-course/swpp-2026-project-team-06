@@ -508,7 +508,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: [DEV-136](https://linear.app/sswp6/issue/DEV-136)
 - 브랜치: `nemodleo/dev-136-consumer-mock-test-accounts`
 - 기능·인수 조건: FEAT-01(SCR-05) / AC-01-1(테스트 계정 로그인), 카카오 로그인 절
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록을 함께 보이는데 소비자 SCR-05는 카카오 버튼만 보여 시드 계정(김민지·이서준)을 고를 수 없다. 두 앱의 Mock 로그인 화면을 맞춘다.
@@ -540,3 +540,4 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 ### 기록
 - 10/23 iteration-2-demo README 검토(DEV-133 세션)에서 발견. 같은 폴더의 DEV-120(리뷰 중)은 주문서만 건드려 겹치지 않음
 - 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 40 passed / 0 failed, Mock(공유 Mock 8183, 앱 8181·8182 — 다른 세션이 8081·8082 사용 중이라 포트만 바꿈)에서 `npx playwright test scripts/e2e/mock-login.spec.ts scripts/e2e/legal-consent.spec.ts` 5 passed. 수정 전 조건으로 되돌리면 새 소비자 테스트가 실패(1 failed)하는 것 확인 후 복구, 다시 2 passed. 실서버 `test:integration:full`은 안 돌림(이 변경은 `isMock`일 때만 동작이 달라짐, CI integration job이 확인)
+- 10/23 AI 1차 리뷰(PR 코멘트) must·should 없음, nit 1(e2e 건너뛰기 조건, legal-consent와 같은 방식이라 유지). CI server·apps·integration·figma-line 통과
