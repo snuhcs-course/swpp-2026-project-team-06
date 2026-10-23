@@ -556,6 +556,7 @@ DEV-78 동의 항목 심사에서 이름·카카오계정(전화번호)을 필�
 - `apps/consumer/src/lib/onboarding.ts`(가입 동의 요지 한 줄)
 - 동의 버전: `server/app/accounts/schemas.py`(CONSENT_VERSION), `packages/api/src/mock/db.ts`, `scripts/test-{legal,onboarding,withdrawal}.mjs`
 - `docs/spec/policy.md`, `docs/spec/functional/{FEAT-01-login,README}.md`, `docs/wiki/Requirements-and-Specifications.md`
+- (10/23 추가, AI 1차 리뷰) `docs/spec/screens.md` SCR-19a 버전 글자
 - Figma v6(코드 밖)
 
 ### 비범위
