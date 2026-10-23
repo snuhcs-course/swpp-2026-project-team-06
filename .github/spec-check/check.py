@@ -22,6 +22,14 @@ ENDPOINT = "https://api.anthropic.com/v1/messages"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 SECRET = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bsk-ant-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}")
 THINKING = {"thinking", "redacted_thinking"}
+# DEV-81: only spec excerpts and the diff are sent. IDs name the FEAT/rule items worth excerpting.
+ID = re.compile(r"\b(?:AC-[A-Za-z0-9]+-\d+|[RM]-\d{2,3})\b")
+KEY = re.compile(r"\b(?:DEV|SWPP)-\d+\b", re.I)
+EXCLUDED_NAMES = {"package-lock.json", "pnpm-lock.yaml", "yarn.lock"}
+EXCLUDED_SUFFIXES = (".lock", ".snap", ".min.js", ".min.css", ".map", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+                     ".svg", ".ico", ".pdf", ".woff", ".woff2", ".ttf", ".otf", ".zip")
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"  # git's empty tree: demo fixtures diff as added files.
+PROMPT_VERSION = "dev81-v2"
 
 
 class Incomplete(Exception):
@@ -102,10 +110,15 @@ def references(cell):
     return [safe_path(p.split("#", 1)[0]) for p in re.findall(r"`([^`]+)`", cell)]
 
 
-def author_mapping(body):
+def mapping_section(body):
     section = re.search(r"## Spec ↔ Code 확인\s*\n(.*?)(?=\n## |\Z)", body, re.S)
     if not section:
         raise Incomplete("Fill in the existing Spec ↔ Code 확인 section.")
+    return section[1]
+
+
+def author_mapping(body):
+    section = [None, mapping_section(body)]
     specs, implementation = set(), set()
     for line in section[1].splitlines():
         cells = line.strip().strip("|").split("|")
@@ -124,55 +137,226 @@ def author_mapping(body):
     return specs, implementation, safe_path(path), match[1]
 
 
+def mapping_anchors(body):
+    """Spec-column `path#anchor` references: {path: {anchor}}. Only the heading named by an anchor is sent."""
+    anchors = {}
+    for line in mapping_section(body).splitlines():
+        cells = line.strip().strip("|").split("|")
+        if line.lstrip().startswith("|") and len(cells) == 3 and references(cells[0]) and references(cells[1]):
+            for value in re.findall(r"`([^`]+)`", cells[0]):
+                path, _, anchor = value.partition("#")
+                if anchor:
+                    anchors.setdefault(safe_path(path), set()).add(anchor)
+    return anchors
+
+
+def excluded(path):
+    """Generated, binary or mirrored files stay out of the diff; only their paths are reported (DEV-81)."""
+    parts = PurePosixPath(path).parts
+    name = parts[-1]
+    return (name in EXCLUDED_NAMES or name.lower().endswith(EXCLUDED_SUFFIXES)
+            or "__snapshots__" in parts or parts[:2] == ("docs", "wiki"))
+
+
+def item_block(lines, index):
+    """Line `index` plus the following lines indented deeper than it (continuation of a list item)."""
+    indent = len(lines[index]) - len(lines[index].lstrip())
+    picks = {index}
+    for j in range(index + 1, len(lines)):
+        if not lines[j].strip():
+            break
+        if len(lines[j]) - len(lines[j].lstrip()) <= indent:
+            break
+        picks.add(j)
+    return picks
+
+
+def segments(lines, picks):
+    """Group zero-based picked line indices into [{start: one-based line, text}] runs."""
+    out, run = [], []
+    for index in sorted(picks):
+        if run and index != run[-1] + 1:
+            out.append(run)
+            run = []
+        run.append(index)
+    if run:
+        out.append(run)
+    return [{"start": r[0] + 1, "text": "\n".join(lines[i] for i in r)} for r in out]
+
+
+def excerpt(text, picks, selection):
+    lines = text.splitlines()
+    picks = {i for i in picks if 0 <= i < len(lines)} | ({0} if lines else set())
+    if len(picks) == len(lines):
+        return {"kind": "full", "selection": selection, "segments": [{"start": 1, "text": text}]}
+    return {"kind": "excerpt", "selection": selection, "segments": segments(lines, picks)}
+
+
+def section_range(lines, index):
+    """Lines of the heading at `index` up to the next heading of the same or a higher level."""
+    level = len(re.match(r"#+", lines[index].lstrip())[0])
+    end = index + 1
+    while end < len(lines) and not re.match(r"\s*#{1,%d}\s" % level, lines[end]):
+        end += 1
+    return set(range(index, end))
+
+
+def tasks_excerpt(text, issue):
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if re.match(r"## " + re.escape(issue) + r"\b", line, re.I):
+            return excerpt(text, section_range(lines, index), f"issue section {issue}")
+    return None
+
+
+def feat_excerpt(text, ids):
+    lines = text.splitlines()
+    picks = set()
+    for index, line in enumerate(lines):
+        if ids & set(ID.findall(line)):
+            picks |= item_block(lines, index)
+    if picks:
+        return excerpt(text, picks, "lines carrying the PR's AC/rule IDs")
+    for index, line in enumerate(lines):
+        if re.match(r"\s*-\s*\[[ xX]\]\s*AC-", line):
+            picks |= item_block(lines, index)
+    if picks:
+        return excerpt(text, picks, "acceptance criteria (no AC ID named in the PR)")
+    return excerpt(text, range(len(lines)), "complete file (no acceptance criteria found)")
+
+
+def rules_excerpt(text, ids):
+    lines = text.splitlines()
+    picks = {i for i, line in enumerate(lines) if (m := re.match(r"\|\s*([RM]-\d+)\s*\|", line)) and m[1] in ids}
+    if picks:
+        return excerpt(text, picks, "rule rows named in the PR")
+    return excerpt(text, range(len(lines)), "complete file (no rule ID named in the PR)")
+
+
+def decisions_excerpt(text, ids, issue):
+    lines = text.splitlines()
+    picks, rows = set(), []
+    for index, line in enumerate(lines):
+        if re.match(r"#+\s", line.lstrip()) and "결정" in line:
+            table = [i for i in sorted(section_range(lines, index)) if lines[i].lstrip().startswith("|")]
+            picks |= set(table[:2])  # header and separator keep the columns readable
+            rows += table[2:]
+    needles = {issue.lower()} | {i.lower() for i in ids}
+    matched = {i for i in rows if needles & ({m.lower() for m in ID.findall(lines[i])} | {k.lower() for k in KEY.findall(lines[i])})}
+    if matched:
+        return excerpt(text, picks | matched, "decision rows naming the issue or its AC/rule IDs")
+    if rows:
+        return excerpt(text, picks | set(rows[-10:]), "latest 10 decision rows (none names the issue)")
+    for index, line in enumerate(lines):
+        if re.match(r"#+\s", line.lstrip()) and re.search(re.escape(issue), line, re.I):
+            return excerpt(text, section_range(lines, index), f"section headed by {issue}")
+    return excerpt(text, set(), "title only (no decision table or issue section)")
+
+
+def slug(heading):
+    text = re.sub(r"^#+\s*", "", heading.strip()).lower()
+    return re.sub(r"\s+", "-", re.sub(r"[^\w\s-]", "", text).strip())
+
+
+def anchor_excerpt(text, anchors):
+    lines = text.splitlines()
+    picks = set()
+    for index, line in enumerate(lines):
+        if re.match(r"#+\s", line.lstrip()) and any(slug(line) == a.lower() or a.lower() in line.lower() for a in anchors):
+            picks |= section_range(lines, index)
+    return excerpt(text, picks, "sections named by the table anchors") if picks else None
+
+
+def diff_lines(diff):
+    """New-side line numbers of added and context lines per path, as the model must cite them."""
+    files, current, line = {}, None, 0
+    for raw in diff.splitlines():
+        if raw.startswith("diff --git "):
+            current = None
+        elif current is None and raw.startswith("+++ "):
+            name = raw[4:]
+            current = None if name == "/dev/null" else files.setdefault(name[2:] if name.startswith("b/") else name, {})
+        elif raw.startswith("@@"):
+            line = int(re.match(r"@@ -\d+(?:,\d+)? \+(\d+)", raw)[1])
+        elif current is not None and raw.startswith(("+", " ")):
+            current[line] = raw[1:]
+            line += 1
+    return files
+
+
 def collect(root, event, demo=None):
     meta = metadata(event)
     base, head = meta["base_sha"], meta["head_sha"]
     merge_base = git(root, "merge-base", base, head).decode().strip()
     meta.update(merge_base_sha=merge_base, mode=f"demo-{demo}" if demo else "pr",
-                runner_sha=os.environ.get("GITHUB_SHA", "local execution"))
-    files, previous, target = {}, {}, {}
-    meta["source_revisions"] = {}
+                runner_sha=os.environ.get("GITHUB_SHA", "local execution"), source_revisions={})
+    documents, references_only, anchors, ids = {}, {}, {}, set()
     if demo:
         prefix = ".github/spec-check/fixtures/quantity/"
         specs, implementation = {prefix + "spec.md"}, {prefix + demo + ".py"}
-        changed, paths = sorted(implementation), specs | implementation
-        diff = "Isolated checker demonstration; compare the supplied specification and implementation."
+        changed, task_path, issue, old_rev = sorted(implementation), None, "demo", EMPTY_TREE
+        documents[prefix + "spec.md"] = excerpt(read_file(root, head, prefix + "spec.md"), range(10 ** 6), "complete fixture")
+        meta["source_revisions"][prefix + "spec.md"] = head
     else:
-        specs, implementation, task_path, issue = author_mapping(event["pull_request"].get("body") or "")
+        body = event["pull_request"].get("body") or ""
+        specs, implementation, task_path, issue = author_mapping(body)
+        anchors, old_rev = mapping_anchors(body), merge_base
         task = read_file(root, head, task_path)
-        if not re.search(r"^## " + re.escape(issue) + r"\b", task, re.M | re.I):
+        section = tasks_excerpt(task, issue)
+        if section is None:
             raise Incomplete("The referenced tasks.md issue section is missing.")
+        documents[task_path] = section
+        meta["source_revisions"][task_path] = head
         specs.add(task_path)
+        ids = set(ID.findall(mapping_section(body))) | set(ID.findall(section["segments"][0]["text"]))
         changed = [safe_path(p) for p in git(root, "diff", "--name-only", "--no-renames", "-z", merge_base, head).decode().split("\0") if p]
         unmapped = set(changed) - specs - implementation
         if unmapped:
             raise Incomplete("Unmapped changed files: " + ", ".join(sorted(unmapped)))
-        paths = specs | implementation | {"docs/spec/README.md"}
         for path in implementation:
             for parent in PurePosixPath(path).parents:
                 contract = str(parent / "spec.md")
                 if git(root, "ls-tree", "-z", head, "--", contract):
                     specs.add(contract)
-                    paths.add(contract)
                     break
-        diff = git(root, "diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=5", merge_base, head).decode()
-        if SECRET.search(diff):
-            raise Incomplete("The diff may contain secret material; content withheld.")
-    for path in sorted(paths):
-        current = read_file(root, head, path, optional=True)
-        old = read_file(root, merge_base, path, optional=True)
-        if current is None and old is None:
-            raise Incomplete("A referenced file is missing at both captured revisions.")
-        files[path] = current if current is not None else old
-        meta["source_revisions"][path] = head if current is not None else merge_base
-        if old is not None and old != current:
-            previous[path] = old
-        at_base = read_file(root, base, path, optional=True)
-        if at_base is not None and at_base != old:
-            target[path] = at_base
-    context = {"metadata": meta, "spec_paths": sorted(specs), "implementation_paths": sorted(implementation),
-               "changed_paths": changed, "files": files, "previous_files": previous,
-               "target_changes": target, "diff": diff}
+        for path in sorted(specs - set(documents)):
+            current = read_file(root, head, path, optional=True)
+            text = current if current is not None else read_file(root, merge_base, path, optional=True)
+            if text is None:
+                raise Incomplete("A referenced file is missing at both captured revisions.")
+            name = PurePosixPath(path).name
+            if path.startswith("docs/spec/functional/FEAT-"):
+                document = feat_excerpt(text, ids)
+            elif path == "docs/spec/functional/rules.md":
+                document = rules_excerpt(text, ids)
+            elif name == "spec.md":
+                document = decisions_excerpt(text, ids, issue)
+            elif name == "tasks.md":
+                document = tasks_excerpt(text, issue) or excerpt(text, set(), f"title only (no {issue} section)")
+            else:
+                document = anchor_excerpt(text, anchors[path]) if anchors.get(path) else None
+            if document is None:
+                references_only[path] = {"size": len(text.encode())}
+                continue
+            documents[path] = document
+            meta["source_revisions"][path] = head if current is not None else merge_base
+    excluded_paths = sorted(p for p in changed if excluded(p))
+    diff_paths = [p for p in changed if p not in excluded_paths]
+    diff = git(root, "diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=5", old_rev, head,
+               "--", *diff_paths).decode() if diff_paths else ""
+    if SECRET.search(diff):
+        raise Incomplete("The diff may contain secret material; content withheld.")
+    changed_files = {}
+    entries = git(root, "diff", "--name-status", "--no-renames", "-z", old_rev, head).decode().split("\0")
+    status = {path: flag for flag, path in zip(entries[::2], entries[1::2])}
+    for path in changed:
+        current = None if status.get(path) == "D" else int(git(root, "cat-file", "-s", f"{head}:{path}"))
+        previous = None if status.get(path) == "A" else int(git(root, "cat-file", "-s", f"{old_rev}:{path}"))
+        changed_files[path] = {"status": {"A": "added", "D": "deleted"}.get(status.get(path), "modified"),
+                               "size": current, "previous_size": previous}
+    context = {"metadata": meta, "issue": issue, "spec_paths": sorted(specs), "implementation_paths": sorted(implementation),
+               "changed_paths": changed, "changed_files": changed_files, "excluded_paths": excluded_paths,
+               "diff_paths": diff_paths, "documents": documents, "reference_paths": references_only, "diff": diff}
     if len(json.dumps(context, ensure_ascii=False).encode()) > MAX_INPUT:
         raise Incomplete(f"Complete context exceeds {LIMIT}. Split the PR; no partial review was sent.")
     return context
@@ -285,10 +469,12 @@ def validate(result, context):
         raise Incomplete("Invalid report collection.")
     if not all(isinstance(x, str) for x in result["reviewed_files"] + result["missing_context"]):
         raise Incomplete("Invalid reviewed-file or missing-context values.")
-    if not set(result["reviewed_files"]).issubset(context["files"]):
+    supplied = set(context["documents"]) | set(context["diff_paths"])
+    if not set(result["reviewed_files"]).issubset(supplied):
         raise Incomplete("Model cited files outside supplied context.")
-    if status != "INCOMPLETE" and set(result["reviewed_files"]) != set(context["files"]):
+    if status != "INCOMPLETE" and set(result["reviewed_files"]) != supplied:
         raise Incomplete("Model did not account for all supplied context.")
+    code_lines = diff_lines(context["diff"])
     seen = set()
     for finding in result["findings"]:
         if not isinstance(finding, dict) or set(finding) != {"id", "requirement", "code", "explanation", "suggestion", "certainty"}:
@@ -307,10 +493,14 @@ def validate(result, context):
             path, line, quote = ref["path"], ref["line"], ref["quote"]
             if not isinstance(path, str) or path not in allowed or type(line) is not int:
                 raise Incomplete("Finding reference is outside declared scope.")
-            lines = context["files"][path].splitlines()
-            if (line < 1 or line > len(lines) or not isinstance(quote, str)
-                    or not quote.strip() or quote not in lines[line - 1]):
-                raise Incomplete("Finding quote/line cannot be verified against captured source.")
+            if key == "requirement":
+                # Original-file line numbers inside the excerpt segments that were actually sent.
+                source = {s["start"] + i: t for s in context["documents"].get(path, {}).get("segments", [])
+                          for i, t in enumerate(s["text"].splitlines())}
+            else:
+                source = code_lines.get(path, {})  # New-side numbers of added/context diff lines only.
+            if line not in source or not isinstance(quote, str) or not quote.strip() or quote not in source[line]:
+                raise Incomplete("Finding quote/line cannot be verified against supplied excerpts or diff.")
     if status == "PASS" and (result["findings"] or result["missing_context"]):
         raise Incomplete("PASS cannot contain unresolved findings or missing context.")
     if status == "MISMATCH" and (not result["findings"] or result["missing_context"]
@@ -403,7 +593,7 @@ def main(argv=None):
         message = str(exc) if isinstance(exc, Incomplete) else "Review input or execution failed; inspect configuration and rerun."
         result.update(status="INCOMPLETE", summary=message, findings=[], missing_context=[message])
     report = {"schema_version": 1, **result, "metadata": meta, "model": model or "unconfigured",
-              "prompt_version": "dev40-v1", "usage": usage,
+              "prompt_version": PROMPT_VERSION, "usage": usage,
               "elapsed_seconds": round(time.monotonic() - started, 2),
               "run_url": os.environ.get("SPEC_CHECK_RUN_URL", "")}
     publish(report, args.output, os.environ.get("GITHUB_STEP_SUMMARY"), (key, token))

@@ -50,8 +50,29 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 
 예시 DEV-123은 실제 이슈/완료 증거가 아니다. 실제 PR의 파일과 이슈로 바꾼다.
 변경된 파일은 모두 표의 spec/구현 경로에 포함한다. 누락된 변경, 참조할 수 없는 파일, 없는 tasks 이슈 절은 INCOMPLETE다.
-제품 spec이 참조하는 규칙·계약·관련 구현도 표에 넣어 충분한 문맥을 제공한다.
+제품 spec이 참조하는 규칙·계약·관련 구현도 표에 넣어 충분한 문맥을 제공한다. 1열 경로 뒤나 3열에 AC·R·M ID(`AC-09-2`, `R-06`)를 적으면 FEAT·rules.md에서 그 항목만 발췌해 보낸다(아래 2.1절).
 문서/절차 변경도 관련 spec과 변경 문서 경로로 매핑한다. 확인되지 않은 사람 검토는 채우지 않는다.
+
+### 2.1 모델에 보내는 것·안 보내는 것 (DEV-81)
+
+checker는 파일을 통째로 보내지 않는다. 모델이 받는 `context`는 아래와 같고, 합쳐서 256 KiB를 넘으면 모델 호출 없이 INCOMPLETE("Split the PR")다. 측정(2026-10-23, 머지된 PR 4개): 이전 845 KiB~2.4 MB → 이후 65~231 KiB.
+
+| 보내는 것 | 내용 |
+| --- | --- |
+| `diff` | merge-base → head `git diff --unified=5`. lock 파일(`*.lock`, `package-lock.json` 등)·스냅샷·이미지·폰트·`*.min.*`·`*.map`·`docs/wiki/**`는 빼고 `excluded_paths`에 경로만 |
+| `documents[tasks.md]` | 작업 기록의 `## <이슈 키>` 섹션만 |
+| `documents[FEAT-xx]` | PR 표(`## Spec ↔ Code 확인` 절 전체)와 tasks.md 섹션에 적힌 `AC-xx-y`·`R-xx`·`M-xx`가 있는 줄 + 들여쓴 하위 줄. ID가 없으면 `- [ ] AC-…` 항목 전부 |
+| `documents[rules.md]` | 적힌 R·M ID의 표 행만. 없으면 전문 |
+| `documents[<폴더>/spec.md]` | "결정" 표에서 이슈 키 또는 ID가 있는 행(+표 머리). 없으면 최근 10행. 결정 표가 없으면 이슈 키 절, 그것도 없으면 제목 줄 |
+| 그 밖의 1열 파일 | `경로#앵커`면 그 제목 절만. 아니면 `reference_paths`에 크기만(내용은 보내지 않음) |
+| `changed_files` | 바뀐 파일마다 status·크기·이전 크기 |
+
+| 안 보내는 것 | 대신 |
+| --- | --- |
+| 표의 파일 전문(`files`), 이전 버전 전문(`previous_files`), base 변경본(`target_changes`) | diff가 바뀐 줄을 보여 준다. 보이지 않는 코드·스펙이 판단에 필요하면 모델은 `missing_context`에 `UNVERIFIED: …`를 적고 PASS를 내지 않는다 |
+| `docs/spec/README.md` 자동 포함 | 필요하면 표 1열에 `docs/spec/README.md#앵커`로 적는다 |
+
+발췌 문서의 줄 번호는 원본 파일 기준이라 보고서의 `rules.md:12`는 실제 파일 12행이다. 코드 인용은 diff에서 계산한 새 쪽 줄 번호(추가·문맥 줄)만 받고, 지운 줄은 인용할 수 없다. 틀린 줄 번호·인용은 검증에서 걸려 INCOMPLETE가 된다(PASS로 새지 않음).
 
 ## 3. 실행과 결과
 
@@ -88,7 +109,7 @@ API 설정 후 이 PR 본문에 `<!-- spec-check-demo -->`를 넣거나 유지�
 - 추가 assertion은 실제 보고서가 예상 결과인지 확인할 뿐, 보고서 내용을 바꾸지 않는다.
 - INCOMPLETE/키 오류/계약 테스트 성공을 genuine 모델 증거로 대신 쓰지 않는다.
 - demonstration mode는 두 fixture만 평가한다. 일반 PR 전체 검토 결과와 구분한다.
-- 전체 PR이 256 KiB를 넘으면 일반 검토는 INCOMPLETE일 수 있다. demo PASS로 전체 PR 검토를 통과 처리하지 않는다.
+- 전체 PR(diff + 발췌)이 256 KiB를 넘으면 일반 검토는 INCOMPLETE일 수 있다. demo PASS로 전체 PR 검토를 통과 처리하지 않는다. demo 모드는 fixture `spec.md`를 full 문서로, 구현 fixture를 빈 트리 대비 diff로 보내 같은 검증 경로를 쓴다.
 
 실제 모델 결과가 예상과 다르면 그 결과를 보존하고 프롬프트/수집 문맥/검증을 조사한다.
 단순 재실행으로 원래 finding이 사라졌다고 해결 처리하지 않는다.
@@ -122,7 +143,7 @@ actionlint .github/workflows/spec-check.yml
 계약 검증은 API 응답을 mock하며 비용이 없다. genuine API 결과와 구분한다.
 제품 코드를 실행/설치/import하지 않는다. Python 표준 라이브러리만 사용한다.
 review input와 prompt 합계 256 KiB, 출력 16000 tokens(thinking 포함), 요청 90초, transient retry 1회, job 5분이다.
-문맥을 잘라 PASS로 만들지 않는다. 바이너리/비밀 파일/누락 경로/큰 파일은 INCOMPLETE로 수동 검토가 필요하다.
+문맥을 잘라 PASS로 만들지 않는다. 발췌(2.1절)는 정해진 규칙으로 고르고, 다 못 보내면 INCOMPLETE다. 바이너리/비밀 파일/누락 경로/큰 diff는 INCOMPLETE로 수동 검토가 필요하다.
 v1은 명시적 경로 표를 사용한다. 자동 의미 검색·외부 문서 수집·모든 종류의 비밀 탐지·정확성 보증을 제공하지 않는다.
 비밀로 의심되는 선택 문맥은 전송하지 않지만, 검토자는 선택한 파일에 민감 정보가 없는지 확인해야 한다.
 
