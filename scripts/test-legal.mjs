@@ -56,6 +56,8 @@ test("DEV-113: privacy policy covers the items the Personal Information Protecti
   assert.ok(!html.includes("배송 완료 후 판매자 화면"));
   assert.ok(!html.includes("역할별"));
   assert.ok(html.includes("주문한 상품의 판매자(농가)"));
+  // 판매자 제공은 주문서의 별도 동의로(DEV-120, 제17조 ①·②)
+  assert.ok(html.includes("‘개인정보 제3자 제공’ 항목으로 따로 동의"));
   assert.ok(html.includes("이메일 help@example.com"), "officer section falls back to the contact email");
 });
 

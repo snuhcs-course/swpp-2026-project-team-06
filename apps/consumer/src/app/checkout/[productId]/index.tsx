@@ -37,7 +37,8 @@ import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet } from "../../../lib/views";
 
-const CONSENT_VERSION = "policy-2026-10-06";
+// 예약 전 확인 문구 버전(R-03). DEV-120에서 개인정보 제3자 제공 동의를 더해 올렸다
+const CONSENT_VERSION = "policy-2026-10-23";
 /** 저장 배송지 한도(서버 ADDRESS_LIMIT) */
 const ADDRESS_LIMIT = 50;
 const isRemote = (postal: string, address: string) =>
@@ -72,6 +73,7 @@ export default function Checkout() {
     delayRefund: false,
     shortage: false,
     cancelPolicy: false,
+    thirdParty: false,
   });
   const [sheet, setSheet] = useState<null | "option" | "address">(null);
   const [busy, setBusy] = useState(false);
@@ -137,7 +139,7 @@ export default function Checkout() {
   const shipping = p?.shippingFeeType === "SEPARATE" ? p.shippingFee : 0;
   const total = unit * qty + shipping + remoteFee;
   const agreed = Object.values(consents).filter(Boolean).length;
-  const allAgreed = agreed === 4;
+  const allAgreed = agreed === 5;
   const canPay = !!recipient && allAgreed && !!p && !p.soldOut;
 
   const consentText = useMemo(() => {
@@ -162,6 +164,12 @@ export default function Checkout() {
         key: "cancelPolicy" as const,
         title: "취소·반품 조건",
         body: "출하 전에는 언제든 취소하고 전액 환불받을 수 있어요. 신선식품이라 출하 후에는 단순 변심 취소·반품이 안 되고, 받은 상품에 문제가 있을 때만 환불·교환해 드려요.",
+      },
+      {
+        // 개인정보 제3자 제공 동의(DEV-120, 개인정보보호법 제17조 ②의 고지 5가지)
+        key: "thirdParty" as const,
+        title: "개인정보 제3자 제공 (판매자)",
+        body: `받는 분: 판매자 ${p.farmName}. 목적: 상품 배송, 주문 이행, 주문 문의 응대. 항목: 받는 사람 이름·연락처·주소·배송 메모, 주문 내용, 닉네임. 기간: 주문 이행이 끝날 때까지(판매자는 법령이 정한 기간 동안 보관할 수 있어요). 동의하지 않을 수 있지만, 그러면 판매자가 보낼 곳을 몰라 예약할 수 없어요.`,
       },
     ];
   }, [p]);
@@ -410,6 +418,7 @@ export default function Checkout() {
                 delayRefund: v,
                 shortage: v,
                 cancelPolicy: v,
+                thirdParty: v,
               });
             }}
           >
@@ -425,7 +434,7 @@ export default function Checkout() {
                   paddingVertical: 16,
                   borderTopWidth: 1,
                   borderTopColor: tokens.color.border,
-                  borderBottomWidth: i === 3 ? 1 : 0,
+                  borderBottomWidth: i === consentText.length - 1 ? 1 : 0,
                   borderBottomColor: tokens.color.border,
                 }}
               >
@@ -455,9 +464,25 @@ export default function Checkout() {
             예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고,
             상품·배송·환불의 책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
           </T>
-          <T variant="caption" muted>
-            이용약관 · 개인정보 처리방침
-          </T>
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            {(
+              [
+                ["이용약관", "/terms"],
+                ["개인정보 처리방침", "/privacy"],
+              ] as const
+            ).map(([label, path]) => (
+              <Pressable
+                key={path}
+                accessibilityRole="link"
+                onPress={() => router.push(path)}
+                style={{ minHeight: 48, justifyContent: "center" }}
+              >
+                <T variant="sub" weight={path === "/privacy" ? "semibold" : "regular"}>
+                  {label}
+                </T>
+              </Pressable>
+            ))}
+          </View>
         </Section>
         {errors._ ? (
           <T variant="sub" color={tokens.color.error} style={{ margin: 20 }}>
