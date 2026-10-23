@@ -489,3 +489,44 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/23 Railway 리전 확인(`railway status --json`): farmclub-api·farmclub-source-worker·Postgres 모두 asia-southeast1(싱가포르). 처리방침 제6조 Railway 국가를 싱가포르로 고침.
 - 10/23 사용자 지시: 시행일·동의 버전을 2026-10-23으로 바꿈(서버 CONSENT_VERSION, Mock, legalContent LEGAL_VERSION·시행일, test-onboarding, screens·policy·wiki).
 - 10/23 머지 전 점검: 구매 확정 조항에 '확정 뒤에도 법정 청약철회·하자 권리는 그대로'를 더함. 8일 자동 확정(R-14)은 서버에 아직 없다(약관·앱 문구만 있음) — 수익화(수수료 정산) 전에 구현 필요.
+
+## DEV-116 Figma v6 sync for legal footer, legal pages, consent screens + producer login footer layout
+
+- 이슈: [DEV-116](https://linear.app/sswp6/issue/DEV-116)
+- 브랜치: `nemodleo/dev-116-legal-footer-figma-sync`
+- 기능·규칙: R-16(법정 표시), policy.md 6장, FEAT-01 SCR-06·SCR-19·SCR-19a, SCR-10(주문서 동의)
+- 상태: 진행 중
+
+### 목표
+1. 운영 생산자 로그인(카카오 켜짐)에서 하단 사업자 정보 푸터가 화면 중간에 뜨고 그 아래 빈 공간이 남는다. 고정 하단 바의 "테스트 서비스 · 이용약관 · 개인정보 처리방침" 글자는 링크가 아니면서 푸터 링크와 겹친다. 푸터를 스크롤 내용 맨 아래로 내리고 겹친 글자를 정리한다.
+2. DEV-113·120·132에서 만든 화면을 Figma v6에 반영한다(푸터, `/privacy`·`/terms`, 생산자 `/consent`, 소비자 SCR-06 재동의·가입 동의 모드, 주문서 SCR-10 5번째 동의).
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{Legal.tsx,content.tsx}`, `packages/ui/{spec,tasks}.md`
+- `apps/producer/src/app/login.tsx`, `apps/consumer/src/app/login.tsx`
+- `apps/consumer/src/app/(tabs)/{index,me/index}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx` — 푸터 줄만(DEV-94 탈퇴 작업과 겹침)
+- `scripts/e2e/legal-pages.spec.ts`
+- Figma v6 파일(코드 밖)
+
+### 비범위
+- 푸터 문안·사업자 정보 값, 약관 본문, 동의 로직, DEV-132(PR #264) 코드
+
+### 결정 사항
+- 10/23 `Scroll`에 `footer` 슬롯을 둔다. 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'`로 맨 아래에 붙인다(내용이 짧으면 아래로 밀리고, 길면 내용 뒤 section 간격). `flexGrow`는 footer가 있을 때만 켜서 다른 48개 화면에 영향이 없게 한다.
+- 10/23 생산자 로그인 하단 바의 "테스트 서비스 · 이용약관 · 개인정보 처리방침"은 지운다. 푸터가 이미 링크와 ‘테스트 서비스’(값 없을 때)를 보인다. 하단 바 높이는 상태(카카오 버튼만/테스트 계정 버튼/오류 문구)마다 달라 `onLayout`으로 재서 스크롤 아래 여백으로 쓴다(고정 170이면 카카오 운영에서 푸터와 바 사이가 빈다).
+- 10/23 소비자 로그인 하단 바 문구("…동의는 처음 가입할 때 받아요 · 테스트 서비스")는 동의 시점 안내라 남긴다. 같은 푸터 위치 문제만 고친다.
+
+### 작업
+- [ ] `Scroll` footer 슬롯, 다섯 화면 푸터를 슬롯으로 옮김
+- [ ] 생산자 로그인 하단 바 정리·여백 측정, 소비자 로그인 여백 측정
+- [ ] Playwright: 푸터가 짧은 화면에서 바닥(하단 바 바로 위)에 붙는지, 360·390·430px 스크린샷
+- [ ] Figma v6 반영
+- [ ] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`
+
+### 완료 조건
+- [ ] 생산자·소비자 로그인, 생산자 환경설정, 소비자 홈·내 정보에서 푸터가 내용 맨 아래(짧으면 화면 바닥)에 있다
+- [ ] Figma v6에 대상 화면 반영(사업자 정보는 자리 표시)
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
