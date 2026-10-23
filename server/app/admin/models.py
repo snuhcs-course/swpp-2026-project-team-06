@@ -56,20 +56,20 @@ class ManagerEvent(Base):
     resolved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
 
 
-class SpecCheckRun(Base):
-    """spec-check(spec-code-review)가 모델을 부른 실행 한 건과 그 비용(DEV-144)."""
+class AiUsage(Base):
+    """AI 호출 한 번과 그 비용(DEV-144). 기능별로 모은다: spec-check(CI), 상품 초안, 상세 초안,
+    AI 답변, 자료 분석. 금액을 모르면(단가표에 없는 모델) cost_usd가 비어 있다."""
 
-    __tablename__ = "spec_check_runs"
+    __tablename__ = "ai_usage"
 
-    id: Mapped[str] = mapped_column(String(80), primary_key=True)  # <run_id>-<attempt>-<mode>
-    pr_number: Mapped[int] = mapped_column(Integer, index=True)
-    pr_title: Mapped[str] = mapped_column(String(300), default="")
-    head_sha: Mapped[str] = mapped_column(String(40))
-    status: Mapped[str] = mapped_column(String(16))
-    mode: Mapped[str] = mapped_column(String(32))
-    model: Mapped[str] = mapped_column(String(80))
-    input_tokens: Mapped[int] = mapped_column(Integer)
-    output_tokens: Mapped[int] = mapped_column(Integer)
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    feature: Mapped[str] = mapped_column(String(32), index=True)
+    model: Mapped[str] = mapped_column(String(80), default="")
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
-    run_url: Mapped[str] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(16), default="")
+    ref: Mapped[str] = mapped_column(String(40), default="")  # 예: PR 번호 "#170"
+    title: Mapped[str] = mapped_column(String(300), default="")
+    link: Mapped[str] = mapped_column(String(300), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

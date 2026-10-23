@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
+from app.admin.ai_usage import report_router as spec_check_report_router
+from app.admin.ai_usage import router as admin_ai_usage_router
 from app.admin.farms import router as admin_farms_router
 from app.admin.router import router as admin_exceptions_router
-from app.admin.spec_check_cost import report_router as spec_check_report_router
-from app.admin.spec_check_cost import router as admin_spec_check_cost_router
 from app.admin.support import router as admin_support_router
 from app.admin.user_detail import router as admin_user_detail_router
 from app.admin.users import router as admin_users_router
@@ -80,6 +80,6 @@ for admin_router in (
     admin_users_router,
     admin_user_detail_router,
     admin_support_router,
-    admin_spec_check_cost_router,
+    admin_ai_usage_router,
 ):
     app.include_router(admin_router)
