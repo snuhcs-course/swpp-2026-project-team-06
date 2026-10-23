@@ -32,13 +32,14 @@ CI의 spec-check(`.github/spec-check/check.py`)가 이 표를 기계적으로 �
 - 절 제목은 템플릿 그대로 `## Spec ↔ Code 확인`이다. 바꾸지 않는다.
 - `작업 기록:` 줄에 이 이슈 섹션을 backtick으로 적는다: `` - 작업 기록: `server/tasks.md#dev-60` ``. 경로는 `…/tasks.md`로 끝나고 `#` 뒤는 이슈 키(`dev-12`, `swpp-34`)로 시작한다. 그 tasks.md에 `## DEV-60 …` 섹션이 있어야 한다.
 - 표는 3열이다. checker는 **1열(요구사항)과 2열(구현)에 둘 다 backtick 경로가 있는 줄만** 읽는다. 3열(근거)은 읽지 않는다.
-  - 1열: 기준 문서 경로. 예: `docs/spec/functional/FEAT-06-farm-search-follow.md`, 폴더 `spec.md`. 바뀌지 않았지만 판단에 필요한 파일(workflow, 프롬프트 등)도 여기에 적는다.
+  - 1열: 기준 문서 경로. 예: `docs/spec/functional/FEAT-06-farm-search-follow.md`, 폴더 `spec.md`. 바뀌지 않았지만 판단에 필요한 파일(workflow, 프롬프트 등)도 여기에 적되, checker는 전문을 보내지 않으므로 `경로#앵커`(제목)로 필요한 절을 가리킨다.
+  - 1열 경로 뒤나 3열에 그 줄의 AC·규칙 ID(`AC-06-2`, `R-06`, `M-02`)를 적는다. checker는 FEAT·rules.md에서 **PR 본문과 tasks.md 섹션에 적힌 ID가 있는 항목만** 발췌해 보낸다. 하나도 없으면 FEAT의 인수 조건 항목 전부를 보낸다(DEV-81).
   - 2열: 바뀐 코드·테스트·문서 경로.
 - `git diff --name-only main...HEAD`의 **모든 파일**이 1열이나 2열 중 한 곳에 있어야 한다. 테스트 파일도 2열에 적는다. 작업 기록의 tasks.md는 자동으로 포함된다.
 - backtick 안의 값은 전부 repo 상대 **파일 경로**로 읽힌다. 함수·클래스·상수 이름, 폴더, glob, URL은 backtick 없이 쓴다. 예: `` `server/app/farms/service.py` (list_farms) `` (O), `` `list_farms` `` (X). `경로#앵커`는 써도 된다.
 - 문서만 바꾼 PR도 같은 형식이다: 1열에 기준 문서, 2열에 바뀐 문서.
 - `.env*`, `node_modules`, `.venv`, `dist`, 키 파일(`.pem` 등)이 바뀌면 checker가 읽지 않아 INCOMPLETE가 된다. 표에서 빼지 말고, PR 본문에 사람 리뷰로 대신한다고 적는다.
-- checker는 표의 파일을 통째로 보내므로 큰 파일이 많으면 입력 한도(`check.py`의 `MAX_INPUT`)를 넘을 수 있다. 문맥을 줄이려고 바뀐 파일을 빼지 않는다. 넘으면 PR을 나누거나 사람 리뷰로 대신한다고 적는다.
+- checker는 diff(lock·스냅샷·바이너리·`docs/wiki` 제외)와 스펙 발췌(tasks.md 이 이슈 섹션, FEAT·rules의 적힌 ID 항목, 폴더 `spec.md` 결정 행)만 보낸다(`.github/spec-check/README.md` 2.1절). diff가 입력 한도(`check.py`의 `MAX_INPUT`)에 가까우면 넘을 수 있다. 문맥을 줄이려고 바뀐 파일을 빼지 않는다. 넘으면 PR을 나누거나 사람 리뷰로 대신한다고 적는다.
 
 PR을 열거나 본문을 고치기 전에 자가 점검을 돌린다. 모델·키·네트워크가 필요 없다. 레포 루트에서 실행하고, `OK`가 나올 때까지 표를 고친다.
 
