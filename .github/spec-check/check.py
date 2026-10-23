@@ -308,7 +308,9 @@ def collect(root, event, demo=None):
         documents[task_path] = section
         meta["source_revisions"][task_path] = head
         specs.add(task_path)
-        ids = set(ID.findall(mapping_section(body))) | set(ID.findall(section["segments"][0]["text"]))
+        # IDs may be written only in the tasks.md issue section; segments[0] is always the file title line.
+        section_text = "\n".join(seg["text"] for seg in section["segments"])
+        ids = set(ID.findall(mapping_section(body))) | set(ID.findall(section_text))
         changed = [safe_path(p) for p in git(root, "diff", "--name-only", "--no-renames", "-z", merge_base, head).decode().split("\0") if p]
         unmapped = set(changed) - specs - implementation
         if unmapped:
