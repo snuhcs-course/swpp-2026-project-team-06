@@ -38,6 +38,7 @@
 - 10/23 `scripts/demo.mjs`: 문구를 iteration 중립으로, `ENVIRONMENT`→`APP_ENV`(서버 설정 이름), `ADMIN_WEB_PASSWORD`가 있으면 관리자 페이지(`scripts/admin-web/server.mjs`)를 로컬 API에 붙여 같이 띄움(재녹화에 필요). `prep-login.mjs` 관리자 기본 주소를 `admin.farmclub.kr`로
 - 10/23 `record/consumer.mjs`·`producer.mjs`·`admin.mjs`는 I1 앱별 녹화로 그대로 옮김(화면 변경으로 안 맞을 수 있다고 README에 표시). 지금 영상 원본은 `story.mjs`
 - 10/23 사이트 영상 길이 표기·단계 목록은 HTML에 손으로 있음. 재녹화 때 손으로 고침(자동 생성은 DEV-134)
+- 10/23 녹화가 운영 PostHog를 오염시키지 않게 `lib.mjs`에서 `posthog.com`(하위 도메인 포함) 요청을 모두 abort. vercel.app 주소로 찍는 안은 DEV-127 리다이렉트·CORS·카카오 복귀 주소 때문에 불가. 운영 빌드가 쓰는 호스트(`us.i.posthog.com`, `us-assets.i.posthog.com`, `APP_POSTHOG_HOST` 미설정)를 번들에서 확인
 
 ### 작업
 - [x] 사이트 원본 `demo/site/` 추가(HTML 4장, `vercel.json`), 영상은 `.gitignore`
@@ -60,3 +61,4 @@
 ### 기록
 - 10/23 브랜치·spec·tasks 첫 커밋, draft PR. 다음: 영상 저장소 결정 받고 사이트·스크립트 추가
 - 10/23 구현 커밋. 검증: `videos.mjs upload`(새 Release 생성)·재실행(교체, manifest 변화 없음)·`fetch`(받기·SHA-256·이미 같으면 건너뜀), `actionlint` 통과, 로컬 `serve` 4페이지 200·영상 206·재생 확인, `DEMO_DB=farmclub_demo ADMIN_WEB_PASSWORD=… npm run demo`로 API(health ok, 테스트 계정, 카카오 꺼짐)·두 앱·관리자 페이지(200) 기동 확인. Vercel 미리보기 배포는 로그인 보호(302)라 화면 확인 못 함. 남은 것: 머지 후 Action 배포 1회 확인
+- 10/23 PostHog 차단 검증: 같은 `POSTHOG` 패턴으로 `farmclub.kr/`·`farm.farmclub.kr/login`을 로그인 없이 열어 요청 43건 중 PostHog 10건(flags, 설정·녹화 스크립트)이 모두 abort, PostHog 응답 0건

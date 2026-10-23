@@ -31,6 +31,8 @@ Release 파일을 교체한 순간부터 머지 전까지는 라이브 사이트
 
 준비: `npm ci`, `cd server && uv sync --frozen`, `npx playwright install chromium`, ffmpeg, Docker.
 
+녹화 브라우저는 `posthog.com`으로 가는 요청(이벤트·세션 녹화·설정·스크립트)을 모두 끊는다(`lib.mjs` `POSTHOG`). 그래서 운영(`farmclub.kr`)에서 찍어도 PostHog 지표·녹화에 남지 않는다. 구간이 끝나면 `PostHog requests blocked: N`을 출력한다. 서버는 PostHog로 보내지 않는다(`server/app/analytics` 미구현). 스크립트 없이 손으로 찍을 때는 브라우저 확장 등으로 `*.posthog.com`을 따로 막아야 한다. 앱의 `*.vercel.app` 주소는 정식 도메인으로 308 이동하고(DEV-127) API·카카오도 정식 도메인만 받아 녹화에 쓸 수 없다.
+
 **로컬(시드·테스트 계정, 권장)**
 ```sh
 DEMO_DB=farmclub_demo ADMIN_WEB_PASSWORD=<로컬에서 정한 값> npm run demo   # 서버·두 앱·관리자 페이지

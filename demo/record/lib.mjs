@@ -10,6 +10,7 @@ export const consumerUrl = process.env.FARMCLUB_CONSUMER_URL ?? "http://localhos
 export const producerUrl = process.env.FARMCLUB_PRODUCER_URL ?? "http://localhost:8082";
 export const apiUrl = process.env.FARMCLUB_API_URL ?? "http://localhost:8000";
 const SIZE = { width: 1280, height: 800 };
+export const POSTHOG = /^https?:\/\/([^/]+\.)?posthog\.com(\/|$)/;
 
 // Runs in every page: cursor dot, click ripple, caption panel (state kept in sessionStorage)
 const overlay = (capPos) => {
@@ -95,6 +96,9 @@ export async function startRecording(name, appLabel, capPos) {
   const browser = profile ? null : await chromium.launch({ headless: !hq }); // 헤드리스는 screencast를 1배로만 보낸다
   const context = profile ? await chromium.launchPersistentContext(profile, { ...opts, headless: false }) : await browser.newContext(opts);
   await context.addInitScript(overlay, capPos ?? null);
+  // 녹화 접속이 운영 PostHog 지표·세션 녹화에 섞이지 않게 posthog.com(수집·설정·녹화 스크립트)으로 가는 요청을 모두 끊는다(DEV-133)
+  let posthogBlocked = 0;
+  await context.route(POSTHOG, (route) => (posthogBlocked++, route.abort("blockedbyclient")));
   const page = context.pages()[0] ?? (await context.newPage());
   const frames = [];
   let cdp = null;
@@ -152,6 +156,7 @@ export async function startRecording(name, appLabel, capPos) {
       await wait(700);
     },
     async finish(outFile) {
+      console.log(`PostHog requests blocked: ${posthogBlocked}`);
       await page.evaluate(() => window.__dcCap?.(null)).catch(() => {});
       await wait(600);
       if (hq) {
