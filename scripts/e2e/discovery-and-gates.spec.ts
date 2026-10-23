@@ -22,6 +22,11 @@ test("AC-06/07/15: anonymous discovery, public news, and login return", async ({
   );
 
   await page.goto(`${consumerUrl}/products/p-house`);
+  // DEV-141: 상품정보 접기 상태가 aria-expanded로 나온다
+  const info = page.getByRole("button", { name: "상품정보" });
+  await expect(info).toHaveAttribute("aria-expanded", "false");
+  await info.click();
+  await expect(info).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("button", { name: "예약하기" }).click();
   await page.getByRole("button", { name: "주문서로" }).click();
   await expect(page.getByText("로그인하고 예약해요")).toBeVisible();

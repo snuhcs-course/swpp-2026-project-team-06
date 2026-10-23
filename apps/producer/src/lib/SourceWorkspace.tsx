@@ -97,7 +97,7 @@ function Choice({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected, disabled }}
+      aria-checked={selected}
       style={{
         minHeight: 48,
         padding: 10,

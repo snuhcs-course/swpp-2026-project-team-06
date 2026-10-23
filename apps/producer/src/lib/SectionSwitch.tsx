@@ -54,7 +54,7 @@ export function SectionSwitch({
     <Pressable
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ checked: value, disabled: !!disabled }}
+      aria-checked={value}
       disabled={disabled}
       onPress={() => onValueChange(!value)}
       style={style}

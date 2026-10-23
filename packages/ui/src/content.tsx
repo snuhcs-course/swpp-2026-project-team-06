@@ -392,7 +392,6 @@ export function Segmented<V extends string>({
             key={o.value}
             accessibilityRole="tab"
             accessibilityLabel={o.label}
-            accessibilityState={{ selected: on }}
             aria-selected={on}
             onPress={() => onChange(o.value)}
             style={[
@@ -426,7 +425,7 @@ export function Checkbox({
   return (
     <Pressable
       accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
+      aria-checked={checked}
       accessibilityLabel={label}
       onPress={onPress}
       style={{
@@ -669,7 +668,8 @@ export function FollowButton({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: following, busy: loading }}
+      aria-pressed={following}
+      aria-busy={loading}
       accessibilityLabel={
         following ? "팔로잉, 누르면 팔로우를 끊어요" : "팔로우"
       }

@@ -139,7 +139,6 @@ export default function Login() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="카카오로 시작하기"
-              accessibilityState={{ disabled: busy }}
               disabled={busy}
               onPress={() => void kakaoLogin()}
               style={({ pressed }) => ({
@@ -201,7 +200,7 @@ export default function Login() {
                   <Pressable
                     key={a.userId}
                     accessibilityRole="radio"
-                    accessibilityState={{ selected: picked === a.userId }}
+                    aria-checked={picked === a.userId}
                     onPress={() => setPicked(a.userId)}
                     style={{
                       flexDirection: "row",
