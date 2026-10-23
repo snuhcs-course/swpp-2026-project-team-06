@@ -75,13 +75,13 @@ def update_me(db: Db, user: Consumer, body: MeUpdateInput):
 
 
 @router.get("/me/consents", response_model=list[ConsentView])
-def my_consents(db: Db, user: Consumer):
+def my_consents(db: Db, user: CurrentUser):
     return service.consent_views(db, user.id)
 
 
 @router.post("/me/consents", response_model=list[ConsentView])
-def save_consents(db: Db, user: Consumer, body: ConsentsInput):
-    """가입 동의 기록(AC-01-14). 항목·버전·시각을 남긴다."""
+def save_consents(db: Db, user: CurrentUser, body: ConsentsInput):
+    """가입·재동의 기록(AC-01-14·17·18). 소비자·생산자 모두. 항목·버전·시각을 남긴다."""
     result = service.save_consents(db, user, body)
     db.commit()
     return result

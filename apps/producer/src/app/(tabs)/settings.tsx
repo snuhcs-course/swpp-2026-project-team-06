@@ -2,6 +2,7 @@ import { auth, farms, isMock, resetDemoData } from "@farmclub/api";
 import {
   Button,
   LargeTitle,
+  LegalFooter,
   ListRow,
   ProfileAvatar,
   Screen,
@@ -98,6 +99,7 @@ export default function Settings() {
             />
           </View>
         ) : null}
+        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <Sheet
         visible={reset}

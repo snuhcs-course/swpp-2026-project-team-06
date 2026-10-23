@@ -3,6 +3,7 @@ import { auth, isMock, type TestAccount } from "@farmclub/api";
 import {
   Button,
   EmptyState,
+  LegalFooter,
   HeaderBar,
   Notice,
   Radio,
@@ -225,6 +226,7 @@ export default function Login() {
             </T>
           </View>
         )}
+        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <View
         style={{

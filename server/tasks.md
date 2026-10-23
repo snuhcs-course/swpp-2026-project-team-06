@@ -1709,3 +1709,8 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 - 10/20 AI 1차 리뷰(PR 코멘트): must 없음. should 반영 — 주문+상품 동시 전송 시 주문 우선 테스트 추가(pytest 379 passed). 후속 제안: 전달된 질문에 상품 문맥이 없어 농가가 어느 상품 질문인지 모름(범위 밖). draft 해제, 사람 리뷰 대기.
 - 10/23 main(`1256583`)을 병합. 충돌은 문서 5개(tasks.md 3개·`messaging/spec.md`는 양쪽 유지, wiki는 main의 새 API 절에 `productId` 설명을 다시 넣음). 검증: `ruff check` 통과, `uv run pytest` 426 passed, `alembic check` 변경 없음, `npm run test:mock` 32/32, `npm run typecheck` 통과, admin 18/18. `make`는 Xcode 라이선스 미동의로 실행 못 해 같은 명령을 직접 실행. 남은 일: 머지, SWPP-116 8절 문구.
 - 10/23 #197 squash 머지(`f30f0f2`), 머지 전 원격 CI 통과(`spec-code-review`는 수동 승인 대기로 미실행). SWPP-116 브랜치에 main을 병합하고 wiki 3·7·8절을 DEV-97에 맞춰 고친 뒤 #165 머지(`93cf7aa`). DEV-97·SWPP-116 Linear Done.
+
+## DEV-113 약관·처리방침 재동의 (서버 부분)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
+- 10/22 `accounts.schemas.CONSENT_VERSION`(2026-10-22), `service.consent_required`(소비자 3개·생산자 2개, 지금 버전만 인정, 테스트 계정 제외), `needs_onboarding`이 버전까지 검사, `UserView.consent_required`, `/me/consents`를 생산자에게도 열고 `security.require_consented_producer`가 생산자 API를 403 `CONSENT_REQUIRED`로 막는다. 테스트: AC-01-17·18, 다른 농가 격리 테스트는 `other_farm_headers` 픽스처(동의한 u-halla).

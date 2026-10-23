@@ -441,3 +441,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 범위: `src/app/(tabs)/products/[productId].tsx`(채팅하기·확인 시트 ‘시작하기’ 경로에 `productId`), `src/app/(tabs)/chats/[farmId].tsx`(경로의 `productId`를 보내기에)
 - 10/20 결정: 화면·문구 변경 없음(Figma 해당 없음). 주문 문맥이 있으면 서버가 주문을 우선한다.
 - [x] 두 화면 수정, `npm run typecheck` 4개 통과
+
+## DEV-113 사이트 하단 사업자 정보와 약관·처리방침
+
+- 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
+- 10/22 `/privacy`·`/terms` 라우트, 홈·로그인·내 정보 하단 `LegalFooter`, 가입 동의 시트 ‘전문 보기’, vercel.json에서 정적 HTML로 rewrite.

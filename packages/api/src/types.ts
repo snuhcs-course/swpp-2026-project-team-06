@@ -39,7 +39,7 @@ export type ConflictReason =
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
  * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
  */
-export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED";
+export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED";
 
 export type ErrorBody = {
   code: ErrorCode;
@@ -82,6 +82,8 @@ export type User = {
   phone?: string;
   /** 첫 가입 온보딩(SCR-06)이 남았는가. 소비자 카카오 계정만 true가 될 수 있다 */
   needsOnboarding?: boolean;
+  /** 지금 버전의 필수 동의(약관·개인정보, 소비자는 만 14세 포함)가 빠졌는가(DEV-113). 테스트 계정은 false */
+  consentRequired?: boolean;
 };
 
 /** 내 정보 고치기(온보딩 1장·SCR-17). 보낸 필드만 바꾼다 */

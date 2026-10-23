@@ -1,20 +1,24 @@
 // 첫 가입 온보딩(SCR-06, FEAT-01 I2) 공통 값
 import type { ConsentKind } from "@farmclub/api";
+import { LEGAL_VERSION, type LegalPath } from "@farmclub/ui";
 
-/** 가입 동의 문구 버전. 약관·처리방침을 바꾸면 올리고 다시 동의를 받는다(policy.md 5장) */
-export const SIGNUP_CONSENT_VERSION = "2026-10-18";
+/** 가입 동의 문구 버전 = 시행 중인 약관·처리방침 버전. 바꾸면 모든 회원이 다시 동의한다(policy.md 5장, DEV-113) */
+export const SIGNUP_CONSENT_VERSION = LEGAL_VERSION;
 
 export const SIGNUP_CONSENTS: {
   kind: ConsentKind;
   label: string;
   required: boolean;
-  /** ‘보기’ 시트의 요지. 전문은 정식 오픈 전에 붙인다 */
+  /** ‘보기’ 시트의 요지 */
   summary?: string;
+  /** 시트의 ‘전문 보기’가 여는 화면(DEV-113) */
+  fullText?: LegalPath;
 }[] = [
   {
     kind: "TERMS",
     label: "이용약관",
     required: true,
+    fullText: "/terms",
     summary:
       "farmclub은 농가가 올린 귤을 수확 전에 예약 판매해요. 예약은 수확 기간 안에 배송되고, 배송 전에는 취소할 수 있어요. 지금은 테스트 서비스라 실제 결제·배송은 일어나지 않아요.",
   },
@@ -22,8 +26,9 @@ export const SIGNUP_CONSENTS: {
     kind: "PRIVACY",
     label: "개인정보 수집·이용",
     required: true,
+    fullText: "/privacy",
     summary:
-      "카카오 회원번호·이메일(회원 식별·연락), 닉네임(농가 채팅·소식방 표시), 이름·휴대폰 번호·배송지(주문 배송·농가 문의)를 받아요. 농가에는 주문의 받는 사람·연락처·주소만 배송을 위해 넘기고, 탈퇴하면 지워요.",
+      "카카오 회원번호·이메일(회원 식별·연락), 닉네임(농가 채팅·소식방 표시), 이름·휴대폰 번호·배송지(주문 배송·농가 문의)를 받아요. 농가에는 주문의 받는 사람·연락처·주소만 배송을 위해 넘겨요. 탈퇴하면 지우고, 법으로 보관해야 하는 거래 기록만 정해진 기간 동안 따로 보관해요.",
   },
   { kind: "AGE14", label: "만 14세 이상이에요", required: true },
   {
