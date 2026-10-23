@@ -9,6 +9,7 @@ import {
   Scroll,
   Section,
   Sheet,
+  WithdrawSheet,
   Skeleton,
   T,
   tokens,
@@ -22,8 +23,9 @@ import { useSession } from "../../lib/session";
 import { LoadError } from "../../lib/views";
 export default function Settings() {
   const router = useRouter(),
-    { refresh } = useSession();
+    { refresh, user } = useSession();
   const farm = useAsync(() => farms.mine(), []);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [reset, setReset] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -88,7 +90,11 @@ export default function Settings() {
           </View>
         </Section>
         <Section title="계정">
-          <ListRow label="로그아웃" onPress={() => auth.logout()} last />
+          <ListRow label="로그아웃" onPress={() => auth.logout()} last={!!user?.isTestAccount} />
+          {/* 회원 탈퇴(DEV-94). 테스트 계정은 서버가 막으므로 보이지 않는다 */}
+          {user?.isTestAccount ? null : (
+            <ListRow label="회원 탈퇴" onPress={() => setWithdrawing(true)} last />
+          )}
         </Section>
         {isMock ? (
           <View style={{ padding: 20 }}>
@@ -133,6 +139,17 @@ export default function Settings() {
           }}
         />
       </Sheet>
+      <WithdrawSheet
+        visible={withdrawing}
+        role="PRODUCER"
+        onClose={() => setWithdrawing(false)}
+        onWithdraw={async () => {
+          await auth.withdraw();
+          setWithdrawing(false);
+          // 토큰을 지우면 관문이 로그인 화면으로 보낸다
+          auth.logout();
+        }}
+      />
     </Screen>
   );
 }
