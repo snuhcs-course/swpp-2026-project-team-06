@@ -113,7 +113,12 @@ export default function Done() {
               v={`${o.productName} ${o.optionLabel} × ${o.quantity}`}
             />
             {!awaiting ? <KV k="합계" v={won(o.totalAmount)} bold /> : null}
-            <KV k="배송지" v={`${o.recipientName} · ${o.address}`} last />
+            <KV
+              k="배송지"
+              v={`${o.recipientName} · ${o.address}`}
+              last
+              masked
+            />
           </View>
         ) : error ? (
           // 결제는 끝났고 상세 조회만 실패 → 완료 화면 유지, 다시 시도
@@ -216,12 +221,15 @@ function KV({
   children,
   bold,
   last,
+  masked,
 }: {
   k: string;
   v?: string;
   children?: ReactNode;
   bold?: boolean;
   last?: boolean;
+  /** 값이 개인정보면 녹화에서 값만 가린다(DEV-104) */
+  masked?: boolean;
 }) {
   return (
     <View
@@ -245,6 +253,7 @@ function KV({
           variant="body"
           weight={bold ? "bold" : "regular"}
           style={{ flexShrink: 1, textAlign: "right" }}
+          masked={masked}
         >
           {v}
         </T>

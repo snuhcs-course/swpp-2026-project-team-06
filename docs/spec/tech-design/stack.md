@@ -33,7 +33,7 @@
 | 지표 | PostHog Cloud(무료), I1부터 | PRD 4장 지표, 개인정보 없이 | [0005](./adr/0005-analytics-posthog.md) |
 | 에러 | Sentry(앱·서버, 무료) | | — |
 | 결제 | I1 Mock. I2부터 PortOne(NHN KCP) | 주문·결제 모델은 PortOne 연동을 가정 | — |
-| CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크(ci.yml). 서버 배포는 main CI 성공 뒤, 그 커밋에 `server/**` 변경이 있으면 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65·66; GitHub App은 조직 승인 문제로 미연결). 앱은 main CI 성공 뒤 앱 관련 변경이 있으면 Actions가 `expo export` → `vercel deploy --prod`(deploy-vercel.yml, DEV-67; `VERCEL_TOKEN` 등록 시에만 동작, 레포 변수 `APP_API_URL`이 비면 Mock 빌드) | | — |
+| CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크(ci.yml). 서버 배포는 main CI 성공 뒤, 그 커밋에 `server/**` 변경이 있으면 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65·66; GitHub App은 조직 승인 문제로 미연결). 앱은 main CI 성공 뒤 앱 관련 변경이 있으면 Actions가 `expo export` → `vercel deploy --prod`(deploy-vercel.yml, DEV-67; `VERCEL_TOKEN` 등록 시에만 동작, 레포 변수 `APP_API_URL`이 비면 Mock 빌드). 관리자 페이지(`scripts/admin-web`)는 CI job `admin-web`에서 테스트하고, main CI 성공 뒤 그 커밋에 `scripts/admin-web/` 변경이 있으면 빌드 없이 `vercel deploy scripts/admin-web --prod`(같은 workflow의 `deploy-admin`, DEV-114) | | — |
 | 패키지 | npm workspaces(앱), uv 또는 pip(서버) | 설정 최소 | — |
 
 [0002](./adr/0002-backend-django-admin.md)(Django + DRF, Django Admin)는 [0007](./adr/0007-backend-fastapi.md)·[0008](./adr/0008-operator-admin-api.md)로 대체됐다.
@@ -118,6 +118,7 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 - 화면 이벤트는 앱에서, 결제·취소·구매 확정처럼 확정된 사실은 서버에서 보낸다.
 - 이벤트에 이름·연락처·주소·메시지 본문을 넣지 않는다(N-05). 사용자 구분은 내부 ID만 쓴다.
 - 이벤트 이름과 속성은 [트래킹 플랜](./README.md)을 따른다.
+- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71). 키가 있어도 접속 호스트가 운영 도메인(`farmclub.kr`·`farm.farmclub.kr`)이 아니면 켜지 않는다 — Vercel 기본 주소(`*.vercel.app`)·워킹 데모(`demo.farmclub.kr`)·localhost 접속은 지표에 넣지 않는다(DEV-125, 목록은 `EXPO_PUBLIC_POSTHOG_HOSTS`로 덮어씀).
 
 ## 6. 이번에 정한 값
 
@@ -139,7 +140,7 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 
 ## 8. 열린 질문
 
-- [ ] TQ-01. PostHog·Langfuse 리전(미국/EU)
+- [ ] TQ-01. PostHog·Langfuse 리전(미국/EU) → PostHog는 US Cloud(`https://us.i.posthog.com`, DEV-71). Langfuse는 미정
 - [x] TQ-02. 도메인(I1은 Railway·Vercel 기본 도메인) → `farmclub.kr`, DNS는 Cloudflare([ADR 0012](./adr/0012-domains-cloudflare.md))
 
 ## 9. 변경 이력
@@ -150,3 +151,5 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 | 2026-10-07 | 0.2 | 백엔드 Django → FastAPI, 운영자 처리 Django Admin → 관리 API + Swagger UI(ADR 0007·0008) |
 | 2026-10-07 | 0.3 | P22(SWPP-26): 인증 I1 Mock 로그인(ADR 0009), 카카오는 I2. FEAT ↔ 코드 폴더표(홈, 소식·채팅, 반응, 출하 처리의 `ai`는 I2) |
 | 2026-10-18 | 0.4 | DEV-69: 도메인 `farmclub.kr`과 서브도메인, Cloudflare DNS, 공유 링크 경로(ADR 0012). TQ-02 닫음 |
+| 2026-10-18 | 0.5 | DEV-71: 앱 PostHog 연결(`packages/analytics`), PostHog 리전 US Cloud |
+| 2026-10-23 | 0.6 | DEV-125: PostHog는 운영 도메인에서만 켠다(Vercel 기본 주소·데모·localhost 제외) |

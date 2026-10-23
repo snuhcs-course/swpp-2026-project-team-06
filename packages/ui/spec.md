@@ -91,3 +91,12 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 원본 PNG 4종은 `assets/brand/`에 보존하며 실제 렌더링은 `BrandLogo`의 wordmark/icon/full 세 형태를 사용한다. 소비자 홈은 글자형, 생산자 현황은 아이콘형(36×40, 좌우 12, 제목 간격 12), 생산자 로그인은 상단 글자형 없이 안내 제목 오른쪽 조합형이다. 로그인 제목은 사용자 승인 예외 30/32px semibold, 조합형은 172×129px와 x=-16/y=-10px의 광학 정렬을 쓴다. 320px 등 더 좁은 화면에서는 로고를 비율대로 축소해 제목 공간을 확보한다. 원본을 자르거나 변형하지 않는다.
 
 `BrandHeader.logo`는 홈에서 wordmark/icon을 명시한다. 다른 화면의 기존 아이콘·제목은 유지한다. 카카오/테스트 로그인 선택·계정 상태·버튼·라우팅 계약은 변경하지 않는다. 승인된 정적 검토 페이지는 `docs/design/brand-review/`에 보존한다.
+
+## DEV-113 약관·처리방침·사업자 정보 (2026-10-22)
+
+| 결정 | 이유 |
+| --- | --- |
+| 문안은 `src/legalContent.ts` 한 곳(지울 수 있는 타입만, import 없음). `LegalFooter`·`LegalDocument`(`src/Legal.tsx`)와 `scripts/legal-pages.mjs`(Node type stripping으로 직접 import)가 같이 쓴다 | SPA라 JS 없이 읽히는 정적 HTML이 따로 필요하고, 두 벌로 쓰면 문안이 어긋난다 |
+| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장 |
+| `LegalFooter`는 링크를 직접 열지 않고 `onOpen(path)`로 앱 라우터에 맡긴다 | ui 패키지는 expo-router에 의존하지 않는다 |
+| 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |

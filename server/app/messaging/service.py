@@ -550,7 +550,8 @@ def _unread(db: Session, t: Thread, producer: bool) -> int:
     )
     query = select(func.count()).where(ThreadMessage.thread_id == t.id, ThreadMessage.seq > last)
     if producer:
-        query = query.where(ThreadMessage.sender_type == "CONSUMER")
+        # 생산자는 소비자 메시지와 farmclub 운영팀 메시지(DEV-111)를 안 읽음으로 센다
+        query = query.where(ThreadMessage.sender_type.in_(("CONSUMER", "OPERATOR")))
     else:
         query = query.where(ThreadMessage.sender_type != "CONSUMER")
     return db.scalar(query) or 0
@@ -856,7 +857,9 @@ def build_evidence(
     )
 
 
-def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
+def _evidence(
+    db: Session, farm_id: str, order_id: str | None, settings, product_id: str | None = None
+):
     return build_evidence(
         db,
         farm_id,
@@ -865,6 +868,7 @@ def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
         settings.reservation_shipping_policy,
         settings.faqs,
         settings.handoff_topics,
+        product_id=product_id,
     )
 
 
@@ -875,6 +879,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     """
     from app.admin import service as admin
     from app.ai import service as ai
+    from app.catalog import service as catalog
     from app.farms import service as farms
     from app.orders import service as orders
 
@@ -891,6 +896,11 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     elif not farms.is_following(db, consumer.id, farm_id):
         # 팔로우 해제 뒤에는 본인 결제 주문 문맥으로만 보낼 수 있다(contracts-1.2 4장)
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
+    if body.product_id:
+        # 판매 중인 그 농가 상품만 근거로 쓴다(DEV-97). 주문이 함께 오면 주문이 먼저다
+        item = catalog.load_product(db, body.product_id)
+        if item is None or item.product.farm_id != farm_id or item.product.status != "PUBLISHED":
+            raise not_found("찾을 수 없는 상품이에요.")
     attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
     settings = farms.ai_settings(db, farm_id)
     captured = (thread.version, settings.version)
@@ -914,7 +924,9 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     db.flush()
     reply = None
     if thread.ai_mode == "AUTO" and settings.enabled and text:
-        answer = ai.answer_question(text, _evidence(db, farm_id, body.order_id, settings))
+        answer = ai.answer_question(
+            text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
+        )
         latest = farms.ai_settings(db, farm_id, fresh=True)
         still_auto = thread.ai_mode == "AUTO" and latest.enabled
         if still_auto and (thread.version, latest.version) == captured:
@@ -989,6 +1001,7 @@ def producer_chats(
     db: Session, farm, needs_reply: bool, cursor: str | None, limit: int
 ) -> Paged[ProducerChatSummary]:
     from app.accounts import service as accounts
+    from app.messaging.support import SUPPORT_NAME, is_support
 
     threads = list(db.scalars(select(Thread).where(Thread.farm_id == farm.id)))
     users = accounts.get_users(db, [t.consumer_id for t in threads])
@@ -1008,12 +1021,13 @@ def producer_chats(
             ProducerChatSummary(
                 thread_id=t.id,
                 consumer_id=t.consumer_id,
-                consumer_name=accounts.public_name(user),
+                consumer_name=SUPPORT_NAME if is_support(t) else accounts.public_name(user),
                 last_message=last.body if last else "대화를 시작해 보세요",
                 last_at=last.created_at if last else None,
                 unread_count=_unread(db, t, producer=True),
                 needs_reply=flagged,
                 ai_mode=t.ai_mode,
+                is_support=is_support(t),
             )
         )
     rows.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
@@ -1103,7 +1117,11 @@ def producer_send(
 
 def set_ai_mode(db: Session, farm, consumer_id: str, mode: str, version: int) -> ThreadView:
     """AUTO는 이후 메시지부터 적용한다. 과거 질문은 다시 처리하지 않는다."""
+    from app.messaging.support import is_support
+
     thread = _producer_thread(db, farm, consumer_id, lock=True)
+    if is_support(thread):
+        raise invalid({"mode": "farmclub 대화방은 AI 응답을 쓰지 않아요"})
     if thread.version != version:
         raise conflict(
             "STALE_VERSION", "최신 대화 상태를 다시 불러와 주세요.", version=thread.version

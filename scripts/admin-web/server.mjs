@@ -16,9 +16,12 @@ const types = { ".css": "text/css; charset=utf-8", ".js": "text/javascript; char
 
 createServer(async (req, res) => {
   const url = new URL(req.url, "http://local");
-  const rule = rewrites.find((r) => r.source === url.pathname);
+  // Vercel처럼 `/users/:id` 같은 이름 붙은 경로 조각을 받아 destination의 `:id`에 넣는다(DEV-106).
+  const match = (source) => url.pathname.match(new RegExp("^" + source.replace(/:(\w+)/g, "(?<$1>[A-Za-z0-9_-]+)") + "$"));
+  const rule = rewrites.find((r) => match(r.source));
   if (rule) {
-    const dest = new URL(rule.destination, "http://local");
+    const params = match(rule.source).groups || {};
+    const dest = new URL(rule.destination.replace(/:(\w+)/g, (_, k) => params[k]), "http://local");
     url.searchParams.forEach((v, k) => dest.searchParams.set(k, v));
     req.url = dest.pathname + dest.search;
     return functions[dest.pathname](req, res);

@@ -6,6 +6,9 @@ import { T } from "./Text";
 import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
 import { tokens } from "./tokens";
 import { time } from "./format";
+
+const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
+
 type Message = {
   messageId: string;
   senderType: string;
@@ -198,7 +201,11 @@ export function ChatThread({
     }
   }
   return (
-    <View style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}>
+    // 메시지 본문·보낸 사람은 세션 녹화에서 가린다(N-05, DEV-71). react-native-web이 data-ph-private로 내보낸다
+    <View
+      {...PRIVATE_AREA}
+      style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}
+    >
       {error ? (
         <View
           accessibilityRole="alert"
@@ -276,7 +283,9 @@ export function ChatThread({
                     ? "농가"
                     : m.senderType === "CONSUMER"
                       ? "소비자"
-                      : undefined
+                      : m.senderType === "OPERATOR"
+                        ? "farmclub"
+                        : undefined
               }
               time={time(m.createdAt)}
               basis={m.sourceSummary ?? undefined}

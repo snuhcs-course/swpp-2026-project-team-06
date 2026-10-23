@@ -235,8 +235,10 @@ def create_order(db: Session, consumer, body: OrderInput) -> OrderView:
     if body.delivery_note and len(body.delivery_note) > 100:
         fields["deliveryNote"] = "배송 메모는 100자까지예요"
     c = body.consents
-    if not (c.delivery_window and c.delay_refund and c.shortage and c.cancel_policy):
-        fields["consents"] = "결제 전 확인 4개에 모두 동의해 주세요"
+    if not (
+        c.delivery_window and c.delay_refund and c.shortage and c.cancel_policy and c.third_party
+    ):
+        fields["consents"] = "예약 전 확인 5개에 모두 동의해 주세요"
     if not body.consent_version.strip():
         fields["consentVersion"] = "동의 문구 버전이 필요해요"
     option = next((o for o in item.options if o.id == body.option_id), None)

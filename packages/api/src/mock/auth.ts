@@ -8,7 +8,7 @@ import type {
   TestAccount,
   User,
 } from "../types";
-import { needsOnboarding, nextId, nowIso, type DB, type UserRec } from "./db";
+import { CONSENT_VERSION, consentRequired, needsOnboarding, nextId, nowIso, type DB, type UserRec } from "./db";
 import { conflict, fail, invalid, notFound, register } from "./router";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
@@ -19,6 +19,9 @@ const CONSENT_KINDS: ConsentKind[] = ["TERMS", "PRIVACY", "AGE14", "MARKETING"];
 export const MOCK_KAKAO_USER = "u-kakao";
 /** Mock 카카오 로그인이 만드는 생산자 계정(DEV-74). 처음엔 농가가 없어 가입 신청으로 간다 */
 export const MOCK_KAKAO_PRODUCER = "u-kakao-farm";
+/** Mock 가입 토큰(DEV-132). 서버는 서명된 30분 토큰을 쓴다 */
+const MOCK_SIGNUP_PREFIX = "mock-signup-";
+const MOCK_KAKAO_EMAIL = { consumer: "kakao.user@example.com", producer: "kakao.farm@example.com" } as const;
 
 /** 농가에 보이는 소비자 이름(R-15): 닉네임, 없으면 이름 앞 글자 + ○○ */
 export function publicName(u: UserRec | undefined | null): string {
@@ -55,6 +58,7 @@ export function userView(d: DB, u: UserRec): User {
     email: u.email ?? null,
     phone: u.phone ?? "",
     needsOnboarding: needsOnboarding(u),
+    consentRequired: consentRequired(u),
   };
 }
 
@@ -107,8 +111,9 @@ register({
     return { accessToken: token, user: userView(db, u) };
   },
 
-  // 카카오 로그인 Mock(ADR 0003, DEV-32·74): 리다이렉트 없이 로그인한다.
-  // 소비자 앱은 카카오 계정 u-kakao(처음엔 이메일만 있어 온보딩이 남음), 생산자 앱은 농가 없는 u-kakao-farm(가입 신청으로 감)
+  // 카카오 로그인 Mock(ADR 0003, DEV-32·74·132): 리다이렉트 없이 로그인한다.
+  // 소비자 앱은 카카오 계정 u-kakao, 생산자 앱은 농가 없는 u-kakao-farm. 처음이면 계정 없이 가입 토큰만 주고,
+  // 필수 약관에 동의(POST /api/auth/kakao/signup)해야 계정이 생긴다(서버와 같은 규칙)
   "GET /api/auth/kakao/config": () => ({
     enabled: true,
     clientId: "mock",
@@ -119,29 +124,56 @@ register({
     const app = appOf(body.app);
     if (!String(body.code ?? ""))
       invalid({ code: "인가 코드가 없어요" }, "카카오 로그인에 실패했어요.");
-    if (app === "consumer" && !db.users[MOCK_KAKAO_USER])
-      db.users[MOCK_KAKAO_USER] = {
-        userId: MOCK_KAKAO_USER,
-        name: "",
-        role: "CONSUMER",
-        farmId: null,
-        kakao: true,
-        email: "kakao.user@example.com",
-        phone: "",
-        consents: [],
-      };
-    if (app === "producer" && !db.users[MOCK_KAKAO_PRODUCER])
-      db.users[MOCK_KAKAO_PRODUCER] = {
-        userId: MOCK_KAKAO_PRODUCER,
-        name: "카카오 사용자",
-        role: "PRODUCER",
-        farmId: null,
-        kakao: true,
-        email: "kakao.farm@example.com",
-        phone: "",
-        consents: [],
-      };
     const u = db.users[app === "consumer" ? MOCK_KAKAO_USER : MOCK_KAKAO_PRODUCER];
+    if (!u)
+      return {
+        accessToken: null,
+        user: null,
+        signup: { signupToken: `${MOCK_SIGNUP_PREFIX}${app}`, email: MOCK_KAKAO_EMAIL[app] },
+      };
+    const token = `mock-${u.userId}-${Math.random().toString(36).slice(2, 10)}`;
+    db.tokens[token] = u.userId;
+    return { accessToken: token, user: userView(db, u) };
+  },
+
+  "POST /api/auth/kakao/signup": ({ db, body }) => {
+    const b = body as { signupToken?: string; consents?: Partial<Consent>[] };
+    const raw = String(b.signupToken ?? "");
+    const app = raw.startsWith(MOCK_SIGNUP_PREFIX) ? raw.slice(MOCK_SIGNUP_PREFIX.length) : "";
+    if (app !== "consumer" && app !== "producer")
+      invalid({ signupToken: "가입 요청이 만료됐어요" }, "카카오 로그인부터 다시 해 주세요.");
+    const required = app === "consumer" ? ["TERMS", "PRIVACY", "AGE14"] : ["TERMS", "PRIVACY"];
+    const list = b.consents ?? [];
+    const agreed = new Set(
+      list
+        .filter((c) => (c.agreed ?? true) && String(c.version ?? "").trim() === CONSENT_VERSION)
+        .map((c) => c.kind),
+    );
+    if (required.some((k) => !agreed.has(k as ConsentKind)))
+      invalid({ consents: "필수 약관에 모두 동의해 주세요" });
+    const id = app === "consumer" ? MOCK_KAKAO_USER : MOCK_KAKAO_PRODUCER;
+    const at = nowIso();
+    if (!db.users[id])
+      db.users[id] = {
+        userId: id,
+        // 소비자는 온보딩에서 이름을 받는다. 생산자는 가입 신청 전까지 자리 이름
+        name: app === "consumer" ? "" : "카카오 사용자",
+        role: app === "consumer" ? "CONSUMER" : "PRODUCER",
+        farmId: null,
+        kakao: true,
+        email: MOCK_KAKAO_EMAIL[app],
+        phone: "",
+        consents: [],
+      };
+    const u = db.users[id];
+    const rows = (u.consents ??= []);
+    for (const c of list) {
+      if (!c.kind || !CONSENT_KINDS.includes(c.kind)) continue;
+      const next: Consent = { kind: c.kind, version: String(c.version), agreed: c.agreed ?? true, agreedAt: at };
+      const row = rows.find((r) => r.kind === c.kind);
+      if (row) Object.assign(row, next);
+      else rows.push(next);
+    }
     const token = `mock-${u.userId}-${Math.random().toString(36).slice(2, 10)}`;
     db.tokens[token] = u.userId;
     return { accessToken: token, user: userView(db, u) };

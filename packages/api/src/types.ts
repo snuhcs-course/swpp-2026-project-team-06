@@ -39,7 +39,7 @@ export type ConflictReason =
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
  * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
  */
-export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED";
+export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED";
 
 export type ErrorBody = {
   code: ErrorCode;
@@ -82,6 +82,8 @@ export type User = {
   phone?: string;
   /** 첫 가입 온보딩(SCR-06)이 남았는가. 소비자 카카오 계정만 true가 될 수 있다 */
   needsOnboarding?: boolean;
+  /** 지금 버전의 필수 동의(약관·개인정보, 소비자는 만 14세 포함)가 빠졌는가(DEV-113). 테스트 계정은 false */
+  consentRequired?: boolean;
 };
 
 /** 내 정보 고치기(온보딩 1장·SCR-17). 보낸 필드만 바꾼다 */
@@ -102,6 +104,14 @@ export type Consent = {
 };
 
 export type LoginResult = { accessToken: string; user: User };
+
+/** 카카오 로그인 결과(DEV-132). 기존 회원은 accessToken·user, 새 사용자는 signup만(계정은 약관 동의 뒤 생김) */
+export type KakaoLoginResult =
+  | { accessToken: string; user: User; signup?: null }
+  | { accessToken: null; user: null; signup: { signupToken: string; email: string | null } };
+
+/** 가입 대기(DEV-132). 카카오 새 사용자가 약관에 동의하기 전까지 브라우저에 잠깐 둔다 */
+export type PendingSignup = { signupToken: string; email: string | null; expiresAt: number };
 
 /** 카카오 로그인 설정(ADR 0003). enabled=false면 버튼을 숨긴다. redirectPath는 각 앱의 복귀 경로 */
 export type KakaoConfig = {
@@ -459,6 +469,8 @@ export type OrderInput = Recipient & {
     delayRefund: boolean;
     shortage: boolean;
     cancelPolicy: boolean;
+    /** 개인정보 제3자 제공(판매자 농가) 동의(DEV-120, 개인정보보호법 제17조) */
+    thirdParty: boolean;
   };
   consentVersion: string;
   saveAddress?: boolean;
@@ -620,7 +632,11 @@ export type ChatSummary = {
   unreadCount: number;
 };
 
-export type SenderType = "CONSUMER" | "PRODUCER" | "AI";
+/** OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111) */
+export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
+
+/** farmclub 문의 대화방의 상대 계정. 생산자 채팅 API에서 consumerId 자리에 쓴다(DEV-111) */
+export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
   messageId: string;
@@ -682,6 +698,8 @@ export type ProducerChatSummary = {
   unreadCount: number;
   needsReply: boolean;
   aiMode: Thread["aiMode"];
+  /** farmclub 문의 대화방. 다른 대화와 같이 최근 순이고 로고로 구분한다 */
+  isSupport?: boolean;
 };
 export type AiSettings = {
   enabled: boolean;

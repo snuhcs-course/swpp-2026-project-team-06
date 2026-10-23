@@ -6,7 +6,8 @@ import type {
   Inquiry,
   Attachment,
 } from "../types";
-import { nextId, nowIso, type DB, type OrderRec } from "./db";
+import { SUPPORT_ID } from "../types";
+import { nextId, nowIso, SUPPORT_WELCOME, type DB, type OrderRec } from "./db";
 import { chatMessage, mask } from "./derive";
 import {
   conflict,
@@ -49,6 +50,28 @@ export function ensureThread(
     consumerLastReadMessageId: null,
     producerLastReadMessageId: null,
   });
+}
+/** 농가 승인 때 farmclub 문의 대화방을 연다. 처음 만들 때만 환영 메시지를 넣는다(DEV-111) */
+export function ensureSupportThread(d: DB, farmId: string): Thread {
+  const k = key(farmId, SUPPORT_ID),
+    fresh = !d.threadMeta[k];
+  const t = ensureThread(d, farmId, SUPPORT_ID);
+  if (fresh) {
+    t.aiMode = "HUMAN";
+    d.threads[k].push(
+      chatMessage({
+        messageId: nextId("m"),
+        senderType: "OPERATOR",
+        body: SUPPORT_WELCOME,
+        photos: [],
+        createdAt: nowIso(),
+        sourceSummary: null,
+        handoffStatus: null,
+        masked: false,
+      }),
+    );
+  }
+  return t;
 }
 function mode(t: Thread, value: Thread["aiMode"]) {
   if (t.aiMode !== value) {
@@ -100,7 +123,9 @@ function unread(d: DB, t: Thread, producer: boolean) {
   return m
     .slice(at + 1)
     .filter((x) =>
-      producer ? x.senderType === "CONSUMER" : x.senderType !== "CONSUMER",
+      producer
+        ? x.senderType === "CONSUMER" || x.senderType === "OPERATOR"
+        : x.senderType !== "CONSUMER",
     ).length;
 }
 export function needsReply(d: DB, t: Thread) {
@@ -366,7 +391,8 @@ function bind(ctx: Ctx, aa: Attachment[]) {
 function send(ctx: Ctx, t: Thread, producer: boolean) {
   return idempotent(ctx, `send:${t.threadId}`, () => {
     const text = String(ctx.body.text ?? "").trim(),
-      orderId = ctx.body.orderId ? String(ctx.body.orderId) : undefined;
+      orderId = ctx.body.orderId ? String(ctx.body.orderId) : undefined,
+      productId = ctx.body.productId ? String(ctx.body.productId) : undefined;
     if (orderId) {
       const o = paidOrder(ctx, orderId);
       if (
@@ -374,6 +400,11 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
         o.consumerId !== t.consumerId
       )
         notFound();
+    }
+    // 상품 페이지에서 연 채팅의 상품(DEV-97): 그 농가의 판매 중 상품만
+    if (productId) {
+      const p = ctx.db.products[productId];
+      if (p?.farmId !== t.farmId || p.status !== "PUBLISHED") notFound();
     }
     const aa = attachments(ctx, t, orderId);
     if ((!text && !aa.length) || text.length > 1000)
@@ -429,7 +460,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
         text,
         settings,
         false,
-        undefined,
+        // 서버처럼 주문이 상품보다 먼저다. preview는 상품을 먼저 보므로 주문이 없을 때만 넘긴다
+        orderId ? undefined : productId,
         orderId,
       );
       if (
@@ -539,7 +571,8 @@ register({
       reason: "WRONG_ANSWER",
       createdAt: nowIso(),
       status: "OPEN" as const,
-      answer: null, reportedMessageId: target.messageId,
+      answer: null,
+      reportedMessageId: target.messageId,
     };
     target.reported = true;
     ctx.db.escalations.push(escalation);
@@ -556,12 +589,16 @@ register({
         return {
           threadId: t.threadId,
           consumerId: t.consumerId,
-          consumerName: publicName(ctx.db.users[t.consumerId]),
+          consumerName:
+            t.consumerId === SUPPORT_ID
+              ? "farmclub"
+              : publicName(ctx.db.users[t.consumerId]),
           lastMessage: m?.body ?? "대화를 시작해 보세요",
           lastAt: m?.createdAt ?? "",
           unreadCount: unread(ctx.db, t, true),
           needsReply: needsReply(ctx.db, t),
           aiMode: t.aiMode,
+          isSupport: t.consumerId === SUPPORT_ID,
         };
       })
       .filter((t) => ctx.query.needsReply !== "true" || t.needsReply)
@@ -593,6 +630,8 @@ register({
     send(ctx, access(ctx), true),
   "PUT /api/messaging/producer/chats/:consumerId/ai-mode": (ctx) => {
     const t = access(ctx);
+    if (t.consumerId === SUPPORT_ID)
+      invalid({ mode: "farmclub 대화방은 AI 응답을 쓰지 않아요" });
     return idempotent(ctx, `mode:${t.threadId}`, () => {
       if (ctx.body.version !== t.version)
         conflict("STALE_VERSION", "최신 대화 상태를 다시 불러와 주세요.");

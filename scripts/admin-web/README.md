@@ -1,12 +1,16 @@
-# 관리자 페이지 (DEV-82, DEV-83, DEV-87)
+# 관리자 페이지 (DEV-82, DEV-83, DEV-87, DEV-98, DEV-106, DEV-107, DEV-114)
 
-운영자가 쓰는 임시 관리자 페이지다. 지금은 생산자 가입 신청과 상품 공급 물량 신청을 목록으로 보고 승인·반려하는 화면 두 개가 있고, 왼쪽 메뉴에 관리 화면을 하나씩 늘려 간다. 빌드 없는 HTML 화면과 Vercel 함수(로컬은 `server.mjs`)로 되어 있다.
+운영자가 쓰는 임시 관리자 페이지다. 지금은 생산자 가입 신청과 상품 공급 물량 신청을 목록으로 보고 승인·반려하는 화면 두 개와 테스트 농가를 숨기는 화면, 사용자 검색·테스트 표시 화면이 있고, 왼쪽 메뉴에 관리 화면을 하나씩 늘려 간다. 빌드 없는 HTML 화면과 Vercel 함수(로컬은 `server.mjs`)로 되어 있다.
 
 | 경로 | 화면 |
 | -- | -- |
 | `/login` | 로그인(공용 접속 비밀번호). 로그인한 상태면 `/producers`로 |
 | `/producers` | 농가 가입 신청: 상태 탭 → 승인(두 번 눌러 확인) / 반려(사유) → 결정 이력 |
 | `/capacity` | 공급 물량 승인(DEV-87): 상품별 첫 판매·증량 신청 → 신청량 전체 승인(두 번 눌러 확인) / 반려(사유). 부분 승인 없음 |
+| `/farms` | 테스트 농가(DEV-98): 공개 중·숨김 탭 → 숨기기 / 다시 공개 → 미리보기(거부 사유, 출하 전 테스트 주문) → 두 번 눌러 실행. 테스트 계정이 아닌 소비자 주문이 있으면 거부 |
+| `/users` | 사용자(DEV-107): 검색(이름·닉네임·ID·농가 이름·전화 끝 4자리), 역할·테스트 여부 탭 → 테스트로 표시 / 해제(두 번 눌러 확인). 전화는 끝 4자리만 |
+| `/user`, `/users/<id>` | 사용자 찾기(DEV-106): 사용자 ID·주문 ID·주문 번호로 찾기 → 주문·입금·환불 내역 → 입금 확인 대행 / 배송 완료 / 환불(금액·사유), 두 번 눌러 실행. 받는 사람 전화·주소는 안 보임 |
+| `/inbox` | 문의함(DEV-111): 답변 대기·전체 탭 → 대화 보기(열면 읽음) → farmclub으로 답장. 생산자 앱 1:1 채팅 목록의 farmclub 대화방(로고)과 같은 대화. 사진은 '사진 N장'으로만 보임 |
 | `/` | 로그인 상태에 따라 `/producers` 또는 `/login` |
 
 ## 구조
@@ -17,12 +21,12 @@ api/login.js     POST {password} → 맞으면 세션 쿠키, 틀리면 0.8초 �
 api/logout.js    POST → 쿠키 지우고 /login
 api/proxy.js     세션 확인 → 운영자 토큰을 붙여 실서버 /admin/… 허용 경로로 중계
 api/_lib/        세션(서명 쿠키)·공용 함수. 밑줄 폴더라 함수·정적 파일로 나가지 않는다
-api/_views/      화면 HTML(login, producers, capacity). 데이터는 없고 중계로 불러온다
+api/_views/      화면 HTML(login, producers, capacity, farms, users, user). 데이터는 없고 중계로 불러온다
 assets/          공용 스타일(admin.css)과 사이드바 메뉴·중계 호출(admin.js)
-vercel.json      경로 규칙(rewrites). server.mjs도 같은 규칙을 읽는다
+vercel.json      경로 규칙(rewrites). server.mjs도 같은 규칙을 읽는다(`/users/:id` 같은 이름 붙은 조각 포함)
 ```
 
-- 실서버 CORS는 소비자·생산자 앱 주소만 허용한다. 그래서 브라우저가 실서버를 직접 부르지 않고, 중계가 `api/proxy.js` `ALLOWED`에 적은 경로(가입 신청, 공급 물량 신청)만 실서버로 넘긴다.
+- 실서버 CORS는 소비자·생산자 앱 주소만 허용한다. 그래서 브라우저가 실서버를 직접 부르지 않고, 중계가 `api/proxy.js` `ALLOWED`에 적은 경로(가입 신청, 공급 물량 신청, 테스트 농가, 사용자 목록, 사용자 상세와 주문 처리)만 실서버로 넘긴다.
 - 로그인은 공용 비밀번호(`ADMIN_WEB_PASSWORD`)를 한 번 확인하고 `fc_admin` 쿠키를 준다. HttpOnly·SameSite=Strict, https에서는 Secure, 12시간 유효. 값은 만료 시각과 HMAC 서명이고, 서명 키는 비밀번호에서 만든다. 그래서 새 환경 변수가 없고, 비밀번호를 바꾸면 모든 로그인이 풀린다. 다른 사이트에서 온 POST(Origin이 다름)는 거절한다.
 - 운영자 토큰(`ADMIN_TOKEN`)은 함수 환경 변수에만 있고 브라우저로 가지 않는다. 세션이 끝나면 화면이 `/login`으로 보내고, 다시 로그인하면 보던 화면으로 돌아온다.
 - 링크와 비밀번호를 아는 사람은 누구나 승인·반려할 수 있고, 결정은 모두 운영자 계정(`u-admin`) 이름으로 기록된다. 사람별 기록이 필요해지면 사람별 운영자 계정(서버 변경)으로 바꾼다.
@@ -52,9 +56,12 @@ ADMIN_WEB_PASSWORD=… ADMIN_TOKEN=… node scripts/admin-web/server.mjs   # htt
 
 ## Vercel 배포
 
-운영 주소는 https://admin.farmclub.kr (DEV-91, Cloudflare `admin` CNAME Proxied → Vercel `farmclub-admin`). `farmclub-admin.vercel.app`도 같은 배포다. 배포는 자동이 아니다. 서버(`/admin/...` API)가 바뀌는 변경은 main 머지 → Railway 배포가 끝난 뒤에 main 기준으로 올린다.
+이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`, https://admin.farmclub.kr)로 올린다. 빌드는 없고, Vercel이 `vercel.json`대로 `api/*.js`를 서버리스 함수로 만든다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다. 환경 변수는 Vercel 프로젝트에서만 바꾸고 워크플로·저장소에는 두지 않는다. `admin.farmclub.kr`은 Cloudflare `admin` CNAME(Proxied) → Vercel `farmclub-admin`이고(DEV-91, ADR 0012), `farmclub-admin.vercel.app`도 같은 배포다.
 
-이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`)로 올린다. `api/proxy.js`가 서버리스 함수가 된다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다.
+- **테스트(CI)**: PR·main push에서 `scripts/admin-web/**`가 바뀌면 `ci.yml`의 `admin-web` job이 `node --test scripts/admin-web/admin.test.mjs`를 돌린다(DEV-114).
+- **자동 배포**: main CI가 성공하고 그 커밋에 `scripts/admin-web/` 변경이 있으면 `deploy-vercel.yml`의 `deploy-admin` job이 `vercel deploy scripts/admin-web --prod`로 올리고 `https://admin.farmclub.kr/login`이 200인지 확인한다. 앱 배포와 같은 `VERCEL_TOKEN`(production Environment)을 쓰고, 토큰이 없으면 건너뛴다.
+- **수동 실행**: Actions 탭 → `Deploy apps to Vercel` → Run workflow(브랜치 main). 변경 여부와 상관없이 두 앱과 관리자 페이지를 모두 올린다.
+- **로컬에서 직접**(급할 때, Vercel 팀 권한 필요):
 
 ```sh
 cd scripts/admin-web

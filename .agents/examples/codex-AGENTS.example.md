@@ -20,3 +20,4 @@ Codex는 ~/.codex/AGENTS.md(전역)를 먼저 읽고, 그 다음 레포의 AGENT
 ## Farmclub에서는
 - 작업 전 해당 폴더 `tasks.md`를 읽고, 범위 밖 파일은 고치지 않는다(공용 규칙 재확인).
 - 스킬은 `.agents/skills/`의 `spec`, `pr-context`, `pr-review`를 쓴다.
+- 브랜치는 `origin/main`에서 `hong/dev-12-<영어 요약>`으로 직접 만든다(공용 규칙 재확인, 한글 금지).

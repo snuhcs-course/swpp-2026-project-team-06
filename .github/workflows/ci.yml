@@ -3,6 +3,7 @@ name: CI
 # PR 검사(CI). 배포(CD)는 브랜치 전략(SWPP-58) 결정 후 DEV-8에서 따로 만든다.
 # job은 항상 실행하고, 관련 파일이 바뀌지 않았으면 단계만 건너뛰고 성공한다.
 # (branch protection의 필수 체크 server·apps가 막히지 않게)
+# admin-web job은 관리자 페이지(scripts/admin-web) 테스트다(DEV-114). 배포는 deploy-vercel.yml의 deploy-admin.
 
 on:
   pull_request:
@@ -150,6 +151,37 @@ jobs:
         if: steps.changes.outputs.apps == 'true'
         working-directory: apps/producer
         run: npx expo export -p web
+
+  # 관리자 페이지(scripts/admin-web, DEV-114). 빌드·의존성 없이 node 내장 테스트만 돌린다.
+  admin-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v4
+        with:
+          token: ""
+          filters: |
+            admin:
+              - "scripts/admin-web/**"
+              - ".nvmrc"
+              - ".github/workflows/ci.yml"
+
+      - name: Skip (no admin-web changes)
+        if: steps.changes.outputs.admin != 'true'
+        run: echo "scripts/admin-web/·.nvmrc·워크플로 파일 변경 없음. 검사를 건너뛴다."
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.admin == 'true'
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test (node --test)
+        if: steps.changes.outputs.admin == 'true'
+        run: node --test scripts/admin-web/admin.test.mjs
 
   integration:
     needs: [server, apps]

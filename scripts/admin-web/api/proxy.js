@@ -1,6 +1,6 @@
-// 관리자 페이지의 중계(DEV-82, DEV-83, DEV-87). 브라우저 → 이 함수 → 실서버 /admin/….
+// 관리자 페이지의 중계(DEV-82, DEV-83, DEV-87, DEV-98, DEV-111). 브라우저 → 이 함수 → 실서버 /admin/….
 // 실서버 CORS는 소비자·생산자 앱 주소만 허용하므로 서버 쪽에서 대신 부른다.
-// 아래 ALLOWED 경로만 넘긴다(가입 신청, 공급 물량 신청). 로그인 세션 쿠키가 맞으면
+// 아래 ALLOWED 경로만 넘긴다(가입 신청, 공급 물량 신청, 테스트 농가 숨기기 DEV-98). 로그인 세션 쿠키가 맞으면
 // 이 함수 환경 변수에 둔 운영자 토큰(ADMIN_TOKEN)을 붙인다. 토큰은 브라우저로 가지 않는다.
 import { configured, loggedIn, readBody, sameOrigin, sendJson } from "./_lib/session.js";
 
@@ -11,6 +11,16 @@ const ALLOWED = [
   new RegExp(`^/admin/producers(/${ID}/(approve|reject|decisions))?${QUERY}$`),
   new RegExp(`^/admin/capacity-requests${QUERY}$`),
   new RegExp(`^/admin/products/${ID}/capacity-requests/${ID}/(approve|reject)$`),
+  new RegExp(`^/admin/farms(/${ID}/(preview|retire|restore))?$`),
+  // 사용자 검색어는 한글이라 퍼센트 인코딩(%·+·.)까지 받는다(DEV-107)
+  new RegExp(`^/admin/users(\\?[A-Za-z0-9=&_%.+-]*)?$`),
+  new RegExp(`^/admin/users/${ID}/(mark|unmark)-tester$`),
+  // 사용자 상세와 그 화면의 주문 처리 버튼(DEV-106). 운영 API는 기존 것을 그대로 쓴다
+  new RegExp(`^/admin/users/(${ID}|by-order/${ID})$`),
+  new RegExp(`^/admin/orders/${ID}/(confirm-deposit|refund|refunds|delivered)$`),
+  // 문의함(DEV-111): 목록, 대화 보기·답장, 읽음 표시
+  new RegExp(`^/admin/support$`),
+  new RegExp(`^/admin/support/${ID}/(messages|read)$`),
 ];
 
 const send = (res, status, code, message) => sendJson(res, status, { code, message });

@@ -2,21 +2,30 @@
 
 # 자료 기반 상세 통합 (DEV-56/57/58)
 
+## 현재 운영 상태 — 2026-10-19 (DEV-90)
+
+- 사용자 승인으로 운영 API와 `farmclub-source-worker`의 `SOURCE_ANALYSIS_ENABLED=true`를 적용했다. `GET https://api.farmclub.kr/api/source-analysis/config`는 `enabled:true`다. 아래 날짜별 배포 보류/미머지 기록은 당시 이력이며 현재 상태를 뜻하지 않는다.
+- API는 기존 이미지, worker는 `Dockerfile.worker`의 OCR extras·검증된 모델을 사용한다. 같은 PostgreSQL(migration0016)과 비공개 R2를 공유한다. 모델은 OpenRouter Gemini 3 Flash Preview, 누적 비용 한도 $5 유지. 현재 parser/prompt는 `source-parser-v3` / `source-v6-candidate-validation`이다.
+- 운영 통제 자료 이미지·긴 이미지·PDF 각1건 분석 SUCCEEDED, 비공개 저장·재조회·상품 반영3/3 통과. 실제 생산자 UI의 새 상품 진입·분석·문구 수정·섹션 숨김/복원·저장 후 재진입·명시적 반영도 확인했다. 비공개 상품 공개 API는404를 유지한다. [검증 기록](validation/source-production-2026-10-19.json).
+- 배포 성공은 자동 추출의 완전성/일반 정확도/실제 농가 인수를 뜻하지 않는다. PDF는 이 통제 자료에서도 반환 후보가1개여서 누락 검토가 필요하다. 숫자 OCR 오독·동일 필드 충돌·실제 농가 인수는 DEV-58 잔여 범위다. 기본 정보 blur 저장과 즉시 업로드의 경합은 [DEV-92](https://linear.app/sswp6/issue/DEV-92)에서 첨부 전 저장 완료 대기로 수정한다. 저장 실패 시 직접 입력과 첨부 파일을 보존하고 자동 재시도하지 않는다.
+- 실제 판매 공개는 기존 입금계좌·필수 상품 정보·공급 승인 절차를 따른다. 이번 운영 검증은 승인 테스트 농가의 DRAFT 상품에만 반영했으며 실제 주문/결제는 수행하지 않았다. 판매페이지의 소비자 렌더링·공개 일치는 격리 DB 브라우저 회귀로 별도 검증한다.
+- 복구: API flag를false로 배포하면 새 상품/상세 편집은 DEV-84의 기존 경로를 사용한다. 필요하면 worker도false로 내려 새 작업 처리를 멈춘다. 비용 원장과 저장 자료는 초기화하지 않는다. 배포 절차는 `server/README.md`.
+
 2026-10-16 사용자 승인. FEAT-03/04/07, AC-SRC-1~10. 기존 source-analysis.md의 비공개 백엔드를 확장한다. Sol 기본 선택·UI/공개 반영 미구현 설명은 DEV-54 당시 기록이며 이 문서가 최신 통합 기준이다.
 
 ## 화면과 공개 계약
 
-- 생산자 `/products/source-analysis`: 상품 지정 → 자료 업로드 → 가림 검토 → 자동 채움·18개 항목 ON/OFF·직접 편집/비공개 저장 → 상품 적용.
+- 생산자 새 상품은 비공개 상품별 작업을 연다. `/products/source-analysis`: 기본 정보 → 분석 자료/상품사진 두 첨부함 → 분석 → 18개 모듈 직접 편집·섹션/항목 표시 제어 → 비공개 저장 → 명시적 상품 반영. 업로드 전 개인정보를 직접 가리도록 안내하며 새 자료는 가림 승인 대기를 거치지 않는다.
 - 기존 파일/페이지/상품 수 제한과 권한을 유지한다. GET batches/:id/runs 및 drafts로 재진입한다. 직접 수정한 값은 PRODUCER로 기록한다.
-- POST runs의 visualPages는 source ID별 이미지 페이지 번호다. 가림 승인이 선행되어야 하며 기본값은 빈 값이다. 원본 사진은 자동 유료 분석하지 않는다.
+- POST runs의 visualPages는 source ID별 이미지 페이지 번호이며 기본값은 빈 값이다. 최신 앱은 자료를 자동 분석하며 상품사진 자체는 OCR/vision에 보내지 않고 한 줄 설명만 배치 분류에 사용한다. 이전 가림본/버전 보호는 유지한다.
 - 동일 자료 revision·가림버전·모델·prompt·대상·시각 선택의 성공 결과는 재사용한다. 취소/재분석으로 생산자 편집을 덮어쓰지 않는다.
 - POST batches/:bid/drafts/:did/apply는 productId/productVersion/draftVersion 및 Idempotency-Key를 받는다. 소유권과 최신 batch/review/source/product 버전을 검사한다.
 - Product.moduleDetail(schemaVersion=1, modules)을 별도로 저장한다. 기존 detailContent는 보존하며 새 모듈 없는 상품은 기존 렌더러를 사용한다. 가격·재고·주문·상품 공개 상태는 바꾸지 않는다.
-- 원본 사진은 가림 승인 후 EXIF 없는 PNG로 별도 복사한다. 공개 응답에는 본문·공개 사진 URI·허용 일러스트만 둔다. 원본 삭제와 공개 사진 수명은 독립이다. 사진 접근은 현재 스냅샷 참조·상품 PUBLISHED·농가 승인을 검사한다.
+- 상품사진은 EXIF 없는 PNG로 준비하며 명시적 반영 시 독립 공개 사진으로 복사한다. 공개 응답에는 본문·공개 사진 URI·허용 일러스트만 둔다. 원본 삭제와 공개 사진 수명은 독립이다. 사진 접근은 현재 스냅샷 참조·상품 PUBLISHED·농가 승인을 검사한다.
 
 ## 제공자와 비용
 
-- 팀 OpenRouter `google/gemini-3-flash-preview`가 기본 실제 모델이다. OpenRouter 이미지·PDF는 생산자 가림 승인 후 모든 가림 페이지를 Gemini Flash OCR로 읽고 그 텍스트를 추출한다. 텍스트 자료는 OCR 없이 처리한다. 고가 시각 모델 및 OpenAI 자동 fallback은 비활성이다. 기존 AI CS/단건 초안은 변경하지 않는다.
+- 팀 OpenRouter `google/gemini-3-flash-preview`가 기본 실제 모델이다. OpenRouter 이미지·PDF는 로컬 전처리 후 자료 이미지를 제한된 crop으로 나누어 Gemini Flash OCR로 읽고 그 텍스트를 추출한다. 텍스트 자료는 OCR 없이 처리한다. 개인정보는 업로더가 사전에 제거한다. 고가 시각 모델 및 OpenAI 자동 fallback은 비활성이다. 기존 AI CS/단건 초안은 변경하지 않는다.
 - PostgreSQL 전역 advisory lock 아래 전송 전 보수적으로 비용을 예약한다. 초기 평가 $1/기능 누적 $5 한도이며 출력토큰·제공자 단가 상한을 설정한다. 실제 비용이 없거나 결과가 불명확하면 예약을 유지한다. 원본 삭제는 비용 원장을 지우지 않는다.
 - 한도 초과·제공자 거절·불명확한 결과는 실패 상태다. 실패를 mock 성공으로 바꾸거나 고가 모델로 자동 재호출하지 않는다.
 

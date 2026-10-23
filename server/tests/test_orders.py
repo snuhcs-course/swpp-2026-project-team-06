@@ -10,7 +10,13 @@ from sqlalchemy import select, update
 from app.catalog.models import StageAllocation
 from app.core.db import get_sessionmaker
 
-CONSENTS = {"deliveryWindow": True, "delayRefund": True, "shortage": True, "cancelPolicy": True}
+CONSENTS = {
+    "deliveryWindow": True,
+    "delayRefund": True,
+    "shortage": True,
+    "cancelPolicy": True,
+    "thirdParty": True,
+}
 
 
 def order_body(**overrides):
@@ -109,16 +115,12 @@ def test_create_deposit_and_confirm_order(client, login):
     assert allocation().reserved_count == 40
 
 
-def test_AC_09_8_confirm_deposit_is_idempotent_and_farm_scoped(client, login):
+def test_AC_09_8_confirm_deposit_is_idempotent_and_farm_scoped(client, login, other_farm_headers):
     headers = login("u-seojun")
     order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
     assert deposit(client, headers, order["orderId"]).status_code == 200
 
-    from app.core.security import issue_token
-
-    other_farm = confirm(
-        client, order["orderId"], {"Authorization": f"Bearer {issue_token('u-halla', 'PRODUCER')}"}
-    )
+    other_farm = confirm(client, order["orderId"], other_farm_headers)
     assert other_farm.status_code == 404
 
     first = confirm(client, order["orderId"], login("u-kang"))
@@ -174,15 +176,13 @@ def test_AC_09_9_reject_deposit_keeps_waiting_with_reason(client, login):
     assert after["depositIssue"] is None
 
 
-def test_AC_09_9_reject_deposit_can_cancel_and_release_quantity(client, login):
+def test_AC_09_9_reject_deposit_can_cancel_and_release_quantity(client, login, other_farm_headers):
     headers = login("u-seojun")
     order = client.post("/api/orders", headers=headers | key(), json=order_body()).json()
     deposit(client, headers, order["orderId"])
     url = f"/api/orders/{order['orderId']}/reject-deposit"
 
-    from app.core.security import issue_token
-
-    other = {"Authorization": f"Bearer {issue_token('u-halla', 'PRODUCER')}"}
+    other = other_farm_headers
     assert client.post(url, headers=other, json={"reason": "x", "cancel": True}).status_code == 404
 
     body = {"reason": "입금이 들어오지 않았어요", "cancel": True}
@@ -310,13 +310,38 @@ def test_deposit_requires_farm_account(client, login):
     assert allocation().reserved_count == 38
 
 
-def test_AC_08_1_all_four_consents_required(client, login):
+def test_AC_08_1_all_five_consents_required(client, login):
     body = order_body(consents=CONSENTS | {"shortage": False})
 
     response = client.post("/api/orders", headers=login("u-seojun") | key(), json=body)
 
     assert response.status_code == 400
     assert "consents" in response.json()["details"]["fields"]
+
+
+def test_AC_08_7_third_party_consent_required_and_recorded(client, login):
+    """판매자 농가에 배송 정보를 주려면 주문할 때 제3자 제공 동의가 필요하다(DEV-120, 제17조)."""
+    headers = login("u-seojun")
+    missing = {k: v for k, v in CONSENTS.items() if k != "thirdParty"}
+    for consents in (missing, CONSENTS | {"thirdParty": False}):
+        body = order_body(consents=consents)
+        response = client.post("/api/orders", headers=headers | key(), json=body)
+        assert response.status_code == 400
+        assert "consents" in response.json()["details"]["fields"]
+
+    order = client.post(
+        "/api/orders",
+        headers=headers | key(),
+        json=order_body(consentVersion="policy-2026-10-23"),
+    )
+    assert order.status_code == 200, order.text
+    from app.core.db import get_sessionmaker
+    from app.orders.models import Order
+
+    with get_sessionmaker()() as db:
+        row = db.get(Order, order.json()["orderId"])
+        assert row.consent_version == "policy-2026-10-23"
+        assert row.consent_at is not None
 
 
 def test_AC_08_2_quantity_limit(client, login):
