@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { setFlash } from "../../../lib/flash";
-import { PHONE, formatPhone } from "../../../lib/onboarding";
+import { PHONE, formatPhone, realName } from "../../../lib/onboarding";
 import { useHideTabBar, useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 
@@ -25,7 +25,7 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return;
     setNickname(user.nickname ?? "");
-    setName(user.name ?? "");
+    setName(realName(user.name));
     setPhone(user.phone ?? "");
   }, [user]);
 

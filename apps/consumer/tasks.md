@@ -551,7 +551,7 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 ## DEV-142 가입 간소화(당근식) — 가입은 닉네임·휴대폰·동의만, 이름·배송지는 첫 주문 때
 
 ### 범위 (수정 허용 경로)
-- `apps/consumer/src/app/onboarding/{index,address}.tsx`, `apps/consumer/src/app/(tabs)/me/profile.tsx`, `apps/consumer/src/lib/{AddressForm,onboarding}.ts(x)`
+- `apps/consumer/src/app/onboarding/{index,address}.tsx`, `apps/consumer/src/app/(tabs)/me/profile.tsx`, `apps/consumer/src/app/checkout/[productId]/address.tsx`(10/24 AI 리뷰: 옛 카카오 계정 이름 걸러 미리 채움), `apps/consumer/src/lib/{AddressForm,onboarding}.ts(x)`
 - `server/app/accounts/service.py`(`needs_onboarding`), `server/tests/test_accounts.py`
 - `packages/api/src/mock/db.ts`(`needsOnboarding`), `packages/ui/src/legalContent.ts`(처리방침 제2조·변경 문구)
 - `scripts/test-onboarding.mjs`, `scripts/test-legal.mjs`, `scripts/e2e/legal-consent.spec.ts`

@@ -51,6 +51,11 @@ export function formatPhone(raw: string): string {
   return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
 }
 
+/** 미리 채울 이름. 10/17에 만든 카카오 계정은 이름 자리에 이메일이나 ‘카카오 사용자’가 들어 있어 빈 칸으로 본다(DEV-142) */
+export function realName(name: string | null | undefined): string {
+  return !name || name.includes("@") || name === "카카오 사용자" ? "" : name;
+}
+
 /** 다음 화면 주소. 앱 안 경로만 받는다 */
 export function safeNext(next: string | undefined): string {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
