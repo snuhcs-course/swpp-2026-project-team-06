@@ -1714,3 +1714,46 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 
 - 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
 - 10/22 `accounts.schemas.CONSENT_VERSION`(2026-10-22), `service.consent_required`(소비자 3개·생산자 2개, 지금 버전만 인정, 테스트 계정 제외), `needs_onboarding`이 버전까지 검사, `UserView.consent_required`, `/me/consents`를 생산자에게도 열고 `security.require_consented_producer`가 생산자 API를 403 `CONSENT_REQUIRED`로 막는다. 테스트: AC-01-17·18, 다른 농가 격리 테스트는 `other_farm_headers` 픽스처(동의한 u-halla).
+
+## DEV-132 카카오 가입 시 약관 동의 전에는 계정을 만들지 않기
+
+- 이슈: [DEV-132](https://linear.app/sswp6/issue/DEV-132) · 브랜치 `nemodleo/dev-132-consent-before-account`
+- 기능·규칙: FEAT-01 AC-01-10·12·14·16·17·18(+ 새 AC-01-19), ADR 0003·0010, policy.md 5장, 개인정보보호법 제21조(파기)·제22조
+- 상태: 리뷰 중
+
+### 목표
+카카오 로그인 순간 계정을 만들던 것을 바꿔, 새 사용자는 약관·개인정보(소비자는 만 14세 포함) 동의를 마쳐야 계정이 생기게 한다. 동의 없이 떠나면 서버에 아무것도 남지 않는다(사용자 결정 10/23).
+
+### 범위 (수정 허용 경로)
+- `server/app/accounts/{schemas,service,router}.py`, `server/app/core/security.py`(가입 토큰), `server/tests/test_accounts.py`
+- `packages/api/src/{types.ts,endpoints.ts,mock/auth.ts}`, `scripts/test-onboarding.mjs`
+- `apps/consumer/src/app/{auth/kakao,login,onboarding/index}.tsx`, `apps/producer/src/app/{auth/kakao,login,consent}.tsx`, `apps/producer/src/lib/session.tsx`
+- `scripts/e2e/legal-consent.spec.ts`, `packages/ui/src/legalContent.ts`(처리방침), `scripts/test-legal.mjs`
+- `docs/spec/functional/FEAT-01-login.md`, `docs/spec/{screens,policy}.md`, `docs/wiki/Requirements-and-Specifications.md`, `server/tasks.md`, `apps/{consumer,producer}/tasks.md`(포인터)
+
+### 비범위
+- 이미 만들어진 미동의 계정 삭제(다음 로그인 때 기존 동의 관문이 받는다, 삭제는 DEV-94), 탈퇴, DB 스키마
+
+### 결정 사항
+- 10/23 `POST /api/auth/kakao`는 기존 회원이면 지금처럼 `{accessToken, user}`. 새 사용자면 계정을 만들지 않고 `{signup: {signupToken, email}}`만 준다. 가입 토큰은 서버 JWT 비밀키로 서명한 30분짜리 토큰(`typ=kakao_signup`, 카카오 식별자·역할·카카오에서 받은 이메일·이름·전화)이고 서버에 저장하지 않는다. 카카오 인가 코드는 한 번만 쓸 수 있어 카카오에서 받은 값을 토큰에 담아 넘긴다.
+- 10/23 새 API `POST /api/auth/kakao/signup {signupToken, consents}`: 토큰 검증(서명·만료·종류) → 역할별 필수 동의가 지금 버전(`CONSENT_VERSION`)으로 모두 있어야 계정·동의 기록을 한 트랜잭션으로 만들고 `{accessToken, user}`. 빠지면 400 `consents`, 토큰 문제면 400 `signupToken`. 그 사이 같은 카카오 계정이 이미 생겼으면 새로 만들지 않고 그 계정으로 로그인하고 동의를 저장한다.
+- 10/23 앱: 가입 토큰은 브라우저 저장소에 만료 시각과 함께 잠깐 두고 가입이 끝나거나 만료되면 지운다. 소비자는 `/onboarding`이 계정 없이 가입 토큰만 있으면 ‘가입 동의’만 보이고, 가입 뒤 같은 화면에서 프로필을 받는다(동의 칸은 `consentRequired`일 때만). 생산자는 `/consent`가 가입 토큰이 있으면 계정 없이 열리고, 동의하면 계정이 생겨 관문이 가입 신청으로 보낸다.
+
+- 10/23 약관·처리방침 본문은 고치지 않는다. 시행 중인 문서(2026-10-23)는 "로그인 때 계정을 만든다"고 쓴 적이 없어 거짓이 된 문장이 없고, 본문을 바꾸면 버전·고지가 필요하다.
+- 10/23 가입 토큰 만료는 로그인 토큰처럼 앱 시계(`now`)로 본다(테스트는 시계를 고정한다). 위조·만료 검사는 AC-01-19 테스트.
+
+### 작업
+- [x] 서버: 가입 토큰, `/kakao` 응답 분기, `/kakao/signup`
+- [x] Mock·클라이언트 동일 규칙
+- [x] 소비자 복귀·온보딩, 생산자 복귀·동의·관문
+- [x] 처리방침(가입 전 처리), 스펙
+- [x] pytest, typecheck, test:mock, Playwright(Mock 카카오 E2E), 실서버 integration
+
+### 완료 조건
+- [x] 새 카카오 사용자가 동의 없이 떠나면 계정이 생기지 않는다(서버·Mock)
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main(DEV-113·120 머지 뒤)에서 시작.
+- 10/23 검증: `uv run pytest` 430 passed(새 AC-01-19, AC-01-8·10·12·16·18 갱신), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 40 passed / 0 failed, Mock 스택 `legal-consent`+`legal-pages` 5 passed(가입 동의 화면·닫으면 계정 없음·생산자 /consent → 가입 신청), 실서버 `test:integration:full` 67 passed / 5 skipped / 0 failed. 임시 DB 삭제.
