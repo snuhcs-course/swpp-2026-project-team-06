@@ -1,11 +1,14 @@
 // PostHog 화면 이벤트·세션 녹화·히트맵(ADR 0005, DEV-71). 확정 사실(결제·취소 등)은 서버가 보낸다.
 // - EXPO_PUBLIC_POSTHOG_KEY가 비면 아무것도 하지 않는다(로컬·Mock·CI·Playwright). 웹에서만 켠다.
+// - 접속 호스트가 운영 도메인(privacy.ts PRODUCTION_HOSTS, EXPO_PUBLIC_POSTHOG_HOSTS로 덮어씀)이 아니면
+//   켜지 않는다(DEV-125). Vercel 기본 주소·데모·localhost에서 연 운영 빌드가 실사용자 지표에 섞이지 않게.
 // - 사용자 구분은 내부 userId만(N-05). 이름·연락처·주소·메시지 본문은 보내지 않는다.
 // Expo가 빌드 때 process.env.EXPO_PUBLIC_* 를 값으로 바꾼다. 앱 tsconfig에 Node 타입이 없어 여기서만 선언한다.
 declare const process: {
   env: {
     EXPO_PUBLIC_POSTHOG_KEY?: string;
     EXPO_PUBLIC_POSTHOG_HOST?: string;
+    EXPO_PUBLIC_POSTHOG_HOSTS?: string;
   };
 };
 
@@ -16,7 +19,9 @@ import { Platform } from "react-native";
 
 import {
   cleanProps,
+  isAllowedHost,
   maskText,
+  parseHosts,
   scrubUrls,
   type AppEventName,
   type AppEvents,
@@ -25,7 +30,10 @@ import {
 
 export {
   PRIVATE_PATHS,
+  PRODUCTION_HOSTS,
+  isAllowedHost,
   isPrivatePath,
+  parseHosts,
   privateArea,
   type AppEventName,
   type AppEvents,
@@ -37,13 +45,16 @@ const HOST = (
   process.env.EXPO_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com"
 ).replace(/\/+$/, "");
 
+const HOSTS = parseHosts(process.env.EXPO_PUBLIC_POSTHOG_HOSTS);
+
 let started = false;
 
-/** 키가 있고 웹이면 한 번 초기화한다. 켜졌는지 돌려준다 */
+/** 키가 있고 웹이고 운영 도메인이면 한 번 초기화한다. 켜졌는지 돌려준다 */
 function start(app: AppName): boolean {
   if (started) return true;
   if (!KEY || Platform.OS !== "web" || typeof window === "undefined")
     return false;
+  if (!isAllowedHost(window.location.hostname, HOSTS)) return false;
   posthog.init(KEY, {
     api_host: HOST,
     defaults: "2026-08-30",
