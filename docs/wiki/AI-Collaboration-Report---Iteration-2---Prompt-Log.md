@@ -1748,3 +1748,53 @@ Period: Oct 16–22, 2026 (KST). Tools: Codex (GPT-6 Astra; GPT-6.1 Sol) and Cla
 - 2026-10-21 20:32 · `c91cf8ca` — "마지막에 다시 할라면 이 버튼 누르세요! 도 있어야지 그리고 사진 넣으면 ai가뭐뭐해드려요, 반복되는 질문은 이게 해드려요, 그리고 뭐뭐를 해보세요 이런식으로 좀 친절하게 좀 더 말하삼" [At the end it needs "Press this button to see it again!" And phrase it more kindly: "Add photos and AI does X," "Repeated questions are handled by this," "Try doing Y."]
 - 2026-10-21 20:41 · `c91cf8ca` — "이거 지금 메인 ui맞냐? 왜 새 상품에 사진 넣는거 없지" [Is this the main UI? Why is there no photo upload in "new product"?]
 - 2026-10-22 11:19 · `c91cf8ca` — "오른쪽 위 ?할때 ?에 아이콘 들어가게 하셈. 그리고 그 채팅 알려줄때 farmclub이름 그거 받고 그걸로 우리 cs까지 받기로하지 않았냐 왜 안했냐 그거" [Use an icon for the "?" at the top right. And didn't we decide the farmclub-named chat would also take our CS? Why wasn't that done?]
+
+## Zahra Gholami
+
+Period: Oct 13–23, 2026 (KST). Tools: Codex (GPT-5.6 Sol; GPT-6 Luna) and Claude Code (Claude Opus 5.5). Source: Session Exporter 0.1.0 export of 22 local sessions (about 300 input records). This is a selection, not the full list. Prompts are quoted as I typed them, typos included. Left out: prompts with credentials or shell commands, links to team documents, teammates' messages, and short replies ("yes", "go").
+
+### Prompts
+
+**Iteration start and DEV-30 (PR [#96](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/96))**
+- 2026-10-13 16:32 · Codex `01a1342c` — "iteration two has begun. please take a look at linear and see the tasks at hand. give me a summary of the objectives and responsibilities."
+- 2026-10-13 16:38 · Codex `01a1342c` — "where should I start for task 12? do i need the user stories and where are they?"
+- 2026-10-13 17:46 · Codex `01a1342c` — "the name, as I said before should be zahra/dev-30-i2-main-manager-approvals-permissions. add a rule to personal agent rules md for branch name standard. don't worry about the blocking issue t04."
+
+**Plan review loop: DEV-31, DEV-35, DEV-39, DEV-44 (PRs [#99](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/99), [#114](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/114), [#119](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/119), [#118](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/118))**
+- 2026-10-13 19:21 · Claude Code `230f3386` — "now I have to do my next task. which is [Pasted text #1 +42 lines][I2-T13] Finish core AI draft, grounded answer, and producer escalation behavior. I have wrote the following plan. look at the plan and let me know if I missed s[…]"
+- 2026-10-13 19:30 · Claude Code `230f3386` — "what do you think of this updated plan? what did i miss? [Pasted text #3 +65 lines]"
+- 2026-10-13 19:38 · Claude Code `230f3386` — "what about now [Pasted text #4 +77 lines]"
+- 2026-10-16 19:03 · Codex `01a1342c` — "make a plan for dev-35. take a look at the repo and see what was merged and what not and make sure to detect all the bottlenecks"
+- 2026-10-16 22:05 · Claude Code `36f83051` — "this is yhe plan for dev 39. whta do you think [Pasted text #1 +23 lines]"
+- 2026-10-16 22:07 · Claude Code `36f83051` — "are you absolutely sure about your claims??? double check?"
+- 2026-10-16 22:09 · Claude Code `36f83051` — "so what are the points that need to be changed from the original plan>?? or need to be added"
+- 2026-10-16 22:25 · Codex `01a144df` — "evevrything in english pls"
+
+**Checking Codex's work and the verification rules (PRs [#119](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/119), [#117](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/117))**
+- 2026-10-16 23:05 · Claude Code `36f83051` — "this is what codex said about 39. [pasted Codex summary] what is the problem?? explain the background"
+- 2026-10-16 23:07 · Claude Code `36f83051` — "can you write rules to address these? - Set up the worktree before handing it to an agent: run npm install at the root and uv sync in server/. Or run the agent in the main checkout instead. - Tell the agent that "tests written but not run" counts as not done. […] - Don't count the work as done until someone has seen the test suites pass in an environment that has the dependencies installed."
+- 2026-10-16 23:23 · Claude Code `36f83051` — "okay now take a look at what codex did on issue 39. did it make any mistakes? are the tests done right? cross examine"
+- 2026-10-16 23:45 · Claude Code `36f83051` — "don't commit. just let me know when it finishes"
+
+**Tests and the live server (DEV-50, SWPP-118; PRs [#144](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/144), [#189](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/189), [#198](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/198))**
+- 2026-10-18 12:34 · Claude Code `36f83051` — "are you sure it's 17? 17 is already a pass"
+- 2026-10-18 12:51 · Claude Code `36f83051` — "can you write a message I could clarify the extent of the tests I have done"
+- 2026-10-18 12:55 · Claude Code `36f83051` — "say it like this: I have just updated the test results on the google sheets and everything passes now. Just to clarify, the tests are done locally and I have not done data-changing actions on Railway to keep the shared seed clean for Test 2. […]"
+- 2026-10-20 09:22 · Claude Code `7ea57653` — "take a look at latest deployments and the codebase and linear. what is left to do for this iteration for me? Also read all of the records for tests and implementations and find if there are any gaps that need to be addressed. Things that were not implemented or partially impelemented or design that needs to be updated or anything else that you can think of."
+- 2026-10-20 09:47 · Claude Code `7ea57653` — "explain the issues super simply. don't be verbose"
+- 2026-10-20 09:58 · Claude Code `7ea57653` — "make a plan to address the issues based on their importance. your plan should include if I need to message anyone to confirm anything first"
+- 2026-10-20 10:27 · Claude Code `7ea57653` — "if others have done it as well, i think it is safe for me to do it as well as long as it is done safely. go ahead and plan a test. I don't need to check with the pm"
+- 2026-10-20 14:28 · Claude Code `7ea57653` — "when I sent you the screen shot from the partial refund, did it show 1,000W or 1,500W????"
+- 2026-10-20 14:30 · Claude Code `7ea57653` — "is this true??? Today's live server check (SWPP-118) caught it: the operator refunded ₩500, then did the final refund. The producer only saw a single ₩1,000 item, and only after that final refund."
+- 2026-10-20 14:33 · Claude Code `7ea57653` — "are we absolutely sure that there is an issue with the partial refund?"
+
+**Test data on the live server (DEV-93, PR [#192](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/192))**
+- 2026-10-20 11:31 · Claude Code `7ea57653` — "how about making a delete api? was it not made intentionally or was it just missed"
+- 2026-10-20 11:36 · Claude Code `7ea57653` — "let's do this: What was missed is a way to clean up test data on the live server. Nobody planned for it. let's do this right now and also write up that a proper delete api needs to be made once policy is decided"
+- 2026-10-20 12:01 · Claude Code `cdfb6f96` — "currently when I made a test farm, I can't delete it and it is visible on the website to everyone. there is no delete api yet, because the scope is undecided. […] 1. examine the pr and the workflow of how deletion works very carefully as it changes the db. make sure it doesn't accidentally touch things it is not supposed to such as other accounts data and so on. and then examine this plan and see if it makes sense […]"
+- 2026-10-20 12:07 · Claude Code `cdfb6f96` — "I think I may be complicating things. how would you recommend addressing this issue? what is the common practice?"
+- 2026-10-20 13:33 · Claude Code `cdfb6f96` — "don't touch other people's test farms. update the pr"
+
+**Chat product context (DEV-97, PR [#197](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/197))**
+- 2026-10-20 13:55 · Claude Code `934d086d` — "I want to address a current issue: [Pasted text #1 +19 lines] it would need a bug pr. plan out"
+- 2026-10-20 14:42 · Claude Code `934d086d` — "what are we doing here? remind me"
