@@ -29,7 +29,7 @@ Rules come before the model on purpose: the most common questions (when does it 
 
 ## 3. Evidence: what the model sees
 
-`build_evidence` collects facts for the question. The product is chosen as: the order's product if the message is about a paid order, else the single product on sale if the farm has exactly one.
+`build_evidence` collects facts for the question. The product is chosen as: the order's product if the message is about a paid order, else the product the chat was opened from (`productId`, sent with each message from the product page), else the single product on sale if the farm has exactly one. `productId` must be a published product of that farm, or the send returns 404 and the message is not saved. It is not stored on the conversation, so a chat reopened from the chat list falls back to the single-product rule (DEV-97).
 
 | `sourceRef` | Facts |
 | -- | -- |
@@ -78,6 +78,7 @@ The model's `ANSWER` is not trusted as is. It is stored only if all of these pas
 | Modes and concurrency | `test_AC_13_4_ai_reply_is_labeled`, `test_human_mode_has_no_ai_reply`, `test_AC_13_7_farm_ai_off_overrides_auto`, `test_AC_13_6_*` (4 tests) |
 | Reports and alerts | `test_AC_13_5_*` (5 tests), `test_M_07_*` (6 tests) |
 | Settings and preview | `test_AC_32_*` (5 tests), `test_preview_with_product_and_handoff_topic`, `test_saved_disabled_settings_stop_ai_replies` |
+| Product context (DEV-97, `main` `f30f0f2`) | `test_AC_13_3_two_product_farm_answers_brix_from_given_product`, `test_AC_13_3_two_product_farm_without_product_forwards`, `test_AC_13_1_order_context_wins_over_product`, `test_AC_13_3_product_of_other_farm_or_not_published_is_404` |
 
 **Live checks** (production server, read-only settings preview as the f-kang producer, 2026-10-18, see [[Testing Documentation|Testing-Documentation]] DEV-50):
 
@@ -94,7 +95,7 @@ The model's `ANSWER` is not trusted as is. It is stored only if all of these pas
 
 ## 8. Known limitations and next steps
 
-- **Product context in multi-product farms.** A chat message carries text, attachments and an optional order, but no product. If a farm sells more than one product and the question is not about an order, the evidence has no product facts, so product questions are handed off even when the answer is registered. f-kang sells two products. The 2026-10-19 sweetness question was handed off with the model's reason "no measured sweetness in the evidence", while the sweetness question in preview (with a product selected) got a rule answer, which matches this gap. Fix: send the product the consumer came from with the message.
+- **Product context outside the product page.** Fixed for chats opened from a product page: the consumer app now sends the product with each message (DEV-97, [#197](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/197)). Before the fix, f-kang (two products on sale) handed off the 2026-10-19 sweetness question with the model's reason "no measured sweetness in the evidence". Two gaps remain. A chat reopened from the chat list has no product, so in a multi-product farm product questions are still handed off unless they are about an order. And a handed-off question does not tell the producer which product it was about.
 - **Keyword-based topic gate.** The mandatory handoff list is a Korean regular expression. It is predictable and testable but blunt: any question containing "맛" (taste) is handed off, and a paraphrase it does not list relies on the model and the answer checks instead.
 - **Single-turn.** The model sees only the current question, not the earlier conversation, so follow-ups like "그럼 10kg는요?" usually hand off.
 - **Synchronous call under a lock.** The model call runs inside the request while the thread row is locked (up to 8 seconds). This keeps ordering simple; moving it to a background worker is a candidate for a later iteration (see [[Design Documentation|Design-Documentation]] 2.6).
