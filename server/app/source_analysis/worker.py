@@ -17,6 +17,7 @@ from app.ai.source_ocr import OCR_MAX_TOKENS, OCR_MODEL, OCR_PROMPT, crops, tran
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.farms import models as _farm_models  # noqa: F401
+from app.media.models import PublicMedia
 from app.source_analysis.models import (
     Asset,
     Batch,
@@ -742,6 +743,8 @@ def cleanup():
         db.commit()
         used = set(db.scalars(select(Asset.storage_key).where(Asset.deleted.is_(False))))
         used.update(db.scalars(select(PublicPhoto.storage_key)))
+        # 공개 미디어(DEV-102)는 같은 저장소를 쓰므로 지우지 않는다
+        used.update(db.scalars(select(PublicMedia.storage_key)))
         for p in db.scalars(select(Page)):
             used.update(k for k in (p.image_key, p.sanitized_key) if k)
         for key in store.expired():

@@ -143,6 +143,9 @@ export type SourceDraft = {
 const base = "/api/source-analysis/batches";
 const at = (bid: string) => `${base}/${encodeURIComponent(bid)}`;
 export const sourceAnalysis = {
+  // 자료 분석 사용 여부. 운영처럼 꺼진 서버면 앱이 기존 문구/직접 입력·상세 편집을 쓴다(DEV-84)
+  config: () =>
+    request<{ enabled: boolean }>("GET", "/api/source-analysis/config"),
   text: (bid: string, sid: string) =>
     request<{ text: string; sourceVersion: number }>(
       "GET",

@@ -1,6 +1,6 @@
 // Mock 라우터: "METHOD /path/:param" 패턴으로 핸들러를 찾는다. 응답은 실제 서버처럼 {status, body}.
 import type { ConflictReason, ErrorBody, ErrorCode } from "../types";
-import { db, needsOnboarding, save, type DB, type UserRec } from "./db";
+import { consentRequired, db, needsOnboarding, save, type DB, type UserRec } from "./db";
 
 export type Ctx = {
   db: DB;
@@ -69,7 +69,6 @@ const PRODUCER_ROUTES = [
 ];
 const CONSUMER_ROUTES = [
   /^\/api\/auth\/me\/addresses(\/|$)/,
-  /^\/api\/auth\/me\/consents$/,
   /^\/api\/farms\/following$/,
   /^\/api\/farms\/:farmId\/follow$/,
   /^\/api\/messaging\/chats(\/|$)/,
@@ -212,6 +211,11 @@ export async function dispatch(req: {
     if (user && m.gated && needsOnboarding(user))
       fail(403, "FORBIDDEN", "가입을 마치면 쓸 수 있어요.", {
         reason: "ONBOARDING_REQUIRED",
+      });
+    // 생산자는 지금 버전 약관·개인정보에 동의해야 생산자 API를 쓴다(서버 require_consented_producer, DEV-113)
+    if (user && m.app === "producer" && consentRequired(user))
+      fail(403, "FORBIDDEN", "약관에 동의하면 쓸 수 있어요.", {
+        reason: "CONSENT_REQUIRED",
       });
     if (
       m.app === "producer" &&

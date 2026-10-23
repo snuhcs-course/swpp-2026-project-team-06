@@ -530,3 +530,277 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/18 박현 피드백: 사유 바로 고르기를 ‘미승인 사유’ 아래 토글(사유 3개 + ‘직접 입력’)로 옮김. 직접 입력을 켜야 입력 칸이 열림. Mock 생산자 앱(크롬)에서 환불 줄 미승인 → 직접 입력 → 보내기 → 줄에 ‘미승인 사유: …’ 확인.
 - 10/18 박현 피드백: 사유 선택이 입력 칸과 똑같아 보여 헷갈림 → 사유 선택은 기존 Radio 줄(로그인 계정 고르기 부품), 입력 칸은 ‘직접 입력’을 켰을 때만 ‘사유 직접 쓰기’ 라벨과 함께. Mock 앱(크롬)·Figma에서 확인.
 - 10/18 입금 대기 줄 기한이 지나면 ‘· 기한 지남’(입금했다고 알린 주문은 취소되지 않고 남음).
+
+## DEV-74 생산자 앱 카카오 로그인(SCR-19)과 가입 신청 연결
+
+- 이슈: [DEV-74](https://linear.app/sswp6/issue/DEV-74)
+- 브랜치: `nemodleo/dev-74-dev-생산자-앱-카카오-로그인scr-19과-가입-신청-연결`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-10(서버 계약은 DEV-32), AC-01-16(신규) · ADR 0003·0010
+- 상태: 진행 중
+
+### 목표
+실제 농가가 카카오로 생산자 앱에 가입·로그인한다. 처음이면 생산자 계정이 생기고(농가 없음) 기존 관문이 가입 신청(SCR-20)으로 보낸다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/app/login.tsx`, `apps/producer/src/app/auth/kakao.tsx`(새 화면), `apps/producer/src/lib/kakao.ts`(새 파일), `apps/producer/src/lib/session.tsx`(관문에 `/auth/kakao` 허용만)
+- `packages/api/src/mock/auth.ts`(Mock 생산자 카카오 계정), `server/tests/test_accounts.py`(생산자 카카오 → 가입 신청 테스트)
+- `apps/producer/spec.md`, `apps/producer/tasks.md`, `packages/api/tasks.md`, `server/tasks.md`
+- 문서: `docs/spec/functional/FEAT-01-login.md`, `docs/spec/screens.md`(SCR-19), `docs/spec/ia.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+- 서버 카카오 로그인 로직(DEV-32에서 `app: producer` 이미 지원), 소비자 온보딩(생산자는 SCR-20이 대표자 이름·연락처를 받음), 탈퇴·리프레시 토큰(DEV-75·76), Figma
+
+### 결정 사항
+- 10/18 실서버에서 카카오가 켜져 있으면 테스트 계정 목록과 ‘처음이세요? 농가로 가입 신청’을 숨기고 ‘카카오로 시작하기’만 둔다(소비자 앱과 같은 규칙). 처음 온 농가도 카카오로 시작하면 관문이 SCR-20으로 보낸다.
+- 10/18 Mock 모드는 카카오와 테스트 계정 목록을 함께 둔다. 승인·확인 중·반려·정지 계정을 시연·디자인 검토에 계속 써야 하기 때문. Mock 카카오 로그인은 농가 없는 새 생산자 `u-kakao-farm`으로 들어가 가입 신청 흐름을 보여 준다.
+- 10/18 복귀 정보는 sessionStorage `farmclub-producer:kakao-return`에 `state` 일회용 값만 둔다. 생산자 앱은 이어서 할 행동(resume)이 없고, 갈 곳은 세션 관문이 농가 상태로 정한다.
+
+### 작업
+- [x] `lib/kakao.ts`, `auth/kakao.tsx`, `login.tsx`, 관문
+- [x] Mock 생산자 카카오 계정
+- [x] pytest(생산자 카카오 → 농가 없음 → 가입 신청 → PENDING, 대표자 이름 반영)
+- [x] 스펙·wiki
+- [x] typecheck, test:mock, Mock 화면 확인, 통합 테스트
+
+### 완료 조건
+- [x] 카카오로 생산자 앱 로그인 → 농가 상태별 화면(가입 신청·대기·대시보드·정지)
+- [x] 테스트 통과
+- [x] 카카오 콘솔에 생산자 앱 `<PRODUCER_APP_URL>/auth/kakao` 등록(사용자, 10/18)
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/18 main 56ac959에서 시작.
+- 10/18 구현·검증: Ruff·pytest 364/364(신규 1), `npm run typecheck` 4개, `npm run test:mock` 15/15, 통합(카카오 꺼짐, 별도 DB) 실서버 7/7 + Playwright 43/43. Mock 화면: 카카오와 테스트 목록 함께 → 카카오로 시작 → `/apply`, 잘못된 state → 만료 안내, 콘솔 오류 0. 로컬 실서버(카카오 켜짐): 테스트 계정 0개·‘농가로 시작하세요’·카카오 버튼만, 누르면 카카오 로그인 화면(redirect_uri `http://localhost:8082/auth/kakao`). 실제 카카오 계정 생산자 로그인은 카카오 콘솔에 생산자 복귀 주소 등록 뒤 확인(아래).
+- 10/18 실제 카카오 계정(로컬 실서버 + 생산자 앱, 별도 DB): 카카오로 시작하기 → 새 생산자 계정(자리 이름 ‘카카오 사용자’, 이메일 저장) → `/apply` → 테스트 값으로 신청 → `/pending`(확인 중), 계정 이름이 대표자 이름으로 바뀜. 로그아웃 뒤 다시 카카오 → 같은 계정으로 `/pending`. 카카오 계정 1개만 생성.
+- 10/19 Figma P02 반영(DEV-74 수정 프레임). 비범위로 넘긴 Figma를 사후에 맞춤. 같은 일이 반복되지 않게 DEV-88에서 PR 본문 `Figma:` 줄과 CI 검사를 추가.
+
+## DEV-84 운영 생산자 앱 새 상품 추가 불가: 자료 분석 꺼진 서버에서 기존 흐름으로 전환
+
+- 이슈: [DEV-84](https://linear.app/sswp6/issue/DEV-84)
+- 브랜치: `nemodleo/dev-84-dev-운영-생산자-앱-새-상품-추가-불가-자료-분석`
+- 기능·인수 조건: FEAT-03(AC-03-3 문구 초안), FEAT-07 상세 편집, `docs/spec/source-integration.md` DEV-58 새 상품 진입·판매페이지 수정
+- 상태: 완료
+
+### 목표
+운영 서버는 자료 분석이 배포 보류(`SOURCE_ANALYSIS_ENABLED` 꺼짐)라 `/api/source-analysis/**`가 모두 404다. DEV-58 이후 실서버 모드의 `/products/new`·판매페이지 편집이 이 API만 불러 새 상품을 추가할 수 없다. 꺼진 서버에서는 기존 문구/직접 입력·상세 편집으로 가게 한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/router.py`(설정 조회 라우터), `server/app/main.py`(라우터 등록), `server/tests/test_source_analysis.py`
+- `packages/api/src/sourceAnalysis.ts`(config 호출)
+- `apps/producer/src/app/(tabs)/products/new.tsx`, `apps/producer/src/lib/ProductPageEditor.tsx`
+- `scripts/run-integration.mjs`(SOURCE_ANALYSIS_ENABLED 덮어쓰기, 뒤 인자를 Playwright에 전달), `scripts/e2e/source-disabled.spec.ts`(새 파일)
+- `apps/producer/spec.md`, `apps/producer/tasks.md`, `server/app/source_analysis/spec.md`, `docs/spec/source-integration.md`, `docs/wiki/Source-Analysis.md`
+
+### 비범위
+- 운영 서버에서 자료 분석 켜기(OpenRouter 키·R2·worker 필요, 배포 보류 결정은 별도), 자료 분석 기능 자체, Mock 흐름(이미 manual), Figma
+
+### 결정 사항
+- 10/19 사용 여부는 `GET /api/source-analysis/config` → `{ enabled }`로 알린다. 인증 불필요(카카오 `GET /api/auth/kakao/config` 선례), 기능 게이트(`enabled()`) 밖의 별도 라우터라 꺼져도 200. 404로 추정하지 않는 이유: 기존 상품 편집에서는 404가 "상품 없음"과 구분되지 않는다.
+- 10/19 꺼진 서버: `/products/new` → `/products/manual`(Mock과 같은 기존 경로), 판매페이지 편집 → `DetailEditor`. 설정 조회 실패면 지금처럼 오류와 다시 시도 버튼을 보인다(추측으로 다른 경로로 보내지 않음).
+
+### 작업
+- [x] 서버 config 라우터 + pytest(꺼짐·켜짐)
+- [x] api 클라이언트, new.tsx·ProductPageEditor 분기
+- [x] 통합 하네스 덮어쓰기 + 꺼짐 Playwright spec
+- [x] 스펙·wiki
+- [x] Ruff·pytest, typecheck, test:mock, 통합(꺼짐/켜짐 관련 spec)
+
+### 완료 조건
+- [x] 자료 분석이 꺼진 서버에서 새 상품 → 문구/직접 입력으로 상품 추가, 판매페이지 편집 → 기존 상세 편집
+- [x] 켜진 서버 흐름 그대로
+- [x] 테스트 통과
+- [x] 배포 후 실서버 재확인, 테스트 상품 정리(삭제 API 없음 → 비공개 DRAFT로 이름 표시)
+
+### 기록
+- 10/19 main 79eaea7에서 시작. 실서버 재현: u-kang `POST /api/products/drafts` 200, `POST /api/source-analysis/product-workspaces` 404 NOT_FOUND(인증 없이도 404 → 기능 게이트).
+- 10/19 검증: Ruff 통과, pytest 366/366(신규 1), `npm run typecheck` 4개 통과, `npm run test:mock` 15/15. 통합(별도 DB `farmclub_dev84`) 꺼짐 `SOURCE_ANALYSIS_ENABLED=false`: API 7/7, Playwright 5/5(source-disabled 2 + producer-and-privacy 3). 켜짐: API 7/7, Playwright 18 통과·2 건너뜀(꺼짐 전용) — source-workspace-ui·product-page-workspace·source-editor·producer-and-privacy.
+- 10/19 AI 1차 리뷰 반영: 판매페이지 수정의 설정 조회 대기·오류 화면에 뒤로 가기 헤더 추가. 재검증: typecheck 통과, test:mock 15/15, 통합 꺼짐 source-disabled 2/2, 켜짐 product-page-workspace 5/5.
+- 10/19 #174 squash merge(abe28df) → main CI·Railway·Vercel 배포 성공. 운영 확인: `GET /api/source-analysis/config` → `{"enabled":false}` 200. farm.farmclub.kr에서 u-kang으로 새 상품 → `/products/manual` → AI 초안 200 → `POST /api/products` 200 → `/products/p-89186c4fe1/edit`, p-house 판매페이지 수정 → 기존 상세 편집, product-workspaces 호출 0, 콘솔 오류 0.
+- 10/19 남긴 운영 데이터: 비공개 DRAFT 상품 p-89186c4fe1(이름 `DEV84 검증용(삭제 예정)`, 공개 조회 404)과 AI 초안 2건(d-2ba36f9f25 외 1). 상품 삭제 API가 없어 남겼다.
+- 후속: 운영에서 자료 분석을 켜려면 R2·OpenRouter 키, OCR 포함 이미지, worker 서비스가 필요(별도 작업).
+
+
+## DEV-92 기본 정보 저장 중 즉시 첨부 경합
+
+- 이슈: https://linear.app/sswp6/issue/DEV-92
+- 브랜치: `jinumeral/dev-92-bug-source-upload-can-race-basic-info-blur-save-and-return`
+- 기준: FEAT-03, AC-SRC-1/5/11, M-11/13, docs/spec/source-editor.md
+- 상태: 진행 중
+
+### 목표
+사용자 수동 입력을 우선 보존하면서 기본 정보 blur 저장과 새 파일/텍스트 업로드의 버전 경합을 제거한다. DEV-90 최종 운영 증빙/발표자료를 수정 배포 후 촬영한다.
+
+### 범위
+- `apps/producer/src/lib/{SourceWorkspace,SourceAttachments}.tsx`, `apps/producer/{spec,tasks}.md`
+- `scripts/e2e/source-workspace-ui.spec.ts`
+- `docs/spec/{README,source-editor,source-integration}.md`, `docs/wiki/Source-Analysis.md`
+- `server/{tasks,README}.md`, `docs/spec/validation/source-production-2026-10-19.json`: DEV-90 최종 배포/기록 정합성만
+- ignored `.artifacts/dev90/**`, 사용자 승인 Railway/Vercel 배포와 기존 Drive PPTX/영상, Linear DEV-90/92
+
+### 결정 사항
+- 10/19 사용자 후속 지시: 손으로 쓴 값의 우선순위를 유지한다. 기본 정보 flush를 첨부 컴포넌트에 주입해 파일/새 텍스트의 버전 조회 전에 저장 완료를 기다린다. 버전 검사를 제거하거나 다른 편집자의 입력을 덮어쓰지 않는다. 실패 시 파일/입력은 보존하고 명시적으로 재시도한다.
+- 화면·레이블·모양은 변경하지 않는다(Figma N/A). 유료 모델 재시도/자동 업로드 재시도는 추가하지 않는다.
+- DEV-90 당시 13장 상한은 이후 사용자가 만든 슬롯/팀원 추가 장을 삭제한다는 뜻이 아니다. 최신 공유 장 수를 유지하고 우리 작업은 새 장을 추가하지 않는다.
+
+### 작업
+- [x] 저장 완료 대기 연결 및 실패/수동 입력 보존
+- [x] 지연 PUT을 넣은 파일/텍스트 회귀, 모바일3폭, 기존 관련 묶음
+- [ ] spec/wiki/Linear 및 DEV-90 배포 증빙 마무리
+- [ ] CI/AI 리뷰, main 머지와 배포 후 재녹화·원본 발표자료 갱신
+
+### 기록
+- 10/19 main2ed8b28(API/worker 배포 성공, source367 pytest/API7/브라우저45 통과2건너뜀)에서 시작. 기존 운영 UI도 새 상품부터 private save/reload/apply 성공했으나 즉시 업로드 경합은 별도 재현되므로 수정 후 최종 기록으로 교체한다. Agent 시간/Tokens 미측정.
+
+- 10/19 검증: typecheck4 workspace/mock15/관련 Playwright24(신규7 포함) 및 소비자·생산자 web export 통과. SourceBasicInfo 기존 충돌 보호와 직접 입력 우선순위는 그대로 유지한다. 최종 운영/자료 완료 상태는 Linear DEV-90/92에서 후속 갱신한다.
+- 10/19 수정 전 코드를 일시 복원한 동일 지연 PUT 검사1건은 예상대로 실패(저장 완료 전 source uploaded). finally에서 수정 코드를 바이트 동일하게 복원했으며, 수정본 전체24 통과 결과와 대조했다. 커밋/브랜치 스캔 지적0, 레거시 호환 후보0.
+
+## DEV-109 생산자 앱: 오른쪽 위 도움말(?) 버튼과 온보딩 튜토리얼
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109
+- 브랜치: `jinumeral/dev-109-생산자-앱-오른쪽-위-도움말-버튼과-온보딩-튜토리얼`
+- 기준: docs/spec/screens.md 6장 "공통: 도움말", SCR-22/23/28/33, FEAT-03·12·13·32(안내 문구가 가리키는 기능)
+- 상태: 진행 중
+
+### 목표
+생산자들이 앱을 이해하기 어렵다는 피드백이 있어서, 하단 탭 네 화면의 헤더 오른쪽 위에 동그라미 물음표 버튼을 둔다. 누르면 13단계 스포트라이트 투어를 시작한다. 화면을 어둡게 하고 대상만 밝게 보이며, 생산자가 직접 눌러 앱 흐름을 이동한다. 다루는 내용은 새 상품 등록, AI 판매페이지 초안, 채팅방, AI 자동 안내, AI 응답 설정, 문의다. 현황에 처음 들어오면 한 번 자동으로 시작한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/Tour.tsx`(새 파일, 처음 만든 `HelpGuide.tsx`를 대체), `apps/producer/src/app/_layout.tsx`, `apps/producer/src/app/(tabs)/{_layout,index,settings}.tsx`, `apps/producer/src/app/(tabs)/{products,chats}/index.tsx`, `apps/producer/src/app/(tabs)/chats/[consumerId].tsx`, `apps/producer/src/app/(tabs)/farm/ai-settings.tsx`, `apps/producer/tasks.md`
+- `packages/ui/src/bars.tsx`(`LargeTitle`의 `right` 슬롯, `IconButton`·`Fab`·`TabItem` testID), `packages/ui/src/Storefront.tsx`(`ChatChoices` testID), `packages/ui/src/Messenger.tsx`(`ConversationRow` testID, `ConversationHeader` 뒤로 가기 testID), `packages/ui/tasks.md`
+- `packages/api/src/index.ts`(`readStore`·`writeStore` 내보내기), `packages/api/tasks.md`
+- `scripts/e2e/helpers.ts`, `scripts/e2e/{brand-logo,producer-help-guide}.spec.ts`
+- `docs/spec/screens.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위 (건드리지 않음)
+- 작업 화면(HeaderBar, 뒤로 가기 있는 화면)의 ? 버튼, 투어가 서버 상태를 바꾸는 버튼('새 상품' 열기·초안 만들기·분석 시작·AI 전환·설정 저장)을 누르게 하는 것
+- `suspended.tsx`의 `[운영팀 연락처]` 자리표시자, 서버·API 변경, 새 의존성
+- Figma v6 반영(후속 이슈로 PR `Figma:` 줄에 남김)
+
+### 결정 사항
+- 10/21 사용자 결정: 버튼은 탭 네 화면에만 둔다. 처음 한 번 자동으로 띄운다. 문의 단계는 "운영자에게 편하게 문의해 주세요"만 쓰고 연락처는 적지 않는다(생산자들이 운영자 연락처를 이미 알고 있음).
+- 10/21 본 기록은 사용자별이 아닌 앱별 localStorage 키 `help-guide-seen`(`farmclub-producer:` 이름공간)으로 둔다. 생산자는 각자 기기를 쓰고 언제든 버튼으로 다시 볼 수 있어서다. 마지막 '알겠어요', X, Esc 모두 본 것으로 기록한다.
+- 10/21 자동 표시는 승인된 생산자(`farmStatus === "APPROVED"`)일 때만 한다. 관문이 리다이렉트하기 전에 투어가 깜빡이지 않게 하려는 것이다. 새 기능이라 별도 AC가 없어서 테스트 이름에는 DEV-109를 쓴다.
+- 10/21 자동으로 시작한 투어 오버레이가 기존 e2e 클릭을 가리지 않게, `loginProducer`는 기본으로 본 기록을 미리 심는다(`{ helpGuide: true }`일 때만 끔). brand-logo spec도 `skipHelpGuide`를 쓴다.
+- 10/21 사용자 후속 지시: 하단 시트 대신 스포트라이트 투어로 바꾼다. 화면을 어둡게 하고 대상만 밝게 보이며, 화살표로 가리키고, 생산자가 실제로 눌러 앱 흐름을 이동한다. 13단계 흐름은 docs/spec/screens.md "공통: 도움말"에 적었다.
+- 10/21 사용자 결정: 채팅방 '직접 응대로 전환'은 서버 상태가 바뀌므로 강조와 설명만 한다.
+- 10/21 대상은 testID(웹 `data-testid`)로 찾는다. DOM에서 가장 뒤에 있으면서 보이는 요소를 쓰고, `aria-hidden` 안의 요소는 뺀다. 위치는 100ms마다 다시 잰다. 어둡게 하는 막은 구멍 주위 4장으로 깔아서, 누르기 단계에서는 실제 버튼이 그대로 눌린다. 설명 단계에서는 구멍도 막는다. 다음 단계로 넘어가는 판단은 클릭을 가로채지 않고 경로(`usePathname`·`useGlobalSearchParams`)로 한다.
+- 10/21 ?는 어느 탭에서 눌러도 현황으로 이동한 뒤 1단계부터 시작한다. 1:1 대화가 없으면 대화 단계 세 개(7~9)를 건너뛴다. 대상을 3초 동안 찾지 못하면 가운데 카드에 '다음'을 띄운다.
+- 10/22 '새 상품'은 설명만 하고 넘어간다(눌러도 들어가지 않음). 실제 서버에서는 새 상품을 여는 순간 작성 중 상품이 생기기 때문이다. AI 초안 설명(분석 자료·상품사진)은 이 카드에 합친다. 운영 서버는 자료 분석이 켜져 있어 그 화면 기준으로 쓴다. 키보드 Tab 차단(`inert`)은 하지 않는다(사용자 결정). 그래서 키보드로는 뒤쪽 버튼을 누를 수 있다는 한계가 있다.
+
+### 작업
+- [x] `LargeTitle` `right` 슬롯, `readStore`·`writeStore` 내보내기
+- [x] `HelpGuide.tsx`(버튼·6단계 시트·자동 표시)와 탭 네 화면 연결
+- [x] e2e helper와 새 spec `producer-help-guide.spec.ts`
+- [x] screens.md·wiki 반영
+- [x] typecheck·mock·실제 스택 Playwright 통과 확인
+- [x] 커밋 전 스캔, draft PR
+- [x] 스포트라이트 투어로 전환(Tour.tsx, testID, spec·wiki, e2e)
+- [x] 투어가 작성 중 상품을 만들지 않게 13단계로 축소, 본문 ? 아이콘
+- [ ] AI 리뷰(`pr-review`)
+
+### 완료 조건
+- [x] 탭 네 화면 오른쪽 위에 '도움말' 버튼이 보이고, 누르면 현황으로 가서 1단계부터 시작한다.
+- [x] 첫 현황 진입 때만 자동으로 시작하고, 끝내거나 건너뛴 뒤 새로고침하면 다시 시작하지 않는다.
+- [x] 13단계를 실제 클릭으로 진행하고 어두운 곳은 눌리지 않는다. 마지막 단계에 문의 안내가 있다.
+- [x] 기존 Playwright spec이 그대로 통과한다.
+
+### 기록
+- 10/21 origin/main adef22b에서 새 worktree를 만들고 npm ci, server uv sync를 실행했다.
+- 10/21 로컬 공용 DB `farmclub`는 다른 브랜치 마이그레이션이 적용된 상태라 `alembic upgrade`가 DuplicateColumn으로 실패했다. 공용 DB는 그대로 두고 같은 컨테이너에 `farmclub_dev109`를 만들어 `DATABASE_URL`로 지정했다.
+- 10/21 `npm run typecheck`: 4 workspace 통과. `npm run test:mock`: 19 passed, 0 failed.
+- 10/21 `npm run test:integration:full`(전체): API 시나리오 7 passed, Playwright 54 passed, 2 skipped, 1 failed. 실패한 1건은 소비자 AC-10-6(checkout-and-fulfillment, getByText strict mode)이다. 이 테스트는 생산자 코드와 `loginProducer`를 쓰지 않고, main adef22b CI에서는 통과했다. 같은 명령으로 checkout-and-fulfillment, producer-help-guide, brand-logo만 다시 돌렸을 때 6 passed, 0 failed였다. 그래서 일시적 실패로 기록한다.
+- 10/21 새 spec 스크린샷(375px)으로 현황 시트 2단계와 상품 헤더의 버튼 정렬을 확인했다. Agent 시간/Tokens 미측정.
+- 10/21 커밋 전 스캔에서 WARNING 1건과 INFO 6건이 나왔고 모두 반영했다. 2·3단계 문구를 실제 흐름(빈칸 채우기 → 게시 요청 → 운영자 확인)에 맞췄고, 자동 표시는 승인된 생산자만 하도록 바꿨다. 쓰지 않는 export는 뺐다. 단계 표시는 눈에 보이는 "n / 6" 텍스트로 바꾸고 범위 파일명도 고쳤다. 다시 실행한 결과: typecheck 4 workspace 통과, mock 19 passed. `test:integration:full`에 생산자 관련 7개 spec을 지정해 돌린 결과 API 7 passed, Playwright 28 passed, 0 failed.
+- 10/21 재스캔: CRITICAL·WARNING 0건, INFO 3건. e2e는 실제 API로만 돌고 `monitor()`가 Mock 트래픽을 실패로 처리하므로 shared-v1 키 심기는 다시 뺐다. bars.tsx의 긴 줄을 정리했다. 제목 줄이 48px 버튼 높이로 몇 px 커지는 것은 375px 스크린샷으로 확인했고 의도한 배치로 둔다.
+- 10/21 투어 전환 검증: typecheck 4 workspace 통과. Mock 앱 390px에서 15단계를 실제 클릭으로 끝까지 진행했고 콘솔 오류는 0건이었다. 10단계 문구는 김민지 방이 '농가 직접 응대' 상태라 두 상태에 모두 맞게 고쳤다. `test:integration:full`(전체, `farmclub_dev109`): API 7 passed, Playwright 56 passed, 2 skipped, 0 failed. 새 spec 3개(전체 흐름·어두운 곳 클릭 차단, 건너뛰기와 탭별 재시작, 대화 0개일 때 건너뛰기)를 포함한다.
+- 10/21 투어 스캔에서 WARNING 2건과 INFO 4건이 나와 모두 반영했다.
+  - 재실행할 때 탭이 이전 하위 화면과 `view=private`를 복원하는 문제: 3·7·15단계에 진입 시 화면을 맞추는 처리를 넣었다. 누르기 단계는 들어올 때 이미 조건이 맞으면 한 번 벗어났다 다시 맞을 때만 넘어간다.
+  - 카드가 작은 화면 밖으로 나가는 문제: 카드 높이를 재서 화면 안(16px 여백)에 둔다.
+  - 대화 단계 건너뛰기는 시간 기준을 빼고, 빈 상태(`chat-empty`)가 보일 때만 건너뛴다.
+  - `HeaderBar`가 닫기 모드일 때는 `header-close`를 쓴다. 웹 전용 가드를 넣고, 목표·비범위·완료 조건을 정리했다.
+  - e2e에 재실행과 375×667 케이스를 추가했다.
+- 10/21 사용자 후속 지시: 문구를 더 친절하고 구체적으로 바꿨다. AI가 해 주는 일을 예로 들어 설명한다(글·사진을 넣으면 품종·원산지·보관 방법을 채우고 판매페이지 초안을 만든다, '배송은 언제 와요?'에는 답하고 '농약' 질문은 넘긴다 — prd.md 시나리오). 마지막 단계 제목은 '다시 보고 싶으면 이 버튼을 누르세요!'이고 ? 버튼을 강조한다. 단계 수 15는 사용자 확인 후 유지했다.
+- 10/21 검증: typecheck 통과. `test:integration:full` 전체 실행에서 API 7, Playwright 56 passed, 2 skipped, 1 failed가 나왔다. 실패는 새 재실행 spec 1건이었다. 대화방에서 뒤로 나오면 채팅 목록이 스택에 두 번 쌓이는데(기존 `router.navigate("/chats?view=private")` 동작), spec이 숨은 쪽 요소를 집은 것이 원인이었다. 앱은 보이는 쪽을 맞게 강조했다. spec 로케이터를 `:visible`로 고친 뒤 producer-help-guide 4 passed.
+- 10/21 재스캔 반영과 사용자 후속 지시를 처리했다.
+  - 4·5단계 본문을 실제 화면에 맞춰 고른다. 자료 분석 켜짐(`source-material-box`, `/products/source-analysis`)이면 분석 자료·상품사진 칸과 '작성 중' 안내를, 꺼짐·Mock(`ai-draft`, `/products/manual`)이면 문구 붙여넣기와 다시 시작 안내를 보여 준다. 4단계 제목은 'AI가 상품 정보를 채워 드려요'로 두 흐름에 공통으로 쓴다.
+  - 쓰지 않는 `useTour` export를 뺐다.
+  - 레이아웃: 카드는 좌우 gutter 20에 맞춰 가운데 두고, 넓은 화면에서는 최대 400px로 제한한다. 여백은 padding 24, 제목 16, 본문 8, 버튼 24로 정리했다. 진행 막대를 넣고, 누르기 안내도 버튼과 같은 높이의 칸으로 바꿨다. 강조 테두리는 radius 8이다.
+  - 줄바꿈: react-native-web이 `wordBreak` 스타일을 넘기지 않아서, 카드 안에만 `word-break: keep-all` CSS를 넣었다(390/1280에서 computed keep-all 확인).
+  - 모바일/PC 문구: '클릭'·Esc 안내 없이 '눌러 보세요'만 쓴다. PC에서도 앱이 같은 세로 열 배치라 '아래'·'오른쪽 위' 표현이 맞다(1280×800 스크린샷 확인).
+- 10/21 사용자 결정: 새 농가 1:1 대화가 비는 문제는 별도 이슈로 다룬다. 농가가 승인되면 farmclub 환영 대화방을 자동으로 만들고, 생산자가 답장해 운영자에게 문의할 수 있게 하는 실제 기능이다. 이 PR에서는 지금처럼 빈 상태(`chat-empty`)일 때 9~11단계를 건너뛴다.
+- 10/21 사용자 결정: 문의 창구도 그 farmclub 대화방으로 정한다. 투어 마지막 단계의 '운영자에게 편하게 문의해 주세요' 문구는 대화방이 생기는 후속 이슈에서 '채팅의 farmclub 대화방으로 물어봐 주세요'로 바꾼다. 이 PR에서는 아직 없는 곳을 가리키지 않도록 지금 문구를 유지한다.
+- 10/21 레이아웃·문구 반영 뒤 검증: typecheck 4 workspace 통과. mock 19 passed. `test:integration:full`(전체, `farmclub_dev109`): API 7 passed, Playwright 57 passed, 2 skipped, 0 failed(투어 spec 4개 포함). 실제 서버(자료 분석 켜짐)에서 390×844와 1280×800으로 1·2·4·5·10·15단계 스크린샷을 확인했다.
+- 10/21 최종 스캔: CRITICAL·WARNING 0건, INFO 8건. 반영한 것은 4단계 대기 중 다른 흐름 문구 깜빡임('화면을 여는 중이에요'), 10단계 문구를 AI·직접 응대 두 상태에 맞춤, `useWindowDimensions`로 창 크기 반영, 변수 이름(`hit`)과 `body` 선택 필드 정리다. 남긴 것은 두 가지다. 키보드 Tab 이동 차단(`inert`)은 후속으로 검토한다. 투어를 다시 볼 때마다 빈 작성 중 상품이 쌓이는 문제는 사용자 결정 동작이며 DEV-111 이후 빈 workspace 재사용을 검토한다.
+- 10/22 INFO 반영 뒤 검증: typecheck 통과, mock 19 passed. 관련 spec(help-guide, brand-logo, producer-i2, conversation-ui)의 첫 실행은 밤사이 잠자기로 13.9h가 걸려 시간 초과 8건이 났다. 같은 명령을 다시 돌리니 19 passed, 0 failed(29.3s)였다.
+- 10/22 재스캔: CRITICAL·WARNING 0건. 반영한 것은 세 가지다. 7단계는 대화방 경로에서 들어와도 `view=news`로 맞춘다. wiki 흐름에 환영 단계를 넣고 '작성 중' 안내에 조건을 붙였다. 결정 사항은 최종 동작 기준으로 정리했다. 키보드 Tab·스크린리더로 설명 단계의 뒤쪽 버튼에 갈 수 있는 문제(`inert`)는 후속으로 남긴다.
+- 10/22 확인 스캔: CRITICAL·WARNING 0건. INFO 4건은 고치지 않고 남긴다. 업데이터 안의 `writeStore`(같은 값이라 동작은 같음), 네이티브에서 대상 단계가 멈추는 문제(웹 출력 전용), 투어 중 로그아웃 리다이렉트 시 오버레이가 남는 문제(X·Esc로 나갈 수 있음), e2e의 고정 대기 부정 확인이다. 후속에서 `inert`와 함께 정리를 검토한다.
+- 10/22 사용자 후속 지시: 투어가 작성 중 상품을 만들지 않게 한다. 3단계 '새 상품'을 설명 단계로 바꾸고 AI 초안 설명(분석 자료·상품사진)을 합쳤다. 새 상품 화면 안의 두 단계(AI 초안 영역, 뒤로 가기)를 빼서 15단계가 13단계가 됐다. 이에 따라 `bodyFor`와 manual 화면의 `ai-draft` testID를 지웠다. 마지막 단계 본문의 '?'는 실제 도움말 아이콘으로 보여 준다(`withIcons`). 키보드 Tab 차단(`inert`)은 하지 않기로 했다(사용자 결정).
+- 10/22 스캔 WARNING 반영: 목표·결정 사항·완료 조건을 13단계와 '새 상품은 설명만' 기준으로 고쳐 썼다. 아이콘에 접근성 이름 '도움말'을 붙이고, e2e에 본문에 `[?]` 글자가 남지 않는지 확인하는 검사를 넣었다.
+- 10/22 재스캔 반영: 새 상품 화면 단계를 빼면서 쓰지 않게 된 `HeaderBar` 뒤로 가기 testID를 되돌렸다. 본문 아이콘에 `role="img"`를 붙이고, e2e는 이름('도움말')으로 아이콘을 확인한다.
+- 10/22 13단계·아이콘 변경 검증: typecheck 4 workspace 통과. 띄워 둔 실제 스택(자료 분석 켜짐, `farmclub_dev109`)에서 producer-help-guide 4 passed. 투어 중 `/product-workspaces` POST가 0건인지도 확인한다. 3·13단계 스크린샷으로 카드와 아이콘 정렬을 확인했다. 확인 스캔 CRITICAL·WARNING 0건.
+
+## DEV-111 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
+- 10/22 DEV-111 변경: farmclub 문의 대화방이 생겨 투어 대화 단계는 farmclub 방(`chat-row-farmclub`)을 열고 문의 방법(`support-intro`)을 안내한다. 빈 상태(`chat-empty`)로 건너뛰던 방식(`emptyIf`)은 지웠고, 방을 찾지 못하면 카드의 '다음'이 `skipTo`로 건너뛴다. 마지막 문의 문구는 farmclub 대화방을 가리킨다. 목록·방 화면과 `SupportAvatar`(views.tsx) 변경도 DEV-111에 있다.
+
+## DEV-108 카카오 복귀 화면 멈춤·새로고침 오류와 로딩 화면 정리
+
+- 이슈: [DEV-108](https://linear.app/sswp6/issue/DEV-108)
+- 브랜치: `nemodleo/dev-108-dev-생산자-앱-카카오-복귀-화면-멈춤새로고침-오류와`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-3, AC-01-16 · 화면 SCR-19(`/auth/kakao`) · 관련 DEV-74, DEV-88(Figma 줄)
+- 상태: 진행 중
+
+### 목표
+운영 생산자 앱에서 카카오 로그인 뒤 ‘카카오로 로그인하는 중’에 머무는 문제(승인 계정)와, 그 화면에서 새로고침하면 ‘로그인 요청이 만료됐어요’가 뜨는 문제를 고친다. 복귀 화면 모양을 로딩 표시 + 한 줄로 정리한다.
+
+### 원인
+- 관문 `homeFor`의 승인 분기가 `/login`·`/apply`·`/pending`·`/suspended`만 막고 `/auth/kakao`는 막지 않았다. 복귀 화면은 `refresh()` 뒤 이동을 관문에만 맡겨서, 승인 계정은 로그인이 끝나도 그대로 남았다. 다른 상태는 허용 주소가 하나라 정상으로 넘어갔다.
+- 복귀 화면이 일회용 `state`를 지운 뒤라 다시 열면 대조가 실패해 만료 오류를 보였다. 실제로는 토큰이 있어 로그인된 상태였다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/gate.ts`(새 파일, `homeFor`를 session.tsx에서 옮김), `apps/producer/src/lib/session.tsx`, `apps/producer/src/app/auth/kakao.tsx`
+- 테스트: `scripts/test-producer-gate.mjs`(새 파일), `package.json`(test:mock에 추가), `scripts/e2e/producer-kakao.spec.ts`(새 파일)
+- 문서: `apps/producer/spec.md`, `apps/producer/tasks.md`, `docs/spec/screens.md`(SCR-19), `docs/spec/functional/FEAT-01-login.md`(AC-01-16 한 문장), `docs/wiki/Requirements-and-Specifications.md`(SCR-19 줄)
+- Figma 스크립트: 레포 밖 `figma-plugins/farmclub-dev108/`
+
+### 비범위
+- 소비자 앱 복귀 화면(같은 스켈레톤 모양이지만 직접 이동하므로 멈춤은 없음. 모양 맞추기는 후속), 서버, Mock 카카오 계정
+
+### 결정 사항
+- 10/21 관문: 로그인된 사용자는 농가 상태와 상관없이 `/login`·`/auth/kakao`를 허용하지 않는다(로그인 입구 목록 하나를 비로그인 허용과 로그인 차단에 같이 씀). `homeFor`는 React 없이 테스트하려고 `lib/gate.ts`로 뺐다.
+- 10/21 복귀 화면은 로그인 뒤 `homeFor(user).home`으로 직접 `router.replace`한다(소비자 앱과 같은 방식). 관문도 같은 곳으로 보내므로 충돌하지 않고, 관문이 먼저 화면을 바꿨으면(언마운트) 다시 이동하지 않는다.
+- 10/21 새로고침: `state`가 없거나 다른데 토큰이 있으면 이미 로그인된 것으로 보고 `refresh()` 뒤 상태별 화면으로 간다. 토큰이 무효면 지금처럼 만료 안내.
+- 10/21 시간 제한 15초(카카오 로그인 + 사용자 조회). 넘으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’ + ‘다시 로그인’. 요청은 취소하지 않으므로 늦게 성공하면 토큰이 생겨 관문이 상태별 화면으로 보낸다(성공한 로그인을 버리지 않음).
+- 10/21 로딩 화면: 가운데 `ActivityIndicator`(large, 보조 글자색) + `T` body muted ‘카카오 로그인 중이에요’. `@farmclub/ui`에 스피너 부품이 없어 다른 생산자 화면처럼 React Native `ActivityIndicator`를 쓰고 새 부품은 만들지 않았다(쓰는 곳이 화면별로 크기·색이 달라 공용화는 따로 판단). 강조색은 쓰지 않는다(화면당 강조 하나 규칙, 이 화면엔 행동이 없음).
+- 10/21 소비자 앱 복귀 화면도 같은 큰 제목 + 설명 + 스켈레톤 모양이지만 이 PR에서는 바꾸지 않는다. 소비자 앱은 직접 이동해서 멈춤이 없고, 바꾸면 소비자 Figma·e2e까지 범위가 커진다. 후속 이슈로 제안.
+
+### 작업
+- [x] 관문(`gate.ts`)과 session.tsx 연결
+- [x] 복귀 화면: 직접 이동, 새로고침 처리, 15초 제한, 로딩 모양
+- [x] 관문 단위 테스트(test:mock), Playwright(승인·확인 중·농가 없음 복귀 → 각 화면, 다시 열기 → 오류 없음)
+- [x] 스펙(screens.md SCR-19, FEAT-01 AC-01-16, wiki)
+- [x] Figma v6 P02 근처 카카오 복귀 로딩 화면
+- [x] typecheck, test:mock, Playwright 통과 확인
+
+### 완료 조건
+- [x] 승인 계정이 카카오 로그인 뒤 멈추지 않는다
+- [x] 새로고침해도 오류 없이 넘어간다
+- [x] 로딩 화면 정리, 테스트·스펙·Figma가 같은 PR
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/21 origin/main adef22b에서 시작.
+- 10/21 검증: `npm run typecheck` 5개 워크스페이스 통과, `npm run test:mock` 22/22(관문 3개 새로). 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, 별도 DB `farmclub_dev108`, `node scripts/run-integration.mjs scripts/e2e/producer-kakao.spec.ts scripts/e2e/discovery-and-gates.spec.ts`): 실서버 시나리오 7/7, Playwright 7/7. 새 spec을 origin/main의 session.tsx·kakao.tsx로 돌리면 승인 계정 1건만 실패(`/auth/kakao`에 남음)해 보고된 증상과 같음을 확인.
+- 10/21 Playwright는 카카오 인가 화면을 열 수 없어 `POST /api/auth/kakao`만 가로채 시드 생산자의 test-login 토큰으로 답한다. 그 뒤 `/api/auth/me`·관문·화면은 실서버 그대로.
+- 10/22 Figma v6 ‘현재 시안 · 생산자’에 `DEV-108 · P02-1 카카오 복귀 · /auth/kakao`(node 456:2115)와 명세 상자(456:2120)를 그렸다. 자리는 P02와 같은 줄, DEV-74 ‘수정 전 · P02’ 사본 오른쪽(x 3940). 스크립트는 레포 밖 `figma-plugins/farmclub-dev108/code.js`(이름으로 찾아 같은 노드를 다시 그림, 두 번 실행해 노드 2개·같은 id 확인). 사용자 Chrome의 Figma 웹 편집기 콘솔에서 실행.
+
+## DEV-113 사이트 하단 사업자 정보와 약관·처리방침
+
+- 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
+- 10/22 `/privacy`·`/terms` 라우트(관문 `lib/gate.ts`에서 모든 상태에 공개, 동의 전에는 `/consent`만), 로그인·환경설정 하단 `LegalFooter`, vercel.json에서 정적 HTML로 rewrite.
+
+## DEV-132 카카오 가입 시 약관 동의 전에는 계정을 만들지 않기
+
+- 이슈: https://linear.app/sswp6/issue/DEV-132 · 목표·범위·결정·기록은 `server/tasks.md` DEV-132 섹션에 모은다.
+- 10/23 `/consent` 가입 모드(계정 없이 가입 토큰, 동의하면 계정 생성), 카카오 복귀·Mock 로그인, 관문 예외(`session.tsx`).

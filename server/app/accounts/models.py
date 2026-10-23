@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -17,6 +17,9 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     kakao_id: Mapped[str | None] = mapped_column(String(64))
     is_test_account: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 운영자가 표시한 운영 검증용 실계정(DEV-107). 시드 테스트 계정과 달리 로그인·온보딩은
+    # 그대로이고, 테스트 농가 숨기기(DEV-93·98)에서만 테스트 계정처럼 센다
+    ops_tester: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     role: Mapped[str] = mapped_column(String(16))
     name: Mapped[str] = mapped_column(String(100))
     phone: Mapped[str] = mapped_column(String(32), default="")

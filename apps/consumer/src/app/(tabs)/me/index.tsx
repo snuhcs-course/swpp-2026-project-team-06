@@ -4,6 +4,7 @@ import {
   Button,
   EmptyState,
   LargeTitle,
+  LegalFooter,
   ListRow,
   Notice,
   Screen,
@@ -92,7 +93,9 @@ export default function Me() {
             gap: 8,
           }}
         >
-          <T variant="heading">{user.nickname || user.name || "이름 없음"}</T>
+          <T variant="heading" masked>
+            {user.nickname || user.name || "이름 없음"}
+          </T>
           <T variant="sub" muted>
             {user.isTestAccount ? "테스트 계정" : "카카오 계정"} ·{" "}
             {user.role === "CONSUMER" ? "소비자" : "생산자"}
@@ -100,7 +103,7 @@ export default function Me() {
         </View>
         {!user.isTestAccount ? (
           <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
-            <T variant="sub" muted>
+            <T variant="sub" muted masked>
               {[user.nickname ? user.name : null, user.phone, user.email]
                 .filter(Boolean)
                 .join(" · ")}
@@ -182,6 +185,7 @@ export default function Me() {
             <ListRow
               label="배송지 관리"
               sub={def ? `기본 · ${def.address}` : "저장한 배송지가 없어요"}
+              subMasked={!!def}
               onPress={() => router.push("/me/addresses")}
             />
             <ListRow
@@ -208,6 +212,7 @@ export default function Me() {
             />
           </View>
         ) : null}
+        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <Sheet visible={confirmReset} onClose={() => setConfirmReset(false)}>
         <T variant="heading">데모 데이터를 처음으로 돌릴까요?</T>

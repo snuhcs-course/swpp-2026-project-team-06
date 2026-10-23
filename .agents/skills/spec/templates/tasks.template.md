@@ -5,7 +5,7 @@
 ## DEV-12 <이슈 제목>
 
 - 이슈: [DEV-12](https://linear.app/sswp6/issue/DEV-12)
-- 브랜치: `<Linear에서 복사한 브랜치명>`
+- 브랜치: `<github 아이디>/dev-12-<영어 요약>`
 - 기능·인수 조건: FEAT-xx / AC-xx-1, AC-xx-2
 - 상태: 진행 중 | 리뷰 중 | 완료
 

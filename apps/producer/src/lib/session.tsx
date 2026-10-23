@@ -6,8 +6,10 @@ import {
   configureApi,
   getToken,
   onAuthChange,
+  onConsentRequired,
   type User,
 } from "@farmclub/api";
+import { useAnalytics } from "@farmclub/analytics";
 import { Toast } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
@@ -19,6 +21,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
+import { PUBLIC_PATHS, homeFor } from "./gate";
 
 configureApi({ namespace: "producer" });
 
@@ -48,33 +52,6 @@ export const isConnectionError = (e: unknown) =>
   !(e instanceof ApiError) || e.status === 0 || e.status >= 500;
 
 const Ctx = createContext<Session | null>(null);
-
-/** 승인 상태별로 열 수 있는 화면. 나머지 주소로 오면 여기로 보낸다(screens.md SCR-05 버튼 동작). */
-function homeFor(user: User | null): {
-  allowed: (p: string) => boolean;
-  home: string;
-} {
-  if (!user) return { allowed: (p) => p === "/login", home: "/login" };
-  switch (user.farmStatus) {
-    case "NONE":
-      return { allowed: (p) => p === "/apply", home: "/apply" };
-    case "PENDING":
-      return { allowed: (p) => p === "/pending", home: "/pending" };
-    case "REJECTED":
-      return {
-        allowed: (p) => p === "/pending" || p === "/apply",
-        home: "/pending",
-      };
-    case "SUSPENDED":
-      return { allowed: (p) => p === "/suspended", home: "/suspended" };
-    default:
-      return {
-        allowed: (p) =>
-          !["/login", "/apply", "/pending", "/suspended"].includes(p),
-        home: "/",
-      };
-  }
-}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -125,15 +102,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
-    return onAuthChange(() => void refresh());
+    const offAuth = onAuthChange(() => void refresh());
+    // 쓰는 중에 약관 버전이 바뀌어 403 CONSENT_REQUIRED를 받으면 다시 읽어 관문이 동의 화면으로 보낸다
+    const offConsent = onConsentRequired(() => void refresh());
+    return () => {
+      offAuth();
+      offConsent();
+    };
   }, [refresh]);
 
   // 관문: 승인 전에는 다른 생산자 화면 주소로 가도 대기 화면으로(AC-01-3)
+  // 약관·처리방침(DEV-113)은 로그인·승인 상태와 상관없이 열린다
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || PUBLIC_PATHS.includes(pathname)) return;
+    // 카카오 새 사용자(가입 토큰만, DEV-132)는 계정 없이 약관 동의 화면에 머문다
+    if (!user && pathname === "/consent" && auth.pendingSignup()) return;
     const g = homeFor(user);
     if (!g.allowed(pathname)) router.replace(g.home as never);
   }, [ready, user, pathname, router]);
+
+  // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
+  useAnalytics("producer", user, ready);
 
   const value = useMemo<Session>(
     () => ({

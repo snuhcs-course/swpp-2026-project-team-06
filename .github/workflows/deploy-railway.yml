@@ -25,6 +25,7 @@ concurrency:
 
 env:
   RAILWAY_SERVICE: farmclub-api
+  RAILWAY_WORKER_SERVICE: farmclub-source-worker
   RAILWAY_ENVIRONMENT: production
   HEALTH_URL: https://api.farmclub.kr/health
 
@@ -104,4 +105,40 @@ jobs:
             sleep 10
           done
           echo "::error::$HEALTH_URL did not return 200 within 3 minutes after the deploy."
+          exit 1
+
+      - name: Deploy source worker from the same main commit when enabled
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          config=$(curl -fsS --max-time 15 https://api.farmclub.kr/api/source-analysis/config)
+          source_enabled=$(printf '%s' "$config" | node -e 'let s=""; process.stdin.on("data", x => s += x); process.stdin.on("end", () => { const enabled = JSON.parse(s).enabled; if (typeof enabled !== "boolean") process.exit(1); console.log(enabled); });')
+          if [ "$source_enabled" != "true" ]; then
+            echo "Source analysis is disabled; leaving its worker unchanged."
+            exit 0
+          fi
+          worker_dir=$(mktemp -d)
+          trap 'rm -rf "$worker_dir"' EXIT
+          git archive HEAD server | tar -x -C "$worker_dir" --strip-components=1
+          cp "$worker_dir/Dockerfile.worker" "$worker_dir/Dockerfile"
+          cp "$worker_dir/railway-worker.json" "$worker_dir/railway.json"
+          deployed_sha=$(git rev-parse HEAD)
+          result=$(railway up "$worker_dir" --path-as-root --service "$RAILWAY_WORKER_SERVICE" \
+            --environment "$RAILWAY_ENVIRONMENT" --detach --json --message "main:$deployed_sha source-worker")
+          worker_deployment_id=$(printf '%s' "$result" | node -e 'let s=""; process.stdin.on("data", x => s += x); process.stdin.on("end", () => { const id = JSON.parse(s).deploymentId; if (!id) process.exit(1); process.stdout.write(id); });')
+          export WORKER_DEPLOYMENT_ID="$worker_deployment_id"
+          ready_count=0
+          for i in $(seq 1 60); do
+            state=$(railway deployment list --service "$RAILWAY_WORKER_SERVICE" --environment "$RAILWAY_ENVIRONMENT" --json \
+              | node -e 'let s=""; process.stdin.on("data", x => s += x); process.stdin.on("end", () => console.log(JSON.parse(s).find(d => d.id === process.env.WORKER_DEPLOYMENT_ID)?.status ?? "PENDING"));')
+            echo "worker $worker_deployment_id: $state"
+            case "$state" in
+              SUCCESS) ready_count=$((ready_count + 1)); if [ "$ready_count" -ge 3 ]; then exit 0; fi ;;
+              FAILED|CRASHED|REMOVED|SKIPPED) echo "::error::Source worker deployment failed."; exit 1 ;;
+              *) ready_count=0 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Source worker did not become ready within 10 minutes."
           exit 1

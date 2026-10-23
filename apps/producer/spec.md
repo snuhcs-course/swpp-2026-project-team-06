@@ -102,11 +102,12 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 
 세션 확인이 완료된 뒤에 Tabs를 표시한다. 사용자 식별 전 입력 화면을 열면 userId key 변경으로 화면이 다시 만들어져 초기 문구가 사라질 수 있다. 기존 사용자 변경 시 상태 초기화는 유지한다(AC-03-3, AC-SRC-5).
 
-DEV-58: 가림 승인 전에 이미지/PDF 전체 가림 페이지가 AI 문자인식에 전송됨을 안내한다. OpenRouter Gemini OCR 모드의 기본 문자 인식과 선택적 시각 분석 설정을 구분한다. 저장·상품 적용·공개 계약은 유지한다.
+DEV-58 현재 계약: 개인정보는 업로드 전에 직접 제거한다. 새 자료는 가림 승인 대기 없이 기본 OCR/Gemini 문자 인식으로 분석하며, 비공개 원본/버전과 기존 가림본 보존을 유지한다. 상품사진 원본은 분석하지 않고 설명만 분류한다. 저장·상품 적용·공개 계약은 유지한다.
 
-DEV-58 자료 작업 UI: 공용 토큰의 20px 좌우 여백·16px 카드·64px 썸네일·최소48px 터치를 따른다. 작업 중 탭 위 스피너와 “분석 중이에요”를 표시하고 개인정보 승인 대기는 별도 안내한다. 업로드 직후 이미지는 로컬 object URL, 전처리 후 이미지/PDF는 인증된 가림 첫 쪽으로 표시한다. TXT·준비 전 PDF·미리보기 실패는 파일 형식 타일을 사용한다. 로컬 URL은 삭제/작업 전환/화면 종료 시 해제한다. 연결·삭제·추가 시각 설정과 문구 입력은 펼쳐보기에 보존하며 기존 저장/적용 계약은 유지한다.
+DEV-58 자료 작업 UI: 공용 토큰의 20px 좌우 여백·16px 카드·64px 썸네일·최소48px 터치를 따른다. 작업 중 탭 위 스피너와 “분석 중이에요”를 표시하고 과거 개인정보 승인 대기 작업은 취소 후 재분석을 안내한다. 업로드 직후 이미지는 로컬 object URL, 전처리 후 이미지/PDF는 인증된 가림 첫 쪽으로 표시한다. TXT·준비 전 PDF·미리보기 실패는 파일 형식 타일을 사용한다. 로컬 URL은 삭제/작업 전환/화면 종료 시 해제한다. 연결·삭제·추가 시각 설정과 문구 입력은 펼쳐보기에 보존하며 기존 저장/적용 계약은 유지한다.
 
 DEV-58 새 상품 진입: /products/new에서 새 비공개 상품과 연결된 자료 작업을 만들고 업로드 화면으로 바로 이동한다. 이전 문구/직접 입력은 /products/manual에 유지한다. 상품 생성 응답이 확인된 경우 같은 상품·작업 멱등 키로 재시도하며 불확실하면 상품 목록 확인을 안내한다. 자료 화면에서 상품 정보·판매 설정으로 이동한다. Mock 전용 환경은 자료 API가 없어 manual을 사용한다.
+DEV-84 자료 분석이 꺼진 환경의 복구 경로(운영은 DEV-90에서 활성화): 진입 시 `GET /api/source-analysis/config`의 `enabled`를 먼저 본다. false면 `/products/new` → `/products/manual`, 판매페이지 수정(`ProductPageEditor`) → 기존 `DetailEditor`. 조회 실패는 오류와 다시 시도로 두고 다른 경로로 추측해 보내지 않는다(404는 상품 없음과 구분되지 않아 신호로 쓰지 않음).
 상품 목록의 별도 자료로 상세 만들기 버튼은 제거하며 새 상품 버튼을 단일 신규 진입으로 사용한다. 기존 상품의 저장 작업 편집 진입은 유지한다.
 
 ### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
@@ -137,3 +138,14 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 - DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
 
 DEV-58 PR113 최종 리뷰: 상품 편집 snapshot은 대표 URI/null을 명시하며 연속 대표 지정·사진 배치는 함수형 상태 갱신으로 모두 유지한다. 중간 PageSnapshot 형태의 런타임 호환 분기는 제공하지 않는다.
+
+## DEV-74 카카오 로그인 (SCR-19 · `/auth/kakao`)
+
+카카오 설정(`enabled`, `clientId`, `redirectPath`)은 서버 `GET /api/auth/kakao/config`에서 받는다. 카카오 버튼 → `lib/kakao.ts`가 `state` 일회용 값을 sessionStorage(`farmclub-producer:kakao-return`)에 두고 인가 화면으로 보낸다 → `/auth/kakao`가 `state`를 대조해 `POST /api/auth/kakao`(`app: producer`) → `refresh()`. 갈 화면은 세션 관문(`homeFor`)이 농가 상태로 정한다(없음 → `/apply`, 확인 중·반려 → `/pending`, 승인 → `/`, 정지 → `/suspended`). 비로그인 관문은 `/login`과 `/auth/kakao`만 연다. 실서버에서 카카오가 켜져 있으면 테스트 계정 목록을 숨기고, Mock은 상태별 시연 계정 때문에 함께 둔다. 생산자는 소비자 온보딩을 거치지 않는다(가입 신청이 대표자 이름·연락처를 받음).
+
+DEV-108: 관문은 `lib/gate.ts`의 `homeFor`. 로그인된 사용자는 농가 상태와 상관없이 `/login`·`/auth/kakao`에 머물지 않는다. `/auth/kakao`는 로그인 뒤 `homeFor(user).home`으로 직접 `router.replace`하고(관문과 같은 목적지), `state`가 없거나 달라도 토큰이 있으면(새로고침) `refresh()` 뒤 같은 곳으로 간다. 로그인+사용자 조회는 15초 제한, 넘으면 오류와 ‘다시 로그인’. 화면은 가운데 `ActivityIndicator` + ‘카카오 로그인 중이에요’ 한 줄.
+
+
+## DEV-92 첨부 전 수동 입력 저장 순서
+
+SourceWorkspace가 SourceBasicInfo의 flush를 SourceAttachments에 주입한다. 새 파일 및 새 텍스트 업로드는 기본 정보 저장(진행 중 blur 및 마지막 입력 포함)을 기다린 뒤 최신 batch.version을 조회한다. 저장 실패 시 업로드를 보내지 않고 파일/텍스트와 수동 입력을 보존해 명시적 재시도를 허용한다. 직접 편집 > 기본 정보 > AI 제안 우선순위와 다른 편집자 충돌 보호는 유지한다(AC-SRC-1/5/11).

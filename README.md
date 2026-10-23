@@ -85,6 +85,38 @@ Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (a 
 - [uv](https://docs.astral.sh/uv/) for the Python server (Python 3.12 is installed by uv)
 - [Node.js](https://nodejs.org/) 24 (see `.nvmrc`) and npm
 
+### Local run (`make`)
+
+The root `Makefile` is the single entry point for local work. It only calls the npm
+scripts, `scripts/*.mjs`, and `server/` commands described below, and its checks run
+the same commands as CI. Run `make` to list every target.
+
+```bash
+make setup          # npm ci (only when package-lock.json changed) + cd server && uv sync --frozen
+make db             # local PostgreSQL 16 (server/docker-compose.yml); make db-down stops it
+make migrate seed   # alembic upgrade head + demo seed, local database only (RESET=1 to reseed)
+make dev            # both apps + Mock API (npm run dev); make dev-api runs FastAPI
+make check          # before a PR: lint (ruff check) + test
+```
+
+- `make test` runs `test-server` (pytest + alembic check), `test-apps` (`npm run test:mock`,
+  `npm run typecheck`) and `test-admin` (`node --test`). Each also runs on its own.
+  `test-integration` and `test-e2e` are heavy and stay out of `make test`.
+- `make coverage-producer` prints producer logic coverage; `make coverage-producer-ui` runs the
+  real-stack suite with `FARMCLUB_COVERAGE=1` and writes `.artifacts/coverage/producer-ui/index.html`
+  (heavy, reseeds the local database; see Testing Documentation 3.6).
+- The local PostgreSQL container is shared by every worktree, so the `alembic check` in
+  `test-server` fails on a `farmclub` database that another branch migrated. Use a database
+  per branch: `docker compose -f server/docker-compose.yml exec db createdb -U farmclub farmclub_dev12`,
+  then `DATABASE_URL=postgresql+psycopg://farmclub:farmclub@localhost:5432/farmclub_dev12 make test`.
+- **Adding tests:** when you create a new test suite, add one line to the matching `test-*`
+  target. Each person adds the tests for their own area.
+- `make clean-worktrees` lists `.claude/worktrees/*` whose PR is merged; `CONFIRM=1` removes
+  them. Worktrees with uncommitted changes are skipped and listed.
+- Keep one `Makefile` at the root. If it grows past ~150 lines, move groups of targets into
+  `make/*.mk` and add `include make/*.mk` to it. Do not add Makefiles in subfolders.
+- Production commands (Railway, production deploys or databases) are not make targets.
+
 ### Server
 
 ```bash
@@ -188,6 +220,24 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 The project `farmclub` (service `farmclub-api`, domain
 `https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
 
+**Hiding a test farm (DEV-93).** Order from farms you create for live checks only with test
+accounts. When the check is done, hide the farm from everyone from the service shell. Nothing is
+deleted: the farm becomes `SUSPENDED`, which every public path already hides.
+
+```bash
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId>                     # dry run
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --commit            # hide
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --restore --commit  # undo
+```
+
+It refuses a farm that is not approved or has orders from real (non-test) accounts, since
+suspension means refunding those (R-24). Each `--commit` writes one `ManagerEvent`.
+Pre-shipment test orders are counted, not refused: they may stay open while the farm is hidden.
+Orders whose buyer reported a deposit never auto-cancel and appear in `deposit-overdue` after the
+deadline, so cancel them first if you want that list clean. `--restore` only reopens farms this
+command hid; orders that expired in the meantime stay cancelled.
+Permanently deleting data waits for the retention policy (PQ-06, DEV-94).
+
 ### Automatic deploys (DEV-65, DEV-66)
 
 The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App
@@ -234,8 +284,8 @@ GitHub; each deployment is an exported `dist/` uploaded with the Vercel CLI. Exp
 has no effect.
 
 `.github/workflows/deploy-vercel.yml` automates this. After **CI** succeeds on `main`, if
-the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc` or the
-workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
+the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc`,
+`scripts/legal-pages.mjs` or the workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
 answers 200. It can also be run by hand from the Actions tab with the `main` branch
 selected; a manual run always deploys the current `main`.
 
@@ -243,6 +293,25 @@ selected; a manual run always deploys the current `main`.
 | -- | -- | -- |
 | `VERCEL_TOKEN` | **Environment secret** in `production` (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
 | `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
+| `APP_POSTHOG_KEY` | Repository **variable** | PostHog project API key (`phc_…`, public). Empty: no analytics or session replay. Set: screen events, replays and heatmaps go to PostHog (DEV-71). |
+| `APP_POSTHOG_HOST` | Repository **variable** | Optional. Empty: `https://us.i.posthog.com` (US Cloud). |
+| `BUSINESS_NAME` | Repository or `production` **variable** | Footer business info (DEV-113): trade name (상호), exactly as on the business registration certificate. |
+| `BUSINESS_OWNER` | same | Representative (대표자). |
+| `BUSINESS_REGISTRATION_NO` | same | Business registration number (사업자등록번호), e.g. `000-00-00000`. Also turns on the 사업자정보 확인 link (ftc.go.kr). |
+| `BUSINESS_MAIL_ORDER_NO` | same | Mail-order business report number (통신판매업 신고번호), e.g. `제0000-서울00-0000호`. |
+| `BUSINESS_ADDRESS` | same | Business address (주소). |
+| `BUSINESS_PHONE` | same | Customer contact number (연락처). |
+| `BUSINESS_EMAIL` | same | Contact email; also used for privacy requests. |
+| `PRIVACY_OFFICER` | same | Privacy officer (개인정보 보호책임자), e.g. `이름 (직책)`. |
+
+The business values are public on the live site but must never be committed (they are
+personal/company details and the repository is mirrored publicly). Each one maps to
+`EXPO_PUBLIC_<NAME>` at export time; an empty variable is left out of the footer, and with
+none set the footer shows "farmclub · 테스트 서비스". After changing them, run the workflow
+by hand so both apps are rebuilt. After `expo export`, `scripts/legal-pages.mjs` writes
+`dist/privacy.html` and `dist/terms.html` (served at `/privacy` and `/terms` via
+`vercel.json`) and puts the same footer in `index.html`'s `<noscript>`, so the pages read
+without JavaScript.
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
 users see. Do it outside user tests, and merge the server routes the apps call (for
@@ -252,6 +321,7 @@ server. To do the same by hand:
 ```
 EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://api.farmclub.kr \
   npx expo export -p web   # run inside apps/consumer and apps/producer
+node ../../scripts/legal-pages.mjs dist   # static /privacy and /terms (DEV-113)
 vercel deploy --prod       # from the exported dist/
 ```
 
@@ -269,11 +339,16 @@ each browser and never call the server.
 | `farmclub.kr` (`www` redirects here) | Consumer app and farm share links `/s/farms/<id>` | Vercel `farmclub-consumer` |
 | `farm.farmclub.kr` | Producer app | Vercel `farmclub-producer` |
 | `api.farmclub.kr` | FastAPI server, Swagger UI at `/docs` | Railway `farmclub-api` |
+| `admin.farmclub.kr` | Operator admin page (`scripts/admin-web`): producer sign-ups, supply approvals, test farms, users, inbox | Vercel `farmclub-admin` |
 
-`admin`, `dev` and `staging` are reserved; no DNS records exist until they have a target.
+`dev` and `staging` are reserved; no DNS records exist until they have a target.
+The Vercel default addresses `farmclub-consumer.vercel.app` and `farmclub-producer.vercel.app`
+permanently redirect (308, path and query kept) to `farmclub.kr` and `farm.farmclub.kr` through a
+host rule in each app's `vercel.json` (DEV-127). The API only allows the two official origins
+(CORS) and Kakao only returns to them, so the apps do not work on the `vercel.app` addresses.
 The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
-KakaoTalk reads the server's OG page under the consumer domain. All four records (`@`,
-`www`, `farm`, `api`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
+KakaoTalk reads the server's OG page under the consumer domain. All five records (`@`,
+`www`, `farm`, `api`, `admin`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
 "Proxy Detected" warning; keep SSL/TLS mode **Full (strict)** and leave **Bot Fight Mode**
 and **Rocket Loader** off, or KakaoTalk previews and the app break. If a Vercel or Railway
 certificate stops renewing, switch that record to DNS only.

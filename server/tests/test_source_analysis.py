@@ -12,7 +12,6 @@ from sqlalchemy import select
 from app.ai.source_analysis import MOCK_TEXT
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
-from app.core.security import issue_token
 from app.source_analysis import worker
 from app.source_analysis.models import Asset, Candidate, Item, Run, utcnow
 from app.source_analysis.schemas import MODULE_FIELDS
@@ -158,12 +157,12 @@ def test_AC_SRC_1_2_7_full_flow_and_private_draft(client, login):
     assert client.delete(f"{url}/{draft['id']}?version=1", headers=h).status_code == 200
 
 
-def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch):
+def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch, other_farm_headers):
     h = login("u-kang")
     batch = create(client, h)
     source = upload(client, h, batch)
     url = f"{PREFIX}/{batch['id']}"
-    other = {"Authorization": "Bearer " + issue_token("u-halla", "PRODUCER")}
+    other = other_farm_headers
     for suffix in ("", f"/sources/{source['id']}", f"/sources/{source['id']}/content", "/review"):
         assert client.get(url + suffix, headers=other).status_code == 404
     assert client.get(url, headers=login("u-minji")).status_code == 403
@@ -171,6 +170,22 @@ def test_AC_SRC_5_6_tenant_roles_and_feature_flag(client, login, monkeypatch):
     assert client.get(url).status_code == 401
     monkeypatch.setattr(get_settings(), "source_analysis_enabled", False)
     assert client.get(url, headers=h).status_code == 404
+
+
+def test_DEV_84_config_reports_feature_flag_without_auth(client, login, monkeypatch):
+    """꺼진 서버에서도 설정 조회는 200이라 앱이 404(상품 없음)와 구분한다."""
+    assert client.get("/api/source-analysis/config").json() == {"enabled": True}
+    monkeypatch.setattr(get_settings(), "source_analysis_enabled", False)
+    response = client.get("/api/source-analysis/config")
+    assert response.status_code == 200
+    assert response.json() == {"enabled": False}
+    # 기능 API는 그대로 막힌다.
+    workspace = client.post(
+        "/api/source-analysis/product-workspaces",
+        json={},
+        headers={**login("u-kang"), "Idempotency-Key": "dev84-off"},
+    )
+    assert workspace.status_code == 404
 
 
 def test_AC_SRC_6_real_mode_proceeds_without_privacy_review(client, login, monkeypatch):

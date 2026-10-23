@@ -1,0 +1,45 @@
+✔ AC-13-5: Mock reports only owned non-forwarded AI answers and persists producer and consumer markers (4562.66725ms)
+(node:13182) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<repository>/packages/analytics/src/privacy.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <repository>/packages/analytics/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ N-05: only screens that are mostly personal data are masked whole (0.493042ms)
+✔ N-05: replay text is masked on private paths and inside data-ph-private (0.115125ms)
+✔ N-05: event properties keep only tracking-plan keys (0.98825ms)
+✔ N-05: URL properties lose their query and hash (0.220958ms)
+✔ AC-04-8/9: initial and increased kg capacity require ADMIN, single pending request, versioned idempotency and no sales interruption (10728.07125ms)
+✔ AC-05-6/09-6: mixed weights, paid snapshots, immediate price, unpaid reconfirmation, one-time returns and shipment accounting (6643.316416ms)
+✔ AC-04-3 / R-21: changed delivery window needs paid buyer consent; gram precision accepts 1.001kg (4681.577666ms)
+✔ AC-09-9 / AC-17-8: producer rejects deposit or refund inline with a required reason (4888.253083ms)
+(node:13184) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<repository>/apps/consumer/src/lib/orderGroups.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <repository>/apps/consumer/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13184) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<repository>/apps/producer/src/lib/productGroups.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <repository>/apps/producer/package.json.
+✔ AC-04-7: approval, pause and end precedence produce one product group (0.604542ms)
+✔ AC-12-9/AC-04-7: cursor lists include more than 50 rows without losing the final page (1.261625ms)
+✔ AC-12-9: cancelled lists stop fetching and failed pages never return a partial success (0.292375ms)
+✔ AC-10-6/7: purchase-status tabs partition orders, prioritize actions, and move after confirmation/refund (5.576375ms)
+✔ AC-12-1/2/3/5/6/7/9: shared rooms enforce privacy, permissions, idempotency and durable storage (11072.835417ms)
+✔ AC-01-12~15: Mock onboarding gate, consents and 50-address limit (21539.4685ms)
+(node:13187) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<repository>/apps/producer/src/lib/gate.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <repository>/apps/producer/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ AC-01-16: logged-in producers never stay on /auth/kakao or /login (0.453792ms)
+✔ AC-01-3: signed-out users only reach /login and /auth/kakao (0.06275ms)
+✔ AC-01-3: approved farms reach app screens but not pre-approval screens (0.052167ms)
+✔ spec 1.2: sales, immediate pricing and immutable paid orders, chat access, inquiries and private attachment contracts (19561.162916ms)
+✔ AC-03-4/07-5: detail drafts do not publish, edits persist and validation/ownership/version remain enforced (6163.287625ms)
+✔ AC-12-11: public room pages/summaries/cursors never reveal follower broadcasts or replies (4739.766083ms)
+✔ AC-07-6: comparison uses the same option in the last period and suppresses unavailable or non-discount prices (198.5565ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27055.17825

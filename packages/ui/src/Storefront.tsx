@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { Icon } from "./Icon";
+import { BrandLogo } from "./BrandLogo";
 import { T } from "./Text";
 import { Photo } from "./content";
 import { ProfileAvatar, messageTime } from "./Messenger";
@@ -262,6 +263,7 @@ export function ChatChoices({
           accessibilityState={{ selected: value === v }}
           aria-selected={value === v}
           onPress={() => onChange(v)}
+          testID={`chat-choice-${v}`}
           style={{
             flex: 1,
             minWidth: 0,
@@ -289,9 +291,11 @@ export function ChatChoices({
 export function BrandHeader({
   title,
   right,
+  logo,
 }: {
   title: string;
   right?: ReactNode;
+  logo?: "wordmark" | "icon";
 }) {
   return (
     <View
@@ -304,10 +308,22 @@ export function BrandHeader({
         flexShrink: 0,
       }}
     >
-      <Icon name="citrus" color={tokens.color.accent} />
-      <T weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
-        {title}
-      </T>
+      {logo === "wordmark" ? (
+        <View style={{ flex: 1 }}>
+          <BrandLogo variant="wordmark" />
+        </View>
+      ) : (
+        <>
+          {logo === "icon" ? (
+            <BrandLogo variant="icon" decorative />
+          ) : (
+            <Icon name="citrus" color={tokens.color.accent} />
+          )}
+          <T weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
+            {title}
+          </T>
+        </>
+      )}
       {right}
     </View>
   );

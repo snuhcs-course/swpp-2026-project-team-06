@@ -1,5 +1,8 @@
 """FEAT-01 Mock 로그인·계정 분리, FEAT-08 저장 배송지."""
 
+from unittest.mock import ANY
+
+from app.accounts.schemas import CONSENT_VERSION
 from app.core import config
 
 
@@ -37,6 +40,7 @@ def test_AC_01_1_login_returns_token_and_user(client):
         "email": None,
         "phone": "",
         "needsOnboarding": False,
+        "consentRequired": False,
     }
 
 
@@ -259,19 +263,44 @@ def _kakao_on(monkeypatch, fetch=("kakao-1001", "minji@example.com"), **extra):
 
 
 CONSENTS = [
-    {"kind": "TERMS", "version": "2026-10-18"},
-    {"kind": "PRIVACY", "version": "2026-10-18"},
-    {"kind": "AGE14", "version": "2026-10-18"},
-    {"kind": "MARKETING", "version": "2026-10-18", "agreed": False},
+    {"kind": "TERMS", "version": CONSENT_VERSION},
+    {"kind": "PRIVACY", "version": CONSENT_VERSION},
+    {"kind": "AGE14", "version": CONSENT_VERSION},
+    {"kind": "MARKETING", "version": CONSENT_VERSION, "agreed": False},
+]
+PRODUCER_CONSENTS = [
+    {"kind": "TERMS", "version": CONSENT_VERSION},
+    {"kind": "PRIVACY", "version": CONSENT_VERSION},
 ]
 PROFILE = {"nickname": "귤러버", "name": "김민지", "phone": "010-2345-6789"}
 
 
-def _kakao_consumer(client) -> tuple[dict, dict]:
+def _kakao(client, app: str = "consumer") -> tuple[dict, dict]:
+    """카카오 로그인. 새 사용자면 필수 약관에 동의해 가입한다(DEV-132)."""
+    redirect = CONSUMER_REDIRECT if app == "consumer" else PRODUCER_REDIRECT
     body = client.post(
-        "/api/auth/kakao", json={"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
+        "/api/auth/kakao", json={"code": "abc", "redirectUri": redirect, "app": app}
     ).json()
+    if body.get("signup"):
+        consents = CONSENTS if app == "consumer" else PRODUCER_CONSENTS
+        signed = client.post(
+            "/api/auth/kakao/signup",
+            json={"signupToken": body["signup"]["signupToken"], "consents": consents},
+        )
+        assert signed.status_code == 200, signed.text
+        body = signed.json()
     return body["user"], {"Authorization": f"Bearer {body['accessToken']}"}
+
+
+def _kakao_consumer(client) -> tuple[dict, dict]:
+    return _kakao(client, "consumer")
+
+
+def _agree_producer(client, headers) -> None:
+    saved = client.post(
+        "/api/auth/me/consents", json={"consents": PRODUCER_CONSENTS}, headers=headers
+    )
+    assert saved.status_code == 200, saved.text
 
 
 def _finish_onboarding(client, headers) -> dict:
@@ -310,7 +339,15 @@ def test_AC_01_8_first_kakao_login_creates_consumer_account(client, monkeypatch)
     response = client.post(
         "/api/auth/kakao", json={"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
     )
-
+    assert response.status_code == 200, response.text
+    # 첫 로그인은 계정 없이 가입 토큰만 받는다. 필수 약관에 동의해야 계정이 생긴다(DEV-132)
+    assert response.json()["accessToken"] is None
+    assert response.json()["signup"]["email"] == "minji@example.com"
+    assert _kakao_users("kakao-1001") == []
+    response = client.post(
+        "/api/auth/kakao/signup",
+        json={"signupToken": response.json()["signup"]["signupToken"], "consents": CONSENTS},
+    )
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["accessToken"]
@@ -333,7 +370,7 @@ def test_AC_01_9_same_kakao_account_logs_into_same_user(client, monkeypatch):
     _kakao_on(monkeypatch)
     payload = {"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
 
-    first = client.post("/api/auth/kakao", json=payload).json()["user"]["userId"]
+    first = _kakao(client)[0]["userId"]
     second = client.post("/api/auth/kakao", json=payload).json()["user"]["userId"]
 
     assert first == second
@@ -343,17 +380,52 @@ def test_AC_01_9_same_kakao_account_logs_into_same_user(client, monkeypatch):
 def test_AC_01_10_same_kakao_id_gets_separate_producer_account(client, monkeypatch):
     _kakao_on(monkeypatch)
 
-    consumer = client.post(
-        "/api/auth/kakao", json={"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
-    ).json()["user"]
-    producer = client.post(
-        "/api/auth/kakao", json={"code": "def", "redirectUri": PRODUCER_REDIRECT, "app": "producer"}
-    ).json()["user"]
+    consumer = _kakao(client, "consumer")[0]
+    producer = _kakao(client, "producer")[0]
 
     assert consumer["userId"] != producer["userId"]
     assert producer["role"] == "PRODUCER"
     assert producer["farmStatus"] == "NONE"
     assert sorted(role for _, role in _kakao_users("kakao-1001")) == ["CONSUMER", "PRODUCER"]
+
+
+def test_AC_01_16_kakao_producer_signs_up_through_application(client, monkeypatch):
+    """생산자 앱 카카오 로그인(DEV-74): 처음이면 농가 없는 생산자 계정 → 가입 신청 → 확인 중.
+
+    생산자는 소비자 온보딩을 거치지 않고, 가입 신청의 대표자 이름이 계정 이름이 된다.
+    """
+    _kakao_on(monkeypatch)
+    # 새 생산자도 약관·개인정보에 동의해야 계정이 생긴다(AC-01-18·19)
+    user, headers = _kakao(client, "producer")
+    assert user["role"] == "PRODUCER"
+    assert user["farmStatus"] == "NONE"
+    assert user["needsOnboarding"] is False
+    assert user["consentRequired"] is False
+    assert user["name"] == "카카오 사용자"
+
+    applied = client.post(
+        "/api/auth/producer-application",
+        headers=headers,
+        json={
+            "ownerName": "김새농",
+            "farmName": "카카오 농장",
+            "region": "제주 서귀포시",
+            "mainItems": "감귤",
+            "phone": "010-9876-5432",
+        },
+    )
+    assert applied.status_code == 200, applied.text
+    assert applied.json()["status"] == "PENDING"
+    me = client.get("/api/auth/me", headers=headers).json()
+    assert me["farmStatus"] == "PENDING"
+    assert me["name"] == "김새농"
+
+    # 다시 카카오로 들어와도 같은 생산자 계정(확인 중)
+    again = client.post(
+        "/api/auth/kakao", json={"code": "def", "redirectUri": PRODUCER_REDIRECT, "app": "producer"}
+    ).json()["user"]
+    assert again["userId"] == user["userId"]
+    assert again["farmStatus"] == "PENDING"
 
 
 def test_kakao_login_off_returns_404(client, monkeypatch):
@@ -438,6 +510,7 @@ def test_AC_01_12_onboarding_required_before_order_follow_chat(client, monkeypat
                 "delayRefund": True,
                 "shortage": True,
                 "cancelPolicy": True,
+                "thirdParty": True,
             },
             "consentVersion": "1.0",
         },
@@ -470,14 +543,14 @@ def test_AC_01_12_onboarding_validates_fields_and_required_consents(client, monk
     assert bad.status_code == 400
     assert set(bad.json()["details"]["fields"]) == {"nickname", "name", "phone"}
 
-    # 필수 동의 중 하나(만 14세)가 빠지면 아직 온보딩이 끝나지 않는다
-    partial = [c for c in CONSENTS if c["kind"] != "AGE14"]
-    client.post("/api/auth/me/consents", json={"consents": partial}, headers=headers)
+    # 필수 동의 중 하나(만 14세)를 거두면 다시 온보딩이 남는다
+    withdrawn = [{"kind": "AGE14", "version": CONSENT_VERSION, "agreed": False}]
+    client.post("/api/auth/me/consents", json={"consents": withdrawn}, headers=headers)
     me = client.patch("/api/auth/me", json=PROFILE, headers=headers).json()
     assert me["needsOnboarding"] is True
     client.post(
         "/api/auth/me/consents",
-        json={"consents": [{"kind": "AGE14", "version": "2026-10-18"}]},
+        json={"consents": [{"kind": "AGE14", "version": CONSENT_VERSION}]},
         headers=headers,
     )
     assert client.get("/api/auth/me", headers=headers).json()["needsOnboarding"] is False
@@ -501,7 +574,7 @@ def test_AC_01_14_consents_record_version_and_time(client, monkeypatch):
     assert saved.status_code == 200
     rows = {c["kind"]: c for c in saved.json()}
     assert set(rows) == {"TERMS", "PRIVACY", "AGE14", "MARKETING"}
-    assert rows["TERMS"]["version"] == "2026-10-18"
+    assert rows["TERMS"]["version"] == CONSENT_VERSION
     assert rows["TERMS"]["agreedAt"].startswith("2026-10-07")
     assert rows["MARKETING"]["agreed"] is False
 
@@ -648,3 +721,114 @@ def test_AC_01_15_addresses_capped_at_50_per_account(client, login):
     client.delete(f"/api/auth/me/addresses/{listed[-1]['addressId']}", headers=headers)
     again = client.post("/api/auth/me/addresses", json=_address_body(1000), headers=headers)
     assert again.status_code == 200
+
+
+def test_AC_01_17_existing_consumer_must_agree_to_new_terms_version(client, monkeypatch):
+    """약관·처리방침 버전이 바뀌면(DEV-113) 가입한 소비자도 다시 동의해야 주문·팔로우를 한다."""
+    _kakao_on(monkeypatch)
+    _, headers = _kakao_consumer(client)
+    old = [{**c, "version": "2026-10-18"} for c in CONSENTS]
+    client.post("/api/auth/me/consents", json={"consents": old}, headers=headers)
+    me = client.patch("/api/auth/me", json=PROFILE, headers=headers).json()
+    assert me["needsOnboarding"] is True
+    assert me["consentRequired"] is True
+    follow = client.put("/api/farms/f-kang/follow", headers=headers)
+    assert follow.status_code == 403
+    assert follow.json()["details"]["reason"] == "ONBOARDING_REQUIRED"
+
+    # 선택 항목(알림)은 다시 동의하지 않아도 된다
+    required = [c for c in CONSENTS if c["kind"] != "MARKETING"]
+    client.post("/api/auth/me/consents", json={"consents": required}, headers=headers)
+    me = client.get("/api/auth/me", headers=headers).json()
+    assert me["needsOnboarding"] is False
+    assert me["consentRequired"] is False
+    assert client.put("/api/farms/f-kang/follow", headers=headers).status_code == 200
+
+
+def test_AC_01_18_producer_must_agree_before_using_the_producer_app(client, monkeypatch, login):
+    """생산자는 지금 버전의 약관·개인정보에 동의해야 가입 신청·농가 API를 쓴다(DEV-113)."""
+    _kakao_on(monkeypatch)
+    _, headers = _kakao(client, "producer")
+    application = {
+        "ownerName": "김새농",
+        "farmName": "카카오 농장",
+        "region": "제주 서귀포시",
+        "mainItems": "감귤",
+        "phone": "010-9876-5432",
+    }
+    # 가입 뒤 약관 버전이 바뀐 것처럼 옛 버전으로 돌리면 생산자 API가 막힌다
+    client.post(
+        "/api/auth/me/consents",
+        json={"consents": [{**c, "version": "2026-10-18"} for c in PRODUCER_CONSENTS]},
+        headers=headers,
+    )
+    assert client.get("/api/auth/me", headers=headers).json()["consentRequired"] is True
+    blocked = client.post("/api/auth/producer-application", headers=headers, json=application)
+    assert blocked.status_code == 403
+    assert blocked.json()["details"]["reason"] == "CONSENT_REQUIRED"
+    # 내 정보·동의 API는 동의 전에도 된다
+    assert client.get("/api/auth/me", headers=headers).status_code == 200
+
+    _agree_producer(client, headers)
+    assert client.get("/api/auth/me", headers=headers).json()["consentRequired"] is False
+    applied = client.post("/api/auth/producer-application", headers=headers, json=application)
+    assert applied.status_code == 200, applied.text
+
+    # 시드 테스트 계정은 동의 검사에서 빠진다
+    assert client.get("/api/auth/me", headers=login("u-kang")).json()["consentRequired"] is False
+    assert client.get("/api/auth/me", headers=login("u-minji")).json()["consentRequired"] is False
+
+
+def test_AC_01_19_no_account_until_required_consents(client, monkeypatch):
+    """카카오 새 사용자는 필수 약관에 동의해야 계정이 생긴다(DEV-132). 떠나면 남지 않는다."""
+    import jwt
+
+    from app.core.security import issue_signup_token
+
+    _kakao_on(monkeypatch)
+    for app, consents in (("consumer", CONSENTS), ("producer", PRODUCER_CONSENTS)):
+        redirect = CONSUMER_REDIRECT if app == "consumer" else PRODUCER_REDIRECT
+        body = client.post(
+            "/api/auth/kakao", json={"code": "abc", "redirectUri": redirect, "app": app}
+        ).json()
+        assert body["accessToken"] is None and body["user"] is None
+        token = body["signup"]["signupToken"]
+        assert _kakao_users("kakao-1001") == ([] if app == "consumer" else [(ANY, "CONSUMER")])
+
+        def signup(t, c):
+            return client.post("/api/auth/kakao/signup", json={"signupToken": t, "consents": c})
+
+        # 필수 하나라도 빠지거나 옛 버전이면 400, 계정 없음
+        missing = signup(token, [c for c in consents if c["kind"] != "PRIVACY"])
+        assert missing.status_code == 400
+        assert "consents" in missing.json()["details"]["fields"]
+        old = signup(token, [{**c, "version": "2026-10-18"} for c in consents])
+        assert old.status_code == 400
+        # 위조·만료·다른 종류 토큰은 400
+        forged = jwt.encode(
+            {"typ": "kakao_signup", "kid": "kakao-1001", "role": "CONSUMER", "exp": 9999999999},
+            "wrong-secret-of-32-bytes-or-longer",
+            algorithm="HS256",
+        )
+        assert signup(forged, consents).json()["details"]["fields"] == {
+            "signupToken": "가입 요청이 만료됐어요"
+        }
+        expired = issue_signup_token({"kid": "kakao-1001", "role": "CONSUMER"})
+        payload = jwt.decode(expired, options={"verify_signature": False})
+        from app.core.config import get_settings
+
+        stale = jwt.encode(
+            {**payload, "exp": payload["iat"] - 1}, get_settings().jwt_secret, algorithm="HS256"
+        )
+        assert signup(stale, consents).status_code == 400
+        roles = sorted(r for _, r in _kakao_users("kakao-1001"))
+        assert roles == ([] if app == "consumer" else ["CONSUMER"])
+
+        ok = signup(token, consents)
+        assert ok.status_code == 200, ok.text
+        headers = {"Authorization": f"Bearer {ok.json()['accessToken']}"}
+        kinds = {c["kind"] for c in client.get("/api/auth/me/consents", headers=headers).json()}
+        assert {c["kind"] for c in consents} <= kinds
+        # 같은 토큰을 다시 보내도 계정은 하나
+        assert signup(token, consents).json()["user"]["userId"] == ok.json()["user"]["userId"]
+    assert sorted(r for _, r in _kakao_users("kakao-1001")) == ["CONSUMER", "PRODUCER"]

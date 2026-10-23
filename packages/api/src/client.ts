@@ -114,6 +114,18 @@ export function onOnboardingRequired(fn: () => void) {
   };
 }
 
+const consentListeners = new Set<() => void>();
+/**
+ * 생산자가 지금 버전 약관·개인정보에 동의하지 않아 403 CONSENT_REQUIRED를 받았을 때 알림(DEV-113).
+ * 토큰은 지우지 않는다. 생산자 앱은 내 정보를 다시 읽고 동의 화면(/consent)으로 보낸다
+ */
+export function onConsentRequired(fn: () => void) {
+  consentListeners.add(fn);
+  return () => {
+    consentListeners.delete(fn);
+  };
+}
+
 /* ---------------- request ---------------- */
 
 export type RequestOptions = {
@@ -188,6 +200,12 @@ export async function request<T>(
       "ONBOARDING_REQUIRED"
   )
     onboardingListeners.forEach((l) => l());
+  if (
+    res.status === 403 &&
+    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
+      "CONSENT_REQUIRED"
+  )
+    consentListeners.forEach((l) => l());
   if (res.status >= 400) throw new ApiError(res.status, res.body);
   return res.body as T;
 }
@@ -210,12 +228,37 @@ export async function resetDemoData() {
   setToken(null);
 }
 
-export async function uploadMockMedia(dataUrl: string): Promise<string> {
-  if (!sharedMockUrl) return dataUrl;
-  const result = await request<{ url: string }>("POST", "/__mock/media", {
-    body: { dataUrl },
+function readDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(blob);
   });
-  return result.url;
+}
+
+/** 공개 사진·영상(농가 프로필·상품·소식·상세)을 올리고 저장할 주소를 돌려준다(DEV-102).
+ *  실제 서버는 POST /api/media, 공유 Mock은 /__mock/media, 브라우저 Mock은 data URL 그대로. */
+export async function uploadMedia(file: Blob, name: string): Promise<string> {
+  if (isMock && !sharedMockUrl) return readDataUrl(file);
+  if (sharedMockUrl) {
+    const result = await request<{ url: string }>("POST", "/__mock/media", {
+      body: { dataUrl: await readDataUrl(file) },
+    });
+    return result.url;
+  }
+  const form = new FormData();
+  form.append("file", file, name);
+  const res = await fetch(`${apiUrl}/api/media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    body: form,
+  });
+  // 프록시의 413·502처럼 JSON이 아닌 오류도 ApiError로 넘겨 화면이 '읽지 못했어요'로 오해하지 않게 한다
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, body);
+  // 소비자 앱·공유 미리보기가 그대로 쓰도록 API 주소를 붙여 저장한다
+  return apiUrl + (body as { url: string }).url;
 }
 
 /** Private images travel with authentication. Never use the public news-media endpoint. */

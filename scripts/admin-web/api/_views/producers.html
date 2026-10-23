@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>farmclub 관리자 · 가입 신청</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/assets/admin.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side"></aside>
+  <div class="content"><div class="wrap">
+    <header class="page-head">
+      <h1>농가 가입 신청</h1>
+      <p class="hint" style="margin: 4px 0 0">확인 중인 신청을 승인하거나 반려해요.</p>
+    </header>
+    <nav class="tabs" id="tabs" aria-label="상태"></nav>
+    <section id="list" aria-live="polite"></section>
+  </div></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="/assets/admin.js"></script>
+<script>
+const STATUS = { PENDING: "확인 중", REJECTED: "반려", APPROVED: "승인", SUSPENDED: "정지" };
+const TABS = ["PENDING", "REJECTED", "APPROVED", "SUSPENDED", "ALL"];
+let tab = "PENDING", rows = null, busy = false;
+
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map((s) => {
+    const n = rows ? (s === "ALL" ? rows.length : rows.filter((r) => r.status === s).length) : "";
+    return `<button aria-pressed="${s === tab}" data-tab="${s}">${s === "ALL" ? "전체" : STATUS[s]}${n !== "" ? " " + n : ""}</button>`;
+  }).join("");
+}
+
+function card(r) {
+  const pending = r.status === "PENDING";
+  return `<article class="card app" data-id="${esc(r.farmId)}">
+    <div class="row" style="justify-content: space-between">
+      <h2>${esc(r.farmName)}</h2><span class="badge s-${esc(r.status)}">${STATUS[r.status] || esc(r.status)}</span>
+    </div>
+    <dl class="meta">
+      <dt>대표자</dt><dd>${esc(r.ownerName)}</dd>
+      <dt>연락처</dt><dd>${esc(r.phone)}</dd>
+      <dt>지역</dt><dd>${esc(r.region)}</dd>
+      <dt>주로 키우는 것</dt><dd>${esc(r.mainItems)}</dd>
+      <dt>신청</dt><dd>${when(r.submittedAt)}</dd>
+      ${r.decidedAt ? `<dt>결정</dt><dd>${when(r.decidedAt)}</dd>` : ""}
+      ${r.rejectReason ? `<dt>반려 사유</dt><dd>${esc(r.rejectReason)}</dd>` : ""}
+      <dt>농가 ID</dt><dd><code>${esc(r.farmId)}</code></dd>
+    </dl>
+    <div class="row">
+      ${pending ? `<button class="primary" data-act="approve">승인</button><button class="danger" data-act="reject">반려</button>` : ""}
+      <button class="text" data-act="history">결정 이력</button>
+    </div>
+    <div class="slot"></div>
+  </article>`;
+}
+
+function renderList() {
+  renderTabs();
+  if (!rows) { $("#list").innerHTML = `<p class="empty">불러오는 중…</p>`; return; }
+  const shown = tab === "ALL" ? rows : rows.filter((r) => r.status === tab);
+  $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<p class="empty">${tab === "PENDING" ? "확인할 신청이 없어요." : "해당하는 신청이 없어요."}</p>`;
+}
+
+async function load() {
+  rows = null; renderList();
+  try { rows = await call("/admin/producers?status=ALL"); renderList(); }
+  catch (e) { rows = []; renderList(); toast(e.message, true); }
+}
+
+$("#tabs").onclick = (e) => { const b = e.target.closest("button[data-tab]"); if (b) { tab = b.dataset.tab; renderList(); } };
+
+$("#list").onclick = async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b || busy) return;
+  const el = b.closest("article"), id = el.dataset.id, slot = el.querySelector(".slot"), act = b.dataset.act;
+  const row = rows.find((r) => r.farmId === id);
+  if (act === "approve") {
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = `${row.farmName} 승인할까요? 한 번 더 누르기`; return; }
+    busy = true; b.disabled = true;
+    try { await call(`/admin/producers/${id}/approve`, "POST"); toast(`${row.farmName}을(를) 승인했어요`); await load(); }
+    catch (err) { toast(err.message, true); b.disabled = false; }
+    finally { busy = false; }
+  } else if (act === "reject") {
+    slot.innerHTML = `<div class="reject-box"><textarea rows="3" maxlength="500" placeholder="반려 사유(농가에 보여요)" aria-label="반려 사유"></textarea>
+      <div class="row"><button class="danger solid" data-act="reject-send">반려하기</button><button class="text" data-act="cancel">취소</button></div></div>`;
+    slot.querySelector("textarea").focus();
+  } else if (act === "reject-send") {
+    const reason = slot.querySelector("textarea").value.trim();
+    if (!reason) return toast("반려 사유를 적어 주세요.", true);
+    busy = true; b.disabled = true;
+    try { await call(`/admin/producers/${id}/reject`, "POST", { reason }); toast(`${row.farmName}을(를) 반려했어요`); await load(); }
+    catch (err) { toast(err.message, true); b.disabled = false; }
+    finally { busy = false; }
+  } else if (act === "cancel") {
+    slot.innerHTML = "";
+  } else if (act === "history") {
+    if (slot.querySelector(".history")) { slot.innerHTML = ""; return; }
+    try {
+      const h = await call(`/admin/producers/${id}/decisions`);
+      slot.innerHTML = `<div class="history">${h.length ? `<ul>${h.map((d) => `<li>${when(d.decidedAt)} · ${d.decision === "APPROVED" ? "승인" : "반려"}${d.reason ? " · " + esc(d.reason) : ""} <span class="hint">(${esc(d.managerId)}, 신청 ${when(d.applicationAt)})</span></li>`).join("")}</ul>` : "결정 이력이 없어요."}</div>`;
+    } catch (err) { toast(err.message, true); }
+  }
+};
+
+load();
+</script>
+</body>
+</html>
