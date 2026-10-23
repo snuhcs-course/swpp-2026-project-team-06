@@ -1840,3 +1840,4 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 ### 기록
 - 10/23 origin/main 9436171에서 시작. DEV-132(PR #264) 미머지.
 - 10/23 검증: `uv run pytest` 434 passed(새 `test_account_withdrawal.py` 5개), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed(새 `test-withdrawal.mjs`), Mock 스택 `account-withdrawal.spec.ts` 3 passed, 실서버 `test:integration:full` 67 passed / 7 skipped / 0 failed. 임시 DB 삭제.
+- 10/23 origin/main(DEV-132 머지 뒤) 병합: Mock 상수, FEAT-01·wiki·tasks 충돌을 양쪽 유지로 풀고, 생산자 탈퇴 테스트·Mock 테스트·E2E를 가입 동의(가입 토큰) 흐름에 맞췄다. 병합 뒤 pytest 436 passed, test:mock 41/0, Mock E2E(탈퇴 3 + 약관 5) 8 passed.

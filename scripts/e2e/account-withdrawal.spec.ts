@@ -3,7 +3,6 @@ import { consumerUrl, producerUrl, skipHelpGuide } from "./helpers";
 
 // DEV-94 AC-01-20: 앱 안 회원 탈퇴. 카카오 계정은 공유 Mock에서만 흉내 낼 수 있어 공유 Mock을 초기화할 수 없으면 건너뛴다.
 const mockUrl = process.env.FARMCLUB_MOCK_URL ?? "http://127.0.0.1:8083";
-const CONSENT_VERSION = "2026-10-23";
 
 test.beforeEach(async ({ request }) => {
   const login = await request
@@ -42,8 +41,10 @@ test("DEV-94 AC-01-20: a Kakao consumer withdraws from 내 정보 and is signed 
   await page.goto(`${consumerUrl}/login`);
   await page.getByRole("button", { name: "카카오로 시작하기" }).click();
   await expect(page).toHaveURL(/\/onboarding/);
-  const consents = ["TERMS", "PRIVACY", "AGE14"].map((kind) => ({ kind, version: CONSENT_VERSION }));
-  expect(await mockApi(page, "consumer", "POST", "/api/auth/me/consents", { consents })).toBe(200);
+  // 가입 동의를 마쳐야 계정이 생긴다(DEV-132)
+  await page.getByRole("checkbox", { name: "모두 동의해요" }).click();
+  await page.getByRole("button", { name: "동의하고 가입하기" }).click();
+  await expect(page.getByLabel("닉네임")).toBeVisible();
   expect(
     await mockApi(page, "consumer", "PATCH", "/api/auth/me", { nickname: "귤러버", name: "박현", phone: "010-2345-6789" }),
   ).toBe(200);
@@ -79,8 +80,9 @@ test("DEV-94 AC-01-20: a producer waiting for approval can withdraw from the pen
   await page.goto(`${producerUrl}/login`);
   await page.getByRole("button", { name: "카카오로 시작하기" }).click();
   await expect(page).toHaveURL(/\/consent$/);
-  const consents = ["TERMS", "PRIVACY"].map((kind) => ({ kind, version: CONSENT_VERSION }));
-  expect(await mockApi(page, "producer", "POST", "/api/auth/me/consents", { consents })).toBe(200);
+  await page.getByRole("checkbox", { name: "모두 동의해요" }).click();
+  await page.getByRole("button", { name: "동의하고 계속하기" }).click();
+  await expect(page).toHaveURL(/\/apply$/);
   expect(
     await mockApi(page, "producer", "POST", "/api/auth/producer-application", {
       ownerName: "김새농",

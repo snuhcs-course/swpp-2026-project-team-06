@@ -37,17 +37,25 @@ test("AC-01-20: Mock withdrawal blocks open orders, erases the account and frees
     });
     return { status: r.status, body: r.status === 204 ? null : await r.json() };
   }
-  const kakao = () =>
-    api("POST", "/api/auth/kakao", null, { code: "mock", redirectUri: "http://localhost:8081/auth/kakao", app: "consumer" });
+  // 카카오 새 사용자는 필수 약관에 동의해야 계정이 생긴다(DEV-132)
+  const kakao = async () => {
+    const r = await api("POST", "/api/auth/kakao", null, {
+      code: "mock",
+      redirectUri: "http://localhost:8081/auth/kakao",
+      app: "consumer",
+    });
+    if (!r.body.signup) return r;
+    return api("POST", "/api/auth/kakao/signup", null, {
+      signupToken: r.body.signup.signupToken,
+      consents: ["TERMS", "PRIVACY", "AGE14"].map((kind) => ({ kind, version: CONSENT_VERSION })),
+    });
+  };
   const followers = async () =>
     (await api("GET", "/api/farms/f-kang", null)).body.followerCount;
   try {
     const first = await kakao();
     const t = first.body.accessToken;
     const uid = first.body.user.userId;
-    await api("POST", "/api/auth/me/consents", t, {
-      consents: ["TERMS", "PRIVACY", "AGE14"].map((kind) => ({ kind, version: CONSENT_VERSION })),
-    });
     await api("PATCH", "/api/auth/me", t, { nickname: "귤러버", name: "박현", phone: "010-2345-6789" });
     const before = await followers();
     assert.equal((await api("PUT", "/api/farms/f-kang/follow", t)).status, 200);
@@ -77,7 +85,13 @@ test("AC-01-20: Mock withdrawal blocks open orders, erases the account and frees
     assert.equal((await api("GET", "/api/auth/me", t)).status, 401);
     assert.equal(await followers(), before);
 
-    // 같은 카카오로 다시 오면 새 사용자(지난 주문·팔로우 없음)
+    // 같은 카카오로 다시 오면 새 사용자(가입 동의부터, 지난 주문·팔로우 없음)
+    const probe = await api("POST", "/api/auth/kakao", null, {
+      code: "mock",
+      redirectUri: "http://localhost:8081/auth/kakao",
+      app: "consumer",
+    });
+    assert.equal(probe.body.user, null);
     const again = await kakao();
     assert.equal(again.body.user.userId, uid);
     assert.equal(again.body.user.nickname, null);

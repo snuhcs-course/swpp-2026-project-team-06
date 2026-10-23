@@ -11,9 +11,8 @@ from app.farms.models import Farm, Follow
 from app.messaging.models import Thread, ThreadMessage
 from app.orders.models import Order
 from tests.test_accounts import (
-    PRODUCER_REDIRECT,
-    _agree_producer,
     _finish_onboarding,
+    _kakao,
     _kakao_consumer,
     _kakao_on,
 )
@@ -132,11 +131,8 @@ def test_AC_01_20_test_accounts_cannot_withdraw(client, login):
 
 def test_AC_01_20_producer_withdrawal_hides_farm_and_erases_account(client, monkeypatch):
     _kakao_on(monkeypatch, fetch=("kakao-2002", "farm@example.com"))
-    body = client.post(
-        "/api/auth/kakao", json={"code": "abc", "redirectUri": PRODUCER_REDIRECT, "app": "producer"}
-    ).json()
-    headers = {"Authorization": f"Bearer {body['accessToken']}"}
-    _agree_producer(client, headers)
+    # 카카오 새 생산자는 약관에 동의해야 계정이 생긴다(DEV-132)
+    _, headers = _kakao(client, "producer")
     applied = client.post(
         "/api/auth/producer-application",
         headers=headers,
