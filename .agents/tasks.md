@@ -58,7 +58,7 @@
 
 - 이슈: [SWPP-119](https://linear.app/sswp6/issue/SWPP-119)
 - 브랜치: `nemodleo/swpp-119-ascii-branch-names`
-- 상태: 리뷰 중
+- 상태: 완료
 
 ### 목표
 Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생긴 문제(URL 인코딩된 PR 링크, 셸 따옴표, 도구 호환)를 없애고, 최근 2주 반복된 실수를 공용 규칙으로 막는다.
@@ -89,9 +89,10 @@ Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생
 - [x] AI 1차 리뷰 → ready
 
 ### 완료 조건
-- [ ] 레포 규칙·스킬·예시에 "Copy git branch name" 언급이 남지 않음
-- [ ] 리뷰 1명 승인 후 main 머지
+- [x] 레포 규칙·스킬·예시에 "Copy git branch name" 언급이 남지 않음
+- [x] main 머지 (사용자 지시, Approve 없이 — 팀 운영 방식)
 
 ### 기록
 - 10/22 이슈 생성, 브랜치 직접 생성(origin/main 기준). 규칙·스킬 수정, 문서 변경만이라 실행할 테스트 없음(경로 존재·"Copy git branch name" 잔존 grep만 확인)
 - 10/22 PR #231, AI 1차 리뷰 must 0·should 1(브랜치별 DB 구체화) 반영, ready. 사람 리뷰 대기
+- 10/23 main 병합 후 머지(사용자 지시). 후속: DEV-126(쌓기 도구 준비)
