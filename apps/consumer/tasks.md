@@ -488,3 +488,12 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/23 DEV-113 브랜치 b533e8b 위에서 시작.
 - 10/23 검증: `uv run pytest` 425 passed(새 AC-08-7), 손댄 3개 파일 재실행 79 passed, `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 28 passed / 0 failed(Mock 주문 제3자 제공 동의 검사 추가), 실서버 `test:integration:full` 67 passed / 4 skipped / 0 failed(checkout E2E의 ‘모두 동의해요’가 5개를 모두 켬). 임시 DB 삭제.
 - 10/23 screens.md API 표의 `/api/auth/me/consents` 대상을 소비자·생산자로 고침(DEV-113에서 빠졌던 것).
+
+## DEV-127 vercel.app 기본 주소를 정식 도메인으로 리다이렉트
+
+- 이슈: [DEV-127](https://linear.app/sswp6/issue/DEV-127) · 브랜치 `nemodleo/dev-127-vercel-app-redirect`
+- 범위: `apps/consumer/vercel.json`, `apps/producer/vercel.json`, `README.md`(Domains), `docs/spec/tech-design/adr/0012-domains-cloudflare.md`, 이 섹션
+- 결정: 서버 CORS·카카오 복귀 주소에 vercel.app을 더하지 않고, Vercel 기본 주소를 정식 도메인으로 308 리다이렉트한다(host 조건, 경로·쿼리 유지). 리다이렉트는 rewrite보다 먼저 적용돼 `/s/*` 공유 링크도 정식 도메인으로 간 뒤 프록시된다. 미리보기(배포마다 생기는 고유 주소)는 host가 달라 영향 없다.
+- [x] 두 앱 vercel.json, README·ADR 0012
+- [ ] 배포 뒤 `curl -I https://farmclub-consumer.vercel.app/login?next=%2Fme` → 308, Location `https://farmclub.kr/login?next=%2Fme`
+- 10/23 화면·문구 변경 없음(Figma 해당 없음). 테스트할 앱 코드 변경 없음 — vercel.json JSON 검증만.

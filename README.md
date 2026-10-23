@@ -341,6 +341,10 @@ each browser and never call the server.
 | `api.farmclub.kr` | FastAPI server, Swagger UI at `/docs` | Railway `farmclub-api` |
 
 `admin`, `dev` and `staging` are reserved; no DNS records exist until they have a target.
+The Vercel default addresses `farmclub-consumer.vercel.app` and `farmclub-producer.vercel.app`
+permanently redirect (308, path and query kept) to `farmclub.kr` and `farm.farmclub.kr` through a
+host rule in each app's `vercel.json` (DEV-127). The API only allows the two official origins
+(CORS) and Kakao only returns to them, so the apps do not work on the `vercel.app` addresses.
 The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
 KakaoTalk reads the server's OG page under the consumer domain. All four records (`@`,
 `www`, `farm`, `api`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
