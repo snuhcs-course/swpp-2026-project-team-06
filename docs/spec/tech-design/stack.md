@@ -21,7 +21,7 @@
 | --- | --- | --- | --- |
 | 프론트엔드 | Expo(React Native, TypeScript) + Expo Router, **웹 출력**으로 소비자 앱·생산자 앱 2개 | 한 코드로 웹을 먼저 내고 I2에 Android·iOS로 넓힐 수 있음 | [0001](./adr/0001-frontend-expo-web.md) |
 | 웹 호스팅 | Vercel(정적 웹 출력), 앱마다 프로젝트 1개 | 무료, 브랜치 미리보기 | 0001 |
-| 도메인 | `farmclub.kr`(소비자 앱), `farm.farmclub.kr`(생산자 앱), `api.farmclub.kr`(서버). 호스팅케이알(KISA 인증 등록대행자)에서 사고 DNS는 Cloudflare. 공유 링크는 소비자 앱이 `/s/*`를 서버로 프록시해 `farmclub.kr/s/farms/<id>` | `.kr`은 Cloudflare Registrar가 팔지 않음. 대상 없는 서브도메인(`admin`·`dev`·`staging`)은 레코드를 만들지 않음 | [0012](./adr/0012-domains-cloudflare.md) |
+| 도메인 | `farmclub.kr`(소비자 앱), `farm.farmclub.kr`(생산자 앱), `api.farmclub.kr`(서버). 호스팅케이알(KISA 인증 등록대행자)에서 사고 DNS는 Cloudflare. 공유 링크는 소비자 앱이 `/s/*`를 서버로 프록시해 `farmclub.kr/s/farms/<id>` | `.kr`은 Cloudflare Registrar가 팔지 않음. 대상 없는 서브도메인(`admin`·`dev`·`staging`)은 레코드를 만들지 않음. 워킹 데모 `demo.farmclub.kr`은 Vercel `farmclub-demo`(원본 `demo/`, DEV-133) | [0012](./adr/0012-domains-cloudflare.md) |
 | 백엔드 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic, Railway | 타입 기반 API 정의, 코드에서 나온 OpenAPI 스키마로 `packages/api` 클라이언트 생성, 트랜잭션과 `SELECT … FOR UPDATE`로 물량 차감(R-06) | [0007](./adr/0007-backend-fastapi.md) |
 | 운영자 화면 | 관리 API(`/admin/...`). I1은 화면 없이 Swagger UI였지만 관리자 UI(`scripts/admin-web`, `admin.farmclub.kr`, Vercel 함수 중계)를 만들어 바꿈 | 승인·배송 완료·환불을 I1부터 화면 없이 처리, 모든 관리 API에서 `ADMIN` 역할 검사(N-06) | [0008](./adr/0008-operator-admin-api.md) |
 | 인증 | I1: Mock 로그인(시드 테스트 계정 선택, 설정 플래그) → 서버가 JWT 발급(PyJWT). I2: 카카오 로그인(OAuth 인가 코드) | 데모를 외부 계정 없이 재현. 두 웹 앱과 API가 다른 도메인이어도 동작 | [0009](./adr/0009-mock-login.md), [0003](./adr/0003-auth-kakao.md) |
@@ -60,6 +60,7 @@ server/            FastAPI 서버
     analytics/     PostHog 서버 이벤트
   migrations/      Alembic 마이그레이션
 docs/              스펙(docs/spec)·위키(docs/wiki)
+demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립트. 영상은 GitHub Release(DEV-133)
 ```
 
 도메인 모듈마다 `router.py`(API 경로), `models.py`(SQLAlchemy 모델), `schemas.py`(Pydantic 입출력), `service.py`(업무 로직)를 둔다.
@@ -153,3 +154,4 @@ docs/              스펙(docs/spec)·위키(docs/wiki)
 | 2026-10-18 | 0.4 | DEV-69: 도메인 `farmclub.kr`과 서브도메인, Cloudflare DNS, 공유 링크 경로(ADR 0012). TQ-02 닫음 |
 | 2026-10-18 | 0.5 | DEV-71: 앱 PostHog 연결(`packages/analytics`), PostHog 리전 US Cloud |
 | 2026-10-23 | 0.6 | DEV-125: PostHog는 운영 도메인에서만 켠다(Vercel 기본 주소·데모·localhost 제외) |
+| 2026-10-23 | 0.7 | DEV-133: 워킹 데모 원본을 `demo/`로, main 머지 시 `farmclub-demo` 자동 배포, 영상은 GitHub Release |

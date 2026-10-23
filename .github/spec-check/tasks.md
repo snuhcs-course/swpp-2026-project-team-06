@@ -187,6 +187,47 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 - 10/23 `origin/main`(0d57e99) 병합. 10/18 이후 main에서 이 폴더를 바꾼 커밋은 DEV-88 #181(`figma_line.py`·`test_figma_line.py` 추가, README에 Figma 줄 절, tasks.md에 DEV-88 절)뿐이고 `check.py`·`test_check.py`·`spec.md`는 main에서 바뀌지 않았다. 충돌은 `tasks.md`(양쪽이 맨 아래에 섹션 추가) 하나였고 두 절을 모두 남겼다(DEV-88 → DEV-79 순). README의 한도 문구·thinking 절과 DEV-88 Figma 절은 자동 병합됐다. 병합 후 로컬 `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'`(Python 3.14.7) 41개 통과(check 29 + figma_line 12).
 - 10/23 PR #160 main 머지(b720b3d). 상태·완료 조건은 DEV-81 PR에서 갱신(main 직접 push 금지).
 
+
+## DEV-137 Figma v6 싱크 빈 곳: 관리자 화면 4개, 생산자 farmclub 문의 대화방
+
+- 이슈: [DEV-137](https://linear.app/sswp6/issue/DEV-137) (관련: DEV-88, DEV-98·106·107·111, DEV-110)
+- 브랜치: `nemodleo/dev-137-admin-support-figma-sync`
+- 기능·인수 조건: 문서·Figma만. 제품 동작 변경 없음
+- 상태: 리뷰 중
+
+### 목표
+10/23 Figma v6 ↔ 코드 싱크 점검에서 나온 빈 곳 두 가지를 채운다. ① 관리자 웹 `/users`·`/users/<id>`·`/farms`·`/inbox`(PR #213·#211·#202·#221)가 Figma에 없다. 이 PR들은 Figma 줄을 "해당 없음 — 관리자 페이지는 Figma에 화면이 없음"으로 적었지만 10/19부터 '현재 시안 · 관리자' 페이지가 있다. ② 생산자 앱 "farmclub 문의" 대화방(PR #221)은 Figma를 "후속 DEV-110"으로 넘겼지만 DEV-110은 도움말 투어만 다룬다.
+
+### 범위 (수정 허용 경로)
+- `docs/design/README.md`(머리말 한 줄), `AGENTS.md`(Figma 원칙 줄에 한 문장), `.github/spec-check/tasks.md`(이 절)
+- Figma v6 파일과 레포 밖 스크립트 `figma-plugins/farmclub-admin/`(확장), `figma-plugins/farmclub-dev137/`(새 폴더)
+
+### 비범위
+- 관리자 웹·생산자 앱 코드, `figma_line.py` 검사 로직(형식만 보는 방침 그대로), DEV-110 도움말 투어(다른 담당, 범위 안 바꿈)
+
+### 결정 사항
+- 10/23 두 빈 곳을 이슈 하나(DEV-137)로 묶었다. 둘 다 같은 점검에서 나온 Figma 반영이고, 문서 한 줄 외에 코드 변경이 없다. DEV-110에는 "farmclub 문의 대화방은 DEV-137이 맡음" 댓글만 남긴다.
+- 10/23 관리자 웹이 Figma 기준이라는 사실을 `docs/design/README.md`와 `AGENTS.md`에 적는다. CI `figma-line`은 이미 `scripts/admin-web/**`을 대상 경로로 보므로 검사는 고치지 않는다.
+- 10/23 관리자 스크립트는 예전엔 '관리자 · ' 노드를 지우고 새로 만들었다. 지금은 이름이 같은 최상위 프레임을 찾아 안만 다시 그려 A01~A11의 node-id(379:3757 등)를 유지한다. 목록에서 빠진 이름만 지운다. 사이드바는 지금 메뉴 6개(가입 신청·공급 물량 승인·테스트 농가·사용자·사용자 찾기·문의함)로 A01~A11도 함께 맞췄다.
+- 10/23 새 관리자 화면은 A12~A24 13개다: 사용자 목록·테스트로 표시 확인/해제·검색 결과 없음, 사용자 상세·입금 확인 대행/환불 칸·사용자 찾기 못 찾음, 테스트 농가 공개 중·미리보기/확인·숨길 수 없음·숨김 탭, 문의함 답변 대기·대화 열기·빈 목록. 시드에 없는 상태(카카오 가입 사용자, 입금 대기 주문, 실사용자 주문 거부, 생산자 문의)는 명세 상자에 '예시'로 적었다.
+- 10/23 생산자 쪽은 기존 관례대로 `02 · 채팅 / 1:1`을 고쳐 이름 끝에 "· DEV-137 수정"을 붙이고 같은 줄 x=3470에 "수정 전 · " 사본을 두었다. 대화 화면은 `04 · 소비자 대화`를 복제해 DEV-116 줄 아래 새 줄(y=31100)에 그렸다. 운영팀 말풍선 옆 작은 로고는 Figma 04의 사진 자리 관례를 따랐다(코드 `ChatBubble`에는 아바타가 없다).
+- 10/23 Figma MCP는 보기 권한뿐이라 DEV-108·116처럼 사용자 Chrome의 Figma 웹 편집기 콘솔에서 스크립트를 실행했다.
+
+### 작업
+- [x] Figma '현재 시안 · 관리자'(node 379:2819): A12~A24 + 명세, A01~A11 사이드바 갱신
+- [x] Figma '현재 시안 · 생산자'(node 108:1735): 02 목록 문의방 줄(110:1748, 사본 486:8441), 04-1 문의 대화(486:8627, 명세 486:8686)
+- [x] `docs/design/README.md`·`AGENTS.md` 한 줄
+- [x] DEV-110 댓글
+
+### 완료 조건
+- [x] Figma 문구가 코드 문구와 같음(관리자 고정 문구 자동 대조, 생산자 문구 수동 대조)
+- [ ] 사람 리뷰·머지
+
+### 기록
+- 10/23 main a56408f에서 시작.
+- 10/23 관리자 화면 문구 대조: 24개 화면의 글자 노드 934개를 admin-web 소스(`api/_views/*.html`, `assets/admin.js`, `api/login.js`·`proxy.js`)와 비교했다. 예시 데이터(이름·날짜·금액·ID)를 걷어 낸 뒤 남은 고정 문구는 모두 소스에 있고, 템플릿(`${won(…)}.`, `${n}건`)과 서버 메시지(‘주문을 찾을 수 없어요.’, `server/app/admin/user_detail.py`)만 소스 밖이다.
+- 10/23 두 스크립트를 두 번씩 실행해 최상위 node-id가 그대로이고 다른 프레임과 겹치지 않음을 확인했다(관리자 페이지 노드 49개, 생산자 페이지 +5).
+
 ## DEV-81 [I2-T23 follow-up] spec-check: 파일 통째 대신 diff와 필요한 기준 문서만 보내기
 
 - 이슈: https://linear.app/sswp6/issue/DEV-81 (관련: DEV-55, DEV-79 #160, DEV-80 #162)

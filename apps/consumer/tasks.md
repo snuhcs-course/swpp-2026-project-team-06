@@ -507,3 +507,43 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
 - 10/23 ‘내 정보’ 설정 목록 끝에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃·홈.
+
+## DEV-136 소비자 앱 Mock 로그인에도 시드 테스트 계정 목록 보이기(생산자와 통일)
+
+- 이슈: [DEV-136](https://linear.app/sswp6/issue/DEV-136)
+- 브랜치: `nemodleo/dev-136-consumer-mock-test-accounts`
+- 기능·인수 조건: FEAT-01(SCR-05) / AC-01-1(테스트 계정 로그인), 카카오 로그인 절
+- 상태: 리뷰 중
+
+### 목표
+Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록을 함께 보이는데 소비자 SCR-05는 카카오 버튼만 보여 시드 계정(김민지·이서준)을 고를 수 없다. 두 앱의 Mock 로그인 화면을 맞춘다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/login.tsx`
+- `apps/consumer/tasks.md`(이 섹션)
+- `docs/spec/screens.md`(SCR-05), `docs/spec/functional/FEAT-01-login.md`, `docs/wiki/Requirements-and-Specifications.md`(SCR-05 요약)
+- `scripts/e2e/mock-login.spec.ts`(새 파일, 10/23 추가: Mock 로그인 화면 회귀 테스트)
+
+### 비범위 (건드리지 않음)
+- 서버, 생산자 앱, Mock 응답(`packages/api/src/mock`의 카카오 `enabled: true`는 그대로)
+- 실서버(카카오 켜짐)·카카오 꺼짐(CI) 화면
+
+### 결정 사항
+- 10/23 생산자 SCR-19와 같은 규칙: `showTest = 카카오 꺼짐 || isMock`. Mock은 카카오 버튼 + 소비자 테스트 계정 목록 + 버튼 아래 Mock 안내 한 줄. Mock 카카오는 지금처럼 새 카카오 사용자(가입 동의 → 온보딩)
+
+### 작업
+- [x] `login.tsx` showTest 조건과 Mock 안내 한 줄
+- [x] screens.md SCR-05, FEAT-01 카카오 절, wiki SCR-05 요약
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright(`mock-login.spec.ts` 새로, `legal-consent.spec.ts`)
+
+### 완료 조건
+- [x] Mock 모드 소비자 로그인 화면에서 카카오 버튼과 시드 계정 목록이 함께 보이고, 시드 계정으로 로그인된다
+- [x] 실서버·카카오 꺼짐 화면은 그대로(조건이 `isMock`일 때만 달라짐)
+- [x] 테스트 통과(로컬). 실서버 integration은 CI
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 iteration-2-demo README 검토(DEV-133 세션)에서 발견. 같은 폴더의 DEV-120(리뷰 중)은 주문서만 건드려 겹치지 않음
+- 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 40 passed / 0 failed, Mock(공유 Mock 8183, 앱 8181·8182 — 다른 세션이 8081·8082 사용 중이라 포트만 바꿈)에서 `npx playwright test scripts/e2e/mock-login.spec.ts scripts/e2e/legal-consent.spec.ts` 5 passed. 수정 전 조건으로 되돌리면 새 소비자 테스트가 실패(1 failed)하는 것 확인 후 복구, 다시 2 passed. 실서버 `test:integration:full`은 안 돌림(이 변경은 `isMock`일 때만 동작이 달라짐, CI integration job이 확인)
+- 10/23 AI 1차 리뷰(PR 코멘트) must·should 없음, nit 1(e2e 건너뛰기 조건, legal-consent와 같은 방식이라 유지). CI server·apps·integration·figma-line 통과
+- 10/23 main(397e5bf, DEV-116 로그인 하단 푸터) 병합: `login.tsx`·screens.md·wiki 자동 병합. 재검증 typecheck 통과, test:mock 40 passed, Mock에서 mock-login 2·legal-consent 3·legal-pages DEV-113 2 passed. legal-pages DEV-116 6개는 Mock 빌드에서 실패 — 카카오 켜진 실서버 화면(목록 없음)을 가정한 테스트라 Mock에서는 생산자도 원래 실패(이번 변경과 무관), 실서버 빌드인 CI integration에서 확인
