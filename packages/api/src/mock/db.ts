@@ -49,7 +49,7 @@ export type UserRec = {
 const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
 const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;
 /** 지금 시행 중인 약관·처리방침 버전(서버 accounts.schemas.CONSENT_VERSION과 같은 값, DEV-113) */
-export const CONSENT_VERSION = "2026-10-23";
+export const CONSENT_VERSION = "2026-10-24";
 
 /** 지금 버전의 필수 동의가 빠졌는가(서버 consent_required와 같은 규칙). 테스트 계정은 항상 false */
 export function consentRequired(u: UserRec): boolean {
