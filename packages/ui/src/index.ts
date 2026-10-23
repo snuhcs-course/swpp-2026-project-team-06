@@ -1,4 +1,5 @@
 export { tokens } from "./tokens";
+export { BrandLogo } from "./BrandLogo";
 export {
   Price,
   ProductShelf,

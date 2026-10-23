@@ -19,6 +19,7 @@ from app.catalog.models import (
     StagePrice,
 )
 from app.catalog.schemas import (
+    AdminCapacityRequest,
     CapacityRequestView,
     DateRange,
     Draft,
@@ -790,6 +791,32 @@ def capacity_history(db: Session, product_id: str) -> list[CapacityRequestView]:
         .order_by(CapacityRequest.created_at.desc(), CapacityRequest.id.desc())
     )
     return [capacity_view(row) for row in rows]
+
+
+def list_capacity_requests(db: Session, status: str | None) -> list[AdminCapacityRequest]:
+    """운영자 공급 물량 신청 목록(DEV-87). status가 None이면 전부, 신청 최신순."""
+    from app.farms.models import Farm
+
+    query = (
+        select(CapacityRequest, Product, Farm)
+        .join(Product, Product.id == CapacityRequest.product_id)
+        .join(Farm, Farm.id == Product.farm_id)
+        .order_by(CapacityRequest.created_at.desc(), CapacityRequest.id.desc())
+    )
+    if status is not None:
+        query = query.where(CapacityRequest.status == status)
+    return [
+        AdminCapacityRequest(
+            **capacity_view(request).model_dump(),
+            product_name=product.name,
+            product_status=product.status,
+            farm_id=farm.id,
+            farm_name=farm.name,
+            approved_supply_grams=product.approved_supply_grams,
+            sales_limit_grams=product.sales_limit_grams,
+        )
+        for request, product, farm in db.execute(query)
+    ]
 
 
 def create_capacity_request(

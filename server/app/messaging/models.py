@@ -77,7 +77,10 @@ class Thread(Base):
 
 
 class ThreadMessage(Base):
-    """1:1 대화의 메시지. senderType은 CONSUMER · PRODUCER · AI(M-08)."""
+    """1:1 대화의 메시지. senderType은 CONSUMER · PRODUCER · AI(M-08).
+
+    farmclub 문의 대화방(DEV-111)의 운영팀 메시지는 OPERATOR다(M-22).
+    """
 
     __tablename__ = "thread_messages"
 

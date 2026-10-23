@@ -9,6 +9,7 @@ from app.accounts.schemas import (
     AddressInput,
     AddressPatchInput,
     App,
+    ApplicationFilter,
     ConsentsInput,
     ConsentView,
     KakaoConfig,
@@ -123,6 +124,16 @@ def delete_address(db: Db, user: Consumer, address_id: str):
     service.delete_address(db, user.id, address_id)
     db.commit()
     return None
+
+
+@admin_router.get("", response_model=list[ProducerApplication])
+def producer_applications(
+    db: Db,
+    _: Admin,
+    status: Annotated[ApplicationFilter, Query()] = "PENDING",
+):
+    """가입 신청 목록(운영자, DEV-82). 기본 확인 중(PENDING), ALL이면 전부. 신청 최신순."""
+    return service.list_producer_applications(db, None if status == "ALL" else status)
 
 
 @admin_router.post("/{farm_id}/approve", response_model=ProducerDecision)

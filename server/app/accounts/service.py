@@ -365,6 +365,15 @@ def producer_application(db: Session, user: User) -> ProducerApplication:
     return _application_view(user, farm)
 
 
+def list_producer_applications(db: Session, status: str | None) -> list[ProducerApplication]:
+    """운영자 가입 신청 목록(DEV-82). 대표자 이름은 생산자 계정 이름."""
+    from app.farms import service as farms
+
+    rows = farms.list_applications(db, status)
+    users = get_users(db, [f.producer_id for f in rows])
+    return [_application_view(users[f.producer_id], f) for f in rows if f.producer_id in users]
+
+
 def submit_producer_application(
     db: Session, user: User, data: ProducerApplicationInput
 ) -> ProducerApplication:
@@ -411,6 +420,11 @@ def decide_producer_application(
     from app.farms import service as farms
 
     farm = farms.decide_application(db, farm_id, approved, manager_id, reason)
+    if approved:
+        # 승인과 같은 트랜잭션에서 farmclub 문의 대화방을 연다(DEV-111, FEAT-34)
+        from app.messaging.support import ensure_support_thread
+
+        ensure_support_thread(db, farm.id)
     return ProducerDecision(
         farm_id=farm.id,
         status=farm.approval_status,

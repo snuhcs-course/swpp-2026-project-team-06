@@ -12,10 +12,13 @@
     "test:integration": "node scripts/test-integration.mjs",
     "test:e2e": "playwright test",
     "test:integration:full": "node scripts/run-integration.mjs",
-    "test:mock": "tsc -p scripts/mock-tsconfig.json && node --test scripts/test-news-rooms.mjs scripts/test-spec12.mjs scripts/test-capacity.mjs scripts/test-navigation.mjs scripts/test-storefront.mjs scripts/test-ai-feedback.mjs scripts/test-onboarding.mjs",
+    "test:mock": "tsc -p scripts/mock-tsconfig.json && node --test scripts/test-news-rooms.mjs scripts/test-spec12.mjs scripts/test-capacity.mjs scripts/test-navigation.mjs scripts/test-storefront.mjs scripts/test-ai-feedback.mjs scripts/test-onboarding.mjs scripts/test-analytics.mjs scripts/test-producer-gate.mjs scripts/test-producer-kakao.mjs scripts/test-producer-status.mjs",
+    "coverage:producer": "tsc -p scripts/mock-tsconfig.json && node --test --experimental-test-coverage --test-coverage-include='apps/producer/src/**' scripts/test-producer-gate.mjs scripts/test-producer-kakao.mjs scripts/test-producer-status.mjs scripts/test-navigation.mjs",
+    "coverage:producer-ui": "node scripts/producer-ui-coverage.mjs",
     "design": "npx -y easel-canvas@0.1.0 --dir docs/design"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.0"
+    "@playwright/test": "^1.64.0",
+    "monocart-coverage-reports": "^2.12.9"
   }
 }

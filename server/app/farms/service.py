@@ -42,6 +42,14 @@ HERO = {
 }
 
 
+def list_applications(db: Session, status: str | None) -> list[Farm]:
+    """운영자 가입 신청 목록(DEV-82). status가 없으면 전부. 신청 최신순."""
+    query = select(Farm).order_by(Farm.applied_at.desc(), Farm.id)
+    if status:
+        query = query.where(Farm.approval_status == status)
+    return list(db.scalars(query))
+
+
 def get_farm_of_producer(db: Session, producer_id: str) -> Farm | None:
     return db.scalar(select(Farm).where(Farm.producer_id == producer_id))
 

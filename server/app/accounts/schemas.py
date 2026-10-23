@@ -9,6 +9,8 @@ from app.core.schemas import CamelModel
 
 App = Literal["consumer", "producer"]
 FarmStatus = Literal["NONE", "PENDING", "REJECTED", "APPROVED", "SUSPENDED"]
+# 운영자 가입 신청 목록 필터(DEV-82)
+ApplicationFilter = Literal["PENDING", "REJECTED", "APPROVED", "SUSPENDED", "ALL"]
 
 
 class TestAccount(CamelModel):
@@ -125,11 +127,11 @@ class ProducerDecisionHistoryView(CamelModel):
 
 
 class AddressInput(CamelModel):
-    recipient_name: str = ""
-    recipient_phone: str = ""
-    postal_code: str = ""
-    address: str = ""
-    address_detail: str = ""
+    recipient_name: str = Field(default="", max_length=100)
+    recipient_phone: str = Field(default="", max_length=32)
+    postal_code: str = Field(default="", max_length=16)
+    address: str = Field(default="", max_length=300)
+    address_detail: str = Field(default="", max_length=300)
     label: str | None = Field(default=None, max_length=50)
     is_default: bool = False
 
@@ -141,11 +143,11 @@ class AddressPatchInput(CamelModel):
     기본은 다른 배송지를 기본으로 바꾸거나 지울 때만 옮긴다.
     """
 
-    recipient_name: str | None = None
-    recipient_phone: str | None = None
-    postal_code: str | None = None
-    address: str | None = None
-    address_detail: str | None = None
+    recipient_name: str | None = Field(default=None, max_length=100)
+    recipient_phone: str | None = Field(default=None, max_length=32)
+    postal_code: str | None = Field(default=None, max_length=16)
+    address: str | None = Field(default=None, max_length=300)
+    address_detail: str | None = Field(default=None, max_length=300)
     label: str | None = Field(default=None, max_length=50)
     is_default: bool | None = None
 

@@ -22,10 +22,11 @@ export function DepositCard({
         <Value
           text={a ? `${a.bankName} ${a.accountNumber}` : "—"}
           bold
+          masked
           onCopy={a ? () => onCopy(a.accountNumber, "계좌번호") : undefined}
         />
       </Row>
-      <Row k="예금주" v={a ? `${a.accountHolder} (${o.farmName})` : "—"} />
+      <Row k="예금주" v={a ? `${a.accountHolder} (${o.farmName})` : "—"} masked />
       <Row k="입금자명">
         <Value text={o.orderNo} bold onCopy={() => onCopy(o.orderNo, "입금자명")} />
       </Row>
@@ -38,14 +39,16 @@ function Value({
   text,
   bold,
   onCopy,
+  masked,
 }: {
   text: string;
   bold?: boolean;
   onCopy?: () => void;
+  masked?: boolean;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
-      <T variant="body" weight={bold ? "bold" : "regular"} style={{ flexShrink: 1, textAlign: "right" }}>
+      <T variant="body" weight={bold ? "bold" : "regular"} style={{ flexShrink: 1, textAlign: "right" }} masked={masked}>
         {text}
       </T>
       {onCopy ? <Button label="복사" variant="text" onPress={onCopy} /> : null}
@@ -59,12 +62,15 @@ function Row({
   children,
   bold,
   last,
+  masked,
 }: {
   k: string;
   v?: string;
   children?: ReactNode;
   bold?: boolean;
   last?: boolean;
+  /** 값이 개인정보면 녹화에서 값만 가린다(DEV-104) */
+  masked?: boolean;
 }) {
   return (
     <View
@@ -85,7 +91,7 @@ function Row({
         {k}
       </T>
       {children ?? (
-        <T variant="body" weight={bold ? "bold" : "regular"} style={{ flexShrink: 1, textAlign: "right" }}>
+        <T variant="body" weight={bold ? "bold" : "regular"} style={{ flexShrink: 1, textAlign: "right" }} masked={masked}>
           {v}
         </T>
       )}

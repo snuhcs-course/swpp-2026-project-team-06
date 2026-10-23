@@ -31,6 +31,21 @@ jobs:
             echo "SKIPPED: fork or bot PR. Apply the manual Spec ↔ Code review." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # DEV-88: 화면 경로가 바뀐 PR은 본문에 `Figma:` 줄(반영함/해당 없음/후속)이 있어야 한다.
+  # 모델·키 없이 도는 결정적 검사. 본문을 고치면(edited) 다시 돈다.
+  figma-line:
+    if: github.event.pull_request.user.type == 'User'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }} # test-merge 커밋. 첫 부모(base)와의 차이가 PR 변경이다.
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Check Figma line in PR body
+        run: python3 .github/spec-check/figma_line.py
+
   checker-tests:
     if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
     runs-on: ubuntu-latest

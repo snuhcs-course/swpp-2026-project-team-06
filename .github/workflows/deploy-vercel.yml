@@ -4,9 +4,13 @@ name: Deploy apps to Vercel
 # Vercel CLI로 올린다. Expo는 EXPO_PUBLIC_* 값을 export 때 번들에 넣으므로 서버 주소·Mock 여부는 여기서 정한다.
 # - main의 CI(ci.yml)가 성공한 뒤, CI가 검사한 커밋(head_sha)에 앱 관련 변경이 있을 때만 배포한다.
 # - 레포 변수 APP_API_URL이 비어 있으면 Mock 빌드(브라우저 안 가짜 데이터), 값이 있으면 그 서버로 붙는 빌드.
+# - 레포 변수 APP_POSTHOG_KEY(phc_…, 공개 키)가 있으면 PostHog 화면 이벤트·세션 녹화를 켠다(DEV-71). 비면 꺼진다.
+#   APP_POSTHOG_HOST가 비면 앱 기본값 https://us.i.posthog.com(US Cloud, TQ-01)을 쓴다.
 # - 시크릿 VERCEL_TOKEN이 없으면 배포를 건너뛴다(옵트인). 토큰 등록이 곧 자동 배포를 켜는 일이다.
 # 수동 실행: Actions 탭 → 이 워크플로 → Run workflow. 브랜치는 main을 골라야 하고(다른 브랜치는 건너뜀),
-# 변경 여부와 상관없이 현재 main을 두 앱 모두 올린다. 토큰은 production Environment(main 전용)에 둔다(DEV-70).
+# 변경 여부와 상관없이 현재 main을 두 앱과 관리자 페이지 모두 올린다. 토큰은 production Environment(main 전용)에 둔다(DEV-70).
+# 관리자 페이지(scripts/admin-web, DEV-114)는 job deploy-admin: 빌드 없이 폴더를 그대로 올리고,
+# 그 커밋에 scripts/admin-web/ 변경이 있을 때만 배포한다. 같은 토큰·Environment를 쓴다.
 
 on:
   workflow_run:
@@ -23,6 +27,9 @@ env:
   VERCEL_ORG_ID: team_6lUgON5wzspF2xO89ivHAZEf
   CONSUMER_URL: https://farmclub.kr
   PRODUCER_URL: https://farm.farmclub.kr
+  # 관리자 페이지 Vercel 프로젝트 farmclub-admin(DEV-114)
+  ADMIN_PROJECT_ID: prj_ex1siKHTosUuGYJM7jQh3571yecU
+  ADMIN_URL: https://admin.farmclub.kr
 
 jobs:
   deploy:
@@ -103,6 +110,8 @@ jobs:
         working-directory: apps/${{ matrix.app }}
         env:
           APP_API_URL: ${{ vars.APP_API_URL }}
+          EXPO_PUBLIC_POSTHOG_KEY: ${{ vars.APP_POSTHOG_KEY }}
+          EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.APP_POSTHOG_HOST }}
           EXPO_PUBLIC_SHARED_MOCK_URL: ""
           EXPO_PUBLIC_CONSUMER_URL: ${{ env.CONSUMER_URL }}
           EXPO_PUBLIC_PRODUCER_URL: ${{ env.PRODUCER_URL }}
@@ -115,6 +124,11 @@ jobs:
           else
             export EXPO_PUBLIC_API_MOCK=1 EXPO_PUBLIC_API_URL=""
             echo "::notice::${{ matrix.app }}: mock build (APP_API_URL repository variable is empty)"
+          fi
+          if [ -n "$EXPO_PUBLIC_POSTHOG_KEY" ]; then
+            echo "::notice::${{ matrix.app }}: PostHog on (${EXPO_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com})"
+          else
+            echo "::notice::${{ matrix.app }}: PostHog off (APP_POSTHOG_KEY repository variable is empty)"
           fi
           npx expo export -p web
           cp vercel.json dist/vercel.json
@@ -139,4 +153,83 @@ jobs:
             sleep 10
           done
           echo "::error::${{ matrix.url }} did not answer 200 after the deploy."
+          exit 1
+
+  # 관리자 페이지(scripts/admin-web, DEV-114). 빌드 없는 HTML + Vercel 함수라 폴더를 그대로 올리고,
+  # Vercel이 vercel.json(rewrites·functions)대로 함수를 만든다. 수동 `cd scripts/admin-web && vercel deploy --prod`와 같다.
+  # 환경 변수(ADMIN_WEB_PASSWORD·ADMIN_TOKEN·FARMCLUB_API_URL)는 Vercel 프로젝트에 있고 여기서 다루지 않는다.
+  deploy-admin:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'))
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: vercel-deploy-admin
+      cancel-in-progress: false
+    steps:
+      - name: Check the Vercel token
+        id: token
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::notice::VERCEL_TOKEN secret is not set, so automatic admin deploys are off."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.token.outputs.enabled == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Detect admin-web changes
+        id: changes
+        if: steps.token.outputs.enabled == 'true'
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run: deploying $(git rev-parse --short HEAD)."
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qE '^(scripts/admin-web/|\.github/workflows/deploy-vercel\.yml$)'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "No admin-web changes in $(git rev-parse --short HEAD). Skipping the deploy."
+          fi
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.deploy == 'true'
+        with:
+          node-version-file: .nvmrc
+
+      - name: Deploy admin-web to Vercel (production)
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ env.ADMIN_PROJECT_ID }}
+        run: npx --yes vercel@48 deploy scripts/admin-web --prod --yes --token "$VERCEL_TOKEN"
+
+      - name: Check the live site
+        if: steps.changes.outputs.deploy == 'true'
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$ADMIN_URL/login")
+            if [ "$code" = "200" ]; then
+              echo "$ADMIN_URL/login → 200"
+              exit 0
+            fi
+            echo "attempt $i: $code, retrying in 10s"
+            sleep 10
+          done
+          echo "::error::$ADMIN_URL/login did not answer 200 after the deploy."
           exit 1

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { apiUrl, consumerUrl, monitor } from "./helpers";
 
 // Only this response is a fixture; the real consumer route and shared renderer run.

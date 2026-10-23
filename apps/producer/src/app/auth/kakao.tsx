@@ -1,13 +1,36 @@
-// 생산자 앱 카카오 로그인 복귀 /auth/kakao (FEAT-01 I2, AC-01-16, DEV-74)
-// 인가 코드를 서버에 넘겨 생산자 계정으로 로그인한다. 처음이면 농가 없는 계정이 생기고, 세션 관문이 농가 상태별 화면으로 보낸다.
-import { ApiError, auth } from "@farmclub/api";
-import { Button, EmptyState, Screen, Skeleton, T } from "@farmclub/ui";
+// 생산자 앱 카카오 로그인 복귀 /auth/kakao (FEAT-01 I2, AC-01-16, DEV-74·DEV-108)
+// 인가 코드를 서버에 넘겨 생산자 계정으로 로그인하고, 농가 상태별 첫 화면(gate.ts homeFor)으로 바로 보낸다.
+// 처음이면 농가 없는 계정이 생겨 가입 신청으로 간다. 이미 로그인된 채 다시 열면(새로고침) 오류 없이 첫 화면으로 간다.
+import { ApiError, auth, getToken, type User } from "@farmclub/api";
+import { Button, EmptyState, Screen, T, tokens } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
+import { homeFor } from "../../lib/gate";
 import { takeKakaoNonce } from "../../lib/kakao";
 import { useSession } from "../../lib/session";
+
+/** 서버가 이만큼 답하지 않으면 멈춘 채 두지 않고 다시 로그인을 안내한다 */
+const KAKAO_LOGIN_TIMEOUT_MS = 15_000;
+
+class Timeout extends Error {}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Timeout()), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
 
 export default function KakaoCallback() {
   const { code, state, error } = useLocalSearchParams<{
@@ -19,12 +42,43 @@ export default function KakaoCallback() {
   const { refresh } = useSession();
   const [failed, setFailed] = useState<string | null>(null);
   const ran = useRef(false);
+  // 관문이 먼저 다른 화면으로 보냈으면 여기서 다시 이동하지 않는다
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     // 인가 코드는 한 번만 쓸 수 있다. StrictMode·재렌더에서 두 번 보내지 않는다
     if (ran.current) return;
     ran.current = true;
     const nonce = takeKakaoNonce();
+    const goHome = (u: User) => {
+      if (mounted.current) router.replace(homeFor(u).home as never);
+    };
+
+    // state가 없거나 다른데 토큰이 있으면 이미 로그인한 뒤 다시 연 것(새로고침·뒤로 가기)
+    if (!error && (!nonce || nonce !== state) && getToken()) {
+      void (async () => {
+        let timedOut = false;
+        try {
+          const u = await withTimeout(refresh(), KAKAO_LOGIN_TIMEOUT_MS);
+          if (u) return goHome(u);
+        } catch (e) {
+          timedOut = e instanceof Timeout;
+        }
+        if (mounted.current)
+          setFailed(
+            timedOut
+              ? "로그인이 오래 걸리고 있어요. 다시 시도해 주세요."
+              : "로그인 요청이 만료됐어요. 다시 시도해 주세요.",
+          );
+      })();
+      return;
+    }
     if (error || !code) {
       setFailed(
         error === "access_denied"
@@ -39,20 +93,28 @@ export default function KakaoCallback() {
     }
     void (async () => {
       try {
-        await auth.kakaoLogin(code, `${window.location.origin}/auth/kakao`);
-        // 관문이 농가 상태(없음 → 가입 신청, 확인 중·반려 → 대기, 승인 → 현황, 정지 → 안내)로 보낸다.
-        // 사용자 조회가 실패하면 이 화면에 머물지 않게 안내한다
-        const u = await refresh();
-        if (!u) setFailed("로그인 정보를 불러오지 못했어요. 다시 시도해 주세요.");
+        // 시간 제한 뒤 늦게 성공하면 토큰이 생겨 관문이 첫 화면으로 보낸다
+        const u = await withTimeout(
+          auth
+            .kakaoLogin(code, `${window.location.origin}/auth/kakao`)
+            .then(() => refresh()),
+          KAKAO_LOGIN_TIMEOUT_MS,
+        );
+        if (u) goHome(u);
+        else if (mounted.current)
+          setFailed("로그인 정보를 불러오지 못했어요. 다시 시도해 주세요.");
       } catch (e) {
+        if (!mounted.current) return;
         setFailed(
-          e instanceof ApiError
-            ? e.message
-            : "카카오 로그인에 실패했어요. 다시 시도해 주세요.",
+          e instanceof Timeout
+            ? "로그인이 오래 걸리고 있어요. 다시 시도해 주세요."
+            : e instanceof ApiError
+              ? e.message
+              : "카카오 로그인에 실패했어요. 다시 시도해 주세요.",
         );
       }
     })();
-  }, [code, state, error, refresh]);
+  }, [code, state, error, refresh, router]);
 
   return (
     <Screen>
@@ -73,14 +135,21 @@ export default function KakaoCallback() {
           }
         />
       ) : (
-        <View style={{ paddingHorizontal: 20, paddingTop: 64, gap: 16 }}>
-          <T variant="title" accessibilityRole="header">
-            카카오로 로그인하는 중
-          </T>
+        <View
+          accessibilityRole="progressbar"
+          accessibilityLabel="카카오 로그인 중이에요"
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+            paddingHorizontal: 20,
+          }}
+        >
+          <ActivityIndicator size="large" color={tokens.color.textMuted} />
           <T variant="body" muted>
-            잠시만 기다려 주세요. 농가 상태에 맞는 화면으로 이어져요.
+            카카오 로그인 중이에요
           </T>
-          <Skeleton width="100%" height={64} />
         </View>
       )}
     </Screen>

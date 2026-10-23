@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from app.core.detail import DetailContent
+from app.core.detail import DetailContent, MediaUri
 from app.core.schemas import CamelModel
 
 ProductStatus = Literal["DRAFT", "PENDING_APPROVAL", "REJECTED", "PUBLISHED", "CLOSED"]
@@ -72,6 +72,20 @@ class CapacityRequestView(CamelModel):
     created_at: datetime
     decided_at: datetime | None
     version: int
+
+
+CapacityFilter = Literal["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "ALL"]
+
+
+class AdminCapacityRequest(CapacityRequestView):
+    """운영자 공급 물량 신청 목록 한 줄(DEV-87). 상품·농가와 현재 승인량을 함께 준다."""
+
+    product_name: str
+    product_status: ProductStatus
+    farm_id: str
+    farm_name: str
+    approved_supply_grams: int
+    sales_limit_grams: int
 
 
 class ProductCard(SalesState):
@@ -165,7 +179,7 @@ class ProductOptionInput(CamelModel):
     option_id: str | None = None
     label: str = Field(min_length=1, max_length=50)
     weight_kg: float = Field(gt=0)
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=100)
 
 
 class ProductPatch(CamelModel):
@@ -173,7 +187,7 @@ class ProductPatch(CamelModel):
     name: str | None = Field(default=None, max_length=200)
     variety: str | None = Field(default=None, max_length=100)
     description: str | None = None
-    grade: str | None = None
+    grade: str | None = Field(default=None, max_length=20)
     expected_brix: float | None = None
     measured_brix: float | None = None
     options: list[ProductOptionInput] | None = None
@@ -183,7 +197,7 @@ class ProductPatch(CamelModel):
     shipping_fee_type: ShippingFeeType | None = None
     shipping_fee: int | None = Field(default=None, ge=0)
     remote_area_fee: int | None = Field(default=None, ge=0)
-    photos: list[str] | None = None
+    photos: list[MediaUri] | None = None
     info: ProductInfo | None = None
     detail_content: DetailContent | None = None
 
