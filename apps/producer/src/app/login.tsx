@@ -69,6 +69,8 @@ export default function Login() {
   const showTest = kakao.error ? true : kakao.data ? !kakaoOn || isMock : false;
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 고정 하단 바 높이만큼 스크롤 아래를 비워 푸터가 바 바로 위에 온다(상태마다 바 높이가 다르다)
+  const [barHeight, setBarHeight] = useState(170);
   const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export default function Login() {
 
   return (
     <Screen>
-      <Scroll bottom={170}>
+      <Scroll bottom={barHeight} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
         <View style={{ paddingHorizontal: 20, paddingTop: 64, gap: 24 }}>
           <View
             style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
@@ -267,9 +269,9 @@ export default function Login() {
             </Pressable>
           </View>
         )}
-        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <View
+        onLayout={(e) => setBarHeight(Math.ceil(e.nativeEvent.layout.height))}
         style={{
           position: "absolute",
           left: 0,
@@ -287,9 +289,6 @@ export default function Login() {
             {failed}
           </T>
         ) : null}
-        <T variant="caption" muted center>
-          테스트 서비스 · 이용약관 · 개인정보 처리방침
-        </T>
         {showTest ? (
           <Button
             label={account ? `${ro(account.name)} 시작하기` : "시작하기"}

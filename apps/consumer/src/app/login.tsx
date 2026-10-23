@@ -41,6 +41,8 @@ export default function Login() {
   const data = consumerOnly(all);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 고정 하단 바 높이만큼 스크롤 아래를 비워 푸터가 바 바로 위에 온다(상태마다 바 높이가 다르다)
+  const [barHeight, setBarHeight] = useState(170);
   const [failed, setFailed] = useState<string | null>(null);
   // 카카오가 켜져 있으면 카카오 로그인만 둔다(사용자 결정 10/17). 꺼져 있으면(CI·Mock 플래그만) 테스트 계정 목록을 보여 준다
   const showTest = kakao.error ? true : kakao.data ? !kakao.data.enabled : false;
@@ -111,7 +113,7 @@ export default function Login() {
           else router.replace("/");
         }}
       />
-      <Scroll bottom={170}>
+      <Scroll bottom={barHeight} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
         <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 8 }}>
           <T variant="title" accessibilityRole="header">
             {"로그인하고\n계속해요"}
@@ -226,9 +228,9 @@ export default function Login() {
             </T>
           </View>
         )}
-        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <View
+        onLayout={(e) => setBarHeight(Math.ceil(e.nativeEvent.layout.height))}
         style={{
           position: "absolute",
           left: 0,
