@@ -5,7 +5,7 @@
 > 화면·경로·레이블 원본: docs/spec/ia.md 2장·4장, 화면별 명세·API: docs/spec/screens.md 5장·7장, FEAT ↔ 폴더: docs/spec/tech-design/stack.md 4장
 
 ## 역할
-소비자 앱(모바일 웹). Expo + Expo Router 웹 출력으로 만들고 Vercel에 정적 배포한다(ADR 0001). 공개 화면 SCR-01~05, 로그인 후 화면 SCR-10~18을 맡는다.
+소비자 앱. Expo + Expo Router 웹 출력으로 만들어 Vercel에 정적 배포하고(ADR 0001), 같은 코드로 iOS·Android 네이티브 앱을 EAS로 낸다(ADR 0013, DEV-33). 공개 화면 SCR-01~05, 로그인 후 화면 SCR-10~18을 맡는다.
 
 ## 구조
 - `src/app/` — Expo Router 라우트. 파일 하나가 화면 하나다.
@@ -104,3 +104,10 @@ FarmRoom은 `/farms/:id`와 `/news/:id`의 공용 컨테이너이고 `/farms/:id
 카카오 로그인은 전체 페이지 리다이렉트라 React 상태(`resume`)가 사라진다. 그래서 `lib/kakao.ts`가 돌아갈 화면과 이어서 할 행동을 sessionStorage에 두고 인가 요청 `state`(일회용 값)와 함께 저장하며, `/auth/kakao`가 `state`를 대조한 뒤 한 번만 꺼내 `POST /api/auth/kakao` → `refresh()` → `restoreResume()` → `router.replace(next)` 순으로 복귀한다. 카카오 설정(`enabled`, `clientId`, `redirectPath`)은 서버 `GET /api/auth/kakao/config`에서 받고 앱 env에 키를 두지 않는다. Mock 모드는 리다이렉트 없이 바로 로그인한다. 테스트 계정 로그인은 Mock 플래그가 켜진 동안 같은 화면에 남는다. 리프레시 토큰·생산자 앱 카카오 화면은 범위 밖.
 
 DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가운데 `ActivityIndicator` + ‘카카오 로그인 중이에요’). `state`가 없거나 달라도 토큰이 있으면(새로고침) `auth.me()` 뒤 홈(온보딩이 남았으면 `/onboarding?next=/`)으로 간다. 돌아갈 화면은 이미 꺼내 지웠으므로 홈으로 보낸다. 로그인+`refresh()`와 새로고침의 `auth.me()`는 15초 제한, 넘으면 오류와 ‘다시 로그인’·‘홈으로’. 화면을 떠난 뒤 온 결과는 무시한다.
+
+## DEV-33 EAS 네이티브 빌드 (ADR 0013)
+
+- 식별자 `kr.farmclub.consumer`, 스킴 `farmclub-consumer`, `runtimeVersion` 정책 `fingerprint`. `eas.json` 프로필 `development`·`preview`(채널 preview, 스토어 형식)·`production`. `updates.url`·`extra.eas.projectId`는 `eas init`·`eas update:configure`가 쓴다(README "Native apps with EAS").
+- 플랫폼 분기는 `*.native.ts` 쌍(Metro가 고른다)이 우선이고, 웹 파일은 런타임 import 없이 두어 Node 테스트가 읽는다. `lib/kakao.ts`(웹: sessionStorage, `window.location.origin`) / `lib/kakao.native.ts`(메모리, `EXPO_PUBLIC_CONSUMER_URL`, state `app-` 접두어), `lib/kakaoAuth.ts`(페이지 이동) / `lib/kakaoAuth.native.ts`(`expo-web-browser` 인증 세션).
+- 카카오 복귀(앱): 인가 요청의 복귀 주소는 웹과 같은 `https://farmclub.kr/auth/kakao`. 웹 복귀 화면 `/auth/kakao`는 `state`가 `app-`이면 `appReturnUrl`로 코드를 `farmclub-consumer://auth/kakao?code&state`에 넘기고 ‘앱으로 돌아가는 중’ + ‘앱 열기’ 버튼을 보인다. 앱의 `login.tsx`는 인증 세션 결과를 받아 같은 `/auth/kakao` 화면을 열고, 그 화면이 메모리 복귀 정보로 `state`를 대조한 뒤 `POST /api/auth/kakao`(`redirectUri`는 `kakaoCallbackUri()`)를 부른다. 서버 변경 없음.
+- 복사는 `expo-clipboard`, 바깥 주소는 `Linking`, 토큰은 `@farmclub/api`가 SecureStore에 둔다. `public/.well-known/`의 `apple-app-site-association`·`assetlinks.json`은 Team ID·지문 자리표시자(사람이 채움), `vercel.json`이 JSON으로 응답.

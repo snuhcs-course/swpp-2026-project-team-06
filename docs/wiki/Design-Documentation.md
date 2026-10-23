@@ -28,6 +28,7 @@ This document describes product commit [`691949e985080f372a45d54fa950191e88adb8c
 | 1.4 | 2026-10-21 | Team 6 | DEV-104: session replays mask only personal fields on account, order and checkout screens |
 | 1.5 | 2026-10-23 | Team 6 | DEV-125: PostHog starts only on the production hosts (farmclub.kr, farm.farmclub.kr); Vercel preview, demo and localhost visits are not collected |
 | 2.0 | 2026-10-22 | Team 6 | I2 implementation snapshot: deployed clients/API/worker, Kakao onboarding, operator UI, private source workspace, media boundaries, bank-transfer lifecycle, schema 0019 and current diagrams |
+| 2.1 | 2026-10-23 | Team 6 | DEV-33: consumer and producer apps move to EAS native builds (ADR 0013); platform split of web-only code, Kakao return through the app scheme |
 
 
 ## 1. System Architecture
@@ -80,6 +81,7 @@ Exact package versions are locked in `package-lock.json` and `server/uv.lock`. `
 | REST polling | Current traffic and operational simplicity | Open chat screens poll about every two seconds; no real-time socket or push guarantee |
 | Direct farm bank transfer (DEV-68) | I2 scope uses the farm's existing account | Farmclub records instructions/confirmation; no bank reconciliation or payment custody |
 | Fixed public domains (ADR 0012) | Kakao returns, share previews and links require stable origins | Consumer `/s/*` forwards to API-generated Open Graph pages; approved farm links return to the consumer app |
+| Native store apps from the same Expo code (ADR 0013, DEV-33) | Both apps must reach the iOS and Android stores while the web keeps changing weekly; a TWA covers only Android and a WebView shell risks App Store 4.2 | EAS Build for native changes, EAS Update (`fingerprint` runtime policy, `preview`/`production` channels) for JS; web-only code lives in `*.native.ts` pairs or `Platform.OS` branches, tokens in SecureStore, and the Kakao web return page hands the code to the app scheme so the server contract is unchanged |
 
 ADRs retain their original decisions and dates. Historical statements about I1-only operator APIs or a planned source model are superseded here by the implemented I2 boundaries.
 

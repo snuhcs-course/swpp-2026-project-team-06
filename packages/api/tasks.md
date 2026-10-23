@@ -260,3 +260,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97) · 기준 절: `server/tasks.md#dev-97`
 - 범위: `src/endpoints.ts`(`messaging.send` 마지막 인자 `productId?`), `src/mock/conversations.ts`(`send`: 그 농가의 판매 중 상품이 아니면 404, 주문이 없을 때만 AI 근거로 넘김), `scripts/test-ai-feedback.mjs`
 - [x] 엔드포인트·Mock, `npm run test:mock` 16/16
+
+## DEV-33 네이티브 저장소·업로드
+
+- 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 기록은 `apps/consumer/tasks.md#DEV-33`
+- 범위: `src/storage.ts`(웹·Node: localStorage)·`src/storage.native.ts`(SecureStore), `src/client.ts`(저장소 호출을 옮김, `UploadFile` 타입으로 `uploadMedia`·`uploadAttachment`·`productWorkspace.uploadPhoto`·`uploadSource`가 `{uri,name,type}`도 받음), `src/objectUrl.ts`·`.native.ts`(비공개 사진 주소: 웹 blob URL, 네이티브 data URL), `src/index.ts`
+- 10/23 결정: `readStore`·`writeStore` 동작은 웹에서 그대로(localStorage, 앱별 이름공간). 네이티브는 SecureStore 동기 API로 같은 동기 계약을 지킨다.

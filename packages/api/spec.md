@@ -80,3 +80,8 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 
 ### DEV-58 통합 편집
 AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
+
+## DEV-33 네이티브 저장소·업로드 (ADR 0013)
+
+- 저장소는 `src/storage.ts`(웹·Node: localStorage) / `src/storage.native.ts`(`expo-secure-store` 동기 API, 키의 `:`는 `.`로, 2KB 넘는 값은 메모리). `readStore`·`writeStore`·토큰 계약은 그대로다.
+- 업로드 함수(`uploadMedia`·`uploadAttachment`·`uploadSource`·`productWorkspace.uploadPhoto`)는 `UploadFile = Blob | {uri, name, type}`을 받는다(`appendFile`). 서버에서 받은 비공개 사진은 `blobUrl`(웹 blob URL / 네이티브 data URL)로 돌려준다. Mock(브라우저 저장)은 웹 전용이다.

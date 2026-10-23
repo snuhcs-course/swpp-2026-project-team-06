@@ -43,7 +43,7 @@ Planned for I2 and later: Kakao login, real payment (PortOne), notifications, na
 
 | Area | Choice |
 | --- | --- |
-| Apps | Expo (React Native, TypeScript) with Expo Router, web output. Two apps: consumer and producer |
+| Apps | Expo (React Native, TypeScript) with Expo Router. Two apps: consumer and producer, each exported for the web (Vercel) and built as native iOS/Android apps with EAS (ADR 0013) |
 | Backend | FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic |
 | Database | PostgreSQL (Docker locally) |
 | Auth | I1: mock login with seeded test accounts and a server-issued JWT. I2: Kakao login |
@@ -327,6 +327,55 @@ vercel deploy --prod       # from the exported dist/
 
 With `EXPO_PUBLIC_API_MOCK=1` (what `npm run build:web` produces) the apps keep data in
 each browser and never call the server.
+
+### Native apps with EAS (DEV-33)
+
+Both apps are also built as native iOS and Android apps from the same code
+([ADR 0013](docs/spec/tech-design/adr/0013-eas-native-builds.md)). Native builds run on EAS
+Build (cloud); JS changes ship with EAS Update and never need a store review. Identifiers are
+`kr.farmclub.consumer` and `kr.farmclub.producer`; `apps/<app>/eas.json` has three profiles:
+`development` (dev client), `preview` (channel `preview`, store-format build for TestFlight and
+Play internal testing) and `production` (channel `production`). Build numbers auto-increment;
+`version` in `app.json` is bumped by hand. Nothing native is built locally and no `ios/` or
+`android/` folder is committed.
+
+Web-only code is split by platform (`*.native.ts` next to the web file, or `Platform.OS`
+branches). Tokens live in `expo-secure-store` on devices, analytics use `posthog-react-native`,
+photos come from `expo-image-picker`. Kakao login keeps the server contract: the app opens the
+Kakao page in an auth session with `state=app-…`, Kakao returns to the usual web page
+`https://farmclub.kr/auth/kakao` (or `https://farm.farmclub.kr/auth/kakao`), and that page hands
+the code to the app scheme (`farmclub-consumer://auth/kakao`). `scripts/test-native-config.mjs`
+(part of `npm run test:mock`) checks the config files and that shared packages do not touch
+`window`/`document`/`localStorage` outside the web-only files.
+
+**First-time setup once the accounts exist (DEV-128; a human runs these, from `apps/consumer`
+and again from `apps/producer`).** Secrets (certificates, `EXPO_TOKEN`, service-account keys)
+stay in EAS and the team password manager; never in the repo, an issue or a PR.
+
+```bash
+npx eas-cli@latest login                       # Expo account (organization: see DEV-128)
+npx eas-cli@latest init                        # writes extra.eas.projectId to app.json; commit it
+npx eas-cli@latest update:configure            # writes updates.url (keeps runtimeVersion fingerprint); commit it
+npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_POSTHOG_KEY --value phc_... --visibility plaintext --environment preview --environment production   # optional (DEV-71)
+npx eas-cli@latest credentials                 # Apple certificates / Android keystore, managed by EAS
+npx eas-cli@latest build -p all --profile preview
+npx eas-cli@latest submit -p ios --profile preview --latest       # TestFlight (internal testers, no review)
+npx eas-cli@latest submit -p android --profile preview --latest   # Play internal testing (upload the first AAB by hand in Play Console if submit asks for it)
+npx eas-cli@latest update --channel preview --message "first update"
+```
+
+After `eas credentials` the Android keystore has a SHA-256 fingerprint and the Apple account a
+Team ID. Put them into `apps/<app>/public/.well-known/assetlinks.json` and
+`apple-app-site-association` (replace the `REPLACE_WITH_…` placeholders; both files are public,
+not secrets) and deploy the web apps, so `https://farmclub.kr/.well-known/...` serves them as
+JSON (`vercel.json` sets the content type). Until then the files are placeholders and only the
+app scheme is used for the Kakao return, which works without them.
+
+Release flow after that: push JS changes with `eas update --channel production` (DEV-129 adds
+this to the deploy workflow); when `app.json`, a native module or `eas.json` changes, run
+`eas build -p all --profile production` and `eas submit`. Roll back a bad JS update by
+republishing the previous one (`eas update:republish --channel production`). Free plan limits:
+15 builds per OS per month and 1,000 monthly active update users.
 
 ### Domains (DEV-69)
 

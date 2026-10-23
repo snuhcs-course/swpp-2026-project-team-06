@@ -149,3 +149,9 @@ DEV-108: 관문은 `lib/gate.ts`의 `homeFor`. 로그인된 사용자는 농가 
 ## DEV-92 첨부 전 수동 입력 저장 순서
 
 SourceWorkspace가 SourceBasicInfo의 flush를 SourceAttachments에 주입한다. 새 파일 및 새 텍스트 업로드는 기본 정보 저장(진행 중 blur 및 마지막 입력 포함)을 기다린 뒤 최신 batch.version을 조회한다. 저장 실패 시 업로드를 보내지 않고 파일/텍스트와 수동 입력을 보존해 명시적 재시도를 허용한다. 직접 편집 > 기본 정보 > AI 제안 우선순위와 다른 편집자 충돌 보호는 유지한다(AC-SRC-1/5/11).
+
+## DEV-33 EAS 네이티브 빌드 (ADR 0013)
+
+- 식별자 `kr.farmclub.producer`, 스킴 `farmclub-producer`, 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로). 설정·흐름은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절). `lib/kakao.ts`(웹)는 state만 sessionStorage, `lib/kakao.native.ts`는 메모리. 복귀 화면은 농가 상태별 첫 화면으로 간다(DEV-108과 같음).
+- 사진·영상: 웹 `lib/pick.ts`(`<input type="file">`, 600px 축소), 앱 `lib/pick.native.ts`(`expo-image-picker`, quality 0.8, `{uri,name,type}` 업로드). 원본 자료 첨부 `lib/sourceFiles.native.ts`는 사진만(PDF·텍스트는 웹 전용).
+- `beforeunload` 경고(상세 편집·상품 페이지·원본 작업실)는 웹에서만 건다. 복사는 `expo-clipboard`.
