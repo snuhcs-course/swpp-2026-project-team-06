@@ -26,6 +26,7 @@ This document describes product commit [`691949e985080f372a45d54fa950191e88adb8c
 | 1.2 | 2026-10-18 | Team 6 | DEV-68: bank transfer to the farm's account replaces the simulated card payment. `AWAITING_DEPOSIT` state, deposit deadline, producer deposit confirmation, refund settlement by the farm, farm bank account fields |
 | 1.3 | 2026-10-18 | Team 6 | PostHog analytics in both web apps (DEV-71): US Cloud, screen events, purchase funnel up to the deposit report, masked session replay |
 | 1.4 | 2026-10-21 | Team 6 | DEV-104: session replays mask only personal fields on account, order and checkout screens |
+| 1.5 | 2026-10-23 | Team 6 | DEV-125: PostHog starts only on the production hosts (farmclub.kr, farm.farmclub.kr); Vercel preview, demo and localhost visits are not collected |
 | 2.0 | 2026-10-22 | Team 6 | I2 implementation snapshot: deployed clients/API/worker, Kakao onboarding, operator UI, private source workspace, media boundaries, bank-transfer lifecycle, schema 0019 and current diagrams |
 
 
@@ -48,7 +49,7 @@ Figure 1. Current components, interfaces and data boundaries. Solid arrows repre
 | PostgreSQL 16 | Relational business data, job leases, private inquiry attachments, immutable snapshots, idempotency and spend records | SQLAlchemy + psycopg; Alembic migrations `0001`–`0019` |
 | Cloudflare R2 | Private source originals/prepared files; public-media objects delivered through application routes | Server-only S3-compatible credentials; source bucket is not public |
 | AI providers | Anthropic Claude Haiku 4.5 for existing text drafting/CS; OpenRouter Gemini 3 Flash Preview for source analysis | Separate adapters/configuration, structured outputs, validation and explicit failure states |
-| PostHog | Client page/funnel events, masked replay and heatmaps when enabled at build time | US Cloud; internal user identifier, no network/console recording |
+| PostHog | Client page/funnel events, masked replay and heatmaps when enabled at build time, on the production hosts only | US Cloud; internal user identifier, no network/console recording |
 
 ### 1.1 External libraries and runtime
 
