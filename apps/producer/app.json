@@ -2,6 +2,7 @@
   "expo": {
     "name": "farmclub-producer",
     "slug": "farmclub-producer",
+    "owner": "snu-omm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -51,6 +52,15 @@
           "microphonePermission": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2952afb5-1cdc-42fb-a89f-e5c2382f128c"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2952afb5-1cdc-42fb-a89f-e5c2382f128c"
+    }
   }
 }

@@ -11,7 +11,7 @@
 - **같은 Expo 코드로 iOS·Android 네이티브 앱을 낸다.** 빌드는 EAS Build, JS·화면 변경은 EAS Update로 심사 없이 반영한다. 웹 출력(Vercel)은 그대로다. 소비자·생산자 프로젝트 2개에서 웹·iOS·Android 네 타깃이 나온다.
 - 식별자: iOS `bundleIdentifier`·Android `package` = `kr.farmclub.consumer` / `kr.farmclub.producer`. 앱 스킴은 `farmclub-consumer` / `farmclub-producer`(기존 값).
 - 런타임 버전 정책 `fingerprint`: 네이티브 코드가 바뀌면 EAS가 런타임 버전을 자동으로 바꿔 옛 빌드에 새 JS가 가지 않는다. 채널은 `preview`(TestFlight·Play 내부 테스트)와 `production`. 빌드 번호는 `autoIncrement`, `version`은 사람이 올린다.
-- `updates.url`·`extra.eas.projectId`는 EAS 프로젝트가 생긴 뒤 `eas init` → `eas update:configure`가 `app.json`에 쓴다. 레포에 자리표시자를 두지 않는다(잘못된 주소로 빌드되면 시작 때 업데이트 설정 오류).
+- `updates.url`·`extra.eas.projectId`는 EAS 프로젝트가 생긴 뒤 `eas init` → `eas update:configure`가 `app.json`에 쓴다. 레포에 자리표시자를 두지 않는다(잘못된 주소로 빌드되면 시작 때 업데이트 설정 오류). 2026-10-23 Expo 조직 `snu-omm` 아래 `farmclub-consumer`·`farmclub-producer` 프로젝트를 만들고 값을 커밋했다(계정 소유자 결정은 DEV-128).
 - 웹 전용 코드는 플랫폼별 파일(`*.native.ts`)이나 `Platform.OS === "web"` 분기로 나눈다. 공용 패키지(`packages/*`)에서 `window`·`document`·`localStorage`·`sessionStorage` 직접 호출은 웹 전용 파일 밖에서 금지하고 `scripts/test-native-config.mjs`가 검사한다.
   - 토큰·앱별 저장값: 웹 localStorage, 네이티브 `expo-secure-store`(동기 API).
   - PostHog: 웹 posthog-js(허용 호스트 검사 DEV-125 포함), 네이티브 posthog-react-native(화면 이벤트만, 녹화 없음).

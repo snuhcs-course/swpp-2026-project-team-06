@@ -29,8 +29,12 @@ for (const [app, { id, scheme, host }] of Object.entries(APPS)) {
     const names = expo.plugins.map((p) => (Array.isArray(p) ? p[0] : p));
     for (const p of ["expo-router", "expo-secure-store", "expo-web-browser", "expo-image-picker"])
       assert.ok(names.includes(p), `plugin ${p}`);
-    assert.ok(!("url" in (expo.updates ?? {})), "updates.url은 eas update:configure가 채운다(자리표시자 금지)");
-    assert.ok(!expo.extra?.eas?.projectId, "projectId는 eas init이 쓴다");
+    // eas init·eas update:configure가 쓴 값(2026-10-23, 계정 snu-omm). 서로 같아야 한다
+    const projectId = expo.extra?.eas?.projectId;
+    assert.match(projectId, /^[0-9a-f-]{36}$/, "extra.eas.projectId");
+    assert.equal(expo.updates?.url, `https://u.expo.dev/${projectId}`);
+    assert.equal(expo.owner, "snu-omm");
+    assert.equal(new Set(expo.ios.associatedDomains).size, expo.ios.associatedDomains.length, "associatedDomains 중복 없음");
   });
 
   test(`${app} eas.json: 프로필·채널·autoIncrement·서버 주소`, () => {
@@ -52,6 +56,7 @@ for (const [app, { id, scheme, host }] of Object.entries(APPS)) {
     // 내부 테스트(I2): Expo 무료 계정만으로 Android APK·iOS 시뮬레이터 빌드
     const i = eas.build.internal;
     assert.equal(i.extends, "preview");
+    assert.equal(i.channel, "preview", "APK·시뮬레이터 빌드도 eas update --channel preview를 받는다");
     assert.equal(i.distribution, "internal");
     assert.equal(i.android.buildType, "apk");
     assert.equal(i.ios.simulator, true);

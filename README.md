@@ -357,8 +357,8 @@ stay in EAS and the team password manager; never in the repo, an issue or a PR.
 
 ```bash
 npx eas-cli@latest login                       # Expo account (organization: see DEV-128)
-npx eas-cli@latest init                        # writes extra.eas.projectId to app.json; commit it
-npx eas-cli@latest update:configure            # writes updates.url (keeps runtimeVersion fingerprint); commit it
+npx eas-cli@latest init                        # done 2026-10-23 under the snu-omm organization (projectId is in app.json); only for a new project
+npx eas-cli@latest update:configure            # done 2026-10-23 (updates.url in app.json); only for a new project
 npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_POSTHOG_KEY --value phc_... --visibility plaintext --environment preview --environment production   # optional (DEV-71)
 npx eas-cli@latest credentials                 # Apple certificates / Android keystore, managed by EAS
 npx eas-cli@latest build -p all --profile preview
@@ -375,7 +375,7 @@ Kakao login returns through the web page `/auth/kakao`, which hands the code bac
 the app cannot finish a login until that page is live.
 
 ```bash
-# once per app (apps/consumer, apps/producer), after `eas login`, `eas init`, `eas update:configure`
+# once per app (apps/consumer, apps/producer), after `eas login` (projects already exist under snu-omm)
 npx eas-cli@latest build -p android --profile internal   # APK; the build page shows an install link and QR code
 npx eas-cli@latest build -p ios --profile internal       # .app for the iOS Simulator (no Apple account needed)
 npx eas-cli@latest update --channel preview --message "..."   # later JS changes, no reinstall

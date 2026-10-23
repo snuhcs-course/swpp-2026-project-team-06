@@ -21,7 +21,8 @@
       },
       "ios": {
         "simulator": true
-      }
+      },
+      "channel": "preview"
     },
     "preview": {
       "channel": "preview",
