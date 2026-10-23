@@ -387,7 +387,9 @@ npx eas-cli@latest update --channel preview --environment preview --message "...
 both projects' `preview` and `production` environments on 2026-10-23 (`eas env:list --environment
 preview`); an update published without them would point the app at `localhost`.
 
-Android: open the build link on the phone, allow installs from this source once, install.
+Android: open the build link on the phone, allow installs from this source once, install. A phone
+that still has the TWA APK from PR #164 (same package name, different signing key) must uninstall it
+first, or the install fails silently and the old TWA keeps running.
 The link works for anyone who has it. iOS Simulator: download the build, unpack it and drag
 the `.app` onto a booted simulator (or `xcrun simctl install booted <path>.app`). Check, in this
 order: install and launch, Kakao login and return to the app (on Android also that the screen
