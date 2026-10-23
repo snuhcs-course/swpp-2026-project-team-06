@@ -230,6 +230,7 @@ export default function Login() {
         )}
       </Scroll>
       <View
+        testID="login-bottom-bar"
         onLayout={(e) => setBarHeight(Math.ceil(e.nativeEvent.layout.height))}
         style={{
           position: "absolute",

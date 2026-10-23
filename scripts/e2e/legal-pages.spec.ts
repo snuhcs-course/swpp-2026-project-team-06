@@ -72,16 +72,11 @@ for (const [app, url] of [
 
       const box = await footer.boundingBox();
       // 하단 고정 바(카카오 버튼 또는 안내 문구)의 위 끝
-      const barTop = await page.evaluate((bottom) => {
-        const tops = [...document.querySelectorAll<HTMLElement>("div")]
-          .filter((d) => getComputedStyle(d).position === "absolute" && d.getBoundingClientRect().bottom >= bottom - 1)
-          .map((d) => d.getBoundingClientRect().top)
-          .filter((t) => t > 0);
-        return Math.min(...tops);
-      }, 800);
+      const bar = await page.getByTestId("login-bottom-bar").boundingBox();
       expect(box).not.toBeNull();
-      expect(box!.y + box!.height).toBeLessThanOrEqual(barTop + 1);
-      expect(barTop - (box!.y + box!.height)).toBeLessThan(24);
+      expect(bar).not.toBeNull();
+      expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y + 1);
+      expect(bar!.y - (box!.y + box!.height)).toBeLessThan(24);
       await info.attach(`${app}-login-${width}`, { body: await page.screenshot(), contentType: "image/png" });
     });
   }
