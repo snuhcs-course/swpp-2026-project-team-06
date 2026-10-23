@@ -20,6 +20,7 @@ import { Photo } from "./content";
 import { ChatBubble } from "./ChatBubble";
 import { tokens } from "./tokens";
 import { safe } from "./web";
+import { inBackground } from "./foreground";
 
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
@@ -128,7 +129,7 @@ export function NewsRoom({
     let cancelled = false,
       running = false;
     const refresh = async () => {
-      if (running || (typeof document !== "undefined" && document.hidden))
+      if (running || inBackground())
         return;
       running = true;
       try {
