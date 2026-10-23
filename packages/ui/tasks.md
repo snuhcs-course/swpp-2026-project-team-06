@@ -506,6 +506,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - `apps/producer/src/app/login.tsx`, `apps/consumer/src/app/login.tsx`
 - `apps/consumer/src/app/(tabs)/{index,me/index}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx` — 푸터 줄만(DEV-94 탈퇴 작업과 겹침)
 - `scripts/e2e/legal-pages.spec.ts`
+- (10/23 추가) 문서 한 줄씩: `docs/spec/{ia,screens}.md`(SCR-19 하단 글자), `docs/wiki/Requirements-and-Specifications.md`
 - Figma v6 파일(코드 밖)
 
 ### 비범위
@@ -514,19 +515,26 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 ### 결정 사항
 - 10/23 `Scroll`에 `footer` 슬롯을 둔다. 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'`로 맨 아래에 붙인다(내용이 짧으면 아래로 밀리고, 길면 내용 뒤 section 간격). `flexGrow`는 footer가 있을 때만 켜서 다른 48개 화면에 영향이 없게 한다.
 - 10/23 생산자 로그인 하단 바의 "테스트 서비스 · 이용약관 · 개인정보 처리방침"은 지운다. 푸터가 이미 링크와 ‘테스트 서비스’(값 없을 때)를 보인다. 하단 바 높이는 상태(카카오 버튼만/테스트 계정 버튼/오류 문구)마다 달라 `onLayout`으로 재서 스크롤 아래 여백으로 쓴다(고정 170이면 카카오 운영에서 푸터와 바 사이가 빈다).
+- 10/23 Figma MCP 계정은 이 파일에 보기 권한(View seat)뿐이라 쓸 수 없다. DEV-108·112처럼 레포 밖 스크립트(`figma-plugins/farmclub-dev116/`, `main.js` + `legal.json`(legalContent.ts에서 뽑은 문안) → `build.sh` → `code.js`)를 사용자 Chrome의 Figma 웹 편집기 콘솔에서 실행했다(사용자 지시). 다시 실행하면 `DEV-116 · ` 이름의 노드를 지우고 같은 자리에 다시 그리므로 node-id가 바뀐다. 아래 기록의 id는 마지막 실행 기준.
+- 10/23 Figma 기존 화면(C02·01 홈·C10·P02·P19)은 복제해 푸터를 얹고, 새 화면(/privacy·/terms, SCR-06 두 모드, SCR-10 동의 부분, SCR-19a 두 모드)은 토큰(색·글자 크기·간격) 그대로 새로 그렸다. 탭 화면은 높이를 늘린 ‘전체 내용’(스크롤 끝) 형태.
 - 10/23 소비자 로그인 하단 바 문구("…동의는 처음 가입할 때 받아요 · 테스트 서비스")는 동의 시점 안내라 남긴다. 같은 푸터 위치 문제만 고친다.
 
 ### 작업
-- [ ] `Scroll` footer 슬롯, 다섯 화면 푸터를 슬롯으로 옮김
-- [ ] 생산자 로그인 하단 바 정리·여백 측정, 소비자 로그인 여백 측정
-- [ ] Playwright: 푸터가 짧은 화면에서 바닥(하단 바 바로 위)에 붙는지, 360·390·430px 스크린샷
-- [ ] Figma v6 반영
+- [x] `Scroll` footer 슬롯, 다섯 화면 푸터를 슬롯으로 옮김
+- [x] 생산자 로그인 하단 바 정리·여백 측정, 소비자 로그인 여백 측정
+- [x] Playwright: 푸터가 짧은 화면에서 바닥(하단 바 바로 위)에 붙는지, 360·390·430px 스크린샷
+- [x] Figma v6 반영
 - [ ] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`
 
 ### 완료 조건
-- [ ] 생산자·소비자 로그인, 생산자 환경설정, 소비자 홈·내 정보에서 푸터가 내용 맨 아래(짧으면 화면 바닥)에 있다
-- [ ] Figma v6에 대상 화면 반영(사업자 정보는 자리 표시)
+- [x] 생산자·소비자 로그인, 생산자 환경설정, 소비자 홈·내 정보에서 푸터가 내용 맨 아래(짧으면 화면 바닥)에 있다
+- [x] Figma v6에 대상 화면 반영(사업자 정보는 자리 표시)
 - [ ] 테스트 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
+- 10/23 origin/main 9436171에서 시작, 작업 중 PR #264(DEV-132) 머지 뒤 main 0d57e99를 병합.
+- 10/23 원인: 푸터가 짧은 내용 바로 뒤에 있고 `Scroll bottom={170}` 고정 여백이라, 카카오 운영 로그인(내용 짧음)에서 푸터가 화면 중간에 뜨고 그 아래가 비었다. 하단 바의 ‘테스트 서비스 · 이용약관 · 개인정보 처리방침’은 링크가 아닌 글자라 푸터와 겹쳐 보였다(Figma P02에도 같은 글자가 있었다).
+- 10/23 확인: Mock 대신 실서버 모드 앱 + API 응답 가로채기(카카오 켜짐·비로그인)로 360·390·430px 스크린샷, 생산자 푸터 아래끝 716 / 바 위끝 약 728, 중복 글자 0개. Playwright `legal-pages.spec.ts`에 같은 검사(폭 3개 × 두 앱) 추가.
+- 10/23 Figma v6(파일 X8RKiRPZbFEEEwi4OhkF0G): ‘현재 시안 · 소비자’ y 33500 줄 — 제목 481:7143, 명세 481:7144, 로그인 481:7145, 홈 481:7235, 내 정보 481:7364, SCR-06 재동의 481:7588, SCR-06 가입 동의 481:7635, SCR-10 동의 481:7702, /privacy 481:7756, /terms 481:7794. ‘현재 시안 · 생산자’ y 28600 줄 — 제목 481:7796, 명세 481:7797, P02 로그인 481:7798, P19 환경설정 481:7925, SCR-19a 재동의 481:8092, SCR-19a 가입 모드 481:8122, /privacy 481:8176, /terms 481:8214. 각 프레임을 PNG로 내보내 확인했다.
+- 10/23 후속 질문: 주문서 하단 바가 동의 5개(DEV-120) 뒤에도 ‘4개 중 N개 동의했어요’라고 쓴다(`apps/consumer/src/app/checkout/[productId]/index.tsx`). 이 작업 범위 밖이라 고치지 않았다.
