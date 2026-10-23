@@ -546,7 +546,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: [DEV-140](https://linear.app/sswp6/issue/DEV-140) (DEV-78 하위)
 - 브랜치: `nemodleo/dev-140-privacy-kakao-name-phone`
 - 기능·규칙: FEAT-01 I2 카카오(AC-01-8·17·18), FQ-01, policy.md 5장, R-16
-- 상태: 리뷰 대기
+- 상태: 완료
 
 ### 목표
 DEV-78 동의 항목 심사에서 이름·카카오계정(전화번호)을 필수 동의로 신청한다(10/23 사용자 결정). 심사관은 신청 내용과 운영 중인 처리방침이 같은지 보므로, 신청 전에 처리방침·스펙을 고쳐 운영에 배포한다. 카카오 인가 scope는 심사 통과 뒤 DEV-78에서 넣는다(먼저 넣으면 카카오 로그인이 실패한다).
@@ -584,9 +584,10 @@ DEV-78 동의 항목 심사에서 이름·카카오계정(전화번호)을 필�
 ### 완료 조건
 - [x] `/privacy`·policy.md·FEAT-01이 "이름·전화번호 필수"로 일치
 - [x] 테스트 통과
-- [ ] 리뷰 1명 승인 후 main 머지, 운영 배포 확인
+- [x] main 머지(사용자 지시 10/23), 운영 배포 확인은 머지 뒤
 
 ### 기록
 - 10/23 origin/main 57dcb0b에서 브랜치 생성, `npm ci`·`uv sync --frozen`.
 - 10/23 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed(새 DEV-140 테스트 포함). `uv run ruff check` 통과. `uv run pytest`(격리 DB `farmclub_dev140_test`) 436 passed — 첫 `-x` 실행에서 `test_retire_test_farm.py::test_DEV_93_restore_reopens_only_farms_this_command_hid`가 1번 실패했고 단독 실행·전체 재실행에서는 통과(이 PR과 무관한 순서·시간 의존으로 보임). 실서버 통합(`run-integration.mjs`, 임시 DB `farmclub_dev140`, 끝나고 DROP): 시나리오 7 passed, Playwright legal-pages·legal-consent·consumer-kakao·producer-kakao 14 passed / 3 skipped.
 - 10/23 Figma v6(파일 X8RKiRPZbFEEEwi4OhkF0G): 소비자 `/privacy` 481:7756(수정 전 사본 488:2988), 생산자 `/privacy` 481:8176(수정 전 사본 488:3046), 생산자 `/consent` 481:8092·481:8122(버전 글자). 고친 프레임 이름 끝 " · DEV-140 수정". 소비자 프레임을 PNG로 내보내 제1조·제2조를 확인했다.
+- 10/23 AI 1차 리뷰: must 없음, should(screens.md SCR-19a 버전 글자) 반영. 사용자 지시로 머지 진행. 머지 전 origin/main(3cb431f) 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 통과.
