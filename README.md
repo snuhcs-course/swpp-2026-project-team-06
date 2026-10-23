@@ -1,8 +1,10 @@
 # Farmclub — Iteration 2 working demo
 
-SNU SWPP 2026 · Team 6 · Implementation & Testing · Prepared 22 October 2026
+SNU SWPP 2026 · Team 6 · Implementation & Testing · Prepared 23 October 2026
 
-Farmclub connects consumers with Jeju citrus farms through advance reservations, farm updates and private conversations. This branch contains both applications, the API, the source-analysis worker and operator tools. The product snapshot is [`691949e985080f372a45d54fa950191e88adb8ce`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/691949e985080f372a45d54fa950191e88adb8ce); this README describes the I2 demo, rather than claiming to be the final 23 October deadline snapshot.
+Farmclub connects consumers with Jeju citrus farms through advance reservations, farm updates and private conversations. This branch contains both applications, the API, the source-analysis worker and operator tools. The product snapshot is [`75f536facdb3116349d4a122a1bcc55c65985960`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/75f536facdb3116349d4a122a1bcc55c65985960); this README is specific to the `iteration-2-demo` branch. It documents the selected working-code snapshot; dated test measurements remain tied to their original execution commits in Testing Documentation.
+
+This README is specific to `iteration-2-demo`; the general project README belongs on `main`. This demo branch is a submission snapshot and should not be merged into `main` merely to publish its README.
 
 ## 1. Watch the four demo videos
 

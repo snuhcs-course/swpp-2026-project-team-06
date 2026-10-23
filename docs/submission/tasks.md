@@ -268,3 +268,18 @@ I2 AI 협업 보고서에 장진우 절을 근거(로컬 세션 export, PR 본�
 - 10/23 문서만 변경이라 실행할 테스트 없음. `git diff --check` 통과.
 
 - 10/23 사용자가 지정 브랜치 push 및 main 대상 PR 생성을 명시 승인했다. 최신 main c884e90의 Makefile 안내, DEV-118 생산자 별도 coverage 결과, SWPP-121 AI 보고서 기여를 보존하며 병합한다. 변경된 테스트 도구를 10/22 측정에 소급 적용하지 않으며 새 제품 테스트를 실행했다고 주장하지 않는다. PR은 draft로 만들고 main 머지는 수행하지 않는다.
+
+
+## SWPP-112 iteration-2-demo 범위 정정
+
+- 브랜치: `iteration-2-demo`
+- 범위: I2 데모 전용 루트 README 및 docs/submission/spec.md/이 작업 기록.
+- 기준: main 75f536f의 실행 코드. 기존 원격 demo 7b2b123을 포함하므로 force push가 필요하지 않다.
+- [x] 이전 미커밋 초안 세 파일을 비공개 백업 및 stash에 보존
+- [x] 최신 선택 코드 스냅샷으로 fast-forward하고 데모 README만 배치
+- [x] 환경/실행/기능/I2 진척 및 전체·소비자·생산자·운영자 영상 네 개 포함
+- [ ] 사용자 확인 후 iteration-2-demo push
+
+main 대상 PR은 만들지 않는다. 이 README를 main으로 다시 병합하면 같은 범위 오류가 재발한다. 새 제품 테스트 실행으로 세지 않고 기존 날짜/커밋별 실제 결과를 유지한다.
+
+- 10/23 사용자 응답으로 iteration-2-demo 전용 README 커밋/push 게시를 승인받았다. 독립 읽기 전용 검토에서 README 원문/허용 경로/나머지 문서 및 코드 보존/네 영상/whitespace 확인을 마쳤다. 실제 커밋·push·PR 결과는 완료 보고에 기록한다. main 머지는 하지 않는다.
