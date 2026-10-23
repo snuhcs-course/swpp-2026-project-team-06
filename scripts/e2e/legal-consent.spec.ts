@@ -59,7 +59,7 @@ async function consumerSignup(page: Page) {
   await expect(join).toBeDisabled();
   await page.getByRole("checkbox", { name: "모두 동의해요" }).click();
   await join.click();
-  // 가입되면 같은 화면이 프로필 입력(1/2)으로 바뀐다. 동의 칸은 다시 보이지 않는다
+  // 가입되면 같은 화면이 프로필 입력(닉네임·휴대폰)으로 바뀐다. 동의 칸은 다시 보이지 않는다
   await expect(page.getByLabel("닉네임")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: "모두 동의해요" })).toHaveCount(0);
 }
@@ -77,6 +77,36 @@ test("DEV-132 AC-01-19: a new Kakao consumer gets no account until agreeing to t
   expect(await kakaoAccountExists(page, "consumer")).toBe(true);
 });
 
+test("DEV-142 AC-01-12: sign-up asks only nickname and phone; name and address come at the first checkout", async ({ page }) => {
+  await consumerSignup(page);
+  // 가입은 한 화면: 이름 칸과 배송지 단계가 없다(당근식)
+  await expect(page.getByLabel("이름")).toHaveCount(0);
+  await expect(page.getByText("1 / 2")).toHaveCount(0);
+  const start = page.getByRole("button", { name: "시작하기" });
+  await expect(start).toBeDisabled();
+  await page.getByLabel("닉네임").fill("귤러버");
+  await page.getByLabel("휴대폰 번호").fill("01023456789");
+  await start.click();
+  await expect(page).not.toHaveURL(/\/onboarding/);
+  expect(await mockApi(page, "consumer", "PUT", "/api/farms/f-kang/follow")).toBe(200);
+
+  // 첫 주문서의 배송지 입력: 연락처는 가입한 휴대폰으로 채우고, 받는 사람은 여기서 처음 입력한다
+  await page.goto(`${consumerUrl}/checkout/p-house/address`);
+  await expect(page.getByLabel("연락처")).toHaveValue("010-2345-6789");
+  await expect(page.getByLabel("받는 사람")).toHaveValue("");
+  // ‘기본 배송지로 저장’은 첫 주문에서 켜진 채 시작한다
+  await page.getByLabel("받는 사람").fill("박현");
+  await page.getByLabel("우편번호").fill("06236");
+  await page.getByLabel("주소", { exact: true }).fill("서울 강남구 테헤란로 1");
+  await page.getByRole("button", { name: "이 주소로 받기" }).click();
+  await expect(page).toHaveURL(/\/checkout\/p-house$/);
+  await expect(page.getByText("06236 · 기본 배송지로 저장")).toBeVisible();
+
+  // 예전 2/2 주소는 가입 화면으로 보낸다(가입을 마쳤으면 다음 화면으로)
+  await page.goto(`${consumerUrl}/onboarding/address`);
+  await expect(page).not.toHaveURL(/\/onboarding\/address/);
+});
+
 test("DEV-113 AC-01-17: a consumer who agreed to old terms is asked again and blocked until agreeing", async ({ page }) => {
   await consumerSignup(page);
 
@@ -88,7 +118,7 @@ test("DEV-113 AC-01-17: a consumer who agreed to old terms is asked again and bl
   ).toBe(200);
   expect(await mockApi(page, "consumer", "PUT", "/api/farms/f-kang/follow")).toBe(403);
 
-  // 앱을 열면 재동의 화면이 한 번 뜬다(프로필 칸·배송지 단계 없이)
+  // 앱을 열면 재동의 화면이 한 번 뜬다(프로필 칸 없이)
   await page.goto(consumerUrl);
   await expect(page).toHaveURL(/\/onboarding/);
   await expect(page.getByRole("heading", { name: /약관이\s*바뀌었어요/ })).toBeVisible();
