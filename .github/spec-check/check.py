@@ -12,11 +12,16 @@ import sys
 import time
 from urllib import error, request
 
-MAX_INPUT = 60 * 1024
+MAX_INPUT = 256 * 1024
+MAX_OUTPUT_TOKENS = 16000  # Includes adaptive thinking tokens (DEV-79).
+REQUEST_TIMEOUT = 90
+GITHUB_TIMEOUT = 20
+LIMIT = f"{MAX_INPUT // 1024} KiB"
 MAX_RESPONSE = 1024 * 1024
 ENDPOINT = "https://api.anthropic.com/v1/messages"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 SECRET = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bsk-ant-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}")
+THINKING = {"thinking", "redacted_thinking"}
 
 
 class Incomplete(Exception):
@@ -61,7 +66,7 @@ def read_file(root, revision, path, optional=False):
             or entry.partition("\t")[2].rstrip("\0") != path):
         raise Incomplete("Required context is missing or is not a regular repository file.")
     if int(git(root, "cat-file", "-s", f"{revision}:{path}")) > MAX_INPUT:
-        raise Incomplete("A required file exceeds 60 KiB; split the PR.")
+        raise Incomplete(f"A required file exceeds {LIMIT}; split the PR.")
     try:
         text = git(root, "show", f"{revision}:{path}").decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -169,7 +174,7 @@ def collect(root, event, demo=None):
                "changed_paths": changed, "files": files, "previous_files": previous,
                "target_changes": target, "diff": diff}
     if len(json.dumps(context, ensure_ascii=False).encode()) > MAX_INPUT:
-        raise Incomplete("Complete context exceeds 60 KiB. Split the PR; no partial review was sent.")
+        raise Incomplete(f"Complete context exceeds {LIMIT}. Split the PR; no partial review was sent.")
     return context
 
 
@@ -180,7 +185,7 @@ def check_current(event, token):
     req = request.Request(f"https://api.github.com/repos/{meta['repository']}/pulls/{meta['pr']}",
                           headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
     try:
-        with request.build_opener(NoRedirect()).open(req, timeout=20) as response:
+        with request.build_opener(NoRedirect()).open(req, timeout=GITHUB_TIMEOUT) as response:
             current = json.loads(response.read(MAX_RESPONSE + 1))
         if (current["head"]["sha"] != meta["head_sha"] or current["base"]["sha"] != meta["base_sha"]
                 or digest(current.get("body") or "") != meta["body_digest"]):
@@ -194,7 +199,7 @@ def check_environment(event, token):
     req = request.Request(f"https://api.github.com/repos/{meta['repository']}/environments/spec-check",
                           headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
     try:
-        with request.build_opener(NoRedirect()).open(req, timeout=20) as response:
+        with request.build_opener(NoRedirect()).open(req, timeout=GITHUB_TIMEOUT) as response:
             environment = json.loads(response.read(MAX_RESPONSE + 1))
         reviewers = [r for r in environment.get("protection_rules", [])
                      if r.get("type") == "required_reviewers" and r.get("reviewers")]
@@ -205,19 +210,25 @@ def check_environment(event, token):
         raise Incomplete("Protected spec-check environment could not be verified; ask the repository administrator.") from exc
 
 
+def block_type(block):
+    """Name an unexpected block for the report without echoing provider text."""
+    value = block.get("type")
+    return value if isinstance(value, str) and re.fullmatch(r"[a-z_]{1,40}", value) else "unknown"
+
+
 def model_review(context, prompt, api_key, model, opener=None, sleep=time.sleep):
     if not api_key or not model:
         raise Incomplete("Configure SPEC_CHECK_API_KEY and SPEC_CHECK_MODEL in the protected spec-check environment.")
-    payload = json.dumps({"model": model, "max_tokens": 4096, "system": prompt,
+    payload = json.dumps({"model": model, "max_tokens": MAX_OUTPUT_TOKENS, "system": prompt,
                           "messages": [{"role": "user", "content": json.dumps(context, ensure_ascii=False)}]}).encode()
     if len(payload) > MAX_INPUT:
-        raise Incomplete("Prompt plus complete context exceeds 60 KiB; split the PR.")
+        raise Incomplete(f"Prompt plus complete context exceeds {LIMIT}; split the PR.")
     req = request.Request(ENDPOINT, data=payload, headers={"x-api-key": api_key,
                           "anthropic-version": "2023-06-01", "content-type": "application/json"})
     client = opener or request.build_opener(NoRedirect())
     for attempt in range(2):
         try:
-            with client.open(req, timeout=60) as response:
+            with client.open(req, timeout=REQUEST_TIMEOUT) as response:
                 raw = response.read(MAX_RESPONSE + 1)
             if len(raw) > MAX_RESPONSE:
                 raise Incomplete("Model response exceeded the response limit.")
@@ -227,8 +238,15 @@ def model_review(context, prompt, api_key, model, opener=None, sleep=time.sleep)
             if envelope.get("stop_reason") != "end_turn":
                 raise Incomplete("Model output was truncated or did not complete normally.")
             blocks = envelope.get("content", [])
-            if not isinstance(blocks, list) or not blocks or any(not isinstance(b, dict) or b.get("type") != "text" for b in blocks):
+            if not isinstance(blocks, list) or any(not isinstance(b, dict) for b in blocks):
                 raise Incomplete("Unexpected model content type.")
+            # DEV-79: adaptive thinking blocks are dropped unread; only text carries the review.
+            blocks = [b for b in blocks if b.get("type") not in THINKING]
+            unexpected = sorted({block_type(b) for b in blocks if b.get("type") != "text"})
+            if unexpected:
+                raise Incomplete("Unexpected model content type: " + ", ".join(unexpected) + ".")
+            if not blocks:
+                raise Incomplete("Unexpected model content type: no text block.")
             usage = envelope.get("usage", {})
             if not isinstance(usage, dict):
                 raise Incomplete("Unexpected usage metadata.")
