@@ -41,6 +41,16 @@ def enabled():
 router = APIRouter(
     prefix="/source-analysis", tags=["source-analysis"], dependencies=[Depends(enabled)]
 )
+# Outside the feature gate so apps can tell "disabled" from "not found" (DEV-84).
+config_router = APIRouter(prefix="/source-analysis", tags=["source-analysis"])
+
+
+@config_router.get("/config")
+def config():
+    """자료 분석 사용 여부. 꺼진 서버면 생산자 앱이 기존 문구/직접 입력으로 간다(DEV-84)."""
+    return {"enabled": get_settings().source_analysis_enabled}
+
+
 DB = Annotated[Session, Depends(get_db)]
 Key = Annotated[str | None, Header(alias="Idempotency-Key")]
 

@@ -3,21 +3,28 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
+from app.admin.farms import router as admin_farms_router
 from app.admin.router import router as admin_exceptions_router
+from app.admin.support import router as admin_support_router
+from app.admin.user_detail import router as admin_user_detail_router
+from app.admin.users import router as admin_users_router
 from app.ai.router import router as ai_router
 from app.analytics.router import router as analytics_router
 from app.catalog.router import admin_router as catalog_admin_router
+from app.catalog.router import capacity_admin_router as catalog_capacity_admin_router
 from app.catalog.router import router as catalog_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
 from app.farms.router import home_router
 from app.farms.router import router as farms_router
 from app.farms.share import router as farm_share_router
+from app.media.router import router as media_router
 from app.messaging.router import router as messaging_router
 from app.orders.router import admin_router as orders_admin_router
 from app.orders.router import router as orders_router
 from app.source_analysis.middleware import SourceRequestMiddleware
 from app.source_analysis.publish import public_router as source_public_router
+from app.source_analysis.router import config_router as source_config_router
 from app.source_analysis.router import router as source_analysis_router
 
 app = FastAPI(title="Farmclub API")
@@ -47,8 +54,10 @@ for module_router in (
     catalog_router,
     orders_router,
     messaging_router,
+    media_router,
     ai_router,
     analytics_router,
+    source_config_router,
     source_analysis_router,
     source_public_router,
 ):
@@ -60,7 +69,12 @@ app.include_router(farm_share_router)
 for admin_router in (
     accounts_admin_router,
     catalog_admin_router,
+    catalog_capacity_admin_router,
     orders_admin_router,
     admin_exceptions_router,
+    admin_farms_router,
+    admin_users_router,
+    admin_user_detail_router,
+    admin_support_router,
 ):
     app.include_router(admin_router)

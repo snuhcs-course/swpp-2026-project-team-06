@@ -98,6 +98,7 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
       delayRefund: true,
       shortage: true,
       cancelPolicy: true,
+      thirdParty: true,
     },
     consentVersion: "test",
   };

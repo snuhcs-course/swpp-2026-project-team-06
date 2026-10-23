@@ -8,16 +8,20 @@ export {
   getToken,
   onAuthChange,
   onOnboardingRequired,
+  onConsentRequired,
   request,
   newIdempotencyKey,
   resetDemoData,
   sharedMockUrl,
-  uploadMockMedia,
+  uploadMedia,
   appName,
+  readStore,
+  writeStore,
 } from "./client";
 export { CARRIERS, carrierLabel, trackingUrl } from "./carriers";
 export { auth, farms, catalog, orders, messaging, admin } from "./endpoints";
 export type * from "./types";
+export { SUPPORT_ID } from "./types";
 
 import { request } from "./client";
 

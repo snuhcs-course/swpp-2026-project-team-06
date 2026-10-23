@@ -1,10 +1,14 @@
 // FEAT-01 I2 (DEV-32): Mock이 서버와 같은 온보딩·배송지 규칙을 따르는지 확인한다(AC-01-12~15)
+// DEV-113: 약관 버전 재동의(AC-01-17)와 생산자 동의(AC-01-18)도 서버와 같다
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import path from "node:path";
 import { once } from "node:events";
+
+// 서버 accounts.schemas.CONSENT_VERSION과 같은 값(test-legal.mjs가 셋이 같은지 본다)
+const CONSENT_VERSION = "2026-10-23";
 
 test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async () => {
   const dir = mkdtempSync(path.resolve(".expo/onboarding-test-"));
@@ -41,9 +45,32 @@ test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async (
       app: "consumer",
     });
     assert.equal(kakao.status, 200);
-    const t = kakao.body.accessToken;
-    assert.equal(kakao.body.user.needsOnboarding, true);
-    assert.equal(kakao.body.user.isTestAccount, false);
+    // 새 사용자는 계정 없이 가입 토큰만 받고, 필수 약관에 동의해야 계정이 생긴다(DEV-132, AC-01-19)
+    assert.equal(kakao.body.user, null);
+    const signupToken = kakao.body.signup.signupToken;
+    const required = ["TERMS", "PRIVACY", "AGE14"].map((kind) => ({ kind, version: CONSENT_VERSION }));
+    const noAge = await api("POST", "/api/auth/kakao/signup", null, {
+      signupToken,
+      consents: required.filter((c) => c.kind !== "AGE14"),
+    });
+    assert.equal(noAge.status, 400);
+    assert.ok(noAge.body.details.fields.consents);
+    const badToken = await api("POST", "/api/auth/kakao/signup", null, { signupToken: "forged", consents: required });
+    assert.equal(badToken.status, 400);
+    assert.ok(badToken.body.details.fields.signupToken);
+    const signed = await api("POST", "/api/auth/kakao/signup", null, { signupToken, consents: required });
+    assert.equal(signed.status, 200);
+    const t = signed.body.accessToken;
+    assert.equal(signed.body.user.needsOnboarding, true);
+    assert.equal(signed.body.user.consentRequired, false);
+    assert.equal(signed.body.user.isTestAccount, false);
+    // 이미 가입했으면 카카오 로그인이 바로 로그인된다
+    const again = await api("POST", "/api/auth/kakao", null, {
+      code: "mock",
+      redirectUri: "http://localhost:8081/auth/kakao",
+      app: "consumer",
+    });
+    assert.equal(again.body.user.userId, signed.body.user.userId);
 
     // 농가에 닿는 쓰기는 온보딩 전 403 ONBOARDING_REQUIRED (좋아요는 PUT)
     for (const [method, url, body] of [
@@ -63,6 +90,7 @@ test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async (
       (await api("PATCH", "/api/auth/me", t, { nickname: "귤", name: "김", phone: "1" })).status,
       400,
     );
+    // 옛 약관 버전 동의로는 끝나지 않는다(DEV-113, AC-01-17)
     const consents = await api("POST", "/api/auth/me/consents", t, {
       consents: ["TERMS", "PRIVACY", "AGE14"].map((kind) => ({ kind, version: "2026-10-18" })),
     });
@@ -74,12 +102,82 @@ test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async (
       phone: "010-2345-6789",
     });
     assert.equal(me.status, 200);
-    assert.equal(me.body.needsOnboarding, false);
+    assert.equal(me.body.needsOnboarding, true);
+    assert.equal(me.body.consentRequired, true);
+    assert.equal((await api("PUT", "/api/farms/f-kang/follow", t)).status, 403);
+    await api("POST", "/api/auth/me/consents", t, {
+      consents: ["TERMS", "PRIVACY", "AGE14"].map((kind) => ({ kind, version: CONSENT_VERSION })),
+    });
+    const agreed = await api("GET", "/api/auth/me", t);
+    assert.equal(agreed.body.needsOnboarding, false);
+    assert.equal(agreed.body.consentRequired, false);
+
+    // 주문은 개인정보 제3자 제공(판매자) 동의까지 5개가 모두 있어야 한다(DEV-120, 서버 AC-08-7과 같은 규칙)
+    const four = { deliveryWindow: true, delayRefund: true, shortage: true, cancelPolicy: true };
+    const order = (consents) =>
+      api("POST", "/api/orders", t, {
+        productId: "p-house",
+        optionId: "opt-5",
+        quantity: 1,
+        recipientName: "박현",
+        recipientPhone: "010-2345-6789",
+        postalCode: "06236",
+        address: "서울 강남구 테헤란로 1",
+        consents,
+        consentVersion: "policy-2026-10-23",
+      });
+    const noThirdParty = await order(four);
+    assert.equal(noThirdParty.status, 400);
+    assert.ok(noThirdParty.body.details.fields.consents);
+    assert.equal((await order({ ...four, thirdParty: true })).status, 200);
     assert.equal((await api("PUT", "/api/farms/f-kang/follow", t)).status, 200);
+
+    // 생산자 앱 카카오(DEV-74): 농가 없는 생산자 → 온보딩 없음 → 가입 신청 → 확인 중
+    const farm = await api("POST", "/api/auth/kakao", null, {
+      code: "mock",
+      redirectUri: "http://localhost:8082/auth/kakao",
+      app: "producer",
+    });
+    assert.equal(farm.status, 200);
+    // 생산자도 약관·개인정보에 동의해야 계정이 생긴다(AC-01-18·19)
+    assert.equal(farm.body.user, null);
+    const farmSignup = await api("POST", "/api/auth/kakao/signup", null, {
+      signupToken: farm.body.signup.signupToken,
+      consents: ["TERMS", "PRIVACY"].map((kind) => ({ kind, version: CONSENT_VERSION })),
+    });
+    assert.equal(farmSignup.status, 200);
+    farm.body = farmSignup.body;
+    assert.equal(farm.body.user.role, "PRODUCER");
+    assert.equal(farm.body.user.farmStatus, "NONE");
+    assert.equal(farm.body.user.needsOnboarding, false);
+    // 가입 뒤 약관 버전이 바뀐 것처럼 옛 버전으로 돌리면 생산자 API가 막힌다
+    await api("POST", "/api/auth/me/consents", farm.body.accessToken, {
+      consents: ["TERMS", "PRIVACY"].map((kind) => ({ kind, version: "2026-10-18" })),
+    });
+    const application = {
+      ownerName: "김새농",
+      farmName: "카카오 농장",
+      region: "제주 서귀포시",
+      mainItems: "감귤",
+      phone: "010-9876-5432",
+    };
+    const blocked = await api("POST", "/api/auth/producer-application", farm.body.accessToken, application);
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.details.reason, "CONSENT_REQUIRED");
+    const farmConsents = await api("POST", "/api/auth/me/consents", farm.body.accessToken, {
+      consents: ["TERMS", "PRIVACY"].map((kind) => ({ kind, version: CONSENT_VERSION })),
+    });
+    assert.equal(farmConsents.status, 200);
+    const applied = await api("POST", "/api/auth/producer-application", farm.body.accessToken, application);
+    assert.equal(applied.status, 200);
+    assert.equal(applied.body.status, "PENDING");
+    const farmMe = await api("GET", "/api/auth/me", farm.body.accessToken);
+    assert.equal(farmMe.body.name, "김새농");
 
     // 테스트 계정은 온보딩 대상이 아니다
     const minji = await api("POST", "/api/auth/test-login", null, { userId: "u-minji", app: "consumer" });
     assert.equal(minji.body.user.needsOnboarding, false);
+    assert.equal(minji.body.user.consentRequired, false);
 
     // 배송지 50개, 51번째는 409, 기본을 지우면 가장 최근 것이 기본
     const addr = (i) => ({

@@ -243,8 +243,10 @@ export function SourceAttachments({
   onBusy,
   onDirty,
   flushRef,
+  beforeUpload,
 }: {
   flushRef: MutableRefObject<(() => Promise<void>) | null>;
+  beforeUpload: () => Promise<void>;
   batch: SourceBatch;
   busy: boolean;
   refresh: () => Promise<void>;
@@ -326,6 +328,7 @@ export function SourceAttachments({
             setTextDraft(null);
             return;
           }
+          if (!draft.source) await beforeUpload();
           const updated = draft.source
             ? await api.editSource(batch.id, draft.source, {
                 text: draft.value,
@@ -406,6 +409,7 @@ export function SourceAttachments({
     return () => onDirty(false);
   }, [editing, descriptions, onDirty]);
   const upload = async (file: File, photo: boolean) => {
+    await beforeUpload();
     await flushAll();
     const latest = await api.get(batch.id);
     const uri = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";

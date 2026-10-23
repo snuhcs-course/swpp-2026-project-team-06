@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>farmclub 관리자 · 공급 물량 승인</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/assets/admin.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side"></aside>
+  <div class="content"><div class="wrap">
+    <header class="page-head">
+      <h1>공급 물량 승인</h1>
+      <p class="hint" style="margin: 4px 0 0">생산자가 신청한 공급 총중량을 그대로 승인하거나 사유를 붙여 반려해요. 첫 판매 승인이면 상품이 판매 중이 돼요.</p>
+    </header>
+    <nav class="tabs" id="tabs" aria-label="상태"></nav>
+    <section id="list" aria-live="polite"></section>
+  </div></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="/assets/admin.js"></script>
+<script>
+// 공급 물량 승인(DEV-87, FEAT-04 AC-04-8·R-25). 부분 승인 없음: 신청량 전체 승인 또는 사유 반려.
+const STATUS = { PENDING: "심사 중", APPROVED: "승인", REJECTED: "반려", WITHDRAWN: "철회" };
+const KIND = { INITIAL: "첫 판매", INCREASE: "증량" };
+const PRODUCT = { DRAFT: "초안", PENDING_APPROVAL: "승인 대기", REJECTED: "반려", PUBLISHED: "판매 중", CLOSED: "판매 종료" };
+const TABS = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "ALL"];
+let tab = "PENDING", rows = null, busy = false;
+const kg = (g) => (g / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 1 }) + "kg";
+
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map((s) => {
+    const n = rows ? (s === "ALL" ? rows.length : rows.filter((r) => r.status === s).length) : "";
+    return `<button aria-pressed="${s === tab}" data-tab="${s}">${s === "ALL" ? "전체" : STATUS[s]}${n !== "" ? " " + n : ""}</button>`;
+  }).join("");
+}
+
+function card(r) {
+  const pending = r.status === "PENDING";
+  const more = r.requestedTotalGrams - r.approvedSupplyGrams;
+  return `<article class="card app" data-id="${esc(r.requestId)}">
+    <div class="row" style="justify-content: space-between">
+      <h2>${esc(r.productName || "(이름 없음)")}</h2><span class="badge s-${esc(r.status)}">${STATUS[r.status] || esc(r.status)}</span>
+    </div>
+    <dl class="meta">
+      <dt>농가</dt><dd>${esc(r.farmName)}</dd>
+      <dt>종류</dt><dd>${KIND[r.kind] || esc(r.kind)}</dd>
+      <dt>신청 총중량</dt><dd><strong>${kg(r.requestedTotalGrams)}</strong>${pending && r.kind === "INCREASE" && more > 0 ? ` <span class="hint">(+${kg(more)})</span>` : ""}</dd>
+      <dt>현재 승인량</dt><dd>${kg(r.approvedSupplyGrams)} <span class="hint">· 판매 한도 ${kg(r.salesLimitGrams)}</span></dd>
+      <dt>상품 상태</dt><dd>${PRODUCT[r.productStatus] || esc(r.productStatus)}</dd>
+      <dt>신청</dt><dd>${when(r.createdAt)}</dd>
+      ${r.decidedAt ? `<dt>${r.status === "WITHDRAWN" ? "철회" : "결정"}</dt><dd>${when(r.decidedAt)}</dd>` : ""}
+      ${r.reason ? `<dt>반려 사유</dt><dd>${esc(r.reason)}</dd>` : ""}
+      <dt>상품 ID</dt><dd><code>${esc(r.productId)}</code></dd>
+    </dl>
+    ${pending ? `<div class="row"><button class="primary" data-act="approve">승인</button><button class="danger" data-act="reject">반려</button></div>` : ""}
+    <div class="slot"></div>
+  </article>`;
+}
+
+function renderList() {
+  renderTabs();
+  if (!rows) { $("#list").innerHTML = `<p class="empty">불러오는 중…</p>`; return; }
+  const shown = tab === "ALL" ? rows : rows.filter((r) => r.status === tab);
+  $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<p class="empty">${tab === "PENDING" ? "심사할 신청이 없어요." : "해당하는 신청이 없어요."}</p>`;
+}
+
+async function load() {
+  rows = null; renderList();
+  try { rows = await call("/admin/capacity-requests?status=ALL"); renderList(); }
+  catch (e) { rows = []; renderList(); toast(e.message, true); }
+}
+
+$("#tabs").onclick = (e) => { const b = e.target.closest("button[data-tab]"); if (b) { tab = b.dataset.tab; renderList(); } };
+
+$("#list").onclick = async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b || busy) return;
+  const el = b.closest("article"), id = el.dataset.id, slot = el.querySelector(".slot"), act = b.dataset.act;
+  const row = rows.find((r) => r.requestId === id);
+  const base = `/admin/products/${row.productId}/capacity-requests/${id}`;
+  if (act === "approve") {
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = `${kg(row.requestedTotalGrams)} 승인할까요? 한 번 더 누르기`; return; }
+    busy = true; b.disabled = true;
+    try { await call(`${base}/approve`, "POST", { version: row.version }); toast(`${row.productName} ${kg(row.requestedTotalGrams)}을 승인했어요`); await load(); }
+    catch (err) { toast(err.message, true); await load(); }
+    finally { busy = false; }
+  } else if (act === "reject") {
+    slot.innerHTML = `<div class="reject-box"><textarea rows="3" maxlength="500" placeholder="반려 사유(생산자에게 보여요)" aria-label="반려 사유"></textarea>
+      <div class="row"><button class="danger solid" data-act="reject-send">반려하기</button><button class="text" data-act="cancel">취소</button></div></div>`;
+    slot.querySelector("textarea").focus();
+  } else if (act === "reject-send") {
+    const reason = slot.querySelector("textarea").value.trim();
+    if (!reason) return toast("반려 사유를 적어 주세요.", true);
+    busy = true; b.disabled = true;
+    try { await call(`${base}/reject`, "POST", { version: row.version, reason }); toast(`${row.productName} 신청을 반려했어요`); await load(); }
+    catch (err) { toast(err.message, true); b.disabled = false; }
+    finally { busy = false; }
+  } else if (act === "cancel") {
+    slot.innerHTML = "";
+  }
+};
+
+load();
+</script>
+</body>
+</html>

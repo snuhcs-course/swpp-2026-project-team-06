@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { loginProducer, producerUrl, monitor } from "./helpers";
 
 for (const width of [360, 390, 430]) {
@@ -239,4 +239,99 @@ test("AC-SRC-1: workspace retry reuses the new product and idempotency key", asy
   expect(batches).toBe(2);
   expect(keys[0]).toBeTruthy();
   expect(keys[1]).toBe(keys[0]);
+});
+
+for (const width of [360, 390, 430]) {
+  for (const kind of ["file", "text"] as const) {
+    test(`AC-SRC-1/5/11 ${width}px: ${kind} upload waits for manual basic-info saving`, async ({ page }) => {
+      test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires enabled local source API");
+      await page.setViewportSize({ width, height: 850 });
+      const clean = monitor(page);
+      await loginProducer(page, "강영수");
+      await page.goto(`${producerUrl}/products/new`);
+      const variety = page.getByLabel("과일 품종명", { exact: true });
+      await expect(variety).toBeVisible();
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      let started!: () => void;
+      const saving = new Promise<void>((resolve) => { started = resolve; });
+      const order: string[] = [];
+      await page.route("**/api/source-analysis/batches/*/basic-info", async (route) => {
+        if (route.request().method() !== "PUT") return route.continue();
+        started();
+        await gate;
+        const response = await route.fetch();
+        expect(response.ok()).toBeTruthy();
+        order.push("basic-info saved");
+        await route.fulfill({ response });
+      });
+      await page.route("**/api/source-analysis/batches/*/sources", async (route) => {
+        if (route.request().method() === "POST") order.push("source uploaded");
+        await route.continue();
+      });
+      await variety.fill("손입력 온주밀감");
+      await variety.blur();
+      await saving;
+      if (kind === "file") {
+        const chooser = page.waitForEvent("filechooser");
+        await page.getByRole("button", { name: "자료 파일 추가", exact: true }).click();
+        await (await chooser).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
+      } else {
+        await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();
+        await page.getByLabel("첨부 내용", { exact: true }).fill("생산자가 직접 쓴 보관 안내");
+        await page.getByLabel("첨부 내용", { exact: true }).blur();
+      }
+      // Keep the actual save in flight while the immediate attachment is queued.
+      await page.waitForTimeout(400);
+      expect(order).toEqual([]);
+      release();
+      await expect.poll(() => order).toEqual(["basic-info saved", "source uploaded"]);
+      await expect(page.getByText("업로드 실패", { exact: true })).toHaveCount(0);
+      await page.reload();
+      await expect(variety).toHaveValue("손입력 온주밀감");
+      await expect(page.getByTestId("source-material-box").getByTestId("attachment-tile")).toHaveCount(1);
+      if (kind === "text") await expect(page.getByTestId("source-material-box")).toContainText("생산자가 직접 쓴 보관 안내");
+      expect(order.filter((v) => v === "source uploaded")).toHaveLength(1);
+      clean();
+    });
+  }
+}
+
+test("AC-SRC-5/11: failed basic-info save retains manual input and file for one explicit retry", async ({ page }) => {
+  test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires enabled local source API");
+  await loginProducer(page, "강영수");
+  await page.goto(`${producerUrl}/products/new`);
+  const variety = page.getByLabel("과일 품종명", { exact: true });
+  await expect(variety).toBeVisible();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let started!: () => void;
+  const saving = new Promise<void>((resolve) => { started = resolve; });
+  let saves = 0, uploads = 0;
+  await page.route("**/api/source-analysis/batches/*/basic-info", async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    if (++saves === 1) {
+      started(); await gate;
+      return route.fulfill({ status: 503, json: { error: { code: "UNAVAILABLE", message: "일시 저장 실패" } } });
+    }
+    await route.continue();
+  });
+  await page.route("**/api/source-analysis/batches/*/sources", async (route) => {
+    if (route.request().method() === "POST") uploads++;
+    await route.continue();
+  });
+  await variety.fill("직접 입력한 품종"); await variety.blur(); await saving;
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "자료 파일 추가", exact: true }).click();
+  await (await chooser).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
+  release();
+  await expect(page.getByRole("button", { name: "다시 업로드", exact: true })).toBeVisible();
+  await expect(variety).toHaveValue("직접 입력한 품종");
+  expect(uploads).toBe(0);
+  await page.getByRole("button", { name: "다시 업로드", exact: true }).click();
+  await expect(page.getByRole("button", { name: "다시 업로드", exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(variety).toHaveValue("직접 입력한 품종");
+  await expect(page.getByTestId("source-material-box").getByTestId("attachment-tile")).toHaveCount(1);
+  expect(uploads).toBe(1);
 });

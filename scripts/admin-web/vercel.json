@@ -1,0 +1,26 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/api/page?name=home" },
+    { "source": "/login", "destination": "/api/page?name=login" },
+    { "source": "/producers", "destination": "/api/page?name=producers" },
+    { "source": "/capacity", "destination": "/api/page?name=capacity" },
+    { "source": "/farms", "destination": "/api/page?name=farms" },
+    { "source": "/users", "destination": "/api/page?name=users" },
+    { "source": "/user", "destination": "/api/page?name=user" },
+    { "source": "/users/:id", "destination": "/api/page?name=user&id=:id" },
+    { "source": "/inbox", "destination": "/api/page?name=inbox" }
+  ],
+  "functions": {
+    "api/page.js": { "includeFiles": "api/_views/**" }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}

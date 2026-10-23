@@ -1,5 +1,6 @@
 // SCR-11 입금 안내 (FEAT-09 개정, DEV-68, R-01·R-02·R-28, policy 6장)
 // 소비자는 농가 계좌로 직접 입금한다. 이 화면은 주문서에서 받은 입금 대기 주문을 보여 주기만 하고, 돈을 받지 않는다.
+import { track } from "@farmclub/analytics";
 import { ApiError, orders } from "@farmclub/api";
 import {
   BottomBar,
@@ -61,6 +62,8 @@ export default function DepositGuide() {
       const next = o.actions.includes("reportDeposit")
         ? await orders.depositReported(o.orderId)
         : o;
+      // 구매 퍼널 4단계: 입금했어요(DEV-71). 입금 확인(order_paid)은 생산자 확인 뒤 서버가 보낸다
+      if (next !== o) track("deposit_reported", { orderId: o.orderId });
       setData(() => next);
       router.replace(`/orders/${o.orderId}/done`);
     } catch (e) {

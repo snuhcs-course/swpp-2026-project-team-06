@@ -9,10 +9,13 @@ from app.accounts.schemas import (
     AddressInput,
     AddressPatchInput,
     App,
+    ApplicationFilter,
     ConsentsInput,
     ConsentView,
     KakaoConfig,
     KakaoLoginInput,
+    KakaoLoginResult,
+    KakaoSignupInput,
     LoginResult,
     MeUpdateInput,
     ProducerApplication,
@@ -52,10 +55,18 @@ def kakao_config():
     return service.kakao_config()
 
 
-@router.post("/kakao", response_model=LoginResult)
+@router.post("/kakao", response_model=KakaoLoginResult)
 def kakao_login(db: Db, body: KakaoLoginInput):
-    """카카오 인가 코드로 로그인. (식별자, 역할)로 그 앱 계정을 찾거나 만든다(ADR 0003·0010)."""
+    """카카오 인가 코드로 로그인(ADR 0003·0010). 새 사용자는 가입 토큰만 받는다(DEV-132)."""
     result = service.kakao_login(db, body.code, body.redirect_uri, body.app)
+    db.commit()
+    return result
+
+
+@router.post("/kakao/signup", response_model=LoginResult)
+def kakao_signup(db: Db, body: KakaoSignupInput):
+    """가입 토큰과 필수 약관 동의로 카카오 계정을 만들고 로그인한다(DEV-132, AC-01-19)."""
+    result = service.kakao_signup(db, body)
     db.commit()
     return result
 
@@ -74,13 +85,13 @@ def update_me(db: Db, user: Consumer, body: MeUpdateInput):
 
 
 @router.get("/me/consents", response_model=list[ConsentView])
-def my_consents(db: Db, user: Consumer):
+def my_consents(db: Db, user: CurrentUser):
     return service.consent_views(db, user.id)
 
 
 @router.post("/me/consents", response_model=list[ConsentView])
-def save_consents(db: Db, user: Consumer, body: ConsentsInput):
-    """가입 동의 기록(AC-01-14). 항목·버전·시각을 남긴다."""
+def save_consents(db: Db, user: CurrentUser, body: ConsentsInput):
+    """가입·재동의 기록(AC-01-14·17·18). 소비자·생산자 모두. 항목·버전·시각을 남긴다."""
     result = service.save_consents(db, user, body)
     db.commit()
     return result
@@ -123,6 +134,16 @@ def delete_address(db: Db, user: Consumer, address_id: str):
     service.delete_address(db, user.id, address_id)
     db.commit()
     return None
+
+
+@admin_router.get("", response_model=list[ProducerApplication])
+def producer_applications(
+    db: Db,
+    _: Admin,
+    status: Annotated[ApplicationFilter, Query()] = "PENDING",
+):
+    """가입 신청 목록(운영자, DEV-82). 기본 확인 중(PENDING), ALL이면 전부. 신청 최신순."""
+    return service.list_producer_applications(db, None if status == "ALL" else status)
 
 
 @admin_router.post("/{farm_id}/approve", response_model=ProducerDecision)

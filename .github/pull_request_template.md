@@ -37,6 +37,15 @@ Linear DEV- · Closes #
 
 <!-- 확인 후 변경이 추가되면 영향받는 부분을 다시 검토한다. -->
 
+## Figma
+<!-- 화면 모양·문구가 바뀌면 같은 PR에서 Figma v6(https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G)도 고친다.
+     아래 줄 하나를 셋 중 하나로 채운다. apps/*/src, packages/ui/src, scripts/admin-web가 바뀐 PR은 CI(figma-line)가 검사한다.
+       반영함 — <Figma 링크 또는 node-id>
+       해당 없음 — <이유>
+       후속 — <Linear 이슈 키, 예: DEV-xx>
+     예: Figma: 반영함 — https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=343-5945 -->
+Figma: 
+
 ## 변경 요약
 <!-- 파일·기능 단위. diff에 있는 것만 -->
 -

@@ -1,4 +1,5 @@
 // SCR-10 주문서 (FEAT-08, R-03 동의 4개는 policy.md 2장 문구) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
+import { track } from "@farmclub/analytics";
 import {
   ApiError,
   auth,
@@ -36,7 +37,8 @@ import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet } from "../../../lib/views";
 
-const CONSENT_VERSION = "policy-2026-10-06";
+// 예약 전 확인 문구 버전(R-03). DEV-120에서 개인정보 제3자 제공 동의를 더해 올렸다
+const CONSENT_VERSION = "policy-2026-10-23";
 /** 저장 배송지 한도(서버 ADDRESS_LIMIT) */
 const ADDRESS_LIMIT = 50;
 const isRemote = (postal: string, address: string) =>
@@ -71,6 +73,7 @@ export default function Checkout() {
     delayRefund: false,
     shortage: false,
     cancelPolicy: false,
+    thirdParty: false,
   });
   const [sheet, setSheet] = useState<null | "option" | "address">(null);
   const [busy, setBusy] = useState(false);
@@ -117,6 +120,11 @@ export default function Checkout() {
   }, [addresses.data, recipient]);
 
   const p = product.data;
+  // 구매 퍼널 2단계: 로그인한 사용자에게 주문서가 열림(트래킹 플랜 checkout_started, DEV-71)
+  const startedId = user && p ? p.productId : null;
+  useEffect(() => {
+    if (startedId) track("checkout_started", { productId: startedId });
+  }, [startedId]);
   useEffect(() => {
     if (p && !optionId) setOptionId(p.options[0].optionId);
   }, [p, optionId]);
@@ -131,7 +139,7 @@ export default function Checkout() {
   const shipping = p?.shippingFeeType === "SEPARATE" ? p.shippingFee : 0;
   const total = unit * qty + shipping + remoteFee;
   const agreed = Object.values(consents).filter(Boolean).length;
-  const allAgreed = agreed === 4;
+  const allAgreed = agreed === 5;
   const canPay = !!recipient && allAgreed && !!p && !p.soldOut;
 
   const consentText = useMemo(() => {
@@ -156,6 +164,12 @@ export default function Checkout() {
         key: "cancelPolicy" as const,
         title: "취소·반품 조건",
         body: "출하 전에는 언제든 취소하고 전액 환불받을 수 있어요. 신선식품이라 출하 후에는 단순 변심 취소·반품이 안 되고, 받은 상품에 문제가 있을 때만 환불·교환해 드려요.",
+      },
+      {
+        // 개인정보 제3자 제공 동의(DEV-120, 개인정보보호법 제17조 ②의 고지 5가지)
+        key: "thirdParty" as const,
+        title: "개인정보 제3자 제공 (판매자)",
+        body: `받는 분: 판매자 ${p.farmName}. 목적: 상품 배송, 주문 이행, 주문 문의 응대. 항목: 받는 사람 이름·연락처·주소·배송 메모, 주문 내용, 닉네임. 기간: 주문 이행이 끝날 때까지(판매자는 법령이 정한 기간 동안 보관할 수 있어요). 동의하지 않을 수 있지만, 그러면 판매자가 보낼 곳을 몰라 예약할 수 없어요.`,
       },
     ];
   }, [p]);
@@ -184,6 +198,12 @@ export default function Checkout() {
       );
       // DEV-68: 주문을 만든 뒤 바로 입금 안내를 받는다(물량 선점, 입금 대기)
       await orders.deposit(o.orderId, depositKey);
+      // 구매 퍼널 3단계: 주문서 제출 → 입금 안내(DEV-71). 받는 사람·주소는 보내지 않는다
+      track("checkout_submitted", {
+        productId: p.productId,
+        orderId: o.orderId,
+        quantity: qty,
+      });
       router.push({
         pathname: "/checkout/[productId]/pay",
         params: {
@@ -299,14 +319,14 @@ export default function Checkout() {
         >
           {recipient ? (
             <View style={{ gap: 4 }}>
-              <T variant="body" weight="semibold">
+              <T variant="body" weight="semibold" masked>
                 {recipient.recipientName} · {recipient.recipientPhone}
               </T>
-              <T variant="body">
+              <T variant="body" masked>
                 {recipient.address}
                 {recipient.addressDetail ? `, ${recipient.addressDetail}` : ""}
               </T>
-              <T variant="sub" muted>
+              <T variant="sub" muted masked>
                 {recipient.postalCode}
                 {"isDefault" in recipient && (recipient as Address).isDefault
                   ? " · 기본 배송지"
@@ -398,6 +418,7 @@ export default function Checkout() {
                 delayRefund: v,
                 shortage: v,
                 cancelPolicy: v,
+                thirdParty: v,
               });
             }}
           >
@@ -413,7 +434,7 @@ export default function Checkout() {
                   paddingVertical: 16,
                   borderTopWidth: 1,
                   borderTopColor: tokens.color.border,
-                  borderBottomWidth: i === 3 ? 1 : 0,
+                  borderBottomWidth: i === consentText.length - 1 ? 1 : 0,
                   borderBottomColor: tokens.color.border,
                 }}
               >
@@ -440,12 +461,28 @@ export default function Checkout() {
           {/* 통신판매중개자 고지·입금 안내(policy 2장, DEV-68) */}
           <T variant="sub" muted>
             예약하면 농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면
-            예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고, 상품·배송·환불의
-            책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
+            예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고,
+            상품·배송·환불의 책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
           </T>
-          <T variant="caption" muted>
-            이용약관 · 개인정보 처리방침
-          </T>
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            {(
+              [
+                ["이용약관", "/terms"],
+                ["개인정보 처리방침", "/privacy"],
+              ] as const
+            ).map(([label, path]) => (
+              <Pressable
+                key={path}
+                accessibilityRole="link"
+                onPress={() => router.push(path)}
+                style={{ minHeight: 48, justifyContent: "center" }}
+              >
+                <T variant="sub" weight={path === "/privacy" ? "semibold" : "regular"}>
+                  {label}
+                </T>
+              </Pressable>
+            ))}
+          </View>
         </Section>
         {errors._ ? (
           <T variant="sub" color={tokens.color.error} style={{ margin: 20 }}>
@@ -517,11 +554,11 @@ export default function Checkout() {
               gap: 4,
             }}
           >
-            <T variant="body" weight="semibold">
+            <T variant="body" weight="semibold" masked>
               {a.recipientName} · {a.recipientPhone}
               {a.isDefault ? "  기본" : a.label ? `  ${a.label}` : ""}
             </T>
-            <T variant="sub" muted>
+            <T variant="sub" muted masked>
               {a.address} {a.addressDetail}
             </T>
           </Pressable>

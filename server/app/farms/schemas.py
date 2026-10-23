@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from app.catalog.schemas import ProductCard
-from app.core.detail import DetailContent
+from app.core.detail import DetailContent, MediaUri
 from app.core.schemas import CamelModel
 
 
@@ -85,7 +85,7 @@ class FarmPatch(CamelModel):
     name: str | None = Field(default=None, max_length=100)
     region: str | None = Field(default=None, max_length=100)
     intro: str | None = None
-    photo: str | None = None
+    photo: MediaUri | None = None
     detail_content: DetailContent | None = None
     # 입금 계좌 세 칸은 함께 보낸다(DEV-68). 계좌번호는 숫자·하이픈 6~32자
     bank_name: str | None = Field(default=None, min_length=1, max_length=50)

@@ -13,7 +13,7 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 
 ## 문서 위치
 
-- 후속 기능 명세: [기존 자료 일괄 분석](./source-analysis.md) — DEV-54 비공개 백엔드, 앱 통합은 후속. 사전 지정 상품별 분석·출처 검토·원본 사진 요청·GPT-6.1 Sol. 기존 단건 초안 계약과 구분한다.
+- 후속 기능 명세: [기존 자료 일괄 분석](./source-analysis.md) — DEV-54는 초기 백엔드 이력이다. 현재 DEV-56~58 통합 UI/18모듈 편집과 Gemini/OpenRouter 계약은 source-integration.md·source-editor.md를 따르며, DEV-90에서 운영 worker/OCR를 활성화했다. 품질·농가 인수는 별도 미완료다. 기존 단건 초안 계약과 구분한다.
 
 | 문서 | 경로 | 담는 것 |
 | --- | --- | --- |

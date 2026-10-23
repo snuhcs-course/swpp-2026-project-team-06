@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>farmclub 관리자 · 테스트 농가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/assets/admin.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side"></aside>
+  <div class="content"><div class="wrap">
+    <header class="page-head">
+      <h1>테스트 농가</h1>
+      <p class="hint" style="margin: 4px 0 0">운영 검증에 쓴 농가를 소비자 화면(홈·농가 목록·농가·상품·주문)에서 숨기거나 다시 공개해요. 데이터는 지우지 않아요. 테스트 계정이 아닌 소비자 주문이 있으면 숨기지 않아요.</p>
+    </header>
+    <nav class="tabs" id="tabs" aria-label="상태"></nav>
+    <section id="list" aria-live="polite"></section>
+  </div></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="/assets/admin.js"></script>
+<script>
+// 테스트 농가 숨기기·되돌리기(DEV-98). 서버는 운영 명령 retire_test_farm(DEV-93)과 같은 조건으로 거부한다.
+// 실행 전에 미리보기(시험 실행)로 출하 전 주문·거부 사유를 보여 주고, 두 번 눌러 확인한다.
+const TABS = { PUBLIC: "공개 중", HIDDEN: "숨김", ALL: "전체" };
+const ORDER = { AWAITING_DEPOSIT: "입금 대기", RESERVED: "예약 완료", PREPARING: "출하 준비" };
+let tab = "PUBLIC", rows = null, busy = false;
+
+function renderTabs() {
+  const count = (t) => !rows ? "" : t === "ALL" ? rows.length : rows.filter((r) => r.hidden === (t === "HIDDEN")).length;
+  $("#tabs").innerHTML = Object.entries(TABS).map(([t, label]) => {
+    const n = count(t);
+    return `<button aria-pressed="${t === tab}" data-tab="${t}">${label}${n !== "" ? " " + n : ""}</button>`;
+  }).join("");
+}
+
+function card(r) {
+  return `<article class="card app" data-id="${esc(r.farmId)}">
+    <div class="row" style="justify-content: space-between">
+      <h2>${esc(r.name)}</h2><span class="badge ${r.hidden ? "s-SUSPENDED" : "s-APPROVED"}">${r.hidden ? "숨김(테스트)" : "공개 중"}</span>
+    </div>
+    <dl class="meta">
+      <dt>지역</dt><dd>${esc(r.region)}</dd>
+      <dt>생산자</dt><dd>${esc(r.producerName)} <span class="hint">· ${r.producerIsTestAccount ? "테스트 계정" : "실사용자 계정"}</span></dd>
+      <dt>상품</dt><dd>${r.productCount}개</dd>
+      <dt>농가 ID</dt><dd><code>${esc(r.farmId)}</code></dd>
+    </dl>
+    <div class="row"><button class="${r.hidden ? "primary" : "danger"}" data-act="preview">${r.hidden ? "다시 공개" : "숨기기"}</button></div>
+    <div class="slot"></div>
+  </article>`;
+}
+
+function renderList() {
+  renderTabs();
+  if (!rows) { $("#list").innerHTML = `<p class="empty">불러오는 중…</p>`; return; }
+  const shown = tab === "ALL" ? rows : rows.filter((r) => r.hidden === (tab === "HIDDEN"));
+  $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<p class="empty">${tab === "HIDDEN" ? "숨긴 농가가 없어요." : "해당하는 농가가 없어요."}</p>`;
+}
+
+async function load() {
+  rows = null; renderList();
+  try { rows = await call("/admin/farms"); renderList(); }
+  catch (e) { rows = []; renderList(); toast(e.message, true); }
+}
+
+function previewBox(p, row) {
+  const orders = Object.entries(p.openOrders || {}).map(([s, n]) => `${ORDER[s] || esc(s)} ${n}건`).join(", ");
+  const restore = p.action === "restore";
+  const notes = [];
+  if (orders) notes.push(`출하 전 테스트 주문: ${orders}. ${restore ? "숨긴 동안 만료된 주문은 되살리지 않아요." : "숨긴 동안 열린 채로 남을 수 있어요."}`);
+  if (!restore && row && !row.producerIsTestAccount) notes.push("생산자가 테스트 계정이 아니에요(카카오 가입 등). 숨기면 이 생산자는 앱에서 정지 안내를 보게 돼요. 운영 검증용 농가가 맞는지 확인하세요.");
+  if (!restore && p.reportedDeposits) notes.push(`입금했다고 알린 주문 ${p.reportedDeposits}건은 자동 취소되지 않고 기한 뒤 입금 지연 목록에 남아요.`);
+  if (p.refusal) {
+    return `<div class="reject-box"><p><strong>${restore ? "다시 공개할" : "숨길"} 수 없어요.</strong> ${esc(p.refusal)}</p>
+      <div class="row"><button class="text" data-act="cancel">닫기</button></div></div>`;
+  }
+  return `<div class="reject-box">
+    <p>${restore ? "소비자 화면에 다시 보여요." : "소비자 화면(홈·농가 목록·농가·상품·주문)에서 사라져요. 데이터는 지우지 않고 언제든 다시 공개할 수 있어요."}</p>
+    ${notes.map((n) => `<p class="hint">${esc(n)}</p>`).join("")}
+    <div class="row"><button class="${restore ? "primary" : "danger solid"}" data-act="${restore ? "restore" : "retire"}">${restore ? "다시 공개하기" : "숨기기"}</button><button class="text" data-act="cancel">취소</button></div>
+  </div>`;
+}
+
+$("#tabs").onclick = (e) => { const b = e.target.closest("button[data-tab]"); if (b) { tab = b.dataset.tab; renderList(); } };
+
+$("#list").onclick = async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b || busy) return;
+  const el = b.closest("article"), id = el.dataset.id, slot = el.querySelector(".slot"), act = b.dataset.act;
+  const row = rows.find((r) => r.farmId === id);
+  if (act === "preview") {
+    busy = true; b.disabled = true;
+    try { slot.innerHTML = previewBox(await call(`/admin/farms/${id}/preview`), row); }
+    catch (err) { toast(err.message, true); }
+    finally { busy = false; b.disabled = false; }
+  } else if (act === "retire" || act === "restore") {
+    const label = act === "retire" ? `${row.name}을(를) 숨길까요? 한 번 더 누르기` : `${row.name}을(를) 다시 공개할까요? 한 번 더 누르기`;
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = label; return; }
+    busy = true; b.disabled = true;
+    try {
+      await call(`/admin/farms/${id}/${act}`, "POST", {});
+      toast(act === "retire" ? `${row.name}을(를) 숨겼어요` : `${row.name}을(를) 다시 공개했어요`);
+      tab = act === "retire" ? "HIDDEN" : "PUBLIC";
+      await load();
+    } catch (err) { toast(err.message, true); await load(); }
+    finally { busy = false; }
+  } else if (act === "cancel") {
+    slot.innerHTML = "";
+  }
+};
+
+load();
+</script>
+</body>
+</html>
