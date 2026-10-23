@@ -277,7 +277,7 @@ export const privacyPolicy: LegalDoc = {
           table: {
             head: ["이전받는 자(연락처)", "국가", "이전 항목", "목적", "보유·이용 기간"],
             rows: [
-              ["Railway Corp (privacy@railway.com)", "미국", "제2조의 서비스 데이터 전체", "서버·데이터베이스 운영", "제3조의 기간"],
+              ["Railway Corp (privacy@railway.com, 미국 법인)", "싱가포르(서버·데이터베이스 소재지)", "제2조의 서비스 데이터 전체", "서버·데이터베이스 운영", "제3조의 기간"],
               ["Vercel Inc. (privacy@vercel.com)", "미국", "접속 기록(IP 주소, 브라우저 정보)", "웹 앱 전달", "위탁 계약 종료 시까지"],
               ["Cloudflare, Inc. (privacyquestions@cloudflare.com)", "미국", "소식·채팅·문의·상품 자료 사진과 파일", "파일 저장·전달", "제3조의 기간"],
               ["Anthropic, PBC (privacy@anthropic.com)", "미국", "채팅 질문 본문과 답변 근거(상품·주문 상태 등). 연락처·주소는 빼고 보냄", "AI 안내 답변 생성", "받은 날부터 30일 안에 삭제(수탁자 정책. 정책 위반 검토 등 예외)"],
