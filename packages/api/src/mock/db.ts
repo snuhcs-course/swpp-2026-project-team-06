@@ -43,6 +43,8 @@ export type UserRec = {
   phone?: string;
   /** 가입 동의(FEAT-01 I2) */
   consents?: Consent[];
+  /** 탈퇴한 회원(DEV-94). 개인정보는 지웠고 로그인할 수 없다 */
+  deleted?: boolean;
 };
 const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
 const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;

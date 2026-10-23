@@ -27,6 +27,11 @@ export const auth = {
     return res;
   },
   logout: () => setToken(null),
+  /**
+   * 회원 탈퇴(DEV-94). 끝나지 않은 주문이 있으면 409 WITHDRAW_BLOCKED(orderNos).
+   * 성공하면 서버가 이 토큰을 받지 않으니, 앱이 로그아웃(토큰 삭제)과 이동을 처리한다
+   */
+  withdraw: () => request<null>("POST", "/api/auth/me/withdraw"),
   me: () => request<A.User>("GET", "/api/auth/me"),
   /** 온보딩 1장·프로필 수정(닉네임·이름·휴대폰) */
   updateMe: (input: A.MeUpdateInput) =>
