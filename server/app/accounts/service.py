@@ -63,6 +63,8 @@ def public_name(user: User | None) -> str:
     """농가에 보이는 소비자 이름(R-15). 닉네임, 없으면 이름 앞 글자 + ○○."""
     if user is None:
         return "고○○"
+    if user.deleted_at is not None:
+        return WITHDRAWN_NAME
     if user.nickname:
         return user.nickname
     return f"{(user.name or '고')[:1]}○○"
@@ -604,3 +606,96 @@ def save_order_address(db: Session, user_id: str, data: AddressInput) -> None:
         a.is_default = a is same
     if same is None:
         add_address(db, user_id, data.model_copy(update={"is_default": True}))
+
+
+# ---------------- 회원 탈퇴 (DEV-94, AC-01-20) ----------------
+
+WITHDRAWN_NAME = "탈퇴한 회원"
+WITHDRAWN_MESSAGE = "탈퇴한 회원의 메시지예요."
+FARM_WITHDRAWN_REASON = "농가가 탈퇴했어요"
+# 입금 대기부터 배송 중까지는 거래가 끝나지 않았다. 이런 주문이 있으면 탈퇴를 막는다(D5)
+OPEN_ORDER_STATUSES = ("PENDING_PAYMENT", "AWAITING_DEPOSIT", "RESERVED", "PREPARING", "SHIPPED")
+
+
+def withdraw(db: Session, user: User) -> None:
+    """회원 탈퇴(DEV-94). 개인정보를 지우고 행만 남긴다(익명화, server/tasks.md D1~D8).
+
+    - 주문·입금·환불은 전자상거래법 보존 기간 동안 그대로 둔다(D2). 동의 기록도 증빙으로 남긴다(D8).
+    - 쓴 채팅·소식 답장 본문과 사진은 지운다. 주문 문제 문의는 분쟁 기록이라 남긴다(D3·D4).
+    - 생산자는 농가를 숨기고 입금 계좌·연락처를 지운다(D6).
+    - 카카오 회원번호를 지워 같은 카카오로 다시 오면 새 사용자다(D7).
+    """
+    from app.farms import service as farms
+    from app.farms.models import Follow
+    from app.messaging.models import PrivateAttachment, Reaction, RoomReply, Thread, ThreadMessage
+    from app.orders.models import Order
+
+    if user.is_test_account:
+        raise forbidden("테스트 계정은 탈퇴할 수 없어요.", reason="TEST_ACCOUNT")
+    farm = farms.get_farm_of_producer(db, user.id) if user.role == "PRODUCER" else None
+    if user.role == "PRODUCER":
+        scope = Order.product_id.in_(_farm_product_ids(db, farm.id) if farm else [])
+    else:
+        scope = Order.consumer_id == user.id
+    open_orders = select(Order.order_no).where(scope, Order.status.in_(OPEN_ORDER_STATUSES))
+    blocking = sorted(db.scalars(open_orders))
+    if blocking:
+        raise conflict(
+            "WITHDRAW_BLOCKED",
+            "끝나지 않은 주문이 있어요. 주문이 끝난 뒤 탈퇴할 수 있어요.",
+            orderNos=blocking,
+        )
+
+    # 저장 배송지·좋아요·팔로우(팔로워 수도 줄인다)
+    for row in db.scalars(select(ShippingAddress).where(ShippingAddress.user_id == user.id)):
+        db.delete(row)
+    for row in db.scalars(select(Reaction).where(Reaction.user_id == user.id)):
+        db.delete(row)
+    for follow in db.scalars(select(Follow).where(Follow.consumer_id == user.id)):
+        followed = farms.get_farm(db, follow.farm_id)
+        if followed is not None and followed.follower_count > 0:
+            followed.follower_count -= 1
+        db.delete(follow)
+    # 소식 답장 본문, 1:1 채팅에서 이 회원이 쓴 메시지(주문 문의 제외)
+    for reply in db.scalars(select(RoomReply).where(RoomReply.consumer_id == user.id)):
+        reply.body = WITHDRAWN_MESSAGE
+    thread_ids = list(db.scalars(select(Thread.id).where(Thread.consumer_id == user.id)))
+    if thread_ids:
+        mine = select(ThreadMessage).where(
+            ThreadMessage.thread_id.in_(thread_ids),
+            ThreadMessage.sender_type == "CONSUMER",
+            ThreadMessage.order_id.is_(None),
+            ThreadMessage.inquiry_id.is_(None),
+        )
+        for message in db.scalars(mine):
+            message.body = WITHDRAWN_MESSAGE
+            message.photos = []
+            message.attachment_ids = []
+    for attachment in db.scalars(
+        select(PrivateAttachment).where(
+            PrivateAttachment.uploader_id == user.id, PrivateAttachment.order_id.is_(None)
+        )
+    ):
+        db.delete(attachment)
+
+    if farm is not None:
+        farm.approval_status = "SUSPENDED"
+        farm.suspend_reason = FARM_WITHDRAWN_REASON
+        farm.bank_name = None
+        farm.account_number = None
+        farm.account_holder = None
+        farm.contact_phone = ""
+
+    user.name = ""
+    user.nickname = None
+    user.phone = ""
+    user.email = None
+    user.kakao_id = None
+    user.deleted_at = now()
+    db.flush()
+
+
+def _farm_product_ids(db: Session, farm_id: str) -> list[str]:
+    from app.catalog.models import Product
+
+    return list(db.scalars(select(Product.id).where(Product.farm_id == farm_id)))

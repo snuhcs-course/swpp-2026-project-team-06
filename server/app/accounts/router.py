@@ -87,6 +87,16 @@ def save_consents(db: Db, user: CurrentUser, body: ConsentsInput):
     return result
 
 
+@router.post("/me/withdraw", status_code=204)
+def withdraw(db: Db, user: CurrentUser):
+    """회원 탈퇴(DEV-94, AC-01-20). 개인정보를 지우고 이 토큰은 더 쓸 수 없다.
+
+    끝나지 않은 주문이 있으면 409 WITHDRAW_BLOCKED(orderNos), 테스트 계정은 403 TEST_ACCOUNT.
+    """
+    service.withdraw(db, user)
+    db.commit()
+
+
 @router.post("/producer-application", response_model=ProducerApplication)
 def submit_producer_application(db: Db, user: Producer, body: ProducerApplicationInput):
     service.submit_producer_application(db, user, body)
