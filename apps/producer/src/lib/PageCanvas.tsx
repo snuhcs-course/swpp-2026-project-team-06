@@ -209,9 +209,6 @@ export function PageCanvas({
                     ? "대표사진"
                     : "대표로 지정"
                 }
-                accessibilityState={{
-                  selected: representativeUri === m.photos[i]?.uri,
-                }}
                 aria-pressed={representativeUri === m.photos[i]?.uri}
                 disabled={busy || uploading}
                 onPress={() => onRepresentativeChange(m.photos[i].uri)}

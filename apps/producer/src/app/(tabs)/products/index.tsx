@@ -63,7 +63,6 @@ export default function Products() {
             <Pressable
               key={group.value}
               accessibilityRole="tab"
-              accessibilityState={{ selected: group.value === selected.value }}
               aria-selected={group.value === selected.value}
               onPress={() => router.setParams({ filter: group.value })}
               style={{
