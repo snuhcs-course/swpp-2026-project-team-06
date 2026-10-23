@@ -439,3 +439,45 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
 - 10/22 `/privacy`·`/terms` 라우트, 홈·로그인·내 정보 하단 `LegalFooter`, 가입 동의 시트 ‘전문 보기’, vercel.json에서 정적 HTML로 rewrite.
+
+## DEV-120 주문서 개인정보 제3자 제공 동의(판매자 농가)와 약관·처리방침 링크
+
+- 이슈: [DEV-120](https://linear.app/sswp6/issue/DEV-120)
+- 브랜치: `nemodleo/dev-120-checkout-third-party-consent` (DEV-113 브랜치 위에 쌓음, PR base = DEV-113 브랜치)
+- 기능·규칙: FEAT-08 AC-08-1(·새 AC-08-9), R-03, R-15, policy.md 2·5장, 개인정보보호법 제17조 ①·②
+- 상태: 리뷰 중
+
+### 목표
+주문하면 받는 사람 정보가 판매자 농가(제3자)에게 간다. 계약 이행(제15조 ① 제4호)은 제3자 제공 근거가 아니므로(제17조 ① 제2호) 주문서에서 별도 동의를 받고, 주문서의 약관·처리방침 문구를 링크로 바꾼다.
+
+### 범위 (수정 허용 경로)
+- `server/app/orders/{schemas,service}.py`, `server/tests/{test_orders,test_accounts,test_retire_test_farm}.py`
+- `packages/api/src/{types.ts,mock/orders.ts}`, `scripts/{test-spec12,test-capacity,test-integration}.mjs`
+- `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/tasks.md`
+- `packages/ui/src/legalContent.ts`(처리방침 제4조), `scripts/test-legal.mjs`, `scripts/e2e/checkout-and-fulfillment.spec.ts`(필요 시)
+- `docs/spec/functional/FEAT-08-reservation-order.md`, `docs/spec/{policy,screens}.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+- DB 스키마(동의는 전부 필수라 주문의 `consent_at`·`consent_version`으로 기록), 판매자 신원정보 표시(DEV-119), 가입 동의 버전(`CONSENT_VERSION`)
+
+### 결정 사항
+- 10/23 R-03 동의 4개에 `thirdParty`(개인정보 제3자 제공)를 5번째 필수 항목으로 더한다. 5개 모두 필수라 주문이 있으면 동의한 것이고, 시각·문구 버전은 기존 `consent_at`·`consent_version`에 남는다(마이그레이션 없음). 제공받는 자는 주문 상품의 농가로 정해진다.
+- 10/23 주문서 동의 문구 버전 `policy-2026-10-06` → `policy-2026-10-23`(문구가 바뀜).
+- 10/23 고지 5가지(제17조 ②): 제공받는 자(농가명), 목적(상품 배송·주문 이행·주문 문의 응대), 항목(받는 사람 이름·연락처·주소·배송 메모, 주문 내용, 닉네임), 보유·이용 기간(주문 이행이 끝날 때까지, 판매자는 법령 보존 기간 동안 보관 가능), 거부 권리와 거부 시 예약 불가.
+
+### 작업
+- [x] 서버·Mock: `thirdParty` 필수(없으면 400 `consents`)
+- [x] 주문서: 5번째 동의, ‘모두 동의’에 포함, 약관·처리방침 링크
+- [x] 처리방침 제4조: 주문할 때 받는 별도 동의에 따라 제공
+- [x] 스펙: FEAT-08 AC-08-1·새 AC, policy 2·5장, screens SCR-10, wiki
+- [x] pytest, typecheck, test:mock, Playwright(실서버 integration)
+
+### 완료 조건
+- [x] 제3자 제공 동의 없이는 예약이 안 된다(서버·Mock·화면)
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지(DEV-113 먼저)
+
+### 기록
+- 10/23 DEV-113 브랜치 b533e8b 위에서 시작.
+- 10/23 검증: `uv run pytest` 425 passed(새 AC-08-7), 손댄 3개 파일 재실행 79 passed, `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 28 passed / 0 failed(Mock 주문 제3자 제공 동의 검사 추가), 실서버 `test:integration:full` 67 passed / 4 skipped / 0 failed(checkout E2E의 ‘모두 동의해요’가 5개를 모두 켬). 임시 DB 삭제.
+- 10/23 screens.md API 표의 `/api/auth/me/consents` 대상을 소비자·생산자로 고침(DEV-113에서 빠졌던 것).
