@@ -1,57 +1,91 @@
-# Farmclub — Iteration 2 working demo
+# farmclub
 
-SNU SWPP 2026 · Team 6 · Implementation & Testing · Prepared 22 October 2026
+**Reserve Jeju citrus before harvest, follow the farm while it grows, and get it in season.**
 
-Farmclub connects consumers with Jeju citrus farms through advance reservations, farm updates and private conversations. This branch contains both applications, the API, the source-analysis worker and operator tools. The product snapshot is [`691949e985080f372a45d54fa950191e88adb8ce`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/691949e985080f372a45d54fa950191e88adb8ce); this README describes the I2 demo, rather than claiming to be the final 23 October deadline snapshot.
+farmclub is a direct-to-consumer pre-order platform for small farms. Consumers follow a farm, watch the crop grow through short updates from the farmer, and reserve produce before harvest. The earlier they reserve, the less they pay. Farmers learn demand early, and AI takes over the repetitive work of writing product pages and answering common questions.
 
-## 1. Watch the four demo videos
+SNU Software Development Principles and Practices (SWPP) 2026, Team 6.
 
-All four recordings are available without installing the project. They are silent walkthroughs with controlled demonstration data. The presentation's demo link resolves to [the demo viewer](https://demo.farmclub.kr/); direct MP4 links are provided as well. Durations below follow the viewer's labels. Video availability was checked on 22 October (HTTP 206, `video/mp4`).
+> **Status:** Iteration 1 (prototype). The app skeleton, CI, and specifications are in place, and the I1 features are being implemented. Payment and login are mocked in I1.
 
-| Recording | Watch | Approx. duration | What to observe |
-| --- | --- | --- | --- |
-| **Overall flow** | [Viewer](https://demo.farmclub.kr/) · [MP4](https://demo.farmclub.kr/videos/story.mp4) | 4:55 | Producer joins → operator approves → producer configures farm/product/supply → operator approves capacity → consumer discovers/reserves → farm confirms deposit → updates/private AI handoff and producer reply |
-| **Consumer** | [Viewer](https://demo.farmclub.kr/consumer) · [MP4](https://demo.farmclub.kr/videos/consumer.mp4) | 1:53 | Kakao entry, discovery/following, product quality and price, checkout consents/address, deposit instructions, reserved order, news reaction and private question |
-| **Producer** | [Viewer](https://demo.farmclub.kr/producer) · [MP4](https://demo.farmclub.kr/videos/producer.mp4) | 2:32 | Application/pending gate, profile/bank account/share, AI text draft and review, period pricing/supply request, deposit confirmation, news and handoff reply |
-| **Operator** | [Viewer](https://demo.farmclub.kr/admin) · [MP4](https://demo.farmclub.kr/videos/admin.mp4) | 0:30 | Password-session entry, producer application decision and initial product capacity approval with confirmation |
+## How it works
 
-### Suggested viewing sequence
-
-1. **Overall:** follow the same transaction across all three roles. Approval and deposit confirmation are distinct decisions; a buyer declaring a transfer does not confirm it.
-2. **Consumer:** inspect the information shown before reserving and the transition from awaiting deposit to reserved. The four consents, copied deposit account/order number and private conversation are key interactions.
-3. **Producer:** inspect manual control over the generated draft, commercial terms and approval request. The farm—not Farmclub—checks its bank statement and confirms the deposit.
-4. **Operator:** inspect both approval gates. The 30-second recording covers these gates; newer inbox/user/test-farm tools in the snapshot are additional implemented functionality, not footage shown in this clip.
-
-The recordings demonstrate the workflow and do not establish that money moved. They omit shipment: the current producer UI has no `RESERVED` → `PREPARING` button. The retained harvest API and shipping of already preparing orders are documented separately. The recording's text-draft flow also does not demonstrate the newer full private document workspace.
-
-## 2. What Iteration 2 implements
-
-| Area | Major progress since I1 | Relevant features |
-| --- | --- | --- |
-| Consumer | Kakao onboarding/profile/consents/address book; conversation-based discovery, fixed product actions, bank-transfer instructions/reporting and status display | FEAT-01, 06–13, 15, 33 |
-| Producer | Kakao application and account-state routing, bank account registration, direct deposit/refund confirmation, draft/error recovery, private source-assisted page editing and explicit apply, guided help and farmclub support | FEAT-01–05, 14, 17, 19, 32, 34; AC-SRC-1–11 |
-| Operator | Session-protected browser tools for producer/capacity decisions, controlled test-farm hiding, privacy-limited user/order lookup and producer support inbox | Operator APIs and FEAT-34 |
-| AI and media | Separately deployed source worker, evidence/candidate validation, private source storage, original-photo placement, public media and Open Graph previews; wrong-answer reports and producer takeover | Source integration; FEAT-03, 07, 13, 19 |
-| Engineering | Schema migrations through 0019, CI-driven deployments, optional masked PostHog instrumentation, expanded unit/API/browser regressions | See [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation) |
-
-Availability is distinct from acceptance. The final internal workbook records environment-specific failures/blockers; later local regression does not automatically clear them. Automated bank matching, integrated payment/escrow, courier integration, push notifications and scheduled completion/refund jobs remain outside this demo. Producers review missing or potentially misread source facts before publication.
-
-## 3. Environment
-
-| Item | Development / execution environment |
+| | What it means for users |
 | --- | --- |
-| Clients | Node **24** (`.nvmrc`), npm workspaces, Expo / React Native Web / TypeScript; consumer and producer run independently |
-| Backend | Python **3.12**, uv, FastAPI / SQLAlchemy / Alembic; PostgreSQL **16** |
-| Local validation host | macOS, Apple Silicon; Node 24.19.0, npm 11.19.0, Python 3.12.14, uv 0.13.5, PostgreSQL 16.15; Chromium 156.0.8078.4 via Playwright 1.64.0 |
-| Hosted implementation | Vercel consumer/producer/operator, Railway API and source worker, PostgreSQL, Cloudflare R2; Kakao OAuth; optional server AI providers and client PostHog |
-| Dependency reproducibility | Root `package-lock.json`, `server/uv.lock`; install with `npm ci` and `uv sync --frozen` |
+| **Stage pricing** | Each product is sold in stages before harvest. Earlier stages cost less, and the price is locked at the time of the order. |
+| **Farm updates** | Farms post short updates with photos (growth, sugar level, harvest timing) to their followers, like an artist posting to a fan community. Followers can react with a like. |
+| **1:1 chat with AI support** | Consumers ask a farm questions in a private chat. AI answers routine questions (delivery, storage, crop status) from the farm's own data, and hands anything that needs the farmer's judgment over to the farm. |
+| **AI product drafts** | Farmers paste the text they already use on KakaoTalk or BAND, and AI turns it into a product page draft. Nothing is published until the farmer reviews it and farmclub approves it. |
 
-The optional OCR worker uses RapidOCR 3.10.0 / ONNX Runtime 1.31.0 and provisioned model assets. These are not required for the shared Mock route below.
+The first product category is premium Jeju citrus.
 
-## 4. Run locally — shared Mock (quickest)
+## Features in Iteration 1
 
-### Shared local entry point (`make`)
+**Consumer app**
+- Home and discovery: seasonal highlight, products closing soon, updates from followed farms
+- Farm page with products and updates; follow a farm
+- Product detail with the current stage price, the next stage price, and the expected delivery window
+- Reservation order and payment (mock), order history, cancellation before shipping
+- Farm news rooms with likes and private consumer replies, and 1:1 chat with AI answers and hand-off to the farm
 
+**Producer app**
+- Sign-up request and approval
+- AI product draft from pasted text, product editing, stage, price, and quantity setup, then a publish request
+- Dashboard with reservations per stage and orders to ship
+- Posting updates, answering questions in the inbox, shipping status and tracking number
+
+**Operators**
+- Admin API with Swagger UI for approving producers and products and handling orders (a dedicated admin screen comes in I2)
+
+Planned for I2 and later: Kakao login, real payment (PortOne), notifications, native Android and iOS builds, and AI-assisted shipping input. The full scope and priorities are in the [PRD](docs/spec/prd.md).
+
+## Tech stack
+
+| Area | Choice |
+| --- | --- |
+| Apps | Expo (React Native, TypeScript) with Expo Router, web output. Two apps: consumer and producer |
+| Backend | FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic |
+| Database | PostgreSQL (Docker locally) |
+| Auth | I1: mock login with seeded test accounts and a server-issued JWT. I2: Kakao login |
+| AI | Claude Haiku 4.5, called only through one adapter in `server/app/ai`. Personal data is removed before any AI call |
+| Observability | PostHog (product metrics), Sentry (errors), Langfuse (AI traces) |
+| Files | Cloudflare R2 |
+| Hosting | Vercel (apps), Railway (API and database) |
+| CI | GitHub Actions: server lint/tests/migrations; app typecheck/web build; real-stack API and Chromium integration |
+
+Architecture decisions are recorded in [`docs/spec/tech-design/adr/`](docs/spec/tech-design/adr/).
+
+## Repository layout
+
+```
+apps/
+  consumer/        Consumer app (Expo Router, web)
+  producer/        Producer app (Expo Router, web)
+packages/
+  ui/              Shared components and design tokens (@farmclub/ui)
+  api/             API client and types (@farmclub/api)
+server/            FastAPI server
+  app/             Domain modules: core, accounts, farms, catalog, orders, messaging, ai, analytics
+  migrations/      Alembic migrations
+  tests/           pytest
+docs/
+  spec/            Product specification (Korean, source of truth)
+  wiki/            Course documentation (English, synced to the GitHub Wiki)
+.agents/skills/    Shared skills for AI coding agents
+.github/           CI workflow, Dependabot, PR template
+```
+
+Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (a log of work per issue).
+
+## Getting started
+
+### Prerequisites
+
+- [Docker](https://www.docker.com/) for the local PostgreSQL database
+- [uv](https://docs.astral.sh/uv/) for the Python server (Python 3.12 is installed by uv)
+- [Node.js](https://nodejs.org/) 24 (see `.nvmrc`) and npm
+
+### Local run (`make`)
 
 The root `Makefile` is the single entry point for local work. It only calls the npm
 scripts, `scripts/*.mjs`, and `server/` commands described below, and its checks run
@@ -70,7 +104,7 @@ make check          # before a PR: lint (ruff check) + test
   `test-integration` and `test-e2e` are heavy and stay out of `make test`.
 - `make coverage-producer` prints producer logic coverage; `make coverage-producer-ui` runs the
   real-stack suite with `FARMCLUB_COVERAGE=1` and writes `.artifacts/coverage/producer-ui/index.html`
-  (heavy, reseeds the local database; see Testing Documentation 3.7).
+  (heavy, reseeds the local database; see Testing Documentation 3.6).
 - The local PostgreSQL container is shared by every worktree, so the `alembic check` in
   `test-server` fails on a `farmclub` database that another branch migrated. Use a database
   per branch: `docker compose -f server/docker-compose.yml exec db createdb -U farmclub farmclub_dev12`,
@@ -83,112 +117,295 @@ make check          # before a PR: lint (ruff check) + test
   `make/*.mk` and add `include make/*.mk` to it. Do not add Makefiles in subfolders.
 - Production commands (Railway, production deploys or databases) are not make targets.
 
-Prerequisite: Node 24 and npm. From this branch:
+### Server
+
+```bash
+cd server
+docker compose up -d          # local PostgreSQL 16
+cp .env.example .env          # fill in only what you need; empty values fall back to app/core/config.py
+uv sync
+uv run alembic upgrade head
+uv run python -m app.core.seed            # I1 demo data (add --reset to start over)
+MOCK_LOGIN_ENABLED=true uv run uvicorn app.main:app --reload
+```
+
+- Health check: http://localhost:8000/health returns `{"status": "ok"}`
+- API docs (Swagger UI): http://localhost:8000/docs. This is the API reference for the apps.
+- Test login (I1): `MOCK_LOGIN_ENABLED=true` turns on `GET /api/auth/test-accounts` and `POST /api/auth/test-login`. It is off by default and must stay off in production.
+- Demo date: set `FIXED_NOW=2026-10-07T10:00:00+09:00` so stages and D-days match the seed.
+- Operator token for the `/admin` API: `uv run python -m app.accounts.admin_token`, then paste it into **Authorize** in Swagger UI.
+- Outside `APP_ENV=local`, the server refuses to start without `JWT_SECRET`.
+- Never commit `.env`.
+
+### Apps
+
+Run from the repository root (npm workspaces):
+
+```bash
+npm install
+npm run web -w apps/consumer                  # consumer app, http://localhost:8081
+npm run web -w apps/producer -- --port 8082   # producer app, http://localhost:8082
+```
+
+The apps call the server at `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`).
+
+### Checks
+
+These are the same checks CI runs on every pull request.
+
+```bash
+# server/ (pytest uses a separate <db>_test database on the same PostgreSQL)
+uv run ruff check .
+uv run pytest
+uv run alembic check          # needs the database running
+
+# apps/consumer and apps/producer
+npm run typecheck
+npx expo export -p web
+```
+
+### Real-stack integration
+
+Install dependencies once with `npm ci`, `cd server && uv sync --frozen`, and
+`npx playwright install chromium`. Docker must be running and ports 8000, 8081,
+and 8082 must be free.
+
+```bash
+# Reset PostgreSQL, start FastAPI and both Expo web apps, run API + Chromium tests,
+# then stop every child process. This is the same entry point used by CI.
+npm run test:integration:full
+
+# Run only the API smoke against an already-running local FastAPI server.
+FARMCLUB_ADMIN_TOKEN="$(cd server && uv run python -m app.accounts.admin_token)" \
+  npm run test:integration
+
+# Run only Chromium against an already-running, reset real stack.
+npm run test:e2e
+```
+
+The integration commands reject non-localhost targets. The full runner fixes the
+server clock, disables Mock mode, resets the I1 seed before both phases, and keeps
+process logs under `.artifacts/integration/`. Playwright reports, traces, videos,
+and screenshots are written to `playwright-report/` and `test-results/`.
+
+## Deployment
+
+### Server on Railway (DEV-64)
+
+`server/Dockerfile` and `server/railway.json` define the service. On every start the
+container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway checks
+`/health`.
+
+1. Create a Railway project, add a service from this GitHub repo, set its **root
+   directory** to `server` and its deploy branch to `main`. If Railway does not pick up
+   the config, set the config file path to `/server/railway.json`.
+2. Add a **PostgreSQL** database to the same project.
+3. Set these variables on the server service:
+
+| Variable | Value |
+| -- | -- |
+| `DATABASE_URL` | Reference the database's `DATABASE_URL`. The `postgresql://` form is accepted as is. |
+| `APP_ENV` | `production` |
+| `JWT_SECRET` | A long random string. The server does not start without it outside `local`. |
+| `CONSUMER_APP_URL` | `https://farmclub.kr` (CORS, share-link redirects, Kakao return address). No trailing slash. |
+| `PRODUCER_APP_URL` | `https://farm.farmclub.kr` |
+| `SHARE_BASE_URL` | `https://farmclub.kr`. Set it after the consumer app with the `/s/*` proxy is live (see Domains). Empty: share links use the server's own address. |
+| `MOCK_LOGIN_ENABLED` | `true` while test accounts are used (Kakao login is not built yet) |
+| `ANTHROPIC_API_KEY` | Optional. Without it, AI answers come from registered rules and other questions go to the producer. |
+
+4. Deploy, then generate a public domain under the service's networking settings.
+5. Load the seed data once from the service shell: `python -m app.core.seed`. It skips
+   when data exists; `--reset` erases everything, so do not use it on a live database.
+
+The project `farmclub` (service `farmclub-api`, domain
+`https://farmclub-api-production.up.railway.app`) was created this way on 2026-10-17.
+
+**Hiding a test farm (DEV-93).** Order from farms you create for live checks only with test
+accounts. When the check is done, hide the farm from everyone from the service shell. Nothing is
+deleted: the farm becomes `SUSPENDED`, which every public path already hides.
+
+```bash
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId>                     # dry run
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --commit            # hide
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm <farmId> --restore --commit  # undo
+```
+
+It refuses a farm that is not approved or has orders from real (non-test) accounts, since
+suspension means refunding those (R-24). Each `--commit` writes one `ManagerEvent`.
+Pre-shipment test orders are counted, not refused: they may stay open while the farm is hidden.
+Orders whose buyer reported a deposit never auto-cancel and appear in `deposit-overdue` after the
+deadline, so cancel them first if you want that list clean. `--restore` only reopens farms this
+command hid; orders that expired in the meantime stay cancelled.
+Permanently deleting data waits for the retention policy (PQ-06, DEV-94).
+
+### Automatic deploys (DEV-65, DEV-66)
+
+The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App
+cannot be connected without an organization admin. Instead,
+`.github/workflows/deploy-railway.yml` deploys from GitHub Actions. It waits for the
+**CI** workflow on `main` and runs only when CI succeeded, so a commit that fails tests
+is never deployed. It checks out the exact commit CI tested, and if that commit touches
+`server/**` (or the deploy workflow itself) it runs
+`railway up ./server --path-as-root --service farmclub-api --environment production --ci`
+and then polls `/health` until it answers; otherwise it skips the deploy and passes.
+Changes are read from that single commit, which matches the squash-merge rule. The
+workflow can also be started by hand from the Actions tab (**Run workflow**) with the
+`main` branch selected, for example after a variable change; a manual run always deploys
+the current `main`.
+
+Both deploy workflows (this one and the Vercel one below) are locked to `main` (DEV-70):
+
+- The job runs only when `github.ref` is `refs/heads/main`, so pressing **Run workflow**
+  on another branch skips the deploy.
+- The job uses the GitHub Environment `production`, which allows deployments from the
+  `main` branch only, and the deploy tokens live in that environment. A branch that edits
+  the workflow file still cannot read the tokens.
+
+One-time setup (a human does this; never paste the token into the repo, an issue or a PR):
+
+1. Railway → project `farmclub` → **Settings → Tokens** → create a **Project Token**.
+2. GitHub → repository **Settings → Environments → production → Environment secrets** →
+   add `RAILWAY_TOKEN`. Do not keep a repository-level copy.
+3. Run the workflow once from the Actions tab and check that `/health` returns `{"status":"ok"}`.
+
+Variables to add on the Railway service as features land, in merge order:
+
+| When | Variables |
+| -- | -- |
+| Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub.kr/auth/kakao` as a redirect URI in the Kakao console |
+| PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://api.farmclub.kr/api/payments/portone/webhook` as the PortOne webhook |
+| Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
+
+### Apps on Vercel (DEV-67)
+
+The Vercel projects `farmclub-consumer` and `farmclub-producer` are not connected to
+GitHub; each deployment is an exported `dist/` uploaded with the Vercel CLI. Expo bakes
+`EXPO_PUBLIC_*` values in at export time, so changing variables in the Vercel dashboard
+has no effect.
+
+`.github/workflows/deploy-vercel.yml` automates this. After **CI** succeeds on `main`, if
+the tested commit touches `apps/`, `packages/`, the root `package*.json`, `.nvmrc` or the
+workflow, it exports both apps and runs `vercel deploy --prod`, then checks that each site
+answers 200. It can also be run by hand from the Actions tab with the `main` branch
+selected; a manual run always deploys the current `main`.
+
+| Setting | Where | Effect |
+| -- | -- | -- |
+| `VERCEL_TOKEN` | **Environment secret** in `production` (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
+| `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
+| `APP_POSTHOG_KEY` | Repository **variable** | PostHog project API key (`phc_…`, public). Empty: no analytics or session replay. Set: screen events, replays and heatmaps go to PostHog (DEV-71). |
+| `APP_POSTHOG_HOST` | Repository **variable** | Optional. Empty: `https://us.i.posthog.com` (US Cloud). |
+
+Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
+users see. Do it outside user tests, and merge the server routes the apps call (for
+example `GET /api/farms` and `/api/farms/following`, PR #123) before switching to the
+server. To do the same by hand:
+
+```
+EXPO_PUBLIC_API_MOCK=0 EXPO_PUBLIC_API_URL=https://api.farmclub.kr \
+  npx expo export -p web   # run inside apps/consumer and apps/producer
+vercel deploy --prod       # from the exported dist/
+```
+
+With `EXPO_PUBLIC_API_MOCK=1` (what `npm run build:web` produces) the apps keep data in
+each browser and never call the server.
+
+### Domains (DEV-69)
+
+`farmclub.kr` is registered with hosting.kr, a Korean registrar (Cloudflare Registrar does not sell
+`.kr`) and its DNS is on Cloudflare. Decision, record table and cut-over order:
+[ADR 0012](docs/spec/tech-design/adr/0012-domains-cloudflare.md).
+
+| Address | Serves | Host |
+| -- | -- | -- |
+| `farmclub.kr` (`www` redirects here) | Consumer app and farm share links `/s/farms/<id>` | Vercel `farmclub-consumer` |
+| `farm.farmclub.kr` | Producer app | Vercel `farmclub-producer` |
+| `api.farmclub.kr` | FastAPI server, Swagger UI at `/docs` | Railway `farmclub-api` |
+
+`admin`, `dev` and `staging` are reserved; no DNS records exist until they have a target.
+The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
+KakaoTalk reads the server's OG page under the consumer domain. All four records (`@`,
+`www`, `farm`, `api`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
+"Proxy Detected" warning; keep SSL/TLS mode **Full (strict)** and leave **Bot Fight Mode**
+and **Rocket Loader** off, or KakaoTalk previews and the app break. If a Vercel or Railway
+certificate stops renewing, switch that record to DNS only.
+
+Accounts, purchases and console changes are done by a person. In order:
+
+1. Buy `farmclub.kr` on hosting.kr, add it to Cloudflare (Free), and switch the registrar's name
+   servers to the two Cloudflare ones.
+2. Add the custom domains in Vercel (both projects) and Railway, copy the records they
+   show into Cloudflare, and check `https://api.farmclub.kr/health`.
+3. Change `CONSUMER_APP_URL` and `PRODUCER_APP_URL` on Railway, and add the new domains
+   in the Kakao console (keep the old ones until the switch is done).
+4. Merge the DEV-69 pull request. The deploy workflows and the apps now use the new
+   addresses, so merging earlier makes the deploy checks fail.
+5. Set `SHARE_BASE_URL=https://farmclub.kr` on Railway and send a farm link in KakaoTalk
+   to check the preview.
+
+## Documentation
+
+| Where | What |
+| --- | --- |
+| [`docs/spec/`](docs/spec/README.md) | Product specification in Korean: PRD, information architecture, screen specs and API contract, functional specs with acceptance criteria, service policy, tech design. This is the source of truth. |
+| [GitHub Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki) | Course documentation in English: proposal, requirements, design, testing, user study, risk management, AI collaboration report, meeting logs. Edited in [`docs/wiki/`](docs/wiki/README.md) and synced on merge. |
+| [`AGENTS.md`](AGENTS.md) | Team workflow and rules for humans and AI coding agents |
+
+## How we work
+
+1. Every change starts from an issue in Linear, synced with GitHub Issues.
+2. Branch from `main` using the issue's branch name. Issue keys go in branch names, commits, and PR titles, for example `[DEV-12] ...`.
+3. Record scope and decisions in the code folder's `tasks.md`, then open a draft PR.
+4. Run an AI first-pass review, then get one human approval. CI must pass before merge.
+
+Features are written against IDs in the spec (`FEAT-xx`, rules `R-xx` and `M-xx`, screens `SCR-xx`), and test names include acceptance criteria IDs, for example `test_AC_09_1_...`. Details are in [`AGENTS.md`](AGENTS.md).
+
+## Team
+
+Team 6: Hyun Park, Minsun Kim, Jinwoo Jang, Zahra
+
+
+## Local prototype preview (DEV-3)
+
+The frontend uses the reference prototype by Hyun Park (`farmclub-proto-ref.zip`).
+It implements the consumer/producer flows and the merged specifications through 1.4.
 
 ```sh
-npm ci
+npm install
 npm run dev
 ```
 
-The launcher prints the actual addresses, normally consumer **http://localhost:8081** and producer **http://localhost:8082**, with the shared Mock service on port 8083. Choose seeded accounts from each application's login screen. Open the two apps in separate tabs to inspect shared orders and messages.
+The launcher runs the consumer app at http://localhost:8081 and the producer app at
+http://localhost:8082. If a port is occupied, it prints the selected available URL.
+Both apps run with `EXPO_PUBLIC_API_MOCK=1`; no FastAPI service or database installation is required.
+App links and Mock farm sharing point to the local consumer/producer URLs.
+Edit the source while the servers are running to use Fast Refresh. Stop with Ctrl+C.
 
-`npm run dev` deliberately forces the shared Mock transport. It needs no PostgreSQL, OAuth or AI key; it does not exercise real bank/provider calls, and its generated examples are not model-quality evidence. Mock state is stored under ignored `.expo/shared-mock/`. Stop with Ctrl+C. Use the real-API route below for server authorization, persistence, transactions and operator calls.
-
-## 5. Run locally — real API with seeded identities
-
-### A. Database and API
-
-Prerequisites: Node 24/npm, Python 3.12/uv, PostgreSQL 16. Docker Compose is one way to start PostgreSQL. The commands below use the repository's **disposable local** database, not a deployed database.
-
-```sh
-# At repository root
-npm ci
-cd server
-docker compose up -d
-uv sync --frozen
-
-export APP_ENV=local
-export DATABASE_URL='postgresql+psycopg://farmclub:farmclub@127.0.0.1:5432/farmclub'
-export MOCK_LOGIN_ENABLED=true
-export FIXED_NOW='2026-10-07T10:00:00+09:00'
-export CONSUMER_APP_URL='http://localhost:8081'
-export PRODUCER_APP_URL='http://localhost:8082'
-export SOURCE_ANALYSIS_ENABLED=false
-export SOURCE_ANALYSIS_PROVIDER=mock
-export SOURCE_STORAGE=local
-export ANTHROPIC_API_KEY=''
-export OPENROUTER_API_KEY=''
-export OPENAI_API_KEY=''
-
-uv run alembic upgrade head
-uv run python -m app.core.seed --reset
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
-`--reset` clears that local database; use it only for this disposable demo. With an existing PostgreSQL installation, create a separate database and substitute its local URL; Docker is then unnecessary. Keep the database session timezone at UTC for consistent serialized test timestamps. The fixed clock preserves the seed's reservation periods.
-
-Confirm [API health](http://localhost:8000/health) and [OpenAPI](http://localhost:8000/docs). Test login is enabled only for this local exercise. Live Kakao sign-in requires registered return addresses and server credentials; it is not configured by these commands.
-
-### B. Consumer and producer (two new terminals)
-
-From `apps/consumer`:
+Local development shares Mock state between both apps through a loopback server.
+Payments and AI responses remain simulated. Exported standalone demos use browser localStorage.
+The reference seed date remains 2026-10-07. Demo reset controls restore the seed data.
 
 ```sh
-EXPO_PUBLIC_API_MOCK=0 \
-EXPO_PUBLIC_API_URL=http://localhost:8000 \
-EXPO_PUBLIC_CONSUMER_URL=http://localhost:8081 \
-EXPO_PUBLIC_PRODUCER_URL=http://localhost:8082 \
-EXPO_PUBLIC_SHARED_MOCK_URL='' EXPO_PUBLIC_POSTHOG_KEY='' \
-node ../../node_modules/expo/bin/cli start --web --host localhost --port 8081
+npm run typecheck
+npm run build:web
 ```
 
-From `apps/producer`:
+These commands work in PowerShell as well as Unix shells. Web exports go to each
+app's ignored `dist` directory; they do not deploy anything.
 
-```sh
-EXPO_PUBLIC_API_MOCK=0 \
-EXPO_PUBLIC_API_URL=http://localhost:8000 \
-EXPO_PUBLIC_CONSUMER_URL=http://localhost:8081 \
-EXPO_PUBLIC_PRODUCER_URL=http://localhost:8082 \
-EXPO_PUBLIC_SHARED_MOCK_URL='' EXPO_PUBLIC_POSTHOG_KEY='' \
-node ../../node_modules/expo/bin/cli start --web --host localhost --port 8082
-```
 
-Select a consumer account in the consumer app and an approved producer in the producer app. Additional seeded states let you inspect pending/rejected/suspended gates. A deposit report and producer confirmation record the workflow only; local commands never move funds. Without an Anthropic key, unsupported AI questions hand off and failed text generation remains manually editable.
+Local shared Mock: `npm run dev` compiles the API fixtures and starts a loopback-only HTTP backend plus both apps. State and uploaded media persist under ignored `.expo/shared-mock/`. Each app has its own login token. The reset action clears shared data and invalidates both apps’ tokens. Exported demos retain standalone browser Mock mode. Run `node node_modules/typescript/bin/tsc -p scripts/mock-tsconfig.json && node --test scripts/test-news-rooms.mjs` to verify room privacy using isolated test storage.
 
-### C. Local operator UI
+### Spec 1.4 frontend and Mock
 
-In another terminal with the same database/environment as section A, run `uv run python -m app.accounts.admin_token` from `server/`. Keep its output locally as `ADMIN_TOKEN`. Choose your own `ADMIN_WEB_PASSWORD`, then start from the repository root:
+- Consumer: discovery / orders / chat / profile. Chat combines farm news rooms and private 1:1 conversations. Orders requiring action are labeled **미확정 주문**.
+- Producer: dashboard / products / chat / settings. Product filters: **판매 중 → 심사 중 → 작성 중 → 판매 중지 → 판매 종료**. Farm profile and AI settings live under settings; news is written from the farm room.
+- Supply approval is per product, entered in kg and stored as integer grams. Initial approval opens sales; only additional capacity requires another request. Approval and the producer's sales limit are separate. Pending increases keep existing sales open.
+- Date-based reservation periods, immediate prices for new orders, per-order box limits, pause/resume, mixed-weight capacity accounting. Paid orders retain price/weight snapshots; pre-shipping cancellations restore capacity once.
+- Order problem inquiries support private photos, participant-only access and producer handoff. AI replies and previews are deterministic Mock behavior.
+- `npm run test:mock` checks isolated fixtures/storage; it does not reset the running demo. CI also runs these contracts. `npm run typecheck` and `npm run build:web` check both apps.
+- Changes to `packages/api/src/mock` require restarting `npm run dev` to recompile the shared backend. Frontend/UI edits use Fast Refresh. Stop the existing launcher first to retain ports 8081/8082/8083.
+- Mock schema 7 requires explicit local migration/reset on a schema mismatch. Existing local orders/messages were backed up and converted once; no legacy schema compatibility is shipped. Do not commit `.expo`, tokens or backups.
+- Scope: frontend + local Mock. DEV-4 implements the corresponding FastAPI endpoints and production transactions. These tests do not verify real payments, AI or server API implementation. Admin approval is a management API, never a producer self-approval button.
 
-```sh
-FARMCLUB_API_URL=http://localhost:8000 \
-ADMIN_TOKEN="$ADMIN_TOKEN" ADMIN_WEB_PASSWORD="$ADMIN_WEB_PASSWORD" \
-node scripts/admin-web/server.mjs
-```
-
-Open **http://127.0.0.1:8090/login**. Use the local password to inspect approvals, capacity, farms, user support and inbox. No shared production password/token is included in this branch. The proxy's default API is hosted, so the explicit local API URL above is required for this exercise.
-
-### D. Optional private source analysis
-
-Keep the same disposable DB and local storage. Set `SOURCE_ANALYSIS_ENABLED=true` on the API **and** worker, restart the API, and run `uv run python -m app.source_analysis.worker` in another server terminal. The local mock accepts only the exact documented fixture (copy without a trailing newline):
-
-```text
-테스트 감귤
-제주산 감귤입니다.
-서늘한 곳에 보관해 주세요.
-```
-
-Arbitrary documents do not become successful mock analyses. Image/PDF preprocessing needs the optional OCR environment and provisioned model manifest; real analysis needs server-only provider credentials, an explicit budget and storage configuration. Follow the **current-contract notices** in [source integration](docs/spec/source-integration.md), [source editor](docs/spec/source-editor.md) and [server deployment guide](server/README.md). The historical setup text in older documents does not supersede the current editor contract. A private save is distinct from explicit apply, and applying details does not approve a product for sale.
-
-### E. Stop
-
-Stop each local process with Ctrl+C. If using Docker, `cd server && docker compose stop` stops PostgreSQL and retains the local volume for the next run.
-
-## 6. Hosted entry points and documentation
-
-- [Consumer](https://farmclub.kr/) · [Producer](https://farm.farmclub.kr/) · [Operator login](https://admin.farmclub.kr/login)
-- [Requirements & Specifications](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Requirements-and-Specifications)
-- [Design Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Design-Documentation)
-- [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation)
-- [Daily standup source pages](docs/wiki/meetings/) · [Repository contribution instructions](AGENTS.md)
-
-The hosted applications can evolve after this branch snapshot. Reproduce the checked-out code locally when comparing a result against a specific revision. Wiki synchronization occurs from the repository's main branch after the team's review process.
+현재 대화 중심 프론트의 동작·Figma 기준은 [UI 1.6 명세](docs/spec/conversation-ui-1.6.md)를 참고한다.
