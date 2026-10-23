@@ -591,3 +591,4 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 - 10/23 origin/main 74394f5에서 시작. DEV-116 작업 중 발견(`git blame`: 문구는 10/18 54dc274, DEV-120 9a558ef는 `=== 5`만 고침).
 - 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 44/44(새 `test-order-consents.mjs` 3개 포함), `cd server && uv run pytest tests/test_orders.py` 33/33(DB `farmclub_dev138_test`), 실서버 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, DB `farmclub_dev138`, `checkout-and-fulfillment.spec.ts legal-consent.spec.ts`) 시나리오 7/7, Playwright 2 통과·3 건너뜀(legal-consent는 공유 Mock이 있어야 돌아 실서버에서는 스스로 건너뜀).
 - 10/23 계약 테스트가 실제로 잡는지: 서버 `third_party` 필드를 지운 사본으로 돌리면 1개 실패, 되돌리면 통과.
+- 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should 2(main 병합, Checkbox `aria-checked` 후속 이슈), nit 2(정규식 계약 테스트, 머리 주석 길이)는 유지. main(57dcb0b, DEV-136·137) 병합 — `apps/consumer/tasks.md` 끝 섹션 충돌만 있어 두 섹션을 모두 남김(DEV-136 → DEV-138 순). 재검증: typecheck 통과, test:mock 44/44, 실서버 시나리오 7/7 + checkout Playwright 2/2.
