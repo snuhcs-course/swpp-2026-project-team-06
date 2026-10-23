@@ -295,3 +295,9 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 
   제외된 파일은 모두 `docs/wiki/*.md`. 발췌가 9~29 KiB에 그쳐 크기는 diff가 결정한다. #230처럼 diff 180 KiB 이상이면 한도에 가까우니 PR을 나누는 안내가 그대로 필요하다.
 - 10/23 PR #281(ready). `origin/main`(57dcb0b, DEV-133·SWPP-125·SWPP-115·DEV-136·DEV-137) 병합: 충돌은 `.agents/tasks.md`·이 파일(양쪽이 맨 아래에 절 추가)이고 모든 절을 남겼다(DEV-137 → DEV-81 순). checker 파일은 main에서 바뀌지 않았다. 병합 후 로컬 unittest 48개 통과.
+
+## DEV-144 spec-code-review AI 비용을 서버에 보고
+
+- 이슈: [DEV-144](https://linear.app/sswp6/issue/DEV-144) · 작업 기록 본문은 [`server/tasks.md#DEV-144`](../../server/tasks.md)
+- 범위: `check.py`(보고 함수), `test_check.py`, `backfill_usage.py`(새 파일), `README.md`, 이 파일, `.github/workflows/spec-check.yml`(spec-code-review·live-demo 단계에 `SPEC_CHECK_USAGE_URL`·`SPEC_CHECK_USAGE_TOKEN` 두 줄)
+- 결정: 모델 응답에 `usage`가 있을 때만 PR 번호·제목·head SHA·결과·모드·모델·입력/출력 토큰·실행 URL을 `POST <SPEC_CHECK_USAGE_URL>`로 보낸다. 두 값 중 하나라도 없으면 보내지 않는다. 보고 실패는 경고 한 줄만 찍고 리뷰 결과·보고서·종료 코드는 바꾸지 않는다. 표준 라이브러리만 쓴다.
