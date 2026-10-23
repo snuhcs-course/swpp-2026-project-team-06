@@ -42,8 +42,17 @@ test("DEV-113: privacy policy covers the items the Personal Information Protecti
     "처리방침의 변경",
   ])
     assert.match(html, new RegExp(`<h2>제\\d+조 \\([^)]*${heading}`), heading);
-  for (const vendor of ["Anthropic", "OpenRouter", "Cloudflare", "Railway", "Vercel", "PostHog", "Sentry", "Langfuse"])
-    assert.ok(html.includes(vendor), vendor);
+  // 국외 이전은 이전받는 자의 연락처(이메일)까지 적는다(제28조의8 제2항). 쓰지 않는 도구는 적지 않는다
+  for (const contact of ["privacy@anthropic.com", "privacy@openrouter.ai", "privacyquestions@cloudflare.com", "privacy@railway.com", "privacy@vercel.com", "privacy@posthog.com"])
+    assert.ok(html.includes(contact), contact);
+  assert.ok(!html.includes("도입 예정"));
+  // 동의 없이 처리하는 정보는 법적 근거와 함께 구분해 적는다(제22조 제3항)
+  assert.ok(html.includes('<th scope="col">처리 근거</th>'));
+  assert.ok(html.includes("제22조 제3항"));
+  assert.match(html, /<h2>제\d+조 \(생성형 AI 이용\)/);
+  // 코드가 하지 않는 일(배송 완료 후 가림, 역할별 권한)은 약속하지 않는다
+  assert.ok(!html.includes("배송 완료 후 판매자 화면"));
+  assert.ok(!html.includes("역할별"));
   assert.ok(html.includes("주문한 상품의 판매자(농가)"));
   assert.ok(html.includes("이메일 help@example.com"), "officer section falls back to the contact email");
 });
@@ -55,6 +64,16 @@ test("DEV-113 R-01 R-07 R-11 R-12 R-14 R-28: terms state the broker notice and p
   for (const rule of ["무통장 입금만", "24시간 안에 입금하지 않으면", "언제든 취소할 수 있고, 전액 환불", "받은 뒤 24시간 안에", "3영업일", "8일이 지나면", "포인트·적립금·상품권"])
     assert.ok(html.includes(rule), rule);
   assert.ok(html.includes("<dt>상호</dt><dd>테스트상호 &lt;b&gt;</dd>"), "business info is escaped");
+  // 사이버몰 표시: 호스팅서비스 제공자(전자상거래법 제10조, 시행령 제11조의4)
+  assert.ok(html.includes("<dt>호스팅서비스 제공자</dt><dd>Vercel Inc.</dd>"));
+  // 하자 신고 24시간은 권고이고 법정 청약철회 권리를 줄이지 않는다(제17조 제3항, 제35조)
+  assert.ok(html.includes("청약철회 권리는 그대로"));
+  // 관할은 소비자 주소지 지방법원 전속관할(제36조), 분쟁 처리 기간(제20조 제3항)
+  assert.ok(html.includes("소비자의 주소를, 주소가 없으면 거소를 관할하는 지방법원의 전속관할"));
+  assert.ok(html.includes("3영업일 안에 진행 상황을, 10영업일 안에 처리 결과"));
+  assert.ok(html.includes("생성형 인공지능(AI)을 이용"));
+  assert.ok(html.includes("연 15%의 지연배상금"));
+  assert.ok(!html.includes("공급 계약"));
   assert.ok(!html.includes("<dt>대표자</dt>"), "blank values are left out");
 });
 
@@ -63,6 +82,7 @@ test("DEV-113: index.html gets business info in <noscript>", () => {
   assert.equal(replaced.match(/<noscript>/g).length, 1);
   assert.ok(replaced.includes('<a href="/privacy">'));
   assert.ok(replaced.includes("<dt>사업자등록번호</dt>"));
+  assert.ok(replaced.includes("<dt>호스팅서비스 제공자</dt>"));
   const inserted = pages.withNoscriptFooter("<body><div id=root></div></body>");
   assert.match(inserted, /<noscript>.*<\/noscript><\/body>/s);
 });

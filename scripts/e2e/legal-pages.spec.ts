@@ -44,7 +44,7 @@ test("DEV-113 R-16: producer login shows the legal footer and the gate lets gues
 
   // 새로고침해도 비로그인 관문이 /login으로 보내지 않는다
   await page.goto(`${producerUrl}/privacy`);
-  await expect(page.getByRole("heading", { name: "제11조 (개인정보 보호책임자)" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "제12조 (개인정보 보호책임자)" })).toBeVisible();
   await expect(page).toHaveURL(/\/privacy$/);
   expect(errors).toEqual([]);
 });
