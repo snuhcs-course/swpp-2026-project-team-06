@@ -268,3 +268,19 @@ I2 AI 협업 보고서에 장진우 절을 근거(로컬 세션 export, PR 본�
 - 10/23 문서만 변경이라 실행할 테스트 없음. `git diff --check` 통과.
 
 - 10/23 사용자가 지정 브랜치 push 및 main 대상 PR 생성을 명시 승인했다. 최신 main c884e90의 Makefile 안내, DEV-118 생산자 별도 coverage 결과, SWPP-121 AI 보고서 기여를 보존하며 병합한다. 변경된 테스트 도구를 10/22 측정에 소급 적용하지 않으며 새 제품 테스트를 실행했다고 주장하지 않는다. PR은 draft로 만들고 main 머지는 수행하지 않는다.
+
+
+## SWPP-112 README 범위 복구
+
+- 브랜치: `llovablanche-SWPP-112-readme-scope-fix`
+- 계기: 사용자가 데모 README를 iteration-2-demo에만 두어야 한다고 지적했다. PR #241은 이미 main에 머지된 상태다.
+- 범위: 루트 README.md의 c884e90 원문 복원, docs/submission/spec.md와 이 작업 기록. 다른 I2 문서/증빙/제품 코드/테스트는 수정하지 않는다.
+- 정정: 앞선 demo README 통합은 사용자 요구가 아니라 에이전트의 잘못된 범위 판단이었다. 일반 README를 대체하는 요구로 해석하면 안 된다.
+- [x] 머지 전 README 원문과 이후 변경 유무 확인
+- [x] 일반 README 복구 변경을 별도 로컬 브랜치에 준비
+- [ ] 사용자 확인 후 복구 브랜치 push 및 main 대상 복구 PR 생성
+- [ ] 사람 검토 후 main 복구 반영
+
+문서만 복원하므로 새 애플리케이션 테스트는 실행하지 않는다. 원본 blob 일치 및 README 외 파일 보존, diff 형식을 확인한다.
+
+- 10/23 사용자 응답으로 원래 프로젝트 README 복구 브랜치의 커밋/push 및 main 대상 복구 PR 게시를 승인받았다. 독립 읽기 전용 검토에서 README 원문/허용 경로/나머지 문서 및 코드 보존/네 영상/whitespace 확인을 마쳤다. 실제 커밋·push·PR 결과는 완료 보고에 기록한다. main 머지는 하지 않는다.
