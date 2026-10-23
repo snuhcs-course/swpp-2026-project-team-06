@@ -106,6 +106,14 @@ export type Consent = {
 
 export type LoginResult = { accessToken: string; user: User };
 
+/** 카카오 로그인 결과(DEV-132). 기존 회원은 accessToken·user, 새 사용자는 signup만(계정은 약관 동의 뒤 생김) */
+export type KakaoLoginResult =
+  | { accessToken: string; user: User; signup?: null }
+  | { accessToken: null; user: null; signup: { signupToken: string; email: string | null } };
+
+/** 가입 대기(DEV-132). 카카오 새 사용자가 약관에 동의하기 전까지 브라우저에 잠깐 둔다 */
+export type PendingSignup = { signupToken: string; email: string | null; expiresAt: number };
+
 /** 카카오 로그인 설정(ADR 0003). enabled=false면 버튼을 숨긴다. redirectPath는 각 앱의 복귀 경로 */
 export type KakaoConfig = {
   enabled: boolean;

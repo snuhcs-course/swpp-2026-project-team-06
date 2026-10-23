@@ -17,6 +17,9 @@ from app.accounts.schemas import (
     ConsentsInput,
     ConsentView,
     KakaoConfig,
+    KakaoLoginResult,
+    KakaoSignup,
+    KakaoSignupInput,
     LoginResult,
     MeUpdateInput,
     ProducerApplication,
@@ -30,7 +33,7 @@ from app.core.clock import now
 from app.core.config import get_settings
 from app.core.errors import conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
-from app.core.security import issue_token
+from app.core.security import issue_signup_token, issue_token, read_signup_token
 
 PHONE = re.compile(r"^01[016789]-?\d{3,4}-?\d{4}$")
 # 저장 배송지는 계정당 50개까지(사용자 결정 10/18)
@@ -314,11 +317,12 @@ def _kakao_fetch(code: str, redirect_uri: str) -> KakaoProfile:
     )
 
 
-def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginResult:
-    """카카오 인가 코드로 로그인. (카카오 식별자, 역할)마다 계정 하나(ADR 0010). 없으면 만든다.
+def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> KakaoLoginResult:
+    """카카오 인가 코드로 로그인. (카카오 식별자, 역할)마다 계정 하나(ADR 0010).
 
-    처음이면 이메일만 채운 계정을 만들고 `needsOnboarding=true`로 돌려준다.
-    카카오에서 온 이름·전화번호는 빈 칸에만 채운다(온보딩에서 고친 값은 덮지 않는다).
+    기존 회원은 로그인한다. 카카오에서 온 이름·전화번호는 빈 칸에만 채운다(고친 값은 덮지 않는다).
+    새 사용자는 계정을 만들지 않고 가입 토큰만 준다.
+    약관 동의(`kakao_signup`)를 마쳐야 계정이 생긴다(DEV-132).
     """
     _require_kakao()
     if not _allowed_redirect(redirect_uri, app):
@@ -335,29 +339,67 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginRes
     kakao_phone = _kakao_phone(profile.phone)
     user = db.scalar(select(User).where(User.kakao_id == profile.kakao_id, User.role == role))
     if user is None:
+        email = profile.email.strip()[:200]
+        token = issue_signup_token(
+            {
+                "kid": profile.kakao_id,
+                "role": role,
+                "email": email,
+                "name": profile.name.strip()[:100],
+                "phone": kakao_phone,
+            }
+        )
+        return KakaoLoginResult(signup=KakaoSignup(signup_token=token, email=email or None))
+    if profile.email.strip():
+        user.email = profile.email.strip()[:200]
+    if not user.name.strip() and profile.name.strip():
+        user.name = profile.name.strip()[:100]
+    if not user.phone.strip() and kakao_phone:
+        user.phone = kakao_phone
+    db.flush()
+    return KakaoLoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
+
+
+def kakao_signup(db: Session, data: KakaoSignupInput) -> LoginResult:
+    """약관 동의와 함께 카카오 계정을 만든다(DEV-132, AC-01-19).
+
+    역할별 필수 동의(소비자 약관·개인정보·만 14세, 생산자 약관·개인정보)가
+    지금 버전으로 모두 있어야 한다. 계정과 동의 기록은 한 트랜잭션으로 만든다.
+    그 사이 같은 카카오 계정이 생겼으면 그 계정으로 로그인한다.
+    """
+    claims = read_signup_token(data.signup_token)
+    if (
+        claims is None
+        or claims.get("role") not in ("CONSUMER", "PRODUCER")
+        or not claims.get("kid")
+    ):
+        raise invalid(
+            {"signupToken": "가입 요청이 만료됐어요"}, "카카오 로그인부터 다시 해 주세요."
+        )
+    role = claims["role"]
+    required = REQUIRED_CONSENTS if role == "CONSUMER" else REQUIRED_PRODUCER_CONSENTS
+    agreed = {c.kind for c in data.consents if c.agreed and c.version.strip() == CONSENT_VERSION}
+    if any(kind not in agreed for kind in required):
+        raise invalid({"consents": "필수 약관에 모두 동의해 주세요"})
+    user = db.scalar(select(User).where(User.kakao_id == claims["kid"], User.role == role))
+    if user is None:
         # 소비자는 온보딩에서 이름을 받는다. 생산자는 가입 신청(SCR-20) 전까지 자리 이름
-        name = profile.name.strip()[:100]
+        name = str(claims.get("name") or "")[:100]
         if not name and role == "PRODUCER":
             name = KAKAO_PLACEHOLDER_NAME
         user = User(
             id=new_id("u"),
-            kakao_id=profile.kakao_id,
+            kakao_id=claims["kid"],
             is_test_account=False,
             role=role,
             name=name,
-            phone=kakao_phone,
-            email=profile.email.strip()[:200] or None,
+            phone=str(claims.get("phone") or ""),
+            email=str(claims.get("email") or "")[:200] or None,
             created_at=now(),
         )
         db.add(user)
-    else:
-        if profile.email.strip():
-            user.email = profile.email.strip()[:200]
-        if not user.name.strip() and profile.name.strip():
-            user.name = profile.name.strip()[:100]
-        if not user.phone.strip() and kakao_phone:
-            user.phone = kakao_phone
-    db.flush()
+        db.flush()
+    save_consents(db, user, ConsentsInput(consents=data.consents))
     return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
 
 

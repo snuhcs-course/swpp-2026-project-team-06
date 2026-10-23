@@ -56,7 +56,7 @@ ADMIN_WEB_PASSWORD=… ADMIN_TOKEN=… node scripts/admin-web/server.mjs   # htt
 
 ## Vercel 배포
 
-이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`, https://admin.farmclub.kr)로 올린다. 빌드는 없고, Vercel이 `vercel.json`대로 `api/*.js`를 서버리스 함수로 만든다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다. 환경 변수는 Vercel 프로젝트에서만 바꾸고 워크플로·저장소에는 두지 않는다.
+이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`, https://admin.farmclub.kr)로 올린다. 빌드는 없고, Vercel이 `vercel.json`대로 `api/*.js`를 서버리스 함수로 만든다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다. 환경 변수는 Vercel 프로젝트에서만 바꾸고 워크플로·저장소에는 두지 않는다. `admin.farmclub.kr`은 Cloudflare `admin` CNAME(Proxied) → Vercel `farmclub-admin`이고(DEV-91, ADR 0012), `farmclub-admin.vercel.app`도 같은 배포다.
 
 - **테스트(CI)**: PR·main push에서 `scripts/admin-web/**`가 바뀌면 `ci.yml`의 `admin-web` job이 `node --test scripts/admin-web/admin.test.mjs`를 돌린다(DEV-114).
 - **자동 배포**: main CI가 성공하고 그 커밋에 `scripts/admin-web/` 변경이 있으면 `deploy-vercel.yml`의 `deploy-admin` job이 `vercel deploy scripts/admin-web --prod`로 올리고 `https://admin.farmclub.kr/login`이 200인지 확인한다. 앱 배포와 같은 `VERCEL_TOKEN`(production Environment)을 쓰고, 토큰이 없으면 건너뛴다.
