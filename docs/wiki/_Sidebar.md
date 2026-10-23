@@ -8,6 +8,10 @@
 - [[User Study Results|User-Study-Results]]
 - [[Risk Management|Risk-Management]]
 
+**Technical depth**
+- [[AI Customer Support|AI-Customer-Support]]
+- [[Source Analysis|Source-Analysis]]
+
 **Process**
 - [[AI Collaboration Report – Iteration 1|AI-Collaboration-Report-–-Iteration-1]]
   - [[Prompt Log|AI-Collaboration-Report-–-Iteration-1-–-Prompt-Log]]

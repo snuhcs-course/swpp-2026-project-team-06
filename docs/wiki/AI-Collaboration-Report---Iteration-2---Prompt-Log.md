@@ -603,11 +603,6 @@ Session: `01a143de-a800-7c41-9e9b-55bd3e803b58`. Archive source: `codex/01a143de
 ````text
 제생각에는 수수료로 하고 iteration 진행함에 따라 판매자를 늘려야하는 방향성이어야 한다고 생각합니다.
 그렇지 않으면 소수의 판매자들만으로는 소비자들을 잡아두기에 콘텐츠가 적지 않을까 싶습니다.
-
-이딴식으로 연락옴 아.
-뭐라하지
-학기중에는 학점 잘 받는게 목표고 사업화에 관심없는 팀원들도 있으니 일단 지금은 수수로없이 통계치 및 패턴화하기까지 가용화할 모수를 모으고, 수업 후에 사업화하고 싶으신 분들끼리 bm 구조를 바꿔서 진행해보는거 어떻니.
-일단 수수료 등 붙이면 당장에는 판매가 더 저조할 수 있음, 수수료 없는게 초기 판매에도 이득이니까
 ````
 
 ## 42. 2026-10-17T22:47:42.620000+09:00
@@ -657,7 +652,7 @@ Session: `01a14a1e-1298-7280-9b74-1f5b1c78ebf6`. Archive source: `codex/01a14a1e
 Session: `01a14a1e-1298-7280-9b74-1f5b1c78ebf6`. Archive source: `codex/01a14a1e-1298-7280-9b74-1f5b1c78ebf6/rollout-2026-10-17T22-47-27-01a14a1e-1298-7280-9b74-1f5b1c78ebf6.jsonl`, line 44.
 
 ````text
-또한 저희 마케팅 진행안할거면 저 혼자서 40~50대 소비자층 모집 한계 존재 -> scope를 변경하거나, 다같이 부모님, 지인께 부탇드리며 모집하면 좋겠음.
+40~50대 소비자층 모집 한계 존재 -> scope를 변경하거나, 다같이 부모님, 지인께 부탇드리며 모집하면 좋겠음.
 별도로 보낼거야
 ````
 
@@ -722,8 +717,7 @@ Session: `01a14eb9-c83b-7110-8ee2-b861cc26216f`. Archive source: `codex/01a14eb9
 Session: `01a14eb9-c83b-7110-8ee2-b861cc26216f`. Archive source: `codex/01a14eb9-c83b-7110-8ee2-b861cc26216f/rollout-2026-10-18T20-16-00-01a14eb9-c83b-7110-8ee2-b861cc26216f.jsonl`, line 38.
 
 ````text
-든든한 이모티콘이 이리 귀여울수가 
-뭔가 어색하지 않아?
+든든한
 ````
 
 ## 55. 2026-10-19T06:22:56.785000+09:00
@@ -1164,7 +1158,7 @@ Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e
 Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e-b6c3-7232-a292-10ca00fbcc6f/rollout-2026-10-19T16-27-15-01a1530e-b6c3-7232-a292-10ca00fbcc6f.jsonl`, line 72.
 
 ````text
-시발새끼가 연락달라했는데 안주고 저지랄임
+연락달라했는데..
 ````
 
 ## 92. 2026-10-19T21:14:53.654000+09:00
@@ -1172,7 +1166,7 @@ Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e
 Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e-b6c3-7232-a292-10ca00fbcc6f/rollout-2026-10-19T16-27-15-01a1530e-b6c3-7232-a292-10ca00fbcc6f.jsonl`, line 82.
 
 ````text
-싸우자는거같아서..
+같아서..
 ````
 
 ## 93. 2026-10-19T21:15:07.419000+09:00
@@ -1437,7 +1431,7 @@ Session: `01a15d2f-c412-7191-8ca1-62b9d31ee0b9`. Archive source: `codex/01a15d2f
 Session: `01a15d1f-1da9-7e70-bbce-e54e53347196`. Archive source: `codex/01a15d1f-1da9-7e70-bbce-e54e53347196/rollout-2026-10-21T15-21-22-01a15d1f-1da9-7e70-bbce-e54e53347196.jsonl`, line 386.
 
 ````text
-일단 너는 이게 잘 만든거라고 생각해? PM이 잘 지휘했다는건 암묵적으로 보여줘야하는거지. 'PM record 공유'가 이 슬라이드들의 목적이잖아.
+일단 'PM record 공유'가 이 슬라이드들의 목적이잖아.
 ````
 
 ## 119. 2026-10-21T16:29:46.366000+09:00
@@ -1755,3 +1749,95 @@ These sessions are not in my local history. The lines below are the "대표 요�
 
 - In this period I asked several times for answers in Korean ("한글로") after the agent replied in English. Those one-word prompts are not listed.
 - Agent time and tokens for each PR are in the PR body's "AI 사용" block; the totals are in the report's Section 1.
+## Jinwoo Jang
+
+Period: Oct 16–22, 2026 (KST). Tools: Codex (GPT-6 Astra; GPT-6.1 Sol) and Claude Code (Claude Opus 5.5). Source: Session Exporter 0.1.0 export of 10 local sessions (376 input records). This is a selection, not the full list. Prompts are in Korean as I typed them, typos included, with my English translation in brackets. Left out: prompts containing a credential, team document links, production data or command output, and prompts with rude wording. The session shown on each line is the first eight characters of the session ID.
+
+### Prompts
+
+**Source analysis: scope and model choice (DEV-56/57, PR [#113](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113))**
+- 2026-10-16 19:14 · `01a1442e` — "아 ai 채팅은 하지말고 그건 다른사람 범위라." [Don't do the AI chat; that's someone else's scope.]
+- 2026-10-16 20:01 · `01a1442e` — "왜냐면 ai cs 피쳐도 저거 써야돼서 좀 여유있는걸로하자. 가성비로 유명한 애들로 찾아바" [The AI CS feature has to use this budget too, so leave room. Look for models known for value.]
+- 2026-10-16 20:02 · `01a1442e` — "gemini 3.1로 해보고 시각기능 필요한거만 비싼애들 쓰자" [Try Gemini 3.1 and use expensive models only where vision is needed.]
+- 2026-10-16 21:18 · `01a1442e` — "이미지 pdf 품질 검증이라고 너가 말한게 이거 확인하는거 아니엇어?" [Wasn't the "image/PDF quality check" you mentioned exactly this?]
+- 2026-10-17 14:34 · `01a1442e` — "그러면 ocr sol이랑 gemini로 테스트해서 기존보다 나아지는지 테스트 ㄱ" [Then test OCR with Sol and Gemini and see if it beats the current one.]
+- 2026-10-17 17:06 · `01a1442e` — "근데 머지하기 전에 그 플로우는 내가 눈으로 봐야될듯. 사진 넣고 내용 상제 설정하고 페이지 뽑아서 저장하고 공개까지 하는거" [Before merging I need to see the flow myself: add photos, set details, generate the page, save, and publish.]
+
+**Producer page editor (DEV-56, PR [#113](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113))**
+- 2026-10-17 19:02 · `01a1442e` — "그리고 이거 내용 수정하는거 걍 미리보기 화면 쭈루룩 나오고 그 화면에서 바로 고칠수있는 스타일로 다시 만들어봐.. 지금 너무 시안성이 떨어진다" [Rebuild the content editing so the preview runs down the page and you edit right there. It's too hard to read now.]
+- 2026-10-17 19:46 · `01a1442e` — "걍 그 점선 둥근 사가경에 + 가운데 박아놓고 추가하세요 그 ux 모름? 글케 하면 되잖아.." [Just put a + in the middle of a dashed rounded box, the usual "add" UX.]
+- 2026-10-17 20:07 · `01a1442e` — "연필이랑 x는 그 카드 최상단에 오버레이 해놓으삼. 뭔말알? 카드에 텍스트/파일 꽉차게 하라고. 카톡 첨부파일 넣을때처럼.. 그리고 접기는 그 큰 섹션 제목까지 포괄하게 둬야지. 아 근데 걍 접기 빼고 눈만 놔." [Overlay the pencil and x at the top of the card; fill the card like a KakaoTalk attachment. Folding should cover the section title. Actually, drop folding and keep only the eye icon.]
+- 2026-10-17 20:52 · `01a1442e` — "내용을 비워놓은 부분은 구매자에게 표시되지 않아요. 이것도 넣어놓으삼 그리고 자료 넣을때 최상단에 기본적인 과일 품종명, 사이즈, 당도 정도는 직접  입력하게 하삼." [Add the note "Empty parts are not shown to buyers." And at the top of the upload, have producers type the variety, size and Brix themselves.]
+
+**OCR errors (DEV-58, PR [#130](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/130))**
+- 2026-10-17 23:33 · `01a1442e` — "뭐 오독같은건 어쩔 수 없지 않나? 아닌가? 어느정도 오차는 감안해야된다고 생각하긴 하는데 확실히 고칠 수 있는 영역이나 실험해봐야되는 것들이 있으면 좀 해봐" [Some misreads can't be helped, right? I think some error is acceptable, but if there are parts that can certainly be fixed or are worth an experiment, try them.]
+
+**Logo (DEV-85, PR [#173](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/173))**
+- 2026-10-19 16:40 · `01a15319` — "그거로 지금 로고 변경하는거 pr 넣어놓을ㄹ라고. 용도에 맞춰서 넣어야될때 넣기. 어디어디 넣어야겠냐? 그리고 각각 경로 좀 보내줘 내가 눈으로 보게" [I want a PR that swaps in the logo, used where each version fits. Where should it go? Send me each path so I can check by eye.]
+- 2026-10-19 17:29 · `01a15319` — "앵간하면 글자형으로 통일. 그리고 기본조합형은 계정을 골라 시작하세요 옆에 조합형 로고를 두자. 아이콘형은 위치랑 크기 세팅 좀 더 잘해봐" [Use the wordmark wherever possible. Put the combined logo next to "Choose an account to start." Set the icon's position and size better.]
+
+**Upload race (DEV-92, PR [#188](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/188))**
+- 2026-10-19 22:41 · `01a1534b` — "이건 걍 사용자가 넣은걸 우선하면 되는거 아님? 손으로 써서 넣은걸?" [Can't we just let what the user typed by hand win?]
+
+**Profile photo 500 (DEV-102, PR [#205](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/205))**
+- 2026-10-21 13:11 · `f6fcb065` — "너 지금 운영 로그 볼수있냐? 생산자가 농가 프로필 사진 넣을라고 하면 연결 불안정하다고 오류 뜬다는데" [Can you see the production logs? A producer says adding a farm profile photo shows a "connection unstable" error.]
+- 2026-10-21 13:16 · `f6fcb065` — "다른 부분에도 비슷한 문제 생길일없냐" [Could the same problem happen anywhere else?]
+- 2026-10-21 14:15 · `f6fcb065` — "103 105는 걍 이번 iteration에 안해도될거같아서 빼놓으삼" [Leave 103 and 105 out; they don't need to be in this iteration.]
+
+**Login screen privacy (DEV-108 report)**
+- 2026-10-21 19:26 · `46814a2c` — "지금 농가 첫 페이지 로그인 탭에서 다른 농가들 이름들이 뜨고 있나? 확인해봐. 뜨면 안되는거아닌가? 굳이 왜 띄우지" [Are other farms' names showing on the producer login tab? Check. They shouldn't, right? Why show them?]
+
+**Help tour and inquiry room (DEV-109, PR [#218](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/218); DEV-111, PR [#221](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/221))**
+- 2026-10-21 20:32 · `c91cf8ca` — "마지막에 다시 할라면 이 버튼 누르세요! 도 있어야지 그리고 사진 넣으면 ai가뭐뭐해드려요, 반복되는 질문은 이게 해드려요, 그리고 뭐뭐를 해보세요 이런식으로 좀 친절하게 좀 더 말하삼" [At the end it needs "Press this button to see it again!" And phrase it more kindly: "Add photos and AI does X," "Repeated questions are handled by this," "Try doing Y."]
+- 2026-10-21 20:41 · `c91cf8ca` — "이거 지금 메인 ui맞냐? 왜 새 상품에 사진 넣는거 없지" [Is this the main UI? Why is there no photo upload in "new product"?]
+- 2026-10-22 11:19 · `c91cf8ca` — "오른쪽 위 ?할때 ?에 아이콘 들어가게 하셈. 그리고 그 채팅 알려줄때 farmclub이름 그거 받고 그걸로 우리 cs까지 받기로하지 않았냐 왜 안했냐 그거" [Use an icon for the "?" at the top right. And didn't we decide the farmclub-named chat would also take our CS? Why wasn't that done?]
+
+## Zahra Gholami
+
+Period: Oct 13–23, 2026 (KST). Tools: Codex (GPT-5.6 Sol; GPT-6 Luna) and Claude Code (Claude Opus 5.5). Source: Session Exporter 0.1.0 export of 22 local sessions (about 300 input records). This is a selection, not the full list. Prompts are quoted as I typed them, typos included. Left out: prompts with credentials or shell commands, links to team documents, teammates' messages, and short replies ("yes", "go").
+
+### Prompts
+
+**Iteration start and DEV-30 (PR [#96](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/96))**
+- 2026-10-13 16:32 · Codex `01a1342c` — "iteration two has begun. please take a look at linear and see the tasks at hand. give me a summary of the objectives and responsibilities."
+- 2026-10-13 16:38 · Codex `01a1342c` — "where should I start for task 12? do i need the user stories and where are they?"
+- 2026-10-13 17:46 · Codex `01a1342c` — "the name, as I said before should be zahra/dev-30-i2-main-manager-approvals-permissions. add a rule to personal agent rules md for branch name standard. don't worry about the blocking issue t04."
+
+**Plan review loop: DEV-31, DEV-35, DEV-39, DEV-44 (PRs [#99](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/99), [#114](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/114), [#119](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/119), [#118](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/118))**
+- 2026-10-13 19:21 · Claude Code `230f3386` — "now I have to do my next task. which is [Pasted text #1 +42 lines][I2-T13] Finish core AI draft, grounded answer, and producer escalation behavior. I have wrote the following plan. look at the plan and let me know if I missed s[…]"
+- 2026-10-13 19:30 · Claude Code `230f3386` — "what do you think of this updated plan? what did i miss? [Pasted text #3 +65 lines]"
+- 2026-10-13 19:38 · Claude Code `230f3386` — "what about now [Pasted text #4 +77 lines]"
+- 2026-10-16 19:03 · Codex `01a1342c` — "make a plan for dev-35. take a look at the repo and see what was merged and what not and make sure to detect all the bottlenecks"
+- 2026-10-16 22:05 · Claude Code `36f83051` — "this is yhe plan for dev 39. whta do you think [Pasted text #1 +23 lines]"
+- 2026-10-16 22:07 · Claude Code `36f83051` — "are you absolutely sure about your claims??? double check?"
+- 2026-10-16 22:09 · Claude Code `36f83051` — "so what are the points that need to be changed from the original plan>?? or need to be added"
+- 2026-10-16 22:25 · Codex `01a144df` — "evevrything in english pls"
+
+**Checking Codex's work and the verification rules (PRs [#119](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/119), [#117](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/117))**
+- 2026-10-16 23:05 · Claude Code `36f83051` — "this is what codex said about 39. [pasted Codex summary] what is the problem?? explain the background"
+- 2026-10-16 23:07 · Claude Code `36f83051` — "can you write rules to address these? - Set up the worktree before handing it to an agent: run npm install at the root and uv sync in server/. Or run the agent in the main checkout instead. - Tell the agent that "tests written but not run" counts as not done. […] - Don't count the work as done until someone has seen the test suites pass in an environment that has the dependencies installed."
+- 2026-10-16 23:23 · Claude Code `36f83051` — "okay now take a look at what codex did on issue 39. did it make any mistakes? are the tests done right? cross examine"
+- 2026-10-16 23:45 · Claude Code `36f83051` — "don't commit. just let me know when it finishes"
+
+**Tests and the live server (DEV-50, SWPP-118; PRs [#144](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/144), [#189](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/189), [#198](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/198))**
+- 2026-10-18 12:34 · Claude Code `36f83051` — "are you sure it's 17? 17 is already a pass"
+- 2026-10-18 12:51 · Claude Code `36f83051` — "can you write a message I could clarify the extent of the tests I have done"
+- 2026-10-18 12:55 · Claude Code `36f83051` — "say it like this: I have just updated the test results on the google sheets and everything passes now. Just to clarify, the tests are done locally and I have not done data-changing actions on Railway to keep the shared seed clean for Test 2. […]"
+- 2026-10-20 09:22 · Claude Code `7ea57653` — "take a look at latest deployments and the codebase and linear. what is left to do for this iteration for me? Also read all of the records for tests and implementations and find if there are any gaps that need to be addressed. Things that were not implemented or partially impelemented or design that needs to be updated or anything else that you can think of."
+- 2026-10-20 09:47 · Claude Code `7ea57653` — "explain the issues super simply. don't be verbose"
+- 2026-10-20 09:58 · Claude Code `7ea57653` — "make a plan to address the issues based on their importance. your plan should include if I need to message anyone to confirm anything first"
+- 2026-10-20 10:27 · Claude Code `7ea57653` — "if others have done it as well, i think it is safe for me to do it as well as long as it is done safely. go ahead and plan a test. I don't need to check with the pm"
+- 2026-10-20 14:28 · Claude Code `7ea57653` — "when I sent you the screen shot from the partial refund, did it show 1,000W or 1,500W????"
+- 2026-10-20 14:30 · Claude Code `7ea57653` — "is this true??? Today's live server check (SWPP-118) caught it: the operator refunded ₩500, then did the final refund. The producer only saw a single ₩1,000 item, and only after that final refund."
+- 2026-10-20 14:33 · Claude Code `7ea57653` — "are we absolutely sure that there is an issue with the partial refund?"
+
+**Test data on the live server (DEV-93, PR [#192](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/192))**
+- 2026-10-20 11:31 · Claude Code `7ea57653` — "how about making a delete api? was it not made intentionally or was it just missed"
+- 2026-10-20 11:36 · Claude Code `7ea57653` — "let's do this: What was missed is a way to clean up test data on the live server. Nobody planned for it. let's do this right now and also write up that a proper delete api needs to be made once policy is decided"
+- 2026-10-20 12:01 · Claude Code `cdfb6f96` — "currently when I made a test farm, I can't delete it and it is visible on the website to everyone. there is no delete api yet, because the scope is undecided. […] 1. examine the pr and the workflow of how deletion works very carefully as it changes the db. make sure it doesn't accidentally touch things it is not supposed to such as other accounts data and so on. and then examine this plan and see if it makes sense […]"
+- 2026-10-20 12:07 · Claude Code `cdfb6f96` — "I think I may be complicating things. how would you recommend addressing this issue? what is the common practice?"
+- 2026-10-20 13:33 · Claude Code `cdfb6f96` — "don't touch other people's test farms. update the pr"
+
+**Chat product context (DEV-97, PR [#197](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/197))**
+- 2026-10-20 13:55 · Claude Code `934d086d` — "I want to address a current issue: [Pasted text #1 +19 lines] it would need a bug pr. plan out"
+- 2026-10-20 14:42 · Claude Code `934d086d` — "what are we doing here? remind me"

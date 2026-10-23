@@ -316,11 +316,12 @@ export const messaging = {
     attachmentIds: string[] = [],
     orderId?: string,
     idempotencyKey: string = newIdempotencyKey(),
+    productId?: string,
   ) =>
     request<A.SendMessageResult>(
       "POST",
       `/api/messaging/chats/${farmId}/messages`,
-      { body: { text, attachmentIds, orderId }, idempotencyKey },
+      { body: { text, attachmentIds, orderId, productId }, idempotencyKey },
     ),
   read: (farmId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/chats/${farmId}/read`, {
