@@ -14,7 +14,7 @@ PR 본문은 리뷰어가 코드를 열기 전에 "무엇을, 왜, 어디까지"
 ## draft PR 열기 (spec 첫 커밋 직후)
 1. 브랜치 이름이 영어 슬러그(`<github 아이디>/<이슈 키 소문자>-<영어 요약>`, 한글 없음)인지 확인하고 push한다. PR을 연 뒤에는 이름을 바꾸지 않는다.
 2. `.github/pull_request_template.md`를 채워 본문을 만든다. "Spec"에는 이 이슈의 `tasks.md` 섹션(경로#이슈 키)과 관련 FEAT·AC ID를 적는다. 변경 요약은 `tasks.md`의 작업 목록으로 대신해도 된다.
-3. `gh pr create --draft --base main --title "[DEV-12] <요약>" --body-file <본문 파일>`
+3. `gh pr create --draft --base main --title "[DEV-12] <English summary>" --body-file <본문 파일>`
 4. 관련자 알림 문구를 만들어 사용자에게 보여준다. **에이전트가 직접 메시지를 보내지 않는다.**
    - 예: `[DEV-12] draft PR 열었습니다: <PR 링크> — <한 줄 요약>. spec: <tasks.md 경로>`
 
@@ -26,6 +26,7 @@ PR 본문은 리뷰어가 코드를 열기 전에 "무엇을, 왜, 어디까지"
 5. `gh pr edit <번호> --body-file <본문 파일>`
 
 ## 규칙
+- 제목의 요약은 영어로 쓴다(예: `[DEV-12] Add order cancel API`). 본문은 한국어로 써도 된다.
 - 제목·브랜치·본문에 이슈 키가 있어야 Linear와 연결된다. `Closes #<GitHub 이슈 번호>`로 GitHub 이슈도 닫는다.
 - base는 항상 `main`이다. 다른 작업 브랜치 위에 쌓으면 선행 PR이 squash merge된 뒤 같은 변경이 다른 커밋으로 남아 충돌·diff 혼입·재작업이 생긴다. 선행 PR이 필요하면 머지를 기다렸다가 `origin/main`에서 브랜치를 만든다. 이미 쌓았다면 선행 PR 머지 뒤 `main`을 병합(또는 rebase)하고 base를 `main`으로 바꾼 다음 push해 CI가 다시 돌았는지 확인한다.
 - 범위 밖 변경이 diff에 있으면 본문에 숨기지 말고 "범위 밖 변경"으로 밝히거나 커밋을 분리한다.

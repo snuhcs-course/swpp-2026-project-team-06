@@ -63,7 +63,7 @@
 - 다른 작업 브랜치 위에 PR을 쌓지 않는다. base는 항상 `main`이고, 선행 작업이 필요하면 선행 PR이 머지된 뒤 `origin/main`에서 브랜치를 만든다. 상세는 `pr-context` 스킬.
 - 마이그레이션을 추가한 PR은 머지 직전 `main`을 병합하고 `alembic heads`가 1개인지 확인한다. 리비전 번호가 겹치면 뒤에 머지하는 쪽이 번호를 올린다.
 - 커밋: `type(scope): 요약 (DEV-12)` — type은 `feat` `fix` `docs` `refactor` `test` `chore`. 한 커밋은 한 가지 변경.
-- PR 제목: `[DEV-12] 요약`. 본문은 `.github/pull_request_template.md`를 채운다.
+- PR 제목: `[DEV-12] <English summary>` — 요약은 **영어로** 쓴다(squash merge 때 main 커밋 제목이 된다). 본문은 `.github/pull_request_template.md`를 채운다.
   - Dependabot 등 봇이 만든 PR은 이슈 키 예외.
 - `main`에 직접 push하지 않는다. force push는 자기 브랜치에서만.
 - 에이전트는 커밋·push 직전에 `git branch --show-current`로 작업 브랜치인지 확인하고, push는 `git push origin HEAD`처럼 브랜치를 명시한다.
