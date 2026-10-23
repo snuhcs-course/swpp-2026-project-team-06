@@ -799,3 +799,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
 - 10/22 `/privacy`·`/terms` 라우트(관문 `lib/gate.ts`에서 모든 상태에 공개, 동의 전에는 `/consent`만), 로그인·환경설정 하단 `LegalFooter`, vercel.json에서 정적 HTML로 rewrite.
+
+## DEV-94 회원 탈퇴
+
+- 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
+- 10/23 환경설정 ‘계정’과 승인 대기(SCR-21) 하단에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃 → 로그인.
