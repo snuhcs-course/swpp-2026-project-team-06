@@ -70,6 +70,7 @@ const input = (productId = "p-house", optionId = "opt-5", quantity = 1) => ({
     delayRefund: true,
     shortage: true,
     cancelPolicy: true,
+    thirdParty: true,
   },
   consentVersion: "test",
 });

@@ -10,7 +10,13 @@ from sqlalchemy import select, update
 from app.catalog.models import StageAllocation
 from app.core.db import get_sessionmaker
 
-CONSENTS = {"deliveryWindow": True, "delayRefund": True, "shortage": True, "cancelPolicy": True}
+CONSENTS = {
+    "deliveryWindow": True,
+    "delayRefund": True,
+    "shortage": True,
+    "cancelPolicy": True,
+    "thirdParty": True,
+}
 
 
 def order_body(**overrides):
@@ -304,13 +310,38 @@ def test_deposit_requires_farm_account(client, login):
     assert allocation().reserved_count == 38
 
 
-def test_AC_08_1_all_four_consents_required(client, login):
+def test_AC_08_1_all_five_consents_required(client, login):
     body = order_body(consents=CONSENTS | {"shortage": False})
 
     response = client.post("/api/orders", headers=login("u-seojun") | key(), json=body)
 
     assert response.status_code == 400
     assert "consents" in response.json()["details"]["fields"]
+
+
+def test_AC_08_7_third_party_consent_required_and_recorded(client, login):
+    """판매자 농가에 배송 정보를 주려면 주문할 때 제3자 제공 동의가 필요하다(DEV-120, 제17조)."""
+    headers = login("u-seojun")
+    missing = {k: v for k, v in CONSENTS.items() if k != "thirdParty"}
+    for consents in (missing, CONSENTS | {"thirdParty": False}):
+        body = order_body(consents=consents)
+        response = client.post("/api/orders", headers=headers | key(), json=body)
+        assert response.status_code == 400
+        assert "consents" in response.json()["details"]["fields"]
+
+    order = client.post(
+        "/api/orders",
+        headers=headers | key(),
+        json=order_body(consentVersion="policy-2026-10-23"),
+    )
+    assert order.status_code == 200, order.text
+    from app.core.db import get_sessionmaker
+    from app.orders.models import Order
+
+    with get_sessionmaker()() as db:
+        row = db.get(Order, order.json()["orderId"])
+        assert row.consent_version == "policy-2026-10-23"
+        assert row.consent_at is not None
 
 
 def test_AC_08_2_quantity_limit(client, login):
