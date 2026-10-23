@@ -88,6 +88,25 @@ test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async (
     const agreed = await api("GET", "/api/auth/me", t);
     assert.equal(agreed.body.needsOnboarding, false);
     assert.equal(agreed.body.consentRequired, false);
+
+    // 주문은 개인정보 제3자 제공(판매자) 동의까지 5개가 모두 있어야 한다(DEV-120, 서버 AC-08-7과 같은 규칙)
+    const four = { deliveryWindow: true, delayRefund: true, shortage: true, cancelPolicy: true };
+    const order = (consents) =>
+      api("POST", "/api/orders", t, {
+        productId: "p-house",
+        optionId: "opt-5",
+        quantity: 1,
+        recipientName: "박현",
+        recipientPhone: "010-2345-6789",
+        postalCode: "06236",
+        address: "서울 강남구 테헤란로 1",
+        consents,
+        consentVersion: "policy-2026-10-23",
+      });
+    const noThirdParty = await order(four);
+    assert.equal(noThirdParty.status, 400);
+    assert.ok(noThirdParty.body.details.fields.consents);
+    assert.equal((await order({ ...four, thirdParty: true })).status, 200);
     assert.equal((await api("PUT", "/api/farms/f-kang/follow", t)).status, 200);
 
     // 생산자 앱 카카오(DEV-74): 농가 없는 생산자 → 온보딩 없음 → 가입 신청 → 확인 중

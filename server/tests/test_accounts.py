@@ -494,6 +494,7 @@ def test_AC_01_12_onboarding_required_before_order_follow_chat(client, monkeypat
                 "delayRefund": True,
                 "shortage": True,
                 "cancelPolicy": True,
+                "thirdParty": True,
             },
             "consentVersion": "1.0",
         },

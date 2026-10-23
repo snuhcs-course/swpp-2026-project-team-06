@@ -34,6 +34,7 @@ ORDER = {
         "delayRefund": True,
         "shortage": True,
         "cancelPolicy": True,
+        "thirdParty": True,
     },
     "consentVersion": "2026-10-06",
 }

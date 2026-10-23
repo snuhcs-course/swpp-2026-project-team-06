@@ -461,6 +461,8 @@ export type OrderInput = Recipient & {
     delayRefund: boolean;
     shortage: boolean;
     cancelPolicy: boolean;
+    /** 개인정보 제3자 제공(판매자 농가) 동의(DEV-120, 개인정보보호법 제17조) */
+    thirdParty: boolean;
   };
   consentVersion: string;
   saveAddress?: boolean;

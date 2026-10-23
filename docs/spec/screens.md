@@ -73,7 +73,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 | --- | --- | --- |
 | C01 홈·발견 | SCR-01 홈·발견 | 랜딩을 홈으로 재정의. SCR-02 농가 목록은 발견 탭 안 |
 | C02 농장·상품 상세 | SCR-04 상품 상세 + SCR-03 농가 페이지 | 결정 10. SCR-04에는 농가 요약만(최신 소식 칸 없음, 결정 26) |
-| C03 선주문 확인 | SCR-10 주문서 + SCR-11 결제(Mock) | 결정 9. 동의 4개(R-03) |
+| C03 선주문 확인 | SCR-10 주문서 + SCR-11 결제(Mock) | 결정 9. 동의 4개(R-03) + 개인정보 제3자 제공(DEV-120) |
 | C04 예약 완료 | SCR-12 주문 완료 | 팔로우 권유와 소식·채팅 버튼 |
 | C05 농장 소식 | SCR-18 소식(새 화면) + SCR-03 소식 탭 | 결정 6·17 |
 | C06 농장 채팅 | SCR-15 채팅 목록 + SCR-16 농가 채팅 | 결정 5·16·18 |
@@ -177,8 +177,8 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-08(AC-08-1~5), FEAT-01(AC-01-1) · 규칙: R-03, R-06, R-17, R-20, R-23 · 정책 2장 · 우선순위: Must
 - **목적**: 옵션·수량·받는 곳을 확인하고 조건에 동의해 결제로 간다.
-- **화면 요소·데이터**: 상품 요약(썸네일 64, 옵션·수량, 지금 단계 가격, ‘변경’ → 옵션 시트), 받는 곳(저장한 기본 배송지 요약과 ‘변경’, 없으면 ‘받는 사람과 주소 입력’ → 배송지 입력 하위 화면), 배송 메모(선택), 금액(상품 금액 + 배송비 + 도서산간 추가금 = 합계), 예약 전 동의 4개(정책 2장)와 전체 동의, 그 아래 중개자 고지·입금 안내 문단(DEV-68), 하단 바 ‘예약하기’.
-- **입력**: `optionId`, `quantity`, `recipientName`, `recipientPhone`(휴대폰 형식), `postalCode`, `address`, 선택 `addressDetail`, `deliveryNote`(100자 이하), 동의 4개, `saveAddress`. 저장한 기본 배송지가 있으면 채워 두고 ‘다른 배송지’ 시트에서 저장 목록(최대 50개) 중 고르거나 새 주소를 넣는다(AC-08-5, `GET /api/auth/me/addresses`). 저장 배송지가 없으면 배송지 입력의 받는 사람·연락처를 가입 정보(이름·휴대폰)로 채운다. 50개가 찼으면 시트와 배송지 입력에 ‘이번 주문에만 쓰고 저장하지 않아요’를 보이고 저장 체크를 숨긴다. 가입 온보딩이 남은 계정이 열면 SCR-06으로 보낸다(AC-01-12).
+- **화면 요소·데이터**: 상품 요약(썸네일 64, 옵션·수량, 지금 단계 가격, ‘변경’ → 옵션 시트), 받는 곳(저장한 기본 배송지 요약과 ‘변경’, 없으면 ‘받는 사람과 주소 입력’ → 배송지 입력 하위 화면), 배송 메모(선택), 금액(상품 금액 + 배송비 + 도서산간 추가금 = 합계), 예약 전 동의 5개(정책 2장: R-03 4개 + 개인정보 제3자 제공, DEV-120)와 전체 동의, 그 아래 중개자 고지·입금 안내 문단(DEV-68), 하단 바 ‘예약하기’.
+- **입력**: `optionId`, `quantity`, `recipientName`, `recipientPhone`(휴대폰 형식), `postalCode`, `address`, 선택 `addressDetail`, `deliveryNote`(100자 이하), 동의 5개(`thirdParty` 포함, DEV-120), `saveAddress`. 저장한 기본 배송지가 있으면 채워 두고 ‘다른 배송지’ 시트에서 저장 목록(최대 50개) 중 고르거나 새 주소를 넣는다(AC-08-5, `GET /api/auth/me/addresses`). 저장 배송지가 없으면 배송지 입력의 받는 사람·연락처를 가입 정보(이름·휴대폰)로 채운다. 50개가 찼으면 시트와 배송지 입력에 ‘이번 주문에만 쓰고 저장하지 않아요’를 보이고 저장 체크를 숨긴다. 가입 온보딩이 남은 계정이 열면 SCR-06으로 보낸다(AC-01-12).
 - **출력**: `POST /api/orders`(`Idempotency-Key`) → 결제 전 주문(`orderId`, `unitPrice`, `shippingFee`, `totalAmount`), 이어서 `POST /api/orders/{orderId}/deposit`(`Idempotency-Key`) → 물량 선점·입금 대기(`AWAITING_DEPOSIT`)·계좌·기한. 서버 합계를 보여주고 SCR-11로 간다.
 - **버튼 동작**: 옵션·수량·주소 변경 → 합계 미리보기 갱신. 예약하기 → 필수값·동의 검증 후 주문 생성과 입금 안내를 각 1회 요청, 처리 중 잠금. 뒤로 → SCR-04.
 - **빈 상태·오류**: 받는 곳이 없으면 예약하기를 끄고 ‘받는 곳을 입력하면 예약할 수 있어요’. 동의 누락 → 넘어가지 않음(AC-08-1). 409(기간/가격 변경·판매 중지·총 한도/기간 물량 소진·수량 초과) → 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받음. 네트워크 오류 → 입력 유지, 다시 시도.
@@ -486,8 +486,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /api/auth/kakao` | 공개 | `/auth/kakao` 복귀 | `code`, `redirectUri`(두 앱 주소의 `/auth/kakao`만), `app` | `accessToken`, 사용자. (카카오 식별자, 역할) 계정을 찾거나 만든다. 키가 없으면 404, 복귀 주소·카카오 인증 실패면 400 | FEAT-01 I2 | Must |
 | `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작, 정지 안내 | — | 사용자, 역할, 농가 상태(`NONE`·`PENDING`·`REJECTED`·`APPROVED`·`SUSPENDED`), 정지 사유, `nickname`, `email`, `phone`, `needsOnboarding`(소비자 카카오 계정만 true 가능) | FEAT-01 | Must |
 | `PATCH /api/auth/me` | 소비자 | SCR-06, SCR-17 하위 | 선택 `nickname`(2~12자), `name`(2~20자), `phone`(휴대폰 형식). 보낸 필드만 | 사용자(위와 같음). 검증 실패 400 `fields` | FEAT-01 I2 | Must |
-| `GET /api/auth/me/consents` | 소비자 | SCR-06 | — | 가입 동의 목록(`kind`, `version`, `agreed`, `agreedAt`) | FEAT-01 I2 | Should |
-| `POST /api/auth/me/consents` | 소비자 | SCR-06 | `consents[]`: `kind`(`TERMS`·`PRIVACY`·`AGE14`·`MARKETING`), `version`, `agreed`(기본 true) | 가입 동의 목록. 항목마다 한 줄, 다시 보내면 버전·시각 갱신 | FEAT-01 I2 | Must |
+| `GET /api/auth/me/consents` | 소비자·생산자(DEV-113) | SCR-06, SCR-19a | — | 가입 동의 목록(`kind`, `version`, `agreed`, `agreedAt`) | FEAT-01 I2 | Should |
+| `POST /api/auth/me/consents` | 소비자·생산자(DEV-113) | SCR-06, SCR-19a | `consents[]`: `kind`(`TERMS`·`PRIVACY`·`AGE14`·`MARKETING`), `version`, `agreed`(기본 true) | 가입 동의 목록. 항목마다 한 줄, 다시 보내면 버전·시각 갱신 | FEAT-01 I2 | Must |
 | `POST /api/auth/producer-application` | 생산자 계정 | SCR-20 | `ownerName`(대표자 이름), 농가명, 지역, 주 품목, 연락처, 입점 정책 동의 | 농가(`PENDING`), 계정 이름을 대표자 이름으로 | FEAT-01 | Should |
 | `GET /api/auth/producer-application` | 생산자 계정 | SCR-20, 21 | — | 신청 상태, 반려 사유, 신청 내용(대표자 이름·농가명·지역·주 품목·연락처, 신청일) | FEAT-01 | Should |
 | `GET /api/auth/me/addresses` | 소비자 | SCR-10, 17 | — | 저장 배송지 목록(기본 표시) | FEAT-08 | Must |
@@ -527,7 +527,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 메서드·경로 | 권한 | 화면 | 요청 | 응답 | FEAT | I1 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `POST /api/orders` | 소비자, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 4개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT` | FEAT-08 | Must |
+| `POST /api/orders` | 소비자, `Idempotency-Key` | SCR-10 | `productId`, `optionId`, `quantity`, 받는 사람·연락처·우편번호·주소·상세 주소, `deliveryNote`, 동의 5개와 문구 버전, `saveAddress` | 결제 전 주문(`PENDING_PAYMENT`), `unitPrice`, `shippingFee`, `totalAmount`. 409 `STAGE_CHANGED`·`SOLD_OUT`·`QUANTITY_LIMIT` | FEAT-08 | Must |
 | `POST /api/orders/{orderId}/deposit` | 소비자, `Idempotency-Key` | SCR-10 → 11 | — | 물량 선점 후 `AWAITING_DEPOSIT`, `depositAccount`·`sellerInfo`·`depositDueAt`(안내 시각 + 24시간). 물량 0이면 409 `SOLD_OUT`, 계좌 없으면 409 `NO_FARM_ACCOUNT` (DEV-68) | FEAT-09 | Must |
 | `POST /api/orders/{orderId}/deposit-reported` | 소비자(본인) | SCR-11, 14 | — | `depositReportedAt` 기록, 상태 그대로. 입금 대기가 아니면 409 | FEAT-09 | Should |
 | `POST /api/orders/{orderId}/confirm-deposit` | 생산자(자기 농가) | SCR-29 | — | `RESERVED`, 결제일(=확인 시각), `Payment` 생성. 이미 확인됐으면 그대로(멱등). 입금 대기가 아니면 409 `INVALID_TRANSITION`, 남의 농가 404 | FEAT-09 | Must |
