@@ -14,6 +14,7 @@ import {
   tokens,
   won,
 } from "@farmclub/ui";
+import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
@@ -450,15 +451,10 @@ export function Forbidden() {
 export const isStatus = (e: unknown, status: number) =>
   e instanceof ApiError && e.status === status;
 
-/** 웹 공유: 클립보드 복사 */
+/** 클립보드 복사. 웹·앱 모두 expo-clipboard(DEV-33) */
 export async function copyText(text: string) {
   try {
-    await (
-      globalThis as {
-        navigator?: { clipboard?: { writeText: (t: string) => Promise<void> } };
-      }
-    ).navigator?.clipboard?.writeText(text);
-    return true;
+    return await Clipboard.setStringAsync(text);
   } catch {
     return false;
   }
