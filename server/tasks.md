@@ -1667,7 +1667,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97)
 - 브랜치: `zahra/dev-97-chat-product-context`
 - 기능·인수 조건: FEAT-13 AC-13-1·AC-13-3, FEAT-12(SCR-04 채팅하기 → SCR-16), M-18
-- 상태: 리뷰 중
+- 상태: 완료
 
 ### 목표
 AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 순으로 상품을 고르는데, 소비자 채팅 보내기는 상품을 넘기지 않는다. 판매 중 상품이 2개 이상인 농가(`f-kang`)에서 상품 페이지로 연 채팅의 당도·배송 질문이 등록 정보가 있어도 농가에 전달된다. 상품 페이지에서 연 채팅이 그 상품을 근거로 쓰게 한다.
@@ -1695,12 +1695,12 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 - [x] `packages/api`: `messaging.send(…, productId?)`, Mock 검증·전달, `test-ai-feedback.mjs` 케이스
 - [x] 소비자 앱: 상품 페이지 채팅하기 두 곳이 `productId`를 넘기고 채팅 화면이 보내기에 싣는다
 - [x] 문서: screens.md·wiki 보내기 행, `messaging/spec.md` 구현 결정
-- [ ] SWPP-116 8절 한계 문구(위 결정대로, 머지 순서에 따라)
+- [x] SWPP-116 8절 한계 문구(위 결정대로, 머지 순서에 따라) — SWPP-116 브랜치에서 고침(#165)
 
 ### 완료 조건
-- [ ] 이슈 완료 조건(서버 `productId`·404, 소비자 앱 전달, Mock 일치, 문서)
+- [x] 이슈 완료 조건(서버 `productId`·404, 소비자 앱 전달, Mock 일치, 문서)
 - [x] 테스트 통과: `uv run pytest`, `npm run test:mock`, `npm run typecheck`
-- [ ] 리뷰 1명 승인 후 main 머지
+- [x] main 머지(I2는 승인 없이 머지하기로 팀 합의) — #197 `f30f0f2`
 
 ### 기록
 - 10/20 main `1c8ec35`에서 시작.
@@ -1708,3 +1708,4 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 - 10/20 소비자 앱 Mock 화면 확인(Chrome): 비로그인 → 하우스 감귤 상품 페이지 ‘1:1 채팅’ → 카카오(Mock) 로그인·온보딩 → ‘팔로우하고 대화 시작’ 시트 → 채팅 URL `/chats/f-kang?start=1&productId=p-house` → “당도가 몇이에요?” → AI 안내 ‘등록된 실측 당도는 11.8Brix예요.’ 같은 대화를 상품 없이(`/chats/f-kang`) 열고 같은 질문 → ‘농가에 전달했어요’. 콘솔 오류 0.
 - 10/20 AI 1차 리뷰(PR 코멘트): must 없음. should 반영 — 주문+상품 동시 전송 시 주문 우선 테스트 추가(pytest 379 passed). 후속 제안: 전달된 질문에 상품 문맥이 없어 농가가 어느 상품 질문인지 모름(범위 밖). draft 해제, 사람 리뷰 대기.
 - 10/23 main(`1256583`)을 병합. 충돌은 문서 5개(tasks.md 3개·`messaging/spec.md`는 양쪽 유지, wiki는 main의 새 API 절에 `productId` 설명을 다시 넣음). 검증: `ruff check` 통과, `uv run pytest` 426 passed, `alembic check` 변경 없음, `npm run test:mock` 32/32, `npm run typecheck` 통과, admin 18/18. `make`는 Xcode 라이선스 미동의로 실행 못 해 같은 명령을 직접 실행. 남은 일: 머지, SWPP-116 8절 문구.
+- 10/23 #197 squash 머지(`f30f0f2`), 머지 전 원격 CI 통과(`spec-code-review`는 수동 승인 대기로 미실행). SWPP-116 브랜치에 main을 병합하고 wiki 3·7·8절을 DEV-97에 맞춰 고친 뒤 #165 머지(`93cf7aa`). DEV-97·SWPP-116 Linear Done.
