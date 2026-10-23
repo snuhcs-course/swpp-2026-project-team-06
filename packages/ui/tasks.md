@@ -629,3 +629,4 @@ react-native-web 0.21은 `accessibilityState={{…}}`를 DOM에 옮기지 않는
 ### 기록
 - 10/23 origin/main 3cb431f에서 시작.
 - 10/23 확인: `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed. 실서버(`DATABASE_URL=…/farmclub_dev141 node scripts/run-integration.mjs <3 spec>`, 임시 DB는 끝나고 DROP): 실서버 시나리오 7/7, Playwright 5 passed / 2 skipped(mock-login은 공유 Mock 필요) — checkout-and-fulfillment 2, discovery-and-gates 3. Mock 스택(`npm run dev`)에서 `mock-login.spec.ts` 2 passed.
+- 10/23 origin/main 3ef3c04(DEV-140) 병합(tasks.md 섹션만 충돌, 둘 다 남김). 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed, 실서버 시나리오 7/7 + Playwright 5 passed / 0 failed(checkout-and-fulfillment·discovery-and-gates).
