@@ -14,6 +14,7 @@ import {
   businessLines,
   legalDocs,
   officerLines,
+  siteLines,
 } from "../packages/ui/src/legalContent.ts";
 
 const esc = (s) =>
@@ -23,10 +24,10 @@ const esc = (s) =>
   );
 
 function businessHtml() {
-  const lines = businessLines();
-  return lines.length
-    ? `<dl class="biz">${lines.map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`
-    : `<p>${esc(TEST_SERVICE)}</p>`;
+  // 사업자 정보(값 있는 것만) + 호스팅서비스 제공자. 사업자 정보가 없으면 '테스트 서비스'를 앞에 둔다
+  const lines = siteLines();
+  const test = lines.length === 1 ? `<p>${esc(TEST_SERVICE)}</p>` : "";
+  return `${test}<dl class="biz">${lines.map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
 }
 
 /** 페이지 하단·noscript에 넣는 사업자 정보와 링크 */

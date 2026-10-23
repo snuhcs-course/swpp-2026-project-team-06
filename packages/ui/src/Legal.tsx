@@ -4,6 +4,7 @@ import { Linking, Pressable, View, type StyleProp, type ViewStyle } from "react-
 import {
   BROKER_NOTICE,
   TEST_SERVICE,
+  HOSTING_PROVIDER,
   businessCheckUrl,
   businessLines,
   officerLines,
@@ -80,6 +81,9 @@ export function LegalFooter({
           </T>
         ))
       )}
+      <T variant="caption" muted>
+        {`호스팅서비스 제공자 ${HOSTING_PROVIDER}`}
+      </T>
       <T variant="caption" muted style={{ marginTop: tokens.space.xs }}>
         {BROKER_NOTICE}
       </T>
@@ -130,7 +134,10 @@ function Block({ block }: { block: LegalBlock }) {
       </View>
     );
   const business = businessLines().map(([l, v]) => `${l} ${v}`);
-  const lines = "officer" in block ? officerLines() : business.length ? business : [TEST_SERVICE];
+  const lines =
+    "officer" in block
+      ? officerLines()
+      : [...(business.length ? business : [TEST_SERVICE]), `호스팅서비스 제공자 ${HOSTING_PROVIDER}`];
   return (
     <View style={{ gap: tokens.space.xs }}>
       {lines.map((line) => (
