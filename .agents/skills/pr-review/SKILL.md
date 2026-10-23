@@ -15,10 +15,10 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
    - (a) 관련 FEAT 파일의 인수 조건(AC)
    - (b) 작업 폴더 `spec.md`의 구현 결정
    - (c) `tasks.md` 이 이슈 섹션의 작업·완료 조건
-2. **범위 이탈**: `tasks.md` 이 이슈 섹션의 "범위(수정 허용 경로)" 밖 파일 변경, "비범위" 영역 변경.
+2. **범위 이탈**: `tasks.md` 이 이슈 섹션의 "범위(수정 허용 경로)" 밖 파일 변경, "비범위" 영역 변경. PR 본문 "Spec ↔ Code 확인" 표가 diff의 모든 파일을 덮는지 `python3 .agents/skills/pr-context/check_table.py <본문 파일>`로 확인한다(형식은 `pr-context` 스킬). 실패하면 should.
 3. **스펙 문서 동기화**: 동작·규칙이 바뀌었는데 `docs/spec/`과 `docs/wiki/` 영문 요약이 같은 PR에서 같이 안 바뀌었으면 must.
 4. **정확성**: 버그, 경계값, 에러 처리 누락, 동시성, 잘못된 가정.
-5. **테스트**: 변경을 검증하는 테스트가 있는지, 지우거나 약하게 만든 테스트는 없는지.
+5. **테스트**: 변경을 검증하는 테스트가 있는지, 지우거나 약하게 만든 테스트는 없는지. 고정 시계에서 같은 시각끼리 순서를 비교하는 테스트(간헐 실패)는 없는지.
 6. **보안·데이터**: 비밀값, 개인정보, 권한 검사 누락.
 7. **유지보수**: 중복, 불필요한 복잡도, 이름. (사소하면 nit)
 
@@ -52,7 +52,11 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 - 반영 후 다시 리뷰를 요청한다.
 
 ## 4. 머지 직전
-1. `git fetch && git merge origin/main`으로 branch를 최신화하고 충돌·테스트를 확인해 push한다.
+1. `git fetch && git merge origin/<base>`(보통 `main`)로 branch를 최신화하고 충돌·테스트를 확인해 push한다.
+   - 쌓은 PR은 base 브랜치가 먼저 main을 받아 둔다(위에서부터). 절차는 `pr-context` "PR 쌓기".
+   - base를 바꿨다면 push 뒤 server·apps·integration CI와 spec-check가 새로 돌았는지 본다.
+   - 마이그레이션이 있으면 `cd server && uv run alembic heads`가 1개인지 확인한다. 겹치면 이 PR의 리비전 번호를 올린다.
 2. `tasks.md`의 상태를 "완료"로, 완료 조건을 체크한다.
-3. 사람 1명 Approve 확인 후 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
-4. Linear 이슈 "결과"(산출물·시간·커밋·배운 점)를 채운다.
+3. PR 체크가 통과했는지, 사람 1명 Approve를 확인한 뒤 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
+4. 머지 뒤 main CI와 바뀐 경로의 배포 대상(Railway 서버, Vercel 앱, Vercel 관리자 페이지)을 확인한다. main CI가 깨지면 바로 고치거나 revert한다.
+5. Linear 이슈 "결과"(산출물·시간·커밋·배운 점, 배포 확인)를 채운다.

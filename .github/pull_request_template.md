@@ -19,6 +19,8 @@ Linear DEV- · Closes #
 |  |  |  |
 
 <!-- 제품 구현이 없는 문서·작업 절차 PR은 해당 없음의 이유와 변경 문서를 적는다. -->
+<!-- spec-check는 1열(스펙)과 2열(구현)의 backtick 파일 경로만 읽는다. 바뀐 파일은 모두 1·2열에 적고, 함수 이름 등은 backtick 없이 쓴다. 점검: python3 .agents/skills/pr-context/check_table.py <본문 파일> -->
+
 
 ### 리뷰 요청 전
 - [ ] 적용 스펙과 변경 여부를 기록했다.
@@ -34,6 +36,15 @@ Linear DEV- · Closes #
 - 리뷰 링크 및 판단 근거:
 
 <!-- 확인 후 변경이 추가되면 영향받는 부분을 다시 검토한다. -->
+
+## Figma
+<!-- 화면 모양·문구가 바뀌면 같은 PR에서 Figma v6(https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G)도 고친다.
+     아래 줄 하나를 셋 중 하나로 채운다. apps/*/src, packages/ui/src, scripts/admin-web가 바뀐 PR은 CI(figma-line)가 검사한다.
+       반영함 — <Figma 링크 또는 node-id>
+       해당 없음 — <이유>
+       후속 — <Linear 이슈 키, 예: DEV-xx>
+     예: Figma: 반영함 — https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=343-5945 -->
+Figma: 
 
 ## 변경 요약
 <!-- 파일·기능 단위. diff에 있는 것만 -->

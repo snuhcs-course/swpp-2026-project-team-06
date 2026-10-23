@@ -2,12 +2,14 @@ import { auth, farms, isMock, resetDemoData } from "@farmclub/api";
 import {
   Button,
   LargeTitle,
+  LegalFooter,
   ListRow,
   ProfileAvatar,
   Screen,
   Scroll,
   Section,
   Sheet,
+  WithdrawSheet,
   Skeleton,
   T,
   tokens,
@@ -16,12 +18,14 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
+import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
 import { LoadError } from "../../lib/views";
 export default function Settings() {
   const router = useRouter(),
-    { refresh } = useSession();
+    { refresh, user } = useSession();
   const farm = useAsync(() => farms.mine(), []);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [reset, setReset] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -32,10 +36,11 @@ export default function Settings() {
   );
   return (
     <Screen>
-      <Scroll bottom={tokens.height.tabBarClearance}>
+      <Scroll bottom={tokens.height.tabBarClearance} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
         <LargeTitle
           title="환경설정"
           subtitle="농가 정보와 응대 방식을 관리해요"
+          right={<HelpButton />}
         />
         {farm.error ? (
           <LoadError error={farm.error} onRetry={farm.reload} />
@@ -75,15 +80,21 @@ export default function Settings() {
             sub="사진과 소개를 고치고 단골에게 알려요"
             onPress={() => router.push("/farm")}
           />
-          <ListRow
-            label="AI 응답 설정"
-            sub="자동 안내와 농가의 응대 원칙"
-            onPress={() => router.push("/farm/ai-settings")}
-            last
-          />
+          <View testID="ai-settings-row">
+            <ListRow
+              label="AI 응답 설정"
+              sub="자동 안내와 농가의 응대 원칙"
+              onPress={() => router.push("/farm/ai-settings")}
+              last
+            />
+          </View>
         </Section>
         <Section title="계정">
-          <ListRow label="로그아웃" onPress={() => auth.logout()} last />
+          <ListRow label="로그아웃" onPress={() => auth.logout()} last={!!user?.isTestAccount} />
+          {/* 회원 탈퇴(DEV-94). 테스트 계정은 서버가 막으므로 보이지 않는다 */}
+          {user?.isTestAccount ? null : (
+            <ListRow label="회원 탈퇴" onPress={() => setWithdrawing(true)} last />
+          )}
         </Section>
         {isMock ? (
           <View style={{ padding: 20 }}>
@@ -127,6 +138,17 @@ export default function Settings() {
           }}
         />
       </Sheet>
+      <WithdrawSheet
+        visible={withdrawing}
+        role="PRODUCER"
+        onClose={() => setWithdrawing(false)}
+        onWithdraw={async () => {
+          await auth.withdraw();
+          setWithdrawing(false);
+          // 토큰을 지우면 관문이 로그인 화면으로 보낸다
+          auth.logout();
+        }}
+      />
     </Screen>
   );
 }

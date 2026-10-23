@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
+    "@farmclub/analytics": "*",
     "@farmclub/api": "*",
     "@farmclub/ui": "*",
     "expo": "~57.0.27",

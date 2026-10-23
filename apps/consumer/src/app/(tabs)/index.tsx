@@ -5,6 +5,7 @@ import {
   Button,
   FeedCarousel,
   IconButton,
+  LegalFooter,
   NewsCard,
   Photo,
   Price,
@@ -45,6 +46,7 @@ export default function Home() {
     <Screen>
       <BrandHeader
         title="farmclub"
+        logo="wordmark"
         right={
           <IconButton
             icon="search"
@@ -53,7 +55,7 @@ export default function Home() {
           />
         }
       />
-      <Scroll bottom={tokens.height.tabBarClearance}>
+      <Scroll bottom={tokens.height.tabBarClearance} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
         <View style={{ padding: 20, gap: 20 }}>
           <T variant="title">오늘, 농가에서</T>
           <T muted>농가의 일상과 제철을 함께 만나보세요.</T>

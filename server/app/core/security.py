@@ -35,6 +35,42 @@ def issue_token(user_id: str, role: str) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
 
 
+SIGNUP_TOKEN_TYPE = "kakao_signup"
+SIGNUP_TOKEN_MINUTES = 30
+
+
+def issue_signup_token(claims: dict) -> str:
+    """카카오 새 사용자의 가입 토큰(DEV-132). 계정을 만들기 전 약관 동의 화면까지만 쓴다.
+
+    서버에 저장하지 않는다. 카카오 인가 코드는 한 번만 쓸 수 있어 카카오에서 받은 값을 담아 넘긴다.
+    """
+    issued = now()
+    payload = {
+        **claims,
+        "typ": SIGNUP_TOKEN_TYPE,
+        "iat": int(issued.timestamp()),
+        "exp": int((issued + timedelta(minutes=SIGNUP_TOKEN_MINUTES)).timestamp()),
+    }
+    return jwt.encode(payload, get_settings().jwt_secret, algorithm=ALGORITHM)
+
+
+def read_signup_token(token: str) -> dict | None:
+    """가입 토큰을 검증해 내용을 돌려준다. 서명·만료·종류가 틀리면 None."""
+    try:
+        claims = jwt.decode(
+            token,
+            get_settings().jwt_secret,
+            algorithms=[ALGORITHM],
+            # 만료는 앱 시계(now)로 아래에서 본다. 로그인 토큰(_decode)과 같은 방식
+            options={"require": ["exp", "typ"], "verify_exp": False},
+        )
+    except jwt.PyJWTError:
+        return None
+    if claims.get("typ") != SIGNUP_TOKEN_TYPE or claims.get("exp", 0) < int(now().timestamp()):
+        return None
+    return claims
+
+
 def _decode(token: str) -> dict:
     try:
         return jwt.decode(
@@ -64,7 +100,8 @@ def _user_from_token(db: Session, token: str):
     if payload.get("exp", 0) < int(now().timestamp()):
         raise unauthenticated("로그인이 만료됐어요. 다시 로그인해 주세요.")
     user = accounts.get_user(db, str(payload.get("sub", "")))
-    if user is None:
+    # 탈퇴한 회원(DEV-94)의 토큰은 받지 않는다
+    if user is None or user.deleted_at is not None:
         raise unauthenticated()
     return user
 
@@ -109,9 +146,24 @@ def require_roles(*roles: Role) -> Callable[..., object]:
 _producer_role = require_roles(Role.PRODUCER)
 
 
-def require_approved_producer(
+def require_consented_producer(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[object, Depends(_producer_role)],
+):
+    """PRODUCER 역할 + 지금 버전의 약관·개인정보 동의(DEV-113, AC-01-18).
+
+    빠졌으면 403 FORBIDDEN(details.reason: CONSENT_REQUIRED). 앱은 동의 화면(/consent)으로 보낸다.
+    """
+    from app.accounts import service as accounts
+
+    if accounts.consent_required(db, user):
+        raise forbidden("약관에 동의하면 쓸 수 있어요.", reason="CONSENT_REQUIRED")
+    return user
+
+
+def require_approved_producer(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[object, Depends(require_consented_producer)],
 ):
     """PRODUCER 역할 + Farm.approvalStatus = APPROVED (AC-01-3). 돌려주는 값은 (User, Farm)."""
     from app.farms import service as farms
@@ -144,6 +196,6 @@ CurrentUser = Annotated[object, Depends(get_current_user)]
 OptionalUser = Annotated[object, Depends(get_optional_user)]
 Consumer = Annotated[object, Depends(_consumer_role)]
 OnboardedConsumer = Annotated[object, Depends(require_onboarded_consumer)]
-Producer = Annotated[object, Depends(require_roles(Role.PRODUCER))]
+Producer = Annotated[object, Depends(require_consented_producer)]
 ApprovedProducer = Annotated[tuple, Depends(require_approved_producer)]
 Admin = Annotated[object, Depends(require_roles(Role.ADMIN))]

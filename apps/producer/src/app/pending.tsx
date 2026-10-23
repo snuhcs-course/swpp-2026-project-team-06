@@ -11,6 +11,7 @@ import {
   safe,
   tokens,
   useAsync,
+  WithdrawSheet,
 } from "@farmclub/ui";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -111,6 +112,7 @@ export default function Pending() {
   );
   const [pulling, setPulling] = useState(false);
   const [showApp, setShowApp] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   // 들어올 때마다 확인 결과를 새로 불러온다(결정 29). 승인됐으면 관문이 현황(/)으로 보낸다.
   const check = useCallback(async () => {
@@ -280,13 +282,24 @@ export default function Pending() {
             onPress={() => setShowApp(true)}
           />
         )}
-        <Button
-          label="로그아웃"
-          variant="text"
-          onPress={() => auth.logout()}
-          style={{ alignSelf: "center" }}
-        />
+        <View style={{ flexDirection: "row", justifyContent: "center", gap: 8 }}>
+          <Button label="로그아웃" variant="text" onPress={() => auth.logout()} />
+          {/* 확인 중·반려 상태에서도 탈퇴할 수 있다(DEV-94). 환경설정은 승인 뒤에만 열린다 */}
+          {user?.isTestAccount ? null : (
+            <Button label="회원 탈퇴" variant="text" onPress={() => setWithdrawing(true)} />
+          )}
+        </View>
       </View>
+      <WithdrawSheet
+        visible={withdrawing}
+        role="PRODUCER"
+        onClose={() => setWithdrawing(false)}
+        onWithdraw={async () => {
+          await auth.withdraw();
+          setWithdrawing(false);
+          auth.logout();
+        }}
+      />
 
       {/* 신청 내용(읽기 전용) — design: s-21-application */}
       <Sheet

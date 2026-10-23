@@ -9,12 +9,17 @@ from sqlalchemy.orm import Session
 
 from app.accounts.models import ShippingAddress, User, UserConsent
 from app.accounts.schemas import (
+    CONSENT_VERSION,
     REQUIRED_CONSENTS,
+    REQUIRED_PRODUCER_CONSENTS,
     Address,
     AddressInput,
     ConsentsInput,
     ConsentView,
     KakaoConfig,
+    KakaoLoginResult,
+    KakaoSignup,
+    KakaoSignupInput,
     LoginResult,
     MeUpdateInput,
     ProducerApplication,
@@ -28,7 +33,7 @@ from app.core.clock import now
 from app.core.config import get_settings
 from app.core.errors import conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
-from app.core.security import issue_token
+from app.core.security import issue_signup_token, issue_token, read_signup_token
 
 PHONE = re.compile(r"^01[016789]-?\d{3,4}-?\d{4}$")
 # 저장 배송지는 계정당 50개까지(사용자 결정 10/18)
@@ -61,6 +66,8 @@ def public_name(user: User | None) -> str:
     """농가에 보이는 소비자 이름(R-15). 닉네임, 없으면 이름 앞 글자 + ○○."""
     if user is None:
         return "고○○"
+    if user.deleted_at is not None:
+        return WITHDRAWN_NAME
     if user.nickname:
         return user.nickname
     return f"{(user.name or '고')[:1]}○○"
@@ -70,18 +77,33 @@ def list_consents(db: Session, user_id: str) -> list[UserConsent]:
     return list(db.scalars(select(UserConsent).where(UserConsent.user_id == user_id)))
 
 
-def needs_onboarding(db: Session, user: User) -> bool:
-    """첫 가입 온보딩이 남았는가(FEAT-01 I2, AC-01-12). 소비자 카카오 계정만 해당한다.
+def consent_required(db: Session, user: User) -> bool:
+    """지금 버전의 필수 동의가 빠졌는가(DEV-113, AC-01-17·18).
 
-    닉네임·이름·연락처 중 하나라도 없거나 필수 동의(약관·개인정보·만 14세)가 빠지면 true.
+    소비자는 약관·개인정보·만 14세, 생산자는 약관·개인정보. 동의했어도 버전이
+    `CONSENT_VERSION`이 아니면 다시 받는다. 테스트 계정과 운영자는 항상 false.
+    """
+    if user.is_test_account or user.role not in ("CONSUMER", "PRODUCER"):
+        return False
+    required = REQUIRED_CONSENTS if user.role == "CONSUMER" else REQUIRED_PRODUCER_CONSENTS
+    agreed = {
+        c.kind for c in list_consents(db, user.id) if c.agreed and c.version == CONSENT_VERSION
+    }
+    return any(kind not in agreed for kind in required)
+
+
+def needs_onboarding(db: Session, user: User) -> bool:
+    """첫 가입 온보딩이 남았는가(FEAT-01 I2, AC-01-12·17). 소비자 카카오 계정만 해당한다.
+
+    닉네임·이름·연락처 중 하나라도 없거나 지금 버전의 필수 동의(약관·개인정보·만 14세)가
+    빠지면 true.
     테스트 계정은 시드가 채운 것으로 보고 항상 false.
     """
     if user.role != "CONSUMER" or user.is_test_account:
         return False
     if not (user.nickname or "").strip() or not user.name.strip() or not user.phone.strip():
         return True
-    agreed = {c.kind for c in list_consents(db, user.id) if c.agreed}
-    return any(kind not in agreed for kind in REQUIRED_CONSENTS)
+    return consent_required(db, user)
 
 
 def user_view(db: Session, user: User) -> UserView:
@@ -100,6 +122,7 @@ def user_view(db: Session, user: User) -> UserView:
         email=user.email,
         phone=user.phone,
         needs_onboarding=needs_onboarding(db, user),
+        consent_required=consent_required(db, user),
     )
 
 
@@ -294,11 +317,12 @@ def _kakao_fetch(code: str, redirect_uri: str) -> KakaoProfile:
     )
 
 
-def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginResult:
-    """카카오 인가 코드로 로그인. (카카오 식별자, 역할)마다 계정 하나(ADR 0010). 없으면 만든다.
+def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> KakaoLoginResult:
+    """카카오 인가 코드로 로그인. (카카오 식별자, 역할)마다 계정 하나(ADR 0010).
 
-    처음이면 이메일만 채운 계정을 만들고 `needsOnboarding=true`로 돌려준다.
-    카카오에서 온 이름·전화번호는 빈 칸에만 채운다(온보딩에서 고친 값은 덮지 않는다).
+    기존 회원은 로그인한다. 카카오에서 온 이름·전화번호는 빈 칸에만 채운다(고친 값은 덮지 않는다).
+    새 사용자는 계정을 만들지 않고 가입 토큰만 준다.
+    약관 동의(`kakao_signup`)를 마쳐야 계정이 생긴다(DEV-132).
     """
     _require_kakao()
     if not _allowed_redirect(redirect_uri, app):
@@ -315,29 +339,67 @@ def kakao_login(db: Session, code: str, redirect_uri: str, app: str) -> LoginRes
     kakao_phone = _kakao_phone(profile.phone)
     user = db.scalar(select(User).where(User.kakao_id == profile.kakao_id, User.role == role))
     if user is None:
+        email = profile.email.strip()[:200]
+        token = issue_signup_token(
+            {
+                "kid": profile.kakao_id,
+                "role": role,
+                "email": email,
+                "name": profile.name.strip()[:100],
+                "phone": kakao_phone,
+            }
+        )
+        return KakaoLoginResult(signup=KakaoSignup(signup_token=token, email=email or None))
+    if profile.email.strip():
+        user.email = profile.email.strip()[:200]
+    if not user.name.strip() and profile.name.strip():
+        user.name = profile.name.strip()[:100]
+    if not user.phone.strip() and kakao_phone:
+        user.phone = kakao_phone
+    db.flush()
+    return KakaoLoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
+
+
+def kakao_signup(db: Session, data: KakaoSignupInput) -> LoginResult:
+    """약관 동의와 함께 카카오 계정을 만든다(DEV-132, AC-01-19).
+
+    역할별 필수 동의(소비자 약관·개인정보·만 14세, 생산자 약관·개인정보)가
+    지금 버전으로 모두 있어야 한다. 계정과 동의 기록은 한 트랜잭션으로 만든다.
+    그 사이 같은 카카오 계정이 생겼으면 그 계정으로 로그인한다.
+    """
+    claims = read_signup_token(data.signup_token)
+    if (
+        claims is None
+        or claims.get("role") not in ("CONSUMER", "PRODUCER")
+        or not claims.get("kid")
+    ):
+        raise invalid(
+            {"signupToken": "가입 요청이 만료됐어요"}, "카카오 로그인부터 다시 해 주세요."
+        )
+    role = claims["role"]
+    required = REQUIRED_CONSENTS if role == "CONSUMER" else REQUIRED_PRODUCER_CONSENTS
+    agreed = {c.kind for c in data.consents if c.agreed and c.version.strip() == CONSENT_VERSION}
+    if any(kind not in agreed for kind in required):
+        raise invalid({"consents": "필수 약관에 모두 동의해 주세요"})
+    user = db.scalar(select(User).where(User.kakao_id == claims["kid"], User.role == role))
+    if user is None:
         # 소비자는 온보딩에서 이름을 받는다. 생산자는 가입 신청(SCR-20) 전까지 자리 이름
-        name = profile.name.strip()[:100]
+        name = str(claims.get("name") or "")[:100]
         if not name and role == "PRODUCER":
             name = KAKAO_PLACEHOLDER_NAME
         user = User(
             id=new_id("u"),
-            kakao_id=profile.kakao_id,
+            kakao_id=claims["kid"],
             is_test_account=False,
             role=role,
             name=name,
-            phone=kakao_phone,
-            email=profile.email.strip()[:200] or None,
+            phone=str(claims.get("phone") or ""),
+            email=str(claims.get("email") or "")[:200] or None,
             created_at=now(),
         )
         db.add(user)
-    else:
-        if profile.email.strip():
-            user.email = profile.email.strip()[:200]
-        if not user.name.strip() and profile.name.strip():
-            user.name = profile.name.strip()[:100]
-        if not user.phone.strip() and kakao_phone:
-            user.phone = kakao_phone
-    db.flush()
+        db.flush()
+    save_consents(db, user, ConsentsInput(consents=data.consents))
     return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
 
 
@@ -363,6 +425,15 @@ def producer_application(db: Session, user: User) -> ProducerApplication:
     if farm is None:
         raise not_found("신청 내역이 없어요.")
     return _application_view(user, farm)
+
+
+def list_producer_applications(db: Session, status: str | None) -> list[ProducerApplication]:
+    """운영자 가입 신청 목록(DEV-82). 대표자 이름은 생산자 계정 이름."""
+    from app.farms import service as farms
+
+    rows = farms.list_applications(db, status)
+    users = get_users(db, [f.producer_id for f in rows])
+    return [_application_view(users[f.producer_id], f) for f in rows if f.producer_id in users]
 
 
 def submit_producer_application(
@@ -411,6 +482,11 @@ def decide_producer_application(
     from app.farms import service as farms
 
     farm = farms.decide_application(db, farm_id, approved, manager_id, reason)
+    if approved:
+        # 승인과 같은 트랜잭션에서 farmclub 문의 대화방을 연다(DEV-111, FEAT-34)
+        from app.messaging.support import ensure_support_thread
+
+        ensure_support_thread(db, farm.id)
     return ProducerDecision(
         farm_id=farm.id,
         status=farm.approval_status,
@@ -572,3 +648,99 @@ def save_order_address(db: Session, user_id: str, data: AddressInput) -> None:
         a.is_default = a is same
     if same is None:
         add_address(db, user_id, data.model_copy(update={"is_default": True}))
+
+
+# ---------------- 회원 탈퇴 (DEV-94, AC-01-20) ----------------
+
+WITHDRAWN_NAME = "탈퇴한 회원"
+WITHDRAWN_MESSAGE = "탈퇴한 회원의 메시지예요."
+FARM_WITHDRAWN_REASON = "농가가 탈퇴했어요"
+# 입금 대기부터 배송 중까지는 거래가 끝나지 않았다. 이런 주문이 있으면 탈퇴를 막는다(D5)
+OPEN_ORDER_STATUSES = ("PENDING_PAYMENT", "AWAITING_DEPOSIT", "RESERVED", "PREPARING", "SHIPPED")
+
+
+def withdraw(db: Session, user: User) -> None:
+    """회원 탈퇴(DEV-94). 개인정보를 지우고 행만 남긴다(익명화, server/tasks.md D1~D8).
+
+    - 주문·입금·환불은 전자상거래법 보존 기간 동안 그대로 둔다(D2). 동의 기록도 증빙으로 남긴다(D8).
+    - 쓴 채팅·소식 답장 본문과 사진은 지운다. 주문 문제 문의는 분쟁 기록이라 남긴다(D3·D4).
+    - 생산자는 농가를 숨기고 입금 계좌·연락처를 지운다(D6).
+    - 카카오 회원번호를 지워 같은 카카오로 다시 오면 새 사용자다(D7).
+    """
+    from app.farms import service as farms
+    from app.farms.models import Follow
+    from app.messaging.models import PrivateAttachment, Reaction, RoomReply, Thread, ThreadMessage
+    from app.orders.models import Order
+
+    if user.role not in ("CONSUMER", "PRODUCER"):
+        # 운영자·farmclub 문의 계정은 앱에서 탈퇴하지 않는다
+        raise forbidden("이 계정은 탈퇴할 수 없어요.")
+    if user.is_test_account:
+        raise forbidden("테스트 계정은 탈퇴할 수 없어요.", reason="TEST_ACCOUNT")
+    farm = farms.get_farm_of_producer(db, user.id) if user.role == "PRODUCER" else None
+    if user.role == "PRODUCER":
+        scope = Order.product_id.in_(_farm_product_ids(db, farm.id) if farm else [])
+    else:
+        scope = Order.consumer_id == user.id
+    open_orders = select(Order.order_no).where(scope, Order.status.in_(OPEN_ORDER_STATUSES))
+    blocking = sorted(db.scalars(open_orders))
+    if blocking:
+        raise conflict(
+            "WITHDRAW_BLOCKED",
+            "끝나지 않은 주문이 있어요. 주문이 끝난 뒤 탈퇴할 수 있어요.",
+            orderNos=blocking,
+        )
+
+    # 저장 배송지·좋아요·팔로우(팔로워 수도 줄인다)
+    for row in db.scalars(select(ShippingAddress).where(ShippingAddress.user_id == user.id)):
+        db.delete(row)
+    for row in db.scalars(select(Reaction).where(Reaction.user_id == user.id)):
+        db.delete(row)
+    for follow in db.scalars(select(Follow).where(Follow.consumer_id == user.id)):
+        followed = farms.get_farm(db, follow.farm_id)
+        if followed is not None and followed.follower_count > 0:
+            followed.follower_count -= 1
+        db.delete(follow)
+    # 소식 답장 본문, 1:1 채팅에서 이 회원이 쓴 메시지(주문 문의 제외)
+    for reply in db.scalars(select(RoomReply).where(RoomReply.consumer_id == user.id)):
+        reply.body = WITHDRAWN_MESSAGE
+    thread_ids = list(db.scalars(select(Thread.id).where(Thread.consumer_id == user.id)))
+    if thread_ids:
+        mine = select(ThreadMessage).where(
+            ThreadMessage.thread_id.in_(thread_ids),
+            ThreadMessage.sender_type == "CONSUMER",
+            ThreadMessage.order_id.is_(None),
+            ThreadMessage.inquiry_id.is_(None),
+        )
+        for message in db.scalars(mine):
+            message.body = WITHDRAWN_MESSAGE
+            message.photos = []
+            message.attachment_ids = []
+    for attachment in db.scalars(
+        select(PrivateAttachment).where(
+            PrivateAttachment.uploader_id == user.id, PrivateAttachment.order_id.is_(None)
+        )
+    ):
+        db.delete(attachment)
+
+    if farm is not None:
+        farm.approval_status = "SUSPENDED"
+        farm.suspend_reason = FARM_WITHDRAWN_REASON
+        farm.bank_name = None
+        farm.account_number = None
+        farm.account_holder = None
+        farm.contact_phone = ""
+
+    user.name = ""
+    user.nickname = None
+    user.phone = ""
+    user.email = None
+    user.kakao_id = None
+    user.deleted_at = now()
+    db.flush()
+
+
+def _farm_product_ids(db: Session, farm_id: str) -> list[str]:
+    from app.catalog.models import Product
+
+    return list(db.scalars(select(Product.id).where(Product.farm_id == farm_id)))

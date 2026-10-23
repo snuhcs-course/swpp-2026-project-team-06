@@ -9,6 +9,8 @@ from app.core.schemas import CamelModel
 
 App = Literal["consumer", "producer"]
 FarmStatus = Literal["NONE", "PENDING", "REJECTED", "APPROVED", "SUSPENDED"]
+# 운영자 가입 신청 목록 필터(DEV-82)
+ApplicationFilter = Literal["PENDING", "REJECTED", "APPROVED", "SUSPENDED", "ALL"]
 
 
 class TestAccount(CamelModel):
@@ -21,6 +23,12 @@ class TestAccount(CamelModel):
 
 ConsentKind = Literal["TERMS", "PRIVACY", "AGE14", "MARKETING"]
 REQUIRED_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY", "AGE14")
+# 생산자는 약관·개인정보만 받는다(만 14세는 소비자 가입 항목, DEV-113)
+REQUIRED_PRODUCER_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY")
+# 지금 시행 중인 약관·처리방침 문구 버전(시행일). 바꾸면 모든 회원이 다시 동의해야 쓸 수 있다
+# (DEV-113, policy.md 5장). 앱(packages/ui legalContent LEGAL_VERSION)·Mock(packages/api
+# mock/db.ts)과 같은 값이어야 한다(scripts/test-legal.mjs가 확인)
+CONSENT_VERSION = "2026-10-23"
 
 
 class UserView(CamelModel):
@@ -36,6 +44,8 @@ class UserView(CamelModel):
     email: str | None = None
     phone: str = ""
     needs_onboarding: bool = False
+    # 필수 동의가 없거나 지금 버전이 아니다(DEV-113). 소비자·생산자 모두. 테스트 계정은 항상 false
+    consent_required: bool = False
 
 
 class MeUpdateInput(CamelModel):
@@ -71,6 +81,26 @@ class TestLoginInput(CamelModel):
 class LoginResult(CamelModel):
     access_token: str
     user: UserView
+
+
+class KakaoSignup(CamelModel):
+    """카카오 새 사용자. 계정은 없고 약관 동의 뒤 `/api/auth/kakao/signup`으로 만든다(DEV-132)."""
+
+    signup_token: str
+    email: str | None = None
+
+
+class KakaoLoginResult(CamelModel):
+    """기존 회원은 access_token·user, 새 사용자는 signup만 채운다(DEV-132)."""
+
+    access_token: str | None = None
+    user: UserView | None = None
+    signup: KakaoSignup | None = None
+
+
+class KakaoSignupInput(CamelModel):
+    signup_token: str = Field(min_length=1, max_length=4096)
+    consents: list[ConsentInput] = Field(min_length=1, max_length=8)
 
 
 class KakaoConfig(CamelModel):
@@ -125,11 +155,11 @@ class ProducerDecisionHistoryView(CamelModel):
 
 
 class AddressInput(CamelModel):
-    recipient_name: str = ""
-    recipient_phone: str = ""
-    postal_code: str = ""
-    address: str = ""
-    address_detail: str = ""
+    recipient_name: str = Field(default="", max_length=100)
+    recipient_phone: str = Field(default="", max_length=32)
+    postal_code: str = Field(default="", max_length=16)
+    address: str = Field(default="", max_length=300)
+    address_detail: str = Field(default="", max_length=300)
     label: str | None = Field(default=None, max_length=50)
     is_default: bool = False
 
@@ -141,11 +171,11 @@ class AddressPatchInput(CamelModel):
     기본은 다른 배송지를 기본으로 바꾸거나 지울 때만 옮긴다.
     """
 
-    recipient_name: str | None = None
-    recipient_phone: str | None = None
-    postal_code: str | None = None
-    address: str | None = None
-    address_detail: str | None = None
+    recipient_name: str | None = Field(default=None, max_length=100)
+    recipient_phone: str | None = Field(default=None, max_length=32)
+    postal_code: str | None = Field(default=None, max_length=16)
+    address: str | None = Field(default=None, max_length=300)
+    address_detail: str | None = Field(default=None, max_length=300)
     label: str | None = Field(default=None, max_length=50)
     is_default: bool | None = None
 

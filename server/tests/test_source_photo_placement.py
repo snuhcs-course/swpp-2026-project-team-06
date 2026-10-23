@@ -89,10 +89,8 @@ def test_AC_SRC_11_text_edit_versions_and_ownership(client, login):
     assert client.get(url + "/text", headers=login("u-misook")).status_code in (403, 404)
 
 
-def test_AC_SRC_11_workspace_photo_private_until_apply(client, login):
+def test_AC_SRC_11_workspace_photo_private_until_apply(client, login, other_farm_headers):
     from uuid import uuid4
-
-    from app.core.security import issue_token
 
     h = login("u-kang")
     base = "/api/source-analysis/product-workspaces"
@@ -112,7 +110,7 @@ def test_AC_SRC_11_workspace_photo_private_until_apply(client, login):
     photo_id = uri.rsplit("/", 1)[1]
     assert client.get(uri).status_code == 404
     assert client.get(base + "/p-house/photos/" + photo_id, headers=h).status_code == 200
-    other = {"Authorization": "Bearer " + issue_token("u-halla", "PRODUCER")}
+    other = other_farm_headers
     assert client.get(base + "/p-house/photos/" + photo_id, headers=other).status_code == 404
     snap = row["snapshot"]
     snap["content"]["blocks"].append({"id": "uploaded-photo", "type": "image", **media})

@@ -350,3 +350,193 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증: server/에서 `DATABASE_URL=… .venv/bin/pytest -q --tb=short tests/test_source_*.py tests/test_product_workspace.py` 99 passed. `npm run typecheck` 4 workspace, `npm run test:mock` 13 passed. 격리 API/DB Playwright 4 spec 17 passed. Ruff 및 git diff --check 통과.
 - 스캔: 공개 대표사진 접근 판정, 자동 지정 전 DB flush, 카드 sibling key 중복, 신규 카드 삭제/blur 경합 보완. 미해결 이슈 없음. 커밋 안전. 레거시 호환 점검: 후보 3건 — 지적 0건 / 커밋된 구조 3건 (SourceTarget:388d956, Batch.targets:4d7eece, PageSnapshot:839503e).
 - 화면: 기존 영상 페이지 `.artifacts/in-app-v4/page-editor-review/index.html` 갱신, 36.24초/12.28초 재생 확인. 카드 입력/대표사진 캡처 포함. headless 브라우저 종료, 추가 유료 호출 0. 실제 데모 DB 보존 후 로컬 API 갱신. Agent 시간/Tokens 미측정.
+
+
+## DEV-85 Apply approved Farmclub logo variants
+
+- 이슈: [DEV-85](https://linear.app/sswp6/issue/DEV-85/apply-approved-farmclub-logo-variants-to-app-headers-and-producer)
+- 브랜치: `jinumeral/dev-85-apply-approved-farmclub-logo-variants-to-app-headers-and`
+- 기능·인수 조건: FEAT-01 / AC-01-3·6, FEAT-06 / AC-06-6, FEAT-14 / AC-14-4, N-02
+- 상태: 완료
+
+### 목표
+사용자가 최종 검토한 로고 원본과 화면 배치를 실제 앱에 반영하고 별도 PR로 올린다.
+
+### 범위 (수정 허용 경로)
+- `packages/ui/assets/brand/**`, `packages/ui/src/BrandLogo.tsx`, `packages/ui/src/{Storefront,index}.tsx` 또는 `index.ts`, `packages/ui/{spec,tasks}.md`
+- `apps/consumer/src/app/(tabs)/index.tsx`
+- `apps/producer/src/app/(tabs)/index.tsx`, `apps/producer/src/app/login.tsx`, `apps/producer/src/lib/views.tsx` (더 이상 쓰지 않는 Wordmark 제거)
+- `docs/design/brand-review/**`, `docs/spec/conversation-ui-1.6.md`, `docs/wiki/Design-Documentation.md`
+- `scripts/e2e/brand-logo.spec.ts`
+
+### 비범위
+인증·API·DB·배포 설정·잠금파일·기존 다른 작업, 미검토 랜딩/파비콘/공유이미지 재설계.
+
+### 결정 사항
+- 10/19 소비자 홈은 글자형으로 통일, 검색 버튼 유지. 생산자 현황은 확대 전 36×40px·좌우 12px·제목 간격 12px로 복원.
+- 10/19 로그인 상단의 글자형 제거, ‘계정을 골라/시작하세요’ 오른쪽에 조합형. 172×129px, 제목 30/32px, gap 8px, 조합형 translate(-16,-10) 승인. 카카오 환경의 ‘농가로/시작하세요’에도 동일 배치.
+- 10/19 보이는 FARM/CLUB 두 줄을 제목 두 줄과 맞춘 광학 정렬이며 원본 알파와 비율은 보존. 원본 4종을 저장하고 실제 화면은 3종만 사용한다.
+- 10/19 사용자 ‘다 푸쉬’ 요청을 승인된 범위의 커밋·push 및 draft PR 생성 승인으로 적용. 별도 worktree로 기존 미커밋 작업을 보존한다.
+
+### 작업
+- [x] 공용 로고 및 승인된 세 화면 적용
+- [x] 원본 4종·최종 정적 미리보기 보존
+- [x] 스펙·영문 디자인 문서 반영
+- [x] typecheck, Mock 테스트, 양 앱 웹 export, 실제 화면 검증
+- [x] 커밋 전·브랜치 스캔, push 및 draft PR 갱신
+
+### 완료 조건
+- [x] 360/390px에서 제목 두 줄·로고 정렬·검색/로그인 버튼이 유지된다.
+- [x] 카카오/테스트 로그인과 상태별 접근 제어를 보존한다.
+- [x] 관련 로컬 검증 통과 및 draft PR 생성 (원격 CI 별도 확인)
+- [x] 사용자 시각 검토 및 최종 승인 확인 (2026-10-19 명시적 머지 지시)
+
+### 기록
+- 10/19 origin/main 79eaea7에서 격리 worktree 생성, npm ci 완료. 사용자 승인 배치를 구현 전 기록.
+- 10/19 `npm run typecheck`: 4 workspace 통과. `npm run test:mock`: 15 passed, 0 failed. 각 앱의 `npx expo export -p web`: consumer/producer 통과. Node 24.15.0, CI와 동일 major.
+- 10/19 `npx playwright test scripts/e2e/brand-logo.spec.ts`: 실제 앱과 격리 Shared Mock에서 360/390px 2 passed. 검색 진입, 생산자 계정 선택·로그인, 현황 심볼 확인. 첫 실행은 기존 공용 helper가 카카오·테스트 버튼을 동시에 선택해 실패했고, 이 spec에서 선택 계정의 정확한 버튼을 쓰도록 수정 후 통과했다.
+- 10/19 export 산출물의 카카오 전용 화면: config 응답만 enabled=true로 고정, 360/390px 제목·조합형·카카오 버튼 1개·테스트 계정 숨김·JS 오류 없음 확인. 외부 인가 서버는 호출하지 않았다.
+- 10/19 새 Playwright spec 별도 타입 검사(`tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --esModuleInterop --skipLibCheck --types node`) 통과. 원본 PNG 4개의 SHA-256 일치 및 미리보기 로컬 링크 검증 완료.
+- 10/19 커밋 전 스캔 지적 없음. BrandHeader에서 logo 미지정 시 기존 헤더를 유지하는 것은 main 6343b24의 공개 API 사용처를 보존한다. 레거시 호환 점검: 후보 0건 — 지적 0건 / 커밋된 구조 0건.
+- 10/19 PR #173 draft 생성. 로컬은 관련 앱 검증만 수행했다. 전체 실제 서버/DB 통합은 최신 push의 원격 CI 결과로 구분해 확인한다. Agent 시간/Tokens 미측정.
+- 10/19 origin/main 79eaea7 대비 최종 diff 스캔: 범위 이탈·새 버그·미사용 Wordmark 잔재 없음. 원본 4종 외 이전 시안·중간 캡처는 제외했다. 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건. 최신 원격 CI는 이전 실행 뒤 대기 중이며 통과로 표시하지 않는다. Draft·미머지 유지.
+- 10/19 head eb84fce의 원격 CI 39225825560에서 apps/server/integration 모두 success 확인. server는 변경 없음으로 실제 서버 검사 생략이며 integration은 실제 서버/DB/Chromium 검사다. 유료 spec-check는 승인 대기로 호출하지 않았다.
+- 10/19 사용자가 로고 시각 검토 후 명시적으로 main 머지를 지시했다. 이를 최종 사람 승인으로 기록하며 GitHub의 별도 Approve 리뷰를 대신 작성하지 않는다. 기존 비범위였던 main 머지를 이번 지시에 따라 허용한다.
+- 10/19 최신 origin/main abe28df를 충돌 없이 병합했다. 이후 typecheck 4 workspace, Mock 15 passed, 로고 화면 E2E 2 passed 재확인. 최종 브랜치 스캔 이슈 없음. 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건. 실제 squash merge 결과는 PR #173에서 확인한다.
+
+## DEV-109 LargeTitle 오른쪽 슬롯 (생산자 도움말 버튼)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109 · 상세 기록은 `apps/producer/tasks.md` DEV-109
+- 범위: `packages/ui/src/bars.tsx`의 `LargeTitle`에 선택 prop `right` 추가. 넘기지 않으면 지금과 똑같이 그린다.
+- 결정: 버튼은 기존 `IconButton` + `Icon` `"question"`을 쓰고 새 컴포넌트는 만들지 않는다.
+- 10/21 후속(투어): `IconButton`·`Fab`·`TabItem`·`ConversationRow`에 선택 prop `testID`를 추가했다. `HeaderBar`(닫기 모드는 `header-close`)와 `ConversationHeader`의 뒤로 가기에는 `header-back`, `ChatChoices`에는 `chat-choice-news`/`chat-choice-private`를 달았다. 보이는 모습과 동작은 바뀌지 않는다.
+- 10/22 후속: 투어에서 새 상품 화면 단계를 빼서 `HeaderBar` 뒤로 가기 testID(`header-back`/`header-close`)를 되돌렸다. `ConversationHeader`의 `header-back`은 그대로 둔다.
+
+## DEV-111 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
+- 10/22 DEV-111: `ConversationRow`·`ConversationHeader`에 선택 prop `avatar`(사진 대신 그림), `ChatThread` 말풍선에서 `OPERATOR`의 이름을 'farmclub'으로 표시. 넘기지 않으면 지금과 같다.
+
+## DEV-113 사이트 하단 사업자 정보와 개인정보 처리방침·이용약관 페이지
+
+- 이슈: [DEV-113](https://linear.app/sswp6/issue/DEV-113)
+- 브랜치: `nemodleo/dev-113-dev-사이트-사업자-정보-표시`
+- 기능·규칙: R-16(법정 표시), policy.md 1·2·5·6장, R-01·02·05·07~12·14·17·20·21·23·24·28, M-02·06·07·08·16·18·21, FEAT-01 SCR-05·06·19
+- 상태: 리뷰 중
+
+### 목표
+카카오 비즈 앱 전환 심사가 "사이트에서 사업자 정보가 확인되지 않음"으로 반려됐다. 두 앱 첫 화면 하단에 사업자 정보를 보이고, 개인정보 처리방침(`/privacy`)·이용약관(`/terms`) 전문을 로그인 없이 읽히게 한다.
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{legalContent.ts,Legal.tsx,index.ts}`, `packages/ui/{spec,tasks}.md`
+- `apps/consumer/src/app/{privacy,terms,login}.tsx`, `apps/consumer/src/app/(tabs)/{index,me/index}.tsx`, `apps/consumer/src/app/onboarding/index.tsx`, `apps/consumer/src/lib/onboarding.ts`, `apps/consumer/vercel.json`, `apps/consumer/tasks.md`
+- `apps/producer/src/app/{privacy,terms,login}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx`, `apps/producer/src/lib/{session.tsx,gate.ts}`(공개 경로·동의 관문), `scripts/test-producer-gate.mjs`, `apps/producer/vercel.json`, `apps/producer/tasks.md`
+- `scripts/legal-pages.mjs`, `scripts/local.mjs`(export 후 정적 페이지), `scripts/test-legal.mjs`, `scripts/e2e/legal-pages.spec.ts`, `package.json`(test:mock에 추가)
+- `.github/workflows/deploy-vercel.yml`(사업자 정보 변수 전달·정적 페이지 생성)
+- `docs/farmclub-consumer.html`, `docs/farmclub-producer.html`(약관·처리방침 링크)
+- `docs/spec/{ia,policy}.md`, `docs/wiki/` 영문 한두 줄, `README.md`(배포 변수 표)
+
+- (10/22 추가, 재동의) `server/app/accounts/{schemas,service,router}.py`, `server/app/core/security.py`, `server/tests/test_accounts.py`, `packages/api/src/{types.ts,mock/db.ts,mock/auth.ts,mock/router.ts}`, `apps/consumer/src/app/onboarding/{index,address}.tsx`, `apps/producer/src/app/consent.tsx`, `docs/spec/functional/FEAT-01-login.md`, `docs/spec/screens.md`
+
+### 비범위 (건드리지 않음)
+- 탈퇴 기능, DB 스키마 변경, 결제 전 동의(R-03, `consentVersion`), Figma v6, 생산자 입점 동의 화면(SCR-20 동의 체크), 법률 검토 자체, 사업자 정보 값
+
+### 결정 사항
+- 10/22 같은 요청으로 이전에 만들어진 DEV-113(GitHub #224)이 있어, 이 세션이 만든 DEV-115를 중복 처리하고 DEV-113으로 진행한다. DEV-113의 빈 브랜치(main과 같은 커밋)를 지우고 작업 브랜치 이름을 DEV-113 것으로 바꿨다.
+- 10/22 사업자 정보 값(상호·대표자·사업자등록번호·통신판매업 신고번호·주소·연락처·이메일·개인정보 보호책임자)은 레포·이슈·PR에 쓰지 않는다(AGENTS.md 금지). 빌드 때 `EXPO_PUBLIC_BUSINESS_*`·`EXPO_PUBLIC_PRIVACY_OFFICER`로 읽고, 값 없는 항목은 빼고 그린다. 하나도 없으면 policy.md 6장대로 ‘테스트 서비스’만 표시한다.
+- 10/22 앱 빌드는 Vercel이 아니라 GitHub Actions(`deploy-vercel.yml`, production Environment)가 `expo export`로 하고 결과물만 Vercel에 올린다. 그래서 값은 Vercel 환경 변수가 아니라 GitHub Actions 변수(`BUSINESS_*`, `PRIVACY_OFFICER`)에 넣는다. 넣은 뒤 워크플로를 수동 실행해야 반영된다.
+- 10/22 두 앱은 SPA(`web.output: single`)라 JS 없이 읽히지 않는다. 문안은 `packages/ui/src/legalContent.ts` 한 곳에 두고, 앱 화면(`/privacy`·`/terms` 라우트)과 export 뒤 생성하는 정적 HTML(`dist/privacy.html`·`dist/terms.html`, vercel.json에서 catch-all보다 먼저 rewrite)이 같은 데이터를 쓴다. `dist/index.html`의 `<noscript>`에도 사업자 정보와 링크를 넣는다.
+- 10/22 생산자 앱 관문(session.tsx)은 비로그인을 `/login`으로 보내므로 `/privacy`·`/terms`를 모든 상태에서 열리게 예외로 둔다.
+- 10/22 주문 배송 정보의 농가 전달은 PQ-07(‘처리 위탁’)이 아니라 DEV-68 이후 policy.md 5장 문단(‘판매자에게 제공’)을 따라 ‘제3자 제공’으로 쓴다(사람·법률 확인 필요).
+- 10/22 가입 동의 문구 버전(`SIGNUP_CONSENT_VERSION` 2026-10-18)은 올리지 않는다. 동의 시트 요지는 그대로이고 전문 링크만 붙인다. 서버는 버전과 상관없이 항목만 검사해 올려도 기존 회원 재동의가 일어나지 않는다. 법률 검토로 내용이 바뀌면 그때 올린다(사람 확인 필요).
+- 10/22 PQ-06(보유 기간) 미정 부분은 현재 동작 기준으로 쓴다: 앱 안 탈퇴 기능이 없어 이메일로 요청받아 처리, 소식·채팅은 탈퇴 시까지, 거래 기록은 전자상거래법 기간. 사람·법률 확인 필요.
+- 10/22 Sentry·Langfuse는 스택 문서(stack.md)에는 있지만 코드에 연결돼 있지 않다. 국외 이전 표에 ‘도입 예정’으로 적는다. Railway 서버 지역·Langfuse 지역(TQ-01 미정)·수탁사 연락처(공식 웹사이트로 적음)는 사람 확인 필요.
+- 10/22 rules.md R-08(“환불은 카드 승인 취소로만”)은 DEV-68 뒤 policy.md 1장·R-28(농가가 입금 계좌로 송금)과 다르다. 약관은 R-28·policy를 따른다. R-08 정정은 이 PR 범위 밖이라 PR 질문으로 남긴다.
+
+- 10/22 (사용자 지시) 배포 전에 이미 가입한 회원과 새 회원 모두 현재 약관·처리방침(시행 2026-10-22)에 동의해야 쓸 수 있게 한다. 동의 문구 버전을 `2026-10-22`로 올리고, 서버가 필수 동의의 버전까지 검사한다(서버 `accounts.schemas.CONSENT_VERSION`, 앱·Mock은 같은 값, `test-legal.mjs`가 셋이 같은지 본다).
+- 10/22 소비자: 필수 동의(약관·개인정보·만 14세)가 없거나 버전이 다르면 `needsOnboarding=true` → 기존 403 `ONBOARDING_REQUIRED` 관문(주문·팔로우·좋아요·채팅)과 온보딩 화면을 그대로 쓴다. 프로필이 이미 채워진 회원은 같은 화면이 ‘약관이 바뀌었어요’ 재동의 모드로 열리고 배송지 단계는 건너뛴다. 동의 시트 요지의 "탈퇴하면 지워요"는 법정 보관 기간과 맞게 고친다.
+- 10/22 생산자: 필수 동의는 약관·개인정보 2개(만 14세는 소비자만). 없거나 버전이 다르면 `consentRequired=true`, 생산자 API(가입 신청·내 농가·사진 올리기·승인 농가 API 전부)는 403 `CONSENT_REQUIRED`. 생산자 앱 관문은 로그인 다음에 `/consent`(새 화면)만 연다. 새 생산자는 동의 → 가입 신청 순서가 된다.
+- 10/22 테스트 계정(`is_test_account`, 관리자 페이지 ‘테스트로 표시’ 포함)은 지금처럼 동의 검사에서 빠진다(시드·E2E가 그대로 돈다).
+- 10/22 `GET/POST /api/auth/me/consents`를 소비자 전용에서 소비자·생산자로 연다. 저장 버전은 앱이 보낸 값 그대로 남긴다(R-03과 같은 방식).
+
+### 작업
+- [x] `legalContent.ts`(문안·사업자 정보) + `LegalFooter`·`LegalDocument`
+- [x] 두 앱 `/privacy`·`/terms` 라우트, 생산자 관문 예외
+- [x] 푸터 배치: 소비자 홈·로그인·마이, 생산자 로그인·환경설정. 가입 동의 시트에 전문 링크
+- [x] `scripts/legal-pages.mjs` 정적 페이지·noscript, local.mjs·deploy-vercel.yml 연결, vercel.json rewrite
+- [x] 랜딩 링크, README 변수 표, ia·policy·wiki 동기화
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`, 브라우저 확인
+
+- [x] 재동의: 서버 버전 검사·생산자 동의·`CONSENT_REQUIRED`, Mock 동일 규칙, 소비자 재동의 모드, 생산자 `/consent` 화면, FEAT-01 AC-01-17·18, pytest
+
+### 완료 조건
+- [x] 두 앱 첫 화면(소비자 홈, 생산자 로그인) 하단에 사업자 정보(값 있는 항목)와 약관·처리방침 링크
+- [x] `/privacy`·`/terms`가 로그인 없이 열리고, 배포 산출물에 정적 HTML로 있다
+- [x] 처리방침 필수 항목, 약관의 중개자 고지·선주문·취소·환불 규칙이 R-xx와 일치
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/22 origin/main 1f1a243에서 브랜치 생성, `npm ci`·`uv sync --frozen` 완료.
+- 10/22 `npm run typecheck` 4 workspace 통과. `npm run test:mock` 23 passed / 0 failed(새 `test-legal.mjs` 4개 포함).
+- 10/22 Mock 스택(`npm run dev`)에서 `npx playwright test scripts/e2e/legal-pages.spec.ts` 2 passed. 같은 Mock에서 discovery-and-gates·producer-help-guide 7개가 실패했는데, Mock 트래픽 금지·카카오+테스트 버튼 동시 노출 때문인 실서버 전용 spec이라 아래 실서버로 다시 돌렸다.
+- 10/22 `DATABASE_URL=…/farmclub_dev115 npm run test:integration:full`(같은 Postgres 컨테이너의 임시 DB, 끝나고 DROP): 실서버 시나리오 7 passed, Chromium 61 passed / 2 skipped / 0 failed(legal-pages 2개 포함).
+- 10/22 가짜 사업자 값으로 `node scripts/local.mjs export consumer` → `dist/privacy.html`·`terms.html`·index.html noscript 생성, 값이 JS 번들에 들어간 것 확인. 로컬 정적 서버 375px에서 홈 하단 푸터, 앱 안 `/privacy`, 정적 `terms.html`을 눈으로 확인. 산출물은 지웠다.
+- 10/22 재동의 추가 후: `uv run pytest` 424 passed(격리 DB), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 24 passed / 0 failed, Mock 스택 `legal-consent.spec.ts` 2 passed(소비자 재동의 모드·생산자 /consent → 가입 신청), 실서버 `test:integration:full` 61 passed / 4 skipped(카카오가 없는 실서버에서 Mock 전용 2개 포함) / 0 failed. 생산자 `/consent` 375px 화면 확인. 임시 DB는 지웠다.
+- 10/22 GitHub Actions 변수: BUSINESS_NAME·OWNER·REGISTRATION_NO·ADDRESS·PHONE·EMAIL·PRIVACY_OFFICER 입력됨(값은 여기 쓰지 않음). 통신판매업 신고번호는 신고 후 입력 예정.
+- 10/22 origin/main(691949e, DEV-108·112·114 등) 병합. 충돌: 생산자 관문이 `lib/gate.ts`로 옮겨져 동의 규칙·`PUBLIC_PATHS`를 그쪽으로 옮기고 `test-producer-gate.mjs`에 AC-01-18 관문 테스트를 더했다. package.json test:mock은 두 쪽 스크립트를 모두 둔다. 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 28 passed / 0 failed, Mock `legal-*` 4 passed, 실서버 `test:integration:full` 67 passed / 4 skipped / 0 failed(새 카카오 복귀 spec 포함).
+- 10/23 법률 검토(law.go.kr 현행본: 개인정보보호법 2026.9.11, 전상법 2026.7.21, AI기본법, 원산지표시법 2026.10.22 시행) 반영. 문안: 하단·회사 정보에 호스팅서비스 제공자(전상법 제10조, 시행령 제11조의4), 처리방침 제2조 처리 근거 칸(제22조 ③), 제4·9조의 실제와 다른 문장(배송 후 가림, 역할별 권한) 정정, 제6조 이전받는 자 이메일 연락처·Anthropic 30일·OpenRouter 미저장, Sentry·Langfuse(미연결) 삭제, 생성형 AI 조항 신설(제11조, 이후 번호 +1). 약관: 하자 24시간은 권고(제17조 ③·제35조), 관할 소비자 주소지(제36조), 분쟁 3·10영업일(제20조 ③), 생성형 AI 고지(AI기본법 제31조), 지연배상 연 15%, 이용 제한 사전 통지, 게시물 이용 허락, 미성년자 취소권, 서비스 중단 고지, "공급 계약"→"입점 계약", 회사 명칭에 상호(빌드 변수). 제품 변경은 DEV-119(판매자 신원정보 청약 전), DEV-120(주문서 제3자 제공 동의), DEV-121(원산지 표시제도 고지), DEV-122(PostHog 국외 이전), DEV-123(관리자 계정·접속기록·계좌 암호화), DEV-124(재동의 설계), DEV-94(탈퇴, 코멘트), SWPP-124(법률 확인)로 분리.
+- 10/23 Railway 리전 확인(`railway status --json`): farmclub-api·farmclub-source-worker·Postgres 모두 asia-southeast1(싱가포르). 처리방침 제6조 Railway 국가를 싱가포르로 고침.
+- 10/23 사용자 지시: 시행일·동의 버전을 2026-10-23으로 바꿈(서버 CONSENT_VERSION, Mock, legalContent LEGAL_VERSION·시행일, test-onboarding, screens·policy·wiki).
+- 10/23 머지 전 점검: 구매 확정 조항에 '확정 뒤에도 법정 청약철회·하자 권리는 그대로'를 더함. 8일 자동 확정(R-14)은 서버에 아직 없다(약관·앱 문구만 있음) — 수익화(수수료 정산) 전에 구현 필요.
+
+## DEV-116 Figma v6 sync for legal footer, legal pages, consent screens + producer login footer layout
+
+- 이슈: [DEV-116](https://linear.app/sswp6/issue/DEV-116)
+- 브랜치: `nemodleo/dev-116-legal-footer-figma-sync`
+- 기능·규칙: R-16(법정 표시), policy.md 6장, FEAT-01 SCR-06·SCR-19·SCR-19a, SCR-10(주문서 동의)
+- 상태: 진행 중
+
+### 목표
+1. 운영 생산자 로그인(카카오 켜짐)에서 하단 사업자 정보 푸터가 화면 중간에 뜨고 그 아래 빈 공간이 남는다. 고정 하단 바의 "테스트 서비스 · 이용약관 · 개인정보 처리방침" 글자는 링크가 아니면서 푸터 링크와 겹친다. 푸터를 스크롤 내용 맨 아래로 내리고 겹친 글자를 정리한다.
+2. DEV-113·120·132에서 만든 화면을 Figma v6에 반영한다(푸터, `/privacy`·`/terms`, 생산자 `/consent`, 소비자 SCR-06 재동의·가입 동의 모드, 주문서 SCR-10 5번째 동의).
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{Legal.tsx,content.tsx}`, `packages/ui/{spec,tasks}.md`
+- `apps/producer/src/app/login.tsx`, `apps/consumer/src/app/login.tsx`
+- `apps/consumer/src/app/(tabs)/{index,me/index}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx` — 푸터 줄만(DEV-94 탈퇴 작업과 겹침)
+- `scripts/e2e/legal-pages.spec.ts`
+- (10/23 추가) 문서 한 줄씩: `docs/spec/{ia,screens}.md`(SCR-19 하단 글자), `docs/wiki/Requirements-and-Specifications.md`
+- Figma v6 파일(코드 밖)
+
+### 비범위
+- 푸터 문안·사업자 정보 값, 약관 본문, 동의 로직, DEV-132(PR #264) 코드
+
+### 결정 사항
+- 10/23 `Scroll`에 `footer` 슬롯을 둔다. 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'`로 맨 아래에 붙인다(내용이 짧으면 아래로 밀리고, 길면 내용 뒤 section 간격). `flexGrow`는 footer가 있을 때만 켜서 다른 48개 화면에 영향이 없게 한다.
+- 10/23 생산자 로그인 하단 바의 "테스트 서비스 · 이용약관 · 개인정보 처리방침"은 지운다. 푸터가 이미 링크와 ‘테스트 서비스’(값 없을 때)를 보인다. 하단 바 높이는 상태(카카오 버튼만/테스트 계정 버튼/오류 문구)마다 달라 `onLayout`으로 재서 스크롤 아래 여백으로 쓴다(고정 170이면 카카오 운영에서 푸터와 바 사이가 빈다).
+- 10/23 Figma MCP 계정은 이 파일에 보기 권한(View seat)뿐이라 쓸 수 없다. DEV-108·112처럼 레포 밖 스크립트(`figma-plugins/farmclub-dev116/`, `main.js` + `legal.json`(legalContent.ts에서 뽑은 문안) → `build.sh` → `code.js`)를 사용자 Chrome의 Figma 웹 편집기 콘솔에서 실행했다(사용자 지시). 다시 실행하면 `DEV-116 · ` 이름의 노드를 지우고 같은 자리에 다시 그리므로 node-id가 바뀐다. 아래 기록의 id는 마지막 실행 기준.
+- 10/23 Figma 기존 화면(C02·01 홈·C10·P02·P19)은 복제해 푸터를 얹고, 새 화면(/privacy·/terms, SCR-06 두 모드, SCR-10 동의 부분, SCR-19a 두 모드)은 토큰(색·글자 크기·간격) 그대로 새로 그렸다. 탭 화면은 높이를 늘린 ‘전체 내용’(스크롤 끝) 형태.
+- 10/23 소비자 로그인 하단 바 문구("…동의는 처음 가입할 때 받아요 · 테스트 서비스")는 동의 시점 안내라 남긴다. 같은 푸터 위치 문제만 고친다.
+
+### 작업
+- [x] `Scroll` footer 슬롯, 다섯 화면 푸터를 슬롯으로 옮김
+- [x] 생산자 로그인 하단 바 정리·여백 측정, 소비자 로그인 여백 측정
+- [x] Playwright: 푸터가 짧은 화면에서 바닥(하단 바 바로 위)에 붙는지, 360·390·430px 스크린샷
+- [x] Figma v6 반영
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`
+
+### 완료 조건
+- [x] 생산자·소비자 로그인, 생산자 환경설정, 소비자 홈·내 정보에서 푸터가 내용 맨 아래(짧으면 화면 바닥)에 있다
+- [x] Figma v6에 대상 화면 반영(사업자 정보는 자리 표시)
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main 9436171에서 시작, 작업 중 PR #264(DEV-132) 머지 뒤 main 0d57e99를 병합.
+- 10/23 원인: 푸터가 짧은 내용 바로 뒤에 있고 `Scroll bottom={170}` 고정 여백이라, 카카오 운영 로그인(내용 짧음)에서 푸터가 화면 중간에 뜨고 그 아래가 비었다. 하단 바의 ‘테스트 서비스 · 이용약관 · 개인정보 처리방침’은 링크가 아닌 글자라 푸터와 겹쳐 보였다(Figma P02에도 같은 글자가 있었다).
+- 10/23 확인: Mock 대신 실서버 모드 앱 + API 응답 가로채기(카카오 켜짐·비로그인)로 360·390·430px 스크린샷, 생산자 푸터 아래끝 716 / 바 위끝 약 728, 중복 글자 0개. Playwright `legal-pages.spec.ts`에 같은 검사(폭 3개 × 두 앱) 추가.
+- 10/23 Figma v6(파일 X8RKiRPZbFEEEwi4OhkF0G): ‘현재 시안 · 소비자’ y 33500 줄 — 제목 481:7143, 명세 481:7144, 로그인 481:7145, 홈 481:7235, 내 정보 481:7364, SCR-06 재동의 481:7588, SCR-06 가입 동의 481:7635, SCR-10 동의 481:7702, /privacy 481:7756, /terms 481:7794. ‘현재 시안 · 생산자’ y 28600 줄 — 제목 481:7796, 명세 481:7797, P02 로그인 481:7798, P19 환경설정 481:7925, SCR-19a 재동의 481:8092, SCR-19a 가입 모드 481:8122, /privacy 481:8176, /terms 481:8214. 각 프레임을 PNG로 내보내 확인했다.
+- 10/23 후속 질문: 주문서 하단 바가 동의 5개(DEV-120) 뒤에도 ‘4개 중 N개 동의했어요’라고 쓴다(`apps/consumer/src/app/checkout/[productId]/index.tsx`). 이 작업 범위 밖이라 고치지 않았다.
+- 10/23 main 병합 후 재검증: `npm run typecheck` 통과, `npm run test:mock` 40/40, 실서버 통합 시나리오 7/7 + Playwright 24/24(legal-pages·legal-consent·consumer-kakao·producer-kakao·producer-and-privacy·discovery-and-gates·brand-logo·checkout-and-fulfillment).
+- 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should(테스트가 하단 바를 absolute div 추측으로 찾음) 반영 — 두 로그인 하단 바에 `testID="login-bottom-bar"`, spec은 그 위 끝과 비교. 재실행: 실서버 시나리오 7/7, Playwright 14/14(legal-pages·producer-kakao·consumer-kakao), typecheck 통과.

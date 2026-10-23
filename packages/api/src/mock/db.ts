@@ -21,6 +21,7 @@ import type {
   Stage,
   NewsRoomMessage,
 } from "../types";
+import { SUPPORT_ID } from "../types";
 
 /** 데모 기준일. D-day·단계 계산에 쓴다(배포 뒤에도 예시 값이 그대로 보이게). */
 export let TODAY = "2026-10-07";
@@ -42,17 +43,32 @@ export type UserRec = {
   phone?: string;
   /** 가입 동의(FEAT-01 I2) */
   consents?: Consent[];
+  /** 탈퇴한 회원(DEV-94). 개인정보는 지웠고 로그인할 수 없다 */
+  deleted?: boolean;
 };
 const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
+const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;
+/** 지금 시행 중인 약관·처리방침 버전(서버 accounts.schemas.CONSENT_VERSION과 같은 값, DEV-113) */
+export const CONSENT_VERSION = "2026-10-23";
+
+/** 지금 버전의 필수 동의가 빠졌는가(서버 consent_required와 같은 규칙). 테스트 계정은 항상 false */
+export function consentRequired(u: UserRec): boolean {
+  if (!u.kakao || (u.role !== "CONSUMER" && u.role !== "PRODUCER")) return false;
+  const required =
+    u.role === "CONSUMER" ? REQUIRED_CONSENTS : REQUIRED_PRODUCER_CONSENTS;
+  const agreed = new Set(
+    (u.consents ?? [])
+      .filter((c) => c.agreed && c.version === CONSENT_VERSION)
+      .map((c) => c.kind),
+  );
+  return required.some((k) => !agreed.has(k));
+}
 
 /** 첫 가입 온보딩이 남았는가(서버 needs_onboarding과 같은 규칙). 테스트 계정은 항상 false */
 export function needsOnboarding(u: UserRec): boolean {
   if (u.role !== "CONSUMER" || !u.kakao) return false;
   if (!u.nickname?.trim() || !u.name.trim() || !u.phone?.trim()) return true;
-  const agreed = new Set(
-    (u.consents ?? []).filter((c) => c.agreed).map((c) => c.kind),
-  );
-  return REQUIRED_CONSENTS.some((k) => !agreed.has(k));
+  return consentRequired(u);
 }
 
 export type FarmRec = {
@@ -258,6 +274,12 @@ export const nowIso = () => new Date().toISOString();
 const P = (f: string) => `/photos/${f}`;
 const at = (date: string, time = "10:00") =>
   new Date(`${date}T${time}:00+09:00`).toISOString();
+/** farmclub 문의 대화방 환영 메시지. server/app/messaging/support.py WELCOME과 같다(DEV-111) */
+export const SUPPORT_WELCOME =
+  "안녕하세요, farmclub 운영팀이에요. 농가 가입을 환영해요!\n" +
+  "앱을 쓰다가 모르는 게 생기면 언제든 이 대화방에 편하게 남겨 주세요. " +
+  "운영팀이 확인하고 답해 드릴게요.\n" +
+  "화면 오른쪽 위 ? 버튼을 누르면 사용 안내도 처음부터 다시 볼 수 있어요.";
 const msg = (
   id: string,
   senderType: ChatMessage["senderType"],
@@ -387,6 +409,13 @@ export function seed(): DB {
     roomReplies: [],
     seq: 1000,
     users: {
+      // farmclub 문의 대화방의 운영팀 계정(DEV-111)
+      [SUPPORT_ID]: {
+        userId: SUPPORT_ID,
+        name: "farmclub",
+        role: "ADMIN",
+        farmId: null,
+      },
       "u-minji": {
         userId: "u-minji",
         name: "김민지",
@@ -1310,15 +1339,28 @@ export function seed(): DB {
       faqs: [],
       handoffTopics: [],
     };
+  // 승인 농가마다 farmclub 문의 대화방과 환영 메시지(DEV-111, 서버 시드와 같다)
+  for (const f of Object.values(d.farms))
+    if (f.status === "APPROVED")
+      d.threads[`${f.farmId}:${SUPPORT_ID}`] = [
+        msg(
+          `m-welcome-${f.farmId}`,
+          "OPERATOR",
+          SUPPORT_WELCOME,
+          at("2026-10-07", "09:00"),
+        ),
+      ];
   for (const [k, messages] of Object.entries(d.threads)) {
     const [farmId, consumerId] = k.split(":");
     d.threadMeta[k] = {
       threadId: `thread-${k}`,
       farmId,
       consumerId,
-      aiMode: messages.some((m) => m.senderType === "PRODUCER")
-        ? "HUMAN"
-        : "AUTO",
+      aiMode:
+        consumerId === SUPPORT_ID ||
+        messages.some((m) => m.senderType === "PRODUCER")
+          ? "HUMAN"
+          : "AUTO",
       version: 1,
       consumerLastReadMessageId: null,
       producerLastReadMessageId: null,

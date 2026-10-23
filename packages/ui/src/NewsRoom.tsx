@@ -21,6 +21,8 @@ import { ChatBubble } from "./ChatBubble";
 import { tokens } from "./tokens";
 import { safe } from "./web";
 
+const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
+
 type Message = {
   messageId: string;
   senderId: string;
@@ -255,7 +257,9 @@ export function NewsRoom({
     }
   }
   return (
+    // 메시지 본문·보낸 사람은 세션 녹화에서 가린다(N-05, DEV-71). react-native-web이 data-ph-private로 내보낸다
     <View
+      {...PRIVATE_AREA}
       style={{ flex: 1, minHeight: 0, backgroundColor: tokens.color.surface }}
     >
       {error || loadError ? (

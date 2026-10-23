@@ -1,8 +1,12 @@
 // 엔드포인트 함수. 경로·요청·응답은 docs/spec/screens.md 7.2 표를 따른다.
-import { appName, newIdempotencyKey, request, setToken } from "./client";
+import { appName, newIdempotencyKey, readStore, request, setToken, writeStore } from "./client";
 import type * as A from "./types";
 
 /* ---------------- accounts (/api/auth) ---------------- */
+
+/** 가입 대기 저장 키와 수명. 서버 가입 토큰(30분)보다 조금 짧게 둔다 */
+const SIGNUP_KEY = "kakao-signup";
+const SIGNUP_TTL_MS = 25 * 60 * 1000;
 
 export const auth = {
   testAccounts: () =>
@@ -18,15 +22,54 @@ export const auth = {
   },
   /** 카카오 로그인 사용 여부(ADR 0003) */
   kakaoConfig: () => request<A.KakaoConfig>("GET", "/api/auth/kakao/config"),
-  /** 카카오 인가 코드로 로그인. redirectUri는 인가 요청에 쓴 값과 같아야 한다 */
+  /**
+   * 카카오 인가 코드로 로그인. redirectUri는 인가 요청에 쓴 값과 같아야 한다.
+   * 새 사용자는 계정 없이 가입 토큰만 온다(DEV-132). 토큰을 잠깐 저장하고, 약관 동의 화면이 kakaoSignup으로 가입한다
+   */
   async kakaoLogin(code: string, redirectUri: string) {
-    const res = await request<A.LoginResult>("POST", "/api/auth/kakao", {
+    const res = await request<A.KakaoLoginResult>("POST", "/api/auth/kakao", {
       body: { code, redirectUri, app: appName() },
     });
+    if (res.signup) {
+      setToken(null);
+      const pending: A.PendingSignup = { ...res.signup, expiresAt: Date.now() + SIGNUP_TTL_MS };
+      writeStore(SIGNUP_KEY, JSON.stringify(pending));
+    } else {
+      writeStore(SIGNUP_KEY, null);
+      setToken(res.accessToken);
+    }
+    return res;
+  },
+  /** 약관 동의 전 가입 대기(DEV-132). 없거나 만료면 null */
+  pendingSignup(): A.PendingSignup | null {
+    try {
+      const raw = readStore(SIGNUP_KEY);
+      const p = raw ? (JSON.parse(raw) as A.PendingSignup) : null;
+      if (p && p.expiresAt > Date.now() && p.signupToken) return p;
+    } catch {
+      /* 깨진 값은 버린다 */
+    }
+    writeStore(SIGNUP_KEY, null);
+    return null;
+  },
+  clearPendingSignup: () => writeStore(SIGNUP_KEY, null),
+  /** 필수 약관 동의와 함께 카카오 계정을 만들고 로그인한다(DEV-132, AC-01-19) */
+  async kakaoSignup(consents: A.ConsentInput[]) {
+    const pending = auth.pendingSignup();
+    if (!pending) throw new Error("가입 요청이 만료됐어요. 카카오 로그인부터 다시 해 주세요.");
+    const res = await request<A.LoginResult>("POST", "/api/auth/kakao/signup", {
+      body: { signupToken: pending.signupToken, consents },
+    });
+    writeStore(SIGNUP_KEY, null);
     setToken(res.accessToken);
     return res;
   },
   logout: () => setToken(null),
+  /**
+   * 회원 탈퇴(DEV-94). 끝나지 않은 주문이 있으면 409 WITHDRAW_BLOCKED(orderNos).
+   * 성공하면 서버가 이 토큰을 받지 않으니, 앱이 로그아웃(토큰 삭제)과 이동을 처리한다
+   */
+  withdraw: () => request<null>("POST", "/api/auth/me/withdraw"),
   me: () => request<A.User>("GET", "/api/auth/me"),
   /** 온보딩 1장·프로필 수정(닉네임·이름·휴대폰) */
   updateMe: (input: A.MeUpdateInput) =>
@@ -316,11 +359,12 @@ export const messaging = {
     attachmentIds: string[] = [],
     orderId?: string,
     idempotencyKey: string = newIdempotencyKey(),
+    productId?: string,
   ) =>
     request<A.SendMessageResult>(
       "POST",
       `/api/messaging/chats/${farmId}/messages`,
-      { body: { text, attachmentIds, orderId }, idempotencyKey },
+      { body: { text, attachmentIds, orderId, productId }, idempotencyKey },
     ),
   read: (farmId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/chats/${farmId}/read`, {

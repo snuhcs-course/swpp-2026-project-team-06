@@ -25,23 +25,24 @@ OrderStatus = Literal[
 
 
 class Consents(CamelModel):
-    """결제 전 동의 4개(R-03, 정책 2장)."""
+    """결제 전 동의 4개(R-03, 정책 2장) + 개인정보 제3자 제공(판매자 농가, 제17조, DEV-120)."""
 
     delivery_window: bool = False
     delay_refund: bool = False
     shortage: bool = False
     cancel_policy: bool = False
+    third_party: bool = False
 
 
 class OrderInput(CamelModel):
     product_id: str
     option_id: str
     quantity: int
-    recipient_name: str = ""
-    recipient_phone: str = ""
-    postal_code: str = ""
-    address: str = ""
-    address_detail: str = ""
+    recipient_name: str = Field(default="", max_length=100)
+    recipient_phone: str = Field(default="", max_length=32)
+    postal_code: str = Field(default="", max_length=16)
+    address: str = Field(default="", max_length=300)
+    address_detail: str = Field(default="", max_length=300)
     delivery_note: str | None = None
     consents: Consents = Field(default_factory=Consents)
     consent_version: str = Field(default="", max_length=32)

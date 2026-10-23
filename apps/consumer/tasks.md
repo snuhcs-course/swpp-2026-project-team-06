@@ -393,3 +393,117 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 검증(10/18): `npm run typecheck` 4개 통과, `npm run test:mock` 13/13. Mock 화면 흐름(관문 → 카카오 → 온보딩 1(다음 비활성 → 입력·모두 동의 → 다음) → 2(주소 저장) → 주문서 복귀(기본 배송지 채워짐) → 내 정보·고치기·배송지 → 로그아웃 뒤 다시 카카오 → 온보딩 없이 복귀) 콘솔 오류 0. 실서버 통합은 아래 기록.
 - 10/18 AI 1차 리뷰 반영(must 1): 관문을 거치지 않는 소식 좋아요·답장·채팅 보내기가 403 `ONBOARDING_REQUIRED`를 받으면 세션이 온보딩을 연다(`onOnboardingRequired`). 주문서로 직접 들어와 온보딩을 닫으면 그 상품 화면으로(주문서 ↔ 온보딩 고리 제거). 10/17에 만든 계정의 이름 자리(이메일·‘카카오 사용자’)는 온보딩 이름 칸에 채우지 않음. 로그인 Mock 주석 갱신. Mock 확인: 관문에서 닫기 → 상품 화면, 주문서에서 닫기 → 상품 화면, 온보딩 전 좋아요 → 온보딩, 콘솔 오류 0. 범위에 `scripts/test-onboarding.mjs` 추가.
 - 10/18 남긴 리뷰 항목: 온보딩 e2e(Playwright)는 실서버 통합이 카카오 키 없이 돌아 카카오 첫 가입을 만들 수 없어 넣지 않았다. 대신 Mock 계약 테스트(`test-onboarding.mjs`)와 서버 pytest가 규칙을 덮고, 화면 흐름은 Mock Playwright 스크립트로 확인했다. 소식방에서 본인 답장 이름이 실명으로 보이는 것은 기존 동작이라 그대로 둠.
+
+## DEV-112 카카오 복귀 화면을 생산자 앱(DEV-108)과 맞추기
+
+- 이슈: [DEV-112](https://linear.app/sswp6/issue/DEV-112)
+- 브랜치: `nemodleo/dev-112-dev-소비자-앱-카카오-복귀-화면을-생산자-앱dev-108과`
+- 기능·인수 조건: FEAT-01 I2 / AC-01-13 · 화면 SCR-05 하위 `/auth/kakao` · 관련 DEV-32, DEV-108
+- 상태: 진행 중
+
+### 목표
+소비자 앱 카카오 복귀 화면을 생산자 앱처럼 로딩 표시 + 한 줄로 정리하고, 새로고침 오류(일회용 `state` 소진으로 ‘로그인 요청이 만료됐어요’)와 응답 지연(무한 대기)을 처리한다. 소비자 앱은 로그인 뒤 직접 이동하므로 생산자 앱 같은 멈춤은 없었다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/auth/kakao.tsx`
+- 테스트: `scripts/e2e/consumer-kakao.spec.ts`(새 파일)
+- 문서: `apps/consumer/spec.md`, `apps/consumer/tasks.md`, `docs/spec/screens.md`(SCR-05), `docs/wiki/Requirements-and-Specifications.md`(SCR-05 줄)
+- Figma 스크립트: 레포 밖 `figma-plugins/farmclub-dev112/`
+
+### 비범위
+- 소비자 세션 관문(`lib/session.tsx`), `lib/kakao.ts` 저장 형식, 서버, 오류 화면 문구(‘테스트 계정 로그인으로도 계속할 수 있어요.’ 등)
+
+### 결정 사항
+- 10/22 새로고침 판단은 생산자와 같다: `state`가 없거나 다른데 토큰이 있으면 로그인된 것으로 본다. 소비자 세션의 `refresh()`는 사용자를 돌려주지 않아 `auth.me()`를 직접 불러 `needsOnboarding`을 본다. 돌아갈 화면(`next`)은 첫 복귀 때 이미 꺼내 지웠으므로 홈으로 보낸다.
+- 10/22 시간 제한 15초, 문구는 생산자와 같다. 요청은 취소하지 않으므로 늦게 성공하면 토큰이 남고, ‘다시 로그인’·‘홈으로’ 어느 쪽을 눌러도 로그인된 채 이어진다.
+- 10/22 로딩 화면: 닫기(`HeaderBar close`)는 남기고 그 아래를 가운데 `ActivityIndicator`(large, 보조 글자색) + `T` body muted ‘카카오 로그인 중이에요’로. 새 공용 부품은 만들지 않는다(DEV-108과 같은 판단).
+
+### 작업
+- [x] 복귀 화면: 모양, 새로고침, 15초 제한
+- [x] Playwright(복귀 → 저장한 화면, 다시 열기 → 오류 없음, 로그인 안 된 채 state 불일치 → 만료 안내)
+- [x] 스펙(screens.md SCR-05, wiki), `spec.md`
+- [x] Figma v6 소비자 로그인 근처 복귀 로딩 화면
+- [x] typecheck, test:mock, Playwright 통과 확인
+
+### 완료 조건
+- [x] 로딩 화면 정리, 새로고침해도 오류 없음
+- [x] 테스트·스펙·Figma가 같은 PR
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/22 origin/main 1f1a243에서 시작.
+- 10/22 검증: `npm run typecheck` 통과, `npm run test:mock` 19/19. 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, 별도 DB, `node scripts/run-integration.mjs scripts/e2e/consumer-kakao.spec.ts scripts/e2e/discovery-and-gates.spec.ts`): 실서버 시나리오 7/7, Playwright 5/5. 새 spec을 origin/main의 `kakao.tsx`로 돌리면 새로고침 테스트 1건이 실패(만료 안내에 남음)해 고친 증상과 같음을 확인.
+- 10/22 Figma v6 ‘현재 시안 · 소비자’에 `DEV-112 · C02-1 카카오 복귀 · /auth/kakao`(node 460:4936, C02 닫기 머리 복제)와 명세 상자(460:4955). 자리는 C02와 같은 줄 x 4410(3940에는 다른 ‘수정 전’ 사본이 있어 한 칸 옆). 스크립트는 레포 밖 `figma-plugins/farmclub-dev112/code.js`(같은 노드 재사용, 두 번 실행해 확인).
+
+## DEV-97 상품 페이지에서 연 채팅에 상품 전달
+
+- 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97) · 브랜치 `zahra/dev-97-chat-product-context` · 기준 절: `server/tasks.md#dev-97` · 상태: 완료(#197)
+- 범위: `src/app/(tabs)/products/[productId].tsx`(채팅하기·확인 시트 ‘시작하기’ 경로에 `productId`), `src/app/(tabs)/chats/[farmId].tsx`(경로의 `productId`를 보내기에)
+- 10/20 결정: 화면·문구 변경 없음(Figma 해당 없음). 주문 문맥이 있으면 서버가 주문을 우선한다.
+- [x] 두 화면 수정, `npm run typecheck` 4개 통과
+
+## DEV-113 사이트 하단 사업자 정보와 약관·처리방침
+
+- 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
+- 10/22 `/privacy`·`/terms` 라우트, 홈·로그인·내 정보 하단 `LegalFooter`, 가입 동의 시트 ‘전문 보기’, vercel.json에서 정적 HTML로 rewrite.
+
+## DEV-120 주문서 개인정보 제3자 제공 동의(판매자 농가)와 약관·처리방침 링크
+
+- 이슈: [DEV-120](https://linear.app/sswp6/issue/DEV-120)
+- 브랜치: `nemodleo/dev-120-checkout-third-party-consent` (DEV-113 브랜치 위에 쌓음, PR base = DEV-113 브랜치)
+- 기능·규칙: FEAT-08 AC-08-1(·새 AC-08-9), R-03, R-15, policy.md 2·5장, 개인정보보호법 제17조 ①·②
+- 상태: 리뷰 중
+
+### 목표
+주문하면 받는 사람 정보가 판매자 농가(제3자)에게 간다. 계약 이행(제15조 ① 제4호)은 제3자 제공 근거가 아니므로(제17조 ① 제2호) 주문서에서 별도 동의를 받고, 주문서의 약관·처리방침 문구를 링크로 바꾼다.
+
+### 범위 (수정 허용 경로)
+- `server/app/orders/{schemas,service}.py`, `server/tests/{test_orders,test_accounts,test_retire_test_farm}.py`
+- `packages/api/src/{types.ts,mock/orders.ts}`, `scripts/{test-spec12,test-capacity,test-integration}.mjs`
+- `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/tasks.md`
+- `packages/ui/src/legalContent.ts`(처리방침 제4조), `scripts/test-legal.mjs`, `scripts/e2e/checkout-and-fulfillment.spec.ts`(필요 시)
+- `docs/spec/functional/FEAT-08-reservation-order.md`, `docs/spec/{policy,screens}.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+- DB 스키마(동의는 전부 필수라 주문의 `consent_at`·`consent_version`으로 기록), 판매자 신원정보 표시(DEV-119), 가입 동의 버전(`CONSENT_VERSION`)
+
+### 결정 사항
+- 10/23 R-03 동의 4개에 `thirdParty`(개인정보 제3자 제공)를 5번째 필수 항목으로 더한다. 5개 모두 필수라 주문이 있으면 동의한 것이고, 시각·문구 버전은 기존 `consent_at`·`consent_version`에 남는다(마이그레이션 없음). 제공받는 자는 주문 상품의 농가로 정해진다.
+- 10/23 주문서 동의 문구 버전 `policy-2026-10-06` → `policy-2026-10-23`(문구가 바뀜).
+- 10/23 고지 5가지(제17조 ②): 제공받는 자(농가명), 목적(상품 배송·주문 이행·주문 문의 응대), 항목(받는 사람 이름·연락처·주소·배송 메모, 주문 내용, 닉네임), 보유·이용 기간(주문 이행이 끝날 때까지, 판매자는 법령 보존 기간 동안 보관 가능), 거부 권리와 거부 시 예약 불가.
+
+### 작업
+- [x] 서버·Mock: `thirdParty` 필수(없으면 400 `consents`)
+- [x] 주문서: 5번째 동의, ‘모두 동의’에 포함, 약관·처리방침 링크
+- [x] 처리방침 제4조: 주문할 때 받는 별도 동의에 따라 제공
+- [x] 스펙: FEAT-08 AC-08-1·새 AC, policy 2·5장, screens SCR-10, wiki
+- [x] pytest, typecheck, test:mock, Playwright(실서버 integration)
+
+### 완료 조건
+- [x] 제3자 제공 동의 없이는 예약이 안 된다(서버·Mock·화면)
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지(DEV-113 먼저)
+
+### 기록
+- 10/23 DEV-113 브랜치 b533e8b 위에서 시작.
+- 10/23 검증: `uv run pytest` 425 passed(새 AC-08-7), 손댄 3개 파일 재실행 79 passed, `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 28 passed / 0 failed(Mock 주문 제3자 제공 동의 검사 추가), 실서버 `test:integration:full` 67 passed / 4 skipped / 0 failed(checkout E2E의 ‘모두 동의해요’가 5개를 모두 켬). 임시 DB 삭제.
+- 10/23 screens.md API 표의 `/api/auth/me/consents` 대상을 소비자·생산자로 고침(DEV-113에서 빠졌던 것).
+
+## DEV-127 vercel.app 기본 주소를 정식 도메인으로 리다이렉트
+
+- 이슈: [DEV-127](https://linear.app/sswp6/issue/DEV-127) · 브랜치 `nemodleo/dev-127-vercel-app-redirect`
+- 범위: `apps/consumer/vercel.json`, `apps/producer/vercel.json`, `README.md`(Domains), `docs/spec/tech-design/adr/0012-domains-cloudflare.md`, 이 섹션
+- 결정: 서버 CORS·카카오 복귀 주소에 vercel.app을 더하지 않고, Vercel 기본 주소를 정식 도메인으로 308 리다이렉트한다(host 조건, 경로·쿼리 유지). 리다이렉트는 rewrite보다 먼저 적용돼 `/s/*` 공유 링크도 정식 도메인으로 간 뒤 프록시된다. 미리보기(배포마다 생기는 고유 주소)는 host가 달라 영향 없다.
+- [x] 두 앱 vercel.json, README·ADR 0012
+- [ ] 배포 뒤 `curl -I https://farmclub-consumer.vercel.app/login?next=%2Fme` → 308, Location `https://farmclub.kr/login?next=%2Fme`
+- 10/23 화면·문구 변경 없음(Figma 해당 없음). 테스트할 앱 코드 변경 없음 — vercel.json JSON 검증만.
+
+## DEV-132 카카오 가입 시 약관 동의 전에는 계정을 만들지 않기
+
+- 이슈: https://linear.app/sswp6/issue/DEV-132 · 목표·범위·결정·기록은 `server/tasks.md` DEV-132 섹션에 모은다.
+- 10/23 `/onboarding` 가입 동의 모드(계정 없이 가입 토큰), 카카오 복귀·Mock 로그인의 새 사용자 처리.
+
+## DEV-94 회원 탈퇴
+
+- 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
+- 10/23 ‘내 정보’ 설정 목록 끝에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃·홈.

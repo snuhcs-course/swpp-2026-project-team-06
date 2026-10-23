@@ -20,7 +20,7 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 | `www.farmclub.kr` | `farmclub.kr`로 308 리다이렉트 | Vercel `farmclub-consumer`(리다이렉트 도메인) |
 | `farm.farmclub.kr` | 생산자 앱 | Vercel `farmclub-producer` |
 | `api.farmclub.kr` | FastAPI 서버(관리 API, `/docs` 포함) | Railway `farmclub-api` |
-| `admin.farmclub.kr` | 운영자 화면(FEAT-23) | 지금은 레코드 없음. 아래 참고 |
+| `admin.farmclub.kr` | 임시 관리자 페이지(`scripts/admin-web`, DEV-82·83·87) | Vercel `farmclub-admin`(DEV-91). 아래 참고 |
 | `dev.farmclub.kr`, `staging.farmclub.kr` | 개발·검증 | 지금은 레코드 없음. 아래 참고 |
 
 - 앱이 소비자·생산자로 나뉘어 있고 계정도 앱별이라([0010](./0010-separate-accounts.md)) 앱마다 호스트를 따로 둔다. 소비자 앱이 apex를 쓰는 것은 공유 링크와 첫 진입이 소비자 쪽이기 때문이다.
@@ -33,8 +33,10 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 - 고른 이유: 링크 도메인이 서비스 도메인과 같아 카톡 미리보기와 주소창이 자연스럽고, 설정이 레포(vercel.json)에 남는다. Cloudflare Worker로 경로를 나누는 방법은 레포 밖 설정이 늘어서 쓰지 않았다.
 
 ### 운영자(admin)
-- 전용 운영자 화면(FEAT-23)이 생기기 전까지 `admin.farmclub.kr`은 만들지 않는다. 운영자는 지금처럼 `https://api.farmclub.kr/docs`의 Swagger UI로 관리 API를 호출한다.
-- 화면이 생기면 `admin.farmclub.kr`을 그 앱(Vercel 프로젝트)에 연결하고, Cloudflare Access(무료, 50명까지)로 운영자 이메일만 들어오게 막는다. 서버의 `ADMIN` 역할 검사(N-06)는 그대로 유지한다.
+- 2026-10-19(DEV-91) 관리자 페이지(`scripts/admin-web`, 가입 신청·공급 물량 승인)가 생겨 `admin.farmclub.kr`을 Vercel `farmclub-admin`에 연결했다. 예전 주소 `farmclub-admin.vercel.app`도 같은 배포를 보여 준다.
+- 접속은 관리자 페이지의 공용 비밀번호 로그인(서명 쿠키, DEV-83)이 막고, 실서버는 운영자 토큰의 `ADMIN` 역할 검사(N-06)를 그대로 한다. 운영자 토큰은 Vercel 함수 환경 변수에만 있다.
+- 남은 일: Cloudflare Access(무료, 50명까지)로 운영자 이메일만 들어오게 하는 한 겹은 아직 켜지 않았다. 운영자 이메일은 레포에 적지 않고 Cloudflare Zero Trust 콘솔에서 넣는다. 켜면 이 절에 날짜를 적는다.
+- Swagger UI(`https://api.farmclub.kr/docs`)는 관리자 페이지에 아직 없는 관리 API(배송 완료, 환불, 예외 등)용으로 남는다.
 - 운영 `/docs`를 ADMIN만 보게 하거나 닫는 일(ADR 0008)은 이 결정과 별개의 작업으로 남는다.
 
 ### dev, staging
@@ -48,18 +50,20 @@ I1은 `farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`, `farmclub-
 | CNAME | `@` | Vercel이 `farmclub.kr` 추가 때 보여 주는 프로젝트 값(`<id>.vercel-dns-017.com`). Cloudflare가 apex CNAME을 펼쳐 응답한다 | Proxied |
 | CNAME | `www` | `@`와 같은 Vercel 값. Vercel에서 `farmclub.kr`로 308 리다이렉트 | Proxied |
 | CNAME | `farm` | Vercel이 `farm.farmclub.kr` 추가 때 보여 주는 값 | Proxied |
+| CNAME | `admin` | Vercel이 `admin.farmclub.kr` 추가 때 보여 주는 `farmclub-admin` 프로젝트 값 | Proxied |
 | CNAME | `api` | Railway가 커스텀 도메인 추가 때 보여 주는 `*.up.railway.app` 값 | Proxied |
 | TXT | Railway·Vercel이 요구하는 검증 이름(예: `_railway-verify.api`) | 콘솔이 보여 주는 값 | — |
 | MX | `@` | `0 .`(null MX, 메일 받지 않음) | — |
 | TXT | `@` | `v=spf1 -all` | — |
 | TXT | `_dmarc` | `v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s` | — |
 
-- Vercel 레코드(`@`·`www`·`farm`)는 **프록시를 켠다**(주황 구름, 2026-10-18 사용자 결정). 방문자는 Cloudflare를 거쳐 Vercel로 간다. Vercel은 이때 "Proxy Detected" 경고를 띄우고, 자체 봇·DDoS 차단이 방문자를 모두 Cloudflare IP로 보게 되어 그 역할은 Cloudflare가 맡는다.
+- Vercel 레코드(`@`·`www`·`farm`·`admin`)는 **프록시를 켠다**(주황 구름, 2026-10-18 사용자 결정). 방문자는 Cloudflare를 거쳐 Vercel로 간다. Vercel은 이때 "Proxy Detected" 경고를 띄우고, 자체 봇·DDoS 차단이 방문자를 모두 Cloudflare IP로 보게 되어 그 역할은 Cloudflare가 맡는다.
 - 프록시를 켠 동안 지킬 설정:
   - SSL/TLS 모드 **Full (strict)**. Flexible이면 Cloudflare–Vercel 구간이 평문이 되고 리다이렉트 루프가 생긴다.
   - **Bot Fight Mode 끔**. 켜면 카카오톡 미리보기 크롤러(`/s/farms/<id>`)와 Vercel 인증서 확인 요청이 막힌다.
   - **Rocket Loader 끔**. 스크립트 순서를 바꿔 Expo 웹 앱이 빈 화면이 될 수 있다.
   - 이름이 고정된 정적 파일(`og.jpg`, 파비콘)을 바꾸면 Caching → Purge Cache.
+- 두 단계 서브도메인(예: Vercel이 `farm` 추가 때 함께 만드는 `www.farm.farmclub.kr`)은 Cloudflare 무료 인증서(`farmclub.kr`, `*.farmclub.kr`)가 덮지 않아 Proxied로 쓸 수 없다. 쓰지 않으므로 Vercel에서 지우고 레코드도 만들지 않는다.
 - Vercel 도메인이 Invalid로 바뀌거나 인증서 갱신 경고가 오거나 배포 뒤 옛 화면이 계속 보이면 해당 레코드를 DNS only로 바꾼다. 되돌리기는 스위치 하나다.
 - `api`(Railway)도 프록시를 켰다(2026-10-18, `/health` 200 확인). 서버가 보는 클라이언트 IP는 Cloudflare IP이고, 실제 IP는 `CF-Connecting-IP` 헤더에 있다. 지금 서버는 클라이언트 IP를 쓰지 않는다. Railway 인증서 갱신에 문제가 생기면 이 레코드를 DNS only로 바꾼다.
 - Always Use HTTPS 켬.
@@ -92,3 +96,7 @@ PR을 3번 전에 머지하면 배포 확인(`/health`, 사이트 200)과 OG 이
 - 카카오·PortOne·CORS 설정이 한 도메인 체계로 묶인다. 대신 서버의 앱 주소는 하나씩만 허용하므로, 전환 중 옛 vercel.app 주소의 실서버 빌드는 API 호출이 막힌다(Mock 빌드는 영향 없음).
 - 공유 링크가 소비자 앱(Vercel)을 한 번 더 거친다.
 - DNS·도메인 갱신은 사람이 관리한다. 도메인 만료일을 팀 캘린더에 둔다.
+
+## 갱신 (2026-10-23, DEV-127)
+
+Vercel 기본 주소 `farmclub-consumer.vercel.app`·`farmclub-producer.vercel.app`는 각 앱 `vercel.json`의 host 조건 리다이렉트로 `farmclub.kr`·`farm.farmclub.kr`에 영구 이동(308, 경로·쿼리 유지)한다. 서버 CORS와 카카오 복귀 주소가 정식 도메인만 받아 기본 주소에서는 로그인·API가 모두 막히고, 같은 사이트가 두 주소로 남으면 카카오 비즈 앱 심사·검색엔진에 혼동을 주기 때문이다. PostHog도 정식 도메인에서만 켜진다(DEV-125).

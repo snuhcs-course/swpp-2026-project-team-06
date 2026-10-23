@@ -8,6 +8,7 @@ import {
   type Recipient,
   type User,
 } from "@farmclub/api";
+import { useAnalytics } from "@farmclub/analytics";
 import { Button, Sheet, T } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
@@ -138,6 +139,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [refresh, router],
   );
 
+  // 약관·처리방침 버전이 바뀌었거나 필수 동의가 없으면(DEV-113) 앱을 열 때 한 번 동의 화면을 띄운다.
+  // 닫아도 주문·팔로우·채팅은 서버가 403 ONBOARDING_REQUIRED로 막고 그때 다시 이 화면이 열린다
+  const askedConsent = useRef(false);
+  useEffect(() => {
+    if (!ready || !user?.consentRequired || askedConsent.current) return;
+    if (/^\/(onboarding|login|auth|privacy|terms)(\/|$)/.test(pathname)) return;
+    askedConsent.current = true;
+    router.push({ pathname: "/onboarding", params: { next: pathname } });
+  }, [ready, user, pathname, router]);
+
   const requireLogin = useCallback(
     (
       action: GateAction,
@@ -173,6 +184,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [router],
   );
+
+  // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
+  useAnalytics("consumer", user, ready);
 
   // 가입 온보딩이 남았거나 온보딩 화면(1/2, 2/2)에 있는 동안에는 이어서 할 행동을 숨긴다.
   // 스택 아래의 원래 화면이 먼저 행동을 실행하지 않게 하고, 온보딩을 마치고 돌아가면 보인다

@@ -237,3 +237,26 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] 타입·엔드포인트·Mock 추가, `npm run typecheck` 통과
 - [x] 10/18 온보딩·동의·배송지 50개 타입·엔드포인트·Mock, `npm run typecheck` 4개 통과, `npm run test:mock` 13/13
 - [x] 10/18 AI 리뷰 반영: 클라이언트가 403 `ONBOARDING_REQUIRED`를 받으면 `onOnboardingRequired` 구독자에게 알림(토큰은 유지). Mock 관문 표의 좋아요를 실제 경로대로 `PUT`으로 고침, Mock 주문 ‘기본 배송지로 저장’도 50개면 건너뜀. Mock 계약 테스트 `scripts/test-onboarding.mjs` 추가(범위에 `scripts/test-onboarding.mjs`, 루트 `package.json`의 `test:mock` 한 줄 추가). `npm run test:mock` 14/14
+
+## DEV-74 생산자 앱 카카오 로그인 — Mock
+
+- 이슈: [DEV-74](https://linear.app/sswp6/issue/DEV-74) · 기준 절: `apps/producer/tasks.md#dev-74`
+- 범위: `packages/api/src/mock/auth.ts`(Mock 생산자 카카오 계정 `u-kakao-farm`), `scripts/test-onboarding.mjs`(생산자 카카오 → 가입 신청 확인)
+- 10/18 결정: Mock 생산자 카카오 로그인은 강영수(승인) 대신 농가 없는 `u-kakao-farm`(이름 ‘카카오 사용자’)으로 들어가 가입 신청 흐름을 보여 준다. 상태별 시연은 테스트 계정 목록으로 계속 한다.
+- [x] Mock 계정과 계약 테스트, `npm run test:mock` 15/15
+
+## DEV-109 readStore·writeStore 내보내기
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109 · 상세 기록은 `apps/producer/tasks.md` DEV-109
+- 범위: `packages/api/src/index.ts`에서 기존 `readStore`·`writeStore`(앱별 이름공간 localStorage)를 내보낸다. 생산자 도움말 본 기록에 쓴다. 동작 변경 없음.
+
+## DEV-111 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
+- 10/22 변경: `SenderType`에 `OPERATOR`, `ProducerChatSummary.isSupport`, 값 `SUPPORT_ID = "u-farmclub"`(index에서 내보냄). Mock은 승인 농가의 환영 대화방(시드·승인 시), 생산자 안 읽음에 OPERATOR 포함, AI 모드 변경 400을 서버와 같게 둔다. 목록은 고정하지 않는다.
+
+## DEV-97 채팅 보내기 `productId`
+
+- 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97) · 기준 절: `server/tasks.md#dev-97`
+- 범위: `src/endpoints.ts`(`messaging.send` 마지막 인자 `productId?`), `src/mock/conversations.ts`(`send`: 그 농가의 판매 중 상품이 아니면 404, 주문이 없을 때만 AI 근거로 넘김), `scripts/test-ai-feedback.mjs`
+- [x] 엔드포인트·Mock, `npm run test:mock` 16/16

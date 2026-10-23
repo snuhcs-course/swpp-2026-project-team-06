@@ -1,0 +1,10 @@
+{
+  "name": "farmclub-admin-web",
+  "private": true,
+  "type": "module",
+  "description": "farmclub 임시 관리자 페이지(DEV-82, DEV-83, DEV-87): 로그인 + 생산자 가입 신청·공급 물량 승인. 빌드 없음. Vercel 임시 배포 또는 node server.mjs로 로컬 실행",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  }
+}
