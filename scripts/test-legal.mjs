@@ -78,6 +78,8 @@ test("DEV-113 R-01 R-07 R-11 R-12 R-14 R-28: terms state the broker notice and p
   assert.ok(html.includes("생성형 인공지능(AI)을 이용"));
   assert.ok(html.includes("연 15%의 지연배상금"));
   assert.ok(!html.includes("공급 계약"));
+  // 구매 확정이 청약철회·하자 권리를 끊지 않는다(전자상거래법 제17조·제35조)
+  assert.ok(html.includes("구매를 확정한 뒤에도 제9조의 법정 청약철회 권리"));
   assert.ok(!html.includes("<dt>대표자</dt>"), "blank values are left out");
 });
 
