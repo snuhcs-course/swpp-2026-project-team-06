@@ -378,8 +378,14 @@ the app cannot finish a login until that page is live.
 # once per app (apps/consumer, apps/producer), after `eas login` (projects already exist under snu-omm)
 npx eas-cli@latest build -p android --profile internal   # APK; the build page shows an install link and QR code
 npx eas-cli@latest build -p ios --profile internal       # .app for the iOS Simulator (no Apple account needed)
-npx eas-cli@latest update --channel preview --message "..."   # later JS changes, no reinstall
+npx eas-cli@latest update --channel preview --environment preview --message "..."   # later JS changes, no reinstall
 ```
+
+`eas update` bundles with the EAS **environment variables** of the given environment, not with the
+`env` block of `eas.json` (that block only applies to `eas build`). `EXPO_PUBLIC_API_URL`,
+`EXPO_PUBLIC_API_MOCK`, `EXPO_PUBLIC_CONSUMER_URL` and `EXPO_PUBLIC_PRODUCER_URL` were created in
+both projects' `preview` and `production` environments on 2026-10-23 (`eas env:list --environment
+preview`); an update published without them would point the app at `localhost`.
 
 Android: open the build link on the phone, allow installs from this source once, install.
 The link works for anyone who has it. iOS Simulator: download the build, unpack it and drag
