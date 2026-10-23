@@ -497,3 +497,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] 두 앱 vercel.json, README·ADR 0012
 - [ ] 배포 뒤 `curl -I https://farmclub-consumer.vercel.app/login?next=%2Fme` → 308, Location `https://farmclub.kr/login?next=%2Fme`
 - 10/23 화면·문구 변경 없음(Figma 해당 없음). 테스트할 앱 코드 변경 없음 — vercel.json JSON 검증만.
+
+## DEV-132 카카오 가입 시 약관 동의 전에는 계정을 만들지 않기
+
+- 이슈: https://linear.app/sswp6/issue/DEV-132 · 목표·범위·결정·기록은 `server/tasks.md` DEV-132 섹션에 모은다.
+- 10/23 `/onboarding` 가입 동의 모드(계정 없이 가입 토큰), 카카오 복귀·Mock 로그인의 새 사용자 처리.

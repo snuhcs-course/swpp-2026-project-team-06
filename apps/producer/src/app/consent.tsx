@@ -1,6 +1,6 @@
 // 약관·처리방침 동의 `/consent` (DEV-113, AC-01-18) — 생산자는 지금 버전의 이용약관·개인정보 처리방침에 동의해야
 // 가입 신청·농가 화면을 쓴다. 관문(session.tsx)이 로그인 다음에 이 화면만 연다. 처음 가입이면 동의 → 가입 신청 순서
-import { auth } from "@farmclub/api";
+import { ApiError, auth } from "@farmclub/api";
 import {
   BottomBar,
   Button,
@@ -27,7 +27,9 @@ const ITEMS: { kind: "TERMS" | "PRIVACY"; label: string; path: LegalPath }[] = [
 
 export default function Consent() {
   const router = useRouter();
-  const { refresh } = useSession();
+  const { user, refresh } = useSession();
+  // 카카오 새 사용자는 계정이 없고 가입 토큰만 있다. 동의하면 이때 계정이 생긴다(DEV-132)
+  const signup = !user;
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -38,17 +40,22 @@ export default function Consent() {
     setBusy(true);
     setFailed(null);
     try {
-      await auth.saveConsents(
-        ITEMS.map((i) => ({
-          kind: i.kind,
-          version: LEGAL_VERSION,
-          agreed: true,
-        })),
-      );
+      const consents = ITEMS.map((i) => ({
+        kind: i.kind,
+        version: LEGAL_VERSION,
+        agreed: true,
+      }));
+      if (signup) await auth.kakaoSignup(consents);
+      else await auth.saveConsents(consents);
       // 다시 읽으면 관문이 상태에 맞는 화면(가입 신청·대기·현황)으로 보낸다
       await refresh();
-    } catch {
-      setFailed("저장하지 못했어요. 다시 시도해 주세요.");
+    } catch (e) {
+      // 가입 토큰이 만료됐으면 서버가 "카카오 로그인부터 다시 해 주세요."를 준다
+      setFailed(
+        e instanceof ApiError || e instanceof Error
+          ? e.message
+          : "저장하지 못했어요. 다시 시도해 주세요.",
+      );
     } finally {
       setBusy(false);
     }
@@ -56,15 +63,25 @@ export default function Consent() {
 
   return (
     <Screen>
-      <HeaderBar title="약관 동의" onBack={() => auth.logout()} />
+      <HeaderBar
+        title="약관 동의"
+        onBack={() => {
+          // 가입 전이면 가입 대기를 지워 아무것도 남기지 않는다
+          if (signup) {
+            auth.clearPendingSignup();
+            router.replace("/login");
+          } else auth.logout();
+        }}
+      />
       <Scroll bottom={140}>
         <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 8 }}>
           <T variant="title" accessibilityRole="header">
             {"약관에 동의하고\n시작해요"}
           </T>
           <T variant="body" muted>
-            farmclub 이용약관과 개인정보 처리방침에 동의해야 생산자 앱을 쓸 수
-            있어요. 약관이 바뀌면 다시 동의를 받아요.
+            {signup
+              ? "farmclub 이용약관과 개인정보 처리방침에 동의하면 생산자 계정이 만들어져요. 동의하지 않으면 아무것도 저장하지 않아요."
+              : "farmclub 이용약관과 개인정보 처리방침에 동의해야 생산자 앱을 쓸 수 있어요. 약관이 바뀌면 다시 동의를 받아요."}
           </T>
         </View>
         {failed ? (

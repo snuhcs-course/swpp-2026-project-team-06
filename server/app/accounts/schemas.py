@@ -83,6 +83,26 @@ class LoginResult(CamelModel):
     user: UserView
 
 
+class KakaoSignup(CamelModel):
+    """카카오 새 사용자. 계정은 없고 약관 동의 뒤 `/api/auth/kakao/signup`으로 만든다(DEV-132)."""
+
+    signup_token: str
+    email: str | None = None
+
+
+class KakaoLoginResult(CamelModel):
+    """기존 회원은 access_token·user, 새 사용자는 signup만 채운다(DEV-132)."""
+
+    access_token: str | None = None
+    user: UserView | None = None
+    signup: KakaoSignup | None = None
+
+
+class KakaoSignupInput(CamelModel):
+    signup_token: str = Field(min_length=1, max_length=4096)
+    consents: list[ConsentInput] = Field(min_length=1, max_length=8)
+
+
 class KakaoConfig(CamelModel):
     """카카오 로그인 사용 여부(ADR 0003). REST API 키가 없으면 enabled=false."""
 
