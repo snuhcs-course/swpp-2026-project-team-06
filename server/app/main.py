@@ -5,6 +5,8 @@ from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
 from app.admin.farms import router as admin_farms_router
 from app.admin.router import router as admin_exceptions_router
+from app.admin.spec_check_cost import report_router as spec_check_report_router
+from app.admin.spec_check_cost import router as admin_spec_check_cost_router
 from app.admin.support import router as admin_support_router
 from app.admin.user_detail import router as admin_user_detail_router
 from app.admin.users import router as admin_users_router
@@ -64,6 +66,8 @@ for module_router in (
     app.include_router(module_router, prefix="/api")
 
 app.include_router(farm_share_router)
+# CI(spec-check)가 실행 비용을 보고한다. 운영자 JWT가 아니라 공유 토큰으로 받는다(DEV-144).
+app.include_router(spec_check_report_router)
 
 # 운영자 관리 API는 /admin 아래(ADR 0008). 모든 경로가 ADMIN 역할을 검사한다.
 for admin_router in (
@@ -76,5 +80,6 @@ for admin_router in (
     admin_users_router,
     admin_user_detail_router,
     admin_support_router,
+    admin_spec_check_cost_router,
 ):
     app.include_router(admin_router)
