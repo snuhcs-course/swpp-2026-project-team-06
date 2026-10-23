@@ -594,5 +594,45 @@ class DiffOnlyContextTests(unittest.TestCase):
             check.validate(partial, sample)
 
 
+
+class UsageReportTests(unittest.TestCase):
+    """DEV-144: usage goes to the admin cost page; failures never change the review."""
+
+    def report(self, **extra):
+        return {"status": "PASS", "model": "claude-sonnet-5-5", "usage": {"input_tokens": 100, "output_tokens": 50},
+                "metadata": {"pr": 7, "head_sha": "a" * 40, "mode": "pr"},
+                "run_url": "https://github.com/team/repo/actions/runs/9"} | extra
+
+    def env(self, **extra):
+        return {"SPEC_CHECK_USAGE_URL": "https://api.example/internal/spec-check-runs",
+                "SPEC_CHECK_USAGE_TOKEN": "t", "GITHUB_RUN_ID": "9", "GITHUB_RUN_ATTEMPT": "2"} | extra
+
+    def test_sends_run_usage_with_token_header(self):
+        sent = []
+
+        class Capture(Client):
+            def open(self, req, timeout):
+                sent.append(req)
+                return super().open(req, timeout)
+
+        with patch.dict(os.environ, self.env()):
+            self.assertTrue(check.report_usage(self.report(), "[DEV-1] title", Capture([{}])))
+        body = json.loads(sent[0].data)
+        self.assertEqual(sent[0].get_header("X-spec-check-token"), "t")
+        self.assertEqual(body["runKey"], "9-2-pr")
+        self.assertEqual((body["prNumber"], body["inputTokens"], body["outputTokens"]), (7, 100, 50))
+        self.assertEqual((body["status"], body["model"], body["prTitle"]), ("PASS", "claude-sonnet-5-5", "[DEV-1] title"))
+
+    def test_skips_without_config_or_usage(self):
+        with patch.dict(os.environ, self.env(SPEC_CHECK_USAGE_URL="")):
+            self.assertFalse(check.report_usage(self.report(), "", Client([])))
+        with patch.dict(os.environ, self.env()):
+            self.assertFalse(check.report_usage(self.report(usage={}), "", Client([])))
+
+    def test_failure_only_warns(self):
+        with patch.dict(os.environ, self.env()):
+            self.assertFalse(check.report_usage(self.report(), "", Client([error.URLError("down")])))
+
+
 if __name__ == "__main__":
     unittest.main()
