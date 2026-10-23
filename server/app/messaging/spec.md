@@ -14,7 +14,7 @@
 - `service.py` — 소식 올리기, 팔로우한 농가의 소식 목록, 좋아요 켬·끔, 채팅 시작(자동 팔로우), 질문 → AI 응답 시도 → 전달, 연락처 가림(M-16)
 
 ## 계약
-- `Thread`는 (Farm, Consumer)당 1개. `ThreadMessage.senderType`은 CONSUMER/PRODUCER/AI, AI 응답은 `senderType = AI`와 근거(`sourceRefs`)를 가진다(M-08). 채팅에는 소식이 섞이지 않는다(AC-12-5).
+- `Thread`는 (Farm, Consumer)당 1개. `ThreadMessage.senderType`은 CONSUMER/PRODUCER/AI(farmclub 문의 대화방은 OPERATOR, 아래 구현 결정), AI 응답은 `senderType = AI`와 근거(`sourceRefs`)를 가진다(M-08). 채팅에는 소식이 섞이지 않는다(AC-12-5).
 - 소식 탭(`GET /news`)은 그 사용자가 팔로우한 농가의 공개·팔로워 전용 소식, 농가 페이지(`GET /farms/{farmId}/news`)는 공개 소식만(M-14, AC-15-1).
 - `Reaction`은 (broadcastId, userId) 유일. 그 사용자가 볼 수 있는 소식(공개, 또는 팔로우한 농가의 팔로워 전용)에만 만들 수 있고, 아니면 404(AC-15-5). 응답에 반응 수와 내 반응을 담는다.
 - 채팅은 팔로우한 농가와만(M-04). `POST /chats`(`farmId`)는 팔로우하지 않았으면 farms service로 팔로우를 먼저 만들고 대화를 연다(AC-12-4). 메시지 경로는 `/chats/{farmId}/messages`이고(대화가 농가·소비자당 1개), 팔로우하지 않은 농가면 403. 채팅 목록은 팔로우 중인 농가만.
@@ -42,3 +42,4 @@
 | 2026-10-08 | 비공개 사진은 `private_attachments`(I1은 DB 바이트), 업로드 때 형식 확인·메타데이터 제거(`core/images.py`), 조회는 `Cache-Control: private, no-store`. 문의는 `order_inquiries`, 대화를 HUMAN으로, 열린 문의는 답변 필요 | contracts-1.2 6장, M-21 | AC-33-1~4 |
 | 2026-10-09 | 승인 농가 소식방의 공개 방송은 비로그인·미팔로우도 읽는다. 팔로워만 전용 방송·본인 답장, 소유 생산자만 모든 답장을 보며 필터 뒤에 요약·cursor를 계산한다 | storefront-1.5 | AC-12-10, AC-15-6 |
 | 2026-10-20 | 소비자 보내기의 선택 `productId`는 그 농가의 판매 중 상품만(아니면 404, 메시지 저장 전). AI 근거로만 쓰고 대화에 저장하지 않는다. 근거 상품은 주문 > `productId` > 판매 중 상품 1개 | 상품이 2개 이상인 농가에서 상품 페이지 채팅이 근거 없이 전달되던 문제(DEV-97). 저장하지 않아 마이그레이션 없음 | AC-13-1, AC-13-3 |
+| 2026-10-22 | farmclub 문의 대화방(DEV-111, FEAT-34, M-22)은 기존 Thread를 쓰고 상대는 운영팀 계정 `u-farmclub`(ADMIN), 운영팀 메시지는 `OPERATOR`다(`support.py`). 농가 승인과 같은 트랜잭션에서 만들고(`accounts.decide_producer_application`), 기존 승인 농가는 마이그레이션 0019가 넣는다. `ai_mode` HUMAN 고정·AI 모드 변경 400, 생산자 안 읽음은 OPERATOR도 센다, 생산자 목록에 `isSupport`로 표시(고정하지 않고 최근 순). 운영자 읽음은 `consumer_last_read_message_id` 칸을 쓴다 | 생산자 목록·방·답장 API를 그대로 써서 바꿀 곳이 가장 적다. 소비자 경로는 소비자 본인 ID로만 찾으므로 노출되지 않는다 | AC-34-1~4 |

@@ -1,6 +1,7 @@
 import { apiUrl } from "@farmclub/api";
 import { ModuleStory, DetailStory, Price, BrixReading } from "@farmclub/ui";
 // SCR-04 상품 상세 (FEAT-07) — design: scr-04, s-04-soldout, s-04-ended, scr-04-sheet
+import { track } from "@farmclub/analytics";
 import { catalog, farms, referencePrice } from "@farmclub/api";
 import {
   BottomBar,
@@ -51,6 +52,14 @@ export default function ProductPage() {
   useEffect(() => {
     if (p && !optionId) setOptionId(p.options[0]?.optionId ?? "");
   }, [p, optionId]);
+
+  // 구매 퍼널 1단계(트래킹 플랜 product_viewed, DEV-71)
+  const viewedId = p?.productId;
+  const viewedFarm = p?.farmId;
+  useEffect(() => {
+    if (viewedId && viewedFarm)
+      track("product_viewed", { productId: viewedId, farmId: viewedFarm });
+  }, [viewedId, viewedFarm]);
 
   function goCheckout(o: string, q: number) {
     router.push({

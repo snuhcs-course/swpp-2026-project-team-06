@@ -5,9 +5,11 @@ from typing import Literal
 
 from pydantic import Field
 
+from app.core.detail import MediaUri
 from app.core.schemas import CamelModel
 
-SenderType = Literal["CONSUMER", "PRODUCER", "AI"]
+# OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111, M-22)
+SenderType = Literal["CONSUMER", "PRODUCER", "AI", "OPERATOR"]
 
 
 class NewsItem(CamelModel):
@@ -25,8 +27,8 @@ class NewsItem(CamelModel):
 
 class NewsInput(CamelModel):
     body: str = ""
-    photos: list[str] = Field(default_factory=list)
-    videos: list[str] = Field(default_factory=list)
+    photos: list[MediaUri] = Field(default_factory=list)
+    videos: list[MediaUri] = Field(default_factory=list)
     visibility: Literal["PUBLIC", "FOLLOWERS"] = "FOLLOWERS"
 
 
@@ -189,6 +191,8 @@ class ProducerChatSummary(CamelModel):
     unread_count: int
     needs_reply: bool
     ai_mode: Literal["AUTO", "HUMAN"]
+    # farmclub 문의 대화방(DEV-111). 다른 대화와 같이 최근 순으로 섞이고, 로고로 구분한다
+    is_support: bool = False
 
 
 class StartChatInput(CamelModel):

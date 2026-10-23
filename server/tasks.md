@@ -1418,6 +1418,7 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 - 10/20 시드 농가·상품(f-wimi, capacity-p-cheonggyeon, f-kang 등)은 건드리지 않는다. `POST /admin/orders/expire-deposits`는 운영의 모든 기한 지난 주문을 취소하므로 운영에서 부르지 않는다(AC-09-7 pytest로 대신).
 - 10/20 삭제 API가 없어 끝난 뒤 상품을 판매 중지하고 남은 ID를 기록한다.
 - 10/20 PR #189 리뷰 반영: 발견 3건은 스펙대로의 동작이라 wiki에서 "Gaps found" 대신 "Known limits (by spec)"로 쓰고 근거를 단다(소비자 부분 환불 미표시 screens.md 7.2·DEV-62, 농가 부분 환불 송금 AC-17-7 나중 고려, 카카오만 보이는 로그인 SCR-05). 무통장 입금에서 부분 환불 송금 안내가 없는 문제는 DEV-96으로 남긴다.
+- 10/20 DEV-96은 DEV-62(부분 환불 표시: 소비자 이력 + 농가 송금 안내, Low, I3 후보)로 합쳤다. 의도한 보류(DEV-35 결정, AC-17-7)이고 부분 환불은 운영자 API로만 생기므로, 그때까지 부분 환불을 한 운영자가 농가에 직접 알린다. wiki의 "생산자는 최종 환불 뒤에만 봤다"는 화면으로 확인한 것이 아니라 코드 확인으로 고쳐 쓴다.
 
 ### 작업
 - [x] A 생산자 승인: 반려 → 재신청 → 승인, 같은 키 반복, 결정 이력, 401/403
@@ -1429,11 +1430,238 @@ Deploy a dedicated production worker with pinned OCR models; validate image/long
 
 ### 기록
 - 10/20 운영자 토큰은 `railway ssh --service farmclub-api`로 발급. 전 단계 통과, `NO_FARM_ACCOUNT`는 계좌가 이미 있어 운영에서 미실행(DEV-68 pytest).
-- 10/20 발견: 부분 환불은 소비자 주문 조회에 전혀 보이지 않고, 부분 환불만 있으면 생산자 환불 송금 목록에도 나오지 않는다(최종 환불 뒤에야 ₩1,000 한 건으로 보임). 계좌이체 구조에서는 부분 환불을 보낼 사람이 안내받지 못한다.
+- 10/20 발견: 부분 환불은 소비자 주문 조회에 전혀 보이지 않고, 부분 환불만 있으면 생산자 환불 송금 목록에도 나오지 않는다(코드 확인: `ship.tsx`·`settle_refund`가 `REFUNDED`만 받음. 화면은 최종 환불 뒤 ₩1,000 한 건으로 보인 것만 확인, 부분 환불 직후에는 열어 보지 않음). 계좌이체 구조에서는 부분 환불을 보낼 사람이 안내받지 못한다.
 - 10/20 남은 운영 데이터: 농가 `f-16b05f2b68`(승인), 상품 `p-20e7eef1fb`(판매 중지, 목록에는 보임), 주문 `o-7e7694e1d2`(환불·송금 완료), 환불 `refund-cf4a1cb937`·`refund-62c31d5c89`, REJECTED 감사 이벤트 2건.
 - 10/20 DEV-93 머지(`664d59d`) 뒤 `retire_test_farm f-16b05f2b68 --commit`으로 농가를 숨겼다(`SUSPENDED`, 행은 남김). 확인: 농가 상세·공유 페이지·상품 `p-20e7eef1fb` 404, 농가 목록·홈에 없음, 다른 농가 7곳 그대로. 다른 사람의 테스트 농가는 건드리지 않았다.
 - 10/20 정정: 내부 테스트 시트의 I-10은 'AI 초안 생성 → 생산자 편집 → 소비자 표시'(DEV-59)로, 이번 점검에서 AI 초안을 만들지 않아 덮지 못했다. A3(승인 후 대시보드)는 I-11만 해당. wiki 104·112줄을 고치고, 시트에는 I-06·I-07·I-11·I-13만 PASS로 적는다. I-10의 막힘 원인(공개에 필요한 운영자 승인)은 이제 운영에서 실행할 수 있다.
 - 10/20 내부 테스트 시트(SWPP_Internal_Testing_2026-10-17.xlsx, PM_통합) I-06·I-07·I-11·I-13을 PASS로 입력(사람). 05:13 저장본에서 F~H 원문 유지, I~N 결과 확인, 요약 PM Integration 4 PASS. I-10은 NOT TESTED 그대로.
+
+## DEV-102 농가 프로필 사진 저장 500: 공개 사진 업로드 API
+- 이슈: [DEV-102](https://linear.app/sswp6/issue/DEV-102)
+- 브랜치: `jinumeral/dev-102-bug-농가-프로필-사진-저장-500-공개-사진-업로드-api가`
+- 기능·인수 조건: FEAT-02 AC-02-3, FEAT-19 AC-19-3, FEAT-12 AC-12-10, FEAT-15, FQ-05(stack.md), storefront-1.5
+- 상태: 진행 중
+
+### 목표
+운영에서 농가 프로필 사진 변경이 500(`farms.photo` varchar(500)에 base64 data URL)으로 실패한다. 공개 사진 업로드 API가 없어서 생산자 앱 `pickMedia`가 data URL을 URL 자리로 보내기 때문이다. 공개 사진·영상을 파일로 올려 기존 R2 저장소에 두고 URL만 저장한다. 서버는 data URL과 컬럼보다 긴 입력을 500 대신 400으로 거부한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/media/`(새 모듈), `server/app/main.py`, `server/app/core/{config,detail,seed}.py`, `server/app/source_analysis/worker.py`(정리 작업 보호만)
+- `server/app/{farms,catalog,messaging,accounts,orders}/schemas.py`(사진 URI·길이 검증만)
+- `server/migrations/env.py`, `server/migrations/versions/0017_public_media.py`, `server/tests/`
+- `packages/api/src/{client,index}.ts`, `apps/producer/src/lib/pick.ts`, `scripts/e2e/public-media.spec.ts`(새 e2e)
+- 문서: `server/app/media/spec.md`, `server/spec.md`, `server/tasks.md`, `docs/spec/contracts-1.2.md`, `docs/spec/storefront-1.5.md`, `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 채팅·문의 비공개 첨부(Postgres bytea) → DEV-103
+- 5xx를 "연결이 불안정해요"로 보여주는 앱 공통 처리
+- 화면 모양·문구(Figma 변경 없음)
+
+### 결정 사항
+- 10/21 새 R2 버킷을 만들지 않고 자료 분석의 `Storage`(비공개 버킷)를 재사용한다. 조회는 API가 `GET /api/media/{id}.{ext}`로 내보내고 내용이 바뀌지 않으므로 긴 캐시를 준다. CDN 공개 버킷은 나중에 바꿀 수 있다.
+- 10/21 업로드는 농가가 있는 생산자면 된다(승인 대기 중에도 농가 프로필을 고칠 수 있음, `PATCH /api/farms/me`와 같은 기준).
+- 10/21 URL에 확장자를 붙인다. 앱(`RoomMedia`)과 서버(`messaging/service.py`)가 확장자로 영상을 판별한다.
+- 10/21 앱은 `apiUrl + url`의 절대 URL을 저장한다. 소비자 앱 이미지와 공유 미리보기(`farms/share.py`)가 별도 접두 없이 보인다.
+- 10/21 local이 아니면 저장소가 R2여야 한다는 검사를 자료 분석 설정과 무관하게 적용한다(컨테이너 디스크에 저장하면 배포 때 사라짐).
+- 10/21 사진 주소는 기존 상세 이미지 규칙(10/09: HTTPS 또는 서비스 상대 경로)을 농가 사진·상품 사진·소식 사진/영상에도 적용하고 500자 상한을 둔다. 예외로 `APP_ENV=local`에서만 `http://localhost`를 받는다(로컬 실제 서버 업로드 주소). 운영 데이터에는 남지 않는다.
+- 10/21 MP4·MOV(ftyp) 영상은 `video/mp4`·`.mp4`로 저장한다. 앱·서버의 영상 판별이 mp4·webm 기준이다.
+- 10/21 기존 data URL 이전은 `server/scripts/` 대신 `retire_test_farm`처럼 모듈 명령(`python -m app.media.migrate_inline`, 기본 시험 실행·`--commit`)으로 만든다. 시험 실행도 형식 검사까지 해서 옮길/남길 개수가 정확하다.
+- 10/21 배포 직후 이전 명령을 실행해야 한다. 이전 전에는 base64 사진이 남은 상품 3건을 사진 목록째 다시 저장하면 새 검증에 걸려 400이 난다(운영 실행은 사용자 확인 후).
+
+### 작업
+- [x] 서버 `media` 모듈: 모델·마이그레이션 0017, `POST /api/media`, `GET /api/media/{id}.{ext}`
+- [x] worker 정리 작업이 `PublicMedia` 키를 지우지 않게
+- [x] 사진 URI 검증(data URL 거부)·텍스트 `max_length`
+- [x] `packages/api` `uploadMedia`, `pickMedia` 실제 서버 모드 업로드
+- [x] 기존 base64 이전 명령(기본 시험 실행). 운영 실행은 배포 후 따로 확인
+- [x] 문서 갱신
+- [x] 검증: pytest·ruff·alembic check·typecheck·test:mock·integration full
+- [x] AI 1차 리뷰(must 0) 반영
+- [ ] 배포 후 운영 이전 명령 실행·농가 사진 변경 200 확인
+
+### 기록
+- 10/21 운영 api 로그: `PATCH /api/farms/me` 6건 중 5건 500(`StringDataRightTruncation`). 운영 DB 읽기 전용 조회: `farms.photo` data URL 0/15, `products.photos` 3/28(239kB, products 테이블 384kB), 소식·채팅·상세 0.
+- 10/21 e2e 첫 실행 뒤 `seed --reset`이 `public_media` FK로 실패했다. `python -m app.core.seed`는 직접 import한 모델만 지우는데 media 모델이 빠져 있었다(pytest는 `migrations_models`로 import해서 드러나지 않음). `seed.py`에 import 추가.
+- 10/21 검증: `uv run ruff check .` 통과, `uv run pytest -q` 388 passed(신규 `tests/test_media.py` 13개), 새 DB에서 `alembic upgrade head`(0016→0017)·`alembic check` 통과(로컬 기본 DB는 이전 스키마가 남아 있어 새 DB 사용), `npm run typecheck` 오류 없음, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 시나리오 7 passed + Playwright 53 passed·2 skipped(자료 분석 설정 조건부 스킵, 기존과 같음). 새 e2e `public-media.spec.ts`: 생산자 앱에서 농가 사진 변경 → `POST /api/media` 201 → `PATCH /api/farms/me` 200 → 저장 값이 `http://localhost:8000/api/media/med-….jpg`.
+- 10/21 AI 1차 리뷰(별도 에이전트, pr-review): must 0, should 6, nit 5. 반영: 업로드 핸들러 동기화(스레드풀), ftyp brand 허용 목록, GET Range 206, 비 JSON 오류 처리, 계약 문서 보강(FQ-05 길이는 앱 검사), 테스트 보강, migrate https 강제. 후속: 본문 크기 선검사·빈도 제한·안 쓰인 파일 정리·소식 초과 업로드·공유 Mock 권한 차이·스트리밍 조회 → DEV-105.
+- 10/21 리뷰 반영 후 검증: `ruff check .` 통과, `pytest -q` 390 passed, `npm run typecheck` 오류 0, `npm run test:mock` 19 passed, `npm run test:integration:full` 실서버 7 passed + Playwright 53 passed·2 skipped.
+
+## DEV-98 관리자 페이지 테스트 농가 숨기기·되돌리기
+- 이슈: [DEV-98](https://linear.app/sswp6/issue/DEV-98)
+- 브랜치: `nemodleo/dev-98-dev-관리자-페이지에서-테스트-농가-숨기기되돌리기`
+- 기능·인수 조건: 운영 도구(제품 동작 변경 없음). 관련 규칙 R-24, R-27(판매 중지 상품도 공개 화면에 남음), DEV-93 명령
+- 상태: 리뷰 대기
+
+### 목표
+운영 검증에 쓴 테스트 농가(예: 서울증류소)를 운영자가 서버 셸 없이 관리자 페이지에서 숨기고 다시 공개한다. 판매 중지한 상품이 소비자 화면에 남는 것은 R-27대로라 상품이 아니라 농가를 숨긴다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/retire_test_farm.py`(조건·실행 함수 분리, CLI 동작 유지), `server/app/admin/farms.py`(새 파일), `server/app/admin/schemas.py`, `server/app/main.py`, `server/app/admin/spec.md`
+- `server/tests/test_admin_farms.py`(새 파일)
+- `scripts/admin-web/**`(farms 화면, 메뉴, 중계 허용 경로, 테스트, README)
+- `docs/spec/ia.md`(관리자 페이지 절), `docs/spec/screens.md`(운영자 API 표), `docs/wiki/Design-Documentation.md`(API 표 한 줄), `server/tasks.md`
+
+### 비범위 (건드리지 않음)
+- 행 삭제·영구 삭제(DEV-94), 정지 때 자동 환불(R-24), 마이그레이션, 소비자·생산자 앱
+
+### 결정 사항
+- 10/21 새 판단 없이 DEV-93 명령과 같은 함수(`check_retire`·`check_restore`·`retire_in`·`restore_in`)를 쓴다. 조건이 두 곳에서 달라지지 않게 하려는 것이다.
+- 10/21 실행은 다른 관리 API처럼 `run_manager_action`(멱등 키, 감사 이벤트)으로 한다. 이벤트 이름은 관리 API 형식 `test_farm.retire`·`test_farm.restore`, actor는 `u-admin`. CLI의 `test_farm_retired`(actor 없음)는 그대로 둔다.
+- 10/21 거부는 409 `CONFLICT`, `details.reason=TEST_FARM_REFUSED`, 메시지는 명령과 같은 문구. 실사용자 주문 거부 문구는 소비자 수와 앞 3명만 보이게 줄였다(화면에 ID 수십 개가 나왔다).
+- 10/21 목록은 공개 중(`APPROVED`) 농가와 이 기능으로 숨긴 농가만 보인다. 승인 전·반려·제재 정지 농가는 대상이 아니라 뺀다.
+- 10/21 화면은 미리보기(시험 실행)를 먼저 보여 주고, 실행 버튼은 두 번 눌러 확인한다(가입 승인과 같은 방식).
+
+### 작업
+- [x] `retire_test_farm` 조건·실행 함수 분리(CLI 테스트 그대로 통과)
+- [x] `/admin/farms` 목록·미리보기·숨기기·되돌리기 API, pytest 8개
+- [x] 관리자 페이지 `/farms` 화면, 메뉴, 중계 허용 경로, node 테스트
+- [x] 로컬 확인: 강씨네 미리보기 거부 문구, 남원 숨기기 → 소비자 API 404 → 다시 공개 → 200, 감사 이벤트 2개
+- [x] 문서: admin spec.md, admin-web README, ia.md, screens.md 운영자 API 표, wiki API 표
+- [ ] 머지 후 Vercel `farmclub-admin` 재배포, 운영에서 서울증류소(f-d10e34e748) 숨김
+
+### 기록
+- 10/21 main에서 시작. 시드 f-kang에 테스트 계정이 아닌 구매자 주문이 있어 성공 테스트는 DEV-93 테스트의 `make_order_consumers_test_accounts`를 쓴다.
+- 10/21 검증: `uv run pytest -q` 383 passed(새 `tests/test_admin_farms.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 12 passed.
+- 10/21 AI 1차 리뷰(pr-review): must 없음. should 반영: 생산자가 테스트 계정이 아닌 농가(실사용자 가입, 아직 주문 없음)를 숨길 때 미리보기에 경고 문구. 서울증류소처럼 본인 카카오로 가입한 운영 검증 농가도 이 경우라 막지 않고 알리기만 한다.
+
+## DEV-107 관리자 페이지 사용자 목록·검색과 테스트 계정 표시
+- 이슈: [DEV-107](https://linear.app/sswp6/issue/DEV-107)
+- 브랜치: `nemodleo/dev-107-dev-관리자-페이지-사용자-목록검색과-테스트-계정-표시` (DEV-98 브랜치 위에 쌓음, #202 머지 뒤 main 기준으로 최신화)
+- 기능·인수 조건: 운영 도구. 관련 FEAT-01(테스트 계정·카카오 계정), ADR 0009(Mock 로그인), DEV-93·DEV-98(테스트 농가 숨기기)
+- 상태: 리뷰 대기
+
+### 목표
+팀원이 카카오로 가입해 운영 검증에 쓴 계정을 관리자 페이지에서 찾아 "테스트"로 표시한다. 그러면 그 계정의 주문이 있는 테스트 농가(서울증류소 등)를 운영 DB를 직접 고치지 않고 숨길 수 있다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/users.py`(새), `server/app/admin/schemas.py`(끝에 추가), `server/app/main.py`(라우터 한 줄)
+- `server/app/accounts/models.py`(`ops_tester` 열), `server/migrations/versions/0018_user_ops_tester.py`(새)
+- `server/app/admin/retire_test_farm.py`(실사용자 주문 검사 조건), `server/app/admin/farms.py`(생산자 테스트 여부 한 줄)
+- `server/tests/test_admin_users.py`(새), `server/tasks.md`, `server/app/admin/spec.md`
+- `scripts/admin-web/**`, `docs/spec/screens.md`·`ia.md`·`tech-design/README.md`(User 행), `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- `is_test_account` 의미와 Mock 로그인·온보딩·앱 화면, 탈퇴·삭제(DEV-94), 사용자 상세·주문 내역(별도 이슈)
+
+### 결정 사항
+- 10/21 **`is_test_account`를 켜지 않고 새 열 `users.ops_tester`를 둔다.** `is_test_account`는 Mock 로그인 대상(`test_login`이 ID만으로 JWT 발급), 온보딩 생략(`needs_onboarding`), 소비자 앱 '테스트 계정' 표시·'내 정보 고치기' 숨김에 쓰인다. 카카오 계정에 켜면 Mock 로그인이 켜진 환경에서 ID만 알면 그 계정으로 로그인된다. 그래서 테스트 농가 숨기기의 실사용자 주문 검사에서만 `is_test_account OR ops_tester`를 테스트로 본다.
+- 10/21 API는 PUT·DELETE 대신 `POST .../mark-tester`·`.../unmark-tester`. 관리자 중계(`proxy.js`)가 GET·POST만 넘기고, 다른 작업과 겹치지 않게 중계 공통 코드는 고치지 않는다.
+- 10/21 목록은 운영자 계정을 빼고, 전화는 끝 4자리만 내보낸다. 검색어가 숫자 4자리 이상이면 전화 끝자리로, 아니면 이름·닉네임·ID·농가 이름 부분 일치(와일드카드 글자 그대로). 가입 최신순, 기본 50·최대 200, 전체 수를 같이 준다.
+- 10/21 운영자 계정은 409 `ADMIN_ACCOUNT`, 시드 테스트 계정은 409 `SEED_TEST_ACCOUNT`(이미 테스트로 센다). 거부도 `REJECTED` 감사 이벤트로 남는다.
+- 10/21 중계의 사용자 목록 경로는 한글 검색어가 퍼센트 인코딩되어 오므로 쿼리에 `%`·`+`·`.`까지 받는다(슬래시는 거부).
+
+### 작업
+- [x] `ops_tester` 열·마이그레이션 0018, 실사용자 주문 검사에 반영
+- [x] `/admin/users` 목록·검색, 표시·해제 API, pytest 8개
+- [x] 관리자 페이지 `/users` 화면, 메뉴, 중계 허용 경로, node 테스트 2개
+- [x] 문서: screens 운영자 API 표, ia, tech-design User 행, wiki(API 표·User 행), admin spec.md, admin-web README
+- [ ] 머지 뒤 운영 마이그레이션(배포 시 자동) 확인, Vercel `farmclub-admin` 재배포
+
+### 기록
+- 10/21 DEV-98 브랜치(`679d36d`)에서 시작.
+- 10/21 감사 이벤트 순서를 `created_at`으로 비교한 테스트가 전체 실행에서만 한 번 실패했다. 테스트 시계가 고정이라 두 이벤트 시각이 같다. 집합 비교로 고쳤다(DEV-98 `test_DEV_98_audit_names_the_admin`도 같은 방식이라 같은 위험이 있다).
+- 10/21 검증: `uv run pytest -q` 391 passed(새 `tests/test_admin_users.py` 8개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, 새 DB에서 `alembic upgrade head` → `alembic check` 변경 없음, `node --test scripts/admin-web/admin.test.mjs` 14 passed.
+- 10/21 로컬 확인(새 DB 마이그레이션·시드, 로컬 API + `server.mjs`): `/users` 45명, 한글 검색 "강씨네" → 강영수(시드 테스트, 버튼 없음), u-buyer-choi 「테스트로 표시」 두 번 → "테스트(운영 검증)" 배지·토스트, 콘솔 오류 없음.
+
+## DEV-106 관리자 페이지 사용자 상세: 주문·입금·환불 내역과 처리 버튼
+- 이슈: [DEV-106](https://linear.app/sswp6/issue/DEV-106)
+- 브랜치: `nemodleo/dev-106-dev-관리자-페이지-사용자-상세-주문입금환불-내역과` (DEV-98 #202 위)
+- 기능·인수 조건: 운영 도구. 관련 규칙 R-11·R-12(환불), R-19(배송 완료), R-28(입금 확인). 새 규칙 없음
+- 상태: 리뷰 대기
+
+### 목표
+문의가 오면 운영자가 관리자 페이지에서 사용자 ID·주문 ID·주문 번호(입금자명)로 사용자를 찾아 주문·입금·환불 내역을 보고, 기존 운영 API(입금 확인 대행, 환불, 배송 완료)를 버튼으로 부른다.
+
+### 범위 (수정 허용 경로)
+- `server/app/admin/user_detail.py`(새 파일), `server/app/main.py`(라우터 한 줄), `server/app/admin/spec.md`
+- `server/tests/test_admin_user_detail.py`(새 파일)
+- `scripts/admin-web/**`(user 화면, 메뉴, 라우팅, `server.mjs` 경로 조각, 중계 허용 경로, 테스트, README)
+- `docs/spec/screens.md`(운영자 API 표), `docs/spec/ia.md`, `docs/wiki/Design-Documentation.md`(API 표 한 줄), `server/tasks.md`
+
+### 비범위 (건드리지 않음)
+- 사용자 목록·검색·테스트 계정 표시(별도 작업, `/admin/users` 목록), 환불·입금·배송 규칙, 생산자 쪽 주문 화면, 기한 지난 입금 일괄 취소(`expire-deposits`)
+
+### 결정 사항
+- 10/21 읽기 API만 새로 만든다. 처리는 기존 `/admin/orders/{id}/confirm-deposit`·`refund`·`delivered`를 그대로 불러 규칙·감사·멱등이 한 곳에 남게 한다.
+- 10/21 API는 새 파일 `app/admin/user_detail.py`(prefix `/admin/users`)에 둔다. 목록 작업이 같은 prefix에 `GET /admin/users`를 만들어도 경로가 겹치지 않는다(`/{userId}`, `/by-order/{ref}`).
+- 10/21 개인정보: 받는 사람은 앞 글자 + ○○, 받는 사람 전화·주소·우편번호와 계정 전화·이메일은 내려 주지 않는다. 같은 주문인지는 주문 번호·상품·금액으로 맞춘다. 계정 이름은 운영자 화면이라 그대로 보인다.
+- 10/21 주문 번호(`FC-MMDD-NNNN`, 입금자명)는 대소문자를 가리지 않고 찾는다. 소비자가 문의에 적는 번호가 이것이라서다.
+- 10/21 버튼 표시는 상태만 본다(입금 대기 → 입금 확인 대행, 출하됨 → 배송 완료, 예약 완료~배송 완료이고 남은 결제 금액이 있으면 → 환불). 기한 초과 등 실제 허용은 기존 API가 다시 검사하고 거부 메시지를 그대로 보여 준다.
+- 10/21 화면 경로는 `/users/<id>`(목록에서 링크), ID 없이 들어오는 `/user`. 로컬 `server.mjs`가 Vercel처럼 `:id` 경로 조각을 받게 했다. 로그인 후 `/users/<id>`로 돌아온다.
+- 10/21 중계 허용 경로를 넓혀 기존 DEV-87 node 테스트의 "주문 환불은 400" 예시가 맞지 않게 됐다. 여전히 막는 `expire-deposits`로 바꿔 테스트 강도는 유지했다.
+
+### 작업
+- [x] `GET /admin/users/{id}`, `GET /admin/users/by-order/{ref}`, pytest 6개
+- [x] 관리자 페이지 `/user`·`/users/<id>` 화면, 메뉴 `사용자 찾기`, 라우팅, 중계 허용 경로, node 테스트 2개
+- [x] 로컬 확인: 주문 ID·주문 번호(소문자)로 찾기, 부분 환불 3,000원 → 남은 금액·환불 이력, 배송 완료, 생산자 상세
+- [x] 문서: admin spec.md, admin-web README, ia.md, screens.md, wiki API 표
+
+### 기록
+- 10/21 DEV-98 브랜치(`679d36d`)에서 시작. 시드 소비자(u-g*)는 테스트 계정이 아니고, 결제 상태 값은 `APPROVED`라 테스트 기대값을 고쳤다.
+- 10/21 검증: 전체 `uv run pytest -q` 389 passed(새 `tests/test_admin_user_detail.py` 6개 포함), `ruff check .` 통과, 바꾼 파일 `ruff format --check` 통과, `node --test scripts/admin-web/admin.test.mjs` 14 passed.
+
+## DEV-111 farmclub 환영 대화방과 생산자→운영자 문의 창구
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 (GitHub #219)
+- 브랜치: `jinumeral/dev-111-farmclub-환영-대화방-농가-승인-시-자동-생성` (DEV-109 위에서 시작했고, DEV-109가 main에 머지(#218, 9c309d7)된 뒤 main 위로 옮겼다) · PR #221
+- 기준: 새 FEAT-34(farmclub 문의), 새 규칙 M-22, FEAT-12 1:1, SCR-28, 관리자 페이지(ia.md)
+- 상태: 진행 중
+
+### 목표
+- 농가가 승인되면 서버가 'farmclub' 대화방을 만들고 환영 메시지를 넣는다.
+- 생산자는 채팅 → 1:1 채팅의 farmclub 방에서 운영자에게 문의한다.
+- 운영자는 관리자 페이지 '문의함'에서 받은 문의를 보고 답한다.
+- DEV-109 투어의 대화 단계와 마지막 문의 안내를 이 방으로 바꾼다.
+
+### 범위 (수정 허용 경로)
+- `server/app/messaging/{models,schemas,service,router,spec}.py|md`, 새 `server/app/messaging/support.py`, 새 `server/app/admin/support.py`, `server/app/admin/{schemas,spec}.py|md`, `server/app/admin/retire_test_farm.py`(다시 공개할 때 방 열기), `server/app/main.py`, `server/app/accounts/service.py`(승인 훅), `server/app/core/seed.py`, 새 `server/migrations/versions/0019_farmclub_support.py`, `server/tests/**`, `server/tasks.md`
+- `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{index,db,conversations}.ts`, `packages/api/tasks.md`
+- `packages/ui/src/{ChatThread,Messenger}.tsx`, `packages/ui/tasks.md`
+- `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`, `apps/producer/src/lib/{Tour,views}.tsx`(views: farmclub 로고 프로필 `SupportAvatar`), `apps/producer/tasks.md`
+- `scripts/admin-web/**`
+- `scripts/e2e/**`, `scripts/test-*.mjs`
+- `docs/spec/{functional/FEAT-34-farmclub-support.md,functional/README.md,functional/rules.md,policy.md,screens.md,ia.md}`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+- 소비자 앱 노출, 푸시 알림, 운영자 첨부 사진 보기(사진은 '사진 N장'으로만 표시), 운영자 여러 명 배정·상태 관리
+
+### 결정 사항
+- 10/22 사용자 결정: 승인 때 자동으로 만들고 생산자가 답장할 수 있다. 문의 창구는 이 방이다. 투어가 이 방을 안내한다.
+- 10/22 기존 1:1 `Thread`를 그대로 쓴다. 상대는 시스템 계정 `u-farmclub`(role ADMIN, 이름 'farmclub')이고, 운영자 메시지는 `senderType = OPERATOR`다. (농가, 상대) 유일 제약 덕분에 농가당 한 방이고 다시 만들어도 안전하다. ADMIN 계정이라 소비자 채팅 목록(소비자 본인 ID로 거름)과 관리자 사용자 목록(ADMIN 제외)에 나오지 않는다. 별도 테이블을 두는 안은 생산자 목록·방 API를 따로 만들어야 해서 택하지 않았다.
+- 10/22 이 방은 AI를 쓰지 않는다(`ai_mode` HUMAN 고정, AI 모드 변경 거부). 주문·질문함·문의 패널은 자연히 비어 있다. 생산자 쪽 안 읽음은 OPERATOR 메시지도 센다.
+- 10/22 운영자 읽음 위치는 기존 `consumer_last_read_message_id` 칸을 쓰고, 운영자 쪽 안 읽음은 PRODUCER 메시지만 센다. 운영자 답장은 `run_manager_action`으로 감사 기록을 남긴다.
+- 10/22 이미 승인된 농가에는 마이그레이션 0019가 계정·방·환영 메시지를 넣는다(DDL 없음).
+
+### 작업
+- [x] 서버: 지원 방 생성(승인 훅·마이그레이션·시드), 생산자 목록·방·답장, 관리 API, 테스트
+- [x] packages/api 타입·엔드포인트·Mock
+- [x] 생산자 앱: 목록의 farmclub 행(로고), 방 화면, 말풍선 'farmclub' 표시, 투어 문구
+- [x] 관리자 페이지 '문의함'
+- [x] 스펙(FEAT-34, M-22, SCR-28, 관리자 화면, policy)과 wiki
+- [x] pytest·mock·typecheck·Playwright·admin-web 테스트, 스캔, draft PR
+
+### 완료 조건
+- [x] 농가를 승인하면 farmclub 방과 환영 메시지가 한 번만 생긴다. 기존 승인 농가도 마이그레이션 뒤에 방이 있다.
+- [x] 생산자 1:1 채팅 목록에 farmclub이 있고(고정하지 않음), 안 읽은 환영 메시지가 표시된다. 방에는 AI 전환 바와 주문 패널이 없다.
+- [x] 생산자가 보낸 문의가 관리자 문의함에 '답변 대기'로 보이고, 운영자 답장이 생산자 방에 'farmclub'으로 보인다.
+- [x] 소비자 앱 어디에도 이 방이 보이지 않는다.
+- [x] 투어가 farmclub 방을 열어 문의 방법을 안내하고, 마지막 문의 문구가 이 방을 가리킨다.
+
+### 기록
+- 10/22 DEV-109 브랜치(5671fd2)에서 시작.
+- 10/22 사용자 결정: farmclub 대화방을 목록 맨 위에 고정하지 않는다. 다른 대화와 같이 최근 메시지 순이고 로고로 구분한다.
+- 10/22 검증: ruff check 통과. 전체 pytest 420 passed(새 `test_support.py` 8개 포함, 고정 제거 뒤 support·messaging 52 passed). 빈 DB에서 alembic upgrade head → `alembic check` 변경 없음 → downgrade 0018 → upgrade 다시 성공. typecheck 4 workspace, mock 19 passed, admin-web 18 passed(새 2개).
+- 10/22 `test:integration:full`(전체, `farmclub_dev109`): API 7, Playwright 58 passed, 2 skipped, 1 failed였다. 실패는 새 farmclub spec의 로케이터(뒤에 남은 목록 미리보기와 방 말풍선이 같이 잡힘)였다. 앱 문제가 아니어서 방 안 요소를 집게 고쳤다. 고정 제거 뒤 farmclub-support·producer-help-guide·conversation-ui·producer-i2를 다시 돌려 19 passed, 0 failed.
+- 10/22 커밋 전 스캔에서 CRITICAL 0건, WARNING 4건이 나왔고 모두 반영했다. 운영자 답장이 읽음 위치를 옮기지 않게 했다(대화를 연 뒤 온 문의가 안 읽음으로 남게, 테스트 추가). e2e는 공유 DB에서 f-wimi를 승인하지 않고 시드의 강영수 방을 쓴다. README의 '맨 위' 문구를 고쳤고, 범위에 `views.tsx`를 넣었다. INFO 중에서는 `SupportThreadPage.items`를 `list[ChatMessage]`로 바꿨고, 연락처 가림(M-16) 유지와 정지·숨김 농가 방 표시를 FEAT-34에 적었다. 각 tasks.md에도 변경을 기록했다. 문의함 N+1 조회와 재시도 시 답장 중복(기존 화면과 같은 멱등 키 패턴)은 지금 규모에서 남겨 둔다.
+- 10/22 스캔 반영 뒤 검증: ruff check 통과, 전체 pytest 421 passed, typecheck 4 workspace, mock 19 passed, admin-web 18 passed. `test:integration:full`(전체, `farmclub_dev109`): API 7 passed, Playwright 59 passed, 2 skipped, 0 failed. 로컬 실제 스택으로 생산자 목록·방(로고 80% 크기)과 관리자 문의함 화면을 스크린샷으로 확인했다.
+- 10/22 재스캔에서 CRITICAL 0건, WARNING 1건이 나왔고 반영했다. 숨긴 테스트 농가를 다시 공개할 때(`restore_in`) farmclub 방이 없으면 연다. 숨긴 동안 0019가 건너뛴 농가를 위해서이고, 테스트를 추가했다. INFO 3건도 반영했다. 문의함은 답장 뒤 다시 불러올 때 읽음을 옮기지 않고, 사진만 온 문의는 목록에 '(사진)'으로 보인다. `operator_send`가 `ChatMessage`를 돌려줘서 admin이 messaging 내부 함수를 쓰지 않는다.
+- 10/22 확인 스캔: CRITICAL·WARNING 0건. INFO 4건은 남긴다.
+  - e2e가 시드 직후 상태(안 읽음 1)에 기대는 점: run-integration이 시드를 다시 만든다.
+  - 문의함 카드 배지가 다시 불러올 때 갱신되는 점.
+  - support.py가 service.py 내부 함수를 같은 패키지 안에서 쓰는 점.
+  - 환영 문구가 서버·마이그레이션·Mock 세 곳에 있는 점: 서버 둘은 테스트로 맞춘다. 서버 시드와 마이그레이션은 환영 시각이 now()라 갓 시드한 DB에서는 farmclub 방이 맨 위에 보인다(고정 아님).
+- 10/22 사용자가 커밋·검사·머지·배포를 지시했다. DEV-109 PR #218은 머지 전 스캔 CRITICAL·WARNING 0건, 원격 CI 통과였으나, 머지 명령이 로컬 자동 권한 검사(리뷰 없는 머지)에서 거부되어 사용자 확인을 기다린다.
+- 10/22 사용자가 DEV-109 PR #218을 직접 머지했다(9c309d7). DEV-111 커밋 2개를 main 위로 rebase하고(내용은 그대로, 차이는 main의 문서 커밋뿐) PR #221의 기준을 main으로 바꿨다. 머지 전 스캔 결과는 CRITICAL·WARNING 0건이다. INFO 2건 중 상태 표기는 이 기록으로 맞췄고, 0019 downgrade에서 이 방의 비공개 첨부를 먼저 지우게 했다. 스캐너가 별도 DB에서 시드 뒤 downgrade·upgrade로 승인 농가 4곳에만 환영 메시지가 들어가는 것을 확인했다.
 
 ## DEV-97 소비자 채팅 AI가 상품 페이지에서 연 채팅의 상품을 모름
 - 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97)

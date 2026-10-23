@@ -151,7 +151,8 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, ‘카카오로 시작하기’ 버튼(카카오 공식 문구 중 하나, 노랑 #FEE500, 설정이 꺼져 있으면 숨김), 카카오가 켜져 있으면 테스트 계정 로그인은 없음. 꺼져 있을 때(CI·Mock 플래그만)만 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, ‘테스트 서비스’ 표시. 카카오 버튼 아래 ‘카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요.’ 카카오가 켜져 있으면 하단은 ‘이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요’(동의는 SCR-06에서 명시적으로), 꺼져 있으면 기존 안내. 생산자 계정은 목록에 없다.
 - **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부·클라이언트 ID. 카카오 버튼 → 돌아갈 화면·행동을 sessionStorage에 두고 카카오 인가 화면(`state`=일회용 값) → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: consumer`) → 토큰과 사용자. 테스트 계정은 `GET /api/auth/test-accounts?app=consumer`로 목록, 고르면 `POST /api/auth/test-login`(`userId`, `app: consumer`). 토큰은 packages/api가 앱별로 보관한다.
 - **버튼 동작**: 계정 선택 → 로그인 후 누른 화면·행동으로 복귀(관문 시트에서 왔으면 그 행동을 이어서 실행). 카카오 응답의 사용자가 `needsOnboarding=true`(처음 가입)면 SCR-06을 거쳐 복귀한다.
-- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) 테스트 계정 목록 대신 ‘지금은 로그인할 수 없어요’(카카오 버튼은 설정대로). 카카오를 취소하거나(`error=access_denied`) `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’·‘홈으로’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
+- **카카오 복귀 `/auth/kakao`**: 닫기와 가운데 로딩 표시, 한 줄 ‘카카오 로그인 중이에요’만 둔다(제목·설명·스켈레톤 없음, 생산자 앱 SCR-19와 같은 모양). 끝나면 위 버튼 동작대로 원래 화면·행동(처음 가입이면 SCR-06)으로 간다. 이미 로그인된 채 다시 열면(새로고침·뒤로 가기, `state`는 이미 쓰임) 오류 없이 홈(온보딩이 남았으면 SCR-06)으로 간다. 서버가 15초 안에 답하지 않으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’와 ‘다시 로그인’·‘홈으로’(DEV-112).
+- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) 테스트 계정 목록 대신 ‘지금은 로그인할 수 없어요’(카카오 버튼은 설정대로). 카카오를 취소하거나(`error=access_denied`) 로그인되지 않은 채 `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’·‘홈으로’. 실패하면 다시 시도. 취소(닫기) → 원래 화면, 행동 실행 안 함.
 
 ### SCR-06 첫 가입 온보딩 `/onboarding` → `/onboarding/address` (소비자 앱)
 
@@ -265,6 +266,15 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 모든 화면은 생산자 앱이고 생산자 계정으로만 쓴다(결정 22). SCR-19·20·21과 정지 안내 외에는 승인된 생산자만 열린다(AC-01-3).
 
+**공통: 도움말(DEV-109)**. 하단 탭 네 화면(SCR-22·23·28·33)의 헤더 오른쪽 위에 동그라미 물음표 버튼(‘도움말’)을 둔다. 누르면 현황으로 이동한 뒤 13단계 ‘직접 눌러 보는 안내’(스포트라이트 투어)를 시작한다.
+- 화면 표시: 화면 전체를 어둡게 덮고 안내할 곳만 뚫어 밝게 보여 준다(accent 테두리). 말풍선 카드와 화살표가 그곳을 가리킨다.
+- 단계 종류: 누르기 단계는 생산자가 밝은 곳을 실제로 눌러 화면이 바뀌어야 다음으로 간다. 어두운 곳은 눌리지 않는다. 설명 단계는 ‘다음’으로 넘긴다.
+- 흐름: 환영 → 상품 탭 → ‘새 상품’ 버튼(설명. 누르면 판매페이지 만들기가 시작되고, 분석 자료에 글·사진·PDF를 넣으면 AI가 상품 정보와 판매페이지 초안을 채우며, 상품사진은 따로 넣는다고 안내) → 채팅 탭 → 소식방(설명) → ‘1:1 채팅’ → farmclub 대화방 → 문의 안내(설명, AC-34-5) → 뒤로 가기 → 환경설정 탭 → ‘AI 응답 설정’(반복 질문은 AI가 답하고 판단이 필요한 질문은 넘긴다는 설명) → 자동 응답 켜기/끄기(설명, 저장해야 반영) → 현황 ? 버튼(‘다시 보고 싶으면 이 버튼을 누르세요!’, 본문의 ? 자리에 실제 도움말 아이콘)과 ‘모르는 게 있으면 채팅의 farmclub 대화방에 편하게 물어봐 주세요.’(FEAT-34). 문구는 해요체이고, AI가 해 주는 일을 구체적인 예와 함께 설명한다(예: 글·사진을 넣으면 품종·원산지·보관 방법을 채우고 판매페이지 초안을 만든다. ‘배송은 언제 와요?’ 같은 질문은 AI가 답하고 ‘농약’ 같은 질문은 농가에 넘긴다).
+- 예외: farmclub 대화방을 찾지 못하면 카드의 ‘다음’으로 대화 단계 세 개를 건너뛴다. 안내할 곳을 3초 동안 찾지 못하면 카드를 가운데에 띄워 ‘다음’으로 넘길 수 있게 한다. 카드의 X나 Esc로 언제든 끝낼 수 있다.
+- 서버 상태: 투어는 서버 상태를 바꾸는 버튼(‘새 상품’ 열기, 초안 만들기, 분석 시작, AI 전환, 설정 저장)을 누르게 하지 않는다. 실제 서버에서는 ‘새 상품’을 여는 순간 작성 중 상품이 생기기 때문에(SCR-24) ‘새 상품’은 설명만 하고 넘어간다.
+- 자동 시작: 승인된 생산자가 SCR-22에 처음 들어오면 한 번 자동으로 시작한다. 끝내거나 건너뛰면 기기(앱별 localStorage `help-guide-seen`)에 기록하고, 그 뒤로는 버튼으로만 시작한다.
+- 적용 범위: 작업 화면에는 ? 버튼이 없다. 새 API는 없다.
+
 ### SCR-19 로그인 `/login` (생산자 앱)
 
 - **관련**: FEAT-01(AC-01-3~6, 10, 16) · 규칙: R-22, R-24, N-06 · ADR 0003, 0009, 0010 · 우선순위: Must
@@ -272,7 +282,8 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면 요소·데이터**: 워드마크 ‘농가용’, 생산자 테스트 계정 목록(이름, 농가명 · 상태: 승인됨·확인 중·반려됨·정지됨·아직 농가 등록 안 함), ‘생산자 테스트 계정만 보여요’ 한 줄, ‘처음이세요? 농가로 가입 신청 ›’, 약관·개인정보 처리방침 링크, ‘테스트 서비스’, 하단 ‘○○으로 시작하기’. 소비자 계정은 목록에 없다. 실서버에서 카카오가 켜져 있으면 제목 ‘농가로 시작하세요’, ‘처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요. 카카오에서는 이메일만 받고, 대표자 이름·연락처는 가입 신청에서 입력해요.’, 하단 ‘카카오로 시작하기’만 두고 테스트 계정 목록·가입 신청 링크는 숨긴다. Mock 모드는 상태별 시연 계정이 필요해 카카오 버튼과 테스트 계정 목록을 함께 둔다(Mock 카카오는 농가 없는 새 생산자).
 - **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부. 카카오 버튼 → `state` 일회용 값을 sessionStorage에 두고 카카오 인가 화면 → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: producer`) → 토큰과 사용자(농가 상태). 테스트 계정은 `GET /api/auth/test-accounts?app=producer`, 고르면 `POST /api/auth/test-login`(`userId`, `app: producer`).
 - **버튼 동작**: 시작하기 → 상태에 따라 농가 없음 → SCR-20, 확인 중·반려 → SCR-21, 승인 → SCR-22, 정지 → 정지 안내 `/suspended`. 농가로 가입 신청 → SCR-20(I1은 ‘신규 생산자’ 계정으로 로그인해 신청한다. I2는 카카오로 생산자 계정을 만들며 신청).
-- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) ‘지금은 로그인할 수 없어요’. 실패하면 다시 시도. 카카오를 취소하거나 `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’. 비로그인 관문은 `/login`과 `/auth/kakao`만 연다.
+- **카카오 복귀 `/auth/kakao`**: 가운데 로딩 표시와 한 줄 ‘카카오 로그인 중이에요’만 둔다(제목·설명·스켈레톤 없음). 로그인이 끝나면 위 버튼 동작의 농가 상태별 화면으로 바로 간다. 이미 로그인된 채 다시 열면(새로고침·뒤로 가기, `state`는 이미 쓰임) 오류 없이 같은 상태별 화면으로 간다. 서버가 15초 안에 답하지 않으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’와 ‘다시 로그인’(DEV-108).
+- **빈 상태·오류**: Mock 로그인이 꺼져 있으면(404) ‘지금은 로그인할 수 없어요’. 실패하면 다시 시도. 카카오를 취소하거나 로그인되지 않은 채 `state`가 다르거나 서버가 400을 주면 `/auth/kakao`에 사유와 ‘다시 로그인’. 비로그인 관문은 `/login`과 `/auth/kakao`만 연다. 로그인된 생산자는 농가 상태와 상관없이 `/login`·`/auth/kakao`에 머물지 않고 상태별 화면으로 간다.
 
 #### SCR-19 하위: 정지 안내 `/suspended`
 
@@ -353,13 +364,16 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 ### SCR-28 농가 채팅 `/chats`
 
-- **관련**: FEAT-12/13/33, AC-12-7/9/10/11/12, M-19. 채팅 탭.
+- **관련**: FEAT-12/13/33/34, AC-12-7/9/10/11/12, AC-34-2, M-19, M-22. 채팅 탭.
 - **화면**: 소식방 / 1:1 채팅만. 최초 소식방은 자신의 대화 본문이 바로 열린다. 중간 농가 목록·전체/답변 필요 필터·목록 AI/직접 응대 상태 없음.
 - **고정**: 두 선택지, 판매 품목(기본 접힘), 입력창(탭 위), 4개 탭. 본문 첫 시스템 문구 ‘보내는 소식은 모든 팔로워에게 보여요’는 대화와 함께 스크롤한다.
 - **동작**: 본인 roomMessages/sendRoom, 기존 소비자 답장에서 명시적 1:1 시작, 첨부 → SCR-27 → 같은 탭. /news/:farmId 기존 링크는 자기 방이면 이 탭으로 복귀한다.
 - **상태**: 접기/전송은 입력·접힘 선택을 유지. 빈 대화·로딩·실패 재시도, 권한/비활성 polling 중단은 유지.
 
+- **farmclub 문의 대화방(DEV-111)**: 1:1 채팅 목록에 'farmclub'(로고, ‘farmclub 운영팀 · 궁금한 점을 물어보세요’)이 보인다. 고정하지 않고 다른 대화처럼 최근 메시지 순이다. 손님 대화가 없을 때의 빈 상태 문구는 ‘아직 손님과 나눈 1:1 대화가 없어요’다.
+
 #### SCR-28 하위: 1:1 채팅 `/chats/:consumerId`
+- farmclub 문의 대화방(`consumerId = u-farmclub`, AC-34-2): 제목 'farmclub', 부제 ‘운영팀 문의’. AI 응대 바·농가 AI 설정 링크 대신 ‘farmclub 운영팀에 물어보세요’ 안내(사람이 답하고 AI가 답하지 않음)를 보인다. 운영팀 말풍선 이름은 'farmclub'이다. 입력·첨부는 일반 1:1과 같다.
 - 대화 내부 AI 표시/근거·HUMAN 전환·AI 다시 켜기·주문 문의 해결/재열기는 기존 계약 유지. `WRONG_ANSWER` escalation은 코드 대신 “소비자가 AI 답변을 신고했어요” 한국어 레이블로 표시한다. 읽는 것만으로 해결하지 않는다. 실패 시 입력 유지.
 
 ### SCR-29 주문·출하 처리 `/ship`
@@ -554,6 +568,15 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /admin/exceptions`·`GET /admin/exceptions/{id}` | 운영자 | `status?`, `type?`, `cursor?`, `limit?` | 정제된 운영자 예외 목록·상세 | M01~M03, M07 | Should |
 | `POST /admin/exceptions/{id}/retry`·`POST /admin/exceptions/{id}/resolve` | 운영자 | — | 일시 실패 재시도 또는 예외 해결. 환불 요청 알림은 해결만 가능 | M01~M03, M07 | Should |
 | `POST /admin/farms/{farmId}/suspend` | 운영자 | `reason` | 농가 정지, 출하 전 주문 전액 환불 수 | R-24 | Should |
+| `GET /admin/farms`·`GET /admin/farms/{farmId}/preview` | 운영자 | — | 공개 중 농가와 테스트로 숨긴 농가 목록(생산자·테스트 계정 여부·상품 수), 숨기기·되돌리기 시험 실행(거부 사유, 출하 전 테스트 주문 수). 관리자 페이지 테스트 농가(DEV-98)가 쓴다 | R-24 | Should |
+| `POST /admin/farms/{farmId}/retire`·`POST /admin/farms/{farmId}/restore` | 운영자, `Idempotency-Key` | — | 테스트 농가를 숨김(`SUSPENDED`, 고정 사유) 또는 다시 공개. 테스트 계정이 아닌 소비자 주문이 있으면 409 `TEST_FARM_REFUSED`. 행은 지우지 않는다(DEV-93·DEV-98) | R-24 | Should |
+| `GET /admin/users` | 운영자 | `q?`(이름·닉네임·ID·농가 이름, 숫자 4자리 이상이면 전화 끝자리), `role?`(`CONSUMER`·`PRODUCER`), `kind?`(`test`·`real`), `limit?`(기본 50, 최대 200) | 운영자 계정을 뺀 사용자 목록(가입 방식 시드·카카오, 테스트 여부, 전화 끝 4자리, 가입일, 주문 수, 소유 농가), 가입 최신순, 전체 수. 관리자 페이지 사용자(DEV-107)가 쓴다 | — | Should |
+| `POST /admin/users/{userId}/mark-tester`·`POST /admin/users/{userId}/unmark-tester` | 운영자, `Idempotency-Key` | — | 운영 검증 계정 표시(`opsTester`) 켜기·끄기. 테스트 농가 숨기기의 실사용자 주문 검사에서 테스트로 센다. 로그인·온보딩·앱 화면은 바뀌지 않는다. 운영자 계정·시드 테스트 계정은 409(`ADMIN_ACCOUNT`·`SEED_TEST_ACCOUNT`) (DEV-107) | — | Should |
+| `GET /admin/support` | 운영자 | — | 농가별 farmclub 문의 대화방 목록(농가·생산자·지역, 최근 메시지와 보낸 사람, 운영자가 안 읽은 생산자 메시지 수, `waiting` = 마지막 메시지가 생산자). 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함(DEV-111)이 쓴다 | M-22 | Should |
+| `GET /admin/support/{farmId}/messages` | 운영자 | — | 그 농가 대화방 전체 메시지(`OPERATOR`·`PRODUCER`), 안 읽은 수. 대화방이 없으면 404 | M-22 | Should |
+| `POST /admin/support/{farmId}/messages` | 운영자, `Idempotency-Key` | `text`(1~1,000자) | 운영팀 답장(`senderType = OPERATOR`). 운영자 감사 기록을 남긴다. 읽음 위치는 바꾸지 않는다(읽음은 `/read`만) | M-22 | Should |
+| `POST /admin/support/{farmId}/read` | 운영자 | `messageId` | 운영자 읽음 위치(뒤로 가지 않음), 남은 안 읽은 수 | M-22 | Should |
+| `GET /admin/users/{userId}`·`GET /admin/users/by-order/{orderIdOrNo}` | 운영자 | — | 사용자 프로필(이름·닉네임·역할·테스트 계정·카카오 여부·농가)과 소비자 주문 최근 100건(상품·농가·상태·금액·입금 기한·입금 알림·입금 확인 주체·환불 이력·남은 결제 금액·받는 사람 앞 글자, 보일 버튼). 받는 사람 전화·주소, 계정 전화·이메일은 내려 주지 않는다. 주문 ID 또는 주문 번호(입금자명)로 소비자를 찾는다. 관리자 페이지 사용자 화면(DEV-106)이 쓰고, 처리는 위 운영자 주문 API를 그대로 부른다 | R-11, R-12, R-19, R-28 | Should |
 | `DELETE /admin/messages/{messageId}` | 운영자 | — | 204 | 정책 4장 | Should |
 
 1.1 엔드포인트 목록에 아래 1.2 계약을 합쳐 구현한다. 공통 오류 envelope와 계정 분리는 유지한다.
@@ -567,9 +590,9 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | PUT /api/products/{productId}/sales-settings | 승인 생산자·본인 상품 | SCR-25 · Must |
 | GET /api/messaging/rooms | 소비자/승인 생산자, 각각 허용 방 | SCR-18·28 · Should |
 | GET/POST /api/messaging/rooms/{farmId}/messages | 팔로워 또는 해당 생산자 | SCR-18·28 · Should |
-| GET/POST /api/messaging/producer/chats | 해당 생산자 | SCR-28 · Should |
+| GET/POST /api/messaging/producer/chats | 해당 생산자. 목록에 farmclub 문의 대화방(`isSupport: true`, `consumerId = u-farmclub`)이 최근 순으로 함께 온다(FEAT-34) | SCR-28 · Should |
 | GET/POST /api/messaging/producer/chats/{consumerId}/messages | 해당 생산자. GET의 AI 답변 행에는 서버가 계산한 신고 여부 `reported` | SCR-28 · Should |
-| PUT /api/messaging/producer/chats/{consumerId}/ai-mode | 해당 생산자 | SCR-28 · Should |
+| PUT /api/messaging/producer/chats/{consumerId}/ai-mode | 해당 생산자. farmclub 문의 대화방은 400(AI를 쓰지 않음, M-22) | SCR-28 · Should |
 | PUT /api/messaging/producer/chats/{consumerId}/read | 해당 생산자 | SCR-28 · Should |
 | PUT /api/messaging/chats/{farmId}/read | 본인 소비자 | SCR-16 · Should |
 | GET/PUT /api/farms/me/ai-settings | 해당 생산자 | SCR-31 · Should |

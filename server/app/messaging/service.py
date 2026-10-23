@@ -550,7 +550,8 @@ def _unread(db: Session, t: Thread, producer: bool) -> int:
     )
     query = select(func.count()).where(ThreadMessage.thread_id == t.id, ThreadMessage.seq > last)
     if producer:
-        query = query.where(ThreadMessage.sender_type == "CONSUMER")
+        # 생산자는 소비자 메시지와 farmclub 운영팀 메시지(DEV-111)를 안 읽음으로 센다
+        query = query.where(ThreadMessage.sender_type.in_(("CONSUMER", "OPERATOR")))
     else:
         query = query.where(ThreadMessage.sender_type != "CONSUMER")
     return db.scalar(query) or 0
@@ -1000,6 +1001,7 @@ def producer_chats(
     db: Session, farm, needs_reply: bool, cursor: str | None, limit: int
 ) -> Paged[ProducerChatSummary]:
     from app.accounts import service as accounts
+    from app.messaging.support import SUPPORT_NAME, is_support
 
     threads = list(db.scalars(select(Thread).where(Thread.farm_id == farm.id)))
     users = accounts.get_users(db, [t.consumer_id for t in threads])
@@ -1019,12 +1021,13 @@ def producer_chats(
             ProducerChatSummary(
                 thread_id=t.id,
                 consumer_id=t.consumer_id,
-                consumer_name=accounts.public_name(user),
+                consumer_name=SUPPORT_NAME if is_support(t) else accounts.public_name(user),
                 last_message=last.body if last else "대화를 시작해 보세요",
                 last_at=last.created_at if last else None,
                 unread_count=_unread(db, t, producer=True),
                 needs_reply=flagged,
                 ai_mode=t.ai_mode,
+                is_support=is_support(t),
             )
         )
     rows.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
@@ -1114,7 +1117,11 @@ def producer_send(
 
 def set_ai_mode(db: Session, farm, consumer_id: str, mode: str, version: int) -> ThreadView:
     """AUTO는 이후 메시지부터 적용한다. 과거 질문은 다시 처리하지 않는다."""
+    from app.messaging.support import is_support
+
     thread = _producer_thread(db, farm, consumer_id, lock=True)
+    if is_support(thread):
+        raise invalid({"mode": "farmclub 대화방은 AI 응답을 쓰지 않아요"})
     if thread.version != version:
         raise conflict(
             "STALE_VERSION", "최신 대화 상태를 다시 불러와 주세요.", version=thread.version

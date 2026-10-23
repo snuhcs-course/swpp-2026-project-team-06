@@ -8,6 +8,7 @@ import {
   onAuthChange,
   type User,
 } from "@farmclub/api";
+import { useAnalytics } from "@farmclub/analytics";
 import { Toast } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
@@ -19,6 +20,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
+import { homeFor } from "./gate";
 
 configureApi({ namespace: "producer" });
 
@@ -48,38 +51,6 @@ export const isConnectionError = (e: unknown) =>
   !(e instanceof ApiError) || e.status === 0 || e.status >= 500;
 
 const Ctx = createContext<Session | null>(null);
-
-/** 승인 상태별로 열 수 있는 화면. 나머지 주소로 오면 여기로 보낸다(screens.md SCR-05 버튼 동작). */
-function homeFor(user: User | null): {
-  allowed: (p: string) => boolean;
-  home: string;
-} {
-  // 비로그인: 로그인과 카카오 복귀(/auth/kakao)만 열린다
-  if (!user)
-    return {
-      allowed: (p) => p === "/login" || p === "/auth/kakao",
-      home: "/login",
-    };
-  switch (user.farmStatus) {
-    case "NONE":
-      return { allowed: (p) => p === "/apply", home: "/apply" };
-    case "PENDING":
-      return { allowed: (p) => p === "/pending", home: "/pending" };
-    case "REJECTED":
-      return {
-        allowed: (p) => p === "/pending" || p === "/apply",
-        home: "/pending",
-      };
-    case "SUSPENDED":
-      return { allowed: (p) => p === "/suspended", home: "/suspended" };
-    default:
-      return {
-        allowed: (p) =>
-          !["/login", "/apply", "/pending", "/suspended"].includes(p),
-        home: "/",
-      };
-  }
-}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -139,6 +110,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const g = homeFor(user);
     if (!g.allowed(pathname)) router.replace(g.home as never);
   }, [ready, user, pathname, router]);
+
+  // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
+  useAnalytics("producer", user, ready);
 
   const value = useMemo<Session>(
     () => ({

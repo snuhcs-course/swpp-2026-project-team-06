@@ -8,6 +8,7 @@ import {
   type Recipient,
   type User,
 } from "@farmclub/api";
+import { useAnalytics } from "@farmclub/analytics";
 import { Button, Sheet, T } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
@@ -173,6 +174,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [router],
   );
+
+  // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
+  useAnalytics("consumer", user, ready);
 
   // 가입 온보딩이 남았거나 온보딩 화면(1/2, 2/2)에 있는 동안에는 이어서 할 행동을 숨긴다.
   // 스택 아래의 원래 화면이 먼저 행동을 실행하지 않게 하고, 온보딩을 마치고 돌아가면 보인다

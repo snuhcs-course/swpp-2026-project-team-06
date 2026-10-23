@@ -403,3 +403,16 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/19 head eb84fce의 원격 CI 39225825560에서 apps/server/integration 모두 success 확인. server는 변경 없음으로 실제 서버 검사 생략이며 integration은 실제 서버/DB/Chromium 검사다. 유료 spec-check는 승인 대기로 호출하지 않았다.
 - 10/19 사용자가 로고 시각 검토 후 명시적으로 main 머지를 지시했다. 이를 최종 사람 승인으로 기록하며 GitHub의 별도 Approve 리뷰를 대신 작성하지 않는다. 기존 비범위였던 main 머지를 이번 지시에 따라 허용한다.
 - 10/19 최신 origin/main abe28df를 충돌 없이 병합했다. 이후 typecheck 4 workspace, Mock 15 passed, 로고 화면 E2E 2 passed 재확인. 최종 브랜치 스캔 이슈 없음. 레거시 호환 점검: 후보 0건 — 지적 0건 / 정당 0건. 실제 squash merge 결과는 PR #173에서 확인한다.
+
+## DEV-109 LargeTitle 오른쪽 슬롯 (생산자 도움말 버튼)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-109 · 상세 기록은 `apps/producer/tasks.md` DEV-109
+- 범위: `packages/ui/src/bars.tsx`의 `LargeTitle`에 선택 prop `right` 추가. 넘기지 않으면 지금과 똑같이 그린다.
+- 결정: 버튼은 기존 `IconButton` + `Icon` `"question"`을 쓰고 새 컴포넌트는 만들지 않는다.
+- 10/21 후속(투어): `IconButton`·`Fab`·`TabItem`·`ConversationRow`에 선택 prop `testID`를 추가했다. `HeaderBar`(닫기 모드는 `header-close`)와 `ConversationHeader`의 뒤로 가기에는 `header-back`, `ChatChoices`에는 `chat-choice-news`/`chat-choice-private`를 달았다. 보이는 모습과 동작은 바뀌지 않는다.
+- 10/22 후속: 투어에서 새 상품 화면 단계를 빼서 `HeaderBar` 뒤로 가기 testID(`header-back`/`header-close`)를 되돌렸다. `ConversationHeader`의 `header-back`은 그대로 둔다.
+
+## DEV-111 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-111 · 목표·범위·결정·기록은 `server/tasks.md` DEV-111 섹션에 모은다.
+- 10/22 DEV-111: `ConversationRow`·`ConversationHeader`에 선택 prop `avatar`(사진 대신 그림), `ChatThread` 말풍선에서 `OPERATOR`의 이름을 'farmclub'으로 표시. 넘기지 않으면 지금과 같다.

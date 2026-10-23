@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { apiLogin, apiUrl, consumerUrl, loginProducer, producerUrl } from "./helpers";
 
 test("FEAT-32 AC-32-4: settings edits survive STALE_VERSION and save with refreshed version", async ({ page, request }) => {

@@ -218,7 +218,9 @@ def test_post_news_limits(client, login):
     headers = login("u-kang")
     empty = client.post("/api/messaging/news", headers=headers | key(), json={"body": ""})
     many = client.post(
-        "/api/messaging/news", headers=headers | key(), json={"body": "x", "photos": ["p"] * 6}
+        "/api/messaging/news",
+        headers=headers | key(),
+        json={"body": "x", "photos": ["/photos/p.jpg"] * 6},
     )
 
     assert empty.status_code == 400

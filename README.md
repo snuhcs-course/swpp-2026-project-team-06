@@ -85,6 +85,38 @@ Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (a 
 - [uv](https://docs.astral.sh/uv/) for the Python server (Python 3.12 is installed by uv)
 - [Node.js](https://nodejs.org/) 24 (see `.nvmrc`) and npm
 
+### Local run (`make`)
+
+The root `Makefile` is the single entry point for local work. It only calls the npm
+scripts, `scripts/*.mjs`, and `server/` commands described below, and its checks run
+the same commands as CI. Run `make` to list every target.
+
+```bash
+make setup          # npm ci (only when package-lock.json changed) + cd server && uv sync --frozen
+make db             # local PostgreSQL 16 (server/docker-compose.yml); make db-down stops it
+make migrate seed   # alembic upgrade head + demo seed, local database only (RESET=1 to reseed)
+make dev            # both apps + Mock API (npm run dev); make dev-api runs FastAPI
+make check          # before a PR: lint (ruff check) + test
+```
+
+- `make test` runs `test-server` (pytest + alembic check), `test-apps` (`npm run test:mock`,
+  `npm run typecheck`) and `test-admin` (`node --test`). Each also runs on its own.
+  `test-integration` and `test-e2e` are heavy and stay out of `make test`.
+- `make coverage-producer` prints producer logic coverage; `make coverage-producer-ui` runs the
+  real-stack suite with `FARMCLUB_COVERAGE=1` and writes `.artifacts/coverage/producer-ui/index.html`
+  (heavy, reseeds the local database; see Testing Documentation 3.6).
+- The local PostgreSQL container is shared by every worktree, so the `alembic check` in
+  `test-server` fails on a `farmclub` database that another branch migrated. Use a database
+  per branch: `docker compose -f server/docker-compose.yml exec db createdb -U farmclub farmclub_dev12`,
+  then `DATABASE_URL=postgresql+psycopg://farmclub:farmclub@localhost:5432/farmclub_dev12 make test`.
+- **Adding tests:** when you create a new test suite, add one line to the matching `test-*`
+  target. Each person adds the tests for their own area.
+- `make clean-worktrees` lists `.claude/worktrees/*` whose PR is merged; `CONFIRM=1` removes
+  them. Worktrees with uncommitted changes are skipped and listed.
+- Keep one `Makefile` at the root. If it grows past ~150 lines, move groups of targets into
+  `make/*.mk` and add `include make/*.mk` to it. Do not add Makefiles in subfolders.
+- Production commands (Railway, production deploys or databases) are not make targets.
+
 ### Server
 
 ```bash
@@ -261,6 +293,8 @@ selected; a manual run always deploys the current `main`.
 | -- | -- | -- |
 | `VERCEL_TOKEN` | **Environment secret** in `production` (Vercel → Account Settings → Tokens) | Turns automatic app deploys on. Without it the workflow skips the deploy and passes. |
 | `APP_API_URL` | Repository **variable** | Empty: mock build (data stays in each browser). Set to `https://api.farmclub.kr`: the apps call the server. |
+| `APP_POSTHOG_KEY` | Repository **variable** | PostHog project API key (`phc_…`, public). Empty: no analytics or session replay. Set: screen events, replays and heatmaps go to PostHog (DEV-71). |
+| `APP_POSTHOG_HOST` | Repository **variable** | Optional. Empty: `https://us.i.posthog.com` (US Cloud). |
 
 Setting the token, or changing `APP_API_URL` and running the workflow, changes what live
 users see. Do it outside user tests, and merge the server routes the apps call (for
