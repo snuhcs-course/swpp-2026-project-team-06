@@ -94,13 +94,17 @@ export default function KakaoCallback() {
     void (async () => {
       try {
         // 시간 제한 뒤 늦게 성공하면 토큰이 생겨 관문이 첫 화면으로 보낸다
+        // 새 사용자는 계정 없이 가입 토큰만 온다. 약관 동의(/consent)에서 계정을 만든다(DEV-132)
         const u = await withTimeout(
-          auth
-            .kakaoLogin(code, `${window.location.origin}/auth/kakao`)
-            .then(() => refresh()),
+          (async () => {
+            const r = await auth.kakaoLogin(code, `${window.location.origin}/auth/kakao`);
+            return r.signup ? ("signup" as const) : refresh();
+          })(),
           KAKAO_LOGIN_TIMEOUT_MS,
         );
-        if (u) goHome(u);
+        if (u === "signup") {
+          if (mounted.current) router.replace("/consent");
+        } else if (u) goHome(u);
         else if (mounted.current)
           setFailed("로그인 정보를 불러오지 못했어요. 다시 시도해 주세요.");
       } catch (e) {

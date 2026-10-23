@@ -99,8 +99,10 @@ export default function Login() {
     if (isMock) {
       setBusy(true);
       try {
-        await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));
-        await refresh();
+        // 처음이면 계정 없이 가입 토큰만 온다. 약관 동의에서 계정을 만든다(DEV-132)
+        const res = await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));
+        if (res.signup) router.replace("/consent");
+        else await refresh();
       } catch {
         setFailed("카카오 로그인에 실패했어요. 다시 시도해 주세요.");
       } finally {

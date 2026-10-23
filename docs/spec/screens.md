@@ -162,12 +162,13 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **입력·출력**: ① `POST /api/auth/me/consents`(항목·버전·동의 여부) → `PATCH /api/auth/me`(`nickname`, `name`, `phone`) → `GET /api/auth/me`. 카카오에서 온 값(2단계: 이름·전화번호)은 미리 채운다. ② `POST /api/auth/me/addresses`(`isDefault=true`).
 - **버튼 동작**: 다음 → ②. 저장하고 시작하기·주문할 때 입력할게요 → 관문에서 왔으면 원래 화면으로 돌아가 그 행동을 잇고, 아니면 `next`. 닫기(①) → 계정은 남고 행동은 실행하지 않으며 원래 화면, 다음 관문에서 다시 ①. 온보딩 화면에 있는 동안에는 이어서 할 행동을 실행하지 않는다.
 - **빈 상태·오류**: 비로그인으로 열면 SCR-05. 이미 마친 계정이 열면 `next`로. 저장 실패 → 입력 유지, 필드 오류는 칸 아래, 연결 실패는 공통 토스트와 다시 시도.
+- **가입 동의 모드 (DEV-132, AC-01-19)**: 카카오 새 사용자는 계정이 없고 가입 토큰만 있다. 이때는 ‘1 / 2’와 프로필 칸 없이 제목 ‘약관에 동의하고 가입해요’, 안내 ‘이용약관과 개인정보 처리방침에 동의하면 계정이 만들어져요. 동의하지 않으면 아무것도 저장하지 않아요.’, 카카오계정 이메일 칩, 동의 목록, ‘동의하고 가입하기’만 보인다. `POST /api/auth/kakao/signup`으로 계정이 생기면 같은 화면이 프로필 입력(‘1 / 2’, 동의 칸 없음)으로 바뀐다. 닫으면 가입 대기를 지운다.
 - **재동의 모드 (DEV-113, AC-01-17)**: 프로필(닉네임·이름·휴대폰)을 이미 채운 회원이 약관·처리방침 버전이 바뀌어 `consentRequired=true`로 오면, ‘1 / 2’와 프로필 칸·이메일 칩 없이 제목 ‘약관이 바뀌었어요’, 안내 ‘바뀐 이용약관과 개인정보 처리방침에 동의해야 주문·팔로우·채팅을 계속할 수 있어요.’, 동의 목록, ‘동의하고 계속하기’만 보인다. 저장하면 배송지 단계 없이 원래 화면·행동으로. 앱을 열 때 한 번 자동으로 뜨고(약관·로그인 화면 제외), 닫아도 농가에 닿는 행동은 관문이 다시 이 화면을 연다. 동의 시트의 ‘전문 보기’는 `/terms`·`/privacy`.
 
 ### SCR-19a 약관 동의 `/consent` (생산자 앱, DEV-113)
 
 - **관련**: FEAT-01(AC-01-18) · 정책 5장 · Figma 후속 DEV-116
-- **목적**: 생산자가 지금 버전의 이용약관·개인정보 처리방침에 동의해야 생산자 앱을 쓰게 한다. 새 생산자는 로그인 → 이 화면 → 가입 신청(SCR-20).
+- **목적**: 생산자가 지금 버전의 이용약관·개인정보 처리방침에 동의해야 생산자 앱을 쓰게 한다. 새 생산자는 카카오 로그인 → 이 화면(계정 없이 가입 토큰으로 열림, 동의하면 `POST /api/auth/kakao/signup`으로 계정 생성, DEV-132) → 가입 신청(SCR-20). 가입 전 뒤로 가기는 가입 대기를 지우고 로그인으로.
 - **화면 요소·데이터**: 헤더 ‘약관 동의’(뒤로 = 로그아웃), 제목 ‘약관에 동의하고 시작해요’, 안내 한 줄, ‘모두 동의해요’, 이용약관(필수)·개인정보 수집·이용(필수)과 각 ‘보기’(전문 `/terms`·`/privacy`), ‘버전 2026-10-23’, 하단 ‘동의하고 계속하기’(둘 다 체크해야 켜짐).
 - **입력·출력**: `POST /api/auth/me/consents`(TERMS·PRIVACY, 지금 버전) → `GET /api/auth/me`.
 - **버튼 동작**: 저장 후 관문이 농가 상태에 맞는 화면으로 보낸다. 쓰는 중에 403 `CONSENT_REQUIRED`를 받으면 내 정보를 다시 읽고 이 화면으로 온다.
@@ -483,7 +484,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /api/auth/test-accounts` | 공개(Mock 플래그) | SCR-05, 19 | `app`(`consumer`·`producer`, 필수) | 그 앱의 시드 테스트 계정 목록(`userId`, 이름, 역할, 농가명, 농가 상태). 소비자 앱은 소비자 계정만, 생산자 앱은 생산자 계정만 | FEAT-01 | Must |
 | `POST /api/auth/test-login` | 공개(Mock 플래그) | SCR-05, 19 | `userId`, `app` | `accessToken`, 사용자(역할, 농가 상태). 시드 계정이 아니면 404, 플래그가 꺼지면 404, 계정 역할이 `app`과 다르면 403 `WRONG_APP` | FEAT-01 | Must |
 | `GET /api/auth/kakao/config` | 공개 | SCR-05 | — | `enabled`(REST API 키 유무), `clientId`, `redirectPath`(`/auth/kakao`) | FEAT-01 I2 | Must |
-| `POST /api/auth/kakao` | 공개 | `/auth/kakao` 복귀 | `code`, `redirectUri`(두 앱 주소의 `/auth/kakao`만), `app` | `accessToken`, 사용자. (카카오 식별자, 역할) 계정을 찾거나 만든다. 키가 없으면 404, 복귀 주소·카카오 인증 실패면 400 | FEAT-01 I2 | Must |
+| `POST /api/auth/kakao` | 공개 | `/auth/kakao` 복귀 | `code`, `redirectUri`(두 앱 주소의 `/auth/kakao`만), `app` | 기존 회원은 `accessToken`, 사용자. 새 사용자는 계정을 만들지 않고 `signup`(`signupToken` 30분, `email`)만(DEV-132). 키가 없으면 404, 복귀 주소·카카오 인증 실패면 400 | FEAT-01 I2 |
+| `POST /api/auth/kakao/signup` | 공개(가입 토큰) | SCR-06 가입 동의, SCR-19a | `signupToken`, `consents[]`(역할별 필수 항목, 지금 버전) | `accessToken`, 사용자. 계정·동의 기록을 함께 만든다. 동의 누락·옛 버전 400 `consents`, 토큰 위조·만료 400 `signupToken`(DEV-132, AC-01-19) | FEAT-01 I2 | Must |
 | `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작, 정지 안내 | — | 사용자, 역할, 농가 상태(`NONE`·`PENDING`·`REJECTED`·`APPROVED`·`SUSPENDED`), 정지 사유, `nickname`, `email`, `phone`, `needsOnboarding`(소비자 카카오 계정만 true 가능) | FEAT-01 | Must |
 | `PATCH /api/auth/me` | 소비자 | SCR-06, SCR-17 하위 | 선택 `nickname`(2~12자), `name`(2~20자), `phone`(휴대폰 형식). 보낸 필드만 | 사용자(위와 같음). 검증 실패 400 `fields` | FEAT-01 I2 | Must |
 | `GET /api/auth/me/consents` | 소비자·생산자(DEV-113) | SCR-06, SCR-19a | — | 가입 동의 목록(`kind`, `version`, `agreed`, `agreedAt`) | FEAT-01 I2 | Should |
