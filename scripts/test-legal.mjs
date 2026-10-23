@@ -102,6 +102,9 @@ test("DEV-140: privacy policy lists Kakao name and phone as required, with purpo
   assert.match(html, /받는 사람 이름·연락처, 배송·주문 문의 연락, 생산자 가입 확인 전화/);
   assert.match(html, /미리 채우는 데 쓰며, 이용자가 직접 고칠 수 있습니다/);
   assert.doesNotMatch(html, /카카오에서 동의한 경우/);
+  // DEV-142: 소비자 가입은 닉네임·휴대폰만, 이름·배송지는 첫 주문서에서 받는다
+  assert.match(html, /첫 주문서의 받는 사람·연락처 칸/);
+  assert.doesNotMatch(html, /\(선택\) 기본 배송지/);
 });
 
 test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async () => {
