@@ -568,12 +568,13 @@ react-native-web 0.21은 `accessibilityState={{…}}`를 DOM에 옮기지 않는
 ### 작업
 - [x] 26곳 `accessibilityState` → `aria-*`
 - [x] Playwright: 주문서 '모두 동의해요' 뒤 제3자 제공 `toBeChecked()`, Mock 로그인 계정 라디오 `toBeChecked()`, 상품정보 접기 `aria-expanded`
-- [ ] `npm run typecheck`, `npm run test:mock`, 관련 Playwright
+- [x] `npm run typecheck`, `npm run test:mock`, 관련 Playwright
 
 ### 완료 조건
-- [ ] `grep -rn accessibilityState packages/ui/src apps --include='*.tsx'` 0건
-- [ ] 테스트 통과
+- [x] `grep -rn accessibilityState packages/ui/src apps --include='*.tsx'` 0건
+- [x] 테스트 통과
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/23 origin/main 3cb431f에서 시작.
+- 10/23 확인: `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed. 실서버(`DATABASE_URL=…/farmclub_dev141 node scripts/run-integration.mjs <3 spec>`, 임시 DB는 끝나고 DROP): 실서버 시나리오 7/7, Playwright 5 passed / 2 skipped(mock-login은 공유 Mock 필요) — checkout-and-fulfillment 2, discovery-and-gates 3. Mock 스택(`npm run dev`)에서 `mock-login.spec.ts` 2 passed.
