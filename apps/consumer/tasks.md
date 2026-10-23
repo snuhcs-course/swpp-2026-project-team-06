@@ -588,6 +588,7 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/23 사진 선택: 네이티브는 `expo-image-picker`(비공개 사진 첨부, 생산자 사진·영상·소식). 업로드는 `{uri, name, type}`을 `FormData`에 붙인다(`UploadFile` 타입). 600px 축소는 웹에서만 하고 네이티브는 picker `quality: 0.8`로 보낸다. 생산자 원본 자료의 PDF·텍스트 첨부는 웹 전용으로 남긴다(네이티브는 사진만, 후속).
 - 10/23 복사·공유: 복사는 `expo-clipboard`(지시 목록에 없던 의존성 하나. 주문 번호·계좌·운송장·링크 복사 버튼 5곳이 네이티브에서 조용히 실패하지 않게). 바깥 주소는 기존 `Linking`.
 - 10/23 `eas.json`: `development`(dev client, internal) · `preview`(채널 `preview`, 스토어 형식 빌드라 TestFlight·Play 내부 테스트에 바로 제출) · `production`(채널 `production`). `autoIncrement`, `appVersionSource: remote`. 서버 주소 등 `EXPO_PUBLIC_*`는 프로필 env에 둔다(웹 배포 워크플로와 같은 값).
+- 10/23 `internal` 프로필 추가(사용자 요청): `preview`를 상속하고 `distribution: internal`, Android APK, iOS 시뮬레이터 빌드. 스토어 유료 등록이 I3로 미뤄져 I2 내부 테스트는 Expo 무료 계정만으로 Android 실기기(APK 링크)·iOS 시뮬레이터에서 한다. README "Internal testing without store accounts".
 - 10/23 `updates.url`은 EAS 프로젝트 ID가 있어야 하는 값이라 레포에 자리표시자를 두지 않는다(잘못된 URL로 빌드되면 앱이 시작 때 업데이트 설정 오류를 낸다). `eas init` → `eas update:configure`가 `extra.eas.projectId`·`updates.url`을 app.json에 쓴다(README). `runtimeVersion: { policy: "fingerprint" }`는 지금 넣는다.
 - 10/23 두 앱 `index.html`에 PR #164의 manifest·홈 화면 메타를 가져온다(DEV-41 iOS 생산자 홈 화면 주소창 문제). `assetlinks.json`의 TWA 지문은 EAS 서명 키와 다르므로 자리표시자로 바꾼다.
 - 10/23 웹 복귀 화면의 앱 전달은 `window.location.replace(앱 스킴)`이고, Android Chrome(Custom Tabs)이 스크립트로 시작한 커스텀 스킴 이동을 사용자 제스처 없이 막을 수 있어 ‘앱 열기’ 버튼(사용자 탭)을 같이 보인다. 실기기 확인은 DEV-41. 안 되면 서버 콜백이 302로 앱 스킴으로 보내는 방식(서버 변경)을 후속으로 검토한다.

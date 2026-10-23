@@ -333,8 +333,9 @@ each browser and never call the server.
 Both apps are also built as native iOS and Android apps from the same code
 ([ADR 0013](docs/spec/tech-design/adr/0013-eas-native-builds.md)). Native builds run on EAS
 Build (cloud); JS changes ship with EAS Update and never need a store review. Identifiers are
-`kr.farmclub.consumer` and `kr.farmclub.producer`; `apps/<app>/eas.json` has three profiles:
-`development` (dev client), `preview` (channel `preview`, store-format build for TestFlight and
+`kr.farmclub.consumer` and `kr.farmclub.producer`; `apps/<app>/eas.json` has four profiles:
+`development` (dev client), `internal` (installable Android APK and iOS simulator build for team
+testing, channel `preview`), `preview` (channel `preview`, store-format build for TestFlight and
 Play internal testing) and `production` (channel `production`). Build numbers auto-increment;
 `version` in `app.json` is bumped by hand. The `development` profile points at `http://localhost:8000`,
 which on a device is not your computer, and its Kakao return address is still the production
@@ -365,6 +366,30 @@ npx eas-cli@latest submit -p ios --profile preview --latest       # TestFlight (
 npx eas-cli@latest submit -p android --profile preview --latest   # Play internal testing (upload the first AAB by hand in Play Console if submit asks for it)
 npx eas-cli@latest update --channel preview --message "first update"
 ```
+
+**Internal testing without store accounts (I2).** Paid Apple and Play registration waits for
+I3, so team testing uses the `internal` profile, which needs only the free Expo account: Android
+phones install an APK from the build link, iPhone testing runs in the iOS Simulator on a Mac (a
+real iPhone needs the Apple Developer Program). Merge and deploy the web apps first: the in-app
+Kakao login returns through the web page `/auth/kakao`, which hands the code back to the app, so
+the app cannot finish a login until that page is live.
+
+```bash
+# once per app (apps/consumer, apps/producer), after `eas login`, `eas init`, `eas update:configure`
+npx eas-cli@latest build -p android --profile internal   # APK; the build page shows an install link and QR code
+npx eas-cli@latest build -p ios --profile internal       # .app for the iOS Simulator (no Apple account needed)
+npx eas-cli@latest update --channel preview --message "..."   # later JS changes, no reinstall
+```
+
+Android: open the build link on the phone, allow installs from this source once, install.
+The link works for anyone who has it. iOS Simulator: download the build, unpack it and drag
+the `.app` onto a booted simulator (or `xcrun simctl install booted <path>.app`). Check, in this
+order: install and launch, Kakao login and return to the app (on Android also that the screen
+you came from and the pending action are kept), onboarding, home / farm / product / order /
+chat, photo attachment in chat, and in the producer app sign-up and photo upload. Record each
+device in DEV-41 (model, OS version, install, login, problems). Known limits: the ‘카카오톡으로
+로그인’ button inside the auth session may not switch to the KakaoTalk app (Kakao account
+login still works); producer source documents (PDF, text) attach on the web only.
 
 After `eas credentials` the Android keystore has a SHA-256 fingerprint and the Apple account a
 Team ID. Put them into `apps/<app>/public/.well-known/assetlinks.json` and

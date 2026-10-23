@@ -49,6 +49,12 @@ for (const [app, { id, scheme, host }] of Object.entries(APPS)) {
       for (const v of Object.values(b.env)) assert.ok(!/phc_|EXPO_TOKEN|secret/i.test(v), "비밀값 없음");
     }
     assert.ok(eas.submit.preview && eas.submit.production);
+    // 내부 테스트(I2): Expo 무료 계정만으로 Android APK·iOS 시뮬레이터 빌드
+    const i = eas.build.internal;
+    assert.equal(i.extends, "preview");
+    assert.equal(i.distribution, "internal");
+    assert.equal(i.android.buildType, "apk");
+    assert.equal(i.ios.simulator, true);
   });
 
   test(`${app} public/.well-known: 앱 링크 파일이 JSON이고 식별자가 맞다, vercel.json이 JSON으로 응답`, () => {

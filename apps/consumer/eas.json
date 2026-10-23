@@ -13,6 +13,16 @@
         "EXPO_PUBLIC_API_MOCK": "0"
       }
     },
+    "internal": {
+      "extends": "preview",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
     "preview": {
       "channel": "preview",
       "autoIncrement": true,
