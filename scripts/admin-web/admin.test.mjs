@@ -244,3 +244,21 @@ test("문의함 화면도 로그인해야 열린다 (DEV-111)", async () => {
   assert.equal(ok.status, 200);
   assert.match(ok.body, /문의함/);
 });
+
+test("중계는 AI 비용 조회만 넘기고 보고 API는 넘기지 않는다 (DEV-144)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  assert.equal((await go("/admin/spec-check-runs?limit=50")).status, 502); // 허용 → 실서버 호출까지 감
+  assert.equal((await go("/admin/spec-check-runs?limit=50&cursor=WzUwXQ==")).status, 502);
+  assert.equal((await go("/internal/spec-check-runs", "POST")).status, 400);
+});
+
+test("AI 비용 화면도 로그인해야 열린다 (DEV-144)", async () => {
+  const r = await call(page, { url: "/api/page?name=ai-cost" });
+  assert.equal(r.headers.location, "/login?next=%2Fai-cost");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=ai-cost", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /AI 비용/);
+});
