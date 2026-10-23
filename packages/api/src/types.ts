@@ -18,6 +18,7 @@ export type ErrorCode =
   | "INTERNAL_ERROR";
 
 export type ConflictReason =
+  | "WITHDRAW_BLOCKED"
   | "STAGE_CHANGED"
   | "SOLD_OUT"
   | "QUANTITY_LIMIT"
@@ -39,7 +40,7 @@ export type ConflictReason =
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
  * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
  */
-export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED";
+export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED" | "TEST_ACCOUNT";
 
 export type ErrorBody = {
   code: ErrorCode;

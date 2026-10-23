@@ -19,6 +19,9 @@ const CONSENT_KINDS: ConsentKind[] = ["TERMS", "PRIVACY", "AGE14", "MARKETING"];
 export const MOCK_KAKAO_USER = "u-kakao";
 /** Mock 카카오 로그인이 만드는 생산자 계정(DEV-74). 처음엔 농가가 없어 가입 신청으로 간다 */
 export const MOCK_KAKAO_PRODUCER = "u-kakao-farm";
+const OPEN_ORDER_STATUSES = ["PENDING_PAYMENT", "AWAITING_DEPOSIT", "RESERVED", "PREPARING", "SHIPPED"];
+const WITHDRAWN_NAME = "탈퇴한 회원";
+const WITHDRAWN_MESSAGE = "탈퇴한 회원의 메시지예요.";
 /** Mock 가입 토큰(DEV-132). 서버는 서명된 30분 토큰을 쓴다 */
 const MOCK_SIGNUP_PREFIX = "mock-signup-";
 const MOCK_KAKAO_EMAIL = { consumer: "kakao.user@example.com", producer: "kakao.farm@example.com" } as const;
@@ -180,6 +183,75 @@ register({
   },
 
   "GET /api/auth/me": (ctx) => userView(ctx.db, ctx.me()),
+
+  // 회원 탈퇴(DEV-94, 서버 accounts.withdraw와 같은 규칙). 테스트 계정은 막는다.
+  // Mock 카카오 계정 아이디(u-kakao 등)는 고정이라, 남길 기록은 새 아이디(u-withdrawn-N)로 옮기고 원래 아이디를 비운다.
+  // 그래서 같은 카카오로 다시 오면 지난 기록과 연결되지 않은 새 사용자가 된다
+  "POST /api/auth/me/withdraw": (ctx) => {
+    const { db } = ctx;
+    const u = ctx.me();
+    if (!u.kakao)
+      fail(403, "FORBIDDEN", "테스트 계정은 탈퇴할 수 없어요.", { reason: "TEST_ACCOUNT" });
+    const farm = u.role === "PRODUCER" && u.farmId ? db.farms[u.farmId] : null;
+    const blocking = Object.values(db.orders)
+      .filter((o) =>
+        u.role === "PRODUCER"
+          ? !!farm && db.products[o.productId]?.farmId === farm.farmId
+          : o.consumerId === u.userId,
+      )
+      .filter((o) => OPEN_ORDER_STATUSES.includes(o.status))
+      .map((o) => o.orderNo)
+      .sort();
+    if (blocking.length)
+      conflict("WITHDRAW_BLOCKED", "끝나지 않은 주문이 있어요. 주문이 끝난 뒤 탈퇴할 수 있어요.", {
+        orderNos: blocking,
+      });
+    const old = u.userId;
+    const tomb = nextId("u-withdrawn");
+    delete db.addresses[old];
+    db.reactions = db.reactions.filter((r) => r.userId !== old);
+    for (const f of db.follows.filter((x) => x.userId === old)) {
+      const followed = db.farms[f.farmId];
+      if (followed && followed.followerCount > 0) followed.followerCount -= 1;
+    }
+    db.follows = db.follows.filter((x) => x.userId !== old);
+    for (const r of db.roomReplies)
+      if (r.senderId === old) Object.assign(r, { senderId: tomb, senderName: WITHDRAWN_NAME, body: WITHDRAWN_MESSAGE, photos: [], videos: [] });
+    for (const key of Object.keys(db.threads)) {
+      const [farmId, consumerId] = key.split(":");
+      if (consumerId !== old) continue;
+      for (const m of db.threads[key])
+        if (m.senderType === "CONSUMER" && !m.orderId && !m.inquiryId)
+          Object.assign(m, { body: WITHDRAWN_MESSAGE, photos: [] });
+      db.threads[`${farmId}:${tomb}`] = db.threads[key];
+      delete db.threads[key];
+    }
+    for (const o of Object.values(db.orders)) if (o.consumerId === old) o.consumerId = tomb;
+    if (farm) {
+      Object.assign(farm, {
+        ownerId: tomb,
+        status: "SUSPENDED",
+        suspendReason: "농가가 탈퇴했어요",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
+        phone: "",
+      });
+    }
+    for (const [t, id] of Object.entries(db.tokens)) if (id === old) delete db.tokens[t];
+    db.users[tomb] = {
+      ...u,
+      userId: tomb,
+      name: "",
+      nickname: null,
+      phone: "",
+      email: null,
+      kakao: false,
+      deleted: true,
+    };
+    delete db.users[old];
+    return null;
+  },
 
   "PATCH /api/auth/me": (ctx) => {
     const u = ctx.me();
