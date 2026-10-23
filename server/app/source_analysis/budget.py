@@ -54,6 +54,9 @@ def reserve(db, item, mode, model, chunk, targets, images, *, stage=None, output
 def settle(db, reservation_id, usage):
     if not reservation_id:
         return
+    from app.admin.ai_usage import record_source_spend
+
+    record_source_spend(db, reservation_id, usage or {})  # 관리자 페이지 AI 비용(DEV-144)
     row = db.get(Spend, reservation_id)
     cost = usage.get("cost")
     # Missing/uncertain cost retains full reservation, including after cancellation/deletion.

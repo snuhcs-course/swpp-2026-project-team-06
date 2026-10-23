@@ -20,6 +20,7 @@ const ALLOWED = [
   new RegExp(`^/admin/orders/${ID}/(confirm-deposit|refund|refunds|delivered)$`),
   // 문의함(DEV-111): 목록, 대화 보기·답장, 읽음 표시
   new RegExp(`^/admin/support$`),
+  new RegExp(`^/admin/ai-usage${QUERY}$`), // DEV-144 AI 비용(조회만)
   new RegExp(`^/admin/support/${ID}/(messages|read)$`),
 ];
 

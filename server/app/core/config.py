@@ -52,6 +52,8 @@ class Settings(BaseSettings):
 
     # AI (ADR 0004). 키가 없으면 AI 초안은 실패로 처리한다(AC-03-3).
     anthropic_api_key: str = ""
+    # spec-check(CI)가 실행 비용을 보고할 때 쓰는 공유 토큰(DEV-144). 비우면 보고 API가 503.
+    spec_check_usage_token: str = ""
     ai_model: str = "claude-haiku-4-5"
     ai_draft_timeout_seconds: float = 20.0
     ai_answer_timeout_seconds: float = 8.0

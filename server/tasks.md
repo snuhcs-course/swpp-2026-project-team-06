@@ -1841,3 +1841,51 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 - 10/23 origin/main 9436171에서 시작. DEV-132(PR #264) 미머지.
 - 10/23 검증: `uv run pytest` 434 passed(새 `test_account_withdrawal.py` 5개), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed(새 `test-withdrawal.mjs`), Mock 스택 `account-withdrawal.spec.ts` 3 passed, 실서버 `test:integration:full` 67 passed / 7 skipped / 0 failed. 임시 DB 삭제.
 - 10/23 origin/main(DEV-132 머지 뒤) 병합: Mock 상수, FEAT-01·wiki·tasks 충돌을 양쪽 유지로 풀고, 생산자 탈퇴 테스트·Mock 테스트·E2E를 가입 동의(가입 토큰) 흐름에 맞췄다. 병합 뒤 pytest 436 passed, test:mock 41/0, Mock E2E(탈퇴 3 + 약관 5) 8 passed.
+
+## DEV-144 관리자 페이지: spec-code-review AI 비용(건별·합계)
+
+- 이슈: [DEV-144](https://linear.app/sswp6/issue/DEV-144)
+- 브랜치: `nemodleo/dev-144-spec-check-ai-cost`
+- 관련: DEV-40·DEV-55(spec-check), DEV-83(관리자 페이지), `.github/spec-check/README.md`
+- 상태: 진행 중
+
+### 목표
+spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리자 페이지에서 건별·합계로 본다. 지금은 토큰 수가 7일 보관 artifact(report.json)에만 있다.
+
+### 범위 (수정 허용 경로)
+- 서버: `server/app/admin/{models,ai_usage,spec}.py|md`, `server/app/ai/service.py`(호출 뒤 기록 한 줄씩), `server/app/source_analysis/budget.py`(`settle`에서 기록), `server/app/core/config.py`(`spec_check_usage_token`), `server/app/main.py`(라우터 등록), `server/migrations/versions/0021_*`, `server/tests/test_ai_usage.py`, `server/.env.example`, `server/tasks.md`
+- CI: `.github/spec-check/{check.py,test_check.py,backfill_usage.py,README.md,tasks.md}`, `.github/workflows/spec-check.yml`(환경 변수 두 줄)
+- 관리자 페이지: `scripts/admin-web/**`
+- 문서: `docs/spec/screens.md`(7.2 운영자 행), `docs/spec/ia.md`(운영자 안내), `docs/wiki/{Requirements-and-Specifications,Design-Documentation}.md`(운영자 화면 줄)
+
+### 비범위
+- Anthropic Admin API 실제 청구액 대조, 제품 AI 비용, 예산 알림, 운영 변수 설정(사람)
+
+### 결정 사항
+- 10/23 저장은 서버 DB(사용자 결정). GitHub artifact만 읽는 방식은 7일 뒤 기록이 사라져 버림.
+- 10/23 CI → 서버 보고는 `POST /internal/spec-check-runs`(헤더 `X-Spec-Check-Token` = 서버 `SPEC_CHECK_USAGE_TOKEN`). 운영자 JWT(7일 만료)를 CI에 두지 않는다. 서버에 토큰이 없으면 503, 틀리면 401. 같은 실행 키(`<run_id>-<attempt>-<mode>`)는 한 번만 저장(재전송은 처음 기록 그대로).
+- 10/23 보고는 모델이 응답해 `usage`가 있을 때만 보낸다(SKIPPED·호출 전 INCOMPLETE는 비용 0이라 보내지 않음). 보고 실패는 경고만 찍고 리뷰 결과·종료 코드는 그대로.
+- 10/23 금액은 서버가 저장 때 모델 단가표(100만 토큰당 USD, `claude-sonnet-5-5` 입력 2·출력 10 등)로 계산해 함께 저장한다. 단가표에 없는 모델은 금액 없음(화면에 "단가 없음")으로 두고 합계에서 따로 센다. 캐시 토큰은 spec-check가 캐시를 쓰지 않아 입력·출력만.
+- 10/23 운영자 API `GET /admin/spec-check-runs`: 건별(최신순, cursor) + 합계(전체·이번 달 KST·최근 7일: 실행 수, 입력·출력 토큰, 금액).
+- 10/24 (위 두 줄을 바꿈, 사용자 요청 "AI 비용은 여러 개, 기능별로 구분, 총합도, 더 축약적으로") 저장소를 기능별 `ai_usage`로 일반화: `spec_check`(CI 보고), `product_draft`·`detail_draft`·`ai_answer`(`app/ai/service.py` 호출 뒤 기록), `source_analysis`(`budget.settle`, 제공자 금액). 운영자 API는 `GET /admin/ai-usage?feature=`(기능별·전체 × 이번 달·최근 7일·전체 + 목록). 화면은 합계 칸 대신 기능×기간 표 한 장(맨 아래 합계 줄) + 기능 탭 + 한 줄 목록(13px), 1센트 미만은 소수 넷째 자리.
+- 10/23 지난 실행은 `.github/spec-check/backfill_usage.py`가 남아 있는 artifact(최근 7일)의 report.json을 읽어 같은 API로 보낸다. 운영 토큰이 필요해 사람이 실행.
+
+### 작업
+- [x] 서버 저장·운영자 API·테스트
+- [x] check.py 보고·테스트, workflow 환경 변수, backfill 스크립트
+- [x] 관리자 페이지 'AI 비용' 화면
+- [x] 문서
+- [x] 로컬 확인
+- [ ] 운영 변수 설정(사람): Railway `SPEC_CHECK_USAGE_TOKEN`, GitHub spec-check 환경 secret `SPEC_CHECK_USAGE_TOKEN`·variable `SPEC_CHECK_USAGE_URL`
+
+### 완료 조건
+- [ ] spec-check 실행 뒤 관리자 페이지에 그 실행의 토큰·금액이 보이고 합계가 늘어난다
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지, Railway·Vercel 관리자 페이지 배포 확인
+
+### 기록
+- 10/23 main 3ef3c04에서 시작. spec-check는 켜져 있고(`SPEC_CHECK_ENABLED=true`) 모델은 `claude-sonnet-5-5`.
+- 10/23 Figma는 후속 [DEV-146](https://linear.app/sswp6/issue/DEV-146).
+- 10/23 로컬 확인: DB `farmclub_dev144`(alembic 0021 + 시드), uvicorn :8003(로컬 `SPEC_CHECK_USAGE_TOKEN`), `server.mjs` :8093. `backfill_usage.py`로 실제 남아 있는 artifact 8건(PR #150·#160·#281·#283·#285·#288)을 로컬 서버에 보냄(다시 보내도 8건 그대로). `/ai-cost`: 미로그인 → `/login?next=%2Fai-cost`, 로그인 뒤 합계 $0.67(입력 260,501·출력 14,911, sonnet-5-5 단가로 검산 일치)과 실행별 표.
+- 10/23 테스트: `uv run pytest -q` 440 passed(새 4개), `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 51 OK, `cd scripts/admin-web && npm test` 20 passed, ruff·`alembic heads`(0021 하나)·actionlint 통과.
+- 10/24 기능별로 바꾼 뒤: `uv run pytest -q` 443 passed(`test_ai_usage.py` 7개), checker 51 OK, admin-web 20 passed, ruff 통과(`app/ai/service.py`·`app/admin/service.py`의 format 지적은 main에 원래 있던 것). 로컬: 새 DB에 spec-check backfill 9건 + 상품 초안 2·상세 초안 1·AI 답변 1·자료 분석 1 예시 기록 → 기능별 표와 합계 줄($0.74, 14회), 기능 탭 거르기, 1센트 미만 $0.0015 표시 확인.

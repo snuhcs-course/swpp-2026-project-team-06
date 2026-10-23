@@ -86,6 +86,8 @@ jobs:
           SPEC_CHECK_MODEL: ${{ vars.SPEC_CHECK_MODEL }}
           GH_READ_TOKEN: ${{ github.token }}
           SPEC_CHECK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SPEC_CHECK_USAGE_URL: ${{ vars.SPEC_CHECK_USAGE_URL }} # DEV-144 admin cost page; empty skips
+          SPEC_CHECK_USAGE_TOKEN: ${{ secrets.SPEC_CHECK_USAGE_TOKEN }}
         run: python .github/spec-check/check.py
       - name: Retain report even for mismatch or unavailable access
         if: always()
@@ -130,6 +132,8 @@ jobs:
           SPEC_CHECK_MODEL: ${{ vars.SPEC_CHECK_MODEL }}
           GH_READ_TOKEN: ${{ github.token }}
           SPEC_CHECK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SPEC_CHECK_USAGE_URL: ${{ vars.SPEC_CHECK_USAGE_URL }} # DEV-144 admin cost page; empty skips
+          SPEC_CHECK_USAGE_TOKEN: ${{ secrets.SPEC_CHECK_USAGE_TOKEN }}
         run: python .github/spec-check/check.py --demo "$SAMPLE"
       - name: Check expected demo outcome without changing the model report
         if: always()
