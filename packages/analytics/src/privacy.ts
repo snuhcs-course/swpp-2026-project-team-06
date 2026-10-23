@@ -57,6 +57,27 @@ export function maskText(
   return text.replace(/\S/g, "*");
 }
 
+/**
+ * PostHog를 켜는 접속 호스트(DEV-125). 운영 도메인(ADR 0012)만 두고, Vercel 기본 주소(`*.vercel.app`)·
+ * 워킹 데모(`demo.farmclub.kr`)·localhost에서는 끈다. `www.farmclub.kr`은 308로 `farmclub.kr`에 넘어가므로 넣지 않는다.
+ */
+export const PRODUCTION_HOSTS: readonly string[] = ["farmclub.kr", "farm.farmclub.kr"];
+
+/** 빌드 변수(쉼표 구분)를 호스트 목록으로. 비면 기본 목록 */
+export function parseHosts(value: string | undefined): readonly string[] {
+  const hosts = (value || "")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  return hosts.length ? hosts : PRODUCTION_HOSTS;
+}
+
+/** 접속 호스트가 허용 목록에 정확히 있을 때만 true(부분 일치·와일드카드 없음) */
+export function isAllowedHost(hostname: string, allowed: readonly string[] = PRODUCTION_HOSTS): boolean {
+  const host = hostname.trim().toLowerCase().replace(/\.$/, "");
+  return allowed.includes(host);
+}
+
 /** URL에서 쿼리·해시를 지운다(검색어·로그인 복귀 경로 등이 섞이지 않게) */
 export function stripQuery(url: string): string {
   const cut = url.search(/[?#]/);

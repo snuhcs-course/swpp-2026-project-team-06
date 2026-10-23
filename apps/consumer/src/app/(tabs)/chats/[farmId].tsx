@@ -20,10 +20,12 @@ import { View } from "react-native";
 import { useHideTabBar } from "../../../lib/session";
 export default function Chat() {
   useHideTabBar();
-  const { farmId, start, orderId } = useLocalSearchParams<{
+  // productId: 상품 페이지에서 열었으면 그 상품을 AI 근거로 보낸다(DEV-97)
+  const { farmId, start, orderId, productId } = useLocalSearchParams<{
       farmId: string;
       start?: string;
       orderId?: string;
+      productId?: string;
     }>(),
     router = useRouter(),
     farm = useAsync(() => farms.get(farmId), [farmId]);
@@ -101,6 +103,7 @@ export default function Chat() {
               ids,
               orderId ?? page?.inquiries[0]?.orderId,
               key,
+              productId,
             )
           }
           report={(messageId, key) => messaging.reportAiAnswer(farmId, messageId, key)}

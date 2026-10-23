@@ -387,3 +387,40 @@ ADR 0005대로 두 웹앱에 PostHog를 붙여 test2 사용자 테스트에서 �
 - 10/21 `npm run typecheck` 통과, `npm run test:mock` 19/19 통과, 실서버 통합(포트 8100·8181·8182, DB farmclub_dev104, 끝나고 삭제) API 7/7, Playwright 52/52 통과
 - 10/21 사용자 지시 "법적으로 문제되지 않는 정도 빼고는 모두 열어": 사유 3종과 판매자 대표·지역·연락처 가리기를 해제(`pay.tsx`는 main 그대로)
 - 10/21 사유·판매자 정보 해제와 main(25e4af5) 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 19/19, 실서버 통합 API 7/7·Playwright 53/53 통과. Mock 확인: 입금 안내는 계좌번호·예금주만 가려지고 판매자 대표·연락처는 보임
+
+## DEV-125 [I2] PostHog는 운영 도메인에서만 켜기
+
+- 이슈: [DEV-125](https://linear.app/sswp6/issue/DEV-125)
+- 브랜치: `nemodleo/dev-125-posthog-prod-hosts`
+- 기능·규칙: N-05, ADR 0005·0012, DEV-71·DEV-104 후속
+- 상태: 리뷰 대기
+
+### 목표
+운영 빌드가 `*.vercel.app`·`demo.farmclub.kr`·localhost에서 열려도 PostHog를 켜지 않아, 팀원·평가자 접속이 실사용자 퍼널·녹화에 섞이지 않게 한다.
+
+### 범위 (수정 허용 경로)
+- `packages/analytics/src/index.ts`, `packages/analytics/src/privacy.ts`, `packages/analytics/spec.md`, `packages/tasks.md`
+- `scripts/test-analytics.mjs`
+- `docs/spec/tech-design/stack.md`, `docs/wiki/Design-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 이벤트 이름·속성, 마스킹 규칙, 서버 이벤트, `.github/workflows/deploy-vercel.yml`(변수 추가 없음)
+
+### 결정 사항
+- 10/23 허용 목록 방식(정확히 일치). 기본값 `farmclub.kr`, `farm.farmclub.kr`. `www.farmclub.kr`은 ADR 0012대로 308 리다이렉트라 넣지 않는다
+- 10/23 목록은 코드 기본값 + 빌드 변수 `EXPO_PUBLIC_POSTHOG_HOSTS`로만 바꾼다. 배포 워크플로에 레포 변수(`APP_POSTHOG_HOSTS`)는 추가하지 않는다 — 운영 도메인이 ADR 0012에 고정돼 있어 아무도 바꾸지 않을 손잡이가 늘어난다. 데모에서 수집이 필요해지면 그 빌드에만 변수를 넣는다
+- 10/23 검사 함수(`parseHosts`·`isAllowedHost`)는 `privacy.ts`에 둬서 posthog-js 없이 `scripts/test-analytics.mjs`가 검사한다
+
+### 작업
+- [x] `isAllowedHost`·`parseHosts`, `start()`에 호스트 검사
+- [x] `scripts/test-analytics.mjs` 허용·거부·덮어쓰기 케이스 2개
+- [x] analytics spec.md, stack.md, wiki 한 줄
+
+### 완료 조건
+- [x] 운영 두 도메인에서만 켜지고 `*.vercel.app`·`demo.farmclub.kr`·localhost에서 꺼진다(단위 테스트)
+- [x] `npm run typecheck`, `npm run test:mock` 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 main(107e14a)에서 브랜치. 워킹 데모(demo.farmclub.kr)는 수집하지 않으므로 iteration-2-demo README에 "analytics off on the demo host"로 적을 수 있다
+- 10/23 검증: `node --test scripts/test-analytics.mjs` 6 passed(새 2개 포함), `npm run typecheck` 통과, `npm run test:mock` 34 passed

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { producerUrl, loginProducer, monitor } from "./helpers";
 
 test("AC-SRC-9: selling product edits remain private until explicit apply", async ({
