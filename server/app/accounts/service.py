@@ -630,6 +630,9 @@ def withdraw(db: Session, user: User) -> None:
     from app.messaging.models import PrivateAttachment, Reaction, RoomReply, Thread, ThreadMessage
     from app.orders.models import Order
 
+    if user.role not in ("CONSUMER", "PRODUCER"):
+        # 운영자·farmclub 문의 계정은 앱에서 탈퇴하지 않는다
+        raise forbidden("이 계정은 탈퇴할 수 없어요.")
     if user.is_test_account:
         raise forbidden("테스트 계정은 탈퇴할 수 없어요.", reason="TEST_ACCOUNT")
     farm = farms.get_farm_of_producer(db, user.id) if user.role == "PRODUCER" else None

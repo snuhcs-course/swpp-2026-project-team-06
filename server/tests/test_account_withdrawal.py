@@ -117,6 +117,12 @@ def test_AC_01_20_open_orders_block_withdrawal(client, monkeypatch):
     assert me.json()["nickname"] == "귤러버"
 
 
+def test_AC_01_20_operator_accounts_cannot_withdraw(client, admin_headers):
+    response = client.post("/api/auth/me/withdraw", headers=admin_headers)
+    assert response.status_code == 403
+    assert client.get("/api/auth/me", headers=admin_headers).status_code == 200
+
+
 def test_AC_01_20_test_accounts_cannot_withdraw(client, login):
     response = client.post("/api/auth/me/withdraw", headers=login("u-minji"))
     assert response.status_code == 403
