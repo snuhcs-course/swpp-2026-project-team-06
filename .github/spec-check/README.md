@@ -70,6 +70,8 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 | INCOMPLETE (exit 2) | 키/모델/환경/문맥/응답 오류 또는 크기 제한. 원인을 해소하고 재실행 |
 | SKIPPED (exit 0 + 명시 안내) | v1 지원 대상이 아님. PASS가 아님 |
 
+모델 응답의 `thinking`·`redacted_thinking` 블록(adaptive thinking 기본값인 모델)은 읽지 않고 버리고, text 블록의 리뷰 JSON만 검증한다(DEV-79). text 블록이 없거나 다른 블록(`tool_use` 등)이 섞이면 `Unexpected model content type: <type>.` INCOMPLETE이며, 메시지에는 블록 type 이름만 남는다.
+
 보고서는 metadata의 head/base/merge-base SHA, PR 본문 digest, mode, 모델/프롬프트 버전과 실행 URL에 연결된다.
 코드나 PR 본문이 바뀌면 과거 결과를 최신 검토 증거로 사용하지 않는다.
 상세/JSON 보고서는 7일 보관한다. 주요 finding과 사람 판단은 만료 전에 PR/Linear에 복사한다.
@@ -86,7 +88,7 @@ API 설정 후 이 PR 본문에 `<!-- spec-check-demo -->`를 넣거나 유지�
 - 추가 assertion은 실제 보고서가 예상 결과인지 확인할 뿐, 보고서 내용을 바꾸지 않는다.
 - INCOMPLETE/키 오류/계약 테스트 성공을 genuine 모델 증거로 대신 쓰지 않는다.
 - demonstration mode는 두 fixture만 평가한다. 일반 PR 전체 검토 결과와 구분한다.
-- 전체 PR이 60 KiB를 넘으면 일반 검토는 INCOMPLETE일 수 있다. demo PASS로 전체 PR 검토를 통과 처리하지 않는다.
+- 전체 PR이 256 KiB를 넘으면 일반 검토는 INCOMPLETE일 수 있다. demo PASS로 전체 PR 검토를 통과 처리하지 않는다.
 
 실제 모델 결과가 예상과 다르면 그 결과를 보존하고 프롬프트/수집 문맥/검증을 조사한다.
 단순 재실행으로 원래 finding이 사라졌다고 해결 처리하지 않는다.
@@ -119,7 +121,7 @@ actionlint .github/workflows/spec-check.yml
 
 계약 검증은 API 응답을 mock하며 비용이 없다. genuine API 결과와 구분한다.
 제품 코드를 실행/설치/import하지 않는다. Python 표준 라이브러리만 사용한다.
-review input와 prompt 합계 60 KiB, 출력 4096 tokens, 요청 60초, transient retry 1회, job 5분이다.
+review input와 prompt 합계 256 KiB, 출력 16000 tokens(thinking 포함), 요청 90초, transient retry 1회, job 5분이다.
 문맥을 잘라 PASS로 만들지 않는다. 바이너리/비밀 파일/누락 경로/큰 파일은 INCOMPLETE로 수동 검토가 필요하다.
 v1은 명시적 경로 표를 사용한다. 자동 의미 검색·외부 문서 수집·모든 종류의 비밀 탐지·정확성 보증을 제공하지 않는다.
 비밀로 의심되는 선택 문맥은 전송하지 않지만, 검토자는 선택한 파일에 민감 정보가 없는지 확인해야 한다.

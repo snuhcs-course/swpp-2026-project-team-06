@@ -251,6 +251,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **입력·출력**: `GET /api/auth/me`, `GET /api/farms/following`.
 - **버튼 동작**: 팔로우한 농가 → SCR-03. 배송지 관리 → `/me/addresses`. 농가로 시작하기 → 시트 ‘생산자 앱은 따로 가입해요’(소비자 계정으로는 농가를 열 수 없고, 생산자 앱 가입 신청이 생산자 계정을 따로 만든다는 안내) → ‘생산자 앱에서 가입하기’ → 생산자 앱 SCR-19(가입 신청 링크). 로그아웃 → 토큰 삭제, SCR-01.
 - **빈 상태·오류**: 팔로우 없음 → ‘팔로우한 농가가 없어요’와 농가 둘러보기.
+- **회원 탈퇴 (DEV-94, AC-01-20)**: 설정 목록 끝 ‘회원 탈퇴’(테스트 계정은 없음) → 시트 1단계 ‘탈퇴하면 바로 지워져요’(지워지는 것·남는 것·끝나지 않은 주문이 있으면 불가) → ‘다음’ → 2단계 ‘정말 탈퇴할까요?’(되돌릴 수 없음, 재가입은 새 계정) → ‘탈퇴할게요’. 성공하면 로그아웃하고 홈으로. 409면 시트에 주문 번호와 안내. 생산자 앱은 SCR-33 계정 영역과 SCR-21 하단에 같은 시트.
 
 #### SCR-17 하위: 배송지 관리 `/me/addresses`
 
@@ -442,6 +443,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면**: 원형 농가 요약, 프로필·공유 링크 → SCR-30, AI 응답 설정 → SCR-31, 로그아웃. 소식 작성 버튼 없음.
 - **입출력**: 기존 farms/me·auth API 재사용. 새 API 없음.
 - **오류**: 조회 재시도. 로그아웃 후 생산자 로그인으로 돌아간다.
+- **회원 탈퇴 (DEV-94)**: ‘계정’ 영역의 ‘회원 탈퇴’(테스트 계정은 없음) → SCR-17과 같은 2단계 시트(농가가 숨겨지고 입금 계좌·연락처가 지워진다는 안내). 성공하면 로그아웃 → SCR-19.
 
 ## 7. API
 
@@ -490,6 +492,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `PATCH /api/auth/me` | 소비자 | SCR-06, SCR-17 하위 | 선택 `nickname`(2~12자), `name`(2~20자), `phone`(휴대폰 형식). 보낸 필드만 | 사용자(위와 같음). 검증 실패 400 `fields` | FEAT-01 I2 | Must |
 | `GET /api/auth/me/consents` | 소비자·생산자(DEV-113) | SCR-06, SCR-19a | — | 가입 동의 목록(`kind`, `version`, `agreed`, `agreedAt`) | FEAT-01 I2 | Should |
 | `POST /api/auth/me/consents` | 소비자·생산자(DEV-113) | SCR-06, SCR-19a | `consents[]`: `kind`(`TERMS`·`PRIVACY`·`AGE14`·`MARKETING`), `version`, `agreed`(기본 true) | 가입 동의 목록. 항목마다 한 줄, 다시 보내면 버전·시각 갱신 | FEAT-01 I2 | Must |
+| `POST /api/auth/me/withdraw` | 소비자·생산자 | SCR-17, SCR-21, SCR-33 | — | 204. 개인정보 파기·거래 기록 보존(AC-01-20). 끝나지 않은 주문 409 `WITHDRAW_BLOCKED`(`orderNos`), 테스트 계정 403 `TEST_ACCOUNT`. 이후 그 토큰은 401(DEV-94) | FEAT-01 | Must |
 | `POST /api/auth/producer-application` | 생산자 계정 | SCR-20 | `ownerName`(대표자 이름), 농가명, 지역, 주 품목, 연락처, 입점 정책 동의 | 농가(`PENDING`), 계정 이름을 대표자 이름으로 | FEAT-01 | Should |
 | `GET /api/auth/producer-application` | 생산자 계정 | SCR-20, 21 | — | 신청 상태, 반려 사유, 신청 내용(대표자 이름·농가명·지역·주 품목·연락처, 신청일) | FEAT-01 | Should |
 | `GET /api/auth/me/addresses` | 소비자 | SCR-10, 17 | — | 저장 배송지 목록(기본 표시) | FEAT-08 | Must |

@@ -18,8 +18,8 @@
 | 입력 | 고정한 base/head/merge-base, PR 본문 digest, 기존 표에서 참조한 스펙·구현·tasks, 실제 변경 파일·주변 코드 |
 | 범위 | PR 표의 명시적 repo 경로. 빠진 변경·문맥·상충 기준은 INCOMPLETE. 필요하면 표의 기존 셀에 backtick 경로를 추가 |
 | 호출 | Python 표준 라이브러리의 Claude Messages API. 전용 SPEC_CHECK_API_KEY와 명시적 SPEC_CHECK_MODEL. fallback 없음 |
-| 결과 | PASS/MISMATCH/INCOMPLETE/SKIPPED. 근거 위치·인용·변경 파일 coverage 검증. 오류를 PASS로 바꾸지 않음 |
-| 제한 | 입력 60 KiB, 출력 4096 tokens, 요청 60초, transient 오류 retry 1회, job 5분 |
+| 결과 | PASS/MISMATCH/INCOMPLETE/SKIPPED. 근거 위치·인용·변경 파일 coverage 검증. 오류를 PASS로 바꾸지 않음. 2026-10-18(DEV-79) 응답의 thinking/redacted_thinking 블록은 무시하고 text만 사용, 그 외 블록 타입은 INCOMPLETE |
+| 제한 | 입력 256 KiB, 출력 16000 tokens(thinking 포함), 요청 90초(GitHub API 20초), transient 오류 retry 1회, job 5분. 2026-10-18(DEV-79) 60 KiB·4096에서 상향, retry와 API 호출을 합쳐 job 5분 안 |
 | 보고 | Markdown job summary + JSON/Markdown artifact 7일. 보고서와 사람 판단을 PR에 남김 |
 | 증거 | mock 기반 계약 검증과 genuine API 데모를 구분. 모델 접근·사람 검토가 없으면 완료 처리하지 않음 |
 
