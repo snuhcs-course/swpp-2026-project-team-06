@@ -308,7 +308,7 @@ export default function Ship() {
     <Pressable
       key={label}
       accessibilityRole="radio"
-      accessibilityState={{ checked: on }}
+      aria-checked={on}
       accessibilityLabel={label}
       disabled={busy}
       onPress={onPress}
@@ -341,7 +341,7 @@ export default function Ship() {
     <Pressable
       key={label}
       accessibilityRole="radio"
-      accessibilityState={{ checked: on }}
+      aria-checked={on}
       accessibilityLabel={label}
       disabled={busy}
       onPress={onPress}
@@ -624,7 +624,7 @@ export default function Ship() {
                     <Pressable
                       accessibilityRole="checkbox"
                       disabled={busy}
-                      accessibilityState={{ checked: sel }}
+                      aria-checked={sel}
                       accessibilityLabel={`${o.orderNo} ${who(o)} 고르기`}
                       onPress={() =>
                         setPicked((p) =>
@@ -760,7 +760,7 @@ export default function Ship() {
               <Pressable
                 key={c.code}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: on }}
+                aria-checked={on}
                 accessibilityLabel={c.label}
                 onPress={() => {
                   setDraft((d) => ({ ...d, carrier: on ? null : c.code }));

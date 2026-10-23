@@ -165,7 +165,7 @@ export function LikeButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`좋아요 ${count}${on ? ", 내가 누름" : ""}`}
-      accessibilityState={{ selected: on }}
+      aria-pressed={on}
       onPress={onPress}
       style={{
         flexDirection: "row",
@@ -238,7 +238,7 @@ export function OptionSheet({
             <Pressable
               key={o.optionId}
               accessibilityRole="radio"
-              accessibilityState={{ selected: on, disabled: left <= 0 }}
+              aria-checked={on}
               disabled={left <= 0}
               onPress={() =>
                 onChange(
