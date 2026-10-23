@@ -517,6 +517,7 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - `apps/consumer/src/app/login.tsx`
 - `apps/consumer/tasks.md`(이 섹션)
 - `docs/spec/screens.md`(SCR-05), `docs/spec/functional/FEAT-01-login.md`, `docs/wiki/Requirements-and-Specifications.md`(SCR-05 요약)
+- `scripts/e2e/mock-login.spec.ts`(새 파일, 10/23 추가: Mock 로그인 화면 회귀 테스트)
 
 ### 비범위 (건드리지 않음)
 - 서버, 생산자 앱, Mock 응답(`packages/api/src/mock`의 카카오 `enabled: true`는 그대로)
@@ -526,15 +527,16 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/23 생산자 SCR-19와 같은 규칙: `showTest = 카카오 꺼짐 || isMock`. Mock은 카카오 버튼 + 소비자 테스트 계정 목록 + 버튼 아래 Mock 안내 한 줄. Mock 카카오는 지금처럼 새 카카오 사용자(가입 동의 → 온보딩)
 
 ### 작업
-- [ ] `login.tsx` showTest 조건과 Mock 안내 한 줄
-- [ ] screens.md SCR-05, FEAT-01 카카오 절, wiki SCR-05 요약
-- [ ] `npm run typecheck`, `npm run test:mock`, Playwright(`legal-consent.spec.ts` 등 소비자 로그인 경로)
+- [x] `login.tsx` showTest 조건과 Mock 안내 한 줄
+- [x] screens.md SCR-05, FEAT-01 카카오 절, wiki SCR-05 요약
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright(`mock-login.spec.ts` 새로, `legal-consent.spec.ts`)
 
 ### 완료 조건
-- [ ] Mock 모드 소비자 로그인 화면에서 카카오 버튼과 시드 계정 목록이 함께 보이고, 시드 계정으로 로그인된다
-- [ ] 실서버·카카오 꺼짐 화면은 그대로
-- [ ] 테스트 통과
+- [x] Mock 모드 소비자 로그인 화면에서 카카오 버튼과 시드 계정 목록이 함께 보이고, 시드 계정으로 로그인된다
+- [x] 실서버·카카오 꺼짐 화면은 그대로(조건이 `isMock`일 때만 달라짐)
+- [x] 테스트 통과(로컬). 실서버 integration은 CI
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/23 iteration-2-demo README 검토(DEV-133 세션)에서 발견. 같은 폴더의 DEV-120(리뷰 중)은 주문서만 건드려 겹치지 않음
+- 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 40 passed / 0 failed, Mock(공유 Mock 8183, 앱 8181·8182 — 다른 세션이 8081·8082 사용 중이라 포트만 바꿈)에서 `npx playwright test scripts/e2e/mock-login.spec.ts scripts/e2e/legal-consent.spec.ts` 5 passed. 수정 전 조건으로 되돌리면 새 소비자 테스트가 실패(1 failed)하는 것 확인 후 복구, 다시 2 passed. 실서버 `test:integration:full`은 안 돌림(이 변경은 `isMock`일 때만 동작이 달라짐, CI integration job이 확인)
