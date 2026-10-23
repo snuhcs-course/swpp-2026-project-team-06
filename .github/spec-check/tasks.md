@@ -294,3 +294,4 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
   | #230 | 57(제외 1) | 183 KiB | 2,366 KiB ❌ | 231 KiB ✅ | 29 KiB |
 
   제외된 파일은 모두 `docs/wiki/*.md`. 발췌가 9~29 KiB에 그쳐 크기는 diff가 결정한다. #230처럼 diff 180 KiB 이상이면 한도에 가까우니 PR을 나누는 안내가 그대로 필요하다.
+- 10/23 PR #281(ready). `origin/main`(57dcb0b, DEV-133·SWPP-125·SWPP-115·DEV-136·DEV-137) 병합: 충돌은 `.agents/tasks.md`·이 파일(양쪽이 맨 아래에 절 추가)이고 모든 절을 남겼다(DEV-137 → DEV-81 순). checker 파일은 main에서 바뀌지 않았다. 병합 후 로컬 unittest 48개 통과.
