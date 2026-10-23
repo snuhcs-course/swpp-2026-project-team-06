@@ -514,6 +514,20 @@ class DiffOnlyContextTests(unittest.TestCase):
         self.assertIn("-    return 1\n+    return 2", data["diff"])
         self.assertEqual(data["changed_files"]["module/sample.py"], {"status": "modified", "size": 22, "previous_size": 22})
 
+    def test_ids_written_only_in_the_tasks_section_still_pick_feat_items(self):
+        # SC-001 (live run 39947732979): segments[0] is the title line, so section-only IDs were never collected.
+        head = repo(self.dir, {"module/sample.py": "def f():\n    return 2\n"})
+        rows = [(["docs/spec/functional/FEAT-01-login.md", "docs/spec/functional/rules.md"], ["module/sample.py"], "no ids here")]
+        data = check.collect(self.dir, self.event_for(head, body(rows)))
+        feat = "\n".join(s["text"] for s in data["documents"]["docs/spec/functional/FEAT-01-login.md"]["segments"])
+        self.assertIn("AC-01-2", feat)
+        self.assertIn("또 하위", feat)
+        for hidden in ("AC-01-1", "AC-01-3", "AC-01-4"):
+            self.assertNotIn(hidden, feat)
+        rules = "\n".join(s["text"] for s in data["documents"]["docs/spec/functional/rules.md"]["segments"])
+        self.assertIn("둘째 규칙", rules)
+        self.assertNotIn("소식 규칙", rules)
+
     def test_feat_without_named_ids_sends_acceptance_criteria_and_spec_falls_back_to_recent_rows(self):
         head = repo(self.dir, {"module/sample.py": "def f():\n    return 2\n",
                                "module/tasks.md": TASKS.replace("FEAT-01 AC-01-2, R-02", "FEAT-01 only").replace("DEV-40 |", "DEV-99 |")})
