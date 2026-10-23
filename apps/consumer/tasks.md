@@ -520,6 +520,7 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 
 ### 범위 (수정 허용 경로)
 - `packages/api/src/{orderConsents.ts,types.ts,index.ts,mock/orders.ts}`
+- `packages/api/spec.md`(결정 한 줄)
 - `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/tasks.md`
 - `scripts/test-order-consents.mjs`(새 계약 테스트), `package.json`(test:mock에 추가)
 - `scripts/e2e/checkout-and-fulfillment.spec.ts`(일부 동의 상태)
@@ -531,18 +532,22 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 - 10/23 키 목록은 import 없는 새 파일 `packages/api/src/orderConsents.ts`에 둔다. 계약 테스트가 Node type stripping으로 바로 import한다(`test-legal.mjs`와 같은 방식). 타입 `OrderInput["consents"]`는 이 목록에서 만든다.
 - 10/23 서버는 Python이라 목록을 공유하지 않는다. 계약 테스트가 `server/app/orders/schemas.py`의 `class Consents` 필드(snake_case)를 읽어 앱 목록(camelCase로 바꿔)과 순서까지 같은지 본다.
 
+- 10/23 `Checkbox`(`packages/ui/src/content.tsx`)는 `accessibilityState`만 써서 웹에서 `aria-checked`가 나오지 않는다(스크린 리더가 체크 상태를 못 읽음). 이 작업 범위 밖이라 고치지 않고, Playwright는 `toBeChecked` 대신 개수 문구·버튼 상태로 확인한다. 후속 이슈로 남긴다.
+
 ### 작업
-- [ ] `ORDER_CONSENT_KEYS`와 타입, Mock 검사
-- [ ] 주문서 초기값·전체 동의·개수·문구를 목록에서 계산
-- [ ] 계약 테스트(`test:mock`)
-- [ ] Playwright 일부 동의 상태(AC-08-1)
-- [ ] typecheck, test:mock, pytest(orders), Playwright
+- [x] `ORDER_CONSENT_KEYS`와 타입, Mock 검사
+- [x] 주문서 초기값·전체 동의·개수·문구를 목록에서 계산
+- [x] 계약 테스트(`test:mock`)
+- [x] Playwright 일부 동의 상태(AC-08-1)
+- [x] typecheck, test:mock, pytest(orders), Playwright
 
 ### 완료 조건
-- [ ] 주문서에서 숫자 4·5를 직접 쓰는 곳이 없다
-- [ ] 서버·앱 목록이 어긋나면 `test:mock`이 실패한다
-- [ ] 일부 동의 상태 문구와 예약하기 꺼짐을 테스트가 확인한다
+- [x] 주문서에서 숫자 4·5를 직접 쓰는 곳이 없다
+- [x] 서버·앱 목록이 어긋나면 `test:mock`이 실패한다
+- [x] 일부 동의 상태 문구와 예약하기 꺼짐을 테스트가 확인한다
 - [ ] 리뷰 1명 승인 후 main 머지
 
 ### 기록
 - 10/23 origin/main 74394f5에서 시작. DEV-116 작업 중 발견(`git blame`: 문구는 10/18 54dc274, DEV-120 9a558ef는 `=== 5`만 고침).
+- 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 44/44(새 `test-order-consents.mjs` 3개 포함), `cd server && uv run pytest tests/test_orders.py` 33/33(DB `farmclub_dev138_test`), 실서버 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, DB `farmclub_dev138`, `checkout-and-fulfillment.spec.ts legal-consent.spec.ts`) 시나리오 7/7, Playwright 2 통과·3 건너뜀(legal-consent는 공유 Mock이 있어야 돌아 실서버에서는 스스로 건너뜀).
+- 10/23 계약 테스트가 실제로 잡는지: 서버 `third_party` 필드를 지운 사본으로 돌리면 1개 실패, 되돌리면 통과.
