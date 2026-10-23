@@ -46,6 +46,9 @@ test("DEV-113: privacy policy covers the items the Personal Information Protecti
   for (const contact of ["privacy@anthropic.com", "privacy@openrouter.ai", "privacyquestions@cloudflare.com", "privacy@railway.com", "privacy@vercel.com", "privacy@posthog.com"])
     assert.ok(html.includes(contact), contact);
   assert.ok(!html.includes("도입 예정"));
+  // 앱 안 회원 탈퇴(DEV-94, 제38조 ④). 이메일 요청만 받던 문장은 남기지 않는다
+  assert.ok(html.includes("회원 탈퇴는 소비자 앱 ‘내 정보’"));
+  assert.ok(!html.includes("탈퇴 버튼이 없습니다"));
   // 서버·DB는 Railway asia-southeast1(싱가포르). railway status로 확인(10/23)
   assert.ok(html.includes("싱가포르(서버·데이터베이스 소재지)"));
   // 동의 없이 처리하는 정보는 법적 근거와 함께 구분해 적는다(제22조 제3항)
