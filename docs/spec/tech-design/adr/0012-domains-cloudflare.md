@@ -92,3 +92,7 @@ PR을 3번 전에 머지하면 배포 확인(`/health`, 사이트 200)과 OG 이
 - 카카오·PortOne·CORS 설정이 한 도메인 체계로 묶인다. 대신 서버의 앱 주소는 하나씩만 허용하므로, 전환 중 옛 vercel.app 주소의 실서버 빌드는 API 호출이 막힌다(Mock 빌드는 영향 없음).
 - 공유 링크가 소비자 앱(Vercel)을 한 번 더 거친다.
 - DNS·도메인 갱신은 사람이 관리한다. 도메인 만료일을 팀 캘린더에 둔다.
+
+## 갱신 (2026-10-23, DEV-127)
+
+Vercel 기본 주소 `farmclub-consumer.vercel.app`·`farmclub-producer.vercel.app`는 각 앱 `vercel.json`의 host 조건 리다이렉트로 `farmclub.kr`·`farm.farmclub.kr`에 영구 이동(308, 경로·쿼리 유지)한다. 서버 CORS와 카카오 복귀 주소가 정식 도메인만 받아 기본 주소에서는 로그인·API가 모두 막히고, 같은 사이트가 두 주소로 남으면 카카오 비즈 앱 심사·검색엔진에 혼동을 주기 때문이다. PostHog도 정식 도메인에서만 켜진다(DEV-125).
