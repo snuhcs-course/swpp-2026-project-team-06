@@ -73,6 +73,7 @@
 - 로컬 DB는 브랜치마다 따로 쓴다: `DATABASE_URL`의 DB 이름을 바꾼다(예: `farmclub_dev12`, pytest는 `_test`를 붙인 DB를 따로 만든다). 공용 `farmclub`에는 다른 브랜치의 마이그레이션이 섞여 `alembic upgrade`·테스트가 깨진다.
 - 머지는 사람 1명 Approve 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
+- 머지 전에 PR 체크(CI·spec-check)가 통과했는지 확인한다. main CI가 깨지면 머지한 사람이 바로 고치거나 revert한다(깨진 동안 다른 사람의 배포와 CI가 막힌다).
 
 ## 리뷰
 - CI 전용 Spec ↔ Code 보고 클라이언트는 `.github/spec-check/`에 둔다(DEV-40). 위의 `server/app/ai` 제한은 제품 AI 호출에 적용하며, CI는 별도 키·보호 환경을 사용하고 제품 어댑터/키를 재사용하지 않는다.

@@ -57,6 +57,6 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
    - base를 바꿨다면 push 뒤 server·apps·integration CI와 spec-check가 새로 돌았는지 본다.
    - 마이그레이션이 있으면 `cd server && uv run alembic heads`가 1개인지 확인한다. 겹치면 이 PR의 리비전 번호를 올린다.
 2. `tasks.md`의 상태를 "완료"로, 완료 조건을 체크한다.
-3. 사람 1명 Approve 확인 후 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
-4. 머지 뒤 바뀐 경로의 배포 대상(Railway 서버, Vercel 앱, Vercel 관리자 페이지)이 실제로 갱신됐는지 확인한다.
+3. PR 체크가 통과했는지, 사람 1명 Approve를 확인한 뒤 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
+4. 머지 뒤 main CI와 바뀐 경로의 배포 대상(Railway 서버, Vercel 앱, Vercel 관리자 페이지)을 확인한다. main CI가 깨지면 바로 고치거나 revert한다.
 5. Linear 이슈 "결과"(산출물·시간·커밋·배운 점, 배포 확인)를 채운다.

@@ -79,6 +79,7 @@ Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생
 - 10/23 공용/개인 분리: 근거 PR 작성자가 2명 이상인 것만 공용(쌓기 2명, Alembic 3명, 브랜치별 DB 3명, 시각 동률 2명). worktree 정리·PR 본문 먼저 읽기는 한 사람 세션에서만 생겨 개인 규칙(`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`)으로 옮김. base 변경 뒤 CI 확인은 쌓기 절차(`pr-context`)에, 시각 동률은 `pr-review` 테스트 항목에만 둠.
 - 10/23 PR 제목 요약도 영어로 제한(사용자 결정). squash merge 때 PR 제목이 main 커밋 제목이 되므로 브랜치와 같이 영어로 맞춘다. 본문·커밋 메시지는 그대로 한국어 가능.
 - 10/23 PR 쌓기: 금지 대신 절차로(기본 B → A 후 A → main, 대안 A 먼저 main 후 B `rebase --onto`). 임시 저장소 실험: 위에서부터 base 병합해야 spec-check diff가 B만 남고, A squash 뒤 B를 merge하면 B가 고친 A의 줄에서 충돌(rebase --onto는 없음). 도구 준비(CI·spec-check 트리거, Linear 브랜치 규칙, 선택 증분 spec-check)는 [DEV-126](https://linear.app/sswp6/issue/DEV-126) — 그 전까지는 쌓지 않는다.
+- 10/23 main 보호(필수 체크·up to date·승인 필수)는 강제하지 않고 권장. 대신 머지 전 체크 확인, main CI가 깨지면 머지한 사람이 바로 복구.
 - 10/22 보류: Co-Authored-By 끄기(SWPP-115 #157 미머지라 중복 안 함), 사람 Approve 규칙과 실제 운영 불일치(10/08 이후 머지 60건 중 59건 Approve 없음 — 팀 결정 필요), integration e2e 로케이터 간헐 실패(3건, 테스트 수정 이슈로).
 
 ### 작업
