@@ -42,7 +42,7 @@ Figure 1. Current components, interfaces and data boundaries. Solid arrows repre
 | --- | --- | --- |
 | Consumer | Discovery, Kakao onboarding, checkout, deposit reporting, orders, farm rooms and private inquiries | Expo Router / React Native Web; `farmclub.kr` on Vercel |
 | Producer | Application gate, farm settings and bank account, private product workspace, sales, deposit/refund confirmation, messaging and help tour | Separate Expo build/session namespace; `farm.farmclub.kr` on Vercel |
-| Operator | Farm approval, initial/increased capacity, test-farm visibility, user support, farmclub inbox and spec-code-review AI cost | Static HTML/JavaScript plus server-side Vercel proxy; `admin.farmclub.kr` |
+| Operator | Farm approval, initial/increased capacity, test-farm visibility, user support, farmclub inbox and AI cost by feature | Static HTML/JavaScript plus server-side Vercel proxy; `admin.farmclub.kr` |
 | Shared packages | Typed API transport, UI/detail renderer, web analytics | npm workspaces: `packages/api`, `packages/ui`, `packages/analytics` |
 | API | HTTP validation, role/ownership checks, transactions, chat AI, job submission and explicit publication | FastAPI / Uvicorn; `api.farmclub.kr` on Railway |
 | Source worker | Claim jobs, prepare documents, extract/validate candidates, persist partial/final results and cost ledger | `python -m app.source_analysis.worker`; separate Railway process/image |
@@ -239,7 +239,7 @@ The I5 expansion should select at least two patterns and provide the required cl
 | Kakao onboarding | Consumer profile/consents/address and producer application/state routing implemented; test login remains explicitly local/flagged |
 | Direct bank transfer | Instructions, deposit report/confirmation, deadline exceptions, issue reasons and farm refund-settlement records; no automatic bank reconciliation or custody |
 | Source workspace | API/worker and editor integrated; private save, explicit apply, original-photo placement and compatible legacy renderer; manual verification of omissions/numeric OCR remains necessary |
-| Operator tools | Browser session/proxy plus producer/capacity/farm/user/inbox operations and a read-only spec-code-review AI cost view (CI reports per-run tokens with a dedicated token); shared admin identity and limited attachment presentation |
+| Operator tools | Browser session/proxy plus producer/capacity/farm/user/inbox operations and a read-only AI cost view by feature (server AI calls are recorded on call; CI reports spec-check tokens with a dedicated token); shared admin identity and limited attachment presentation |
 | Media/share/brand | Public media storage/delivery, private source storage, approved-farm Open Graph preview and approved brand assets |
 | Communication | Wrong-answer reports, farmclub producer support and help tour extend existing private rooms/AI takeover |
 | Deployment/analytics | Vercel clients/admin and Railway API/worker; build-key-enabled PostHog client events and masked replay |

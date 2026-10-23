@@ -84,7 +84,7 @@ checker는 파일을 통째로 보내지 않는다. 모델이 받는 `context`�
 - `spec-code-review`는 보호 환경 승인 후 고정한 PR revision을 읽고 실제 모델을 호출한다.
 - live job은 `SPEC_CHECK_ENABLED=true`일 때만 실행한다. 비활성화된 동안에도 키 없는 계약 검증은 실행한다.
 - Checks → 해당 run → Summary와 report artifact를 확인한다.
-- 비용(DEV-144): 모델이 응답한 실행은 PR 번호·제목·결과·모델·입력/출력 토큰을 farmclub 서버(`SPEC_CHECK_USAGE_URL`)로 보내고, 관리자 페이지 [AI 비용](https://admin.farmclub.kr/ai-cost)에서 건별·합계를 본다. 금액은 서버 단가표(`server/app/admin/spec_check_cost.py` `PRICES`)로 계산한 추정치다. 보고 실패는 경고 한 줄만 남기고 리뷰 결과는 그대로다. `SPEC_CHECK_USAGE_URL`(environment variable)·`SPEC_CHECK_USAGE_TOKEN`(environment secret)이 없으면 보내지 않는다.
+- 비용(DEV-144): 모델이 응답한 실행은 PR 번호·제목·결과·모델·입력/출력 토큰을 farmclub 서버(`SPEC_CHECK_USAGE_URL`)로 보내고, 관리자 페이지 [AI 비용](https://admin.farmclub.kr/ai-cost)의 '코드 리뷰(spec-check)' 줄과 목록에서 본다(서버 AI 기능 비용과 함께 합계). 금액은 서버 단가표(`server/app/admin/ai_usage.py` `PRICES`)로 계산한 추정치다. 보고 실패는 경고 한 줄만 남기고 리뷰 결과는 그대로다. `SPEC_CHECK_USAGE_URL`(environment variable)·`SPEC_CHECK_USAGE_TOKEN`(environment secret)이 없으면 보내지 않는다.
 
 | 결과 | 의미와 조치 |
 | --- | --- |
