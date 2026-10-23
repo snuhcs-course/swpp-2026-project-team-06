@@ -339,6 +339,7 @@ each browser and never call the server.
 | `farmclub.kr` (`www` redirects here) | Consumer app and farm share links `/s/farms/<id>` | Vercel `farmclub-consumer` |
 | `farm.farmclub.kr` | Producer app | Vercel `farmclub-producer` |
 | `api.farmclub.kr` | FastAPI server, Swagger UI at `/docs` | Railway `farmclub-api` |
+| `demo.farmclub.kr` | Working demo site (videos), source in [`demo/`](demo/README.md) | Vercel `farmclub-demo`, deployed by the `deploy-demo` job (DEV-133) |
 
 `admin`, `dev` and `staging` are reserved; no DNS records exist until they have a target.
 The Vercel default addresses `farmclub-consumer.vercel.app` and `farmclub-producer.vercel.app`
