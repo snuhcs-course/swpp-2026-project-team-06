@@ -1,4 +1,4 @@
-# AI Collaboration Report – Iteration 2 (2026-10-11 ~ 2026-10-23)
+# AI Collaboration Report – Iteration 2 (2026-10-12 ~ 2026-10-23)
 
 **Contributors:** Minsun, Hyun, Jinwoo, Zahra
 
