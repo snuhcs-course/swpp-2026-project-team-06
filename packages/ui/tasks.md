@@ -524,7 +524,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] 생산자 로그인 하단 바 정리·여백 측정, 소비자 로그인 여백 측정
 - [x] Playwright: 푸터가 짧은 화면에서 바닥(하단 바 바로 위)에 붙는지, 360·390·430px 스크린샷
 - [x] Figma v6 반영
-- [ ] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`
 
 ### 완료 조건
 - [x] 생산자·소비자 로그인, 생산자 환경설정, 소비자 홈·내 정보에서 푸터가 내용 맨 아래(짧으면 화면 바닥)에 있다
@@ -538,3 +538,4 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/23 확인: Mock 대신 실서버 모드 앱 + API 응답 가로채기(카카오 켜짐·비로그인)로 360·390·430px 스크린샷, 생산자 푸터 아래끝 716 / 바 위끝 약 728, 중복 글자 0개. Playwright `legal-pages.spec.ts`에 같은 검사(폭 3개 × 두 앱) 추가.
 - 10/23 Figma v6(파일 X8RKiRPZbFEEEwi4OhkF0G): ‘현재 시안 · 소비자’ y 33500 줄 — 제목 481:7143, 명세 481:7144, 로그인 481:7145, 홈 481:7235, 내 정보 481:7364, SCR-06 재동의 481:7588, SCR-06 가입 동의 481:7635, SCR-10 동의 481:7702, /privacy 481:7756, /terms 481:7794. ‘현재 시안 · 생산자’ y 28600 줄 — 제목 481:7796, 명세 481:7797, P02 로그인 481:7798, P19 환경설정 481:7925, SCR-19a 재동의 481:8092, SCR-19a 가입 모드 481:8122, /privacy 481:8176, /terms 481:8214. 각 프레임을 PNG로 내보내 확인했다.
 - 10/23 후속 질문: 주문서 하단 바가 동의 5개(DEV-120) 뒤에도 ‘4개 중 N개 동의했어요’라고 쓴다(`apps/consumer/src/app/checkout/[productId]/index.tsx`). 이 작업 범위 밖이라 고치지 않았다.
+- 10/23 main 병합 후 재검증: `npm run typecheck` 통과, `npm run test:mock` 40/40, 실서버 통합 시나리오 7/7 + Playwright 24/24(legal-pages·legal-consent·consumer-kakao·producer-kakao·producer-and-privacy·discovery-and-gates·brand-logo·checkout-and-fulfillment).
