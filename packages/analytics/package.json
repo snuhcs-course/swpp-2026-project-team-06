@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "posthog-js": "1.434.14"
+    "posthog-js": "1.434.14",
+    "posthog-react-native": "^4.81.10"
   }
 }
