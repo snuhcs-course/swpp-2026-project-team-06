@@ -25,7 +25,7 @@
 5. **구현**: `tasks.md`를 기준으로 작업하고, 체크리스트·결정 사항을 계속 갱신한다.
 6. **리뷰 요청**: AI 1차 리뷰(`pr-review` 스킬) 반영 → draft 해제 → 사람 리뷰어 1명 지정.
 7. **리뷰 반영**: 코멘트마다 수정 커밋 또는 답글로 닫는다.
-8. **머지**: `main` → branch 병합으로 최신화하고 확인 → branch → `main` 머지 → GitHub Actions가 배포 → 배포 확인.
+8. **머지**: base(보통 `main`) → branch 병합으로 최신화하고 확인 → branch → `main` 머지 → GitHub Actions가 배포 → 배포 확인.
 
 ## Spec-Anchored 원칙 (에이전트 필수)
 - 작업 시작 전 관련 제품 스펙(FEAT·규칙) → 작업 폴더 `spec.md` → `tasks.md`의 이 이슈 섹션 순으로 읽는다. 없으면 코드를 고치기 전에 `spec` 스킬로 만든다.
@@ -61,7 +61,7 @@
 - 브랜치 이름과 커밋 메시지, PR 제목에 **이슈 키(`DEV-12`, `SWPP-34`)를 반드시 넣는다** — PR이 Linear 이슈에 자동 연결된다. 개발은 `DEV-xx`, 기획·문서는 `SWPP-xx`.
 - 브랜치 이름은 `<github 아이디>/<이슈 키 소문자>-<영어 요약 2~5단어>`(소문자·숫자·하이픈만, 예: `nemodleo/swpp-119-ascii-branch-names`). **한글을 쓰지 않는다** — Linear "Copy git branch name"은 한글 제목을 넣으므로 쓰지 않는다. 이슈 키만 있으면 Linear가 PR을 연결한다.
 - PR을 연 뒤에는 브랜치 이름을 바꾸지 않는다(GitHub가 PR을 닫는다).
-- 다른 작업 브랜치 위에 PR을 쌓지 않는다. base는 항상 `main`이고, 선행 작업이 필요하면 선행 PR이 머지된 뒤 `origin/main`에서 브랜치를 만든다. 상세는 `pr-context` 스킬.
+- PR은 기본적으로 `origin/main`에서 따고 base를 `main`으로 둔다. 선행 작업의 일부만 필요하면 그 부분을 작은 PR로 먼저 머지한다. 쌓기(base = 다른 작업 브랜치)는 한 단계까지만 하고 `pr-context` 스킬 "PR 쌓기" 절차를 따른다. **DEV-126(CI·spec-check 트리거 수정) 전까지는 쌓지 않는다.**
 - 마이그레이션을 추가한 PR은 머지 직전 `main`을 병합하고 `alembic heads`가 1개인지 확인한다. 리비전 번호가 겹치면 뒤에 머지하는 쪽이 번호를 올린다.
 - 커밋: `type(scope): 요약 (DEV-12)` — type은 `feat` `fix` `docs` `refactor` `test` `chore`. 한 커밋은 한 가지 변경.
 - PR 제목: `[DEV-12] <English summary>` — 요약은 **영어로** 쓴다(squash merge 때 main 커밋 제목이 된다). 본문은 `.github/pull_request_template.md`를 채운다.

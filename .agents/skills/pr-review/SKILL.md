@@ -52,8 +52,9 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 - 반영 후 다시 리뷰를 요청한다.
 
 ## 4. 머지 직전
-1. `git fetch && git merge origin/main`으로 branch를 최신화하고 충돌·테스트를 확인해 push한다.
-   - PR base가 `main`인지 확인한다. base를 바꿨다면 push 뒤 server·apps·integration CI가 새로 돌았는지 본다.
+1. `git fetch && git merge origin/<base>`(보통 `main`)로 branch를 최신화하고 충돌·테스트를 확인해 push한다.
+   - 쌓은 PR은 base 브랜치가 먼저 main을 받아 둔다(위에서부터). 절차는 `pr-context` "PR 쌓기".
+   - base를 바꿨다면 push 뒤 server·apps·integration CI와 spec-check가 새로 돌았는지 본다.
    - 마이그레이션이 있으면 `cd server && uv run alembic heads`가 1개인지 확인한다. 겹치면 이 PR의 리비전 번호를 올린다.
 2. `tasks.md`의 상태를 "완료"로, 완료 조건을 체크한다.
 3. 사람 1명 Approve 확인 후 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
