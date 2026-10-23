@@ -106,6 +106,9 @@ test("DEV-140·142: privacy policy lists the Kakao phone as required (no Kakao n
   // DEV-142: 소비자 가입은 닉네임·휴대폰만, 이름·배송지는 첫 주문서에서 받는다
   assert.match(html, /첫 주문서의 연락처 칸/);
   assert.doesNotMatch(html, /\(선택\) 기본 배송지/);
+  // 배송지 저장은 미리 체크된 칸이라 동의가 아니라 계약 이행으로 처리한다
+  assert.doesNotMatch(html, /저장을 고를 때 받음/);
+  assert.match(html, /배송지를 기본으로 저장/);
 });
 
 test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async () => {
