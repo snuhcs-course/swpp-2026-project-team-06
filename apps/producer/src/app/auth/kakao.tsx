@@ -1,6 +1,7 @@
 // 생산자 앱 카카오 로그인 복귀 /auth/kakao (FEAT-01 I2, AC-01-16, DEV-74·DEV-108)
 // 인가 코드를 서버에 넘겨 생산자 계정으로 로그인하고, 농가 상태별 첫 화면(gate.ts homeFor)으로 바로 보낸다.
 // 처음이면 농가 없는 계정이 생겨 가입 신청으로 간다. 이미 로그인된 채 다시 열면(새로고침) 오류 없이 첫 화면으로 간다.
+// 앱(iOS·Android)에서 시작한 로그인이 웹으로 떨어지면(state가 app-) 코드를 앱 스킴으로 넘기고, 앱에서는 같은 화면이 코드를 받아 이어 간다(DEV-33)
 import { ApiError, auth, getToken, type User } from "@farmclub/api";
 import { Button, EmptyState, Screen, T, tokens } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -8,7 +9,12 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { homeFor } from "../../lib/gate";
-import { takeKakaoNonce } from "../../lib/kakao";
+import {
+  appReturnUrl,
+  forwardToApp,
+  kakaoCallbackUri,
+  takeKakaoNonce,
+} from "../../lib/kakao";
 import { useSession } from "../../lib/session";
 
 /** 서버가 이만큼 답하지 않으면 멈춘 채 두지 않고 다시 로그인을 안내한다 */
@@ -41,6 +47,8 @@ export default function KakaoCallback() {
   const router = useRouter();
   const { refresh } = useSession();
   const [failed, setFailed] = useState<string | null>(null);
+  // 앱에서 시작한 로그인을 웹이 받았을 때 넘길 앱 주소(웹 전용)
+  const [toApp, setToApp] = useState<string | null>(null);
   const ran = useRef(false);
   // 관문이 먼저 다른 화면으로 보냈으면 여기서 다시 이동하지 않는다
   const mounted = useRef(true);
@@ -55,6 +63,13 @@ export default function KakaoCallback() {
     // 인가 코드는 한 번만 쓸 수 있다. StrictMode·재렌더에서 두 번 보내지 않는다
     if (ran.current) return;
     ran.current = true;
+    // 앱에서 시작한 로그인(state가 app-)이 웹 복귀 주소로 떨어졌다: 코드를 앱으로 넘기고 끝낸다
+    const app = appReturnUrl({ code, state, error });
+    if (app) {
+      setToApp(app);
+      forwardToApp(app);
+      return;
+    }
     const nonce = takeKakaoNonce();
     const goHome = (u: User) => {
       if (mounted.current) router.replace(homeFor(u).home as never);
@@ -97,7 +112,7 @@ export default function KakaoCallback() {
         // 새 사용자는 계정 없이 가입 토큰만 온다. 약관 동의(/consent)에서 계정을 만든다(DEV-132)
         const u = await withTimeout(
           (async () => {
-            const r = await auth.kakaoLogin(code, `${window.location.origin}/auth/kakao`);
+            const r = await auth.kakaoLogin(code, kakaoCallbackUri());
             return r.signup ? ("signup" as const) : refresh();
           })(),
           KAKAO_LOGIN_TIMEOUT_MS,
@@ -122,7 +137,22 @@ export default function KakaoCallback() {
 
   return (
     <Screen>
-      {failed ? (
+      {toApp ? (
+        <EmptyState
+          icon="lock"
+          title="앱으로 돌아가는 중이에요"
+          body="자동으로 열리지 않으면 아래 버튼을 눌러 주세요."
+          action={
+            <Button
+              label="farmclub 농가 앱 열기"
+              variant="outline"
+              size="producer"
+              onPress={() => forwardToApp(toApp)}
+              style={{ alignSelf: "center", marginTop: 12, paddingHorizontal: 24 }}
+            />
+          }
+        />
+      ) : failed ? (
         <EmptyState
           icon="alert"
           title={failed}
