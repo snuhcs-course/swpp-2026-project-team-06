@@ -412,7 +412,7 @@ function Fold({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
+        aria-expanded={open}
         onPress={onPress}
         style={{
           flexDirection: "row",

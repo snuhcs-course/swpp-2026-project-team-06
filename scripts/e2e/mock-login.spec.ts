@@ -16,6 +16,10 @@ test("AC_01_1 DEV-136 consumer Mock login shows Kakao and seeded accounts, and a
   await expect(page.getByText("Mock: 카카오로 시작하면 처음 가입하는 새 소비자로 들어가요")).toBeVisible();
   await expect(page.getByRole("radio").filter({ hasText: "김민지" })).toBeVisible();
   await expect(page.getByRole("radio").filter({ hasText: "이서준" })).toBeVisible();
+  // DEV-141: 고른 계정이 aria-checked로 나온다
+  await page.getByRole("radio").filter({ hasText: "이서준" }).click();
+  await expect(page.getByRole("radio").filter({ hasText: "이서준" })).toBeChecked();
+  await expect(page.getByRole("radio").filter({ hasText: "김민지" })).not.toBeChecked();
   await loginConsumer(page, "이서준");
 });
 

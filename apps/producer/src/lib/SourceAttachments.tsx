@@ -93,7 +93,6 @@ function Tile({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={representative ? "대표사진" : "대표로 지정"}
-            accessibilityState={{ selected: representative }}
             aria-pressed={representative}
             disabled={disabled}
             onPress={onRepresentative}

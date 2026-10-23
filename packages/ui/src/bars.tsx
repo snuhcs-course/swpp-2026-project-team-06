@@ -179,7 +179,6 @@ export function TabBar({ items }: { items: TabItem[] }) {
           <Pressable
             key={it.key}
             accessibilityRole="tab"
-            accessibilityState={{ selected: it.active }}
             aria-selected={it.active}
             accessibilityLabel={
               it.badge ? `${it.label}, 안 읽음 ${it.badge}` : it.label

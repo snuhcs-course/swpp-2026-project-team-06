@@ -591,3 +591,43 @@ DEV-78 동의 항목 심사에서 이름·카카오계정(전화번호)을 필�
 - 10/23 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed(새 DEV-140 테스트 포함). `uv run ruff check` 통과. `uv run pytest`(격리 DB `farmclub_dev140_test`) 436 passed — 첫 `-x` 실행에서 `test_retire_test_farm.py::test_DEV_93_restore_reopens_only_farms_this_command_hid`가 1번 실패했고 단독 실행·전체 재실행에서는 통과(이 PR과 무관한 순서·시간 의존으로 보임). 실서버 통합(`run-integration.mjs`, 임시 DB `farmclub_dev140`, 끝나고 DROP): 시나리오 7 passed, Playwright legal-pages·legal-consent·consumer-kakao·producer-kakao 14 passed / 3 skipped.
 - 10/23 Figma v6(파일 X8RKiRPZbFEEEwi4OhkF0G): 소비자 `/privacy` 481:7756(수정 전 사본 488:2988), 생산자 `/privacy` 481:8176(수정 전 사본 488:3046), 생산자 `/consent` 481:8092·481:8122(버전 글자). 고친 프레임 이름 끝 " · DEV-140 수정". 소비자 프레임을 PNG로 내보내 제1조·제2조를 확인했다.
 - 10/23 AI 1차 리뷰: must 없음, should(screens.md SCR-19a 버전 글자) 반영. 사용자 지시로 머지 진행. 머지 전 origin/main(3cb431f) 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 통과.
+
+## DEV-141 웹에서 체크·선택·펼침 상태가 aria 속성으로 나오게 (accessibilityState → aria-*)
+
+- 이슈: [DEV-141](https://linear.app/sswp6/issue/DEV-141) (관련 DEV-138)
+- 브랜치: `nemodleo/dev-141-aria-state`
+- 기능·규칙: 화면 공통 접근성(`docs/spec/screens.md` 공통 규칙), FEAT-01 SCR-06(가입·재동의 동의), SCR-10(주문서 동의)
+- 상태: 진행 중
+
+### 목표
+react-native-web 0.21은 `accessibilityState={{…}}`를 DOM에 옮기지 않는다(`createDOMProps`는 `aria-*`와 옛 단일 `accessibilityChecked` 류만 본다). 그래서 웹에서 체크·선택·펼침·로딩 상태가 스크린리더에 안 나간다. 26곳을 `aria-*` prop으로 바꾼다. 화면 모양·동작·문구는 그대로.
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{content,Button,bars,Storefront,NewsRoom}.tsx`, `packages/ui/tasks.md`
+- `apps/consumer/src/app/{login.tsx,(tabs)/products/[productId].tsx,(tabs)/orders/index.tsx}`, `apps/consumer/src/lib/views.tsx`
+- `apps/producer/src/app/{login,ship}.tsx`, `apps/producer/src/app/(tabs)/products/index.tsx`, `apps/producer/src/lib/{SourceAttachments,fields,SourceWorkspace,PageCanvas,SectionSwitch}.tsx`
+- `scripts/e2e/{checkout-and-fulfillment,discovery-and-gates,mock-login}.spec.ts`
+
+### 비범위
+- 스타일·문구·동작, `scripts/admin-web`, 네이티브 빌드 확인(앱은 웹 출력만 배포)
+
+### 결정 사항
+- 10/23 역할별 속성: checkbox·switch·radio → `aria-checked`(radio의 `selected`도 `aria-checked`로 — ARIA radio 상태는 checked), tab → `aria-selected`(이미 있으면 `accessibilityState`만 지움), 펼침 → `aria-expanded`, 로딩 → `aria-busy`.
+- 10/23 `role="button"`인데 `selected`였던 토글(팔로우, 좋아요, 달력 시작·끝날)은 `aria-pressed`로 바꾼다. `aria-selected`는 button에서 ARIA가 허용하지 않아 스크린리더가 읽지 않는다. 대표사진 버튼은 이미 `aria-pressed`가 있어 `accessibilityState`만 지운다.
+- 10/23 `disabled`는 넣지 않는다. 모든 곳에 Pressable `disabled` prop이 이미 있고, react-native-web Pressable이 그걸로 `aria-disabled`를 만든다.
+
+### 작업
+- [x] 26곳 `accessibilityState` → `aria-*`
+- [x] Playwright: 주문서 '모두 동의해요' 뒤 제3자 제공 `toBeChecked()`, Mock 로그인 계정 라디오 `toBeChecked()`, 상품정보 접기 `aria-expanded`
+- [x] `npm run typecheck`, `npm run test:mock`, 관련 Playwright
+
+### 완료 조건
+- [x] `grep -rn accessibilityState packages/ui/src apps --include='*.tsx'` 0건
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main 3cb431f에서 시작.
+- 10/23 확인: `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed. 실서버(`DATABASE_URL=…/farmclub_dev141 node scripts/run-integration.mjs <3 spec>`, 임시 DB는 끝나고 DROP): 실서버 시나리오 7/7, Playwright 5 passed / 2 skipped(mock-login은 공유 Mock 필요) — checkout-and-fulfillment 2, discovery-and-gates 3. Mock 스택(`npm run dev`)에서 `mock-login.spec.ts` 2 passed.
+- 10/23 origin/main 3ef3c04(DEV-140) 병합(tasks.md 섹션만 충돌, 둘 다 남김). 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed, 실서버 시나리오 7/7 + Playwright 5 passed / 0 failed(checkout-and-fulfillment·discovery-and-gates).
+- 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should — 주문서 '받는 곳' 시트 주소 줄(radio)에 상태 속성이 원래 없음(checkout 파일은 범위 밖·PR #280 진행 중이라 후속). nit — `aria-pressed`는 RN 네이티브 미지원(웹 배포만이라 영향 없음). draft 해제.
