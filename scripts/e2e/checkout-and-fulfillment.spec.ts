@@ -10,7 +10,7 @@ import {
   producerUrl,
 } from "./helpers";
 
-test("AC-08/09/10: consumer checkout reaches producer and preserves status", async ({
+test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and preserves status", async ({
   browser,
   request,
 }) => {
@@ -42,8 +42,19 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
     .fill("제주특별자치도 서귀포시 통합로 25");
   await consumerPage.getByLabel("상세 주소").fill("통합동 101호");
   await consumerPage.getByRole("button", { name: "이 주소로 받기" }).click();
+  // AC-08-1 (DEV-138): 일부만 동의하면 개수(ORDER_CONSENT_KEYS 5개)를 보이고 예약할 수 없다. 모두 동의하면 켜진다
+  const reserve = consumerPage.getByRole("button", { name: "예약하기" });
+  for (const title of ["받는 시기", "지연 시 환불", "흉작·수량 부족", "취소·반품 조건"])
+    await consumerPage.getByRole("checkbox", { name: title, exact: true }).click();
+  await expect(
+    consumerPage.getByText("5개 중 4개 동의했어요. 모두 동의하면 예약할 수 있어요."),
+  ).toBeVisible();
+  await expect(reserve).toBeDisabled();
+  // Checkbox는 웹에서 aria-checked를 내지 않아(accessibilityState) toBeChecked 대신 개수 문구가 사라지는지 본다
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
-  await consumerPage.getByRole("button", { name: "예약하기" }).click();
+  await expect(consumerPage.getByText(/개 중 \d+개 동의했어요/)).toHaveCount(0);
+  await expect(reserve).toBeEnabled();
+  await reserve.click();
   // DEV-68: 입금 안내(농가 계좌·입금자명=주문 번호·기한·중개자 고지) → 입금했어요 → 입금 확인 중
   await expect(consumerPage).toHaveURL(/\/pay/);
   await expect(consumerPage.getByText("101-23-456789")).toBeVisible();

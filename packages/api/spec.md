@@ -80,3 +80,10 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 
 ### DEV-58 통합 편집
 AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
+
+## DEV-138 주문 동의 항목 단일 목록 (2026-10-23)
+
+| 결정 | 이유 |
+| --- | --- |
+| 주문서 예약 전 동의 키는 `src/orderConsents.ts`의 `ORDER_CONSENT_KEYS` 하나가 원본이다. `OrderInput["consents"]` 타입, Mock 검사, 주문서 초기값·‘모두 동의해요’·개수·문구가 이 목록에서 계산한다. 파일은 import 없이 지울 수 있는 타입만 쓴다 | DEV-120에서 항목을 늘릴 때 화면 문구의 숫자(‘4개 중’)를 놓쳤다. 계약 테스트가 Node로 바로 import한다 |
+| 서버(`server/app/orders/schemas.py` `Consents`, `service.py` 검사·오류 문구)와 같은지는 `scripts/test-order-consents.mjs`(`test:mock`)가 본다 | 서버는 Python이라 목록을 공유할 수 없다. 한쪽만 바뀌면 CI가 실패한다 |

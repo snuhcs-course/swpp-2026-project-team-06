@@ -547,3 +547,48 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 40 passed / 0 failed, Mock(공유 Mock 8183, 앱 8181·8182 — 다른 세션이 8081·8082 사용 중이라 포트만 바꿈)에서 `npx playwright test scripts/e2e/mock-login.spec.ts scripts/e2e/legal-consent.spec.ts` 5 passed. 수정 전 조건으로 되돌리면 새 소비자 테스트가 실패(1 failed)하는 것 확인 후 복구, 다시 2 passed. 실서버 `test:integration:full`은 안 돌림(이 변경은 `isMock`일 때만 동작이 달라짐, CI integration job이 확인)
 - 10/23 AI 1차 리뷰(PR 코멘트) must·should 없음, nit 1(e2e 건너뛰기 조건, legal-consent와 같은 방식이라 유지). CI server·apps·integration·figma-line 통과
 - 10/23 main(397e5bf, DEV-116 로그인 하단 푸터) 병합: `login.tsx`·screens.md·wiki 자동 병합. 재검증 typecheck 통과, test:mock 40 passed, Mock에서 mock-login 2·legal-consent 3·legal-pages DEV-113 2 passed. legal-pages DEV-116 6개는 Mock 빌드에서 실패 — 카카오 켜진 실서버 화면(목록 없음)을 가정한 테스트라 Mock에서는 생산자도 원래 실패(이번 변경과 무관), 실서버 빌드인 CI integration에서 확인
+
+## DEV-138 Single source for checkout consent keys
+
+- 이슈: [DEV-138](https://linear.app/sswp6/issue/DEV-138)
+- 브랜치: `nemodleo/dev-138-order-consent-keys`
+- 기능·규칙: FEAT-08 AC-08-1, R-03, policy.md 2장, DEV-120(제3자 제공 동의)
+- 상태: 진행 중
+
+### 목표
+DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개 중 N개 동의했어요’로 남았다(개수를 숫자로 직접 씀). 동의 키를 한 곳에 두고 나머지를 거기서 계산해, 항목을 늘려도 한 곳만 고치면 되게 한다. 서버와 앱 목록이 어긋나면 CI가 잡게 한다.
+
+### 범위 (수정 허용 경로)
+- `packages/api/src/{orderConsents.ts,types.ts,index.ts,mock/orders.ts}`
+- `packages/api/spec.md`(결정 한 줄)
+- `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/tasks.md`
+- `scripts/test-order-consents.mjs`(새 계약 테스트), `package.json`(test:mock에 추가)
+- `scripts/e2e/checkout-and-fulfillment.spec.ts`(일부 동의 상태)
+
+### 비범위
+- 서버 동작(`server/app/orders/*` 검사 규칙·문구), 동의 문안, 동의 화면 모양, Figma
+
+### 결정 사항
+- 10/23 키 목록은 import 없는 새 파일 `packages/api/src/orderConsents.ts`에 둔다. 계약 테스트가 Node type stripping으로 바로 import한다(`test-legal.mjs`와 같은 방식). 타입 `OrderInput["consents"]`는 이 목록에서 만든다.
+- 10/23 서버는 Python이라 목록을 공유하지 않는다. 계약 테스트가 `server/app/orders/schemas.py`의 `class Consents` 필드(snake_case)를 읽어 앱 목록(camelCase로 바꿔)과 순서까지 같은지 본다.
+
+- 10/23 `Checkbox`(`packages/ui/src/content.tsx`)는 `accessibilityState`만 써서 웹에서 `aria-checked`가 나오지 않는다(스크린 리더가 체크 상태를 못 읽음). 이 작업 범위 밖이라 고치지 않고, Playwright는 `toBeChecked` 대신 개수 문구·버튼 상태로 확인한다. 후속 이슈로 남긴다.
+
+### 작업
+- [x] `ORDER_CONSENT_KEYS`와 타입, Mock 검사
+- [x] 주문서 초기값·전체 동의·개수·문구를 목록에서 계산
+- [x] 계약 테스트(`test:mock`)
+- [x] Playwright 일부 동의 상태(AC-08-1)
+- [x] typecheck, test:mock, pytest(orders), Playwright
+
+### 완료 조건
+- [x] 주문서에서 숫자 4·5를 직접 쓰는 곳이 없다
+- [x] 서버·앱 목록이 어긋나면 `test:mock`이 실패한다
+- [x] 일부 동의 상태 문구와 예약하기 꺼짐을 테스트가 확인한다
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main 74394f5에서 시작. DEV-116 작업 중 발견(`git blame`: 문구는 10/18 54dc274, DEV-120 9a558ef는 `=== 5`만 고침).
+- 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 44/44(새 `test-order-consents.mjs` 3개 포함), `cd server && uv run pytest tests/test_orders.py` 33/33(DB `farmclub_dev138_test`), 실서버 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, DB `farmclub_dev138`, `checkout-and-fulfillment.spec.ts legal-consent.spec.ts`) 시나리오 7/7, Playwright 2 통과·3 건너뜀(legal-consent는 공유 Mock이 있어야 돌아 실서버에서는 스스로 건너뜀).
+- 10/23 계약 테스트가 실제로 잡는지: 서버 `third_party` 필드를 지운 사본으로 돌리면 1개 실패, 되돌리면 통과.
+- 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should 2(main 병합, Checkbox `aria-checked` 후속 이슈), nit 2(정규식 계약 테스트, 머리 주석 길이)는 유지. main(57dcb0b, DEV-136·137) 병합 — `apps/consumer/tasks.md` 끝 섹션 충돌만 있어 두 섹션을 모두 남김(DEV-136 → DEV-138 순). 재검증: typecheck 통과, test:mock 44/44, 실서버 시나리오 7/7 + checkout Playwright 2/2.

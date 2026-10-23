@@ -1,12 +1,16 @@
-// SCR-10 주문서 (FEAT-08, R-03 동의 4개는 policy.md 2장 문구) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
+// SCR-10 주문서 (FEAT-08, R-03 동의 4개 + 제3자 제공은 policy.md 2장 문구, 항목은 ORDER_CONSENT_KEYS) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
 import { track } from "@farmclub/analytics";
 import {
   ApiError,
+  ORDER_CONSENT_KEYS,
+  agreedCount,
   auth,
   catalog,
   newIdempotencyKey,
+  orderConsents,
   orders,
   type Address,
+  type OrderConsentKey,
   type Recipient,
 } from "@farmclub/api";
 import {
@@ -68,13 +72,7 @@ export default function Checkout() {
   const [qty, setQty] = useState(Number(params.quantity ?? 1) || 1);
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const [memo, setMemo] = useState("");
-  const [consents, setConsents] = useState({
-    deliveryWindow: false,
-    delayRefund: false,
-    shortage: false,
-    cancelPolicy: false,
-    thirdParty: false,
-  });
+  const [consents, setConsents] = useState(() => orderConsents(false));
   const [sheet, setSheet] = useState<null | "option" | "address">(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -138,40 +136,39 @@ export default function Checkout() {
       : 0;
   const shipping = p?.shippingFeeType === "SEPARATE" ? p.shippingFee : 0;
   const total = unit * qty + shipping + remoteFee;
-  const agreed = Object.values(consents).filter(Boolean).length;
-  const allAgreed = agreed === 5;
+  // 항목 수는 ORDER_CONSENT_KEYS에서 센다(DEV-138). 숫자를 직접 쓰지 않는다
+  const consentTotal = ORDER_CONSENT_KEYS.length;
+  const agreed = agreedCount(consents);
+  const allAgreed = agreed === consentTotal;
   const canPay = !!recipient && allAgreed && !!p && !p.soldOut;
 
   const consentText = useMemo(() => {
     if (!p) return null;
-    return [
-      {
-        key: "deliveryWindow" as const,
+    // 항목마다 문구를 하나씩. 키가 빠지면 타입 오류가 난다(DEV-138). 순서는 ORDER_CONSENT_KEYS
+    const text: Record<OrderConsentKey, { title: string; body: string }> = {
+      deliveryWindow: {
         title: "받는 시기",
         body: `이 상품은 수확 전 예약 상품이에요. ${fullPeriod(p.deliveryWindow.start, p.deliveryWindow.end)} 사이에 받아요. 농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.`,
       },
-      {
-        key: "delayRefund" as const,
+      delayRefund: {
         title: "지연 시 환불",
         body: `${md(p.maxDelayUntil)}까지 출하되지 않으면 자동으로 전액 환불해 드려요.`,
       },
-      {
-        key: "shortage" as const,
+      shortage: {
         title: "흉작·수량 부족",
         body: "날씨 등으로 수확량이 모자라면 받을 수 있는 만큼 나눠 보내고, 나머지는 바로 환불해 드려요.",
       },
-      {
-        key: "cancelPolicy" as const,
+      cancelPolicy: {
         title: "취소·반품 조건",
         body: "출하 전에는 언제든 취소하고 전액 환불받을 수 있어요. 신선식품이라 출하 후에는 단순 변심 취소·반품이 안 되고, 받은 상품에 문제가 있을 때만 환불·교환해 드려요.",
       },
-      {
-        // 개인정보 제3자 제공 동의(DEV-120, 개인정보보호법 제17조 ②의 고지 5가지)
-        key: "thirdParty" as const,
+      // 개인정보 제3자 제공 동의(DEV-120, 개인정보보호법 제17조 ②의 고지 5가지)
+      thirdParty: {
         title: "개인정보 제3자 제공 (판매자)",
         body: `받는 분: 판매자 ${p.farmName}. 목적: 상품 배송, 주문 이행, 주문 문의 응대. 항목: 받는 사람 이름·연락처·주소·배송 메모, 주문 내용, 닉네임. 기간: 주문 이행이 끝날 때까지(판매자는 법령이 정한 기간 동안 보관할 수 있어요). 동의하지 않을 수 있지만, 그러면 판매자가 보낼 곳을 몰라 예약할 수 없어요.`,
       },
-    ];
+    };
+    return ORDER_CONSENT_KEYS.map((key) => ({ key, ...text[key] }));
   }, [p]);
 
   async function submit() {
@@ -411,16 +408,7 @@ export default function Checkout() {
           <Checkbox
             checked={allAgreed}
             label="모두 동의해요"
-            onPress={() => {
-              const v = !allAgreed;
-              setConsents({
-                deliveryWindow: v,
-                delayRefund: v,
-                shortage: v,
-                cancelPolicy: v,
-                thirdParty: v,
-              });
-            }}
+            onPress={() => setConsents(orderConsents(!allAgreed))}
           >
             <T variant="body" weight="bold">
               모두 동의해요
@@ -499,7 +487,7 @@ export default function Checkout() {
             </T>
           ) : !allAgreed ? (
             <T variant="sub" style={{ flex: 1 }}>
-              4개 중 {agreed}개 동의했어요. 모두 동의하면 예약할 수 있어요.
+              {consentTotal}개 중 {agreed}개 동의했어요. 모두 동의하면 예약할 수 있어요.
             </T>
           ) : (
             `${opt?.label ?? ""} × ${qty} · ${remoteFee ? `도서산간 ${won(remoteFee)}` : shipping ? `배송비 ${won(shipping)}` : "무료배송"}`

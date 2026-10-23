@@ -17,6 +17,7 @@ import {
   register,
 } from "./router";
 import { ADDRESS_LIMIT } from "./auth";
+import { ORDER_CONSENT_KEYS, allOrderConsents } from "../orderConsents";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 /** 도서산간(예시): 제주·울릉·옹진 등 우편번호 앞자리 */
@@ -141,10 +142,9 @@ register({
         fields.address = "받는 곳을 입력해 주세요";
       if ((b.deliveryNote ?? "").length > 100)
         fields.deliveryNote = "배송 메모는 100자까지예요";
-      const c = b.consents ?? ({} as OrderInput["consents"]);
-      // R-03 4개 + 개인정보 제3자 제공(판매자 농가, DEV-120). 서버와 같은 규칙
-      if (!c.deliveryWindow || !c.delayRefund || !c.shortage || !c.cancelPolicy || !c.thirdParty)
-        fields.consents = "예약 전 확인 5개에 모두 동의해 주세요";
+      // R-03 4개 + 개인정보 제3자 제공(판매자 농가, DEV-120). 서버와 같은 규칙, 항목은 ORDER_CONSENT_KEYS(DEV-138)
+      if (!allOrderConsents(b.consents))
+        fields.consents = `예약 전 확인 ${ORDER_CONSENT_KEYS.length}개에 모두 동의해 주세요`;
       if (Object.keys(fields).length) invalid(fields);
       const s = assertSale(ctx.db, p, b.optionId, b.quantity);
       const remoteFee = REMOTE(b.postalCode, b.address) ? p.remoteAreaFee : 0;
