@@ -40,8 +40,12 @@ function uploadVideos(dir, tag) {
   if (!dir) throw new Error("usage: node demo/videos.mjs upload <folder with mp4 files> [release tag]");
   const current = existsSync(manifestPath) ? readManifest() : { release: tag, files: {} };
   const release = tag ?? current.release;
+  if (!release) throw new Error("no release tag: pass one, e.g. node demo/videos.mjs upload <folder> demo-i3");
   const names = readdirSync(dir).filter((f) => f.endsWith(".mp4")).sort();
   if (!names.length) throw new Error(`${dir} has no .mp4 files`);
+  // 새 Release로 옮길 때는 사이트가 쓰는 영상을 모두 올려야 한다(빠지면 배포 뒤 404)
+  const missing = release === current.release ? [] : Object.keys(current.files).filter((n) => !names.includes(n));
+  if (missing.length) throw new Error(`a new release needs every video; missing: ${missing.join(", ")}`);
   const gh = (args) => execFileSync("gh", ["--repo", repo, ...args], { stdio: ["ignore", "pipe", "inherit"] }).toString();
   try {
     gh(["release", "view", release]);

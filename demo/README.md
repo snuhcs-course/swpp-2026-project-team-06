@@ -17,11 +17,11 @@ main에 머지되면 `.github/workflows/deploy-vercel.yml`의 `deploy-demo` job�
 
 ## 고치는 법
 
-**문구·페이지만 고칠 때**: `site/**`을 고쳐 PR → 머지하면 배포된다. 로컬 확인은 `node demo/videos.mjs fetch && npx serve demo/site`.
+**문구·페이지만 고칠 때**: `site/**`을 고쳐 PR → 머지하면 배포된다. 로컬 확인은 `node demo/videos.mjs fetch && npx serve@14.2.4 demo/site`.
 
 **영상을 다시 찍었을 때**
 1. 새 mp4를 한 폴더에 지금과 같은 이름(`story.mp4`, `consumer.mp4`, `producer.mp4`, `admin.mp4`)으로 둔다. 일부만 바꿔도 된다
-2. `node demo/videos.mjs upload <폴더>` — `demo-i2` Release의 같은 이름 파일을 교체하고 `videos.json`의 SHA-256을 바꾼다(`gh` 로그인 필요). 새 iteration은 태그를 붙인다: `node demo/videos.mjs upload <폴더> demo-i3`
+2. `node demo/videos.mjs upload <폴더>` — `demo-i2` Release의 같은 이름 파일을 교체하고 `videos.json`의 SHA-256을 바꾼다(`gh` 로그인 필요). 새 iteration은 태그를 붙인다: `node demo/videos.mjs upload <폴더> demo-i3`(새 태그는 영상 4개를 모두 올려야 한다)
 3. 영상 길이·단계가 바뀌었으면 `site/**/index.html`의 길이 표기(예: `4:55`)와 단계 목록을 손으로 고친다(자동화는 DEV-134)
 4. `demo/videos.json`(+ HTML) 커밋 → PR → 머지 → 배포
 

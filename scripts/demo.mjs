@@ -18,6 +18,7 @@ const apiUrl = `http://localhost:${apiPort}`;
 const consumerUrl = `http://localhost:${consumerPort}`;
 const producerUrl = `http://localhost:${producerPort}`;
 const demoDb = process.env.DEMO_DB ?? "farmclub";
+if (!/^[a-z0-9_]+$/.test(demoDb)) throw new Error(`DEMO_DB must match [a-z0-9_]+ (got ${demoDb})`);
 const children = new Set();
 
 function available(port) {

@@ -7,7 +7,7 @@
 - 이슈: [DEV-133](https://linear.app/sswp6/issue/DEV-133)
 - 브랜치: `nemodleo/dev-133-demo-site-to-repo`
 - 기능·인수 조건: 없음(평가용 데모 도구). 영상이 보여 주는 기능은 `demo/spec.md` 참고
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 `demo.farmclub.kr`의 원본(사이트·녹화 스크립트)이 레포에 없고 Vercel `farmclub-demo`는 Git 연결 없이 CLI로만 배포돼 왔다. 원본을 main `demo/`로 옮기고 push로 배포되게 해 I3·I4·Final에서도 갱신할 수 있게 한다.
@@ -62,3 +62,4 @@
 - 10/23 브랜치·spec·tasks 첫 커밋, draft PR. 다음: 영상 저장소 결정 받고 사이트·스크립트 추가
 - 10/23 구현 커밋. 검증: `videos.mjs upload`(새 Release 생성)·재실행(교체, manifest 변화 없음)·`fetch`(받기·SHA-256·이미 같으면 건너뜀), `actionlint` 통과, 로컬 `serve` 4페이지 200·영상 206·재생 확인, `DEMO_DB=farmclub_demo ADMIN_WEB_PASSWORD=… npm run demo`로 API(health ok, 테스트 계정, 카카오 꺼짐)·두 앱·관리자 페이지(200) 기동 확인. Vercel 미리보기 배포는 로그인 보호(302)라 화면 확인 못 함. 남은 것: 머지 후 Action 배포 1회 확인
 - 10/23 PostHog 차단 검증: 같은 `POSTHOG` 패턴으로 `farmclub.kr/`·`farm.farmclub.kr/login`을 로그인 없이 열어 요청 43건 중 PostHog 10건(flags, 설정·녹화 스크립트)이 모두 abort, PostHog 응답 0건
+- 10/23 AI 1차 리뷰(PR 코멘트) must 없음. should·nit 반영: 새 태그 부분 업로드 거부(업로드 전 오류, Release 안 생김 확인), 태그 없으면 오류, `spec.md` 구현 결정 3줄, README `serve@14.2.4`, `DEMO_DB` 이름 검사. `videos.mjs` 자동 테스트는 DEV-134로

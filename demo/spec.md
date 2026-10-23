@@ -20,3 +20,6 @@
 ## 구현 결정
 | 날짜 | 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
+| 2026-10-23 | 영상은 git에 넣지 않고 GitHub Release(`demo-i2`) 첨부로 두고, 배포 때 `videos.mjs fetch`가 `videos.json`의 SHA-256으로 확인하며 `site/videos/`에 넣는다. 교체는 `upload`(같은 이름 `--clobber`) + `videos.json` 커밋 | R2는 비공개 버킷뿐이고 공개 버킷은 콘솔 작업이 필요. 사이트 주소(`/videos/*.mp4`)를 유지하고, 커밋된 해시로 바꿔치기를 막음 | — |
+| 2026-10-23 | `deploy-vercel.yml` `deploy-demo`: main CI 성공 뒤 `demo/site/`·`demo/videos.(json\|mjs)`·워크플로 변경 때만 배포, `/` 200·`/videos/story.mp4` 206 확인 | DEV-114 `deploy-admin`과 같은 구조, 새 비밀값 없음 | — |
+| 2026-10-23 | 녹화 브라우저는 `posthog.com` 요청을 모두 끊는다(`lib.mjs` `POSTHOG`) | 운영에서 찍어도 PostHog 지표·세션 녹화에 남지 않게. `*.vercel.app`은 DEV-127 리다이렉트·CORS·카카오 때문에 녹화에 못 씀 | — |
