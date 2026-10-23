@@ -359,7 +359,7 @@ stay in EAS and the team password manager; never in the repo, an issue or a PR.
 npx eas-cli@latest login                       # Expo account (organization: see DEV-128)
 npx eas-cli@latest init                        # done 2026-10-23 under the snu-omm organization (projectId is in app.json); only for a new project
 npx eas-cli@latest update:configure            # done 2026-10-23 (updates.url in app.json); only for a new project
-npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_POSTHOG_KEY --value phc_... --visibility plaintext --environment preview --environment production   # optional (DEV-71)
+npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_POSTHOG_KEY --value phc_... --visibility plaintext --environment production   # optional (DEV-71); production only, so internal/preview test builds send no analytics
 npx eas-cli@latest credentials                 # Apple certificates / Android keystore, managed by EAS
 npx eas-cli@latest build -p all --profile preview
 npx eas-cli@latest submit -p ios --profile preview --latest       # TestFlight (internal testers, no review)
@@ -387,7 +387,8 @@ the `.app` onto a booted simulator (or `xcrun simctl install booted <path>.app`)
 order: install and launch, Kakao login and return to the app (on Android also that the screen
 you came from and the pending action are kept), onboarding, home / farm / product / order /
 chat, photo attachment in chat, and in the producer app sign-up and photo upload. Record each
-device in DEV-41 (model, OS version, install, login, problems). Known limits: the ‘카카오톡으로
+device in DEV-41 (model, OS version, install, login, problems). These builds send nothing to
+PostHog: the key is only set in the EAS `production` environment. Known limits: the ‘카카오톡으로
 로그인’ button inside the auth session may not switch to the KakaoTalk app (Kakao account
 login still works); producer source documents (PDF, text) attach on the web only.
 
