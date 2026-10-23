@@ -82,7 +82,7 @@ export default function Me() {
 
   return (
     <Screen>
-      <Scroll bottom={tokens.height.tabBarClearance}>
+      <Scroll bottom={tokens.height.tabBarClearance} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
         <LargeTitle title="내 정보" />
         <View
           style={{
@@ -212,7 +212,6 @@ export default function Me() {
             />
           </View>
         ) : null}
-        <LegalFooter onOpen={(path) => router.push(path)} style={{ marginTop: tokens.space.section }} />
       </Scroll>
       <Sheet visible={confirmReset} onClose={() => setConfirmReset(false)}>
         <T variant="heading">데모 데이터를 처음으로 돌릴까요?</T>
