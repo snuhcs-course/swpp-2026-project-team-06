@@ -35,7 +35,6 @@
 - 테스트를 작성했지만 실행하지 못했으면 **미완료**다. 의존성·네트워크 문제로 실행이 막히면 거기서 멈추고, 실행하지 못한 명령과 이유를 그대로 보고한다. "테스트 케이스 추가됨"처럼 통과로 읽히는 표현을 쓰지 않는다.
 - 완료 보고는 실제로 실행한 명령과 결과(통과·실패 개수)를 적는다. 문법 검사·경로 감사는 테스트 통과를 대신하지 않는다.
 - 머지 뒤 완료 보고(Linear 결과)에는 배포 확인을 넣는다. 대상은 바뀐 경로마다 다르다: `server/**` → Railway, 앱 → Vercel 앱, `scripts/admin-web/` → Vercel 관리자 페이지(`docs/spec/tech-design/stack.md` CI/CD 줄). 사람이 해야 할 단계(운영 변수 등)는 담당자와 함께 적는다.
-- 테스트는 같은 시각 동률에 기대지 않는다. 고정 시계에서 같은 `created_at`끼리 순서를 비교하지 말고 순서 무관 비교나 ID 동률 기준을 쓴다.
 - 작업 완료(체크박스 체크, AC 체크, draft 해제, Linear Done)는 의존성이 설치된 환경에서 관련 테스트 묶음(pytest, `npm run test:mock`, `npm run typecheck`, 해당 Playwright spec)이 통과한 것을 누군가 확인한 뒤에만 한다. 실행할 테스트가 없는 문서만의 변경은 예외다.
 - 같은 문제로 오래 막히면(시도 3회 이상 실패) 계속 헤매지 말고 원인 가설과 선택지를 정리해 사람에게 방향을 묻는다. 사람은 1시간 이상 막히면 PM에게 알린다.
 - 컨텍스트가 길어지거나 세션을 넘길 때는 진행 상황을 `tasks.md`의 "기록"에 남긴다(handoff 대신).
@@ -62,7 +61,6 @@
 - 브랜치 이름은 `<github 아이디>/<이슈 키 소문자>-<영어 요약 2~5단어>`(소문자·숫자·하이픈만, 예: `nemodleo/swpp-119-ascii-branch-names`). **한글을 쓰지 않는다** — Linear "Copy git branch name"은 한글 제목을 넣으므로 쓰지 않는다. 이슈 키만 있으면 Linear가 PR을 연결한다.
 - PR을 연 뒤에는 브랜치 이름을 바꾸지 않는다(GitHub가 PR을 닫는다).
 - 다른 작업 브랜치 위에 PR을 쌓지 않는다. base는 항상 `main`이고, 선행 작업이 필요하면 선행 PR이 머지된 뒤 `origin/main`에서 브랜치를 만든다. 상세는 `pr-context` 스킬.
-- PR base를 바꾼 뒤에는 push해서 server·apps·integration CI가 새로 돌았는지 확인한다(base 변경만으로는 CI가 돌지 않는다).
 - 마이그레이션을 추가한 PR은 머지 직전 `main`을 병합하고 `alembic heads`가 1개인지 확인한다. 리비전 번호가 겹치면 뒤에 머지하는 쪽이 번호를 올린다.
 - 커밋: `type(scope): 요약 (DEV-12)` — type은 `feat` `fix` `docs` `refactor` `test` `chore`. 한 커밋은 한 가지 변경.
 - PR 제목: `[DEV-12] 요약`. 본문은 `.github/pull_request_template.md`를 채운다.
@@ -72,7 +70,6 @@
 - 여러 작업(세션)을 동시에 돌릴 때는 같은 폴더에서 브랜치를 바꾸지 말고 `git worktree`로 폴더를 나눈다.
 - 새 worktree에는 의존성이 없다(`node_modules`, `server/.venv`는 git이 복사하지 않음). 에이전트에게 넘기기 전에 루트에서 `npm ci`, `server/`에서 `uv sync --frozen`을 실행하고, pytest용 PostgreSQL(`DATABASE_URL`)이 연결되는지 확인한다. 준비할 수 없으면 에이전트를 main 체크아웃에서 실행한다.
 - 로컬 DB는 브랜치마다 따로 쓴다: `DATABASE_URL`의 DB 이름을 바꾼다(예: `farmclub_dev12`, pytest는 `_test`를 붙인 DB를 따로 만든다). 공용 `farmclub`에는 다른 브랜치의 마이그레이션이 섞여 `alembic upgrade`·테스트가 깨진다.
-- 머지됐거나 버린 브랜치의 worktree는 `git worktree remove <경로>`로 정리한다(쌓이면 디스크가 차서 새 worktree를 못 만든다).
 - 머지는 사람 1명 Approve 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
 
