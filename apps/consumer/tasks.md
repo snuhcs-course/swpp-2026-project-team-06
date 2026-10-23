@@ -434,3 +434,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/22 origin/main 1f1a243에서 시작.
 - 10/22 검증: `npm run typecheck` 통과, `npm run test:mock` 19/19. 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, 별도 DB, `node scripts/run-integration.mjs scripts/e2e/consumer-kakao.spec.ts scripts/e2e/discovery-and-gates.spec.ts`): 실서버 시나리오 7/7, Playwright 5/5. 새 spec을 origin/main의 `kakao.tsx`로 돌리면 새로고침 테스트 1건이 실패(만료 안내에 남음)해 고친 증상과 같음을 확인.
 - 10/22 Figma v6 ‘현재 시안 · 소비자’에 `DEV-112 · C02-1 카카오 복귀 · /auth/kakao`(node 460:4936, C02 닫기 머리 복제)와 명세 상자(460:4955). 자리는 C02와 같은 줄 x 4410(3940에는 다른 ‘수정 전’ 사본이 있어 한 칸 옆). 스크립트는 레포 밖 `figma-plugins/farmclub-dev112/code.js`(같은 노드 재사용, 두 번 실행해 확인).
+
+## DEV-97 상품 페이지에서 연 채팅에 상품 전달
+
+- 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97) · 브랜치 `zahra/dev-97-chat-product-context` · 기준 절: `server/tasks.md#dev-97` · 상태: 진행 중
+- 범위: `src/app/(tabs)/products/[productId].tsx`(채팅하기·확인 시트 ‘시작하기’ 경로에 `productId`), `src/app/(tabs)/chats/[farmId].tsx`(경로의 `productId`를 보내기에)
+- 10/20 결정: 화면·문구 변경 없음(Figma 해당 없음). 주문 문맥이 있으면 서버가 주문을 우선한다.
+- [x] 두 화면 수정, `npm run typecheck` 4개 통과

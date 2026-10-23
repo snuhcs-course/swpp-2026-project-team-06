@@ -53,3 +53,21 @@ test("AC-13-5: Mock reports only owned non-forwarded AI answers and persists pro
   assert.equal(stored.status, "OPEN");
   assert.equal(db().threadMeta["f-kang:u-minji"].aiMode, "AUTO");
 });
+
+test("DEV-97: Mock chat opened from a product page answers from that product and rejects other products", async () => {
+  reset();
+  const consumer = await login("u-minji", "consumer");
+  const producer = await login("u-kang", "producer");
+  const thread = db().threadMeta["f-kang:u-minji"];
+  await ok("PUT", "/api/messaging/producer/chats/u-minji/ai-mode", producer, { mode: "AUTO", version: thread.version });
+  // f-kang은 판매 중 상품이 둘이라 상품 없이는 근거가 없다.
+  const plain = await ok("POST", "/api/messaging/chats/f-kang/messages", consumer, { text: "당도가 몇이에요?" });
+  assert.equal(plain.reply.handoffStatus, "FORWARDED");
+  const house = await ok("POST", "/api/messaging/chats/f-kang/messages", consumer, { text: "당도가 몇이에요?", productId: "p-house" });
+  assert.equal(house.reply.handoffStatus ?? null, null);
+  assert.deepEqual(house.reply.sourceRefs, ["product:p-house"]);
+  const before = db().threads["f-kang:u-minji"].length;
+  for (const productId of ["p-hyodon", "p-hallabong", "p-none"])
+    assert.equal((await api("POST", "/api/messaging/chats/f-kang/messages", consumer, { text: "당도가 몇이에요?", productId })).status, 404, productId);
+  assert.equal(db().threads["f-kang:u-minji"].length, before);
+});

@@ -41,4 +41,5 @@
 | 2026-10-08 | 첨부는 1.2 (2/2)에서. 지금은 `attachmentIds`가 비어 있지 않으면 404 (1.2 (2/2)에서 아래 행으로 대체) | 단계적 구현 | — |
 | 2026-10-08 | 비공개 사진은 `private_attachments`(I1은 DB 바이트), 업로드 때 형식 확인·메타데이터 제거(`core/images.py`), 조회는 `Cache-Control: private, no-store`. 문의는 `order_inquiries`, 대화를 HUMAN으로, 열린 문의는 답변 필요 | contracts-1.2 6장, M-21 | AC-33-1~4 |
 | 2026-10-09 | 승인 농가 소식방의 공개 방송은 비로그인·미팔로우도 읽는다. 팔로워만 전용 방송·본인 답장, 소유 생산자만 모든 답장을 보며 필터 뒤에 요약·cursor를 계산한다 | storefront-1.5 | AC-12-10, AC-15-6 |
+| 2026-10-20 | 소비자 보내기의 선택 `productId`는 그 농가의 판매 중 상품만(아니면 404, 메시지 저장 전). AI 근거로만 쓰고 대화에 저장하지 않는다. 근거 상품은 주문 > `productId` > 판매 중 상품 1개 | 상품이 2개 이상인 농가에서 상품 페이지 채팅이 근거 없이 전달되던 문제(DEV-97). 저장하지 않아 마이그레이션 없음 | AC-13-1, AC-13-3 |
 | 2026-10-22 | farmclub 문의 대화방(DEV-111, FEAT-34, M-22)은 기존 Thread를 쓰고 상대는 운영팀 계정 `u-farmclub`(ADMIN), 운영팀 메시지는 `OPERATOR`다(`support.py`). 농가 승인과 같은 트랜잭션에서 만들고(`accounts.decide_producer_application`), 기존 승인 농가는 마이그레이션 0019가 넣는다. `ai_mode` HUMAN 고정·AI 모드 변경 400, 생산자 안 읽음은 OPERATOR도 센다, 생산자 목록에 `isSupport`로 표시(고정하지 않고 최근 순). 운영자 읽음은 `consumer_last_read_message_id` 칸을 쓴다 | 생산자 목록·방·답장 API를 그대로 써서 바꿀 곳이 가장 적다. 소비자 경로는 소비자 본인 ID로만 찾으므로 노출되지 않는다 | AC-34-1~4 |

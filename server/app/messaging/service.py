@@ -857,7 +857,9 @@ def build_evidence(
     )
 
 
-def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
+def _evidence(
+    db: Session, farm_id: str, order_id: str | None, settings, product_id: str | None = None
+):
     return build_evidence(
         db,
         farm_id,
@@ -866,6 +868,7 @@ def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
         settings.reservation_shipping_policy,
         settings.faqs,
         settings.handoff_topics,
+        product_id=product_id,
     )
 
 
@@ -876,6 +879,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     """
     from app.admin import service as admin
     from app.ai import service as ai
+    from app.catalog import service as catalog
     from app.farms import service as farms
     from app.orders import service as orders
 
@@ -892,6 +896,11 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     elif not farms.is_following(db, consumer.id, farm_id):
         # 팔로우 해제 뒤에는 본인 결제 주문 문맥으로만 보낼 수 있다(contracts-1.2 4장)
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
+    if body.product_id:
+        # 판매 중인 그 농가 상품만 근거로 쓴다(DEV-97). 주문이 함께 오면 주문이 먼저다
+        item = catalog.load_product(db, body.product_id)
+        if item is None or item.product.farm_id != farm_id or item.product.status != "PUBLISHED":
+            raise not_found("찾을 수 없는 상품이에요.")
     attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
     settings = farms.ai_settings(db, farm_id)
     captured = (thread.version, settings.version)
@@ -915,7 +924,9 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     db.flush()
     reply = None
     if thread.ai_mode == "AUTO" and settings.enabled and text:
-        answer = ai.answer_question(text, _evidence(db, farm_id, body.order_id, settings))
+        answer = ai.answer_question(
+            text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
+        )
         latest = farms.ai_settings(db, farm_id, fresh=True)
         still_auto = thread.ai_mode == "AUTO" and latest.enabled
         if still_auto and (thread.version, latest.version) == captured:
