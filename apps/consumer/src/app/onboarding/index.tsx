@@ -1,7 +1,8 @@
-// SCR-06 첫 가입 온보딩 1/2 `/onboarding` (FEAT-01 I2, AC-01-12·14) — 닉네임·이름·휴대폰·가입 동의
-// 프로필을 이미 채운 회원이 약관·처리방침 버전이 바뀌어 오면(AC-01-17, DEV-113) 동의만 다시 받고 배송지 단계는 건너뛴다.
+// SCR-06 첫 가입 온보딩 `/onboarding` (FEAT-01 I2, AC-01-12·14) — 닉네임·휴대폰·가입 동의 한 화면
+// 이름·배송지는 가입 때 받지 않고 첫 주문서에서 받는다(당근식, DEV-142).
+// 프로필을 이미 채운 회원이 약관·처리방침 버전이 바뀌어 오면(AC-01-17, DEV-113) 동의만 다시 받는다.
 // 카카오 새 사용자는 계정이 없고 가입 토큰만 있다(DEV-132). 이때는 가입 동의만 보이고, 동의하면 계정이 생겨 같은 화면에서 프로필을 받는다.
-// 카카오로 처음 로그인한 소비자만 온다. 카카오에서 온 값(이메일, 심사 뒤 이름·전화번호)은 미리 채우고 빠진 것만 입력한다.
+// 카카오로 처음 로그인한 소비자만 온다. 카카오에서 온 값(이메일, 심사 뒤 전화번호)은 미리 채우고 빠진 것만 입력한다.
 import { ApiError, auth } from "@farmclub/api";
 import {
   BottomBar,
@@ -35,7 +36,6 @@ export default function OnboardingProfile() {
   const router = useRouter();
   const { user, ready, refresh, clearResume, hasResume } = useSession();
   const [nickname, setNickname] = useState("");
-  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -54,14 +54,11 @@ export default function OnboardingProfile() {
   useEffect(() => {
     if (!user || filled) return;
     setNickname(user.nickname ?? "");
-    // 10/17에 만든 카카오 계정은 이름 자리에 이메일이나 ‘카카오 사용자’가 들어 있다. 그 값은 채우지 않는다
-    const legacy = !user.name || user.name.includes("@") || user.name === "카카오 사용자";
-    setName(legacy ? "" : user.name);
     setPhone(user.phone ?? "");
     // 프로필이 다 있고 동의만 빠졌으면 재동의 모드(처음 채울 때 한 번 정한다)
     const nick = (user.nickname ?? "").trim().length;
     setReconsent(
-      !!user.consentRequired && nick >= 2 && nick <= 12 && !legacy && PHONE.test((user.phone ?? "").trim()),
+      !!user.consentRequired && nick >= 2 && nick <= 12 && PHONE.test((user.phone ?? "").trim()),
     );
     setFilled(true);
   }, [user, filled]);
@@ -84,10 +81,8 @@ export default function OnboardingProfile() {
     () =>
       nickname.trim().length >= 2 &&
       nickname.trim().length <= 12 &&
-      name.trim().length >= 2 &&
-      name.trim().length <= 20 &&
       PHONE.test(phone.trim()),
-    [nickname, name, phone],
+    [nickname, phone],
   );
 
   function close() {
@@ -108,8 +103,6 @@ export default function OnboardingProfile() {
     if (showProfile) {
       const n = nickname.trim().length;
       if (n < 2 || n > 12) e.nickname = "닉네임은 2~12자로 적어 주세요";
-      const m = name.trim().length;
-      if (m < 2 || m > 20) e.name = "이름은 2~20자로 적어 주세요";
       if (!PHONE.test(phone.trim())) e.phone = "휴대폰 번호 형식으로 입력해 주세요";
     }
     setErrors(e);
@@ -130,19 +123,17 @@ export default function OnboardingProfile() {
       }
       if (showConsents) await auth.saveConsents(consents);
       if (reconsent) {
-        // 재동의: 프로필·배송지는 그대로 두고 보던 화면·하려던 행동으로 돌아간다
+        // 재동의: 프로필은 그대로 두고 보던 화면·하려던 행동으로 돌아간다
         await refresh();
         if (hasResume && router.canGoBack()) router.back();
         else router.replace(next as never);
         return;
       }
-      await auth.updateMe({
-        nickname: nickname.trim(),
-        name: name.trim(),
-        phone: phone.trim(),
-      });
+      await auth.updateMe({ nickname: nickname.trim(), phone: phone.trim() });
       await refresh();
-      router.replace({ pathname: "/onboarding/address", params: { next } });
+      // 끝나면 원래 화면으로 — 그 화면이 resume을 보고 행동을 잇는다. 관문에서 왔으면 원래 화면이 스택 아래에 있다
+      if (hasResume && router.canGoBack()) router.back();
+      else router.replace(next as never);
     } catch (err) {
       if (err instanceof ApiError && err.details.fields) setErrors(err.details.fields);
       else if (isNetworkError(err)) toast.fail(err, () => void submit());
@@ -160,11 +151,6 @@ export default function OnboardingProfile() {
       <HeaderBar close onBack={close} />
       <Scroll bottom={150}>
         <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 8 }}>
-          {reconsent || signup ? null : (
-            <T variant="sub" muted>
-              1 / 2
-            </T>
-          )}
           <T variant="title" accessibilityRole="header">
             {signup
               ? "약관에 동의하고\n가입해요"
@@ -210,14 +196,6 @@ export default function OnboardingProfile() {
               placeholder="2~12자"
               hint="농가 채팅과 소식방에 이 이름으로 보여요."
               error={errors.nickname}
-            />
-            <Input
-              label="이름"
-              value={name}
-              onChangeText={setName}
-              maxLength={20}
-              hint="주문서의 받는 사람에 미리 채워요."
-              error={errors.name}
             />
             <Input
               label="휴대폰 번호"
@@ -303,7 +281,7 @@ export default function OnboardingProfile() {
       </Scroll>
       <BottomBar>
         <Button
-          label={signup ? "동의하고 가입하기" : reconsent ? "동의하고 계속하기" : "다음"}
+          label={signup ? "동의하고 가입하기" : reconsent ? "동의하고 계속하기" : "시작하기"}
           disabled={(showProfile && !valid) || (showConsents && !requiredAgreed)}
           loading={busy}
           onPress={() => void submit()}

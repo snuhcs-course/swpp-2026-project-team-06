@@ -1,4 +1,4 @@
-// SCR-17 하위: 내 정보 고치기 `/me/profile` (FEAT-01 I2) — 닉네임·이름·휴대폰. 이메일은 카카오계정이라 바꿀 수 없다
+// SCR-17 하위: 내 정보 고치기 `/me/profile` (FEAT-01 I2) — 닉네임·이름(선택, DEV-142)·휴대폰. 이메일은 카카오계정이라 바꿀 수 없다
 import { ApiError, auth } from "@farmclub/api";
 import { BottomBar, Button, HeaderBar, Input, Screen, Scroll, T, tokens } from "@farmclub/ui";
 import { useRouter } from "expo-router";
@@ -33,14 +33,19 @@ export default function Profile() {
     const e: Record<string, string> = {};
     const n = nickname.trim().length;
     if (n < 2 || n > 12) e.nickname = "닉네임은 2~12자로 적어 주세요";
+    // 이름은 가입 때 받지 않아 비어 있을 수 있다(DEV-142). 적었을 때만 확인하고 보낸다
     const m = name.trim().length;
-    if (m < 2 || m > 20) e.name = "이름은 2~20자로 적어 주세요";
+    if (m && (m < 2 || m > 20)) e.name = "이름은 2~20자로 적어 주세요";
     if (!PHONE.test(phone.trim())) e.phone = "휴대폰 번호 형식으로 입력해 주세요";
     setErrors(e);
     if (Object.keys(e).length) return;
     setBusy(true);
     try {
-      await auth.updateMe({ nickname: nickname.trim(), name: name.trim(), phone: phone.trim() });
+      await auth.updateMe({
+        nickname: nickname.trim(),
+        ...(name.trim() ? { name: name.trim() } : {}),
+        phone: phone.trim(),
+      });
       await refresh();
       setFlash("저장했어요");
       back();
@@ -66,7 +71,14 @@ export default function Profile() {
             hint="농가 채팅과 소식방에 이 이름으로 보여요."
             error={errors.nickname}
           />
-          <Input label="이름" value={name} onChangeText={setName} maxLength={20} error={errors.name} />
+          <Input
+            label="이름 (선택)"
+            value={name}
+            onChangeText={setName}
+            maxLength={20}
+            hint="주문서의 받는 사람에 미리 채워요."
+            error={errors.name}
+          />
           <Input
             label="휴대폰 번호"
             value={phone}
