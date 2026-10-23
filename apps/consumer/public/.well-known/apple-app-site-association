@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_APPLE_TEAM_ID.kr.farmclub.consumer"
+        ],
+        "components": [
+          {
+            "/": "/auth/kakao",
+            "comment": "\uce74\uce74\uc624 \ub85c\uadf8\uc778 \ubcf5\uadc0"
+          }
+        ]
+      }
+    ]
+  }
+}
