@@ -78,12 +78,12 @@ export default function Login() {
     if (!cfg?.enabled || busy) return;
     setFailed(null);
     if (isMock) {
-      // Mock: 리다이렉트 없이 바로 로그인(카카오 계정 u-kakao, 처음이면 온보딩)
+      // Mock: 리다이렉트 없이 바로 로그인(카카오 계정 u-kakao). 처음이면 가입 동의(DEV-132) → 온보딩
       setBusy(true);
       try {
         const res = await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));
         await refresh();
-        if (res.user.needsOnboarding)
+        if (!res.user || res.user.needsOnboarding)
           router.replace({ pathname: "/onboarding", params: { next: target } });
         else if (resume && router.canGoBack()) router.back();
         else router.replace(target as never);
