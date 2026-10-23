@@ -1,6 +1,8 @@
 // API 타입. 원본: docs/spec/screens.md 7장, 데이터 모델·주문 상태: docs/spec/tech-design/README.md.
 // 디자인에서 더한 필드(reservedCount, brixRecordCount)는 docs/design/README.md "스펙과 다른 점" 2.
 
+import type { OrderConsents } from "./orderConsents";
+
 /** 날짜·시각은 ISO 8601 문자열(UTC 저장, 화면은 Asia/Seoul) */
 export type ISODate = string;
 
@@ -465,14 +467,8 @@ export type OrderInput = Recipient & {
   optionId: string;
   quantity: number;
   deliveryNote?: string;
-  consents: {
-    deliveryWindow: boolean;
-    delayRefund: boolean;
-    shortage: boolean;
-    cancelPolicy: boolean;
-    /** 개인정보 제3자 제공(판매자 농가) 동의(DEV-120, 개인정보보호법 제17조) */
-    thirdParty: boolean;
-  };
+  /** 예약 전 동의. 항목은 orderConsents.ts의 ORDER_CONSENT_KEYS(DEV-138) */
+  consents: OrderConsents;
   consentVersion: string;
   saveAddress?: boolean;
 };
