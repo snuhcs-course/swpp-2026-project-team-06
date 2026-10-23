@@ -133,3 +133,4 @@ Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생
 ### 기록
 - 10/18 main 56ac959에서 시작.
 - 10/18 자가 점검 `check_table.py` 확인(Python 3.14.7): #160 현재 본문 → OK(exit 0). #160 처음 본문 → exit 1, `test_check.py` 미매핑과 함수 이름 backtick(`model_review`, `block_type`) 2개를 잡음(실제 run 39129046460의 실패 원인과 같음). 표 없는 본문 → exit 1.
+- 10/23 `origin/main`(0d57e99) 병합. 10/18 이후 main에서 이 PR의 파일을 바꾼 커밋은 SWPP-119 #231(pr-context 1·3번 단계에 영어 브랜치 이름·영어 PR 제목 규칙, "PR 쌓기" 절, pr-review 테스트 항목, 이 파일에 SWPP-119 절)과 DEV-88 #181(PR 템플릿에 Figma 절). 충돌 2개: `pr-context/SKILL.md` "draft PR 열기" 1~3번은 main 문구를 그대로 두고 2번 끝에 표 작성·자가 점검 문장만 더했고, `.agents/tasks.md`는 양쪽 절을 모두 남겼다(SWPP-119 → DEV-80 순). PR 템플릿(Figma 절 유지 + 표 주석)과 pr-review는 자동 병합. 병합 후 `python3 .agents/skills/pr-context/check_table.py <#162 본문>` → OK(exit 0, Python 3.14.7). 스킬이 가리키는 경로(`.github/spec-check/check.py`, PR 템플릿, FEAT-06, `server/app/farms/service.py`)는 main에 모두 있음.
