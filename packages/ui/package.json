@@ -9,6 +9,7 @@
     "expo-image-picker": "*",
     "react": "*",
     "react-native": "*",
+    "react-native-safe-area-context": "*",
     "react-native-svg": "*"
   },
   "scripts": {
