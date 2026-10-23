@@ -55,7 +55,7 @@ jobs:
         with:
           ref: ${{ github.sha }} # Include checker files from main on older feature branches.
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Verify checker contract without credentials
@@ -77,7 +77,7 @@ jobs:
           ref: ${{ github.sha }} # Execution revision; reviewed source still uses captured head/base.
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Review captured PR context
@@ -89,7 +89,7 @@ jobs:
         run: python .github/spec-check/check.py
       - name: Retain report even for mismatch or unavailable access
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spec-code-review-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -120,7 +120,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Run genuine model demonstration
@@ -139,7 +139,7 @@ jobs:
           python -c 'import json, os; from pathlib import Path; r=json.loads(Path(".artifacts/spec-check/report.json").read_text()); expected="MISMATCH" if os.environ["SAMPLE"] == "mismatch" else "PASS"; assert r["status"] == expected, "Expected " + expected + ", received " + r["status"]'
       - name: Retain genuine demo result
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spec-code-demo-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
