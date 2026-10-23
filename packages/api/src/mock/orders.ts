@@ -142,8 +142,9 @@ register({
       if ((b.deliveryNote ?? "").length > 100)
         fields.deliveryNote = "배송 메모는 100자까지예요";
       const c = b.consents ?? ({} as OrderInput["consents"]);
-      if (!c.deliveryWindow || !c.delayRefund || !c.shortage || !c.cancelPolicy)
-        fields.consents = "결제 전 확인 4개에 모두 동의해 주세요";
+      // R-03 4개 + 개인정보 제3자 제공(판매자 농가, DEV-120). 서버와 같은 규칙
+      if (!c.deliveryWindow || !c.delayRefund || !c.shortage || !c.cancelPolicy || !c.thirdParty)
+        fields.consents = "예약 전 확인 5개에 모두 동의해 주세요";
       if (Object.keys(fields).length) invalid(fields);
       const s = assertSale(ctx.db, p, b.optionId, b.quantity);
       const remoteFee = REMOTE(b.postalCode, b.address) ? p.remoteAreaFee : 0;
