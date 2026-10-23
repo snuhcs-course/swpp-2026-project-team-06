@@ -39,6 +39,8 @@ Record the input prompts actually sent, quoted verbatim. Do not clean up wording
 - **Minsun · 2026-10-12, 00:37:34 KST · ChatGPT/Codex (GPT-6.1 Sol) · staged user testing and review gate · E1/P11, turn `01a12b9c-bc7d-7f63-a10c-72331a4e64b5` — verbatim excerpts:** “-testing 2: the same pool of consumers will be asked to test all consumer functions once again, but this time, including actual payment for at least 1 order.” / “workflow revisions: pm needs to check sync for all (spec file)<→2(code) before review-> add as task”
 - **Minsun · 2026-10-12 · ChatGPT/Codex (GPT-6.1 Sol) · cross-role testing:** “good job, but after the two consumer tests, related producer functions and app manager functions should also be monitored, so add this each to zahra and jinwoo for both tests.”
 - **Minsun · 2026-10-19 · Codex (GPT-6.1 Sol) · operator-access limitation:** “Record the operator tests as blocked”
+- My other prompts are in the [Prompt Log, Minsun Kim section]([https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log#minsun-kim](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log#minsun-kim)).
+
 - **Hyun · 2026-10-18, 21:09–21:11 KST · Claude Code (Claude Opus 5.5) · DEV-72, PR #149 (sent in Korean, my translation in brackets):** “db 백필만 하는거 아니었어?” … “백필 SQL은 내가 Railway 콘솔에서 직접 실행할게. SQL만 다시 정리해줘.” [Wasn't this only a DB backfill? … I'll run the backfill SQL in the Railway console myself. Just clean up the SQL.]
 - **Hyun · 2026-10-21, 14:30 KST · Claude Code (Claude Opus 5.5) · DEV-104, PR #212:** “농가가 적은 입금 미확인·환불 지연 사유 -> 이런거는 가릴이유가 없잖아? 법적으로 문제되지 않는 정도 빼고는 모두 열어” [Reasons a farm wrote for an unconfirmed deposit or a late refund: there's no reason to hide those, right? Unmask everything except what is legally a problem.]
 - My other prompts are in the [Prompt Log, Hyun Park section](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log#hyun-park).
@@ -50,14 +52,8 @@ Record the input prompts actually sent, quoted verbatim. Do not clean up wording
 - **Zahra · 2026-10-16 · Claude Code (Opus 5.5) · DEV-39, cross-check of Codex:** "okay now take a look at what codex did on issue 39. did it make any mistakes? are the tests done right? cross examine"
 - **Zahra · 2026-10-20 · Claude Code (Opus 5.5) · SWPP-118:** "is this true??? Today's live server check (SWPP-118) caught it: the operator refunded ₩500, then did the final refund. The producer only saw a single ₩1,000 item, and only after that final refund."
 - My other prompts are in the [Prompt Log, Zahra Gholami section](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log#zahra-gholami).
-- **[Other member] · [YYYY-MM-DD] · [Tool/model] · [task/PR/issue]:** “[Paste exact prompt here]”
 
 **Full input prompt log:** [Iteration 2 – Prompt Log](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/AI-Collaboration-Report---Iteration-2---Prompt-Log) ([branch/repository source](AI-Collaboration-Report---Iteration-2---Prompt-Log.md)). The page contains 141 privacy-redacted input records from the October 22 export snapshot. The eTL report can cite this Wiki URL without duplicating the full log. The selected examples and evidence register below remain for analysis.
-
-<details>
-<summary>Minsun — exact-source evidence and selected prompt log (P1–P12)</summary>
-
-This in-page log supports Minsun's entries in Sections 1–7. The main team report should be consolidated to 500–700 words; detailed prompt evidence is retained here for review. Selected prompts below are copied from user messages. Excerpts are explicitly labelled; omitted material is not reconstructed. Dates are derived from recorded turn start times in Asia/Seoul, rather than inferred from filenames. For replies within a long turn, the date identifies the containing turn, not an independently timestamped message. Native Codex links require access to Minsun's local chat history.
 
 ### Source register
 
