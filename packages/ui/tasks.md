@@ -540,3 +540,40 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/23 후속 질문: 주문서 하단 바가 동의 5개(DEV-120) 뒤에도 ‘4개 중 N개 동의했어요’라고 쓴다(`apps/consumer/src/app/checkout/[productId]/index.tsx`). 이 작업 범위 밖이라 고치지 않았다.
 - 10/23 main 병합 후 재검증: `npm run typecheck` 통과, `npm run test:mock` 40/40, 실서버 통합 시나리오 7/7 + Playwright 24/24(legal-pages·legal-consent·consumer-kakao·producer-kakao·producer-and-privacy·discovery-and-gates·brand-logo·checkout-and-fulfillment).
 - 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should(테스트가 하단 바를 absolute div 추측으로 찾음) 반영 — 두 로그인 하단 바에 `testID="login-bottom-bar"`, spec은 그 위 끝과 비교. 재실행: 실서버 시나리오 7/7, Playwright 14/14(legal-pages·producer-kakao·consumer-kakao), typecheck 통과.
+
+## DEV-141 웹에서 체크·선택·펼침 상태가 aria 속성으로 나오게 (accessibilityState → aria-*)
+
+- 이슈: [DEV-141](https://linear.app/sswp6/issue/DEV-141) (관련 DEV-138)
+- 브랜치: `nemodleo/dev-141-aria-state`
+- 기능·규칙: 화면 공통 접근성(`docs/spec/screens.md` 공통 규칙), FEAT-01 SCR-06(가입·재동의 동의), SCR-10(주문서 동의)
+- 상태: 진행 중
+
+### 목표
+react-native-web 0.21은 `accessibilityState={{…}}`를 DOM에 옮기지 않는다(`createDOMProps`는 `aria-*`와 옛 단일 `accessibilityChecked` 류만 본다). 그래서 웹에서 체크·선택·펼침·로딩 상태가 스크린리더에 안 나간다. 26곳을 `aria-*` prop으로 바꾼다. 화면 모양·동작·문구는 그대로.
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{content,Button,bars,Storefront,NewsRoom}.tsx`, `packages/ui/tasks.md`
+- `apps/consumer/src/app/{login.tsx,(tabs)/products/[productId].tsx,(tabs)/orders/index.tsx}`, `apps/consumer/src/lib/views.tsx`
+- `apps/producer/src/app/{login,ship}.tsx`, `apps/producer/src/app/(tabs)/products/index.tsx`, `apps/producer/src/lib/{SourceAttachments,fields,SourceWorkspace,PageCanvas,SectionSwitch}.tsx`
+- `scripts/e2e/{checkout-and-fulfillment,discovery-and-gates,mock-login}.spec.ts`
+
+### 비범위
+- 스타일·문구·동작, `scripts/admin-web`, 네이티브 빌드 확인(앱은 웹 출력만 배포)
+
+### 결정 사항
+- 10/23 역할별 속성: checkbox·switch·radio → `aria-checked`(radio의 `selected`도 `aria-checked`로 — ARIA radio 상태는 checked), tab → `aria-selected`(이미 있으면 `accessibilityState`만 지움), 펼침 → `aria-expanded`, 로딩 → `aria-busy`.
+- 10/23 `role="button"`인데 `selected`였던 토글(팔로우, 좋아요, 달력 시작·끝날)은 `aria-pressed`로 바꾼다. `aria-selected`는 button에서 ARIA가 허용하지 않아 스크린리더가 읽지 않는다. 대표사진 버튼은 이미 `aria-pressed`가 있어 `accessibilityState`만 지운다.
+- 10/23 `disabled`는 넣지 않는다. 모든 곳에 Pressable `disabled` prop이 이미 있고, react-native-web Pressable이 그걸로 `aria-disabled`를 만든다.
+
+### 작업
+- [x] 26곳 `accessibilityState` → `aria-*`
+- [x] Playwright: 주문서 '모두 동의해요' 뒤 제3자 제공 `toBeChecked()`, Mock 로그인 계정 라디오 `toBeChecked()`, 상품정보 접기 `aria-expanded`
+- [ ] `npm run typecheck`, `npm run test:mock`, 관련 Playwright
+
+### 완료 조건
+- [ ] `grep -rn accessibilityState packages/ui/src apps --include='*.tsx'` 0건
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main 3cb431f에서 시작.
