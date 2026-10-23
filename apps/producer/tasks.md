@@ -794,3 +794,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/21 검증: `npm run typecheck` 5개 워크스페이스 통과, `npm run test:mock` 22/22(관문 3개 새로). 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, 별도 DB `farmclub_dev108`, `node scripts/run-integration.mjs scripts/e2e/producer-kakao.spec.ts scripts/e2e/discovery-and-gates.spec.ts`): 실서버 시나리오 7/7, Playwright 7/7. 새 spec을 origin/main의 session.tsx·kakao.tsx로 돌리면 승인 계정 1건만 실패(`/auth/kakao`에 남음)해 보고된 증상과 같음을 확인.
 - 10/21 Playwright는 카카오 인가 화면을 열 수 없어 `POST /api/auth/kakao`만 가로채 시드 생산자의 test-login 토큰으로 답한다. 그 뒤 `/api/auth/me`·관문·화면은 실서버 그대로.
 - 10/22 Figma v6 ‘현재 시안 · 생산자’에 `DEV-108 · P02-1 카카오 복귀 · /auth/kakao`(node 456:2115)와 명세 상자(456:2120)를 그렸다. 자리는 P02와 같은 줄, DEV-74 ‘수정 전 · P02’ 사본 오른쪽(x 3940). 스크립트는 레포 밖 `figma-plugins/farmclub-dev108/code.js`(이름으로 찾아 같은 노드를 다시 그림, 두 번 실행해 노드 2개·같은 id 확인). 사용자 Chrome의 Figma 웹 편집기 콘솔에서 실행.
+
+## DEV-113 사이트 하단 사업자 정보와 약관·처리방침
+
+- 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
+- 10/22 `/privacy`·`/terms` 라우트(관문 `lib/gate.ts`에서 모든 상태에 공개, 동의 전에는 `/consent`만), 로그인·환경설정 하단 `LegalFooter`, vercel.json에서 정적 HTML로 rewrite.

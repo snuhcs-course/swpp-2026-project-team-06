@@ -81,11 +81,15 @@ async function run(app) {
     stop();
     return;
   }
-  if (mode === "export")
+  if (mode === "export") {
+    // 약관·처리방침 정적 HTML과 noscript 사업자 정보(DEV-113). export 때만 불러온다
+    const { writeLegalPages } = await import("./legal-pages.mjs");
+    await writeLegalPages(path.join(cwd, "dist"));
     await copyFile(
       path.join(cwd, "vercel.json"),
       path.join(cwd, "dist/vercel.json"),
     );
+  }
 }
 if (mode === "start") {
   const build = spawn(

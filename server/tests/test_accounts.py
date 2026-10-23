@@ -1,5 +1,6 @@
 """FEAT-01 Mock 로그인·계정 분리, FEAT-08 저장 배송지."""
 
+from app.accounts.schemas import CONSENT_VERSION
 from app.core import config
 
 
@@ -37,6 +38,7 @@ def test_AC_01_1_login_returns_token_and_user(client):
         "email": None,
         "phone": "",
         "needsOnboarding": False,
+        "consentRequired": False,
     }
 
 
@@ -259,10 +261,14 @@ def _kakao_on(monkeypatch, fetch=("kakao-1001", "minji@example.com"), **extra):
 
 
 CONSENTS = [
-    {"kind": "TERMS", "version": "2026-10-18"},
-    {"kind": "PRIVACY", "version": "2026-10-18"},
-    {"kind": "AGE14", "version": "2026-10-18"},
-    {"kind": "MARKETING", "version": "2026-10-18", "agreed": False},
+    {"kind": "TERMS", "version": CONSENT_VERSION},
+    {"kind": "PRIVACY", "version": CONSENT_VERSION},
+    {"kind": "AGE14", "version": CONSENT_VERSION},
+    {"kind": "MARKETING", "version": CONSENT_VERSION, "agreed": False},
+]
+PRODUCER_CONSENTS = [
+    {"kind": "TERMS", "version": CONSENT_VERSION},
+    {"kind": "PRIVACY", "version": CONSENT_VERSION},
 ]
 PROFILE = {"nickname": "귤러버", "name": "김민지", "phone": "010-2345-6789"}
 
@@ -272,6 +278,13 @@ def _kakao_consumer(client) -> tuple[dict, dict]:
         "/api/auth/kakao", json={"code": "abc", "redirectUri": CONSUMER_REDIRECT, "app": "consumer"}
     ).json()
     return body["user"], {"Authorization": f"Bearer {body['accessToken']}"}
+
+
+def _agree_producer(client, headers) -> None:
+    saved = client.post(
+        "/api/auth/me/consents", json={"consents": PRODUCER_CONSENTS}, headers=headers
+    )
+    assert saved.status_code == 200, saved.text
 
 
 def _finish_onboarding(client, headers) -> dict:
@@ -370,6 +383,9 @@ def test_AC_01_16_kakao_producer_signs_up_through_application(client, monkeypatc
     assert user["farmStatus"] == "NONE"
     assert user["needsOnboarding"] is False
     assert user["name"] == "카카오 사용자"
+    # 새 생산자도 약관·개인정보 동의가 먼저다(AC-01-18)
+    assert user["consentRequired"] is True
+    _agree_producer(client, headers)
 
     applied = client.post(
         "/api/auth/producer-application",
@@ -517,7 +533,7 @@ def test_AC_01_12_onboarding_validates_fields_and_required_consents(client, monk
     assert me["needsOnboarding"] is True
     client.post(
         "/api/auth/me/consents",
-        json={"consents": [{"kind": "AGE14", "version": "2026-10-18"}]},
+        json={"consents": [{"kind": "AGE14", "version": CONSENT_VERSION}]},
         headers=headers,
     )
     assert client.get("/api/auth/me", headers=headers).json()["needsOnboarding"] is False
@@ -541,7 +557,7 @@ def test_AC_01_14_consents_record_version_and_time(client, monkeypatch):
     assert saved.status_code == 200
     rows = {c["kind"]: c for c in saved.json()}
     assert set(rows) == {"TERMS", "PRIVACY", "AGE14", "MARKETING"}
-    assert rows["TERMS"]["version"] == "2026-10-18"
+    assert rows["TERMS"]["version"] == CONSENT_VERSION
     assert rows["TERMS"]["agreedAt"].startswith("2026-10-07")
     assert rows["MARKETING"]["agreed"] is False
 
@@ -688,3 +704,64 @@ def test_AC_01_15_addresses_capped_at_50_per_account(client, login):
     client.delete(f"/api/auth/me/addresses/{listed[-1]['addressId']}", headers=headers)
     again = client.post("/api/auth/me/addresses", json=_address_body(1000), headers=headers)
     assert again.status_code == 200
+
+
+def test_AC_01_17_existing_consumer_must_agree_to_new_terms_version(client, monkeypatch):
+    """약관·처리방침 버전이 바뀌면(DEV-113) 가입한 소비자도 다시 동의해야 주문·팔로우를 한다."""
+    _kakao_on(monkeypatch)
+    _, headers = _kakao_consumer(client)
+    old = [{**c, "version": "2026-10-18"} for c in CONSENTS]
+    client.post("/api/auth/me/consents", json={"consents": old}, headers=headers)
+    me = client.patch("/api/auth/me", json=PROFILE, headers=headers).json()
+    assert me["needsOnboarding"] is True
+    assert me["consentRequired"] is True
+    follow = client.put("/api/farms/f-kang/follow", headers=headers)
+    assert follow.status_code == 403
+    assert follow.json()["details"]["reason"] == "ONBOARDING_REQUIRED"
+
+    # 선택 항목(알림)은 다시 동의하지 않아도 된다
+    required = [c for c in CONSENTS if c["kind"] != "MARKETING"]
+    client.post("/api/auth/me/consents", json={"consents": required}, headers=headers)
+    me = client.get("/api/auth/me", headers=headers).json()
+    assert me["needsOnboarding"] is False
+    assert me["consentRequired"] is False
+    assert client.put("/api/farms/f-kang/follow", headers=headers).status_code == 200
+
+
+def test_AC_01_18_producer_must_agree_before_using_the_producer_app(client, monkeypatch, login):
+    """생산자는 지금 버전의 약관·개인정보에 동의해야 가입 신청·농가 API를 쓴다(DEV-113)."""
+    _kakao_on(monkeypatch)
+    body = client.post(
+        "/api/auth/kakao", json={"code": "abc", "redirectUri": PRODUCER_REDIRECT, "app": "producer"}
+    ).json()
+    headers = {"Authorization": f"Bearer {body['accessToken']}"}
+    application = {
+        "ownerName": "김새농",
+        "farmName": "카카오 농장",
+        "region": "제주 서귀포시",
+        "mainItems": "감귤",
+        "phone": "010-9876-5432",
+    }
+    blocked = client.post("/api/auth/producer-application", headers=headers, json=application)
+    assert blocked.status_code == 403
+    assert blocked.json()["details"]["reason"] == "CONSENT_REQUIRED"
+    # 내 정보·동의 API는 동의 전에도 된다
+    assert client.get("/api/auth/me", headers=headers).status_code == 200
+    assert client.get("/api/auth/me/consents", headers=headers).json() == []
+
+    # 옛 버전 동의는 인정하지 않는다
+    client.post(
+        "/api/auth/me/consents",
+        json={"consents": [{**c, "version": "2026-10-18"} for c in PRODUCER_CONSENTS]},
+        headers=headers,
+    )
+    assert client.get("/api/auth/me", headers=headers).json()["consentRequired"] is True
+
+    _agree_producer(client, headers)
+    assert client.get("/api/auth/me", headers=headers).json()["consentRequired"] is False
+    applied = client.post("/api/auth/producer-application", headers=headers, json=application)
+    assert applied.status_code == 200, applied.text
+
+    # 시드 테스트 계정은 동의 검사에서 빠진다
+    assert client.get("/api/auth/me", headers=login("u-kang")).json()["consentRequired"] is False
+    assert client.get("/api/auth/me", headers=login("u-minji")).json()["consentRequired"] is False

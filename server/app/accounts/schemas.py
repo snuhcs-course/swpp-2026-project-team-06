@@ -23,6 +23,12 @@ class TestAccount(CamelModel):
 
 ConsentKind = Literal["TERMS", "PRIVACY", "AGE14", "MARKETING"]
 REQUIRED_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY", "AGE14")
+# 생산자는 약관·개인정보만 받는다(만 14세는 소비자 가입 항목, DEV-113)
+REQUIRED_PRODUCER_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY")
+# 지금 시행 중인 약관·처리방침 문구 버전(시행일). 바꾸면 모든 회원이 다시 동의해야 쓸 수 있다
+# (DEV-113, policy.md 5장). 앱(packages/ui legalContent LEGAL_VERSION)·Mock(packages/api
+# mock/db.ts)과 같은 값이어야 한다(scripts/test-legal.mjs가 확인)
+CONSENT_VERSION = "2026-10-23"
 
 
 class UserView(CamelModel):
@@ -38,6 +44,8 @@ class UserView(CamelModel):
     email: str | None = None
     phone: str = ""
     needs_onboarding: bool = False
+    # 필수 동의가 없거나 지금 버전이 아니다(DEV-113). 소비자·생산자 모두. 테스트 계정은 항상 false
+    consent_required: bool = False
 
 
 class MeUpdateInput(CamelModel):

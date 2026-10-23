@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  PRODUCTION_HOSTS,
   cleanProps,
+  isAllowedHost,
   isPrivatePath,
+  parseHosts,
   maskText,
   scrubUrls,
   stripQuery,
@@ -134,4 +137,32 @@ test("N-05: URL properties lose their query and hash", () => {
   assert.deepEqual(heat.$heatmap_data, {
     "https://farmclub.kr/login": [{ x: 1 }, { x: 2 }],
   });
+});
+
+test("DEV-125: PostHog turns on only for the production hosts", () => {
+  assert.deepEqual([...PRODUCTION_HOSTS], ["farmclub.kr", "farm.farmclub.kr"]);
+  for (const host of ["farmclub.kr", "farm.farmclub.kr", "FARMCLUB.KR", "farmclub.kr."])
+    assert.equal(isAllowedHost(host), true, host);
+  for (const host of [
+    "farmclub-consumer.vercel.app",
+    "farmclub-demo.vercel.app",
+    "farmclub-consumer-git-main-nemodleo-4232s-projects.vercel.app",
+    "demo.farmclub.kr",
+    "www.farmclub.kr",
+    "localhost",
+    "127.0.0.1",
+    "notfarmclub.kr",
+    "farmclub.kr.evil.example",
+    "",
+  ])
+    assert.equal(isAllowedHost(host), false, host || "(empty)");
+});
+
+test("DEV-125: EXPO_PUBLIC_POSTHOG_HOSTS overrides the allow list, empty keeps the default", () => {
+  assert.deepEqual([...parseHosts(undefined)], [...PRODUCTION_HOSTS]);
+  assert.deepEqual([...parseHosts("  ")], [...PRODUCTION_HOSTS]);
+  const hosts = parseHosts(" demo.farmclub.kr, Farmclub.kr ,,");
+  assert.deepEqual([...hosts], ["demo.farmclub.kr", "farmclub.kr"]);
+  assert.equal(isAllowedHost("demo.farmclub.kr", hosts), true);
+  assert.equal(isAllowedHost("farm.farmclub.kr", hosts), false);
 });

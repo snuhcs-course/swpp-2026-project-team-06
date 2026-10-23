@@ -668,6 +668,10 @@ Support history remains available to operators for hidden/suspended farms. Multi
 
 N-04, N-08, N-09, N-10 and N-11 express quality targets, not measured I2 achievements. Fixed development fixtures do not establish independent model accuracy, production p95 latency, load capacity or monthly uptime. These validations remain outstanding. N-02 remains the general accessibility target; the source-editor contract currently uses 44px editing controls, an explicit deviation to reconcile with the 48px target. N-13 describes app JWT sessions; the operator proxy uses a separate approximately 12-hour cookie. Personal-data retention policy remains open (Q-20).
 
+**Legal pages (DEV-113, R-16).** Both apps show a footer with the business information (trade name, representative, business and mail-order registration numbers, address, contact, privacy officer, hosting provider) on the first screen, plus links to the Privacy Policy (`/privacy`) and Terms of Service (`/terms`). Both pages open without login and are also served as static HTML so they can be read without JavaScript. The business values come from build-time variables and are never stored in the repository; until they are set, the footer only says "test service". The current retention periods follow how the service behaves today and still need legal review.
+
+**Re-consent (DEV-113, AC-01-17/18).** The terms and privacy policy carry a version (2026-10-23). The server checks that each member agreed to the current version: consumers must agree to the terms, privacy and age-14 items before ordering, following, liking or chatting, and producers must agree to the terms and privacy items before any producer API (including the application). Members who agreed to an older version see a short "terms changed" screen (consumers) or the consent screen `/consent` (producers) and are blocked until they agree. Seeded test accounts are exempt.
+
 ## 7. User Interface Requirements
 
 ### 7.1 Navigation

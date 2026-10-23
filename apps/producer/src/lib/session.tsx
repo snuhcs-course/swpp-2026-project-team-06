@@ -6,6 +6,7 @@ import {
   configureApi,
   getToken,
   onAuthChange,
+  onConsentRequired,
   type User,
 } from "@farmclub/api";
 import { useAnalytics } from "@farmclub/analytics";
@@ -21,7 +22,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { homeFor } from "./gate";
+import { PUBLIC_PATHS, homeFor } from "./gate";
 
 configureApi({ namespace: "producer" });
 
@@ -101,12 +102,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
-    return onAuthChange(() => void refresh());
+    const offAuth = onAuthChange(() => void refresh());
+    // 쓰는 중에 약관 버전이 바뀌어 403 CONSENT_REQUIRED를 받으면 다시 읽어 관문이 동의 화면으로 보낸다
+    const offConsent = onConsentRequired(() => void refresh());
+    return () => {
+      offAuth();
+      offConsent();
+    };
   }, [refresh]);
 
   // 관문: 승인 전에는 다른 생산자 화면 주소로 가도 대기 화면으로(AC-01-3)
+  // 약관·처리방침(DEV-113)은 로그인·승인 상태와 상관없이 열린다
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || PUBLIC_PATHS.includes(pathname)) return;
     const g = homeFor(user);
     if (!g.allowed(pathname)) router.replace(g.home as never);
   }, [ready, user, pathname, router]);

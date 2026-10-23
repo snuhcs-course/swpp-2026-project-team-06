@@ -603,11 +603,6 @@ Session: `01a143de-a800-7c41-9e9b-55bd3e803b58`. Archive source: `codex/01a143de
 ````text
 제생각에는 수수료로 하고 iteration 진행함에 따라 판매자를 늘려야하는 방향성이어야 한다고 생각합니다.
 그렇지 않으면 소수의 판매자들만으로는 소비자들을 잡아두기에 콘텐츠가 적지 않을까 싶습니다.
-
-이딴식으로 연락옴 아.
-뭐라하지
-학기중에는 학점 잘 받는게 목표고 사업화에 관심없는 팀원들도 있으니 일단 지금은 수수로없이 통계치 및 패턴화하기까지 가용화할 모수를 모으고, 수업 후에 사업화하고 싶으신 분들끼리 bm 구조를 바꿔서 진행해보는거 어떻니.
-일단 수수료 등 붙이면 당장에는 판매가 더 저조할 수 있음, 수수료 없는게 초기 판매에도 이득이니까
 ````
 
 ## 42. 2026-10-17T22:47:42.620000+09:00
@@ -657,7 +652,7 @@ Session: `01a14a1e-1298-7280-9b74-1f5b1c78ebf6`. Archive source: `codex/01a14a1e
 Session: `01a14a1e-1298-7280-9b74-1f5b1c78ebf6`. Archive source: `codex/01a14a1e-1298-7280-9b74-1f5b1c78ebf6/rollout-2026-10-17T22-47-27-01a14a1e-1298-7280-9b74-1f5b1c78ebf6.jsonl`, line 44.
 
 ````text
-또한 저희 마케팅 진행안할거면 저 혼자서 40~50대 소비자층 모집 한계 존재 -> scope를 변경하거나, 다같이 부모님, 지인께 부탇드리며 모집하면 좋겠음.
+40~50대 소비자층 모집 한계 존재 -> scope를 변경하거나, 다같이 부모님, 지인께 부탇드리며 모집하면 좋겠음.
 별도로 보낼거야
 ````
 
@@ -722,8 +717,7 @@ Session: `01a14eb9-c83b-7110-8ee2-b861cc26216f`. Archive source: `codex/01a14eb9
 Session: `01a14eb9-c83b-7110-8ee2-b861cc26216f`. Archive source: `codex/01a14eb9-c83b-7110-8ee2-b861cc26216f/rollout-2026-10-18T20-16-00-01a14eb9-c83b-7110-8ee2-b861cc26216f.jsonl`, line 38.
 
 ````text
-든든한 이모티콘이 이리 귀여울수가 
-뭔가 어색하지 않아?
+든든한
 ````
 
 ## 55. 2026-10-19T06:22:56.785000+09:00
@@ -1164,7 +1158,7 @@ Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e
 Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e-b6c3-7232-a292-10ca00fbcc6f/rollout-2026-10-19T16-27-15-01a1530e-b6c3-7232-a292-10ca00fbcc6f.jsonl`, line 72.
 
 ````text
-시발새끼가 연락달라했는데 안주고 저지랄임
+연락달라했는데..
 ````
 
 ## 92. 2026-10-19T21:14:53.654000+09:00
@@ -1172,7 +1166,7 @@ Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e
 Session: `01a1530e-b6c3-7232-a292-10ca00fbcc6f`. Archive source: `codex/01a1530e-b6c3-7232-a292-10ca00fbcc6f/rollout-2026-10-19T16-27-15-01a1530e-b6c3-7232-a292-10ca00fbcc6f.jsonl`, line 82.
 
 ````text
-싸우자는거같아서..
+같아서..
 ````
 
 ## 93. 2026-10-19T21:15:07.419000+09:00
@@ -1437,7 +1431,7 @@ Session: `01a15d2f-c412-7191-8ca1-62b9d31ee0b9`. Archive source: `codex/01a15d2f
 Session: `01a15d1f-1da9-7e70-bbce-e54e53347196`. Archive source: `codex/01a15d1f-1da9-7e70-bbce-e54e53347196/rollout-2026-10-21T15-21-22-01a15d1f-1da9-7e70-bbce-e54e53347196.jsonl`, line 386.
 
 ````text
-일단 너는 이게 잘 만든거라고 생각해? PM이 잘 지휘했다는건 암묵적으로 보여줘야하는거지. 'PM record 공유'가 이 슬라이드들의 목적이잖아.
+일단 'PM record 공유'가 이 슬라이드들의 목적이잖아.
 ````
 
 ## 119. 2026-10-21T16:29:46.366000+09:00
@@ -1706,6 +1700,55 @@ does document 5 require the exact log for AI use? then please use the session ex
 
 ---
 
+## Hyun Park
+
+Period: Oct 18–22, 2026 (KST). Tool: Claude Code (Claude Opus 5.5). This section is separate from the numbered export above; I did not use the Session Exporter for it. I copied these prompts by hand from the Claude Code session files kept on my machine for this repository, which only go back to Oct 18. Most of my prompts were in Korean. I kept the Korean as I typed it, typos included, and put my own English translation in brackets. Prompts that contained contact details or a business document are left out. The session column is the first eight characters of the local session ID.
+
+### Prompts
+
+**PostHog funnel and masking (DEV-71, PR [#146](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/146))**
+- 2026-10-18 19:38 · session `bc39d8d2` (sent in English) — "Merge main into PR 146 and switch the funnel events to the bank-transfer flow (product → order form → deposit instructions → deposit reported). Add any new producer screens that show personal data to the masking list, then rerun the tests and the AI first-pass review."
+
+**Orders on farms without a bank account (DEV-72, PR [#149](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/149), closed)**
+- 2026-10-18 21:09 · `91ac1b30` — "db 백필만 하는거 아니었어?" [Wasn't this only a DB backfill?]
+- 2026-10-18 21:10 · `91ac1b30` — "그러면 백필만하고 pr 필요없는거지? 그런거면 제거" [Then we only need the backfill and no PR, right? If so, remove it.]
+- 2026-10-18 21:11 · `91ac1b30` — "백필 SQL은 내가 Railway 콘솔에서 직접 실행할게. SQL만 다시 정리해줘." [I'll run the backfill SQL in the Railway console myself. Just clean up the SQL.]
+
+**spec-check kept failing (DEV-55 → DEV-79, PR [#160](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/160))**
+- 2026-10-18 23:19 · `0744feb6` — "또 안됨. 계속이러는데 왜그러는거야? 근원찾고 계속 이거 반복해야한는거야?" [Failed again. Why does this keep happening? Find the root cause. Do we have to keep repeating this?]
+- 2026-10-18 23:23 · `0744feb6` — "한도 때문에 절대 불통인거지? 그러면 한도 늘리자" [So it can never pass because of the limit? Then raise the limit.]
+- 2026-10-18 23:31 · `0744feb6` — "256 KiB 한도면 일반적인 상황에도 적당한가?" [Is a 256 KiB limit reasonable for normal cases too?]
+
+**Turning a one-off fix into a rule (DEV-80, PR [#162](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/162); DEV-81)**
+- 2026-10-18 23:55 · `0744feb6` — "Spec ↔ Code 확인 표 같은거는 .agents 내 파일에 추가해서 agent가 그렇게 하도록하고, 지금꺼는 너가 임의로 추가하는식으로 함 / ai가 Spec ↔ Code 확인할때 git diff 기반으로 확인하는건 어떨지? 가능한지, 이외의 파일 필요한지" [Put things like the Spec ↔ Code table into a file under .agents so agents do it that way; right now you are adding it ad hoc. / What about having the AI check Spec ↔ Code from the git diff? Is that possible, and does it need any other files?]
+
+**APK signing (DEV-33, PR [#164](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/164))**
+- 2026-10-19 02:33 · `8b0b1299` — "APK 빌드 탭에 비밀번호 입력했어. 계속 진행해줘." [I typed the password in the APK build tab. Carry on.]
+
+**New products failing on the live server (DEV-84, PRs [#174](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/174)/[#175](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/175); DEV-86, PR [#177](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/177), closed)**
+- 2026-10-19 18:49 · `29eb5b8f` — "이거 원래 누구일이고 왜 안되는거야? 내가 설정안해서그런건지 머지가 안된건지 일을 누가 안한건지 그레이존인건지 찾아" [Whose job was this originally, and why doesn't it work? Find out whether I didn't set something, something wasn't merged, someone didn't do their part, or it fell in a gray zone.]
+- 2026-10-19 19:42 · `29eb5b8f` — "사진·PDF 정확도 95%기준 못넘었는데 너는 왜 하려는거야? 정확도 넘어?" [Photo/PDF accuracy didn't pass the 95% bar, so why are you trying to turn it on? Does it pass?]
+- 2026-10-19 20:08 · `29eb5b8f` — "#177 완전제거(깃에도)어때" [How about removing #177 completely, from git too?]
+
+**PostHog masking only personal data (DEV-104, PR [#212](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/212))**
+- 2026-10-21 13:58 · `bc39d8d2` — "너무 다 지운거 아닌가?" [Isn't too much blanked out?]
+- 2026-10-21 14:00 · `bc39d8d2` — "개인정보만 가리게끔한다." [Mask personal data only.]
+- 2026-10-21 14:30 · `bc39d8d2` — "농가가 적은 입금 미확인·환불 지연 사유 -> 이런거는 가릴이유가 없잖아? 법적으로 문제되지 않는 정도 빼고는 모두 열어" [Reasons a farm wrote for an unconfirmed deposit or a late refund: there's no reason to hide those, right? Unmask everything except what is legally a problem.]
+- 2026-10-21 14:44 · `bc39d8d2` (sent in English) — "Squash merge PR 212 now without a teammate's approval, then check the deploy."
+
+### Before Oct 18 (summaries, not verbatim)
+
+These sessions are not in my local history. The lines below are the "대표 요청" (main request) line from each PR body, which the agent wrote as a summary of my request. They are not my exact words.
+
+- PR [#121](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/121) (DEV-32) — after Kakao login, collect what the service needs on first sign-up (nickname, phone, default address, consent); address book up to 50 with edit and delete.
+- PR [#123](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/123) (DEV-60) — add the two `farms` paths that are in the spec table but missing on the server, matching the Mock, with tests.
+- PR [#131](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/131) (DEV-65) — deploy the server to Railway on merge to `main` without the GitHub App, and fix the README's Vercel section to match how we actually deploy.
+- PR [#135](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/135) (DEV-66) — deploy the server only after CI passes on `main`, using the commit that was checked.
+
+### Notes
+
+- In this period I asked several times for answers in Korean ("한글로") after the agent replied in English. Those one-word prompts are not listed.
+- Agent time and tokens for each PR are in the PR body's "AI 사용" block; the totals are in the report's Section 1.
 ## Jinwoo Jang
 
 Period: Oct 16–22, 2026 (KST). Tools: Codex (GPT-6 Astra; GPT-6.1 Sol) and Claude Code (Claude Opus 5.5). Source: Session Exporter 0.1.0 export of 10 local sessions (376 input records). This is a selection, not the full list. Prompts are in Korean as I typed them, typos included, with my English translation in brackets. Left out: prompts containing a credential, team document links, production data or command output, and prompts with rude wording. The session shown on each line is the first eight characters of the session ID.
