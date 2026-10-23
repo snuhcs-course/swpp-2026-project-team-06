@@ -50,7 +50,7 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background:
 .side { background: var(--bg); border-right: 1px solid var(--border); padding: 24px 12px; display: flex; flex-direction: column; gap: 24px; position: sticky; top: 0; height: 100vh; }
 .side .head { padding: 0 8px; display: flex; align-items: baseline; gap: 8px; }
 .side nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-.side nav a { display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 8px; color: var(--text); text-decoration: none; font-weight: 600; font-size: 15px; }
+.side nav a { white-space: nowrap; display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 8px; color: var(--text); text-decoration: none; font-weight: 600; font-size: 15px; }
 .side nav a:hover { background: var(--surface); }
 .side nav a[aria-current="page"] { background: var(--surface); }
 .side .foot { padding: 0 8px; display: grid; gap: 6px; }

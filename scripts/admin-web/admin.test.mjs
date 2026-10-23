@@ -249,8 +249,9 @@ test("중계는 AI 비용 조회만 넘기고 보고 API는 넘기지 않는다 
   const cookie = await signIn();
   const go = (path, method = "GET") =>
     call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
-  assert.equal((await go("/admin/spec-check-runs?limit=50")).status, 502); // 허용 → 실서버 호출까지 감
-  assert.equal((await go("/admin/spec-check-runs?limit=50&cursor=WzUwXQ==")).status, 502);
+  assert.equal((await go("/admin/ai-usage?limit=50&feature=spec_check")).status, 502); // 허용 → 실서버 호출까지 감
+  assert.equal((await go("/admin/ai-usage?limit=50&cursor=WzUwXQ==")).status, 502);
+  assert.equal((await go("/admin/spec-check-runs")).status, 400);
   assert.equal((await go("/internal/spec-check-runs", "POST")).status, 400);
 });
 
