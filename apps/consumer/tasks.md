@@ -507,3 +507,42 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
 - 10/23 ‘내 정보’ 설정 목록 끝에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃·홈.
+
+## DEV-138 Single source for checkout consent keys
+
+- 이슈: [DEV-138](https://linear.app/sswp6/issue/DEV-138)
+- 브랜치: `nemodleo/dev-138-order-consent-keys`
+- 기능·규칙: FEAT-08 AC-08-1, R-03, policy.md 2장, DEV-120(제3자 제공 동의)
+- 상태: 진행 중
+
+### 목표
+DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개 중 N개 동의했어요’로 남았다(개수를 숫자로 직접 씀). 동의 키를 한 곳에 두고 나머지를 거기서 계산해, 항목을 늘려도 한 곳만 고치면 되게 한다. 서버와 앱 목록이 어긋나면 CI가 잡게 한다.
+
+### 범위 (수정 허용 경로)
+- `packages/api/src/{orderConsents.ts,types.ts,index.ts,mock/orders.ts}`
+- `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/tasks.md`
+- `scripts/test-order-consents.mjs`(새 계약 테스트), `package.json`(test:mock에 추가)
+- `scripts/e2e/checkout-and-fulfillment.spec.ts`(일부 동의 상태)
+
+### 비범위
+- 서버 동작(`server/app/orders/*` 검사 규칙·문구), 동의 문안, 동의 화면 모양, Figma
+
+### 결정 사항
+- 10/23 키 목록은 import 없는 새 파일 `packages/api/src/orderConsents.ts`에 둔다. 계약 테스트가 Node type stripping으로 바로 import한다(`test-legal.mjs`와 같은 방식). 타입 `OrderInput["consents"]`는 이 목록에서 만든다.
+- 10/23 서버는 Python이라 목록을 공유하지 않는다. 계약 테스트가 `server/app/orders/schemas.py`의 `class Consents` 필드(snake_case)를 읽어 앱 목록(camelCase로 바꿔)과 순서까지 같은지 본다.
+
+### 작업
+- [ ] `ORDER_CONSENT_KEYS`와 타입, Mock 검사
+- [ ] 주문서 초기값·전체 동의·개수·문구를 목록에서 계산
+- [ ] 계약 테스트(`test:mock`)
+- [ ] Playwright 일부 동의 상태(AC-08-1)
+- [ ] typecheck, test:mock, pytest(orders), Playwright
+
+### 완료 조건
+- [ ] 주문서에서 숫자 4·5를 직접 쓰는 곳이 없다
+- [ ] 서버·앱 목록이 어긋나면 `test:mock`이 실패한다
+- [ ] 일부 동의 상태 문구와 예약하기 꺼짐을 테스트가 확인한다
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main 74394f5에서 시작. DEV-116 작업 중 발견(`git blame`: 문구는 10/18 54dc274, DEV-120 9a558ef는 `=== 5`만 고침).
