@@ -114,8 +114,8 @@ export type LegalDoc = {
 };
 
 /** 시행 중인 약관·처리방침 버전(시행일). 가입·재동의 기록에 이 값을 남기고, 서버 CONSENT_VERSION과 같아야 한다(DEV-113) */
-export const LEGAL_VERSION = "2026-10-22";
-const EFFECTIVE = "2026년 10월 22일";
+export const LEGAL_VERSION = "2026-10-23";
+const EFFECTIVE = "2026년 10월 23일";
 
 export const privacyPolicy: LegalDoc = {
   path: "/privacy",

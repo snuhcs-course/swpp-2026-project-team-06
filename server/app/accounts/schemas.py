@@ -28,7 +28,7 @@ REQUIRED_PRODUCER_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY")
 # 지금 시행 중인 약관·처리방침 문구 버전(시행일). 바꾸면 모든 회원이 다시 동의해야 쓸 수 있다
 # (DEV-113, policy.md 5장). 앱(packages/ui legalContent LEGAL_VERSION)·Mock(packages/api
 # mock/db.ts)과 같은 값이어야 한다(scripts/test-legal.mjs가 확인)
-CONSENT_VERSION = "2026-10-22"
+CONSENT_VERSION = "2026-10-23"
 
 
 class UserView(CamelModel):
