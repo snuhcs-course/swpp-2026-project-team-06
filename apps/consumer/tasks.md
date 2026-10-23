@@ -7,7 +7,7 @@
 - 이슈: [DEV-12](https://linear.app/sswp6/issue/DEV-12) (GitHub #19)
 - 브랜치: `nemodleo/dev-12-i1-구현-뼈대-appspackagesserver-폴더와-폴더별-specmd`
 - 기능·인수 조건: 없음(뼈대). 화면 자리: SCR-01~05, SCR-10~17 / FEAT-01, 02, 06~13, 15, 19
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 DEV-3(프론트) 구현을 바로 시작할 수 있게, ia.md 2장 경로대로 화면 자리가 있는 빈 소비자 앱(Expo Router 웹 출력)을 만든다.
@@ -399,7 +399,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: [DEV-112](https://linear.app/sswp6/issue/DEV-112)
 - 브랜치: `nemodleo/dev-112-dev-소비자-앱-카카오-복귀-화면을-생산자-앱dev-108과`
 - 기능·인수 조건: FEAT-01 I2 / AC-01-13 · 화면 SCR-05 하위 `/auth/kakao` · 관련 DEV-32, DEV-108
-- 상태: 진행 중
+- 상태: 리뷰 중
 
 ### 목표
 소비자 앱 카카오 복귀 화면을 생산자 앱처럼 로딩 표시 + 한 줄로 정리하고, 새로고침 오류(일회용 `state` 소진으로 ‘로그인 요청이 만료됐어요’)와 응답 지연(무한 대기)을 처리한다. 소비자 앱은 로그인 뒤 직접 이동하므로 생산자 앱 같은 멈춤은 없었다.
@@ -553,7 +553,7 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 결정 근거: [소비자·생산자 앱 스토어 배포 방식 결정](https://claude.ai/artifact/RMzRFujnLGCMvGB927ozKc) · 관련 DEV-128(계정, 사람), DEV-129(CI, 범위 밖), DEV-41(설치 확인)
 - 브랜치: `nemodleo/dev-33-eas-native-builds`
 - 기능·인수 조건: FEAT-01 AC-01-13·AC-01-16(카카오 로그인 복귀가 앱에서도 같은 화면으로), PRD N-01은 웹 그대로 유지 · 화면 변경 없음
-- 상태: 진행 중
+- 상태: 리뷰 중
 - 생산자 앱 쪽 기록: `apps/producer/tasks.md#DEV-33`, 공용 패키지: `packages/api/tasks.md#DEV-33`, `packages/ui/tasks.md#DEV-33`
 
 ### 목표
