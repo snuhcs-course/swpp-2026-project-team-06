@@ -336,7 +336,9 @@ Build (cloud); JS changes ship with EAS Update and never need a store review. Id
 `kr.farmclub.consumer` and `kr.farmclub.producer`; `apps/<app>/eas.json` has three profiles:
 `development` (dev client), `preview` (channel `preview`, store-format build for TestFlight and
 Play internal testing) and `production` (channel `production`). Build numbers auto-increment;
-`version` in `app.json` is bumped by hand. Nothing native is built locally and no `ios/` or
+`version` in `app.json` is bumped by hand. The `development` profile points at `http://localhost:8000`,
+which on a device is not your computer, and its Kakao return address is still the production
+web page, so in a dev client use a test account (or set `EXPO_PUBLIC_API_URL` to your LAN address). Nothing native is built locally and no `ios/` or
 `android/` folder is committed.
 
 Web-only code is split by platform (`*.native.ts` next to the web file, or `Platform.OS`

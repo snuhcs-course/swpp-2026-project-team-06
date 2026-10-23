@@ -19,7 +19,7 @@
   - 복사 `expo-clipboard`, 바깥 주소 `Linking`, 화면 숨김 판단 `AppState`(웹에서는 `document.visibilityState`를 비춘다).
 - **카카오 로그인 복귀(앱)**: 카카오 콘솔·서버의 복귀 주소는 그대로 `https://farmclub.kr/auth/kakao`(생산자 `https://farm.farmclub.kr/auth/kakao`)다. 앱은 `expo-web-browser` 인증 세션으로 인가 화면을 열고 `state`를 `app-<nonce>`로 보낸다. 웹 복귀 화면은 `state`가 `app-`으로 시작하면 코드를 그대로 앱 스킴(`farmclub-consumer://auth/kakao?code&state`)으로 넘기고, 앱의 같은 `/auth/kakao` 화면이 메모리에 둔 복귀 정보로 대조한 뒤 서버에 보낸다. 서버가 받는 `redirectUri`는 웹과 같아 서버 변경이 없다(ADR 0003 유지).
   - Universal Links·App Links 대신 커스텀 스킴을 쓰는 이유: 인증 세션 안의 302 리다이렉트는 앱 링크로 앱을 열지 않고, App Links 검증에는 DEV-128 뒤에야 생기는 서명 지문이 필요하다.
-  - `apple-app-site-association`·`assetlinks.json`은 두 앱 `public/.well-known/`에 둔다(Team ID·지문 자리표시자, `vercel.json`이 `application/json`으로 응답). 값을 채우면 같은 `/auth/kakao` 화면이 앱 링크 진입도 처리한다.
+  - `apple-app-site-association`·`assetlinks.json`은 두 앱 `public/.well-known/`에 둔다(Team ID·지문 자리표시자, `vercel.json`이 `application/json`으로 응답). 지금은 앱 링크로 여는 경로가 없다(AASA 경로 전부 제외, Android https 인텐트 필터 없음). `/auth/kakao`를 앱 링크로 열면 웹에서 시작한 로그인까지 앱으로 넘어와 복귀 정보가 없어지므로, 앱 링크를 켤 때 어느 경로를 열고 웹 시작 로그인을 어떻게 돌려보낼지 먼저 정한다(후속).
 - 계정(Apple Developer·Google Play·Expo)과 인증서는 사람이 만들고(DEV-128), 비밀값은 EAS가 관리한다. 레포·이슈·PR에 쓰지 않는다. CI 자동화(`eas update`·`eas build`)는 DEV-129.
 - PR #164은 TWA 셸(`apps/android-twa`)을 버리고 manifest·assetlinks·홈 화면 메타만 이 결정에 가져왔다.
 
@@ -32,4 +32,4 @@
 - 네이티브 의존성이 늘었다: expo-updates, expo-secure-store, expo-web-browser, expo-image-picker, expo-clipboard, expo-file-system·application·device·localization(PostHog), posthog-react-native. 웹 번들에도 같은 패키지의 웹 구현이 들어간다.
 - EAS 무료 플랜 한도: 빌드 OS당 월 15회, Update 월 활성 사용자 1,000명. 네이티브 변경은 모아서 빌드하고, 넘으면 Starter(USD 19/월).
 - 스토어 요건(Sign in with Apple, 앱 안 회원 탈퇴, 처리방침 URL, 심사용 로그인)은 방법과 무관하게 걸리며 별도 이슈(DEV-130·DEV-75·DEV-94·DEV-131)다. TestFlight·Play 내부 테스트는 심사 없이 된다.
-- 인증 세션 안에서 카카오톡 앱으로 넘어가는 ‘카카오톡으로 로그인’ 버튼이 동작하는지는 실기기에서 확인한다(DEV-41). 안 되면 카카오계정(아이디·비밀번호) 로그인은 된다.
+- 인증 세션 안에서 카카오톡 앱으로 넘어가는 ‘카카오톡으로 로그인’ 버튼이 동작하는지는 실기기에서 확인한다(DEV-41). 안 되면 카카오계정(아이디·비밀번호) 로그인은 된다. Android는 expo-web-browser가 복귀 스킴을 `Linking` 이벤트로 받고 expo-router가 같은 이벤트로 `/auth/kakao`를 여므로 로그인 화면은 다시 이동하지 않는다(이중 처리 방지).

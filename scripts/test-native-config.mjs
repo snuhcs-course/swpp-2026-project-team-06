@@ -1,7 +1,8 @@
 // DEV-33 EAS 네이티브 빌드 설정과 플랫폼 분기. 네이티브 모듈 없이 Node에서 읽을 수 있는 것만 검사한다.
 // - app.json·eas.json·public/.well-known·vercel.json(두 앱)
 // - 웹 복귀 화면의 앱 전달(appReturnUrl)과 네이티브 kakao 모듈(메모리 저장, 복귀 주소, state 접두어)
-// - 공용 패키지(packages/*)에 window·document·localStorage·sessionStorage 직접 호출이 웹 전용 파일 밖에 없는지
+// - 공용 패키지(packages/*)에 window·document·localStorage·sessionStorage의 멤버 접근이 웹 전용 파일 밖에 없는지
+//   (URL.createObjectURL·FileReader·globalThis 경유는 보지 않는다. RN에서 revokeObjectURL은 no-op, FileReader는 지원)
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -57,7 +58,8 @@ for (const [app, { id, scheme, host }] of Object.entries(APPS)) {
     const aasa = json(`apps/${app}/public/.well-known/apple-app-site-association`);
     const [appId] = aasa.applinks.details[0].appIDs;
     assert.ok(appId.endsWith(`.${id}`), appId);
-    assert.ok(aasa.applinks.details[0].components.some((c) => c["/"] === "/auth/kakao"));
+    // 앱 링크로 여는 경로는 아직 없다(ADR 0013): 전부 제외. /auth/kakao를 열면 웹 시작 로그인이 앱으로 넘어온다
+    assert.ok(aasa.applinks.details[0].components.every((c) => c.exclude === true));
     const manifest = json(`apps/${app}/public/manifest.webmanifest`);
     assert.equal(manifest.display, "standalone");
     assert.equal(manifest.scope, "/");
@@ -141,8 +143,10 @@ test("공용 패키지에 웹 전용 전역 직접 호출이 없다(결정 문�
   assert.deepEqual(hits, []);
 });
 
-test("네이티브 쌍이 있는 파일은 같은 이름을 내보낸다", () => {
+test("네이티브 쌍이 있는 파일은 같은 이름을 내보낸다(양방향: tsc는 .ts만, Metro는 플랫폼별로 해석한다)", () => {
   const pairs = [
+    ["apps/consumer/src/lib/kakao.ts", "apps/consumer/src/lib/kakao.native.ts"],
+    ["apps/producer/src/lib/kakao.ts", "apps/producer/src/lib/kakao.native.ts"],
     ["packages/api/src/storage.ts", "packages/api/src/storage.native.ts"],
     ["packages/api/src/objectUrl.ts", "packages/api/src/objectUrl.native.ts"],
     ["packages/analytics/src/client.ts", "packages/analytics/src/client.native.ts"],
@@ -156,5 +160,6 @@ test("네이티브 쌍이 있는 파일은 같은 이름을 내보낸다", () =>
   for (const [web, native] of pairs) {
     const w = names(web), n = names(native);
     for (const x of w) assert.ok(n.has(x), `${native}에 ${x} 없음`);
+    for (const x of n) assert.ok(w.has(x), `${web}에 ${x} 없음(네이티브 전용 export는 공용 코드가 못 쓴다)`);
   }
 });

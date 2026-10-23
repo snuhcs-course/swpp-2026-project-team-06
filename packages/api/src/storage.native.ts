@@ -3,7 +3,10 @@
 import * as SecureStore from "expo-secure-store";
 
 /** Android SecureStore 값 한도(2048바이트)보다 조금 작게 */
-const SECURE_MAX_LENGTH = 2000;
+const SECURE_MAX_BYTES = 2000;
+/** UTF-8 바이트 수(한글은 3바이트). TextEncoder 없이 센다 */
+const byteLength = (v: string) =>
+  encodeURIComponent(v).replace(/%[0-9A-F]{2}/g, "x").length;
 const memory = new Map<string, string>();
 
 /** SecureStore 키는 영문·숫자·`.`·`-`·`_`만 된다. 이름공간 구분자 `:`를 `.`로 */
@@ -24,7 +27,7 @@ export function storageSet(key: string, value: string | null): void {
     void SecureStore.deleteItemAsync(secureKey(key)).catch(() => {});
     return;
   }
-  if (value.length > SECURE_MAX_LENGTH) {
+  if (byteLength(value) > SECURE_MAX_BYTES) {
     memory.set(key, value);
     return;
   }

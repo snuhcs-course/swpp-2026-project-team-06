@@ -8,8 +8,9 @@
         ],
         "components": [
           {
-            "/": "/auth/kakao",
-            "comment": "\uce74\uce74\uc624 \ub85c\uadf8\uc778 \ubcf5\uadc0"
+            "/": "*",
+            "exclude": true,
+            "comment": "앱 링크로 여는 경로는 아직 없다(ADR 0013). 카카오 복귀는 앱 스킴으로 돌아온다"
           }
         ]
       }

@@ -11,7 +11,7 @@ export async function chooseSourceFiles(_images = false): Promise<PickedFile[]> 
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     allowsMultipleSelection: true,
-    quality: 0.9,
+    quality: 0.8,
   });
   if (res.canceled) return [];
   return res.assets.map((a) => ({

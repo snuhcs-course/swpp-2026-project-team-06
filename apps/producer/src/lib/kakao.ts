@@ -26,6 +26,11 @@ export function kakaoRedirectUri(config: Pick<KakaoConfig, "redirectPath">) {
   return `${window.location.origin}${config.redirectPath}`;
 }
 
+/** 앱 웹 주소. 네이티브(kakao.native.ts)는 빌드 변수에서 읽는다 */
+export function appOrigin() {
+  return window.location.origin;
+}
+
 /** 복귀 화면이 서버에 보내는 redirectUri(인가 요청과 같은 값) */
 export function kakaoCallbackUri() {
   return kakaoRedirectUri({ redirectPath: KAKAO_REDIRECT_PATH });

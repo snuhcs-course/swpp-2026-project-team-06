@@ -562,8 +562,8 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 ### 범위 (수정 허용 경로)
 - `apps/consumer/{app.json,eas.json,package.json,vercel.json,README.md}`, `apps/consumer/public/{index.html,manifest.webmanifest,.well-known/**}`
 - `apps/consumer/src/app/login.tsx`, `src/app/auth/kakao.tsx`, `src/lib/kakao.ts`(웹), 새 파일 `src/lib/kakao.native.ts`, `src/lib/kakaoAuth.ts`·`kakaoAuth.native.ts`, `src/lib/views.tsx`(copyText)
-- `apps/producer/**` 같은 경로(`apps/producer/tasks.md#DEV-33`), `apps/producer/src/lib/{pick,sourceFiles}.native.ts`, `DetailEditor.tsx`·`ProductPageEditor.tsx`·`SourceWorkspace.tsx`(beforeunload 가드), `views.tsx`(copyText)
-- `packages/api/src/{client.ts,storage.ts,storage.native.ts,objectUrl.ts,objectUrl.native.ts,index.ts}`, `packages/api/package.json`
+- `apps/producer/**` 같은 경로(`apps/producer/tasks.md#DEV-33`), `apps/producer/src/lib/{pick,sourceFiles}.native.ts`, `sourceFiles.ts`(`PickedFile` 타입)·`SourceAttachments.tsx`(`PickedFile`, 네이티브 미리보기 uri), `DetailEditor.tsx`·`ProductPageEditor.tsx`·`SourceWorkspace.tsx`(beforeunload 가드), `views.tsx`(copyText)
+- `packages/api/src/{client.ts,storage.ts,storage.native.ts,objectUrl.ts,objectUrl.native.ts,upload.ts,index.ts,productWorkspace.ts,sourceAnalysis.ts}`(뒤 둘은 업로드 함수의 파일 타입만), `packages/api/package.json`
 - `packages/analytics/src/{index.ts,client.ts,client.native.ts}`, `packages/analytics/package.json`
 - `packages/ui/src/{ChatThread.tsx,NewsRoom.tsx,useLiveList.ts,foreground.ts,PrivatePhotos.tsx,pickPhoto.ts,pickPhoto.native.ts,index.ts}`, `packages/ui/package.json`
 - 루트 `package.json`·`package-lock.json`(의존성, `test:mock`), `scripts/test-native-config.mjs`(새 파일), `.gitignore`
@@ -580,6 +580,8 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/23 식별자: iOS `bundleIdentifier`·Android `package` = `kr.farmclub.consumer` / `kr.farmclub.producer`(DEV-128 콘솔 앱 생성 값과 같게). `scheme`은 지금 값(`farmclub-consumer`·`farmclub-producer`) 유지.
 - 10/23 플랫폼 분기는 Metro 확장자(`*.native.ts`)를 우선하고, 한 줄 차이는 `Platform.OS === "web"`으로 한다. 웹 파일(`kakao.ts` 등)은 런타임 import 없이 두어 기존 Node 테스트(`scripts/test-producer-kakao.mjs`)가 그대로 돈다. 공용 패키지의 `window`·`document`·`localStorage`·`sessionStorage` 직접 호출은 `*.web.ts`·`web.ts` 밖에서 금지하고 `scripts/test-native-config.mjs`가 검사한다(결정 문서 "웹 전용 코드 격리").
 - 10/23 카카오 복귀(네이티브): 카카오 콘솔·서버의 복귀 주소는 그대로 `https://farmclub.kr/auth/kakao`(생산자 `https://farm.farmclub.kr/auth/kakao`)다. 앱은 `expo-web-browser` `openAuthSessionAsync`로 인가 화면을 열고 `state`를 `app-<nonce>`로 보낸다. 웹 복귀 화면(`/auth/kakao`)은 `state`가 `app-`으로 시작하면 코드를 그대로 앱 스킴(`farmclub-consumer://auth/kakao?code&state`)으로 넘기고, 앱은 그 결과로 `/auth/kakao` 화면을 열어 기존 흐름(state 대조 → `POST /api/auth/kakao` → 복귀)을 탄다. 서버가 받는 `redirectUri`는 웹과 같은 값이라 서버 변경이 없다. Universal Links·App Links 대신 커스텀 스킴을 쓰는 이유: 인증 세션(ASWebAuthenticationSession·Custom Tabs) 안의 302 리다이렉트는 앱 링크로 앱을 열지 않고, App Links 검증에는 DEV-128 뒤에야 생기는 서명 지문이 필요하다. `apple-app-site-association`·`assetlinks.json`은 두 앱 `public/.well-known/`에 자리표시자(Team ID·지문)로 두고 `vercel.json`이 `application/json`으로 응답하게 한다. 지문·Team ID를 채우면 같은 `/auth/kakao` 화면이 앱 링크 진입도 처리한다.
+- 10/23 Android(AI 1차 리뷰): expo-web-browser 57은 Android에서 인증 세션을 폴리필로 돌려 복귀 스킴을 `Linking` ‘url’ 이벤트로 받고, 같은 이벤트를 expo-router도 받아 `/auth/kakao`로 먼저 이동한다. 로그인 화면이 다시 `router.replace`하면 화면이 리마운트돼 두 번째 인스턴스가 ‘만료’를 띄우므로, `kakaoAuth.native.ts`는 Android에서 결과를 돌려주지 않고(null) 딥링크 이동에 맡긴다. iOS는 ASWebAuthenticationSession이 스킴을 가로채 딥링크가 오지 않으므로 결과로 이동한다. DEV-41 확인 항목: Android 복귀 뒤 `next`·`resume` 유지.
+- 10/23 iOS 키체인 값(토큰)은 앱을 지워도 남는다. 첫 실행에 지울지는 DEV-41·탈퇴(DEV-75) 때 결정한다(지금은 그대로).
 - 10/23 복귀 정보(`next`·`resume`·nonce)는 네이티브에서 메모리에 둔다. 인증 세션이 열려 있는 동안 앱 프로세스가 살아 있고, 드물게 죽으면 홈으로 간다(기존 만료 안내).
 - 10/23 토큰: 네이티브는 `expo-secure-store`(동기 `getItem`·`setItem`, 키의 `:`는 `.`로). 그 밖의 앱별 저장값(도움말 본 기록 등)도 2KB 이하면 SecureStore, 넘으면 메모리(Mock DB는 웹 전용). 웹은 지금처럼 localStorage.
 - 10/23 PostHog: 네이티브는 `posthog-react-native`(화면 이벤트 `screen`, identify·reset 같음, 세션 녹화 끔). DEV-125 허용 호스트 검사는 웹에만. 키는 EAS 환경 변수 `EXPO_PUBLIC_POSTHOG_KEY`로 빌드 때 넣는다.
