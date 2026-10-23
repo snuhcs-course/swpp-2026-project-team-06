@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { apiLogin, apiUrl, loginProducer, newPage, producerUrl } from "./helpers";
 
 // 1x1 PNG. 브라우저가 실제로 디코드할 수 있어야 canvas 축소를 거친다.

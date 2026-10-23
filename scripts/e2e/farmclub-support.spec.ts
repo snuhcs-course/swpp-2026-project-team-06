@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 import { apiUrl, consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from "./helpers";
 
 // farmclub 문의 대화방(DEV-111, FEAT-34). 운영자 쪽은 관리 API를 직접 부른다(관리자 페이지는 admin.test.mjs).

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { consumerUrl, producerUrl, skipHelpGuide } from "./helpers";
 
 for (const width of [360, 390]) {
