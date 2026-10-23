@@ -502,3 +502,39 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-132 · 목표·범위·결정·기록은 `server/tasks.md` DEV-132 섹션에 모은다.
 - 10/23 `/onboarding` 가입 동의 모드(계정 없이 가입 토큰), 카카오 복귀·Mock 로그인의 새 사용자 처리.
+
+## DEV-136 소비자 앱 Mock 로그인에도 시드 테스트 계정 목록 보이기(생산자와 통일)
+
+- 이슈: [DEV-136](https://linear.app/sswp6/issue/DEV-136)
+- 브랜치: `nemodleo/dev-136-consumer-mock-test-accounts`
+- 기능·인수 조건: FEAT-01(SCR-05) / AC-01-1(테스트 계정 로그인), 카카오 로그인 절
+- 상태: 진행 중
+
+### 목표
+Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록을 함께 보이는데 소비자 SCR-05는 카카오 버튼만 보여 시드 계정(김민지·이서준)을 고를 수 없다. 두 앱의 Mock 로그인 화면을 맞춘다.
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/login.tsx`
+- `apps/consumer/tasks.md`(이 섹션)
+- `docs/spec/screens.md`(SCR-05), `docs/spec/functional/FEAT-01-login.md`, `docs/wiki/Requirements-and-Specifications.md`(SCR-05 요약)
+
+### 비범위 (건드리지 않음)
+- 서버, 생산자 앱, Mock 응답(`packages/api/src/mock`의 카카오 `enabled: true`는 그대로)
+- 실서버(카카오 켜짐)·카카오 꺼짐(CI) 화면
+
+### 결정 사항
+- 10/23 생산자 SCR-19와 같은 규칙: `showTest = 카카오 꺼짐 || isMock`. Mock은 카카오 버튼 + 소비자 테스트 계정 목록 + 버튼 아래 Mock 안내 한 줄. Mock 카카오는 지금처럼 새 카카오 사용자(가입 동의 → 온보딩)
+
+### 작업
+- [ ] `login.tsx` showTest 조건과 Mock 안내 한 줄
+- [ ] screens.md SCR-05, FEAT-01 카카오 절, wiki SCR-05 요약
+- [ ] `npm run typecheck`, `npm run test:mock`, Playwright(`legal-consent.spec.ts` 등 소비자 로그인 경로)
+
+### 완료 조건
+- [ ] Mock 모드 소비자 로그인 화면에서 카카오 버튼과 시드 계정 목록이 함께 보이고, 시드 계정으로 로그인된다
+- [ ] 실서버·카카오 꺼짐 화면은 그대로
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 iteration-2-demo README 검토(DEV-133 세션)에서 발견. 같은 폴더의 DEV-120(리뷰 중)은 주문서만 건드려 겹치지 않음
