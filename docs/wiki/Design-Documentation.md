@@ -187,6 +187,8 @@ Repeated requests use the same idempotency key. Reusing a key with a different b
 
 **Existing text drafting and customer service.** `app/ai/service.py` removes personal contact/account data from selected input and requests structured output from Claude Haiku 4.5 when configured. Product prices and operational dates remain outside generated fields. Missing keys, invalid output or timeout permit manual drafting; no fallback is represented as real model output. CS answers simple known facts through rules first, sends only selected evidence to the provider, and hands pesticide/growing claims, subjective quality, compensation and uncertain delivery promises to the producer. Private shipping information and inquiry photos are excluded. Thread locks plus AI-mode/settings versions reject a stale answer after producer takeover. This synchronous legacy CS flow can hold the request/thread lock during the provider call; it is separate from the asynchronous source worker.
 
+The full customer-service pipeline, answer checks, tests and known limitations are on [[AI Customer Support|AI-Customer-Support]].
+
 **Private source pipeline.**
 
 1. An approved producer names target products, enters required variety/optional size/expected Brix, and uploads text/TXT, supported images/HEIC or PDF. Basic information is saved before attachment actions to avoid a race. Source files and product photos are separate inputs.
