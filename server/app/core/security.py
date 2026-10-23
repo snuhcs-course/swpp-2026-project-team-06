@@ -100,7 +100,8 @@ def _user_from_token(db: Session, token: str):
     if payload.get("exp", 0) < int(now().timestamp()):
         raise unauthenticated("로그인이 만료됐어요. 다시 로그인해 주세요.")
     user = accounts.get_user(db, str(payload.get("sub", "")))
-    if user is None:
+    # 탈퇴한 회원(DEV-94)의 토큰은 받지 않는다
+    if user is None or user.deleted_at is not None:
         raise unauthenticated()
     return user
 

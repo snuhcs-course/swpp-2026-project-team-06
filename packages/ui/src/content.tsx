@@ -42,23 +42,33 @@ export function Screen({
   );
 }
 
-/** 스크롤 영역. bottom = 아래 여백(탭 바 96, 하단 바 140 등) */
+/** 스크롤 영역. bottom = 아래 여백(탭 바 96, 하단 바 140 등). footer는 내용 맨 아래, 내용이 짧으면 화면 바닥에 붙는다 */
 export function Scroll({
   children,
   bottom = 40,
   gap,
+  footer,
 }: {
   children: ReactNode;
   bottom?: number;
   gap?: number;
+  footer?: ReactNode;
 }) {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingBottom: bottom, gap }}
+      contentContainerStyle={[
+        { paddingBottom: bottom, gap },
+        footer ? { flexGrow: 1 } : null,
+      ]}
       keyboardShouldPersistTaps="handled"
     >
       {children}
+      {footer ? (
+        <View style={{ marginTop: "auto", paddingTop: tokens.space.section }}>
+          {footer}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }

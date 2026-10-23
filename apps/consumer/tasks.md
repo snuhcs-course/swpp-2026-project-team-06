@@ -502,3 +502,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-132 · 목표·범위·결정·기록은 `server/tasks.md` DEV-132 섹션에 모은다.
 - 10/23 `/onboarding` 가입 동의 모드(계정 없이 가입 토큰), 카카오 복귀·Mock 로그인의 새 사용자 처리.
+
+## DEV-94 회원 탈퇴
+
+- 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
+- 10/23 ‘내 정보’ 설정 목록 끝에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃·홈.
