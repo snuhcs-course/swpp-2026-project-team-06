@@ -1,4 +1,6 @@
 import { request, apiUrl, getToken } from "./client";
+import { blobUrl } from "./objectUrl";
+import { appendFile, type UploadFile } from "./upload";
 import type { DetailContent } from "./types";
 import type { ModuleDetail } from "./sourceAnalysis";
 export type PageSnapshot = {
@@ -22,10 +24,10 @@ const base = "/api/source-analysis/product-workspaces";
 export const productWorkspace = {
   uploadPhoto: async (
     productId: string,
-    file: File,
+    file: UploadFile,
   ): Promise<{ uri: string; alt: string }> => {
     const form = new FormData();
-    form.append("file", file);
+    appendFile(form, "file", file);
     const response = await fetch(`${apiUrl}${base}/${productId}/photos`, {
       method: "POST",
       headers: { Authorization: `Bearer ${getToken()}` },
@@ -41,7 +43,7 @@ export const productWorkspace = {
       { headers: { Authorization: `Bearer ${getToken()}` } },
     );
     if (!response.ok) throw new Error("사진을 불러오지 못했어요.");
-    return URL.createObjectURL(await response.blob());
+    return blobUrl(await response.blob());
   },
   open: (
     productId: string | undefined,
