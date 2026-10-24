@@ -43,7 +43,7 @@ Planned for I2 and later: Kakao login, real payment (PortOne), notifications, na
 
 | Area | Choice |
 | --- | --- |
-| Apps | Expo (React Native, TypeScript) with Expo Router, web output. Two apps: consumer and producer |
+| Apps | Expo (React Native, TypeScript) with Expo Router. Two apps: consumer and producer, each exported for the web (Vercel) and built as native iOS/Android apps with EAS (ADR 0013) |
 | Backend | FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic |
 | Database | PostgreSQL (Docker locally) |
 | Auth | I1: mock login with seeded test accounts and a server-issued JWT. I2: Kakao login |
@@ -327,6 +327,91 @@ vercel deploy --prod       # from the exported dist/
 
 With `EXPO_PUBLIC_API_MOCK=1` (what `npm run build:web` produces) the apps keep data in
 each browser and never call the server.
+
+### Native apps with EAS (DEV-33)
+
+Both apps are also built as native iOS and Android apps from the same code
+([ADR 0013](docs/spec/tech-design/adr/0013-eas-native-builds.md)). Native builds run on EAS
+Build (cloud); JS changes ship with EAS Update and never need a store review. Identifiers are
+`kr.farmclub.consumer` and `kr.farmclub.producer`; `apps/<app>/eas.json` has four profiles:
+`development` (dev client), `internal` (installable Android APK and iOS simulator build for team
+testing, channel `preview`), `preview` (channel `preview`, store-format build for TestFlight and
+Play internal testing) and `production` (channel `production`). Build numbers auto-increment;
+`version` in `app.json` is bumped by hand. The `development` profile points at `http://localhost:8000`,
+which on a device is not your computer, and its Kakao return address is still the production
+web page, so in a dev client use a test account (or set `EXPO_PUBLIC_API_URL` to your LAN address). Nothing native is built locally and no `ios/` or
+`android/` folder is committed.
+
+Web-only code is split by platform (`*.native.ts` next to the web file, or `Platform.OS`
+branches). Tokens live in `expo-secure-store` on devices, analytics use `posthog-react-native`,
+photos come from `expo-image-picker`. Kakao login keeps the server contract: the app opens the
+Kakao page in an auth session with `state=app-…`, Kakao returns to the usual web page
+`https://farmclub.kr/auth/kakao` (or `https://farm.farmclub.kr/auth/kakao`), and that page hands
+the code to the app scheme (`farmclub-consumer://auth/kakao`). `scripts/test-native-config.mjs`
+(part of `npm run test:mock`) checks the config files and that shared packages do not touch
+`window`/`document`/`localStorage` outside the web-only files.
+
+**First-time setup once the accounts exist (DEV-128; a human runs these, from `apps/consumer`
+and again from `apps/producer`).** Secrets (certificates, `EXPO_TOKEN`, service-account keys)
+stay in EAS and the team password manager; never in the repo, an issue or a PR.
+
+```bash
+npx eas-cli@latest login                       # Expo account (organization: see DEV-128)
+npx eas-cli@latest init                        # done 2026-10-23 under the snu-omm organization (projectId is in app.json); only for a new project
+npx eas-cli@latest update:configure            # done 2026-10-23 (updates.url in app.json); only for a new project
+npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_POSTHOG_KEY --value phc_... --visibility plaintext --environment production   # optional (DEV-71); production only, so internal/preview test builds send no analytics
+npx eas-cli@latest credentials                 # Apple certificates / Android keystore, managed by EAS
+npx eas-cli@latest build -p all --profile preview
+npx eas-cli@latest submit -p ios --profile preview --latest       # TestFlight (internal testers, no review)
+npx eas-cli@latest submit -p android --profile preview --latest   # Play internal testing (upload the first AAB by hand in Play Console if submit asks for it)
+npx eas-cli@latest update --channel preview --message "first update"
+```
+
+**Internal testing without store accounts (I2).** Paid Apple and Play registration waits for
+I3, so team testing uses the `internal` profile, which needs only the free Expo account: Android
+phones install an APK from the build link, iPhone testing runs in the iOS Simulator on a Mac (a
+real iPhone needs the Apple Developer Program). Merge and deploy the web apps first: the in-app
+Kakao login returns through the web page `/auth/kakao`, which hands the code back to the app, so
+the app cannot finish a login until that page is live.
+
+```bash
+# once per app (apps/consumer, apps/producer), after `eas login` (projects already exist under snu-omm)
+npx eas-cli@latest build -p android --profile internal   # APK; the build page shows an install link and QR code
+npx eas-cli@latest build -p ios --profile internal       # .app for the iOS Simulator (no Apple account needed)
+npx eas-cli@latest update --channel preview --environment preview --message "..."   # later JS changes, no reinstall
+```
+
+`eas update` bundles with the EAS **environment variables** of the given environment, not with the
+`env` block of `eas.json` (that block only applies to `eas build`). `EXPO_PUBLIC_API_URL`,
+`EXPO_PUBLIC_API_MOCK`, `EXPO_PUBLIC_CONSUMER_URL` and `EXPO_PUBLIC_PRODUCER_URL` were created in
+both projects' `preview` and `production` environments on 2026-10-23 (`eas env:list --environment
+preview`); an update published without them would point the app at `localhost`.
+
+Android: open the build link on the phone, allow installs from this source once, install. A phone
+that still has the TWA APK from PR #164 (same package name, different signing key) must uninstall it
+first, or the install fails silently and the old TWA keeps running.
+The link works for anyone who has it. iOS Simulator: download the build, unpack it and drag
+the `.app` onto a booted simulator (or `xcrun simctl install booted <path>.app`). Check, in this
+order: install and launch, Kakao login and return to the app (on Android also that the screen
+you came from and the pending action are kept), onboarding, home / farm / product / order /
+chat, photo attachment in chat, and in the producer app sign-up and photo upload. Record each
+device in DEV-41 (model, OS version, install, login, problems). These builds send nothing to
+PostHog: the key is only set in the EAS `production` environment. Known limits: the ‘카카오톡으로
+로그인’ button inside the auth session may not switch to the KakaoTalk app (Kakao account
+login still works); producer source documents (PDF, text) attach on the web only.
+
+After `eas credentials` the Android keystore has a SHA-256 fingerprint and the Apple account a
+Team ID. Put them into `apps/<app>/public/.well-known/assetlinks.json` and
+`apple-app-site-association` (replace the `REPLACE_WITH_…` placeholders; both files are public,
+not secrets) and deploy the web apps, so `https://farmclub.kr/.well-known/...` serves them as
+JSON (`vercel.json` sets the content type). Until then the files are placeholders and only the
+app scheme is used for the Kakao return, which works without them.
+
+Release flow after that: push JS changes with `eas update --channel production` (DEV-129 adds
+this to the deploy workflow); when `app.json`, a native module or `eas.json` changes, run
+`eas build -p all --profile production` and `eas submit`. Roll back a bad JS update by
+republishing the previous one (`eas update:republish --channel production`). Free plan limits:
+15 builds per OS per month and 1,000 monthly active update users.
 
 ### Domains (DEV-69)
 

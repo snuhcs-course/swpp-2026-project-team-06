@@ -16,6 +16,9 @@ AGENTS.override.md
 node_modules/
 .expo/
 dist/
+# EAS 클라우드 빌드만 쓴다. prebuild 산출물은 커밋하지 않는다(ADR 0013)
+apps/*/ios/
+apps/*/android/
 web-build/
 expo-env.d.ts
 *.tsbuildinfo

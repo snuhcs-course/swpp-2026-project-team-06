@@ -6,8 +6,10 @@
   "types": "src/index.ts",
   "peerDependencies": {
     "expo": "~57.0.27",
+    "expo-image-picker": "*",
     "react": "*",
     "react-native": "*",
+    "react-native-safe-area-context": "*",
     "react-native-svg": "*"
   },
   "scripts": {

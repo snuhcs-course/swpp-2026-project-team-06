@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { beginKakaoLogin, kakaoRedirectUri } from "../lib/kakao";
+import { openKakaoAuth } from "../lib/kakaoAuth";
 import { useSession } from "../lib/session";
 import { isStatus } from "../lib/views";
 
@@ -100,7 +101,14 @@ export default function Login() {
       setFailed("이 브라우저에서는 카카오 로그인을 쓸 수 없어요. 테스트 계정으로 로그인해 주세요.");
       return;
     }
-    window.location.assign(url);
+    // 웹: 페이지째 카카오로 이동(돌아오지 않음). 앱: 인증 세션이 닫히면 받은 코드로 복귀 화면을 연다(DEV-33)
+    setBusy(true);
+    try {
+      const result = await openKakaoAuth(url);
+      if (result) router.replace({ pathname: "/auth/kakao", params: result });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

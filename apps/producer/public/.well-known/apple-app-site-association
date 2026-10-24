@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_APPLE_TEAM_ID.kr.farmclub.producer"
+        ],
+        "components": [
+          {
+            "/": "*",
+            "exclude": true,
+            "comment": "앱 링크로 여는 경로는 아직 없다(ADR 0013). 카카오 복귀는 앱 스킴으로 돌아온다"
+          }
+        ]
+      }
+    ]
+  }
+}

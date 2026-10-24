@@ -2,14 +2,24 @@
   "expo": {
     "name": "farmclub-consumer",
     "slug": "farmclub-consumer",
+    "owner": "snu-omm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "farmclub-consumer",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "kr.farmclub.consumer",
+      "associatedDomains": [
+        "applinks:farmclub.kr"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "kr.farmclub.consumer",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -22,13 +32,35 @@
       "favicon": "./assets/favicon.png",
       "output": "single"
     },
-    "scheme": "farmclub-consumer",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "experiments": {
       "typedRoutes": true
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar"
-    ]
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "farmclub 앱이 사진·영상을 올리기 위해 사진 보관함을 사용해요.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5144c1ff-a874-426d-bb44-0c22dae62561"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5144c1ff-a874-426d-bb44-0c22dae62561"
+    }
   }
 }

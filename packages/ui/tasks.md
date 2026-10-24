@@ -631,3 +631,9 @@ react-native-web 0.21은 `accessibilityState={{…}}`를 DOM에 옮기지 않는
 - 10/23 확인: `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed. 실서버(`DATABASE_URL=…/farmclub_dev141 node scripts/run-integration.mjs <3 spec>`, 임시 DB는 끝나고 DROP): 실서버 시나리오 7/7, Playwright 5 passed / 2 skipped(mock-login은 공유 Mock 필요) — checkout-and-fulfillment 2, discovery-and-gates 3. Mock 스택(`npm run dev`)에서 `mock-login.spec.ts` 2 passed.
 - 10/23 origin/main 3ef3c04(DEV-140) 병합(tasks.md 섹션만 충돌, 둘 다 남김). 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed, 실서버 시나리오 7/7 + Playwright 5 passed / 0 failed(checkout-and-fulfillment·discovery-and-gates).
 - 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should — 주문서 '받는 곳' 시트 주소 줄(radio)에 상태 속성이 원래 없음(checkout 파일은 범위 밖·PR #280 진행 중이라 후속). nit — `aria-pressed`는 RN 네이티브 미지원(웹 배포만이라 영향 없음). draft 해제.
+
+## DEV-33 네이티브 분기(포그라운드 판단·사진 선택)
+
+- 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 기록은 `apps/consumer/tasks.md#DEV-33`
+- 범위: `src/foreground.ts`(새 파일, `document.hidden` 대신 `AppState`), `ChatThread.tsx`·`NewsRoom.tsx`·`useLiveList.ts`(호출만 바꿈), `src/pickPhoto.ts`·`pickPhoto.native.ts`(새 파일, 네이티브 `expo-image-picker`), `PrivatePhotos.tsx`(네이티브에서 ‘사진 첨부’ 버튼), `src/index.ts`, `package.json`(peer)
+- 10/23 결정: 보이는 모습·동작은 웹에서 바뀌지 않는다. 비공개 사진 첨부의 `upload`는 `File` 대신 `{uri,name,type}`도 받는 `UploadFile`.

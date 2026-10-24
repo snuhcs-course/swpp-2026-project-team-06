@@ -3,6 +3,7 @@ import { BrandLogo, Button, EmptyState, T, tokens } from "@farmclub/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
+import * as Clipboard from "expo-clipboard";
 import { Pressable, View } from "react-native";
 
 export const TODAY = "2026-10-07";
@@ -190,10 +191,10 @@ export function FieldButton({
   );
 }
 
+/** 클립보드 복사. 웹·앱 모두 expo-clipboard(DEV-33) */
 export async function copyText(text: string) {
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    return await Clipboard.setStringAsync(text);
   } catch {
     return false;
   }

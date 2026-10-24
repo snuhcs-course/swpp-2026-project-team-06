@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { inBackground } from "./foreground";
 
 /** Scoped, focus-aware polling. Ignore responses after account/filter changes. */
 export function useLiveList<T>(
@@ -19,7 +20,7 @@ export function useLiveList<T>(
     let cancelled = false,
       busy = false;
     const refresh = async () => {
-      if (busy || (typeof document !== "undefined" && document.hidden)) return;
+      if (busy || inBackground()) return;
       busy = true;
       try {
         const data = await load(() => cancelled);

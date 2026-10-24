@@ -28,7 +28,7 @@ import {
 } from "@farmclub/ui";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { useHideTabBar } from "./session";
 const inputStyle = {
@@ -264,7 +264,8 @@ export function SourceWorkspace() {
         event.returnValue = "";
       }
     };
-    if (typeof window === "undefined") return;
+    // 웹 전용: 탭을 닫을 때 경고. 앱에는 beforeunload가 없다(DEV-33)
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, busy]);

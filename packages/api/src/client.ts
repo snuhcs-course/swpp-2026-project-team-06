@@ -12,7 +12,10 @@ declare const process: {
 };
 
 import { mockTransport, resetMockState } from "./mock";
+import { blobUrl } from "./objectUrl";
+import { storageGet, storageSet } from "./storage";
 import type { ErrorBody, ErrorCode } from "./types";
+import { appendFile, type UploadFile } from "./upload";
 
 const DEFAULT_API_URL = "http://localhost:8000";
 
@@ -46,7 +49,7 @@ export class ApiError extends Error {
 let namespace = "farmclub";
 let currentApp: "consumer" | "producer" = "consumer";
 
-/** 앱 시작 때 한 번 부른다. 앱마다 localStorage·토큰을 따로 쓴다(계정 분리, ADR 0010). */
+/** 앱 시작 때 한 번 부른다. 앱마다 저장소·토큰을 따로 쓴다(계정 분리, ADR 0010). 웹은 localStorage, 네이티브는 SecureStore(storage.native.ts, DEV-33) */
 export function configureApi(opts: { namespace: "consumer" | "producer" }) {
   namespace = `farmclub-${opts.namespace}${sharedMockUrl ? "-shared-v1" : ""}`;
   currentApp = opts.namespace;
@@ -59,29 +62,11 @@ export function storageKey(name: string) {
   return `${namespace}:${name}`;
 }
 
-function storage(): Storage | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
-}
 export function readStore(name: string): string | null {
-  try {
-    return storage()?.getItem(storageKey(name)) ?? null;
-  } catch {
-    return null;
-  }
+  return storageGet(storageKey(name));
 }
 export function writeStore(name: string, value: string | null) {
-  try {
-    const s = storage();
-    if (!s) return;
-    if (value === null) s.removeItem(storageKey(name));
-    else s.setItem(storageKey(name), value);
-  } catch {
-    /* 저장 못 해도 화면은 동작 */
-  }
+  storageSet(storageKey(name), value);
 }
 
 /* ---------------- token ---------------- */
@@ -238,17 +223,18 @@ function readDataUrl(blob: Blob): Promise<string> {
 }
 
 /** 공개 사진·영상(농가 프로필·상품·소식·상세)을 올리고 저장할 주소를 돌려준다(DEV-102).
- *  실제 서버는 POST /api/media, 공유 Mock은 /__mock/media, 브라우저 Mock은 data URL 그대로. */
-export async function uploadMedia(file: Blob, name: string): Promise<string> {
-  if (isMock && !sharedMockUrl) return readDataUrl(file);
+ *  실제 서버는 POST /api/media, 공유 Mock은 /__mock/media, 브라우저 Mock은 data URL 그대로.
+ *  네이티브는 {uri, name, type}(UploadFile)로 보낸다(DEV-33). Mock은 웹 전용이라 Blob만 data URL로 읽는다. */
+export async function uploadMedia(file: UploadFile, name: string): Promise<string> {
+  if (isMock && !sharedMockUrl) return readDataUrl(file as Blob);
   if (sharedMockUrl) {
     const result = await request<{ url: string }>("POST", "/__mock/media", {
-      body: { dataUrl: await readDataUrl(file) },
+      body: { dataUrl: await readDataUrl(file as Blob) },
     });
     return result.url;
   }
   const form = new FormData();
-  form.append("file", file, name);
+  appendFile(form, "file", file, name);
   const res = await fetch(`${apiUrl}/api/media`, {
     method: "POST",
     headers: { Authorization: `Bearer ${getToken() ?? ""}` },
@@ -263,22 +249,17 @@ export async function uploadMedia(file: Blob, name: string): Promise<string> {
 
 /** Private images travel with authentication. Never use the public news-media endpoint. */
 export async function uploadAttachment(
-  file: File,
+  file: UploadFile,
   resource: { orderId?: string; threadId?: string },
 ): Promise<import("./types").Attachment> {
   if (isMock && !sharedMockUrl) {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result));
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
+    const dataUrl = await readDataUrl(file as Blob);
     return request("POST", "/api/messaging/attachments", {
       body: { ...resource, dataUrl },
     });
   }
   const form = new FormData();
-  form.append("file", file);
+  appendFile(form, "file", file);
   if (resource.orderId) form.append("orderId", resource.orderId);
   if (resource.threadId) form.append("threadId", resource.threadId);
   const res = await fetch(`${apiUrl}/api/messaging/attachments`, {
@@ -302,5 +283,5 @@ export async function privateImage(id: string): Promise<string> {
     headers: { Authorization: `Bearer ${getToken() ?? ""}` },
   });
   if (!res.ok) throw new ApiError(res.status, await res.json());
-  return URL.createObjectURL(await res.blob());
+  return blobUrl(await res.blob());
 }

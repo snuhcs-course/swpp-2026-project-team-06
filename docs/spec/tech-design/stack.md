@@ -22,6 +22,7 @@
 | 프론트엔드 | Expo(React Native, TypeScript) + Expo Router, **웹 출력**으로 소비자 앱·생산자 앱 2개 | 한 코드로 웹을 먼저 내고 I2에 Android·iOS로 넓힐 수 있음 | [0001](./adr/0001-frontend-expo-web.md) |
 | 웹 호스팅 | Vercel(정적 웹 출력), 앱마다 프로젝트 1개 | 무료, 브랜치 미리보기 | 0001 |
 | 도메인 | `farmclub.kr`(소비자 앱), `farm.farmclub.kr`(생산자 앱), `api.farmclub.kr`(서버). 호스팅케이알(KISA 인증 등록대행자)에서 사고 DNS는 Cloudflare. 공유 링크는 소비자 앱이 `/s/*`를 서버로 프록시해 `farmclub.kr/s/farms/<id>` | `.kr`은 Cloudflare Registrar가 팔지 않음. 대상 없는 서브도메인(`admin`·`dev`·`staging`)은 레코드를 만들지 않음. 워킹 데모 `demo.farmclub.kr`은 Vercel `farmclub-demo`(원본 `demo/`, DEV-133) | [0012](./adr/0012-domains-cloudflare.md) |
+| 앱 빌드 | 같은 Expo 코드로 iOS·Android 네이티브 앱(EAS Build), JS는 EAS Update(채널 `preview`·`production`, 런타임 버전 `fingerprint`). 식별자 `kr.farmclub.consumer`·`kr.farmclub.producer`. 웹 전용 코드는 `*.native.ts` 쌍이나 `Platform.OS` 분기, 카카오 복귀는 웹 복귀 화면이 앱 스킴으로 넘김 | iOS까지 스토어에 내야 해서 TWA·WebView 셸 대신 네이티브. 화면·로직 변경은 심사 없이 반영 | [0013](./adr/0013-eas-native-builds.md) |
 | 백엔드 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic, Railway | 타입 기반 API 정의, 코드에서 나온 OpenAPI 스키마로 `packages/api` 클라이언트 생성, 트랜잭션과 `SELECT … FOR UPDATE`로 물량 차감(R-06) | [0007](./adr/0007-backend-fastapi.md) |
 | 운영자 화면 | 관리 API(`/admin/...`). I1은 화면 없이 Swagger UI였지만 관리자 UI(`scripts/admin-web`, `admin.farmclub.kr`, Vercel 함수 중계)를 만들어 바꿈 | 승인·배송 완료·환불을 I1부터 화면 없이 처리, 모든 관리 API에서 `ADMIN` 역할 검사(N-06) | [0008](./adr/0008-operator-admin-api.md) |
 | 인증 | I1: Mock 로그인(시드 테스트 계정 선택, 설정 플래그) → 서버가 JWT 발급(PyJWT). I2: 카카오 로그인(OAuth 인가 코드) | 데모를 외부 계정 없이 재현. 두 웹 앱과 API가 다른 도메인이어도 동작 | [0009](./adr/0009-mock-login.md), [0003](./adr/0003-auth-kakao.md) |
@@ -133,7 +134,7 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 ## 7. I2 이후
 
 - 결제: PortOne(NHN KCP) 실결제.
-- 앱: 같은 Expo 코드로 Android·iOS 빌드(EAS).
+- 앱: 같은 Expo 코드로 Android·iOS 빌드(EAS) → I2에 결정·전환(ADR 0013, DEV-33). 남은 것: 계정·인증서(DEV-128), `eas update`·`eas build` CI(DEV-129), 스토어 심사 요건(Sign in with Apple DEV-130, 회원 탈퇴 DEV-75·94, 심사 제출 정보 DEV-131), 푸시(FEAT-18, expo-notifications).
 - AI: 비용·품질을 보고 자체 모델 서빙을 검토. 어댑터만 바꾼다.
 - 알림(FEAT-18), 택배 조회(FEAT-22), 신고(FEAT-31).
 - 로그인: 카카오(ADR 0003)로 바꾸고 Mock 로그인을 끈다(ADR 0009).
@@ -155,3 +156,4 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 | 2026-10-18 | 0.5 | DEV-71: 앱 PostHog 연결(`packages/analytics`), PostHog 리전 US Cloud |
 | 2026-10-23 | 0.6 | DEV-125: PostHog는 운영 도메인에서만 켠다(Vercel 기본 주소·데모·localhost 제외) |
 | 2026-10-23 | 0.7 | DEV-133: 워킹 데모 원본을 `demo/`로, main 머지 시 `farmclub-demo` 자동 배포, 영상은 GitHub Release |
+| 2026-10-23 | 0.8 | DEV-33: 소비자·생산자 앱을 EAS 네이티브 빌드로(ADR 0013). 2장 ‘앱 빌드’ 줄, 7장 남은 일 |

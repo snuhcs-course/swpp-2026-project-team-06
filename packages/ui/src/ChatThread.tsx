@@ -4,8 +4,10 @@ import { Button } from "./Button";
 import { ChatBubble } from "./ChatBubble";
 import { T } from "./Text";
 import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
+import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
 import { time } from "./format";
+import { inBackground } from "./foreground";
 
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
@@ -31,7 +33,8 @@ type Props = {
   read: (id: string) => Promise<unknown>;
   makeKey: () => string;
   loadPhoto: (id: string) => Promise<string>;
-  upload: (file: File) => Promise<{ attachmentId: string }>;
+  /** 웹은 File, 앱은 사진 보관함에서 고른 {uri, name, type}(DEV-33) */
+  upload: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -96,7 +99,7 @@ export function ChatThread({
     let canceled = false,
       running = false;
     async function refresh() {
-      if (running || (typeof document !== "undefined" && document.hidden))
+      if (running || inBackground())
         return;
       running = true;
       try {
