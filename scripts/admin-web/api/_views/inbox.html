@@ -9,10 +9,10 @@
 <link rel="stylesheet" href="/assets/admin.css">
 <style>
   .msgs { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 60vh; overflow-y: auto; }
-  .msg { max-width: 80%; padding: 10px 12px; border-radius: 12px; background: var(--surface, #F5F5F3); white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; }
+  .msg { max-width: 80%; padding: 10px 12px; border-radius: 12px; background: var(--surface); white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; }
   .msg.op { align-self: flex-end; background: #FFF1E8; }
-  .msg .who { display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
-  .msg time { display: block; font-size: 12px; color: var(--muted, #6B6B6B); margin-top: 4px; }
+  .msg .who { display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .msg time { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
   .reply textarea { min-height: 88px; resize: vertical; }
 </style>
 </head>
@@ -22,7 +22,7 @@
   <div class="content"><div class="wrap">
     <header class="page-head">
       <h1>문의함</h1>
-      <p class="hint" style="margin: 4px 0 0">생산자가 앱의 farmclub 대화방에 남긴 문의예요. 답장은 생산자 앱에 'farmclub'으로 보여요. 농가가 승인되면 대화방과 환영 메시지가 자동으로 생겨요.</p>
+      <p class="hint">생산자가 farmclub 대화방에 남긴 문의예요. 답장은 생산자 앱에 'farmclub'으로 보여요.</p>
     </header>
     <nav class="tabs" id="tabs" aria-label="상태"></nav>
     <section id="list" aria-live="polite"></section>

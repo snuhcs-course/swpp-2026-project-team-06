@@ -8,24 +8,15 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="/assets/admin.css">
 <style>
-/* AI 비용 화면 전용(DEV-144): 기능별 합계 표 + 호출 목록. 촘촘하게, 표가 넓어 본문 폭을 늘린다 */
-.content .wrap { max-width: 1120px; }
-.box { overflow-x: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-th { font-weight: 600; color: var(--muted); }
-tbody tr:last-child td { border-bottom: 0; }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* AI 비용 화면 전용(DEV-144): 표는 공용 .box, 여기엔 합계 줄·회수·대상 칸·결과 배지만 */
 .sum td { font-weight: 700; background: var(--surface); }
-td .n { color: var(--muted); font-weight: 400; margin-left: 4px; }
+td .n { color: var(--muted); font-weight: 400; margin-left: 4px; font-size: 13px; }
 td a { color: var(--text); }
-td.title { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
-.st { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 6px; }
+td.title { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.st { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
 .st-PASS { background: #E9F5EE; color: var(--ok); }
 .st-MISMATCH { background: #FFF3E8; color: var(--accent); }
 .st-INCOMPLETE, .st-SKIPPED { background: var(--surface); color: var(--muted); }
-.tabs { margin: 0 0 8px; }
-.tabs button { min-height: 30px; font-size: 13px; padding: 0 12px; }
 </style>
 </head>
 <body>
@@ -34,7 +25,7 @@ td.title { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
   <div class="content"><div class="wrap">
     <header class="page-head">
       <h1>AI 비용</h1>
-      <p class="hint" style="margin: 4px 0 0">토큰 × 공개 단가로 낸 추정치(USD)예요. 자료 분석은 제공자가 알려 준 금액이에요.</p>
+      <p class="hint">토큰 × 공개 단가로 낸 추정치(USD)예요. 자료 분석은 제공자가 알려 준 금액이고, 코드 리뷰는 PR마다 도는 spec-check예요.</p>
     </header>
     <div class="box"><table>
       <thead><tr><th>기능</th><th class="num">이번 달</th><th class="num">최근 7일</th><th class="num">전체</th></tr></thead>
@@ -53,7 +44,7 @@ td.title { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 <script src="/assets/admin.js"></script>
 <script>
 // AI 비용(DEV-144): 기능별·전체 합계(이번 달 KST·최근 7일·전체)와 호출 목록(최신순, 50건씩, 기능으로 거름).
-const FEATURE = { spec_check: "코드 리뷰(spec-check)", product_draft: "상품 초안", detail_draft: "상세 초안", ai_answer: "AI 답변", source_analysis: "자료 분석" };
+const FEATURE = { spec_check: "코드 리뷰", product_draft: "상품 초안", detail_draft: "상세 초안", ai_answer: "AI 답변", source_analysis: "자료 분석" };
 const STATUS = { PASS: "통과", MISMATCH: "불일치", INCOMPLETE: "미완료", SKIPPED: "건너뜀" };
 const REPO = "https://github.com/snuhcs-course/swpp-2026-project-team-06";
 const n = (v) => Number(v || 0).toLocaleString("ko-KR");

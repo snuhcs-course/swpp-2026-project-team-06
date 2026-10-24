@@ -1889,3 +1889,34 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 10/23 로컬 확인: DB `farmclub_dev144`(alembic 0021 + 시드), uvicorn :8003(로컬 `SPEC_CHECK_USAGE_TOKEN`), `server.mjs` :8093. `backfill_usage.py`로 실제 남아 있는 artifact 8건(PR #150·#160·#281·#283·#285·#288)을 로컬 서버에 보냄(다시 보내도 8건 그대로). `/ai-cost`: 미로그인 → `/login?next=%2Fai-cost`, 로그인 뒤 합계 $0.67(입력 260,501·출력 14,911, sonnet-5-5 단가로 검산 일치)과 실행별 표.
 - 10/23 테스트: `uv run pytest -q` 440 passed(새 4개), `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 51 OK, `cd scripts/admin-web && npm test` 20 passed, ruff·`alembic heads`(0021 하나)·actionlint 통과.
 - 10/24 기능별로 바꾼 뒤: `uv run pytest -q` 443 passed(`test_ai_usage.py` 7개), checker 51 OK, admin-web 20 passed, ruff 통과(`app/ai/service.py`·`app/admin/service.py`의 format 지적은 main에 원래 있던 것). 로컬: 새 DB에 spec-check backfill 9건 + 상품 초안 2·상세 초안 1·AI 답변 1·자료 분석 1 예시 기록 → 기능별 표와 합계 줄($0.74, 14회), 기능 탭 거르기, 1센트 미만 $0.0015 표시 확인.
+
+## DEV-149 관리자 페이지 크기 단계 통일(조금 더 컴팩트하게, 화면 간 일관성)
+
+- 이슈: [DEV-149](https://linear.app/sswp6/issue/DEV-149)
+- 브랜치: `nemodleo/dev-149-admin-size-scale`
+- 관련: DEV-83(관리자 레이아웃), DEV-144(AI 비용 화면), Figma DEV-146
+- 상태: 진행 중
+
+### 목표
+사용자 요청: "지금보다 컴팩트하게, 다만 빡빡하지 않게, 기존 디자인은 최대한 유지", "레벨이 갑자기 큰 요소들이 있다", "모든 페이지 일관성". 색·글꼴·모서리·사이드바 구조·버튼 모양은 그대로 두고 크기 단계만 하나로 맞춘다.
+
+### 범위 (수정 허용 경로)
+- `scripts/admin-web/assets/admin.css`, `scripts/admin-web/api/_views/*.html`, `scripts/admin-web/README.md`, `server/tasks.md`
+
+### 비범위
+- 동작·API·문구 의미 변경(설명 줄이기·'사용자 찾기' 제목은 포함), Figma(DEV-146에서)
+
+### 결정 사항
+- 10/24 측정(1280px): 동작 버튼 15px·44px > 탭 14px·36px, 검색 입력 16px·46px가 가장 큼, 카드 제목 18px, 사용자 찾기의 "주문 N건"은 h2 기본 24px, AI 비용만 13px·탭 30px·폭 1120, '사용자'·'사용자 찾기' 제목 같음, 문의함 색 직접 적음, 설명 두 줄 화면 3개, 390px에서 위쪽 메뉴가 화면 폭을 밀어 가로로 넘침.
+- 10/24 단계: 페이지 제목 22 / h2(카드·절 제목) 16 굵게 / 본문·버튼·입력·탭·표 14 / 보조 13 / 배지 12. 버튼·입력 36, 탭 32, 카드 안쪽 14×16·사이 10, 본문 폭 960(AI 비용 포함). 입력 글자는 760px 이하 16(iOS 확대 방지). 화면별 style에서 크기를 다시 정하지 않는다(`admin.css` 머리 주석).
+- 10/24 표는 공용 `.box`(카드와 같은 테두리·모서리). AI 비용 기능 이름 '코드 리뷰(spec-check)' → '코드 리뷰'(설명에 spec-check), 대상 칸 220px 말줄임으로 960 안에 들어가게.
+- 10/24 검색 폼은 입력과 버튼 한 줄(`form.row > input`), 본문 링크는 글자색+밑줄, 좁은 화면 `.shell`은 `minmax(0, 1fr)`.
+
+### 작업
+- [x] 공용 크기 단계, 화면별 정리
+- [x] 바꾸기 전후 캡처(데스크톱 1280·모바일 390, 8화면씩), 가로 넘침 확인(7화면 × 2폭 모두 없음)
+- [x] admin-web 테스트
+- [ ] Figma(DEV-146, 데스크톱·모바일)
+
+### 기록
+- 10/24 #295(DEV-144) 머지 뒤 main 0e852fc 위로 옮김. `cd scripts/admin-web && npm test` 20 passed.
