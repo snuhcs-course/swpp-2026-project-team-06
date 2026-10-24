@@ -547,3 +547,41 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/23 검증: `npm run typecheck` 통과, `npm run test:mock` 40 passed / 0 failed, Mock(공유 Mock 8183, 앱 8181·8182 — 다른 세션이 8081·8082 사용 중이라 포트만 바꿈)에서 `npx playwright test scripts/e2e/mock-login.spec.ts scripts/e2e/legal-consent.spec.ts` 5 passed. 수정 전 조건으로 되돌리면 새 소비자 테스트가 실패(1 failed)하는 것 확인 후 복구, 다시 2 passed. 실서버 `test:integration:full`은 안 돌림(이 변경은 `isMock`일 때만 동작이 달라짐, CI integration job이 확인)
 - 10/23 AI 1차 리뷰(PR 코멘트) must·should 없음, nit 1(e2e 건너뛰기 조건, legal-consent와 같은 방식이라 유지). CI server·apps·integration·figma-line 통과
 - 10/23 main(397e5bf, DEV-116 로그인 하단 푸터) 병합: `login.tsx`·screens.md·wiki 자동 병합. 재검증 typecheck 통과, test:mock 40 passed, Mock에서 mock-login 2·legal-consent 3·legal-pages DEV-113 2 passed. legal-pages DEV-116 6개는 Mock 빌드에서 실패 — 카카오 켜진 실서버 화면(목록 없음)을 가정한 테스트라 Mock에서는 생산자도 원래 실패(이번 변경과 무관), 실서버 빌드인 CI integration에서 확인
+
+## DEV-142 가입 간소화(당근식) — 가입은 닉네임·휴대폰·동의만, 이름·배송지는 첫 주문 때
+
+### 범위 (수정 허용 경로)
+- `apps/consumer/src/app/onboarding/{index,address}.tsx`, `apps/consumer/src/app/(tabs)/me/profile.tsx`, `apps/consumer/src/app/checkout/[productId]/address.tsx`(10/24 AI 리뷰: 옛 카카오 계정 이름 걸러 미리 채움), `apps/consumer/src/lib/{AddressForm,onboarding}.ts(x)`
+- `server/app/accounts/service.py`(`needs_onboarding`), `server/tests/test_accounts.py`, `server/app/accounts/spec.md`(결정 행, 10/24 spec-check 지적)
+- `packages/api/src/mock/db.ts`(`needsOnboarding`), `packages/ui/src/legalContent.ts`(처리방침 제2조·변경 문구)
+- `scripts/test-onboarding.mjs`, `scripts/test-legal.mjs`, `scripts/e2e/legal-consent.spec.ts`
+- `docs/spec/functional/{FEAT-01-login,README}.md`, `docs/spec/{ia,screens,policy}.md`, `docs/wiki/Requirements-and-Specifications.md`
+- `apps/consumer/tasks.md`(이 섹션)
+
+### 비범위 (건드리지 않음)
+- 생산자 앱(SCR-20은 그대로 대표자 이름·연락처를 받음), 카카오 scope(DEV-78 심사 뒤)
+- 주문서(SCR-10) 코드: 저장 배송지가 없으면 이미 받는 사람·연락처를 회원 정보로 채우고 ‘기본 배송지로 저장’이 켜진 채 시작한다
+- DB 마이그레이션 없음(`users.name`은 지금도 빈 문자열 허용)
+
+### 결정 사항
+- 10/23 사용자: 가입 정보는 당근처럼. 가입(SCR-06)은 닉네임·휴대폰·가입 동의 한 화면, 이름·배송지는 첫 주문서에서 받는다. 관심 품목·프로필 사진·지역은 넣지 않는다
+- 10/23 사용자: 카카오에서 이름은 받지 않고(당근처럼), 전화번호만 필수 동의로 받는다(DEV-78). 카카오톡 번호라 인증번호 없이 확인된 번호로 쓴다. 직접 입력+문자 인증은 카카오 심사가 막히거나 번호 없는 계정이 많을 때 다시 본다
+- (처음엔 이름·전화번호 둘 다 필수 유지로 정했다가 같은 날 바꿈)
+- 10/23 사용자: 동의 버전은 올리지 않고 2026-10-24 처리방침 문안을 고친다(수집 항목이 늘지 않고, 10-24가 아직 시행 전)
+- 10/24 사용자: 주문서 ‘기본 배송지로 저장’은 켜진 채 시작(기존 동작)하고, 처리방침의 배송지 저장 근거를 ‘동의’에서 ‘계약 이행’으로 바꾼다(미리 체크된 칸은 유효한 동의로 보기 어려움). 동의 버전은 그대로 2026-10-24(수집 항목 변화 없음, 동의가 필요 없는 근거로 바뀜)
+- `needsOnboarding`은 닉네임·휴대폰·필수 동의만 본다(이름 제외). 내 정보 고치기에서 이름은 선택(적었을 때만 2~20자 검사·전송)
+- 예전 `/onboarding/address`는 지우지 않고 `/onboarding`으로 Redirect(예전 링크·새로고침 대비). `AddressForm`의 온보딩 전용 `secondary`·`alwaysDefault`는 쓰는 곳이 없어 지움
+
+### 작업
+- [x] 스펙·wiki·처리방침 문구
+- [x] 서버·Mock `needsOnboarding`, 온보딩 화면 한 단계, 내 정보 이름 선택
+- [x] 테스트: pytest 새 테스트, Mock 온보딩 테스트, 처리방침 문구 테스트, Playwright DEV-142
+- [x] Figma SCR-06(1/2 이름 칸·단계 표시 삭제·시작하기, 2/2 보관 페이지로, 내 정보 이름 (선택)) — 스크립트 `sswp/figma-plugins/farmclub-dev142`
+
+### 완료 조건
+- [ ] 카카오 새 소비자가 닉네임·휴대폰·동의만으로 가입을 마치고, 첫 주문서에서 받는 사람·주소를 입력한다
+- [ ] `/privacy`·policy.md·FEAT-01·screens가 같은 내용
+- [ ] 테스트 통과, 리뷰 1명 승인 후 main 머지(10/24 시행 전에)
+
+### 기록
+- 10/23 조사(컬리·오아시스·당근·와디즈·텀블벅 처리방침): 가입은 식별자+연락처, 주소는 첫 주문 때가 일반적. 닉네임은 커뮤니티형만
