@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import now
-from app.core.errors import invalid, not_found
+from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
 from app.messaging.models import SupportMessage, SupportThread, Thread, ThreadMessage
 from app.messaging.schemas import ChatMessage, ChatSummary
@@ -422,7 +422,10 @@ def consumer_inbox_rows(db: Session) -> list[dict]:
                 "last_sender_type": last.sender_type if last else "OPERATOR",
                 "last_at": last.created_at if last else thread.created_at,
                 "unread_count": _support_unread(db, thread, operator=True),
-                "waiting": bool(last and last.sender_type == "CONSUMER"),
+                # 탈퇴한 회원에게는 답할 수 없으니 답변 대기로 세지 않는다
+                "waiting": bool(
+                    last and last.sender_type == "CONSUMER" and user.deleted_at is None
+                ),
             }
         )
     return items
@@ -448,7 +451,12 @@ def operator_send_consumer(db: Session, user_id: str, text: str) -> ChatMessage:
     text = text.strip()
     if not text or len(text) > 1000:
         raise invalid({"text": "답장은 1~1,000자로 적어 주세요"})
+    from app.accounts.models import User
+
     thread = _consumer_room(db, user_id, lock=True)
+    user = db.get(User, user_id)
+    if user is not None and user.deleted_at is not None:
+        raise conflict("USER_WITHDRAWN", "탈퇴한 회원에게는 답장할 수 없어요.")
     message = _support_message(thread.id, "OPERATOR", text, False, now())
     db.add(message)
     db.flush()

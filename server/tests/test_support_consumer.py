@@ -218,3 +218,35 @@ def test_AC_34_7_sending_requires_current_consent(client, monkeypatch):
     _finish_onboarding(client, headers)
     sent = client.post(f"{ROOM}/messages", headers=headers | key(), json={"text": "문의"})
     assert sent.status_code == 200, sent.text
+
+
+def test_AC_34_7_same_key_send_creates_one_message(client, login):
+    consumer = login("u-minji")
+    same = key()
+    first = client.post(f"{ROOM}/messages", headers=consumer | same, json={"text": "한 번만"})
+    again = client.post(f"{ROOM}/messages", headers=consumer | same, json={"text": "한 번만"})
+    assert first.status_code == again.status_code == 200, again.text
+    assert first.json()["message"]["messageId"] == again.json()["message"]["messageId"]
+    assert [m.body for m in room_messages("u-minji")].count("한 번만") == 1
+
+
+def test_AC_34_8_withdrawn_member_room_is_not_waiting_and_rejects_replies(
+    client, monkeypatch, admin_headers
+):
+    _kakao_on(monkeypatch)
+    user, headers = _kakao_consumer(client)
+    _finish_onboarding(client, headers)
+    client.post(f"{ROOM}/messages", headers=headers | key(), json={"text": "문의"})
+    assert client.post("/api/auth/me/withdraw", headers=headers).status_code == 204
+    row = next(
+        r
+        for r in client.get("/admin/support", headers=admin_headers).json()
+        if r["targetId"] == user["userId"]
+    )
+    assert (row["name"], row["waiting"]) == ("탈퇴한 회원", False)
+    reply = client.post(
+        f"/admin/support/consumers/{user['userId']}/messages",
+        headers=admin_headers | key(),
+        json={"text": "답장"},
+    )
+    assert reply.status_code == 409

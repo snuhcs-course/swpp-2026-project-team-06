@@ -180,7 +180,8 @@ class ChatSummary(CamelModel):
     last_sender_type: SenderType
     last_at: datetime | None
     unread_count: int
-    # farmclub 문의 대화방(DEV-150). farmId는 SUPPORT_ID, 경로는 /api/messaging/support
+    # farmclub 문의 대화방(DEV-150). farm_id는 u-farmclub(SUPPORT_USER_ID),
+    # 대화는 /api/messaging/support로 연다
     is_support: bool = False
 
 
