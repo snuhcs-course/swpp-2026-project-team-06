@@ -22,6 +22,8 @@ const ALLOWED = [
   new RegExp(`^/admin/support$`),
   new RegExp(`^/admin/ai-usage${QUERY}$`), // DEV-144 AI 비용(조회만)
   new RegExp(`^/admin/support/${ID}/(messages|read)$`),
+  // 소비자 문의 대화방(DEV-150)
+  new RegExp(`^/admin/support/consumers/${ID}/(messages|read)$`),
 ];
 
 const send = (res, status, code, message) => sendJson(res, status, { code, message });

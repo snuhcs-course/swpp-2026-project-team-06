@@ -1,7 +1,7 @@
 """운영자 예외 목록·복구 API 스키마."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from app.core.schemas import CamelModel
 from app.messaging.schemas import ChatMessage
@@ -91,12 +91,15 @@ class AdminUserPage(CamelModel):
 
 
 class SupportThreadView(CamelModel):
-    """문의함 한 줄(DEV-111). waiting은 마지막 메시지가 생산자 문의라 답장이 필요한 상태."""
+    """문의함 한 줄(DEV-111·DEV-150). kind가 PRODUCER면 target_id는 농가 ID, CONSUMER면 사용자 ID.
 
-    farm_id: str
-    farm_name: str
-    region: str
-    producer_name: str
+    waiting은 마지막 메시지가 문의라 답장이 필요한 상태.
+    """
+
+    kind: Literal["PRODUCER", "CONSUMER"]
+    target_id: str
+    name: str
+    detail: str
     last_message: str
     last_sender_type: str
     last_at: datetime
@@ -105,9 +108,10 @@ class SupportThreadView(CamelModel):
 
 
 class SupportThreadPage(CamelModel):
-    farm_id: str
-    farm_name: str
-    producer_name: str
+    kind: Literal["PRODUCER", "CONSUMER"]
+    target_id: str
+    name: str
+    detail: str
     items: list[ChatMessage]
     unread_count: int
 

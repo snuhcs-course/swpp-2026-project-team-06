@@ -15,11 +15,12 @@ import {
   Screen,
   T,
   tokens,
+  SupportAvatar,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
-import { ORDER_STATUS, SupportAvatar } from "../../../lib/views";
+import { ORDER_STATUS } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
 export default function Chat() {
   useHideTabBar();

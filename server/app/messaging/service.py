@@ -691,6 +691,12 @@ def consumer_chats(db: Session, consumer, cursor: str | None, limit: int) -> Pag
                 unread_count=_unread(db, t, producer=False),
             )
         )
+    # farmclub 문의 대화방(DEV-150). 고정하지 않고 최근 순으로 섞인다
+    from app.messaging.support import consumer_chat_summary
+
+    support = consumer_chat_summary(db, consumer.id)
+    if support is not None:
+        summaries.append(support)
     summaries.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
     return _offset_page(summaries, cursor, limit)
 

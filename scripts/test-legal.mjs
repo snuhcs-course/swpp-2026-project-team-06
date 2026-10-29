@@ -115,3 +115,10 @@ test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async ()
   const [y, m, d] = server.split("-").map(Number);
   assert.equal(content.privacyPolicy.effective, `${y}년 ${m}월 ${d}일`);
 });
+
+test("DEV-150: privacy policy names the consumer farmclub support room and bumps the version", () => {
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.match(html, /생산자·소비자의 farmclub 문의 대화방\(운영팀 상담\)/);
+  assert.match(html, /2026년 10월 29일 변경: 소비자도 앱 안에서 farmclub 운영팀에 문의할 수 있도록/);
+  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+});

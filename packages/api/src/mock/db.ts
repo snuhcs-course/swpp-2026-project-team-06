@@ -49,7 +49,7 @@ export type UserRec = {
 const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
 const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;
 /** 지금 시행 중인 약관·처리방침 버전(서버 accounts.schemas.CONSENT_VERSION과 같은 값, DEV-113) */
-export const CONSENT_VERSION = "2026-10-24";
+export const CONSENT_VERSION = "2026-10-29";
 
 /** 지금 버전의 필수 동의가 빠졌는가(서버 consent_required와 같은 규칙). 테스트 계정은 항상 false */
 export function consentRequired(u: UserRec): boolean {
@@ -206,6 +206,8 @@ export type DB = {
   addresses: Record<string, Address[]>;
   drafts: Record<string, Draft>;
   threadMeta: Record<string, Thread>;
+  /** 소비자 farmclub 문의 대화방(DEV-150). key = userId */
+  supportRooms: Record<string, { messages: ChatMessage[]; userLastRead: string | null }>;
   aiSettings: Record<string, AiSettings>;
   aiHistory: { farmId: string; settings: AiSettings; createdAt: string }[];
   inquiries: Inquiry[];
@@ -227,7 +229,8 @@ export type DB = {
 };
 
 // 8: 농가 입금 계좌·입금 대기 주문 필드(DEV-68). 이전 state.json은 설정 › 데모 데이터 초기화 또는 파일 삭제 후 다시 시작
-const DB_VERSION = 8;
+// 9: 소비자 farmclub 문의 대화방 supportRooms(DEV-150)
+const DB_VERSION = 9;
 let cache: DB | null = null;
 let persistence = {
   read: () => readStore("mock-db"),
@@ -280,6 +283,20 @@ export const SUPPORT_WELCOME =
   "앱을 쓰다가 모르는 게 생기면 언제든 이 대화방에 편하게 남겨 주세요. " +
   "운영팀이 확인하고 답해 드릴게요.\n" +
   "화면 오른쪽 위 ? 버튼을 누르면 사용 안내도 처음부터 다시 볼 수 있어요.";
+/** 소비자 farmclub 문의 대화방 환영 메시지. server/app/messaging/support.py CONSUMER_WELCOME과 같다(DEV-150) */
+export const CONSUMER_WELCOME =
+  "안녕하세요, farmclub 운영팀이에요. 가입을 환영해요!\n" +
+  "주문·입금·배송이나 앱을 쓰다가 궁금한 점이 생기면 언제든 이 대화방에 편하게 남겨 주세요. " +
+  "운영팀이 확인하고 답해 드릴게요.\n" +
+  "상품이나 농가에 대한 질문은 그 농가와의 1:1 채팅에서 물어보면 더 빨리 답을 받을 수 있어요.";
+/** 소비자 가입 때 farmclub 문의 대화방을 연다. 처음 만들 때만 환영 메시지를 넣는다(DEV-150) */
+export function ensureConsumerSupport(d: DB, userId: string, createdAt = nowIso()) {
+  return (d.supportRooms[userId] ??= {
+    // 시드 중에도 부르므로 nextId(전역 db) 대신 받은 d의 순번을 쓴다
+    messages: [msg(`m-${++d.seq}`, "OPERATOR", CONSUMER_WELCOME, createdAt)],
+    userLastRead: null,
+  });
+}
 const msg = (
   id: string,
   senderType: ChatMessage["senderType"],
@@ -402,6 +419,7 @@ export function seed(): DB {
     version: DB_VERSION,
     capacityRequests: [],
     threadMeta: {},
+    supportRooms: {},
     aiSettings: {},
     aiHistory: [],
     inquiries: [],
@@ -1350,6 +1368,10 @@ export function seed(): DB {
           at("2026-10-07", "09:00"),
         ),
       ];
+  // 소비자마다 farmclub 문의 대화방(DEV-150, 서버 시드와 같다)
+  for (const u of Object.values(d.users))
+    if (u.role === "CONSUMER")
+      ensureConsumerSupport(d, u.userId, at("2026-10-07", "09:00"));
   for (const [k, messages] of Object.entries(d.threads)) {
     const [farmId, consumerId] = k.split(":");
     d.threadMeta[k] = {

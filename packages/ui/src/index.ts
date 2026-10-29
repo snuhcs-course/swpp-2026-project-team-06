@@ -75,6 +75,7 @@ export {
   ConversationHeader,
   messageTime,
 } from "./Messenger";
+export { SupportAvatar } from "./SupportAvatar";
 export { useLiveList } from "./useLiveList";
 
 export { DetailStory, StoryImage } from "./DetailStory";

@@ -7,7 +7,7 @@ import path from "node:path";
 import { once } from "node:events";
 
 // 서버 accounts.schemas.CONSENT_VERSION과 같은 값(test-legal.mjs가 셋이 같은지 본다)
-const CONSENT_VERSION = "2026-10-24";
+const CONSENT_VERSION = "2026-10-29";
 
 test("AC-01-20: Mock withdrawal blocks open orders, erases the account and frees the Kakao id", async () => {
   const dir = mkdtempSync(path.resolve(".expo/withdrawal-test-"));
@@ -57,6 +57,11 @@ test("AC-01-20: Mock withdrawal blocks open orders, erases the account and frees
     const t = first.body.accessToken;
     const uid = first.body.user.userId;
     await api("PATCH", "/api/auth/me", t, { nickname: "귤러버", name: "박현", phone: "010-2345-6789" });
+    // farmclub 문의 대화방(DEV-150)에 남긴 문의는 탈퇴 뒤 재가입한 사용자에게 보이지 않는다
+    assert.equal(
+      (await api("POST", "/api/messaging/support/messages", t, { text: "탈퇴 전 문의" })).status,
+      200,
+    );
     const before = await followers();
     assert.equal((await api("PUT", "/api/farms/f-kang/follow", t)).status, 200);
     assert.equal(await followers(), before + 1);
@@ -98,6 +103,9 @@ test("AC-01-20: Mock withdrawal blocks open orders, erases the account and frees
     assert.equal(again.body.user.needsOnboarding, true);
     const mine = await api("GET", "/api/orders", again.body.accessToken);
     assert.equal((mine.body.items ?? mine.body).length, 0);
+    const room = await api("GET", "/api/messaging/support/messages", again.body.accessToken);
+    assert.deepEqual(room.body.items.map((m) => m.senderType), ["OPERATOR"]);
+    assert.ok(room.body.items.every((m) => m.body !== "탈퇴 전 문의"));
 
     // 테스트 계정은 탈퇴할 수 없다
     const minji = await api("POST", "/api/auth/test-login", null, { userId: "u-minji", app: "consumer" });
