@@ -1920,3 +1920,45 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 
 ### 기록
 - 10/24 #295(DEV-144) 머지 뒤 main 0e852fc 위로 옮김. `cd scripts/admin-web && npm test` 20 passed.
+
+## DEV-150 소비자 앱 farmclub 문의 대화방 (고객센터)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-150
+- 브랜치: `jinumeral/dev-150-consumer-farmclub-support`
+- 기준: FEAT-34(소비자 AC 추가), M-22 수정, SCR-15·16, 관리자 문의함
+- 상태: 진행 중
+
+### 목표
+- 소비자도 생산자처럼 farmclub 운영팀에 문의한다. 가입할 때 방과 환영 메시지를 만들고, 1:1 채팅 목록에 farmclub 행(로고, 고정 없음)을 둔다.
+- 기존 소비자에게도 한 번 넣는다(탈퇴 계정 제외).
+- 소비자 문의는 관리자 문의함에 생산자 문의와 함께 보이고, 운영자가 farmclub 이름으로 답한다.
+- draft PR까지 하고 머지는 보류한다(사용자 지시).
+
+### 범위 (수정 허용 경로)
+- `server/app/messaging/{models,schemas,service,router,support,spec}.py|md`, `server/app/admin/{support,schemas,spec}.py|md`, `server/app/accounts/service.py`(가입·탈퇴), `server/app/core/seed.py`, 새 `server/migrations/versions/0022_consumer_support.py`, `server/tests/**`, `server/tasks.md`
+- `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{conversations,db,auth}.ts`, `packages/api/tasks.md`
+- `packages/ui/src/{index,Messenger,ChatThread}.tsx|ts`, 새 `packages/ui/src/SupportAvatar.tsx`, `packages/ui/tasks.md`
+- `apps/consumer/src/app/(tabs)/chats/{index,support}.tsx`, `apps/consumer/tasks.md`
+- `apps/producer/src/lib/views.tsx`, `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`(SupportAvatar import 이동만)
+- `scripts/admin-web/**`, `scripts/e2e/**`, `scripts/test-*.mjs`
+- `docs/spec/{functional/FEAT-34-farmclub-support.md,functional/rules.md,policy.md,screens.md}`, `docs/wiki/Requirements-and-Specifications.md`
+- `packages/ui/src/legalContent.ts` 개인정보 목적 문구는 버전 규칙을 확인하고, 재동의가 필요하면 사용자에게 먼저 묻는다.
+
+### 비범위
+- 소비자 문의방 첨부 사진, 푸시, 운영자 배정·상태, 생산자 방을 새 테이블로 옮기기(후속)
+
+### 결정 사항
+- 10/29 사용자 결정: 생산자와 완전히 같게 한다(가입 때 방·환영 메시지, 1:1 채팅 목록 행, 다른 입구 없음). 기존 소비자에게도 넣는다. draft PR까지만 한다.
+- 10/29 소비자 방은 새 테이블 `support_threads`(사용자당 하나)와 `support_messages`에 둔다. 소비자 1:1(`Thread`)은 농가 FK가 필수이고 팔로우·AI·전달·환불 알림에 묶여 있어 재사용하지 않는다. 숨긴 가짜 농가를 두는 안은 농가·카탈로그·관리 목록에 새어서 택하지 않았다. 운영 중인 생산자 방(Thread)은 건드리지 않고, 문의함이 두 종류를 합쳐 보인다.
+- 10/29 소비자 메시지에도 연락처 가림(M-16)을 적용한다. 첨부는 이번에 없다(ChatThread `upload`를 선택값으로 바꿔 + 버튼을 숨긴다).
+
+### 작업
+- [ ] 서버: 모델·마이그레이션 0022(테이블+기존 소비자 백필), 가입·시드·탈퇴, 소비자 API, 채팅 목록 행, 관리 API·문의함 통합, 테스트
+- [ ] packages/api·Mock, packages/ui(SupportAvatar 이동, upload 선택값)
+- [ ] 소비자 앱 목록 행과 `/chats/support`
+- [ ] 관리자 문의함(생산자·소비자 배지와 탭)
+- [ ] 스펙·wiki
+- [ ] 검증, 스캔, draft PR
+
+### 기록
+- 10/29 origin/main a4a78a2에서 시작.
