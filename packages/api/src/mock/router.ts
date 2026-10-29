@@ -72,6 +72,7 @@ const CONSUMER_ROUTES = [
   /^\/api\/farms\/following$/,
   /^\/api\/farms\/:farmId\/follow$/,
   /^\/api\/messaging\/chats(\/|$)/,
+  /^\/api\/messaging\/support(\/|$)/,
   /^\/api\/messaging\/news\/:broadcastId\/reaction$/,
 ];
 /** 첫 가입 온보딩을 마쳐야 하는 행동(서버 OnboardedConsumer와 같은 목록) */
@@ -81,7 +82,8 @@ function needsOnboarded(method: string, path: string): boolean {
     (method === "PUT" && path === "/api/farms/:farmId/follow") ||
     (method === "PUT" && path === "/api/messaging/news/:broadcastId/reaction") ||
     (method === "POST" && path === "/api/messaging/chats") ||
-    (method === "POST" && path === "/api/messaging/chats/:farmId/messages")
+    (method === "POST" && path === "/api/messaging/chats/:farmId/messages") ||
+    (method === "POST" && path === "/api/messaging/support/messages")
   );
 }
 

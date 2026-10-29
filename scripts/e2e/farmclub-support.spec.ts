@@ -39,7 +39,9 @@ test("AC-34-2 AC-34-3: the farmclub room carries a producer inquiry to the opera
   await expect(page.getByText(question).last()).toBeVisible();
 
   const inbox = await (await ops.get("/admin/support")).json();
-  const kang = inbox.find((r: { farmId: string }) => r.farmId === "f-kang");
+  const kang = inbox.find(
+    (r: { kind: string; targetId: string }) => r.kind === "PRODUCER" && r.targetId === "f-kang",
+  );
   expect(kang).toMatchObject({ waiting: true, lastMessage: question });
   const answer = `매주 월요일에 정산돼요. ${Date.now()}`;
   expect((await ops.post("/admin/support/f-kang/messages", { text: answer })).ok()).toBeTruthy();
@@ -50,12 +52,12 @@ test("AC-34-2 AC-34-3: the farmclub room carries a producer inquiry to the opera
   assertClean();
 });
 
-test("AC-34-4: consumers never see the farmclub room", async ({ page }) => {
+test("AC-34-4: consumers never see a producer's farmclub room", async ({ page }) => {
   const assertClean = monitor(page);
   await loginConsumer(page);
-  await page.goto(`${consumerUrl}/chats`);
-  await expect(page.getByText("채팅").first()).toBeVisible();
-  await expect(page.getByText("farmclub 운영팀")).toHaveCount(0);
+  await page.goto(`${consumerUrl}/chats?view=private`);
+  // 소비자에게는 자기 문의 대화방(DEV-150)만 있고, 생산자 방의 환영 문구는 보이지 않는다
+  await expect(page.locator('[data-testid="chat-row-farmclub"]:visible')).toHaveCount(1);
   await expect(page.getByText(/농가 가입을 환영해요/)).toHaveCount(0);
   assertClean();
 });

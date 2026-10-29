@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 from app.core.clock import now
 from app.core.errors import invalid, not_found
 from app.core.ids import new_id
-from app.messaging.models import Thread, ThreadMessage
-from app.messaging.schemas import ChatMessage
+from app.messaging.models import SupportMessage, SupportThread, Thread, ThreadMessage
+from app.messaging.schemas import ChatMessage, ChatSummary
 
 SUPPORT_USER_ID = "u-farmclub"
 SUPPORT_NAME = "farmclub"
@@ -120,7 +120,7 @@ def operator_unread(db: Session, thread: Thread) -> int:
 
 
 def inbox(db: Session) -> list[dict]:
-    """문의함 목록. 답변 대기(마지막 메시지가 생산자)를 먼저, 그다음 최근 순."""
+    """문의함 목록(생산자·소비자). 답변 대기(마지막 메시지가 문의)를 먼저, 그다음 최근 순."""
     from app.accounts.models import User
     from app.farms.models import Farm
 
@@ -135,10 +135,10 @@ def inbox(db: Session) -> list[dict]:
         last = _last(db, thread.id)
         items.append(
             {
-                "farm_id": farm.id,
-                "farm_name": farm.name,
-                "region": farm.region,
-                "producer_name": producer.name,
+                "kind": "PRODUCER",
+                "target_id": farm.id,
+                "name": farm.name,
+                "detail": f"{producer.name} · {farm.region}",
                 "last_message": (last.body or "(사진)") if last else "",
                 "last_sender_type": last.sender_type if last else "OPERATOR",
                 "last_at": last.created_at if last else thread.created_at,
@@ -146,6 +146,8 @@ def inbox(db: Session) -> list[dict]:
                 "waiting": bool(last and last.sender_type == "PRODUCER"),
             }
         )
+    # 소비자 문의 대화방(DEV-150)도 함께 보인다
+    items += consumer_inbox_rows(db)
     items.sort(key=lambda r: r["last_at"], reverse=True)
     items.sort(key=lambda r: not r["waiting"])
     return items
@@ -161,9 +163,10 @@ def thread_page(db: Session, farm_id: str) -> dict:
     farm = db.get(Farm, farm_id)
     producer = db.get(User, farm.producer_id) if farm else None
     return {
-        "farm_id": farm_id,
-        "farm_name": farm.name if farm else "",
-        "producer_name": producer.name if producer else "",
+        "kind": "PRODUCER",
+        "target_id": farm_id,
+        "name": farm.name if farm else "",
+        "detail": f"{producer.name} · {farm.region}" if farm and producer else "",
         "items": _message_views(db, _messages(db, thread.id)),
         "unread_count": operator_unread(db, thread),
     }
@@ -192,3 +195,265 @@ def operator_read(db: Session, farm_id: str, message_id: str) -> int:
     thread = _support_thread(db, farm_id, lock=True)
     mark_read(db, thread, message_id, producer=False)
     return operator_unread(db, thread)
+
+
+# ---------------- 소비자 문의 대화방(DEV-150) ----------------
+# 소비자 1:1(Thread)은 농가가 필수라 SupportThread·SupportMessage에 따로 둔다.
+
+CONSUMER_WELCOME = (
+    "안녕하세요, farmclub 운영팀이에요. 가입을 환영해요!\n"
+    "주문·입금·배송이나 앱을 쓰다가 궁금한 점이 생기면 언제든 이 대화방에 편하게 남겨 주세요. "
+    "운영팀이 확인하고 답해 드릴게요.\n"
+    "상품이나 농가에 대한 질문은 그 농가와의 1:1 채팅에서 물어보면 더 빨리 답을 받을 수 있어요."
+)
+
+
+def consumer_thread_id(user_id: str) -> str:
+    return f"support-{user_id}"
+
+
+def ensure_consumer_support(db: Session, user_id: str) -> SupportThread:
+    """소비자 가입 때 부른다. 방이 이미 있으면 그대로 두고, 처음 만들 때만 환영 메시지를 넣는다."""
+    thread = db.scalar(select(SupportThread).where(SupportThread.user_id == user_id))
+    if thread is not None:
+        return thread
+    created = now()
+    thread = SupportThread(id=consumer_thread_id(user_id), user_id=user_id, created_at=created)
+    db.add(thread)
+    db.flush()
+    db.add(_support_message(thread.id, "OPERATOR", CONSUMER_WELCOME, False, created))
+    db.flush()
+    return thread
+
+
+def _support_message(
+    thread_id: str, sender: str, text: str, masked: bool, at: datetime
+) -> SupportMessage:
+    return SupportMessage(
+        id=new_id("m"),
+        thread_id=thread_id,
+        sender_type=sender,
+        body=text,
+        masked=masked,
+        created_at=at,
+    )
+
+
+def support_message_view(m: SupportMessage) -> ChatMessage:
+    return ChatMessage(
+        message_id=m.id,
+        sender_type=m.sender_type,
+        body=m.body,
+        photos=[],
+        created_at=m.created_at,
+        attachment_ids=[],
+        order_id=None,
+        inquiry_id=None,
+        source_refs=[],
+        settings_version=None,
+        needs_human=False,
+        source_summary=None,
+        handoff_status=None,
+        masked=m.masked,
+    )
+
+
+def _consumer_room(db: Session, user_id: str, lock: bool = False) -> SupportThread:
+    query = select(SupportThread).where(SupportThread.user_id == user_id)
+    if lock:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    thread = db.scalar(query)
+    if thread is None:
+        raise not_found("farmclub 대화방이 없어요.")
+    return thread
+
+
+def _support_seq(db: Session, message_id: str | None) -> int:
+    if not message_id:
+        return 0
+    return db.scalar(select(SupportMessage.seq).where(SupportMessage.id == message_id)) or 0
+
+
+def _support_unread(db: Session, thread: SupportThread, operator: bool) -> int:
+    """소비자는 운영팀 메시지를, 운영자는 소비자 메시지를 안 읽음으로 센다."""
+    last = _support_seq(
+        db,
+        thread.operator_last_read_message_id if operator else thread.user_last_read_message_id,
+    )
+    sender = "CONSUMER" if operator else "OPERATOR"
+    return (
+        db.scalar(
+            select(func.count()).where(
+                SupportMessage.thread_id == thread.id,
+                SupportMessage.seq > last,
+                SupportMessage.sender_type == sender,
+            )
+        )
+        or 0
+    )
+
+
+def _support_last(db: Session, thread_id: str) -> SupportMessage | None:
+    return db.scalar(
+        select(SupportMessage)
+        .where(SupportMessage.thread_id == thread_id)
+        .order_by(SupportMessage.seq.desc())
+        .limit(1)
+    )
+
+
+def _support_messages(db: Session, thread_id: str) -> list[SupportMessage]:
+    return list(
+        db.scalars(
+            select(SupportMessage)
+            .where(SupportMessage.thread_id == thread_id)
+            .order_by(SupportMessage.seq)
+        )
+    )
+
+
+def consumer_chat_summary(db: Session, user_id: str) -> ChatSummary | None:
+    """소비자 1:1 채팅 목록에 섞는 farmclub 행. 고정하지 않고 최근 순으로 섞인다."""
+    thread = db.scalar(select(SupportThread).where(SupportThread.user_id == user_id))
+    if thread is None:
+        return None
+    last = _support_last(db, thread.id)
+    return ChatSummary(
+        farm_id=SUPPORT_USER_ID,
+        farm_name=SUPPORT_NAME,
+        farm_photo=None,
+        last_message=last.body if last else "",
+        last_sender_type=last.sender_type if last else "OPERATOR",
+        last_at=last.created_at if last else thread.created_at,
+        unread_count=_support_unread(db, thread, operator=False),
+        is_support=True,
+    )
+
+
+def consumer_support_page(db: Session, user_id: str) -> dict:
+    """소비자가 보는 방 전체(문의는 짧아서 한 번에 내려 준다)."""
+    thread = _consumer_room(db, user_id)
+    return {
+        "items": [support_message_view(m) for m in _support_messages(db, thread.id)],
+        "next_cursor": None,
+    }
+
+
+def consumer_support_send(db: Session, user_id: str, text: str) -> dict:
+    """소비자 문의. 다른 1:1과 같이 연락처를 가린다(M-16). AI는 답하지 않는다."""
+    from app.messaging.service import mask
+
+    text = text.strip()
+    if not text or len(text) > 1000:
+        raise invalid({"text": "문의는 1~1,000자로 적어 주세요"})
+    thread = _consumer_room(db, user_id, lock=True)
+    body, masked = mask(text)
+    message = _support_message(thread.id, "CONSUMER", body, masked, now())
+    db.add(message)
+    db.flush()
+    return {"message": support_message_view(message), "reply": None}
+
+
+def _read(db: Session, thread: SupportThread, message_id: str, operator: bool) -> int:
+    target = db.scalar(
+        select(SupportMessage).where(
+            SupportMessage.id == message_id, SupportMessage.thread_id == thread.id
+        )
+    )
+    if target is None:
+        raise not_found("찾을 수 없는 메시지예요.")
+    field = "operator_last_read_message_id" if operator else "user_last_read_message_id"
+    if target.seq > _support_seq(db, getattr(thread, field)):
+        setattr(thread, field, target.id)
+    db.flush()
+    return _support_unread(db, thread, operator)
+
+
+def consumer_support_read(db: Session, user_id: str, message_id: str) -> int:
+    return _read(db, _consumer_room(db, user_id, lock=True), message_id, operator=False)
+
+
+def scrub_consumer_support(db: Session, user_id: str) -> None:
+    """탈퇴한 회원이 쓴 문의 본문을 지운다(accounts.withdraw, 1:1 채팅과 같은 처리)."""
+    from app.accounts.service import WITHDRAWN_MESSAGE
+
+    thread = db.scalar(select(SupportThread).where(SupportThread.user_id == user_id))
+    if thread is None:
+        return
+    for message in db.scalars(
+        select(SupportMessage).where(
+            SupportMessage.thread_id == thread.id, SupportMessage.sender_type == "CONSUMER"
+        )
+    ):
+        message.body = WITHDRAWN_MESSAGE
+
+
+def _consumer_name(user) -> str:
+    if user.deleted_at is not None:
+        return "탈퇴한 회원"
+    return user.nickname or user.name or user.id
+
+
+def consumer_inbox_rows(db: Session) -> list[dict]:
+    from app.accounts.models import User
+
+    # 소비자는 가입 때 모두 방을 받으므로, 실제로 문의한 방(소비자 메시지가 있는 방)만 보인다
+    asked = (
+        select(SupportMessage.id)
+        .where(
+            SupportMessage.thread_id == SupportThread.id,
+            SupportMessage.sender_type == "CONSUMER",
+        )
+        .exists()
+    )
+    rows = db.execute(
+        select(SupportThread, User).join(User, User.id == SupportThread.user_id).where(asked)
+    ).all()
+    items = []
+    for thread, user in rows:
+        last = _support_last(db, thread.id)
+        items.append(
+            {
+                "kind": "CONSUMER",
+                "target_id": user.id,
+                "name": _consumer_name(user),
+                "detail": "소비자",
+                "last_message": last.body if last else "",
+                "last_sender_type": last.sender_type if last else "OPERATOR",
+                "last_at": last.created_at if last else thread.created_at,
+                "unread_count": _support_unread(db, thread, operator=True),
+                "waiting": bool(last and last.sender_type == "CONSUMER"),
+            }
+        )
+    return items
+
+
+def consumer_thread_page(db: Session, user_id: str) -> dict:
+    from app.accounts.models import User
+
+    thread = _consumer_room(db, user_id)
+    user = db.get(User, user_id)
+    return {
+        "kind": "CONSUMER",
+        "target_id": user_id,
+        "name": _consumer_name(user),
+        "detail": "소비자",
+        "items": [support_message_view(m) for m in _support_messages(db, thread.id)],
+        "unread_count": _support_unread(db, thread, operator=True),
+    }
+
+
+def operator_send_consumer(db: Session, user_id: str, text: str) -> ChatMessage:
+    """운영자 답장. 생산자 방과 같이 읽음 위치는 바꾸지 않는다."""
+    text = text.strip()
+    if not text or len(text) > 1000:
+        raise invalid({"text": "답장은 1~1,000자로 적어 주세요"})
+    thread = _consumer_room(db, user_id, lock=True)
+    message = _support_message(thread.id, "OPERATOR", text, False, now())
+    db.add(message)
+    db.flush()
+    return support_message_view(message)
+
+
+def operator_read_consumer(db: Session, user_id: str, message_id: str) -> int:
+    return _read(db, _consumer_room(db, user_id, lock=True), message_id, operator=True)

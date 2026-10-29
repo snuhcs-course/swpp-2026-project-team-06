@@ -1,5 +1,5 @@
 import { ApiError, type OrderStatus } from "@farmclub/api";
-import { BrandLogo, Button, EmptyState, T, tokens } from "@farmclub/ui";
+import { Button, EmptyState, T, tokens } from "@farmclub/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
@@ -197,22 +197,4 @@ export async function copyText(text: string) {
   } catch {
     return false;
   }
-}
-
-/** farmclub 문의 대화방(DEV-111)의 프로필 자리. 사람 사진 대신 로고를 보인다 */
-export function SupportAvatar({ size = 48 }: { size?: number }) {
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: tokens.color.surface,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <BrandLogo variant="icon" width={Math.round(size * 0.8)} decorative />
-    </View>
-  );
 }

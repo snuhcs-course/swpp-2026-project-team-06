@@ -18,7 +18,7 @@ from app.core.security import (
     OptionalUser,
 )
 from app.farms import service as farms
-from app.messaging import service
+from app.messaging import service, support
 from app.messaging.schemas import (
     AiModeInput,
     AttachmentView,
@@ -43,6 +43,8 @@ from app.messaging.schemas import (
     SendResult,
     StartChatInput,
     StartChatResult,
+    SupportPage,
+    SupportSendInput,
     TextInput,
     ThreadView,
     UnreadState,
@@ -206,6 +208,39 @@ def read_chat(db: Db, user: Consumer, farm_id: str, body: ReadInput):
     state = service.consumer_read(db, user, farm_id, body.last_read_message_id)
     db.commit()
     return state
+
+
+# ---------------- 소비자 farmclub 문의 대화방(DEV-150, FEAT-34) ----------------
+
+
+@router.get("/support/messages", response_model=SupportPage)
+def support_messages(db: Db, user: Consumer):
+    return support.consumer_support_page(db, user.id)
+
+
+@router.post("/support/messages", response_model=SendResult)
+def support_send(
+    db: Db, user: OnboardedConsumer, body: SupportSendInput, key: IdempotencyKey = None
+):
+    """운영팀에 문의. AI는 답하지 않아 reply는 항상 null.
+
+    처리방침의 이 목적(DEV-150)에 다시 동의해야 보낼 수 있다(농가 채팅과 같은 관문).
+    """
+    return run_idempotent(
+        db,
+        user.id,
+        "support-send",
+        key,
+        body,
+        lambda: support.consumer_support_send(db, user.id, body.text),
+    )
+
+
+@router.put("/support/read", response_model=UnreadState)
+def support_read(db: Db, user: Consumer, body: ReadInput):
+    unread = support.consumer_support_read(db, user.id, body.last_read_message_id)
+    db.commit()
+    return UnreadState(unread_count=unread)
 
 
 # ---------------- 생산자 1:1 (M-09) ----------------

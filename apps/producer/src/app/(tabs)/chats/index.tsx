@@ -12,6 +12,7 @@ import {
   tokens,
   safe,
   useLiveList,
+  SupportAvatar,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -19,7 +20,6 @@ import { View } from "react-native";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import OwnNewsRoom from "../../../lib/OwnNewsRoom";
-import { SupportAvatar } from "../../../lib/views";
 
 export default function Chats() {
   const router = useRouter();

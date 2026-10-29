@@ -8,7 +8,7 @@ import path from "node:path";
 import { once } from "node:events";
 
 // 서버 accounts.schemas.CONSENT_VERSION과 같은 값(test-legal.mjs가 셋이 같은지 본다)
-const CONSENT_VERSION = "2026-10-24";
+const CONSENT_VERSION = "2026-10-29";
 
 test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async () => {
   const dir = mkdtempSync(path.resolve(".expo/onboarding-test-"));

@@ -1058,6 +1058,11 @@ def seed(session: Session) -> None:
     for f in FARMS:
         if f["approval_status"] == "APPROVED":
             ensure_support_thread(session, f["id"])
+    # 소비자마다 farmclub 문의 대화방(DEV-150). 실제 가입과 같은 함수를 쓴다
+    from app.messaging.support import ensure_consumer_support
+
+    for uid in session.scalars(select(User.id).where(User.role == "CONSUMER")).all():
+        ensure_consumer_support(session, uid)
     for eid, farm, consumer, mid, context, question, reason, when in ESCALATIONS:
         session.add(
             Escalation(

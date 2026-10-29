@@ -180,6 +180,8 @@ class ChatSummary(CamelModel):
     last_sender_type: SenderType
     last_at: datetime | None
     unread_count: int
+    # farmclub 문의 대화방(DEV-150). farmId는 SUPPORT_ID, 경로는 /api/messaging/support
+    is_support: bool = False
 
 
 class ProducerChatSummary(CamelModel):
@@ -244,3 +246,14 @@ class ReadInput(CamelModel):
 
 class UnreadState(CamelModel):
     unread_count: int
+
+
+class SupportPage(CamelModel):
+    """소비자 farmclub 문의 대화방 메시지(DEV-150). 짧아서 한 번에 내려 준다."""
+
+    items: list[ChatMessage]
+    next_cursor: str | None = None
+
+
+class SupportSendInput(CamelModel):
+    text: str

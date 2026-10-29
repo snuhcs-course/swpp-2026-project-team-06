@@ -22,7 +22,7 @@
   <div class="content"><div class="wrap">
     <header class="page-head">
       <h1>문의함</h1>
-      <p class="hint">생산자가 farmclub 대화방에 남긴 문의예요. 답장은 생산자 앱에 'farmclub'으로 보여요.</p>
+      <p class="hint">생산자와 소비자가 앱의 farmclub 대화방에 남긴 문의예요. 답장은 각자의 앱에 'farmclub'으로 보여요.</p>
     </header>
     <nav class="tabs" id="tabs" aria-label="상태"></nav>
     <section id="list" aria-live="polite"></section>
@@ -32,14 +32,19 @@
 
 <script src="/assets/admin.js"></script>
 <script>
-// 문의함(DEV-111). 목록은 답변 대기(마지막 메시지가 생산자)를 먼저 보여 준다.
+// 문의함(DEV-111·DEV-150). 생산자 방(농가 ID)과 소비자 방(사용자 ID)을 함께 보이고, 답변 대기를 먼저 보여 준다.
 // 대화를 열면 마지막 메시지까지 읽음으로 표시하고, 답장은 운영팀(OPERATOR) 메시지로 보낸다.
-const TABS = { WAITING: "답변 대기", ALL: "전체" };
+const TABS = { WAITING: "답변 대기", PRODUCER: "생산자", CONSUMER: "소비자", ALL: "전체" };
+const KIND = { PRODUCER: "생산자", CONSUMER: "소비자" };
+// 행마다 kind에 따라 경로가 다르다: 생산자 /admin/support/{farmId}, 소비자 /admin/support/consumers/{userId}
+const base = (r) => r.kind === "CONSUMER" ? `/admin/support/consumers/${r.targetId}` : `/admin/support/${r.targetId}`;
+const rowKey = (r) => `${r.kind}:${r.targetId}`;
+const pick = (t) => !rows ? [] : t === "ALL" ? rows : t === "WAITING" ? rows.filter((r) => r.waiting) : rows.filter((r) => r.kind === t);
 const WHO = { PRODUCER: "생산자", OPERATOR: "farmclub", AI: "AI", CONSUMER: "소비자" };
 let tab = "WAITING", rows = null, open = null, busy = false;
 
 function renderTabs() {
-  const n = (t) => !rows ? "" : t === "ALL" ? rows.length : rows.filter((r) => r.waiting).length;
+  const n = (t) => !rows ? "" : pick(t).length;
   $("#tabs").innerHTML = Object.entries(TABS).map(([t, label]) =>
     `<button aria-pressed="${t === tab}" data-tab="${t}">${label}${n(t) !== "" ? " " + n(t) : ""}</button>`).join("");
 }
@@ -51,23 +56,23 @@ function thread(page) {
   return `<div class="msgs">${page.items.map((m) =>
       `<div class="msg ${m.senderType === "OPERATOR" ? "op" : ""}"><span class="who">${esc(WHO[m.senderType] || m.senderType)}</span>${esc(m.body)}${photos(m)}<time>${when(m.createdAt)}</time></div>`).join("")}</div>
     <div class="reply">
-      <label class="hint" for="reply-${esc(page.farmId)}">farmclub으로 답장</label>
-      <textarea id="reply-${esc(page.farmId)}" maxlength="1000" placeholder="생산자에게 보낼 답장을 적어 주세요"></textarea>
+      <label class="hint" for="reply-${esc(page.kind + "-" + page.targetId)}">farmclub으로 답장</label>
+      <textarea id="reply-${esc(page.kind + "-" + page.targetId)}" maxlength="1000" placeholder="${page.kind === "CONSUMER" ? "소비자" : "생산자"}에게 보낼 답장을 적어 주세요"></textarea>
       <div class="row"><button class="primary" data-act="send">답장 보내기</button><button class="text" data-act="close">닫기</button></div>
     </div>`;
 }
 
 function card(r) {
-  return `<article class="card app" data-id="${esc(r.farmId)}">
+  return `<article class="card app" data-id="${esc(rowKey(r))}">
     <div class="row" style="justify-content: space-between">
-      <h2>${esc(r.farmName)}</h2>
+      <h2>${esc(r.name)} <span class="badge">${KIND[r.kind] || esc(r.kind)}</span></h2>
       <span class="badge ${r.waiting ? "s-PENDING" : "s-APPROVED"}">${r.waiting ? "답변 대기" : "답변함"}${r.unreadCount ? " · 새 문의 " + r.unreadCount : ""}</span>
     </div>
     <dl class="meta">
-      <dt>생산자</dt><dd>${esc(r.producerName)} <span class="hint">· ${esc(r.region)}</span></dd>
+      <dt>${r.kind === "CONSUMER" ? "계정" : "생산자"}</dt><dd>${esc(r.detail)} <span class="hint">· ${esc(r.targetId)}</span></dd>
       <dt>최근</dt><dd>${esc(WHO[r.lastSenderType] || r.lastSenderType)}: ${esc(r.lastMessage)} <span class="hint">· ${when(r.lastAt)}</span></dd>
     </dl>
-    <div class="row"><button data-act="open">${open === r.farmId ? "다시 불러오기" : "대화 보기"}</button></div>
+    <div class="row"><button data-act="open">${open === rowKey(r) ? "다시 불러오기" : "대화 보기"}</button></div>
     <div class="slot"></div>
   </article>`;
 }
@@ -75,7 +80,7 @@ function card(r) {
 function renderList() {
   renderTabs();
   if (!rows) { $("#list").innerHTML = `<p class="empty">불러오는 중…</p>`; return; }
-  const shown = tab === "ALL" ? rows : rows.filter((r) => r.waiting);
+  const shown = pick(tab);
   $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<p class="empty">${tab === "WAITING" ? "답변을 기다리는 문의가 없어요." : "대화방이 없어요."}</p>`;
 }
 
@@ -88,11 +93,12 @@ async function load() {
 }
 
 async function show(el, id, markRead = true) {
-  const page = await call(`/admin/support/${id}/messages`);
+  const r = rows.find((x) => rowKey(x) === id); if (!r) return;
+  const page = await call(`${base(r)}/messages`);
   el.querySelector(".slot").innerHTML = thread(page);
   const box = el.querySelector(".msgs"); box.scrollTop = box.scrollHeight;
   const last = page.items[page.items.length - 1];
-  if (markRead && last && page.unreadCount) await call(`/admin/support/${id}/read`, "POST", { messageId: last.messageId });
+  if (markRead && last && page.unreadCount) await call(`${base(r)}/read`, "POST", { messageId: last.messageId });
 }
 
 $("#tabs").onclick = (e) => { const b = e.target.closest("button[data-tab]"); if (b) { tab = b.dataset.tab; renderList(); } };
@@ -107,7 +113,9 @@ $("#list").onclick = async (e) => {
     else if (act === "send") {
       const text = el.querySelector("textarea").value.trim();
       if (!text) { toast("답장을 적어 주세요.", true); return; }
-      await call(`/admin/support/${id}/messages`, "POST", { text });
+      const r = rows.find((x) => rowKey(x) === id);
+      if (!r) { toast("목록이 바뀌었어요. 다시 불러와 주세요.", true); await load(); return; }
+      await call(`${base(r)}/messages`, "POST", { text });
       toast("답장을 보냈어요");
       await load();
     }

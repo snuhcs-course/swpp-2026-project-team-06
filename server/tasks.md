@@ -1936,13 +1936,13 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 
 ### 범위 (수정 허용 경로)
 - `server/app/messaging/{models,schemas,service,router,support,spec}.py|md`, `server/app/admin/{support,schemas,spec}.py|md`, `server/app/accounts/service.py`(가입·탈퇴), `server/app/core/seed.py`, 새 `server/migrations/versions/0022_consumer_support.py`, `server/tests/**`, `server/tasks.md`
-- `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{conversations,db,auth}.ts`, `packages/api/tasks.md`
+- `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{conversations,db,auth,router}.ts`(router: 소비자 경로·온보딩 관문), `packages/api/tasks.md`
 - `packages/ui/src/{index,Messenger,ChatThread}.tsx|ts`, 새 `packages/ui/src/SupportAvatar.tsx`, `packages/ui/tasks.md`
 - `apps/consumer/src/app/(tabs)/chats/{index,support}.tsx`, `apps/consumer/tasks.md`
 - `apps/producer/src/lib/views.tsx`, `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`(SupportAvatar import 이동만)
 - `scripts/admin-web/**`, `scripts/e2e/**`, `scripts/test-*.mjs`
 - `docs/spec/{functional/FEAT-34-farmclub-support.md,functional/rules.md,policy.md,screens.md}`, `docs/wiki/Requirements-and-Specifications.md`
-- `packages/ui/src/legalContent.ts` 개인정보 목적 문구는 버전 규칙을 확인하고, 재동의가 필요하면 사용자에게 먼저 묻는다.
+- 처리방침·동의 버전(사용자 결정 10/29): `packages/ui/src/legalContent.ts`, `server/app/accounts/schemas.py`(`CONSENT_VERSION`), `scripts/test-{legal,onboarding,withdrawal}.mjs`, `docs/spec/{policy,screens}.md`, wiki
 
 ### 비범위
 - 소비자 문의방 첨부 사진, 푸시, 운영자 배정·상태, 생산자 방을 새 테이블로 옮기기(후속)
@@ -1950,15 +1950,29 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 ### 결정 사항
 - 10/29 사용자 결정: 생산자와 완전히 같게 한다(가입 때 방·환영 메시지, 1:1 채팅 목록 행, 다른 입구 없음). 기존 소비자에게도 넣는다. draft PR까지만 한다.
 - 10/29 소비자 방은 새 테이블 `support_threads`(사용자당 하나)와 `support_messages`에 둔다. 소비자 1:1(`Thread`)은 농가 FK가 필수이고 팔로우·AI·전달·환불 알림에 묶여 있어 재사용하지 않는다. 숨긴 가짜 농가를 두는 안은 농가·카탈로그·관리 목록에 새어서 택하지 않았다. 운영 중인 생산자 방(Thread)은 건드리지 않고, 문의함이 두 종류를 합쳐 보인다.
+- 10/29 사용자 결정: 처리방침 제1조 '소통' 목적에 소비자의 farmclub 문의 대화방을 넣고, 버전을 2026-10-29로 올려 모든 회원에게 재동의를 받는다(DEV-140 방식). 버전 날짜는 오늘 날짜로 두었고, 머지·배포 날짜가 달라지면 그때 맞춘다. 약관(이용약관)은 바꾸지 않는다.
 - 10/29 소비자 메시지에도 연락처 가림(M-16)을 적용한다. 첨부는 이번에 없다(ChatThread `upload`를 선택값으로 바꿔 + 버튼을 숨긴다).
 
 ### 작업
-- [ ] 서버: 모델·마이그레이션 0022(테이블+기존 소비자 백필), 가입·시드·탈퇴, 소비자 API, 채팅 목록 행, 관리 API·문의함 통합, 테스트
-- [ ] packages/api·Mock, packages/ui(SupportAvatar 이동, upload 선택값)
-- [ ] 소비자 앱 목록 행과 `/chats/support`
-- [ ] 관리자 문의함(생산자·소비자 배지와 탭)
-- [ ] 스펙·wiki
-- [ ] 검증, 스캔, draft PR
+- [x] 서버: 모델·마이그레이션 0022(테이블+기존 소비자 백필), 가입·시드·탈퇴, 소비자 API, 채팅 목록 행, 관리 API·문의함 통합, 테스트
+- [x] packages/api·Mock, packages/ui(SupportAvatar 이동, upload 선택값)
+- [x] 소비자 앱 목록 행과 `/chats/support`
+- [x] 관리자 문의함(생산자·소비자 배지와 탭)
+- [x] 스펙·wiki
+- [x] 검증, 스캔
+- [ ] draft PR(머지 보류)
 
 ### 기록
 - 10/29 origin/main a4a78a2에서 시작.
+- 10/29 검증:
+  - 서버: ruff check 통과, 전체 pytest 450 passed(새 `test_support_consumer.py` 8개, 기존 `test_support.py`·`test_messaging.py`는 문의함 행 구조와 소비자 목록의 farmclub 행에 맞춰 고침). 별도 DB `farmclub_dev150`에서 alembic upgrade → check(변경 없음) → downgrade 0021 → upgrade 성공.
+  - 앱·패키지: typecheck 4 workspace 통과, mock 43 passed, admin-web 21 passed(새 1개).
+  - 통합: `test:integration:full`(전체)에서 API 7 passed, Playwright 74 passed, 10 skipped, 0 failed(동의 버전 올린 뒤 다시 실행). 새 `consumer-support.spec.ts`와 고친 `farmclub-support.spec.ts`는 list 리포터로 3 passed를 확인했다.
+  - 화면: 소비자 문의방 스크린샷 확인(첨부 버튼 없음, 'farmclub' 말풍선).
+- 10/29 커밋 전 스캔에서 CRITICAL 0건, WARNING 3건이 나와 모두 반영했다.
+  - 문의 보내기는 `OnboardedConsumer`로 막는다. 이번 버전 올림의 목적이라 재동의 전에는 보낼 수 없고 읽기만 된다. Mock 관문도 같게 했고 테스트를 추가했다.
+  - Mock 탈퇴에서 문의 본문을 지우고 방을 탈퇴 ID로 옮긴다. 재가입한 사용자에게 이전 문의가 보이지 않는다(`test-withdrawal.mjs`).
+  - 문의함은 소비자 메시지가 있는 방만 내려 준다(가입 때 모두 방을 받으므로). 테스트를 추가했다.
+  - INFO도 반영했다: 빈 안내를 farmclub 행 아래로 옮겼고, Mock 경로를 소비자 경로로 표시했고, `DB_VERSION` 주석을 달았다. 관리자 웹과 서버는 문의함 응답 필드가 바뀌어서 서버를 먼저, 관리자 웹을 바로 다음에 배포해야 한다(PR에 적는다).
+- 10/29 확인 스캔: CRITICAL 0건, WARNING 1건(`mock/router.ts`가 범위에 없음)이 나와 범위에 추가했다. INFO도 반영했다: 문의함 답장 때 행이 사라졌으면 안내 후 다시 불러오고, Mock 목록 타입 단언을 반환 타입으로 바꾸고, Mock 환영 메시지 ID를 `nextId`로 바꿨다(재가입 때 겹치지 않게). 문의함의 방별 조회(N+1)는 문의한 방만 보이게 줄였고, 더 커지면 집계 쿼리로 바꾼다(후속).
+- 10/29 최종 검증: Mock 환영 메시지 ID를 `nextId`로 바꿨더니 시드 중 전역 db를 다시 불러 무한 재귀가 나서(mock 13 failed) 받은 d의 순번을 쓰게 고쳤다. 고친 뒤 결과는 pytest 452 passed, typecheck 4 workspace 통과, mock 43 passed, admin-web 21 passed, 관련 e2e(consumer-support·farmclub-support·conversation-ui·discovery-and-gates) 13 passed다. 전체 통합(Playwright 74 passed·10 skipped·0 failed)은 동의 버전 올린 직후 코드로 돌렸다.

@@ -263,3 +263,19 @@ test("AI 비용 화면도 로그인해야 열린다 (DEV-144)", async () => {
   assert.equal(ok.status, 200);
   assert.match(ok.body, /AI 비용/);
 });
+
+test("중계는 소비자 문의 대화방 보기·답장·읽음도 넘긴다 (DEV-150)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/support/consumers/u-minji/messages", "GET"],
+    ["/admin/support/consumers/u-minji/messages", "POST"],
+    ["/admin/support/consumers/u-minji/read", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of ["/admin/support/consumers", "/admin/support/consumers/u-minji", "/admin/support/consumers/u-minji/delete", "/admin/support/consumers/../orders"]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
