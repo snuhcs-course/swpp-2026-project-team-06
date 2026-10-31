@@ -1,9 +1,9 @@
 {
   "matrix_id": "DEV-152-I3-v1.0",
   "version": "v1.0",
-  "frozen_at_utc": "2026-10-31T14:35:05+00:00",
+  "frozen_at_utc": "2026-10-31T14:40:18+00:00",
   "status": "FROZEN_ORACLE_NOT_EXECUTED",
-  "source_main_commit": "8f8d4d5",
+  "source_main_commit": "8f8d4d5cb2364b37b9fc7b257c2c9467d52ca7a7",
   "case_count": 41,
   "priority_counts": {
     "P0": 31,
