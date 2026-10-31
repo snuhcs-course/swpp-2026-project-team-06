@@ -4,6 +4,7 @@ import { SourceBasicInfo } from "./SourceBasicInfo";
 import { SourceAttachments } from "./SourceAttachments";
 import {
   catalog,
+  farms,
   isMock,
   newIdempotencyKey,
   sourceAnalysis as api,
@@ -17,10 +18,8 @@ import {
 } from "@farmclub/api";
 import {
   Button,
-  Checkbox,
   HeaderBar,
   Icon,
-  Input,
   PeekSheet,
   Screen,
   Scroll,
@@ -42,19 +41,17 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { useHideTabBar } from "./session";
 import {
   ACTIVE,
   canEditBatch,
   Choice,
-  DraftPreview,
   panel,
   sourceError,
   states,
 } from "./SourceWorkspace";
-const WEIGHTS = [3, 5, 10];
 // 서버가 새 상품을 만들 때 이름은 비어 있거나 "새 상품"이다. 이때만 AI 값으로 채운다.
 const DEFAULT_NAMES = ["", "새 상품"];
 // 새 상품의 서버 기본 보관 문구(catalog.create_product). 이 값이면 AI 값으로 바꿔도 된다.
@@ -76,6 +73,24 @@ const isFresh = (d: SourceDraft, reviewVersion: number, batchVersion: number) =>
   d.snapshot.reviewVersion === reviewVersion &&
   // 서버 apply와 같은 판정: batchVersion 없는 초안은 최신이 아니다.
   (d.snapshot.batchVersion ?? -1) === batchVersion;
+// 이 상품에 마지막으로 반영한 초안(id:version). 같은 초안을 다시 apply하면 서버가 대표사진을 또 복사하므로
+// 새로고침 뒤에도 알 수 있게 세션 저장소에 둔다. 초안이 바뀌면(사진만 바뀌어도 새 버전) 다시 반영한다.
+const appliedKey = (productId: string) =>
+  `farmclub-producer:applied-draft:${productId}`;
+const readApplied = (productId: string) => {
+  try {
+    return sessionStorage.getItem(appliedKey(productId)) ?? "";
+  } catch {
+    return "";
+  }
+};
+const writeApplied = (productId: string, value: string) => {
+  try {
+    sessionStorage.setItem(appliedKey(productId), value);
+  } catch {
+    // 저장소를 못 쓰면 화면 안에서만 기억한다.
+  }
+};
 function AiBadge() {
   return (
     <T variant="caption" color={tokens.color.accent}>
@@ -83,21 +98,58 @@ function AiBadge() {
     </T>
   );
 }
-function Section({
-  title,
-  testID,
-  children,
+/** 구매자 화면 글자 모양 그대로 쓰는 칸. 비어 있으면 점선 네모로 '여기를 채워 주세요'를 알린다. */
+function FillInput({
+  label,
+  value,
+  placeholder,
+  onChange,
+  maxLength,
+  editable = true,
+  title = false,
 }: {
-  title: string;
-  testID?: string;
-  children: ReactNode;
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (v: string) => void;
+  maxLength: number;
+  editable?: boolean;
+  title?: boolean;
 }) {
+  const empty = !value.trim();
   return (
-    <View testID={testID} style={{ gap: 12 }}>
-      <T variant="heading" accessibilityRole="header">
-        {title}
+    <TextInput
+      accessibilityLabel={label}
+      value={value}
+      placeholder={placeholder}
+      placeholderTextColor="#B5B5B5"
+      maxLength={maxLength}
+      editable={editable}
+      onChangeText={onChange}
+      style={{
+        fontFamily: tokens.fontFamily,
+        fontSize: title ? 22 : 15,
+        fontWeight: title ? "700" : "400",
+        color: tokens.color.text,
+        minHeight: title ? 48 : 40,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderStyle: empty ? "dashed" : "solid",
+        borderColor: empty ? tokens.color.textMuted : "transparent",
+        backgroundColor: empty ? "white" : "transparent",
+      }}
+    />
+  );
+}
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+      <T variant="sub" muted style={{ width: 80, paddingTop: 10 }}>
+        {label}
       </T>
-      {children}
+      <View style={{ flex: 1, gap: 4 }}>{children}</View>
     </View>
   );
 }
@@ -105,7 +157,7 @@ export function NewProductComposer() {
   useHideTabBar();
   const flushAttachments = useRef<(() => Promise<void>) | null>(null);
   const saveEditor = useRef<
-    ((fresh?: SourceReview) => Promise<boolean>) | null
+    ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null
   >(null);
   const router = useRouter(),
     navigation = useNavigation(),
@@ -119,15 +171,22 @@ export function NewProductComposer() {
     [notice, setNotice] = useState("");
   const [attachDirty, setAttachDirty] = useState(false),
     [editorDirty, setEditorDirty] = useState(false);
-  const [ack, setAck] = useState(false),
-    [preview, setPreview] = useState(false);
+  const [ack, setAck] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<{
     draft: SourceDraft;
     productId: string;
     version: number;
     published: boolean;
+    status: string;
   } | null>(null);
+  const [farmName, setFarmName] = useState("");
+  useEffect(() => {
+    void farms
+      .mine()
+      .then((f) => alive.current && setFarmName(f.name))
+      .catch(() => {});
+  }, []);
   const [product, setProduct] = useState<MyProduct | null>(null),
     [form, setForm] = useState<ProductForm | null>(null);
   // 생산자가 손댄 칸은 AI가 다시 채우지 않는다. aiFilled는 배지 표시용.
@@ -225,7 +284,7 @@ export function NewProductComposer() {
       if (alive.current) setError(String(e));
     });
   }, [load]);
-  // 상품 편집(SCR-25)에서 돌아오면 버전·값이 바뀌었을 수 있어 다시 읽는다. 고치던 칸이 있으면 덮지 않는다.
+  // 판매·가격(SCR-24b)에서 돌아오면 버전·값이 바뀌었을 수 있어 다시 읽는다. 고치던 칸이 있으면 덮지 않는다.
   const productDirtyRef = useRef(false);
   productDirtyRef.current = productDirty;
   const reloadProduct = useCallback(async () => {
@@ -315,19 +374,6 @@ export function NewProductComposer() {
     setAiFilled((a) => a.filter((x) => x !== k));
     setForm((f) => (f ? { ...f, [k]: v } : f));
   };
-  const toggleWeight = (w: number) => {
-    if (!form) return;
-    const has = form.options.some((o) => o.weightKg === w);
-    setField(
-      "options",
-      has
-        ? form.options.filter((o) => o.weightKg !== w)
-        : [
-            ...form.options,
-            { optionId: `opt-${w}`, label: `${w}kg`, weightKg: w },
-          ].sort((a, b) => a.weightKg - b.weightKg),
-    );
-  };
   // 품종·예상 당도는 AI 입력용 기본 정보(batch)에 쓰고, 상품에도 같은 값을 넣는다.
   const saveProduct = async () => {
     if (!productId || !product || !form) return;
@@ -358,14 +404,6 @@ export function NewProductComposer() {
     setProduct(saved);
     setForm(toForm(saved));
   };
-  const currentDraft =
-    target && review
-      ? drafts.find(
-          (d) =>
-            d.targetId === target.id &&
-            isFresh(d, review.reviewVersion, batch!.version),
-        )
-      : undefined;
   const canEdit = canEditBatch(batch, runs, drafts, review, activeRun);
   // 저장하지 않은 상세 수정이 있으면 편집기를 내리지 않는다(첨부를 바꿔도 수정이 사라지지 않게).
   const showEditor = !!review && !working && (canEdit || editorDirty);
@@ -384,8 +422,20 @@ export function NewProductComposer() {
     const fresh = ds.items.some(
       (d) => d.targetId === target.id && isFresh(d, r.reviewVersion, b.version),
     );
-    if (editorDirty || !fresh) {
-      const ok = await saveEditor.current?.(r);
+    // 상품명이 상세 맨 위 제목과 다르면 같이 맞춘다(구매자 화면에 이름이 둘로 보이지 않게).
+    const name =
+      form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name.trim() : "";
+    const nameDiffers =
+      !!name &&
+      r.editorFields.some(
+        (e) =>
+          e.field.targetId === target.id &&
+          e.field.fieldKey === "name" &&
+          e.field.state !== "EXCLUDED" &&
+          e.field.value !== name,
+      );
+    if (editorDirty || !fresh || nameDiffers) {
+      const ok = await saveEditor.current?.(r, name || undefined);
       if (ok === false)
         throw new Error(
           "상세페이지를 저장하지 못했어요. 상세페이지 위의 안내를 확인해 주세요.",
@@ -396,8 +446,39 @@ export function NewProductComposer() {
   const editorBusy = (v: boolean) => {
     if (!lock.current) setBusy(v);
   };
-  const goNext = () => {
-    if (productId) router.push(`/products/${productId}/edit`);
+  /** 상세페이지 초안을 상품에 반영(apply). 판매·가격 저장보다 먼저 해야 상품 버전이 꼬이지 않는다. */
+  // 이 화면에서 이미 반영한 초안. 같은 초안을 다시 반영하면 서버가 대표사진을 또 복사해 사진이 늘어난다.
+  const applied = useRef("");
+  const applyDraft = async (c: {
+    draft: SourceDraft;
+    productId: string;
+    version: number;
+    published: boolean;
+  }) => {
+    const id = `${c.draft.id}:${c.draft.version}`;
+    if (applied.current !== id && readApplied(c.productId) !== id) {
+      await api.apply(
+        batch!.id,
+        c.draft,
+        c.productId,
+        c.version,
+        keyFor("apply", [c.draft.id, c.productId, c.version]),
+      );
+      applied.current = id;
+      writeApplied(c.productId, id);
+      pending.current.clear();
+      await Promise.all([load(), reloadProduct()]);
+    }
+    goNext(c.published);
+  };
+  // 판매 전 새 상품은 판매·가격(SCR-24b), 판매 중 상품은 기존 상품 편집(SCR-25)으로.
+  const goNext = (
+    published = !!product && !["DRAFT", "REJECTED"].includes(product.status),
+  ) => {
+    if (!productId) return;
+    router.push(
+      published ? `/products/${productId}/edit` : `/products/${productId}/sell`,
+    );
   };
   const hasPhoto = !!batch?.sources.some(
     (s) => s.originalPhoto && s.status === "PREPARED",
@@ -548,91 +629,77 @@ export function NewProductComposer() {
             <T>상품 불러오는 중…</T>
           ) : (
             <>
-              <Section title="기본 정보" testID="product-basic-info">
+              {/* 구매자 상품 페이지 순서(SCR-04): 사진 → 농가 → 상품명 → 가격 → 상세 스토리 → 상품정보.
+                  빈 칸만 점선 네모로 보이고 눌러서 바로 쓴다(DEV-184). */}
+              {!showEditor || working ? (
+                <Pressable
+                  testID="hero-placeholder"
+                  accessibilityRole="button"
+                  accessibilityLabel="대표 사진 넣기"
+                  onPress={() => setSheetOpen(true)}
+                  style={{
+                    height: 200,
+                    borderWidth: 1.5,
+                    // 빈 칸만 점선. 사진이 들어가면 실선(분석 뒤에는 상세 스토리 맨 위에 사진이 보인다).
+                    borderStyle: hasPhoto ? "solid" : "dashed",
+                    borderColor: hasPhoto
+                      ? tokens.color.border
+                      : tokens.color.textMuted,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Icon name="photo" size={28} color={tokens.color.accent} />
+                  <T weight="semibold">
+                    {hasPhoto
+                      ? "대표 사진이 들어갔어요"
+                      : "대표 사진을 넣어 주세요"}
+                  </T>
+                  <T variant="caption" muted>
+                    아래 &apos;사진·자료&apos;에서 넣어요
+                  </T>
+                </Pressable>
+              ) : null}
+              <View style={{ gap: 8 }}>
+                {farmName ? (
+                  <T
+                    variant="sub"
+                    weight="semibold"
+                    color={tokens.color.accent}
+                  >
+                    {farmName} ›
+                  </T>
+                ) : null}
                 {form ? (
-                  <View style={{ gap: 6 }}>
-                    <Input
+                  <>
+                    <FillInput
                       label="상품명"
                       value={form.name}
                       placeholder={
-                        working ? "AI가 채우는 중…" : "예: 제주 노지 감귤"
+                        working ? "AI가 채우는 중…" : "상품 이름을 적어 주세요"
                       }
+                      title
                       maxLength={40}
                       editable={!busy}
-                      onChangeText={(v) => setField("name", v)}
+                      onChange={(v) => setField("name", v)}
                     />
                     {aiFilled.includes("name") ? <AiBadge /> : null}
-                  </View>
+                  </>
                 ) : productId ? (
-                  <Skeleton width="100%" height={56} />
+                  <Skeleton width="100%" height={40} />
                 ) : (
                   <T variant="caption" muted>
                     예전 방식의 자료 작업이에요. 상품 정보는 상품 편집 화면에서
                     고쳐 주세요.
                   </T>
                 )}
-                <SourceBasicInfo
-                  key={batch.id}
-                  embedded
-                  batch={batch}
-                  disabled={busy || !!activeRun || editorDirty}
-                  flushRef={flushBasicInfo}
-                  onDirty={(dirty) => {
-                    setBasicDirty(dirty);
-                    if (dirty) setError("");
-                  }}
-                  onSaved={(b) => {
-                    setBatch(b);
-                    // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
-                    if (review)
-                      void load().catch((e) => {
-                        if (alive.current) setError(String(e));
-                      });
-                  }}
-                />
-                {form ? (
-                  <>
-                    <View style={{ flexDirection: "row", gap: 12 }}>
-                      <Input
-                        label="원산지"
-                        value={form.origin}
-                        placeholder="예: 제주 서귀포"
-                        maxLength={30}
-                        editable={!busy}
-                        onChangeText={(v) => setField("origin", v)}
-                        style={{ flex: 1 }}
-                      />
-                      <View style={{ flex: 1, gap: 6 }}>
-                        <Input
-                          label="보관"
-                          value={form.storage}
-                          placeholder="예: 서늘한 곳"
-                          maxLength={30}
-                          editable={!busy}
-                          onChangeText={(v) => setField("storage", v)}
-                        />
-                        {aiFilled.includes("storage") ? <AiBadge /> : null}
-                      </View>
-                    </View>
-                    <View style={{ gap: 8 }}>
-                      <T variant="sub" weight="semibold">
-                        중량 옵션
-                      </T>
-                      <View style={{ flexDirection: "row", gap: 12 }}>
-                        {WEIGHTS.map((w) => (
-                          <Checkbox
-                            key={w}
-                            label={`${w}kg`}
-                            checked={form.options.some((o) => o.weightKg === w)}
-                            onPress={() => !busy && toggleWeight(w)}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  </>
-                ) : null}
-              </Section>
-              <Section title="상세페이지" testID="product-detail-page">
+                <T variant="sub" muted>
+                  가격·받는 시기는 다음 단계에서 정해요
+                </T>
+              </View>
+              <View testID="product-detail-page" style={{ gap: 12 }}>
                 {working ? (
                   <View
                     testID="source-analysis-status"
@@ -662,6 +729,7 @@ export function NewProductComposer() {
                   <>
                     <SourceDetailsEditor
                       key={batch.id}
+                      emptyHint
                       batch={batch}
                       review={review}
                       drafts={drafts}
@@ -670,7 +738,6 @@ export function NewProductComposer() {
                       onBusy={editorBusy}
                       onSaved={async () => {
                         await load();
-                        setPreview(false);
                       }}
                     />
                     {review.candidates.some(
@@ -688,20 +755,6 @@ export function NewProductComposer() {
                           ))}
                       </View>
                     ) : null}
-                    {currentDraft && !editorDirty ? (
-                      <>
-                        <Button
-                          label={
-                            preview ? "미리보기 닫기" : "구매자 화면 미리보기"
-                          }
-                          variant="outline"
-                          onPress={() => setPreview(!preview)}
-                        />
-                        {preview ? (
-                          <DraftPreview batch={batch} draft={currentDraft} />
-                        ) : null}
-                      </>
-                    ) : null}
                   </>
                 ) : (
                   <Pressable
@@ -712,20 +765,69 @@ export function NewProductComposer() {
                     style={{
                       ...panel,
                       borderStyle: "dashed",
+                      borderColor: tokens.color.textMuted,
                       alignItems: "center",
                       paddingVertical: 32,
                     }}
                   >
-                    <Icon name="photo" size={28} color={tokens.color.accent} />
-                    <T weight="semibold">아래에 사진·자료를 넣어 주세요</T>
+                    <T weight="semibold">상세 스토리를 채워 주세요</T>
                     <T variant="caption" muted style={{ textAlign: "center" }}>
                       &apos;AI로 채우기&apos;를 누르면 맛·재배 과정·보관 방법
-                      같은 상세페이지를 AI가 써 드려요. 쓴 내용은 여기서 바로
-                      고칠 수 있어요.
+                      같은 이야기를 AI가 써 드려요. 쓴 내용은 여기서 바로 고칠
+                      수 있어요.
                     </T>
                   </Pressable>
                 )}
-              </Section>
+              </View>
+              <View testID="product-basic-info" style={{ gap: 12 }}>
+                <T variant="heading" accessibilityRole="header">
+                  상품정보
+                </T>
+                <SourceBasicInfo
+                  key={batch.id}
+                  embedded
+                  batch={batch}
+                  disabled={busy || !!activeRun || editorDirty}
+                  flushRef={flushBasicInfo}
+                  onDirty={(dirty) => {
+                    setBasicDirty(dirty);
+                    if (dirty) setError("");
+                  }}
+                  onSaved={(b) => {
+                    setBatch(b);
+                    // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
+                    if (review)
+                      void load().catch((e) => {
+                        if (alive.current) setError(String(e));
+                      });
+                  }}
+                />
+                {form ? (
+                  <>
+                    <InfoRow label="원산지">
+                      <FillInput
+                        label="원산지"
+                        value={form.origin}
+                        placeholder="예: 제주 서귀포"
+                        maxLength={30}
+                        editable={!busy}
+                        onChange={(v) => setField("origin", v)}
+                      />
+                    </InfoRow>
+                    <InfoRow label="보관 방법">
+                      <FillInput
+                        label="보관"
+                        value={form.storage}
+                        placeholder="예: 서늘한 곳"
+                        maxLength={30}
+                        editable={!busy}
+                        onChange={(v) => setField("storage", v)}
+                      />
+                      {aiFilled.includes("storage") ? <AiBadge /> : null}
+                    </InfoRow>
+                  </>
+                ) : null}
+              </View>
             </>
           )}
         </View>
@@ -799,7 +901,7 @@ export function NewProductComposer() {
                   }
                 />
                 <Button
-                  label="다음: 가격·판매"
+                  label="다음: 판매·가격"
                   size="producer"
                   disabled={busy || working || !productId}
                   style={{ flex: 2 }}
@@ -830,12 +932,24 @@ export function NewProductComposer() {
                         return goNext();
                       }
                       const p = await catalog.myProduct(productId);
-                      setConfirmation({
+                      const c = {
                         draft: d,
                         productId,
                         version: p.version,
-                        published: p.status === "PUBLISHED",
-                      });
+                        // 판매 전(초안·반려)만 확인 없이 반영하고 ②로. 그 밖의 상태는 확인 후 상품 편집(SCR-25).
+                        published: !["DRAFT", "REJECTED"].includes(p.status),
+                      };
+                      // 판매 전 상품은 반영해도 구매자에게 보이지 않아 확인 없이 반영하고 넘어간다.
+                      // 이미 반영한 초안이면 확인할 것이 없으니 바로 이동한다.
+                      const key = `${d.id}:${d.version}`;
+                      if (
+                        applied.current === key ||
+                        readApplied(productId) === key
+                      )
+                        return goNext(c.published);
+                      if (c.published)
+                        return setConfirmation({ ...c, status: p.status });
+                      await applyDraft(c);
                     })
                   }
                 />
@@ -870,9 +984,11 @@ export function NewProductComposer() {
       <Sheet visible={!!confirmation} onClose={() => setConfirmation(null)}>
         <T variant="title">상품에 반영할까요?</T>
         <T>
-          {confirmation?.published
+          {confirmation?.status === "PUBLISHED"
             ? "판매 중인 상품이라 상세페이지와 사진이 구매자에게 바로 보여요. 가격과 재고는 바뀌지 않아요."
-            : "상세페이지와 사진을 상품에 넣어요. 아직 구매자에게는 보이지 않아요. 다음 화면에서 받는 시기·가격을 정하고 공급 물량을 신청하면 승인 후 공개돼요."}
+            : confirmation?.status === "PENDING_APPROVAL"
+              ? "승인 대기 중인 상품이에요. 반영한 상세페이지는 승인되면 구매자에게 보여요."
+              : "판매가 끝난 상품이에요. 상품 페이지에 남은 상세가 이 내용으로 바뀌어요."}
         </T>
         <Button
           label="반영하고 다음으로"
@@ -880,18 +996,8 @@ export function NewProductComposer() {
           disabled={busy}
           onPress={() =>
             mutate(async () => {
-              const c = confirmation!;
-              await api.apply(
-                batch!.id,
-                c.draft,
-                c.productId,
-                c.version,
-                keyFor("apply", [c.draft.id, c.productId, c.version]),
-              );
-              pending.current.clear();
+              await applyDraft(confirmation!);
               setConfirmation(null);
-              await Promise.all([load(), reloadProduct()]);
-              goNext();
             })
           }
         />

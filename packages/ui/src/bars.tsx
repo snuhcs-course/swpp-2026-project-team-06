@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   Modal,
   Pressable,
@@ -12,7 +12,7 @@ import {
 import { Icon, type IconName } from "./Icon";
 import { T } from "./Text";
 import { tokens } from "./tokens";
-import { focusRing, safe } from "./web";
+import { focusRing, safe, showFocus } from "./web";
 
 // 웹 전용 흐림. react-native-web이 CSS로 그대로 넘긴다.
 const glass = {
@@ -143,7 +143,7 @@ export function IconButton({
       style={(st) =>
         [
           styles.iconBtn,
-          (st as { focused?: boolean }).focused && focusRing,
+          showFocus(st as { focused?: boolean }) && focusRing,
         ] as never
       }
     >
@@ -383,8 +383,6 @@ export function PeekSheet({
   label: string;
   children: ReactNode;
 }) {
-  // 포커스 테두리는 키보드로 왔을 때만(웹 :focus-visible). 손가락·마우스로 누른 뒤에는 숨긴다.
-  const [keyboardFocus, setKeyboardFocus] = useState(false);
   return (
     <>
       {open ? (
@@ -408,17 +406,10 @@ export function PeekSheet({
           accessibilityRole="button"
           accessibilityLabel={open ? `${label} 접기` : `${label} 펼치기`}
           aria-expanded={open}
-          onFocus={(e) => {
-            const el = e.nativeEvent?.target as unknown as {
-              matches?: (s: string) => boolean;
-            } | null;
-            setKeyboardFocus(el?.matches ? el.matches(":focus-visible") : true);
-          }}
-          onBlur={() => setKeyboardFocus(false)}
           onPress={() => onOpenChange(!open)}
-          style={[
+          style={(st) => [
             { paddingTop: 8, paddingBottom: 4, gap: 10 },
-            keyboardFocus && focusRing,
+            showFocus(st as { focused?: boolean }) && focusRing,
           ]}
         >
           <View style={styles.handle} />

@@ -67,12 +67,17 @@ export function SourceDetailsEditor({
   onSaved,
   onBusy,
   saveRef,
+  emptyHint = false,
 }: {
+  emptyHint?: boolean;
   batch: SourceBatch;
   review: SourceReview;
   drafts: SourceDraft[];
   /** fresh: 고친 내용이 없을 때 서버의 최신 review로 저장한다(기본 정보 저장으로 reviewVersion이 오른 경우). */
-  saveRef: { current: ((fresh?: SourceReview) => Promise<boolean>) | null };
+  /** name: 상품명과 상세 맨 위 제목을 맞출 때 그 값으로 저장한다(DEV-184). */
+  saveRef: {
+    current: ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null;
+  };
   onDirty: (dirty: boolean) => void;
   onBusy: (busy: boolean) => void;
   onSaved: (draft: SourceDraft) => Promise<void>;
@@ -167,7 +172,10 @@ export function SourceDetailsEditor({
     );
     setDirty(true);
   };
-  const save = async (fresh?: SourceReview): Promise<boolean> => {
+  const save = async (
+    fresh?: SourceReview,
+    name?: string,
+  ): Promise<boolean> => {
     if (lock.current) return false;
     lock.current = true;
     setBusy(true);
@@ -176,8 +184,20 @@ export function SourceDetailsEditor({
     // 고친 내용이 있으면 그 버전 그대로(오래됐으면 서버가 거절), 없으면 최신 review로 저장한다.
     const useFresh = !!fresh && !dirty;
     const reviewVersion = useFresh ? fresh.reviewVersion : version.current;
-    const fields = (useFresh ? fresh.editorFields : entries).map(
-      (e) => e.field,
+    const fields = (useFresh ? fresh.editorFields : entries).map((e) =>
+      name &&
+      batch.targets.length === 1 &&
+      e.field.fieldKey === "name" &&
+      e.field.state !== "EXCLUDED" &&
+      e.field.value !== name
+        ? {
+            ...e.field,
+            value: name,
+            state: "CONFIRMED" as const,
+            provenance: "PRODUCER" as const,
+            candidateIds: [],
+          }
+        : e.field,
     );
     const targets = batch.targets.map((t) => ({
       targetId: t.id,
@@ -213,8 +233,8 @@ export function SourceDetailsEditor({
     }
   };
   useEffect(() => {
-    saveRef.current = (fresh) =>
-      busy || uploading ? Promise.resolve(false) : save(fresh);
+    saveRef.current = (fresh, name) =>
+      busy || uploading ? Promise.resolve(false) : save(fresh, name);
     return () => {
       saveRef.current = null;
     };
@@ -375,6 +395,7 @@ export function SourceDetailsEditor({
             );
             setDirty(true);
           }}
+          emptyHint={emptyHint}
           badge={(id) =>
             entries.some(
               (e) =>

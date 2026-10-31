@@ -88,7 +88,7 @@ for (const width of [360, 390, 430]) {
     // 분석 중: 시트가 접히고 상세페이지 자리에 진행 안내
     await expect(page.getByTestId("source-analysis-status")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "다음: 가격·판매", exact: true }),
+      page.getByRole("button", { name: "다음: 판매·가격", exact: true }),
     ).toBeDisabled();
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/dev184-2-working.png` });
@@ -140,32 +140,31 @@ for (const width of [360, 390, 430]) {
       "제주 서귀포",
     );
     await page.getByLabel("상품명", { exact: true }).fill("서귀포 노지 감귤");
-    await page.getByRole("checkbox", { name: "5kg" }).click();
 
-    // 임시 저장은 비공개, 다음은 확인 후 적용 → 상품 편집
+    // 임시 저장은 비공개, 다음은 (판매 전 상품이라 확인 없이) 상세를 반영하고 판매·가격으로
     await page.getByRole("button", { name: "임시 저장", exact: true }).click();
     await expect(page.getByText(/비공개로 저장했어요/)).toBeVisible();
     await page
-      .getByRole("button", { name: "다음: 가격·판매", exact: true })
+      .getByRole("button", { name: "다음: 판매·가격", exact: true })
       .click();
-    await expect(page.getByText("상품에 반영할까요?")).toBeVisible();
-    if (shots && width === 390)
-      await page.screenshot({ path: `${shots}/dev184-4-confirm.png` });
-    await page
-      .getByRole("button", { name: "반영하고 다음으로", exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/products\/[^/]+\/edit/);
-    // 편집 화면은 스택 위에 쌓이므로 마지막(보이는) 화면 기준
-    for (const [label, value] of [
-      ["상품명", "서귀포 노지 감귤"],
-      ["품종", "온주밀감"],
-      ["원산지", "제주 서귀포"],
-    ])
-      await expect(page.getByLabel(label, { exact: true }).last()).toHaveValue(
-        value,
-      );
+    await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+    const token = await page.evaluate(
+      () => Object.entries(localStorage).find(([k]) => /token/i.test(k))?.[1],
+    );
+    const sellId = page.url().match(/products\/([^/]+)\/sell/)![1];
+    const mine = await (
+      await page.request.get(`${apiUrl}/api/products/mine/${sellId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ).json();
+    expect([mine.name, mine.variety, mine.info.origin]).toEqual([
+      "서귀포 노지 감귤",
+      "온주밀감",
+      "제주 서귀포",
+    ]);
+    expect(mine.moduleDetail?.modules?.length).toBeGreaterThan(0);
     // 판매 승인 전이라 공개 상세는 없다(적용 ≠ 공개)
-    const id = page.url().match(/products\/([^/]+)\/edit/)![1];
+    const id = sellId;
     const pub = await page.request.get(`${apiUrl}/api/products/${id}`);
     expect(pub.status()).toBe(404);
     expect(

@@ -1,0 +1,106 @@
+// 판매 시작 전 구매자 화면 미리보기(DEV-184). 소비자 상품 상세와 같은 ProductPageBody를 쓰고,
+// 승인 전이라 공개 API 대신 생산자 값(MyProduct·MyFarm)과 신청 물량으로 화면 값을 만든다.
+import {
+  apiUrl,
+  productWorkspace,
+  referencePrice,
+  type MyFarm,
+  type MyProduct,
+  type ProductDetail,
+} from "@farmclub/api";
+import { ProductPageBody, type ProductPageData } from "@farmclub/ui";
+import { useEffect, useState } from "react";
+
+import { daysBetween } from "./fields";
+import { TODAY } from "./views";
+
+const PRIVATE = "/api/source-media/";
+
+function toPageData(
+  p: MyProduct,
+  farm: MyFarm,
+  requestedGrams: number,
+): ProductPageData {
+  const stages = [...p.stages].sort((a, b) => a.seq - b.seq);
+  const first = stages[0];
+  return {
+    ...p,
+    photo: p.photos[0] ?? null,
+    farmName: farm.name,
+    deliveryWindow: p.deliveryWindow ?? { start: TODAY, end: TODAY },
+    maxDelayUntil: p.maxDelayUntil ?? TODAY,
+    // 승인되면 신청 물량만큼 열리고 첫 기간부터 예약을 받는다고 보고 그린다.
+    soldOut: false,
+    availability: "AVAILABLE",
+    nextStageStartsAt: null,
+    currentStageId: first?.stageId ?? null,
+    remainingGrams: requestedGrams,
+    dDay: first ? daysBetween(TODAY, first.endsAt) : null,
+    // MyProduct에는 농가 한마디가 없다(API 변경은 범위 밖). 새 상품은 기본값이 빈 값이라 구매자 화면과 같다.
+    farmerNote: "",
+  };
+}
+
+export function BuyerPreview({
+  product,
+  farm,
+  requestedGrams,
+}: {
+  product: MyProduct;
+  farm: MyFarm;
+  requestedGrams: number;
+}) {
+  // 승인 전 사진은 공개 주소로 열리지 않아 인증 blob으로 불러온다(ProductPageEditor와 같은 방식).
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const uris = [
+    ...product.photos,
+    ...(product.moduleDetail?.modules ?? []).flatMap((m) =>
+      m.photos.map((x) => x.uri),
+    ),
+  ].filter((u) => u.startsWith(PRIVATE));
+  const key = [...new Set(uris)].join(",");
+  useEffect(() => {
+    let alive = true;
+    const made: string[] = [];
+    void Promise.all(
+      [...new Set(uris)].map(async (uri) => {
+        const url = await productWorkspace.photo(
+          product.productId,
+          uri.split("/").pop()!,
+        );
+        made.push(url);
+        return [uri, url] as const;
+      }),
+    )
+      .then((pairs) => {
+        if (alive) setUrls(Object.fromEntries(pairs));
+        else made.forEach(URL.revokeObjectURL);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      made.forEach(URL.revokeObjectURL);
+    };
+    // key가 사진 목록을 대표한다.
+  }, [product.productId, key]);
+  const media = (uri: string) =>
+    uri.startsWith(PRIVATE)
+      ? (urls[uri] ?? "")
+      : uri.startsWith("/")
+        ? apiUrl + uri
+        : uri;
+  const data = toPageData(product, farm, requestedGrams);
+  return (
+    <ProductPageBody
+      p={{ ...data, photo: data.photo ? media(data.photo) : null }}
+      // 소비자 화면과 같은 참고가 규칙(품절·남은 물량 조건 포함)을 그대로 쓴다.
+      reference={(optionId) =>
+        referencePrice(
+          { ...product, ...data } as unknown as ProductDetail,
+          optionId,
+        )
+      }
+      mediaUrl={media}
+    />
+  );
+}

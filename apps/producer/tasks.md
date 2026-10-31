@@ -824,6 +824,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - `apps/producer/src/lib/{NewProductComposer,SourceWorkspace,SourceBasicInfo,SourceAttachments,SourceDetailsEditor,PageCanvas,Tour}.tsx`, `apps/producer/src/app/(tabs)/products/{new,source-analysis}.tsx`
 - `packages/ui/src/{bars,index}.ts(x)` (PeekSheet)
 - `packages/api/src/sourceAnalysis.ts`: SourceDraft.snapshot.batchVersion 타입만(서버가 이미 내려 주는 값)
+- (v2) `apps/producer/src/app/(tabs)/products/[id]/sell.tsx`(신규), `apps/producer/src/lib/BuyerPreview.tsx`(신규), `packages/ui/src/{ProductPage,Button,web}.ts(x)`, `apps/consumer/src/app/(tabs)/products/[productId].tsx`(본문을 공용 ProductPageBody로 추출만), `scripts/e2e/new-product-two-step.spec.ts`(신규)
+- (v2) `docs/spec/{ia,source-integration}.md`, `docs/spec/functional/{FEAT-04-product-edit,FEAT-05-stage-pricing,README}.md`, `docs/wiki/{Requirements-and-Specifications,Source-Analysis}.md`
 - `scripts/e2e/new-product-composer.spec.ts`(신규), `scripts/e2e/source*.spec.ts`, `scripts/e2e/product-page-workspace.spec.ts`, `scripts/e2e/producer-i2.spec.ts`
 - `docs/spec/{source-integration,source-editor,ia}.md`, `docs/wiki/Source-Analysis.md`, `apps/producer/{spec,tasks}.md`
 
@@ -834,8 +836,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/31 서버는 바꾸지 않는다. AI 결과의 상품명·보관(30자 이하)은 화면에서 기본값 칸에만 미리 채우고 기존 상품 PATCH로 저장한다. 가격은 채우지 않는다(AC-03-1).
 - 10/31 품종·사이즈·예상 당도는 기존 batch 기본 정보(SourceBasicInfo, blur 저장)를 그대로 쓰고, 상품 저장 때 품종·예상 당도를 상품에도 넣는다(한 번만 입력).
 - 10/31 하단 시트는 `@farmclub/ui`의 새 `PeekSheet`(화면 아래 고정, 접힘/펼침, 펼칠 때만 뒤 화면 어둡게). 기존 모달 `Sheet`는 확인·이탈 시트에 그대로 쓴다.
-- 10/31 '다음: 가격·판매'는 임시 저장 → 최신 초안이 있으면 확인 시트에서 명시적 적용 → SCR-25. 비공개 저장/명시적 적용 분리는 유지한다.
-- 10/31 새 화면은 `lib/NewProductComposer.tsx`로 따로 두고 새 상품 버튼만 `composer=1`로 연다. 기존 `SourceWorkspace`(배치 없는 상품 선택·여러 상품 작업)는 그대로 두고 공용 도우미만 export한다. 기존 e2e가 그 경로로 기존 상품 작업을 만들기 때문이다. 중량 옵션은 3/5/10kg 체크로 이 화면에 두고, 받는 시기·배송비·가격은 다음 화면에 둔다.
+- ~~10/31 '다음: 가격·판매'는 임시 저장 → 최신 초안이 있으면 확인 시트에서 명시적 적용 → SCR-25.~~ → 11/01 v2로 대체: 판매 전(DRAFT/REJECTED)은 확인 없이 반영 후 SCR-24b, 그 밖은 상태별 확인 후 SCR-25. 비공개 저장/명시적 적용 분리는 유지한다.
+- 11/01 v2: 두 장(① 구매자 모양 채우기 ② 판매·가격→미리보기→판매 시작 요청), 중량 옵션은 ②로, 상품명 하나가 상세 맨 위 제목을 정함, 같은 초안(id:version) 재반영 금지(세션 저장소 기록, composer 세션 기준), 판매 시작은 운영자 승인 요청.
+- 10/31 새 화면은 `lib/NewProductComposer.tsx`로 따로 두고 새 상품 버튼만 `composer=1`로 연다. 기존 `SourceWorkspace`(배치 없는 상품 선택·여러 상품 작업)는 그대로 두고 공용 도우미만 export한다. 기존 e2e가 그 경로로 기존 상품 작업을 만들기 때문이다. ~~중량 옵션은 3/5/10kg 체크로 이 화면에 두고~~(v2에서 ②로 옮김), 받는 시기·배송비·가격은 다음 화면에 둔다.
 - 10/31 AI는 분석 자료만 읽고 상품사진 자체는 분석하지 않는다(기존 계약). 시트 문구도 이에 맞춘다.
 
 ### 작업
@@ -843,7 +846,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - [x] spec/ia/wiki 갱신
 - [x] new.tsx 로딩 문구·도움말 투어 문구
 - [x] e2e 갱신(360/390/430px) 및 로컬 실화면 확인
-- [ ] scan-before-commit, draft PR, Figma 후속 이슈
+- [x] v2 두 장 흐름: ① 채우기 재배치·점선 빈 칸 ② `sell` 화면·미리보기·판매 시작 요청, 공용 ProductPageBody 추출
+- [x] scan-before-commit(v2 6회 반복, 마지막 CRITICAL/WARNING 0)
+- [ ] draft PR, Figma 후속 이슈
 
 ### 기록
 - 10/31 origin/main 2ab0c2f에서 시작. `npm run typecheck` 4 workspace 통과.
@@ -856,3 +861,14 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 11/01 재스캔 반영 후 재검증: typecheck 4 workspace, `npm run test:mock` 통과, 격리 DB Playwright 34개 통과(2.3분, 분석 뒤 사이즈 수정→임시 저장→적용 포함).
 - 11/01 3차 스캔 반영: 새 e2e 파일을 범위에 추가. 미리 채우기는 EXTRACTED 값만 쓴다(생산자가 상세에 직접 쓴 상품명에는 'AI가 채웠어요'를 붙이지 않음). 취소된 분석만 있고 초안이 없으면 '다음'은 분석 전처럼 이동한다. 기본 정보 저장 뒤 review 재조회 실패를 화면 오류로 알린다. 첨부함 순서·AI 배지는 공유 컴포넌트라 기존 SourceWorkspace 화면에도 적용됨(PR 본문에 명시).
 - 11/01 사용자 피드백: 시트 손잡이 줄을 누른 뒤 포커스 테두리(검은 사각형)가 남음 → 웹 `:focus-visible`일 때만 테두리를 그린다(키보드 이동 시만). 접힌 시트 화살표를 위(⌃)로. e2e에 터치 후 outline 없음 검사 추가, new-product-composer 3개 통과. 직전 전체 묶음 Playwright 34·mock 43 통과.
+- 11/01 v2 결정(진우 님 피드백 "두 장으로"): ① 채우기 = 구매자 상품 페이지 모양 그대로, 빈 칸만 점선 네모(당근 글쓰기처럼) ② 판매·가격 한 화면 → 미리보기(네모 없음) → 판매 시작 요청. 판매 시작은 운영자 승인 요청(spec·서버 그대로), 가격은 기본 1기간 + 얼리버드 기간 추가. 중량 옵션은 ②로. '다음'은 판매 전 상품이면 확인 없이 apply 후 ②(apply를 PATCH·stages보다 먼저). 저장 때 상품명을 상세 맨 위 제목에도 맞춘다(미리보기에 이름이 둘로 보이던 문제).
+- 11/01 소비자 상품 상세 본문을 `packages/ui` `ProductPageBody`로 추출(렌더 결과 동일)해 ② 미리보기와 공유. 공용 Button·바의 포커스 링은 키보드 이동 때만 그린다(`showFocus`, 사용자 피드백 '검은 사각형'). 다른 화면의 개별 focusRing 사용처는 이번 범위 밖.
+- 11/01 v2 검증: typecheck 5 workspace, `npm run test:mock` 43개 통과. 격리 DB(mock 제공자)에서 Playwright 전체 90개 중 80 통과 · 0 실패 · 10 건너뜀(공유 Mock 등 환경 조건). new-product-two-step 360/390/430 통과(운영자 승인 API 후 공개 상세 일치 포함).
+- 11/01 v2 스캔 반영: 기간이 하나일 때 받는 시기를 첫날 다음 날부터 고를 수 있게(앞당기기 가능, 판매 전 상품은 서버 PATCH가 기간·받는 시기 순서를 검사하지 않아 PATCH→PUT 순서 유지). PATCH 응답 즉시 반영(기간 저장 실패 뒤 버전 꼬임 방지). 서버 오류 메시지와 칸 이름을 함께 표시. 시작일>끝일 기간 검사. 계좌 판정을 서버와 같은 세 칸으로, 화면 복귀 시 농가 정보 재조회. 판매 시작 요청 뒤 채우기 화면이 뒤로가기에 남지 않게 dismissTo. 쓰지 않는 Fold export·도달하지 않는 확인 문구 정리.
+- 11/01 v2 재스캔 반영: 같은 초안을 다시 apply하면 서버가 대표사진을 또 복사해 사진이 늘어나므로, 이 화면에서 반영한 초안(id:version)은 다시 반영하지 않고 이동만 한다. 판매 중 상품은 반영 뒤 기존 상품 편집(SCR-25)으로(②는 판매 전 상품 전용). 제외(EXCLUDED)한 상세 제목은 상품명 맞추기에서 되살리지 않는다. 네이티브는 포커스 링 기존 동작 유지(웹만 키보드 기준). 환불일 ≤ 받는 시기 끝 사전 검사. ②의 이탈 가드는 두지 않는다(저장 버튼·서버 저장 상태 기준, 채우기 화면과 달리 업로드 중 상태가 없음).
+- 11/01 v2 3차 스캔 반영: 채우기 화면에서 상세 맨 위 제목 칸은 읽기 전용(상품명 칸 하나로만 고치고 저장 때 맞춤, 덮어쓰기로 사라지던 문제 방지). 같은 초안 재반영 판정을 서버 값(상품 moduleDetail이 초안 내용과 같으면 건너뜀)으로도 해 새로고침 뒤에도 사진이 늘지 않게. ②는 승인 대기 등 편집 불가 상태면 입력도 막고, 총 물량은 판매 시작 요청 때 보낸다는 안내 추가. ia F-1 흐름도·영문 wiki 옛 흐름 문구 정리.
+- 11/01 최종 재검증: 느린 실행 환경(36.6분) 회차에서 producer-i2 P07 등 3건 시간 초과 → 해당 spec 4개 재실행 16/16 통과, 전체 재실행 80 통과 · 0 실패 · 10 건너뜀(3.5분). typecheck 5 workspace, `npm run test:mock` 43 통과.
+- 11/01 v2 4차 스캔 반영(CRITICAL): 글 내용만 비교해 같은 초안으로 보던 판정이 대표사진·카드 사진만 바꾼 경우 반영을 건너뛰었다 → 내용 비교를 없애고 '이 상품에 마지막으로 반영한 초안 id:version'을 화면 ref와 sessionStorage에 두어 정확히 같은 초안만 건너뛴다(사진만 바꿔도 새 초안이라 반영). e2e에 대표사진 교체 후 상품 대표사진 변경 검사 추가. 읽기 전용 상세 제목 칸은 점선 대신 '위 상품명이 여기에 들어가요'. 확인 없이 반영은 DRAFT/REJECTED만, 그 밖은 확인 후 SCR-25. 상품명 맞추기는 대상이 하나인 작업에만. 채우기 화면 농가 이름 mock 가드 제거.
+- 11/01 v2 5차 스캔 반영: 대표사진이 있으면 사진 자리를 실선으로(빈 칸만 점선). 확인 시트 문구를 상태별(판매 중·승인 대기·종료)로. 이미 반영한 초안이면 확인 없이 이동. 미리보기 참고가는 소비자와 같은 referencePrice 사용. 후속: 고정 TODAY 상수(기존 관례), apply 반복 시 서버가 대표사진 복사본을 photos에 쌓는 문제(서버 범위).
+- 11/01 v2 6차 스캔: CRITICAL/WARNING 0. INFO 반영 뒤 최종 재실행: typecheck 5 workspace, test:mock 43, Playwright 80 통과 · 0 실패 · 10 건너뜀. INFO 반영(안 쓰는 currentDraft 제거, 오류 칸 이름 중복 표시 제거, spec.md·결정 사항 v2 반영). 후속: 반영 기록은 composer 세션 기준이라 다른 화면에서 같은 상품에 적용하면 한 번 더 반영될 수 있음(서버 대표사진 복사 문제와 같은 원인), 미리보기 사진 재요청 실패 시 처리.
+

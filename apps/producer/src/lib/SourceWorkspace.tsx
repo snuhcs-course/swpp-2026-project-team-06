@@ -255,7 +255,7 @@ export function SourceWorkspace() {
   useHideTabBar();
   const flushAttachments = useRef<(() => Promise<void>) | null>(null);
   const saveEditor = useRef<
-    ((fresh?: SourceReview) => Promise<boolean>) | null
+    ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null
   >(null);
   const router = useRouter(),
     navigation = useNavigation(),

@@ -31,6 +31,7 @@ export function PageCanvas({
   busy = false,
   details,
   badge,
+  emptyHint = false,
   onUploading,
   blocked = [],
 }: {
@@ -47,6 +48,8 @@ export function PageCanvas({
   details?: (id: string) => ReactNode;
   /** 카드 위에 늘 보이는 작은 표시(예: AI가 쓴 내용) */
   badge?: (id: string) => ReactNode;
+  /** 새 상품 채우기 화면(DEV-184): 빈 글 칸을 점선 네모 + '여기를 채워 주세요'로 보인다. */
+  emptyHint?: boolean;
   onUploading?: (v: boolean) => void;
   blocked?: string[];
 }) {
@@ -164,9 +167,20 @@ export function PageCanvas({
           );
         }}
         value={m.texts[index].value}
-        editable={!busy && !uploading}
+        // 새 상품 채우기 화면에서는 상세 맨 위 제목을 위 상품명 칸 하나로만 고친다(저장 때 같은 값으로 맞춤).
+        editable={
+          !busy &&
+          !uploading &&
+          !(emptyHint && m.texts[index].fieldKey === "name")
+        }
         maxLength={3000}
-        placeholder="내용을 입력해주세요"
+        placeholder={
+          emptyHint
+            ? m.texts[index].fieldKey === "name"
+              ? "위 상품명이 여기에 들어가요"
+              : "여기를 채워 주세요"
+            : "내용을 입력해주세요"
+        }
         placeholderTextColor="#B5B5B5"
         style={{
           fontFamily: tokens.fontFamily,
@@ -180,8 +194,20 @@ export function PageCanvas({
           minHeight: 40,
           height: heights[`${m.id}:${index}`],
           borderWidth: 1,
-          borderColor: selected === m.id ? tokens.color.border : "transparent",
-          borderRadius: 4,
+          ...(emptyHint &&
+          m.texts[index].fieldKey !== "name" &&
+          !m.texts[index].value.trim() &&
+          selected !== m.id
+            ? {
+                borderStyle: "dashed" as const,
+                borderColor: tokens.color.textMuted,
+                borderRadius: 8,
+              }
+            : {
+                borderColor:
+                  selected === m.id ? tokens.color.border : "transparent",
+                borderRadius: 4,
+              }),
         }}
         onFocus={() => activate(m.id)}
         onChangeText={(value) =>
