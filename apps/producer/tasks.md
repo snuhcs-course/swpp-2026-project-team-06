@@ -809,3 +809,37 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
 - 10/23 환경설정 ‘계정’과 승인 대기(SCR-21) 하단에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃 → 로그인.
+
+## DEV-41 홈 화면에 추가했을 때 전체 화면 (C-22)
+
+- 이슈: [DEV-41](https://linear.app/sswp6/issue/DEV-41) · 브랜치: `nemodleo/dev-41-home-screen-manifest`
+- 기능·인수 조건: 제품 FEAT 없음. 내부 테스트 C-22(iPhone 홈 화면 추가)
+- 상태: 리뷰 중
+
+### 목표
+iPhone에서 홈 화면에 추가한 생산자 앱만 Safari 주소창·하단 도구막대가 보였다. 두 앱 모두 홈 화면 아이콘으로 열면 전체 화면으로 뜨게 한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/public/manifest.webmanifest`, `apps/consumer/public/manifest.webmanifest`(새 파일)
+- `apps/producer/public/index.html`, `apps/consumer/public/index.html`(manifest 링크·홈 화면 메타)
+- `apps/producer/tasks.md`(이 절)
+
+### 비범위
+- 화면·로직, Android 설치형 앱(TWA는 하지 않기로 함, DEV-33 PR #164 닫힘), 서비스 워커·오프라인
+
+### 결정 사항
+- 10/23 원인 추정: 두 앱 모두 manifest가 없어 iOS가 홈 화면에 추가한 경로를 범위로 잡고, 범위 밖으로 이동하면 Safari 막대를 띄운다. → manifest에 `start_url`·`scope` `/`, `display: standalone`을 두고, `apple-mobile-web-app-capable`·`mobile-web-app-capable`·status-bar-style 메타를 넣는다.
+- 10/23 이름은 소비자 ‘farmclub’, 생산자 ‘farmclub 농가’(기존 `apple-mobile-web-app-title`과 같게). 아이콘은 기존 `public/icons/icon-192·512.png`, 색은 흰색(기존 `theme-color`).
+- 10/23 #164에서 TWA·assetlinks를 빼고 이 4개 파일만 옮김.
+
+### 작업
+- [x] manifest 2개, index.html 메타 2개
+- [x] 두 앱 `expo export -p web`에 manifest 포함 확인, typecheck·test:mock
+- [ ] 배포 뒤 iPhone에서 기존 아이콘 지우고 홈 화면에 다시 추가 → 다른 화면으로 이동해도 Safari 막대 없음(사용자)
+
+### 완료 조건
+- [ ] 배포 뒤 iPhone 홈 화면 앱에서 두 앱 모두 주소창 없음
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main에서 시작.
