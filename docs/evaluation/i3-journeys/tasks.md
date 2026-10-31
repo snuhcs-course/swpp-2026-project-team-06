@@ -23,7 +23,7 @@ Freeze a comparable oracle before I3 evaluation starts, with explicit denominato
 - [x] Map P0 and P1 journeys to source requirements and accountable owners.
 - [x] Define normal, boundary, error, retry, and state-change cases with setup, action, expected result, denominator, verdict, evidence, and reviewer.
 - [x] Freeze protocol and digest; validate all rows and cross-links.
-- [ ] Update PR context and complete AI first review.
+- [x] Update PR context and complete AI first review.
 
 ### Completion criteria
 - [x] Every DEV-152 acceptance criterion is represented in versioned artifacts.
@@ -33,3 +33,4 @@ Freeze a comparable oracle before I3 evaluation starts, with explicit denominato
 ### Record
 - 10/31 Started from `origin/main` at `8f8d4d5`; DEV-151 dependency is Done; baseline environment and build are pending DEV-165.
 - 10/31 Added five direct AI guard cases because DEV-154's corpus does not exercise wrong-answer report and cross-consumer routing. Added separate full source workflow cases for image, long image, and PDF after review found that analysis-only coverage was insufficient. The final frozen matrix has 44 cases (34 P0, 10 P1). `python3 docs/evaluation/i3-journeys/validate.py` passed with the DEV-154 link to 60 questions / 180 planned trials and no measured results. Product execution remains pending DEV-165 and downstream issues.
+- 10/31 Draft PR #336 opened and updated; AI first review recorded at PR comment `6544860385` with no remaining findings. Human approval and merge remain pending.
