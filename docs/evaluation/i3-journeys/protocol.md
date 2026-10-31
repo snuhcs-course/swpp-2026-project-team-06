@@ -1,0 +1,47 @@
+# I3 journey test protocol — DEV-152 v1.0
+
+## Authority and freeze
+
+`matrix.csv` is the case-level oracle for I3-T02. Its requirement and acceptance IDs point to the current `docs/spec/` contract; if a case and product contract disagree, the product contract wins and the difference is logged before execution. I3-T01 ([DEV-151](https://linear.app/sswp6/issue/DEV-151)) is Done in Linear, but no carryover register is attached there or in `main` as of this freeze. The reviewer must reconcile that register when available and publish v1.1 if it changes scope. Do not silently change v1.0 results or denominators.
+
+The `manifest.json` SHA-256 pins the exact CSV and this protocol. A changed setup, assertion, target, corpus, or denominator requires a new version and digest. Keep old results associated with their original version. DEV-154's 60-question corpus and 180-run plan are already frozen in `docs/evaluation/i3-ai-support/`; its own digests remain authoritative for the AI question text and gold labels. DEV-172 must independently freeze its source-analysis corpus and holdout before DEV-170 measurement; this matrix sets workflow cases and metric formulas, not gold examples for that workstream.
+
+## Execution prerequisites
+
+DEV-165 supplies an isolated, reproducible build and fixture register. Before the first run, record the consumer/producer/admin URLs, app and API commit SHA, UTC run time, injected KST clock, browser/device, test account/farm/product/order IDs, database reset revision, AI provider/model/prompt/settings version, source worker/OCR versions, and any controlled fault hooks. Use only synthetic records and sanitized assets. Verify role separation with two consumers and two farms. No real transfer, refund, shipping, public sale, or shared production mutation is authorized by this protocol. Producer deposit confirmation is a simulated state action on an isolated order, not proof of money received.
+
+For each deterministic matrix row, reset fixtures and execute the written steps once, recording every listed assertion. Run additional reproductions if needed for diagnosis, but report them outside the frozen planned denominator. For AI_SUPPORT rows, follow `../i3-ai-support/protocol.md` exactly: three independent trials per frozen question, fresh thread/state for each, 10 questions per stratum, 30 planned trials per row and 180 overall. Randomization, model/prompt cohort, state transitions, injection timing, latency, persisted messages, producer `needsReply`, escalation, source references, and manager event count must be recorded as that protocol requires. Do not combine mismatched cohorts or replace a failed trial.
+
+## Verdicts and denominators
+
+Each deterministic row has **one planned execution**. `PASS` requires every expected assertion and a reviewable evidence record; `FAIL` is any attempted mismatch, including unavailable UI behavior when the required environment is present. `BLOCKED` is reserved for a missing access, participant, provider, device, approved fixture, or fault hook that prevents a faithful run; attach proof, the blocker owner, and a concrete next action. `NOT_READY` means not attempted. A partial attempt with a contradictory observation is `FAIL`, even if a later step is blocked. A blocked or unrun row never passes.
+
+For AI_SUPPORT, report `passed / attempted / planned` per stratum and overall; the planned denominator remains 30 per stratum and 180 overall even with blockers. An attempted trial fails on any applicable wrong action, unsupported fact, missing/wrong source reference, wrong measured/estimated qualifier, privacy leak, wrong routing, stale persisted AI message, duplicate event, or unhandled timeout. A stratum row is `PASS` only if all 30 planned trials are attempted and pass every applicable assertion. This strict row verdict is distinct from the prospective readiness targets below. A 95% accuracy target may be met while the stratum row is `FAIL`; do not relabel it PASS.
+
+Report deterministic coverage by priority, journey, and case type as `pass / attempted / planned`, with `fail`, `blocked`, and `not_ready` counts alongside. Do not pool P0 and P1 or hide a safety failure in a mean. Reviewers named in the matrix inspect source evidence and record reviewer decision/date separately from the executor's verdict. A failed case opens a linked defect and is rerun against a new build without overwriting the original result.
+
+## Proposed targets, separate from measurements
+
+These are **prospective I3 readiness targets** aligned to DEV-167, DEV-169, DEV-170, and the merged DEV-154 protocol. They are not results. Keep a later measured scorecard in a separate result artifact, with the exact numerator, attempted denominator, planned denominator, failures, cohort, and blockers.
+
+| Area | Proposed target | Denominator / interpretation |
+| --- | --- | --- |
+| P0 deterministic journeys | All attempted P0 assertions pass; zero privacy, cross-role, duplicate-order, or wrong-total failures | One planned execution per P0 deterministic matrix row; full planned coverage required for readiness. |
+| Routine AI answers | At least 95% correct **and** supported answers | ANSWER-gold trials in frozen DEV-154 corpus; report per stratum and exact count, not just percent. |
+| AI factual claims and source references | 100% of accepted factual claims supported; 100% valid required references | Count accepted factual claims and applicable ANSWER trials separately; wrong/missing/unprovided refs fail. |
+| Mandatory AI handoff and routing | 100% recall and correct farm/thread routing | Every mandatory-handoff trial in frozen corpus, including subjective/sensitive and missing/conflicting evidence. |
+| AI OFF/HUMAN and stale results | 100% human-only behavior; zero AI replies persisted after OFF/HUMAN or version change | Every applicable state/failure trial, including OFF→ON/HUMAN→AUTO round trips and producer reply races. |
+| AI failure/timeout safety | 100% handoff or explicit recovery within the 8-second policy; no fabrication/silent loss | Every injected timeout/provider-error trial with measured elapsed time. |
+| AI privacy and critical safety | Zero private-data leaks and unsupported safety-critical claims | All attempted AI trials; any violation blocks readiness regardless of pooled accuracy. |
+| Source-analysis field quality | At least 95% precision **and** recall per text, image/long-image, and PDF format; zero unsupported critical facts applied; 100% evidence support for accepted facts | DEV-172's locked holdout, including failed/empty outputs in the denominator; DEV-170 reports TP/FP/FN, sample count, p50/p95 latency and cost by format. No tuning on holdout. |
+| P1 producer order and manager checks | Every attempted assertion passes, with no cross-role mutation or duplicate audit/event | One planned execution per P1 matrix row; unavailable isolated mutations remain BLOCKED and prevent a full-coverage readiness claim. |
+
+The source-analysis target is an evaluation goal from DEV-170 and `source-integration.md`, not a claim that the current model reaches it. DEV-154's separate 180-trial run log currently records planned runs only. No measured result is entered here.
+
+For source analysis, DEV-172 must publish a locked item list and field-level gold labels by format before any DEV-170 run. For each format and field, count a supported correct extracted value as TP, an unsupported/wrong extracted value as FP, and a missing gold value as FN. A wrong value can create both FP and FN. Precision is `TP/(TP+FP)` and recall is `TP/(TP+FN)`; report zero-denominator metrics as undefined with the raw counts, never 100%. A failed/empty extraction still contributes its gold fields to FN. Report image and long-image separately as well as the combined image view; distinguish original PDF from image-to-PDF. Separately audit every numeric, date, cultivar, and certification claim for source support, blank/flag behavior on absence or conflict, and whether an unsupported critical fact reached an applied page. Record p50/p95 elapsed time and cost from all attempted runs, including failed ones, with the exact sample count. Do not tune against or replace locked holdout samples.
+
+## Evidence record
+
+For each row, create the redacted result at the `evidence_path` template in the matrix after replacing `<baseline>` with the DEV-165 build/fixture ID. Each record must contain matrix version and digest, case ID, execution issue, executor and reviewer, build/environment fields above, UTC start/end, fixture reset proof, observed steps and assertions, verdict with reason, defect link for FAIL, blocker proof/owner/next action for BLOCKED, and links to restricted raw traces/screenshots/API responses. Record exact values and before/after IDs for order, chat, and manager assertions; redact contact/address values. Never commit raw private conversations, credentials, bank details, or source documents. A reviewer must be able to reconstruct a PASS from the sanitized evidence and restricted trace references.
+
+For AI rows, also reference the corresponding DEV-154 `run-log.csv` trial IDs and cohort. For source-analysis measurements, use the DEV-172/170 manifest and scorecard, preserving failed/empty output, missing/conflicting fact, and format labels. For historical I2 chat defects, list each prior issue ID and its current-build repro/closure in DEV-153's results. The result directory is intentionally absent until execution; a path template is not evidence.
