@@ -30,6 +30,7 @@ export function PageCanvas({
   onUpload,
   busy = false,
   details,
+  badge,
   onUploading,
   blocked = [],
 }: {
@@ -44,6 +45,8 @@ export function PageCanvas({
   onUpload?: () => Promise<{ uri: string; alt: string }[]>;
   busy?: boolean;
   details?: (id: string) => ReactNode;
+  /** 카드 위에 늘 보이는 작은 표시(예: AI가 쓴 내용) */
+  badge?: (id: string) => ReactNode;
   onUploading?: (v: boolean) => void;
   blocked?: string[];
 }) {
@@ -411,6 +414,7 @@ export function PageCanvas({
               setSelected(null);
               setPicker(null);
             })}
+          {badge?.(m.id)}
           <View
             testID={`canvas-content-${m.id}`}
             style={{ opacity: isActive ? 1 : 0.45 }}

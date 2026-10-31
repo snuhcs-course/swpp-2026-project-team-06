@@ -23,6 +23,7 @@ export {
   BottomBar,
   Fab,
   Sheet,
+  PeekSheet,
   type TabItem,
 } from "./bars";
 export {

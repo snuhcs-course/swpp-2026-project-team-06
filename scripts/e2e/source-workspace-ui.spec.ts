@@ -192,11 +192,20 @@ test("AC-SRC-1: New Product opens uploads linked to a new private product", asyn
     page.getByText("상세를 만들 상품 선택 (최대 10개)", { exact: true }),
   ).toHaveCount(0);
   expect(creates).toBe(1);
+  // 한 화면 편집(DEV-184): 시트를 접고 분석 없이 다음으로 가면 상품 정보만 저장하고 상품 편집으로
+  await expect(page).toHaveURL(/composer=1/);
+  await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
   await page
-    .getByRole("button", { name: "상품 정보·판매 설정", exact: true })
+    .getByRole("button", { name: "사진·자료 접기", exact: true })
+    .last()
+    .click();
+  await page
+    .getByRole("button", { name: "다음: 가격·판매", exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/products/${productId}/edit$`));
-  await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
+  await expect(
+    page.getByLabel("상품명", { exact: true }).last(),
+  ).toHaveValue("");
 });
 
 test("AC-SRC-1: workspace retry reuses the new product and idempotency key", async ({

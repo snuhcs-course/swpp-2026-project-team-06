@@ -44,9 +44,12 @@ export function SourceBasicInfo({
   flushRef,
   onDirty,
   onSaved,
+  embedded = false,
 }: {
   batch: SourceBatch;
   disabled: boolean;
+  /** 새 상품 화면의 기본 정보 칸 안에 넣을 때: 테두리·제목 없이 입력칸만 */
+  embedded?: boolean;
   flushRef: MutableRefObject<
     ((required?: boolean) => Promise<void>) | undefined
   >;
@@ -143,15 +146,19 @@ export function SourceBasicInfo({
   return (
     <View
       testID="source-basic-info"
-      style={{
-        gap: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: tokens.color.border,
-        borderRadius: 16,
-      }}
+      style={
+        embedded
+          ? { gap: 12 }
+          : {
+              gap: 12,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: tokens.color.border,
+              borderRadius: 16,
+            }
+      }
     >
-      <T>기본 정보</T>
+      {embedded ? null : <T>기본 정보</T>}
       <T variant="caption" muted>
         품종명은 꼭 입력해 주세요. 사이즈와 예상 당도는 아는 경우만 적어 주세요.
       </T>

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Modal,
   Pressable,
@@ -362,7 +362,103 @@ export function Sheet({
   );
 }
 
+/* ---------------- PeekSheet ---------------- */
+
+/**
+ * 화면 아래에 붙어 있는 시트. 닫혀 있어도 peek 줄과 footer(하단 버튼)는 늘 보이고,
+ * 손잡이·peek을 누르면 children이 펼쳐진다. 펼친 동안만 뒤 화면을 어둡게 가린다.
+ */
+export function PeekSheet({
+  open,
+  onOpenChange,
+  peek,
+  footer,
+  label,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  peek: ReactNode;
+  footer?: ReactNode;
+  label: string;
+  children: ReactNode;
+}) {
+  // 포커스 테두리는 키보드로 왔을 때만(웹 :focus-visible). 손가락·마우스로 누른 뒤에는 숨긴다.
+  const [keyboardFocus, setKeyboardFocus] = useState(false);
+  return (
+    <>
+      {open ? (
+        <Pressable
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: tokens.color.overlay },
+          ]}
+          // 바깥을 눌러 접는 영역. 손잡이 버튼과 이름이 겹치지 않게 보조기기에는 숨긴다.
+          accessible={false}
+          aria-hidden
+          onPress={() => onOpenChange(false)}
+        />
+      ) : null}
+      <View
+        testID="peek-sheet"
+        style={[styles.peekSheet, sheetGlass]}
+        accessibilityViewIsModal={open}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={open ? `${label} 접기` : `${label} 펼치기`}
+          aria-expanded={open}
+          onFocus={(e) => {
+            const el = e.nativeEvent?.target as unknown as {
+              matches?: (s: string) => boolean;
+            } | null;
+            setKeyboardFocus(el?.matches ? el.matches(":focus-visible") : true);
+          }}
+          onBlur={() => setKeyboardFocus(false)}
+          onPress={() => onOpenChange(!open)}
+          style={[
+            { paddingTop: 8, paddingBottom: 4, gap: 10 },
+            keyboardFocus && focusRing,
+          ]}
+        >
+          <View style={styles.handle} />
+          {peek}
+        </Pressable>
+        {/* 접혀도 내용은 마운트해 둔다(업로드·입력 중인 상태 보존). 화면에서만 숨긴다. */}
+        <ScrollView
+          style={[{ maxHeight: 520 }, !open && { display: "none" }]}
+          contentContainerStyle={{ gap: 12, paddingBottom: 4 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+        {footer}
+      </View>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  peekSheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: tokens.maxWidth,
+    borderTopLeftRadius: tokens.radius.md,
+    borderTopRightRadius: tokens.radius.md,
+    borderTopWidth: 1,
+    borderTopColor: tokens.color.border,
+    paddingHorizontal: tokens.space.gutter,
+    paddingBottom: safe("bottom", 20),
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+  },
   bar: {
     height: tokens.height.header,
     flexDirection: "row",

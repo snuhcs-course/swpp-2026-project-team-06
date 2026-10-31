@@ -809,3 +809,50 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
 - 10/23 환경설정 ‘계정’과 승인 대기(SCR-21) 하단에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃 → 로그인.
+
+## DEV-184 새 상품 한 화면 편집 + 하단 AI 시트
+
+- 이슈: https://linear.app/sswp6/issue/DEV-184
+- 브랜치: `jinumeral/dev-184-new-product-ai-sheet`
+- 기준: FEAT-03/04/07, AC-03-1/3, AC-SRC-9/10/11, docs/spec/source-integration.md(DEV-184 절), docs/spec/source-editor.md
+- 상태: 진행 중
+
+### 목표
+새 상품 → 자료 화면(2탭) → 상품 정보 → 기간·가격 → 판매로 나뉜 흐름과 상품명·품종 이중 입력을 줄인다. 새 상품을 누르면 바로 한 화면 편집이 뜨고, 아래에서 올라온 시트에 사진·자료를 넣고 'AI로 채우기'를 누르면 칸이 채워진다(당근 'AI 글쓰기' 참고).
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/{NewProductComposer,SourceWorkspace,SourceBasicInfo,SourceAttachments,SourceDetailsEditor,PageCanvas,Tour}.tsx`, `apps/producer/src/app/(tabs)/products/{new,source-analysis}.tsx`
+- `packages/ui/src/{bars,index}.ts(x)` (PeekSheet)
+- `packages/api/src/sourceAnalysis.ts`: SourceDraft.snapshot.batchVersion 타입만(서버가 이미 내려 주는 값)
+- `scripts/e2e/new-product-composer.spec.ts`(신규), `scripts/e2e/source*.spec.ts`, `scripts/e2e/product-page-workspace.spec.ts`, `scripts/e2e/producer-i2.spec.ts`
+- `docs/spec/{source-integration,source-editor,ia}.md`, `docs/wiki/Source-Analysis.md`, `apps/producer/{spec,tasks}.md`
+
+### 비범위
+- 서버·API 계약(apply가 기본 정보를 복사하도록 바꾸지 않음), 기존 상품 `판매페이지 수정`(ProductPageEditor), `/products/manual`, 기간·가격·판매 화면, Figma(후속)
+
+### 결정 사항
+- 10/31 서버는 바꾸지 않는다. AI 결과의 상품명·보관(30자 이하)은 화면에서 기본값 칸에만 미리 채우고 기존 상품 PATCH로 저장한다. 가격은 채우지 않는다(AC-03-1).
+- 10/31 품종·사이즈·예상 당도는 기존 batch 기본 정보(SourceBasicInfo, blur 저장)를 그대로 쓰고, 상품 저장 때 품종·예상 당도를 상품에도 넣는다(한 번만 입력).
+- 10/31 하단 시트는 `@farmclub/ui`의 새 `PeekSheet`(화면 아래 고정, 접힘/펼침, 펼칠 때만 뒤 화면 어둡게). 기존 모달 `Sheet`는 확인·이탈 시트에 그대로 쓴다.
+- 10/31 '다음: 가격·판매'는 임시 저장 → 최신 초안이 있으면 확인 시트에서 명시적 적용 → SCR-25. 비공개 저장/명시적 적용 분리는 유지한다.
+- 10/31 새 화면은 `lib/NewProductComposer.tsx`로 따로 두고 새 상품 버튼만 `composer=1`로 연다. 기존 `SourceWorkspace`(배치 없는 상품 선택·여러 상품 작업)는 그대로 두고 공용 도우미만 export한다. 기존 e2e가 그 경로로 기존 상품 작업을 만들기 때문이다. 중량 옵션은 3/5/10kg 체크로 이 화면에 두고, 받는 시기·배송비·가격은 다음 화면에 둔다.
+- 10/31 AI는 분석 자료만 읽고 상품사진 자체는 분석하지 않는다(기존 계약). 시트 문구도 이에 맞춘다.
+
+### 작업
+- [x] PeekSheet, 새 `NewProductComposer` 한 화면 편집(기존 SourceWorkspace는 유지, 공용 판정 `canEditBatch` export), SourceBasicInfo embedded, 편집기 저장 결과 반환·AI 표시, 첨부함 순서
+- [x] spec/ia/wiki 갱신
+- [x] new.tsx 로딩 문구·도움말 투어 문구
+- [x] e2e 갱신(360/390/430px) 및 로컬 실화면 확인
+- [ ] scan-before-commit, draft PR, Figma 후속 이슈
+
+### 기록
+- 10/31 origin/main 2ab0c2f에서 시작. `npm run typecheck` 4 workspace 통과.
+- 11/01 접힌 시트가 첨부 컴포넌트를 언마운트하면 업로드·입력 상태가 사라지므로, 접혀도 마운트하고 화면에서만 숨긴다. 저장 뒤 batch를 다시 읽어도 사진이 같으면 blob URL을 다시 만들지 않는다(표시 중 URL 해제로 콘솔 오류). AI 표시는 선택한 카드에서만 보이던 details 대신 PageCanvas의 새 `badge` 자리에 늘 보인다(SourceWorkspace·NewProductComposer에서만 보이고 ProductPageEditor는 badge를 넘기지 않아 그대로).
+- 11/01 검증: `npm run typecheck` 4 workspace, `npm run test:mock` 43개 통과. 격리 DB(mock 제공자)의 Playwright new-product-composer/source-workspace-ui/source-analysis/source-editor/product-page-workspace 28개 통과(2.0분). 기존 source-workspace-ui·source-editor 중 새 상품 진입 테스트 2개는 새 화면에 맞춰 시작 버튼 이름·다음 버튼 경로·시트 펼치기만 바꿨다. Agent 시간/Tokens 미측정.
+- 11/01 커밋 전 스캔 반영: 저장하지 않은 상세 수정이 재분석·첨부 변경 때 사라지던 문제(CRITICAL) → 'AI로 다시 채우기'는 먼저 편집기를 비공개 저장하고, 수정이 남아 있는 동안 편집기를 내리지 않으며 첨부 변경을 막고 안내한다. 상품 편집에서 돌아오면(focus)·적용 뒤 상품을 다시 읽어 버전 충돌·품종 되돌림을 막는다. 기본 정보에서 지운 예상 당도는 null로 반영. 하위 컴포넌트 busy 해제가 화면 작업 중 버튼을 켜지 않게 함. 배지 배경 `#FFF3EB`는 기존 `Choice`와 같은 값이라 토큰이 생길 때 함께 바꾼다.
+- 11/01 같은 결과로 재분석하면 reviewVersion은 그대로이고 batch 버전만 올라 예전 초안을 최신으로 보고 적용하다 409가 났다. 초안 최신 판정에 snapshot.batchVersion도 비교한다. 기존 SourceWorkspace의 적용 버튼에도 같은 잠재 문제가 있으나(이번 범위 밖) 후속 이슈로 남긴다.
+- 11/01 스캔 반영 후 재검증: `npm run typecheck` 4 workspace, `npm run test:mock` 통과, 격리 DB Playwright new-product-composer(재분석 후 수정 유지·미리 채우기·가격 미입력 포함)/source-workspace-ui/source-analysis/source-editor/product-page-workspace/producer-i2 34개 통과(2.4분).
+- 11/01 재스캔 반영: 분석 뒤 기본 정보 저장이 reviewVersion을 올려 편집기 저장이 409로 막히던 문제(CRITICAL) → 기본 정보 저장 뒤 review를 다시 읽고, 임시 저장은 flush 뒤 서버의 batch·review·drafts로 초안 저장 필요 여부를 판단하며, 고친 내용이 없으면 편집기가 최신 review로 저장한다(`saveRef(fresh)`). 고친 상세가 있는 동안 기본 정보도 잠근다. '다음'은 분석 뒤 최신 초안이 없으면 이동하지 않고 안내한다. 초안 최신 판정은 서버와 같이 batchVersion 없으면 오래된 것으로 본다. 시트 바깥 영역은 보조기기에서 숨겨 손잡이와 이름이 겹치지 않게 했다. 배지는 카드 안 AI 값이 남아 있으면 보인다(spec 문구 정정).
+- 11/01 재스캔 반영 후 재검증: typecheck 4 workspace, `npm run test:mock` 통과, 격리 DB Playwright 34개 통과(2.3분, 분석 뒤 사이즈 수정→임시 저장→적용 포함).
+- 11/01 3차 스캔 반영: 새 e2e 파일을 범위에 추가. 미리 채우기는 EXTRACTED 값만 쓴다(생산자가 상세에 직접 쓴 상품명에는 'AI가 채웠어요'를 붙이지 않음). 취소된 분석만 있고 초안이 없으면 '다음'은 분석 전처럼 이동한다. 기본 정보 저장 뒤 review 재조회 실패를 화면 오류로 알린다. 첨부함 순서·AI 배지는 공유 컴포넌트라 기존 SourceWorkspace 화면에도 적용됨(PR 본문에 명시).
+- 11/01 사용자 피드백: 시트 손잡이 줄을 누른 뒤 포커스 테두리(검은 사각형)가 남음 → 웹 `:focus-visible`일 때만 테두리를 그린다(키보드 이동 시만). 접힌 시트 화살표를 위(⌃)로. e2e에 터치 후 outline 없음 검사 추가, new-product-composer 3개 통과. 직전 전체 묶음 Playwright 34·mock 43 통과.

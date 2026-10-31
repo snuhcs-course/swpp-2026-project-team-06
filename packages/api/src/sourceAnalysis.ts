@@ -129,6 +129,8 @@ export type SourceDraft = {
     representativeAssetId?: string | null;
     hiddenSectionIds?: string[];
     reviewVersion: number;
+    /** 초안을 저장할 때의 batch 버전. 적용 시 서버가 현재 버전과 비교한다. */
+    batchVersion?: number;
     mode: string;
     warnings: { moduleId: string; code: string }[];
     modules: { id: string; enabled: boolean }[];
