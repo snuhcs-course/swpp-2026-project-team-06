@@ -35,7 +35,7 @@ def main():
         reader = csv.DictReader(stream)
         assert set(reader.fieldnames or []) == FIELDS, "matrix columns differ from frozen schema"
         rows = list(reader)
-    assert len(rows) == manifest["case_count"] == 41
+    assert len(rows) == manifest["case_count"] == 44
     assert len({r["case_id"] for r in rows}) == len(rows), "duplicate case ID"
 
     groups = defaultdict(set)
@@ -68,6 +68,7 @@ def main():
         if journey != "AI_SUPPORT":
             assert kinds == KINDS, f"missing case type in {journey}"
     assert sum(1 for r in rows if r["journey"] == "AI_SUPPORT") == 6
+    assert {"I3-SOURCE-01", "I3-SOURCE-06", "I3-SOURCE-07", "I3-SOURCE-08"}.issubset({r["case_id"] for r in rows})
     for row in (r for r in rows if r["journey"] == "AI_SUPPORT"):
         assert "30 planned trials" in row["denominator"]
 
