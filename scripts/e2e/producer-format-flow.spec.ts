@@ -23,6 +23,84 @@ function python(code: string, args: string[] = []) {
     stdio: "pipe",
   });
 }
+
+// Restore from seed truth on every worker, including after a failed test. A
+// beforeAll snapshot would capture polluted data when Playwright restarts a worker.
+const restoreSeed = `
+from sqlalchemy import select, delete
+from sqlalchemy.engine import make_url
+from tests import migrations_models
+from app.catalog.models import Product
+from app.core.config import get_settings
+from app.core.db import get_sessionmaker
+from app.core.seed import seed_product
+from app.source_analysis.models import (
+ Batch, Asset, Page, Run, Item, Candidate, ReviewedField, Draft,
+ ProductWorkspace, PublicPhoto, RequestRecord,
+)
+from app.source_analysis.storage import Storage
+
+cfg = get_settings()
+assert cfg.app_env == 'local' and cfg.source_analysis_provider == 'mock'
+assert cfg.source_storage == 'local'
+assert make_url(cfg.database_url).host in ('localhost', '127.0.0.1', '::1')
+pid = 'p-house'
+with get_sessionmaker()() as db, db.begin():
+ product = db.get(Product, pid)
+ assert product is not None, 'Missing seed product p-house'
+ bids = set(db.scalars(select(ProductWorkspace.batch_id).where(
+  ProductWorkspace.product_id == pid)))
+ bids.update(batch.id for batch in db.scalars(select(Batch))
+  if any(target.get('productId') == pid for target in batch.targets))
+ assets = list(db.scalars(select(Asset).where(Asset.batch_id.in_(bids))))
+ aids = [asset.id for asset in assets]
+ pages = list(db.scalars(select(Page).where(Page.asset_id.in_(aids))))
+ photos = list(db.scalars(select(PublicPhoto).where(PublicPhoto.product_id == pid)))
+ storage_keys = {asset.storage_key for asset in assets}
+ storage_keys.update(key for page in pages
+  for key in (page.image_key, page.sanitized_key) if key)
+ storage_keys.update(photo.storage_key for photo in photos)
+ requests = [row.id for row in db.scalars(select(RequestRecord).where(
+  RequestRecord.farm_id == product.farm_id))
+  if row.scope.split('/')[0] in bids
+  or row.scope in ('page-save:' + pid, 'page-apply:' + pid)
+  or row.response.get('productId') == pid
+  or row.response.get('id') in bids]
+ rids = select(Run.id).where(Run.batch_id.in_(bids))
+ # The seed creates no source rows for this product. Include soft-deleted
+ # batches/assets and every run/item phase (including refinements).
+ for model, condition in (
+  (RequestRecord, RequestRecord.id.in_(requests)),
+  (ProductWorkspace, ProductWorkspace.product_id == pid),
+  (PublicPhoto, PublicPhoto.product_id == pid),
+  (Draft, Draft.batch_id.in_(bids)),
+  (ReviewedField, ReviewedField.batch_id.in_(bids)),
+  (Candidate, Candidate.batch_id.in_(bids)),
+  (Item, Item.run_id.in_(rids)),
+  (Run, Run.batch_id.in_(bids)),
+  (Page, Page.asset_id.in_(aids)),
+  (Asset, Asset.batch_id.in_(bids)),
+  (Batch, Batch.id.in_(bids)),
+ ):
+  db.execute(delete(model).where(condition))
+ seed_product(db, pid)
+# Delete files only after the database transaction commits successfully.
+store = Storage()
+for key in storage_keys:
+ store.delete(key)
+`;
+
+test.beforeAll(() => {
+  if (process.env.SOURCE_ANALYSIS_ENABLED !== "true") return;
+  expect(process.env.SOURCE_ANALYSIS_PROVIDER).toBe("mock");
+  python(restoreSeed);
+});
+
+// Playwright runs afterAll even on a failed test, before restarting its worker.
+test.afterAll(() => {
+  if (process.env.SOURCE_ANALYSIS_ENABLED === "true") python(restoreSeed);
+});
+
 function work() {
   python(`
 from sqlalchemy import select

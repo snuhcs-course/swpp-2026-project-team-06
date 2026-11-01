@@ -985,7 +985,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - `apps/producer/tasks.md`
 - `scripts/e2e/producer-format-flow.spec.ts`
 - `server/tests/test_producer_format_flow.py`
+- `server/app/core/seed.py` — 전체 시드와 E2E 복원에서 공유하는 단일 상품 시드 함수
+- `server/tests/test_seed.py` — 상품 전체 열 복원·자료 그래프 정리·worker 재시작 회귀
 - `server/app/source_analysis/router.py` — 자료 응답의 중복 nosniff 설정 제거
+- `server/app/source_analysis/middleware.py` — 기존 커밋의 단일 nosniff 헤더 보장(이번 후속 수정 없음)
 - `server/tests/test_source_analysis.py` — 기존 보안 헤더 검사에 단일 nosniff 회귀 추가
 - `docs/evaluation/i3-t12-producer-flow.md`
 - `Makefile`의 기존 `test-e2e` 안내(새 spec은 기본 discovery에 포함)
@@ -994,6 +997,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 아래 nosniff 결함 수정 외 제품 동작·UI·스펙 변경, 새 의존성, mock provider/체크섬 규칙 변경, 실/유료 모델 호출, 에이전트 Chromium 실행, commit·push·PR·배포.
 
 ### 결정 사항
+- 11/02 사용자 재현: 실패 후 worker 재시작의 beforeAll이 오염 상태를 다시 캡처하므로 스냅샷 방식을 폐기한다. `seed --reset`도 사용하는 단일 상품 시드 함수를 추출해 p-house의 모든 상품 열(모델 기본값·NULL 포함)을 복원한다. beforeAll 시작·실패를 포함한 afterAll마다 같은 복원을 실행하고, 시드가 생성하지 않는 대상 자료 그래프·refinement·workspace·공개 사진·멱등 요청 및 저장 파일을 제거한다. 기존 assertion과 timeout은 유지하며 Chromium은 기존 사람 실행 원칙을 따른다.
 - 11/01 후속 사용자 지시: 실제 사람 실행 Playwright 4 passed(56.8s)를 근거로 mock의 human-controlled flow는 PASS로 기록한다. 시각 형식 성공 추출은 DEV-170 T11 live development 결과에 위임하며 이 E2E가 증명한다고 쓰지 않는다.
 - 11/01 API 3 failed의 새 원인은 middleware와 endpoint의 중복 nosniff다. SourceRequestMiddleware가 /api/source-analysis 응답의 nosniff를 단독 설정하도록 router의 원본·페이지 이미지·작업 사진 설정만 제거한다. public source-media 등 middleware 밖의 헤더는 유지한다. 기존 보안 테스트를 강화하고 실제 시각 흐름의 엄격한 단언은 유지한다.
 - 11/01 .artifacts/는 기존 루트 .gitignore에서 제외됨을 확인한다. 기존 JSON에는 gitSha/dirty/startedAt만 있으므로 종료 UTC는 trace의 wallTime+monotonic timing에서 복원하고, API·앱별 독립 배포 SHA가 없다는 한계를 명시한다.
@@ -1032,3 +1036,10 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 11/01 산출물/범위: 기존 `.gitignore:24`의 `.artifacts/`로 JSON8+PNG67 전부 ignore, 추적 산출물0. `git diff --check` 통과. 허용 변경은 기존5경로+source router+기존 security test=7경로, 그 외 변경 없음. `git diff main...HEAD`는 기존672경로 base 차이, `git diff origin/main...HEAD`는0경로이며 새 변경은 모두 미커밋이다.
 - 11/01 의도한 커밋(실행하지 않음): `fix(source-analysis): AC-SRC-6/8 중복 nosniff 헤더 제거 (DEV-171)` — router·기존 security test; `test(producer): AC-SRC-1/5/6/9/11 형식별 흐름 회귀 추가 (DEV-171)` — Playwright·pytest·Makefile; `docs(producer): FEAT-03/04/07 T12 실행 결과와 T11 경계 기록 (DEV-171)` — 평가 문서·tasks. 현재 사용자 지시대로 commit·push·PR·배포 없음. Agent 시간 / Tokens: 계측 미제공.
 - 11/01 Claude 스캔 반영(CRITICAL 2): 새 Playwright spec의 DB 이름 고정(`farmclub_dev171`) 단언을 지웠다(CI는 `farmclub` DB를 쓴다; localhost·mock·비-mock 0건 단언으로 격리를 확인). 새 pytest는 OCR extra의 OpenCV가 없으면 건너뛴다(`pytest.importorskip("cv2")`, CI 기본 설치에는 없음). 시각 형식 실패 원인을 `UNSUPPORTED_MOCK_SOURCE`로 좁혔다. 재발 방지로 미들웨어가 기존 `x-content-type-options`를 걸러 한 번만 붙이고, 페이지 이미지 응답도 단일 헤더를 단언한다.
+- 11/01 CI 통합 오염 수정 결정·기록: T12 beforeAll에서 p-house 전체 상품 행(상세·이름/설명·사진·버전 등)·ProductWorkspace·기존 대상 배치의 자료/페이지/run/item(refinement 포함)/후보/검토/초안·공개 사진·관련 멱등 요청을 스냅샷하고 실패 시에도 afterAll에서 정확히 복원하며 새 행·저장 파일을 제거한다. 기존 단언·소비자 렌더 유지, 후속 product-page-workspace/public-media/source-* 및 독립 Mock storefront 의존성 감사. `npm run typecheck` 5 workspace 통과/0 오류, E2E 단독 tsc 종료0, SQLite 메모리 DB 보조 복원 검사(FK 활성, 기존 workspace 유/무) 2 passed/0 failed(초기 harness DDL·fixture 준비 오류 수정 후); PostgreSQL/Chromium 통합 검증 대체 아님. 사람은 fresh seed에서 `npx playwright test scripts/e2e/producer-format-flow.spec.ts scripts/e2e/product-page-workspace.spec.ts --workers=1` 실행 대기. 의도한 커밋: `test(producer): AC-SRC-9 T12 공용 시드 상품 상태 복원 (DEV-171)`; commit·push·PR·live 호출 없음.
+
+- 11/02 후속 작업 시작: 사용자 지시에 따라 기존 worktree·미커밋 변경에서 이어간다. 범위를 seed 함수와 회귀 테스트로 확장했으며 commit·push·PR은 실행하지 않는다. cold-start text 실패는 단독 12초 통과라는 사용자 보고만 있으며 이번 정리 수정으로 해결됐다고 주장하지 않는다.
+- 11/02 구현: worker별 pickle 스냅샷을 제거했다. `seed_product(session, product_id)`를 전체 `seed()`와 E2E가 공유하며 PostgreSQL upsert의 excluded 행으로 모든 상품 열을 시드 값·모델 기본값·NULL로 복원한다. beforeAll/afterAll은 파일이나 worker 메모리에 의존하지 않는다. source 그래프는 FK 역순으로 삭제하고 저장 파일은 DB commit 뒤 제거한다. 기존 상품 옵션·단계·주문 및 다른 상품의 자료/파일·비용 원장은 보존한다.
+- 11/02 검증: `npm run typecheck` **5 workspace 통과 / 0 오류**. `UV_CACHE_DIR=/private/tmp/dev171-uv-cache uv run --project server ruff check server/app/core/seed.py server/tests/test_seed.py` **통과**, `git diff --check` **통과**. lint/정적 검사는 테스트 통과를 대신하지 않는다.
+- 11/02 pytest 실행: `cd server && UV_CACHE_DIR=/private/tmp/dev171-uv-cache DATABASE_URL=<로컬 farmclub_dev171 DB URL> uv run pytest tests/test_seed*.py tests/test_core.py -q` → **0 passed / 0 failed / 10 setup errors (1.26s)**. localhost:5432 PostgreSQL이 Connection refused를 반환해 공통 `_schema` fixture의 DB 연결에서 중단됐다. 새 회귀 3건과 기존 core 7건 모두 본문 미실행이며 **미완료**다. AGENTS.md의 의존성 문제 중단 규칙에 따라 DB 우회·SQLite 대체·재시도 없이 중단한다. PostgreSQL 준비 뒤 같은 명령과 사람의 `npx playwright test scripts/e2e/producer-format-flow.spec.ts scripts/e2e/product-page-workspace.spec.ts --workers=1 --trace on` 재검증이 필요하다.
+- 11/02 범위 감사: `git diff main...HEAD`는 로컬 main이 뒤처진 기존 675경로 차이이며, `git diff origin/main...HEAD`의 기존 8경로를 DEV-171 범위와 대조해 기존 middleware 경로 누락만 기록에 추가했다. 이번 미커밋 변경은 producer tasks·T12 E2E·seed helper·seed pytest 4경로다. 의도한 커밋: `test(producer): AC-SRC-9 T12 공용 시드 상품을 시드 기준으로 복원 (DEV-171)`. commit·push·PR·Chromium·운영 실행 없음. Agent 시간 / Tokens: 계측 미제공.
