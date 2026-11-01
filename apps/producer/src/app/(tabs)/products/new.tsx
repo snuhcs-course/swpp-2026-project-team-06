@@ -36,7 +36,7 @@ export default function NewProduct() {
         else
           router.replace({
             pathname: "/products/source-analysis",
-            params: { batchId: workspace.batchId },
+            params: { batchId: workspace.batchId, composer: "1" },
           });
       })
       .catch(() => {
@@ -65,7 +65,7 @@ export default function NewProduct() {
         ) : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <ActivityIndicator color={tokens.color.accent} />
-            <T>새 상품 자료 화면을 열고 있어요</T>
+            <T>새 상품을 열고 있어요</T>
           </View>
         )}
       </View>

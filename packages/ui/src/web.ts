@@ -10,6 +10,16 @@ export function safe(edge: "top" | "bottom", px: number): number {
     : px) as unknown as number;
 }
 
+// 마지막 입력이 키보드였는지(웹 :focus-visible과 같은 기준). 손가락·마우스로 누른 뒤에는 포커스 링을 그리지 않는다.
+let keyboard = false;
+if (isWeb && typeof document !== "undefined") {
+  document.addEventListener("keydown", () => (keyboard = true), true);
+  document.addEventListener("pointerdown", () => (keyboard = false), true);
+}
+/** focused 상태에서 포커스 링을 그릴지: 키보드로 이동했을 때만. */
+export const showFocus = (st: { focused?: boolean }) =>
+  !!st.focused && (!isWeb || keyboard);
+
 /** 키보드 포커스 링: 2px #111111, 2px 띄움(디자인 D-11) */
 export const focusRing = (isWeb
   ? {

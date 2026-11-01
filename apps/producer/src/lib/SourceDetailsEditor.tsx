@@ -67,11 +67,20 @@ export function SourceDetailsEditor({
   onSaved,
   onBusy,
   saveRef,
+  emptyHint = false,
+  displayName,
 }: {
+  /** 새 상품 채우기: 상세 맨 위 제목을 입력 중인 상품명으로 바로 보여 준다(저장 때 같은 값으로 맞춤). */
+  displayName?: string;
+  emptyHint?: boolean;
   batch: SourceBatch;
   review: SourceReview;
   drafts: SourceDraft[];
-  saveRef: { current: (() => void) | null };
+  /** fresh: 고친 내용이 없을 때 서버의 최신 review로 저장한다(기본 정보 저장으로 reviewVersion이 오른 경우). */
+  /** name: 상품명과 상세 맨 위 제목을 맞출 때 그 값으로 저장한다(DEV-184). */
+  saveRef: {
+    current: ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null;
+  };
   onDirty: (dirty: boolean) => void;
   onBusy: (busy: boolean) => void;
   onSaved: (draft: SourceDraft) => Promise<void>;
@@ -101,6 +110,11 @@ export function SourceDetailsEditor({
   >([]);
   const [uploading, setUploading] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  // 저장 뒤 batch를 다시 읽어도 사진이 같으면 blob URL을 해제·재요청하지 않는다(표시 중 URL 해제 방지).
+  const photoKey = batch.sources
+    .filter((s) => s.originalPhoto && s.status === "PREPARED")
+    .map((s) => `${s.id}:${s.revision}`)
+    .join(",");
   useEffect(() => {
     let alive = true;
     const urls: string[] = [];
@@ -122,7 +136,7 @@ export function SourceDetailsEditor({
       alive = false;
       urls.forEach(URL.revokeObjectURL);
     };
-  }, [batch.id, batch.sources]);
+  }, [batch.id, photoKey]);
   const version = useRef(review.reviewVersion),
     lock = useRef(false),
     alive = useRef(true);
@@ -161,25 +175,45 @@ export function SourceDetailsEditor({
     );
     setDirty(true);
   };
-  const save = async () => {
-    if (lock.current) return;
+  const save = async (
+    fresh?: SourceReview,
+    name?: string,
+  ): Promise<boolean> => {
+    if (lock.current) return false;
     lock.current = true;
     setBusy(true);
     onBusy(true);
     setError("");
-    const fields = entries.map((e) => e.field);
+    // 고친 내용이 있으면 그 버전 그대로(오래됐으면 서버가 거절), 없으면 최신 review로 저장한다.
+    const useFresh = !!fresh && !dirty;
+    const reviewVersion = useFresh ? fresh.reviewVersion : version.current;
+    const fields = (useFresh ? fresh.editorFields : entries).map((e) =>
+      name &&
+      batch.targets.length === 1 &&
+      e.field.fieldKey === "name" &&
+      e.field.state !== "EXCLUDED" &&
+      e.field.value !== name
+        ? {
+            ...e.field,
+            value: name,
+            state: "CONFIRMED" as const,
+            provenance: "PRODUCER" as const,
+            candidateIds: [],
+          }
+        : e.field,
+    );
     const targets = batch.targets.map((t) => ({
       targetId: t.id,
       enabledModuleIds: enabled[t.id],
       hiddenSectionIds: hidden[t.id] ?? [],
     }));
-    const signature = JSON.stringify([version.current, fields, targets]);
+    const signature = JSON.stringify([reviewVersion, fields, targets]);
     if (!requests.current.has(signature))
       requests.current.set(signature, newIdempotencyKey());
     try {
       const result = await sourceAnalysis.saveEditor(
         batch.id,
-        version.current,
+        reviewVersion,
         fields,
         targets,
         requests.current.get(signature)!,
@@ -188,9 +222,11 @@ export function SourceDetailsEditor({
         await onSaved(result.drafts[0]);
         setDirty(false);
       }
+      return true;
     } catch (e) {
       if (alive.current)
         setError(e instanceof Error ? e.message : "저장하지 못했어요.");
+      return false;
     } finally {
       lock.current = false;
       if (alive.current) {
@@ -200,9 +236,8 @@ export function SourceDetailsEditor({
     }
   };
   useEffect(() => {
-    saveRef.current = () => {
-      if (!busy && !uploading) void save();
-    };
+    saveRef.current = (fresh, name) =>
+      busy || uploading ? Promise.resolve(false) : save(fresh, name);
     return () => {
       saveRef.current = null;
     };
@@ -210,7 +245,8 @@ export function SourceDetailsEditor({
   return (
     <View style={{ gap: 16 }}>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
-      {batch.sources.some(
+      {!emptyHint &&
+      batch.sources.some(
         (s) =>
           s.originalPhoto &&
           !s.placement?.fieldKey &&
@@ -262,7 +298,12 @@ export function SourceDetailsEditor({
               )
               .map((e) => ({
                 fieldKey: e.field.fieldKey,
-                value: e.field.value,
+                value:
+                  displayName &&
+                  e.field.fieldKey === "name" &&
+                  e.field.state !== "EXCLUDED"
+                    ? displayName
+                    : e.field.value,
               })),
             photos: entries
               .filter(
@@ -332,9 +373,12 @@ export function SourceDetailsEditor({
                 if (entry.field.targetId !== target.id) return entry;
                 const f = entry.field;
                 const m = modules.find((m) => keys(m.id).includes(f.fieldKey))!;
+                // 표시용 상품명(displayName)은 저장 값이 아니다. 이름 칸은 원래 값을 유지한다.
                 const value =
-                  m.texts.find((t) => t.fieldKey === f.fieldKey)?.value ??
-                  f.value;
+                  displayName && f.fieldKey === "name"
+                    ? f.value
+                    : (m.texts.find((t) => t.fieldKey === f.fieldKey)?.value ??
+                      f.value);
                 const photoAssetIds =
                   f.fieldKey === "name"
                     ? f.photoAssetIds
@@ -363,6 +407,35 @@ export function SourceDetailsEditor({
             );
             setDirty(true);
           }}
+          emptyHint={emptyHint}
+          badge={(id) =>
+            entries.some(
+              (e) =>
+                e.field.targetId === target.id &&
+                keys(id).includes(e.field.fieldKey) &&
+                e.field.provenance === "EXTRACTED" &&
+                e.field.state !== "EXCLUDED" &&
+                filled(e.field),
+            ) ? (
+              <View
+                testID="ai-filled-badge"
+                style={{
+                  alignSelf: "flex-start",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 999,
+                  backgroundColor: "#FFF3EB",
+                }}
+              >
+                <T variant="caption" color={tokens.color.accent}>
+                  ✨ AI가 쓴 내용
+                </T>
+              </View>
+            ) : null
+          }
           details={(id) => (
             <View style={{ gap: 8 }}>
               <Button

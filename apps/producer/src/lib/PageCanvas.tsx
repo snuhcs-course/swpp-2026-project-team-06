@@ -30,6 +30,8 @@ export function PageCanvas({
   onUpload,
   busy = false,
   details,
+  badge,
+  emptyHint = false,
   onUploading,
   blocked = [],
 }: {
@@ -44,6 +46,10 @@ export function PageCanvas({
   onUpload?: () => Promise<{ uri: string; alt: string }[]>;
   busy?: boolean;
   details?: (id: string) => ReactNode;
+  /** 카드 위에 늘 보이는 작은 표시(예: AI가 쓴 내용) */
+  badge?: (id: string) => ReactNode;
+  /** 새 상품 채우기 화면(DEV-184): 빈 글 칸을 점선 네모 + '여기를 채워 주세요'로 보인다. */
+  emptyHint?: boolean;
   onUploading?: (v: boolean) => void;
   blocked?: string[];
 }) {
@@ -128,23 +134,25 @@ export function PageCanvas({
   const editing = {
     hiddenSectionIds,
     active,
-    sectionControl: (id: string, label: string) => (
-      <SectionSwitch
-        accessibilityLabel={`${label} 표시`}
-        value={!hiddenSectionIds.includes(id)}
-        disabled={busy || uploading}
-        onValueChange={(value) => {
-          onHiddenSectionsChange(
-            value
-              ? hiddenSectionIds.filter((x) => x !== id)
-              : [...hiddenSectionIds, id],
-          );
-          setSelected(null);
-          setPicker(null);
-          setMoving(null);
-        }}
-      />
-    ),
+    // 미리보기 모양에서는 숨긴 섹션만 다시 켤 수 있게 눈 스위치를 보인다.
+    sectionControl: (id: string, label: string) =>
+      emptyHint && !hiddenSectionIds.includes(id) ? null : (
+        <SectionSwitch
+          accessibilityLabel={`${label} 표시`}
+          value={!hiddenSectionIds.includes(id)}
+          disabled={busy || uploading}
+          onValueChange={(value) => {
+            onHiddenSectionsChange(
+              value
+                ? hiddenSectionIds.filter((x) => x !== id)
+                : [...hiddenSectionIds, id],
+            );
+            setSelected(null);
+            setPicker(null);
+            setMoving(null);
+          }}
+        />
+      ),
     text: (
       m: Omit<CanvasModule, "enabled">,
       index: number,
@@ -161,9 +169,20 @@ export function PageCanvas({
           );
         }}
         value={m.texts[index].value}
-        editable={!busy && !uploading}
+        // 새 상품 채우기 화면에서는 상세 맨 위 제목을 위 상품명 칸 하나로만 고친다(저장 때 같은 값으로 맞춤).
+        editable={
+          !busy &&
+          !uploading &&
+          !(emptyHint && m.texts[index].fieldKey === "name")
+        }
         maxLength={3000}
-        placeholder="내용을 입력해주세요"
+        placeholder={
+          emptyHint
+            ? m.texts[index].fieldKey === "name"
+              ? "위 상품명이 여기에 들어가요"
+              : "여기를 채워 주세요"
+            : "내용을 입력해주세요"
+        }
         placeholderTextColor="#B5B5B5"
         style={{
           fontFamily: tokens.fontFamily,
@@ -177,8 +196,20 @@ export function PageCanvas({
           minHeight: 40,
           height: heights[`${m.id}:${index}`],
           borderWidth: 1,
-          borderColor: selected === m.id ? tokens.color.border : "transparent",
-          borderRadius: 4,
+          ...(emptyHint &&
+          m.texts[index].fieldKey !== "name" &&
+          !m.texts[index].value.trim() &&
+          selected !== m.id
+            ? {
+                borderStyle: "dashed" as const,
+                borderColor: tokens.color.textMuted,
+                borderRadius: 8,
+              }
+            : {
+                borderColor:
+                  selected === m.id ? tokens.color.border : "transparent",
+                borderRadius: 4,
+              }),
         }}
         onFocus={() => activate(m.id)}
         onChangeText={(value) =>
@@ -233,40 +264,44 @@ export function PageCanvas({
                 />
               </Pressable>
             )}
-            {removeButton(`${title(m.id)} 사진 ${i + 1} 제외`, () =>
-              update(m.id, (n) => {
-                n.photos.splice(i, 1);
-              }),
-            )}
+            {/* 미리보기 모양(emptyHint)에서는 카드를 눌러 고를 때만 편집 조작을 보인다. */}
+            {(!emptyHint || selected === m.id) &&
+              removeButton(`${title(m.id)} 사진 ${i + 1} 제외`, () =>
+                update(m.id, (n) => {
+                  n.photos.splice(i, 1);
+                }),
+              )}
           </View>
         ))}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${title(m.id)} 사진 추가`}
-          disabled={busy || uploading}
-          onPress={() => setPicker(picker === m.id ? null : m.id)}
-          style={{
-            minHeight: 104,
-            borderWidth: 1,
-            borderStyle: "dashed",
-            borderColor: tokens.color.border,
-            borderRadius: 12,
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            marginVertical: 8,
-          }}
-        >
-          <Icon
-            name="plus"
-            size={22}
-            color={tokens.color.textMuted}
-            strokeWidth={1.5}
-          />
-          <T variant="caption" muted>
-            사진 추가
-          </T>
-        </Pressable>
+        {!emptyHint || selected === m.id || !m.photos.length ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${title(m.id)} 사진 추가`}
+            disabled={busy || uploading}
+            onPress={() => setPicker(picker === m.id ? null : m.id)}
+            style={{
+              minHeight: 104,
+              borderWidth: 1,
+              borderStyle: "dashed",
+              borderColor: tokens.color.border,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              marginVertical: 8,
+            }}
+          >
+            <Icon
+              name="plus"
+              size={22}
+              color={tokens.color.textMuted}
+              strokeWidth={1.5}
+            />
+            <T variant="caption" muted>
+              사진 추가
+            </T>
+          </Pressable>
+        ) : null}
         {selected === m.id ? (
           <View style={{ gap: 8 }}>
             {m.photos.map((p, i) => (
@@ -404,6 +439,7 @@ export function PageCanvas({
           style={{ gap: 8, marginHorizontal: m.id === "hero" ? 24 : 0 }}
         >
           {isActive &&
+            (!emptyHint || selected === m.id) &&
             removeButton(`${title(m.id)} 제외`, () => {
               update(m.id, (n) => {
                 n.enabled = false;
@@ -411,6 +447,7 @@ export function PageCanvas({
               setSelected(null);
               setPicker(null);
             })}
+          {badge?.(m.id)}
           <View
             testID={`canvas-content-${m.id}`}
             style={{ opacity: isActive ? 1 : 0.45 }}
@@ -452,13 +489,16 @@ export function PageCanvas({
   };
   return (
     <View style={{ gap: 12 }}>
-      <T muted variant="sub">
-        문구를 눌러 수정하고, + 칸에서 사진을 추가하세요. 눈 아이콘으로 공개
-        여부를 바꿀 수 있어요. 내용을 비워놓은 부분은 구매자에게 표시되지
-        않아요.
-      </T>
+      {emptyHint ? null : (
+        <T muted variant="sub">
+          문구를 눌러 수정하고, + 칸에서 사진을 추가하세요. 눈 아이콘으로 공개
+          여부를 바꿀 수 있어요. 내용을 비워놓은 부분은 구매자에게 표시되지
+          않아요.
+        </T>
+      )}
       {error ? <T color={tokens.color.error}>{error}</T> : null}
-      {representativeUri ? (
+      {/* 미리보기 모양에서는 대표사진을 페이지 맨 위(ProductPageBody)가 그린다. */}
+      {representativeUri && !emptyHint ? (
         <Photo
           uri={media(representativeUri)}
           width="100%"

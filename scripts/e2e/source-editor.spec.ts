@@ -473,10 +473,13 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   await page.goto(`${producerUrl}/products/new`);
   const materials = page.getByTestId("source-material-box");
   const photos = page.getByTestId("product-photo-box");
+  // 새 상품은 한 화면 편집 + 하단 AI 시트(DEV-184)
   const start = page.getByRole("button", {
-    name: "자료 준비·분석 시작",
+    name: "AI로 채우기",
     exact: true,
   });
+  const openSheet = () =>
+    page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
   await expect(page.getByLabel("과일 품종명")).toHaveAttribute(
     "placeholder",
     "예: 온주밀감",
@@ -537,6 +540,7 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
     cards.last().getByRole("button", { name: "대표사진", exact: true }),
   ).toBeVisible();
   await page.reload();
+  await openSheet();
   await expect(
     cards.last().getByRole("button", { name: "대표사진", exact: true }),
   ).toBeVisible();

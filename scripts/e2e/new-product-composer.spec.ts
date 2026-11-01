@@ -1,0 +1,177 @@
+import { test, expect } from "./fixtures";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+import { apiUrl, loginProducer, monitor, producerUrl } from "./helpers";
+
+// DEV-184 새 상품 한 화면 편집 + 하단 AI 시트
+const sourceEnabled = process.env.SOURCE_ANALYSIS_ENABLED === "true";
+const shots = process.env.FARMCLUB_INTEGRATION_ARTIFACTS;
+function work() {
+  const cwd = path.resolve("server");
+  execFileSync(
+    path.join(cwd, ".venv/bin/python"),
+    [
+      "-c",
+      "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
+    ],
+    { cwd, env: process.env, timeout: 120000, stdio: "pipe" },
+  );
+}
+for (const width of [360, 390, 430]) {
+  test(`DEV-184 AC-03-1/AC-SRC-11 ${width}px: new product opens one editor and AI sheet fills it`, async ({
+    page,
+  }) => {
+    test.skip(
+      !sourceEnabled,
+      "Requires explicitly enabled local source API and worker database",
+    );
+    test.setTimeout(120000);
+    await page.setViewportSize({ width, height: 850 });
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    await page.goto(`${producerUrl}/products`);
+    await page.getByRole("button", { name: "새 상품", exact: true }).click();
+    // 중간 화면 없이 편집 화면 + 펼쳐진 시트
+    await expect(page).toHaveURL(/composer=1/);
+    await expect(page.getByTestId("product-basic-info")).toBeVisible();
+    await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
+    await expect(
+      page.getByRole("button", { name: "상품사진 추가", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "AI로 채우기", exact: true }),
+    ).toBeDisabled();
+    if (shots && width === 390)
+      await page.screenshot({ path: `${shots}/dev184-1-open.png` });
+    // 사진이 첨부함 맨 앞
+    const boxes = await page
+      .locator(
+        '[data-testid="product-photo-box"], [data-testid="source-material-box"]',
+      )
+      .evaluateAll((els) => els.map((el) => el.getAttribute("data-testid")));
+    expect(boxes).toEqual(["product-photo-box", "source-material-box"]);
+
+    const chooser = page.waitForEvent("filechooser");
+    await page
+      .getByRole("button", { name: "상품사진 추가", exact: true })
+      .click();
+    await (
+      await chooser
+    ).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
+    await page
+      .getByRole("button", { name: "텍스트 추가", exact: true })
+      .click();
+    await page
+      .getByLabel("첨부 내용")
+      .fill("테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.");
+    await page.getByLabel("첨부 내용").blur();
+    await expect(
+      page.getByRole("button", { name: "텍스트 내용 수정", exact: true }),
+    ).toBeVisible();
+    // 품종은 기본 정보 칸에서 한 번만 입력
+    await page.getByRole("button", { name: "사진·자료 접기" }).first().click();
+    // 손가락·마우스로 접은 뒤에는 포커스 테두리가 남지 않는다(키보드 포커스만 표시)
+    await expect(
+      page.getByRole("button", { name: "사진·자료 펼치기" }),
+    ).toHaveCSS("outline-style", "none");
+    if (shots && width === 390)
+      await page.screenshot({ path: `${shots}/dev184-0-collapsed.png` });
+    await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
+    await page.getByLabel("과일 품종명", { exact: true }).blur();
+    await page.getByLabel("원산지", { exact: true }).fill("제주 서귀포");
+    await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await expect(page.getByText("상품사진 1장 · 자료 1개")).toBeVisible();
+    await page
+      .getByRole("button", { name: "AI로 채우기", exact: true })
+      .click();
+
+    // 분석 중: 시트가 접히고 상세페이지 자리에 진행 안내
+    await expect(page.getByTestId("source-analysis-status")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "다음: 판매·가격", exact: true }),
+    ).toBeDisabled();
+    if (shots && width === 390)
+      await page.screenshot({ path: `${shots}/dev184-2-working.png` });
+    work();
+    await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, {
+      timeout: 15000,
+    });
+    await expect(page.getByTestId("ai-filled-badge").first()).toBeVisible();
+    if (shots && width === 390) {
+      await page.screenshot({ path: `${shots}/dev184-3-filled.png` });
+      await page
+        .getByTestId("ai-filled-badge")
+        .first()
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${shots}/dev184-3b-detail.png` });
+    }
+    // 기본값 칸만 AI 값으로 채움(상품명·보관), 가격은 채우지 않음(AC-03-1)
+    await expect(page.getByLabel("상품명", { exact: true })).toHaveValue(
+      "테스트 감귤",
+    );
+    await expect(page.getByLabel("보관", { exact: true })).toHaveValue(
+      "서늘한 곳에 보관해 주세요.",
+    );
+    await expect(page.getByText(/AI가 채웠어요/)).toHaveCount(2);
+    await expect(
+      page
+        .getByTestId("product-basic-info")
+        .getByRole("textbox", { name: /가격/ }),
+    ).toHaveCount(0);
+    // 저장하지 않은 상세 수정은 AI로 다시 채워도 남는다(AC-SRC-11)
+    const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+    await summary.fill("농부가 직접 고친 한 줄 소개");
+    await summary.blur();
+    await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await page
+      .getByRole("button", { name: "AI로 다시 채우기", exact: true })
+      .click();
+    await expect(page.getByTestId("source-analysis-status")).toBeVisible();
+    work();
+    await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, {
+      timeout: 15000,
+    });
+    await expect(summary).toHaveValue("농부가 직접 고친 한 줄 소개");
+    // 분석 뒤 기본 정보를 바꿔도(reviewVersion 증가) 임시 저장·적용이 막히지 않는다
+    await page.getByLabel("사이즈", { exact: true }).fill("중과");
+    await page.getByLabel("사이즈", { exact: true }).blur();
+    // 직접 입력한 원산지는 그대로, 가격 칸은 이 화면에 없다
+    await expect(page.getByLabel("원산지", { exact: true })).toHaveValue(
+      "제주 서귀포",
+    );
+    await page.getByLabel("상품명", { exact: true }).fill("서귀포 노지 감귤");
+
+    // 임시 저장은 비공개, 다음은 (판매 전 상품이라 확인 없이) 상세를 반영하고 판매·가격으로
+    await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+    await expect(page.getByText(/비공개로 저장했어요/)).toBeVisible();
+    await page
+      .getByRole("button", { name: "다음: 판매·가격", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
+    const token = await page.evaluate(
+      () => Object.entries(localStorage).find(([k]) => /token/i.test(k))?.[1],
+    );
+    const sellId = page.url().match(/products\/([^/]+)\/sell/)![1];
+    const mine = await (
+      await page.request.get(`${apiUrl}/api/products/mine/${sellId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ).json();
+    expect([mine.name, mine.variety, mine.info.origin]).toEqual([
+      "서귀포 노지 감귤",
+      "온주밀감",
+      "제주 서귀포",
+    ]);
+    expect(mine.moduleDetail?.modules?.length).toBeGreaterThan(0);
+    // 판매 승인 전이라 공개 상세는 없다(적용 ≠ 공개)
+    const id = sellId;
+    const pub = await page.request.get(`${apiUrl}/api/products/${id}`);
+    expect(pub.status()).toBe(404);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      ),
+    ).toBeLessThanOrEqual(0);
+    clean();
+  });
+}

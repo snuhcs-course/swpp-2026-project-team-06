@@ -41,15 +41,15 @@ const inputStyle = {
   color: tokens.color.text,
   backgroundColor: "white",
 };
-const panel = {
+export const panel = {
   padding: 16,
   gap: 12,
   borderWidth: 1,
   borderColor: tokens.color.border,
   borderRadius: 16,
 };
-const ACTIVE = ["QUEUED", "PREPARING", "ANALYZING", "PRIVACY_REVIEW"];
-const states: Record<string, string> = {
+export const ACTIVE = ["QUEUED", "PREPARING", "ANALYZING", "PRIVACY_REVIEW"];
+export const states: Record<string, string> = {
   QUEUED: "대기",
   PREPARING: "자료 읽는 중",
   ANALYZING: "분석 중",
@@ -62,7 +62,7 @@ const states: Record<string, string> = {
   PREPARED: "자료 준비됨",
   RUNNING: "처리 중",
 };
-function sourceError(code: string) {
+export function sourceError(code: string) {
   const messages: Record<string, string> = {
     BUDGET_EXCEEDED:
       "자료 분석 예산 한도에 도달했어요. 담당자에게 확인해 주세요.",
@@ -81,7 +81,7 @@ function sourceError(code: string) {
     "자료를 처리하지 못했어요. 내용을 확인한 후 다시 시도해 주세요."
   );
 }
-function Choice({
+export function Choice({
   label,
   selected,
   onPress,
@@ -140,7 +140,7 @@ function Field({
     </View>
   );
 }
-function DraftPreview({
+export function DraftPreview({
   batch,
   draft,
 }: {
@@ -206,10 +206,57 @@ function DraftPreview({
     </>
   );
 }
+/** 마지막 분석이 현재 첨부와 맞고 편집할 내용이 있으면 상세 편집을 연다(NewProductComposer와 공유). */
+export function canEditBatch(
+  batch: SourceBatch | null,
+  runs: SourceRun[],
+  drafts: SourceDraft[],
+  review: SourceReview | null,
+  activeRun: SourceRun | undefined,
+) {
+  return (
+    !!batch &&
+    !activeRun &&
+    (!!drafts.length ||
+      (!!runs[0] &&
+        (!runs[0].inputs?.length ||
+          (runs[0].inputs.length === batch.sources.length &&
+            runs[0].inputs.every((i) =>
+              batch.sources.some(
+                (s) =>
+                  s.id === i.id &&
+                  s.revision === i.revision &&
+                  (s.description || "") === i.description,
+              ),
+            ))) &&
+        (["SUCCEEDED", "PARTIAL"].includes(runs[0].status) ||
+          (runs[0].status === "FAILED" &&
+            batch.sources.some(
+              (s) => s.originalPhoto && s.status === "PREPARED",
+            ))) &&
+        batch.sources
+          .filter((s) => !s.originalPhoto)
+          .every((s) =>
+            runs[0].items.some(
+              (i) => i.assetId === s.id && i.revision === s.revision,
+            ),
+          ) &&
+        (batch.sources.some(
+          (s) => s.originalPhoto && s.status === "PREPARED",
+        ) ||
+          !!review?.editorFields?.some(
+            (e) =>
+              e.status === "ready" &&
+              (e.field.value || e.field.photoAssetIds.length),
+          ))))
+  );
+}
 export function SourceWorkspace() {
   useHideTabBar();
   const flushAttachments = useRef<(() => Promise<void>) | null>(null);
-  const saveEditor = useRef<(() => void) | null>(null);
+  const saveEditor = useRef<
+    ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null
+  >(null);
   const router = useRouter(),
     navigation = useNavigation(),
     { batchId } = useLocalSearchParams<{ batchId?: string }>();
@@ -350,41 +397,7 @@ export function SourceWorkspace() {
     }, 2500);
     return () => clearInterval(timer);
   }, [batchId, runs, load]);
-  const canEdit =
-    !!batch &&
-    !activeRun &&
-    (!!drafts.length ||
-      (!!runs[0] &&
-        (!runs[0].inputs?.length ||
-          (runs[0].inputs.length === batch.sources.length &&
-            runs[0].inputs.every((i) =>
-              batch.sources.some(
-                (s) =>
-                  s.id === i.id &&
-                  s.revision === i.revision &&
-                  (s.description || "") === i.description,
-              ),
-            ))) &&
-        (["SUCCEEDED", "PARTIAL"].includes(runs[0].status) ||
-          (runs[0].status === "FAILED" &&
-            batch.sources.some(
-              (s) => s.originalPhoto && s.status === "PREPARED",
-            ))) &&
-        batch.sources
-          .filter((s) => !s.originalPhoto)
-          .every((s) =>
-            runs[0].items.some(
-              (i) => i.assetId === s.id && i.revision === s.revision,
-            ),
-          ) &&
-        (batch.sources.some(
-          (s) => s.originalPhoto && s.status === "PREPARED",
-        ) ||
-          !!review?.editorFields?.some(
-            (e) =>
-              e.status === "ready" &&
-              (e.field.value || e.field.photoAssetIds.length),
-          ))));
+  const canEdit = canEditBatch(batch, runs, drafts, review, activeRun);
   return (
     <Screen>
       <HeaderBar title="판매페이지 만들기" onBack={() => router.back()} />
