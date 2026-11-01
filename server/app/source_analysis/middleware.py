@@ -42,7 +42,9 @@ class SourceRequestMiddleware:
         async def private_send(message):
             if message["type"] == "http.response.start":
                 headers = [
-                    (k, v) for k, v in message.get("headers", []) if k.lower() != b"cache-control"
+                    (k, v)
+                    for k, v in message.get("headers", [])
+                    if k.lower() not in (b"cache-control", b"x-content-type-options")
                 ]
                 message["headers"] = headers + [
                     (b"cache-control", b"no-store"),

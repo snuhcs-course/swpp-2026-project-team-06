@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, date, datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.accounts.models import ShippingAddress, User
@@ -864,6 +865,34 @@ def clear(session: Session) -> None:
         session.execute(delete(table))
 
 
+def seed_product(session: Session, product_id: str) -> Product:
+    """Insert or restore one seed product, including omitted defaults and NULLs.
+
+    Upsert keeps the product identity (and existing order FKs). PostgreSQL's
+    excluded row includes the same SQLAlchemy defaults as a fresh seed insert.
+    The caller owns the transaction and any non-seed source rows/files.
+    """
+    fields = next(fields for fields, _, _ in PRODUCTS if fields["id"] == product_id)
+    if fields.get("status") in ("PUBLISHED", "CLOSED"):
+        fields = {
+            **fields,
+            "approved_supply_grams": CAPACITY[product_id],
+            "sales_limit_grams": CAPACITY[product_id],
+        }
+    statement = insert(Product).values(
+        **{"info": KANG_INFO, "updated_at": at("2026-10-06"), **fields}
+    )
+    statement = statement.on_conflict_do_update(
+        index_elements=[Product.id],
+        set_={
+            column.name: statement.excluded[column.name]
+            for column in Product.__table__.c
+            if column.name != "id"
+        },
+    ).returning(Product)
+    return session.scalars(statement.execution_options(populate_existing=True)).one()
+
+
 def seed(session: Session) -> None:
     created = at("2026-09-01")
     for uid, name, role in TEST_USERS:
@@ -881,16 +910,8 @@ def seed(session: Session) -> None:
     weights: dict[tuple[str, str], int] = {}
     for fields, options, stages in PRODUCTS:
         product_id = fields["id"]
-        if fields.get("status") in ("PUBLISHED", "CLOSED"):
-            fields = {
-                **fields,
-                "approved_supply_grams": CAPACITY[product_id],
-                "sales_limit_grams": CAPACITY[product_id],
-            }
-        p = Product(**{"info": KANG_INFO, "updated_at": at("2026-10-06"), **fields})
-        session.add(p)
+        p = seed_product(session, product_id)
         products[p.id] = p
-        session.flush()
         for i, (oid, label, kg, note) in enumerate(options):
             weights[(p.id, oid)] = round(kg * 1000)
             session.add(

@@ -504,6 +504,12 @@ def test_AC_SRC_8_read_body_limit_and_noncacheable(client, login):
     batch = create(client, h)
     response = client.get(f"{PREFIX}/{batch['id']}", headers=h)
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers.get_list("x-content-type-options") == ["nosniff"]
+    source = upload(client, h, batch)
+    content = client.get(f"{PREFIX}/{batch['id']}/sources/{source['id']}/content", headers=h)
+    assert content.status_code == 200
+    assert content.headers["cache-control"] == "no-store"
+    assert content.headers.get_list("x-content-type-options") == ["nosniff"]
 
 
 def test_AC_SRC_3_unsupported_number_rejected():

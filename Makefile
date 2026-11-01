@@ -93,6 +93,7 @@ test-admin: ## Admin page tests (CI admin-web job)
 test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 	npm run test:integration:full
 
+# Includes producer-format-flow.spec.ts (DEV-171); see docs/evaluation/i3-t12-producer-flow.md.
 test-e2e: ## Chromium only, against an already-running real stack
 	npm run test:e2e
 
