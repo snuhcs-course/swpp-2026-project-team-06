@@ -1,12 +1,13 @@
 // 새 상품 한 화면 편집(DEV-184): 기본 정보 + 상세페이지를 한 스크롤에 두고,
 // 사진·자료는 아래에 붙은 AI 시트에서 넣는다. 비공개 저장과 명시적 적용은 그대로 나눈다.
-import { SourceBasicInfo } from "./SourceBasicInfo";
+import { useSourceBasicInfo, type BasicInfoKey } from "./SourceBasicInfo";
 import { SourceAttachments } from "./SourceAttachments";
 import {
   catalog,
   farms,
   isMock,
   newIdempotencyKey,
+  sourcePageImage,
   sourceAnalysis as api,
   type MyProduct,
   type ProductOption,
@@ -21,6 +22,8 @@ import {
   HeaderBar,
   Icon,
   PeekSheet,
+  Photo,
+  ProductPageBody,
   Screen,
   Scroll,
   Sheet,
@@ -43,6 +46,7 @@ import {
 } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
+import { toPageData } from "./BuyerPreview";
 import { useHideTabBar } from "./session";
 import {
   ACTIVE,
@@ -107,6 +111,8 @@ function FillInput({
   maxLength,
   editable = true,
   title = false,
+  onBlur,
+  numeric = false,
 }: {
   label: string;
   value: string;
@@ -115,6 +121,8 @@ function FillInput({
   maxLength: number;
   editable?: boolean;
   title?: boolean;
+  onBlur?: () => void;
+  numeric?: boolean;
 }) {
   const empty = !value.trim();
   return (
@@ -126,12 +134,16 @@ function FillInput({
       maxLength={maxLength}
       editable={editable}
       onChangeText={onChange}
+      onBlur={onBlur}
+      keyboardType={numeric ? "decimal-pad" : "default"}
       style={{
         fontFamily: tokens.fontFamily,
-        fontSize: title ? 22 : 15,
+        // 제목은 구매자 화면 상품명(T title)과 같은 크기·자간
+        fontSize: title ? tokens.fontSize.title : 15,
+        ...(title ? { letterSpacing: -0.68 } : {}),
         fontWeight: title ? "700" : "400",
         color: tokens.color.text,
-        minHeight: title ? 48 : 40,
+        minHeight: title ? tokens.lineHeight.title + 12 : 40,
         paddingHorizontal: 8,
         paddingVertical: 6,
         borderRadius: 8,
@@ -143,13 +155,30 @@ function FillInput({
     />
   );
 }
-function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+/** 기본 정보 훅을 batch가 있을 때만 쓰기 위한 감싸개(훅은 조건부로 부를 수 없다). */
+function BasicInfo({
+  children,
+  ...options
+}: Parameters<typeof useSourceBasicInfo>[0] & {
+  children: (basic: ReturnType<typeof useSourceBasicInfo>) => ReactNode;
+}) {
+  return <>{children(useSourceBasicInfo(options))}</>;
+}
+/** 채우기 화면에서 아직 정할 수 없는 자리(가격·받는 시기)를 알리는 점선 칸. */
+function LaterNote({ text }: { text: string }) {
   return (
-    <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-      <T variant="sub" muted style={{ width: 80, paddingTop: 10 }}>
-        {label}
+    <View
+      style={{
+        borderWidth: 1,
+        borderStyle: "dashed",
+        borderColor: tokens.color.border,
+        borderRadius: 8,
+        padding: 12,
+      }}
+    >
+      <T variant="sub" muted>
+        {text}
       </T>
-      <View style={{ flex: 1, gap: 4 }}>{children}</View>
     </View>
   );
 }
@@ -187,6 +216,47 @@ export function NewProductComposer() {
       .then((f) => alive.current && setFarmName(f.name))
       .catch(() => {});
   }, []);
+  // 대표사진(인증 blob). 채우기 화면 맨 위에 구매자 화면처럼 보인다.
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverFailed, setCoverFailed] = useState(false);
+  // 편집기·첨부함과 같은 대표사진 선택식(SourceDetailsEditor·SourceAttachments).
+  const coverTarget = batch?.targets[0];
+  const cover =
+    batch && coverTarget
+      ? batch.sources.find(
+          (s) =>
+            s.id ===
+            (coverTarget.representativeAssetId ||
+              batch.sources.find(
+                (p) =>
+                  p.originalPhoto &&
+                  (p.common || p.targetIds.includes(coverTarget.id)),
+              )?.id),
+        )
+      : undefined;
+  const coverId = cover?.status === "PREPARED" ? cover.id : null;
+  const coverRevision = cover?.revision;
+  useEffect(() => {
+    setCoverUrl(null);
+    setCoverFailed(false);
+    if (!batch || !coverId) return;
+    let alive = true;
+    let url = "";
+    void sourcePageImage(batch.id, coverId, 1)
+      .then((u) => {
+        url = u;
+        if (alive) setCoverUrl(u);
+        else URL.revokeObjectURL(u);
+      })
+      .catch(() => {
+        // 못 불러오면 '불러오는 중'에 머물지 않고 사진 넣기 칸으로 돌아간다.
+        if (alive) setCoverFailed(true);
+      });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [batch?.id, coverId, coverRevision]);
   const [product, setProduct] = useState<MyProduct | null>(null),
     [form, setForm] = useState<ProductForm | null>(null);
   // 생산자가 손댄 칸은 AI가 다시 채우지 않는다. aiFilled는 배지 표시용.
@@ -594,7 +664,12 @@ export function NewProductComposer() {
         label="서버 상태 다시 확인"
         variant="outline"
         disabled={busy}
-        onPress={() => mutate(load)}
+        // 상품을 못 불러온 경우도 여기서 다시 시도한다(채우기 화면은 상품이 있어야 그려진다).
+        onPress={() =>
+          mutate(async () => {
+            await Promise.all([load(), reloadProduct()]);
+          })
+        }
       />
     </View>
   ) : null;
@@ -604,233 +679,387 @@ export function NewProductComposer() {
     <Screen>
       <HeaderBar title={title} onBack={() => router.back()} />
       <Scroll bottom={batch ? 240 : 40}>
-        <View style={{ padding: tokens.space.gutter, gap: tokens.space.lg }}>
-          {sheetOpen ? null : errorPanel}
-          {notice ? (
-            <View accessibilityRole="alert">
-              <T>{notice}</T>
-            </View>
-          ) : null}
-          {isMock ? (
+        {/* 미리보기와 같은 구매자 화면(ProductPageBody)에서 빈 칸만 점선으로, 누르면 그 자리에서 고친다(DEV-184). */}
+        {(sheetOpen ? null : errorPanel) || notice ? (
+          <View style={{ padding: tokens.space.gutter, gap: 8 }}>
+            {sheetOpen ? null : errorPanel}
+            {notice ? (
+              <View accessibilityRole="alert">
+                <T>{notice}</T>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+        {isMock ? (
+          <View style={{ padding: tokens.space.gutter }}>
             <T>
               자료 분석은 로컬 API 검증 환경에서 사용할 수 있어요. 현재 데모
               화면은 서버에 연결되지 않았어요.
             </T>
-          ) : !batchId ? (
-            <>
-              <T>열 상품을 찾지 못했어요. 상품 목록에서 다시 골라 주세요.</T>
-              <Button
-                label="상품 목록으로"
-                variant="outline"
-                onPress={() => router.replace("/products")}
-              />
-            </>
-          ) : !batch ? (
-            <T>상품 불러오는 중…</T>
-          ) : (
-            <>
-              {/* 구매자 상품 페이지 순서(SCR-04): 사진 → 농가 → 상품명 → 가격 → 상세 스토리 → 상품정보.
-                  빈 칸만 점선 네모로 보이고 눌러서 바로 쓴다(DEV-184). */}
-              {!showEditor || working ? (
-                <Pressable
-                  testID="hero-placeholder"
-                  accessibilityRole="button"
-                  accessibilityLabel="대표 사진 넣기"
-                  onPress={() => setSheetOpen(true)}
-                  style={{
-                    height: 200,
-                    borderWidth: 1.5,
-                    // 빈 칸만 점선. 사진이 들어가면 실선(분석 뒤에는 상세 스토리 맨 위에 사진이 보인다).
-                    borderStyle: hasPhoto ? "solid" : "dashed",
-                    borderColor: hasPhoto
-                      ? tokens.color.border
-                      : tokens.color.textMuted,
-                    borderRadius: 16,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
-                >
-                  <Icon name="photo" size={28} color={tokens.color.accent} />
-                  <T weight="semibold">
-                    {hasPhoto
-                      ? "대표 사진이 들어갔어요"
-                      : "대표 사진을 넣어 주세요"}
-                  </T>
-                  <T variant="caption" muted>
-                    아래 &apos;사진·자료&apos;에서 넣어요
-                  </T>
-                </Pressable>
-              ) : null}
-              <View style={{ gap: 8 }}>
-                {farmName ? (
-                  <T
-                    variant="sub"
-                    weight="semibold"
-                    color={tokens.color.accent}
-                  >
-                    {farmName} ›
-                  </T>
-                ) : null}
-                {form ? (
-                  <>
-                    <FillInput
-                      label="상품명"
-                      value={form.name}
-                      placeholder={
-                        working ? "AI가 채우는 중…" : "상품 이름을 적어 주세요"
-                      }
-                      title
-                      maxLength={40}
-                      editable={!busy}
-                      onChange={(v) => setField("name", v)}
-                    />
-                    {aiFilled.includes("name") ? <AiBadge /> : null}
-                  </>
-                ) : productId ? (
-                  <Skeleton width="100%" height={40} />
-                ) : (
-                  <T variant="caption" muted>
-                    예전 방식의 자료 작업이에요. 상품 정보는 상품 편집 화면에서
-                    고쳐 주세요.
-                  </T>
-                )}
-                <T variant="sub" muted>
-                  가격·받는 시기는 다음 단계에서 정해요
+          </View>
+        ) : !batchId ? (
+          <View style={{ padding: tokens.space.gutter, gap: 12 }}>
+            <T>열 상품을 찾지 못했어요. 상품 목록에서 다시 골라 주세요.</T>
+            <Button
+              label="상품 목록으로"
+              variant="outline"
+              onPress={() => router.replace("/products")}
+            />
+          </View>
+        ) : !batch || !product || !form || !target ? (
+          <View style={{ padding: tokens.space.gutter, gap: 12 }}>
+            {batch && (!target || !productId) ? (
+              <>
+                <T variant="caption" muted>
+                  예전 방식(상품이 연결되지 않았거나 여러 상품)의 자료
+                  작업이에요. 이 화면 대신 자료 작업 화면에서 고쳐 주세요.
                 </T>
-              </View>
-              <View testID="product-detail-page" style={{ gap: 12 }}>
-                {working ? (
-                  <View
-                    testID="source-analysis-status"
-                    accessibilityLiveRegion="polite"
-                    style={{ gap: 12 }}
-                  >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 10,
-                      }}
-                    >
-                      <ActivityIndicator color={tokens.color.accent} />
-                      <T variant="sub" muted>
-                        {activeRun?.status === "PREPARING"
-                          ? "올려주신 자료를 읽고 있어요."
-                          : "AI가 자료를 보고 상세페이지를 쓰고 있어요. 잠시만 기다려 주세요."}
+                <Button
+                  label="자료 작업 화면으로"
+                  variant="outline"
+                  onPress={() =>
+                    router.replace({
+                      pathname: "/products/source-analysis",
+                      params: { batchId: batch.id },
+                    })
+                  }
+                />
+              </>
+            ) : (
+              <>
+                <Skeleton width="100%" height={244} />
+                <Skeleton width="60%" height={28} />
+              </>
+            )}
+          </View>
+        ) : (
+          <BasicInfo
+            key={batch.id}
+            batch={batch}
+            flushRef={flushBasicInfo}
+            onDirty={(dirty) => {
+              setBasicDirty(dirty);
+              if (dirty) setError("");
+            }}
+            onSaved={(b) => {
+              setBatch(b);
+              // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
+              if (review)
+                void load().catch((e) => {
+                  if (alive.current) setError(String(e));
+                });
+            }}
+          >
+            {(basic) => {
+              const values = basic.inputs[target.id] ?? {
+                variety: "",
+                size: "",
+                brix: "",
+              };
+              const locked = busy || !!activeRun || editorDirty;
+              const basicField = (
+                key: BasicInfoKey,
+                label: string,
+                placeholder: string,
+                maxLength: number,
+              ) => (
+                <FillInput
+                  label={label}
+                  value={values[key]}
+                  placeholder={placeholder}
+                  maxLength={maxLength}
+                  editable={!locked}
+                  numeric={key === "brix"}
+                  onChange={(v) => basic.change(target.id, key, v)}
+                  onBlur={basic.blur}
+                />
+              );
+              return (
+                <View testID="product-basic-info">
+                  <ProductPageBody
+                    p={toPageData(
+                      {
+                        ...product,
+                        name: form.name,
+                        info: {
+                          ...product.info,
+                          origin: form.origin,
+                          storage: form.storage,
+                          size: values.size,
+                        },
+                      },
+                      farmName,
+                      0,
+                    )}
+                    reference={() => null}
+                    slots={{
+                      photo:
+                        coverUrl || (hasPhoto && !coverFailed) ? (
+                          !coverUrl ? (
+                            <View
+                              testID="hero-photo"
+                              style={{
+                                height: 244,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                backgroundColor: tokens.color.surface,
+                              }}
+                            >
+                              <T variant="sub" muted>
+                                대표 사진 불러오는 중…
+                              </T>
+                            </View>
+                          ) : (
+                            <Pressable
+                              testID="hero-photo"
+                              accessibilityRole="button"
+                              accessibilityLabel="대표 사진 바꾸기"
+                              onPress={() => setSheetOpen(true)}
+                            >
+                              <Photo
+                                uri={coverUrl}
+                                width="100%"
+                                height={244}
+                                radius={0}
+                                alt="대표사진"
+                              />
+                            </Pressable>
+                          )
+                        ) : (
+                          <Pressable
+                            testID="hero-placeholder"
+                            accessibilityRole="button"
+                            accessibilityLabel="대표 사진 넣기"
+                            onPress={() => setSheetOpen(true)}
+                            style={{
+                              height: 244,
+                              margin: 12,
+                              borderWidth: 1.5,
+                              borderStyle: "dashed",
+                              borderColor: tokens.color.textMuted,
+                              borderRadius: 16,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <Icon
+                              name="photo"
+                              size={28}
+                              color={tokens.color.accent}
+                            />
+                            <T weight="semibold">대표 사진을 넣어 주세요</T>
+                            <T variant="caption" muted>
+                              아래 &apos;사진·자료&apos;에서 넣어요
+                            </T>
+                          </Pressable>
+                        ),
+                      name: (
+                        <View style={{ gap: 4 }}>
+                          <FillInput
+                            label="상품명"
+                            value={form.name}
+                            placeholder={
+                              working
+                                ? "AI가 채우는 중…"
+                                : "상품 이름을 적어 주세요"
+                            }
+                            title
+                            maxLength={40}
+                            editable={!busy}
+                            onChange={(v) => setField("name", v)}
+                          />
+                          {aiFilled.includes("name") ? <AiBadge /> : null}
+                        </View>
+                      ),
+                      subName: (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <T variant="sub" muted>
+                            품종 *
+                          </T>
+                          <View style={{ flex: 1 }}>
+                            {basicField(
+                              "variety",
+                              "과일 품종명",
+                              "예: 온주밀감",
+                              100,
+                            )}
+                          </View>
+                        </View>
+                      ),
+                      sale: (
+                        <LaterNote text="받는 시기·가격·배송비는 다음 단계(판매·가격)에서 정해요" />
+                      ),
+                      story: (
+                        <View testID="product-detail-page" style={{ gap: 12 }}>
+                          {working ? (
+                            <View
+                              testID="source-analysis-status"
+                              accessibilityLiveRegion="polite"
+                              style={{ gap: 12, padding: 20 }}
+                            >
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 10,
+                                }}
+                              >
+                                <ActivityIndicator
+                                  color={tokens.color.accent}
+                                />
+                                <T variant="sub" muted>
+                                  {activeRun?.status === "PREPARING"
+                                    ? "올려주신 자료를 읽고 있어요."
+                                    : "AI가 자료를 보고 상세페이지를 쓰고 있어요. 잠시만 기다려 주세요."}
+                                </T>
+                              </View>
+                              <Skeleton width="100%" height={220} radius={16} />
+                              <Skeleton width="70%" height={20} />
+                              <Skeleton width="90%" height={20} />
+                            </View>
+                          ) : showEditor && review ? (
+                            <>
+                              <SourceDetailsEditor
+                                key={batch.id}
+                                emptyHint
+                                displayName={
+                                  DEFAULT_NAMES.includes(form.name.trim())
+                                    ? undefined
+                                    : form.name.trim()
+                                }
+                                batch={batch}
+                                review={review}
+                                drafts={drafts}
+                                saveRef={saveEditor}
+                                onDirty={setEditorDirty}
+                                onBusy={editorBusy}
+                                onSaved={async () => {
+                                  await load();
+                                }}
+                              />
+                              {review.candidates.some(
+                                (c) =>
+                                  c.historical ||
+                                  c.fieldKey === "historicalSales",
+                              ) ? (
+                                <View style={{ ...panel, margin: 20 }}>
+                                  <T>
+                                    과거 판매 정보 · 상세에 자동 반영하지 않아요
+                                  </T>
+                                  {review.candidates
+                                    .filter(
+                                      (c) =>
+                                        c.historical ||
+                                        c.fieldKey === "historicalSales",
+                                    )
+                                    .map((c) => (
+                                      <T key={c.id}>{c.value}</T>
+                                    ))}
+                                </View>
+                              ) : null}
+                            </>
+                          ) : (
+                            <Pressable
+                              testID="detail-placeholder"
+                              accessibilityRole="button"
+                              accessibilityLabel="사진·자료 넣기"
+                              onPress={() => setSheetOpen(true)}
+                              style={{
+                                ...panel,
+                                margin: 20,
+                                borderStyle: "dashed",
+                                borderColor: tokens.color.textMuted,
+                                alignItems: "center",
+                                paddingVertical: 32,
+                              }}
+                            >
+                              <T weight="semibold">상세 스토리를 채워 주세요</T>
+                              <T
+                                variant="caption"
+                                muted
+                                style={{ textAlign: "center" }}
+                              >
+                                &apos;AI로 채우기&apos;를 누르면 맛·재배
+                                과정·보관 방법 같은 이야기를 AI가 써 드려요. 쓴
+                                내용은 여기서 바로 고칠 수 있어요.
+                              </T>
+                            </Pressable>
+                          )}
+                        </View>
+                      ),
+                      brix: (
+                        <View
+                          style={{
+                            paddingHorizontal: 20,
+                            paddingTop: 40,
+                            gap: 8,
+                          }}
+                        >
+                          <T variant="sub" muted>
+                            당도 예상
+                          </T>
+                          {basicField("brix", "예상 당도 (°Bx)", "예: 12.5", 8)}
+                        </View>
+                      ),
+                      info: {
+                        origin: (
+                          <View style={{ flex: 1 }}>
+                            <FillInput
+                              label="원산지"
+                              value={form.origin}
+                              placeholder="예: 제주 서귀포"
+                              maxLength={30}
+                              editable={!busy}
+                              onChange={(v) => setField("origin", v)}
+                            />
+                          </View>
+                        ),
+                        size: (
+                          <View style={{ flex: 1 }}>
+                            {basicField(
+                              "size",
+                              "사이즈",
+                              "예: 중과, 지름 6~7cm",
+                              200,
+                            )}
+                          </View>
+                        ),
+                        storage: (
+                          <View style={{ flex: 1, gap: 4 }}>
+                            <FillInput
+                              label="보관"
+                              value={form.storage}
+                              placeholder="예: 서늘한 곳"
+                              maxLength={30}
+                              editable={!busy}
+                              onChange={(v) => setField("storage", v)}
+                            />
+                            {aiFilled.includes("storage") ? <AiBadge /> : null}
+                          </View>
+                        ),
+                      },
+                      infoOpen: true,
+                    }}
+                  />
+                  {basic.error ? (
+                    <View accessibilityRole="alert" style={{ padding: 20 }}>
+                      <T variant="caption" color={tokens.color.error}>
+                        {basic.error}
                       </T>
                     </View>
-                    <Skeleton width="100%" height={220} radius={16} />
-                    <Skeleton width="70%" height={20} />
-                    <Skeleton width="90%" height={20} />
-                    <Skeleton width="80%" height={20} />
-                  </View>
-                ) : showEditor && review ? (
-                  <>
-                    <SourceDetailsEditor
-                      key={batch.id}
-                      emptyHint
-                      batch={batch}
-                      review={review}
-                      drafts={drafts}
-                      saveRef={saveEditor}
-                      onDirty={setEditorDirty}
-                      onBusy={editorBusy}
-                      onSaved={async () => {
-                        await load();
-                      }}
-                    />
-                    {review.candidates.some(
-                      (c) => c.historical || c.fieldKey === "historicalSales",
-                    ) ? (
-                      <View style={panel}>
-                        <T>과거 판매 정보 · 상세에 자동 반영하지 않아요</T>
-                        {review.candidates
-                          .filter(
-                            (c) =>
-                              c.historical || c.fieldKey === "historicalSales",
-                          )
-                          .map((c) => (
-                            <T key={c.id}>{c.value}</T>
-                          ))}
-                      </View>
-                    ) : null}
-                  </>
-                ) : (
-                  <Pressable
-                    testID="detail-placeholder"
-                    accessibilityRole="button"
-                    accessibilityLabel="사진·자료 넣기"
-                    onPress={() => setSheetOpen(true)}
-                    style={{
-                      ...panel,
-                      borderStyle: "dashed",
-                      borderColor: tokens.color.textMuted,
-                      alignItems: "center",
-                      paddingVertical: 32,
-                    }}
-                  >
-                    <T weight="semibold">상세 스토리를 채워 주세요</T>
-                    <T variant="caption" muted style={{ textAlign: "center" }}>
-                      &apos;AI로 채우기&apos;를 누르면 맛·재배 과정·보관 방법
-                      같은 이야기를 AI가 써 드려요. 쓴 내용은 여기서 바로 고칠
-                      수 있어요.
-                    </T>
-                  </Pressable>
-                )}
-              </View>
-              <View testID="product-basic-info" style={{ gap: 12 }}>
-                <T variant="heading" accessibilityRole="header">
-                  상품정보
-                </T>
-                <SourceBasicInfo
-                  key={batch.id}
-                  embedded
-                  batch={batch}
-                  disabled={busy || !!activeRun || editorDirty}
-                  flushRef={flushBasicInfo}
-                  onDirty={(dirty) => {
-                    setBasicDirty(dirty);
-                    if (dirty) setError("");
-                  }}
-                  onSaved={(b) => {
-                    setBatch(b);
-                    // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
-                    if (review)
-                      void load().catch((e) => {
-                        if (alive.current) setError(String(e));
-                      });
-                  }}
-                />
-                {form ? (
-                  <>
-                    <InfoRow label="원산지">
-                      <FillInput
-                        label="원산지"
-                        value={form.origin}
-                        placeholder="예: 제주 서귀포"
-                        maxLength={30}
-                        editable={!busy}
-                        onChange={(v) => setField("origin", v)}
-                      />
-                    </InfoRow>
-                    <InfoRow label="보관 방법">
-                      <FillInput
-                        label="보관"
-                        value={form.storage}
-                        placeholder="예: 서늘한 곳"
-                        maxLength={30}
-                        editable={!busy}
-                        onChange={(v) => setField("storage", v)}
-                      />
-                      {aiFilled.includes("storage") ? <AiBadge /> : null}
-                    </InfoRow>
-                  </>
-                ) : null}
-              </View>
-            </>
-          )}
-        </View>
+                  ) : null}
+                </View>
+              );
+            }}
+          </BasicInfo>
+        )}
       </Scroll>
       {batch ? (
         <PeekSheet
@@ -879,6 +1108,9 @@ export function NewProductComposer() {
                 disabled={
                   busy ||
                   !hasPhoto ||
+                  // 기본 정보 칸(품종 필수 검사)이 화면에 올라오기 전에는 시작하지 않는다.
+                  !form ||
+                  !productId ||
                   runs.some((r) => ACTIVE.includes(r.status))
                 }
                 onPress={start}
@@ -889,7 +1121,7 @@ export function NewProductComposer() {
                   label="임시 저장"
                   variant="secondary"
                   size="producer"
-                  disabled={busy || working}
+                  disabled={busy || working || !product || !form}
                   style={{ flex: 1 }}
                   onPress={() =>
                     mutate(async () => {
@@ -903,7 +1135,7 @@ export function NewProductComposer() {
                 <Button
                   label="다음: 판매·가격"
                   size="producer"
-                  disabled={busy || working || !productId}
+                  disabled={busy || working || !productId || !product || !form}
                   style={{ flex: 2 }}
                   onPress={() =>
                     mutate(async () => {

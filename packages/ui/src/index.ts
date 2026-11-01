@@ -84,7 +84,11 @@ export { DetailStory, StoryImage } from "./DetailStory";
 export { ModuleStory, SOURCE_MODULES } from "./ModuleStory";
 
 export { BrixReading } from "./BrixReading";
-export { ProductPageBody, type ProductPageData } from "./ProductPage";
+export {
+  ProductPageBody,
+  type ProductPageData,
+  type ProductPageSlots,
+} from "./ProductPage";
 export { LegalFooter, LegalDocument } from "./Legal";
 export { WithdrawSheet } from "./WithdrawSheet";
 export {

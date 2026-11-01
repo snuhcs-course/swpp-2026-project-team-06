@@ -16,9 +16,10 @@ import { TODAY } from "./views";
 
 const PRIVATE = "/api/source-media/";
 
-function toPageData(
+/** 생산자 값으로 구매자 화면 데이터를 만든다(미리보기·채우기 화면 공용). */
+export function toPageData(
   p: MyProduct,
-  farm: MyFarm,
+  farmName: string,
   requestedGrams: number,
 ): ProductPageData {
   const stages = [...p.stages].sort((a, b) => a.seq - b.seq);
@@ -26,7 +27,7 @@ function toPageData(
   return {
     ...p,
     photo: p.photos[0] ?? null,
-    farmName: farm.name,
+    farmName,
     deliveryWindow: p.deliveryWindow ?? { start: TODAY, end: TODAY },
     maxDelayUntil: p.maxDelayUntil ?? TODAY,
     // 승인되면 신청 물량만큼 열리고 첫 기간부터 예약을 받는다고 보고 그린다.
@@ -89,7 +90,7 @@ export function BuyerPreview({
       : uri.startsWith("/")
         ? apiUrl + uri
         : uri;
-  const data = toPageData(product, farm, requestedGrams);
+  const data = toPageData(product, farm.name, requestedGrams);
   return (
     <ProductPageBody
       p={{ ...data, photo: data.photo ? media(data.photo) : null }}

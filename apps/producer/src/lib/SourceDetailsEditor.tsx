@@ -68,7 +68,10 @@ export function SourceDetailsEditor({
   onBusy,
   saveRef,
   emptyHint = false,
+  displayName,
 }: {
+  /** 새 상품 채우기: 상세 맨 위 제목을 입력 중인 상품명으로 바로 보여 준다(저장 때 같은 값으로 맞춤). */
+  displayName?: string;
   emptyHint?: boolean;
   batch: SourceBatch;
   review: SourceReview;
@@ -242,7 +245,8 @@ export function SourceDetailsEditor({
   return (
     <View style={{ gap: 16 }}>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
-      {batch.sources.some(
+      {!emptyHint &&
+      batch.sources.some(
         (s) =>
           s.originalPhoto &&
           !s.placement?.fieldKey &&
@@ -294,7 +298,12 @@ export function SourceDetailsEditor({
               )
               .map((e) => ({
                 fieldKey: e.field.fieldKey,
-                value: e.field.value,
+                value:
+                  displayName &&
+                  e.field.fieldKey === "name" &&
+                  e.field.state !== "EXCLUDED"
+                    ? displayName
+                    : e.field.value,
               })),
             photos: entries
               .filter(
@@ -364,9 +373,12 @@ export function SourceDetailsEditor({
                 if (entry.field.targetId !== target.id) return entry;
                 const f = entry.field;
                 const m = modules.find((m) => keys(m.id).includes(f.fieldKey))!;
+                // 표시용 상품명(displayName)은 저장 값이 아니다. 이름 칸은 원래 값을 유지한다.
                 const value =
-                  m.texts.find((t) => t.fieldKey === f.fieldKey)?.value ??
-                  f.value;
+                  displayName && f.fieldKey === "name"
+                    ? f.value
+                    : (m.texts.find((t) => t.fieldKey === f.fieldKey)?.value ??
+                      f.value);
                 const photoAssetIds =
                   f.fieldKey === "name"
                     ? f.photoAssetIds

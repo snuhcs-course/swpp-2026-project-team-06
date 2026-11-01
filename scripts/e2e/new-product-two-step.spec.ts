@@ -41,7 +41,7 @@ for (const width of [360, 390, 430]) {
       "border-top-style",
       "dashed",
     );
-    await expect(page.getByText("가격·받는 시기는 다음 단계에서 정해요")).toBeVisible();
+    await expect(page.getByText(/받는 시기·가격·배송비는 다음 단계/)).toBeVisible();
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/v2-1-empty.png` });
 
@@ -72,8 +72,13 @@ for (const width of [360, 390, 430]) {
     await expect(name).not.toHaveCSS("border-top-style", "dashed");
     await expect(page.getByTestId("ai-filled-badge").first()).toBeVisible();
     await name.fill("서귀포 노지 감귤");
-    if (shots && width === 390)
+    if (shots && width === 390) {
+      await name.blur();
+      await page.mouse.move(195, 400);
+      await page.mouse.wheel(0, -5000);
+      await page.waitForTimeout(300);
       await page.screenshot({ path: `${shots}/v2-2-filled.png` });
+    }
 
     await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
     await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
@@ -167,8 +172,12 @@ for (const width of [360, 390, 430]) {
     await expect(preview.getByText("테스트 감귤")).toHaveCount(0);
     await expect(preview.getByText(/29,000/)).toBeVisible();
     await expect(preview.locator("input, textarea")).toHaveCount(0);
-    if (shots && width === 390)
+    if (shots && width === 390) {
+      await page.mouse.move(195, 400);
+      await page.mouse.wheel(0, -5000);
+      await page.waitForTimeout(300);
       await page.screenshot({ path: `${shots}/v2-4-preview.png` });
+    }
 
     // 승인 전에는 공개되지 않는다
     expect((await page.request.get(`${apiUrl}/api/products/${productId}`)).status()).toBe(404);
