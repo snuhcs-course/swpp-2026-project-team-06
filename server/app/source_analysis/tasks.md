@@ -86,3 +86,63 @@
 - 10/31 재채점 수치는 11/01 규칙 변경 전 채점기 기준임을 표시, 범위의 Makefile 제거.
 - 11/01 전체 pytest(격리 로컬 Postgres, sandbox 밖) 2차 수정 후 544 passed / 0 failed.
 - 11/01 결정(DEV-172 소유자): I3 holdout 후보로 새로 수집한 공개 자료(원문·이미지·web_print PDF), 출처 URL, 가림본, DRAFT 라벨, 검토표는 레포에 올리지 않고 로컬 비공개 폴더에만 보관한다(레포는 GitHub·Wiki로 공개 동기화되고 농가 페이지 일부는 복제 금지를 명시). v2 잠금 때도 레포에는 후보 ID·형식·해시·집계 결과만 남긴다. 현재 상태: 후보 12건 중 텍스트3·이미지3·긴 이미지3 라벨 검토 대기, PDF(web_print)3 중 2건 인쇄 완료·1건 확인 문구 불일치로 재확인 필요, 모든 라벨 DRAFT·holdout 미잠금.
+
+## DEV-186 Two-stage product draft · 상세 문구 정리
+
+- 이슈: [DEV-186](https://linear.app/sswp6/issue/DEV-186)
+- 브랜치: `jinumeral/dev-186-two-stage-refine-draft`
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11
+- 상태: 커밋 전 검증 완료(샌드박스 밖) — ruff 통과, pytest **743 passed**, typecheck 통과, test:mock **46 passed**, Playwright **35 passed**. UI 검증 상세는 producer 기록 참조.
+
+### 목표
+원문 후보·근거를 보존하면서 대상별 2차 문구 정리로 금액·효능·운영 문구를 상세에서 제외한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/ai/{source_analysis,source_refine}.py`, `server/app/source_analysis/**`
+- `server/migrations/versions/0023_source_refinement.py`, `server/tests/test_source_refine.py`
+- `apps/producer/src/lib/{NewProductComposer,PageCanvas,SourceDetailsEditor,SourceWorkspace,SourceExclusions}.tsx`, `apps/producer/tasks.md`
+- `packages/api/src/{sourceAnalysis,sourceTextSafety}.ts`
+- `scripts/mock-tsconfig.json`, `scripts/{mock-server,test-spec12,test-capacity,test-navigation,test-storefront,test-ai-feedback}.mjs`
+- `scripts/e2e/{new-product-composer,source-review-regressions}.spec.ts`
+- `docs/spec/{source-analysis,source-integration,ia}.md`, `docs/wiki/Source-Analysis.md`
+- `.github/workflows/{ci,deploy-vercel}.yml`
+
+### 비범위
+- Stage-1 추출 프롬프트 변경(명시적 mock fixture 추가만 허용), 의존성 추가, corpus/gold/holdout 변경, 운영 접근·실호출·push·PR·커밋.
+
+### 결정 사항
+- 전처리·추출이 모두 성공한 뒤 대상별 REFINE Item을 큐에 넣고 기존 lease/비용 예약/정산 경로를 사용한다. REFINE 단독 재시도도 지원하며 불확실 전송은 자동 재호출하지 않는다.
+- Item.refinement에 후보 ID·정리 모듈·excluded·프롬프트 버전·안전 목록 SHA256을 저장한다. 현재 후보·버전·해시가 모두 일치해야 재사용하고 불일치 시 다음 분석에서 다시 정리한다. `source-refine-v3`는 건강 효능 후보 전체 인용을 금지한다.
+- 유효한 정리에서 누락·거절한 필드는 되살리지 않는다. 취소/삭제/버전 변경으로 오래된 비활성 정리는 대상 키를 생략해 원문 fallback을 허용하고 실제 현재 후보 REFINE 대기만 None이다. 원문 fallback도 금액/효능/플랫폼 후보를 걸러내고 usable 대상별 단일/충돌을 공통 unassigned보다 우선한다.
+- 조회 때 정리 문구를 현재 금액/효능 detector로 재검사하고 price/health 제외 사유로 보낸다. 내부 modules는 editor 계산에만 사용하며 review 응답에 노출하지 않는다.
+- 생산자 수정·확정·제외는 재분석으로 덮어쓰지 않는다. REFINED 저장은 저장된 문구·ID 및 현재 근거와 대조한다. editor는 활성·비제외 필드만, 비편집 save_drafts는 비활성 포함 모든 CONFIRMED 필드를 검사한다. historicalSales 확정 금지; 가격 없는 이력은 REFINED farmStory로 허용.
+- 성공 REFINE의 error는 null; 거절은 diagnostics/excluded에 기록한다. post-call SOURCE_CHANGED/PRIVACY_CHANGED는 usage/request_id를 보존한다. 실패 안내는 anchor 파일명과 분리한다.
+- detector 단일 원천은 UTF-8 `text_safety_lists.json`; TS 직접 상대 import와 mock rootDir 정렬로 심링크를 제거했다. 금액/효능 저장 차단, 수치/단위·개인정보·대상 검증 유지. JSON 단독 변경도 apps CI와 Vercel 배포를 실행한다(integration은 server/**로 이미 포함).
+- 11/01 이번 리뷰의 위 결정과 workflow 범위 확장을 코드 수정 전에 기록했다. 서버 migration0023은 앱보다 먼저/동시에 적용하며 구버전 API 호환 UI는 producer 기록을 따른다. 사용자 지시대로 spec push·PR·알림을 생략한다.
+
+### 작업
+- [ ] 서버 구현·회귀 및 전체 검증 최종 확인 (아래 실제 실행 결과 기준)
+- [ ] 사람 UI 회귀·Figma 후속 확인 (producer 기록)
+
+### 완료 조건
+- [ ] 관련 서버·앱 테스트가 모두 통과한 현재 트리 확인
+- [ ] 사람 리뷰 후 별도 PR·머지 (이번 세션 범위 밖)
+
+### 기록
+- 11/01 이전 회차 이력 요약: 서버 신규 검증 48→109→176→190개. sandbox pytest 결과 560/32 실패→621/32→688/32→702/32(734개). 실패 ID는 같은 기존32개였고 psutil/sysctl 권한 오류를 재현했다. 실제 전처리 보호·기존 테스트는 완화하지 않았다. 이전 migration upgrade/current는0023, 단일 head 확인. 커밋 시도는 index.lock 권한 거부로 실패했으며 미커밋 유지.
+- 11/01 최신 사람 제공 sandbox 밖 결과(이번 수정 전): `cd server && uv run ruff check . && uv run pytest` → ruff 통과, **734 passed / 0 failed**. 기존 sandbox 미완료 기록을 현재 외부 실패로 취급하지 않는다.
+- 11/01 이번 리뷰 회귀: 취소 후 추출/자료 삭제2경우, 프롬프트/안전 해시/누락 해시3경우의 fallback→재분석, 조회 금액/효능2경우, 프롬프트 전체 health 제외, UTF-8/파일 SHA 검증. API internal modules 비노출과 안전 필드 보존도 단언한다. 기존 REFINE pending·건강 후보 영양소 복원 금지·shared-only 테스트 유지.
+- 11/01 추가 회귀의 최초 실행은 업로드 fixture가 오래된 batchVersion을 사용해2실패/197통과였으며 최신 batch 조회를 추가해2/2 통과했다. 모델·운영 호출은 없다.
+- 11/01 이번 수정 후 최종 검증(기존 의존성, `<로컬 DB>`와 `<로컬 캐시>`):
+  - `cd server && uv run ruff check . && uv run pytest` → ruff **0 errors**, pytest **711 passed / 32 failed**(743개,129.70초). `test_source_refine.py` **199개 모두 통과**(기존190 + 신규9). 실패 node ID를 실행 전 pytest cache와 대조해 **동일32개 / 신규0개 / 해소0개**를 확인했다. 기존 sandbox 전처리 실패 집합이며 이번 실행의 전체 통과로 기록하지 않는다. 기존 테스트/생산 보호를 완화하지 않았다.
+  - 사용자 제공 수정 전 sandbox 밖 **734 passed / 0 failed**와 이번 sandbox 결과를 구분한다. 현재 트리의 전체 pytest743개는 sandbox 밖 재실행이 필요하다. UI/mock 최종 결과는 producer 기록 참조.
+  - `git diff --check` 통과. `git diff main...HEAD`652경로는 세션 전 local main 차이이고 `git diff origin/main...HEAD`0건. 미커밋/신규38경로를 위 범위와 대조해 범위 이탈0개. HEAD/ref/index 변경·커밋·실호출·push·PR·새 의존성 없음.
+- 11/01 작업 기록 정리: DEV-186의 과거 반복 로그는 이 절로 요약했고 UI 상세는 producer 기록에만 남긴다. 환경은 `<로컬 DB>`·`<로컬 캐시>`로 표기한다. 대표 프롬프트: pre-commit 지적12개 수정과 각 코드 회귀 요청. Agent 시간 / Tokens: 계측 미제공.
+
+### 의도한 커밋 (실행하지 않음)
+1. `docs(source): AC-SRC-1/2/3/11 정리 계약과 배포 순서 기록 (DEV-186)` — docs/spec 3개·영문 wiki·server spec/tasks·producer tasks.
+2. `feat(source): AC-SRC-2/3/5/10/11 안전한 대상별 정리와 fallback (DEV-186)` — 서버 코드·JSON·migration0023·test_source_refine.py.
+3. `feat(producer): AC-SRC-3/5/11 제외 안내와 구버전 API 호환 (DEV-186)` — producer UI·api·workflow·mock harness·Playwright 회귀.
+- 11/01 Claude 리뷰 반영(커밋 전 마지막): 정리 결과의 `version`·`safetyListsHash`는 항상 기록되는 필수 키라 `[]`로 읽고, 커밋된 적 없는 해시 없는 형태를 받아주던 테스트 매개변수를 지웠다. `process()`의 버전 중복 검사를 지웠다(`check_inputs`가 검사). 문구에 실제로 반영된 중복·금액 없는 과거 판매 후보는 '뺀 문구' 안내에서 뺀다. DEV-172 절에 잘못 들어간 기록 수정은 되돌렸다.
+- 11/01 최종 검증(샌드박스 밖, `<로컬 DB>`): `cd server && uv run ruff check .` → All checks passed. `uv run pytest` → **742 passed**. `npm run typecheck` → 통과. `npm run test:mock` → **46 passed / 0 failed**. Playwright `new-product-composer`·`new-product-two-step`·`source-detail-design`·`source-review-regressions`·`source-editor`·`source-workspace-ui` → **35 passed**. Codex가 브라우저 없이 쓴 회귀 spec은 가짜 API 응답(`serveReview`)과 편집 탭 열기를 고쳐 통과시켰다(앱 코드 문제 아님).
+- 11/01 Claude 리뷰 반영(최종 스캔): 배포 전에 저장된 자동 값(UNREVIEWED·EXTRACTED/REFINED)에 금액·효능·운영 문구가 있으면 다시 계산해 자동 채움하지 않는다(`test_AC_SRC_3_legacy_saved_autofill_with_money_is_recomputed`). runs 응답에서 내부 `refinement`를 뺐다(review의 excluded·refinementVersion만 공개). '뺀 문구' 숨김 조건을 `historical`과 `historicalSales` 필드 둘 다로 맞췄다. CI apps 필터에 `text_safety_cases.json`을 더했다. editor.py·service.py 포맷을 정리했다. 재검증: ruff 통과, pytest **743 passed**, Playwright 6개 spec **35 passed**.

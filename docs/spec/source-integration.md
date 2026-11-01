@@ -1,3 +1,5 @@
+> DEV-186 (2026-11-01): 현재 상세 자동 채움은 추출 → 대상별 정리의 두 단계다. [정리 계약](source-analysis.md#dev-186-두-단계-상세-초안-2026-11-01)이 아래 과거 EXTRACTED 자동 채움 설명보다 우선한다.
+
 > Current DEV-58 editor contract: [source-editor.md](./source-editor.md). This supersedes the earlier redaction approval and form-only editing flow.
 
 # 자료 기반 상세 통합 (DEV-56/57/58)
@@ -9,6 +11,7 @@
 - 운영 통제 자료 이미지·긴 이미지·PDF 각1건 분석 SUCCEEDED, 비공개 저장·재조회·상품 반영3/3 통과. 실제 생산자 UI의 새 상품 진입·분석·문구 수정·섹션 숨김/복원·저장 후 재진입·명시적 반영도 확인했다. 비공개 상품 공개 API는404를 유지한다. [검증 기록](validation/source-production-2026-10-19.json).
 - 배포 성공은 자동 추출의 완전성/일반 정확도/실제 농가 인수를 뜻하지 않는다. PDF는 이 통제 자료에서도 반환 후보가1개여서 누락 검토가 필요하다. 숫자 OCR 오독·동일 필드 충돌·실제 농가 인수는 DEV-58 잔여 범위다. 기본 정보 blur 저장과 즉시 업로드의 경합은 [DEV-92](https://linear.app/sswp6/issue/DEV-92)에서 첨부 전 저장 완료 대기로 수정한다. 저장 실패 시 직접 입력과 첨부 파일을 보존하고 자동 재시도하지 않는다.
 - 실제 판매 공개는 기존 입금계좌·필수 상품 정보·공급 승인 절차를 따른다. 이번 운영 검증은 승인 테스트 농가의 DRAFT 상품에만 반영했으며 실제 주문/결제는 수행하지 않았다. 판매페이지의 소비자 렌더링·공개 일치는 격리 DB 브라우저 회귀로 별도 검증한다.
+- DEV-186 배포 순서: 서버 migration `0023_source_refinement`는 앱보다 먼저 또는 앱과 함께 적용한다. 클라이언트는 이전 서버의 review 응답에 `refinementResults`가 없어도 편집을 계속하며 제외 칩·모달을 표시하지 않는다. 내부 정리 모듈(`refinements`)은 editor 계산에만 사용하고 review 응답에는 노출하지 않는다.
 - 복구: API flag를false로 배포하면 새 상품/상세 편집은 DEV-84의 기존 경로를 사용한다. 필요하면 worker도false로 내려 새 작업 처리를 멈춘다. 비용 원장과 저장 자료는 초기화하지 않는다. 배포 절차는 `server/README.md`.
 
 2026-10-16 사용자 승인. FEAT-03/04/07, AC-SRC-1~10. 기존 source-analysis.md의 비공개 백엔드를 확장한다. Sol 기본 선택·UI/공개 반영 미구현 설명은 DEV-54 당시 기록이며 이 문서가 최신 통합 기준이다.
@@ -166,3 +169,17 @@ OCR을 고정하고 의미 문장/라벨 목록 단위 추출, 과정·인증·�
 - ① 채우기는 ② 미리보기와 같은 구매자 렌더러(`ProductPageBody`)로 그린다. 편집 자리는 슬롯(사진·상품명·품종·판매 줄·상세 스토리·당도·상품정보 원산지/중량/보관)으로 끼우고, 넘기지 않은 자리는 구매자 화면 그대로다. 소비자 상세·미리보기는 슬롯을 쓰지 않는다.
 - 비어 있는 칸만 점선 네모, 누르면 그 자리에서 입력한다. 가격·받는 시기 자리는 '다음 단계에서 정해요' 점선 안내. 상품정보는 펼친 상태.
 - 상세 스토리의 편집 조작(사진 ×·카드 제외·안내 문구)은 카드를 눌러 고를 때만 보인다. 비어 있는 사진 자리는 '사진 추가' 점선 칸으로 늘 보인다. 이 화면에서는 섹션 숨기기를 제공하지 않는다(빈 섹션은 구매자에게 원래 보이지 않음). 예전에 숨긴 섹션만 눈 스위치로 다시 켤 수 있다. 상세 맨 위 제목은 입력 중인 상품명을 바로 보여 준다(표시 전용).
+
+## DEV-186 두 단계 상세·제외 내역 (2026-11-01)
+
+FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11. 제품 상세 계약은 [source-analysis.md](./source-analysis.md) DEV-186 결정4~7을 따른다.
+- 전처리·추출이 모두 성공하고 현재 후보 집합 또는 프롬프트/안전 목록 버전이 바뀐 뒤에만 대상별 REFINE 작업을 만든다. FAILED/PARTIAL/불확실 추출 뒤에는 정리를 시작하지 않는다. 동일 재분석은 저장된 정리를 재사용하여 refinementVersion은 유지한다. reviewVersion은 추출/검토 작업 처리에 따라 증가할 수 있다.
+- Stage-1 후보/근거는 보존한다. Stage-2 `source-refine-v3`는 금액·농가 상점 운영·건강 효능·개인정보를 제거하고 상품 사실을 남긴다. summary의 맛/크기 사실은 taste로 분리한다. 과거 금액 문장은 제외하고 가격 없는 판매 이력만 farmStory로 보낸다.
+- 검토 API `refinementResults[targetId] = {excluded:[{candidateId,value,reason}],refinementVersion}`. 모델은 현재 모든 후보를 인용 또는 제외로 설명한다. 서버는 검증 거절 사유와 미사용 `unused`를 채운다. 일반 저장·조회와 같은 결과 재분석으로 refinementVersion은 바뀌지 않는다.
+- 정리 성공에서 생략한 필드는 원문으로 되살리지 않는다. 다만 usable 대상별 후보가 없고 상품 미지정 공통 후보만 있으면 unassigned를 유지하여 원문 근거를 보여 준다. 원문 fallback의 대상별 단일/충돌 판정을 먼저 적용한다. 정리 실패는 기존 오류/완료 경로를 유지한다. 실패/PARTIAL 추출 뒤 원문 fallback도 금액/효능/플랫폼 후보는 자동으로 채우지 않는다. editor 저장은 활성·제외되지 않은 필드만, 비편집 save_drafts는 비활성 필드를 포함한 모든 CONFIRMED 필드의 금액/효능을 fieldKey가 있는 오류로 거절하고 플랫폼 문구는 경고만 표시한다. 기존 생산자 수정·직접 확정·제외는 재분석으로 덮지 않는다.
+- SCR-24 photo slot 위 상품명 포함 제외 칩, 결과별 한 번 표시하는 상품명·사유 그룹 모달, 업로드 전 정책 안내, 새 상품 composer가 켠 story 입력의 금액/효능 안내. 다상품은 한 모달 큐로 표시하고 확인 뒤 다음 상품을 연다. 기존 상품 상세 편집에는 다음 단계 inline 안내를 표시하지 않는다. 저장소 키는 `farmclub-producer:excluded-seen:<batchId>:<refinementVersion>`. 구매자 미리보기·소비자 상세에는 안내 UI가 없다. legacy SourceWorkspace도 같은 제외 컴포넌트를 사용한다.
+- 실제 모델 요청은 기존 비용 예약·정산 wrapper와 한도를 통과하며 불확실 전송은 자동 재호출하지 않는다. 검증은 local mock/stub만 사용한다. 최신 검증은 서버·producer `tasks.md` DEV-186 기록을 따른다. Figma v6 동기화는 담당자 후속이다.
+
+- DEV-186 추가 리뷰: 성공 REFINE의 거절 정보는 diagnostics/refinement.excluded에만 두고 Item.error는 null이다. FAILED REFINE은 파일명 없는 정리 전용 메시지로 표시한다. post-call 입력 변경으로 실패해도 usage/request_id를 보존한다. 후보 선택 버튼의 금액/효능을 공유 detector로 숨기며 플랫폼 후보는 유지한다. inline hint는 새 상품 PageCanvas story 입력에만 적용하며 기본 정보에는 표시하지 않는다.
+
+- 저장 정리는 현재 프롬프트 버전과 안전 목록 SHA256이 같을 때만 재사용한다. 조회 때 금액/효능을 재검사하고 거절 문구를 제외 내역으로 보낸다. 취소·삭제 뒤 오래된 정리는 원문 fallback을 허용하며 현재 후보 REFINE 대기만 자동 채움을 막는다.
