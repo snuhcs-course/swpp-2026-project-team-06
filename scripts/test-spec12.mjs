@@ -496,8 +496,8 @@ test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", asyn
 });
 
 
-test("DEV-186 AC-SRC-11: modal groups by reason including return fees and periods", async () => {
-  const { groupSourceExclusions } = await import("../apps/producer/src/lib/sourceExclusionReasons.ts");
+test("DEV-186 DEV-188 AC-SRC-11: modal groups by reason including return fees and periods", async () => {
+  const { groupSourceExclusions, sourceExclusionReasons } = await import("../apps/producer/src/lib/sourceExclusionReasons.ts");
   const items = [
     { candidateId: "price", value: "천혜향 3kg 32,000원", reason: "price" },
     { candidateId: "return-fee", value: "반품 배송비 5,000원", reason: "price" },
@@ -506,9 +506,21 @@ test("DEV-186 AC-SRC-11: modal groups by reason including return fees and period
     { candidateId: "health", value: "면역력 증진에 좋아요", reason: "health" },
   ];
   assert.deepEqual([...groupSourceExclusions(items)], [
-    ["금액은 다음 단계(판매·가격)에서 직접 채워 주세요. 배송비도 거기서 정해요.", items.slice(0, 2)],
-    ["교환·환불·문의는 팜클럽 공통 정책에 따라 구매자에게 안내돼요. (출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불)", [items[2]]],
-    ["판매 기간과 받는 시기는 다음 단계(판매·가격)에서 직접 정해 주세요.", [items[3]]],
-    ["건강 효능 문구는 넣을 수 없어요", [items[4]]],
+    ["price", items.slice(0, 2)],
+    ["platform", [items[2]]],
+    ["period", [items[3]]],
+    ["health", [items[4]]],
   ]);
+  assert.deepEqual(sourceExclusionReasons, {
+    price: { label: "💰 금액", explanation: "가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", accent: true },
+    period: { label: "📅 기간", explanation: "판매 기간이나 받는 날은 다음 단계(판매·가격)에서 정해요.", accent: true },
+    platform: { label: "🛡️ 팜클럽 정책", explanation: "교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.",
+      detail: "출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", accent: true },
+    health: { label: "🚫 건강 효능", explanation: "건강 효능은 상세 페이지에 넣을 수 없어요.", accent: true },
+    pii: { label: "🔒 개인정보", explanation: "개인정보가 있어 상세에 넣지 않았어요", accent: false },
+    other_product: { label: "📦 다른 상품", explanation: "다른 상품의 내용이라 넣지 않았어요", accent: false },
+    unsupported: { label: "❔ 근거 없음", explanation: "자료에서 근거를 확인하지 못해 넣지 않았어요", accent: false },
+    duplicate: { label: "🔁 중복", explanation: "같은 내용이 있어 한 번만 넣었어요", accent: false },
+    unused: { label: "💤 미사용", explanation: "이번 상세에 사용하지 않은 문구예요", accent: false },
+  });
 });

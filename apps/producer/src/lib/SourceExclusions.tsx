@@ -5,10 +5,10 @@ import {
   hasPeriodText,
   type SourceRefinementResult,
 } from "@farmclub/api";
-import { Button, Sheet, T, tokens } from "@farmclub/ui";
+import { Button, safe, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
-import { groupSourceExclusions } from "./sourceExclusionReasons";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { groupSourceExclusions, sourceExclusionReasons } from "./sourceExclusionReasons";
 
 export const AI_POLICY_NOTE =
   "가격·배송비·받는 시기는 AI가 채우지 않아요. 다음 단계(판매·가격)에서 직접 채워 주세요. 배송 방법(택배사·포장)은 상세에 남겨요. 건강 효능 문구는 넣을 수 없어요.";
@@ -82,52 +82,119 @@ export function SourceExclusions({
   const close = () => setQueue((old) => old.filter((key) => key !== openedKey));
   if (!entries.length) return null;
   const groups = groupSourceExclusions(opened?.items ?? []);
+  const multipleProducts = products.length > 1;
+  const productPrefix = (name: string) => multipleProducts ? `${name} · ` : "";
+  const accentBackground = `${tokens.color.accent}14`;
   return (
     <>
       {entries.map(({ name, items, key }) => <Pressable
         key={key}
         testID="excluded-chip"
         accessibilityRole="button"
-        accessibilityLabel={`${name} · AI가 뺀 문구 ${items.length}개`}
+        accessibilityLabel={`${productPrefix(name)}AI가 뺀 문구 ${items.length}개`}
         onPress={() => setQueue((old) => [key, ...old.filter((k) => k !== key)])}
         style={{
-          margin: 20,
+          margin: tokens.space.gutter,
           alignSelf: "flex-start",
-          borderRadius: 999,
-          padding: 12,
-          minHeight: 48,
-          backgroundColor: tokens.color.surface,
+          borderRadius: tokens.radius.full,
+          paddingHorizontal: tokens.space.md,
+          paddingVertical: tokens.space.sm,
+          minHeight: tokens.touchTarget.min,
+          justifyContent: "center",
+          backgroundColor: accentBackground,
         }}
       >
-        <T variant="sub">{name} · AI가 뺀 문구 {items.length}개</T>
+        <T variant="sub" weight="semibold" color={tokens.color.accentPressed}>
+          {productPrefix(name)}AI가 뺀 문구 {items.length}개
+        </T>
       </Pressable>)}
-      <Sheet visible={!!opened} onClose={close}>
-        <View testID="excluded-modal" style={{ gap: 16 }}>
-          <T variant="title">{opened?.name} · AI가 이런 문구는 뺐어요</T>
-          <ScrollView
-            style={{ maxHeight: 400 }}
-            contentContainerStyle={{ gap: 16 }}
+      <Modal visible={!!opened} transparent animationType="slide" onRequestClose={close}>
+        <View style={{ flex: 1, justifyContent: "flex-end", alignItems: "center", backgroundColor: tokens.color.overlay }}>
+          <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="닫기" onPress={close} />
+          <View
+            testID="excluded-modal"
+            accessibilityViewIsModal
+            style={{
+              width: "100%",
+              maxWidth: tokens.maxWidth,
+              maxHeight: "90%",
+              backgroundColor: tokens.color.background,
+              borderTopLeftRadius: tokens.radius.md,
+              borderTopRightRadius: tokens.radius.md,
+              paddingHorizontal: tokens.space.gutter,
+              paddingTop: tokens.space.lg,
+              paddingBottom: safe("bottom", tokens.space.lg),
+              gap: tokens.space.md,
+            }}
           >
-            {[...groups].map(([label, entries]) => (
-              <View key={label} style={{ gap: 8 }}>
-                <T weight="semibold">{label}</T>
-                {entries.map((item) => (
-                  <View
-                    key={`${item.candidateId}:${item.reason}`}
-                    testID={`excluded-item-${item.reason}`}
-                  >
-                    <T>{item.value}</T>
+            <View style={{ gap: tokens.space.sm, flexShrink: 0 }}>
+              <T variant="heading" accessibilityRole="header">
+                {productPrefix(opened?.name ?? "")}이 정보들은 상세 페이지에 못 넣어서 빼 뒀어요 🙂
+              </T>
+              <T variant="caption" muted>
+                AI가 자료에서 찾았지만 팜클럽 상세에는 맞지 않는 내용이에요.
+              </T>
+            </View>
+            <ScrollView
+              key={openedKey}
+              testID="excluded-body"
+              style={{ maxHeight: 400, flexShrink: 1 }}
+              contentContainerStyle={{ gap: tokens.space.lg, paddingBottom: tokens.space.sm }}
+            >
+              {[...groups].map(([reason, entries]) => {
+                // 표에 없는 사유가 와도 화면이 깨지지 않게 근거 없음 안내로 대신한다.
+                const { label, explanation, detail, accent } =
+                  sourceExclusionReasons[reason] ?? sourceExclusionReasons.unsupported;
+                return (
+                  <View key={reason} style={{ gap: tokens.space.sm }}>
+                    <View style={{
+                      alignSelf: "flex-start",
+                      borderRadius: tokens.radius.full,
+                      paddingHorizontal: tokens.space.sm,
+                      paddingVertical: tokens.space.xs,
+                      backgroundColor: accent ? accentBackground : tokens.color.surface,
+                    }}>
+                      <T variant="caption" weight="semibold" color={accent ? tokens.color.accentPressed : tokens.color.textMuted}>
+                        {label}
+                      </T>
+                    </View>
+                    <T variant="sub" weight="regular">{explanation}</T>
+                    {detail ? <T variant="caption" muted>{detail}</T> : null}
+                    {entries.map((item) => (
+                      <View
+                        key={`${item.candidateId}:${item.reason}`}
+                        testID={`excluded-item-${item.reason}`}
+                        style={{
+                          marginLeft: tokens.space.xs,
+                          borderLeftWidth: 2,
+                          borderLeftColor: `${tokens.color.accent}66`,
+                          paddingLeft: tokens.space.sm,
+                        }}
+                      >
+                        <T
+                          variant="sub"
+                          muted
+                          numberOfLines={2}
+                          masked={item.reason === "pii"}
+                          style={{ fontStyle: "italic" }}
+                        >
+                          {item.value}
+                        </T>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            ))}
-          </ScrollView>
-          <T variant="caption" muted>
-            맨 위 &apos;AI가 뺀 문구&apos;에서 다시 볼 수 있어요
-          </T>
-          <Button label="확인" onPress={close} />
+                );
+              })}
+            </ScrollView>
+            <View style={{ gap: tokens.space.sm, flexShrink: 0 }}>
+              <T variant="caption" muted>
+                맨 위 &apos;AI가 뺀 문구&apos;에서 다시 볼 수 있어요
+              </T>
+              <Button label="확인" onPress={close} />
+            </View>
+          </View>
         </View>
-      </Sheet>
+      </Modal>
     </>
   );
 }
