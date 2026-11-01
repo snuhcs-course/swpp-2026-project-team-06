@@ -917,3 +917,65 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 2026-11-01 pre-commit scan 추가 지적0, 범위 이탈0. `git add`가 worktree index.lock 권한 거부로 실패해 로컬 커밋0개. 의도한 docs/server/producer+api 커밋과 서버 검증은 서버 tasks.md DEV-186 후속 기록 참조. 실호출·push·PR·의존성 추가0회, Agent 시간/Tokens 계측 미제공.
 
 - 2026-11-01 서버 최종 결과: ruff 통과, pytest **927 passed / 32 failed**(959개). 정제/scorer 신규 실패0이며 전처리32개는 psutil/sysctl 권한 오류 대표 재현으로 sandbox 밖 확인이 필요하다. 전체 검증·브라우저·Figma 후속이 남아 완료 체크를 보류한다.
+
+## DEV-171 [I3-T12] Verify producer flow per format
+
+- 이슈: [DEV-171](https://linear.app/sswp6/issue/DEV-171)
+- 브랜치: `jinumeral/dev-171-i3-t12-producer-flow-verify` (base `6c259ac`)
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/5/6/7/9/11 · M-11/13
+- 상태: 진행 중 — 사람 실행 mock 흐름 E2E 4/4 PASS, nosniff 수정 후 API 3/3 PASS; 추가 worker 통합1건 sandbox 밖 재실행·사람 리뷰 대기.
+
+### 목표
+텍스트·이미지·긴 이미지·PDF의 생산자 업로드부터 명시적 적용·소비자 렌더까지 검증하고 실행 여부와 증거를 분리한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/tasks.md`
+- `scripts/e2e/producer-format-flow.spec.ts`
+- `server/tests/test_producer_format_flow.py`
+- `server/app/source_analysis/router.py` — 자료 응답의 중복 nosniff 설정 제거
+- `server/tests/test_source_analysis.py` — 기존 보안 헤더 검사에 단일 nosniff 회귀 추가
+- `docs/evaluation/i3-t12-producer-flow.md`
+- `Makefile`의 기존 `test-e2e` 안내(새 spec은 기본 discovery에 포함)
+
+### 비범위
+- 아래 nosniff 결함 수정 외 제품 동작·UI·스펙 변경, 새 의존성, mock provider/체크섬 규칙 변경, 실/유료 모델 호출, 에이전트 Chromium 실행, commit·push·PR·배포.
+
+### 결정 사항
+- 11/01 후속 사용자 지시: 실제 사람 실행 Playwright 4 passed(56.8s)를 근거로 mock의 human-controlled flow는 PASS로 기록한다. 시각 형식 성공 추출은 DEV-170 T11 live development 결과에 위임하며 이 E2E가 증명한다고 쓰지 않는다.
+- 11/01 API 3 failed의 새 원인은 middleware와 endpoint의 중복 nosniff다. SourceRequestMiddleware가 /api/source-analysis 응답의 nosniff를 단독 설정하도록 router의 원본·페이지 이미지·작업 사진 설정만 제거한다. public source-media 등 middleware 밖의 헤더는 유지한다. 기존 보안 테스트를 강화하고 실제 시각 흐름의 엄격한 단언은 유지한다.
+- 11/01 .artifacts/는 기존 루트 .gitignore에서 제외됨을 확인한다. 기존 JSON에는 gitSha/dirty/startedAt만 있으므로 종료 UTC는 trace의 wallTime+monotonic timing에서 복원하고, API·앱별 독립 배포 SHA가 없다는 한계를 명시한다.
+- 11/01 Linear 본문과 관련 제품 spec·폴더 spec/tasks를 읽었다. 이전 이슈의 진행 중 표기는 main의 과거 기록이며 이번 작업은 사용자 지정 격리 worktree에서 테스트·기록만 변경한다.
+- 11/01 기존 E2E 전체의 test 선언과 주요9 spec 본문을 감사한다. `public-media`는 공개 농가 사진만 검증하므로 자료 비공개 검증으로 계산하지 않는다.
+- 11/01 `extract(mock)`는 MOCK_TEXT/MOCK_REFINE_TEXT 두 원본 SHA만 받는다. 시각 자료의 성공 mock fixture는 현 base에 없으므로 SHA를 위조하거나 추출기를 확장하지 않는다. UI에서 실제 업로드·분석 실패·수동 복구 후 편집/저장/재분석/적용/소비자 일치를 검증하고, 시각 형식의 성공 자동 추출/인용 검토는 이 mock E2E에서는 미검증으로 남긴다(후속 지시: 성공 추출은 DEV-170 T11 live development 결과 참조).
+- 11/01 시각 전처리는 기존 pytest의 `_ocr` 대체 패턴과 PIL 합성 자료를 재사용해 API의 실제 원본 SHA 거절·인증·비캐시 계약을 별도 검증한다. OCR/모델 품질 측정이나 브라우저 인수 통과로 보고하지 않는다.
+- 11/01 스크린샷은 `FARMCLUB_INTEGRATION_ARTIFACTS/t12-<format>-<step>.png`, trace는 실행 명령의 `--trace on`. 라이브 스택의 API/app/worker가 같은 SHA·격리 DB·mock인지 사람이 확인한다.
+
+### 작업
+- [x] 기존 커버리지 행렬과 형식별 누락 기록
+- [x] UI mock 흐름 4 passed(사람), 시각 형식 API 회귀 3 passed(헤더 수정 후) 실행 확인
+- [x] typecheck·test:mock 및 Playwright discovery 결과 기록
+- [x] 사람의 mock 스택 실행·증거·빌드 ID·UTC 시각 기록
+- [ ] 독립 사람 시각 리뷰 및 추가 source-photo worker 통합 검사 sandbox 밖 재실행
+
+### 완료 조건
+- [x] 네 형식의 human-controlled flow with mock PASS 기록; 시각 형식 성공 추출은 T11 live run에 위임(이 E2E로 성공 추출/인용 검토를 주장하지 않음)
+- [ ] 관련 테스트 묶음 통과 및 사람 검토
+
+### 기록
+- 11/01 시작: base `6c259ac41b39f2d3112ef31e58b441fdff77e110`, 작업 트리 깨끗함. Linear In Progress 확인. Agent 시간 / Tokens: 계측 미제공.
+- 11/01 검증: `npm run typecheck` **5 workspace 통과 / 0 오류**, `npm run test:mock` **47 passed / 0 failed / 0 skipped**. `npx playwright test scripts/e2e/producer-format-flow.spec.ts --list` **4개 발견 / 종료0**. 같은 spec의 `tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --types node` **종료0**. 브라우저 실행 통과를 뜻하지 않는다.
+- 11/01 API 회귀 실행: 제공 DEV-171 DB로 `cd server`에서 `SOURCE_ANALYSIS_PROVIDER=mock .venv/bin/python -m pytest tests/test_producer_format_flow.py -q --tb=short` → **0 passed / 3 failed**. `_ocr` fixture 후 실제 QR/privacy 전처리가 `IMAGE_PRIVACY_NOT_CONFIGURED`를 반환한다. `importlib.util.find_spec('cv2')` **False**로 원인 확인. 최초 작성 중 optional `moduleDetail` 누락 KeyError는 수정했으며, 이후 의존성 오류에서 재시도 중단. 기존 OCR extra가 있는 사람 환경에서 API 전체 단언 실행이 필요하다. QR 가드 우회·의존성 추가 없음.
+- 11/01 `server/.venv/bin/ruff check tests/test_producer_format_flow.py` 및 `ruff format --check` **통과**, `git diff --check` **통과**. 새 파일3개 전체와 수정2개를 감사했고 허용 범위5경로 이탈0. `git diff main...HEAD` **672경로**는 오래된 로컬 main 대비 base의 차이이며 `git diff origin/main...HEAD` **0경로**(이번 변경은 미커밋). 기존 테스트/제품 코드/스펙 변경0.
+- 11/01 현재 Linear 원문 대조: DEV-58 In Progress, DEV-84/90/92/172/184/186/187 Done. 과거 tasks의 진행 중 표기와 구분해 evidence doc에 제목·상태를 기록했다. 별도 메시지·상태 변경 없음.
+- 11/01 pre-commit scan: 추가 지적0. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. optional moduleDetail은 이미 커밋된 응답 계약(d4efd6d)이며 이전 미커밋 구조 호환을 추가하지 않았다. Chromium은 사용자 지시대로 미실행, 전체 AC·스크린샷·trace·검증 build SHA는 사람 실행까지 미완료다.
+- 11/01 의도한 로컬 커밋: (문서) `docs(producer): FEAT-03/04/07 형식별 검증 행렬과 기록 추가 (DEV-171)` — evidence doc·producer tasks. (테스트) `test(producer): AC-SRC-1/5/6/9/11 형식별 흐름 회귀 추가 (DEV-171)` — 새 Playwright·pytest·Makefile. push·PR·배포·라이브/유료 모델 호출·새 의존성0회.
+- 11/01 로컬 커밋 시도 직전 `git branch --show-current`로 지정 DEV-171 브랜치 확인. `git add apps/producer/tasks.md docs/evaluation/i3-t12-producer-flow.md`가 공용 git 디렉터리의 `worktrees/farmclub-t12-flow/index.lock: Operation not permitted`로 종료128하여 commit 단계 미실행. **커밋0개**, 변경5경로 모두 작업 트리에 남김. 권한 우회·재시도·push·PR 없음. 다음 사람은 기존 OCR extra 환경에서 pytest 3건을 먼저 실행하고 Chromium 4건의 trace/단계 스크린샷·build SHA를 검토한 후 결과 행렬을 채운다.
+
+- 11/01 후속 사람 실행: `npx playwright test scripts/e2e/producer-format-flow.spec.ts --workers=1 --trace on` → **4 passed / 0 failed (56.8s)**. `.artifacts/dev171/`의 build/run JSON 8개와 단계 PNG 67개, trace 4개를 확인. base SHA `6c259ac41b39f2d3112ef31e58b441fdff77e110` + dirty worktree, executor `Claude (agent) / human owner`, UTC 시작 `2026-11-01T12:53:22.268Z`, 종료 `2026-11-01T12:54:18.024Z`(JSON에 종료 필드가 없어 trace에서 복원). API/앱 SHA는 같은 checkout이라는 사람 보고이며 독립 서비스 SHA는 미기록.
+- 11/01 사람 pytest는 **0 passed / 3 failed**: image·long-image·pdf에서 `nosniff, nosniff` 중복 응답. source router의 content/page-image/workspace-photo 헤더를 제거해 middleware만 nosniff를 설정한다. 기존 엄격한 테스트는 그대로 두고 기존 security 테스트에 metadata/content `get_list(...) == ["nosniff"]` 회귀를 추가했다.
+- 11/01 수정 후 `cd server && uv run ruff check . && uv run --extra ocr pytest tests/test_producer_format_flow.py` → **ruff PASS, 3 passed / 0 failed (4.97s)**. 기본 uv cache는 sandbox 쓰기 금지로 첫 실행이 막혀, `UV_CACHE_DIR=/private/tmp/dev171-uv-cache`와 제공 격리 DB `farmclub_dev171`을 지정해 성공. 기존 OCR extra/OpenCV 사용 가능, 의존성 선언/lock 변경·테스트 약화·QR 우회 없음.
+- 11/01 추가 검사: `cd server && uv run --extra ocr pytest tests/test_source_analysis.py::test_AC_SRC_8_read_body_limit_and_noncacheable tests/test_media.py tests/test_source_integration.py::test_AC_SRC_6_public_photo_is_independent_and_requires_preparation`(같은 cache/DB 설정) → **15 passed / 1 failed (4.02s)**. 단일 nosniff security 회귀1건·기존 media14건 PASS. source-photo 통합1건은 PREPARE PROCESSING_FAILED→후보0→review400. 별도 `preprocess.prepare(text, "text/plain")`가 `PermissionError [Errno 1] ... sysctl() malloc 1/3`를 재현했다. 추가 재시도/우회 없이 중단하며 사람 test executor가 해당 통합 검사를 sandbox 밖에서 재실행해야 한다. 전체 테스트 PASS/이슈 완료는 주장하지 않는다.
+- 11/01 평가 문서: 실제 형식별 PASS·artifact 파일명·수정 전후 pytest·nosniff 이슈 fixed를 기록. **Overall DEV-171 status = PASS for the human-controlled flow with mock**. 시각 형식 성공 추출은 **covered by T11 live run, not by this E2E**. 사람은 DEV-170 live development에서 image/long-image/pdf 성공을 보고했으며 해당 브랜치 `docs/spec/validation/source-final-eval-i3-*`로 연결했다. 로컬 T11 보고서는 아직 mock dry-run snapshot이므로 실측 숫자를 꾸며 쓰지 않았다.
+- 11/01 산출물/범위: 기존 `.gitignore:24`의 `.artifacts/`로 JSON8+PNG67 전부 ignore, 추적 산출물0. `git diff --check` 통과. 허용 변경은 기존5경로+source router+기존 security test=7경로, 그 외 변경 없음. `git diff main...HEAD`는 기존672경로 base 차이, `git diff origin/main...HEAD`는0경로이며 새 변경은 모두 미커밋이다.
+- 11/01 의도한 커밋(실행하지 않음): `fix(source-analysis): AC-SRC-6/8 중복 nosniff 헤더 제거 (DEV-171)` — router·기존 security test; `test(producer): AC-SRC-1/5/6/9/11 형식별 흐름 회귀 추가 (DEV-171)` — Playwright·pytest·Makefile; `docs(producer): FEAT-03/04/07 T12 실행 결과와 T11 경계 기록 (DEV-171)` — 평가 문서·tasks. 현재 사용자 지시대로 commit·push·PR·배포 없음. Agent 시간 / Tokens: 계측 미제공.
+- 11/01 Claude 스캔 반영(CRITICAL 2): 새 Playwright spec의 DB 이름 고정(`farmclub_dev171`) 단언을 지웠다(CI는 `farmclub` DB를 쓴다; localhost·mock·비-mock 0건 단언으로 격리를 확인). 새 pytest는 OCR extra의 OpenCV가 없으면 건너뛴다(`pytest.importorskip("cv2")`, CI 기본 설치에는 없음). 시각 형식 실패 원인을 `UNSUPPORTED_MOCK_SOURCE`로 좁혔다. 재발 방지로 미들웨어가 기존 `x-content-type-options`를 걸러 한 번만 붙이고, 페이지 이미지 응답도 단일 헤더를 단언한다.
