@@ -17,6 +17,14 @@ function work() {
     { cwd, env: process.env, timeout: 120000, stdio: "pipe" },
   );
 }
+// Exact local mock fixture, also declared by server/app/ai/source_analysis.py.
+const mixedSource = [
+  "테스트 감귤", "제주산 감귤입니다.", "서늘한 곳에 보관해 주세요.",
+  "천혜향 3kg 32,000원", "반품 배송비 5,000원", "고객센터 평일 10시~5시",
+  "면역력 증진에 좋아요",
+  "청견과 구치노쓰37호에 마코트를 교배한 품종으로 당도가 높고 과즙이 풍부합니다",
+  "작년 300상자 완판",
+].join("\n");
 for (const width of [360, 390, 430]) {
   test(`DEV-184 AC-03-1/AC-SRC-11 ${width}px: new product opens one editor and AI sheet fills it`, async ({
     page,
@@ -63,7 +71,7 @@ for (const width of [360, 390, 430]) {
       .click();
     await page
       .getByLabel("첨부 내용")
-      .fill("테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.");
+      .fill(width === 390 ? mixedSource : "테스트 감귤\n제주산 감귤입니다.\n서늘한 곳에 보관해 주세요.");
     await page.getByLabel("첨부 내용").blur();
     await expect(
       page.getByRole("button", { name: "텍스트 내용 수정", exact: true }),
@@ -96,6 +104,32 @@ for (const width of [360, 390, 430]) {
     await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, {
       timeout: 15000,
     });
+    if (width === 390) {
+      const modal = page.getByTestId("excluded-modal");
+      await expect(modal).toBeVisible();
+      await expect(modal.getByText("다음 단계(판매·가격)에서 직접 채워 주세요", { exact: true })).toBeVisible();
+      await expect(modal.getByText("팜클럽 공통 정책으로 안내돼서 상세에 넣지 않았어요")).toBeVisible();
+      await expect(modal.getByText("건강 효능 문구는 넣을 수 없어요", { exact: true })).toBeVisible();
+      await expect(modal.getByTestId("excluded-item-price")).toHaveCount(2);
+      await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
+      await expect(modal.getByTestId("excluded-item-health")).toHaveText("면역력 증진에 좋아요");
+      await expect(modal).toBeInViewport({ ratio: 1 });
+      if (shots) await page.screenshot({ path: `${shots}/dev186-1-excluded-modal.png` });
+      await modal.getByRole("button", { name: "확인", exact: true }).click();
+      await expect(modal).toHaveCount(0);
+      await expect(page.getByTestId("excluded-chip")).toHaveText("테스트 감귤 · AI가 뺀 문구 4개");
+      await page.getByTestId("excluded-chip").scrollIntoViewIfNeeded();
+      await expect(page.getByTestId("excluded-chip")).toBeInViewport();
+      if (shots) await page.screenshot({ path: `${shots}/dev186-2-excluded-chip.png` });
+      await page.getByTestId("excluded-chip").click();
+      await expect(modal).toBeVisible();
+      await modal.getByRole("button", { name: "확인", exact: true }).click();
+      await page.reload();
+      await expect(page.getByTestId("excluded-chip")).toBeVisible();
+      await expect(modal).toHaveCount(0);
+      await page.getByLabel("원산지", { exact: true }).fill("제주 서귀포");
+      await expect(page.getByLabel("맛과 향 내용", { exact: true })).toHaveValue("당도가 높고 과즙이 풍부합니다");
+    }
     await expect(page.getByTestId("ai-filled-badge").first()).toBeVisible();
     if (shots && width === 390) {
       await page.screenshot({ path: `${shots}/dev184-3-filled.png` });
@@ -120,6 +154,11 @@ for (const width of [360, 390, 430]) {
     ).toHaveCount(0);
     // 저장하지 않은 상세 수정은 AI로 다시 채워도 남는다(AC-SRC-11)
     const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+    if (width === 390) {
+      await summary.fill("면역력 증진 32,000원");
+      await expect(page.getByText("금액은 다음 단계(판매·가격)에서 직접 채워 주세요", { exact: true })).toBeVisible();
+      await expect(page.getByText("건강 효능 문구는 넣을 수 없어요", { exact: true }).first()).toBeVisible();
+    }
     await summary.fill("농부가 직접 고친 한 줄 소개");
     await summary.blur();
     await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
@@ -172,6 +211,30 @@ for (const width of [360, 390, 430]) {
         () => document.documentElement.scrollWidth - window.innerWidth,
       ),
     ).toBeLessThanOrEqual(0);
+    if (width === 390) {
+      // Complete sale settings to inspect the real shared buyer preview.
+      await page.getByRole("checkbox", { name: "5kg", exact: true }).last().click();
+      await page.getByRole("button", { name: /받는 시기/ }).last().click();
+      await page.getByRole("dialog").getByRole("button", { name: /^10월 25일 .요일/ }).click();
+      await page.getByRole("dialog").getByRole("button", { name: /^10월 28일 .요일/ }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "이 기간으로", exact: true }).click();
+      await page.getByRole("button", { name: /이 날까지 못 보내면 전액 환불/ }).last().click();
+      await page.getByRole("dialog").getByRole("button", { name: /^10월 30일 .요일/ }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "이 날로", exact: true }).click();
+      await page.getByLabel("5kg 가격", { exact: true }).fill("28000");
+      await page.getByLabel("5kg 박스 수", { exact: true }).fill("40");
+      await page.getByLabel("판매할 총 물량", { exact: true }).fill("300");
+      await page.getByLabel("한 주문 최대", { exact: true }).fill("3");
+      await page.getByRole("button", { name: "미리보기", exact: true }).click();
+      const preview = page.getByTestId("buyer-preview");
+      await expect(preview).toBeVisible();
+      await expect(preview.getByTestId("excluded-chip")).toHaveCount(0);
+      await expect(preview.getByTestId("excluded-modal")).toHaveCount(0);
+      await expect(preview.getByText(/32,000|5,000|면역력|효능|고객센터 평일/)).toHaveCount(0);
+      await expect(preview.getByText(/당도가 높고 과즙이 풍부합니다/)).toBeVisible();
+      // Actual sale price entered in step ② is still rendered normally.
+      await expect(preview.getByText(/28,000/)).toBeVisible();
+    }
     clean();
   });
 }

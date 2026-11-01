@@ -1,3 +1,4 @@
+import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 // 새 상품 한 화면 편집(DEV-184): 기본 정보 + 상세페이지를 한 스크롤에 두고,
 // 사진·자료는 아래에 붙은 AI 시트에서 넣는다. 비공개 저장과 명시적 적용은 그대로 나눈다.
 import { useSourceBasicInfo, type BasicInfoKey } from "./SourceBasicInfo";
@@ -407,7 +408,7 @@ export function NewProductComposer() {
             e.field.targetId === target.id &&
             e.field.fieldKey === key &&
             e.field.state !== "EXCLUDED" &&
-            e.field.provenance === "EXTRACTED" &&
+            ["EXTRACTED", "REFINED"].includes(e.field.provenance) &&
             e.status === "ready",
         )
         ?.field.value.trim() ?? "";
@@ -597,11 +598,15 @@ export function NewProductComposer() {
         {run.mode === "mock" ? " · 테스트 결과" : ""}
       </T>
       {run.items
-        .filter((i) => i.error)
+        .filter(
+          (i) => i.error && (i.phase !== "REFINE" || i.status === "FAILED"),
+        )
         .map((i) => (
           <T key={i.id} variant="caption">
-            {batch?.sources.find((s) => s.id === i.assetId)?.filename}:{" "}
-            {sourceError(i.error!)}
+            {i.phase !== "REFINE"
+              ? `${batch?.sources.find((s) => s.id === i.assetId)?.filename}: `
+              : ""}
+            {sourceError(i.error!, i.phase)}
           </T>
         ))}
       {ACTIVE.includes(run.status) ? (
@@ -793,67 +798,77 @@ export function NewProductComposer() {
                     )}
                     reference={() => null}
                     slots={{
-                      photo:
-                        coverUrl || (hasPhoto && !coverFailed) ? (
-                          !coverUrl ? (
-                            <View
-                              testID="hero-photo"
-                              style={{
-                                height: 244,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                backgroundColor: tokens.color.surface,
-                              }}
-                            >
-                              <T variant="sub" muted>
-                                대표 사진 불러오는 중…
-                              </T>
-                            </View>
+                      photo: (
+                        <>
+                          <SourceExclusions
+                            batchId={batch.id}
+                            products={[{
+                              name: form.name || target.name,
+                              result: working ? undefined : review?.refinementResults?.[target.id],
+                            }]}
+                          />
+                          {coverUrl || (hasPhoto && !coverFailed) ? (
+                            !coverUrl ? (
+                              <View
+                                testID="hero-photo"
+                                style={{
+                                  height: 244,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  backgroundColor: tokens.color.surface,
+                                }}
+                              >
+                                <T variant="sub" muted>
+                                  대표 사진 불러오는 중…
+                                </T>
+                              </View>
+                            ) : (
+                              <Pressable
+                                testID="hero-photo"
+                                accessibilityRole="button"
+                                accessibilityLabel="대표 사진 바꾸기"
+                                onPress={() => setSheetOpen(true)}
+                              >
+                                <Photo
+                                  uri={coverUrl}
+                                  width="100%"
+                                  height={244}
+                                  radius={0}
+                                  alt="대표사진"
+                                />
+                              </Pressable>
+                            )
                           ) : (
                             <Pressable
-                              testID="hero-photo"
+                              testID="hero-placeholder"
                               accessibilityRole="button"
-                              accessibilityLabel="대표 사진 바꾸기"
+                              accessibilityLabel="대표 사진 넣기"
                               onPress={() => setSheetOpen(true)}
+                              style={{
+                                height: 244,
+                                margin: 12,
+                                borderWidth: 1.5,
+                                borderStyle: "dashed",
+                                borderColor: tokens.color.textMuted,
+                                borderRadius: 16,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 8,
+                              }}
                             >
-                              <Photo
-                                uri={coverUrl}
-                                width="100%"
-                                height={244}
-                                radius={0}
-                                alt="대표사진"
+                              <Icon
+                                name="photo"
+                                size={28}
+                                color={tokens.color.accent}
                               />
+                              <T weight="semibold">대표 사진을 넣어 주세요</T>
+                              <T variant="caption" muted>
+                                아래 &apos;사진·자료&apos;에서 넣어요
+                              </T>
                             </Pressable>
-                          )
-                        ) : (
-                          <Pressable
-                            testID="hero-placeholder"
-                            accessibilityRole="button"
-                            accessibilityLabel="대표 사진 넣기"
-                            onPress={() => setSheetOpen(true)}
-                            style={{
-                              height: 244,
-                              margin: 12,
-                              borderWidth: 1.5,
-                              borderStyle: "dashed",
-                              borderColor: tokens.color.textMuted,
-                              borderRadius: 16,
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 8,
-                            }}
-                          >
-                            <Icon
-                              name="photo"
-                              size={28}
-                              color={tokens.color.accent}
-                            />
-                            <T weight="semibold">대표 사진을 넣어 주세요</T>
-                            <T variant="caption" muted>
-                              아래 &apos;사진·자료&apos;에서 넣어요
-                            </T>
-                          </Pressable>
-                        ),
+                          )}
+                        </>
+                      ),
                       name: (
                         <View style={{ gap: 4 }}>
                           <FillInput
@@ -929,6 +944,7 @@ export function NewProductComposer() {
                               <SourceDetailsEditor
                                 key={batch.id}
                                 emptyHint
+                                showStoryTextHints
                                 displayName={
                                   DEFAULT_NAMES.includes(form.name.trim())
                                     ? undefined
@@ -944,26 +960,6 @@ export function NewProductComposer() {
                                   await load();
                                 }}
                               />
-                              {review.candidates.some(
-                                (c) =>
-                                  c.historical ||
-                                  c.fieldKey === "historicalSales",
-                              ) ? (
-                                <View style={{ ...panel, margin: 20 }}>
-                                  <T>
-                                    과거 판매 정보 · 상세에 자동 반영하지 않아요
-                                  </T>
-                                  {review.candidates
-                                    .filter(
-                                      (c) =>
-                                        c.historical ||
-                                        c.fieldKey === "historicalSales",
-                                    )
-                                    .map((c) => (
-                                      <T key={c.id}>{c.value}</T>
-                                    ))}
-                                </View>
-                              ) : null}
                             </>
                           ) : (
                             <Pressable
@@ -1197,6 +1193,9 @@ export function NewProductComposer() {
               사진·자료와 품종·사이즈·예상 당도를 바꿀 수 있어요.
             </T>
           ) : null}
+          <T variant="caption" muted>
+            {AI_POLICY_NOTE}
+          </T>
           <SourceAttachments
             key={`attachments-${batch.id}`}
             flushRef={flushAttachments}

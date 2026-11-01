@@ -1,3 +1,4 @@
+import { StoryTextHint } from "./SourceExclusions";
 import {
   ModuleStory,
   Photo,
@@ -32,6 +33,7 @@ export function PageCanvas({
   details,
   badge,
   emptyHint = false,
+  showStoryTextHints = false,
   onUploading,
   blocked = [],
 }: {
@@ -50,6 +52,8 @@ export function PageCanvas({
   badge?: (id: string) => ReactNode;
   /** 새 상품 채우기 화면(DEV-184): 빈 글 칸을 점선 네모 + '여기를 채워 주세요'로 보인다. */
   emptyHint?: boolean;
+  /** 새 상품 composer의 판매·가격 단계 안내만 명시적으로 켠다. */
+  showStoryTextHints?: boolean;
   onUploading?: (v: boolean) => void;
   blocked?: string[];
 }) {
@@ -158,67 +162,70 @@ export function PageCanvas({
       index: number,
       style: TextStyle,
     ) => (
-      <TextInput
-        accessibilityLabel={`${m.texts[index].fieldKey === "name" ? "상품 이름" : title(m.id)} 내용`}
-        multiline
-        onContentSizeChange={(e) => {
-          const key = `${m.id}:${index}`;
-          const height = Math.max(40, e.nativeEvent.contentSize.height);
-          setHeights((old) =>
-            old[key] === height ? old : { ...old, [key]: height },
-          );
-        }}
-        value={m.texts[index].value}
-        // 새 상품 채우기 화면에서는 상세 맨 위 제목을 위 상품명 칸 하나로만 고친다(저장 때 같은 값으로 맞춤).
-        editable={
-          !busy &&
-          !uploading &&
-          !(emptyHint && m.texts[index].fieldKey === "name")
-        }
-        maxLength={3000}
-        placeholder={
-          emptyHint
-            ? m.texts[index].fieldKey === "name"
-              ? "위 상품명이 여기에 들어가요"
-              : "여기를 채워 주세요"
-            : "내용을 입력해주세요"
-        }
-        placeholderTextColor="#B5B5B5"
-        style={{
-          fontFamily: tokens.fontFamily,
-          ...style,
-          padding: 4,
-          paddingRight: m.texts[index].fieldKey === "name" ? 4 : 44,
-          paddingLeft:
-            style.textAlign === "center" && m.texts[index].fieldKey !== "name"
-              ? 44
-              : 4,
-          minHeight: 40,
-          height: heights[`${m.id}:${index}`],
-          borderWidth: 1,
-          ...(emptyHint &&
-          m.texts[index].fieldKey !== "name" &&
-          !m.texts[index].value.trim() &&
-          selected !== m.id
-            ? {
-                borderStyle: "dashed" as const,
-                borderColor: tokens.color.textMuted,
-                borderRadius: 8,
-              }
-            : {
-                borderColor:
-                  selected === m.id ? tokens.color.border : "transparent",
-                borderRadius: 4,
-              }),
-        }}
-        onFocus={() => activate(m.id)}
-        onChangeText={(value) =>
-          update(m.id, (n) => {
-            n.texts[index].value = value;
-            n.enabled = true;
-          })
-        }
-      />
+      <View>
+        <TextInput
+          accessibilityLabel={`${m.texts[index].fieldKey === "name" ? "상품 이름" : title(m.id)} 내용`}
+          multiline
+          onContentSizeChange={(e) => {
+            const key = `${m.id}:${index}`;
+            const height = Math.max(40, e.nativeEvent.contentSize.height);
+            setHeights((old) =>
+              old[key] === height ? old : { ...old, [key]: height },
+            );
+          }}
+          value={m.texts[index].value}
+          // 새 상품 채우기 화면에서는 상세 맨 위 제목을 위 상품명 칸 하나로만 고친다(저장 때 같은 값으로 맞춤).
+          editable={
+            !busy &&
+            !uploading &&
+            !(emptyHint && m.texts[index].fieldKey === "name")
+          }
+          maxLength={3000}
+          placeholder={
+            emptyHint
+              ? m.texts[index].fieldKey === "name"
+                ? "위 상품명이 여기에 들어가요"
+                : "여기를 채워 주세요"
+              : "내용을 입력해주세요"
+          }
+          placeholderTextColor="#B5B5B5"
+          style={{
+            fontFamily: tokens.fontFamily,
+            ...style,
+            padding: 4,
+            paddingRight: m.texts[index].fieldKey === "name" ? 4 : 44,
+            paddingLeft:
+              style.textAlign === "center" && m.texts[index].fieldKey !== "name"
+                ? 44
+                : 4,
+            minHeight: 40,
+            height: heights[`${m.id}:${index}`],
+            borderWidth: 1,
+            ...(emptyHint &&
+            m.texts[index].fieldKey !== "name" &&
+            !m.texts[index].value.trim() &&
+            selected !== m.id
+              ? {
+                  borderStyle: "dashed" as const,
+                  borderColor: tokens.color.textMuted,
+                  borderRadius: 8,
+                }
+              : {
+                  borderColor:
+                    selected === m.id ? tokens.color.border : "transparent",
+                  borderRadius: 4,
+                }),
+          }}
+          onFocus={() => activate(m.id)}
+          onChangeText={(value) =>
+            update(m.id, (n) => {
+              n.texts[index].value = value;
+              n.enabled = true;
+            })
+          }
+        />
+        {showStoryTextHints ? <StoryTextHint value={m.texts[index].value} /> : null}
+      </View>
     ),
     photos: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => (
       <View style={{ gap: 8 }}>

@@ -1,3 +1,4 @@
+import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 import { SourceBasicInfo } from "./SourceBasicInfo";
 import { SourceAttachments } from "./SourceAttachments";
 import {
@@ -62,7 +63,25 @@ export const states: Record<string, string> = {
   PREPARED: "자료 준비됨",
   RUNNING: "처리 중",
 };
-export function sourceError(code: string) {
+export function sourceError(code: string, phase?: string) {
+  if (phase === "REFINE") {
+    const messages: Record<string, string> = {
+      SOURCE_CHANGED:
+        "자료가 바뀌어 문구 정리를 사용하지 않았어요. 다시 분석해 주세요.",
+      PRIVACY_CHANGED:
+        "가림 내용이 바뀌어 문구 정리를 사용하지 않았어요. 확인 후 다시 분석해 주세요.",
+      PROMPT_CHANGED: "문구 정리 방식이 바뀌었어요. 다시 분석해 주세요.",
+      INVALID_MODEL_OUTPUT:
+        "문구 정리 결과를 읽지 못해 원문 그대로 보여 드려요.",
+      INCOMPLETE_OR_REFUSED:
+        "문구 정리를 마치지 못해 원문 그대로 보여 드려요.",
+      REQUEST_UNCERTAIN:
+        "문구 정리 요청의 완료 여부를 확인하지 못해 원문 그대로 보여 드려요.",
+      PROVIDER_REJECTED:
+        "문구 정리 요청이 거절되어 원문 그대로 보여 드려요.",
+    };
+    return messages[code] ?? "문구 정리에 실패해서 원문 그대로 보여 드려요.";
+  }
   const messages: Record<string, string> = {
     BUDGET_EXCEEDED:
       "자료 분석 예산 한도에 도달했어요. 담당자에게 확인해 주세요.",
@@ -586,6 +605,9 @@ export function SourceWorkspace() {
                     }}
                     onSaved={setBatch}
                   />
+                  <T variant="caption" muted>
+                    {AI_POLICY_NOTE}
+                  </T>
                   <SourceAttachments
                     key={`attachments-${batch.id}`}
                     flushRef={flushAttachments}
@@ -652,14 +674,17 @@ export function SourceWorkspace() {
                         {r.mode === "mock" ? " · 테스트 결과" : ""}
                       </T>
                       {r.items
-                        .filter((i) => i.error)
+                        .filter(
+                          (i) =>
+                            i.error &&
+                            (i.phase !== "REFINE" || i.status === "FAILED"),
+                        )
                         .map((i) => (
                           <T key={i.id} variant="caption">
-                            {
-                              batch.sources.find((s) => s.id === i.assetId)
-                                ?.filename
-                            }
-                            : {sourceError(i.error!)}
+                            {i.phase !== "REFINE"
+                              ? `${batch.sources.find((s) => s.id === i.assetId)?.filename}: `
+                              : ""}
+                            {sourceError(i.error!, i.phase)}
                           </T>
                         ))}
                       {ACTIVE.includes(r.status) ? (
@@ -725,6 +750,13 @@ export function SourceWorkspace() {
                 </>
               ) : review ? (
                 <>
+                  <SourceExclusions
+                    batchId={batch.id}
+                    products={batch.targets.map((t) => ({
+                      name: t.name,
+                      result: activeRun ? undefined : review.refinementResults?.[t.id],
+                    }))}
+                  />
                   <SourceDetailsEditor
                     key={batch.id}
                     batch={batch}
@@ -741,21 +773,6 @@ export function SourceWorkspace() {
                       );
                     }}
                   />
-                  {review.candidates.some(
-                    (c) => c.historical || c.fieldKey === "historicalSales",
-                  ) ? (
-                    <View style={panel}>
-                      <T>과거 판매 정보 · 상세에 자동 반영하지 않아요</T>
-                      {review.candidates
-                        .filter(
-                          (c) =>
-                            c.historical || c.fieldKey === "historicalSales",
-                        )
-                        .map((c) => (
-                          <T key={c.id}>{c.value}</T>
-                        ))}
-                    </View>
-                  ) : null}
                   {drafts
                     .filter(
                       (d, i) =>

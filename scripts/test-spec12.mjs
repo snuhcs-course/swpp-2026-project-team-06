@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { mockTransport } = require("../.expo/mock-build/mock/index.js");
-const { configureMockStorage, db } = require("../.expo/mock-build/mock/db.js");
+const { mockTransport } = require("../.expo/mock-build/packages/api/src/mock/index.js");
+const { configureMockStorage, db } = require("../.expo/mock-build/packages/api/src/mock/db.js");
 let stored = null;
 configureMockStorage({
   read: () => stored,
@@ -445,4 +445,51 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
     db().threadMeta["f-kang:u-minji"].producerLastReadMessageId,
     beforeRead,
   );
+});
+
+
+test("DEV-186 AC-SRC-3: shared story safety lists and amount detection", () => {
+  const { hasHealthClaim, hasPlatformText, hasMoney } = require("../.expo/mock-build/packages/api/src/sourceTextSafety.js");
+  const lists = require("../server/app/source_analysis/text_safety_lists.json");
+  for (const word of lists.health) assert.equal(hasHealthClaim(word), true, word);
+  for (const word of lists.platform) assert.equal(hasPlatformText(word.replace(/\s/g, "")), true, word);
+  for (const value of ["건강하게 키운 감귤", "비타민C 함유", "수확 후 바로 포장", "작년 300상자 완판"]) {
+    assert.equal(hasHealthClaim(value), false, value);
+    assert.equal(hasPlatformText(value), false, value);
+    assert.equal(hasMoney(value), false, value);
+  }
+  for (const value of ["32,000원", "3 만 원", "1만5천원", "$30", "KRW 32000", "₩3천만"]) {
+    assert.equal(hasMoney(value), true, value);
+  }
+});
+
+
+test("DEV-186 AC-SRC-3: identical shared safety cases on client and server", () => {
+  const detectors = require("../.expo/mock-build/packages/api/src/sourceTextSafety.js");
+  const cases = require("../server/app/source_analysis/text_safety_cases.json");
+  for (const c of cases) {
+    assert.equal(detectors.hasHealthClaim(c.value), c.health, `health: ${c.value}`);
+    assert.equal(detectors.hasPlatformText(c.value), c.platform, `platform: ${c.value}`);
+    assert.equal(detectors.hasMoney(c.value), c.money, `money: ${c.value}`);
+  }
+});
+
+
+test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { spawnSync } = await import("node:child_process");
+  const workflow = await readFile(new URL("../.github/workflows/deploy-vercel.yml", import.meta.url), "utf8");
+  const pattern = workflow.match(/grep -qE '([^']+)'/)[1];
+  for (const [path, expected] of [
+    ["server/app/source_analysis/text_safety_lists.json", 0],
+    ["server/app/source_analysis/text_safety.py", 1],
+    ["apps/producer/src/lib/NewProductComposer.tsx", 0],
+  ]) {
+    assert.equal(spawnSync("grep", ["-qE", pattern], { input: path + "\n" }).status, expected);
+  }
+  const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+  const appsFilter = ci.split("            apps:\n")[1].split("\n      - name:")[0];
+  assert.ok(appsFilter.includes('"server/app/source_analysis/text_safety_lists.json"'));
+  const integrationFilter = ci.split("            integration:\n")[1].split("\n      - name:")[0];
+  assert.ok(integrationFilter.includes('"server/**"'));
 });
