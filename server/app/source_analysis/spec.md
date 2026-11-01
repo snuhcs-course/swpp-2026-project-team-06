@@ -138,3 +138,29 @@ DEV-186 추가 리뷰: 성공 REFINE의 일부 거절은 diagnostics/refinement.
 - R-19의 판매자 출하에 따라 택배사·포장/완충·농장 직배송·수확 직후 포장/발송·도서산간 가능 여부를 delivery에 보존한다. 기간(period), 금액(price), 공통 정책(platform)은 정리 모델에서 제외한다. 받는 시기/배송비는 ②에서 생산자가 정한다(R-20).
 - source-refine-v4와 공유 JSON 해시로 재사용 키를 갱신한다. 기간 키워드/정규식도 같은 JSON에서 Python·TS가 읽는다. 정제 출력의 PLATFORM_TEXT/PERIOD_TEXT는 diagnostics warning이며 거절하지 않는다. 금액/효능 hard reject·근거 검증은 유지한다. 판단 없는 fallback과 오래된 자동 저장값은 기간도 걸러낸다.
 - scorer 금지 검사는 money/health/platform/gold-forbidden 유지. 합성06 delivery 복원·09 문의/20 배송일 제외를 검증하고 합성 manifest 해시만 갱신한다. holdout lock·LOCAL_GOLD_SHA256은 2026-11-01 v1.1로 재잠금 완료(146문장·261사실).
+
+## I3 최종 문장 실행·감사 (DEV-170)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6 · M-11/13/18. 평가 계약은 DEV-187 final-text gold 형식을 따른다.
+
+- `final_eval.py`는 승인된 고정 입력에 제품 `parse`·stage-1 `extract`·`validate_candidates`·stage-2 `refine`·`refinement.validate`를 in-process 호출한다. OpenRouter의 crop/OCR orchestration은 worker와 공유하며 프롬프트를 복제하지 않는다. 검증 모듈을 로컬 저장한 뒤 scorer 봉투로 변환한다. 상품/공개 페이지는 쓰지 않는다.
+- 기본 mock은 등록 fixture를 유지하고 평가 CLI의 명시적 `mock_empty` 옵션만 미등록 입력을 빈 후보로 처리한다. mock 수치는 품질 결과가 아니며 최종 acceptance는 BLOCKED다.
+- runner는 저장소 밖 새 비공개 폴더만 사용한다. 입력 snapshot·원문·검증 후보/모듈·usage·request id·감사 문장은 로컬 전용이다. 커밋할 보고서는 scorer의 ID·format·hash·count·집계와 고정 설정만 포함한다.
+- stage별/전체 latency의 p50은 median, p95는 nearest rank다. 미관측 단계는 null, 빈 형식은 N/A다. 비용 불명확 응답은 실제 비용으로 부르지 않고 기존 예약 상한을 유지한다. per-run 한도와 기존 전역/평가 Spend 한도를 모두 적용하며 초과 직전 이후 source는 NOT_RUN으로 보존한다.
+- holdout은 mock을 거절하고 고정 SHA·로컬 lock·repo 형식을 검증한 뒤 최초 호출 전 gold 옆 marker를 독점 생성한다. 실패에도 지우지 않는다. `--force-rerun`에는 비어 있지 않은 `--rerun-reason`이 필수이며 기존 marker 수+1을 시도 번호로 사유와 함께 marker·metadata에 기록한다. offline `--rescore`는 추가 모델 호출이나 holdout 시도를 만들지 않는다.
+- 예상 밖 source 예외는 메시지 없이 `SOURCE_FAILED`로 기록하고 다음 자료를 처리한다. 실행이 중단되어도 finally에서 완료한 source의 부분 metadata·runs와 누적 비용을 저장한다.
+- `audit.csv`는 모든 출력 문장, `critical-audit.csv`는 숫자/날짜·품종·인증 lexicon에 걸린 문장이다. source별 누락/충돌·accepted evidence·적용 페이지 검증은 `source-audit.csv`로 받는다. 문장 index/SHA를 검증한 supportJudgments만 scorer로 보낸다. false 판단은 scorer proxy와 별개로 evaluator gate를 실패시킨다. 사람 검토 미완료는 BLOCKED이며 regex proxy를 실제 precision으로 주장하지 않는다.
+- 로컬 `inputs.json` snapshot으로 mock과 live의 합성 PDF 생성 메타데이터까지 고정할 수 있다. 공개 safe 파일 변경도 hash로 거절한다. holdout을 개발 튜닝에 쓰지 않는다.
+
+## DEV-170 R2 개발 후속
+
+- 개발 중간 버전 stage-1 `source-v7-fact-coverage`, stage-2 `source-refine-v5-fact-routing`은 배포된 호환 대상이 아니다. 출처/상품 구분·후보 전체 사실 보존, 생산 계절과 판매/배송 기간 분리, 농가/생산/맛 모듈 분할 지시는 최종 v8/v6에 유지한다. OCR 프롬프트와 금액/건강·근거 검증은 유지한다. FEAT-03/04/07 · AC-SRC-2/3/6.
+- metadata `errorCode`는 고정 코드만 기록하며 401/403은 `PROVIDER_AUTH`로 즉시 전체 실행을 중단한다. 나머지 자료는 `NOT_RUN`으로 채점 분모에 남긴다. 제공자 오류 본문은 기록하지 않는다.
+- `costUsd`/`settledUsd`는 제공자 정산액만 보고한다. `reservedUsd`는 누적 총 예약액, `unsettledReservedUsd`는 정산 미확인 예약액이며 한도에는 계속 포함한다. gross 예약액과 정산액은 더해서 지출로 해석하지 않는다.
+- 대상 이름/생산자 선택 정보가 없는 혼합 자료의 한계는 private 분석에 기록한다. gold product를 모델 입력으로 복사하지 않는다. 개발 실패 상세는 저장소 밖에만 남기고 holdout은 튜닝에 사용하지 않는다.
+
+## DEV-170 최종 개발 튜닝2/2
+
+- `source-v8-exact-numbers` / `source-refine-v6-exact-numbers`는 기존 식별 라벨·계절·절별 배치를 유지하고 숫자·단위·범위 전체를 인용 근거 표기로 보존한다. 문의 경로는 platform 제외를 명확히 한다. 기존 platform/period 서버 warning은 유지한다. FEAT-03/04/07 · AC-SRC-2/3/6 · M-11.
+- stage-1 숫자 검증은 공유 `text_safety.numbers`로 단위까지 비교한다. stage-2 수치 근거는 현재 인용 quote만 사용하여 후보 value의 단위 변조/발명을 상속하지 않는다. 후보별/문장별 거절로 무관한 정상 사실을 보존한다.
+- R3 unsupported4개는 근거 있는 월 범위의 scorer 토큰 차이다. scorer/gold/원점수를 바꾸지 않고 집계 보고서에 한계로 기록한다. 개별 문장·토큰·원문 근거는 private 분석에만 보존한다. R4 live와 사람 감사를 실행하기 전 unsupported0/recall 유지 달성을 주장하지 않는다.

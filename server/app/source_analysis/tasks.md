@@ -257,3 +257,75 @@ DEV-186의 두 단계 초안 중 최종 페이지 문장을 독립적으로 채�
 - 11/01 배송 정책 변경 반영 뒤 Claude 확인: holdout 잠금 기록을 v1.1(146문장·261사실, 배송 방식 사실 복원)로 갱신했다(`source-final-holdout-i3-lock.json`, `LOCAL_GOLD_SHA256`). `test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback[delete_source]`가 전체 실행에서 가끔 실패한 원인은 두 자료에 같은 문장이 있어 처리 순서에 따라 후보 소유 자료가 바뀌는 것이었다(앱 버그 아님). 테스트가 정리 입력 후보를 가진 자료를 지우도록 고쳤다. 검증: typecheck 통과, test:mock **47 passed**, Playwright 6개 spec **35 passed**, 로컬 holdout v1.1·공개 개발 gold 로드 성공.
 - 11/01 최종 스캔 반영: 기간 정규식이 보관·후숙 기간("실온 5~7일 보관", "수확 후 3~5일 후숙")까지 잡던 회귀를 고쳐, 숫자 기간 뒤에 도착·발송·출고·배송·수령이 오거나 "주문 후 N일"일 때만 기간으로 본다. 공유 사례에 보관 기간 음성 사례 4개를 더했다. holdout 재잠금 여부를 적은 문서끼리의 모순을 v1.1 재잠금 완료로 맞췄다.
 - 11/01 최종 검증(배송 정책·기간 규칙 반영 뒤, 샌드박스 밖): `cd server && uv run ruff check .` → All checks passed. `uv run pytest` 2회 연속 → **964 passed / 964 passed**. `npm run typecheck` 통과. `npm run test:mock` **47 passed**. Playwright 6개 spec **35 passed**. `stale_refinement…[delete_source]`는 남은 후보가 이전 분석의 정리 입력과 같으면 그 정리가 다시 쓰이는 정상 동작을 허용하고, 낡은 이번 정리가 쓰이지 않는지만 확인하도록 고쳤다.
+
+## DEV-170 [I3-T11] AI product-draft quality evaluation per format
+
+- 이슈: [DEV-170](https://linear.app/sswp6/issue/DEV-170)
+- 브랜치: `jinumeral/dev-170-i3-t11-quality-eval`
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6, M-11/13/18
+- 상태: 리뷰 보완 구현 완료·환경 검증 미완료 (지정 pytest 525통과/6실패, Playwright 시작 권한 차단; 평가 FAIL·사람 감사 미완료)
+
+### 목표
+고정된 final-text gold로 실제 stage-2 정리/검증 결과를 형식별 평가한다. mock은 실행 경로 검증이며 품질 결과가 아니다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/{final_eval.py,budget.py,worker.py,refinement.py,spec.md,tasks.md}`
+- `server/app/ai/{source_analysis.py,source_refine.py,source_ocr.py}` (개발 결과 기반 프롬프트·인증 오류 코드)
+- `server/tests/{test_final_eval.py,test_final_score.py,test_source_analysis.py,test_source_refine.py}`, `Makefile`
+- `apps/producer/src/lib/SourceWorkspace.tsx`, `scripts/e2e/source-review-regressions.spec.ts`
+- `docs/spec/source-analysis.md` (인증 오류 안내 계약)
+- `docs/spec/validation/source-final-eval-i3-2026-11-01.{md,json}`
+- `docs/wiki/Source-Analysis.md`
+
+### 비범위
+- 유료/실모델 호출·키 탐색·holdout 실행/튜닝·private 자료 저장소 복사·새 의존성·push·PR·운영 접근.
+
+### 결정 사항
+- 11/01 사용자 제공 이슈/완료 조건을 원천으로 삼고 기존 브랜치에서 작업한다. spec 스킬의 push/PR 절차는 사용자 지시로 생략한다.
+- 11/01 in-process runner는 제품 parser/OCR·extract·worker.validate_candidates·refine·refinement.validate를 사용하고 검증 모듈을 로컬 저장한다. 공개 페이지/상품은 쓰지 않으며 적용 페이지 안전성은 사람 검증 전 BLOCKED다.
+- 11/01 보고서에는 scorer의 가림 계약을 유지한다. 원문·후보·문장·worksheet는 저장소 밖 새 전용 출력 폴더에만 저장한다. holdout marker는 호출 시작 전 독점 생성하고 실패해도 유지한다.
+- 11/01 비용은 budget.py의 예약 상한/Spend 정산을 재사용하고 run별 추가 한도를 매 호출 전 검사한다. 불명확 비용은 예약액으로 유지하며 재시도하지 않는다.
+- 11/01 감사 CSV는 문장 index/hash를 검증해 supportJudgments로 되돌린다. 중요 문장 외 전체 문장도 감사 가능하며 누락/충돌은 source별 별도 감사 표에 기록한다.
+
+- 11/01 R2 후속: 개발32건의 누락/오배치/금지/EMPTY 원인을 private 폴더에만 기록한다. gold·scorer·holdout·검증 보호는 변경하지 않는다. 두 단계 프롬프트만 개선하고 버전을 올린다. OCR 누락이 주원인이 아니면 OCR 프롬프트는 유지한다.
+- 11/01 R2 후속: runner 실패는 고정 allowlist errorCode만 metadata에 기록하고 401/403은 PROVIDER_AUTH로 구분해 첫 발생 시 중단한다. 이후 자료는 NOT_RUN으로 분모에 유지한다. 비용 한도에는 미정산 예약을 유지하되 costUsd는 정산액만, reservedUsd/settledUsd/unsettledReservedUsd를 분리한다.
+- 11/01 R2 후속: 대상 이름 없는 runner 입력의 혼합 상품 한계와 gold/안전 계약 충돌은 원인에 명시한다. gold의 product/문장은 모델 입력으로 사용하지 않는다. 실측은 사람이 실행한다.
+- 11/01 최종 튜닝2/2: R3 unsupported4개는 월 범위의 표현 변경과 scorer의 부호/범위 토큰 비교 차이다. scorer/gold는 동결하고 개별 문장·토큰·근거는 private 분석에만 쓴다. 두 프롬프트는 숫자·단위·범위 구분자를 원문 그대로 복사하며 기존 식별 라벨·계절·절별 배치를 유지한다.
+- 11/01 최종 튜닝2/2: 범위에 refinement.py를 추가한다. stage-1은 단위 포함 숫자를 검증하고 stage-2는 후보 value가 아닌 인용 quote만 숫자 근거로 사용하여 이전 후보의 단위 변조도 차단한다. 문의 채널은 platform 제외를 프롬프트에서 명확히 하고 기존 서버 platform/period warning 계약은 유지한다. 합성 회귀만 추가하며 추가 실측은 하지 않는다.
+
+- 11/01 최종 보고: owner 제공 R4·holdout v1.1 최초1회 결과와 metadata/score/critical-audit 집계만 기록한다. 판정 FAIL, 평가 결과·scorer·gold는 동결한다. DEV-182/T23은 오류 유형 기반 일반 수정으로 계획하며 20페이지 초과 PDF는 첫20페이지 분석+나머지 생략 안내(owner 2026-11-01 결정)로 기록한다. 추가1회 T23 재측정은 부분 오염이며 최초 결과를 대체하지 않는다. 이후 holdout12건은 개발32→44건에 편입하고 독립 측정에는 동일3인 검토의 새 holdout v2가 필요하다. owner가 지적한 편향 위험은 인정되었으나 해소되지 않았다.
+
+- 11/01 리뷰 보완: holdout mock 금지·강제 재실행 사유/누적 시도 번호 기록, 예상 밖 source 오류의 고정 SOURCE_FAILED 및 중단 시 finally metadata 보존을 검증한다. 숫자 format count만 no_text 예외로 허용하고 실제 문자열 차단은 유지한다. PROVIDER_AUTH 생산자/REFINE 안내와 E2E를 추가하며 재시도/불확실성 정책은 변경하지 않는다. 문서의 세션성 주장·로컬 경로·DB 이름·중복 커밋 계획을 정리하고 월 범위 회귀는 일반 합성 문자열로 교체한다.
+- 11/01 Figma: 인증 오류 문구 동기화는 후속 작업으로 기록한다. 향후 PR의 `Figma:` 줄에 명시한다. 사용자 지시로 외부 변경·PR 생성은 하지 않는다.
+
+### 작업
+- [x] runner·봉투·비용/holdout 가드·집계·감사 worksheet 및 리뷰 보완 회귀 검증 (final_eval 전체 통과)
+- [x] 개발 실패 분석·프롬프트 개선·quote 기반 숫자/단위 검증·합성 회귀 검증 (합성 회귀 통과)
+- [x] 합성20·공개개발12 mock 전체 경로 실행 (기존 실행 기록)
+- [x] owner 개발 R4·holdout 최초1회 집계 보고서·영문 wiki 작성
+- [ ] PROVIDER_AUTH 생산자 안내·REFINE fallback 문구·Playwright 검증
+- [ ] 관련 pytest·typecheck·test:mock 통과
+- [ ] Figma v6 인증 오류 안내 문구 동기화 (후속 작업)
+
+### 완료 조건
+- [ ] mock 전체 경로·관련 테스트 통과
+- [x] owner 개발 실측 → 버전 동결 → holdout 최초1회 완료
+- [ ] 사람 critical/전체 문장·원본·누락/충돌·적용 페이지 감사
+- [ ] 형식별 P/R ≥95%, 적용 페이지 unsupported critical 0, accepted evidence 100%, 누락/충돌 blank/flag 검증
+
+### 기록
+- 11/01 초기 runner/mock: 합성20 EVALUATED1/EMPTY19·40호출·$0, 공개개발12 EMPTY12·24호출·$0. 입력 snapshot과 감사 산출물은 저장소 밖에만 보존한다. final_score 관련 묶음은 213 passed / 0 failed였다.
+- 11/01 R2→R3→R4: facts 57/87→71/87→72/87, critical 23/42→35/42→35/42, 오배치12→4→7, 금지2→1→0, unsupported0→4→0. R3의4개는 scorer의 범위 토큰 차이이며 원점수·gold·scorer를 유지했다.
+- 11/01 `source-v7-fact-coverage` / `source-refine-v5-fact-routing`은 개발 중간 버전이며 배포된 호환 대상이 아니다. 최종 `source-v8-exact-numbers` / `source-refine-v6-exact-numbers`는 인용의 숫자·단위·범위 표기를 보존한다.
+- 11/01 초기 테스트 실패는 신규 fixture 경로/필수 historical 누락 및 prompt 버전 varchar(30) 초과를 고쳐 해결했다. assertion이나 parser 보호를 약화하지 않았다. 이후 지정 묶음은 493 passed / 0 failed였다.
+- 11/01 owner 최종 실측: 개발R4 32건 fact72/87·critical35/42·proxy65/67·정산$0.113482, holdout v1.1 최초1회12건 fact59/261·critical29/109·proxy60/63·정산$0.156935. 두 split 금지/unsupported0이나 형식별≥95% 목표 미달로 FAIL이다. critical-audit 개발30/holdout45행은 모두 미검토다.
+- 11/01 owner sandbox 밖 전체 pytest: 1045 passed / 1 failed (보고서 no_text guard). test_core 실패 원인은 로컬 `.env`뿐이며 해당 파일 없이 통과했다. 이 기록은 이전 sandbox 실패와 구분하며 수정 후 실제 결과를 아래에 남긴다.
+- 11/01 리뷰 보완 검증 진행: 개인정보 guard는 numeric text 집계를 허용하고 7개 text-ish 키의 문자열·문자열/객체 리스트·중첩 payload 차단을 검증한다. 월 범위 합성 회귀를 일반 문자열로 바꿨다. source/service의 PROVIDER_AUTH와 PROVIDER_REJECTED는 같은 수동 재시도 경로다. 자동 재시도는 retry_after가 있는 경우뿐이고 불확실 비용 확인은 REQUEST_UNCERTAIN만 요구한다. 평가 runner만 인증 실패 후 추가 지출을 막기 위해 전체 중단한다.
+
+- 11/01 최종 지정 명령: `cd server && uv run ruff check . && uv run pytest tests/test_final_eval.py tests/test_final_score.py tests/test_source_refine.py tests/test_source_analysis.py --tb=short` → **Ruff 통과; 525 passed / 6 failed (71.96s)**. final_eval·final_score·source_refine 전체와 개인정보 guard 통과. 기존 worker6건은 PREPARE 실패이며 독립 합성 prepare의 `PermissionError(errno 1, sysctl)`로 sandbox 제약을 확인했다. 새 fixture의 필수 photo_requests 누락2건은 스키마에 맞춰 고쳐 통과했고 assertion은 유지했다. 로컬 `.env`는 임시 분리 후 복원했다.
+- 11/01 앱 검증: `npm run typecheck && npm run test:mock` → **typecheck 통과; 47 passed / 0 failed**. `npm run test:e2e -- scripts/e2e/source-review-regressions.spec.ts` → **0 passed / 8 failed**, Chromium bootstrap_check_in / MachPortRendezvousServer 권한 오류1100으로 화면 assertion 미실행. 관련 테스트 전체 완료 체크는 하지 않는다.
+- 11/01 최종 경로/정보 감사: HEAD 대비 변경20경로는 허용 범위 안이다. `git diff main...HEAD`는 기존 local main 대비672개 파일 이력이고 `git diff origin/main...HEAD`는0개다. 비공개 문장/holdout 패턴으로 추가 라인을 검사해 신규 일치0건이며 `git diff --check` 통과. 미커밋 변경을 보존했다.
+
+### 남은 일
+- sandbox 밖에서 지정 pytest와 source-review Playwright를 재검증한다. 사람 감사와 적용 페이지 검증, ≥95% 품질 목표는 미충족이다. DEV-182/T23 후속 수정·부분 오염 재측정 계획은 보고서에 보존한다. 이번 작업에서 live 호출·holdout 재실행은 하지 않는다.
+- Figma 문구 동기화와 사람 리뷰/머지/배포 확인은 후속 단계다. 미커밋 변경을 유지하며 커밋·push·PR은 생성하지 않는다.

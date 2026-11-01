@@ -1,0 +1,1437 @@
+{
+  "schemaVersion": 1,
+  "issue": "DEV-170",
+  "task": "I3-T11",
+  "date": "2026-11-01",
+  "verdict": "FAIL",
+  "verdictReason": "The >=95% precision/recall target per format is not met. Zero unsupported critical facts and zero forbidden content were met on both scored splits. Human evidence and applied-page safety are not established.",
+  "config": {
+    "provider": "openrouter",
+    "model": "google/gemini-3-flash-preview",
+    "stage1PromptVersion": "source-v8-exact-numbers",
+    "stage1PromptSha256": "846fdf7327c985a23a87f0555fe877ad94e615a00ac0a2facd43a037c547d4de",
+    "stage2PromptVersion": "source-refine-v6-exact-numbers",
+    "stage2PromptSha256": "dfd02bf9ab136d8d8836acffda527a15bb9031bd2ba9665dc0ebb0e48c41078e",
+    "safetyListsSha256": "7361062564d010b618842a60ca5f6a180114b0cbf2cfcaac0c7312a30cbd5bc7",
+    "preprocessVersion": "source-parser-v3",
+    "ocrModel": "google/gemini-3-flash-preview",
+    "ocrPromptSha256": "63176d0350e333499c1588dfb24812675be5806fe580f42ef02239695d6046c1",
+    "ocrManifestSha256": "6aa2338a8ecdd86cafd35e7d77a1f0478e3e9fe66abf80a3f7406ca4d264680a"
+  },
+  "sampleCounts": {
+    "development": {
+      "total": 32,
+      "synthetic": 20,
+      "publicDevelopment": 12,
+      "byFormat": {
+        "text": 21,
+        "image": 6,
+        "long_image": 1,
+        "pdf": 4
+      },
+      "textExtraction": 17,
+      "textContract": 4
+    },
+    "holdout": {
+      "version": "v1.1",
+      "total": 12,
+      "byFormat": {
+        "text": 3,
+        "image": 3,
+        "long_image": 3,
+        "pdf": 3
+      },
+      "goldSentences": 146,
+      "facts": 261,
+      "criticalFacts": 109,
+      "runs": 1
+    }
+  },
+  "metricDefinitions": {
+    "factRecall": "Same-section mustContain facts; all failed, empty and not-run sources stay in denominators.",
+    "precisionProxy": "Automatic sentence support proxy; not human semantic precision. A zero denominator is null/N/A.",
+    "failedRuns": "Scorer count includes every non-EVALUATED status, including EMPTY; consult statuses for actual FAILED counts.",
+    "quantiles": "p50=median; p95=nearest rank ceil(0.95*n). Latency units ms; cost units USD.",
+    "latency": "Per-source observed metadata timings, including failed/empty cases; null stages excluded with n recorded. No-op stage2 timings retained. Product parser runs in-process; queue/DB/publication are excluded.",
+    "cost": "Per-source settled cost includes failed/empty attempts and zero-cost preprocessing failures. Quantiles/mean use every source; reserved cost is not added to spend."
+  },
+  "development": {
+    "round": "r4",
+    "runId": "dev170-live-dev-r4",
+    "config": {
+      "provider": "openrouter",
+      "model": "google/gemini-3-flash-preview",
+      "stage1PromptVersion": "source-v8-exact-numbers",
+      "stage1PromptSha256": "846fdf7327c985a23a87f0555fe877ad94e615a00ac0a2facd43a037c547d4de",
+      "stage2PromptVersion": "source-refine-v6-exact-numbers",
+      "stage2PromptSha256": "dfd02bf9ab136d8d8836acffda527a15bb9031bd2ba9665dc0ebb0e48c41078e",
+      "safetyListsSha256": "7361062564d010b618842a60ca5f6a180114b0cbf2cfcaac0c7312a30cbd5bc7",
+      "preprocessVersion": "source-parser-v3",
+      "ocrModel": "google/gemini-3-flash-preview",
+      "ocrPromptSha256": "63176d0350e333499c1588dfb24812675be5806fe580f42ef02239695d6046c1",
+      "ocrManifestSha256": "6aa2338a8ecdd86cafd35e7d77a1f0478e3e9fe66abf80a3f7406ca4d264680a"
+    },
+    "artifactSha256": {
+      "metadata.json": "3470753191c0aacf66c0693babdacccc3d3816e4103575ffbc4f709ffe035917",
+      "score.json": "e2c11662b9654b2b4b5d7c8ecd967abb466615fc0f6d4ab5fbd75f2ae8d77eb8",
+      "critical-audit.csv": "20896e1f08ec77256bb4e75b583050c87fa38c44ebb97199c3dbb2f04250838b"
+    },
+    "byFormat": {
+      "text": {
+        "sources": 21,
+        "contractCases": 4,
+        "extractionCases": 17,
+        "failedRuns": 6,
+        "factRecall": {
+          "hit": 27,
+          "total": 31,
+          "rate": 0.8709677419354839
+        },
+        "criticalFactRecall": {
+          "hit": 14,
+          "total": 17,
+          "rate": 0.8235294117647058
+        },
+        "misplacement": {
+          "hit": 0,
+          "total": 31,
+          "rate": 0.0
+        },
+        "precisionProxy": {
+          "hit": 22,
+          "total": 22,
+          "rate": 1.0
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "FAIL",
+        "statuses": {
+          "EVALUATED": 15,
+          "EMPTY": 6
+        },
+        "errorCodes": {},
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 21,
+            "p50": 0.012,
+            "p95": 0.024208
+          },
+          "stage1Ms": {
+            "n": 21,
+            "p50": 1731.241625,
+            "p95": 2515.326667
+          },
+          "stage2Ms": {
+            "n": 21,
+            "p50": 1441.6335,
+            "p95": 2328.578333
+          },
+          "endToEndMs": {
+            "n": 21,
+            "p50": 3326.187,
+            "p95": 5189.208458
+          }
+        },
+        "costUsd": {
+          "n": 21,
+          "p50": 0.002687,
+          "p95": 0.00322,
+          "total": 0.053179,
+          "mean": 0.002532
+        },
+        "calls": 38
+      },
+      "image": {
+        "sources": 6,
+        "contractCases": 0,
+        "extractionCases": 6,
+        "failedRuns": 0,
+        "factRecall": {
+          "hit": 19,
+          "total": 25,
+          "rate": 0.76
+        },
+        "criticalFactRecall": {
+          "hit": 11,
+          "total": 14,
+          "rate": 0.7857142857142857
+        },
+        "misplacement": {
+          "hit": 6,
+          "total": 25,
+          "rate": 0.24
+        },
+        "precisionProxy": {
+          "hit": 19,
+          "total": 21,
+          "rate": 0.9047619047619048
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "FAIL",
+        "statuses": {
+          "EVALUATED": 6
+        },
+        "errorCodes": {},
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 6,
+            "p50": 633.68275,
+            "p95": 641.566125
+          },
+          "stage1Ms": {
+            "n": 6,
+            "p50": 4490.124125,
+            "p95": 6018.477334
+          },
+          "stage2Ms": {
+            "n": 6,
+            "p50": 2450.32775,
+            "p95": 3314.708416
+          },
+          "endToEndMs": {
+            "n": 6,
+            "p50": 7692.226105,
+            "p95": 9526.71725
+          }
+        },
+        "costUsd": {
+          "n": 6,
+          "p50": 0.004557,
+          "p95": 0.005411,
+          "total": 0.027511,
+          "mean": 0.004585
+        },
+        "calls": 18
+      },
+      "long_image": {
+        "sources": 1,
+        "contractCases": 0,
+        "extractionCases": 1,
+        "failedRuns": 0,
+        "factRecall": {
+          "hit": 16,
+          "total": 18,
+          "rate": 0.8888888888888888
+        },
+        "criticalFactRecall": {
+          "hit": 5,
+          "total": 5,
+          "rate": 1.0
+        },
+        "misplacement": {
+          "hit": 0,
+          "total": 18,
+          "rate": 0.0
+        },
+        "precisionProxy": {
+          "hit": 11,
+          "total": 11,
+          "rate": 1.0
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "PASS",
+        "statuses": {
+          "EVALUATED": 1
+        },
+        "errorCodes": {},
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 1,
+            "p50": 2180.777,
+            "p95": 2180.777
+          },
+          "stage1Ms": {
+            "n": 1,
+            "p50": 21442.199542,
+            "p95": 21442.199542
+          },
+          "stage2Ms": {
+            "n": 1,
+            "p50": 2931.625209,
+            "p95": 2931.625209
+          },
+          "endToEndMs": {
+            "n": 1,
+            "p50": 26554.618541,
+            "p95": 26554.618541
+          }
+        },
+        "costUsd": {
+          "n": 1,
+          "p50": 0.014352,
+          "p95": 0.014352,
+          "total": 0.014352,
+          "mean": 0.014352
+        },
+        "calls": 8
+      },
+      "pdf": {
+        "sources": 4,
+        "contractCases": 0,
+        "extractionCases": 4,
+        "failedRuns": 0,
+        "factRecall": {
+          "hit": 10,
+          "total": 13,
+          "rate": 0.7692307692307693
+        },
+        "criticalFactRecall": {
+          "hit": 5,
+          "total": 6,
+          "rate": 0.8333333333333334
+        },
+        "misplacement": {
+          "hit": 1,
+          "total": 13,
+          "rate": 0.07692307692307693
+        },
+        "precisionProxy": {
+          "hit": 13,
+          "total": 13,
+          "rate": 1.0
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "FAIL",
+        "statuses": {
+          "EVALUATED": 4
+        },
+        "errorCodes": {},
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 4,
+            "p50": 389.054729,
+            "p95": 885.224792
+          },
+          "stage1Ms": {
+            "n": 4,
+            "p50": 4989.648416,
+            "p95": 5650.7545
+          },
+          "stage2Ms": {
+            "n": 4,
+            "p50": 2103.788374,
+            "p95": 3700.5705
+          },
+          "endToEndMs": {
+            "n": 4,
+            "p50": 7657.6985,
+            "p95": 8855.60875
+          }
+        },
+        "costUsd": {
+          "n": 4,
+          "p50": 0.004532,
+          "p95": 0.005176,
+          "total": 0.01844,
+          "mean": 0.00461
+        },
+        "calls": 13
+      }
+    },
+    "overall": {
+      "sources": 32,
+      "contractCases": 4,
+      "extractionCases": 28,
+      "failedRuns": 6,
+      "factRecall": {
+        "hit": 72,
+        "total": 87,
+        "rate": 0.8275862068965517
+      },
+      "criticalFactRecall": {
+        "hit": 35,
+        "total": 42,
+        "rate": 0.8333333333333334
+      },
+      "misplacement": {
+        "hit": 7,
+        "total": 87,
+        "rate": 0.08045977011494253
+      },
+      "precisionProxy": {
+        "hit": 65,
+        "total": 67,
+        "rate": 0.9701492537313433
+      },
+      "forbiddenViolations": 0,
+      "unsupportedTokens": 0,
+      "unsupported": {
+        "certification": 0,
+        "cultivar": 0,
+        "number": 0
+      },
+      "criticalGate": "FAIL",
+      "statuses": {
+        "EVALUATED": 26,
+        "EMPTY": 6
+      },
+      "errorCodes": {},
+      "latencyMs": {
+        "preprocessMs": {
+          "n": 32,
+          "p50": 0.017541,
+          "p95": 885.224792
+        },
+        "stage1Ms": {
+          "n": 32,
+          "p50": 2310.240937,
+          "p95": 6018.477334
+        },
+        "stage2Ms": {
+          "n": 32,
+          "p50": 1662.610896,
+          "p95": 3700.5705
+        },
+        "endToEndMs": {
+          "n": 32,
+          "p50": 3839.286,
+          "p95": 9526.71725
+        }
+      },
+      "costUsd": {
+        "n": 32,
+        "p50": 0.002901,
+        "p95": 0.005411,
+        "total": 0.113482,
+        "mean": 0.003546
+      },
+      "calls": 77
+    },
+    "criticalClaimAudit": {
+      "overall": {
+        "rows": 30,
+        "criticalTrue": 30,
+        "supported": 0,
+        "unsupported": 0,
+        "unreviewed": 30,
+        "status": "PENDING"
+      },
+      "byFormat": {
+        "text": {
+          "rows": 7,
+          "criticalTrue": 7,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 7,
+          "status": "PENDING"
+        },
+        "image": {
+          "rows": 13,
+          "criticalTrue": 13,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 13,
+          "status": "PENDING"
+        },
+        "long_image": {
+          "rows": 2,
+          "criticalTrue": 2,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 2,
+          "status": "PENDING"
+        },
+        "pdf": {
+          "rows": 8,
+          "criticalTrue": 8,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 8,
+          "status": "PENDING"
+        }
+      }
+    },
+    "sourceStatuses": [
+      {
+        "id": "farm-mong",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-water",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-citrus",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-yang",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-shin",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-father",
+        "format": "pdf",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-jun",
+        "format": "pdf",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "oasis-long",
+        "format": "long_image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "oasis-storage",
+        "format": "pdf",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "ssarijai",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-orafield",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "farm-close",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "01-origin",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "02-weight",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "03-expected-brix",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "04-measured-brix",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "05-storage",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "06-delivery",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "07-farm-story",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "08-appearance",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "09-support",
+        "format": "text",
+        "status": "EMPTY",
+        "errorCode": null
+      },
+      {
+        "id": "10-historical",
+        "format": "text",
+        "status": "EMPTY",
+        "errorCode": null
+      },
+      {
+        "id": "11-conflict",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "12-mixed-products",
+        "format": "text",
+        "status": "EMPTY",
+        "errorCode": null
+      },
+      {
+        "id": "13-common-farm",
+        "format": "text",
+        "status": "EMPTY",
+        "errorCode": null
+      },
+      {
+        "id": "14-private-contact",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "15-injection",
+        "format": "text",
+        "status": "EMPTY",
+        "errorCode": null
+      },
+      {
+        "id": "16-missing-count",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "17-duplicate",
+        "format": "text",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "18-empty",
+        "format": "text",
+        "status": "EMPTY",
+        "errorCode": null
+      },
+      {
+        "id": "19-rotated-image",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "20-pdf-table",
+        "format": "pdf",
+        "status": "EVALUATED",
+        "errorCode": null
+      }
+    ],
+    "settledUsd": 0.113482,
+    "reservedUsd": 2.143921,
+    "unsettledReservedUsd": 0.0,
+    "allCostsKnown": true
+  },
+  "holdout": {
+    "version": "v1.1",
+    "runs": 1,
+    "independent": true,
+    "runId": "dev170-live-holdout",
+    "config": {
+      "provider": "openrouter",
+      "model": "google/gemini-3-flash-preview",
+      "stage1PromptVersion": "source-v8-exact-numbers",
+      "stage1PromptSha256": "846fdf7327c985a23a87f0555fe877ad94e615a00ac0a2facd43a037c547d4de",
+      "stage2PromptVersion": "source-refine-v6-exact-numbers",
+      "stage2PromptSha256": "dfd02bf9ab136d8d8836acffda527a15bb9031bd2ba9665dc0ebb0e48c41078e",
+      "safetyListsSha256": "7361062564d010b618842a60ca5f6a180114b0cbf2cfcaac0c7312a30cbd5bc7",
+      "preprocessVersion": "source-parser-v3",
+      "ocrModel": "google/gemini-3-flash-preview",
+      "ocrPromptSha256": "63176d0350e333499c1588dfb24812675be5806fe580f42ef02239695d6046c1",
+      "ocrManifestSha256": "6aa2338a8ecdd86cafd35e7d77a1f0478e3e9fe66abf80a3f7406ca4d264680a"
+    },
+    "artifactSha256": {
+      "metadata.json": "fac5145378dd44984b438b47f5175bd5d543ddb7235e3ff456b26616426a5556",
+      "score.json": "fbd07a3c1a9082b758e7fa93893b8cde20ecf912896ff9cda6c950b13565a44e",
+      "critical-audit.csv": "4d4249ed0ae406432126b946cdb7363fff6a7f55eb2d68eca1d51b32dafb1feb"
+    },
+    "byFormat": {
+      "text": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 3,
+        "factRecall": {
+          "hit": 0,
+          "total": 67,
+          "rate": 0.0
+        },
+        "criticalFactRecall": {
+          "hit": 0,
+          "total": 27,
+          "rate": 0.0
+        },
+        "misplacement": {
+          "hit": 0,
+          "total": 67,
+          "rate": 0.0
+        },
+        "precisionProxy": {
+          "hit": 0,
+          "total": 0,
+          "rate": null
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "FAIL",
+        "statuses": {
+          "FAILED": 2,
+          "EMPTY": 1
+        },
+        "errorCodes": {
+          "CANDIDATES_REJECTED": 1,
+          "INCOMPLETE_OR_REFUSED": 1
+        },
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 3,
+            "p50": 0.062667,
+            "p95": 0.960375
+          },
+          "stage1Ms": {
+            "n": 3,
+            "p50": 11167.806042,
+            "p95": 18678.535166
+          },
+          "stage2Ms": {
+            "n": 1,
+            "p50": 0.033958,
+            "p95": 0.033958
+          },
+          "endToEndMs": {
+            "n": 3,
+            "p50": 11168.790917,
+            "p95": 18678.59425
+          }
+        },
+        "costUsd": {
+          "n": 3,
+          "p50": 0.010942,
+          "p95": 0.015985,
+          "total": 0.033254,
+          "mean": 0.011085
+        },
+        "calls": 3
+      },
+      "image": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 0,
+        "factRecall": {
+          "hit": 25,
+          "total": 27,
+          "rate": 0.9259259259259259
+        },
+        "criticalFactRecall": {
+          "hit": 20,
+          "total": 21,
+          "rate": 0.9523809523809523
+        },
+        "misplacement": {
+          "hit": 2,
+          "total": 27,
+          "rate": 0.07407407407407407
+        },
+        "precisionProxy": {
+          "hit": 21,
+          "total": 23,
+          "rate": 0.9130434782608695
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "FAIL",
+        "statuses": {
+          "EVALUATED": 3
+        },
+        "errorCodes": {},
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 3,
+            "p50": 1293.498292,
+            "p95": 1459.536834
+          },
+          "stage1Ms": {
+            "n": 3,
+            "p50": 14601.482583,
+            "p95": 16143.91575
+          },
+          "stage2Ms": {
+            "n": 3,
+            "p50": 2712.052292,
+            "p95": 3917.832792
+          },
+          "endToEndMs": {
+            "n": 3,
+            "p50": 19978.866417,
+            "p95": 19998.452958
+          }
+        },
+        "costUsd": {
+          "n": 3,
+          "p50": 0.008169,
+          "p95": 0.008707,
+          "total": 0.023644,
+          "mean": 0.007881
+        },
+        "calls": 13
+      },
+      "long_image": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 1,
+        "factRecall": {
+          "hit": 34,
+          "total": 74,
+          "rate": 0.4594594594594595
+        },
+        "criticalFactRecall": {
+          "hit": 9,
+          "total": 20,
+          "rate": 0.45
+        },
+        "misplacement": {
+          "hit": 8,
+          "total": 74,
+          "rate": 0.10810810810810811
+        },
+        "precisionProxy": {
+          "hit": 39,
+          "total": 40,
+          "rate": 0.975
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "FAIL",
+        "statuses": {
+          "EVALUATED": 2,
+          "FAILED": 1
+        },
+        "errorCodes": {
+          "CANDIDATES_REJECTED": 1
+        },
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 3,
+            "p50": 4305.186292,
+            "p95": 5622.377125
+          },
+          "stage1Ms": {
+            "n": 3,
+            "p50": 61554.184917,
+            "p95": 113799.980666
+          },
+          "stage2Ms": {
+            "n": 2,
+            "p50": 4433.265313,
+            "p95": 5024.179417
+          },
+          "endToEndMs": {
+            "n": 3,
+            "p50": 72200.773417,
+            "p95": 121947.5445
+          }
+        },
+        "costUsd": {
+          "n": 3,
+          "p50": 0.02746,
+          "p95": 0.033962,
+          "total": 0.079259,
+          "mean": 0.02642
+        },
+        "calls": 47
+      },
+      "pdf": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 3,
+        "factRecall": {
+          "hit": 0,
+          "total": 93,
+          "rate": 0.0
+        },
+        "criticalFactRecall": {
+          "hit": 0,
+          "total": 41,
+          "rate": 0.0
+        },
+        "misplacement": {
+          "hit": 0,
+          "total": 93,
+          "rate": 0.0
+        },
+        "precisionProxy": {
+          "hit": 0,
+          "total": 0,
+          "rate": null
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "criticalGate": "FAIL",
+        "statuses": {
+          "FAILED": 3
+        },
+        "errorCodes": {
+          "PREPROCESS_FAILED": 2,
+          "CANDIDATES_REJECTED": 1
+        },
+        "latencyMs": {
+          "preprocessMs": {
+            "n": 1,
+            "p50": 2759.096667,
+            "p95": 2759.096667
+          },
+          "stage1Ms": {
+            "n": 1,
+            "p50": 31818.06625,
+            "p95": 31818.06625
+          },
+          "stage2Ms": {
+            "n": 0,
+            "p50": null,
+            "p95": null
+          },
+          "endToEndMs": {
+            "n": 3,
+            "p50": 0.336542,
+            "p95": 34577.186875
+          }
+        },
+        "costUsd": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0.020778,
+          "total": 0.020778,
+          "mean": 0.006926
+        },
+        "calls": 8
+      }
+    },
+    "overall": {
+      "sources": 12,
+      "contractCases": 0,
+      "extractionCases": 12,
+      "failedRuns": 7,
+      "factRecall": {
+        "hit": 59,
+        "total": 261,
+        "rate": 0.2260536398467433
+      },
+      "criticalFactRecall": {
+        "hit": 29,
+        "total": 109,
+        "rate": 0.26605504587155965
+      },
+      "misplacement": {
+        "hit": 10,
+        "total": 261,
+        "rate": 0.038314176245210725
+      },
+      "precisionProxy": {
+        "hit": 60,
+        "total": 63,
+        "rate": 0.9523809523809523
+      },
+      "forbiddenViolations": 0,
+      "unsupportedTokens": 0,
+      "unsupported": {
+        "certification": 0,
+        "cultivar": 0,
+        "number": 0
+      },
+      "criticalGate": "FAIL",
+      "statuses": {
+        "FAILED": 6,
+        "EMPTY": 1,
+        "EVALUATED": 5
+      },
+      "errorCodes": {
+        "CANDIDATES_REJECTED": 3,
+        "INCOMPLETE_OR_REFUSED": 1,
+        "PREPROCESS_FAILED": 2
+      },
+      "latencyMs": {
+        "preprocessMs": {
+          "n": 10,
+          "p50": 1376.517563,
+          "p95": 5622.377125
+        },
+        "stage1Ms": {
+          "n": 10,
+          "p50": 17411.225458,
+          "p95": 113799.980666
+        },
+        "stage2Ms": {
+          "n": 6,
+          "p50": 3277.20175,
+          "p95": 5024.179417
+        },
+        "endToEndMs": {
+          "n": 12,
+          "p50": 19328.730333,
+          "p95": 121947.5445
+        }
+      },
+      "costUsd": {
+        "n": 12,
+        "p50": 0.009824,
+        "p95": 0.033962,
+        "total": 0.156935,
+        "mean": 0.013078
+      },
+      "calls": 71
+    },
+    "criticalClaimAudit": {
+      "overall": {
+        "rows": 45,
+        "criticalTrue": 45,
+        "supported": 0,
+        "unsupported": 0,
+        "unreviewed": 45,
+        "status": "PENDING"
+      },
+      "byFormat": {
+        "text": {
+          "rows": 0,
+          "criticalTrue": 0,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 0,
+          "status": "PENDING"
+        },
+        "image": {
+          "rows": 21,
+          "criticalTrue": 21,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 21,
+          "status": "PENDING"
+        },
+        "long_image": {
+          "rows": 24,
+          "criticalTrue": 24,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 24,
+          "status": "PENDING"
+        },
+        "pdf": {
+          "rows": 0,
+          "criticalTrue": 0,
+          "supported": 0,
+          "unsupported": 0,
+          "unreviewed": 0,
+          "status": "PENDING"
+        }
+      }
+    },
+    "sourceStatuses": [
+      {
+        "id": "h3-text-01",
+        "format": "text",
+        "status": "FAILED",
+        "errorCode": "CANDIDATES_REJECTED"
+      },
+      {
+        "id": "h3-text-02",
+        "format": "text",
+        "status": "EMPTY",
+        "errorCode": null
+      },
+      {
+        "id": "h3-text-03",
+        "format": "text",
+        "status": "FAILED",
+        "errorCode": "INCOMPLETE_OR_REFUSED"
+      },
+      {
+        "id": "h3-image-01",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "h3-image-02",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "h3-image-03",
+        "format": "image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "h3-long_image-01",
+        "format": "long_image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "h3-long_image-02",
+        "format": "long_image",
+        "status": "EVALUATED",
+        "errorCode": null
+      },
+      {
+        "id": "h3-long_image-03",
+        "format": "long_image",
+        "status": "FAILED",
+        "errorCode": "CANDIDATES_REJECTED"
+      },
+      {
+        "id": "h3-pdf-01",
+        "format": "pdf",
+        "status": "FAILED",
+        "errorCode": "PREPROCESS_FAILED"
+      },
+      {
+        "id": "h3-pdf-02",
+        "format": "pdf",
+        "status": "FAILED",
+        "errorCode": "PREPROCESS_FAILED"
+      },
+      {
+        "id": "h3-pdf-03",
+        "format": "pdf",
+        "status": "FAILED",
+        "errorCode": "CANDIDATES_REJECTED"
+      }
+    ],
+    "settledUsd": 0.156935,
+    "reservedUsd": 4.322365,
+    "unsettledReservedUsd": 0.0,
+    "allCostsKnown": true
+  },
+  "developmentHistory": [
+    {
+      "round": "r2",
+      "factRecall": {
+        "hit": 57,
+        "total": 87,
+        "rate": 0.6551724137931034
+      },
+      "criticalFactRecall": {
+        "hit": 23,
+        "total": 42,
+        "rate": 0.5476190476190477
+      },
+      "misplacement": {
+        "hit": 12,
+        "total": 87,
+        "rate": 0.13793103448275862
+      },
+      "forbiddenViolations": 2,
+      "unsupportedTokens": 0
+    },
+    {
+      "round": "r3",
+      "factRecall": {
+        "hit": 71,
+        "total": 87,
+        "rate": 0.8160919540229885
+      },
+      "criticalFactRecall": {
+        "hit": 35,
+        "total": 42,
+        "rate": 0.8333333333333334
+      },
+      "misplacement": {
+        "hit": 4,
+        "total": 87,
+        "rate": 0.04597701149425287
+      },
+      "forbiddenViolations": 1,
+      "unsupportedTokens": 4
+    },
+    {
+      "round": "r4",
+      "factRecall": {
+        "hit": 72,
+        "total": 87,
+        "rate": 0.8275862068965517
+      },
+      "criticalFactRecall": {
+        "hit": 35,
+        "total": 42,
+        "rate": 0.8333333333333334
+      },
+      "misplacement": {
+        "hit": 7,
+        "total": 87,
+        "rate": 0.08045977011494253
+      },
+      "forbiddenViolations": 0,
+      "unsupportedTokens": 0
+    }
+  ],
+  "r3ScorerAnalysis": {
+    "unsupportedFlags": 4,
+    "numericRangeNormalizationGaps": 4,
+    "imageHyphenAsNegative": 2,
+    "pdfRangeSplitIntoEndpoints": 2,
+    "affectedSentences": 3,
+    "inventedOrComputedNumbers": 0,
+    "unitConversions": 0,
+    "ocrOnlyFacts": 0,
+    "scorerChanged": false,
+    "goldChanged": false,
+    "originalFlagsRetained": true
+  },
+  "failureSummary": {
+    "developmentR4": {
+      "text": {
+        "missedFacts": 4,
+        "missedCriticalFacts": 3,
+        "misplacedFacts": 0,
+        "emptySources": 6
+      },
+      "image": {
+        "missedFacts": 6,
+        "missedCriticalFacts": 3,
+        "misplacedFacts": 6
+      },
+      "long_image": {
+        "missedFacts": 2,
+        "missedCriticalFacts": 0,
+        "misplacedFacts": 0
+      },
+      "pdf": {
+        "missedFacts": 3,
+        "missedCriticalFacts": 1,
+        "misplacedFacts": 1
+      }
+    },
+    "holdoutV1_1": {
+      "text": {
+        "CANDIDATES_REJECTED": 1,
+        "EMPTY": 1,
+        "INCOMPLETE_OR_REFUSED": 1
+      },
+      "image": {
+        "missedFacts": 2,
+        "misplacedFacts": 2,
+        "evaluatedSources": 3
+      },
+      "long_image": {
+        "CANDIDATES_REJECTED": 1,
+        "evaluatedSources": 2,
+        "misplacedFacts": 8
+      },
+      "pdf": {
+        "PREPROCESS_FAILED": 2,
+        "CANDIDATES_REJECTED": 1,
+        "overLimitPageCounts": [
+          22,
+          41
+        ],
+        "productPageLimit": 20
+      }
+    }
+  },
+  "targetsVsResults": [
+    {
+      "target": "Precision and recall >=95% per format",
+      "result": "FAIL",
+      "developmentFactRecallPercent": [
+        87.1,
+        76.0,
+        88.89,
+        76.92
+      ],
+      "holdoutFactRecallPercent": [
+        0.0,
+        92.59,
+        45.95,
+        0.0
+      ],
+      "formatOrder": [
+        "text",
+        "image",
+        "long_image",
+        "pdf"
+      ],
+      "semanticPrecision": "PENDING; automatic proxy is not semantic precision"
+    },
+    {
+      "target": "Zero unsupported critical facts",
+      "result": "MET_ON_BOTH_SPLITS",
+      "scope": "Scored validated stage-2 outputs; automatic unsupported number/cultivar/certification tokens all zero. Human and applied-page audits remain pending."
+    },
+    {
+      "target": "Zero forbidden content",
+      "result": "MET_ON_BOTH_SPLITS",
+      "developmentViolations": 0,
+      "holdoutViolations": 0
+    },
+    {
+      "target": "100% accepted evidence support",
+      "result": "PENDING",
+      "reason": "Critical audit has 30 development and 45 holdout unreviewed rows; full sentence/source audits not established."
+    },
+    {
+      "target": "Missing/conflicting critical facts blank or flagged; applied-page unsupported critical =0",
+      "result": "PENDING",
+      "reason": "Runner does not apply public pages; source/applied-page audit not established."
+    }
+  ],
+  "limitations": [
+    "Development set lacks long real text/PDF coverage.",
+    "Frozen scorer numeric-range normalization gap; R3 flags remain unchanged.",
+    "Mock E2E cannot cover successful visual extraction.",
+    "Holdout is single-run with three sources per format; no repeatability estimate.",
+    "Critical audit judgments are blank; semantic precision, complete evidence support and applied-page safety remain pending.",
+    "After one allowed T23 rerun, holdout is spent; future independent measurement needs holdout v2."
+  ],
+  "plannedFollowups": [
+    {
+      "issue": "DEV-182",
+      "task": "I3-T23",
+      "id": 1,
+      "plan": "Keep valid candidates when some are rejected instead of failing the whole item."
+    },
+    {
+      "issue": "DEV-182",
+      "task": "I3-T23",
+      "id": 2,
+      "plan": "PDFs over 20 pages: analyse the first 20 pages and tell the producer the rest was skipped.",
+      "ownerDecisionDate": "2026-11-01"
+    },
+    {
+      "issue": "DEV-182",
+      "task": "I3-T23",
+      "id": 3,
+      "plan": "Chunk long text so the model output is not truncated."
+    }
+  ],
+  "biasAndReuse": [
+    "The single holdout run above is the only uncontaminated independent measurement for I3.",
+    "T23 fixes are chosen from holdout failure **types** (error codes), not holdout content. Even so, any later holdout rerun is partially contaminated, so it must be reported as such and must not replace the first result.",
+    "After the one allowed T23 rerun, the 12 holdout sources move into the development set (32 → 44) for regression and tuning. Any future independent claim needs a new holdout v2 built with the same 3-reviewer process.",
+    "The owner explicitly flagged the risk of bias in this plan. Record that the risk is acknowledged and not resolved.",
+    "Known indirect contamination: product rules 9-12 were decided while reviewing holdout gold; Claude built the gold and directed tuning; some non-tuning Codex runs had read access to the holdout folder. The product model never saw gold and nothing changed after the holdout run. Read rule-driven metrics as optimistic.",
+    "Separation rule from now on: only the owner-run scoring script reads holdout sources and gold; tuning agents see aggregate scores and error codes only; product rules are decided on the development set; the gold builder does not direct tuning."
+  ],
+  "validation": {
+    "humanFullPytestBeforeGuardFix": {
+      "passed": 1045,
+      "failed": 1,
+      "failure": "test_AC_SRC_6_validation_json_excludes_holdout_payloads_except_metadata_lock"
+    },
+    "humanTestCoreWithoutDotenv": "PASS; prior failures caused only by local .env",
+    "postFixFullSuiteRun": false,
+    "status": "BLOCKED_ENVIRONMENT",
+    "environment": "Existing dependencies; isolated local test database; local .env temporarily excluded and restored.",
+    "command": "cd server && uv run ruff check . && uv run pytest tests/test_final_eval.py tests/test_final_score.py tests/test_source_refine.py tests/test_source_analysis.py --tb=short",
+    "ruff": "PASS",
+    "pytestPassed": 525,
+    "pytestFailed": 6,
+    "pytestSeconds": 71.96,
+    "guardAfterFix": {
+      "passed": 1,
+      "failed": 0
+    },
+    "passingModules": [
+      "tests/test_final_eval.py",
+      "tests/test_final_score.py",
+      "tests/test_source_refine.py"
+    ],
+    "failedTests": [
+      "tests/test_source_analysis.py::test_AC_SRC_1_2_7_full_flow_and_private_draft",
+      "tests/test_source_analysis.py::test_AC_SRC_6_real_mode_proceeds_without_privacy_review",
+      "tests/test_source_analysis.py::test_AC_SRC_5_reanalysis_preserves_review_and_cancel",
+      "tests/test_source_analysis.py::test_AC_SRC_5_unknown_mock_and_retry_uncertain",
+      "tests/test_source_analysis.py::test_AC_SRC_5_late_result_after_cancel_discarded",
+      "tests/test_source_analysis.py::test_AC_SRC_5_revision_invalidates_result_and_draft"
+    ],
+    "failureReason": "Existing worker PREPARE failures; independent synthetic prepare reproduces PermissionError(errno 1) involving sysctl in the sandbox. Parser protections and assertions remain intact.",
+    "appCommand": "npm run typecheck && npm run test:mock",
+    "typecheck": "PASS",
+    "mockTests": {
+      "passed": 47,
+      "failed": 0
+    },
+    "playwright": {
+      "command": "npm run test:e2e -- scripts/e2e/source-review-regressions.spec.ts",
+      "passed": 0,
+      "failed": 8,
+      "reason": "Chromium could not launch: bootstrap_check_in / MachPortRendezvousServer Permission denied (1100). No browser assertions executed."
+    },
+    "privacyScan": {
+      "method": "Existing private/holdout sentence patterns checked against changed additions; no matched content printed or copied.",
+      "changedFiles": 20,
+      "privateMatches": 0,
+      "holdoutMatches": 0
+    },
+    "figma": "Authentication error wording synchronization remains a follow-up.",
+    "finalOutsideSandbox": {
+      "pytest": "1056 passed / 0 failed (no local .env, --extra ocr)",
+      "ruff": "pass",
+      "playwright": "23 passed (source-review-regressions, new-product-composer, source-workspace-ui)"
+    }
+  }
+}
