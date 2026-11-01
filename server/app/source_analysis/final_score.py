@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from app.source_analysis.corpus_score import FORMATS, canonical_bytes, normalize, sha256
 from app.source_analysis.schemas import SECTION_MODULES, SectionId
+from app.source_analysis.text_safety import MONEY, SAFETY_LISTS
 
 # Evaluation aliases explicitly requested by DEV-187; do not change product modules.
 MODULE_SECTIONS = {
@@ -24,13 +25,8 @@ TEXT_MODULES = set(MODULE_SECTIONS) - {
     "packagePhoto",
     "farmPhotos",
 }
-# DEV-186 server/app/source_analysis/text_safety.py MONEY와 같은 식. 머지 뒤 import로 합친다.
-_AMOUNT = r"\d[\d,]*(?:\.\d+)?(?:\s*[억만천백십]\s*(?:\d[\d,]*(?:\.\d+)?)?)*"
-MONEY_RE = re.compile(
-    rf"(?:{_AMOUNT}\s*(?:원(?![산주물예료래두형리칙])|달러|엔|유로|(?:KRW|USD|EUR|JPY)\b)|[₩￦$€¥]\s*{_AMOUNT}"
-    rf"|(?:KRW|USD|EUR|JPY)\s*{_AMOUNT})",
-    re.IGNORECASE,
-)
+# 금액 식과 금지어 목록은 제품 2단계(DEV-186)와 같은 text_safety_lists.json 하나에서 읽는다.
+MONEY_RE = MONEY
 PHONE_RE = re.compile(
     r"(?<!\d)(?:(?:\+82[ .-]?(?:0)?|0)(?:1[016789]|2|[3-6][1-5]|70|80|50\d)"
     r"\)?\s*[ .\-–]?\s*\d{3,4}\s*[ .\-–]?\s*\d{4}"
@@ -47,39 +43,12 @@ NUMBER_RE = re.compile(
     re.I,
 )
 CERTIFICATIONS = ("GAP", "HACCP", "무농약", "유기농", "친환경", "인증")
-# DEV-186 text_safety_lists.json과 같은 목록. 머지 뒤 그 파일을 읽도록 합친다.
-FORBIDDEN_WORDS = {
-    "health": (
-        "면역",
-        "소화를 돕",
-        "소화 촉진",
-        "피로 회복",
-        "다이어트",
-        "피부 미용",
-        "미용 효과",
-        "질병 예방",
-        "질환 예방",
-        "효능",
-    ),
-    "platform": (
-        "반품",
-        "교환",
-        "환불",
-        "고객센터",
-        "운영 시간",
-        "배송비",
-        "무료배송",
-        "품절",
-        "판매 종료",
-        "예약 판매 기간",
-        "택배사",
-    ),
-}
+FORBIDDEN_WORDS = {kind: tuple(SAFETY_LISTS[kind]) for kind in ("health", "platform")}
 VALIDATION_DIR = Path(__file__).resolve().parents[3] / "docs/spec/validation"
 DEV_MANIFEST = VALIDATION_DIR / "source-final-dev-manifest.json"
 HOLDOUT_LOCK = VALIDATION_DIR / "source-final-holdout-i3-lock.json"
 LOCAL_GOLD_SHA256 = {
-    "holdout": "5a906044cd642a4f40e52961cc9613de27901b5e719f7714d156e4e9a8fe338b",
+    "holdout": "2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073",
     "development": "3ed465971fb5579d10d8ee338e21c01c5d06c324d942acd8d36aba2635cf786f",
 }
 CULTIVARS = (

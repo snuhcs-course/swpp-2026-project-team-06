@@ -396,7 +396,9 @@ def store_candidates(db, batch, item, extraction):
             candidate.outdated = True
 
 
-def paid_vision_call(item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None):
+def paid_vision_call(
+    item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None, *, guard=None
+):
     """Fence every individual request, reserve before sending, settle even after cancellation."""
     from app.source_analysis.budget import reserve, settle
 
@@ -404,6 +406,8 @@ def paid_vision_call(item_id, token, stage, model, chunk, targets, images, fn, o
         context = lock_context(db, item_id, token)
         if not context:
             raise ExtractionError("SOURCE_CHANGED")
+        if guard:
+            guard(db, context)
         _, source, run, item = context
         if not source.privacy_approved or source.sanitization_version != item.sanitization_version:
             raise ExtractionError("PRIVACY_CHANGED")
@@ -487,6 +491,10 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
 
 def process(item_id, token):
     with get_sessionmaker()() as lookup:
+        if lookup.get(Item, item_id).phase == "REFINE":
+            from app.source_analysis.refinement import process as refine_target
+
+            return refine_target(item_id, token)
         if lookup.get(Item, item_id).phase == "PLACE_PHOTOS":
             from app.source_analysis.photos import process as place_photos
 

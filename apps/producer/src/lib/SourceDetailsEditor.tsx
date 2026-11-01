@@ -1,6 +1,8 @@
 import { PageCanvas } from "./PageCanvas";
 import { chooseSourceFiles } from "./sourceFiles";
 import {
+  hasHealthClaim,
+  hasMoney,
   newIdempotencyKey,
   sourcePageImage,
   uploadSource,
@@ -68,11 +70,13 @@ export function SourceDetailsEditor({
   onBusy,
   saveRef,
   emptyHint = false,
+  showStoryTextHints = false,
   displayName,
 }: {
   /** 새 상품 채우기: 상세 맨 위 제목을 입력 중인 상품명으로 바로 보여 준다(저장 때 같은 값으로 맞춤). */
   displayName?: string;
   emptyHint?: boolean;
+  showStoryTextHints?: boolean;
   batch: SourceBatch;
   review: SourceReview;
   drafts: SourceDraft[];
@@ -408,12 +412,13 @@ export function SourceDetailsEditor({
             setDirty(true);
           }}
           emptyHint={emptyHint}
+          showStoryTextHints={showStoryTextHints}
           badge={(id) =>
             entries.some(
               (e) =>
                 e.field.targetId === target.id &&
                 keys(id).includes(e.field.fieldKey) &&
-                e.field.provenance === "EXTRACTED" &&
+                ["EXTRACTED", "REFINED"].includes(e.field.provenance) &&
                 e.field.state !== "EXCLUDED" &&
                 filled(e.field),
             ) ? (
@@ -457,7 +462,15 @@ export function SourceDetailsEditor({
                 ? review.candidates
                     .filter(
                       (c) =>
-                        keys(id).includes(c.fieldKey) &&
+                        (keys(id).includes(c.fieldKey) ||
+                          entries.some(
+                            (entry) =>
+                              entry.field.targetId === target.id &&
+                              keys(id).includes(entry.field.fieldKey) &&
+                              entry.field.candidateIds.some((cid) =>
+                                c.candidateIds.includes(cid),
+                              ),
+                          )) &&
                         (c.targetId === target.id || c.targetId === null),
                     )
                     .flatMap((c) =>
@@ -490,6 +503,8 @@ export function SourceDetailsEditor({
                         (c) =>
                           !c.outdated &&
                           !c.historical &&
+                          !hasMoney(c.value) &&
+                          !hasHealthClaim(c.value) &&
                           c.fieldKey === e.field.fieldKey &&
                           (c.targetId === target.id || c.targetId === null),
                       )

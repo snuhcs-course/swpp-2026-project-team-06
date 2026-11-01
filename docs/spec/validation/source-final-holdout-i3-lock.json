@@ -1,6 +1,6 @@
 {
-  "name": "source-holdout-i3-final-v1",
-  "sha256": "5a906044cd642a4f40e52961cc9613de27901b5e719f7714d156e4e9a8fe338b",
+  "name": "source-holdout-i3-final-v1.1",
+  "sha256": "2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073",
   "sources": [
     {
       "id": "h3-text-01",
@@ -51,7 +51,7 @@
       "format": "pdf"
     }
   ],
-  "totalSentences": 140,
-  "totalFacts": 253,
+  "totalSentences": 146,
+  "totalFacts": 261,
   "policy": "local only, never tune on it, run once after DEV-186 (T11/T23)"
 }

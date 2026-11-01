@@ -8,7 +8,7 @@ import { test } from "node:test";
 import { createRequire } from "node:module";
 import { productGroup } from "../apps/producer/src/lib/productGroups.ts";
 const require = createRequire(import.meta.url);
-const { allPages } = require("../.expo/mock-build/pagination.js");
+const { allPages } = require("../.expo/mock-build/packages/api/src/pagination.js");
 
 test("AC-04-7: approval, pause and end precedence produce one product group", () => {
   const states = [

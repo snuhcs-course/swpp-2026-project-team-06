@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "split": "development",
   "goldPath": "source-final-gold-i3-dev-synthetic.json",
-  "goldFileSha256": "c43c0b82d99727ded935a6386adce2928cd0efcdba099ba5e4bac3d901686e0d",
+  "goldFileSha256": "44178f171aed79aa253819c592cb3aa3efe0f0de181963dc74fcf39069a4ef51",
   "cases": [
     {
       "id": "farm-mong",
@@ -128,7 +128,7 @@
       "format": "text",
       "status": "READY_SYNTHETIC",
       "safeInputSha256": "1e7ece7be244ad4b65a909a422a4d5ebab064207e715d6e686a5a471523d2513",
-      "goldSha256": "391357f1d4cec849e22a59febfca48c660bb06464e91172701d7776c098ae537"
+      "goldSha256": "37ce7b7c496ebd501045031a5bd6d9ab6038003fa32be7dc37be4942f4753b89"
     },
     {
       "id": "07-farm-story",
