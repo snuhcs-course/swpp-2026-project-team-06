@@ -78,6 +78,11 @@ lint: ## ruff check (CI server job)
 
 test: test-server test-apps test-admin ## Server + apps + admin page (no integration or e2e)
 
+.PHONY: test-source-final
+test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV-170)
+	@$(LOCAL_DB_ONLY)
+	$(SERVER) uv run pytest tests/test_final_eval.py tests/test_final_score.py
+
 test-server: ## pytest + alembic check (CI server job; run make db first)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest
