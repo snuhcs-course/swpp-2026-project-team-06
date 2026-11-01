@@ -1479,7 +1479,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v4"
+    assert PROMPT_VERSION == "source-refine-v6-exact-numbers"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 
@@ -1568,3 +1568,90 @@ def test_AC_SRC_3_fallback_skips_period_candidates_and_saved_autofill(value, sav
     assert delivery["status"] == "missing"
     assert delivery["field"]["value"] == ""
     assert delivery["field"]["candidateIds"] == []
+
+
+@pytest.mark.parametrize(
+    "quote,rewritten,flagged",
+    [
+        ("생산 시기: 1월-3월", "1월부터 3월까지 생산해요", {"3월"}),
+        ("생산 시기: 5월-7월", "5월에서 7월 사이에 생산해요", {"7월"}),
+        ("수확 시기: 5-7월", "5월에서 7월 사이에 수확해요", {"5월", "7월"}),
+    ],
+)
+def test_AC_SRC_3_month_range_scorer_limit_preserves_evidence(quote, rewritten, flagged):
+    """Four false-positive tokens in three synthetic range patterns; scorer stays frozen."""
+    from app.source_analysis.final_score import sensitive_tokens
+
+    source = [{**candidates()[0], "value": quote, "evidence": [{"quote": quote}]}]
+    safe_numbers = sensitive_tokens(quote)["number"]
+    assert sensitive_tokens(rewritten)["number"] - safe_numbers == flagged
+    copied = f"합성 품목은 {quote.split(': ')[1]}에 생산해요"
+    assert not sensitive_tokens(copied)["number"] - safe_numbers
+    # Both wordings are numerically grounded. Preserve the printed expression to also
+    # satisfy the frozen scorer; never discard the supported season to get zero tokens.
+    for value in (rewritten, copied):
+        output = Refinement(
+            modules=[
+                {"module": "productionProcess", "texts": [{"value": value, "candidateIds": ["c0"]}]}
+            ]
+        )
+        modules, diagnostics = refinement.validate(output, source, "target")
+        assert modules[0]["texts"][0]["value"] == value
+        assert diagnostics["rejectedCount"] == 0
+
+
+@pytest.mark.parametrize(
+    "quote,tainted_value,output_value",
+    [
+        ("합성 배 6.5k", "합성 배 6.5kg", "합성 배 6.5kg"),
+        ("중량 8g", "중량 8kg", "중량 8kg"),
+        ("표본 9개", "품질 9%", "품질 9%"),
+        ("중량 4kg과 6kg", "중량 10kg", "중량 10kg"),
+        ("중량 8kg", "중량 8000g", "중량 8000g"),
+        ("중량 미확인", "중량 7kg", "중량 7kg"),
+    ],
+)
+def test_AC_SRC_3_refine_numbers_need_quotes_not_tainted_candidate(
+    quote, tainted_value, output_value
+):
+    source = [{**candidates()[0], "value": tainted_value, "evidence": [{"quote": quote}]}]
+    output = Refinement(
+        modules=[
+            {"module": "composition", "texts": [{"value": output_value, "candidateIds": ["c0"]}]},
+            {
+                "module": "storage",
+                "texts": [{"value": "그늘에 보관해요", "candidateIds": ["safe"]}],
+            },
+        ]
+    )
+    source.append(
+        {
+            **candidates()[0],
+            "id": "safe",
+            "value": "그늘에 보관해요",
+            "evidence": [{"quote": "그늘에 보관해요"}],
+        }
+    )
+    modules, diagnostics = refinement.validate(output, source, "target")
+    assert modules == [
+        {"module": "storage", "texts": [{"value": "그늘에 보관해요", "candidateIds": ["safe"]}]}
+    ]
+    assert diagnostics["rejectedCount"] == 1
+    assert diagnostics["rejected"][0]["code"] == "UNSUPPORTED_NUMBER"
+
+
+def test_AC_SRC_3_final_prompt_keeps_r3_coverage_and_excludes_contact_policy():
+    from app.ai.source_analysis import PROMPT as EXTRACT_PROMPT
+    from app.ai.source_analysis import PROMPT_VERSION as EXTRACT_VERSION
+    from app.ai.source_refine import PROMPT
+
+    assert EXTRACT_VERSION == "source-v8-exact-numbers"
+    assert "IDENTITY AND COVERAGE AUDIT" in EXTRACT_PROMPT
+    assert "FACT PRESERVATION AND MODULE AUDIT" in PROMPT
+    assert "production/harvest months or seasons, including year-round production" in PROMPT
+    assert "Copy each number, attached unit and complete range expression exactly" in EXTRACT_PROMPT
+    assert "Copy numbers, units and the COMPLETE range expression exactly" in PROMPT
+    assert "Never compute, convert units, round, repair" in PROMPT
+    assert "app chat, farm inquiry, seller messaging" in PROMPT
+    assert "excluded as platform, never kept under support" in PROMPT
+    assert "A contact-only candidate produces no text" in PROMPT

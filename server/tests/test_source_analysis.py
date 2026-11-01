@@ -585,3 +585,65 @@ def test_evaluation_reports_missing_not_invented_metrics():
     assert result["sets"] == 20 and result["missing"] == 20
     assert result["precision"] is None and result["recall"] == 0
     assert result["totalCostUsd"] is None
+
+
+@pytest.mark.parametrize(
+    "quote,value,accepted",
+    [
+        ("합성 배 6.5k", "합성 배 6.5kg", False),
+        ("중량 8g", "중량 8kg", False),
+        ("표본 9개", "품질 9%", False),
+        ("중량 4kg과 6kg", "중량 10kg", False),
+        ("중량 8kg", "중량 8000g", False),
+        ("생산 시기: 1월-3월", "1월-3월", True),
+        ("생산 시기: 5월-7월", "5월-7월", True),
+        ("수확 시기: 5-7월", "5-7월", True),
+        ("합성 배 6.5kg", "합성 배 6.5kg", True),
+    ],
+)
+def test_AC_SRC_3_extraction_numbers_keep_source_units(quote, value, accepted):
+    from app.source_analysis.schemas import Extraction
+
+    evidence = {
+        "sourceId": "synthetic",
+        "sourceRevision": 1,
+        "page": 1,
+        "spanIds": ["s0"],
+        "quote": quote,
+    }
+    extraction = Extraction(
+        candidates=[
+            {
+                "targetId": "target",
+                "fieldKey": "summary",
+                "value": value,
+                "historical": False,
+                "evidence": [evidence],
+            },
+            {
+                "targetId": "target",
+                "fieldKey": "storage",
+                "value": "그늘에 보관해요",
+                "historical": False,
+                "evidence": [{**evidence, "spanIds": ["s1"], "quote": "그늘에 보관해요"}],
+            },
+        ],
+        photo_requests=[],
+    )
+    chunk = {
+        "sourceId": "synthetic",
+        "sourceRevision": 1,
+        "pages": [
+            {
+                "number": 1,
+                "spans": [{"id": "s0", "text": quote}, {"id": "s1", "text": "그늘에 보관해요"}],
+            }
+        ],
+    }
+    validated, diagnostics = worker.validate_candidates(extraction, chunk, ["target"])
+    assert [candidate.value for candidate in validated.candidates] == (
+        [value, "그늘에 보관해요"] if accepted else ["그늘에 보관해요"]
+    )
+    assert diagnostics["rejectedCount"] == (0 if accepted else 1)
+    if not accepted:
+        assert diagnostics["rejected"][0]["code"] == "UNSUPPORTED_NUMBER"

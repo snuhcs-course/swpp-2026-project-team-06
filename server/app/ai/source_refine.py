@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v4"
+PROMPT_VERSION = "source-refine-v6-exact-numbers"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -47,6 +47,11 @@ the producer sets shipping fees in ② (R-20).
 Exclude Farmclub common policy as platform: exchange/refund/return/compensation terms,
 customer center/hours/contact channels, ordering/payment/deposits, purchase limits,
 and weight/size option selection. Never invent Farmclub policy.
+Contact-channel directions are platform policy even without a phone number, payment,
+or customer-center keyword: app chat, farm inquiry, seller messaging and where/how to
+ask product questions must be excluded as platform, never kept under support.
+Keep an independently supported product clause from a mixed contact sentence, citing its
+candidate and excluding the contact clause. A contact-only candidate produces no text.
 Keep harvest/sorting methods and freshness. Reduce mixed policy to supported product facts:
 재배 중 생긴 얼룩·점은 교환 불가 -> appearanceFaq: 재배 과정에서 얼룩·점·색 차이가 생길 수 있어요;
 1-3일 이내 제주에서 직배송 -> delivery: 제주 농장에서 직접 보내요 (exclude period).
@@ -68,6 +73,55 @@ Excluded ids must belong
 to this target. Each text MUST cite supporting candidate ids. No photo modules.
 hero is title text only. Omit unsupported/empty modules. Do not publish or change sales settings.
 Allowed modules in page order: """ + ", ".join(TEXT_MODULE_FIELDS)
+PROMPT += """
+
+FACT PRESERVATION AND MODULE AUDIT (apply before returning):
+fieldKey is an extraction hint, not a command to keep a mixed sentence in that module.
+Split mixed candidates into supported clauses with the same candidateIds. Route each fact:
+- hero: explicit product title only; never move a farm narrative into a new advertising title.
+- summary: product identity, origin, cultivar background and factual distribution/provenance.
+- composition/pieceCount: package contents, weight and explicit count respectively.
+- taste: flavour, aroma, sweetness, juice, texture, size/grade and eating/serving occasions.
+  Move these facts out of summary even when summary contains a product introduction.
+- qualityEvidence: explicit certification or measurement with its original sample context.
+- productionProcess: growing/harvesting/sorting/inspection methods and harvest principles;
+  also production/harvest months or seasons, including year-round production.
+- farmStory: farmer identity/commitment, farm history, generations and narrative about the
+  farm's region. Preserve these here even when the same candidate names the product.
+- delivery: shipping method, courier, packing and freshness as specified above.
+- storage: preservation and spoilage instructions; appearanceFaq: cosmetic explanation.
+An explicit farm-introduction heading does not make cultivation/taste facts farm history:
+split them into their specific modules, retaining the remaining farmer story in farmStory.
+A main-production-item list is not automatically package contents. Retain the selected
+product's identity in hero/summary and its production season in productionProcess.
+Do NOT label a growing/harvest season as period just because it contains months/dates.
+Distinguish those from sale/booking windows, availability changes and shipping/arrival timing,
+which remain excluded. Storage/ripening durations remain supported product facts too.
+Never invent the selected product when target context is missing. Other listed items or
+ancillary experiences/services are not this product's support policy or package contents.
+Exclude unrelated offerings as other_product, and ambiguous assignments as unsupported.
+Preserve source/product discriminators for conflicting statements; do not merge distinct
+quantities into one package or remove the labels that explain which is which.
+Keep unknown/negative qualifiers next to their known fact. Do not exclude a supported
+unknown qualifier as unsupported, or replace a non-measurement statement with a measurement.
+Prefer source wording over synonyms for factual clauses, negation and uncertainty.
+For EVERY candidate compare all its facts with accepted text, not merely whether its ID
+was cited. Account for every safe clause, label and qualifier. Only true duplicates can be
+merged; do not silently lose facts while shortening. Cite each retained clause and list
+the removed portion's reason in excluded. An excluded price/health candidate must never
+be restored by this audit. Priced historical candidates remain wholly excluded.
+Finally recheck money, health, platform and period exclusions and all module assignments.
+
+EXACT NUMERIC EVIDENCE:
+Copy numbers, units and the COMPLETE range expression exactly as printed in the cited
+evidence quotes, not just the candidate value. Never compute, convert units, round, repair
+OCR, add missing units or expand abbreviations. Keep each number with its own item/label.
+Do not rewrite 8월-10월 as 8월부터 10월까지 or 4-6월 as 4월에서 6월 사이: retain the
+original separator, endpoint units and numeric format within the polished clause. Preserve
+supported production/harvest seasons and their routing; do not omit them to avoid numbers.
+If a candidate's number/unit differs from its quote, use only the exact supported quote
+expression or exclude the unsupported claim. Never treat the candidate's own value as proof.
+"""
 
 
 class RefineError(ExtractionError):
@@ -287,6 +341,8 @@ def refine(mode, model, target, candidates):
     except (APITimeoutError, APIConnectionError) as exc:
         raise RefineError("REQUEST_UNCERTAIN") from exc
     except APIStatusError as exc:
+        if exc.status_code in {401, 403}:
+            raise RefineError("PROVIDER_AUTH") from exc
         code = "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED"
         raise RefineError(code) from exc
     except ValidationError as exc:
