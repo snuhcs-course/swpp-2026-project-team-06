@@ -79,6 +79,7 @@ for (const composer of [false, true]) {
       INCOMPLETE_OR_REFUSED: "문구 정리를 마치지 못해 원문 그대로 보여 드려요.",
       REQUEST_UNCERTAIN: "문구 정리 요청의 완료 여부를 확인하지 못해 원문 그대로 보여 드려요.",
       PROVIDER_REJECTED: "문구 정리 요청이 거절되어 원문 그대로 보여 드려요.",
+      PROVIDER_AUTH: "AI 연결 설정에 문제가 있어 문구 정리 대신 원문 그대로 보여 드려요. 운영팀에 알려 주세요.",
       FIXTURE_REFINE_FAILED: "문구 정리에 실패해서 원문 그대로 보여 드려요.",
     };
     for (const [code, message] of Object.entries(messages)) {
@@ -95,6 +96,10 @@ for (const composer of [false, true]) {
     await page.reload();
     await openRunPanel();
     await expect(page.getByText("원문자료.txt: 테스트 환경에서 지원하지 않는 자료예요.", { exact: true })).toBeVisible();
+    fixture.run.items[0].error = "PROVIDER_AUTH";
+    await page.reload();
+    await openRunPanel();
+    await expect(page.getByText("원문자료.txt: AI 연결 설정에 문제가 있어요. 운영팀에 알려 주세요.", { exact: true })).toBeVisible();
     clean();
   });
 }

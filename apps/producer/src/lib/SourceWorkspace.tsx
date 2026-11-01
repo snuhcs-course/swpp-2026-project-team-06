@@ -79,10 +79,13 @@ export function sourceError(code: string, phase?: string) {
         "문구 정리 요청의 완료 여부를 확인하지 못해 원문 그대로 보여 드려요.",
       PROVIDER_REJECTED:
         "문구 정리 요청이 거절되어 원문 그대로 보여 드려요.",
+      PROVIDER_AUTH:
+        "AI 연결 설정에 문제가 있어 문구 정리 대신 원문 그대로 보여 드려요. 운영팀에 알려 주세요.",
     };
     return messages[code] ?? "문구 정리에 실패해서 원문 그대로 보여 드려요.";
   }
   const messages: Record<string, string> = {
+    PROVIDER_AUTH: "AI 연결 설정에 문제가 있어요. 운영팀에 알려 주세요.",
     BUDGET_EXCEEDED:
       "자료 분석 예산 한도에 도달했어요. 담당자에게 확인해 주세요.",
     INVALID_EVIDENCE:
