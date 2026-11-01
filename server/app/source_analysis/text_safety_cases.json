@@ -1,0 +1,272 @@
+[
+  {
+    "value": "면역",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "소화를 돕습니다",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "소화 촉진",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "소화촉진",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "피로 회복",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "피로회복",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "다이어트",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "피부 미용",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "피부미용",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "미용 효과",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "질병 예방",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "질환예방",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "효능",
+    "health": true,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "반품",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "교환",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "환불",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "고객센터",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "운영 시간",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "운영시간",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "배송비",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "무료 배송",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "품절",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "판매 종료",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "예약판매기간",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "택배사",
+    "health": false,
+    "platform": true,
+    "money": false
+  },
+  {
+    "value": "피부처럼 얇은 껍질",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "소화기",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "소화에 좋아요",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "1 원산지 제주",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "2024 원주 농장",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "5 원물",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "제2원칙",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "3개월",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "건강하게 키운 감귤",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "비타민C 함유",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "수확 후 바로 포장",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "작년 300상자 완판",
+    "health": false,
+    "platform": false,
+    "money": false
+  },
+  {
+    "value": "32,000원",
+    "health": false,
+    "platform": false,
+    "money": true
+  },
+  {
+    "value": "3만 원",
+    "health": false,
+    "platform": false,
+    "money": true
+  },
+  {
+    "value": "₩35,000",
+    "health": false,
+    "platform": false,
+    "money": true
+  },
+  {
+    "value": "3 만 원",
+    "health": false,
+    "platform": false,
+    "money": true
+  },
+  {
+    "value": "1만5천원",
+    "health": false,
+    "platform": false,
+    "money": true
+  },
+  {
+    "value": "$30",
+    "health": false,
+    "platform": false,
+    "money": true
+  },
+  {
+    "value": "KRW 32000",
+    "health": false,
+    "platform": false,
+    "money": true
+  },
+  {
+    "value": "₩3천만",
+    "health": false,
+    "platform": false,
+    "money": true
+  }
+]

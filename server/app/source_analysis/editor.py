@@ -18,8 +18,14 @@ class EditorSave(DraftSave):
 
 
 def suggestions(review, photos=None):
+    from app.source_analysis.refinement import fields as refined_fields
+    from app.source_analysis.text_safety import has_health_claim, has_money, has_platform_text
+
     result = []
     for target in review["targets"]:
+        modules = review["refinements"].get(target["id"])
+        refined = refined_fields(modules or [])
+        has_refinement = target["id"] in review["refinements"]
         basic = target.get("basicInfo") or {}
         specification = "\n".join(
             filter(
@@ -55,6 +61,19 @@ def suggestions(review, photos=None):
                 )
             ):
                 saved = None
+            if (
+                saved
+                and saved["state"] == "UNREVIEWED"
+                and saved["provenance"] in {"EXTRACTED", "REFINED"}
+                and (
+                    modules is not None
+                    # 배포 전에 저장된 자동 값에 금액·효능·운영 문구가 있으면 다시 계산한다.
+                    or has_money(saved["value"] or "")
+                    or has_health_claim(saved["value"] or "")
+                    or has_platform_text(saved["value"] or "")
+                )
+            ):
+                saved = None
             choices = [
                 c
                 for c in review["candidates"]
@@ -62,6 +81,9 @@ def suggestions(review, photos=None):
                 and c["fieldKey"] == key
                 and not c["historical"]
                 and not c["outdated"]
+                and not has_money(c["value"])
+                and not has_health_claim(c["value"])
+                and not has_platform_text(c["value"])
             ]
             status = "missing"
             field = saved or dict(
@@ -113,7 +135,17 @@ def suggestions(review, photos=None):
                 ):
                     old = True
                 status = "outdated" if old else "ready"
-                if saved["state"] == "UNREVIEWED" and len(choices) > 1:
+                if (
+                    saved["state"] == "UNREVIEWED"
+                    and saved["provenance"] != "REFINED"
+                    and len(choices) > 1
+                ):
+                    status = "conflict"
+            elif has_refinement:
+                if key in refined:
+                    field = {**field, **refined[key], "provenance": "REFINED"}
+                    status = "ready"
+                elif modules is None and len(choices) > 1:
                     status = "conflict"
             elif len(choices) == 1:
                 c = choices[0]
@@ -126,12 +158,18 @@ def suggestions(review, photos=None):
                 status = "ready"
             elif choices:
                 status = "conflict"
-            elif any(
-                c["targetId"] is None
-                and c["fieldKey"] == key
-                and not c["historical"]
-                and not c["outdated"]
-                for c in review["candidates"]
+            if (
+                not saved
+                and status == "missing"
+                and not choices
+                and key not in refined
+                and any(
+                    c["targetId"] is None
+                    and c["fieldKey"] == key
+                    and not c["historical"]
+                    and not c["outdated"]
+                    for c in review["candidates"]
+                )
             ):
                 status = "unassigned"
             if not saved and photos is not None:
