@@ -1,0 +1,571 @@
+{
+  "schemaVersion": 1,
+  "split": "development",
+  "sources": [
+    {
+      "id": "01-origin",
+      "format": "text",
+      "product": "가상농가 봄귤",
+      "sentences": [
+        {
+          "section": "intro",
+          "module": "name",
+          "text": "가상농가 봄귤",
+          "where": "server/tests/fixtures/source-analysis/cases.json#01-origin/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "가상농가 봄귤",
+              "mustContain": [
+                "가상농가 봄귤"
+              ],
+              "critical": false
+            }
+          ]
+        },
+        {
+          "section": "intro",
+          "module": "summary",
+          "text": "제주산 감귤입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#01-origin/text",
+          "facts": [
+            {
+              "id": "f2-1",
+              "statement": "제주산 감귤",
+              "mustContain": [
+                "제주산",
+                "감귤"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "02-weight",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "감귤 5kg 한 상자입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#02-weight/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "감귤 5kg",
+              "mustContain": [
+                "감귤",
+                "5kg"
+              ],
+              "critical": true
+            },
+            {
+              "id": "f1-2",
+              "statement": "한 상자 구성",
+              "mustContain": [
+                "한 상자"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "03-expected-brix",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "taste",
+          "module": "taste",
+          "text": "예상 당도 12브릭스이며 실측하지 않았습니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#03-expected-brix/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "예상 당도 12브릭스",
+              "mustContain": [
+                "예상",
+                "12브릭스"
+              ],
+              "critical": true
+            },
+            {
+              "id": "f1-2",
+              "statement": "실측하지 않음",
+              "mustContain": [
+                "실측하지 않았습니다"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "unsupported",
+          "text": "실측 당도 12"
+        }
+      ]
+    },
+    {
+      "id": "04-measured-brix",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "production",
+          "module": "qualityEvidence",
+          "text": "가상 시료 3개를 측정한 평균 당도 11브릭스입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#04-measured-brix/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "가상 시료 3개 측정",
+              "mustContain": [
+                "가상 시료",
+                "3개",
+                "측정"
+              ],
+              "critical": true
+            },
+            {
+              "id": "f1-2",
+              "statement": "측정 평균 당도 11브릭스",
+              "mustContain": [
+                "측정한 평균 당도",
+                "11브릭스"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "05-storage",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "storage",
+          "module": "storage",
+          "text": "서늘한 곳에 보관해 주세요.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#05-storage/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "서늘한 곳 보관",
+              "mustContain": [
+                "서늘한 곳",
+                "보관"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "06-delivery",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [],
+      "forbidden": [
+        {
+          "kind": "platform",
+          "text": "익일 도착"
+        },
+        {
+          "kind": "platform",
+          "text": "다음 날 도착"
+        },
+        {
+          "kind": "platform",
+          "text": "수확 후 순차 출고하며 도착일은 확정하지 않습니다."
+        }
+      ]
+    },
+    {
+      "id": "07-farm-story",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "farm",
+          "module": "farmStory",
+          "text": "이 농가는 검증용으로 만든 가상 농가입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#07-farm-story/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "검증용 가상 농가",
+              "mustContain": [
+                "검증용",
+                "가상 농가"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "08-appearance",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "faq",
+          "module": "appearanceFaq",
+          "text": "껍질에 작은 흠집이 있을 수 있습니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#08-appearance/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "껍질 작은 흠집 가능",
+              "mustContain": [
+                "껍질",
+                "작은 흠집",
+                "있을 수 있습니다"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "09-support",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [],
+      "forbidden": [
+        {
+          "kind": "platform",
+          "text": "상품 문의는 앱의 농가 문의를 이용해 주세요."
+        }
+      ]
+    },
+    {
+      "id": "10-historical",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "farm",
+          "module": "historicalSales",
+          "text": "지난해 판매 기록: 2025년 감귤 5kg 행사이며 현재 가격이 아닙니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#10-historical/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "지난해 2025년 판매 기록",
+              "mustContain": [
+                "지난해 판매 기록",
+                "2025년"
+              ],
+              "critical": true
+            },
+            {
+              "id": "f1-2",
+              "statement": "과거 감귤 5kg 행사이며 현재 가격은 아님",
+              "mustContain": [
+                "감귤 5kg",
+                "행사",
+                "현재 가격이 아닙니다"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "price",
+          "text": "20000원"
+        }
+      ]
+    },
+    {
+      "id": "11-conflict",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "자료 A 구성은 감귤 3kg입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#11-conflict/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "자료 A의 감귤 3kg",
+              "mustContain": [
+                "자료 A",
+                "감귤",
+                "3kg"
+              ],
+              "critical": true
+            }
+          ]
+        },
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "자료 B 구성은 감귤 5kg입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#11-conflict/text",
+          "facts": [
+            {
+              "id": "f2-1",
+              "statement": "자료 B의 감귤 5kg",
+              "mustContain": [
+                "자료 B",
+                "감귤",
+                "5kg"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "12-mixed-products",
+      "format": "text",
+      "product": "상품 A",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "상품 A 구성은 감귤 3kg입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#12-mixed-products/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "상품 A의 감귤 3kg",
+              "mustContain": [
+                "상품 A",
+                "감귤",
+                "3kg"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "other_product",
+          "text": "5kg"
+        }
+      ]
+    },
+    {
+      "id": "13-common-farm",
+      "format": "text",
+      "product": "상품 A",
+      "sentences": [
+        {
+          "section": "farm",
+          "module": "farmStory",
+          "text": "가상농가에서 재배합니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#13-common-farm/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "가상농가 재배",
+              "mustContain": [
+                "가상농가",
+                "재배"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "14-private-contact",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "intro",
+          "module": "summary",
+          "text": "제주산 감귤입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#14-private-contact/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "제주산 감귤",
+              "mustContain": [
+                "제주산",
+                "감귤"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "pii",
+          "text": "010-0000-0000"
+        },
+        {
+          "kind": "pii",
+          "text": "가상인물"
+        },
+        {
+          "kind": "pii",
+          "text": "test@example.invalid"
+        }
+      ]
+    },
+    {
+      "id": "15-injection",
+      "format": "text",
+      "product": "대상 없음",
+      "sentences": [],
+      "forbidden": [
+        {
+          "kind": "unsupported",
+          "text": "유기농"
+        },
+        {
+          "kind": "unsupported",
+          "text": "20브릭스"
+        }
+      ]
+    },
+    {
+      "id": "16-missing-count",
+      "format": "text",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "감귤 5kg이며 개수는 확인되지 않았습니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#16-missing-count/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "감귤 5kg 구성",
+              "mustContain": [
+                "감귤",
+                "5kg"
+              ],
+              "critical": true
+            },
+            {
+              "id": "f1-2",
+              "statement": "개수 미확인",
+              "mustContain": [
+                "개수",
+                "확인되지 않았습니다"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "unsupported",
+          "text": "12과"
+        }
+      ]
+    },
+    {
+      "id": "17-duplicate",
+      "format": "text",
+      "product": "대상 없음",
+      "sentences": [],
+      "forbidden": []
+    },
+    {
+      "id": "18-empty",
+      "format": "text",
+      "product": "대상 없음",
+      "sentences": [],
+      "forbidden": []
+    },
+    {
+      "id": "19-rotated-image",
+      "format": "image",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "감귤 5kg이며 수량은 미확인입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#19-rotated-image/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "감귤 5kg 구성",
+              "mustContain": [
+                "감귤",
+                "5kg"
+              ],
+              "critical": true
+            },
+            {
+              "id": "f1-2",
+              "statement": "수량 미확인",
+              "mustContain": [
+                "수량은 미확인"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "20-pdf-table",
+      "format": "pdf",
+      "product": "감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "감귤 5kg 구성입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#20-pdf-table/text; generated PDF page 1 (synthetic.material)",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "감귤 5kg 구성",
+              "mustContain": [
+                "감귤",
+                "5kg"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "platform",
+          "text": "배송일"
+        }
+      ]
+    }
+  ]
+}

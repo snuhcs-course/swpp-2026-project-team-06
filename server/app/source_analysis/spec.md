@@ -17,6 +17,23 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8. 평가 계약은 `docs/spec/validation/sour
 | 2026-11-01 | 분모0 지표는 null/N/A와 이유를 보고, 정의된 실패 없이 판정 불가하면 BLOCKED | 미정의를0% 실패로 오인하지 않음 | AC-SRC-2/5 |
 | 2026-11-01 | 범위의 단위 공백은 동일하게 정규화하되 -/~와 숫자 쉼표 공백은 보존 | 서로 다른 사실을 정규화로 합치지 않음 | AC-SRC-3 |
 
+## I3 최종 문장 평가 구현 (DEV-187)
+
+FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8, AC-03-2. 제품 평가 계약은 `docs/spec/validation/source-final-gold-format.md`다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-01 | `final_score.py`는 Gold/Run의 엄격한 구조 검증과 DB/제공자 없는 CLI·import API를 제공한다 | stage-1 필드 scorer와 stage-2 문장 평가 분리 | AC-SRC-2/3 |
+| 2026-11-01 | normalize를 재사용한 section별 mustContain recall·critical recall·오배치, regex 금지·안전 원문 토큰 차집합 | 정돈된 문장과 중요 사실 보존을 결정적으로 비교 | AC-SRC-3/6 |
+| 2026-11-01 | 출력에는 ID·형식·해시·카운트만, 오류도 상세를 가린다 | 로컬 holdout 문장·PII·경로 유출 방지 | AC-SRC-6 |
+| 2026-11-01 | 평가에서만 name→intro/historicalSales→farm 추가, 사진 전용 모듈 제외 | 제품 SECTION_MODULES 변경 없이 final-text 표 적용 | AC-SRC-1/3 |
+| 2026-11-01 | 실패 run은 recall all-miss, 남은 출력은 안전성 감사; precision은 토큰/원문/해시 결합 사람 판단의 proxy | 분모와 진단 한계를 숨기지 않음 | AC-SRC-2/5 |
+| 2026-11-01 | final 전용 normalize_final은 count+조사/어미·천 단위 쉼표를 양쪽 입력에 적용, NUMBER_RE는 단위 뒤 영문 경계 검사 | stage-1 동결을 유지하며 recall/unsupported 불일치 방지 | AC-SRC-2/3 |
+| 2026-11-01 | gold는 raw verbatim과 contains 모두 검증, where 선택; platform/health는 FORBIDDEN_WORDS 한 상수로 검출 | gold 자기 불일치 거절 및 DEV-186 규칙9~12 동기화 | AC-SRC-2/6 |
+| 2026-11-01 | local run gold 리스트는 고정 파일 SHA와 holdout lock 대조 뒤 검증, format은 source 봉투에서 주입하되 레포 holdout lock·dev manifest의 `{id, format}`과 같아야 한다 | private gold를 repo에 저장하지 않고 변경 감지 | AC-SRC-2/6 |
+| 2026-11-01 | gold 문장에 health·platform 금지어나 같은 source 금지 구절이 있으면 거절 | 채점기 판정과 gold 검증을 일치 | AC-SRC-6 |
+| 2026-11-01 | caseType=contract/extraction·byCaseType 및 개수 제공, 전체 gate/분모 유지 | 빈 gold 계약 사례와 추출 점수 구분 | AC-SRC-2/5 |
+
 ## 현재 배포·구현 계약 (DEV-90, 2026-10-19)
 
 운영 API와 독립 `farmclub-source-worker`가 활성화되어 있다. `docs/spec/source-integration.md`의 현재 운영 상태와 `server/README.md`를 따른다. 기존 배포 보류는 과거 이력이다. 이미지·긴 이미지·PDF 운영 분석/비공개 반영3/3, 생산자 UI 저장·재접속·반영 및 격리 DB 브라우저17개를 검증했다. 일반 정확도·실제 농가 인수는 미완료이며 DEV-58은 In Progress다. 기본 정보 저장 직후 업로드 경합은 DEV-92에 남아 있다.
