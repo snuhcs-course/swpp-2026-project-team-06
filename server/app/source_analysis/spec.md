@@ -1,5 +1,22 @@
 # source_analysis
 
+## I3 오프라인 평가 구현 (DEV-172)
+
+FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8. 평가 계약은 `docs/spec/validation/source-corpus-i3-v1.md`, 입력/gold 해시 잠금은 같은 이름 JSON을 따른다. 작업 기록은 이 폴더 `tasks.md`다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-10-31 | `corpus_score.py`는 제공자/DB 없이 저장된 run만 채점하고 manifest 바이트 SHA를 CLI에서 강제한다 | 무단 실호출/결과에 맞춘 gold 변경 방지 | AC-SRC-2/6 |
+| 2026-10-31 | 원래 gold는 값·구절 해시/위치로 고정하고 미연결 위치는 BLOCKED로 남긴다 | 비공개 원문을 git에 복사하지 않으면서 기준 보존 | AC-SRC-2/6 |
+| 2026-10-31 | split 전체·Counter 일대일 TP·필드×형식 집계·exact 주 점수/normalized 진단 | 실패/거절/누락/중복과 대상 혼동을 숨기지 않음 | AC-SRC-1/3/5/8 |
+| 2026-10-31 | 후보별 원본 대조 중요 사실 감사는 별도 입력, 누락은 BLOCKED·무근거는 FAIL | 자동 금지 필드0건을 사실 정확성으로 오인하지 않음 | AC-SRC-3 |
+| 2026-10-31 | I2 split은 이력으로 보존, 현재 split은 development, 독립 holdout=[]/BLOCKED | 전체 사례의 개발 노출 확인; 신규 승인 자료 없음 | AC-SRC-2 |
+| 2026-11-01 | DEV-152 95%는 text·image(image+long_image)·PDF 3그룹, 개별 이미지/PDF origin은 진단 | 공용 I3 프로토콜과 동일한 분모 유지 | AC-SRC-2/6 |
+| 2026-11-01 | gold span만 감사에서 참조, 적용 페이지 감사는 오프라인 BLOCKED | gold 누락을 PASS로 해석하지 않고 적용 증거 없는 readiness 주장 방지 | AC-SRC-3/6 |
+| 2026-11-01 | 모든 actual 후보의 근거율을 전체·text/image/PDF별 집계, categories=[]도 gold 근거 필수 | DEV-152 승인 사실 근거100%를 측정; 누락은 BLOCKED, 확인된 무근거는 FAIL | AC-SRC-2/3 |
+| 2026-11-01 | 분모0 지표는 null/N/A와 이유를 보고, 정의된 실패 없이 판정 불가하면 BLOCKED | 미정의를0% 실패로 오인하지 않음 | AC-SRC-2/5 |
+| 2026-11-01 | 범위의 단위 공백은 동일하게 정규화하되 -/~와 숫자 쉼표 공백은 보존 | 서로 다른 사실을 정규화로 합치지 않음 | AC-SRC-3 |
+
 ## 현재 배포·구현 계약 (DEV-90, 2026-10-19)
 
 운영 API와 독립 `farmclub-source-worker`가 활성화되어 있다. `docs/spec/source-integration.md`의 현재 운영 상태와 `server/README.md`를 따른다. 기존 배포 보류는 과거 이력이다. 이미지·긴 이미지·PDF 운영 분석/비공개 반영3/3, 생산자 UI 저장·재접속·반영 및 격리 DB 브라우저17개를 검증했다. 일반 정확도·실제 농가 인수는 미완료이며 DEV-58은 In Progress다. 기본 정보 저장 직후 업로드 경합은 DEV-92에 남아 있다.
