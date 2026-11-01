@@ -8,3 +8,7 @@ export const hasHealthClaim = (value: string) => contains(value, lists.health);
 export const hasPlatformText = (value: string) => contains(value, lists.platform);
 const money = new RegExp(lists.moneyPattern, "i");
 export const hasMoney = (value: string) => money.test(value);
+
+const periodPatterns = lists.periodPatterns.map((pattern) => new RegExp(pattern));
+export const hasPeriodText = (value: string) =>
+  contains(value, lists.period) || periodPatterns.some((pattern) => pattern.test(value));

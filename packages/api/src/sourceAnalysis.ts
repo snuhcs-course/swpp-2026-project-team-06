@@ -1,4 +1,4 @@
-export { hasMoney, hasHealthClaim, hasPlatformText } from "./sourceTextSafety";
+export { hasMoney, hasHealthClaim, hasPlatformText, hasPeriodText } from "./sourceTextSafety";
 import { ApiError, apiUrl, getToken, isMock, request } from "./client";
 export type SourceBasicInfo = {
   variety: string;
@@ -83,6 +83,7 @@ export type SourceExclusion = {
   reason:
     | "price"
     | "platform"
+    | "period"
     | "health"
     | "pii"
     | "other_product"

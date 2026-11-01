@@ -167,7 +167,11 @@ test("DEV-186 AC-SRC-1/2/11: multi-product exclusions queue one named modal", as
     })),
     refinementResults: Object.fromEntries(targets.map((t) => [t.id, {
       refinementVersion: `version-${t.id}`,
-      excluded: [{ candidateId: `c-${t.id}`, value: "32,000원", reason: "price" }],
+      excluded: [
+        { candidateId: `c-${t.id}`, value: "반품 배송비 5,000원", reason: "price" },
+        { candidateId: `p-${t.id}`, value: "1-3일 이내 도착", reason: "period" },
+        { candidateId: `s-${t.id}`, value: "고객센터 평일 10시~5시", reason: "platform" },
+      ],
     }])),
   };
   await page.route("**/api/source-analysis/batches/review-queue**", (route) => {
@@ -182,6 +186,9 @@ test("DEV-186 AC-SRC-1/2/11: multi-product exclusions queue one named modal", as
   const modal = page.getByTestId("excluded-modal");
   await expect(modal).toHaveCount(1);
   await expect(modal).toContainText("첫 상품 감귤 · AI가 이런 문구는 뺐어요");
+  await expect(modal.getByText("금액은 다음 단계(판매·가격)에서 직접 채워 주세요. 배송비도 거기서 정해요.", { exact: true })).toBeVisible();
+  await expect(modal.getByText("판매 기간과 받는 시기는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
+  await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
   // Waiting in the queue must not mark the second product as already shown.
   expect(await page.evaluate(() => sessionStorage.getItem(
     "farmclub-producer:excluded-seen:review-queue:version-second"))).toBeNull();
@@ -196,7 +203,7 @@ test("DEV-186 AC-SRC-1/2/11: multi-product exclusions queue one named modal", as
   await expect(summary).toHaveValue("화면을 다시 그려도 확인한 제외 결과는 열리지 않아요");
   await expect(modal).toHaveCount(0);
   for (const t of targets) {
-    const chip = page.getByRole("button", { name: `${t.name} · AI가 뺀 문구 1개`, exact: true });
+    const chip = page.getByRole("button", { name: `${t.name} · AI가 뺀 문구 3개`, exact: true });
     await expect(chip).toBeVisible();
     await chip.click();
     await expect(modal).toHaveCount(1);

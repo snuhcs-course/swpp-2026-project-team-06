@@ -24,6 +24,7 @@ const mixedSource = [
   "면역력 증진에 좋아요",
   "청견과 구치노쓰37호에 마코트를 교배한 품종으로 당도가 높고 과즙이 풍부합니다",
   "작년 300상자 완판",
+  "우체국 택배로 보내드려요", "1-3일 이내 도착",
 ].join("\n");
 for (const width of [360, 390, 430]) {
   test(`DEV-184 AC-03-1/AC-SRC-11 ${width}px: new product opens one editor and AI sheet fills it`, async ({
@@ -107,17 +108,19 @@ for (const width of [360, 390, 430]) {
     if (width === 390) {
       const modal = page.getByTestId("excluded-modal");
       await expect(modal).toBeVisible();
-      await expect(modal.getByText("다음 단계(판매·가격)에서 직접 채워 주세요", { exact: true })).toBeVisible();
-      await expect(modal.getByText("팜클럽 공통 정책으로 안내돼서 상세에 넣지 않았어요")).toBeVisible();
+      await expect(modal.getByText("금액은 다음 단계(판매·가격)에서 직접 채워 주세요. 배송비도 거기서 정해요.", { exact: true })).toBeVisible();
+      await expect(modal.getByText("교환·환불·문의는 팜클럽 공통 정책에 따라 구매자에게 안내돼요. (출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불)")).toBeVisible();
       await expect(modal.getByText("건강 효능 문구는 넣을 수 없어요", { exact: true })).toBeVisible();
       await expect(modal.getByTestId("excluded-item-price")).toHaveCount(2);
       await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
+      await expect(modal.getByText("판매 기간과 받는 시기는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
+      await expect(modal.getByTestId("excluded-item-period")).toHaveText("1-3일 이내 도착");
       await expect(modal.getByTestId("excluded-item-health")).toHaveText("면역력 증진에 좋아요");
       await expect(modal).toBeInViewport({ ratio: 1 });
       if (shots) await page.screenshot({ path: `${shots}/dev186-1-excluded-modal.png` });
       await modal.getByRole("button", { name: "확인", exact: true }).click();
       await expect(modal).toHaveCount(0);
-      await expect(page.getByTestId("excluded-chip")).toHaveText("테스트 감귤 · AI가 뺀 문구 4개");
+      await expect(page.getByTestId("excluded-chip")).toHaveText("테스트 감귤 · AI가 뺀 문구 5개");
       await page.getByTestId("excluded-chip").scrollIntoViewIfNeeded();
       await expect(page.getByTestId("excluded-chip")).toBeInViewport();
       if (shots) await page.screenshot({ path: `${shots}/dev186-2-excluded-chip.png` });
@@ -128,6 +131,7 @@ for (const width of [360, 390, 430]) {
       await expect(page.getByTestId("excluded-chip")).toBeVisible();
       await expect(modal).toHaveCount(0);
       await page.getByLabel("원산지", { exact: true }).fill("제주 서귀포");
+      await expect(page.getByLabel("배송 안내 내용", { exact: true })).toHaveValue("우체국 택배로 보내드려요");
       await expect(page.getByLabel("맛과 향 내용", { exact: true })).toHaveValue("당도가 높고 과즙이 풍부합니다");
     }
     await expect(page.getByTestId("ai-filled-badge").first()).toBeVisible();

@@ -471,6 +471,7 @@ test("DEV-186 AC-SRC-3: identical shared safety cases on client and server", () 
     assert.equal(detectors.hasHealthClaim(c.value), c.health, `health: ${c.value}`);
     assert.equal(detectors.hasPlatformText(c.value), c.platform, `platform: ${c.value}`);
     assert.equal(detectors.hasMoney(c.value), c.money, `money: ${c.value}`);
+    assert.equal(detectors.hasPeriodText(c.value), c.period, `period: ${c.value}`);
   }
 });
 
@@ -492,4 +493,22 @@ test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", asyn
   assert.ok(appsFilter.includes('"server/app/source_analysis/text_safety_lists.json"'));
   const integrationFilter = ci.split("            integration:\n")[1].split("\n      - name:")[0];
   assert.ok(integrationFilter.includes('"server/**"'));
+});
+
+
+test("DEV-186 AC-SRC-11: modal groups by reason including return fees and periods", async () => {
+  const { groupSourceExclusions } = await import("../apps/producer/src/lib/sourceExclusionReasons.ts");
+  const items = [
+    { candidateId: "price", value: "천혜향 3kg 32,000원", reason: "price" },
+    { candidateId: "return-fee", value: "반품 배송비 5,000원", reason: "price" },
+    { candidateId: "support", value: "고객센터 평일 10시~5시", reason: "platform" },
+    { candidateId: "arrival", value: "1-3일 이내 도착", reason: "period" },
+    { candidateId: "health", value: "면역력 증진에 좋아요", reason: "health" },
+  ];
+  assert.deepEqual([...groupSourceExclusions(items)], [
+    ["금액은 다음 단계(판매·가격)에서 직접 채워 주세요. 배송비도 거기서 정해요.", items.slice(0, 2)],
+    ["교환·환불·문의는 팜클럽 공통 정책에 따라 구매자에게 안내돼요. (출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불)", [items[2]]],
+    ["판매 기간과 받는 시기는 다음 단계(판매·가격)에서 직접 정해 주세요.", [items[3]]],
+    ["건강 효능 문구는 넣을 수 없어요", [items[4]]],
+  ]);
 });

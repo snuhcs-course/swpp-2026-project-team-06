@@ -2,15 +2,16 @@ import {
   hasHealthClaim,
   hasMoney,
   hasPlatformText,
-  type SourceExclusion,
+  hasPeriodText,
   type SourceRefinementResult,
 } from "@farmclub/api";
 import { Button, Sheet, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { groupSourceExclusions } from "./sourceExclusionReasons";
 
 export const AI_POLICY_NOTE =
-  "가격·배송비·받는 시기는 AI가 채우지 않아요. 다음 단계(판매·가격)에서 직접 채워 주세요. 건강 효능 문구는 넣을 수 없어요.";
+  "가격·배송비·받는 시기는 AI가 채우지 않아요. 다음 단계(판매·가격)에서 직접 채워 주세요. 배송 방법(택배사·포장)은 상세에 남겨요. 건강 효능 문구는 넣을 수 없어요.";
 
 export function StoryTextHint({ value }: { value: string }) {
   return (
@@ -25,6 +26,11 @@ export function StoryTextHint({ value }: { value: string }) {
           건강 효능 문구는 넣을 수 없어요
         </T>
       ) : null}
+      {hasPeriodText(value) ? (
+        <T variant="caption" muted>
+          판매 기간과 받는 시기는 다음 단계(판매·가격)에서 직접 정해 주세요.
+        </T>
+      ) : null}
       {hasPlatformText(value) ? (
         <T variant="caption" muted>
           팜클럽 공통 정책과 겹치는 문구인지 확인해 주세요
@@ -33,24 +39,6 @@ export function StoryTextHint({ value }: { value: string }) {
     </>
   );
 }
-const nextStep = "다음 단계(판매·가격)에서 직접 채워 주세요";
-const commonPolicy = "팜클럽 공통 정책으로 안내돼서 상세에 넣지 않았어요";
-const explanation = (item: SourceExclusion) => {
-  if (item.reason === "health") return "건강 효능 문구는 넣을 수 없어요";
-  if (item.reason === "platform" || item.reason === "price") {
-    // A return fee belongs to the policy explanation even though it contains an amount.
-    if (/반품|교환|환불|보상|고객센터|운영\s*시간|구매처|주문|결제|입금/.test(item.value))
-      return commonPolicy;
-    return nextStep;
-  }
-  return {
-    pii: "개인정보가 있어 상세에 넣지 않았어요",
-    other_product: "다른 상품의 내용이라 넣지 않았어요",
-    unsupported: "자료에서 근거를 확인하지 못해 넣지 않았어요",
-    duplicate: "같은 내용이 있어 한 번만 넣었어요",
-    unused: "이번 상세에 사용하지 않은 문구예요",
-  }[item.reason];
-};
 /** Only mounted by producer editing screens, never by the buyer page renderer. */
 export function SourceExclusions({
   batchId,
@@ -93,11 +81,7 @@ export function SourceExclusions({
   }, [openedKey]);
   const close = () => setQueue((old) => old.filter((key) => key !== openedKey));
   if (!entries.length) return null;
-  const groups = new Map<string, SourceExclusion[]>();
-  for (const item of opened?.items ?? []) {
-    const label = explanation(item);
-    groups.set(label, [...(groups.get(label) ?? []), item]);
-  }
+  const groups = groupSourceExclusions(opened?.items ?? []);
   return (
     <>
       {entries.map(({ name, items, key }) => <Pressable
