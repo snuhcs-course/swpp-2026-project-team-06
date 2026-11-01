@@ -190,16 +190,18 @@ test("DEV-186 AC-SRC-1/2/11: multi-product exclusions queue one named modal", as
   await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
   const modal = page.getByTestId("excluded-modal");
   await expect(modal).toHaveCount(1);
-  await expect(modal).toContainText("첫 상품 감귤 · AI가 이런 문구는 뺐어요");
-  await expect(modal.getByText("금액은 다음 단계(판매·가격)에서 직접 채워 주세요. 배송비도 거기서 정해요.", { exact: true })).toBeVisible();
-  await expect(modal.getByText("판매 기간과 받는 시기는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
+  await expect(modal).toContainText("첫 상품 감귤 · 이 정보들은 상세 페이지에 못 넣어서 빼 뒀어요 🙂");
+  await expect(modal.getByText("가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
+  await expect(modal.getByText("판매 기간이나 받는 날은 다음 단계(판매·가격)에서 정해요.", { exact: true })).toBeVisible();
+  await expect(modal.getByText("교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.", { exact: true })).toBeVisible();
+  await expect(modal.getByText("출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", { exact: true })).toBeVisible();
   await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
   // Waiting in the queue must not mark the second product as already shown.
   expect(await page.evaluate(() => sessionStorage.getItem(
     "farmclub-producer:excluded-seen:review-queue:version-second"))).toBeNull();
   await modal.getByRole("button", { name: "확인", exact: true }).click();
   await expect(modal).toHaveCount(1);
-  await expect(modal).toContainText("둘째 상품 천혜향 · AI가 이런 문구는 뺐어요");
+  await expect(modal).toContainText("둘째 상품 천혜향 · 이 정보들은 상세 페이지에 못 넣어서 빼 뒀어요 🙂");
   await modal.getByRole("button", { name: "확인", exact: true }).click();
   await expect(modal).toHaveCount(0);
   // Parent input edits recreate the products array; an unchanged result stays acknowledged.
@@ -212,7 +214,7 @@ test("DEV-186 AC-SRC-1/2/11: multi-product exclusions queue one named modal", as
     await expect(chip).toBeVisible();
     await chip.click();
     await expect(modal).toHaveCount(1);
-    await expect(modal).toContainText(`${t.name} · AI가 이런 문구는 뺐어요`);
+    await expect(modal).toContainText(`${t.name} · 이 정보들은 상세 페이지에 못 넣어서 빼 뒀어요 🙂`);
     await modal.getByRole("button", { name: "확인", exact: true }).click();
   }
   await page.reload();

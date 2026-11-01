@@ -108,19 +108,38 @@ for (const width of [360, 390, 430]) {
     if (width === 390) {
       const modal = page.getByTestId("excluded-modal");
       await expect(modal).toBeVisible();
-      await expect(modal.getByText("금액은 다음 단계(판매·가격)에서 직접 채워 주세요. 배송비도 거기서 정해요.", { exact: true })).toBeVisible();
-      await expect(modal.getByText("교환·환불·문의는 팜클럽 공통 정책에 따라 구매자에게 안내돼요. (출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불)")).toBeVisible();
-      await expect(modal.getByText("건강 효능 문구는 넣을 수 없어요", { exact: true })).toBeVisible();
+      await expect(modal.getByRole("heading")).toHaveText("이 정보들은 상세 페이지에 못 넣어서 빼 뒀어요 🙂");
+      await expect(modal.getByText("AI가 자료에서 찾았지만 팜클럽 상세에는 맞지 않는 내용이에요.", { exact: true })).toBeVisible();
+      for (const label of ["💰 금액", "📅 기간", "🛡️ 팜클럽 정책", "🚫 건강 효능"]) {
+        await expect(modal.getByText(label, { exact: true })).toHaveCount(1);
+      }
+      await expect(modal.getByText("가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
+      await expect(modal.getByText("교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.", { exact: true })).toBeVisible();
+      await expect(modal.getByText("출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", { exact: true })).toBeVisible();
+      await expect(modal.getByText("건강 효능은 상세 페이지에 넣을 수 없어요.", { exact: true })).toBeVisible();
       await expect(modal.getByTestId("excluded-item-price")).toHaveCount(2);
       await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
-      await expect(modal.getByText("판매 기간과 받는 시기는 다음 단계(판매·가격)에서 직접 정해 주세요.", { exact: true })).toBeVisible();
+      await expect(modal.getByText("판매 기간이나 받는 날은 다음 단계(판매·가격)에서 정해요.", { exact: true })).toBeVisible();
       await expect(modal.getByTestId("excluded-item-period")).toHaveText("1-3일 이내 도착");
       await expect(modal.getByTestId("excluded-item-health")).toHaveText("면역력 증진에 좋아요");
       await expect(modal).toBeInViewport({ ratio: 1 });
+      // DEV-188 / AC-SRC-8/11: the last quote scrolls into view while the footer stays fixed.
+      const confirm = modal.getByRole("button", { name: "확인", exact: true });
+      await expect(confirm).toBeInViewport({ ratio: 1 });
+      const footerBeforeScroll = await confirm.boundingBox();
+      const quotes = modal.locator('[data-testid^="excluded-item-"]');
+      await expect(quotes).toHaveCount(5);
+      await quotes.last().scrollIntoViewIfNeeded();
+      await expect(quotes.last()).toBeInViewport({ ratio: 1 });
+      await expect(confirm).toBeInViewport({ ratio: 1 });
+      expect(await confirm.boundingBox()).toEqual(footerBeforeScroll);
+      const healthQuote = modal.getByText("면역력 증진에 좋아요", { exact: true });
+      await expect(healthQuote).toHaveCSS("font-style", "italic");
+      await expect(healthQuote).toHaveCSS("-webkit-line-clamp", "2");
       if (shots) await page.screenshot({ path: `${shots}/dev186-1-excluded-modal.png` });
       await modal.getByRole("button", { name: "확인", exact: true }).click();
       await expect(modal).toHaveCount(0);
-      await expect(page.getByTestId("excluded-chip")).toHaveText("테스트 감귤 · AI가 뺀 문구 5개");
+      await expect(page.getByTestId("excluded-chip")).toHaveText("AI가 뺀 문구 5개");
       await page.getByTestId("excluded-chip").scrollIntoViewIfNeeded();
       await expect(page.getByTestId("excluded-chip")).toBeInViewport();
       if (shots) await page.screenshot({ path: `${shots}/dev186-2-excluded-chip.png` });

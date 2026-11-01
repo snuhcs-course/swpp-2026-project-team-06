@@ -917,3 +917,56 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 2026-11-01 pre-commit scan 추가 지적0, 범위 이탈0. `git add`가 worktree index.lock 권한 거부로 실패해 로컬 커밋0개. 의도한 docs/server/producer+api 커밋과 서버 검증은 서버 tasks.md DEV-186 후속 기록 참조. 실호출·push·PR·의존성 추가0회, Agent 시간/Tokens 계측 미제공.
 
 - 2026-11-01 서버 최종 결과: ruff 통과, pytest **927 passed / 32 failed**(959개). 정제/scorer 신규 실패0이며 전처리32개는 psutil/sysctl 권한 오류 대표 재현으로 sandbox 밖 확인이 필요하다. 전체 검증·브라우저·Figma 후속이 남아 완료 체크를 보류한다.
+
+## DEV-188 AI가 뺀 문구 모달·칩 다듬기
+
+- 이슈: [DEV-188](https://linear.app/sswp6/issue/DEV-188)
+- 브랜치: `jinumeral/dev-188-removed-text-modal-polish` (기준 `origin/main` 6c259ac, DEV-186 포함)
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/8/11 · M-12 · N-02
+- 상태: 진행 중 — Playwright·390px 스크린샷은 사람 확인 대기
+
+### 목표
+제외 원문을 인용으로 구분하고 사유별 친근한 안내를 제공한다. 긴 목록에서도 마지막 항목을 스크롤로 확인하고 확인 버튼을 항상 볼 수 있게 한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/SourceExclusions.tsx`
+- `apps/producer/src/lib/sourceExclusionReasons.ts`
+- `apps/producer/tasks.md`
+- `scripts/e2e/new-product-composer.spec.ts`
+- `scripts/e2e/source-review-regressions.spec.ts`
+- `scripts/test-spec12.mjs` (기존 사유 그룹 검증의 새 문구·메타데이터 기대값)
+- `docs/spec/ia.md`
+- `docs/spec/source-analysis.md`
+- `docs/wiki/Source-Analysis.md`
+
+### 비범위 (건드리지 않음)
+- 서버·DB·정리 모델·검출 규칙·공용 UI API·새 의존성
+- push·PR·머지·배포·Chromium 실행
+
+### 결정 사항
+- 11/01 사용자의 DEV-188 상세 지시를 구현 기준으로 적용한다. 단일 상품은 칩·제목에 상품명을 생략하고 여러 상품은 `products.length` 기준으로 상품명을 붙인다(제외 결과가 없는 상품도 상품 수에 포함).
+- 11/01 사유별 pill/설명/선택적 정책 보조 문구를 타입이 있는 테이블로 관리하고 그룹 키는 reason으로 둔다. 개인정보·다른 상품·근거 없음·중복·미사용의 기존 설명은 유지하고 설명은 보통 굵기로 표시한다.
+- 11/01 `packages/ui`의 T/Button/tokens/safe를 재사용한다. 연한 주황 배경·인용 막대는 기존 accent 토큰에 투명도를 적용하며 나머지 사유 pill은 surface/textMuted를 사용한다. 새 색상은 추가하지 않는다.
+- 11/01 공용 Sheet는 전체 children을 ScrollView로 감싸므로 이 모달만 RN Modal에서 제목·본문 ScrollView·footer를 분리한다. 시트는 화면 높이 90% 이하, 본문은 최대400px와 flexShrink로 제한하고 footer는 줄어들지 않게 한다. safe-area 여백을 보존한다.
+- 11/01 원문 testID와 textContent·후보 수·자동 표시/확인/sessionStorage 큐 계약을 유지한다. composer는 현재5개이므로 칩은 `AI가 뺀 문구 5개`다. Playwright는 기존 단언을 보존하며 새 제목·사유 pill·정책 보조 문구·스크롤 끝/고정 버튼을 검증한다.
+- 11/01 사용자 지시로 로컬 커밋만 시도한다. Figma 도구가 없어 v6 동기화는 디자인 담당자/owner 후속으로 남기며 향후 PR의 Figma 줄에 기록해야 한다. 관련자 메시지·PR은 생성하지 않는다.
+
+### 작업
+- [ ] 모달·칩·사유 메타데이터 구현
+- [ ] 테스트 기대값·제품 스펙·영문 위키 갱신
+- [ ] typecheck·mock 통과 및 커밋 전 스캔
+- [ ] 사람: Playwright 실행·390px 스크린샷 owner 확인·Figma v6 동기화
+
+### 완료 조건
+- [ ] DEV-188의 인용·사유별 안내·단일 상품 칩·고정 확인 버튼 확인
+- [ ] 관련 테스트 묶음 실행 통과를 사람 포함 확인
+
+### 기록
+- 11/01 Linear 이슈가 In Progress이며 왜/인수 조건이 채워져 있음을 읽기 전용으로 확인했다. 기존 DEV-186 기록은 이전 작업 이력으로 보존한다. Chromium 실행은 사용자 지시로 생략하고 완료 체크는 사람 UI 검증까지 보류한다.
+- 11/01 구현·문서·기대값 갱신 후 검증(기존 의존성): `npm run typecheck` → **5 workspace 통과 / 0 실패**. `npm run test:mock` → **47 passed / 0 failed / 0 skipped**(28.92초, 기존 테스트 수 유지).
+- 11/01 `./node_modules/.bin/tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --types node scripts/e2e/new-product-composer.spec.ts scripts/e2e/source-review-regressions.spec.ts` → 종료0. Playwright/Chromium은 **미실행**이며 이 문법·타입 검사는 UI 통과를 뜻하지 않는다. 사람은 두 spec을 실행하고 390px 모달/칩 스크린샷과 마지막 항목·고정 확인 버튼을 확인해야 한다.
+- 11/01 커밋 전 스캔: 회귀/신규 버그/불필요 코드 지적0. 레거시 호환 후보0·지적0(추가된 null 기본값은 두 구조를 받아주는 호환 분기가 아님). 그룹 함수의 모든 호출부(모달·mock)를 갱신했고 기존 큐/sessionStorage·원문 textContent·testID·후보 수를 보존했다.
+- 11/01 범위 감사: `git diff main...HEAD`는 로컬 main(9d6b42e)이 오래되어 이번 작업 이전의 변경도 포함한다. 실제 기준 `origin/main`과 HEAD는 모두6c259ac으로 커밋 diff0이며, `git diff HEAD`의 이번 변경9경로는 위 허용 범위와 일치한다. `git diff --check` 통과, 새 파일0.
+- 11/01 첫 기록 커밋을 위해 현재 브랜치를 확인한 뒤 `git add apps/producer/tasks.md` 및 `git commit`을 시도했으나 `.git/worktrees/farmclub-modal-polish/index.lock` 생성이 `Operation not permitted`로 차단됐다. 커밋0개, push·PR0회. 의도한 커밋: `docs(producer): FEAT-03 제외 안내 개선 범위 기록 (DEV-188)` / `fix(producer): FEAT-03 제외 문구 모달과 칩 다듬기 (DEV-188)`(구현·테스트·제품 스펙·위키 포함). Co-Authored-By는 넣지 않는다.
+- 11/01 Figma v6는 디자인 담당자/owner 후속이다. UI 검증 전까지 체크박스·AC·Linear Done 처리는 보류한다. 대표 프롬프트: DEV-188의 인용 스타일·사유 pill·고정 footer·단일 상품 칩을 기존 토큰과 단언을 보존해 수정. Agent 시간 / Tokens: 계측 미제공.
+- 11/01 Claude 확인: Playwright `new-product-composer`·`source-review-regressions`·`new-product-two-step` 14 passed(샌드박스 밖), 390px 모달·칩 스크린샷을 owner에게 보여 드렸다. 커밋 전 스캔(CRITICAL 0) 지적 반영: 연한 주황 배경 위 주황 글씨 대비가 WCAG AA에 못 미쳐 pill·칩 글씨를 `accentPressed`로 바꿨고, 표에 없는 사유는 근거 없음 안내로 대신하며, 개인정보 사유 원문은 `masked`로 세션 녹화에서 가린다. 공용 Sheet에 footer prop을 넣어 다시 쓰는 것은 공용 UI 변경이라 후속으로 남긴다.
