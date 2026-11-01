@@ -1,0 +1,57 @@
+{
+  "name": "source-holdout-i3-final-v1",
+  "sha256": "5a906044cd642a4f40e52961cc9613de27901b5e719f7714d156e4e9a8fe338b",
+  "sources": [
+    {
+      "id": "h3-text-01",
+      "format": "text"
+    },
+    {
+      "id": "h3-text-02",
+      "format": "text"
+    },
+    {
+      "id": "h3-text-03",
+      "format": "text"
+    },
+    {
+      "id": "h3-image-01",
+      "format": "image"
+    },
+    {
+      "id": "h3-image-02",
+      "format": "image"
+    },
+    {
+      "id": "h3-image-03",
+      "format": "image"
+    },
+    {
+      "id": "h3-long_image-01",
+      "format": "long_image"
+    },
+    {
+      "id": "h3-long_image-02",
+      "format": "long_image"
+    },
+    {
+      "id": "h3-long_image-03",
+      "format": "long_image"
+    },
+    {
+      "id": "h3-pdf-01",
+      "format": "pdf"
+    },
+    {
+      "id": "h3-pdf-02",
+      "format": "pdf"
+    },
+    {
+      "id": "h3-pdf-03",
+      "format": "pdf"
+    }
+  ],
+  "totalSentences": 140,
+  "totalFacts": 253,
+  "policy": "local only, never tune on it, run once after DEV-186 (T11/T23)"
+}

@@ -10,6 +10,12 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8의 평가 자료·채점 계약은 [I3 v1 �
 
 필드/대상/전체 값 exact P/R을 주 점수로, 명시적 정규화는 별도 진단으로 보고한다. 실패·빈 응답·거절·미실행을 분모에서 빼지 않으며 중요 사실의 원본 대조 감사를 별도로 요구한다. 원문/gold 전문은 비공개, 저장소에는 값/근거 해시와 위치만 둔다. 기존 gold53개 중 OCR 입력과 근거 위치11개가 미연결이므로 해당 준비 상태도 BLOCKED다. 이 동결은 새 품질 측정·실제 농가 인수·운영 동작 변경이 아니다.
 
+### 최종 페이지 문장 평가 (DEV-187, 2026-11-01)
+
+DEV-186의 두 단계 초안 중 stage-2는 [final-text gold 형식·채점 규칙](validation/source-final-gold-format.md)과 [JSON schema](validation/source-final-gold.schema.json)를 따른다. 기존 exact/normalized 필드 점수는 stage-1 진단이며, 최종 문장은 같은 section의 mustContain 사실 recall(전체/critical), 오배치, 금지 내용0건, 안전 원문 밖 수치·품종·인증, 문장별 precision proxy를 보고한다. critical 누락·금지·unsupported·실패는 critical FAIL이며 proxy는 의미 정확성이나 문장 품질을 보장하지 않는다.
+
+[합성 final gold20건](validation/source-final-gold-i3-dev-synthetic.json)은 개발 전용이며, [dev-final manifest](validation/source-final-dev-manifest.json)의 공개12건은 `LOCAL_PRIVATE`이며 private gold 파일 SHA만 기록한다. holdout은3인 독립 작성·2인 이상 합의 후 담당자가 나머지를 결정한다. 원문·gold·실행 봉투는 로컬 전용이며 저장소에는 **ID·형식·해시·집계 점수만** 남긴다. 실제 인쇄 PDF는 페이지를 인용한다. [최종 holdout lock](validation/source-final-holdout-i3-lock.json)은12건/140문장/253사실의 ID·format·해시만 보관한다. DEV-186 이후 T11/T23에서 한 번 실행하며 튜닝하지 않는다. 로컬 gold는 고정 SHA/holdout lock과 엄격 gold 검증을 모두 통과해야 한다. DEV-170/T11 실행/사람 문장 감사는 별도 미완료다. 규칙9~12의 판매점 운영(platform)·건강 효능(health) 제외, summary의 맛·크기 분리, 판매가 셀의 기간 제외를 적용한다. 빈 gold는 contract로 분리 집계하며 전체 gate에는 유지한다.
+
 현재 상태(2026-10-19, DEV-90): DEV-56~58 앱 통합은 구현/머지되었고 운영 API·독립 OCR worker가 활성화되어 있다. 실제 농가 인수와 일반 정확도는 별도 미완료다. 최신 UI/개인정보/명시적 반영 계약은 상단 링크의 source-editor/source-integration이 우선하며, 아래 DEV-53/54의 후속 통합·보류 설명은 당시 범위 기록이다.
 
 > 결정일: 2026-10-14. **DEV-54에서 비공개 백엔드 구현, 앱 UI·공개 반영은 후속 작업.** 기존 프로토타입의 로컬 처리와 기존 상세 API는 유지한다. 사용자 결정과 초기 운영 기본값을 구분한다.
