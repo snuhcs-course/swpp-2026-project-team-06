@@ -885,6 +885,7 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 범위: `src/lib/{NewProductComposer,PageCanvas,SourceWorkspace,SourceDetailsEditor,SourceExclusions}.tsx`, `tasks.md`; API·workflow·mock·e2e·문서 허용 경로는 서버 DEV-186 범위 참조.
 
 ### 결정 사항
+- 2026-11-01 owner 변경(R-19): 배송 방법은 상세에 보존하고 기간/금액/공통 정책을 별도로 안내한다. `sourceExclusionReasons.ts`를 범위에 추가해 reason별 문구와 그룹화를 mock 테스트에서 검증한다. period detector는 API의 공유 JSON을 사용한다. 반품 배송비는 price 안내를 적용한다. 커밋 허용, 실호출·push·PR·의존성 추가 금지는 유지한다.
 - REFINED 자동 채움은 상품명/보관 기본값에도 사용한다. 후보 선택 버튼은 공유 금액/효능 detector로 숨기고 플랫폼 문구는 선택·경고를 유지한다.
 - 제외 안내는 상품명 포함 chip/title과 화면당 단일 모달 큐로 표시한다. 실제 제외된 원문을 사유별로 모으고 확인은 batch/result별 sessionStorage에 남긴다. 구매자 preview/소비자 페이지에는 노출하지 않는다.
 - 다음 단계 inline hint는 새 상품 PageCanvas story 입력의 opt-in으로 제한하며 기본 정보 FillInput에는 표시하지 않는다. 상품명·품종·당도·사이즈·원산지·보관 기존 구조 유지.
@@ -910,3 +911,9 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
   - `serveReview` 함수 본문 SHA256 대조로 **사람 변경 byte-for-byte 보존** 확인. `git diff --check` 통과. 미커밋38경로 범위 감사는 서버 기록 참조. 현 UI 검증·Figma 후속이 남아 완료 체크 보류.
 - 11/01 Agent 시간 / Tokens: 계측 미제공. 의도한 커밋 docs / server / producer+api+workflow는 서버 tasks 참조. 환경은 `<로컬 DB>`와 `<로컬 캐시>`를 사용한다.
 - 11/01 최종 검증(샌드박스 밖): `npm run typecheck` 통과, `npm run test:mock` **46 passed**, Playwright 6개 spec **35 passed**(새 상품 화면 2종·소비자 상세·회귀·기존 편집기·작업 화면). 모달·칩 스크린샷은 `toBeInViewport`로 화면 안에 완전히 들어온 뒤 찍는다. 위의 sandbox 안 결과(0 passed / 8 failed 등)는 Chromium 시작 차단 때문이며 이 결과로 대체한다.
+
+- 2026-11-01 owner 정책 후속: reason별 price/period/platform 안내와 AI 시트 배송 방법 보존 문구를 적용했다. 반품 배송비는 price로 묶고 health 안내는 유지한다. 공유 JSON 기간 detector를 API에서 export하며 story 입력에 기간 경고를 표시한다. mock에 택배 보존/도착 소요일 제외를 넣고 composer 제외 항목은5개, 다상품 큐 fixture는 상품당3개로 갱신했다.
+- 2026-11-01 검증: 최종 `npm run typecheck` **5 workspace 통과 / 0 실패**, `npm run test:mock` **47 passed / 0 failed**(28.42초). 두 Playwright spec에 대한 `./node_modules/.bin/tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --types node scripts/e2e/new-product-composer.spec.ts scripts/e2e/source-review-regressions.spec.ts` 종료0. Chromium은 요청대로 미실행, UI 통과를 뜻하지 않는다. Figma v6 동기화는 디자인 담당자/owner 후속이다.
+- 2026-11-01 pre-commit scan 추가 지적0, 범위 이탈0. `git add`가 worktree index.lock 권한 거부로 실패해 로컬 커밋0개. 의도한 docs/server/producer+api 커밋과 서버 검증은 서버 tasks.md DEV-186 후속 기록 참조. 실호출·push·PR·의존성 추가0회, Agent 시간/Tokens 계측 미제공.
+
+- 2026-11-01 서버 최종 결과: ruff 통과, pytest **927 passed / 32 failed**(959개). 정제/scorer 신규 실패0이며 전처리32개는 psutil/sysctl 권한 오류 대표 재현으로 sandbox 밖 확인이 필요하다. 전체 검증·브라우저·Figma 후속이 남아 완료 체크를 보류한다.

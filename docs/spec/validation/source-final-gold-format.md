@@ -8,7 +8,7 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8 · AC-03-2. 2026-11-01 결정. DEV-186의 br
 - [합성 개발 gold](source-final-gold-i3-dev-synthetic.json): 기존 manifest의 합성20건(기존 corpus 분류 기준 추출18+계약2). 원천은 `server/tests/fixtures/source-analysis/cases.json`과 `synthetic.material` 생성기다. 원천 숫자·단위·조건을 유지한 개발용 수작업 문장이다. 독립 측정이나 실제 모델 품질 결과가 아니다.
 - [개발 final manifest](source-final-dev-manifest.json): 합성20건 `READY_SYNTHETIC`, 공개 개발12건 `LOCAL_PRIVATE`. 기존 corpus의 ID·format·safeInputSha256과 final gold의 바이트/정규 JSON SHA를 기록한다. 공개12건 gold는 로컬 전용이며 각 case의 goldSha256은 전체 private gold 파일 바이트 SHA다. 합성 case의 goldSha256(source 정규 JSON)과 구분한다. 안전 입력은 읽거나 복사하지 않는다.
 - **holdout 원문·안전 입력·gold·로컬 run 봉투는 로컬 전용**이다. 독립 검토자3명이 원문만 보고 작성하고 2명 이상 동의한 사실을 채택하며 나머지는 담당자가 결정한다. PDF3건은 실제 인쇄된 PDF다. 페이지 근거는 로컬 검토 자료(검토자 결과의 `where`)에 남기고, 잠근 gold 문장에는 `where`를 두지 않는다(선택 필드). 개발/holdout은 함께 채점할 수 없다. holdout은 절대 튜닝에 사용하지 않는다.
-- 저장소에 남길 holdout 정보는 **ID·형식·해시·집계 점수**뿐이다. lock 전에는 임의 ID·gold를 만들어 잠긴 것처럼 표시하지 않는다. [holdout lock](source-final-holdout-i3-lock.json)은 형식별3건의 ID/format·파일 SHA·140문장/253사실 및 정책만 담는다. 잠금은 채점 통과를 뜻하지 않는다. 안전 원문이 있어도 공개 복제 권한을 뜻하지 않는다.
+- 저장소에 남길 holdout 정보는 **ID·형식·해시·집계 점수**뿐이다. lock 전에는 임의 ID·gold를 만들어 잠긴 것처럼 표시하지 않는다. [holdout lock](source-final-holdout-i3-lock.json)은 형식별3건의 ID/format·파일 SHA·146문장/261사실(v1.1, 2026-11-01 배송 방식 복원) 및 정책만 담는다. 잠금은 채점 통과를 뜻하지 않는다. 안전 원문이 있어도 공개 복제 권한을 뜻하지 않는다.
 
 ## Gold 계약
 
@@ -41,7 +41,9 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8 · AC-03-2. 2026-11-01 결정. DEV-186의 br
 - 원문 사실만 사용하며 가벼운 문장 정돈을 허용한다. 숫자·단위·품종·인증·유보 표현은 그대로 보존한다. **금액은 과거/현재/배송비를 가리지 않고 전부 제외**한다. 금액만 빼도 뜻이 남으면 나머지는 유지한다. 개인정보·UI 버튼/탐색 문구는 제외한다. 판매점의 문의 채널/시간도 `platform`으로 제외한다. 중립적인 `건강하게 키운`은 효능 주장으로 보지 않는다.
 - source마다 대표 상품1개. 과거 판매의 금액 없는 이력은 `farm/historicalSales`, 수확 시기는 `production/productionProcess`다. 서로 다른 자료의 충돌은 자료별 조건을 유지하고 임의로 하나를 사실로 확정하지 않는다.
 
-2026-11-01 owner 규칙9~12도 적용한다. (9) 판매/선주문 기간, 품절/종료, 주문/결제, 중량·크기 옵션 선택, 배송비/무료배송 기준, 출고 소요일/택배사, 반품·교환·환불, 고객센터 시간·채널은 Farmclub이 처리하므로 `platform` 금지다. 재배 과정의 얼룩처럼 상품의 외관 사실은 appearanceFaq에 보존한다. (10) 상단 summary에 섞인 맛·크기는 taste로 분리한다. (11) 면역·소화 등 건강/효능 주장은 원문에 있어도 `health` 금지다. (12) `판매가` 셀에 기간이 들어 있으면 기간도 버린다. 기존 합성 원천에 없는 건강 주장이나 기간 셀을 gold 사실로 만들지 않는다.
+2026-11-01 owner 규칙9~12도 적용한다. (9) **R-19에 따라 판매자가 출하하므로** 택배사·포장/완충·농장 직배송·수확 직후 포장/발송·도서산간 배송 가능 여부는 `packing/delivery` 상품 사실로 보존한다. 판매/선주문 기간·품절/종료/재입고·출고 소요일/도착일/발송 요일은 기간으로 제외한다(제품 reason `period`, 이 gold 형식에서는 기존 `platform` 금지 유지). 모든 금액(배송비/무료배송 기준 포함)은 `price`로 제외하고 생산자가 ②에서 정한다(R-20). 주문/결제·구매 한도·중량/크기 옵션 선택·교환/환불/반품/보상·고객센터 시간/채널은 공통 정책 `platform` 금지다. 재배 과정의 얼룩은 appearanceFaq에 보존한다. (10) summary의 맛·크기는 taste로 분리한다. (11) 건강/효능 주장은 `health` 금지다. (12) 판매가 셀에 기간이 들어 있으면 기간도 버린다.
+
+합성06은 `수확 후 순차 출고`만 packing/delivery로 복원하고 `도착일은 확정하지 않습니다`는 금지한다. 09는 문의 채널만 있어 계속 금지, 20은 구성은 보존하고 배송일은 계속 금지한다. 원천에 없는 배송 방법·건강 주장·기간 셀 사실은 만들지 않는다. 합성 해시만 다시 계산하며 holdout lock과 `LOCAL_GOLD_SHA256`는 2026-11-01 v1.1로 재잠금했다. 제품 정제 서버는 platform/period를 warning으로 기록하지만 scorer의 기존 money/health/platform/gold-forbidden 검사는 유지한다.
 
 | section | 텍스트 module |
 |---|---|
@@ -99,7 +101,7 @@ uv run python -m app.source_analysis.final_score \
 
 위 sources 1행은 설명용이며 실제로는12건 모두 필요하다. private 파일은 최상위 source 리스트이며 format 없이 `{id,product,sentences,forbidden}`다. scorer는 run 봉투의 format을 주입하고 where 없는 문장을 허용한 뒤 동일한 엄격 gold 검증을 실행한다. 알려지지 않은 필드/종류, 빈 product, verbatim/정규화 불일치를 자동 보정하지 않는다. 개발 파일은 `../source-dev-i3-private/final-gold-dev-public.json` 및 split=development를 사용한다.
 
-- Holdout 파일 바이트 SHA-256: `5a906044cd642a4f40e52961cc9613de27901b5e719f7714d156e4e9a8fe338b`. 필수 lockPath의 `sha256`도 이 값과 일치해야 한다.
+- Holdout 파일 바이트 SHA-256: `2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073`. 필수 lockPath의 `sha256`도 이 값과 일치해야 한다.
 - Public development 파일 바이트 SHA-256: `3ed465971fb5579d10d8ee338e21c01c5d06c324d942acd8d36aba2635cf786f`.
 
 위 값은 `final_score.LOCAL_GOLD_SHA256`에 고정한다. SHA/lock/검증 불일치면 종료2로 채점을 거절한다. private gold/lock도 보고서 덮어쓰기 대상이 될 수 없다. 개발과 holdout 혼합, source ID 중복은 거절한다. `load_local_gold(LocalGold(...), base_path, formats_by_id)`로 검증만 수행할 수 있다. 이 작업은 두 gold의 검증만 실행하며 **holdout 채점은 DEV-186 이후 T11/T23에서 한 번만**, 튜닝 금지다. private 본문·위치·원천은 repo에 복사하거나 stdout에 출력하지 않는다.
@@ -121,6 +123,6 @@ uv run python -m app.source_analysis.final_score \
 
 ## 합성 라벨 결정
 
-20건은17문장/23사실이다. 15-injection은 사실이 없고 17-duplicate/18-empty는 API 계약 오류 사례이므로0문장이다. 규칙9에 따라06-delivery와09-support의 운영 문구도 gold에서 제거하고 forbidden(platform)으로 옮겼다. 따라서 report의 contract는5건, extraction은15건이다(기존 corpus의 extraction18/API-contract2 분류와 목적이 다름). 이5건에서 기대하는 빈 최종 출력은 전체 gate를 PASS할 수 없고 critical FAIL이다. `byCaseType.extraction`을 함께 읽되 전체 실패를 숨기지 않는다. contract가 모두 text 형식이라 `byFormat.text`와 `overall` gate는 합성 개발셋에서 항상 FAIL이며 CLI 종료 코드도 1이다. 품질 판단에는 `byCaseType.extraction`을 쓴다. 합성 원천에 해당 내용이 없어 규칙10(요약/맛 분리)·12(판매가 칸 기간)·health 사례는 합성 gold에 없다(규칙9만 06/09/20에 있음).
+20건은18문장/24사실이다. 15-injection은 사실이 없고 17-duplicate/18-empty는 API 계약 오류 사례이므로0문장이다. 09-support도 문의 공통 정책만 있어0문장이며, 06-delivery는 수정된 규칙9에 따라 배송 방법 사실1개를 packing/delivery에 보존한다. 따라서 contract4건, extraction16건이다(기존 corpus의 extraction18/API-contract2와 목적이 다름). contract의 빈 출력은 critical FAIL이며 전체 분모·실패 gate에 유지한다. contract가 모두 text라 합성 `byFormat.text`와 `overall` gate는 항상 FAIL, CLI 종료 코드는1이다. 품질 판단에는 `byCaseType.extraction`을 함께 읽는다. 원천에 규칙10(요약/맛 분리)·12(판매가 칸 기간)·health 사례가 없어 해당 gold 사실은 추가하지 않는다(규칙9는06/09/20에 있음).
 
 11-conflict는 A/B 각 중량을 문장에 명시해 확정값을 만들지 않는다. 12-mixed-products는 A/3kg를 대표로, B/5kg는 other_product 금지로 둔다. 13-common-farm은 대표 A에 공통 농가 사실만 사용한다. 10-historical은 지난해/2025년/5kg 행사 이력을 farm에 남기고 금액을 금지한다. 19의 수량 미확인은 유지하고20의 배송일 미확정은 운영 안내로 금지한다. 02-weight는 자연스러운 `감귤 5kg 한 상자입니다.`로 복원했다. 나머지 사례도 규칙9~12와 대조했으며, 과거 판매 이력/실측 근거는 판매 기간·효능 주장과 구분해 보존한다. 합성 가상 연락처는 기존 공개 fixture에 이미 있는 값만 forbidden에 사용한다.

@@ -179,7 +179,7 @@ DEV-186의 두 단계 초안 중 최종 페이지 문장을 독립적으로 채�
 - 이슈: [DEV-186](https://linear.app/sswp6/issue/DEV-186)
 - 브랜치: `jinumeral/dev-186-two-stage-refine-draft`
 - 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11
-- 상태: 커밋 전 검증 완료(샌드박스 밖) — ruff 통과, pytest **743 passed**, typecheck 통과, test:mock **46 passed**, Playwright **35 passed**. UI 검증 상세는 producer 기록 참조.
+- 상태: 2026-11-01 owner 배송 정책 반영, 검증 일부 미완료(전체 pytest 927 passed/32 failed·Chromium 미실행, 로컬 커밋 권한 차단). 이전 트리 검증: 커밋 전 검증 완료(샌드박스 밖) — ruff 통과, pytest **743 passed**, typecheck 통과, test:mock **46 passed**, Playwright **35 passed**. UI 검증 상세는 producer 기록 참조.
 
 ### 목표
 원문 후보·근거를 보존하면서 대상별 2차 문구 정리로 금액·효능·운영 문구를 상세에서 제외한다.
@@ -193,11 +193,16 @@ DEV-186의 두 단계 초안 중 최종 페이지 문장을 독립적으로 채�
 - `scripts/e2e/{new-product-composer,source-review-regressions}.spec.ts`
 - `docs/spec/{source-analysis,source-integration,ia}.md`, `docs/wiki/Source-Analysis.md`
 - `.github/workflows/{ci,deploy-vercel}.yml`
+- `server/tests/test_final_score.py`, `docs/spec/validation/{source-final-gold-i3-dev-synthetic.json,source-final-dev-manifest.json,source-final-gold-format.md}`
+- `apps/producer/src/lib/sourceExclusionReasons.ts`
 
 ### 비범위
-- Stage-1 추출 프롬프트 변경(명시적 mock fixture 추가만 허용), 의존성 추가, corpus/gold/holdout 변경, 운영 접근·실호출·push·PR·커밋.
+- Stage-1 추출 프롬프트 변경(명시적 mock fixture 추가만 허용), 의존성 추가, stage-1 corpus 변경(holdout lock·LOCAL_GOLD_SHA256은 11/01 v1.1 재잠금으로 예외), 운영 접근·실호출·push·PR. 로컬 커밋은 이번 사용자 지시로 허용.
 
 ### 결정 사항
+- 2026-11-01 owner 변경: R-19에 따라 판매자가 출하하므로 택배사·포장/완충·농장 직배송·수확 직후 포장/발송·도서산간 배송 가능 여부는 delivery에 보존한다. 기간(period), 금액(price), 공통 정책(platform)은 제외한다. 기간은 ② 받는 시기, 배송비는 ② 판매·가격에서 생산자가 정한다(R-20).
+- 2026-11-01 정제 출력의 platform/period는 거절 대신 diagnostics warning으로 기록한다. 금액/효능 hard reject·근거 검증은 유지한다. 판단 없는 fallback은 period도 자동 채움하지 않는다. 공유 JSON과 prompt v4로 reuse를 무효화한다. scorer 금지 검사는 money/health/platform/gold-forbidden 그대로 유지한다. 합성06 배송 사실만 복원하고09 문의·20 배송일은 금지로 유지하며 합성 해시만 재생성한다.
+- 2026-11-01 모달은 문구 추측 없이 reason별로 그룹화한다(price에 반품 배송비 포함). Figma와 Chromium 실행은 사람 후속으로 남긴다.
 - 전처리·추출이 모두 성공한 뒤 대상별 REFINE Item을 큐에 넣고 기존 lease/비용 예약/정산 경로를 사용한다. REFINE 단독 재시도도 지원하며 불확실 전송은 자동 재호출하지 않는다.
 - Item.refinement에 후보 ID·정리 모듈·excluded·프롬프트 버전·안전 목록 SHA256을 저장한다. 현재 후보·버전·해시가 모두 일치해야 재사용하고 불일치 시 다음 분석에서 다시 정리한다. `source-refine-v3`는 건강 효능 후보 전체 인용을 금지한다.
 - 유효한 정리에서 누락·거절한 필드는 되살리지 않는다. 취소/삭제/버전 변경으로 오래된 비활성 정리는 대상 키를 생략해 원문 fallback을 허용하고 실제 현재 후보 REFINE 대기만 None이다. 원문 fallback도 금액/효능/플랫폼 후보를 걸러내고 usable 대상별 단일/충돌을 공통 unassigned보다 우선한다.
@@ -234,3 +239,21 @@ DEV-186의 두 단계 초안 중 최종 페이지 문장을 독립적으로 채�
 - 11/01 최종 검증(샌드박스 밖, `<로컬 DB>`): `cd server && uv run ruff check .` → All checks passed. `uv run pytest` → **742 passed**. `npm run typecheck` → 통과. `npm run test:mock` → **46 passed / 0 failed**. Playwright `new-product-composer`·`new-product-two-step`·`source-detail-design`·`source-review-regressions`·`source-editor`·`source-workspace-ui` → **35 passed**. Codex가 브라우저 없이 쓴 회귀 spec은 가짜 API 응답(`serveReview`)과 편집 탭 열기를 고쳐 통과시켰다(앱 코드 문제 아님).
 - 11/01 Claude 리뷰 반영(최종 스캔): 배포 전에 저장된 자동 값(UNREVIEWED·EXTRACTED/REFINED)에 금액·효능·운영 문구가 있으면 다시 계산해 자동 채움하지 않는다(`test_AC_SRC_3_legacy_saved_autofill_with_money_is_recomputed`). runs 응답에서 내부 `refinement`를 뺐다(review의 excluded·refinementVersion만 공개). '뺀 문구' 숨김 조건을 `historical`과 `historicalSales` 필드 둘 다로 맞췄다. CI apps 필터에 `text_safety_cases.json`을 더했다. editor.py·service.py 포맷을 정리했다. 재검증: ruff 통과, pytest **743 passed**, Playwright 6개 spec **35 passed**.
 - 11/01 main(#342, DEV-187) 병합: 문서 끝 절 충돌은 두 절을 모두 남겼다. 채점기 `final_score.py`가 금액 식과 건강·운영 금지어를 `text_safety_lists.json`(`text_safety.MONEY`·`SAFETY_LISTS`)에서 직접 읽도록 합쳐 원천을 하나로 만들었다(`test_AC_SRC_6_scorer_reads_the_shared_product_safety_lists`). 위 기록 중 sandbox 안 결과(711 passed/32 failed, Playwright 0 passed/8 failed)와 `origin/main...HEAD 0건`은 당시 기록이며, 최종 결과는 아래 병합 뒤 검증이다.
+
+
+### 2026-11-01 owner 배송 정책 변경 후속 기록
+- R-19의 판매자 출하를 근거로 prompt v4·mock·공유 detector·fallback·warning·producer 사유별 모달·문서·합성 gold를 정렬했다. 포장/완충/직배송/택배사/수확 직후 포장·발송/도서산간 가능 여부는 delivery에 보존한다. 합성06은 배송 사실을 복원하고09 문의·20 배송일은 계속 금지한다. 합성18문장/24사실, extraction16/contract4. holdout lock·LOCAL_GOLD_SHA256·LOCAL_PRIVATE manifest 항목·final_score.py는 HEAD와 바이트/값 동일함을 확인했다. 기간 별도 scorer count는 추가하지 않았다(기존 금지 검사 유지).
+- 최초 `cd server && uv run ruff check . && uv run pytest` → ruff 통과, **920 passed / 33 failed**(953개,152.81초). v3 prompt pin 신규 실패1개를 v4로 갱신했다. 다른32개는 기존 source 전처리 실패 집합이다. 대표 실패를 파일 수정 없는 worker.fail 진단 wrapper로 재현: **1 failed**, `PermissionError [Errno 1] Operation not permitted (originated from sysctl() malloc 1/3)`; `prepare`의 psutil 자식 프로세스 조회에서 발생한다. 보호 로직/테스트는 완화하지 않았다.
+- 공유 기간 detector의 출고 요일 패턴이 '출고 수량'이나 '수확 당일 포장해 출고'를 막지 않도록 경계를 제한하고 양쪽 언어 공용 사례를 추가했다. 모달 mock은 반품 배송비를 price에 묶고 period/platform/health의 정확한 안내와 그룹을 검증한다.
+- 최종 검증 결과는 아래에 이어 기록한다. `UV_CACHE_DIR=/private/tmp/farmclub-dev186-uv-cache`, 사용자 지정 격리 `DATABASE_URL` 사용(pytest는 `_test`). 실호출·push·PR·새 의존성0회. Playwright는 사용자 지시대로 Chromium 미실행이며 현재 UI 완료 체크를 하지 않는다. Figma v6는 디자인 담당자/owner 후속 작업이다.
+- `scan-before-commit` 점검: 수정/신규26경로 범위 이탈0, 호출부/사유 union/JSON Python·TS 소비자 대조. 추가 이슈 없음. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. `git diff main...HEAD`671경로는 기존 local main 기준 차이, `origin/main...HEAD`41경로는 기존 DEV-186 변경이며 관련 범위와 대조했다. 이번 수정은 HEAD 기준26경로다.
+- 작업 브랜치 확인 뒤 `git add` 실패: `.git/worktrees/farmclub-refine-draft/index.lock: Operation not permitted`. 로컬 커밋0개, staging/HEAD 변경 없음. sandbox 우회·다른 worktree 변경 없이 미커밋 결과를 남긴다.
+- 의도한 커밋: (docs) `docs(source): R-19 배송 방법 보존과 AC-SRC-3/11 안내 정리 (DEV-186)` — 제품 spec/wiki·gold 형식 문서·서버 spec/tasks·producer tasks. (server) `fix(source): AC-SRC-2/3 배송 보존과 기간 제외 진단 (DEV-186)` — 서버·공유 JSON·pytest·합성 gold/manifest. (producer+api) `fix(producer): AC-SRC-3/11 기간 사유와 공통 정책 안내 (DEV-186)` — producer/helper·api·mock·Playwright.
+- Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: R-19에 따라 배송 방법과 기간·금액·공통 정책을 전 영역에서 분리하고 실호출 없이 검증. 남은 검증은 sandbox 밖 전체 pytest와 Chromium, owner의 로컬 gold 재잠금이다.
+
+- 2026-11-01 최종 트리 검증: 지정 DB/UV_CACHE_DIR에서 `cd server && uv run ruff check . && uv run pytest` → **ruff All checks passed**, **927 passed / 32 failed**(959개,155.13초, 종료1). 로그 `/private/tmp/dev186-final-pytest.log`. 1차 실패 집합과 대조해 신규0개, prompt v3 pin1개 해소, 기존 전처리32개 유지. `test_source_refine.py`와 `test_final_score.py` 실패0(택배 보존·period 제외/경고/fallback·합성 자기 채점 포함). 전체 통과/완료로 표시하지 않는다.
+- 2026-11-01 최종 `npm run typecheck` → **5 workspace 통과 / 0 실패**, `npm run test:mock` → **47 passed / 0 failed / 0 skipped**(28.42초, 로그 `/private/tmp/dev186-final-mock.log`). Playwright 두 spec TypeScript 검사 종료0, Chromium 본문 미실행. 상세 명령은 producer 기록. `git diff --check` 통과. 추가 코드 변경 없이 검증 결과만 기록했다.
+- 최종 남은 일: owner/리뷰어가 sandbox 밖에서 전체 pytest와 두 Playwright spec을 실행하고 디자인 담당자가 Figma 문구를 맞춘다. (정정: holdout은 같은 날 v1.1로 재잠금했다.) 모델의 platform/period 누락은 hard reject 대신 warning이므로 실제 출력 품질은 별도 확인이 필요하다. 커밋 권한이 있는 환경에서 위 세 커밋을 생성한다.
+- 11/01 배송 정책 변경 반영 뒤 Claude 확인: holdout 잠금 기록을 v1.1(146문장·261사실, 배송 방식 사실 복원)로 갱신했다(`source-final-holdout-i3-lock.json`, `LOCAL_GOLD_SHA256`). `test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback[delete_source]`가 전체 실행에서 가끔 실패한 원인은 두 자료에 같은 문장이 있어 처리 순서에 따라 후보 소유 자료가 바뀌는 것이었다(앱 버그 아님). 테스트가 정리 입력 후보를 가진 자료를 지우도록 고쳤다. 검증: typecheck 통과, test:mock **47 passed**, Playwright 6개 spec **35 passed**, 로컬 holdout v1.1·공개 개발 gold 로드 성공.
+- 11/01 최종 스캔 반영: 기간 정규식이 보관·후숙 기간("실온 5~7일 보관", "수확 후 3~5일 후숙")까지 잡던 회귀를 고쳐, 숫자 기간 뒤에 도착·발송·출고·배송·수령이 오거나 "주문 후 N일"일 때만 기간으로 본다. 공유 사례에 보관 기간 음성 사례 4개를 더했다. holdout 재잠금 여부를 적은 문서끼리의 모순을 v1.1 재잠금 완료로 맞췄다.
+- 11/01 최종 검증(배송 정책·기간 규칙 반영 뒤, 샌드박스 밖): `cd server && uv run ruff check .` → All checks passed. `uv run pytest` 2회 연속 → **964 passed / 964 passed**. `npm run typecheck` 통과. `npm run test:mock` **47 passed**. Playwright 6개 spec **35 passed**. `stale_refinement…[delete_source]`는 남은 후보가 이전 분석의 정리 입력과 같으면 그 정리가 다시 쓰이는 정상 동작을 허용하고, 낡은 이번 정리가 쓰이지 않는지만 확인하도록 고쳤다.

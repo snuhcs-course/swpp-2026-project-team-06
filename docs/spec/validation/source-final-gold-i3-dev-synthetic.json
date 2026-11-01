@@ -178,7 +178,25 @@
       "id": "06-delivery",
       "format": "text",
       "product": "감귤",
-      "sentences": [],
+      "sentences": [
+        {
+          "section": "packing",
+          "module": "delivery",
+          "text": "수확 후 순차 출고해요.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#06-delivery/text",
+          "facts": [
+            {
+              "id": "f1-1",
+              "statement": "수확 후 순차 출고",
+              "mustContain": [
+                "수확 후",
+                "순차 출고"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
       "forbidden": [
         {
           "kind": "platform",
@@ -190,7 +208,7 @@
         },
         {
           "kind": "platform",
-          "text": "수확 후 순차 출고하며 도착일은 확정하지 않습니다."
+          "text": "도착일은 확정하지 않습니다"
         }
       ]
     },

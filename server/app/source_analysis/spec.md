@@ -123,13 +123,18 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11. 제품 계약은 `docs/spec/source-an
 
 저장된 비활성 REFINED 값은 과거 정리 기록과 일치하는 경우 오래된 근거와 함께 비공개로 보존한다. 재활성화/공개에는 현재 근거 검사를 다시 적용한다. 미확인 REFINED의 다중 인용은 조각 병합의 결과이므로 원문 후보 수만으로 충돌 처리하지 않는다.
 
-DEV-186 결정4~7: `source-refine-v3`·단일 JSON detector·운영 문구 축약/제거·summary/taste 분리를 적용한다. `Item.refinement`에 excluded와 modules/excluded canonical JSON의 SHA-256 refinementVersion을 저장한다. 검토는 대상별 refinementResults로 현재 근거의 결과만 공개한다. 서버 validate는 거절 사유와 unused를 채워 현재 후보 전부를 설명한다. 같은 현재 후보 집합·프롬프트 버전·안전 목록 SHA256은 저장된 성공 정리를 재사용하며 일반 reviewVersion 변경은 정리 버전에 영향을 주지 않는다. 생산자 플랫폼 문구는 저장 허용, 효능/금액은 거절한다. 대상/숫자/개인정보/기존 생산자 편집 검증은 유지한다.
+DEV-186 결정4~7: `source-refine-v4`·단일 JSON detector·운영 문구 축약/제거·summary/taste 분리를 적용한다. `Item.refinement`에 excluded와 modules/excluded canonical JSON의 SHA-256 refinementVersion을 저장한다. 검토는 대상별 refinementResults로 현재 근거의 결과만 공개한다. 서버 validate는 거절 사유와 unused를 채워 현재 후보 전부를 설명한다. 같은 현재 후보 집합·프롬프트 버전·안전 목록 SHA256은 저장된 성공 정리를 재사용하며 일반 reviewVersion 변경은 정리 버전에 영향을 주지 않는다. 생산자 플랫폼 문구는 저장 허용, 효능/금액은 거절한다. 대상/숫자/개인정보/기존 생산자 편집 검증은 유지한다.
 
-DEV-186 리뷰 보완: usable 대상별 후보가 없을 때만 target=None 근거를 unassigned로 표시한다. fallback의 대상별 단일/충돌 후보가 우선이며 성공 정리가 생략한 필드를 원문으로 되살리지 않는다. 실패 fallback은 금액/효능/플랫폼 자동 채움을 막는다. editor는 활성·비제외 필드만, 비편집 save_drafts는 비활성 필드까지 모든 CONFIRMED 필드의 금액/효능을 검사하고 오류의 fields는 fieldKey를 쓴다. historicalSales 확정은 계속 금지한다. 안전 목록과 moneyPattern의 단일 원천은 서버 JSON이며 TS가 상대 경로로 직접 import한다. mock tsc는 레포 rootDir로 JSON·API의 상대 디렉터리를 유지한다(심링크 불필요). 숫자 단위는 긴 단위부터 일치시킨다. SUCCEEDED REFINE은 항상 modules를 저장하므로 미커밋 중간 구조용 get/존재 guard는 두지 않는다.
+DEV-186 리뷰 보완: usable 대상별 후보가 없을 때만 target=None 근거를 unassigned로 표시한다. fallback의 대상별 단일/충돌 후보가 우선이며 성공 정리가 생략한 필드를 원문으로 되살리지 않는다. 실패 fallback은 금액/효능/플랫폼/기간 자동 채움을 막는다. editor는 활성·비제외 필드만, 비편집 save_drafts는 비활성 필드까지 모든 CONFIRMED 필드의 금액/효능을 검사하고 오류의 fields는 fieldKey를 쓴다. historicalSales 확정은 계속 금지한다. 안전 목록과 moneyPattern의 단일 원천은 서버 JSON이며 TS가 상대 경로로 직접 import한다. mock tsc는 레포 rootDir로 JSON·API의 상대 디렉터리를 유지한다(심링크 불필요). 숫자 단위는 긴 단위부터 일치시킨다. SUCCEEDED REFINE은 항상 modules를 저장하므로 미커밋 중간 구조용 get/존재 guard는 두지 않는다.
 
 DEV-186 추가 리뷰: 성공 REFINE의 일부 거절은 diagnostics/refinement.excluded로만 기록하고 error는 null로 유지한다. 응답 후 입력 변경으로 실패하면 RefineError가 usage/request_id를 전달하여 fail()도 보존한다. 클라이언트는 실패 REFINE에 파일명을 붙이지 않고 정리 전용 오류를 표시하며, 선택 버튼의 금액/효능을 공유 detector로 숨긴다. hint는 새 상품 PageCanvas story 입력 opt-in에만 적용하고 기본 정보에는 표시하지 않는다.
 
 ### DEV-186 후속 리뷰 구현 결정 (2026-11-01)
-- 저장 정리는 `source-refine-v3`·`safetyListsHash`(안전 JSON SHA256)·현재 후보 집합이 모두 일치해야 재사용한다. 조회 때 금액/효능을 재검사하고 제외 사유를 제공한다(AC-SRC-2/3).
+- 저장 정리는 `source-refine-v4`·`safetyListsHash`(안전 JSON SHA256)·현재 후보 집합이 모두 일치해야 재사용한다. 조회 때 금액/효능을 재검사하고 제외 사유를 제공한다(AC-SRC-2/3).
 - 취소/삭제/버전 변경으로 오래된 비활성 정리는 대상 키를 생략해 fallback하며 실제 현재 REFINE 대기만 None으로 막는다. 유효한 정리가 의도적으로 생략한 필드는 빈 값으로 둔다(AC-SRC-5/11).
 - 내부 modules는 editor 계산에만 전달하며 외부 review에는 excluded/refinementVersion만 공개한다. 앱은 refinementResults 생략을 허용한다(AC-SRC-2/11).
+
+### DEV-186 배송 방법 보존 (2026-11-01 owner 결정)
+- R-19의 판매자 출하에 따라 택배사·포장/완충·농장 직배송·수확 직후 포장/발송·도서산간 가능 여부를 delivery에 보존한다. 기간(period), 금액(price), 공통 정책(platform)은 정리 모델에서 제외한다. 받는 시기/배송비는 ②에서 생산자가 정한다(R-20).
+- source-refine-v4와 공유 JSON 해시로 재사용 키를 갱신한다. 기간 키워드/정규식도 같은 JSON에서 Python·TS가 읽는다. 정제 출력의 PLATFORM_TEXT/PERIOD_TEXT는 diagnostics warning이며 거절하지 않는다. 금액/효능 hard reject·근거 검증은 유지한다. 판단 없는 fallback과 오래된 자동 저장값은 기간도 걸러낸다.
+- scorer 금지 검사는 money/health/platform/gold-forbidden 유지. 합성06 delivery 복원·09 문의/20 배송일 제외를 검증하고 합성 manifest 해시만 갱신한다. holdout lock·LOCAL_GOLD_SHA256은 2026-11-01 v1.1로 재잠금 완료(146문장·261사실).

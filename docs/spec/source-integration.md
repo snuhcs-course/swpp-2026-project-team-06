@@ -174,12 +174,14 @@ OCR을 고정하고 의미 문장/라벨 목록 단위 추출, 과정·인증·�
 
 FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11. 제품 상세 계약은 [source-analysis.md](./source-analysis.md) DEV-186 결정4~7을 따른다.
 - 전처리·추출이 모두 성공하고 현재 후보 집합 또는 프롬프트/안전 목록 버전이 바뀐 뒤에만 대상별 REFINE 작업을 만든다. FAILED/PARTIAL/불확실 추출 뒤에는 정리를 시작하지 않는다. 동일 재분석은 저장된 정리를 재사용하여 refinementVersion은 유지한다. reviewVersion은 추출/검토 작업 처리에 따라 증가할 수 있다.
-- Stage-1 후보/근거는 보존한다. Stage-2 `source-refine-v3`는 금액·농가 상점 운영·건강 효능·개인정보를 제거하고 상품 사실을 남긴다. summary의 맛/크기 사실은 taste로 분리한다. 과거 금액 문장은 제외하고 가격 없는 판매 이력만 farmStory로 보낸다.
+- Stage-1 후보/근거는 보존한다. Stage-2 `source-refine-v4`는 금액(price)·기간(period)·공통 정책(platform)·건강 효능·개인정보를 제거하고 상품 사실을 남긴다. 2026-11-01 owner 변경: R-19의 판매자 출하에 따라 택배사·포장/완충·직배송·수확 직후 포장/발송·도서산간 배송 가능 여부는 delivery에 보존한다. 받는 시기·배송비는 ②에서 생산자가 정한다(R-20). 정제 출력의 플랫폼/기간 단어는 diagnostics warning이고 거절하지 않는다. 금액/효능·근거 검증은 유지한다. summary의 맛/크기 사실은 taste로 분리한다. 과거 금액 문장은 제외하고 가격 없는 판매 이력만 farmStory로 보낸다.
 - 검토 API `refinementResults[targetId] = {excluded:[{candidateId,value,reason}],refinementVersion}`. 모델은 현재 모든 후보를 인용 또는 제외로 설명한다. 서버는 검증 거절 사유와 미사용 `unused`를 채운다. 일반 저장·조회와 같은 결과 재분석으로 refinementVersion은 바뀌지 않는다.
-- 정리 성공에서 생략한 필드는 원문으로 되살리지 않는다. 다만 usable 대상별 후보가 없고 상품 미지정 공통 후보만 있으면 unassigned를 유지하여 원문 근거를 보여 준다. 원문 fallback의 대상별 단일/충돌 판정을 먼저 적용한다. 정리 실패는 기존 오류/완료 경로를 유지한다. 실패/PARTIAL 추출 뒤 원문 fallback도 금액/효능/플랫폼 후보는 자동으로 채우지 않는다. editor 저장은 활성·제외되지 않은 필드만, 비편집 save_drafts는 비활성 필드를 포함한 모든 CONFIRMED 필드의 금액/효능을 fieldKey가 있는 오류로 거절하고 플랫폼 문구는 경고만 표시한다. 기존 생산자 수정·직접 확정·제외는 재분석으로 덮지 않는다.
+- 정리 성공에서 생략한 필드는 원문으로 되살리지 않는다. 다만 usable 대상별 후보가 없고 상품 미지정 공통 후보만 있으면 unassigned를 유지하여 원문 근거를 보여 준다. 원문 fallback의 대상별 단일/충돌 판정을 먼저 적용한다. 정리 실패는 기존 오류/완료 경로를 유지한다. 실패/PARTIAL 추출 뒤 원문 fallback도 금액/효능/플랫폼/기간 후보는 자동으로 채우지 않는다. editor 저장은 활성·제외되지 않은 필드만, 비편집 save_drafts는 비활성 필드를 포함한 모든 CONFIRMED 필드의 금액/효능을 fieldKey가 있는 오류로 거절하고 플랫폼 문구는 경고만 표시한다. 기존 생산자 수정·직접 확정·제외는 재분석으로 덮지 않는다.
 - SCR-24 photo slot 위 상품명 포함 제외 칩, 결과별 한 번 표시하는 상품명·사유 그룹 모달, 업로드 전 정책 안내, 새 상품 composer가 켠 story 입력의 금액/효능 안내. 다상품은 한 모달 큐로 표시하고 확인 뒤 다음 상품을 연다. 기존 상품 상세 편집에는 다음 단계 inline 안내를 표시하지 않는다. 저장소 키는 `farmclub-producer:excluded-seen:<batchId>:<refinementVersion>`. 구매자 미리보기·소비자 상세에는 안내 UI가 없다. legacy SourceWorkspace도 같은 제외 컴포넌트를 사용한다.
 - 실제 모델 요청은 기존 비용 예약·정산 wrapper와 한도를 통과하며 불확실 전송은 자동 재호출하지 않는다. 검증은 local mock/stub만 사용한다. 최신 검증은 서버·producer `tasks.md` DEV-186 기록을 따른다. Figma v6 동기화는 담당자 후속이다.
 
 - DEV-186 추가 리뷰: 성공 REFINE의 거절 정보는 diagnostics/refinement.excluded에만 두고 Item.error는 null이다. FAILED REFINE은 파일명 없는 정리 전용 메시지로 표시한다. post-call 입력 변경으로 실패해도 usage/request_id를 보존한다. 후보 선택 버튼의 금액/효능을 공유 detector로 숨기며 플랫폼 후보는 유지한다. inline hint는 새 상품 PageCanvas story 입력에만 적용하며 기본 정보에는 표시하지 않는다.
 
 - 저장 정리는 현재 프롬프트 버전과 안전 목록 SHA256이 같을 때만 재사용한다. 조회 때 금액/효능을 재검사하고 거절 문구를 제외 내역으로 보낸다. 취소·삭제 뒤 오래된 정리는 원문 fallback을 허용하며 현재 후보 REFINE 대기만 자동 채움을 막는다.
+
+- 2026-11-01 제외 모달은 price/period/platform 사유별로 묶고 반품 배송비도 price로 안내한다. 플랫폼 안내는 출하 전 전액 환불·배송 후 하자 교환/환불 공통 정책을 명시한다(R-07/R-11/M-04). AI 시트는 배송 방법을 상세에 남긴다고 알린다. 정확한 문구는 source-analysis.md 제외 내역 계약을 따른다.
