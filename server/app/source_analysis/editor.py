@@ -19,7 +19,12 @@ class EditorSave(DraftSave):
 
 def suggestions(review, photos=None):
     from app.source_analysis.refinement import fields as refined_fields
-    from app.source_analysis.text_safety import has_health_claim, has_money, has_platform_text
+    from app.source_analysis.text_safety import (
+        has_health_claim,
+        has_money,
+        has_period_text,
+        has_platform_text,
+    )
 
     result = []
     for target in review["targets"]:
@@ -71,6 +76,7 @@ def suggestions(review, photos=None):
                     or has_money(saved["value"] or "")
                     or has_health_claim(saved["value"] or "")
                     or has_platform_text(saved["value"] or "")
+                    or has_period_text(saved["value"] or "")
                 )
             ):
                 saved = None
@@ -84,6 +90,7 @@ def suggestions(review, photos=None):
                 and not has_money(c["value"])
                 and not has_health_claim(c["value"])
                 and not has_platform_text(c["value"])
+                and not has_period_text(c["value"])
             ]
             status = "missing"
             field = saved or dict(

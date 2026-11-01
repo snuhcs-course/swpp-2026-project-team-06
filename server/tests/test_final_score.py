@@ -435,12 +435,23 @@ def test_AC_SRC_2_synthetic_gold_schema_manifest_and_self_score():
         assert row["forbiddenViolations"] == 0
         assert row["unsupportedTokens"] == 0
         assert row["criticalGate"] == ("PASS" if text else "FAIL")
-    assert sum(len(s["sentences"]) for s in g["sources"]) == 17
-    assert sum(len(t["facts"]) for s in g["sources"] for t in s["sentences"]) == 23
-    for case_id in ("06-delivery", "09-support"):
+    assert sum(len(s["sentences"]) for s in g["sources"]) == 18
+    assert sum(len(t["facts"]) for s in g["sources"] for t in s["sentences"]) == 24
+    for case_id in ("09-support",):
         source = next(s for s in g["sources"] if s["id"] == case_id)
         assert source["sentences"] == []
         assert source["forbidden"] and all(f["kind"] == "platform" for f in source["forbidden"])
+    delivery = next(s for s in g["sources"] if s["id"] == "06-delivery")
+    assert delivery["sentences"][0]["section"] == "packing"
+    assert delivery["sentences"][0]["module"] == "delivery"
+    assert delivery["sentences"][0]["text"] == "수확 후 순차 출고해요."
+    assert {f["text"] for f in delivery["forbidden"]} == {
+        "익일 도착",
+        "다음 날 도착",
+        "도착일은 확정하지 않습니다",
+    }
+    pdf = next(s for s in g["sources"] if s["id"] == "20-pdf-table")
+    assert {f["text"] for f in pdf["forbidden"]} == {"배송일"}
     weight = next(s for s in g["sources"] if s["id"] == "02-weight")
     assert weight["sentences"][0]["text"] == "감귤 5kg 한 상자입니다."
 
@@ -694,9 +705,9 @@ def test_AC_SRC_6_validation_json_excludes_holdout_payloads_except_metadata_lock
             check(json.loads(path.read_text()))
     lock = json.loads(lock_path.read_text())
     assert set(lock) == {"name", "sha256", "sources", "totalSentences", "totalFacts", "policy"}
-    assert lock["name"] == "source-holdout-i3-final-v1"
+    assert lock["name"] == "source-holdout-i3-final-v1.1"
     assert lock["sha256"] == LOCAL_GOLD_SHA256["holdout"]
-    assert lock["totalSentences"] == 140 and lock["totalFacts"] == 253
+    assert lock["totalSentences"] == 146 and lock["totalFacts"] == 261
     assert lock["policy"] == "local only, never tune on it, run once after DEV-186 (T11/T23)"
     assert lock["sources"] == [
         {"id": f"h3-{fmt}-{i:02}", "format": fmt}

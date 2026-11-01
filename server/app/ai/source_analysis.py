@@ -19,6 +19,8 @@ MOCK_REFINE_ROWS = [
     ("summary", "면역력 증진에 좋아요"),
     ("summary", "청견과 구치노쓰37호에 마코트를 교배한 품종으로 당도가 높고 과즙이 풍부합니다"),
     ("historicalSales", "작년 300상자 완판"),
+    ("delivery", "우체국 택배로 보내드려요"),
+    ("delivery", "1-3일 이내 도착"),
 ]
 MOCK_REFINE_TEXT = MOCK_TEXT + "\n" + "\n".join(value for _, value in MOCK_REFINE_ROWS)
 MOCK_REFINE_SHA = hashlib.sha256(MOCK_REFINE_TEXT.encode()).hexdigest()

@@ -96,7 +96,7 @@ def test_AC_SRC_2_3_mock_polishes_and_preserves_candidates():
     assert modules["summary"][0].candidate_ids == ["c4", "c5"]
     assert "productionProcess" not in modules
     assert any(
-        e.candidate_ids == ["c7"] and e.reason == "platform" for e in result.refinement.excluded
+        e.candidate_ids == ["c7"] and e.reason == "period" for e in result.refinement.excluded
     )
     assert "간혹" in modules["storage"][0].value
     assert "수 있어요" in modules["storage"][0].value
@@ -696,7 +696,6 @@ def test_AC_SRC_3_safety_false_positives(text):
         "품절",
         "판매종료",
         "예약판매기간",
-        "택배사",
     ],
 )
 def test_AC_SRC_3_platform_detector(text):
@@ -720,11 +719,16 @@ SAFETY_CASES = json.loads(
 
 @pytest.mark.parametrize("case", SAFETY_CASES, ids=lambda c: c["value"])
 def test_AC_SRC_3_shared_safety_cases(case):
-    from app.source_analysis.text_safety import has_health_claim, has_platform_text
+    from app.source_analysis.text_safety import (
+        has_health_claim,
+        has_period_text,
+        has_platform_text,
+    )
 
     assert has_health_claim(case["value"]) == case["health"]
     assert has_platform_text(case["value"]) == case["platform"]
     assert has_money(case["value"]) == case["money"]
+    assert has_period_text(case["value"]) == case["period"]
 
 
 @pytest.mark.parametrize(
@@ -750,7 +754,6 @@ def test_AC_SRC_3_longest_numeric_unit(value, expected):
     ("value", "code", "reason"),
     [
         ("면역력 증진에 좋아요", "HEALTH_CLAIM", "health"),
-        ("고객센터 평일 10시~5시", "PLATFORM_TEXT", "platform"),
         ("32,000원", "MONEY_AMOUNT", "price"),
         ("010-1234-5678", "PRIVATE_VALUE", "pii"),
         ("7kg", "UNSUPPORTED_NUMBER", "unsupported"),
@@ -797,6 +800,7 @@ def test_AC_SRC_2_3_mixed_source_classification_split_and_coverage():
     assert texts["summary"] == "청견과 구치노쓰37호에 마코트를 교배한 품종으로"
     assert texts["taste"] == "당도가 높고 과즙이 풍부합니다"
     assert texts["farmStory"] == "작년 300상자 완판"
+    assert texts["delivery"] == "우체국 택배로 보내드려요"
     assert not any(
         has_money(v) or has_health_claim(v) or has_platform_text(v) for v in texts.values()
     )
@@ -806,6 +810,7 @@ def test_AC_SRC_2_3_mixed_source_classification_split_and_coverage():
         "mixed1": "price",
         "mixed2": "platform",
         "mixed3": "health",
+        "mixed7": "period",
     }
     covered = {cid for m in modules for t in m["texts"] for cid in t["candidateIds"]} | set(
         excluded
@@ -814,28 +819,29 @@ def test_AC_SRC_2_3_mixed_source_classification_split_and_coverage():
 
 
 @pytest.mark.parametrize(
-    "value",
+    "value,reason",
     [
-        "예약 판매 기간 10월 1일~20일",
-        "판매가 10월 1일~20일",
-        "품절",
-        "판매 종료",
-        "재입고 예정",
-        "무통장 입금",
-        "1인 2상자",
-        "3kg/5kg/10kg 선택 가능",
-        "선택하신 범위 안에서 랜덤 발송",
-        "무료배송",
-        "1-3일 이내 배송",
-        "택배사",
-        "구매처로 문의",
+        ("예약 판매 기간 10월 1일~20일", "period"),
+        ("판매가 10월 1일~20일", "period"),
+        ("품절", "period"),
+        ("판매 종료", "period"),
+        ("재입고 예정", "period"),
+        ("무통장 입금", "platform"),
+        ("1인 2상자", "platform"),
+        ("3kg/5kg/10kg 선택 가능", "platform"),
+        ("선택하신 범위 안에서 랜덤 발송", "platform"),
+        ("무료배송", "platform"),
+        ("1-3일 이내 배송", "period"),
+        ("월·수 출고", "period"),
+        ("주문 후 2-3일", "period"),
+        ("구매처로 문의", "platform"),
     ],
 )
-def test_AC_SRC_3_mock_drops_operational_text(value):
+def test_AC_SRC_3_mock_drops_operational_text(value, reason):
     source = [{**candidates()[0], "value": value}]
     output = refine("mock", "fixture", {"id": "target"}, source).refinement
     assert not output.modules
-    assert any(e.reason == "platform" for e in output.excluded)
+    assert output.excluded[0].reason == reason
 
 
 @pytest.mark.parametrize(
@@ -846,8 +852,16 @@ def test_AC_SRC_3_mock_drops_operational_text(value):
             "appearanceFaq",
             "재배 과정에서 얼룩·점·색 차이가 생길 수 있어요",
         ),
-        ("1-3일 이내 제주에서 직배송", "productionProcess", "제주 농장에서 직접 보내요"),
-        ("수확 후 바로 포장", "productionProcess", "수확 후 바로 포장"),
+        ("1-3일 이내 제주에서 직배송", "delivery", "제주 농장에서 직접 보내요"),
+        ("수확 후 바로 포장", "delivery", "수확 후 바로 포장"),
+        ("우체국 택배로 보내드려요", "delivery", "우체국 택배로 보내드려요"),
+        ("택배사", "delivery", "택배사"),
+        ("완충재로 포장해요", "delivery", "완충재로 포장해요"),
+        ("종이 상자로 포장", "delivery", "종이 상자로 포장"),
+        ("제주 농장에서 직접 보내요", "delivery", "제주 농장에서 직접 보내요"),
+        ("수확 후 순차 출고하며 도착일은 확정하지 않습니다", "delivery", "수확 후 순차 출고해요"),
+        ("수확 후 바로 포장해 발송해요", "delivery", "수확 후 바로 포장해 발송해요"),
+        ("도서산간 배송 가능", "delivery", "도서산간 배송 가능"),
     ],
 )
 def test_AC_SRC_3_mock_preserves_product_facts(value, module, expected):
@@ -996,7 +1010,7 @@ def test_AC_SRC_2_3_11_mixed_mock_worker_api_and_saved_preview(client, login, mo
     current = review(client, h, batch)
     tid = batch["targets"][0]["id"]
     result = current["refinementResults"][tid]
-    assert len(result["excluded"]) == 4
+    assert len(result["excluded"]) == 5
     assert len(result["refinementVersion"]) == 64
     fields = [entry["field"] for entry in current["editorFields"]]
     with get_sessionmaker()() as db:
@@ -1004,7 +1018,7 @@ def test_AC_SRC_2_3_11_mixed_mock_worker_api_and_saved_preview(client, login, mo
             select(Item).join(Run).where(Run.batch_id == batch["id"], Item.phase == "REFINE")
         )
         assert refine_item.status == "SUCCEEDED"
-        assert len(refine_item.refinement["excluded"]) == 4
+        assert len(refine_item.refinement["excluded"]) == 5
         all_ids = {
             c.id for c in db.scalars(select(Candidate).where(Candidate.batch_id == batch["id"]))
         }
@@ -1032,6 +1046,7 @@ def test_AC_SRC_2_3_11_mixed_mock_worker_api_and_saved_preview(client, login, mo
                         "composition",
                         "storage",
                         "farmStory",
+                        "delivery",
                     ],
                 }
             ],
@@ -1045,6 +1060,7 @@ def test_AC_SRC_2_3_11_mixed_mock_worker_api_and_saved_preview(client, login, mo
         for t in m["texts"]
     ]
     assert "당도가 높고 과즙이 풍부합니다" in texts
+    assert "우체국 택배로 보내드려요" in texts
     assert "작년 300상자 완판" in texts
     assert not any(has_money(t) or has_health_claim(t) or has_platform_text(t) for t in texts)
 
@@ -1355,14 +1371,36 @@ def test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback(
         assert response.status_code == 202, response.text
     else:
         drain()
+        # 두 자료에 같은 문장이 있어 어느 쪽이 후보를 갖는지는 처리 순서에 달려 있다.
+        # 정리 입력 후보를 실제로 가진 자료를 지워야 정리 결과가 반드시 낡는다.
+        from app.source_analysis.models import Candidate
+
+        with get_sessionmaker()() as db:
+            refine_item = db.scalar(
+                select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE")
+            )
+            owner = db.get(
+                Item, db.get(Candidate, refine_item.refinement["inputCandidateIds"][0]).item_id
+            )
+            owner_asset = db.get(Asset, owner.asset_id)
+            assert owner_asset.id in {original_id, source["id"]}
+            owner_id, owner_revision = owner_asset.id, owner_asset.revision
         response = client.delete(
-            f"{PREFIX}/{batch['id']}/sources/{original_id}?version=1", headers=h
+            f"{PREFIX}/{batch['id']}/sources/{owner_id}?version={owner_revision}", headers=h
         )
         assert response.status_code == 202, response.text
+    tid = batch["targets"][0]["id"]
     with get_sessionmaker()() as db:
-        assert batch["targets"][0]["id"] not in refinement.current_refinements(
-            db, db.get(Batch, batch["id"])
-        )
+        stale = db.scalar(select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE"))
+        candidates = refinement.current_candidates(db, batch["id"], tid)
+        current = refinement.current_refinements(db, db.get(Batch, batch["id"]))
+        # 이번 정리는 낡았으므로 쓰이면 안 된다. 남은 후보가 이전 분석의 정리 입력과 같으면
+        # 그 이전 정리가 다시 쓰이는 것은 정상이다.
+        if action == "cancel_after_extract" or stale.status != "SUCCEEDED":
+            assert tid not in current
+        else:
+            assert not refinement.is_current(stale, candidates)
+            assert current.get(tid, []) is not None
     result = review(client, h, batch)
     storage = next(e for e in result["editorFields"] if e["field"]["fieldKey"] == "storage")
     assert storage["status"] == "ready"
@@ -1441,7 +1479,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v3"
+    assert PROMPT_VERSION == "source-refine-v4"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 
@@ -1469,3 +1507,64 @@ def test_AC_SRC_3_safety_lists_utf8_independent_of_locale(monkeypatch):
             Path(text_safety.__file__).with_name("text_safety_lists.json").read_bytes()
         ).hexdigest()
     )
+
+
+@pytest.mark.parametrize(
+    "value,code",
+    [
+        ("반품 시 연락 주세요", "PLATFORM_TEXT"),
+        ("고객센터 평일 10시~5시", "PLATFORM_TEXT"),
+        ("1-3일 이내 도착", "PERIOD_TEXT"),
+    ],
+)
+def test_AC_SRC_3_refined_policy_is_warning_not_rejection(value, code):
+    source = [{**candidates()[0], "value": value, "evidence": [{"quote": value}]}]
+    output = Refinement(
+        modules=[{"module": "delivery", "texts": [{"value": value, "candidateIds": ["c0"]}]}]
+    )
+    modules, diagnostics = refinement.validate(output, source, "target")
+    assert modules == [{"module": "delivery", "texts": [{"value": value, "candidateIds": ["c0"]}]}]
+    assert diagnostics["rejectedCount"] == 0
+    assert diagnostics["excluded"] == []
+    assert diagnostics["warningCount"] == 1
+    assert diagnostics["warnings"] == [
+        {"module": "delivery", "code": code, "text": {"value": value, "candidateIds": ["c0"]}}
+    ]
+
+
+@pytest.mark.parametrize(
+    "value", ["1-3일 이내 도착", "3일 이내 발송", "월·수 출고", "주문 후 2-3일"]
+)
+@pytest.mark.parametrize("saved", [False, True])
+def test_AC_SRC_3_fallback_skips_period_candidates_and_saved_autofill(value, saved):
+    from app.source_analysis.editor import suggestions
+
+    candidate = {
+        **candidates()[0],
+        "fieldKey": "delivery",
+        "value": value,
+        "candidateIds": ["c0"],
+        "outdated": False,
+    }
+    field = dict(
+        targetId="target",
+        fieldKey="delivery",
+        value=value,
+        state="UNREVIEWED",
+        provenance="EXTRACTED",
+        candidateIds=["c0"],
+        photoAssetIds=[],
+        illustrationId=None,
+    )
+    entries = suggestions(
+        {
+            "targets": [{"id": "target"}],
+            "refinements": {},
+            "candidates": [candidate],
+            "fields": [field] if saved else [],
+        }
+    )
+    delivery = next(e for e in entries if e["field"]["fieldKey"] == "delivery")
+    assert delivery["status"] == "missing"
+    assert delivery["field"]["value"] == ""
+    assert delivery["field"]["candidateIds"] == []

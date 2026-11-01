@@ -20,6 +20,7 @@ from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
     has_health_claim,
     has_money,
+    has_period_text,
     has_platform_text,
     numbers,
 )
@@ -137,7 +138,7 @@ def enqueue(db, batch, run, items):
 def validate(output, candidates, target_id):
     """Drop bad texts independently. Never rescue rejected text with raw candidates."""
     by_id = {c["id"]: c for c in candidates if c["targetId"] == target_id}
-    accepted, rejected = {}, []
+    accepted, rejected, warnings = {}, [], []
     for module in output.modules:
         for text in module.texts:
             code = None
@@ -150,8 +151,6 @@ def validate(output, candidates, target_id):
                 code = "MONEY_AMOUNT"
             elif has_health_claim(text.value) or any(has_health_claim(c["value"]) for c in cited):
                 code = "HEALTH_CLAIM"
-            elif has_platform_text(text.value):
-                code = "PLATFORM_TEXT"
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
@@ -183,6 +182,18 @@ def validate(output, candidates, target_id):
                     {"module": module.module, "code": code, "text": text.model_dump(by_alias=True)}
                 )
             else:
+                for detector, warning in (
+                    (has_platform_text, "PLATFORM_TEXT"),
+                    (has_period_text, "PERIOD_TEXT"),
+                ):
+                    if detector(text.value):
+                        warnings.append(
+                            {
+                                "module": module.module,
+                                "code": warning,
+                                "text": text.model_dump(by_alias=True),
+                            }
+                        )
                 field.append(text.model_dump(by_alias=True))
     modules = [{"module": m, "texts": accepted[m]} for m in TEXT_MODULE_FIELDS if accepted.get(m)]
     # Keep one explanation per candidate, with safety rejections taking precedence.
@@ -195,7 +206,6 @@ def validate(output, candidates, target_id):
         "MONEY_AMOUNT": "price",
         "PRICED_HISTORY": "price",
         "HEALTH_CLAIM": "health",
-        "PLATFORM_TEXT": "platform",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:
@@ -211,6 +221,8 @@ def validate(output, candidates, target_id):
         "acceptedCount": sum(len(m["texts"]) for m in modules),
         "rejectedCount": len(rejected),
         "rejected": rejected,
+        "warningCount": len(warnings),
+        "warnings": warnings,
     }
 
 

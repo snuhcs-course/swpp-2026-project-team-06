@@ -48,7 +48,7 @@ VALIDATION_DIR = Path(__file__).resolve().parents[3] / "docs/spec/validation"
 DEV_MANIFEST = VALIDATION_DIR / "source-final-dev-manifest.json"
 HOLDOUT_LOCK = VALIDATION_DIR / "source-final-holdout-i3-lock.json"
 LOCAL_GOLD_SHA256 = {
-    "holdout": "5a906044cd642a4f40e52961cc9613de27901b5e719f7714d156e4e9a8fe338b",
+    "holdout": "2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073",
     "development": "3ed465971fb5579d10d8ee338e21c01c5d06c324d942acd8d36aba2635cf786f",
 }
 CULTIVARS = (

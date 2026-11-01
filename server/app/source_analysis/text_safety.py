@@ -45,3 +45,12 @@ def has_health_claim(value):
 
 def has_platform_text(value):
     return _contains(value, SAFETY_LISTS["platform"])
+
+
+_PERIOD_PATTERNS = [re.compile(pattern) for pattern in SAFETY_LISTS["periodPatterns"]]
+
+
+def has_period_text(value):
+    return _contains(value, SAFETY_LISTS["period"]) or any(
+        pattern.search(value) for pattern in _PERIOD_PATTERNS
+    )
