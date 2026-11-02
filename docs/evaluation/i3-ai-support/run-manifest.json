@@ -1,0 +1,30 @@
+{
+  "protocol_id": "DEV-154-I3-CS-v1",
+  "frozen_at_utc": "2026-10-31T13:58:45+00:00",
+  "status": "FROZEN_PROTOCOL_NOT_EXECUTED",
+  "question_count": 60,
+  "strata": {
+    "ambiguous": 10,
+    "conflicting_facts": 10,
+    "missing_evidence": 10,
+    "operational_failure": 10,
+    "routine_answerable": 10,
+    "sensitive_subjective_complaint_refund": 10
+  },
+  "runs_per_question": 3,
+  "planned_runs": 180,
+  "questions_sha256": "c0bcef7f21f65484fe2d903cb26cb0e95041452ad70b19d5529563b788012ab8",
+  "protocol_sha256": "f83c8523c0656c0b40e943546b4a902b9a4c829576b2d7b504194c57f7130aa6",
+  "intended_model_id_from_code_default": "claude-haiku-4-5",
+  "model_id_observed_at_runtime": null,
+  "prompt_code_blob_sha": "192f5b17d64f34f443ac03041395c5cd0dfc77be",
+  "grounding_code_blob_sha": "a95753423e85bddc34618c99a547db6343c06571",
+  "config_code_blob_sha": "39329e46269397ac12abedb05f230c851c7cc33e",
+  "application_commit_observed_at_runtime": null,
+  "fixture_revision": "synthetic-v1",
+  "environment_observed_at_runtime": null,
+  "randomization_seed": 1542026,
+  "dependency": "DEV-152 alignment required before execution",
+  "results": "No model trials performed at freeze",
+  "source_commit_at_freeze": "2ab0c2fe6c0158c8f3c9e48e14dfadcdc57d9b02"
+}

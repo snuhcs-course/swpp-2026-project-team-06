@@ -1841,3 +1841,145 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 - 10/23 origin/main 9436171에서 시작. DEV-132(PR #264) 미머지.
 - 10/23 검증: `uv run pytest` 434 passed(새 `test_account_withdrawal.py` 5개), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed(새 `test-withdrawal.mjs`), Mock 스택 `account-withdrawal.spec.ts` 3 passed, 실서버 `test:integration:full` 67 passed / 7 skipped / 0 failed. 임시 DB 삭제.
 - 10/23 origin/main(DEV-132 머지 뒤) 병합: Mock 상수, FEAT-01·wiki·tasks 충돌을 양쪽 유지로 풀고, 생산자 탈퇴 테스트·Mock 테스트·E2E를 가입 동의(가입 토큰) 흐름에 맞췄다. 병합 뒤 pytest 436 passed, test:mock 41/0, Mock E2E(탈퇴 3 + 약관 5) 8 passed.
+
+## DEV-144 관리자 페이지: spec-code-review AI 비용(건별·합계)
+
+- 이슈: [DEV-144](https://linear.app/sswp6/issue/DEV-144)
+- 브랜치: `nemodleo/dev-144-spec-check-ai-cost`
+- 관련: DEV-40·DEV-55(spec-check), DEV-83(관리자 페이지), `.github/spec-check/README.md`
+- 상태: 진행 중
+
+### 목표
+spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리자 페이지에서 건별·합계로 본다. 지금은 토큰 수가 7일 보관 artifact(report.json)에만 있다.
+
+### 범위 (수정 허용 경로)
+- 서버: `server/app/admin/{models,ai_usage,spec}.py|md`, `server/app/ai/service.py`(호출 뒤 기록 한 줄씩), `server/app/source_analysis/budget.py`(`settle`에서 기록), `server/app/core/config.py`(`spec_check_usage_token`), `server/app/main.py`(라우터 등록), `server/migrations/versions/0021_*`, `server/tests/test_ai_usage.py`, `server/.env.example`, `server/tasks.md`
+- CI: `.github/spec-check/{check.py,test_check.py,backfill_usage.py,README.md,tasks.md}`, `.github/workflows/spec-check.yml`(환경 변수 두 줄)
+- 관리자 페이지: `scripts/admin-web/**`
+- 문서: `docs/spec/screens.md`(7.2 운영자 행), `docs/spec/ia.md`(운영자 안내), `docs/wiki/{Requirements-and-Specifications,Design-Documentation}.md`(운영자 화면 줄)
+
+### 비범위
+- Anthropic Admin API 실제 청구액 대조, 제품 AI 비용, 예산 알림, 운영 변수 설정(사람)
+
+### 결정 사항
+- 10/23 저장은 서버 DB(사용자 결정). GitHub artifact만 읽는 방식은 7일 뒤 기록이 사라져 버림.
+- 10/23 CI → 서버 보고는 `POST /internal/spec-check-runs`(헤더 `X-Spec-Check-Token` = 서버 `SPEC_CHECK_USAGE_TOKEN`). 운영자 JWT(7일 만료)를 CI에 두지 않는다. 서버에 토큰이 없으면 503, 틀리면 401. 같은 실행 키(`<run_id>-<attempt>-<mode>`)는 한 번만 저장(재전송은 처음 기록 그대로).
+- 10/23 보고는 모델이 응답해 `usage`가 있을 때만 보낸다(SKIPPED·호출 전 INCOMPLETE는 비용 0이라 보내지 않음). 보고 실패는 경고만 찍고 리뷰 결과·종료 코드는 그대로.
+- 10/23 금액은 서버가 저장 때 모델 단가표(100만 토큰당 USD, `claude-sonnet-5-5` 입력 2·출력 10 등)로 계산해 함께 저장한다. 단가표에 없는 모델은 금액 없음(화면에 "단가 없음")으로 두고 합계에서 따로 센다. 캐시 토큰은 spec-check가 캐시를 쓰지 않아 입력·출력만.
+- 10/23 운영자 API `GET /admin/spec-check-runs`: 건별(최신순, cursor) + 합계(전체·이번 달 KST·최근 7일: 실행 수, 입력·출력 토큰, 금액).
+- 10/24 (위 두 줄을 바꿈, 사용자 요청 "AI 비용은 여러 개, 기능별로 구분, 총합도, 더 축약적으로") 저장소를 기능별 `ai_usage`로 일반화: `spec_check`(CI 보고), `product_draft`·`detail_draft`·`ai_answer`(`app/ai/service.py` 호출 뒤 기록), `source_analysis`(`budget.settle`, 제공자 금액). 운영자 API는 `GET /admin/ai-usage?feature=`(기능별·전체 × 이번 달·최근 7일·전체 + 목록). 화면은 합계 칸 대신 기능×기간 표 한 장(맨 아래 합계 줄) + 기능 탭 + 한 줄 목록(13px), 1센트 미만은 소수 넷째 자리.
+- 10/23 지난 실행은 `.github/spec-check/backfill_usage.py`가 남아 있는 artifact(최근 7일)의 report.json을 읽어 같은 API로 보낸다. 운영 토큰이 필요해 사람이 실행.
+
+### 작업
+- [x] 서버 저장·운영자 API·테스트
+- [x] check.py 보고·테스트, workflow 환경 변수, backfill 스크립트
+- [x] 관리자 페이지 'AI 비용' 화면
+- [x] 문서
+- [x] 로컬 확인
+- [ ] 운영 변수 설정(사람): Railway `SPEC_CHECK_USAGE_TOKEN`, GitHub spec-check 환경 secret `SPEC_CHECK_USAGE_TOKEN`·variable `SPEC_CHECK_USAGE_URL`
+
+### 완료 조건
+- [ ] spec-check 실행 뒤 관리자 페이지에 그 실행의 토큰·금액이 보이고 합계가 늘어난다
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지, Railway·Vercel 관리자 페이지 배포 확인
+
+### 기록
+- 10/23 main 3ef3c04에서 시작. spec-check는 켜져 있고(`SPEC_CHECK_ENABLED=true`) 모델은 `claude-sonnet-5-5`.
+- 10/23 Figma는 후속 [DEV-146](https://linear.app/sswp6/issue/DEV-146).
+- 10/23 로컬 확인: DB `farmclub_dev144`(alembic 0021 + 시드), uvicorn :8003(로컬 `SPEC_CHECK_USAGE_TOKEN`), `server.mjs` :8093. `backfill_usage.py`로 실제 남아 있는 artifact 8건(PR #150·#160·#281·#283·#285·#288)을 로컬 서버에 보냄(다시 보내도 8건 그대로). `/ai-cost`: 미로그인 → `/login?next=%2Fai-cost`, 로그인 뒤 합계 $0.67(입력 260,501·출력 14,911, sonnet-5-5 단가로 검산 일치)과 실행별 표.
+- 10/23 테스트: `uv run pytest -q` 440 passed(새 4개), `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 51 OK, `cd scripts/admin-web && npm test` 20 passed, ruff·`alembic heads`(0021 하나)·actionlint 통과.
+- 10/24 기능별로 바꾼 뒤: `uv run pytest -q` 443 passed(`test_ai_usage.py` 7개), checker 51 OK, admin-web 20 passed, ruff 통과(`app/ai/service.py`·`app/admin/service.py`의 format 지적은 main에 원래 있던 것). 로컬: 새 DB에 spec-check backfill 9건 + 상품 초안 2·상세 초안 1·AI 답변 1·자료 분석 1 예시 기록 → 기능별 표와 합계 줄($0.74, 14회), 기능 탭 거르기, 1센트 미만 $0.0015 표시 확인.
+
+## DEV-149 관리자 페이지 크기 단계 통일(조금 더 컴팩트하게, 화면 간 일관성)
+
+- 이슈: [DEV-149](https://linear.app/sswp6/issue/DEV-149)
+- 브랜치: `nemodleo/dev-149-admin-size-scale`
+- 관련: DEV-83(관리자 레이아웃), DEV-144(AI 비용 화면), Figma DEV-146
+- 상태: 진행 중
+
+### 목표
+사용자 요청: "지금보다 컴팩트하게, 다만 빡빡하지 않게, 기존 디자인은 최대한 유지", "레벨이 갑자기 큰 요소들이 있다", "모든 페이지 일관성". 색·글꼴·모서리·사이드바 구조·버튼 모양은 그대로 두고 크기 단계만 하나로 맞춘다.
+
+### 범위 (수정 허용 경로)
+- `scripts/admin-web/assets/admin.css`, `scripts/admin-web/api/_views/*.html`, `scripts/admin-web/README.md`, `server/tasks.md`
+
+### 비범위
+- 동작·API·문구 의미 변경(설명 줄이기·'사용자 찾기' 제목은 포함), Figma(DEV-146에서)
+
+### 결정 사항
+- 10/24 측정(1280px): 동작 버튼 15px·44px > 탭 14px·36px, 검색 입력 16px·46px가 가장 큼, 카드 제목 18px, 사용자 찾기의 "주문 N건"은 h2 기본 24px, AI 비용만 13px·탭 30px·폭 1120, '사용자'·'사용자 찾기' 제목 같음, 문의함 색 직접 적음, 설명 두 줄 화면 3개, 390px에서 위쪽 메뉴가 화면 폭을 밀어 가로로 넘침.
+- 10/24 단계: 페이지 제목 22 / h2(카드·절 제목) 16 굵게 / 본문·버튼·입력·탭·표 14 / 보조 13 / 배지 12. 버튼·입력 36, 탭 32, 카드 안쪽 14×16·사이 10, 본문 폭 960(AI 비용 포함). 입력 글자는 760px 이하 16(iOS 확대 방지). 화면별 style에서 크기를 다시 정하지 않는다(`admin.css` 머리 주석).
+- 10/24 표는 공용 `.box`(카드와 같은 테두리·모서리). AI 비용 기능 이름 '코드 리뷰(spec-check)' → '코드 리뷰'(설명에 spec-check), 대상 칸 220px 말줄임으로 960 안에 들어가게.
+- 10/24 검색 폼은 입력과 버튼 한 줄(`form.row > input`), 본문 링크는 글자색+밑줄, 좁은 화면 `.shell`은 `minmax(0, 1fr)`.
+
+### 작업
+- [x] 공용 크기 단계, 화면별 정리
+- [x] 바꾸기 전후 캡처(데스크톱 1280·모바일 390, 8화면씩), 가로 넘침 확인(7화면 × 2폭 모두 없음)
+- [x] admin-web 테스트
+- [ ] Figma(DEV-146, 데스크톱·모바일)
+
+### 기록
+- 10/24 #295(DEV-144) 머지 뒤 main 0e852fc 위로 옮김. `cd scripts/admin-web && npm test` 20 passed.
+
+## DEV-150 소비자 앱 farmclub 문의 대화방 (고객센터)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-150
+- 브랜치: `jinumeral/dev-150-consumer-farmclub-support`
+- 기준: FEAT-34(소비자 AC 추가), M-22 수정, SCR-15·16, 관리자 문의함
+- 상태: 완료(머지 대기)
+
+### 목표
+- 소비자도 생산자처럼 farmclub 운영팀에 문의한다. 가입할 때 방과 환영 메시지를 만들고, 1:1 채팅 목록에 farmclub 행(로고, 고정 없음)을 둔다.
+- 기존 소비자에게도 한 번 넣는다(탈퇴 계정 제외).
+- 소비자 문의는 관리자 문의함에 생산자 문의와 함께 보이고, 운영자가 farmclub 이름으로 답한다.
+- draft PR까지 하고 머지는 보류한다(사용자 지시).
+
+### 범위 (수정 허용 경로)
+- `server/app/messaging/{models,schemas,service,router,support,spec}.py|md`, `server/app/admin/{support,schemas,spec}.py|md`, `server/app/accounts/service.py`(가입·탈퇴), `server/app/core/seed.py`, 새 `server/migrations/versions/0022_consumer_support.py`, `server/tests/**`, `server/tasks.md`
+- `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{conversations,db,auth,router}.ts`(router: 소비자 경로·온보딩 관문), `packages/api/tasks.md`
+- `packages/ui/src/{index,Messenger,ChatThread}.tsx|ts`, 새 `packages/ui/src/SupportAvatar.tsx`, `packages/ui/tasks.md`
+- `apps/consumer/src/app/(tabs)/chats/{index,support}.tsx`, `apps/consumer/tasks.md`
+- `apps/producer/src/lib/views.tsx`, `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`(SupportAvatar import 이동만)
+- `scripts/admin-web/**`, `scripts/e2e/**`, `scripts/test-*.mjs`
+- `docs/spec/{functional/FEAT-34-farmclub-support.md,functional/rules.md,policy.md,screens.md}`, `docs/wiki/Requirements-and-Specifications.md`
+- 처리방침·동의 버전(사용자 결정 10/29): `packages/ui/src/legalContent.ts`, `server/app/accounts/schemas.py`(`CONSENT_VERSION`), `scripts/test-{legal,onboarding,withdrawal}.mjs`, `docs/spec/{policy,screens}.md`, wiki
+
+### 비범위
+- 소비자 문의방 첨부 사진, 푸시, 운영자 배정·상태, 생산자 방을 새 테이블로 옮기기(후속)
+
+### 결정 사항
+- 10/29 사용자 결정: 생산자와 완전히 같게 한다(가입 때 방·환영 메시지, 1:1 채팅 목록 행, 다른 입구 없음). 기존 소비자에게도 넣는다. draft PR까지만 한다.
+- 10/29 소비자 방은 새 테이블 `support_threads`(사용자당 하나)와 `support_messages`에 둔다. 소비자 1:1(`Thread`)은 농가 FK가 필수이고 팔로우·AI·전달·환불 알림에 묶여 있어 재사용하지 않는다. 숨긴 가짜 농가를 두는 안은 농가·카탈로그·관리 목록에 새어서 택하지 않았다. 운영 중인 생산자 방(Thread)은 건드리지 않고, 문의함이 두 종류를 합쳐 보인다.
+- 10/29 사용자 결정: 처리방침 제1조 '소통' 목적에 소비자의 farmclub 문의 대화방을 넣고, 버전을 2026-10-29로 올려 모든 회원에게 재동의를 받는다(DEV-140 방식). 버전 날짜는 오늘 날짜로 두었고, 머지·배포 날짜가 달라지면 그때 맞춘다. 약관(이용약관)은 바꾸지 않는다.
+- 10/29 사용자 결정(리뷰 뒤): 처리방침 제14조는 이용 목적 변경을 30일 전에 알린다고 하지만, 이번 변경은 당일(2026-10-29) 시행한다. 테스트 서비스 기간이라 받아들인다는 판단이며, DEV-140도 같은 방식이었다. 대신 시행과 함께 모든 회원에게 재동의를 받는다.
+- 10/29 소비자 메시지에도 연락처 가림(M-16)을 적용한다. 첨부는 이번에 없다(ChatThread `upload`를 선택값으로 바꿔 + 버튼을 숨긴다).
+
+### 작업
+- [x] 서버: 모델·마이그레이션 0022(테이블+기존 소비자 백필), 가입·시드·탈퇴, 소비자 API, 채팅 목록 행, 관리 API·문의함 통합, 테스트
+- [x] packages/api·Mock, packages/ui(SupportAvatar 이동, upload 선택값)
+- [x] 소비자 앱 목록 행과 `/chats/support`
+- [x] 관리자 문의함(생산자·소비자 배지와 탭)
+- [x] 스펙·wiki
+- [x] 검증, 스캔
+- [ ] draft PR(머지 보류)
+
+### 기록
+- 10/29 origin/main a4a78a2에서 시작.
+- 10/29 검증:
+  - 서버: ruff check 통과, 전체 pytest 450 passed(새 `test_support_consumer.py` 8개, 기존 `test_support.py`·`test_messaging.py`는 문의함 행 구조와 소비자 목록의 farmclub 행에 맞춰 고침). 별도 DB `farmclub_dev150`에서 alembic upgrade → check(변경 없음) → downgrade 0021 → upgrade 성공.
+  - 앱·패키지: typecheck 4 workspace 통과, mock 43 passed, admin-web 21 passed(새 1개).
+  - 통합: `test:integration:full`(전체)에서 API 7 passed, Playwright 74 passed, 10 skipped, 0 failed(동의 버전 올린 뒤 다시 실행). 새 `consumer-support.spec.ts`와 고친 `farmclub-support.spec.ts`는 list 리포터로 3 passed를 확인했다.
+  - 화면: 소비자 문의방 스크린샷 확인(첨부 버튼 없음, 'farmclub' 말풍선).
+- 10/29 커밋 전 스캔에서 CRITICAL 0건, WARNING 3건이 나와 모두 반영했다.
+  - 문의 보내기는 `OnboardedConsumer`로 막는다. 이번 버전 올림의 목적이라 재동의 전에는 보낼 수 없고 읽기만 된다. Mock 관문도 같게 했고 테스트를 추가했다.
+  - Mock 탈퇴에서 문의 본문을 지우고 방을 탈퇴 ID로 옮긴다. 재가입한 사용자에게 이전 문의가 보이지 않는다(`test-withdrawal.mjs`).
+  - 문의함은 소비자 메시지가 있는 방만 내려 준다(가입 때 모두 방을 받으므로). 테스트를 추가했다.
+  - INFO도 반영했다: 빈 안내를 farmclub 행 아래로 옮겼고, Mock 경로를 소비자 경로로 표시했고, `DB_VERSION` 주석을 달았다. 관리자 웹과 서버는 문의함 응답 필드가 바뀌어서 서버를 먼저, 관리자 웹을 바로 다음에 배포해야 한다(PR에 적는다).
+- 10/29 확인 스캔: CRITICAL 0건, WARNING 1건(`mock/router.ts`가 범위에 없음)이 나와 범위에 추가했다. INFO도 반영했다: 문의함 답장 때 행이 사라졌으면 안내 후 다시 불러오고, Mock 목록 타입 단언을 반환 타입으로 바꾸고, Mock 환영 메시지 ID를 `nextId`로 바꿨다(재가입 때 겹치지 않게). 문의함의 방별 조회(N+1)는 문의한 방만 보이게 줄였고, 더 커지면 집계 쿼리로 바꾼다(후속).
+- 10/29 최종 검증: Mock 환영 메시지 ID를 `nextId`로 바꿨더니 시드 중 전역 db를 다시 불러 무한 재귀가 나서(mock 13 failed) 받은 d의 순번을 쓰게 고쳤다. 고친 뒤 결과는 pytest 452 passed, typecheck 4 workspace 통과, mock 43 passed, admin-web 21 passed, 관련 e2e(consumer-support·farmclub-support·conversation-ui·discovery-and-gates) 13 passed다. 전체 통합(Playwright 74 passed·10 skipped·0 failed)은 동의 버전 올린 직후 코드로 돌렸다.
+- 10/29 AI 1차 리뷰(must 0, should 2, nit 6)와 머지 전 스캔(CRITICAL·WARNING 0, INFO 4) 결과를 반영했다.
+  - 처리방침 당일 시행은 사용자 결정으로 유지한다.
+  - 소비자 보내기 멱등 테스트를 추가했다.
+  - 탈퇴한 회원 방은 답변 대기에서 빼고 답장을 409로 막는다.
+  - 스키마 주석과 wiki 시행일 문구를 고쳤다.
+  - 남긴 것: 문의함 N+1(후속), 약관 제12조 문구(다음 약관 개정 때), Mock 빈 방 행 차이(환영 메시지가 늘 있어 실제 차이 없음).

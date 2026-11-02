@@ -561,6 +561,36 @@ def publish(report, output, summary=None, secrets=()):
             stream.write(markdown)
 
 
+def report_usage(report, title, opener=None, ran_at=None):
+    """DEV-144: send the run's token usage to the farmclub server for the admin cost page.
+
+    Only runs that reached the model (usage present) are sent. Any failure prints one warning and
+    never changes the review result, the published report or the exit code.
+    """
+    url, token = os.environ.get("SPEC_CHECK_USAGE_URL", ""), os.environ.get("SPEC_CHECK_USAGE_TOKEN", "")
+    usage, meta = report.get("usage") or {}, report.get("metadata") or {}
+    if not url or not token or not usage or "pr" not in meta:
+        return False
+    body = {
+        "runKey": f"{os.environ.get('GITHUB_RUN_ID', '0')}-{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}-{meta.get('mode', 'pr')}",
+        "prNumber": meta["pr"], "prTitle": str(title or "")[:300], "headSha": meta.get("head_sha", ""),
+        "status": report["status"], "mode": meta.get("mode", "pr"), "model": report.get("model", ""),
+        "inputTokens": usage.get("input_tokens", 0), "outputTokens": usage.get("output_tokens", 0),
+        "runUrl": report.get("run_url", ""),
+    }
+    if ran_at:
+        body["ranAt"] = ran_at
+    req = request.Request(url, data=json.dumps(body).encode(), method="POST",
+                          headers={"Content-Type": "application/json", "X-Spec-Check-Token": token})
+    try:
+        with (opener or request.build_opener(NoRedirect())).open(req, timeout=GITHUB_TIMEOUT) as response:
+            response.read(MAX_RESPONSE)
+        return True
+    except (error.URLError, TimeoutError, OSError, ValueError):
+        print("Warning: usage report to the admin cost page failed; the review result is unchanged.")
+        return False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--event", default=os.environ.get("GITHUB_EVENT_PATH"))
@@ -571,12 +601,13 @@ def main(argv=None):
     started = time.monotonic()
     key, model = os.environ.get("SPEC_CHECK_API_KEY", ""), os.environ.get("SPEC_CHECK_MODEL", "")
     token = os.environ.get("GH_READ_TOKEN", "")
-    meta, usage = {"mode": f"demo-{args.demo}" if args.demo else "pr"}, {}
+    meta, usage, title = {"mode": f"demo-{args.demo}" if args.demo else "pr"}, {}, ""
     result = {"status": "INCOMPLETE", "summary": "Review did not complete.",
               "findings": [], "reviewed_files": [], "missing_context": []}
     try:
         event = json.loads(Path(args.event).read_text(encoding="utf-8"))
         meta.update(metadata(event))
+        title = event.get("pull_request", {}).get("title", "")
         if not eligible(event):
             result.update(status="SKIPPED", summary="Ineligible PR (fork, bot or non-main target). Apply manual review.")
         else:
@@ -599,6 +630,7 @@ def main(argv=None):
               "elapsed_seconds": round(time.monotonic() - started, 2),
               "run_url": os.environ.get("SPEC_CHECK_RUN_URL", "")}
     publish(report, args.output, os.environ.get("GITHUB_STEP_SUMMARY"), (key, token))
+    report_usage(report, title)
     print(f"Spec-to-code: {report['status']}. See report artifacts.")
     return {"PASS": 0, "MISMATCH": 1, "INCOMPLETE": 2, "SKIPPED": 0}[report["status"]]
 

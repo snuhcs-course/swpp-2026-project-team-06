@@ -171,7 +171,7 @@ class FieldReview(Input):
     field_key: FieldKey
     value: str = Field(default="", max_length=3000)
     state: Literal["CONFIRMED", "EXCLUDED", "UNREVIEWED"]
-    provenance: Literal["EXTRACTED", "PRODUCER"]
+    provenance: Literal["EXTRACTED", "REFINED", "PRODUCER"]
     candidate_ids: list[Id] = Field(default_factory=list, max_length=100)
     photo_asset_ids: list[Id] = Field(default_factory=list, max_length=30)
     illustration_id: Id | None = None

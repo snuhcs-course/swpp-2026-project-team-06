@@ -504,6 +504,12 @@ def test_AC_SRC_8_read_body_limit_and_noncacheable(client, login):
     batch = create(client, h)
     response = client.get(f"{PREFIX}/{batch['id']}", headers=h)
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers.get_list("x-content-type-options") == ["nosniff"]
+    source = upload(client, h, batch)
+    content = client.get(f"{PREFIX}/{batch['id']}/sources/{source['id']}/content", headers=h)
+    assert content.status_code == 200
+    assert content.headers["cache-control"] == "no-store"
+    assert content.headers.get_list("x-content-type-options") == ["nosniff"]
 
 
 def test_AC_SRC_3_unsupported_number_rejected():
@@ -585,3 +591,144 @@ def test_evaluation_reports_missing_not_invented_metrics():
     assert result["sets"] == 20 and result["missing"] == 20
     assert result["precision"] is None and result["recall"] == 0
     assert result["totalCostUsd"] is None
+
+
+@pytest.mark.parametrize(
+    "quote,value,accepted",
+    [
+        ("합성 배 6.5k", "합성 배 6.5kg", False),
+        ("중량 8g", "중량 8kg", False),
+        ("표본 9개", "품질 9%", False),
+        ("중량 4kg과 6kg", "중량 10kg", False),
+        ("중량 8kg", "중량 8000g", False),
+        ("생산 시기: 1월-3월", "1월-3월", True),
+        ("생산 시기: 5월-7월", "5월-7월", True),
+        ("수확 시기: 5-7월", "5-7월", True),
+        ("합성 배 6.5kg", "합성 배 6.5kg", True),
+    ],
+)
+def test_AC_SRC_3_extraction_numbers_keep_source_units(quote, value, accepted):
+    from app.source_analysis.schemas import Extraction
+
+    evidence = {
+        "sourceId": "synthetic",
+        "sourceRevision": 1,
+        "page": 1,
+        "spanIds": ["s0"],
+        "quote": quote,
+    }
+    extraction = Extraction(
+        candidates=[
+            {
+                "targetId": "target",
+                "fieldKey": "summary",
+                "value": value,
+                "historical": False,
+                "evidence": [evidence],
+            },
+            {
+                "targetId": "target",
+                "fieldKey": "storage",
+                "value": "그늘에 보관해요",
+                "historical": False,
+                "evidence": [{**evidence, "spanIds": ["s1"], "quote": "그늘에 보관해요"}],
+            },
+        ],
+        photo_requests=[],
+    )
+    chunk = {
+        "sourceId": "synthetic",
+        "sourceRevision": 1,
+        "pages": [
+            {
+                "number": 1,
+                "spans": [{"id": "s0", "text": quote}, {"id": "s1", "text": "그늘에 보관해요"}],
+            }
+        ],
+    }
+    validated, diagnostics = worker.validate_candidates(extraction, chunk, ["target"])
+    assert [candidate.value for candidate in validated.candidates] == (
+        [value, "그늘에 보관해요"] if accepted else ["그늘에 보관해요"]
+    )
+    assert diagnostics["rejectedCount"] == (0 if accepted else 1)
+    if not accepted:
+        assert diagnostics["rejected"][0]["code"] == "UNSUPPORTED_NUMBER"
+
+
+def test_AC_SRC_8_pdf_first_twenty_pages_metadata_and_reproducible_material(monkeypatch):
+    import json
+
+    import pypdfium2 as pdfium
+
+    from app.source_analysis import preprocess
+    from app.source_analysis.synthetic import CASES, material
+
+    case = next(c for c in json.loads(CASES.read_text()) if c["id"] == "22-pdf-25-pages")
+    data, mime, _ = material(case)
+    assert material(case)[0] == data
+    with pdfium.PdfDocument(data) as doc:
+        assert len(doc) == 25
+    rendered = []
+
+    def ocr(image):
+        rendered.append(image.size)
+        return [{"id": "s0", "text": "합성 구성: 감귤 7kg입니다.", "box": [0, 0, 1, 1]}]
+
+    monkeypatch.setattr(preprocess, "_upright", lambda image: (image, 0))
+    monkeypatch.setattr(preprocess, "_tiled_ocr", ocr)
+    monkeypatch.setattr(preprocess, "qr_regions", lambda image: [])
+    pages = preprocess.parse(data, mime)
+    assert len(rendered) == len(pages) == 20
+    assert pages[0]["pagesAnalysed"] == 20 and pages[0]["pagesSkipped"] == 5
+
+
+def test_AC_SRC_8_batch_pdf_cap_after_per_pdf_cap(client, login, monkeypatch):
+    from app.source_analysis.synthetic import material
+
+    h = login("u-kang")
+    batch = create(client, h)
+    for label in ("A", "B", "C", "D"):
+        batch = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+        data, mime, _ = material({"kind": "pdf", "text": f"Synthetic {label}", "pages": 25})
+        response = client.post(
+            f"{PREFIX}/{batch['id']}/sources",
+            headers=h,
+            data={"batchVersion": batch["version"], "targetIds": batch["targets"][0]["id"]},
+            files={"file": (f"{label}.pdf", data, mime)},
+        )
+        assert response.status_code == 201, response.text
+    # Parser already has a separate real 25-page regression above; isolate the durable cap.
+    monkeypatch.setattr(
+        worker,
+        "prepare",
+        lambda data, mime: [
+            {
+                "spans": [],
+                "image": None,
+                **({"pagesAnalysed": 20, "pagesSkipped": 5} if i == 0 else {}),
+            }
+            for i in range(20)
+        ],
+    )
+    batch = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    run = start(client, h, batch["id"])
+    for _ in range(100):
+        if not worker.run_once():
+            break
+    else:
+        pytest.fail("Synthetic PDF queue did not drain")
+    result = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
+    prepared = [
+        i
+        for i in result["items"]
+        if i["phase"] == "PREPARE" and i["assetId"] in {s["id"] for s in batch["sources"]}
+    ]
+    assert sum(i["status"] == "SUCCEEDED" for i in prepared) == 3
+    assert sum(i["error"] == "BATCH_PDF_PAGE_LIMIT" for i in prepared) == 1
+    assert all(
+        i["pagesAnalysed"] == 20 and i["pagesSkipped"] == 5
+        for i in prepared
+        if i["status"] == "SUCCEEDED"
+    )
+    state = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    assert sum(s["pageCount"] for s in state["sources"] if s["mime"] == "application/pdf") == 60

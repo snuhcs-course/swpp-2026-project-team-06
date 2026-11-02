@@ -97,7 +97,7 @@ jobs:
           fi
           changed=$(git diff --name-only HEAD~1 HEAD)
           echo "$changed"
-          if echo "$changed" | grep -qE '^(apps/|packages/|package\.json$|package-lock\.json$|\.nvmrc$|scripts/legal-pages\.mjs$|\.github/workflows/deploy-vercel\.yml$)'; then
+          if echo "$changed" | grep -qE '^(apps/|packages/|server/app/source_analysis/text_safety_lists\.json$|package\.json$|package-lock\.json$|\.nvmrc$|scripts/legal-pages\.mjs$|\.github/workflows/deploy-vercel\.yml$)'; then
             echo "deploy=true" >> "$GITHUB_OUTPUT"
           else
             echo "deploy=false" >> "$GITHUB_OUTPUT"

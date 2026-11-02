@@ -12,7 +12,7 @@ import {
 import { Icon, type IconName } from "./Icon";
 import { T } from "./Text";
 import { tokens } from "./tokens";
-import { focusRing, safe } from "./web";
+import { focusRing, safe, showFocus } from "./web";
 
 // 웹 전용 흐림. react-native-web이 CSS로 그대로 넘긴다.
 const glass = {
@@ -143,7 +143,7 @@ export function IconButton({
       style={(st) =>
         [
           styles.iconBtn,
-          (st as { focused?: boolean }).focused && focusRing,
+          showFocus(st as { focused?: boolean }) && focusRing,
         ] as never
       }
     >
@@ -362,7 +362,94 @@ export function Sheet({
   );
 }
 
+/* ---------------- PeekSheet ---------------- */
+
+/**
+ * 화면 아래에 붙어 있는 시트. 닫혀 있어도 peek 줄과 footer(하단 버튼)는 늘 보이고,
+ * 손잡이·peek을 누르면 children이 펼쳐진다. 펼친 동안만 뒤 화면을 어둡게 가린다.
+ */
+export function PeekSheet({
+  open,
+  onOpenChange,
+  peek,
+  footer,
+  label,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  peek: ReactNode;
+  footer?: ReactNode;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      {open ? (
+        <Pressable
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: tokens.color.overlay },
+          ]}
+          // 바깥을 눌러 접는 영역. 손잡이 버튼과 이름이 겹치지 않게 보조기기에는 숨긴다.
+          accessible={false}
+          aria-hidden
+          onPress={() => onOpenChange(false)}
+        />
+      ) : null}
+      <View
+        testID="peek-sheet"
+        style={[styles.peekSheet, sheetGlass]}
+        accessibilityViewIsModal={open}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={open ? `${label} 접기` : `${label} 펼치기`}
+          aria-expanded={open}
+          onPress={() => onOpenChange(!open)}
+          style={(st) => [
+            { paddingTop: 8, paddingBottom: 4, gap: 10 },
+            showFocus(st as { focused?: boolean }) && focusRing,
+          ]}
+        >
+          <View style={styles.handle} />
+          {peek}
+        </Pressable>
+        {/* 접혀도 내용은 마운트해 둔다(업로드·입력 중인 상태 보존). 화면에서만 숨긴다. */}
+        <ScrollView
+          style={[{ maxHeight: 520 }, !open && { display: "none" }]}
+          contentContainerStyle={{ gap: 12, paddingBottom: 4 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+        {footer}
+      </View>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  peekSheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: tokens.maxWidth,
+    borderTopLeftRadius: tokens.radius.md,
+    borderTopRightRadius: tokens.radius.md,
+    borderTopWidth: 1,
+    borderTopColor: tokens.color.border,
+    paddingHorizontal: tokens.space.gutter,
+    paddingBottom: safe("bottom", 20),
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+  },
   bar: {
     height: tokens.height.header,
     flexDirection: "row",

@@ -139,6 +139,8 @@ def transcribe(encoded):
         raise ExtractionError("REQUEST_UNCERTAIN") from exc
     except APIStatusError as exc:
         # No automatic retry: an earlier crop may already have incurred a charge.
+        if exc.status_code in {401, 403}:
+            raise ExtractionError("PROVIDER_AUTH") from exc
         raise ExtractionError(
             "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED"
         ) from exc

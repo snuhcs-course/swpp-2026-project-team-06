@@ -7,6 +7,9 @@ The API uses `Dockerfile`. A separate Railway service, `farmclub-source-worker`,
 The worker image installs the locked `ocr` extra, provisions the three weights in
 `app/source_analysis/ocr-manifest.json` with checksum verification, and checks the
 applied Alembic head and OCR engine before polling. Runtime never downloads models.
+Provisioning tries the unmodified Apache-2.0 mirror in the GitHub release
+`ocr-models-v3.10.0` first and falls back to the pinned ModelScope URL; every file
+must still match the manifest SHA-256, and the manifest itself is unchanged (DEV-189).
 API startup remains responsible for migrations; do not seed production.
 
 The existing CI-gated Railway workflow deploys both API and worker from its checked

@@ -399,6 +399,11 @@ def kakao_signup(db: Session, data: KakaoSignupInput) -> LoginResult:
         )
         db.add(user)
         db.flush()
+        if role == "CONSUMER":
+            # 가입과 같은 트랜잭션에서 farmclub 문의 대화방을 연다(DEV-150, FEAT-34)
+            from app.messaging.support import ensure_consumer_support
+
+            ensure_consumer_support(db, user.id)
     save_consents(db, user, ConsentsInput(consents=data.consents))
     return LoginResult(access_token=issue_token(user.id, user.role), user=user_view(db, user))
 
@@ -722,6 +727,10 @@ def withdraw(db: Session, user: User) -> None:
         )
     ):
         db.delete(attachment)
+    # farmclub 문의 대화방(DEV-150)에 쓴 문의도 지운다
+    from app.messaging.support import scrub_consumer_support
+
+    scrub_consumer_support(db, user.id)
 
     if farm is not None:
         farm.approval_status = "SUSPENDED"
