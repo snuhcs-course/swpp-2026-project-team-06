@@ -21,7 +21,8 @@ function reviewFixture() {
     run: { id: "run", mode: "mock", model: "mock", status: "SUCCEEDED", completed: 1, total: 1,
       inputs: [{ id: source.id, revision: 1, description: "" }], items: [
       { id: "refine", phase: "REFINE", assetId: source.id, revision: 1, status: "SUCCEEDED",
-        error: null as string | null, acceptedCount: 1, rejectedCount: 0 },
+        error: null as string | null, acceptedCount: 1, rejectedCount: 0,
+        emptyReason: null as string | null, candidatesSkipped: 0 },
     ] },
     text: "제주에서 자란 감귤\n달콤한 과즙",
   };
@@ -269,5 +270,76 @@ for (const composer of [false, true]) {
       await expect(title.locator("..")).toHaveCSS("gap", "4px");
     }
     clean();
+  });
+}
+
+for (const composer of [false, true]) {
+  test(`DEV-182 AC-SRC-8: ${composer ? "composer" : "workspace"} shows PDF skipped pages`, async ({ page }) => {
+    await loginProducer(page, "강영수");
+    const fixture = reviewFixture();
+    fixture.batch.sources[0].filename = "합성25쪽.pdf";
+    fixture.batch.sources[0].mime = "application/pdf";
+    fixture.batch.sources[0].pageCount = 20;
+    fixture.run.items[0] = { ...fixture.run.items[0], id: "prepare", phase: "PREPARE",
+      ...{ pagesAnalysed: 20, pagesSkipped: 5 } };
+    await serveReview(page, fixture);
+    await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    await expect(page.getByText("합성25쪽.pdf: 앞 20쪽만 분석했어요. 나머지 5쪽은 필요하면 나눠서 올려 주세요.", { exact: true })).toBeVisible();
+    await expect(page.getByText(/자료를 처리하지 못했어요/)).toHaveCount(0);
+  });
+
+  test(`DEV-182 AC-SRC-5/8: ${composer ? "composer" : "workspace"} empty chunks do not imply an empty file`, async ({ page }) => {
+    await loginProducer(page, "강영수");
+    const fixture = reviewFixture();
+    fixture.batch.sources[0].filename = "긴합성자료.txt";
+    fixture.text = "감귤 구성과 보관 방법\n" + "구분선과 여백\n".repeat(800);
+    const base = { ...fixture.run.items[0], phase: "EXTRACT" };
+    // run_view suppresses the middle chunk's private NO_CANDIDATES reason when
+    // other chunks contain facts. The API regression covers that aggregation.
+    fixture.run.items = [
+      { ...base, id: "chunk-1", acceptedCount: 1 },
+      { ...base, id: "chunk-2", acceptedCount: 0 },
+      { ...base, id: "chunk-3", acceptedCount: 1 },
+      fixture.run.items[0],
+    ];
+    await serveReview(page, fixture);
+    const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
+    await page.goto(url);
+    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    await expect(page.getByText(/추출할 내용을 찾지 못했어요/)).toHaveCount(0);
+    // When every chunk is empty, the API publishes one file-level reason.
+    fixture.run.items = fixture.run.items.slice(0, 3).map((item, index) => ({
+      ...item, acceptedCount: 0, emptyReason: index === 0 ? "NO_CANDIDATES" : null,
+    }));
+    await page.reload();
+    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    await expect(page.getByText("긴합성자료.txt: 추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(1);
+  });
+
+  test(`DEV-182 AC-SRC-5/8: ${composer ? "composer" : "workspace"} rejected and oversized notices`, async ({ page }) => {
+    await loginProducer(page, "강영수");
+    const fixture = reviewFixture();
+    fixture.run.status = "PARTIAL";
+    fixture.run.items[0] = { ...fixture.run.items[0], phase: "EXTRACT", status: "PARTIAL",
+      error: "CANDIDATES_REJECTED", acceptedCount: 2, rejectedCount: 1 };
+    await serveReview(page, fixture);
+    const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
+    const open = async () => {
+      await page.goto(url);
+      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    };
+    await open();
+    await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요.", { exact: true })).toBeVisible();
+    fixture.run.items[0] = { ...fixture.run.items[0], status: "FAILED", acceptedCount: 0,
+      emptyReason: "ALL_CANDIDATES_REJECTED" };
+    await open();
+    await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(1);
+    await expect(page.getByText(/추출한 내용의 근거를 확인하지 못했어요/)).toHaveCount(0);
+    fixture.run.items[0] = { ...fixture.run.items[0], phase: "REFINE", status: "SUCCEEDED",
+      error: null, rejectedCount: 0, emptyReason: "REFINE_INPUT_LIMIT", candidatesSkipped: 1 };
+    await open();
+    await expect(page.getByText("내용이 많아 문구를 정리하지 못했어요. 자료를 나눠서 올려 주세요.", { exact: true })).toBeVisible();
+    await expect(page.getByText(/상세에 넣을 수 있는 문구가 남지 않았어요/)).toHaveCount(0);
   });
 }
