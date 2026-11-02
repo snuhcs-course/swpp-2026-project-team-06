@@ -860,3 +860,4 @@ uv run python -m app.source_analysis.final_eval \
 - `fix(source): AC-SRC-2/5 preserve candidates outside succeeded evidence scope (DEV-193)`
 
 - 전체 항목별 결과와 실패 목록: `/private/tmp/dev193-review-verification.md`. HEAD `94d90b0a243152d8ad1839b20bb78541ff8aa7a0` 및 브랜치 유지. commit/push/PR/live 호출0, 금지 경로 접근0. Agent 시간 / Tokens 계측 미제공(추정 미기재). 남은 작업은 sandbox 밖에서 지정4파일 전체를 재실행하는 것이며, 새 실호출 품질 측정은 수행하지 않았다.
+- 11/02 owner 개발 실측(47건, openrouter gemini-3-flash-preview, 출력 한도 8000, 측정 dev193-number-evidence-v1, $0.524): 사실 201/354·중요 96/154·오배치 34/354·unsupported 0·금지 1. 같은 47건의 DEV-190 실측은 189/354·94/154·unsupported 4였으나 측정 방식이 바뀌어 직접 비교할 수 없다. 출력 한도 잘림 대상이던 h3-text-03은 EVALUATED(17초)로 회복했고, 금지 1건(gold_other)이 이 소스에서 새로 나왔다. h3-long_image-01은 이번엔 출력 잘림이 아니라 REQUEST_UNCERTAIN(일시 실패)이었다. PDF 2건은 OCR 쪽 일부 실패로 PARTIAL이다.
