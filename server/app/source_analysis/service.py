@@ -523,6 +523,9 @@ def run_view(db, run):
             **json_row(i, ("lease_token", "lease_until", "sent", "diagnostics", "refinement")),
             "pagesAnalysed": i.diagnostics.get("pagesAnalysed", 0),
             "pagesSkipped": i.diagnostics.get("pagesSkipped", 0),
+            "pagesEmpty": len(i.diagnostics.get("pagesEmpty", [])),
+            "pagesFailed": len(i.diagnostics.get("pagesFailed", [])),
+            "chunksFailed": len(i.diagnostics.get("chunksFailed", [])),
             "emptyReason": empty_assets.get(i.id)
             if i.phase == "EXTRACT"
             else i.diagnostics.get("emptyReason"),

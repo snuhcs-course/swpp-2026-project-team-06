@@ -17,6 +17,7 @@ from app.core.db import get_sessionmaker
 from app.source_analysis import budget, final_score
 from app.source_analysis import final_eval as ev
 from app.source_analysis.models import Spend
+from app.source_analysis.schemas import Extraction
 
 
 def row(text=ai.MOCK_TEXT, sid="case-01", fmt="text"):
@@ -1099,3 +1100,199 @@ def test_AC_SRC_1_3_5_8_common_product_fields_stay_filtered_in_mock_eval(monkeyp
     assert result[1]["candidatesAnalysed"] > 0
     assert result[1]["emptyReason"] == "ALL_TEXTS_FILTERED"
     assert result[3]["modules"] == []
+
+
+@pytest.mark.parametrize(
+    "kind", ["empty", "all_empty", "uncertain", "auth", "long", "long_rejected"]
+)
+def test_AC_SRC_2_5_6_eval_shares_page_ocr_and_chunking_counts_only(monkeypatch, kind):
+    import base64
+    import io
+
+    from PIL import Image
+
+    from app.ai.source_ocr import Transcription
+    from app.source_analysis import worker
+    from tests.test_source_gemini_ocr import page_extraction
+
+    image = io.BytesIO()
+    Image.new("RGB", (24, 24), "white").save(image, "PNG")
+    pages = [{"spans": [], "image": base64.b64encode(image.getvalue()).decode()} for _ in range(3)]
+    monkeypatch.setattr(ev, "parse", lambda *args: pages)
+    attempted, extracted = [], []
+
+    def ocr(encoded):
+        attempted.append(encoded)
+        if len(attempted) == 2 and kind in {"uncertain", "auth"}:
+            raise ai.ExtractionError("PROVIDER_AUTH" if kind == "auth" else "REQUEST_UNCERTAIN")
+        if kind == "all_empty" or kind == "empty" and len(attempted) == 2:
+            lines = []
+        elif kind in {"long", "long_rejected"}:
+            lines = ["합성 보관 안내입니다. " * 100 for _ in range(7)]
+        else:
+            lines = ["서늘한 곳에 보관해 주세요."]
+        return Transcription(lines, {"cost": 0.001}, "fixture-ocr")
+
+    def extract(*args, **kwargs):
+        extracted.append(args[2])
+        response = page_extraction(*args)
+        if kind == "long_rejected" and len(extracted) == 2:
+            for candidate in response.extraction.candidates:
+                candidate.evidence[0].span_ids = ["vision-gemini-0"]
+        return response
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    monkeypatch.setattr(ai, "extract", extract)
+    original_refine = ev.refine_ai.refine
+    monkeypatch.setattr(ev.refine_ai, "refine", lambda mode, *args: original_refine("mock", *args))
+    result, metric, text, private = ev.evaluate_source(
+        {**row(), "mime": "application/pdf", "format": "pdf"},
+        "openrouter",
+        "fixture",
+        ev.Calls("mock", 3),
+    )
+    assert type(metric["pagesEmpty"]) is int and type(metric["pagesFailed"]) is int
+    assert "pagesFailed" not in text and "pagesEmpty" not in text
+    if kind == "auth":
+        assert result["status"] == "FAILED" and metric["errorCode"] == "PROVIDER_AUTH"
+        assert len(attempted) == 2 and extracted == []
+    elif kind == "all_empty":
+        assert result["status"] == "FAILED" and metric["errorCode"] == "OCR_FAILED"
+        assert metric["pagesEmpty"] == 3 and metric["pagesFailed"] == 0
+        assert text == "" and extracted == []
+    else:
+        assert result["status"] == ("PARTIAL" if kind == "uncertain" else "EVALUATED"), metric
+        assert metric["pagesEmpty"] == (1 if kind == "empty" else 0)
+        assert metric["pagesFailed"] == (1 if kind == "uncertain" else 0)
+        assert len(attempted) == 3  # One OCR call per page, no replay.
+        assert {c["evidence"][0]["page"] for c in private["candidates"]} == (
+            {1, 3} if kind in {"empty", "uncertain"} else {1, 2, 3}
+        )
+        if kind in {"long", "long_rejected"}:
+            assert metric["rejectedCandidates"] == (2 if kind == "long_rejected" else 0)
+            assert len(private["candidates"]) == (8 if kind == "long_rejected" else 9)
+            assert len(extracted) == 9
+            assert all(
+                sum(len(s["text"]) for s in p["pages"][0]["spans"]) <= 4000 for p in extracted
+            )
+            for number in (1, 2, 3):
+                ids = [
+                    s["id"]
+                    for p in extracted
+                    if p["pages"][0]["number"] == number
+                    for s in p["pages"][0]["spans"]
+                ]
+                assert ids == [f"vision-gemini-{i}" for i in range(7)]
+
+
+@pytest.mark.parametrize("failure", ["middle", "all", "auth"])
+def test_AC_SRC_2_5_10_eval_stage1_failure_isolation_matches_product(monkeypatch, failure):
+    import base64
+    import io
+
+    from PIL import Image
+
+    from app.ai.source_ocr import Transcription
+    from app.source_analysis import worker
+    from tests.test_source_gemini_ocr import page_extraction
+
+    image = io.BytesIO()
+    Image.new("RGB", (24, 24), "white").save(image, "PNG")
+    monkeypatch.setattr(ev, "parse", lambda *args: [
+        {"spans": [], "image": base64.b64encode(image.getvalue()).decode()} for _ in range(3)
+    ])
+    monkeypatch.setattr(worker, "transcribe", lambda _: Transcription(
+        ["서늘한 곳에 보관해 주세요."], {"cost": 0.001}, "ocr"
+    ))
+    attempted = []
+
+    def extract(*args, **kwargs):
+        number = args[2]["pages"][0]["number"]
+        attempted.append(number)
+        if failure == "all" or number == 2:
+            raise ai.ExtractionError(
+                "PROVIDER_AUTH" if failure == "auth" else "REQUEST_UNCERTAIN",
+                usage={"cost": 0.0005}, request_id="failed",
+            )
+        return page_extraction(*args)
+
+    monkeypatch.setattr(ai, "extract", extract)
+    original_refine = ev.refine_ai.refine
+    refined = []
+
+    def refine(mode, *args):
+        refined.append(args)
+        return original_refine("mock", *args)
+
+    monkeypatch.setattr(ev.refine_ai, "refine", refine)
+    result, metric, _, private = ev.evaluate_source(
+        {**row(), "mime": "application/pdf", "format": "pdf"},
+        "openrouter", "fixture", ev.Calls("mock", 3),
+    )
+    if failure == "middle":
+        assert result["status"] == "PARTIAL" and len(refined) == 1
+        assert {c["evidence"][0]["page"] for c in private["candidates"]} == {1, 3}
+        assert len(private["candidates"]) == 2
+        assert metric["pagesFailed"] == 0 and metric["chunksFailed"] == 1
+        assert metric["errorCode"] == "EXTRACT_CHUNKS_FAILED"
+        assert private["stage1Diagnostics"][0]["acceptedCount"] == 2
+        assert len(private["calls"]) == 7  # OCR3 + extract3 + refine1; no replay.
+    else:
+        assert result["status"] == "FAILED" and refined == []
+        assert metric["errorCode"] == (
+            "PROVIDER_AUTH" if failure == "auth" else "REQUEST_UNCERTAIN"
+        )
+        assert metric["chunksFailed"] == (1 if failure == "auth" else 3)
+        assert private["candidates"] == []
+    assert attempted == ([1, 2] if failure == "auth" else [1, 2, 3])
+
+
+@pytest.mark.parametrize("provider", ["mock", "openai"])
+def test_AC_SRC_5_eval_nonvision_empty_pages_keep_product_call_counts(monkeypatch, provider):
+    monkeypatch.setattr(ev, "parse", lambda *args: [
+        {"spans": [{"id": "a", "text": "합성 문구"}], "image": None},
+        {"spans": [], "image": None},
+        {"spans": [{"id": "b", "text": "마지막 문구"}], "image": None},
+    ])
+    seen = []
+
+    def extract(mode, model, chunk, *args, **kwargs):
+        seen.append(chunk["pages"][0])
+        return ai.ExtractionResponse(Extraction(candidates=[], photo_requests=[]), {}, None)
+
+    monkeypatch.setattr(ai, "extract", extract)
+    result, metric, _, private = ev.evaluate_source(
+        row(), provider, "fixture", ev.Calls("mock", 3)
+    )
+    assert result["status"] == "EMPTY", metric
+    assert [p["number"] for p in seen] == [1, 2, 3] and seen[1]["spans"] == []
+    assert [d["emptyReason"] for d in private["stage1Diagnostics"]] == [
+        "NO_CANDIDATES", "NO_SAFE_TEXT", "NO_CANDIDATES"
+    ]
+
+
+def test_AC_SRC_3_5_eval_text_wholly_rejected_chunk_blocks_refinement(monkeypatch):
+    from tests.test_source_gemini_ocr import page_extraction
+
+    monkeypatch.setattr(ev, "parse", lambda *args: [
+        {"spans": [{"id": f"s-{i}", "text": "서늘한 곳에 보관해 주세요."}], "image": None}
+        for i in range(3)
+    ])
+    seen = []
+
+    def extract(*args, **kwargs):
+        seen.append(args[2]["pages"][0]["number"])
+        response = page_extraction(*args)
+        if len(seen) == 2:
+            for c in response.extraction.candidates:
+                c.evidence[0].quote = "원문에 없는 문구"
+        return response
+
+    def forbidden(*args):
+        raise AssertionError("A failed product text item must block refinement")
+
+    monkeypatch.setattr(ai, "extract", extract)
+    monkeypatch.setattr(ev.refine_ai, "refine", forbidden)
+    result, metric, _, private = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
+    assert result["status"] == "FAILED" and metric["errorCode"] == "CANDIDATES_REJECTED"
+    assert seen == [1, 2] and len(private["candidates"]) == 1

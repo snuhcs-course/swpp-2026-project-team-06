@@ -610,7 +610,12 @@ export function NewProductComposer() {
       )}
       {run.items
         .filter(
-          (i) => i.error && (i.phase !== "REFINE" || i.status === "FAILED"),
+          (i) => i.error &&
+            !(
+              i.status === "PARTIAL" &&
+              ((i.pagesFailed ?? 0) > 0 || (i.chunksFailed ?? 0) > 0)
+            ) &&
+            (i.phase !== "REFINE" || i.status === "FAILED"),
         )
         .map((i) => (
           <T key={i.id} variant="caption">

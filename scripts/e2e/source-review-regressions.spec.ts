@@ -362,3 +362,64 @@ for (const composer of [false, true]) {
     await expect(page.getByText(/상세에 넣을 수 있는 문구가 남지 않았어요/)).toHaveCount(0);
   });
 }
+
+for (const composer of [false, true]) {
+  test(`DEV-190 AC-SRC-5/8: ${composer ? "composer" : "workspace"} shows one partial page or chunk note per file`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = reviewFixture();
+    // Only the filename matters for the note; keep the stubbed text source so no page images load.
+    fixture.batch.sources[0].filename = "합성부분자료.pdf";
+    fixture.run.status = "PARTIAL";
+    const extract = { ...fixture.run.items[0], id: "ocr", phase: "EXTRACT", status: "PARTIAL",
+      error: "REQUEST_UNCERTAIN", acceptedCount: 2, emptyReason: "NO_CANDIDATES",
+      ...{ pagesEmpty: 1, pagesFailed: 2, chunksFailed: 0 } };
+    fixture.run.items = [extract, fixture.run.items[0]];
+    await serveReview(page, fixture);
+    const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
+    const open = async () => {
+      await page.goto(url);
+      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    };
+    await open();
+    const note = page.getByText("합성부분자료.pdf: 2쪽을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
+    await expect(note).toBeVisible();
+    await expect(note).toHaveCount(1);
+    await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeDisabled();
+    // Known per-page errors show the same single note; skipped empty pages are quiet.
+    fixture.run.items[0] = { ...extract, error: "OCR_PAGES_FAILED" };
+    await open();
+    await expect(note).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeEnabled();
+    // A failed extraction chunk does not label a successfully transcribed page as unread.
+    const chunkNote = page.getByText("합성부분자료.pdf: 일부 내용을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
+    for (const error of ["EXTRACT_CHUNKS_FAILED", "REQUEST_UNCERTAIN"]) {
+      fixture.run.items[0] = { ...extract, error, ...{ pagesFailed: 0, chunksFailed: 1 } };
+      await open();
+      await expect(chunkNote).toBeVisible();
+      await expect(chunkNote).toHaveCount(1);
+      await expect(note).toHaveCount(0);
+      await expect(page.getByText(/쪽을 읽지 못했어요|분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
+      if (error === "REQUEST_UNCERTAIN") {
+        await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeDisabled();
+      } else {
+        await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeEnabled();
+      }
+    }
+    // Mixed failures still produce exactly one file note, with the actual OCR page count.
+    fixture.run.items[0] = { ...extract, error: "OCR_PAGES_FAILED", ...{ chunksFailed: 1 } };
+    await open();
+    await expect(note).toBeVisible();
+    await expect(note).toHaveCount(1);
+    await expect(chunkNote).toHaveCount(0);
+    await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeEnabled();
+    fixture.run.status = "SUCCEEDED";
+    fixture.run.items[0] = { ...extract, status: "SUCCEEDED", error: null,
+      emptyReason: null, ...{ pagesFailed: 0, chunksFailed: 0 } };
+    await open();
+    await expect(page.getByText(/쪽을 읽지 못했어요|일부 내용을 읽지 못했어요|자료를 처리하지 못했어요|분석할 텍스트가 없어요/)).toHaveCount(0);
+    clean();
+  });
+}

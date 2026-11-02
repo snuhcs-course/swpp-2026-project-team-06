@@ -130,6 +130,9 @@ export type SourceRun = {
     phase: string;
     pagesAnalysed?: number;
     pagesSkipped?: number;
+    pagesEmpty?: number;
+    pagesFailed?: number;
+    chunksFailed?: number;
     emptyReason?: string | null;
     candidatesSkipped?: number;
     acceptedCount: number;
