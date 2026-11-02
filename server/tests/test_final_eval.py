@@ -428,7 +428,7 @@ def test_AC_SRC_4_shared_product_ocr_keeps_only_safe_verbatim_lines(monkeypatch)
     assert chunk["pages"][0]["spans"] == [{"id": "vision-gemini-0", "text": "GAP 인증"}]
 
 
-def test_AC_SRC_2_refine_receives_only_current_target_in_source_order(monkeypatch):
+def test_AC_SRC_1_2_refine_receives_single_target_and_common_in_source_order(monkeypatch):
     extract = ai.extract
     refine = ev.refine_ai.refine
     seen = []
@@ -447,9 +447,17 @@ def test_AC_SRC_2_refine_receives_only_current_target_in_source_order(monkeypatc
     monkeypatch.setattr(ev.refine_ai, "refine", capture)
     result = ev.evaluate_source(row(), "mock", "mock", ev.Calls("mock", 3))
     assert len(result[3]["candidates"]) == 3
-    assert len(seen) == 2
-    assert all(c["targetId"] == "eval-target" for c in seen)
-    assert [c["fieldKey"] for c in seen] == ["summary", "storage"]
+    assert len(seen) == 3
+    assert [c["targetId"] for c in seen] == [None, "eval-target", "eval-target"]
+    assert [c["fieldKey"] for c in seen] == ["name", "summary", "storage"]
+    assert result[0]["status"] == "EVALUATED"
+    assert [m["module"] for m in result[3]["modules"]] == ["summary", "storage"]
+    assert {"candidateIds": [seen[0]["id"]], "reason": "unsupported"} in (
+        result[3]["stage2Diagnostics"]["excluded"]
+    )
+    assert {cid for m in result[3]["modules"] for t in m["texts"] for cid in t["candidateIds"]} == {
+        c["id"] for c in seen[1:]
+    }
 
 
 @pytest.mark.parametrize("status", [401, 403, 400, 500])
@@ -987,3 +995,61 @@ def test_AC_SRC_2_5_text_estimate_counts_decoded_characters(characters, calls, c
     assert estimate["estimatedExtractionCalls"] == calls
     assert estimate["estimatedRefinementCalls"] == 1
     assert estimate["estimatedOcrCalls"] == 0
+
+
+def test_AC_SRC_1_2_3_common_farm_mock_reuses_locked_synthetic_gold(tmp_path, monkeypatch):
+    rows = ev.dataset("development", "synthetic", tmp_path, tmp_path)
+    # Existing development hashes and gold rules must still validate without modification.
+    _, gold_files = ev.load_gold("development", "synthetic", tmp_path, tmp_path, rows)
+    assert gold_files == [ev.SYNTHETIC_GOLD]
+    case = next(r for r in rows if r["id"] == "13-common-farm")
+    original = ev.refinement.includes_target
+    selected = []
+
+    def track(candidate_target_id, target_id, target_count):
+        selected.append((candidate_target_id, target_id, target_count))
+        return original(candidate_target_id, target_id, target_count)
+
+    monkeypatch.setattr(ev.refinement, "includes_target", track)
+    result = ev.evaluate_source(case, "mock", "fixture", ev.Calls("mock", 3))
+    record, metric, safe_text, stored = result
+    assert record["status"] == "EVALUATED", metric
+    assert metric["calls"] == 2 and metric["costUsd"] == 0
+    assert metric["emptyReason"] is None
+    assert (None, "eval-target", 1) in selected  # Calls the product selection function.
+    assert len(stored["candidates"]) == 1 and stored["candidates"][0]["targetId"] is None
+    assert stored["modules"][0]["module"] == "farmStory"
+    assert stored["modules"][0]["texts"][0]["candidateIds"] == [stored["candidates"][0]["id"]]
+    source_gold = next(
+        s for s in ev.read_json(ev.SYNTHETIC_GOLD)["sources"] if s["id"] == case["id"]
+    )
+    final_text = "\n".join(record["modules"][0]["texts"])
+    for sentence in source_gold["sentences"]:
+        assert sentence["text"] in safe_text and sentence["text"] in final_text
+        for fact in sentence["facts"]:
+            assert all(token in final_text for token in fact["mustContain"])
+    score = final_score.score(
+        {"schemaVersion": 1, "split": "development", "sources": [source_gold]},
+        [record], {case["id"]: safe_text},
+    )
+    assert score["overall"]["factRecall"] == {"hit": 1, "total": 1, "rate": 1.0}
+    assert not any(score["sources"][0]["forbidden"].values())
+    assert not any(score["sources"][0]["unsupported"].values())
+
+
+def test_AC_SRC_1_3_5_8_common_product_fields_stay_filtered_in_mock_eval(monkeypatch):
+    original = ai.extract
+
+    def common_composition(*args, **kwargs):
+        response = original(*args, **kwargs)
+        for candidate in response.extraction.candidates:
+            candidate.target_id = None
+            candidate.field_key = "composition"
+        return response
+
+    monkeypatch.setattr(ai, "extract", common_composition)
+    result = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EMPTY"
+    assert result[1]["candidatesAnalysed"] > 0
+    assert result[1]["emptyReason"] == "ALL_TEXTS_FILTERED"
+    assert result[3]["modules"] == []

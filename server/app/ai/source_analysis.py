@@ -24,6 +24,8 @@ MOCK_REFINE_ROWS = [
 ]
 MOCK_REFINE_TEXT = MOCK_TEXT + "\n" + "\n".join(value for _, value in MOCK_REFINE_ROWS)
 MOCK_REFINE_SHA = hashlib.sha256(MOCK_REFINE_TEXT.encode()).hexdigest()
+MOCK_FARM_TEXT = "농가 이야기: 두 상품 모두 가상농가에서 재배합니다."
+MOCK_FARM_SHA = hashlib.sha256(MOCK_FARM_TEXT.encode()).hexdigest()
 # Explicit invented DEV-182 fixtures; never derive mock output from gold.
 MOCK_T23_SHAS = {
     "1240097bd89e2ee255235456446c00fe5973cbb883305ddd6111f3f44912ec70",
@@ -181,7 +183,7 @@ def provider_schema():
 def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=False):
     if mode == "mock":
         t23 = chunk["checksum"] in MOCK_T23_SHAS
-        if chunk["checksum"] not in {MOCK_SHA, MOCK_REFINE_SHA} and not t23:
+        if chunk["checksum"] not in {MOCK_SHA, MOCK_REFINE_SHA, MOCK_FARM_SHA} and not t23:
             if mock_empty and any(
                 s["text"] in MOCK_T23_ROWS for p in chunk["pages"] for s in p["spans"]
             ):
@@ -192,7 +194,7 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
                 )
             else:
                 raise ExtractionError("UNSUPPORTED_MOCK_SOURCE")
-        if len(targets) != 1:
+        if len(targets) != 1 or chunk["checksum"] == MOCK_FARM_SHA:
             target = None
         else:
             target = targets[0]["id"]
@@ -204,6 +206,8 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
         }
         if chunk["checksum"] == MOCK_REFINE_SHA:
             mapping.update({value: field for field, value in MOCK_REFINE_ROWS})
+        if chunk["checksum"] == MOCK_FARM_SHA:
+            mapping[MOCK_FARM_TEXT] = "farmStory"
         if t23:
             mapping.update({text: field for text, (field, _) in MOCK_T23_ROWS.items()})
         for page in chunk["pages"]:

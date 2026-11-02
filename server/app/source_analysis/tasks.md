@@ -405,3 +405,44 @@ T11 집계 오류 유형만 바탕으로 일부 후보 거절·긴 PDF·긴 텍�
 - 11/02 최종 diff 점검: HEAD 대비13경로·신규 파일0, 기존 허용 범위 이탈0, git diff --check 통과. origin/main...HEAD의 기존24경로도 이 이슈 범위와 일치한다. main...HEAD의680경로는 오래된 local main 대비 상속 이력으로 이번13경로와 구분했다. PREPROCESS_VERSION 추가 변경 없음. 커밋·push·PR·live 호출·holdout 자료 접근0.
 - 11/02 의도 커밋(이번 세션 실제 커밋 없음): `fix(eval): AC-SRC-2/3/5 범위 판별과 문자 수 추정 수정 (DEV-182)`, `fix(source): AC-SRC-5/8 빈 결과 중복과 거절 안내 정리 (DEV-182)`, `docs(source): AC-SRC-2/3/5/8 후속 계약과 검증 기록 갱신 (DEV-182)`. Agent 시간 / Tokens: 계측 미제공. 대표 프롬프트: 조사와 범위를 구분하고 실제 REFINE 포함 회귀로 중복 안내를 막되 테스트·holdout 제한을 유지한다.
 - 11/02 owner sandbox 밖 검증(후속 수정 포함): 전체 pytest 1140 passed / 1 failed(`test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback[delete_source]`, 단독 재실행 3/3 통과, 동시 실행 중 타이밍 문제로 판단), Playwright `source-review-regressions` 14/14 통과, typecheck 통과. 전부 거절된 FAILED 항목은 개수 없는 기존 문구를 유지하고 PARTIAL에만 개수를 보인다. 상태: 리뷰 수정과 sandbox 밖 검증 완료.
+
+## DEV-182 단일 상품 농가 공통 후보 정리 후속 (2026-11-02)
+
+- 기준 커밋: `73358eb`; 사용자 제공 development 관찰·owner 결정을 지시서로 사용한다.
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/3/5/8/11.
+- 상태: 진행 중.
+
+### 목표
+단일 상품의 stage-1 대상 배치 변동으로 농가 이야기가 최종 문구에서 사라지는 문제를 해결한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/{refinement,final_eval,editor,service}.py`, `server/app/ai/source_refine.py`
+- `server/tests/{test_source_refine,test_final_eval}.py`
+- `docs/spec/source-analysis.md`, `docs/wiki/Source-Analysis.md`, `server/app/source_analysis/{spec,tasks}.md`
+
+### 비범위
+- holdout 데이터 접근·수정·실행, live 호출, 커밋·push·PR 생성, 기존 테스트 약화, scorer/gold/manifest 변경.
+
+### 결정 사항
+- 11/02 상품 대상이 정확히 하나일 때 null 대상 후보도 정리 입력에 포함하고, 다중 상품은 기존 격리를 유지한다. null은 어떤 fieldKey도 가질 수 있으므로 공통 근거는 farmStory/historicalSales → farmStory, farmUpdates → farmUpdates만 허용한다. 품종·무게 등 상품 필드와 다른 상품의 근거를 보호한다.
+- 11/02 worker·평가·진단·원문 fallback에서 대상 선택 함수를 공유한다. 전체 공통 후보도 원문순 cap·생략 unused·입력 ID/내용 해시·전후 최신성/개인정보 검사에 포함한다. 정리 prompt 버전도 갱신한다.
+- 11/02 REFINED 저장 검증에도 같은 공통 근거/모듈 규칙을 적용한다. 정상 정리의 제외 후보는 fallback으로 복원하지 않으며, 실패·outdated일 때만 안전한 공통 원문 제안을 허용한다.
+- 11/02 기존 `13-common-farm` 합성 사례와 고정 gold/manifest를 재사용한다. wiki는 맨 끝에 영문 문단 하나만 추가하고 이 tasks 파일도 append-only로 유지한다.
+
+### 작업
+- [ ] 제품·평가·fallback·저장 경로 및 합성 회귀 수정.
+- [ ] 지정 Ruff/pytest/typecheck와 development mock 평가 실행·결과 기록.
+- [ ] 제품 spec·구현 spec·wiki 갱신 및 diff 범위 확인.
+
+### 기록
+- 11/02 시작: 작업 트리 깨끗함, 현재 브랜치 `jinumeral/dev-182-i3-t23-extraction-fixes`, HEAD `73358eb` 확인. 외부 이슈 조회·통지 없이 사용자 지시를 적용한다.
+- 11/02 범위 추가: `server/app/ai/source_analysis.py`의 mock 전용 allowlist에 기존 `13-common-farm` 텍스트 SHA/고정 출력을 추가한다. 기존 mock은 해당 사례를 EMPTY로 처리하므로 실제 mock 평가를 위해 필요하다. stage-1 prompt와 gold/manifest는 변경하지 않는다.
+- 11/02 구현: 단일 상품의 전체 null 후보를 입력에 포함하고 공통 인용은 농가 모듈로 제한했다. product/eval/fallback/save의 선택·검증 규칙을 공유하며 원래 ID/targetId를 보존한다. 전체 입력 payload 해시로 같은 ID의 내용 수정 및 cap 생략 공통 후보의 수정도 outdated로 처리한다. stage-1 prompt는 유지, stage-2는 v7-farm-common으로 갱신했다.
+- 11/02 1차 지정 실행: `cd server && uv run ruff check . && uv run pytest tests/test_source_refine.py tests/test_final_eval.py tests/test_final_score.py` → Ruff 통과, **601 passed / 1 failed (66.90s)**. 실패는 단일 상품에서도 공통 후보를 입력에서 제외하던 이전 계약의 테스트였다. 이를 새 계약의 전체 원문순 입력3건 + 공통 상품명 최종 제외 + 실제 인용 ID 검증으로 강화했다. 수정 후 두 focused 평가 회귀는 **2 passed / 0 failed (1.06s)**였다.
+- 11/02 `npm run typecheck` → **5 workspace 통과 / 종료0**. TS 코드는 변경하지 않았다.
+- 11/02 별도 development mock 평가: `cd server && uv run python - <<'PY' ... PY`로 기존 `13-common-farm`을 dataset/load_gold → evaluate_source(mock) → final_score.score 경로에서 실행했다. 전체 합성 gold 파일 SHA와 해당 source canonical SHA를 기존 manifest와 검증했다. **EVALUATED, null farmStory 포함, 2 mock calls, $0, emptyReason=null, factRecall=1/1, 금지0, unsupported0**. 산출물: `/private/tmp/dev182-common-farm-mock-69nxek_a`. gold를 모델 입력에 쓰지 않았고 fixture/gold/manifest/scorer 수정0이다.
+- 11/02 범위/문서 감사: 미커밋12경로 모두 위 허용 범위 안이다. tasks는 73358eb의 전체 바이트를 prefix로 보존했고 wiki는 기존 전체를 유지하며 영문 문단 하나만 덧붙였다. `git diff main...HEAD`680경로와 `origin/main...HEAD`24경로는 상속된 이력이며 이번 변경은 `git diff HEAD`12경로로 대조했다.
+- 11/02 최종 지정 실행: `cd server && uv run ruff check . && uv run pytest tests/test_source_refine.py tests/test_final_eval.py tests/test_final_score.py` → **Ruff 통과; 602 passed / 0 failed (64.38s)**. 환경은 로컬 `farmclub_dev182`(pytest `_test`), `SOURCE_ANALYSIS_PROVIDER=mock`, `UV_CACHE_DIR=/private/tmp/farmclub-dev182-uv-cache`다. 기존580건과 새 AC ID 회귀22건을 포함하며 테스트를 삭제하거나 안전 assertion을 약화하지 않았다.
+- [x] 이번 단일 상품 공통 후보 후속 구현·원문순 cap·내용 최신성·저장/fallback·empty_reason·mock 평가·문서4개·지정 Ruff/pytest/typecheck 검증 완료.
+- 11/02 의도한 커밋(실행하지 않음): `fix(source): AC-SRC-1/2/3/5 단일 상품 농가 공통 후보 정리 반영 (DEV-182)`, `docs(source): AC-SRC-1/2/3/5/8 공통 후보 결정과 검증 기록 (DEV-182)`.
+- 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: development에서 발견한 단일 상품 null 농가 이야기 누락을 공통 제품 함수로 고치고 상품 전용 필드·기존 테스트를 보호한다. HEAD=73358eb 유지, 커밋·push·PR·live 호출·holdout 데이터 접근0. 이번 후속 변경은 미커밋으로 보존한다.

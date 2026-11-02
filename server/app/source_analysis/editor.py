@@ -18,7 +18,9 @@ class EditorSave(DraftSave):
 
 
 def suggestions(review, photos=None):
+    from app.ai.source_refine import farm_common_allowed
     from app.source_analysis.refinement import fields as refined_fields
+    from app.source_analysis.refinement import includes_target
     from app.source_analysis.text_safety import (
         has_health_claim,
         has_money,
@@ -83,7 +85,8 @@ def suggestions(review, photos=None):
             choices = [
                 c
                 for c in review["candidates"]
-                if c["targetId"] == target["id"]
+                if includes_target(c["targetId"], target["id"], len(review["targets"]))
+                and (c["targetId"] is not None or farm_common_allowed(c, key))
                 and c["fieldKey"] == key
                 and not c["historical"]
                 and not c["outdated"]

@@ -184,3 +184,13 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 제품 계약은 `docs/spec/source-anal
 합성 manifest 해시 정의는 [제품 spec](../../../docs/spec/source-analysis.md#synthetic-input-definition)을 따른다.
 
 DEV-182 리뷰 보완: PARTIAL retry는 기존 service.retry로 새 Run을 생성한다. 후보 집합 변경 시 기존 정리는 is_current/matching_refinement에서 제외하고 새 REFINE을 큐에 넣으며, 동일 집합 성공 정리는 재사용한다. 실패/불확실 요청은 명시적 재시도 규칙을 유지한다. limit_candidates가 첫 후보부터 상한으로 제외하면 REFINE_INPUT_LIMIT를 worker/평가 runner 모두 기록한다. 부분 빈 chunk와 전체 빈 파일, 오류 중복 안내, PARTIAL 안내는 DB API 회귀와 두 화면 stubbed Playwright로 검증한다.
+
+## DEV-182 단일 상품 농가 공통 후보 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-1/2/3/5/8/11. 제품 결정은 `docs/spec/source-analysis.md`의 단일 상품 공통 근거 절을 따른다.
+
+- `refinement.includes_target`을 worker 조회·검증·empty_reason, final_eval 선택·검증, editor fallback과 REFINED 저장 검증에서 공유한다. worker는 run 대상 수, 검토·저장은 batch 대상 수를 사용한다. null 후보를 상품 ID로 다시 쓰지 않는다.
+- `source_refine.FARM_COMMON_MODULE_FIELDS`에 공통 인용의 필드/모듈 경계를 모은다. mock과 서버 검증·fallback·저장 검증이 같은 규칙을 사용한다. stage-2는 `source-refine-v7-farm-common`으로 올리고 stage-1 prompt는 유지한다.
+- `current_candidates`는 공통/상품 후보를 한 번에 기존 source_order로 정렬한다. 전체 payload SHA-256을 REFINE JSON의 `inputCandidatesHash`에 저장하고 `inputCandidateIds`와 함께 최신성을 확인한다. cap 적용 전 해시이므로 생략된 공통 후보의 같은 ID 내용 수정도 SOURCE_CHANGED/outdated로 처리한다. 버전이 다른 저장 정리는 다음 분석에서 다시 계산한다.
+- 공통 ID를 가진 REFINED 필드를 기존 stored_fields/current_ids 검사와 함께 검증해 editor → draft 저장을 지원한다. 실패/outdated 원문 제안에도 같은 공통 필드 경계를 사용하고 정상 정리의 누락/제외를 복원하지 않는다.
+- 기존 `13-common-farm`을 stage-1 mock 전용 고정 SHA allowlist로 연결하고 실제 추출→정리→검증을 사용한다. 원천 fixture·gold·manifest·scorer는 변경하지 않는다. 원문순 cap·생략 후보 최신성·단일/다중 대상·저장·fallback·empty_reason을 AC ID 합성 테스트로 확인한다.

@@ -435,8 +435,10 @@ def evaluate_source(row, provider, model, calls):
         # Wholly rejected items above still fail; no failed/uncertain request is replayed.
         stage2 = time.perf_counter()
         stage = "refine"
-        # Match refinement.current_candidates: only this target, in evidence source order.
-        selected = [c for c in candidates if c["targetId"] == target["id"]]
+        # Same target/common selection as the product worker; this runner has one product.
+        selected = [
+            c for c in candidates if refinement.includes_target(c["targetId"], target["id"], 1)
+        ]
         positions = {
             (p["number"], s["id"]): (index, s["text"])
             for p in chunk["pages"]
@@ -489,7 +491,9 @@ def evaluate_source(row, provider, model, calls):
                 lambda: refine_ai.refine(provider, model, target, safe),
             )
         stage2_usage = response.usage
-        stored, diagnostics = refinement.validate(response.refinement, selected, target["id"])
+        stored, diagnostics = refinement.validate(
+            response.refinement, selected, target["id"], target_count=1
+        )
         diagnostics["excluded"].extend(
             {"candidateIds": [c["id"]], "reason": "unused"} for c in all_selected[len(selected) :]
         )
@@ -497,7 +501,7 @@ def evaluate_source(row, provider, model, calls):
             **diagnostics,
             **limits,
             "emptyReason": limits["emptyReason"]
-            or refinement.empty_reason(candidates, target["id"], stored),
+            or refinement.empty_reason(candidates, target["id"], stored, target_count=1),
         }
         metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
         record.update(

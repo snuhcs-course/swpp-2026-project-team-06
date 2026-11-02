@@ -184,11 +184,11 @@ def fixture_extract(mode, model, chunk, targets, images):
     )
 
 
-def ready(client, login, monkeypatch, *, count=1, common=False):
+def ready(client, login, monkeypatch, *, count=1, common=False, text=None):
     monkeypatch.setattr(worker, "extract", fixture_extract)
     h = login("u-kang")
     batch = create(client, h, count=count)
-    text = "\n".join(row[1] for row in ROWS)
+    text = text if text is not None else "\n".join(row[1] for row in ROWS)
     source = upload(client, h, batch, text=text, common=common)
     # Start at real parsed text, isolating durable extraction/refinement from subprocess OCR.
     parsed = parse(text.encode(), "text/plain")[0]
@@ -1483,7 +1483,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v6-exact-numbers"
+    assert PROMPT_VERSION == "source-refine-v7-farm-common"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 
@@ -1997,3 +1997,211 @@ def test_AC_SRC_5_8_run_view_empty_file_includes_refine_without_duplicate_reason
     assert refines[0]["acceptedCount"] == 0
     assert refines[0]["emptyReason"] is None
     assert sum(bool(i["emptyReason"]) for i in result["items"]) == 1
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_AC_SRC_1_2_11_common_farm_only_refines_for_single_product(
+    client, login, monkeypatch, count
+):
+    from app.ai import source_analysis as ai
+
+    h, batch, run = ready(
+        client, login, monkeypatch, count=count, common=True, text=ai.MOCK_FARM_TEXT
+    )
+    monkeypatch.setattr(worker, "extract", ai.extract)
+    calls, original = [], refinement.refine
+
+    def track(mode, model, target, source):
+        calls.append(source)
+        return original(mode, model, target, source)
+
+    monkeypatch.setattr(refinement, "refine", track)
+    drain()
+    result = review(client, h, batch)
+    assert len(result["candidates"]) == 1
+    common_id = result["candidates"][0]["candidateIds"][0]
+    assert result["candidates"][0]["targetId"] is None
+    assert len(calls) == count
+    with get_sessionmaker()() as db:
+        items = list(
+            db.scalars(select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE"))
+        )
+        assert len(items) == count and all(i.status == "SUCCEEDED" for i in items)
+        for item in items:
+            assert item.refinement["inputCandidateIds"] == ([common_id] if count == 1 else [])
+            assert item.diagnostics["emptyReason"] == (
+                None if count == 1 else "NO_TARGET_CANDIDATES"
+            )
+    for target in batch["targets"]:
+        story = next(
+            e for e in result["editorFields"]
+            if e["field"]["targetId"] == target["id"] and e["field"]["fieldKey"] == "farmStory"
+        )
+        if count == 1:
+            assert story["status"] == "ready"
+            assert "가상농가에서 재배합니다." in story["field"]["value"]
+            assert story["field"]["candidateIds"] == [common_id]
+            assert story["field"]["provenance"] == "REFINED"
+            assert calls[0][0]["targetId"] is None
+        else:
+            assert story["status"] == "unassigned" and story["field"]["value"] == ""
+            assert not any(calls)
+    if count == 1:
+        saved = client.put(
+            f"{PREFIX}/{batch['id']}/editor", headers=key(h),
+            json={
+                "reviewVersion": result["reviewVersion"],
+                "fields": [e["field"] for e in result["editorFields"]],
+                "targets": [{
+                    "targetId": batch["targets"][0]["id"], "enabledModuleIds": ["farmStory"],
+                }],
+            },
+        )
+        assert saved.status_code == 200, saved.text
+        snapshot = saved.json()["drafts"][0]["snapshot"]
+        assert any(
+            "가상농가에서 재배합니다." in t["value"]
+            for m in snapshot["previewModules"] for t in m["texts"]
+        )
+    assert not worker.run_once()
+
+
+@pytest.mark.parametrize("changed_index", [0, 4])
+def test_AC_SRC_2_5_common_candidates_source_prefix_cap_and_content_freshness(
+    client, login, monkeypatch, changed_index
+):
+    from app.source_analysis.models import Batch, Candidate
+
+    lines = [f"합성 농가 기록 {i}번째 이야기입니다." for i in range(6)]
+    h, batch, run = ready(client, login, monkeypatch, text="\n".join(lines))
+
+    def extract(mode, model, chunk, targets, images):
+        spans = chunk["pages"][0]["spans"]
+        return ExtractionResponse(
+            Extraction(candidates=[
+                {
+                    "targetId": None if i % 2 == 0 else targets[0]["id"],
+                    "fieldKey": "farmStory", "value": span["text"], "historical": False,
+                    "evidence": [{
+                        "sourceId": chunk["sourceId"], "sourceRevision": chunk["sourceRevision"],
+                        "page": 1, "spanIds": [span["id"]], "quote": span["text"],
+                    }],
+                }
+                for i, span in reversed(list(enumerate(spans)))
+            ], photo_requests=[]), {"mock": True}, None,
+        )
+
+    monkeypatch.setattr(worker, "extract", extract)
+    monkeypatch.setattr(refinement, "MAX_REFINE_CANDIDATES", 3)
+    drain()
+    tid = batch["targets"][0]["id"]
+    with get_sessionmaker()() as db:
+        item = db.scalar(select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE"))
+        current = refinement.current_candidates(db, batch["id"], tid)
+        assert [c.value for c in current] == lines
+        assert [c.target_id is None for c in current] == [True, False] * 3
+        assert item.refinement["inputCandidateIds"] == [c.id for c in current]
+        assert refinement.is_current(item, current)
+        selected, limits = refinement.limit_candidates(refinement.payload(current))
+        assert [c["value"] for c in selected] == lines[:3]
+        assert refinement.limit_candidates(refinement.payload(current)) == (selected, limits)
+        assert item.diagnostics["candidatesAnalysed"] == 3
+        assert item.diagnostics["candidatesSkipped"] == 3
+        cited = {
+            cid for m in item.refinement["modules"] for t in m["texts"] for cid in t["candidateIds"]
+        }
+        assert cited == {c.id for c in current[:3]}
+        assert {c.id for c in current[3:]} <= {
+            cid for e in item.refinement["excluded"] for cid in e["candidateIds"]
+        }
+        candidate = db.get(Candidate, current[changed_index].id)
+        assert candidate.target_id is None
+        # Same ID, changed content: both included and capped-out common inputs must go stale.
+        candidate.value += " 가상 기록을 고쳤습니다."
+        db.commit()
+        current = refinement.current_candidates(db, batch["id"], tid)
+        assert not refinement.is_current(item, current)
+        with pytest.raises(RefineError, match="SOURCE_CHANGED"):
+            refinement.check_inputs(
+                db, (db.get(Batch, batch["id"]), None, db.get(Run, run["id"]), item)
+            )
+        assert tid not in refinement.current_refinements(db, db.get(Batch, batch["id"]))
+    assert review(client, h, batch)["refinementResults"][tid]["refinementVersion"] is None
+
+
+@pytest.mark.parametrize("field,module,allowed", [
+    ("farmStory", "farmStory", True),
+    ("historicalSales", "farmStory", True),
+    ("farmUpdates", "farmUpdates", True),
+    ("farmStory", "composition", False),
+    ("farmStory", "specification", False),
+    ("composition", "farmStory", False),
+    ("specification", "farmStory", False),
+    ("summary", "summary", False),
+])
+def test_AC_SRC_1_2_3_common_citations_are_restricted_to_farm_modules(field, module, allowed):
+    common = {**candidates()[4], "id": "common", "targetId": None, "fieldKey": field}
+    output = Refinement(modules=[{
+        "module": module, "texts": [{"value": common["value"], "candidateIds": ["common", "c4"]}],
+    }])
+    source = [common, candidates()[4]]
+    modules, diagnostics = refinement.validate(output, source, "target", target_count=1)
+    assert bool(modules) is allowed
+    assert diagnostics["rejectedCount"] == int(not allowed)
+    if not allowed:
+        assert diagnostics["rejected"][0]["code"] == "INVALID_COMMON_MODULE"
+    # The same citation is always invalid for a multi-product run.
+    modules, diagnostics = refinement.validate(output, source, "target", target_count=2)
+    assert modules == [] and diagnostics["rejected"][0]["code"] == "INVALID_EVIDENCE"
+
+
+@pytest.mark.parametrize("stage", ["failed", "outdated", "pending", "omitted"])
+def test_AC_SRC_1_3_5_11_common_fallback_obeys_module_and_refinement_state(
+    client, login, monkeypatch, stage
+):
+    from app.ai import source_analysis as ai
+
+    h, batch, run = ready(client, login, monkeypatch, common=True, text=ai.MOCK_FARM_TEXT)
+    monkeypatch.setattr(worker, "extract", ai.extract)
+    if stage == "failed":
+        def fail(*args):
+            raise RefineError("FIXTURE_REFINE_FAILED")
+        monkeypatch.setattr(refinement, "refine", fail)
+    elif stage == "omitted":
+        monkeypatch.setattr(refinement, "refine", lambda *args: RefineResponse(
+            Refinement(modules=[], excluded=[]), {"mock": True}, None
+        ))
+    if stage == "pending":
+        await_refine(run)
+    else:
+        drain()
+    if stage == "outdated":
+        with get_sessionmaker()() as db:
+            item = db.scalar(select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE"))
+            item.refinement = {**item.refinement, "version": "stale-version"}
+            db.commit()
+    result = review(client, h, batch)
+    story = next(e for e in result["editorFields"] if e["field"]["fieldKey"] == "farmStory")
+    fallback = stage in {"failed", "outdated"}
+    assert bool(story["field"]["value"]) is fallback
+    if fallback:
+        assert story["status"] == "ready" and story["field"]["provenance"] == "EXTRACTED"
+        assert story["field"]["candidateIds"] == result["candidates"][0]["candidateIds"]
+    else:
+        assert story["field"]["candidateIds"] == []
+    # A null-target product specification cannot become a product fallback suggestion.
+    from app.source_analysis.editor import suggestions
+    result["candidates"][0]["fieldKey"] = "composition"
+    result["refinements"] = {}
+    composition = next(e for e in suggestions(result) if e["field"]["fieldKey"] == "composition")
+    assert composition["field"]["value"] == "" and composition["field"]["candidateIds"] == []
+
+
+@pytest.mark.parametrize("source,reason", [
+    ([], None),
+    ([{"targetId": "other"}], "NO_TARGET_CANDIDATES"),
+    ([{"targetId": None}], "ALL_TEXTS_FILTERED"),
+    ([{"targetId": "target"}], "ALL_TEXTS_FILTERED"),
+])
+def test_AC_SRC_5_8_single_target_empty_reason_counts_common_input(source, reason):
+    assert refinement.empty_reason(source, "target", [], target_count=1) == reason
