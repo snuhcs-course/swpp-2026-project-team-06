@@ -805,3 +805,17 @@ def test_AC_SRC_11_equivalent_facts_plus_distinct_fact_stay_selectable():
 
     assert entry["status"] == "conflict"
     assert entry["field"]["value"] == ""
+
+
+@pytest.mark.parametrize(
+    "values,expected",
+    [
+        (["당도 12°Brix", "당도 15°Brix"], True),
+        (["당도 12° Brix", "당도 15 °Bx"], True),
+        (["당도 12°Brix", "당도 12.0브릭스"], False),
+    ],
+)
+def test_AC_SRC_11_degree_brix_variants_share_one_conflict_rule(values, expected):
+    from app.source_analysis.editor import factual_conflict
+
+    assert factual_conflict("qualityEvidence", [{"value": v} for v in values]) is expected

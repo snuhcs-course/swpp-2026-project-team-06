@@ -23,6 +23,7 @@ class EditorSave(DraftSave):
 
 
 FACT_FIELDS = {"specification", "composition", "pieceCount", "qualityEvidence"}
+BRIX = r"(\d+(?:\.\d+)?)\s*(?:°?\s*(?:bx|brix)|브릭스)"
 
 
 def normalize_fact_value(value):
@@ -34,7 +35,7 @@ def normalize_fact_value(value):
 
     value = re.sub(r"(\d+(?:\.\d+)?)\s*(kg|g|킬로그램|그램)", weight, value)
     value = re.sub(
-        r"(\d+(?:\.\d+)?)\s*(?:°?\s*(?:bx|brix)|브릭스)",
+        BRIX,
         lambda match: format(Decimal(match[1]).normalize(), "f") + "bx",
         value,
     )
@@ -51,9 +52,7 @@ def factual_conflict(key, choices):
         value = unicodedata.normalize("NFKC", choice["value"]).casefold()
         if key == "qualityEvidence":
             # A range or multiple options within ONE source is not source disagreement.
-            brix = tuple(Decimal(n) for n in re.findall(
-                r"(\d+(?:\.\d+)?)\s*(?:°?\s*bx|brix|브릭스)", value
-            ))
+            brix = tuple(Decimal(n) for n in re.findall(BRIX, value))
             if brix:
                 facts["brix"].add(brix)
             continue

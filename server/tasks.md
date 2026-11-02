@@ -2128,3 +2128,6 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 정리 대기(pending) 중 단일 사실 값이 원문으로 채워지던 회귀를 되돌렸다(`elif len(choices) == 1 and not has_refinement`). 기존 `test_AC_SRC_1_2_target_choices_precede_shared_candidates` pending 사례가 다시 통과하고, 새 동등 사실 테스트는 pending이면 missing을 기대하도록 맞췄다.
 - 스캔 WARNING 반영: 같은 값으로 묶인 사실 후보의 대표를 DB 조회 순서가 아닌 가장 작은 candidateId로 정한다. 저장 시 재계산한 추천과 값이 달라져 EDITOR_CONFIRMATION_REQUIRED가 나는 경우를 막는다. 순서 역전·3후보 혼합 회귀 테스트를 추가했다.
 - sandbox 밖 결과: `pytest tests/test_source_editor.py tests/test_source_refine.py tests/test_orders.py` 412 passed(보완 전), 보완 후 editor/refine 362 passed; ruff PASS; `npm run typecheck` PASS; `npm run test:mock` 48 passed / 0 failed.
+
+### DEV-179 머지 전 스캔 반영 (Claude, 2026-11-02)
+- 당도 정규식을 `BRIX` 상수 하나로 합쳐 `factual_conflict`와 `normalize_fact_value`가 같이 쓴다(°Brix 회귀 테스트 추가). review `conflicts.candidateIds`에서 historical 후보를 뺐다.

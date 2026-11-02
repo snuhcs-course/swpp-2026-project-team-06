@@ -602,10 +602,11 @@ def review(db, row):
             grouped[(c.target_id, c.field_key)].append(c)
     from app.source_analysis.editor import factual_conflict
 
+    current = {key: [c for c in values if not c.historical] for key, values in grouped.items()}
     conflicts = [
         {"targetId": key[0], "fieldKey": key[1], "candidateIds": [c.id for c in values]}
-        for key, values in grouped.items()
-        if factual_conflict(key[1], [{"value": c.value} for c in values if not c.historical])
+        for key, values in current.items()
+        if factual_conflict(key[1], [{"value": c.value} for c in values])
     ]
     unique = {}
     for candidate in candidates:
