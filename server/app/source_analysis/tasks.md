@@ -696,3 +696,27 @@ export DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmc
 ```
 
 - Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: bounded crop concurrency, deterministic evidence, call-level budget locking, hard stop/drain, shared eval, no live calls. AI 오류 사례: 독립 리뷰에서 정산 지연과 정산 실패의 경계를 발견해 각각 회귀로 고정했다.
+
+### DEV-191 후속 · 페이지 묶음과 stage-1 병렬화 (2026-11-02)
+
+- 목표/입력: owner의 합성20쪽 PDF 측정은 concurrency1 101.6초 / 4 59.0초, 후보 동일. OCR40회 뒤 stage-1 20회가 순차로 약32초를 사용했다(사용자 제공 측정, 이번 세션 실호출 아님).
+- 범위: 위 DEV-191 허용 경로를 유지한다. `tasks.md`는 이 파일이며 기존 본문/체크박스를 수정하지 않고 이 끝 섹션에만 추가한다.
+- 결정: vision/OCR stage-1은 원문 순서의 span을 쪽 경계 너머로 최대4000자·4쪽까지 채운다. 큰 쪽은 기존 span 경계로 나누고 원래 쪽 번호/span ID를 보존한다. 텍스트 경로와 단일 span 분할 규칙은 유지한다.
+- 결정: `SOURCE_OCR_CONCURRENCY`를 OCR 및 stage-1 각 단계의 제한으로 공유한다. 공용 bounded ordered executor로 병합 순서를 고정하고, 전송 전/제공자 hard 오류 즉시 stop·in-flight 정산·호출별 예약·자동 재시도 금지를 유지한다. eval은 기존 공용 `extract_vision_chunks`로 동일하게 실행한다.
+- 결정: 여러 쪽의 근거는 `(page, spanId)`로 검증한다. 실패 청크의 모든 쪽을 `chunksFailed`에 기록하고 OCR 실패 쪽은 추출에서 제외한다. PARTIAL/FAILED 판정은 DEV-190을 유지한다.
+- 검증 계획: 작은 쪽 묶기/4쪽 제한/4000자 경계/큰 쪽 분할/다쪽 인용·쪽별 동일 span ID/순서·중복·cap/청크 실패/병렬 예산·hard stop을 검증한다. 기존 한 쪽당 한 호출 전제의 테스트는 최대 쪽 수1 및 필요한 순차 동시성을 명시하고 원래 assertion을 유지한다.
+- 실행 제한: 커밋·push·PR·live 호출 없이 로컬 stub/DB 검증만 수행한다. 지정 Ruff/pytest4파일/typecheck 결과를 끝에 추가한다.
+
+#### 후속 구현·검증 기록
+
+- 11/02 구현: vision stage-1을 원문 span 순서의4000자·최대4쪽 청크로 묶었다. OCR/추출은 공용 bounded ordered executor와 `SOURCE_OCR_CONCURRENCY`를 사용한다. 텍스트 분할/근거 검증/DEV-190 판정은 유지하고 `chunksFailed`에는 실패 청크의 모든 쪽을 남긴다. eval은 기존 공용 함수 연결을 그대로 사용하므로 별도 실행 코드 변경이 필요하지 않았다.
+- 11/02 기존 테스트: 한 쪽만 읽는 fake/호출 수·순서·원장 행 수 전제에는 `single_page_extraction_chunks` fixture로 최대 쪽 수1을 명시했다. 호출 순서에 의존하는 테스트만 concurrency1도 명시했다. OCR 병렬 비교 테스트의1/4 설정은 유지했다. AST 감사에서 기존 OCR34개/eval55개 함수의 모든 본문 statement가 순서 있는 부분열로 보존됨을 확인했다(원래 assertion 삭제·수정0).
+- 11/02 격리 사양 기반 test-writer는 구현/diff/커밋 이력 없이 새 회귀19건(parameter 포함)을 추가했다. 20쪽→5청크, 정확한4000자/4쪽 경계, 큰 쪽 분할, 쪽마다 같은 span ID/다쪽 인용과 잘못된 인용 거절, 동시성1/4 후보·상한·중복·순서 동일, 다쪽 청크 실패, 제공자 hard stop/예약 대기 중단/정산 대기, 실제 eval local/전체/평가 예산 원장, 실제 worker PARTIAL/FAILED/호출별 정산, 공용 eval 경로를 검증한다.
+- 11/02 targeted green: `UV_CACHE_DIR=/private/tmp/farmclub-dev191-uv-cache DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmclub_dev191 uv run --directory server pytest tests/test_source_gemini_ocr.py tests/test_final_eval.py -k followup -q` → **19 passed / 178 deselected (4.89s)**. 로그 `/private/tmp/dev191-followup-tests.log`.
+- 11/02 fail-first: 파일을 바꾸지 않고 Python 프로세스 안에서 쪽별 분할로 강제한 packing 테스트 → **1 failed (0.64s)**, 공용 scheduler를 concurrency1로 강제한 병렬 추출 테스트 → **1 failed (3.60s)**. 각각 쪽 묶음 기대값/실제 동시 실행 barrier에서 실패했다. 로그 `/private/tmp/dev191-followup-red-packing.log`, `/private/tmp/dev191-followup-red-concurrency.log`. mutation은 프로세스 종료로 소멸했다.
+- 11/02 지정 최종 검증: server에서 위 DB/cache 환경으로 `uv run ruff check . && uv run pytest tests/test_source_gemini_ocr.py tests/test_final_eval.py tests/test_source_recovery.py tests/test_source_analysis.py` → **Ruff All checks passed / 종료0; pytest 234 passed / 17 failed (47.70s) / 종료1**. 새19건은 모두 통과했다. 로그 `/private/tmp/dev191-followup-final-pytest.log`.
+- 11/02 실패17건 분리 검증: 합성 텍스트 `prepare`에서 `psutil.Process.children(recursive=True)` → `PermissionError: sysctl() malloc 1/3`를 prepare/cleanup 양쪽에서 재현했다. 커밋된 HEAD worker를 Python 프로세스 안에만 로드하여 실패17개 selector를 재실행한 결과도 **동일17 failed (5.30s)**이고 각17건 모두 PREPARE의 같은 PermissionError를 기록했다. OCR8건/recovery3건/source_analysis6건이며 baseline 비교 로그 `/private/tmp/dev191-followup-baseline.log`. sandbox 우회/테스트 약화 없이 지정 묶음 전체 검증은 **미완료**, 기존 상태/체크박스는 유지한다.
+- 11/02 `npm run typecheck` → **5 workspace 통과 / 종료0**. 로그 `/private/tmp/dev191-followup-typecheck.log`. 독립 로컬 diff 리뷰는 구체적 must-fix0건(실행 검증/제공자 호출은 하지 않은 코드 리뷰). 신규 의존성/프롬프트/gold 변경0, 새 라이브 시간/정확도 측정0.
+- 11/02 문서/범위 감사: 제품 spec·구현 spec·wiki의 기존 전체 바이트 prefix를 보존해 끝에만 추가했고 tasks도 append-only를 확인했다. 이번 수정7경로는 전부 DEV-191 허용 범위다. `git diff main...HEAD`681경로와 `origin/main...HEAD`16경로는 기존 커밋 이력이며 이번 후속은 `git diff HEAD`7경로로 별도 대조했다. `git diff --check` 통과.
+- 11/02 의도한 커밋(실행하지 않음): `feat(source): AC-SRC-2/5/10 페이지 묶음과 추출 병렬화 (DEV-191)`; `test(source): AC-SRC-2/3/5/10 다쪽 근거·병렬 추출·비용 회귀 추가 (DEV-191)`; `docs(source): AC-SRC-2/5/10 추출 청크 계약과 검증 기록 (DEV-191)`.
+- 11/02 HEAD `c692c8d` 유지. 커밋·push·PR·외부/live 호출0. Agent 시간 / Tokens는 계측 미제공(추정 미기재). 남은 검증은 sandbox 밖에서 위 지정 pytest4파일 재실행이며 전체 통과 전까지 완료 선언/체크박스 변경은 하지 않는다.
