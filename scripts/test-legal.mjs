@@ -46,6 +46,9 @@ test("DEV-113: privacy policy covers the items the Personal Information Protecti
   for (const contact of ["privacy@anthropic.com", "privacy@openrouter.ai", "privacyquestions@cloudflare.com", "privacy@railway.com", "privacy@vercel.com", "privacy@posthog.com"])
     assert.ok(html.includes(contact), contact);
   assert.ok(!html.includes("도입 예정"));
+  // 앱 안 회원 탈퇴(DEV-94, 제38조 ④). 이메일 요청만 받던 문장은 남기지 않는다
+  assert.ok(html.includes("회원 탈퇴는 소비자 앱 ‘내 정보’"));
+  assert.ok(!html.includes("탈퇴 버튼이 없습니다"));
   // 서버·DB는 Railway asia-southeast1(싱가포르). railway status로 확인(10/23)
   assert.ok(html.includes("싱가포르(서버·데이터베이스 소재지)"));
   // 동의 없이 처리하는 정보는 법적 근거와 함께 구분해 적는다(제22조 제3항)
@@ -93,6 +96,14 @@ test("DEV-113: index.html gets business info in <noscript>", () => {
   assert.match(inserted, /<noscript>.*<\/noscript><\/body>/s);
 });
 
+test("DEV-140: privacy policy lists Kakao name and phone as required, with purpose and prefill", () => {
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.match(html, /카카오 회원번호, 카카오계정 이메일, 이름, 전화번호\(필수\)/);
+  assert.match(html, /받는 사람 이름·연락처, 배송·주문 문의 연락, 생산자 가입 확인 전화/);
+  assert.match(html, /미리 채우는 데 쓰며, 이용자가 직접 고칠 수 있습니다/);
+  assert.doesNotMatch(html, /카카오에서 동의한 경우/);
+});
+
 test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async () => {
   const { readFile } = await import("node:fs/promises");
   const server = (await readFile("server/app/accounts/schemas.py", "utf8")).match(/^CONSENT_VERSION = "([^"]+)"/m)?.[1];
@@ -103,4 +114,11 @@ test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async ()
   // 화면의 시행일과 버전이 같은 날짜다
   const [y, m, d] = server.split("-").map(Number);
   assert.equal(content.privacyPolicy.effective, `${y}년 ${m}월 ${d}일`);
+});
+
+test("DEV-150: privacy policy names the consumer farmclub support room and bumps the version", () => {
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.match(html, /생산자·소비자의 farmclub 문의 대화방\(운영팀 상담\)/);
+  assert.match(html, /2026년 10월 29일 변경: 소비자도 앱 안에서 farmclub 운영팀에 문의할 수 있도록/);
+  assert.equal(content.LEGAL_VERSION, "2026-10-29");
 });

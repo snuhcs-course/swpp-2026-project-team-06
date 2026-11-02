@@ -426,10 +426,7 @@ export function NewsRoom({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="전송"
-              accessibilityState={{
-                disabled: !ready || !body.trim() || busy,
-                busy,
-              }}
+              aria-busy={busy}
               onPress={submit}
               disabled={!ready || !body.trim() || busy}
               style={{

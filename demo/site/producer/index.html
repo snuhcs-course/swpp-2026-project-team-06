@@ -1,0 +1,32 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>farmclub 생산자 앱 데모</title><meta name="description" content="카카오로 가입한 농가가 상품을 올리고 주문·문의를 처리하기까지"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"><style>
+:root{--text:#111111;--muted:#6B6B6B;--bg:#FFFFFF;--surface:#F5F5F3;--line:#E8E8E6;--accent:#C94F0C;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--text);font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 20px 64px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.brand{font-weight:700;font-size:20px;text-decoration:none}.brand span{color:var(--accent)}
+nav{display:flex;gap:8px;flex-wrap:wrap}
+nav a{text-decoration:none;font-size:15px;font-weight:600;padding:8px 16px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
+nav a[aria-current=page]{background:var(--text);color:#fff;border-color:var(--text)}
+h1{font-size:34px;letter-spacing:-.02em;line-height:1.2;margin:0 0 8px}
+.lead{font-size:17px;color:var(--muted);margin:0 0 24px;line-height:1.5}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.video{background:var(--bg);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+video{display:block;width:100%;height:auto;background:#000}
+.meta{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;font-size:15px;color:var(--muted)}
+.meta a{color:var(--accent);font-weight:600;text-decoration:none}
+ol{list-style:none;margin:0;padding:0;background:var(--bg);border:1px solid var(--line);border-radius:16px}
+li{padding:16px 20px;border-top:1px solid var(--line);display:grid;grid-template-columns:28px 1fr;gap:4px 8px}
+li:first-child{border-top:0}
+.n{font-weight:700;color:var(--accent);font-size:15px;line-height:1.5}
+.t{font-weight:600;font-size:17px;line-height:1.5}
+.d{grid-column:2;font-size:15px;color:#333;line-height:1.5}
+.id{grid-column:2;font-size:13px;color:var(--muted)}
+footer{margin-top:32px;font-size:13px;color:var(--muted);line-height:1.6}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.card{display:block;text-decoration:none;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:24px}
+.card b{display:block;font-size:22px;margin-bottom:8px}.card span{color:var(--muted);font-size:15px;line-height:1.5}
+.story{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:8px}.story li{grid-template-columns:72px 1fr}.story .who{font-weight:700;font-size:13px;color:var(--accent);line-height:1.6}
+</style></head><body><div class="wrap"><header><a class="brand" href="/">farmclub<span>.</span> 데모</a><nav><a href="/">전체 흐름</a><a href="/consumer">소비자 앱</a><a href="/producer" aria-current=page>생산자 앱</a><a href="/admin">관리자 페이지</a></nav></header><h1>생산자 앱 데모</h1><p class="lead">카카오로 가입한 농가가 상품을 올리고 주문·문의를 처리하기까지. 전체 흐름 영상의 생산자 앱 장면만 모았어요.</p><div class="grid"><div class="video"><video controls playsinline preload="metadata" src="/videos/producer.mp4"></video><div class="meta"><span>2:32 · 소리 없음</span><a href="/videos/producer.mp4" download>영상 받기</a></div></div><ol aria-label="영상 단계"><li><span class="n">1</span><span class="t">카카오로 시작 · 가입 신청</span><span class="d">카카오로 들어와 대표자·농가·지역·작물·연락처를 적고 신청해요.</span><span class="id">FEAT-01</span></li><li><span class="n">2</span><span class="t">승인 대기</span><span class="d">운영자가 확인할 때까지 기다려요.</span><span class="id">FEAT-01</span></li><li><span class="n">3</span><span class="t">승인된 농가 · 현황</span><span class="d">승인되면 바로 현황으로 들어와요.</span><span class="id">FEAT-14</span></li><li><span class="n">4</span><span class="t">농가 프로필 · 입금 계좌</span><span class="d">사진·소개와 소비자가 입금할 계좌를 정해요.</span><span class="id">FEAT-02 · FEAT-09</span></li><li><span class="n">5</span><span class="t">농가 링크 공유</span><span class="d">농가 링크를 복사해 단골에게 보내요.</span><span class="id">FEAT-19</span></li><li><span class="n">6</span><span class="t">AI 상품 초안</span><span class="d">판매 문구를 붙여넣으면 AI가 상품 정보를 채우고, 없는 건 &#x27;확인 필요&#x27;로 남겨요.</span><span class="id">FEAT-03</span></li><li><span class="n">7</span><span class="t">빈 칸 · 기간 · 가격</span><span class="d">품종·중량·등급·받는 시기·환불 기한, 기간별 가격과 물량을 정해요.</span><span class="id">FEAT-04 · FEAT-05</span></li><li><span class="n">8</span><span class="t">공급 물량 신청</span><span class="d">공급할 총중량을 신청하면 운영자가 승인해요.</span><span class="id">FEAT-04</span></li><li><span class="n">9</span><span class="t">입금 승인 · 소식 올리기</span><span class="d">소비자 입금을 승인하고 팔로워에게 소식을 올려요.</span><span class="id">FEAT-09 · FEAT-12</span></li><li><span class="n">10</span><span class="t">넘어온 질문 답변</span><span class="d">AI가 넘긴 질문에 직접 답해요.</span><span class="id">FEAT-13</span></li></ol></div><footer>SNU SWPP 2026 · Team 6 · farmclub Iteration 2 데모. 실제 운영 서비스(farmclub.kr · farm.farmclub.kr · 관리자 페이지)에서 카카오 로그인으로 녹화했어요. 농가·인물·연락처·계좌는 데모용 가상 정보이고, 카카오 계정 화면은 가렸어요. 출하 처리는 지금 앱에 예약 → 출하 준비로 넘기는 화면이 없어(FEAT-17 AC-17-3) 이 영상에 넣지 않았어요.</footer></div></body></html>

@@ -28,6 +28,8 @@ class User(Base):
     nickname: Mapped[str | None] = mapped_column(String(50))
     email: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # 회원 탈퇴 시각(DEV-94). 탈퇴하면 개인정보를 지우고 행만 남긴다. 토큰은 받지 않는다
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class UserConsent(Base):

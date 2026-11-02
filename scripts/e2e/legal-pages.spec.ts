@@ -48,3 +48,36 @@ test("DEV-113 R-16: producer login shows the legal footer and the gate lets gues
   await expect(page).toHaveURL(/\/privacy$/);
   expect(errors).toEqual([]);
 });
+
+// DEV-116: 카카오가 켜진 운영 로그인은 내용이 짧다. 푸터가 화면 중간에 뜨지 않고 하단 바 바로 위에 붙는다
+for (const [app, url] of [
+  ["producer", producerUrl],
+  ["consumer", consumerUrl],
+] as const) {
+  for (const width of [360, 390, 430]) {
+    test(`DEV-116 R-16: ${app} Kakao login keeps the legal footer at the bottom at ${width}px`, async ({ page }, info) => {
+      await skipHelpGuide(page);
+      await page.setViewportSize({ width, height: 800 });
+      await page.route("**/api/auth/kakao/config", (route) =>
+        route.request().method() === "GET"
+          ? route.fulfill({ json: { enabled: true, clientId: "e2e", redirectPath: "/auth/kakao" } })
+          : route.continue(),
+      );
+      await page.goto(`${url}/login`);
+      await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toBeVisible();
+      const footer = page.getByTestId("legal-footer");
+      await expect(footer).toBeVisible();
+      // 링크가 아닌 중복 글자는 하단 바에 없다
+      await expect(page.getByText("테스트 서비스 · 이용약관 · 개인정보 처리방침", { exact: true })).toHaveCount(0);
+
+      const box = await footer.boundingBox();
+      // 하단 고정 바(카카오 버튼 또는 안내 문구)의 위 끝
+      const bar = await page.getByTestId("login-bottom-bar").boundingBox();
+      expect(box).not.toBeNull();
+      expect(bar).not.toBeNull();
+      expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y + 1);
+      expect(bar!.y - (box!.y + box!.height)).toBeLessThan(24);
+      await info.attach(`${app}-login-${width}`, { body: await page.screenshot(), contentType: "image/png" });
+    });
+  }
+}

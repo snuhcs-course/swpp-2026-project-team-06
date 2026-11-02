@@ -18,6 +18,7 @@ export type ErrorCode =
   | "INTERNAL_ERROR";
 
 export type ConflictReason =
+  | "WITHDRAW_BLOCKED"
   | "STAGE_CHANGED"
   | "SOLD_OUT"
   | "QUANTITY_LIMIT"
@@ -39,7 +40,7 @@ export type ConflictReason =
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
  * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
  */
-export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED";
+export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED" | "TEST_ACCOUNT";
 
 export type ErrorBody = {
   code: ErrorCode;
@@ -104,6 +105,14 @@ export type Consent = {
 };
 
 export type LoginResult = { accessToken: string; user: User };
+
+/** 카카오 로그인 결과(DEV-132). 기존 회원은 accessToken·user, 새 사용자는 signup만(계정은 약관 동의 뒤 생김) */
+export type KakaoLoginResult =
+  | { accessToken: string; user: User; signup?: null }
+  | { accessToken: null; user: null; signup: { signupToken: string; email: string | null } };
+
+/** 가입 대기(DEV-132). 카카오 새 사용자가 약관에 동의하기 전까지 브라우저에 잠깐 둔다 */
+export type PendingSignup = { signupToken: string; email: string | null; expiresAt: number };
 
 /** 카카오 로그인 설정(ADR 0003). enabled=false면 버튼을 숨긴다. redirectPath는 각 앱의 복귀 경로 */
 export type KakaoConfig = {
@@ -622,6 +631,8 @@ export type ChatSummary = {
   lastSenderType: SenderType;
   lastAt: ISODate;
   unreadCount: number;
+  /** farmclub 문의 대화방(DEV-150). farmId는 SUPPORT_ID, 대화는 messaging.supportMessages로 연다 */
+  isSupport?: boolean;
 };
 
 /** OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111) */

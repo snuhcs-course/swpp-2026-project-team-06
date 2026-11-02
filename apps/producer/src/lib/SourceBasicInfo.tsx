@@ -38,21 +38,26 @@ const encode = (input: Record<string, Input>) =>
     };
   });
 
-export function SourceBasicInfo({
-  batch,
-  disabled,
-  flushRef,
-  onDirty,
-  onSaved,
-}: {
+type Options = {
   batch: SourceBatch;
-  disabled: boolean;
   flushRef: MutableRefObject<
     ((required?: boolean) => Promise<void>) | undefined
   >;
   onDirty: (dirty: boolean) => void;
   onSaved: (batch: SourceBatch) => void;
-}) {
+};
+export type BasicInfoKey = keyof Input;
+
+/**
+ * 기본 정보(품종·사이즈·예상 당도) 입력 상태와 blur 저장(DEV-92 저장 완료 대기 포함).
+ * 새 상품 채우기 화면(DEV-184)은 이 훅으로 입력칸을 페이지 곳곳에 둔다.
+ */
+export function useSourceBasicInfo({
+  batch,
+  flushRef,
+  onDirty,
+  onSaved,
+}: Options) {
   const [inputs, setInputs] = useState<Record<string, Input>>(() =>
     values(batch),
   );
@@ -139,7 +144,33 @@ export function SourceBasicInfo({
       flushRef.current = undefined;
     };
   });
+  const change = (targetId: string, key: BasicInfoKey, value: string) => {
+    const next = {
+      ...current.current,
+      [targetId]: {
+        ...current.current[targetId],
+        [key]: value,
+      },
+    };
+    current.current = next;
+    setInputs(next);
+    setError("");
+    onDirty(true);
+  };
+  const blur = () => {
+    void persist().catch(() => {});
+  };
+  return { inputs, error, change, blur };
+}
 
+export function SourceBasicInfo({
+  disabled,
+  ...options
+}: Options & {
+  disabled: boolean;
+}) {
+  const { batch } = options;
+  const { inputs, error, change, blur } = useSourceBasicInfo(options);
   return (
     <View
       testID="source-basic-info"
@@ -191,22 +222,8 @@ export function SourceBasicInfo({
                   editable={!disabled}
                   maxLength={maxLength}
                   keyboardType={key === "brix" ? "decimal-pad" : "default"}
-                  onChangeText={(value) => {
-                    const next = {
-                      ...current.current,
-                      [target.id]: {
-                        ...current.current[target.id],
-                        [key]: value,
-                      },
-                    };
-                    current.current = next;
-                    setInputs(next);
-                    setError("");
-                    onDirty(true);
-                  }}
-                  onBlur={() => {
-                    void persist().catch(() => {});
-                  }}
+                  onChangeText={(value) => change(target.id, key, value)}
+                  onBlur={blur}
                   style={{
                     borderWidth: 1,
                     borderColor: tokens.color.border,

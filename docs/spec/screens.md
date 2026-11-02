@@ -148,7 +148,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-01(AC-01-1, 4~6, 8~13) · 규칙: N-06 · ADR 0003, 0009, 0010 · 우선순위: Must
 - **목적**: 카카오로 로그인하거나(I2, DEV-32) 소비자 테스트 계정을 골라 로그인한다(Mock 플래그가 켜진 동안).
-- **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, ‘카카오로 시작하기’ 버튼(카카오 공식 문구 중 하나, 노랑 #FEE500, 설정이 꺼져 있으면 숨김), 카카오가 켜져 있으면 테스트 계정 로그인은 없음. 꺼져 있을 때(CI·Mock 플래그만)만 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, ‘테스트 서비스’ 표시. 카카오 버튼 아래 ‘카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요.’ 카카오가 켜져 있으면 하단은 ‘이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요’(동의는 SCR-06에서 명시적으로), 꺼져 있으면 기존 안내. 생산자 계정은 목록에 없다.
+- **화면 요소·데이터**: 닫기, 로그인이 필요한 이유 한 줄, ‘카카오로 시작하기’ 버튼(카카오 공식 문구 중 하나, 노랑 #FEE500, 설정이 꺼져 있으면 숨김), 실서버에서 카카오가 켜져 있으면 테스트 계정 로그인은 없음. 꺼져 있을 때(CI·Mock 플래그만)만 소비자 테스트 계정 목록(이름, ‘소비자’), ‘농가는 생산자 앱에서 따로 로그인해요’ 한 줄, ‘테스트 서비스’ 표시. 카카오 버튼 아래 ‘카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요.’ 카카오가 켜져 있으면 하단은 ‘이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요’(동의는 SCR-06에서 명시적으로), 꺼져 있으면 기존 안내. 생산자 계정은 목록에 없다. Mock 모드(`npm run dev`)는 시드 데이터 시연에 계정이 필요해 카카오 버튼과 소비자 테스트 계정 목록을 함께 두고, 카카오 버튼 아래는 ‘Mock: 카카오로 시작하면 처음 가입하는 새 소비자로 들어가요’(Mock 카카오는 새 사용자, 생산자 SCR-19와 같은 규칙, DEV-136).
 - **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부·클라이언트 ID. 카카오 버튼 → 돌아갈 화면·행동을 sessionStorage에 두고 카카오 인가 화면(`state`=일회용 값) → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: consumer`) → 토큰과 사용자. 테스트 계정은 `GET /api/auth/test-accounts?app=consumer`로 목록, 고르면 `POST /api/auth/test-login`(`userId`, `app: consumer`). 토큰은 packages/api가 앱별로 보관한다.
 - **버튼 동작**: 계정 선택 → 로그인 후 누른 화면·행동으로 복귀(관문 시트에서 왔으면 그 행동을 이어서 실행). 카카오 응답의 사용자가 `needsOnboarding=true`(처음 가입)면 SCR-06을 거쳐 복귀한다.
 - **카카오 복귀 `/auth/kakao`**: 닫기와 가운데 로딩 표시, 한 줄 ‘카카오 로그인 중이에요’만 둔다(제목·설명·스켈레톤 없음, 생산자 앱 SCR-19와 같은 모양). 끝나면 위 버튼 동작대로 원래 화면·행동(처음 가입이면 SCR-06)으로 간다. 이미 로그인된 채 다시 열면(새로고침·뒤로 가기, `state`는 이미 쓰임) 오류 없이 홈(온보딩이 남았으면 SCR-06)으로 간다. 서버가 15초 안에 답하지 않으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’와 ‘다시 로그인’·‘홈으로’(DEV-112).
@@ -162,13 +162,14 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **입력·출력**: ① `POST /api/auth/me/consents`(항목·버전·동의 여부) → `PATCH /api/auth/me`(`nickname`, `name`, `phone`) → `GET /api/auth/me`. 카카오에서 온 값(2단계: 이름·전화번호)은 미리 채운다. ② `POST /api/auth/me/addresses`(`isDefault=true`).
 - **버튼 동작**: 다음 → ②. 저장하고 시작하기·주문할 때 입력할게요 → 관문에서 왔으면 원래 화면으로 돌아가 그 행동을 잇고, 아니면 `next`. 닫기(①) → 계정은 남고 행동은 실행하지 않으며 원래 화면, 다음 관문에서 다시 ①. 온보딩 화면에 있는 동안에는 이어서 할 행동을 실행하지 않는다.
 - **빈 상태·오류**: 비로그인으로 열면 SCR-05. 이미 마친 계정이 열면 `next`로. 저장 실패 → 입력 유지, 필드 오류는 칸 아래, 연결 실패는 공통 토스트와 다시 시도.
+- **가입 동의 모드 (DEV-132, AC-01-19)**: 카카오 새 사용자는 계정이 없고 가입 토큰만 있다. 이때는 ‘1 / 2’와 프로필 칸 없이 제목 ‘약관에 동의하고 가입해요’, 안내 ‘이용약관과 개인정보 처리방침에 동의하면 계정이 만들어져요. 동의하지 않으면 아무것도 저장하지 않아요.’, 카카오계정 이메일 칩, 동의 목록, ‘동의하고 가입하기’만 보인다. `POST /api/auth/kakao/signup`으로 계정이 생기면 같은 화면이 프로필 입력(‘1 / 2’, 동의 칸 없음)으로 바뀐다. 닫으면 가입 대기를 지운다.
 - **재동의 모드 (DEV-113, AC-01-17)**: 프로필(닉네임·이름·휴대폰)을 이미 채운 회원이 약관·처리방침 버전이 바뀌어 `consentRequired=true`로 오면, ‘1 / 2’와 프로필 칸·이메일 칩 없이 제목 ‘약관이 바뀌었어요’, 안내 ‘바뀐 이용약관과 개인정보 처리방침에 동의해야 주문·팔로우·채팅을 계속할 수 있어요.’, 동의 목록, ‘동의하고 계속하기’만 보인다. 저장하면 배송지 단계 없이 원래 화면·행동으로. 앱을 열 때 한 번 자동으로 뜨고(약관·로그인 화면 제외), 닫아도 농가에 닿는 행동은 관문이 다시 이 화면을 연다. 동의 시트의 ‘전문 보기’는 `/terms`·`/privacy`.
 
 ### SCR-19a 약관 동의 `/consent` (생산자 앱, DEV-113)
 
-- **관련**: FEAT-01(AC-01-18) · 정책 5장 · Figma 후속 DEV-116
-- **목적**: 생산자가 지금 버전의 이용약관·개인정보 처리방침에 동의해야 생산자 앱을 쓰게 한다. 새 생산자는 로그인 → 이 화면 → 가입 신청(SCR-20).
-- **화면 요소·데이터**: 헤더 ‘약관 동의’(뒤로 = 로그아웃), 제목 ‘약관에 동의하고 시작해요’, 안내 한 줄, ‘모두 동의해요’, 이용약관(필수)·개인정보 수집·이용(필수)과 각 ‘보기’(전문 `/terms`·`/privacy`), ‘버전 2026-10-23’, 하단 ‘동의하고 계속하기’(둘 다 체크해야 켜짐).
+- **관련**: FEAT-01(AC-01-18) · 정책 5장 · Figma v6 ‘현재 시안 · 생산자’ DEV-116 줄(node 481:8092·481:8122)
+- **목적**: 생산자가 지금 버전의 이용약관·개인정보 처리방침에 동의해야 생산자 앱을 쓰게 한다. 새 생산자는 카카오 로그인 → 이 화면(계정 없이 가입 토큰으로 열림, 동의하면 `POST /api/auth/kakao/signup`으로 계정 생성, DEV-132) → 가입 신청(SCR-20). 가입 전 뒤로 가기는 가입 대기를 지우고 로그인으로.
+- **화면 요소·데이터**: 헤더 ‘약관 동의’(뒤로 = 로그아웃), 제목 ‘약관에 동의하고 시작해요’, 안내 한 줄, ‘모두 동의해요’, 이용약관(필수)·개인정보 수집·이용(필수)과 각 ‘보기’(전문 `/terms`·`/privacy`), ‘버전 2026-10-29’, 하단 ‘동의하고 계속하기’(둘 다 체크해야 켜짐).
 - **입력·출력**: `POST /api/auth/me/consents`(TERMS·PRIVACY, 지금 버전) → `GET /api/auth/me`.
 - **버튼 동작**: 저장 후 관문이 농가 상태에 맞는 화면으로 보낸다. 쓰는 중에 403 `CONSENT_REQUIRED`를 받으면 내 정보를 다시 읽고 이 화면으로 온다.
 - **빈 상태·오류**: 저장 실패 → 체크 유지, ‘저장하지 못했어요. 다시 시도해 주세요.’
@@ -229,8 +230,9 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **목적**: 소식방 / 1:1 채팅을 전환하고 여러 농가 대화를 고른다. 처음은 소식방(SCR-18), 이후 선택·스크롤 유지.
 - **화면 요소·데이터**: 1:1 목록 행(원형 농가 사진, 농가명, 마지막 질문·답 앞부분, 시각, 안 읽음, AI 안내 여부). 팔로우 중이거나 본인 결제 주문 문의가 있는 농가, 최근 순. 일반 대화는 재팔로우하면 이전 기록이 보인다. 소식은 소식방 구분에만 보이고 1:1 목록·대화에는 섞지 않는다(AC-12-5).
 - **입력·출력**: `GET /api/messaging/chats?cursor=&limit=`.
-- **버튼 동작**: 카드 → SCR-16.
-- **빈 상태·오류**: 채팅 없음 → ‘농가에 궁금한 점을 물어보세요’와 농가 둘러보기(SCR-02). 실패 → 다시 시도.
+- **farmclub 문의 대화방(DEV-150, AC-34-7)**: 1:1 목록에 'farmclub'(로고, ‘farmclub 운영팀 · 궁금한 점을 물어보세요’)이 함께 보인다. 고정하지 않고 최근 순이며, 가입 때 생긴 환영 메시지로 처음엔 안 읽음 1이다.
+- **버튼 동작**: 카드 → SCR-16. farmclub 행 → SCR-16 하위 `/chats/support`.
+- **빈 상태·오류**: 농가와의 대화가 없으면 farmclub 행 아래에 ‘아직 농가와 나눈 1:1 대화가 없어요’와 농가 둘러보기(SCR-02). 실패 → 다시 시도.
 
 ### SCR-16 농가 1:1 채팅 `/chats/:farmId`
 
@@ -242,6 +244,12 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **버튼 동작**: 보내기 → 1회, 처리 중 잠금. AI 안내는 등록된 정보로만 답하고, 근거가 없거나 전달 주제면 ‘농가에 전달했어요’(M-06·M-07). 소비자는 전달되지 않은 AI 답변마다 ‘틀렸어요’를 눌러 신고할 수 있다. `POST /api/messaging/chats/{farmId}/messages/{messageId}/report`는 기존 질문함 흐름으로 오답 Escalation을 만들고, 중복 신고는 기존 신고를 반환한다. 위로 → 이전 cursor.
 - **빈 상태·오류**: 아직 질문이 없으면 ‘궁금한 점을 물어보세요’. 본인 결제 주문 문의 예외 없이 팔로우하지 않은 농가의 채팅 주소로 바로 들어오면(403) 그 농가 SCR-03으로 보낸다(IA 5장 예외 경로). 보내기 실패 → 입력창에 글·사진 유지, 다시 보내기. AI 실패·시간 초과 → 전달로 처리(N-04). 불러오기 실패 → 이미 보인 것을 유지하고 다시 시도.
 
+#### SCR-16 하위: farmclub 문의 대화방 `/chats/support`
+- **관련**: FEAT-34(AC-34-6~8) · 규칙: M-22, M-16.
+- **화면**: 헤더 'farmclub'·부제 ‘고객센터’(로고), ‘farmclub 운영팀에 물어보세요’ 안내(사람이 답하고 AI가 답하지 않음), 시간순 타임라인(운영팀 말풍선 이름 'farmclub'), 입력창(글만, 사진 첨부 없음).
+- **입출력**: `GET /api/messaging/support/messages`, 보내기 `POST /api/messaging/support/messages`(`text` 1~1,000자, 연락처 가림, `reply`는 항상 null), 읽음 `PUT /api/messaging/support/read`.
+- **오류**: 보내기 실패 → 입력 유지, 다시 보내기.
+
 ### SCR-17 내 정보 `/me`
 
 - **관련**: FEAT-06(AC-06-3), FEAT-08(AC-08-5), FEAT-10, FEAT-01(AC-01-7) · 탭: 내 정보 · 우선순위: Should
@@ -250,6 +258,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **입력·출력**: `GET /api/auth/me`, `GET /api/farms/following`.
 - **버튼 동작**: 팔로우한 농가 → SCR-03. 배송지 관리 → `/me/addresses`. 농가로 시작하기 → 시트 ‘생산자 앱은 따로 가입해요’(소비자 계정으로는 농가를 열 수 없고, 생산자 앱 가입 신청이 생산자 계정을 따로 만든다는 안내) → ‘생산자 앱에서 가입하기’ → 생산자 앱 SCR-19(가입 신청 링크). 로그아웃 → 토큰 삭제, SCR-01.
 - **빈 상태·오류**: 팔로우 없음 → ‘팔로우한 농가가 없어요’와 농가 둘러보기.
+- **회원 탈퇴 (DEV-94, AC-01-20)**: 설정 목록 끝 ‘회원 탈퇴’(테스트 계정은 없음) → 시트 1단계 ‘탈퇴하면 바로 지워져요’(지워지는 것·남는 것·끝나지 않은 주문이 있으면 불가) → ‘다음’ → 2단계 ‘정말 탈퇴할까요?’(되돌릴 수 없음, 재가입은 새 계정) → ‘탈퇴할게요’. 성공하면 로그아웃하고 홈으로. 409면 시트에 주문 번호와 안내. 생산자 앱은 SCR-33 계정 영역과 SCR-21 하단에 같은 시트.
 
 #### SCR-17 하위: 배송지 관리 `/me/addresses`
 
@@ -289,7 +298,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-01(AC-01-3~6, 10, 16) · 규칙: R-22, R-24, N-06 · ADR 0003, 0009, 0010 · 우선순위: Must
 - **목적**: 카카오로 시작하거나(I2, DEV-74) 생산자 테스트 계정을 골라 로그인한다. 처음이면 카카오로 시작한 뒤 농가로 가입 신청한다.
-- **화면 요소·데이터**: 워드마크 ‘농가용’, 생산자 테스트 계정 목록(이름, 농가명 · 상태: 승인됨·확인 중·반려됨·정지됨·아직 농가 등록 안 함), ‘생산자 테스트 계정만 보여요’ 한 줄, ‘처음이세요? 농가로 가입 신청 ›’, 약관·개인정보 처리방침 링크, ‘테스트 서비스’, 하단 ‘○○으로 시작하기’. 소비자 계정은 목록에 없다. 실서버에서 카카오가 켜져 있으면 제목 ‘농가로 시작하세요’, ‘처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요. 카카오에서는 이메일만 받고, 대표자 이름·연락처는 가입 신청에서 입력해요.’, 하단 ‘카카오로 시작하기’만 두고 테스트 계정 목록·가입 신청 링크는 숨긴다. Mock 모드는 상태별 시연 계정이 필요해 카카오 버튼과 테스트 계정 목록을 함께 둔다(Mock 카카오는 농가 없는 새 생산자).
+- **화면 요소·데이터**: 워드마크 ‘농가용’, 생산자 테스트 계정 목록(이름, 농가명 · 상태: 승인됨·확인 중·반려됨·정지됨·아직 농가 등록 안 함), ‘생산자 테스트 계정만 보여요’ 한 줄, ‘처음이세요? 농가로 가입 신청 ›’, 하단 사업자 정보 푸터(약관·개인정보 처리방침 링크, 사업자 정보가 없으면 ‘테스트 서비스’, 내용이 짧으면 하단 바 바로 위, DEV-116), 하단 바 ‘○○으로 시작하기’(하단 바에 따로 약관 글자를 두지 않는다). 소비자 계정은 목록에 없다. 실서버에서 카카오가 켜져 있으면 제목 ‘농가로 시작하세요’, ‘처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요. 카카오에서는 이메일만 받고, 대표자 이름·연락처는 가입 신청에서 입력해요.’, 하단 ‘카카오로 시작하기’만 두고 테스트 계정 목록·가입 신청 링크는 숨긴다. Mock 모드는 상태별 시연 계정이 필요해 카카오 버튼과 테스트 계정 목록을 함께 둔다(Mock 카카오는 농가 없는 새 생산자).
 - **입력·출력**: `GET /api/auth/kakao/config`로 카카오 사용 여부. 카카오 버튼 → `state` 일회용 값을 sessionStorage에 두고 카카오 인가 화면 → `/auth/kakao?code&state`로 복귀 → `POST /api/auth/kakao`(`code`, `redirectUri`, `app: producer`) → 토큰과 사용자(농가 상태). 테스트 계정은 `GET /api/auth/test-accounts?app=producer`, 고르면 `POST /api/auth/test-login`(`userId`, `app: producer`).
 - **버튼 동작**: 시작하기 → 상태에 따라 농가 없음 → SCR-20, 확인 중·반려 → SCR-21, 승인 → SCR-22, 정지 → 정지 안내 `/suspended`. 농가로 가입 신청 → SCR-20(I1은 ‘신규 생산자’ 계정으로 로그인해 신청한다. I2는 카카오로 생산자 계정을 만들며 신청).
 - **카카오 복귀 `/auth/kakao`**: 가운데 로딩 표시와 한 줄 ‘카카오 로그인 중이에요’만 둔다(제목·설명·스켈레톤 없음). 로그인이 끝나면 위 버튼 동작의 농가 상태별 화면으로 바로 간다. 이미 로그인된 채 다시 열면(새로고침·뒤로 가기, `state`는 이미 쓰임) 오류 없이 같은 상태별 화면으로 간다. 서버가 15초 안에 답하지 않으면 ‘로그인이 오래 걸리고 있어요. 다시 시도해 주세요.’와 ‘다시 로그인’(DEV-108).
@@ -441,6 +450,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **화면**: 원형 농가 요약, 프로필·공유 링크 → SCR-30, AI 응답 설정 → SCR-31, 로그아웃. 소식 작성 버튼 없음.
 - **입출력**: 기존 farms/me·auth API 재사용. 새 API 없음.
 - **오류**: 조회 재시도. 로그아웃 후 생산자 로그인으로 돌아간다.
+- **회원 탈퇴 (DEV-94)**: ‘계정’ 영역의 ‘회원 탈퇴’(테스트 계정은 없음) → SCR-17과 같은 2단계 시트(농가가 숨겨지고 입금 계좌·연락처가 지워진다는 안내). 성공하면 로그아웃 → SCR-19.
 
 ## 7. API
 
@@ -483,11 +493,13 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /api/auth/test-accounts` | 공개(Mock 플래그) | SCR-05, 19 | `app`(`consumer`·`producer`, 필수) | 그 앱의 시드 테스트 계정 목록(`userId`, 이름, 역할, 농가명, 농가 상태). 소비자 앱은 소비자 계정만, 생산자 앱은 생산자 계정만 | FEAT-01 | Must |
 | `POST /api/auth/test-login` | 공개(Mock 플래그) | SCR-05, 19 | `userId`, `app` | `accessToken`, 사용자(역할, 농가 상태). 시드 계정이 아니면 404, 플래그가 꺼지면 404, 계정 역할이 `app`과 다르면 403 `WRONG_APP` | FEAT-01 | Must |
 | `GET /api/auth/kakao/config` | 공개 | SCR-05 | — | `enabled`(REST API 키 유무), `clientId`, `redirectPath`(`/auth/kakao`) | FEAT-01 I2 | Must |
-| `POST /api/auth/kakao` | 공개 | `/auth/kakao` 복귀 | `code`, `redirectUri`(두 앱 주소의 `/auth/kakao`만), `app` | `accessToken`, 사용자. (카카오 식별자, 역할) 계정을 찾거나 만든다. 키가 없으면 404, 복귀 주소·카카오 인증 실패면 400 | FEAT-01 I2 | Must |
+| `POST /api/auth/kakao` | 공개 | `/auth/kakao` 복귀 | `code`, `redirectUri`(두 앱 주소의 `/auth/kakao`만), `app` | 기존 회원은 `accessToken`, 사용자. 새 사용자는 계정을 만들지 않고 `signup`(`signupToken` 30분, `email`)만(DEV-132). 키가 없으면 404, 복귀 주소·카카오 인증 실패면 400 | FEAT-01 I2 |
+| `POST /api/auth/kakao/signup` | 공개(가입 토큰) | SCR-06 가입 동의, SCR-19a | `signupToken`, `consents[]`(역할별 필수 항목, 지금 버전) | `accessToken`, 사용자. 계정·동의 기록을 함께 만든다. 동의 누락·옛 버전 400 `consents`, 토큰 위조·만료 400 `signupToken`(DEV-132, AC-01-19) | FEAT-01 I2 | Must |
 | `GET /api/auth/me` | 로그인 | SCR-17, 앱 시작, 정지 안내 | — | 사용자, 역할, 농가 상태(`NONE`·`PENDING`·`REJECTED`·`APPROVED`·`SUSPENDED`), 정지 사유, `nickname`, `email`, `phone`, `needsOnboarding`(소비자 카카오 계정만 true 가능) | FEAT-01 | Must |
 | `PATCH /api/auth/me` | 소비자 | SCR-06, SCR-17 하위 | 선택 `nickname`(2~12자), `name`(2~20자), `phone`(휴대폰 형식). 보낸 필드만 | 사용자(위와 같음). 검증 실패 400 `fields` | FEAT-01 I2 | Must |
 | `GET /api/auth/me/consents` | 소비자·생산자(DEV-113) | SCR-06, SCR-19a | — | 가입 동의 목록(`kind`, `version`, `agreed`, `agreedAt`) | FEAT-01 I2 | Should |
 | `POST /api/auth/me/consents` | 소비자·생산자(DEV-113) | SCR-06, SCR-19a | `consents[]`: `kind`(`TERMS`·`PRIVACY`·`AGE14`·`MARKETING`), `version`, `agreed`(기본 true) | 가입 동의 목록. 항목마다 한 줄, 다시 보내면 버전·시각 갱신 | FEAT-01 I2 | Must |
+| `POST /api/auth/me/withdraw` | 소비자·생산자 | SCR-17, SCR-21, SCR-33 | — | 204. 개인정보 파기·거래 기록 보존(AC-01-20). 끝나지 않은 주문 409 `WITHDRAW_BLOCKED`(`orderNos`), 테스트 계정 403 `TEST_ACCOUNT`. 이후 그 토큰은 401(DEV-94) | FEAT-01 | Must |
 | `POST /api/auth/producer-application` | 생산자 계정 | SCR-20 | `ownerName`(대표자 이름), 농가명, 지역, 주 품목, 연락처, 입점 정책 동의 | 농가(`PENDING`), 계정 이름을 대표자 이름으로 | FEAT-01 | Should |
 | `GET /api/auth/producer-application` | 생산자 계정 | SCR-20, 21 | — | 신청 상태, 반려 사유, 신청 내용(대표자 이름·농가명·지역·주 품목·연락처, 신청일) | FEAT-01 | Should |
 | `GET /api/auth/me/addresses` | 소비자 | SCR-10, 17 | — | 저장 배송지 목록(기본 표시) | FEAT-08 | Must |
@@ -551,7 +563,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `PUT /api/messaging/news/{broadcastId}/reaction` | 소비자 | SCR-03, 18 | — | 반응 수, 내 반응 `true`. 볼 수 없는 소식이면 404 | FEAT-15 | Should |
 | `DELETE /api/messaging/news/{broadcastId}/reaction` | 소비자 | SCR-03, 18 | — | 반응 수, 내 반응 `false` | FEAT-15 | Should |
 | `POST /api/messaging/news` | 생산자 | SCR-27 | 본문, 첨부, `visibility`(`PUBLIC`·`FOLLOWERS`) | `broadcastId`, 작성 시각, 받을 팔로워 수 | FEAT-12 | Should |
-| `GET /api/messaging/chats` | 소비자 | SCR-15 | `cursor`, `limit` | 팔로우 중이거나 본인 결제 주문 문의가 있는 농가와의 1:1 목록 | FEAT-12 | Should |
+| `GET /api/messaging/chats` | 소비자 | SCR-15 | `cursor`, `limit` | 팔로우 중이거나 본인 결제 주문 문의가 있는 농가와의 1:1 목록, 그리고 자기 farmclub 문의 대화방 한 줄(`isSupport: true`, `farmId = u-farmclub`, 최근 순) | FEAT-12, 34 | Should |
+| `GET·POST /api/messaging/support/messages`, `PUT /api/messaging/support/read` | 소비자 본인(보내기는 온보딩·지금 버전 동의를 마친 소비자) | SCR-16 하위 | POST `text`(1~1,000자, `Idempotency-Key`), PUT `lastReadMessageId` | farmclub 문의 대화방 메시지(`CONSUMER`·`OPERATOR`), 보낸 문의(연락처 가림, `reply` null), 안 읽은 수(DEV-150) | FEAT-34 | Should |
 | `POST /api/messaging/chats` | 소비자 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Should |
 | `GET /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`). AI 답변 행에는 서버가 계산한 신고 여부 `reported` | FEAT-12, 13 | Should |
 | `POST /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `text`, `attachmentIds`, `orderId?`, `productId?`(SCR-04에서 연 채팅의 상품. 그 농가의 판매 중 상품이 아니면 404. AI 근거로만 쓰고 저장하지 않으며 `orderId`가 있으면 주문이 우선, DEV-97) | `{message,reply}`; 직접 응대/OFF는 reply=null, 계약 4장 | FEAT-12, 13 | Should |
@@ -582,10 +595,13 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /admin/farms/{farmId}/retire`·`POST /admin/farms/{farmId}/restore` | 운영자, `Idempotency-Key` | — | 테스트 농가를 숨김(`SUSPENDED`, 고정 사유) 또는 다시 공개. 테스트 계정이 아닌 소비자 주문이 있으면 409 `TEST_FARM_REFUSED`. 행은 지우지 않는다(DEV-93·DEV-98) | R-24 | Should |
 | `GET /admin/users` | 운영자 | `q?`(이름·닉네임·ID·농가 이름, 숫자 4자리 이상이면 전화 끝자리), `role?`(`CONSUMER`·`PRODUCER`), `kind?`(`test`·`real`), `limit?`(기본 50, 최대 200) | 운영자 계정을 뺀 사용자 목록(가입 방식 시드·카카오, 테스트 여부, 전화 끝 4자리, 가입일, 주문 수, 소유 농가), 가입 최신순, 전체 수. 관리자 페이지 사용자(DEV-107)가 쓴다 | — | Should |
 | `POST /admin/users/{userId}/mark-tester`·`POST /admin/users/{userId}/unmark-tester` | 운영자, `Idempotency-Key` | — | 운영 검증 계정 표시(`opsTester`) 켜기·끄기. 테스트 농가 숨기기의 실사용자 주문 검사에서 테스트로 센다. 로그인·온보딩·앱 화면은 바뀌지 않는다. 운영자 계정·시드 테스트 계정은 409(`ADMIN_ACCOUNT`·`SEED_TEST_ACCOUNT`) (DEV-107) | — | Should |
-| `GET /admin/support` | 운영자 | — | 농가별 farmclub 문의 대화방 목록(농가·생산자·지역, 최근 메시지와 보낸 사람, 운영자가 안 읽은 생산자 메시지 수, `waiting` = 마지막 메시지가 생산자). 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함(DEV-111)이 쓴다 | M-22 | Should |
+| `GET /admin/support` | 운영자 | — | farmclub 문의 대화방 목록. 생산자 방(`kind = PRODUCER`, `targetId` = 농가 ID)과 소비자 방(`kind = CONSUMER`, `targetId` = 사용자 ID, DEV-150, 소비자 메시지가 한 번이라도 있는 방만)을 함께 내려 준다. 행마다 이름·설명, 최근 메시지와 보낸 사람, 운영자가 안 읽은 문의 수, `waiting` = 마지막 메시지가 문의. 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함이 쓴다 | M-22 | Should |
 | `GET /admin/support/{farmId}/messages` | 운영자 | — | 그 농가 대화방 전체 메시지(`OPERATOR`·`PRODUCER`), 안 읽은 수. 대화방이 없으면 404 | M-22 | Should |
 | `POST /admin/support/{farmId}/messages` | 운영자, `Idempotency-Key` | `text`(1~1,000자) | 운영팀 답장(`senderType = OPERATOR`). 운영자 감사 기록을 남긴다. 읽음 위치는 바꾸지 않는다(읽음은 `/read`만) | M-22 | Should |
 | `POST /admin/support/{farmId}/read` | 운영자 | `messageId` | 운영자 읽음 위치(뒤로 가지 않음), 남은 안 읽은 수 | M-22 | Should |
+| `GET·POST /admin/support/consumers/{userId}/messages`, `POST /admin/support/consumers/{userId}/read` | 운영자(답장은 `Idempotency-Key`) | 답장 `text`(1~1,000자), 읽음 `messageId` | 소비자 문의 대화방(DEV-150). 생산자 방과 같은 규칙(답장은 감사 기록, 읽음 위치는 `/read`만) | M-22 | Should |
+| `GET /admin/ai-usage` | 운영자 | `feature?`(`spec_check`·`product_draft`·`detail_draft`·`ai_answer`·`source_analysis`), `limit?`, `cursor?` | AI 호출 비용. `features`: 기능별 `thisMonth`(KST)·`last7Days`·`total`(호출 수, 입력·출력 토큰, 추정 금액 USD, 금액 없는 호출 수), `overall`: 같은 세 기간 전체 합계, `items`: 호출 목록(기능·모델·토큰·금액, spec-check는 PR 번호·제목·결과·실행 링크, 최신순). 관리자 페이지 AI 비용(DEV-144)이 쓴다 | — | Should |
+| `POST /internal/spec-check-runs` | CI 전용(`X-Spec-Check-Token` = 서버 `SPEC_CHECK_USAGE_TOKEN`) | `runKey`, `prNumber`, `prTitle`, `headSha`, `status`, `mode`, `model`, `inputTokens`, `outputTokens`, `runUrl`, `ranAt?` | spec-check가 모델을 부른 실행 한 건을 AI 비용(`spec_check`)으로 저장, 금액은 서버 단가표로 계산. 같은 `runKey`는 처음 기록 그대로. 토큰 미설정 503, 틀리면 401 (DEV-144) | — | Should |
 | `GET /admin/users/{userId}`·`GET /admin/users/by-order/{orderIdOrNo}` | 운영자 | — | 사용자 프로필(이름·닉네임·역할·테스트 계정·카카오 여부·농가)과 소비자 주문 최근 100건(상품·농가·상태·금액·입금 기한·입금 알림·입금 확인 주체·환불 이력·남은 결제 금액·받는 사람 앞 글자, 보일 버튼). 받는 사람 전화·주소, 계정 전화·이메일은 내려 주지 않는다. 주문 ID 또는 주문 번호(입금자명)로 소비자를 찾는다. 관리자 페이지 사용자 화면(DEV-106)이 쓰고, 처리는 위 운영자 주문 API를 그대로 부른다 | R-11, R-12, R-19, R-28 | Should |
 | `DELETE /admin/messages/{messageId}` | 운영자 | — | 204 | 정책 4장 | Should |
 

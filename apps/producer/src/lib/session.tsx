@@ -115,6 +115,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // 약관·처리방침(DEV-113)은 로그인·승인 상태와 상관없이 열린다
   useEffect(() => {
     if (!ready || PUBLIC_PATHS.includes(pathname)) return;
+    // 카카오 새 사용자(가입 토큰만, DEV-132)는 계정 없이 약관 동의 화면에 머문다
+    if (!user && pathname === "/consent" && auth.pendingSignup()) return;
     const g = homeFor(user);
     if (!g.allowed(pathname)) router.replace(g.home as never);
   }, [ready, user, pathname, router]);

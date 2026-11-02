@@ -36,9 +36,11 @@ from app.source_analysis.preprocess import (
     PreparationError,
     prepare,
     scrub,
+    text_chunks,
 )
 from app.source_analysis.service import refresh_runs
 from app.source_analysis.storage import Storage
+from app.source_analysis.text_safety import numbers
 
 
 def claim():
@@ -191,15 +193,7 @@ def enqueue_extraction(db, source, run, item, pages):
     )
     for page in pages:
         spans = page.redacted_spans
-        groups, group, size = [], [], 0
-        for span in spans:
-            length = len(span["text"])
-            if size + length > 20_000 and group:
-                groups.append(group)
-                group, size = [], 0
-            group.append(span["id"])
-            size += length
-        groups.append(group)
+        groups = [[s["id"] for s in group] for group in text_chunks(spans)]
         if run.mode == "openrouter" and page.sanitized_key:
             groups = [[s["id"] for s in spans]]
         for group in groups:
@@ -249,9 +243,6 @@ def validate(extraction, chunk, allowed_targets):
     for candidate_index, candidate in enumerate(extraction.candidates):
         quotes = "\n".join(e.quote for e in candidate.evidence)
 
-        def numbers(value):
-            return set(re.findall(r"\d+(?:[,.]\d+)*", value))
-
         if numbers(candidate.value) - numbers(quotes):
             raise ExtractionError("UNSUPPORTED_NUMBER")
         if (
@@ -299,9 +290,7 @@ def validate_candidates(extraction, chunk, allowed_targets):
     """Keep strict per-candidate checks; a bad quote cannot discard unrelated facts."""
     accepted, rejected = [], []
     for index, candidate in enumerate(extraction.candidates):
-        single = extraction.model_copy(
-            update={"candidates": [candidate.model_copy(deep=True)]}
-        )
+        single = extraction.model_copy(update={"candidates": [candidate.model_copy(deep=True)]})
         try:
             validate(single, chunk, allowed_targets)
         except ExtractionError as exc:
@@ -316,6 +305,19 @@ def validate_candidates(extraction, chunk, allowed_targets):
         else:
             accepted.extend(single.candidates)
     return extraction.model_copy(update={"candidates": accepted}), {
+        "emptyReason": (
+            "ALL_CANDIDATES_REJECTED"
+            if rejected
+            else "NO_SAFE_TEXT"
+            if not any(
+                s["text"].strip() and s["text"] != "[가림]"
+                for p in chunk["pages"]
+                for s in p["spans"]
+            )
+            else "NO_CANDIDATES"
+        )
+        if not accepted
+        else None,
         "acceptedCount": len(accepted),
         "rejectedCount": len(rejected),
         "rejected": rejected,
@@ -362,8 +364,12 @@ def store_candidates(db, batch, item, extraction):
         )
         for cid in field.candidate_ids
     }
-    retained = set()
+    retained, seen = set(), set()
     for value in extraction.candidates:
+        signature = value.model_dump_json(by_alias=True)
+        if signature in seen:
+            continue
+        seen.add(signature)
         evidence = [e.model_dump(by_alias=True) for e in value.evidence]
         same = next(
             (
@@ -396,7 +402,9 @@ def store_candidates(db, batch, item, extraction):
             candidate.outdated = True
 
 
-def paid_vision_call(item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None):
+def paid_vision_call(
+    item_id, token, stage, model, chunk, targets, images, fn, output_tokens=None, *, guard=None
+):
     """Fence every individual request, reserve before sending, settle even after cancellation."""
     from app.source_analysis.budget import reserve, settle
 
@@ -404,6 +412,8 @@ def paid_vision_call(item_id, token, stage, model, chunk, targets, images, fn, o
         context = lock_context(db, item_id, token)
         if not context:
             raise ExtractionError("SOURCE_CHANGED")
+        if guard:
+            guard(db, context)
         _, source, run, item = context
         if not source.privacy_approved or source.sanitization_version != item.sanitization_version:
             raise ExtractionError("PRIVACY_CHANGED")
@@ -435,16 +445,15 @@ def paid_vision_call(item_id, token, stage, model, chunk, targets, images, fn, o
     return response
 
 
-def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
+def transcribe_pages(chunk, page_images, call):
+    """Shared product OCR orchestration; call reserves/settles each individual crop."""
     for page in chunk["pages"]:
         image = page_images.get(page["number"])
         if image is None:
             raise PreparationError("PAGE_IMAGE_MISSING")
         spans = []
         for index, encoded in enumerate(crops(image)):
-            result = paid_vision_call(
-                item_id,
-                token,
+            result = call(
                 f"ocr-{page['number']}-{index}",
                 OCR_MODEL,
                 {"prompt": OCR_PROMPT},
@@ -462,6 +471,14 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
         if not spans:
             raise ExtractionError("OCR_UNCERTAIN")
         page["spans"] = spans
+
+
+def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
+    transcribe_pages(
+        chunk,
+        page_images,
+        lambda *args: paid_vision_call(item_id, token, *args),
+    )
     # Preserve the exact OCR evidence with this private job, never replace privacy-review geometry.
     with get_sessionmaker()() as db:
         context = lock_context(db, item_id, token)
@@ -487,6 +504,10 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
 
 def process(item_id, token):
     with get_sessionmaker()() as lookup:
+        if lookup.get(Item, item_id).phase == "REFINE":
+            from app.source_analysis.refinement import process as refine_target
+
+            return refine_target(item_id, token)
         if lookup.get(Item, item_id).phase == "PLACE_PHOTOS":
             from app.source_analysis.photos import process as place_photos
 
@@ -510,6 +531,24 @@ def process(item_id, token):
                     select(Page).where(Page.asset_id == source.id, Page.revision == source.revision)
                 )
             )
+            previous = db.scalar(
+                select(Item)
+                .where(
+                    Item.asset_id == source.id,
+                    Item.revision == source.revision,
+                    Item.phase == "PREPARE",
+                    Item.status == "SUCCEEDED",
+                    Item.id != item.id,
+                )
+                .order_by(Item.available_at.desc())
+                .limit(1)
+            )
+            if previous:
+                item.diagnostics = {
+                    k: v
+                    for k, v in previous.diagnostics.items()
+                    if k in {"pagesAnalysed", "pagesSkipped"}
+                }
             source.privacy_approved = True
             enqueue_extraction(db, source, run, item, pages)
             refresh_runs(db, batch.id)
@@ -594,6 +633,9 @@ def process(item_id, token):
                 )
                 if others + len(prepared) > 60:
                     raise PreparationError("BATCH_PDF_PAGE_LIMIT")
+            item.diagnostics = {
+                k: prepared[0][k] for k in ("pagesAnalysed", "pagesSkipped") if k in prepared[0]
+            }
             pages = []
             for number, raw in enumerate(prepared, 1):
                 image = base64.b64decode(raw["image"]) if raw["image"] else None

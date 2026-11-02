@@ -28,7 +28,7 @@ REQUIRED_PRODUCER_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY")
 # 지금 시행 중인 약관·처리방침 문구 버전(시행일). 바꾸면 모든 회원이 다시 동의해야 쓸 수 있다
 # (DEV-113, policy.md 5장). 앱(packages/ui legalContent LEGAL_VERSION)·Mock(packages/api
 # mock/db.ts)과 같은 값이어야 한다(scripts/test-legal.mjs가 확인)
-CONSENT_VERSION = "2026-10-23"
+CONSENT_VERSION = "2026-10-29"
 
 
 class UserView(CamelModel):
@@ -81,6 +81,26 @@ class TestLoginInput(CamelModel):
 class LoginResult(CamelModel):
     access_token: str
     user: UserView
+
+
+class KakaoSignup(CamelModel):
+    """카카오 새 사용자. 계정은 없고 약관 동의 뒤 `/api/auth/kakao/signup`으로 만든다(DEV-132)."""
+
+    signup_token: str
+    email: str | None = None
+
+
+class KakaoLoginResult(CamelModel):
+    """기존 회원은 access_token·user, 새 사용자는 signup만 채운다(DEV-132)."""
+
+    access_token: str | None = None
+    user: UserView | None = None
+    signup: KakaoSignup | None = None
+
+
+class KakaoSignupInput(CamelModel):
+    signup_token: str = Field(min_length=1, max_length=4096)
+    consents: list[ConsentInput] = Field(min_length=1, max_length=8)
 
 
 class KakaoConfig(CamelModel):

@@ -7,6 +7,7 @@ const NAV = [
   { href: "/users", label: "사용자" },
   { href: "/user", label: "사용자 찾기" },
   { href: "/inbox", label: "문의함" },
+  { href: "/ai-cost", label: "AI 비용" },
 ];
 
 const $ = (s) => document.querySelector(s);

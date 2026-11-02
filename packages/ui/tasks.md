@@ -489,3 +489,150 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 10/23 Railway 리전 확인(`railway status --json`): farmclub-api·farmclub-source-worker·Postgres 모두 asia-southeast1(싱가포르). 처리방침 제6조 Railway 국가를 싱가포르로 고침.
 - 10/23 사용자 지시: 시행일·동의 버전을 2026-10-23으로 바꿈(서버 CONSENT_VERSION, Mock, legalContent LEGAL_VERSION·시행일, test-onboarding, screens·policy·wiki).
 - 10/23 머지 전 점검: 구매 확정 조항에 '확정 뒤에도 법정 청약철회·하자 권리는 그대로'를 더함. 8일 자동 확정(R-14)은 서버에 아직 없다(약관·앱 문구만 있음) — 수익화(수수료 정산) 전에 구현 필요.
+
+## DEV-116 Figma v6 sync for legal footer, legal pages, consent screens + producer login footer layout
+
+- 이슈: [DEV-116](https://linear.app/sswp6/issue/DEV-116)
+- 브랜치: `nemodleo/dev-116-legal-footer-figma-sync`
+- 기능·규칙: R-16(법정 표시), policy.md 6장, FEAT-01 SCR-06·SCR-19·SCR-19a, SCR-10(주문서 동의)
+- 상태: 진행 중
+
+### 목표
+1. 운영 생산자 로그인(카카오 켜짐)에서 하단 사업자 정보 푸터가 화면 중간에 뜨고 그 아래 빈 공간이 남는다. 고정 하단 바의 "테스트 서비스 · 이용약관 · 개인정보 처리방침" 글자는 링크가 아니면서 푸터 링크와 겹친다. 푸터를 스크롤 내용 맨 아래로 내리고 겹친 글자를 정리한다.
+2. DEV-113·120·132에서 만든 화면을 Figma v6에 반영한다(푸터, `/privacy`·`/terms`, 생산자 `/consent`, 소비자 SCR-06 재동의·가입 동의 모드, 주문서 SCR-10 5번째 동의).
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{Legal.tsx,content.tsx}`, `packages/ui/{spec,tasks}.md`
+- `apps/producer/src/app/login.tsx`, `apps/consumer/src/app/login.tsx`
+- `apps/consumer/src/app/(tabs)/{index,me/index}.tsx`, `apps/producer/src/app/(tabs)/settings.tsx` — 푸터 줄만(DEV-94 탈퇴 작업과 겹침)
+- `scripts/e2e/legal-pages.spec.ts`
+- (10/23 추가) 문서 한 줄씩: `docs/spec/{ia,screens}.md`(SCR-19 하단 글자), `docs/wiki/Requirements-and-Specifications.md`
+- Figma v6 파일(코드 밖)
+
+### 비범위
+- 푸터 문안·사업자 정보 값, 약관 본문, 동의 로직, DEV-132(PR #264) 코드
+
+### 결정 사항
+- 10/23 `Scroll`에 `footer` 슬롯을 둔다. 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'`로 맨 아래에 붙인다(내용이 짧으면 아래로 밀리고, 길면 내용 뒤 section 간격). `flexGrow`는 footer가 있을 때만 켜서 다른 48개 화면에 영향이 없게 한다.
+- 10/23 생산자 로그인 하단 바의 "테스트 서비스 · 이용약관 · 개인정보 처리방침"은 지운다. 푸터가 이미 링크와 ‘테스트 서비스’(값 없을 때)를 보인다. 하단 바 높이는 상태(카카오 버튼만/테스트 계정 버튼/오류 문구)마다 달라 `onLayout`으로 재서 스크롤 아래 여백으로 쓴다(고정 170이면 카카오 운영에서 푸터와 바 사이가 빈다).
+- 10/23 Figma MCP 계정은 이 파일에 보기 권한(View seat)뿐이라 쓸 수 없다. DEV-108·112처럼 레포 밖 스크립트(`figma-plugins/farmclub-dev116/`, `main.js` + `legal.json`(legalContent.ts에서 뽑은 문안) → `build.sh` → `code.js`)를 사용자 Chrome의 Figma 웹 편집기 콘솔에서 실행했다(사용자 지시). 다시 실행하면 `DEV-116 · ` 이름의 노드를 지우고 같은 자리에 다시 그리므로 node-id가 바뀐다. 아래 기록의 id는 마지막 실행 기준.
+- 10/23 Figma 기존 화면(C02·01 홈·C10·P02·P19)은 복제해 푸터를 얹고, 새 화면(/privacy·/terms, SCR-06 두 모드, SCR-10 동의 부분, SCR-19a 두 모드)은 토큰(색·글자 크기·간격) 그대로 새로 그렸다. 탭 화면은 높이를 늘린 ‘전체 내용’(스크롤 끝) 형태.
+- 10/23 소비자 로그인 하단 바 문구("…동의는 처음 가입할 때 받아요 · 테스트 서비스")는 동의 시점 안내라 남긴다. 같은 푸터 위치 문제만 고친다.
+
+### 작업
+- [x] `Scroll` footer 슬롯, 다섯 화면 푸터를 슬롯으로 옮김
+- [x] 생산자 로그인 하단 바 정리·여백 측정, 소비자 로그인 여백 측정
+- [x] Playwright: 푸터가 짧은 화면에서 바닥(하단 바 바로 위)에 붙는지, 360·390·430px 스크린샷
+- [x] Figma v6 반영
+- [x] `npm run typecheck`, `npm run test:mock`, Playwright `legal-pages.spec.ts`
+
+### 완료 조건
+- [x] 생산자·소비자 로그인, 생산자 환경설정, 소비자 홈·내 정보에서 푸터가 내용 맨 아래(짧으면 화면 바닥)에 있다
+- [x] Figma v6에 대상 화면 반영(사업자 정보는 자리 표시)
+- [ ] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main 9436171에서 시작, 작업 중 PR #264(DEV-132) 머지 뒤 main 0d57e99를 병합.
+- 10/23 원인: 푸터가 짧은 내용 바로 뒤에 있고 `Scroll bottom={170}` 고정 여백이라, 카카오 운영 로그인(내용 짧음)에서 푸터가 화면 중간에 뜨고 그 아래가 비었다. 하단 바의 ‘테스트 서비스 · 이용약관 · 개인정보 처리방침’은 링크가 아닌 글자라 푸터와 겹쳐 보였다(Figma P02에도 같은 글자가 있었다).
+- 10/23 확인: Mock 대신 실서버 모드 앱 + API 응답 가로채기(카카오 켜짐·비로그인)로 360·390·430px 스크린샷, 생산자 푸터 아래끝 716 / 바 위끝 약 728, 중복 글자 0개. Playwright `legal-pages.spec.ts`에 같은 검사(폭 3개 × 두 앱) 추가.
+- 10/23 Figma v6(파일 X8RKiRPZbFEEEwi4OhkF0G): ‘현재 시안 · 소비자’ y 33500 줄 — 제목 481:7143, 명세 481:7144, 로그인 481:7145, 홈 481:7235, 내 정보 481:7364, SCR-06 재동의 481:7588, SCR-06 가입 동의 481:7635, SCR-10 동의 481:7702, /privacy 481:7756, /terms 481:7794. ‘현재 시안 · 생산자’ y 28600 줄 — 제목 481:7796, 명세 481:7797, P02 로그인 481:7798, P19 환경설정 481:7925, SCR-19a 재동의 481:8092, SCR-19a 가입 모드 481:8122, /privacy 481:8176, /terms 481:8214. 각 프레임을 PNG로 내보내 확인했다.
+- 10/23 후속 질문: 주문서 하단 바가 동의 5개(DEV-120) 뒤에도 ‘4개 중 N개 동의했어요’라고 쓴다(`apps/consumer/src/app/checkout/[productId]/index.tsx`). 이 작업 범위 밖이라 고치지 않았다.
+- 10/23 main 병합 후 재검증: `npm run typecheck` 통과, `npm run test:mock` 40/40, 실서버 통합 시나리오 7/7 + Playwright 24/24(legal-pages·legal-consent·consumer-kakao·producer-kakao·producer-and-privacy·discovery-and-gates·brand-logo·checkout-and-fulfillment).
+- 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should(테스트가 하단 바를 absolute div 추측으로 찾음) 반영 — 두 로그인 하단 바에 `testID="login-bottom-bar"`, spec은 그 위 끝과 비교. 재실행: 실서버 시나리오 7/7, Playwright 14/14(legal-pages·producer-kakao·consumer-kakao), typecheck 통과.
+
+## DEV-140 처리방침에 카카오 이름·전화번호(필수 동의) 반영
+
+- 이슈: [DEV-140](https://linear.app/sswp6/issue/DEV-140) (DEV-78 하위)
+- 브랜치: `nemodleo/dev-140-privacy-kakao-name-phone`
+- 기능·규칙: FEAT-01 I2 카카오(AC-01-8·17·18), FQ-01, policy.md 5장, R-16
+- 상태: 완료
+
+### 목표
+DEV-78 동의 항목 심사에서 이름·카카오계정(전화번호)을 필수 동의로 신청한다(10/23 사용자 결정). 심사관은 신청 내용과 운영 중인 처리방침이 같은지 보므로, 신청 전에 처리방침·스펙을 고쳐 운영에 배포한다. 카카오 인가 scope는 심사 통과 뒤 DEV-78에서 넣는다(먼저 넣으면 카카오 로그인이 실패한다).
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/legalContent.ts`, `packages/ui/tasks.md`
+- `apps/consumer/src/lib/onboarding.ts`(가입 동의 요지 한 줄)
+- 동의 버전: `server/app/accounts/schemas.py`(CONSENT_VERSION), `packages/api/src/mock/db.ts`, `scripts/test-{legal,onboarding,withdrawal}.mjs`
+- `docs/spec/policy.md`, `docs/spec/functional/{FEAT-01-login,README}.md`, `docs/wiki/Requirements-and-Specifications.md`
+- (10/23 추가, AI 1차 리뷰) `docs/spec/screens.md` SCR-19a 버전 글자
+- Figma v6(코드 밖)
+
+### 비범위
+- 카카오 scope(`apps/consumer/src/lib/kakao.ts`, `apps/producer/src/lib/kakao.ts`) — DEV-78
+- 생산자 가입 신청(SCR-20) 미리 채움 구현 — DEV-78
+- 연령대·성별·배송지 동의 항목(목적이 정해지면 2차 신청)
+- 결제 전 동의 버전(`policy-2026-10-23`, R-03) — 주문서 동의 문구는 바뀌지 않음
+
+### 결정 사항
+- 10/23 (사용자 결정) 처리방침 내용이 바뀌므로 `CONSENT_VERSION`을 2026-10-24로 올려 기존 회원 전원에게 재동의를 받는다(AC-01-17·18, DEV-116 재동의 화면). 배포 즉시 실제 회원은 소비자는 농가에 닿는 행동 전, 생산자는 앱 전체에서 동의 화면을 거친다. 테스트 계정은 대상이 아니다.
+- 10/23 버전은 약관·처리방침 하나로 묶여 있어(서버가 TERMS·PRIVACY를 같은 버전으로 검사) 처리방침만 바뀌어도 둘 다 다시 받는다. 시행일은 문서마다 나눠 처리방침 2026-10-24, 이용약관 2026-10-23(내용 그대로)으로 두고 `LEGAL_VERSION`은 둘 중 늦은 날짜로 한다. `test-legal.mjs`는 처리방침 시행일 = 버전을 그대로 검사한다.
+- 10/23 처리방침 제1조에 목적 한 줄, 제2조 카카오 행을 "카카오 회원번호, 카카오계정 이메일, 이름, 전화번호(필수)"·카카오 동의 화면 수집·계약 이행 근거로, 표 뒤에 미리 채움·수정 가능 문단, 제3조 회원 정보 보유에 "카카오에서 받거나 직접 입력한 이름·휴대폰 번호", 제14조에 변경 내용 한 줄. 문구는 DEV-78 심사 사유 문안과 같은 목적(배송 받는 사람·연락처, 배송·주문 문의, 생산자 가입 확인 전화)을 쓴다.
+- 10/23 재동의 화면에서 바뀐 점이 보이도록 소비자 가입 동의 요지(개인정보 수집·이용)에 "카카오계정의 이름·전화번호(가입 칸 미리 채움, 고칠 수 있어요)"를 더한다.
+- 10/23 Figma MCP는 보기 권한뿐이라 레포 밖 스크립트(`figma-plugins/farmclub-dev140/code.js`)를 사용자 Chrome의 Figma 웹 편집기 콘솔에서 실행했다. DEV-116이 그린 노드를 제자리에서 고쳐 node-id가 유지된다. DEV-116 스크립트의 `legal.json`도 같은 문안으로 고쳐 다시 실행해도 되돌아가지 않게 했다.
+
+### 작업
+- [x] `legalContent.ts` 처리방침 문안·시행일·버전
+- [x] 서버·Mock·테스트 동의 버전 2026-10-24
+- [x] 소비자 가입 동의 요지
+- [x] policy.md 5장·FEAT-01·FQ-01·wiki
+- [x] `test-legal.mjs` DEV-140 테스트
+- [x] Figma v6 `/privacy` 두 앱, 생산자 `/consent` 버전 글자
+- [ ] 머지 후 운영 `/privacy` 배포 확인 → DEV-78 동의 항목 심사 신청
+
+### 완료 조건
+- [x] `/privacy`·policy.md·FEAT-01이 "이름·전화번호 필수"로 일치
+- [x] 테스트 통과
+- [x] main 머지(사용자 지시 10/23), 운영 배포 확인은 머지 뒤
+
+### 기록
+- 10/23 origin/main 57dcb0b에서 브랜치 생성, `npm ci`·`uv sync --frozen`.
+- 10/23 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed(새 DEV-140 테스트 포함). `uv run ruff check` 통과. `uv run pytest`(격리 DB `farmclub_dev140_test`) 436 passed — 첫 `-x` 실행에서 `test_retire_test_farm.py::test_DEV_93_restore_reopens_only_farms_this_command_hid`가 1번 실패했고 단독 실행·전체 재실행에서는 통과(이 PR과 무관한 순서·시간 의존으로 보임). 실서버 통합(`run-integration.mjs`, 임시 DB `farmclub_dev140`, 끝나고 DROP): 시나리오 7 passed, Playwright legal-pages·legal-consent·consumer-kakao·producer-kakao 14 passed / 3 skipped.
+- 10/23 Figma v6(파일 X8RKiRPZbFEEEwi4OhkF0G): 소비자 `/privacy` 481:7756(수정 전 사본 488:2988), 생산자 `/privacy` 481:8176(수정 전 사본 488:3046), 생산자 `/consent` 481:8092·481:8122(버전 글자). 고친 프레임 이름 끝 " · DEV-140 수정". 소비자 프레임을 PNG로 내보내 제1조·제2조를 확인했다.
+- 10/23 AI 1차 리뷰: must 없음, should(screens.md SCR-19a 버전 글자) 반영. 사용자 지시로 머지 진행. 머지 전 origin/main(3cb431f) 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 통과.
+
+## DEV-141 웹에서 체크·선택·펼침 상태가 aria 속성으로 나오게 (accessibilityState → aria-*)
+
+- 이슈: [DEV-141](https://linear.app/sswp6/issue/DEV-141) (관련 DEV-138)
+- 브랜치: `nemodleo/dev-141-aria-state`
+- 기능·규칙: 화면 공통 접근성(`docs/spec/screens.md` 공통 규칙), FEAT-01 SCR-06(가입·재동의 동의), SCR-10(주문서 동의)
+- 상태: 진행 중
+
+### 목표
+react-native-web 0.21은 `accessibilityState={{…}}`를 DOM에 옮기지 않는다(`createDOMProps`는 `aria-*`와 옛 단일 `accessibilityChecked` 류만 본다). 그래서 웹에서 체크·선택·펼침·로딩 상태가 스크린리더에 안 나간다. 26곳을 `aria-*` prop으로 바꾼다. 화면 모양·동작·문구는 그대로.
+
+### 범위 (수정 허용 경로)
+- `packages/ui/src/{content,Button,bars,Storefront,NewsRoom}.tsx`, `packages/ui/tasks.md`
+- `apps/consumer/src/app/{login.tsx,(tabs)/products/[productId].tsx,(tabs)/orders/index.tsx}`, `apps/consumer/src/lib/views.tsx`
+- `apps/producer/src/app/{login,ship}.tsx`, `apps/producer/src/app/(tabs)/products/index.tsx`, `apps/producer/src/lib/{SourceAttachments,fields,SourceWorkspace,PageCanvas,SectionSwitch}.tsx`
+- `scripts/e2e/{checkout-and-fulfillment,discovery-and-gates,mock-login}.spec.ts`
+
+### 비범위
+- 스타일·문구·동작, `scripts/admin-web`, 네이티브 빌드 확인(앱은 웹 출력만 배포)
+
+### 결정 사항
+- 10/23 역할별 속성: checkbox·switch·radio → `aria-checked`(radio의 `selected`도 `aria-checked`로 — ARIA radio 상태는 checked), tab → `aria-selected`(이미 있으면 `accessibilityState`만 지움), 펼침 → `aria-expanded`, 로딩 → `aria-busy`.
+- 10/23 `role="button"`인데 `selected`였던 토글(팔로우, 좋아요, 달력 시작·끝날)은 `aria-pressed`로 바꾼다. `aria-selected`는 button에서 ARIA가 허용하지 않아 스크린리더가 읽지 않는다. 대표사진 버튼은 이미 `aria-pressed`가 있어 `accessibilityState`만 지운다.
+- 10/23 `disabled`는 넣지 않는다. 모든 곳에 Pressable `disabled` prop이 이미 있고, react-native-web Pressable이 그걸로 `aria-disabled`를 만든다.
+
+### 작업
+- [x] 26곳 `accessibilityState` → `aria-*`
+- [x] Playwright: 주문서 '모두 동의해요' 뒤 제3자 제공 `toBeChecked()`, Mock 로그인 계정 라디오 `toBeChecked()`, 상품정보 접기 `aria-expanded`
+- [x] `npm run typecheck`, `npm run test:mock`, 관련 Playwright
+
+### 완료 조건
+- [x] `grep -rn accessibilityState packages/ui/src apps --include='*.tsx'` 0건
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main 3cb431f에서 시작.
+- 10/23 확인: `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed. 실서버(`DATABASE_URL=…/farmclub_dev141 node scripts/run-integration.mjs <3 spec>`, 임시 DB는 끝나고 DROP): 실서버 시나리오 7/7, Playwright 5 passed / 2 skipped(mock-login은 공유 Mock 필요) — checkout-and-fulfillment 2, discovery-and-gates 3. Mock 스택(`npm run dev`)에서 `mock-login.spec.ts` 2 passed.
+- 10/23 origin/main 3ef3c04(DEV-140) 병합(tasks.md 섹션만 충돌, 둘 다 남김). 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed, 실서버 시나리오 7/7 + Playwright 5 passed / 0 failed(checkout-and-fulfillment·discovery-and-gates).
+- 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should — 주문서 '받는 곳' 시트 주소 줄(radio)에 상태 속성이 원래 없음(checkout 파일은 범위 밖·PR #280 진행 중이라 후속). nit — `aria-pressed`는 RN 네이티브 미지원(웹 배포만이라 영향 없음). draft 해제.
+
+## DEV-150 SupportAvatar 공용화와 ChatThread 첨부 선택값
+
+- 이슈: https://linear.app/sswp6/issue/DEV-150 · 상세는 `server/tasks.md` DEV-150.
+- `SupportAvatar`를 생산자 앱에서 `packages/ui`로 옮겼다(두 앱이 같이 쓴다). `ChatThread`의 `upload`를 선택값으로 바꿔, 없으면 사진 첨부(＋)를 숨긴다. 기존 호출은 그대로다.

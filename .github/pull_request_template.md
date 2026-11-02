@@ -19,6 +19,8 @@ Linear DEV- · Closes #
 |  |  |  |
 
 <!-- 제품 구현이 없는 문서·작업 절차 PR은 해당 없음의 이유와 변경 문서를 적는다. -->
+<!-- spec-check는 1열(스펙)과 2열(구현)의 backtick 파일 경로만 읽는다. 바뀐 파일은 모두 1·2열에 적고, 함수 이름 등은 backtick 없이 쓴다. 점검: python3 .agents/skills/pr-context/check_table.py <본문 파일> -->
+
 
 ### 리뷰 요청 전
 - [ ] 적용 스펙과 변경 여부를 기록했다.

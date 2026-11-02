@@ -105,8 +105,8 @@ export default function KakaoCallback() {
         );
         if (!mounted.current) return;
         if (saved.resume) restoreResume(saved.resume);
-        // 처음 가입이면 온보딩(SCR-06) → 원래 화면. 다시 온 회원은 바로 원래 화면(AC-01-13)
-        if (res.user.needsOnboarding)
+        // 처음이면 가입 동의(계정 생성, DEV-132)·온보딩(SCR-06) → 원래 화면. 다시 온 회원은 바로 원래 화면(AC-01-13)
+        if (!res.user || res.user.needsOnboarding)
           router.replace({ pathname: "/onboarding", params: { next: target } });
         else router.replace(target as never);
       } catch (e) {

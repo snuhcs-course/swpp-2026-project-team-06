@@ -1,0 +1,21 @@
+{
+  "release": "demo-i2",
+  "files": {
+    "admin.mp4": {
+      "sha256": "741492abaa7ac358ebb4ca8d8a5338f0294e7d692062a772d6fe676154fa9429",
+      "bytes": 830343
+    },
+    "consumer.mp4": {
+      "sha256": "eacc604ce8653d2c356de6fa33a34a3562301c68a36e7bfbb826c43c7cf59399",
+      "bytes": 4344400
+    },
+    "producer.mp4": {
+      "sha256": "9912fa919077671e33f03a34530c96bd38e5382c51db56363222264d68046b73",
+      "bytes": 4875758
+    },
+    "story.mp4": {
+      "sha256": "b3451547d7ebb29dc540dee13e93c3fbf0db733580f995497bd57d8a5d1d9e0a",
+      "bytes": 10059649
+    }
+  }
+}

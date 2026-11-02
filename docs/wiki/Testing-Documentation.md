@@ -237,6 +237,19 @@ Automated success does not resolve the six deployed PM failures or establish suc
 
 **Finding completeness:** I-18 reports eight findings, including afternoon F-07/F-08. Final rows describe F-02 (weekly-settlement policy versus direct payment), F-04/05/06/07/08 and reference F-01 without its full description. C-03 independently records misleading recovery copy but does not explicitly assign F-01. **F-03 is not described in the final workbook.** No description/severity/fix is invented. Eight findings are not eight independent failed scenarios.
 
+### Follow-up retest on 20 October (SWPP-118) — outside the workbook counts
+
+The 77 workbook statuses and totals above stay as recorded on 19 October. On 20 October Zahra re-ran the manager-side parts of **I-06, I-07, I-11 and I-13** on the live server (`api.farmclub.kr`, deploy `271fe87`) with an admin token issued in the Railway shell. Only labelled test data was changed (a new Kakao producer with the farm and product `ZAHRA 운영자 테스트 1020 (삭제 예정)`, and the seeded consumer `u-seojun`); seeded farms and products were not touched. The full 20-step record is preserved at [`b7d3417`](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/b7d3417/docs/wiki/Testing-Documentation.md) (section "SWPP-118 — Operator checks on the live server"), from [PR #189](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/189), [#195](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/195) and [#198](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/198).
+
+| Workbook case (19 Oct) | 20 October live-server result | Still open |
+| --- | --- | --- |
+| I-06 FAIL | The test producer's product with a 5 kg initial capacity request was approved by the manager (stale version 409 `STALE_VERSION`, current version 200) and became visible on `farmclub.kr`. | The workbook's F-07 UI entry failure is not re-recorded here. |
+| I-07 BLOCKED | Capacity approval no longer blocked; a public field edited by the producer appeared on the consumer page after reload. | — |
+| I-11 FAIL | Reject with reason → reapply → approve: 200 each, two decisions in history by `u-admin`; the producer app showed the reason/prefilled form and then the dashboard. Same-key re-approval returned the identical response; no token 401, consumer 403. | Logout → Kakao re-login (F-08) was not part of this run. |
+| I-13 BLOCKED | Bank-transfer order; deposit confirmed once with a repeated key; ₩500 partial refund kept the order `RESERVED` with one refund row; final refund → `REFUNDED`, stock released once; duplicate refund 409 `INVALID_TRANSITION` and audited; producer marked the refund as sent. | Partial-refund display for consumers and farms is deferred by design ([issue #126](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/126), DEV-62). |
+
+I-10 (AI draft → producer edit → consumer display) was not run on 20 October and stays as recorded.
+
 ### 3.5 Analysis and readiness
 
 Local component passes did not establish deployed E2E readiness. Producer local passes coexist with workspace failures; manager authorization/local refunds coexist with deployed tooling restrictions; AI samples coexist with incomplete publication. Each conclusion retains its environment and full procedure.
@@ -1128,7 +1141,7 @@ Every case retains plan, criterion, actual result, evidence, and follow-up. Sour
 
 **Evidence:** [PR #114](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/114); source also links [Testing Documentation Wiki][wiki].
 
-**Dependency/follow-up:** Consumer partial-refund history display follows [PR #126](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/126).
+**Dependency/follow-up:** Consumer partial-refund history display is deferred by design and tracked in open [issue #126](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/126) (DEV-62).
 
 #### A-05 — Record exceptions and recovery
 
@@ -1336,7 +1349,7 @@ Every case retains plan, criterion, actual result, evidence, and follow-up. Sour
 
 **Evidence:** [Testing Documentation Wiki][wiki] (source self-reference).
 
-**Dependency/follow-up:** Approval/refund mutations remained local to protect shared seeds (A-01/A-04/A-05 local PASS); deployed reads do not establish mutation verification.
+**Dependency/follow-up:** On 18 October approval/refund mutations remained local to protect shared seeds (A-01/A-04/A-05 local PASS); deployed reads alone do not establish mutation verification. Approval, capacity approval, deposit confirmation, partial/final refund and duplicate-refund checks were later run on the live server with labelled test data on 20 October (see "Follow-up retest on 20 October (SWPP-118)" after Section 3.4).
 
 #### A-18 — Execute and record the manager/AI checklist
 
@@ -1659,6 +1672,7 @@ The [document at `a262714`][prior] preserves the submitted AC catalogue, spec 1.
 | Earlier AC catalogue/spec supplements | Prior version retained; formal I3 freeze/I4 results future | Changing development criteria are not completed UAT. |
 | Historical I1/DEV-44/50/51/model-development counts | Linked history outside current register | Avoid mixing dates/environments/experiments/overlapping counts. |
 | No recorded historical numerical coverage plan/report | 22 October plan before supplementary measurement; unchanged suites and genuine reports | Fill missing I2 evidence without backdating targets, overwriting workbook outcomes or hiding target misses. |
+| 20 October SWPP-118 live-server retest removed in the 22 October rewrite | Restored as a separate follow-up after Section 3.4; workbook statuses and totals unchanged; A-04/A-17 follow-up lines corrected | Keep the later live-server evidence visible without mixing it into the 19 October counts (SWPP-123). |
 
 ### Source references
 

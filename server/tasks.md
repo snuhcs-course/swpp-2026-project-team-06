@@ -1714,3 +1714,272 @@ AI 근거(`build_evidence`)는 주문 > 지정 상품 > 판매 중 상품 1개 �
 
 - 이슈: https://linear.app/sswp6/issue/DEV-113 · 목표·범위·결정·기록은 `packages/ui/tasks.md` DEV-113 섹션에 모은다.
 - 10/22 `accounts.schemas.CONSENT_VERSION`(2026-10-22), `service.consent_required`(소비자 3개·생산자 2개, 지금 버전만 인정, 테스트 계정 제외), `needs_onboarding`이 버전까지 검사, `UserView.consent_required`, `/me/consents`를 생산자에게도 열고 `security.require_consented_producer`가 생산자 API를 403 `CONSENT_REQUIRED`로 막는다. 테스트: AC-01-17·18, 다른 농가 격리 테스트는 `other_farm_headers` 픽스처(동의한 u-halla).
+
+## DEV-132 카카오 가입 시 약관 동의 전에는 계정을 만들지 않기
+
+- 이슈: [DEV-132](https://linear.app/sswp6/issue/DEV-132) · 브랜치 `nemodleo/dev-132-consent-before-account`
+- 기능·규칙: FEAT-01 AC-01-10·12·14·16·17·18(+ 새 AC-01-19), ADR 0003·0010, policy.md 5장, 개인정보보호법 제21조(파기)·제22조
+- 상태: 리뷰 중
+
+### 목표
+카카오 로그인 순간 계정을 만들던 것을 바꿔, 새 사용자는 약관·개인정보(소비자는 만 14세 포함) 동의를 마쳐야 계정이 생기게 한다. 동의 없이 떠나면 서버에 아무것도 남지 않는다(사용자 결정 10/23).
+
+### 범위 (수정 허용 경로)
+- `server/app/accounts/{schemas,service,router}.py`, `server/app/core/security.py`(가입 토큰), `server/tests/test_accounts.py`
+- `packages/api/src/{types.ts,endpoints.ts,mock/auth.ts}`, `scripts/test-onboarding.mjs`
+- `apps/consumer/src/app/{auth/kakao,login,onboarding/index}.tsx`, `apps/producer/src/app/{auth/kakao,login,consent}.tsx`, `apps/producer/src/lib/session.tsx`
+- `scripts/e2e/legal-consent.spec.ts`, `packages/ui/src/legalContent.ts`(처리방침), `scripts/test-legal.mjs`
+- `docs/spec/functional/FEAT-01-login.md`, `docs/spec/{screens,policy}.md`, `docs/wiki/Requirements-and-Specifications.md`, `server/tasks.md`, `apps/{consumer,producer}/tasks.md`(포인터)
+
+### 비범위
+- 이미 만들어진 미동의 계정 삭제(다음 로그인 때 기존 동의 관문이 받는다, 삭제는 DEV-94), 탈퇴, DB 스키마
+
+### 결정 사항
+- 10/23 `POST /api/auth/kakao`는 기존 회원이면 지금처럼 `{accessToken, user}`. 새 사용자면 계정을 만들지 않고 `{signup: {signupToken, email}}`만 준다. 가입 토큰은 서버 JWT 비밀키로 서명한 30분짜리 토큰(`typ=kakao_signup`, 카카오 식별자·역할·카카오에서 받은 이메일·이름·전화)이고 서버에 저장하지 않는다. 카카오 인가 코드는 한 번만 쓸 수 있어 카카오에서 받은 값을 토큰에 담아 넘긴다.
+- 10/23 새 API `POST /api/auth/kakao/signup {signupToken, consents}`: 토큰 검증(서명·만료·종류) → 역할별 필수 동의가 지금 버전(`CONSENT_VERSION`)으로 모두 있어야 계정·동의 기록을 한 트랜잭션으로 만들고 `{accessToken, user}`. 빠지면 400 `consents`, 토큰 문제면 400 `signupToken`. 그 사이 같은 카카오 계정이 이미 생겼으면 새로 만들지 않고 그 계정으로 로그인하고 동의를 저장한다.
+- 10/23 앱: 가입 토큰은 브라우저 저장소에 만료 시각과 함께 잠깐 두고 가입이 끝나거나 만료되면 지운다. 소비자는 `/onboarding`이 계정 없이 가입 토큰만 있으면 ‘가입 동의’만 보이고, 가입 뒤 같은 화면에서 프로필을 받는다(동의 칸은 `consentRequired`일 때만). 생산자는 `/consent`가 가입 토큰이 있으면 계정 없이 열리고, 동의하면 계정이 생겨 관문이 가입 신청으로 보낸다.
+
+- 10/23 약관·처리방침 본문은 고치지 않는다. 시행 중인 문서(2026-10-23)는 "로그인 때 계정을 만든다"고 쓴 적이 없어 거짓이 된 문장이 없고, 본문을 바꾸면 버전·고지가 필요하다.
+- 10/23 가입 토큰 만료는 로그인 토큰처럼 앱 시계(`now`)로 본다(테스트는 시계를 고정한다). 위조·만료 검사는 AC-01-19 테스트.
+
+### 작업
+- [x] 서버: 가입 토큰, `/kakao` 응답 분기, `/kakao/signup`
+- [x] Mock·클라이언트 동일 규칙
+- [x] 소비자 복귀·온보딩, 생산자 복귀·동의·관문
+- [x] 처리방침(가입 전 처리), 스펙
+- [x] pytest, typecheck, test:mock, Playwright(Mock 카카오 E2E), 실서버 integration
+
+### 완료 조건
+- [x] 새 카카오 사용자가 동의 없이 떠나면 계정이 생기지 않는다(서버·Mock)
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/23 origin/main(DEV-113·120 머지 뒤)에서 시작.
+- 10/23 검증: `uv run pytest` 430 passed(새 AC-01-19, AC-01-8·10·12·16·18 갱신), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 40 passed / 0 failed, Mock 스택 `legal-consent`+`legal-pages` 5 passed(가입 동의 화면·닫으면 계정 없음·생산자 /consent → 가입 신청), 실서버 `test:integration:full` 67 passed / 5 skipped / 0 failed. 임시 DB 삭제.
+
+## DEV-91 관리자 페이지 admin.farmclub.kr 연결과 도메인 문서 갱신
+
+- 이슈: [DEV-91](https://linear.app/sswp6/issue/DEV-91)
+- 브랜치: `nemodleo/dev-91-dev-관리자-페이지-adminfarmclubkr-연결과-도메인-문서`
+- 관련: [ADR 0012](../docs/spec/tech-design/adr/0012-domains-cloudflare.md), DEV-69(도메인), DEV-83·DEV-87(관리자 페이지)
+- 상태: 리뷰 대기
+
+### 범위 (수정 허용 경로)
+- 문서: `docs/spec/tech-design/adr/0012-domains-cloudflare.md`, `README.md` 도메인 절, `scripts/admin-web/README.md`, `docs/spec/ia.md` 운영자 안내(10·86·146행 근처), `docs/spec/prd.md` FEAT-23 행, `docs/spec/tech-design/stack.md` 운영자 화면 행, `server/tasks.md`
+- 콘솔(코드 아님): Vercel `farmclub-admin` 도메인 추가(에이전트), Cloudflare `admin` CNAME(사용자)
+
+### 비범위
+- Cloudflare Access(운영자 이메일 제한), 예전 `farmclub-admin.vercel.app` 막기·리다이렉트, 코드 변경
+
+### 결정 사항
+- 10/19 `admin.farmclub.kr` → Vercel `farmclub-admin`. Cloudflare CNAME `admin`(Vercel 프로젝트 값) Proxied, 다른 Vercel 레코드와 같은 방식.
+- 10/19 Cloudflare Access는 아직 켜지 않음(운영자 이메일은 사용자가 콘솔에서 넣을 일). ADR 0012 운영자 절에 남은 일로 적음.
+- 10/19 Vercel이 `farm` 추가 때 만든 `www.farm.farmclub.kr`은 두 단계 서브도메인이라 Cloudflare 무료 인증서가 덮지 않음 → 쓰지 않고 지움(ADR에 규칙으로 적음).
+
+### 작업
+- [x] Vercel `farmclub-admin`에 `admin.farmclub.kr` 추가
+- [x] Cloudflare `admin` CNAME Proxied(사용자)
+- [x] 운영 확인: `https://admin.farmclub.kr/login` 200, `/producers`·`/capacity` → `/login?next=…` 302, `server: cloudflare`·`x-vercel-id`, 사용자 로그인 성공
+- [x] 문서 갱신
+
+### 완료 조건
+- [x] 새 주소로 관리자 페이지에 로그인할 수 있다
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 10/19 main 61a8034에서 시작. 문서만 바꿔 실행할 테스트 없음.
+- 10/19 리뷰 지적: ia.md 10·146행("I1은 화면 없이 Swagger UI, 전용 화면은 I2")이 86행(관리자 페이지 있음)과 어긋남 → 세 곳과 prd.md FEAT-23 행, stack.md 운영자 화면 행을 "I1에서는 화면 없이 Swagger UI였지만 관리자 UI를 만들어 바꿨다"로 맞춤(사용자 지정 문구).
+- 10/23 main 병합(DEV-98·106·107·111·113·114·127·132 뒤). 충돌 4곳 해결: README 예약 서브도메인에서 `admin` 제외, ia.md는 main의 관리자 페이지 안내를 유지하고 운영자 문구·운영 주소만 반영, admin-web README는 DEV-114가 자동 배포를 적어 '배포는 자동이 아니다' 문장을 빼고 DNS 사실만 한 줄로, 이 섹션은 파일 끝으로 이동.
+
+## DEV-94 회원 탈퇴 구현 (10/23 사용자 지시로 착수)
+
+- 이슈: [DEV-94](https://linear.app/sswp6/issue/DEV-94) · 브랜치 `nemodleo/dev-94-account-withdrawal`(위 초안 섹션과 PR #210을 대체)
+- 기능·규칙: FEAT-01 새 AC-01-20, R-15, R-24, policy.md 5장, 처리방침 제3·7·8조, 약관 제5조, 개인정보보호법 제21조(파기)·제38조 ④(수집보다 어렵지 않게)
+- 상태: 리뷰 중
+
+### 목표
+소비자 앱 ‘내 정보’, 생산자 앱 ‘환경설정’에서 회원 탈퇴를 할 수 있게 한다. 탈퇴하면 개인정보를 지체 없이 파기하고, 법정 보존 거래 기록은 회원과 분리해 남긴다.
+
+### 범위 (수정 허용 경로)
+- `server/app/accounts/{models,schemas,service,router}.py`, `server/app/core/security.py`(탈퇴 회원 토큰 거부), `server/migrations/versions/0020_user_deleted_at.py`, `server/tests/test_account_withdrawal.py`, `server/tasks.md`
+- `packages/api/src/{types.ts,endpoints.ts,mock/db.ts,mock/auth.ts}`, `scripts/test-onboarding.mjs` 또는 새 `scripts/test-withdrawal.mjs`, `package.json`(test:mock)
+- `apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/producer/src/app/{(tabs)/settings,pending}.tsx`, `packages/ui/src/{WithdrawSheet.tsx,index.ts}`, `apps/{consumer,producer}/tasks.md`, `scripts/e2e/account-withdrawal.spec.ts`
+- `packages/ui/src/legalContent.ts`, `scripts/test-legal.mjs`
+- `docs/spec/functional/FEAT-01-login.md`, `docs/spec/{screens,ia,policy}.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+- 운영자 대리 탈퇴·테스트 농가 영구 삭제(초안 계획의 admin API), 카카오 연결 끊기(unlink, DEV-75), R2 원본 파일 삭제 배치, `CONSENT_VERSION`(올리면 전원 재동의, DEV-124)
+
+### 결정 사항 (PQ-06 미정 — 현재 처리방침 제3조 기준, 법률 확인 필요 SWPP-124)
+- 10/23 D1 익명화: `users` 행은 남기고 이름·닉네임·휴대폰·이메일·카카오 회원번호를 지우고 `deleted_at`을 기록한다. 주문·대화가 다른 사람(농가) 데이터와 묶여 있어 행 삭제 대신 익명화(초안 권고). 탈퇴한 회원의 토큰은 401.
+- 10/23 D2 거래 기록: 주문·입금·환불 행은 그대로 둔다(전자상거래법 5년/3년). 받는 사람 이름·연락처·주소는 보존 기간 동안 주문에 남는다(처리방침 제3조). 보존 기간이 지난 뒤 파기하는 배치는 후속.
+- 10/23 D3 대화·소식: 회원이 쓴 1:1 채팅·소식 답장 본문과 사진은 지운다(‘탈퇴한 회원의 메시지예요’로 바꿈). 단 주문에 묶인 문의(주문 문제 문의)는 불만·분쟁 기록(3년)으로 남긴다. 좋아요·팔로우·저장 배송지는 삭제(팔로워 수도 줄인다). 농가에는 이름 대신 ‘탈퇴한 회원’으로 보인다.
+- 10/23 D4 첨부 파일: 지운 메시지의 첨부 참조와 그 회원이 올린 비공개 첨부 행을 지운다. 저장소(R2) 원본 정리는 후속(비범위).
+- 10/23 D5 진행 중 주문: 소비자는 입금 대기·예약·출하 준비·배송 중(`PENDING_PAYMENT`·`AWAITING_DEPOSIT`·`RESERVED`·`PREPARING`·`SHIPPED`) 주문이 있으면 409 `WITHDRAW_BLOCKED`(주문 번호 목록). 생산자는 자기 농가에 그런 주문이 있으면 막는다.
+- 10/23 D6 생산자: 계정 익명화 + 농가 숨김(`SUSPENDED`, 사유 ‘농가가 탈퇴했어요’, 소비자 화면에서 사라짐) + 입금 계좌·농가 연락처 삭제. 농가명·상품·지난 주문 기록은 남긴다.
+- 10/23 D7 재가입: 카카오 회원번호를 지우므로 같은 카카오로 다시 오면 새 사용자다(지난 기록과 연결 안 함).
+- 10/23 D8 동의 기록(`user_consents`)·운영자 감사 기록은 증빙으로 남긴다.
+- 10/23 시드 테스트 계정(`is_test_account`)은 탈퇴할 수 없다(403 `TEST_ACCOUNT`). 여럿이 같이 쓰는 데모 계정이라서다. 관리자 페이지에서 ‘테스트로 표시’한 팀원 카카오 계정(`ops_tester`)은 실제 계정이라 탈퇴할 수 있다. Mock은 데모 데이터 초기화를 쓴다.
+
+- 10/23 파기 시점(사용자 질문): 개인정보는 탈퇴 요청과 같은 트랜잭션에서 바로 파기한다(처리방침 제7조 ‘지체 없이, 늦어도 5일’ 안). 남기는 기록(주문·입금·환불 5년, 주문 문의 3년, 동의 기록)은 기간이 지나면 지워야 하지만 자동 파기 배치는 아직 없다(후속 이슈). Railway DB 백업의 보관·삭제 주기도 확인이 필요하다.
+- 10/23 생산자 환경설정은 승인 뒤에만 열려서, 확인 중·반려 상태의 생산자도 탈퇴할 수 있게 승인 대기 화면(SCR-21)에 같은 시트를 둔다. 공용 시트는 `packages/ui` `WithdrawSheet`.
+
+### 작업
+- [x] 서버: `deleted_at` 마이그레이션, `POST /api/auth/me/withdraw`, 토큰 거부, 표시 이름
+- [x] Mock·클라이언트 같은 규칙
+- [x] 두 앱 탈퇴 화면(확인 시트 2단계, 막힘 안내)
+- [x] 처리방침·약관 문구, 스펙
+- [x] pytest, typecheck, test:mock, Playwright, 실서버 integration
+
+### 완료 조건
+- [x] 탈퇴하면 개인정보가 지워지고 다시 로그인하면 새 사용자다
+- [x] 진행 중 주문이 있으면 막힌다
+- [ ] 테스트 통과, CI 통과 후 main 머지(사용자 지시 10/23 "머지 진행")
+
+### 기록
+- 10/23 origin/main 9436171에서 시작. DEV-132(PR #264) 미머지.
+- 10/23 검증: `uv run pytest` 434 passed(새 `test_account_withdrawal.py` 5개), `uv run ruff check` 통과, `npm run typecheck` 통과, `npm run test:mock` 41 passed / 0 failed(새 `test-withdrawal.mjs`), Mock 스택 `account-withdrawal.spec.ts` 3 passed, 실서버 `test:integration:full` 67 passed / 7 skipped / 0 failed. 임시 DB 삭제.
+- 10/23 origin/main(DEV-132 머지 뒤) 병합: Mock 상수, FEAT-01·wiki·tasks 충돌을 양쪽 유지로 풀고, 생산자 탈퇴 테스트·Mock 테스트·E2E를 가입 동의(가입 토큰) 흐름에 맞췄다. 병합 뒤 pytest 436 passed, test:mock 41/0, Mock E2E(탈퇴 3 + 약관 5) 8 passed.
+
+## DEV-144 관리자 페이지: spec-code-review AI 비용(건별·합계)
+
+- 이슈: [DEV-144](https://linear.app/sswp6/issue/DEV-144)
+- 브랜치: `nemodleo/dev-144-spec-check-ai-cost`
+- 관련: DEV-40·DEV-55(spec-check), DEV-83(관리자 페이지), `.github/spec-check/README.md`
+- 상태: 진행 중
+
+### 목표
+spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리자 페이지에서 건별·합계로 본다. 지금은 토큰 수가 7일 보관 artifact(report.json)에만 있다.
+
+### 범위 (수정 허용 경로)
+- 서버: `server/app/admin/{models,ai_usage,spec}.py|md`, `server/app/ai/service.py`(호출 뒤 기록 한 줄씩), `server/app/source_analysis/budget.py`(`settle`에서 기록), `server/app/core/config.py`(`spec_check_usage_token`), `server/app/main.py`(라우터 등록), `server/migrations/versions/0021_*`, `server/tests/test_ai_usage.py`, `server/.env.example`, `server/tasks.md`
+- CI: `.github/spec-check/{check.py,test_check.py,backfill_usage.py,README.md,tasks.md}`, `.github/workflows/spec-check.yml`(환경 변수 두 줄)
+- 관리자 페이지: `scripts/admin-web/**`
+- 문서: `docs/spec/screens.md`(7.2 운영자 행), `docs/spec/ia.md`(운영자 안내), `docs/wiki/{Requirements-and-Specifications,Design-Documentation}.md`(운영자 화면 줄)
+
+### 비범위
+- Anthropic Admin API 실제 청구액 대조, 제품 AI 비용, 예산 알림, 운영 변수 설정(사람)
+
+### 결정 사항
+- 10/23 저장은 서버 DB(사용자 결정). GitHub artifact만 읽는 방식은 7일 뒤 기록이 사라져 버림.
+- 10/23 CI → 서버 보고는 `POST /internal/spec-check-runs`(헤더 `X-Spec-Check-Token` = 서버 `SPEC_CHECK_USAGE_TOKEN`). 운영자 JWT(7일 만료)를 CI에 두지 않는다. 서버에 토큰이 없으면 503, 틀리면 401. 같은 실행 키(`<run_id>-<attempt>-<mode>`)는 한 번만 저장(재전송은 처음 기록 그대로).
+- 10/23 보고는 모델이 응답해 `usage`가 있을 때만 보낸다(SKIPPED·호출 전 INCOMPLETE는 비용 0이라 보내지 않음). 보고 실패는 경고만 찍고 리뷰 결과·종료 코드는 그대로.
+- 10/23 금액은 서버가 저장 때 모델 단가표(100만 토큰당 USD, `claude-sonnet-5-5` 입력 2·출력 10 등)로 계산해 함께 저장한다. 단가표에 없는 모델은 금액 없음(화면에 "단가 없음")으로 두고 합계에서 따로 센다. 캐시 토큰은 spec-check가 캐시를 쓰지 않아 입력·출력만.
+- 10/23 운영자 API `GET /admin/spec-check-runs`: 건별(최신순, cursor) + 합계(전체·이번 달 KST·최근 7일: 실행 수, 입력·출력 토큰, 금액).
+- 10/24 (위 두 줄을 바꿈, 사용자 요청 "AI 비용은 여러 개, 기능별로 구분, 총합도, 더 축약적으로") 저장소를 기능별 `ai_usage`로 일반화: `spec_check`(CI 보고), `product_draft`·`detail_draft`·`ai_answer`(`app/ai/service.py` 호출 뒤 기록), `source_analysis`(`budget.settle`, 제공자 금액). 운영자 API는 `GET /admin/ai-usage?feature=`(기능별·전체 × 이번 달·최근 7일·전체 + 목록). 화면은 합계 칸 대신 기능×기간 표 한 장(맨 아래 합계 줄) + 기능 탭 + 한 줄 목록(13px), 1센트 미만은 소수 넷째 자리.
+- 10/23 지난 실행은 `.github/spec-check/backfill_usage.py`가 남아 있는 artifact(최근 7일)의 report.json을 읽어 같은 API로 보낸다. 운영 토큰이 필요해 사람이 실행.
+
+### 작업
+- [x] 서버 저장·운영자 API·테스트
+- [x] check.py 보고·테스트, workflow 환경 변수, backfill 스크립트
+- [x] 관리자 페이지 'AI 비용' 화면
+- [x] 문서
+- [x] 로컬 확인
+- [ ] 운영 변수 설정(사람): Railway `SPEC_CHECK_USAGE_TOKEN`, GitHub spec-check 환경 secret `SPEC_CHECK_USAGE_TOKEN`·variable `SPEC_CHECK_USAGE_URL`
+
+### 완료 조건
+- [ ] spec-check 실행 뒤 관리자 페이지에 그 실행의 토큰·금액이 보이고 합계가 늘어난다
+- [x] 테스트 통과
+- [ ] 리뷰 1명 승인 후 main 머지, Railway·Vercel 관리자 페이지 배포 확인
+
+### 기록
+- 10/23 main 3ef3c04에서 시작. spec-check는 켜져 있고(`SPEC_CHECK_ENABLED=true`) 모델은 `claude-sonnet-5-5`.
+- 10/23 Figma는 후속 [DEV-146](https://linear.app/sswp6/issue/DEV-146).
+- 10/23 로컬 확인: DB `farmclub_dev144`(alembic 0021 + 시드), uvicorn :8003(로컬 `SPEC_CHECK_USAGE_TOKEN`), `server.mjs` :8093. `backfill_usage.py`로 실제 남아 있는 artifact 8건(PR #150·#160·#281·#283·#285·#288)을 로컬 서버에 보냄(다시 보내도 8건 그대로). `/ai-cost`: 미로그인 → `/login?next=%2Fai-cost`, 로그인 뒤 합계 $0.67(입력 260,501·출력 14,911, sonnet-5-5 단가로 검산 일치)과 실행별 표.
+- 10/23 테스트: `uv run pytest -q` 440 passed(새 4개), `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 51 OK, `cd scripts/admin-web && npm test` 20 passed, ruff·`alembic heads`(0021 하나)·actionlint 통과.
+- 10/24 기능별로 바꾼 뒤: `uv run pytest -q` 443 passed(`test_ai_usage.py` 7개), checker 51 OK, admin-web 20 passed, ruff 통과(`app/ai/service.py`·`app/admin/service.py`의 format 지적은 main에 원래 있던 것). 로컬: 새 DB에 spec-check backfill 9건 + 상품 초안 2·상세 초안 1·AI 답변 1·자료 분석 1 예시 기록 → 기능별 표와 합계 줄($0.74, 14회), 기능 탭 거르기, 1센트 미만 $0.0015 표시 확인.
+
+## DEV-149 관리자 페이지 크기 단계 통일(조금 더 컴팩트하게, 화면 간 일관성)
+
+- 이슈: [DEV-149](https://linear.app/sswp6/issue/DEV-149)
+- 브랜치: `nemodleo/dev-149-admin-size-scale`
+- 관련: DEV-83(관리자 레이아웃), DEV-144(AI 비용 화면), Figma DEV-146
+- 상태: 진행 중
+
+### 목표
+사용자 요청: "지금보다 컴팩트하게, 다만 빡빡하지 않게, 기존 디자인은 최대한 유지", "레벨이 갑자기 큰 요소들이 있다", "모든 페이지 일관성". 색·글꼴·모서리·사이드바 구조·버튼 모양은 그대로 두고 크기 단계만 하나로 맞춘다.
+
+### 범위 (수정 허용 경로)
+- `scripts/admin-web/assets/admin.css`, `scripts/admin-web/api/_views/*.html`, `scripts/admin-web/README.md`, `server/tasks.md`
+
+### 비범위
+- 동작·API·문구 의미 변경(설명 줄이기·'사용자 찾기' 제목은 포함), Figma(DEV-146에서)
+
+### 결정 사항
+- 10/24 측정(1280px): 동작 버튼 15px·44px > 탭 14px·36px, 검색 입력 16px·46px가 가장 큼, 카드 제목 18px, 사용자 찾기의 "주문 N건"은 h2 기본 24px, AI 비용만 13px·탭 30px·폭 1120, '사용자'·'사용자 찾기' 제목 같음, 문의함 색 직접 적음, 설명 두 줄 화면 3개, 390px에서 위쪽 메뉴가 화면 폭을 밀어 가로로 넘침.
+- 10/24 단계: 페이지 제목 22 / h2(카드·절 제목) 16 굵게 / 본문·버튼·입력·탭·표 14 / 보조 13 / 배지 12. 버튼·입력 36, 탭 32, 카드 안쪽 14×16·사이 10, 본문 폭 960(AI 비용 포함). 입력 글자는 760px 이하 16(iOS 확대 방지). 화면별 style에서 크기를 다시 정하지 않는다(`admin.css` 머리 주석).
+- 10/24 표는 공용 `.box`(카드와 같은 테두리·모서리). AI 비용 기능 이름 '코드 리뷰(spec-check)' → '코드 리뷰'(설명에 spec-check), 대상 칸 220px 말줄임으로 960 안에 들어가게.
+- 10/24 검색 폼은 입력과 버튼 한 줄(`form.row > input`), 본문 링크는 글자색+밑줄, 좁은 화면 `.shell`은 `minmax(0, 1fr)`.
+
+### 작업
+- [x] 공용 크기 단계, 화면별 정리
+- [x] 바꾸기 전후 캡처(데스크톱 1280·모바일 390, 8화면씩), 가로 넘침 확인(7화면 × 2폭 모두 없음)
+- [x] admin-web 테스트
+- [ ] Figma(DEV-146, 데스크톱·모바일)
+
+### 기록
+- 10/24 #295(DEV-144) 머지 뒤 main 0e852fc 위로 옮김. `cd scripts/admin-web && npm test` 20 passed.
+
+## DEV-150 소비자 앱 farmclub 문의 대화방 (고객센터)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-150
+- 브랜치: `jinumeral/dev-150-consumer-farmclub-support`
+- 기준: FEAT-34(소비자 AC 추가), M-22 수정, SCR-15·16, 관리자 문의함
+- 상태: 완료(머지 대기)
+
+### 목표
+- 소비자도 생산자처럼 farmclub 운영팀에 문의한다. 가입할 때 방과 환영 메시지를 만들고, 1:1 채팅 목록에 farmclub 행(로고, 고정 없음)을 둔다.
+- 기존 소비자에게도 한 번 넣는다(탈퇴 계정 제외).
+- 소비자 문의는 관리자 문의함에 생산자 문의와 함께 보이고, 운영자가 farmclub 이름으로 답한다.
+- draft PR까지 하고 머지는 보류한다(사용자 지시).
+
+### 범위 (수정 허용 경로)
+- `server/app/messaging/{models,schemas,service,router,support,spec}.py|md`, `server/app/admin/{support,schemas,spec}.py|md`, `server/app/accounts/service.py`(가입·탈퇴), `server/app/core/seed.py`, 새 `server/migrations/versions/0022_consumer_support.py`, `server/tests/**`, `server/tasks.md`
+- `packages/api/src/{types,endpoints,index}.ts`, `packages/api/src/mock/{conversations,db,auth,router}.ts`(router: 소비자 경로·온보딩 관문), `packages/api/tasks.md`
+- `packages/ui/src/{index,Messenger,ChatThread}.tsx|ts`, 새 `packages/ui/src/SupportAvatar.tsx`, `packages/ui/tasks.md`
+- `apps/consumer/src/app/(tabs)/chats/{index,support}.tsx`, `apps/consumer/tasks.md`
+- `apps/producer/src/lib/views.tsx`, `apps/producer/src/app/(tabs)/chats/{index,[consumerId]}.tsx`(SupportAvatar import 이동만)
+- `scripts/admin-web/**`, `scripts/e2e/**`, `scripts/test-*.mjs`
+- `docs/spec/{functional/FEAT-34-farmclub-support.md,functional/rules.md,policy.md,screens.md}`, `docs/wiki/Requirements-and-Specifications.md`
+- 처리방침·동의 버전(사용자 결정 10/29): `packages/ui/src/legalContent.ts`, `server/app/accounts/schemas.py`(`CONSENT_VERSION`), `scripts/test-{legal,onboarding,withdrawal}.mjs`, `docs/spec/{policy,screens}.md`, wiki
+
+### 비범위
+- 소비자 문의방 첨부 사진, 푸시, 운영자 배정·상태, 생산자 방을 새 테이블로 옮기기(후속)
+
+### 결정 사항
+- 10/29 사용자 결정: 생산자와 완전히 같게 한다(가입 때 방·환영 메시지, 1:1 채팅 목록 행, 다른 입구 없음). 기존 소비자에게도 넣는다. draft PR까지만 한다.
+- 10/29 소비자 방은 새 테이블 `support_threads`(사용자당 하나)와 `support_messages`에 둔다. 소비자 1:1(`Thread`)은 농가 FK가 필수이고 팔로우·AI·전달·환불 알림에 묶여 있어 재사용하지 않는다. 숨긴 가짜 농가를 두는 안은 농가·카탈로그·관리 목록에 새어서 택하지 않았다. 운영 중인 생산자 방(Thread)은 건드리지 않고, 문의함이 두 종류를 합쳐 보인다.
+- 10/29 사용자 결정: 처리방침 제1조 '소통' 목적에 소비자의 farmclub 문의 대화방을 넣고, 버전을 2026-10-29로 올려 모든 회원에게 재동의를 받는다(DEV-140 방식). 버전 날짜는 오늘 날짜로 두었고, 머지·배포 날짜가 달라지면 그때 맞춘다. 약관(이용약관)은 바꾸지 않는다.
+- 10/29 사용자 결정(리뷰 뒤): 처리방침 제14조는 이용 목적 변경을 30일 전에 알린다고 하지만, 이번 변경은 당일(2026-10-29) 시행한다. 테스트 서비스 기간이라 받아들인다는 판단이며, DEV-140도 같은 방식이었다. 대신 시행과 함께 모든 회원에게 재동의를 받는다.
+- 10/29 소비자 메시지에도 연락처 가림(M-16)을 적용한다. 첨부는 이번에 없다(ChatThread `upload`를 선택값으로 바꿔 + 버튼을 숨긴다).
+
+### 작업
+- [x] 서버: 모델·마이그레이션 0022(테이블+기존 소비자 백필), 가입·시드·탈퇴, 소비자 API, 채팅 목록 행, 관리 API·문의함 통합, 테스트
+- [x] packages/api·Mock, packages/ui(SupportAvatar 이동, upload 선택값)
+- [x] 소비자 앱 목록 행과 `/chats/support`
+- [x] 관리자 문의함(생산자·소비자 배지와 탭)
+- [x] 스펙·wiki
+- [x] 검증, 스캔
+- [ ] draft PR(머지 보류)
+
+### 기록
+- 10/29 origin/main a4a78a2에서 시작.
+- 10/29 검증:
+  - 서버: ruff check 통과, 전체 pytest 450 passed(새 `test_support_consumer.py` 8개, 기존 `test_support.py`·`test_messaging.py`는 문의함 행 구조와 소비자 목록의 farmclub 행에 맞춰 고침). 별도 DB `farmclub_dev150`에서 alembic upgrade → check(변경 없음) → downgrade 0021 → upgrade 성공.
+  - 앱·패키지: typecheck 4 workspace 통과, mock 43 passed, admin-web 21 passed(새 1개).
+  - 통합: `test:integration:full`(전체)에서 API 7 passed, Playwright 74 passed, 10 skipped, 0 failed(동의 버전 올린 뒤 다시 실행). 새 `consumer-support.spec.ts`와 고친 `farmclub-support.spec.ts`는 list 리포터로 3 passed를 확인했다.
+  - 화면: 소비자 문의방 스크린샷 확인(첨부 버튼 없음, 'farmclub' 말풍선).
+- 10/29 커밋 전 스캔에서 CRITICAL 0건, WARNING 3건이 나와 모두 반영했다.
+  - 문의 보내기는 `OnboardedConsumer`로 막는다. 이번 버전 올림의 목적이라 재동의 전에는 보낼 수 없고 읽기만 된다. Mock 관문도 같게 했고 테스트를 추가했다.
+  - Mock 탈퇴에서 문의 본문을 지우고 방을 탈퇴 ID로 옮긴다. 재가입한 사용자에게 이전 문의가 보이지 않는다(`test-withdrawal.mjs`).
+  - 문의함은 소비자 메시지가 있는 방만 내려 준다(가입 때 모두 방을 받으므로). 테스트를 추가했다.
+  - INFO도 반영했다: 빈 안내를 farmclub 행 아래로 옮겼고, Mock 경로를 소비자 경로로 표시했고, `DB_VERSION` 주석을 달았다. 관리자 웹과 서버는 문의함 응답 필드가 바뀌어서 서버를 먼저, 관리자 웹을 바로 다음에 배포해야 한다(PR에 적는다).
+- 10/29 확인 스캔: CRITICAL 0건, WARNING 1건(`mock/router.ts`가 범위에 없음)이 나와 범위에 추가했다. INFO도 반영했다: 문의함 답장 때 행이 사라졌으면 안내 후 다시 불러오고, Mock 목록 타입 단언을 반환 타입으로 바꾸고, Mock 환영 메시지 ID를 `nextId`로 바꿨다(재가입 때 겹치지 않게). 문의함의 방별 조회(N+1)는 문의한 방만 보이게 줄였고, 더 커지면 집계 쿼리로 바꾼다(후속).
+- 10/29 최종 검증: Mock 환영 메시지 ID를 `nextId`로 바꿨더니 시드 중 전역 db를 다시 불러 무한 재귀가 나서(mock 13 failed) 받은 d의 순번을 쓰게 고쳤다. 고친 뒤 결과는 pytest 452 passed, typecheck 4 workspace 통과, mock 43 passed, admin-web 21 passed, 관련 e2e(consumer-support·farmclub-support·conversation-ui·discovery-and-gates) 13 passed다. 전체 통합(Playwright 74 passed·10 skipped·0 failed)은 동의 버전 올린 직후 코드로 돌렸다.
+- 10/29 AI 1차 리뷰(must 0, should 2, nit 6)와 머지 전 스캔(CRITICAL·WARNING 0, INFO 4) 결과를 반영했다.
+  - 처리방침 당일 시행은 사용자 결정으로 유지한다.
+  - 소비자 보내기 멱등 테스트를 추가했다.
+  - 탈퇴한 회원 방은 답변 대기에서 빼고 답장을 409로 막는다.
+  - 스키마 주석과 wiki 시행일 문구를 고쳤다.
+  - 남긴 것: 문의함 N+1(후속), 약관 제12조 문구(다음 약관 개정 때), Mock 빈 방 행 차이(환영 메시지가 늘 있어 실제 차이 없음).

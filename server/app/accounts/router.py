@@ -14,6 +14,8 @@ from app.accounts.schemas import (
     ConsentView,
     KakaoConfig,
     KakaoLoginInput,
+    KakaoLoginResult,
+    KakaoSignupInput,
     LoginResult,
     MeUpdateInput,
     ProducerApplication,
@@ -53,10 +55,18 @@ def kakao_config():
     return service.kakao_config()
 
 
-@router.post("/kakao", response_model=LoginResult)
+@router.post("/kakao", response_model=KakaoLoginResult)
 def kakao_login(db: Db, body: KakaoLoginInput):
-    """카카오 인가 코드로 로그인. (식별자, 역할)로 그 앱 계정을 찾거나 만든다(ADR 0003·0010)."""
+    """카카오 인가 코드로 로그인(ADR 0003·0010). 새 사용자는 가입 토큰만 받는다(DEV-132)."""
     result = service.kakao_login(db, body.code, body.redirect_uri, body.app)
+    db.commit()
+    return result
+
+
+@router.post("/kakao/signup", response_model=LoginResult)
+def kakao_signup(db: Db, body: KakaoSignupInput):
+    """가입 토큰과 필수 약관 동의로 카카오 계정을 만들고 로그인한다(DEV-132, AC-01-19)."""
+    result = service.kakao_signup(db, body)
     db.commit()
     return result
 
@@ -85,6 +95,16 @@ def save_consents(db: Db, user: CurrentUser, body: ConsentsInput):
     result = service.save_consents(db, user, body)
     db.commit()
     return result
+
+
+@router.post("/me/withdraw", status_code=204)
+def withdraw(db: Db, user: CurrentUser):
+    """회원 탈퇴(DEV-94, AC-01-20). 개인정보를 지우고 이 토큰은 더 쓸 수 없다.
+
+    끝나지 않은 주문이 있으면 409 WITHDRAW_BLOCKED(orderNos), 테스트 계정은 403 TEST_ACCOUNT.
+    """
+    service.withdraw(db, user)
+    db.commit()
 
 
 @router.post("/producer-application", response_model=ProducerApplication)

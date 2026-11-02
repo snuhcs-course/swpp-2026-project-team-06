@@ -10,7 +10,8 @@
 | `/farms` | 테스트 농가(DEV-98): 공개 중·숨김 탭 → 숨기기 / 다시 공개 → 미리보기(거부 사유, 출하 전 테스트 주문) → 두 번 눌러 실행. 테스트 계정이 아닌 소비자 주문이 있으면 거부 |
 | `/users` | 사용자(DEV-107): 검색(이름·닉네임·ID·농가 이름·전화 끝 4자리), 역할·테스트 여부 탭 → 테스트로 표시 / 해제(두 번 눌러 확인). 전화는 끝 4자리만 |
 | `/user`, `/users/<id>` | 사용자 찾기(DEV-106): 사용자 ID·주문 ID·주문 번호로 찾기 → 주문·입금·환불 내역 → 입금 확인 대행 / 배송 완료 / 환불(금액·사유), 두 번 눌러 실행. 받는 사람 전화·주소는 안 보임 |
-| `/inbox` | 문의함(DEV-111): 답변 대기·전체 탭 → 대화 보기(열면 읽음) → farmclub으로 답장. 생산자 앱 1:1 채팅 목록의 farmclub 대화방(로고)과 같은 대화. 사진은 '사진 N장'으로만 보임 |
+| `/ai-cost` | AI 비용(DEV-144): 기능별(코드 리뷰·상품 초안·상세 초안·AI 답변·자료 분석)·합계 × 이번 달 KST·최근 7일·전체 표, 기능 탭으로 거르는 호출 목록(50건씩 더 보기). 조회만 |
+| `/inbox` | 문의함(DEV-111·DEV-150): 답변 대기·생산자·소비자·전체 탭 → 대화 보기(열면 읽음) → farmclub으로 답장. 생산자·소비자 앱 1:1 채팅 목록의 farmclub 대화방(로고)과 같은 대화. 사진은 '사진 N장'으로만 보임 |
 | `/` | 로그인 상태에 따라 `/producers` 또는 `/login` |
 
 ## 구조
@@ -30,6 +31,10 @@ vercel.json      경로 규칙(rewrites). server.mjs도 같은 규칙을 읽는�
 - 로그인은 공용 비밀번호(`ADMIN_WEB_PASSWORD`)를 한 번 확인하고 `fc_admin` 쿠키를 준다. HttpOnly·SameSite=Strict, https에서는 Secure, 12시간 유효. 값은 만료 시각과 HMAC 서명이고, 서명 키는 비밀번호에서 만든다. 그래서 새 환경 변수가 없고, 비밀번호를 바꾸면 모든 로그인이 풀린다. 다른 사이트에서 온 POST(Origin이 다름)는 거절한다.
 - 운영자 토큰(`ADMIN_TOKEN`)은 함수 환경 변수에만 있고 브라우저로 가지 않는다. 세션이 끝나면 화면이 `/login`으로 보내고, 다시 로그인하면 보던 화면으로 돌아온다.
 - 링크와 비밀번호를 아는 사람은 누구나 승인·반려할 수 있고, 결정은 모두 운영자 계정(`u-admin`) 이름으로 기록된다. 사람별 기록이 필요해지면 사람별 운영자 계정(서버 변경)으로 바꾼다.
+
+### 크기 단계 (DEV-149)
+
+페이지 제목 22 / 카드·절 제목(h2) 16 굵게 / 본문·버튼·입력·탭·표 14 / 보조 13 / 배지 12. 버튼·입력 36, 탭 32. 새 화면은 `assets/admin.css`의 공용 요소(`.card`, `.meta`, `.tabs`, `.box` 표, `.badge`)를 쓰고 화면별 style에서 크기를 다시 정하지 않는다. Figma v6 '현재 시안 · 관리자'가 기준.
 
 ### 메뉴 늘리기
 
@@ -56,7 +61,7 @@ ADMIN_WEB_PASSWORD=… ADMIN_TOKEN=… node scripts/admin-web/server.mjs   # htt
 
 ## Vercel 배포
 
-이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`, https://admin.farmclub.kr)로 올린다. 빌드는 없고, Vercel이 `vercel.json`대로 `api/*.js`를 서버리스 함수로 만든다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다. 환경 변수는 Vercel 프로젝트에서만 바꾸고 워크플로·저장소에는 두지 않는다.
+이 폴더를 루트로 하는 별도 Vercel 프로젝트(`farmclub-admin`, https://admin.farmclub.kr)로 올린다. 빌드는 없고, Vercel이 `vercel.json`대로 `api/*.js`를 서버리스 함수로 만든다. Vercel 환경 변수에 `ADMIN_WEB_PASSWORD`와 `ADMIN_TOKEN`을 넣어야 동작한다(없으면 로그인·중계가 503). 실서버 주소를 바꾸려면 `FARMCLUB_API_URL`을 넣는다. 환경 변수는 Vercel 프로젝트에서만 바꾸고 워크플로·저장소에는 두지 않는다. `admin.farmclub.kr`은 Cloudflare `admin` CNAME(Proxied) → Vercel `farmclub-admin`이고(DEV-91, ADR 0012), `farmclub-admin.vercel.app`도 같은 배포다.
 
 - **테스트(CI)**: PR·main push에서 `scripts/admin-web/**`가 바뀌면 `ci.yml`의 `admin-web` job이 `node --test scripts/admin-web/admin.test.mjs`를 돌린다(DEV-114).
 - **자동 배포**: main CI가 성공하고 그 커밋에 `scripts/admin-web/` 변경이 있으면 `deploy-vercel.yml`의 `deploy-admin` job이 `vercel deploy scripts/admin-web --prod`로 올리고 `https://admin.farmclub.kr/login`이 200인지 확인한다. 앱 배포와 같은 `VERCEL_TOKEN`(production Environment)을 쓰고, 토큰이 없으면 건너뛴다.

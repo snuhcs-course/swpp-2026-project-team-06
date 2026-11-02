@@ -71,7 +71,7 @@ def workspace_photo(pid: str, photo_id: str, who: ApprovedProducer, db: DB):
     return Response(
         Storage().get(photo.storage_key),
         media_type="image/png",
-        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-store"},
     )
 
 
@@ -321,7 +321,6 @@ def content(bid: str, sid: str, who: ApprovedProducer, db: DB):
         headers={
             "Content-Disposition": 'attachment; filename="source"',
             "Cache-Control": "no-store",
-            "X-Content-Type-Options": "nosniff",
         },
     )
 
@@ -365,7 +364,7 @@ def page_image(
     return Response(
         Storage().get(key),
         media_type="image/png",
-        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-store"},
     )
 
 

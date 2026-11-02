@@ -43,6 +43,13 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await consumerPage.getByLabel("상세 주소").fill("통합동 101호");
   await consumerPage.getByRole("button", { name: "이 주소로 받기" }).click();
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
+  // DEV-141: 동의 체크 상태가 aria-checked로 DOM에 나온다(react-native-web은 accessibilityState를 무시)
+  await expect(
+    consumerPage.getByRole("checkbox", { name: "모두 동의해요" }),
+  ).toBeChecked();
+  await expect(
+    consumerPage.getByRole("checkbox", { name: "개인정보 제3자 제공 (판매자)" }),
+  ).toBeChecked();
   await consumerPage.getByRole("button", { name: "예약하기" }).click();
   // DEV-68: 입금 안내(농가 계좌·입금자명=주문 번호·기한·중개자 고지) → 입금했어요 → 입금 확인 중
   await expect(consumerPage).toHaveURL(/\/pay/);
