@@ -495,3 +495,18 @@ owner가 완료한 T23 부분 오염 재실행을 집계만 보고하고, 소진
 - 11/02 의도한 커밋(실행하지 않음): `docs(source): AC-SRC-2/3/6 T23 부분 오염 재실행과 폐기 기록 (DEV-182)`, `chore(eval): AC-SRC-2/6 폐기 holdout 개발 편입과 v2 gold 연결 (DEV-182)`.
 - 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: owner 승인된 재실행 집계만 공개하고 폐기 holdout을 원본 보존·private v2 gold·mock 검증으로 개발 편입한다.
 - 11/02 재현성 주의: 개발 public gold가 v2(`16c23904…`)로 바뀌어 `final_score`는 v2 SHA와 24건 ID 집합만 받는다. v1(`3ed46597…`)을 가리키는 과거 개발 run(R1–R4, T23a/T23b)은 `--rescore`로 다시 채점할 수 없으며, 기록 수치는 당시 저장된 score.json 기준이다. 보고서 비교 절에 재실행의 형식별 하락(image·long_image facts/critical, 오배치10→26)을 명시했다.
+## DEV-189 OCR 모델 GitHub Release 미러
+
+### 왜
+- 11/02 #347 머지 후 Railway source worker 빌드가 2회 실패했다. `provision_ocr`가 ModelScope의 모델 3개를 받는데 세 URL 모두 HTTP 500이었다. 운영 worker는 이전 이미지로 계속 동작했다.
+
+### 범위
+- `server/app/source_analysis/provision_ocr.py`, `server/tests/test_provision_ocr.py`, `server/README.md`, 이 폴더의 `spec.md`·`tasks.md`.
+
+### 결정 사항
+- 해시가 같은 원본 3개를 공개 GitHub Release `ocr-models-v3.10.0`에 올렸다. LICENSE(Apache-2.0)와 출처를 적은 NOTICE를 함께 올렸다. Hugging Face에는 해시가 같은 사본이 없었다.
+- `ocr-manifest.json`은 바꾸지 않는다. worker 시작 검사가 manifest 해시(`SOURCE_OCR_MODEL_SHA256`)를 운영 변수와 대조하므로, 미러 주소는 설치 코드에만 둔다.
+- 설치 순서는 미러 → manifest의 ModelScope URL이다. 받은 파일은 sha256이 manifest와 같아야 하며, 모든 주소가 실패하면 빌드가 실패한다. manifest URL의 ModelScope 접두사 허용 검사는 유지한다.
+
+### 기록
+- 11/02 ModelScope가 500인 상태에서 실제 설치: 미러에서 3개를 받았고 출력 해시 `9f64ef4f…`가 README와 운영 변수 값과 같다. `tests/test_provision_ocr.py` 8 passed(미러 우선·500/읽는 중 끊김/연결 리셋/해시 불일치 시 폴백·전부 실패·비신뢰 URL·manifest 해시 고정), ruff 통과.
