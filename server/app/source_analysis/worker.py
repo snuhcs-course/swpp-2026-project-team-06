@@ -8,6 +8,7 @@ from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import closing, contextmanager, nullcontext
 from datetime import timedelta
+from functools import partial
 from threading import Event, Thread
 
 from sqlalchemy import delete, select
@@ -41,6 +42,7 @@ from app.source_analysis.models import (
 )
 from app.source_analysis.preprocess import (
     PREPROCESS_VERSION,
+    TEXT_CHUNK_CHARS,
     PreparationError,
     prepare,
     scrub,
@@ -211,7 +213,7 @@ def enqueue_extraction(db, source, run, item, pages):
         )
     )
     if run.mode == "openrouter" and source.mime != "text/plain":
-        # The job owns the document; each provider request still owns one page/crop.
+        # The job owns the document; OCR uses crops and extraction packs bounded pages.
         requests = [
             {"number": page.number, "spanIds": [s["id"] for s in page.redacted_spans]}
             for page in sorted(pages, key=lambda p: p.number)
@@ -505,6 +507,43 @@ OCR_HARD_ERRORS = {
 }
 
 
+def _ordered_results(jobs, stop, concurrency):
+    """Bound submitted calls and consume in input order; drain on every exit."""
+    executor = ThreadPoolExecutor(max_workers=concurrency) if concurrency > 1 else nullcontext()
+    with executor as pool:
+        try:
+            pending, tasks, exhausted = deque(), iter(jobs), False
+            outstanding = 0
+            while pending or not exhausted:
+                while (
+                    not exhausted
+                    and not stop.is_set()
+                    and (len(pending) < 1 if concurrency == 1 else outstanding < concurrency)
+                ):
+                    try:
+                        key, job = next(tasks)
+                    except StopIteration:
+                        exhausted = True
+                        break
+                    is_call = callable(job)
+                    if is_call:
+                        result = pool.submit(job) if pool else job()
+                    else:
+                        result = job
+                    outstanding += int(is_call)
+                    pending.append((key, result, is_call))
+                if not pending:
+                    break
+                key, result, is_call = pending.popleft()
+                outstanding -= int(is_call)
+                if isinstance(result, Future):
+                    result = result.result()
+                yield key, result
+        finally:
+            stop.set()
+        # Executor shutdown waits for every already sent request to settle, also on close.
+
+
 def _ocr_results(pages, page_images, call, failed, concurrency):
     """Bound submitted work as well as threads; yield results in source order."""
     stop = Event()
@@ -519,7 +558,7 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
                 for index, encoded in enumerate(crops(image)):
                     if failed[number].is_set():
                         break
-                    yield number, (index, encoded)
+                    yield number, partial(invoke, number, index, encoded)
             except (ExtractionError, PreparationError) as exc:
                 yield number, exc
             yield number, None  # End of page, including empty and failed pages.
@@ -558,41 +597,10 @@ def _ocr_results(pages, page_images, call, failed, concurrency):
             stop.set()
             raise
 
-    # With one slot, invoke on the caller and consume before preparing the next crop.
-    executor = ThreadPoolExecutor(max_workers=concurrency) if concurrency > 1 else nullcontext()
-    with executor as pool:
-        try:
-            pending, tasks, exhausted = deque(), iter(jobs()), False
-            outstanding = 0
-            while pending or not exhausted:
-                while (
-                    not exhausted
-                    and not stop.is_set()
-                    and (len(pending) < 1 if concurrency == 1 else outstanding < concurrency)
-                ):
-                    try:
-                        number, job = next(tasks)
-                    except StopIteration:
-                        exhausted = True
-                        break
-                    if isinstance(job, tuple):
-                        result = pool.submit(invoke, number, *job) if pool else invoke(number, *job)
-                        outstanding += 1
-                    else:
-                        result = job
-                    pending.append((number, result, isinstance(job, tuple)))
-                if not pending:
-                    break
-                number, result, is_call = pending.popleft()
-                outstanding -= int(is_call)
-                if isinstance(result, Future):
-                    result = result.result()
-                if result is not skipped:
-                    yield number, result
-        finally:
-            # Stop queued crops on any exit (e.g. a consumer-side error) before shutdown waits.
-            stop.set()
-        # Executor shutdown waits for every already sent request to settle, also on close.
+    with closing(_ordered_results(jobs(), stop, concurrency)) as results:
+        for number, result in results:
+            if result is not skipped:
+                yield number, result
 
 
 def transcribe_pages(chunk, page_images, call):
@@ -647,13 +655,76 @@ def transcribe_pages(chunk, page_images, call):
     return diagnostics
 
 
+EXTRACTION_MAX_PAGES = 4
+
+
 def extraction_chunks(chunk, *, skip_empty=False):
-    """Use the product text grouping; only remote OCR skips empty pages."""
+    """Pack OCR spans across pages; preserve the existing per-page text path."""
+    pages, size = [], 0
     for page in chunk["pages"]:
-        if skip_empty and not page["spans"]:
+        if not skip_empty:
+            for group in text_chunks(page["spans"]):
+                yield {**chunk, "pages": [{"number": page["number"], "spans": group}]}
             continue
-        for group in text_chunks(page["spans"]):
-            yield {**chunk, "pages": [{"number": page["number"], "spans": group}]}
+        for span in page["spans"]:
+            new_page = not pages or pages[-1]["number"] != page["number"]
+            if pages and (
+                size + len(span["text"]) > TEXT_CHUNK_CHARS
+                or (new_page and len(pages) >= EXTRACTION_MAX_PAGES)
+            ):
+                yield {**chunk, "pages": pages}
+                pages, size, new_page = [], 0, True
+            if new_page:
+                pages.append({"number": page["number"], "spans": []})
+            pages[-1]["spans"].append(span)
+            size += len(span["text"])
+    if pages:
+        yield {**chunk, "pages": pages}
+
+
+def _extract_results(chunk, targets, model, call, extract_part):
+    stop = Event()
+    skipped = ExtractionResponse(Extraction(candidates=[], photo_requests=[]), {"cost": 0}, None)
+
+    def invoke(index, part):
+        if stop.is_set():
+            return skipped
+
+        def send():
+            if stop.is_set():
+                return skipped  # Reserved but unsent: settle at zero cost.
+            try:
+                return extract_part(part)
+            except ExtractionError as exc:
+                if exc.code in OCR_HARD_ERRORS:
+                    stop.set()  # Stop new sends before slow settlement completes.
+                raise
+
+        try:
+            return call(
+                f"extract-{part['pages'][0]['number']}-{index}",
+                model,
+                part,
+                targets,
+                [],
+                send,
+            )
+        except ExtractionError as exc:
+            if exc.code in OCR_HARD_ERRORS:
+                stop.set()
+            return exc
+        except BaseException:
+            stop.set()
+            raise
+
+    jobs = (
+        ((index, part), partial(invoke, index, part))
+        for index, part in enumerate(extraction_chunks(chunk, skip_empty=True))
+    )
+    with closing(_ordered_results(jobs, stop, get_settings().source_ocr_concurrency)) as results:
+        for (index, part), result in results:
+            if result is not skipped:
+                yield index, part, result
 
 
 def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics):
@@ -662,41 +733,37 @@ def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics
     usage, request_id, first_failure = {}, None, None
     skipped, succeeded = 0, 0
     diagnostics["chunksFailed"] = []
-    for index, part in enumerate(extraction_chunks(chunk, skip_empty=True)):
-        try:
-            response = call(
-                f"extract-{part['pages'][0]['number']}-{index}",
-                model,
-                part,
-                targets,
-                [],
-                lambda part=part: extract_part(part),
-            )
-        except ExtractionError as exc:
-            exc.retry_after = None
-            pages = [p["number"] for p in part["pages"]]
-            diagnostics["chunksFailed"].append({"index": index, "pages": pages, "code": exc.code})
-            if exc.code in OCR_HARD_ERRORS:
-                raise
-            first_failure = first_failure or exc
-            continue
-        succeeded += 1
-        accepted, checked = validate_candidates(
-            response.extraction, part, {t["id"] for t in targets}
-        )
-        for candidate in accepted.candidates:
-            signature = candidate.model_dump_json(by_alias=True)
-            if signature in seen:
+    results = _extract_results(chunk, targets, model, call, extract_part)
+    with closing(results):
+        for index, part, response in results:
+            if isinstance(response, ExtractionError):
+                exc = response
+                exc.retry_after = None
+                pages = [p["number"] for p in part["pages"]]
+                diagnostics["chunksFailed"].append(
+                    {"index": index, "pages": pages, "code": exc.code}
+                )
+                if exc.code in OCR_HARD_ERRORS:
+                    raise exc
+                first_failure = first_failure or exc
                 continue
-            seen.add(signature)
-            if len(candidates) < 100:
-                candidates.append(candidate)
-            else:
-                skipped += 1
-        photo_requests.extend(accepted.photo_requests)
-        rejected.extend(checked["rejected"])
-        # Spend is authoritative for all calls; retain the latest successful usage/id.
-        usage, request_id = response.usage, response.request_id
+            succeeded += 1
+            accepted, checked = validate_candidates(
+                response.extraction, part, {t["id"] for t in targets}
+            )
+            for candidate in accepted.candidates:
+                signature = candidate.model_dump_json(by_alias=True)
+                if signature in seen:
+                    continue
+                seen.add(signature)
+                if len(candidates) < 100:
+                    candidates.append(candidate)
+                else:
+                    skipped += 1
+            photo_requests.extend(accepted.photo_requests)
+            rejected.extend(checked["rejected"])
+            # Spend is authoritative for all calls; retain the latest successful usage/id.
+            usage, request_id = response.usage, response.request_id
     if first_failure and not succeeded:
         raise first_failure
     photo_requests = list(dict.fromkeys(photo_requests))
