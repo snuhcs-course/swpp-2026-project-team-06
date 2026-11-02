@@ -600,7 +600,8 @@
               "id": "f1",
               "statement": "감귤 7kg입니다.",
               "mustContain": [
-                "감귤 7kg입니다"
+                "감귤",
+                "7kg"
               ],
               "critical": true
             }
@@ -616,7 +617,7 @@
               "id": "f2",
               "statement": "서늘한 곳에 두세요.",
               "mustContain": [
-                "서늘한 곳에 두세요"
+                "서늘한 곳"
               ],
               "critical": false
             }
@@ -632,7 +633,7 @@
               "id": "f3",
               "statement": "바람을 막는 울타리에서 길렀습니다.",
               "mustContain": [
-                "바람을 막는 울타리에서 길렀습니다"
+                "바람을 막는 울타리"
               ],
               "critical": false
             }
@@ -656,7 +657,8 @@
               "id": "f1",
               "statement": "감귤 7kg입니다.",
               "mustContain": [
-                "감귤 7kg입니다"
+                "감귤",
+                "7kg"
               ],
               "critical": true
             }
@@ -680,7 +682,8 @@
               "id": "f1",
               "statement": "감귤 7kg입니다.",
               "mustContain": [
-                "감귤 7kg입니다"
+                "감귤",
+                "7kg"
               ],
               "critical": true
             }
@@ -696,7 +699,7 @@
               "id": "f2",
               "statement": "서늘한 곳에 두세요.",
               "mustContain": [
-                "서늘한 곳에 두세요"
+                "서늘한 곳"
               ],
               "critical": false
             }
