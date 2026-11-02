@@ -393,11 +393,7 @@ def store_candidates(db, batch, item, extraction):
             )
         )
     )
-    prior_ids = [
-        i.id
-        for i in previous
-        if i.target_ids == item.target_ids and page_scope(i.pages) <= succeeded_scope
-    ]
+    prior_ids = [i.id for i in previous if i.target_ids == item.target_ids]
     old = list(
         db.scalars(
             select(Candidate).where(
@@ -406,6 +402,32 @@ def store_candidates(db, batch, item, extraction):
             )
         )
     )
+    previous_by_id = {i.id: i for i in previous}
+    source, run = db.get(Asset, item.asset_id), db.get(Run, item.run_id)
+    page_level = run.mode == "openrouter" and source.mime != "text/plain"
+    succeeded_pages = {number for number, _ in succeeded_scope}
+    old = [
+        candidate
+        for candidate in old
+        if (
+            all(
+                evidence.get("sourceId") == item.asset_id
+                and evidence.get("sourceRevision") == item.revision
+                and evidence.get("page") in succeeded_pages
+                and (
+                    page_level
+                    or evidence.get("spanIds")
+                    and all(
+                        (evidence["page"], sid) in succeeded_scope
+                        for sid in evidence["spanIds"]
+                    )
+                )
+                for evidence in candidate.evidence
+            )
+            if candidate.evidence
+            else page_scope(previous_by_id[candidate.item_id].pages) <= succeeded_scope
+        )
+    ]
     confirmed = {
         cid
         for field in db.scalars(

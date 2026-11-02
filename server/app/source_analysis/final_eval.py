@@ -249,7 +249,7 @@ def load_gold(split, subset, dev_dir, holdout_dir, rows):
 
 
 def estimate(rows, provider, model):
-    """Planning estimate, NOT a quote: 4k input/2k output per page and refine.
+    """Planning estimate, NOT a quote: 4k input/configured output per page and refine.
 
     Raster page count is approximated by conservative 720px tiles (PDF: physical pages).
     Actual reservations use UTF-8/image bounds in budget.py before every call.
@@ -280,7 +280,7 @@ def estimate(rows, provider, model):
 
     inp, out = SOURCE_OPENROUTER_PRICES[model] if provider == "openrouter" else (2, 10)
     ocr_in, ocr_out = SOURCE_OPENROUTER_PRICES[OCR_MODEL]
-    planned = (pages + len(rows)) * (4000 * inp + 2000 * out) + (
+    planned = (pages + len(rows)) * (4000 * inp + get_settings().source_max_output_tokens * out) + (
         tiles * (4000 * ocr_in + 2048 * ocr_out) if provider == "openrouter" else 0
     )
     return {
@@ -389,6 +389,18 @@ class Calls:
                     )
 
 
+def evidence_text(local_text, chunk, diagnostics):
+    """Union local evidence with OCR from pages without failed extraction chunks."""
+    failed_pages = {page for part in diagnostics.get("chunksFailed", []) for page in part["pages"]}
+    transcript = "\n".join(
+        s["text"]
+        for p in chunk["pages"]
+        if p["number"] not in failed_pages
+        for s in p["spans"]
+    )
+    return "\n;\n".join(dict.fromkeys(t for t in (local_text, transcript) if t))
+
+
 def evaluate_source(row, provider, model, calls):
     started = time.perf_counter()
     first_entry = len(calls.entries)
@@ -396,6 +408,7 @@ def evaluate_source(row, provider, model, calls):
     metric.update(status="FAILED", errorCode=None, stage1Ms=None, stage2Ms=None, preprocessMs=None)
     record = {"id": row["id"], "format": row["format"], "status": "FAILED", "modules": []}
     candidates, stored, safe_text = [], [], ""
+    local_text = ""
     stage2_usage, stage2_diagnostics, stage1_diagnostics = {}, {}, []
     stage = "preprocess"
     ocr_diagnostics = {"pagesEmpty": [], "pagesFailed": []}
@@ -417,6 +430,7 @@ def evaluate_source(row, provider, model, calls):
             {"number": number, "spans": [{**s, "text": scrub(s["text"])} for s in page["spans"]]}
             for number, page in enumerate(pages, 1)
         ]
+        local_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
         vision = provider == "openrouter" and row["mime"] != "text/plain"
         if vision:
             import base64
@@ -478,7 +492,7 @@ def evaluate_source(row, provider, model, calls):
                     ):
                         candidates.append(value)
         metric["stage1Ms"] = (time.perf_counter() - stage1) * 1000
-        safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
+        safe_text = evidence_text(local_text, chunk, ocr_diagnostics)
         metric["rejectedCandidates"] = rejected
         # PARTIAL extraction with accepted candidates is usable for product refinement.
         # Wholly rejected items above still fail; no failed/uncertain request is replayed.
@@ -594,7 +608,7 @@ def evaluate_source(row, provider, model, calls):
             chunksFailed=len(ocr_diagnostics.get("chunksFailed", [])),
         )
         if "chunk" in locals():
-            safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
+            safe_text = evidence_text(local_text, chunk, ocr_diagnostics)
         if "stage2" in locals() and metric["stage2Ms"] is None:
             metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
         entries = calls.entries[first_entry:]
@@ -1119,6 +1133,8 @@ def main(argv=None):
                 "ocrPromptSha256": final_score.sha256(OCR_PROMPT.encode()),
                 "ocrManifestSha256": cfg.source_ocr_model_sha256,
                 "maxUsd": args.max_usd,
+                "sourceMaxOutputTokens": cfg.source_max_output_tokens,
+                "measurementVersion": final_score.MEASUREMENT_VERSION,
                 "estimate": planned,
                 "goldFiles": list(map(str, gold_files)),
                 "sources": [r[1] for r in results],

@@ -40,6 +40,7 @@ NUMBER_UNIT = (
     r"kg|mg|[μµ]g|g|brix|cm|mm|ml|l|m|톤|리터|년|개월|월|일|시간|분|초|"
     r"과|개|상자|박스|%|도|회|명|배"
 )
+MEASUREMENT_VERSION = "dev193-number-evidence-v1"
 NUMBER_VALUE = r"[+-]?\d[\d,]*(?:\.\d+)?"
 RANGE_SEPARATOR = r"(?:[~–-]|부터|에서)"
 NUMBER_RE = re.compile(
@@ -298,9 +299,16 @@ def distinctive(text: str) -> str:
     )
 
 
+def numeric_text(text: str) -> str:
+    """Protect same-line sentence dots before normalization collapses whitespace."""
+    # normalize() already handles wrapped years/units and OCR decimals (3.\n5kg).
+    # Never skip intervening lines: a slash notation may itself be a real unit.
+    return re.sub(r"(?<=\d)\.[ \t]+(?=\d)", "; ", text)
+
+
 def sensitive_tokens(text: str, cultivar_words=CULTIVARS) -> dict[str, set[str]]:
     # 줄 머리 번호 목록 표지(1. / 2))는 사실 숫자가 아니다.
-    value = normalize_final(re.sub(r"(?m)^\s*\d{1,2}[.)]\s+", "", text))
+    value = normalize_final(numeric_text(re.sub(r"(?m)^\s*\d{1,2}[.)]\s+", "", text)))
     folded = compact(text).casefold()
     return {
         "number": {number_token(m[0]) for m in NUMBER_RE.finditer(value)},
@@ -495,6 +503,7 @@ def score(
         rows.append(row)
     return {
         "schemaVersion": 1,
+        "measurementVersion": MEASUREMENT_VERSION,
         "split": parsed.split,
         "sources": rows,
         "byFormat": {fmt: _summary([r for r in rows if r["format"] == fmt]) for fmt in FORMATS},
@@ -526,6 +535,10 @@ def markdown(report: dict) -> str:
         return f"{metric['hit']}/{metric['total']}" if metric["total"] else "N/A"
 
     lines = [
+        "DEV-193 measurement: numeric boundaries and OCR evidence. "
+        "Scores before and after this change are not directly comparable; "
+        "OCR evaluation also requires local + product OCR evidence.",
+        "",
         "| Group | Sources | Extraction | Contract | Facts | Critical | Misplaced | Forbidden | "
         "Unsupported | Proxy | Gate |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",

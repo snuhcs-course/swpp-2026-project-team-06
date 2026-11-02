@@ -1716,3 +1716,356 @@ def test_AC_SRC_2_3_5_followup_evaluate_source_uses_packed_parallel_extraction(m
     assert [c["evidence"][0]["page"] for c in private["candidates"]] == list(range(1, 9))
     assert metric["pagesFailed"] == metric["pagesEmpty"] == metric["chunksFailed"] == 0
     assert len(calls.entries) == len(private["calls"]) == 11  # OCR8 + extract2 + refine1.
+
+
+@pytest.mark.parametrize("cap", [5000, 8000])
+def test_AC_SRC_2_5_DEV_193_dense_adapter_uses_configured_output_cap(monkeypatch, cap):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "source_max_output_tokens", cap)
+    dense = " ".join(f"합성 항목{i} 보관 안내" for i in range(400))[:4000]
+    assert len(dense) == 4000
+    values = [{
+        "targetId": "target", "fieldKey": "storage", "value": dense[offset:offset + 1000],
+        "historical": False,
+        "evidence": [{"sourceId": "source", "sourceRevision": 1, "page": 1,
+                      "spanIds": ["s"], "quote": dense[offset:offset + 1000]}],
+    } for offset in range(0, len(dense), 1000)]
+    requests = []
+
+    def request(**kwargs):
+        requests.append(kwargs)
+        return SimpleNamespace(
+            id="synthetic", usage=SimpleNamespace(model_dump=lambda: {"cost": 0.001}),
+            choices=[SimpleNamespace(finish_reason="stop", message=SimpleNamespace(
+                content=json.dumps({"candidates": values, "photo_requests": []})
+            ))],
+        )
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=request)),
+                             close=lambda: None)
+    monkeypatch.setattr(ai, "OpenAI", lambda **kwargs: client)
+    response = ai.extract("openrouter", "google/gemini-3-flash-preview", {
+        "sourceId": "source", "sourceRevision": 1,
+        "pages": [{"number": 1, "spans": [{"id": "s", "text": dense}]}],
+    }, [{"id": "target"}], [])
+    assert len(requests) == 1 and requests[0]["max_tokens"] == cap
+    assert "".join(c.value for c in response.extraction.candidates) == dense
+    assert "".join(c.evidence[0].quote for c in response.extraction.candidates) == dense
+
+
+@pytest.mark.parametrize("finish", ["length", "stop"])
+def test_AC_SRC_5_DEV_193_uncertain_dense_response_keeps_full_reservation(monkeypatch, finish):
+    from app.core.config import get_settings
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_max_output_tokens", 8000)
+    monkeypatch.setattr(cfg, "source_evaluation", True)
+    monkeypatch.setattr(cfg, "source_budget_usd", 10)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", 10)
+    sent = []
+
+    def request(**kwargs):
+        sent.append(kwargs)
+        if finish == "stop":
+            from openai import APITimeoutError
+            raise APITimeoutError(request=httpx.Request("POST", "https://example.invalid"))
+        return SimpleNamespace(
+            id="synthetic", usage=None,
+            choices=[SimpleNamespace(finish_reason="length", message=SimpleNamespace(
+                content='{"candidates":['
+            ))],
+        )
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=request)),
+                             close=lambda: None)
+    monkeypatch.setattr(ai, "OpenAI", lambda **kwargs: client)
+    model = "google/gemini-3-flash-preview"
+    expected = budget.estimate_micros("openrouter", model, {}, [], [], output_tokens=8000)
+    assert expected >= 24000  # Full 8000-token output at the model's $3/M output price.
+    assert budget.estimate_micros("openrouter", model, {}, [], []) == expected
+    calls = ev.Calls("openrouter", 1)
+    with pytest.raises(ai.ExtractionError):
+        calls("extract", model, {}, [], [], lambda: ai.extract("openrouter", model, {}, [], []))
+    assert len(sent) == 1 and sent[0]["max_tokens"] == 8000
+    assert calls.used == expected
+    summary = ev.costs(calls.entries)
+    assert summary["unsettledReservedUsd"] == expected / 1e6
+    with get_sessionmaker()() as db:
+        reservations = list(db.scalars(select(Spend)))
+        assert len(reservations) == 1
+        assert reservations[0].reserved_micros == expected
+        assert reservations[0].charged_micros is None
+
+
+@pytest.mark.parametrize("fmt", ["image", "long_image", "pdf"])
+@pytest.mark.parametrize("failure", [False, True])
+def test_AC_SRC_3_6_DEV_193_safe_text_unions_local_and_product_ocr(monkeypatch, fmt, failure):
+    from app.ai.source_ocr import Transcription
+    from app.core.config import get_settings
+    from app.source_analysis import worker
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+    import base64
+
+    monkeypatch.setattr(ev, "parse", lambda *args: [{
+        "spans": [{"id": "local", "text": "since 1966. 50년"}],
+        "image": base64.b64encode(b"invented image").decode(),
+    }])
+    monkeypatch.setattr(worker, "crops", lambda data: ["synthetic-crop"])
+    monkeypatch.setattr(worker, "transcribe", lambda _: Transcription(
+        ["당도 12.5브릭스", "문의 010-1234-5678"], {}, "synthetic"
+    ))
+    sent = []
+
+    def extract(*args, **kwargs):
+        sent.append(args[2])
+        if failure:
+            raise ai.ExtractionError("REQUEST_UNCERTAIN")
+        return ai.ExtractionResponse(Extraction(candidates=[], photo_requests=[]), {}, "synthetic")
+
+    monkeypatch.setattr(ai, "extract", extract)
+    record, metric, safe, _ = ev.evaluate_source(
+        {**row(), "format": fmt, "mime": "application/pdf" if fmt == "pdf" else "image/png"},
+        "openrouter", "fixture", ev.Calls("mock", 3),
+    )
+    assert sent, metric
+    assert record["status"] == ("FAILED" if failure else "EMPTY")
+    numbers = final_score.sensitive_tokens(safe)["number"]
+    assert {"1966", "50년"} <= numbers
+    ocr_numbers = final_score.sensitive_tokens("12.5브릭스")["number"]
+    if failure:
+        assert numbers.isdisjoint(ocr_numbers)
+        assert final_score.unsupported_tokens(
+            final_score.sensitive_tokens("12.5브릭스"), final_score.sensitive_tokens(safe)
+        )["number"] == ocr_numbers
+    else:
+        assert ocr_numbers <= numbers
+    assert not final_score.PHONE_RE.search(safe)
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens("999kg"), final_score.sensitive_tokens(safe)
+    )["number"] == {"999kg"}
+
+
+def test_AC_SRC_3_6_DEV_193_safe_text_survives_ocr_mutation_then_failure(monkeypatch):
+    import base64
+
+    monkeypatch.setattr(ev, "parse", lambda *args: [{
+        "spans": [{"id": "local", "text": "since 1966"}],
+        "image": base64.b64encode(b"invented image").decode(),
+    }])
+
+    def partial_ocr(chunk, *args):
+        chunk["pages"][0]["spans"] = [{"id": "vision-gemini-0", "text": "당도 12.5브릭스"}]
+        raise ai.ExtractionError("PROVIDER_AUTH")
+
+    monkeypatch.setattr(ev, "transcribe_pages", partial_ocr)
+    record, _, safe, _ = ev.evaluate_source(
+        {**row(), "format": "pdf", "mime": "application/pdf"},
+        "openrouter", "fixture", ev.Calls("mock", 3),
+    )
+    assert record["status"] == "FAILED"
+    assert final_score.sensitive_tokens("since 1966 당도 12.5브릭스")["number"] <= (
+        final_score.sensitive_tokens(safe)["number"]
+    )
+
+
+def test_AC_SRC_3_6_DEV_193_discarded_ocr_page_does_not_add_safe_support(monkeypatch):
+    import base64
+
+    from app.ai.source_ocr import Transcription
+    from app.core.config import get_settings
+    from app.source_analysis import worker
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+    monkeypatch.setattr(ev, "parse", lambda *args: [{
+        "spans": [{"id": "local", "text": "since 1966"}],
+        "image": base64.b64encode(b"invented image").decode(),
+    }])
+    monkeypatch.setattr(worker, "crops", lambda data: ["first", "second"])
+
+    def ocr(label):
+        if label == "second":
+            raise ai.ExtractionError("REQUEST_UNCERTAIN")
+        return Transcription(["중량 999kg"], {}, "synthetic")
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    record, _, safe, _ = ev.evaluate_source(
+        {**row(), "format": "long_image", "mime": "image/png"},
+        "openrouter", "fixture", ev.Calls("mock", 3),
+    )
+    assert record["status"] == "FAILED"
+    assert "1966" in final_score.sensitive_tokens(safe)["number"]
+    assert "999kg" not in final_score.sensitive_tokens(safe)["number"]
+
+
+def test_AC_SRC_5_DEV_193_stage1_default_and_planning_use_full_output_cap(monkeypatch):
+    from app.core.config import Settings, get_settings
+
+    monkeypatch.delenv("SOURCE_MAX_OUTPUT_TOKENS", raising=False)
+    assert Settings(_env_file=None).source_max_output_tokens == 8000
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_max_output_tokens", 5000)
+    lower = ev.estimate([row("합성 보관 문구")], "openrouter", "google/gemini-3-flash-preview")
+    monkeypatch.setattr(cfg, "source_max_output_tokens", 8000)
+    higher = ev.estimate([row("합성 보관 문구")], "openrouter", "google/gemini-3-flash-preview")
+    assert lower["estimatedExtractionCalls"] == higher["estimatedExtractionCalls"] == 1
+    assert higher["estimatedUsd"] > lower["estimatedUsd"]
+    assert round(higher["estimatedUsd"] - lower["estimatedUsd"], 6) >= 0.009
+
+
+def test_AC_SRC_3_6_DEV_193_support_does_not_join_across_local_and_ocr_layers(monkeypatch):
+    import base64
+
+    from app.ai.source_ocr import Transcription
+    from app.source_analysis import worker
+
+    monkeypatch.setattr(ev, "parse", lambda *args: [{
+        "spans": [{"id": "local", "text": "2011"}],
+        "image": base64.b64encode(b"invented image").decode(),
+    }])
+    monkeypatch.setattr(worker, "crops", lambda data: ["synthetic"])
+    monkeypatch.setattr(worker, "transcribe", lambda _: Transcription(["년부터"], {}, "synthetic"))
+    monkeypatch.setattr(ai, "extract", lambda *args, **kwargs: ai.ExtractionResponse(
+        Extraction(candidates=[], photo_requests=[]), {}, "synthetic"
+    ))
+    _, _, safe, _ = ev.evaluate_source(
+        {**row(), "format": "pdf", "mime": "application/pdf"},
+        "openrouter", "fixture", ev.Calls("mock", 3),
+    )
+    assert "2011" in final_score.sensitive_tokens(safe)["number"]
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens("2011년부터"), final_score.sensitive_tokens(safe)
+    )["number"] == {"2011년"}
+
+
+@pytest.mark.parametrize(
+    "layout,outcome",
+    [
+        ("single", "partial"),
+        ("single", "whole"),
+        ("single", "refine_failure"),
+        ("packed", "partial"),
+        ("packed", "whole"),
+        ("packed", "refine_failure"),
+        ("split_page", "partial"),
+    ],
+)
+def test_AC_SRC_3_5_6_DEV_193_failed_chunk_pages_exclude_all_ocr_keep_local(
+    monkeypatch, layout, outcome
+):
+    import base64
+
+    from app.ai.source_ocr import Transcription
+    from app.core.config import get_settings
+    from app.source_analysis import worker
+    from tests.test_source_gemini_ocr import _followup_response
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+    monkeypatch.setattr(worker, "EXTRACTION_MAX_PAGES", 4 if layout == "packed" else 1)
+    count = 8 if layout == "packed" else 3
+    # A separate page suffers OCR failure after one crop succeeded. Its local
+    # evidence still survives, while the discarded OCR crop cannot add support.
+    ocr_failed_page = count + 1
+    pages = [
+        {
+            "spans": [{"id": "local", "text": f"로컬 재배 기록 {1970 + n}년"}],
+            "image": base64.b64encode(f"page-{n}".encode()).decode(),
+        }
+        for n in range(1, ocr_failed_page + 1)
+    ]
+    monkeypatch.setattr(ev, "parse", lambda *args: pages)
+
+    def crops(data):
+        label = data.decode()
+        if label == f"page-{ocr_failed_page}":
+            return [label, "ocr-failure"]
+        return [label]
+
+    def ocr(label):
+        if label == "ocr-failure":
+            raise ai.ExtractionError("REQUEST_UNCERTAIN")
+        number = int(label.removeprefix("page-"))
+        if number == ocr_failed_page:
+            lines = ["독립적으로 폐기되는 OCR 999kg"]
+        elif layout == "split_page":
+            # Each line fits, but their union must span multiple chunks.
+            lines = [f"보관 안내 {number * 10 + i}kg " + "가" * 1500 for i in (1, 2, 3)]
+        else:
+            lines = [f"서늘한 곳에 보관할 합성 상품 {number * 10 + 1}kg"]
+        return Transcription(lines, {}, label)
+
+    monkeypatch.setattr(worker, "crops", crops)
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    attempted, failed_parts, successful_parts = [], [], []
+
+    def extract(mode, model, part, targets, images, **kwargs):
+        numbers = [page["number"] for page in part["pages"]]
+        attempted.append(numbers)
+        if layout == "packed":
+            should_fail = 5 in numbers
+        elif layout == "split_page":
+            should_fail = any(
+                page["number"] == 2
+                and any(span["id"] == "vision-gemini-2" for span in page["spans"])
+                for page in part["pages"]
+            )
+        else:
+            should_fail = numbers == [2]
+        if outcome == "whole" or should_fail:
+            failed_parts.append(numbers)
+            raise ai.ExtractionError("REQUEST_UNCERTAIN")
+        successful_parts.append(numbers)
+        response = _followup_response(part)
+        for candidate in response.extraction.candidates:
+            candidate.target_id = targets[0]["id"]
+            if layout == "split_page":
+                # Keep the complete long quote to exercise chunk boundaries,
+                # while sending a bounded supported value to refinement.
+                candidate.value = candidate.value.partition(" 가")[0]
+        return response
+
+    monkeypatch.setattr(ai, "extract", extract)
+    original_refine = ev.refine_ai.refine
+    refined = []
+
+    def refine(mode, *args, **kwargs):
+        refined.append(args)
+        if outcome == "refine_failure":
+            raise ai.ExtractionError("INVALID_MODEL_OUTPUT")
+        return original_refine("mock", *args, **kwargs)
+
+    monkeypatch.setattr(ev.refine_ai, "refine", refine)
+    record, metric, safe, _ = ev.evaluate_source(
+        {**row(), "format": "pdf", "mime": "application/pdf"},
+        "openrouter", "fixture", ev.Calls("mock", 3),
+    )
+    assert record["status"] == ("PARTIAL" if outcome == "partial" else "FAILED"), metric
+    assert len(refined) == (0 if outcome == "whole" else 1)
+    assert metric["chunksFailed"] == len(failed_parts) > 0
+    if outcome == "refine_failure":
+        assert metric["errorCode"] == "INVALID_MODEL_OUTPUT"
+    if layout == "packed":
+        assert attempted == [[1, 2, 3, 4], [5, 6, 7, 8]]
+    elif layout == "split_page":
+        assert [2] in successful_parts and [2] in failed_parts
+
+    numbers = final_score.sensitive_tokens(safe)["number"]
+    assert {f"{1970 + n}년" for n in range(1, ocr_failed_page + 1)} <= numbers
+    failed_pages = {n for part in failed_parts for n in part}
+    for number in range(1, count + 1):
+        expected = {
+            f"{number * 10 + i}kg" for i in ((1, 2, 3) if layout == "split_page" else (1,))
+        }
+        if number in failed_pages:
+            assert numbers.isdisjoint(expected)
+            assert final_score.unsupported_tokens(
+                final_score.sensitive_tokens(" ".join(expected)),
+                final_score.sensitive_tokens(safe),
+            )["number"] == expected
+        else:
+            assert expected <= numbers
+    assert "999kg" not in numbers
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens("999kg"), final_score.sensitive_tokens(safe)
+    )["number"] == {"999kg"}
