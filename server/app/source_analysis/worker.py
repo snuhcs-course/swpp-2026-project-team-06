@@ -4,8 +4,9 @@ import base64
 import re
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import closing, contextmanager, nullcontext
 from datetime import timedelta
 from threading import Event, Thread
 
@@ -13,7 +14,14 @@ from sqlalchemy import delete, select
 
 from app.accounts import models as _account_models  # noqa: F401
 from app.ai.source_analysis import PROMPT_VERSION, ExtractionError, ExtractionResponse, extract
-from app.ai.source_ocr import OCR_MAX_TOKENS, OCR_MODEL, OCR_PROMPT, crops, transcribe
+from app.ai.source_ocr import (
+    OCR_MAX_TOKENS,
+    OCR_MODEL,
+    OCR_PROMPT,
+    Transcription,
+    crops,
+    transcribe,
+)
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.farms import models as _farm_models  # noqa: F401
@@ -497,46 +505,139 @@ OCR_HARD_ERRORS = {
 }
 
 
+def _ocr_results(pages, page_images, call, failed, concurrency):
+    """Bound submitted work as well as threads; yield results in source order."""
+    stop = Event()
+    skipped = Transcription([], {"cost": 0}, None)
+
+    def jobs():
+        for number, page in enumerate(pages):
+            try:
+                image = page_images.get(page["number"])
+                if image is None:
+                    raise PreparationError("PAGE_IMAGE_MISSING")
+                for index, encoded in enumerate(crops(image)):
+                    if failed[number].is_set():
+                        break
+                    yield number, (index, encoded)
+            except (ExtractionError, PreparationError) as exc:
+                yield number, exc
+            yield number, None  # End of page, including empty and failed pages.
+
+    def invoke(number, index, encoded):
+        if stop.is_set() or failed[number].is_set():
+            return skipped
+
+        def send():
+            # A reservation may have waited on the budget/batch lock after admission.
+            if stop.is_set() or failed[number].is_set():
+                return skipped  # Definitely unsent: settle any reservation at zero cost.
+            try:
+                return transcribe(encoded)
+            except ExtractionError as exc:
+                if exc.code in OCR_HARD_ERRORS:
+                    stop.set()  # Fence scheduling before a potentially slow settlement.
+                raise
+
+        try:
+            return call(
+                f"ocr-{pages[number]['number']}-{index}",
+                OCR_MODEL,
+                {"prompt": OCR_PROMPT},
+                [],
+                [encoded],
+                send,
+                OCR_MAX_TOKENS,
+            )
+        except (ExtractionError, PreparationError) as exc:
+            if isinstance(exc, ExtractionError) and exc.code in OCR_HARD_ERRORS:
+                stop.set()
+            # Soft failures are consumed in source order, even if a later crop fails first.
+            return exc
+        except BaseException:
+            stop.set()
+            raise
+
+    # With one slot, invoke on the caller and consume before preparing the next crop.
+    executor = ThreadPoolExecutor(max_workers=concurrency) if concurrency > 1 else nullcontext()
+    with executor as pool:
+        try:
+            pending, tasks, exhausted = deque(), iter(jobs()), False
+            outstanding = 0
+            while pending or not exhausted:
+                while (
+                    not exhausted
+                    and not stop.is_set()
+                    and (len(pending) < 1 if concurrency == 1 else outstanding < concurrency)
+                ):
+                    try:
+                        number, job = next(tasks)
+                    except StopIteration:
+                        exhausted = True
+                        break
+                    if isinstance(job, tuple):
+                        result = pool.submit(invoke, number, *job) if pool else invoke(number, *job)
+                        outstanding += 1
+                    else:
+                        result = job
+                    pending.append((number, result, isinstance(job, tuple)))
+                if not pending:
+                    break
+                number, result, is_call = pending.popleft()
+                outstanding -= int(is_call)
+                if isinstance(result, Future):
+                    result = result.result()
+                if result is not skipped:
+                    yield number, result
+        finally:
+            # Stop queued crops on any exit (e.g. a consumer-side error) before shutdown waits.
+            stop.set()
+        # Executor shutdown waits for every already sent request to settle, also on close.
+
+
 def transcribe_pages(chunk, page_images, call):
-    """Read each page once; discard failed-page fragments, never replay a crop."""
+    """Read each crop once; merge in page/crop order and discard failed-page fragments."""
     diagnostics = {"pagesEmpty": [], "pagesFailed": []}
     first_failure = None
-    for page in chunk["pages"]:
+    pages = chunk["pages"]
+    spans = [[] for _ in pages]
+    failed = [Event() for _ in pages]
+    recorded_failures = set()
+    for page in pages:
         page["spans"] = []  # Never fall back to local OCR after remote OCR failed.
-    for page in chunk["pages"]:
-        spans = []
-        try:
-            image = page_images.get(page["number"])
-            if image is None:
-                raise PreparationError("PAGE_IMAGE_MISSING")
-            for index, encoded in enumerate(crops(image)):
-                result = call(
-                    f"ocr-{page['number']}-{index}",
-                    OCR_MODEL,
-                    {"prompt": OCR_PROMPT},
-                    [],
-                    [encoded],
-                    lambda encoded=encoded: transcribe(encoded),
-                    OCR_MAX_TOKENS,
-                )
+    results = _ocr_results(pages, page_images, call, failed, get_settings().source_ocr_concurrency)
+    with closing(results):
+        for number, result in results:
+            page = pages[number]
+            try:
+                if isinstance(result, (ExtractionError, PreparationError)):
+                    raise result
+                if number in recorded_failures:
+                    continue
+                if result is None:
+                    page["spans"] = spans[number]
+                    if not page["spans"]:
+                        diagnostics["pagesEmpty"].append(page["number"])
+                    continue
                 for line in result.lines:
                     text = scrub(line).strip()
                     if text and "[판독불가]" not in text and "[가림]" not in text:
-                        spans.append({"id": f"vision-gemini-{len(spans)}", "text": text})
-                if sum(len(s["text"]) for s in spans) > 20_000:
+                        spans[number].append(
+                            {"id": f"vision-gemini-{len(spans[number])}", "text": text}
+                        )
+                if sum(len(s["text"]) for s in spans[number]) > 20_000:
                     raise ExtractionError("OCR_TEXT_LIMIT")
-        except (ExtractionError, PreparationError) as exc:
-            if isinstance(exc, ExtractionError) and exc.code in OCR_HARD_ERRORS:
-                exc.details["ocrDiagnostics"] = diagnostics
-                raise
-            code = exc.code if isinstance(exc, ExtractionError) else "PAGE_IMAGE_MISSING"
-            diagnostics["pagesFailed"].append({"number": page["number"], "code": code})
-            first_failure = first_failure or exc
-            continue
-        page["spans"] = spans
-        if not spans:
-            diagnostics["pagesEmpty"].append(page["number"])
-    if not any(page["spans"] for page in chunk["pages"]):
+            except (ExtractionError, PreparationError) as exc:
+                if isinstance(exc, ExtractionError) and exc.code in OCR_HARD_ERRORS:
+                    exc.details["ocrDiagnostics"] = diagnostics
+                    raise
+                if number not in recorded_failures:
+                    code = exc.code if isinstance(exc, ExtractionError) else "PAGE_IMAGE_MISSING"
+                    diagnostics["pagesFailed"].append({"number": page["number"], "code": code})
+                    first_failure = first_failure or exc
+                    recorded_failures.add(number)
+                    failed[number].set()
+    if not any(page["spans"] for page in pages):
         exc = first_failure or ExtractionError("OCR_UNCERTAIN")
         if isinstance(exc, PreparationError):
             exc = ExtractionError("PAGE_IMAGE_MISSING")
