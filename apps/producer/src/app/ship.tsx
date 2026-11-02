@@ -1,5 +1,5 @@
 // SCR-29 주문·출하 처리 (FEAT-17, FEAT-09 AC-09-8 입금 확인·AC-09-9 미승인, AC-17-7 환불 송금·AC-17-8 미승인, R-07·15·19·28, DEV-68) — design: p-scr-29, DEV-68 보드
-// 입금 대기·환불 줄은 확인 창 없이 줄 안에서 바로 승인한다. 미승인은 줄 안에 사유(필수) 칸이 펼쳐진다.
+// 입금 승인은 확인 시트 후 처리하고 환불 완료는 줄에서 처리한다. 미승인은 줄 안에 사유(필수) 칸이 펼쳐진다.
 // 받는 사람 실명·전체 주소는 이 화면에서만 보인다(배송 목적, R-15). 입금 대기 줄에는 배송지가 없다. 여러 건 출하는 주문마다 ship API를 반복 호출한다.
 import {
   ApiError,
@@ -7,6 +7,7 @@ import {
   carrierLabel,
   allPages,
   orders,
+  newIdempotencyKey,
   type Carrier,
   type ProducerOrder,
 } from "@farmclub/api";
@@ -31,7 +32,7 @@ import {
   won,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
@@ -96,8 +97,10 @@ export default function Ship() {
   const [invoices, setInvoices] = useState<Record<string, Invoice>>({});
   const [invoiceFor, setInvoiceFor] = useState<ProducerOrder | null>(null);
   const [draft, setDraft] = useState<Invoice>({ carrier: null, no: "" });
+  const trackingKeys = useRef(new Map<string, string>());
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const [depositFor, setDepositFor] = useState<ProducerOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // 줄 안 미승인 칸(DEV-68). 한 번에 한 줄만 펼친다
@@ -208,16 +211,42 @@ export default function Ship() {
 
   function openInvoice(o: ProducerOrder) {
     setInvoiceFor(o);
-    setDraft(invoices[o.orderId] ?? { carrier: null, no: "" });
+    setDraft(o.status === "SHIPPED"
+      ? { carrier: o.carrier, no: o.trackingNumber ?? "" }
+      : invoices[o.orderId] ?? { carrier: null, no: "" });
     setInvoiceError(null);
   }
 
   // 시트에서 저장하면 그 주문을 고르고 토스트(SCR-29 버튼 동작). 서버에는 출하할 때 함께 보낸다.
-  function saveInvoice() {
-    if (!invoiceFor) return;
+  async function saveInvoice() {
+    if (!invoiceFor || busy) return;
     const no = draft.no.trim();
     if (no.length > 50) return setInvoiceError("송장 번호는 50자까지예요");
-    if (no && !draft.carrier) return setInvoiceError("택배사를 골라 주세요");
+    if ((no || invoiceFor.status === "SHIPPED") && !draft.carrier)
+      return setInvoiceError("택배사를 골라 주세요");
+    if (invoiceFor.status === "SHIPPED" && draft.carrier) {
+      const payload = JSON.stringify([invoiceFor.orderId, invoiceFor.trackingVersion, draft.carrier, no]);
+      let key = trackingKeys.current.get(payload);
+      if (!key) {
+        key = newIdempotencyKey();
+        trackingKeys.current.set(payload, key);
+      }
+      setBusy(true);
+      try {
+        await orders.updateTracking(invoiceFor.orderId, invoiceFor.trackingVersion, draft.carrier, no || null, key);
+        trackingKeys.current.delete(payload);
+        setInvoiceFor(null);
+        toast("송장을 수정했어요");
+        await load();
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) {
+          setInvoiceFor(null);
+          setNotice(errMsg(e));
+          await load();
+        } else setInvoiceError(errMsg(e));
+      } finally { setBusy(false); }
+      return;
+    }
     setInvoices((m) => ({
       ...m,
       [invoiceFor.orderId]: { carrier: draft.carrier, no },
@@ -252,7 +281,7 @@ export default function Ship() {
     }
   }
 
-  // 입금 승인(AC-09-8)·환불 완료(AC-17-7): 확인 창 없이 줄에서 바로
+  // 입금 승인(AC-09-8)은 확인 후, 환불 완료(AC-17-7)는 줄에서 처리
   const approve = (o: ProducerOrder) =>
     o.status === "AWAITING_DEPOSIT"
       ? act(
@@ -526,6 +555,7 @@ export default function Ship() {
                 <T variant="body" weight="semibold">
                   {who(o)}
                 </T>
+                {!awaiting && !refunded ? <T variant="body">{won(o.totalAmount)}</T> : null}
                 {awaiting ? (
                   // 입금 전에는 배송지 대신 금액·입금자명(R-15, DEV-68)
                   <T variant="body">
@@ -589,7 +619,7 @@ export default function Ship() {
                         disabled={busy}
                         style={{ flex: 2 }}
                         accessibilityLabel={`${o.orderNo} ${awaiting ? "입금 승인" : "환불 완료"}`}
-                        onPress={() => void approve(o)}
+                        onPress={() => awaiting ? setDepositFor(o) : void approve(o)}
                       />
                     </View>
                   )
@@ -604,6 +634,10 @@ export default function Ship() {
                         : invoiceText(inv?.carrier, inv?.no)}
                   </T>
                 )}
+                {o.status === "SHIPPED" ? (
+                  <Button label="송장 수정" variant="outline" size="producer" disabled={busy}
+                    accessibilityLabel={`${o.orderNo} 송장 수정`} onPress={() => openInvoice(o)} />
+                ) : null}
               </View>
             );
             return (
@@ -739,7 +773,7 @@ export default function Ship() {
       ) : null}
 
       {/* 택배사·송장 번호(선택) — design: s-29-invoice */}
-      <Sheet visible={!!invoiceFor} onClose={() => setInvoiceFor(null)}>
+      <Sheet visible={!!invoiceFor} onClose={() => { if (!busy) setInvoiceFor(null); }}>
         <T variant="heading">택배사·송장 번호</T>
         {invoiceFor ? (
           <T variant="sub" muted>
@@ -760,6 +794,7 @@ export default function Ship() {
               <Pressable
                 key={c.code}
                 accessibilityRole="radio"
+                disabled={busy}
                 aria-checked={on}
                 accessibilityLabel={c.label}
                 onPress={() => {
@@ -793,6 +828,7 @@ export default function Ship() {
         <Input
           label="송장 번호"
           optional
+          editable={!busy}
           value={draft.no}
           onChangeText={(v) => {
             setDraft((d) => ({ ...d, no: v }));
@@ -806,9 +842,29 @@ export default function Ship() {
         <Button
           label="저장"
           size="producer"
-          onPress={saveInvoice}
+          onPress={() => void saveInvoice()}
+          disabled={busy}
+          loading={busy}
           style={{ marginTop: 8 }}
         />
+      </Sheet>
+
+      <Sheet visible={!!depositFor} onClose={() => { if (!busy) setDepositFor(null); }}>
+        <T variant="heading">입금을 승인할까요?</T>
+        {depositFor ? <View style={{ gap: 8 }}>
+          <T>{depositFor.orderNo}</T>
+          <T>{who(depositFor)}</T>
+          <T>{won(depositFor.totalAmount)}</T>
+        </View> : null}
+        <T variant="sub">통장에 들어온 금액과 입금자명을 확인해 주세요. 승인하면 예약이 완료돼요.</T>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button label="아니요" variant="secondary" disabled={busy} style={{ flex: 1 }} onPress={() => setDepositFor(null)} />
+          <Button label="확인 · 입금 승인" loading={busy} disabled={busy} style={{ flex: 2 }} onPress={async () => {
+            if (!depositFor) return;
+            await approve(depositFor);
+            setDepositFor(null);
+          }} />
+        </View>
       </Sheet>
 
       {/* 출하 확인 */}

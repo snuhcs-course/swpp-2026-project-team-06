@@ -524,3 +524,61 @@ test("DEV-186 DEV-188 AC-SRC-11: modal groups by reason including return fees an
     unused: { label: "💤 미사용", explanation: "이번 상세에 사용하지 않은 문구예요", accent: false },
   });
 });
+
+
+test("DEV-179 AC-17-9: Mock tracking correction is versioned, idempotent and private", async () => {
+  const producer = await login("u-kang", "producer");
+  const rows = await ok("GET", "/api/orders/producer?limit=50", producer);
+  const consumer = await login("u-seojun", "consumer");
+  const preparing = rows.items.find((order) => order.status === "PREPARING" &&
+    db().orders[order.orderId]?.consumerId === "u-seojun");
+  assert.ok(preparing, "An own-farm preparing order for the test consumer is required");
+  const preparingEndpoint = `/api/orders/${preparing.orderId}/tracking`;
+  assert.equal((await api("PATCH", preparingEndpoint, producer,
+    { version: 1, carrier: "INVALID" })).status, 400);
+  const wrongStatus = await api("PATCH", preparingEndpoint, producer,
+    { version: 1, carrier: "CJ" });
+  assert.equal(wrongStatus.status, 409);
+  assert.equal(wrongStatus.body.details.reason, "INVALID_TRANSITION");
+  const shipped = await ok("POST", `/api/orders/${preparing.orderId}/ship`, producer,
+    { carrier: "CJ", trackingNumber: "DEV179-123" });
+  const endpoint = `/api/orders/${shipped.orderId}/tracking`;
+  const before = await ok("GET", `/api/orders/${shipped.orderId}`, consumer);
+  const initial = {
+    carrier: shipped.carrier,
+    trackingNumber: shipped.trackingNumber,
+    version: shipped.trackingVersion,
+  };
+  assert.ok(Number.isInteger(initial.version) && initial.version >= 1);
+  const input = { version: initial.version, carrier: "LOTTE", trackingNumber: "DEV179-456" };
+  const correctionKey = `dev179-tracking-${++n}`;
+  const corrected = await ok("PATCH", endpoint, producer, input, correctionKey);
+  assert.equal(corrected.carrier, input.carrier);
+  assert.equal(corrected.trackingNumber, input.trackingNumber);
+  assert.equal(corrected.trackingVersion, initial.version + 1);
+  assert.deepEqual(await ok("PATCH", endpoint, producer, input, correctionKey), corrected);
+  const reused = await api("PATCH", endpoint, producer,
+    { ...input, trackingNumber: "DEV179-different" }, correctionKey);
+  assert.equal(reused.status, 409);
+  const stale = await api("PATCH", endpoint, producer,
+    { ...input, trackingNumber: "DEV179-stale" });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.body.details.reason, "VERSION_MISMATCH");
+  assert.equal((await api("PATCH", endpoint, producer,
+    { ...input, carrier: "INVALID" })).status, 400);
+  assert.equal((await api("PATCH", endpoint, consumer,
+    { ...input, version: corrected.trackingVersion })).status, 403);
+  const after = await ok("GET", `/api/orders/${shipped.orderId}`, consumer);
+  assert.equal(after.carrier, "LOTTE");
+  assert.equal(after.trackingNumber, "DEV179-456");
+  assert.equal(after.status, before.status);
+  assert.equal(after.status, "SHIPPED");
+  assert.equal(after.shippedAt, before.shippedAt);
+  const updated = (await ok("GET", "/api/orders/producer?limit=50", producer))
+    .items.find((order) => order.orderId === shipped.orderId);
+  assert.equal(updated.trackingVersion, initial.version + 1);
+  for (const response of [corrected, after, updated]) {
+    for (const privateKey of ["trackingHistory", "events", "request_summary", "requestSummary", "previous"])
+      assert.equal(privateKey in response, false, `${privateKey} must remain server-only`);
+  }
+});

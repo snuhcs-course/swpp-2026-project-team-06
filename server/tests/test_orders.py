@@ -5,8 +5,10 @@ import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
 from sqlalchemy import select, update
 
+from app.admin.models import ManagerEvent
 from app.catalog.models import StageAllocation
 from app.core.db import get_sessionmaker
 
@@ -741,3 +743,279 @@ def test_AC_08_3_separate_shipping_fee_in_total(client, login):
     order = client.post("/api/orders", headers=login("u-seojun") | key(), json=order_body()).json()
 
     assert (order["unitPrice"], order["shippingFee"], order["totalAmount"]) == (29000, 4000, 33000)
+
+
+def test_AC_14_1_producer_order_rows_retain_total_option_and_quantity(client, login):
+    consumer, producer = login("u-seojun"), login("u-kang")
+    created = client.post("/api/orders", headers=consumer | key(), json=order_body(quantity=2))
+    assert created.status_code == 200, created.text
+    order = created.json()
+    assert deposit(client, consumer, order["orderId"]).status_code == 200
+    waiting = client.get("/api/orders/producer?status=AWAITING_DEPOSIT", headers=producer)
+    assert waiting.status_code == 200, waiting.text
+    row = next(o for o in waiting.json()["items"] if o["orderId"] == order["orderId"])
+    assert (row["totalAmount"], row["optionLabel"], row["quantity"]) == (58000, "5kg", 2)
+    assert confirm(client, order["orderId"], producer).status_code == 200
+    reserved = client.get("/api/orders/producer?status=RESERVED&limit=50", headers=producer)
+    assert reserved.status_code == 200, reserved.text
+    row = next(o for o in reserved.json()["items"] if o["orderId"] == order["orderId"])
+    assert (row["totalAmount"], row["optionLabel"], row["quantity"]) == (58000, "5kg", 2)
+
+
+def test_AC_17_9_shipped_order_cannot_be_shipped_again_to_change_tracking(client, login):
+    consumer, producer = login("u-seojun"), login("u-kang")
+    created = client.post("/api/orders", headers=consumer | key(), json=order_body())
+    assert created.status_code == 200, created.text
+    order_id = created.json()["orderId"]
+    reserve(client, consumer, order_id, login=login)
+    harvest = client.post(
+        "/api/orders/producer/harvest-start",
+        headers=producer,
+        json={"productId": "p-house"},
+    )
+    assert harvest.status_code == 200, harvest.text
+    shipped = client.post(
+        f"/api/orders/{order_id}/ship",
+        headers=producer,
+        json={"carrier": "CJ", "trackingNumber": "12345678"},
+    )
+    assert shipped.status_code == 200, shipped.text
+    before = client.get(f"/api/orders/{order_id}", headers=consumer).json()
+    rejected = client.post(
+        f"/api/orders/{order_id}/ship",
+        headers=producer,
+        json={"carrier": "CJ", "trackingNumber": "87654321"},
+    )
+    assert rejected.status_code == 409, rejected.text
+    assert client.get(f"/api/orders/{order_id}", headers=consumer).json() == before
+
+
+def test_AC_09_7_8_producer_deposit_approval_keeps_one_payment_and_rejects_nonowners(
+    client, login, other_farm_headers, monkeypatch
+):
+    from app.core.config import get_settings
+    from app.orders.models import Payment
+
+    consumer, producer = login("u-seojun"), login("u-kang")
+    created = client.post("/api/orders", headers=consumer | key(), json=order_body())
+    assert created.status_code == 200, created.text
+    order_id = created.json()["orderId"]
+    # PENDING_PAYMENT cannot be approved, even by the owning producer.
+    assert confirm(client, order_id, producer).status_code == 409
+    assert deposit(client, consumer, order_id).status_code == 200
+    assert confirm(client, order_id, consumer).status_code == 403
+    assert confirm(client, order_id, other_farm_headers).status_code == 404
+    with get_sessionmaker()() as db:
+        before = {p.id for p in db.scalars(select(Payment).where(Payment.order_id == order_id))}
+    first = confirm(client, order_id, producer)
+    assert first.status_code == 200, first.text
+    assert first.json()["status"] == "RESERVED"
+    with get_sessionmaker()() as db:
+        approved = {p.id for p in db.scalars(select(Payment).where(Payment.order_id == order_id))}
+        assert len(approved) == 1
+    again = confirm(client, order_id, producer)
+    assert again.status_code == 200, again.text
+    assert again.json() == first.json()
+    with get_sessionmaker()() as db:
+        assert {
+            p.id for p in db.scalars(select(Payment).where(Payment.order_id == order_id))
+        } == approved
+    assert before <= approved
+
+    another = client.post("/api/orders", headers=consumer | key(), json=order_body()).json()
+    assert deposit(client, consumer, another["orderId"]).status_code == 200
+    monkeypatch.setattr(get_settings(), "fixed_now", "2026-10-08T10:00:01+09:00")
+    expired = client.get(f"/api/orders/{another['orderId']}", headers=consumer)
+    assert expired.status_code == 200 and expired.json()["status"] == "CANCELED"
+    assert confirm(client, another["orderId"], producer).status_code == 409
+
+
+def _order(client, login, *, ship=True):
+    consumer, producer = login("u-seojun"), login("u-kang")
+    response = client.post("/api/orders", headers=consumer | key(), json=order_body())
+    assert response.status_code == 200, response.text
+    order_id = response.json()["orderId"]
+    if ship:
+        reserve(client, consumer, order_id, login=login)
+        harvest = client.post(
+            "/api/orders/producer/harvest-start",
+            headers=producer,
+            json={"productId": "p-house"},
+        )
+        assert harvest.status_code == 200, harvest.text
+        shipped = client.post(
+            f"/api/orders/{order_id}/ship",
+            headers=producer,
+            json={"carrier": "CJ", "trackingNumber": "DEV25-1234"},
+        )
+        assert shipped.status_code == 200, shipped.text
+    return order_id, consumer, producer
+
+
+def _correct(client, producer, order_id, **body):
+    return client.patch(
+        f"/api/orders/{order_id}/tracking",
+        headers=producer | key(),
+        json={"version": 1, "carrier": "EPOST", "trackingNumber": "new-123"} | body,
+    )
+
+
+def _tracking_events(order_id):
+    with get_sessionmaker()() as db:
+        return [
+            {
+                "actor": event.actor_id,
+                "created": event.created_at,
+                "request": event.request_summary,
+                "result": event.result,
+            }
+            for event in db.scalars(
+                select(ManagerEvent).where(
+                    ManagerEvent.target_id == order_id,
+                    ManagerEvent.event_type == "order.tracking_updated",
+                )
+            )
+        ]
+
+
+def test_AC_17_9_tracking_corrections_preserve_shipping_and_record_private_history(client, login):
+    order_id, consumer, producer = _order(client, login)
+    before = client.get(f"/api/orders/{order_id}", headers=consumer).json()
+    original_row = next(
+        o
+        for o in client.get("/api/orders/producer?limit=50", headers=producer).json()["items"]
+        if o["orderId"] == order_id
+    )
+    assert original_row["trackingVersion"] == 1
+    first = _correct(client, producer, order_id, trackingNumber="  NEW-456  ")
+    assert first.status_code == 200, first.text
+    assert (
+        first.json()["carrier"],
+        first.json()["trackingNumber"],
+        first.json()["trackingVersion"],
+    ) == ("EPOST", "NEW-456", 2)
+    second = _correct(client, producer, order_id, version=2, carrier="HANJIN", trackingNumber=None)
+    assert second.status_code == 200, second.text
+    assert second.json()["trackingVersion"] == 3
+    events = sorted(
+        _tracking_events(order_id), key=lambda event: event["result"]["trackingVersion"]
+    )
+    assert len(events) == 2
+    assert all(e["actor"] == "u-kang" and e["created"] is not None for e in events)
+    assert events[0]["request"] == {"previous": {"carrier": "CJ", "trackingNumber": "DEV25-1234"}}
+    assert events[0]["result"] == {
+        "carrier": "EPOST",
+        "trackingNumber": "NEW-456",
+        "trackingVersion": 2,
+    }
+    assert events[1]["request"] == {"previous": {"carrier": "EPOST", "trackingNumber": "NEW-456"}}
+    assert events[1]["result"] == {
+        "carrier": "HANJIN",
+        "trackingNumber": None,
+        "trackingVersion": 3,
+    }
+    detail = client.get(f"/api/orders/{order_id}", headers=consumer).json()
+    assert (detail["carrier"], detail["trackingNumber"]) == ("HANJIN", None)
+    assert detail["status"] == before["status"] == "SHIPPED"
+    assert detail["shippedAt"] == before["shippedAt"]
+    row = next(
+        o
+        for o in client.get("/api/orders/producer?limit=50", headers=producer).json()["items"]
+        if o["orderId"] == order_id
+    )
+    assert (row["carrier"], row["trackingNumber"], row["trackingVersion"]) == ("HANJIN", None, 3)
+    for public in (first.json(), second.json(), detail, row):
+        assert (
+            not {"trackingHistory", "events", "request_summary", "requestSummary", "previous"}
+            & public.keys()
+        )
+
+
+def test_AC_17_9_tracking_idempotency_version_and_noop(client, login):
+    order_id, consumer, producer = _order(client, login)
+    noop = _correct(client, producer, order_id, carrier="CJ", trackingNumber=" DEV25-1234 ")
+    assert noop.status_code == 200, noop.text
+    assert noop.json()["trackingVersion"] == 1
+    assert _tracking_events(order_id) == []
+    endpoint = f"/api/orders/{order_id}/tracking"
+    headers = producer | key()
+    body = {"version": 1, "carrier": "LOTTE", "trackingNumber": "replacement-456"}
+    first = client.patch(endpoint, headers=headers, json=body)
+    replay = client.patch(endpoint, headers=headers, json=body)
+    assert first.status_code == replay.status_code == 200
+    assert replay.json() == first.json()
+    assert len(_tracking_events(order_id)) == 1
+    reused = client.patch(endpoint, headers=headers, json=body | {"trackingNumber": "different"})
+    assert reused.status_code == 409
+    stale = _correct(client, producer, order_id, version=1)
+    assert stale.status_code == 409
+    assert stale.json()["details"]["reason"] == "VERSION_MISMATCH"
+    assert len(_tracking_events(order_id)) == 1
+    detail = client.get(f"/api/orders/{order_id}", headers=consumer).json()
+    assert (detail["carrier"], detail["trackingNumber"]) == ("LOTTE", "replacement-456")
+
+
+def test_AC_17_9_tracking_owner_and_status_guards(client, login, other_farm_headers):
+    order_id, consumer, producer = _order(client, login, ship=False)
+    assert _correct(client, consumer, order_id).status_code == 403
+    assert _correct(client, other_farm_headers, order_id).status_code == 404
+    assert _correct(client, producer, "missing-order").status_code == 404
+    for phase in ("PENDING_PAYMENT", "RESERVED", "PREPARING"):
+        if phase == "RESERVED":
+            reserve(client, consumer, order_id, login=login)
+        elif phase == "PREPARING":
+            assert (
+                client.post(
+                    "/api/orders/producer/harvest-start",
+                    headers=producer,
+                    json={"productId": "p-house"},
+                ).status_code
+                == 200
+            )
+        rejected = _correct(client, producer, order_id)
+        assert rejected.status_code == 409, (phase, rejected.text)
+        assert rejected.json()["details"]["reason"] == "INVALID_TRANSITION"
+    assert _tracking_events(order_id) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"carrier": "CJ"},
+        {"version": 1},
+        {"version": 0, "carrier": "CJ"},
+        {"version": 1.5, "carrier": "CJ"},
+        {"version": 1, "carrier": "INVALID"},
+        {"version": 1, "carrier": None},
+        {"version": 1, "carrier": "CJ", "trackingNumber": "x" * 51},
+    ],
+)
+def test_AC_17_9_tracking_rejects_invalid_input_without_history(client, login, body):
+    order_id, _, producer = _order(client, login)
+    rejected = client.patch(f"/api/orders/{order_id}/tracking", headers=producer | key(), json=body)
+    assert rejected.status_code == 400, rejected.text
+    assert _tracking_events(order_id) == []
+
+
+@pytest.mark.parametrize("carrier", ["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"])
+def test_AC_17_9_tracking_accepts_supported_carriers_and_optional_number(client, login, carrier):
+    order_id, _, producer = _order(client, login)
+    response = client.patch(
+        f"/api/orders/{order_id}/tracking",
+        headers=producer | key(),
+        json={"version": 1, "carrier": carrier},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["carrier"] == carrier
+    assert response.json()["trackingNumber"] is None
+
+
+def test_AC_17_9_tracking_requires_idempotency_key(client, login):
+    order_id, _, producer = _order(client, login)
+    response = client.patch(
+        f"/api/orders/{order_id}/tracking",
+        headers=producer,
+        json={"version": 1, "carrier": "CJ", "trackingNumber": "DEV25-5678"},
+    )
+    assert response.status_code == 400, response.text
+    assert _tracking_events(order_id) == []

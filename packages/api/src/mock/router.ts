@@ -101,7 +101,7 @@ function routeApp(method: string, path: string): RouteApp {
   )
     return "producer";
   if (method === "POST" && path === "/api/messaging/news") return "producer";
-  if (path === "/api/orders/:orderId/ship") return "producer";
+  if (path === "/api/orders/:orderId/ship" || path === "/api/orders/:orderId/tracking") return "producer";
   if (CONSUMER_ROUTES.some((r) => r.test(path))) return "consumer";
   if (method === "GET" && path === "/api/messaging/news") return "consumer";
   if (

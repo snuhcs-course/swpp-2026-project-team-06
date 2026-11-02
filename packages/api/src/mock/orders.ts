@@ -456,6 +456,27 @@ register({
     return producerOrder(ctx.db, o);
   },
 
+  "PATCH /api/orders/:orderId/tracking": (ctx) => idempotent(ctx, `tracking:${ctx.params.orderId}`, () => {
+    const o = farmOrder(ctx);
+    const version = o.trackingVersion ?? 1;
+    if (!Number.isInteger(ctx.body.version) || Number(ctx.body.version) < 1)
+      invalid({ version: "송장 버전을 확인해 주세요" });
+    const carrier = ctx.body.carrier as Carrier;
+    if (!CARRIERS.includes(carrier)) invalid({ carrier: "택배사를 골라 주세요" });
+    const raw = ctx.body.trackingNumber;
+    if (raw != null && (typeof raw !== "string" || raw.length > 50))
+      invalid({ trackingNumber: "송장 번호는 50자까지예요" });
+    if (o.status !== "SHIPPED") conflict("INVALID_TRANSITION", "출하된 주문만 송장을 수정할 수 있어요.");
+    if (ctx.body.version !== version) conflict("VERSION_MISMATCH", "송장이 바뀌었어요. 최신 내용을 다시 확인해 주세요.", { version });
+    const no = String(raw ?? "").trim();
+    if (o.carrier !== carrier || o.trackingNumber !== (no || null)) {
+      o.carrier = carrier;
+      o.trackingNumber = no || null;
+      o.trackingVersion = version + 1;
+    }
+    return producerOrder(ctx.db, o);
+  }),
+
   "GET /api/orders/:orderId": (ctx) => {
     const o = myOrder(ctx);
     expireOverdue(ctx, (x) => x.orderId === o.orderId);

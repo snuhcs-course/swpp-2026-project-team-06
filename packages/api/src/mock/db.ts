@@ -140,6 +140,7 @@ export type NewsRec = {
   baseReactions: number;
 };
 export type OrderRec = Recipient & {
+  trackingVersion?: number;
   unitWeightGrams: number;
   releasedQuantity: number;
   orderId: string;
