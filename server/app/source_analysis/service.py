@@ -27,6 +27,7 @@ from app.source_analysis.models import (
 from app.source_analysis.preprocess import PreparationError, identify, redact
 from app.source_analysis.schemas import ILLUSTRATIONS, MODULE_FIELDS, hidden_modules
 from app.source_analysis.storage import Storage
+from app.source_analysis.text_safety import has_health_claim, has_money
 
 ACTIVE = {"QUEUED", "PREPARING", "PRIVACY_REVIEW", "ANALYZING"}
 
@@ -457,8 +458,8 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
         ids = [t["id"] for t in row.targets] if source.common else source.target_ids
         if previous and source.id not in reparsed:
             for old in previous:
-                if old.phase == "PLACE_PHOTOS":
-                    continue  # Rebuild a single batched placement job below.
+                if old.phase in {"PLACE_PHOTOS", "REFINE"}:
+                    continue  # Placement/refinement jobs are rebuilt once for the new run.
                 if old.revision != source.revision:
                     raise conflict("SOURCE_CHANGED", "자료가 바뀌었으니 새 분석을 시작해 주세요.")
                 db.add(
@@ -488,15 +489,44 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
     enqueue(db, row, run)
     row.version += 1
     db.flush()
+    from app.source_analysis.refinement import enqueue as enqueue_refinement
+
+    enqueue_refinement(db, row, run, list(db.scalars(select(Item).where(Item.run_id == run.id))))
     return run_view(db, run)
 
 
 def run_view(db, run):
     result = json_row(run)
     items = list(db.scalars(select(Item).where(Item.run_id == run.id).order_by(Item.id)))
+    extracts = defaultdict(list)
+    for item in items:
+        if item.phase == "EXTRACT":
+            extracts[item.asset_id].append(item)
+    empty_assets = {}
+    for group in extracts.values():
+        # A blank page/chunk is not a blank file. Keep per-chunk reasons private.
+        if all(
+            i.status == "SUCCEEDED"
+            and not i.error
+            and i.diagnostics.get("acceptedCount", 0) == 0
+            and i.diagnostics.get("emptyReason")
+            for i in group
+        ):
+            empty_assets[group[0].id] = (
+                "NO_SAFE_TEXT"
+                if all(i.diagnostics["emptyReason"] == "NO_SAFE_TEXT" for i in group)
+                else "NO_CANDIDATES"
+            )
     result["items"] = [
         {
-            **json_row(i, ("lease_token", "lease_until", "sent", "diagnostics")),
+            # 정리 결과(refinement)는 review의 excluded·refinementVersion으로만 공개한다.
+            **json_row(i, ("lease_token", "lease_until", "sent", "diagnostics", "refinement")),
+            "pagesAnalysed": i.diagnostics.get("pagesAnalysed", 0),
+            "pagesSkipped": i.diagnostics.get("pagesSkipped", 0),
+            "emptyReason": empty_assets.get(i.id)
+            if i.phase == "EXTRACT"
+            else i.diagnostics.get("emptyReason"),
+            "candidatesSkipped": i.diagnostics.get("candidatesSkipped", 0),
             "acceptedCount": i.diagnostics.get("acceptedCount", 0),
             "rejectedCount": i.diagnostics.get("rejectedCount", 0),
         }
@@ -512,6 +542,10 @@ def run_view(db, run):
 def refresh_runs(db, batch_id):
     db.flush()
     for run in db.scalars(select(Run).where(Run.batch_id == batch_id, Run.status.in_(ACTIVE))):
+        items = list(db.scalars(select(Item).where(Item.run_id == run.id)))
+        from app.source_analysis.refinement import enqueue as enqueue_refinement
+
+        enqueue_refinement(db, db.get(Batch, batch_id), run, items)
         items = list(db.scalars(select(Item).where(Item.run_id == run.id)))
         states = {i.status for i in items}
         if states & {"QUEUED", "RUNNING"}:
@@ -582,7 +616,10 @@ def review(db, row):
         for evidence in candidate.evidence:
             if evidence not in merged["evidence"]:
                 merged["evidence"].append(evidence)
+    from app.source_analysis.refinement import current_refinements, review_results
+
     result = {
+        "refinementResults": review_results(db, row),
         "reviewVersion": row.review_version,
         "targets": row.targets,
         "candidates": list(unique.values()),
@@ -620,19 +657,34 @@ def review(db, row):
     from app.source_analysis.editor import suggestions
 
     result["editorFields"] = suggestions(
-        result, list(db.scalars(select(Asset).where(Asset.batch_id == row.id)))
+        {**result, "refinements": current_refinements(db, row)},
+        list(db.scalars(select(Asset).where(Asset.batch_id == row.id))),
     )
     return result
 
 
 def patch_review(db, row, body, *, inactive=frozenset()):
     version(row.review_version, body.review_version)
+    from app.ai.source_refine import farm_common_allowed
+    from app.source_analysis.refinement import current_candidates, includes_target, stored_fields
+
+    refined_records = (
+        stored_fields(db, row.id) if any(f.provenance == "REFINED" for f in body.fields) else set()
+    )
+    current_ids = {
+        tid: {c.id for c in current_candidates(db, row.id, tid)}
+        for tid in {f.target_id for f in body.fields if f.provenance == "REFINED"}
+    }
     seen = set()
     for entry in body.fields:
         if (entry.target_id, entry.field_key) in seen:
             raise invalid({"fields": "같은 항목은 한 번만 수정해 주세요."})
         seen.add((entry.target_id, entry.field_key))
         assignment(row, [entry.target_id], False)
+        if entry.field_key == "historicalSales" and entry.state == "CONFIRMED":
+            raise invalid(
+                {"historicalSales": "과거 판매 정보는 참고용이며 상세 초안에 넣지 않아요."}
+            )
         candidates = list(
             db.scalars(
                 select(Candidate).where(
@@ -642,8 +694,16 @@ def patch_review(db, row, body, *, inactive=frozenset()):
         )
         if len(candidates) != len(set(entry.candidate_ids)) or any(
             (c.outdated and (entry.target_id, entry.field_key) not in inactive)
-            or c.field_key != entry.field_key
-            or c.target_id not in (None, entry.target_id)
+            or (entry.provenance != "REFINED" and c.field_key != entry.field_key)
+            or (
+                entry.provenance == "REFINED"
+                and (
+                    not includes_target(c.target_id, entry.target_id, len(row.targets))
+                    or c.target_id is None
+                    and not farm_common_allowed({"fieldKey": c.field_key}, entry.field_key)
+                )
+            )
+            or entry.provenance != "REFINED" and c.target_id not in (None, entry.target_id)
             for c in candidates
         ):
             raise conflict("INVALID_EVIDENCE", "최신 자료의 같은 상품·항목 근거를 선택해 주세요.")
@@ -651,8 +711,39 @@ def patch_review(db, row, body, *, inactive=frozenset()):
             not candidates or any(c.value != entry.value for c in candidates)
         ):
             raise invalid({"provenance": "수정한 문구는 생산자 제공으로 기록해 주세요."})
-        if entry.field_key == "historicalSales" and entry.state == "CONFIRMED":
-            raise invalid({"fieldKey": "과거 판매 정보는 참고용이며 상세 초안에 넣지 않아요."})
+        if entry.provenance == "REFINED":
+            signature = (
+                entry.target_id,
+                entry.field_key,
+                entry.value,
+                frozenset(entry.candidate_ids),
+            )
+            previous = db.scalar(
+                select(ReviewedField).where(
+                    ReviewedField.batch_id == row.id,
+                    ReviewedField.target_id == entry.target_id,
+                    ReviewedField.field_key == entry.field_key,
+                )
+            )
+            preserve_inactive = (
+                (entry.target_id, entry.field_key) in inactive
+                and previous
+                and previous.provenance == "REFINED"
+                and previous.value == entry.value
+                and set(previous.candidate_ids) == set(entry.candidate_ids)
+            )
+            if signature not in refined_records or (
+                not preserve_inactive
+                and not set(entry.candidate_ids) <= current_ids[entry.target_id]
+            ):
+                raise invalid(
+                    {"provenance": "저장된 정리 문구와 근거만 REFINED로 사용할 수 있어요."}
+                )
+        if entry.state != "EXCLUDED" and (entry.target_id, entry.field_key) not in inactive:
+            if entry.value and has_health_claim(entry.value):
+                raise invalid({entry.field_key: "건강 효능 문구는 넣을 수 없어요."})
+            if entry.value and has_money(entry.value):
+                raise invalid({entry.field_key: "상세 문구에 금액을 넣을 수 없어요."})
         for photo_id in entry.photo_asset_ids:
             if (entry.target_id, entry.field_key) in inactive:
                 photo = db.get(Asset, photo_id)
@@ -719,6 +810,10 @@ def save_drafts(db, row, body, *, editor=False):
         for field in fields:
             if editor and field.field_key not in active_keys:
                 continue
+            if has_health_claim(field.value):
+                raise invalid({field.field_key: "건강 효능 문구는 넣을 수 없어요."})
+            if has_money(field.value):
+                raise invalid({field.field_key: "상세 문구에 금액을 넣을 수 없어요."})
             candidates = list(
                 db.scalars(
                     select(Candidate).where(

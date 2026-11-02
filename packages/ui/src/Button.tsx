@@ -10,7 +10,7 @@ import {
 import { Icon, type IconName } from "./Icon";
 import { T } from "./Text";
 import { tokens } from "./tokens";
-import { focusRing } from "./web";
+import { focusRing, showFocus } from "./web";
 
 export type ButtonVariant = "primary" | "secondary" | "outline" | "text";
 
@@ -74,7 +74,7 @@ export function Button({
             borderColor: tokens.color.surface,
           },
         pressed && variant !== "primary" && { opacity: 0.7 },
-        (st as { focused?: boolean }).focused && focusRing,
+        showFocus(st as { focused?: boolean }) && focusRing,
         compact && {
           minHeight: 44,
           paddingHorizontal: 10,

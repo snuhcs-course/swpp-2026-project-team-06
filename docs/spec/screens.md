@@ -169,7 +169,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-01(AC-01-18) · 정책 5장 · Figma v6 ‘현재 시안 · 생산자’ DEV-116 줄(node 481:8092·481:8122)
 - **목적**: 생산자가 지금 버전의 이용약관·개인정보 처리방침에 동의해야 생산자 앱을 쓰게 한다. 새 생산자는 카카오 로그인 → 이 화면(계정 없이 가입 토큰으로 열림, 동의하면 `POST /api/auth/kakao/signup`으로 계정 생성, DEV-132) → 가입 신청(SCR-20). 가입 전 뒤로 가기는 가입 대기를 지우고 로그인으로.
-- **화면 요소·데이터**: 헤더 ‘약관 동의’(뒤로 = 로그아웃), 제목 ‘약관에 동의하고 시작해요’, 안내 한 줄, ‘모두 동의해요’, 이용약관(필수)·개인정보 수집·이용(필수)과 각 ‘보기’(전문 `/terms`·`/privacy`), ‘버전 2026-10-24’, 하단 ‘동의하고 계속하기’(둘 다 체크해야 켜짐).
+- **화면 요소·데이터**: 헤더 ‘약관 동의’(뒤로 = 로그아웃), 제목 ‘약관에 동의하고 시작해요’, 안내 한 줄, ‘모두 동의해요’, 이용약관(필수)·개인정보 수집·이용(필수)과 각 ‘보기’(전문 `/terms`·`/privacy`), ‘버전 2026-10-29’, 하단 ‘동의하고 계속하기’(둘 다 체크해야 켜짐).
 - **입력·출력**: `POST /api/auth/me/consents`(TERMS·PRIVACY, 지금 버전) → `GET /api/auth/me`.
 - **버튼 동작**: 저장 후 관문이 농가 상태에 맞는 화면으로 보낸다. 쓰는 중에 403 `CONSENT_REQUIRED`를 받으면 내 정보를 다시 읽고 이 화면으로 온다.
 - **빈 상태·오류**: 저장 실패 → 체크 유지, ‘저장하지 못했어요. 다시 시도해 주세요.’
@@ -230,8 +230,9 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **목적**: 소식방 / 1:1 채팅을 전환하고 여러 농가 대화를 고른다. 처음은 소식방(SCR-18), 이후 선택·스크롤 유지.
 - **화면 요소·데이터**: 1:1 목록 행(원형 농가 사진, 농가명, 마지막 질문·답 앞부분, 시각, 안 읽음, AI 안내 여부). 팔로우 중이거나 본인 결제 주문 문의가 있는 농가, 최근 순. 일반 대화는 재팔로우하면 이전 기록이 보인다. 소식은 소식방 구분에만 보이고 1:1 목록·대화에는 섞지 않는다(AC-12-5).
 - **입력·출력**: `GET /api/messaging/chats?cursor=&limit=`.
-- **버튼 동작**: 카드 → SCR-16.
-- **빈 상태·오류**: 채팅 없음 → ‘농가에 궁금한 점을 물어보세요’와 농가 둘러보기(SCR-02). 실패 → 다시 시도.
+- **farmclub 문의 대화방(DEV-150, AC-34-7)**: 1:1 목록에 'farmclub'(로고, ‘farmclub 운영팀 · 궁금한 점을 물어보세요’)이 함께 보인다. 고정하지 않고 최근 순이며, 가입 때 생긴 환영 메시지로 처음엔 안 읽음 1이다.
+- **버튼 동작**: 카드 → SCR-16. farmclub 행 → SCR-16 하위 `/chats/support`.
+- **빈 상태·오류**: 농가와의 대화가 없으면 farmclub 행 아래에 ‘아직 농가와 나눈 1:1 대화가 없어요’와 농가 둘러보기(SCR-02). 실패 → 다시 시도.
 
 ### SCR-16 농가 1:1 채팅 `/chats/:farmId`
 
@@ -242,6 +243,12 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **출력**: 들어오면 `GET /api/messaging/chats/{farmId}/messages?cursor=`(대화는 농가·소비자당 1개라 `farmId`로 찾는다). AI 메시지에는 서버가 신고 여부 `reported`를 포함한다. 보내기 `POST /api/messaging/chats/{farmId}/messages` → 저장된 질문(연락처 가림)과 AI 안내 또는 전달 상태(`handoffStatus`). 직접 응대/AI OFF에서는 `reply=null`. 자동 팔로우는 여기서 하지 않고 SCR-03·04·18의 채팅하기·질문하기가 `POST /api/messaging/chats`로 한다.
 - **버튼 동작**: 보내기 → 1회, 처리 중 잠금. AI 안내는 등록된 정보로만 답하고, 근거가 없거나 전달 주제면 ‘농가에 전달했어요’(M-06·M-07). 소비자는 전달되지 않은 AI 답변마다 ‘틀렸어요’를 눌러 신고할 수 있다. `POST /api/messaging/chats/{farmId}/messages/{messageId}/report`는 기존 질문함 흐름으로 오답 Escalation을 만들고, 중복 신고는 기존 신고를 반환한다. 위로 → 이전 cursor.
 - **빈 상태·오류**: 아직 질문이 없으면 ‘궁금한 점을 물어보세요’. 본인 결제 주문 문의 예외 없이 팔로우하지 않은 농가의 채팅 주소로 바로 들어오면(403) 그 농가 SCR-03으로 보낸다(IA 5장 예외 경로). 보내기 실패 → 입력창에 글·사진 유지, 다시 보내기. AI 실패·시간 초과 → 전달로 처리(N-04). 불러오기 실패 → 이미 보인 것을 유지하고 다시 시도.
+
+#### SCR-16 하위: farmclub 문의 대화방 `/chats/support`
+- **관련**: FEAT-34(AC-34-6~8) · 규칙: M-22, M-16.
+- **화면**: 헤더 'farmclub'·부제 ‘고객센터’(로고), ‘farmclub 운영팀에 물어보세요’ 안내(사람이 답하고 AI가 답하지 않음), 시간순 타임라인(운영팀 말풍선 이름 'farmclub'), 입력창(글만, 사진 첨부 없음).
+- **입출력**: `GET /api/messaging/support/messages`, 보내기 `POST /api/messaging/support/messages`(`text` 1~1,000자, 연락처 가림, `reply`는 항상 null), 읽음 `PUT /api/messaging/support/read`.
+- **오류**: 보내기 실패 → 입력 유지, 다시 보내기.
 
 ### SCR-17 내 정보 `/me`
 
@@ -556,7 +563,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `PUT /api/messaging/news/{broadcastId}/reaction` | 소비자 | SCR-03, 18 | — | 반응 수, 내 반응 `true`. 볼 수 없는 소식이면 404 | FEAT-15 | Should |
 | `DELETE /api/messaging/news/{broadcastId}/reaction` | 소비자 | SCR-03, 18 | — | 반응 수, 내 반응 `false` | FEAT-15 | Should |
 | `POST /api/messaging/news` | 생산자 | SCR-27 | 본문, 첨부, `visibility`(`PUBLIC`·`FOLLOWERS`) | `broadcastId`, 작성 시각, 받을 팔로워 수 | FEAT-12 | Should |
-| `GET /api/messaging/chats` | 소비자 | SCR-15 | `cursor`, `limit` | 팔로우 중이거나 본인 결제 주문 문의가 있는 농가와의 1:1 목록 | FEAT-12 | Should |
+| `GET /api/messaging/chats` | 소비자 | SCR-15 | `cursor`, `limit` | 팔로우 중이거나 본인 결제 주문 문의가 있는 농가와의 1:1 목록, 그리고 자기 farmclub 문의 대화방 한 줄(`isSupport: true`, `farmId = u-farmclub`, 최근 순) | FEAT-12, 34 | Should |
+| `GET·POST /api/messaging/support/messages`, `PUT /api/messaging/support/read` | 소비자 본인(보내기는 온보딩·지금 버전 동의를 마친 소비자) | SCR-16 하위 | POST `text`(1~1,000자, `Idempotency-Key`), PUT `lastReadMessageId` | farmclub 문의 대화방 메시지(`CONSUMER`·`OPERATOR`), 보낸 문의(연락처 가림, `reply` null), 안 읽은 수(DEV-150) | FEAT-34 | Should |
 | `POST /api/messaging/chats` | 소비자 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Should |
 | `GET /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`). AI 답변 행에는 서버가 계산한 신고 여부 `reported` | FEAT-12, 13 | Should |
 | `POST /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `text`, `attachmentIds`, `orderId?`, `productId?`(SCR-04에서 연 채팅의 상품. 그 농가의 판매 중 상품이 아니면 404. AI 근거로만 쓰고 저장하지 않으며 `orderId`가 있으면 주문이 우선, DEV-97) | `{message,reply}`; 직접 응대/OFF는 reply=null, 계약 4장 | FEAT-12, 13 | Should |
@@ -587,10 +595,11 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /admin/farms/{farmId}/retire`·`POST /admin/farms/{farmId}/restore` | 운영자, `Idempotency-Key` | — | 테스트 농가를 숨김(`SUSPENDED`, 고정 사유) 또는 다시 공개. 테스트 계정이 아닌 소비자 주문이 있으면 409 `TEST_FARM_REFUSED`. 행은 지우지 않는다(DEV-93·DEV-98) | R-24 | Should |
 | `GET /admin/users` | 운영자 | `q?`(이름·닉네임·ID·농가 이름, 숫자 4자리 이상이면 전화 끝자리), `role?`(`CONSUMER`·`PRODUCER`), `kind?`(`test`·`real`), `limit?`(기본 50, 최대 200) | 운영자 계정을 뺀 사용자 목록(가입 방식 시드·카카오, 테스트 여부, 전화 끝 4자리, 가입일, 주문 수, 소유 농가), 가입 최신순, 전체 수. 관리자 페이지 사용자(DEV-107)가 쓴다 | — | Should |
 | `POST /admin/users/{userId}/mark-tester`·`POST /admin/users/{userId}/unmark-tester` | 운영자, `Idempotency-Key` | — | 운영 검증 계정 표시(`opsTester`) 켜기·끄기. 테스트 농가 숨기기의 실사용자 주문 검사에서 테스트로 센다. 로그인·온보딩·앱 화면은 바뀌지 않는다. 운영자 계정·시드 테스트 계정은 409(`ADMIN_ACCOUNT`·`SEED_TEST_ACCOUNT`) (DEV-107) | — | Should |
-| `GET /admin/support` | 운영자 | — | 농가별 farmclub 문의 대화방 목록(농가·생산자·지역, 최근 메시지와 보낸 사람, 운영자가 안 읽은 생산자 메시지 수, `waiting` = 마지막 메시지가 생산자). 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함(DEV-111)이 쓴다 | M-22 | Should |
+| `GET /admin/support` | 운영자 | — | farmclub 문의 대화방 목록. 생산자 방(`kind = PRODUCER`, `targetId` = 농가 ID)과 소비자 방(`kind = CONSUMER`, `targetId` = 사용자 ID, DEV-150, 소비자 메시지가 한 번이라도 있는 방만)을 함께 내려 준다. 행마다 이름·설명, 최근 메시지와 보낸 사람, 운영자가 안 읽은 문의 수, `waiting` = 마지막 메시지가 문의. 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함이 쓴다 | M-22 | Should |
 | `GET /admin/support/{farmId}/messages` | 운영자 | — | 그 농가 대화방 전체 메시지(`OPERATOR`·`PRODUCER`), 안 읽은 수. 대화방이 없으면 404 | M-22 | Should |
 | `POST /admin/support/{farmId}/messages` | 운영자, `Idempotency-Key` | `text`(1~1,000자) | 운영팀 답장(`senderType = OPERATOR`). 운영자 감사 기록을 남긴다. 읽음 위치는 바꾸지 않는다(읽음은 `/read`만) | M-22 | Should |
 | `POST /admin/support/{farmId}/read` | 운영자 | `messageId` | 운영자 읽음 위치(뒤로 가지 않음), 남은 안 읽은 수 | M-22 | Should |
+| `GET·POST /admin/support/consumers/{userId}/messages`, `POST /admin/support/consumers/{userId}/read` | 운영자(답장은 `Idempotency-Key`) | 답장 `text`(1~1,000자), 읽음 `messageId` | 소비자 문의 대화방(DEV-150). 생산자 방과 같은 규칙(답장은 감사 기록, 읽음 위치는 `/read`만) | M-22 | Should |
 | `GET /admin/ai-usage` | 운영자 | `feature?`(`spec_check`·`product_draft`·`detail_draft`·`ai_answer`·`source_analysis`), `limit?`, `cursor?` | AI 호출 비용. `features`: 기능별 `thisMonth`(KST)·`last7Days`·`total`(호출 수, 입력·출력 토큰, 추정 금액 USD, 금액 없는 호출 수), `overall`: 같은 세 기간 전체 합계, `items`: 호출 목록(기능·모델·토큰·금액, spec-check는 PR 번호·제목·결과·실행 링크, 최신순). 관리자 페이지 AI 비용(DEV-144)이 쓴다 | — | Should |
 | `POST /internal/spec-check-runs` | CI 전용(`X-Spec-Check-Token` = 서버 `SPEC_CHECK_USAGE_TOKEN`) | `runKey`, `prNumber`, `prTitle`, `headSha`, `status`, `mode`, `model`, `inputTokens`, `outputTokens`, `runUrl`, `ranAt?` | spec-check가 모델을 부른 실행 한 건을 AI 비용(`spec_check`)으로 저장, 금액은 서버 단가표로 계산. 같은 `runKey`는 처음 기록 그대로. 토큰 미설정 503, 틀리면 401 (DEV-144) | — | Should |
 | `GET /admin/users/{userId}`·`GET /admin/users/by-order/{orderIdOrNo}` | 운영자 | — | 사용자 프로필(이름·닉네임·역할·테스트 계정·카카오 여부·농가)과 소비자 주문 최근 100건(상품·농가·상태·금액·입금 기한·입금 알림·입금 확인 주체·환불 이력·남은 결제 금액·받는 사람 앞 글자, 보일 버튼). 받는 사람 전화·주소, 계정 전화·이메일은 내려 주지 않는다. 주문 ID 또는 주문 번호(입금자명)로 소비자를 찾는다. 관리자 페이지 사용자 화면(DEV-106)이 쓰고, 처리는 위 운영자 주문 API를 그대로 부른다 | R-11, R-12, R-19, R-28 | Should |

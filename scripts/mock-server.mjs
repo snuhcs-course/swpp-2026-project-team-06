@@ -13,12 +13,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { mockTransport } = require("../.expo/mock-build/mock/index.js");
+const { mockTransport } = require("../.expo/mock-build/packages/api/src/mock/index.js");
 const {
   db,
   reset,
   configureMockStorage,
-} = require("../.expo/mock-build/mock/db.js");
+} = require("../.expo/mock-build/packages/api/src/mock/db.js");
 const root = fileURLToPath(new URL("../", import.meta.url));
 const dir =
   process.env.FARMCLUB_MOCK_DIR || path.join(root, ".expo/shared-mock");

@@ -631,6 +631,8 @@ export type ChatSummary = {
   lastSenderType: SenderType;
   lastAt: ISODate;
   unreadCount: number;
+  /** farmclub 문의 대화방(DEV-150). farmId는 SUPPORT_ID, 대화는 messaging.supportMessages로 연다 */
+  isSupport?: boolean;
 };
 
 /** OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111) */

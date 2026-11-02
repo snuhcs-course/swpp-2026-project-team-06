@@ -162,3 +162,32 @@ class OrderInquiry(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SupportThread(Base):
+    """소비자 farmclub 문의 대화방(DEV-150, FEAT-34, M-22). 사용자당 하나.
+
+    소비자 1:1(Thread)은 농가가 필수라 따로 둔다. 생산자 방은 Thread(상대 u-farmclub)에 있다.
+    """
+
+    __tablename__ = "support_threads"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True)
+    user_last_read_message_id: Mapped[str | None] = mapped_column(String(64))
+    operator_last_read_message_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SupportMessage(Base):
+    """소비자 문의 대화방의 메시지. senderType은 CONSUMER · OPERATOR(운영팀, AI 아님)."""
+
+    __tablename__ = "support_messages"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(), unique=True)
+    thread_id: Mapped[str] = mapped_column(ForeignKey("support_threads.id"), index=True)
+    sender_type: Mapped[str] = mapped_column(String(16))
+    body: Mapped[str] = mapped_column(Text, default="")
+    masked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

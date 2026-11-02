@@ -123,7 +123,7 @@ def test_AC_34_3_producer_question_reaches_inbox_and_operator_reply_returns(
     assert all(m.sender_type != "AI" for m in support_messages("f-kang"))
 
     inbox = client.get("/admin/support", headers=admin_headers).json()
-    assert inbox[0]["farmId"] == "f-kang"
+    assert inbox[0]["targetId"] == "f-kang" and inbox[0]["kind"] == "PRODUCER"
     assert (inbox[0]["waiting"], inbox[0]["unreadCount"]) == (True, 1)
     assert inbox[0]["lastMessage"] == "정산은 언제 들어오나요?"
 
@@ -155,7 +155,7 @@ def test_AC_34_3_producer_question_reaches_inbox_and_operator_reply_returns(
     assert row["lastMessage"] == "매주 월요일에 지난주 정산이 들어가요."
     assert row["unreadCount"] == 2  # 환영 메시지 + 답장
     inbox = client.get("/admin/support", headers=admin_headers).json()
-    kang = next(r for r in inbox if r["farmId"] == "f-kang")
+    kang = next(r for r in inbox if r["targetId"] == "f-kang")
     assert kang["waiting"] is False
 
 
@@ -175,7 +175,7 @@ def test_AC_34_3_reply_does_not_mark_unseen_inquiries_read(client, login, admin_
     )
     kang = next(
         r for r in client.get("/admin/support", headers=admin_headers).json()
-        if r["farmId"] == "f-kang"
+        if r["targetId"] == "f-kang"
     )
     assert kang["unreadCount"] == 1
 
@@ -194,8 +194,10 @@ def test_AC_34_4_support_room_is_hidden_from_consumers_and_admin_users(
 ):
     consumer = login("u-minji")
     chats = client.get("/api/messaging/chats", headers=consumer).json()["items"]
-    assert all(c["farmId"] for c in chats)
-    assert not any("farmclub" == c.get("farmName") for c in chats)
+    # 소비자에게는 자기 farmclub 문의 대화방(DEV-150)만 있고, 생산자 방은 보이지 않는다
+    support_rows = [c for c in chats if c["farmName"] == "farmclub"]
+    assert len(support_rows) == 1 and support_rows[0]["isSupport"] is True
+    assert all(WELCOME not in c["lastMessage"] for c in chats)
     users = client.get("/admin/users", headers=admin_headers).json()["items"]
     assert SUPPORT_USER_ID not in {u["userId"] for u in users}
 

@@ -632,6 +632,11 @@ react-native-web 0.21은 `accessibilityState={{…}}`를 DOM에 옮기지 않는
 - 10/23 origin/main 3ef3c04(DEV-140) 병합(tasks.md 섹션만 충돌, 둘 다 남김). 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 42 passed / 0 failed, 실서버 시나리오 7/7 + Playwright 5 passed / 0 failed(checkout-and-fulfillment·discovery-and-gates).
 - 10/23 AI 1차 리뷰(PR 코멘트): must 없음. should — 주문서 '받는 곳' 시트 주소 줄(radio)에 상태 속성이 원래 없음(checkout 파일은 범위 밖·PR #280 진행 중이라 후속). nit — `aria-pressed`는 RN 네이티브 미지원(웹 배포만이라 영향 없음). draft 해제.
 
+## DEV-150 SupportAvatar 공용화와 ChatThread 첨부 선택값
+
+- 이슈: https://linear.app/sswp6/issue/DEV-150 · 상세는 `server/tasks.md` DEV-150.
+- `SupportAvatar`를 생산자 앱에서 `packages/ui`로 옮겼다(두 앱이 같이 쓴다). `ChatThread`의 `upload`를 선택값으로 바꿔, 없으면 사진 첨부(＋)를 숨긴다. 기존 호출은 그대로다.
+
 ## DEV-33 네이티브 분기(포그라운드 판단·사진 선택)
 
 - 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 기록은 `apps/consumer/tasks.md#DEV-33`

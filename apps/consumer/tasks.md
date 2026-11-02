@@ -548,6 +548,11 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/23 AI 1차 리뷰(PR 코멘트) must·should 없음, nit 1(e2e 건너뛰기 조건, legal-consent와 같은 방식이라 유지). CI server·apps·integration·figma-line 통과
 - 10/23 main(397e5bf, DEV-116 로그인 하단 푸터) 병합: `login.tsx`·screens.md·wiki 자동 병합. 재검증 typecheck 통과, test:mock 40 passed, Mock에서 mock-login 2·legal-consent 3·legal-pages DEV-113 2 passed. legal-pages DEV-116 6개는 Mock 빌드에서 실패 — 카카오 켜진 실서버 화면(목록 없음)을 가정한 테스트라 Mock에서는 생산자도 원래 실패(이번 변경과 무관), 실서버 빌드인 CI integration에서 확인
 
+## DEV-150 farmclub 문의 대화방(고객센터)
+
+- 이슈: https://linear.app/sswp6/issue/DEV-150 · 목표·범위·결정·기록은 `server/tasks.md` DEV-150 섹션에 모은다.
+- 화면: 1:1 목록의 farmclub 행(`chat-row-farmclub`, 로고, 고정 없음) → 새 `/chats/support`(헤더 farmclub·고객센터, 안내, 글만 보내기). 농가 대화가 없으면 빈 안내를 함께 보인다.
+
 ## DEV-33 소비자·생산자 앱 EAS 네이티브 빌드 전환
 
 - 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 결정 근거: [소비자·생산자 앱 스토어 배포 방식 결정](https://claude.ai/artifact/RMzRFujnLGCMvGB927ozKc) · 관련 DEV-128(계정, 사람), DEV-129(CI, 범위 밖), DEV-41(설치 확인)

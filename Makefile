@@ -78,6 +78,11 @@ lint: ## ruff check (CI server job)
 
 test: test-server test-apps test-admin ## Server + apps + admin page (no integration or e2e)
 
+.PHONY: test-source-final
+test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV-170)
+	@$(LOCAL_DB_ONLY)
+	$(SERVER) uv run pytest tests/test_final_eval.py tests/test_final_score.py
+
 test-server: ## pytest + alembic check (CI server job; run make db first)
 	@$(LOCAL_DB_ONLY)
 	$(SERVER) uv run pytest
@@ -93,6 +98,7 @@ test-admin: ## Admin page tests (CI admin-web job)
 test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 	npm run test:integration:full
 
+# Includes producer-format-flow.spec.ts (DEV-171); see docs/evaluation/i3-t12-producer-flow.md.
 test-e2e: ## Chromium only, against an already-running real stack
 	npm run test:e2e
 

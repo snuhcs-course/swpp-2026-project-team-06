@@ -8,7 +8,16 @@ import type {
   TestAccount,
   User,
 } from "../types";
-import { CONSENT_VERSION, consentRequired, needsOnboarding, nextId, nowIso, type DB, type UserRec } from "./db";
+import {
+  CONSENT_VERSION,
+  consentRequired,
+  ensureConsumerSupport,
+  needsOnboarding,
+  nextId,
+  nowIso,
+  type DB,
+  type UserRec,
+} from "./db";
 import { conflict, fail, invalid, notFound, register } from "./router";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
@@ -169,6 +178,8 @@ register({
         consents: [],
       };
     const u = db.users[id];
+    // 소비자는 가입과 함께 farmclub 문의 대화방을 받는다(DEV-150)
+    if (u.role === "CONSUMER") ensureConsumerSupport(db, id);
     const rows = (u.consents ??= []);
     for (const c of list) {
       if (!c.kind || !CONSENT_KINDS.includes(c.kind)) continue;
@@ -225,6 +236,14 @@ register({
           Object.assign(m, { body: WITHDRAWN_MESSAGE, photos: [] });
       db.threads[`${farmId}:${tomb}`] = db.threads[key];
       delete db.threads[key];
+    }
+    // farmclub 문의 대화방(DEV-150): 쓴 문의 본문을 지우고 탈퇴 ID로 옮긴다(재가입한 새 사용자와 섞이지 않게)
+    const support = db.supportRooms[old];
+    if (support) {
+      for (const m of support.messages)
+        if (m.senderType === "CONSUMER") m.body = WITHDRAWN_MESSAGE;
+      db.supportRooms[tomb] = support;
+      delete db.supportRooms[old];
     }
     for (const o of Object.values(db.orders)) if (o.consumerId === old) o.consumerId = tomb;
     if (farm) {
