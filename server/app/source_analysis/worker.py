@@ -12,7 +12,7 @@ from threading import Event, Thread
 from sqlalchemy import delete, select
 
 from app.accounts import models as _account_models  # noqa: F401
-from app.ai.source_analysis import PROMPT_VERSION, ExtractionError, extract
+from app.ai.source_analysis import PROMPT_VERSION, ExtractionError, ExtractionResponse, extract
 from app.ai.source_ocr import OCR_MAX_TOKENS, OCR_MODEL, OCR_PROMPT, crops, transcribe
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
@@ -38,6 +38,7 @@ from app.source_analysis.preprocess import (
     scrub,
     text_chunks,
 )
+from app.source_analysis.schemas import Extraction
 from app.source_analysis.service import refresh_runs
 from app.source_analysis.storage import Storage
 from app.source_analysis.text_safety import numbers
@@ -191,11 +192,35 @@ def enqueue_extraction(db, source, run, item, pages):
             )
         )
     )
+    if run.mode == "openrouter" and source.mime != "text/plain":
+        # The job owns the document; each provider request still owns one page/crop.
+        requests = [
+            {"number": page.number, "spanIds": [s["id"] for s in page.redacted_spans]}
+            for page in sorted(pages, key=lambda p: p.number)
+        ]
+        if not any(
+            old.status == "SUCCEEDED"
+            and [{"number": p["number"], "spanIds": p["spanIds"]} for p in old.pages] == requests
+            and old.target_ids == item.target_ids
+            for old in previous
+        ):
+            db.add(
+                Item(
+                    run_id=run.id,
+                    asset_id=source.id,
+                    revision=source.revision,
+                    target_ids=item.target_ids,
+                    phase="EXTRACT",
+                    pages=requests,
+                    sanitization_version=source.sanitization_version,
+                    status="QUEUED" if source.privacy_approved else "PRIVACY_REVIEW",
+                )
+            )
+        item.status = "SUCCEEDED"
+        return
     for page in pages:
         spans = page.redacted_spans
         groups = [[s["id"] for s in group] for group in text_chunks(spans)]
-        if run.mode == "openrouter" and page.sanitized_key:
-            groups = [[s["id"] for s in spans]]
         for group in groups:
             requested = [{"number": page.number, "spanIds": group}]
             if any(
@@ -445,61 +470,133 @@ def paid_vision_call(
     return response
 
 
+# These invalidate the entire job; they must never be turned into a missing page.
+OCR_HARD_ERRORS = {
+    "PROVIDER_AUTH",
+    "BUDGET_EXCEEDED",
+    "SOURCE_CHANGED",
+    "PRIVACY_CHANGED",
+    "PROMPT_CHANGED",
+    "CANCELLED",
+    "LEASE_LOST",
+}
+
+
 def transcribe_pages(chunk, page_images, call):
-    """Shared product OCR orchestration; call reserves/settles each individual crop."""
+    """Read each page once; discard failed-page fragments, never replay a crop."""
+    diagnostics = {"pagesEmpty": [], "pagesFailed": []}
+    first_failure = None
     for page in chunk["pages"]:
-        image = page_images.get(page["number"])
-        if image is None:
-            raise PreparationError("PAGE_IMAGE_MISSING")
+        page["spans"] = []  # Never fall back to local OCR after remote OCR failed.
+    for page in chunk["pages"]:
         spans = []
-        for index, encoded in enumerate(crops(image)):
-            result = call(
-                f"ocr-{page['number']}-{index}",
-                OCR_MODEL,
-                {"prompt": OCR_PROMPT},
-                [],
-                [encoded],
-                lambda encoded=encoded: transcribe(encoded),
-                OCR_MAX_TOKENS,
-            )
-            for line in result.lines:
-                text = scrub(line).strip()
-                if text and "[판독불가]" not in text and "[가림]" not in text:
-                    spans.append({"id": f"vision-gemini-{len(spans)}", "text": text})
-            if sum(len(s["text"]) for s in spans) > 20_000:
-                raise ExtractionError("OCR_TEXT_LIMIT")
-        if not spans:
-            raise ExtractionError("OCR_UNCERTAIN")
+        try:
+            image = page_images.get(page["number"])
+            if image is None:
+                raise PreparationError("PAGE_IMAGE_MISSING")
+            for index, encoded in enumerate(crops(image)):
+                result = call(
+                    f"ocr-{page['number']}-{index}",
+                    OCR_MODEL,
+                    {"prompt": OCR_PROMPT},
+                    [],
+                    [encoded],
+                    lambda encoded=encoded: transcribe(encoded),
+                    OCR_MAX_TOKENS,
+                )
+                for line in result.lines:
+                    text = scrub(line).strip()
+                    if text and "[판독불가]" not in text and "[가림]" not in text:
+                        spans.append({"id": f"vision-gemini-{len(spans)}", "text": text})
+                if sum(len(s["text"]) for s in spans) > 20_000:
+                    raise ExtractionError("OCR_TEXT_LIMIT")
+        except (ExtractionError, PreparationError) as exc:
+            if isinstance(exc, ExtractionError) and exc.code in OCR_HARD_ERRORS:
+                exc.details["ocrDiagnostics"] = diagnostics
+                raise
+            code = exc.code if isinstance(exc, ExtractionError) else "PAGE_IMAGE_MISSING"
+            diagnostics["pagesFailed"].append({"number": page["number"], "code": code})
+            first_failure = first_failure or exc
+            continue
         page["spans"] = spans
+        if not spans:
+            diagnostics["pagesEmpty"].append(page["number"])
+    if not any(page["spans"] for page in chunk["pages"]):
+        exc = first_failure or ExtractionError("OCR_UNCERTAIN")
+        if isinstance(exc, PreparationError):
+            exc = ExtractionError("PAGE_IMAGE_MISSING")
+        exc.retry_after = None
+        exc.details["ocrDiagnostics"] = diagnostics
+        raise exc
+    return diagnostics
+
+
+def extraction_chunks(chunk):
+    """Share per-page span boundaries and original evidence coordinates with eval."""
+    for page in chunk["pages"]:
+        if page["spans"]:
+            for group in text_chunks(page["spans"]):
+                yield {**chunk, "pages": [{"number": page["number"], "spans": group}]}
 
 
 def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
-    transcribe_pages(
-        chunk,
-        page_images,
-        lambda *args: paid_vision_call(item_id, token, *args),
+    diagnostics = {}
+    try:
+        diagnostics = transcribe_pages(
+            chunk,
+            page_images,
+            lambda *args: paid_vision_call(item_id, token, *args),
+        )
+    except ExtractionError as exc:
+        diagnostics = exc.details.get("ocrDiagnostics", {})
+        raise
+    finally:
+        # Private evidence belongs to the job, never to privacy-review geometry.
+        with get_sessionmaker()() as db:
+            context = lock_context(db, item_id, token)
+            if not context:
+                raise ExtractionError("SOURCE_CHANGED")
+            _, source, _, item = context
+            if (
+                not source.privacy_approved
+                or source.sanitization_version != item.sanitization_version
+            ):
+                raise ExtractionError("PRIVACY_CHANGED")
+            by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
+            item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
+            item.diagnostics = diagnostics
+            db.commit()
+    candidates, photo_requests, rejected = [], [], []
+    usage, request_id = {}, None
+    for index, part in enumerate(extraction_chunks(chunk)):
+        response = paid_vision_call(
+            item_id,
+            token,
+            f"extract-{part['pages'][0]['number']}-{index}",
+            model,
+            part,
+            targets,
+            [],
+            lambda part=part: extract(mode, model, part, targets, []),
+        )
+        accepted, checked = validate_candidates(
+            response.extraction, part, {t["id"] for t in targets}
+        )
+        candidates.extend(accepted.candidates)
+        photo_requests.extend(accepted.photo_requests)
+        rejected.extend(checked["rejected"])
+        # Spend is authoritative for all calls; Item retains the latest response usage/id.
+        usage, request_id = response.usage, response.request_id
+    merged = Extraction.model_construct(
+        candidates=candidates, photo_requests=list(dict.fromkeys(photo_requests))
     )
-    # Preserve the exact OCR evidence with this private job, never replace privacy-review geometry.
-    with get_sessionmaker()() as db:
-        context = lock_context(db, item_id, token)
-        if not context:
-            raise ExtractionError("SOURCE_CHANGED")
-        _, source, _, item = context
-        if not source.privacy_approved or source.sanitization_version != item.sanitization_version:
-            raise ExtractionError("PRIVACY_CHANGED")
-        by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
-        item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
-        db.commit()
-    return paid_vision_call(
-        item_id,
-        token,
-        "extract",
-        model,
-        chunk,
-        targets,
-        [],
-        lambda: extract(mode, model, chunk, targets, []),
-    )
+    extraction, checked = validate_candidates(merged, chunk, {t["id"] for t in targets})
+    diagnostics.update(checked)
+    diagnostics["rejected"] = rejected + checked["rejected"]
+    diagnostics["rejectedCount"] = len(diagnostics["rejected"])
+    if rejected and not extraction.candidates:
+        diagnostics["emptyReason"] = "ALL_CANDIDATES_REJECTED"
+    return ExtractionResponse(extraction, usage, request_id), diagnostics
 
 
 def process(item_id, token):
@@ -664,11 +761,15 @@ def process(item_id, token):
             db.commit()
     else:
         try:
-            response = (
-                vision_extraction(item_id, token, chunk, selected_targets, mode, model, page_images)
-                if use_vision_ocr
-                else extract(mode, model, chunk, selected_targets, images)
-            )
+            if use_vision_ocr:
+                response, diagnostics = vision_extraction(
+                    item_id, token, chunk, selected_targets, mode, model, page_images
+                )
+            else:
+                response = extract(mode, model, chunk, selected_targets, images)
+                response.extraction, diagnostics = validate_candidates(
+                    response.extraction, chunk, allowed
+                )
         except ExtractionError as exc:
             from app.source_analysis.budget import settle
 
@@ -681,7 +782,7 @@ def process(item_id, token):
         with get_sessionmaker()() as accounting:
             settle(accounting, reservation_id, response.usage)
             accounting.commit()
-        extraction, diagnostics = validate_candidates(response.extraction, chunk, allowed)
+        extraction = response.extraction
         with get_sessionmaker()() as db:
             # Account for completed provider usage even if cancellation fenced the result.
             context = lock_context(db, item_id, token)
@@ -698,7 +799,18 @@ def process(item_id, token):
                     item.status, item.error = "CANCELLED", "PRIVACY_CHANGED"
                 else:
                     item.diagnostics = diagnostics
-                    if diagnostics["rejectedCount"]:
+                    if diagnostics["rejectedCount"] and not extraction.candidates:
+                        item.status, item.error = "FAILED", "CANDIDATES_REJECTED"
+                    elif diagnostics.get("pagesFailed"):
+                        item.status = "PARTIAL"
+                        item.error = (
+                            "REQUEST_UNCERTAIN"
+                            if any(
+                                p["code"] == "REQUEST_UNCERTAIN" for p in diagnostics["pagesFailed"]
+                            )
+                            else "OCR_PAGES_FAILED"
+                        )
+                    elif diagnostics["rejectedCount"]:
                         item.status = "PARTIAL" if extraction.candidates else "FAILED"
                         item.error = "CANDIDATES_REJECTED"
                     else:

@@ -1099,3 +1099,86 @@ def test_AC_SRC_1_3_5_8_common_product_fields_stay_filtered_in_mock_eval(monkeyp
     assert result[1]["candidatesAnalysed"] > 0
     assert result[1]["emptyReason"] == "ALL_TEXTS_FILTERED"
     assert result[3]["modules"] == []
+
+
+@pytest.mark.parametrize(
+    "kind", ["empty", "all_empty", "uncertain", "auth", "long", "long_rejected"]
+)
+def test_AC_SRC_2_5_6_eval_shares_page_ocr_and_chunking_counts_only(monkeypatch, kind):
+    import base64
+    import io
+
+    from PIL import Image
+
+    from app.ai.source_ocr import Transcription
+    from app.source_analysis import worker
+    from tests.test_source_gemini_ocr import page_extraction
+
+    image = io.BytesIO()
+    Image.new("RGB", (24, 24), "white").save(image, "PNG")
+    pages = [{"spans": [], "image": base64.b64encode(image.getvalue()).decode()} for _ in range(3)]
+    monkeypatch.setattr(ev, "parse", lambda *args: pages)
+    attempted, extracted = [], []
+
+    def ocr(encoded):
+        attempted.append(encoded)
+        if len(attempted) == 2 and kind in {"uncertain", "auth"}:
+            raise ai.ExtractionError("PROVIDER_AUTH" if kind == "auth" else "REQUEST_UNCERTAIN")
+        if kind == "all_empty" or kind == "empty" and len(attempted) == 2:
+            lines = []
+        elif kind in {"long", "long_rejected"}:
+            lines = ["합성 보관 안내입니다. " * 100 for _ in range(7)]
+        else:
+            lines = ["서늘한 곳에 보관해 주세요."]
+        return Transcription(lines, {"cost": 0.001}, "fixture-ocr")
+
+    def extract(*args, **kwargs):
+        extracted.append(args[2])
+        response = page_extraction(*args)
+        if kind == "long_rejected" and len(extracted) == 2:
+            for candidate in response.extraction.candidates:
+                candidate.evidence[0].span_ids = ["vision-gemini-0"]
+        return response
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    monkeypatch.setattr(ai, "extract", extract)
+    original_refine = ev.refine_ai.refine
+    monkeypatch.setattr(ev.refine_ai, "refine", lambda mode, *args: original_refine("mock", *args))
+    result, metric, text, private = ev.evaluate_source(
+        {**row(), "mime": "application/pdf", "format": "pdf"},
+        "openrouter",
+        "fixture",
+        ev.Calls("mock", 3),
+    )
+    assert type(metric["pagesEmpty"]) is int and type(metric["pagesFailed"]) is int
+    assert "pagesFailed" not in text and "pagesEmpty" not in text
+    if kind == "auth":
+        assert result["status"] == "FAILED" and metric["errorCode"] == "PROVIDER_AUTH"
+        assert len(attempted) == 2 and extracted == []
+    elif kind == "all_empty":
+        assert result["status"] == "FAILED" and metric["errorCode"] == "OCR_FAILED"
+        assert metric["pagesEmpty"] == 3 and metric["pagesFailed"] == 0
+        assert text == "" and extracted == []
+    else:
+        assert result["status"] == ("PARTIAL" if kind == "uncertain" else "EVALUATED"), metric
+        assert metric["pagesEmpty"] == (1 if kind == "empty" else 0)
+        assert metric["pagesFailed"] == (1 if kind == "uncertain" else 0)
+        assert len(attempted) == 3  # One OCR call per page, no replay.
+        assert {c["evidence"][0]["page"] for c in private["candidates"]} == (
+            {1, 3} if kind in {"empty", "uncertain"} else {1, 2, 3}
+        )
+        if kind in {"long", "long_rejected"}:
+            assert metric["rejectedCandidates"] == (2 if kind == "long_rejected" else 0)
+            assert len(private["candidates"]) == (8 if kind == "long_rejected" else 9)
+            assert len(extracted) == 9
+            assert all(
+                sum(len(s["text"]) for s in p["pages"][0]["spans"]) <= 4000 for p in extracted
+            )
+            for number in (1, 2, 3):
+                ids = [
+                    s["id"]
+                    for p in extracted
+                    if p["pages"][0]["number"] == number
+                    for s in p["pages"][0]["spans"]
+                ]
+                assert ids == [f"vision-gemini-{i}" for i in range(7)]

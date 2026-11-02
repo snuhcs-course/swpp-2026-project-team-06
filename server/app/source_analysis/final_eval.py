@@ -30,11 +30,10 @@ from app.source_analysis.preprocess import (
     PreparationError,
     parse,
     scrub,
-    text_chunks,
 )
 from app.source_analysis.synthetic import CASES, material
 from app.source_analysis.text_safety import SAFETY_LISTS_HASH
-from app.source_analysis.worker import transcribe_pages, validate_candidates
+from app.source_analysis.worker import extraction_chunks, transcribe_pages, validate_candidates
 
 ROOT = Path(__file__).resolve().parents[3]
 SYNTHETIC_GOLD = final_score.VALIDATION_DIR / "source-final-gold-i3-dev-synthetic.json"
@@ -372,6 +371,7 @@ def evaluate_source(row, provider, model, calls):
     candidates, stored, safe_text = [], [], ""
     stage2_usage, stage2_diagnostics, stage1_diagnostics = {}, {}, []
     stage = "preprocess"
+    ocr_diagnostics = {"pagesEmpty": [], "pagesFailed": []}
     try:
         # Same parser function as the bounded product subprocess; safe frozen inputs only.
         pages = parse(row["data"], row["mime"])
@@ -386,48 +386,50 @@ def evaluate_source(row, provider, model, calls):
         }
         stage1 = time.perf_counter()
         rejected = 0
-        for number, page in enumerate(pages, 1):
-            spans = [{**s, "text": scrub(s["text"])} for s in page["spans"]]
-            one = {**chunk, "pages": [{"number": number, "spans": spans}]}
-            if provider == "openrouter" and row["mime"] != "text/plain":
-                import base64
+        chunk["pages"] = [
+            {"number": number, "spans": [{**s, "text": scrub(s["text"])} for s in page["spans"]]}
+            for number, page in enumerate(pages, 1)
+        ]
+        if provider == "openrouter" and row["mime"] != "text/plain":
+            import base64
 
-                stage = "ocr"
-                transcribe_pages(one, {number: base64.b64decode(page["image"])}, calls)
-            chunk["pages"].extend(one["pages"])
-            # Plain text is size-chunked for every provider, including OpenRouter.
-            spans = one["pages"][0]["spans"]
-            groups = [spans] if provider == "openrouter" and page["image"] else text_chunks(spans)
-            for group in groups:
-                stage = "extract"
-                part = {**one, "pages": [{"number": number, "spans": group}]}
-                response = calls(
-                    "extract",
-                    model,
-                    part,
-                    [target],
-                    [],
-                    lambda part=part: extraction_ai.extract(
-                        provider, model, part, [target], [], mock_empty=True
-                    ),
-                )
-                accepted, diagnostics = validate_candidates(
-                    response.extraction, part, {target["id"]}
-                )
-                stage1_diagnostics.append(diagnostics)
-                rejected += diagnostics["rejectedCount"]
-                if diagnostics["rejectedCount"] and not accepted.candidates:
-                    raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
-                for c in accepted.candidates:
-                    value = {"id": "c-" + str(len(candidates)), **c.model_dump(by_alias=True)}
-                    if not any(
-                        all(
-                            value[k] == old[k]
-                            for k in ("targetId", "fieldKey", "value", "historical", "evidence")
-                        )
-                        for old in candidates
-                    ):
-                        candidates.append(value)
+            stage = "ocr"
+            ocr_diagnostics = transcribe_pages(
+                chunk,
+                {number: base64.b64decode(page["image"]) for number, page in enumerate(pages, 1)},
+                calls,
+            )
+        # Shared product grouping preserves original page/span evidence after OCR.
+        parts = list(extraction_chunks(chunk))
+        if not parts:  # Non-vision empty text retains the existing empty-result diagnostics.
+            parts = [chunk]
+        for part in parts:
+            stage = "extract"
+            response = calls(
+                "extract",
+                model,
+                part,
+                [target],
+                [],
+                lambda part=part: extraction_ai.extract(
+                    provider, model, part, [target], [], mock_empty=True
+                ),
+            )
+            accepted, diagnostics = validate_candidates(response.extraction, part, {target["id"]})
+            stage1_diagnostics.append(diagnostics)
+            rejected += diagnostics["rejectedCount"]
+            for c in accepted.candidates:
+                value = {"id": "c-" + str(len(candidates)), **c.model_dump(by_alias=True)}
+                if not any(
+                    all(
+                        value[k] == old[k]
+                        for k in ("targetId", "fieldKey", "value", "historical", "evidence")
+                    )
+                    for old in candidates
+                ):
+                    candidates.append(value)
+        if rejected and not candidates:
+            raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
         metric["stage1Ms"] = (time.perf_counter() - stage1) * 1000
         safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
         metric["rejectedCandidates"] = rejected
@@ -505,7 +507,11 @@ def evaluate_source(row, provider, model, calls):
         }
         metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
         record.update(
-            status="EVALUATED" if stored else "EMPTY",
+            status="PARTIAL"
+            if ocr_diagnostics["pagesFailed"]
+            else "EVALUATED"
+            if stored
+            else "EMPTY",
             modules=[
                 {"module": m["module"], "texts": [t["value"] for t in m["texts"]]} for m in stored
             ],
@@ -518,9 +524,13 @@ def evaluate_source(row, provider, model, calls):
             )
         metric["rejectedTexts"] = diagnostics["rejectedCount"]
         metric["status"] = record["status"]
+        if ocr_diagnostics["pagesFailed"]:
+            metric["errorCode"] = "OCR_PAGES_FAILED"
     except Exception as exc:
         # Never serialize exception messages, Pydantic input, provider payloads or private paths.
         metric["status"] = "FAILED"
+        if isinstance(exc, extraction_ai.ExtractionError):
+            ocr_diagnostics = exc.details.get("ocrDiagnostics", ocr_diagnostics)
         metric["errorCode"] = (
             source_error_code(exc, stage)
             if isinstance(exc, (extraction_ai.ExtractionError, PreparationError))
@@ -529,6 +539,10 @@ def evaluate_source(row, provider, model, calls):
         if isinstance(exc, extraction_ai.ExtractionError) and exc.code == "BUDGET_EXCEEDED":
             metric["budgetExceeded"] = True
     finally:
+        metric.update(
+            pagesEmpty=len(ocr_diagnostics["pagesEmpty"]),
+            pagesFailed=len(ocr_diagnostics["pagesFailed"]),
+        )
         if "chunk" in locals():
             safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
         if "stage2" in locals() and metric["stage2Ms"] is None:

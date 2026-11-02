@@ -116,9 +116,13 @@ def enqueue(db, batch, run, items):
             i.status == "SUCCEEDED"
             or i.phase == "EXTRACT"
             and i.status == "PARTIAL"
-            and i.error == "CANDIDATES_REJECTED"
             and i.diagnostics.get("acceptedCount", 0) > 0
-            and i.diagnostics.get("rejectedCount", 0) > 0
+            and (
+                i.error == "CANDIDATES_REJECTED"
+                and i.diagnostics.get("rejectedCount", 0) > 0
+                or i.error in {"REQUEST_UNCERTAIN", "OCR_PAGES_FAILED"}
+                and i.diagnostics.get("pagesFailed")
+            )
         )
         for i in items
         if i.phase in {"PREPARE", "EXTRACT"}
