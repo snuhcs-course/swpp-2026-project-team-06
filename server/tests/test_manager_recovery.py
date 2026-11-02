@@ -12,6 +12,7 @@ from app.accounts.models import User
 from app.admin.models import ManagerEvent
 from app.catalog.models import StageAllocation
 from app.core.clock import now
+from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.ids import new_id
 from app.core.security import issue_token
@@ -33,7 +34,7 @@ def refund_rows(order_id: str) -> list[Refund]:
 
 
 def test_AC_11_3_partial_then_consumer_final_refund_preserves_order_until_final(
-    client, login, admin_headers
+    client, login, admin_headers, monkeypatch
 ):
     with get_sessionmaker()() as session:
         order = session.get(Order, "o-42")
@@ -59,6 +60,9 @@ def test_AC_11_3_partial_then_consumer_final_refund_preserves_order_until_final(
         assert payment.status == "PARTIALLY_REFUNDED"
         assert len(payment.status) <= Payment.__table__.c.status.type.length
 
+    # FIXED_NOW에서는 두 환불의 created_at이 같아 정렬 순서가 정해지지 않는다. 실제처럼
+    # 소비자 취소를 뒤 시각에 해서 환불 이력 순서를 시간으로 확인한다(DEV-192)
+    monkeypatch.setattr(get_settings(), "fixed_now", "2026-10-07T10:00:01+09:00")
     canceled = client.post("/api/orders/o-42/cancel", headers=login("u-minji"))
     repeated = client.post("/api/orders/o-42/cancel", headers=login("u-minji"))
 
