@@ -68,6 +68,9 @@ export function sourceNotices(item: SourceRun["items"][number]): string[] {
   if (item.status === "PARTIAL" && (item.pagesFailed ?? 0) > 0) {
     return [`${item.pagesFailed}쪽을 읽지 못했어요. 다시 분석해 보세요.`];
   }
+  if (item.status === "PARTIAL" && (item.chunksFailed ?? 0) > 0) {
+    return ["일부 내용을 읽지 못했어요. 다시 분석해 보세요."];
+  }
   if ((item.pagesSkipped ?? 0) > 0) {
     notes.push(
       `앞 ${item.pagesAnalysed}쪽만 분석했어요. 나머지 ${item.pagesSkipped}쪽은 필요하면 나눠서 올려 주세요.`,
@@ -726,7 +729,10 @@ export function SourceWorkspace() {
                         .filter(
                           (i) =>
                             i.error &&
-                            !(i.status === "PARTIAL" && (i.pagesFailed ?? 0) > 0) &&
+                            !(
+                              i.status === "PARTIAL" &&
+                              ((i.pagesFailed ?? 0) > 0 || (i.chunksFailed ?? 0) > 0)
+                            ) &&
                             (i.phase !== "REFINE" || i.status === "FAILED"),
                         )
                         .map((i) => (

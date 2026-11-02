@@ -132,6 +132,7 @@ export type SourceRun = {
     pagesSkipped?: number;
     pagesEmpty?: number;
     pagesFailed?: number;
+    chunksFailed?: number;
     emptyReason?: string | null;
     candidatesSkipped?: number;
     acceptedCount: number;
