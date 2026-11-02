@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "split": "development",
   "goldPath": "source-final-gold-i3-dev-synthetic.json",
-  "goldFileSha256": "44178f171aed79aa253819c592cb3aa3efe0f0de181963dc74fcf39069a4ef51",
+  "goldFileSha256": "cdd0cec23525b1ca7dd6e67bbf8b6a855436f5fcca60226bb94706f22200964a",
   "cases": [
     {
       "id": "farm-mong",
@@ -227,6 +227,27 @@
       "status": "READY_SYNTHETIC",
       "safeInputSha256": "8660c5eabd9096b444cab1ea6460478a4fcee1ba9212131937bf57be62157730",
       "goldSha256": "15eb3cf2d601d474ed52e1bfa77a8dba690257f562fb7dee83364690c32e2364"
+    },
+    {
+      "id": "21-long-text",
+      "format": "text",
+      "status": "READY_SYNTHETIC",
+      "goldSha256": "462403af51130a7e6b224082658b3f558ec8c598297ac087c7ead9ea860fe0d8",
+      "inputDefinitionSha256": "8ec799a6b6a9a157cb3d24b78c175c81006c33001fe7e58d8cc85ef4db996737"
+    },
+    {
+      "id": "22-pdf-25-pages",
+      "format": "pdf",
+      "status": "READY_SYNTHETIC",
+      "goldSha256": "66e7a5cc06883300368cd2472e99c3beff33d90c2522578e3b6be6560b1b42a6",
+      "inputDefinitionSha256": "7699f4492ad05fa5d2b51ab6dc5234e4192b04b4f7fa009ded07c89f276bd259"
+    },
+    {
+      "id": "23-partial-validation",
+      "format": "text",
+      "status": "READY_SYNTHETIC",
+      "goldSha256": "7742b355f107f043d1167bf56eae9cb7f935072ab37f576d9202c01e390e02a5",
+      "inputDefinitionSha256": "b29b725c774e0fe7c6480d824600e36063a2b16b456c93dc34f9cf78c0a5ac12"
     }
   ],
   "holdout": {
