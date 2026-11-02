@@ -23,7 +23,15 @@ from app.ai.source_ocr import OCR_MODEL, OCR_PROMPT
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.source_analysis import budget, final_score, refinement
-from app.source_analysis.preprocess import PREPROCESS_VERSION, PreparationError, parse, scrub
+from app.source_analysis.preprocess import (
+    PDF_PAGE_CAP,
+    PREPROCESS_VERSION,
+    TEXT_CHUNK_CHARS,
+    PreparationError,
+    parse,
+    scrub,
+    text_chunks,
+)
 from app.source_analysis.synthetic import CASES, material
 from app.source_analysis.text_safety import SAFETY_LISTS_HASH
 from app.source_analysis.worker import transcribe_pages, validate_candidates
@@ -124,7 +132,15 @@ def dataset(split, subset, dev_dir, holdout_dir, font=None):
         if split == "development" and subset != "all" and (is_synthetic != (subset == "synthetic")):
             continue
         if is_synthetic:
-            data, mime, suffix = material(synthetic[case["id"]], font)
+            fixture = synthetic[case["id"]]
+            if "inputDefinitionSha256" in case:
+                definition = {k: fixture[k] for k in ("kind", "text", "pages") if k in fixture}
+                if (
+                    final_score.sha256(final_score.canonical_bytes(definition))
+                    != case["inputDefinitionSha256"]
+                ):
+                    raise ValueError("Synthetic input definition changed")
+            data, mime, suffix = material(fixture, font)
         else:
             directory = (dev_dir if split == "development" else holdout_dir) / "safe"
             paths = [directory / (case["id"] + s) for s in (".txt", ".png", ".jpg", ".pdf")]
@@ -209,7 +225,7 @@ def load_gold(split, subset, dev_dir, holdout_dir, rows):
         path = (
             holdout_dir / "final-gold-v1.1.json"
             if split == "holdout"
-            else dev_dir / "final-gold-dev-public.json"
+            else dev_dir / "final-gold-dev-public-v2.json"
         )
         ref = final_score.LocalGold(
             path=str(path),
@@ -243,16 +259,17 @@ def estimate(rows, provider, model):
             import pypdfium2 as pdfium
 
             with pdfium.PdfDocument(row["data"]) as doc:
-                pages += len(doc)
+                pages += min(len(doc), PDF_PAGE_CAP)
                 tiles += sum(
-                    math.ceil(doc[i].get_height() * 200 / 72 / 720) for i in range(len(doc))
+                    math.ceil(doc[i].get_height() * 200 / 72 / 720)
+                    for i in range(min(len(doc), PDF_PAGE_CAP))
                 )
         elif row["mime"].startswith("image/"):
             pages += 1
             with Image.open(BytesIO(row["data"])) as image:
                 tiles += math.ceil(image.height / 720)
         else:
-            pages += max(1, math.ceil(len(row["data"]) / 20000))
+            pages += max(1, math.ceil(len(row["data"].decode("utf-8-sig")) / TEXT_CHUNK_CHARS))
     # Existing configured price caps, not fetched prices. Include vision OCR for OpenRouter.
     from app.core.config import SOURCE_OPENROUTER_PRICES
 
@@ -359,6 +376,7 @@ def evaluate_source(row, provider, model, calls):
         # Same parser function as the bounded product subprocess; safe frozen inputs only.
         pages = parse(row["data"], row["mime"])
         metric["preprocessMs"] = (time.perf_counter() - started) * 1000
+        metric.update({k: pages[0][k] for k in ("pagesAnalysed", "pagesSkipped") if k in pages[0]})
         target = {"id": "eval-target"}
         chunk = {
             "sourceId": row["id"],
@@ -377,15 +395,9 @@ def evaluate_source(row, provider, model, calls):
                 stage = "ocr"
                 transcribe_pages(one, {number: base64.b64decode(page["image"])}, calls)
             chunk["pages"].extend(one["pages"])
-            # Match the product's per-page / 20k text chunks.
-            groups, group, size = [], [], 0
-            for span in one["pages"][0]["spans"]:
-                if size + len(span["text"]) > 20000 and group and provider != "openrouter":
-                    groups.append(group)
-                    group, size = [], 0
-                group.append(span)
-                size += len(span["text"])
-            groups.append(group)
+            # Plain text is size-chunked for every provider, including OpenRouter.
+            spans = one["pages"][0]["spans"]
+            groups = [spans] if provider == "openrouter" and page["image"] else text_chunks(spans)
             for group in groups:
                 stage = "extract"
                 part = {**one, "pages": [{"number": number, "spans": group}]}
@@ -404,6 +416,8 @@ def evaluate_source(row, provider, model, calls):
                 )
                 stage1_diagnostics.append(diagnostics)
                 rejected += diagnostics["rejectedCount"]
+                if diagnostics["rejectedCount"] and not accepted.candidates:
+                    raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
                 for c in accepted.candidates:
                     value = {"id": "c-" + str(len(candidates)), **c.model_dump(by_alias=True)}
                     if not any(
@@ -417,13 +431,14 @@ def evaluate_source(row, provider, model, calls):
         metric["stage1Ms"] = (time.perf_counter() - stage1) * 1000
         safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
         metric["rejectedCandidates"] = rejected
-        # The actual worker queues stage 2 only after all extraction items succeeded.
-        if rejected:
-            raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
+        # PARTIAL extraction with accepted candidates is usable for product refinement.
+        # Wholly rejected items above still fail; no failed/uncertain request is replayed.
         stage2 = time.perf_counter()
         stage = "refine"
-        # Match refinement.current_candidates: only this target, in evidence source order.
-        selected = [c for c in candidates if c["targetId"] == target["id"]]
+        # Same target/common selection as the product worker; this runner has one product.
+        selected = [
+            c for c in candidates if refinement.includes_target(c["targetId"], target["id"], 1)
+        ]
         positions = {
             (p["number"], s["id"]): (index, s["text"])
             for p in chunk["pages"]
@@ -443,6 +458,9 @@ def evaluate_source(row, provider, model, calls):
             return evidence["page"], position, text.find(evidence["quote"]), candidate["id"]
 
         selected.sort(key=source_order)
+        all_selected = selected
+        selected, limits = refinement.limit_candidates(selected)
+        metric.update(limits)
         mode = provider if selected else "mock"  # Same empty-input optimization as product.
         if provider == "mock":
             response = calls(
@@ -473,8 +491,18 @@ def evaluate_source(row, provider, model, calls):
                 lambda: refine_ai.refine(provider, model, target, safe),
             )
         stage2_usage = response.usage
-        stored, diagnostics = refinement.validate(response.refinement, selected, target["id"])
-        stage2_diagnostics = diagnostics
+        stored, diagnostics = refinement.validate(
+            response.refinement, selected, target["id"], target_count=1
+        )
+        diagnostics["excluded"].extend(
+            {"candidateIds": [c["id"]], "reason": "unused"} for c in all_selected[len(selected) :]
+        )
+        stage2_diagnostics = {
+            **diagnostics,
+            **limits,
+            "emptyReason": limits["emptyReason"]
+            or refinement.empty_reason(candidates, target["id"], stored, target_count=1),
+        }
         metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
         record.update(
             status="EVALUATED" if stored else "EMPTY",
@@ -482,6 +510,12 @@ def evaluate_source(row, provider, model, calls):
                 {"module": m["module"], "texts": [t["value"] for t in m["texts"]]} for m in stored
             ],
         )
+        metric["emptyReason"] = stage2_diagnostics["emptyReason"]
+        if not stored and not candidates:
+            # Source-level extraction diagnostics remain distinct from refinement reasons.
+            metric["emptyReason"] = (
+                "NO_SAFE_TEXT" if not safe_text.replace("[가림]", "").strip() else "NO_CANDIDATES"
+            )
         metric["rejectedTexts"] = diagnostics["rejectedCount"]
         metric["status"] = record["status"]
     except Exception as exc:

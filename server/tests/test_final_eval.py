@@ -148,6 +148,7 @@ def test_AC_SRC_3_refinement_rejection_never_reaches_envelope(tmp_path, monkeypa
     ev.write_envelope(tmp_path, [r], [result], [])
     assert ev.read_json(tmp_path / "case-01.output.json")["modules"] == []
     assert result[1]["rejectedTexts"] == 1
+    assert result[1]["emptyReason"] == "ALL_TEXTS_FILTERED"
 
 
 @pytest.mark.parametrize("limit", [0, -1, float("inf"), float("nan")])
@@ -427,7 +428,7 @@ def test_AC_SRC_4_shared_product_ocr_keeps_only_safe_verbatim_lines(monkeypatch)
     assert chunk["pages"][0]["spans"] == [{"id": "vision-gemini-0", "text": "GAP 인증"}]
 
 
-def test_AC_SRC_2_refine_receives_only_current_target_in_source_order(monkeypatch):
+def test_AC_SRC_1_2_refine_receives_single_target_and_common_in_source_order(monkeypatch):
     extract = ai.extract
     refine = ev.refine_ai.refine
     seen = []
@@ -446,9 +447,17 @@ def test_AC_SRC_2_refine_receives_only_current_target_in_source_order(monkeypatc
     monkeypatch.setattr(ev.refine_ai, "refine", capture)
     result = ev.evaluate_source(row(), "mock", "mock", ev.Calls("mock", 3))
     assert len(result[3]["candidates"]) == 3
-    assert len(seen) == 2
-    assert all(c["targetId"] == "eval-target" for c in seen)
-    assert [c["fieldKey"] for c in seen] == ["summary", "storage"]
+    assert len(seen) == 3
+    assert [c["targetId"] for c in seen] == [None, "eval-target", "eval-target"]
+    assert [c["fieldKey"] for c in seen] == ["name", "summary", "storage"]
+    assert result[0]["status"] == "EVALUATED"
+    assert [m["module"] for m in result[3]["modules"]] == ["summary", "storage"]
+    assert {"candidateIds": [seen[0]["id"]], "reason": "unsupported"} in (
+        result[3]["stage2Diagnostics"]["excluded"]
+    )
+    assert {cid for m in result[3]["modules"] for t in m["texts"] for cid in t["candidateIds"]} == {
+        c["id"] for c in seen[1:]
+    }
 
 
 @pytest.mark.parametrize("status", [401, 403, 400, 500])
@@ -838,3 +847,255 @@ def test_AC_SRC_5_6_run_abort_writes_partial_artifacts_in_finally(
         "SYNTHETIC_ABORT_CONTENT"
         not in (out / "metadata.json").read_text() + capsys.readouterr().out
     )
+
+
+def t23_case(case_id):
+    from app.source_analysis.synthetic import CASES
+
+    return next(c for c in ev.read_json(CASES) if c["id"] == case_id)
+
+
+@pytest.mark.parametrize("provider", ["mock", "openrouter", "openai"])
+def test_AC_SRC_2_5_long_plain_text_chunks_for_every_provider(monkeypatch, provider):
+    from app.source_analysis.preprocess import TEXT_CHUNK_CHARS
+
+    case = t23_case("21-long-text")
+    seen = []
+    original = ai.extract
+
+    def local_extract(mode, model, chunk, targets, images, **kwargs):
+        seen.append(chunk)
+        return original("mock", model, chunk, targets, images, mock_empty=True)
+
+    monkeypatch.setattr(ai, "extract", local_extract)
+    original_refine = ev.refine_ai.refine
+    monkeypatch.setattr(
+        ev.refine_ai,
+        "refine",
+        lambda mode, model, target, candidates: original_refine("mock", model, target, candidates),
+    )
+
+    # Calls wrapper is local: a provider name must never cause network/budget activity here.
+    def calls(stage, model, chunk, targets, images, fn):
+        return fn()
+
+    calls.entries = []
+    result = ev.evaluate_source(row(case["text"]), provider, "fixture", calls)
+    assert result[0]["status"] == "EVALUATED", result[1]
+    assert len(seen) >= 3
+    assert all(
+        sum(len(s["text"]) for p in c["pages"] for s in p["spans"]) <= TEXT_CHUNK_CHARS
+        for c in seen
+    )
+    assert {c["fieldKey"] for c in result[3]["candidates"]} == {
+        "composition",
+        "storage",
+        "productionProcess",
+    }
+    assert len({c["id"] for c in result[3]["candidates"]}) == 3
+
+
+def test_AC_SRC_2_3_partial_rejection_reaches_refine_and_never_draft():
+    case = t23_case("23-partial-validation")
+    result = ev.evaluate_source(row(case["text"]), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EVALUATED", result[1]
+    assert result[1]["rejectedCandidates"] == 1
+    assert result[1]["calls"] == 2
+    assert len(result[3]["candidates"]) == 2
+    assert "잘못된 인용 후보" not in json.dumps(result[0], ensure_ascii=False)
+
+
+def test_AC_SRC_3_5_all_rejected_never_refines(monkeypatch):
+    original = ai.extract
+
+    def invalid(*args, **kwargs):
+        response = original(*args, **kwargs)
+        for candidate in response.extraction.candidates:
+            candidate.evidence[0].quote = "합성 원문에 없는 인용"
+        return response
+
+    monkeypatch.setattr(ai, "extract", invalid)
+    result = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "FAILED"
+    assert result[1]["errorCode"] == "CANDIDATES_REJECTED"
+    assert result[1]["calls"] == 1
+    assert result[0]["modules"] == []
+
+
+@pytest.mark.parametrize(
+    "text,reason",
+    [
+        ("", "NO_SAFE_TEXT"),
+        ("목차와 구분선만 있는 합성 안내", "NO_CANDIDATES"),
+        ("연락처: 010-0000-0000", "NO_SAFE_TEXT"),
+    ],
+)
+def test_AC_SRC_5_8_empty_has_diagnostic(text, reason):
+    result = ev.evaluate_source(row(text), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EMPTY"
+    assert result[1]["emptyReason"] == reason
+    assert result[3]["stage2Diagnostics"]["emptyReason"] is None
+
+
+def test_AC_SRC_2_8_synthetic_pdf_25_pages_runner_records_skips(monkeypatch):
+    from app.source_analysis import preprocess
+    from app.source_analysis.synthetic import material
+
+    case = t23_case("22-pdf-25-pages")
+    data, mime, suffix = material(case)
+    monkeypatch.setattr(preprocess, "_upright", lambda image: (image, 0))
+    monkeypatch.setattr(
+        preprocess,
+        "_tiled_ocr",
+        lambda image: [{"id": "s0", "text": "합성 구성: 감귤 7kg입니다.", "box": [0, 0, 1, 1]}],
+    )
+    monkeypatch.setattr(preprocess, "qr_regions", lambda image: [])
+    r = {
+        "id": case["id"],
+        "format": "pdf",
+        "data": data,
+        "mime": mime,
+        "suffix": suffix,
+        "inputSha256": final_score.sha256(data),
+    }
+    result = ev.evaluate_source(r, "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EVALUATED", result[1]
+    assert result[1]["pagesAnalysed"] == 20 and result[1]["pagesSkipped"] == 5
+    assert result[1]["calls"] == 21  # Twenty page extractions plus one target refinement.
+    assert result[0]["modules"] == [{"module": "composition", "texts": ["감귤 7kg입니다."]}]
+
+
+def test_AC_SRC_2_synthetic_subset_includes_t23_and_checks_input_definition(monkeypatch, tmp_path):
+    rows = ev.dataset("development", "synthetic", tmp_path, tmp_path)
+    assert len(rows) == 23
+    assert {"21-long-text", "22-pdf-25-pages", "23-partial-validation"} <= {r["id"] for r in rows}
+    manifest = ev.read_json(final_score.DEV_MANIFEST)
+    next(c for c in manifest["cases"] if c["id"] == "23-partial-validation")[
+        "inputDefinitionSha256"
+    ] = "0" * 64
+    path = tmp_path / "dev-manifest.json"
+    ev.write_json(path, manifest)
+    monkeypatch.setattr(final_score, "DEV_MANIFEST", path)
+    with pytest.raises(ValueError, match="Synthetic input definition changed"):
+        ev.dataset("development", "synthetic", tmp_path, tmp_path)
+
+
+@pytest.mark.parametrize("subset", ["public", "all"])
+def test_AC_SRC_2_6_retired_public_sources_load_v2_gold_without_holdout_access(
+    tmp_path, monkeypatch, subset
+):
+    manifest = ev.read_json(final_score.DEV_MANIFEST)
+    private = [c for c in manifest["cases"] if c["status"] == "LOCAL_PRIVATE"]
+    template = ev.read_json(gold(tmp_path / "invented-gold.json"))["sources"][0]
+    sources = []
+    safe = tmp_path / "safe"
+    safe.mkdir()
+    for case in private:
+        source = copy.deepcopy(template)
+        source.pop("format")  # Private gold gets formats from the pinned manifest.
+        source["id"] = case["id"]
+        sources.append(source)
+        # Dataset selection does not parse material; these are invented bytes only.
+        suffix = {"text": ".txt", "image": ".png", "long_image": ".png", "pdf": ".pdf"}[
+            case["format"]
+        ]
+        (safe / (case["id"] + suffix)).write_bytes(b"Invented safe input")
+    path = tmp_path / "final-gold-dev-public-v2.json"
+    ev.write_json(path, sources)
+    monkeypatch.setitem(
+        final_score.LOCAL_GOLD_SHA256, "development", final_score.sha256(path.read_bytes())
+    )
+    holdout_dir = tmp_path / "holdout-must-not-be-read"
+    rows = ev.dataset("development", subset, tmp_path, holdout_dir)
+    assert len(rows) == (24 if subset == "public" else 47)
+    assert sum(not r["synthetic"] for r in rows) == 24
+    references, gold_files = ev.load_gold("development", subset, tmp_path, holdout_dir, rows)
+    assert references == [{"path": str(path), "split": "development", "lockPath": None}]
+    assert gold_files == ([] if subset == "public" else [ev.SYNTHETIC_GOLD])
+    loaded = final_score.load_local_gold(
+        final_score.LocalGold.model_validate(references[0]), ev.ROOT,
+        {r["id"]: r["format"] for r in rows},
+    )
+    assert loaded.split == "development" and len(loaded.sources) == 24
+    assert not holdout_dir.exists()
+    # File tampering still fails the pinned-hash guard.
+    path.write_bytes(path.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="redacted"):
+        ev.load_gold("development", subset, tmp_path, holdout_dir, rows)
+
+
+def test_AC_SRC_5_8_oversized_refine_input_has_distinct_reason(monkeypatch):
+    monkeypatch.setattr(ev.refinement, "MAX_REFINE_CHARS", 1)
+    result = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EMPTY"
+    assert result[1]["emptyReason"] == "REFINE_INPUT_LIMIT"
+    assert result[1]["candidatesAnalysed"] == 0
+    assert result[1]["candidatesSkipped"] > 0
+    assert result[3]["stage2Diagnostics"]["emptyReason"] == "REFINE_INPUT_LIMIT"
+
+
+@pytest.mark.parametrize("characters,calls", [(3999, 1), (4000, 1), (4001, 2), (8000, 2)])
+@pytest.mark.parametrize("character", ["가", "a"])
+def test_AC_SRC_2_5_text_estimate_counts_decoded_characters(characters, calls, character):
+    estimate = ev.estimate([row(character * characters)], "mock", "fixture")
+    assert estimate["estimatedExtractionCalls"] == calls
+    assert estimate["estimatedRefinementCalls"] == 1
+    assert estimate["estimatedOcrCalls"] == 0
+
+
+def test_AC_SRC_1_2_3_common_farm_mock_reuses_locked_synthetic_gold(tmp_path, monkeypatch):
+    rows = ev.dataset("development", "synthetic", tmp_path, tmp_path)
+    # Existing development hashes and gold rules must still validate without modification.
+    _, gold_files = ev.load_gold("development", "synthetic", tmp_path, tmp_path, rows)
+    assert gold_files == [ev.SYNTHETIC_GOLD]
+    case = next(r for r in rows if r["id"] == "13-common-farm")
+    original = ev.refinement.includes_target
+    selected = []
+
+    def track(candidate_target_id, target_id, target_count):
+        selected.append((candidate_target_id, target_id, target_count))
+        return original(candidate_target_id, target_id, target_count)
+
+    monkeypatch.setattr(ev.refinement, "includes_target", track)
+    result = ev.evaluate_source(case, "mock", "fixture", ev.Calls("mock", 3))
+    record, metric, safe_text, stored = result
+    assert record["status"] == "EVALUATED", metric
+    assert metric["calls"] == 2 and metric["costUsd"] == 0
+    assert metric["emptyReason"] is None
+    assert (None, "eval-target", 1) in selected  # Calls the product selection function.
+    assert len(stored["candidates"]) == 1 and stored["candidates"][0]["targetId"] is None
+    assert stored["modules"][0]["module"] == "farmStory"
+    assert stored["modules"][0]["texts"][0]["candidateIds"] == [stored["candidates"][0]["id"]]
+    source_gold = next(
+        s for s in ev.read_json(ev.SYNTHETIC_GOLD)["sources"] if s["id"] == case["id"]
+    )
+    final_text = "\n".join(record["modules"][0]["texts"])
+    for sentence in source_gold["sentences"]:
+        assert sentence["text"] in safe_text and sentence["text"] in final_text
+        for fact in sentence["facts"]:
+            assert all(token in final_text for token in fact["mustContain"])
+    score = final_score.score(
+        {"schemaVersion": 1, "split": "development", "sources": [source_gold]},
+        [record], {case["id"]: safe_text},
+    )
+    assert score["overall"]["factRecall"] == {"hit": 1, "total": 1, "rate": 1.0}
+    assert not any(score["sources"][0]["forbidden"].values())
+    assert not any(score["sources"][0]["unsupported"].values())
+
+
+def test_AC_SRC_1_3_5_8_common_product_fields_stay_filtered_in_mock_eval(monkeypatch):
+    original = ai.extract
+
+    def common_composition(*args, **kwargs):
+        response = original(*args, **kwargs)
+        for candidate in response.extraction.candidates:
+            candidate.target_id = None
+            candidate.field_key = "composition"
+        return response
+
+    monkeypatch.setattr(ai, "extract", common_composition)
+    result = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EMPTY"
+    assert result[1]["candidatesAnalysed"] > 0
+    assert result[1]["emptyReason"] == "ALL_TEXTS_FILTERED"
+    assert result[3]["modules"] == []

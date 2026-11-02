@@ -128,6 +128,10 @@ export type SourceRun = {
     status: string;
     error: string | null;
     phase: string;
+    pagesAnalysed?: number;
+    pagesSkipped?: number;
+    emptyReason?: string | null;
+    candidatesSkipped?: number;
     acceptedCount: number;
     rejectedCount: number;
   }[];

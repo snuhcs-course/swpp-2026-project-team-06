@@ -55,6 +55,7 @@ import {
   Choice,
   panel,
   sourceError,
+  sourceNotices,
   states,
 } from "./SourceWorkspace";
 // 서버가 새 상품을 만들 때 이름은 비어 있거나 "새 상품"이다. 이때만 AI 값으로 채운다.
@@ -597,6 +598,16 @@ export function NewProductComposer() {
               : (states[run.status] ?? run.status)}
         {run.mode === "mock" ? " · 테스트 결과" : ""}
       </T>
+      {run.items.flatMap((item) =>
+        sourceNotices(item).map((note, index) => (
+          <T key={`${item.id}-note-${index}`} variant="caption">
+            {item.phase !== "REFINE"
+              ? `${batch?.sources.find((s) => s.id === item.assetId)?.filename}: `
+              : ""}
+            {note}
+          </T>
+        )),
+      )}
       {run.items
         .filter(
           (i) => i.error && (i.phase !== "REFINE" || i.status === "FAILED"),
@@ -606,7 +617,11 @@ export function NewProductComposer() {
             {i.phase !== "REFINE"
               ? `${batch?.sources.find((s) => s.id === i.assetId)?.filename}: `
               : ""}
-            {sourceError(i.error!, i.phase)}
+            {sourceError(
+              i.error!,
+              i.phase,
+              i.status === "PARTIAL" ? i.rejectedCount : 0,
+            )}
           </T>
         ))}
       {ACTIVE.includes(run.status) ? (

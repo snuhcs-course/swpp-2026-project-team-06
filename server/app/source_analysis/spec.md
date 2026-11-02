@@ -113,7 +113,7 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11. 제품 계약은 `docs/spec/source-an
 
 | 날짜 | 구현 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
-| 2026-11-01 | `refresh_runs`는 전처리·추출 모두 성공 및 후보 집합 변경 후 대상별 REFINE Item을 생성하고 worker가 lease 기반 처리 | 완료·재접속·중복/불확실 전송을 기존 작업 경로로 통제 | AC-SRC-5/10 |
+| 2026-11-01 | `refresh_runs`는 전처리·추출 성공(검증 거절로 유효 후보가 남은 EXTRACT PARTIAL 포함) 및 후보 집합 변경 후 대상별 REFINE Item을 생성하고 worker가 lease 기반 처리 | 완료·재접속·중복/불확실 전송을 기존 작업 경로로 통제 | AC-SRC-5/10 |
 | 2026-11-01 | migration0023의 Item.refinement JSON에 입력 후보 ID·prompt 버전·모듈/문구/인용 저장 | 후보 불변·검토 추적·개인정보 삭제 수명을 기존 Item과 공유 | AC-SRC-2/6 |
 | 2026-11-01 | `app/ai/source_refine.py`만 모델 호출, 기존 paid_vision_call 예약/정산 wrapper 재사용 | 원장·한도·공급자 설정을 공유하고 자동 고가 전환을 막음 | AC-SRC-10 |
 | 2026-11-01 | text_safety의 공유 금액 regex·단위 수치 검사와 preprocess.scrub로 문구별 거절/진단 | 금액·개인정보·근거 없는 수치 차단, 무관한 유효 문구 보존 | AC-SRC-3/6 |
@@ -164,3 +164,44 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6 · M-11/13/18. 평가 계약은 DEV-187 final-te
 - `source-v8-exact-numbers` / `source-refine-v6-exact-numbers`는 기존 식별 라벨·계절·절별 배치를 유지하고 숫자·단위·범위 전체를 인용 근거 표기로 보존한다. 문의 경로는 platform 제외를 명확히 한다. 기존 platform/period 서버 warning은 유지한다. FEAT-03/04/07 · AC-SRC-2/3/6 · M-11.
 - stage-1 숫자 검증은 공유 `text_safety.numbers`로 단위까지 비교한다. stage-2 수치 근거는 현재 인용 quote만 사용하여 후보 value의 단위 변조/발명을 상속하지 않는다. 후보별/문장별 거절로 무관한 정상 사실을 보존한다.
 - R3 unsupported4개는 근거 있는 월 범위의 scorer 토큰 차이다. scorer/gold/원점수를 바꾸지 않고 집계 보고서에 한계로 기록한다. 개별 문장·토큰·원문 근거는 private 분석에만 보존한다. R4 live와 사람 감사를 실행하기 전 unsupported0/recall 유지 달성을 주장하지 않는다.
+
+
+## DEV-182 일반 추출 안정화
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 제품 계약은 `docs/spec/source-analysis.md` DEV-182 절이다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | 일부 거절 EXTRACT=PARTIAL/CANDIDATES_REJECTED 유지; enqueue는 SUCCEEDED 또는 검증 거절로 acceptedCount/rejectedCount>0인 EXTRACT PARTIAL만 허용 | main의 명시적 retry·Run PARTIAL 계약 보존; 실패/불확실 자동 재생 금지 | AC-SRC-2/3/5/10 |
+| 2026-11-02 | parser v4가 PDF 첫20쪽과 첫 raw page의 pagesAnalysed/pagesSkipped 메타데이터 반환; PREPARE JSON에 영속 저장·재사용 | DB migration 없이 batch60쪽 cap과 공개 생략 안내 연결 | AC-SRC-5/8 |
+| 2026-11-02 | worker/runner가 preprocess.text_chunks의4000자 원문 span 묶음을 공유 | OpenRouter 일반 텍스트까지 같은 분할 적용 | AC-SRC-2/5 |
+| 2026-11-02 | refine의 원문순40후보/JSON16000자 prefix 제한·생략 진단, 전체 후보 freshness와 생략 unused 보존 | 요청/출력 한도와 stale/fallback 보호 | AC-SRC-2/3/5 |
+| 2026-11-02 | stage1/2 emptyReason 고정 코드와 API 카운트만 공개; run_view는 EXTRACT 전체가 성공·빈 후보인 파일에만 한 번 사유 공개, 후보 없는 REFINE은 사유 없음, 정리 사유3종만 사용(평가 source 전체의 stage1 진단은 보존); UI는 error와 emptyReason 중복 제거·거절 개수를 오류 한 줄에 통합 | 빈 결과 설명과 개인정보 보호 | AC-SRC-5/6/8 |
+| 2026-11-02 | final scorer만 실제 범위 표현을 단일 토큰으로 정규화; 에서/부터는 동일 단위+까지/사이일 때만 범위, 그 외 독립 수치로 분리; 범위↔단일 끝점 지원 금지, 기존 T11 보고 점수 보존 | 월 범위 오탐의 측정 수정과 모델 변경 구분 | AC-SRC-2/3 |
+
+평가 runner의 text chunk 계획 추정은 파서와 같은 UTF-8-sig 디코딩 문자 수를4000자로 나누며, 실제 예약은 기존 byte/image 상한을 유지한다.
+
+합성 manifest 해시 정의는 [제품 spec](../../../docs/spec/source-analysis.md#synthetic-input-definition)을 따른다.
+
+DEV-182 리뷰 보완: PARTIAL retry는 기존 service.retry로 새 Run을 생성한다. 후보 집합 변경 시 기존 정리는 is_current/matching_refinement에서 제외하고 새 REFINE을 큐에 넣으며, 동일 집합 성공 정리는 재사용한다. 실패/불확실 요청은 명시적 재시도 규칙을 유지한다. limit_candidates가 첫 후보부터 상한으로 제외하면 REFINE_INPUT_LIMIT를 worker/평가 runner 모두 기록한다. 부분 빈 chunk와 전체 빈 파일, 오류 중복 안내, PARTIAL 안내는 DB API 회귀와 두 화면 stubbed Playwright로 검증한다.
+
+## DEV-182 단일 상품 농가 공통 후보 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-1/2/3/5/8/11. 제품 결정은 `docs/spec/source-analysis.md`의 단일 상품 공통 근거 절을 따른다.
+
+- `refinement.includes_target`을 worker 조회·검증·empty_reason, final_eval 선택·검증, editor fallback과 REFINED 저장 검증에서 공유한다. worker는 run 대상 수, 검토·저장은 batch 대상 수를 사용한다. null 후보를 상품 ID로 다시 쓰지 않는다.
+- `source_refine.FARM_COMMON_MODULE_FIELDS`에 공통 인용의 필드/모듈 경계를 모은다. mock과 서버 검증·fallback·저장 검증이 같은 규칙을 사용한다. stage-2는 `source-refine-v7-farm-common`으로 올리고 stage-1 prompt는 유지한다.
+- `current_candidates`는 공통/상품 후보를 한 번에 기존 source_order로 정렬한다. 전체 payload SHA-256을 REFINE JSON의 `inputCandidatesHash`에 저장하고 `inputCandidateIds`와 함께 최신성을 확인한다. cap 적용 전 해시이므로 생략된 공통 후보의 같은 ID 내용 수정도 SOURCE_CHANGED/outdated로 처리한다. 버전이 다른 저장 정리는 다음 분석에서 다시 계산한다.
+- 공통 ID를 가진 REFINED 필드를 기존 stored_fields/current_ids 검사와 함께 검증해 editor → draft 저장을 지원한다. 실패/outdated 원문 제안에도 같은 공통 필드 경계를 사용하고 정상 정리의 누락/제외를 복원하지 않는다.
+- 기존 `13-common-farm`을 stage-1 mock 전용 고정 SHA allowlist로 연결하고 실제 추출→정리→검증을 사용한다. 원천 fixture·gold·manifest·scorer는 변경하지 않는다. 원문순 cap·생략 후보 최신성·단일/다중 대상·저장·fallback·empty_reason을 AC ID 합성 테스트로 확인한다.
+
+## DEV-182 holdout v1.1 개발 전환 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6. [제품 spec](../../../docs/spec/source-analysis.md)의 폐기 정책과 [보고서](../../../docs/spec/validation/source-final-eval-i3-2026-11-01.md)의 부분 오염 재실행 절을 따른다.
+
+- owner의 T23 재실행은 최초 측정과 분리해 집계만 보존한다. stage-1 `source-v8-exact-numbers` / stage-2 `source-refine-v7-farm-common`을 private metadata로 확인했다. 최초 결과와 FAIL 판정을 유지한다.
+- manifest의 holdout 상태는 `RETIRED_TO_DEV`, retiredAt=`2026-11-02`다. 역사 lock/holdout 고정 SHA는 그대로 둔다. 이제 기존12건도 LOCAL_PRIVATE 개발 사례이며 전체47건(공개개발24+합성23)이다. 과거의 v1.1 튜닝 금지 문구는 당시 정책 이력이다.
+- runner의 개발 public gold는 private `final-gold-dev-public-v2.json`이다. 기존 top-level source-list 계약을 유지하고 ID/format은 manifest와 정확히 대조하며 split=development의 Gold로 검증한다. 모든 LOCAL_PRIVATE goldSha256과 LOCAL_GOLD_SHA256.development는 병합 파일 바이트 SHA다. 원래 개발 gold와 holdout safe/gold는 보존한다.
+- repo guard는 신규 manifest case에 한해 잠긴12개 ID/format과 metadata 키만 허용한다. 그 밖의 holdout payload 차단과 역사 lock의 정확한 구조 검증은 유지한다. 미래 독립 측정은 튜닝하지 않는 사람들의 독립3인 검토 holdout v2가 필요하다.
+
+- 입력 해시: 기존 공개개발12건 safeInputSha256은 corpus의 canonical-json-utf8 해시를 보존한다. 편입12건은 safe 파일 바이트 SHA로 기록하고 safeInputEncoding=file-bytes로 구분한다. gold 파일 SHA는 전부 같은 병합 v2 파일 바이트 SHA다.

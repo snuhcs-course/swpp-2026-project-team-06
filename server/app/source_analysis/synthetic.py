@@ -41,7 +41,19 @@ def material(case, font_path=None):
         image = image.rotate(90, expand=True).filter(ImageFilter.GaussianBlur(0.7))
         image.save(output, "PNG")
         return output.getvalue(), "image/png", ".png"
-    image.save(output, "PDF", resolution=120)
+    if case.get("pages"):
+        # Fixed metadata makes the invented multi-page development input reproducible.
+        image.save(
+            output,
+            "PDF",
+            resolution=120,
+            save_all=True,
+            append_images=[image] * (case["pages"] - 1),
+            creationDate=time.gmtime(0),
+            modDate=time.gmtime(0),
+        )
+    else:
+        image.save(output, "PDF", resolution=120)
     return output.getvalue(), "application/pdf", ".pdf"
 
 

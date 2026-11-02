@@ -330,6 +330,171 @@ DEV-186의 두 단계 초안 중 최종 페이지 문장을 독립적으로 채�
 - sandbox 밖에서 지정 pytest와 source-review Playwright를 재검증한다. 사람 감사와 적용 페이지 검증, ≥95% 품질 목표는 미충족이다. DEV-182/T23 후속 수정·부분 오염 재측정 계획은 보고서에 보존한다. 이번 작업에서 live 호출·holdout 재실행은 하지 않는다.
 - Figma 문구 동기화와 사람 리뷰/머지/배포 확인은 후속 단계다. 미커밋 변경을 유지하며 커밋·push·PR은 생성하지 않는다.
 
+## DEV-182 [I3-T23] 추출 실패 유형 일반 수정
+
+- 이슈: [DEV-182](https://linear.app/sswp6/issue/DEV-182)
+- 브랜치: `jinumeral/dev-182-i3-t23-extraction-fixes` (base origin/main 51e5e95)
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11
+- 상태: 리뷰 수정·합성 회귀 확인, 전체 검증 미완료 (sandbox PREPARE17건·Chromium 실행 차단)
+
+### 목표
+T11 집계 오류 유형만 바탕으로 일부 후보 거절·긴 PDF·긴 텍스트·빈 결과를 일반 제품 규칙으로 고친다. 월 범위 scorer 오류는 측정 수정으로 분리한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/{worker,preprocess,refinement,final_eval,final_score,synthetic,service}.py`, `server/app/source_analysis/{spec,tasks}.md`
+- `server/app/ai/source_analysis.py`, `server/tests/{test_final_eval,test_final_score,test_source_refine,test_source_analysis,test_source_integration}.py`, `server/tests/fixtures/source-analysis/cases.json`
+- `apps/producer/src/lib/{SourceWorkspace,NewProductComposer}.tsx`, `packages/api/src/sourceAnalysis.ts`, `scripts/e2e/source-review-regressions.spec.ts`
+- `docs/spec/source-analysis.md`, `docs/wiki/Source-Analysis.md`, `docs/spec/validation/source-final-{gold-i3-dev-synthetic.json,dev-manifest.json,eval-i3-2026-11-01.md}`
+
+### 비범위
+- holdout private 경로/원문/gold 접근·모방·재실행, live/유료 호출, 새 의존성, push·PR·운영 변경.
+
+### 결정 사항
+- 11/02 사용자 제공 owner 결정·완료 조건을 적용한다. Linear는 이미 In Progress다. 사용자 지시대로 push/PR 절차를 생략한다.
+- 11/02 리뷰 정정: 일부 거절은 main 계약대로 EXTRACT PARTIAL/CANDIDATES_REJECTED + acceptedCount/rejectedCount를 유지한다. refine은 모든 PREPARE/EXTRACT가 SUCCEEDED 또는 검증 거절로 acceptedCount>0인 EXTRACT PARTIAL일 때만 허용한다. Run 상태 계산·명시적 retry·후보 집합 변경 시 정리 outdated/동일 집합 성공 재사용 규칙은 유지하며 실패/불확실 호출은 자동 재생하지 않는다.
+- 11/02 PDF는 첫20쪽만 파싱한 뒤 batch60쪽 제한을 적용한다. PREPARE 진단과 API에 pagesAnalysed/pagesSkipped를 보존하고 두 생산자 화면에 안내한다.
+- 11/02 stage-1 텍스트는 span 경계를 보존해 최대4000자 묶음으로 처리한다. 시각 OCR 전체페이지 경로는 유지한다. stage-2는 원문 순서의 결정적 prefix(최대40후보/직렬 JSON16000자)를 사용하고 생략 수를 기록한다. 전체 후보 ID로 stale 보호를 유지한다.
+- 11/02 EMPTY는 입력 없음/후보 없음/대상 일치 없음/정리에서 전부 제외의 고정 진단 코드로 구분한다. scorer는 실제 범위 표현을 단일 토큰으로 정규화하며 범위와 단일 끝점의 상호 지원은 금지한다.
+- 11/02 합성 사례3건과 gold/manifest만 확장한다. 기존 private 항목·잠금 값은 변경하지 않는다. Playwright는 사용자가 실행하며 Figma 문구 동기화는 owner/디자인 담당자 후속이다.
+
+- 11/02 자체 점검 보완: 같은 응답 안의 완전히 같은 후보(근거 포함)는 store_candidates에서 한 번만 저장한다. 다중 chunk의 전체 후보 수집·draft 보존을 DB 회귀로 확인한다. runner도 refine 상한으로 생략한 후보를 unused로 기록해 제품과 맞춘다.
+- 11/02 리뷰 후속: run API는 파일의 모든 EXTRACT가 성공·빈 후보일 때만 emptyReason을 한 항목에 공개한다(청크별 진단은 비공개 유지). UI는 error가 있으면 emptyReason 안내를 생략하고 NO_CANDIDATES를 명시 매핑한다. 긴 text의 일부 빈 chunk/전체 빈 chunk를 pytest와 두 화면 stubbed Playwright로 검증한다.
+- 11/02 리뷰 후속: scorer는 범위를 하나의 토큰으로 유지해 원문 범위의 단일 끝점을 지원하지 않는다. 하이픈/물결/각 끝점 단위·'에서 … 사이' 등 실제 범위 표현을 정규화하며 양방향 회귀를 추가한다. refine 입력 전체가 상한 때문에 빠지면 REFINE_INPUT_LIMIT로 기록·안내한다. text_chunks import·필수 pages 접근을 정리하고 정의 해시 설명은 제품 spec 한 곳으로 모은다.
+
+- 11/02 추가 리뷰 결정: 에서/부터는 양 끝점의 단위가 같고 까지/사이로 닫히는 표현만 범위로 묶으며 그 외 수치는 분리한다. 기호 범위(-/~/–) 처리는 유지한다. REFINE의 후보 없음은 사유를 만들지 않고 NO_TARGET_CANDIDATES/ALL_TEXTS_FILTERED/REFINE_INPUT_LIMIT만 정리 사유로 공개한다. PARTIAL 거절 안내는 기존 오류 caption 한 줄에 개수·원문 확인 안내를 합친다. 평가 text chunk 추정은 UTF-8 디코딩 후 문자 수를 사용한다. 평가 source 전체의 NO_SAFE_TEXT/NO_CANDIDATES 진단은 유지하고 stage-2 빈 사유와 분리한다.
+- 11/02 PREPROCESS_VERSION 변경은 유지하며, 이전에 준비된 자료는 다음 분석 실행에서 다시 준비한다.
+- 11/02 이번 후속 범위는 기존 허용 경로의 scorer/refinement/final_eval·세 pytest 파일·두 생산자 화면·Playwright·제품 spec/wiki·구현 spec/tasks로 한정한다. 사용자 제공 리뷰와 기존 이슈 기록을 지시서로 사용하며 커밋·push·PR·live 호출·holdout 접근은 하지 않는다.
+
+### 작업
+- [ ] 수정1–5 및 합성 회귀/개발 사례·gold·해시
+- [ ] 제품 spec·wiki·구현 결정·측정 수정 보고서
+- [ ] 지정 Ruff/pytest/typecheck/test:mock 실행 결과 기록
+- [ ] stubbed Playwright 회귀 작성 (실행은 사람)
+
+### 완료 조건
+- [ ] 관련 테스트 묶음 및 사람 Playwright 확인
+- [ ] 사람이 개발 live 재측정 (이번 세션에서는 실행하지 않음)
+
+### 기록
+- 11/02 작업 시작. holdout에는 접근하지 않으며 외부 통지/PR은 생성하지 않는다.
+
+- 11/02 신규 합성: `21-long-text` 8,703자(최소3 chunk), `22-pdf-25-pages` 25쪽 중20분석/5생략, `23-partial-validation` 유효2+잘못된 인용1. 제품 mock은 명시적 합성 SHA/문구만 인식하며 실제 모델 실패를 대신하지 않는다. 기존32개 manifest 항목·기존20개 gold source 객체의 값 동일성을 확인했다. 신규3건에는 원천 정의 canonical SHA를 잠그고 실행 전 OCR safeInput 해시를 만들지 않는다.
+- 11/02 지정 전체 명령: `cd server && uv run ruff check . && uv run pytest tests/test_final_eval.py tests/test_final_score.py tests/test_source_refine.py tests/test_source_analysis.py tests/test_source_integration.py` (지정 DATABASE_URL, `SOURCE_ANALYSIS_PROVIDER=mock`, `UV_CACHE_DIR=/private/tmp/farmclub-dev182-uv-cache`) → **Ruff 통과; 580 passed / 16 failed (88.88s)**. 로그 `/private/tmp/dev182-final-pytest.log`. 14개는 기존 PREPARE 경로(source_analysis6/source_integration8)이며 독립 합성 `prepare(b'Synthetic text', 'text/plain')`에서 `PermissionError [Errno 1] Operation not permitted (originated from sysctl() malloc 1/3)`를 재현했다. parser 보호·기존 assertion은 유지한다.
+- 11/02 나머지2개 신규 DB 회귀는 편집 저장을 거치지 않고 draft 저장을 호출한 테스트 준비 오류였다. 실제 UI와 동일한 PUT editor 저장을 추가했다. 수정 후 `cd server && uv run ruff check . && uv run pytest tests/test_final_eval.py tests/test_final_score.py tests/test_source_refine.py tests/test_source_analysis.py::test_AC_SRC_8_pdf_first_twenty_pages_metadata_and_reproducible_material tests/test_source_analysis.py::test_AC_SRC_8_batch_pdf_cap_after_per_pdf_cap --tb=short` → **Ruff 통과; 541 passed / 0 failed (77.35s)**. 로그 `/private/tmp/dev182-regressions.log`. 수정1–5 회귀, 금액/근거 검증, 실패·불확실 호출 재생 금지, chunk 병합/중복 제거/실제 draft, 25쪽 PDF와 batch60쪽 경계를 포함한다. 전체 묶음 통과로 표시하지 않는다.
+- 11/02 `npm run typecheck && npm run test:mock` 최종 → **5 workspace typecheck 통과; mock47 passed / 0 failed / 0 skipped (27.11s)**, 로그 `/private/tmp/dev182-final-mock.log`. `node_modules/.bin/tsc --noEmit --target es2022 --module esnext --moduleResolution bundler --esModuleInterop --skipLibCheck --types node scripts/e2e/source-review-regressions.spec.ts` → 종료0. Playwright 브라우저 본문은 실행하지 않았다(사용자 지시). 사람 실행: `npm run test:e2e -- scripts/e2e/source-review-regressions.spec.ts`.
+- 11/02 scan-before-commit 자체 점검: HEAD 대비24경로·신규 파일0, 허용 범위 이탈0. 함수 호출부·API 필드·두 화면·runner/제품 입력 제한과 근거 검증을 대조했고 추가 문제 없음. `git diff --check` 통과. `git diff main...HEAD`680경로는 오래된 local main 대비 기존 이력이며 `origin/main...HEAD`0경로/HEAD=origin/main=51e5e95다. 이번24경로는 `git diff HEAD`로 대조했다.
+- 11/02 레거시 호환 점검: 후보2건 — 지적0건 / 커밋된 구조2건 (`SourceRun` optional 카운트 기본값: d4efd6d, 기존 manifest32건의 `safeInputSha256`/새 정의 해시 선택 검증: 99c9707). 새 필드의 미제공은 기존 커밋된 API/manifest 형태이며 임시 구조용 별칭·변환은 없다.
+- 11/02 의도한 커밋(실제 커밋·push·PR 없음): `docs(source): AC-SRC-2/3/5/8 일반 실패 복구 계약 정리 (DEV-182)` (제품 spec/wiki·구현 spec/tasks·측정 수정 보고), `fix(source): AC-SRC-2/3/5/8 추출 거절과 긴 입력 및 범위 채점 수정 (DEV-182)` (서버·pytest·합성 fixture/gold/manifest), `fix(producer): AC-SRC-5/8 PDF 생략과 빈 결과 안내 (DEV-182)` (두 화면·API 타입·stubbed Playwright).
+- 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: holdout 집계 오류 유형만 바탕으로 일반 제품 규칙을 고치고 새 합성 자료로 회귀 검증. 실제 source-holdout private 접근0, live/유료 호출0, 새 의존성0. 후속: owner가 sandbox 밖 지정 전체 pytest와 Playwright 실행, 개발 live 명령 실행; owner/디자인 담당자가 Figma v6 안내 문구 동기화. 해당 확인 전 완료 체크를 하지 않는다.
+
+- 11/02 사용자 리뷰 반영: EXTRACT PARTIAL/CANDIDATES_REJECTED와 기존 Run 상태 계산을 복원했다. refine enqueue에서만 acceptedCount/rejectedCount>0인 부분 거절을 허용한다. 두 main recovery 회귀는 원본 assertion 그대로다. 새 DB 회귀에서 PARTIAL→refine, 명시적 retry 후 동일 후보 집합 성공 정리 재사용/달라진 후보 집합의 기존 정리 outdated 및 새 REFINE 큐를 확인했다. 실패/불확실 요청 자동 재생 금지는 유지한다.
+- 11/02 리뷰 a/b: run_view가 파일별 모든 EXTRACT 성공·빈 후보일 때만 사유를 한 번 공개한다. 일부 빈 chunk에는 emptyReason을 공개하지 않고 내부 진단은 유지한다. UI의 NO_CANDIDATES 명시 매핑·error와 빈 안내 중복 제거·PARTIAL 거절 개수 안내를 두 화면 stubbed Playwright에 추가했다. 중간 chunk에 실제로 사실이 없는 긴 합성 text 및 전체 빈 경우를 DB API로 검증했다.
+- 11/02 리뷰 c/d/e: scorer 범위→끝점 확장을 제거해 3-5kg 원문의5kg 출력은 미지원이고, 실제 범위의 표기 차이는 정규화한다. 양방향 단일 끝점 거절·score/precision 회귀를 추가했다. 첫 후보부터 입력 상한에 걸리면 REFINE_INPUT_LIMIT로 worker/runner/API/UI에 기록한다. text_chunks top-level import·필수 chunk["pages"] 접근을 반영했다. 입력 정의 해시 설명은 제품 spec 한 곳만 유지하고 다른 문서는 링크한다.
+- 11/02 최신 지정 명령: `cd server && uv run ruff check . && uv run pytest tests/test_source_recovery.py tests/test_final_eval.py tests/test_final_score.py tests/test_source_refine.py tests/test_source_analysis.py tests/test_source_integration.py --tb=short` (로컬 dev182 DATABASE_URL, SOURCE_ANALYSIS_PROVIDER=mock, 기존 UV_CACHE_DIR) → **Ruff 통과; 627 passed / 17 failed (97.78s)**, 로그 `/private/tmp/dev182-review-pytest-final.log`. source_recovery3(원래 두 PARTIAL 회귀 포함)/source_analysis6/source_integration8은 PREPARE가 실패해 EXTRACT에 도달하지 못했다. 독립 합성 prepare 호출도 `PermissionError [Errno 1] Operation not permitted (originated from sysctl() malloc 1/3)`로 실패했다. sandbox 밖 실행은 현재 도구 권한상 불가하며 사람이 원래 명령을 재실행해야 한다. 기존 테스트·parser 제한을 완화하지 않았다.
+- 11/02 긴 text fixture를 실제 무사실 중간 chunk로 강화한 뒤 `cd server && uv run ruff check . && uv run pytest tests/test_source_refine.py::test_AC_SRC_5_8_long_text_empty_chunks_notice_is_per_file --tb=short` → **Ruff 통과; 2 passed / 0 failed (1.66s)**, 로그 `/private/tmp/dev182-review-empty-chunks.log`.
+- 11/02 `npm run typecheck && npm run test:mock` → **5 workspace typecheck 통과; 47 passed / 0 failed / 0 skipped (28.07s)**, 로그 `/private/tmp/dev182-review-mock.log`. `node_modules/.bin/tsc --noEmit --target es2022 --module esnext --moduleResolution bundler --esModuleInterop --skipLibCheck --types node scripts/e2e/source-review-regressions.spec.ts` → 종료0. `npm run test:e2e -- scripts/e2e/source-review-regressions.spec.ts --grep DEV-182 --max-failures=1` → **0 passed / 1 failed / 5 did not run**, Chromium MachPort 권한1100으로 launch 실패(화면 assertion 미실행), 로그 `/private/tmp/dev182-review-playwright.log`.
+- 11/02 scan-before-commit 재점검: 미커밋24경로·새 파일0, 허용 범위 이탈0, git diff --check 통과. 현재 HEAD=origin/main이며 `git diff main...HEAD`의680경로는 오래된 local main 대비 기존 이력이다. 이번 작업은 git diff HEAD와 대조했다. 레거시 호환 점검: 후보2건 — 지적0건 / 커밋된 구조2건 (SourceRun의 새 카운트 미제공 응답:34d7719, 기존 manifest safeInputSha256:99c9707). 추가 코드 지적 없음; 환경 차단으로 전체 검증 미완료다.
+- 11/02 갱신한 의도 커밋(실제 커밋·push·PR 없음): `fix(source): AC-SRC-2/3/5/8 PARTIAL 재시도와 긴 입력 처리 보존 (DEV-182)` (worker/refinement/runner/전처리·합성/pytest), `fix(eval): AC-SRC-3 범위와 단일 끝점의 근거 구분 (DEV-182)` (final_score·scorer 회귀), `fix(producer): AC-SRC-5/8 파일별 빈 결과와 입력 한도 안내 (DEV-182)` (run API·두 화면·TS API·stubbed Playwright), `docs(source): AC-SRC-2/3/5/8 리뷰 계약과 검증 기록 갱신 (DEV-182)` (제품 spec/wiki·구현 spec/tasks·eval 기록·개발 gold/manifest). 기존 미커밋 변경을 보존했고 이번 세션도 holdout 접근·live 호출0이다. owner의 sandbox 밖 pytest/Playwright 및 owner·디자인 담당자의 Figma 문구 동기화 전에는 완료 체크를 하지 않는다.
+
+- 11/02 후속 리뷰 시작 기준: 기존 변경은 844a1bc·5e5aaf6·4356138에 커밋되어 있으며 사용자 제공 sandbox 밖 전체 pytest **1124 passed**, source-review-regressions **14/14 passed**는 이 기존 커밋의 결과다. 이번 후속 변경의 검증과 구분한다.
+- 11/02 후속 구현: 에서/부터의 동일 단위+범위 종결 검사, 기호 범위 유지, unsupported_tokens 설명 수정. 후보 없는 REFINE은 사유 없이 성공하고 파일 EXTRACT 안내만 남긴다. NO_SAFE_TEXT/NO_CANDIDATES와 실제 REFINE을 함께 포함한 run API·두 화면 fixture 회귀를 추가했다. 두 생산자 화면의 거절 caption은 개수·원문 확인 한 줄로 합치고 UI ALL_CANDIDATES_REJECTED 매핑만 제거했다(서버 유지). 평가 추정은 디코딩 문자 수를 사용하고 source 전체 빈 진단은 stage2와 분리해 보존한다.
+- 11/02 검증 중 로컬 DB가 꺼져 첫 pytest는 **580 setup errors**(Connection refused)였다. `make db`로 로컬 PostgreSQL을 시작했다. 첫 DB 실행은 **578 passed / 2 failed (67.60s)**: 새 NO_SAFE_TEXT fixture가 빈 span을 참조했고, 평가 source 전체 NO_CANDIDATES 진단이 stage2와 함께 사라졌다. 빈 응답 fixture와 source 진단 보존을 수정했으며 기존 assertion은 유지·강화했다. 중간 Ruff E501 1건도 줄바꿈으로 수정했다.
+- 11/02 최종 `cd server && uv run ruff check . && uv run pytest tests/test_final_score.py tests/test_source_refine.py tests/test_final_eval.py --tb=short` → **Ruff 통과; 580 passed / 0 failed (66.89s)**. 환경: 로컬 farmclub_dev182 DB(테스트는 _test), SOURCE_ANALYSIS_PROVIDER=mock, UV_CACHE_DIR=/private/tmp/farmclub-dev182-uv-cache. 로그 `/private/tmp/dev182-followup-pytest-final.log`.
+- 11/02 `npm run typecheck && npm run test:mock` → **5 workspace typecheck 통과; 47 passed / 0 failed / 0 skipped (26.53s)**, 로그 `/private/tmp/dev182-followup-mock.log`. `node_modules/.bin/tsc --noEmit --target es2022 --module esnext --moduleResolution bundler --esModuleInterop --skipLibCheck --types node scripts/e2e/source-review-regressions.spec.ts` → 종료0.
+- 11/02 `npm run test:e2e -- scripts/e2e/source-review-regressions.spec.ts --grep DEV-182 --max-failures=1` → **0 passed / 1 failed / 5 did not run**. Chromium MachPort 권한 오류1100으로 launch 실패하여 화면 assertion은 실행되지 않았다. 로그 `/private/tmp/dev182-followup-playwright.log`. 이번 후속 브라우저 검증과 Figma 문구 동기화는 owner/디자인 담당자 후속이며 완료 체크는 하지 않는다.
+- 11/02 최종 diff 점검: HEAD 대비13경로·신규 파일0, 기존 허용 범위 이탈0, git diff --check 통과. origin/main...HEAD의 기존24경로도 이 이슈 범위와 일치한다. main...HEAD의680경로는 오래된 local main 대비 상속 이력으로 이번13경로와 구분했다. PREPROCESS_VERSION 추가 변경 없음. 커밋·push·PR·live 호출·holdout 자료 접근0.
+- 11/02 의도 커밋(이번 세션 실제 커밋 없음): `fix(eval): AC-SRC-2/3/5 범위 판별과 문자 수 추정 수정 (DEV-182)`, `fix(source): AC-SRC-5/8 빈 결과 중복과 거절 안내 정리 (DEV-182)`, `docs(source): AC-SRC-2/3/5/8 후속 계약과 검증 기록 갱신 (DEV-182)`. Agent 시간 / Tokens: 계측 미제공. 대표 프롬프트: 조사와 범위를 구분하고 실제 REFINE 포함 회귀로 중복 안내를 막되 테스트·holdout 제한을 유지한다.
+- 11/02 owner sandbox 밖 검증(후속 수정 포함): 전체 pytest 1140 passed / 1 failed(`test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback[delete_source]`, 단독 재실행 3/3 통과, 동시 실행 중 타이밍 문제로 판단), Playwright `source-review-regressions` 14/14 통과, typecheck 통과. 전부 거절된 FAILED 항목은 개수 없는 기존 문구를 유지하고 PARTIAL에만 개수를 보인다. 상태: 리뷰 수정과 sandbox 밖 검증 완료.
+
+## DEV-182 단일 상품 농가 공통 후보 정리 후속 (2026-11-02)
+
+- 기준 커밋: `73358eb`; 사용자 제공 development 관찰·owner 결정을 지시서로 사용한다.
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/3/5/8/11.
+- 상태: 진행 중.
+
+### 목표
+단일 상품의 stage-1 대상 배치 변동으로 농가 이야기가 최종 문구에서 사라지는 문제를 해결한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/{refinement,final_eval,editor,service}.py`, `server/app/ai/source_refine.py`
+- `server/tests/{test_source_refine,test_final_eval}.py`
+- `docs/spec/source-analysis.md`, `docs/wiki/Source-Analysis.md`, `server/app/source_analysis/{spec,tasks}.md`
+
+### 비범위
+- holdout 데이터 접근·수정·실행, live 호출, 커밋·push·PR 생성, 기존 테스트 약화, scorer/gold/manifest 변경.
+
+### 결정 사항
+- 11/02 상품 대상이 정확히 하나일 때 null 대상 후보도 정리 입력에 포함하고, 다중 상품은 기존 격리를 유지한다. null은 어떤 fieldKey도 가질 수 있으므로 공통 근거는 farmStory/historicalSales → farmStory, farmUpdates → farmUpdates만 허용한다. 품종·무게 등 상품 필드와 다른 상품의 근거를 보호한다.
+- 11/02 worker·평가·진단·원문 fallback에서 대상 선택 함수를 공유한다. 전체 공통 후보도 원문순 cap·생략 unused·입력 ID/내용 해시·전후 최신성/개인정보 검사에 포함한다. 정리 prompt 버전도 갱신한다.
+- 11/02 REFINED 저장 검증에도 같은 공통 근거/모듈 규칙을 적용한다. 정상 정리의 제외 후보는 fallback으로 복원하지 않으며, 실패·outdated일 때만 안전한 공통 원문 제안을 허용한다.
+- 11/02 기존 `13-common-farm` 합성 사례와 고정 gold/manifest를 재사용한다. wiki는 맨 끝에 영문 문단 하나만 추가하고 이 tasks 파일도 append-only로 유지한다.
+
+### 작업
+- [ ] 제품·평가·fallback·저장 경로 및 합성 회귀 수정.
+- [ ] 지정 Ruff/pytest/typecheck와 development mock 평가 실행·결과 기록.
+- [ ] 제품 spec·구현 spec·wiki 갱신 및 diff 범위 확인.
+
+### 기록
+- 11/02 시작: 작업 트리 깨끗함, 현재 브랜치 `jinumeral/dev-182-i3-t23-extraction-fixes`, HEAD `73358eb` 확인. 외부 이슈 조회·통지 없이 사용자 지시를 적용한다.
+- 11/02 범위 추가: `server/app/ai/source_analysis.py`의 mock 전용 allowlist에 기존 `13-common-farm` 텍스트 SHA/고정 출력을 추가한다. 기존 mock은 해당 사례를 EMPTY로 처리하므로 실제 mock 평가를 위해 필요하다. stage-1 prompt와 gold/manifest는 변경하지 않는다.
+- 11/02 구현: 단일 상품의 전체 null 후보를 입력에 포함하고 공통 인용은 농가 모듈로 제한했다. product/eval/fallback/save의 선택·검증 규칙을 공유하며 원래 ID/targetId를 보존한다. 전체 입력 payload 해시로 같은 ID의 내용 수정 및 cap 생략 공통 후보의 수정도 outdated로 처리한다. stage-1 prompt는 유지, stage-2는 v7-farm-common으로 갱신했다.
+- 11/02 1차 지정 실행: `cd server && uv run ruff check . && uv run pytest tests/test_source_refine.py tests/test_final_eval.py tests/test_final_score.py` → Ruff 통과, **601 passed / 1 failed (66.90s)**. 실패는 단일 상품에서도 공통 후보를 입력에서 제외하던 이전 계약의 테스트였다. 이를 새 계약의 전체 원문순 입력3건 + 공통 상품명 최종 제외 + 실제 인용 ID 검증으로 강화했다. 수정 후 두 focused 평가 회귀는 **2 passed / 0 failed (1.06s)**였다.
+- 11/02 `npm run typecheck` → **5 workspace 통과 / 종료0**. TS 코드는 변경하지 않았다.
+- 11/02 별도 development mock 평가: `cd server && uv run python - <<'PY' ... PY`로 기존 `13-common-farm`을 dataset/load_gold → evaluate_source(mock) → final_score.score 경로에서 실행했다. 전체 합성 gold 파일 SHA와 해당 source canonical SHA를 기존 manifest와 검증했다. **EVALUATED, null farmStory 포함, 2 mock calls, $0, emptyReason=null, factRecall=1/1, 금지0, unsupported0**. 산출물: `/private/tmp/dev182-common-farm-mock-69nxek_a`. gold를 모델 입력에 쓰지 않았고 fixture/gold/manifest/scorer 수정0이다.
+- 11/02 범위/문서 감사: 미커밋12경로 모두 위 허용 범위 안이다. tasks는 73358eb의 전체 바이트를 prefix로 보존했고 wiki는 기존 전체를 유지하며 영문 문단 하나만 덧붙였다. `git diff main...HEAD`680경로와 `origin/main...HEAD`24경로는 상속된 이력이며 이번 변경은 `git diff HEAD`12경로로 대조했다.
+- 11/02 최종 지정 실행: `cd server && uv run ruff check . && uv run pytest tests/test_source_refine.py tests/test_final_eval.py tests/test_final_score.py` → **Ruff 통과; 602 passed / 0 failed (64.38s)**. 환경은 로컬 `farmclub_dev182`(pytest `_test`), `SOURCE_ANALYSIS_PROVIDER=mock`, `UV_CACHE_DIR=/private/tmp/farmclub-dev182-uv-cache`다. 기존580건과 새 AC ID 회귀22건을 포함하며 테스트를 삭제하거나 안전 assertion을 약화하지 않았다.
+- [x] 이번 단일 상품 공통 후보 후속 구현·원문순 cap·내용 최신성·저장/fallback·empty_reason·mock 평가·문서4개·지정 Ruff/pytest/typecheck 검증 완료.
+- 11/02 의도한 커밋(실행하지 않음): `fix(source): AC-SRC-1/2/3/5 단일 상품 농가 공통 후보 정리 반영 (DEV-182)`, `docs(source): AC-SRC-1/2/3/5/8 공통 후보 결정과 검증 기록 (DEV-182)`.
+- 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: development에서 발견한 단일 상품 null 농가 이야기 누락을 공통 제품 함수로 고치고 상품 전용 필드·기존 테스트를 보호한다. HEAD=73358eb 유지, 커밋·push·PR·live 호출·holdout 데이터 접근0. 이번 후속 변경은 미커밋으로 보존한다.
+- 11/02 합성 gold 정합: DEV-182에서 추가한 21–23의 `mustContain`이 문장 전체(예: "감귤 7kg입니다")여서, 기존 20건의 핵심 토큰 규칙(예: ["감귤","5kg"])과 달랐다. 어미가 빠진 같은 사실 "감귤 7kg"을 놓침으로 셌다. 기존 규칙에 맞춰 ["감귤","7kg"], ["서늘한 곳"], ["바람을 막는 울타리"]로 고치고 manifest 해시를 갱신했다. 측정 기준 정합이며 모델·프롬프트 변경은 아니다. 저장한 T23 개발 실측 2회를 호출 없이 재채점(--rescore)했다.
+- 11/02 owner 개발셋 실측(openrouter gemini-3-flash-preview, 35건): T23a(v6 정리) 사실 73/93·중요 37/45·오배치 9/93·$0.185, T23b(v7 농가 공통) 사실 80/93·중요 36/45·오배치 4/93. 두 회 모두 금지·unsupported 0. 기존 32건 기준 R4 72/87·35/42 → T23b 74/87·33/42. T23b의 03-expected-brix는 2단계 호출 REQUEST_UNCERTAIN(일시 실패, 자동 재시도 없음)으로 0/2이다. farm-orafield는 v7에서 3/3으로 회복했다. 실행마다 1회씩만 측정했으므로 회차 간 차이 일부는 모델 변동일 수 있다.
+
+## DEV-182 T23 재실행 집계와 holdout v1.1 개발 편입 (2026-11-02)
+
+- 이슈: [DEV-182](https://linear.app/sswp6/issue/DEV-182)
+- 브랜치: `jinumeral/dev-182-i3-t23-extraction-fixes`, 시작 HEAD `87f5357`
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6
+- 상태: 진행 중. 사용자 제공 owner 승인 계획을 이번 작업 지시서로 적용한다.
+
+### 목표
+owner가 완료한 T23 부분 오염 재실행을 집계만 보고하고, 소진된 holdout v1.1의12건을 개발용으로 보존·편입한다. 최초 결과와 FAIL 판정을 유지한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/{final_eval,final_score}.py`, `server/tests/{test_final_eval,test_final_score}.py`
+- `server/app/source_analysis/{spec,tasks}.md`, `docs/spec/source-analysis.md`, `docs/wiki/Source-Analysis.md`
+- `docs/spec/validation/source-final-{eval-i3-2026-11-01.md,eval-i3-2026-11-01.json,dev-manifest.json,gold-format.md}`
+- 저장소 밖 `../source-dev-i3-private/safe/`, 신규 `../source-dev-i3-private/final-gold-dev-public-v2.json`, 신규 mock 출력 폴더.
+
+### 비범위
+- 커밋·push·PR·외부 통지·live/유료 호출, 기존 private gold/holdout 파일 삭제·변경, 테스트 약화, private 본문·gold 저장소 반입.
+
+### 결정 사항
+- 11/02 최초 holdout 측정만 비오염 기준으로 보존한다(기존 간접 오염 주의도 유지). 재실행은 “T23 holdout rerun — partially contaminated; does not replace the first run”으로 별도 기록하며 판정 FAIL이다.
+- 11/02 owner 승인으로 holdout v1.1은 오늘 개발용으로 폐기되어 private 폴더를 읽을 수 있다. safe 입력은 원래 ID/확장자로 복사하고 원본을 보존한다. 개발 gold v2는 기존 private top-level source-list 규약을 유지하며 format 주입 후 split=development의 final_score.Gold로 검증한다. ID 충돌은 거절한다.
+- 11/02 manifest의 모든 LOCAL_PRIVATE goldSha256과 scorer 개발 고정 SHA를 병합 v2 파일 바이트 해시로 맞춘다. 공개개발24+합성23=47건이다(기존32→44에 DEV-182 합성3 추가). 역사 holdout lock은 guard의 정확한 스키마/정책 고정을 보존하므로 변경하지 않는다.
+- 11/02 guard는 새 manifest에 한해 잠긴12개 ID/format과 metadata 필드만 허용하며 나머지 JSON의 holdout payload 차단을 유지한다. 향후 독립 측정은 튜닝하지 않는 사람들이 동일3인 검토 절차로 만든 holdout v2가 필요하다.
+- 11/02 gold-format 문서의 현재 개발 gold 경로도 v2로 맞춘다. wiki/tasks는 기존 바이트를 유지하고 끝에만 추가한다. 검증은 지정 Ruff/pytest·diff 및 development public estimate/full mock만 수행한다.
+
+### 작업
+- [ ] 재실행·두 개발 실측/합성 gold 정합 집계 보고서 추가.
+- [ ] private 입력12건 복사·gold 병합/검증·manifest/runner/guard 정합.
+- [ ] mock estimate24건·신규 출력 폴더 full run 로딩/채점 확인.
+- [ ] 지정 Ruff/pytest·diff 검사 및 결과 기록.
+
+### 기록
+- 11/02 시작: 작업 트리 깨끗함. metadata에서 stage1 `source-v8-exact-numbers`, stage2 `source-refine-v7-farm-common`, 시도2와 owner 재실행 사유 확인. private score/metadata에서 집계만 추출한다. 신규 실모델 호출은 하지 않는다.
+- 11/02 해시 인코딩 확인: 기존12건 safeInputSha256은 corpus의 canonical-json-utf8 구조화 입력 해시이며 현재 safe 파일 바이트 SHA가 아니다. 기존 값은 보존한다. 새로 편입한12건은 복사한 safe 파일 바이트 SHA로 검증하므로 `safeInputEncoding=file-bytes`를 명시하여 두 해시 계약을 혼동하지 않게 한다. 이는 입력 변경이 아니며 guard의 신규 metadata 키도 정확히 고정한다.
+- 11/02 구현 결과: safe 입력12건을 동일 ID/확장자로 개발 private 폴더에 복사했고 원본은 보존했다. 기존 개발12+폐기12의 ID 충돌0, 병합 gold24건은 development Gold 검증을 통과했다. v2 파일 SHA는 `16c239045030411306cf07e8b04e9bf35c98d74acda0f861ccc69e48f1b27fb5`이며 runner·scorer 고정 SHA·LOCAL_PRIVATE24건 goldSha256이 일치한다. 합성23건은 변경하지 않았다.
+- 11/02 보고 결과: private score/metadata에서 형식별/전체 facts·critical·misplacement·금지 종류·unsupported·proxy·상태·오류·정산·호출 집계만 추출했다. 재실행74/261·32/109·오배치26/261·금지2·unsupported0·proxy82/91·93호출·$0.190412, 최초59/261과 분리해 보존했다. 개발 T23a73/93·T23b80/93와 합성21–23 gold 정합 기록을 요약했다. FAIL과 최초 측정의 기존 간접 오염 주의를 유지한다.
+- 11/02 지정 최종 검증: `cd server && uv run ruff check . && uv run pytest tests/test_final_eval.py tests/test_final_score.py` → **Ruff 통과; 327 passed / 0 failed (30.05s)**. 환경: `UV_CACHE_DIR=/private/tmp/farmclub-dev182-uv-cache`, `APP_ENV=local`, `SOURCE_STORAGE=local`, `SOURCE_ANALYSIS_PROVIDER=mock`, 로컬 `farmclub_dev182`(pytest `_test`). 앞선 동일 묶음도327 passed / 0 failed(36.17s)였다. 신규3개 회귀는 public/all v2 로딩·변조 거절2개와 집계/최초 결과 보존1개다. 기존 guard의 문자열 payload 차단·역사 lock 고정 assertion을 유지했다.
+- 11/02 mock estimate: `cd server && uv run python -m app.source_analysis.final_eval --split development --subset public --provider mock --estimate-only --out ../../source-dev-i3-private/dev182-retired-public-estimate` → **sources24 / estimatedExtractionCalls63 / estimatedRefinementCalls24 / estimatedOcrCalls236**, 종료0. OCR 호출 추정치는 계획용이며 실제 mock은 로컬 OCR만 사용한다.
+- 11/02 mock full: 같은 명령에서 `--estimate-only`를 빼고 `--out ../../source-dev-i3-private/dev182-retired-public-mock-20261102`를 사용했다. 최초 사전 검사는 이 worktree의 OCR_NOT_CONFIGURED로 종료2(출력 폴더 생성 전)였다. 기존 sibling worktree의 오프라인 RapidOCR 모델3개 파일 해시를 검증하고 환경 변수 SOURCE_OCR_MODEL_DIR·SOURCE_OCR_MODEL_SHA256만 연결해 실행했다(설치/다운로드 없음). **종료0; loaded24 / scored24 / EMPTY24 / FAILED0 / mock calls87 / 정산$0 / score facts0/324**. 새 private 폴더에 inputs/runs/metadata/score/report를 생성해 실제 로딩·채점 경로를 확인했다. mock은 품질 측정이 아니다.
+- 11/02 보존/정보 감사: 기존 JSON 최상위19필드 값 동일, report MD·wiki·tasks 기존 바이트 prefix 보존, 합성23건 값 동일, 기존 개발12건 canonical 해시 보존, 신규12건 복사 바이트/해시 일치, 역사 holdout lock 바이트 동일, 기존 private gold2개 SHA 동일, 병합 gold는 원래 두 source 리스트의 순서 유지 연결임을 확인했다. 신규 추가 라인에서 길이20자 이상 private gold 문장/statement 일치0건이다. 저장소 신규 파일0·수정12경로 모두 이번 범위 안이다.
+- 11/02 diff 범위: `git diff main...HEAD`680경로와 `origin/main...HEAD`26경로는 상속된 이력이다. 이번 변경은 `git diff HEAD`12경로로 tasks와 대조했다. `git diff --check` 통과. HEAD=87f5357 유지, 커밋·push·PR·live 호출0이다.
+- [x] 이번 재실행 보고·개발 편입·문서·mock 로딩/채점·지정 테스트 검증 완료. 모델 품질 FAIL과 미래 독립 holdout v2 필요성은 그대로다.
+- 11/02 의도한 커밋(실행하지 않음): `docs(source): AC-SRC-2/3/6 T23 부분 오염 재실행과 폐기 기록 (DEV-182)`, `chore(eval): AC-SRC-2/6 폐기 holdout 개발 편입과 v2 gold 연결 (DEV-182)`.
+- 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: owner 승인된 재실행 집계만 공개하고 폐기 holdout을 원본 보존·private v2 gold·mock 검증으로 개발 편입한다.
+- 11/02 재현성 주의: 개발 public gold가 v2(`16c23904…`)로 바뀌어 `final_score`는 v2 SHA와 24건 ID 집합만 받는다. v1(`3ed46597…`)을 가리키는 과거 개발 run(R1–R4, T23a/T23b)은 `--rescore`로 다시 채점할 수 없으며, 기록 수치는 당시 저장된 score.json 기준이다. 보고서 비교 절에 재실행의 형식별 하락(image·long_image facts/critical, 오배치10→26)을 명시했다.
 ## DEV-189 OCR 모델 GitHub Release 미러
 
 ### 왜

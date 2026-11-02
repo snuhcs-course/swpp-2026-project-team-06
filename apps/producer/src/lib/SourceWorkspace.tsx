@@ -63,7 +63,38 @@ export const states: Record<string, string> = {
   PREPARED: "자료 준비됨",
   RUNNING: "처리 중",
 };
-export function sourceError(code: string, phase?: string) {
+export function sourceNotices(item: SourceRun["items"][number]): string[] {
+  const notes: string[] = [];
+  if ((item.pagesSkipped ?? 0) > 0) {
+    notes.push(
+      `앞 ${item.pagesAnalysed}쪽만 분석했어요. 나머지 ${item.pagesSkipped}쪽은 필요하면 나눠서 올려 주세요.`,
+    );
+  }
+  if (item.emptyReason && !item.error) {
+    const messages: Record<string, string> = {
+      NO_CANDIDATES: "추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.",
+      NO_SAFE_TEXT: "분석할 텍스트가 없어요. 자료 내용을 확인해 주세요.",
+      NO_TARGET_CANDIDATES:
+        "이 상품에 연결된 내용을 찾지 못했어요. 상품 연결을 확인해 주세요.",
+      ALL_TEXTS_FILTERED:
+        "상세에 넣을 수 있는 문구가 남지 않았어요. 원문을 확인해 주세요.",
+      REFINE_INPUT_LIMIT:
+        "내용이 많아 문구를 정리하지 못했어요. 자료를 나눠서 올려 주세요.",
+    };
+    notes.push(
+      messages[item.emptyReason] ??
+        "추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.",
+    );
+  }
+  if ((item.candidatesSkipped ?? 0) > 0) {
+    notes.push(
+      `내용이 많아 후보 ${item.candidatesSkipped}개는 문구 정리에서 생략했어요. 원문을 확인해 주세요.`,
+    );
+  }
+  return notes;
+}
+
+export function sourceError(code: string, phase?: string, rejectedCount = 0) {
   if (phase === "REFINE") {
     const messages: Record<string, string> = {
       SOURCE_CHANGED:
@@ -91,7 +122,9 @@ export function sourceError(code: string, phase?: string) {
     INVALID_EVIDENCE:
       "자료에서 근거를 확인하지 못했어요. 선명한 자료를 넣거나 직접 내용을 확인해 주세요.",
     CANDIDATES_REJECTED:
-      "근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.",
+      rejectedCount > 0
+        ? `근거를 확인하지 못한 후보 ${rejectedCount}개는 제외했어요. 원문을 확인해 주세요.`
+        : "근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.",
     REQUEST_UNCERTAIN: "분석 요청의 완료 여부를 확인하지 못했어요.",
     UNSUPPORTED_NUMBER: "자료에 없는 수치가 포함되어 결과를 사용하지 않았어요.",
     UNSUPPORTED_PIECE_COUNT: "상품 개수의 근거를 확인하지 못했어요.",
@@ -676,6 +709,16 @@ export function SourceWorkspace() {
                               : (states[r.status] ?? r.status)}
                         {r.mode === "mock" ? " · 테스트 결과" : ""}
                       </T>
+                      {r.items.flatMap((item) =>
+                        sourceNotices(item).map((note, index) => (
+                          <T key={`${item.id}-note-${index}`} variant="caption">
+                            {item.phase !== "REFINE"
+                              ? `${batch?.sources.find((s) => s.id === item.assetId)?.filename}: `
+                              : ""}
+                            {note}
+                          </T>
+                        )),
+                      )}
                       {r.items
                         .filter(
                           (i) =>
@@ -687,7 +730,11 @@ export function SourceWorkspace() {
                             {i.phase !== "REFINE"
                               ? `${batch.sources.find((s) => s.id === i.assetId)?.filename}: `
                               : ""}
-                            {sourceError(i.error!, i.phase)}
+                            {sourceError(
+                              i.error!,
+                              i.phase,
+                              i.status === "PARTIAL" ? i.rejectedCount : 0,
+                            )}
                           </T>
                         ))}
                       {ACTIVE.includes(r.status) ? (

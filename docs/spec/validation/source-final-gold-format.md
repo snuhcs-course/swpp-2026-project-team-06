@@ -6,7 +6,7 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8 · AC-03-2. 2026-11-01 결정. DEV-186의 br
 
 - [JSON schema](source-final-gold.schema.json): `Gold.model_json_schema()`로 재생성하며 테스트에서 동일성을 확인한다. JSON schema의 구조 검증에 더해 scorer가 모듈/섹션 대응, verbatim 및 scorer `contains`의 정규화 토큰 포함, 사실 ID 중복과 금액/전화/email 없는 gold 문장을 검증한다. 또한 정답 문장에 health·platform 금지어가 있거나 같은 source의 금지 구절이 정답 문장 안에 있으면 거절한다(정답을 그대로 낸 출력이 위반이 되는 자기모순 방지).
 - [합성 개발 gold](source-final-gold-i3-dev-synthetic.json): 기존 manifest의 합성20건(기존 corpus 분류 기준 추출18+계약2). 원천은 `server/tests/fixtures/source-analysis/cases.json`과 `synthetic.material` 생성기다. 원천 숫자·단위·조건을 유지한 개발용 수작업 문장이다. 독립 측정이나 실제 모델 품질 결과가 아니다.
-- [개발 final manifest](source-final-dev-manifest.json): 합성20건 `READY_SYNTHETIC`, 공개 개발12건 `LOCAL_PRIVATE`. 기존 corpus의 ID·format·safeInputSha256과 final gold의 바이트/정규 JSON SHA를 기록한다. 공개12건 gold는 로컬 전용이며 각 case의 goldSha256은 전체 private gold 파일 바이트 SHA다. 합성 case의 goldSha256(source 정규 JSON)과 구분한다. 안전 입력은 읽거나 복사하지 않는다.
+- [개발 final manifest](source-final-dev-manifest.json): 합성23건 `READY_SYNTHETIC`, 공개 개발24건 `LOCAL_PRIVATE`. 기존 corpus의 ID·format·safeInputSha256과 final gold의 바이트/정규 JSON SHA를 기록한다. 공개24건 gold는 로컬 전용이며 각 case의 goldSha256은 전체 private gold 파일 바이트 SHA다. 합성 case의 goldSha256(source 정규 JSON)과 구분한다. 안전 입력·private gold 본문은 저장소에 복사하지 않는다.
 - **holdout 원문·안전 입력·gold·로컬 run 봉투는 로컬 전용**이다. 독립 검토자3명이 원문만 보고 작성하고 2명 이상 동의한 사실을 채택하며 나머지는 담당자가 결정한다. PDF3건은 실제 인쇄된 PDF다. 페이지 근거는 로컬 검토 자료(검토자 결과의 `where`)에 남기고, 잠근 gold 문장에는 `where`를 두지 않는다(선택 필드). 개발/holdout은 함께 채점할 수 없다. holdout은 절대 튜닝에 사용하지 않는다.
 - 저장소에 남길 holdout 정보는 **ID·형식·해시·집계 점수**뿐이다. lock 전에는 임의 ID·gold를 만들어 잠긴 것처럼 표시하지 않는다. [holdout lock](source-final-holdout-i3-lock.json)은 형식별3건의 ID/format·파일 SHA·146문장/261사실(v1.1, 2026-11-01 배송 방식 복원) 및 정책만 담는다. 잠금은 채점 통과를 뜻하지 않는다. 안전 원문이 있어도 공개 복제 권한을 뜻하지 않는다.
 
@@ -99,10 +99,10 @@ uv run python -m app.source_analysis.final_score \
 }
 ```
 
-위 sources 1행은 설명용이며 실제로는12건 모두 필요하다. private 파일은 최상위 source 리스트이며 format 없이 `{id,product,sentences,forbidden}`다. scorer는 run 봉투의 format을 주입하고 where 없는 문장을 허용한 뒤 동일한 엄격 gold 검증을 실행한다. 알려지지 않은 필드/종류, 빈 product, verbatim/정규화 불일치를 자동 보정하지 않는다. 개발 파일은 `../source-dev-i3-private/final-gold-dev-public.json` 및 split=development를 사용한다.
+위 sources 1행은 설명용이며 실제로는12건 모두 필요하다. private 파일은 최상위 source 리스트이며 format 없이 `{id,product,sentences,forbidden}`다. scorer는 run 봉투의 format을 주입하고 where 없는 문장을 허용한 뒤 동일한 엄격 gold 검증을 실행한다. 알려지지 않은 필드/종류, 빈 product, verbatim/정규화 불일치를 자동 보정하지 않는다. 현재 개발 파일은 `../source-dev-i3-private/final-gold-dev-public-v2.json` 및 split=development를 사용한다(2026-11-02 폐기 holdout12건 편입, 공개개발24건). 원래 v1 파일은 보존한다.
 
 - Holdout 파일 바이트 SHA-256: `2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073`. 필수 lockPath의 `sha256`도 이 값과 일치해야 한다.
-- Public development 파일 바이트 SHA-256: `3ed465971fb5579d10d8ee338e21c01c5d06c324d942acd8d36aba2635cf786f`.
+- Public development 파일 바이트 SHA-256: `16c239045030411306cf07e8b04e9bf35c98d74acda0f861ccc69e48f1b27fb5`(v2, 2026-11-02 holdout 편입 후). v1 `3ed465971fb5579d10d8ee338e21c01c5d06c324d942acd8d36aba2635cf786f`는 이력이다.
 
 위 값은 `final_score.LOCAL_GOLD_SHA256`에 고정한다. SHA/lock/검증 불일치면 종료2로 채점을 거절한다. private gold/lock도 보고서 덮어쓰기 대상이 될 수 없다. 개발과 holdout 혼합, source ID 중복은 거절한다. `load_local_gold(LocalGold(...), base_path, formats_by_id)`로 검증만 수행할 수 있다. 이 작업은 두 gold의 검증만 실행하며 **holdout 채점은 DEV-186 이후 T11/T23에서 한 번만**, 튜닝 금지다. private 본문·위치·원천은 repo에 복사하거나 stdout에 출력하지 않는다.
 
@@ -126,3 +126,9 @@ uv run python -m app.source_analysis.final_score \
 20건은18문장/24사실이다. 15-injection은 사실이 없고 17-duplicate/18-empty는 API 계약 오류 사례이므로0문장이다. 09-support도 문의 공통 정책만 있어0문장이며, 06-delivery는 수정된 규칙9에 따라 배송 방법 사실1개를 packing/delivery에 보존한다. 따라서 contract4건, extraction16건이다(기존 corpus의 extraction18/API-contract2와 목적이 다름). contract의 빈 출력은 critical FAIL이며 전체 분모·실패 gate에 유지한다. contract가 모두 text라 합성 `byFormat.text`와 `overall` gate는 항상 FAIL, CLI 종료 코드는1이다. 품질 판단에는 `byCaseType.extraction`을 함께 읽는다. 원천에 규칙10(요약/맛 분리)·12(판매가 칸 기간)·health 사례가 없어 해당 gold 사실은 추가하지 않는다(규칙9는06/09/20에 있음).
 
 11-conflict는 A/B 각 중량을 문장에 명시해 확정값을 만들지 않는다. 12-mixed-products는 A/3kg를 대표로, B/5kg는 other_product 금지로 둔다. 13-common-farm은 대표 A에 공통 농가 사실만 사용한다. 10-historical은 지난해/2025년/5kg 행사 이력을 farm에 남기고 금액을 금지한다. 19의 수량 미확인은 유지하고20의 배송일 미확정은 운영 안내로 금지한다. 02-weight는 자연스러운 `감귤 5kg 한 상자입니다.`로 복원했다. 나머지 사례도 규칙9~12와 대조했으며, 과거 판매 이력/실측 근거는 판매 기간·효능 주장과 구분해 보존한다. 합성 가상 연락처는 기존 공개 fixture에 이미 있는 값만 forbidden에 사용한다.
+
+## DEV-182 폐기 정책 갱신 (2026-11-02)
+
+holdout v1.1은 owner의 부분 오염 T23 재실행 후 `RETIRED_TO_DEV`다. 위 잠금·튜닝 금지 설명과 고정 holdout SHA는 역사 기록으로 보존한다. 현재 개발47건(공개개발24+합성23)은 dev manifest를 따른다. 모든 LOCAL_PRIVATE goldSha256은 병합 v2 파일 바이트 SHA이며 원래 개발 파일·holdout 파일/lock은 보존한다. 향후 독립 주장은 튜닝하지 않는 사람들이 독립3인 검토 절차로 만든 holdout v2가 필요하다.
+
+해시 인코딩: 기존 공개개발12건의 safeInputSha256은 기존 corpus의 `canonical-json-utf8` 구조화 입력 해시를 그대로 보존한다. 편입12건은 `safeInputEncoding=file-bytes`로 명시한 복사 safe 파일의 바이트 SHA다. 서로 다른 인코딩을 파일 변조로 혼동하지 않는다.

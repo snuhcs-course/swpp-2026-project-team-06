@@ -498,10 +498,35 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
 def run_view(db, run):
     result = json_row(run)
     items = list(db.scalars(select(Item).where(Item.run_id == run.id).order_by(Item.id)))
+    extracts = defaultdict(list)
+    for item in items:
+        if item.phase == "EXTRACT":
+            extracts[item.asset_id].append(item)
+    empty_assets = {}
+    for group in extracts.values():
+        # A blank page/chunk is not a blank file. Keep per-chunk reasons private.
+        if all(
+            i.status == "SUCCEEDED"
+            and not i.error
+            and i.diagnostics.get("acceptedCount", 0) == 0
+            and i.diagnostics.get("emptyReason")
+            for i in group
+        ):
+            empty_assets[group[0].id] = (
+                "NO_SAFE_TEXT"
+                if all(i.diagnostics["emptyReason"] == "NO_SAFE_TEXT" for i in group)
+                else "NO_CANDIDATES"
+            )
     result["items"] = [
         {
             # 정리 결과(refinement)는 review의 excluded·refinementVersion으로만 공개한다.
             **json_row(i, ("lease_token", "lease_until", "sent", "diagnostics", "refinement")),
+            "pagesAnalysed": i.diagnostics.get("pagesAnalysed", 0),
+            "pagesSkipped": i.diagnostics.get("pagesSkipped", 0),
+            "emptyReason": empty_assets.get(i.id)
+            if i.phase == "EXTRACT"
+            else i.diagnostics.get("emptyReason"),
+            "candidatesSkipped": i.diagnostics.get("candidatesSkipped", 0),
             "acceptedCount": i.diagnostics.get("acceptedCount", 0),
             "rejectedCount": i.diagnostics.get("rejectedCount", 0),
         }
@@ -640,7 +665,8 @@ def review(db, row):
 
 def patch_review(db, row, body, *, inactive=frozenset()):
     version(row.review_version, body.review_version)
-    from app.source_analysis.refinement import current_candidates, stored_fields
+    from app.ai.source_refine import farm_common_allowed
+    from app.source_analysis.refinement import current_candidates, includes_target, stored_fields
 
     refined_records = (
         stored_fields(db, row.id) if any(f.provenance == "REFINED" for f in body.fields) else set()
@@ -669,10 +695,15 @@ def patch_review(db, row, body, *, inactive=frozenset()):
         if len(candidates) != len(set(entry.candidate_ids)) or any(
             (c.outdated and (entry.target_id, entry.field_key) not in inactive)
             or (entry.provenance != "REFINED" and c.field_key != entry.field_key)
-            or c.target_id
-            not in (
-                (entry.target_id,) if entry.provenance == "REFINED" else (None, entry.target_id)
+            or (
+                entry.provenance == "REFINED"
+                and (
+                    not includes_target(c.target_id, entry.target_id, len(row.targets))
+                    or c.target_id is None
+                    and not farm_common_allowed({"fieldKey": c.field_key}, entry.field_key)
+                )
             )
+            or entry.provenance != "REFINED" and c.target_id not in (None, entry.target_id)
             for c in candidates
         ):
             raise conflict("INVALID_EVIDENCE", "최신 자료의 같은 상품·항목 근거를 선택해 주세요.")

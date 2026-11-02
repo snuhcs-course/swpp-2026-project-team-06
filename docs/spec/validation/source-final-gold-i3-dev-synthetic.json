@@ -584,6 +584,134 @@
           "text": "배송일"
         }
       ]
+    },
+    {
+      "id": "21-long-text",
+      "format": "text",
+      "product": "합성 감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "감귤 7kg입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#21-long-text/text",
+          "facts": [
+            {
+              "id": "f1",
+              "statement": "감귤 7kg입니다.",
+              "mustContain": [
+                "감귤",
+                "7kg"
+              ],
+              "critical": true
+            }
+          ]
+        },
+        {
+          "section": "storage",
+          "module": "storage",
+          "text": "서늘한 곳에 두세요.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#21-long-text/text",
+          "facts": [
+            {
+              "id": "f2",
+              "statement": "서늘한 곳에 두세요.",
+              "mustContain": [
+                "서늘한 곳"
+              ],
+              "critical": false
+            }
+          ]
+        },
+        {
+          "section": "production",
+          "module": "productionProcess",
+          "text": "바람을 막는 울타리에서 길렀습니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#21-long-text/text",
+          "facts": [
+            {
+              "id": "f3",
+              "statement": "바람을 막는 울타리에서 길렀습니다.",
+              "mustContain": [
+                "바람을 막는 울타리"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "22-pdf-25-pages",
+      "format": "pdf",
+      "product": "합성 감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "감귤 7kg입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#22-pdf-25-pages/text",
+          "facts": [
+            {
+              "id": "f1",
+              "statement": "감귤 7kg입니다.",
+              "mustContain": [
+                "감귤",
+                "7kg"
+              ],
+              "critical": true
+            }
+          ]
+        }
+      ],
+      "forbidden": []
+    },
+    {
+      "id": "23-partial-validation",
+      "format": "text",
+      "product": "합성 감귤",
+      "sentences": [
+        {
+          "section": "composition",
+          "module": "composition",
+          "text": "감귤 7kg입니다.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#23-partial-validation/text",
+          "facts": [
+            {
+              "id": "f1",
+              "statement": "감귤 7kg입니다.",
+              "mustContain": [
+                "감귤",
+                "7kg"
+              ],
+              "critical": true
+            }
+          ]
+        },
+        {
+          "section": "storage",
+          "module": "storage",
+          "text": "서늘한 곳에 두세요.",
+          "where": "server/tests/fixtures/source-analysis/cases.json#23-partial-validation/text",
+          "facts": [
+            {
+              "id": "f2",
+              "statement": "서늘한 곳에 두세요.",
+              "mustContain": [
+                "서늘한 곳"
+              ],
+              "critical": false
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "unsupported",
+          "text": "잘못된 인용 후보"
+        }
+      ]
     }
   ]
 }

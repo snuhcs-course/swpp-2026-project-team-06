@@ -4,17 +4,18 @@ import hashlib
 import json
 import time
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.ai.source_refine import (
     PROMPT,
     PROMPT_VERSION,
     TEXT_MODULE_FIELDS,
     RefineError,
+    farm_common_allowed,
     refine,
 )
 from app.core.db import get_sessionmaker
-from app.source_analysis.models import Asset, Candidate, Item, Page, Run
+from app.source_analysis.models import Asset, Batch, Candidate, Item, Page, Run
 from app.source_analysis.preprocess import scrub
 from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
@@ -26,7 +27,17 @@ from app.source_analysis.text_safety import (
 )
 
 
-def current_candidates(db, batch_id, target_id):
+def includes_target(candidate_target_id, target_id, target_count):
+    """Common evidence joins only a single product; preserve each candidate's target ID."""
+    return candidate_target_id == target_id or target_count == 1 and candidate_target_id is None
+
+
+def current_candidates(db, batch_id, target_id, *, target_count=None):
+    if target_count is None:
+        target_count = len(db.get(Batch, batch_id).targets)
+    target_filter = Candidate.target_id == target_id
+    if target_id is not None and includes_target(None, target_id, target_count):
+        target_filter = or_(target_filter, Candidate.target_id.is_(None))
     rows = list(
         db.execute(
             select(Candidate, Item, Asset)
@@ -34,7 +45,7 @@ def current_candidates(db, batch_id, target_id):
             .join(Asset, Item.asset_id == Asset.id)
             .where(
                 Candidate.batch_id == batch_id,
-                Candidate.target_id == target_id,
+                target_filter,
                 Candidate.outdated.is_(False),
                 Asset.deleted.is_(False),
                 Item.phase == "EXTRACT",
@@ -73,6 +84,7 @@ def is_current(item, candidates):
         item.refinement["version"] == PROMPT_VERSION
         and item.refinement["safetyListsHash"] == SAFETY_LISTS_HASH
         and set(item.refinement["inputCandidateIds"]) == {c.id for c in candidates}
+        and item.refinement["inputCandidatesHash"] == input_hash(candidates)
     )
 
 
@@ -100,7 +112,16 @@ def matching_refinement(db, batch_id, target_id, candidates):
 def enqueue(db, batch, run, items):
     """Called under the batch lock, before declaring the extraction run complete."""
     if any(i.phase == "REFINE" for i in items) or any(
-        i.status != "SUCCEEDED" for i in items if i.phase in {"PREPARE", "EXTRACT"}
+        not (
+            i.status == "SUCCEEDED"
+            or i.phase == "EXTRACT"
+            and i.status == "PARTIAL"
+            and i.error == "CANDIDATES_REJECTED"
+            and i.diagnostics.get("acceptedCount", 0) > 0
+            and i.diagnostics.get("rejectedCount", 0) > 0
+        )
+        for i in items
+        if i.phase in {"PREPARE", "EXTRACT"}
     ):
         return
     sources = list(
@@ -109,7 +130,7 @@ def enqueue(db, batch, run, items):
     if not sources:
         return
     for target in run.targets:
-        candidates = current_candidates(db, batch.id, target["id"])
+        candidates = current_candidates(db, batch.id, target["id"], target_count=len(run.targets))
         if matching_refinement(db, batch.id, target["id"], candidates):
             continue
         anchor = (
@@ -129,15 +150,20 @@ def enqueue(db, batch, run, items):
                     "version": PROMPT_VERSION,
                     "safetyListsHash": SAFETY_LISTS_HASH,
                     "inputCandidateIds": [c.id for c in candidates],
+                    "inputCandidatesHash": input_hash(candidates),
                 },
             )
         )
     db.flush()
 
 
-def validate(output, candidates, target_id):
+def validate(output, candidates, target_id, *, target_count=0):
     """Drop bad texts independently. Never rescue rejected text with raw candidates."""
-    by_id = {c["id"]: c for c in candidates if c["targetId"] == target_id}
+    by_id = {
+        c["id"]: c
+        for c in candidates
+        if includes_target(c["targetId"], target_id, target_count)
+    }
     accepted, rejected, warnings = {}, [], []
     for module in output.modules:
         for text in module.texts:
@@ -147,6 +173,10 @@ def validate(output, candidates, target_id):
                 code = "INVALID_TEXT_MODULE"
             elif len(cited) != len(text.candidate_ids) or not cited:
                 code = "INVALID_EVIDENCE"
+            elif any(
+                c["targetId"] is None and not farm_common_allowed(c, module.module) for c in cited
+            ):
+                code = "INVALID_COMMON_MODULE"
             elif has_money(text.value):
                 code = "MONEY_AMOUNT"
             elif has_health_claim(text.value) or any(has_health_claim(c["value"]) for c in cited):
@@ -238,15 +268,52 @@ def payload(candidates):
     ]
 
 
+def input_hash(candidates):
+    return hashlib.sha256(
+        json.dumps(payload(candidates), ensure_ascii=False, sort_keys=True).encode()
+    ).hexdigest()
+
+
+MAX_REFINE_CANDIDATES = 40
+MAX_REFINE_CHARS = 16000
+
+
+def limit_candidates(candidates):
+    """Deterministic source-order prefix; retain full input IDs for freshness checks."""
+    selected, size = [], 2
+    for candidate in candidates:
+        length = len(json.dumps(candidate, ensure_ascii=False, sort_keys=True)) + 2
+        if len(selected) >= MAX_REFINE_CANDIDATES or size + length > MAX_REFINE_CHARS:
+            break
+        selected.append(candidate)
+        size += length
+    return selected, {
+        "candidatesAnalysed": len(selected),
+        "candidatesSkipped": len(candidates) - len(selected),
+        "emptyReason": "REFINE_INPUT_LIMIT" if candidates and not selected else None,
+    }
+
+
+def empty_reason(candidates, target_id, modules, *, target_count=0):
+    # Extraction owns the file-level explanation when it produced no candidates.
+    if modules or not candidates:
+        return None
+    if not any(includes_target(c["targetId"], target_id, target_count) for c in candidates):
+        return "NO_TARGET_CANDIDATES"
+    return "ALL_TEXTS_FILTERED"
+
+
 def check_inputs(db, context):
     batch, _, run, item = context
-    candidates = current_candidates(db, batch.id, item.target_ids[0])
+    candidates = current_candidates(
+        db, batch.id, item.target_ids[0], target_count=len(run.targets)
+    )
     if (
         item.refinement["version"] != PROMPT_VERSION
         or item.refinement["safetyListsHash"] != SAFETY_LISTS_HASH
     ):
         raise RefineError("PROMPT_CHANGED")
-    if {c.id for c in candidates} != set(item.refinement["inputCandidateIds"]):
+    if not is_current(item, candidates):
         raise RefineError("SOURCE_CHANGED")
     if run.mode != "mock" and any(
         not db.get(Asset, db.get(Item, c.item_id).asset_id).privacy_approved for c in candidates
@@ -265,10 +332,15 @@ def process(item_id, token):
         if not context:
             return
         batch, _, run, item = context
-        candidates = payload(check_inputs(db, context))
+        all_candidates = payload(check_inputs(db, context))
+        candidates, limits = limit_candidates(all_candidates)
+        diagnostic_candidates = all_candidates + (
+            payload(current_candidates(db, batch.id, None)) if len(run.targets) > 1 else []
+        )
         # Target names may be personal data. Candidate values already identify the product.
         target = {"id": item.target_ids[0]}
         mode, model = run.mode, run.model
+        target_count = len(run.targets)
     if mode == "mock" or not candidates:
         response = refine("mock", model, target, candidates)
     else:
@@ -292,7 +364,17 @@ def process(item_id, token):
             lambda: refine(mode, model, target, safe),
             guard=check_inputs,
         )
-    modules, diagnostics = validate(response.refinement, candidates, target["id"])
+    modules, diagnostics = validate(
+        response.refinement, candidates, target["id"], target_count=target_count
+    )
+    diagnostics["excluded"].extend(
+        {"candidateIds": [c["id"]], "reason": "unused"} for c in all_candidates[len(candidates) :]
+    )
+    diagnostics.update(
+        limits,
+        emptyReason=limits["emptyReason"]
+        or empty_reason(diagnostic_candidates, target["id"], modules, target_count=target_count),
+    )
     with get_sessionmaker()() as db:
         context = lock_context(db, item_id, token)
         current = db.get(Item, item_id)
@@ -374,7 +456,7 @@ def current_refinements(db, batch):
     result = {}
     for target in run.targets:
         tid = target["id"]
-        candidates = current_candidates(db, batch.id, tid)
+        candidates = current_candidates(db, batch.id, tid, target_count=len(run.targets))
         item = items.get(tid)
         if item is None:
             previous = matching_refinement(db, batch.id, tid, candidates)
