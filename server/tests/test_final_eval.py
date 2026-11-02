@@ -1106,6 +1106,10 @@ def test_AC_SRC_1_3_5_8_common_product_fields_stay_filtered_in_mock_eval(monkeyp
     "kind", ["empty", "all_empty", "uncertain", "auth", "long", "long_rejected"]
 )
 def test_AC_SRC_2_5_6_eval_shares_page_ocr_and_chunking_counts_only(monkeypatch, kind):
+    from app.core.config import get_settings
+
+    # This fixture keys responses by sequential invocation count.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
     import base64
     import io
 
@@ -1296,3 +1300,224 @@ def test_AC_SRC_3_5_eval_text_wholly_rejected_chunk_blocks_refinement(monkeypatc
     result, metric, _, private = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
     assert result["status"] == "FAILED" and metric["errorCode"] == "CANDIDATES_REJECTED"
     assert seen == [1, 2] and len(private["candidates"]) == 1
+
+
+@pytest.mark.parametrize("ceiling", ["local", "total", "evaluation"])
+def test_AC_SRC_5_10_parallel_eval_budget_denial_drains_real_reservations(monkeypatch, ceiling):
+    import threading
+
+    from app.ai.source_ocr import Transcription
+    from app.core.config import get_settings
+    from app.source_analysis import worker
+    from tests.test_source_gemini_ocr import _parallel_chunk
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_ocr_concurrency", 4)
+    monkeypatch.setattr(cfg, "source_evaluation", True)
+    monkeypatch.setattr(cfg, "source_budget_usd", 0.002 if ceiling == "total" else 10)
+    monkeypatch.setattr(
+        cfg, "source_evaluation_budget_usd", 0.002 if ceiling == "evaluation" else 10
+    )
+    monkeypatch.setattr(budget, "estimate_micros", lambda *a, **kw: 1000)
+    monkeypatch.setattr(worker, "crops", lambda _: [str(n) for n in range(20)])
+    denied = threading.Event()
+    lock = threading.Lock()
+    sent, completed = [], []
+    calls = ev.Calls("openrouter", 0.002 if ceiling == "local" else 10)
+
+    def ocr(label):
+        with lock:
+            sent.append(label)
+        assert denied.wait(3), "Reservation denial must happen while paid calls are in flight"
+        with lock:
+            completed.append(label)
+        return Transcription([f"서늘한 곳 보관 {label}"], {"cost": 0.00025}, label)
+
+    def call(*args):
+        try:
+            return calls(*args)
+        except ai.ExtractionError as exc:
+            if exc.code == "BUDGET_EXCEEDED":
+                denied.set()
+            raise
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    with pytest.raises(ai.ExtractionError, match="BUDGET_EXCEEDED"):
+        ev.transcribe_pages(_parallel_chunk(1), {1: b"invented long page"}, call)
+    assert denied.is_set() and len(sent) == 2
+    assert sorted(sent) == sorted(completed)
+    assert calls.used == 500
+    assert len(calls.entries) == 2
+    assert sum(entry["reservedMicros"] for entry in calls.entries) == 2000
+    assert all(entry["costKnown"] for entry in calls.entries)
+    with get_sessionmaker()() as db:
+        spends = list(db.scalars(select(Spend)))
+        assert len(spends) == 2 and all(s.evaluation for s in spends)
+        assert sum(s.reserved_micros for s in spends) == 2000
+        assert sum(s.charged_micros for s in spends) == 500
+
+
+def test_AC_SRC_5_10_parallel_eval_out_of_order_known_and_unknown_costs(monkeypatch):
+    import threading
+
+    from app.ai.source_ocr import Transcription
+    from app.core.config import get_settings
+    from app.source_analysis import worker
+    from tests.test_source_gemini_ocr import _parallel_chunk
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_ocr_concurrency", 4)
+    monkeypatch.setattr(cfg, "source_evaluation", True)
+    monkeypatch.setattr(cfg, "source_budget_usd", 10)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", 10)
+    monkeypatch.setattr(budget, "estimate_micros", lambda *a, **kw: 1000)
+    monkeypatch.setattr(worker, "crops", lambda _: ["slow", "fast", "unknown", "last"])
+    barrier = threading.Barrier(4)
+    fast_finished = threading.Event()
+    lock = threading.Lock()
+    completed = []
+    usage = {
+        "slow": {"cost": 0.0001},
+        "fast": {"cost": 0.0002},
+        "unknown": {},
+        "last": {"cost": 0.0004},
+    }
+
+    def ocr(label):
+        barrier.wait(timeout=3)
+        if label == "slow":
+            assert fast_finished.wait(3)
+        if label == "fast":
+            fast_finished.set()
+        with lock:
+            completed.append(label)
+        return Transcription([f"보관 안내 {label}"], usage[label], label)
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    calls = ev.Calls("openrouter", 1)
+    chunk = _parallel_chunk(1)
+    diagnostics = ev.transcribe_pages(chunk, {1: b"invented"}, calls)
+    assert diagnostics == {"pagesEmpty": [], "pagesFailed": []}
+    assert completed.index("fast") < completed.index("slow")
+    assert [s["text"] for s in chunk["pages"][0]["spans"]] == [
+        "보관 안내 slow",
+        "보관 안내 fast",
+        "보관 안내 unknown",
+        "보관 안내 last",
+    ]
+    assert calls.used == 1700  # Known charges 700 + one unknown reservation 1000.
+    assert len(calls.entries) == 4
+    assert sum(entry["costKnown"] for entry in calls.entries) == 3
+    assert sum(entry["reservedMicros"] for entry in calls.entries) == 4000
+    summary = ev.costs(calls.entries)
+    assert summary["costUsd"] == pytest.approx(0.0007)
+    assert summary["unsettledReservedUsd"] == pytest.approx(0.001)
+    with get_sessionmaker()() as db:
+        spends = list(db.scalars(select(Spend)))
+        assert len(spends) == 4 and sum(s.charged_micros or 0 for s in spends) == 700
+        assert sum(s.reserved_micros for s in spends if s.charged_micros is None) == 1000
+
+
+def test_AC_SRC_2_5_10_parallel_eval_matches_sequential_candidates_and_totals(monkeypatch):
+    import base64
+    import threading
+    import time
+
+    from app.ai.source_ocr import Transcription
+    from app.core.config import get_settings
+    from app.source_analysis import worker
+    from tests.test_source_gemini_ocr import page_extraction
+
+    monkeypatch.setattr(
+        ev,
+        "parse",
+        lambda *a: [
+            {"spans": [], "image": base64.b64encode(label).decode()}
+            for label in (b"slow", b"empty", b"fail", b"last")
+        ],
+    )
+    monkeypatch.setattr(worker, "crops", lambda data: [data.decode()])
+    original_refine = ev.refine_ai.refine
+    monkeypatch.setattr(ev.refine_ai, "refine", lambda mode, *a: original_refine("mock", *a))
+    monkeypatch.setattr(ai, "extract", lambda *a, **kw: page_extraction(*a))
+    outputs = []
+    for concurrency in (1, 4):
+        monkeypatch.setattr(get_settings(), "source_ocr_concurrency", concurrency)
+        lock = threading.Lock()
+        attempted = []
+
+        def ocr(label, lock=lock, attempted=attempted):
+            with lock:
+                attempted.append(label)
+            time.sleep(0.05 if label == "slow" else 0.005)
+            if label == "fail":
+                raise ai.ExtractionError("REQUEST_UNCERTAIN")
+            return Transcription(
+                [] if label == "empty" else [f"보관 안내 {label}"], {"cost": 0.001}, label
+            )
+
+        monkeypatch.setattr(worker, "transcribe", ocr)
+        calls = ev.Calls("mock", 3)
+        result, metric, text, private = ev.evaluate_source(
+            {**row(), "mime": "application/pdf", "format": "pdf"},
+            "openrouter",
+            "fixture",
+            calls,
+        )
+        assert result["status"] == "PARTIAL", metric
+        assert metric["pagesEmpty"] == metric["pagesFailed"] == 1
+        assert len(calls.entries) == len(private["calls"]) == 7
+        assert sorted(attempted) == ["empty", "fail", "last", "slow"]
+        assert [c["evidence"][0]["page"] for c in private["candidates"]] == [1, 4]
+        outputs.append(
+            (
+                private["candidates"],
+                private["stage1Diagnostics"],
+                text,
+                metric["costUsd"],
+                ev.costs(calls.entries),
+            )
+        )
+    assert outputs[0] == outputs[1]
+
+
+def test_AC_SRC_5_10_parallel_eval_failed_settlement_keeps_reservation_and_valid_summary(
+    monkeypatch,
+):
+    from app.ai.source_ocr import OCR_MODEL, Transcription
+    from app.core.config import get_settings
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", True)
+    monkeypatch.setattr(cfg, "source_budget_usd", 10)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", 10)
+    monkeypatch.setattr(budget, "estimate_micros", lambda *a, **kw: 1000)
+    failure = RuntimeError("invented settlement failure")
+
+    def fail_settlement(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(budget, "settle", fail_settlement)
+    calls = ev.Calls("openrouter", 0.0015)
+    with pytest.raises(RuntimeError, match="invented settlement failure") as err:
+        calls("ocr-1-0", OCR_MODEL, {}, [], [], lambda: Transcription(
+            ["보관 안내"], {"cost": 0.0001}, "known-usage"
+        ))
+    assert err.value is failure
+    assert calls.used == 1000
+    assert len(calls.entries) == 1
+    entry = calls.entries[0]
+    assert entry["reservedMicros"] == 1000
+    assert entry["costKnown"] is False
+    summary = ev.costs(calls.entries)
+    assert summary["reservedUsd"] == pytest.approx(0.001)
+    assert summary["costUsd"] == summary["settledUsd"] == 0
+    assert summary["unsettledReservedUsd"] == pytest.approx(0.001)
+    # Failed settlement cannot release headroom based only on provider usage.
+    with pytest.raises(ai.ExtractionError, match="BUDGET_EXCEEDED"):
+        calls("ocr-1-1", OCR_MODEL, {}, [], [], lambda: pytest.fail("Ceiling must stay reserved"))
+    assert calls.used == 1000 and len(calls.entries) == 1
+    with get_sessionmaker()() as db:
+        spends = list(db.scalars(select(Spend)))
+        assert len(spends) == 1
+        assert spends[0].reserved_micros == 1000 and spends[0].charged_micros is None

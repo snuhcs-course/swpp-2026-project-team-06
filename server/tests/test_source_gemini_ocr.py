@@ -157,6 +157,8 @@ def test_AC_SRC_5_10_ocr_guards_and_mid_pipeline_fencing(client, login, monkeypa
 
 
 def test_AC_SRC_10_later_crop_failure_retains_each_call_accounting(client, login, monkeypatch):
+    # Sequential contract: no further crop is sent after a hard failure.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
     iid, _, _ = ready(client, login, height=1800)
     calls = []
 
@@ -173,6 +175,31 @@ def test_AC_SRC_10_later_crop_failure_retains_each_call_accounting(client, login
         rows = list(db.scalars(select(Spend)))
         assert len(rows) == 2
         assert sorted(r.charged_micros or 0 for r in rows) == [0, 1000]
+    assert not worker.run_once()
+
+
+def test_AC_SRC_10_parallel_crop_failure_settles_every_sent_call(client, login, monkeypatch):
+    # Under concurrency, crops already in flight still finish; each one is reserved and settled.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 4)
+    iid, _, _ = ready(client, login, height=1800)
+    calls = []
+
+    def ocr(encoded):
+        calls.append(encoded)
+        if len(calls) == 2:
+            raise ExtractionError("RATE_LIMITED", retry_after=1)
+        return Transcription(["읽은 문구"], {"cost": 0.001}, "first")
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    assert worker.run_once()
+    with get_sessionmaker()() as db:
+        assert db.get(Item, iid).status == "FAILED"
+        rows = list(db.scalars(select(Spend)))
+        # As in the sequential test, only the failed call keeps an unsettled reservation;
+        # crops stopped before sending settle at 0.
+        assert len(rows) >= len(calls)
+        assert sum(r.charged_micros is None for r in rows) <= 1
+        assert sum(r.charged_micros or 0 for r in rows) == 1000 * (len(calls) - 1)
     assert not worker.run_once()
 
 
@@ -290,6 +317,8 @@ def page_extraction(mode, model, chunk, targets, images):
 def test_AC_SRC_2_5_pdf_photo_only_pages_skip_without_inventing_text(
     client, login, monkeypatch, all_empty
 ):
+    # This fixture keys responses by sequential invocation count.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
     iid, sid = ready_pdf(client, login, monkeypatch)
     seen = []
 
@@ -333,6 +362,8 @@ def test_AC_SRC_2_5_pdf_photo_only_pages_skip_without_inventing_text(
 def test_AC_SRC_2_5_10_pdf_page_failure_preserves_other_pages_and_accounting(
     client, login, monkeypatch, code
 ):
+    # This fixture keys responses by sequential invocation count.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
     iid, _ = ready_pdf(client, login, monkeypatch)
     attempted = []
 
@@ -388,6 +419,8 @@ def test_AC_SRC_2_5_10_pdf_page_failure_preserves_other_pages_and_accounting(
 def test_AC_SRC_5_10_partial_ocr_retry_requires_ack_and_rereads_entire_item(
     client, login, monkeypatch
 ):
+    # This fixture keys responses by sequential invocation count.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
     from app.core.errors import ApiError
     from app.source_analysis.models import Batch
     from app.source_analysis.schemas import Retry
@@ -486,6 +519,8 @@ def test_AC_SRC_2_5_long_ocr_chunks_keep_original_page_and_span_evidence(
 
 @pytest.mark.parametrize("failure", ["later_crop", "text_limit"])
 def test_AC_SRC_2_3_5_failed_page_discards_partial_ocr_and_continues(monkeypatch, failure):
+    # This fixture keys responses by sequential invocation count.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
     image = io.BytesIO()
     Image.new("RGB", (24, 24), "white").save(image, "PNG")
     chunk = {
@@ -826,6 +861,9 @@ def test_AC_SRC_2_5_partial_file_preserves_failed_page_legacy_candidates(
     from app.source_analysis.models import Batch
     from app.source_analysis.service import review
 
+    # The fake fails by call order, so keep calls sequential.
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+
     iid, _ = ready_pdf(client, login, monkeypatch)
     with get_sessionmaker()() as db:
         item = db.get(Item, iid)
@@ -983,3 +1021,428 @@ def test_AC_SRC_5_10_superseded_candidates_cannot_cover_returning_run_settings(
         assert len(jobs) == 1
         assert {p["number"] for p in jobs[0].pages} == ({2} if setting == "mode" else {1, 2, 3})
         assert db.scalar(select(Spend)) is None
+
+
+# DEV-191 regressions below are authored from the behavior contract without reading
+# worker implementation. Provider responses and crop labels are entirely invented.
+
+
+def _parallel_chunk(count):
+    return {
+        "sourceId": "parallel-fixture",
+        "sourceRevision": 1,
+        "checksum": "invented",
+        "pages": [{"number": n, "spans": []} for n in range(1, count + 1)],
+    }
+
+
+def test_AC_SRC_5_parallel_concurrency_setting_contract(monkeypatch):
+    from pydantic import ValidationError
+
+    from app.core.config import Settings
+
+    monkeypatch.delenv("SOURCE_OCR_CONCURRENCY", raising=False)
+    assert Settings(_env_file=None).source_ocr_concurrency == 4
+    for value in (1, 4, 8):
+        assert (
+            Settings(_env_file=None, source_ocr_concurrency=value).source_ocr_concurrency == value
+        )
+    for value in (0, -1, 9):
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None, source_ocr_concurrency=value)
+
+
+@pytest.mark.parametrize("failure", ["REQUEST_UNCERTAIN", "RATE_LIMITED"])
+def test_AC_SRC_2_5_10_parallel_order_spans_diagnostics_and_candidates(monkeypatch, failure):
+    import copy
+    import threading
+    import time
+
+    monkeypatch.setattr(worker, "crops", lambda data: data.decode().split(","))
+    images = {1: b"a,b,c", 2: b"blank", 3: b"discard,fail", 4: b"last"}
+    observed = []
+    for concurrency in (1, 4):
+        monkeypatch.setattr(get_settings(), "source_ocr_concurrency", concurrency)
+        active = maximum = 0
+        lock = threading.Lock()
+        attempted, completed = [], []
+
+        def ocr(label, lock=lock, attempted=attempted, completed=completed):
+            nonlocal active, maximum
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+                attempted.append(label)
+            try:
+                time.sleep(0.06 if label == "a" else 0.01)
+                if label == "fail":
+                    raise ExtractionError(failure)
+                return Transcription([] if label == "blank" else [f"보관 안내 {label}"], {}, label)
+            finally:
+                with lock:
+                    active -= 1
+                    completed.append(label)
+
+        monkeypatch.setattr(worker, "transcribe", ocr)
+        chunk = _parallel_chunk(4)
+        diagnostics = worker.transcribe_pages(chunk, images, lambda *args: args[5]())
+        response, merged = worker.extract_vision_chunks(
+            chunk,
+            [{"id": "target"}],
+            "fixture",
+            lambda *args: args[5](),
+            lambda part: page_extraction("openrouter", OCR_MODEL, part, [{"id": "target"}], []),
+            diagnostics,
+        )
+        assert 1 <= maximum <= concurrency
+        assert active == 0 and sorted(attempted) == sorted(completed)
+        assert attempted.count("fail") == 1
+        if concurrency == 4:
+            assert maximum > 1 and completed.index("b") < completed.index("a")
+        assert diagnostics["pagesEmpty"] == [2]
+        assert diagnostics["pagesFailed"] == [{"number": 3, "code": failure}]
+        assert chunk["pages"][2]["spans"] == []
+        assert [s["text"] for s in chunk["pages"][0]["spans"]] == [
+            "보관 안내 a",
+            "보관 안내 b",
+            "보관 안내 c",
+        ]
+        assert [s["id"] for s in chunk["pages"][0]["spans"]] == [
+            f"vision-gemini-{index}" for index in range(3)
+        ]
+        observed.append(copy.deepcopy((chunk, merged, response.extraction.model_dump())))
+    assert observed[0] == observed[1]
+
+
+def test_AC_SRC_2_5_parallel_single_long_page_is_bounded_and_faster(monkeypatch):
+    import threading
+    import time
+
+    monkeypatch.setattr(worker, "crops", lambda _: [str(n) for n in range(8)])
+    timings, outputs = [], []
+    for concurrency in (1, 4):
+        monkeypatch.setattr(get_settings(), "source_ocr_concurrency", concurrency)
+        active = maximum = 0
+        lock = threading.Lock()
+
+        def ocr(label, lock=lock):
+            nonlocal active, maximum
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+            try:
+                time.sleep(0.04)
+                return Transcription([f"합성 안내 {label}"], {}, label)
+            finally:
+                with lock:
+                    active -= 1
+
+        monkeypatch.setattr(worker, "transcribe", ocr)
+        chunk = _parallel_chunk(1)
+        before = time.monotonic()
+        diagnostics = worker.transcribe_pages(chunk, {1: b"long page"}, lambda *a: a[5]())
+        timings.append(time.monotonic() - before)
+        outputs.append((chunk, diagnostics))
+        assert maximum <= concurrency and active == 0
+        assert maximum == 1 if concurrency == 1 else maximum > 1
+    assert outputs[0] == outputs[1]
+    assert timings[1] < timings[0] * 0.8
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["BUDGET_EXCEEDED", "PROVIDER_AUTH", "SOURCE_CHANGED", "PRIVACY_CHANGED", "PROMPT_CHANGED"],
+)
+def test_AC_SRC_5_10_parallel_fast_later_hard_error_stops_and_drains(monkeypatch, code):
+    import threading
+    import time
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 4)
+    monkeypatch.setattr(worker, "crops", lambda _: [str(n) for n in range(20)])
+    first_started, error_seen = threading.Event(), threading.Event()
+    lock = threading.Lock()
+    started, finished, after_error = [], [], []
+
+    def ocr(label):
+        with lock:
+            started.append(label)
+            if error_seen.is_set():
+                after_error.append(label)
+        try:
+            if label == "0":
+                first_started.set()
+                assert error_seen.wait(2), "A later crop must run while the first crop waits"
+            elif label == "1":
+                assert first_started.wait(2)
+                raise ExtractionError(code, usage={"cost": 0.0005})
+            else:
+                assert error_seen.wait(2)
+            time.sleep(0.04)
+            return Transcription([f"보관 문구 {label}"], {"cost": 0.001}, label)
+        finally:
+            with lock:
+                finished.append(label)
+
+    def call(*args):
+        try:
+            return args[5]()
+        except ExtractionError:
+            error_seen.set()
+            raise
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    with pytest.raises(ExtractionError) as err:
+        worker.transcribe_pages(_parallel_chunk(1), {1: b"long page"}, call)
+    assert err.value.code == code
+    assert 2 <= len(started) <= 4 and after_error == []
+    assert sorted(started) == sorted(finished), "The caller must wait for in-flight settlement"
+
+
+def test_AC_SRC_2_5_10_parallel_real_worker_partial_and_call_accounting(client, login, monkeypatch):
+    import threading
+    import time
+
+    iid, _ = ready_pdf(client, login, monkeypatch, count=4)
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 4)
+    labels = iter(["slow", "empty", "uncertain", "last"])
+    monkeypatch.setattr(worker, "crops", lambda _: [next(labels)])
+    lock = threading.Lock()
+    attempted = []
+
+    def ocr(label):
+        with lock:
+            attempted.append(label)
+        time.sleep(0.06 if label == "slow" else 0.01)
+        if label == "uncertain":
+            raise ExtractionError("REQUEST_UNCERTAIN")
+        return Transcription(
+            [] if label == "empty" else [f"서늘한 곳 보관 {label}"], {"cost": 0.001}, label
+        )
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    monkeypatch.setattr(worker, "extract", page_extraction)
+    assert worker.run_once()
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        assert item.status == "PARTIAL"
+        assert item.diagnostics["pagesEmpty"] == [2]
+        assert item.diagnostics["pagesFailed"] == [{"number": 3, "code": "REQUEST_UNCERTAIN"}]
+        candidates = list(db.scalars(select(Candidate).where(Candidate.item_id == iid)))
+        assert len(candidates) == 2 and {c.evidence[0]["page"] for c in candidates} == {1, 4}
+        rows = list(db.scalars(select(Spend)))
+        assert len(rows) == 6
+        assert sum(r.charged_micros or 0 for r in rows) == 7000
+        assert sum(r.charged_micros is None for r in rows) == 1
+        assert next(r for r in rows if r.charged_micros is None).reserved_micros > 0
+    assert sorted(attempted) == ["empty", "last", "slow", "uncertain"]
+
+
+def test_AC_SRC_5_10_parallel_cancellation_fences_new_sends_but_settles_sent_calls(
+    client, login, monkeypatch
+):
+    import threading
+
+    iid, _ = ready_pdf(client, login, monkeypatch, count=8)
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 4)
+    monkeypatch.setattr(worker, "crops", lambda _: ["invented"])
+    four_started, cancelled = threading.Event(), threading.Event()
+    lock = threading.Lock()
+    started, finished = [], []
+
+    def ocr(_):
+        with lock:
+            index = len(started)
+            started.append(index)
+            if len(started) == 4:
+                four_started.set()
+        assert four_started.wait(3), "Four OCR sends should be allowed concurrently"
+        if index == 0:
+            with get_sessionmaker()() as db:
+                item = db.get(Item, iid)
+                item.status, item.lease_token = "CANCELLED", None
+                db.commit()
+            cancelled.set()
+        assert cancelled.wait(3)
+        with lock:
+            finished.append(index)
+        return Transcription(["서늘한 곳에 보관"], {"cost": 0.001}, "sent")
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    monkeypatch.setattr(
+        worker, "extract", lambda *a: pytest.fail("Cancelled source cannot extract")
+    )
+    assert worker.run_once()
+    assert sorted(started) == sorted(finished) == list(range(4))
+    with get_sessionmaker()() as db:
+        assert db.get(Item, iid).status == "CANCELLED"
+        assert db.scalar(select(Candidate).where(Candidate.item_id == iid)) is None
+        rows = list(db.scalars(select(Spend)))
+        assert len(rows) == 4 and sum(r.charged_micros for r in rows) == 4000
+
+
+def test_AC_SRC_5_10_parallel_admitted_call_is_fenced_before_actual_send(monkeypatch):
+    import threading
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 2)
+    monkeypatch.setattr(worker, "crops", lambda _: ["fails", "waiting", "later"])
+    waiting, error_observed = threading.Event(), threading.Event()
+    sent = []
+
+    def ocr(label):
+        sent.append(label)
+        if label == "fails":
+            assert waiting.wait(3)
+            raise ExtractionError("PROVIDER_AUTH")
+        return Transcription(["보관 안내"], {}, label)
+
+    def call(*args):
+        # Model a reservation callback that has admitted work but has not sent it.
+        # The worker must re-check its hard-error fence at the actual fn boundary.
+        if args[0].endswith("-1"):
+            waiting.set()
+            assert error_observed.wait(3)
+        try:
+            return args[5]()
+        except ExtractionError:
+            error_observed.set()
+            raise
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    with pytest.raises(ExtractionError, match="PROVIDER_AUTH"):
+        worker.transcribe_pages(_parallel_chunk(1), {1: b"invented"}, call)
+    assert sent == ["fails"]
+
+
+def test_AC_SRC_2_10_parallel_same_page_failure_uses_first_crop_error(monkeypatch):
+    import threading
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 4)
+    monkeypatch.setattr(worker, "crops", lambda data: data.decode().split(","))
+    later_failed = threading.Event()
+
+    def ocr(label):
+        if label == "earlier":
+            assert later_failed.wait(3)
+            raise ExtractionError("REQUEST_UNCERTAIN")
+        if label == "later":
+            later_failed.set()
+            raise ExtractionError("RATE_LIMITED", retry_after=1)
+        return Transcription(["다른 쪽의 보관 안내"], {}, label)
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    chunk = _parallel_chunk(2)
+    diagnostics = worker.transcribe_pages(
+        chunk, {1: b"earlier,later", 2: b"survives"}, lambda *a: a[5]()
+    )
+    assert diagnostics == {
+        "pagesEmpty": [],
+        "pagesFailed": [{"number": 1, "code": "REQUEST_UNCERTAIN"}],
+    }
+    assert chunk["pages"][0]["spans"] == []
+    assert chunk["pages"][1]["spans"][0]["text"] == "다른 쪽의 보관 안내"
+
+
+def test_AC_SRC_5_10_parallel_worker_heartbeat_renews_while_calls_are_blocked(
+    client, login, monkeypatch
+):
+    import threading
+    import time
+
+    iid, _ = ready_pdf(client, login, monkeypatch, count=4)
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 4)
+    monkeypatch.setattr(worker, "crops", lambda _: ["invented"])
+    real_event = threading.Event
+
+    class ShortHeartbeatEvent:
+        def __init__(self):
+            self.event = real_event()
+
+        def set(self):
+            return self.event.set()
+
+        def is_set(self):
+            return self.event.is_set()
+
+        def wait(self, timeout=None):
+            return self.event.wait(0.02 if timeout is None else min(timeout, 0.02))
+
+    monkeypatch.setattr(worker, "Event", ShortHeartbeatEvent)
+    barrier = threading.Barrier(4)
+    renewed = real_event()
+    lock = threading.Lock()
+    started = []
+
+    def ocr(_):
+        with lock:
+            index = len(started)
+            started.append(index)
+        barrier.wait(timeout=3)
+        if index == 0:
+            with get_sessionmaker()() as db:
+                original_lease = db.get(Item, iid).lease_until
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                with get_sessionmaker()() as db:
+                    current_lease = db.get(Item, iid).lease_until
+                if current_lease > original_lease:
+                    renewed.set()
+                    break
+                time.sleep(0.01)
+        assert renewed.wait(3), "Heartbeat must renew while all OCR requests are in flight"
+        return Transcription(["서늘한 곳에 보관"], {"cost": 0.001}, "heartbeat")
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    monkeypatch.setattr(worker, "extract", page_extraction)
+    assert worker.run_once()
+    assert renewed.is_set() and len(started) == 4
+    with get_sessionmaker()() as db:
+        assert db.get(Item, iid).status == "SUCCEEDED"
+        assert len(list(db.scalars(select(Spend)))) == 8
+
+
+def test_AC_SRC_5_10_parallel_provider_hard_error_fences_during_slow_settlement(monkeypatch):
+    import threading
+    import time
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 2)
+    monkeypatch.setattr(worker, "crops", lambda _: ["earlier", "hard-error", "forbidden", "later"])
+    earlier_started = threading.Event()
+    provider_failed = threading.Event()
+    earlier_finished = threading.Event()
+    settled = threading.Event()
+    lock = threading.Lock()
+    started, finished = [], []
+
+    def ocr(label):
+        with lock:
+            started.append(label)
+        if label == "earlier":
+            earlier_started.set()
+            assert provider_failed.wait(3)
+            # Free a worker while the failing call's callback is still settling.
+            earlier_finished.set()
+            with lock:
+                finished.append(label)
+            return Transcription(["먼저 시작한 보관 안내"], {"cost": 0.001}, label)
+        if label == "hard-error":
+            assert earlier_started.wait(3)
+            with lock:
+                finished.append(label)
+            raise ExtractionError("PROVIDER_AUTH", usage={"cost": 0.0005})
+        pytest.fail("A provider hard error must fence sends before callback settlement finishes")
+
+    def call(*args):
+        try:
+            return args[5]()
+        except ExtractionError:
+            provider_failed.set()
+            assert earlier_finished.wait(3)
+            time.sleep(0.08)
+            settled.set()
+            raise
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    with pytest.raises(ExtractionError, match="PROVIDER_AUTH"):
+        worker.transcribe_pages(_parallel_chunk(1), {1: b"invented"}, call)
+    assert provider_failed.is_set() and settled.is_set()
+    assert sorted(started) == sorted(finished) == ["earlier", "hard-error"]
