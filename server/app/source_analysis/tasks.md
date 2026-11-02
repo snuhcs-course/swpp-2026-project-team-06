@@ -624,3 +624,75 @@ uv run python -m app.source_analysis.final_eval \
 - HEAD `7e90646` 유지. 커밋·push·PR·외부/live 호출0, 기존 체크박스/상태 변경0. Agent 시간 / Tokens는 계측 미제공(추정 미기재). 남은 검증: sandbox 밖 지정 pytest 재실행, 사람의 갱신된 Playwright 두 화면 및 Figma 문구 동기화.
 - 11/02 owner sandbox 밖 검증: 전체 pytest 1223 passed, Playwright `source-review-regressions` 16/16, typecheck 통과.
 - 11/02 알려진 한계(후속): 교체는 항목 단위다. 다른 설정으로 만든 기존 파일 단위 항목 F1(p1–p3) 뒤에 새 파일 항목 F2가 p2만 실패해 PARTIAL이 되면, F1 범위가 F2의 성공 범위(p1, p3)에 포함되지 않아 F1 후보가 그대로 남는다. 값이 다르면 review에 conflict로 보이며 조용히 사라지지는 않는다. 후보 근거 쪽 단위 교체는 후속 이슈로 남긴다.
+
+
+## DEV-191 OCR crop 호출 병렬화
+
+- 이슈: [DEV-191](https://linear.app/sswp6/issue/DEV-191), 사용자 제공 왜/완료 조건을 작업 지시서로 사용한다.
+- 브랜치: `jinumeral/dev-191-parallel-ocr` (미머지 DEV-190 기반 유지)
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11
+- 상태: 진행 중
+
+### 목표
+파일 내 쪽/crop OCR 대기 시간을 제한된 병렬 실행으로 줄이고, 기존 근거 순서·쪽 실패 격리·호출별 비용/lease 보호를 유지한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/core/config.py`
+- `server/app/source_analysis/worker.py`, `server/app/source_analysis/final_eval.py`
+- `server/tests/test_source_gemini_ocr.py`, `server/tests/test_final_eval.py`
+- `docs/spec/source-analysis.md`, `server/app/source_analysis/spec.md`, 이 파일 DEV-191 끝 섹션
+- `docs/wiki/Source-Analysis.md` 끝 영문 문단 추가
+
+### 결정 사항
+- 11/02 `SOURCE_OCR_CONCURRENCY` 기본4/최소1, 1은 speculative 호출 없이 기존 순차 경로를 재현한다. worker/final_eval은 같은 `transcribe_pages`를 사용한다.
+- 11/02 stdlib ThreadPoolExecutor와 제한된 대기열로 crop만 병렬화한다. 쪽/crop 순서로만 span/진단을 병합하며 추출·후보 검증 순서는 유지한다.
+- 11/02 OpenRouter OCR 어댑터는 호출마다 OpenAI 클라이언트를 만들고 닫는다. `paid_vision_call`과 eval Calls는 예약/정산마다 별도 SQLAlchemy Session을 만들며 Session을 스레드 사이 공유하지 않는다.
+- 11/02 `budget.reserve`의 기존 `pg_advisory_xact_lock(563158)`이 전체/평가 원장 한도를 보호한다. eval의 `used` 확인·예약 반영·정산 차액은 별도 thread lock으로 보호하고 진단 entries도 예약 순서로 남긴다.
+- 11/02 hard error를 발견한 실행 스레드는 stop 신호를 즉시 세운다. 대기 중 작업도 전송 전에 검사하며, 이미 보낸 호출은 정산 후 원래 예외를 전파한다. 일반 쪽 실패는 그 쪽의 미전송 crop만 중단한다. retry/429 정책은 변경하지 않는다.
+- 11/02 `run_once`의 별도 heartbeat(30초/180초 lease)는 병렬 실행 전체를 감싼다. 각 호출의 `lock_context`가 취소/소스/승인/lease token을 전송 전에 검사한다.
+- 11/02 기존 순차 호출 수/순서 전제 회귀는 concurrency=1을 명시하고 assertion을 보존한다. 새 테스트는 1/4 비교와 실제 DB 원장·hard stop·취소·heartbeat를 검증한다. 비자명 변경 테스트는 spec-blind-test 스킬의 격리 test-writer/fail-first 절차를 적용한다.
+- 11/02 eval entries는 예약 시 완전한 보수적 기본값으로 생성한다. 정산 DB 실패에도 메타데이터 집계가 깨지지 않고 미정산 예약을 유지하며, usage/latency는 finally에서 기록한다.
+- 11/02 독립 리뷰 재현: 제공자 hard error 뒤 정산이 느리면 다른 성공 crop이 대기열을 채울 수 있다. 실제 transcribe 예외를 받은 즉시 stop을 세우고 정산은 wrapper가 마친다. eval Calls도 한도 거절을 lock 안에서 latch해 대기 예약이 비용 반환 뒤 다시 허용되지 않게 한다.
+- 11/02 예약 lock 대기 중 hard stop이 발생한 이미 시작된 작업도 실제 transcribe 직전에 stop을 재검사한다. 전송하지 않은 예약은 비용0으로 정산하고 결과 병합에서 제외한다.
+- 11/02 사용자 지시대로 커밋·push·PR·외부/live/유료 호출은 실행하지 않는다. 신규 의존성 없음.
+
+### 작업
+- [ ] 설정·공용 병렬 OCR와 eval 비용 동기화 구현
+- [ ] AC ID 회귀 및 fail-first/green 검증
+- [ ] 제품·구현 spec / wiki 갱신
+- [ ] 지정 Ruff/pytest/typecheck 실행, PREPARE sandbox 실패 별도 기록
+
+### 완료 조건
+- [ ] concurrency1/4 근거·진단·후보 순서 동일 및 sleep 기반 시간 감소
+- [ ] 예산 초과 예약 없음, hard stop 후 in-flight 정산, PARTIAL/불확실 호출 정책 보존
+- [ ] 지정 검증 결과와 사람이 실행할 development 시간 비교 명령 보고
+
+### 기록
+- 11/02 HEAD 기반 clean worktree 확인, DEV-190 기록/브랜치 유지. 구현 전 범위와 결정 기록.
+
+- 11/02 구현: 설정 기본4/최소1, 공용 ordered bounded executor, 전송 직전/제공자 hard 예외 즉시 stop, in-flight drain, eval 예산 lock·한도 거절 latch·정산 실패 메타데이터 보존 구현. worker의 기존 요청별 Session/클라이언트·DB advisory lock·heartbeat를 유지했다.
+- 11/02 격리 사양 기반 test-writer가 구현/diff 없이 회귀21개(parameter 포함)를 추가했다. 기존 함수의 본문 AST가 순서 있는 부분열로 유지됨을 확인: test_source_gemini_ocr22개, test_final_eval51개. 순차 호출 횟수로 응답을 만드는 기존5개 함수는 concurrency=1 전제를 명시했고 모든 원래 assertion을 유지했다.
+- 11/02 fail-first: 런타임 mutation으로 executor 동시성을 강제로1로 제한한 뒤 `tests/test_source_gemini_ocr.py::test_AC_SRC_2_5_parallel_single_long_page_is_bounded_and_faster` → **1 failed (1.40s)**. concurrency4의 실제 중첩 검사가 실패했다. mutation은 Python 프로세스 안에만 적용해 파일 복구가 필요하지 않았다. 로그 `/private/tmp/dev191-red.log`.
+- 11/02 초기 정상 병렬 회귀: `UV_CACHE_DIR=/private/tmp/farmclub-dev191-uv-cache DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmclub_dev191 uv run --directory server pytest tests/test_source_gemini_ocr.py tests/test_final_eval.py -k parallel -q` → **19 passed / 156 deselected (5.80s)**. 그 뒤 독립 리뷰에서 발견한2건의 회귀를 추가해 최종21개가 되었다.
+- 11/02 독립 diff 리뷰2건(제공자 hard 오류의 정산 지연 중 신규 전송, 정산 실패 시 빈 eval entry로 보고 실패)을 fake callback/session으로 재현하고 수정했다. 재검토에서 인증 오류 후 새 전송0건, 정산 실패의 미정산 예약 보존·정상 비용 요약을 확인했고 추가 must-fix0건이다.
+- 11/02 순차 기준 실행: `SOURCE_OCR_CONCURRENCY=1` 및 위 DB/cache 환경에서 지정 pytest3개 파일 → **170 passed / 10 failed (36.40s)**. 최종 기본4 실행과 동일한 PREPARE 실패10건이었다.
+- 11/02 최종 지정 검증: server에서 위 DATABASE_URL/UV_CACHE_DIR를 적용한 `uv run ruff check . && uv run pytest tests/test_source_gemini_ocr.py tests/test_final_eval.py tests/test_source_recovery.py` → **Ruff All checks passed / 종료0; pytest 191 passed / 10 failed (39.48s) / 종료1**. 신규 병렬 회귀21개는 모두 통과. 로그 `/private/tmp/dev191-final-pytest.log`.
+- 11/02 PREPARE sandbox 실패(별도): 기존 source_gemini_ocr7건, source_recovery3건. 합성 텍스트 `prepare(b'Synthetic storage text', 'text/plain')`에서 `psutil.Process.children(recursive=True)` → `sysctl() malloc 1/3 PermissionError`가 prepare와 cleanup 양쪽에서 발생함을 직접 재현했다. 테스트를 삭제/약화하거나 환경 제한을 우회하지 않았다. 지정 묶음 전체 검증은 sandbox 밖 재실행 전까지 **미완료**로 두고 완료 체크박스/상태는 바꾸지 않는다.
+- 11/02 `npm run typecheck` → **5 workspace 통과 / 종료0**. 신규 의존성0. 제품/구현 spec과 wiki 끝 영문1문단 갱신, `git diff --check` 통과. tasks/wiki의 HEAD 전체 바이트 prefix 보존.
+- 11/02 범위 감사: 이번 `git diff HEAD`9경로는 모두 위 DEV-191 허용 범위 안이다. `git diff main...HEAD`681경로와 `origin/main...HEAD`14경로는 상속된 변경이며 이번 변경과 구분했다. HEAD `ae9885eae24b971fef9346918d38a5091bf4b201` 유지, 커밋·push·PR·live/유료 호출0.
+- 11/02 의도한 커밋(실행하지 않음): `feat(source): AC-SRC-2/5/10 OCR crop 병렬화와 예산 동기화 (DEV-191)`; `test(source): AC-SRC-2/5/10 병렬 순서·중단·비용 회귀 추가 (DEV-191)`; `docs(source): AC-SRC-2/5/10 병렬 OCR 설정과 검증 기록 (DEV-191)`.
+- 11/02 남은 검증: 사람이 sandbox 밖에서 지정 pytest3파일 재실행. 실호출 시간 비교는 아래 명령을 **사람이 실행**하며 이번 세션에서는 실행하지 않았다. development synthetic subset의 `22-pdf-25-pages`는 제품 한도에 따라 첫20쪽을 분석하므로 metadata의 해당 source `stage1Ms`/`endToEndMs`로 PDF 시간을 비교한다. CLI는 단일 source 선택 옵션이 없어 subset 전체를 실행하며 `/usr/bin/time`은 subset 총시간이다. c4는 c1의 저장 입력을 재사용한다.
+
+```sh
+cd server
+export DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmclub_dev191
+/usr/bin/time -p env SOURCE_OCR_CONCURRENCY=1 uv run python -m app.source_analysis.final_eval \
+  --split development --subset synthetic --provider openrouter --max-usd 3 \
+  --dev-dir ../../source-dev-i3-private --out ../../source-dev-i3-private/dev191-ocr-c1 --yes
+/usr/bin/time -p env SOURCE_OCR_CONCURRENCY=4 uv run python -m app.source_analysis.final_eval \
+  --split development --subset synthetic --provider openrouter --max-usd 3 \
+  --dev-dir ../../source-dev-i3-private --out ../../source-dev-i3-private/dev191-ocr-c4 \
+  --inputs-from ../../source-dev-i3-private/dev191-ocr-c1/inputs.json --yes
+```
+
+- Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: bounded crop concurrency, deterministic evidence, call-level budget locking, hard stop/drain, shared eval, no live calls. AI 오류 사례: 독립 리뷰에서 정산 지연과 정산 실패의 경계를 발견해 각각 회귀로 고정했다.

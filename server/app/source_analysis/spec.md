@@ -229,3 +229,16 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 동작 계약은 [제품 spec](../../..
 | 2026-11-02 | 청크별 validate_candidates 통과 후보만 targetId/fieldKey/value/historical/evidence로 중복 제거 후 원문순 prefix100, candidatesSkipped 진단; 사진 요청 prefix30. 중복된 병합 후 검증 대신 acceptedCount/emptyReason 직접 계산, 거절 목록·개수는 청크 합산 | 거절 후보 저장 차단, 검증 결과 덮어쓰기 제거와 acceptedCount 정합 | AC-SRC-2/3 |
 | 2026-11-02 | page_scope는 빈 쪽 표식과 (쪽, span ID) 집합; 저장은 pagesFailed/chunksFailed 쪽을 제외한 성공 scope의 기존 부분집합만 supersede. enqueue_extraction의 previous 쿼리는 outdated 후보가 하나라도 있는 Item을 NOT EXISTS로 제외(vision/text 공통); 후보 없는 성공은 허용, 나머지 SUCCEEDED 부분 scope 합집합이 전체 요청을 덮을 때 재사용 | PARTIAL의 실패 쪽 기존 후보 보존, 설정 복귀 시 대체된 후보로 coverage가 충족되는 오류 차단, 확정 편집/동일 ID 보존 | AC-SRC-2/5/10 |
 | 2026-11-02 | 실패 경로의 OCR/청크 진단 저장은 best effort로 원래 ExtractionError 보존; 비-vision 검증은 settle 뒤 | fencing으로 원래 코드·usage·요청 ID를 잃거나 비용 정산을 건너뛰지 않음 | AC-SRC-5/10 |
+
+
+## DEV-191 OCR 병렬 실행 구현 결정
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | `SOURCE_OCR_CONCURRENCY` 기본4/최소1. 공용 `transcribe_pages`의 stdlib ThreadPoolExecutor에 최대 N개 crop 작업만 제출; 1은 호출자에서 speculative 작업 없이 실행 | 쪽/긴 이미지 병렬화, 대기열·비용 폭주 방지 및 순차 비교 | AC-SRC-2/5/10 |
+| 2026-11-02 | 순서 있는 결과 소비와 쪽 끝 표식으로 span ID·진단을 병합하고 실패 쪽 전사를 폐기; 추출은 기존 순차 경로 | 완료 순서가 근거·후보 순서를 바꾸지 않음 | AC-SRC-2/3/5 |
+| 2026-11-02 | hard 예외는 실행 스레드에서 stop Event 설정, 전송 전 검사; executor 종료는 모든 진행 중 요청의 정산을 기다림 | 인증/한도/취소 뒤 신규 전송 차단, 비용 누락·자동 재생 방지 | AC-SRC-5/10 |
+| 2026-11-02 | OpenRouter 클라이언트는 기존처럼 요청별 생성/close; 예약/정산 세션도 요청마다 별도 생성. 기존 PostgreSQL advisory lock 유지, eval Calls의 실행 한도·차액·entries는 Lock으로 보호 | 클라이언트/SQLAlchemy Session을 스레드 사이 공유하지 않고 비용 경쟁 방지 | AC-SRC-6/10 |
+| 2026-11-02 | 기존 run_once heartbeat가 executor 수명 전체를 감싸고 paid_vision_call의 전송 전 lock_context/승인 검사를 유지. eval metadata에 ocrConcurrency 기록 | 호출 중 lease 갱신·취소 fencing 및 개발 성능 비교 재현 | AC-SRC-5/10 |
