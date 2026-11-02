@@ -219,3 +219,13 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 동작 계약은 [제품 spec](../../..
 | 2026-11-02 | stage-1 Spend stage에 쪽번호·묶음순번을 포함 | 항목 내 여러 호출의 원장 키 충돌 방지 | AC-SRC-10 |
 | 2026-11-02 | accepted 후보가 있는 OCR PARTIAL만 REFINE 허용; retry는 원래 pages 목록으로 새 Run | 기존 후보·생산자 편집 보존 및 비용 확인 유지 | AC-SRC-5/11 |
 | 2026-11-02 | API/평가 metadata는 쪽 개수만 공개; 두 UI의 sourceNotices에서 PARTIAL 페이지 안내 우선 | 파일당 한 줄, 빈 쪽 불필요 경고·오류 중복 방지 | AC-SRC-6/8 |
+
+### DEV-190 후속 리뷰 결정
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | `extract_vision_chunks`를 worker/final_eval이 공유; 비-hard stage-1 오류는 chunksFailed와 중복 없는 pagesFailed에 기록하고 계속, 전 청크 호출 실패/hard는 원래 예외 전파 | 파일 항목 전환 후에도 다른 청크의 유효 후보·호출별 비용 보존 | AC-SRC-2/5/10 |
+| 2026-11-02 | vision은 전체 병합 후 accepted0·rejected>0일 때 CANDIDATES_REJECTED/FAILED; 비-vision은 빈 쪽 포함 text_chunks 호출과 청크별 거절 실패 유지 | 파일/청크 항목 경계와 평가 정합 | AC-SRC-3/5 |
+| 2026-11-02 | 병합 후보는 targetId/fieldKey/value/historical/evidence로 중복 제거 후 원문순 prefix100, candidatesSkipped 진단; 사진 요청 prefix30 | schema 우회 제거와 acceptedCount 정합 | AC-SRC-2/3 |
+| 2026-11-02 | page_scope는 빈 쪽 표식과 (쪽, span ID) 집합; 저장은 기존 부분집합 scope를 supersede, 재사용은 SUCCEEDED 부분 scope의 합집합이 새 scope 전체를 덮을 때 | main에 존재하는 페이지별 EXTRACT 호환·불필요한 유료 재분석 방지, 확정 편집/동일 ID 보존 | AC-SRC-2/5/10 |
+| 2026-11-02 | 실패 경로의 OCR/청크 진단 저장은 best effort로 원래 ExtractionError 보존; 비-vision 검증은 settle 뒤 | fencing으로 원래 코드·usage·요청 ID를 잃거나 비용 정산을 건너뛰지 않음 | AC-SRC-5/10 |

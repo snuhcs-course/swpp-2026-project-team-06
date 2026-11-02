@@ -199,3 +199,10 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. OpenRouter 이미지·PDF OCR은 다음
 - OCR용 EXTRACT 항목은 파일의 페이지 목록을 소유하고 실제 요청은 쪽/crop별로 보낸다. stage-1은 일반 텍스트와 같은 `text_chunks` 최대4000자 span 묶음으로 호출한다. span ID·쪽 번호를 유지하며 각 요청에 공급한 근거로만 후보를 검증한 뒤 병합·중복 제거한다. 파일 전체를 한 stage-1 요청에 넣지 않는다.
 - accepted 후보가 있는 페이지 오류 PARTIAL도 REFINE 대상이다. 생산자의 명시적 재시도는 새 Run에서 항목 전체를 다시 읽고 기존 후보/확정 편집 보존 규칙을 따른다. 불확실 OCR이 하나라도 있으면 기존 비용 재발생 확인을 요구한다.
 - run API와 평가 metadata는 `pagesEmpty`/`pagesFailed`를 개수로만 공개한다. 생산자 기존 작업·새 상품 화면은 PARTIAL 파일에 “N쪽을 읽지 못했어요. 다시 분석해 보세요.”를 한 번 표시하고 해당 OCR 오류·빈 결과 안내를 중복 표시하지 않는다. 빈 쪽 건너뜀은 경고하지 않는다. 평가 runner는 제품 OCR orchestration·4000자 그룹 함수를 공유하고 부분 결과도 정리·채점한다.
+
+### DEV-190 후속 리뷰 · 청크 실패 격리와 기존 페이지별 결과
+
+- OpenRouter 이미지/PDF의 stage-1 청크 호출도 비-hard 실패를 격리한다. `chunksFailed`에 청크 순번·쪽·코드를, `pagesFailed`에 중복 없는 쪽·코드를 기록하고 성공 청크의 후보를 보존해 PARTIAL로 처리한다. 모든 청크 호출 실패 또는 인증·예산·자료/lease/가림 hard 오류만 원래 예외로 항목 전체를 실패시킨다. 자동 재호출 없이 호출별 예약·정산을 유지하며, 오류 중 진단 저장에 실패해도 원래 오류 코드·usage·요청 ID를 보존한다.
+- vision의 `CANDIDATES_REJECTED`는 모든 청크 처리 후 유효 후보가 0개이고 검증 거절이 있을 때 FAILED다. 텍스트/mock/로컬 OCR은 빈 쪽의 청크도 호출하며, 개별 청크가 전부 거절되면 해당 항목이 실패하는 기존 규칙을 유지한다. 평가도 같은 경계를 따른다.
+- vision 후보 병합은 `(targetId, fieldKey, value, historical, evidence)`로 중복 제거한 뒤 원문 쪽/span 묶음 순서의 앞100개를 보존하고 비공개 `candidatesSkipped`에 고유 생략 수를 기록한다. `acceptedCount`는 보존한 고유 후보 수다. 사진 요청도 중복 제거 후 앞30개를 보존한다. 평가 metadata는 `chunksFailed`를 개수로만 공개한다.
+- 같은 source/revision/sanitization/targets에서 새 파일 범위는 기존 페이지/span 부분집합 범위의 자동 후보를 대체한다. 동일 후보 ID와 생산자 확정 편집 보존 규칙은 유지한다. 기존 페이지별 SUCCEEDED 항목들의 범위 합집합이 새 파일 범위 전체를 덮고 Run의 모델·프롬프트·대상·visual 설정도 같으면 유료 재분석 없이 재사용한다. 실패/누락 범위가 있으면 파일 항목을 새로 분석한다.
