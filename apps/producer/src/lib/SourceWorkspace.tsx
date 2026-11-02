@@ -70,13 +70,6 @@ export function sourceNotices(item: SourceRun["items"][number]): string[] {
       `앞 ${item.pagesAnalysed}쪽만 분석했어요. 나머지 ${item.pagesSkipped}쪽은 필요하면 나눠서 올려 주세요.`,
     );
   }
-  if (
-    item.phase === "EXTRACT" &&
-    item.status === "PARTIAL" &&
-    item.rejectedCount > 0
-  ) {
-    notes.push(`근거를 확인하지 못한 후보 ${item.rejectedCount}개는 제외했어요.`);
-  }
   if (item.emptyReason && !item.error) {
     const messages: Record<string, string> = {
       NO_CANDIDATES: "추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.",
@@ -85,7 +78,6 @@ export function sourceNotices(item: SourceRun["items"][number]): string[] {
         "이 상품에 연결된 내용을 찾지 못했어요. 상품 연결을 확인해 주세요.",
       ALL_TEXTS_FILTERED:
         "상세에 넣을 수 있는 문구가 남지 않았어요. 원문을 확인해 주세요.",
-      ALL_CANDIDATES_REJECTED: "추출한 내용의 근거를 확인하지 못했어요.",
       REFINE_INPUT_LIMIT:
         "내용이 많아 문구를 정리하지 못했어요. 자료를 나눠서 올려 주세요.",
     };
@@ -102,7 +94,7 @@ export function sourceNotices(item: SourceRun["items"][number]): string[] {
   return notes;
 }
 
-export function sourceError(code: string, phase?: string) {
+export function sourceError(code: string, phase?: string, rejectedCount = 0) {
   if (phase === "REFINE") {
     const messages: Record<string, string> = {
       SOURCE_CHANGED:
@@ -130,7 +122,9 @@ export function sourceError(code: string, phase?: string) {
     INVALID_EVIDENCE:
       "자료에서 근거를 확인하지 못했어요. 선명한 자료를 넣거나 직접 내용을 확인해 주세요.",
     CANDIDATES_REJECTED:
-      "근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.",
+      rejectedCount > 0
+        ? `근거를 확인하지 못한 후보 ${rejectedCount}개는 제외했어요. 원문을 확인해 주세요.`
+        : "근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.",
     REQUEST_UNCERTAIN: "분석 요청의 완료 여부를 확인하지 못했어요.",
     UNSUPPORTED_NUMBER: "자료에 없는 수치가 포함되어 결과를 사용하지 않았어요.",
     UNSUPPORTED_PIECE_COUNT: "상품 개수의 근거를 확인하지 못했어요.",
@@ -736,7 +730,11 @@ export function SourceWorkspace() {
                             {i.phase !== "REFINE"
                               ? `${batch.sources.find((s) => s.id === i.assetId)?.filename}: `
                               : ""}
-                            {sourceError(i.error!, i.phase)}
+                            {sourceError(
+                              i.error!,
+                              i.phase,
+                              i.status === "PARTIAL" ? i.rejectedCount : 0,
+                            )}
                           </T>
                         ))}
                       {ACTIVE.includes(r.status) ? (

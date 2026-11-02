@@ -268,10 +268,9 @@ def limit_candidates(candidates):
 
 
 def empty_reason(candidates, target_id, modules):
-    if modules:
+    # Extraction owns the file-level explanation when it produced no candidates.
+    if modules or not candidates:
         return None
-    if not candidates:
-        return "NO_CANDIDATES"
     if not any(c["targetId"] == target_id for c in candidates):
         return "NO_TARGET_CANDIDATES"
     return "ALL_TEXTS_FILTERED"

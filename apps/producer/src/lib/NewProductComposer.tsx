@@ -617,7 +617,11 @@ export function NewProductComposer() {
             {i.phase !== "REFINE"
               ? `${batch?.sources.find((s) => s.id === i.assetId)?.filename}: `
               : ""}
-            {sourceError(i.error!, i.phase)}
+            {sourceError(
+              i.error!,
+              i.phase,
+              i.status === "PARTIAL" ? i.rejectedCount : 0,
+            )}
           </T>
         ))}
       {ACTIVE.includes(run.status) ? (

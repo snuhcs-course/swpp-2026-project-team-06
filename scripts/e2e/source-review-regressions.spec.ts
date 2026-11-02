@@ -308,13 +308,26 @@ for (const composer of [false, true]) {
     await page.goto(url);
     if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
     await expect(page.getByText(/추출할 내용을 찾지 못했어요/)).toHaveCount(0);
-    // When every chunk is empty, the API publishes one file-level reason.
-    fixture.run.items = fixture.run.items.slice(0, 3).map((item, index) => ({
-      ...item, acceptedCount: 0, emptyReason: index === 0 ? "NO_CANDIDATES" : null,
-    }));
-    await page.reload();
-    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
-    await expect(page.getByText("긴합성자료.txt: 추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(1);
+    // Keep the zero-candidate REFINE item, as returned by the real pipeline.
+    const extracts = fixture.run.items.slice(0, 3);
+    const refine = { ...fixture.run.items[3], acceptedCount: 0, emptyReason: null };
+    for (const [reason, message] of [
+      ["NO_CANDIDATES", "추출할 내용을 찾지 못했어요. 원문을 확인해 주세요."],
+      ["NO_SAFE_TEXT", "분석할 텍스트가 없어요. 자료 내용을 확인해 주세요."],
+    ]) {
+      fixture.run.items = [
+        ...extracts.map((item, index) => ({
+          ...item, acceptedCount: 0, emptyReason: index === 0 ? reason : null,
+        })),
+        refine,
+      ];
+      await page.reload();
+      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      await expect(page.getByText(`긴합성자료.txt: ${message}`, { exact: true })).toHaveCount(1);
+      await expect(page.getByText(/추출할 내용을 찾지 못했어요|분석할 텍스트가 없어요/)).toHaveCount(1);
+      await expect(page.getByText(message, { exact: true })).toHaveCount(0);
+      await expect(page.getByText(/이 상품에 연결된 내용을 찾지 못했어요|상세에 넣을 수 있는 문구가 남지 않았어요/)).toHaveCount(0);
+    }
   });
 
   test(`DEV-182 AC-SRC-5/8: ${composer ? "composer" : "workspace"} rejected and oversized notices`, async ({ page }) => {
@@ -330,11 +343,17 @@ for (const composer of [false, true]) {
       if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
     };
     await open();
-    await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요.", { exact: true })).toBeVisible();
+    await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요. 원문을 확인해 주세요.", { exact: true })).toBeVisible();
+    await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(1);
+    await expect(page.getByText(/근거를 확인하지 못한/)).toHaveCount(1);
+    await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(0);
     fixture.run.items[0] = { ...fixture.run.items[0], status: "FAILED", acceptedCount: 0,
       emptyReason: "ALL_CANDIDATES_REJECTED" };
     await open();
+    await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.", { exact: true })).toBeVisible();
     await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(1);
+    await expect(page.getByText(/근거를 확인하지 못한 후보/)).toHaveCount(0);
+    await expect(page.getByText(/근거를 확인하지 못한/)).toHaveCount(1);
     await expect(page.getByText(/추출한 내용의 근거를 확인하지 못했어요/)).toHaveCount(0);
     fixture.run.items[0] = { ...fixture.run.items[0], phase: "REFINE", status: "SUCCEEDED",
       error: null, rejectedCount: 0, emptyReason: "REFINE_INPUT_LIMIT", candidatesSkipped: 1 };

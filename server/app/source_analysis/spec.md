@@ -176,8 +176,10 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 제품 계약은 `docs/spec/source-anal
 | 2026-11-02 | parser v4가 PDF 첫20쪽과 첫 raw page의 pagesAnalysed/pagesSkipped 메타데이터 반환; PREPARE JSON에 영속 저장·재사용 | DB migration 없이 batch60쪽 cap과 공개 생략 안내 연결 | AC-SRC-5/8 |
 | 2026-11-02 | worker/runner가 preprocess.text_chunks의4000자 원문 span 묶음을 공유 | OpenRouter 일반 텍스트까지 같은 분할 적용 | AC-SRC-2/5 |
 | 2026-11-02 | refine의 원문순40후보/JSON16000자 prefix 제한·생략 진단, 전체 후보 freshness와 생략 unused 보존 | 요청/출력 한도와 stale/fallback 보호 | AC-SRC-2/3/5 |
-| 2026-11-02 | stage1/2 emptyReason 고정 코드와 API 카운트만 공개; run_view는 EXTRACT 전체가 성공·빈 후보인 파일에만 한 번 사유 공개, UI는 error와 emptyReason 중복 제거 | 빈 결과 설명과 개인정보 보호 | AC-SRC-5/6/8 |
-| 2026-11-02 | final scorer만 실제 범위 표현을 단일 토큰으로 정규화; 범위↔단일 끝점 지원 금지, 기존 T11 보고 점수 보존 | 월 범위 오탐의 측정 수정과 모델 변경 구분 | AC-SRC-2/3 |
+| 2026-11-02 | stage1/2 emptyReason 고정 코드와 API 카운트만 공개; run_view는 EXTRACT 전체가 성공·빈 후보인 파일에만 한 번 사유 공개, 후보 없는 REFINE은 사유 없음, 정리 사유3종만 사용(평가 source 전체의 stage1 진단은 보존); UI는 error와 emptyReason 중복 제거·거절 개수를 오류 한 줄에 통합 | 빈 결과 설명과 개인정보 보호 | AC-SRC-5/6/8 |
+| 2026-11-02 | final scorer만 실제 범위 표현을 단일 토큰으로 정규화; 에서/부터는 동일 단위+까지/사이일 때만 범위, 그 외 독립 수치로 분리; 범위↔단일 끝점 지원 금지, 기존 T11 보고 점수 보존 | 월 범위 오탐의 측정 수정과 모델 변경 구분 | AC-SRC-2/3 |
+
+평가 runner의 text chunk 계획 추정은 파서와 같은 UTF-8-sig 디코딩 문자 수를4000자로 나누며, 실제 예약은 기존 byte/image 상한을 유지한다.
 
 합성 manifest 해시 정의는 [제품 spec](../../../docs/spec/source-analysis.md#synthetic-input-definition)을 따른다.
 
