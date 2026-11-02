@@ -229,3 +229,9 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 동작 계약은 [제품 spec](../../..
 | 2026-11-02 | 청크별 validate_candidates 통과 후보만 targetId/fieldKey/value/historical/evidence로 중복 제거 후 원문순 prefix100, candidatesSkipped 진단; 사진 요청 prefix30. 중복된 병합 후 검증 대신 acceptedCount/emptyReason 직접 계산, 거절 목록·개수는 청크 합산 | 거절 후보 저장 차단, 검증 결과 덮어쓰기 제거와 acceptedCount 정합 | AC-SRC-2/3 |
 | 2026-11-02 | page_scope는 빈 쪽 표식과 (쪽, span ID) 집합; 저장은 pagesFailed/chunksFailed 쪽을 제외한 성공 scope의 기존 부분집합만 supersede. enqueue_extraction의 previous 쿼리는 outdated 후보가 하나라도 있는 Item을 NOT EXISTS로 제외(vision/text 공통); 후보 없는 성공은 허용, 나머지 SUCCEEDED 부분 scope 합집합이 전체 요청을 덮을 때 재사용 | PARTIAL의 실패 쪽 기존 후보 보존, 설정 복귀 시 대체된 후보로 coverage가 충족되는 오류 차단, 확정 편집/동일 ID 보존 | AC-SRC-2/5/10 |
 | 2026-11-02 | 실패 경로의 OCR/청크 진단 저장은 best effort로 원래 ExtractionError 보존; 비-vision 검증은 settle 뒤 | fencing으로 원래 코드·usage·요청 ID를 잃거나 비용 정산을 건너뛰지 않음 | AC-SRC-5/10 |
+
+
+## DEV-179 구현 결정 (2026-11-02)
+- AC-SRC-9/11: start_run의 대표사진 검사만 제거하고 publish/workspace.apply 검사는 유지한다. 품종·권한·버전·자료·활성 run 검사는 유지한다.
+- AC-SRC-2/3/11: editorFields는 규격·구성·개수·당도(qualityEvidence)의 같은 사실 슬롯에 정규화 값이 다른 후보가 있으면 conflict를 적용한다. 현재 정리 결과가 없는 서술의 복수 안전 원문 후보도 conflict로 선택 가능하게 유지한다. 성공 정리에서 생략된 필드는 복원하지 않는다. 규격의 품종/사이즈 등 상호 보완 값은 충돌이 아니며 kg/g·소수 당도·유니코드/공백 차이는 정규화한다. summary/farmStory 등 정리된 병합 서술은 ready이며 UNREVIEWED 자동 저장을 유지한다. outdated와 생산자 CONFIRMED/EXCLUDED는 conflict로 덮지 않는다. 선택기에는 현재 refined/basicInfo 값도 포함한다.
+- AC-SRC-5/8: run_view는 ocrFailedPageNumbers(pagesFailed.number)와 chunkFailedPageNumbers(chunksFailed.pages)를 각각 정렬/중복 제거하여 노출한다. 각 안내는 자기 목록을 쓴다. 기존 개수는 보존하고 코드·진단 본문은 반환하지 않는다.
