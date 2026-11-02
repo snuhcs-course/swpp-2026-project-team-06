@@ -1,3 +1,5 @@
+> 현재 독립 최종 문장 holdout은 **v2**(DEV-194)다. [격리·채점 프로토콜](validation/source-final-holdout-i3-v2.md)과 [hash-only lock](validation/source-final-holdout-i3-v2-lock.json)을 따른다. v1.1은 **소진/RETIRED_TO_DEV**이며 아래 날짜별 내용은 당시 이력이다. 기본 `--holdout-version v2`, 실행 전 `--verify-lock`, 이후 버전별 1회 실행과 집계만 보고하는 규칙을 적용한다.
+
 > Current DEV-58 editor contract: [source-editor.md](./source-editor.md). This supersedes the earlier redaction approval and form-only editing flow.
 
 > DEV-56/57/58 current integration contract: [source-integration.md](./source-integration.md). This supersedes the DEV-54 model and integration-status notes below.
@@ -72,7 +74,7 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8의 평가 자료·채점 계약은 [I3 v1 �
 
 DEV-186의 두 단계 초안 중 stage-2는 [final-text gold 형식·채점 규칙](validation/source-final-gold-format.md)과 [JSON schema](validation/source-final-gold.schema.json)를 따른다. 기존 exact/normalized 필드 점수는 stage-1 진단이며, 최종 문장은 같은 section의 mustContain 사실 recall(전체/critical), 오배치, 금지 내용0건, 안전 원문 밖 수치·품종·인증, 문장별 precision proxy를 보고한다. critical 누락·금지·unsupported·실패는 critical FAIL이며 proxy는 의미 정확성이나 문장 품질을 보장하지 않는다.
 
-[합성 final gold20건](validation/source-final-gold-i3-dev-synthetic.json)은 개발 전용이며, [dev-final manifest](validation/source-final-dev-manifest.json)의 공개12건은 `LOCAL_PRIVATE`이며 private gold 파일 SHA만 기록한다. holdout은3인 독립 작성·2인 이상 합의 후 담당자가 나머지를 결정한다. 원문·gold·실행 봉투는 로컬 전용이며 저장소에는 **ID·형식·해시·집계 점수만** 남긴다. 실제 인쇄 PDF는 페이지를 인용한다. [최종 holdout lock](validation/source-final-holdout-i3-lock.json)은12건/140문장/253사실의 ID·format·해시만 보관한다. DEV-186 이후 T11/T23에서 한 번 실행하며 튜닝하지 않는다. 로컬 gold는 고정 SHA/holdout lock과 엄격 gold 검증을 모두 통과해야 한다. DEV-170/T11 실행/사람 문장 감사는 별도 미완료다. 규칙9~12의 판매점 운영(platform)·건강 효능(health) 제외, summary의 맛·크기 분리, 판매가 셀의 기간 제외를 적용한다. 빈 gold는 contract로 분리 집계하며 전체 gate에는 유지한다.
+[합성 final gold20건](validation/source-final-gold-i3-dev-synthetic.json)은 개발 전용이며, [dev-final manifest](validation/source-final-dev-manifest.json)의 공개12건은 `LOCAL_PRIVATE`이며 private gold 파일 SHA만 기록한다. holdout은3인 독립 작성·2인 이상 합의 후 담당자가 나머지를 결정한다. 원문·gold·실행 봉투는 로컬 전용이며 저장소에는 **ID·형식·해시·집계 점수만** 남긴다. 실제 인쇄 PDF는 페이지를 인용한다. [역사 holdout v1.1 lock](validation/source-final-holdout-i3-lock.json)은 소진된 평가의 기록으로 보존한다(최종146문장/261사실). 당시 DEV-186 이후 T11/T23의 1회 정책이 적용되었으며 현재 독립 평가에는 v2를 사용한다. 로컬 gold는 고정 SHA/holdout lock과 엄격 gold 검증을 모두 통과해야 한다. DEV-170/T11 실행/사람 문장 감사는 별도 미완료다. 규칙9~12의 판매점 운영(platform)·건강 효능(health) 제외, summary의 맛·크기 분리, 판매가 셀의 기간 제외를 적용한다. 빈 gold는 contract로 분리 집계하며 전체 gate에는 유지한다.
 
 현재 상태(2026-10-19, DEV-90): DEV-56~58 앱 통합은 구현/머지되었고 운영 API·독립 OCR worker가 활성화되어 있다. 실제 농가 인수와 일반 정확도는 별도 미완료다. 최신 UI/개인정보/명시적 반영 계약은 상단 링크의 source-editor/source-integration이 우선하며, 아래 DEV-53/54의 후속 통합·보류 설명은 당시 범위 기록이다.
 
@@ -187,7 +189,7 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6. owner의 T23 재실행은 **부분 오염 측�
 
 holdout v1.1은 2026-11-02 **RETIRED_TO_DEV**로 전환되었다. 과거의 잠금·튜닝 금지 문구는 당시 정책 이력이며 이제 해당12건은 개발용으로 읽고 회귀·튜닝에 사용한다. 기존32→44건에 DEV-182 합성3건을 더해 총47건(공개개발24, 합성23)이다. `source-final-dev-manifest.json`이 현재 구성을 정의하고 `source-final-holdout-i3-lock.json`은 역사 그대로 보존한다. 원본 holdout 입력/gold와 기존 개발 gold는 변경하지 않는다. private safe 입력12건을 개발 safe 폴더로 복사하고 병합 gold는 저장소 밖 `final-gold-dev-public-v2.json`으로 둔다. 개발 채점은 split=development와 새 파일 고정 SHA를 사용한다. 저장소에는 ID·형식·해시·집계만 둔다.
 
-향후 독립 성능 주장은 **튜닝하지 않는 사람들이 동일한 독립3인 검토 절차로 구축한 새 holdout v2**가 필요하다. v1.1 반복 실행이나 개발 mock 결과로 독립 품질을 주장하지 않는다.
+현재 독립 평가용 **holdout v2**는 튜닝하지 않는 독립3인 검토와 합의 패스로 동결되었다(72문장/134사실/중요33, owner 결정 제외44). [DEV-194 프로토콜](validation/source-final-holdout-i3-v2.md)에 따라 구현·튜닝 에이전트는 원문/gold를 보지 않고 채점 담당자는 집계만 보고한다. v1.1 반복 실행이나 개발 mock 결과로 독립 품질을 주장하지 않는다.
 
 
 ## DEV-190 페이지별 OCR 복구와 긴 전사 분할
