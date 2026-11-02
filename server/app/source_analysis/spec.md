@@ -253,3 +253,17 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 위 OCR 전용 동시성/추출 순차 
 | 2026-11-02 | OCR과 stage-1은 공용 `_ordered_results`로 제출 수를 제한하고 `SOURCE_OCR_CONCURRENCY`를 각 단계 상한으로 공유한다. concurrency1은 caller에서 순차 실행하며 병합은 입력 순서 | 무제한 대기열 없이 결정적 후보/진단/상한을 유지 | AC-SRC-2/5/10 |
 | 2026-11-02 | stage-1은 호출 wrapper와 제공자 전송 양쪽에서 stop을 확인하고 제공자 hard 오류 즉시 latch한다. 미전송 예약은0으로 정산, 이미 보낸 호출은 executor 종료 전에 정산 | 정산 지연/예약 대기 중 신규 전송 방지 및 기존 비용·취소 fencing 재사용 | AC-SRC-5/6/10 |
 | 2026-11-02 | 청크별 검증에 다쪽 payload 그대로 전달, 실패 진단에 모든 청크 쪽을 기록한다. eval은 기존 공용 `extract_vision_chunks`를 사용 | 근거 검증 및 DEV-190 PARTIAL/FAILED/성공 범위 의미 보존 | AC-SRC-2/3/5/8 |
+
+## DEV-193 출력 예산·숫자 채점·후보별 교체
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/10. 동작 계약은 [제품 spec](../../../docs/spec/source-analysis.md)의 DEV-193 절을 따른다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | `SOURCE_MAX_OUTPUT_TOKENS` 기본8000, 기존256–8000 설정 범위·4000자 입력·값/인용 스키마 유지. 공용 budget.estimate_micros는 제공자와 같은 설정값을 예약하고 final_eval.estimate도 같은 출력 최대치로 계획 | 문장 값+인용+후보 JSON의 출력 확대, 한도/예약 정합 | AC-SRC-2/10 |
+| 2026-11-02 | 잘린 청크의 재분할·재전송도 자동 재시도로 간주해 배제. prompt·후보 수·인용 원문 변경 없음 | 실패/불확실 호출 재생 금지 | AC-SRC-3/5/10 |
+| 2026-11-02 | final_score는 중간 줄을 건너뛰지 않고 같은 줄 마침표+space/tab 뒤 숫자만 분리. `2011\n년부터`는 이미 작동하던 정규화의 회귀 보장, `3.\n5kg`는 기존 소수3.5kg 유지 | 소수·단위·범위 판정 보존 | AC-SRC-2/3 |
+| 2026-11-02 | final_eval은 OCR 전 로컬 safe text를 보존하고 정상/예외 반환 모두 OCR 실패 및 `chunksFailed[*].pages` 전체를 제외한 OCR 전사와 합집합. 일부 청크만 실패한 쪽도 OCR 전체 제외, 로컬 근거는 유지. 계층 사이 세미콜론으로 숫자 연결 방지. 새 metadata는 최초 `measurementVersion=dev193-number-evidence-v1`과 출력 설정 기록, 보고서에 직접 비교 불가 명시 | 제품에서 사용한 근거 전체로 측정, 과거 점수 해석 구분 | AC-SRC-2/3/6 |
+| 2026-11-02 | store_candidates는 이전 동일 source/revision/sanitization/targets 후보의 evidence source/revision과 모든 page가 새 성공 쪽인지 검사. 근거 없는 legacy만 기존 item scope 조건 적용. confirmed/동일 ID 유지와 enqueue_extraction의 outdated NOT EXISTS 보존 | F1 전체 범위와 F2 PARTIAL 성공 범위의 불일치 해소 | AC-SRC-2/5 |
+
+DEV-193 교체 범위 보완: 전체 페이지를 읽는 OpenRouter OCR 항목은 근거 페이지 기준을 사용한다. 일반 텍스트 및 비-vision 항목은 같은 페이지에 서로 다른4000자 span 청크가 있으므로 후보의 모든 근거 span도 새 성공 scope 안에 있어야 교체한다. 같은 실행의 앞 청크 후보를 뒤 청크가 지우지 않는다.
