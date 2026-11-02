@@ -39,6 +39,7 @@ from app.source_analysis.preprocess import (
 )
 from app.source_analysis.service import refresh_runs
 from app.source_analysis.storage import Storage
+from app.source_analysis.text_safety import numbers
 
 
 def claim():
@@ -249,9 +250,6 @@ def validate(extraction, chunk, allowed_targets):
     for candidate_index, candidate in enumerate(extraction.candidates):
         quotes = "\n".join(e.quote for e in candidate.evidence)
 
-        def numbers(value):
-            return set(re.findall(r"\d+(?:[,.]\d+)*", value))
-
         if numbers(candidate.value) - numbers(quotes):
             raise ExtractionError("UNSUPPORTED_NUMBER")
         if (
@@ -439,16 +437,15 @@ def paid_vision_call(
     return response
 
 
-def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
+def transcribe_pages(chunk, page_images, call):
+    """Shared product OCR orchestration; call reserves/settles each individual crop."""
     for page in chunk["pages"]:
         image = page_images.get(page["number"])
         if image is None:
             raise PreparationError("PAGE_IMAGE_MISSING")
         spans = []
         for index, encoded in enumerate(crops(image)):
-            result = paid_vision_call(
-                item_id,
-                token,
+            result = call(
                 f"ocr-{page['number']}-{index}",
                 OCR_MODEL,
                 {"prompt": OCR_PROMPT},
@@ -466,6 +463,14 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
         if not spans:
             raise ExtractionError("OCR_UNCERTAIN")
         page["spans"] = spans
+
+
+def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
+    transcribe_pages(
+        chunk,
+        page_images,
+        lambda *args: paid_vision_call(item_id, token, *args),
+    )
     # Preserve the exact OCR evidence with this private job, never replace privacy-review geometry.
     with get_sessionmaker()() as db:
         context = lock_context(db, item_id, token)

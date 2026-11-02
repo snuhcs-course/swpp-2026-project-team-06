@@ -700,8 +700,38 @@ def test_AC_SRC_6_validation_json_excludes_holdout_payloads_except_metadata_lock
 
     # 최종 문구 정답 파일만 본다. 이전 기록(source-visual-* 등)의 split 값은 고치지 않는다.
     lock_path = VALIDATION / "source-final-holdout-i3-lock.json"
+    # 평가 보고서(source-final-eval-*)는 holdout id·상태·집계만, 문장 필드는 없어야 한다.
+    text_keys = {"text", "value", "sentences", "statement", "mustContain", "quote", "forbidden"}
+
+    def no_text(value):
+        if isinstance(value, dict):
+            for key, v in value.items():
+                if key in text_keys:
+                    assert not isinstance(v, str)
+                    assert not (isinstance(v, list) and any(isinstance(x, (str, dict)) for x in v))
+                no_text(v)
+        elif isinstance(value, list):
+            for v in value:
+                no_text(v)
+
+    no_text({"formats": {"text": 21, "image": 6}, "text": {"rows": 3}})
+    for key in text_keys:
+        no_text({key: 0})
+        no_text({key: []})
+        for payload in (
+            "SYNTHETIC_CONTENT",
+            ["SYNTHETIC_CONTENT"],
+            [{"id": "synthetic"}],
+            [0, "SYNTHETIC_CONTENT"],
+            {"nested": {"quote": "SYNTHETIC_CONTENT"}},
+        ):
+            with pytest.raises(AssertionError):
+                no_text({"nested": [{key: payload}]})
+
     for path in VALIDATION.rglob("source-final-*.json"):
-        if path != lock_path:
+        if path.name.startswith("source-final-eval-"):
+            no_text(json.loads(path.read_text()))
+        elif path != lock_path:
             check(json.loads(path.read_text()))
     lock = json.loads(lock_path.read_text())
     assert set(lock) == {"name", "sha256", "sources", "totalSentences", "totalFacts", "policy"}

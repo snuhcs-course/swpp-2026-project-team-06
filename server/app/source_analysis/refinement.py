@@ -154,9 +154,7 @@ def validate(output, candidates, target_id):
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
-                "\n".join(
-                    c["value"] + "\n" + "\n".join(e["quote"] for e in c["evidence"]) for c in cited
-                )
+                "\n".join(e["quote"] for c in cited for e in c["evidence"])
             ):
                 code = "UNSUPPORTED_NUMBER"
             elif any(

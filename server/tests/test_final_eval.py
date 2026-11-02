@@ -1,0 +1,840 @@
+"""AC-SRC-2/3/5/6: stage-2 evaluator, private artifacts, no live calls."""
+
+import copy
+import csv
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import httpx
+import pytest
+from openai import APIStatusError
+from sqlalchemy import select
+
+from app.ai import source_analysis as ai
+from app.ai.source_refine import Refinement, RefineResponse
+from app.core.db import get_sessionmaker
+from app.source_analysis import budget, final_score
+from app.source_analysis import final_eval as ev
+from app.source_analysis.models import Spend
+
+
+def row(text=ai.MOCK_TEXT, sid="case-01", fmt="text"):
+    return {
+        "id": sid,
+        "format": fmt,
+        "data": text.encode(),
+        "mime": "text/plain",
+        "suffix": ".txt",
+        "inputSha256": final_score.sha256(text.encode()),
+    }
+
+
+def gold(path, sid="case-01"):
+    value = {
+        "schemaVersion": 1,
+        "split": "development",
+        "sources": [
+            {
+                "id": sid,
+                "format": "text",
+                "product": "PRIVATE PRODUCT DO NOT REPORT",
+                "sentences": [
+                    {
+                        "section": "intro",
+                        "module": "summary",
+                        "text": "제주산 감귤입니다.",
+                        "facts": [
+                            {
+                                "id": "f1",
+                                "statement": "PRIVATE FACT DO NOT REPORT",
+                                "mustContain": ["제주산"],
+                                "critical": True,
+                            }
+                        ],
+                    }
+                ],
+                "forbidden": [],
+            }
+        ],
+    }
+    ev.write_json(path, value)
+    return path
+
+
+def setup_output(tmp_path, monkeypatch, text=ai.MOCK_TEXT):
+    monkeypatch.setattr(ev, "ROOT", Path("/imaginary/repo"))
+    r = row(text)
+    calls = ev.Calls("mock", 3)
+    result = ev.evaluate_source(r, "mock", "mock-model", calls)
+    ev.write_envelope(tmp_path, [r], [result], [])
+    gp = gold(tmp_path / "gold.json")
+    ev.write_json(
+        tmp_path / "metadata.json",
+        {"provider": "mock", "model": "mock-model", "sources": [result[1]], "goldFiles": [str(gp)]},
+    )
+    return result, gp
+
+
+def test_AC_SRC_2_envelope_scores_validated_stored_stage2(tmp_path, monkeypatch):
+    result, gp = setup_output(tmp_path, monkeypatch)
+    envelope = final_score.FileEnvelope.model_validate(ev.read_json(tmp_path / "runs.json"))
+    source = envelope.sources[0]
+    record = final_score.Run.model_validate(ev.read_json(tmp_path / source.outputPath))
+    assert record.status == "EVALUATED"
+    assert record.modules
+    stored = ev.read_json(tmp_path / "case-01.stored.json")
+    assert result[0]["modules"] == [
+        {"module": m["module"], "texts": [t["value"] for t in m["texts"]]}
+        for m in stored["modules"]
+    ]
+    assert all(t["candidateIds"] for m in stored["modules"] for t in m["texts"])
+    report = ev.report(tmp_path, [gp])
+    assert report["quality"]["overall"]["factRecall"]["rate"] == 1
+    assert report["acceptance"] == "BLOCKED"
+    assert (tmp_path / source.safeTextPath).read_text() == ai.MOCK_TEXT
+
+
+def test_AC_SRC_6_reports_and_stdout_redact_private_text(tmp_path, monkeypatch, capsys):
+    _, gp = setup_output(tmp_path, monkeypatch)
+    ev.report(tmp_path, [gp])
+    outputs = (
+        "".join(
+            (tmp_path / name).read_text()
+            for name in ("report.json", "report.md", "score.json", "score.md")
+        )
+        + capsys.readouterr().out
+    )
+    for secret in (ai.MOCK_TEXT, "제주산", "PRIVATE PRODUCT", "PRIVATE FACT", str(tmp_path)):
+        assert secret not in outputs
+    assert "case-01" in outputs
+
+
+def test_AC_SRC_2_3_mock_unknown_opt_in_and_real_path(monkeypatch):
+    r = row("모델을 호출하지 않는 비공개 입력")
+    chunk = {"checksum": r["inputSha256"]}
+    with pytest.raises(ai.ExtractionError, match="UNSUPPORTED_MOCK_SOURCE"):
+        ai.extract("mock", "mock", chunk, [], [])
+    monkeypatch.setattr(ai, "OpenAI", lambda **kw: pytest.fail("No model clients in mock"))
+    result = ev.evaluate_source(r, "mock", "mock", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EMPTY"
+    assert result[1]["stage1Ms"] is not None
+    assert result[1]["stage2Ms"] is not None
+    assert result[1]["costUsd"] == 0
+
+
+def test_AC_SRC_3_refinement_rejection_never_reaches_envelope(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        ev.refine_ai,
+        "refine",
+        lambda *a: RefineResponse(
+            Refinement.model_validate(
+                {
+                    "modules": [
+                        {
+                            "module": "summary",
+                            "texts": [{"value": "당도 999브릭스", "candidateIds": ["c-0"]}],
+                        }
+                    ],
+                    "excluded": [],
+                }
+            ),
+            {"mock": True},
+            None,
+        ),
+    )
+    r = row()
+    result = ev.evaluate_source(r, "mock", "mock", ev.Calls("mock", 3))
+    ev.write_envelope(tmp_path, [r], [result], [])
+    assert ev.read_json(tmp_path / "case-01.output.json")["modules"] == []
+    assert result[1]["rejectedTexts"] == 1
+
+
+@pytest.mark.parametrize("limit", [0, -1, float("inf"), float("nan")])
+def test_AC_SRC_5_budget_invalid_limits(limit):
+    with pytest.raises(ValueError):
+        ev.Calls("mock", limit)
+
+
+def test_AC_SRC_5_budget_blocks_before_provider_or_db(monkeypatch):
+    monkeypatch.setattr(budget, "estimate_micros", lambda *a, **kw: 100001)
+    monkeypatch.setattr(ev, "get_sessionmaker", lambda: pytest.fail("No DB before guard"))
+    calls = ev.Calls("openrouter", 0.1)
+    with pytest.raises(ai.ExtractionError, match="BUDGET_EXCEEDED"):
+        calls("extract", "model", {}, [], [], lambda: pytest.fail("No paid call"))
+    assert calls.entries == []
+    assert calls.used == 0
+
+
+@pytest.mark.parametrize("cost", [None, 0.01])
+def test_AC_SRC_5_budget_spend_settlement_and_uncertain_charge(monkeypatch, cost):
+    from app.core.config import get_settings
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", True)
+    calls = ev.Calls("openrouter", 1)
+
+    def failure():
+        raise ai.ExtractionError("REQUEST_UNCERTAIN", usage={} if cost is None else {"cost": cost})
+
+    expected = budget.estimate_micros("openrouter", "google/gemini-3-flash-preview", {}, [], [])
+    with pytest.raises(ai.ExtractionError, match="REQUEST_UNCERTAIN"):
+        calls("extract", "google/gemini-3-flash-preview", {}, [], [], failure)
+    assert calls.used == (expected if cost is None else 10000)
+    summary = ev.costs(calls.entries)
+    assert summary["reservedUsd"] == expected / 1e6
+    assert summary["costUsd"] == summary["settledUsd"] == (0 if cost is None else cost)
+    assert summary["unsettledReservedUsd"] == (expected / 1e6 if cost is None else 0)
+    with get_sessionmaker()() as db:
+        spend = db.scalar(select(Spend).where(Spend.evaluation.is_(True)))
+        assert spend.reserved_micros == expected
+        assert spend.charged_micros == (None if cost is None else 10000)
+    calls.limit = calls.used + expected - 1
+    with pytest.raises(ai.ExtractionError, match="BUDGET_EXCEEDED"):
+        calls(
+            "extract",
+            "google/gemini-3-flash-preview",
+            {},
+            [],
+            [],
+            lambda: pytest.fail("Cumulative cap must block"),
+        )
+
+
+def test_AC_SRC_5_holdout_once_ack_force_and_failure_retention(tmp_path):
+    gp = tmp_path / "gold.json"
+    gp.write_text("[]")
+    with pytest.raises(ValueError, match="holdout-runs-once"):
+        ev.claim_holdout(gp, False)
+    with pytest.raises(ValueError, match="rerun-reason"):
+        ev.claim_holdout(gp, True, force=True)
+    assert list(tmp_path.iterdir()) == [gp]
+    marker = ev.claim_holdout(gp, True)
+    assert ev.read_json(marker)["attempt"] == 1
+    assert ev.read_json(marker)["rerunReason"] is None
+    original = marker.read_bytes()
+    with pytest.raises(FileExistsError):
+        ev.claim_holdout(gp, True)
+    forced = ev.claim_holdout(gp, True, force=True, rerun_reason="Synthetic safety regression")
+    assert forced != marker
+    assert marker.read_bytes() == original
+    assert forced.exists()
+    assert ev.read_json(forced)["attempt"] == 2
+    assert ev.read_json(forced)["rerunReason"] == "Synthetic safety regression"
+    third = ev.claim_holdout(gp, True, force=True, rerun_reason="Synthetic third attempt")
+    assert ev.read_json(third)["attempt"] == 3
+
+
+def test_AC_SRC_2_format_aggregation_nearest_rank_and_missing_latency():
+    values = []
+    for n in range(1, 21):
+        values.append(
+            {
+                "format": "text",
+                "status": "EVALUATED",
+                "preprocessMs": n,
+                "stage1Ms": n * 2,
+                "stage2Ms": n * 3,
+                "endToEndMs": n * 6,
+                "costUsd": 0.01,
+                "costKnown": True,
+            }
+        )
+    failed = copy.deepcopy(values[0])
+    failed.update(format="pdf", status="FAILED", stage2Ms=None, costKnown=False)
+    result = ev.aggregate([*values, failed])
+    assert result["text"]["endToEndMs"] == {"observed": 20, "p50": 63, "p95": 114}
+    assert result["text"]["stage1Ms"]["p95"] == 38
+    assert result["text"]["totalCostUsd"] == pytest.approx(0.2)
+    assert result["text"]["meanCostUsd"] == pytest.approx(0.01)
+    assert result["pdf"]["stage2Ms"]["p95"] is None
+    assert result["pdf"]["costsKnown"] is False
+    assert result["image"]["meanCostUsd"] is None
+
+
+def test_AC_SRC_3_6_worksheet_roundtrip_and_tamper_rejected(tmp_path, monkeypatch):
+    setup_output(tmp_path, monkeypatch)
+    ev.worksheets(tmp_path)
+    path = tmp_path / "audit.csv"
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert rows
+    rows[0]["supported"] = "false"
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=ev.AUDIT_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    ev.import_audit(tmp_path, path)
+    saved = (tmp_path / "case-01.output.json").read_bytes()
+    assert (
+        ev.read_json(tmp_path / "case-01.output.json")["supportJudgments"][0]["supported"] is False
+    )
+    rows[0]["sentenceSha256"] = "0" * 64
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=ev.AUDIT_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    with pytest.raises(ValueError):
+        ev.import_audit(tmp_path, path)
+    assert (tmp_path / "case-01.output.json").read_bytes() == saved
+
+
+def test_AC_SRC_3_critical_worksheet_numbers_dates_cultivar_certification(tmp_path):
+    texts = ["당도 13Brix", "11월 수확", "한라봉입니다", "GAP 인증", "향이 좋아요"]
+    r = row()
+    record = {
+        "id": r["id"],
+        "format": "text",
+        "status": "EVALUATED",
+        "modules": [{"module": "summary", "texts": texts}],
+    }
+    ev.write_envelope(tmp_path, [r], [(record, {}, "\n".join(texts), {})], [])
+    ev.worksheets(tmp_path)
+    with (tmp_path / "audit.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert [r["critical"] for r in rows] == ["true", "true", "true", "true", "false"]
+    with (tmp_path / "critical-audit.csv").open(newline="") as stream:
+        critical = list(csv.DictReader(stream))
+    assert len(critical) == 4
+    assert all(r["critical"] == "true" for r in critical)
+
+
+def test_AC_SRC_6_private_destination_rejects_checkout():
+    with pytest.raises(ValueError):
+        ev.private_path(ev.ROOT / "private-output")
+
+
+def test_AC_SRC_5_nonmock_requires_yes_without_provider_call(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(ev, "dataset", lambda *a: [row()])
+    monkeypatch.setattr(ev, "load_gold", lambda *a: pytest.fail("No gold needed without consent"))
+    assert ev.main(["--provider", "openrouter", "--out", str(tmp_path / "new")]) == 2
+    assert '"estimate"' in capsys.readouterr().out
+    assert not (tmp_path / "new").exists()
+
+
+def test_AC_SRC_5_holdout_missing_ack_never_loads_gold(tmp_path, monkeypatch):
+    monkeypatch.setattr(ev, "dataset", lambda *a: [row()])
+    monkeypatch.setattr(ev, "load_gold", lambda *a: pytest.fail("No locked gold before ack"))
+    assert (
+        ev.main(["--split", "holdout", "--provider", "openrouter", "--out", str(tmp_path / "new")])
+        == 2
+    )
+
+
+def test_AC_SRC_2_3_human_gate_cannot_pass_incomplete_or_negative_audits():
+    quality = {
+        "byFormat": {"text": {"sources": 1, "factRecall": {"rate": 1}, "criticalGate": "PASS"}}
+    }
+    audit = {"text": {"sentences": 1, "reviewed": 0}}
+    assert ev.targets(quality, audit, "openrouter")["text"]["result"] == "BLOCKED"
+    audit["text"].update(reviewed=1, supported=1, sourcesReviewed=1)
+    assert ev.targets(quality, audit, "openrouter")["text"]["result"] == "PASS"
+    assert ev.targets(quality, audit, "mock")["text"]["result"] == "BLOCKED"
+    audit["text"]["sourceAuditFailures"] = 1
+    assert ev.targets(quality, audit, "openrouter")["text"]["result"] == "FAIL"
+
+
+def test_AC_SRC_2_frozen_inputs_preserve_pdf_bytes_and_refuse_changed_safe(tmp_path):
+    r = {**row(), "synthetic": True}
+    ev.save_inputs(tmp_path, [r])
+    regenerated = {**r, "data": b"different timestamp", "inputSha256": "0" * 64}
+    assert ev.frozen_inputs([regenerated], [tmp_path / "inputs.json"])[0]["data"] == r["data"]
+    regenerated.update(synthetic=False, inputSha256="0" * 64)
+    with pytest.raises(ValueError, match="Safe input changed"):
+        ev.frozen_inputs([regenerated], [tmp_path / "inputs.json"])
+    (tmp_path / "inputs/case-01.txt").write_bytes(b"changed snapshot")
+    with pytest.raises(ValueError, match="Frozen source changed"):
+        ev.frozen_inputs([r], [tmp_path / "inputs.json"])
+
+
+def test_AC_SRC_5_budget_abort_preserves_source_failure(monkeypatch):
+    def denied(*a, **kw):
+        raise ai.ExtractionError("BUDGET_EXCEEDED")
+
+    calls = ev.Calls("mock", 3)
+    monkeypatch.setattr(ev, "transcribe_pages", denied)
+    monkeypatch.setattr(ev, "parse", lambda *a: [{"spans": [], "image": ""}])
+    r = {**row(), "mime": "image/png"}
+    result = ev.evaluate_source(r, "openrouter", "unused", calls)
+    assert result[0]["status"] == "FAILED"
+    assert result[1]["budgetExceeded"] is True
+    assert calls.entries == []
+
+
+def test_AC_SRC_2_quality_failure_still_writes_complete_report(tmp_path, monkeypatch):
+    _, gp = setup_output(tmp_path, monkeypatch, text="아무 사실도 추출하지 않는 입력")
+    report = ev.report(tmp_path, [gp])
+    assert report["quality"]["overall"]["criticalGate"] == "FAIL"
+    assert report["quality"]["overall"]["factRecall"]["rate"] == 0
+    assert (tmp_path / "report.json").exists()
+    assert report["acceptance"] == "BLOCKED"
+
+
+def test_AC_SRC_5_budget_abort_does_not_process_remaining_sources(tmp_path, monkeypatch):
+    from app.core.config import get_settings
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", cfg.source_evaluation)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", cfg.source_evaluation_budget_usd)
+    gp = gold(tmp_path / "gold.json")
+    value = ev.read_json(gp)
+    second = copy.deepcopy(value["sources"][0])
+    second["id"] = "case-02"
+    value["sources"].append(second)
+    ev.write_json(gp, value)
+    monkeypatch.setattr(ev, "dataset", lambda *a: [row(), row(sid="case-02")])
+    monkeypatch.setattr(ev, "load_gold", lambda *a: ([], [gp]))
+    attempted = []
+
+    def denied(self, *a, **kw):
+        attempted.append(a[0])
+        raise ai.ExtractionError("BUDGET_EXCEEDED")
+
+    monkeypatch.setattr(ev.Calls, "__call__", denied)
+    output = tmp_path / "run"
+    assert ev.main(["--out", str(output)]) == 1
+    assert attempted == ["extract"]
+    assert ev.read_json(output / "case-01.output.json")["status"] == "FAILED"
+    assert ev.read_json(output / "case-02.output.json")["status"] == "NOT_RUN"
+    quality = ev.read_json(output / "score.json")
+    assert quality["overall"]["factRecall"] == {"hit": 0, "total": 2, "rate": 0}
+
+
+def test_AC_SRC_4_shared_product_ocr_keeps_only_safe_verbatim_lines(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.source_analysis import worker
+
+    monkeypatch.setattr(worker, "crops", lambda data: ["encoded-crop"])
+    monkeypatch.setattr(
+        worker,
+        "transcribe",
+        lambda encoded: SimpleNamespace(
+            lines=["GAP 인증", "연락처 010-1234-5678", "[판독불가]", ""], usage={"mock": True}
+        ),
+    )
+    stages = []
+
+    def call(stage, model, chunk, targets, images, fn, output_tokens):
+        stages.append(stage)
+        assert images == ["encoded-crop"]
+        assert model == worker.OCR_MODEL
+        return fn()
+
+    chunk = {"pages": [{"number": 1, "spans": []}]}
+    ev.transcribe_pages(chunk, {1: b"safe image bytes"}, call)
+    assert stages == ["ocr-1-0"]
+    assert chunk["pages"][0]["spans"] == [{"id": "vision-gemini-0", "text": "GAP 인증"}]
+
+
+def test_AC_SRC_2_refine_receives_only_current_target_in_source_order(monkeypatch):
+    extract = ai.extract
+    refine = ev.refine_ai.refine
+    seen = []
+
+    def with_common(*args, **kwargs):
+        result = extract(*args, **kwargs)
+        result.extraction.candidates[0].target_id = None
+        result.extraction.candidates.reverse()
+        return result
+
+    def capture(mode, model, target, candidates):
+        seen.extend(candidates)
+        return refine(mode, model, target, candidates)
+
+    monkeypatch.setattr(ai, "extract", with_common)
+    monkeypatch.setattr(ev.refine_ai, "refine", capture)
+    result = ev.evaluate_source(row(), "mock", "mock", ev.Calls("mock", 3))
+    assert len(result[3]["candidates"]) == 3
+    assert len(seen) == 2
+    assert all(c["targetId"] == "eval-target" for c in seen)
+    assert [c["fieldKey"] for c in seen] == ["summary", "storage"]
+
+
+@pytest.mark.parametrize("status", [401, 403, 400, 500])
+@pytest.mark.parametrize("stage", ["extract", "refine", "ocr"])
+@pytest.mark.parametrize("mode", ["openrouter", "openai"])
+def test_AC_SRC_5_6_adapters_redact_provider_errors(monkeypatch, status, stage, mode):
+    from app.ai import source_ocr
+
+    if stage == "ocr" and mode == "openai":
+        # Product OCR always uses OpenRouter, independently of the extraction model.
+        mode = "openrouter"
+    closed = []
+
+    def fail(**kwargs):
+        raise APIStatusError(
+            "PRIVATE PROVIDER MESSAGE",
+            response=httpx.Response(status, request=httpx.Request("POST", "https://local.invalid")),
+            body={"error": "PRIVATE PROVIDER BODY"},
+        )
+
+    fake = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=fail)),
+        responses=SimpleNamespace(parse=fail),
+        close=lambda: closed.append(True),
+    )
+    monkeypatch.setattr(ai, "OpenAI", lambda **kwargs: fake)
+    monkeypatch.setattr(source_ocr, "OpenAI", lambda **kwargs: fake)
+    model = "google/gemini-3-flash-preview" if mode == "openrouter" else "gpt-6.1-sol"
+    with pytest.raises(ai.ExtractionError) as error:
+        if stage == "extract":
+            ai.extract(mode, model, {"pages": []}, [], [])
+        elif stage == "refine":
+            ev.refine_ai.refine(mode, model, {"id": "target"}, [{"id": "c0"}])
+        else:
+            source_ocr.transcribe("local-fixture")
+    expected = (
+        "PROVIDER_AUTH"
+        if status in {401, 403}
+        else "REQUEST_UNCERTAIN"
+        if status >= 500
+        else "PROVIDER_REJECTED"
+    )
+    assert error.value.code == expected
+    assert str(error.value) == expected
+    assert error.value.usage == {}
+    assert closed == [True]
+
+
+@pytest.mark.parametrize(
+    ("stage", "code", "expected"),
+    [
+        ("extract", "PROVIDER_AUTH", "PROVIDER_AUTH"),
+        ("extract", "PROVIDER_REJECTED", "PROVIDER_REJECTED"),
+        ("extract", "INVALID_MODEL_OUTPUT", "INVALID_MODEL_OUTPUT"),
+        ("extract", "PRIVATE SOURCE TEXT", "SOURCE_FAILED"),
+        ("ocr", "INVALID_OCR", "OCR_FAILED"),
+        ("ocr", "PROVIDER_AUTH", "PROVIDER_AUTH"),
+        ("refine", "INVALID_MODEL_OUTPUT", "INVALID_MODEL_OUTPUT"),
+    ],
+)
+def test_AC_SRC_5_6_source_error_metadata_uses_only_fixed_codes(monkeypatch, stage, code, expected):
+    def fail(*args, **kwargs):
+        raise ai.ExtractionError(code)
+
+    r = row()
+    if stage == "ocr":
+        r["mime"] = "image/png"
+        monkeypatch.setattr(ev, "parse", lambda *a: [{"spans": [], "image": ""}])
+        monkeypatch.setattr(ev, "transcribe_pages", fail)
+    else:
+        monkeypatch.setattr(ai if stage == "extract" else ev.refine_ai, stage, fail)
+    result = ev.evaluate_source(
+        r, "openrouter" if stage == "ocr" else "mock", "mock", ev.Calls("mock", 3)
+    )
+    assert result[0]["status"] == result[1]["status"] == "FAILED"
+    assert result[1]["errorCode"] == expected
+    assert "PRIVATE SOURCE TEXT" not in json.dumps(result[1])
+
+
+@pytest.mark.parametrize("stage", ["extract", "ocr", "refine"])
+def test_AC_SRC_5_auth_aborts_run_preserving_all_denominators(tmp_path, monkeypatch, capsys, stage):
+    from app.core.config import get_settings
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", cfg.source_evaluation)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", cfg.source_evaluation_budget_usd)
+    gp = gold(tmp_path / "gold.json")
+    value = ev.read_json(gp)
+    second = copy.deepcopy(value["sources"][0])
+    second["id"] = "case-02"
+    value["sources"].append(second)
+    ev.write_json(gp, value)
+    rows = [row(), row(sid="case-02")]
+    if stage == "ocr":
+        from app.source_analysis import preprocess
+
+        rows[0]["mime"] = "image/png"
+        monkeypatch.setattr(ev, "estimate", lambda *a: {})
+        monkeypatch.setattr(preprocess, "_ocr_engine", lambda: None)
+        monkeypatch.setattr(ev, "parse", lambda *a: [{"spans": [], "image": ""}])
+
+        def ocr(chunk, images, calls):
+            calls("ocr-1-0", "mock", {}, [], [], lambda: None)
+
+        monkeypatch.setattr(ev, "transcribe_pages", ocr)
+    monkeypatch.setattr(ev, "dataset", lambda *a: rows)
+    monkeypatch.setattr(ev, "load_gold", lambda *a: ([], [gp]))
+    attempted = []
+    original = ev.Calls.__call__
+
+    def call(self, name, *args, **kwargs):
+        attempted.append(name)
+        if name.startswith(stage):
+            raise ai.ExtractionError("PROVIDER_AUTH")
+        return original(self, name, *args, **kwargs)
+
+    monkeypatch.setattr(ev.Calls, "__call__", call)
+    out = tmp_path / "run"
+    args = ["--out", str(out)]
+    if stage == "ocr":
+        args += ["--provider", "openrouter", "--yes"]
+    assert ev.main(args) == 1
+    assert attempted == (
+        ["extract", "refine"] if stage == "refine" else ["ocr-1-0" if stage == "ocr" else "extract"]
+    )
+    metadata = ev.read_json(out / "metadata.json")
+    assert metadata["sources"][0]["errorCode"] == metadata["abortCode"] == "PROVIDER_AUTH"
+    assert metadata["sources"][1]["errorCode"] == "RUN_ABORTED_PROVIDER_AUTH"
+    assert ev.read_json(out / "case-02.output.json")["status"] == "NOT_RUN"
+    assert ev.read_json(out / "score.json")["overall"]["factRecall"] == {
+        "hit": 0,
+        "total": 2,
+        "rate": 0,
+    }
+    printed = json.loads(capsys.readouterr().out.splitlines()[-1])
+    assert printed["costUsd"] == printed["settledUsd"] == printed["unsettledReservedUsd"] == 0
+
+
+def test_AC_SRC_5_unknown_cost_is_reserved_in_metadata_and_report(monkeypatch, tmp_path):
+    from app.core.config import get_settings
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", True)
+    calls = ev.Calls("openrouter", 1)
+    calls(
+        "extract",
+        "google/gemini-3-flash-preview",
+        {},
+        [],
+        [],
+        lambda: SimpleNamespace(usage={}, request_id=None),
+    )
+    entry = calls.entries[0]
+    assert entry["costUsd"] == 0
+    assert not entry["costKnown"]
+    assert calls.used == entry["reservedMicros"] > 0
+    _, gp = setup_output(tmp_path, monkeypatch)
+    metadata = ev.read_json(tmp_path / "metadata.json")
+    metadata["sources"][0].update(**ev.costs(calls.entries), costKnown=False)
+    ev.write_json(tmp_path / "metadata.json", metadata)
+    report = ev.report(tmp_path, [gp])
+    stats = report["performanceByFormat"]["text"]
+    assert stats["totalCostUsd"] == stats["totalSettledUsd"] == 0
+    assert stats["totalReservedUsd"] == stats["totalUnsettledReservedUsd"] == calls.used / 1e6
+    assert not stats["costsKnown"]
+    assert "Unsettled reserved USD" in (tmp_path / "report.md").read_text()
+
+
+def test_AC_SRC_5_first_auth_failure_prints_pending_reservation_as_unspent(
+    tmp_path, monkeypatch, capsys
+):
+    from app.core.config import get_settings
+
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", cfg.source_evaluation)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", cfg.source_evaluation_budget_usd)
+    gp = gold(tmp_path / "gold.json")
+    value = ev.read_json(gp)
+    second = copy.deepcopy(value["sources"][0])
+    second["id"] = "case-02"
+    value["sources"].append(second)
+    ev.write_json(gp, value)
+    monkeypatch.setattr(ev, "dataset", lambda *a: [row(), row(sid="case-02")])
+    monkeypatch.setattr(ev, "load_gold", lambda *a: ([], [gp]))
+    attempted = []
+
+    def unauthorized(*args, **kwargs):
+        attempted.append(True)
+        raise ai.ExtractionError("PROVIDER_AUTH")
+
+    monkeypatch.setattr(ai, "extract", unauthorized)
+    out = tmp_path / "run"
+    assert ev.main(["--provider", "openrouter", "--yes", "--out", str(out)]) == 1
+    assert attempted == [True]
+    printed = json.loads(capsys.readouterr().out.splitlines()[-1])
+    assert printed["costUsd"] == printed["settledUsd"] == 0
+    assert printed["reservedUsd"] == printed["unsettledReservedUsd"] > 0
+    metadata = ev.read_json(out / "metadata.json")
+    assert metadata["reservedUsd"] == printed["reservedUsd"]
+    assert metadata["sources"][0]["costKnown"] is False
+    assert metadata["sources"][1]["status"] == "NOT_RUN"
+    with get_sessionmaker()() as db:
+        spends = list(db.scalars(select(Spend)))
+        assert len(spends) == 1
+        assert spends[0].charged_micros is None
+        assert spends[0].reserved_micros / 1e6 == printed["reservedUsd"]
+
+
+@pytest.mark.parametrize("stage", ["preprocess", "ocr"])
+def test_AC_SRC_5_6_preparation_failures_are_redacted_per_source(monkeypatch, stage):
+    def failure(*args):
+        raise ev.PreparationError("PRIVATE PARSER MESSAGE")
+
+    r = row()
+    if stage == "preprocess":
+        monkeypatch.setattr(ev, "parse", failure)
+    else:
+        r["mime"] = "image/png"
+        monkeypatch.setattr(ev, "parse", lambda *a: [{"spans": [], "image": ""}])
+        monkeypatch.setattr(ev, "transcribe_pages", failure)
+    result = ev.evaluate_source(r, "openrouter", "unused", ev.Calls("mock", 3))
+    assert result[0]["status"] == "FAILED"
+    assert result[1]["errorCode"] == ("OCR_FAILED" if stage == "ocr" else "PREPROCESS_FAILED")
+    assert "PRIVATE PARSER MESSAGE" not in json.dumps(result)
+
+
+@pytest.mark.parametrize(
+    "extra", [[], ["--estimate-only"], ["--force-rerun", "--rerun-reason", "Synthetic reason"]]
+)
+def test_AC_SRC_5_holdout_mock_refused_before_inputs_or_marker(tmp_path, monkeypatch, extra):
+    monkeypatch.setattr(ev, "dataset", lambda *a: pytest.fail("No holdout input access"))
+    monkeypatch.setattr(ev, "claim_holdout", lambda *a: pytest.fail("No attempt consumed"))
+    assert (
+        ev.main(
+            [
+                "--split",
+                "holdout",
+                "--provider",
+                "mock",
+                "--i-understand-holdout-runs-once",
+                "--out",
+                str(tmp_path / "run"),
+                *extra,
+            ]
+        )
+        == 2
+    )
+    assert not (tmp_path / "run").exists()
+
+
+@pytest.mark.parametrize("reason", [None, "", "   "])
+def test_AC_SRC_5_force_requires_nonempty_reason_before_inputs(tmp_path, monkeypatch, reason):
+    monkeypatch.setattr(ev, "dataset", lambda *a: pytest.fail("No input access"))
+    args = ["--force-rerun", "--out", str(tmp_path / "run")]
+    if reason is not None:
+        args += ["--rerun-reason", reason]
+    assert ev.main(args) == 2
+    assert not (tmp_path / "run").exists()
+
+
+def test_AC_SRC_5_holdout_attempt_and_reason_match_metadata(tmp_path, monkeypatch):
+    cfg = ev.get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", cfg.source_evaluation)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", cfg.source_evaluation_budget_usd)
+    gp = gold(tmp_path / "final-gold-v1.1.json")
+    ev.claim_holdout(gp, True)
+    monkeypatch.setattr(ev, "dataset", lambda *a: [row()])
+    monkeypatch.setattr(ev, "load_gold", lambda *a: ([], [gp]))
+    monkeypatch.setattr(ev, "worksheets", lambda *a: None)
+    monkeypatch.setattr(ev, "report", lambda *a: None)
+    original = ev.evaluate_source
+    monkeypatch.setattr(
+        ev, "evaluate_source", lambda r, *a: original(r, "mock", "mock", ev.Calls("mock", 3))
+    )
+    out = tmp_path / "run"
+    assert (
+        ev.main(
+            [
+                "--split",
+                "holdout",
+                "--provider",
+                "openrouter",
+                "--yes",
+                "--i-understand-holdout-runs-once",
+                "--force-rerun",
+                "--rerun-reason",
+                "Synthetic safety regression",
+                "--holdout-dir",
+                str(tmp_path),
+                "--out",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    metadata = ev.read_json(out / "metadata.json")
+    marker = ev.read_json(gp.with_name(gp.name + ".run-once.json.2"))
+    assert metadata["holdoutAttempt"] == marker["attempt"] == 2
+    assert metadata["rerunReason"] == marker["rerunReason"] == "Synthetic safety regression"
+
+
+def test_AC_SRC_5_6_unexpected_source_failure_keeps_spend_and_continues(
+    tmp_path, monkeypatch, capsys
+):
+    cfg = ev.get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", cfg.source_evaluation)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", cfg.source_evaluation_budget_usd)
+    gp = gold(tmp_path / "gold.json")
+    g = ev.read_json(gp)
+    g["sources"].append({**copy.deepcopy(g["sources"][0]), "id": "case-02"})
+    ev.write_json(gp, g)
+    monkeypatch.setattr(ev, "load_gold", lambda *a: ([], [gp]))
+    attempted = []
+    original = ai.extract
+
+    def extract(*args, **kwargs):
+        attempted.append(True)
+        if len(attempted) == 1:
+            raise LookupError("SYNTHETIC_EXCEPTION_CONTENT")
+        return original("mock", *args[1:], **kwargs)
+
+    monkeypatch.setattr(ai, "extract", extract)
+    # The second source is intentionally empty, so no refinement provider call is needed.
+    monkeypatch.setattr(ev, "dataset", lambda *a: [row(), row("Synthetic empty", sid="case-02")])
+    out = tmp_path / "run"
+    assert ev.main(["--provider", "openrouter", "--yes", "--out", str(out)]) == 0
+    metadata = ev.read_json(out / "metadata.json")
+    assert len(attempted) == 2
+    assert metadata["sources"][0]["errorCode"] == "SOURCE_FAILED"
+    assert metadata["sources"][1]["status"] == "EMPTY"
+    assert metadata["unsettledReservedUsd"] > 0
+    assert len(ev.read_json(out / "runs.json")["sources"]) == 2
+    with get_sessionmaker()() as db:
+        spends = list(db.scalars(select(Spend)))
+        assert len(spends) == 2
+        assert spends[0].charged_micros is None
+    assert (
+        "SYNTHETIC_EXCEPTION_CONTENT"
+        not in (out / "metadata.json").read_text() + capsys.readouterr().out
+    )
+
+
+@pytest.mark.parametrize("error", [LookupError, KeyboardInterrupt])
+def test_AC_SRC_5_6_run_abort_writes_partial_artifacts_in_finally(
+    tmp_path, monkeypatch, capsys, error
+):
+    cfg = ev.get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", cfg.source_evaluation)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", cfg.source_evaluation_budget_usd)
+    gp = gold(tmp_path / "gold.json")
+    monkeypatch.setattr(ev, "dataset", lambda *a: [row(), row(sid="case-02")])
+    monkeypatch.setattr(ev, "load_gold", lambda *a: ([], [gp]))
+    original = ev.evaluate_source
+
+    def evaluate(r, *args):
+        if r["id"] == "case-02":
+            raise error("SYNTHETIC_ABORT_CONTENT")
+        return original(r, *args)
+
+    monkeypatch.setattr(ev, "evaluate_source", evaluate)
+    monkeypatch.setattr(
+        ai,
+        "extract",
+        lambda *a, **kw: SimpleNamespace(
+            extraction=ai.Extraction(candidates=[], photo_requests=[]),
+            usage={"cost": 0.001},
+            request_id=None,
+        ),
+    )
+    out = tmp_path / "run"
+    args = ["--provider", "openrouter", "--yes", "--out", str(out)]
+    if error is KeyboardInterrupt:
+        with pytest.raises(KeyboardInterrupt):
+            ev.main(args)
+    else:
+        assert ev.main(args) == 2
+    metadata = ev.read_json(out / "metadata.json")
+    assert metadata["abortCode"] == "RUN_FAILED"
+    assert len(metadata["sources"]) == 1
+    assert metadata["settledUsd"] == 0.001
+    assert len(ev.read_json(out / "runs.json")["sources"]) == 1
+    with get_sessionmaker()() as db:
+        spends = list(db.scalars(select(Spend)))
+        assert len(spends) == 1
+        assert spends[0].charged_micros == 1000
+    assert (
+        "SYNTHETIC_ABORT_CONTENT"
+        not in (out / "metadata.json").read_text() + capsys.readouterr().out
+    )
