@@ -194,3 +194,14 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/8/11. 제품 결정은 `docs/spec/source-analysi
 - `current_candidates`는 공통/상품 후보를 한 번에 기존 source_order로 정렬한다. 전체 payload SHA-256을 REFINE JSON의 `inputCandidatesHash`에 저장하고 `inputCandidateIds`와 함께 최신성을 확인한다. cap 적용 전 해시이므로 생략된 공통 후보의 같은 ID 내용 수정도 SOURCE_CHANGED/outdated로 처리한다. 버전이 다른 저장 정리는 다음 분석에서 다시 계산한다.
 - 공통 ID를 가진 REFINED 필드를 기존 stored_fields/current_ids 검사와 함께 검증해 editor → draft 저장을 지원한다. 실패/outdated 원문 제안에도 같은 공통 필드 경계를 사용하고 정상 정리의 누락/제외를 복원하지 않는다.
 - 기존 `13-common-farm`을 stage-1 mock 전용 고정 SHA allowlist로 연결하고 실제 추출→정리→검증을 사용한다. 원천 fixture·gold·manifest·scorer는 변경하지 않는다. 원문순 cap·생략 후보 최신성·단일/다중 대상·저장·fallback·empty_reason을 AC ID 합성 테스트로 확인한다.
+
+## DEV-182 holdout v1.1 개발 전환 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6. [제품 spec](../../../docs/spec/source-analysis.md)의 폐기 정책과 [보고서](../../../docs/spec/validation/source-final-eval-i3-2026-11-01.md)의 부분 오염 재실행 절을 따른다.
+
+- owner의 T23 재실행은 최초 측정과 분리해 집계만 보존한다. stage-1 `source-v8-exact-numbers` / stage-2 `source-refine-v7-farm-common`을 private metadata로 확인했다. 최초 결과와 FAIL 판정을 유지한다.
+- manifest의 holdout 상태는 `RETIRED_TO_DEV`, retiredAt=`2026-11-02`다. 역사 lock/holdout 고정 SHA는 그대로 둔다. 이제 기존12건도 LOCAL_PRIVATE 개발 사례이며 전체47건(공개개발24+합성23)이다. 과거의 v1.1 튜닝 금지 문구는 당시 정책 이력이다.
+- runner의 개발 public gold는 private `final-gold-dev-public-v2.json`이다. 기존 top-level source-list 계약을 유지하고 ID/format은 manifest와 정확히 대조하며 split=development의 Gold로 검증한다. 모든 LOCAL_PRIVATE goldSha256과 LOCAL_GOLD_SHA256.development는 병합 파일 바이트 SHA다. 원래 개발 gold와 holdout safe/gold는 보존한다.
+- repo guard는 신규 manifest case에 한해 잠긴12개 ID/format과 metadata 키만 허용한다. 그 밖의 holdout payload 차단과 역사 lock의 정확한 구조 검증은 유지한다. 미래 독립 측정은 튜닝하지 않는 사람들의 독립3인 검토 holdout v2가 필요하다.
+
+- 입력 해시: 기존 공개개발12건 safeInputSha256은 corpus의 canonical-json-utf8 해시를 보존한다. 편입12건은 safe 파일 바이트 SHA로 기록하고 safeInputEncoding=file-bytes로 구분한다. gold 파일 SHA는 전부 같은 병합 v2 파일 바이트 SHA다.

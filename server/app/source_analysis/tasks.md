@@ -448,3 +448,50 @@ T11 집계 오류 유형만 바탕으로 일부 후보 거절·긴 PDF·긴 텍�
 - 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: development에서 발견한 단일 상품 null 농가 이야기 누락을 공통 제품 함수로 고치고 상품 전용 필드·기존 테스트를 보호한다. HEAD=73358eb 유지, 커밋·push·PR·live 호출·holdout 데이터 접근0. 이번 후속 변경은 미커밋으로 보존한다.
 - 11/02 합성 gold 정합: DEV-182에서 추가한 21–23의 `mustContain`이 문장 전체(예: "감귤 7kg입니다")여서, 기존 20건의 핵심 토큰 규칙(예: ["감귤","5kg"])과 달랐다. 어미가 빠진 같은 사실 "감귤 7kg"을 놓침으로 셌다. 기존 규칙에 맞춰 ["감귤","7kg"], ["서늘한 곳"], ["바람을 막는 울타리"]로 고치고 manifest 해시를 갱신했다. 측정 기준 정합이며 모델·프롬프트 변경은 아니다. 저장한 T23 개발 실측 2회를 호출 없이 재채점(--rescore)했다.
 - 11/02 owner 개발셋 실측(openrouter gemini-3-flash-preview, 35건): T23a(v6 정리) 사실 73/93·중요 37/45·오배치 9/93·$0.185, T23b(v7 농가 공통) 사실 80/93·중요 36/45·오배치 4/93. 두 회 모두 금지·unsupported 0. 기존 32건 기준 R4 72/87·35/42 → T23b 74/87·33/42. T23b의 03-expected-brix는 2단계 호출 REQUEST_UNCERTAIN(일시 실패, 자동 재시도 없음)으로 0/2이다. farm-orafield는 v7에서 3/3으로 회복했다. 실행마다 1회씩만 측정했으므로 회차 간 차이 일부는 모델 변동일 수 있다.
+
+## DEV-182 T23 재실행 집계와 holdout v1.1 개발 편입 (2026-11-02)
+
+- 이슈: [DEV-182](https://linear.app/sswp6/issue/DEV-182)
+- 브랜치: `jinumeral/dev-182-i3-t23-extraction-fixes`, 시작 HEAD `87f5357`
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6
+- 상태: 진행 중. 사용자 제공 owner 승인 계획을 이번 작업 지시서로 적용한다.
+
+### 목표
+owner가 완료한 T23 부분 오염 재실행을 집계만 보고하고, 소진된 holdout v1.1의12건을 개발용으로 보존·편입한다. 최초 결과와 FAIL 판정을 유지한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/{final_eval,final_score}.py`, `server/tests/{test_final_eval,test_final_score}.py`
+- `server/app/source_analysis/{spec,tasks}.md`, `docs/spec/source-analysis.md`, `docs/wiki/Source-Analysis.md`
+- `docs/spec/validation/source-final-{eval-i3-2026-11-01.md,eval-i3-2026-11-01.json,dev-manifest.json,gold-format.md}`
+- 저장소 밖 `../source-dev-i3-private/safe/`, 신규 `../source-dev-i3-private/final-gold-dev-public-v2.json`, 신규 mock 출력 폴더.
+
+### 비범위
+- 커밋·push·PR·외부 통지·live/유료 호출, 기존 private gold/holdout 파일 삭제·변경, 테스트 약화, private 본문·gold 저장소 반입.
+
+### 결정 사항
+- 11/02 최초 holdout 측정만 비오염 기준으로 보존한다(기존 간접 오염 주의도 유지). 재실행은 “T23 holdout rerun — partially contaminated; does not replace the first run”으로 별도 기록하며 판정 FAIL이다.
+- 11/02 owner 승인으로 holdout v1.1은 오늘 개발용으로 폐기되어 private 폴더를 읽을 수 있다. safe 입력은 원래 ID/확장자로 복사하고 원본을 보존한다. 개발 gold v2는 기존 private top-level source-list 규약을 유지하며 format 주입 후 split=development의 final_score.Gold로 검증한다. ID 충돌은 거절한다.
+- 11/02 manifest의 모든 LOCAL_PRIVATE goldSha256과 scorer 개발 고정 SHA를 병합 v2 파일 바이트 해시로 맞춘다. 공개개발24+합성23=47건이다(기존32→44에 DEV-182 합성3 추가). 역사 holdout lock은 guard의 정확한 스키마/정책 고정을 보존하므로 변경하지 않는다.
+- 11/02 guard는 새 manifest에 한해 잠긴12개 ID/format과 metadata 필드만 허용하며 나머지 JSON의 holdout payload 차단을 유지한다. 향후 독립 측정은 튜닝하지 않는 사람들이 동일3인 검토 절차로 만든 holdout v2가 필요하다.
+- 11/02 gold-format 문서의 현재 개발 gold 경로도 v2로 맞춘다. wiki/tasks는 기존 바이트를 유지하고 끝에만 추가한다. 검증은 지정 Ruff/pytest·diff 및 development public estimate/full mock만 수행한다.
+
+### 작업
+- [ ] 재실행·두 개발 실측/합성 gold 정합 집계 보고서 추가.
+- [ ] private 입력12건 복사·gold 병합/검증·manifest/runner/guard 정합.
+- [ ] mock estimate24건·신규 출력 폴더 full run 로딩/채점 확인.
+- [ ] 지정 Ruff/pytest·diff 검사 및 결과 기록.
+
+### 기록
+- 11/02 시작: 작업 트리 깨끗함. metadata에서 stage1 `source-v8-exact-numbers`, stage2 `source-refine-v7-farm-common`, 시도2와 owner 재실행 사유 확인. private score/metadata에서 집계만 추출한다. 신규 실모델 호출은 하지 않는다.
+- 11/02 해시 인코딩 확인: 기존12건 safeInputSha256은 corpus의 canonical-json-utf8 구조화 입력 해시이며 현재 safe 파일 바이트 SHA가 아니다. 기존 값은 보존한다. 새로 편입한12건은 복사한 safe 파일 바이트 SHA로 검증하므로 `safeInputEncoding=file-bytes`를 명시하여 두 해시 계약을 혼동하지 않게 한다. 이는 입력 변경이 아니며 guard의 신규 metadata 키도 정확히 고정한다.
+- 11/02 구현 결과: safe 입력12건을 동일 ID/확장자로 개발 private 폴더에 복사했고 원본은 보존했다. 기존 개발12+폐기12의 ID 충돌0, 병합 gold24건은 development Gold 검증을 통과했다. v2 파일 SHA는 `16c239045030411306cf07e8b04e9bf35c98d74acda0f861ccc69e48f1b27fb5`이며 runner·scorer 고정 SHA·LOCAL_PRIVATE24건 goldSha256이 일치한다. 합성23건은 변경하지 않았다.
+- 11/02 보고 결과: private score/metadata에서 형식별/전체 facts·critical·misplacement·금지 종류·unsupported·proxy·상태·오류·정산·호출 집계만 추출했다. 재실행74/261·32/109·오배치26/261·금지2·unsupported0·proxy82/91·93호출·$0.190412, 최초59/261과 분리해 보존했다. 개발 T23a73/93·T23b80/93와 합성21–23 gold 정합 기록을 요약했다. FAIL과 최초 측정의 기존 간접 오염 주의를 유지한다.
+- 11/02 지정 최종 검증: `cd server && uv run ruff check . && uv run pytest tests/test_final_eval.py tests/test_final_score.py` → **Ruff 통과; 327 passed / 0 failed (30.05s)**. 환경: `UV_CACHE_DIR=/private/tmp/farmclub-dev182-uv-cache`, `APP_ENV=local`, `SOURCE_STORAGE=local`, `SOURCE_ANALYSIS_PROVIDER=mock`, 로컬 `farmclub_dev182`(pytest `_test`). 앞선 동일 묶음도327 passed / 0 failed(36.17s)였다. 신규3개 회귀는 public/all v2 로딩·변조 거절2개와 집계/최초 결과 보존1개다. 기존 guard의 문자열 payload 차단·역사 lock 고정 assertion을 유지했다.
+- 11/02 mock estimate: `cd server && uv run python -m app.source_analysis.final_eval --split development --subset public --provider mock --estimate-only --out ../../source-dev-i3-private/dev182-retired-public-estimate` → **sources24 / estimatedExtractionCalls63 / estimatedRefinementCalls24 / estimatedOcrCalls236**, 종료0. OCR 호출 추정치는 계획용이며 실제 mock은 로컬 OCR만 사용한다.
+- 11/02 mock full: 같은 명령에서 `--estimate-only`를 빼고 `--out ../../source-dev-i3-private/dev182-retired-public-mock-20261102`를 사용했다. 최초 사전 검사는 이 worktree의 OCR_NOT_CONFIGURED로 종료2(출력 폴더 생성 전)였다. 기존 sibling worktree의 오프라인 RapidOCR 모델3개 파일 해시를 검증하고 환경 변수 SOURCE_OCR_MODEL_DIR·SOURCE_OCR_MODEL_SHA256만 연결해 실행했다(설치/다운로드 없음). **종료0; loaded24 / scored24 / EMPTY24 / FAILED0 / mock calls87 / 정산$0 / score facts0/324**. 새 private 폴더에 inputs/runs/metadata/score/report를 생성해 실제 로딩·채점 경로를 확인했다. mock은 품질 측정이 아니다.
+- 11/02 보존/정보 감사: 기존 JSON 최상위19필드 값 동일, report MD·wiki·tasks 기존 바이트 prefix 보존, 합성23건 값 동일, 기존 개발12건 canonical 해시 보존, 신규12건 복사 바이트/해시 일치, 역사 holdout lock 바이트 동일, 기존 private gold2개 SHA 동일, 병합 gold는 원래 두 source 리스트의 순서 유지 연결임을 확인했다. 신규 추가 라인에서 길이20자 이상 private gold 문장/statement 일치0건이다. 저장소 신규 파일0·수정12경로 모두 이번 범위 안이다.
+- 11/02 diff 범위: `git diff main...HEAD`680경로와 `origin/main...HEAD`26경로는 상속된 이력이다. 이번 변경은 `git diff HEAD`12경로로 tasks와 대조했다. `git diff --check` 통과. HEAD=87f5357 유지, 커밋·push·PR·live 호출0이다.
+- [x] 이번 재실행 보고·개발 편입·문서·mock 로딩/채점·지정 테스트 검증 완료. 모델 품질 FAIL과 미래 독립 holdout v2 필요성은 그대로다.
+- 11/02 의도한 커밋(실행하지 않음): `docs(source): AC-SRC-2/3/6 T23 부분 오염 재실행과 폐기 기록 (DEV-182)`, `chore(eval): AC-SRC-2/6 폐기 holdout 개발 편입과 v2 gold 연결 (DEV-182)`.
+- 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: owner 승인된 재실행 집계만 공개하고 폐기 holdout을 원본 보존·private v2 gold·mock 검증으로 개발 편입한다.
+- 11/02 재현성 주의: 개발 public gold가 v2(`16c23904…`)로 바뀌어 `final_score`는 v2 SHA와 24건 ID 집합만 받는다. v1(`3ed46597…`)을 가리키는 과거 개발 run(R1–R4, T23a/T23b)은 `--rescore`로 다시 채점할 수 없으며, 기록 수치는 당시 저장된 score.json 기준이다. 보고서 비교 절에 재실행의 형식별 하락(image·long_image facts/critical, 오배치10→26)을 명시했다.

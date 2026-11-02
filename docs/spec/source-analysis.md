@@ -180,3 +180,11 @@ null 후보도 모든 fieldKey를 가질 수 있으므로 상품 배치를 추�
 worker와 final_eval은 제품의 대상 선택·모듈 검증 함수를 공유한다. 공통 후보도 대상 후보와 함께 원문 순서로 정렬한 뒤 결정적 prefix(40후보/JSON16000자)를 취하고 생략 후보를 unused로 기록한다. 전체 입력 ID와 내용 해시에 공통 후보 및 상한으로 생략한 후보를 포함한다. 공통 후보의 값·근거·배치가 바뀌면 같은 ID라도 정리는 outdated이며 호출 전후 검사와 재사용 판정에 반영한다. `candidateIds`에는 공통 후보의 실제 ID를 보존하고 편집·초안 저장에서도 같은 범위를 검증한다.
 
 정리 실패·outdated 시 안전한 공통 원문은 단일 상품의 해당 농가 필드에서 기존 원문 fallback 규칙을 따른다. 현재 정리가 대기 중이거나 정상 정리에서 제외한 문구는 원문으로 복원하지 않는다. 단일 상품에서 `NO_TARGET_CANDIDATES`는 대상 후보와 공통 후보가 모두 없을 때에만 가능하며, 공통 후보를 받았지만 허용 문구가 없으면 `ALL_TEXTS_FILTERED`다. 후보 자체가 없으면 기존대로 REFINE 사유를 만들지 않고 파일 추출 진단을 사용한다. 기존 개발 합성 `13-common-farm`과 고정 gold/manifest 해시로 mock 회귀를 검증하며 gold·채점기·holdout은 변경하지 않는다.
+
+## DEV-182 T23 재실행과 holdout v1.1 개발 편입 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6. owner의 T23 재실행은 **부분 오염 측정이며 최초 결과를 대체하지 않는다**. [최종 보고서](validation/source-final-eval-i3-2026-11-01.md)의 별도 절에 facts74/261, critical32/109, 금지2, unsupported0, 정산$0.190412를 기록한다. 최초59/261·critical29/109·금지0을 유일한 비오염 측정 기준으로 보존하되 이미 공개한 간접 오염 주의도 유지한다. 판정은 FAIL이다.
+
+holdout v1.1은 2026-11-02 **RETIRED_TO_DEV**로 전환되었다. 과거의 잠금·튜닝 금지 문구는 당시 정책 이력이며 이제 해당12건은 개발용으로 읽고 회귀·튜닝에 사용한다. 기존32→44건에 DEV-182 합성3건을 더해 총47건(공개개발24, 합성23)이다. `source-final-dev-manifest.json`이 현재 구성을 정의하고 `source-final-holdout-i3-lock.json`은 역사 그대로 보존한다. 원본 holdout 입력/gold와 기존 개발 gold는 변경하지 않는다. private safe 입력12건을 개발 safe 폴더로 복사하고 병합 gold는 저장소 밖 `final-gold-dev-public-v2.json`으로 둔다. 개발 채점은 split=development와 새 파일 고정 SHA를 사용한다. 저장소에는 ID·형식·해시·집계만 둔다.
+
+향후 독립 성능 주장은 **튜닝하지 않는 사람들이 동일한 독립3인 검토 절차로 구축한 새 holdout v2**가 필요하다. v1.1 반복 실행이나 개발 mock 결과로 독립 품질을 주장하지 않는다.

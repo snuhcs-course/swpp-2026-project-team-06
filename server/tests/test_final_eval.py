@@ -970,12 +970,58 @@ def test_AC_SRC_2_synthetic_subset_includes_t23_and_checks_input_definition(monk
     assert len(rows) == 23
     assert {"21-long-text", "22-pdf-25-pages", "23-partial-validation"} <= {r["id"] for r in rows}
     manifest = ev.read_json(final_score.DEV_MANIFEST)
-    manifest["cases"][-1]["inputDefinitionSha256"] = "0" * 64
+    next(c for c in manifest["cases"] if c["id"] == "23-partial-validation")[
+        "inputDefinitionSha256"
+    ] = "0" * 64
     path = tmp_path / "dev-manifest.json"
     ev.write_json(path, manifest)
     monkeypatch.setattr(final_score, "DEV_MANIFEST", path)
     with pytest.raises(ValueError, match="Synthetic input definition changed"):
         ev.dataset("development", "synthetic", tmp_path, tmp_path)
+
+
+@pytest.mark.parametrize("subset", ["public", "all"])
+def test_AC_SRC_2_6_retired_public_sources_load_v2_gold_without_holdout_access(
+    tmp_path, monkeypatch, subset
+):
+    manifest = ev.read_json(final_score.DEV_MANIFEST)
+    private = [c for c in manifest["cases"] if c["status"] == "LOCAL_PRIVATE"]
+    template = ev.read_json(gold(tmp_path / "invented-gold.json"))["sources"][0]
+    sources = []
+    safe = tmp_path / "safe"
+    safe.mkdir()
+    for case in private:
+        source = copy.deepcopy(template)
+        source.pop("format")  # Private gold gets formats from the pinned manifest.
+        source["id"] = case["id"]
+        sources.append(source)
+        # Dataset selection does not parse material; these are invented bytes only.
+        suffix = {"text": ".txt", "image": ".png", "long_image": ".png", "pdf": ".pdf"}[
+            case["format"]
+        ]
+        (safe / (case["id"] + suffix)).write_bytes(b"Invented safe input")
+    path = tmp_path / "final-gold-dev-public-v2.json"
+    ev.write_json(path, sources)
+    monkeypatch.setitem(
+        final_score.LOCAL_GOLD_SHA256, "development", final_score.sha256(path.read_bytes())
+    )
+    holdout_dir = tmp_path / "holdout-must-not-be-read"
+    rows = ev.dataset("development", subset, tmp_path, holdout_dir)
+    assert len(rows) == (24 if subset == "public" else 47)
+    assert sum(not r["synthetic"] for r in rows) == 24
+    references, gold_files = ev.load_gold("development", subset, tmp_path, holdout_dir, rows)
+    assert references == [{"path": str(path), "split": "development", "lockPath": None}]
+    assert gold_files == ([] if subset == "public" else [ev.SYNTHETIC_GOLD])
+    loaded = final_score.load_local_gold(
+        final_score.LocalGold.model_validate(references[0]), ev.ROOT,
+        {r["id"]: r["format"] for r in rows},
+    )
+    assert loaded.split == "development" and len(loaded.sources) == 24
+    assert not holdout_dir.exists()
+    # File tampering still fails the pinned-hash guard.
+    path.write_bytes(path.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="redacted"):
+        ev.load_gold("development", subset, tmp_path, holdout_dir, rows)
 
 
 def test_AC_SRC_5_8_oversized_refine_input_has_distinct_reason(monkeypatch):

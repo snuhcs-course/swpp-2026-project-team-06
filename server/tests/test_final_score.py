@@ -406,11 +406,22 @@ def test_AC_SRC_2_synthetic_gold_schema_manifest_and_self_score():
     assert len(g["sources"]) == 23
     assert {s["id"] for s in g["sources"]} == {c["id"] for c in fixtures}
     private = [c for c in manifest["cases"] if c["status"] == "LOCAL_PRIVATE"]
-    assert len(private) == 12
+    retired = json.loads((VALIDATION / "source-final-holdout-i3-lock.json").read_text())
+    assert len(private) == 24
+    assert len(manifest["cases"]) == len({c["id"] for c in manifest["cases"]}) == 47
+    assert {(c["id"], c["format"]) for c in private} == (
+        {
+            (c["id"], c["format"]) for c in corpus["cases"]
+            if c["id"] not in {f["id"] for f in fixtures}
+        }
+        | {(s["id"], s["format"]) for s in retired["sources"]}
+    )
     assert all(c["goldSha256"] == LOCAL_GOLD_SHA256["development"] for c in private)
     assert not {c["id"] for c in private} & {s["id"] for s in g["sources"]}
     assert {c["id"] for c in manifest["cases"]} == (
-        {c["id"] for c in corpus["cases"]} | {c["id"] for c in fixtures}
+        {c["id"] for c in corpus["cases"]}
+        | {c["id"] for c in fixtures}
+        | {s["id"] for s in retired["sources"]}
     )
     for source in g["sources"]:
         c = next(c for c in manifest["cases"] if c["id"] == source["id"])
@@ -705,6 +716,7 @@ def test_AC_SRC_6_validation_json_excludes_holdout_payloads_except_metadata_lock
 
     # 최종 문구 정답 파일만 본다. 이전 기록(source-visual-* 등)의 split 값은 고치지 않는다.
     lock_path = VALIDATION / "source-final-holdout-i3-lock.json"
+    lock = json.loads(lock_path.read_text())
     # 평가 보고서(source-final-eval-*)는 holdout id·상태·집계만, 문장 필드는 없어야 한다.
     text_keys = {"text", "value", "sentences", "statement", "mustContain", "quote", "forbidden"}
 
@@ -736,9 +748,31 @@ def test_AC_SRC_6_validation_json_excludes_holdout_payloads_except_metadata_lock
     for path in VALIDATION.rglob("source-final-*.json"):
         if path.name.startswith("source-final-eval-"):
             no_text(json.loads(path.read_text()))
+        elif path.name == "source-final-dev-manifest.json":
+            manifest = json.loads(path.read_text())
+            assert manifest["holdout"]["status"] == "RETIRED_TO_DEV"
+            assert manifest["holdout"]["retiredAt"] == "2026-11-02"
+            retired_ids = {s["id"] for s in lock["sources"]}
+            retired = [c for c in manifest["cases"] if c["id"] in retired_ids]
+            assert len(retired) == 12
+            assert {(c["id"], c["format"]) for c in retired} == {
+                (s["id"], s["format"]) for s in lock["sources"]
+            }
+            for case in retired:
+                assert set(case) == {
+                    "id", "format", "status", "safeInputSha256", "goldSha256", "safeInputEncoding"
+                }
+                assert case["safeInputEncoding"] == "file-bytes"
+                assert case["status"] == "LOCAL_PRIVATE"
+                assert len(case["safeInputSha256"]) == 64
+                assert set(case["safeInputSha256"]) <= set("0123456789abcdef")
+                assert case["goldSha256"] == LOCAL_GOLD_SHA256["development"]
+            # Only the 12 locked IDs are newly allowed, in metadata-only case records.
+            # Every other manifest field keeps the original payload check.
+            manifest["cases"] = [c for c in manifest["cases"] if c["id"] not in retired_ids]
+            check(manifest)
         elif path != lock_path:
             check(json.loads(path.read_text()))
-    lock = json.loads(lock_path.read_text())
     assert set(lock) == {"name", "sha256", "sources", "totalSentences", "totalFacts", "policy"}
     assert lock["name"] == "source-holdout-i3-final-v1.1"
     assert lock["sha256"] == LOCAL_GOLD_SHA256["holdout"]
@@ -921,3 +955,69 @@ def test_AC_SRC_3_subtraction_operands_do_not_support_a_range():
         final_score.sensitive_tokens("20kg~2kg"),
         final_score.sensitive_tokens("20kg에서 2kg을 덜어"),
     )["number"] == {"20kg~2kg"}
+
+
+def test_AC_SRC_2_6_t23_rerun_keeps_first_result_and_aggregate_totals():
+    from collections import Counter
+
+    report = json.loads((VALIDATION / "source-final-eval-i3-2026-11-01.json").read_text())
+    rerun = report["t23HoldoutRerun"]
+    assert rerun["label"] == (
+        "T23 holdout rerun — partially contaminated; does not replace the first run"
+    )
+    assert rerun["independent"] is False and rerun["replacesFirstRun"] is False
+    assert report["verdict"] == rerun["verdict"] == "FAIL"
+    assert rerun["config"]["stage1PromptVersion"] == "source-v8-exact-numbers"
+    assert rerun["config"]["stage2PromptVersion"] == "source-refine-v7-farm-common"
+    assert rerun["holdoutAttempt"] == 2
+    assert rerun["date"] == "2026-11-02"
+    assert rerun["rerunReason"] == "DEV-182 T23 rerun after general fixes (partially contaminated)"
+    first = report["holdout"]["overall"]
+    overall = rerun["overall"]
+    for metric, first_hit, rerun_hit, total in (
+        ("factRecall", 59, 74, 261),
+        ("criticalFactRecall", 29, 32, 109),
+        ("misplacement", 10, 26, 261),
+        ("precisionProxy", 60, 82, 91),
+    ):
+        assert first[metric]["hit"] == first_hit
+        assert overall[metric]["hit"] == rerun_hit
+        assert overall[metric]["total"] == total
+        for count in ("hit", "total"):
+            assert overall[metric][count] == sum(
+                q[metric][count] for q in rerun["byFormat"].values()
+            )
+    assert first["forbiddenViolations"] == 0 and overall["forbiddenViolations"] == 2
+    assert overall["forbidden"]["gold_other"] == overall["forbidden"]["gold_unsupported"] == 1
+    assert overall["unsupportedTokens"] == 0
+    assert overall["settledUsd"] == rerun["costSummary"]["settledUsd"] == 0.190412
+    assert overall["calls"] == 93
+    assert overall["statuses"] == {"EVALUATED": 7, "EMPTY": 1, "FAILED": 4}
+    assert overall["errorCodes"] == {"OCR_FAILED": 3, "INCOMPLETE_OR_REFUSED": 1}
+    assert rerun["emptyDiagnostics"] == {
+        "format": "text", "sources": 1, "emptyReason": "ALL_TEXTS_FILTERED",
+        "rejectedCandidates": 12, "rejectedTexts": 1,
+    }
+    for key in ("statuses", "errorCodes", "forbidden", "unsupported"):
+        combined = Counter()
+        for quality in rerun["byFormat"].values():
+            combined.update(quality[key])
+        assert dict(combined) == overall[key]
+    for quality in [overall, *rerun["byFormat"].values()]:
+        assert set(quality) == {
+            "sources", "contractCases", "extractionCases", "failedRuns", "factRecall",
+            "criticalFactRecall", "misplacement", "precisionProxy", "forbidden",
+            "forbiddenViolations", "unsupported", "unsupportedTokens", "criticalGate",
+            "statuses", "errorCodes", "settledUsd", "calls",
+        }
+    for key in ("sources", "calls", "forbiddenViolations", "unsupportedTokens"):
+        assert overall[key] == sum(q[key] for q in rerun["byFormat"].values())
+    assert overall["settledUsd"] == pytest.approx(
+        sum(q["settledUsd"] for q in rerun["byFormat"].values())
+    )
+    comparison = rerun["comparisonWithFirstRun"]
+    for key, value in comparison["firstRun"].items():
+        assert value == (report["holdout"]["settledUsd"] if key == "settledUsd" else first[key])
+    assert comparison["rerun"] == {k: overall[k] for k in comparison["rerun"]}
+    assert rerun["retirement"]["status"] == "RETIRED_TO_DEV"
+    assert rerun["retirement"]["developmentTotal"] == 47

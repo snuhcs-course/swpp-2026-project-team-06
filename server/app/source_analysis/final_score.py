@@ -80,7 +80,7 @@ DEV_MANIFEST = VALIDATION_DIR / "source-final-dev-manifest.json"
 HOLDOUT_LOCK = VALIDATION_DIR / "source-final-holdout-i3-lock.json"
 LOCAL_GOLD_SHA256 = {
     "holdout": "2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073",
-    "development": "3ed465971fb5579d10d8ee338e21c01c5d06c324d942acd8d36aba2635cf786f",
+    "development": "16c239045030411306cf07e8b04e9bf35c98d74acda0f861ccc69e48f1b27fb5",
 }
 CULTIVARS = (
     "온주밀감",

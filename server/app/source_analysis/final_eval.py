@@ -225,7 +225,7 @@ def load_gold(split, subset, dev_dir, holdout_dir, rows):
         path = (
             holdout_dir / "final-gold-v1.1.json"
             if split == "holdout"
-            else dev_dir / "final-gold-dev-public.json"
+            else dev_dir / "final-gold-dev-public-v2.json"
         )
         ref = final_score.LocalGold(
             path=str(path),
