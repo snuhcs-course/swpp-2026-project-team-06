@@ -1,3 +1,4 @@
+export { hasMoney, hasHealthClaim, hasPlatformText, hasPeriodText } from "./sourceTextSafety";
 import { ApiError, apiUrl, getToken, isMock, request } from "./client";
 export type SourceBasicInfo = {
   variety: string;
@@ -57,7 +58,7 @@ export type SourceField = {
   fieldKey: string;
   value: string;
   state: "CONFIRMED" | "EXCLUDED" | "UNREVIEWED";
-  provenance: "EXTRACTED" | "PRODUCER";
+  provenance: "EXTRACTED" | "REFINED" | "PRODUCER";
   candidateIds: string[];
   photoAssetIds: string[];
   illustrationId: string | null;
@@ -76,7 +77,26 @@ export type SourceEditorField = {
   field: SourceField;
   status: "ready" | "missing" | "conflict" | "outdated" | "unassigned";
 };
+export type SourceExclusion = {
+  candidateId: string;
+  value: string;
+  reason:
+    | "price"
+    | "platform"
+    | "period"
+    | "health"
+    | "pii"
+    | "other_product"
+    | "unsupported"
+    | "duplicate"
+    | "unused";
+};
+export type SourceRefinementResult = {
+  excluded: SourceExclusion[];
+  refinementVersion: string | null;
+};
 export type SourceReview = {
+  refinementResults?: Record<string, SourceRefinementResult>;
   editorFields: SourceEditorField[];
   reviewVersion: number;
   targets: SourceTarget[];
@@ -108,6 +128,10 @@ export type SourceRun = {
     status: string;
     error: string | null;
     phase: string;
+    pagesAnalysed?: number;
+    pagesSkipped?: number;
+    emptyReason?: string | null;
+    candidatesSkipped?: number;
     acceptedCount: number;
     rejectedCount: number;
   }[];
@@ -129,6 +153,8 @@ export type SourceDraft = {
     representativeAssetId?: string | null;
     hiddenSectionIds?: string[];
     reviewVersion: number;
+    /** 초안을 저장할 때의 batch 버전. 적용 시 서버가 현재 버전과 비교한다. */
+    batchVersion?: number;
     mode: string;
     warnings: { moduleId: string; code: string }[];
     modules: { id: string; enabled: boolean }[];

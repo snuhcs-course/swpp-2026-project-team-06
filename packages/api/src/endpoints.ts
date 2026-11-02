@@ -370,6 +370,21 @@ export const messaging = {
     request("PUT", `/api/messaging/chats/${farmId}/read`, {
       body: { lastReadMessageId },
     }),
+  // 소비자 farmclub 문의 대화방(DEV-150). AI는 답하지 않아 reply는 항상 null
+  supportMessages: () =>
+    request<{ items: A.ChatMessage[]; nextCursor: string | null }>(
+      "GET",
+      "/api/messaging/support/messages",
+    ),
+  supportSend: (text: string, idempotencyKey: string = newIdempotencyKey()) =>
+    request<A.SendMessageResult>("POST", "/api/messaging/support/messages", {
+      body: { text },
+      idempotencyKey,
+    }),
+  supportRead: (lastReadMessageId: string) =>
+    request<{ unreadCount: number }>("PUT", "/api/messaging/support/read", {
+      body: { lastReadMessageId },
+    }),
   producerChats: (q: { needsReply?: boolean } & A.PageQuery = {}) =>
     request<A.Paged<A.ProducerChatSummary>>(
       "GET",

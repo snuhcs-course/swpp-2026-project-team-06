@@ -244,3 +244,38 @@ test("문의함 화면도 로그인해야 열린다 (DEV-111)", async () => {
   assert.equal(ok.status, 200);
   assert.match(ok.body, /문의함/);
 });
+
+test("중계는 AI 비용 조회만 넘기고 보고 API는 넘기지 않는다 (DEV-144)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  assert.equal((await go("/admin/ai-usage?limit=50&feature=spec_check")).status, 502); // 허용 → 실서버 호출까지 감
+  assert.equal((await go("/admin/ai-usage?limit=50&cursor=WzUwXQ==")).status, 502);
+  assert.equal((await go("/admin/spec-check-runs")).status, 400);
+  assert.equal((await go("/internal/spec-check-runs", "POST")).status, 400);
+});
+
+test("AI 비용 화면도 로그인해야 열린다 (DEV-144)", async () => {
+  const r = await call(page, { url: "/api/page?name=ai-cost" });
+  assert.equal(r.headers.location, "/login?next=%2Fai-cost");
+  const cookie = await signIn();
+  const ok = await call(page, { url: "/api/page?name=ai-cost", headers: { cookie } });
+  assert.equal(ok.status, 200);
+  assert.match(ok.body, /AI 비용/);
+});
+
+test("중계는 소비자 문의 대화방 보기·답장·읽음도 넘긴다 (DEV-150)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/support/consumers/u-minji/messages", "GET"],
+    ["/admin/support/consumers/u-minji/messages", "POST"],
+    ["/admin/support/consumers/u-minji/read", "POST"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of ["/admin/support/consumers", "/admin/support/consumers/u-minji", "/admin/support/consumers/u-minji/delete", "/admin/support/consumers/../orders"]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});

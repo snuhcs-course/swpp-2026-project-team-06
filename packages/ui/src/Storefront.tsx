@@ -75,7 +75,6 @@ export function ProductShelf({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="판매 품목"
-        accessibilityState={{ expanded }}
         aria-expanded={expanded}
         onPress={() => setExpanded(!expanded)}
         style={{
@@ -260,7 +259,6 @@ export function ChatChoices({
         <Pressable
           key={v}
           accessibilityRole="tab"
-          accessibilityState={{ selected: value === v }}
           aria-selected={value === v}
           onPress={() => onChange(v)}
           testID={`chat-choice-${v}`}

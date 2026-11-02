@@ -15,12 +15,12 @@
 | 활성화 | repository variable SPEC_CHECK_ENABLED=true일 때만 live job 실행. 기본은 SKIPPED이며 PASS를 뜻하지 않음 |
 | 실행/검토 revision | checker는 고정 GitHub test-merge SHA에서 실행하여 오래된 feature branch도 지원. 검토 파일은 captured PR head/base에서 읽고 runner SHA를 따로 보고 |
 | 권한 | contents/pull-requests read. model job은 환경 보호 검증용 actions read 추가. 자동 코멘트·수정·승인·머지 없음 |
-| 입력 | 고정한 base/head/merge-base, PR 본문 digest, 기존 표에서 참조한 스펙·구현·tasks, 실제 변경 파일·주변 코드 |
-| 범위 | PR 표의 명시적 repo 경로. 빠진 변경·문맥·상충 기준은 INCOMPLETE. 필요하면 표의 기존 셀에 backtick 경로를 추가 |
+| 입력 | 고정한 base/head/merge-base, PR 본문 digest. 2026-10-23(DEV-81) 파일 전문 대신 diff(lock·스냅샷·바이너리·`docs/wiki` 제외) + tasks.md 이슈 섹션 + FEAT·rules의 PR이 적은 AC·R·M ID 항목 + 폴더 spec.md 결정 행 + 표 앵커 절. `files`·`previous_files`·`target_changes`는 보내지 않고 `changed_files` 메타만 |
+| 범위 | PR 표의 명시적 repo 경로. 빠진 변경·문맥·상충 기준은 INCOMPLETE. 필요하면 표의 기존 셀에 backtick 경로(와 `#앵커`)·AC/R/M ID를 추가. 결정론 검사(표 매핑, 안 적힌 변경 파일, 비밀값, 민감 경로)는 DEV-81 뒤에도 그대로 |
 | 호출 | Python 표준 라이브러리의 Claude Messages API. 전용 SPEC_CHECK_API_KEY와 명시적 SPEC_CHECK_MODEL. fallback 없음 |
-| 결과 | PASS/MISMATCH/INCOMPLETE/SKIPPED. 근거 위치·인용·변경 파일 coverage 검증. 오류를 PASS로 바꾸지 않음. 2026-10-18(DEV-79) 응답의 thinking/redacted_thinking 블록은 무시하고 text만 사용, 그 외 블록 타입은 INCOMPLETE |
+| 결과 | PASS/MISMATCH/INCOMPLETE/SKIPPED. 근거 위치·인용·변경 파일 coverage 검증(DEV-81: requirement는 보낸 발췌 segment의 원본 줄, code는 diff 새 쪽 줄 번호, `reviewed_files`는 documents ∪ diff 경로). 오류를 PASS로 바꾸지 않음. 모델이 보이지 않는 문맥은 `missing_context`에 `UNVERIFIED:`로 적어 PASS를 막는다(prompt `dev81-v2`). 2026-10-18(DEV-79) 응답의 thinking/redacted_thinking 블록은 무시하고 text만 사용, 그 외 블록 타입은 INCOMPLETE |
 | 제한 | 입력 256 KiB, 출력 16000 tokens(thinking 포함), 요청 90초(GitHub API 20초), transient 오류 retry 1회, job 5분. 2026-10-18(DEV-79) 60 KiB·4096에서 상향, retry와 API 호출을 합쳐 job 5분 안 |
 | 보고 | Markdown job summary + JSON/Markdown artifact 7일. 보고서와 사람 판단을 PR에 남김 |
 | 증거 | mock 기반 계약 검증과 genuine API 데모를 구분. 모델 접근·사람 검토가 없으면 완료 처리하지 않음 |
 
-변경된 스펙의 이전 버전과 base 쪽 관련 변경도 읽는다. 기준 충돌은 사람이 해소한다. head SHA나 PR 본문이 바뀌면 기존 결과를 최신 증거로 쓰지 않는다.
+변경된 스펙의 이전 내용은 diff의 지운 줄로 보인다(이전 버전 전문·base 변경본은 DEV-81부터 보내지 않음). 기준 충돌은 사람이 해소한다. head SHA나 PR 본문이 바뀌면 기존 결과를 최신 증거로 쓰지 않는다.

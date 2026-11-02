@@ -1,0 +1,226 @@
+{
+  "$defs": {
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "mustContain": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Mustcontain",
+          "type": "array"
+        },
+        "critical": {
+          "title": "Critical",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "statement",
+        "mustContain",
+        "critical"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "Forbidden": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "price",
+            "pii",
+            "ui",
+            "watermark",
+            "other_product",
+            "unsupported",
+            "platform",
+            "health",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "title": "Forbidden",
+      "type": "object"
+    },
+    "Sentence": {
+      "additionalProperties": false,
+      "properties": {
+        "section": {
+          "enum": [
+            "intro",
+            "composition",
+            "taste",
+            "production",
+            "packing",
+            "storage",
+            "faq",
+            "farm",
+            "updates"
+          ],
+          "title": "Section",
+          "type": "string"
+        },
+        "module": {
+          "enum": [
+            "name",
+            "hero",
+            "summary",
+            "composition",
+            "pieceCount",
+            "taste",
+            "specification",
+            "qualityEvidence",
+            "productionProcess",
+            "delivery",
+            "storage",
+            "appearanceFaq",
+            "support",
+            "farmStory",
+            "historicalSales",
+            "farmUpdates"
+          ],
+          "title": "Module",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "minItems": 1,
+          "title": "Facts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section",
+        "module",
+        "text",
+        "facts"
+      ],
+      "title": "Sentence",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "text",
+            "image",
+            "long_image",
+            "pdf"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "product": {
+          "minLength": 1,
+          "title": "Product",
+          "type": "string"
+        },
+        "sentences": {
+          "items": {
+            "$ref": "#/$defs/Sentence"
+          },
+          "title": "Sentences",
+          "type": "array"
+        },
+        "forbidden": {
+          "items": {
+            "$ref": "#/$defs/Forbidden"
+          },
+          "title": "Forbidden",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "format",
+        "product",
+        "sentences",
+        "forbidden"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "title": "Schemaversion",
+      "type": "integer"
+    },
+    "split": {
+      "enum": [
+        "development",
+        "holdout"
+      ],
+      "title": "Split",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/Source"
+      },
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "split",
+    "sources"
+  ],
+  "title": "Gold",
+  "type": "object"
+}

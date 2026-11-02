@@ -103,6 +103,8 @@ jobs:
           token: ""
           filters: |
             apps:
+              - "server/app/source_analysis/text_safety_lists.json"
+              - "server/app/source_analysis/text_safety_cases.json"
               - "apps/**"
               - "packages/**"
               - "scripts/**"

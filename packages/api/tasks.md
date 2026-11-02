@@ -260,3 +260,8 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: [DEV-97](https://linear.app/sswp6/issue/DEV-97) · 기준 절: `server/tasks.md#dev-97`
 - 범위: `src/endpoints.ts`(`messaging.send` 마지막 인자 `productId?`), `src/mock/conversations.ts`(`send`: 그 농가의 판매 중 상품이 아니면 404, 주문이 없을 때만 AI 근거로 넘김), `scripts/test-ai-feedback.mjs`
 - [x] 엔드포인트·Mock, `npm run test:mock` 16/16
+
+## DEV-150 소비자 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-150 · 상세는 `server/tasks.md` DEV-150.
+- `ChatSummary.isSupport`, `messaging.supportMessages`·`supportSend`·`supportRead`. Mock은 `supportRooms`(DB_VERSION 9), 시드·가입 시 생성, 목록 행, 3개 경로를 서버와 같게 둔다.

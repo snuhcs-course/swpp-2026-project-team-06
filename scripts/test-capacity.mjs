@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { mockTransport } = require("../.expo/mock-build/mock/index.js");
+const { mockTransport } = require("../.expo/mock-build/packages/api/src/mock/index.js");
 const {
   db,
   reset,
   configureMockStorage,
-} = require("../.expo/mock-build/mock/db.js");
+} = require("../.expo/mock-build/packages/api/src/mock/db.js");
 const {
   releaseQuantity,
   salesState,
-} = require("../.expo/mock-build/mock/sales.js");
+} = require("../.expo/mock-build/packages/api/src/mock/sales.js");
 configureMockStorage({ read: () => null, write: () => {} });
 let seq = 0;
 const api = (method, path, token, body, key = `cap-test-${++seq}`) =>

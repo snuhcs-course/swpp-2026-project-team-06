@@ -53,6 +53,13 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   // Checkbox는 웹에서 aria-checked를 내지 않아(accessibilityState) toBeChecked 대신 개수 문구가 사라지는지 본다
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
   await expect(consumerPage.getByText(/개 중 \d+개 동의했어요/)).toHaveCount(0);
+  // DEV-141: 동의 체크 상태가 aria-checked로 DOM에 나온다(react-native-web은 accessibilityState를 무시)
+  await expect(
+    consumerPage.getByRole("checkbox", { name: "모두 동의해요" }),
+  ).toBeChecked();
+  await expect(
+    consumerPage.getByRole("checkbox", { name: "개인정보 제3자 제공 (판매자)" }),
+  ).toBeChecked();
   await expect(reserve).toBeEnabled();
   await reserve.click();
   // DEV-68: 입금 안내(농가 계좌·입금자명=주문 번호·기한·중개자 고지) → 입금했어요 → 입금 확인 중

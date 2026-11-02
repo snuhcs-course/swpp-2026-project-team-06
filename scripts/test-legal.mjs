@@ -96,6 +96,14 @@ test("DEV-113: index.html gets business info in <noscript>", () => {
   assert.match(inserted, /<noscript>.*<\/noscript><\/body>/s);
 });
 
+test("DEV-140: privacy policy lists Kakao name and phone as required, with purpose and prefill", () => {
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.match(html, /카카오 회원번호, 카카오계정 이메일, 이름, 전화번호\(필수\)/);
+  assert.match(html, /받는 사람 이름·연락처, 배송·주문 문의 연락, 생산자 가입 확인 전화/);
+  assert.match(html, /미리 채우는 데 쓰며, 이용자가 직접 고칠 수 있습니다/);
+  assert.doesNotMatch(html, /카카오에서 동의한 경우/);
+});
+
 test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async () => {
   const { readFile } = await import("node:fs/promises");
   const server = (await readFile("server/app/accounts/schemas.py", "utf8")).match(/^CONSENT_VERSION = "([^"]+)"/m)?.[1];
@@ -106,4 +114,11 @@ test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async ()
   // 화면의 시행일과 버전이 같은 날짜다
   const [y, m, d] = server.split("-").map(Number);
   assert.equal(content.privacyPolicy.effective, `${y}년 ${m}월 ${d}일`);
+});
+
+test("DEV-150: privacy policy names the consumer farmclub support room and bumps the version", () => {
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.match(html, /생산자·소비자의 farmclub 문의 대화방\(운영팀 상담\)/);
+  assert.match(html, /2026년 10월 29일 변경: 소비자도 앱 안에서 farmclub 운영팀에 문의할 수 있도록/);
+  assert.equal(content.LEGAL_VERSION, "2026-10-29");
 });

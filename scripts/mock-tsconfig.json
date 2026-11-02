@@ -8,8 +8,9 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
     "types": [],
-    "rootDir": "../packages/api/src",
-    "outDir": "../.expo/mock-build"
+    "rootDir": "..",
+    "outDir": "../.expo/mock-build",
+    "resolveJsonModule": true
   },
   "include": ["../packages/api/src/**/*.ts"]
 }

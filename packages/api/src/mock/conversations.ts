@@ -2,6 +2,7 @@ import type {
   AiPreview,
   AiSettings,
   ChatMessage,
+  ChatSummary,
   Thread,
   Inquiry,
   Attachment,
@@ -72,6 +73,38 @@ export function ensureSupportThread(d: DB, farmId: string): Thread {
     );
   }
   return t;
+}
+/* ---------- 소비자 farmclub 문의 대화방(DEV-150, 서버 support.py와 같다) ---------- */
+type SupportRoom = DB["supportRooms"][string];
+function supportRoom(ctx: Ctx): SupportRoom {
+  const u = ctx.me();
+  if (u.role !== "CONSUMER")
+    fail(403, "FORBIDDEN", "소비자 계정만 쓸 수 있어요.");
+  const room = ctx.db.supportRooms[u.userId];
+  if (!room) notFound("farmclub 대화방이 없어요.");
+  return room;
+}
+function supportUnread(room: SupportRoom) {
+  const at = room.messages.findIndex((m) => m.messageId === room.userLastRead);
+  return room.messages.slice(at + 1).filter((m) => m.senderType === "OPERATOR")
+    .length;
+}
+function supportSummary(d: DB, userId: string): ChatSummary[] {
+  const room = d.supportRooms[userId],
+    m = room?.messages.at(-1);
+  if (!room || !m) return [];
+  return [
+    {
+      farmId: SUPPORT_ID,
+      farmName: "farmclub",
+      farmPhoto: null,
+      lastMessage: m.body,
+      lastSenderType: m.senderType,
+      lastAt: m.createdAt,
+      unreadCount: supportUnread(room),
+      isSupport: true,
+    },
+  ];
 }
 function mode(t: Thread, value: Thread["aiMode"]) {
   if (t.aiMode !== value) {
@@ -509,7 +542,7 @@ register({
             (following(ctx.db, t.farmId, u.userId) ||
               inquiries(ctx.db, t).length),
         )
-        .map((t) => {
+        .map((t): ChatSummary => {
           const f = ctx.db.farms[t.farmId],
             m = list(ctx.db, t).at(-1);
           return {
@@ -522,9 +555,44 @@ register({
             unreadCount: unread(ctx.db, t, false),
           };
         })
+        // farmclub 문의 대화방(DEV-150). 고정하지 않고 최근 순으로 섞인다
+        .concat(supportSummary(ctx.db, u.userId))
         .sort((a, b) => b.lastAt.localeCompare(a.lastAt)),
       ctx.query,
     );
+  },
+  "GET /api/messaging/support/messages": (ctx) => ({
+    items: supportRoom(ctx).messages,
+    nextCursor: null,
+  }),
+  "POST /api/messaging/support/messages": (ctx) => {
+    const room = supportRoom(ctx),
+      text = String(ctx.body.text ?? "").trim();
+    if (!text || text.length > 1000)
+      invalid({ text: "문의는 1~1,000자로 적어 주세요" });
+    return idempotent(ctx, "support-send", () => {
+      const { text: body, masked } = mask(text);
+      const message = chatMessage({
+        messageId: nextId("m"),
+        senderType: "CONSUMER",
+        body,
+        createdAt: nowIso(),
+        masked,
+      });
+      room.messages.push(message);
+      return { message, reply: null };
+    });
+  },
+  "PUT /api/messaging/support/read": (ctx) => {
+    const room = supportRoom(ctx),
+      id = String(ctx.body.lastReadMessageId ?? ""),
+      at = room.messages.findIndex((m) => m.messageId === id);
+    if (at < 0) notFound("찾을 수 없는 메시지예요.");
+    const prev = room.messages.findIndex(
+      (m) => m.messageId === room.userLastRead,
+    );
+    if (at > prev) room.userLastRead = id;
+    return { unreadCount: supportUnread(room) };
   },
   "POST /api/messaging/chats": (ctx) => {
     const u = ctx.me(),

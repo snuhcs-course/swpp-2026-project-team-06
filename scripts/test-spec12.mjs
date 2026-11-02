@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { mockTransport } = require("../.expo/mock-build/mock/index.js");
-const { configureMockStorage, db } = require("../.expo/mock-build/mock/db.js");
+const { mockTransport } = require("../.expo/mock-build/packages/api/src/mock/index.js");
+const { configureMockStorage, db } = require("../.expo/mock-build/packages/api/src/mock/db.js");
 let stored = null;
 configureMockStorage({
   read: () => stored,
@@ -445,4 +445,82 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
     db().threadMeta["f-kang:u-minji"].producerLastReadMessageId,
     beforeRead,
   );
+});
+
+
+test("DEV-186 AC-SRC-3: shared story safety lists and amount detection", () => {
+  const { hasHealthClaim, hasPlatformText, hasMoney } = require("../.expo/mock-build/packages/api/src/sourceTextSafety.js");
+  const lists = require("../server/app/source_analysis/text_safety_lists.json");
+  for (const word of lists.health) assert.equal(hasHealthClaim(word), true, word);
+  for (const word of lists.platform) assert.equal(hasPlatformText(word.replace(/\s/g, "")), true, word);
+  for (const value of ["건강하게 키운 감귤", "비타민C 함유", "수확 후 바로 포장", "작년 300상자 완판"]) {
+    assert.equal(hasHealthClaim(value), false, value);
+    assert.equal(hasPlatformText(value), false, value);
+    assert.equal(hasMoney(value), false, value);
+  }
+  for (const value of ["32,000원", "3 만 원", "1만5천원", "$30", "KRW 32000", "₩3천만"]) {
+    assert.equal(hasMoney(value), true, value);
+  }
+});
+
+
+test("DEV-186 AC-SRC-3: identical shared safety cases on client and server", () => {
+  const detectors = require("../.expo/mock-build/packages/api/src/sourceTextSafety.js");
+  const cases = require("../server/app/source_analysis/text_safety_cases.json");
+  for (const c of cases) {
+    assert.equal(detectors.hasHealthClaim(c.value), c.health, `health: ${c.value}`);
+    assert.equal(detectors.hasPlatformText(c.value), c.platform, `platform: ${c.value}`);
+    assert.equal(detectors.hasMoney(c.value), c.money, `money: ${c.value}`);
+    assert.equal(detectors.hasPeriodText(c.value), c.period, `period: ${c.value}`);
+  }
+});
+
+
+test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { spawnSync } = await import("node:child_process");
+  const workflow = await readFile(new URL("../.github/workflows/deploy-vercel.yml", import.meta.url), "utf8");
+  const pattern = workflow.match(/grep -qE '([^']+)'/)[1];
+  for (const [path, expected] of [
+    ["server/app/source_analysis/text_safety_lists.json", 0],
+    ["server/app/source_analysis/text_safety.py", 1],
+    ["apps/producer/src/lib/NewProductComposer.tsx", 0],
+  ]) {
+    assert.equal(spawnSync("grep", ["-qE", pattern], { input: path + "\n" }).status, expected);
+  }
+  const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+  const appsFilter = ci.split("            apps:\n")[1].split("\n      - name:")[0];
+  assert.ok(appsFilter.includes('"server/app/source_analysis/text_safety_lists.json"'));
+  const integrationFilter = ci.split("            integration:\n")[1].split("\n      - name:")[0];
+  assert.ok(integrationFilter.includes('"server/**"'));
+});
+
+
+test("DEV-186 DEV-188 AC-SRC-11: modal groups by reason including return fees and periods", async () => {
+  const { groupSourceExclusions, sourceExclusionReasons } = await import("../apps/producer/src/lib/sourceExclusionReasons.ts");
+  const items = [
+    { candidateId: "price", value: "천혜향 3kg 32,000원", reason: "price" },
+    { candidateId: "return-fee", value: "반품 배송비 5,000원", reason: "price" },
+    { candidateId: "support", value: "고객센터 평일 10시~5시", reason: "platform" },
+    { candidateId: "arrival", value: "1-3일 이내 도착", reason: "period" },
+    { candidateId: "health", value: "면역력 증진에 좋아요", reason: "health" },
+  ];
+  assert.deepEqual([...groupSourceExclusions(items)], [
+    ["price", items.slice(0, 2)],
+    ["platform", [items[2]]],
+    ["period", [items[3]]],
+    ["health", [items[4]]],
+  ]);
+  assert.deepEqual(sourceExclusionReasons, {
+    price: { label: "💰 금액", explanation: "가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", accent: true },
+    period: { label: "📅 기간", explanation: "판매 기간이나 받는 날은 다음 단계(판매·가격)에서 정해요.", accent: true },
+    platform: { label: "🛡️ 팜클럽 정책", explanation: "교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.",
+      detail: "출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", accent: true },
+    health: { label: "🚫 건강 효능", explanation: "건강 효능은 상세 페이지에 넣을 수 없어요.", accent: true },
+    pii: { label: "🔒 개인정보", explanation: "개인정보가 있어 상세에 넣지 않았어요", accent: false },
+    other_product: { label: "📦 다른 상품", explanation: "다른 상품의 내용이라 넣지 않았어요", accent: false },
+    unsupported: { label: "❔ 근거 없음", explanation: "자료에서 근거를 확인하지 못해 넣지 않았어요", accent: false },
+    duplicate: { label: "🔁 중복", explanation: "같은 내용이 있어 한 번만 넣었어요", accent: false },
+    unused: { label: "💤 미사용", explanation: "이번 상세에 사용하지 않은 문구예요", accent: false },
+  });
 });
