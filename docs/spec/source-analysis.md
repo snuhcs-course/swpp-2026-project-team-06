@@ -170,3 +170,13 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. holdout 원문을 보지 않고 오류 
 <a id="synthetic-input-definition"></a>
 
 DEV-182 신규 합성 manifest의 `inputDefinitionSha256`은 `{kind,text,pages?}` 원천 정의의 canonical JSON SHA다. 아직 실행하지 않은 OCR 입력의 `safeInputSha256`을 꾸며 넣지 않는다. 기존 case 해시는 그대로 두고, 새 자료의 실제 파일/input·safeText SHA는 사람이 평가할 때 snapshot에 기록한다.
+
+### DEV-182 단일 상품의 농가 공통 정리 근거 (owner 결정, 2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-1/2/3/5/8/11. development 관찰에서 같은 농가 이야기 후보가 실행마다 상품 대상 또는 `targetId: null`로 배치되었다. stage-1 prompt는 그대로 두고, batch/run의 상품 대상이 **정확히 하나**이면 대상 후보와 농가 공통(null) 후보를 함께 stage-2 입력으로 사용한다. 상품이 둘 이상이면 공통 후보를 어느 상품에도 합치지 않는다. 후보의 원래 targetId와 원문 근거는 바꾸지 않는다.
+
+null 후보도 모든 fieldKey를 가질 수 있으므로 상품 배치를 추정하지 않는다. 공통 `farmStory`와 금액 없는 `historicalSales`는 `farmStory`, 공통 `farmUpdates`는 `farmUpdates`에만 인용할 수 있다. 공통 후보를 포함한 혼합 인용에도 같은 제한을 적용하며, 품종·무게·상품명·품질 등 상품 전용 모듈을 공통 문구로 채우지 않는다. 기존 금액·효능·개인정보·인용 수치 검증은 유지한다.
+
+worker와 final_eval은 제품의 대상 선택·모듈 검증 함수를 공유한다. 공통 후보도 대상 후보와 함께 원문 순서로 정렬한 뒤 결정적 prefix(40후보/JSON16000자)를 취하고 생략 후보를 unused로 기록한다. 전체 입력 ID와 내용 해시에 공통 후보 및 상한으로 생략한 후보를 포함한다. 공통 후보의 값·근거·배치가 바뀌면 같은 ID라도 정리는 outdated이며 호출 전후 검사와 재사용 판정에 반영한다. `candidateIds`에는 공통 후보의 실제 ID를 보존하고 편집·초안 저장에서도 같은 범위를 검증한다.
+
+정리 실패·outdated 시 안전한 공통 원문은 단일 상품의 해당 농가 필드에서 기존 원문 fallback 규칙을 따른다. 현재 정리가 대기 중이거나 정상 정리에서 제외한 문구는 원문으로 복원하지 않는다. 단일 상품에서 `NO_TARGET_CANDIDATES`는 대상 후보와 공통 후보가 모두 없을 때에만 가능하며, 공통 후보를 받았지만 허용 문구가 없으면 `ALL_TEXTS_FILTERED`다. 후보 자체가 없으면 기존대로 REFINE 사유를 만들지 않고 파일 추출 진단을 사용한다. 기존 개발 합성 `13-common-farm`과 고정 gold/manifest 해시로 mock 회귀를 검증하며 gold·채점기·holdout은 변경하지 않는다.
