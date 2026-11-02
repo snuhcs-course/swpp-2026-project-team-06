@@ -43,8 +43,12 @@ NUMBER_UNIT = (
 NUMBER_VALUE = r"[+-]?\d[\d,]*(?:\.\d+)?"
 RANGE_SEPARATOR = r"(?:[~–-]|부터|에서)"
 NUMBER_RE = re.compile(
-    rf"{NUMBER_VALUE}(?:\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?"
-    rf"\s*{RANGE_SEPARATOR}\s*{NUMBER_VALUE}\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?"
+    # Korean particles also connect independent facts or subtraction operands.
+    # Require matching explicit units and a range ending before joining them.
+    rf"{NUMBER_VALUE}\s*(?P<unit>{NUMBER_UNIT})(?![a-z])"
+    rf"\s*(?:부터|에서)\s*{NUMBER_VALUE}\s*(?P=unit)(?![a-z])\s*(?:까지|사이)"
+    rf"|{NUMBER_VALUE}(?:\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?"
+    rf"\s*[~–-]\s*{NUMBER_VALUE}\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?"
     rf"(?:\s*(?:까지|사이))?"
     rf"|\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?)",
     re.I,
@@ -65,7 +69,7 @@ def number_token(text):
 
 
 def unsupported_tokens(actual, safe):
-    """A range supports that range, never a standalone endpoint (or vice versa)."""
+    """Return actual tokens absent from the safe token set, grouped by kind."""
     return {kind: actual[kind] - safe[kind] for kind in actual}
 
 

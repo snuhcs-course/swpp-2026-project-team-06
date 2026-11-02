@@ -895,3 +895,29 @@ def test_AC_SRC_3_range_measurement_applies_to_score_and_precision():
     )
     assert report["overall"]["unsupportedTokens"] == 0
     assert report["overall"]["precisionProxy"]["rate"] == 1
+
+
+@pytest.mark.parametrize(
+    "source,output,tokens",
+    [
+        ("해발 300m에서 5년 길렀다", "300m 고지대에서 5년", {"300m", "5년"}),
+        ("20kg에서 2kg을 덜어", "20kg 중 2kg을 덜어", {"20kg", "2kg"}),
+        ("5%에서 10%까지", "5~10%", {"5%~10%"}),
+        ("3월부터 5월까지", "3월–5월", {"3월~5월"}),
+        ("300m에서 5년까지", "300m 고지대에서 5년까지", {"300m", "5년"}),
+        ("20kg부터 2kg을 덜어", "20kg 중 2kg을 덜어", {"20kg", "2kg"}),
+    ],
+)
+def test_AC_SRC_3_korean_particles_require_matching_units_and_range_ending(source, output, tokens):
+    safe = final_score.sensitive_tokens(source)
+    actual = final_score.sensitive_tokens(output)
+    assert safe["number"] == actual["number"] == tokens
+    assert final_score.unsupported_tokens(actual, safe)["number"] == set()
+    assert final_score.unsupported_tokens(safe, actual)["number"] == set()
+
+
+def test_AC_SRC_3_subtraction_operands_do_not_support_a_range():
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens("20kg~2kg"),
+        final_score.sensitive_tokens("20kg에서 2kg을 덜어"),
+    )["number"] == {"20kg~2kg"}

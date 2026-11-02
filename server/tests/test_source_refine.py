@@ -1683,7 +1683,7 @@ def test_AC_SRC_2_5_refine_input_cap_is_deterministic_and_bounded():
 @pytest.mark.parametrize(
     "source,reason",
     [
-        ([], "NO_CANDIDATES"),
+        ([], None),
         ([{"targetId": None}], "NO_TARGET_CANDIDATES"),
         ([{"targetId": "target"}], "ALL_TEXTS_FILTERED"),
     ],
@@ -1931,7 +1931,13 @@ def test_AC_SRC_5_8_long_text_empty_chunks_notice_is_per_file(
     drain()
     response = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h)
     assert response.status_code == 200
-    items = [i for i in response.json()["items"] if i["phase"] == "EXTRACT"]
+    run_items = response.json()["items"]
+    items = [i for i in run_items if i["phase"] == "EXTRACT"]
+    refine_items = [i for i in run_items if i["phase"] == "REFINE"]
+    assert len(refine_items) == 1
+    assert refine_items[0]["status"] == "SUCCEEDED"
+    assert refine_items[0]["emptyReason"] is None
+    assert sum(bool(i["emptyReason"]) for i in run_items) == int(all_empty)
     assert len(items) == len(calls) == 3
     assert [bool(r.extraction.candidates) for r in calls] == (
         [False, False, False] if all_empty else [True, False, True]
@@ -1961,3 +1967,33 @@ def test_AC_SRC_5_8_refine_oversized_input_reason_reaches_api(client, login, mon
     assert item["emptyReason"] == "REFINE_INPUT_LIMIT"
     assert item["acceptedCount"] == 0 and item["candidatesSkipped"] > 0
     assert not worker.run_once()
+
+
+@pytest.mark.parametrize("reason", ["NO_SAFE_TEXT", "NO_CANDIDATES"])
+def test_AC_SRC_5_8_run_view_empty_file_includes_refine_without_duplicate_reason(
+    client, login, monkeypatch, reason
+):
+    h, batch, run = ready(client, login, monkeypatch)
+
+    def empty_extract(*args):
+        return ExtractionResponse(
+            Extraction(candidates=[], photo_requests=[]), {"mock": True}, None
+        )
+
+    monkeypatch.setattr(worker, "extract", empty_extract)
+    if reason == "NO_SAFE_TEXT":
+        with get_sessionmaker()() as db:
+            for page in db.scalars(select(Page).join(Asset).where(Asset.batch_id == batch["id"])):
+                page.redacted_spans = []
+            db.commit()
+    drain()
+    result = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
+    assert result["status"] == "SUCCEEDED"
+    extracts = [i for i in result["items"] if i["phase"] == "EXTRACT"]
+    refines = [i for i in result["items"] if i["phase"] == "REFINE"]
+    assert len(extracts) == len(refines) == 1
+    assert extracts[0]["emptyReason"] == reason
+    assert refines[0]["status"] == "SUCCEEDED"
+    assert refines[0]["acceptedCount"] == 0
+    assert refines[0]["emptyReason"] is None
+    assert sum(bool(i["emptyReason"]) for i in result["items"]) == 1

@@ -269,7 +269,7 @@ def estimate(rows, provider, model):
             with Image.open(BytesIO(row["data"])) as image:
                 tiles += math.ceil(image.height / 720)
         else:
-            pages += max(1, math.ceil(len(row["data"]) / TEXT_CHUNK_CHARS))
+            pages += max(1, math.ceil(len(row["data"].decode("utf-8-sig")) / TEXT_CHUNK_CHARS))
     # Existing configured price caps, not fetched prices. Include vision OCR for OpenRouter.
     from app.core.config import SOURCE_OPENROUTER_PRICES
 
@@ -507,8 +507,11 @@ def evaluate_source(row, provider, model, calls):
             ],
         )
         metric["emptyReason"] = stage2_diagnostics["emptyReason"]
-        if not stored and not candidates and not safe_text.replace("[가림]", "").strip():
-            metric["emptyReason"] = "NO_SAFE_TEXT"
+        if not stored and not candidates:
+            # Source-level extraction diagnostics remain distinct from refinement reasons.
+            metric["emptyReason"] = (
+                "NO_SAFE_TEXT" if not safe_text.replace("[가림]", "").strip() else "NO_CANDIDATES"
+            )
         metric["rejectedTexts"] = diagnostics["rejectedCount"]
         metric["status"] = record["status"]
     except Exception as exc:

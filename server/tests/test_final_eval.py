@@ -926,6 +926,7 @@ def test_AC_SRC_5_8_empty_has_diagnostic(text, reason):
     result = ev.evaluate_source(row(text), "mock", "fixture", ev.Calls("mock", 3))
     assert result[0]["status"] == "EMPTY"
     assert result[1]["emptyReason"] == reason
+    assert result[3]["stage2Diagnostics"]["emptyReason"] is None
 
 
 def test_AC_SRC_2_8_synthetic_pdf_25_pages_runner_records_skips(monkeypatch):
@@ -977,3 +978,12 @@ def test_AC_SRC_5_8_oversized_refine_input_has_distinct_reason(monkeypatch):
     assert result[1]["candidatesAnalysed"] == 0
     assert result[1]["candidatesSkipped"] > 0
     assert result[3]["stage2Diagnostics"]["emptyReason"] == "REFINE_INPUT_LIMIT"
+
+
+@pytest.mark.parametrize("characters,calls", [(3999, 1), (4000, 1), (4001, 2), (8000, 2)])
+@pytest.mark.parametrize("character", ["가", "a"])
+def test_AC_SRC_2_5_text_estimate_counts_decoded_characters(characters, calls, character):
+    estimate = ev.estimate([row(character * characters)], "mock", "fixture")
+    assert estimate["estimatedExtractionCalls"] == calls
+    assert estimate["estimatedRefinementCalls"] == 1
+    assert estimate["estimatedOcrCalls"] == 0
