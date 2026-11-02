@@ -159,11 +159,18 @@ def lock_context(db, item_id, token):
     return batch, source, run, item
 
 
+def page_scope(pages):
+    """Include empty pages as well as their local span IDs in persisted request scope."""
+    return {(p["number"], None) for p in pages} | {
+        (p["number"], sid) for p in pages for sid in p["spanIds"]
+    }
+
+
 def enqueue_extraction(db, source, run, item, pages):
     if source.original_photo:
         item.status = "SUCCEEDED"
         return
-    # One page per chunk is within the maximum-four-pages contract. Split long text.
+    # Vision owns a file; text owns page/span chunks. Provider requests stay bounded.
     prior_runs = list(
         db.scalars(
             select(Run).where(
@@ -198,12 +205,17 @@ def enqueue_extraction(db, source, run, item, pages):
             {"number": page.number, "spanIds": [s["id"] for s in page.redacted_spans]}
             for page in sorted(pages, key=lambda p: p.number)
         ]
-        if not any(
-            old.status == "SUCCEEDED"
-            and [{"number": p["number"], "spanIds": p["spanIds"]} for p in old.pages] == requests
-            and old.target_ids == item.target_ids
-            for old in previous
-        ):
+        requested_scope = page_scope(requests)
+        covered = set().union(
+            *(
+                page_scope(old.pages)
+                for old in previous
+                if old.status == "SUCCEEDED"
+                and old.target_ids == item.target_ids
+                and page_scope(old.pages) <= requested_scope
+            )
+        )
+        if covered != requested_scope:
             db.add(
                 Item(
                     run_id=run.id,
@@ -350,10 +362,7 @@ def validate_candidates(extraction, chunk, allowed_targets):
 
 
 def store_candidates(db, batch, item, extraction):
-    """Replace the same chunk's automatic suggestions without invalidating confirmed edits."""
-
-    def scope(pages):
-        return [(p["number"], p["spanIds"]) for p in pages]
+    """Supersede suggestions within this scope without invalidating confirmed edits."""
 
     previous = list(
         db.scalars(
@@ -369,7 +378,7 @@ def store_candidates(db, batch, item, extraction):
     prior_ids = [
         i.id
         for i in previous
-        if i.target_ids == item.target_ids and scope(i.pages) == scope(item.pages)
+        if i.target_ids == item.target_ids and page_scope(i.pages) <= page_scope(item.pages)
     ]
     old = list(
         db.scalars(
@@ -470,15 +479,13 @@ def paid_vision_call(
     return response
 
 
-# These invalidate the entire job; they must never be turned into a missing page.
+# These invalidate the job. Cancellation and lease loss are fenced as SOURCE_CHANGED.
 OCR_HARD_ERRORS = {
     "PROVIDER_AUTH",
     "BUDGET_EXCEEDED",
     "SOURCE_CHANGED",
     "PRIVACY_CHANGED",
     "PROMPT_CHANGED",
-    "CANCELLED",
-    "LEASE_LOST",
 }
 
 
@@ -531,12 +538,94 @@ def transcribe_pages(chunk, page_images, call):
     return diagnostics
 
 
-def extraction_chunks(chunk):
-    """Share per-page span boundaries and original evidence coordinates with eval."""
+def extraction_chunks(chunk, *, skip_empty=False):
+    """Use the product text grouping; only remote OCR skips empty pages."""
     for page in chunk["pages"]:
-        if page["spans"]:
-            for group in text_chunks(page["spans"]):
-                yield {**chunk, "pages": [{"number": page["number"], "spans": group}]}
+        if skip_empty and not page["spans"]:
+            continue
+        for group in text_chunks(page["spans"]):
+            yield {**chunk, "pages": [{"number": page["number"], "spans": group}]}
+
+
+def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics):
+    """Keep independent paid chunk results; never replay failed requests."""
+    candidates, photo_requests, rejected, seen = [], [], [], set()
+    usage, request_id, first_failure = {}, None, None
+    skipped, succeeded = 0, 0
+    diagnostics["chunksFailed"] = []
+    for index, part in enumerate(extraction_chunks(chunk, skip_empty=True)):
+        try:
+            response = call(
+                f"extract-{part['pages'][0]['number']}-{index}",
+                model,
+                part,
+                targets,
+                [],
+                lambda part=part: extract_part(part),
+            )
+        except ExtractionError as exc:
+            exc.retry_after = None
+            pages = [p["number"] for p in part["pages"]]
+            diagnostics["chunksFailed"].append({"index": index, "pages": pages, "code": exc.code})
+            for number in pages:
+                if not any(p["number"] == number for p in diagnostics["pagesFailed"]):
+                    diagnostics["pagesFailed"].append({"number": number, "code": exc.code})
+                elif exc.code == "REQUEST_UNCERTAIN":
+                    # Preserve the existing public retry/cost acknowledgment contract.
+                    next(p for p in diagnostics["pagesFailed"] if p["number"] == number)["code"] = (
+                        exc.code
+                    )
+            if exc.code in OCR_HARD_ERRORS:
+                raise
+            first_failure = first_failure or exc
+            continue
+        succeeded += 1
+        accepted, checked = validate_candidates(
+            response.extraction, part, {t["id"] for t in targets}
+        )
+        for candidate in accepted.candidates:
+            signature = candidate.model_dump_json(by_alias=True)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            if len(candidates) < 100:
+                candidates.append(candidate)
+            else:
+                skipped += 1
+        photo_requests.extend(accepted.photo_requests)
+        rejected.extend(checked["rejected"])
+        # Spend is authoritative for all calls; retain the latest successful usage/id.
+        usage, request_id = response.usage, response.request_id
+    if first_failure and not succeeded:
+        raise first_failure
+    photo_requests = list(dict.fromkeys(photo_requests))
+    merged = Extraction(candidates=candidates, photo_requests=photo_requests[:30])
+    _, checked = validate_candidates(merged, chunk, {t["id"] for t in targets})
+    diagnostics.update(checked)
+    diagnostics.update(
+        rejected=rejected,
+        rejectedCount=len(rejected),
+        candidatesSkipped=skipped,
+        photoRequestsSkipped=max(0, len(photo_requests) - 30),
+    )
+    if rejected and not candidates:
+        diagnostics["emptyReason"] = "ALL_CANDIDATES_REJECTED"
+    return ExtractionResponse(merged, usage, request_id), diagnostics
+
+
+def save_vision_diagnostics(item_id, token, chunk, diagnostics):
+    # Private evidence belongs to the job, never to privacy-review geometry.
+    with get_sessionmaker()() as db:
+        context = lock_context(db, item_id, token)
+        if not context:
+            raise ExtractionError("SOURCE_CHANGED")
+        _, source, _, item = context
+        if not source.privacy_approved or source.sanitization_version != item.sanitization_version:
+            raise ExtractionError("PRIVACY_CHANGED")
+        by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
+        item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
+        item.diagnostics = diagnostics
+        db.commit()
 
 
 def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
@@ -547,56 +636,24 @@ def vision_extraction(item_id, token, chunk, targets, mode, model, page_images):
             page_images,
             lambda *args: paid_vision_call(item_id, token, *args),
         )
-    except ExtractionError as exc:
-        diagnostics = exc.details.get("ocrDiagnostics", {})
-        raise
-    finally:
-        # Private evidence belongs to the job, never to privacy-review geometry.
-        with get_sessionmaker()() as db:
-            context = lock_context(db, item_id, token)
-            if not context:
-                raise ExtractionError("SOURCE_CHANGED")
-            _, source, _, item = context
-            if (
-                not source.privacy_approved
-                or source.sanitization_version != item.sanitization_version
-            ):
-                raise ExtractionError("PRIVACY_CHANGED")
-            by_number = {p["number"]: p["spans"] for p in chunk["pages"]}
-            item.pages = [{**p, "ocrSpans": by_number[p["number"]]} for p in item.pages]
-            item.diagnostics = diagnostics
-            db.commit()
-    candidates, photo_requests, rejected = [], [], []
-    usage, request_id = {}, None
-    for index, part in enumerate(extraction_chunks(chunk)):
-        response = paid_vision_call(
-            item_id,
-            token,
-            f"extract-{part['pages'][0]['number']}-{index}",
-            model,
-            part,
+        result = extract_vision_chunks(
+            chunk,
             targets,
-            [],
-            lambda part=part: extract(mode, model, part, targets, []),
+            model,
+            lambda *args: paid_vision_call(item_id, token, *args),
+            lambda part: extract(mode, model, part, targets, []),
+            diagnostics,
         )
-        accepted, checked = validate_candidates(
-            response.extraction, part, {t["id"] for t in targets}
-        )
-        candidates.extend(accepted.candidates)
-        photo_requests.extend(accepted.photo_requests)
-        rejected.extend(checked["rejected"])
-        # Spend is authoritative for all calls; Item retains the latest response usage/id.
-        usage, request_id = response.usage, response.request_id
-    merged = Extraction.model_construct(
-        candidates=candidates, photo_requests=list(dict.fromkeys(photo_requests))
-    )
-    extraction, checked = validate_candidates(merged, chunk, {t["id"] for t in targets})
-    diagnostics.update(checked)
-    diagnostics["rejected"] = rejected + checked["rejected"]
-    diagnostics["rejectedCount"] = len(diagnostics["rejected"])
-    if rejected and not extraction.candidates:
-        diagnostics["emptyReason"] = "ALL_CANDIDATES_REJECTED"
-    return ExtractionResponse(extraction, usage, request_id), diagnostics
+    except ExtractionError as exc:
+        diagnostics = exc.details.get("ocrDiagnostics", diagnostics)
+        try:
+            save_vision_diagnostics(item_id, token, chunk, diagnostics)
+        except Exception:
+            # Best effort on the failure path: preserve the original code, usage and ID.
+            pass
+        raise
+    save_vision_diagnostics(item_id, token, chunk, diagnostics)
+    return result
 
 
 def process(item_id, token):
@@ -767,9 +824,6 @@ def process(item_id, token):
                 )
             else:
                 response = extract(mode, model, chunk, selected_targets, images)
-                response.extraction, diagnostics = validate_candidates(
-                    response.extraction, chunk, allowed
-                )
         except ExtractionError as exc:
             from app.source_analysis.budget import settle
 
@@ -783,6 +837,8 @@ def process(item_id, token):
             settle(accounting, reservation_id, response.usage)
             accounting.commit()
         extraction = response.extraction
+        if not use_vision_ocr:
+            extraction, diagnostics = validate_candidates(extraction, chunk, allowed)
         with get_sessionmaker()() as db:
             # Account for completed provider usage even if cancellation fenced the result.
             context = lock_context(db, item_id, token)

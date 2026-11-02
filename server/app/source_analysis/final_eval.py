@@ -33,7 +33,12 @@ from app.source_analysis.preprocess import (
 )
 from app.source_analysis.synthetic import CASES, material
 from app.source_analysis.text_safety import SAFETY_LISTS_HASH
-from app.source_analysis.worker import extraction_chunks, transcribe_pages, validate_candidates
+from app.source_analysis.worker import (
+    extract_vision_chunks,
+    extraction_chunks,
+    transcribe_pages,
+    validate_candidates,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 SYNTHETIC_GOLD = final_score.VALIDATION_DIR / "source-final-gold-i3-dev-synthetic.json"
@@ -390,7 +395,8 @@ def evaluate_source(row, provider, model, calls):
             {"number": number, "spans": [{**s, "text": scrub(s["text"])} for s in page["spans"]]}
             for number, page in enumerate(pages, 1)
         ]
-        if provider == "openrouter" and row["mime"] != "text/plain":
+        vision = provider == "openrouter" and row["mime"] != "text/plain"
+        if vision:
             import base64
 
             stage = "ocr"
@@ -399,37 +405,56 @@ def evaluate_source(row, provider, model, calls):
                 {number: base64.b64decode(page["image"]) for number, page in enumerate(pages, 1)},
                 calls,
             )
-        # Shared product grouping preserves original page/span evidence after OCR.
-        parts = list(extraction_chunks(chunk))
-        if not parts:  # Non-vision empty text retains the existing empty-result diagnostics.
-            parts = [chunk]
-        for part in parts:
             stage = "extract"
-            response = calls(
-                "extract",
-                model,
-                part,
+            response, diagnostics = extract_vision_chunks(
+                chunk,
                 [target],
-                [],
-                lambda part=part: extraction_ai.extract(
+                model,
+                calls,
+                lambda part: extraction_ai.extract(
                     provider, model, part, [target], [], mock_empty=True
                 ),
+                ocr_diagnostics,
             )
-            accepted, diagnostics = validate_candidates(response.extraction, part, {target["id"]})
             stage1_diagnostics.append(diagnostics)
-            rejected += diagnostics["rejectedCount"]
-            for c in accepted.candidates:
-                value = {"id": "c-" + str(len(candidates)), **c.model_dump(by_alias=True)}
-                if not any(
-                    all(
-                        value[k] == old[k]
-                        for k in ("targetId", "fieldKey", "value", "historical", "evidence")
-                    )
-                    for old in candidates
-                ):
-                    candidates.append(value)
-        if rejected and not candidates:
-            raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
+            rejected = diagnostics["rejectedCount"]
+            candidates = [
+                {"id": "c-" + str(i), **c.model_dump(by_alias=True)}
+                for i, c in enumerate(response.extraction.candidates)
+            ]
+            if rejected and not candidates:
+                raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
+        else:
+            # Each product text chunk is an item, including an empty page's chunk.
+            for part in extraction_chunks(chunk):
+                stage = "extract"
+                response = calls(
+                    "extract",
+                    model,
+                    part,
+                    [target],
+                    [],
+                    lambda part=part: extraction_ai.extract(
+                        provider, model, part, [target], [], mock_empty=True
+                    ),
+                )
+                accepted, diagnostics = validate_candidates(
+                    response.extraction, part, {target["id"]}
+                )
+                stage1_diagnostics.append(diagnostics)
+                rejected += diagnostics["rejectedCount"]
+                if diagnostics["rejectedCount"] and not accepted.candidates:
+                    raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
+                for c in accepted.candidates:
+                    value = {"id": "c-" + str(len(candidates)), **c.model_dump(by_alias=True)}
+                    if not any(
+                        all(
+                            value[k] == old[k]
+                            for k in ("targetId", "fieldKey", "value", "historical", "evidence")
+                        )
+                        for old in candidates
+                    ):
+                        candidates.append(value)
         metric["stage1Ms"] = (time.perf_counter() - stage1) * 1000
         safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
         metric["rejectedCandidates"] = rejected
@@ -542,6 +567,7 @@ def evaluate_source(row, provider, model, calls):
         metric.update(
             pagesEmpty=len(ocr_diagnostics["pagesEmpty"]),
             pagesFailed=len(ocr_diagnostics["pagesFailed"]),
+            chunksFailed=len(ocr_diagnostics.get("chunksFailed", [])),
         )
         if "chunk" in locals():
             safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
