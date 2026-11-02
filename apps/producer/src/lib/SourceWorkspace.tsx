@@ -348,11 +348,7 @@ export function SourceWorkspace() {
     setRuns(jobs.items);
     setDrafts(ds.items);
   }, [batchId]);
-  const mutate = (
-    fn: () => Promise<void>,
-    starting = false,
-    onError?: (feedback: SourceActionError) => void,
-  ) => {
+  const mutate = (fn: () => Promise<void>, starting = false) => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -365,7 +361,6 @@ export function SourceWorkspace() {
         if (alive.current) {
           const feedback = sourceActionError(e);
           if (starting) setStartError(feedback.message);
-          else if (onError) onError(feedback);
           else setError(feedback);
         }
       })
@@ -621,7 +616,7 @@ export function SourceWorkspace() {
                       공개하기 전에는 대표 상품사진 한 장이 필요해요.
                     </T>
                   ) : null}
-                  {startError ? <View accessibilityRole="alert"><T color={tokens.color.error}>{startError}</T>{startError.includes("품종") ? <T variant="caption">위 기본 정보의 과일 품종명 칸에서 수정해 주세요.</T> : null}</View> : null}
+                  {startError ? <View accessibilityRole="alert">{/* The basic-info card already shows the variety message; only point to it here. */}{startError.includes("품종") ? <T variant="caption" color={tokens.color.error}>위 기본 정보에서 과일 품종명을 입력해 주세요.</T> : <T color={tokens.color.error}>{startError}</T>}</View> : null}
                   {!batch.sources.length ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
                   <Button
                     label={
@@ -896,22 +891,28 @@ export function SourceWorkspace() {
                         onPress={() =>
                           mutate(async () => {
                             const c = confirmation;
-                            await api.apply(
-                              batch.id,
-                              c.draft,
-                              c.productId,
-                              c.version,
-                              keyFor("apply", [
-                                c.draft.id,
+                            try {
+                              await api.apply(
+                                batch.id,
+                                c.draft,
                                 c.productId,
                                 c.version,
-                              ]),
-                            );
+                                keyFor("apply", [
+                                  c.draft.id,
+                                  c.productId,
+                                  c.version,
+                                ]),
+                              );
+                            } catch (e) {
+                              // Only the apply rejection belongs beside the confirm button.
+                              if (alive.current) setApplyError(sourceActionError(e));
+                              return;
+                            }
                             pending.current.clear();
                             setConfirmation(null);
                             setNotice("상품 상세에 적용했어요.");
                             await load();
-                          }, false, setApplyError)
+                          })
                         }
                       />
                       <Button

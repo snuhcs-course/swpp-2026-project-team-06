@@ -240,6 +240,9 @@ Path(output).write_bytes(data)
         ),
       ).toBe(true);
       await expect(page.getByText("자료를 처리하지 못했어요. 내용을 확인한 후 다시 시도해 주세요.", { exact: false }).first()).toBeVisible();
+      // DEV-179: retry stays disabled until the producer acknowledges the repeat cost.
+      await expect(page.getByRole("button", { name: "실패한 항목 재시도", exact: true })).toBeDisabled();
+      await page.getByRole("checkbox", { name: /비용이 다시/ }).check();
       await expect(page.getByRole("button", { name: "실패한 항목 재시도", exact: true })).toBeEnabled();
       await shot("analysis-failure");
       testInfo.annotations.push({ type: "gap", description: "Visual extraction success/evidence NOT RUN: mock accepts only text fixture checksums. Remaining steps exercise manual recovery after real analysis failure." });

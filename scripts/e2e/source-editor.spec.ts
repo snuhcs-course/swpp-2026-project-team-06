@@ -383,6 +383,9 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
   await expect(page.getByTestId("source-basic-info")).toContainText(
     "과일 품종명을 입력해 주세요.",
   );
+  // The start button only points to the card; the message itself is not repeated.
+  await expect(page.getByText("과일 품종명을 입력해 주세요.", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("위 기본 정보에서 과일 품종명을 입력해 주세요.", { exact: true })).toBeVisible();
   await variety.fill("온주밀감");
   await size.fill("중과, 지름 6~7cm");
   await brix.fill("101");

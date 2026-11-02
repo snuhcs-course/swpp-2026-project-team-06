@@ -5,11 +5,12 @@ export type SourceActionError = { message: string; canRefresh: boolean };
 /** Share the composer's field reason with every source apply/review action. */
 export function sourceActionError(error: unknown): SourceActionError {
   if (error instanceof ApiError) {
-    const photoReason = error.details.fields?.representativePhoto;
+    const fields = error.details.fields;
+    const reason = fields?.representativePhoto || Object.values(fields ?? {}).find(Boolean);
     return {
-      message: photoReason || error.message,
+      message: reason || error.message,
       // Only input validation is fixed by editing; conflicts and failures are worth re-reading.
-      canRefresh: error.status !== 400 && !error.details.fields,
+      canRefresh: !(error.status === 400 && reason),
     };
   }
   // Raw fetch failures (uploads) surface as TypeError; never show the browser's English text.

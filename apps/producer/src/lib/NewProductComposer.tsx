@@ -700,7 +700,7 @@ export function NewProductComposer() {
   ) : null;
   const title =
     form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name : "새 상품";
-  const render = (basic: ReturnType<typeof useSourceBasicInfo> | null) => (
+  const render = (basic: ReturnType<typeof useSourceBasicInfo>) => (
     <Screen>
       <HeaderBar title={title} onBack={() => router.back()} />
       {batch && <Button label={buyerPreview ? "편집으로 돌아가기" : "구매자 화면 미리보기"} variant="outline"
@@ -761,7 +761,7 @@ export function NewProductComposer() {
           </View>
         ) : (
           (() => {
-              const values = basic!.inputs[target.id] ?? {
+              const values = basic.inputs[target.id] ?? {
                 variety: "",
                 size: "",
                 brix: "",
@@ -780,8 +780,8 @@ export function NewProductComposer() {
                   maxLength={maxLength}
                   editable={!locked}
                   numeric={key === "brix"}
-                  onChange={(v) => basic!.change(target.id, key, v)}
-                  onBlur={basic!.blur}
+                  onChange={(v) => basic.change(target.id, key, v)}
+                  onBlur={basic.blur}
                 />
               );
               return (
@@ -896,7 +896,8 @@ export function NewProductComposer() {
                         </View>
                       ),
                       subName: buyerPreview ? undefined : null,
-                      sale: buyerPreview ? undefined : (
+                      // Before sale settings there is no stage: hide stock and shipping instead of showing 0 boxes.
+                      sale: buyerPreview ? (product.stages.length ? undefined : <></>) : (
                         <LaterNote text="받는 시기·가격·배송비는 다음 단계(판매·가격)에서 정해요" />
                       ),
                       story: (
@@ -1030,10 +1031,10 @@ export function NewProductComposer() {
                       infoOpen: true,
                     }}
                   />
-                  {basic!.error && !buyerPreview && !sheetOpen ? (
+                  {basic.error && !buyerPreview && !sheetOpen ? (
                     <View accessibilityRole="alert" style={{ padding: 20 }}>
                       <T variant="caption" color={tokens.color.error}>
-                        {basic!.error}
+                        {basic.error}
                       </T>
                     </View>
                   ) : null}
@@ -1085,10 +1086,10 @@ export function NewProductComposer() {
             sheetOpen ? (
               <View style={{ gap: 8 }}>
                 <T variant="caption">과일 품종명 *</T>
-                <FillInput label="과일 품종명" value={basic?.inputs[target?.id ?? ""]?.variety ?? ""}
+                <FillInput label="과일 품종명" value={basic.inputs[target?.id ?? ""]?.variety ?? ""}
                   placeholder="예: 온주밀감" maxLength={100} editable={!busy && !activeRun && !editorDirty}
-                  onChange={(v) => { if (target) basic?.change(target.id, "variety", v); setStartError(""); }} onBlur={basic?.blur} />
-                {startError || basic?.error ? <View accessibilityRole="alert"><T color={tokens.color.error}>{startError || basic?.error}</T></View> : null}
+                  onChange={(v) => { if (target) basic.change(target.id, "variety", v); setStartError(""); }} onBlur={basic.blur} />
+                {startError || basic.error ? <View accessibilityRole="alert"><T color={tokens.color.error}>{startError || basic.error}</T></View> : null}
               {!batch.sources.length ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
               <Button
                 label={startLabel}

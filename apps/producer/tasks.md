@@ -1269,3 +1269,14 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
   - `source-analysis.spec.ts`는 재시도 전에 비용 확인을 체크한다.
   - `source-editor.spec.ts:467`은 백그라운드 worker 대신 큐를 직접 비운다.
 - Playwright(sandbox 밖, 새 번들, 백그라운드 worker 없음): source-review-regressions·source-editor·source-workspace-ui·new-product-composer·source-analysis·new-product-two-step·product-page-workspace에서 **76 passed / 0 failed**. `npm run typecheck` PASS.
+
+### DEV-179 머지 전 스캔 반영 (Claude, 2026-11-02)
+- owner 결정: 판매 설정 전 새 상품 구매자 미리보기에서 재고·마감·배송비 줄을 숨긴다(`sale` 슬롯을 빈 fragment로 전달, 판매 단계가 있으면 기본 표시).
+- scan-before-merge 반영:
+  - `factual_conflict`가 `normalize_fact_value`와 같은 당도 정규식을 써서 `12°Brix`/`15°Brix` 충돌을 잡는다.
+  - review `conflicts.candidateIds`는 판정과 같은 비-historical 후보만 담는다.
+  - `sourceActionError`는 400이면서 field 사유가 있을 때만 재조회를 숨기고, 첫 field 사유를 메시지로 쓴다.
+  - Workspace는 `api.apply` 거절만 확인 패널에 두고, 적용 성공 뒤 재조회 실패는 페이지 오류로 보낸다.
+  - 품종 메시지 중복을 제거했다.
+  - 충돌 선택지는 정규화 값으로 묶는다.
+  - Composer `render`의 basic 인자를 non-null로 정리했다.

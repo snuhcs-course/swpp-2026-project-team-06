@@ -61,6 +61,32 @@ const initialHidden = (drafts: SourceDraft[]) => {
   }
   return hidden;
 };
+// Mirrors the server's fact normalization so "3kg" and "3000g" offer one button.
+function sameValue(v: string) {
+  return v
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/(\d+(?:\.\d+)?)\s*(kg|g|킬로그램|그램)/g, (_, n: string, u: string) =>
+      `${+(Number(n) * (u === "kg" || u === "킬로그램" ? 1000 : 1)).toFixed(3)}g`)
+    .replace(/(\d+(?:\.\d+)?)\s*(?:°?\s*(?:bx|brix)|브릭스)/g, (_, n: string) => `${Number(n)}bx`)
+    .replace(/[\s:：,，。]+|[.!]+$/g, "");
+}
+
+function uniqueChoices<C extends { candidateIds: string[]; value: string }>(choices: C[], current: string) {
+  const seen = new Set(current ? [sameValue(current)] : []);
+  return [...choices]
+    // Same representative as the server: the lowest candidate id in code-point order.
+    .map((c) => ({ c, key: [...c.candidateIds].sort()[0] ?? "" }))
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map(({ c }) => c)
+    .filter((c) => {
+      const key = sameValue(c.value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 export function SourceDetailsEditor({
   batch,
   review,
@@ -440,18 +466,18 @@ export function SourceDetailsEditor({
                         onPress={() => change({ ...e.field, state: "CONFIRMED" })}
                       />
                     ) : null}
-                    {review.candidates
-                      .filter(
+                    {uniqueChoices(
+                      review.candidates.filter(
                         (c) =>
                           !c.outdated &&
                           !c.historical &&
                           !hasMoney(c.value) &&
                           !hasHealthClaim(c.value) &&
-                          (e.status !== "conflict" || c.value !== e.field.value) &&
                           c.fieldKey === e.field.fieldKey &&
                           (c.targetId === target.id || c.targetId === null),
-                      )
-                      .map((c) => (
+                      ),
+                      e.status === "conflict" ? e.field.value : "",
+                    ).map((c) => (
                         <Button
                           key={c.id}
                           label={c.value}

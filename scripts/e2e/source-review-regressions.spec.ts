@@ -577,6 +577,12 @@ for (const composer of [false, true]) {
     await loginProducer(page, "강영수");
     const fixture = contractFixture();
     await serveContractReview(page, fixture);
+    // A new product has no sale settings yet (no sale stages).
+    if (composer) await page.route("**/api/products/mine/p-house", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const response = await route.fetch();
+      return route.fulfill({ response, json: { ...(await response.json()), stages: [] } });
+    });
     await openContractReview(page, fixture, composer);
     const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
     const unsaved = "구매자가 보게 될 직접 수정한 제주 감귤 설명";
@@ -591,9 +597,25 @@ for (const composer of [false, true]) {
     await expect(page.getByRole("button", { name: "비공개 저장", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true })).toHaveCount(0);
     await expect(page.getByTestId("excluded-chip")).toBeHidden();
+    // A new product has no sale settings yet: no "0박스 남음 · 마감" or default shipping row.
+    if (composer) {
+      await expect(page.getByText(/박스 남음/)).toHaveCount(0);
+      await expect(page.getByText(/도서산간 추가/)).toHaveCount(0);
+    }
     await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
     await expect(page).toHaveURL(url);
     await expect(summary).toHaveValue(unsaved);
+    clean();
+  });
+
+  if (composer) test("DEV-179 AC-SRC-11: composer buyer preview keeps sale rows once sale settings exist", async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    await serveContractReview(page, fixture);
+    await openContractReview(page, fixture, true);
+    await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+    await expect(page.getByText(/박스 남음/)).toBeVisible();
     clean();
   });
 
