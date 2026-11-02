@@ -1877,3 +1877,299 @@ def test_AC_SRC_2_5_10_followup_product_multipage_failure_status_and_ledger(
         assert len(rows) == 15  # OCR12 + three packed extraction requests, no replay.
         assert all(row.charged_micros is not None for row in rows)
         assert sum(row.charged_micros for row in rows) == (13500 if all_failed else 12900)
+
+
+@pytest.mark.parametrize("failure", ["page", "partial_chunk"])
+@pytest.mark.usefixtures("single_page_extraction_chunks")
+def test_AC_SRC_2_5_DEV_193_partial_file_supersedes_only_covered_candidate_pages(
+    client, login, monkeypatch, failure
+):
+    from app.source_analysis.models import Batch
+
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+    iid, sid = ready_pdf(client, login, monkeypatch)
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        run = db.get(Run, item.run_id)
+        legacy = legacy_items(db, item)
+        old_run = db.get(Run, legacy[0].run_id)
+        old_run.model = "earlier-settings"
+        old_file = Item(
+            run_id=old_run.id, asset_id=sid, revision=item.revision,
+            sanitization_version=item.sanitization_version, target_ids=item.target_ids,
+            phase="EXTRACT", pages=item.pages, status="SUCCEEDED",
+        )
+        db.add(old_file)
+        db.flush()
+        ids = {}
+        cases = {
+            "p1": (old_file, [1]), "p2": (old_file, [2]), "p3": (old_file, [3]),
+            "p13": (old_file, [1, 3]), "p12": (old_file, [1, 2]),
+            "legacy_p1": (legacy[0], [1]), "legacy_p2": (legacy[1], [2]),
+        }
+        for label, (prior, pages) in cases.items():
+            candidate = Candidate(
+                batch_id=run.batch_id, item_id=prior.id, target_id=item.target_ids[0],
+                field_key="storage", value=f"합성 이전 안내 {label}", historical=False,
+                evidence=[{"sourceId": sid, "sourceRevision": item.revision, "page": p,
+                           "spanIds": ["prior"], "quote": "합성 이전 안내"} for p in pages],
+            )
+            db.add(candidate)
+            db.flush()
+            ids[label] = candidate.id
+        db.commit()
+
+    def ocr(_):
+        return Transcription(
+            ["합성 보관 안내입니다. " * 170] * (2 if failure == "partial_chunk" else 1),
+            {"cost": 0.001}, "synthetic",
+        )
+
+    def extract(*args):
+        page = args[2]["pages"][0]
+        if page["number"] == 2 and (
+            failure == "page" or page["spans"][0]["id"] == "vision-gemini-1"
+        ):
+            raise ExtractionError("REQUEST_UNCERTAIN")
+        return page_extraction(*args)
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    monkeypatch.setattr(worker, "extract", extract)
+    assert worker.run_once()
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        assert item.status == "PARTIAL", (item.error, item.diagnostics)
+        outdated = {label for label, cid in ids.items() if db.get(Candidate, cid).outdated}
+        assert outdated == {"p1", "p3", "p13", "legacy_p1"}
+        assert db.get(Batch, db.get(Run, item.run_id).batch_id) is not None
+
+
+@pytest.mark.parametrize("mismatch", ["source", "revision", "sanitization", "targets"])
+def test_AC_SRC_5_DEV_193_candidate_supersession_respects_source_and_target_scope(
+    client, login, monkeypatch, mismatch
+):
+    from app.source_analysis.models import Batch
+
+    iid, sid = ready_pdf(client, login, monkeypatch)
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        prior = legacy_items(db, item)[0]
+        if mismatch == "source":
+            # A different valid asset in the same batch is the required cover photo.
+            prior.asset_id = db.scalar(select(Asset.id).where(
+                Asset.batch_id == db.get(Run, item.run_id).batch_id, Asset.id != sid
+            ))
+        elif mismatch == "revision":
+            prior.revision += 1
+        elif mismatch == "sanitization":
+            prior.sanitization_version += 1
+        else:
+            prior.target_ids = []
+        candidate = Candidate(
+            batch_id=db.get(Run, item.run_id).batch_id, item_id=prior.id,
+            target_id=item.target_ids[0], field_key="storage", value="합성 이전 보관 안내",
+            historical=False, evidence=[],
+        )
+        db.add(candidate)
+        db.flush()
+        worker.store_candidates(
+            db, db.get(Batch, candidate.batch_id), item,
+            Extraction(candidates=[], photo_requests=[]),
+        )
+        db.flush()
+        assert not candidate.outdated
+
+
+def test_AC_SRC_5_DEV_193_file_with_any_outdated_candidate_cannot_cover_reuse(
+    client, login, monkeypatch
+):
+    iid, sid = ready_pdf(client, login, monkeypatch)
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        run = db.get(Run, item.run_id)
+        item.status = "SUCCEEDED"
+        for outdated in [False, True]:
+            db.add(Candidate(
+                batch_id=run.batch_id, item_id=item.id, target_id=item.target_ids[0],
+                field_key="storage", value=f"합성 이전 안내 {outdated}", historical=False,
+                evidence=[], outdated=outdated,
+            ))
+        returning = Run(
+            batch_id=run.batch_id, mode=run.mode, model=run.model,
+            prompt_version=run.prompt_version, targets=run.targets,
+            visual_pages=run.visual_pages,
+        )
+        db.add(returning)
+        db.flush()
+        worker.enqueue_extraction(
+            db, db.get(Asset, sid), returning, SimpleNamespace(target_ids=item.target_ids),
+            list(db.scalars(select(Page).where(Page.asset_id == sid))),
+        )
+        db.flush()
+        jobs = list(db.scalars(select(Item).where(
+            Item.run_id == returning.id, Item.phase == "EXTRACT"
+        )))
+        assert len(jobs) == 1
+        assert {p["number"] for p in jobs[0].pages} == {1, 2, 3}
+        assert db.scalar(select(Spend)) is None
+
+
+def test_AC_SRC_5_DEV_193_identical_candidate_id_and_confirmed_edit_survive(
+    client, login, monkeypatch
+):
+    from app.source_analysis.models import Batch
+    from tests.test_source_analysis import PREFIX
+
+    iid, sid = ready_pdf(client, login, monkeypatch)
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        run = db.get(Run, item.run_id)
+        bid, target = run.batch_id, item.target_ids[0]
+        prior = legacy_items(db, item)[0]
+        candidate = Candidate(
+            batch_id=bid, item_id=prior.id, target_id=target, field_key="storage",
+            value="합성 보관 안내", historical=False,
+            evidence=[{"sourceId": sid, "sourceRevision": item.revision, "page": 1,
+                       "spanIds": ["prior"], "quote": "합성 보관 안내"}],
+        )
+        db.add(candidate)
+        db.flush()
+        cid = candidate.id
+        db.commit()
+    h = login("u-kang")
+    review = client.get(f"{PREFIX}/{bid}/review", headers=h).json()
+    manual = "생산자가 확정한 합성 보관 안내"
+    saved = client.patch(f"{PREFIX}/{bid}/review", headers=h, json={
+        "reviewVersion": review["reviewVersion"],
+        "fields": [{"targetId": target, "fieldKey": "storage", "value": manual,
+                    "state": "CONFIRMED", "provenance": "PRODUCER"}],
+    })
+    assert saved.status_code == 200, saved.text
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        original = db.get(Candidate, cid)
+        worker.store_candidates(db, db.get(Batch, bid), item, Extraction.model_validate({
+            "candidates": [{"targetId": target, "fieldKey": "storage", "value": original.value,
+                            "historical": False, "evidence": original.evidence}],
+            "photo_requests": [],
+        }))
+        db.flush()
+        current = list(db.scalars(select(Candidate).where(
+            Candidate.batch_id == bid, Candidate.outdated.is_(False)
+        )))
+        assert [c.id for c in current] == [cid]
+        db.commit()
+    after = client.get(f"{PREFIX}/{bid}/review", headers=h).json()
+    field = next(f for f in after["fields"] if f["fieldKey"] == "storage")
+    assert field["value"] == manual and field["state"] == "CONFIRMED"
+
+
+@pytest.mark.parametrize("complete", [False, True])
+def test_AC_SRC_5_DEV_193_empty_evidence_fallback_requires_complete_prior_item_scope(
+    client, login, monkeypatch, complete
+):
+    from app.source_analysis.models import Batch
+
+    iid, sid = ready_pdf(client, login, monkeypatch)
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        run = db.get(Run, item.run_id)
+        legacy = legacy_items(db, item)
+        old_file = Item(
+            run_id=legacy[0].run_id, asset_id=sid, revision=item.revision,
+            sanitization_version=item.sanitization_version, target_ids=item.target_ids,
+            phase="EXTRACT", pages=item.pages, status="SUCCEEDED",
+        )
+        db.add(old_file)
+        db.flush()
+        candidates = []
+        for old in [old_file, legacy[0], legacy[1]]:
+            candidate = Candidate(
+                batch_id=run.batch_id, item_id=old.id, target_id=item.target_ids[0],
+                field_key="storage", value="합성 이전 보관 안내", historical=False, evidence=[],
+            )
+            db.add(candidate)
+            candidates.append(candidate)
+        item.status = "SUCCEEDED" if complete else "PARTIAL"
+        item.diagnostics = {
+            "pagesFailed": [],
+            "chunksFailed": [] if complete else [
+                {"index": 1, "pages": [2], "code": "REQUEST_UNCERTAIN"}
+            ],
+        }
+        db.flush()
+        worker.store_candidates(
+            db, db.get(Batch, run.batch_id), item,
+            Extraction(candidates=[], photo_requests=[]),
+        )
+        db.flush()
+        assert [c.outdated for c in candidates] == [complete, True, complete]
+
+
+@pytest.mark.parametrize("same_run", [False, True])
+@pytest.mark.parametrize("empty", [False, True])
+def test_AC_SRC_5_DEV_193_text_chunk_supersession_preserves_disjoint_span_evidence(
+    client, login, monkeypatch, same_run, empty
+):
+    from app.source_analysis.models import Batch
+
+    iid, sid = ready_pdf(client, login, monkeypatch)
+    with get_sessionmaker()() as db:
+        item = db.get(Item, iid)
+        run = db.get(Run, item.run_id)
+        source = db.get(Asset, sid)
+        source.mime, source.filename = "text/plain", "invented.txt"
+        descriptor = item.pages[0]
+        # A single >4000-character text page is processed as disjoint span chunks.
+        page = db.scalar(select(Page).where(Page.asset_id == sid, Page.number == 1))
+        page.spans = page.redacted_spans = [
+            {"id": "s1", "text": "합성 첫 보관 안내 " * 250},
+            {"id": "s2", "text": "합성 다음 보관 안내 " * 250},
+        ]
+        assert sum(len(span["text"]) for span in page.spans) > 4000
+        item.pages = [{**descriptor, "spanIds": ["s2"]}]
+        prior = legacy_items(db, item, statuses=("SUCCEEDED",))[0]
+        if same_run:
+            prior.run_id = run.id
+        prior.pages = [{**descriptor, "spanIds": ["s1"]}]
+        prior_b = Item(
+            run_id=prior.run_id, asset_id=sid, revision=item.revision,
+            sanitization_version=item.sanitization_version, target_ids=item.target_ids,
+            phase="EXTRACT", pages=[{**descriptor, "spanIds": ["s2"]}], status="SUCCEEDED",
+        )
+        prior_mixed = Item(
+            run_id=prior.run_id, asset_id=sid, revision=item.revision,
+            sanitization_version=item.sanitization_version, target_ids=item.target_ids,
+            phase="EXTRACT", pages=[{**descriptor, "spanIds": ["s1", "s2"]}],
+            status="SUCCEEDED",
+        )
+        db.add_all([prior_b, prior_mixed])
+        db.flush()
+        candidates = []
+        for old, spans, label in [
+            (prior, ["s1"], "A"), (prior_b, ["s2"], "B"),
+            (prior_mixed, ["s1", "s2"], "A+B"),
+        ]:
+            candidate = Candidate(
+                batch_id=run.batch_id, item_id=old.id, target_id=item.target_ids[0],
+                field_key="storage", value=f"합성 이전 보관 안내 {label}", historical=False,
+                evidence=[{"sourceId": sid, "sourceRevision": item.revision, "page": 1,
+                           "spanIds": spans, "quote": "합성 보관 안내"}],
+            )
+            db.add(candidate)
+            candidates.append(candidate)
+        db.flush()
+        new = [] if empty else [{
+            "targetId": item.target_ids[0], "fieldKey": "storage",
+            "value": "합성 새 보관 안내 B", "historical": False,
+            "evidence": [{"sourceId": sid, "sourceRevision": item.revision, "page": 1,
+                          "spanIds": ["s2"], "quote": "합성 다음 보관 안내"}],
+        }]
+        worker.store_candidates(
+            db, db.get(Batch, run.batch_id), item,
+            Extraction.model_validate({"candidates": new, "photo_requests": []}),
+        )
+        db.flush()
+        assert [candidate.outdated for candidate in candidates] == [False, True, False]
+        stored = list(db.scalars(select(Candidate).where(Candidate.item_id == item.id)))
+        assert len(stored) == (0 if empty else 1)
