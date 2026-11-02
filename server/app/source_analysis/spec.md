@@ -113,7 +113,7 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/7/10/11. 제품 계약은 `docs/spec/source-an
 
 | 날짜 | 구현 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
-| 2026-11-01 | `refresh_runs`는 전처리·추출 모두 성공 및 후보 집합 변경 후 대상별 REFINE Item을 생성하고 worker가 lease 기반 처리 | 완료·재접속·중복/불확실 전송을 기존 작업 경로로 통제 | AC-SRC-5/10 |
+| 2026-11-01 | `refresh_runs`는 전처리·추출 성공(검증 거절로 유효 후보가 남은 EXTRACT PARTIAL 포함) 및 후보 집합 변경 후 대상별 REFINE Item을 생성하고 worker가 lease 기반 처리 | 완료·재접속·중복/불확실 전송을 기존 작업 경로로 통제 | AC-SRC-5/10 |
 | 2026-11-01 | migration0023의 Item.refinement JSON에 입력 후보 ID·prompt 버전·모듈/문구/인용 저장 | 후보 불변·검토 추적·개인정보 삭제 수명을 기존 Item과 공유 | AC-SRC-2/6 |
 | 2026-11-01 | `app/ai/source_refine.py`만 모델 호출, 기존 paid_vision_call 예약/정산 wrapper 재사용 | 원장·한도·공급자 설정을 공유하고 자동 고가 전환을 막음 | AC-SRC-10 |
 | 2026-11-01 | text_safety의 공유 금액 regex·단위 수치 검사와 preprocess.scrub로 문구별 거절/진단 | 금액·개인정보·근거 없는 수치 차단, 무관한 유효 문구 보존 | AC-SRC-3/6 |
@@ -164,3 +164,21 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6 · M-11/13/18. 평가 계약은 DEV-187 final-te
 - `source-v8-exact-numbers` / `source-refine-v6-exact-numbers`는 기존 식별 라벨·계절·절별 배치를 유지하고 숫자·단위·범위 전체를 인용 근거 표기로 보존한다. 문의 경로는 platform 제외를 명확히 한다. 기존 platform/period 서버 warning은 유지한다. FEAT-03/04/07 · AC-SRC-2/3/6 · M-11.
 - stage-1 숫자 검증은 공유 `text_safety.numbers`로 단위까지 비교한다. stage-2 수치 근거는 현재 인용 quote만 사용하여 후보 value의 단위 변조/발명을 상속하지 않는다. 후보별/문장별 거절로 무관한 정상 사실을 보존한다.
 - R3 unsupported4개는 근거 있는 월 범위의 scorer 토큰 차이다. scorer/gold/원점수를 바꾸지 않고 집계 보고서에 한계로 기록한다. 개별 문장·토큰·원문 근거는 private 분석에만 보존한다. R4 live와 사람 감사를 실행하기 전 unsupported0/recall 유지 달성을 주장하지 않는다.
+
+
+## DEV-182 일반 추출 안정화
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 제품 계약은 `docs/spec/source-analysis.md` DEV-182 절이다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | 일부 거절 EXTRACT=PARTIAL/CANDIDATES_REJECTED 유지; enqueue는 SUCCEEDED 또는 검증 거절로 acceptedCount/rejectedCount>0인 EXTRACT PARTIAL만 허용 | main의 명시적 retry·Run PARTIAL 계약 보존; 실패/불확실 자동 재생 금지 | AC-SRC-2/3/5/10 |
+| 2026-11-02 | parser v4가 PDF 첫20쪽과 첫 raw page의 pagesAnalysed/pagesSkipped 메타데이터 반환; PREPARE JSON에 영속 저장·재사용 | DB migration 없이 batch60쪽 cap과 공개 생략 안내 연결 | AC-SRC-5/8 |
+| 2026-11-02 | worker/runner가 preprocess.text_chunks의4000자 원문 span 묶음을 공유 | OpenRouter 일반 텍스트까지 같은 분할 적용 | AC-SRC-2/5 |
+| 2026-11-02 | refine의 원문순40후보/JSON16000자 prefix 제한·생략 진단, 전체 후보 freshness와 생략 unused 보존 | 요청/출력 한도와 stale/fallback 보호 | AC-SRC-2/3/5 |
+| 2026-11-02 | stage1/2 emptyReason 고정 코드와 API 카운트만 공개; run_view는 EXTRACT 전체가 성공·빈 후보인 파일에만 한 번 사유 공개, UI는 error와 emptyReason 중복 제거 | 빈 결과 설명과 개인정보 보호 | AC-SRC-5/6/8 |
+| 2026-11-02 | final scorer만 실제 범위 표현을 단일 토큰으로 정규화; 범위↔단일 끝점 지원 금지, 기존 T11 보고 점수 보존 | 월 범위 오탐의 측정 수정과 모델 변경 구분 | AC-SRC-2/3 |
+
+합성 manifest 해시 정의는 [제품 spec](../../../docs/spec/source-analysis.md#synthetic-input-definition)을 따른다.
+
+DEV-182 리뷰 보완: PARTIAL retry는 기존 service.retry로 새 Run을 생성한다. 후보 집합 변경 시 기존 정리는 is_current/matching_refinement에서 제외하고 새 REFINE을 큐에 넣으며, 동일 집합 성공 정리는 재사용한다. 실패/불확실 요청은 명시적 재시도 규칙을 유지한다. limit_candidates가 첫 후보부터 상한으로 제외하면 REFINE_INPUT_LIMIT를 worker/평가 runner 모두 기록한다. 부분 빈 chunk와 전체 빈 파일, 오류 중복 안내, PARTIAL 안내는 DB API 회귀와 두 화면 stubbed Playwright로 검증한다.

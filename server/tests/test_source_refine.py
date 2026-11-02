@@ -1142,7 +1142,7 @@ def test_AC_SRC_1_2_multi_product_shared_source_stays_unassigned(
     assert shared["evidence"][0]["quote"] == ROWS[6][1]
 
 
-def test_AC_SRC_3_partial_extract_fallback_omits_money(client, login, monkeypatch):
+def test_AC_SRC_3_partial_extract_refines_and_omits_money(client, login, monkeypatch):
     h, batch, run = ready(client, login, monkeypatch)
 
     def partial(*args):
@@ -1156,13 +1156,17 @@ def test_AC_SRC_3_partial_extract_fallback_omits_money(client, login, monkeypatc
     drain()
     r = review(client, h, batch)
     field = next(e for e in r["editorFields"] if e["field"]["fieldKey"] == "composition")
-    assert field["status"] == "missing" and field["field"]["value"] == ""
+    assert field["status"] == "ready" and field["field"]["value"] == "천혜향 3kg"
     assert any(c["value"] == ROWS[0][1] for c in r["candidates"])
     with get_sessionmaker()() as db:
         assert db.get(Run, run["id"]).status == "PARTIAL"
-        assert not list(
-            db.scalars(select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE"))
-        )
+        items = list(db.scalars(select(Item).where(Item.run_id == run["id"])))
+        extraction = next(i for i in items if i.phase == "EXTRACT")
+        assert extraction.status == "PARTIAL" and extraction.error == "CANDIDATES_REJECTED"
+        assert extraction.diagnostics["acceptedCount"] > 0
+        assert extraction.diagnostics["rejectedCount"] == 1
+        assert any(i.phase == "REFINE" and i.status == "SUCCEEDED" for i in items)
+        assert not worker.run_once()  # No automatic replay after the completed run.
 
 
 def test_AC_SRC_3_legacy_saved_autofill_with_money_is_recomputed(client, login, monkeypatch):
@@ -1571,24 +1575,23 @@ def test_AC_SRC_3_fallback_skips_period_candidates_and_saved_autofill(value, sav
 
 
 @pytest.mark.parametrize(
-    "quote,rewritten,flagged",
+    "quote,rewritten",
     [
-        ("생산 시기: 1월-3월", "1월부터 3월까지 생산해요", {"3월"}),
-        ("생산 시기: 5월-7월", "5월에서 7월 사이에 생산해요", {"7월"}),
-        ("수확 시기: 5-7월", "5월에서 7월 사이에 수확해요", {"5월", "7월"}),
+        ("생산 시기: 1월-3월", "1월부터 3월까지 생산해요"),
+        ("생산 시기: 5월-7월", "5월에서 7월 사이에 생산해요"),
+        ("수확 시기: 5-7월", "5월에서 7월 사이에 수확해요"),
     ],
 )
-def test_AC_SRC_3_month_range_scorer_limit_preserves_evidence(quote, rewritten, flagged):
-    """Four false-positive tokens in three synthetic range patterns; scorer stays frozen."""
-    from app.source_analysis.final_score import sensitive_tokens
+def test_AC_SRC_3_month_range_measurement_fix_preserves_evidence(quote, rewritten):
+    """Range tokens share units; product evidence checks stay strict."""
+    from app.source_analysis.final_score import sensitive_tokens, unsupported_tokens
 
     source = [{**candidates()[0], "value": quote, "evidence": [{"quote": quote}]}]
-    safe_numbers = sensitive_tokens(quote)["number"]
-    assert sensitive_tokens(rewritten)["number"] - safe_numbers == flagged
+    safe = sensitive_tokens(quote)
+    assert not unsupported_tokens(sensitive_tokens(rewritten), safe)["number"]
     copied = f"합성 품목은 {quote.split(': ')[1]}에 생산해요"
-    assert not sensitive_tokens(copied)["number"] - safe_numbers
-    # Both wordings are numerically grounded. Preserve the printed expression to also
-    # satisfy the frozen scorer; never discard the supported season to get zero tokens.
+    assert not unsupported_tokens(sensitive_tokens(copied), safe)["number"]
+    # Both wordings are numerically grounded; do not discard the supported season.
     for value in (rewritten, copied):
         output = Refinement(
             modules=[
@@ -1655,3 +1658,306 @@ def test_AC_SRC_3_final_prompt_keeps_r3_coverage_and_excludes_contact_policy():
     assert "app chat, farm inquiry, seller messaging" in PROMPT
     assert "excluded as platform, never kept under support" in PROMPT
     assert "A contact-only candidate produces no text" in PROMPT
+
+
+def test_AC_SRC_2_5_refine_input_cap_is_deterministic_and_bounded():
+    source = candidates() * 30
+    selected, diagnostics = refinement.limit_candidates(source)
+    assert selected == source[: len(selected)]
+    assert len(selected) <= refinement.MAX_REFINE_CANDIDATES
+    assert (
+        len(json.dumps(selected, ensure_ascii=False, sort_keys=True)) <= refinement.MAX_REFINE_CHARS
+    )
+    assert diagnostics["candidatesSkipped"] == len(source) - len(selected) > 0
+    assert refinement.limit_candidates(source) == (selected, diagnostics)
+    giant = [{**source[0], "value": "합성" * 20000}]
+    selected, diagnostics = refinement.limit_candidates(giant)
+    assert selected == []
+    assert diagnostics == {
+        "candidatesAnalysed": 0,
+        "candidatesSkipped": 1,
+        "emptyReason": "REFINE_INPUT_LIMIT",
+    }
+
+
+@pytest.mark.parametrize(
+    "source,reason",
+    [
+        ([], "NO_CANDIDATES"),
+        ([{"targetId": None}], "NO_TARGET_CANDIDATES"),
+        ([{"targetId": "target"}], "ALL_TEXTS_FILTERED"),
+    ],
+)
+def test_AC_SRC_5_8_refine_empty_reasons(source, reason):
+    assert refinement.empty_reason(source, "target", []) == reason
+    assert refinement.empty_reason(source, "target", [{"module": "summary"}]) is None
+
+
+def test_AC_SRC_2_5_refine_cap_keeps_full_freshness_and_excludes_omitted(
+    client,
+    login,
+    monkeypatch,
+):
+    h, batch, run = ready(client, login, monkeypatch)
+    monkeypatch.setattr(refinement, "MAX_REFINE_CANDIDATES", 1)
+    drain()
+    with get_sessionmaker()() as db:
+        item = db.scalar(select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE"))
+        current = refinement.current_candidates(db, batch["id"], batch["targets"][0]["id"])
+        assert item.status == "SUCCEEDED" and refinement.is_current(item, current)
+        assert item.diagnostics["candidatesSkipped"] == len(current) - 1
+        skipped = {c.id for c in current[1:]}
+        assert skipped <= {cid for e in item.refinement["excluded"] for cid in e["candidateIds"]}
+        assert not skipped & {
+            cid for m in item.refinement["modules"] for t in m["texts"] for cid in t["candidateIds"]
+        }
+    assert not worker.run_once()
+    r = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
+    assert next(i for i in r["items"] if i["phase"] == "REFINE")["candidatesSkipped"] > 0
+
+
+@pytest.mark.parametrize("code", ["CANDIDATES_REJECTED", "REQUEST_UNCERTAIN"])
+def test_AC_SRC_3_5_failed_extraction_never_automatically_refines_or_replays(
+    client,
+    login,
+    monkeypatch,
+    code,
+):
+    from app.ai.source_analysis import ExtractionError
+
+    _, _, run = ready(client, login, monkeypatch)
+    calls = []
+
+    def fail_extract(*args):
+        calls.append(1)
+        if code == "REQUEST_UNCERTAIN":
+            raise ExtractionError(code)
+        response = fixture_extract(*args)
+        for candidate in response.extraction.candidates:
+            candidate.evidence[0].quote = "합성 근거에 없는 문구"
+        return response
+
+    monkeypatch.setattr(worker, "extract", fail_extract)
+    drain()
+    assert calls == [1] and not worker.run_once()
+    with get_sessionmaker()() as db:
+        items = list(db.scalars(select(Item).where(Item.run_id == run["id"])))
+        assert not any(i.phase == "REFINE" for i in items)
+        extraction = next(i for i in items if i.phase == "EXTRACT")
+        assert extraction.status == "FAILED" and extraction.error == code
+
+
+@pytest.mark.parametrize("case_id", ["21-long-text", "23-partial-validation"])
+def test_AC_SRC_2_3_5_synthetic_chunks_merge_dedup_reject_and_reach_draft(
+    client,
+    login,
+    monkeypatch,
+    case_id,
+):
+    from app.ai import source_analysis as ai
+    from app.source_analysis.models import Candidate
+    from app.source_analysis.synthetic import CASES
+
+    case = next(c for c in json.loads(CASES.read_text()) if c["id"] == case_id)
+    h = login("u-kang")
+    batch = create(client, h)
+    source = upload(client, h, batch, text=case["text"])
+    parsed = parse(case["text"].encode(), "text/plain")[0]
+    with get_sessionmaker()() as db:
+        asset = db.get(Asset, source["id"])
+        asset.status, asset.preprocess_version = "PREPARED", PREPROCESS_VERSION
+        asset.sanitization_version, asset.privacy_approved = 1, True
+        db.add(
+            Page(
+                asset_id=asset.id,
+                revision=asset.revision,
+                number=1,
+                spans=parsed["spans"],
+                redacted_spans=parsed["spans"],
+                redactions=[],
+            )
+        )
+        db.commit()
+
+    def repeated(*args):
+        response = ai.extract(*args)
+        response.extraction.candidates *= 2
+        return response
+
+    monkeypatch.setattr(worker, "extract", repeated)
+    run = start(client, h, batch["id"])
+    drain()
+    with get_sessionmaker()() as db:
+        items = list(db.scalars(select(Item).where(Item.run_id == run["id"])))
+        assert len([i for i in items if i.phase == "EXTRACT"]) >= (
+            3 if case_id == "21-long-text" else 1
+        )
+        assert all(
+            i.status == ("PARTIAL" if i.phase == "EXTRACT" else "SUCCEEDED")
+            if case_id == "23-partial-validation"
+            else i.status == "SUCCEEDED"
+            for i in items
+        )
+        assert db.get(Run, run["id"]).status == (
+            "PARTIAL" if case_id == "23-partial-validation" else "SUCCEEDED"
+        )
+        candidates = list(db.scalars(select(Candidate).where(Candidate.batch_id == batch["id"])))
+        expected_fields = {"composition", "storage"}
+        if case_id == "21-long-text":
+            expected_fields.add("productionProcess")
+        else:
+            assert sum(i.diagnostics.get("rejectedCount", 0) for i in items) == 2
+        assert len(candidates) == len(expected_fields)  # Exact provider repeats are stored once.
+        assert {c.field_key for c in candidates} == expected_fields
+        assert not any(c.value == "잘못된 인용 후보" for c in candidates)
+    r = review(client, h, batch)
+    response = client.put(
+        f"{PREFIX}/{batch['id']}/editor",
+        headers=key(h),
+        json={
+            "reviewVersion": r["reviewVersion"],
+            "fields": [e["field"] for e in r["editorFields"]],
+            "targets": [
+                {
+                    "targetId": batch["targets"][0]["id"],
+                    "enabledModuleIds": ["composition", "storage", "productionProcess"],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    modules = response.json()["drafts"][0]["snapshot"]["previewModules"]
+    expected_texts = {"감귤 7kg입니다.", "서늘한 곳에 두세요."}
+    if case_id == "21-long-text":
+        expected_texts.add("바람을 막는 울타리에서 길렀습니다.")
+    assert {t["value"] for m in modules for t in m["texts"]} == expected_texts
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_AC_SRC_5_partial_retry_reuses_or_outdates_refinement(client, login, monkeypatch, changed):
+    h, batch, run = ready(client, login, monkeypatch)
+
+    def partial(*args):
+        result = fixture_extract(*args)
+        invalid = result.extraction.candidates[0].model_copy(deep=True)
+        invalid.evidence[0].quote = "합성 근거에 없는 인용"
+        result.extraction.candidates.append(invalid)
+        return result
+
+    monkeypatch.setattr(worker, "extract", partial)
+    drain()
+    before = review(client, h, batch)
+    tid = batch["targets"][0]["id"]
+    old_version = before["refinementResults"][tid]["refinementVersion"]
+    assert old_version
+    with get_sessionmaker()() as db:
+        extraction = db.scalar(
+            select(Item).where(Item.run_id == run["id"], Item.phase == "EXTRACT")
+        )
+        assert extraction.status == "PARTIAL"
+        extraction_id = extraction.id
+        old_refine_id = db.scalar(
+            select(Item.id).where(Item.run_id == run["id"], Item.phase == "REFINE")
+        )
+
+    def retried(*args):
+        response = fixture_extract(*args)
+        if changed:
+            response.extraction.candidates = [
+                c for c in response.extraction.candidates if c.field_key != "storage"
+            ]
+        return response
+
+    monkeypatch.setattr(worker, "extract", retried)
+    response = client.post(
+        f"{PREFIX}/{batch['id']}/runs/{run['id']}/retry",
+        headers=key(h), json={"itemIds": [extraction_id]},
+    )
+    assert response.status_code == 202, response.text
+    retry_id = response.json()["id"]
+    assert worker.run_once()  # Retry the PARTIAL item only after the explicit request.
+    with get_sessionmaker()() as db:
+        current = refinement.current_candidates(db, batch["id"], tid)
+        assert refinement.is_current(db.get(Item, old_refine_id), current) is not changed
+        queued = list(
+            db.scalars(select(Item).where(Item.run_id == retry_id, Item.phase == "REFINE"))
+        )
+        assert len(queued) == int(changed)
+        if changed:
+            assert queued[0].status == "QUEUED"
+    if changed:
+        assert review(client, h, batch)["refinementResults"][tid]["refinementVersion"] is None
+    drain()
+    after = review(client, h, batch)
+    assert (after["refinementResults"][tid]["refinementVersion"] == old_version) is not changed
+    retried_run = client.get(f"{PREFIX}/{batch['id']}/runs/{retry_id}", headers=h).json()
+    assert retried_run["status"] == "SUCCEEDED"
+    assert not worker.run_once()
+
+
+@pytest.mark.parametrize("all_empty", [False, True])
+def test_AC_SRC_5_8_long_text_empty_chunks_notice_is_per_file(
+    client, login, monkeypatch, all_empty
+):
+    from app.ai import source_analysis as ai
+    from app.source_analysis.synthetic import CASES
+
+    case = next(c for c in json.loads(CASES.read_text()) if c["id"] == "21-long-text")
+    text = case["text"].replace(
+        "합성 보관: 서늘한 곳에 두세요.", "합성 구분: 이 문단에는 상품 사실이 없습니다."
+    )
+    h = login("u-kang")
+    batch = create(client, h)
+    source = upload(client, h, batch, text=text)
+    parsed = parse(text.encode(), "text/plain")[0]
+    with get_sessionmaker()() as db:
+        asset = db.get(Asset, source["id"])
+        asset.status, asset.preprocess_version = "PREPARED", PREPROCESS_VERSION
+        asset.sanitization_version, asset.privacy_approved = 1, True
+        db.add(Page(asset_id=asset.id, revision=asset.revision, number=1,
+                    spans=parsed["spans"], redacted_spans=parsed["spans"], redactions=[]))
+        db.commit()
+    calls = []
+
+    def extract(*args):
+        response = ai.extract(*args, mock_empty=True)
+        if all_empty:
+            response.extraction.candidates = []
+        calls.append(response)
+        return response
+
+    monkeypatch.setattr(worker, "extract", extract)
+    run = start(client, h, batch["id"])
+    drain()
+    response = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h)
+    assert response.status_code == 200
+    items = [i for i in response.json()["items"] if i["phase"] == "EXTRACT"]
+    assert len(items) == len(calls) == 3
+    assert [bool(r.extraction.candidates) for r in calls] == (
+        [False, False, False] if all_empty else [True, False, True]
+    )
+    assert response.json()["status"] == "SUCCEEDED"
+    assert sum(bool(i["emptyReason"]) for i in items) == int(all_empty)
+    if all_empty:
+        assert next(i["emptyReason"] for i in items if i["emptyReason"]) == "NO_CANDIDATES"
+    else:
+        assert sum(i["acceptedCount"] for i in items) > 0
+    with get_sessionmaker()() as db:
+        internal = list(
+            db.scalars(select(Item).where(Item.run_id == run["id"], Item.phase == "EXTRACT"))
+        )
+        assert sum(i.diagnostics["emptyReason"] == "NO_CANDIDATES" for i in internal) == (
+            len(items) if all_empty else 1
+        )
+
+
+def test_AC_SRC_5_8_refine_oversized_input_reason_reaches_api(client, login, monkeypatch):
+    h, batch, run = ready(client, login, monkeypatch)
+    monkeypatch.setattr(refinement, "MAX_REFINE_CHARS", 1)
+    drain()
+    result = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
+    item = next(i for i in result["items"] if i["phase"] == "REFINE")
+    assert item["status"] == "SUCCEEDED" and item["error"] is None
+    assert item["emptyReason"] == "REFINE_INPUT_LIMIT"
+    assert item["acceptedCount"] == 0 and item["candidatesSkipped"] > 0
+    assert not worker.run_once()

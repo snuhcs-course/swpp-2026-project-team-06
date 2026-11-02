@@ -19,7 +19,21 @@ from PIL import Image, ImageDraw, ImageOps
 from app.core.config import get_settings
 
 Image.MAX_IMAGE_PIXELS = 40_000_000
-PREPROCESS_VERSION = "source-parser-v3"
+PREPROCESS_VERSION = "source-parser-v4"
+PDF_PAGE_CAP = 20
+TEXT_CHUNK_CHARS = 4000
+
+
+def text_chunks(spans):
+    """Keep original span IDs/quotes while bounding each extraction response."""
+    groups, group, size = [], [], 0
+    for span in spans:
+        if group and size + len(span["text"]) > TEXT_CHUNK_CHARS:
+            groups.append(group)
+            group, size = [], 0
+        group.append(span)
+        size += len(span["text"])
+    return groups + [group]
 
 
 class PreparationError(Exception):
@@ -422,9 +436,10 @@ def parse(data, mime):
 
         try:
             with pdfium.PdfDocument(data) as pdf:
-                if not 1 <= len(pdf) <= 20:
+                if len(pdf) < 1:
                     raise PreparationError("PDF_PAGE_LIMIT")
-                for index in range(len(pdf)):
+                pages_skipped = max(0, len(pdf) - PDF_PAGE_CAP)
+                for index in range(min(len(pdf), PDF_PAGE_CAP)):
                     page = pdf[index]
                     width, height = page.get_size()
                     scale = min(200 / 72, (8_000_000 / (width * height)) ** 0.5)
@@ -480,6 +495,8 @@ def parse(data, mime):
                 "preprocessVersion": PREPROCESS_VERSION,
             }
         )
+    if mime == "application/pdf":
+        output[0].update(pagesAnalysed=len(output), pagesSkipped=pages_skipped)
     return output
 
 

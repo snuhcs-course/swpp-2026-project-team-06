@@ -36,12 +36,39 @@ PHONE_RE = re.compile(
     r"(?!\d)"
 )
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}")
+NUMBER_UNIT = (
+    r"kg|mg|[μµ]g|g|brix|cm|mm|ml|l|m|톤|리터|년|개월|월|일|시간|분|초|"
+    r"과|개|상자|박스|%|도|회|명|배"
+)
+NUMBER_VALUE = r"[+-]?\d[\d,]*(?:\.\d+)?"
+RANGE_SEPARATOR = r"(?:[~–-]|부터|에서)"
 NUMBER_RE = re.compile(
-    r"[+-]?\d[\d,]*(?:\.\d+)?(?:\s*[~–-]\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
-    r"\s*(?:(?:kg|mg|[μµ]g|g|brix|cm|mm|ml|l|m|톤|리터|년|개월|월|일|시간|분|초|"
-    r"과|개|상자|박스|%|도|회|명|배)(?![a-z]))?",
+    rf"{NUMBER_VALUE}(?:\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?"
+    rf"\s*{RANGE_SEPARATOR}\s*{NUMBER_VALUE}\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?"
+    rf"(?:\s*(?:까지|사이))?"
+    rf"|\s*(?:(?:{NUMBER_UNIT})(?![a-z]))?)",
     re.I,
 )
+RANGE_RE = re.compile(
+    rf"^({NUMBER_VALUE})((?:{NUMBER_UNIT})?){RANGE_SEPARATOR}"
+    rf"({NUMBER_VALUE})({NUMBER_UNIT})(?:까지|사이)?$",
+    re.I,
+)
+
+
+def number_token(text):
+    value = compact(text).casefold()
+    match = RANGE_RE.fullmatch(value)
+    if match and (not match[2] or match[2] == match[4]):
+        return f"{match[1]}{match[4]}~{match[3]}{match[4]}"
+    return value
+
+
+def unsupported_tokens(actual, safe):
+    """A range supports that range, never a standalone endpoint (or vice versa)."""
+    return {kind: actual[kind] - safe[kind] for kind in actual}
+
+
 CERTIFICATIONS = ("GAP", "HACCP", "무농약", "유기농", "친환경", "인증")
 FORBIDDEN_WORDS = {kind: tuple(SAFETY_LISTS[kind]) for kind in ("health", "platform")}
 VALIDATION_DIR = Path(__file__).resolve().parents[3] / "docs/spec/validation"
@@ -272,7 +299,7 @@ def sensitive_tokens(text: str, cultivar_words=CULTIVARS) -> dict[str, set[str]]
     value = normalize_final(re.sub(r"(?m)^\s*\d{1,2}[.)]\s+", "", text))
     folded = compact(text).casefold()
     return {
-        "number": {compact(m[0]).casefold() for m in NUMBER_RE.finditer(value)},
+        "number": {number_token(m[0]) for m in NUMBER_RE.finditer(value)},
         "cultivar": {
             compact(w).casefold() for w in cultivar_words if compact(w).casefold() in folded
         },
@@ -417,7 +444,9 @@ def score(
             for kind, tokens in sensitive_tokens(t, cultivar_words).items():
                 actual[kind] |= tokens
         safe = sensitive_tokens(safe_texts[source.id], cultivar_words)
-        unsupported = {kind: len(tokens - safe[kind]) for kind, tokens in actual.items()}
+        unsupported = {
+            kind: len(tokens) for kind, tokens in unsupported_tokens(actual, safe).items()
+        }
         judgments = {}
         for judgment in run.supportJudgments if run else []:
             index = judgment.sentenceIndex
@@ -438,7 +467,7 @@ def score(
                 or EMAIL_RE.search(sentence)
                 or any(forbidden_words(sentence).values())
                 or any(compact(distinctive(f.text)) in compact(sentence) for f in source.forbidden)
-                or any(token_sets[k] - safe[k] for k in token_sets)
+                or any(unsupported_tokens(token_sets, safe).values())
             )
             supported = (
                 any(contains(f.mustContain, sentence) for f in facts)

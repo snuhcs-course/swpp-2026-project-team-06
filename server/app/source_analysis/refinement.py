@@ -100,7 +100,16 @@ def matching_refinement(db, batch_id, target_id, candidates):
 def enqueue(db, batch, run, items):
     """Called under the batch lock, before declaring the extraction run complete."""
     if any(i.phase == "REFINE" for i in items) or any(
-        i.status != "SUCCEEDED" for i in items if i.phase in {"PREPARE", "EXTRACT"}
+        not (
+            i.status == "SUCCEEDED"
+            or i.phase == "EXTRACT"
+            and i.status == "PARTIAL"
+            and i.error == "CANDIDATES_REJECTED"
+            and i.diagnostics.get("acceptedCount", 0) > 0
+            and i.diagnostics.get("rejectedCount", 0) > 0
+        )
+        for i in items
+        if i.phase in {"PREPARE", "EXTRACT"}
     ):
         return
     sources = list(
@@ -238,6 +247,36 @@ def payload(candidates):
     ]
 
 
+MAX_REFINE_CANDIDATES = 40
+MAX_REFINE_CHARS = 16000
+
+
+def limit_candidates(candidates):
+    """Deterministic source-order prefix; retain full input IDs for freshness checks."""
+    selected, size = [], 2
+    for candidate in candidates:
+        length = len(json.dumps(candidate, ensure_ascii=False, sort_keys=True)) + 2
+        if len(selected) >= MAX_REFINE_CANDIDATES or size + length > MAX_REFINE_CHARS:
+            break
+        selected.append(candidate)
+        size += length
+    return selected, {
+        "candidatesAnalysed": len(selected),
+        "candidatesSkipped": len(candidates) - len(selected),
+        "emptyReason": "REFINE_INPUT_LIMIT" if candidates and not selected else None,
+    }
+
+
+def empty_reason(candidates, target_id, modules):
+    if modules:
+        return None
+    if not candidates:
+        return "NO_CANDIDATES"
+    if not any(c["targetId"] == target_id for c in candidates):
+        return "NO_TARGET_CANDIDATES"
+    return "ALL_TEXTS_FILTERED"
+
+
 def check_inputs(db, context):
     batch, _, run, item = context
     candidates = current_candidates(db, batch.id, item.target_ids[0])
@@ -265,7 +304,9 @@ def process(item_id, token):
         if not context:
             return
         batch, _, run, item = context
-        candidates = payload(check_inputs(db, context))
+        all_candidates = payload(check_inputs(db, context))
+        candidates, limits = limit_candidates(all_candidates)
+        diagnostic_candidates = all_candidates + payload(current_candidates(db, batch.id, None))
         # Target names may be personal data. Candidate values already identify the product.
         target = {"id": item.target_ids[0]}
         mode, model = run.mode, run.model
@@ -293,6 +334,14 @@ def process(item_id, token):
             guard=check_inputs,
         )
     modules, diagnostics = validate(response.refinement, candidates, target["id"])
+    diagnostics["excluded"].extend(
+        {"candidateIds": [c["id"]], "reason": "unused"} for c in all_candidates[len(candidates) :]
+    )
+    diagnostics.update(
+        limits,
+        emptyReason=limits["emptyReason"]
+        or empty_reason(diagnostic_candidates, target["id"], modules),
+    )
     with get_sessionmaker()() as db:
         context = lock_context(db, item_id, token)
         current = db.get(Item, item_id)

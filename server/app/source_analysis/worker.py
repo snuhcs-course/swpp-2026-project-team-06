@@ -36,6 +36,7 @@ from app.source_analysis.preprocess import (
     PreparationError,
     prepare,
     scrub,
+    text_chunks,
 )
 from app.source_analysis.service import refresh_runs
 from app.source_analysis.storage import Storage
@@ -192,15 +193,7 @@ def enqueue_extraction(db, source, run, item, pages):
     )
     for page in pages:
         spans = page.redacted_spans
-        groups, group, size = [], [], 0
-        for span in spans:
-            length = len(span["text"])
-            if size + length > 20_000 and group:
-                groups.append(group)
-                group, size = [], 0
-            group.append(span["id"])
-            size += length
-        groups.append(group)
+        groups = [[s["id"] for s in group] for group in text_chunks(spans)]
         if run.mode == "openrouter" and page.sanitized_key:
             groups = [[s["id"] for s in spans]]
         for group in groups:
@@ -297,9 +290,7 @@ def validate_candidates(extraction, chunk, allowed_targets):
     """Keep strict per-candidate checks; a bad quote cannot discard unrelated facts."""
     accepted, rejected = [], []
     for index, candidate in enumerate(extraction.candidates):
-        single = extraction.model_copy(
-            update={"candidates": [candidate.model_copy(deep=True)]}
-        )
+        single = extraction.model_copy(update={"candidates": [candidate.model_copy(deep=True)]})
         try:
             validate(single, chunk, allowed_targets)
         except ExtractionError as exc:
@@ -314,6 +305,19 @@ def validate_candidates(extraction, chunk, allowed_targets):
         else:
             accepted.extend(single.candidates)
     return extraction.model_copy(update={"candidates": accepted}), {
+        "emptyReason": (
+            "ALL_CANDIDATES_REJECTED"
+            if rejected
+            else "NO_SAFE_TEXT"
+            if not any(
+                s["text"].strip() and s["text"] != "[가림]"
+                for p in chunk["pages"]
+                for s in p["spans"]
+            )
+            else "NO_CANDIDATES"
+        )
+        if not accepted
+        else None,
         "acceptedCount": len(accepted),
         "rejectedCount": len(rejected),
         "rejected": rejected,
@@ -360,8 +364,12 @@ def store_candidates(db, batch, item, extraction):
         )
         for cid in field.candidate_ids
     }
-    retained = set()
+    retained, seen = set(), set()
     for value in extraction.candidates:
+        signature = value.model_dump_json(by_alias=True)
+        if signature in seen:
+            continue
+        seen.add(signature)
         evidence = [e.model_dump(by_alias=True) for e in value.evidence]
         same = next(
             (
@@ -523,6 +531,24 @@ def process(item_id, token):
                     select(Page).where(Page.asset_id == source.id, Page.revision == source.revision)
                 )
             )
+            previous = db.scalar(
+                select(Item)
+                .where(
+                    Item.asset_id == source.id,
+                    Item.revision == source.revision,
+                    Item.phase == "PREPARE",
+                    Item.status == "SUCCEEDED",
+                    Item.id != item.id,
+                )
+                .order_by(Item.available_at.desc())
+                .limit(1)
+            )
+            if previous:
+                item.diagnostics = {
+                    k: v
+                    for k, v in previous.diagnostics.items()
+                    if k in {"pagesAnalysed", "pagesSkipped"}
+                }
             source.privacy_approved = True
             enqueue_extraction(db, source, run, item, pages)
             refresh_runs(db, batch.id)
@@ -607,6 +633,9 @@ def process(item_id, token):
                 )
                 if others + len(prepared) > 60:
                     raise PreparationError("BATCH_PDF_PAGE_LIMIT")
+            item.diagnostics = {
+                k: prepared[0][k] for k in ("pagesAnalysed", "pagesSkipped") if k in prepared[0]
+            }
             pages = []
             for number, raw in enumerate(prepared, 1):
                 image = base64.b64decode(raw["image"]) if raw["image"] else None

@@ -498,10 +498,35 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
 def run_view(db, run):
     result = json_row(run)
     items = list(db.scalars(select(Item).where(Item.run_id == run.id).order_by(Item.id)))
+    extracts = defaultdict(list)
+    for item in items:
+        if item.phase == "EXTRACT":
+            extracts[item.asset_id].append(item)
+    empty_assets = {}
+    for group in extracts.values():
+        # A blank page/chunk is not a blank file. Keep per-chunk reasons private.
+        if all(
+            i.status == "SUCCEEDED"
+            and not i.error
+            and i.diagnostics.get("acceptedCount", 0) == 0
+            and i.diagnostics.get("emptyReason")
+            for i in group
+        ):
+            empty_assets[group[0].id] = (
+                "NO_SAFE_TEXT"
+                if all(i.diagnostics["emptyReason"] == "NO_SAFE_TEXT" for i in group)
+                else "NO_CANDIDATES"
+            )
     result["items"] = [
         {
             # 정리 결과(refinement)는 review의 excluded·refinementVersion으로만 공개한다.
             **json_row(i, ("lease_token", "lease_until", "sent", "diagnostics", "refinement")),
+            "pagesAnalysed": i.diagnostics.get("pagesAnalysed", 0),
+            "pagesSkipped": i.diagnostics.get("pagesSkipped", 0),
+            "emptyReason": empty_assets.get(i.id)
+            if i.phase == "EXTRACT"
+            else i.diagnostics.get("emptyReason"),
+            "candidatesSkipped": i.diagnostics.get("candidatesSkipped", 0),
             "acceptedCount": i.diagnostics.get("acceptedCount", 0),
             "rejectedCount": i.diagnostics.get("rejectedCount", 0),
         }

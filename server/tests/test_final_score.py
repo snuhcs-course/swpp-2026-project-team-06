@@ -403,18 +403,23 @@ def test_AC_SRC_2_synthetic_gold_schema_manifest_and_self_score():
     corpus = json.loads((VALIDATION / "source-corpus-i3-v1.json").read_text())
     fixtures = json.loads((ROOT / "server/tests/fixtures/source-analysis/cases.json").read_text())
     assert manifest["goldFileSha256"] == sha256(gold_path.read_bytes())
-    assert len(g["sources"]) == 20
-    assert {s["id"] for s in g["sources"]} == {
-        c["id"] for c in corpus["cases"] if c["origin"] == "synthetic"
-    }
+    assert len(g["sources"]) == 23
+    assert {s["id"] for s in g["sources"]} == {c["id"] for c in fixtures}
     private = [c for c in manifest["cases"] if c["status"] == "LOCAL_PRIVATE"]
     assert len(private) == 12
     assert all(c["goldSha256"] == LOCAL_GOLD_SHA256["development"] for c in private)
     assert not {c["id"] for c in private} & {s["id"] for s in g["sources"]}
-    assert {c["id"] for c in manifest["cases"]} == {c["id"] for c in corpus["cases"]}
+    assert {c["id"] for c in manifest["cases"]} == (
+        {c["id"] for c in corpus["cases"]} | {c["id"] for c in fixtures}
+    )
     for source in g["sources"]:
         c = next(c for c in manifest["cases"] if c["id"] == source["id"])
         assert c["goldSha256"] == sha256(canonical_bytes(source))
+        if source["id"] in {"21-long-text", "22-pdf-25-pages", "23-partial-validation"}:
+            fixture = next(f for f in fixtures if f["id"] == source["id"])
+            definition = {k: fixture[k] for k in ("kind", "text", "pages") if k in fixture}
+            assert c["inputDefinitionSha256"] == sha256(canonical_bytes(definition))
+            assert "safeInputSha256" not in c  # OCR output is unknown until evaluation.
         text = "\n".join(s["text"] for s in source["sentences"])
         # Self-score checks section and safety consistency, not model performance.
         report = score(
@@ -435,8 +440,8 @@ def test_AC_SRC_2_synthetic_gold_schema_manifest_and_self_score():
         assert row["forbiddenViolations"] == 0
         assert row["unsupportedTokens"] == 0
         assert row["criticalGate"] == ("PASS" if text else "FAIL")
-    assert sum(len(s["sentences"]) for s in g["sources"]) == 18
-    assert sum(len(t["facts"]) for s in g["sources"] for t in s["sentences"]) == 24
+    assert sum(len(s["sentences"]) for s in g["sources"]) == 24
+    assert sum(len(t["facts"]) for s in g["sources"] for t in s["sentences"]) == 30
     for case_id in ("09-support",):
         source = next(s for s in g["sources"] if s["id"] == case_id)
         assert source["sentences"] == []
@@ -830,3 +835,63 @@ def test_AC_SRC_6_scorer_reads_the_shared_product_safety_lists():
 
     assert final_score.MONEY_RE is MONEY
     assert FORBIDDEN_WORDS == {k: tuple(SAFETY_LISTS[k]) for k in ("health", "platform")}
+
+
+@pytest.mark.parametrize(
+    "source", ["재배 시기 3월-5월", "3월부터 5월까지", "3~5월", "3-5월", "3월에서 5월 사이"]
+)
+@pytest.mark.parametrize("output", ["3-5월", "3~5월", "3월–5월", "3월에서 5월 사이"])
+def test_AC_SRC_3_shared_unit_range_has_one_supported_token(source, output):
+    actual = final_score.sensitive_tokens(output)
+    safe = final_score.sensitive_tokens(source)
+    assert actual["number"] == {"3월~5월"}
+    assert final_score.unsupported_tokens(actual, safe)["number"] == set()
+
+
+@pytest.mark.parametrize(
+    "source", ["3월", "5월", "3개 5개", "3월부터 6월까지", "3월 재배 5월 수확"]
+)
+def test_AC_SRC_3_shared_unit_range_requires_both_endpoints_and_unit(source):
+    unsupported = final_score.unsupported_tokens(
+        final_score.sensitive_tokens("3~5월"), final_score.sensitive_tokens(source)
+    )
+    assert unsupported["number"] == {"3월~5월"}
+
+
+@pytest.mark.parametrize("source", ["3-5kg", "3kg~5kg", "3kg–5kg", "3kg에서 5kg 사이"])
+@pytest.mark.parametrize("endpoint", ["3kg", "5kg"])
+def test_AC_SRC_3_source_range_never_supports_one_endpoint(source, endpoint):
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens(endpoint), final_score.sensitive_tokens(source)
+    )["number"] == {endpoint}
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens(source), final_score.sensitive_tokens(endpoint)
+    )["number"] == {"3kg~5kg"}
+
+
+def test_AC_SRC_3_range_endpoint_fails_score_and_precision():
+    value = gold()
+    sentence = value["sources"][0]["sentences"][0]
+    sentence["text"] = "중량 3-5kg입니다."
+    sentence["facts"] = [
+        {"id": "endpoint", "statement": "중량", "mustContain": ["5kg"], "critical": True}
+    ]
+    report = score(value, [run("5kg")], {value["sources"][0]["id"]: "중량 3-5kg"})
+    assert report["overall"]["unsupportedTokens"] == 1
+    assert report["overall"]["precisionProxy"]["rate"] == 0
+
+
+def test_AC_SRC_3_range_measurement_applies_to_score_and_precision():
+    value = gold()
+    sentence = value["sources"][0]["sentences"][0]
+    sentence["text"] = "재배 시기는 3~5월입니다."
+    sentence["facts"] = [
+        {"id": "range", "statement": "재배 월 범위", "mustContain": ["3~5월"], "critical": True}
+    ]
+    report = score(
+        value,
+        [run("재배 시기는 3~5월입니다.")],
+        {value["sources"][0]["id"]: "재배 시기는 3월부터 5월까지입니다."},
+    )
+    assert report["overall"]["unsupportedTokens"] == 0
+    assert report["overall"]["precisionProxy"]["rate"] == 1

@@ -148,6 +148,7 @@ def test_AC_SRC_3_refinement_rejection_never_reaches_envelope(tmp_path, monkeypa
     ev.write_envelope(tmp_path, [r], [result], [])
     assert ev.read_json(tmp_path / "case-01.output.json")["modules"] == []
     assert result[1]["rejectedTexts"] == 1
+    assert result[1]["emptyReason"] == "ALL_TEXTS_FILTERED"
 
 
 @pytest.mark.parametrize("limit", [0, -1, float("inf"), float("nan")])
@@ -838,3 +839,141 @@ def test_AC_SRC_5_6_run_abort_writes_partial_artifacts_in_finally(
         "SYNTHETIC_ABORT_CONTENT"
         not in (out / "metadata.json").read_text() + capsys.readouterr().out
     )
+
+
+def t23_case(case_id):
+    from app.source_analysis.synthetic import CASES
+
+    return next(c for c in ev.read_json(CASES) if c["id"] == case_id)
+
+
+@pytest.mark.parametrize("provider", ["mock", "openrouter", "openai"])
+def test_AC_SRC_2_5_long_plain_text_chunks_for_every_provider(monkeypatch, provider):
+    from app.source_analysis.preprocess import TEXT_CHUNK_CHARS
+
+    case = t23_case("21-long-text")
+    seen = []
+    original = ai.extract
+
+    def local_extract(mode, model, chunk, targets, images, **kwargs):
+        seen.append(chunk)
+        return original("mock", model, chunk, targets, images, mock_empty=True)
+
+    monkeypatch.setattr(ai, "extract", local_extract)
+    original_refine = ev.refine_ai.refine
+    monkeypatch.setattr(
+        ev.refine_ai,
+        "refine",
+        lambda mode, model, target, candidates: original_refine("mock", model, target, candidates),
+    )
+
+    # Calls wrapper is local: a provider name must never cause network/budget activity here.
+    def calls(stage, model, chunk, targets, images, fn):
+        return fn()
+
+    calls.entries = []
+    result = ev.evaluate_source(row(case["text"]), provider, "fixture", calls)
+    assert result[0]["status"] == "EVALUATED", result[1]
+    assert len(seen) >= 3
+    assert all(
+        sum(len(s["text"]) for p in c["pages"] for s in p["spans"]) <= TEXT_CHUNK_CHARS
+        for c in seen
+    )
+    assert {c["fieldKey"] for c in result[3]["candidates"]} == {
+        "composition",
+        "storage",
+        "productionProcess",
+    }
+    assert len({c["id"] for c in result[3]["candidates"]}) == 3
+
+
+def test_AC_SRC_2_3_partial_rejection_reaches_refine_and_never_draft():
+    case = t23_case("23-partial-validation")
+    result = ev.evaluate_source(row(case["text"]), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EVALUATED", result[1]
+    assert result[1]["rejectedCandidates"] == 1
+    assert result[1]["calls"] == 2
+    assert len(result[3]["candidates"]) == 2
+    assert "잘못된 인용 후보" not in json.dumps(result[0], ensure_ascii=False)
+
+
+def test_AC_SRC_3_5_all_rejected_never_refines(monkeypatch):
+    original = ai.extract
+
+    def invalid(*args, **kwargs):
+        response = original(*args, **kwargs)
+        for candidate in response.extraction.candidates:
+            candidate.evidence[0].quote = "합성 원문에 없는 인용"
+        return response
+
+    monkeypatch.setattr(ai, "extract", invalid)
+    result = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "FAILED"
+    assert result[1]["errorCode"] == "CANDIDATES_REJECTED"
+    assert result[1]["calls"] == 1
+    assert result[0]["modules"] == []
+
+
+@pytest.mark.parametrize(
+    "text,reason",
+    [
+        ("", "NO_SAFE_TEXT"),
+        ("목차와 구분선만 있는 합성 안내", "NO_CANDIDATES"),
+        ("연락처: 010-0000-0000", "NO_SAFE_TEXT"),
+    ],
+)
+def test_AC_SRC_5_8_empty_has_diagnostic(text, reason):
+    result = ev.evaluate_source(row(text), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EMPTY"
+    assert result[1]["emptyReason"] == reason
+
+
+def test_AC_SRC_2_8_synthetic_pdf_25_pages_runner_records_skips(monkeypatch):
+    from app.source_analysis import preprocess
+    from app.source_analysis.synthetic import material
+
+    case = t23_case("22-pdf-25-pages")
+    data, mime, suffix = material(case)
+    monkeypatch.setattr(preprocess, "_upright", lambda image: (image, 0))
+    monkeypatch.setattr(
+        preprocess,
+        "_tiled_ocr",
+        lambda image: [{"id": "s0", "text": "합성 구성: 감귤 7kg입니다.", "box": [0, 0, 1, 1]}],
+    )
+    monkeypatch.setattr(preprocess, "qr_regions", lambda image: [])
+    r = {
+        "id": case["id"],
+        "format": "pdf",
+        "data": data,
+        "mime": mime,
+        "suffix": suffix,
+        "inputSha256": final_score.sha256(data),
+    }
+    result = ev.evaluate_source(r, "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EVALUATED", result[1]
+    assert result[1]["pagesAnalysed"] == 20 and result[1]["pagesSkipped"] == 5
+    assert result[1]["calls"] == 21  # Twenty page extractions plus one target refinement.
+    assert result[0]["modules"] == [{"module": "composition", "texts": ["감귤 7kg입니다."]}]
+
+
+def test_AC_SRC_2_synthetic_subset_includes_t23_and_checks_input_definition(monkeypatch, tmp_path):
+    rows = ev.dataset("development", "synthetic", tmp_path, tmp_path)
+    assert len(rows) == 23
+    assert {"21-long-text", "22-pdf-25-pages", "23-partial-validation"} <= {r["id"] for r in rows}
+    manifest = ev.read_json(final_score.DEV_MANIFEST)
+    manifest["cases"][-1]["inputDefinitionSha256"] = "0" * 64
+    path = tmp_path / "dev-manifest.json"
+    ev.write_json(path, manifest)
+    monkeypatch.setattr(final_score, "DEV_MANIFEST", path)
+    with pytest.raises(ValueError, match="Synthetic input definition changed"):
+        ev.dataset("development", "synthetic", tmp_path, tmp_path)
+
+
+def test_AC_SRC_5_8_oversized_refine_input_has_distinct_reason(monkeypatch):
+    monkeypatch.setattr(ev.refinement, "MAX_REFINE_CHARS", 1)
+    result = ev.evaluate_source(row(), "mock", "fixture", ev.Calls("mock", 3))
+    assert result[0]["status"] == "EMPTY"
+    assert result[1]["emptyReason"] == "REFINE_INPUT_LIMIT"
+    assert result[1]["candidatesAnalysed"] == 0
+    assert result[1]["candidatesSkipped"] > 0
+    assert result[3]["stage2Diagnostics"]["emptyReason"] == "REFINE_INPUT_LIMIT"

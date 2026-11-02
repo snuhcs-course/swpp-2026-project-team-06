@@ -653,3 +653,82 @@ def test_AC_SRC_3_extraction_numbers_keep_source_units(quote, value, accepted):
     assert diagnostics["rejectedCount"] == (0 if accepted else 1)
     if not accepted:
         assert diagnostics["rejected"][0]["code"] == "UNSUPPORTED_NUMBER"
+
+
+def test_AC_SRC_8_pdf_first_twenty_pages_metadata_and_reproducible_material(monkeypatch):
+    import json
+
+    import pypdfium2 as pdfium
+
+    from app.source_analysis import preprocess
+    from app.source_analysis.synthetic import CASES, material
+
+    case = next(c for c in json.loads(CASES.read_text()) if c["id"] == "22-pdf-25-pages")
+    data, mime, _ = material(case)
+    assert material(case)[0] == data
+    with pdfium.PdfDocument(data) as doc:
+        assert len(doc) == 25
+    rendered = []
+
+    def ocr(image):
+        rendered.append(image.size)
+        return [{"id": "s0", "text": "합성 구성: 감귤 7kg입니다.", "box": [0, 0, 1, 1]}]
+
+    monkeypatch.setattr(preprocess, "_upright", lambda image: (image, 0))
+    monkeypatch.setattr(preprocess, "_tiled_ocr", ocr)
+    monkeypatch.setattr(preprocess, "qr_regions", lambda image: [])
+    pages = preprocess.parse(data, mime)
+    assert len(rendered) == len(pages) == 20
+    assert pages[0]["pagesAnalysed"] == 20 and pages[0]["pagesSkipped"] == 5
+
+
+def test_AC_SRC_8_batch_pdf_cap_after_per_pdf_cap(client, login, monkeypatch):
+    from app.source_analysis.synthetic import material
+
+    h = login("u-kang")
+    batch = create(client, h)
+    for label in ("A", "B", "C", "D"):
+        batch = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+        data, mime, _ = material({"kind": "pdf", "text": f"Synthetic {label}", "pages": 25})
+        response = client.post(
+            f"{PREFIX}/{batch['id']}/sources",
+            headers=h,
+            data={"batchVersion": batch["version"], "targetIds": batch["targets"][0]["id"]},
+            files={"file": (f"{label}.pdf", data, mime)},
+        )
+        assert response.status_code == 201, response.text
+    # Parser already has a separate real 25-page regression above; isolate the durable cap.
+    monkeypatch.setattr(
+        worker,
+        "prepare",
+        lambda data, mime: [
+            {
+                "spans": [],
+                "image": None,
+                **({"pagesAnalysed": 20, "pagesSkipped": 5} if i == 0 else {}),
+            }
+            for i in range(20)
+        ],
+    )
+    batch = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    run = start(client, h, batch["id"])
+    for _ in range(100):
+        if not worker.run_once():
+            break
+    else:
+        pytest.fail("Synthetic PDF queue did not drain")
+    result = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
+    prepared = [
+        i
+        for i in result["items"]
+        if i["phase"] == "PREPARE" and i["assetId"] in {s["id"] for s in batch["sources"]}
+    ]
+    assert sum(i["status"] == "SUCCEEDED" for i in prepared) == 3
+    assert sum(i["error"] == "BATCH_PDF_PAGE_LIMIT" for i in prepared) == 1
+    assert all(
+        i["pagesAnalysed"] == 20 and i["pagesSkipped"] == 5
+        for i in prepared
+        if i["status"] == "SUCCEEDED"
+    )
+    state = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    assert sum(s["pageCount"] for s in state["sources"] if s["mime"] == "application/pdf") == 60
