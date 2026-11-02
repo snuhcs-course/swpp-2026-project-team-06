@@ -870,3 +870,84 @@ uv run python -m app.source_analysis.final_eval \
 
 - 전체 항목별 결과와 실패 목록: `/private/tmp/dev193-review-verification.md`. HEAD `94d90b0a243152d8ad1839b20bb78541ff8aa7a0` 및 브랜치 유지. commit/push/PR/live 호출0, 금지 경로 접근0. Agent 시간 / Tokens 계측 미제공(추정 미기재). 남은 작업은 sandbox 밖에서 지정4파일 전체를 재실행하는 것이며, 새 실호출 품질 측정은 수행하지 않았다.
 - 11/02 owner 개발 실측(47건, openrouter gemini-3-flash-preview, 출력 한도 8000, 측정 dev193-number-evidence-v1, $0.524): 사실 201/354·중요 96/154·오배치 34/354·unsupported 0·금지 1. 같은 47건의 DEV-190 실측은 189/354·94/154·unsupported 4였으나 측정 방식이 바뀌어 직접 비교할 수 없다. 출력 한도 잘림 대상이던 h3-text-03은 EVALUATED(17초)로 회복했고, 금지 1건(gold_other)이 이 소스에서 새로 나왔다. h3-long_image-01은 이번엔 출력 잘림이 아니라 REQUEST_UNCERTAIN(일시 실패)이었다. PDF 2건은 OCR 쪽 일부 실패로 PARTIAL이다.
+
+## DEV-194 [I3] holdout v2 격리 구축과 채점 전용 지침
+
+- 이슈: DEV-194 (사용자 제공 작업 지시서; 외부 조회 없음)
+- 브랜치: `jinumeral/dev-194-holdout-v2-runner`, 시작 SHA `2015f9d`
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6
+- 상태: 진행 중
+
+### 목표
+소진된 v1.1과 격리된 v2를 버전별로 검증·1회 실행하고, 채점 담당자는 집계만 보고하도록 한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/final_eval.py`, `server/app/source_analysis/final_score.py`
+- `server/app/source_analysis/tasks.md`, `server/app/source_analysis/spec.md`
+- `server/tests/test_final_eval.py`, `server/tests/test_final_score.py`
+- `docs/spec/validation/source-final-holdout-i3-v2-lock.json`
+- `docs/spec/validation/source-final-holdout-i3-v2.md`, `docs/spec/validation/source-final-gold-format.md`
+- `docs/spec/source-analysis.md`, `docs/wiki/Source-Analysis.md`
+
+### 비범위 (건드리지 않음)
+- private holdout 원문·gold 탐색/열람, 실데이터 실행, 모델/외부 서비스 호출
+- 제품 추출·정리·OCR 동작/프롬프트 변경, 기존 v1.1 lock/키 변경
+- commit/push/PR/배포/Linear 쓰기
+
+### 결정 사항
+- 11/02 기본 holdout 버전 v2, v1.1 명시 선택은 역사 재현용이다. gold 파일명을 버전별로 선택해 기존 marker/force/reason 이력을 보존한다.
+- 11/02 v2는 repo lock의 goldSha256·manifestSha256 및 private lock, manifest/gold/입력 ID·format을 제공자 호출 전에 검증한다. v1.1은 기존 sha256 핀과 형식을 보존한다(v1.1 repo lock에는 manifest hash 없음).
+- 11/02 --verify-lock은 out/예산/DB/OCR/제공자/claim 없이 검증하고 PASS/FAIL과 형식별 개수만 출력한다. 일반 실패는 고정 코드만 출력한다.
+- 11/02 holdout JSON/Markdown은 집계만 공개하며 per-source metadata·rerun reason·본문은 repo 밖 run out에만 남긴다. PDF는 기존 development와 동일 parser/OCR 경로를 사용한다.
+- 11/02 비자명 잠금·격리 테스트는 spec-blind-test 스킬에 따라 구현을 보지 않는 test-writer에 사양과 진입점만 전달한다. 임시 합성 fixture만 허용한다.
+
+### 작업 / 완료 조건
+- [ ] 버전 선택·v2 hash/ID/format fail-closed·버전별 claim 구현
+- [ ] --verify-lock 부작용 없음·holdout 집계 출력·PDF 경로 검증
+- [ ] 합성 pytest 회귀 및 지정 ruff/pytest 실행 결과 기록
+- [ ] 한국어 프로토콜·현재 버전·영문 wiki 갱신
+
+### 기록
+- 11/02 AGENTS.md·spec 스킬·관련 제품/구현 스펙과 기존 runner/scorer/tests 확인. worktree clean, 브랜치/기준 SHA 일치. 과거 tasks 내용은 수정하지 않고 이 섹션부터 추가한다. Agent 시간/Tokens 계측 미제공.
+- 11/02 追加 결정: holdout safe 파일 확장자도 repo format(text/image/long_image/pdf)와 대조한다. PDF로 잠긴 ID가 TXT를 모델에 보내고 PDF 점수로 집계되는 경로를 차단한다.
+- 11/03 블라인드 테스트 사양 대조로 보완 결정: holdout gold에 format을 주입하는 입력 봉투도 repo lock과 정확히 같은 전체 ID/format 집합이어야 한다. gold에서 사용하지 않는 extra ID도 거절한다.
+
+### DEV-194 구현·검증 결과 (11/03, append-only)
+
+- 구현: runner/scorer `--holdout-version v1.1|v2` 기본v2, gold/lock 경로와 키 선택, v2 gold·manifest 바이트 SHA·private lock·전체 ID/format 대조. safe 확장자도 format과 대조한다. 기존 v1.1 lock 파일과 SHA 상수는 변경하지 않았다.
+- 실행 제어: 버전별 gold 파일명의 기존 exclusive marker를 사용하고 ack/force/nonblank reason/실패 후 보존을 유지한다. metadata에 holdoutVersion을 남기고 과거 version 없는 run rescore는 v1.1로 처리한다.
+- 검증 모드: --verify-lock은 out/consent 없이 gold/manifest/lock만 검증하고 PASS/FAIL·형식별 자료/문장/사실/중요 사실 개수만 출력한다. source 입력·DB·예산·OCR·제공자·claim은 실행하지 않는다.
+- 출력: holdout score.json은 per-source 항목을 제거하고 runner report.json도 config.sources/rerunReason을 제거한다. recall/critical/misplacement/forbidden/unsupported 및 형식별 latency/cost를 유지한다. run out은 repo 밖이어야 한다. development의 기존 상세 출력은 보존한다.
+- 문서: 사용자 제공 hash-only v2 lock을 정확한 값으로 추가하고 격리·검토3인+합의·72문장/134사실/중요33·owner 제외44·동결·검증/실행 명령을 프로토콜에 기록했다. source-analysis·gold-format·영문 wiki에서 v2 현재/v1.1 소진을 명시했다. 실제 private 자료는 탐색/열람/검증하지 않았다.
+- 테스트: 구현을 보지 않는 별도 test-writer가 tmp_path 합성 fixture만으로 DEV-194 **38개 parametrized case**를 추가했다(기본/버전 경로·v2 키·hash/ID/format/중복/누락 변조·버전별 marker·부작용 없는 verify·PDF 동일 parser/OCR 경로·집계 보고서 유출 방지·확장자 불일치). 기존 v1.1 테스트는 명시적 버전과 새 preflight fixture만 조정했고 assertions는 보존했다. 기존 영역의 formatter-only 변경은 제거했다.
+- 지정 검사 실행: `server/`에서 `UV_CACHE_DIR=/private/tmp/dev194-uv-cache UV_OFFLINE=1`을 각 uv 명령에 적용했다. 기본 uv 캐시는 sandbox 쓰기 권한 오류로 사용하지 못했다. 최종 `uv run ruff check .` → **All checks passed**.
+- `uv run pytest tests/test_final_eval.py tests/test_final_score.py` → **424 collected / 424 setup errors / 테스트 본문 실행0**, 6.03초. 공통 session fixture tests/conftest.py::_schema → _ensure_test_database에서 localhost:5432(::1/127.0.0.1) TCP 접속이 `Operation not permitted`로 차단되었다. 로그 `/private/tmp/dev194-pytest.log`. DB fixture 우회·skip·테스트 약화 없이 중단했다. 통과한 pytest 없음. 지정 실행 뒤 extra envelope ID 거절을 정적 대조로 보완했고 집계 테스트의 추정/OCR 초기화 stub도 보완했으므로 최종 코드의 pytest와 fail-first red/green 검증 모두 환경 밖 실행 전 미완료다.
+- 수집 확인: `uv run pytest --collect-only -q tests/test_final_eval.py tests/test_final_score.py -k DEV_194` → **38/424 collected, 386 deselected** (0.59초). 이것은 테스트 실행/통과가 아니다.
+- 최종 정적 점검: `git diff --check` 통과. tasks 기존 HEAD 전체 바이트가 prefix로 보존됨을 확인했다. v1.1 lock diff0, 제공된 v2 hash/ID/형식/총계 일치 확인. 별도 correctness reviewer는 두 구현 파일·공개 hash lock·프로토콜만 검토했고 확인된 결함0을 보고했다. 이는 실행 검증을 대신하지 않는다.
+- 범위 대조: 로컬 main ref는 origin/main보다 오래되어 main...HEAD에는 기존 통합 이력이 포함된다. 사용자 지정 기준 `origin/main=HEAD=2015f9d`의 committed diff는0이며 이 작업의 미커밋10개 경로(신규2 포함)는 모두 위 허용 범위 안이다. commit/push/PR/외부 서비스·실제 모델 호출0. 배포하지 않았다.
+- 상태: **구현·문서 반영, 실행 검증 미완료**. 위 계획 체크박스는 통과를 확인하지 못해 체크하지 않았다. owner가 DB 접근 가능한 환경에서 지정 pytest를 재실행해야 한다. 실제 v2 --verify-lock/평가는 격리된 owner/채점 담당자의 별도 단계이며 이번 작업에서 실행하지 않는다. Agent 시간/Tokens 계측 미제공.
+
+의도 커밋 메시지(실행하지 않음):
+- `feat(eval): AC-SRC-2/5/6 holdout 버전별 잠금과 사전 검증 지원 (DEV-194)`
+- `test(eval): AC-SRC-2/3/5/6 합성 holdout 격리 회귀 추가 (DEV-194)`
+- `docs(eval): holdout v2 격리 및 채점 전용 프로토콜 명시 (DEV-194)`
+- 11/03 Claude(sandbox 밖) 검증:
+  - 실제 private v2 폴더에 `--verify-lock`을 처음 돌렸을 때 **FAIL**이었다. 출력에 내용은 없었다.
+  - 구조만 확인해(키 이름과 해시 일치 여부) 원인을 찾았다. 데이터는 맞았고, 코드가 가정한 형식이 달랐다.
+    - 실제 private lock은 gold 해시를 `sha256` 키로 둔다(v1.1과 같다).
+    - private manifest는 최상위 list다.
+  - `load_local_gold`를 실제 형식에 맞췄다.
+    - private lock은 `sha256`, repo lock은 `goldSha256`을 읽는다.
+    - v2 private lock의 `manifestSha256`도 검사한다.
+    - manifest는 list와 dict 둘 다 받는다.
+  - 합성 fixture도 실제 형식(list manifest, `sha256` private lock)으로 바꿨다. 손상 사례 `private-manifest-hash`를 추가했다.
+  - 결과: `--verify-lock` **PASS**. 형식별 개수가 repo lock과 같다(text 3/24/49/15, image 3/12/25/6, long_image 3/17/24/3, pdf 3/19/36/9).
+  - `pytest tests/test_final_eval.py tests/test_final_score.py` 426 passed, ruff 통과.
+  - 실제 holdout 실행(유료, 1회)은 하지 않았다.
+- 11/03 scan-before-commit 반영:
+  - v2 manifest는 최상위 list만 받는다. 위 기록의 "list와 dict 둘 다 받는다"를 정정한다. 커밋된 적 없는 dict 봉투 호환은 제거했고, 봉투 거절 테스트를 추가했다.
+  - 프로토콜·gold 형식 문서의 private lock 키(`sha256`·`manifestSha256`)와 manifest 형식 설명을 코드에 맞췄다.
+  - v2는 `--holdout-dir`가 필수다. 지정하지 않으면 v1.1 폴더로 대신 가지 않고 FAIL한다.
+  - `h2-` 접두사 검사는 남겼다. ID를 일관되게 바꾼 세트(v1.1 등)가 v2로 고정되는 경우를 막는 테스트가 있다.
+  - 작업과 무관한 `evidence_text` 포맷 변경을 되돌렸다.
+  - 앞 기록의 "追加"는 "추가"의 오타다.
