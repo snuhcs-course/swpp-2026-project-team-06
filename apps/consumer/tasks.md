@@ -552,3 +552,26 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 
 - 이슈: https://linear.app/sswp6/issue/DEV-150 · 목표·범위·결정·기록은 `server/tasks.md` DEV-150 섹션에 모은다.
 - 화면: 1:1 목록의 farmclub 행(`chat-row-farmclub`, 로고, 고정 없음) → 새 `/chats/support`(헤더 farmclub·고객센터, 안내, 글만 보내기). 농가 대화가 없으면 빈 안내를 함께 보인다.
+
+## DEV-192 간헐 실패 e2e 안정화 — AC-34-7, AC-10-6
+
+- 이슈: https://linear.app/sswp6/issue/DEV-192 · 서버 테스트 둘은 `server/tasks.md`(AC-11-3), `server/app/source_analysis/tasks.md`(AC-SRC-5/11) DEV-192 섹션.
+- 범위: `scripts/e2e/consumer-support.spec.ts`, `scripts/e2e/checkout-and-fulfillment.spec.ts`만. 앱 코드는 바꾸지 않는다(테스트의 기다림 문제).
+- 공통 원인: react-native-web의 여러 줄 입력은 `<textarea>`이고 React가 값을 defaultValue(=textContent)로도 넣어, `getByText(입력한 글)`이 말풍선이 아니라 입력창에도 걸린다.
+
+### AC-34-7 (`consumer-support.spec.ts`)
+- 원인: 전송 클릭 뒤 `getByText(question).last()`(39줄)는 DOM 마지막인 입력창 textarea를 바로 찾아 통과한다. 그래서 전송 POST가 끝나기 전에 운영자 `GET /admin/support`를 불러, 소비자 문의가 아직 없어 `find`가 `undefined` → `toMatchObject` "received value must be a non-null object"(45줄).
+- 수정: 전송 뒤 입력창이 비워질 때까지(`toHaveValue("")`, ChatThread가 전송 성공 뒤에만 비운다) 기다린 다음 말풍선과 문의함을 본다.
+- 재현: 전송 POST를 2초 늦추는 임시 probe에서 원래 순서는 같은 메시지로 **1/1 실패**, 수정 순서는 **5/5 통과**. 입력 직후 `getByText(question)`이 TEXTAREA 1개에 걸리는 것도 확인했다.
+
+### AC-10-6 (`checkout-and-fulfillment.spec.ts:142`)
+- 원인 1(기다림): 첫 클릭 뒤 `toHaveValue`는 처음부터 참이라 바로 지나가고 곧바로 `unroute`한다. 이벤트 기록으로 10회 중 9회는 `unroute`가 실패 요청보다 먼저였다. 가로채기가 늦으면 첫 요청이 서버에 닿아 실패 경로를 건너뛴다.
+- 원인 2(검사 대상): 성공 뒤 `/chats/f-kang`으로 가도 주문 탭 스택의 문의 화면이 DOM에 남아 textarea가 같은 글을 가진다. 원래 `getByText(...)`는 URL이 바뀐 직후 그 textarea를 찾아 통과했고, 말풍선이 먼저 그려지면 2개 → strict mode violation(10/14 CI 실패와 같은 메시지). 같은 시드에서 반복하면 이전 말풍선까지 더해진다.
+- 수정: 실패 문구 "인터넷 연결을 확인하고 다시 시도해 주세요."가 보인 뒤에 입력 유지를 확인하고 `unroute`한다. 문의 글에 `Date.now()`를 붙이고, 마지막 검사는 textarea를 뺀 말풍선(`getByText(message, { exact: true }).and(locator(":not(textarea)"))`)만 본다.
+- 후속 질문(이번에 고치지 않음): 문의 접수 뒤에도 주문 탭에 문의 화면이 쓴 글과 함께 남는다. 주문 탭으로 돌아가면 보일 수 있으니 의도인지 확인이 필요하다.
+
+### 반복 결과 (CI와 같은 env·seed reset, workers 1)
+- 수정 전: 각 `--repeat-each=20 --workers=1` 0/20 실패. CPU 부하(`yes` ×11) 아래 AC-34-7 0/20, AC-10-6 **1/20 실패**(strict mode violation).
+- 수정 후: 각 20회 **0/20**, CPU 부하 아래 각 20회 **0/20**.
+- 수정 후 CI와 같은 `npm run test:integration:full`(API 7 시나리오 + Playwright 전체): **100 passed / 10 skipped / 0 failed**.
+- `npm run typecheck` 통과.
