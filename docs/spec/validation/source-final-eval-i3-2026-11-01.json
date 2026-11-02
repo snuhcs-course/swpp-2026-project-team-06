@@ -1433,5 +1433,470 @@
       "ruff": "pass",
       "playwright": "23 passed (source-review-regressions, new-product-composer, source-workspace-ui)"
     }
+  },
+  "t23HoldoutRerun": {
+    "label": "T23 holdout rerun — partially contaminated; does not replace the first run",
+    "issue": "DEV-182",
+    "date": "2026-11-02",
+    "independent": false,
+    "replacesFirstRun": false,
+    "verdict": "FAIL",
+    "holdoutAttempt": 2,
+    "rerunReason": "DEV-182 T23 rerun after general fixes (partially contaminated)",
+    "config": {
+      "provider": "openrouter",
+      "model": "google/gemini-3-flash-preview",
+      "stage1PromptVersion": "source-v8-exact-numbers",
+      "stage1PromptSha256": "846fdf7327c985a23a87f0555fe877ad94e615a00ac0a2facd43a037c547d4de",
+      "stage2PromptVersion": "source-refine-v7-farm-common",
+      "stage2PromptSha256": "46d04bc84afe0df3ff29798e4b48947b0879beac1e26f580aeef5c26aef196d4",
+      "preprocessVersion": "source-parser-v4",
+      "ocrModel": "google/gemini-3-flash-preview",
+      "ocrPromptSha256": "63176d0350e333499c1588dfb24812675be5806fe580f42ef02239695d6046c1",
+      "ocrManifestSha256": "9f64ef4f9d20e41cb506a6015af66d4b0da3939b23286f89a0ff32f98d122049",
+      "safetyListsSha256": "7361062564d010b618842a60ca5f6a180114b0cbf2cfcaac0c7312a30cbd5bc7"
+    },
+    "artifactSha256": {
+      "score.json": "8d040ca3b855f08ceae772693e86b396adfba75b26575a973fc17f61a3d735d6",
+      "metadata.json": "7650373ac44d8208c62161ac391090cf2f34106526eb80948d637d6ce6ddda8f"
+    },
+    "byFormat": {
+      "text": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 1,
+        "factRecall": {
+          "hit": 23,
+          "total": 67,
+          "rate": 0.34328358208955223
+        },
+        "criticalFactRecall": {
+          "hit": 9,
+          "total": 27,
+          "rate": 0.3333333333333333
+        },
+        "misplacement": {
+          "hit": 17,
+          "total": 67,
+          "rate": 0.2537313432835821
+        },
+        "precisionProxy": {
+          "hit": 34,
+          "total": 37,
+          "rate": 0.918918918918919
+        },
+        "forbidden": {
+          "email": 0,
+          "gold_other": 1,
+          "gold_unsupported": 1,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "forbiddenViolations": 2,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "unsupportedTokens": 0,
+        "criticalGate": "FAIL",
+        "statuses": {
+          "EVALUATED": 2,
+          "EMPTY": 1
+        },
+        "errorCodes": {},
+        "settledUsd": 0.040041,
+        "calls": 6
+      },
+      "image": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 0,
+        "factRecall": {
+          "hit": 22,
+          "total": 27,
+          "rate": 0.8148148148148148
+        },
+        "criticalFactRecall": {
+          "hit": 17,
+          "total": 21,
+          "rate": 0.8095238095238095
+        },
+        "misplacement": {
+          "hit": 4,
+          "total": 27,
+          "rate": 0.14814814814814814
+        },
+        "precisionProxy": {
+          "hit": 23,
+          "total": 23,
+          "rate": 1.0
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "forbiddenViolations": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "unsupportedTokens": 0,
+        "criticalGate": "FAIL",
+        "statuses": {
+          "EVALUATED": 3
+        },
+        "errorCodes": {},
+        "settledUsd": 0.023548,
+        "calls": 13
+      },
+      "long_image": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 1,
+        "factRecall": {
+          "hit": 29,
+          "total": 74,
+          "rate": 0.3918918918918919
+        },
+        "criticalFactRecall": {
+          "hit": 6,
+          "total": 20,
+          "rate": 0.3
+        },
+        "misplacement": {
+          "hit": 5,
+          "total": 74,
+          "rate": 0.06756756756756757
+        },
+        "precisionProxy": {
+          "hit": 25,
+          "total": 31,
+          "rate": 0.8064516129032258
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "forbiddenViolations": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "unsupportedTokens": 0,
+        "criticalGate": "FAIL",
+        "statuses": {
+          "FAILED": 1,
+          "EVALUATED": 2
+        },
+        "errorCodes": {
+          "INCOMPLETE_OR_REFUSED": 1
+        },
+        "settledUsd": 0.081618,
+        "calls": 47
+      },
+      "pdf": {
+        "sources": 3,
+        "contractCases": 0,
+        "extractionCases": 3,
+        "failedRuns": 3,
+        "factRecall": {
+          "hit": 0,
+          "total": 93,
+          "rate": 0.0
+        },
+        "criticalFactRecall": {
+          "hit": 0,
+          "total": 41,
+          "rate": 0.0
+        },
+        "misplacement": {
+          "hit": 0,
+          "total": 93,
+          "rate": 0.0
+        },
+        "precisionProxy": {
+          "hit": 0,
+          "total": 0,
+          "rate": null
+        },
+        "forbidden": {
+          "email": 0,
+          "health": 0,
+          "phone": 0,
+          "platform": 0,
+          "price": 0
+        },
+        "forbiddenViolations": 0,
+        "unsupported": {
+          "certification": 0,
+          "cultivar": 0,
+          "number": 0
+        },
+        "unsupportedTokens": 0,
+        "criticalGate": "FAIL",
+        "statuses": {
+          "FAILED": 3
+        },
+        "errorCodes": {
+          "OCR_FAILED": 3
+        },
+        "settledUsd": 0.045205,
+        "calls": 27
+      }
+    },
+    "overall": {
+      "sources": 12,
+      "contractCases": 0,
+      "extractionCases": 12,
+      "failedRuns": 5,
+      "factRecall": {
+        "hit": 74,
+        "total": 261,
+        "rate": 0.2835249042145594
+      },
+      "criticalFactRecall": {
+        "hit": 32,
+        "total": 109,
+        "rate": 0.29357798165137616
+      },
+      "misplacement": {
+        "hit": 26,
+        "total": 261,
+        "rate": 0.09961685823754789
+      },
+      "precisionProxy": {
+        "hit": 82,
+        "total": 91,
+        "rate": 0.9010989010989011
+      },
+      "forbidden": {
+        "email": 0,
+        "gold_other": 1,
+        "gold_unsupported": 1,
+        "health": 0,
+        "phone": 0,
+        "platform": 0,
+        "price": 0
+      },
+      "forbiddenViolations": 2,
+      "unsupported": {
+        "certification": 0,
+        "cultivar": 0,
+        "number": 0
+      },
+      "unsupportedTokens": 0,
+      "criticalGate": "FAIL",
+      "statuses": {
+        "EVALUATED": 7,
+        "EMPTY": 1,
+        "FAILED": 4
+      },
+      "errorCodes": {
+        "INCOMPLETE_OR_REFUSED": 1,
+        "OCR_FAILED": 3
+      },
+      "settledUsd": 0.190412,
+      "calls": 93
+    },
+    "emptyDiagnostics": {
+      "format": "text",
+      "sources": 1,
+      "emptyReason": "ALL_TEXTS_FILTERED",
+      "rejectedCandidates": 12,
+      "rejectedTexts": 1
+    },
+    "costSummary": {
+      "settledUsd": 0.190412,
+      "reservedUsd": 5.434419,
+      "unsettledReservedUsd": 0.0
+    },
+    "allCostsKnown": true,
+    "comparisonWithFirstRun": {
+      "firstRun": {
+        "factRecall": {
+          "hit": 59,
+          "total": 261,
+          "rate": 0.2260536398467433
+        },
+        "criticalFactRecall": {
+          "hit": 29,
+          "total": 109,
+          "rate": 0.26605504587155965
+        },
+        "misplacement": {
+          "hit": 10,
+          "total": 261,
+          "rate": 0.038314176245210725
+        },
+        "precisionProxy": {
+          "hit": 60,
+          "total": 63,
+          "rate": 0.9523809523809523
+        },
+        "forbiddenViolations": 0,
+        "unsupportedTokens": 0,
+        "statuses": {
+          "FAILED": 6,
+          "EMPTY": 1,
+          "EVALUATED": 5
+        },
+        "errorCodes": {
+          "CANDIDATES_REJECTED": 3,
+          "INCOMPLETE_OR_REFUSED": 1,
+          "PREPROCESS_FAILED": 2
+        },
+        "calls": 71,
+        "settledUsd": 0.156935
+      },
+      "rerun": {
+        "factRecall": {
+          "hit": 74,
+          "total": 261,
+          "rate": 0.2835249042145594
+        },
+        "criticalFactRecall": {
+          "hit": 32,
+          "total": 109,
+          "rate": 0.29357798165137616
+        },
+        "misplacement": {
+          "hit": 26,
+          "total": 261,
+          "rate": 0.09961685823754789
+        },
+        "precisionProxy": {
+          "hit": 82,
+          "total": 91,
+          "rate": 0.9010989010989011
+        },
+        "forbiddenViolations": 2,
+        "unsupportedTokens": 0,
+        "statuses": {
+          "EVALUATED": 7,
+          "EMPTY": 1,
+          "FAILED": 4
+        },
+        "errorCodes": {
+          "INCOMPLETE_OR_REFUSED": 1,
+          "OCR_FAILED": 3
+        },
+        "calls": 93,
+        "settledUsd": 0.190412
+      }
+    },
+    "developmentSummary": {
+      "provenance": "server/app/source_analysis/tasks.md; two owner-run T23 development runs, rescored offline after synthetic gold alignment",
+      "sources": 35,
+      "independent": false,
+      "runs": [
+        {
+          "round": "T23a",
+          "stage2PromptVersion": "source-refine-v6-exact-numbers",
+          "factRecall": {
+            "hit": 73,
+            "total": 93
+          },
+          "criticalFactRecall": {
+            "hit": 37,
+            "total": 45
+          },
+          "misplacement": {
+            "hit": 9,
+            "total": 93
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0,
+          "settledUsdApprox": 0.185
+        },
+        {
+          "round": "T23b",
+          "stage2PromptVersion": "source-refine-v7-farm-common",
+          "factRecall": {
+            "hit": 80,
+            "total": 93
+          },
+          "criticalFactRecall": {
+            "hit": 36,
+            "total": 45
+          },
+          "misplacement": {
+            "hit": 4,
+            "total": 93
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0
+        }
+      ],
+      "existing32Comparison": {
+        "R4": {
+          "factRecall": {
+            "hit": 72,
+            "total": 87
+          },
+          "criticalFactRecall": {
+            "hit": 35,
+            "total": 42
+          }
+        },
+        "T23b": {
+          "factRecall": {
+            "hit": 74,
+            "total": 87
+          },
+          "criticalFactRecall": {
+            "hit": 33,
+            "total": 42
+          }
+        }
+      },
+      "syntheticGoldAlignment": {
+        "cases": [
+          "21-long-text",
+          "22-pdf-25-pages",
+          "23-partial-validation"
+        ],
+        "policy": "Whole-sentence mustContain replaced with core fact tokens under the existing 20-case rule; saved runs rescored offline. Measurement alignment, not a model or prompt change."
+      },
+      "notes": [
+        "T23b has one REQUEST_UNCERTAIN stage-2 failure; no automatic retry.",
+        "Each configuration was measured once; model variation may explain part of the difference."
+      ]
+    },
+    "retirement": {
+      "version": "v1.1",
+      "status": "RETIRED_TO_DEV",
+      "retiredAt": "2026-11-02",
+      "sourcesMoved": 12,
+      "developmentBefore": 32,
+      "developmentAfterRetirement": 44,
+      "additionalSynthetic": 3,
+      "developmentTotal": 47,
+      "publicDevelopment": 24,
+      "syntheticDevelopment": 23,
+      "futureIndependentPolicy": "Holdout v2 must be built by people who do not tune, using the same three-independent-reviewer process."
+    },
+    "notes": [
+      "The first run remains the only uncontaminated measurement baseline; its previously disclosed indirect contamination caveat still applies. This rerun does not replace it.",
+      "The two first-run PDF page-limit PREPROCESS_FAILED failures became OCR_FAILED after first-20-page processing; all three PDFs now report OCR_FAILED and 0/93 facts. This is not a PDF quality recovery.",
+      "Long-image truncation remains; one INCOMPLETE_OR_REFUSED is observed. That error code alone does not prove truncation in every case.",
+      "Forbidden violations increased from 0 to 2: gold_other 1 and gold_unsupported 1; unsupported tokens remain 0.",
+      "Automatic precision proxy is not semantic precision; human evidence and applied-page safety remain unverified. Verdict stays FAIL.",
+      "Historical holdout lock and original private inputs/gold remain unchanged. Retired sources are readable for development; the former separation policy applies to any future independent holdout.",
+      "All of the +15 fact gain came from text recovery (0 -> 23/67). image fell (facts 25 -> 22, critical 20 -> 17) and long_image fell (facts 34 -> 29, critical 9 -> 6, proxy 39/40 -> 25/31); misplacement rose 10 -> 26 and the proxy rate fell 95.2% -> 90.1%. Do not read the rerun as an overall improvement."
+    ]
   }
 }

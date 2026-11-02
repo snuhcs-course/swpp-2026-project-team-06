@@ -196,3 +196,55 @@ uv run python -m app.source_analysis.final_eval \
 DEV-182 리뷰 후 로컬 검증(2026-11-02): `cd server && uv run ruff check . && uv run pytest tests/test_source_recovery.py tests/test_final_eval.py tests/test_final_score.py tests/test_source_refine.py tests/test_source_analysis.py tests/test_source_integration.py --tb=short` → **Ruff 통과; 627 passed / 17 failed (97.78s)**. 실패는 모두 추출 전 PREPARE 경로(source_recovery3/source_analysis6/source_integration8)이며 독립 합성 prepare에서도 `PermissionError(errno 1, sysctl malloc 1/3)`를 재현했다. 두 기존 PARTIAL retry 회귀도 이 환경 문제로 추출 전에 막혔으므로 sandbox 밖 재검증이 필요하다. 기존 recovery assertion·parser 보호는 변경하지 않았다. 준비된 합성 입력의 PARTIAL→refine·명시적 retry 후 동일 집합 성공 재사용/변경 집합 outdated 회귀는 통과했다. 중간 chunk에 실제 상품 사실이 없는 긴 텍스트로 fixture를 강화한 뒤 집중 회귀 **2 passed / 0 failed (1.66s)**를 확인했다.
 
 `npm run typecheck && npm run test:mock` → **5 workspace typecheck 통과; mock47 passed / 0 failed / 0 skipped (28.07s)**. Playwright spec TypeScript 검사는 종료0. `npm run test:e2e -- scripts/e2e/source-review-regressions.spec.ts --grep DEV-182 --max-failures=1` → **0 passed / 1 failed / 5 did not run**. Chromium MachPort 권한 오류1100으로 브라우저가 시작하지 못해 화면 assertion은 실행되지 않았다. 전체 검증은 미완료이며 모델 품질·독립 holdout 성능·배포 완료로 간주하지 않는다. 이번 수정은 미커밋 상태로 유지했고 push·PR·live 호출·holdout 접근은 하지 않았다.
+
+## T23 holdout rerun — partially contaminated; does not replace the first run
+
+2026-11-02 owner가 `--force-rerun --rerun-reason "DEV-182 T23 rerun after general fixes (partially contaminated)"`로 완료한 시도2다. private `dev182-holdout-rerun/score.json`과 `metadata.json`의 집계만 기록한다. 최초 결과는 유일한 비오염 측정 기준으로 보존하며, 기존 Bias and reuse 절의 간접 오염 주의도 그대로 적용한다. **재실행은 최초 결과를 대체하지 않으며 판정은 FAIL이다.**
+
+metadata에서 stage-1 `source-v8-exact-numbers`, stage-2 `source-refine-v7-farm-common`을 확인했다. 모델/provider는 `google/gemini-3-flash-preview / openrouter`, 전처리는 `source-parser-v4`다. 세부 설정·artifact 해시는 동반 JSON에 보존한다.
+
+| 형식 | N | Facts | Critical | Misplaced | Forbidden | Unsupported | Precision proxy |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| text | 3 | 23/67 | 9/27 | 17/67 | 2 | 0 | 34/37 |
+| image | 3 | 22/27 | 17/21 | 4/27 | 0 | 0 | 23/23 |
+| long_image | 3 | 29/74 | 6/20 | 5/74 | 0 | 0 | 25/31 |
+| pdf | 3 | 0/93 | 0/41 | 0/93 | 0 | 0 | 0/0 |
+| overall | 12 | 74/261 | 32/109 | 26/261 | 2 | 0 | 82/91 |
+
+Forbidden 종류별: text/overall 모두 `gold_other=1`, `gold_unsupported=1`, email/health/phone/platform/price=0이다. image/long_image/pdf는 모든 종류0이다. Unsupported 종류별 certification/cultivar/number는 모든 형식과 전체에서0이다. proxy는 의미 precision을 대신하지 않으며 PDF의0/0은 N/A다.
+
+| 형식 | EVALUATED | EMPTY | FAILED | Error codes | 정산 USD | Calls |
+|---|---:|---:|---:|---|---:|---:|
+| text | 2 | 1 | 0 | — | 0.040041 | 6 |
+| image | 3 | 0 | 0 | — | 0.023548 | 13 |
+| long_image | 2 | 0 | 1 | INCOMPLETE_OR_REFUSED×1 | 0.081618 | 47 |
+| pdf | 0 | 0 | 3 | OCR_FAILED×3 | 0.045205 | 27 |
+| overall | 7 | 1 | 4 | INCOMPLETE_OR_REFUSED×1, OCR_FAILED×3 | 0.190412 | 93 |
+
+text EMPTY1건의 `emptyReason=ALL_TEXTS_FILTERED`, rejectedCandidates=12, rejectedTexts=1이다. 전체93회 호출의 정산액은 **$0.190412**, 미정산 예약0이며 모든 costKnown=true다. 누적 예약$5.434419는 정산액에 더하지 않는다. scorer failedRuns=5는 EMPTY1도 포함하므로 실제 FAILED4와 구분한다.
+
+### 최초 실행과 비교
+
+| 측정 | Facts | Critical | Misplaced | Forbidden | Unsupported | Proxy | 정산 USD | Calls |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 최초1회 · 유일한 비오염 기준(기존 간접 오염 주의 유지) | 59/261 | 29/109 | 10/261 | 0 | 0 | 60/63 | 0.156935 | 71 |
+| T23 재실행 · 부분 오염 · 대체 불가 | 74/261 | 32/109 | 26/261 | 2 | 0 | 82/91 | 0.190412 | 93 |
+
+최초 PDF 페이지 한도 초과2건(PREPROCESS_FAILED)은 첫20쪽 처리 후 OCR_FAILED로 바뀌었고, 재실행 PDF3건 모두 OCR_FAILED·사실0/93이다. PDF 품질 회복으로 보지 않는다. 긴 이미지 잘림은 여전히 남으며 INCOMPLETE_OR_REFUSED1건을 기록했다(코드만으로 모든 경우의 잘림 원인을 확정하지 않는다). 금지는 **0→2**로 증가했다. **전체 사실 증가분(+15)은 전부 text 회복(0→23/67)에서 나왔다.** image는 사실 25→22·critical 20→17, long_image는 사실 34→29·critical 9→6·proxy 39/40→25/31로 **하락**했고, 전체 오배치는 10→26(text 17/67 포함), proxy 비율은 95.2%→90.1%로 나빠졌다. 따라서 이 재실행을 전체 개선으로 읽지 않는다. 사람 근거 감사와 적용 페이지 안전성은 입증되지 않았고 ≥95% 형식별 목표도 미달이다.
+
+### T23 개발 실측과 합성 gold 정합
+
+`server/app/source_analysis/tasks.md`에 기록된 owner 개발35건 실측2회도 독립 측정이 아니다.
+
+| 회차 | Stage-2 | Facts | Critical | Misplaced | Forbidden | Unsupported |
+|---|---|---:|---:|---:|---:|---:|
+| T23a | source-refine-v6-exact-numbers | 73/93 | 37/45 | 9/93 | 0 | 0 |
+| T23b | source-refine-v7-farm-common | 80/93 | 36/45 | 4/93 | 0 | 0 |
+
+T23a 정산은 tasks 기록 기준 약$0.185다. 기존32건만 비교하면 R4 facts72/87·critical35/42 → T23b74/87·33/42다. T23b에는 stage-2 REQUEST_UNCERTAIN1건이 있고 자동 재시도하지 않았다. 설정별 각1회이므로 차이 일부는 모델 변동일 수 있다. 합성21–23의 mustContain을 문장 전체에서 기존20건과 같은 핵심 사실 토큰 규칙으로 맞추고, 저장한 두 실행을 호출 없이 재채점했다. 이는 측정 기준 정합이며 모델·프롬프트 변경이 아니다.
+
+### Holdout v1.1 폐기와 개발 편입
+
+owner 승인에 따라 **2026-11-02 holdout v1.1은 RETIRED_TO_DEV**다.12건은 개발32→44건에 편입하고 DEV-182 합성3건을 더해 **총47건(공개개발24 + 합성23)**이다. 원본 holdout safe/gold와 역사 lock은 보존하며, 개발 private safe에 복사하고 병합 gold는 별도 `final-gold-dev-public-v2.json`으로 둔다. repo에는 ID·형식·해시·집계만 저장한다.
+
+이제 v1.1은 회귀·튜닝용으로 읽을 수 있으며 과거의 독립 holdout 접근 제한 문구는 당시 정책 기록이다. **향후 독립 성능 주장은 튜닝하지 않는 사람들이 동일한 독립3인 검토 절차로 구축한 새 holdout v2가 필요하다.** 기존 최초 결과와 FAIL 판정은 유지한다.
