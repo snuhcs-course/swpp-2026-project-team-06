@@ -12,6 +12,7 @@ import time
 from collections import Counter
 from pathlib import Path
 from statistics import median
+from threading import Lock
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -301,6 +302,8 @@ class Calls:
         self.limit = math.floor(max_usd * 1e6)
         self.used = 0
         self.entries = []
+        self.lock = Lock()
+        self.budget_exceeded = False
 
     def __call__(self, stage, model, chunk, targets, images, fn, output_tokens=None):
         amount = (
@@ -310,24 +313,42 @@ class Calls:
                 self.provider, model, chunk, targets, images, output_tokens=output_tokens
             )
         )
-        if self.used + amount > self.limit:
-            raise extraction_ai.ExtractionError("BUDGET_EXCEEDED")
-        reservation = None
-        if self.provider != "mock":
-            with get_sessionmaker()() as db:
-                reservation = budget.reserve(
-                    db,
-                    SimpleNamespace(id="eval-" + uuid4().hex, attempt=1),
-                    self.provider,
-                    model,
-                    chunk,
-                    targets,
-                    images,
-                    stage=stage,
-                    output_tokens=output_tokens,
-                )
-                db.commit()
-        self.used += amount
+        with self.lock:
+            if self.budget_exceeded or self.used + amount > self.limit:
+                self.budget_exceeded = True
+                raise extraction_ai.ExtractionError("BUDGET_EXCEEDED")
+            reservation = None
+            try:
+                if self.provider != "mock":
+                    with get_sessionmaker()() as db:
+                        reservation = budget.reserve(
+                            db,
+                            SimpleNamespace(id="eval-" + uuid4().hex, attempt=1),
+                            self.provider,
+                            model,
+                            chunk,
+                            targets,
+                            images,
+                            stage=stage,
+                            output_tokens=output_tokens,
+                        )
+                        db.commit()
+            except extraction_ai.ExtractionError as exc:
+                if exc.code == "BUDGET_EXCEEDED":
+                    self.budget_exceeded = True
+                raise
+            self.used += amount
+            entry = {
+                "stage": stage,
+                "model": model,
+                "usage": {},
+                "requestId": None,
+                "reservedMicros": amount,
+                "costUsd": 0,
+                "costKnown": self.provider == "mock",
+                "latencyMs": 0,
+            }
+            self.entries.append(entry)  # Reservation order, regardless of completion order.
         started = time.perf_counter()
         usage, request_id = {}, None
         try:
@@ -347,24 +368,25 @@ class Calls:
             )
             settled = math.ceil(cost * 1e6) if known else 0
             # Pending reservations still consume the ceiling, but are not settled spend.
-            self.used += (settled if known else amount) - amount
-            if reservation:
-                with get_sessionmaker()() as db:
-                    budget.settle(db, reservation, usage)
-                    db.commit()
-            # Token usage and request IDs are local-only; publish summaries below.
-            self.entries.append(
-                {
-                    "stage": stage,
-                    "model": model,
-                    "usage": usage,
-                    "requestId": request_id,
-                    "reservedMicros": amount,
-                    "costUsd": settled / 1e6,
-                    "costKnown": known or self.provider == "mock",
-                    "latencyMs": (time.perf_counter() - started) * 1000,
-                }
-            )
+            settled_ok = False
+            try:
+                if reservation:
+                    with get_sessionmaker()() as db:
+                        budget.settle(db, reservation, usage)
+                        db.commit()
+                settled_ok = True
+            finally:
+                with self.lock:
+                    if settled_ok:
+                        self.used += (settled if known else amount) - amount
+                    # Keep metadata usable and reservations conservative if settlement fails.
+                    entry.update(
+                        usage=usage,
+                        requestId=request_id,
+                        costUsd=settled / 1e6 if settled_ok else 0,
+                        costKnown=settled_ok and (known or self.provider == "mock"),
+                        latencyMs=(time.perf_counter() - started) * 1000,
+                    )
 
 
 def evaluate_source(row, provider, model, calls):
@@ -1092,6 +1114,7 @@ def main(argv=None):
                 "stage2PromptSha256": final_score.sha256(refine_ai.PROMPT.encode()),
                 "safetyListsSha256": SAFETY_LISTS_HASH,
                 "preprocessVersion": PREPROCESS_VERSION,
+                "ocrConcurrency": cfg.source_ocr_concurrency,
                 "ocrModel": OCR_MODEL if args.provider == "openrouter" else "rapidocr-3.10.0",
                 "ocrPromptSha256": final_score.sha256(OCR_PROMPT.encode()),
                 "ocrManifestSha256": cfg.source_ocr_model_sha256,

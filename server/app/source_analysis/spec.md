@@ -235,3 +235,25 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 동작 계약은 [제품 spec](../../..
 - AC-SRC-9/11: start_run의 대표사진 검사만 제거하고 publish/workspace.apply 검사는 유지한다. 품종·권한·버전·자료·활성 run 검사는 유지한다.
 - AC-SRC-2/3/11: editorFields는 규격·구성·개수·당도(qualityEvidence)의 같은 사실 슬롯에 정규화 값이 다른 후보가 있으면 conflict를 적용한다. 현재 정리 결과가 없거나 pending(None)이면 사실/서술의 복수 안전 원문 후보도 conflict로 선택 가능하게 유지한다. 사실 필드는 정규화한 값별로 candidateId가 가장 작은 원문을 대표로 사용하며(조회 순서와 무관), 한 값이면 정리 결과가 아예 없을 때만 해당 원문·candidateIds를 ready/EXTRACTED/UNREVIEWED로 제안하고 pending이면 missing으로 둔다. 성공 정리에서 생략된 필드는 복원하지 않는다. 정리 결과의 규격에 함께 담긴 품종/사이즈 등 상호 보완 값은 충돌이 아니며 kg/g·소수 당도·유니코드/공백 차이는 정규화한다. summary/farmStory 등 정리된 병합 서술은 ready이며 UNREVIEWED 자동 저장을 유지한다. outdated와 생산자 CONFIRMED/EXCLUDED는 conflict로 덮지 않는다. 선택기에는 현재 refined/basicInfo 값도 포함한다.
 - AC-SRC-5/8: run_view는 ocrFailedPageNumbers(pagesFailed.number)와 chunkFailedPageNumbers(chunksFailed.pages)를 각각 정렬/중복 제거하여 노출한다. 각 안내는 자기 목록을 쓴다. 기존 개수는 보존하고 코드·진단 본문은 반환하지 않는다.
+## DEV-191 OCR 병렬 실행 구현 결정
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | `SOURCE_OCR_CONCURRENCY` 기본4/최소1. 공용 `transcribe_pages`의 stdlib ThreadPoolExecutor에 최대 N개 crop 작업만 제출; 1은 호출자에서 speculative 작업 없이 실행 | 쪽/긴 이미지 병렬화, 대기열·비용 폭주 방지 및 순차 비교 | AC-SRC-2/5/10 |
+| 2026-11-02 | 순서 있는 결과 소비와 쪽 끝 표식으로 span ID·진단을 병합하고 실패 쪽 전사를 폐기; 추출은 기존 순차 경로 | 완료 순서가 근거·후보 순서를 바꾸지 않음 | AC-SRC-2/3/5 |
+| 2026-11-02 | hard 예외는 실행 스레드에서 stop Event 설정, 전송 전 검사; executor 종료는 모든 진행 중 요청의 정산을 기다림 | 인증/한도/취소 뒤 신규 전송 차단, 비용 누락·자동 재생 방지 | AC-SRC-5/10 |
+| 2026-11-02 | OpenRouter 클라이언트는 기존처럼 요청별 생성/close; 예약/정산 세션도 요청마다 별도 생성. 기존 PostgreSQL advisory lock 유지, eval Calls의 실행 한도·차액·entries는 Lock으로 보호 | 클라이언트/SQLAlchemy Session을 스레드 사이 공유하지 않고 비용 경쟁 방지 | AC-SRC-6/10 |
+| 2026-11-02 | 기존 run_once heartbeat가 executor 수명 전체를 감싸고 paid_vision_call의 전송 전 lock_context/승인 검사를 유지. eval metadata에 ocrConcurrency 기록 | 호출 중 lease 갱신·취소 fencing 및 개발 성능 비교 재현 | AC-SRC-5/10 |
+
+## DEV-191 후속 · 페이지 묶기와 stage-1 동시성 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 위 OCR 전용 동시성/추출 순차 결정은 아래 후속 결정으로 갱신한다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | vision의 `extraction_chunks(skip_empty=True)`는 쪽 경계를 넘어 span 순서로4000자·최대4쪽까지 채우고 큰 쪽은 기존 span 경계로 분할한다. 기본 text 모드는 기존 쪽별 `text_chunks` 유지 | 작은 PDF 쪽마다 stage-1을 호출하는 지연 제거, 쪽/span ID·인용 보존 | AC-SRC-2/3 |
+| 2026-11-02 | OCR과 stage-1은 공용 `_ordered_results`로 제출 수를 제한하고 `SOURCE_OCR_CONCURRENCY`를 각 단계 상한으로 공유한다. concurrency1은 caller에서 순차 실행하며 병합은 입력 순서 | 무제한 대기열 없이 결정적 후보/진단/상한을 유지 | AC-SRC-2/5/10 |
+| 2026-11-02 | stage-1은 호출 wrapper와 제공자 전송 양쪽에서 stop을 확인하고 제공자 hard 오류 즉시 latch한다. 미전송 예약은0으로 정산, 이미 보낸 호출은 executor 종료 전에 정산 | 정산 지연/예약 대기 중 신규 전송 방지 및 기존 비용·취소 fencing 재사용 | AC-SRC-5/6/10 |
+| 2026-11-02 | 청크별 검증에 다쪽 payload 그대로 전달, 실패 진단에 모든 청크 쪽을 기록한다. eval은 기존 공용 `extract_vision_chunks`를 사용 | 근거 검증 및 DEV-190 PARTIAL/FAILED/성공 범위 의미 보존 | AC-SRC-2/3/5/8 |

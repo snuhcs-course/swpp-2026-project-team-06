@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # local에서만 쓰는 JWT 비밀값. local이 아니면 JWT_SECRET이 반드시 있어야 한다(이슈 #5).
@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     source_r2_bucket: str = ""
     source_r2_access_key: str = ""
     source_r2_secret_key: str = ""
+    source_ocr_concurrency: int = Field(default=4, ge=1, le=8)
     source_ocr_model_dir: str = ""
     source_ocr_model_sha256: str = ""
     source_parser_timeout: int = 120
