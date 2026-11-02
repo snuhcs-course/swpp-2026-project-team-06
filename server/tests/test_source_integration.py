@@ -260,6 +260,8 @@ def test_AC_SRC_5_stale_queued_prompt_fails_before_call(client, login, monkeypat
 def test_AC_SRC_6_openrouter_contract_and_cost(monkeypatch, model, prices, reasoning):
     from app.ai import source_analysis as adapter
 
+    # Exercise an explicit configured cap; the default is covered separately.
+    monkeypatch.setattr(get_settings(), "source_max_output_tokens", 4096)
     calls = {}
 
     class Client:
@@ -314,6 +316,8 @@ def test_AC_SRC_5_concurrent_budget_and_unknown_cost_retained(monkeypatch, model
     from app.source_analysis.budget import reserve, settle
 
     cfg = get_settings()
+    # These fixed budget boundaries exercise the original explicit 4096-token cap.
+    monkeypatch.setattr(cfg, "source_max_output_tokens", 4096)
     monkeypatch.setattr(cfg, "source_budget_usd", cap)
 
     def attempt(i):
@@ -485,6 +489,8 @@ def test_AC_SRC_10_reservation_uses_run_model_not_current_default(monkeypatch):
     from app.source_analysis.budget import reserve
 
     cfg = get_settings()
+    # Keep the fixed 12000-micro boundary between the two run models.
+    monkeypatch.setattr(cfg, "source_max_output_tokens", 4096)
     monkeypatch.setattr(cfg, "source_analysis_model", "google/gemini-3.1-flash-lite")
     monkeypatch.setattr(cfg, "source_budget_usd", 0.012)
     with get_sessionmaker()() as db:
