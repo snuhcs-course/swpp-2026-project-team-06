@@ -205,3 +205,17 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6. [제품 spec](../../../docs/spec/source-analysi
 - repo guard는 신규 manifest case에 한해 잠긴12개 ID/format과 metadata 키만 허용한다. 그 밖의 holdout payload 차단과 역사 lock의 정확한 구조 검증은 유지한다. 미래 독립 측정은 튜닝하지 않는 사람들의 독립3인 검토 holdout v2가 필요하다.
 
 - 입력 해시: 기존 공개개발12건 safeInputSha256은 corpus의 canonical-json-utf8 해시를 보존한다. 편입12건은 safe 파일 바이트 SHA로 기록하고 safeInputEncoding=file-bytes로 구분한다. gold 파일 SHA는 전부 같은 병합 v2 파일 바이트 SHA다.
+
+
+## DEV-190 페이지별 OCR 복구와 추출 분할
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 동작 계약은 [제품 spec](../../../docs/spec/source-analysis.md)의 DEV-190 절을 따른다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | OpenRouter 이미지/PDF의 EXTRACT는 파일별 페이지 목록 하나, 실제 OCR은 쪽/crop별 호출 | 전체 빈 문서 판단과 명시적 파일 재시도 범위 일치 | AC-SRC-5/10 |
+| 2026-11-02 | transcribe_pages가 빈/실패 쪽 진단을 반환하고 실패 쪽 span을 비움; hard failure는 전파 | 안전한 나머지 쪽 보존, 불확실 호출 자동 재생 금지 | AC-SRC-2/3/5/6 |
+| 2026-11-02 | worker와 final_eval이 extraction_chunks → text_chunks를 공유하고 각 그룹 검증 후 병합 | 긴 OCR 출력 제한, 원래 쪽/span 근거 유지 | AC-SRC-2/3/5 |
+| 2026-11-02 | stage-1 Spend stage에 쪽번호·묶음순번을 포함 | 항목 내 여러 호출의 원장 키 충돌 방지 | AC-SRC-10 |
+| 2026-11-02 | accepted 후보가 있는 OCR PARTIAL만 REFINE 허용; retry는 원래 pages 목록으로 새 Run | 기존 후보·생산자 편집 보존 및 비용 확인 유지 | AC-SRC-5/11 |
+| 2026-11-02 | API/평가 metadata는 쪽 개수만 공개; 두 UI의 sourceNotices에서 PARTIAL 페이지 안내 우선 | 파일당 한 줄, 빈 쪽 불필요 경고·오류 중복 방지 | AC-SRC-6/8 |

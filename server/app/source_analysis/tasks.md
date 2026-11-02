@@ -510,3 +510,68 @@ owner가 완료한 T23 부분 오염 재실행을 집계만 보고하고, 소진
 
 ### 기록
 - 11/02 ModelScope가 500인 상태에서 실제 설치: 미러에서 3개를 받았고 출력 해시 `9f64ef4f…`가 README와 운영 변수 값과 같다. `tests/test_provision_ocr.py` 8 passed(미러 우선·500/읽는 중 끊김/연결 리셋/해시 불일치 시 폴백·전부 실패·비신뢰 URL·manifest 해시 고정), ruff 통과.
+
+## DEV-190 PDF·이미지 페이지별 OCR 복구와 긴 OCR 추출 분할
+
+- 이슈: [DEV-190](https://linear.app/sswp6/issue/DEV-190)
+- 브랜치: `jinumeral/dev-190-ocr-page-resilience` (origin/main ec2bf06 기반)
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11
+- 상태: 진행 중 (Playwright·live 개발셋 검증은 사람이 수행)
+
+### 목표
+사진만 있는 빈 쪽과 개별 OCR 호출 실패가 나머지 쪽의 추출을 막지 않도록 하고, 긴 OCR 전사도 원문 span 경계의4000자 묶음으로 추출한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/source_analysis/{worker,preprocess,service,refinement,final_eval}.py`
+- `server/tests/{test_source_analysis,test_source_refine,test_source_recovery,test_source_gemini_ocr,test_final_eval}.py`
+- `apps/producer/src/lib/{SourceWorkspace,NewProductComposer}.tsx`, `packages/api/src/sourceAnalysis.ts`
+- `scripts/e2e/source-review-regressions.spec.ts`
+- `docs/spec/source-analysis.md`, `docs/wiki/Source-Analysis.md`(끝에 영어 한 문단만 추가)
+- `server/app/source_analysis/spec.md`, 이 `tasks.md`의 DEV-190 신규 끝 섹션만.
+
+### 비범위
+- 커밋·push·PR·외부 통지·live/유료 호출, 새 의존성, private 원문 반입, gold/채점 기준/모델 프롬프트 변경.
+
+### 결정 사항
+- 11/02 OpenRouter 이미지/PDF는 파일별 EXTRACT 항목 하나에 페이지 목록을 저장한다. 실제 OCR 요청은 한 쪽의 한 crop씩, stage-1 요청은 한 쪽의 span 묶음씩 보내므로 요청당 최대4쪽 계약을 유지한다. 전체 빈 문서 판단·PARTIAL 재시도 범위·파일당 안내를 같은 항목에서 일관되게 처리한다.
+- 11/02 빈 쪽은 spans=[]·pagesEmpty 진단, 실패한 쪽은 그 쪽의 부분 전사도 버리고 pagesFailed 진단에 번호/고정 오류 코드를 기록한다. 모든 쪽에 유효 전사가 없으면 기존 실패 코드(전부 빈 쪽은 OCR_UNCERTAIN)로 실패한다. auth/예산/취소/lease/자료·가림 변경은 전파한다.
+- 11/02 OCR 실패가 있어도 나머지 쪽을 추출한다. accepted 후보가 있는 PARTIAL은 REFINE 가능하며, 재시도는 새 Run에서 파일 전체를 다시 읽는다. 불확실 OCR도 retry acknowledgment가 필요하고 자동 재호출하지 않는다. 예약/정산 래퍼는 그대로 쓴다.
+- 11/02 제품·평가 runner가 페이지별 text_chunks 그룹 함수를 공유한다. span ID/쪽 번호를 유지하고 각 그룹에 대해 검증한 후보를 병합·중복 제거한다. 평가 metadata는 빈/실패 쪽의 개수만 공개한다.
+- 11/02 UI는 pagesFailed>0인 파일에 안내 한 줄을 표시하며 해당 OCR 오류와 빈 결과 안내를 중복 표시하지 않는다. 빈 쪽 건너뜀은 별도 경고하지 않는다. Figma 변경은 이 세션에서 하지 않으며 후속 담당자 확인이 필요하다.
+
+- 11/02 초기 합성 회귀에서 동일 항목의 여러 stage-1 요청이 같은 Spend 키(`item:attempt:extract`)를 사용함을 확인했다. 코드보다 먼저 결정 추가: 요청별 stage 이름을 `extract-쪽번호-묶음순번`으로 유일하게 하여 기존 reserve/settle 원장 계약으로 모든 분할 호출을 기록한다.
+- 11/02 검증 경계 결정: 페이지 오류와 별개로 다른 쪽에서 나온 후보까지 전부 근거 검증에 거절되면 기존 CANDIDATES_REJECTED/FAILED 규칙을 유지한다. hard failure에서도 이미 센 빈/실패 쪽 진단은 유지하며, 아직 읽지 않은 쪽은 로컬 span을 OCR 근거로 남기지 않는다.
+- 11/02 평가 정합 결정: stage-1 한 묶음의 후보가 모두 거절되어도 다른 묶음의 유효 후보는 제품과 동일하게 보존한다. 모든 묶음 처리 후 accepted가 하나도 없고 거절만 있으면 CANDIDATES_REJECTED로 실패한다.
+
+### 작업 / 완료 조건
+- [ ] 빈 쪽/실패 쪽 격리, hard failure 전파, 비용/명시적 retry/REFINE 검증.
+- [ ] 제품·평가 OCR4000자 분할과 쪽 근거·중복 제거 회귀.
+- [ ] 두 생산자 화면 파일별 안내와 stubbed Playwright 추가 (실행: 사람).
+- [ ] 제품 spec·구현 spec·wiki 영어 한 문단 갱신.
+- [ ] 지정 Ruff/pytest/typecheck/mock 실행 결과와 PREPARE sandbox 실패 별도 기록.
+- [ ] 사람이 Playwright 및 live 개발셋을 실행하여 결과 확인 (이 세션에서는 실행 금지).
+
+### 기록
+- 11/02 시작: 작업 트리 깨끗함, 브랜치 확인. AGENTS.md·spec 스킬·제품/폴더 스펙·Linear DEV-190 읽음. 사용자 지시에 따라 커밋·push·PR·live 호출 없이 진행한다.
+- 11/02 구현: 파일 단위 OCR 항목·빈/실패 쪽 진단·4000자 그룹·요청별 Spend stage·그룹별 근거 검증/병합·accepted PARTIAL refine을 연결했다. service.retry의 새 Run/전체 pages 재시도와 REQUEST_UNCERTAIN 비용 확인은 기존 함수를 유지하고 합성 DB 회귀로 확인했다. 공개 API/평가 metadata는 쪽 개수만 추가했다. UI 두 화면은 같은 sourceNotices를 사용하며 중복 오류를 숨긴다.
+- 11/02 최종 서버 명령: `DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmclub_dev190 UV_CACHE_DIR=/private/tmp/farmclub-dev190-uv-cache uv run --directory server ruff check .` → **통과**. 같은 환경의 `uv run --directory server pytest tests/test_source_analysis.py tests/test_source_refine.py tests/test_source_recovery.py tests/test_source_gemini_ocr.py tests/test_final_eval.py` → **440 passed / 16 failed (74.91s)**. 첫 실행은 436 passed / 16 failed (80.59s), 이후 새 경계 회귀4건을 추가했다. pytest는 `farmclub_dev190_test`만 사용한다.
+- 11/02 PREPARE 환경 실패(별도): 기존 source_analysis6건·source_recovery3건·source_gemini_ocr7건이 PREPARE 실패/누락 Page 이후 assertion에서 실패했다. 별도 합성 텍스트의 `preprocess.prepare(...)` 실행으로 psutil의 `Process.children(recursive=True)` → `sysctl()` PermissionError(`[Errno 1] Operation not permitted (originated from sysctl() malloc 1/3)`)를 직접 재현했다. 준비/cleanup의 동일 sandbox 제한이며 제품·기존 테스트를 우회/약화하지 않았다. 제한 없는 환경의 지정 묶음 재실행 전까지 전체 테스트 완료로 표시하지 않는다.
+- 11/02 프런트 명령: `npm run typecheck && npm run test:mock` → **typecheck 모든 workspace 통과; mock 47 passed / 0 failed (28.40s)**. 두 화면 stubbed Playwright를 추가했지만 사용자 지시에 따라 실행하지 않았다. Figma v6 문구 동기화도 후속 담당자 확인이 필요하다.
+- 11/02 감사: `git diff --check` 통과. tasks/wiki 기존 HEAD 바이트 prefix 보존 및 wiki 신규 영어 한 문단만 추가 확인. 기존 두 테스트 파일의 모든 함수 AST 동일(삭제·assert 약화 없음). `git diff main...HEAD`681경로는 로컬 main과 상속된 차이이며 `origin/main...HEAD`0경로·HEAD=ec2bf06이다. 이번 미커밋 `git diff HEAD`14경로는 DEV-190 허용 범위 안이다. 의존성/모델 프롬프트/gold 변경0, private 입력 반입0, 커밋·push·PR·live 호출0.
+- 11/02 의도한 커밋(실행하지 않음): `docs(source): AC-SRC-2/5/8 OCR 페이지 복구 규칙과 작업 기록 (DEV-190)`; `fix(source): AC-SRC-2/5/10 OCR 페이지 복구와 긴 전사 분할 (DEV-190)`; `fix(producer): AC-SRC-5/8 부분 OCR 안내와 화면 회귀 추가 (DEV-190)`.
+- 11/02 Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: private 원문·모델 프롬프트 변경 없이 페이지별 OCR 실패를 격리하고 긴 전사를 분할하며 합성 DB 회귀와 기존 테스트로 검증한다. 남은 검증: sandbox 밖 pytest, 사람의 두 화면 Playwright·아래 개발셋 live·Figma 동기화. 체크박스와 이슈 상태는 진행 중으로 유지한다.
+
+사람 실행용 개발셋 명령 (이 세션에서 실행하지 않음; 기존 OpenRouter 키와 초기화된 로컬 DB 사용):
+
+```sh
+cd server
+APP_ENV=local \
+DATABASE_URL='postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmclub_dev190' \
+SOURCE_OCR_MODEL_DIR='<offline-model-directory>' \
+SOURCE_OCR_MODEL_SHA256='<manifest-sha256>' \
+uv run python -m app.source_analysis.final_eval \
+  --split development --subset all \
+  --provider openrouter --model google/gemini-3-flash-preview \
+  --max-usd 3 --out ../../source-dev-i3-private/dev190-live-dev --yes
+```
+- 11/02 신규 회귀만 별도 확인: 같은 DB/cache 환경의 `uv run --directory server pytest tests/test_source_gemini_ocr.py tests/test_final_eval.py -k 'pdf_photo_only or pdf_page_failure or partial_ocr_retry or long_ocr_chunks or eval_shares or failed_page_discards' -q` → **17 passed / 0 failed / 107 deselected (5.17s)**. 최종 Ruff 재실행과 diff whitespace 검사도 통과했다. 이 결과는 전체 묶음의 PREPARE 환경 실패16건이나 미실행 Playwright를 대체하지 않는다.
