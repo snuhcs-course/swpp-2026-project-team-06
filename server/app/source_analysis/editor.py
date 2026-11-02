@@ -146,10 +146,10 @@ def suggestions(review, photos=None):
                 and not has_platform_text(c["value"])
                 and not has_period_text(c["value"])
             ]
-            # Equivalent raw facts use the first source as their representative.
+            # Equivalent raw facts use the lowest candidate id as a stable representative.
             if modules is None and key in FACT_FIELDS:
                 unique = {}
-                for choice in choices:
+                for choice in sorted(choices, key=lambda c: min(c["candidateIds"], default="")):
                     unique.setdefault(normalize_fact_value(choice["value"]), choice)
                 choices = list(unique.values())
             # Without a current refinement, all distinct raw alternatives need a picker.

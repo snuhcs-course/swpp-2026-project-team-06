@@ -2123,3 +2123,8 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 범위 감사: 이번 미커밋 변경 13개 경로가 사전 기록 범위 안이다. `git diff main...HEAD` 683개 경로는 기존 커밋 이력이며 HEAD는 `76ea0037ed5b4ecea635f52005871d30c62cc5e2`로 유지했다. `git diff --check` PASS, 두 tasks.md의 원본 바이트 전체 보존(append-only) PASS. 필수 검증이 막혀 완료 체크는 하지 않는다.
 - 의도한 커밋(실행하지 않음): `fix(source-analysis): FEAT-04/07 preserve raw fact choices (DEV-179)`; `fix(producer): FEAT-04/07 preserve composer mount (DEV-179)`; `fix(mock): FEAT-17 validate tracking before idempotency (DEV-179)`. 각 코드의 회귀·관련 스펙·append-only 기록을 함께 묶는다.
 - commit/push/PR/live 호출 없음. Agent 시간 / Tokens: 정확한 계측 미제공.
+
+### DEV-179 후속 검증·보완 (Claude, sandbox 밖, 2026-11-02)
+- 정리 대기(pending) 중 단일 사실 값이 원문으로 채워지던 회귀를 되돌렸다(`elif len(choices) == 1 and not has_refinement`). 기존 `test_AC_SRC_1_2_target_choices_precede_shared_candidates` pending 사례가 다시 통과하고, 새 동등 사실 테스트는 pending이면 missing을 기대하도록 맞췄다.
+- 스캔 WARNING 반영: 같은 값으로 묶인 사실 후보의 대표를 DB 조회 순서가 아닌 가장 작은 candidateId로 정한다. 저장 시 재계산한 추천과 값이 달라져 EDITOR_CONFIRMATION_REQUIRED가 나는 경우를 막는다. 순서 역전·3후보 혼합 회귀 테스트를 추가했다.
+- sandbox 밖 결과: `pytest tests/test_source_editor.py tests/test_source_refine.py tests/test_orders.py` 412 passed(보완 전), 보완 후 editor/refine 362 passed; ruff PASS; `npm run typecheck` PASS; `npm run test:mock` 48 passed / 0 failed.

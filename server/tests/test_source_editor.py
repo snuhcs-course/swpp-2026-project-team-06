@@ -780,3 +780,28 @@ def test_AC_SRC_11_unavailable_refinement_keeps_complementary_facts_selectable(
     assert entry["field"]["state"] == "UNREVIEWED"
     assert entry["field"]["value"] == ""
     assert entry["field"]["candidateIds"] == []
+
+
+@pytest.mark.parametrize("values", [["감귤 3kg", "감귤 3000g"], ["감귤 3000g", "감귤 3kg"]])
+def test_AC_SRC_11_equivalent_fact_representative_ignores_candidate_order(values):
+    r = _review_input("composition", values)
+    r["targets"][0]["basicInfo"] = {}
+    r["refinements"] = {}
+    r["candidates"].reverse()
+
+    entry = _entry(r, "composition")
+
+    assert entry["status"] == "ready"
+    assert entry["field"]["candidateIds"] == ["c0"]
+    assert entry["field"]["value"] == values[0]
+
+
+def test_AC_SRC_11_equivalent_facts_plus_distinct_fact_stay_selectable():
+    r = _review_input("composition", ["감귤 3kg", "감귤 3000g", "감귤 5kg"])
+    r["targets"][0]["basicInfo"] = {}
+    r["refinements"] = {}
+
+    entry = _entry(r, "composition")
+
+    assert entry["status"] == "conflict"
+    assert entry["field"]["value"] == ""
