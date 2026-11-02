@@ -721,3 +721,12 @@ export DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmc
 - 11/02 의도한 커밋(실행하지 않음): `feat(source): AC-SRC-2/5/10 페이지 묶음과 추출 병렬화 (DEV-191)`; `test(source): AC-SRC-2/3/5/10 다쪽 근거·병렬 추출·비용 회귀 추가 (DEV-191)`; `docs(source): AC-SRC-2/5/10 추출 청크 계약과 검증 기록 (DEV-191)`.
 - 11/02 HEAD `c692c8d` 유지. 커밋·push·PR·외부/live 호출0. Agent 시간 / Tokens는 계측 미제공(추정 미기재). 남은 검증은 sandbox 밖에서 위 지정 pytest4파일 재실행이며 전체 통과 전까지 완료 선언/체크박스 변경은 하지 않는다.
 - 11/02 owner 실측(합성 개발 23건, openrouter gemini-3-flash-preview): 20쪽 PDF `22-pdf-25-pages` 처리 시간 — 병렬화 전(DEV-190) 101.6초, OCR 병렬만 59.0초, 쪽 묶음+추출 병렬(동시성 4) **28.1초**(동시성 1에서는 79.1초). 추출 호출 20→5회, 23건 비용 $0.130→$0.103. 점수는 동시성 1·4 모두 사실 27/30·중요 17/20으로 같다. 전체 pytest 1262 passed(나머지 2건은 기존 간헐 테스트로 단독 재실행 31/31 통과).
+
+## DEV-192 간헐 실패 테스트 안정화 — `test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback[delete_source]`
+
+- 이슈: https://linear.app/sswp6/issue/DEV-192 · 같은 이슈의 다른 테스트는 `server/tasks.md`(AC-11-3), `apps/consumer/tasks.md`(AC-34-7, AC-10-6) DEV-192 섹션.
+- 범위: `server/tests/test_source_refine.py`만. 제품 코드는 바꾸지 않는다(테스트 쪽 원인).
+- 원인: `tests/test_source_analysis.py`의 `start()`가 대표 사진(`original_photo=True`)을 묶음에 붙이므로 `ready()` 뒤 묶음 자료는 글 자료와 사진 둘이다. `test_source_refine.py:1351`의 `original_id = db.scalar(select(Asset.id).where(Asset.batch_id == ...))`는 순서 없는 조회라 PostgreSQL이 돌려주는 첫 행(힙/인덱스 TID 순서)에 따라 사진 id를 집을 수 있다. 그러면 정리 후보를 가진 글 자료가 `{original_id, source["id"]}`에 없어 1390줄 `assert owner_asset.id in {...}`가 실패한다. 단독 실행에서는 글 자료가 먼저 나오고, 전체 실행에서 앞 테스트의 삭제로 생긴 빈 칸에 행이 다시 쓰이면 순서가 바뀐다.
+- 수정: 조회에 `Asset.original_photo.is_(False)`를 더해 글 자료 하나만 고른다. assertion은 그대로다.
+- 결정적 재현: 원래 테스트에서 글 자료를 non-HOT update 두 번으로 사진보다 뒤 TID로 옮기면 CI와 같은 `assert 'src_…' in {…}`로 **1/1 실패**. 같은 조작을 한 수정본은 **통과**. (임시 probe 파일은 지웠다)
+- 반복: 수정 전 단독 0/20, 파일 일부(-k) 0/10 실패(로컬에서 자연 재현 안 됨). 수정 후 단독 **0/20**, 파일 전체 **0/3**, 전체 pytest **0/3 실패(각 1264 passed)**.

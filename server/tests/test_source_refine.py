@@ -1348,7 +1348,11 @@ def test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback(
     h, batch, _ = ready(client, login, monkeypatch)
     drain()
     with get_sessionmaker()() as db:
-        original_id = db.scalar(select(Asset.id).where(Asset.batch_id == batch["id"]))
+        # start()가 대표 사진(original_photo)을 붙이므로 묶음에는 자료가 둘이다. 순서 없는
+        # 조회는 사진을 고를 수 있어 글 자료만 집는다(DEV-192)
+        original_id = db.scalar(
+            select(Asset.id).where(Asset.batch_id == batch["id"], Asset.original_photo.is_(False))
+        )
     batch = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
     text = "\n".join(row[1] for row in ROWS) + "\n추가 자료"
     source = upload(client, h, batch, text=text)
