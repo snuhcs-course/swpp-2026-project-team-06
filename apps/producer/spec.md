@@ -160,3 +160,5 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 - 입금 확인은 기존 Sheet/서버 API를 사용하며 주문 총액은 기존 ProducerOrder.totalAmount를 표시한다. SHIPPED 송장 수정은 기존 시트에 현재 값을 불러와 orders.updateTracking으로 저장한다. trackingVersion과 동일 본문 재시도의 멱등 키를 유지하고 서버 감사 이력은 UI에서 표시하지 않는다(AC-17-9). Figma DEV-185.
 
 - DEV-179 리뷰 보완: AI 시작은 자료 0개일 때만 자료 부족 사유로 비활성화한다(기존 busy/active 보호 유지). 구매자 preview subName/brix 슬롯은 undefined로 넘겨 ProductPageBody/BrixReading을 사용하고, run 진행은 시트 또는 본문 한 곳에만 렌더한다. 제외 확인은 사용자·batch·target별 마지막 버전을 덮어쓰고 커밋된 구 sessionStorage `farmclub-producer:excluded-seen:${batchId}:${version}`만 로그인 사용자 확인 후 한 번 읽고 제거한다. 사용자 정보가 없으면 이관하지 않는다.
+
+- DEV-179 최종 리뷰 보완: Composer의 BasicInfo 래퍼는 batch 로딩 전후 유지하고 key는 URL batchId를 사용한다. 공용 기본 정보 훅은 null batch에서 빈 입력/저장 없음으로 시작해 로드 후 입력을 동기화한다. 로드로 Screen 하위 트리를 remount하지 않는다(AC-SRC-11).

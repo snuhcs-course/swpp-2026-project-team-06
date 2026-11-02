@@ -152,7 +152,7 @@ function FillInput({
     />
   );
 }
-/** 기본 정보 훅을 batch가 있을 때만 쓰기 위한 감싸개(훅은 조건부로 부를 수 없다). */
+/** 로딩 전후 같은 트리에서 기본 정보 훅과 편집 화면을 유지한다. */
 function BasicInfo({
   children,
   ...options
@@ -1258,25 +1258,25 @@ export function NewProductComposer() {
       </Sheet>
     </Screen>
   );
-  return batch ? (
-          <BasicInfo
-            key={batch.id}
-            batch={batch}
-            flushRef={flushBasicInfo}
-            onDirty={(dirty) => {
-              setBasicDirty(dirty);
-              if (dirty) setError("");
-            }}
-            onSaved={(b) => {
-              setBatch(b);
-              // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
-              if (review)
-                void load().catch((e) => {
-                  if (alive.current) setError(String(e));
-                });
-            }}
-          >
-    {render}
-  </BasicInfo>
-  ) : render(null);
+  return (
+    <BasicInfo
+      key={batchId}
+      batch={batch}
+      flushRef={flushBasicInfo}
+      onDirty={(dirty) => {
+        setBasicDirty(dirty);
+        if (dirty) setError("");
+      }}
+      onSaved={(b) => {
+        setBatch(b);
+        // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
+        if (review)
+          void load().catch((e) => {
+            if (alive.current) setError(String(e));
+          });
+      }}
+    >
+      {render}
+    </BasicInfo>
+  );
 }

@@ -723,3 +723,60 @@ def test_AC_SRC_11_equal_specification_weight_does_not_hide_variety_or_origin_co
     entry = _entry(_review_input("specification", values), "specification")
     assert entry["status"] == "conflict"
     assert entry["field"]["state"] == "UNREVIEWED"
+
+
+@pytest.mark.parametrize("refinements", [{}, {"target": None}], ids=["absent", "pending"])
+@pytest.mark.parametrize(
+    "field_key,values",
+    [
+        ("specification", ["ＧＲＡＤＥ   Ａ．", "grade a"]),
+        ("composition", ["ＧＲＡＤＥ   Ａ．", "grade a"]),
+        ("pieceCount", ["ＧＲＡＤＥ   Ａ．", "grade a"]),
+        ("qualityEvidence", ["ＧＲＡＤＥ   Ａ．", "grade a"]),
+        ("composition", ["감귤 3kg", "감귤 3000g"]),
+        ("qualityEvidence", ["당도 12.0브릭스", "당도 12브릭스"]),
+    ],
+)
+def test_AC_SRC_11_unavailable_refinement_keeps_one_original_equivalent_fact(
+    refinements, field_key, values
+):
+    r = _review_input(field_key, values)
+    r["targets"][0]["basicInfo"] = {}
+    r["refinements"] = refinements
+
+    entry = _entry(r, field_key)
+
+    assert entry["field"]["state"] == "UNREVIEWED"
+    if refinements:
+        # A pending refinement will supply the value; raw text is not prefilled meanwhile.
+        assert entry["status"] == "missing"
+        assert entry["field"]["value"] == ""
+        return
+    assert entry["status"] == "ready"
+    assert entry["field"]["provenance"] == "EXTRACTED"
+    assert (entry["field"]["value"], entry["field"]["candidateIds"]) in [
+        (candidate["value"], candidate["candidateIds"]) for candidate in r["candidates"]
+    ]
+
+
+@pytest.mark.parametrize("refinements", [{}, {"target": None}], ids=["absent", "pending"])
+@pytest.mark.parametrize(
+    "field_key,values",
+    [
+        ("specification", ["품종: 온주밀감", "사이즈: 중과"]),
+        ("qualityEvidence", ["GAP 인증", "무농약 재배"]),
+    ],
+)
+def test_AC_SRC_11_unavailable_refinement_keeps_complementary_facts_selectable(
+    refinements, field_key, values
+):
+    r = _review_input(field_key, values)
+    r["targets"][0]["basicInfo"] = {}
+    r["refinements"] = refinements
+
+    entry = _entry(r, field_key)
+
+    assert entry["status"] == "conflict"
+    assert entry["field"]["state"] == "UNREVIEWED"
+    assert entry["field"]["value"] == ""
+    assert entry["field"]["candidateIds"] == []

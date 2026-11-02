@@ -8,7 +8,6 @@ import {
   isMock,
   newIdempotencyKey,
   sourceAnalysis as api,
-  sourcePageImage,
   type MyProductCard,
   type SourceBatch,
   type SourceDraft,

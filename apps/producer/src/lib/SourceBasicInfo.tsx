@@ -9,9 +9,9 @@ import { TextInput, View } from "react-native";
 
 type Input = { variety: string; size: string; brix: string };
 const empty: BasicInfo = { variety: "", size: "", expectedBrix: null };
-const values = (batch: SourceBatch) =>
+const values = (batch: SourceBatch | null) =>
   Object.fromEntries(
-    batch.targets.map((t) => {
+    (batch?.targets ?? []).map((t) => {
       const b = t.basicInfo ?? empty;
       return [
         t.id,
@@ -57,7 +57,7 @@ export function useSourceBasicInfo({
   flushRef,
   onDirty,
   onSaved,
-}: Options) {
+}: Omit<Options, "batch"> & { batch: SourceBatch | null }) {
   const [inputs, setInputs] = useState<Record<string, Input>>(() =>
     values(batch),
   );
@@ -84,6 +84,7 @@ export function useSourceBasicInfo({
   }, [batch]);
 
   const save = async () => {
+    if (!batch) return;
     while (pending.current) await pending.current;
     if (JSON.stringify(current.current) === JSON.stringify(saved.current))
       return;

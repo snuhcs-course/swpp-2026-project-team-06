@@ -536,6 +536,39 @@ test("DEV-179 AC-17-9: Mock tracking correction is versioned, idempotent and pri
   const preparingEndpoint = `/api/orders/${preparing.orderId}/tracking`;
   assert.equal((await api("PATCH", preparingEndpoint, producer,
     { version: 1, carrier: "INVALID" })).status, 400);
+  const malformedBodies = [
+    { carrier: "CJ" },
+    { version: 1 },
+    { version: 0, carrier: "CJ" },
+    { version: 1.5, carrier: "CJ" },
+    { version: 1, carrier: "INVALID" },
+    { version: 1, carrier: null },
+    { version: 1, carrier: "CJ", trackingNumber: "x".repeat(51) },
+  ];
+  const missingEndpoint = `/api/orders/dev179-missing-${++n}/tracking`;
+  for (const body of malformedBodies) {
+    assert.equal((await api("PATCH", missingEndpoint, producer, body)).status, 400,
+      `Validation must precede missing-order lookup: ${JSON.stringify(body)}`);
+  }
+  assert.equal((await api("PATCH", missingEndpoint, producer,
+    { version: 1, carrier: "CJ" })).status, 404);
+  const foreignUserId = `dev179-foreign-producer-${++n}`;
+  const foreignToken = `dev179-foreign-token-${++n}`;
+  db().users[foreignUserId] = {
+    userId: foreignUserId, name: "테스트 생산자", role: "PRODUCER", farmId: "f-halla",
+  };
+  db().tokens[foreignToken] = foreignUserId;
+  try {
+    for (const body of malformedBodies) {
+      assert.equal((await api("PATCH", preparingEndpoint, foreignToken, body)).status, 400,
+        `Validation must precede foreign-order lookup: ${JSON.stringify(body)}`);
+    }
+    assert.equal((await api("PATCH", preparingEndpoint, foreignToken,
+      { version: 1, carrier: "CJ" })).status, 404);
+  } finally {
+    delete db().tokens[foreignToken];
+    delete db().users[foreignUserId];
+  }
   const wrongStatus = await api("PATCH", preparingEndpoint, producer,
     { version: 1, carrier: "CJ" });
   assert.equal(wrongStatus.status, 409);
@@ -557,9 +590,14 @@ test("DEV-179 AC-17-9: Mock tracking correction is versioned, idempotent and pri
   assert.equal(corrected.trackingNumber, input.trackingNumber);
   assert.equal(corrected.trackingVersion, initial.version + 1);
   assert.deepEqual(await ok("PATCH", endpoint, producer, input, correctionKey), corrected);
+  for (const body of malformedBodies) {
+    assert.equal((await api("PATCH", endpoint, producer, body, correctionKey)).status, 400,
+      `Validation must precede idempotency mismatch: ${JSON.stringify(body)}`);
+  }
   const reused = await api("PATCH", endpoint, producer,
     { ...input, trackingNumber: "DEV179-different" }, correctionKey);
   assert.equal(reused.status, 409);
+  assert.equal(reused.body.details.reason, "IDEMPOTENCY_MISMATCH");
   const stale = await api("PATCH", endpoint, producer,
     { ...input, trackingNumber: "DEV179-stale" });
   assert.equal(stale.status, 409);

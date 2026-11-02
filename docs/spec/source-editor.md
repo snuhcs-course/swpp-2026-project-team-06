@@ -68,7 +68,7 @@
 
 
 ### DEV-179 리뷰 보완 (2026-11-02 owner 결정)
-- 후보 수만으로 conflict를 정하지 않는다. specification(규격·원산지), composition(구성·중량), pieceCount(개수), qualityEvidence의 당도 등 **같은 사실**의 정규화 값이 다른 경우 선택기를 보인다. 현재 정리 결과가 없고 안전한 원문 서술 후보가 여러 개면 선택할 수 있게 유지한다. kg/g·12.0/12 당도·유니코드·공백 차이는 같은 값으로 보고 규격의 품종과 사이즈 같은 보완 정보는 충돌로 만들지 않는다. summary/farmStory 등 병합된 정리 서술은 ready/UNREVIEWED로 자동 저장한다. outdated와 생산자 확정/제외를 덮지 않으며 현재 refined/basicInfo 값도 선택할 수 있다. 정리 성공이 생략한 필드는 원문으로 되살리지 않는다.
+- 정리된 사실은 후보 수만으로 conflict를 정하지 않는다. specification(규격·원산지), composition(구성·중량), pieceCount(개수), qualityEvidence의 당도 등 **같은 사실**의 정규화 값이 다른 경우 선택기를 보인다. 현재 정리 결과가 없거나 정리 대기 중이면 안전한 원문 후보를 선택할 수 있게 유지한다. 사실 필드도 정규화 후 여러 값이면 선택기를 보이고, 한 값이면 정리를 요청하지 않은 경우에만 대표 원문과 그 근거를 ready/UNREVIEWED로 제안한다(정리 대기 중에는 비워 둔다). kg/g·12.0/12 당도·유니코드·공백 차이는 같은 값으로 보고 정리 결과의 규격에 함께 담긴 품종과 사이즈 같은 보완 정보는 충돌로 만들지 않는다. summary/farmStory 등 병합된 정리 서술은 ready/UNREVIEWED로 자동 저장한다. outdated와 생산자 확정/제외를 덮지 않으며 현재 refined/basicInfo 값도 선택할 수 있다. 정리 성공이 생략한 필드는 원문으로 되살리지 않는다.
 - run 응답의 ocrFailedPageNumbers와 chunkFailedPageNumbers는 각각 OCR/청크 실패 쪽만 정렬·중복 제거한 목록이다. 두 종류가 함께 실패하면 각각의 안내를 모두 표시한다. 개수는 기존대로 유지하고 내부 실패 코드·진단은 노출하지 않는다.
 - 대표사진 없이 자료 분석이 가능하지만 sources가 0개면 시작 버튼을 비활성화하고 ‘자료를 먼저 넣어 주세요.’를 곁에 표시한다. 대표사진 공개 적용 검사는 유지한다.
 - 제외 확인 저장은 localStorage `farmclub-producer:excluded-seen:${userId}:${batchId}:${targetId}`의 마지막 refinementVersion 1개를 덮어쓴다. 커밋된 구 sessionStorage `farmclub-producer:excluded-seen:${batchId}:${refinementVersion}`만 로그인 사용자가 확인된 뒤 한 번 읽어 이관/제거한다. 사용자 정보가 없으면 이관하지 않는다. 새 버전은 다시 안내하고 칩으로 다시 열 수 있다.

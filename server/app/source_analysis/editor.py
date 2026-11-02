@@ -25,20 +25,26 @@ class EditorSave(DraftSave):
 FACT_FIELDS = {"specification", "composition", "pieceCount", "qualityEvidence"}
 
 
+def normalize_fact_value(value):
+    value = unicodedata.normalize("NFKC", value).casefold()
+
+    def weight(match):
+        grams = Decimal(match[1]) * (1000 if match[2] in {"kg", "킬로그램"} else 1)
+        return format(grams.normalize(), "f") + "g"
+
+    value = re.sub(r"(\d+(?:\.\d+)?)\s*(kg|g|킬로그램|그램)", weight, value)
+    value = re.sub(
+        r"(\d+(?:\.\d+)?)\s*(?:°?\s*(?:bx|brix)|브릭스)",
+        lambda match: format(Decimal(match[1]).normalize(), "f") + "bx",
+        value,
+    )
+    return re.sub(r"[\s:：,，。]+|[.!]+$", "", value)
+
+
 def factual_conflict(key, choices):
     # Narrative modules intentionally combine complementary source fragments.
     if key not in FACT_FIELDS:
         return False
-
-    def normalize(value):
-        value = unicodedata.normalize("NFKC", value).casefold()
-
-        def weight(match):
-            grams = Decimal(match[1]) * (1000 if match[2] in {"kg", "킬로그램"} else 1)
-            return format(grams.normalize(), "f") + "g"
-
-        value = re.sub(r"(\d+(?:\.\d+)?)\s*(kg|g|킬로그램|그램)", weight, value)
-        return re.sub(r"[\s:：,，。]+|[.!]+$", "", value)
 
     facts = defaultdict(set)
     for choice in choices:
@@ -55,10 +61,10 @@ def factual_conflict(key, choices):
         if key == "specification" and labelled:
             for label, fact in labelled:
                 slot = {"크기": "사이즈", "산지": "원산지"}.get(label, label)
-                facts[slot].add(normalize(fact))
+                facts[slot].add(normalize_fact_value(fact))
         else:
             # Preserve fruit identity and its weight association in composite fact values.
-            facts[key].add(normalize(value))
+            facts[key].add(normalize_fact_value(value))
     return any(len(values) > 1 for values in facts.values())
 
 
@@ -140,8 +146,14 @@ def suggestions(review, photos=None):
                 and not has_platform_text(c["value"])
                 and not has_period_text(c["value"])
             ]
-            # Without a current refinement, raw narrative alternatives still need a picker.
-            raw_narrative_choices = modules is None and key not in FACT_FIELDS and len(choices) > 1
+            # Equivalent raw facts use the first source as their representative.
+            if modules is None and key in FACT_FIELDS:
+                unique = {}
+                for choice in choices:
+                    unique.setdefault(normalize_fact_value(choice["value"]), choice)
+                choices = list(unique.values())
+            # Without a current refinement, all distinct raw alternatives need a picker.
+            raw_choices = modules is None and len(choices) > 1
             status = "missing"
             field = saved or dict(
                 targetId=target["id"],
@@ -195,17 +207,15 @@ def suggestions(review, photos=None):
                 if (
                     saved["state"] == "UNREVIEWED"
                     and saved["provenance"] != "REFINED"
-                    and (factual_conflict(key, choices) or raw_narrative_choices)
+                    and (factual_conflict(key, choices) or raw_choices)
                     and status != "outdated"
                 ):
                     status = "conflict"
-            elif has_refinement:
+            elif has_refinement and modules is not None:
                 if key in refined:
                     field = {**field, **refined[key], "provenance": "REFINED"}
                     status = "ready"
-                elif modules is None and (factual_conflict(key, choices) or raw_narrative_choices):
-                    status = "conflict"
-            elif len(choices) == 1:
+            elif len(choices) == 1 and not has_refinement:
                 c = choices[0]
                 field = {
                     **field,
@@ -214,7 +224,7 @@ def suggestions(review, photos=None):
                     "candidateIds": c["candidateIds"],
                 }
                 status = "ready"
-            elif factual_conflict(key, choices) or raw_narrative_choices:
+            elif factual_conflict(key, choices) or raw_choices:
                 status = "conflict"
             if (
                 not saved

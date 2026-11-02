@@ -1192,3 +1192,38 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 테스트 버그 `checkout-and-fulfillment`: 확인 시트·주문 줄은 SCR-29대로 주문 총액(상품가 + 배송/도서 비용, 32,000원)을 보이는데 테스트는 옵션가 29,000원을 하드코딩 → 생산자 API의 `totalAmount`로 기대값 계산. 또 이전 실행의 입금 대기 주문이 남으면 `.first()`가 다른 주문을 승인 → `${orderNo} 입금 승인`으로 이 주문만 누르고 confirm-deposit 응답을 기다림.
 - `SOURCE_ANALYSIS_ENABLED=true`로 켜야 도는 테스트도 확인: `new-product-composer`의 빈 새 상품 `AI로 채우기` 기대를 enabled → disabled + "자료를 먼저 넣어 주세요."로 복구(사진 없이 분석 가능, 자료 없이는 불가 — DEV-179 계약 테스트와 일치). `source-workspace-ui` 새로고침 뒤 품종 칸은 AI 시트 안이라 `사진·자료 펼치기` 후 확인. `source-editor` 사진 필수 오류는 접힌 시트 안 사본이 숨겨져 있어 보이는 page alert로 범위 지정. 분석 완료 대기에는 로컬 mock worker(`python -m app.source_analysis.worker`)가 필요하다.
 - 검증: `npm run typecheck` PASS. 매 실행 전 seed reset 후 `SOURCE_ANALYSIS_ENABLED=true npx playwright test` 7개 spec `--workers=1` 3회 연속 **70 passed / 0 failed / 0 skipped**. 서버 코드 변경 없음(pytest 미실행). commit/push 없음.
+
+
+### DEV-179 최종 리뷰 후속 · 2026-11-02 (사용자 지시, append-only)
+
+#### 범위 (코드 수정 전)
+- `server/app/source_analysis/editor.py`, `server/tests/test_source_editor.py`
+- `apps/producer/src/lib/{SourceWorkspace,NewProductComposer,SourceBasicInfo}.tsx`
+- `packages/api/src/mock/orders.ts`, `scripts/test-spec12.mjs`
+- `server/app/source_analysis/spec.md`, `apps/producer/spec.md`, `docs/spec/source-editor.md`, `docs/wiki/Requirements-and-Specifications.md`
+- 작업 기록은 `apps/producer/tasks.md`·`server/tasks.md` 끝에만 추가한다.
+
+#### 결정 사항
+- 정리 결과가 없거나 pending(None)인 사실 필드는 안전한 현재 원문 후보를 정규화한다. 한 값이면 대표 후보를 ready/EXTRACTED로 제안하고, 여러 값이면 서술과 같이 conflict로 선택기를 제공한다. 성공 정리의 생략·안전 필터·outdated·생산자 확정/제외 우선순위는 유지한다.
+- SourceWorkspace의 미사용 sourcePageImage import를 제거한다.
+- Mock 송장 정정의 본문 검증을 idempotency/주문 조회보다 앞에 둔다(400 → 멱등 → 404 → 409). 기존 테스트를 약화하지 않고 우선순위 회귀를 보강한다.
+- Composer는 로딩 전후 BasicInfo 래퍼를 유지하고 nullable batch를 기본 정보 훅에서 안전하게 처리한다. URL batchId로 key를 유지해 최초 로드의 하위 트리 remount를 없앤다.
+- 사용자 지시에 따라 commit/push/PR/live 호출 없이 지정 서버·타입·Mock 검증을 실행한다. 신규 후보 테스트는 구현 블라인드 작성 및 수정 전 실패 확인을 수행한다.
+
+#### 작업 / 검증 대기
+- [ ] 위 네 리뷰 항목 수정 및 지정 명령 실행 후 결과를 아래에 추가한다.
+
+#### 최종 리뷰 후속 추가 결정 (독립 diff 검토)
+- 기존 12.0/12 Brix 동등성도 정리 없음/대기 상태의 대표 후보 정규화에 적용한다. 다른 텍스트는 보존하면서 Brix 단위 숫자만 정규화하고 absent/pending 회귀를 추가한다.
+
+
+#### DEV-179 최종 리뷰 후속 결과 · 2026-11-02
+- 네 항목 구현 적용: 정리 없음/대기(None)의 사실 후보는 정규화 후 한 값이면 대표 원문/candidateIds를 ready/EXTRACTED로 제안하고 여러 값이면 선택 가능 상태를 유지한다. SourceWorkspace 미사용 import를 제거했다. Mock 본문 검증은 멱등/주문 조회보다 앞에 두었다. Composer의 BasicInfo 래퍼·URL batchId key는 로딩 전후 유지하고 공용 훅은 null batch를 처리한다.
+- `server/tests/test_source_editor.py`에 사양만 본 별도 작성자가 absent/pending 16개 사례를 추가했다(요청한 kg/g·보완 규격·Brix 없는 품질 근거, 네 사실 필드의 유니코드/공백 동등성, 12.0/12 Brix). 기존 테스트·단언은 삭제하거나 약화하지 않았다.
+- 최종 명령: `cd server && uv run ruff check . && uv run pytest tests/test_source_editor.py tests/test_source_refine.py tests/test_orders.py` (UV_CACHE_DIR=/private/tmp/dev179-uv-cache, UV_OFFLINE=1, DATABASE_URL은 localhost의 격리 farmclub_dev179). Ruff PASS, pytest **0 passed / 0 assertion failures / 412 setup errors**, 2.88s. 공통 _schema의 localhost:5432 연결이 Operation not permitted로 거부되어 모든 본문이 실행되지 않았다. 로그: `/private/tmp/dev179-final-server-tests.log`. 신규 서버 회귀의 red/green도 같은 fixture 제한 때문에 입증하지 못했다. 전체 서버 검증은 미완료이며 sandbox 밖에서 위 명령 재실행 필요.
+- `npm run typecheck && npm run test:mock`: 5 workspace 타입 검사 PASS; Mock **45 passed / 3 failed / 0 skipped**, 30.87s. 송장 정정 회귀는 통과했다. 실패는 test-news-rooms / test-onboarding / test-withdrawal의 Mock server exited이며, 로컬 socket 직접 확인도 `listen EPERM 127.0.0.1:18083`으로 실패했다. 테스트/fixture/서버 우회 없음. 로그: `/private/tmp/dev179-final-mock-tests.log`.
+- Mock fail-first: HEAD의 orders.ts만 메모리에서 transpile해 생성된 Mock JS에 일시 적용한 뒤 기존 사양 테스트를 실행했다. **5 passed / 1 failed**, 회귀는 missing order의 400 기대에 기존 404로 실패했다. 생성 JS는 finally에서 원복했다. 정상 코드의 `node --test scripts/test-spec12.mjs`는 **6 passed / 0 failed / 0 skipped**, 31.08s. 로그: `/private/tmp/dev179-mock-baseline.log`, `/private/tmp/dev179-final-mock-focused.log`.
+- 독립 diff 리뷰가 지적한 Brix 소수 동등성 누락을 수정했고 재검토 추가 지적 0. 문서도 정리된 보완 사실과 정리 전 원문 선택의 구분을 동기화했다. 브라우저 검증은 실행하지 않았다.
+- 범위 감사: 이번 미커밋 변경 13개 경로가 사전 기록 범위 안이다. `git diff main...HEAD` 683개 경로는 기존 커밋 이력이며 HEAD는 `76ea0037ed5b4ecea635f52005871d30c62cc5e2`로 유지했다. `git diff --check` PASS, 두 tasks.md의 원본 바이트 전체 보존(append-only) PASS. 필수 검증이 막혀 완료 체크는 하지 않는다.
+- 의도한 커밋(실행하지 않음): `fix(source-analysis): FEAT-04/07 preserve raw fact choices (DEV-179)`; `fix(producer): FEAT-04/07 preserve composer mount (DEV-179)`; `fix(mock): FEAT-17 validate tracking before idempotency (DEV-179)`. 각 코드의 회귀·관련 스펙·append-only 기록을 함께 묶는다.
+- commit/push/PR/live 호출 없음. Agent 시간 / Tokens: 정확한 계측 미제공.
