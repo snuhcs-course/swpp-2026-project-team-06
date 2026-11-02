@@ -93,7 +93,6 @@ function Tile({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={representative ? "대표사진" : "대표로 지정"}
-            accessibilityState={{ selected: representative }}
             aria-pressed={representative}
             disabled={disabled}
             onPress={onRepresentative}
@@ -492,7 +491,7 @@ export function SourceAttachments({
         설명은 내용 분석을 위해 AI에 전송돼요.
       </T>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
-      {[false, true].map((photo) => (
+      {[true, false].map((photo) => (
         <View
           key={String(photo)}
           testID={photo ? "product-photo-box" : "source-material-box"}

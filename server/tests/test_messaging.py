@@ -272,7 +272,10 @@ def test_AC_12_5_news_not_in_one_to_one(client, login):
     chats = client.get("/api/messaging/chats", headers=login("u-minji")).json()["items"]
     page = client.get("/api/messaging/chats/f-kang/messages", headers=login("u-minji")).json()
 
-    assert {c["farmId"] for c in chats} == {"f-kang", "f-halla", "f-hyodon"}
+    farms = {c["farmId"] for c in chats if not c["isSupport"]}
+    assert farms == {"f-kang", "f-halla", "f-hyodon"}
+    # 농가 대화 외에는 자기 farmclub 문의 대화방(DEV-150) 하나만 있다
+    assert [c["farmName"] for c in chats if c["isSupport"]] == ["farmclub"]
     assert all(not m["messageId"].startswith("n-") for m in page["items"])
 
 

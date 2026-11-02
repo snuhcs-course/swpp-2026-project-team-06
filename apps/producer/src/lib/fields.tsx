@@ -286,7 +286,7 @@ export function DateSheet({
                 key={d}
                 accessibilityRole="button"
                 accessibilityLabel={`${mdOf(d)} ${WEEK[(lead + Number(d.slice(8, 10)) - 1) % 7]}요일${isA ? ", 시작일" : ""}${isB && range ? ", 끝날" : ""}${disabled ? ", 고를 수 없음" : ""}`}
-                accessibilityState={{ disabled, selected: edge }}
+                aria-pressed={edge}
                 disabled={disabled}
                 onPress={() => tap(d)}
                 style={{

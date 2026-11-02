@@ -31,7 +31,8 @@ type Props = {
   read: (id: string) => Promise<unknown>;
   makeKey: () => string;
   loadPhoto: (id: string) => Promise<string>;
-  upload: (file: File) => Promise<{ attachmentId: string }>;
+  /** 없으면 사진 첨부(＋)를 숨긴다(예: 소비자 farmclub 문의 대화방, DEV-150) */
+  upload?: (file: File) => Promise<{ attachmentId: string }>;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -363,23 +364,25 @@ export function ChatThread({
           borderTopColor: tokens.color.border,
         }}
       >
-        {photos ? (
+        {photos && upload ? (
           <PrivatePhotos
             ids={ids}
             onChange={setIds}
-            upload={(f) => callbacks.current.upload(f)}
+            upload={(f) => callbacks.current.upload!(f)}
             load={loadPhoto}
             disabled={busy}
             onBusy={setUploading}
           />
         ) : null}
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-          <Button
-            label={photos ? "−" : "＋"}
-            variant="text"
-            onPress={() => setPhotos(!photos)}
-            disabled={busy}
-          />
+          {upload ? (
+            <Button
+              label={photos ? "−" : "＋"}
+              variant="text"
+              onPress={() => setPhotos(!photos)}
+              disabled={busy}
+            />
+          ) : null}
           <TextInput
             accessibilityLabel="메시지"
             placeholder="메시지를 입력하세요"

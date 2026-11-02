@@ -52,6 +52,13 @@ def price_mentioned(text: str) -> str | None:
     return re.sub(r"\s+", "", match.group(1)) if match else None
 
 
+def _record(feature: str, message) -> None:
+    """호출 비용을 관리자 페이지 AI 비용에 남긴다(DEV-144). 실패해도 기능은 그대로."""
+    from app.admin.ai_usage import record_call
+
+    record_call(feature, get_settings().ai_model, getattr(message, "usage", None))
+
+
 def _client(timeout: float):
     import anthropic
 
@@ -71,6 +78,7 @@ def _call_claude(text: str) -> str:
         system=_DRAFT_SYSTEM,
         messages=[{"role": "user", "content": text}],
     )
+    _record("product_draft", message)
     return "".join(block.text for block in message.content if block.type == "text")
 
 
@@ -161,6 +169,7 @@ def _call_detail_claude(payload: dict) -> DetailContent:
         system=_DETAIL_SYSTEM,
         messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
     )
+    _record("detail_draft", message)
     raw = "".join(block.text for block in message.content if block.type == "text")
     return DetailContent.model_validate_json(raw[raw.find("{") : raw.rfind("}") + 1])
 
@@ -294,6 +303,7 @@ def _claude_answer(question: str, ev: Evidence) -> AiAnswer | None:
             }
         ],
     )
+    _record("ai_answer", message)
     raw = "".join(block.text for block in message.content if block.type == "text")
     data = json.loads(raw[raw.find("{") : raw.rfind("}") + 1])
     if data.get("action") == "ANSWER" and data.get("answer"):

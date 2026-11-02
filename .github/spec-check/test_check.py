@@ -514,6 +514,20 @@ class DiffOnlyContextTests(unittest.TestCase):
         self.assertIn("-    return 1\n+    return 2", data["diff"])
         self.assertEqual(data["changed_files"]["module/sample.py"], {"status": "modified", "size": 22, "previous_size": 22})
 
+    def test_ids_written_only_in_the_tasks_section_still_pick_feat_items(self):
+        # SC-001 (live run 39947732979): segments[0] is the title line, so section-only IDs were never collected.
+        head = repo(self.dir, {"module/sample.py": "def f():\n    return 2\n"})
+        rows = [(["docs/spec/functional/FEAT-01-login.md", "docs/spec/functional/rules.md"], ["module/sample.py"], "no ids here")]
+        data = check.collect(self.dir, self.event_for(head, body(rows)))
+        feat = "\n".join(s["text"] for s in data["documents"]["docs/spec/functional/FEAT-01-login.md"]["segments"])
+        self.assertIn("AC-01-2", feat)
+        self.assertIn("또 하위", feat)
+        for hidden in ("AC-01-1", "AC-01-3", "AC-01-4"):
+            self.assertNotIn(hidden, feat)
+        rules = "\n".join(s["text"] for s in data["documents"]["docs/spec/functional/rules.md"]["segments"])
+        self.assertIn("둘째 규칙", rules)
+        self.assertNotIn("소식 규칙", rules)
+
     def test_feat_without_named_ids_sends_acceptance_criteria_and_spec_falls_back_to_recent_rows(self):
         head = repo(self.dir, {"module/sample.py": "def f():\n    return 2\n",
                                "module/tasks.md": TASKS.replace("FEAT-01 AC-01-2, R-02", "FEAT-01 only").replace("DEV-40 |", "DEV-99 |")})
@@ -592,6 +606,46 @@ class DiffOnlyContextTests(unittest.TestCase):
         partial["reviewed_files"] = ["spec.md"]
         with self.assertRaisesRegex(check.Incomplete, "all supplied context"):
             check.validate(partial, sample)
+
+
+
+class UsageReportTests(unittest.TestCase):
+    """DEV-144: usage goes to the admin cost page; failures never change the review."""
+
+    def report(self, **extra):
+        return {"status": "PASS", "model": "claude-sonnet-5-5", "usage": {"input_tokens": 100, "output_tokens": 50},
+                "metadata": {"pr": 7, "head_sha": "a" * 40, "mode": "pr"},
+                "run_url": "https://github.com/team/repo/actions/runs/9"} | extra
+
+    def env(self, **extra):
+        return {"SPEC_CHECK_USAGE_URL": "https://api.example/internal/spec-check-runs",
+                "SPEC_CHECK_USAGE_TOKEN": "t", "GITHUB_RUN_ID": "9", "GITHUB_RUN_ATTEMPT": "2"} | extra
+
+    def test_sends_run_usage_with_token_header(self):
+        sent = []
+
+        class Capture(Client):
+            def open(self, req, timeout):
+                sent.append(req)
+                return super().open(req, timeout)
+
+        with patch.dict(os.environ, self.env()):
+            self.assertTrue(check.report_usage(self.report(), "[DEV-1] title", Capture([{}])))
+        body = json.loads(sent[0].data)
+        self.assertEqual(sent[0].get_header("X-spec-check-token"), "t")
+        self.assertEqual(body["runKey"], "9-2-pr")
+        self.assertEqual((body["prNumber"], body["inputTokens"], body["outputTokens"]), (7, 100, 50))
+        self.assertEqual((body["status"], body["model"], body["prTitle"]), ("PASS", "claude-sonnet-5-5", "[DEV-1] title"))
+
+    def test_skips_without_config_or_usage(self):
+        with patch.dict(os.environ, self.env(SPEC_CHECK_USAGE_URL="")):
+            self.assertFalse(check.report_usage(self.report(), "", Client([])))
+        with patch.dict(os.environ, self.env()):
+            self.assertFalse(check.report_usage(self.report(usage={}), "", Client([])))
+
+    def test_failure_only_warns(self):
+        with patch.dict(os.environ, self.env()):
+            self.assertFalse(check.report_usage(self.report(), "", Client([error.URLError("down")])))
 
 
 if __name__ == "__main__":

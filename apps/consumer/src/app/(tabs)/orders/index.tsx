@@ -130,7 +130,6 @@ export default function OrderList() {
             <Pressable
               key={group.value}
               accessibilityRole="tab"
-              accessibilityState={{ selected: selected === group.value }}
               aria-selected={selected === group.value}
               onPress={() => router.setParams({ filter: group.value })}
               style={{

@@ -810,6 +810,240 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 이슈: https://linear.app/sswp6/issue/DEV-94 · 목표·범위·결정·기록은 `server/tasks.md` DEV-94 구현 섹션에 모은다.
 - 10/23 환경설정 ‘계정’과 승인 대기(SCR-21) 하단에 회원 탈퇴(공용 `WithdrawSheet`), 성공하면 로그아웃 → 로그인.
 
+## DEV-184 새 상품 한 화면 편집 + 하단 AI 시트
+
+- 이슈: https://linear.app/sswp6/issue/DEV-184
+- 브랜치: `jinumeral/dev-184-new-product-ai-sheet`
+- 기준: FEAT-03/04/07, AC-03-1/3, AC-SRC-9/10/11, docs/spec/source-integration.md(DEV-184 절), docs/spec/source-editor.md
+- 상태: 진행 중
+
+### 목표
+새 상품 → 자료 화면(2탭) → 상품 정보 → 기간·가격 → 판매로 나뉜 흐름과 상품명·품종 이중 입력을 줄인다. 새 상품을 누르면 바로 한 화면 편집이 뜨고, 아래에서 올라온 시트에 사진·자료를 넣고 'AI로 채우기'를 누르면 칸이 채워진다(당근 'AI 글쓰기' 참고).
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/{NewProductComposer,SourceWorkspace,SourceBasicInfo,SourceAttachments,SourceDetailsEditor,PageCanvas,Tour}.tsx`, `apps/producer/src/app/(tabs)/products/{new,source-analysis}.tsx`
+- `packages/ui/src/{bars,index}.ts(x)` (PeekSheet)
+- `packages/api/src/sourceAnalysis.ts`: SourceDraft.snapshot.batchVersion 타입만(서버가 이미 내려 주는 값)
+- (v2) `apps/producer/src/app/(tabs)/products/[id]/sell.tsx`(신규), `apps/producer/src/lib/BuyerPreview.tsx`(신규), `packages/ui/src/{ProductPage,Button,web}.ts(x)`, `apps/consumer/src/app/(tabs)/products/[productId].tsx`(본문을 공용 ProductPageBody로 추출만), `scripts/e2e/new-product-two-step.spec.ts`(신규)
+- (v2) `docs/spec/{ia,source-integration}.md`, `docs/spec/functional/{FEAT-04-product-edit,FEAT-05-stage-pricing,README}.md`, `docs/wiki/{Requirements-and-Specifications,Source-Analysis}.md`
+- `scripts/e2e/new-product-composer.spec.ts`(신규), `scripts/e2e/source*.spec.ts`, `scripts/e2e/product-page-workspace.spec.ts`, `scripts/e2e/producer-i2.spec.ts`
+- `docs/spec/{source-integration,source-editor,ia}.md`, `docs/wiki/Source-Analysis.md`, `apps/producer/{spec,tasks}.md`
+
+### 비범위
+- 서버·API 계약(apply가 기본 정보를 복사하도록 바꾸지 않음), 기존 상품 `판매페이지 수정`(ProductPageEditor), `/products/manual`, 기간·가격·판매 화면, Figma(후속)
+
+### 결정 사항
+- 10/31 서버는 바꾸지 않는다. AI 결과의 상품명·보관(30자 이하)은 화면에서 기본값 칸에만 미리 채우고 기존 상품 PATCH로 저장한다. 가격은 채우지 않는다(AC-03-1).
+- 10/31 품종·사이즈·예상 당도는 기존 batch 기본 정보(SourceBasicInfo, blur 저장)를 그대로 쓰고, 상품 저장 때 품종·예상 당도를 상품에도 넣는다(한 번만 입력).
+- 10/31 하단 시트는 `@farmclub/ui`의 새 `PeekSheet`(화면 아래 고정, 접힘/펼침, 펼칠 때만 뒤 화면 어둡게). 기존 모달 `Sheet`는 확인·이탈 시트에 그대로 쓴다.
+- ~~10/31 '다음: 가격·판매'는 임시 저장 → 최신 초안이 있으면 확인 시트에서 명시적 적용 → SCR-25.~~ → 11/01 v2로 대체: 판매 전(DRAFT/REJECTED)은 확인 없이 반영 후 SCR-24b, 그 밖은 상태별 확인 후 SCR-25. 비공개 저장/명시적 적용 분리는 유지한다.
+- 11/01 v2: 두 장(① 구매자 모양 채우기 ② 판매·가격→미리보기→판매 시작 요청), 중량 옵션은 ②로, 상품명 하나가 상세 맨 위 제목을 정함, 같은 초안(id:version) 재반영 금지(세션 저장소 기록, composer 세션 기준), 판매 시작은 운영자 승인 요청.
+- 10/31 새 화면은 `lib/NewProductComposer.tsx`로 따로 두고 새 상품 버튼만 `composer=1`로 연다. 기존 `SourceWorkspace`(배치 없는 상품 선택·여러 상품 작업)는 그대로 두고 공용 도우미만 export한다. 기존 e2e가 그 경로로 기존 상품 작업을 만들기 때문이다. ~~중량 옵션은 3/5/10kg 체크로 이 화면에 두고~~(v2에서 ②로 옮김), 받는 시기·배송비·가격은 다음 화면에 둔다.
+- 10/31 AI는 분석 자료만 읽고 상품사진 자체는 분석하지 않는다(기존 계약). 시트 문구도 이에 맞춘다.
+
+### 작업
+- [x] PeekSheet, 새 `NewProductComposer` 한 화면 편집(기존 SourceWorkspace는 유지, 공용 판정 `canEditBatch` export), SourceBasicInfo embedded, 편집기 저장 결과 반환·AI 표시, 첨부함 순서
+- [x] spec/ia/wiki 갱신
+- [x] new.tsx 로딩 문구·도움말 투어 문구
+- [x] e2e 갱신(360/390/430px) 및 로컬 실화면 확인
+- [x] v2 두 장 흐름: ① 채우기 재배치·점선 빈 칸 ② `sell` 화면·미리보기·판매 시작 요청, 공용 ProductPageBody 추출
+- [x] scan-before-commit(v2 6회 반복, 마지막 CRITICAL/WARNING 0)
+- [ ] draft PR, Figma 후속 이슈
+
+### 기록
+- 10/31 origin/main 2ab0c2f에서 시작. `npm run typecheck` 4 workspace 통과.
+- 11/01 접힌 시트가 첨부 컴포넌트를 언마운트하면 업로드·입력 상태가 사라지므로, 접혀도 마운트하고 화면에서만 숨긴다. 저장 뒤 batch를 다시 읽어도 사진이 같으면 blob URL을 다시 만들지 않는다(표시 중 URL 해제로 콘솔 오류). AI 표시는 선택한 카드에서만 보이던 details 대신 PageCanvas의 새 `badge` 자리에 늘 보인다(SourceWorkspace·NewProductComposer에서만 보이고 ProductPageEditor는 badge를 넘기지 않아 그대로).
+- 11/01 검증: `npm run typecheck` 4 workspace, `npm run test:mock` 43개 통과. 격리 DB(mock 제공자)의 Playwright new-product-composer/source-workspace-ui/source-analysis/source-editor/product-page-workspace 28개 통과(2.0분). 기존 source-workspace-ui·source-editor 중 새 상품 진입 테스트 2개는 새 화면에 맞춰 시작 버튼 이름·다음 버튼 경로·시트 펼치기만 바꿨다. Agent 시간/Tokens 미측정.
+- 11/01 커밋 전 스캔 반영: 저장하지 않은 상세 수정이 재분석·첨부 변경 때 사라지던 문제(CRITICAL) → 'AI로 다시 채우기'는 먼저 편집기를 비공개 저장하고, 수정이 남아 있는 동안 편집기를 내리지 않으며 첨부 변경을 막고 안내한다. 상품 편집에서 돌아오면(focus)·적용 뒤 상품을 다시 읽어 버전 충돌·품종 되돌림을 막는다. 기본 정보에서 지운 예상 당도는 null로 반영. 하위 컴포넌트 busy 해제가 화면 작업 중 버튼을 켜지 않게 함. 배지 배경 `#FFF3EB`는 기존 `Choice`와 같은 값이라 토큰이 생길 때 함께 바꾼다.
+- 11/01 같은 결과로 재분석하면 reviewVersion은 그대로이고 batch 버전만 올라 예전 초안을 최신으로 보고 적용하다 409가 났다. 초안 최신 판정에 snapshot.batchVersion도 비교한다. 기존 SourceWorkspace의 적용 버튼에도 같은 잠재 문제가 있으나(이번 범위 밖) 후속 이슈로 남긴다.
+- 11/01 스캔 반영 후 재검증: `npm run typecheck` 4 workspace, `npm run test:mock` 통과, 격리 DB Playwright new-product-composer(재분석 후 수정 유지·미리 채우기·가격 미입력 포함)/source-workspace-ui/source-analysis/source-editor/product-page-workspace/producer-i2 34개 통과(2.4분).
+- 11/01 재스캔 반영: 분석 뒤 기본 정보 저장이 reviewVersion을 올려 편집기 저장이 409로 막히던 문제(CRITICAL) → 기본 정보 저장 뒤 review를 다시 읽고, 임시 저장은 flush 뒤 서버의 batch·review·drafts로 초안 저장 필요 여부를 판단하며, 고친 내용이 없으면 편집기가 최신 review로 저장한다(`saveRef(fresh)`). 고친 상세가 있는 동안 기본 정보도 잠근다. '다음'은 분석 뒤 최신 초안이 없으면 이동하지 않고 안내한다. 초안 최신 판정은 서버와 같이 batchVersion 없으면 오래된 것으로 본다. 시트 바깥 영역은 보조기기에서 숨겨 손잡이와 이름이 겹치지 않게 했다. 배지는 카드 안 AI 값이 남아 있으면 보인다(spec 문구 정정).
+- 11/01 재스캔 반영 후 재검증: typecheck 4 workspace, `npm run test:mock` 통과, 격리 DB Playwright 34개 통과(2.3분, 분석 뒤 사이즈 수정→임시 저장→적용 포함).
+- 11/01 3차 스캔 반영: 새 e2e 파일을 범위에 추가. 미리 채우기는 EXTRACTED 값만 쓴다(생산자가 상세에 직접 쓴 상품명에는 'AI가 채웠어요'를 붙이지 않음). 취소된 분석만 있고 초안이 없으면 '다음'은 분석 전처럼 이동한다. 기본 정보 저장 뒤 review 재조회 실패를 화면 오류로 알린다. 첨부함 순서·AI 배지는 공유 컴포넌트라 기존 SourceWorkspace 화면에도 적용됨(PR 본문에 명시).
+- 11/01 사용자 피드백: 시트 손잡이 줄을 누른 뒤 포커스 테두리(검은 사각형)가 남음 → 웹 `:focus-visible`일 때만 테두리를 그린다(키보드 이동 시만). 접힌 시트 화살표를 위(⌃)로. e2e에 터치 후 outline 없음 검사 추가, new-product-composer 3개 통과. 직전 전체 묶음 Playwright 34·mock 43 통과.
+- 11/01 v2 결정(진우 님 피드백 "두 장으로"): ① 채우기 = 구매자 상품 페이지 모양 그대로, 빈 칸만 점선 네모(당근 글쓰기처럼) ② 판매·가격 한 화면 → 미리보기(네모 없음) → 판매 시작 요청. 판매 시작은 운영자 승인 요청(spec·서버 그대로), 가격은 기본 1기간 + 얼리버드 기간 추가. 중량 옵션은 ②로. '다음'은 판매 전 상품이면 확인 없이 apply 후 ②(apply를 PATCH·stages보다 먼저). 저장 때 상품명을 상세 맨 위 제목에도 맞춘다(미리보기에 이름이 둘로 보이던 문제).
+- 11/01 소비자 상품 상세 본문을 `packages/ui` `ProductPageBody`로 추출(렌더 결과 동일)해 ② 미리보기와 공유. 공용 Button·바의 포커스 링은 키보드 이동 때만 그린다(`showFocus`, 사용자 피드백 '검은 사각형'). 다른 화면의 개별 focusRing 사용처는 이번 범위 밖.
+- 11/01 v2 검증: typecheck 5 workspace, `npm run test:mock` 43개 통과. 격리 DB(mock 제공자)에서 Playwright 전체 90개 중 80 통과 · 0 실패 · 10 건너뜀(공유 Mock 등 환경 조건). new-product-two-step 360/390/430 통과(운영자 승인 API 후 공개 상세 일치 포함).
+- 11/01 v2 스캔 반영: 기간이 하나일 때 받는 시기를 첫날 다음 날부터 고를 수 있게(앞당기기 가능, 판매 전 상품은 서버 PATCH가 기간·받는 시기 순서를 검사하지 않아 PATCH→PUT 순서 유지). PATCH 응답 즉시 반영(기간 저장 실패 뒤 버전 꼬임 방지). 서버 오류 메시지와 칸 이름을 함께 표시. 시작일>끝일 기간 검사. 계좌 판정을 서버와 같은 세 칸으로, 화면 복귀 시 농가 정보 재조회. 판매 시작 요청 뒤 채우기 화면이 뒤로가기에 남지 않게 dismissTo. 쓰지 않는 Fold export·도달하지 않는 확인 문구 정리.
+- 11/01 v2 재스캔 반영: 같은 초안을 다시 apply하면 서버가 대표사진을 또 복사해 사진이 늘어나므로, 이 화면에서 반영한 초안(id:version)은 다시 반영하지 않고 이동만 한다. 판매 중 상품은 반영 뒤 기존 상품 편집(SCR-25)으로(②는 판매 전 상품 전용). 제외(EXCLUDED)한 상세 제목은 상품명 맞추기에서 되살리지 않는다. 네이티브는 포커스 링 기존 동작 유지(웹만 키보드 기준). 환불일 ≤ 받는 시기 끝 사전 검사. ②의 이탈 가드는 두지 않는다(저장 버튼·서버 저장 상태 기준, 채우기 화면과 달리 업로드 중 상태가 없음).
+- 11/01 v2 3차 스캔 반영: 채우기 화면에서 상세 맨 위 제목 칸은 읽기 전용(상품명 칸 하나로만 고치고 저장 때 맞춤, 덮어쓰기로 사라지던 문제 방지). 같은 초안 재반영 판정을 서버 값(상품 moduleDetail이 초안 내용과 같으면 건너뜀)으로도 해 새로고침 뒤에도 사진이 늘지 않게. ②는 승인 대기 등 편집 불가 상태면 입력도 막고, 총 물량은 판매 시작 요청 때 보낸다는 안내 추가. ia F-1 흐름도·영문 wiki 옛 흐름 문구 정리.
+- 11/01 최종 재검증: 느린 실행 환경(36.6분) 회차에서 producer-i2 P07 등 3건 시간 초과 → 해당 spec 4개 재실행 16/16 통과, 전체 재실행 80 통과 · 0 실패 · 10 건너뜀(3.5분). typecheck 5 workspace, `npm run test:mock` 43 통과.
+- 11/01 v2 4차 스캔 반영(CRITICAL): 글 내용만 비교해 같은 초안으로 보던 판정이 대표사진·카드 사진만 바꾼 경우 반영을 건너뛰었다 → 내용 비교를 없애고 '이 상품에 마지막으로 반영한 초안 id:version'을 화면 ref와 sessionStorage에 두어 정확히 같은 초안만 건너뛴다(사진만 바꿔도 새 초안이라 반영). e2e에 대표사진 교체 후 상품 대표사진 변경 검사 추가. 읽기 전용 상세 제목 칸은 점선 대신 '위 상품명이 여기에 들어가요'. 확인 없이 반영은 DRAFT/REJECTED만, 그 밖은 확인 후 SCR-25. 상품명 맞추기는 대상이 하나인 작업에만. 채우기 화면 농가 이름 mock 가드 제거.
+- 11/01 v2 5차 스캔 반영: 대표사진이 있으면 사진 자리를 실선으로(빈 칸만 점선). 확인 시트 문구를 상태별(판매 중·승인 대기·종료)로. 이미 반영한 초안이면 확인 없이 이동. 미리보기 참고가는 소비자와 같은 referencePrice 사용. 후속: 고정 TODAY 상수(기존 관례), apply 반복 시 서버가 대표사진 복사본을 photos에 쌓는 문제(서버 범위).
+- 11/01 v2 6차 스캔: CRITICAL/WARNING 0. INFO 반영 뒤 최종 재실행: typecheck 5 workspace, test:mock 43, Playwright 80 통과 · 0 실패 · 10 건너뜀. INFO 반영(안 쓰는 currentDraft 제거, 오류 칸 이름 중복 표시 제거, spec.md·결정 사항 v2 반영). 후속: 반영 기록은 composer 세션 기준이라 다른 화면에서 같은 상품에 적용하면 한 번 더 반영될 수 있음(서버 대표사진 복사 문제와 같은 원인), 미리보기 사진 재요청 실패 시 처리.
+- 11/01 v3(진우 님 피드백 "채우기를 그냥 미리보기 화면으로"): ① 본문을 `ProductPageBody` + 편집 슬롯으로 교체(`packages/ui` slots·SaleRows 분리, 소비자·미리보기 출력 동일). 기본 정보 입력은 `useSourceBasicInfo` 훅으로 분리해 품종(상품명 아래)·당도(당도 자리)·사이즈(상품정보 중량)에 배치, 기존 `SourceBasicInfo` 컴포넌트는 같은 훅 사용. 편집 캔버스는 미리보기 모양(조작·안내는 카드 선택 시만, 대표사진은 페이지 맨 위가 그림), 상세 제목은 입력 중인 상품명을 바로 표시.
+- 11/01 v3 스캔 반영: 상품을 못 불러오면 오류 패널의 다시 시도가 상품도 다시 읽음, 예전 방식 batch(상품 없음·여러 상품)는 기존 자료 작업 화면으로 안내, 기본 정보 칸이 뜨기 전 'AI로 채우기' 막음, 표시용 상품명이 저장 값으로 새지 않게, 대표사진이 있으면(불러오는 중 포함) 실선, 농가 이름 없으면 줄 생략, 펼친 상품정보는 누름 무시, `SourceBasicInfo`는 origin/main 모양으로(embedded 제거). 결정: 채우기 화면에서 섹션 숨기기는 제공하지 않고 예전에 숨긴 섹션 다시 켜기만 남김.
+- 11/01 v3 최종 스캔(CRITICAL 0): 상품을 못 불러온 동안 '임시 저장'·'다음'도 막음, 대표사진 불러오기 실패 시 사진 넣기 칸으로 복귀.
+- 11/01 v3 최종 검증: typecheck 5 workspace, test:mock 43, Playwright 전체 80 통과 · 0 실패 · 10 건너뜀(최종 직전 회차), 최종 수정 뒤 new-product·source 관련 23개 통과.
+
+
+
+## DEV-186 Two-stage product draft 제외 안내
+
+- 기능·인수 조건: FEAT-03 · AC-SRC-1/2/3/5/11
+- 상태: 커밋 전 검증 완료(샌드박스 밖) — typecheck 통과, test:mock **46 passed**, Playwright **35 passed**. 체크박스는 사람 확인 후 처리한다.
+- 범위: `src/lib/{NewProductComposer,PageCanvas,SourceWorkspace,SourceDetailsEditor,SourceExclusions}.tsx`, `tasks.md`; API·workflow·mock·e2e·문서 허용 경로는 서버 DEV-186 범위 참조.
+
+### 결정 사항
+- 2026-11-01 owner 변경(R-19): 배송 방법은 상세에 보존하고 기간/금액/공통 정책을 별도로 안내한다. `sourceExclusionReasons.ts`를 범위에 추가해 reason별 문구와 그룹화를 mock 테스트에서 검증한다. period detector는 API의 공유 JSON을 사용한다. 반품 배송비는 price 안내를 적용한다. 커밋 허용, 실호출·push·PR·의존성 추가 금지는 유지한다.
+- REFINED 자동 채움은 상품명/보관 기본값에도 사용한다. 후보 선택 버튼은 공유 금액/효능 detector로 숨기고 플랫폼 문구는 선택·경고를 유지한다.
+- 제외 안내는 상품명 포함 chip/title과 화면당 단일 모달 큐로 표시한다. 실제 제외된 원문을 사유별로 모으고 확인은 batch/result별 sessionStorage에 남긴다. 구매자 preview/소비자 페이지에는 노출하지 않는다.
+- 다음 단계 inline hint는 새 상품 PageCanvas story 입력의 opt-in으로 제한하며 기본 정보 FillInput에는 표시하지 않는다. 상품명·품종·당도·사이즈·원산지·보관 기존 구조 유지.
+- 11/01 이번 리뷰 결정(코드 수정 전): API refinementResults를 optional로 선언하고 composer/workspace 모두 optional chaining을 적용한다. 구버전 응답에는 chip/modal 없이 기존 편집을 유지한다. FillInput의 불필요 View를 제거한다. SourceExclusions effect는 entries 키 문자열에만 의존해 부모 rerender 시 다시 실행하지 않는다.
+- 실패 REFINE 안내는 파일명과 분리하고 성공 error 잔여값을 파일 실패로 취급하지 않는다. 사람의 serveReview exact endpoint routing·API payload와 기존 composer viewport 단언2개/스크린샷2개를 보존한다.
+- Figma v6 상품명/단일 모달 큐·안내 범위 동기화는 사람 후속 이슈가 필요하다. 실호출·push·PR·새 의존성·커밋 없음.
+
+### 작업
+- [ ] 이번 UI 회귀까지 실행 통과 확인
+- [ ] Figma 후속 담당자 확인
+
+### 기록
+- 11/01 이전 UI 검증 요약: typecheck5 workspace 통과, mock43→44→45 통과. Metro JSON 직접 import export 성공(940모듈). 이전 sandbox Playwright는 Chromium Mach port 권한으로 본문 미실행이었다. 서버 상세/검증 이력은 서버 tasks에만 보존한다.
+- 11/01 최신 사람 제공 sandbox 밖 검증(이번 수정 전): ruff 통과·pytest734/734는 서버 기록, `npm run typecheck` 통과, `npm run test:mock` **45 passed / 0 failed**, Playwright **33 passed / 0 failed** — new-product-composer / new-product-two-step / source-detail-design / source-review-regressions(6/6) / source-editor / source-workspace-ui.
+- 11/01 이번 회귀: 구버전 review 응답에서 composer/workspace 편집 가능·chip/modal 비노출2개, composer 상품명 입력의 직접 부모 gap 보존, 기존 다상품 큐에 부모 입력 변경 후 확인 결과 재노출 방지 검증 추가. workflow는 기존 mock 묶음에서 실제 배포 정규식과 CI apps/integration 경로를 검증한다.
+- 11/01 최초 typecheck에서 composer의 target.id 접근 누락을 발견해 optional chaining을 적용했고 최종 명령을 다시 실행한다.
+- 11/01 이번 수정 후 최종 검증(기존 의존성):
+  - `npm run typecheck` → **5 workspace 통과 / 0 실패**(누락 optional guard 수정 뒤 재실행).
+  - `npm run test:mock` → **46 passed / 0 failed**(28.36초, 기존45 + workflow 회귀1).
+  - `SOURCE_ANALYSIS_ENABLED=true ./node_modules/.bin/playwright test scripts/e2e/source-review-regressions.spec.ts` → **0 passed / 8 failed**, 전부 Chromium MachPortRendezvousServer `bootstrap_check_in Permission denied(1100)` / SIGTRAP로 **본문 미실행**. 기존6 + 구버전 응답2이며 wrapper/큐 보완 단언도 sandbox 밖 확인이 필요하다.
+  - `./node_modules/.bin/tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --types node scripts/e2e/source-review-regressions.spec.ts` → **통과**. UI 실행 통과를 대신하지 않는다.
+  - `./node_modules/.bin/playwright test scripts/e2e/new-product-composer.spec.ts scripts/e2e/new-product-two-step.spec.ts scripts/e2e/source-detail-design.spec.ts scripts/e2e/source-review-regressions.spec.ts scripts/e2e/source-editor.spec.ts scripts/e2e/source-workspace-ui.spec.ts --list` → **6파일35개 발견**, 통과 아님. 사람 제공 수정 전 **33/33 통과**와 구분한다.
+  - `serveReview` 함수 본문 SHA256 대조로 **사람 변경 byte-for-byte 보존** 확인. `git diff --check` 통과. 미커밋38경로 범위 감사는 서버 기록 참조. 현 UI 검증·Figma 후속이 남아 완료 체크 보류.
+- 11/01 Agent 시간 / Tokens: 계측 미제공. 의도한 커밋 docs / server / producer+api+workflow는 서버 tasks 참조. 환경은 `<로컬 DB>`와 `<로컬 캐시>`를 사용한다.
+- 11/01 최종 검증(샌드박스 밖): `npm run typecheck` 통과, `npm run test:mock` **46 passed**, Playwright 6개 spec **35 passed**(새 상품 화면 2종·소비자 상세·회귀·기존 편집기·작업 화면). 모달·칩 스크린샷은 `toBeInViewport`로 화면 안에 완전히 들어온 뒤 찍는다. 위의 sandbox 안 결과(0 passed / 8 failed 등)는 Chromium 시작 차단 때문이며 이 결과로 대체한다.
+
+- 2026-11-01 owner 정책 후속: reason별 price/period/platform 안내와 AI 시트 배송 방법 보존 문구를 적용했다. 반품 배송비는 price로 묶고 health 안내는 유지한다. 공유 JSON 기간 detector를 API에서 export하며 story 입력에 기간 경고를 표시한다. mock에 택배 보존/도착 소요일 제외를 넣고 composer 제외 항목은5개, 다상품 큐 fixture는 상품당3개로 갱신했다.
+- 2026-11-01 검증: 최종 `npm run typecheck` **5 workspace 통과 / 0 실패**, `npm run test:mock` **47 passed / 0 failed**(28.42초). 두 Playwright spec에 대한 `./node_modules/.bin/tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --types node scripts/e2e/new-product-composer.spec.ts scripts/e2e/source-review-regressions.spec.ts` 종료0. Chromium은 요청대로 미실행, UI 통과를 뜻하지 않는다. Figma v6 동기화는 디자인 담당자/owner 후속이다.
+- 2026-11-01 pre-commit scan 추가 지적0, 범위 이탈0. `git add`가 worktree index.lock 권한 거부로 실패해 로컬 커밋0개. 의도한 docs/server/producer+api 커밋과 서버 검증은 서버 tasks.md DEV-186 후속 기록 참조. 실호출·push·PR·의존성 추가0회, Agent 시간/Tokens 계측 미제공.
+
+- 2026-11-01 서버 최종 결과: ruff 통과, pytest **927 passed / 32 failed**(959개). 정제/scorer 신규 실패0이며 전처리32개는 psutil/sysctl 권한 오류 대표 재현으로 sandbox 밖 확인이 필요하다. 전체 검증·브라우저·Figma 후속이 남아 완료 체크를 보류한다.
+
+## DEV-188 AI가 뺀 문구 모달·칩 다듬기
+
+- 이슈: [DEV-188](https://linear.app/sswp6/issue/DEV-188)
+- 브랜치: `jinumeral/dev-188-removed-text-modal-polish` (기준 `origin/main` 6c259ac, DEV-186 포함)
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/8/11 · M-12 · N-02
+- 상태: 진행 중 — Playwright·390px 스크린샷은 사람 확인 대기
+
+### 목표
+제외 원문을 인용으로 구분하고 사유별 친근한 안내를 제공한다. 긴 목록에서도 마지막 항목을 스크롤로 확인하고 확인 버튼을 항상 볼 수 있게 한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/SourceExclusions.tsx`
+- `apps/producer/src/lib/sourceExclusionReasons.ts`
+- `apps/producer/tasks.md`
+- `scripts/e2e/new-product-composer.spec.ts`
+- `scripts/e2e/source-review-regressions.spec.ts`
+- `scripts/test-spec12.mjs` (기존 사유 그룹 검증의 새 문구·메타데이터 기대값)
+- `docs/spec/ia.md`
+- `docs/spec/source-analysis.md`
+- `docs/wiki/Source-Analysis.md`
+
+### 비범위 (건드리지 않음)
+- 서버·DB·정리 모델·검출 규칙·공용 UI API·새 의존성
+- push·PR·머지·배포·Chromium 실행
+
+### 결정 사항
+- 11/01 사용자의 DEV-188 상세 지시를 구현 기준으로 적용한다. 단일 상품은 칩·제목에 상품명을 생략하고 여러 상품은 `products.length` 기준으로 상품명을 붙인다(제외 결과가 없는 상품도 상품 수에 포함).
+- 11/01 사유별 pill/설명/선택적 정책 보조 문구를 타입이 있는 테이블로 관리하고 그룹 키는 reason으로 둔다. 개인정보·다른 상품·근거 없음·중복·미사용의 기존 설명은 유지하고 설명은 보통 굵기로 표시한다.
+- 11/01 `packages/ui`의 T/Button/tokens/safe를 재사용한다. 연한 주황 배경·인용 막대는 기존 accent 토큰에 투명도를 적용하며 나머지 사유 pill은 surface/textMuted를 사용한다. 새 색상은 추가하지 않는다.
+- 11/01 공용 Sheet는 전체 children을 ScrollView로 감싸므로 이 모달만 RN Modal에서 제목·본문 ScrollView·footer를 분리한다. 시트는 화면 높이 90% 이하, 본문은 최대400px와 flexShrink로 제한하고 footer는 줄어들지 않게 한다. safe-area 여백을 보존한다.
+- 11/01 원문 testID와 textContent·후보 수·자동 표시/확인/sessionStorage 큐 계약을 유지한다. composer는 현재5개이므로 칩은 `AI가 뺀 문구 5개`다. Playwright는 기존 단언을 보존하며 새 제목·사유 pill·정책 보조 문구·스크롤 끝/고정 버튼을 검증한다.
+- 11/01 사용자 지시로 로컬 커밋만 시도한다. Figma 도구가 없어 v6 동기화는 디자인 담당자/owner 후속으로 남기며 향후 PR의 Figma 줄에 기록해야 한다. 관련자 메시지·PR은 생성하지 않는다.
+
+### 작업
+- [ ] 모달·칩·사유 메타데이터 구현
+- [ ] 테스트 기대값·제품 스펙·영문 위키 갱신
+- [ ] typecheck·mock 통과 및 커밋 전 스캔
+- [ ] 사람: Playwright 실행·390px 스크린샷 owner 확인·Figma v6 동기화
+
+### 완료 조건
+- [ ] DEV-188의 인용·사유별 안내·단일 상품 칩·고정 확인 버튼 확인
+- [ ] 관련 테스트 묶음 실행 통과를 사람 포함 확인
+
+### 기록
+- 11/01 Linear 이슈가 In Progress이며 왜/인수 조건이 채워져 있음을 읽기 전용으로 확인했다. 기존 DEV-186 기록은 이전 작업 이력으로 보존한다. Chromium 실행은 사용자 지시로 생략하고 완료 체크는 사람 UI 검증까지 보류한다.
+- 11/01 구현·문서·기대값 갱신 후 검증(기존 의존성): `npm run typecheck` → **5 workspace 통과 / 0 실패**. `npm run test:mock` → **47 passed / 0 failed / 0 skipped**(28.92초, 기존 테스트 수 유지).
+- 11/01 `./node_modules/.bin/tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --types node scripts/e2e/new-product-composer.spec.ts scripts/e2e/source-review-regressions.spec.ts` → 종료0. Playwright/Chromium은 **미실행**이며 이 문법·타입 검사는 UI 통과를 뜻하지 않는다. 사람은 두 spec을 실행하고 390px 모달/칩 스크린샷과 마지막 항목·고정 확인 버튼을 확인해야 한다.
+- 11/01 커밋 전 스캔: 회귀/신규 버그/불필요 코드 지적0. 레거시 호환 후보0·지적0(추가된 null 기본값은 두 구조를 받아주는 호환 분기가 아님). 그룹 함수의 모든 호출부(모달·mock)를 갱신했고 기존 큐/sessionStorage·원문 textContent·testID·후보 수를 보존했다.
+- 11/01 범위 감사: `git diff main...HEAD`는 로컬 main(9d6b42e)이 오래되어 이번 작업 이전의 변경도 포함한다. 실제 기준 `origin/main`과 HEAD는 모두6c259ac으로 커밋 diff0이며, `git diff HEAD`의 이번 변경9경로는 위 허용 범위와 일치한다. `git diff --check` 통과, 새 파일0.
+- 11/01 첫 기록 커밋을 위해 현재 브랜치를 확인한 뒤 `git add apps/producer/tasks.md` 및 `git commit`을 시도했으나 `.git/worktrees/farmclub-modal-polish/index.lock` 생성이 `Operation not permitted`로 차단됐다. 커밋0개, push·PR0회. 의도한 커밋: `docs(producer): FEAT-03 제외 안내 개선 범위 기록 (DEV-188)` / `fix(producer): FEAT-03 제외 문구 모달과 칩 다듬기 (DEV-188)`(구현·테스트·제품 스펙·위키 포함). Co-Authored-By는 넣지 않는다.
+- 11/01 Figma v6는 디자인 담당자/owner 후속이다. UI 검증 전까지 체크박스·AC·Linear Done 처리는 보류한다. 대표 프롬프트: DEV-188의 인용 스타일·사유 pill·고정 footer·단일 상품 칩을 기존 토큰과 단언을 보존해 수정. Agent 시간 / Tokens: 계측 미제공.
+- 11/01 Claude 확인: Playwright `new-product-composer`·`source-review-regressions`·`new-product-two-step` 14 passed(샌드박스 밖), 390px 모달·칩 스크린샷을 owner에게 보여 드렸다. 커밋 전 스캔(CRITICAL 0) 지적 반영: 연한 주황 배경 위 주황 글씨 대비가 WCAG AA에 못 미쳐 pill·칩 글씨를 `accentPressed`로 바꿨고, 표에 없는 사유는 근거 없음 안내로 대신하며, 개인정보 사유 원문은 `masked`로 세션 녹화에서 가린다. 공용 Sheet에 footer prop을 넣어 다시 쓰는 것은 공용 UI 변경이라 후속으로 남긴다.
+
+## DEV-171 [I3-T12] Verify producer flow per format
+
+- 이슈: [DEV-171](https://linear.app/sswp6/issue/DEV-171)
+- 브랜치: `jinumeral/dev-171-i3-t12-producer-flow-verify` (base `6c259ac`)
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-1/2/5/6/7/9/11 · M-11/13
+- 상태: 진행 중 — 사람 실행 mock 흐름 E2E 4/4 PASS, nosniff 수정 후 API 3/3 PASS; 추가 worker 통합1건 sandbox 밖 재실행·사람 리뷰 대기.
+
+### 목표
+텍스트·이미지·긴 이미지·PDF의 생산자 업로드부터 명시적 적용·소비자 렌더까지 검증하고 실행 여부와 증거를 분리한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/tasks.md`
+- `scripts/e2e/producer-format-flow.spec.ts`
+- `server/tests/test_producer_format_flow.py`
+- `server/app/core/seed.py` — 전체 시드와 E2E 복원에서 공유하는 단일 상품 시드 함수
+- `server/tests/test_seed.py` — 상품 전체 열 복원·자료 그래프 정리·worker 재시작 회귀
+- `server/app/source_analysis/router.py` — 자료 응답의 중복 nosniff 설정 제거
+- `server/app/source_analysis/middleware.py` — 기존 커밋의 단일 nosniff 헤더 보장(이번 후속 수정 없음)
+- `server/tests/test_source_analysis.py` — 기존 보안 헤더 검사에 단일 nosniff 회귀 추가
+- `docs/evaluation/i3-t12-producer-flow.md`
+- `Makefile`의 기존 `test-e2e` 안내(새 spec은 기본 discovery에 포함)
+
+### 비범위
+- 아래 nosniff 결함 수정 외 제품 동작·UI·스펙 변경, 새 의존성, mock provider/체크섬 규칙 변경, 실/유료 모델 호출, 에이전트 Chromium 실행, commit·push·PR·배포.
+
+### 결정 사항
+- 11/02 사용자 재현: 실패 후 worker 재시작의 beforeAll이 오염 상태를 다시 캡처하므로 스냅샷 방식을 폐기한다. `seed --reset`도 사용하는 단일 상품 시드 함수를 추출해 p-house의 모든 상품 열(모델 기본값·NULL 포함)을 복원한다. beforeAll 시작·실패를 포함한 afterAll마다 같은 복원을 실행하고, 시드가 생성하지 않는 대상 자료 그래프·refinement·workspace·공개 사진·멱등 요청 및 저장 파일을 제거한다. 기존 assertion과 timeout은 유지하며 Chromium은 기존 사람 실행 원칙을 따른다.
+- 11/01 후속 사용자 지시: 실제 사람 실행 Playwright 4 passed(56.8s)를 근거로 mock의 human-controlled flow는 PASS로 기록한다. 시각 형식 성공 추출은 DEV-170 T11 live development 결과에 위임하며 이 E2E가 증명한다고 쓰지 않는다.
+- 11/01 API 3 failed의 새 원인은 middleware와 endpoint의 중복 nosniff다. SourceRequestMiddleware가 /api/source-analysis 응답의 nosniff를 단독 설정하도록 router의 원본·페이지 이미지·작업 사진 설정만 제거한다. public source-media 등 middleware 밖의 헤더는 유지한다. 기존 보안 테스트를 강화하고 실제 시각 흐름의 엄격한 단언은 유지한다.
+- 11/01 .artifacts/는 기존 루트 .gitignore에서 제외됨을 확인한다. 기존 JSON에는 gitSha/dirty/startedAt만 있으므로 종료 UTC는 trace의 wallTime+monotonic timing에서 복원하고, API·앱별 독립 배포 SHA가 없다는 한계를 명시한다.
+- 11/01 Linear 본문과 관련 제품 spec·폴더 spec/tasks를 읽었다. 이전 이슈의 진행 중 표기는 main의 과거 기록이며 이번 작업은 사용자 지정 격리 worktree에서 테스트·기록만 변경한다.
+- 11/01 기존 E2E 전체의 test 선언과 주요9 spec 본문을 감사한다. `public-media`는 공개 농가 사진만 검증하므로 자료 비공개 검증으로 계산하지 않는다.
+- 11/01 `extract(mock)`는 MOCK_TEXT/MOCK_REFINE_TEXT 두 원본 SHA만 받는다. 시각 자료의 성공 mock fixture는 현 base에 없으므로 SHA를 위조하거나 추출기를 확장하지 않는다. UI에서 실제 업로드·분석 실패·수동 복구 후 편집/저장/재분석/적용/소비자 일치를 검증하고, 시각 형식의 성공 자동 추출/인용 검토는 이 mock E2E에서는 미검증으로 남긴다(후속 지시: 성공 추출은 DEV-170 T11 live development 결과 참조).
+- 11/01 시각 전처리는 기존 pytest의 `_ocr` 대체 패턴과 PIL 합성 자료를 재사용해 API의 실제 원본 SHA 거절·인증·비캐시 계약을 별도 검증한다. OCR/모델 품질 측정이나 브라우저 인수 통과로 보고하지 않는다.
+- 11/01 스크린샷은 `FARMCLUB_INTEGRATION_ARTIFACTS/t12-<format>-<step>.png`, trace는 실행 명령의 `--trace on`. 라이브 스택의 API/app/worker가 같은 SHA·격리 DB·mock인지 사람이 확인한다.
+
+### 작업
+- [x] 기존 커버리지 행렬과 형식별 누락 기록
+- [x] UI mock 흐름 4 passed(사람), 시각 형식 API 회귀 3 passed(헤더 수정 후) 실행 확인
+- [x] typecheck·test:mock 및 Playwright discovery 결과 기록
+- [x] 사람의 mock 스택 실행·증거·빌드 ID·UTC 시각 기록
+- [ ] 독립 사람 시각 리뷰 및 추가 source-photo worker 통합 검사 sandbox 밖 재실행
+
+### 완료 조건
+- [x] 네 형식의 human-controlled flow with mock PASS 기록; 시각 형식 성공 추출은 T11 live run에 위임(이 E2E로 성공 추출/인용 검토를 주장하지 않음)
+- [ ] 관련 테스트 묶음 통과 및 사람 검토
+
+### 기록
+- 11/01 시작: base `6c259ac41b39f2d3112ef31e58b441fdff77e110`, 작업 트리 깨끗함. Linear In Progress 확인. Agent 시간 / Tokens: 계측 미제공.
+- 11/01 검증: `npm run typecheck` **5 workspace 통과 / 0 오류**, `npm run test:mock` **47 passed / 0 failed / 0 skipped**. `npx playwright test scripts/e2e/producer-format-flow.spec.ts --list` **4개 발견 / 종료0**. 같은 spec의 `tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --esModuleInterop --skipLibCheck --types node` **종료0**. 브라우저 실행 통과를 뜻하지 않는다.
+- 11/01 API 회귀 실행: 제공 DEV-171 DB로 `cd server`에서 `SOURCE_ANALYSIS_PROVIDER=mock .venv/bin/python -m pytest tests/test_producer_format_flow.py -q --tb=short` → **0 passed / 3 failed**. `_ocr` fixture 후 실제 QR/privacy 전처리가 `IMAGE_PRIVACY_NOT_CONFIGURED`를 반환한다. `importlib.util.find_spec('cv2')` **False**로 원인 확인. 최초 작성 중 optional `moduleDetail` 누락 KeyError는 수정했으며, 이후 의존성 오류에서 재시도 중단. 기존 OCR extra가 있는 사람 환경에서 API 전체 단언 실행이 필요하다. QR 가드 우회·의존성 추가 없음.
+- 11/01 `server/.venv/bin/ruff check tests/test_producer_format_flow.py` 및 `ruff format --check` **통과**, `git diff --check` **통과**. 새 파일3개 전체와 수정2개를 감사했고 허용 범위5경로 이탈0. `git diff main...HEAD` **672경로**는 오래된 로컬 main 대비 base의 차이이며 `git diff origin/main...HEAD` **0경로**(이번 변경은 미커밋). 기존 테스트/제품 코드/스펙 변경0.
+- 11/01 현재 Linear 원문 대조: DEV-58 In Progress, DEV-84/90/92/172/184/186/187 Done. 과거 tasks의 진행 중 표기와 구분해 evidence doc에 제목·상태를 기록했다. 별도 메시지·상태 변경 없음.
+- 11/01 pre-commit scan: 추가 지적0. 레거시 호환 점검: 후보0건 — 지적0건 / 커밋된 구조0건. optional moduleDetail은 이미 커밋된 응답 계약(d4efd6d)이며 이전 미커밋 구조 호환을 추가하지 않았다. Chromium은 사용자 지시대로 미실행, 전체 AC·스크린샷·trace·검증 build SHA는 사람 실행까지 미완료다.
+- 11/01 의도한 로컬 커밋: (문서) `docs(producer): FEAT-03/04/07 형식별 검증 행렬과 기록 추가 (DEV-171)` — evidence doc·producer tasks. (테스트) `test(producer): AC-SRC-1/5/6/9/11 형식별 흐름 회귀 추가 (DEV-171)` — 새 Playwright·pytest·Makefile. push·PR·배포·라이브/유료 모델 호출·새 의존성0회.
+- 11/01 로컬 커밋 시도 직전 `git branch --show-current`로 지정 DEV-171 브랜치 확인. `git add apps/producer/tasks.md docs/evaluation/i3-t12-producer-flow.md`가 공용 git 디렉터리의 `worktrees/farmclub-t12-flow/index.lock: Operation not permitted`로 종료128하여 commit 단계 미실행. **커밋0개**, 변경5경로 모두 작업 트리에 남김. 권한 우회·재시도·push·PR 없음. 다음 사람은 기존 OCR extra 환경에서 pytest 3건을 먼저 실행하고 Chromium 4건의 trace/단계 스크린샷·build SHA를 검토한 후 결과 행렬을 채운다.
+
+- 11/01 후속 사람 실행: `npx playwright test scripts/e2e/producer-format-flow.spec.ts --workers=1 --trace on` → **4 passed / 0 failed (56.8s)**. `.artifacts/dev171/`의 build/run JSON 8개와 단계 PNG 67개, trace 4개를 확인. base SHA `6c259ac41b39f2d3112ef31e58b441fdff77e110` + dirty worktree, executor `Claude (agent) / human owner`, UTC 시작 `2026-11-01T12:53:22.268Z`, 종료 `2026-11-01T12:54:18.024Z`(JSON에 종료 필드가 없어 trace에서 복원). API/앱 SHA는 같은 checkout이라는 사람 보고이며 독립 서비스 SHA는 미기록.
+- 11/01 사람 pytest는 **0 passed / 3 failed**: image·long-image·pdf에서 `nosniff, nosniff` 중복 응답. source router의 content/page-image/workspace-photo 헤더를 제거해 middleware만 nosniff를 설정한다. 기존 엄격한 테스트는 그대로 두고 기존 security 테스트에 metadata/content `get_list(...) == ["nosniff"]` 회귀를 추가했다.
+- 11/01 수정 후 `cd server && uv run ruff check . && uv run --extra ocr pytest tests/test_producer_format_flow.py` → **ruff PASS, 3 passed / 0 failed (4.97s)**. 기본 uv cache는 sandbox 쓰기 금지로 첫 실행이 막혀, `UV_CACHE_DIR=/private/tmp/dev171-uv-cache`와 제공 격리 DB `farmclub_dev171`을 지정해 성공. 기존 OCR extra/OpenCV 사용 가능, 의존성 선언/lock 변경·테스트 약화·QR 우회 없음.
+- 11/01 추가 검사: `cd server && uv run --extra ocr pytest tests/test_source_analysis.py::test_AC_SRC_8_read_body_limit_and_noncacheable tests/test_media.py tests/test_source_integration.py::test_AC_SRC_6_public_photo_is_independent_and_requires_preparation`(같은 cache/DB 설정) → **15 passed / 1 failed (4.02s)**. 단일 nosniff security 회귀1건·기존 media14건 PASS. source-photo 통합1건은 PREPARE PROCESSING_FAILED→후보0→review400. 별도 `preprocess.prepare(text, "text/plain")`가 `PermissionError [Errno 1] ... sysctl() malloc 1/3`를 재현했다. 추가 재시도/우회 없이 중단하며 사람 test executor가 해당 통합 검사를 sandbox 밖에서 재실행해야 한다. 전체 테스트 PASS/이슈 완료는 주장하지 않는다.
+- 11/01 평가 문서: 실제 형식별 PASS·artifact 파일명·수정 전후 pytest·nosniff 이슈 fixed를 기록. **Overall DEV-171 status = PASS for the human-controlled flow with mock**. 시각 형식 성공 추출은 **covered by T11 live run, not by this E2E**. 사람은 DEV-170 live development에서 image/long-image/pdf 성공을 보고했으며 해당 브랜치 `docs/spec/validation/source-final-eval-i3-*`로 연결했다. 로컬 T11 보고서는 아직 mock dry-run snapshot이므로 실측 숫자를 꾸며 쓰지 않았다.
+- 11/01 산출물/범위: 기존 `.gitignore:24`의 `.artifacts/`로 JSON8+PNG67 전부 ignore, 추적 산출물0. `git diff --check` 통과. 허용 변경은 기존5경로+source router+기존 security test=7경로, 그 외 변경 없음. `git diff main...HEAD`는 기존672경로 base 차이, `git diff origin/main...HEAD`는0경로이며 새 변경은 모두 미커밋이다.
+- 11/01 의도한 커밋(실행하지 않음): `fix(source-analysis): AC-SRC-6/8 중복 nosniff 헤더 제거 (DEV-171)` — router·기존 security test; `test(producer): AC-SRC-1/5/6/9/11 형식별 흐름 회귀 추가 (DEV-171)` — Playwright·pytest·Makefile; `docs(producer): FEAT-03/04/07 T12 실행 결과와 T11 경계 기록 (DEV-171)` — 평가 문서·tasks. 현재 사용자 지시대로 commit·push·PR·배포 없음. Agent 시간 / Tokens: 계측 미제공.
+- 11/01 Claude 스캔 반영(CRITICAL 2): 새 Playwright spec의 DB 이름 고정(`farmclub_dev171`) 단언을 지웠다(CI는 `farmclub` DB를 쓴다; localhost·mock·비-mock 0건 단언으로 격리를 확인). 새 pytest는 OCR extra의 OpenCV가 없으면 건너뛴다(`pytest.importorskip("cv2")`, CI 기본 설치에는 없음). 시각 형식 실패 원인을 `UNSUPPORTED_MOCK_SOURCE`로 좁혔다. 재발 방지로 미들웨어가 기존 `x-content-type-options`를 걸러 한 번만 붙이고, 페이지 이미지 응답도 단일 헤더를 단언한다.
+- 11/01 CI 통합 오염 수정 결정·기록: T12 beforeAll에서 p-house 전체 상품 행(상세·이름/설명·사진·버전 등)·ProductWorkspace·기존 대상 배치의 자료/페이지/run/item(refinement 포함)/후보/검토/초안·공개 사진·관련 멱등 요청을 스냅샷하고 실패 시에도 afterAll에서 정확히 복원하며 새 행·저장 파일을 제거한다. 기존 단언·소비자 렌더 유지, 후속 product-page-workspace/public-media/source-* 및 독립 Mock storefront 의존성 감사. `npm run typecheck` 5 workspace 통과/0 오류, E2E 단독 tsc 종료0, SQLite 메모리 DB 보조 복원 검사(FK 활성, 기존 workspace 유/무) 2 passed/0 failed(초기 harness DDL·fixture 준비 오류 수정 후); PostgreSQL/Chromium 통합 검증 대체 아님. 사람은 fresh seed에서 `npx playwright test scripts/e2e/producer-format-flow.spec.ts scripts/e2e/product-page-workspace.spec.ts --workers=1` 실행 대기. 의도한 커밋: `test(producer): AC-SRC-9 T12 공용 시드 상품 상태 복원 (DEV-171)`; commit·push·PR·live 호출 없음.
+
+- 11/02 후속 작업 시작: 사용자 지시에 따라 기존 worktree·미커밋 변경에서 이어간다. 범위를 seed 함수와 회귀 테스트로 확장했으며 commit·push·PR은 실행하지 않는다. cold-start text 실패는 단독 12초 통과라는 사용자 보고만 있으며 이번 정리 수정으로 해결됐다고 주장하지 않는다.
+- 11/02 구현: worker별 pickle 스냅샷을 제거했다. `seed_product(session, product_id)`를 전체 `seed()`와 E2E가 공유하며 PostgreSQL upsert의 excluded 행으로 모든 상품 열을 시드 값·모델 기본값·NULL로 복원한다. beforeAll/afterAll은 파일이나 worker 메모리에 의존하지 않는다. source 그래프는 FK 역순으로 삭제하고 저장 파일은 DB commit 뒤 제거한다. 기존 상품 옵션·단계·주문 및 다른 상품의 자료/파일·비용 원장은 보존한다.
+- 11/02 검증: `npm run typecheck` **5 workspace 통과 / 0 오류**. `UV_CACHE_DIR=/private/tmp/dev171-uv-cache uv run --project server ruff check server/app/core/seed.py server/tests/test_seed.py` **통과**, `git diff --check` **통과**. lint/정적 검사는 테스트 통과를 대신하지 않는다.
+- 11/02 pytest 실행: `cd server && UV_CACHE_DIR=/private/tmp/dev171-uv-cache DATABASE_URL=<로컬 farmclub_dev171 DB URL> uv run pytest tests/test_seed*.py tests/test_core.py -q` → **0 passed / 0 failed / 10 setup errors (1.26s)**. localhost:5432 PostgreSQL이 Connection refused를 반환해 공통 `_schema` fixture의 DB 연결에서 중단됐다. 새 회귀 3건과 기존 core 7건 모두 본문 미실행이며 **미완료**다. AGENTS.md의 의존성 문제 중단 규칙에 따라 DB 우회·SQLite 대체·재시도 없이 중단한다. PostgreSQL 준비 뒤 같은 명령과 사람의 `npx playwright test scripts/e2e/producer-format-flow.spec.ts scripts/e2e/product-page-workspace.spec.ts --workers=1 --trace on` 재검증이 필요하다.
+- 11/02 범위 감사: `git diff main...HEAD`는 로컬 main이 뒤처진 기존 675경로 차이이며, `git diff origin/main...HEAD`의 기존 8경로를 DEV-171 범위와 대조해 기존 middleware 경로 누락만 기록에 추가했다. 이번 미커밋 변경은 producer tasks·T12 E2E·seed helper·seed pytest 4경로다. 의도한 커밋: `test(producer): AC-SRC-9 T12 공용 시드 상품을 시드 기준으로 복원 (DEV-171)`. commit·push·PR·Chromium·운영 실행 없음. Agent 시간 / Tokens: 계측 미제공.
+
 ## DEV-41 홈 화면에 추가했을 때 전체 화면 (C-22)
 
 - 이슈: [DEV-41](https://linear.app/sswp6/issue/DEV-41) · 브랜치: `nemodleo/dev-41-home-screen-manifest`

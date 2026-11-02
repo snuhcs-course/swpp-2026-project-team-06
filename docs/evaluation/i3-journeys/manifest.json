@@ -1,0 +1,22 @@
+{
+  "matrix_id": "DEV-152-I3-v1.0",
+  "version": "v1.0",
+  "frozen_at_utc": "2026-10-31T14:41:41+00:00",
+  "status": "FROZEN_ORACLE_NOT_EXECUTED",
+  "source_main_commit": "8f8d4d5cb2364b37b9fc7b257c2c9467d52ca7a7",
+  "case_count": 44,
+  "priority_counts": {
+    "P0": 34,
+    "P1": 10
+  },
+  "deterministic_cases": 38,
+  "ai_support_rows": 6,
+  "ai_support_planned_trials": 180,
+  "ai_support_questions_sha256": "c0bcef7f21f65484fe2d903cb26cb0e95041452ad70b19d5529563b788012ab8",
+  "build_environment": "Pending DEV-165 fixture/build baseline; record at execution",
+  "measured_results": null,
+  "sha256": {
+    "matrix.csv": "0d2926115e750299d780a617fc635ecc2f0943d61757b899b997395999eaa169",
+    "protocol.md": "c344abeda8b34aa99f26c64848647479d1ef4c2e055b558eb9783ec93361c839"
+  }
+}
