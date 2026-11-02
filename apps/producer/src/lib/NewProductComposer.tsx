@@ -1,9 +1,11 @@
+import { SourceRunProgress } from "./SourceRunProgress";
 import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 // 새 상품 한 화면 편집(DEV-184): 기본 정보 + 상세페이지를 한 스크롤에 두고,
 // 사진·자료는 아래에 붙은 AI 시트에서 넣는다. 비공개 저장과 명시적 적용은 그대로 나눈다.
 import { useSourceBasicInfo, type BasicInfoKey } from "./SourceBasicInfo";
 import { SourceAttachments } from "./SourceAttachments";
 import {
+  ApiError,
   catalog,
   farms,
   isMock,
@@ -97,13 +99,6 @@ const writeApplied = (productId: string, value: string) => {
     // 저장소를 못 쓰면 화면 안에서만 기억한다.
   }
 };
-function AiBadge() {
-  return (
-    <T variant="caption" color={tokens.color.accent}>
-      ✨ AI가 채웠어요 · 고쳐도 돼요
-    </T>
-  );
-}
 /** 구매자 화면 글자 모양 그대로 쓰는 칸. 비어 있으면 점선 네모로 '여기를 채워 주세요'를 알린다. */
 function FillInput({
   label,
@@ -203,7 +198,10 @@ export function NewProductComposer() {
   const [attachDirty, setAttachDirty] = useState(false),
     [editorDirty, setEditorDirty] = useState(false);
   const [ack, setAck] = useState(false);
+  useEffect(() => setAck(false), [runs[0]?.id]);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [buyerPreview, setBuyerPreview] = useState(false);
+  const [startError, setStartError] = useState("");
   const [confirmation, setConfirmation] = useState<{
     draft: SourceDraft;
     productId: string;
@@ -261,9 +259,8 @@ export function NewProductComposer() {
   }, [batch?.id, coverId, coverRevision]);
   const [product, setProduct] = useState<MyProduct | null>(null),
     [form, setForm] = useState<ProductForm | null>(null);
-  // 생산자가 손댄 칸은 AI가 다시 채우지 않는다. aiFilled는 배지 표시용.
+  // 생산자가 손댄 칸은 AI가 다시 채우지 않는다.
   const touched = useRef(new Set<keyof ProductForm>());
-  const [aiFilled, setAiFilled] = useState<(keyof ProductForm)[]>([]);
   const activeRun = runs.find((r) => ACTIVE.includes(r.status));
   const working = !!activeRun && activeRun.status !== "PRIVACY_REVIEW";
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
@@ -330,16 +327,17 @@ export function NewProductComposer() {
     setRuns(jobs.items);
     setDrafts(ds.items);
   }, [batchId]);
-  const mutate = (fn: () => Promise<void>) => {
+  const mutate = (fn: () => Promise<void>, starting = false) => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
     setError("");
+    if (starting) setStartError("");
     setNotice("");
     void fn()
       .catch((e) => {
         if (alive.current)
-          setError(
+          (starting ? setStartError : setError)(
             e instanceof Error
               ? e.message
               : "처리하지 못했어요. 다시 시도해 주세요.",
@@ -437,13 +435,11 @@ export function NewProductComposer() {
         next.storage = storage;
         filled.push("storage");
       }
-      if (filled.length) setAiFilled((a) => [...new Set([...a, ...filled])]);
       return filled.length ? next : old;
     });
   }, [review, target, product]);
   const setField = <K extends keyof ProductForm>(k: K, v: ProductForm[K]) => {
     touched.current.add(k);
-    setAiFilled((a) => a.filter((x) => x !== k));
     setForm((f) => (f ? { ...f, [k]: v } : f));
   };
   // 품종·예상 당도는 AI 입력용 기본 정보(batch)에 쓰고, 상품에도 같은 값을 넣는다.
@@ -529,13 +525,19 @@ export function NewProductComposer() {
   }) => {
     const id = `${c.draft.id}:${c.draft.version}`;
     if (applied.current !== id && readApplied(c.productId) !== id) {
-      await api.apply(
-        batch!.id,
-        c.draft,
-        c.productId,
-        c.version,
-        keyFor("apply", [c.draft.id, c.productId, c.version]),
-      );
+      try {
+        await api.apply(
+          batch!.id,
+          c.draft,
+          c.productId,
+          c.version,
+          keyFor("apply", [c.draft.id, c.productId, c.version]),
+        );
+      } catch (e) {
+        if (e instanceof ApiError && e.details.fields?.representativePhoto)
+          throw new Error(e.details.fields.representativePhoto);
+        throw e;
+      }
       applied.current = id;
       writeApplied(c.productId, id);
       pending.current.clear();
@@ -583,11 +585,13 @@ export function NewProductComposer() {
       );
       pending.current.clear();
       setSheetOpen(false);
+      setAck(false);
       await load();
-    });
+    }, true);
   const run = runs[0];
   const runPanel = run ? (
     <View key={run.id} style={panel}>
+      {working && batch && sheetOpen ? <SourceRunProgress batch={batch} run={run} /> : null}
       <T>
         {run.status === "SUCCEEDED"
           ? "AI가 다 채웠어요. 위에서 확인하고 고쳐 주세요."
@@ -659,7 +663,7 @@ export function NewProductComposer() {
             variant="outline"
             disabled={
               busy ||
-              (run.items.some((i) => i.error === "REQUEST_UNCERTAIN") && !ack)
+              !ack
             }
             onPress={() =>
               mutate(async () => {
@@ -674,6 +678,7 @@ export function NewProductComposer() {
                   keyFor("retry", [run.id, ids, ack]),
                 );
                 pending.current.clear();
+                setAck(false);
                 await load();
               })
             }
@@ -700,9 +705,11 @@ export function NewProductComposer() {
   ) : null;
   const title =
     form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name : "새 상품";
-  return (
+  const render = (basic: ReturnType<typeof useSourceBasicInfo> | null) => (
     <Screen>
       <HeaderBar title={title} onBack={() => router.back()} />
+      {batch && <Button label={buyerPreview ? "편집으로 돌아가기" : "구매자 화면 미리보기"} variant="outline"
+        onPress={() => { setBuyerPreview(!buyerPreview); setSheetOpen(false); }} />}
       <Scroll bottom={batch ? 240 : 40}>
         {/* 미리보기와 같은 구매자 화면(ProductPageBody)에서 빈 칸만 점선으로, 누르면 그 자리에서 고친다(DEV-184). */}
         {(sheetOpen ? null : errorPanel) || notice ? (
@@ -758,25 +765,8 @@ export function NewProductComposer() {
             )}
           </View>
         ) : (
-          <BasicInfo
-            key={batch.id}
-            batch={batch}
-            flushRef={flushBasicInfo}
-            onDirty={(dirty) => {
-              setBasicDirty(dirty);
-              if (dirty) setError("");
-            }}
-            onSaved={(b) => {
-              setBatch(b);
-              // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
-              if (review)
-                void load().catch((e) => {
-                  if (alive.current) setError(String(e));
-                });
-            }}
-          >
-            {(basic) => {
-              const values = basic.inputs[target.id] ?? {
+          (() => {
+              const values = basic!.inputs[target.id] ?? {
                 variety: "",
                 size: "",
                 brix: "",
@@ -795,8 +785,8 @@ export function NewProductComposer() {
                   maxLength={maxLength}
                   editable={!locked}
                   numeric={key === "brix"}
-                  onChange={(v) => basic.change(target.id, key, v)}
-                  onBlur={basic.blur}
+                  onChange={(v) => basic!.change(target.id, key, v)}
+                  onBlur={basic!.blur}
                 />
               );
               return (
@@ -806,6 +796,8 @@ export function NewProductComposer() {
                       {
                         ...product,
                         name: form.name,
+                        variety: values.variety,
+                        expectedBrix: values.brix ? Number(values.brix) : null,
                         info: {
                           ...product.info,
                           origin: form.origin,
@@ -820,14 +812,16 @@ export function NewProductComposer() {
                     slots={{
                       photo: (
                         <>
-                          <SourceExclusions
+                          <View style={buyerPreview ? { display: "none" } : undefined}><SourceExclusions
                             batchId={batch.id}
+                            visible={!buyerPreview}
                             products={[{
+                              id: target.id,
                               name: form.name || target.name,
                               result: working ? undefined : review?.refinementResults?.[target.id],
                             }]}
-                          />
-                          {coverUrl || (hasPhoto && !coverFailed) ? (
+                          /></View>
+                          {buyerPreview ? (coverUrl ? <Photo uri={coverUrl} width="100%" height={244} alt="대표사진" /> : null) : coverUrl || (hasPhoto && !coverFailed) ? (
                             !coverUrl ? (
                               <View
                                 testID="hero-photo"
@@ -889,7 +883,7 @@ export function NewProductComposer() {
                           )}
                         </>
                       ),
-                      name: (
+                      name: buyerPreview ? <T variant="title">{form.name}</T> : (
                         <View style={{ gap: 4 }}>
                           <FillInput
                             label="상품명"
@@ -904,36 +898,15 @@ export function NewProductComposer() {
                             editable={!busy}
                             onChange={(v) => setField("name", v)}
                           />
-                          {aiFilled.includes("name") ? <AiBadge /> : null}
                         </View>
                       ),
-                      subName: (
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <T variant="sub" muted>
-                            품종 *
-                          </T>
-                          <View style={{ flex: 1 }}>
-                            {basicField(
-                              "variety",
-                              "과일 품종명",
-                              "예: 온주밀감",
-                              100,
-                            )}
-                          </View>
-                        </View>
-                      ),
-                      sale: (
+                      subName: buyerPreview ? undefined : null,
+                      sale: buyerPreview ? undefined : (
                         <LaterNote text="받는 시기·가격·배송비는 다음 단계(판매·가격)에서 정해요" />
                       ),
                       story: (
                         <View testID="product-detail-page" style={{ gap: 12 }}>
-                          {working ? (
+                          {working && !buyerPreview ? (
                             <View
                               testID="source-analysis-status"
                               accessibilityLiveRegion="polite"
@@ -955,6 +928,7 @@ export function NewProductComposer() {
                                     : "AI가 자료를 보고 상세페이지를 쓰고 있어요. 잠시만 기다려 주세요."}
                                 </T>
                               </View>
+                              {activeRun && !sheetOpen && <SourceRunProgress batch={batch} run={activeRun} />}
                               <Skeleton width="100%" height={220} radius={16} />
                               <Skeleton width="70%" height={20} />
                               <Skeleton width="90%" height={20} />
@@ -964,6 +938,7 @@ export function NewProductComposer() {
                               <SourceDetailsEditor
                                 key={batch.id}
                                 emptyHint
+                                preview={buyerPreview}
                                 showStoryTextHints
                                 displayName={
                                   DEFAULT_NAMES.includes(form.name.trim())
@@ -981,7 +956,7 @@ export function NewProductComposer() {
                                 }}
                               />
                             </>
-                          ) : (
+                          ) : buyerPreview ? null : (
                             <Pressable
                               testID="detail-placeholder"
                               accessibilityRole="button"
@@ -1010,7 +985,7 @@ export function NewProductComposer() {
                           )}
                         </View>
                       ),
-                      brix: (
+                      brix: buyerPreview ? undefined : (
                         <View
                           style={{
                             paddingHorizontal: 20,
@@ -1024,7 +999,7 @@ export function NewProductComposer() {
                           {basicField("brix", "예상 당도 (°Bx)", "예: 12.5", 8)}
                         </View>
                       ),
-                      info: {
+                      info: buyerPreview ? undefined : {
                         origin: (
                           <View style={{ flex: 1 }}>
                             <FillInput
@@ -1057,27 +1032,26 @@ export function NewProductComposer() {
                               editable={!busy}
                               onChange={(v) => setField("storage", v)}
                             />
-                            {aiFilled.includes("storage") ? <AiBadge /> : null}
                           </View>
                         ),
                       },
                       infoOpen: true,
                     }}
                   />
-                  {basic.error ? (
+                  {basic!.error && !buyerPreview && !sheetOpen ? (
                     <View accessibilityRole="alert" style={{ padding: 20 }}>
                       <T variant="caption" color={tokens.color.error}>
-                        {basic.error}
+                        {basic!.error}
                       </T>
                     </View>
                   ) : null}
                 </View>
               );
-            }}
-          </BasicInfo>
+          })()
         )}
       </Scroll>
       {batch ? (
+        <View style={buyerPreview ? { display: "none" } : { display: "contents" }}>
         <PeekSheet
           open={sheetOpen}
           onOpenChange={setSheetOpen}
@@ -1102,7 +1076,7 @@ export function NewProductComposer() {
                 <T variant="caption" muted>
                   {photoCount || materialCount
                     ? `상품사진 ${photoCount}장 · 자료 ${materialCount}개`
-                    : "대표 상품사진 한 장은 꼭 넣어 주세요"}
+                    : "공개 전에는 대표 상품사진이 필요해요"}
                 </T>
               </View>
               {/* 시트는 위로 펼쳐진다: 접힘 ⌃, 펼침 ⌄ */}
@@ -1117,20 +1091,28 @@ export function NewProductComposer() {
           }
           footer={
             sheetOpen ? (
+              <View style={{ gap: 8 }}>
+                <T variant="caption">과일 품종명 *</T>
+                <FillInput label="과일 품종명" value={basic?.inputs[target?.id ?? ""]?.variety ?? ""}
+                  placeholder="예: 온주밀감" maxLength={100} editable={!busy && !activeRun && !editorDirty}
+                  onChange={(v) => { if (target) basic?.change(target.id, "variety", v); setStartError(""); }} onBlur={basic?.blur} />
+                {startError || basic?.error ? <View accessibilityRole="alert"><T color={tokens.color.error}>{startError || basic?.error}</T></View> : null}
+              {!batch.sources.length ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
               <Button
                 label={startLabel}
                 size="producer"
                 loading={busy && !working}
                 disabled={
                   busy ||
-                  !hasPhoto ||
                   // 기본 정보 칸(품종 필수 검사)이 화면에 올라오기 전에는 시작하지 않는다.
                   !form ||
                   !productId ||
+                  batch.sources.length === 0 ||
                   runs.some((r) => ACTIVE.includes(r.status))
                 }
                 onPress={start}
               />
+              </View>
             ) : (
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Button
@@ -1230,6 +1212,7 @@ export function NewProductComposer() {
           />
           {runPanel}
         </PeekSheet>
+        </View>
       ) : null}
 
       <Sheet visible={!!confirmation} onClose={() => setConfirmation(null)}>
@@ -1275,4 +1258,25 @@ export function NewProductComposer() {
       </Sheet>
     </Screen>
   );
+  return batch ? (
+          <BasicInfo
+            key={batch.id}
+            batch={batch}
+            flushRef={flushBasicInfo}
+            onDirty={(dirty) => {
+              setBasicDirty(dirty);
+              if (dirty) setError("");
+            }}
+            onSaved={(b) => {
+              setBatch(b);
+              // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
+              if (review)
+                void load().catch((e) => {
+                  if (alive.current) setError(String(e));
+                });
+            }}
+          >
+    {render}
+  </BasicInfo>
+  ) : render(null);
 }

@@ -45,10 +45,10 @@ for (const width of [360, 390, 430]) {
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/v2-1-empty.png` });
 
-    await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
-    await page.getByLabel("과일 품종명", { exact: true }).blur();
     await page.getByLabel("원산지", { exact: true }).fill("제주 서귀포");
     await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
+    await page.getByLabel("과일 품종명", { exact: true }).blur();
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "상품사진 추가", exact: true }).click();
     await (await chooser).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
@@ -70,7 +70,7 @@ for (const width of [360, 390, 430]) {
     const name = page.getByLabel("상품명", { exact: true });
     await expect(name).toHaveValue("테스트 감귤");
     await expect(name).not.toHaveCSS("border-top-style", "dashed");
-    await expect(page.getByTestId("ai-filled-badge").first()).toBeVisible();
+    await expect(page.getByTestId("ai-filled-badge")).toHaveCount(0);
     await name.fill("서귀포 노지 감귤");
     if (shots && width === 390) {
       await name.blur();

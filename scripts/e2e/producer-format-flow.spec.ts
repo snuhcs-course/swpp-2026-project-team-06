@@ -250,8 +250,7 @@ Path(output).write_bytes(data)
     await shot("private-draft");
     if (format === "text") {
       await page.getByLabel("한눈에 보기 내용", { exact: true }).click();
-      await page.getByRole("button", { name: "원문 보기", exact: true }).first().click();
-      await expect(page.getByText(/source\.txt\s+1쪽:\s*제주산 감귤입니다\./)).toBeVisible();
+      await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
       const candidate = (await review()).candidates.find((c) => c.fieldKey === "summary")!;
       expect(candidate.evidence[0]).toMatchObject({ sourceId: source.id, page: 1, quote: "제주산 감귤입니다." });
       await shot("evidence");
@@ -332,6 +331,8 @@ Path(output).write_bytes(data)
       const drafts = await get<{ items: SourceDraft[] }>(`${base}/drafts`);
       const approved = drafts.items[0].snapshot.previewModules;
       expect(approved.find((m) => m.id === "summary")!.texts[0].value).toBe(manual);
+      await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+      await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue(manual);
       await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).first().click();
       await expect(page.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true })).toBeVisible();
       await unchanged();

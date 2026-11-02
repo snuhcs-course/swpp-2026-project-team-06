@@ -72,9 +72,11 @@ export function SourceDetailsEditor({
   emptyHint = false,
   showStoryTextHints = false,
   displayName,
+  preview = false,
 }: {
   /** 새 상품 채우기: 상세 맨 위 제목을 입력 중인 상품명으로 바로 보여 준다(저장 때 같은 값으로 맞춤). */
   displayName?: string;
+  preview?: boolean;
   emptyHint?: boolean;
   showStoryTextHints?: boolean;
   batch: SourceBatch;
@@ -108,7 +110,6 @@ export function SourceDetailsEditor({
     },
     [],
   );
-  const [evidenceOpen, setEvidenceOpen] = useState<string | null>(null);
   const [extraPhotos, setExtraPhotos] = useState<
     { uri: string; alt: string; targetId: string }[]
   >([]);
@@ -249,7 +250,7 @@ export function SourceDetailsEditor({
   return (
     <View style={{ gap: 16 }}>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
-      {!emptyHint &&
+      {!preview && !emptyHint &&
       batch.sources.some(
         (s) =>
           s.originalPhoto &&
@@ -264,6 +265,7 @@ export function SourceDetailsEditor({
       {batch.targets.map((target) => (
         <PageCanvas
           key={target.id}
+          preview={preview}
           hiddenSectionIds={hidden[target.id] ?? []}
           onHiddenSectionsChange={(ids) => {
             setHidden((old) => ({ ...old, [target.id]: ids }));
@@ -298,7 +300,8 @@ export function SourceDetailsEditor({
               .filter(
                 (e) =>
                   e.field.targetId === target.id &&
-                  keys(id).includes(e.field.fieldKey),
+                  keys(id).includes(e.field.fieldKey) &&
+                  (!preview || e.field.state !== "EXCLUDED"),
               )
               .map((e) => ({
                 fieldKey: e.field.fieldKey,
@@ -313,7 +316,8 @@ export function SourceDetailsEditor({
               .filter(
                 (e) =>
                   e.field.targetId === target.id &&
-                  keys(id).includes(e.field.fieldKey),
+                  keys(id).includes(e.field.fieldKey) &&
+                  (!preview || e.field.state !== "EXCLUDED"),
               )
               .flatMap((e) =>
                 e.field.photoAssetIds.map((uri) => ({
@@ -324,7 +328,8 @@ export function SourceDetailsEditor({
                 })),
               ),
             illustrationId: entries.find(
-              (e) => e.field.targetId === target.id && e.field.fieldKey === id,
+              (e) => e.field.targetId === target.id && e.field.fieldKey === id &&
+                (!preview || e.field.state !== "EXCLUDED"),
             )?.field.illustrationId,
           }))}
           photos={[
@@ -413,78 +418,8 @@ export function SourceDetailsEditor({
           }}
           emptyHint={emptyHint}
           showStoryTextHints={showStoryTextHints}
-          badge={(id) =>
-            entries.some(
-              (e) =>
-                e.field.targetId === target.id &&
-                keys(id).includes(e.field.fieldKey) &&
-                ["EXTRACTED", "REFINED"].includes(e.field.provenance) &&
-                e.field.state !== "EXCLUDED" &&
-                filled(e.field),
-            ) ? (
-              <View
-                testID="ai-filled-badge"
-                style={{
-                  alignSelf: "flex-start",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 999,
-                  backgroundColor: "#FFF3EB",
-                }}
-              >
-                <T variant="caption" color={tokens.color.accent}>
-                  ✨ AI가 쓴 내용
-                </T>
-              </View>
-            ) : null
-          }
           details={(id) => (
             <View style={{ gap: 8 }}>
-              <Button
-                label={
-                  evidenceOpen === `${target.id}:${id}`
-                    ? "원문 닫기"
-                    : "원문 보기"
-                }
-                variant="text"
-                onPress={() =>
-                  setEvidenceOpen(
-                    evidenceOpen === `${target.id}:${id}`
-                      ? null
-                      : `${target.id}:${id}`,
-                  )
-                }
-              />
-              {evidenceOpen === `${target.id}:${id}`
-                ? review.candidates
-                    .filter(
-                      (c) =>
-                        (keys(id).includes(c.fieldKey) ||
-                          entries.some(
-                            (entry) =>
-                              entry.field.targetId === target.id &&
-                              keys(id).includes(entry.field.fieldKey) &&
-                              entry.field.candidateIds.some((cid) =>
-                                c.candidateIds.includes(cid),
-                              ),
-                          )) &&
-                        (c.targetId === target.id || c.targetId === null),
-                    )
-                    .flatMap((c) =>
-                      c.evidence.map((e, i) => (
-                        <T key={`${c.id}:${i}`} variant="caption" muted>
-                          {
-                            batch.sources.find((s) => s.id === e.sourceId)
-                              ?.filename
-                          }{" "}
-                          {e.page}쪽: {e.quote}
-                        </T>
-                      )),
-                    )
-                : null}
               {entries
                 .filter(
                   (e) =>
@@ -498,6 +433,13 @@ export function SourceDetailsEditor({
                       내용 확인 필요 · 사용할 문구를 선택하거나 직접 수정해
                       주세요.
                     </T>
+                    {e.status === "conflict" && e.field.value ? (
+                      <Button
+                        label={e.field.value}
+                        variant="outline"
+                        onPress={() => change({ ...e.field, state: "CONFIRMED" })}
+                      />
+                    ) : null}
                     {review.candidates
                       .filter(
                         (c) =>
@@ -505,6 +447,7 @@ export function SourceDetailsEditor({
                           !c.historical &&
                           !hasMoney(c.value) &&
                           !hasHealthClaim(c.value) &&
+                          (e.status !== "conflict" || c.value !== e.field.value) &&
                           c.fieldKey === e.field.fieldKey &&
                           (c.targetId === target.id || c.targetId === null),
                       )

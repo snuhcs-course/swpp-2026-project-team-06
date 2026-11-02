@@ -121,6 +121,7 @@ export function useSourceBasicInfo({
     }
   };
   const persist = async (required = false) => {
+    setError("");
     try {
       if (
         required &&

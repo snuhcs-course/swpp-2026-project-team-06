@@ -31,7 +31,7 @@ export function PageCanvas({
   onUpload,
   busy = false,
   details,
-  badge,
+  preview = false,
   emptyHint = false,
   showStoryTextHints = false,
   onUploading,
@@ -48,8 +48,7 @@ export function PageCanvas({
   onUpload?: () => Promise<{ uri: string; alt: string }[]>;
   busy?: boolean;
   details?: (id: string) => ReactNode;
-  /** 카드 위에 늘 보이는 작은 표시(예: AI가 쓴 내용) */
-  badge?: (id: string) => ReactNode;
+  preview?: boolean;
   /** 새 상품 채우기 화면(DEV-184): 빈 글 칸을 점선 네모 + '여기를 채워 주세요'로 보인다. */
   emptyHint?: boolean;
   /** 새 상품 composer의 판매·가격 단계 안내만 명시적으로 켠다. */
@@ -454,7 +453,6 @@ export function PageCanvas({
               setSelected(null);
               setPicker(null);
             })}
-          {badge?.(m.id)}
           <View
             testID={`canvas-content-${m.id}`}
             style={{ opacity: isActive ? 1 : 0.45 }}
@@ -494,6 +492,12 @@ export function PageCanvas({
       );
     },
   };
+  if (preview) return (
+    <View testID="buyer-preview">
+      {representativeUri && !emptyHint ? <Photo uri={media(representativeUri)} width="100%" height={244} alt="대표사진" /> : null}
+      <ModuleStory content={{ hiddenSectionIds, modules: displayModules.filter((m) => m.enabled && !blocked.includes(m.id)) }} mediaUrl={media} />
+    </View>
+  );
   return (
     <View style={{ gap: 12 }}>
       {emptyHint ? null : (

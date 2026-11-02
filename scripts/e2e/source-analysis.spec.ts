@@ -270,6 +270,8 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByTestId("source-heading-icon-storage").last(),
     ).toBeVisible();
+    await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+    await expect(page.getByRole("button", { name: "공개 전 검토", exact: true })).toBeVisible();
     await page
       .getByRole("button", { name: "상품 상세에 적용 검토", exact: true })
       .first()

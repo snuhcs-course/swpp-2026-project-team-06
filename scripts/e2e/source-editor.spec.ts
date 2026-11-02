@@ -480,13 +480,15 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   });
   const openSheet = () =>
     page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "사진·자료 접기", exact: true })).toBeVisible();
+  await expect(start).toBeDisabled();
+  await expect(page.getByText("자료를 먼저 넣어 주세요.", { exact: true })).toBeVisible();
   await expect(page.getByLabel("과일 품종명")).toHaveAttribute(
     "placeholder",
     "예: 온주밀감",
   );
   await page.getByLabel("과일 품종명").fill("온주밀감");
   await page.getByLabel("과일 품종명").blur();
-  await expect(start).toBeDisabled();
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();
   await expect(materials.getByLabel("첨부 내용")).toBeFocused();
   await expect(
@@ -517,6 +519,8 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   await expect(materials.getByLabel("첨부 내용")).toBeFocused();
   await materials.getByLabel("첨부 내용").blur();
   await expect(materials.getByLabel("첨부 내용")).toHaveCount(0);
+  // A saved text source enables analysis even before the first photo is added.
+  await expect(start).toBeEnabled();
   for (const file of ["tangerine-box.jpg", "branch.jpg"]) {
     const chooser = page.waitForEvent("filechooser");
     await page
@@ -560,7 +564,16 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   ).toBeVisible();
   await cards.first().getByRole("button", { name: "상품사진 삭제" }).click();
   await expect(cards).toHaveCount(0);
-  await expect(start).toBeDisabled();
+  await expect(start).toBeEnabled();
+  await start.click();
+  await expect(page.getByTestId("source-analysis-status")).toBeVisible();
+  await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, { timeout: 15000 });
+  // Analysis works without a photo; applying the resulting page still requires one.
+  await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
+  // The same error is also rendered (hidden) inside the collapsed sheet; the visible copy is the page alert.
+  await expect(page.getByRole("alert").getByText("대표 상품사진을 한 장 이상 올려 주세요.", { exact: true })).toBeVisible();
+  await openSheet();
+  await expect(page).toHaveURL(/\/products\/source-analysis/);
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();
   await expect(materials.getByLabel("첨부 내용")).toBeFocused();
   await materials.getByLabel("첨부 내용").fill("삭제할 미저장 카드");
@@ -571,5 +584,6 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
     .click();
   await expect(materials.getByTestId("attachment-tile")).toHaveCount(1);
   await page.reload();
+  await openSheet();
   await expect(materials.getByTestId("attachment-tile")).toHaveCount(1);
 });
