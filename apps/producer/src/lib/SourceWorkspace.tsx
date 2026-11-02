@@ -1,3 +1,4 @@
+import { sourceActionError, retryCostLabel, type SourceActionError } from "./sourceFeedback";
 import { SourceRunProgress } from "./SourceRunProgress";
 import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 import { SourceBasicInfo } from "./SourceBasicInfo";
@@ -265,7 +266,9 @@ export function SourceWorkspace() {
   const [selected, setSelected] = useState<string[]>([]),
     [name, setName] = useState("");
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
+    [error, setError] = useState<SourceActionError | null>(null),
+    // Apply rejections stay beside the apply action instead of the page-level alert.
+    [applyError, setApplyError] = useState<SourceActionError | null>(null),
     [notice, setNotice] = useState("");
   const [tab, setTab] = useState("자료"),
     [editing, setEditing] = useState(false);
@@ -345,21 +348,26 @@ export function SourceWorkspace() {
     setRuns(jobs.items);
     setDrafts(ds.items);
   }, [batchId]);
-  const mutate = (fn: () => Promise<void>, starting = false) => {
+  const mutate = (
+    fn: () => Promise<void>,
+    starting = false,
+    onError?: (feedback: SourceActionError) => void,
+  ) => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
-    setError("");
+    setError(null);
+    setApplyError(null);
     if (starting) setStartError("");
     setNotice("");
     void fn()
       .catch((e) => {
-        if (alive.current)
-          (starting ? setStartError : setError)(
-            e instanceof Error
-              ? e.message
-              : "처리하지 못했어요. 다시 시도해 주세요.",
-          );
+        if (alive.current) {
+          const feedback = sourceActionError(e);
+          if (starting) setStartError(feedback.message);
+          else if (onError) onError(feedback);
+          else setError(feedback);
+        }
       })
       .finally(() => {
         lock.current = false;
@@ -374,7 +382,7 @@ export function SourceWorkspace() {
         if (alive.current) setProducts(p);
       }),
     ]).catch((e) => {
-      if (alive.current) setError(String(e));
+      if (alive.current) setError(sourceActionError(e));
     });
   }, [load]);
   useEffect(() => {
@@ -391,7 +399,7 @@ export function SourceWorkspace() {
           }
         })
         .catch((e) => {
-          if (alive.current) setError(String(e));
+          if (alive.current) setError(sourceActionError(e));
         });
     }, 2500);
     return () => clearInterval(timer);
@@ -406,13 +414,15 @@ export function SourceWorkspace() {
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           {error ? (
             <View accessibilityRole="alert" style={panel}>
-              <T>{error}</T>
-              <Button
-                label="서버 상태 다시 확인"
-                variant="outline"
-                disabled={busy}
-                onPress={() => mutate(load)}
-              />
+              <T>{error.message}</T>
+              {error.canRefresh ? (
+                <Button
+                  label="서버 상태 다시 확인"
+                  variant="outline"
+                  disabled={busy}
+                  onPress={() => mutate(load)}
+                />
+              ) : null}
             </View>
           ) : null}
           {notice ? (
@@ -585,7 +595,7 @@ export function SourceWorkspace() {
                     flushRef={flushBasicInfo}
                     onDirty={(dirty) => {
                       setBasicDirty(dirty);
-                      if (dirty) { setError(""); setStartError(""); }
+                      if (dirty) { setError(null); setStartError(""); }
                     }}
                     onSaved={setBatch}
                   />
@@ -709,7 +719,7 @@ export function SourceWorkspace() {
                       ) ? (
                         <>
                           <Choice
-                            label="결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요"
+                            label={retryCostLabel(r)}
                             selected={ack}
                             disabled={busy}
                             onPress={() => setAck(!ack)}
@@ -860,13 +870,26 @@ export function SourceWorkspace() {
                       );
                     })}
                   {confirmation ? (
-                    <View style={panel}>
+                    <View testID="source-apply-confirmation" style={panel}>
                       <T variant="title">{confirmation.name}에 적용할까요?</T>
                       <T>
                         현재 모듈 상세를 이 초안으로 교체해요. 판매 중인
                         상품이면 구매자에게 바로 보여요. 가격과 재고는 바뀌지
                         않아요.
                       </T>
+                      {applyError ? (
+                        <View accessibilityRole="alert">
+                          <T color={tokens.color.error}>{applyError.message}</T>
+                          {applyError.canRefresh ? (
+                            <Button
+                              label="서버 상태 다시 확인"
+                              variant="outline"
+                              disabled={busy}
+                              onPress={() => mutate(load)}
+                            />
+                          ) : null}
+                        </View>
+                      ) : null}
                       <Button
                         label="확인 · 상품 상세 적용"
                         disabled={busy}
@@ -888,14 +911,17 @@ export function SourceWorkspace() {
                             setConfirmation(null);
                             setNotice("상품 상세에 적용했어요.");
                             await load();
-                          })
+                          }, false, setApplyError)
                         }
                       />
                       <Button
                         label="적용 취소"
                         variant="outline"
                         disabled={busy}
-                        onPress={() => setConfirmation(null)}
+                        onPress={() => {
+                          setConfirmation(null);
+                          setApplyError(null);
+                        }}
                       />
                     </View>
                   ) : null}

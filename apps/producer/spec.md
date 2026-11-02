@@ -162,3 +162,5 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 - DEV-179 리뷰 보완: AI 시작은 자료 0개일 때만 자료 부족 사유로 비활성화한다(기존 busy/active 보호 유지). 구매자 preview subName/brix 슬롯은 undefined로 넘겨 ProductPageBody/BrixReading을 사용하고, run 진행은 시트 또는 본문 한 곳에만 렌더한다. 제외 확인은 사용자·batch·target별 마지막 버전을 덮어쓰고 커밋된 구 sessionStorage `farmclub-producer:excluded-seen:${batchId}:${version}`만 로그인 사용자 확인 후 한 번 읽고 제거한다. 사용자 정보가 없으면 이관하지 않는다.
 
 - DEV-179 최종 리뷰 보완: Composer의 BasicInfo 래퍼는 batch 로딩 전후 유지하고 key는 URL batchId를 사용한다. 공용 기본 정보 훅은 null batch에서 빈 입력/저장 없음으로 시작해 로드 후 입력을 동기화한다. 로드로 Screen 하위 트리를 remount하지 않는다(AC-SRC-11).
+
+- DEV-179 데모 후속: `sourceFeedback.ts`가 Composer의 representativePhoto 사유 매핑과 재조회 가능 여부(입력 검증 400만 숨김, 409·네트워크·서버 오류는 유지)를 공용으로 처리한다. Workspace 적용 거절 사유는 별도 applyError로 적용 확인 패널에만 한 번 표시한다. `retryCostLabel`은 run에 REQUEST_UNCERTAIN이 있으면 기존 문구, 없으면 일반 비용 확인 문구를 반환하며 ack gate/초기화는 변경하지 않는다. 분석 중 상세 영역은 실제 진행 패널만 사용하고 중복 Skeleton은 두지 않는다(최초 상품 로딩 Skeleton은 유지).

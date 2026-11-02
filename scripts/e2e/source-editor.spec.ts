@@ -567,11 +567,21 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   await expect(start).toBeEnabled();
   await start.click();
   await expect(page.getByTestId("source-analysis-status")).toBeVisible();
+  // Drain the queue inline like the other tests here; no background worker is assumed.
+  execFileSync(
+    path.resolve("server/.venv/bin/python"),
+    [
+      "-c",
+      "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
+    ],
+    { cwd: path.resolve("server"), env: process.env, timeout: 120000 },
+  );
   await expect(page.getByTestId("source-analysis-status")).toHaveCount(0, { timeout: 15000 });
   // Analysis works without a photo; applying the resulting page still requires one.
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
   // The same error is also rendered (hidden) inside the collapsed sheet; the visible copy is the page alert.
   await expect(page.getByRole("alert").getByText("대표 상품사진을 한 장 이상 올려 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toHaveCount(0);
   await openSheet();
   await expect(page).toHaveURL(/\/products\/source-analysis/);
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();

@@ -1,6 +1,9 @@
 import { test, expect, type Page } from "./fixtures";
 import { loginProducer, producerUrl, monitor } from "./helpers";
 
+const uncertainRetryCost = "결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요";
+const retryCost = "다시 분석하면 비용이 다시 들 수 있어요. 확인했어요.";
+
 function reviewFixture() {
   const target = { id: "target", name: "회귀 감귤", productId: "p-house",
     basicInfo: { variety: "온주밀감", size: "중과", expectedBrix: null } };
@@ -388,10 +391,11 @@ for (const composer of [false, true]) {
       if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
     };
     const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
-    const consent = page.getByRole("checkbox", {
-      name: "결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요", exact: true,
+    const consent = (uncertain = false) => page.getByRole("checkbox", {
+      name: uncertain ? uncertainRetryCost : retryCost, exact: true,
     });
     await open();
+    await expect(consent(true)).toBeVisible();
     const note = page.getByText("합성부분자료.pdf: 2쪽을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
     await expect(note).toBeVisible();
     await expect(note).toHaveCount(1);
@@ -401,9 +405,9 @@ for (const composer of [false, true]) {
     fixture.run.items[0] = { ...extract, error: "OCR_PAGES_FAILED" };
     await open();
     await expect(note).toHaveCount(1);
-    await expect(consent).not.toBeChecked();
+    await expect(consent()).not.toBeChecked();
     await expect(retry).toBeDisabled();
-    await consent.check();
+    await consent().check();
     await expect(retry).toBeEnabled();
     // A failed extraction chunk does not label a successfully transcribed page as unread.
     const chunkNote = page.getByText("합성부분자료.pdf: 일부 내용을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
@@ -414,10 +418,10 @@ for (const composer of [false, true]) {
       await expect(chunkNote).toHaveCount(1);
       await expect(note).toHaveCount(0);
       await expect(page.getByText(/쪽을 읽지 못했어요|분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
-      await expect(consent).not.toBeChecked();
+      await expect(consent(error === "REQUEST_UNCERTAIN")).not.toBeChecked();
       await expect(retry).toBeDisabled();
       if (error !== "REQUEST_UNCERTAIN") {
-        await consent.check();
+        await consent().check();
         await expect(retry).toBeEnabled();
       }
     }
@@ -429,9 +433,9 @@ for (const composer of [false, true]) {
     await expect(chunkNote).toBeVisible();
     await expect(chunkNote).toHaveCount(1);
     await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
-    await expect(consent).not.toBeChecked();
+    await expect(consent()).not.toBeChecked();
     await expect(retry).toBeDisabled();
-    await consent.check();
+    await consent().check();
     await expect(retry).toBeEnabled();
     fixture.run.status = "SUCCEEDED";
     fixture.run.items[0] = { ...extract, status: "SUCCEEDED", error: null,
@@ -613,6 +617,14 @@ for (const composer of [false, true]) {
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
     if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
     await expect(page.getByTestId("source-run-progress")).toHaveCount(1);
+    if (composer) {
+      const detail = page.getByTestId("product-detail-page");
+      await expect(detail.getByLabel("불러오는 중", { exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "사진·자료 접기", exact: true }).last().click();
+      await expect(detail.getByTestId("source-run-progress")).toBeVisible();
+      await expect(page.getByTestId("source-run-progress")).toHaveCount(1);
+      await expect(detail.getByLabel("불러오는 중", { exact: true })).toHaveCount(0);
+    }
     await expect(page.locator("body")).toContainText(/자료\s*1\s*\/\s*2/);
     await expect(page.locator("body")).toContainText(/PDF.*12\s*\/\s*20쪽/);
     await expect(page.locator("body")).toContainText(/자료 1 · PDF/);
@@ -644,7 +656,7 @@ for (const composer of [false, true]) {
     await expect(page.getByText("부분 실패.pdf: 일부 내용을 읽지 못했어요. 확인할 쪽: 7쪽. 다시 분석해 보세요.", { exact: true })).toBeVisible();
     const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
     const consent = page.getByRole("checkbox", {
-      name: "결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요", exact: true,
+      name: retryCost, exact: true,
     });
     await expect(consent).not.toBeChecked();
     await expect(retry).toBeDisabled();
@@ -1028,3 +1040,155 @@ test("DEV-179 AC-SRC-3/11: confirming the current factual wording preserves its 
     provenance: original.provenance, candidateIds: original.candidateIds });
   clean();
 });
+
+// DEV-179 demo follow-up: public apply reasons must remain at the action.
+test("DEV-179 AC-SRC-9/11: workspace private save and review show the photo reason beside confirm without refresh", async ({ page }) => {
+  const clean = monitor(page, [/status of 400 \(Bad Request\)/]); // apply is stubbed to 400
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  const draft = {
+    id: "photo-required-draft", targetId: "target", version: 1,
+    snapshot: { reviewVersion: 1, batchVersion: 1, mode: "mock", warnings: [],
+      modules: [{ id: "summary", enabled: true }],
+      previewModules: [{ id: "summary", texts: [{ fieldKey: "summary", value: "제주에서 자란 감귤" }],
+        photoAssetIds: [], illustrationId: null }] },
+  };
+  let saved = false;
+  let applied = 0;
+  await serveContractReview(page, fixture);
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/editor`, (route) => {
+    expect(route.request().method()).toBe("PUT");
+    saved = true;
+    return route.fulfill({ json: { drafts: [draft] } });
+  });
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts`, (route) =>
+    route.fulfill({ json: { items: saved ? [draft] : [] } }));
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts/${draft.id}/apply`, (route) => {
+    applied++;
+    return route.fulfill({ status: 400, json: { code: "VALIDATION_ERROR",
+      message: "입력한 내용을 확인해 주세요.",
+      details: { fields: { representativePhoto: "대표 상품사진을 한 장 이상 올려 주세요." } } } });
+  });
+  await openContractReview(page, fixture, false);
+  await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+  await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.", { exact: true })).toBeVisible();
+  expect(saved).toBe(true);
+  await page.getByRole("button", { name: "공개 전 검토", exact: true }).click();
+  await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).click();
+  const confirmation = page.getByTestId("source-apply-confirmation");
+  const confirm = confirmation.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true });
+  await confirm.click();
+  await expect(confirmation.getByRole("alert")).toHaveText("대표 상품사진을 한 장 이상 올려 주세요.");
+  // The reason is shown once, beside the action, not again in the page-level alert.
+  await expect(page.getByRole("alert")).toHaveCount(1);
+  await expect(confirm).toBeEnabled();
+  await expect(page.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toHaveCount(0);
+  expect(applied).toBe(1);
+  // Cancel clears the prior reason; reopening must not blame the new attempt.
+  await confirmation.getByRole("button", { name: "적용 취소", exact: true }).click();
+  await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).click();
+  await expect(confirmation.getByRole("alert")).toHaveCount(0);
+  clean();
+});
+
+test("DEV-179 AC-SRC-9/11: workspace apply state conflict keeps server refresh beside confirm", async ({ page }) => {
+  const clean = monitor(page, [/status of 409 \(Conflict\)/]); // apply is stubbed to 409
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  const draft = {
+    id: "photo-required-draft", targetId: "target", version: 1,
+    snapshot: { reviewVersion: 1, batchVersion: 1, mode: "mock", warnings: [],
+      modules: [{ id: "summary", enabled: true }],
+      previewModules: [{ id: "summary", texts: [{ fieldKey: "summary", value: "제주에서 자란 감귤" }],
+        photoAssetIds: [], illustrationId: null }] },
+  };
+  let saved = false;
+  let applied = 0;
+  await serveContractReview(page, fixture);
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/editor`, (route) => {
+    expect(route.request().method()).toBe("PUT");
+    saved = true;
+    return route.fulfill({ json: { drafts: [draft] } });
+  });
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts`, (route) =>
+    route.fulfill({ json: { items: saved ? [draft] : [] } }));
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts/${draft.id}/apply`, (route) => {
+    applied++;
+    return route.fulfill({ status: 409, json: { code: "VERSION_MISMATCH",
+      message: "변경된 내용을 다시 확인해 주세요.", details: {} } });
+  });
+  await openContractReview(page, fixture, false);
+  await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+  await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.", { exact: true })).toBeVisible();
+  expect(saved).toBe(true);
+  await page.getByRole("button", { name: "공개 전 검토", exact: true }).click();
+  await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).click();
+  const confirmation = page.getByTestId("source-apply-confirmation");
+  const confirm = confirmation.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true });
+  await confirm.click();
+  await expect(confirmation.getByRole("alert").getByText("변경된 내용을 다시 확인해 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(1);
+  await expect(confirmation.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toBeVisible();
+  expect(applied).toBe(1);
+  clean();
+});
+
+for (const composer of [false, true]) {
+  const screen = composer ? "composer" : "workspace";
+  test(`DEV-179 AC-SRC-5/11: ${screen} retains server refresh after a network failure`, async ({ page }) => {
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    await serveContractReview(page, fixture);
+    let fail = true;
+    await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/runs`, (route) => {
+      if (!fail) return route.fallback();
+      fail = false;
+      return route.abort("failed");
+    });
+    await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+    const refresh = page.getByRole("button", { name: "서버 상태 다시 확인", exact: true });
+    await expect(refresh).toBeVisible();
+    await refresh.click();
+    await expect(refresh).toHaveCount(0);
+    if (!composer) await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+    await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("제주에서 자란 감귤");
+  });
+
+  test(`DEV-179 AC-SRC-5/8: ${screen} chooses retry cost copy for definite and mixed uncertain failures and resets consent`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    fixture.run.status = "PARTIAL";
+    const item = { ...fixture.run.items[0], phase: "EXTRACT", status: "PARTIAL" };
+    await serveContractReview(page, fixture);
+    let retries = 0;
+    await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/runs/*/retry`, (route) => {
+      retries++;
+      expect(route.request().postDataJSON().acknowledgeUncertain).toBe(true);
+      fixture.run.id = `retry-${retries}`;
+      return route.fulfill({ status: 202, json: fixture.run });
+    });
+    for (const error of ["OCR_PAGES_FAILED", "EXTRACT_CHUNKS_FAILED", "REQUEST_UNCERTAIN", "mixed"]) {
+      fixture.run.items = [{ ...item, error: error === "mixed" ? "OCR_PAGES_FAILED" : error }];
+      if (error === "mixed") fixture.run.items.push({ ...item, id: "uncertain-chunk", error: "REQUEST_UNCERTAIN" });
+      await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      const uncertain = error === "REQUEST_UNCERTAIN" || error === "mixed";
+      const consent = page.getByRole("checkbox", { name: uncertain ? uncertainRetryCost : retryCost, exact: true });
+      await expect(page.getByRole("checkbox", { name: uncertain ? retryCost : uncertainRetryCost, exact: true })).toHaveCount(0);
+      const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
+      await expect(consent).not.toBeChecked();
+      await expect(retry).toBeDisabled();
+      await consent.check();
+      await expect(retry).toBeEnabled();
+      await consent.uncheck();
+      await expect(retry).toBeDisabled();
+      await consent.check();
+      await retry.click();
+      await expect(consent).not.toBeChecked();
+      await expect(retry).toBeDisabled();
+    }
+    expect(retries).toBe(4);
+    clean();
+  });
+}

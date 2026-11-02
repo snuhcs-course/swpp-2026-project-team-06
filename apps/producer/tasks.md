@@ -1227,3 +1227,45 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 범위 감사: 이번 미커밋 변경 13개 경로가 사전 기록 범위 안이다. `git diff main...HEAD` 683개 경로는 기존 커밋 이력이며 HEAD는 `76ea0037ed5b4ecea635f52005871d30c62cc5e2`로 유지했다. `git diff --check` PASS, 두 tasks.md의 원본 바이트 전체 보존(append-only) PASS. 필수 검증이 막혀 완료 체크는 하지 않는다.
 - 의도한 커밋(실행하지 않음): `fix(source-analysis): FEAT-04/07 preserve raw fact choices (DEV-179)`; `fix(producer): FEAT-04/07 preserve composer mount (DEV-179)`; `fix(mock): FEAT-17 validate tracking before idempotency (DEV-179)`. 각 코드의 회귀·관련 스펙·append-only 기록을 함께 묶는다.
 - commit/push/PR/live 호출 없음. Agent 시간 / Tokens: 정확한 계측 미제공.
+
+### DEV-179 데모 녹화 후속 · 2026-11-02 (사용자 지시, append-only)
+
+#### 범위 (코드 수정 전)
+- `apps/producer/src/lib/{NewProductComposer,SourceWorkspace}.tsx`, 공용 오류·비용 안내 `apps/producer/src/lib/sourceFeedback.ts`
+- `scripts/e2e/{source-review-regressions,source-editor,new-product-composer}.spec.ts`
+- `apps/producer/spec.md`, `apps/producer/tasks.md`, `docs/spec/{source-editor,source-analysis}.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+#### 결정 사항
+- 기준은 지정 worktree HEAD `596d669394f5dfb514b6784a9f731bc012904223`. commit/push/PR/live 호출·브라우저 실행 없이 후속 수정한다.
+- Composer의 `details.fields.representativePhoto` 사유 매핑을 공용 처리로 옮겨 Workspace에도 사용한다. Workspace 적용 확인 버튼 곁에 오류를 표시하며 새 시도·취소 시 지운다. 재조회는 네트워크/불확실 결과에만 제공하고 입력 검증에는 숨긴다.
+- 재시도 대상 run에 REQUEST_UNCERTAIN 항목이 하나라도 있으면 기존 비용 문구를 유지하고, 아니면 ‘다시 분석하면 비용이 다시 들 수 있어요. 확인했어요.’를 사용한다. 비용 체크/해제·새 run 초기화 gate는 유지한다.
+- Composer 분석 진행 영역의 220px 및 짧은 Skeleton 2개는 SourceRunProgress와 중복되는 로딩 자리이므로 제거한다. 최초 상품 로딩 Skeleton은 유지한다.
+- 각 항목의 Playwright 회귀를 추가/보강한다. 브라우저 실행은 사용자 지정대로 sandbox 밖 Claude가 수행한다. 스펙/영문 wiki를 동기화하고 Figma v6는 기존 DEV-185 후속으로 남긴다. 구매자 미리보기 배너 내용은 변경하지 않는다.
+
+#### 검증 대기
+- [ ] `npm run typecheck`, `npm run test:mock` 실행 결과를 아래에 추가한다.
+- [ ] Claude: 관련 Playwright spec 브라우저 실행.
+
+#### DEV-179 데모 녹화 후속 결과 · 2026-11-02
+- #1/#2: Composer의 representativePhoto 사유 매핑을 `sourceFeedback.ts`로 추출해 두 화면이 공유한다. Workspace 적용 확인 버튼 바로 앞에 사유를 표시하고 취소/재시도 시 이전 오류를 지운다. 검증 오류에는 서버 재조회 버튼을 숨기고 네트워크·timeout·서버 오류에는 유지한다.
+- #3: REQUEST_UNCERTAIN 포함 여부로 비용 문구를 공유 선택한다. 기존 ack gate·새 run/성공 후 초기화는 유지했다. 제품 스펙·앱 구현 결정·영문 wiki를 동기화했다.
+- #4: SourceRunProgress 아래의 220px 회색 Skeleton과 20px 줄 2개는 중복 로딩 표시임을 코드로 확인해 제거했다. 최초 상품 정보 로딩 Skeleton은 유지했다. 구매자 미리보기 배너는 변경하지 않았다.
+- 회귀: `source-review-regressions.spec.ts`에 5개 추가(비공개 저장→검토→사진 누락 적용 오류/취소 초기화 1개, 화면별 네트워크 재조회 2개, 화면별 확정 OCR·청크/불확실/혼합 비용 문구 및 체크/해제/성공 후 초기화 2개). 기존 OCR/청크 문구 기대를 갱신하고 진행 테스트에 시트 열기/닫기 모두 중복 Skeleton 0개 단언을 추가했다. `source-editor.spec.ts`의 실제 composer 사진 누락 적용 회귀에는 재조회 버튼 0개 단언을 추가했다. 기존 테스트/안전 단언은 삭제·약화하지 않았다.
+- `npm run typecheck` → 5 workspace PASS / 0 오류.
+- `npm run test:mock` → **45 passed / 3 failed / 0 skipped**, 31.26s. 실패는 `test-news-rooms.mjs`, `test-onboarding.mjs`, `test-withdrawal.mjs`의 `Mock server exited`. `FARMCLUB_MOCK_PORT=18083 FARMCLUB_MOCK_DIR=/private/tmp/dev179-demo-mock node scripts/mock-server.mjs`로 `listen EPERM 127.0.0.1:18083` sandbox 제한을 직접 확인했다. 테스트/서버 우회 없이 남겼으며 sandbox 밖 재실행 필요.
+- `./node_modules/.bin/tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --resolveJsonModule --esModuleInterop --skipLibCheck --types node scripts/e2e/source-review-regressions.spec.ts scripts/e2e/source-editor.spec.ts` → 종료 0. `./node_modules/.bin/playwright test scripts/e2e/source-review-regressions.spec.ts scripts/e2e/source-editor.spec.ts --list` → **49 tests / 2 files** 수집 성공. 이는 브라우저 테스트 통과가 아니다. 브라우저 실행 0회이며 Claude가 sandbox 밖에서 같은 두 spec을 실행해야 한다(`source-editor`는 SOURCE_ANALYSIS_ENABLED=true·로컬 worker 필요).
+- 서버 코드 변경 없음: 조건부 ruff 실행 대상 아님. `git diff --check` PASS, `apps/producer/tasks.md`의 HEAD 원본 바이트 전체 보존으로 append-only PASS. 이번 변경 10개 경로는 사전 범위 안이며 `git diff main...HEAD`의 683개 경로는 기존 커밋 차이다. HEAD는 `596d669394f5dfb514b6784a9f731bc012904223` 유지. 전체 Mock·브라우저 검증 전 완료 체크는 보류한다.
+- 의도한 커밋(실행 안 함): `fix(producer): FEAT-04/07 적용 오류와 재조회 안내 수정 (DEV-179)`; `fix(producer): AC-SRC-5 재분석 비용 확인 문구 구분 (DEV-179)`; `fix(producer): AC-SRC-4 중복 분석 스켈레톤 제거 (DEV-179)`. 각 변경에 관련 회귀·스펙·기록을 함께 묶는다.
+- commit/push/PR/live 호출 없음. Figma v6는 기존 DEV-185 후속. Agent 시간 / Tokens: 정확한 계측 미제공.
+
+### DEV-179 데모 후속 보완·검증 (Claude, sandbox 밖, 2026-11-02)
+- 스캔 지적 반영:
+  - `sourceActionError`는 입력 검증(400·필드 사유)만 재조회를 숨긴다. 409 충돌, 네트워크, 서버 오류에는 '서버 상태 다시 확인'을 유지한다.
+  - 연결 실패(TypeError)는 한국어 안내를 보인다.
+  - 앱 안에서 던진 한국어 검증 오류(예: 품종 누락)는 메시지를 그대로 보이고 재조회 버튼은 숨긴다.
+- Workspace 적용 거절 사유는 `applyError`로 분리해 적용 확인 패널에만 한 번 표시한다(상단 중복·폴링 오류 혼입 제거). 409 적용 충돌 회귀 테스트를 추가했다.
+- 테스트 보완:
+  - 의도적으로 400/409를 반환하는 테스트의 브라우저 리소스 로그는 허용 목록에 넣었다.
+  - `source-analysis.spec.ts`는 재시도 전에 비용 확인을 체크한다.
+  - `source-editor.spec.ts:467`은 백그라운드 worker 대신 큐를 직접 비운다.
+- Playwright(sandbox 밖, 새 번들, 백그라운드 worker 없음): source-review-regressions·source-editor·source-workspace-ui·new-product-composer·source-analysis·new-product-two-step·product-page-workspace에서 **76 passed / 0 failed**. `npm run typecheck` PASS.

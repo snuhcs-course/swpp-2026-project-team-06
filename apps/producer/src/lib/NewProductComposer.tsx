@@ -1,3 +1,4 @@
+import { sourceActionError, retryCostLabel, type SourceActionError } from "./sourceFeedback";
 import { SourceRunProgress } from "./SourceRunProgress";
 import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 // 새 상품 한 화면 편집(DEV-184): 기본 정보 + 상세페이지를 한 스크롤에 두고,
@@ -5,7 +6,6 @@ import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 import { useSourceBasicInfo, type BasicInfoKey } from "./SourceBasicInfo";
 import { SourceAttachments } from "./SourceAttachments";
 import {
-  ApiError,
   catalog,
   farms,
   isMock,
@@ -193,7 +193,7 @@ export function NewProductComposer() {
     [runs, setRuns] = useState<SourceRun[]>([]),
     [drafts, setDrafts] = useState<SourceDraft[]>([]);
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
+    [error, setError] = useState<SourceActionError | null>(null),
     [notice, setNotice] = useState("");
   const [attachDirty, setAttachDirty] = useState(false),
     [editorDirty, setEditorDirty] = useState(false);
@@ -331,17 +331,16 @@ export function NewProductComposer() {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
-    setError("");
+    setError(null);
     if (starting) setStartError("");
     setNotice("");
     void fn()
       .catch((e) => {
-        if (alive.current)
-          (starting ? setStartError : setError)(
-            e instanceof Error
-              ? e.message
-              : "처리하지 못했어요. 다시 시도해 주세요.",
-          );
+        if (alive.current) {
+          const feedback = sourceActionError(e);
+          if (starting) setStartError(feedback.message);
+          else setError(feedback);
+        }
       })
       .finally(() => {
         lock.current = false;
@@ -351,7 +350,7 @@ export function NewProductComposer() {
   useEffect(() => {
     if (isMock) return;
     void load().catch((e) => {
-      if (alive.current) setError(String(e));
+      if (alive.current) setError(sourceActionError(e));
     });
   }, [load]);
   // 판매·가격(SCR-24b)에서 돌아오면 버전·값이 바뀌었을 수 있어 다시 읽는다. 고치던 칸이 있으면 덮지 않는다.
@@ -367,7 +366,7 @@ export function NewProductComposer() {
   useFocusEffect(
     useCallback(() => {
       void reloadProduct().catch((e) => {
-        if (alive.current) setError(String(e));
+        if (alive.current) setError(sourceActionError(e));
       });
     }, [reloadProduct]),
   );
@@ -392,7 +391,7 @@ export function NewProductComposer() {
           }
         })
         .catch((e) => {
-          if (alive.current) setError(String(e));
+          if (alive.current) setError(sourceActionError(e));
         });
     }, 2500);
     return () => clearInterval(timer);
@@ -525,19 +524,13 @@ export function NewProductComposer() {
   }) => {
     const id = `${c.draft.id}:${c.draft.version}`;
     if (applied.current !== id && readApplied(c.productId) !== id) {
-      try {
-        await api.apply(
-          batch!.id,
-          c.draft,
-          c.productId,
-          c.version,
-          keyFor("apply", [c.draft.id, c.productId, c.version]),
-        );
-      } catch (e) {
-        if (e instanceof ApiError && e.details.fields?.representativePhoto)
-          throw new Error(e.details.fields.representativePhoto);
-        throw e;
-      }
+      await api.apply(
+        batch!.id,
+        c.draft,
+        c.productId,
+        c.version,
+        keyFor("apply", [c.draft.id, c.productId, c.version]),
+      );
       applied.current = id;
       writeApplied(c.productId, id);
       pending.current.clear();
@@ -649,7 +642,7 @@ export function NewProductComposer() {
       {run.items.some((i) => ["FAILED", "PARTIAL"].includes(i.status)) ? (
         <>
           <Choice
-            label="결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요"
+            label={retryCostLabel(run)}
             selected={ack}
             disabled={busy}
             onPress={() => setAck(!ack)}
@@ -689,18 +682,20 @@ export function NewProductComposer() {
   ) : null;
   const errorPanel = error ? (
     <View accessibilityRole="alert" style={panel}>
-      <T>{error}</T>
-      <Button
-        label="서버 상태 다시 확인"
-        variant="outline"
-        disabled={busy}
-        // 상품을 못 불러온 경우도 여기서 다시 시도한다(채우기 화면은 상품이 있어야 그려진다).
-        onPress={() =>
-          mutate(async () => {
-            await Promise.all([load(), reloadProduct()]);
-          })
-        }
-      />
+      <T>{error.message}</T>
+      {error.canRefresh ? (
+        <Button
+          label="서버 상태 다시 확인"
+          variant="outline"
+          disabled={busy}
+          // 상품을 못 불러온 경우도 여기서 다시 시도한다(채우기 화면은 상품이 있어야 그려진다).
+          onPress={() =>
+            mutate(async () => {
+              await Promise.all([load(), reloadProduct()]);
+            })
+          }
+        />
+      ) : null}
     </View>
   ) : null;
   const title =
@@ -929,9 +924,6 @@ export function NewProductComposer() {
                                 </T>
                               </View>
                               {activeRun && !sheetOpen && <SourceRunProgress batch={batch} run={activeRun} />}
-                              <Skeleton width="100%" height={220} radius={16} />
-                              <Skeleton width="70%" height={20} />
-                              <Skeleton width="90%" height={20} />
                             </View>
                           ) : showEditor && review ? (
                             <>
@@ -1265,14 +1257,14 @@ export function NewProductComposer() {
       flushRef={flushBasicInfo}
       onDirty={(dirty) => {
         setBasicDirty(dirty);
-        if (dirty) setError("");
+        if (dirty) setError(null);
       }}
       onSaved={(b) => {
         setBatch(b);
         // 기본 정보 저장은 reviewVersion도 올린다. 편집기가 최신 review를 받게 다시 읽는다.
         if (review)
           void load().catch((e) => {
-            if (alive.current) setError(String(e));
+            if (alive.current) setError(sourceActionError(e));
           });
       }}
     >
