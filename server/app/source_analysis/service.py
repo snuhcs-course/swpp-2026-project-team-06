@@ -525,6 +525,7 @@ def run_view(db, run):
             "pagesSkipped": i.diagnostics.get("pagesSkipped", 0),
             "pagesEmpty": len(i.diagnostics.get("pagesEmpty", [])),
             "pagesFailed": len(i.diagnostics.get("pagesFailed", [])),
+            "chunksFailed": len(i.diagnostics.get("chunksFailed", [])),
             "emptyReason": empty_assets.get(i.id)
             if i.phase == "EXTRACT"
             else i.diagnostics.get("emptyReason"),

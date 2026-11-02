@@ -1233,7 +1233,8 @@ def test_AC_SRC_2_5_10_eval_stage1_failure_isolation_matches_product(monkeypatch
         assert result["status"] == "PARTIAL" and len(refined) == 1
         assert {c["evidence"][0]["page"] for c in private["candidates"]} == {1, 3}
         assert len(private["candidates"]) == 2
-        assert metric["pagesFailed"] == metric["chunksFailed"] == 1
+        assert metric["pagesFailed"] == 0 and metric["chunksFailed"] == 1
+        assert metric["errorCode"] == "EXTRACT_CHUNKS_FAILED"
         assert private["stage1Diagnostics"][0]["acceptedCount"] == 2
         assert len(private["calls"]) == 7  # OCR3 + extract3 + refine1; no replay.
     else:

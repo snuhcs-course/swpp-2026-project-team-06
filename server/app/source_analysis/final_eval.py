@@ -533,7 +533,7 @@ def evaluate_source(row, provider, model, calls):
         metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
         record.update(
             status="PARTIAL"
-            if ocr_diagnostics["pagesFailed"]
+            if ocr_diagnostics["pagesFailed"] or ocr_diagnostics.get("chunksFailed")
             else "EVALUATED"
             if stored
             else "EMPTY",
@@ -551,6 +551,8 @@ def evaluate_source(row, provider, model, calls):
         metric["status"] = record["status"]
         if ocr_diagnostics["pagesFailed"]:
             metric["errorCode"] = "OCR_PAGES_FAILED"
+        elif ocr_diagnostics.get("chunksFailed"):
+            metric["errorCode"] = "EXTRACT_CHUNKS_FAILED"
     except Exception as exc:
         # Never serialize exception messages, Pydantic input, provider payloads or private paths.
         metric["status"] = "FAILED"

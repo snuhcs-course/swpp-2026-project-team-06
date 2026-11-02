@@ -120,8 +120,8 @@ def enqueue(db, batch, run, items):
             and (
                 i.error == "CANDIDATES_REJECTED"
                 and i.diagnostics.get("rejectedCount", 0) > 0
-                or i.error in {"REQUEST_UNCERTAIN", "OCR_PAGES_FAILED"}
-                and i.diagnostics.get("pagesFailed")
+                or i.error in {"REQUEST_UNCERTAIN", "OCR_PAGES_FAILED", "EXTRACT_CHUNKS_FAILED"}
+                and (i.diagnostics.get("pagesFailed") or i.diagnostics.get("chunksFailed"))
             )
         )
         for i in items

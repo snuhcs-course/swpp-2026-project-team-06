@@ -196,6 +196,9 @@ def enqueue_extraction(db, source, run, item, pages):
                 Item.revision == source.revision,
                 Item.sanitization_version == source.sanitization_version,
                 Item.phase == "EXTRACT",
+                ~select(Candidate.id)
+                .where(Candidate.item_id == Item.id, Candidate.outdated.is_(True))
+                .exists(),
             )
         )
     )
@@ -364,6 +367,11 @@ def validate_candidates(extraction, chunk, allowed_targets):
 def store_candidates(db, batch, item, extraction):
     """Supersede suggestions within this scope without invalidating confirmed edits."""
 
+    failed_pages = {p["number"] for p in item.diagnostics.get("pagesFailed", [])}
+    failed_pages.update(
+        number for chunk in item.diagnostics.get("chunksFailed", []) for number in chunk["pages"]
+    )
+    succeeded_scope = page_scope([p for p in item.pages if p["number"] not in failed_pages])
     previous = list(
         db.scalars(
             select(Item).where(
@@ -378,7 +386,7 @@ def store_candidates(db, batch, item, extraction):
     prior_ids = [
         i.id
         for i in previous
-        if i.target_ids == item.target_ids and page_scope(i.pages) <= page_scope(item.pages)
+        if i.target_ids == item.target_ids and page_scope(i.pages) <= succeeded_scope
     ]
     old = list(
         db.scalars(
@@ -567,14 +575,6 @@ def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics
             exc.retry_after = None
             pages = [p["number"] for p in part["pages"]]
             diagnostics["chunksFailed"].append({"index": index, "pages": pages, "code": exc.code})
-            for number in pages:
-                if not any(p["number"] == number for p in diagnostics["pagesFailed"]):
-                    diagnostics["pagesFailed"].append({"number": number, "code": exc.code})
-                elif exc.code == "REQUEST_UNCERTAIN":
-                    # Preserve the existing public retry/cost acknowledgment contract.
-                    next(p for p in diagnostics["pagesFailed"] if p["number"] == number)["code"] = (
-                        exc.code
-                    )
             if exc.code in OCR_HARD_ERRORS:
                 raise
             first_failure = first_failure or exc
@@ -600,16 +600,26 @@ def extract_vision_chunks(chunk, targets, model, call, extract_part, diagnostics
         raise first_failure
     photo_requests = list(dict.fromkeys(photo_requests))
     merged = Extraction(candidates=candidates, photo_requests=photo_requests[:30])
-    _, checked = validate_candidates(merged, chunk, {t["id"] for t in targets})
-    diagnostics.update(checked)
     diagnostics.update(
+        acceptedCount=len(candidates),
+        emptyReason=(
+            "ALL_CANDIDATES_REJECTED"
+            if rejected
+            else "NO_SAFE_TEXT"
+            if not any(
+                s["text"].strip() and s["text"] != "[가림]"
+                for p in chunk["pages"]
+                for s in p["spans"]
+            )
+            else "NO_CANDIDATES"
+        )
+        if not candidates
+        else None,
         rejected=rejected,
         rejectedCount=len(rejected),
         candidatesSkipped=skipped,
         photoRequestsSkipped=max(0, len(photo_requests) - 30),
     )
-    if rejected and not candidates:
-        diagnostics["emptyReason"] = "ALL_CANDIDATES_REJECTED"
     return ExtractionResponse(merged, usage, request_id), diagnostics
 
 
@@ -857,14 +867,18 @@ def process(item_id, token):
                     item.diagnostics = diagnostics
                     if diagnostics["rejectedCount"] and not extraction.candidates:
                         item.status, item.error = "FAILED", "CANDIDATES_REJECTED"
-                    elif diagnostics.get("pagesFailed"):
+                    elif diagnostics.get("pagesFailed") or diagnostics.get("chunksFailed"):
                         item.status = "PARTIAL"
                         item.error = (
                             "REQUEST_UNCERTAIN"
                             if any(
-                                p["code"] == "REQUEST_UNCERTAIN" for p in diagnostics["pagesFailed"]
+                                p["code"] == "REQUEST_UNCERTAIN"
+                                for p in diagnostics.get("pagesFailed", [])
+                                + diagnostics.get("chunksFailed", [])
                             )
                             else "OCR_PAGES_FAILED"
+                            if diagnostics.get("pagesFailed")
+                            else "EXTRACT_CHUNKS_FAILED"
                         )
                     elif diagnostics["rejectedCount"]:
                         item.status = "PARTIAL" if extraction.candidates else "FAILED"
