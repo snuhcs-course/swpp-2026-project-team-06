@@ -240,6 +240,9 @@ Path(output).write_bytes(data)
         ),
       ).toBe(true);
       await expect(page.getByText("자료를 처리하지 못했어요. 내용을 확인한 후 다시 시도해 주세요.", { exact: false }).first()).toBeVisible();
+      // DEV-179: retry stays disabled until the producer acknowledges the repeat cost.
+      await expect(page.getByRole("button", { name: "실패한 항목 재시도", exact: true })).toBeDisabled();
+      await page.getByRole("checkbox", { name: /비용이 다시/ }).check();
       await expect(page.getByRole("button", { name: "실패한 항목 재시도", exact: true })).toBeEnabled();
       await shot("analysis-failure");
       testInfo.annotations.push({ type: "gap", description: "Visual extraction success/evidence NOT RUN: mock accepts only text fixture checksums. Remaining steps exercise manual recovery after real analysis failure." });
@@ -250,8 +253,7 @@ Path(output).write_bytes(data)
     await shot("private-draft");
     if (format === "text") {
       await page.getByLabel("한눈에 보기 내용", { exact: true }).click();
-      await page.getByRole("button", { name: "원문 보기", exact: true }).first().click();
-      await expect(page.getByText(/source\.txt\s+1쪽:\s*제주산 감귤입니다\./)).toBeVisible();
+      await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
       const candidate = (await review()).candidates.find((c) => c.fieldKey === "summary")!;
       expect(candidate.evidence[0]).toMatchObject({ sourceId: source.id, page: 1, quote: "제주산 감귤입니다." });
       await shot("evidence");
@@ -332,6 +334,8 @@ Path(output).write_bytes(data)
       const drafts = await get<{ items: SourceDraft[] }>(`${base}/drafts`);
       const approved = drafts.items[0].snapshot.previewModules;
       expect(approved.find((m) => m.id === "summary")!.texts[0].value).toBe(manual);
+      await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+      await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue(manual);
       await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).first().click();
       await expect(page.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true })).toBeVisible();
       await unchanged();

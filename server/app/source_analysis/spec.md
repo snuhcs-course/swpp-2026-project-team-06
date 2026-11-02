@@ -231,6 +231,10 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 동작 계약은 [제품 spec](../../..
 | 2026-11-02 | 실패 경로의 OCR/청크 진단 저장은 best effort로 원래 ExtractionError 보존; 비-vision 검증은 settle 뒤 | fencing으로 원래 코드·usage·요청 ID를 잃거나 비용 정산을 건너뛰지 않음 | AC-SRC-5/10 |
 
 
+## DEV-179 구현 결정 (2026-11-02)
+- AC-SRC-9/11: start_run의 대표사진 검사만 제거하고 publish/workspace.apply 검사는 유지한다. 품종·권한·버전·자료·활성 run 검사는 유지한다.
+- AC-SRC-2/3/11: editorFields는 규격·구성·개수·당도(qualityEvidence)의 같은 사실 슬롯에 정규화 값이 다른 후보가 있으면 conflict를 적용한다. 현재 정리 결과가 없거나 pending(None)이면 사실/서술의 복수 안전 원문 후보도 conflict로 선택 가능하게 유지한다. 사실 필드는 정규화한 값별로 candidateId가 가장 작은 원문을 대표로 사용하며(조회 순서와 무관), 한 값이면 정리 결과가 아예 없을 때만 해당 원문·candidateIds를 ready/EXTRACTED/UNREVIEWED로 제안하고 pending이면 missing으로 둔다. 성공 정리에서 생략된 필드는 복원하지 않는다. 정리 결과의 규격에 함께 담긴 품종/사이즈 등 상호 보완 값은 충돌이 아니며 kg/g·소수 당도·유니코드/공백 차이는 정규화한다. summary/farmStory 등 정리된 병합 서술은 ready이며 UNREVIEWED 자동 저장을 유지한다. outdated와 생산자 CONFIRMED/EXCLUDED는 conflict로 덮지 않는다. 선택기에는 현재 refined/basicInfo 값도 포함한다.
+- AC-SRC-5/8: run_view는 ocrFailedPageNumbers(pagesFailed.number)와 chunkFailedPageNumbers(chunksFailed.pages)를 각각 정렬/중복 제거하여 노출한다. 각 안내는 자기 목록을 쓴다. 기존 개수는 보존하고 코드·진단 본문은 반환하지 않는다.
 ## DEV-191 OCR 병렬 실행 구현 결정
 
 FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11.

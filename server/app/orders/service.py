@@ -913,6 +913,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         delivery_note=None if hide else order.delivery_note,
         carrier=order.carrier,
         tracking_number=order.tracking_number,
+        tracking_version=order.tracking_version,
         created_at=order.created_at,
         total_amount=order.total_amount,
         deposit_due_at=order.deposit_due_at,
@@ -988,6 +989,55 @@ def ship_order(
     order.shipped_at = now()
     order.tracking_number = (tracking_number or "").strip() or None
     order.carrier = carrier
+    db.flush()
+    return producer_order_view(db, order)
+
+
+def update_tracking(db: Session, farm_id: str, actor_id: str, order_id: str, body) -> ProducerOrder:
+    from app.admin.models import ManagerEvent
+    from app.catalog import service as catalog
+
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order is None:
+        raise not_found("주문을 찾을 수 없어요.")
+    item = catalog.load_product(db, order.product_id)
+    if item is None or item.product.farm_id != farm_id:
+        raise not_found("주문을 찾을 수 없어요.")
+    if order.status != "SHIPPED":
+        raise conflict("INVALID_TRANSITION", "출하된 주문만 송장을 수정할 수 있어요.")
+    if body.version != order.tracking_version:
+        raise conflict(
+            "VERSION_MISMATCH",
+            "송장이 바뀌었어요. 최신 내용을 다시 확인해 주세요.",
+            version=order.tracking_version,
+        )
+    tracking_number = (body.tracking_number or "").strip() or None
+    if order.carrier != body.carrier or order.tracking_number != tracking_number:
+        previous = {"carrier": order.carrier, "trackingNumber": order.tracking_number}
+        order.carrier = body.carrier
+        order.tracking_number = tracking_number
+        order.tracking_version += 1
+        timestamp = now()
+        db.add(
+            ManagerEvent(
+                id=new_id("manager-event"),
+                event_type="order.tracking_updated",
+                actor_id=actor_id,
+                target_type="order",
+                target_id=order.id,
+                request_summary={"previous": previous},
+                result={
+                    "carrier": order.carrier,
+                    "trackingNumber": order.tracking_number,
+                    "trackingVersion": order.tracking_version,
+                },
+                status="SUCCEEDED",
+                retryable=False,
+                attempts=1,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+        )
     db.flush()
     return producer_order_view(db, order)
 

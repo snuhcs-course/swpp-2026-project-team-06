@@ -583,3 +583,122 @@ def test_AC_SRC_10_evaluation_calls_and_reports_selected_model(monkeypatch, tmp_
     with get_sessionmaker()() as db:
         row = db.scalar(select(Spend))
         assert row.evaluation and row.charged_micros == 1000
+
+
+def test_AC_SRC_7_11_draft_apply_still_requires_representative_photo(client, login):
+    h = login("u-kang")
+    batch = create(client, h)
+    tid = batch["targets"][0]["id"]
+    url = f"{PREFIX}/{batch['id']}"
+    review = client.get(url + "/review", headers=h).json()
+    patched = client.patch(
+        url + "/review",
+        headers=h,
+        json={
+            "reviewVersion": review["reviewVersion"],
+            "fields": [
+                {
+                    "targetId": tid,
+                    "fieldKey": "summary",
+                    "value": "생산자가 작성한 감귤 소개",
+                    "state": "CONFIRMED",
+                    "provenance": "PRODUCER",
+                    "candidateIds": [],
+                }
+            ],
+        },
+    )
+    assert patched.status_code == 200, patched.text
+    review = client.get(url + "/review", headers=h).json()
+    saved = client.post(
+        url + "/drafts",
+        headers=key(h),
+        json={
+            "reviewVersion": review["reviewVersion"],
+            "targets": [
+                {
+                    "targetId": tid,
+                    "enabledModuleIds": ["summary"],
+                }
+            ],
+        },
+    )
+    assert saved.status_code == 201, saved.text
+    draft = saved.json()["drafts"][0]
+    before = client.get("/api/products/mine/p-house", headers=h).json()
+    rejected = apply(client, h, batch, draft)
+    assert rejected.status_code == 400, rejected.text
+    assert "representativePhoto" in rejected.json()["details"]["fields"]
+    assert client.get("/api/products/mine/p-house", headers=h).json() == before
+
+
+def test_AC_SRC_7_11_product_workspace_apply_still_requires_representative_photo(client, login):
+    h = login("u-kang")
+    url = "/api/source-analysis/product-workspaces"
+    opened = client.post(
+        url,
+        headers=key(h),
+        json={"productId": "p-house"},
+    )
+    assert opened.status_code in (200, 201), opened.text
+    workspace = opened.json()
+    snapshot = deepcopy(workspace["snapshot"])
+    snapshot["representativeUri"] = None
+    saved = client.put(
+        url + "/p-house",
+        headers=key(h),
+        json={"version": workspace["version"], "snapshot": snapshot},
+    )
+    assert saved.status_code == 200, saved.text
+    before = client.get("/api/products/mine/p-house", headers=h).json()
+    rejected = client.post(
+        url + "/p-house/apply",
+        headers=key(h),
+        json={"version": saved.json()["version"]},
+    )
+    assert rejected.status_code == 400, rejected.text
+    assert "representativePhoto" in rejected.json()["details"]["fields"]
+    assert client.get("/api/products/mine/p-house", headers=h).json() == before
+
+
+def test_AC_SRC_5_8_run_view_failed_page_numbers_are_sorted_unique_and_private(client, login):
+    from app.source_analysis.models import Item
+
+    h = login("u-kang")
+    batch = create(client, h)
+    upload(client, h, batch)
+    run = start(client, h, batch["id"])
+    with get_sessionmaker()() as db:
+        item = db.scalar(select(Item).where(Item.run_id == run["id"]))
+        item_id = item.id
+        item.diagnostics = {
+            "pagesFailed": [
+                {"number": 4, "code": "REQUEST_UNCERTAIN", "detail": "PRIVATE_PAGE_DETAIL"},
+                {"number": 2, "code": "REQUEST_UNCERTAIN"},
+            ],
+            "chunksFailed": [
+                {
+                    "index": 1,
+                    "pages": [4, 3, 2],
+                    "code": "PROVIDER_REJECTED",
+                    "detail": "PRIVATE_CHUNK_DETAIL",
+                },
+                {"index": 0, "pages": [1, 3], "code": "PROVIDER_REJECTED"},
+            ],
+        }
+        db.commit()
+    response = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h)
+    assert response.status_code == 200, response.text
+    item = next(i for i in response.json()["items"] if i["id"] == item_id)
+    assert item["pagesFailed"] == 2 and type(item["pagesFailed"]) is int
+    assert item["chunksFailed"] == 2 and type(item["chunksFailed"]) is int
+    assert item["ocrFailedPageNumbers"] == [2, 4]
+    assert item["chunkFailedPageNumbers"] == [1, 2, 3, 4]
+    for private in (
+        "PRIVATE_PAGE_DETAIL",
+        "PRIVATE_CHUNK_DETAIL",
+        "REQUEST_UNCERTAIN",
+        "PROVIDER_REJECTED",
+        "diagnostics",
+    ):
+        assert private not in response.text

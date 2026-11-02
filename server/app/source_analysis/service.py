@@ -398,10 +398,6 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
         raise invalid({"variety": "과일 품종명을 입력해 주세요."})
     if db.scalar(select(Run.id).where(Run.batch_id == row.id, Run.status.in_(ACTIVE))):
         raise conflict("RUN_ACTIVE", "이미 분석하고 있어요.")
-    from app.source_analysis.representative import selected
-
-    for target in row.targets:
-        selected(db, row.id, target, required=True)
     sources = list(
         db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
     )
@@ -526,6 +522,12 @@ def run_view(db, run):
             "pagesEmpty": len(i.diagnostics.get("pagesEmpty", [])),
             "pagesFailed": len(i.diagnostics.get("pagesFailed", [])),
             "chunksFailed": len(i.diagnostics.get("chunksFailed", [])),
+            "ocrFailedPageNumbers": sorted(
+                {p["number"] for p in i.diagnostics.get("pagesFailed", [])}
+            ),
+            "chunkFailedPageNumbers": sorted(
+                {n for c in i.diagnostics.get("chunksFailed", []) for n in c["pages"]}
+            ),
             "emptyReason": empty_assets.get(i.id)
             if i.phase == "EXTRACT"
             else i.diagnostics.get("emptyReason"),
@@ -598,10 +600,13 @@ def review(db, row):
     for c in candidates:
         if not c.outdated:
             grouped[(c.target_id, c.field_key)].append(c)
+    from app.source_analysis.editor import factual_conflict
+
+    current = {key: [c for c in values if not c.historical] for key, values in grouped.items()}
     conflicts = [
         {"targetId": key[0], "fieldKey": key[1], "candidateIds": [c.id for c in values]}
-        for key, values in grouped.items()
-        if len({c.value for c in values}) > 1
+        for key, values in current.items()
+        if factual_conflict(key[1], [{"value": c.value} for c in values])
     ]
     unique = {}
     for candidate in candidates:
