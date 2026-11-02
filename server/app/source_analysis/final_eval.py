@@ -124,10 +124,19 @@ def claim_holdout(gold_path, acknowledged, force=False, rerun_reason=None):
     return target
 
 
-def dataset(split, subset, dev_dir, holdout_dir, font=None):
+def dataset(
+    split,
+    subset,
+    dev_dir,
+    holdout_dir,
+    font=None,
+    holdout_version=final_score.DEFAULT_HOLDOUT_VERSION,
+):
     """Read input material only; gold never feeds the model or mock provider."""
     manifest = read_json(
-        final_score.DEV_MANIFEST if split == "development" else final_score.HOLDOUT_LOCK
+        final_score.DEV_MANIFEST
+        if split == "development"
+        else final_score.holdout_lock_path(holdout_version)
     )
     cases = manifest["cases"] if split == "development" else manifest["sources"]
     synthetic = {c["id"]: c for c in read_json(CASES)}
@@ -153,6 +162,17 @@ def dataset(split, subset, dev_dir, holdout_dir, font=None):
             if len(paths) != 1:
                 raise ValueError("Missing or ambiguous safe input")
             path = paths[0]
+            if (
+                split == "holdout"
+                and path.suffix
+                not in {
+                    "text": {".txt"},
+                    "image": {".png", ".jpg"},
+                    "long_image": {".png", ".jpg"},
+                    "pdf": {".pdf"},
+                }[case["format"]]
+            ):
+                raise ValueError("HOLDOUT_INPUT_FORMAT_INVALID")
             data, suffix = path.read_bytes(), path.suffix
             mime = {
                 ".txt": "text/plain",
@@ -216,7 +236,14 @@ def save_inputs(out, rows):
     write_json(out / "inputs.json", {"sources": sources})
 
 
-def load_gold(split, subset, dev_dir, holdout_dir, rows):
+def load_gold(
+    split,
+    subset,
+    dev_dir,
+    holdout_dir,
+    rows,
+    holdout_version=final_score.DEFAULT_HOLDOUT_VERSION,
+):
     golds, references, gold_files = [], [], []
     if split == "development" and subset != "public":
         if (
@@ -228,16 +255,20 @@ def load_gold(split, subset, dev_dir, holdout_dir, rows):
         gold_files.append(SYNTHETIC_GOLD)
     if split == "holdout" or subset != "synthetic":
         path = (
-            holdout_dir / "final-gold-v1.1.json"
+            final_score.holdout_gold_path(holdout_dir, holdout_version)
             if split == "holdout"
             else dev_dir / "final-gold-dev-public-v2.json"
         )
         ref = final_score.LocalGold(
             path=str(path),
             split=split,
-            lockPath=str(holdout_dir / "final-gold-v1.1.lock.json") if split == "holdout" else None,
+            lockPath=str(path.with_suffix(".lock.json")) if split == "holdout" else None,
         )
-        golds.append(final_score.load_local_gold(ref, ROOT, {r["id"]: r["format"] for r in rows}))
+        golds.append(
+            final_score.load_local_gold(
+                ref, ROOT, {r["id"]: r["format"] for r in rows}, holdout_version=holdout_version
+            )
+        )
         references.append(ref.model_dump())
     combined = {
         "schemaVersion": 1,
@@ -808,6 +839,8 @@ def audit_summary(out, source_audit=None):
 
 
 def report(out, gold_files, source_audit=None):
+    out = private_path(out)
+    metadata = read_json(out / "metadata.json")
     # Invoke the pinned scorer CLI, including its private-gold/lock validation and redaction.
     args = [
         "--runs",
@@ -819,6 +852,8 @@ def report(out, gold_files, source_audit=None):
     ]
     if gold_files:
         args += ["--gold", *map(str, gold_files)]
+    # Old private runs predate version metadata and always used v1.1.
+    args += ["--holdout-version", metadata.get("holdoutVersion") or "v1.1"]
     # main prints only its safe count table. Keep runner stdout machine-readable.
     import contextlib
     import io
@@ -826,7 +861,7 @@ def report(out, gold_files, source_audit=None):
     with contextlib.redirect_stdout(io.StringIO()):
         if final_score.main(args) == 2:
             raise ValueError("Scorer rejected input")
-    scored, metadata = read_json(out / "score.json"), read_json(out / "metadata.json")
+    scored = read_json(out / "score.json")
     audits = audit_summary(out, source_audit)
     result = {
         "label": LABEL if metadata["provider"] == "mock" else "LIVE — see human audit status",
@@ -841,6 +876,10 @@ def report(out, gold_files, source_audit=None):
     result["acceptance"] = (
         "FAIL" if "FAIL" in gates else "BLOCKED" if "BLOCKED" in gates else "PASS"
     )
+    if scored["split"] == "holdout":
+        # Free-form rerun reasons and per-source diagnostics remain only in private metadata.
+        for key in ("sources", "rerunReason"):
+            result["config"].pop(key, None)
     write_json(out / "report.json", result)
     (out / "report.md").write_text(render(result), encoding="utf-8")
     return result
@@ -904,6 +943,7 @@ def render(result):
                 k: config[k]
                 for k in (
                     "split",
+                    "holdoutVersion",
                     "subset",
                     "provider",
                     "model",
@@ -980,14 +1020,20 @@ def render(result):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split", choices=["development", "holdout"], default="development")
+    parser.add_argument(
+        "--holdout-version",
+        choices=final_score.HOLDOUT_VERSIONS,
+        default=final_score.DEFAULT_HOLDOUT_VERSION,
+    )
+    parser.add_argument("--verify-lock", action="store_true")
     parser.add_argument("--subset", choices=["all", "synthetic", "public"], default="all")
     parser.add_argument("--provider", choices=["mock", "openrouter", "openai"], default="mock")
     parser.add_argument("--model")
     parser.add_argument("--max-usd", type=float, default=3.0)
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--out", type=Path)
     parser.add_argument("--dev-dir", type=Path, default=ROOT.parent / "source-dev-i3-private")
     parser.add_argument(
-        "--holdout-dir", type=Path, default=ROOT.parent / "source-holdout-i3-private"
+        "--holdout-dir", type=Path, help="Required for v2; defaults to the v1.1 folder for v1.1"
     )
     parser.add_argument("--font", type=str, default=str(FONT) if FONT.exists() else None)
     parser.add_argument("--inputs-from", type=Path, nargs="+", default=[])
@@ -1003,8 +1049,31 @@ def main(argv=None):
     parser.add_argument("--source-audit-csv", type=Path)
     args = parser.parse_args(argv)
     try:
-        out = private_path(args.out)
+        if args.holdout_dir is None:
+            # v2 lives wherever the owner keeps it; only the spent v1.1 has a fixed folder.
+            if args.split == "holdout" and args.holdout_version != "v1.1":
+                raise ValueError("HOLDOUT_DIR_REQUIRED")
+            args.holdout_dir = ROOT.parent / "source-holdout-i3-private"
         dev_dir, holdout_dir = args.dev_dir.resolve(), args.holdout_dir.resolve()
+        if args.verify_lock:
+            if args.split != "holdout" or args.rescore or args.estimate_only:
+                raise ValueError
+            parsed = final_score.verify_holdout(private_path(holdout_dir), args.holdout_version)
+            counts = {}
+            for fmt in final_score.FORMATS:
+                sources = [s for s in parsed.sources if s.format == fmt]
+                facts = [f for s in sources for sentence in s.sentences for f in sentence.facts]
+                counts[fmt] = {
+                    "sources": len(sources),
+                    "sentences": sum(len(s.sentences) for s in sources),
+                    "facts": len(facts),
+                    "criticalFacts": sum(f.critical for f in facts),
+                }
+            print(json.dumps({"result": "PASS", "countsBySourceFormat": counts}))
+            return 0
+        if args.out is None:
+            raise ValueError
+        out = private_path(args.out)
         if args.rescore:
             metadata = read_json(out / "metadata.json")
             if args.audit_csv:
@@ -1020,13 +1089,17 @@ def main(argv=None):
             raise ValueError("--force-rerun requires --rerun-reason")
         if args.rerun_reason and not args.force_rerun:
             raise ValueError("--rerun-reason requires --force-rerun")
+        if args.split == "holdout":
+            final_score.verify_holdout(private_path(holdout_dir), args.holdout_version)
         model = args.model or (
             "gpt-6.1-sol" if args.provider == "openai" else "google/gemini-3-flash-preview"
         )
         if args.provider == "openai" and model != "gpt-6.1-sol":
             raise ValueError("OpenAI model must match existing budget price caps")
         calls = Calls(args.provider, args.max_usd)
-        rows = dataset(args.split, args.subset, dev_dir, holdout_dir, args.font)
+        rows = dataset(
+            args.split, args.subset, dev_dir, holdout_dir, args.font, args.holdout_version
+        )
         rows = frozen_inputs(rows, args.inputs_from)
         planned = estimate(rows, args.provider if args.provider != "mock" else "openrouter", model)
         print(
@@ -1051,7 +1124,9 @@ def main(argv=None):
             cfg.app_env != "local" or url.host not in ("127.0.0.1", "localhost")
         ):
             raise ValueError("Paid evaluation requires a scratch local database")
-        references, gold_files = load_gold(args.split, args.subset, dev_dir, holdout_dir, rows)
+        references, gold_files = load_gold(
+            args.split, args.subset, dev_dir, holdout_dir, rows, args.holdout_version
+        )
         # Preflight OCR before spending or consuming the holdout attempt. No network provisioning.
         if any(r["mime"] != "text/plain" for r in rows):
             from app.source_analysis.preprocess import _ocr_engine
@@ -1062,7 +1137,7 @@ def main(argv=None):
         holdout_attempt = None
         if args.split == "holdout":
             marker = claim_holdout(
-                holdout_dir / "final-gold-v1.1.json",
+                final_score.holdout_gold_path(holdout_dir, args.holdout_version),
                 args.i_understand_holdout_runs_once,
                 args.force_rerun,
                 args.rerun_reason,
@@ -1118,6 +1193,7 @@ def main(argv=None):
                 "holdoutAttempt": holdout_attempt["attempt"] if holdout_attempt else None,
                 "rerunReason": holdout_attempt["rerunReason"] if holdout_attempt else None,
                 "split": args.split,
+                "holdoutVersion": args.holdout_version if args.split == "holdout" else None,
                 "subset": args.subset,
                 "provider": args.provider,
                 "model": model,
@@ -1157,7 +1233,7 @@ def main(argv=None):
         )
         return 1 if aborted else 0
     except Exception:
-        print("Evaluation refused or failed (details redacted); inspect configuration locally")
+        print("FAIL" if args.verify_lock else "EVALUATION_FAILED")
         return 2
 
 

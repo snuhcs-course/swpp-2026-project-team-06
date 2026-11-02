@@ -730,6 +730,7 @@ def test_AC_SRC_5_holdout_attempt_and_reason_match_metadata(tmp_path, monkeypatc
     monkeypatch.setattr(ev, "load_gold", lambda *a: ([], [gp]))
     monkeypatch.setattr(ev, "worksheets", lambda *a: None)
     monkeypatch.setattr(ev, "report", lambda *a: None)
+    monkeypatch.setattr(final_score, "verify_holdout", lambda *a, **kw: None)
     original = ev.evaluate_source
     monkeypatch.setattr(
         ev, "evaluate_source", lambda r, *a: original(r, "mock", "mock", ev.Calls("mock", 3))
@@ -740,6 +741,8 @@ def test_AC_SRC_5_holdout_attempt_and_reason_match_metadata(tmp_path, monkeypatc
             [
                 "--split",
                 "holdout",
+                "--holdout-version",
+                "v1.1",
                 "--provider",
                 "openrouter",
                 "--yes",
@@ -2069,3 +2072,315 @@ def test_AC_SRC_3_5_6_DEV_193_failed_chunk_pages_exclude_all_ocr_keep_local(
     assert final_score.unsupported_tokens(
         final_score.sensitive_tokens("999kg"), final_score.sensitive_tokens(safe)
     )["number"] == {"999kg"}
+
+def invented_holdout_fixture(tmp_path, monkeypatch, **kwargs):
+    from tests.test_final_score import invented_v2_holdout
+
+    monkeypatch.setattr(ev, "ROOT", tmp_path / "invented-checkout")
+    return invented_v2_holdout(tmp_path, monkeypatch, **kwargs)
+
+
+@pytest.mark.parametrize("valid", [True, False])
+@pytest.mark.parametrize("version_args", [[], ["--holdout-version", "v2"]])
+def test_AC_SRC_5_6_DEV_194_verify_lock_is_metadata_only_without_consent_or_out(
+    tmp_path, monkeypatch, capsys, valid, version_args
+):
+    private, gp, _, _, _, cases = invented_holdout_fixture(tmp_path, monkeypatch, material=False)
+    if not valid:
+        gp.write_bytes(gp.read_bytes() + b"\n")
+    before = {
+        str(p.relative_to(tmp_path)): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()
+    }
+    for name in (
+        "dataset",
+        "load_gold",
+        "Calls",
+        "get_sessionmaker",
+        "claim_holdout",
+        "evaluate_source",
+    ):
+        monkeypatch.setattr(
+            ev,
+            name,
+            lambda *a, **kw: pytest.fail("Verification must have no execution side effects"),
+        )
+    monkeypatch.setattr(
+        ai, "OpenAI", lambda **kw: pytest.fail("No provider client during verification")
+    )
+    original_read_bytes, original_read_text = Path.read_bytes, Path.read_text
+
+    def guarded_bytes(path, *args, **kwargs):
+        assert "safe" not in path.parts, "Verification must never read source input"
+        return original_read_bytes(path, *args, **kwargs)
+
+    def guarded_text(path, *args, **kwargs):
+        assert "safe" not in path.parts, "Verification must never read source input"
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_bytes)
+    monkeypatch.setattr(Path, "read_text", guarded_text)
+    code = ev.main(
+        ["--verify-lock", "--split", "holdout", "--holdout-dir", str(private), *version_args]
+    )
+    assert code == (0 if valid else 2)
+    capture = capsys.readouterr()
+    output = capture.out + capture.err
+    assert ("PASS" if valid else "FAIL") in output
+    for secret in (str(tmp_path), "감귤", "SYNTHETIC PRIVATE", *(c["id"] for c in cases)):
+        assert secret not in output
+    if valid:
+        assert all(fmt in output for fmt in ("text", "image", "long_image", "pdf"))
+    after = {
+        str(p.relative_to(tmp_path)): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()
+    }
+    assert before == after
+    assert not any(p.name.endswith(".run-once.json") for p in tmp_path.rglob("*"))
+    assert not (private / "safe").exists()
+
+
+@pytest.mark.parametrize("damage", ["gold", "manifest", "private-lock", "repo-lock"])
+def test_AC_SRC_5_6_DEV_194_holdout_integrity_fails_before_provider_and_attempt(
+    tmp_path, monkeypatch, capsys, damage
+):
+    private, gp, mp, lp, rp, cases = invented_holdout_fixture(tmp_path, monkeypatch)
+    target = {"gold": gp, "manifest": mp, "private-lock": lp, "repo-lock": rp}[damage]
+    target.write_bytes(
+        target.read_bytes() + (b"\n" if damage in {"gold", "manifest"} else b"broken")
+    )
+    monkeypatch.setattr(
+        ev,
+        "evaluate_source",
+        lambda *a, **kw: pytest.fail("No provider call before lock verification"),
+    )
+    monkeypatch.setattr(
+        ev, "claim_holdout", lambda *a, **kw: pytest.fail("No marker before lock verification")
+    )
+    monkeypatch.setattr(
+        ai, "OpenAI", lambda **kw: pytest.fail("No client before lock verification")
+    )
+    out = tmp_path / "must-not-exist"
+    assert (
+        ev.main(
+            [
+                "--split",
+                "holdout",
+                "--holdout-dir",
+                str(private),
+                "--out",
+                str(out),
+                "--provider",
+                "openrouter",
+                "--yes",
+                "--i-understand-holdout-runs-once",
+            ]
+        )
+        == 2
+    )
+    output = capsys.readouterr()
+    for secret in (str(private), "SYNTHETIC PRIVATE", *(c["id"] for c in cases)):
+        assert secret not in output.out + output.err
+    assert not out.exists()
+
+
+def test_AC_SRC_5_DEV_194_markers_are_per_gold_version_and_retain_original(tmp_path):
+    v1, v2 = tmp_path / "final-gold-v1.1.json", tmp_path / "final-gold-v2.json"
+    for gp in (v1, v2):
+        gp.write_text("[]")
+    first_v1 = ev.claim_holdout(v1, True)
+    original_v1 = first_v1.read_bytes()
+    with pytest.raises(ValueError):
+        ev.claim_holdout(v2, False)
+    assert not v2.with_name(v2.name + ".run-once.json").exists()
+    first_v2 = ev.claim_holdout(v2, True)
+    assert first_v2.name == "final-gold-v2.json.run-once.json"
+    original_v2 = first_v2.read_bytes()
+    with pytest.raises(FileExistsError):
+        ev.claim_holdout(v2, True)
+    for reason in (None, "", " \t\n "):
+        with pytest.raises(ValueError):
+            ev.claim_holdout(v2, True, force=True, rerun_reason=reason)
+    forced = ev.claim_holdout(v2, True, force=True, rerun_reason="SYNTHETIC PRIVATE RERUN REASON")
+    assert forced != first_v2
+    assert json.loads(forced.read_text())["attempt"] == 2
+    assert first_v1.read_bytes() == original_v1
+    assert first_v2.read_bytes() == original_v2
+
+
+def test_AC_SRC_2_4_DEV_194_v2_pdf_uses_development_parser_and_ocr_path(tmp_path, monkeypatch):
+    import base64
+
+    from app.ai.source_ocr import Transcription
+    from app.source_analysis import worker
+
+    private, _, _, _, _, cases = invented_holdout_fixture(tmp_path, monkeypatch)
+    rows = ev.dataset("holdout", "all", tmp_path / "unused-dev", private)
+    assert {(r["id"], r["format"]) for r in rows} == {(c["id"], c["format"]) for c in cases}
+    pdf = next(r for r in rows if r["format"] == "pdf")
+    assert pdf["mime"] == "application/pdf" and pdf["suffix"] == ".pdf"
+    assert pdf["data"] == "감귤 3kg 한 상자입니다.".encode()
+    parsed, ocr = [], []
+
+    def parser(*args):
+        parsed.append(args)
+        return [
+            {
+                "spans": [{"id": "local", "text": "합성 농가 안내"}],
+                "image": base64.b64encode(b"invented pdf image").decode(),
+            }
+        ]
+
+    monkeypatch.setattr(ev, "parse", parser)
+    monkeypatch.setattr(worker, "crops", lambda _: ["invented-pdf-crop"])
+
+    def transcribe(crop):
+        ocr.append(crop)
+        return Transcription(["감귤 3kg 한 상자입니다."], {}, "synthetic")
+
+    monkeypatch.setattr(worker, "transcribe", transcribe)
+    monkeypatch.setattr(
+        ai,
+        "extract",
+        lambda *a, **kw: ai.ExtractionResponse(
+            Extraction(candidates=[], photo_requests=[]), {}, "synthetic"
+        ),
+    )
+    monkeypatch.setattr(ai, "OpenAI", lambda **kw: pytest.fail("No live model in PDF regression"))
+    for source in (pdf, {**pdf, "id": "invented-development-pdf"}):
+        record, _, safe, _ = ev.evaluate_source(
+            source, "openrouter", "synthetic", ev.Calls("mock", 3)
+        )
+        assert record["status"] == "EMPTY"
+        assert "감귤 3kg 한 상자입니다." in safe
+    assert len(parsed) == 2 and all(pdf["data"] in args for args in parsed)
+    assert ocr == ["invented-pdf-crop", "invented-pdf-crop"]
+
+
+def test_AC_SRC_2_5_6_DEV_194_runner_default_v2_reports_only_aggregates(
+    tmp_path, monkeypatch, capsys
+):
+    from app.source_analysis import preprocess
+
+    private, gp, _, _, _, cases = invented_holdout_fixture(tmp_path, monkeypatch)
+    v1 = private / "final-gold-v1.1.json"
+    v1.write_text("[]")
+    old_marker = ev.claim_holdout(v1, True)
+    original = old_marker.read_bytes()
+    ev.claim_holdout(gp, True)
+    original_v2 = gp.with_name(gp.name + ".run-once.json").read_bytes()
+    cfg = ev.get_settings()
+    monkeypatch.setattr(cfg, "source_evaluation", cfg.source_evaluation)
+    monkeypatch.setattr(cfg, "source_evaluation_budget_usd", cfg.source_evaluation_budget_usd)
+    monkeypatch.setattr(ev, "estimate", lambda *a, **kw: {})
+    monkeypatch.setattr(preprocess, "_ocr_engine", lambda: None)
+    real_calls = ev.Calls
+    monkeypatch.setattr(ev, "Calls", lambda provider, max_usd: real_calls("mock", max_usd))
+    monkeypatch.setattr(
+        ai, "OpenAI", lambda **kw: pytest.fail("No live provider in runner regression")
+    )
+    evaluated = []
+
+    def synthetic_evaluate(r, *args):
+        evaluated.append(r["id"])
+        record = {
+            "id": r["id"],
+            "format": r["format"],
+            "status": "EVALUATED",
+            "modules": [{"module": "composition", "texts": ["감귤 3kg 한 상자입니다."]}],
+        }
+        metric = {
+            "id": r["id"],
+            "format": r["format"],
+            "status": "EVALUATED",
+            "preprocessMs": 1,
+            "stage1Ms": 2,
+            "stage2Ms": 3,
+            "endToEndMs": 6,
+            "costUsd": 0,
+            "costKnown": True,
+            "calls": 0,
+        }
+        return record, metric, "감귤 3kg 한 상자입니다.", {}
+
+    monkeypatch.setattr(ev, "evaluate_source", synthetic_evaluate)
+    out = tmp_path / "invented-private-run"
+    args = [
+        "--split",
+        "holdout",
+        "--provider",
+        "openrouter",
+        "--yes",
+        "--i-understand-holdout-runs-once",
+        "--holdout-dir",
+        str(private),
+        "--out",
+        str(out),
+    ]
+    assert (
+        ev.main([*args, "--force-rerun", "--rerun-reason", "SYNTHETIC PRIVATE RERUN REASON"]) == 0
+    )
+    assert set(evaluated) == {c["id"] for c in cases}
+    assert old_marker.read_bytes() == original
+    assert gp.with_name(gp.name + ".run-once.json").read_bytes() == original_v2
+    outputs = "".join(
+        (out / name).read_text() for name in ("report.json", "report.md", "score.json", "score.md")
+    )
+    capture = capsys.readouterr()
+    outputs += capture.out + capture.err
+    for secret in ("SYNTHETIC PRIVATE", "감귤", str(private), str(out), *(c["id"] for c in cases)):
+        assert secret not in outputs
+    report = json.loads((out / "report.json").read_text())
+    assert report["quality"]["byFormat"]["pdf"]["sources"] == 1
+    assert report["quality"]["overall"]["factRecall"]["hit"] == 4
+    assert "endToEndMs" in outputs and "cost" in outputs.lower()
+    evaluated.clear()
+    assert ev.main([*args[:-1], str(tmp_path / "refused-second-run")]) == 2
+    assert evaluated == []
+
+
+@pytest.mark.parametrize(
+    "fmt,wrong_suffix",
+    [("text", ".pdf"), ("image", ".txt"), ("long_image", ".txt"), ("pdf", ".txt")],
+)
+def test_AC_SRC_5_6_DEV_194_safe_extension_must_match_pinned_format(
+    tmp_path, monkeypatch, capsys, fmt, wrong_suffix
+):
+    private, _, _, _, _, cases = invented_holdout_fixture(tmp_path, monkeypatch)
+    case = next(c for c in cases if c["format"] == fmt)
+    correct = next((private / "safe").glob(case["id"] + ".*"))
+    correct.rename(correct.with_suffix(wrong_suffix))
+    monkeypatch.setattr(
+        ev,
+        "evaluate_source",
+        lambda *a, **kw: pytest.fail("Mismatched safe format must block provider"),
+    )
+    monkeypatch.setattr(
+        ai, "OpenAI", lambda **kw: pytest.fail("Mismatched safe format must block model client")
+    )
+    out = tmp_path / "mismatched-run"
+    assert (
+        ev.main(
+            [
+                "--split",
+                "holdout",
+                "--holdout-dir",
+                str(private),
+                "--out",
+                str(out),
+                "--provider",
+                "openrouter",
+                "--yes",
+                "--i-understand-holdout-runs-once",
+            ]
+        )
+        == 2
+    )
+    output = capsys.readouterr()
+    assert case["id"] not in output.out + output.err
+    assert str(private) not in output.out + output.err
+    assert not out.exists()
+
+
+def test_AC_SRC_6_DEV_194_v2_requires_explicit_holdout_dir(capsys):
+    # The spent v1.1 folder must never be used as a silent default for v2.
+    assert ev.main(["--split", "holdout", "--holdout-version", "v2", "--verify-lock"]) == 2
+    assert capsys.readouterr().out.strip() == "FAIL"
