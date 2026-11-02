@@ -721,3 +721,152 @@ export DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmc
 - 11/02 의도한 커밋(실행하지 않음): `feat(source): AC-SRC-2/5/10 페이지 묶음과 추출 병렬화 (DEV-191)`; `test(source): AC-SRC-2/3/5/10 다쪽 근거·병렬 추출·비용 회귀 추가 (DEV-191)`; `docs(source): AC-SRC-2/5/10 추출 청크 계약과 검증 기록 (DEV-191)`.
 - 11/02 HEAD `c692c8d` 유지. 커밋·push·PR·외부/live 호출0. Agent 시간 / Tokens는 계측 미제공(추정 미기재). 남은 검증은 sandbox 밖에서 위 지정 pytest4파일 재실행이며 전체 통과 전까지 완료 선언/체크박스 변경은 하지 않는다.
 - 11/02 owner 실측(합성 개발 23건, openrouter gemini-3-flash-preview): 20쪽 PDF `22-pdf-25-pages` 처리 시간 — 병렬화 전(DEV-190) 101.6초, OCR 병렬만 59.0초, 쪽 묶음+추출 병렬(동시성 4) **28.1초**(동시성 1에서는 79.1초). 추출 호출 20→5회, 23건 비용 $0.130→$0.103. 점수는 동시성 1·4 모두 사실 27/30·중요 17/20으로 같다. 전체 pytest 1262 passed(나머지 2건은 기존 간헐 테스트로 단독 재실행 31/31 통과).
+
+## DEV-192 간헐 실패 테스트 안정화 — `test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback[delete_source]`
+
+- 이슈: https://linear.app/sswp6/issue/DEV-192 · 같은 이슈의 다른 테스트는 `server/tasks.md`(AC-11-3), `apps/consumer/tasks.md`(AC-34-7, AC-10-6) DEV-192 섹션.
+- 범위: `server/tests/test_source_refine.py`만. 제품 코드는 바꾸지 않는다(테스트 쪽 원인).
+- 원인: `tests/test_source_analysis.py`의 `start()`가 대표 사진(`original_photo=True`)을 묶음에 붙이므로 `ready()` 뒤 묶음 자료는 글 자료와 사진 둘이다. `test_source_refine.py:1351`의 `original_id = db.scalar(select(Asset.id).where(Asset.batch_id == ...))`는 순서 없는 조회라 PostgreSQL이 돌려주는 첫 행(힙/인덱스 TID 순서)에 따라 사진 id를 집을 수 있다. 그러면 정리 후보를 가진 글 자료가 `{original_id, source["id"]}`에 없어 1390줄 `assert owner_asset.id in {...}`가 실패한다. 단독 실행에서는 글 자료가 먼저 나오고, 전체 실행에서 앞 테스트의 삭제로 생긴 빈 칸에 행이 다시 쓰이면 순서가 바뀐다.
+- 수정: 조회에 `Asset.original_photo.is_(False)`를 더해 글 자료 하나만 고른다. assertion은 그대로다.
+- 결정적 재현: 원래 테스트에서 글 자료를 non-HOT update 두 번으로 사진보다 뒤 TID로 옮기면 CI와 같은 `assert 'src_…' in {…}`로 **1/1 실패**. 같은 조작을 한 수정본은 **통과**. (임시 probe 파일은 지웠다)
+- 반복: 수정 전 단독 0/20, 파일 일부(-k) 0/10 실패(로컬에서 자연 재현 안 됨). 수정 후 단독 **0/20**, 파일 전체 **0/3**, 전체 pytest **0/3 실패(각 1264 passed)**.
+
+## DEV-193 추출 출력 한도·채점 측정·근거 페이지별 후보 교체
+
+- 이슈: DEV-193 (사용자 제공 왜/완료 조건을 작업 지시서로 사용)
+- 브랜치: `jinumeral/dev-193-extract-limits-scorer-overlap`, 기준 `origin/main` 94d90b0
+- 기능·인수 조건: FEAT-03/04/07 · AC-SRC-2/3/5/6/10
+- 상태: 진행 중
+
+### 목표
+고밀도 개발 자료의 stage-1 출력 잘림을 완화하고, 숫자 근거 채점 오탐과 PARTIAL 항목의 후보 교체 범위를 수정한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/core/config.py`, `server/.env.example`
+- `server/app/source_analysis/final_score.py`, `server/app/source_analysis/final_eval.py`, `server/app/source_analysis/worker.py`
+- `server/tests/test_source_integration.py` (기존4096 계약을 명시적 설정으로 보존)
+- `server/tests/test_final_score.py`, `server/tests/test_final_eval.py`, `server/tests/test_source_gemini_ocr.py`, `server/tests/test_source_analysis.py`, `server/tests/test_source_refine.py`
+- `docs/spec/source-analysis.md`, `server/app/source_analysis/spec.md`, 이 파일의 DEV-193 끝 섹션
+- `docs/wiki/Source-Analysis.md` 끝 영문 문단
+
+### 결정 사항
+- 11/02 stage-1의 4000자 입력, 값/인용 각3000자·최대100후보 스키마와 출력4096토큰의 불일치가 원인이다. 기본 `SOURCE_MAX_OUTPUT_TOKENS`를 기존 설정 허용 상한8000으로 올린다. 공유 stage-2도 같은 한도를 쓰며 실제 예약은 기존 공용 estimate_micros가 설정값을 그대로 반영한다. 평가 계획 추정도 출력 설정값으로 갱신한다. 인용/완전한 문장/후보 수를 줄이지 않는다.
+- 11/02 출력 잘림 뒤 재분할·재전송도 실패 호출의 자동 재시도이므로 금지한다. DEV-190/191의 전송 전 예약·정산·PARTIAL·명시적 재시도 계약을 보존한다.
+- 11/02 숫자 토큰만 줄바꿈/끼어든 OCR 열 레이블로 분리된 단위를 복구하고, 마침표+공백 뒤 숫자를 소수로 합치지 않는다. 다른 줄의 문장 전체를 합치지 않는다. 단위·범위 불일치 검사는 유지한다.
+- 11/02 평가 근거 텍스트는 로컬 safe text와 제품이 실제 사용한 OCR 전사의 합집합이다. 측정 변경 전후 점수는 직접 비교할 수 없음을 보고서와 spec에 명시한다.
+- 11/02 같은 source/revision/sanitization/target 범위의 후보별 근거 페이지 전체가 새 항목의 성공 페이지에 포함될 때만 교체한다. 근거 없는 legacy 후보는 기존 항목 전체 scope 조건으로만 교체한다. 확정 편집·동일 후보 ID 유지, outdated 후보를 가진 항목의 coverage 제외는 유지한다.
+- 11/02 신규 의존성·커밋·push·PR·외부/live/유료 호출 없음. 개발 자료만 읽으며 개발 재측정 명령은 출력만 한다.
+
+### 작업
+- [ ] 출력 한도/예약/평가 추정 정합 및 고밀도 합성 회귀
+- [ ] 줄바꿈 숫자/마침표/실제 소수/로컬+OCR 합집합 양방향 회귀
+- [ ] 파일 및 legacy 페이지 후보 교체·재사용 회귀, 기존 DEV-190 검증
+- [ ] 제품·구현 spec과 wiki 영문1문단 갱신
+- [ ] 지정 Ruff/pytest5파일/typecheck 실행 및 PREPARE sandbox 실패 별도 보고
+
+### 기록
+- 11/02 HEAD=origin/main=94d90b0, clean worktree 확인. DEV-190/191 문서와 구현을 읽고 코드 수정 전에 범위·결정을 기록했다.
+
+- 11/02 독립 코드 리뷰에서 같은 페이지의 서로 다른 텍스트 청크 간 후보 삭제 위험을 확인했다. 전체 페이지 OCR 항목만 페이지 기준으로 교체하며, 비-vision 텍스트 항목은 후보의 근거 span까지 새 성공 scope에 포함되어야 교체한다. 기존 텍스트 추출/재사용 범위를 보존하는 보완이며 사양 기반 회귀를 추가한다.
+
+- 11/02 사양 기반 격리 test-writer가 구현/diff 없이 회귀37건(parameter 포함)을 추가했다. 기존3개 테스트 파일의 HEAD 전체 바이트 prefix가 보존되어 기존 assertion 삭제/수정0건이다. 범위에 추가한 integration 테스트2개는 기존4096 설정을 명시해 원래 assertion과 고정 비용 경계를 보존했다.
+- 11/02 fail-first: git HEAD의 config/scorer/worker/eval을 Python 프로세스 안에만 로드하고 새33건 실행 → **14 failed / 19 passed / 428 deselected (9.27s)**. 실제 default/계획·끼어든 레이블·마침표·로컬+OCR·F1→F2 PARTIAL 회귀가 실패했다. 파일 변경 없이 로그 `/private/tmp/dev193-red.log`에 보존했다.
+- 11/02 독립 리뷰에서 발견한 텍스트 청크 경계 회귀4건은 페이지 기준을 모든 자료에 강제로 적용하는 런타임 mutation에서 **4 failed / 88 deselected (2.40s)**, 실제 수정에서는 **4 passed / 88 deselected (2.06s)**. 로그 `/private/tmp/dev193-red-span.log`. 독립 재검토는 해당 문제 해소·추가 구체적 결함0건(코드 검토, 실행 검증과 구분).
+- 11/02 targeted green: 기본33건 **33 passed / 428 deselected (6.97s)** 및 위 추가4건 통과. `test_source_integration.py -k 'openrouter_contract_and_cost or concurrent_budget_and_unknown_cost_retained'` → **6 passed / 21 deselected (3.84s)**. 실제 제공자 호출 대신 fake client/callback과 개발 전용 DB를 사용했다.
+
+### 사람이 실행할 개발 실호출 명령 (이번 세션 실행하지 않음)
+
+현재 CLI에 ID 필터가 없으므로 두 ID는 동일 `evaluate_source`/`Calls`로만 실행하는 probe다. private 결과 배열은 record/metric/safe text/stored 순서이며 gold 점수 보고서는 전체 개발 명령으로 생성한다. 출력 폴더는 새로 만들어 이전 실행을 덮어쓰지 않는다.
+
+```sh
+cd server
+export DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmclub_dev193
+export SOURCE_MAX_OUTPUT_TOKENS=8000
+uv run python - <<'PY'
+from pathlib import Path
+from app.core.config import get_settings
+from app.source_analysis import final_eval as ev
+cfg = get_settings()
+cfg.source_evaluation = True
+cfg.source_evaluation_budget_usd = min(3, cfg.source_budget_usd)
+dev = Path('../../source-dev-i3-private').resolve()
+ids = {'h3-text-03', 'h3-long_image-01'}
+rows = [r for r in ev.dataset('development', 'public', dev, dev) if r['id'] in ids]
+assert {r['id'] for r in rows} == ids
+out = dev / 'dev193-two-dev'
+out.mkdir(mode=0o700, exist_ok=False)
+calls = ev.Calls('openrouter', 3)
+for row in rows:
+    result = ev.evaluate_source(row, 'openrouter', 'google/gemini-3-flash-preview', calls)
+    ev.write_json(out / (row['id'] + '.result.json'), result)
+    print(result[1])
+    if result[1]['errorCode'] in {'BUDGET_EXCEEDED', 'PROVIDER_AUTH'}:
+        break
+PY
+
+uv run python -m app.source_analysis.final_eval \
+  --split development --subset all --provider openrouter --max-usd 3 \
+  --dev-dir ../../source-dev-i3-private \
+  --out ../../source-dev-i3-private/dev193-live-dev --yes
+```
+
+의도한 커밋(실행하지 않음):
+- `fix(source): AC-SRC-2/10 추출 출력 예산 확대 (DEV-193)`
+- `fix(eval): AC-SRC-2/3 숫자 근거 채점과 OCR 합집합 수정 (DEV-193)`
+- `fix(source): AC-SRC-2/5 근거 페이지별 후보 교체 (DEV-193)`
+
+### 최종 검증 기록 (2026-11-02)
+
+- 지정 명령: server에서 `UV_CACHE_DIR=/private/tmp/farmclub-dev193-uv-cache DATABASE_URL=postgresql+psycopg://farmclub:farmclub@127.0.0.1:55484/farmclub_dev193` 환경의 `uv run ruff check . && uv run pytest tests/test_final_score.py tests/test_final_eval.py tests/test_source_gemini_ocr.py tests/test_source_analysis.py tests/test_source_refine.py` → **Ruff All checks passed / 종료0; pytest 759 passed / 14 failed (213.66s) / 종료1**. 새 회귀37건은 모두 통과했다. 로그 `/private/tmp/dev193-final-pytest.log`.
+- PREPARE sandbox 실패(별도): source_gemini_ocr8건, source_analysis6건. 변경 전 HEAD의 config/scorer/worker/eval을 프로세스 안에만 로드하고 실패14 selector를 실행해 **동일14 failed (6.46s)**를 확인했다. `prepare(b'Synthetic storage text', 'text/plain')`도 `psutil.Process.children(recursive=True)` → `PermissionError: sysctl() malloc 1/3`로 prepare/cleanup에서 실패했다. baseline 로그 `/private/tmp/dev193-prepare-baseline.log`, 직접 재현 `/private/tmp/dev193-prepare-repro.log`. 테스트 삭제·약화·sandbox 우회 없이 전체 검증은 sandbox 밖 재실행 전까지 **미완료**, 체크박스/상태 유지.
+- `npm run typecheck` → **5 workspace 통과 / 종료0**. `.env.example`과 실제 로딩 설정의 출력 기본8000 확인. 추가 의존성0, 신규 pytest 묶음0(기존 Makefile 대상 유지).
+- 문서/범위 감사: tasks/wiki 및 기존3개 테스트 파일의 HEAD 전체 바이트 prefix 보존. `git diff --check` 통과. 이번 `git diff HEAD`13경로 모두 DEV-193 허용 범위다. `origin/main...HEAD`0경로, `main...HEAD`682경로는 로컬 main 차이이므로 이번 작업과 구분했다.
+- HEAD `94d90b0a243152d8ad1839b20bb78541ff8aa7a0` 및 작업 브랜치 유지. 커밋·push·PR·외부/live/유료 호출0. 출력8k에서 실제 개발 자료 완주/품질은 미측정이며 위 명령을 사람이 별도로 실행한다. 측정 변경 전후 점수는 직접 비교하지 않는다.
+- Agent 시간 / Tokens: 계측 미제공(추정 미기재). 대표 프롬프트: 출력 예산·숫자 측정·후보 근거 쪽 교체, no replay 및 개발 데이터만 검증. AI 오류 사례: 독립 리뷰가 텍스트의 같은 쪽/다른 span 경계를 놓친 교체 로직을 발견하여4건 회귀와 함께 수정했다.
+
+
+### DEV-193 pre-commit 지적 반영 결정 (2026-11-02)
+
+- 범위: 기존 DEV-193 허용 경로 안에서만 수정한다. 기존 미커밋 변경 보존, tasks append-only, commit/push/PR/live 호출0, 금지된 holdout-v2 경로 접근0을 유지한다.
+- 예약 회귀는 `source_max_output_tokens=4096`을 명시해 기존12000 micros 경계와 run 모델별 허용/거절·unknown-model 거절 assertion을 보존한다. 공유 기본8000 계약과는 별도인 고정 경계 테스트다.
+- 위의 슬래시 레이블 복구 결정은 폐기한다. 어떤 슬래시 줄도 건너뛰지 않는다. 기존 레이블 양성 사례는 무근거 결합을 거절하는 음성 회귀로 바꿔 검증하고 `10\nm/s\n kg`, `약 5\nkg/m\n도`가 각각10kg·5도를 지지하지 못함을 양방향 확인한다. `2011\n년부터`는 HEAD에서도 통과한 기존 동작의 회귀 보장이며 신규 수정으로 주장하지 않는다.
+- 마침표 뒤 숫자 경계 보호는 같은 줄의 space/tab에만 적용한다. OCR 줄바꿈 소수 `3.\n5kg`는 HEAD와 동일하게3.5kg로 보존한다. 측정 버전은 최초 버전 `dev193-number-evidence-v1`이다.
+- 제품 spec의 실제 사용한 OCR/실패 쪽 제외 계약에 따라 OCR 합집합에서 `chunksFailed[*].pages` 전체를 제외한다. 한 쪽의 일부 청크만 실패해도 그 쪽 OCR 전체를 제외하며, 여러 쪽 청크는 그 모든 쪽을 제외한다. 정상 반환과 예외 반환에 같은 규칙을 적용한다. 독립 로컬 safe text는 실패 쪽을 포함해 유지하고, 성공 쪽 OCR·로컬/OCR 계층 경계 보호는 보존한다. OCR 단계에서 실패해 추출 진단이 없는 경우는 기존 살아남은 전사 보존 계약을 유지한다。
+- 검증: 요청한 전체 integration 파일을 포함한 Ruff/pytest4파일과 workspace typecheck를 실행한다. 기존 sandbox PREPARE 실패는 별도 집계하며 assertion 약화·skip·우회하지 않는다. 기존 양성 테스트 수정은 새 제외 정책을 명시하는 정확한 음성 assertion으로 대체하고, 구현 비공개 test-writer의 사양 기반 테스트 및 red/green으로 검증한다.
+
+
+### DEV-193 pre-commit 지적 반영 검증 결과 (2026-11-02)
+
+- 수정1: reservation 회귀의 출력 상한4096 명시. 기존12000 micros와 Flash 거절/Lite 허용/미지원 모델 거절 assertion 모두 유지. `uv run pytest tests/test_source_integration.py -q` 전체 실행 → **19 passed / 8 failed (9.39s), 종료1**. 지적된 모델별 예약 테스트 통과. 로그 `/private/tmp/dev193-review-integration.log`.
+- 수정2/3/4: 슬래시 줄 건너뛰기를 제거하고 두 요청 반례 및 기존 레이블 사례를 양방향 unsupported/score gate 음성으로 검증. 같은 줄 마침표+space/tab만 분리, 문장 내 OCR 줄바꿈 소수3.5kg 보존. HEAD scorer를 프로세스 안에 로드해 줄바꿈 연도/소수/두 슬래시 반례가 이미 올바르게 tokenized되었음을 직접 확인했다. 최초 측정 버전은 `dev193-number-evidence-v1`. 제품/구현 spec·wiki·코드 주석에 기존 동작의 회귀 보장으로 명시.
+- 수정5: 정상/예외 경로에서 `chunksFailed[*].pages`의 OCR 전체 제외, 로컬 safe text 보존. 새 사양 기반7건은 단일 쪽·다쪽 묶음, 전체 실패·부분 실패·stage-2 실패·같은 쪽 성공/실패 청크 혼재 및 별도 OCR 실패 쪽을 검증한다.
+- test-writer는 구현/diff 없이 사양과 테스트 호출법만 읽고 작성했다. RED: 검토 당시 numeric_text와 무필터 OCR 합집합만 메모리에 복원해35 selector 실행 → **14 failed / 21 passed / 351 deselected (7.53s)**. 실제 파일 변경 없음. 새 split-page fixture는 인용/청크 크기는 보존하고 후보 값만 짧은 원문 구절로 만들어 mock 정리3000자 한도와 분리했다. 모든 safety assertion은 유지했다. GREEN: 해당 selector 전부 아래 전체 실행에서 통과. 로그 `/private/tmp/dev193-review-red.log`.
+- 요청 명령: server에서 기존 로컬 branch DB와 `UV_CACHE_DIR=/private/tmp/farmclub-dev193-uv-cache`를 사용해 `uv run ruff check . && uv run pytest tests/test_final_score.py tests/test_final_eval.py tests/test_source_integration.py tests/test_source_gemini_ocr.py` 실행 → **Ruff All checks passed / 종료0; pytest 489 passed / 16 failed (119.78s) / 종료1**. final_score/final_eval 전체와 지적된 예약 테스트 통과. 실패는 아래 PREPARE16건이며 전체 통과로 보고하지 않는다. 로그 `/private/tmp/dev193-review-final-pytest.log`.
+- `npm run typecheck` → **5 workspace 통과 / 종료0**. 로그 `/private/tmp/dev193-review-typecheck.log`. `git diff --check` 통과. 기존13개 미커밋 변경 경로와 허용 범위를 유지했고 tasks 기존 바이트 전체 prefix 보존(append-only).
+- PREPARE 실패 분리: 위 실패16 selector를 커밋된 HEAD worker를 부모 프로세스에만 로드해 재실행 → **동일16 failed (7.49s)**. standalone-worker 테스트의 자식은 현재 checkout worker를 실행하므로 그 한 건은 부모만 baseline이며, 모든16건의 DB 진단에서 FAILED PREPARE를 확인했다. 부모에서 관찰된 예외 및 직접 합성 텍스트 prepare는 `psutil.Process.children(recursive=True)`의 `PermissionError: sysctl() malloc 1/3`다. 로그 `/private/tmp/dev193-review-prepare-baseline.log`, 직접 재현 `/private/tmp/dev193-review-prepare-repro.log`. sandbox 우회/테스트 skip/약화0. 환경 밖 재실행 전 전체 검증 미완료, 기존 상태·체크박스 유지.
+
+실패 목록(모두 PREPARE, integration8 + OCR8):
+- `tests/test_source_integration.py::test_AC_SRC_7_apply_preserves_sales_and_is_idempotent`
+- `tests/test_source_integration.py::test_AC_SRC_7_stale_review_and_cross_tenant_rejected`
+- `tests/test_source_integration.py::test_AC_SRC_9_pre_publication_draft_requires_resave`
+- `tests/test_source_integration.py::test_AC_SRC_6_public_photo_is_independent_and_requires_preparation`
+- `tests/test_source_integration.py::test_AC_SRC_5_identical_reanalysis_reuses_candidates`
+- `tests/test_source_integration.py::test_AC_SRC_5_changed_prompt_does_not_reuse_previous_success`
+- `tests/test_source_integration.py::test_AC_SRC_1_browser_form_normalizes_newlines`
+- `tests/test_source_integration.py::test_AC_SRC_5_standalone_worker_registers_related_models`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_4_gemini_reads_only_approved_image_and_persists_evidence`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_5_10_ocr_guards_and_mid_pipeline_fencing[unapproved]`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_5_10_ocr_guards_and_mid_pipeline_fencing[budget]`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_5_10_ocr_guards_and_mid_pipeline_fencing[uncertain]`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_5_10_ocr_guards_and_mid_pipeline_fencing[cancel]`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_5_10_ocr_guards_and_mid_pipeline_fencing[privacy]`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_10_later_crop_failure_retains_each_call_accounting`
+- `tests/test_source_gemini_ocr.py::test_AC_SRC_10_parallel_crop_failure_settles_every_sent_call`
+
+갱신한 의도 커밋(실행하지 않음; 위 기존 계획을 갱신):
+- `fix(source): AC-SRC-2/10 expand extraction output budget (DEV-193)`
+- `fix(eval): AC-SRC-2/3/6 preserve numeric boundaries and successful OCR evidence (DEV-193)`
+- `fix(source): AC-SRC-2/5 preserve candidates outside succeeded evidence scope (DEV-193)`
+
+- 전체 항목별 결과와 실패 목록: `/private/tmp/dev193-review-verification.md`. HEAD `94d90b0a243152d8ad1839b20bb78541ff8aa7a0` 및 브랜치 유지. commit/push/PR/live 호출0, 금지 경로 접근0. Agent 시간 / Tokens 계측 미제공(추정 미기재). 남은 작업은 sandbox 밖에서 지정4파일 전체를 재실행하는 것이며, 새 실호출 품질 측정은 수행하지 않았다.
+- 11/02 owner 개발 실측(47건, openrouter gemini-3-flash-preview, 출력 한도 8000, 측정 dev193-number-evidence-v1, $0.524): 사실 201/354·중요 96/154·오배치 34/354·unsupported 0·금지 1. 같은 47건의 DEV-190 실측은 189/354·94/154·unsupported 4였으나 측정 방식이 바뀌어 직접 비교할 수 없다. 출력 한도 잘림 대상이던 h3-text-03은 EVALUATED(17초)로 회복했고, 금지 1건(gold_other)이 이 소스에서 새로 나왔다. h3-long_image-01은 이번엔 출력 잘림이 아니라 REQUEST_UNCERTAIN(일시 실패)이었다. PDF 2건은 OCR 쪽 일부 실패로 PARTIAL이다.

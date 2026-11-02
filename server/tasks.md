@@ -2131,3 +2131,12 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 
 ### DEV-179 머지 전 스캔 반영 (Claude, 2026-11-02)
 - 당도 정규식을 `BRIX` 상수 하나로 합쳐 `factual_conflict`와 `normalize_fact_value`가 같이 쓴다(°Brix 회귀 테스트 추가). review `conflicts.candidateIds`에서 historical 후보를 뺐다.
+
+## DEV-192 간헐 실패 테스트 안정화 — `test_AC_11_3_partial_then_consumer_final_refund_preserves_order_until_final`
+
+- 이슈: https://linear.app/sswp6/issue/DEV-192 · 같은 이슈의 다른 테스트는 `server/app/source_analysis/tasks.md`(AC-SRC-5/11), `apps/consumer/tasks.md`(AC-34-7, AC-10-6) DEV-192 섹션.
+- 범위: `server/tests/test_manager_recovery.py`만. 제품 코드는 바꾸지 않는다. 운영에서는 두 환불 시각이 달라 순서가 정해진다.
+- 원인: 테스트는 `FIXED_NOW`(2026-10-07T10:00+09:00)로 시계를 고정해 운영자 부분 환불과 소비자 취소 환불(`app/orders/service.py:407` `created_at=now()`)의 `created_at`이 같다. `refund_rows()`(`tests/test_manager_recovery.py:26`)는 `order_by(Refund.created_at)`만 써서 동점 순서가 정해지지 않고, 행의 물리 위치에 따라 `[CONSUMER, MANAGER]`로 나와 68줄 비교가 실패했다(main CI run 41423621400과 같은 메시지).
+- 수정: 소비자 취소 직전에 `monkeypatch`로 `fixed_now`를 1초 뒤(10:00:01)로 옮겨 실제처럼 뒤 시각에 환불한다. 순서 assertion `[(MANAGER, 10000), (CONSUMER, total - 10000)]`은 그대로이고, 이제 시간 순서로 의미가 있다.
+- 결정적 재현: 원래 테스트에서 MANAGER 환불 행을 지웠다 다시 넣어(같은 값, 뒤 TID) 순서를 바꾸면 CI와 같은 `assert [('CONSUMER',...AGER', 10000)] == [('MANAGER', ...UMER', 48000)]`로 **1/1 실패**. 같은 조작을 한 수정본은 **통과**. 두 행의 `created_at`이 같다는 것도 확인했다. (임시 probe 파일은 지웠다)
+- 반복: 수정 전 단독 0/20, 파일 일부(-k) 0/10 실패(로컬 자연 재현 안 됨, CI 전체 실행에서 실패). 수정 후 단독 **0/20**, 파일 전체 **0/3**, 전체 pytest **0/3 실패(각 1264 passed)**.

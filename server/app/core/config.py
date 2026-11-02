@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     source_budget_usd: float = 5.0
     source_evaluation_budget_usd: float = 1.0
     source_evaluation: bool = False
-    source_max_output_tokens: int = 4096
+    source_max_output_tokens: int = 8000
     openai_api_key: str = ""
     source_storage: str = "local"
     source_storage_dir: str = ".artifacts/private-sources"

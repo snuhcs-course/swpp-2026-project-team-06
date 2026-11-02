@@ -1021,3 +1021,88 @@ def test_AC_SRC_2_6_t23_rerun_keeps_first_result_and_aggregate_totals():
     assert comparison["rerun"] == {k: overall[k] for k in comparison["rerun"]}
     assert rerun["retirement"]["status"] == "RETIRED_TO_DEV"
     assert rerun["retirement"]["developmentTotal"] == 47
+
+
+def test_AC_SRC_3_existing_year_line_wrap_is_supported_in_both_directions():
+    # Existing behavior before DEV-193: an adjacent wrapped unit remains supported.
+    broken = "2011\n년부터"
+    intact = "2011년부터"
+    assert sensitive_tokens(broken)["number"] == {"2011년"}
+    assert sensitive_tokens(intact)["number"] == {"2011년"}
+    for source, output in [(broken, intact), (intact, broken)]:
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(source)
+        )["number"] == set()
+        report = result(g=gold(text=intact, tokens=["2011"]), r=run(output), safe=source)
+        assert report["overall"]["unsupportedTokens"] == 0
+
+
+@pytest.mark.parametrize(
+    "source,invented,source_tokens,invented_tokens",
+    [
+        ("10\nm/s\n kg", "10kg", {"10m"}, {"10kg"}),
+        ("약 5\nkg/m\n도", "5도", {"5kg"}, {"5도"}),
+        ("2011\n반품/교\n년부터", "2011년부터", {"2011"}, {"2011년"}),
+    ],
+)
+def test_AC_SRC_3_DEV_193_slash_line_cannot_be_skipped_to_invent_units(
+    source, invented, source_tokens, invented_tokens
+):
+    assert sensitive_tokens(source)["number"] == source_tokens
+    assert sensitive_tokens(invented)["number"] == invented_tokens
+    for output, safe, unsupported in [
+        (invented, source, invented_tokens),
+        (source, invented, source_tokens),
+    ]:
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(safe)
+        )["number"] == unsupported
+        report = result(r=run(output), safe=safe)["overall"]
+        assert report["unsupported"]["number"] == len(unsupported)
+        assert report["unsupportedTokens"] >= len(unsupported)
+        assert report["criticalGate"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "source,output",
+    [
+        ("2011\n재배한 농가입니다\n년부터", "2011년부터"),
+        ("20\n11년부터", "2011년부터"),
+        ("2011\n년부터", "2011개월"),
+        ("2011\n년부터", "2011~2012년"),
+        ("12.5브릭스", "12브릭스"),
+        ("12.5브릭스", "5브릭스"),
+    ],
+)
+def test_AC_SRC_3_DEV_193_numeric_repair_does_not_invent_support(source, output):
+    forward = final_score.unsupported_tokens(sensitive_tokens(output), sensitive_tokens(source))
+    reverse = final_score.unsupported_tokens(sensitive_tokens(source), sensitive_tokens(output))
+    assert forward["number"]
+    assert reverse["number"]
+    assert result(r=run(output), safe=source)["overall"]["unsupportedTokens"] > 0
+    assert result(r=run(source), safe=output)["overall"]["unsupportedTokens"] > 0
+
+
+@pytest.mark.parametrize("space", [" ", "  ", "\t", " \t "])
+def test_AC_SRC_3_DEV_193_sentence_period_and_decimal_remain_distinct(space):
+    assert sensitive_tokens(f"since 1966.{space}50년")["number"] == {"1966", "50년"}
+    assert sensitive_tokens("12.5브릭스")["number"] == sensitive_tokens("12.5Brix")["number"]
+    assert sensitive_tokens("12.5브릭스")["number"] != sensitive_tokens(
+        "12브릭스 5브릭스"
+    )["number"]
+
+
+def test_AC_SRC_3_DEV_193_wrapped_decimal_preserves_one_number_bidirectionally():
+    broken, intact = "면적 3.\n5kg", "면적 3.5kg"
+    assert final_score.MEASUREMENT_VERSION == "dev193-number-evidence-v1"
+    for output, safe in [(broken, intact), (intact, broken)]:
+        assert sensitive_tokens(output)["number"] == {"3.5kg"}
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(safe)
+        )["number"] == set()
+        assert result(r=run(output), safe=safe)["overall"]["unsupportedTokens"] == 0
+        for invented in ("3", "5kg"):
+            assert final_score.unsupported_tokens(
+                sensitive_tokens(invented), sensitive_tokens(safe)
+            )["number"] == {invented}
+            assert result(r=run(invented), safe=safe)["overall"]["unsupported"]["number"] == 1

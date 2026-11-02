@@ -216,19 +216,29 @@ test("AC-10-6: failed inquiry send retains typed text and retries", async ({
   await loginConsumer(page);
   await page.goto(`${consumerUrl}/orders/o-07/inquiry`);
   const input = page.getByLabel("어떤 점이 불편하셨나요?");
-  await input.fill("DEV25 연결 실패 뒤에도 남아야 하는 문의");
+  // 같은 시드에서 다시 돌려도 이번 문의만 가리키도록 시각을 붙인다(DEV-192)
+  const message = `DEV25 연결 실패 뒤에도 남아야 하는 문의 ${Date.now().toString(36)}`;
+  await input.fill(message);
   await page.route(
     `${apiUrl}/api/orders/o-07/inquiries`,
     (route) => route.abort("failed"),
     { times: 1 },
   );
   await page.getByRole("button", { name: "농가에 문의 보내기" }).click();
-  await expect(input).toHaveValue("DEV25 연결 실패 뒤에도 남아야 하는 문의");
+  // 실패가 화면에 보인 뒤에 입력 유지를 보고 가로채기를 푼다. 먼저 풀면 첫 요청이 서버에
+  // 닿아 실패 경로를 건너뛸 수 있다(DEV-192)
+  await expect(
+    page.getByText("인터넷 연결을 확인하고 다시 시도해 주세요."),
+  ).toBeVisible();
+  await expect(input).toHaveValue(message);
   await page.unroute(`${apiUrl}/api/orders/o-07/inquiries`);
   await page.getByRole("button", { name: "농가에 문의 보내기" }).click();
   await expect(page).toHaveURL(/\/chats\/f-kang/);
+  // 주문 탭에 남은 문의 입력창(textarea)도 같은 글자를 가지므로 대화방 말풍선만 본다(DEV-192)
   await expect(
-    page.getByText("DEV25 연결 실패 뒤에도 남아야 하는 문의"),
+    page
+      .getByText(message, { exact: true })
+      .and(page.locator(":not(textarea)")),
   ).toBeVisible();
   assertClean();
 });
