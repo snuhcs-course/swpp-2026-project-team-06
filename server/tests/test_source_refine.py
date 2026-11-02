@@ -1067,7 +1067,15 @@ def test_AC_SRC_2_3_11_mixed_mock_worker_api_and_saved_preview(client, login, mo
 
 @pytest.mark.parametrize("stage", ["fallback", "omitted", "pending"])
 @pytest.mark.parametrize("target_choices", [1, 2])
-def test_AC_SRC_1_2_target_choices_precede_shared_candidates(stage, target_choices):
+@pytest.mark.parametrize("field_key,value", [
+    ("storage", "서늘한 곳에 보관해 주세요 {i}"),
+    ("summary", "제주 감귤 소개 {i}"),
+    ("farmStory", "감귤 농가 이야기 {i}"),
+    ("composition", "감귤 {i}kg 구성"),
+])
+def test_AC_SRC_1_2_target_choices_precede_shared_candidates(
+    stage, target_choices, field_key, value
+):
     from app.source_analysis.editor import suggestions
 
     tid = "target"
@@ -1076,8 +1084,8 @@ def test_AC_SRC_1_2_target_choices_precede_shared_candidates(stage, target_choic
         {
             "id": f"specific-{i}",
             "targetId": tid,
-            "fieldKey": "storage",
-            "value": f"서늘한 곳에 보관해 주세요 {i}",
+            "fieldKey": field_key,
+            "value": value.format(i=i + 3 if field_key == "composition" else i),
             "candidateIds": [f"specific-{i}"],
             "historical": False,
             "outdated": False,
@@ -1094,7 +1102,8 @@ def test_AC_SRC_1_2_target_choices_precede_shared_candidates(stage, target_choic
         }
     )
     field = next(
-        e for e in entries if e["field"]["targetId"] == tid and e["field"]["fieldKey"] == "storage"
+        e for e in entries
+        if e["field"]["targetId"] == tid and e["field"]["fieldKey"] == field_key
     )
     if stage == "fallback" and target_choices == 1:
         assert field["status"] == "ready"
@@ -1348,7 +1357,9 @@ def test_AC_SRC_5_11_stale_refinement_restores_verbatim_fallback(
     h, batch, _ = ready(client, login, monkeypatch)
     drain()
     with get_sessionmaker()() as db:
-        original_id = db.scalar(select(Asset.id).where(Asset.batch_id == batch["id"]))
+        original_id = db.scalar(
+            select(Asset.id).where(Asset.batch_id == batch["id"], Asset.original_photo.is_(False))
+        )
     batch = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
     text = "\n".join(row[1] for row in ROWS) + "\n추가 자료"
     source = upload(client, h, batch, text=text)
@@ -2205,3 +2216,102 @@ def test_AC_SRC_1_3_5_11_common_fallback_obeys_module_and_refinement_state(
 ])
 def test_AC_SRC_5_8_single_target_empty_reason_counts_common_input(source, reason):
     assert refinement.empty_reason(source, "target", [], target_count=1) == reason
+
+
+@pytest.mark.parametrize(
+    "field_key,values",
+    [
+        ("qualityEvidence", ["12 °Bx", "14 °Bx"]),
+        ("composition", ["감귤 3kg 구성입니다.", "감귤 5kg 구성입니다."]),
+        ("specification", ["중과 크기입니다.", "대과 크기입니다."]),
+    ],
+)
+@pytest.mark.parametrize("choice", ["CONFIRMED", "EXCLUDED"])
+def test_AC_SRC_3_11_refinement_and_basic_info_cannot_resolve_conflicting_candidates(
+    client, login, monkeypatch, field_key, values, choice
+):
+    from app.source_analysis.models import Candidate
+
+    h, batch, run = ready(client, login, monkeypatch, text="\n".join(values))
+
+    def conflicting_extract(mode, model, chunk, targets, images):
+        return ExtractionResponse(
+            Extraction(
+                candidates=[
+                    {
+                        "targetId": targets[0]["id"],
+                        "fieldKey": field_key,
+                        "value": value,
+                        "historical": False,
+                        "evidence": [
+                            {
+                                "sourceId": chunk["sourceId"],
+                                "sourceRevision": chunk["sourceRevision"],
+                                "page": 1,
+                                "spanIds": [chunk["pages"][0]["spans"][i]["id"]],
+                                "quote": value,
+                            }
+                        ],
+                    }
+                    for i, value in enumerate(values)
+                ],
+                photo_requests=[],
+            ),
+            {"mock": True},
+            None,
+        )
+
+    def automatic_choice(mode, model, target, source):
+        return RefineResponse(
+            Refinement(
+                modules=[
+                    {
+                        "module": field_key,
+                        "texts": [{"value": source[0]["value"], "candidateIds": [source[0]["id"]]}],
+                    }
+                ],
+                excluded=[],
+            ),
+            {"mock": True},
+            None,
+        )
+
+    monkeypatch.setattr(worker, "extract", conflicting_extract)
+    monkeypatch.setattr(refinement, "refine", automatic_choice)
+    drain()
+    result = review(client, h, batch)
+    tid = batch["targets"][0]["id"]
+    assert result["refinementResults"][tid]["refinementVersion"]
+    candidates_for_field = [c for c in result["candidates"] if c["fieldKey"] == field_key]
+    assert {c["value"] for c in candidates_for_field} == set(values)
+    assert {e["quote"] for c in candidates_for_field for e in c["evidence"]} == set(values)
+    conflict = next(c for c in result["conflicts"] if c["fieldKey"] == field_key)
+    assert conflict["targetId"] == tid and len(conflict["candidateIds"]) == 2
+    entry = next(e for e in result["editorFields"] if e["field"]["fieldKey"] == field_key)
+    assert entry["status"] == "conflict"
+    assert entry["field"]["state"] == "UNREVIEWED"
+    with get_sessionmaker()() as db:
+        stored = list(db.scalars(select(Candidate).where(Candidate.batch_id == batch["id"])))
+        assert {e["quote"] for c in stored for e in c.evidence} == set(values)
+
+    explicit = {
+        **entry["field"],
+        "value": "생산자가 선택한 감귤 안내입니다.",
+        "state": choice,
+        "provenance": "PRODUCER",
+        "candidateIds": [],
+    }
+    saved = client.patch(
+        f"{PREFIX}/{batch['id']}/review",
+        headers=h,
+        json={"reviewVersion": result["reviewVersion"], "fields": [explicit]},
+    )
+    assert saved.status_code == 200, saved.text
+    # The underlying sources still disagree; producer decisions remain authoritative.
+    start(client, h, batch["id"])
+    drain()
+    after = review(client, h, batch)
+    refreshed = next(e for e in after["editorFields"] if e["field"]["fieldKey"] == field_key)
+    assert refreshed["status"] != "conflict"
+    assert refreshed["field"] == explicit
+    assert {c["value"] for c in after["candidates"] if c["fieldKey"] == field_key} == set(values)

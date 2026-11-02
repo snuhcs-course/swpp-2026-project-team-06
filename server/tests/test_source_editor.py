@@ -4,7 +4,9 @@ import pytest
 from sqlalchemy import select
 
 from app.core.db import get_sessionmaker
+from app.source_analysis.editor import suggestions
 from app.source_analysis.models import Candidate, Draft, ReviewedField
+from tests.test_orders import key as order_key
 from tests.test_source_analysis import (  # noqa: F401
     PREFIX,
     create,
@@ -14,6 +16,8 @@ from tests.test_source_analysis import (  # noqa: F401
     start,
     upload,
 )
+from tests.test_source_refine import ready as refine_ready
+from tests.test_source_refine import review as refine_review
 
 
 def ready(client, login):
@@ -69,7 +73,8 @@ def test_AC_SRC_11_auto_fill_preserves_unreviewed_and_off_values(client, login):
     )
 
 
-def test_AC_SRC_11_conflict_no_guess_and_atomic_rollback(client, login):
+@pytest.mark.parametrize("field_key", ["summary", "composition"])
+def test_AC_SRC_11_conflict_no_guess_and_atomic_rollback(client, login, field_key):
     h, batch = ready(client, login)
     with get_sessionmaker()() as db:
         c = db.scalar(
@@ -77,6 +82,7 @@ def test_AC_SRC_11_conflict_no_guess_and_atomic_rollback(client, login):
                 Candidate.batch_id == batch["id"], Candidate.field_key == "summary"
             )
         )
+        c.field_key = field_key
         db.add(
             Candidate(
                 batch_id=c.batch_id,
@@ -89,11 +95,13 @@ def test_AC_SRC_11_conflict_no_guess_and_atomic_rollback(client, login):
         )
         db.commit()
     review = client.get(f"{PREFIX}/{batch['id']}/review", headers=h).json()
-    rec = next(e for e in review["editorFields"] if e["field"]["fieldKey"] == "summary")
+    rec = next(e for e in review["editorFields"] if e["field"]["fieldKey"] == field_key)
     assert rec["status"] == "conflict"
     assert rec["field"]["value"] == ""
     body = body_for(client, h, batch)
-    f = next(f for f in body["fields"] if f["fieldKey"] == "summary")
+    if field_key != "summary":
+        body["targets"][0]["enabledModuleIds"] = [field_key]
+    f = next(f for f in body["fields"] if f["fieldKey"] == field_key)
     f["value"] = "unverified automatic guess"
     response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
     assert response.status_code == 409
@@ -323,7 +331,7 @@ def test_AC_SRC_11_basic_info_defaults_and_manual_precedence(client, login):
         assert product.measured_brix == 14.0
 
 
-def test_AC_SRC_11_representative_required_select_and_delete(client, login):
+def test_AC_SRC_11_analysis_without_photo_and_representative_select_and_delete(client, login):
     from tests.test_source_analysis import add_cover
 
     h = login("u-kang")
@@ -331,11 +339,12 @@ def test_AC_SRC_11_representative_required_select_and_delete(client, login):
     bid, tid = batch["id"], batch["targets"][0]["id"]
     upload(client, h, batch)
     current = client.get(f"{PREFIX}/{bid}", headers=h).json()
+    run = client.post(
+        f"{PREFIX}/{bid}/runs", headers=key(h), json={"batchVersion": current["version"]}
+    )
+    assert run.status_code == 202, run.text
     assert (
-        client.post(
-            f"{PREFIX}/{bid}/runs", headers=key(h), json={"batchVersion": current["version"]}
-        ).status_code
-        == 400
+        client.post(f"{PREFIX}/{bid}/runs/{run.json()['id']}/cancel", headers=h).status_code == 202
     )
     first = add_cover(client, h, bid)
     second = add_cover(client, h, bid, "blue")
@@ -359,12 +368,10 @@ def test_AC_SRC_11_representative_required_select_and_delete(client, login):
         assert result.status_code == 202, result.text
         latest = client.get(f"{PREFIX}/{bid}", headers=h).json()
         assert latest["targets"][0]["representativeAssetId"] == expected
-    assert (
-        client.post(
-            f"{PREFIX}/{bid}/runs", headers=key(h), json={"batchVersion": latest["version"]}
-        ).status_code
-        == 400
+    run = client.post(
+        f"{PREFIX}/{bid}/runs", headers=key(h), json={"batchVersion": latest["version"]}
     )
+    assert run.status_code == 202, run.text
 
 
 def test_AC_SRC_11_representative_survives_hidden_intro_and_publishes_cover(client, login):
@@ -395,3 +402,324 @@ def test_AC_SRC_11_representative_survives_hidden_intro_and_publishes_cover(clie
     assert public["photo"].startswith("/api/source-media/")
     assert client.get(public["photo"]).status_code == 200
     assert [m["id"] for m in public["moduleDetail"]["modules"]] == ["storage"]
+
+
+def test_AC_SRC_11_analysis_accepts_text_without_representative_photo(client, login):
+    h = login("u-kang")
+    batch = create(client, h)
+    upload(client, h, batch)
+    current = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    assert current["targets"][0]["representativeAssetId"] is None
+    assert not any(s["originalPhoto"] for s in current["sources"])
+    response = client.post(
+        f"{PREFIX}/{batch['id']}/runs",
+        headers=key(h),
+        json={"batchVersion": current["version"]},
+    )
+    assert response.status_code == 202, response.text
+    assert (
+        client.get(f"{PREFIX}/{batch['id']}", headers=h).json()["targets"][0][
+            "representativeAssetId"
+        ]
+        is None
+    )
+
+
+@pytest.mark.parametrize("basic_info", [{}, {"variety": ""}, {"variety": "   "}])
+def test_AC_SRC_11_text_analysis_still_requires_nonblank_variety(client, login, basic_info):
+    h = login("u-kang")
+    created = client.post(
+        PREFIX,
+        headers=key(h),
+        json={"targets": [{"name": "품종 미입력 상품", "basicInfo": basic_info}]},
+    )
+    assert created.status_code == 201, created.text
+    batch = created.json()
+    upload(client, h, batch)
+    current = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
+    response = client.post(
+        f"{PREFIX}/{batch['id']}/runs",
+        headers=key(h),
+        json={"batchVersion": current["version"]},
+    )
+    assert response.status_code == 400, response.text
+    assert "variety" in response.json()["details"]["fields"]
+
+
+def _review_input(field_key, values):
+    candidates = [
+        {
+            "id": f"c{i}",
+            "targetId": "target",
+            "fieldKey": field_key,
+            "value": value,
+            "historical": False,
+            "outdated": False,
+            "candidateIds": [f"c{i}"],
+            "evidence": [{"quote": value}],
+        }
+        for i, value in enumerate(values)
+    ]
+    return {
+        "targets": [
+            {"id": "target", "name": "감귤", "basicInfo": {"size": "중과", "expectedBrix": 12}}
+        ],
+        "candidates": candidates,
+        "fields": [],
+        "refinements": {
+            "target": [
+                {
+                    "module": field_key,
+                    "texts": [
+                        {"value": " ".join(values), "candidateIds": [c["id"] for c in candidates]}
+                    ],
+                }
+            ]
+        },
+    }
+
+
+def _entry(review_input, field_key):
+    return next(e for e in suggestions(review_input) if e["field"]["fieldKey"] == field_key)
+
+
+@pytest.mark.parametrize("field_key", ["summary", "farmStory"])
+def test_AC_SRC_11_combined_narrative_fragments_are_ready_unreviewed(field_key):
+    r = _review_input(field_key, ["제주에서 감귤을 재배해요", "농부가 정성껏 가꿔요"])
+    entry = _entry(r, field_key)
+    assert entry["status"] == "ready"
+    assert entry["field"]["state"] == "UNREVIEWED"
+    assert entry["field"]["value"] == "제주에서 감귤을 재배해요 농부가 정성껏 가꿔요"
+    assert entry["field"]["candidateIds"] == ["c0", "c1"]
+    assert entry["field"]["provenance"] == "REFINED"
+
+
+@pytest.mark.parametrize(
+    "field_key,values",
+    [
+        ("specification", ["중과", "대과"]),
+        ("specification", ["원산지 제주", "원산지 남해"]),
+        ("composition", ["감귤 3kg", "감귤 5kg"]),
+        ("pieceCount", ["12과", "20과"]),
+        ("qualityEvidence", ["당도 12브릭스", "당도 14브릭스"]),
+    ],
+)
+def test_AC_SRC_11_factual_conflicts_survive_automatic_refinement_and_basic_info(field_key, values):
+    r = _review_input(field_key, values)
+    entry = _entry(r, field_key)
+    assert entry["status"] == "conflict"
+    assert entry["field"]["state"] == "UNREVIEWED"
+
+
+@pytest.mark.parametrize(
+    "field_key", ["specification", "composition", "pieceCount", "qualityEvidence"]
+)
+def test_AC_SRC_11_normalized_duplicate_fact_sources_are_not_conflicts(field_key):
+    r = _review_input(field_key, ["ＧＲＡＤＥ   Ａ．", "grade a"])
+    r["candidates"][0]["evidence"][0]["sourceId"] = "first-source"
+    r["candidates"][1]["evidence"][0]["sourceId"] = "second-source"
+    entry = _entry(r, field_key)
+    assert entry["status"] == "ready"
+    assert entry["field"]["state"] == "UNREVIEWED"
+
+
+@pytest.mark.parametrize(
+    "field_key,values",
+    [
+        ("specification", ["품종: 온주밀감", "사이즈: 중과"]),
+        ("composition", ["감귤 3kg", "감귤 3000g"]),
+        ("qualityEvidence", ["당도 12.0브릭스", "당도 12브릭스"]),
+    ],
+)
+def test_AC_SRC_11_complementary_or_equivalent_facts_are_not_conflicts(field_key, values):
+    entry = _entry(_review_input(field_key, values), field_key)
+    assert entry["status"] == "ready"
+    assert entry["field"]["state"] == "UNREVIEWED"
+
+
+@pytest.mark.parametrize("state", ["CONFIRMED", "EXCLUDED"])
+def test_AC_SRC_11_saved_producer_decision_remains_authoritative_over_fact_conflict(state):
+    r = _review_input("composition", ["감귤 3kg", "감귤 5kg"])
+    chosen = {
+        "targetId": "target",
+        "fieldKey": "composition",
+        "value": "생산자가 선택한 구성",
+        "state": state,
+        "provenance": "PRODUCER",
+        "candidateIds": [],
+        "photoAssetIds": [],
+        "illustrationId": None,
+    }
+    r["fields"] = [chosen]
+    entry = _entry(r, "composition")
+    assert entry["status"] != "conflict"
+    assert entry["field"] == chosen
+
+
+def test_AC_SRC_11_saved_stale_evidence_stays_outdated_despite_factual_conflict():
+    r = _review_input("composition", ["감귤 3kg", "감귤 5kg"])
+    saved = {
+        "targetId": "target",
+        "fieldKey": "composition",
+        "value": "감귤 3kg",
+        "state": "UNREVIEWED",
+        "provenance": "EXTRACTED",
+        "candidateIds": ["old"],
+        "photoAssetIds": [],
+        "illustrationId": None,
+    }
+    r["candidates"].append(
+        {
+            **r["candidates"][0],
+            "id": "old",
+            "candidateIds": ["old"],
+            "outdated": True,
+        }
+    )
+    r["fields"] = [saved]
+    r["refinements"] = {}
+    entry = _entry(r, "composition")
+    assert entry["status"] == "outdated"
+    assert entry["field"] == saved
+
+
+def test_AC_SRC_11_narrative_autosave_keeps_fields_unreviewed(client, login, monkeypatch):
+    h, batch, _ = refine_ready(client, login, monkeypatch)
+    drain()
+    r = refine_review(client, h, batch)
+    narratives = [
+        e for e in r["editorFields"] if e["field"]["fieldKey"] in {"summary", "farmStory"}
+    ]
+    assert len(narratives) == 2
+    assert all(e["status"] == "ready" and e["field"]["state"] == "UNREVIEWED" for e in narratives)
+    saved = client.put(
+        f"{PREFIX}/{batch['id']}/editor",
+        headers=h | order_key(),
+        json={
+            "reviewVersion": r["reviewVersion"],
+            "fields": [e["field"] for e in r["editorFields"]],
+            "targets": [
+                {
+                    "targetId": batch["targets"][0]["id"],
+                    "enabledModuleIds": ["summary", "farmStory"],
+                }
+            ],
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    fields = [
+        f
+        for module in saved.json()["drafts"][0]["snapshot"]["modules"]
+        if module["id"] in {"summary", "farmStory"}
+        for f in module["fields"]
+    ]
+    assert len(fields) == 2
+    assert all(f["state"] == "UNREVIEWED" and f["provenance"] == "REFINED" for f in fields)
+
+
+def test_AC_SRC_11_editor_rejects_unreviewed_factual_conflict(client, login, monkeypatch):
+    from app.ai.source_analysis import ExtractionResponse
+    from app.ai.source_refine import Refinement, RefineResponse
+    from app.source_analysis import refinement, worker
+    from app.source_analysis.schemas import Extraction
+
+    values = ["감귤 3kg", "감귤 5kg"]
+    h, batch, _ = refine_ready(client, login, monkeypatch, text="\n".join(values))
+
+    def extract(mode, model, chunk, targets, images):
+        return ExtractionResponse(
+            Extraction(
+                candidates=[
+                    {
+                        "targetId": targets[0]["id"],
+                        "fieldKey": "composition",
+                        "value": value,
+                        "historical": False,
+                        "evidence": [
+                            {
+                                "sourceId": chunk["sourceId"],
+                                "sourceRevision": chunk["sourceRevision"],
+                                "page": 1,
+                                "spanIds": [chunk["pages"][0]["spans"][i]["id"]],
+                                "quote": value,
+                            }
+                        ],
+                    }
+                    for i, value in enumerate(values)
+                ],
+                photo_requests=[],
+            ),
+            {"mock": True},
+            None,
+        )
+
+    def auto_choose(mode, model, target, candidates):
+        return RefineResponse(
+            Refinement(
+                modules=[
+                    {
+                        "module": "composition",
+                        "texts": [
+                            {"value": candidates[0]["value"], "candidateIds": [candidates[0]["id"]]}
+                        ],
+                    }
+                ]
+            ),
+            {"mock": True},
+            None,
+        )
+
+    monkeypatch.setattr(worker, "extract", extract)
+    monkeypatch.setattr(refinement, "refine", auto_choose)
+    drain()
+    r = refine_review(client, h, batch)
+    entry = next(e for e in r["editorFields"] if e["field"]["fieldKey"] == "composition")
+    assert entry["status"] == "conflict"
+    field = deepcopy(entry["field"])
+    field["value"], field["state"] = values[0], "UNREVIEWED"
+    rejected = client.put(
+        f"{PREFIX}/{batch['id']}/editor",
+        headers=h | order_key(),
+        json={
+            "reviewVersion": r["reviewVersion"],
+            "fields": [
+                field if e["field"]["fieldKey"] == "composition" else e["field"]
+                for e in r["editorFields"]
+            ],
+            "targets": [
+                {"targetId": batch["targets"][0]["id"], "enabledModuleIds": ["composition"]}
+            ],
+        },
+    )
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["details"]["reason"] == "EDITOR_CONFIRMATION_REQUIRED"
+
+
+@pytest.mark.parametrize("source_count", [1, 2])
+def test_AC_SRC_11_one_multivalue_fact_repeated_across_sources_is_not_disagreement(source_count):
+    r = _review_input("composition", ["감귤 3kg 또는 5kg 구성"] * source_count)
+    for i, candidate in enumerate(r["candidates"]):
+        candidate["evidence"][0]["sourceId"] = f"source-{i}"
+    entry = _entry(r, "composition")
+    assert entry["status"] == "ready"
+    assert entry["field"]["state"] == "UNREVIEWED"
+
+
+@pytest.mark.parametrize("values", [
+    ["감귤 3kg", "레몬 3kg"],
+    ["감귤 3kg + 한라봉 1kg", "감귤 1kg + 한라봉 3kg"],
+])
+def test_AC_SRC_11_composition_identity_and_item_weight_association_must_agree(values):
+    entry = _entry(_review_input("composition", values), "composition")
+    assert entry["status"] == "conflict"
+    assert entry["field"]["state"] == "UNREVIEWED"
+
+
+@pytest.mark.parametrize("values", [
+    ["온주밀감 중과 3kg", "한라봉 대과 3kg"],
+    ["제주산 감귤 3kg", "남해산 감귤 3kg"],
+])
+def test_AC_SRC_11_equal_specification_weight_does_not_hide_variety_or_origin_conflict(values):
+    entry = _entry(_review_input("specification", values), "specification")
+    assert entry["status"] == "conflict"
+    assert entry["field"]["state"] == "UNREVIEWED"
