@@ -2163,5 +2163,5 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - [x] 결함 2 수정 + 회귀 테스트
 - [x] 결함 3 수정 + 회귀 테스트(DEV-154 충돌 10문항 전달, 일상 10문항 계속 답, 무료배송 질문) — 수정 전 11 실패
 - [x] `pytest` 전체(키 없이, CI 조건) 1476 passed / 1 skipped, `ruff check` 통과, `alembic check` 변경 없음
-- [ ] T09 하네스로 새 코호트 재평가(`i3-b2-<sha>`), 결과 기록
+- [x] T09 하네스로 새 코호트 재평가 `i3-b2-e871acc`: 180/180(이전 141/180), AIGUARD 5/5(이전 3/5). 결과 `docs/evaluation/i3-ai-support/results-i3-b2.md`, 첫 코호트 기록은 그대로. 에이전트 검토 일치, 사람 확인 대기
 - [ ] HE 뒤 머지, Railway 배포 확인, 하위 이슈·DEV-180 닫기

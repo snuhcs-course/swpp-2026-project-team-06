@@ -39,5 +39,17 @@
     "runner": "scripts/i3-ai-support/run.py",
     "cohort_notes": "Prompt (service.py) and grounding blobs identical to freeze (192f5b1, a957534). config.py blob differs from freeze (39329e4 -> 3e811d9) without changes to AI answer defaults (claude-haiku-4-5, 8 s). Server code unchanged since eb727b6. Single cohort for all 180 trials.",
     "scoring": "automatic per protocol dimensions (scripts/i3-ai-support/run.py); agent second review of raw traces 2026-11-03 agrees with all 180 verdicts; human sign-off Zahra Gholami 2026-11-03. The run-log reviewer column was updated after the run to record these reviews; the verdict columns were not changed by the reviews."
-  }
+  },
+  "later_cohorts": [
+    {
+      "baseline": "i3-b2-e871acc",
+      "issue": "DEV-180",
+      "application_commit": "e871acc",
+      "run_log": "run-log-i3-b2-e871acc.csv",
+      "results": "results-i3-b2.md",
+      "summary": "180/180 PASS; AIGUARD 5/5",
+      "prompt_blob": "192f5b17d64f (unchanged)",
+      "note": "After T22 fixes (lock during model call, 7.5 s timeout, conflicting-evidence handoff). Local only until PR #387 is merged."
+    }
+  ]
 }
