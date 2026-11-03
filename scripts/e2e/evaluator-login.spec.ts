@@ -9,11 +9,30 @@ async function kakaoOn(page: Page) {
   );
 }
 
+// DEV-200: 앱 평가용 빌드(EXPO_PUBLIC_EVALUATOR_LOGIN=1)로 띄운 경우에만 도는 케이스가 있고,
+// 그때는 "표시 없으면 숨김"을 확인하는 DEV-198 케이스를 건너뛴다(빌드 전체가 평가 모드라서).
+const evaluatorBuild = process.env.EXPO_PUBLIC_EVALUATOR_LOGIN === "1";
+
 for (const app of ["consumer", "producer"] as const) {
   const base = app === "consumer" ? consumerUrl : producerUrl;
   const account = app === "consumer" ? "이서준" : "강영수";
 
+  test(`AC_01_1 DEV-200 ${app} evaluator build shows test accounts on plain /login and signs in`, async ({ page }) => {
+    test.skip(!evaluatorBuild, "EXPO_PUBLIC_EVALUATOR_LOGIN=1로 띄운 앱에서만");
+    await kakaoOn(page);
+    if (app === "producer") await skipHelpGuide(page);
+    await page.goto(`${base}/login`);
+    await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toBeVisible();
+    const radio = page.getByRole("radio").filter({ hasText: account });
+    await expect(radio).toBeVisible();
+    await expect(page.getByText(/^Mock:/)).toHaveCount(0);
+    await radio.click();
+    await page.getByRole("button", { name: app === "consumer" ? /로그인$/ : /^(?!카카오).*시작하기$/ }).click();
+    await expect(page).not.toHaveURL(/\/login/);
+  });
+
   test(`AC_01_1 DEV-198 ${app} login hides test accounts when Kakao is on`, async ({ page }) => {
+    test.skip(evaluatorBuild, "평가용 빌드는 항상 목록을 보인다(DEV-200)");
     await kakaoOn(page);
     await page.goto(`${base}/login`);
     await expect(page.getByRole("button", { name: "카카오로 시작하기" })).toBeVisible();
@@ -21,6 +40,7 @@ for (const app of ["consumer", "producer"] as const) {
   });
 
   test(`AC_01_1 DEV-198 ${app} evaluator link shows test accounts beside Kakao and signs in`, async ({ page }) => {
+    test.skip(evaluatorBuild, "평가용 빌드에서는 DEV-200 케이스가 대신한다");
     await kakaoOn(page);
     if (app === "producer") await skipHelpGuide(page);
     await page.goto(`${base}/login?evaluator=1`);

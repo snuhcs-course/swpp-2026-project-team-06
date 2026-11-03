@@ -4,6 +4,7 @@ export {
   ApiError,
   apiUrl,
   isMock,
+  evaluatorBuild,
   configureApi,
   getToken,
   onAuthChange,

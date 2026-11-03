@@ -8,6 +8,7 @@ declare const process: {
     EXPO_PUBLIC_API_URL?: string;
     EXPO_PUBLIC_API_MOCK?: string;
     EXPO_PUBLIC_SHARED_MOCK_URL?: string;
+    EXPO_PUBLIC_EVALUATOR_LOGIN?: string;
   };
 };
 
@@ -27,6 +28,9 @@ export const apiUrl =
   (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, "");
 export const isMock =
   !!sharedMockUrl || process.env.EXPO_PUBLIC_API_MOCK === "1";
+// 평가용 빌드(DEV-200): 앱에는 주소창이 없어 ?evaluator=1(DEV-198)을 줄 수 없으므로 빌드 변수로 켠다.
+// EAS preview 환경에만 둔다. 웹(Vercel)과 production 채널에는 넣지 않는다.
+export const evaluatorBuild = process.env.EXPO_PUBLIC_EVALUATOR_LOGIN === "1";
 
 export class ApiError extends Error {
   readonly code: ErrorCode;

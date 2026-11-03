@@ -1,5 +1,5 @@
 // SCR-19 로그인(생산자 앱) — 카카오로 시작하기(I2, DEV-74) 또는 생산자 테스트 계정 선택(ADR 0009·0010) — design: p-scr-19
-import { auth, isMock, type TestAccount } from "@farmclub/api";
+import { auth, evaluatorBuild, isMock, type TestAccount } from "@farmclub/api";
 import {
   BrandLogo,
   Button,
@@ -48,6 +48,8 @@ const NEW_PRODUCER = "u-new";
 // 로그아웃하거나 관문을 거쳐 맨 /login으로 와도 테스트 계정 목록이 남는다.
 const EVALUATOR_KEY = "farmclub:evaluator";
 function evaluatorMode(param?: string) {
+  // 앱 평가용 빌드(DEV-200)는 주소 없이도 목록을 보인다
+  if (evaluatorBuild) return true;
   try {
     if (param === "1") globalThis.sessionStorage?.setItem(EVALUATOR_KEY, "1");
     return param === "1" || globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1";

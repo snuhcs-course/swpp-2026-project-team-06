@@ -1305,3 +1305,14 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 범위: `app.json`·`eas.json`·`vercel.json`·`public/{index.html,manifest.webmanifest,.well-known/**}`, `src/app/login.tsx`·`src/app/auth/kakao.tsx`, `src/lib/kakao.native.ts`·`kakaoAuth(.native).ts`(새 파일), `src/lib/pick.native.ts`·`sourceFiles.native.ts`(새 파일), `sourceFiles.ts`(`PickedFile` 타입)·`SourceAttachments.tsx`(`PickedFile`, 네이티브 미리보기 uri), `DetailEditor.tsx`·`ProductPageEditor.tsx`·`SourceWorkspace.tsx`(beforeunload는 웹에서만), `views.tsx`(copyText).
 - 10/23 결정: 식별자 `kr.farmclub.producer`, 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로), 앱 스킴 `farmclub-producer`. `kakao.ts`(웹)는 기존 export의 동작을 그대로 두고 앱 전달용 export(`appReturnUrl`·`forwardToApp`·`kakaoCallbackUri`·`parseKakaoReturn`·`appOrigin`)만 더해 `scripts/test-producer-kakao.mjs`가 그대로 돈다. 원본 자료 사진 picker 품질은 소비자와 같은 0.8. 원본 자료 PDF·텍스트 첨부는 웹 전용(네이티브는 사진만).
 - [x] 설정·의존성 [x] 카카오 네이티브 복귀 [x] 사진·영상 선택 [x] beforeunload·복사 가드 [x] well-known·manifest
+
+## DEV-200 [I3] Show evaluator test accounts in native internal builds for HE
+- 이슈: https://linear.app/sswp6/issue/DEV-200 · 관련 DEV-198(웹 평가 주소), DEV-41(기기 확인)
+- 브랜치: `zahra/dev-200-native-evaluator-login`
+- 범위: 두 앱 `src/app/login.tsx`, `packages/api/src/{client.ts,index.ts}`, `scripts/e2e/evaluator-login.spec.ts`, `scripts/test-native-config.mjs`, `README.md`(EAS 절 한 줄), 두 앱 `tasks.md`
+- 결정
+  - 11/3 11/4 수업 HE 평가자는 팀 기기의 internal APK를 쓴다. 앱에는 주소창·sessionStorage가 없어 `?evaluator=1`(DEV-198)을 줄 수 없으므로, 빌드 변수 `EXPO_PUBLIC_EVALUATOR_LOGIN=1`이면 `evaluatorMode()`가 항상 참이다.
+  - 변수는 EAS `preview` 환경에만 등록한다(internal APK가 따라가는 채널). `eas.json`·웹 배포에는 넣지 않는다(`test-native-config.mjs`가 검사). production 채널·운영 웹은 그대로 카카오만.
+  - 서버 `MOCK_LOGIN_ENABLED`는 바꾸지 않는다(DEV-198과 같음).
+- 검증(11/3, 로컬 실서버 `farmclub_i3`): `npm run typecheck` 통과 · `npm run test:mock` 63/63 · `run-integration.mjs evaluator-login.spec.ts` 플래그 없이 4 passed/2 skipped, `EXPO_PUBLIC_EVALUATOR_LOGIN=1`로 2 passed/4 skipped.
+- 평가 뒤 할 일(사람): EAS `preview` 환경에서 `EXPO_PUBLIC_EVALUATOR_LOGIN` 삭제 → `eas update --channel preview --environment preview`로 일반 업데이트.
