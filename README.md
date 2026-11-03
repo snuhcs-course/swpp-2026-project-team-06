@@ -398,7 +398,8 @@ equivalent is `/login?evaluator=1`, DEV-198). Never set it in `production` or `e
 it and publish a normal update after the evaluation.
 
 Android: open the build link on the phone, allow installs from this source once, install. The
-same APKs are kept as GitHub Release assets (`apk-internal-<build date>`, with SHA-256) because EAS
+same APKs are kept as GitHub Release assets (`apk-internal-<build date>`, with SHA-256; current:
+<https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/apk-internal-2026-10-23>) because EAS
 build artifacts expire after 30 days; make a new Release only when a native change needs a new build. A phone
 that still has the TWA APK from PR #164 (same package name, different signing key) must uninstall it
 first, or the install fails silently and the old TWA keeps running.
