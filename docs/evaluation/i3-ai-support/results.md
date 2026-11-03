@@ -6,7 +6,7 @@ Execution of the frozen DEV-154 protocol (`protocol.md`, `questions.jsonl`, dige
 - Model `claude-haiku-4-5-20251001` on 72 live trials. Every other trial used the rule path or an injected fault.
 - Application commit `3f7ce29`; prompt blob `192f5b1` and grounding blob `a957534` are identical to the freeze.
 - DEV-165 local stack, database `farmclub_i3`.
-- Run window 2026-11-03 12:55–13:02 UTC, seed 1542026; one cohort for all 180 trials.
+- Run window 2026-11-03 12:55–13:02 UTC, seed 1542026; one cohort for all 180 trials. The three CS-053 traces (injected network_error, no model call) were replaced by a same-build re-execution at 13:05:58–13:06:02 UTC; see `tasks.md` Record.
 
 **Fault injection:** a local proxy reached through `ANTHROPIC_BASE_URL`:
 - `timeout`: the proxy holds the request 12 s, longer than the 8 s client timeout.
