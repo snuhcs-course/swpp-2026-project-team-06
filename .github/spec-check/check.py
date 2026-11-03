@@ -12,7 +12,7 @@ import sys
 import time
 from urllib import error, request
 
-MAX_INPUT = 256 * 1024
+MAX_INPUT = 1024 * 1024  # DEV-197: 256 KiB overflowed config-heavy PRs (#270, 76 files).
 MAX_OUTPUT_TOKENS = 16000  # Includes adaptive thinking tokens (DEV-79).
 REQUEST_TIMEOUT = 90
 GITHUB_TIMEOUT = 20
@@ -342,6 +342,17 @@ def collect(root, event, demo=None):
                 continue
             documents[path] = document
             meta["source_revisions"][path] = head if current is not None else merge_base
+        # DEV-197: unchanged implementation files named in the table go in full as context, so the model can
+        # verify claims about code outside the diff instead of writing UNVERIFIED. Findings still cite the diff.
+        for path in sorted(implementation - set(changed) - set(documents)):
+            if excluded(path):
+                continue
+            text = read_file(root, head, path, optional=True)
+            if text is None:
+                references_only[path] = {"size": None}
+                continue
+            documents[path] = excerpt(text, range(10 ** 6), "context: unchanged implementation file listed in the PR table")
+            meta["source_revisions"][path] = head
     excluded_paths = sorted(p for p in changed if excluded(p))
     diff_paths = [p for p in changed if p not in excluded_paths]
     diff = git(root, "diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=5", old_rev, head,
