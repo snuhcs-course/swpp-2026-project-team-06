@@ -56,7 +56,7 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 
 ### 2.1 모델에 보내는 것·안 보내는 것 (DEV-81)
 
-checker는 파일을 통째로 보내지 않는다. 모델이 받는 `context`는 아래와 같고, 합쳐서 256 KiB를 넘으면 모델 호출 없이 INCOMPLETE("Split the PR")다. 측정(2026-10-23, 머지된 PR 4개): 이전 845 KiB~2.4 MB → 이후 65~231 KiB.
+checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `context`는 아래와 같고, 합쳐서 1024 KiB(DEV-197, 그 전 256 KiB)를 넘으면 모델 호출 없이 INCOMPLETE("Split the PR")다. 측정(2026-10-23, 머지된 PR 4개): 이전 845 KiB~2.4 MB → 이후 65~231 KiB. #270(76개 파일)은 256 KiB를 넘어 한도를 올렸다.
 
 | 보내는 것 | 내용 |
 | --- | --- |
@@ -66,6 +66,7 @@ checker는 파일을 통째로 보내지 않는다. 모델이 받는 `context`�
 | `documents[rules.md]` | 적힌 R·M ID의 표 행만. 없으면 전문 |
 | `documents[<폴더>/spec.md]` | "결정" 표에서 이슈 키 또는 ID가 있는 행(+표 머리). 없으면 최근 10행. 결정 표가 없으면 이슈 키 절, 그것도 없으면 제목 줄 |
 | 그 밖의 1열 파일 | `경로#앵커`면 그 제목 절만. 아니면 `reference_paths`에 크기만(내용은 보내지 않음) |
+| 2열의 **바뀌지 않은** 파일 | 전문(`kind: full`, `selection: context: …`). 판단에 필요한 diff 밖 코드(예: 호출하는 서비스 함수, 스키마, 기존 테스트)를 작성자가 표 2열에 적어 보낸다(DEV-197). 제외 규칙·비밀값 검사는 같다. head에 없는 경로는 `reference_paths`에 `size: null`. finding은 여전히 스펙 세그먼트와 diff 줄만 인용한다 |
 | `changed_files` | 바뀐 파일마다 status·크기·이전 크기 |
 
 | 안 보내는 것 | 대신 |
@@ -111,7 +112,7 @@ API 설정 후 이 PR 본문에 `<!-- spec-check-demo -->`를 넣거나 유지�
 - 추가 assertion은 실제 보고서가 예상 결과인지 확인할 뿐, 보고서 내용을 바꾸지 않는다.
 - INCOMPLETE/키 오류/계약 테스트 성공을 genuine 모델 증거로 대신 쓰지 않는다.
 - demonstration mode는 두 fixture만 평가한다. 일반 PR 전체 검토 결과와 구분한다.
-- 전체 PR(diff + 발췌)이 256 KiB를 넘으면 일반 검토는 INCOMPLETE일 수 있다. demo PASS로 전체 PR 검토를 통과 처리하지 않는다. demo 모드는 fixture `spec.md`를 full 문서로, 구현 fixture를 빈 트리 대비 diff로 보내 같은 검증 경로를 쓴다.
+- 전체 PR(diff + 발췌 + 문맥 파일)이 1024 KiB를 넘으면 일반 검토는 INCOMPLETE일 수 있다. demo PASS로 전체 PR 검토를 통과 처리하지 않는다. demo 모드는 fixture `spec.md`를 full 문서로, 구현 fixture를 빈 트리 대비 diff로 보내 같은 검증 경로를 쓴다.
 
 실제 모델 결과가 예상과 다르면 그 결과를 보존하고 프롬프트/수집 문맥/검증을 조사한다.
 단순 재실행으로 원래 finding이 사라졌다고 해결 처리하지 않는다.
@@ -144,7 +145,7 @@ actionlint .github/workflows/spec-check.yml
 
 계약 검증은 API 응답을 mock하며 비용이 없다. genuine API 결과와 구분한다.
 제품 코드를 실행/설치/import하지 않는다. Python 표준 라이브러리만 사용한다.
-review input와 prompt 합계 256 KiB, 출력 16000 tokens(thinking 포함), 요청 90초, transient retry 1회, job 5분이다.
+review input와 prompt 합계 1024 KiB(DEV-197), 출력 16000 tokens(thinking 포함), 요청 90초, transient retry 1회, job 5분이다.
 문맥을 잘라 PASS로 만들지 않는다. 발췌(2.1절)는 정해진 규칙으로 고르고, 다 못 보내면 INCOMPLETE다. 바이너리/비밀 파일/누락 경로/큰 diff는 INCOMPLETE로 수동 검토가 필요하다.
 v1은 명시적 경로 표를 사용한다. 자동 의미 검색·외부 문서 수집·모든 종류의 비밀 탐지·정확성 보증을 제공하지 않는다.
 비밀로 의심되는 선택 문맥은 전송하지 않지만, 검토자는 선택한 파일에 민감 정보가 없는지 확인해야 한다.

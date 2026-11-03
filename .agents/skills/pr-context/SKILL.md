@@ -39,7 +39,8 @@ CI의 spec-check(`.github/spec-check/check.py`)가 이 표를 기계적으로 �
 - backtick 안의 값은 전부 repo 상대 **파일 경로**로 읽힌다. 함수·클래스·상수 이름, 폴더, glob, URL은 backtick 없이 쓴다. 예: `` `server/app/farms/service.py` (list_farms) `` (O), `` `list_farms` `` (X). `경로#앵커`는 써도 된다.
 - 문서만 바꾼 PR도 같은 형식이다: 1열에 기준 문서, 2열에 바뀐 문서.
 - `.env*`, `node_modules`, `.venv`, `dist`, 키 파일(`.pem` 등)이 바뀌면 checker가 읽지 않아 INCOMPLETE가 된다. 표에서 빼지 말고, PR 본문에 사람 리뷰로 대신한다고 적는다.
-- checker는 diff(lock·스냅샷·바이너리·`docs/wiki` 제외)와 스펙 발췌(tasks.md 이 이슈 섹션, FEAT·rules의 적힌 ID 항목, 폴더 `spec.md` 결정 행)만 보낸다(`.github/spec-check/README.md` 2.1절). diff가 입력 한도(`check.py`의 `MAX_INPUT`)에 가까우면 넘을 수 있다. 문맥을 줄이려고 바뀐 파일을 빼지 않는다. 넘으면 PR을 나누거나 사람 리뷰로 대신한다고 적는다.
+- checker는 diff(lock·스냅샷·바이너리·`docs/wiki` 제외)와 스펙 발췌(tasks.md 이 이슈 섹션, FEAT·rules의 적힌 ID 항목, 폴더 `spec.md` 결정 행)를 보낸다(`.github/spec-check/README.md` 2.1절). diff가 입력 한도(`check.py`의 `MAX_INPUT`, 1024 KiB)에 가까우면 넘을 수 있다. 문맥을 줄이려고 바뀐 파일을 빼지 않는다. 넘으면 PR을 나누거나 사람 리뷰로 대신한다고 적는다.
+- 판단에 diff 밖 코드가 필요하면(호출하는 서비스 함수, 스키마, 기존 테스트 등) 그 파일을 **바뀌지 않았어도 표 2열에 backtick 경로로 적는다**. checker가 전문을 문맥으로 보내 모델이 `UNVERIFIED` 대신 확인할 수 있다(DEV-197). 큰 파일은 한도를 먹으니 필요한 것만 적는다.
 
 PR을 열거나 본문을 고치기 전에 자가 점검을 돌린다. 모델·키·네트워크가 필요 없다. 레포 루트에서 실행하고, `OK`가 나올 때까지 표를 고친다.
 
