@@ -1702,7 +1702,7 @@ does document 5 require the exact log for AI use? then please use the session ex
 
 ## Hyun Park
 
-Period: Oct 18–22, 2026 (KST). Tool: Claude Code (Claude Opus 5.5). This section is separate from the numbered export above; I did not use the Session Exporter for it. I copied these prompts by hand from the Claude Code session files kept on my machine for this repository, which only go back to Oct 18. Most of my prompts were in Korean. I kept the Korean as I typed it, typos included, and put my own English translation in brackets. Prompts that contained contact details or a business document are left out. The session column is the first eight characters of the local session ID.
+Period: Oct 18–23, 2026 (KST). Tool: Claude Code (Claude Opus 5.5). This section is separate from the numbered export above; I did not use the Session Exporter for it. I copied these prompts by hand from the Claude Code session files kept on my machine for this repository, which only go back to Oct 18. Most of my prompts were in Korean. I kept the Korean as I typed it, typos included, and put my own English translation in brackets. Prompts that contained contact details or a business document are left out. The session column is the first eight characters of the local session ID.
 
 ### Prompts
 
@@ -1735,6 +1735,21 @@ Period: Oct 18–22, 2026 (KST). Tool: Claude Code (Claude Opus 5.5). This secti
 - 2026-10-21 14:00 · `bc39d8d2` — "개인정보만 가리게끔한다." [Mask personal data only.]
 - 2026-10-21 14:30 · `bc39d8d2` — "농가가 적은 입금 미확인·환불 지연 사유 -> 이런거는 가릴이유가 없잖아? 법적으로 문제되지 않는 정도 빼고는 모두 열어" [Reasons a farm wrote for an unconfirmed deposit or a late refund: there's no reason to hide those, right? Unmask everything except what is legally a problem.]
 - 2026-10-21 14:44 · `bc39d8d2` (sent in English) — "Squash merge PR 212 now without a teammate's approval, then check the deploy."
+
+**Root Makefile (DEV-117, PR [#236](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/236))**
+- 2026-10-22 23:13 · `d4b4faf8` — "scripts/clean-worktrees.mjs 가 이번 pr에 있는이유" [Why is scripts/clean-worktrees.mjs in this PR?]
+
+**Shared rules vs. personal rules (SWPP-119, PR [#231](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/231))**
+- 2026-10-23 17:02 · `a408c1c2` — "위 문제 중 일반적인 문제(다른 사람들도 나타날만한, 중요한)만 포함하고 나머지는 개인 .agent에 넣는다." [Of these problems, include only the general ones (important, likely to happen to others too) and put the rest in my personal .agent file.]
+- 2026-10-23 18:00 · `a408c1c2` — "준비 작업(트리거 수정·Linear 규칙·선택: 증분 spec-check)을 DEV 이슈로 만들고, PR #231의 쌓기 금지를 이 절차로 바꾸되 '트리거 수정 전까지는 쌓지 않는다'를 넣고, main CI 깨지면 머지한 사람이 복구 규칙도 넣어줘" [Make the prep work (trigger fix, Linear rule, optional incremental spec-check) a DEV issue, replace the no-stacking rule in PR #231 with this procedure but add "don't stack until the triggers are fixed", and add a rule that whoever merges fixes main CI if it breaks.]
+
+**Legal pages and order consent (DEV-113, PR [#230](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/230); DEV-120, PRs [#254](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/254)/[#256](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/256))**
+- 2026-10-23 17:20 · `2a853f75` — "문안만 고치면 되는 항목을 PR #230에서 고치고, 제품을 바꿔야 하는 항목은 Linear 이슈로 나눠줘." [Fix the items that only need wording changes in PR #230, and split the items that need product changes into Linear issues.]
+- 2026-10-23 17:37 · `2a853f75` — "DEV-120을 지금 시작해줘. PR #230 위에 브랜치를 쌓아서 별도 PR로 열어줘." [Start DEV-120 now. Stack the branch on PR #230 and open it as a separate PR.]
+- 2026-10-23 18:03 · `2a853f75` — "둘다 머지 했는데 순서 잘못되었는지 확인해" [I merged both. Check whether the order was wrong.]
+
+**Login failing on the default address (DEV-127, PR [#258](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/258))**
+- 2026-10-23 18:26 · `2a853f75` — "railway가 아니라 https://farmclub-consumer.vercel.app/login?next=%2Fme&from=tab vercel 주소에서 카카오 로그인안되서 인거 같은데?" [It's not Railway. Isn't it that Kakao login fails on the vercel address https://farmclub-consumer.vercel.app/login?next=%2Fme&from=tab?]
 
 ### Before Oct 18 (summaries, not verbatim)
 

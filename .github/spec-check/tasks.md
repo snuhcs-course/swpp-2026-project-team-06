@@ -302,3 +302,82 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 - 이슈: [DEV-144](https://linear.app/sswp6/issue/DEV-144) · 작업 기록 본문은 [`server/tasks.md#DEV-144`](../../server/tasks.md)
 - 범위: `check.py`(보고 함수), `test_check.py`, `backfill_usage.py`(새 파일), `README.md`, 이 파일, `.github/workflows/spec-check.yml`(spec-code-review·live-demo 단계에 `SPEC_CHECK_USAGE_URL`·`SPEC_CHECK_USAGE_TOKEN` 두 줄)
 - 결정: 모델 응답에 `usage`가 있을 때만 PR 번호·제목·head SHA·결과·모드·모델·입력/출력 토큰·실행 URL을 `POST <SPEC_CHECK_USAGE_URL>`로 보낸다. 두 값 중 하나라도 없으면 보내지 않는다. 보고 실패는 경고 한 줄만 찍고 리뷰 결과·보고서·종료 코드는 바꾸지 않는다. 표준 라이브러리만 쓴다.
+
+## DEV-196 spec-check 모델 리뷰를 환경 승인 없이 자동 실행
+
+- 이슈: [DEV-196](https://linear.app/sswp6/issue/DEV-196) (관련: DEV-55, DEV-144)
+- 브랜치: `nemodleo/dev-196-spec-check-auto-run`
+- 기능·인수 조건: infra. 제품 동작 변경 없음.
+- 상태: 구현 완료, 리뷰 대기
+
+### 목표
+`spec-code-review`가 보호 환경의 required reviewers 승인을 기다리지 않고 ready PR에서 바로 돈다. fail은 머지를 막지 않되, 작성자가 보고서를 읽고 처리 결정을 PR 코멘트에 적는 규칙을 둔다.
+
+### 범위 (수정 허용 경로)
+- `.github/workflows/spec-check.yml` — draft 제외 조건, `actions: read` 제거, 안내 문구
+- `.github/spec-check/check.py`, `test_check.py` — `check_environment`(required reviewers 요구)와 그 테스트 삭제
+- `.github/spec-check/README.md`, `spec.md`, 이 파일 — 승인 절차 삭제, 1.1절(fail 처리) 추가
+- `AGENTS.md`, `.agents/skills/pr-review/SKILL.md`, `.agents/tasks.md` — fail 보고서 처리 규칙 한 줄
+
+### 결정 사항
+- 11/03 PM 제안으로 전환. 승인 단계가 있는 동안(#265 #270 #280 #291) 매번 PM이 Actions에서 눌러야 체크가 끝났고, 승인이 걸러낸 실행은 없었다.
+- 11/03 환경 `spec-check` 자체는 유지한다(키·모델 변수를 PR 코드와 분리). Required reviewers만 GitHub 설정에서 뺀다(사람 몫, 박현). 설정을 빼기 전까지는 기존처럼 승인 대기한다.
+- 11/03 draft PR은 `github.event.pull_request.draft == false`로 건너뛴다. draft 동안의 push마다 모델을 부르지 않기 위해서다. `ready_for_review` 이벤트가 이미 트리거에 있어 draft 해제 때 돈다. `concurrency: cancel-in-progress`는 이미 있었다.
+- 11/03 `check_environment`는 환경 API를 읽어 reviewers가 없으면 INCOMPLETE를 내던 함수다. 설정만 바꾸면 모든 실행이 INCOMPLETE가 되므로 코드에서 함께 지운다.
+
+### 작업
+- [x] workflow 조건·권한·문구
+- [x] `check_environment`·테스트 삭제
+- [x] README 1장·1.1절·3장, spec.md 실행·권한 행
+- [x] AGENTS.md·pr-review 스킬 규칙 한 줄
+- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'`
+
+### 완료 조건
+- [ ] 계약 테스트 통과(로컬·GitHub checker-tests)
+- [ ] 박현이 Settings → Environments → spec-check의 Required reviewers 해제
+- [ ] 머지 뒤 ready PR 하나에서 승인 없이 `spec-code-review`가 도는지 확인
+- [ ] 사람 1명 승인 후 main 머지
+
+### 기록
+- 11/03 `origin/main`(81233e6)에서 시작.
+- 11/03 PR #365 spec-check(run 41603117143) INCOMPLETE: SC-001 README 3장 "draft에서도 실행한다"가 새 결정과 어긋남 → 결정론 job과 모델 job을 나눠 다시 씀. UNVERIFIED 중 `live-demo`에도 draft 조건이 없다는 지적을 받아 같은 조건을 넣음. 나머지(트리거 types에 ready_for_review 있음, NoRedirect·Client는 다른 곳에서 계속 쓰임)는 코드로 확인, 변경 없음.
+
+## DEV-197 표에 적은 바뀌지 않은 코드 파일을 문맥으로 보내고 입력 한도를 1024 KiB로
+
+- 이슈: [DEV-197](https://linear.app/sswp6/issue/DEV-197) (관련: DEV-81, DEV-196)
+- 브랜치: `nemodleo/dev-197-spec-check-context-files`
+- 기능·인수 조건: infra. 제품 동작 변경 없음.
+- 상태: 구현 완료, 리뷰 대기
+
+### 목표
+diff 밖 코드가 필요해 UNVERIFIED로 끝나는 INCOMPLETE(#291)와 입력 한도 초과 INCOMPLETE(#270)를 줄인다.
+
+### 범위 (수정 허용 경로)
+- `.github/spec-check/check.py`, `prompt.txt`, `test_check.py`
+- `.github/spec-check/README.md`, `spec.md`, 이 파일
+- `.agents/skills/pr-context/SKILL.md`, `.agents/tasks.md` — 표 2열에 문맥 파일을 적는 안내
+- `server/app/admin/ai_usage.py`(status Literal 한 값), `scripts/admin-web/api/_views/ai-cost.html`(라벨·색 한 줄) — DEV-144 비용 보고가 새 상태를 받게
+
+### 결정 사항
+- 11/03 문맥 파일은 표 2열(구현)에 적힌 경로 중 diff에 없는 파일이다. 새 열이나 새 문법을 만들지 않는다. 기존 표에서 함수 이름을 backtick으로 적은 경우는 head에 그런 파일이 없어 `reference_paths`에 `size: null`로만 남고 INCOMPLETE가 되지 않는다.
+- 11/03 전문(`kind: full`)으로 보낸다. 발췌 규칙(어떤 함수가 필요한지)을 짐작할 근거가 없고, 작성자가 파일 단위로 고르면 된다. 제외 규칙(`excluded`)·UTF-8·비밀값 검사는 `read_file`이 그대로 적용한다.
+- 11/03 finding의 인용 규칙은 바꾸지 않는다. `requirement`는 스펙 경로, `code`는 diff 경로만. 문맥 파일은 `documents`에 들어가 `reviewed_files` 검사(전부 검토)를 받는다. 문맥 파일에서만 보이는 불일치는 설명이나 `missing_context`에 적는다(prompt).
+- 11/03 `MAX_INPUT` 1024 KiB(PM 지시). #270(76개 파일)이 256 KiB를 넘었다. 비용은 DEV-144 비용 페이지에서 본다.
+- 11/03 PM 결정: finding 0건이면 초록. 모델이 INCOMPLETE를 냈어도 finding이 없으면 상태를 `NO_FINDINGS`(exit 0)로 바꾼다(`scoped`). 팀에 쓸모 있는 출력은 finding이고, "못 본 부분까지 보증하는 PASS 도장"은 아무도 쓰지 않는데 빨간불만 만들었다(#365 2차: finding 0·UNVERIFIED 4). PASS의 엄격함은 그대로 두고, 오류 경로(표 형식·한도·접근)와 finding이 있는 INCOMPLETE는 여전히 exit 2.
+- 11/03 DEV-81 테스트 `test_spec_only_change_collects_implementation_and_prior_spec`의 "바뀌지 않은 구현은 메타만" 단언을 "문맥으로 보낸다"로 바꿨다. DEV-81의 목적(바뀐 파일 전문·이전 버전·base 변경본을 안 보냄)은 그대로다.
+
+### 작업
+- [x] `collect` 문맥 파일, `MAX_INPUT`, `prompt.txt`
+- [x] 테스트: 문맥 파일 전송·누락 경로·제외 경로·reviewed_files 검사, 한도 숫자
+- [x] README 2.1·3·4·6장, spec.md 제한·결과 행, pr-context 스킬
+- [x] `NO_FINDINGS` 상태(`scoped`, exit 0, 보고서 문구), 서버 Literal·관리자 비용 페이지 라벨
+- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 53개 통과(DEV-196 병합으로 환경 테스트 1개 빠지고 새 테스트 2개)
+
+### 완료 조건
+- [ ] 계약 테스트 통과(로컬·GitHub checker-tests)
+- [ ] 머지 뒤 #291 표 2열에 문맥 파일을 추가해 재실행, #270 재실행 결과를 각 PR 코멘트에 기록
+- [ ] 사람 1명 승인 후 main 머지
+
+### 기록
+- 11/03 `origin/main`(81233e6)에서 시작. DEV-196(#365)과 같은 파일(`check.py`·README·spec.md)을 다른 자리에서 고치므로 뒤에 머지하는 쪽이 main을 병합한다.
+- 11/03 #365 머지 뒤 main(d5c4bb7) 병합. 충돌은 이 파일·`.agents/tasks.md`의 끝 절(DEV-196 → DEV-197 순으로 둘 다 남김).

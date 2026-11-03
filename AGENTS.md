@@ -74,6 +74,7 @@
 - 머지는 사람 1명 Approve 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
 - 머지 전에 PR 체크(CI·spec-check)가 통과했는지 확인한다. main CI가 깨지면 머지한 사람이 바로 고치거나 revert한다(깨진 동안 다른 사람의 배포와 CI가 막힌다).
+- spec-check(`spec-code-review`)는 ready PR에서 자동으로 돌고, fail이어도 머지를 막지 않는다. 대신 작성자가 보고서를 읽고 처리 결정(고침·스펙 변경·오탐·사람 리뷰 대체)을 PR 코멘트에 적는다. 리뷰어는 그 코멘트가 없으면 Approve를 미룬다(`.github/spec-check/README.md` 1.1절, DEV-196).
 
 ## 리뷰
 - CI 전용 Spec ↔ Code 보고 클라이언트는 `.github/spec-check/`에 둔다(DEV-40). 위의 `server/app/ai` 제한은 제품 AI 호출에 적용하며, CI는 별도 키·보호 환경을 사용하고 제품 어댑터/키를 재사용하지 않는다.
