@@ -356,19 +356,22 @@ diff 밖 코드가 필요해 UNVERIFIED로 끝나는 INCOMPLETE(#291)와 입력 
 - `.github/spec-check/check.py`, `prompt.txt`, `test_check.py`
 - `.github/spec-check/README.md`, `spec.md`, 이 파일
 - `.agents/skills/pr-context/SKILL.md`, `.agents/tasks.md` — 표 2열에 문맥 파일을 적는 안내
+- `server/app/admin/ai_usage.py`(status Literal 한 값), `scripts/admin-web/api/_views/ai-cost.html`(라벨·색 한 줄) — DEV-144 비용 보고가 새 상태를 받게
 
 ### 결정 사항
 - 11/03 문맥 파일은 표 2열(구현)에 적힌 경로 중 diff에 없는 파일이다. 새 열이나 새 문법을 만들지 않는다. 기존 표에서 함수 이름을 backtick으로 적은 경우는 head에 그런 파일이 없어 `reference_paths`에 `size: null`로만 남고 INCOMPLETE가 되지 않는다.
 - 11/03 전문(`kind: full`)으로 보낸다. 발췌 규칙(어떤 함수가 필요한지)을 짐작할 근거가 없고, 작성자가 파일 단위로 고르면 된다. 제외 규칙(`excluded`)·UTF-8·비밀값 검사는 `read_file`이 그대로 적용한다.
 - 11/03 finding의 인용 규칙은 바꾸지 않는다. `requirement`는 스펙 경로, `code`는 diff 경로만. 문맥 파일은 `documents`에 들어가 `reviewed_files` 검사(전부 검토)를 받는다. 문맥 파일에서만 보이는 불일치는 설명이나 `missing_context`에 적는다(prompt).
 - 11/03 `MAX_INPUT` 1024 KiB(PM 지시). #270(76개 파일)이 256 KiB를 넘었다. 비용은 DEV-144 비용 페이지에서 본다.
+- 11/03 PM 결정: finding 0건이면 초록. 모델이 INCOMPLETE를 냈어도 finding이 없으면 상태를 `NO_FINDINGS`(exit 0)로 바꾼다(`scoped`). 팀에 쓸모 있는 출력은 finding이고, "못 본 부분까지 보증하는 PASS 도장"은 아무도 쓰지 않는데 빨간불만 만들었다(#365 2차: finding 0·UNVERIFIED 4). PASS의 엄격함은 그대로 두고, 오류 경로(표 형식·한도·접근)와 finding이 있는 INCOMPLETE는 여전히 exit 2.
 - 11/03 DEV-81 테스트 `test_spec_only_change_collects_implementation_and_prior_spec`의 "바뀌지 않은 구현은 메타만" 단언을 "문맥으로 보낸다"로 바꿨다. DEV-81의 목적(바뀐 파일 전문·이전 버전·base 변경본을 안 보냄)은 그대로다.
 
 ### 작업
 - [x] `collect` 문맥 파일, `MAX_INPUT`, `prompt.txt`
 - [x] 테스트: 문맥 파일 전송·누락 경로·제외 경로·reviewed_files 검사, 한도 숫자
-- [x] README 2.1·4·6장, spec.md 제한 행, pr-context 스킬
-- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 53개 통과
+- [x] README 2.1·3·4·6장, spec.md 제한·결과 행, pr-context 스킬
+- [x] `NO_FINDINGS` 상태(`scoped`, exit 0, 보고서 문구), 서버 Literal·관리자 비용 페이지 라벨
+- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 53개 통과(DEV-196 병합으로 환경 테스트 1개 빠지고 새 테스트 2개)
 
 ### 완료 조건
 - [ ] 계약 테스트 통과(로컬·GitHub checker-tests)
@@ -377,3 +380,4 @@ diff 밖 코드가 필요해 UNVERIFIED로 끝나는 INCOMPLETE(#291)와 입력 
 
 ### 기록
 - 11/03 `origin/main`(81233e6)에서 시작. DEV-196(#365)과 같은 파일(`check.py`·README·spec.md)을 다른 자리에서 고치므로 뒤에 머지하는 쪽이 main을 병합한다.
+- 11/03 #365 머지 뒤 main(d5c4bb7) 병합. 충돌은 이 파일·`.agents/tasks.md`의 끝 절(DEV-196 → DEV-197 순으로 둘 다 남김).

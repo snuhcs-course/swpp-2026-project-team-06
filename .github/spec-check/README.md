@@ -28,7 +28,7 @@
 
 `spec-code-review`는 참고용 체크다. MISMATCH·INCOMPLETE로 fail이어도 머지를 막지 않는다. 대신 PR 작성자가 Checks → 해당 run → Summary(또는 report artifact)를 읽고 PR 코멘트에 처리 결정을 적는다:
 - MISMATCH: finding마다 고쳤는지, 스펙을 바꿨는지, 오탐인지(6장 양식).
-- INCOMPLETE: 원인(표 형식·경로·입력 한도·UNVERIFIED 항목)과 사람 리뷰어가 대신 확인할 것.
+- INCOMPLETE: 원인(표 형식·경로·입력 한도, 또는 finding+문맥 부족)과 사람 리뷰어가 대신 확인할 것. finding 0건에 UNVERIFIED만 남으면 NO_FINDINGS(초록)이라 코멘트 의무가 없다.
 리뷰어는 이 코멘트가 없으면 Approve를 미룬다. 표 형식 문제는 push 전에 `python3 .agents/skills/pr-context/check_table.py <본문 파일>`로 잡는다.
 
 ## 2. 일반 PR 작성
@@ -97,8 +97,9 @@ checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `con
 | 결과 | 의미와 조치 |
 | --- | --- |
 | PASS (exit 0) | 제공된 범위에서 불일치가 발견되지 않음. 일반 테스트/사람 리뷰 계속 |
+| NO_FINDINGS (exit 0) | 보이는 범위에서 지적(finding) 0건이지만 diff 밖 문맥이 있어 모델이 `UNVERIFIED`를 남김(DEV-197). 체크는 초록. PASS가 아니므로 `Missing context` 항목은 사람 리뷰어가 본다. 더 보여 주려면 표 2열에 그 파일을 적는다(2.1절) |
 | MISMATCH (exit 1) | 검증 가능한 근거가 있는 지적. 사람이 확인·해결 |
-| INCOMPLETE (exit 2) | 키/모델/환경/문맥/응답 오류 또는 크기 제한. 원인을 해소하고 재실행 |
+| INCOMPLETE (exit 2) | 키/모델/표 형식/응답 오류 또는 크기 제한, 또는 finding이 있는데 문맥이 모자라 MISMATCH로 확정하지 못함. 원인을 해소하고 재실행 |
 | SKIPPED (exit 0 + 명시 안내) | v1 지원 대상이 아님. PASS가 아님 |
 
 모델 응답의 `thinking`·`redacted_thinking` 블록(adaptive thinking 기본값인 모델)은 읽지 않고 버리고, text 블록의 리뷰 JSON만 검증한다(DEV-79). text 블록이 없거나 다른 블록(`tool_use` 등)이 섞이면 `Unexpected model content type: <type>.` INCOMPLETE이며, 메시지에는 블록 type 이름만 남는다.
