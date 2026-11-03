@@ -146,11 +146,12 @@ jobs:
           VERCEL_PROJECT_ID: ${{ matrix.project_id }}
         run: npx --yes vercel@48 deploy "apps/${{ matrix.app }}/dist" --prod --yes --token "$VERCEL_TOKEN"
 
+      # DEV-139: curl이 시간 초과(exit 28)로 끝나도 루프가 끊기지 않고 재시도한다(`|| echo 000`). 2026-11-03 첫 태그 배포 때 demo 확인이 한 번에 끊겼다.
       - name: Check the live site
         if: steps.changes.outputs.deploy == 'true'
         run: |
           for i in $(seq 1 12); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "${{ matrix.url }}")
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "${{ matrix.url }}" || echo 000)
             if [ "$code" = "200" ]; then
               echo "${{ matrix.url }} → 200"
               exit 0
@@ -220,7 +221,7 @@ jobs:
         if: steps.changes.outputs.deploy == 'true'
         run: |
           for i in $(seq 1 12); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$ADMIN_URL/login")
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$ADMIN_URL/login" || echo 000)
             if [ "$code" = "200" ]; then
               echo "$ADMIN_URL/login → 200"
               exit 0
@@ -294,8 +295,8 @@ jobs:
         if: steps.changes.outputs.deploy == 'true'
         run: |
           for i in $(seq 1 12); do
-            page=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$DEMO_URL/")
-            video=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -r 0-1023 "$DEMO_URL/videos/story.mp4")
+            page=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$DEMO_URL/" || echo 000)
+            video=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -r 0-1023 "$DEMO_URL/videos/story.mp4" || echo 000)
             if [ "$page" = "200" ] && [ "$video" = "206" ]; then
               echo "$DEMO_URL/ → 200, /videos/story.mp4 → 206"
               exit 0
