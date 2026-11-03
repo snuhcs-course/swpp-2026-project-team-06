@@ -397,10 +397,10 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 ### SCR-29 주문·출하 처리 `/ship`
 
-- **관련**: FEAT-17, AC-17-2/3/4/5/6/7/8, FEAT-09 AC-09-8/9, R-07/15/19/28 · 디자인: DEV-68 보드, Figma 「현재 시안 · 생산자」 DEV-68 줄.
-- **화면**: 전체/입금 대기/예약/출하 준비/출하/환불 탭(가로 스크롤), 주문번호·받는 사람·배송 정보, 준비 주문 선택·택배사/송장 시트·출하 확인. 수확 시작 UI/확인/완료 없음. **입금 대기 줄(DEV-68)**: 주문 번호·기한, 이름·옵션, 입금액·입금자명(=주문 번호), ‘소비자가 입금했다고 알렸어요’ 줄(`depositReportedAt`), 미승인했던 줄은 ‘미승인 사유: …’(`depositIssue`). 배송지는 보여 주지 않는다(R-15). **환불 줄**: 입금액·‘입금했던 계좌로 돌려보내요’, 미승인했던 줄은 ‘미승인 사유: …’(`refundIssue`), 송금을 마친 줄은 ‘○월 ○일 송금 완료’. **두 줄 모두** 아래에 기존 버튼 한 쌍 ‘미승인’(secondary) 1 : ‘승인’(primary) 2. 확인 창·시트 없이 승인은 바로 처리. 미승인은 그 줄 안에 펼쳐진다: (입금만) ‘미승인하면’ 아래 ‘입금 대기로 두기’/‘주문 취소’ 고르기, ‘미승인 사유’ 아래 Radio 줄 4개(로그인 계정 고르기와 같은 부품: 사유 3개 + ‘직접 입력’, 하나만 켜짐, 다시 누르면 꺼짐). ‘직접 입력’을 켜면 그 아래 라벨 없는 입력 칸(필수, 200자)이 바로 열린다. 사유를 고르지 않았거나 직접 입력이 비면 ‘미승인’을 누를 수 없다. ‘닫기’ 1 : ‘미승인’(취소를 고르면 ‘미승인 · 주문 취소’) 2. 탭 아래 안내 문구는 탭마다 다르다(입금 대기: 통장 대조 뒤 누르기·24시간 자동 취소, 환불: 입금했던 계좌로 보내기).
+- **관련**: FEAT-17, AC-17-2/3/4/5/6/7/8/9, FEAT-09 AC-09-8/9, R-07/15/19/28 · 디자인: DEV-68 보드, Figma 「현재 시안 · 생산자」 DEV-68 줄.
+- **화면**: 전체/입금 대기/예약/출하 준비/출하/환불 탭(가로 스크롤), 주문번호·받는 사람·배송 정보, 준비 주문 선택·택배사/송장 시트·출하 확인. 수확 시작 UI/확인/완료 없음. **입금 대기 줄(DEV-68)**: 주문 번호·기한, 이름·옵션, 입금액·입금자명(=주문 번호), ‘소비자가 입금했다고 알렸어요’ 줄(`depositReportedAt`), 미승인했던 줄은 ‘미승인 사유: …’(`depositIssue`). 배송지는 보여 주지 않는다(R-15). **환불 줄**: 입금액·‘입금했던 계좌로 돌려보내요’, 미승인했던 줄은 ‘미승인 사유: …’(`refundIssue`), 송금을 마친 줄은 ‘○월 ○일 송금 완료’. **두 줄 모두** 아래에 기존 버튼 한 쌍 ‘미승인’(secondary) 1 : ‘승인’(primary) 2. 입금 승인은 이름·옵션×수량·금액을 보여주는 확인 시트 후 처리하며 취소하면 호출하지 않는다(2026-11-02 owner 결정, DEV-179). 기존 이름 표시·마스킹은 유지하고 배송지는 보여주지 않는다. 환불 승인은 기존처럼 줄에서 처리. 미승인은 그 줄 안에 펼쳐진다: (입금만) ‘미승인하면’ 아래 ‘입금 대기로 두기’/‘주문 취소’ 고르기, ‘미승인 사유’ 아래 Radio 줄 4개(로그인 계정 고르기와 같은 부품: 사유 3개 + ‘직접 입력’, 하나만 켜짐, 다시 누르면 꺼짐). ‘직접 입력’을 켜면 그 아래 라벨 없는 입력 칸(필수, 200자)이 바로 열린다. 사유를 고르지 않았거나 직접 입력이 비면 ‘미승인’을 누를 수 없다. ‘닫기’ 1 : ‘미승인’(취소를 고르면 ‘미승인 · 주문 취소’) 2. 탭 아래 안내 문구는 탭마다 다르다(입금 대기: 통장 대조 뒤 누르기·24시간 자동 취소, 환불: 입금했던 계좌로 보내기).
 - **조회**: GET /api/orders/producer 전체 cursor(`totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt` 포함). 조회 시점에 기한 지난 입금 대기는 서버가 취소한다. 예약은 조회만, 자동 전이 없음. 기존 PREPARING 주문에만 송장·출하 동작을 제공한다.
-- **동작**: 입금 승인 → POST /api/orders/:id/confirm-deposit, 환불 승인 → POST /api/orders/:id/refund-settled, 입금 미승인 → POST /api/orders/:id/reject-deposit `{reason, cancel}`, 환불 미승인 → POST /api/orders/:id/refund-issue `{reason}` → 토스트, 목록 갱신. 409면 최신 상태로 다시 그린다. 송장 저장은 로컬 편집·선택, 출하 확인 후 주문별 POST /api/orders/:id/ship. 기존 harvest-start 서버 API는 유지하지만 현재 프론트에서 호출하지 않는다. 배송 완료 변경 권한은 없다.
+- **동작**: 입금 승인 → POST /api/orders/:id/confirm-deposit, 환불 승인 → POST /api/orders/:id/refund-settled, 입금 미승인 → POST /api/orders/:id/reject-deposit `{reason, cancel}`, 환불 미승인 → POST /api/orders/:id/refund-issue `{reason}` → 토스트, 목록 갱신. 409면 최신 상태로 다시 그린다. 출하 준비 송장 저장은 로컬 편집·선택, 출하 확인 후 주문별 POST /api/orders/:id/ship. 출하된 줄에는 ‘송장 수정’ 버튼이 있고 같은 시트를 현재 택배사·번호로 열어 PATCH /api/orders/:id/tracking으로 저장한다. 이력은 노출하지 않는다. 기존 harvest-start 서버 API는 유지하지만 현재 프론트에서 호출하지 않는다. 배송 완료 변경 권한은 없다.
 - **상태**: 없음·로딩·오류 재시도, 부분 실패/409는 성공분 보존·실패분 재시도. 배송 완료 주문 개인정보는 서버 마스킹 유지.
 
 ### SCR-30 농가 프로필·링크 `/farm`
@@ -553,6 +553,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(입금 대기 포함, 배송 완료 전·입금 후만 배송 정보), `carrier`·`trackingNumber`, `totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt` | FEAT-14, 17 | Should |
 | `POST /api/orders/producer/harvest-start` | 생산자 | SCR-29 | `productId` | 출하 준비로 바뀐 주문 수 | FEAT-17 | Should |
 | `POST /api/orders/{orderId}/ship` | 생산자(자기 농가) | SCR-29 | `carrier`(선택, 택배사 코드 7.1), `trackingNumber`(선택, 50자 이하). 여러 건은 주문마다 호출 | `SHIPPED`, 출하일, 택배사·송장. 출하 준비가 아니면 409 `INVALID_TRANSITION` | FEAT-17 | Should |
+| `PATCH /api/orders/{orderId}/tracking` | 생산자(자기 농가 SHIPPED 주문) | SCR-29 | `version`(현재 trackingVersion), `carrier`(필수), `trackingNumber`(선택·50자 이하), `Idempotency-Key` | 최신 ProducerOrder·trackingVersion. 타농가404, 다른 상태409 INVALID_TRANSITION, 버전 불일치409 VERSION_MISMATCH. 감사 이력은 서버/관리자 전용 | FEAT-17 AC-17-9 | Should |
 
 **messaging** (`/api/messaging`)
 
@@ -657,3 +658,9 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 ## DEV-54 기존 자료 분석 확장
 
 [자료 분석 명세](./source-analysis.md)의 AC-SRC-1~8을 적용한다. 승인 생산자용 비공개 백엔드는 `/api/source-analysis`에 추가한다. 기존 단건 초안·상품 편집·상세 계약과 UI는 유지하며, 새로운 자료 검토 화면과 공개 상품 반영은 후속 통합이다. 내부 구현 계획 문서는 저장하지 않는다.
+
+
+### DEV-179 SCR-24·SCR-29 보완 (2026-11-02 owner 결정)
+- SCR-24·상세 편집은 상단 고정 '구매자 화면 미리보기'/'편집으로 돌아가기'로 같은 화면에서 전환하고 미저장 값을 보존한다. AI 배지와 원문 보기/목록은 없으며 근거는 감사용으로 서버·review API에 남긴다. 적용 검토 진입은 '공개 전 검토'. 분석 시작은 대표사진 없이 가능하나 품종은 필수이며 새 상품 AI 시트의 시작 버튼 위에서 입력한다.
+- SCR-29: 모든 주문 줄에 옵션×수량·주문 총액을 표시한다. 입금 승인은 기존 이름 마스킹 규칙을 따른 이름·옵션×수량·금액 확인 시트에서 최종 승인 후 실행한다. 주문 상세 화면은 추가하지 않는다. SHIPPED 줄의 ‘송장 수정’은 기존 편집 시트에서 현재 값을 불러와 저장한다. 자기 농가만, 택배사 필수·송장 50자 이하·버전/멱등 검사 후 수정하며 소비자는 새 값으로 배송을 조회한다. 이력(전후 값·시각·actor)은 서버 감사에만 남고 양쪽 UI에는 표시하지 않는다(AC-17-9).
+- 진행/실패/제외 안내는 source-editor.md DEV-179 절을 따른다. Figma v6는 DEV-185 후속이다.
