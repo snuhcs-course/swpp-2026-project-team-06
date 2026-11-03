@@ -29,20 +29,21 @@ emit() { # deploy base reason
   echo "deploy=$1"
 }
 
-if [ "${GITHUB_EVENT_NAME:-}" = "workflow_dispatch" ]; then
-  emit true - "Manual run: deploying $short (tag $tag ignored)."
-  exit 0
-fi
-
 # 태그를 항상 원격에서 새로 받는다(체크아웃은 태그를 안 가져올 수 있고, 다른 실행이 방금 옮겼을 수 있다).
 git fetch --quiet --force "$remote" "refs/tags/$tag:refs/tags/$tag" 2>/dev/null || true
 base=$(git rev-parse -q --verify "refs/tags/$tag^{commit}" 2>/dev/null || true)
+baseshort=${base:+$(git rev-parse --short "$base")}
+# 첫 줄은 항상 비교 범위: 배포 확인 때 이 줄과 마지막 줄(Deploying/Skipping)만 읽으면 된다(pr-review 스킬 4장).
+echo "Comparing ${baseshort:-none}..$short ($tag, event ${GITHUB_EVENT_NAME:-local})"
 
+if [ "${GITHUB_EVENT_NAME:-}" = "workflow_dispatch" ]; then
+  emit true "${base:--}" "Manual run: deploying $short (tag $tag ignored)."
+  exit 0
+fi
 if [ -z "$base" ]; then
   emit true - "No $tag tag yet: deploying $short without a base."
   exit 0
 fi
-baseshort=$(git rev-parse --short "$base")
 if [ "$base" = "$head" ]; then
   emit false "$base" "$short is already deployed ($tag). Skipping."
   exit 0
@@ -56,7 +57,6 @@ if ! git merge-base --is-ancestor "$base" "$head" 2>/dev/null; then
   exit 0
 fi
 
-echo "Comparing $baseshort..$short ($tag):"
 changed=$(git diff --name-only "$base" "$head")
 printf '%s\n' "$changed" | sed 's/^/  /'
 if printf '%s\n' "$changed" | grep -qE "$pattern"; then

@@ -5,6 +5,7 @@ name: Deploy server to Railway
 # DEV-66: main의 CI(ci.yml)가 성공한 뒤에만 배포한다. CI가 검사한 그 커밋(head_sha)을 올린다.
 # DEV-139: 변경 감지는 마지막으로 배포한 커밋(이동 태그 deploy/railway-api)..HEAD에 server/** 또는 이 워크플로가
 # 바뀌었는지로 본다(scripts/ci/deploy-changed.sh). HEAD~1만 보면 CI가 취소·실패한 앞 커밋의 변경을 건너뛴다.
+# 태그는 API·worker가 모두 올라간 뒤 마지막 단계에서 옮긴다.
 # 시크릿 RAILWAY_TOKEN(Railway 프로젝트 토큰)이 있어야 하고, 값은 레포에 적지 않는다.
 # 수동 실행: Actions 탭 → 이 워크플로 → Run workflow (workflow_dispatch). 브랜치는 main을 골라야 하고(다른 브랜치는 건너뜀),
 # 변경 여부와 상관없이 지금 main을 올린다. 토큰은 production Environment(main 전용)에 둔다(DEV-70).
@@ -95,10 +96,6 @@ jobs:
           echo "::error::$HEALTH_URL did not return 200 within 3 minutes after the deploy."
           exit 1
 
-      - name: Mark this commit as deployed (tag deploy/railway-api)
-        if: steps.changes.outputs.deploy == 'true'
-        run: scripts/ci/deploy-mark.sh deploy/railway-api
-
       - name: Deploy source worker from the same main commit when enabled
         if: steps.changes.outputs.deploy == 'true'
         env:
@@ -134,3 +131,8 @@ jobs:
           done
           echo "::error::Source worker did not become ready within 10 minutes."
           exit 1
+
+      # DEV-139: API와 worker가 모두 올라간 뒤에만 태그를 옮긴다. 중간에 실패하면 다음 실행이 같은 변경을 다시 올린다.
+      - name: Mark this commit as deployed (tag deploy/railway-api)
+        if: steps.changes.outputs.deploy == 'true'
+        run: scripts/ci/deploy-mark.sh deploy/railway-api

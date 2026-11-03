@@ -211,7 +211,7 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 
 ### 결정 사항
 - 11/03 기준은 **이동 태그** `deploy/railway-api`·`deploy/vercel-consumer`·`deploy/vercel-producer`·`deploy/vercel-admin`·`deploy/vercel-demo`. 배포(+health 확인) 성공 뒤 `deploy-mark.sh`가 `git push --force origin HEAD:refs/tags/<태그>`로 옮긴다. GitHub Deployments API는 `environment: production` job이 건너뛴 실행에도 성공 기록을 남겨 기준으로 못 쓰고, 워크플로 실행 목록도 "실제로 올렸는지"를 구분 못 한다. 태그는 레포에서 바로 보이고 `git` 만으로 읽는다.
-- 11/03 규칙(`deploy-changed.sh`): 수동 실행은 항상 배포. 태그가 없으면 배포(첫 실행·안전한 쪽). HEAD == 태그면 건너뜀. HEAD가 태그의 조상이면 건너뜀(늦게 끝난 옛 CI 실행이 되돌리지 않게). 태그가 HEAD의 조상이 아니면(기록 재작성) 배포. 그 밖엔 `git diff <태그> HEAD`에 대상 경로가 있으면 배포. 로그 첫 줄에 `Comparing <base>..<head>`.
+- 11/03 규칙(`deploy-changed.sh`): 수동 실행은 항상 배포. 태그가 없으면 배포(첫 실행·안전한 쪽). HEAD == 태그면 건너뜀. HEAD가 태그의 조상이면 건너뜀(늦게 끝난 옛 CI 실행이 되돌리지 않게). 태그가 HEAD의 조상이 아니면(기록 재작성) 배포. 그 밖엔 `git diff <태그> HEAD`에 대상 경로가 있으면 배포. 모든 분기에서 로그 첫 줄은 `Comparing <base|none>..<head>`, 마지막 줄은 `deploy=true|false`.
 - 11/03 `fetch-depth: 0`. 태그와 HEAD 사이 기록이 필요하다. 레포 크기에서 수십 초 안.
 - 11/03 `permissions: contents: write`(두 워크플로). 태그 push 때문. 토큰은 여전히 production Environment 안에서만 쓰인다.
 - 11/03 감지 정규식에 `scripts/ci/deploy-(changed|mark).sh`를 더해 스크립트가 바뀌면 그 대상이 한 번 다시 올라간다(워크플로 파일과 같은 취급).
@@ -220,7 +220,7 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 
 ### 작업
 - [x] `deploy-changed.sh`·`deploy-mark.sh`·시나리오 테스트 7개
-- [x] 감지 단계 5곳 교체, 태그 단계 4곳(Railway 1, Vercel 3), fetch-depth, permissions
+- [x] 감지 단계 4곳(대상 5개: Railway, Vercel 앱 matrix 2, admin, demo) 교체, 태그 단계 4곳(Railway는 worker까지 올라간 뒤), fetch-depth, permissions
 - [x] ci.yml 단계, Makefile, README, stack.md, pr-review 스킬
 - [x] 로컬: `bash scripts/ci/test-deploy-changed.sh` 7 시나리오 통과, `shellcheck scripts/ci/*.sh` 경고 없음, 워크플로 YAML 파싱 확인
 
@@ -231,3 +231,4 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 
 ### 기록
 - 11/03 `origin/main`(0afd89a)에서 시작.
+- 11/03 PR #374 spec-check SC-001(Comparing 줄이 diff 분기에만 있음) 반영: 모든 분기에서 첫 줄로 찍는다. UNVERIFIED(Railway worker 단계 뒤에 태그를 옮겨야 함) 반영: 태그 단계를 worker 단계 뒤로. "감지 5곳" 표현을 "4단계·5대상"으로.
