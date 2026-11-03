@@ -138,7 +138,7 @@ class ContractTests(unittest.TestCase):
                 return super().open(req, timeout)
 
         check.model_review(context(), "prompt", "key", "model", Capture([envelope()]))
-        self.assertEqual(check.MAX_INPUT, 256 * 1024)
+        self.assertEqual(check.MAX_INPUT, 1024 * 1024)  # DEV-197
         self.assertEqual(seen["body"]["max_tokens"], check.MAX_OUTPUT_TOKENS)
         self.assertGreaterEqual(check.MAX_OUTPUT_TOKENS, 16000)
         self.assertEqual(seen["timeout"], check.REQUEST_TIMEOUT)
@@ -146,7 +146,7 @@ class ContractTests(unittest.TestCase):
         # must fit the 5-minute job with room left for checkout and setup.
         self.assertLessEqual(2 * check.REQUEST_TIMEOUT + 2 + 3 * check.GITHUB_TIMEOUT, 5 * 60 - 40)
         self.assertNotIn("thinking", seen["body"])  # No model-specific thinking setting (no fallback/branching).
-        with self.assertRaisesRegex(check.Incomplete, "256 KiB"):
+        with self.assertRaisesRegex(check.Incomplete, "1024 KiB"):
             check.model_review({"text": "x" * check.MAX_INPUT}, "prompt", "key", "model", Client([]))
 
     def test_thinking_blocks_are_ignored_but_text_is_required(self):
@@ -341,11 +341,14 @@ class ContractTests(unittest.TestCase):
                 "## Spec ↔ Code 확인\n- 작업 기록: " + tick + "module/tasks.md#dev-40" + tick
                 + "\n| " + tick + "spec.md" + tick + " | " + tick + "sample.py" + tick + " | review |\n")
             data = check.collect(directory, candidate)
-            # DEV-81: the spec change is visible in the diff; unchanged implementation is metadata only.
+            # DEV-81: the spec change is visible in the diff. DEV-197: the unchanged implementation named in the
+            # table is sent in full as context (not as diff), so the model can check the spec against it.
             self.assertIn("-Old requirement\n+New requirement", data["diff"])
             self.assertEqual(data["diff_paths"], ["spec.md"])
             self.assertEqual(data["changed_files"]["spec.md"]["status"], "modified")
-            self.assertNotIn("return 1", json.dumps(data))
+            self.assertNotIn("return 1", data["diff"])
+            self.assertEqual(data["documents"]["sample.py"]["segments"][0]["text"], "return 1\n")
+            self.assertTrue(data["documents"]["sample.py"]["selection"].startswith("context:"))
             self.assertEqual(data["documents"]["module/tasks.md"]["segments"][0]["text"], "## DEV-40 Example\nScope: sample.py\n")
             for gone in ("files", "previous_files", "target_changes"):
                 self.assertNotIn(gone, data)
@@ -553,6 +556,44 @@ class DiffOnlyContextTests(unittest.TestCase):
         self.assertEqual(workflow["segments"][1]["text"], "## jobs\nsteps")
         self.assertEqual(data["reference_paths"], {"docs/spec/README.md": {"size": 15}})
         self.assertNotIn("authority text", json.dumps(data))
+
+    def test_model_incomplete_without_findings_is_no_findings_and_exit_zero(self):
+        # DEV-197: unverified context alone is green; findings or error-path INCOMPLETE stay red.
+        base = {"summary": "s", "reviewed_files": [], "findings": [], "missing_context": ["UNVERIFIED: x"]}
+        self.assertEqual(check.scoped({**base, "status": "INCOMPLETE"})["status"], "NO_FINDINGS")
+        self.assertEqual(check.scoped({**base, "status": "PASS", "missing_context": []})["status"], "PASS")
+        finding = {"id": "SC-001"}
+        self.assertEqual(check.scoped({**base, "status": "INCOMPLETE", "findings": [finding]})["status"], "INCOMPLETE")
+        self.assertEqual(check.scoped({**base, "status": "MISMATCH", "findings": [finding], "missing_context": []})["status"], "MISMATCH")
+        with tempfile.TemporaryDirectory() as directory:
+            report = {"schema_version": 1, **base, "status": "NO_FINDINGS", "metadata": {}, "model": "m", "usage": {}}
+            check.publish(report, directory)
+            text = Path(directory, "report.md").read_text()
+            self.assertIn("# Spec-to-code review: NO_FINDINGS", text)
+            self.assertIn("Not a PASS", text)
+            self.assertIn("- UNVERIFIED: x", text)
+
+    def test_unchanged_table_files_are_sent_in_full_as_context(self):
+        # DEV-197: an implementation path in the table that the PR did not change is context, not diff.
+        self.base = repo(self.dir, {"module/helper.py": "def g():\n    return 'ctx'\n"})  # helper exists before the PR
+        head = repo(self.dir, {"module/sample.py": "def f():\n    return 3\n"})
+        rows = [(["module/spec.md"], ["module/sample.py", "module/helper.py", "module/missing.py", "docs/wiki/Home.md"], "x")]
+        data = check.collect(self.dir, self.event_for(head, body(rows)))
+        self.assertEqual(data["diff_paths"], ["module/sample.py"])
+        helper = data["documents"]["module/helper.py"]
+        self.assertEqual((helper["kind"], helper["segments"][0]["start"]), ("full", 1))
+        self.assertTrue(helper["selection"].startswith("context:"))
+        self.assertIn("return 'ctx'", helper["segments"][0]["text"])
+        self.assertEqual(data["metadata"]["source_revisions"]["module/helper.py"], head)
+        self.assertEqual(data["reference_paths"]["module/missing.py"], {"size": None})
+        self.assertNotIn("docs/wiki/Home.md", data["documents"])  # excluded paths are never sent, changed or not
+        # Validation treats context files like other documents: they must be reviewed, and findings cite the diff.
+        report = {"status": "PASS", "summary": "ok", "reviewed_files": sorted(set(data["documents"]) | set(data["diff_paths"])),
+                  "findings": [], "missing_context": []}
+        check.validate(report, data)
+        report["reviewed_files"].remove("module/helper.py")
+        with self.assertRaisesRegex(check.Incomplete, "account for all"):
+            check.validate(report, data)
 
     def test_oversized_context_is_incomplete_not_truncated(self):
         head = repo(self.dir, {"module/sample.py": "def f():\n    return 2\n" + "# padding\n" * 200})

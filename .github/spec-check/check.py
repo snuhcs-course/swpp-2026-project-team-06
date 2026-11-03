@@ -12,7 +12,7 @@ import sys
 import time
 from urllib import error, request
 
-MAX_INPUT = 256 * 1024
+MAX_INPUT = 1024 * 1024  # DEV-197: 256 KiB overflowed config-heavy PRs (#270, 76 files).
 MAX_OUTPUT_TOKENS = 16000  # Includes adaptive thinking tokens (DEV-79).
 REQUEST_TIMEOUT = 90
 GITHUB_TIMEOUT = 20
@@ -342,6 +342,17 @@ def collect(root, event, demo=None):
                 continue
             documents[path] = document
             meta["source_revisions"][path] = head if current is not None else merge_base
+        # DEV-197: unchanged implementation files named in the table go in full as context, so the model can
+        # verify claims about code outside the diff instead of writing UNVERIFIED. Findings still cite the diff.
+        for path in sorted(implementation - set(changed) - set(documents)):
+            if excluded(path):
+                continue
+            text = read_file(root, head, path, optional=True)
+            if text is None:
+                references_only[path] = {"size": None}
+                continue
+            documents[path] = excerpt(text, range(10 ** 6), "context: unchanged implementation file listed in the PR table")
+            meta["source_revisions"][path] = head
     excluded_paths = sorted(p for p in changed if excluded(p))
     diff_paths = [p for p in changed if p not in excluded_paths]
     diff = git(root, "diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=5", old_rev, head,
@@ -525,6 +536,9 @@ def publish(report, output, summary=None, secrets=()):
              "Model: " + clean_text(report.get("model", "unconfigured")), ""]
     if report["status"] == "PASS":
         lines += ["No mismatch detected within the reviewed scope. Human review and normal tests still apply.", ""]
+    elif report["status"] == "NO_FINDINGS":
+        lines += ["No mismatch detected in the visible scope, but the items under Missing context could not be verified "
+                  "from the sent excerpts (DEV-197). Not a PASS; the human reviewer covers those items.", ""]
     for f in report.get("findings", []):
         requirement, code = f["requirement"], f["code"]
         lines += ["## " + clean_text(f["id"]),
@@ -575,6 +589,14 @@ def report_usage(report, title, opener=None, ran_at=None):
         return False
 
 
+def scoped(result):
+    """DEV-197: a model INCOMPLETE with no findings is NO_FINDINGS (exit 0): nothing contradicts the spec in the
+    visible scope, only unverified context remains. Error-path INCOMPLETE (table, limit, access) stays exit 2."""
+    if result["status"] == "INCOMPLETE" and not result["findings"]:
+        return {**result, "status": "NO_FINDINGS"}
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--event", default=os.environ.get("GITHUB_EVENT_PATH"))
@@ -604,7 +626,7 @@ def main(argv=None):
             response, usage = model_review(context, prompt, key, model)
             validated = validate(response, context)
             check_current(event, token)
-            result = validated
+            result = scoped(validated)
     except (Incomplete, OSError, ValueError, TypeError, AttributeError, subprocess.TimeoutExpired) as exc:
         message = str(exc) if isinstance(exc, Incomplete) else "Review input or execution failed; inspect configuration and rerun."
         result.update(status="INCOMPLETE", summary=message, findings=[], missing_context=[message])
@@ -615,7 +637,7 @@ def main(argv=None):
     publish(report, args.output, os.environ.get("GITHUB_STEP_SUMMARY"), (key, token))
     report_usage(report, title)
     print(f"Spec-to-code: {report['status']}. See report artifacts.")
-    return {"PASS": 0, "MISMATCH": 1, "INCOMPLETE": 2, "SKIPPED": 0}[report["status"]]
+    return {"PASS": 0, "NO_FINDINGS": 0, "MISMATCH": 1, "INCOMPLETE": 2, "SKIPPED": 0}[report["status"]]
 
 
 if __name__ == "__main__":

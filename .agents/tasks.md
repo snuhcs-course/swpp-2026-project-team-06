@@ -176,3 +176,9 @@ Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생
 - 이슈: [DEV-196](https://linear.app/sswp6/issue/DEV-196) · 상태: 리뷰 대기
 - 범위: `AGENTS.md`(브랜치·커밋·PR 절 한 줄), `.agents/skills/pr-review/SKILL.md`(4장 3번 하위 줄), `.agents/tasks.md`
 - 결정: spec-check fail은 머지를 막지 않지만, 작성자가 보고서를 읽고 처리 결정을 PR 코멘트에 적고 리뷰어는 그 코멘트가 없으면 Approve를 미룬다. 상세는 `.github/spec-check/tasks.md#DEV-196`.
+
+## DEV-197 spec-check 문맥 파일·입력 한도 1024 KiB
+
+- 이슈: [DEV-197](https://linear.app/sswp6/issue/DEV-197) · 상태: 리뷰 대기
+- 범위: `.agents/skills/pr-context/SKILL.md`(표 절 두 줄), `.agents/tasks.md`
+- 결정: 판단에 필요한 diff 밖 파일은 바뀌지 않았어도 표 2열에 backtick 경로로 적는다. 상세는 `.github/spec-check/tasks.md#DEV-197`.
