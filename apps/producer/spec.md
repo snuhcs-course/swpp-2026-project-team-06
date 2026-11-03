@@ -164,3 +164,9 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 - DEV-179 최종 리뷰 보완: Composer의 BasicInfo 래퍼는 batch 로딩 전후 유지하고 key는 URL batchId를 사용한다. 공용 기본 정보 훅은 null batch에서 빈 입력/저장 없음으로 시작해 로드 후 입력을 동기화한다. 로드로 Screen 하위 트리를 remount하지 않는다(AC-SRC-11).
 
 - DEV-179 데모 후속: `sourceFeedback.ts`가 Composer의 representativePhoto 사유 매핑과 재조회 가능 여부(입력 검증 400만 숨김, 409·네트워크·서버 오류는 유지)를 공용으로 처리한다. Workspace 적용 거절 사유는 별도 applyError로 적용 확인 패널에만 한 번 표시한다. `retryCostLabel`은 run에 REQUEST_UNCERTAIN이 있으면 기존 문구, 없으면 일반 비용 확인 문구를 반환하며 ack gate/초기화는 변경하지 않는다. 분석 중 상세 영역은 실제 진행 패널만 사용하고 중복 Skeleton은 두지 않는다(최초 상품 로딩 Skeleton은 유지).
+
+## DEV-33 EAS 네이티브 빌드 (ADR 0013)
+
+- 식별자 `kr.farmclub.producer`, 스킴 `farmclub-producer`, 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로). 설정·흐름은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절). `lib/kakao.ts`(웹)는 state만 sessionStorage, `lib/kakao.native.ts`는 메모리. 복귀 화면은 농가 상태별 첫 화면으로 간다(DEV-108과 같음).
+- 사진·영상: 웹 `lib/pick.ts`(`<input type="file">`, 600px 축소), 앱 `lib/pick.native.ts`(`expo-image-picker`, quality 0.8, `{uri,name,type}` 업로드). 원본 자료 첨부 `lib/sourceFiles.native.ts`는 사진만(PDF·텍스트는 웹 전용).
+- `beforeunload` 경고(상세 편집·상품 페이지·원본 작업실)는 웹에서만 건다. 복사는 `expo-clipboard`.

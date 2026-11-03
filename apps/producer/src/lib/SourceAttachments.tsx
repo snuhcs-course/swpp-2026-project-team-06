@@ -1,4 +1,5 @@
 import {
+  isNativeFile,
   sourceAnalysis as api,
   sourcePageImage,
   uploadSource,
@@ -8,7 +9,7 @@ import {
 import { Button, Icon, T, StoryImage, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Image, Pressable, TextInput, View } from "react-native";
-import { chooseSourceFiles } from "./sourceFiles";
+import { chooseSourceFiles, type PickedFile } from "./sourceFiles";
 function Tile({
   batch,
   source,
@@ -306,7 +307,7 @@ export function SourceAttachments({
   const [textError, setTextError] = useState("");
   const [working, setWorking] = useState(false),
     [error, setError] = useState(""),
-    [failed, setFailed] = useState<{ file: File; photo: boolean }[]>([]);
+    [failed, setFailed] = useState<{ file: PickedFile; photo: boolean }[]>([]);
   const setTextDraft = (draft: TextDraft | null) => {
     textDraft.current = draft;
     setEditing(draft);
@@ -376,7 +377,7 @@ export function SourceAttachments({
     };
   });
   const [pending, setPending] = useState<
-    { file: File; photo: boolean; uri: string }[]
+    { file: PickedFile; photo: boolean; uri: string }[]
   >([]);
   const [localUris, setLocalUris] = useState<Record<string, string>>({});
   const urls = useRef<string[]>([]);
@@ -407,11 +408,16 @@ export function SourceAttachments({
     );
     return () => onDirty(false);
   }, [editing, descriptions, onDirty]);
-  const upload = async (file: File, photo: boolean) => {
+  const upload = async (file: PickedFile, photo: boolean) => {
     await beforeUpload();
     await flushAll();
     const latest = await api.get(batch.id);
-    const uri = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+    // 미리보기: 웹은 blob URL, 앱은 고른 사진의 uri(DEV-33)
+    const uri = !file.type.startsWith("image/")
+      ? ""
+      : isNativeFile(file)
+        ? file.uri
+        : URL.createObjectURL(file);
     if (uri) urls.current.push(uri);
     setPending((old) => [...old, { file, photo, uri }]);
     try {

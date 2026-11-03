@@ -6,5 +6,8 @@
   "types": "src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "expo-secure-store": "*"
   }
 }

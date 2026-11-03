@@ -87,3 +87,8 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 | --- | --- |
 | 주문서 예약 전 동의 키는 `src/orderConsents.ts`의 `ORDER_CONSENT_KEYS` 하나가 원본이다. `OrderInput["consents"]` 타입, Mock 검사, 주문서 초기값·‘모두 동의해요’·개수·문구가 이 목록에서 계산한다. 파일은 import 없이 지울 수 있는 타입만 쓴다 | DEV-120에서 항목을 늘릴 때 화면 문구의 숫자(‘4개 중’)를 놓쳤다. 계약 테스트가 Node로 바로 import한다 |
 | 서버(`server/app/orders/schemas.py` `Consents`, `service.py` 검사·오류 문구)와 같은지는 `scripts/test-order-consents.mjs`(`test:mock`)가 본다 | 서버는 Python이라 목록을 공유할 수 없다. 한쪽만 바뀌면 CI가 실패한다 |
+
+## DEV-33 네이티브 저장소·업로드 (ADR 0013)
+
+- 저장소는 `src/storage.ts`(웹·Node: localStorage) / `src/storage.native.ts`(`expo-secure-store` 동기 API, 키의 `:`는 `.`로, 2KB 넘는 값은 메모리). `readStore`·`writeStore`·토큰 계약은 그대로다.
+- 업로드 함수(`uploadMedia`·`uploadAttachment`·`uploadSource`·`productWorkspace.uploadPhoto`)는 `UploadFile = Blob | {uri, name, type}`을 받는다(`appendFile`). 서버에서 받은 비공개 사진은 `blobUrl`(웹 blob URL / 네이티브 data URL)로 돌려준다. Mock(브라우저 저장)은 웹 전용이다.
