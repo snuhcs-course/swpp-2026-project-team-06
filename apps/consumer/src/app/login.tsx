@@ -29,15 +29,20 @@ import { isStatus } from "../lib/views";
 const consumerOnly = (list: TestAccount[] | null) =>
   list?.filter((a) => a.role === "CONSUMER") ?? null;
 
-// 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 탭을 닫을 때까지 기억한다.
-// 로그아웃하거나 관문을 거쳐 맨 /login으로 와도 테스트 계정 목록이 남는다.
+// 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 브라우저(기기)에서 기억한다.
+// 로그아웃하거나 관문을 거쳐 맨 /login으로 와도, 홈 화면에 추가한 PWA가 start_url(/)로 새 창을 열어도
+// 테스트 계정 목록이 남는다(11/03 PWA 점검: sessionStorage만으로는 홈 아이콘에서 카카오 버튼만 보였다).
 const EVALUATOR_KEY = "farmclub:evaluator";
 function evaluatorMode(param?: string) {
   // 앱 평가용 빌드(DEV-200)는 주소 없이도 목록을 보인다
   if (evaluatorBuild) return true;
   try {
-    if (param === "1") globalThis.sessionStorage?.setItem(EVALUATOR_KEY, "1");
-    return param === "1" || globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1";
+    if (param === "1") globalThis.localStorage?.setItem(EVALUATOR_KEY, "1");
+    return (
+      param === "1" ||
+      globalThis.localStorage?.getItem(EVALUATOR_KEY) === "1" ||
+      globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1"
+    );
   } catch {
     return param === "1";
   }

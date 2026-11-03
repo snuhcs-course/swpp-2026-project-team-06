@@ -11,7 +11,7 @@ farmclub은 감귤 농가(생산자)와 소비자를 잇는 산지 직거래·�
 
 - 로그인 화면에서 **테스트 계정을 골라** 들어갑니다. ‘카카오로 시작하기’는 개인 카카오 계정으로 운영 서버에 가입되므로 **쓰지 말아 주세요**.
 - 노트북에서는 반드시 위 주소(`?evaluator=1` 포함)로 들어가야 테스트 계정 목록이 보입니다.
-- APK 설치 파일(Expo internal 빌드): 소비자 <https://expo.dev/accounts/snu-omm/projects/farmclub-consumer/builds/28528091-faa4-4141-bfc2-b431bfd52e13>, 생산자 <https://expo.dev/accounts/snu-omm/projects/farmclub-producer/builds/db07a7db-4ac7-4fe2-8d12-77a906fd0213>. 설치 뒤 **두 번 실행**해야 최신 화면(업데이트)이 적용됩니다.
+- APK 설치 파일(Expo internal 빌드): GitHub Release <https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/apk-internal-2026-10-23>(두 앱 APK + SHA-256, Expo 링크는 30일 뒤 만료라 여기 보관). 원본 빌드 페이지: 소비자 <https://expo.dev/accounts/snu-omm/projects/farmclub-consumer/builds/28528091-faa4-4141-bfc2-b431bfd52e13>, 생산자 <https://expo.dev/accounts/snu-omm/projects/farmclub-producer/builds/db07a7db-4ac7-4fe2-8d12-77a906fd0213>. 설치 뒤 **두 번 실행**해야 최신 화면(업데이트)이 적용됩니다.
 
 ## 2. 테스트 계정
 
