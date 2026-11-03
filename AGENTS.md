@@ -71,16 +71,22 @@
 - 여러 작업(세션)을 동시에 돌릴 때는 같은 폴더에서 브랜치를 바꾸지 말고 `git worktree`로 폴더를 나눈다.
 - 새 worktree에는 의존성이 없다(`node_modules`, `server/.venv`는 git이 복사하지 않음). 에이전트에게 넘기기 전에 루트에서 `make setup`(= 루트 `npm ci` + `server/`에서 `uv sync --frozen`)을 실행하고, pytest용 PostgreSQL(`DATABASE_URL`, `make db`)이 연결되는지 확인한다. 준비할 수 없으면 에이전트를 main 체크아웃에서 실행한다.
 - 로컬 DB는 브랜치마다 따로 쓴다: `DATABASE_URL`의 DB 이름을 바꾼다(예: `farmclub_dev12`, pytest는 `_test`를 붙인 DB를 따로 만든다). 공용 `farmclub`에는 다른 브랜치의 마이그레이션이 섞여 `alembic upgrade`·테스트가 깨진다.
-- 머지는 사람 1명 Approve 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
+- 머지는 사람 리뷰 후에만 한다(아래 "사람·에이전트 역할"). 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
 - 머지 전에 PR 체크(CI·spec-check)가 통과했는지 확인한다. main CI가 깨지면 머지한 사람이 바로 고치거나 revert한다(깨진 동안 다른 사람의 배포와 CI가 막힌다).
 - spec-check(`spec-code-review`)는 ready PR에서 자동으로 돌고, fail이어도 머지를 막지 않는다. 대신 작성자가 보고서를 읽고 처리 결정(고침·스펙 변경·오탐·사람 리뷰 대체)을 PR 코멘트에 적는다. 리뷰어는 그 코멘트가 없으면 Approve를 미룬다(`.github/spec-check/README.md` 1.1절, DEV-196).
+
+## 사람·에이전트 역할 (SWPP-126)
+- 작성자는 에이전트가 쓴 줄도 자기 코드로 책임진다. 에이전트 없이 diff를 설명할 수 있어야 한다.
+- 사람 리뷰 = 다른 팀원의 GitHub Approve, 또는 작성자 본인이 diff를 직접 읽고 PR 본문 `사람이 한 일:`에 적은 것.
+- 고위험 경로: `server/migrations/**`, `server/app/*/models.py`, `server/app/accounts/**`, `server/app/admin/**`, `server/app/core/security.py`, `server/app/core/config.py`, `server/app/core/masking.py`, `server/app/orders/**`, `server/app/ai/**`, `.github/workflows/**`, `server/railway.json`, `server/Dockerfile*`, `**/vercel.json`, `**/eas.json`, `AGENTS.md`, `.agents/skills/**`. 하나라도 바꾸면 PR 본문 `위험 등급: 고위험`.
+- 고위험 PR은 사람 리뷰 없이 머지하지 않는다. 승인 생략을 합의한 기간에도 같고, 에이전트는 사람이 지시해도 사람 리뷰가 없으면 머지하지 않는다.
 
 ## 리뷰
 - CI 전용 Spec ↔ Code 보고 클라이언트는 `.github/spec-check/`에 둔다(DEV-40). 위의 `server/app/ai` 제한은 제품 AI 호출에 적용하며, CI는 별도 키·보호 환경을 사용하고 제품 어댑터/키를 재사용하지 않는다.
 
 - **AI 1차 리뷰**: 작성자가 draft 해제 전에 `pr-review` 스킬로 돌리고, 결과를 PR 코멘트로 남긴 뒤 must 항목을 해결한다.
-- **사람 리뷰**: 1명 Approve 필수. 리뷰어는 spec(`tasks.md`)과 diff가 맞는지, 범위 밖 변경이 없는지를 우선 본다.
+- **사람 리뷰**: 1명 필수(위 "사람·에이전트 역할"의 정의). 리뷰어는 spec(`tasks.md`)과 diff가 맞는지, 범위 밖 변경이 없는지를 우선 본다.
 - 상세 규칙은 `.agents/skills/pr-review/SKILL.md`.
 
 ## 금지
