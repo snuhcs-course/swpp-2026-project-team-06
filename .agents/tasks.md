@@ -197,7 +197,7 @@ Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생
 - 상태: 진행 중
 
 ### 목표
-TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 할지 명확한 기준 필요")에 따라, PR 단계별로 사람이 책임지는 일과 에이전트가 해도 되는 일을 정하고, 고위험 변경은 사람 승인을 예외 없이 받게 한다. PR 본문에 사람이 한 일이 드러나게 한다.
+TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 할지 명확한 기준 필요")에 따라, 사람이 책임지는 일과 고위험 변경의 사람 리뷰 규칙을 짧게 정하고, PR 본문에 사람이 한 일이 드러나게 한다.
 
 ### 범위 (수정 허용 경로)
 - `AGENTS.md`
@@ -205,28 +205,26 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 - `.github/pull_request_template.md`
 
 ### 비범위 (건드리지 않음)
-- `.github/workflows/**`, `.github/spec-check/**` — 위험 등급 자동 검사(CI)는 후속 제안
+- `.github/workflows/**`, `.github/spec-check/**` — 위험 등급 자동 검사(CI)는 DEV-204
 - GitHub 브랜치 보호·CODEOWNERS 설정(관리자 수동)
 - `docs/wiki/**` — I3 AI Collaboration Report 작성 때 반영
 
 ### 결정 사항
-- 11/03 팀 결정(Zahra 전달): 고위험 변경은 사람 Approve를 예외 없이 받는다. 일정 때문에 승인 생략을 합의한 기간(I2)에도 고위험 PR은 생략하지 않는다.
-- 11/03 원칙: 사람이 무엇을·왜(범위, 인수 조건, 설계 결정)와 확인(직접 실행, 리뷰, 머지, 배포 확인)을 책임지고, 에이전트는 어떻게(코드·테스트·문서 초안, 1차 리뷰)를 맡는다. 작성자는 에이전트가 쓴 줄도 자기 코드로 설명할 수 있어야 한다.
-- 11/03 고위험 경로: 데이터 구조(`server/migrations/**`, `server/app/*/models.py`), 인증·권한(`server/app/accounts/**`, `server/app/admin/**`, `server/app/core/security.py`, `server/app/core/config.py`), 주문·결제(`server/app/orders/**`), 개인정보(`server/app/core/masking.py`), 제품 AI 프롬프트·가드레일(`server/app/ai/**`), 배포·CI(`.github/workflows/**`, `server/railway.json`, `server/Dockerfile*`, `**/vercel.json`, `**/eas.json`), 팀 규칙(`AGENTS.md`, `.agents/skills/**`).
-- 11/03 PR 템플릿: "AI 사용"의 `사람이 고친 점` 대신 위험 등급 줄과 "사람이 한 일" 체크리스트.
-- 11/03 사용자(Zahra) 결정으로 수정: (1) 에이전트도 "사람이 한 일"·"사람이 바꾼 점"을 채울 수 있다. 단 근거(사람과의 대화, 사람이 직접 한 변경·커밋)가 있는 것만, 근거 없으면 비움. (2) 리뷰어는 작성자 본인이어도 된다(고위험 포함). GitHub는 자기 PR Approve를 막으므로 작성자 리뷰는 PR 본문 "사람 리뷰어 확인" 기록으로 대신한다. 고위험은 이 사람 리뷰(한 줄씩 읽음·직접 실행 기록)가 예외 없이 필요하다.
+- 11/03 팀 결정(Zahra 전달): 고위험 변경은 사람 리뷰를 예외 없이 받는다. 일정 때문에 승인 생략을 합의한 기간(I2)에도 고위험 PR은 생략하지 않는다.
+- 11/03 Zahra 결정: 사람 리뷰는 다른 팀원 Approve 또는 작성자 본인 리뷰(GitHub 자기 Approve 불가라 PR 본문 `사람이 한 일:`에 적음). 에이전트도 사람이 한 일을 적을 수 있지만 사용자가 한 일(말한 것, 직접 한 커밋)만.
+- 11/03 Zahra 결정: 규칙을 짧게 한다(큰 회사 관행: 작성자 책임 원칙 + 민감 경로에 사람 리뷰 + 짧은 PR 템플릿). 단계별 역할 표, 사람 체크박스 3개, "근거" 세부 규칙, 리뷰어 기록 추가 줄은 넣지 않는다.
+- 11/03 고위험 경로는 경로만으로 정한다(개인정보 일반 조항 없음, spec-check SC-001): `server/migrations/**`, `server/app/*/models.py`, `server/app/accounts/**`, `server/app/admin/**`, `server/app/core/security.py`, `server/app/core/config.py`, `server/app/core/masking.py`, `server/app/orders/**`, `server/app/ai/**`, `.github/workflows/**`, `server/railway.json`, `server/Dockerfile*`, `**/vercel.json`, `**/eas.json`, `AGENTS.md`, `.agents/skills/**`.
 
 ### 작업
-- [x] `AGENTS.md`: "사람·에이전트 역할" 절(단계별 표, 고위험 경로·규칙), 머지 줄 수정
-- [x] `.github/pull_request_template.md`: 위험 등급, 사람이 한 일
-- [x] `pr-context`: 에이전트가 사람 체크 항목을 채우지 않음, 위험 등급 판정
-- [x] `pr-review`: 사람 리뷰 체크리스트·머지 절차에 고위험 규칙
+- [x] `AGENTS.md`: "사람·에이전트 역할" 절(4줄), 머지·사람 리뷰 줄
+- [x] `.github/pull_request_template.md`: "AI 사용"에 `위험 등급:`, `사람이 한 일:`
+- [x] `pr-context`: 위험 등급·사람이 한 일 채우는 방법
+- [x] `pr-review`: 1차 리뷰 위험 등급 항목, 머지 절차 고위험 규칙
 - [x] `check_table.py`로 이 PR 본문 표 점검
 
 ### 완료 조건
-- [ ] 위 작업 완료, 사람 리뷰 기록(이 PR 자체가 고위험: `AGENTS.md`·`.agents/skills/**`)
+- [ ] 사람 리뷰(이 PR 자체가 고위험: `AGENTS.md`·`.agents/skills/**`)
 - [ ] main 머지
 
 ### 기록
-- 11/03 main 896b836에서 시작.
-- 11/03 AI 1차 리뷰: AGENTS.md 머지 줄이 "Approve 후에만"으로 남아 작성자 본인 리뷰와 모순 → 고침. Zahra가 `52066e9`까지 확인(작성자 본인 리뷰).
+- 11/03 main 896b836에서 시작. 처음엔 단계별 역할 표·체크리스트·근거 규칙까지 넣었으나(`31db9df`~`017c961`) Zahra가 너무 복잡하다고 해 짧게 다시 씀.

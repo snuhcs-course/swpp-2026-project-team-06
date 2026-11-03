@@ -23,7 +23,7 @@
 3. **spec**: 작업 폴더에 `spec.md`가 없으면 만들고, `tasks.md`에 이 이슈 섹션을 추가해(`spec` 스킬) 첫 커밋으로 push한다.
 4. **draft PR**: branch → `main` draft PR을 연다(`pr-context` 스킬). 관련자에게 알린다.
 5. **구현**: `tasks.md`를 기준으로 작업하고, 체크리스트·결정 사항을 계속 갱신한다.
-6. **리뷰 요청**: AI 1차 리뷰(`pr-review` 스킬) 반영 → draft 해제 → 사람 리뷰어 1명 지정(작성자 본인도 가능, 아래 "사람·에이전트 역할").
+6. **리뷰 요청**: AI 1차 리뷰(`pr-review` 스킬) 반영 → draft 해제 → 사람 리뷰어 1명 지정.
 7. **리뷰 반영**: 코멘트마다 수정 커밋 또는 답글로 닫는다.
 8. **머지**: base(보통 `main`) → branch 병합으로 최신화하고 확인 → branch → `main` 머지 → GitHub Actions가 배포 → 배포 확인.
 
@@ -71,46 +71,22 @@
 - 여러 작업(세션)을 동시에 돌릴 때는 같은 폴더에서 브랜치를 바꾸지 말고 `git worktree`로 폴더를 나눈다.
 - 새 worktree에는 의존성이 없다(`node_modules`, `server/.venv`는 git이 복사하지 않음). 에이전트에게 넘기기 전에 루트에서 `make setup`(= 루트 `npm ci` + `server/`에서 `uv sync --frozen`)을 실행하고, pytest용 PostgreSQL(`DATABASE_URL`, `make db`)이 연결되는지 확인한다. 준비할 수 없으면 에이전트를 main 체크아웃에서 실행한다.
 - 로컬 DB는 브랜치마다 따로 쓴다: `DATABASE_URL`의 DB 이름을 바꾼다(예: `farmclub_dev12`, pytest는 `_test`를 붙인 DB를 따로 만든다). 공용 `farmclub`에는 다른 브랜치의 마이그레이션이 섞여 `alembic upgrade`·테스트가 깨진다.
-- 머지는 사람 1명 리뷰(다른 팀원 Approve, 또는 작성자 본인이 PR 본문 "사람 리뷰어 확인"에 기록) 후에만 한다. 에이전트는 사람의 지시 없이 머지하지 않는다. 고위험 PR은 아래 "사람·에이전트 역할"의 승인 규칙을 따른다(예외 없음).
+- 머지는 사람 리뷰 후에만 한다(아래 "사람·에이전트 역할"). 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
 - 머지 전에 PR 체크(CI·spec-check)가 통과했는지 확인한다. main CI가 깨지면 머지한 사람이 바로 고치거나 revert한다(깨진 동안 다른 사람의 배포와 CI가 막힌다).
 - spec-check(`spec-code-review`)는 ready PR에서 자동으로 돌고, fail이어도 머지를 막지 않는다. 대신 작성자가 보고서를 읽고 처리 결정(고침·스펙 변경·오탐·사람 리뷰 대체)을 PR 코멘트에 적는다. 리뷰어는 그 코멘트가 없으면 Approve를 미룬다(`.github/spec-check/README.md` 1.1절, DEV-196).
 
 ## 사람·에이전트 역할 (SWPP-126)
-원칙: **사람이 무엇을·왜와 확인을 책임지고, 에이전트는 어떻게를 돕는다.** 작성자는 에이전트가 쓴 줄도 자기 코드로 책임지며, 에이전트 없이 diff를 설명할 수 있어야 한다. "에이전트가 그렇게 썼다"는 이유가 되지 않는다.
-
-| 단계 | 사람 (책임) | 에이전트 (해도 되는 일) |
-| -- | -- | -- |
-| 이슈·완료 조건 | 왜·완료 조건을 정한다 | 초안, 관련 스펙 찾기 |
-| 범위·결정 (`tasks.md`) | 범위와 "결정 사항"을 정하거나 승인한다 | 선택지와 근거 제시, 받아 적기 |
-| 구현 | diff 전체를 읽고 이해한다 | 코드·테스트·문서 작성 |
-| 확인 | 테스트를 직접 돌리고, 화면·API를 직접 확인한다 | 테스트 실행·결과 보고 |
-| PR 본문 | 내용이 맞는지 확인 | 초안(`pr-context`). "사람이 한 일"은 근거가 있는 것만 채움 |
-| 리뷰 | 리뷰어(작성자 본인도 가능)가 직접 읽고 판단 | 1차 리뷰(`pr-review`), 사람이 말한 리뷰 결과 기록 |
-| 머지·배포 확인 | 사람이 머지(또는 에이전트에게 지시), 배포 확인 | 지시가 있을 때만 머지, 확인 명령 준비 |
-
-에이전트는 PR 본문 "사람이 한 일"·"사람이 바꾼 점"·"사람 리뷰어 확인"을 **근거가 있는 것만** 채운다. 근거는 사람과의 대화(사람이 정하거나 확인했다고 말한 것)와 사람이 직접 한 변경(사람이 만든 커밋, 에이전트가 하지 않은 수정)이다. 근거가 없는 항목은 체크하지 않고 비워 둔다.
-
-**사람 리뷰** — 리뷰어는 다른 팀원이어도 되고 작성자 본인이어도 된다. 다른 팀원은 GitHub Approve로, 작성자 본인은(GitHub에서 자기 PR을 Approve할 수 없으므로) PR 본문 "사람 리뷰어 확인"에 확인자·검토 커밋·결과를 적는 것으로 리뷰를 남긴다.
-
-**고위험 변경** — PR이 아래 경로를 하나라도 바꾸면 고위험이다. PR 본문 `위험 등급:` 줄에 적는다.
-- 데이터 구조: `server/migrations/**`, `server/app/*/models.py`
-- 인증·권한: `server/app/accounts/**`, `server/app/admin/**`, `server/app/core/security.py`, `server/app/core/config.py`
-- 주문·결제: `server/app/orders/**`
-- 개인정보: `server/app/core/masking.py`, 그 밖에 전화번호·주소 등 개인정보를 저장·노출하는 코드
-- 제품 AI 프롬프트·가드레일: `server/app/ai/**`
-- 배포·CI: `.github/workflows/**`, `server/railway.json`, `server/Dockerfile*`, `**/vercel.json`, `**/eas.json`
-- 팀 규칙: `AGENTS.md`, `.agents/skills/**`
-
-고위험 PR 규칙:
-- 사람 리뷰가 **반드시** 있어야 머지한다(작성자 본인도 가능). 리뷰어는 diff를 한 줄씩 직접 읽고, 바뀐 동작을 직접 실행해 확인하고, "사람 리뷰어 확인"에 무엇을 실행했는지 적는다. 일정 때문에 승인 생략을 합의한 기간에도 고위험 PR은 생략하지 않는다.
-- 에이전트는 사람 리뷰 기록(다른 팀원의 Approve 또는 "사람 리뷰어 확인" 기록)이 없는 고위험 PR을 머지하지 않는다. 사람이 지시해도 기록이 없으면 멈추고 알린다.
+- 작성자는 에이전트가 쓴 줄도 자기 코드로 책임진다. 에이전트 없이 diff를 설명할 수 있어야 한다.
+- 사람 리뷰 = 다른 팀원의 GitHub Approve, 또는 작성자 본인이 diff를 직접 읽고 PR 본문 `사람이 한 일:`에 적은 것.
+- 고위험 경로: `server/migrations/**`, `server/app/*/models.py`, `server/app/accounts/**`, `server/app/admin/**`, `server/app/core/security.py`, `server/app/core/config.py`, `server/app/core/masking.py`, `server/app/orders/**`, `server/app/ai/**`, `.github/workflows/**`, `server/railway.json`, `server/Dockerfile*`, `**/vercel.json`, `**/eas.json`, `AGENTS.md`, `.agents/skills/**`. 하나라도 바꾸면 PR 본문 `위험 등급: 고위험`.
+- 고위험 PR은 사람 리뷰 없이 머지하지 않는다. 승인 생략을 합의한 기간에도 같고, 에이전트는 사람이 지시해도 사람 리뷰가 없으면 머지하지 않는다.
 
 ## 리뷰
 - CI 전용 Spec ↔ Code 보고 클라이언트는 `.github/spec-check/`에 둔다(DEV-40). 위의 `server/app/ai` 제한은 제품 AI 호출에 적용하며, CI는 별도 키·보호 환경을 사용하고 제품 어댑터/키를 재사용하지 않는다.
 
 - **AI 1차 리뷰**: 작성자가 draft 해제 전에 `pr-review` 스킬로 돌리고, 결과를 PR 코멘트로 남긴 뒤 must 항목을 해결한다.
-- **사람 리뷰**: 1명 필수(다른 팀원 Approve, 또는 작성자 본인이 "사람 리뷰어 확인"에 기록). 리뷰어는 spec(`tasks.md`)과 diff가 맞는지, 범위 밖 변경이 없는지를 우선 본다. AI 1차 리뷰는 사람 리뷰를 대신하지 않는다. 고위험 PR은 위 "사람·에이전트 역할" 규칙을 따른다.
+- **사람 리뷰**: 1명 필수(위 "사람·에이전트 역할"의 정의). 리뷰어는 spec(`tasks.md`)과 diff가 맞는지, 범위 밖 변경이 없는지를 우선 본다.
 - 상세 규칙은 `.agents/skills/pr-review/SKILL.md`.
 
 ## 금지
