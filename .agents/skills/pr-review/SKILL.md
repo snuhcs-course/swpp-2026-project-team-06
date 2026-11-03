@@ -6,6 +6,7 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 # pr-review — AI 1차 리뷰 + 사람 1명 승인
 
 리뷰 흐름: **작성자가 AI 1차 리뷰 → must 해결 → draft 해제 → 사람 1명 Approve → 머지**.
+AI 1차 리뷰는 사람 리뷰를 대신하지 않는다. 사람·에이전트가 맡는 일과 고위험 경로는 AGENTS.md "사람·에이전트 역할"(SWPP-126).
 
 ## 1. AI 1차 리뷰 (작성자가 실행)
 입력: PR 번호 또는 현재 브랜치. 관련 FEAT 파일(`docs/spec/functional/FEAT-xx-*.md`), 작업 폴더 `spec.md`, `tasks.md` 이 이슈 섹션, `gh pr view <번호>`, `git diff main...HEAD`.
@@ -21,6 +22,7 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 5. **테스트**: 변경을 검증하는 테스트가 있는지, 지우거나 약하게 만든 테스트는 없는지. 고정 시계에서 같은 시각끼리 순서를 비교하는 테스트(간헐 실패)는 없는지.
 6. **보안·데이터**: 비밀값, 개인정보, 권한 검사 누락.
 7. **유지보수**: 중복, 불필요한 복잡도, 이름. (사소하면 nit)
+8. **위험 등급**: diff가 AGENTS.md 고위험 경로를 바꾸는데 PR 본문 `위험 등급:`이 일반이거나 비어 있으면 must. "사람이 한 일"이 비어 있으면 리뷰 결과 끝에 작성자 확인 필요로 적는다(에이전트가 대신 채우지 않는다).
 
 결과 형식 — 항목마다 한 줄, 근거가 되는 파일:줄 포함:
 ```
@@ -41,7 +43,8 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 - [ ] 동작이 바뀌었다면 `docs/spec/`·`docs/wiki/`도 같이 바뀌었는가
 - [ ] AI 1차 리뷰의 must가 해결됐는가
 - [ ] 직접 실행·테스트해 봤는가 (못 했으면 코멘트에 명시)
-- [ ] 위험한 변경(데이터, 인증, 배포 설정)이 있으면 한 번 더 확인했는가
+- [ ] PR 본문 "사람이 한 일"을 작성자가 채웠는가. 비어 있으면 Approve를 미룬다
+- [ ] **고위험 PR**(AGENTS.md 고위험 경로): 작성자가 아닌 리뷰어가 diff를 한 줄씩 읽고 바뀐 동작을 직접 실행했는가. 템플릿 "사람 리뷰어 확인"에 무엇을 실행했는지 적는다
 
 코멘트에도 must / should / nit 표기를 쓴다. must가 없으면 Approve, 있으면 Request changes.
 
@@ -58,6 +61,7 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
    - 마이그레이션이 있으면 `cd server && uv run alembic heads`가 1개인지 확인한다. 겹치면 이 PR의 리비전 번호를 올린다.
 2. `tasks.md`의 상태를 "완료"로, 완료 조건을 체크한다.
 3. PR 체크가 통과했는지, 사람 1명 Approve를 확인한 뒤 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
+   - 고위험 PR은 작성자가 아닌 사람의 Approve가 없으면 사람이 머지를 지시해도 에이전트는 머지하지 않고 멈춘다. 승인 생략을 합의한 기간에도 같다.
    - `spec-code-review`가 fail이면 머지는 막히지 않지만, 보고서(Checks → run → Summary)를 읽고 처리 결정을 PR 코멘트로 남긴 뒤에 머지한다(`.github/spec-check/README.md` 1.1절).
 4. 머지 뒤 main CI와 바뀐 경로의 배포 대상(Railway 서버, Vercel 앱, Vercel 관리자 페이지)을 확인한다. main CI가 깨지면 바로 고치거나 revert한다.
    - 배포는 Actions 실행 목록의 커밋 라벨이 아니라 배포 로그에 찍힌 커밋과 운영 응답(새 API·새 화면 문구)으로 확인한다. 라벨과 실제로 올린 커밋이 다를 수 있고, 바뀐 경로가 없다고 건너뛴 배포도 성공으로 보인다. 배포 로그 첫 줄의 `Comparing <base>..<head>`와 `Deploying`/`Skipping`으로 읽고, 이동 태그 `deploy/<대상>`이 머지 커밋을 가리키면 올라간 것이다(DEV-139).
