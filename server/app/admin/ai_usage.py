@@ -111,7 +111,8 @@ class SpecCheckRunInput(CamelModel):
     pr_number: int = Field(gt=0)
     pr_title: str = Field(default="", max_length=300)
     head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
-    status: Literal["PASS", "NO_FINDINGS", "MISMATCH", "INCOMPLETE", "SKIPPED"]  # NO_FINDINGS: DEV-197
+    # NO_FINDINGS: 모델 INCOMPLETE에 finding 0건(DEV-197)
+    status: Literal["PASS", "NO_FINDINGS", "MISMATCH", "INCOMPLETE", "SKIPPED"]
     mode: str = Field(pattern=r"^[a-z-]{1,32}$")
     model: str = Field(min_length=1, max_length=80)
     input_tokens: int = Field(ge=0)
