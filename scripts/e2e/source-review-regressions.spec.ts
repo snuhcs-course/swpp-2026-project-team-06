@@ -1,6 +1,9 @@
 import { test, expect, type Page } from "./fixtures";
 import { loginProducer, producerUrl, monitor } from "./helpers";
 
+const uncertainRetryCost = "결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요";
+const retryCost = "다시 분석하면 비용이 다시 들 수 있어요. 확인했어요.";
+
 function reviewFixture() {
   const target = { id: "target", name: "회귀 감귤", productId: "p-house",
     basicInfo: { variety: "온주밀감", size: "중과", expectedBrix: null } };
@@ -142,6 +145,8 @@ test("DEV-186 AC-SRC-3/11: composer hints apply to story inputs only", async ({ 
   const hints = ["금액은 다음 단계(판매·가격)에서 직접 채워 주세요", "건강 효능 문구는 넣을 수 없어요",
     "팜클럽 공통 정책과 겹치는 문구인지 확인해 주세요"];
   for (const label of ["상품명", "과일 품종명", "사이즈", "예상 당도 (°Bx)", "원산지", "보관"]) {
+    if (label === "과일 품종명")
+      await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
     const input = page.getByLabel(label, { exact: true });
     const original = await input.inputValue();
     for (const text of ["32,000원", "피로회복", "고객센터"]) {
@@ -150,6 +155,8 @@ test("DEV-186 AC-SRC-3/11: composer hints apply to story inputs only", async ({ 
       for (const hint of hints) await expect(page.getByText(hint, { exact: true })).toHaveCount(0);
     }
     await input.fill(original);
+    if (label === "과일 품종명")
+      await page.getByRole("button", { name: "사진·자료 접기", exact: true }).last().click();
   }
   await page.getByLabel("한눈에 보기 내용", { exact: true }).fill(value);
   for (const hint of hints) await expect(page.getByText(hint, { exact: true })).toBeVisible();
@@ -198,13 +205,15 @@ test("DEV-186 AC-SRC-1/2/11: multi-product exclusions queue one named modal", as
   await expect(modal.getByText("출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", { exact: true })).toBeVisible();
   await expect(modal.getByTestId("excluded-item-platform")).toHaveText("고객센터 평일 10시~5시");
   // Waiting in the queue must not mark the second product as already shown.
-  expect(await page.evaluate(() => sessionStorage.getItem(
-    "farmclub-producer:excluded-seen:review-queue:version-second"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem(
+    "farmclub-producer:excluded-seen:u-kang:review-queue:second"))).toBeNull();
   await modal.getByRole("button", { name: "확인", exact: true }).click();
   await expect(modal).toHaveCount(1);
   await expect(modal).toContainText("둘째 상품 천혜향 · 이 정보들은 상세 페이지에 못 넣어서 빼 뒀어요 🙂");
   await modal.getByRole("button", { name: "확인", exact: true }).click();
   await expect(modal).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem(
+    "farmclub-producer:excluded-seen:u-kang:review-queue:second"))).toBe("version-second");
   // Parent input edits recreate the products array; an unchanged result stays acknowledged.
   const summary = page.getByLabel("한눈에 보기 내용", { exact: true }).first();
   await summary.fill("화면을 다시 그려도 확인한 제외 결과는 열리지 않아요");
@@ -360,5 +369,848 @@ for (const composer of [false, true]) {
     await open();
     await expect(page.getByText("내용이 많아 문구를 정리하지 못했어요. 자료를 나눠서 올려 주세요.", { exact: true })).toBeVisible();
     await expect(page.getByText(/상세에 넣을 수 있는 문구가 남지 않았어요/)).toHaveCount(0);
+  });
+}
+
+for (const composer of [false, true]) {
+  test(`DEV-190 AC-SRC-5/8: ${composer ? "composer" : "workspace"} shows each partial page and chunk note once per file`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = reviewFixture();
+    // Only the filename matters for the note; keep the stubbed text source so no page images load.
+    fixture.batch.sources[0].filename = "합성부분자료.pdf";
+    fixture.run.status = "PARTIAL";
+    const extract = { ...fixture.run.items[0], id: "ocr", phase: "EXTRACT", status: "PARTIAL",
+      error: "REQUEST_UNCERTAIN", acceptedCount: 2, emptyReason: "NO_CANDIDATES",
+      ...{ pagesEmpty: 1, pagesFailed: 2, chunksFailed: 0 } };
+    fixture.run.items = [extract, fixture.run.items[0]];
+    await serveReview(page, fixture);
+    const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
+    const open = async () => {
+      await page.goto(url);
+      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    };
+    const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
+    const consent = (uncertain = false) => page.getByRole("checkbox", {
+      name: uncertain ? uncertainRetryCost : retryCost, exact: true,
+    });
+    await open();
+    await expect(consent(true)).toBeVisible();
+    const note = page.getByText("합성부분자료.pdf: 2쪽을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
+    await expect(note).toBeVisible();
+    await expect(note).toHaveCount(1);
+    await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeDisabled();
+    // Known per-page errors show the same single note; skipped empty pages are quiet.
+    fixture.run.items[0] = { ...extract, error: "OCR_PAGES_FAILED" };
+    await open();
+    await expect(note).toHaveCount(1);
+    await expect(consent()).not.toBeChecked();
+    await expect(retry).toBeDisabled();
+    await consent().check();
+    await expect(retry).toBeEnabled();
+    // A failed extraction chunk does not label a successfully transcribed page as unread.
+    const chunkNote = page.getByText("합성부분자료.pdf: 일부 내용을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
+    for (const error of ["EXTRACT_CHUNKS_FAILED", "REQUEST_UNCERTAIN"]) {
+      fixture.run.items[0] = { ...extract, error, ...{ pagesFailed: 0, chunksFailed: 1 } };
+      await open();
+      await expect(chunkNote).toBeVisible();
+      await expect(chunkNote).toHaveCount(1);
+      await expect(note).toHaveCount(0);
+      await expect(page.getByText(/쪽을 읽지 못했어요|분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
+      await expect(consent(error === "REQUEST_UNCERTAIN")).not.toBeChecked();
+      await expect(retry).toBeDisabled();
+      if (error !== "REQUEST_UNCERTAIN") {
+        await consent().check();
+        await expect(retry).toBeEnabled();
+      }
+    }
+    // Mixed failures show both notes exactly once, with the actual OCR page count.
+    fixture.run.items[0] = { ...extract, error: "OCR_PAGES_FAILED", ...{ chunksFailed: 1 } };
+    await open();
+    await expect(note).toBeVisible();
+    await expect(note).toHaveCount(1);
+    await expect(chunkNote).toBeVisible();
+    await expect(chunkNote).toHaveCount(1);
+    await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
+    await expect(consent()).not.toBeChecked();
+    await expect(retry).toBeDisabled();
+    await consent().check();
+    await expect(retry).toBeEnabled();
+    fixture.run.status = "SUCCEEDED";
+    fixture.run.items[0] = { ...extract, status: "SUCCEEDED", error: null,
+      emptyReason: null, ...{ pagesFailed: 0, chunksFailed: 0 } };
+    await open();
+    await expect(page.getByText(/쪽을 읽지 못했어요|일부 내용을 읽지 못했어요|자료를 처리하지 못했어요|분석할 텍스트가 없어요/)).toHaveCount(0);
+    clean();
+  });
+}
+
+// DEV-179: contract tests written from the acceptance behavior, without reading
+// the composer/workspace implementation. Source-analysis traffic is stubbed.
+function contractFixture() {
+  const fixture = reviewFixture();
+  return {
+    ...fixture,
+    review: {
+      ...fixture.review,
+      editorFields: fixture.review.editorFields.map((entry) => ({ ...entry,
+        field: { ...entry.field, candidateIds: [] as string[] } })),
+      candidates: [] as {
+        id: string; targetId: string | null; fieldKey: string; value: string;
+        candidateIds: string[]; historical: boolean; outdated: boolean;
+        evidence: { sourceId: string; sourceRevision: number; sanitizationVersion: number;
+          page: number; spanIds: string[]; quote: string }[];
+      }[],
+    },
+    run: {
+      ...fixture.run,
+      items: fixture.run.items.map((item) => ({ ...item, pagesAnalysed: 0,
+        pagesEmpty: 0, pagesFailed: 0, chunksFailed: 0, ocrFailedPageNumbers: [] as number[], chunkFailedPageNumbers: [] as number[] })),
+    },
+  };
+}
+
+type ContractFixture = ReturnType<typeof contractFixture>;
+
+async function serveContractReview(page: Page, fixture: ContractFixture) {
+  await page.route("**/api/source-analysis/batches/**", (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const prefix = `/api/source-analysis/batches/${fixture.batch.id}`;
+    if (!pathname.startsWith(prefix))
+      return route.fulfill({ status: 404, json: { detail: "Unexpected fixture batch" } });
+    const sub = pathname.slice(prefix.length);
+    if (sub === "/basic-info" && route.request().method() === "PUT") {
+      const body = route.request().postDataJSON();
+      for (const update of body.targets ?? []) {
+        const target = fixture.batch.targets.find((t) => t.id === update.targetId);
+        if (target) target.basicInfo = { ...target.basicInfo, ...update.basicInfo };
+      }
+      fixture.batch.version++;
+      return route.fulfill({ json: fixture.batch });
+    }
+    if (route.request().method() !== "GET")
+      return route.fulfill({ status: 404, json: { detail: `Unstubbed ${sub}` } });
+    // Attachment tiles load the first page of a PDF source as a thumbnail.
+    if (/\/pages\/\d+\/image$/.test(sub))
+      return route.fulfill({ contentType: "image/png", body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64") });
+    const json = sub === "/review" ? fixture.review
+      : sub === "/runs" ? { items: [fixture.run] }
+      : sub === "/drafts" ? { items: [] }
+      : sub.endsWith("/text") ? { text: fixture.text, sourceVersion: 1 }
+      : /\/pages\/\d+$/.test(sub) ? { sourceRevision: 1, sanitizationVersion: 1,
+        privacyApproved: true, spans: [], redactedSpans: [], redactions: [], hasImage: false }
+      : sub === "" || sub === "/" ? fixture.batch : null;
+    return route.fulfill({ status: json === null ? 404 : 200,
+      json: json ?? { detail: `Unstubbed ${sub}` } });
+  });
+}
+
+async function openContractReview(page: Page, fixture: ContractFixture, composer: boolean) {
+  await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+  if (!composer) await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+}
+
+function addContractExclusion(fixture: ContractFixture, refinementVersion = "refinement-1") {
+  const target = fixture.batch.targets[0];
+  fixture.review.refinementResults = { [target.id]: {
+    refinementVersion,
+    excluded: [{ candidateId: "excluded-price", value: "반품 배송비 5,000원", reason: "price" }],
+  } };
+}
+
+for (const composer of [false, true]) {
+  const screen = composer ? "composer" : "workspace";
+
+  test(`DEV-179 AC-SRC-3/11: ${screen} hides provenance controls while preserving returned evidence`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    const evidence = { sourceId: "anchor", sourceRevision: 1, sanitizationVersion: 1,
+      page: 1, spanIds: ["s0"], quote: "제주에서 자란 감귤" };
+    fixture.review.candidates = [{ id: "summary-evidence", targetId: "target", fieldKey: "summary",
+      value: "제주에서 자란 감귤", candidateIds: ["summary-evidence"], evidence: [evidence],
+      historical: false, outdated: false }];
+    fixture.review.editorFields[0].field.candidateIds = ["summary-evidence"];
+    await serveContractReview(page, fixture);
+    const returned = page.waitForResponse((response) => response.url().endsWith("/review"));
+    await openContractReview(page, fixture, composer);
+    const payload = await (await returned).json();
+    expect(payload.candidates[0].evidence).toEqual([evidence]);
+    await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("제주에서 자란 감귤");
+    await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("ai-filled-badge")).toHaveCount(0);
+    clean();
+  });
+
+  test(`DEV-179 AC-SRC-3/11: ${screen} opens all conflicting text choices before field focus`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    const fields = [
+      { key: "qualityEvidence", label: "품질 확인 내용", candidate: "당도 14 °Bx" },
+      { key: "composition", label: "상품 구성 내용", candidate: "감귤 12개 구성" },
+      { key: "specification", label: "규격 내용", candidate: "중과 지름 6cm" },
+    ];
+    const base = fixture.review.editorFields[0].field;
+    fixture.review.editorFields = fields.map((field) => ({ status: "conflict",
+      field: { ...base, fieldKey: field.key, value: "확인 전 문구", candidateIds: [`candidate-${field.key}`] } }));
+    fixture.review.candidates = fields.map((field) => ({ id: `candidate-${field.key}`,
+      targetId: "target", fieldKey: field.key, value: field.candidate,
+      candidateIds: [`candidate-${field.key}`], evidence: [], historical: false, outdated: false }));
+    await serveContractReview(page, fixture);
+    await openContractReview(page, fixture, composer);
+    // Check all three before any input click: focus must not be the trigger.
+    await expect(page.getByRole("button", { name: "확인 전 문구", exact: true })).toHaveCount(3);
+    for (const field of fields)
+      await expect(page.getByRole("button", { name: field.candidate, exact: true })).toBeVisible();
+    for (const field of fields) {
+      await page.getByRole("button", { name: field.candidate, exact: true }).click();
+      await expect(page.getByLabel(field.label, { exact: true })).toHaveValue(field.candidate);
+    }
+    clean();
+  });
+
+  test(`DEV-179 AC-SRC-11: ${screen} buyer preview keeps URL and unsaved edits`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    await serveContractReview(page, fixture);
+    // A new product has no sale settings yet (no sale stages).
+    if (composer) await page.route("**/api/products/mine/p-house", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const response = await route.fetch();
+      return route.fulfill({ response, json: { ...(await response.json()), stages: [] } });
+    });
+    await openContractReview(page, fixture, composer);
+    const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+    const unsaved = "구매자가 보게 될 직접 수정한 제주 감귤 설명";
+    await summary.fill(unsaved);
+    const url = page.url();
+    await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+    await expect(page).toHaveURL(url);
+    await expect(page.getByRole("button", { name: "편집으로 돌아가기", exact: true })).toBeVisible();
+    await expect(page.getByText(unsaved, { exact: true })).toBeVisible();
+    await expect(summary).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "비공개 저장", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("excluded-chip")).toBeHidden();
+    // A new product has no sale settings yet: no "0박스 남음 · 마감" or default shipping row.
+    if (composer) {
+      await expect(page.getByText(/박스 남음/)).toHaveCount(0);
+      await expect(page.getByText(/도서산간 추가/)).toHaveCount(0);
+    }
+    await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+    await expect(page).toHaveURL(url);
+    await expect(summary).toHaveValue(unsaved);
+    clean();
+  });
+
+  if (composer) test("DEV-179 AC-SRC-11: composer buyer preview keeps sale rows once sale settings exist", async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    await serveContractReview(page, fixture);
+    await openContractReview(page, fixture, true);
+    await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+    await expect(page.getByText(/박스 남음/)).toBeVisible();
+    clean();
+  });
+
+  test(`DEV-179 AC-SRC-4/5: ${screen} reports source and PDF page progress without ETA`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    fixture.batch.sources[0] = { ...fixture.batch.sources[0], filename: "판매 안내.pdf",
+      mime: "application/pdf", pageCount: 20 };
+    fixture.batch.sources.push({ ...fixture.batch.sources[0], id: "text-source",
+      filename: "보관 안내.txt", mime: "text/plain", pageCount: 1 });
+    fixture.run.status = "ANALYZING";
+    fixture.run.completed = 1;
+    fixture.run.total = 2;
+    const base = fixture.run.items[0];
+    fixture.run.items = [
+      { ...base, id: "pdf-progress", assetId: "anchor", phase: "EXTRACT", status: "RUNNING", pagesAnalysed: 12 },
+      { ...base, id: "text-progress", assetId: "text-source", phase: "EXTRACT", status: "SUCCEEDED", pagesAnalysed: 1 },
+    ];
+    await serveContractReview(page, fixture);
+    await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    await expect(page.getByTestId("source-run-progress")).toHaveCount(1);
+    if (composer) {
+      const detail = page.getByTestId("product-detail-page");
+      await expect(detail.getByLabel("불러오는 중", { exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "사진·자료 접기", exact: true }).last().click();
+      await expect(detail.getByTestId("source-run-progress")).toBeVisible();
+      await expect(page.getByTestId("source-run-progress")).toHaveCount(1);
+      await expect(detail.getByLabel("불러오는 중", { exact: true })).toHaveCount(0);
+    }
+    await expect(page.locator("body")).toContainText(/자료\s*1\s*\/\s*2/);
+    await expect(page.locator("body")).toContainText(/PDF.*12\s*\/\s*20쪽/);
+    await expect(page.locator("body")).toContainText(/자료 1 · PDF/);
+    await expect(page.locator("body")).toContainText(/자료 2 · 내용 분석 완료/);
+    await expect(page.locator("body")).toContainText(/다른 화면에 다녀와도/);
+    // ETA wording must sit in one phrase: `.*` matched a container that merely held
+    // "당도 예상" and an unrelated later "분석" label in sibling elements.
+    await expect(page.getByText(/예상\s*(?:소요\s*)?시간|예상\s*\d+\s*(?:시간|분|초)|\d+\s*(?:시간|분|초)\s*(?:남|후|뒤)|남은 시간|ETA/i)).toHaveCount(0);
+    if (!composer) {
+      await expect(page.getByRole("button", { name: "상세페이지 편집", exact: true })).toBeDisabled();
+      await expect(page.getByText("분석이 끝나면 편집할 수 있어요", { exact: true })).toBeVisible();
+    }
+    clean();
+  });
+
+  test(`DEV-179 AC-SRC-5/8: ${screen} shows actual failed pages and requires retry cost acknowledgement`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    fixture.batch.sources[0].filename = "부분 실패.pdf";
+    fixture.batch.sources[0].pageCount = 8;
+    fixture.run.status = "PARTIAL";
+    fixture.run.items[0] = { ...fixture.run.items[0], phase: "EXTRACT", status: "PARTIAL",
+      error: "OCR_PAGES_FAILED", pagesFailed: 2, chunksFailed: 1, ocrFailedPageNumbers: [2, 5], chunkFailedPageNumbers: [7] };
+    await serveContractReview(page, fixture);
+    await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    await expect(page.getByText("부분 실패.pdf: 2쪽을 읽지 못했어요. 확인할 쪽: 2, 5쪽. 다시 분석해 보세요.", { exact: true })).toBeVisible();
+    await expect(page.getByText("부분 실패.pdf: 일부 내용을 읽지 못했어요. 확인할 쪽: 7쪽. 다시 분석해 보세요.", { exact: true })).toBeVisible();
+    const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
+    const consent = page.getByRole("checkbox", {
+      name: retryCost, exact: true,
+    });
+    await expect(consent).not.toBeChecked();
+    await expect(retry).toBeDisabled();
+    await consent.check();
+    await expect(retry).toBeEnabled();
+    await consent.uncheck();
+    await expect(retry).toBeDisabled();
+    clean();
+  });
+}
+
+test("DEV-179 AC-SRC-1/5: composer variety lives above the AI sheet footer and does not require a photo", async ({ page }) => {
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  fixture.batch.targets[0].basicInfo.variety = "";
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, true);
+  const variety = page.getByLabel("과일 품종명", { exact: true });
+  await expect(variety).toBeHidden();
+  await expect(page.getByTestId("product-photo-box").getByTestId("attachment-tile")).toHaveCount(0);
+  await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+  await expect(variety).toBeVisible();
+  const start = page.getByRole("button", { name: /^AI로 (?:다시 )?채우기$/ });
+  await expect(start).toBeEnabled();
+  const varietyBounds = await variety.boundingBox();
+  const startBounds = await start.boundingBox();
+  expect(varietyBounds!.y + varietyBounds!.height).toBeLessThanOrEqual(startBounds!.y);
+  await start.click();
+  const missing = page.getByTestId("peek-sheet").getByText("과일 품종명을 입력해 주세요.", { exact: true });
+  await expect(missing).toBeVisible();
+  await expect(page.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toHaveCount(0);
+  const errorBounds = await missing.boundingBox();
+  const buttonBounds = await start.boundingBox();
+  // The validation and action must share a viewport so the remedy is visible.
+  expect(errorBounds!.y + errorBounds!.height).toBeGreaterThan(0);
+  expect(buttonBounds!.y + buttonBounds!.height).toBeLessThanOrEqual(await page.evaluate(() => innerHeight));
+  await variety.fill("온주밀감");
+  await variety.blur();
+  await expect(start).toBeEnabled();
+  await page.getByRole("button", { name: "사진·자료 접기", exact: true }).last().click();
+  await expect(variety).toBeHidden();
+});
+
+test("DEV-179 AC-SRC-4/5: composer clears start failure immediately on retry and closes sheet after success", async ({ page }) => {
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  await serveContractReview(page, fixture);
+  let attempts = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let retryStarted!: () => void;
+  const retryInFlight = new Promise<void>((resolve) => { retryStarted = resolve; });
+  await page.route("**/api/source-analysis/batches/*/runs", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    attempts++;
+    if (attempts === 1) return route.fulfill({ status: 503,
+      json: { code: "UNAVAILABLE", message: "분석 시작 연결 실패 검증" } });
+    retryStarted();
+    await gate;
+    fixture.run.status = "QUEUED";
+    return route.fulfill({ status: 202, json: fixture.run });
+  });
+  await openContractReview(page, fixture, true);
+  await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+  const start = page.getByRole("button", { name: /^AI로 (?:다시 )?채우기$/ });
+  await start.click();
+  const error = page.getByText("분석 시작 연결 실패 검증", { exact: true });
+  await expect(error).toBeVisible();
+  await expect(page.getByRole("button", { name: "사진·자료 접기", exact: true }).last()).toBeVisible();
+  await start.click();
+  await retryInFlight;
+  // Hold the successful response: clearing the old error cannot depend on it.
+  await expect(error).toHaveCount(0);
+  release();
+  await expect(page.getByRole("button", { name: "사진·자료 펼치기", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "사진·자료 접기", exact: true })).toHaveCount(0);
+  expect(attempts).toBe(2);
+});
+
+test("DEV-179 AC-SRC-11: exclusions are acknowledged by producer, batch, target and refinement version across tabs", async ({ page, context }) => {
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  addContractExclusion(fixture);
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, false);
+  const modal = page.getByTestId("excluded-modal");
+  await expect(modal).toBeVisible();
+  // Merely presenting the modal does not acknowledge its content.
+  await page.reload();
+  await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+  await expect(page.getByTestId("excluded-chip")).toBeVisible();
+  await expect(modal).toHaveCount(0);
+  const second = await context.newPage();
+  await serveContractReview(second, fixture);
+  await openContractReview(second, fixture, false);
+  await expect(second.getByTestId("excluded-chip")).toBeVisible();
+  await expect(second.getByTestId("excluded-modal")).toHaveCount(0);
+  await second.getByTestId("excluded-chip").click();
+  await expect(second.getByTestId("excluded-modal")).toBeVisible();
+  await second.getByTestId("excluded-modal").getByRole("button", { name: "확인", exact: true }).click();
+  for (const change of ["version", "target", "batch"] as const) {
+    if (change === "version") addContractExclusion(fixture, "refinement-2");
+    if (change === "target") {
+      fixture.batch.targets[0].id = "another-target";
+      for (const entry of fixture.review.editorFields) entry.field.targetId = "another-target";
+      addContractExclusion(fixture, "refinement-2");
+    }
+    if (change === "batch") fixture.batch.id = "another-review-batch";
+    await openContractReview(page, fixture, false);
+    await expect(modal, `${change} must be an unseen result`).toBeVisible();
+    await modal.getByRole("button", { name: "확인", exact: true }).click();
+  }
+  // The seed has only one approved producer (강영수); "강미숙" never existed and /login
+  // redirects a signed-in producer home. Present the same session as another producer id.
+  await page.route("**/api/auth/me", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    return route.fulfill({ response, json: { ...(await response.json()), userId: "u-other-producer" } });
+  });
+  await openContractReview(page, fixture, false);
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+});
+
+test("DEV-179 AC-SRC-11: unavailable localStorage retains exclusion acknowledgement during the app lifetime", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  addContractExclusion(fixture);
+  await serveContractReview(page, fixture);
+  await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}`);
+  await expect(page.getByRole("button", { name: "상세페이지 편집", exact: true })).toBeEnabled();
+  // Block storage after login, preserving the authenticated app already in memory.
+  await page.evaluate(() => {
+    const storage = window.localStorage;
+    const getItem = Storage.prototype.getItem;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.getItem = function (key: string) {
+      if (this === storage) throw new DOMException("Storage unavailable", "SecurityError");
+      return getItem.call(this, key);
+    };
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (this === storage) throw new DOMException("Storage unavailable", "SecurityError");
+      setItem.call(this, key, value);
+    };
+  });
+  await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+  const modal = page.getByTestId("excluded-modal");
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+  await summary.fill("저장소가 막혀도 확인한 안내는 반복하지 않아요");
+  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+  await expect(summary).toHaveValue("저장소가 막혀도 확인한 안내는 반복하지 않아요");
+  await expect(modal).toHaveCount(0);
+  await page.getByTestId("excluded-chip").click();
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  await expect(modal).toHaveCount(0);
+  clean();
+});
+
+test("DEV-179 AC-SRC-11: dismissing exclusions with the backdrop does not acknowledge them", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  addContractExclusion(fixture);
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, false);
+  const modal = page.getByTestId("excluded-modal");
+  await expect(modal).toBeVisible();
+  await page.getByRole("button", { name: "닫기", exact: true }).click({ position: { x: 5, y: 5 } });
+  await expect(modal).toHaveCount(0);
+  await page.reload();
+  await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+  await expect(page.getByTestId("excluded-chip")).toBeVisible();
+  await expect(modal).toHaveCount(0);
+  clean();
+});
+
+test("DEV-179 AC-SRC-11: empty composer buyer preview omits detail placeholders and producer tools", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  fixture.review.editorFields = [];
+  fixture.run.items = [];
+  fixture.run.completed = 0;
+  fixture.run.total = 0;
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, true);
+  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "편집으로 돌아가기", exact: true })).toBeVisible();
+  await expect(page.getByText(/사진\s*[·/]\s*자료 넣기/)).toHaveCount(0);
+  await expect(page.getByRole("button", {
+    name: /비공개 저장|상품 상세에 적용 검토|다음: 판매·가격|사진·자료 펼치기|자료 파일 추가|텍스트 추가|사진 추가|AI로 (?:다시 )?채우기/,
+  })).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+  await expect(page.getByRole("switch")).toHaveCount(0);
+  await expect(page.getByTestId("excluded-chip")).toHaveCount(0);
+  clean();
+});
+
+test("DEV-179 AC-SRC-11: workspace preview omits an excluded hero field while keeping its confirmed sibling", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  const base = fixture.review.editorFields[0].field;
+  fixture.review.editorFields = [
+    { status: "ready", field: { ...base, fieldKey: "name", value: "구매자에게 남길 감귤 이름", state: "CONFIRMED" } },
+    { status: "ready", field: { ...base, fieldKey: "hero", value: "구매자에게 숨길 상품 소개", state: "EXCLUDED" } },
+  ];
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, false);
+  const inputValues = () => page.getByRole("textbox").evaluateAll((inputs) =>
+    inputs.map((input) => (input as HTMLInputElement | HTMLTextAreaElement).value));
+  await expect.poll(inputValues).toContain("구매자에게 남길 감귤 이름");
+  await expect.poll(inputValues).toContain("구매자에게 숨길 상품 소개");
+  await expect(page.getByRole("switch", { name: "상품 소개 표시", exact: true })).toBeChecked();
+  const url = page.url();
+  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await expect(page).toHaveURL(url);
+  await expect(page.getByText("구매자에게 남길 감귤 이름", { exact: true })).toBeVisible();
+  await expect(page.getByText("구매자에게 숨길 상품 소개", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("switch")).toHaveCount(0);
+  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+  await expect.poll(inputValues).toContain("구매자에게 남길 감귤 이름");
+  await expect.poll(inputValues).toContain("구매자에게 숨길 상품 소개");
+  // A second preview also excludes the description; the first preview cannot
+  // silently reset the field's EXCLUDED state when returning to editing.
+  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await expect(page.getByText("구매자에게 남길 감귤 이름", { exact: true })).toBeVisible();
+  await expect(page.getByText("구매자에게 숨길 상품 소개", { exact: true })).toHaveCount(0);
+  clean();
+});
+
+test("DEV-179 AC-SRC-11: composer preview preserves excluded summary and retains the enabled taste field", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  fixture.review.editorFields[0].field.state = "EXCLUDED";
+  fixture.review.editorFields[0].field.value = "편집기에만 남길 제외한 한눈에 보기";
+  fixture.review.editorFields[1].field.state = "CONFIRMED";
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, true);
+  const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+  await expect(summary).toHaveValue("편집기에만 남길 제외한 한눈에 보기");
+  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await expect(page.getByText("편집기에만 남길 제외한 한눈에 보기", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("달콤한 과즙", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+  await expect(summary).toHaveValue("편집기에만 남길 제외한 한눈에 보기");
+  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await expect(page.getByText("편집기에만 남길 제외한 한눈에 보기", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("달콤한 과즙", { exact: true })).toBeVisible();
+  clean();
+});
+
+for (const composer of [false, true]) {
+  test(`DEV-179 AC-SRC-1/5: ${composer ? "composer" : "workspace"} explains why analysis cannot start without sources`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    fixture.batch.sources = [];
+    fixture.run.inputs = [];
+    fixture.run.items = [];
+    await serveContractReview(page, fixture);
+    await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    const start = page.getByRole("button", { name: composer ? /^AI로 (?:다시 )?채우기$/ : "자료 준비·분석 시작" });
+    await expect(start).toBeVisible();
+    await expect(start).toBeDisabled();
+    await expect(page.getByText("자료를 먼저 넣어 주세요.", { exact: true })).toBeVisible();
+    clean();
+  });
+}
+
+test("DEV-179 AC-SRC-11: acknowledging a newer exclusion result replaces the target storage value", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  const targetId = fixture.batch.targets[0].id;
+  const storageKey = `farmclub-producer:excluded-seen:u-kang:${fixture.batch.id}:${targetId}`;
+  addContractExclusion(fixture, "refinement-1");
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, false);
+  const modal = page.getByTestId("excluded-modal");
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  expect(await page.evaluate((key) => localStorage.getItem(key), storageKey)).toBe("refinement-1");
+  addContractExclusion(fixture, "refinement-2");
+  await openContractReview(page, fixture, false);
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  const entries = await page.evaluate(() => Object.keys(localStorage)
+    .filter((entry) => entry.startsWith("farmclub-producer:excluded-seen:"))
+    .map((entry) => [entry, localStorage.getItem(entry)]));
+  expect(entries).toEqual([[storageKey, "refinement-2"]]);
+  await page.reload();
+  await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+  await expect(modal).toHaveCount(0);
+  await page.getByTestId("excluded-chip").click();
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  clean();
+});
+
+test("DEV-179 AC-SRC-11: legacy session acknowledgement migrates once and new results still open", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  addContractExclusion(fixture, "refinement-1");
+  const legacyKey = `farmclub-producer:excluded-seen:${fixture.batch.id}:refinement-1`;
+  const storageKey = `farmclub-producer:excluded-seen:u-kang:${fixture.batch.id}:${fixture.batch.targets[0].id}`;
+  await page.evaluate((key) => sessionStorage.setItem(key, "1"), legacyKey);
+  await serveContractReview(page, fixture);
+  await openContractReview(page, fixture, false);
+  const modal = page.getByTestId("excluded-modal");
+  await expect(page.getByTestId("excluded-chip")).toBeVisible();
+  await expect(modal).toHaveCount(0);
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), legacyKey)).toBeNull();
+  expect(await page.evaluate((key) => localStorage.getItem(key), storageKey)).toBe("refinement-1");
+  await page.reload();
+  await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+  await expect(page.getByTestId("excluded-chip")).toBeVisible();
+  await expect(modal).toHaveCount(0);
+  addContractExclusion(fixture, "refinement-2");
+  await openContractReview(page, fixture, false);
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  await page.getByTestId("excluded-chip").click();
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "확인", exact: true }).click();
+  clean();
+});
+
+test("DEV-179 AC-SRC-3/11: confirming the current factual wording preserves its provenance", async ({ page }) => {
+  const clean = monitor(page);
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  const original = { ...fixture.review.editorFields[0].field, fieldKey: "composition",
+    value: "확인 전 문구", provenance: "REFINED", candidateIds: ["fact-0"] };
+  fixture.review.editorFields = [{ status: "conflict", field: original }];
+  fixture.review.candidates = ["감귤 3kg 구성", "감귤 5kg 구성"].map((value, i) => ({
+    id: `fact-${i}`, targetId: "target", fieldKey: "composition", value,
+    candidateIds: [`fact-${i}`], evidence: [], historical: false, outdated: false,
+  }));
+  await serveContractReview(page, fixture);
+  const submissions: { fields: { fieldKey: string; value: string; state: string;
+    provenance: string; candidateIds: string[] }[] }[] = [];
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/editor`, async (route) => {
+    submissions.push(route.request().postDataJSON());
+    return route.fulfill({ json: { drafts: [{
+      id: "confirmed-draft", targetId: "target", version: 1,
+      snapshot: { reviewVersion: fixture.review.reviewVersion, batchVersion: fixture.batch.version,
+        mode: "mock", warnings: [], modules: [{ id: "composition", enabled: true }],
+        previewModules: [{ id: "composition", texts: [{ fieldKey: "composition", value: original.value }],
+          photoAssetIds: [], illustrationId: null }] },
+    }] } });
+  });
+  await openContractReview(page, fixture, false);
+  const currentChoice = page.getByRole("button", { name: "확인 전 문구", exact: true });
+  await expect(currentChoice).toBeVisible();
+  await expect(page.getByRole("button", { name: "감귤 3kg 구성", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "감귤 5kg 구성", exact: true })).toBeVisible();
+  await currentChoice.click();
+  await expect(page.getByLabel("상품 구성 내용", { exact: true })).toHaveValue(original.value);
+  await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+  await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.", { exact: true })).toBeVisible();
+  expect(submissions).toHaveLength(1);
+  const submitted = submissions[0].fields.find((field) => field.fieldKey === "composition");
+  expect(submitted).toMatchObject({ value: original.value, state: "CONFIRMED",
+    provenance: original.provenance, candidateIds: original.candidateIds });
+  clean();
+});
+
+// DEV-179 demo follow-up: public apply reasons must remain at the action.
+test("DEV-179 AC-SRC-9/11: workspace private save and review show the photo reason beside confirm without refresh", async ({ page }) => {
+  const clean = monitor(page, [/status of 400 \(Bad Request\)/]); // apply is stubbed to 400
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  const draft = {
+    id: "photo-required-draft", targetId: "target", version: 1,
+    snapshot: { reviewVersion: 1, batchVersion: 1, mode: "mock", warnings: [],
+      modules: [{ id: "summary", enabled: true }],
+      previewModules: [{ id: "summary", texts: [{ fieldKey: "summary", value: "제주에서 자란 감귤" }],
+        photoAssetIds: [], illustrationId: null }] },
+  };
+  let saved = false;
+  let applied = 0;
+  await serveContractReview(page, fixture);
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/editor`, (route) => {
+    expect(route.request().method()).toBe("PUT");
+    saved = true;
+    return route.fulfill({ json: { drafts: [draft] } });
+  });
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts`, (route) =>
+    route.fulfill({ json: { items: saved ? [draft] : [] } }));
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts/${draft.id}/apply`, (route) => {
+    applied++;
+    return route.fulfill({ status: 400, json: { code: "VALIDATION_ERROR",
+      message: "입력한 내용을 확인해 주세요.",
+      details: { fields: { representativePhoto: "대표 상품사진을 한 장 이상 올려 주세요." } } } });
+  });
+  await openContractReview(page, fixture, false);
+  await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+  await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.", { exact: true })).toBeVisible();
+  expect(saved).toBe(true);
+  await page.getByRole("button", { name: "공개 전 검토", exact: true }).click();
+  await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).click();
+  const confirmation = page.getByTestId("source-apply-confirmation");
+  const confirm = confirmation.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true });
+  await confirm.click();
+  await expect(confirmation.getByRole("alert")).toHaveText("대표 상품사진을 한 장 이상 올려 주세요.");
+  // The reason is shown once, beside the action, not again in the page-level alert.
+  await expect(page.getByRole("alert")).toHaveCount(1);
+  await expect(confirm).toBeEnabled();
+  await expect(page.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toHaveCount(0);
+  expect(applied).toBe(1);
+  // Cancel clears the prior reason; reopening must not blame the new attempt.
+  await confirmation.getByRole("button", { name: "적용 취소", exact: true }).click();
+  await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).click();
+  await expect(confirmation.getByRole("alert")).toHaveCount(0);
+  clean();
+});
+
+test("DEV-179 AC-SRC-9/11: workspace apply state conflict keeps server refresh beside confirm", async ({ page }) => {
+  const clean = monitor(page, [/status of 409 \(Conflict\)/]); // apply is stubbed to 409
+  await loginProducer(page, "강영수");
+  const fixture = contractFixture();
+  const draft = {
+    id: "photo-required-draft", targetId: "target", version: 1,
+    snapshot: { reviewVersion: 1, batchVersion: 1, mode: "mock", warnings: [],
+      modules: [{ id: "summary", enabled: true }],
+      previewModules: [{ id: "summary", texts: [{ fieldKey: "summary", value: "제주에서 자란 감귤" }],
+        photoAssetIds: [], illustrationId: null }] },
+  };
+  let saved = false;
+  let applied = 0;
+  await serveContractReview(page, fixture);
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/editor`, (route) => {
+    expect(route.request().method()).toBe("PUT");
+    saved = true;
+    return route.fulfill({ json: { drafts: [draft] } });
+  });
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts`, (route) =>
+    route.fulfill({ json: { items: saved ? [draft] : [] } }));
+  await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/drafts/${draft.id}/apply`, (route) => {
+    applied++;
+    return route.fulfill({ status: 409, json: { code: "VERSION_MISMATCH",
+      message: "변경된 내용을 다시 확인해 주세요.", details: {} } });
+  });
+  await openContractReview(page, fixture, false);
+  await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
+  await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.", { exact: true })).toBeVisible();
+  expect(saved).toBe(true);
+  await page.getByRole("button", { name: "공개 전 검토", exact: true }).click();
+  await page.getByRole("button", { name: "상품 상세에 적용 검토", exact: true }).click();
+  const confirmation = page.getByTestId("source-apply-confirmation");
+  const confirm = confirmation.getByRole("button", { name: "확인 · 상품 상세 적용", exact: true });
+  await confirm.click();
+  await expect(confirmation.getByRole("alert").getByText("변경된 내용을 다시 확인해 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(1);
+  await expect(confirmation.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toBeVisible();
+  expect(applied).toBe(1);
+  clean();
+});
+
+for (const composer of [false, true]) {
+  const screen = composer ? "composer" : "workspace";
+  test(`DEV-179 AC-SRC-5/11: ${screen} retains server refresh after a network failure`, async ({ page }) => {
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    await serveContractReview(page, fixture);
+    let fail = true;
+    await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/runs`, (route) => {
+      if (!fail) return route.fallback();
+      fail = false;
+      return route.abort("failed");
+    });
+    await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+    const refresh = page.getByRole("button", { name: "서버 상태 다시 확인", exact: true });
+    await expect(refresh).toBeVisible();
+    await refresh.click();
+    await expect(refresh).toHaveCount(0);
+    if (!composer) await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
+    await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("제주에서 자란 감귤");
+  });
+
+  test(`DEV-179 AC-SRC-5/8: ${screen} chooses retry cost copy for definite and mixed uncertain failures and resets consent`, async ({ page }) => {
+    const clean = monitor(page);
+    await loginProducer(page, "강영수");
+    const fixture = contractFixture();
+    fixture.run.status = "PARTIAL";
+    const item = { ...fixture.run.items[0], phase: "EXTRACT", status: "PARTIAL" };
+    await serveContractReview(page, fixture);
+    let retries = 0;
+    await page.route(`**/api/source-analysis/batches/${fixture.batch.id}/runs/*/retry`, (route) => {
+      retries++;
+      expect(route.request().postDataJSON().acknowledgeUncertain).toBe(true);
+      fixture.run.id = `retry-${retries}`;
+      return route.fulfill({ status: 202, json: fixture.run });
+    });
+    for (const error of ["OCR_PAGES_FAILED", "EXTRACT_CHUNKS_FAILED", "REQUEST_UNCERTAIN", "mixed"]) {
+      fixture.run.items = [{ ...item, error: error === "mixed" ? "OCR_PAGES_FAILED" : error }];
+      if (error === "mixed") fixture.run.items.push({ ...item, id: "uncertain-chunk", error: "REQUEST_UNCERTAIN" });
+      await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
+      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      const uncertain = error === "REQUEST_UNCERTAIN" || error === "mixed";
+      const consent = page.getByRole("checkbox", { name: uncertain ? uncertainRetryCost : retryCost, exact: true });
+      await expect(page.getByRole("checkbox", { name: uncertain ? retryCost : uncertainRetryCost, exact: true })).toHaveCount(0);
+      const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
+      await expect(consent).not.toBeChecked();
+      await expect(retry).toBeDisabled();
+      await consent.check();
+      await expect(retry).toBeEnabled();
+      await consent.uncheck();
+      await expect(retry).toBeDisabled();
+      await consent.check();
+      await retry.click();
+      await expect(consent).not.toBeChecked();
+      await expect(retry).toBeDisabled();
+    }
+    expect(retries).toBe(4);
+    clean();
   });
 }

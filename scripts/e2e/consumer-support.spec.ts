@@ -33,9 +33,13 @@ test("AC-34-7: a consumer asks the farmclub team from the 1:1 list and sees the 
   await expect(page.getByRole("button", { name: "＋" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("consumer-support-room.png") });
 
-  const question = `입금 확인은 언제 되나요? ${Date.now()}`;
-  await page.getByPlaceholder("메시지를 입력하세요").fill(question);
+  const question = `입금 확인은 언제 되나요? ${Date.now().toString(36)}`;
+  const composer = page.getByPlaceholder("메시지를 입력하세요");
+  await composer.fill(question);
   await page.getByRole("button", { name: "전송" }).click();
+  // 입력창(textarea)도 같은 글자를 가져 getByText에 걸린다. 전송이 끝나 입력창이 비워진 뒤에
+  // 말풍선을 봐야 서버에 저장된 뒤 운영자 문의함을 부른다(DEV-192)
+  await expect(composer).toHaveValue("");
   await expect(page.getByText(question).last()).toBeVisible();
 
   const inbox = await (await ops.get("/admin/support")).json();
@@ -43,7 +47,7 @@ test("AC-34-7: a consumer asks the farmclub team from the 1:1 list and sees the 
     (r: { kind: string; targetId: string }) => r.kind === "CONSUMER" && r.targetId === "u-minji",
   );
   expect(minji).toMatchObject({ waiting: true, lastMessage: question });
-  const answer = `농가가 오늘 안에 확인할 예정이에요. ${Date.now()}`;
+  const answer = `농가가 오늘 안에 확인할 예정이에요. ${Date.now().toString(36)}`;
   expect((await ops.post("/admin/support/consumers/u-minji/messages", { text: answer })).ok()).toBeTruthy();
 
   await page.reload();

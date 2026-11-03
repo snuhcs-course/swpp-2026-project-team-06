@@ -24,6 +24,7 @@ from app.orders.schemas import (
     RefundView,
     RejectDepositInput,
     ShipInput,
+    TrackingInput,
 )
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -175,6 +176,25 @@ def ship_order(
     result = service.ship_order(db, farm.id, order_id, body.tracking_number, body.carrier)
     db.commit()
     return result
+
+
+@router.patch("/{order_id}/tracking", response_model=ProducerOrder)
+def update_tracking(
+    db: Db,
+    producer: ApprovedProducer,
+    order_id: str,
+    body: TrackingInput,
+    key: IdempotencyKey = None,
+):
+    user, farm = producer
+    return run_idempotent(
+        db,
+        user.id,
+        f"tracking:{order_id}",
+        key,
+        body,
+        lambda: service.update_tracking(db, farm.id, user.id, order_id, body),
+    )
 
 
 @router.get("/{order_id}", response_model=OrderView)

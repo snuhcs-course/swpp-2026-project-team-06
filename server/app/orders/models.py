@@ -63,6 +63,7 @@ class Order(Base):
     # CJ · EPOST · HANJIN · LOTTE · LOGEN · ETC
     carrier: Mapped[str | None] = mapped_column(String(16))
     tracking_number: Mapped[str | None] = mapped_column(String(50))
+    tracking_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

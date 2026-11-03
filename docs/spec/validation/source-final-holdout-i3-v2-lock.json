@@ -1,0 +1,84 @@
+{
+  "name": "source-holdout-i3-final-v2",
+  "goldSha256": "3eba2dcbdaa7b7aa8c35afc894cc7c7f56291d67c78201d36c9a29f1def0d643",
+  "manifestSha256": "48099c6096c8e876ac37429cd02b532d83a185e1b36d38936ef5f39acde2f996",
+  "sources": [
+    {
+      "id": "h2-text-01",
+      "format": "text"
+    },
+    {
+      "id": "h2-text-02",
+      "format": "text"
+    },
+    {
+      "id": "h2-text-03",
+      "format": "text"
+    },
+    {
+      "id": "h2-image-01",
+      "format": "image"
+    },
+    {
+      "id": "h2-image-02",
+      "format": "image"
+    },
+    {
+      "id": "h2-image-03",
+      "format": "image"
+    },
+    {
+      "id": "h2-long_image-01",
+      "format": "long_image"
+    },
+    {
+      "id": "h2-long_image-02",
+      "format": "long_image"
+    },
+    {
+      "id": "h2-long_image-03",
+      "format": "long_image"
+    },
+    {
+      "id": "h2-pdf-01",
+      "format": "pdf"
+    },
+    {
+      "id": "h2-pdf-02",
+      "format": "pdf"
+    },
+    {
+      "id": "h2-pdf-03",
+      "format": "pdf"
+    }
+  ],
+  "countsBySourceFormat": {
+    "text": {
+      "sources": 3,
+      "sentences": 24,
+      "facts": 49,
+      "criticalFacts": 15
+    },
+    "image": {
+      "sources": 3,
+      "sentences": 12,
+      "facts": 25,
+      "criticalFacts": 6
+    },
+    "long_image": {
+      "sources": 3,
+      "sentences": 17,
+      "facts": 24,
+      "criticalFacts": 3
+    },
+    "pdf": {
+      "sources": 3,
+      "sentences": 19,
+      "facts": 36,
+      "criticalFacts": 9
+    }
+  },
+  "createdAt": "2026-11-02T10:57:28+00:00",
+  "status": "LOCKED_LOCAL_PRIVATE",
+  "excludedOwnerDecisions": 44
+}

@@ -47,9 +47,11 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByRole("button", { name: "상품사진 추가", exact: true }),
     ).toBeVisible();
+    // No photo is required to analyse, but a brand-new product has no source yet.
     await expect(
       page.getByRole("button", { name: "AI로 채우기", exact: true }),
     ).toBeDisabled();
+    await expect(page.getByText("자료를 먼저 넣어 주세요.", { exact: true })).toBeVisible();
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/dev184-1-open.png` });
     // 사진이 첨부함 맨 앞
@@ -85,10 +87,10 @@ for (const width of [360, 390, 430]) {
     ).toHaveCSS("outline-style", "none");
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/dev184-0-collapsed.png` });
-    await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
-    await page.getByLabel("과일 품종명", { exact: true }).blur();
     await page.getByLabel("원산지", { exact: true }).fill("제주 서귀포");
     await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
+    await page.getByLabel("과일 품종명", { exact: true }).blur();
     await expect(page.getByText("상품사진 1장 · 자료 1개")).toBeVisible();
     await page
       .getByRole("button", { name: "AI로 채우기", exact: true })
@@ -153,13 +155,11 @@ for (const width of [360, 390, 430]) {
       await expect(page.getByLabel("배송 안내 내용", { exact: true })).toHaveValue("우체국 택배로 보내드려요");
       await expect(page.getByLabel("맛과 향 내용", { exact: true })).toHaveValue("당도가 높고 과즙이 풍부합니다");
     }
-    await expect(page.getByTestId("ai-filled-badge").first()).toBeVisible();
+    await expect(page.getByTestId("ai-filled-badge")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
     if (shots && width === 390) {
       await page.screenshot({ path: `${shots}/dev184-3-filled.png` });
-      await page
-        .getByTestId("ai-filled-badge")
-        .first()
-        .scrollIntoViewIfNeeded();
+      await page.getByTestId("product-detail-page").scrollIntoViewIfNeeded();
       await page.screenshot({ path: `${shots}/dev184-3b-detail.png` });
     }
     // 기본값 칸만 AI 값으로 채움(상품명·보관), 가격은 채우지 않음(AC-03-1)
@@ -169,7 +169,7 @@ for (const width of [360, 390, 430]) {
     await expect(page.getByLabel("보관", { exact: true })).toHaveValue(
       "서늘한 곳에 보관해 주세요.",
     );
-    await expect(page.getByText(/AI가 채웠어요/)).toHaveCount(2);
+    await expect(page.getByText(/AI가 채웠어요/)).toHaveCount(0);
     await expect(
       page
         .getByTestId("product-basic-info")

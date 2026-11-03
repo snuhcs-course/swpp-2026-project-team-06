@@ -205,3 +205,69 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6. [제품 spec](../../../docs/spec/source-analysi
 - repo guard는 신규 manifest case에 한해 잠긴12개 ID/format과 metadata 키만 허용한다. 그 밖의 holdout payload 차단과 역사 lock의 정확한 구조 검증은 유지한다. 미래 독립 측정은 튜닝하지 않는 사람들의 독립3인 검토 holdout v2가 필요하다.
 
 - 입력 해시: 기존 공개개발12건 safeInputSha256은 corpus의 canonical-json-utf8 해시를 보존한다. 편입12건은 safe 파일 바이트 SHA로 기록하고 safeInputEncoding=file-bytes로 구분한다. gold 파일 SHA는 전부 같은 병합 v2 파일 바이트 SHA다.
+
+
+## DEV-190 페이지별 OCR 복구와 추출 분할
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 동작 계약은 [제품 spec](../../../docs/spec/source-analysis.md)의 DEV-190 절을 따른다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | OpenRouter 이미지/PDF의 EXTRACT는 파일별 페이지 목록 하나, 실제 OCR은 쪽/crop별 호출 | 전체 빈 문서 판단과 명시적 파일 재시도 범위 일치 | AC-SRC-5/10 |
+| 2026-11-02 | transcribe_pages가 빈/실패 쪽 진단을 반환하고 실패 쪽 span을 비움; hard failure는 전파 | 안전한 나머지 쪽 보존, 불확실 호출 자동 재생 금지 | AC-SRC-2/3/5/6 |
+| 2026-11-02 | worker와 final_eval이 extraction_chunks → text_chunks를 공유하고 각 그룹 검증 후 병합 | 긴 OCR 출력 제한, 원래 쪽/span 근거 유지 | AC-SRC-2/3/5 |
+| 2026-11-02 | stage-1 Spend stage에 쪽번호·묶음순번을 포함 | 항목 내 여러 호출의 원장 키 충돌 방지 | AC-SRC-10 |
+| 2026-11-02 | accepted 후보가 있는 OCR PARTIAL만 REFINE 허용; retry는 원래 pages 목록으로 새 Run | 기존 후보·생산자 편집 보존 및 비용 확인 유지 | AC-SRC-5/11 |
+| 2026-11-02 | API/평가 metadata는 빈/OCR 실패 쪽·추출 실패 청크 개수만 공개; 두 UI의 sourceNotices에서 PARTIAL OCR 페이지 안내 우선, 청크만 실패하면 일부 내용 안내 | 파일당 한 줄, 성공 청크가 있는 쪽의 전체 실패 오해·오류 중복 방지 | AC-SRC-6/8 |
+
+### DEV-190 후속 리뷰 결정
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | `extract_vision_chunks`를 worker/final_eval이 공유; stage-1 오류는 chunksFailed에만 기록하고 pagesFailed는 OCR 실패 쪽만 유지. worker는 REQUEST_UNCERTAIN 우선, 그 외 OCR_PAGES_FAILED/EXTRACT_CHUNKS_FAILED 구분; accepted PARTIAL은 두 진단 모두 REFINE 허용. 전 청크 호출 실패/hard는 원래 예외 전파 | 다른 청크의 유효 후보·호출별 비용 보존, 쪽/청크 안내 및 평가 PARTIAL 정합 | AC-SRC-2/5/10 |
+| 2026-11-02 | vision은 전체 병합 후 accepted0·rejected>0일 때 CANDIDATES_REJECTED/FAILED; 비-vision은 빈 쪽 포함 text_chunks 호출과 청크별 거절 실패 유지 | 파일/청크 항목 경계와 평가 정합 | AC-SRC-3/5 |
+| 2026-11-02 | 청크별 validate_candidates 통과 후보만 targetId/fieldKey/value/historical/evidence로 중복 제거 후 원문순 prefix100, candidatesSkipped 진단; 사진 요청 prefix30. 중복된 병합 후 검증 대신 acceptedCount/emptyReason 직접 계산, 거절 목록·개수는 청크 합산 | 거절 후보 저장 차단, 검증 결과 덮어쓰기 제거와 acceptedCount 정합 | AC-SRC-2/3 |
+| 2026-11-02 | page_scope는 빈 쪽 표식과 (쪽, span ID) 집합; 저장은 pagesFailed/chunksFailed 쪽을 제외한 성공 scope의 기존 부분집합만 supersede. enqueue_extraction의 previous 쿼리는 outdated 후보가 하나라도 있는 Item을 NOT EXISTS로 제외(vision/text 공통); 후보 없는 성공은 허용, 나머지 SUCCEEDED 부분 scope 합집합이 전체 요청을 덮을 때 재사용 | PARTIAL의 실패 쪽 기존 후보 보존, 설정 복귀 시 대체된 후보로 coverage가 충족되는 오류 차단, 확정 편집/동일 ID 보존 | AC-SRC-2/5/10 |
+| 2026-11-02 | 실패 경로의 OCR/청크 진단 저장은 best effort로 원래 ExtractionError 보존; 비-vision 검증은 settle 뒤 | fencing으로 원래 코드·usage·요청 ID를 잃거나 비용 정산을 건너뛰지 않음 | AC-SRC-5/10 |
+
+
+## DEV-179 구현 결정 (2026-11-02)
+- AC-SRC-9/11: start_run의 대표사진 검사만 제거하고 publish/workspace.apply 검사는 유지한다. 품종·권한·버전·자료·활성 run 검사는 유지한다.
+- AC-SRC-2/3/11: editorFields는 규격·구성·개수·당도(qualityEvidence)의 같은 사실 슬롯에 정규화 값이 다른 후보가 있으면 conflict를 적용한다. 현재 정리 결과가 없거나 pending(None)이면 사실/서술의 복수 안전 원문 후보도 conflict로 선택 가능하게 유지한다. 사실 필드는 정규화한 값별로 candidateId가 가장 작은 원문을 대표로 사용하며(조회 순서와 무관), 한 값이면 정리 결과가 아예 없을 때만 해당 원문·candidateIds를 ready/EXTRACTED/UNREVIEWED로 제안하고 pending이면 missing으로 둔다. 성공 정리에서 생략된 필드는 복원하지 않는다. 정리 결과의 규격에 함께 담긴 품종/사이즈 등 상호 보완 값은 충돌이 아니며 kg/g·소수 당도·유니코드/공백 차이는 정규화한다. summary/farmStory 등 정리된 병합 서술은 ready이며 UNREVIEWED 자동 저장을 유지한다. outdated와 생산자 CONFIRMED/EXCLUDED는 conflict로 덮지 않는다. 선택기에는 현재 refined/basicInfo 값도 포함한다.
+- AC-SRC-5/8: run_view는 ocrFailedPageNumbers(pagesFailed.number)와 chunkFailedPageNumbers(chunksFailed.pages)를 각각 정렬/중복 제거하여 노출한다. 각 안내는 자기 목록을 쓴다. 기존 개수는 보존하고 코드·진단 본문은 반환하지 않는다.
+## DEV-191 OCR 병렬 실행 구현 결정
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | `SOURCE_OCR_CONCURRENCY` 기본4/최소1. 공용 `transcribe_pages`의 stdlib ThreadPoolExecutor에 최대 N개 crop 작업만 제출; 1은 호출자에서 speculative 작업 없이 실행 | 쪽/긴 이미지 병렬화, 대기열·비용 폭주 방지 및 순차 비교 | AC-SRC-2/5/10 |
+| 2026-11-02 | 순서 있는 결과 소비와 쪽 끝 표식으로 span ID·진단을 병합하고 실패 쪽 전사를 폐기; 추출은 기존 순차 경로 | 완료 순서가 근거·후보 순서를 바꾸지 않음 | AC-SRC-2/3/5 |
+| 2026-11-02 | hard 예외는 실행 스레드에서 stop Event 설정, 전송 전 검사; executor 종료는 모든 진행 중 요청의 정산을 기다림 | 인증/한도/취소 뒤 신규 전송 차단, 비용 누락·자동 재생 방지 | AC-SRC-5/10 |
+| 2026-11-02 | OpenRouter 클라이언트는 기존처럼 요청별 생성/close; 예약/정산 세션도 요청마다 별도 생성. 기존 PostgreSQL advisory lock 유지, eval Calls의 실행 한도·차액·entries는 Lock으로 보호 | 클라이언트/SQLAlchemy Session을 스레드 사이 공유하지 않고 비용 경쟁 방지 | AC-SRC-6/10 |
+| 2026-11-02 | 기존 run_once heartbeat가 executor 수명 전체를 감싸고 paid_vision_call의 전송 전 lock_context/승인 검사를 유지. eval metadata에 ocrConcurrency 기록 | 호출 중 lease 갱신·취소 fencing 및 개발 성능 비교 재현 | AC-SRC-5/10 |
+
+## DEV-191 후속 · 페이지 묶기와 stage-1 동시성 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 위 OCR 전용 동시성/추출 순차 결정은 아래 후속 결정으로 갱신한다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | vision의 `extraction_chunks(skip_empty=True)`는 쪽 경계를 넘어 span 순서로4000자·최대4쪽까지 채우고 큰 쪽은 기존 span 경계로 분할한다. 기본 text 모드는 기존 쪽별 `text_chunks` 유지 | 작은 PDF 쪽마다 stage-1을 호출하는 지연 제거, 쪽/span ID·인용 보존 | AC-SRC-2/3 |
+| 2026-11-02 | OCR과 stage-1은 공용 `_ordered_results`로 제출 수를 제한하고 `SOURCE_OCR_CONCURRENCY`를 각 단계 상한으로 공유한다. concurrency1은 caller에서 순차 실행하며 병합은 입력 순서 | 무제한 대기열 없이 결정적 후보/진단/상한을 유지 | AC-SRC-2/5/10 |
+| 2026-11-02 | stage-1은 호출 wrapper와 제공자 전송 양쪽에서 stop을 확인하고 제공자 hard 오류 즉시 latch한다. 미전송 예약은0으로 정산, 이미 보낸 호출은 executor 종료 전에 정산 | 정산 지연/예약 대기 중 신규 전송 방지 및 기존 비용·취소 fencing 재사용 | AC-SRC-5/6/10 |
+| 2026-11-02 | 청크별 검증에 다쪽 payload 그대로 전달, 실패 진단에 모든 청크 쪽을 기록한다. eval은 기존 공용 `extract_vision_chunks`를 사용 | 근거 검증 및 DEV-190 PARTIAL/FAILED/성공 범위 의미 보존 | AC-SRC-2/3/5/8 |
+
+## DEV-193 출력 예산·숫자 채점·후보별 교체
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/10. 동작 계약은 [제품 spec](../../../docs/spec/source-analysis.md)의 DEV-193 절을 따른다.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-02 | `SOURCE_MAX_OUTPUT_TOKENS` 기본8000, 기존256–8000 설정 범위·4000자 입력·값/인용 스키마 유지. 공용 budget.estimate_micros는 제공자와 같은 설정값을 예약하고 final_eval.estimate도 같은 출력 최대치로 계획 | 문장 값+인용+후보 JSON의 출력 확대, 한도/예약 정합 | AC-SRC-2/10 |
+| 2026-11-02 | 잘린 청크의 재분할·재전송도 자동 재시도로 간주해 배제. prompt·후보 수·인용 원문 변경 없음 | 실패/불확실 호출 재생 금지 | AC-SRC-3/5/10 |
+| 2026-11-02 | final_score는 중간 줄을 건너뛰지 않고 같은 줄 마침표+space/tab 뒤 숫자만 분리. `2011\n년부터`는 이미 작동하던 정규화의 회귀 보장, `3.\n5kg`는 기존 소수3.5kg 유지 | 소수·단위·범위 판정 보존 | AC-SRC-2/3 |
+| 2026-11-02 | final_eval은 OCR 전 로컬 safe text를 보존하고 정상/예외 반환 모두 OCR 실패 및 `chunksFailed[*].pages` 전체를 제외한 OCR 전사와 합집합. 일부 청크만 실패한 쪽도 OCR 전체 제외, 로컬 근거는 유지. 계층 사이 세미콜론으로 숫자 연결 방지. 새 metadata는 최초 `measurementVersion=dev193-number-evidence-v1`과 출력 설정 기록, 보고서에 직접 비교 불가 명시 | 제품에서 사용한 근거 전체로 측정, 과거 점수 해석 구분 | AC-SRC-2/3/6 |
+| 2026-11-02 | store_candidates는 이전 동일 source/revision/sanitization/targets 후보의 evidence source/revision과 모든 page가 새 성공 쪽인지 검사. 근거 없는 legacy만 기존 item scope 조건 적용. confirmed/동일 ID 유지와 enqueue_extraction의 outdated NOT EXISTS 보존 | F1 전체 범위와 F2 PARTIAL 성공 범위의 불일치 해소 | AC-SRC-2/5 |
+
+DEV-193 교체 범위 보완: 전체 페이지를 읽는 OpenRouter OCR 항목은 근거 페이지 기준을 사용한다. 일반 텍스트 및 비-vision 항목은 같은 페이지에 서로 다른4000자 span 청크가 있으므로 후보의 모든 근거 span도 새 성공 scope 안에 있어야 교체한다. 같은 실행의 앞 청크 후보를 뒤 청크가 지우지 않는다.

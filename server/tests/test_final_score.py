@@ -633,6 +633,7 @@ def test_AC_SRC_6_local_list_gold_envelope_hash_lock_and_missing_where(
     pins.write_text(
         json.dumps(
             {
+                "sha256": digest,
                 "sources": [{"id": "holdout-01", "format": "text"}],
                 "cases": [{"id": "holdout-01", "format": "text", "status": "LOCAL_PRIVATE"}],
             }
@@ -642,8 +643,8 @@ def test_AC_SRC_6_local_list_gold_envelope_hash_lock_and_missing_where(
     monkeypatch.setattr(final_score, "DEV_MANIFEST", pins)
     reference = LocalGold(path="local-gold.json", split=split, lockPath="lock.json")
     with pytest.raises(ValueError, match="redacted"):
-        load_local_gold(reference, tmp_path, {"holdout-01": "pdf"})
-    loaded = load_local_gold(reference, tmp_path, {"holdout-01": "text"})
+        load_local_gold(reference, tmp_path, {"holdout-01": "pdf"}, holdout_version="v1.1")
+    loaded = load_local_gold(reference, tmp_path, {"holdout-01": "text"}, holdout_version="v1.1")
     assert loaded.sources[0].sentences[0].where is None
     assert loaded.split == split
     (tmp_path / "safe.txt").write_text(TEXT)
@@ -663,6 +664,8 @@ def test_AC_SRC_6_local_list_gold_envelope_hash_lock_and_missing_where(
     runs = tmp_path / "runs.json"
     runs.write_text(json.dumps(envelope))
     argv = [
+        "--holdout-version",
+        "v1.1",
         "--runs",
         str(runs),
         "--report",
@@ -692,14 +695,14 @@ def test_AC_SRC_6_private_gold_requires_pinned_hash_format_and_holdout_lock(tmp_
     path.write_text(json.dumps([source]))
     reference = LocalGold(path="gold.json", split="holdout")
     with pytest.raises(ValueError, match="redacted"):
-        load_local_gold(reference, tmp_path, {"holdout-01": "text"})
+        load_local_gold(reference, tmp_path, {"holdout-01": "text"}, holdout_version="v1.1")
     monkeypatch.setitem(LOCAL_GOLD_SHA256, "holdout", sha256(path.read_bytes()))
     with pytest.raises(ValueError, match="redacted"):
-        load_local_gold(reference, tmp_path, {"holdout-01": "text"})
+        load_local_gold(reference, tmp_path, {"holdout-01": "text"}, holdout_version="v1.1")
     reference = reference.model_copy(update={"lockPath": "lock.json"})
     (tmp_path / "lock.json").write_text(json.dumps({"sha256": sha256(path.read_bytes())}))
     with pytest.raises(ValueError, match="redacted"):
-        load_local_gold(reference, tmp_path, {})
+        load_local_gold(reference, tmp_path, {}, holdout_version="v1.1")
 
 
 def test_AC_SRC_6_validation_json_excludes_holdout_payloads_except_metadata_lock():
@@ -1021,3 +1024,346 @@ def test_AC_SRC_2_6_t23_rerun_keeps_first_result_and_aggregate_totals():
     assert comparison["rerun"] == {k: overall[k] for k in comparison["rerun"]}
     assert rerun["retirement"]["status"] == "RETIRED_TO_DEV"
     assert rerun["retirement"]["developmentTotal"] == 47
+
+
+def test_AC_SRC_3_existing_year_line_wrap_is_supported_in_both_directions():
+    # Existing behavior before DEV-193: an adjacent wrapped unit remains supported.
+    broken = "2011\n년부터"
+    intact = "2011년부터"
+    assert sensitive_tokens(broken)["number"] == {"2011년"}
+    assert sensitive_tokens(intact)["number"] == {"2011년"}
+    for source, output in [(broken, intact), (intact, broken)]:
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(source)
+        )["number"] == set()
+        report = result(g=gold(text=intact, tokens=["2011"]), r=run(output), safe=source)
+        assert report["overall"]["unsupportedTokens"] == 0
+
+
+@pytest.mark.parametrize(
+    "source,invented,source_tokens,invented_tokens",
+    [
+        ("10\nm/s\n kg", "10kg", {"10m"}, {"10kg"}),
+        ("약 5\nkg/m\n도", "5도", {"5kg"}, {"5도"}),
+        ("2011\n반품/교\n년부터", "2011년부터", {"2011"}, {"2011년"}),
+    ],
+)
+def test_AC_SRC_3_DEV_193_slash_line_cannot_be_skipped_to_invent_units(
+    source, invented, source_tokens, invented_tokens
+):
+    assert sensitive_tokens(source)["number"] == source_tokens
+    assert sensitive_tokens(invented)["number"] == invented_tokens
+    for output, safe, unsupported in [
+        (invented, source, invented_tokens),
+        (source, invented, source_tokens),
+    ]:
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(safe)
+        )["number"] == unsupported
+        report = result(r=run(output), safe=safe)["overall"]
+        assert report["unsupported"]["number"] == len(unsupported)
+        assert report["unsupportedTokens"] >= len(unsupported)
+        assert report["criticalGate"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "source,output",
+    [
+        ("2011\n재배한 농가입니다\n년부터", "2011년부터"),
+        ("20\n11년부터", "2011년부터"),
+        ("2011\n년부터", "2011개월"),
+        ("2011\n년부터", "2011~2012년"),
+        ("12.5브릭스", "12브릭스"),
+        ("12.5브릭스", "5브릭스"),
+    ],
+)
+def test_AC_SRC_3_DEV_193_numeric_repair_does_not_invent_support(source, output):
+    forward = final_score.unsupported_tokens(sensitive_tokens(output), sensitive_tokens(source))
+    reverse = final_score.unsupported_tokens(sensitive_tokens(source), sensitive_tokens(output))
+    assert forward["number"]
+    assert reverse["number"]
+    assert result(r=run(output), safe=source)["overall"]["unsupportedTokens"] > 0
+    assert result(r=run(source), safe=output)["overall"]["unsupportedTokens"] > 0
+
+
+@pytest.mark.parametrize("space", [" ", "  ", "\t", " \t "])
+def test_AC_SRC_3_DEV_193_sentence_period_and_decimal_remain_distinct(space):
+    assert sensitive_tokens(f"since 1966.{space}50년")["number"] == {"1966", "50년"}
+    assert sensitive_tokens("12.5브릭스")["number"] == sensitive_tokens("12.5Brix")["number"]
+    assert sensitive_tokens("12.5브릭스")["number"] != sensitive_tokens(
+        "12브릭스 5브릭스"
+    )["number"]
+
+
+def test_AC_SRC_3_DEV_193_wrapped_decimal_preserves_one_number_bidirectionally():
+    broken, intact = "면적 3.\n5kg", "면적 3.5kg"
+    assert final_score.MEASUREMENT_VERSION == "dev193-number-evidence-v1"
+    for output, safe in [(broken, intact), (intact, broken)]:
+        assert sensitive_tokens(output)["number"] == {"3.5kg"}
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(safe)
+        )["number"] == set()
+        assert result(r=run(output), safe=safe)["overall"]["unsupportedTokens"] == 0
+        for invented in ("3", "5kg"):
+            assert final_score.unsupported_tokens(
+                sensitive_tokens(invented), sensitive_tokens(safe)
+            )["number"] == {invented}
+            assert result(r=run(invented), safe=safe)["overall"]["unsupported"]["number"] == 1
+
+def invented_v2_holdout(tmp_path, monkeypatch, *, material=True):
+    """Only invented bytes; never discover or read a real holdout directory."""
+    private = tmp_path / "invented-private-holdout"
+    private.mkdir()
+    sources, cases = [], []
+    for fmt in ("text", "image", "long_image", "pdf"):
+        sid = f"h2-invented-{fmt}"
+        source = copy.deepcopy(gold()["sources"][0])
+        source.pop("format")
+        source["id"] = sid
+        source["product"] = "SYNTHETIC PRIVATE PRODUCT"
+        source["sentences"][0]["where"] = "SYNTHETIC PRIVATE SOURCE NAME"
+        source["sentences"][0]["facts"][0]["statement"] = "SYNTHETIC PRIVATE FACT"
+        sources.append(source)
+        cases.append({"id": sid, "format": fmt})
+    gold_path = private / "final-gold-v2.json"
+    gold_path.write_text(json.dumps(sources, ensure_ascii=False))
+    manifest = private / "manifest.json"
+    # The real private v2 manifest is a plain list.
+    manifest.write_text(json.dumps(cases))
+    private_lock = private / "final-gold-v2.lock.json"
+    private_lock.write_text(
+        json.dumps(
+            {
+                "sha256": sha256(gold_path.read_bytes()),
+                "manifestSha256": sha256(manifest.read_bytes()),
+            }
+        )
+    )
+    repo_lock = tmp_path / "invented-repo-v2-lock.json"
+    repo_lock.write_text(
+        json.dumps(
+            {
+                "goldSha256": sha256(gold_path.read_bytes()),
+                "manifestSha256": sha256(manifest.read_bytes()),
+                "sources": cases,
+                "countsBySourceFormat": {fmt: 1 for fmt in ("text", "image", "long_image", "pdf")},
+            }
+        )
+    )
+    monkeypatch.setattr(final_score, "HOLDOUT_V2_LOCK", repo_lock)
+    if material:
+        safe = private / "safe"
+        safe.mkdir()
+        for case in cases:
+            suffix = {"text": ".txt", "image": ".png", "long_image": ".jpg", "pdf": ".pdf"}[
+                case["format"]
+            ]
+            (safe / (case["id"] + suffix)).write_bytes(TEXT.encode())
+    return private, gold_path, manifest, private_lock, repo_lock, cases
+
+
+def rewrite_v2_metadata(fixture, *, sources=None, manifest=None, pins=None):
+    """Repin invented fixtures to isolate ID/format checks from hash checks."""
+    _, gp, mp, lp, rp, _ = fixture
+    if sources is not None:
+        gp.write_text(json.dumps(sources, ensure_ascii=False))
+    if manifest is not None:
+        mp.write_text(json.dumps(manifest))
+    data = json.loads(rp.read_text()) if pins is None else pins
+    data["goldSha256"] = sha256(gp.read_bytes())
+    data["manifestSha256"] = sha256(mp.read_bytes())
+    rp.write_text(json.dumps(data))
+    lp.write_text(
+        json.dumps({"sha256": sha256(gp.read_bytes()), "manifestSha256": sha256(mp.read_bytes())})
+    )
+
+
+@pytest.mark.parametrize("envelope", ["sources", "cases"])
+def test_AC_SRC_6_DEV_194_v2_rejects_wrapped_manifest(tmp_path, monkeypatch, envelope):
+    fixture = invented_v2_holdout(tmp_path, monkeypatch)
+    private, _, mp, _, _, cases = fixture
+    rewrite_v2_metadata(fixture, manifest={envelope: cases})
+    with pytest.raises(ValueError):
+        final_score.verify_holdout(private)
+
+
+def test_AC_SRC_6_DEV_194_v2_gold_uses_manifest_formats_and_default_paths(tmp_path, monkeypatch):
+    private, gp, _, lp, repo_lock, cases = invented_v2_holdout(tmp_path, monkeypatch)
+    assert final_score.holdout_gold_path(private) == gp
+    assert final_score.holdout_gold_path(private, "v1.1") == private / "final-gold-v1.1.json"
+    assert final_score.holdout_lock_path() == repo_lock
+    assert final_score.holdout_lock_path("v1.1") == final_score.HOLDOUT_LOCK
+    verified = final_score.verify_holdout(private)
+    assert {(s.id, s.format) for s in verified.sources} == {(c["id"], c["format"]) for c in cases}
+    reference = LocalGold(path=str(gp), split="holdout", lockPath=str(lp))
+    loaded = load_local_gold(reference, tmp_path, {c["id"]: c["format"] for c in cases})
+    assert loaded == verified
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "gold-bytes",
+        "manifest-bytes",
+        "private-hash",
+        "private-manifest-hash",
+        "repo-gold-hash",
+        "repo-manifest-hash",
+        "duplicate-gold-id",
+        "duplicate-manifest-id",
+        "duplicate-repo-id",
+        "missing-gold-id",
+        "missing-manifest-id",
+        "missing-repo-id",
+        "manifest-format",
+        "repo-format",
+        "non-v2-id",
+    ],
+)
+def test_AC_SRC_6_DEV_194_v2_verifier_rejects_corrupt_hashes_and_identity_sets(
+    tmp_path, monkeypatch, damage
+):
+    fixture = invented_v2_holdout(tmp_path, monkeypatch)
+    private, gp, mp, lp, rp, _ = fixture
+    sources = json.loads(gp.read_text())
+    manifest = json.loads(mp.read_text())
+    pins = json.loads(rp.read_text())
+    if damage in {"gold-bytes", "manifest-bytes"}:
+        path = gp if damage == "gold-bytes" else mp
+        path.write_bytes(path.read_bytes() + b"\n")
+    elif damage == "private-hash":
+        lp.write_text(json.dumps({**json.loads(lp.read_text()), "sha256": "0" * 64}))
+    elif damage == "private-manifest-hash":
+        lp.write_text(json.dumps({**json.loads(lp.read_text()), "manifestSha256": "0" * 64}))
+    elif damage in {"repo-gold-hash", "repo-manifest-hash"}:
+        pins["goldSha256" if damage == "repo-gold-hash" else "manifestSha256"] = "0" * 64
+        rp.write_text(json.dumps(pins))
+    else:
+        if damage.startswith("duplicate-"):
+            entries = {
+                "gold": sources,
+                "manifest": manifest,
+                "repo": pins["sources"],
+            }
+            target = entries[
+                damage.split("-")[1]
+            ]
+            target.append(copy.deepcopy(target[0]))
+        elif damage.startswith("missing-"):
+            entries = {
+                "gold": sources,
+                "manifest": manifest,
+                "repo": pins["sources"],
+            }
+            target = entries[
+                damage.split("-")[1]
+            ]
+            target.pop()
+        elif damage.endswith("format"):
+            target = manifest if damage == "manifest-format" else pins["sources"]
+            target[0]["format"] = "pdf"
+        else:
+            for target in (sources, manifest, pins["sources"]):
+                target[0]["id"] = "invented-without-v2-prefix"
+        rewrite_v2_metadata(fixture, sources=sources, manifest=manifest, pins=pins)
+    with pytest.raises(ValueError) as exc:
+        final_score.verify_holdout(private)
+    for secret in (str(private), TEXT, sources[0]["id"], "SYNTHETIC PRIVATE"):
+        assert secret not in str(exc.value)
+
+
+@pytest.mark.parametrize("version_args", [[], ["--holdout-version", "v2"]])
+def test_AC_SRC_2_6_DEV_194_score_cli_holdout_reports_only_format_aggregates(
+    tmp_path, monkeypatch, capsys, version_args
+):
+    private, gp, _, lp, _, cases = invented_v2_holdout(tmp_path, monkeypatch)
+    output = tmp_path / "score-output"
+    output.mkdir()
+    refs = []
+    for case in cases:
+        sid = case["id"]
+        safe = output / (sid + ".txt")
+        safe.write_text(TEXT)
+        record = {**run(), "id": sid, "format": case["format"]}
+        result_path = output / (sid + ".json")
+        result_path.write_text(json.dumps(record, ensure_ascii=False))
+        refs.append(
+            {
+                "id": sid,
+                "format": case["format"],
+                "safeTextPath": str(safe),
+                "outputPath": str(result_path),
+            }
+        )
+    envelope = output / "runs.json"
+    envelope.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "gold": [LocalGold(path=str(gp), split="holdout", lockPath=str(lp)).model_dump()],
+                "sources": refs,
+            }
+        )
+    )
+    report_path, md = output / "score.json", output / "score.md"
+    assert (
+        main(
+            [
+                "--runs",
+                str(envelope),
+                "--report",
+                str(report_path),
+                "--markdown",
+                str(md),
+                *version_args,
+            ]
+        )
+        == 0
+    )
+    serialized = report_path.read_text() + md.read_text() + capsys.readouterr().out
+    for secret in (TEXT, "SYNTHETIC PRIVATE", str(private), str(output), *(c["id"] for c in cases)):
+        assert secret not in serialized
+    report = json.loads(report_path.read_text())
+    assert report["overall"]["factRecall"] == {"hit": 4, "total": 4, "rate": 1.0}
+    assert report["byFormat"]["pdf"]["sources"] == 1
+    for bucket in (report["overall"], *report["byFormat"].values()):
+        assert {
+            "factRecall",
+            "criticalFactRecall",
+            "misplacement",
+            "forbidden",
+            "unsupported",
+        } <= bucket.keys()
+
+
+@pytest.mark.parametrize("location", ["private", "repo"])
+def test_AC_SRC_6_DEV_194_v2_lock_keys_are_pinned_per_file(tmp_path, monkeypatch, location):
+    # Private locks name the gold hash `sha256`; the v2 repo lock names it `goldSha256`.
+    private, _, _, lp, rp, _ = invented_v2_holdout(tmp_path, monkeypatch)
+    target = lp if location == "private" else rp
+    value = json.loads(target.read_text())
+    old, new = ("sha256", "goldSha256") if location == "private" else ("goldSha256", "sha256")
+    value[new] = value.pop(old)
+    target.write_text(json.dumps(value))
+    with pytest.raises(ValueError):
+        final_score.verify_holdout(private)
+
+
+@pytest.mark.parametrize("damage", ["missing", "extra", "format"])
+def test_AC_SRC_6_DEV_194_v2_local_gold_rejects_envelope_identity_mismatch(
+    tmp_path, monkeypatch, damage
+):
+    _, gp, _, lp, _, cases = invented_v2_holdout(tmp_path, monkeypatch)
+    formats = {c["id"]: c["format"] for c in cases}
+    if damage == "missing":
+        formats.pop(cases[0]["id"])
+    elif damage == "extra":
+        formats["h2-invented-extra"] = "text"
+    else:
+        formats[cases[0]["id"]] = "pdf"
+    with pytest.raises(ValueError) as exc:
+        load_local_gold(
+            LocalGold(path=str(gp), split="holdout", lockPath=str(lp)), tmp_path, formats
+        )
+    assert str(tmp_path) not in str(exc.value)
+    assert "h2-invented" not in str(exc.value)

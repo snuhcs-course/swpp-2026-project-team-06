@@ -275,6 +275,10 @@ export const orders = {
     request<{ changed: number }>("POST", "/api/orders/producer/harvest-start", {
       body: { productId },
     }),
+  updateTracking: (orderId: string, version: number, carrier: A.Carrier, trackingNumber: string | null, key: string) =>
+    request<A.ProducerOrder>("PATCH", `/api/orders/${orderId}/tracking`, {
+      body: { version, carrier, trackingNumber }, idempotencyKey: key,
+    }),
   ship: (
     orderId: string,
     trackingNumber?: string,

@@ -61,6 +61,32 @@ const initialHidden = (drafts: SourceDraft[]) => {
   }
   return hidden;
 };
+// Mirrors the server's fact normalization so "3kg" and "3000g" offer one button.
+function sameValue(v: string) {
+  return v
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/(\d+(?:\.\d+)?)\s*(kg|g|킬로그램|그램)/g, (_, n: string, u: string) =>
+      `${+(Number(n) * (u === "kg" || u === "킬로그램" ? 1000 : 1)).toFixed(3)}g`)
+    .replace(/(\d+(?:\.\d+)?)\s*(?:°?\s*(?:bx|brix)|브릭스)/g, (_, n: string) => `${Number(n)}bx`)
+    .replace(/[\s:：,，。]+|[.!]+$/g, "");
+}
+
+function uniqueChoices<C extends { candidateIds: string[]; value: string }>(choices: C[], current: string) {
+  const seen = new Set(current ? [sameValue(current)] : []);
+  return [...choices]
+    // Same representative as the server: the lowest candidate id in code-point order.
+    .map((c) => ({ c, key: [...c.candidateIds].sort()[0] ?? "" }))
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map(({ c }) => c)
+    .filter((c) => {
+      const key = sameValue(c.value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 export function SourceDetailsEditor({
   batch,
   review,
@@ -72,9 +98,11 @@ export function SourceDetailsEditor({
   emptyHint = false,
   showStoryTextHints = false,
   displayName,
+  preview = false,
 }: {
   /** 새 상품 채우기: 상세 맨 위 제목을 입력 중인 상품명으로 바로 보여 준다(저장 때 같은 값으로 맞춤). */
   displayName?: string;
+  preview?: boolean;
   emptyHint?: boolean;
   showStoryTextHints?: boolean;
   batch: SourceBatch;
@@ -108,7 +136,6 @@ export function SourceDetailsEditor({
     },
     [],
   );
-  const [evidenceOpen, setEvidenceOpen] = useState<string | null>(null);
   const [extraPhotos, setExtraPhotos] = useState<
     { uri: string; alt: string; targetId: string }[]
   >([]);
@@ -249,7 +276,7 @@ export function SourceDetailsEditor({
   return (
     <View style={{ gap: 16 }}>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
-      {!emptyHint &&
+      {!preview && !emptyHint &&
       batch.sources.some(
         (s) =>
           s.originalPhoto &&
@@ -264,6 +291,7 @@ export function SourceDetailsEditor({
       {batch.targets.map((target) => (
         <PageCanvas
           key={target.id}
+          preview={preview}
           hiddenSectionIds={hidden[target.id] ?? []}
           onHiddenSectionsChange={(ids) => {
             setHidden((old) => ({ ...old, [target.id]: ids }));
@@ -298,7 +326,8 @@ export function SourceDetailsEditor({
               .filter(
                 (e) =>
                   e.field.targetId === target.id &&
-                  keys(id).includes(e.field.fieldKey),
+                  keys(id).includes(e.field.fieldKey) &&
+                  (!preview || e.field.state !== "EXCLUDED"),
               )
               .map((e) => ({
                 fieldKey: e.field.fieldKey,
@@ -313,7 +342,8 @@ export function SourceDetailsEditor({
               .filter(
                 (e) =>
                   e.field.targetId === target.id &&
-                  keys(id).includes(e.field.fieldKey),
+                  keys(id).includes(e.field.fieldKey) &&
+                  (!preview || e.field.state !== "EXCLUDED"),
               )
               .flatMap((e) =>
                 e.field.photoAssetIds.map((uri) => ({
@@ -324,7 +354,8 @@ export function SourceDetailsEditor({
                 })),
               ),
             illustrationId: entries.find(
-              (e) => e.field.targetId === target.id && e.field.fieldKey === id,
+              (e) => e.field.targetId === target.id && e.field.fieldKey === id &&
+                (!preview || e.field.state !== "EXCLUDED"),
             )?.field.illustrationId,
           }))}
           photos={[
@@ -413,78 +444,8 @@ export function SourceDetailsEditor({
           }}
           emptyHint={emptyHint}
           showStoryTextHints={showStoryTextHints}
-          badge={(id) =>
-            entries.some(
-              (e) =>
-                e.field.targetId === target.id &&
-                keys(id).includes(e.field.fieldKey) &&
-                ["EXTRACTED", "REFINED"].includes(e.field.provenance) &&
-                e.field.state !== "EXCLUDED" &&
-                filled(e.field),
-            ) ? (
-              <View
-                testID="ai-filled-badge"
-                style={{
-                  alignSelf: "flex-start",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 999,
-                  backgroundColor: "#FFF3EB",
-                }}
-              >
-                <T variant="caption" color={tokens.color.accent}>
-                  ✨ AI가 쓴 내용
-                </T>
-              </View>
-            ) : null
-          }
           details={(id) => (
             <View style={{ gap: 8 }}>
-              <Button
-                label={
-                  evidenceOpen === `${target.id}:${id}`
-                    ? "원문 닫기"
-                    : "원문 보기"
-                }
-                variant="text"
-                onPress={() =>
-                  setEvidenceOpen(
-                    evidenceOpen === `${target.id}:${id}`
-                      ? null
-                      : `${target.id}:${id}`,
-                  )
-                }
-              />
-              {evidenceOpen === `${target.id}:${id}`
-                ? review.candidates
-                    .filter(
-                      (c) =>
-                        (keys(id).includes(c.fieldKey) ||
-                          entries.some(
-                            (entry) =>
-                              entry.field.targetId === target.id &&
-                              keys(id).includes(entry.field.fieldKey) &&
-                              entry.field.candidateIds.some((cid) =>
-                                c.candidateIds.includes(cid),
-                              ),
-                          )) &&
-                        (c.targetId === target.id || c.targetId === null),
-                    )
-                    .flatMap((c) =>
-                      c.evidence.map((e, i) => (
-                        <T key={`${c.id}:${i}`} variant="caption" muted>
-                          {
-                            batch.sources.find((s) => s.id === e.sourceId)
-                              ?.filename
-                          }{" "}
-                          {e.page}쪽: {e.quote}
-                        </T>
-                      )),
-                    )
-                : null}
               {entries
                 .filter(
                   (e) =>
@@ -498,8 +459,15 @@ export function SourceDetailsEditor({
                       내용 확인 필요 · 사용할 문구를 선택하거나 직접 수정해
                       주세요.
                     </T>
-                    {review.candidates
-                      .filter(
+                    {e.status === "conflict" && e.field.value ? (
+                      <Button
+                        label={e.field.value}
+                        variant="outline"
+                        onPress={() => change({ ...e.field, state: "CONFIRMED" })}
+                      />
+                    ) : null}
+                    {uniqueChoices(
+                      review.candidates.filter(
                         (c) =>
                           !c.outdated &&
                           !c.historical &&
@@ -507,8 +475,9 @@ export function SourceDetailsEditor({
                           !hasHealthClaim(c.value) &&
                           c.fieldKey === e.field.fieldKey &&
                           (c.targetId === target.id || c.targetId === null),
-                      )
-                      .map((c) => (
+                      ),
+                      e.status === "conflict" ? e.field.value : "",
+                    ).map((c) => (
                         <Button
                           key={c.id}
                           label={c.value}

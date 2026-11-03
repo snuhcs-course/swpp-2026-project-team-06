@@ -30,8 +30,10 @@ test("AC-SRC-9: selling product edits remain private until explicit apply", asyn
   ).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("내용 1", { exact: true })).toHaveValue(content);
-  await page.getByRole("button", { name: "미리보기", exact: true }).click();
+  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
   await expect(page.getByTestId("product-page-preview")).toContainText(content);
+  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+  await expect(page.getByLabel("내용 1", { exact: true })).toHaveValue(content);
   await page.getByRole("button", { name: "상품에 반영", exact: true }).click();
   await expect(
     page.getByText("반영하면 구매자가 보는 판매페이지가 바로 바뀌어요.", {
@@ -178,10 +180,11 @@ with get_sessionmaker()() as db:
         exact: true,
       }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "미리보기", exact: true }).click();
+    await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
     await expect(page.getByTestId("product-page-preview")).not.toContainText(
       "맛과 크기",
     );
+    await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
     await page
       .getByRole("button", { name: "상품에 반영", exact: true })
       .click();

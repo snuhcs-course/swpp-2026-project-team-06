@@ -508,7 +508,7 @@ export function SourceAttachments({
           </T>
           <T variant="caption" muted>
             {photo
-              ? "대표 상품사진 한 장은 필수예요. 첫 사진이 대표로 지정되며 별을 눌러 바꿀 수 있어요."
+              ? "공개하기 전에는 대표 상품사진 한 장이 필요해요. 첫 사진이 대표로 지정되며 별을 눌러 바꿀 수 있어요."
               : "텍스트·이미지·PDF·TXT를 넣어 주세요. 자료 이미지는 판매페이지에 들어가지 않아요."}
           </T>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
