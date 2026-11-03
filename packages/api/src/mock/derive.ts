@@ -256,6 +256,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
     orderNo: o.orderNo,
     productId: o.productId,
     productName: p?.name ?? "",
+    trackingVersion: o.trackingVersion ?? 1,
     optionLabel: opt?.label ?? "",
     quantity: o.quantity,
     status: o.status,

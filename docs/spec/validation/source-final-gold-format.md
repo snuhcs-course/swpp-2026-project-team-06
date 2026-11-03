@@ -1,3 +1,5 @@
+> DEV-194: 현재 holdout은 **v2**, v1.1은 소진/RETIRED_TO_DEV다. [v2 격리·채점 프로토콜](source-final-holdout-i3-v2.md)을 우선한다. runner/scorer의 `--holdout-version` 기본값은 v2다. 아래 v1.1 파일/SHA 예시는 역사 재현 시 `--holdout-version v1.1`을 명시한다. v2는 `final-gold-v2.json`의 해시를 private lock의 `sha256`·repo lock의 `goldSha256`과, manifest(최상위 list)의 해시를 두 lock의 `manifestSha256`과 대조하고 ID/format을 검증한다. holdout CLI 보고서는 자료별 항목을 제외하고 집계만 출력한다.
+
 # I3 최종 페이지 문장 gold·stage-2 채점 (DEV-187)
 
 FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8 · AC-03-2. 2026-11-01 결정. DEV-186의 broad verbatim 추출 뒤 refine 단계가 쓴 최종 페이지 문장을 평가한다. [기존 v1 corpus](source-corpus-i3-v1.md)의 exact 필드 채점은 stage-1 진단으로 유지하고, stage-2는 아래 사실 토큰 계약을 사용한다. 문장 품질은 DEV-170/T11 사람 감사다. 이 문서는 운영 동작·새 모델 호출을 추가하지 않는다.
@@ -104,7 +106,7 @@ uv run python -m app.source_analysis.final_score \
 - Holdout 파일 바이트 SHA-256: `2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073`. 필수 lockPath의 `sha256`도 이 값과 일치해야 한다.
 - Public development 파일 바이트 SHA-256: `16c239045030411306cf07e8b04e9bf35c98d74acda0f861ccc69e48f1b27fb5`(v2, 2026-11-02 holdout 편입 후). v1 `3ed465971fb5579d10d8ee338e21c01c5d06c324d942acd8d36aba2635cf786f`는 이력이다.
 
-위 값은 `final_score.LOCAL_GOLD_SHA256`에 고정한다. SHA/lock/검증 불일치면 종료2로 채점을 거절한다. private gold/lock도 보고서 덮어쓰기 대상이 될 수 없다. 개발과 holdout 혼합, source ID 중복은 거절한다. `load_local_gold(LocalGold(...), base_path, formats_by_id)`로 검증만 수행할 수 있다. 이 작업은 두 gold의 검증만 실행하며 **holdout 채점은 DEV-186 이후 T11/T23에서 한 번만**, 튜닝 금지다. private 본문·위치·원천은 repo에 복사하거나 stdout에 출력하지 않는다.
+위 값은 `final_score.LOCAL_GOLD_SHA256`에 고정한다. SHA/lock/검증 불일치면 종료2로 채점을 거절한다. private gold/lock도 보고서 덮어쓰기 대상이 될 수 없다. 개발과 holdout 혼합, source ID 중복은 거절한다. `load_local_gold(LocalGold(...), base_path, formats_by_id)`로 검증만 수행할 수 있다. 당시 v1.1 검증 작업은 두 gold만 검증했으며 T11/T23의 1회 정책을 적용했다. v1.1은 이제 소진되었고 현재 v2의 격리·1회 실행 정책은 DEV-194 프로토콜을 따른다. private 본문·위치·원천은 repo에 복사하거나 stdout에 출력하지 않는다.
 
 품종 사전에 추가할 단어는 `--cultivar 품종명`을 반복한다. import는 `score(gold_dict, records_list, safe_texts_by_id, cultivar_words=...)`, `markdown(report)`를 사용한다. 출력 위치는 기존 입력을 덮어쓸 수 없다. JSON 보고서를 파일에, 짧은 Markdown 표를 파일과 stdout에 쓴다. 입력 오류도 본문/경로를 출력하지 않는다. 정상 critical PASS는 종료0, FAIL/N/A는1, 잘못된 입력/쓰기 실패는2다. CLI는 모델·제공자·DB를 호출하지 않는다.
 
@@ -129,6 +131,6 @@ uv run python -m app.source_analysis.final_score \
 
 ## DEV-182 폐기 정책 갱신 (2026-11-02)
 
-holdout v1.1은 owner의 부분 오염 T23 재실행 후 `RETIRED_TO_DEV`다. 위 잠금·튜닝 금지 설명과 고정 holdout SHA는 역사 기록으로 보존한다. 현재 개발47건(공개개발24+합성23)은 dev manifest를 따른다. 모든 LOCAL_PRIVATE goldSha256은 병합 v2 파일 바이트 SHA이며 원래 개발 파일·holdout 파일/lock은 보존한다. 향후 독립 주장은 튜닝하지 않는 사람들이 독립3인 검토 절차로 만든 holdout v2가 필요하다.
+holdout v1.1은 owner의 부분 오염 T23 재실행 후 `RETIRED_TO_DEV`다. 위 잠금·튜닝 금지 설명과 고정 holdout SHA는 역사 기록으로 보존한다. 현재 개발47건(공개개발24+합성23)은 dev manifest를 따른다. 모든 LOCAL_PRIVATE goldSha256은 병합 v2 파일 바이트 SHA이며 원래 개발 파일·holdout 파일/lock은 보존한다. 현재 독립 holdout은 튜닝하지 않는 독립3인 검토·합의 절차로 동결한 v2이며 DEV-194 프로토콜을 따른다.
 
 해시 인코딩: 기존 공개개발12건의 safeInputSha256은 기존 corpus의 `canonical-json-utf8` 구조화 입력 해시를 그대로 보존한다. 편입12건은 `safeInputEncoding=file-bytes`로 명시한 복사 safe 파일의 바이트 SHA다. 서로 다른 인코딩을 파일 변조로 혼동하지 않는다.

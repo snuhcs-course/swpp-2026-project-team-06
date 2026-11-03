@@ -1043,3 +1043,240 @@ Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드�
 - 11/02 검증: `npm run typecheck` **5 workspace 통과 / 0 오류**. `UV_CACHE_DIR=/private/tmp/dev171-uv-cache uv run --project server ruff check server/app/core/seed.py server/tests/test_seed.py` **통과**, `git diff --check` **통과**. lint/정적 검사는 테스트 통과를 대신하지 않는다.
 - 11/02 pytest 실행: `cd server && UV_CACHE_DIR=/private/tmp/dev171-uv-cache DATABASE_URL=<로컬 farmclub_dev171 DB URL> uv run pytest tests/test_seed*.py tests/test_core.py -q` → **0 passed / 0 failed / 10 setup errors (1.26s)**. localhost:5432 PostgreSQL이 Connection refused를 반환해 공통 `_schema` fixture의 DB 연결에서 중단됐다. 새 회귀 3건과 기존 core 7건 모두 본문 미실행이며 **미완료**다. AGENTS.md의 의존성 문제 중단 규칙에 따라 DB 우회·SQLite 대체·재시도 없이 중단한다. PostgreSQL 준비 뒤 같은 명령과 사람의 `npx playwright test scripts/e2e/producer-format-flow.spec.ts scripts/e2e/product-page-workspace.spec.ts --workers=1 --trace on` 재검증이 필요하다.
 - 11/02 범위 감사: `git diff main...HEAD`는 로컬 main이 뒤처진 기존 675경로 차이이며, `git diff origin/main...HEAD`의 기존 8경로를 DEV-171 범위와 대조해 기존 middleware 경로 누락만 기록에 추가했다. 이번 미커밋 변경은 producer tasks·T12 E2E·seed helper·seed pytest 4경로다. 의도한 커밋: `test(producer): AC-SRC-9 T12 공용 시드 상품을 시드 기준으로 복원 (DEV-171)`. commit·push·PR·Chromium·운영 실행 없음. Agent 시간 / Tokens: 계측 미제공.
+
+
+## DEV-179 [I3-T21] Producer workflow fixes from T16
+
+- 이슈: 사용자 제공 DEV-179 지시서(2026-11-02)
+- 브랜치: `jinumeral/dev-179-producer-flow-fixes`, base `7e88039`
+- 기능·인수 조건: FEAT-04/07/08/09/17 · AC-SRC-5/9/11 · AC-09-8 · AC-17-5
+- 상태: 진행 중 — 브라우저 검증은 사람 실행 대기
+
+### 목표
+T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·권한·멱등 보호를 유지한다.
+
+### 범위 (수정 허용 경로)
+- `apps/producer/src/lib/**`, `apps/producer/src/app/ship.tsx`
+- `apps/producer/spec.md`, `apps/producer/tasks.md`
+- `server/app/source_analysis/service.py`, `server/app/source_analysis/editor.py`, `server/app/source_analysis/spec.md`, `server/tasks.md`
+- `packages/api/src/sourceAnalysis.ts`
+- `server/tests/test_source*.py`, `server/tests/test_orders.py`
+- `scripts/e2e/*.spec.ts` — 관련 기존 spec의회귀 추가·기대값 갱신
+- `docs/spec/source-editor.md`, `docs/spec/source-integration.md`, `docs/spec/source-analysis.md`, `docs/spec/screens.md`, `docs/spec/ia.md`, `docs/spec/functional/FEAT-07-*.md`, `docs/spec/functional/FEAT-09-*.md`, `docs/spec/functional/FEAT-17-*.md`
+- `docs/wiki/Requirements-and-Specifications.md`
+
+### 비범위
+새 의존성·상세 주문 화면·운영/유료 호출·브라우저 실행·commit/push/PR·배포. Figma는 DEV-185 후속.
+
+### 결정 사항
+- 11/02 owner 지시가 기존 대표사진 분석 필수·AI 표시·근거 UI·즉시 입금 승인 명세를 대체한다. 대표사진 공개 적용 검사는 유지한다.
+- 11/02 품종은 기존 basicInfo 훅의 단일 입력/blur/flush를 AI 시트에 배치한다. 미리보기 토글은 편집기를 마운트한 채 동일 상태의 공유18모듈 렌더러를 사용한다.
+- 11/02 #11 보류: FEAT-17 입력·검증과 SCR-29는 PREPARING→SHIPPED만 정의하며 SHIPPED 송장 정정 권한·감사·버전 계약이 없다. R-19는 상태 변경 권한만 정한다. 명시적 허용 결정 전 새 API를 추측 구현하지 않는다.
+- 11/02 #15 기존 UI 비용 확인은 REQUEST_UNCERTAIN에만 강제된다. owner 요구에 따라 표시하는 재시도는 모두 확인 전 비활성으로 통일하며 문서를 함께 갱신한다. 실패 페이지 번호만 응답에 추가하고 사유·원문 진단은 공개하지 않는다.
+- 11/02 근거는 서버·review API에 보존한다. 충돌은 자동 정리/기본 정보 우선 처리로 가려지는지 원본 코드로 확인 후 수정한다.
+
+### 작업
+- [ ] 1~9, 13~15 편집·분석 흐름 수정 및 회귀
+- [ ] 10, 12 입금 확인·주문 금액 수정 및 회귀
+- [ ] 제품 스펙·영문 위키·구현 결정 갱신
+- [ ] ruff·관련 pytest·typecheck·mock 실행 결과 기록
+- [ ] 사람: 관련 Playwright 실행, Figma DEV-185
+
+### 기록
+- 11/02 시작: 지정 브랜치·깨끗한 작업 트리 확인. 사용자 지시서 기준으로 진행하며 외부 이슈 변경·메시지 없음. Agent 시간 / Tokens: 계측 미제공.
+
+- 11/02 리뷰 결정: 자동 정리의 안전성 거절/의도적 생략은 missing을 유지한다. 현재 자동 제안이 존재하는 충돌만 확인 선택기로 전달하며 기존 안전성 단언은 유지한다. 기존 저장 회귀3건에는 충돌 값을 명시적으로 확인하는 단계만 추가했다. 미리보기 도구/EXCLUDED 필드 누출 및 배경 닫기를 영구 확인으로 기록하는 문제를 리뷰에서 찾아 수정했다.
+
+- 11/02 반영 상태: #1 사진 없는 분석·공개 gate 유지, #2 시트 품종/단일 flush, #3 AI 배지 제거, #4 근거 UI만 제거, #5 상단 같은 화면 preview, #6 시작 오류 위치/초기화, #7 실제 run 진행, #8 자동 제안 충돌 상태 복구, #9 명시적 제외 확인 영속화, #10 입금 확인 시트, #12 기존 API 금액 표시, #13 잠금 이유, #14 공개 전 검토, #15 실패 번호·체크 전 재시도 비활성 구현. #11은 위 명세 결정까지 보류. 체크박스/전체 완료는 사람 Playwright와 PREPARE 재검증 전 보류한다.
+- 11/02 실행: `cd server && UV_CACHE_DIR=/private/tmp/dev179-uv-cache DATABASE_URL=<제공 farmclub_dev179 URL> uv run ruff check . && ... uv run pytest tests/test_source_editor.py tests/test_source_integration.py tests/test_source_refine.py tests/test_orders.py -q --tb=short` → ruff PASS, **351 passed / 14 failed (63.35s)**. 처음 실행은 344 passed/21 failed였고 잘못된 새 테스트의 mode 입력1건과 충돌 상태에 따른 기존 저장 회귀6건을 수정한 뒤 재실행했다. 기존 기대값을 삭제/약화하지 않고 저장3건에는 명시적 충돌 확인 단계를 추가하고 안전성/생략3건은 기존 missing 보호를 복구했다.
+- 11/02 PREPARE 환경 한계: 잔여14건은 기존 `test_source_editor`6건과 `test_source_integration`8건의 전처리 의존 경로다. `cd server && UV_CACHE_DIR=/private/tmp/dev179-uv-cache uv run python -c 'from app.source_analysis.preprocess import prepare; prepare(b"test text", "text/plain")'` → **PermissionError: sysctl() malloc 1/3**(psutil 자식 프로세스 조회). 가드 우회·테스트 skip·assertion 약화 없이 남겼다. sandbox 밖 동일 묶음 재실행 필요. 첫 재확인 명령은 cwd 오류(ModuleNotFoundError), 올바른 server cwd에서 위 환경 오류를 재현했다.
+- 11/02 신규 계약 회귀만 별도 실행(사진 없는 분석1·품종3·공개 사진 필수2·진단1·충돌6·주문3) → **16 passed / 0 failed (5.52s)**. fail-first는 옛 사진 gate 임시 복원 시1 failed, 충돌 처리/실패 번호 mutation 시7 failed를 확인하고 finally로 복원했다. 이후 신규16건 green 및 ruff PASS. DB는 자동 `_test` 접미사를 쓰며 운영·유료 호출 없음.
+- 11/02 앱 실행: `npm run typecheck` → **5 workspace PASS / 0 오류**; `npm run test:mock` → **47 passed / 0 failed / 0 skipped (27.57s)**. 기존 모듈 타입 경고는 그대로다. UI 테스트는 source-review-regressions에 신규18건과 관련 기존7 spec 기대값을 갱신했다. 관련7 spec에 `tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --resolveJsonModule --esModuleInterop --skipLibCheck --types node` → 종료0. 최초 Node16 검사 옵션 오류는 bundler/resolveJsonModule로 정정했다. **브라우저/Playwright 실행0회**이며 정적 검사는 UI 테스트 통과가 아니다.
+- 11/02 리뷰: 구현을 보지 않는 별도 test-writer가 서버/UI 사양 회귀를 작성했고, 별도 diff 검토의 preview 도구·EXCLUDED 필드 누출 및 확인 없는 영속 기록4건을 수정했다. 재검토 추가 중대 지적0. 신규 테스트는 기존 테스트/권한/비용 보호를 유지한다.
+- 11/02 범위 감사: `git diff main...HEAD`의681경로는 오래된 로컬 main 대비 기존 차이다. 지정 base `7e88039...HEAD`0경로이며 이번 변경은 모두 미커밋으로 허용 범위 안이다. 감사 시점 `origin/main`은 e66faef를 가리키지만 checkout/fetch/pull/리베이스하지 않았다. `git diff --check` PASS. 새 의존성/lock 변경·commit/push/PR·외부 전송·live/paid·배포 없음. Figma v6: DEV-185, 사람은 UI18건+관련 기존 spec와 PREPARE14건을 검증해야 한다.
+- 11/02 의도한 커밋(실행 안 함): `fix(source-analysis): FEAT-04/07 분석 조건과 충돌 진단 수정 (DEV-179)`; `fix(producer): FEAT-04/07 편집과 분석 복구 흐름 개선 (DEV-179)`; `fix(orders): FEAT-09/17 입금 확인과 주문 금액 표시 (DEV-179)`; `docs(producer): FEAT-04/07/09 T21 결정과 검증 기록 (DEV-179)`. Agent 시간 / Tokens: 계측 미제공.
+
+
+### DEV-179 리뷰 후속 · 2026-11-02 (사용자 추가 지시)
+
+#### 범위 추가 (코드 수정 전)
+- `server/app/orders/{models,schemas,service,router}.py`, `server/app/orders/spec.md`, `server/migrations/versions/0024_order_tracking_version.py`
+- `packages/api/src/{types,endpoints}.ts`, `packages/api/src/mock/orders.ts`, `docs/spec/functional/rules.md`
+- 기존 DEV-179 범위의 서버·앱·E2E·스펙·wiki와 `scripts/test-spec12.mjs`(Mock 송장 수정 계약 검증)
+
+#### 결정 사항
+- 앞선 SHIPPED 송장 정정 보류를 이번 owner 지시로 해제한다. 자기 농가 SHIPPED 주문만 `PATCH /orders/{id}/tracking`으로 수정하며 carrier 필수·송장 기존 50자 이하 형식을 적용한다. trackingVersion과 Idempotency-Key로 유실·중복 수정을 막는다.
+- 기존 `ManagerEvent`에 정정 전후 값·actor·시각을 같은 트랜잭션으로 기록한다. 이력은 DB/관리 API에서만 볼 수 있고 생산자·소비자 응답/UI에는 포함하지 않는다. 새 migration은 주문 tracking_version 기본값 1을 추가한다.
+- conflict는 specification/composition/weight/origin/brix에 해당하는 단일 사실 필드의 정규화 값이 다른 경우만 적용한다. summary/farmStory 등 병합 서술은 충돌로 만들지 않으며 outdated를 보존하고 현재 자동 값도 선택지에 포함한다.
+- OCR 실패 쪽과 chunk 실패 쪽은 별도 응답 필드·각각의 안내로 구분한다. 사진 없는 분석은 허용하되 자료 0개는 서버와 같은 이유로 비활성화한다.
+- 제외 내역 확인은 사용자·batch·target별 마지막 버전 1개를 덮어쓰며 과거 sessionStorage 키를 한 번 읽고 이관한다.
+- 테스트 자동 확정 우회를 제거한다. 충돌 UNREVIEWED 저장은 409, 비충돌 자동 저장은 계속 검증한다. 전체 pytest 1239 통과는 사용자 제공 sandbox 밖 결과이며 이번 수정 후 결과와 구분한다.
+
+#### 작업 / 기록
+- 진행 중. no commit/push/PR/live 유지, tasks.md는 append-only. Figma는 기존 DEV-185 후속. 이번 세션에서 체크박스 완료 표시는 테스트 실행 결과 후에만 한다.
+
+- 범위 추가: `packages/api/src/mock/{db,derive,router}.ts` — Mock 주문 버전 전달과 생산자 권한 경로 일치를 위해 필요. 기존 주문 시드/저장소는 trackingVersion이 없으면 1로 읽는다.
+
+- 테스트 범위 추가: `server/tests/test_dev179_review.py` — spec-blind-test 전용 신규 회귀(배송 권한/감사/멱등, 사실 충돌/서술 자동 저장). 기존 관련 pytest 묶음과 함께 실행한다.
+
+- 검증 중 기존 stale-refinement 회귀의 original_id 조회가 사진까지 임의 선택하는 비결정성을 발견했다. 원래 텍스트 자료만 선택하도록 fixture를 좁혀 기존 소유권 단언은 그대로 유지한다. 새 Mock 회귀도 테스트 로그인 가능한 소비자의 준비 주문을 출하한 후 수정하도록 준비한다.
+
+
+### DEV-179 리뷰 후속 결과 · 2026-11-02
+
+#### 항목별 반영
+- #1 AI 배지 E2E는 정확히 0개를 검증한다. #2 사진 없는 자료 분석을 enabled로 검증하고 분석 후 대표사진 없는 적용의 구체적 메시지를 확인한다. 초기 자료 0개 검사는 #10의 별도 이유로 유지한다.
+- #3 같은 사실의 정규화 값만 충돌로 처리하며 병합 서술 자동 저장·outdated를 보존한다. 규격의 보완 label, kg/g·소수 당도 동등값을 처리하고 같은 중량의 다른 품종·원산지·구성과 항목별 중량 교환도 구분한다. 현재 refined/basicInfo 값도 선택기에서 확정할 수 있다.
+- #4 기존 자동 확정 우회 3곳 제거, 비충돌 UNREVIEWED 자동 저장과 충돌 저장409 EDITOR_CONFIRMATION_REQUIRED 회귀 추가. 기존 target/shared 충돌 fixture는 서술(storage)에서 사실(composition)로 이동하되 단언은 보존했다.
+- #5 대표사진 공개 차단 2건은 details.fields.representativePhoto를 검증한다. #6 OCR/청크 실패 쪽을 별도 응답·안내로 분리하고 서버/UI 회귀를 보강했다.
+- #7 미사용 DraftPreview 제거. #8 buyer preview subName/brix undefined. #9 SourceRunProgress는 시트/본문 한 곳만. #10 자료 0개 시작 비활성·서버와 같은 이유 표시. #11 토글 들여쓰기 정리·source service의 무관한 or/and 재포맷 원복. #12 대표사진 테스트명 수정. #13 확인 저장은 사용자·batch·target의 마지막 버전만 덮어쓰며 구 sessionStorage bare 키와 실제 HEAD의 namespaced 키를 읽고 제거한다.
+- Owner 추가 결정 구현: 자기 농가 SHIPPED 송장 정정 API/UI, 필수 택배사·기존 번호 형식, 버전/멱등 검사, 소비자 최신 배송 조회. 실제 변경의 이전/새 값·시각·actor는 기존 ManagerEvent에 원자적으로 기록한다. 양쪽 UI에는 이력을 표시하지 않는다. FEAT-17 AC-17-9 / SCR-29 / R-19 / 구현 spec / 영어 wiki 반영.
+
+#### 최종 검증 (실행한 결과만)
+- `cd server && UV_CACHE_DIR=/private/tmp/dev179-uv-cache uv run ruff check .`: PASS.
+- `cd server && UV_CACHE_DIR=/private/tmp/dev179-uv-cache DATABASE_URL=<격리 farmclub_dev179 URL> uv run pytest tests/test_source_editor.py tests/test_source_integration.py tests/test_source_refine.py tests/test_orders.py tests/test_dev179_review.py -q --tb=short`: **393 passed / 14 failed / 0 skipped**, 147.64s. 신규 사양 회귀42건은 모두 통과. 잔여14건은 앞선 세션의 기존 PREPARE 의존 editor6·integration8 경로와 동일하다. `prepare(b"test text", "text/plain")` 직접 실행도 psutil `sysctl() malloc 1/3` PermissionError를 재현했다. 안전 가드·테스트 skip·단언 우회 없음. 따라서 전체 완료 체크는 보류하며 sandbox 밖에서 같은 최종 묶음 재실행 필요.
+- 사용자가 제공한 이전 sandbox 밖 전체 **1239 passed**는 이번 수정 전 결과이며 최종 결과로 대체 주장하지 않는다.
+- `npm run typecheck`: 5 workspace PASS. `npm run test:mock`: **48 passed / 0 failed / 0 skipped**, 26.66s.
+- `uv run alembic heads`: **0024 (head) 하나**. 별도 로컬 `farmclub_dev179_migration`에서 upgrade head → alembic check(변경 없음) → downgrade0023 → upgradehead 통과. tracking_version NOT NULL·기존 행 기본값1 스키마 확인.
+- E2E source-editor/source-review-regressions/checkout-and-fulfillment/new-product-composer에 tsc bundler 정적 검사 PASS(실제 브라우저 테스트 통과가 아님). 새 회귀는 사진 없는 분석/공개 차단·진행1개·실패쪽 분리·확인 저장 덮어쓰기/구키 이관·현재 문구 provenance·출하 후 수정/최신 배송 조회를 검증한다. 배송 조회는 window.open을 가로채 외부 택배 요청을 보내지 않게 했다.
+- 브라우저 실행 시도: 로컬 Mock dev 서버가 ::1:8081 EADDRINUSE로 종료. Chromium 직접 launch도 macOS bootstrap_check_in MachPortRendezvous Permission denied(1100)로 실패하여 **Playwright 실행0건**. sandbox 밖 관련 spec 실행 필요. Figma는 기존 DEV-185 후속 유지.
+- 테스트 독립성: 구현을 읽지 않은 test-writer의 사양 회귀를 사용했다. 사실 충돌 제거 + 감사 기록 제거 in-process mutation은 **6 failed**로 red를 확인(소스 파일 변형 없음), 최종 정상 코드의 해당 회귀는 위42건에 포함해 green 확인. 독립 diff 검토가 찾은 동일 중량의 품종/구성 누락을 수정하고 원본 재현7건에서 확인했다.
+- 테스트 준비 문제도 수정: 기존 stale-refinement 회귀의 original_id는 사진을 임의 선택할 수 있어 텍스트 자료로 좁혔다. Mock 신규 회귀는 테스트 로그인 불가능한 실물형 seed 소비자 대신 테스트 소비자의 준비 주문을 출하해 준비한다. 기존 단언은 삭제/약화하지 않았다.
+- 최종 범위 감사: 미커밋/새 파일53경로가 기록 범위 안. `git diff --check` PASS. 지정 base `7e88039...HEAD` 변경0경로, 로컬 main 대비681경로는 기존 커밋 이력이다. tasks.md 삭제0줄(append-only). commit/push/PR/live/paid/배포 없음.
+
+#### 의도한 커밋 분리 (실행하지 않음)
+1. `fix(source-analysis): FEAT-04/07 conflicts and failure diagnostics (DEV-179)` — 서버 사실 충돌/페이지 진단 + 관련 서버 테스트·스펙.
+2. `fix(producer): FEAT-04/07 editor recovery and previews (DEV-179)` — 편집/시트/미리보기/제외 확인 저장 + UI 회귀·스펙.
+3. `feat(orders): FEAT-17 shipped tracking corrections and audit (DEV-179)` — API·migration0024·기존 감사 이벤트·Mock·재사용 UI + 권한/멱등/감사/소비자 조회 테스트·FEAT17/SCR29/R19/wiki.
+4. `fix(orders): FEAT-09 deposit confirmation and order totals (DEV-179)` — 기존 미커밋 입금 확인 시트/주문 총액 + 관련 회귀·문서.
+- Agent 시간 / Tokens: 이 하네스에서 정확한 계측 미제공.
+
+- 최종 E2E 정적 검토 보완: 현재 제안 확정 회귀의 의도적503이 엄격한 monitor를 실패시키므로 정상 draft 응답으로 바꾸고 성공 안내·제출 provenance를 함께 검증하도록 수정했다. monitor나 단언을 약화하지 않았다. 구 sessionStorage는 사용자 지정 bare 형식과 실제 HEAD의 namespaced 형식을 모두 읽고 제거한다.
+
+
+### DEV-179 재리뷰 수정 · 2026-11-02 (사용자 지시, append-only)
+
+#### 범위 (코드 수정 전)
+- 기존 DEV-179 범위를 유지하며 `packages/ui/spec.md`의 삭제된 미리보기 경로 설명을 수정한다.
+- `server/tests/test_dev179_review.py`의 모든 테스트·단언을 `test_orders.py` / `test_source_editor.py`로 이동한다. 새 테스트 묶음은 만들지 않는다.
+
+#### 결정 사항
+- OCR/청크 혼합 실패는 각 안내 정확히 1개, 내부 오류·빈 결과 안내 0개로 검증한다. 알려진 오류는 비용 동의 후 재시도 enabled를 복구하고 REQUEST_UNCERTAIN은 HEAD의 disabled 기대를 유지한다.
+- 현재 정리 결과가 없는 summary/storage/farmStory 복수 원문 후보는 선택 가능 상태로 유지한다. 병합 성공 서술은 선택기 없이 자동 저장하며 성공 정리에서 생략한 필드·안전성 필터·outdated·생산자 확정/제외는 보존한다. 원래 summary/storage 회귀와 composition 변형을 함께 검증한다.
+- 유일하게 커밋된 sessionStorage `farmclub-producer:excluded-seen:${batchId}:${version}`만 로그인 사용자 키로 이관/제거한다. 사용자 없는 동안에는 이관하지 않는다. 미커밋 중간 bare/session·version/local 호환 및 정리 루프를 제거한다.
+- Mock 송장 정정은 본문 400 검증 후 상태/버전 409 검사, 정정 테스트 ID는 AC-17-9로 맞춘다. 모든 이동 단언을 보존한다.
+
+#### 기록
+- 사용자가 제공한 sandbox 밖 전체 pytest **1281 passed**는 이번 수정 전 결과다. 이번 요청의 ruff·관련 pytest·typecheck·Mock 결과는 실행 후 별도 추가한다.
+- 기존 미커밋 변경 유지. commit/push/PR/live/운영/유료 호출 금지. Figma 후속 DEV-185 유지。
+
+
+#### DEV-179 재리뷰 반영 / 검증 결과 · 2026-11-02
+- #1 DEV-190 혼합 실패 E2E는 OCR/청크 안내 각 1개 및 오류/빈 결과 0개를 검증하도록 수정했다.
+- #2 현재 정리가 없는 서술 복수 후보의 conflict 선택기를 복구했다. 원래 summary 원자성 회귀와 storage target/shared 회귀를 복원하고 composition 변형을 유지했으며 summary/farmStory target/shared 사례도 추가했다. 성공 병합/생략·안전성·outdated·명시적 결정은 유지한다.
+- #3 HEAD 확인 결과 REQUEST_UNCERTAIN disabled 기대를 유지했다. OCR_PAGES_FAILED·EXTRACT_CHUNKS_FAILED·혼합 알려진 오류는 비용 체크 전 disabled, 체크 후 enabled를 모두 검증한다.
+- #4 6c259ac의 실제 sessionStorage namespaced 키만 이관한다. bare 읽기/삭제·version-suffixed local fallback·stale-key 정리 루프를 제거하고 사용자 없는 동안 entries를 만들지 않아 anonymous 이관을 막았다. E2E seed·제품/구현 spec·영문 wiki를 맞췄다.
+- #5 UI spec은 PageCanvas → ModuleStory 미리보기 경로로 수정했다. Mock 정정은 본문400을 상태/버전409보다 먼저 검사하고 기존 Mock 회귀에 두 우선순위 단언을 추가했다. 정정 관련 테스트 ID를 AC-17-9로 맞췄다. test_dev179_review.py의17 테스트 함수를 모듈별로 이동했으며 helper 포함73 assert가 AST상 동일함을 확인했다.
+- `cd server && UV_CACHE_DIR=/private/tmp/dev179-uv-cache uv run ruff check . && UV_CACHE_DIR=/private/tmp/dev179-uv-cache uv run pytest tests/test_source_editor.py tests/test_source_refine.py tests/test_orders.py`: ruff PASS. pytest **396 collected / 396 setup errors / 본문 실행0건**, 2.92s. sandbox가 localhost:5432 PostgreSQL 연결을 Operation not permitted로 차단했다. 기본 URL 대신 임의 DB/운영 DB로 연결하지 않았다. 초기 ruff2건(import 정렬·긴 함수 선언)은 수정 후 전체 ruff 재통과했다.
+- `npm run typecheck && npm run test:mock`: 타입5 workspace PASS, Mock **45 passed / 3 failed / 0 skipped**, 26.49s. 잘못된 본문 우선순위 단언 추가 후 `npm run test:mock` 재실행도 **45 passed / 3 failed / 0 skipped**, 27.28s. DEV-179 AC-17-9 정정 회귀는 최종 실행 통과. 3실패는 test-news-rooms/test-onboarding/test-withdrawal의 Mock server exited이며 서버 직접 시작으로 `listen EPERM 127.0.0.1:18083` sandbox 제한을 확인했다. 기존 테스트/서버를 우회하거나 약화하지 않았다.
+- 수정한 source-review-regressions/checkout-and-fulfillment E2E 2개 파일의 `npx --no-install tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --resolveJsonModule --esModuleInterop --skipLibCheck --types node ...` PASS. **브라우저 E2E 실행하지 않음**. 정적 검사를 E2E 통과로 간주하지 않는다.
+- 사용자 제공 sandbox 밖 전체1281 통과는 수정 전 기준이며 이번 검증을 대체하지 않는다. 테스트 완료/AC 체크는 보류한다. sandbox 밖에서 지정 pytest와 Mock/E2E 재확인이 필요하다.
+- 범위 감사: 이 세션 수정19경로(테스트 이동 포함)는 위 추가 범위 안. 기존 main...HEAD681경로는 기존 이력으로 유지했다. 기존 파일 스냅샷 대비 두 tasks.md prefix 동일(append-only), git diff --check PASS. 기존 미커밋 작업을 보존했다. commit/push/PR/live/운영/유료 호출 없음.
+- 의도한 커밋 분리는 앞선4개를 유지(실행하지 않음): source-analysis FEAT-04/07 충돌·진단, producer FEAT-04/07 편집·미리보기·확인 저장, orders FEAT-17 정정·감사·Mock, orders FEAT-09 입금 확인·총액. Agent 시간 / Tokens: 정확한 계측 미제공.
+
+#### DEV-179 E2E 실패 원인·수정 · 2026-11-02 (Claude Code, 브라우저 실행)
+- 테스트 버그 `source-review-regressions`: 구성 필드 라벨이 `구성 내용`이었으나 실제 접근성 라벨은 `상품 구성 내용`(SOURCE_MODULES 제목 + " 내용") → 라벨 수정(선택지 2개·provenance 1개 통과).
+- 테스트 버그 ETA 단언: `/예상.*(?:시간|분|초)/`가 형제 요소 텍스트를 이어 붙인 컨테이너("당도 예상 … 내용 분석")에 걸림. 한 문구 안의 ETA 표현(`예상 (소요) 시간`, `예상 N분`, `N분 남음/후`, `남은 시간`, `ETA`)만 잡도록 좁힘. 또 PDF 첨부 타일의 1쪽 썸네일 `/pages/1/image`가 스텁되지 않아 monitor 404 → `serveContractReview`에 1×1 PNG 스텁 추가.
+- 테스트 버그 탭 간 제외 확인: 시드에 `강미숙` 계정이 없고(승인 생산자는 강영수뿐), 로그인 상태의 `/login`은 홈으로 보냄 → `/api/auth/me` 응답의 userId만 다른 생산자로 바꿔 사용자별 키를 검증.
+- 제품 버그 `SourceExclusions.tsx`: 모달 배경 Pressable에 role이 없어 `닫기` 버튼으로 노출되지 않음 → `accessibilityRole="button"` 추가.
+- 테스트 버그 `checkout-and-fulfillment`: 확인 시트·주문 줄은 SCR-29대로 주문 총액(상품가 + 배송/도서 비용, 32,000원)을 보이는데 테스트는 옵션가 29,000원을 하드코딩 → 생산자 API의 `totalAmount`로 기대값 계산. 또 이전 실행의 입금 대기 주문이 남으면 `.first()`가 다른 주문을 승인 → `${orderNo} 입금 승인`으로 이 주문만 누르고 confirm-deposit 응답을 기다림.
+- `SOURCE_ANALYSIS_ENABLED=true`로 켜야 도는 테스트도 확인: `new-product-composer`의 빈 새 상품 `AI로 채우기` 기대를 enabled → disabled + "자료를 먼저 넣어 주세요."로 복구(사진 없이 분석 가능, 자료 없이는 불가 — DEV-179 계약 테스트와 일치). `source-workspace-ui` 새로고침 뒤 품종 칸은 AI 시트 안이라 `사진·자료 펼치기` 후 확인. `source-editor` 사진 필수 오류는 접힌 시트 안 사본이 숨겨져 있어 보이는 page alert로 범위 지정. 분석 완료 대기에는 로컬 mock worker(`python -m app.source_analysis.worker`)가 필요하다.
+- 검증: `npm run typecheck` PASS. 매 실행 전 seed reset 후 `SOURCE_ANALYSIS_ENABLED=true npx playwright test` 7개 spec `--workers=1` 3회 연속 **70 passed / 0 failed / 0 skipped**. 서버 코드 변경 없음(pytest 미실행). commit/push 없음.
+
+
+### DEV-179 최종 리뷰 후속 · 2026-11-02 (사용자 지시, append-only)
+
+#### 범위 (코드 수정 전)
+- `server/app/source_analysis/editor.py`, `server/tests/test_source_editor.py`
+- `apps/producer/src/lib/{SourceWorkspace,NewProductComposer,SourceBasicInfo}.tsx`
+- `packages/api/src/mock/orders.ts`, `scripts/test-spec12.mjs`
+- `server/app/source_analysis/spec.md`, `apps/producer/spec.md`, `docs/spec/source-editor.md`, `docs/wiki/Requirements-and-Specifications.md`
+- 작업 기록은 `apps/producer/tasks.md`·`server/tasks.md` 끝에만 추가한다.
+
+#### 결정 사항
+- 정리 결과가 없거나 pending(None)인 사실 필드는 안전한 현재 원문 후보를 정규화한다. 한 값이면 대표 후보를 ready/EXTRACTED로 제안하고, 여러 값이면 서술과 같이 conflict로 선택기를 제공한다. 성공 정리의 생략·안전 필터·outdated·생산자 확정/제외 우선순위는 유지한다.
+- SourceWorkspace의 미사용 sourcePageImage import를 제거한다.
+- Mock 송장 정정의 본문 검증을 idempotency/주문 조회보다 앞에 둔다(400 → 멱등 → 404 → 409). 기존 테스트를 약화하지 않고 우선순위 회귀를 보강한다.
+- Composer는 로딩 전후 BasicInfo 래퍼를 유지하고 nullable batch를 기본 정보 훅에서 안전하게 처리한다. URL batchId로 key를 유지해 최초 로드의 하위 트리 remount를 없앤다.
+- 사용자 지시에 따라 commit/push/PR/live 호출 없이 지정 서버·타입·Mock 검증을 실행한다. 신규 후보 테스트는 구현 블라인드 작성 및 수정 전 실패 확인을 수행한다.
+
+#### 작업 / 검증 대기
+- [ ] 위 네 리뷰 항목 수정 및 지정 명령 실행 후 결과를 아래에 추가한다.
+
+#### 최종 리뷰 후속 추가 결정 (독립 diff 검토)
+- 기존 12.0/12 Brix 동등성도 정리 없음/대기 상태의 대표 후보 정규화에 적용한다. 다른 텍스트는 보존하면서 Brix 단위 숫자만 정규화하고 absent/pending 회귀를 추가한다.
+
+
+#### DEV-179 최종 리뷰 후속 결과 · 2026-11-02
+- 네 항목 구현 적용: 정리 없음/대기(None)의 사실 후보는 정규화 후 한 값이면 대표 원문/candidateIds를 ready/EXTRACTED로 제안하고 여러 값이면 선택 가능 상태를 유지한다. SourceWorkspace 미사용 import를 제거했다. Mock 본문 검증은 멱등/주문 조회보다 앞에 두었다. Composer의 BasicInfo 래퍼·URL batchId key는 로딩 전후 유지하고 공용 훅은 null batch를 처리한다.
+- `server/tests/test_source_editor.py`에 사양만 본 별도 작성자가 absent/pending 16개 사례를 추가했다(요청한 kg/g·보완 규격·Brix 없는 품질 근거, 네 사실 필드의 유니코드/공백 동등성, 12.0/12 Brix). 기존 테스트·단언은 삭제하거나 약화하지 않았다.
+- 최종 명령: `cd server && uv run ruff check . && uv run pytest tests/test_source_editor.py tests/test_source_refine.py tests/test_orders.py` (UV_CACHE_DIR=/private/tmp/dev179-uv-cache, UV_OFFLINE=1, DATABASE_URL은 localhost의 격리 farmclub_dev179). Ruff PASS, pytest **0 passed / 0 assertion failures / 412 setup errors**, 2.88s. 공통 _schema의 localhost:5432 연결이 Operation not permitted로 거부되어 모든 본문이 실행되지 않았다. 로그: `/private/tmp/dev179-final-server-tests.log`. 신규 서버 회귀의 red/green도 같은 fixture 제한 때문에 입증하지 못했다. 전체 서버 검증은 미완료이며 sandbox 밖에서 위 명령 재실행 필요.
+- `npm run typecheck && npm run test:mock`: 5 workspace 타입 검사 PASS; Mock **45 passed / 3 failed / 0 skipped**, 30.87s. 송장 정정 회귀는 통과했다. 실패는 test-news-rooms / test-onboarding / test-withdrawal의 Mock server exited이며, 로컬 socket 직접 확인도 `listen EPERM 127.0.0.1:18083`으로 실패했다. 테스트/fixture/서버 우회 없음. 로그: `/private/tmp/dev179-final-mock-tests.log`.
+- Mock fail-first: HEAD의 orders.ts만 메모리에서 transpile해 생성된 Mock JS에 일시 적용한 뒤 기존 사양 테스트를 실행했다. **5 passed / 1 failed**, 회귀는 missing order의 400 기대에 기존 404로 실패했다. 생성 JS는 finally에서 원복했다. 정상 코드의 `node --test scripts/test-spec12.mjs`는 **6 passed / 0 failed / 0 skipped**, 31.08s. 로그: `/private/tmp/dev179-mock-baseline.log`, `/private/tmp/dev179-final-mock-focused.log`.
+- 독립 diff 리뷰가 지적한 Brix 소수 동등성 누락을 수정했고 재검토 추가 지적 0. 문서도 정리된 보완 사실과 정리 전 원문 선택의 구분을 동기화했다. 브라우저 검증은 실행하지 않았다.
+- 범위 감사: 이번 미커밋 변경 13개 경로가 사전 기록 범위 안이다. `git diff main...HEAD` 683개 경로는 기존 커밋 이력이며 HEAD는 `76ea0037ed5b4ecea635f52005871d30c62cc5e2`로 유지했다. `git diff --check` PASS, 두 tasks.md의 원본 바이트 전체 보존(append-only) PASS. 필수 검증이 막혀 완료 체크는 하지 않는다.
+- 의도한 커밋(실행하지 않음): `fix(source-analysis): FEAT-04/07 preserve raw fact choices (DEV-179)`; `fix(producer): FEAT-04/07 preserve composer mount (DEV-179)`; `fix(mock): FEAT-17 validate tracking before idempotency (DEV-179)`. 각 코드의 회귀·관련 스펙·append-only 기록을 함께 묶는다.
+- commit/push/PR/live 호출 없음. Agent 시간 / Tokens: 정확한 계측 미제공.
+
+### DEV-179 데모 녹화 후속 · 2026-11-02 (사용자 지시, append-only)
+
+#### 범위 (코드 수정 전)
+- `apps/producer/src/lib/{NewProductComposer,SourceWorkspace}.tsx`, 공용 오류·비용 안내 `apps/producer/src/lib/sourceFeedback.ts`
+- `scripts/e2e/{source-review-regressions,source-editor,new-product-composer}.spec.ts`
+- `apps/producer/spec.md`, `apps/producer/tasks.md`, `docs/spec/{source-editor,source-analysis}.md`, `docs/wiki/Requirements-and-Specifications.md`
+
+#### 결정 사항
+- 기준은 지정 worktree HEAD `596d669394f5dfb514b6784a9f731bc012904223`. commit/push/PR/live 호출·브라우저 실행 없이 후속 수정한다.
+- Composer의 `details.fields.representativePhoto` 사유 매핑을 공용 처리로 옮겨 Workspace에도 사용한다. Workspace 적용 확인 버튼 곁에 오류를 표시하며 새 시도·취소 시 지운다. 재조회는 네트워크/불확실 결과에만 제공하고 입력 검증에는 숨긴다.
+- 재시도 대상 run에 REQUEST_UNCERTAIN 항목이 하나라도 있으면 기존 비용 문구를 유지하고, 아니면 ‘다시 분석하면 비용이 다시 들 수 있어요. 확인했어요.’를 사용한다. 비용 체크/해제·새 run 초기화 gate는 유지한다.
+- Composer 분석 진행 영역의 220px 및 짧은 Skeleton 2개는 SourceRunProgress와 중복되는 로딩 자리이므로 제거한다. 최초 상품 로딩 Skeleton은 유지한다.
+- 각 항목의 Playwright 회귀를 추가/보강한다. 브라우저 실행은 사용자 지정대로 sandbox 밖 Claude가 수행한다. 스펙/영문 wiki를 동기화하고 Figma v6는 기존 DEV-185 후속으로 남긴다. 구매자 미리보기 배너 내용은 변경하지 않는다.
+
+#### 검증 대기
+- [ ] `npm run typecheck`, `npm run test:mock` 실행 결과를 아래에 추가한다.
+- [ ] Claude: 관련 Playwright spec 브라우저 실행.
+
+#### DEV-179 데모 녹화 후속 결과 · 2026-11-02
+- #1/#2: Composer의 representativePhoto 사유 매핑을 `sourceFeedback.ts`로 추출해 두 화면이 공유한다. Workspace 적용 확인 버튼 바로 앞에 사유를 표시하고 취소/재시도 시 이전 오류를 지운다. 검증 오류에는 서버 재조회 버튼을 숨기고 네트워크·timeout·서버 오류에는 유지한다.
+- #3: REQUEST_UNCERTAIN 포함 여부로 비용 문구를 공유 선택한다. 기존 ack gate·새 run/성공 후 초기화는 유지했다. 제품 스펙·앱 구현 결정·영문 wiki를 동기화했다.
+- #4: SourceRunProgress 아래의 220px 회색 Skeleton과 20px 줄 2개는 중복 로딩 표시임을 코드로 확인해 제거했다. 최초 상품 정보 로딩 Skeleton은 유지했다. 구매자 미리보기 배너는 변경하지 않았다.
+- 회귀: `source-review-regressions.spec.ts`에 5개 추가(비공개 저장→검토→사진 누락 적용 오류/취소 초기화 1개, 화면별 네트워크 재조회 2개, 화면별 확정 OCR·청크/불확실/혼합 비용 문구 및 체크/해제/성공 후 초기화 2개). 기존 OCR/청크 문구 기대를 갱신하고 진행 테스트에 시트 열기/닫기 모두 중복 Skeleton 0개 단언을 추가했다. `source-editor.spec.ts`의 실제 composer 사진 누락 적용 회귀에는 재조회 버튼 0개 단언을 추가했다. 기존 테스트/안전 단언은 삭제·약화하지 않았다.
+- `npm run typecheck` → 5 workspace PASS / 0 오류.
+- `npm run test:mock` → **45 passed / 3 failed / 0 skipped**, 31.26s. 실패는 `test-news-rooms.mjs`, `test-onboarding.mjs`, `test-withdrawal.mjs`의 `Mock server exited`. `FARMCLUB_MOCK_PORT=18083 FARMCLUB_MOCK_DIR=/private/tmp/dev179-demo-mock node scripts/mock-server.mjs`로 `listen EPERM 127.0.0.1:18083` sandbox 제한을 직접 확인했다. 테스트/서버 우회 없이 남겼으며 sandbox 밖 재실행 필요.
+- `./node_modules/.bin/tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --resolveJsonModule --esModuleInterop --skipLibCheck --types node scripts/e2e/source-review-regressions.spec.ts scripts/e2e/source-editor.spec.ts` → 종료 0. `./node_modules/.bin/playwright test scripts/e2e/source-review-regressions.spec.ts scripts/e2e/source-editor.spec.ts --list` → **49 tests / 2 files** 수집 성공. 이는 브라우저 테스트 통과가 아니다. 브라우저 실행 0회이며 Claude가 sandbox 밖에서 같은 두 spec을 실행해야 한다(`source-editor`는 SOURCE_ANALYSIS_ENABLED=true·로컬 worker 필요).
+- 서버 코드 변경 없음: 조건부 ruff 실행 대상 아님. `git diff --check` PASS, `apps/producer/tasks.md`의 HEAD 원본 바이트 전체 보존으로 append-only PASS. 이번 변경 10개 경로는 사전 범위 안이며 `git diff main...HEAD`의 683개 경로는 기존 커밋 차이다. HEAD는 `596d669394f5dfb514b6784a9f731bc012904223` 유지. 전체 Mock·브라우저 검증 전 완료 체크는 보류한다.
+- 의도한 커밋(실행 안 함): `fix(producer): FEAT-04/07 적용 오류와 재조회 안내 수정 (DEV-179)`; `fix(producer): AC-SRC-5 재분석 비용 확인 문구 구분 (DEV-179)`; `fix(producer): AC-SRC-4 중복 분석 스켈레톤 제거 (DEV-179)`. 각 변경에 관련 회귀·스펙·기록을 함께 묶는다.
+- commit/push/PR/live 호출 없음. Figma v6는 기존 DEV-185 후속. Agent 시간 / Tokens: 정확한 계측 미제공.
+
+### DEV-179 데모 후속 보완·검증 (Claude, sandbox 밖, 2026-11-02)
+- 스캔 지적 반영:
+  - `sourceActionError`는 입력 검증(400·필드 사유)만 재조회를 숨긴다. 409 충돌, 네트워크, 서버 오류에는 '서버 상태 다시 확인'을 유지한다.
+  - 연결 실패(TypeError)는 한국어 안내를 보인다.
+  - 앱 안에서 던진 한국어 검증 오류(예: 품종 누락)는 메시지를 그대로 보이고 재조회 버튼은 숨긴다.
+- Workspace 적용 거절 사유는 `applyError`로 분리해 적용 확인 패널에만 한 번 표시한다(상단 중복·폴링 오류 혼입 제거). 409 적용 충돌 회귀 테스트를 추가했다.
+- 테스트 보완:
+  - 의도적으로 400/409를 반환하는 테스트의 브라우저 리소스 로그는 허용 목록에 넣었다.
+  - `source-analysis.spec.ts`는 재시도 전에 비용 확인을 체크한다.
+  - `source-editor.spec.ts:467`은 백그라운드 worker 대신 큐를 직접 비운다.
+- Playwright(sandbox 밖, 새 번들, 백그라운드 worker 없음): source-review-regressions·source-editor·source-workspace-ui·new-product-composer·source-analysis·new-product-two-step·product-page-workspace에서 **76 passed / 0 failed**. `npm run typecheck` PASS.
+
+### DEV-179 머지 전 스캔 반영 (Claude, 2026-11-02)
+- owner 결정: 판매 설정 전 새 상품 구매자 미리보기에서 재고·마감·배송비 줄을 숨긴다(`sale` 슬롯을 빈 fragment로 전달, 판매 단계가 있으면 기본 표시).
+- scan-before-merge 반영:
+  - `factual_conflict`가 `normalize_fact_value`와 같은 당도 정규식을 써서 `12°Brix`/`15°Brix` 충돌을 잡는다.
+  - review `conflicts.candidateIds`는 판정과 같은 비-historical 후보만 담는다.
+  - `sourceActionError`는 400이면서 field 사유가 있을 때만 재조회를 숨기고, 첫 field 사유를 메시지로 쓴다.
+  - Workspace는 `api.apply` 거절만 확인 패널에 두고, 적용 성공 뒤 재조회 실패는 페이지 오류로 보낸다.
+  - 품종 메시지 중복을 제거했다.
+  - 충돌 선택지는 정규화 값으로 묶는다.
+  - Composer `render`의 basic 인자를 non-null로 정리했다.

@@ -1,5 +1,10 @@
 """Automatic suggestions are not human confirmations; save all edits atomically."""
 
+import re
+import unicodedata
+from collections import defaultdict
+from decimal import Decimal
+
 from pydantic import Field
 
 from app.core.errors import conflict, invalid
@@ -15,6 +20,51 @@ from app.source_analysis.schemas import (
 
 class EditorSave(DraftSave):
     fields: list[FieldReview] = Field(default_factory=list, max_length=200)
+
+
+FACT_FIELDS = {"specification", "composition", "pieceCount", "qualityEvidence"}
+BRIX = r"(\d+(?:\.\d+)?)\s*(?:°?\s*(?:bx|brix)|브릭스)"
+
+
+def normalize_fact_value(value):
+    value = unicodedata.normalize("NFKC", value).casefold()
+
+    def weight(match):
+        grams = Decimal(match[1]) * (1000 if match[2] in {"kg", "킬로그램"} else 1)
+        return format(grams.normalize(), "f") + "g"
+
+    value = re.sub(r"(\d+(?:\.\d+)?)\s*(kg|g|킬로그램|그램)", weight, value)
+    value = re.sub(
+        BRIX,
+        lambda match: format(Decimal(match[1]).normalize(), "f") + "bx",
+        value,
+    )
+    return re.sub(r"[\s:：,，。]+|[.!]+$", "", value)
+
+
+def factual_conflict(key, choices):
+    # Narrative modules intentionally combine complementary source fragments.
+    if key not in FACT_FIELDS:
+        return False
+
+    facts = defaultdict(set)
+    for choice in choices:
+        value = unicodedata.normalize("NFKC", choice["value"]).casefold()
+        if key == "qualityEvidence":
+            # A range or multiple options within ONE source is not source disagreement.
+            brix = tuple(Decimal(n) for n in re.findall(BRIX, value))
+            if brix:
+                facts["brix"].add(brix)
+            continue
+        labelled = re.findall(r"(품종|사이즈|크기|원산지|산지)\s*[:：]\s*([^,;\n]+)", value)
+        if key == "specification" and labelled:
+            for label, fact in labelled:
+                slot = {"크기": "사이즈", "산지": "원산지"}.get(label, label)
+                facts[slot].add(normalize_fact_value(fact))
+        else:
+            # Preserve fruit identity and its weight association in composite fact values.
+            facts[key].add(normalize_fact_value(value))
+    return any(len(values) > 1 for values in facts.values())
 
 
 def suggestions(review, photos=None):
@@ -95,6 +145,14 @@ def suggestions(review, photos=None):
                 and not has_platform_text(c["value"])
                 and not has_period_text(c["value"])
             ]
+            # Equivalent raw facts use the lowest candidate id as a stable representative.
+            if modules is None and key in FACT_FIELDS:
+                unique = {}
+                for choice in sorted(choices, key=lambda c: min(c["candidateIds"], default="")):
+                    unique.setdefault(normalize_fact_value(choice["value"]), choice)
+                choices = list(unique.values())
+            # Without a current refinement, all distinct raw alternatives need a picker.
+            raw_choices = modules is None and len(choices) > 1
             status = "missing"
             field = saved or dict(
                 targetId=target["id"],
@@ -148,16 +206,15 @@ def suggestions(review, photos=None):
                 if (
                     saved["state"] == "UNREVIEWED"
                     and saved["provenance"] != "REFINED"
-                    and len(choices) > 1
+                    and (factual_conflict(key, choices) or raw_choices)
+                    and status != "outdated"
                 ):
                     status = "conflict"
-            elif has_refinement:
+            elif has_refinement and modules is not None:
                 if key in refined:
                     field = {**field, **refined[key], "provenance": "REFINED"}
                     status = "ready"
-                elif modules is None and len(choices) > 1:
-                    status = "conflict"
-            elif len(choices) == 1:
+            elif len(choices) == 1 and not has_refinement:
                 c = choices[0]
                 field = {
                     **field,
@@ -166,7 +223,7 @@ def suggestions(review, photos=None):
                     "candidateIds": c["candidateIds"],
                 }
                 status = "ready"
-            elif choices:
+            elif factual_conflict(key, choices) or raw_choices:
                 status = "conflict"
             if (
                 not saved
@@ -182,6 +239,17 @@ def suggestions(review, photos=None):
                 )
             ):
                 status = "unassigned"
+            # Automatic refinement/basic info must not silently resolve competing facts.
+            # A producer's explicit confirmation or exclusion remains authoritative.
+            if (
+                factual_conflict(key, choices)
+                and status != "outdated"
+                and (not saved or saved["state"] == "UNREVIEWED")
+                and (
+                    not has_refinement or key in refined or modules is None or basic_values.get(key)
+                )
+            ):
+                status = "conflict"
             if not saved and photos is not None:
                 placed = [
                     p.id

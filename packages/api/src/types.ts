@@ -31,6 +31,7 @@ export type ConflictReason =
   | "CAP_BELOW_COMMITTED"
   | "APPROVED_CAP_EXCEEDED"
   | "CAPACITY_REQUEST_PENDING"
+  | "VERSION_MISMATCH"
   | "STALE_VERSION"
   | "PERIOD_LOCKED"
   /** 농가가 입금 계좌를 등록하지 않음(DEV-68) */
@@ -583,6 +584,7 @@ export type Dashboard = {
 };
 
 export type ProducerOrder = Recipient & {
+  trackingVersion: number;
   orderId: string;
   orderNo: string;
   productId: string;

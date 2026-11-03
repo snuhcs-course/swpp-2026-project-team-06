@@ -143,7 +143,14 @@ class ShipInput(CamelModel):
     carrier: Literal["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"] | None = None
 
 
+class TrackingInput(CamelModel):
+    version: int = Field(ge=1)
+    carrier: Literal["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"]
+    tracking_number: str | None = Field(default=None, max_length=50)
+
+
 class ProducerOrder(CamelModel):
+    tracking_version: int
     order_id: str
     order_no: str
     product_id: str
