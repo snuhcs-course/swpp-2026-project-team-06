@@ -13,16 +13,23 @@
 
 1. 키/과금 소유자, 사용할 Claude API model ID, 사용 한도를 합의한다. 모델 ID를 추측하거나 fallback하지 않는다.
 2. GitHub repository Settings → Environments → spec-check를 생성한다.
-3. Required reviewers에 팀원을 추가한다. 2026-10-18 팀 결정(DEV-55)으로 Prevent self-review는 필수가 아니다. PR 작성자가 승인자 목록에 있으면 자기 PR의 실행을 직접 승인할 수 있다. 관리자의 우회 승인(Allow administrators to bypass)은 끈다.
+3. Required reviewers는 두지 않는다(2026-11-03 DEV-196). 2026-10-18~11-03(DEV-55)에는 팀원 승인을 요구했지만, 결과가 머지를 막지 않는 참고용 체크인데 승인 전까지 체크가 pending으로 남아 PM이 매번 눌러야 했다. 환경은 키·모델 변수를 PR 코드와 분리해 두는 용도로만 쓴다.
 4. 이 환경에만 secret `SPEC_CHECK_API_KEY`, variable `SPEC_CHECK_MODEL`을 추가한다. 제품 키·Claude 앱 로그인·개인 CLI 인증을 재사용하지 않는다.
 5. 키 소유자는 별도 API workspace의 예산·사용량을 관리한다. 키 값·개인정보는 PR/Linear/로그에 넣지 않는다.
-6. PR에서 실행할 checker, prompt, workflow, action commit을 검토한 뒤에 환경 job을 승인한다. 환경 승인은 코드 리뷰의 Approve와 별개다.
+6. checker, prompt, workflow를 바꾸는 PR은 사람 리뷰어가 그 변경을 먼저 본다(모델 job은 그 PR에서도 자동으로 돈다).
 7. (DEV-144, 선택) 비용 기록: spec-check 환경에 variable `SPEC_CHECK_USAGE_URL`=`https://api.farmclub.kr/internal/spec-check-runs`, secret `SPEC_CHECK_USAGE_TOKEN`을 넣는다. 같은 값을 Railway `farmclub-api` 변수 `SPEC_CHECK_USAGE_TOKEN`에 넣는다. 지난 실행(artifact 7일치)은 한 번 `SPEC_CHECK_USAGE_URL=… SPEC_CHECK_USAGE_TOKEN=… python3 .github/spec-check/backfill_usage.py`(먼저 `--dry-run`)로 채운다.
 8. 팀이 live 실행을 시작할 준비가 되면 Settings → Secrets and variables → Actions → Variables에 repository variable `SPEC_CHECK_ENABLED`를 `true`로 설정한다. 이 값은 environment variable이 아니라 **repository variable**이어야 job 조건에서 읽을 수 있다. 비활성화하려면 삭제하거나 false로 바꾼다.
 
 사용자 요청에 따라 현재 live 실행은 보류한다. 활성화 변수를 설정하지 않았다. 비활성화 시 live job은 SKIPPED이며 모델 PASS가 생성되지 않는다. 활성화 후 접근 오류는 INCOMPLETE로 실패한다.
 
-모델 job에는 환경 설정을 읽는 `actions: read`도 필요하다. 설정을 읽지 못하거나 required reviewers가 없으면 API 호출 전에 INCOMPLETE가 된다(prevent-self-review는 확인하지 않는다). 저장소 설정 권한이 없는 작성자는 관리자가 처리해야 한다.
+모델 job은 draft PR에서는 돌지 않고, draft를 해제(ready_for_review)하거나 ready PR에 push·본문 수정이 있을 때 돈다. 같은 PR의 이전 실행은 취소된다(`concurrency: cancel-in-progress`).
+
+### 1.1 결과가 fail일 때
+
+`spec-code-review`는 참고용 체크다. MISMATCH·INCOMPLETE로 fail이어도 머지를 막지 않는다. 대신 PR 작성자가 Checks → 해당 run → Summary(또는 report artifact)를 읽고 PR 코멘트에 처리 결정을 적는다:
+- MISMATCH: finding마다 고쳤는지, 스펙을 바꿨는지, 오탐인지(6장 양식).
+- INCOMPLETE: 원인(표 형식·경로·입력 한도·UNVERIFIED 항목)과 사람 리뷰어가 대신 확인할 것.
+리뷰어는 이 코멘트가 없으면 Approve를 미룬다. 표 형식 문제는 push 전에 `python3 .agents/skills/pr-context/check_table.py <본문 파일>`로 잡는다.
 
 ## 2. 일반 PR 작성
 
@@ -81,7 +88,7 @@ checker는 파일을 통째로 보내지 않는다. 모델이 받는 `context`�
 - fork/bot PR은 SKIPPED 안내 후 수동 리뷰한다.
 - `checker-tests`는 키 없이 계약을 검증한다.
 - checker 실행 파일은 GitHub의 고정 test-merge SHA에서 가져오므로 core 머지 전 생성된 feature branch에도 checker가 존재한다. 검토 대상의 head/base SHA는 바꾸지 않으며 실행 코드의 runner SHA를 별도로 기록한다.
-- `spec-code-review`는 보호 환경 승인 후 고정한 PR revision을 읽고 실제 모델을 호출한다.
+- `spec-code-review`는 ready PR에서 자동으로 고정한 PR revision을 읽고 실제 모델을 호출한다(draft 제외, DEV-196).
 - live job은 `SPEC_CHECK_ENABLED=true`일 때만 실행한다. 비활성화된 동안에도 키 없는 계약 검증은 실행한다.
 - Checks → 해당 run → Summary와 report artifact를 확인한다.
 - 비용(DEV-144): 모델이 응답한 실행은 PR 번호·제목·결과·모델·입력/출력 토큰을 farmclub 서버(`SPEC_CHECK_USAGE_URL`)로 보내고, 관리자 페이지 [AI 비용](https://admin.farmclub.kr/ai-cost)의 '코드 리뷰(spec-check)' 줄과 목록에서 본다(서버 AI 기능 비용과 함께 합계). 금액은 서버 단가표(`server/app/admin/ai_usage.py` `PRICES`)로 계산한 추정치다. 보고 실패는 경고 한 줄만 남기고 리뷰 결과는 그대로다. `SPEC_CHECK_USAGE_URL`(environment variable)·`SPEC_CHECK_USAGE_TOKEN`(environment secret)이 없으면 보내지 않는다.
