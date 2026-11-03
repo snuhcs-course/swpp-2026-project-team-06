@@ -1,3 +1,5 @@
+import { sourceActionError, retryCostLabel, type SourceActionError } from "./sourceFeedback";
+import { SourceRunProgress } from "./SourceRunProgress";
 import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 import { SourceBasicInfo } from "./SourceBasicInfo";
 import { SourceAttachments } from "./SourceAttachments";
@@ -7,7 +9,6 @@ import {
   isMock,
   newIdempotencyKey,
   sourceAnalysis as api,
-  sourcePageImage,
   type MyProductCard,
   type SourceBatch,
   type SourceDraft,
@@ -19,8 +20,6 @@ import {
   BottomBar,
   HeaderBar,
   Icon,
-  ModuleStory,
-  Photo,
   Screen,
   Scroll,
   Sheet,
@@ -65,6 +64,14 @@ export const states: Record<string, string> = {
 };
 export function sourceNotices(item: SourceRun["items"][number]): string[] {
   const notes: string[] = [];
+  const pages = (numbers?: number[]) => numbers?.length
+    ? ` 확인할 쪽: ${numbers.join(", ")}쪽.` : "";
+  if (item.status === "PARTIAL" && (item.pagesFailed ?? 0) > 0) {
+    notes.push(`${item.pagesFailed}쪽을 읽지 못했어요.${pages(item.ocrFailedPageNumbers)} 다시 분석해 보세요.`);
+  }
+  if (item.status === "PARTIAL" && (item.chunksFailed ?? 0) > 0) {
+    notes.push(`일부 내용을 읽지 못했어요.${pages(item.chunkFailedPageNumbers)} 다시 분석해 보세요.`);
+  }
   if ((item.pagesSkipped ?? 0) > 0) {
     notes.push(
       `앞 ${item.pagesAnalysed}쪽만 분석했어요. 나머지 ${item.pagesSkipped}쪽은 필요하면 나눠서 올려 주세요.`,
@@ -152,6 +159,7 @@ export function Choice({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="checkbox"
+      accessibilityLabel={label}
       aria-checked={selected}
       style={{
         minHeight: 48,
@@ -195,72 +203,6 @@ function Field({
     </View>
   );
 }
-export function DraftPreview({
-  batch,
-  draft,
-}: {
-  batch: SourceBatch;
-  draft: SourceDraft;
-}) {
-  const [photos, setPhotos] = useState<Record<string, string>>({}),
-    [error, setError] = useState("");
-  useEffect(() => {
-    let alive = true;
-    const urls: string[] = [];
-    setPhotos({});
-    setError("");
-    const ids = [
-      ...new Set([
-        ...(draft.snapshot.representativeAssetId
-          ? [draft.snapshot.representativeAssetId]
-          : []),
-        ...draft.snapshot.previewModules.flatMap((m) => m.photoAssetIds),
-      ]),
-    ];
-    Promise.all(
-      ids.map(async (id) => {
-        const url = await sourcePageImage(batch.id, id, 1);
-        urls.push(url);
-        if (!alive) URL.revokeObjectURL(url);
-        return [id, url] as const;
-      }),
-    )
-      .then((entries) => {
-        if (alive) setPhotos(Object.fromEntries(entries));
-      })
-      .catch(() => {
-        if (alive) setError("사진을 불러오지 못했어요. 자료를 확인해 주세요.");
-      });
-    return () => {
-      alive = false;
-      urls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [batch.id, draft.id]);
-  return (
-    <>
-      {error ? <T>{error}</T> : null}
-      {draft.snapshot.representativeAssetId ? (
-        <Photo
-          uri={photos[draft.snapshot.representativeAssetId]}
-          width="100%"
-          height={244}
-          alt="대표사진"
-        />
-      ) : null}
-      <ModuleStory
-        content={{
-          modules: draft.snapshot.previewModules.map((m) => ({
-            ...m,
-            photos: m.photoAssetIds.map((id) => ({
-              uri: photos[id] || "",
-              alt: "생산자가 제공한 원본 사진",
-            })),
-          })),
-        }}
-      />
-    </>
-  );
-}
 /** 마지막 분석이 현재 첨부와 맞고 편집할 내용이 있으면 상세 편집을 연다(NewProductComposer와 공유). */
 export function canEditBatch(
   batch: SourceBatch | null,
@@ -301,8 +243,8 @@ export function canEditBatch(
         ) ||
           !!review?.editorFields?.some(
             (e) =>
-              e.status === "ready" &&
-              (e.field.value || e.field.photoAssetIds.length),
+              (e.status === "conflict" || (e.status === "ready" &&
+              (e.field.value || e.field.photoAssetIds.length))),
           ))))
   );
 }
@@ -324,14 +266,18 @@ export function SourceWorkspace() {
   const [selected, setSelected] = useState<string[]>([]),
     [name, setName] = useState("");
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
+    [error, setError] = useState<SourceActionError | null>(null),
+    // Apply rejections stay beside the apply action instead of the page-level alert.
+    [applyError, setApplyError] = useState<SourceActionError | null>(null),
     [notice, setNotice] = useState("");
   const [tab, setTab] = useState("자료"),
     [editing, setEditing] = useState(false);
+  const [startError, setStartError] = useState("");
   const [visual] = useState<Record<string, number[]>>({});
   const [ack, setAck] = useState(false),
-    [preview, setPreview] = useState<string | null>(null),
+    [buyerPreview, setBuyerPreview] = useState(false),
     [applyTarget, setApplyTarget] = useState<Record<string, string>>({});
+  useEffect(() => setAck(false), [runs[0]?.id]);
   const [confirmation, setConfirmation] = useState<{
     draft: SourceDraft;
     productId: string;
@@ -403,20 +349,21 @@ export function SourceWorkspace() {
     setRuns(jobs.items);
     setDrafts(ds.items);
   }, [batchId]);
-  const mutate = (fn: () => Promise<void>) => {
+  const mutate = (fn: () => Promise<void>, starting = false) => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
-    setError("");
+    setError(null);
+    setApplyError(null);
+    if (starting) setStartError("");
     setNotice("");
     void fn()
       .catch((e) => {
-        if (alive.current)
-          setError(
-            e instanceof Error
-              ? e.message
-              : "처리하지 못했어요. 다시 시도해 주세요.",
-          );
+        if (alive.current) {
+          const feedback = sourceActionError(e);
+          if (starting) setStartError(feedback.message);
+          else setError(feedback);
+        }
       })
       .finally(() => {
         lock.current = false;
@@ -431,7 +378,7 @@ export function SourceWorkspace() {
         if (alive.current) setProducts(p);
       }),
     ]).catch((e) => {
-      if (alive.current) setError(String(e));
+      if (alive.current) setError(sourceActionError(e));
     });
   }, [load]);
   useEffect(() => {
@@ -448,7 +395,7 @@ export function SourceWorkspace() {
           }
         })
         .catch((e) => {
-          if (alive.current) setError(String(e));
+          if (alive.current) setError(sourceActionError(e));
         });
     }, 2500);
     return () => clearInterval(timer);
@@ -457,17 +404,21 @@ export function SourceWorkspace() {
   return (
     <Screen>
       <HeaderBar title="판매페이지 만들기" onBack={() => router.back()} />
+      {tab === "상세 편집" && review ? <Button label={buyerPreview ? "편집으로 돌아가기" : "구매자 화면 미리보기"}
+        variant="outline" onPress={() => setBuyerPreview(!buyerPreview)} /> : null}
       <Scroll bottom={180}>
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           {error ? (
             <View accessibilityRole="alert" style={panel}>
-              <T>{error}</T>
-              <Button
-                label="서버 상태 다시 확인"
-                variant="outline"
-                disabled={busy}
-                onPress={() => mutate(load)}
-              />
+              <T>{error.message}</T>
+              {error.canRefresh ? (
+                <Button
+                  label="서버 상태 다시 확인"
+                  variant="outline"
+                  disabled={busy}
+                  onPress={() => mutate(load)}
+                />
+              ) : null}
             </View>
           ) : null}
           {notice ? (
@@ -594,6 +545,7 @@ export function SourceWorkspace() {
               <View
                 style={{
                   flexDirection: "row",
+                  display: buyerPreview ? "none" : "flex",
                   padding: 4,
                   backgroundColor: tokens.color.surface,
                   borderRadius: tokens.radius.md,
@@ -629,6 +581,7 @@ export function SourceWorkspace() {
                   />
                 ))}
               </View>
+              {!canEdit && working ? <T variant="caption" muted>분석이 끝나면 편집할 수 있어요</T> : null}
               {tab === "자료" ? (
                 <>
                   <SourceBasicInfo
@@ -638,7 +591,7 @@ export function SourceWorkspace() {
                     flushRef={flushBasicInfo}
                     onDirty={(dirty) => {
                       setBasicDirty(dirty);
-                      if (dirty) setError("");
+                      if (dirty) { setError(null); setStartError(""); }
                     }}
                     onSaved={setBatch}
                   />
@@ -661,9 +614,11 @@ export function SourceWorkspace() {
                     (s) => s.originalPhoto && s.status === "PREPARED",
                   ) ? (
                     <T variant="caption" muted>
-                      대표 상품사진을 한 장 이상 올려야 분석을 시작할 수 있어요.
+                      공개하기 전에는 대표 상품사진 한 장이 필요해요.
                     </T>
                   ) : null}
+                  {startError ? <View accessibilityRole="alert">{/* The basic-info card already shows the variety message; only point to it here. */}{startError.includes("품종") ? <T variant="caption" color={tokens.color.error}>위 기본 정보에서 과일 품종명을 입력해 주세요.</T> : <T color={tokens.color.error}>{startError}</T>}</View> : null}
+                  {!batch.sources.length ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
                   <Button
                     label={
                       working
@@ -674,9 +629,7 @@ export function SourceWorkspace() {
                     }
                     disabled={
                       busy ||
-                      !batch.sources.some(
-                        (s) => s.originalPhoto && s.status === "PREPARED",
-                      ) ||
+                      batch.sources.length === 0 ||
                       runs.some((r) => ACTIVE.includes(r.status))
                     }
                     onPress={() =>
@@ -694,12 +647,14 @@ export function SourceWorkspace() {
                           pages,
                         );
                         pending.current.clear();
+                        setAck(false);
                         await load();
-                      })
+                      }, true)
                     }
                   />
                   {runs.slice(0, 1).map((r) => (
                     <View key={r.id} style={panel}>
+                      {working ? <SourceRunProgress batch={batch} run={r} /> : null}
                       <T>
                         {r.status === "SUCCEEDED"
                           ? "분석이 완료됐어요"
@@ -724,6 +679,10 @@ export function SourceWorkspace() {
                         .filter(
                           (i) =>
                             i.error &&
+                            !(
+                              i.status === "PARTIAL" &&
+                              ((i.pagesFailed ?? 0) > 0 || (i.chunksFailed ?? 0) > 0)
+                            ) &&
                             (i.phase !== "REFINE" || i.status === "FAILED"),
                         )
                         .map((i) => (
@@ -756,7 +715,7 @@ export function SourceWorkspace() {
                       ) ? (
                         <>
                           <Choice
-                            label="결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요"
+                            label={retryCostLabel(r)}
                             selected={ack}
                             disabled={busy}
                             onPress={() => setAck(!ack)}
@@ -768,13 +727,7 @@ export function SourceWorkspace() {
                                 : "실패한 항목 재시도"
                             }
                             variant="outline"
-                            disabled={
-                              busy ||
-                              (r.items.some(
-                                (i) => i.error === "REQUEST_UNCERTAIN",
-                              ) &&
-                                !ack)
-                            }
+                            disabled={busy || !ack}
                             onPress={() =>
                               mutate(async () => {
                                 const ids = r.items
@@ -790,6 +743,7 @@ export function SourceWorkspace() {
                                   keyFor("retry", [r.id, ids, ack]),
                                 );
                                 pending.current.clear();
+                                setAck(false);
                                 await load();
                               })
                             }
@@ -803,13 +757,16 @@ export function SourceWorkspace() {
                 <>
                   <SourceExclusions
                     batchId={batch.id}
+                    visible={!buyerPreview}
                     products={batch.targets.map((t) => ({
+                      id: t.id,
                       name: t.name,
                       result: activeRun ? undefined : review.refinementResults?.[t.id],
                     }))}
                   />
                   <SourceDetailsEditor
                     key={batch.id}
+                    preview={buyerPreview}
                     batch={batch}
                     review={review}
                     drafts={drafts}
@@ -818,12 +775,13 @@ export function SourceWorkspace() {
                     onBusy={setBusy}
                     onSaved={async () => {
                       await load();
-                      setPreview(null);
+                      setBuyerPreview(false);
                       setNotice(
                         "비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.",
                       );
                     }}
                   />
+                  <View style={buyerPreview ? { display: "none" } : undefined}>
                   {drafts
                     .filter(
                       (d, i) =>
@@ -851,16 +809,6 @@ export function SourceWorkspace() {
                               내용이 없는 {d.snapshot.warnings.length}개 섹션은
                               미리보기에서 생략돼요.
                             </T>
-                          ) : null}
-                          <Button
-                            label="구매자 화면 미리보기"
-                            variant="outline"
-                            onPress={() =>
-                              setPreview(preview === d.id ? null : d.id)
-                            }
-                          />
-                          {preview === d.id ? (
-                            <DraftPreview batch={batch} draft={d} />
                           ) : null}
                           {!target.productId ? (
                             <>
@@ -918,30 +866,49 @@ export function SourceWorkspace() {
                       );
                     })}
                   {confirmation ? (
-                    <View style={panel}>
+                    <View testID="source-apply-confirmation" style={panel}>
                       <T variant="title">{confirmation.name}에 적용할까요?</T>
                       <T>
                         현재 모듈 상세를 이 초안으로 교체해요. 판매 중인
                         상품이면 구매자에게 바로 보여요. 가격과 재고는 바뀌지
                         않아요.
                       </T>
+                      {applyError ? (
+                        <View accessibilityRole="alert">
+                          <T color={tokens.color.error}>{applyError.message}</T>
+                          {applyError.canRefresh ? (
+                            <Button
+                              label="서버 상태 다시 확인"
+                              variant="outline"
+                              disabled={busy}
+                              onPress={() => mutate(load)}
+                            />
+                          ) : null}
+                        </View>
+                      ) : null}
                       <Button
                         label="확인 · 상품 상세 적용"
                         disabled={busy}
                         onPress={() =>
                           mutate(async () => {
                             const c = confirmation;
-                            await api.apply(
-                              batch.id,
-                              c.draft,
-                              c.productId,
-                              c.version,
-                              keyFor("apply", [
-                                c.draft.id,
+                            try {
+                              await api.apply(
+                                batch.id,
+                                c.draft,
                                 c.productId,
                                 c.version,
-                              ]),
-                            );
+                                keyFor("apply", [
+                                  c.draft.id,
+                                  c.productId,
+                                  c.version,
+                                ]),
+                              );
+                            } catch (e) {
+                              // Only the apply rejection belongs beside the confirm button.
+                              if (alive.current) setApplyError(sourceActionError(e));
+                              return;
+                            }
                             pending.current.clear();
                             setConfirmation(null);
                             setNotice("상품 상세에 적용했어요.");
@@ -953,17 +920,21 @@ export function SourceWorkspace() {
                         label="적용 취소"
                         variant="outline"
                         disabled={busy}
-                        onPress={() => setConfirmation(null)}
+                        onPress={() => {
+                          setConfirmation(null);
+                          setApplyError(null);
+                        }}
                       />
                     </View>
                   ) : null}
+                  </View>
                 </>
               ) : null}
             </>
           )}
         </View>
       </Scroll>
-      {tab === "상세 편집" && review ? (
+      {tab === "상세 편집" && review && !buyerPreview ? (
         <BottomBar>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button
@@ -975,7 +946,7 @@ export function SourceWorkspace() {
             />
             {drafts.length ? (
               <Button
-                label="저장 초안·공개"
+                label="공개 전 검토"
                 variant="outline"
                 disabled={busy}
                 onPress={() => {

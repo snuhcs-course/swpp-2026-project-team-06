@@ -72,36 +72,67 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await expect(
     consumerPage.getByRole("button", { name: "소식방 입장" }),
   ).toHaveCount(0);
-  // AC-09-8: 생산자가 통장과 대조한 뒤 줄에서 바로 승인 → 예약 완료(확인 창 없음)
+  let depositApprovals = 0;
+  producerPage.on("request", (req) => {
+    if (req.method() === "POST" && req.url().endsWith("/confirm-deposit")) depositApprovals++;
+  });
+  const token = await apiLogin(request, "u-kang", "producer");
+  const headers = { Authorization: `Bearer ${token}` };
+  // SCR-29 shows the order total (item price + shipping/remote fees), not the option price.
+  const awaiting = await request.get(
+    `${apiUrl}/api/orders/producer?status=AWAITING_DEPOSIT&limit=50`,
+    { headers },
+  );
+  const awaitingOrder = (await awaiting.json()).items.find(
+    (o: { orderId: string; orderNo: string; totalAmount: number }) => o.orderId === orderId,
+  );
+  // Target this run's order: a leftover awaiting order from an earlier run may sort first.
+  const approveButton = producerPage.getByRole("button", {
+    name: `${awaitingOrder.orderNo} 입금 승인`, exact: true,
+  });
+  expect(awaitingOrder.totalAmount).toBeGreaterThan(29000);
+  const totalText = `${awaitingOrder.totalAmount.toLocaleString("ko-KR")}원`;
+  // AC-09-8: 통장 대조 후 확인 시트에서 최종 승인 → 예약 완료
   await producerPage.goto(`${producerUrl}/ship?status=AWAITING_DEPOSIT`);
   await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
   await expect(
     producerPage.getByText("입금했다고 알렸어요").first(),
   ).toBeVisible();
-  await producerPage
-    .getByRole("button", { name: /입금 승인$/ })
-    .first()
-    .click();
+  await approveButton.click();
+  const depositSheet = producerPage.getByRole("dialog");
+  await expect(depositSheet.getByText("입금을 승인할까요?", { exact: true })).toBeVisible();
+  await expect(depositSheet.getByText("DEV25 구매자", { exact: false })).toBeVisible();
+  await expect(depositSheet.getByText(/5kg × 1/)).toBeVisible();
+  await expect(depositSheet.getByText(totalText, { exact: true })).toBeVisible();
+  expect(depositApprovals).toBe(0);
+  await depositSheet.getByRole("button", { name: "아니요", exact: true }).click();
+  expect(depositApprovals).toBe(0);
+  await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
+  await approveButton.click();
+  const approved = producerPage.waitForResponse(response =>
+    response.url().endsWith("/confirm-deposit") && response.request().method() === "POST",
+  );
+  await depositSheet.getByRole("button", { name: "확인 · 입금 승인", exact: true }).click();
+  expect((await approved).ok()).toBeTruthy();
   await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
   await expect(
     consumerPage.getByRole("heading", { name: "예약 완료" }),
   ).toBeVisible();
+  expect(depositApprovals).toBe(1);
   await producerPage.goto(`${producerUrl}/ship?status=RESERVED`);
   await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
+  await expect(producerPage.getByText(totalText, { exact: true }).first()).toBeVisible();
   await expect(
     producerPage.getByRole("button", { name: "수확 시작" }),
   ).toHaveCount(0);
-  const token = await apiLogin(request, "u-kang", "producer");
-  const headers = { Authorization: `Bearer ${token}` };
   const reserved = await request.get(
     `${apiUrl}/api/orders/producer?status=RESERVED&limit=50`,
     { headers },
   );
-  expect(
-    (await reserved.json()).items.some(
-      (o: { orderId: string }) => o.orderId === orderId,
-    ),
-  ).toBeTruthy();
+  const reservedOrder = (await reserved.json()).items.find(
+    (o: { orderId: string; orderNo: string }) => o.orderId === orderId,
+  );
+  expect(reservedOrder).toBeTruthy();
   // Test-fixture setup only: v6 has no harvest UI and never auto-transitions reservations.
   const prepared = await request.post(
     `${apiUrl}/api/orders/producer/harvest-start`,
@@ -133,6 +164,45 @@ test("AC-08/09/10: consumer checkout reaches producer and preserves status", asy
   await expect(
     consumerPage.getByRole("button", { name: "예약 취소하기" }),
   ).toHaveCount(0);
+
+  // AC-17-9: a shipped order keeps its shipping state while correcting its invoice.
+  await producerPage.goto(`${producerUrl}/ship?status=SHIPPED`);
+  await producerPage
+    .getByRole("button", { name: `${reservedOrder.orderNo} 송장 수정`, exact: true })
+    .click();
+  await expect(
+    producerPage.getByRole("textbox", { name: "송장 번호", exact: true }),
+  ).toHaveValue("DEV25-1234");
+  await expect(producerPage.getByRole("radio", { name: "CJ대한통운" })).toBeChecked();
+  await producerPage
+    .getByRole("textbox", { name: "송장 번호", exact: true })
+    .fill("DEV25-5678");
+  const correctedResponse = producerPage.waitForResponse(response =>
+    response.url() === `${apiUrl}/api/orders/${orderId}/tracking` &&
+    response.request().method() === "PATCH",
+  );
+  await producerPage.getByRole("button", { name: "저장", exact: true }).click();
+  expect((await correctedResponse).ok()).toBeTruthy();
+  await producerPage
+    .getByRole("button", { name: `${reservedOrder.orderNo} 송장 수정`, exact: true })
+    .click();
+  await expect(
+    producerPage.getByRole("textbox", { name: "송장 번호", exact: true }),
+  ).toHaveValue("DEV25-5678");
+  await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
+  await expect(consumerPage.getByRole("heading", { name: "배송 중" })).toBeVisible();
+  await expect(consumerPage.getByText("DEV25-5678")).toBeVisible();
+  await expect(consumerPage.getByText("DEV25-1234")).toHaveCount(0);
+  await consumerPage.evaluate(() => {
+    window.open = ((url?: string | URL) => {
+      (window as unknown as { deliveryLookup?: string }).deliveryLookup = String(url);
+      return null;
+    }) as typeof window.open;
+  });
+  await consumerPage.getByRole("link", { name: "CJ대한통운 배송 조회, 새 창", exact: true }).click();
+  expect(await consumerPage.evaluate(() =>
+    (window as unknown as { deliveryLookup?: string }).deliveryLookup,
+  )).toBe("https://trace.cjlogistics.com/next/tracking.html?wblNo=DEV255678");
   assertConsumerClean();
   assertProducerClean();
   await producer.close();
@@ -146,19 +216,29 @@ test("AC-10-6: failed inquiry send retains typed text and retries", async ({
   await loginConsumer(page);
   await page.goto(`${consumerUrl}/orders/o-07/inquiry`);
   const input = page.getByLabel("어떤 점이 불편하셨나요?");
-  await input.fill("DEV25 연결 실패 뒤에도 남아야 하는 문의");
+  // 같은 시드에서 다시 돌려도 이번 문의만 가리키도록 시각을 붙인다(DEV-192)
+  const message = `DEV25 연결 실패 뒤에도 남아야 하는 문의 ${Date.now().toString(36)}`;
+  await input.fill(message);
   await page.route(
     `${apiUrl}/api/orders/o-07/inquiries`,
     (route) => route.abort("failed"),
     { times: 1 },
   );
   await page.getByRole("button", { name: "농가에 문의 보내기" }).click();
-  await expect(input).toHaveValue("DEV25 연결 실패 뒤에도 남아야 하는 문의");
+  // 실패가 화면에 보인 뒤에 입력 유지를 보고 가로채기를 푼다. 먼저 풀면 첫 요청이 서버에
+  // 닿아 실패 경로를 건너뛸 수 있다(DEV-192)
+  await expect(
+    page.getByText("인터넷 연결을 확인하고 다시 시도해 주세요."),
+  ).toBeVisible();
+  await expect(input).toHaveValue(message);
   await page.unroute(`${apiUrl}/api/orders/o-07/inquiries`);
   await page.getByRole("button", { name: "농가에 문의 보내기" }).click();
   await expect(page).toHaveURL(/\/chats\/f-kang/);
+  // 주문 탭에 남은 문의 입력창(textarea)도 같은 글자를 가지므로 대화방 말풍선만 본다(DEV-192)
   await expect(
-    page.getByText("DEV25 연결 실패 뒤에도 남아야 하는 문의"),
+    page
+      .getByText(message, { exact: true })
+      .and(page.locator(":not(textarea)")),
   ).toBeVisible();
   assertClean();
 });

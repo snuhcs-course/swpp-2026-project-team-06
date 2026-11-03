@@ -241,6 +241,8 @@ for (const width of [360, 390, 430]) {
     ).toBeChecked();
     if (width === 360) {
       await page.getByRole("button", { name: "자료", exact: true }).click();
+      // DEV-179: retry stays disabled until the cost notice is acknowledged.
+      await page.getByRole("checkbox", { name: /비용이 다시/ }).check();
       await page.getByRole("button", { name: "미완료 항목 재시도", exact: true }).click();
       work();
       await expect(page.getByText("분석이 완료됐어요")).toBeVisible();
@@ -270,6 +272,8 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByTestId("source-heading-icon-storage").last(),
     ).toBeVisible();
+    await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+    await expect(page.getByRole("button", { name: "공개 전 검토", exact: true })).toBeVisible();
     await page
       .getByRole("button", { name: "상품 상세에 적용 검토", exact: true })
       .first()

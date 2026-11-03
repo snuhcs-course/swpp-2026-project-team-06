@@ -281,6 +281,12 @@ function Editor({ productId }: { productId: string }) {
           router.canGoBack() ? router.back() : router.replace("/products")
         }
       />
+      <Button
+        label={preview ? "편집으로 돌아가기" : "구매자 화면 미리보기"}
+        variant="outline"
+        disabled={busy}
+        onPress={() => setPreview(!preview)}
+      />
       <Scroll bottom={190}>
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           <T variant="heading">{name}</T>
@@ -300,7 +306,7 @@ function Editor({ productId }: { productId: string }) {
               />
             </View>
           ) : null}
-          {row?.hasUnpublishedChanges ? (
+          {row?.hasUnpublishedChanges && !preview ? (
             <Button
               label="수정본 버리고 현재 상품 불러오기"
               variant="text"
@@ -517,16 +523,9 @@ function Editor({ productId }: { productId: string }) {
           )}
         </View>
       </Scroll>
-      {row && snapshot ? (
+      {row && snapshot && !preview ? (
         <BottomBar>
           <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button
-              label={preview ? "편집으로" : "미리보기"}
-              variant="outline"
-              style={{ flex: 1 }}
-              disabled={busy}
-              onPress={() => setPreview(!preview)}
-            />
             <Button
               label="수정본 저장"
               style={{ flex: 1 }}

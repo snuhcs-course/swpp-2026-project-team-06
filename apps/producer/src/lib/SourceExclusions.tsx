@@ -8,6 +8,7 @@ import {
 import { Button, safe, T, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useSession } from "./session";
 import { groupSourceExclusions, sourceExclusionReasons } from "./sourceExclusionReasons";
 
 export const AI_POLICY_NOTE =
@@ -39,48 +40,68 @@ export function StoryTextHint({ value }: { value: string }) {
     </>
   );
 }
+const acknowledgedExclusions = new Map<string, string>();
+
 /** Only mounted by producer editing screens, never by the buyer page renderer. */
 export function SourceExclusions({
   batchId,
   products,
+  visible = true,
 }: {
   batchId: string;
-  products: { name: string; result?: SourceRefinementResult }[];
+  visible?: boolean;
+  products: { id: string; name: string; result?: SourceRefinementResult }[];
 }) {
+  const { user } = useSession();
   const [queue, setQueue] = useState<string[]>([]);
-  const seen = useRef(new Set<string>());
-  const entries = products.flatMap(({ name, result }) =>
-    result?.refinementVersion && result.excluded.length
-      ? [{ name, items: result.excluded, key: `farmclub-producer:excluded-seen:${batchId}:${result.refinementVersion}` }]
+  const seen = useRef(new Map<string, string>());
+  const entries = products.flatMap(({ id, name, result }) =>
+    user && result?.refinementVersion && result.excluded.length
+      ? [{ name, items: result.excluded, version: result.refinementVersion,
+          storageKey: `farmclub-producer:excluded-seen:${user.userId}:${batchId}:${id}`,
+          key: `farmclub-producer:excluded-seen:${user.userId}:${batchId}:${id}:${result.refinementVersion}` }]
       : [],
   );
-  const entryKeys = JSON.stringify(entries.map(({ key }) => key));
+  const entryKeys = JSON.stringify(entries.map(({ key, storageKey, version }) => ({ key, storageKey, version })));
   useEffect(() => {
     const pending: string[] = [];
-    for (const key of JSON.parse(entryKeys) as string[]) {
-      if (seen.current.has(key)) continue;
-      seen.current.add(key);
+    const legacySeen = new Map<string, boolean>();
+    for (const { key, storageKey, version } of JSON.parse(entryKeys) as { key: string; storageKey: string; version: string }[]) {
+      if (seen.current.get(storageKey) === version) continue;
+      seen.current.set(storageKey, version);
+      if (acknowledgedExclusions.get(storageKey) === version) continue;
+      const legacyKey = `farmclub-producer:excluded-seen:${batchId}:${version}`;
+      if (!legacySeen.has(legacyKey)) {
+        try {
+          const previous = sessionStorage.getItem(legacyKey);
+          legacySeen.set(legacyKey, !!previous);
+          sessionStorage.removeItem(legacyKey);
+        } catch { legacySeen.set(legacyKey, false); }
+      }
+      let acknowledged = legacySeen.get(legacyKey) ?? false;
       try {
-        if (sessionStorage.getItem(key)) continue;
-      } catch {
-        // Remember inside this screen if storage is unavailable.
+        acknowledged = localStorage.getItem(storageKey) === version || acknowledged;
+      } catch { /* In-memory fallback still works when storage is unavailable. */ }
+      if (acknowledged) {
+        acknowledgedExclusions.set(storageKey, version);
+        try { localStorage.setItem(storageKey, version); } catch { /* Session fallback. */ }
+        continue;
       }
       pending.push(key);
     }
     if (pending.length) setQueue((old) => [...old, ...pending]);
-  }, [entryKeys]);
+  }, [entryKeys, batchId]);
   const opened = queue.map((key) => entries.find((entry) => entry.key === key)).find(Boolean);
   const openedKey = opened?.key;
-  useEffect(() => {
-    if (!openedKey) return;
-    try {
-      sessionStorage.setItem(openedKey, "1");
-    } catch {
-      // In-memory fallback above. Queued products are remembered only once displayed.
+  const dismiss = () => setQueue((old) => old.filter((key) => key !== openedKey));
+  const acknowledge = () => {
+    if (opened) {
+      acknowledgedExclusions.set(opened.storageKey, opened.version);
+      try { localStorage.setItem(opened.storageKey, opened.version); } catch { /* Session fallback. */ }
     }
-  }, [openedKey]);
-  const close = () => setQueue((old) => old.filter((key) => key !== openedKey));
-  if (!entries.length) return null;
+    dismiss();
+  };
+  if (!entries.length || !visible) return null;
   const groups = groupSourceExclusions(opened?.items ?? []);
   const multipleProducts = products.length > 1;
   const productPrefix = (name: string) => multipleProducts ? `${name} · ` : "";
@@ -108,9 +129,9 @@ export function SourceExclusions({
           {productPrefix(name)}AI가 뺀 문구 {items.length}개
         </T>
       </Pressable>)}
-      <Modal visible={!!opened} transparent animationType="slide" onRequestClose={close}>
+      <Modal visible={!!opened} transparent animationType="slide" onRequestClose={dismiss}>
         <View style={{ flex: 1, justifyContent: "flex-end", alignItems: "center", backgroundColor: tokens.color.overlay }}>
-          <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="닫기" onPress={close} />
+          <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="닫기" onPress={dismiss} />
           <View
             testID="excluded-modal"
             accessibilityViewIsModal
@@ -190,7 +211,7 @@ export function SourceExclusions({
               <T variant="caption" muted>
                 맨 위 &apos;AI가 뺀 문구&apos;에서 다시 볼 수 있어요
               </T>
-              <Button label="확인" onPress={close} />
+              <Button label="확인" onPress={acknowledge} />
             </View>
           </View>
         </View>

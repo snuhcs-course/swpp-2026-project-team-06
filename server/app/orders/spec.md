@@ -22,7 +22,7 @@
 - 결제일·배송 완료일·구매 확정일을 기록한다(R-13). 금전성 필드(잔액·포인트 등)는 만들지 않는다(R-08).
 - 받는 사람·연락처·주소는 주문 시점 값을 `Order`에 복사해 저장한다. `ShippingAddress`(accounts)를 참조하지 않는다 — 저장 배송지를 나중에 바꿔도 지난 주문이 바뀌지 않게.
 - 생산자는 배송 완료 전 주문의 배송 정보만 본다(R-15). 배송 메모(`deliveryNote`)도 같다.
-- 생산자가 바꿀 수 있는 전이는 예약 완료 → 출하 준비(수확 시작), 출하 준비 → 출하(택배사 `carrier`·송장 번호 선택)뿐이다. 여러 건 출하는 앱이 주문별 API를 반복하고, 서버에 일괄 API는 없다. 배송 완료는 운영자 관리 API만(R-19, AC-17-4).
+- 생산자가 바꿀 수 있는 전이는 예약 완료 → 출하 준비(수확 시작), 출하 준비 → 출하(택배사 `carrier`·송장 번호 선택)뿐이다. SHIPPED 택배사·송장 정정은 상태 전이가 아닌 별도 버전/멱등 API(AC-17-9)다. 여러 건 출하는 앱이 주문별 API를 반복하고, 서버에 일괄 API는 없다. 배송 완료는 운영자 관리 API만(R-19, AC-17-4).
 - `POST /api/orders`·`POST /api/orders/{orderId}/deposit`는 `Idempotency-Key`로 중복 처리를 막는다(AC-09-3, server/spec.md).
 - **무통장 입금(DEV-68, R-28)**: 물량은 입금 안내(`deposit`) 시점에 선점하고 주문은 `AWAITING_DEPOSIT`이 된다. `holds_stock(order)`(입금 대기 또는 `paid_at` 있음)가 물량·중량 집계의 기준이다. 입금 확인(`confirm_deposit`)은 자기 농가 생산자 또는 운영자만, 멱등이며 `paid_at`=확인 시각에 `Payment(BANK_TRANSFER/FARM_ACCOUNT)`를 만든다. 기한(`deposit_due_at` = 안내 + `DEPOSIT_DEADLINE_HOURS`)이 지난 입금 대기는 소비자 조회·취소, 생산자 목록·현황·확인 시점에 `expire_overdue_deposits`로 취소(`CANCELED`, `cancel_reason`)하고 물량을 돌려주며, 운영자 `POST /admin/orders/expire-deposits`가 일괄 처리한다. 입금 대기 취소는 환불 없이 `CANCELED`. 환불 송금은 농가가 하고 `Refund.settled_at`만 기록한다. 농가 계좌·판매자 정보는 `holds_stock`인 본인 주문 응답에서만 내려준다.
 - 다른 모듈과의 경계
@@ -48,3 +48,5 @@
 | 2026-10-18 | 리뷰 반영: 기한 지난 입금 대기라도 `deposit_reported_at`이 있으면 취소하지 않는다(돈이 들어갔을 수 있음, 운영자가 `GET /admin/orders/deposit-overdue`로 찾아 생산자에게 연락). `POST /admin/orders/expire-deposits`는 다른 운영자 변경 API처럼 `Idempotency-Key`·`run_manager_action` 감사 기록. 생산자 목록은 `paid_at` 없는 `CANCELED`를 빼고, `paid_at` 없는 주문은 연락처·주소·배송 메모를 비운다(R-15). 주문 번호 UNIQUE 충돌은 savepoint로 새 번호를 뽑아 최대 5번 다시 넣는다. 부분 환불의 농가 송금 표시는 이번 범위가 아니다(나중 고려). |
 | 2026-10-18 | 농가 미승인: `reject-deposit {reason, cancel}`(사유 필수, 입금 대기 유지 또는 취소 `cancel_reason="입금 미승인 · 사유"`), `refund-issue {reason}`(송금 보류 사유). `orders.deposit_issue·refund_issue(_at)`(0015). 승인·송금 완료 시 사유를 지운다. |
 | 2026-10-18 | `AWAITING_DEPOSIT` 신설, `/pay`·`mockResult` 삭제 → `deposit`·`deposit-reported`·`confirm-deposit`·`refund-settled`, 관리 `confirm-deposit`·`expire-deposits`. 만료는 지연 검사 + 일괄 API(스케줄러 없음). 입금 대기 줄의 배송지는 생산자에게 숨김 | DEV-68(C안: farmclub은 통신판매중개자), R-28 | AC-09-1·2·3·7·8, AC-17-7 |
+
+| 2026-11-02 | SHIPPED 정정은 PATCH orders/:id/tracking + tracking_version(0024) + run_idempotent. 행 잠금·농가 소유권·상태·버전 검사를 적용한다. 실제 변경은 기존 ManagerEvent(order.tracking_updated)의 request_summary.previous/result와 actor_id/created_at에 같은 트랜잭션으로 기록한다. | 기존 운영자 감사 조회를 재사용하고 양쪽 주문 응답에 이력을 넣지 않는다. 소비자 조회는 Order의 최신 필드를 사용한다. | AC-17-9, R-19 |

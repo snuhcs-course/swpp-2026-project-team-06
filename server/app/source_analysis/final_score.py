@@ -40,6 +40,7 @@ NUMBER_UNIT = (
     r"kg|mg|[μµ]g|g|brix|cm|mm|ml|l|m|톤|리터|년|개월|월|일|시간|분|초|"
     r"과|개|상자|박스|%|도|회|명|배"
 )
+MEASUREMENT_VERSION = "dev193-number-evidence-v1"
 NUMBER_VALUE = r"[+-]?\d[\d,]*(?:\.\d+)?"
 RANGE_SEPARATOR = r"(?:[~–-]|부터|에서)"
 NUMBER_RE = re.compile(
@@ -78,6 +79,9 @@ FORBIDDEN_WORDS = {kind: tuple(SAFETY_LISTS[kind]) for kind in ("health", "platf
 VALIDATION_DIR = Path(__file__).resolve().parents[3] / "docs/spec/validation"
 DEV_MANIFEST = VALIDATION_DIR / "source-final-dev-manifest.json"
 HOLDOUT_LOCK = VALIDATION_DIR / "source-final-holdout-i3-lock.json"
+HOLDOUT_V2_LOCK = VALIDATION_DIR / "source-final-holdout-i3-v2-lock.json"
+HOLDOUT_VERSIONS = ("v1.1", "v2")
+DEFAULT_HOLDOUT_VERSION = "v2"
 LOCAL_GOLD_SHA256 = {
     "holdout": "2bcc00b48d4b62057a18501473fcd08268f5ed01bab3ddb3b795312086dff073",
     "development": "16c239045030411306cf07e8b04e9bf35c98d74acda0f861ccc69e48f1b27fb5",
@@ -298,9 +302,16 @@ def distinctive(text: str) -> str:
     )
 
 
+def numeric_text(text: str) -> str:
+    """Protect same-line sentence dots before normalization collapses whitespace."""
+    # normalize() already handles wrapped years/units and OCR decimals (3.\n5kg).
+    # Never skip intervening lines: a slash notation may itself be a real unit.
+    return re.sub(r"(?<=\d)\.[ \t]+(?=\d)", "; ", text)
+
+
 def sensitive_tokens(text: str, cultivar_words=CULTIVARS) -> dict[str, set[str]]:
     # 줄 머리 번호 목록 표지(1. / 2))는 사실 숫자가 아니다.
-    value = normalize_final(re.sub(r"(?m)^\s*\d{1,2}[.)]\s+", "", text))
+    value = normalize_final(numeric_text(re.sub(r"(?m)^\s*\d{1,2}[.)]\s+", "", text)))
     folded = compact(text).casefold()
     return {
         "number": {number_token(m[0]) for m in NUMBER_RE.finditer(value)},
@@ -495,6 +506,7 @@ def score(
         rows.append(row)
     return {
         "schemaVersion": 1,
+        "measurementVersion": MEASUREMENT_VERSION,
         "split": parsed.split,
         "sources": rows,
         "byFormat": {fmt: _summary([r for r in rows if r["format"] == fmt]) for fmt in FORMATS},
@@ -526,6 +538,10 @@ def markdown(report: dict) -> str:
         return f"{metric['hit']}/{metric['total']}" if metric["total"] else "N/A"
 
     lines = [
+        "DEV-193 measurement: numeric boundaries and OCR evidence. "
+        "Scores before and after this change are not directly comparable; "
+        "OCR evaluation also requires local + product OCR evidence.",
+        "",
         "| Group | Sources | Extraction | Contract | Facts | Critical | Misplaced | Forbidden | "
         "Unsupported | Proxy | Gate |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
@@ -568,21 +584,100 @@ def _read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def load_local_gold(reference: LocalGold, base: Path, formats: dict[str, str]) -> Gold:
+def holdout_lock_path(version=DEFAULT_HOLDOUT_VERSION):
+    if version not in HOLDOUT_VERSIONS:
+        raise ValueError("HOLDOUT_VERSION_INVALID")
+    return HOLDOUT_V2_LOCK if version == "v2" else HOLDOUT_LOCK
+
+
+def holdout_gold_path(directory: Path, version=DEFAULT_HOLDOUT_VERSION):
+    holdout_lock_path(version)
+    return directory / f"final-gold-{version}.json"
+
+
+def _source_formats(sources):
+    formats = {}
+    for source in sources:
+        sid, fmt = source["id"], source["format"]
+        if sid in formats or fmt not in FORMATS:
+            raise ValueError
+        # Validate IDs before they can become filenames.
+        FileSource(id=sid, format=fmt, safeTextPath="unused")
+        formats[sid] = fmt
+    if not formats:
+        raise ValueError
+    return formats
+
+
+def verify_holdout(directory: Path, version=DEFAULT_HOLDOUT_VERSION):
+    """Offline preflight; no source bytes, provider, budget or attempt marker access."""
+    try:
+        directory = directory.resolve()
+        lock = _read_json(holdout_lock_path(version))
+        formats = _source_formats(lock["sources"])
+        path = holdout_gold_path(directory, version)
+        ref = LocalGold(
+            path=str(path), split="holdout", lockPath=str(path.with_suffix(".lock.json"))
+        )
+        parsed = load_local_gold(ref, directory, formats, holdout_version=version)
+        return parsed
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
+        raise ValueError("HOLDOUT_LOCK_INVALID") from None
+
+
+def load_local_gold(
+    reference: LocalGold,
+    base: Path,
+    formats: dict[str, str],
+    *,
+    holdout_version=DEFAULT_HOLDOUT_VERSION,
+) -> Gold:
     """Validate pinned private list gold without exposing text in errors."""
     try:
         raw = (base / reference.path).read_bytes()
-        expected = LOCAL_GOLD_SHA256[reference.split]
+        repo_lock = None
+        key = "sha256"
+        if reference.split == "holdout":
+            repo_lock = _read_json(holdout_lock_path(holdout_version))
+            key = "goldSha256" if holdout_version == "v2" else "sha256"
+            expected = repo_lock[key]
+            if holdout_version == "v1.1" and expected != LOCAL_GOLD_SHA256["holdout"]:
+                raise ValueError
+            if holdout_version == "v2":
+                manifest = (base / reference.path).parent / "manifest.json"
+                manifest_bytes = manifest.read_bytes()
+                if sha256(manifest_bytes) != repo_lock["manifestSha256"]:
+                    raise ValueError
+                manifest_data = json.loads(manifest_bytes)
+                # The private v2 manifest is a plain list of safe-input entries.
+                if not isinstance(manifest_data, list):
+                    raise ValueError
+                entries = manifest_data
+                if _source_formats(entries) != _source_formats(repo_lock["sources"]):
+                    raise ValueError
+                # Guards against a consistently renamed (e.g. v1.1) set pinned as v2.
+                if any(not sid.startswith("h2-") for sid in _source_formats(entries)):
+                    raise ValueError
+        else:
+            expected = LOCAL_GOLD_SHA256[reference.split]
         if sha256(raw) != expected:
             raise ValueError
         if reference.split == "holdout" and reference.lockPath is None:
             raise ValueError
         if reference.lockPath is not None:
             lock = _read_json(base / reference.lockPath)
-            if lock["sha256"] != expected:
+            # Private locks keep the gold hash as `sha256` in every version; only the
+            # v2 repo lock names it `goldSha256`.
+            if lock.get("sha256") != expected:
+                raise ValueError
+            if holdout_version == "v2" and reference.split == "holdout" and (
+                lock.get("manifestSha256") != repo_lock["manifestSha256"]
+            ):
                 raise ValueError
         if reference.split == "holdout":
-            pinned = {(s["id"], s["format"]) for s in _read_json(HOLDOUT_LOCK)["sources"]}
+            pinned = set(_source_formats(repo_lock["sources"]).items())
+            if set(formats.items()) != pinned:
+                raise ValueError
         else:
             manifest = _read_json(DEV_MANIFEST)
             pinned = {
@@ -613,6 +708,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gold", type=Path, nargs="+", default=[])
     parser.add_argument(
+        "--holdout-version", choices=HOLDOUT_VERSIONS, default=DEFAULT_HOLDOUT_VERSION
+    )
+    parser.add_argument(
         "--runs", type=Path, required=True, help="Local file envelope; relative paths to it"
     )
     parser.add_argument("--report", type=Path, required=True)
@@ -634,6 +732,7 @@ def main(argv=None) -> int:
                 reference,
                 args.runs.parent,
                 {s.id: s.format for s in envelope.sources if s.format is not None},
+                holdout_version=args.holdout_version,
             )
             for reference in envelope.gold
         )
@@ -668,17 +767,26 @@ def main(argv=None) -> int:
             *(args.runs.parent / s.safeTextPath for s in envelope.sources),
             *(args.runs.parent / s.outputPath for s in envelope.sources if s.outputPath),
             HOLDOUT_LOCK,
+            HOLDOUT_V2_LOCK,
+            *(
+                (args.runs.parent / g.path).parent / "manifest.json"
+                for g in envelope.gold
+                if g.split == "holdout"
+            ),
             DEV_MANIFEST,
         ]
         destinations = [args.report.resolve(), args.markdown.resolve()]
         if len(set(destinations)) != 2 or set(destinations) & {p.resolve() for p in inputs}:
             raise ValueError
+        if gold["split"] == "holdout":
+            report.pop("sources")
+            report["holdoutVersion"] = args.holdout_version
         args.report.write_text(
             json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         args.markdown.write_text(markdown(report), encoding="utf-8")
     except (ValueError, OSError, TypeError, AttributeError):
-        print("Invalid final-score input or report destination (details redacted)")
+        print("FINAL_SCORE_INVALID")
         return 2
     print(markdown(report), end="")
     return 0 if report["overall"]["criticalGate"] == "PASS" else 1

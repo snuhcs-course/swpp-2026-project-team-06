@@ -12,6 +12,7 @@ import time
 from collections import Counter
 from pathlib import Path
 from statistics import median
+from threading import Lock
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -30,11 +31,15 @@ from app.source_analysis.preprocess import (
     PreparationError,
     parse,
     scrub,
-    text_chunks,
 )
 from app.source_analysis.synthetic import CASES, material
 from app.source_analysis.text_safety import SAFETY_LISTS_HASH
-from app.source_analysis.worker import transcribe_pages, validate_candidates
+from app.source_analysis.worker import (
+    extract_vision_chunks,
+    extraction_chunks,
+    transcribe_pages,
+    validate_candidates,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 SYNTHETIC_GOLD = final_score.VALIDATION_DIR / "source-final-gold-i3-dev-synthetic.json"
@@ -119,10 +124,19 @@ def claim_holdout(gold_path, acknowledged, force=False, rerun_reason=None):
     return target
 
 
-def dataset(split, subset, dev_dir, holdout_dir, font=None):
+def dataset(
+    split,
+    subset,
+    dev_dir,
+    holdout_dir,
+    font=None,
+    holdout_version=final_score.DEFAULT_HOLDOUT_VERSION,
+):
     """Read input material only; gold never feeds the model or mock provider."""
     manifest = read_json(
-        final_score.DEV_MANIFEST if split == "development" else final_score.HOLDOUT_LOCK
+        final_score.DEV_MANIFEST
+        if split == "development"
+        else final_score.holdout_lock_path(holdout_version)
     )
     cases = manifest["cases"] if split == "development" else manifest["sources"]
     synthetic = {c["id"]: c for c in read_json(CASES)}
@@ -148,6 +162,17 @@ def dataset(split, subset, dev_dir, holdout_dir, font=None):
             if len(paths) != 1:
                 raise ValueError("Missing or ambiguous safe input")
             path = paths[0]
+            if (
+                split == "holdout"
+                and path.suffix
+                not in {
+                    "text": {".txt"},
+                    "image": {".png", ".jpg"},
+                    "long_image": {".png", ".jpg"},
+                    "pdf": {".pdf"},
+                }[case["format"]]
+            ):
+                raise ValueError("HOLDOUT_INPUT_FORMAT_INVALID")
             data, suffix = path.read_bytes(), path.suffix
             mime = {
                 ".txt": "text/plain",
@@ -211,7 +236,14 @@ def save_inputs(out, rows):
     write_json(out / "inputs.json", {"sources": sources})
 
 
-def load_gold(split, subset, dev_dir, holdout_dir, rows):
+def load_gold(
+    split,
+    subset,
+    dev_dir,
+    holdout_dir,
+    rows,
+    holdout_version=final_score.DEFAULT_HOLDOUT_VERSION,
+):
     golds, references, gold_files = [], [], []
     if split == "development" and subset != "public":
         if (
@@ -223,16 +255,20 @@ def load_gold(split, subset, dev_dir, holdout_dir, rows):
         gold_files.append(SYNTHETIC_GOLD)
     if split == "holdout" or subset != "synthetic":
         path = (
-            holdout_dir / "final-gold-v1.1.json"
+            final_score.holdout_gold_path(holdout_dir, holdout_version)
             if split == "holdout"
             else dev_dir / "final-gold-dev-public-v2.json"
         )
         ref = final_score.LocalGold(
             path=str(path),
             split=split,
-            lockPath=str(holdout_dir / "final-gold-v1.1.lock.json") if split == "holdout" else None,
+            lockPath=str(path.with_suffix(".lock.json")) if split == "holdout" else None,
         )
-        golds.append(final_score.load_local_gold(ref, ROOT, {r["id"]: r["format"] for r in rows}))
+        golds.append(
+            final_score.load_local_gold(
+                ref, ROOT, {r["id"]: r["format"] for r in rows}, holdout_version=holdout_version
+            )
+        )
         references.append(ref.model_dump())
     combined = {
         "schemaVersion": 1,
@@ -244,7 +280,7 @@ def load_gold(split, subset, dev_dir, holdout_dir, rows):
 
 
 def estimate(rows, provider, model):
-    """Planning estimate, NOT a quote: 4k input/2k output per page and refine.
+    """Planning estimate, NOT a quote: 4k input/configured output per page and refine.
 
     Raster page count is approximated by conservative 720px tiles (PDF: physical pages).
     Actual reservations use UTF-8/image bounds in budget.py before every call.
@@ -275,7 +311,7 @@ def estimate(rows, provider, model):
 
     inp, out = SOURCE_OPENROUTER_PRICES[model] if provider == "openrouter" else (2, 10)
     ocr_in, ocr_out = SOURCE_OPENROUTER_PRICES[OCR_MODEL]
-    planned = (pages + len(rows)) * (4000 * inp + 2000 * out) + (
+    planned = (pages + len(rows)) * (4000 * inp + get_settings().source_max_output_tokens * out) + (
         tiles * (4000 * ocr_in + 2048 * ocr_out) if provider == "openrouter" else 0
     )
     return {
@@ -297,6 +333,8 @@ class Calls:
         self.limit = math.floor(max_usd * 1e6)
         self.used = 0
         self.entries = []
+        self.lock = Lock()
+        self.budget_exceeded = False
 
     def __call__(self, stage, model, chunk, targets, images, fn, output_tokens=None):
         amount = (
@@ -306,24 +344,42 @@ class Calls:
                 self.provider, model, chunk, targets, images, output_tokens=output_tokens
             )
         )
-        if self.used + amount > self.limit:
-            raise extraction_ai.ExtractionError("BUDGET_EXCEEDED")
-        reservation = None
-        if self.provider != "mock":
-            with get_sessionmaker()() as db:
-                reservation = budget.reserve(
-                    db,
-                    SimpleNamespace(id="eval-" + uuid4().hex, attempt=1),
-                    self.provider,
-                    model,
-                    chunk,
-                    targets,
-                    images,
-                    stage=stage,
-                    output_tokens=output_tokens,
-                )
-                db.commit()
-        self.used += amount
+        with self.lock:
+            if self.budget_exceeded or self.used + amount > self.limit:
+                self.budget_exceeded = True
+                raise extraction_ai.ExtractionError("BUDGET_EXCEEDED")
+            reservation = None
+            try:
+                if self.provider != "mock":
+                    with get_sessionmaker()() as db:
+                        reservation = budget.reserve(
+                            db,
+                            SimpleNamespace(id="eval-" + uuid4().hex, attempt=1),
+                            self.provider,
+                            model,
+                            chunk,
+                            targets,
+                            images,
+                            stage=stage,
+                            output_tokens=output_tokens,
+                        )
+                        db.commit()
+            except extraction_ai.ExtractionError as exc:
+                if exc.code == "BUDGET_EXCEEDED":
+                    self.budget_exceeded = True
+                raise
+            self.used += amount
+            entry = {
+                "stage": stage,
+                "model": model,
+                "usage": {},
+                "requestId": None,
+                "reservedMicros": amount,
+                "costUsd": 0,
+                "costKnown": self.provider == "mock",
+                "latencyMs": 0,
+            }
+            self.entries.append(entry)  # Reservation order, regardless of completion order.
         started = time.perf_counter()
         usage, request_id = {}, None
         try:
@@ -343,24 +399,37 @@ class Calls:
             )
             settled = math.ceil(cost * 1e6) if known else 0
             # Pending reservations still consume the ceiling, but are not settled spend.
-            self.used += (settled if known else amount) - amount
-            if reservation:
-                with get_sessionmaker()() as db:
-                    budget.settle(db, reservation, usage)
-                    db.commit()
-            # Token usage and request IDs are local-only; publish summaries below.
-            self.entries.append(
-                {
-                    "stage": stage,
-                    "model": model,
-                    "usage": usage,
-                    "requestId": request_id,
-                    "reservedMicros": amount,
-                    "costUsd": settled / 1e6,
-                    "costKnown": known or self.provider == "mock",
-                    "latencyMs": (time.perf_counter() - started) * 1000,
-                }
-            )
+            settled_ok = False
+            try:
+                if reservation:
+                    with get_sessionmaker()() as db:
+                        budget.settle(db, reservation, usage)
+                        db.commit()
+                settled_ok = True
+            finally:
+                with self.lock:
+                    if settled_ok:
+                        self.used += (settled if known else amount) - amount
+                    # Keep metadata usable and reservations conservative if settlement fails.
+                    entry.update(
+                        usage=usage,
+                        requestId=request_id,
+                        costUsd=settled / 1e6 if settled_ok else 0,
+                        costKnown=settled_ok and (known or self.provider == "mock"),
+                        latencyMs=(time.perf_counter() - started) * 1000,
+                    )
+
+
+def evidence_text(local_text, chunk, diagnostics):
+    """Union local evidence with OCR from pages without failed extraction chunks."""
+    failed_pages = {page for part in diagnostics.get("chunksFailed", []) for page in part["pages"]}
+    transcript = "\n".join(
+        s["text"]
+        for p in chunk["pages"]
+        if p["number"] not in failed_pages
+        for s in p["spans"]
+    )
+    return "\n;\n".join(dict.fromkeys(t for t in (local_text, transcript) if t))
 
 
 def evaluate_source(row, provider, model, calls):
@@ -370,8 +439,10 @@ def evaluate_source(row, provider, model, calls):
     metric.update(status="FAILED", errorCode=None, stage1Ms=None, stage2Ms=None, preprocessMs=None)
     record = {"id": row["id"], "format": row["format"], "status": "FAILED", "modules": []}
     candidates, stored, safe_text = [], [], ""
+    local_text = ""
     stage2_usage, stage2_diagnostics, stage1_diagnostics = {}, {}, []
     stage = "preprocess"
+    ocr_diagnostics = {"pagesEmpty": [], "pagesFailed": []}
     try:
         # Same parser function as the bounded product subprocess; safe frozen inputs only.
         pages = parse(row["data"], row["mime"])
@@ -386,21 +457,44 @@ def evaluate_source(row, provider, model, calls):
         }
         stage1 = time.perf_counter()
         rejected = 0
-        for number, page in enumerate(pages, 1):
-            spans = [{**s, "text": scrub(s["text"])} for s in page["spans"]]
-            one = {**chunk, "pages": [{"number": number, "spans": spans}]}
-            if provider == "openrouter" and row["mime"] != "text/plain":
-                import base64
+        chunk["pages"] = [
+            {"number": number, "spans": [{**s, "text": scrub(s["text"])} for s in page["spans"]]}
+            for number, page in enumerate(pages, 1)
+        ]
+        local_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
+        vision = provider == "openrouter" and row["mime"] != "text/plain"
+        if vision:
+            import base64
 
-                stage = "ocr"
-                transcribe_pages(one, {number: base64.b64decode(page["image"])}, calls)
-            chunk["pages"].extend(one["pages"])
-            # Plain text is size-chunked for every provider, including OpenRouter.
-            spans = one["pages"][0]["spans"]
-            groups = [spans] if provider == "openrouter" and page["image"] else text_chunks(spans)
-            for group in groups:
+            stage = "ocr"
+            ocr_diagnostics = transcribe_pages(
+                chunk,
+                {number: base64.b64decode(page["image"]) for number, page in enumerate(pages, 1)},
+                calls,
+            )
+            stage = "extract"
+            response, diagnostics = extract_vision_chunks(
+                chunk,
+                [target],
+                model,
+                calls,
+                lambda part: extraction_ai.extract(
+                    provider, model, part, [target], [], mock_empty=True
+                ),
+                ocr_diagnostics,
+            )
+            stage1_diagnostics.append(diagnostics)
+            rejected = diagnostics["rejectedCount"]
+            candidates = [
+                {"id": "c-" + str(i), **c.model_dump(by_alias=True)}
+                for i, c in enumerate(response.extraction.candidates)
+            ]
+            if rejected and not candidates:
+                raise extraction_ai.ExtractionError("CANDIDATES_REJECTED")
+        else:
+            # Each product text chunk is an item, including an empty page's chunk.
+            for part in extraction_chunks(chunk):
                 stage = "extract"
-                part = {**one, "pages": [{"number": number, "spans": group}]}
                 response = calls(
                     "extract",
                     model,
@@ -429,7 +523,7 @@ def evaluate_source(row, provider, model, calls):
                     ):
                         candidates.append(value)
         metric["stage1Ms"] = (time.perf_counter() - stage1) * 1000
-        safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
+        safe_text = evidence_text(local_text, chunk, ocr_diagnostics)
         metric["rejectedCandidates"] = rejected
         # PARTIAL extraction with accepted candidates is usable for product refinement.
         # Wholly rejected items above still fail; no failed/uncertain request is replayed.
@@ -505,7 +599,11 @@ def evaluate_source(row, provider, model, calls):
         }
         metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
         record.update(
-            status="EVALUATED" if stored else "EMPTY",
+            status="PARTIAL"
+            if ocr_diagnostics["pagesFailed"] or ocr_diagnostics.get("chunksFailed")
+            else "EVALUATED"
+            if stored
+            else "EMPTY",
             modules=[
                 {"module": m["module"], "texts": [t["value"] for t in m["texts"]]} for m in stored
             ],
@@ -518,9 +616,15 @@ def evaluate_source(row, provider, model, calls):
             )
         metric["rejectedTexts"] = diagnostics["rejectedCount"]
         metric["status"] = record["status"]
+        if ocr_diagnostics["pagesFailed"]:
+            metric["errorCode"] = "OCR_PAGES_FAILED"
+        elif ocr_diagnostics.get("chunksFailed"):
+            metric["errorCode"] = "EXTRACT_CHUNKS_FAILED"
     except Exception as exc:
         # Never serialize exception messages, Pydantic input, provider payloads or private paths.
         metric["status"] = "FAILED"
+        if isinstance(exc, extraction_ai.ExtractionError):
+            ocr_diagnostics = exc.details.get("ocrDiagnostics", ocr_diagnostics)
         metric["errorCode"] = (
             source_error_code(exc, stage)
             if isinstance(exc, (extraction_ai.ExtractionError, PreparationError))
@@ -529,8 +633,13 @@ def evaluate_source(row, provider, model, calls):
         if isinstance(exc, extraction_ai.ExtractionError) and exc.code == "BUDGET_EXCEEDED":
             metric["budgetExceeded"] = True
     finally:
+        metric.update(
+            pagesEmpty=len(ocr_diagnostics["pagesEmpty"]),
+            pagesFailed=len(ocr_diagnostics["pagesFailed"]),
+            chunksFailed=len(ocr_diagnostics.get("chunksFailed", [])),
+        )
         if "chunk" in locals():
-            safe_text = "\n".join(s["text"] for p in chunk["pages"] for s in p["spans"])
+            safe_text = evidence_text(local_text, chunk, ocr_diagnostics)
         if "stage2" in locals() and metric["stage2Ms"] is None:
             metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
         entries = calls.entries[first_entry:]
@@ -730,6 +839,8 @@ def audit_summary(out, source_audit=None):
 
 
 def report(out, gold_files, source_audit=None):
+    out = private_path(out)
+    metadata = read_json(out / "metadata.json")
     # Invoke the pinned scorer CLI, including its private-gold/lock validation and redaction.
     args = [
         "--runs",
@@ -741,6 +852,8 @@ def report(out, gold_files, source_audit=None):
     ]
     if gold_files:
         args += ["--gold", *map(str, gold_files)]
+    # Old private runs predate version metadata and always used v1.1.
+    args += ["--holdout-version", metadata.get("holdoutVersion") or "v1.1"]
     # main prints only its safe count table. Keep runner stdout machine-readable.
     import contextlib
     import io
@@ -748,7 +861,7 @@ def report(out, gold_files, source_audit=None):
     with contextlib.redirect_stdout(io.StringIO()):
         if final_score.main(args) == 2:
             raise ValueError("Scorer rejected input")
-    scored, metadata = read_json(out / "score.json"), read_json(out / "metadata.json")
+    scored = read_json(out / "score.json")
     audits = audit_summary(out, source_audit)
     result = {
         "label": LABEL if metadata["provider"] == "mock" else "LIVE — see human audit status",
@@ -763,6 +876,10 @@ def report(out, gold_files, source_audit=None):
     result["acceptance"] = (
         "FAIL" if "FAIL" in gates else "BLOCKED" if "BLOCKED" in gates else "PASS"
     )
+    if scored["split"] == "holdout":
+        # Free-form rerun reasons and per-source diagnostics remain only in private metadata.
+        for key in ("sources", "rerunReason"):
+            result["config"].pop(key, None)
     write_json(out / "report.json", result)
     (out / "report.md").write_text(render(result), encoding="utf-8")
     return result
@@ -826,6 +943,7 @@ def render(result):
                 k: config[k]
                 for k in (
                     "split",
+                    "holdoutVersion",
                     "subset",
                     "provider",
                     "model",
@@ -902,14 +1020,20 @@ def render(result):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split", choices=["development", "holdout"], default="development")
+    parser.add_argument(
+        "--holdout-version",
+        choices=final_score.HOLDOUT_VERSIONS,
+        default=final_score.DEFAULT_HOLDOUT_VERSION,
+    )
+    parser.add_argument("--verify-lock", action="store_true")
     parser.add_argument("--subset", choices=["all", "synthetic", "public"], default="all")
     parser.add_argument("--provider", choices=["mock", "openrouter", "openai"], default="mock")
     parser.add_argument("--model")
     parser.add_argument("--max-usd", type=float, default=3.0)
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--out", type=Path)
     parser.add_argument("--dev-dir", type=Path, default=ROOT.parent / "source-dev-i3-private")
     parser.add_argument(
-        "--holdout-dir", type=Path, default=ROOT.parent / "source-holdout-i3-private"
+        "--holdout-dir", type=Path, help="Required for v2; defaults to the v1.1 folder for v1.1"
     )
     parser.add_argument("--font", type=str, default=str(FONT) if FONT.exists() else None)
     parser.add_argument("--inputs-from", type=Path, nargs="+", default=[])
@@ -925,8 +1049,31 @@ def main(argv=None):
     parser.add_argument("--source-audit-csv", type=Path)
     args = parser.parse_args(argv)
     try:
-        out = private_path(args.out)
+        if args.holdout_dir is None:
+            # v2 lives wherever the owner keeps it; only the spent v1.1 has a fixed folder.
+            if args.split == "holdout" and args.holdout_version != "v1.1":
+                raise ValueError("HOLDOUT_DIR_REQUIRED")
+            args.holdout_dir = ROOT.parent / "source-holdout-i3-private"
         dev_dir, holdout_dir = args.dev_dir.resolve(), args.holdout_dir.resolve()
+        if args.verify_lock:
+            if args.split != "holdout" or args.rescore or args.estimate_only:
+                raise ValueError
+            parsed = final_score.verify_holdout(private_path(holdout_dir), args.holdout_version)
+            counts = {}
+            for fmt in final_score.FORMATS:
+                sources = [s for s in parsed.sources if s.format == fmt]
+                facts = [f for s in sources for sentence in s.sentences for f in sentence.facts]
+                counts[fmt] = {
+                    "sources": len(sources),
+                    "sentences": sum(len(s.sentences) for s in sources),
+                    "facts": len(facts),
+                    "criticalFacts": sum(f.critical for f in facts),
+                }
+            print(json.dumps({"result": "PASS", "countsBySourceFormat": counts}))
+            return 0
+        if args.out is None:
+            raise ValueError
+        out = private_path(args.out)
         if args.rescore:
             metadata = read_json(out / "metadata.json")
             if args.audit_csv:
@@ -942,13 +1089,17 @@ def main(argv=None):
             raise ValueError("--force-rerun requires --rerun-reason")
         if args.rerun_reason and not args.force_rerun:
             raise ValueError("--rerun-reason requires --force-rerun")
+        if args.split == "holdout":
+            final_score.verify_holdout(private_path(holdout_dir), args.holdout_version)
         model = args.model or (
             "gpt-6.1-sol" if args.provider == "openai" else "google/gemini-3-flash-preview"
         )
         if args.provider == "openai" and model != "gpt-6.1-sol":
             raise ValueError("OpenAI model must match existing budget price caps")
         calls = Calls(args.provider, args.max_usd)
-        rows = dataset(args.split, args.subset, dev_dir, holdout_dir, args.font)
+        rows = dataset(
+            args.split, args.subset, dev_dir, holdout_dir, args.font, args.holdout_version
+        )
         rows = frozen_inputs(rows, args.inputs_from)
         planned = estimate(rows, args.provider if args.provider != "mock" else "openrouter", model)
         print(
@@ -973,7 +1124,9 @@ def main(argv=None):
             cfg.app_env != "local" or url.host not in ("127.0.0.1", "localhost")
         ):
             raise ValueError("Paid evaluation requires a scratch local database")
-        references, gold_files = load_gold(args.split, args.subset, dev_dir, holdout_dir, rows)
+        references, gold_files = load_gold(
+            args.split, args.subset, dev_dir, holdout_dir, rows, args.holdout_version
+        )
         # Preflight OCR before spending or consuming the holdout attempt. No network provisioning.
         if any(r["mime"] != "text/plain" for r in rows):
             from app.source_analysis.preprocess import _ocr_engine
@@ -984,7 +1137,7 @@ def main(argv=None):
         holdout_attempt = None
         if args.split == "holdout":
             marker = claim_holdout(
-                holdout_dir / "final-gold-v1.1.json",
+                final_score.holdout_gold_path(holdout_dir, args.holdout_version),
                 args.i_understand_holdout_runs_once,
                 args.force_rerun,
                 args.rerun_reason,
@@ -1040,6 +1193,7 @@ def main(argv=None):
                 "holdoutAttempt": holdout_attempt["attempt"] if holdout_attempt else None,
                 "rerunReason": holdout_attempt["rerunReason"] if holdout_attempt else None,
                 "split": args.split,
+                "holdoutVersion": args.holdout_version if args.split == "holdout" else None,
                 "subset": args.subset,
                 "provider": args.provider,
                 "model": model,
@@ -1050,10 +1204,13 @@ def main(argv=None):
                 "stage2PromptSha256": final_score.sha256(refine_ai.PROMPT.encode()),
                 "safetyListsSha256": SAFETY_LISTS_HASH,
                 "preprocessVersion": PREPROCESS_VERSION,
+                "ocrConcurrency": cfg.source_ocr_concurrency,
                 "ocrModel": OCR_MODEL if args.provider == "openrouter" else "rapidocr-3.10.0",
                 "ocrPromptSha256": final_score.sha256(OCR_PROMPT.encode()),
                 "ocrManifestSha256": cfg.source_ocr_model_sha256,
                 "maxUsd": args.max_usd,
+                "sourceMaxOutputTokens": cfg.source_max_output_tokens,
+                "measurementVersion": final_score.MEASUREMENT_VERSION,
                 "estimate": planned,
                 "goldFiles": list(map(str, gold_files)),
                 "sources": [r[1] for r in results],
@@ -1076,7 +1233,7 @@ def main(argv=None):
         )
         return 1 if aborted else 0
     except Exception:
-        print("Evaluation refused or failed (details redacted); inspect configuration locally")
+        print("FAIL" if args.verify_lock else "EVALUATION_FAILED")
         return 2
 
 

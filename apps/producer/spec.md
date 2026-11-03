@@ -150,6 +150,21 @@ DEV-108: 관문은 `lib/gate.ts`의 `homeFor`. 로그인된 사용자는 농가 
 
 SourceWorkspace가 SourceBasicInfo의 flush를 SourceAttachments에 주입한다. 새 파일 및 새 텍스트 업로드는 기본 정보 저장(진행 중 blur 및 마지막 입력 포함)을 기다린 뒤 최신 batch.version을 조회한다. 저장 실패 시 업로드를 보내지 않고 파일/텍스트와 수동 입력을 보존해 명시적 재시도를 허용한다. 직접 편집 > 기본 정보 > AI 제안 우선순위와 다른 편집자 충돌 보호는 유지한다(AC-SRC-1/5/11).
 
+
+## DEV-179 구현 결정 (2026-11-02)
+FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-editor.md DEV-179 참조.
+- Composer의 단일 basicInfo 훅을 화면과 AI 시트 footer가 공유한다. 품종은 footer에서 입력하며 저장/flush 구현을 중복하지 않는다. 시작 오류는 별도 상태로 footer/시작 버튼 옆에 둔다.
+- PageCanvas의 preview는 같은 현재 modules/hiddenSectionIds를 공용 ModuleStory에 전달한다. 상단 고정 토글은 탐색이나 저장을 발생시키지 않는다. SourceDetailsEditor의 상태를 유지한다.
+- SourceRunProgress는 현재 run item의 단계/상태와 가용 페이지 수만 사용한다. OCR 실패는 ocrFailedPageNumbers, 청크 실패는 chunkFailedPageNumbers를 별도 안내하며 재시도 확인은 새 작업 성공 후 초기화한다.
+- 제외 모달 확인은 userId·batchId·targetId·refinementVersion으로 localStorage에 보존하며 저장소 불가 시 모듈 메모리로 대체한다. 확인 버튼을 눌러야 기록한다.
+- 입금 확인은 기존 Sheet/서버 API를 사용하며 주문 총액은 기존 ProducerOrder.totalAmount를 표시한다. SHIPPED 송장 수정은 기존 시트에 현재 값을 불러와 orders.updateTracking으로 저장한다. trackingVersion과 동일 본문 재시도의 멱등 키를 유지하고 서버 감사 이력은 UI에서 표시하지 않는다(AC-17-9). Figma DEV-185.
+
+- DEV-179 리뷰 보완: AI 시작은 자료 0개일 때만 자료 부족 사유로 비활성화한다(기존 busy/active 보호 유지). 구매자 preview subName/brix 슬롯은 undefined로 넘겨 ProductPageBody/BrixReading을 사용하고, run 진행은 시트 또는 본문 한 곳에만 렌더한다. 제외 확인은 사용자·batch·target별 마지막 버전을 덮어쓰고 커밋된 구 sessionStorage `farmclub-producer:excluded-seen:${batchId}:${version}`만 로그인 사용자 확인 후 한 번 읽고 제거한다. 사용자 정보가 없으면 이관하지 않는다.
+
+- DEV-179 최종 리뷰 보완: Composer의 BasicInfo 래퍼는 batch 로딩 전후 유지하고 key는 URL batchId를 사용한다. 공용 기본 정보 훅은 null batch에서 빈 입력/저장 없음으로 시작해 로드 후 입력을 동기화한다. 로드로 Screen 하위 트리를 remount하지 않는다(AC-SRC-11).
+
+- DEV-179 데모 후속: `sourceFeedback.ts`가 Composer의 representativePhoto 사유 매핑과 재조회 가능 여부(입력 검증 400만 숨김, 409·네트워크·서버 오류는 유지)를 공용으로 처리한다. Workspace 적용 거절 사유는 별도 applyError로 적용 확인 패널에만 한 번 표시한다. `retryCostLabel`은 run에 REQUEST_UNCERTAIN이 있으면 기존 문구, 없으면 일반 비용 확인 문구를 반환하며 ack gate/초기화는 변경하지 않는다. 분석 중 상세 영역은 실제 진행 패널만 사용하고 중복 Skeleton은 두지 않는다(최초 상품 로딩 Skeleton은 유지).
+
 ## DEV-33 EAS 네이티브 빌드 (ADR 0013)
 
 - 식별자 `kr.farmclub.producer`, 스킴 `farmclub-producer`, 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로). 설정·흐름은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절). `lib/kakao.ts`(웹)는 state만 sessionStorage, `lib/kakao.native.ts`는 메모리. 복귀 화면은 농가 상태별 첫 화면으로 간다(DEV-108과 같음).

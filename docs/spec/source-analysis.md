@@ -1,3 +1,5 @@
+> 현재 독립 최종 문장 holdout은 **v2**(DEV-194)다. [격리·채점 프로토콜](validation/source-final-holdout-i3-v2.md)과 [hash-only lock](validation/source-final-holdout-i3-v2-lock.json)을 따른다. v1.1은 **소진/RETIRED_TO_DEV**이며 아래 날짜별 내용은 당시 이력이다. 기본 `--holdout-version v2`, 실행 전 `--verify-lock`, 이후 버전별 1회 실행과 집계만 보고하는 규칙을 적용한다.
+
 > Current DEV-58 editor contract: [source-editor.md](./source-editor.md). This supersedes the earlier redaction approval and form-only editing flow.
 
 > DEV-56/57/58 current integration contract: [source-integration.md](./source-integration.md). This supersedes the DEV-54 model and integration-status notes below.
@@ -30,7 +32,7 @@
 
 서버는 문구별로 금액·건강 효능, `scrub`이 바꾸는 개인정보, 인용 후보 값/근거에 없는 숫자 또는 숫자-단위 조합, 다른 상품/없는 후보 ID, 비텍스트 모듈을 거절하고 비공개 진단에 기록한다. 정제 출력의 플랫폼·기간 단어는 `PLATFORM_TEXT`/`PERIOD_TEXT` warning이며 거절하지 않는다. 제외 판단은 정리 모델 책임이다. 금액 있는 과거 후보 인용 및 과거 사실을 농가 이야기 밖에 배치하는 것도 거절한다. 조회 시 저장된 정리 문구도 현재 금액·건강 효능 detector로 재검사해 위반 문구를 빼고 price/health 제외 사유를 제공한다. 건강 효능 후보는 중립 영양소만 남기더라도 인용하지 않고 전체를 health로 제외한다. 확정/저장에서도 금액·건강 효능을 검사한다. editor 경로는 활성·비제외 필드만 검사하고, 비편집 `save_drafts`는 비활성 필드도 포함한 모든 CONFIRMED 필드를 검사한다. 생산자가 직접 쓴 플랫폼 문구는 저장을 허용하고 UI 경고만 표시한다. `REFINED` 수정 요청은 저장된 정리 문구와 인용 ID가 일치하며 현재 유효한 대상 근거일 때만 허용한다.
 
-원문 fallback은 usable 대상별 후보 1개면 ready, 여러 개면 conflict를 먼저 적용한다. 금액·효능·플랫폼·기간 detector로 걸러낸 뒤 사용할 수 있는 대상별 후보가 없을 때만 공통(targetId=None) 후보를 unassigned로 표시한다. 성공한 정리가 생략한 필드는 원문으로 되살리지 않는다. 문구 선택 버튼은 공유 detector로 금액·효능 후보를 숨기고 플랫폼 후보는 유지한다.
+원문 fallback은 usable 대상별 후보 1개면 ready, 같은 사실의 값이 다른 복수 후보면 conflict를 적용한다. 병합 서술은 성공한 정리 값이 있으면 ready이며, 정리가 없는 복수 서술은 자동으로 이어 붙이지 않는다. 금액·효능·플랫폼·기간 detector로 걸러낸 뒤 사용할 수 있는 대상별 후보가 없을 때만 공통(targetId=None) 후보를 unassigned로 표시한다. 성공한 정리가 생략한 필드는 원문으로 되살리지 않는다. 문구 선택 버튼은 공유 detector로 금액·효능 후보를 숨기고 플랫폼 후보는 유지한다.
 
 SUCCEEDED REFINE의 일부 문구 거절은 diagnostics/refinement.excluded에만 남기며 Item.error는 null이다. FAILED REFINE 안내는 anchor 파일명을 붙이지 않는 문구 정리 전용 메시지다. 응답 뒤 자료/가림 변경으로 정리를 폐기해도 usage와 request_id는 실패 진단에 보존한다.
 
@@ -57,7 +59,7 @@ SUCCEEDED REFINE의 일부 문구 거절은 diagnostics/refinement.excluded에�
 | unused | 💤 미사용 | 이번 상세에 사용하지 않은 문구예요 | — |
 
 - 모든 항목에 원래 후보 문구를 기울임·muted 색상·얇은 주황 왼쪽 막대와 들여쓰기를 적용한 최대2줄 인용으로 표시한다. `excluded-item-<reason>` testID와 원문 textContent는 보존한다.
-- 모달은 화면 높이90% 이하, 본문 ScrollView는 최대400px와 남은 높이로 제한한다. 제목·부제와 footer는 스크롤 밖에 두어 마지막 항목까지 스크롤해도 확인 버튼이 고정·표시된다. footer: “맨 위 'AI가 뺀 문구'에서 다시 볼 수 있어요”와 확인 버튼. `farmclub-producer:excluded-seen:<batchId>:<refinementVersion>` sessionStorage 키로 결과 확인을 기억한다(저장 불가 시 화면 내 메모리).
+- 모달은 화면 높이90% 이하, 본문 ScrollView는 최대400px와 남은 높이로 제한한다. 제목·부제와 footer는 스크롤 밖에 두어 마지막 항목까지 스크롤해도 확인 버튼이 고정·표시된다. footer: “맨 위 'AI가 뺀 문구'에서 다시 볼 수 있어요”와 확인 버튼. `farmclub-producer:excluded-seen:<userId>:<batchId>:<targetId>` localStorage 키의 값으로 마지막 확인 refinementVersion을 기억한다(저장 불가 시 앱 수명 내 메모리).
 - 사진 위 칩으로 다시 연다. 단일 상품은 “AI가 뺀 문구 N개”, 여러 상품은 “<상품명> · AI가 뺀 문구 N개”이며 제외0개면 숨긴다. 전체 상품 수로 접두사 여부를 정한다. 배경은 기존 accent 토큰을 연하게 적용하고 글씨는 accent다. ProductPageBody의 생산자 photo slot에만 넣어 판매 미리보기·소비자 페이지에는 노출하지 않는다. 기존 과거/금액 참고 상자를 대체한다.
 - 새 상품 composer의 story 입력에만 hint를 표시하며 상품명·품종·사이즈·당도·원산지·보관 기본 정보에는 표시하지 않는다. story 입력 아래 금액은 “금액은 다음 단계(판매·가격)에서 직접 채워 주세요”, 건강 효능은 “건강 효능 문구는 넣을 수 없어요”. 플랫폼 문구는 공통 정책과 겹치는지 확인하도록, 기간 문구는 다음 단계에서 정하도록 경고한다.
 - 서버·클라이언트·DEV-187 scorer의 단일 원천은 `server/app/source_analysis/text_safety_lists.json`이다(API 패키지 직접 import). 플랫폼 목록의 택배사는 제거하고 배송비·무료배송은 유지한다. 기간 목록은 이내 발송·이내 도착·출고 요일·도착일·예약 기간·판매 기간 및 판매 상태/배송일을 포함하고, 숫자 기간은 뒤에 도착·발송·출고·배송·수령이 올 때만(예: “1-3일 이내 제주에서 직배송”, “주문 후 2-3일 내 발송”) 기간으로 보고, “실온 5~7일 보관”·“수확 후 3~5일 후숙” 같은 보관·후숙 기간은 상품 사실로 남긴다. 이 패턴과 출고 요일·판매가 셀 패턴도 JSON에 둔다. 더 넓은 의미 판단은 정리 모델 책임이다. scorer의 금지 검사는 기존 money/health/platform/gold-forbidden을 유지하며 기간은 gold에 platform 금지로 기록한다.
@@ -72,7 +74,7 @@ FEAT-03/04/07 · AC-SRC-1/2/3/5/6/8의 평가 자료·채점 계약은 [I3 v1 �
 
 DEV-186의 두 단계 초안 중 stage-2는 [final-text gold 형식·채점 규칙](validation/source-final-gold-format.md)과 [JSON schema](validation/source-final-gold.schema.json)를 따른다. 기존 exact/normalized 필드 점수는 stage-1 진단이며, 최종 문장은 같은 section의 mustContain 사실 recall(전체/critical), 오배치, 금지 내용0건, 안전 원문 밖 수치·품종·인증, 문장별 precision proxy를 보고한다. critical 누락·금지·unsupported·실패는 critical FAIL이며 proxy는 의미 정확성이나 문장 품질을 보장하지 않는다.
 
-[합성 final gold20건](validation/source-final-gold-i3-dev-synthetic.json)은 개발 전용이며, [dev-final manifest](validation/source-final-dev-manifest.json)의 공개12건은 `LOCAL_PRIVATE`이며 private gold 파일 SHA만 기록한다. holdout은3인 독립 작성·2인 이상 합의 후 담당자가 나머지를 결정한다. 원문·gold·실행 봉투는 로컬 전용이며 저장소에는 **ID·형식·해시·집계 점수만** 남긴다. 실제 인쇄 PDF는 페이지를 인용한다. [최종 holdout lock](validation/source-final-holdout-i3-lock.json)은12건/140문장/253사실의 ID·format·해시만 보관한다. DEV-186 이후 T11/T23에서 한 번 실행하며 튜닝하지 않는다. 로컬 gold는 고정 SHA/holdout lock과 엄격 gold 검증을 모두 통과해야 한다. DEV-170/T11 실행/사람 문장 감사는 별도 미완료다. 규칙9~12의 판매점 운영(platform)·건강 효능(health) 제외, summary의 맛·크기 분리, 판매가 셀의 기간 제외를 적용한다. 빈 gold는 contract로 분리 집계하며 전체 gate에는 유지한다.
+[합성 final gold20건](validation/source-final-gold-i3-dev-synthetic.json)은 개발 전용이며, [dev-final manifest](validation/source-final-dev-manifest.json)의 공개12건은 `LOCAL_PRIVATE`이며 private gold 파일 SHA만 기록한다. holdout은3인 독립 작성·2인 이상 합의 후 담당자가 나머지를 결정한다. 원문·gold·실행 봉투는 로컬 전용이며 저장소에는 **ID·형식·해시·집계 점수만** 남긴다. 실제 인쇄 PDF는 페이지를 인용한다. [역사 holdout v1.1 lock](validation/source-final-holdout-i3-lock.json)은 소진된 평가의 기록으로 보존한다(최종146문장/261사실). 당시 DEV-186 이후 T11/T23의 1회 정책이 적용되었으며 현재 독립 평가에는 v2를 사용한다. 로컬 gold는 고정 SHA/holdout lock과 엄격 gold 검증을 모두 통과해야 한다. DEV-170/T11 실행/사람 문장 감사는 별도 미완료다. 규칙9~12의 판매점 운영(platform)·건강 효능(health) 제외, summary의 맛·크기 분리, 판매가 셀의 기간 제외를 적용한다. 빈 gold는 contract로 분리 집계하며 전체 gate에는 유지한다.
 
 현재 상태(2026-10-19, DEV-90): DEV-56~58 앱 통합은 구현/머지되었고 운영 API·독립 OCR worker가 활성화되어 있다. 실제 농가 인수와 일반 정확도는 별도 미완료다. 최신 UI/개인정보/명시적 반영 계약은 상단 링크의 source-editor/source-integration이 우선하며, 아래 DEV-53/54의 후속 통합·보류 설명은 당시 범위 기록이다.
 
@@ -80,7 +82,7 @@ DEV-186의 두 단계 초안 중 stage-2는 [final-text gold 형식·채점 규�
 
 ## 백엔드 구현 범위 (DEV-54)
 - 승인 생산자 전용 `/api/source-analysis/batches`에서 자료·비동기 분석·가림 검토·출처 후보·확인값·상품별 비공개 초안을 관리한다. 기능은 기본 비활성이고 Mock/실제 모드는 명시적으로 구분한다.
-- 동일 내용 후보는 출처와 candidateIds를 합쳐 표시하고 다른 값은 충돌 목록으로 제공한다. 원문과 달라진 수동 편집은 PRODUCER 출처로 기록한다. AI 후보는 유효한 근거가 있어야 확인할 수 있다.
+- 동일 내용 후보는 출처와 candidateIds를 합쳐 표시하고 같은 사실의 값이 다른 경우만 충돌 목록으로 제공한다. 원문과 달라진 수동 편집은 PRODUCER 출처로 기록한다. AI 후보는 유효한 근거가 있어야 확인할 수 있다.
 - 실제 분석은 준비된 사본의 privacy 승인 이후 진행한다. 가림/상품 연결 변경은 기존 결과를 outdated로 만들고, 확인값을 자동 삭제하거나 새 추출값으로 덮어쓰지 않는다.
 - 저장은 schemaVersion=1의 18개 modules이며, previewModules에는 켜진 유효한 내용만 포함(자동 채움은 사용자 확인과 구분; 최신 AC-SRC-11은 source-integration.md 참조)하고 출처·검토 메타데이터를 제거한다. 공개 상품·운영 가격·재고·주문은 쓰지 않는다.
 - 중복 파일은 DUPLICATE_SOURCE와 기존 sourceId로 안내한다. 대상 상품 ID는 유지하며 이름 변경/상품 추가를 지원한다. 대상 삭제는 새 batch 생성으로 처리한다.
@@ -103,8 +105,8 @@ DEV-186의 두 단계 초안 중 stage-2는 [final-text gold 형식·채점 규�
 
 ## 자료 분석과 검토
 - 파일별 상품 지정 또는 농가 공통/여러 상품 자료 지정을 지원한다. 불명확한 상품 연결은 확인 대상으로 남긴다. 공통 설명을 모든 상품의 사실로 무조건 복사하지 않는다.
-- 편집 카드는 항목·추출 내용·표시 스위치·선택적 원문 보기로 구성한다. 별도 검토 탭/개별 확정 절차는 두지 않는다. 상태는 확인 전/확인 완료/충돌/자료 없음/제외이며, 상품 연결 필요 자료는 별도 목록이다.
-- 출처는 원본 파일·페이지·문구 또는 이미지 영역으로 연결한다. 원문과 다듬은 문구를 비교하고 수정·채택·제외할 수 있다. 출처를 찾지 못한 값을 확인 완료로 만들지 않는다.
+- 편집 카드는 항목·추출 내용·표시 스위치로 구성하며 근거는 감사용 서버·review API에만 보존한다(2026-11-02 owner 결정, DEV-179). 별도 검토 탭/개별 확정 절차는 두지 않는다. 상태는 확인 전/확인 완료/충돌/자료 없음/제외이며, 상품 연결 필요 자료는 별도 목록이다.
+- 출처는 원본 파일·페이지·문구 또는 이미지 영역으로 연결한다. 근거는 서버에서 검증하며 생산자는 편집 문구를 수정·채택·제외할 수 있다. 출처를 찾지 못한 값을 확인 완료로 만들지 않는다.
 - 중복 내용은 출처를 유지하며 합친다. 서로 다른 값은 후보를 나란히 보여 주고 생산자가 선택한다. 원문 날짜가 없으면 미상으로 남긴다.
 - 상품명·품종·원산지·규격·구성·개수는 명시된 값만 추출한다. 무게로 개수를 계산하지 않는다.
 - 문구는 중복·오탈자 정리, 제목/본문 분리 등으로 편집하되 새로운 판매 주장이나 과장을 추가하지 않는다. 광고 표현을 품질 증거로 취급하지 않는다.
@@ -132,7 +134,7 @@ DEV-186의 두 단계 초안 중 stage-2는 [final-text gold 형식·채점 규�
 
 ## 인수 조건
 - AC-SRC-1: 여러 상품과 공통 자료를 분리하고 모호한 연결은 확인 대상으로 남긴다.
-- AC-SRC-2: 모든 추출 후보는 원문 근거로 보존하고, 대상별 정리 문구의 인용 ID를 확인하며 원문/편집문을 비교·수정·제외할 수 있다.
+- AC-SRC-2: 모든 추출 후보는 원문 근거로 보존하고, 대상별 정리 문구의 인용 ID를 확인하며 편집문을 수정·제외할 수 있다. 근거는 감사용 서버·review API에 보존하며 편집기 원문 보기/목록에는 표시하지 않는다(2026-11-02 owner 결정, DEV-179).
 - AC-SRC-3: 충돌·예상/실측 구분을 유지하며 없는 사실·사진·수치/단위를 추가하지 않는다. 상세 금액은 금지하고 금액 없는 과거 판매 사실만 농가 이야기에 허용한다. 정리 결과의 금액·개인정보·근거·모듈을 서버에서 검증한다.
 - AC-SRC-4: 문서 사진은 판매 자산으로 자동 사용하지 않고 상품별 필요한 원본을 요청한다.
 - AC-SRC-5: 일부 파일 실패·재시도·재접속·재분석에도 기존 편집을 보존하며 다른 농가 자료에 접근하지 못한다.
@@ -159,9 +161,9 @@ DEV-186의 두 단계 초안 중 stage-2는 [final-text gold 형식·채점 규�
 
 FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. holdout 원문을 보지 않고 오류 유형만으로 정한 제품 규칙이며, 회귀 데이터는 새로 작성한 합성 자료다.
 
-- stage-1에서 후보 일부가 검증에 실패해도 유효 후보만 저장하고 main 계약대로 EXTRACT는 **PARTIAL/CANDIDATES_REJECTED**로 유지한다(acceptedCount>0, rejectedCount>0). 생산자는 PARTIAL 항목을 명시적으로 재시도할 수 있고 Run 상태는 기존 계산대로 PARTIAL이다. 모든 PREPARE/EXTRACT가 SUCCEEDED이거나 검증 거절로 유효 후보가 남은 EXTRACT PARTIAL일 때 refine을 큐에 넣는다. FAILED/CANCELLED/실행 중 항목이 있으면 정리를 시작하지 않는다. 재시도 뒤 후보 집합이 달라지면 이전 정리는 outdated이며 새 정리를 실행한다. 같은 후보 집합의 성공 정리는 기존 규칙대로 재사용하며 실패·불확실 전송의 자동 재생은 허용하지 않는다. 생산자에게 오류 caption 한 줄로 “근거를 확인하지 못한 후보 N개는 제외했어요. 원문을 확인해 주세요.”를 표시하며 별도 중복 안내는 만들지 않는다. 평가 runner도 이 부분 결과를 사용 가능한 입력으로 취급한다.
+- stage-1에서 후보 일부가 검증에 실패해도 유효 후보만 저장하고 main 계약대로 EXTRACT는 **PARTIAL/CANDIDATES_REJECTED**로 유지한다(acceptedCount>0, rejectedCount>0). 생산자는 PARTIAL 항목을 명시적으로 재시도할 수 있고 Run 상태는 기존 계산대로 PARTIAL이다. 모든 PREPARE/EXTRACT가 SUCCEEDED이거나 검증 거절 또는 DEV-190 페이지/추출 청크 오류로 유효 후보가 남은 EXTRACT PARTIAL일 때 refine을 큐에 넣는다. FAILED/CANCELLED/실행 중 항목이 있으면 정리를 시작하지 않는다. 재시도 뒤 후보 집합이 달라지면 이전 정리는 outdated이며 새 정리를 실행한다. 같은 후보 집합의 성공 정리는 기존 규칙대로 재사용하며 실패·불확실 전송의 자동 재생은 허용하지 않는다. 생산자에게 오류 caption 한 줄로 “근거를 확인하지 못한 후보 N개는 제외했어요. 원문을 확인해 주세요.”를 표시하며 별도 중복 안내는 만들지 않는다. 평가 runner도 이 부분 결과를 사용 가능한 입력으로 취급한다.
 - PDF는 첫20쪽을 분석하고 `pagesAnalysed`/`pagesSkipped`를 PREPARE 진단·run API에 기록한다. **PDF별20쪽 제한을 먼저 적용한 분석 쪽수**를 작업 전체60쪽 제한에 센다. 60쪽 초과 자료는 `BATCH_PDF_PAGE_LIMIT`로 실패한다. 생산자 기존 작업/새 상품 화면 모두 “앞 20쪽만 분석했어요. 나머지 N쪽은 필요하면 나눠서 올려 주세요.”를 파일명과 함께 표시한다. 생략 자체는 실패가 아니다.
-- 일반 텍스트는 제공자와 관계없이 원문 span 경계의 최대4000자 묶음으로 나눠 stage-1을 호출하고 전체 후보를 합친다. 오프라인 평가의 호출 수 계획 추정도 바이트 수가 아닌 디코딩한 문자 수를 기준으로 한다. 정확히 같은 후보는 중복 저장하지 않으며 원문 근거를 유지한다. 시각 OCR 전체페이지 경로는 유지한다. stage-2는 원문 순서의 결정적 prefix(최대40후보·후보 JSON16000자)를 선택한다. 나머지는 비공개 제외 사유 `unused`, 공개 `candidatesSkipped`/생략 안내로 남긴다. 전체 후보 ID의 freshness 검증은 유지하며 생략 후보가 원문 fallback으로 되살아나지 않는다. 단일 후보도16000자 상한을 넘어 전체 입력이 빠지면 REFINE_INPUT_LIMIT로 구분하고 자료를 나눠 올리도록 안내한다.
+- 일반 텍스트는 제공자와 관계없이 원문 span 경계의 최대4000자 묶음으로 나눠 stage-1을 호출하고 전체 후보를 합친다. 오프라인 평가의 호출 수 계획 추정도 바이트 수가 아닌 디코딩한 문자 수를 기준으로 한다. 정확히 같은 후보는 중복 저장하지 않으며 원문 근거를 유지한다. 이미지/PDF의 OCR 전사도 DEV-190에 따라 같은4000자 span 묶음으로 나눈다. stage-2는 원문 순서의 결정적 prefix(최대40후보·후보 JSON16000자)를 선택한다. 나머지는 비공개 제외 사유 `unused`, 공개 `candidatesSkipped`/생략 안내로 남긴다. 전체 후보 ID의 freshness 검증은 유지하며 생략 후보가 원문 fallback으로 되살아나지 않는다. 단일 후보도16000자 상한을 넘어 전체 입력이 빠지면 REFINE_INPUT_LIMIT로 구분하고 자료를 나눠 올리도록 안내한다.
 - 빈 결과는 `NO_SAFE_TEXT`(안전 텍스트 없음), `NO_CANDIDATES`(제공자 후보 없음), `NO_TARGET_CANDIDATES`(해당 상품 후보 없음), `ALL_TEXTS_FILTERED`(정리에서 모두 제외)를 기록한다. 전부 검증 거절은 `ALL_CANDIDATES_REJECTED`와 실패 상태를 유지한다. 생산자에게 해당 사유의 확인 안내를 표시한다. EXTRACT의 빈 결과 안내는 파일의 모든 추출 항목이 성공·빈 후보일 때 파일별 한 번만 공개하고, 일부 chunk/쪽만 비었으면 표시하지 않는다. error가 있는 항목은 emptyReason 안내를 중복 표시하지 않는다. NO_CANDIDATES는 “추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.”로 명시 매핑한다. 후보가 전혀 없는 REFINE은 빈 사유를 만들지 않으며, 정리 사유는 NO_TARGET_CANDIDATES/ALL_TEXTS_FILTERED/REFINE_INPUT_LIMIT만 사용해 파일 안내와 중복·모순을 피한다. 오프라인 평가의 원천 전체 진단은 stage-2 사유와 별도로 유지한다. 전부 검증 거절은 오류 안내를 사용하고 별도 UI emptyReason 매핑은 두지 않는다. 모델이 후보를 내지 않은 내부 원인을 추측하거나 자동 재호출하지 않는다.
 - final scorer는 단위가 뒤에 공유된 범위와 각 끝점에 단위가 있는 범위를 한 토큰으로 비교한다. `3-5월`, `3~5월`, `3월–5월`, `3월에서 5월 사이`는 같은 범위이며 안전 원문의 같은 범위 표현으로 지원된다. 원문 범위3-5kg에서 출력5kg만 취한 경우는 main처럼 미지원이다. 반대로 원문에 단일 끝점만 있거나 독립된 두 숫자만 있으면 출력 범위를 지원하지 않는다. `에서`/`부터`는 양 끝점에 같은 단위가 있고 `까지`/`사이`로 닫힌 경우에만 범위로 묶는다. `해발 300m에서 5년 길렀다`와 `20kg에서 2kg을 덜어`는 각각 독립 수치 두 개로 비교하며, `5%에서 10%까지`와 `3월부터 5월까지`는 범위다. 기호 `-`/`~`/`–` 처리는 유지한다. 이는 **측정 수정**이며 모델 프롬프트/역사적 T11 점수는 바꾸지 않는다.
 
@@ -187,4 +189,55 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6. owner의 T23 재실행은 **부분 오염 측�
 
 holdout v1.1은 2026-11-02 **RETIRED_TO_DEV**로 전환되었다. 과거의 잠금·튜닝 금지 문구는 당시 정책 이력이며 이제 해당12건은 개발용으로 읽고 회귀·튜닝에 사용한다. 기존32→44건에 DEV-182 합성3건을 더해 총47건(공개개발24, 합성23)이다. `source-final-dev-manifest.json`이 현재 구성을 정의하고 `source-final-holdout-i3-lock.json`은 역사 그대로 보존한다. 원본 holdout 입력/gold와 기존 개발 gold는 변경하지 않는다. private safe 입력12건을 개발 safe 폴더로 복사하고 병합 gold는 저장소 밖 `final-gold-dev-public-v2.json`으로 둔다. 개발 채점은 split=development와 새 파일 고정 SHA를 사용한다. 저장소에는 ID·형식·해시·집계만 둔다.
 
-향후 독립 성능 주장은 **튜닝하지 않는 사람들이 동일한 독립3인 검토 절차로 구축한 새 holdout v2**가 필요하다. v1.1 반복 실행이나 개발 mock 결과로 독립 품질을 주장하지 않는다.
+현재 독립 평가용 **holdout v2**는 튜닝하지 않는 독립3인 검토와 합의 패스로 동결되었다(72문장/134사실/중요33, owner 결정 제외44). [DEV-194 프로토콜](validation/source-final-holdout-i3-v2.md)에 따라 구현·튜닝 에이전트는 원문/gold를 보지 않고 채점 담당자는 집계만 보고한다. v1.1 반복 실행이나 개발 mock 결과로 독립 품질을 주장하지 않는다.
+
+
+## DEV-190 페이지별 OCR 복구와 긴 전사 분할
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. OpenRouter 이미지·PDF OCR은 다음 규칙을 따른다.
+
+- 사진만 있거나 안전한 전사 문구가 없는 쪽은 `spans=[]`로 건너뛰고 비공개 `pagesEmpty`에 쪽 번호를 기록한다. 글자를 추측하거나 로컬 OCR로 대체하지 않는다. 전부 빈 쪽인 문서만 `OCR_UNCERTAIN`으로 실패한다.
+- 개별 쪽의 `REQUEST_UNCERTAIN`, 제공자 거절/오류, `OCR_TEXT_LIMIT` 등은 그 쪽의 부분 전사를 버리고 `pagesFailed`에 번호·고정 오류 코드를 기록하며 나머지 쪽을 계속 처리한다. 읽은 쪽이 있으면 EXTRACT는 PARTIAL이다(후보가 전부 근거 검증에 거절되면 기존 CANDIDATES_REJECTED/FAILED 유지). 모든 쪽이 실패/빈 쪽이라 사용할 전사가 없으면 기존 실패 코드를 유지한다. `PROVIDER_AUTH`, 예산 초과, 취소, lease/자료/가림 변경은 작업 전체에 기존 hard failure로 전파한다. 전사·추출 호출은 자동 재생하지 않으며 예약·정산을 호출별로 유지한다.
+- OCR용 EXTRACT 항목은 파일의 페이지 목록을 소유하고 실제 요청은 쪽/crop별로 보낸다. stage-1은 일반 텍스트와 같은 `text_chunks` 최대4000자 span 묶음으로 호출한다. span ID·쪽 번호를 유지하며 각 요청에 공급한 근거로만 후보를 검증한 뒤 병합·중복 제거한다. 파일 전체를 한 stage-1 요청에 넣지 않는다.
+- accepted 후보가 있는 페이지/추출 청크 오류 PARTIAL도 REFINE 대상이다. 생산자의 명시적 재시도는 새 Run에서 항목 전체를 다시 읽고 기존 후보/확정 편집 보존 규칙을 따른다. 불확실 OCR이 하나라도 있으면 기존 비용 재발생 확인을 요구한다.
+- 평가 metadata는 `pagesEmpty`/`pagesFailed`/`chunksFailed` 개수를 유지한다. run API는 같은 개수와 함께 `ocrFailedPageNumbers`·`chunkFailedPageNumbers`(각각 OCR 실패 번호와 실패 청크의 페이지 번호를 따로 정렬·중복 제거한 목록)를 제공한다. 원문·고정 오류 코드 상세는 내보내지 않는다(DEV-179). 생산자 기존 작업·새 상품 화면은 OCR 실패 쪽이 있는 PARTIAL 파일에 “N쪽을 읽지 못했어요. 확인할 쪽: 실패 번호 목록쪽. 다시 분석해 보세요.”(번호가 없으면 확인할 쪽 생략)를 한 번 표시한다. 추출 청크가 실패한 파일은 “일부 내용을 읽지 못했어요. 확인할 쪽: 실패 번호 목록쪽. 다시 분석해 보세요.”(번호가 없으면 확인할 쪽 생략)를 한 번 표시한다. 둘 다 있으면 각 목록을 사용하는 안내를 하나씩 표시하며 내부 오류·빈 결과 안내는 중복 표시하지 않는다. 빈 쪽 건너뜀은 경고하지 않는다. 평가 runner는 제품 OCR orchestration·4000자 그룹 함수를 공유하고 부분 결과도 정리·채점한다.
+
+### DEV-190 후속 리뷰 · 청크 실패 격리와 기존 페이지별 결과
+
+- OpenRouter 이미지/PDF의 stage-1 청크 호출도 비-hard 실패를 격리한다. `chunksFailed`에 청크 순번·쪽·코드를 기록하고 성공 청크의 후보를 보존해 PARTIAL로 처리한다. `pagesFailed`는 OCR 실패로 전사를 버린 쪽만 나타내며 추출 청크 오류는 포함하지 않는다. 특히 같은 쪽의 다른 청크가 성공했을 때 그 쪽 전체를 읽지 못했다고 안내하지 않는다. worker의 부분 실패 코드는 불확실 호출이 하나라도 있으면 `REQUEST_UNCERTAIN`(기존 비용 확인 필수), 그 외 OCR 실패가 있으면 `OCR_PAGES_FAILED`, 청크만 실패했으면 `EXTRACT_CHUNKS_FAILED`다. 평가도 청크만 실패한 부분 결과를 `PARTIAL/EXTRACT_CHUNKS_FAILED`로 구분한다. 모든 청크 호출 실패 또는 인증·예산·자료/lease/가림 hard 오류만 원래 예외로 항목 전체를 실패시킨다. 자동 재호출 없이 호출별 예약·정산을 유지하며, 오류 중 진단 저장에 실패해도 원래 오류 코드·usage·요청 ID를 보존한다.
+- vision의 `CANDIDATES_REJECTED`는 모든 청크 처리 후 유효 후보가 0개이고 검증 거절이 있을 때 FAILED다. 텍스트/mock/로컬 OCR은 빈 쪽의 청크도 호출하며, 개별 청크가 전부 거절되면 해당 항목이 실패하는 기존 규칙을 유지한다. 평가도 같은 경계를 따른다.
+- vision 후보 병합은 각 청크에 공급한 근거로 검증을 통과한 후보만 `(targetId, fieldKey, value, historical, evidence)`로 중복 제거한 뒤 원문 쪽/span 묶음 순서의 앞100개를 보존하고 비공개 `candidatesSkipped`에 고유 생략 수를 기록한다. 거절된 후보는 저장하지 않으며 청크별 거절 목록·개수를 합산해 보존한다. `acceptedCount`는 보존한 고유 후보 수다. 사진 요청도 중복 제거 후 앞30개를 보존한다.
+- 같은 source/revision/sanitization/targets에서 새 파일의 **성공 범위**에 포함되는 기존 페이지/span 부분집합 범위의 자동 후보만 대체한다. 성공 범위는 파일 범위에서 `pagesFailed`와 `chunksFailed`에 속한 쪽을 모두 뺀 것이다. 한 쪽의 일부 청크만 실패해도 그 쪽의 기존 후보를 보존한다. 동일 후보 ID와 생산자 확정 편집 보존 규칙은 유지한다. 재사용은 SUCCEEDED 항목 중 outdated 후보가 하나도 없는 항목만 대상으로 하며(후보 없는 성공 항목은 허용), 해당 범위 합집합이 새 파일 범위 전체를 덮고 Run의 mode·모델·프롬프트·대상·visual 설정도 같을 때 허용한다. 텍스트 청크 재사용에도 outdated 후보 제외 규칙을 적용한다. 실패/누락/이미 대체된 범위가 있으면 다시 분석한다.
+
+- DEV-179(2026-11-02 owner 결정), AC-SRC-5/10: UI가 제공하는 모든 실패/일부 완료 재시도 버튼은 비용 확인 체크 전 비활성이다. 서버의 REQUEST_UNCERTAIN 필수 확인은 유지한다. 새 분석/재시도 성공 후 UI 확인 상태를 초기화한다. 비용 확인 문구는 현재 run의 항목에 REQUEST_UNCERTAIN이 하나라도 있으면 ‘결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요’를 유지한다. 확정 OCR/청크 실패 등 REQUEST_UNCERTAIN이 없는 경우 ‘다시 분석하면 비용이 다시 들 수 있어요. 확인했어요.’를 사용한다. 체크하면 활성화하고 해제하면 다시 비활성화하는 gate는 같다(DEV-179 데모 녹화 후속).
+
+
+### DEV-179 리뷰 보완 (2026-11-02 owner 결정)
+- 후보 수만으로 conflict를 정하지 않는다. specification(규격·원산지), composition(구성·중량), pieceCount(개수), qualityEvidence의 당도 등 **같은 사실**의 정규화 값이 다른 경우 선택기를 보인다. 현재 정리 결과가 없고 안전한 원문 서술 후보가 여러 개면 선택할 수 있게 유지한다. kg/g·12.0/12 당도·유니코드·공백 차이는 같은 값으로 보고 규격의 품종과 사이즈 같은 보완 정보는 충돌로 만들지 않는다. summary/farmStory 등 병합된 정리 서술은 ready/UNREVIEWED로 자동 저장한다. outdated와 생산자 확정/제외를 덮지 않으며 현재 refined/basicInfo 값도 선택할 수 있다. 정리 성공이 생략한 필드는 원문으로 되살리지 않는다.
+- run 응답의 ocrFailedPageNumbers와 chunkFailedPageNumbers는 각각 OCR/청크 실패 쪽만 정렬·중복 제거한 목록이다. 두 종류가 함께 실패하면 각각의 안내를 모두 표시한다. 개수는 기존대로 유지하고 내부 실패 코드·진단은 노출하지 않는다.
+- 대표사진 없이 자료 분석이 가능하지만 sources가 0개면 시작 버튼을 비활성화하고 ‘자료를 먼저 넣어 주세요.’를 곁에 표시한다. 대표사진 공개 적용 검사는 유지한다.
+- 제외 확인 저장은 localStorage `farmclub-producer:excluded-seen:${userId}:${batchId}:${targetId}`의 마지막 refinementVersion 1개를 덮어쓴다. 커밋된 구 sessionStorage `farmclub-producer:excluded-seen:${batchId}:${refinementVersion}`만 로그인 사용자가 확인된 뒤 한 번 읽어 이관/제거한다. 사용자 정보가 없으면 이관하지 않는다. 새 버전은 다시 안내하고 칩으로 다시 열 수 있다.
+
+### DEV-191 제한된 OCR 병렬 실행 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. `SOURCE_OCR_CONCURRENCY`는 한 항목 안에서 동시에 실행할 쪽/crop OCR 호출 수이며 기본값4, 최소값1이다. 1은 기존 순차 실행을 재현한다. worker와 `final_eval`은 같은 실행 함수를 사용하며, 완료 순서와 무관하게 원래 쪽/crop 순서로 span ID·빈/실패 쪽 진단을 합치고 추출/후보 순서를 유지한다. 긴 이미지의 한 쪽 안 crop도 병렬화한다. 추출·정리 호출은 기존 순서를 유지한다.
+
+예약·정산은 호출마다 수행한다. PostgreSQL transaction advisory lock이 전체/평가 비용 원장 한도를 보호하고, 평가 실행의 `--max-usd` 확인·예약 반영·정산 차액도 lock으로 보호한다. 미정산 비용은 계속 예약액을 차지한다. `BUDGET_EXCEEDED`, `PROVIDER_AUTH`, 소스/가림 승인 변경, lease token 상실·취소가 확인되면 새 호출을 전송하지 않고 이미 전송된 호출의 정산이 끝난 뒤 원래 오류를 전파한다. 실패 쪽의 미전송 crop은 건너뛰고 전사를 버리며 유효한 다른 쪽은 유지한다. 이미 진행 중이던 같은 쪽의 crop 비용은 보존한다. 빈 쪽 건너뛰기, PARTIAL, 불확실 호출/429의 자동 재시도 금지는 DEV-190과 같다. 독립 heartbeat는 병렬 요청을 기다리는 동안에도 lease를 갱신하고 각 전송 전 DB 세션에서 기존 fencing을 확인한다. 동시성은 처리시간 설정이며 OCR 프롬프트·모델·정확도 기준은 바꾸지 않는다.
+
+### DEV-191 후속 · 다쪽 추출 청크와 stage-1 병렬 실행 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/8/10/11. 위 DEV-191의 stage-1 순차 설명은 이 후속 계약으로 갱신한다. OpenRouter 이미지/PDF는 OCR에 성공한 비어 있지 않은 쪽의 span을 원문 순서대로 채워, **청크당 최대4000자·최대4쪽**으로 stage-1에 전달한다. 쪽 사이 남은 공간도 채우고, 큰 쪽은 기존처럼 span 경계에서 나눈다(단일 span 자체가 상한보다 길면 기존 불가분 span 규칙 유지). 쪽 번호·span ID·원문은 바꾸지 않는다. 근거는 요청에 포함된 `(쪽 번호, span ID)`별 원문으로 검증하며 다른 쪽/청크의 문구로 잘못된 인용을 보완하지 않는다. 일반 텍스트 경로의 쪽별 분할과 빈 쪽 처리 계약은 유지한다.
+
+`SOURCE_OCR_CONCURRENCY`(기본4, 허용1~8)는 OCR과 stage-1 각각의 동시 호출 상한이다. 두 단계는 순서대로 실행하고, 각 단계 안에서는 같은 제한된 executor로 호출하며 결과는 원문 청크 순서로 검증·중복 제거·병합한다. stage-2 정리는 기존대로다. worker와 평가 runner는 같은 추출 함수를 사용한다. 호출마다 기존 예약·정산·소스/lease/가림 fencing을 수행하고 hard 오류는 전송 전 및 제공자 예외 시 즉시 새 전송을 막는다. 이미 전송된 요청은 정산이 끝날 때까지 기다린다. 자동 재호출은 없다.
+
+청크 실패 시 `chunksFailed`는 원래 청크 순번·**그 청크의 모든 쪽 번호**·코드를 기록한다. OCR 실패 쪽은 추출에 넣지 않고 `pagesFailed`에만 기록한다. 일부 청크 성공은 PARTIAL, 전부 실패 또는 hard 오류는 FAILED라는 DEV-190 판정과 성공 범위 밖 기존 후보 보존 규칙은 유지한다. owner의 합성20쪽 PDF 측정(OCR 동시성1:101.6초, 4:59.0초, 후보 동일)은 이 후속 전 측정이다. 이 후속의 실시간 성능/모델 품질은 이번 로컬 검증에서 측정하지 않는다.
+
+## DEV-193 출력 예산·숫자 측정·근거 페이지 교체 (2026-11-02)
+
+FEAT-03/04/07 · AC-SRC-2/3/5/6/10. 최대4000자 청크도 완전한 문장 값과 인용을 중복 출력하고 후보별 JSON 메타데이터를 붙이므로4096토큰으로 출력이 끝난다는 보장은 없다. 값/인용 각각3000자, 최대100후보 스키마와 원문 근거 계약은 유지하고 `SOURCE_MAX_OUTPUT_TOKENS` 기본을 기존 허용 상한인8000으로 올린다(공유 설정을 쓰는 stage-2에도 적용). 제품/평가의 실제 호출 예약은 동일 설정의 출력 최대치를 포함하며, 평가 계획 추정도 설정값을 쓴다. 한도 안에서 실행하고 알 수 없는 비용은 예약을 유지한다. 출력이 잘린 뒤 재분할해 다시 보내는 행위도 실패 호출의 자동 재시도이므로 금지한다. 기존 DEV-190/191 PARTIAL·명시적 재시도·전송 전 예약·정산 규칙을 유지한다.8000토큰에서의 실제 개발 자료 품질·완주 여부는 사람이 별도로 재측정해야 한다.
+
+숫자 채점은 중간 줄을 건너뛰어 숫자와 나중 단위를 결합하지 않는다. `10\nm/s\n kg`와 `약 5\nkg/m\n도`는 각각 `10kg`·`5도`의 근거가 될 수 없다. `2011\n년부터`의 `2011년` 토큰은 기존 정규화에서 이미 처리한 동작이며 회귀로 보장한다. 숫자 뒤 마침표와 **같은 줄의 space/tab** 다음 숫자는 독립 토큰으로 검사하고, OCR 줄바꿈 소수 `3.\n5kg`는 기존처럼 `3.5kg`로 보존한다. 범위/단위의 근거 없는 변경은 계속 위반이다. 이미지·긴 이미지·PDF 평가의 unsupported-number 검사는 로컬 safe text와 제품이 실제 사용한 OCR 전사를 함께 사용한다. OCR 실패 쪽 및 `chunksFailed[*].pages`의 모든 쪽은 OCR 합집합에서 제외한다. 같은 쪽 일부 청크만 실패해도 그 쪽 OCR 전체를 제외하며, 다쪽 청크 실패는 그 청크의 모든 쪽을 제외한다. 로컬 safe text는 독립 근거로 보존하고 정상·예외 반환에 같은 제외 규칙을 적용한다. 두 텍스트 계층의 경계는 숫자 복구로 합치지 않는다. **이것은 측정 변경이므로 변경 전후 점수는 직접 비교할 수 없다.** 이후 보고서에 이 사실을 명시하고 새 실행 metadata에 최초 측정 버전 `dev193-number-evidence-v1`을 남긴다. 과거 실행을 다시 채점해도 당시 저장되지 않은 로컬 텍스트는 복원되지 않으므로 완전한 전후 비교에는 새 개발 실행이 필요하다.
+
+후보 교체는 항목 전체가 아닌 후보별 근거 쪽으로 판정한다. 같은 source/revision/sanitization 및 target 범위의 기존 후보에서 **모든 근거 쪽**이 새 항목의 성공 쪽 안에 있으면 교체 대상이다. OCR 또는 추출 청크가 하나라도 실패한 쪽은 성공 쪽에서 제외한다. 새 PARTIAL 항목 F2가1·3쪽에 성공하고2쪽에 실패했다면 기존 파일 항목 F1(1–3쪽)의1쪽/3쪽 후보는 교체하고2쪽 및1+2쪽 공동 근거 후보는 보존한다. 근거가 비어 있는 legacy 후보는 기존 항목 전체 scope가 성공 scope에 포함될 때만 교체한다. 동일 내용·근거의 후보 ID와 확정 편집은 유지한다. outdated 후보가 하나라도 있는 항목은 재사용 coverage에서 제외하는 DEV-190 규칙을 유지한다.
+
+DEV-193 교체 범위 보완: 전체 페이지를 읽는 OpenRouter OCR 항목은 근거 페이지 기준을 사용한다. 일반 텍스트 및 비-vision 항목은 같은 페이지에 서로 다른4000자 span 청크가 있으므로 후보의 모든 근거 span도 새 성공 scope 안에 있어야 교체한다. 같은 실행의 앞 청크 후보를 뒤 청크가 지우지 않는다.
