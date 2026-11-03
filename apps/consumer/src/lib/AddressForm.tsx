@@ -36,10 +36,6 @@ type Props = {
   intro?: ReactNode;
   /** 주 버튼 문구. 기본 checkout ‘이 주소로 받기’, manage ‘저장’ */
   submitLabel?: string;
-  /** 주 버튼 아래 텍스트 버튼(온보딩 ‘주문할 때 입력할게요’) */
-  secondary?: { label: string; onPress: () => void };
-  /** ‘기본 배송지로 저장’ 체크를 숨기고 기본으로 저장한다(온보딩 첫 배송지) */
-  alwaysDefault?: boolean;
   /** checkout에서 저장 배송지가 50개라 더 저장할 수 없을 때 안내하고 저장 체크를 끈다 */
   saveBlocked?: string;
   /** 닫기 대신 뒤로 화살표 */
@@ -58,8 +54,6 @@ export function AddressForm({
   title = "받는 곳",
   intro,
   submitLabel,
-  secondary,
-  alwaysDefault,
   saveBlocked,
   back,
 }: Props) {
@@ -83,6 +77,13 @@ export function AddressForm({
     setIsDefault(initial.isDefault);
   }, [initial]);
 
+  // 새로고침하면 회원 정보가 화면보다 늦게 온다. 첫 주문의 받는 사람·연락처 미리 채움이 빠지지 않게 빈 칸만 채운다(DEV-142)
+  useEffect(() => {
+    if (initial) return;
+    setName((v) => v || defaultName || "");
+    setPhone((v) => v || defaultPhone || "");
+  }, [initial, defaultName, defaultPhone]);
+
   async function submit() {
     const e: Record<string, string> = {};
     if (!name.trim()) e.recipientName = "받는 사람을 적어 주세요";
@@ -99,7 +100,7 @@ export function AddressForm({
       postalCode: postal.trim(),
       address: address.trim(),
       addressDetail: detail.trim() || undefined,
-      saveAddress: !saveBlocked && (alwaysDefault || isDefault),
+      saveAddress: !saveBlocked && isDefault,
     };
     if (mode === "checkout") {
       onDone(value);
@@ -113,7 +114,7 @@ export function AddressForm({
         postalCode: value.postalCode,
         address: value.address,
         addressDetail: value.addressDetail ?? "",
-        isDefault: alwaysDefault || isDefault,
+        isDefault,
       };
       if (initial) await auth.updateAddress(initial.addressId, body);
       else await auth.addAddress(body);
@@ -138,7 +139,7 @@ export function AddressForm({
   return (
     <Screen>
       <HeaderBar title={title} close={!back} onBack={onClose} />
-      <Scroll bottom={secondary ? 190 : 140}>
+      <Scroll bottom={140}>
         <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 20 }}>
           {intro}
           <Input
@@ -181,7 +182,7 @@ export function AddressForm({
               error={errors.addressDetail}
             />
           </View>
-          {alwaysDefault ? null : saveBlocked ? (
+          {saveBlocked ? (
             <T variant="sub" muted>
               {saveBlocked}
             </T>
@@ -205,14 +206,6 @@ export function AddressForm({
           loading={busy}
           onPress={submit}
         />
-        {secondary ? (
-          <Button
-            label={secondary.label}
-            variant="text"
-            onPress={secondary.onPress}
-            style={{ alignSelf: "center" }}
-          />
-        ) : null}
       </BottomBar>
       {toast.node}
     </Screen>
