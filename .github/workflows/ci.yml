@@ -155,6 +155,7 @@ jobs:
         run: npx expo export -p web
 
   # 관리자 페이지(scripts/admin-web, DEV-114). 빌드·의존성 없이 node 내장 테스트만 돌린다.
+  # scripts/ci·배포 워크플로가 바뀌면 배포 변경 감지 시나리오도 여기서 돌린다(DEV-139).
   admin-web:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -171,6 +172,9 @@ jobs:
               - "scripts/admin-web/**"
               - ".nvmrc"
               - ".github/workflows/ci.yml"
+            deploy_scripts:
+              - "scripts/ci/**"
+              - ".github/workflows/deploy-*.yml"
 
       - name: Skip (no admin-web changes)
         if: steps.changes.outputs.admin != 'true'
@@ -184,6 +188,11 @@ jobs:
       - name: Test (node --test)
         if: steps.changes.outputs.admin == 'true'
         run: node --test scripts/admin-web/admin.test.mjs
+
+      # DEV-139: 배포 변경 감지 스크립트 시나리오(임시 git 저장소, 네트워크 없음)
+      - name: Test deploy change detection (scripts/ci)
+        if: steps.changes.outputs.deploy_scripts == 'true'
+        run: bash scripts/ci/test-deploy-changed.sh
 
   integration:
     needs: [server, apps]
