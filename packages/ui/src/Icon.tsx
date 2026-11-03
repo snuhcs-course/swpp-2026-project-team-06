@@ -3,6 +3,11 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { tokens } from "./tokens";
 
 export type IconName =
+  | "star"
+  | "starFill"
+  | "eye"
+  | "eyeOff"
+  | "pencil"
   | "back"
   | "close"
   | "share"
@@ -59,6 +64,23 @@ export function Icon({
   };
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
+      {(name === "star" || name === "starFill") && (
+        <Path
+          d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9Z"
+          {...p}
+          fill={name === "starFill" ? color : "none"}
+        />
+      )}
+      {(name === "eye" || name === "eyeOff") && (
+        <>
+          <Path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" {...p} />
+          <Circle cx={12} cy={12} r={3} {...p} />
+          {name === "eyeOff" && <Path d="M3 3l18 18" {...p} />}
+        </>
+      )}
+      {name === "pencil" && (
+        <Path d="M14 5l5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14z" {...p} />
+      )}
       {name === "back" && <Path d="M15 5l-7 7 7 7" {...p} />}
       {name === "close" && <Path d="M6 6l12 12M18 6L6 18" {...p} />}
       {name === "share" && (

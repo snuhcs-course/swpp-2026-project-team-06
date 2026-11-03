@@ -4,8 +4,13 @@ import { Button } from "./Button";
 import { ChatBubble } from "./ChatBubble";
 import { T } from "./Text";
 import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
+import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
 import { time } from "./format";
+import { inBackground } from "./foreground";
+
+const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
+
 type Message = {
   messageId: string;
   senderType: string;
@@ -15,6 +20,8 @@ type Message = {
   attachmentIds?: string[];
   inquiryId?: string;
   orderId?: string;
+  reported?: boolean;
+  handoffStatus?: string | null;
 };
 type Page = { items: Message[]; nextCursor: string | null };
 type Props = {
@@ -22,10 +29,12 @@ type Props = {
   active: boolean;
   load: (cursor?: string) => Promise<Page>;
   send: (text: string, ids: string[], key: string) => Promise<unknown>;
+  report?: (messageId: string, key: string) => Promise<unknown>;
   read: (id: string) => Promise<unknown>;
   makeKey: () => string;
   loadPhoto: (id: string) => Promise<string>;
-  upload: (file: File) => Promise<{ attachmentId: string }>;
+  /** 웹은 File, 앱은 사진 보관함에서 고른 {uri, name, type}(DEV-33). 없으면 사진 첨부(＋)를 숨긴다(예: 소비자 farmclub 문의 대화방, DEV-150) */
+  upload?: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -33,6 +42,7 @@ export function ChatThread({
   active,
   load,
   send,
+  report,
   read,
   makeKey,
   loadPhoto,
@@ -61,8 +71,9 @@ export function ChatThread({
     lock = useRef(false),
     alive = useRef(true),
     lastRead = useRef("");
-  const callbacks = useRef({ send, read, upload });
-  callbacks.current = { send, read, upload };
+  const [reporting, setReporting] = useState<string | null>(null);
+  const callbacks = useRef({ send, read, upload, report });
+  callbacks.current = { send, read, upload, report };
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -88,7 +99,7 @@ export function ChatThread({
     let canceled = false,
       running = false;
     async function refresh() {
-      if (running || (typeof document !== "undefined" && document.hidden))
+      if (running || inBackground())
         return;
       running = true;
       try {
@@ -193,7 +204,11 @@ export function ChatThread({
     }
   }
   return (
-    <View style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}>
+    // 메시지 본문·보낸 사람은 세션 녹화에서 가린다(N-05, DEV-71). react-native-web이 data-ph-private로 내보낸다
+    <View
+      {...PRIVATE_AREA}
+      style={{ flex: 1, minHeight: 0, backgroundColor: "#FAF9F6" }}
+    >
       {error ? (
         <View
           accessibilityRole="alert"
@@ -271,7 +286,9 @@ export function ChatThread({
                     ? "농가"
                     : m.senderType === "CONSUMER"
                       ? "소비자"
-                      : undefined
+                      : m.senderType === "OPERATOR"
+                        ? "farmclub"
+                        : undefined
               }
               time={time(m.createdAt)}
               basis={m.sourceSummary ?? undefined}
@@ -286,6 +303,43 @@ export function ChatThread({
               {m.attachmentIds?.map((id) => (
                 <PrivatePhoto key={id} id={id} load={loadPhoto} />
               ))}
+              {!producer &&
+              m.senderType === "AI" &&
+              m.handoffStatus !== "FORWARDED" &&
+              report ? (
+                <Button
+                  label={m.reported ? "신고했어요" : "틀렸어요"}
+                  variant="text"
+                  disabled={Boolean(m.reported) || reporting === m.messageId}
+                  loading={reporting === m.messageId}
+                  onPress={async () => {
+                    setReporting(m.messageId);
+                    try {
+                      await callbacks.current.report?.(m.messageId, makeKey());
+                      setMessages((old) =>
+                        old.map((item) =>
+                          item.messageId === m.messageId
+                            ? { ...item, reported: true }
+                            : item,
+                        ),
+                      );
+                      const p = await load();
+                      merge(p.items);
+                      setError("");
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : "신고하지 못했어요",
+                      );
+                    } finally {
+                      setReporting(null);
+                    }
+                  }}
+                />
+              ) : m.reported ? (
+                <T variant="caption" muted>
+                  소비자가 신고한 답변
+                </T>
+              ) : null}
             </ChatBubble>
           </View>
         ))}
@@ -312,23 +366,25 @@ export function ChatThread({
           borderTopColor: tokens.color.border,
         }}
       >
-        {photos ? (
+        {photos && upload ? (
           <PrivatePhotos
             ids={ids}
             onChange={setIds}
-            upload={(f) => callbacks.current.upload(f)}
+            upload={(f) => callbacks.current.upload!(f)}
             load={loadPhoto}
             disabled={busy}
             onBusy={setUploading}
           />
         ) : null}
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-          <Button
-            label={photos ? "−" : "＋"}
-            variant="text"
-            onPress={() => setPhotos(!photos)}
-            disabled={busy}
-          />
+          {upload ? (
+            <Button
+              label={photos ? "−" : "＋"}
+              variant="text"
+              onPress={() => setPhotos(!photos)}
+              disabled={busy}
+            />
+          ) : null}
           <TextInput
             accessibilityLabel="메시지"
             placeholder="메시지를 입력하세요"

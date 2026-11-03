@@ -7,6 +7,45 @@ Linear DEV- · Closes #
      관련 FEAT·AC ID (docs/spec/functional/FEAT-xx-*.md) -->
 `path/to/tasks.md#DEV-xx`
 
+## Spec ↔ Code 확인
+
+### 작성자 기록
+- 적용 스펙 및 FEAT/AC/규칙 ID:
+- 스펙 변경: 있음 / 없음 — 변경 내용 또는 변경이 필요 없는 이유:
+- 작업 기록: `<폴더>/tasks.md#<이슈>`
+
+| 요구사항 또는 AC | 구현 파일·함수 또는 변경 문서 | 테스트·검토 근거 |
+| --- | --- | --- |
+|  |  |  |
+
+<!-- 제품 구현이 없는 문서·작업 절차 PR은 해당 없음의 이유와 변경 문서를 적는다. -->
+<!-- spec-check는 1열(스펙)과 2열(구현)의 backtick 파일 경로만 읽는다. 바뀐 파일은 모두 1·2열에 적고, 함수 이름 등은 backtick 없이 쓴다. 점검: python3 .agents/skills/pr-context/check_table.py <본문 파일> -->
+
+
+### 리뷰 요청 전
+- [ ] 적용 스펙과 변경 여부를 기록했다.
+- [ ] 요구사항별 구현 위치와 검증 근거를 기록했다.
+- [ ] 제품 동작·규칙이 바뀐 경우 docs/spec/과 docs/wiki/를 함께 갱신했다. 해당 없으면 이유를 적었다.
+- [ ] 발견한 불일치를 해결했거나 미해결 사항을 명시했다.
+
+### 사람 리뷰어 확인
+<!-- 작성자가 대신 완료 처리하지 않는다. 실제 검토 후 리뷰어가 기록한다. -->
+- 확인자: @
+- 검토 커밋:
+- 결과: 확인 전 / 일치 확인 / 수정 필요
+- 리뷰 링크 및 판단 근거:
+
+<!-- 확인 후 변경이 추가되면 영향받는 부분을 다시 검토한다. -->
+
+## Figma
+<!-- 화면 모양·문구가 바뀌면 같은 PR에서 Figma v6(https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G)도 고친다.
+     아래 줄 하나를 셋 중 하나로 채운다. apps/*/src, packages/ui/src, scripts/admin-web가 바뀐 PR은 CI(figma-line)가 검사한다.
+       반영함 — <Figma 링크 또는 node-id>
+       해당 없음 — <이유>
+       후속 — <Linear 이슈 키, 예: DEV-xx>
+     예: Figma: 반영함 — https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G?node-id=343-5945 -->
+Figma: 
+
 ## 변경 요약
 <!-- 파일·기능 단위. diff에 있는 것만 -->
 -

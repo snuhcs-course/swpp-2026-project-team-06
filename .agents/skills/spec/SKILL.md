@@ -13,6 +13,7 @@ description: 작업 시작 시 Linear 이슈와 제품 스펙(docs/spec)을 바�
 - Linear 이슈 키(예: `DEV-12`, `SWPP-34`). 이슈 본문의 **왜 / 완료 조건**이 원천이다.
   - Linear MCP가 있으면 이슈를 직접 읽는다. 없으면 사용자에게 본문을 붙여 달라고 한다.
   - 이슈에 왜·완료 조건이 비어 있으면 tasks.md를 쓰기 전에 사용자에게 채워 달라고 한다(시작 전에 끝을 정한다).
+- 작업 브랜치: 없으면 `origin/main`에서 `<github 아이디>/<이슈 키 소문자>-<영어 요약 2~5단어>`로 직접 만든다(예: `git worktree add -b nemodleo/dev-12-order-cancel ../dev-12 origin/main`). 한글 금지, Linear "Copy git branch name"은 쓰지 않는다.
 - 작업 폴더: 이번 변경의 중심 폴더(기능을 구현하는 코드 폴더). 애매하면 사용자에게 묻는다.
 
 ## 절차
@@ -38,7 +39,7 @@ description: 작업 시작 시 Linear 이슈와 제품 스펙(docs/spec)을 바�
 ## DEV-12 <이슈 제목>
 
 - 이슈: [DEV-12](https://linear.app/sswp6/issue/DEV-12)
-- 브랜치: `<Linear에서 복사한 브랜치명>`
+- 브랜치: `<github 아이디>/dev-12-<영어 요약>`
 - 기능·인수 조건: FEAT-xx / AC-xx-1, AC-xx-2
 - 상태: 진행 중 | 리뷰 중 | 완료
 

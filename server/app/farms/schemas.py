@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from app.catalog.schemas import ProductCard
-from app.core.detail import DetailContent
+from app.core.detail import DetailContent, MediaUri
 from app.core.schemas import CamelModel
 
 
@@ -52,8 +52,28 @@ class FarmDetail(FarmSummary):
     share_url: str
 
 
+class DepositAccount(CamelModel):
+    """농가 입금 계좌. 소비자에게는 본인 주문(AWAITING_DEPOSIT 이후)에서만 내려준다."""
+
+    bank_name: str
+    account_number: str
+    account_holder: str
+
+
+class SellerInfo(CamelModel):
+    """통신판매중개자 고지용 판매자 정보(policy 6장)."""
+
+    farm_name: str
+    owner_name: str
+    region: str
+    phone: str
+
+
 class MyFarm(FarmSummary):
     intro: str
+    bank_name: str | None = None
+    account_number: str | None = None
+    account_holder: str | None = None
     detail_content: DetailContent | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -65,8 +85,21 @@ class FarmPatch(CamelModel):
     name: str | None = Field(default=None, max_length=100)
     region: str | None = Field(default=None, max_length=100)
     intro: str | None = None
-    photo: str | None = None
+    photo: MediaUri | None = None
     detail_content: DetailContent | None = None
+    # 입금 계좌 세 칸은 함께 보낸다(DEV-68). 계좌번호는 숫자·하이픈 6~32자
+    bank_name: str | None = Field(default=None, min_length=1, max_length=50)
+    account_number: str | None = Field(
+        default=None, min_length=6, max_length=32, pattern=r"^[0-9][0-9-]*[0-9]$"
+    )
+    account_holder: str | None = Field(default=None, min_length=1, max_length=50)
+
+    @model_validator(mode="after")
+    def account_fields_together(self):
+        given = [self.bank_name, self.account_number, self.account_holder]
+        if any(v is not None for v in given) and not all(v is not None for v in given):
+            raise ValueError("은행·계좌번호·예금주를 함께 보내 주세요")
+        return self
 
     @model_validator(mode="before")
     @classmethod

@@ -1,6 +1,8 @@
 // API 타입. 원본: docs/spec/screens.md 7장, 데이터 모델·주문 상태: docs/spec/tech-design/README.md.
 // 디자인에서 더한 필드(reservedCount, brixRecordCount)는 docs/design/README.md "스펙과 다른 점" 2.
 
+import type { OrderConsents } from "./orderConsents";
+
 /** 날짜·시각은 ISO 8601 문자열(UTC 저장, 화면은 Asia/Seoul) */
 export type ISODate = string;
 
@@ -18,6 +20,7 @@ export type ErrorCode =
   | "INTERNAL_ERROR";
 
 export type ConflictReason =
+  | "WITHDRAW_BLOCKED"
   | "STAGE_CHANGED"
   | "SOLD_OUT"
   | "QUANTITY_LIMIT"
@@ -28,11 +31,19 @@ export type ConflictReason =
   | "CAP_BELOW_COMMITTED"
   | "APPROVED_CAP_EXCEEDED"
   | "CAPACITY_REQUEST_PENDING"
+  | "VERSION_MISMATCH"
   | "STALE_VERSION"
   | "PERIOD_LOCKED"
-  | "NOT_RESUMABLE";
-/** 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010) */
-export type ForbiddenReason = "WRONG_APP";
+  /** 농가가 입금 계좌를 등록하지 않음(DEV-68) */
+  | "NO_FARM_ACCOUNT"
+  | "NOT_RESUMABLE"
+  /** 저장 배송지가 계정당 50개를 넘음(details.limit) */
+  | "ADDRESS_LIMIT";
+/**
+ * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
+ * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
+ */
+export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED" | "TEST_ACCOUNT";
 
 export type ErrorBody = {
   code: ErrorCode;
@@ -67,9 +78,51 @@ export type User = {
   farmStatus: FarmStatus;
   /** 정지 사유(farmStatus=SUSPENDED) */
   suspendReason?: string | null;
+  /** 농가에 보이는 표시 이름(온보딩에서 입력). 없으면 이름을 가려 보여 준다 */
+  nickname?: string | null;
+  /** 카카오계정 이메일(연락용, 식별은 카카오 회원번호) */
+  email?: string | null;
+  /** 휴대폰 번호(온보딩에서 입력) */
+  phone?: string;
+  /** 첫 가입 온보딩(SCR-06)이 남았는가. 소비자 카카오 계정만 true가 될 수 있다 */
+  needsOnboarding?: boolean;
+  /** 지금 버전의 필수 동의(약관·개인정보, 소비자는 만 14세 포함)가 빠졌는가(DEV-113). 테스트 계정은 false */
+  consentRequired?: boolean;
+};
+
+/** 내 정보 고치기(온보딩 1장·SCR-17). 보낸 필드만 바꾼다 */
+export type MeUpdateInput = {
+  nickname?: string;
+  name?: string;
+  phone?: string;
+};
+
+/** 가입 동의 항목. TERMS·PRIVACY·AGE14는 필수, MARKETING은 선택 */
+export type ConsentKind = "TERMS" | "PRIVACY" | "AGE14" | "MARKETING";
+export type ConsentInput = { kind: ConsentKind; version: string; agreed?: boolean };
+export type Consent = {
+  kind: ConsentKind;
+  version: string;
+  agreed: boolean;
+  agreedAt: ISODate;
 };
 
 export type LoginResult = { accessToken: string; user: User };
+
+/** 카카오 로그인 결과(DEV-132). 기존 회원은 accessToken·user, 새 사용자는 signup만(계정은 약관 동의 뒤 생김) */
+export type KakaoLoginResult =
+  | { accessToken: string; user: User; signup?: null }
+  | { accessToken: null; user: null; signup: { signupToken: string; email: string | null } };
+
+/** 가입 대기(DEV-132). 카카오 새 사용자가 약관에 동의하기 전까지 브라우저에 잠깐 둔다 */
+export type PendingSignup = { signupToken: string; email: string | null; expiresAt: number };
+
+/** 카카오 로그인 설정(ADR 0003). enabled=false면 버튼을 숨긴다. redirectPath는 각 앱의 복귀 경로 */
+export type KakaoConfig = {
+  enabled: boolean;
+  clientId: string | null;
+  redirectPath: string;
+};
 
 /** 앱 구분(ADR 0010). 테스트 로그인·계정 목록에 쓴다 */
 export type App = "consumer" | "producer";
@@ -209,7 +262,7 @@ export type Home = {
     productId: string | null;
   };
   recommended: ProductCard[];
-  /** 디자인: 소식 미리보기 대신 농가 둘러보기 */
+  /** 홈 공개 소식 조회와 농가 검색에 사용하는 농가 집합 */
   farms: FarmCard[];
 };
 
@@ -223,6 +276,10 @@ export type FarmDetail = FarmSummary & {
 
 export type MyFarm = FarmSummary & {
   intro: string;
+  /** 입금 계좌(DEV-68). 셋 다 있거나 셋 다 null */
+  bankName: string | null;
+  accountNumber: string | null;
+  accountHolder: string | null;
   detailContent?: DetailContent;
   status: FarmStatus;
   shareUrl: string | null;
@@ -262,6 +319,7 @@ export type ProductDetail = ProductCard & {
   variety: string;
   description: string;
   detailContent?: DetailContent;
+  moduleDetail?: import("./sourceAnalysis").ModuleDetail;
   grade: string | null;
   measuredBrix: number | null;
   measuredBrixAt: ISODate | null;
@@ -387,6 +445,7 @@ export type StageInput = {
 
 export type OrderStatus =
   | "PENDING_PAYMENT"
+  | "AWAITING_DEPOSIT"
   | "RESERVED"
   | "PREPARING"
   | "SHIPPED"
@@ -409,17 +468,30 @@ export type OrderInput = Recipient & {
   optionId: string;
   quantity: number;
   deliveryNote?: string;
-  consents: {
-    deliveryWindow: boolean;
-    delayRefund: boolean;
-    shortage: boolean;
-    cancelPolicy: boolean;
-  };
+  /** 예약 전 동의. 항목은 orderConsents.ts의 ORDER_CONSENT_KEYS(DEV-138) */
+  consents: OrderConsents;
   consentVersion: string;
   saveAddress?: boolean;
 };
 
-export type OrderAction = "cancel" | "confirm" | "respondDeliveryWindow";
+export type OrderAction =
+  | "cancel"
+  | "confirm"
+  | "respondDeliveryWindow"
+  | "reportDeposit";
+/** 농가 입금 계좌(DEV-68). 소비자에게는 본인 주문(입금 안내 이후)에서만 온다 */
+export type DepositAccount = {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+};
+/** 통신판매중개자 고지용 판매자 정보(policy 6장) */
+export type SellerInfo = {
+  farmName: string;
+  ownerName: string;
+  region: string;
+  phone: string;
+};
 
 export type Order = Recipient & {
   unitWeightGrams: number;
@@ -451,17 +523,33 @@ export type Order = Recipient & {
   deliveredAt: ISODate | null;
   refundedAt: ISODate | null;
   refundReason: string | null;
+  /** 무통장 입금(DEV-68) */
+  depositAccount: DepositAccount | null;
+  sellerInfo: SellerInfo | null;
+  depositDueAt: ISODate | null;
+  depositReportedAt: ISODate | null;
+  cancelReason: string | null;
+  /** 환불된 주문: 농가가 입금했던 계좌로 송금을 마친 시각 */
+  refundSettledAt: ISODate | null;
+  /** 농가 미승인 사유(DEV-68): 입금 대기로 남은 주문, 송금 보류 중인 환불 */
+  depositIssue: string | null;
+  refundIssue: string | null;
   actions: OrderAction[];
 };
 
-export type PayResult = {
-  order: Order;
-  result: "success" | "fail";
-  failReason: string | null;
-};
 
 export type Dashboard = {
-  todo: { openQuestions: number; toShip: number; pendingProducts: number };
+  todo: {
+    openQuestions: number;
+    toShip: number;
+    pendingProducts: number;
+    /** 입금 확인할 주문 수(DEV-68) */
+    awaitingDeposit: number;
+    /** 농가가 아직 송금하지 않은 환불 수 */
+    refundsToSettle: number;
+    /** 입금 계좌 등록 여부 */
+    hasAccount: boolean;
+  };
   /** 판매 중 대표 상품 요약(예약한 사람 수·주문 수) */
   product:
     | (SalesState & {
@@ -496,6 +584,7 @@ export type Dashboard = {
 };
 
 export type ProducerOrder = Recipient & {
+  trackingVersion: number;
   orderId: string;
   orderNo: string;
   productId: string;
@@ -507,6 +596,12 @@ export type ProducerOrder = Recipient & {
   carrier: Carrier | null;
   trackingNumber: string | null;
   createdAt: ISODate;
+  totalAmount: number;
+  depositDueAt: ISODate | null;
+  depositReportedAt: ISODate | null;
+  refundSettledAt: ISODate | null;
+  depositIssue: string | null;
+  refundIssue: string | null;
 };
 
 export type HarvestProduct = {
@@ -534,9 +629,15 @@ export type ChatSummary = {
   lastSenderType: SenderType;
   lastAt: ISODate;
   unreadCount: number;
+  /** farmclub 문의 대화방(DEV-150). farmId는 SUPPORT_ID, 대화는 messaging.supportMessages로 연다 */
+  isSupport?: boolean;
 };
 
-export type SenderType = "CONSUMER" | "PRODUCER" | "AI";
+/** OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111) */
+export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
+
+/** farmclub 문의 대화방의 상대 계정. 생산자 채팅 API에서 consumerId 자리에 쓴다(DEV-111) */
+export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
   messageId: string;
@@ -555,6 +656,7 @@ export type ChatMessage = {
   handoffStatus: "FORWARDED" | null;
   /** 연락처 가림이 적용됐는지 */
   masked: boolean;
+  reported?: boolean;
 };
 
 export type StartChatResult = { farmId: string; autoFollowed: boolean };
@@ -574,6 +676,7 @@ export type Escalation = {
   createdAt: ISODate;
   status: "OPEN" | "ANSWERED";
   answer: string | null;
+  reportedMessageId?: string | null;
   /** 그 소비자와의 채팅 전체(AI 안내 포함). screens.md SCR-28 "전달된 질문과 그 채팅" */
   thread: ChatMessage[];
 };
@@ -596,6 +699,8 @@ export type ProducerChatSummary = {
   unreadCount: number;
   needsReply: boolean;
   aiMode: Thread["aiMode"];
+  /** farmclub 문의 대화방. 다른 대화와 같이 최근 순이고 로고로 구분한다 */
+  isSupport?: boolean;
 };
 export type AiSettings = {
   enabled: boolean;

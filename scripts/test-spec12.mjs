@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { mockTransport } = require("../.expo/mock-build/mock/index.js");
-const { configureMockStorage, db } = require("../.expo/mock-build/mock/db.js");
+const { mockTransport } = require("../.expo/mock-build/packages/api/src/mock/index.js");
+const { configureMockStorage, db } = require("../.expo/mock-build/packages/api/src/mock/db.js");
 let stored = null;
 configureMockStorage({
   read: () => stored,
@@ -98,6 +98,7 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
       delayRefund: true,
       shortage: true,
       cancelPolicy: true,
+      thirdParty: true,
     },
     consentVersion: "test",
   };
@@ -106,16 +107,16 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
   const results = await Promise.all([
     api(
       "POST",
-      `/api/orders/${o1.orderId}/pay`,
+      `/api/orders/${o1.orderId}/deposit`,
       a,
-      { mockResult: "success" },
+      {},
       "pay1",
     ),
     api(
       "POST",
-      `/api/orders/${o2.orderId}/pay`,
+      `/api/orders/${o2.orderId}/deposit`,
       b,
-      { mockResult: "success" },
+      {},
       "pay2",
     ),
   ]);
@@ -131,9 +132,9 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
       : { o: o2, t: b, k: "pay2" };
   await ok(
     "POST",
-    `/api/orders/${winning.o.orderId}/pay`,
+    `/api/orders/${winning.o.orderId}/deposit`,
     winning.t,
-    { mockResult: "success" },
+    {},
     winning.k,
   );
   assert.equal((await get()).soldQuantity, 45);
@@ -270,6 +271,48 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
   });
   assert.equal(preview.action, "HANDOFF");
   assert.equal(preview.settingsVersion, null);
+  const groundedSettings = {
+    ...ai,
+    enabled: true,
+    smallOrderPolicy: "한 주문부터 접수해요.",
+    reservationShippingPolicy: "예약 순서대로 12월 중순에 출하해요.",
+    faqs: [
+      { question: "주문 안내가 있나요?", answer: "주문 안내를 확인해 주세요." },
+      { question: "가격은 얼마예요?", answer: "가격은 3,000원이에요." },
+    ],
+  };
+  const harvestWhen = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "언제 수확해요?", productId: "p-house", settings: groundedSettings },
+  );
+  assert.equal(harvestWhen.action, "HANDOFF");
+  const safeOrderText = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "주문 안내가 있나요?", settings: groundedSettings },
+  );
+  assert.equal(safeOrderText.action, "ANSWER");
+  assert.deepEqual(safeOrderText.sourceRefs, ["farm:faq"]);
+  const unsafeWonPrice = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "가격은 얼마예요?", settings: groundedSettings },
+  );
+  assert.equal(unsafeWonPrice.action, "HANDOFF");
+  const reservationPolicy = await ok(
+    "POST",
+    "/api/farms/me/ai-settings/preview",
+    p,
+    { question: "예약 상품은 언제 출하해요?", settings: groundedSettings },
+  );
+  assert.equal(reservationPolicy.action, "ANSWER");
+  assert.deepEqual(reservationPolicy.sourceRefs, [
+    "farm:reservationShippingPolicy",
+  ]);
   assert.equal(
     JSON.stringify({
       messages: db().threads,
@@ -402,4 +445,179 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
     db().threadMeta["f-kang:u-minji"].producerLastReadMessageId,
     beforeRead,
   );
+});
+
+
+test("DEV-186 AC-SRC-3: shared story safety lists and amount detection", () => {
+  const { hasHealthClaim, hasPlatformText, hasMoney } = require("../.expo/mock-build/packages/api/src/sourceTextSafety.js");
+  const lists = require("../server/app/source_analysis/text_safety_lists.json");
+  for (const word of lists.health) assert.equal(hasHealthClaim(word), true, word);
+  for (const word of lists.platform) assert.equal(hasPlatformText(word.replace(/\s/g, "")), true, word);
+  for (const value of ["건강하게 키운 감귤", "비타민C 함유", "수확 후 바로 포장", "작년 300상자 완판"]) {
+    assert.equal(hasHealthClaim(value), false, value);
+    assert.equal(hasPlatformText(value), false, value);
+    assert.equal(hasMoney(value), false, value);
+  }
+  for (const value of ["32,000원", "3 만 원", "1만5천원", "$30", "KRW 32000", "₩3천만"]) {
+    assert.equal(hasMoney(value), true, value);
+  }
+});
+
+
+test("DEV-186 AC-SRC-3: identical shared safety cases on client and server", () => {
+  const detectors = require("../.expo/mock-build/packages/api/src/sourceTextSafety.js");
+  const cases = require("../server/app/source_analysis/text_safety_cases.json");
+  for (const c of cases) {
+    assert.equal(detectors.hasHealthClaim(c.value), c.health, `health: ${c.value}`);
+    assert.equal(detectors.hasPlatformText(c.value), c.platform, `platform: ${c.value}`);
+    assert.equal(detectors.hasMoney(c.value), c.money, `money: ${c.value}`);
+    assert.equal(detectors.hasPeriodText(c.value), c.period, `period: ${c.value}`);
+  }
+});
+
+
+test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { spawnSync } = await import("node:child_process");
+  const workflow = await readFile(new URL("../.github/workflows/deploy-vercel.yml", import.meta.url), "utf8");
+  // DEV-139: 감지 정규식은 scripts/ci/deploy-changed.sh 호출의 둘째 인자
+  const pattern = workflow.match(/deploy-changed\.sh deploy\/vercel-\$\{\{ matrix\.app \}\} '([^']+)'/)[1];
+  for (const [path, expected] of [
+    ["server/app/source_analysis/text_safety_lists.json", 0],
+    ["server/app/source_analysis/text_safety.py", 1],
+    ["apps/producer/src/lib/NewProductComposer.tsx", 0],
+  ]) {
+    assert.equal(spawnSync("grep", ["-qE", pattern], { input: path + "\n" }).status, expected);
+  }
+  const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+  const appsFilter = ci.split("            apps:\n")[1].split("\n      - name:")[0];
+  assert.ok(appsFilter.includes('"server/app/source_analysis/text_safety_lists.json"'));
+  const integrationFilter = ci.split("            integration:\n")[1].split("\n      - name:")[0];
+  assert.ok(integrationFilter.includes('"server/**"'));
+});
+
+
+test("DEV-186 DEV-188 AC-SRC-11: modal groups by reason including return fees and periods", async () => {
+  const { groupSourceExclusions, sourceExclusionReasons } = await import("../apps/producer/src/lib/sourceExclusionReasons.ts");
+  const items = [
+    { candidateId: "price", value: "천혜향 3kg 32,000원", reason: "price" },
+    { candidateId: "return-fee", value: "반품 배송비 5,000원", reason: "price" },
+    { candidateId: "support", value: "고객센터 평일 10시~5시", reason: "platform" },
+    { candidateId: "arrival", value: "1-3일 이내 도착", reason: "period" },
+    { candidateId: "health", value: "면역력 증진에 좋아요", reason: "health" },
+  ];
+  assert.deepEqual([...groupSourceExclusions(items)], [
+    ["price", items.slice(0, 2)],
+    ["platform", [items[2]]],
+    ["period", [items[3]]],
+    ["health", [items[4]]],
+  ]);
+  assert.deepEqual(sourceExclusionReasons, {
+    price: { label: "💰 금액", explanation: "가격·배송비는 다음 단계(판매·가격)에서 직접 정해 주세요.", accent: true },
+    period: { label: "📅 기간", explanation: "판매 기간이나 받는 날은 다음 단계(판매·가격)에서 정해요.", accent: true },
+    platform: { label: "🛡️ 팜클럽 정책", explanation: "교환·환불·문의는 팜클럽이 같은 기준으로 안내해 드려요.",
+      detail: "출하 전 취소는 전액 환불, 배송 후 하자는 교환·환불이에요.", accent: true },
+    health: { label: "🚫 건강 효능", explanation: "건강 효능은 상세 페이지에 넣을 수 없어요.", accent: true },
+    pii: { label: "🔒 개인정보", explanation: "개인정보가 있어 상세에 넣지 않았어요", accent: false },
+    other_product: { label: "📦 다른 상품", explanation: "다른 상품의 내용이라 넣지 않았어요", accent: false },
+    unsupported: { label: "❔ 근거 없음", explanation: "자료에서 근거를 확인하지 못해 넣지 않았어요", accent: false },
+    duplicate: { label: "🔁 중복", explanation: "같은 내용이 있어 한 번만 넣었어요", accent: false },
+    unused: { label: "💤 미사용", explanation: "이번 상세에 사용하지 않은 문구예요", accent: false },
+  });
+});
+
+
+test("DEV-179 AC-17-9: Mock tracking correction is versioned, idempotent and private", async () => {
+  const producer = await login("u-kang", "producer");
+  const rows = await ok("GET", "/api/orders/producer?limit=50", producer);
+  const consumer = await login("u-seojun", "consumer");
+  const preparing = rows.items.find((order) => order.status === "PREPARING" &&
+    db().orders[order.orderId]?.consumerId === "u-seojun");
+  assert.ok(preparing, "An own-farm preparing order for the test consumer is required");
+  const preparingEndpoint = `/api/orders/${preparing.orderId}/tracking`;
+  assert.equal((await api("PATCH", preparingEndpoint, producer,
+    { version: 1, carrier: "INVALID" })).status, 400);
+  const malformedBodies = [
+    { carrier: "CJ" },
+    { version: 1 },
+    { version: 0, carrier: "CJ" },
+    { version: 1.5, carrier: "CJ" },
+    { version: 1, carrier: "INVALID" },
+    { version: 1, carrier: null },
+    { version: 1, carrier: "CJ", trackingNumber: "x".repeat(51) },
+  ];
+  const missingEndpoint = `/api/orders/dev179-missing-${++n}/tracking`;
+  for (const body of malformedBodies) {
+    assert.equal((await api("PATCH", missingEndpoint, producer, body)).status, 400,
+      `Validation must precede missing-order lookup: ${JSON.stringify(body)}`);
+  }
+  assert.equal((await api("PATCH", missingEndpoint, producer,
+    { version: 1, carrier: "CJ" })).status, 404);
+  const foreignUserId = `dev179-foreign-producer-${++n}`;
+  const foreignToken = `dev179-foreign-token-${++n}`;
+  db().users[foreignUserId] = {
+    userId: foreignUserId, name: "테스트 생산자", role: "PRODUCER", farmId: "f-halla",
+  };
+  db().tokens[foreignToken] = foreignUserId;
+  try {
+    for (const body of malformedBodies) {
+      assert.equal((await api("PATCH", preparingEndpoint, foreignToken, body)).status, 400,
+        `Validation must precede foreign-order lookup: ${JSON.stringify(body)}`);
+    }
+    assert.equal((await api("PATCH", preparingEndpoint, foreignToken,
+      { version: 1, carrier: "CJ" })).status, 404);
+  } finally {
+    delete db().tokens[foreignToken];
+    delete db().users[foreignUserId];
+  }
+  const wrongStatus = await api("PATCH", preparingEndpoint, producer,
+    { version: 1, carrier: "CJ" });
+  assert.equal(wrongStatus.status, 409);
+  assert.equal(wrongStatus.body.details.reason, "INVALID_TRANSITION");
+  const shipped = await ok("POST", `/api/orders/${preparing.orderId}/ship`, producer,
+    { carrier: "CJ", trackingNumber: "DEV179-123" });
+  const endpoint = `/api/orders/${shipped.orderId}/tracking`;
+  const before = await ok("GET", `/api/orders/${shipped.orderId}`, consumer);
+  const initial = {
+    carrier: shipped.carrier,
+    trackingNumber: shipped.trackingNumber,
+    version: shipped.trackingVersion,
+  };
+  assert.ok(Number.isInteger(initial.version) && initial.version >= 1);
+  const input = { version: initial.version, carrier: "LOTTE", trackingNumber: "DEV179-456" };
+  const correctionKey = `dev179-tracking-${++n}`;
+  const corrected = await ok("PATCH", endpoint, producer, input, correctionKey);
+  assert.equal(corrected.carrier, input.carrier);
+  assert.equal(corrected.trackingNumber, input.trackingNumber);
+  assert.equal(corrected.trackingVersion, initial.version + 1);
+  assert.deepEqual(await ok("PATCH", endpoint, producer, input, correctionKey), corrected);
+  for (const body of malformedBodies) {
+    assert.equal((await api("PATCH", endpoint, producer, body, correctionKey)).status, 400,
+      `Validation must precede idempotency mismatch: ${JSON.stringify(body)}`);
+  }
+  const reused = await api("PATCH", endpoint, producer,
+    { ...input, trackingNumber: "DEV179-different" }, correctionKey);
+  assert.equal(reused.status, 409);
+  assert.equal(reused.body.details.reason, "IDEMPOTENCY_MISMATCH");
+  const stale = await api("PATCH", endpoint, producer,
+    { ...input, trackingNumber: "DEV179-stale" });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.body.details.reason, "VERSION_MISMATCH");
+  assert.equal((await api("PATCH", endpoint, producer,
+    { ...input, carrier: "INVALID" })).status, 400);
+  assert.equal((await api("PATCH", endpoint, consumer,
+    { ...input, version: corrected.trackingVersion })).status, 403);
+  const after = await ok("GET", `/api/orders/${shipped.orderId}`, consumer);
+  assert.equal(after.carrier, "LOTTE");
+  assert.equal(after.trackingNumber, "DEV179-456");
+  assert.equal(after.status, before.status);
+  assert.equal(after.status, "SHIPPED");
+  assert.equal(after.shippedAt, before.shippedAt);
+  const updated = (await ok("GET", "/api/orders/producer?limit=50", producer))
+    .items.find((order) => order.orderId === shipped.orderId);
+  assert.equal(updated.trackingVersion, initial.version + 1);
+  for (const response of [corrected, after, updated]) {
+    for (const privateKey of ["trackingHistory", "events", "request_summary", "requestSummary", "previous"])
+      assert.equal(privateKey in response, false, `${privateKey} must remain server-only`);
+  }
 });

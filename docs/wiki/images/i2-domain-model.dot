@@ -1,0 +1,26 @@
+digraph G {
+ graph [rankdir=LR,bgcolor=white,pad="0.3",nodesep="0.3",ranksep="0.65",label="Farmclub · Iteration 2 · Domain relationships",labelloc=t,fontsize=22];
+ node [shape=box,style="rounded,filled",fillcolor="#FFF4E8",color="#A75E25",fontname=Arial,fontsize=12,margin="0.15,0.1"];edge[fontname=Arial,fontsize=10,color="#637184"];
+ user[label="User
+Consent / ShippingAddress"];farm[label="Farm
+Follow / AI settings"];product[label="Product
+Option / Stage
+Price / Allocation
+CapacityRequest"];order[label="Order
+Copied price, weight, address
+Status / release guards"];payment[label="Payment
+Refund history / settlement"];thread[label="Thread / ThreadMessage
+Escalation / OrderInquiry
+PrivateAttachment"];news[label="Broadcast
+Reaction / private RoomReply"];batch[label="Private Batch
+Asset / Page
+Run / Item"];draft[label="Candidate / ReviewedField
+Draft / ProductWorkspace
+Source and review versions"];photo[label="Applied PublicPhoto
+Independent object lifecycle"];support[label="Support identity u-farmclub
+No login; OPERATOR messages"];infra[label="IdempotencyRecord
+ManagerEvent / Spend
+PublicMedia",fillcolor="#EAF3FF",color="#476B9A"];
+ user->farm[label="owner 1:N"];farm->product[label="1:N"];user->order[label="buyer 1:N"];product->order[label="1:N snapshots"];order->payment[label="1:0..1 payment
+1:N refunds"];farm->thread[label="1:N"];user->thread[label="participant"];farm->news[label="1:N"];farm->batch[label="1:N private"];batch->draft[label="1:N / evidence"];draft->product[label="explicit apply only",color="#B75B24"];draft->photo[label="copy selected assets"];photo->product[label="current snapshot"];support->thread[label="one per approved farm"];thread->order[label="optional inquiry context",style=dashed];infra->order[style=dotted,label="retry / actions"];infra->batch[style=dotted,label="budget / retry"];
+}

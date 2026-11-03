@@ -29,6 +29,7 @@ class Product(Base):
     variety: Mapped[str] = mapped_column(String(100), default="")
     description: Mapped[str] = mapped_column(Text, default="")
     detail_content: Mapped[dict | None] = mapped_column(JSON)
+    module_detail: Mapped[dict | None] = mapped_column(JSON)
     farmer_note: Mapped[str] = mapped_column(Text, default="")
     photos: Mapped[list[str]] = mapped_column(JSON, default=list)
     grade: Mapped[str | None] = mapped_column(String(20))
@@ -67,6 +68,7 @@ class CapacityRequest(Base):
     reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 

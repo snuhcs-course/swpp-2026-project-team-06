@@ -222,6 +222,9 @@ def test_AC_03_1_and_03_2_draft_leaves_missing_empty_and_no_price(client, login,
 
     assert body["failed"] is False
     assert body["extracted"]["name"] == "하우스 감귤 5kg"
+    assert body["extracted"]["options"] == ["5kg"]
+    assert body["extracted"]["variety"] is None
+    assert "variety" in body["missingFields"]
     assert "expectedBrix" in body["missingFields"]
     assert "deliveryWindow" in body["missingFields"]
     assert body["priceMentioned"] == "3만원"

@@ -8,6 +8,7 @@ export const orderGroups = [
 export type OrderGroup = (typeof orderGroups)[number]["value"];
 const groups: Record<Order["status"], OrderGroup | null> = {
   PENDING_PAYMENT: null,
+  AWAITING_DEPOSIT: "pending",
   RESERVED: "pending",
   PREPARING: "pending",
   SHIPPED: "pending",

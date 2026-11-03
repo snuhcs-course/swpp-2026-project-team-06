@@ -1,26 +1,40 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.accounts import service
 from app.accounts.schemas import (
     Address,
     AddressInput,
+    AddressPatchInput,
     App,
+    ApplicationFilter,
+    ConsentsInput,
+    ConsentView,
+    KakaoConfig,
+    KakaoLoginInput,
+    KakaoLoginResult,
+    KakaoSignupInput,
     LoginResult,
+    MeUpdateInput,
     ProducerApplication,
     ProducerApplicationInput,
+    ProducerDecision,
+    ProducerDecisionHistoryView,
+    ProducerDecisionInput,
     TestAccount,
     TestLoginInput,
     UserView,
 )
 from app.core.db import get_db
-from app.core.security import Consumer, CurrentUser, Producer
+from app.core.security import Admin, Consumer, CurrentUser, Producer
 
 router = APIRouter(prefix="/auth", tags=["accounts"])
+admin_router = APIRouter(prefix="/admin/producers", tags=["admin"])
 
 Db = Annotated[Session, Depends(get_db)]
+IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 
 @router.get("/test-accounts", response_model=list[TestAccount])
@@ -35,9 +49,62 @@ def test_login(db: Db, body: TestLoginInput):
     return service.test_login(db, body.user_id, body.app)
 
 
+@router.get("/kakao/config", response_model=KakaoConfig)
+def kakao_config():
+    """카카오 로그인 사용 여부와 클라이언트 ID(ADR 0003). REST API 키가 없으면 enabled=false."""
+    return service.kakao_config()
+
+
+@router.post("/kakao", response_model=KakaoLoginResult)
+def kakao_login(db: Db, body: KakaoLoginInput):
+    """카카오 인가 코드로 로그인(ADR 0003·0010). 새 사용자는 가입 토큰만 받는다(DEV-132)."""
+    result = service.kakao_login(db, body.code, body.redirect_uri, body.app)
+    db.commit()
+    return result
+
+
+@router.post("/kakao/signup", response_model=LoginResult)
+def kakao_signup(db: Db, body: KakaoSignupInput):
+    """가입 토큰과 필수 약관 동의로 카카오 계정을 만들고 로그인한다(DEV-132, AC-01-19)."""
+    result = service.kakao_signup(db, body)
+    db.commit()
+    return result
+
+
 @router.get("/me", response_model=UserView)
 def me(db: Db, user: CurrentUser):
     return service.user_view(db, user)
+
+
+@router.patch("/me", response_model=UserView)
+def update_me(db: Db, user: Consumer, body: MeUpdateInput):
+    """온보딩 1장·프로필 수정(FEAT-01 I2): 닉네임·이름·휴대폰. 보낸 필드만 바꾼다."""
+    result = service.update_me(db, user, body)
+    db.commit()
+    return result
+
+
+@router.get("/me/consents", response_model=list[ConsentView])
+def my_consents(db: Db, user: CurrentUser):
+    return service.consent_views(db, user.id)
+
+
+@router.post("/me/consents", response_model=list[ConsentView])
+def save_consents(db: Db, user: CurrentUser, body: ConsentsInput):
+    """가입·재동의 기록(AC-01-14·17·18). 소비자·생산자 모두. 항목·버전·시각을 남긴다."""
+    result = service.save_consents(db, user, body)
+    db.commit()
+    return result
+
+
+@router.post("/me/withdraw", status_code=204)
+def withdraw(db: Db, user: CurrentUser):
+    """회원 탈퇴(DEV-94, AC-01-20). 개인정보를 지우고 이 토큰은 더 쓸 수 없다.
+
+    끝나지 않은 주문이 있으면 409 WITHDRAW_BLOCKED(orderNos), 테스트 계정은 403 TEST_ACCOUNT.
+    """
+    service.withdraw(db, user)
+    db.commit()
 
 
 @router.post("/producer-application", response_model=ProducerApplication)
@@ -59,6 +126,79 @@ def my_addresses(db: Db, user: Consumer):
 
 @router.post("/me/addresses", response_model=Address)
 def add_address(db: Db, user: Consumer, body: AddressInput):
+    """배송지 저장. 계정당 50개까지, 넘으면 409 ADDRESS_LIMIT."""
     address = service.add_address(db, user.id, body)
     db.commit()
     return address
+
+
+@router.patch("/me/addresses/{address_id}", response_model=Address)
+def update_address(db: Db, user: Consumer, address_id: str, body: AddressPatchInput):
+    address = service.update_address(db, user.id, address_id, body.model_dump(exclude_unset=True))
+    db.commit()
+    return address
+
+
+@router.delete("/me/addresses/{address_id}", status_code=204)
+def delete_address(db: Db, user: Consumer, address_id: str):
+    service.delete_address(db, user.id, address_id)
+    db.commit()
+    return None
+
+
+@admin_router.get("", response_model=list[ProducerApplication])
+def producer_applications(
+    db: Db,
+    _: Admin,
+    status: Annotated[ApplicationFilter, Query()] = "PENDING",
+):
+    """가입 신청 목록(운영자, DEV-82). 기본 확인 중(PENDING), ALL이면 전부. 신청 최신순."""
+    return service.list_producer_applications(db, None if status == "ALL" else status)
+
+
+@admin_router.post("/{farm_id}/approve", response_model=ProducerDecision)
+def approve_producer(db: Db, admin: Admin, farm_id: str, key: IdempotencyKey = None):
+    from app.admin.service import run_manager_action
+
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="producer.approve",
+        target_type="farm",
+        target_id=farm_id,
+        scope=f"producer-approve:{farm_id}",
+        key=key,
+        body={},
+        run=lambda _: service.decide_producer_application(db, farm_id, True, admin.id),
+    )
+
+
+@admin_router.post("/{farm_id}/reject", response_model=ProducerDecision)
+def reject_producer(
+    db: Db,
+    admin: Admin,
+    farm_id: str,
+    body: ProducerDecisionInput,
+    key: IdempotencyKey = None,
+):
+    from app.admin.service import run_manager_action
+
+    raw = body.model_dump(by_alias=True)
+    return run_manager_action(
+        db,
+        actor_id=admin.id,
+        action="producer.reject",
+        target_type="farm",
+        target_id=farm_id,
+        scope=f"producer-reject:{farm_id}",
+        key=key,
+        body=raw,
+        run=lambda _: service.decide_producer_application(
+            db, farm_id, False, admin.id, body.reason
+        ),
+    )
+
+
+@admin_router.get("/{farm_id}/decisions", response_model=list[ProducerDecisionHistoryView])
+def producer_decisions(db: Db, _: Admin, farm_id: str):
+    return service.producer_decision_history(db, farm_id)

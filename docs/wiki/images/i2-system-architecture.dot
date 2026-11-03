@@ -1,0 +1,34 @@
+digraph G {
+ graph [rankdir=LR, bgcolor="white", pad="0.3", nodesep="0.35", ranksep="0.65", label="Farmclub · Iteration 2 · Runtime architecture", labelloc=t, fontsize=22];
+ node [shape=box, style="rounded,filled", fillcolor="#FFF4E8", color="#A75E25", fontname=Arial, fontsize=13, margin="0.18,0.12"];
+ edge [fontname=Arial, fontsize=11, color="#637184"];
+ subgraph cluster_clients {label="Vercel / browser"; color="#D9E1E8"; c[label="Consumer
+farmclub.kr"]; p[label="Producer
+farm.farmclub.kr"]; a[label="Operator browser
+admin.farmclub.kr"]; proxy[label="Operator server proxy
+Session + Origin + allowlist
+Admin token stays server-side"]; a->proxy[label="cookie / HTTPS"];}
+ api[label="FastAPI API · Railway
+Authorization / transactions
+Jobs / explicit publication",fillcolor="#EAF3FF",color="#476B9A"];
+ worker[label="Source worker · Railway
+Lease / prepare / OCR
+Validate candidates / budget",fillcolor="#EAF3FF",color="#476B9A"];
+ db[label="PostgreSQL 16
+Business data / private drafts
+Jobs / spend / private inquiries",shape=cylinder,fillcolor="#EEF7EC",color="#547B48"];
+ r2[label="Cloudflare R2
+Private source objects
+Controlled public-media routes",shape=cylinder,fillcolor="#EEF7EC",color="#547B48"];
+ cs[label="Anthropic
+Claude Haiku 4.5
+Legacy text drafting / CS"];
+ src[label="OpenRouter
+Gemini 3 Flash Preview
+Source OCR / extraction"];
+ kakao[label="Kakao OAuth"];
+ ph[label="PostHog US Cloud
+Optional masked client analytics"];
+ ci[label="GitHub CI → verified main release",fillcolor="#F0EDF8",color="#79649A"];
+ c->api[label="REST / bearer"];p->api[label="REST / bearer"];proxy->api[label="allowlisted /admin"];api->db;worker->db;api->r2;worker->r2;api->cs[label="selected evidence"];worker->src[label="bounded provider calls"];c->kakao[label="sign in"];p->kakao;api->kakao[label="server exchange"];c->ph[label="build-key enabled",style=dotted];p->ph[style=dotted];api->worker[label="persisted jobs via DB",style=dashed];ci->api[style=dashed,label="deployment"];ci->worker[style=dashed];
+}

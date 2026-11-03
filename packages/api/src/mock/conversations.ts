@@ -2,11 +2,13 @@ import type {
   AiPreview,
   AiSettings,
   ChatMessage,
+  ChatSummary,
   Thread,
   Inquiry,
   Attachment,
 } from "../types";
-import { nextId, nowIso, type DB, type OrderRec } from "./db";
+import { SUPPORT_ID } from "../types";
+import { nextId, nowIso, SUPPORT_WELCOME, type DB, type OrderRec } from "./db";
 import { chatMessage, mask } from "./derive";
 import {
   conflict,
@@ -18,6 +20,7 @@ import {
   register,
   type Ctx,
 } from "./router";
+import { publicName } from "./auth";
 const key = (f: string, c: string) => `${f}:${c}`;
 const following = (d: DB, f: string, c: string) =>
   d.follows.some((x) => x.farmId === f && x.userId === c);
@@ -48,6 +51,60 @@ export function ensureThread(
     consumerLastReadMessageId: null,
     producerLastReadMessageId: null,
   });
+}
+/** 농가 승인 때 farmclub 문의 대화방을 연다. 처음 만들 때만 환영 메시지를 넣는다(DEV-111) */
+export function ensureSupportThread(d: DB, farmId: string): Thread {
+  const k = key(farmId, SUPPORT_ID),
+    fresh = !d.threadMeta[k];
+  const t = ensureThread(d, farmId, SUPPORT_ID);
+  if (fresh) {
+    t.aiMode = "HUMAN";
+    d.threads[k].push(
+      chatMessage({
+        messageId: nextId("m"),
+        senderType: "OPERATOR",
+        body: SUPPORT_WELCOME,
+        photos: [],
+        createdAt: nowIso(),
+        sourceSummary: null,
+        handoffStatus: null,
+        masked: false,
+      }),
+    );
+  }
+  return t;
+}
+/* ---------- 소비자 farmclub 문의 대화방(DEV-150, 서버 support.py와 같다) ---------- */
+type SupportRoom = DB["supportRooms"][string];
+function supportRoom(ctx: Ctx): SupportRoom {
+  const u = ctx.me();
+  if (u.role !== "CONSUMER")
+    fail(403, "FORBIDDEN", "소비자 계정만 쓸 수 있어요.");
+  const room = ctx.db.supportRooms[u.userId];
+  if (!room) notFound("farmclub 대화방이 없어요.");
+  return room;
+}
+function supportUnread(room: SupportRoom) {
+  const at = room.messages.findIndex((m) => m.messageId === room.userLastRead);
+  return room.messages.slice(at + 1).filter((m) => m.senderType === "OPERATOR")
+    .length;
+}
+function supportSummary(d: DB, userId: string): ChatSummary[] {
+  const room = d.supportRooms[userId],
+    m = room?.messages.at(-1);
+  if (!room || !m) return [];
+  return [
+    {
+      farmId: SUPPORT_ID,
+      farmName: "farmclub",
+      farmPhoto: null,
+      lastMessage: m.body,
+      lastSenderType: m.senderType,
+      lastAt: m.createdAt,
+      unreadCount: supportUnread(room),
+      isSupport: true,
+    },
+  ];
 }
 function mode(t: Thread, value: Thread["aiMode"]) {
   if (t.aiMode !== value) {
@@ -99,7 +156,9 @@ function unread(d: DB, t: Thread, producer: boolean) {
   return m
     .slice(at + 1)
     .filter((x) =>
-      producer ? x.senderType === "CONSUMER" : x.senderType !== "CONSUMER",
+      producer
+        ? x.senderType === "CONSUMER" || x.senderType === "OPERATOR"
+        : x.senderType !== "CONSUMER",
     ).length;
 }
 export function needsReply(d: DB, t: Thread) {
@@ -264,6 +323,8 @@ function preview(
     settingsVersion: temporary ? null : s.version,
   });
   if (!s.enabled) return result("DISABLED", null, "농가 AI 응답이 꺼져 있어요");
+  const unsafePolicy =
+    /환불|보상|농약|약속|무조건|지시|프롬프트|할인|가격|흥정|깎|\d+(?:\.\d+)?\s*만\s*원|\d[\d,]*(?:\.\d+)?\s*원|배송.*변경/;
   if (
     /농약|재배|유기농|환불|보상|항의|불만|흥정|깎|파손|상했|썩|맛|신가|셔요|달아|달까|날짜.*변경|미뤄|당겨|약속/.test(
       q,
@@ -291,7 +352,7 @@ function preview(
       "등록 상품 정보",
       [`product:${p.productId}`],
     );
-  if (/배송|언제|받는/.test(q) && (o || p)?.deliveryWindow) {
+  if (/배송|도착|수령|받는|받을|출하/.test(q) && (o || p)?.deliveryWindow) {
     const w = (o || p)!.deliveryWindow!;
     return result(
       "ANSWER",
@@ -310,17 +371,12 @@ function preview(
       [`product:${p.productId}`],
     );
   const faq = s.faqs.find((f) => f.question.trim() === q.trim());
-  if (
-    faq &&
-    !/환불|보상|농약|약속|무조건|지시|프롬프트|할인|배송.*변경|원/.test(
-      faq.answer,
-    )
-  )
+  if (faq && !unsafePolicy.test(faq.answer))
     return result("ANSWER", mask(faq.answer).text, "농가 FAQ", ["farm:faq"]);
   if (
     /소량|최소/.test(q) &&
     s.smallOrderPolicy &&
-    !/환불|보상|무조건|약속|원|지시/.test(s.smallOrderPolicy)
+    !unsafePolicy.test(s.smallOrderPolicy)
   )
     return result(
       "ANSWER",
@@ -329,9 +385,9 @@ function preview(
       ["farm:smallOrderPolicy"],
     );
   if (
-    q === "예약·배송 안내 원칙" &&
+    /예약.*(?:배송|출하)|(?:배송|출하).*예약/.test(q) &&
     s.reservationShippingPolicy &&
-    !/환불|보상|무조건|약속|원|지시/.test(s.reservationShippingPolicy)
+    !unsafePolicy.test(s.reservationShippingPolicy)
   )
     return result(
       "ANSWER",
@@ -368,7 +424,8 @@ function bind(ctx: Ctx, aa: Attachment[]) {
 function send(ctx: Ctx, t: Thread, producer: boolean) {
   return idempotent(ctx, `send:${t.threadId}`, () => {
     const text = String(ctx.body.text ?? "").trim(),
-      orderId = ctx.body.orderId ? String(ctx.body.orderId) : undefined;
+      orderId = ctx.body.orderId ? String(ctx.body.orderId) : undefined,
+      productId = ctx.body.productId ? String(ctx.body.productId) : undefined;
     if (orderId) {
       const o = paidOrder(ctx, orderId);
       if (
@@ -376,6 +433,11 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
         o.consumerId !== t.consumerId
       )
         notFound();
+    }
+    // 상품 페이지에서 연 채팅의 상품(DEV-97): 그 농가의 판매 중 상품만
+    if (productId) {
+      const p = ctx.db.products[productId];
+      if (p?.farmId !== t.farmId || p.status !== "PUBLISHED") notFound();
     }
     const aa = attachments(ctx, t, orderId);
     if ((!text && !aa.length) || text.length > 1000)
@@ -431,7 +493,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
         text,
         settings,
         false,
-        undefined,
+        // 서버처럼 주문이 상품보다 먼저다. preview는 상품을 먼저 보므로 주문이 없을 때만 넘긴다
+        orderId ? undefined : productId,
         orderId,
       );
       if (
@@ -454,7 +517,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
             escalationId: nextId("e"),
             farmId: t.farmId,
             consumerId: t.consumerId,
-            consumerName: `${ctx.me().name.slice(0, 1)}○○`,
+            consumerName: publicName(ctx.me()),
             context: orderId ?? null,
             question: m.text,
             reason: a.reason,
@@ -479,7 +542,7 @@ register({
             (following(ctx.db, t.farmId, u.userId) ||
               inquiries(ctx.db, t).length),
         )
-        .map((t) => {
+        .map((t): ChatSummary => {
           const f = ctx.db.farms[t.farmId],
             m = list(ctx.db, t).at(-1);
           return {
@@ -492,9 +555,44 @@ register({
             unreadCount: unread(ctx.db, t, false),
           };
         })
+        // farmclub 문의 대화방(DEV-150). 고정하지 않고 최근 순으로 섞인다
+        .concat(supportSummary(ctx.db, u.userId))
         .sort((a, b) => b.lastAt.localeCompare(a.lastAt)),
       ctx.query,
     );
+  },
+  "GET /api/messaging/support/messages": (ctx) => ({
+    items: supportRoom(ctx).messages,
+    nextCursor: null,
+  }),
+  "POST /api/messaging/support/messages": (ctx) => {
+    const room = supportRoom(ctx),
+      text = String(ctx.body.text ?? "").trim();
+    if (!text || text.length > 1000)
+      invalid({ text: "문의는 1~1,000자로 적어 주세요" });
+    return idempotent(ctx, "support-send", () => {
+      const { text: body, masked } = mask(text);
+      const message = chatMessage({
+        messageId: nextId("m"),
+        senderType: "CONSUMER",
+        body,
+        createdAt: nowIso(),
+        masked,
+      });
+      room.messages.push(message);
+      return { message, reply: null };
+    });
+  },
+  "PUT /api/messaging/support/read": (ctx) => {
+    const room = supportRoom(ctx),
+      id = String(ctx.body.lastReadMessageId ?? ""),
+      at = room.messages.findIndex((m) => m.messageId === id);
+    if (at < 0) notFound("찾을 수 없는 메시지예요.");
+    const prev = room.messages.findIndex(
+      (m) => m.messageId === room.userLastRead,
+    );
+    if (at > prev) room.userLastRead = id;
+    return { unreadCount: supportUnread(room) };
   },
   "POST /api/messaging/chats": (ctx) => {
     const u = ctx.me(),
@@ -511,6 +609,43 @@ register({
     });
   },
   "GET /api/messaging/chats/:farmId/messages": (ctx) => page(ctx, access(ctx)),
+  "POST /api/messaging/chats/:farmId/messages/:messageId/report": (ctx) => {
+    const t = access(ctx);
+    const messages = list(ctx.db, t);
+    const at = messages.findIndex((m) => m.messageId === ctx.params.messageId);
+    if (at < 0) notFound("찾을 수 없는 메시지예요.");
+    const target = messages[at];
+    if (target.senderType !== "AI" || target.handoffStatus === "FORWARDED")
+      invalid({ messageId: "신고할 수 있는 AI 답변이 아니에요" });
+    const previous = ctx.db.escalations.find(
+      (e) => e.reportedMessageId === target.messageId,
+    );
+    if (previous) return previous;
+    let question: ChatMessage | undefined;
+    for (let i = at - 1; i >= 0; i--) {
+      if (messages[i].senderType === "CONSUMER") {
+        question = messages[i];
+        break;
+      }
+    }
+    if (!question) invalid({ messageId: "연결할 소비자 질문이 없어요" });
+    const escalation = {
+      escalationId: nextId("e"),
+      farmId: t.farmId,
+      consumerId: t.consumerId,
+      consumerName: publicName(ctx.db.users[t.consumerId]),
+      context: question.orderId ?? null,
+      question: question.body,
+      reason: "WRONG_ANSWER",
+      createdAt: nowIso(),
+      status: "OPEN" as const,
+      answer: null,
+      reportedMessageId: target.messageId,
+    };
+    target.reported = true;
+    ctx.db.escalations.push(escalation);
+    return escalation;
+  },
   "POST /api/messaging/chats/:farmId/messages": (ctx) =>
     send(ctx, access(ctx, true), false),
   "GET /api/messaging/producer/chats": (ctx) => {
@@ -522,12 +657,16 @@ register({
         return {
           threadId: t.threadId,
           consumerId: t.consumerId,
-          consumerName: `${ctx.db.users[t.consumerId]?.name.slice(0, 1) ?? "고"}○○`,
+          consumerName:
+            t.consumerId === SUPPORT_ID
+              ? "farmclub"
+              : publicName(ctx.db.users[t.consumerId]),
           lastMessage: m?.body ?? "대화를 시작해 보세요",
           lastAt: m?.createdAt ?? "",
           unreadCount: unread(ctx.db, t, true),
           needsReply: needsReply(ctx.db, t),
           aiMode: t.aiMode,
+          isSupport: t.consumerId === SUPPORT_ID,
         };
       })
       .filter((t) => ctx.query.needsReply !== "true" || t.needsReply)
@@ -559,6 +698,8 @@ register({
     send(ctx, access(ctx), true),
   "PUT /api/messaging/producer/chats/:consumerId/ai-mode": (ctx) => {
     const t = access(ctx);
+    if (t.consumerId === SUPPORT_ID)
+      invalid({ mode: "farmclub 대화방은 AI 응답을 쓰지 않아요" });
     return idempotent(ctx, `mode:${t.threadId}`, () => {
       if (ctx.body.version !== t.version)
         conflict("STALE_VERSION", "최신 대화 상태를 다시 불러와 주세요.");

@@ -2,14 +2,45 @@
 import type {
   Address,
   App,
+  Consent,
+  ConsentKind,
   ProducerApplication,
   TestAccount,
   User,
 } from "../types";
-import { nextId, nowIso, type DB, type UserRec } from "./db";
-import { fail, invalid, notFound, register } from "./router";
+import {
+  CONSENT_VERSION,
+  consentRequired,
+  ensureConsumerSupport,
+  needsOnboarding,
+  nextId,
+  nowIso,
+  type DB,
+  type UserRec,
+} from "./db";
+import { conflict, fail, invalid, notFound, register } from "./router";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
+/** 저장 배송지는 계정당 50개까지(서버 ADDRESS_LIMIT과 같다) */
+export const ADDRESS_LIMIT = 50;
+const CONSENT_KINDS: ConsentKind[] = ["TERMS", "PRIVACY", "AGE14", "MARKETING"];
+/** Mock 카카오 로그인이 만드는 소비자 계정. 처음엔 온보딩이 남아 있다 */
+export const MOCK_KAKAO_USER = "u-kakao";
+/** Mock 카카오 로그인이 만드는 생산자 계정(DEV-74). 처음엔 농가가 없어 가입 신청으로 간다 */
+export const MOCK_KAKAO_PRODUCER = "u-kakao-farm";
+const OPEN_ORDER_STATUSES = ["PENDING_PAYMENT", "AWAITING_DEPOSIT", "RESERVED", "PREPARING", "SHIPPED"];
+const WITHDRAWN_NAME = "탈퇴한 회원";
+const WITHDRAWN_MESSAGE = "탈퇴한 회원의 메시지예요.";
+/** Mock 가입 토큰(DEV-132). 서버는 서명된 30분 토큰을 쓴다 */
+const MOCK_SIGNUP_PREFIX = "mock-signup-";
+const MOCK_KAKAO_EMAIL = { consumer: "kakao.user@example.com", producer: "kakao.farm@example.com" } as const;
+
+/** 농가에 보이는 소비자 이름(R-15): 닉네임, 없으면 이름 앞 글자 + ○○ */
+export function publicName(u: UserRec | undefined | null): string {
+  if (!u) return "고○○";
+  if (u.nickname) return u.nickname;
+  return `${(u.name || "고").slice(0, 1)}○○`;
+}
 
 const TEST_ACCOUNTS: Record<App, string[]> = {
   consumer: ["u-minji", "u-seojun"],
@@ -31,10 +62,15 @@ export function userView(d: DB, u: UserRec): User {
     userId: u.userId,
     name: u.name,
     role: u.role,
-    isTestAccount: true,
+    isTestAccount: !u.kakao,
     farmId: f?.farmId ?? null,
     farmStatus: f?.status ?? "NONE",
     suspendReason: f?.suspendReason ?? null,
+    nickname: u.nickname ?? null,
+    email: u.email ?? null,
+    phone: u.phone ?? "",
+    needsOnboarding: needsOnboarding(u),
+    consentRequired: consentRequired(u),
   };
 }
 
@@ -87,7 +123,202 @@ register({
     return { accessToken: token, user: userView(db, u) };
   },
 
+  // 카카오 로그인 Mock(ADR 0003, DEV-32·74·132): 리다이렉트 없이 로그인한다.
+  // 소비자 앱은 카카오 계정 u-kakao, 생산자 앱은 농가 없는 u-kakao-farm. 처음이면 계정 없이 가입 토큰만 주고,
+  // 필수 약관에 동의(POST /api/auth/kakao/signup)해야 계정이 생긴다(서버와 같은 규칙)
+  "GET /api/auth/kakao/config": () => ({
+    enabled: true,
+    clientId: "mock",
+    redirectPath: "/auth/kakao",
+  }),
+
+  "POST /api/auth/kakao": ({ db, body }) => {
+    const app = appOf(body.app);
+    if (!String(body.code ?? ""))
+      invalid({ code: "인가 코드가 없어요" }, "카카오 로그인에 실패했어요.");
+    const u = db.users[app === "consumer" ? MOCK_KAKAO_USER : MOCK_KAKAO_PRODUCER];
+    if (!u)
+      return {
+        accessToken: null,
+        user: null,
+        signup: { signupToken: `${MOCK_SIGNUP_PREFIX}${app}`, email: MOCK_KAKAO_EMAIL[app] },
+      };
+    const token = `mock-${u.userId}-${Math.random().toString(36).slice(2, 10)}`;
+    db.tokens[token] = u.userId;
+    return { accessToken: token, user: userView(db, u) };
+  },
+
+  "POST /api/auth/kakao/signup": ({ db, body }) => {
+    const b = body as { signupToken?: string; consents?: Partial<Consent>[] };
+    const raw = String(b.signupToken ?? "");
+    const app = raw.startsWith(MOCK_SIGNUP_PREFIX) ? raw.slice(MOCK_SIGNUP_PREFIX.length) : "";
+    if (app !== "consumer" && app !== "producer")
+      invalid({ signupToken: "가입 요청이 만료됐어요" }, "카카오 로그인부터 다시 해 주세요.");
+    const required = app === "consumer" ? ["TERMS", "PRIVACY", "AGE14"] : ["TERMS", "PRIVACY"];
+    const list = b.consents ?? [];
+    const agreed = new Set(
+      list
+        .filter((c) => (c.agreed ?? true) && String(c.version ?? "").trim() === CONSENT_VERSION)
+        .map((c) => c.kind),
+    );
+    if (required.some((k) => !agreed.has(k as ConsentKind)))
+      invalid({ consents: "필수 약관에 모두 동의해 주세요" });
+    const id = app === "consumer" ? MOCK_KAKAO_USER : MOCK_KAKAO_PRODUCER;
+    const at = nowIso();
+    if (!db.users[id])
+      db.users[id] = {
+        userId: id,
+        // 소비자는 온보딩에서 이름을 받는다. 생산자는 가입 신청 전까지 자리 이름
+        name: app === "consumer" ? "" : "카카오 사용자",
+        role: app === "consumer" ? "CONSUMER" : "PRODUCER",
+        farmId: null,
+        kakao: true,
+        email: MOCK_KAKAO_EMAIL[app],
+        phone: "",
+        consents: [],
+      };
+    const u = db.users[id];
+    // 소비자는 가입과 함께 farmclub 문의 대화방을 받는다(DEV-150)
+    if (u.role === "CONSUMER") ensureConsumerSupport(db, id);
+    const rows = (u.consents ??= []);
+    for (const c of list) {
+      if (!c.kind || !CONSENT_KINDS.includes(c.kind)) continue;
+      const next: Consent = { kind: c.kind, version: String(c.version), agreed: c.agreed ?? true, agreedAt: at };
+      const row = rows.find((r) => r.kind === c.kind);
+      if (row) Object.assign(row, next);
+      else rows.push(next);
+    }
+    const token = `mock-${u.userId}-${Math.random().toString(36).slice(2, 10)}`;
+    db.tokens[token] = u.userId;
+    return { accessToken: token, user: userView(db, u) };
+  },
+
   "GET /api/auth/me": (ctx) => userView(ctx.db, ctx.me()),
+
+  // 회원 탈퇴(DEV-94, 서버 accounts.withdraw와 같은 규칙). 테스트 계정은 막는다.
+  // Mock 카카오 계정 아이디(u-kakao 등)는 고정이라, 남길 기록은 새 아이디(u-withdrawn-N)로 옮기고 원래 아이디를 비운다.
+  // 그래서 같은 카카오로 다시 오면 지난 기록과 연결되지 않은 새 사용자가 된다
+  "POST /api/auth/me/withdraw": (ctx) => {
+    const { db } = ctx;
+    const u = ctx.me();
+    if (!u.kakao)
+      fail(403, "FORBIDDEN", "테스트 계정은 탈퇴할 수 없어요.", { reason: "TEST_ACCOUNT" });
+    const farm = u.role === "PRODUCER" && u.farmId ? db.farms[u.farmId] : null;
+    const blocking = Object.values(db.orders)
+      .filter((o) =>
+        u.role === "PRODUCER"
+          ? !!farm && db.products[o.productId]?.farmId === farm.farmId
+          : o.consumerId === u.userId,
+      )
+      .filter((o) => OPEN_ORDER_STATUSES.includes(o.status))
+      .map((o) => o.orderNo)
+      .sort();
+    if (blocking.length)
+      conflict("WITHDRAW_BLOCKED", "끝나지 않은 주문이 있어요. 주문이 끝난 뒤 탈퇴할 수 있어요.", {
+        orderNos: blocking,
+      });
+    const old = u.userId;
+    const tomb = nextId("u-withdrawn");
+    delete db.addresses[old];
+    db.reactions = db.reactions.filter((r) => r.userId !== old);
+    for (const f of db.follows.filter((x) => x.userId === old)) {
+      const followed = db.farms[f.farmId];
+      if (followed && followed.followerCount > 0) followed.followerCount -= 1;
+    }
+    db.follows = db.follows.filter((x) => x.userId !== old);
+    for (const r of db.roomReplies)
+      if (r.senderId === old) Object.assign(r, { senderId: tomb, senderName: WITHDRAWN_NAME, body: WITHDRAWN_MESSAGE, photos: [], videos: [] });
+    for (const key of Object.keys(db.threads)) {
+      const [farmId, consumerId] = key.split(":");
+      if (consumerId !== old) continue;
+      for (const m of db.threads[key])
+        if (m.senderType === "CONSUMER" && !m.orderId && !m.inquiryId)
+          Object.assign(m, { body: WITHDRAWN_MESSAGE, photos: [] });
+      db.threads[`${farmId}:${tomb}`] = db.threads[key];
+      delete db.threads[key];
+    }
+    // farmclub 문의 대화방(DEV-150): 쓴 문의 본문을 지우고 탈퇴 ID로 옮긴다(재가입한 새 사용자와 섞이지 않게)
+    const support = db.supportRooms[old];
+    if (support) {
+      for (const m of support.messages)
+        if (m.senderType === "CONSUMER") m.body = WITHDRAWN_MESSAGE;
+      db.supportRooms[tomb] = support;
+      delete db.supportRooms[old];
+    }
+    for (const o of Object.values(db.orders)) if (o.consumerId === old) o.consumerId = tomb;
+    if (farm) {
+      Object.assign(farm, {
+        ownerId: tomb,
+        status: "SUSPENDED",
+        suspendReason: "농가가 탈퇴했어요",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
+        phone: "",
+      });
+    }
+    for (const [t, id] of Object.entries(db.tokens)) if (id === old) delete db.tokens[t];
+    db.users[tomb] = {
+      ...u,
+      userId: tomb,
+      name: "",
+      nickname: null,
+      phone: "",
+      email: null,
+      kakao: false,
+      deleted: true,
+    };
+    delete db.users[old];
+    return null;
+  },
+
+  "PATCH /api/auth/me": (ctx) => {
+    const u = ctx.me();
+    if (u.role !== "CONSUMER")
+      fail(403, "FORBIDDEN", "이 앱의 계정이 아니에요. 다시 로그인해 주세요.", {
+        reason: "WRONG_APP",
+      });
+    const b = ctx.body as { nickname?: string; name?: string; phone?: string };
+    const fields: Record<string, string> = {};
+    if (b.nickname !== undefined) {
+      const n = b.nickname.trim().length;
+      if (n < 2 || n > 12) fields.nickname = "닉네임은 2~12자로 적어 주세요";
+    }
+    if (b.name !== undefined) {
+      const n = b.name.trim().length;
+      if (n < 2 || n > 20) fields.name = "이름은 2~20자로 적어 주세요";
+    }
+    if (b.phone !== undefined && !PHONE.test(b.phone.trim()))
+      fields.phone = "휴대폰 번호 형식으로 입력해 주세요";
+    if (Object.keys(fields).length) invalid(fields);
+    if (b.nickname !== undefined) u.nickname = b.nickname.trim();
+    if (b.name !== undefined) u.name = b.name.trim();
+    if (b.phone !== undefined) u.phone = b.phone.trim();
+    return userView(ctx.db, u);
+  },
+
+  "GET /api/auth/me/consents": (ctx) => ctx.me().consents ?? [],
+
+  "POST /api/auth/me/consents": (ctx) => {
+    const u = ctx.me();
+    const list = (ctx.body as { consents?: Partial<Consent>[] }).consents ?? [];
+    if (!list.length || list.some((c) => !CONSENT_KINDS.includes(c.kind!) || !c.version))
+      invalid({ consents: "동의 항목과 버전을 보내 주세요" });
+    const rows = (u.consents ??= []);
+    const at = nowIso();
+    for (const c of list) {
+      const row = rows.find((r) => r.kind === c.kind);
+      const next: Consent = {
+        kind: c.kind!,
+        version: String(c.version),
+        agreed: c.agreed ?? true,
+        agreedAt: at,
+      };
+      if (row) Object.assign(row, next);
+      else rows.push(next);
+    }
+    return [...rows].sort((a, b) => a.kind.localeCompare(b.kind));
+  },
 
   "POST /api/auth/producer-application": (ctx) => {
     const u = ctx.me();
@@ -113,6 +344,9 @@ register({
       region: b.region.trim(),
       intro: existing?.intro ?? "",
       photo: existing?.photo ?? null,
+      bankName: existing?.bankName ?? null,
+      accountNumber: existing?.accountNumber ?? null,
+      accountHolder: existing?.accountHolder ?? null,
       followerCount: 0,
       status: "PENDING",
       mainItems: b.mainItems.trim(),
@@ -145,6 +379,12 @@ register({
       fields.address = "우편번호를 찾아 주소를 넣어 주세요";
     if (Object.keys(fields).length) invalid(fields);
     const list = (ctx.db.addresses[u.userId] ??= []);
+    if (list.length >= ADDRESS_LIMIT)
+      conflict(
+        "ADDRESS_LIMIT",
+        `배송지는 ${ADDRESS_LIMIT}개까지 저장할 수 있어요. 안 쓰는 배송지를 지워 주세요.`,
+        { limit: ADDRESS_LIMIT },
+      );
     const isDefault = b.isDefault || list.length === 0;
     if (isDefault) list.forEach((a) => (a.isDefault = false));
     const a: Address = {
@@ -166,8 +406,17 @@ register({
     const a = list.find((x) => x.addressId === ctx.params.addressId);
     if (!a) notFound();
     const b = ctx.body as Partial<Address>;
+    const merged = { ...a, ...b };
+    const fields: Record<string, string> = {};
+    if (!merged.recipientName?.trim())
+      fields.recipientName = "받는 사람을 적어 주세요";
+    if (!PHONE.test((merged.recipientPhone ?? "").trim()))
+      fields.recipientPhone = "휴대폰 번호 형식으로 입력해 주세요";
+    if (!merged.postalCode?.trim() || !merged.address?.trim())
+      fields.address = "우편번호와 주소를 입력해 주세요";
+    if (Object.keys(fields).length) invalid(fields);
     if (b.isDefault) list.forEach((x) => (x.isDefault = false));
-    Object.assign(a, b);
+    Object.assign(a, b, { isDefault: b.isDefault ? true : a.isDefault });
     return a;
   },
 
@@ -177,8 +426,9 @@ register({
     const target = list.find((x) => x.addressId === ctx.params.addressId);
     if (!target) notFound();
     ctx.db.addresses[uid] = list.filter((x) => x !== target);
-    if (target.isDefault && ctx.db.addresses[uid][0])
-      ctx.db.addresses[uid][0].isDefault = true;
+    // 기본을 지우면 가장 최근에 저장한 배송지가 기본이 된다(서버와 같다)
+    const rest = ctx.db.addresses[uid];
+    if (target.isDefault && rest.length) rest[rest.length - 1].isDefault = true;
     return null;
   },
 });

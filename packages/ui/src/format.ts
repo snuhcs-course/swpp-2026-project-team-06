@@ -31,6 +31,13 @@ export function mdw(iso: string) {
   return `${d.month}월 ${d.day}일 (${WEEK[d.weekday]})`;
 }
 
+/** "10월 19일 (일) 01:06" — 입금 기한 같은 마감 시각 */
+export function deadline(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = toSeoul(iso);
+  return `${mdw(iso)} ${String(d.hour).padStart(2, "0")}:${String(d.minute).padStart(2, "0")}`;
+}
+
 /** "오후 3:12" */
 export function time(iso: string) {
   const d = toSeoul(iso);

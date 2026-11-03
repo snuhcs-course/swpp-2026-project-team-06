@@ -8,11 +8,18 @@ from app.core.config import get_settings
 from app.core.detail import DetailDraft, DetailDraftInput, detail_content
 from app.core.errors import conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
-from app.farms.models import Farm, FarmAiSettings, FarmAiSettingsHistory, Follow
+from app.farms.models import (
+    Farm,
+    FarmAiSettings,
+    FarmAiSettingsHistory,
+    Follow,
+    ProducerDecisionHistory,
+)
 from app.farms.schemas import (
     AiPreview,
     AiPreviewInput,
     AiSettings,
+    DepositAccount,
     FaqItem,
     FarmCard,
     FarmDetail,
@@ -23,6 +30,7 @@ from app.farms.schemas import (
     Hero,
     Home,
     MyFarm,
+    SellerInfo,
 )
 
 # 시즌 히어로 문구는 서버 설정 값이다(screens.md 결정 19). 운영자 관리는 I2.
@@ -32,6 +40,14 @@ HERO = {
     "caption": "강씨네 귤밭 · 하우스 감귤 5kg 보러 가기",
     "photo": "/photos/orchard-crate.jpg",
 }
+
+
+def list_applications(db: Session, status: str | None) -> list[Farm]:
+    """운영자 가입 신청 목록(DEV-82). status가 없으면 전부. 신청 최신순."""
+    query = select(Farm).order_by(Farm.applied_at.desc(), Farm.id)
+    if status:
+        query = query.where(Farm.approval_status == status)
+    return list(db.scalars(query))
 
 
 def get_farm_of_producer(db: Session, producer_id: str) -> Farm | None:
@@ -46,9 +62,7 @@ def submit_application(
     main_items: str,
     contact_phone: str,
 ) -> Farm:
-    farm = db.scalar(
-        select(Farm).where(Farm.producer_id == producer_id).with_for_update()
-    )
+    farm = db.scalar(select(Farm).where(Farm.producer_id == producer_id).with_for_update())
     if farm is None:
         farm = Farm(
             id=new_id("f"),
@@ -82,6 +96,68 @@ def submit_application(
         raise conflict("INVALID_TRANSITION", "이미 신청했어요.")
     db.flush()
     return farm
+
+
+def decide_application(
+    db: Session,
+    farm_id: str,
+    approved: bool,
+    manager_id: str,
+    reason: str | None = None,
+) -> Farm:
+    farm = db.scalar(select(Farm).where(Farm.id == farm_id).with_for_update())
+    if farm is None:
+        raise not_found("신청 농가를 찾을 수 없어요.")
+    if farm.approval_status != "PENDING":
+        raise conflict("INVALID_TRANSITION", "대기 중인 신청만 처리할 수 있어요.")
+
+    reject_reason = (reason or "").strip()
+    if not approved and not reject_reason:
+        raise invalid({"reason": "반려 사유를 적어 주세요"})
+
+    decision = "APPROVED" if approved else "REJECTED"
+    decided_at = now()
+    db.add(
+        ProducerDecisionHistory(
+            id=new_id("producer-decision"),
+            farm_id=farm.id,
+            application_at=farm.applied_at,
+            decision=decision,
+            reason=None if approved else reject_reason,
+            manager_id=manager_id,
+            decided_at=decided_at,
+        )
+    )
+    farm.approval_status = decision
+    farm.reject_reason = None if approved else reject_reason
+    farm.suspend_reason = None
+    farm.decided_at = decided_at
+    db.flush()
+    return farm
+
+
+def decision_history(db: Session, farm_id: str):
+    from app.accounts.schemas import ProducerDecisionHistoryView
+
+    if db.get(Farm, farm_id) is None:
+        raise not_found("신청 농가를 찾을 수 없어요.")
+    rows = db.scalars(
+        select(ProducerDecisionHistory)
+        .where(ProducerDecisionHistory.farm_id == farm_id)
+        .order_by(ProducerDecisionHistory.decided_at.desc(), ProducerDecisionHistory.id.desc())
+    )
+    return [
+        ProducerDecisionHistoryView(
+            decision_id=row.id,
+            farm_id=row.farm_id,
+            application_at=row.application_at,
+            decision=row.decision,
+            reason=row.reason,
+            manager_id=row.manager_id,
+            decided_at=row.decided_at,
+        )
+        for row in rows
+    ]
 
 
 def get_approved_farm(db: Session, farm_id: str) -> Farm | None:
@@ -133,6 +209,42 @@ def farm_cards(db: Session) -> list[FarmCard]:
     return sorted(cards, key=lambda c: (c.featured is None, c.featured.d_day if c.featured else 0))
 
 
+def search_farms(db: Session, q: str | None) -> list[FarmCard]:
+    """농가 목록·검색(SCR-02, FEAT-06).
+
+    정렬은 farm_cards와 같고, q는 농가명·지역·주 품목·판매 중 상품명 부분 일치.
+    """
+    from app.catalog import service as catalog
+
+    cards = farm_cards(db)
+    needle = (q or "").strip()
+    if not needle:
+        return cards
+    farms = get_farms(db, [c.farm_id for c in cards])
+    grouped = catalog.group_by_farm(catalog.published_cards(db, list(farms)))
+    matched = []
+    for card in cards:
+        farm = farms[card.farm_id]
+        haystack = " ".join(
+            [farm.name, farm.region, farm.main_items or ""]
+            + [c.name for c in grouped.get(card.farm_id, [])]
+        )
+        if needle in haystack:
+            matched.append(card)
+    return matched
+
+
+def following_farms(db: Session, consumer_id: str) -> list[FarmSummary]:
+    """팔로우한 농가(내 정보 SCR-17, AC-06-3). 최근 팔로우가 위, 승인 취소된 농가는 뺀다."""
+    rows = db.execute(
+        select(Farm)
+        .join(Follow, Follow.farm_id == Farm.id)
+        .where(Follow.consumer_id == consumer_id, Farm.approval_status == "APPROVED")
+        .order_by(Follow.created_at.desc(), Farm.id)
+    ).scalars()
+    return [summary(f) for f in rows]
+
+
 def home(db: Session) -> Home:
     """홈·발견(SCR-01): 시즌 히어로, 추천 상품(마감 임박순 상위 N), 농가 둘러보기."""
     from app.catalog import service as catalog
@@ -174,6 +286,9 @@ def _my_farm_view(farm: Farm) -> MyFarm:
     return MyFarm(
         **_summary(farm),
         intro=farm.intro,
+        bank_name=farm.bank_name,
+        account_number=farm.account_number,
+        account_holder=farm.account_holder,
         detail_content=detail_content(farm.detail_content),
         status=farm.approval_status,
         share_url=share_url(farm) if farm.approval_status == "APPROVED" else None,
@@ -202,6 +317,20 @@ def patch_my_farm(db: Session, producer_id: str, body: FarmPatch) -> MyFarm:
     for key in ("name", "region", "intro", "photo"):
         if key in data:
             setattr(farm, key, data[key])
+    if body.account_number is not None:
+        # 세 칸이 함께 온 것은 스키마가 보장한다. 공백만 있으면 저장하지 않는다(삭제 경로는 없다)
+        bank = (body.bank_name or "").strip()
+        holder = (body.account_holder or "").strip()
+        if not bank or not holder:
+            raise invalid(
+                {"bankName": "은행을 적어 주세요"}
+                if not bank
+                else {"accountHolder": "예금주를 적어 주세요"}
+            )
+        farm.bank_name = bank
+        farm.account_number = body.account_number.strip()
+        farm.account_holder = holder
+        farm.account_updated_at = now()
     if "detail_content" in data:
         farm.detail_content = body.detail_content.model_dump(by_alias=True)
     db.flush()
@@ -366,4 +495,31 @@ def preview_ai(db: Session, farm, body: AiPreviewInput) -> AiPreview:
         reason=answer.reason,
         source_refs=answer.source_refs,
         settings_version=None if temporary else settings.version,
+    )
+
+
+def has_deposit_account(farm: Farm) -> bool:
+    """입금 계좌 세 칸이 모두 있어야 상품 초기 승인 요청과 입금 안내를 할 수 있다(DEV-68)."""
+    return bool(farm.bank_name and farm.account_number and farm.account_holder)
+
+
+def deposit_account(farm: Farm) -> DepositAccount | None:
+    if not has_deposit_account(farm):
+        return None
+    return DepositAccount(
+        bank_name=farm.bank_name or "",
+        account_number=farm.account_number or "",
+        account_holder=farm.account_holder or "",
+    )
+
+
+def seller_info(db: Session, farm: Farm) -> SellerInfo:
+    from app.accounts.models import User
+
+    owner = db.get(User, farm.producer_id)
+    return SellerInfo(
+        farm_name=farm.name,
+        owner_name=owner.name if owner else "",
+        region=farm.region,
+        phone=farm.contact_phone,
     )

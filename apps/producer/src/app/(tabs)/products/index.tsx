@@ -15,6 +15,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import {
   productGroup,
@@ -47,8 +48,12 @@ export default function Products() {
   );
   return (
     <Screen>
-      <LargeTitle title="상품" subtitle="예약 현황을 보고 판매를 관리해요" />
-      <View style={{ paddingVertical: 20 }}>
+      <LargeTitle
+        title="상품"
+        subtitle="예약 현황을 보고 판매를 관리해요"
+        right={<HelpButton />}
+      />
+      <View style={{ paddingVertical: tokens.space.md }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -58,7 +63,6 @@ export default function Products() {
             <Pressable
               key={group.value}
               accessibilityRole="tab"
-              accessibilityState={{ selected: group.value === selected.value }}
               aria-selected={group.value === selected.value}
               onPress={() => router.setParams({ filter: group.value })}
               style={{
@@ -135,7 +139,7 @@ export default function Products() {
               padding: 16,
               borderWidth: 1,
               borderColor: tokens.color.border,
-              borderRadius: 20,
+              borderRadius: tokens.radius.md,
               gap: 16,
             }}
           >
@@ -196,6 +200,7 @@ export default function Products() {
                 {product.remainingGrams / 1000}kg
               </T>
             </View>
+            <Button label="판매페이지 수정" variant="outline" onPress={() => router.push(`/products/${product.productId}/detail`)} />
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
               <Button
                 label="판매 설정"
@@ -217,7 +222,11 @@ export default function Products() {
           </View>
         ))}
       </Scroll>
-      <Fab label="새 상품" onPress={() => router.push("/products/new")} />
+      <Fab
+        label="새 상품"
+        testID="new-product"
+        onPress={() => router.push("/products/new")}
+      />
     </Screen>
   );
 }

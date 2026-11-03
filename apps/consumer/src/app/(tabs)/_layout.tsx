@@ -81,7 +81,8 @@ export default function TabsLayout() {
               // 농가 목록·농가 페이지는 발견 탭 안
               const active =
                 current === t.name ||
-                (t.name === "index" && current === "farms") ||
+                (t.name === "index" &&
+                  (current === "farms" || current === "products")) ||
                 (t.name === "chats" && current === "news");
               return {
                 key: t.name,
@@ -112,6 +113,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="chats" />
       <Tabs.Screen name="me" />
       <Tabs.Screen name="farms" options={{ href: null }} />
+      <Tabs.Screen name="products" options={{ href: null }} />
     </Tabs>
   );
 }

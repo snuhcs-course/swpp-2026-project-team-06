@@ -11,6 +11,7 @@ import {
   register,
   type Ctx,
 } from "./router";
+import { publicName } from "./auth";
 
 function access(ctx: Ctx, farmId: string) {
   const user = ctx.user;
@@ -78,9 +79,12 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
     ...broadcasts,
     ...replies.map((m) => ({
       ...m,
+      // 농가에는 닉네임(없으면 가린 이름, R-15), 본인에게는 자기 이름
       senderName:
         user?.role === "PRODUCER"
-          ? `${m.senderName.slice(0, 1)}○○`
+          ? ctx.db.users[m.senderId]
+            ? publicName(ctx.db.users[m.senderId])
+            : `${m.senderName.slice(0, 1)}○○`
           : m.senderName,
     })),
   ].sort(

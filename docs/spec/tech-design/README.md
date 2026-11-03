@@ -18,18 +18,21 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 
 | 엔티티 | 필수 필드 | 관계 |
 | --- | --- | --- |
-| `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone | (kakaoId, role)당 1개. 같은 사람이라도 소비자·생산자 계정은 따로(ADR 0010) |
-| `ShippingAddress` | id, userId, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5) |
-| `Farm` | id, producerId, name, region, intro, mainItems(주 품목), contactPhone(신청 연락처), approvalStatus(PENDING/APPROVED/REJECTED/SUSPENDED), rejectReason?, suspendReason?, appliedAt, decidedAt? | User(role = PRODUCER) 1 : 1 Farm. 가입 신청 때 생기고, 신청한 대표자 이름은 `User.name` |
+| `User` | id, kakaoId?(I2 카카오 로그인), isTestAccount(시드 테스트 계정, Mock 로그인 대상), opsTester(운영자가 표시한 운영 검증용 실계정. 테스트 농가 숨기기에서만 테스트 계정처럼 센다, DEV-107), role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone, nickname?(I2 온보딩, 농가에 보이는 이름), email?(I2 카카오계정 이메일, 연락용) | (kakaoId, role)당 1개. 같은 사람이라도 소비자·생산자 계정은 따로(ADR 0010). 소비자 카카오 계정은 nickname·name·phone·필수 동의가 모두 있어야 온보딩 완료(FEAT-01 AC-01-12) |
+| `UserConsent` | id, userId, kind(TERMS·PRIVACY·AGE14·MARKETING), version, agreed, agreedAt | User 1 : N, (userId, kind)당 1개. 다시 동의하면 버전·시각 갱신(AC-01-14) |
+| `ShippingAddress` | id, userId, label?, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), isDefault(기본 배송지 여부), createdAt | User 1 : N ShippingAddress (사용자별 저장 배송지, AC-08-5). 계정당 50개, 기본을 지우면 가장 최근 것이 기본(AC-01-15) |
+| `Farm` | id, producerId, name, region, intro, mainItems(주 품목), contactPhone(신청 연락처), approvalStatus(PENDING/APPROVED/REJECTED/SUSPENDED), rejectReason?, suspendReason?, appliedAt, decidedAt?, bankName?·accountNumber?·accountHolder?·accountUpdatedAt?(입금 계좌, DEV-68) | User(role = PRODUCER) 1 : 1 Farm. 가입 신청 때 생기고, 신청한 대표자 이름은 `User.name` |
 | `Follow` | consumerId, farmId, createdAt | User(role = CONSUMER) N : M Farm |
 | `Product` | id, farmId, name, variety, description, deliveryWindow(start, end), maxDelayUntil, expectedBrix?, measuredBrix?, grade?, status(DRAFT/PENDING\_APPROVAL/PUBLISHED/CLOSED), shippingFeeType(FREE/SEPARATE), shippingFee?, maxQuantityPerOrder | Farm 1 : N Product |
 | `ProductOption` | id, productId, weightKg | Product 1 : N Option |
 | `Stage` | id, productId, seq, name, startsAt, endsAt | Product 1 : N Stage |
 | `StagePrice` | stageId, optionId, price(원) | Stage × Option → 1 |
 | `StageAllocation` | stageId, optionId, quantity, reservedCount(예약 박스 수) | Stage × Option → 1. 상품 응답의 `reservedCount`(예약한 사람 수, 중복 없음)와 다르다. 그건 결제된 주문의 소비자 수로 계산한다 |
-| `Order` | id, consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, carrier?(택배사 코드: CJ/EPOST/HANJIN/LOTTE/LOGEN/ETC), trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt? | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
-| `Payment` | id, orderId, method(CARD), provider(MOCK/PG), amount, status, approvedAt | Order 1 : 1 Payment |
-| `Refund` | id, orderId, amount, reason, refundedAt | Order 1 : N Refund |
+| `Order` | id, orderNo(`FC-MMDD-NNNN`, NNNN 무작위 4자리·UNIQUE, 입금자명), consumerId, optionId, stageId, quantity, unitPrice, totalAmount, recipientName(받는 사람), recipientPhone(연락처), postalCode(우편번호), address(주소), addressDetail(상세 주소), deliveryNote?(배송 메모, 100자 이하), status, consentAt, consentVersion, paidAt?, shippedAt?, carrier?(택배사 코드: CJ/EPOST/HANJIN/LOTTE/LOGEN/ETC), trackingNumber?(송장 번호, 50자 이하), deliveredAt?, completedAt?, depositDueAt?(입금 기한)·depositReportedAt?(소비자 ‘입금했어요’)·depositConfirmedBy?(PRODUCER/ADMIN)·cancelReason?(DEV-68) | 배송지 사본(주문 시점 복사). `ShippingAddress`를 참조하지 않는다. 배송 메모는 주소와 같은 개인정보로 다룬다(R-15) |
+| `Payment` | id, orderId, method(BANK_TRANSFER; 과거 행은 CARD), provider(FARM_ACCOUNT; 과거 행은 MOCK), amount, status, approvedAt(=입금 확인 시각) | Order 1 : 1 Payment. 입금 확인 때 만들어진다(DEV-68) |
+| `Refund` | id, orderId, amount, reason, actor, actorUserId?, managerEventId?, createdAt, settledAt?(농가가 입금했던 계좌로 송금을 마친 시각, DEV-68) | Order 1 : N Refund |
+| `ProducerDecisionHistory` | farmId, applicationAt, decision, reason?, managerId, decidedAt | Farm 1 : N Decision |
+| `ManagerEvent` | action/target, original body(private), sanitized summary, status, retry metadata | Audit only; idempotency remains `IdempotencyRecord` |
 | `Broadcast` | id, farmId, body, attachments?(사진·영상), visibility(PUBLIC/FOLLOWERS), createdAt | Farm 1 : N Broadcast. 화면 이름은 ‘소식’ |
 | `Reaction` | broadcastId, userId, createdAt | Broadcast × User → 0 또는 1(한 사람 한 번). 종류는 ‘좋아요’ 하나라 필드 없음. 볼 수 있는 소식에만(FEAT-15) |
 | `Thread` | id, farmId, consumerId | (Farm, Consumer)당 1개. 화면 이름은 ‘채팅’ |
@@ -82,17 +85,18 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 
 | 상태 | 뜻 | 다음 상태 | 바꾸는 주체 |
 | --- | --- | --- | --- |
-| `PENDING_PAYMENT` | 동의 완료, 결제 전 | RESERVED, CANCELED | 시스템 |
-| `RESERVED` | 결제 완료, 출하 대기 (화면: 예약 완료) | PREPARING, REFUNDED | 생산자(수확 시작) / 소비자 취소 / 시스템(R-09) |
-| `PREPARING` | 수확·출하 준비 중 | SHIPPED, REFUNDED, PARTIALLY\_REFUNDED | 생산자(출하, FEAT-17) / 소비자 취소 / 시스템(R-09·R-10) |
+| `PENDING_PAYMENT` | 동의 완료, 입금 안내 전. 물량을 잡지 않는다 | AWAITING_DEPOSIT, CANCELED | 시스템 |
+| `AWAITING_DEPOSIT` | 입금 안내를 받음. 물량을 잡고 있고 입금 기한(안내 + 24시간)이 있다 (화면: 입금 확인 중, DEV-68) | RESERVED, CANCELED | 생산자·운영자 입금 확인 / 소비자 취소(환불 없음) / 시스템(기한 만료, R-28) |
+| `RESERVED` | 입금 확인 완료(결제일 = 확인 시각), 출하 대기 (화면: 예약 완료) | PREPARING, REFUNDED | 생산자 기존 API(현재 UI 없음, 자동 전이 없음) / 소비자 취소 / 시스템(R-09) |
+| `PREPARING` | 수확·출하 준비 중 | SHIPPED, REFUNDED | 생산자(출하, FEAT-17) / 소비자 취소 / 시스템(R-09·R-10) |
 | `SHIPPED` | 출하됨. 이후 소비자 단순 취소 불가 | DELIVERED | 운영자 |
-| `DELIVERED` | 배송 완료(택배 조회로 확인), 구매 확정 대기 | COMPLETED, REFUNDED, PARTIALLY\_REFUNDED | 소비자 구매 확정 / 시스템(배송 완료 8일 경과, PRD R-14) / 운영자(R-11) |
+| `DELIVERED` | 배송 완료(택배 조회로 확인), 구매 확정 대기 | COMPLETED, REFUNDED | 소비자 구매 확정 / 시스템(배송 완료 8일 경과, PRD R-14) / 운영자(R-11) |
 | `COMPLETED` | 구매 확정. 농가 정산 대상(PRD R-14) | — | — |
-| `CANCELED` | 결제 없이 종료 | — | — |
+| `CANCELED` | 입금 없이 종료(입금 전 취소 또는 기한 초과, `cancelReason`). 잡았던 물량은 한 번 돌려준다 | — | — |
 | `REFUNDED` | 전액 환불 | — | — |
-| `PARTIALLY_REFUNDED` | 일부 환불 후 나머지 배송 진행 | SHIPPED, DELIVERED | 운영자 |
+| `PARTIALLY_REFUNDED` | 과거 데이터 읽기 호환용. 신규 부분 환불은 주문 상태를 바꾸지 않고 `Payment.status`에만 기록 | — | — |
 
-표에 없는 전이는 막는다. 환불되면 해당 수량만큼 `StageAllocation.reservedCount`를 되돌린다.
+표에 없는 전이는 막는다. 부분 환불은 주문 흐름과 물량을 바꾸지 않는다. 최종 전액 환불이면 출하 전 남은 수량만 한 번 되돌리고, 출하 후에는 되돌리지 않는다. 환불 송금은 농가가 소비자가 입금했던 계좌로 직접 하고, 앱은 `Refund.settledAt`으로 완료만 기록한다(DEV-68).
 
 ## 용어 ↔ 코드 식별자
 
@@ -139,6 +143,15 @@ PRD 4장 지표를 계산하는 데 필요한 이벤트다. 이벤트 속성에 
 | `draft_created` | AI 초안 생성 | AI 초안 게시율 |
 | `draft_published` | 초안 게시(수정 필드 수 포함) | AI 초안 게시율 |
 | `reaction_toggled` | 소식 좋아요 켬·끔(속성: on/off) | 소식 반응(참고 지표, I1은 측정만) |
+| `checkout_submitted` | 주문서 제출 → 입금 안내(주문 생성·입금 대기, 속성: productId, orderId, quantity) | 주문 전환율(퍼널 단계) |
+| `deposit_reported` | 입금 안내에서 ‘입금을 마쳤어요’(속성: orderId) | 주문 전환율(퍼널 단계) |
+
+앱이 보내는 것과 서버가 보내는 것(ADR 0005, DEV-71):
+- 앱(`packages/analytics`): 화면 전환마다 `$pageview`, `product_viewed`(productId, farmId), `checkout_started`(productId), `checkout_submitted`, `deposit_reported`. 세션 녹화·히트맵도 앱이 켠다.
+- 서버(`server/app/analytics`, DEV-100): `order_paid`(무통장 입금에서는 생산자·운영자의 입금 확인 시점, DEV-68)·`order_canceled`·`farm_followed` 등 확정 사실.
+- 구매 퍼널(상품 → 주문서 → 입금 안내 → 입금했어요): `product_viewed` → `checkout_started` → `checkout_submitted` → `deposit_reported`. 서버 이벤트가 붙으면 입금 확인 단계 `order_paid`를 뒤에 더한다.
+- 사용자 구분은 내부 `userId`(identify)와 사람 속성 `app`·`role`·`isTestAccount`만. 이벤트 속성은 위 표의 ID·수량·결과만 보내고, URL의 쿼리는 보내기 전에 지운다.
+- 세션 녹화: 입력칸은 모두 가린다. 화면 대부분이 개인정보이거나 입력 화면인 곳은 화면 글자를 모두 가린다: 소비자 `/chats`·`/me/profile`·`/me/addresses`·`/checkout/*/address`·`/orders/*/inquiry`·`/onboarding`·`/auth`, 생산자 `/chats`·`/ship`·`/pending`·`/apply`·`/farm/account`·`/auth`. 그 밖의 화면(내 정보·주문 목록·주문 상세·주문서·입금 안내 등)은 법적으로 개인정보인 글자만 가린다: 소비자 이름·연락처·이메일, 받는 사람·주소·배송 메모(R-15), 송장 번호(조회하면 받는 사람이 드러남), 입금 계좌번호·예금주, 채팅·소식방 메시지, 농가 프로필의 입금 계좌 줄. 판매자 정보(상호·대표·지역·연락처)는 전자상거래법상 공개 표시 항목이고, 취소·환불·입금 미확인 사유는 개인정보가 아니어서 가리지 않는다(DEV-104). 네트워크·콘솔은 녹화하지 않는다.
 
 ## 스펙 1.2 데이터·트랜잭션
 

@@ -9,7 +9,7 @@ import "./farms";
 import "./catalog";
 import "./capacity";
 import "./orders";
-import "./conversations";
+import { ensureSupportThread } from "./conversations";
 import "./attachments";
 import "./messaging";
 import "./rooms";
@@ -25,6 +25,7 @@ register({
     f.status = "APPROVED";
     f.rejectReason = null;
     f.decidedAt = nowIso();
+    ensureSupportThread(ctx.db, f.farmId);
     return { farmId: f.farmId, status: f.status };
   },
 });

@@ -4,6 +4,7 @@ import {
   privateImage,
   uploadAttachment,
   isMock,
+  SUPPORT_ID,
   type ChatPage,
 } from "@farmclub/api";
 import {
@@ -14,6 +15,7 @@ import {
   Screen,
   T,
   tokens,
+  SupportAvatar,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -27,6 +29,8 @@ export default function Chat() {
       name?: string;
     }>(),
     router = useRouter();
+  // farmclub 문의 대화방(DEV-111): AI 응대 바 대신 문의 안내를 보인다
+  const support = consumerId === SUPPORT_ID;
   const [page, setPage] = useState<ChatPage | null>(null),
     [active, setActive] = useState(false),
     [selected, setSelected] = useState<string[]>([]),
@@ -66,58 +70,78 @@ export default function Chat() {
   return (
     <Screen>
       <ConversationHeader
-        name={name ?? "소비자"}
-        subtitle="1:1 채팅"
+        name={support ? "farmclub" : (name ?? "소비자")}
+        subtitle={support ? "운영팀 문의" : "1:1 채팅"}
+        avatar={support ? <SupportAvatar size={40} /> : undefined}
         onBack={() => router.navigate("/chats?view=private")}
       />
-      <View
-        style={{
-          padding: 12,
-          gap: 4,
-          borderBottomWidth: 1,
-          borderBottomColor: tokens.color.border,
-        }}
-      >
+      {support ? (
         <View
+          testID="support-intro"
           style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
+            padding: 12,
+            gap: 4,
+            borderBottomWidth: 1,
+            borderBottomColor: tokens.color.border,
           }}
         >
-          <T weight="semibold">
-            {page?.thread.aiMode === "HUMAN"
-              ? "농가 직접 응대"
-              : "AI 자동 안내"}
+          <T weight="semibold">farmclub 운영팀에 물어보세요</T>
+          <T variant="caption" muted>
+            앱 사용법, 정산, 상품 등록처럼 궁금한 점을 아래에 적어 보내면
+            운영팀이 확인하고 답해 드려요. 이 대화방은 AI가 답하지 않아요.
+          </T>
+        </View>
+      ) : (
+        <View
+          style={{
+            padding: 12,
+            gap: 4,
+            borderBottomWidth: 1,
+            borderBottomColor: tokens.color.border,
+          }}
+        >
+          <View
+            testID="ai-mode"
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <T weight="semibold">
+              {page?.thread.aiMode === "HUMAN"
+                ? "농가 직접 응대"
+                : "AI 자동 안내"}
+            </T>
+            <Button
+              label={
+                page?.thread.aiMode === "HUMAN"
+                  ? "AI 응답 재개"
+                  : "직접 응대로 전환"
+              }
+              variant="text"
+              loading={changing}
+              onPress={toggle}
+            />
+          </View>
+          <T variant="caption" muted>
+            답변을 보내면 직접 응대로 전환돼요. 농가 AI가 꺼져 있으면 자동
+            안내도 쉬어요.{isMock ? " · Mock 안내" : ""}
           </T>
           <Button
-            label={
-              page?.thread.aiMode === "HUMAN"
-                ? "AI 응답 재개"
-                : "직접 응대로 전환"
-            }
+            label="농가 AI 설정"
             variant="text"
-            loading={changing}
-            onPress={toggle}
+            onPress={() =>
+              router.push({
+                pathname: "/farm/ai-settings",
+                params: { consumerId, ...(name ? { name } : {}) },
+              })
+            }
           />
+          {error ? <T color={tokens.color.error}>{error}</T> : null}
         </View>
-        <T variant="caption" muted>
-          답변을 보내면 직접 응대로 전환돼요. 농가 AI가 꺼져 있으면 자동 안내도
-          쉬어요.{isMock ? " · Mock 안내" : ""}
-        </T>
-        <Button
-          label="농가 AI 설정"
-          variant="text"
-          onPress={() =>
-            router.push({
-              pathname: "/farm/ai-settings",
-              params: { consumerId, ...(name ? { name } : {}) },
-            })
-          }
-        />
-        {error ? <T color={tokens.color.error}>{error}</T> : null}
-      </View>
+      )}
       <ChatThread
         key={consumerId}
         producer
@@ -170,7 +194,7 @@ export default function Chat() {
                     : ids.filter((id) => id !== e.escalationId),
                 )
               }
-              label={`이 답변으로 해결: ${e.question}`}
+              label={`${e.reason === "WRONG_ANSWER" ? "소비자가 AI 답변을 신고했어요 · " : ""}이 답변으로 해결: ${e.question}`}
             />
           ))}
         {page?.inquiries.map((i) => (

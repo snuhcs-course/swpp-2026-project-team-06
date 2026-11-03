@@ -83,7 +83,7 @@ export default function NewBroadcast() {
       await messaging.postNews(input, pending.current.key);
       setDone(true); // 1회, 성공 후 잠금
       toast("소식을 올렸어요");
-      router.dismissTo(`/news/${user!.farmId}`);
+      router.dismissTo("/chats?view=news");
     } catch (e) {
       if (failToast(e, () => void post())) return; // 글은 그대로
       setFailed(errMsg(e, "올리지 못했어요. 글은 그대로 있어요."));
@@ -345,7 +345,7 @@ export default function NewBroadcast() {
               setLeave(false);
               router.canGoBack()
                 ? router.back()
-                : router.dismissTo(`/news/${user!.farmId}`);
+                : router.dismissTo("/chats?view=news");
             }}
           />
           <Button

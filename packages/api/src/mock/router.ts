@@ -1,6 +1,6 @@
 // Mock 라우터: "METHOD /path/:param" 패턴으로 핸들러를 찾는다. 응답은 실제 서버처럼 {status, body}.
 import type { ConflictReason, ErrorBody, ErrorCode } from "../types";
-import { db, save, type DB, type UserRec } from "./db";
+import { consentRequired, db, needsOnboarding, save, type DB, type UserRec } from "./db";
 
 export type Ctx = {
   db: DB;
@@ -54,6 +54,7 @@ const table: {
   parts: string[];
   handler: Handler;
   app: RouteApp;
+  gated: boolean;
 }[] = [];
 
 /** 경로가 어느 앱 계정용인가(screens.md 7.2 권한 열). any = 공개·로그인(두 계정 모두) */
@@ -71,8 +72,26 @@ const CONSUMER_ROUTES = [
   /^\/api\/farms\/following$/,
   /^\/api\/farms\/:farmId\/follow$/,
   /^\/api\/messaging\/chats(\/|$)/,
+  /^\/api\/messaging\/support(\/|$)/,
   /^\/api\/messaging\/news\/:broadcastId\/reaction$/,
 ];
+/** 첫 가입 온보딩을 마쳐야 하는 행동(서버 OnboardedConsumer와 같은 목록) */
+function needsOnboarded(method: string, path: string): boolean {
+  return (
+    (method === "POST" && path === "/api/orders") ||
+    (method === "PUT" && path === "/api/farms/:farmId/follow") ||
+    (method === "PUT" && path === "/api/messaging/news/:broadcastId/reaction") ||
+    (method === "POST" && path === "/api/messaging/chats") ||
+    (method === "POST" && path === "/api/messaging/chats/:farmId/messages") ||
+    (method === "POST" && path === "/api/messaging/support/messages")
+  );
+}
+
+/** 생산자도 쓰는 경로라 소비자일 때만 관문을 건다(농가 소식방 답장) */
+function needsOnboardedConsumer(method: string, path: string): boolean {
+  return method === "POST" && path === "/api/messaging/rooms/:farmId/messages";
+}
+
 function routeApp(method: string, path: string): RouteApp {
   if (PRODUCER_ROUTES.some((r) => r.test(path))) return "producer";
   if (method === "POST" && path === "/api/products") return "producer";
@@ -82,7 +101,7 @@ function routeApp(method: string, path: string): RouteApp {
   )
     return "producer";
   if (method === "POST" && path === "/api/messaging/news") return "producer";
-  if (path === "/api/orders/:orderId/ship") return "producer";
+  if (path === "/api/orders/:orderId/ship" || path === "/api/orders/:orderId/tracking") return "producer";
   if (CONSUMER_ROUTES.some((r) => r.test(path))) return "consumer";
   if (method === "GET" && path === "/api/messaging/news") return "consumer";
   if (
@@ -103,6 +122,7 @@ export function register(routes: Routes) {
       parts: path.split("/").filter(Boolean),
       handler,
       app: routeApp(method, path),
+      gated: needsOnboarded(method, path) || needsOnboardedConsumer(method, path),
     });
   }
 }
@@ -118,6 +138,7 @@ function match(method: string, path: string) {
     params: Record<string, string>;
     score: number;
     app: RouteApp;
+    gated: boolean;
   } | null = null;
   for (const r of candidates) {
     const params: Record<string, string> = {};
@@ -130,7 +151,7 @@ function match(method: string, path: string) {
       else ok = false;
     });
     if (ok && (!best || score > best.score))
-      best = { handler: r.handler, params, score, app: r.app };
+      best = { handler: r.handler, params, score, app: r.app, gated: r.gated };
   }
   return best;
 }
@@ -189,6 +210,15 @@ export async function dispatch(req: {
       });
     }
     if (m.app !== "any") ctx.me();
+    if (user && m.gated && needsOnboarding(user))
+      fail(403, "FORBIDDEN", "가입을 마치면 쓸 수 있어요.", {
+        reason: "ONBOARDING_REQUIRED",
+      });
+    // 생산자는 지금 버전 약관·개인정보에 동의해야 생산자 API를 쓴다(서버 require_consented_producer, DEV-113)
+    if (user && m.app === "producer" && consentRequired(user))
+      fail(403, "FORBIDDEN", "약관에 동의하면 쓸 수 있어요.", {
+        reason: "CONSENT_REQUIRED",
+      });
     if (
       m.app === "producer" &&
       !pathname.startsWith("/api/auth/") &&

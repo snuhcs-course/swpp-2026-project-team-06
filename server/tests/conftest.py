@@ -84,3 +84,20 @@ def admin_headers():
     from app.core.security import issue_token
 
     return {"Authorization": f"Bearer {issue_token('u-admin', 'ADMIN')}"}
+
+
+@pytest.fixture
+def other_farm_headers(client):
+    """다른 승인 농가(u-halla, 시드의 실제 농가처럼 테스트 계정이 아님) 토큰.
+
+    지금 버전 약관·개인정보에 동의해 둔다(DEV-113). 동의 관문이 아니라 농가 격리(404)를
+    검사하기 위해서다.
+    """
+    from app.accounts.schemas import CONSENT_VERSION, REQUIRED_PRODUCER_CONSENTS
+    from app.core.security import issue_token
+
+    headers = {"Authorization": f"Bearer {issue_token('u-halla', 'PRODUCER')}"}
+    consents = [{"kind": kind, "version": CONSENT_VERSION} for kind in REQUIRED_PRODUCER_CONSENTS]
+    saved = client.post("/api/auth/me/consents", json={"consents": consents}, headers=headers)
+    assert saved.status_code == 200, saved.text
+    return headers

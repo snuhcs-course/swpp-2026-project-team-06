@@ -1,13 +1,18 @@
 """FEAT-12 소식방·1:1 채팅, FEAT-13 AI 응답·전달·직접 응대, FEAT-15 좋아요 (contracts-1.2 4장)."""
 
+import json
+import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from sqlalchemy import update
 
 from app.core.db import get_sessionmaker
 from app.farms.models import FarmAiSettings
-from app.messaging.models import Thread
+from app.messaging.models import Escalation, Thread
+from app.messaging.schemas import SendInput
 
 
 def key() -> dict[str, str]:
@@ -36,6 +41,21 @@ def ai_off(farm_id="f-kang"):
                 updated_at=datetime.now(UTC),
             )
         )
+
+
+def ai_answer(client, consumer, producer):
+    """API 키 없이도 전달되지 않는 AI 답변을 만든다(소량 주문 원칙 규칙 답변)."""
+    settings = client.get("/api/farms/me/ai-settings", headers=producer).json()
+    saved = client.put(
+        "/api/farms/me/ai-settings",
+        headers=producer | key(),
+        json={**settings, "smallOrderPolicy": "1kg부터 주문할 수 있어요."},
+    )
+    assert saved.status_code == 200, saved.text
+    sent = send(client, consumer, "f-kang", "소량 주문 되나요?").json()
+    assert sent["reply"]["senderType"] == "AI"
+    assert sent["reply"]["handoffStatus"] is None
+    return sent
 
 
 # ---------------- 소식방 (M-19) ----------------
@@ -198,7 +218,9 @@ def test_post_news_limits(client, login):
     headers = login("u-kang")
     empty = client.post("/api/messaging/news", headers=headers | key(), json={"body": ""})
     many = client.post(
-        "/api/messaging/news", headers=headers | key(), json={"body": "x", "photos": ["p"] * 6}
+        "/api/messaging/news",
+        headers=headers | key(),
+        json={"body": "x", "photos": ["/photos/p.jpg"] * 6},
     )
 
     assert empty.status_code == 400
@@ -250,7 +272,10 @@ def test_AC_12_5_news_not_in_one_to_one(client, login):
     chats = client.get("/api/messaging/chats", headers=login("u-minji")).json()["items"]
     page = client.get("/api/messaging/chats/f-kang/messages", headers=login("u-minji")).json()
 
-    assert {c["farmId"] for c in chats} == {"f-kang", "f-halla", "f-hyodon"}
+    farms = {c["farmId"] for c in chats if not c["isSupport"]}
+    assert farms == {"f-kang", "f-halla", "f-hyodon"}
+    # 농가 대화 외에는 자기 farmclub 문의 대화방(DEV-150) 하나만 있다
+    assert [c["farmName"] for c in chats if c["isSupport"]] == ["farmclub"]
     assert all(not m["messageId"].startswith("n-") for m in page["items"])
 
 
@@ -269,6 +294,116 @@ def test_AC_13_1_ai_answers_delivery_window(client, login):
     assert result["reply"]["sourceRefs"] == ["order:o-38"]
 
 
+def test_AC_13_5_report_maps_question_and_marks_consumer_and_producer_views(client, login):
+    consumer = login("u-seojun")
+    producer = login("u-kang")
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Escalation).where(Escalation.id == "e-2").values(status="ANSWERED")
+        )
+    sent = ai_answer(client, consumer, producer)
+    answer_id = sent["reply"]["messageId"]
+    newer = ai_answer(client, consumer, producer)
+    assert newer["reply"]["messageId"] != answer_id
+    path = f"/api/messaging/chats/f-kang/messages/{answer_id}/report"
+    report = client.post(path, headers=consumer | key())
+    assert report.status_code == 200, report.text
+    data = report.json()
+    assert data["reason"] == "WRONG_ANSWER"
+    assert data["question"] == sent["message"]["body"]
+    assert data["status"] == "OPEN"
+    assert data["reportedMessageId"] == answer_id
+    with get_sessionmaker()() as session:
+        escalation = session.get(Escalation, data["escalationId"])
+        assert escalation.thread_message_id == sent["message"]["messageId"]
+        assert escalation.reported_message_id == answer_id
+    consumer_page = client.get(
+        "/api/messaging/chats/f-kang/messages", headers=consumer
+    ).json()
+    producer_page = client.get(
+        "/api/messaging/producer/chats/u-seojun/messages", headers=producer
+    ).json()
+    for page in (consumer_page, producer_page):
+        assert next(m for m in page["items"] if m["messageId"] == answer_id)["reported"] is True
+    summaries = client.get(
+        "/api/messaging/producer/chats",
+        headers=producer,
+        params={"needsReply": "true"},
+    ).json()["items"]
+    assert any(row["consumerId"] == "u-seojun" and row["needsReply"] for row in summaries)
+
+
+def test_AC_13_5_duplicate_report_returns_existing_escalation(client, login):
+    consumer = login("u-seojun")
+    answer = ai_answer(client, consumer, login("u-kang"))["reply"]
+    path = f"/api/messaging/chats/f-kang/messages/{answer['messageId']}/report"
+    first = client.post(path, headers=consumer | key())
+    second = client.post(path, headers=consumer | key())
+    assert first.status_code == second.status_code == 200
+    assert first.json()["escalationId"] == second.json()["escalationId"]
+
+
+def test_AC_13_5_concurrent_duplicate_reports_return_existing_escalation(client, login):
+    consumer = login("u-seojun")
+    answer = ai_answer(client, consumer, login("u-kang"))["reply"]
+    path = f"/api/messaging/chats/f-kang/messages/{answer['messageId']}/report"
+
+    def report(_):
+        return client.post(path, headers=consumer | key())
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(report, range(2)))
+    assert [r.status_code for r in responses] == [200, 200]
+    assert responses[0].json()["escalationId"] == responses[1].json()["escalationId"]
+
+
+def test_AC_13_5_unselected_report_stays_open_after_producer_reply(client, login):
+    consumer = login("u-seojun")
+    producer = login("u-kang")
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Escalation).where(Escalation.id == "e-2").values(status="ANSWERED")
+        )
+    answer = ai_answer(client, consumer, producer)["reply"]
+    report = client.post(
+        f"/api/messaging/chats/f-kang/messages/{answer['messageId']}/report",
+        headers=consumer | key(),
+    ).json()
+    replied = client.post(
+        "/api/messaging/producer/chats/u-seojun/messages",
+        headers=producer | key(),
+        json={"text": "배송비는 주문 상세에서 확인해 주세요.", "answerToEscalationIds": []},
+    )
+    assert replied.status_code == 200, replied.text
+    open_questions = client.get(
+        "/api/messaging/questions", headers=producer, params={"status": "OPEN"}
+    ).json()["items"]
+    assert report["escalationId"] in [e["escalationId"] for e in open_questions]
+    summaries = client.get(
+        "/api/messaging/producer/chats", headers=producer, params={"needsReply": "true"}
+    ).json()["items"]
+    assert any(row["consumerId"] == "u-seojun" and row["needsReply"] for row in summaries)
+
+
+def test_AC_13_5_rejects_non_ai_forwarded_and_other_consumer_messages(client, login):
+    consumer = login("u-seojun")
+    other = login("u-minji")
+    sent = ai_answer(client, consumer, login("u-kang"))
+    answer_id = sent["reply"]["messageId"]
+    route = f"/api/messaging/chats/f-kang/messages/{answer_id}/report"
+    assert client.post(route, headers=other | key()).status_code == 404
+    assert client.post(
+        f"/api/messaging/chats/f-kang/messages/{sent['message']['messageId']}/report",
+        headers=consumer | key(),
+    ).status_code == 400
+    forwarded = send(client, consumer, "f-kang", "농약을 언제 살포했나요?").json()["reply"]
+    assert forwarded["handoffStatus"] == "FORWARDED"
+    assert client.post(
+        f"/api/messaging/chats/f-kang/messages/{forwarded['messageId']}/report",
+        headers=consumer | key(),
+    ).status_code == 400
+
+
 def test_AC_13_2_pesticide_question_is_forwarded(client, login):
     result = send(client, login("u-seojun"), "f-kang", "농약은 얼마나 치세요?").json()
 
@@ -280,6 +415,56 @@ def test_AC_13_2_pesticide_question_is_forwarded(client, login):
     assert "u-seojun" in [c["consumerId"] for c in flagged["items"]]
 
 
+def test_C06_FEAT_13_model_non_answer_is_forwarded_to_producer(client, login, monkeypatch):
+    """DEV-47: Claude가 '근거에 없어 답할 수 없어요'를 ANSWER로 내도 needsReply로 전달한다."""
+    from app.ai import service as ai
+
+    with get_sessionmaker()() as session, session.begin():
+        session.merge(
+            FarmAiSettings(
+                farm_id="f-kang",
+                enabled=True,
+                version=2,
+                small_order_policy="",
+                reservation_shipping_policy="",
+                faqs=[{"question": "선물 포장 되나요?", "answer": "선물 포장 가능해요."}],
+                handoff_topics=[],
+                updated_at=datetime.now(UTC),
+            )
+        )
+    calls = []
+
+    class Messages:
+        def create(self, *, messages, **kwargs):
+            calls.append(1)
+            content = messages[0]["content"]
+            payload = json.loads(content[len("근거: ") : content.index("\n질문: ")])
+            raw = json.dumps(
+                {
+                    "action": "ANSWER",
+                    "answer": "죄송하지만, 제공된 정보에 원산지에 대한 내용이 없어 답변드릴 수 "
+                    "없습니다. 판매자에게 직접 문의해주시기 바랍니다.",
+                    "reason": "근거",
+                    "sourceRefs": [payload["evidence"][0]["sourceRef"]],
+                },
+                ensure_ascii=False,
+            )
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=raw)])
+
+    monkeypatch.setattr(ai.get_settings(), "anthropic_api_key", "test-key")
+    monkeypatch.setattr(ai, "_client", lambda timeout: SimpleNamespace(messages=Messages()))
+
+    result = send(client, login("u-seojun"), "f-kang", "원산지가 어디예요?").json()
+
+    assert calls, "Claude 경로를 타야 한다"
+
+    assert result["reply"]["handoffStatus"] == "FORWARDED"
+    flagged = client.get(
+        "/api/messaging/producer/chats", headers=login("u-kang"), params={"needsReply": "true"}
+    ).json()
+    assert "u-seojun" in [c["consumerId"] for c in flagged["items"]]
+
+
 def test_AC_13_3_expected_brix_is_labeled(client, login):
     headers = login("u-minji")
     client.post("/api/messaging/chats", headers=headers | key(), json={"farmId": "f-hyodon"})
@@ -287,6 +472,66 @@ def test_AC_13_3_expected_brix_is_labeled(client, login):
     result = send(client, headers, "f-hyodon", "등록된 당도 수치는 얼마예요?").json()
 
     assert "예상 당도는 12" in result["reply"]["body"]
+
+
+def auto_minji_kang(client, login):
+    """시드 대화(f-kang·u-minji)는 농가 답이 있어 HUMAN이다. AI 답을 받으려면 AUTO로 돌린다."""
+    switched = client.put(
+        "/api/messaging/producer/chats/u-minji/ai-mode",
+        headers=login("u-kang") | key(),
+        json={"mode": "AUTO", "version": 2},
+    )
+    assert switched.status_code == 200, switched.text
+
+
+def test_AC_13_3_two_product_farm_answers_brix_from_given_product(client, login):
+    """판매 중 상품이 2개인 농가: 상품 페이지에서 연 채팅은 그 상품 당도로 답한다(DEV-97)."""
+    headers = login("u-minji")
+    auto_minji_kang(client, login)
+
+    house = send(client, headers, "f-kang", "당도가 몇이에요?", productId="p-house").json()
+    redhyang = send(client, headers, "f-kang", "당도가 몇이에요?", productId="p-redhyang").json()
+
+    assert house["reply"]["handoffStatus"] is None
+    assert "11.8" in house["reply"]["body"]
+    assert house["reply"]["sourceRefs"] == ["product:p-house"]
+    assert "예상 당도는 13" in redhyang["reply"]["body"]
+
+
+def test_AC_13_3_two_product_farm_without_product_forwards(client, login):
+    auto_minji_kang(client, login)
+    result = send(client, login("u-minji"), "f-kang", "당도가 몇이에요?").json()
+
+    assert result["reply"]["handoffStatus"] == "FORWARDED"
+
+
+def test_AC_13_1_order_context_wins_over_product(client, login):
+    """주문과 상품이 함께 오면 주문 상품을 근거로 쓴다(build_evidence 우선순위, DEV-97)."""
+    client.put(
+        "/api/messaging/producer/chats/u-seojun/ai-mode",
+        headers=login("u-kang") | key(),
+        json={"mode": "AUTO", "version": 1},
+    )
+    headers = login("u-seojun")
+    extra = {"orderId": "o-38", "productId": "p-redhyang"}
+    result = send(client, headers, "f-kang", "배송은 언제예요?", **extra).json()
+
+    assert "2026-11-10" in result["reply"]["body"]
+    assert result["reply"]["sourceRefs"] == ["order:o-38"]
+
+
+def test_AC_13_3_product_of_other_farm_or_not_published_is_404(client, login):
+    headers = login("u-minji")
+    before = client.get("/api/messaging/chats/f-kang/messages", headers=headers).json()
+
+    for product_id in ("p-hallabong", "p-cheonggyeon", "p-none"):
+        response = send(client, headers, "f-kang", "당도가 몇이에요?", productId=product_id)
+        assert response.status_code == 404, product_id
+    other_farm = send(client, headers, "f-kang", "당도가 몇이에요?", productId="p-hyodon")
+    assert other_farm.status_code == 404
+
+    after = client.get("/api/messaging/chats/f-kang/messages", headers=headers).json()
+    assert [m["messageId"] for m in after["items"]] == [m["messageId"] for m in before["items"]]
 
 
 def test_AC_13_4_ai_reply_is_labeled(client, login):
@@ -311,6 +556,105 @@ def test_AC_13_7_farm_ai_off_overrides_auto(client, login):
 
     assert result["reply"] is None
     assert result["message"]["needsHuman"] is True
+
+
+def test_M_07_refund_alert_when_ai_off(client, login, caplog):
+    ai_off()
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        result = send(client, login("u-seojun"), "f-kang", "환불 요청합니다").json()
+
+    records = [record for record in caplog.records if record.message == "manager_refund_request"]
+    assert result["reply"] is None
+    assert len(records) == 1
+    assert records[0].event == "manager_refund_request"
+    assert records[0].farmId == "f-kang"
+    assert records[0].messageId == result["message"]["messageId"]
+    assert records[0].category == "refund_or_compensation"
+    assert "환불 요청합니다" not in str(records[0].__dict__)
+    assert "u-seojun" not in str(records[0].__dict__)
+
+
+def test_M_07_sequential_idempotent_replay_logs_once(client, login, caplog):
+    headers = login("u-seojun") | key()
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        first = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers,
+            json={"text": "보상 요청합니다"},
+        )
+        second = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers,
+            json={"text": "보상 요청합니다"},
+        )
+
+    records = [record for record in caplog.records if record.message == "manager_refund_request"]
+    assert first.json() == second.json()
+    assert len(records) == 1
+
+
+def test_M_07_commit_failure_emits_no_alert(monkeypatch, caplog):
+    from app.messaging import router, service
+
+    alert = service.ManagerRefundAlert("f-kang", "thread-1", "loser-message")
+    outcome = service.ConsumerSendOutcome(
+        result={"message": {"messageId": "loser-message"}}, alert=alert
+    )
+
+    monkeypatch.setattr(service, "consumer_send", lambda *args: outcome)
+
+    def commit_failure(*args):
+        run = args[-1]
+        run()
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(router, "run_idempotent", commit_failure)
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        try:
+            router.send_chat(
+                db=object(),
+                user=SimpleNamespace(id="u-1"),
+                farm_id="f-kang",
+                body=SendInput(text="환불"),
+                key="same-key",
+            )
+        except RuntimeError:
+            pass
+
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
+
+
+def test_M_07_idempotency_integrity_error_loser_emits_no_alert(monkeypatch, caplog):
+    from app.messaging import router, service
+
+    alert = service.ManagerRefundAlert("f-kang", "thread-1", "loser-message")
+    outcome = service.ConsumerSendOutcome(
+        result={"message": {"messageId": "loser-message"}}, alert=alert
+    )
+
+    monkeypatch.setattr(service, "consumer_send", lambda *args: outcome)
+
+    def integrity_error_recovery(*args):
+        run = args[-1]
+        run()
+        return {"message": {"messageId": "winner-message"}, "reply": None}
+
+    monkeypatch.setattr(router, "run_idempotent", integrity_error_recovery)
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        result = router.send_chat(
+            db=object(),
+            user=SimpleNamespace(id="u-1"),
+            farm_id="f-kang",
+            body=SendInput(text="환불"),
+            key="same-key",
+        )
+
+    assert result["message"]["messageId"] == "winner-message"
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
 
 
 def test_AC_13_6_producer_answer_switches_to_human(client, login):

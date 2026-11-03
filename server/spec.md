@@ -6,6 +6,8 @@
 > 스택·레포 구조: docs/spec/tech-design/stack.md 2·3장, 데이터 모델·주문 상태: docs/spec/tech-design/README.md, 결정: docs/spec/tech-design/adr/
 
 ## 역할
+
+DEV-90 (2026-10-19): 운영 자료 분석은 API와 별도 Railway worker를 사용한다. `Dockerfile.worker`/`railway-worker.json`, 빌드 시 pinned OCR 모델 배치, 동일 DB·private R2 참조 및 $5 원장을 유지한다. API는 migration, worker는 head/모델 검증 후 polling을 담당한다. 운영 검증·복구 절차는 `server/README.md`, 현재 제품/잔여 인수 상태는 `docs/spec/source-integration.md`를 따른다.
 FastAPI 서버 하나(ADR 0007). 두 앱의 API, 운영자 관리 API(ADR 0008), 농가 공유 링크 OG 페이지(ADR 0006)를 맡는다. Railway에 배포하고 DB는 PostgreSQL이다.
 
 ## 구조
@@ -18,7 +20,7 @@ server/
   app/
     main.py                 FastAPI 앱 생성, /health, 모듈 라우터 등록
     core/                   config.py(설정), db.py(엔진·세션·Base), security.py(현재 사용자·역할 검사)
-    accounts/ farms/ catalog/ orders/ messaging/ ai/ analytics/
+    accounts/ farms/ catalog/ orders/ messaging/ media/ ai/ analytics/
                             모듈마다 router.py·models.py·schemas.py·service.py, 맡은 일은 각 spec.md
   tests/                    pytest
 ```
@@ -30,8 +32,11 @@ server/
 | catalog | FEAT-03, 04, 05, 07, 14 | [app/catalog/spec.md](./app/catalog/spec.md) |
 | orders | FEAT-08, 09, 10, 11, 14, 17 | [app/orders/spec.md](./app/orders/spec.md) |
 | messaging | FEAT-12, 13, 15(좋아요) | [app/messaging/spec.md](./app/messaging/spec.md) |
+| media | 공개 사진·영상 업로드(FEAT-02·04·15, storefront-1.5) | [app/media/spec.md](./app/media/spec.md) |
 | ai | FEAT-03, 13 (호출 어댑터, FEAT-17은 I2) | [app/ai/spec.md](./app/ai/spec.md) |
 | analytics | PRD 4장 지표 서버 이벤트 | [app/analytics/spec.md](./app/analytics/spec.md) |
+| source_analysis | FEAT-03/04/07 확장, AC-SRC-1~8 | [app/source_analysis/spec.md](./app/source_analysis/spec.md) |
+| admin | DEV-35 운영자 감사·예외 복구 | [app/admin/spec.md](./app/admin/spec.md) |
 
 ## 계약
 
@@ -49,7 +54,7 @@ server/
 - 시간은 DB에 UTC(timezone-aware)로 저장하고, 화면 표시는 KST(N-03). 금액은 원 단위 정수(N-03).
 
 **관리 API (ADR 0008)**
-- 생산자 승인·반려(accounts), 상품 승인·반려(catalog), 배송 완료·환불(orders), 농가 정지(farms, R-24), 메시지 삭제(messaging).
+- 생산자 승인·반려(accounts), 상품 승인·반려(catalog), 배송 완료·환불(orders), 예외 조회·복구(admin), 농가 정지(farms, R-24), 메시지 삭제(messaging).
 - 각 모듈이 `/admin/<자원>` 라우터를 갖고, 모든 경로에 `require_roles(ADMIN)`을 건다. 운영 환경 `/docs`는 공개하지 않는다.
 
 **공유 링크 (ADR 0006)**
@@ -62,7 +67,7 @@ server/
 
 **페이지네이션·멱등 키** (screens.md 7.1)
 - 목록은 `limit`(기본 20, 최대 50)과 `cursor`, 응답 `{"items": [...], "nextCursor": ... | null}`.
-- `POST /api/orders`, `POST /api/orders/{orderId}/pay`는 `Idempotency-Key` 헤더 필수. (사용자, 키)로 처음 결과를 24시간 저장하고 같은 키면 그대로 돌려준다. 본문이 다르면 409 `IDEMPOTENCY_MISMATCH`.
+- `POST /api/orders`, `POST /api/orders/{orderId}/pay`와 운영자 생산자 결정·배송 완료·환불은 `Idempotency-Key` 헤더 필수. (사용자, 범위, 키)로 처음 결과를 24시간 저장하고 같은 키면 그대로 돌려준다. 본문이 다르면 409 `IDEMPOTENCY_MISMATCH`.
 
 **테스트 방법**
 - `uv run pytest`(테스트), `uv run ruff check .`(린트). CI는 DEV-9.
@@ -87,3 +92,17 @@ server/
 | 2026-10-08 | `JWT_SECRET`이 비면 local이 아닌 환경에서 시작 실패 | 이슈 #5(#19 리뷰) | — |
 | 2026-10-08 | 테스트는 `<DB>_test` DB에서 매 테스트 시드를 다시 넣고 돈다 | CI의 alembic 검사 DB와 분리 | — |
 | 2026-10-08 | 연락처 가림은 `core/masking.py` 하나(전화번호, 숫자 10자리 이상 계좌). 날짜는 가리지 않는다 | M-16, M-18 | AC-12-2 |
+| 2026-10-16 | 운영자 작업은 기존 멱등 레코드와 별도 `ManagerEvent`에 정제된 감사 요약·실패 복구 상태를 저장한다 | DEV-35, 원문 비노출과 재시도 책임 분리 | M01~M03 |
+| 2026-10-21 | 공개 사진·영상은 `POST /api/media`로 받아 R2에 두고 주소만 저장한다. 사진 필드는 HTTPS·서비스 경로 500자까지만 받아 data URL은 400. local이 아니면 저장소가 R2여야 한다는 검사를 자료 분석 설정과 무관하게 한다(DEV-102) | 공개 사진 업로드 API가 없어 앱이 base64를 URL 자리에 보내 농가 사진 저장이 500으로 실패했다 | AC-02-3, AC-12-10 |
+
+- DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
+
+- DEV-58 / AC-SRC-11: 큰 섹션 숨김은 `hiddenSectionIds` JSON 목록으로 저장하고 하위 항목의 `enabled`와 분리한다. 미리보기/공개 및 활성 근거 검증은 두 상태를 함께 적용한다. 기존 저장본은 빈 목록 기본값. UI는 큰 제목 줄 오른쪽 눈, 항목/사진 우측 상단 ×와 제자리 편집 복원, 연한 placeholder. 상세 계약은 docs/spec/source-editor.md.
+
+- DEV-58 / AC-SRC-11: 빈 항목은 연한 동일 placeholder로 항상 편집 가능하며 입력/사진 추가 시 활성화한다. 항목 추가 메뉴 제거, 공백을 포함한 빈 내용은 공개에서 제외. 빈 섹션 제목 흐림, 눈은 수동 숨김 상태 유지.
+
+- DEV-58 / AC-SRC-11 기본 정보: 대상별 basicInfo(variety/size/expectedBrix)를 JSON에 보관하며 PUT /source-analysis/batches/:bid/basic-info로 버전 검사 후 저장한다. 기존 상품은 품종·info.size·예상 당도만 초기값으로 복사한다. 새 분석에는 품종 필수, 나머지는 선택. 직접 확정한 상세 문구/삭제 > 기본 정보 > 추출 제안 우선순위. 기존 작업 열람과 직접 편집은 허용하고 공개 상품은 명시적 반영 전 변경하지 않는다. 입력 blur 및 분석 전 flush, 실패 시 입력 보존. 편집에 빈 내용 구매자 비노출 안내를 표시한다.
+
+- DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
+
+DEV-58 PR113 최종 리뷰: PageSnapshot 대표 URI는 필수 키/nullable이고 누락 요청은 검증 오류다. 작업 생성에서만 현재 상품 대표사진을 초기화한다. 비공개 null 저장은 허용하되 공개 적용은 대표사진을 요구한다.

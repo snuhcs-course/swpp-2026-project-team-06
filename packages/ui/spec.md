@@ -14,14 +14,14 @@
 
 ## 계약
 - 앱은 `import { Button, Placeholder, tokens } from "@farmclub/ui"`로만 쓴다. 내부 파일 경로를 직접 import하지 않는다.
-- 글자 단계는 본문 17, 입력 16, 보조 15, 메타(날짜·칩·탭·‘n명 예약’·시각) 15(screens.md 3장, 디자인 토큰). 13은 쓰지 않는다. 누를 수 있는 요소는 `tokens.touchTarget.min`(48) 이상이고, 보이는 크기가 작으면 여백·hitSlop으로 넓힌다(N-02).
+- 글자 단계는 본문 17, 입력 16, 보조 15, 메타(날짜·칩·탭·시각) 13, 본문·채팅 17(1.6). 누를 수 있는 요소는 `tokens.touchTarget.min`(48) 이상이고, 보이는 크기가 작으면 여백·hitSlop으로 넓힌다(N-02).
 - 간격은 4 단위(4·8·12·16·20·24·32·40) 토큰만 쓴다. 썸네일은 104·64·40, 메신저 원형 프로필은 목록 48·헤더 40·설정 64를 쓴다(디자인 1.3). 사진이 없거나 로딩에 실패하면 이니셜을 표시한다.
 - 글꼴은 Pretendard 가변 웹폰트(한글 서브셋)를 첫 순위로, `color-scheme: light`, PC는 최대 폭 480 가운데 정렬, 위·아래는 안전 영역을 더한다.
-- 부품 상태: 버튼 눌림·로딩·비활성, 입력 포커스·비활성·오류, 키보드 포커스 링, 팔로우 토글, 토스트(성공·공통 오류). 규격은 `docs/design/screens/ds.html`.
+- 부품 상태: 버튼 눌림·로딩·비활성, 입력 포커스·비활성·오류, 키보드 포커스 링, 팔로우 토글, 토스트(성공·공통 오류). 현재 규격은 UI 1.6과 `tokens.ts`; `docs/design/screens/ds.html`은 이전 기록이다.
 - 탭·버튼·상태 이름은 ia.md 4장 레이블을 쓴다(예: ‘예약하기’, ‘품절’, ‘받는 시기’). 쓰지 않는 말(구매하기, 매진 등)은 쓰지 않는다.
 - `react`, `react-native`는 peerDependencies. 앱이 가진 버전을 쓴다.
 
-## 구현 결정
+## 구현 결정 이력 (현재 화면은 DEV-51 절 우선)
 | 날짜 | 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
 | 2026-10-07 | 빌드 없이 TS 소스(`src/index.ts`)를 `main`으로 둔다 | Metro가 워크스페이스 TS를 바로 번들, 설정 최소 | — |
@@ -58,3 +58,51 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 ## DEV-3 상세·공개 소식방 구현 (1.5)
 명세 PR #44의 storefront-1.5.md를 따른다. 상세는 text/image 블록과 공유 DetailStory 렌더러를 사용하며 생성은 저장 전 편집안이다. 기존 intro/description은 실제 기존 데이터의 기본 소개로 유지한다. 소식방 공개 읽기와 답장 권한을 분리하고 권한 변경 후 이전 비동기 메시지를 폐기한다. 실제 AI 호출은 구현하지 않으며 Mock임을 명시한다.
+
+## DEV-51 현재 프론트 구현 기준 (1.6)
+
+제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
+Storefront의 Price/ProductShelf/NewsCard/FeedCarousel/ChatChoices/BrandHeader는 API 없는 표현 컴포넌트다. 제목 28/36, 메타 13/18, 탭 72, 터치 48. ProductShelf의 local state로 전송/접기에서 대화를 재마운트하지 않는다. NewsRoom은 producer 시스템 안내를 본문에 두고 소비자 안내를 제거한다.
+
+## DEV-56/57/58 integration
+
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
+
+## DEV-57 단일 상세 템플릿 시각 통합
+
+`ModuleStory`는 DEV-52 최종 `docs/design/sales-templates/all-sections.*`의 상품 표지, 구역 묶음, 제목·본문 크기와 손 위 일러스트를 사용한다. 후속 사용자 결정으로 농가 소식을 포함한36px 제목 아이콘8종과 이미지 배경을 적용한다. 작은 제목은 텍스트로 유지한다. 18개 모듈의 저장 계약은 유지하고 구매자 순서의9개 구역으로 표시한다. 빈 구역·공백뿐인 문구는 숨긴다. 생산자 PageCanvas의 구매자 화면 미리보기와 소비자 moduleDetail은 같은 ModuleStory 컴포넌트를 사용한다.
+
+원문 텍스트는 줄바꿈·숫자·기호를 보존한다. 작업실의 예시/자리 표시·원산지/품종 기본값·공정 순서를 추가하지 않는다. 설명 없는 공정 장식3종은 표시하지 않는다. 공개 사진은 SourcePhoto/StoryImage로 원본 비율을 유지하며 웹에서는 기존 종이 프레임(9% 분할/14px border-image)을 사진 밖에 표시한다. 네이티브는 기존 사진 렌더러를 유지한다. 크림색 사진 배경은 제거한다. 손 크기 비교는 섹션 여백 밖까지 확장한 전체 폭에 버튼과 같은 accent #C94F0C 및 ImageGen 벡터형 주황 배경을 적용한다. 안쪽24px/상하64px 여백에 그림과 기준 손 길이를 함께 배치하고 글자는 흰색으로 표시한다. 실제 상품 사진과 설명용 일러스트를 구분하며 후자에만 기준 손18cm/비교용 가정을 표시한다.
+
+
+## DEV-57 당도계 일러스트
+`brix-meter.png`는 사용자 지정 당도계 형태에 기존 귤·냉장고·선별 아이콘의 채색 종이 질감을 적용한 일러스트다. 크림·세이지·귤색을 공유한다. 최종 생성 프롬프트와 참조 경로는 자산 옆에 기록한다.
+`BrixReading`은 API 실측값이 null이 아닐 때 당도계 장식을280×280 영역 중앙에 크게 표시하고 실제 값/측정일을 아래 중앙에 배치한다. 그림·값·날짜 전체에 버튼 accent #C94F0C/상하96px의 전체 폭 배경과 ImageGen 벡터형 주황 배경을 적용한다. 글자는 흰색이다. 공통 IllustrationBackdrop은 흰 바탕에 생성 원본100%를 stretch로 표시해 위아래 경계를 보존하며 접근성 트리/터치를 방해하지 않는다. 0을 예상값으로 대체하지 않으며 날짜 미등록은 명시한다. 실측값이 없으면 배경과 그림 없이 기존 예상값/대기 안내 행을 유지한다. 그림 자체에는 숫자나 인증 표시가 없다.
+
+손·실측 당도 강조 영역은 이미지 자체의 매끈한 주황 곡선·투명 경계로 본문 배경과 연결한다. 손3종 내부는 흰색이고 바깥 알파는 유지한다. 하단 일러스트 설명은 제거하며 손 옆 비교용 가정은 유지한다. 선택한 과일 사이즈(소과/중과/대과) 및 실측 당도 숫자는40px/48px bold이다. 기준 손 길이18cm와 비교용 가정은13px/20px, 당도 제목·날짜는17px/26px 흰색이다. 실측은 제목/값/날짜로 분리하고 미측정 안내는 유지한다.
+
+실측 당도 영역은 투명 곡선과 그림·날짜가 겹치지 않도록 상하96px 여백을 확보한다. 손 비교 영역은64px를 유지한다.
+
+- DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
+
+
+## DEV-85 승인 로고 배치 (2026-10-19)
+
+원본 PNG 4종은 `assets/brand/`에 보존하며 실제 렌더링은 `BrandLogo`의 wordmark/icon/full 세 형태를 사용한다. 소비자 홈은 글자형, 생산자 현황은 아이콘형(36×40, 좌우 12, 제목 간격 12), 생산자 로그인은 상단 글자형 없이 안내 제목 오른쪽 조합형이다. 로그인 제목은 사용자 승인 예외 30/32px semibold, 조합형은 172×129px와 x=-16/y=-10px의 광학 정렬을 쓴다. 320px 등 더 좁은 화면에서는 로고를 비율대로 축소해 제목 공간을 확보한다. 원본을 자르거나 변형하지 않는다.
+
+`BrandHeader.logo`는 홈에서 wordmark/icon을 명시한다. 다른 화면의 기존 아이콘·제목은 유지한다. 카카오/테스트 로그인 선택·계정 상태·버튼·라우팅 계약은 변경하지 않는다. 승인된 정적 검토 페이지는 `docs/design/brand-review/`에 보존한다.
+
+## DEV-113 약관·처리방침·사업자 정보 (2026-10-22)
+
+| 결정 | 이유 |
+| --- | --- |
+| 문안은 `src/legalContent.ts` 한 곳(지울 수 있는 타입만, import 없음). `LegalFooter`·`LegalDocument`(`src/Legal.tsx`)와 `scripts/legal-pages.mjs`(Node type stripping으로 직접 import)가 같이 쓴다 | SPA라 JS 없이 읽히는 정적 HTML이 따로 필요하고, 두 벌로 쓰면 문안이 어긋난다 |
+| 사업자 정보는 `EXPO_PUBLIC_BUSINESS_{NAME,OWNER,REGISTRATION_NO,MAIL_ORDER_NO,ADDRESS,PHONE,EMAIL}`·`EXPO_PUBLIC_PRIVACY_OFFICER`에서 읽고, 값 있는 항목만 그린다. 하나도 없으면 ‘farmclub · 테스트 서비스’ | 값은 레포에 쓰지 않는다(AGENTS.md). policy.md 6장 |
+| `LegalFooter`는 링크를 직접 열지 않고 `onOpen(path)`로 앱 라우터에 맡긴다 | ui 패키지는 expo-router에 의존하지 않는다 |
+| 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |
+| (DEV-116) 푸터는 `<Scroll footer={<LegalFooter … />}>` 슬롯으로 둔다. footer가 있으면 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'` + 위 여백 section(40)으로 붙인다 | 내용 바로 뒤에 두면 짧은 화면(카카오 운영 로그인)에서 푸터가 화면 중간에 뜬다. flexGrow는 footer가 있을 때만 켜 다른 화면에 영향이 없다 |
+| (DEV-116) 고정 하단 바가 있는 로그인은 바 높이를 `onLayout`으로 재서 `Scroll bottom`으로 쓴다 | 바 높이가 상태(카카오 버튼만·테스트 계정 버튼·오류 문구)마다 달라 고정값이면 푸터와 바 사이가 빈다 |
+## DEV-33 네이티브 분기 (ADR 0013)
+
+- 화면 숨김 판단은 `src/foreground.ts`의 `inBackground()`(`AppState`; 웹에서는 `document.visibilityState`를 비춘다). `ChatThread`·`NewsRoom`·`useLiveList`가 쓴다.
+- 비공개 사진 첨부(`PrivatePhotos`)는 웹 `<input type="file">`, 앱은 `src/pickPhoto.native.ts`(`expo-image-picker`)의 ‘사진 첨부’ 버튼. `upload`는 `File | PickedPhoto({uri, name, type, size})`.

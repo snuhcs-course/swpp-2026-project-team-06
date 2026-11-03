@@ -122,6 +122,12 @@ register({
           requestedTotalGrams: "기존 승인량보다 큰 총중량을 입력해 주세요",
         });
       if (p.approvedSupplyGrams === 0) {
+        const farm = ctx.db.farms[p.farmId];
+        if (!farm?.bankName || !farm.accountNumber || !farm.accountHolder)
+          conflict(
+            "NO_FARM_ACCOUNT",
+            "입금 계좌를 먼저 등록해 주세요. 소비자가 그 계좌로 직접 입금해요.",
+          );
         const fields = missing(p);
         if (fields.length)
           invalid(

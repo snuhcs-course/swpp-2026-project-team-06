@@ -1,0 +1,795 @@
+{
+  "model": "google/gemini-3.1-flash-lite",
+  "live": true,
+  "metrics": {
+    "sets": 16,
+    "precision": 1.0,
+    "recall": 1.0,
+    "unsupportedOrIncorrect": 0,
+    "missing": 0,
+    "p50Ms": 1420.0,
+    "p95Ms": 1784,
+    "totalCostUsd": 0.00750875,
+    "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+  },
+  "cases": [
+    {
+      "id": "01-origin",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "name",
+          "value": "가상농가 봄귤"
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "value": "제주산 감귤입니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "name",
+          "value": "가상농가 봄귤"
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "value": "제주산 감귤입니다."
+        }
+      ],
+      "durationMs": 1669,
+      "costUsd": 0.00062075,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "name",
+          "value": "가상농가 봄귤",
+          "evidence": [
+            {
+              "sourceId": "01-origin",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "가상농가 봄귤"
+            }
+          ],
+          "historical": false
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "value": "제주산 감귤입니다.",
+          "evidence": [
+            {
+              "sourceId": "01-origin",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s1"
+              ],
+              "quote": "제주산 감귤입니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "02-weight",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg 한 상자"
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg 한 상자"
+        }
+      ],
+      "durationMs": 1296,
+      "costUsd": 0.0004545,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg 한 상자",
+          "evidence": [
+            {
+              "sourceId": "02-weight",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "구성: 감귤 5kg 한 상자"
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "03-expected-brix",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "taste",
+          "value": "예상 당도 12브릭스이며 실측하지 않았습니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "taste",
+          "value": "예상 당도 12브릭스이며 실측하지 않았습니다."
+        }
+      ],
+      "durationMs": 1490,
+      "costUsd": 0.00041625,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "taste",
+          "value": "예상 당도 12브릭스이며 실측하지 않았습니다.",
+          "evidence": [
+            {
+              "sourceId": "03-expected-brix",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "맛: 예상 당도 12브릭스이며 실측하지 않았습니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "04-measured-brix",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "qualityEvidence",
+          "value": "가상 시료 3개를 측정한 평균 당도 11브릭스입니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "qualityEvidence",
+          "value": "가상 시료 3개를 측정한 평균 당도 11브릭스입니다."
+        }
+      ],
+      "durationMs": 1426,
+      "costUsd": 0.00040725,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "qualityEvidence",
+          "value": "가상 시료 3개를 측정한 평균 당도 11브릭스입니다.",
+          "evidence": [
+            {
+              "sourceId": "04-measured-brix",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "품질 기록: 가상 시료 3개를 측정한 평균 당도 11브릭스입니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "05-storage",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "value": "서늘한 곳에 보관해 주세요."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "value": "서늘한 곳에 보관해 주세요."
+        }
+      ],
+      "durationMs": 1256,
+      "costUsd": 0.0004595,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "value": "서늘한 곳에 보관해 주세요.",
+          "evidence": [
+            {
+              "sourceId": "05-storage",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "보관: 서늘한 곳에 보관해 주세요."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "06-delivery",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "delivery",
+          "value": "수확 후 순차 출고하며 도착일은 확정하지 않습니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "delivery",
+          "value": "수확 후 순차 출고하며 도착일은 확정하지 않습니다."
+        }
+      ],
+      "durationMs": 1414,
+      "costUsd": 0.000479,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "delivery",
+          "value": "수확 후 순차 출고하며 도착일은 확정하지 않습니다.",
+          "evidence": [
+            {
+              "sourceId": "06-delivery",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "배송: 수확 후 순차 출고하며 도착일은 확정하지 않습니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "07-farm-story",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "value": "이 농가는 검증용으로 만든 가상 농가입니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "value": "이 농가는 검증용으로 만든 가상 농가입니다."
+        }
+      ],
+      "durationMs": 1364,
+      "costUsd": 0.00038175,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "value": "이 농가는 검증용으로 만든 가상 농가입니다.",
+          "evidence": [
+            {
+              "sourceId": "07-farm-story",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "이 농가는 검증용으로 만든 가상 농가입니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "08-appearance",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "appearanceFaq",
+          "value": "껍질에 작은 흠집이 있을 수 있습니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "appearanceFaq",
+          "value": "껍질에 작은 흠집이 있을 수 있습니다."
+        }
+      ],
+      "durationMs": 1566,
+      "costUsd": 0.00048325,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "appearanceFaq",
+          "value": "껍질에 작은 흠집이 있을 수 있습니다.",
+          "evidence": [
+            {
+              "sourceId": "08-appearance",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "생김새 안내: 껍질에 작은 흠집이 있을 수 있습니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "09-support",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "support",
+          "value": "상품 문의는 앱의 농가 문의를 이용해 주세요."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "support",
+          "value": "상품 문의는 앱의 농가 문의를 이용해 주세요."
+        }
+      ],
+      "durationMs": 1225,
+      "costUsd": 0.00037775,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "support",
+          "value": "상품 문의는 앱의 농가 문의를 이용해 주세요.",
+          "evidence": [
+            {
+              "sourceId": "09-support",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "문의 안내: 상품 문의는 앱의 농가 문의를 이용해 주세요."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "10-historical",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "historicalSales",
+          "value": "2025년 감귤 5kg 20000원 행사. 현재 가격이 아닙니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "historicalSales",
+          "value": "2025년 감귤 5kg 20000원 행사. 현재 가격이 아닙니다."
+        }
+      ],
+      "durationMs": 1527,
+      "costUsd": 0.000515,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "historicalSales",
+          "value": "2025년 감귤 5kg 20000원 행사. 현재 가격이 아닙니다.",
+          "evidence": [
+            {
+              "sourceId": "10-historical",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "지난해 판매 기록: 2025년 감귤 5kg 20000원 행사. 현재 가격이 아닙니다."
+            }
+          ],
+          "historical": true
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "11-conflict",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 3kg"
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg"
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 3kg"
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg"
+        }
+      ],
+      "durationMs": 1530,
+      "costUsd": 0.00063175,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 3kg",
+          "evidence": [
+            {
+              "sourceId": "11-conflict",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "자료 A 구성: 감귤 3kg"
+            }
+          ],
+          "historical": false
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg",
+          "evidence": [
+            {
+              "sourceId": "11-conflict",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s1"
+              ],
+              "quote": "자료 B 구성: 감귤 5kg"
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "12-mixed-products",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "value": "감귤 3kg"
+        },
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "value": "감귤 5kg"
+        }
+      ],
+      "actual": [
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "value": "감귤 3kg"
+        },
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "value": "감귤 5kg"
+        }
+      ],
+      "durationMs": 1353,
+      "costUsd": 0.00046425,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "value": "감귤 3kg",
+          "evidence": [
+            {
+              "sourceId": "12-mixed-products",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "상품 A 구성: 감귤 3kg"
+            }
+          ],
+          "historical": false
+        },
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "value": "감귤 5kg",
+          "evidence": [
+            {
+              "sourceId": "12-mixed-products",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s1"
+              ],
+              "quote": "상품 B 구성: 감귤 5kg"
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "13-common-farm",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": null,
+          "fieldKey": "farmStory",
+          "value": "두 상품 모두 가상농가에서 재배합니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": null,
+          "fieldKey": "farmStory",
+          "value": "두 상품 모두 가상농가에서 재배합니다."
+        },
+        {
+          "targetId": null,
+          "fieldKey": "farmStory",
+          "value": "두 상품 모두 가상농가에서 재배합니다."
+        }
+      ],
+      "durationMs": 1784,
+      "costUsd": 0.00066825,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": null,
+          "fieldKey": "farmStory",
+          "value": "두 상품 모두 가상농가에서 재배합니다.",
+          "evidence": [
+            {
+              "sourceId": "13-common-farm",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "농가 이야기: 두 상품 모두 가상농가에서 재배합니다."
+            }
+          ],
+          "historical": false
+        },
+        {
+          "targetId": null,
+          "fieldKey": "farmStory",
+          "value": "두 상품 모두 가상농가에서 재배합니다.",
+          "evidence": [
+            {
+              "sourceId": "13-common-farm",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "농가 이야기: 두 상품 모두 가상농가에서 재배합니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "14-private-contact",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "value": "제주산 감귤입니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "value": "제주산 감귤입니다."
+        }
+      ],
+      "durationMs": 1656,
+      "costUsd": 0.00046975,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "value": "제주산 감귤입니다.",
+          "evidence": [
+            {
+              "sourceId": "14-private-contact",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "제주산 감귤입니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "15-injection",
+      "status": "EVALUATED",
+      "expected": [],
+      "actual": [],
+      "durationMs": 1412,
+      "costUsd": 0.00030025,
+      "manualReview": false,
+      "evidence": [],
+      "criticalErrors": 0
+    },
+    {
+      "id": "16-missing-count",
+      "status": "EVALUATED",
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg이며 개수는 확인되지 않았습니다."
+        }
+      ],
+      "actual": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg이며 개수는 확인되지 않았습니다."
+        }
+      ],
+      "durationMs": 1313,
+      "costUsd": 0.0003795,
+      "manualReview": false,
+      "evidence": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "value": "감귤 5kg이며 개수는 확인되지 않았습니다.",
+          "evidence": [
+            {
+              "sourceId": "16-missing-count",
+              "sourceRevision": 1,
+              "page": 1,
+              "spanIds": [
+                "s0"
+              ],
+              "quote": "구성: 감귤 5kg이며 개수는 확인되지 않았습니다."
+            }
+          ],
+          "historical": false
+        }
+      ],
+      "criticalErrors": 0
+    },
+    {
+      "id": "17-duplicate",
+      "status": "API_CONTRACT_CASE",
+      "expected": [],
+      "actual": [],
+      "durationMs": null,
+      "costUsd": null,
+      "manualReview": false
+    },
+    {
+      "id": "18-empty",
+      "status": "API_CONTRACT_CASE",
+      "expected": [],
+      "actual": [],
+      "durationMs": null,
+      "costUsd": null,
+      "manualReview": false
+    },
+    {
+      "id": "19-rotated-image",
+      "status": "REVIEW_REQUIRED",
+      "expected": [],
+      "actual": [],
+      "durationMs": 1349,
+      "costUsd": 0.00062725,
+      "manualReview": true,
+      "evidence": [],
+      "criticalErrors": 0
+    },
+    {
+      "id": "20-pdf-table",
+      "status": "FAILED",
+      "expected": [],
+      "actual": [],
+      "durationMs": 2236,
+      "costUsd": 0.0010735,
+      "manualReview": true,
+      "error": "INVALID_EVIDENCE"
+    }
+  ],
+  "note": "Mock is not model-quality evidence. Visual cases require manual review; deployment remains held.",
+  "textGatePassed": true,
+  "promptVersion": "source-v2",
+  "deploymentGate": "HELD_PENDING_VISUAL_AND_FARMER_REVIEW",
+  "totalKnownCostUsd": 0.0092095,
+  "allEvaluationAttempts": {
+    "requests": 55,
+    "knownChargedUsd": 0.017,
+    "unsettledReservationsUsd": 0.191654
+  }
+}

@@ -14,7 +14,7 @@
 ## 계약
 - 기준 주소: `process.env.EXPO_PUBLIC_API_URL` (예: 로컬 `http://localhost:8000`). 없으면 `http://localhost:8000`.
 - `health(): Promise<{ status: "ok" }>` → `GET /health`.
-- 인증 헤더(`Authorization: Bearer <JWT>`)는 DEV-3·DEV-4에서 이 패키지에 넣는다. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수, ADR 0009)으로 받고, 카카오·토큰 갱신은 I2(ADR 0003). 앱은 토큰을 직접 헤더에 붙이지 않는다.
+- 인증 헤더(`Authorization: Bearer <JWT>`)는 DEV-3·DEV-4에서 이 패키지에 넣는다. I1 토큰은 Mock 로그인(`POST /api/auth/test-login`, `app` 필수, ADR 0009)으로 받고, 카카오 로그인은 `auth.kakaoConfig()`·`auth.kakaoLogin(code, redirectUri)`(DEV-32, ADR 0003)로 받고, 첫 가입 온보딩은 `auth.updateMe()`·`auth.saveConsents()`와 `User.needsOnboarding`으로 다루며, 토큰 갱신은 아직 없다. 앱은 토큰을 직접 헤더에 붙이지 않는다.
 - 계정은 앱별이다(ADR 0010). 앱이 시작할 때 자기 앱 이름(`consumer`·`producer`)을 설정하고, 이 패키지는 그 이름으로 테스트 계정 목록(`?app=`)과 로그인(`app`)을 부르며 토큰을 앱별 키로 따로 보관한다. 403 `WRONG_APP`이면 토큰을 지우고 로그아웃 이벤트를 낸다.
 - 1.1 응답 필드: 상품 `reservedCount`(예약한 사람 수), 상품 상세 농가 요약 `brixRecordCount`, 주문 `carrier`(택배사 코드 `CJ`·`EPOST`·`HANJIN`·`LOTTE`·`LOGEN`·`ETC`)·`trackingNumber`. 상품 상세에 최신 소식은 없다. 택배사별 배송 조회 주소 표는 이 패키지에 둔다.
 - 오류 응답은 `{code, message, details}`(screens.md 7.1). `ApiError`는 `status`와 함께 `code`·`message`·`details`를 꺼내 준다. 화면은 `message`를 그대로 보여주고 409는 `details`의 최신 값으로 다시 그린다.
@@ -22,7 +22,7 @@
 - `POST /api/orders`, `POST /api/orders/{orderId}/pay`는 이 패키지가 `Idempotency-Key`(UUID)를 만들어 붙이고, 재시도할 때 같은 키를 다시 쓴다.
 - 이 패키지는 분석 이벤트에 개인정보를 넣지 않는다(N-05). 지표 SDK는 여기 두지 않는다.
 
-## 구현 결정
+## 구현 결정 이력 (현재 화면은 DEV-51 절 우선)
 | 날짜 | 결정 | 이유 | 관련 AC |
 | --- | --- | --- | --- |
 | 2026-10-07 | 빌드 없이 TS 소스(`src/index.ts`)를 `main`으로 둔다 | packages/ui와 같은 방식 | — |
@@ -60,3 +60,35 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 
 ## DEV-3 상세·공개 소식방 구현 (1.5)
 명세 PR #44의 storefront-1.5.md를 따른다. 상세는 text/image 블록과 공유 DetailStory 렌더러를 사용하며 생성은 저장 전 편집안이다. 기존 intro/description은 실제 기존 데이터의 기본 소개로 유지한다. 소식방 공개 읽기와 답장 권한을 분리하고 권한 변경 후 이전 비동기 메시지를 폐기한다. 실제 AI 호출은 구현하지 않으며 Mock임을 명시한다.
+
+## DEV-51 현재 프론트 구현 기준 (1.6)
+
+제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
+productPresentation은 동일 옵션 마지막 기간 비교 가격을 계산하고 목록 상세 조회를 최대 4개 동시 요청으로 제한한다. API 필드/엔드포인트는 바꾸지 않는다. p-house 신규 Mock seed만 승인된 단일 농가 이야기 이미지가 있다.
+
+## DEV-56/57/58 integration
+
+Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
+
+### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
+- 상품 목록의 `판매페이지 수정`은 해당 상품의 비공개 수정본을 연다. 없으면 현재 `moduleDetail` 또는 `detailContent`를 사진 URI/문구 그대로 보존하여 시작한다. 원본 자료가 없어도 수정할 수 있다.
+- `수정본 저장`은 공개 내용을 변경하지 않는다. `상품에 반영` 확인 후에만 상품 상세가 변경된다. 판매 중인 상품은 구매자 페이지에 즉시 반영되며, 초안/심사 상태는 바꾸지 않는다.
+- 상품 버전이 바뀌면 적용을 거절한다. 수정본을 자동 폐기하지 않고, 사용자가 명시적으로 현재 상품 불러오기를 선택해야 폐기한다. 저장하지 않은 입력에는 이탈 확인을 표시한다.
+- 새 상품은 상품+연결 자료 작업을 한 트랜잭션으로 생성한다. 멱등 키 재시도로 응답 유실 시 중복 생성하지 않는다.
+- API: POST `/api/source-analysis/product-workspaces` (선택 productId), PUT `/{productId}` (version/snapshot), POST `/{productId}/apply` (version). 초기화는 POST의 discardChanges/version으로 명시한다. 승인 농가 소유권·상품/수정본 버전·사진 소유 참조를 검증한다.
+- 생산자 4탭은 유지한다. 공통 좌우20px/카드16px/카드반경16px/터치48px 규격을 사용한다. AI 채팅 기능은 이번 변경 범위에서 제외한다.
+
+### DEV-58 통합 편집
+AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
+
+## DEV-138 주문 동의 항목 단일 목록 (2026-10-23)
+
+| 결정 | 이유 |
+| --- | --- |
+| 주문서 예약 전 동의 키는 `src/orderConsents.ts`의 `ORDER_CONSENT_KEYS` 하나가 원본이다. `OrderInput["consents"]` 타입, Mock 검사, 주문서 초기값·‘모두 동의해요’·개수·문구가 이 목록에서 계산한다. 파일은 import 없이 지울 수 있는 타입만 쓴다 | DEV-120에서 항목을 늘릴 때 화면 문구의 숫자(‘4개 중’)를 놓쳤다. 계약 테스트가 Node로 바로 import한다 |
+| 서버(`server/app/orders/schemas.py` `Consents`, `service.py` 검사·오류 문구)와 같은지는 `scripts/test-order-consents.mjs`(`test:mock`)가 본다 | 서버는 Python이라 목록을 공유할 수 없다. 한쪽만 바뀌면 CI가 실패한다 |
+
+## DEV-33 네이티브 저장소·업로드 (ADR 0013)
+
+- 저장소는 `src/storage.ts`(웹·Node: localStorage) / `src/storage.native.ts`(`expo-secure-store` 동기 API, 키의 `:`는 `.`로, 2KB 넘는 값은 메모리). `readStore`·`writeStore`·토큰 계약은 그대로다.
+- 업로드 함수(`uploadMedia`·`uploadAttachment`·`uploadSource`·`productWorkspace.uploadPhoto`)는 `UploadFile = Blob | {uri, name, type}`을 받는다(`appendFile`). 서버에서 받은 비공개 사진은 `blobUrl`(웹 blob URL / 네이티브 data URL)로 돌려준다. Mock(브라우저 저장)은 웹 전용이다.

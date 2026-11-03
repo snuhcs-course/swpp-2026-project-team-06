@@ -7,9 +7,11 @@ import sys
 from datetime import UTC, date, datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.accounts.models import ShippingAddress, User
+from app.admin import models as _admin_models  # noqa: F401
 from app.catalog.models import (
     CapacityRequest,
     Product,
@@ -20,6 +22,7 @@ from app.catalog.models import (
 )
 from app.core.db import Base, get_sessionmaker
 from app.farms.models import Farm, Follow
+from app.media import models as _media_models  # noqa: F401  시드 초기화가 public_media도 지운다
 from app.messaging.models import (
     Broadcast,
     Escalation,
@@ -28,7 +31,8 @@ from app.messaging.models import (
     Thread,
     ThreadMessage,
 )
-from app.orders.models import Order, Payment
+from app.orders.models import Order, Payment, Refund
+from app.source_analysis import models as _source_models  # noqa: F401
 
 KST = timezone(timedelta(hours=9))
 SEED_MARKER = "u-minji"
@@ -62,6 +66,10 @@ ADMIN = ("u-admin", "farmclub 운영자")
 FARMS = [
     dict(
         id="f-kang",
+        bank_name="제주은행",
+        account_number="101-23-456789",
+        account_holder="강영수",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-kang",
         name="강씨네 귤밭",
         region="제주 서귀포",
@@ -76,6 +84,10 @@ FARMS = [
     ),
     dict(
         id="f-halla",
+        bank_name="농협",
+        account_number="302-0123-4567-89",
+        account_holder="한○○",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-halla",
         name="한라네 과수원",
         region="제주 제주시",
@@ -90,6 +102,10 @@ FARMS = [
     ),
     dict(
         id="f-hyodon",
+        bank_name="국민은행",
+        account_number="123456-01-234567",
+        account_holder="고○○",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-hyodon",
         name="효돈 하우스농원",
         region="제주 서귀포",
@@ -104,6 +120,10 @@ FARMS = [
     ),
     dict(
         id="f-namwon",
+        bank_name="농협",
+        account_number="351-0987-6543-21",
+        account_holder="남○○",
+        account_updated_at=at("2026-09-03"),
         producer_id="u-namwon",
         name="남원 귤빛농원",
         region="제주 남원",
@@ -845,6 +865,34 @@ def clear(session: Session) -> None:
         session.execute(delete(table))
 
 
+def seed_product(session: Session, product_id: str) -> Product:
+    """Insert or restore one seed product, including omitted defaults and NULLs.
+
+    Upsert keeps the product identity (and existing order FKs). PostgreSQL's
+    excluded row includes the same SQLAlchemy defaults as a fresh seed insert.
+    The caller owns the transaction and any non-seed source rows/files.
+    """
+    fields = next(fields for fields, _, _ in PRODUCTS if fields["id"] == product_id)
+    if fields.get("status") in ("PUBLISHED", "CLOSED"):
+        fields = {
+            **fields,
+            "approved_supply_grams": CAPACITY[product_id],
+            "sales_limit_grams": CAPACITY[product_id],
+        }
+    statement = insert(Product).values(
+        **{"info": KANG_INFO, "updated_at": at("2026-10-06"), **fields}
+    )
+    statement = statement.on_conflict_do_update(
+        index_elements=[Product.id],
+        set_={
+            column.name: statement.excluded[column.name]
+            for column in Product.__table__.c
+            if column.name != "id"
+        },
+    ).returning(Product)
+    return session.scalars(statement.execution_options(populate_existing=True)).one()
+
+
 def seed(session: Session) -> None:
     created = at("2026-09-01")
     for uid, name, role in TEST_USERS:
@@ -862,16 +910,8 @@ def seed(session: Session) -> None:
     weights: dict[tuple[str, str], int] = {}
     for fields, options, stages in PRODUCTS:
         product_id = fields["id"]
-        if fields.get("status") in ("PUBLISHED", "CLOSED"):
-            fields = {
-                **fields,
-                "approved_supply_grams": CAPACITY[product_id],
-                "sales_limit_grams": CAPACITY[product_id],
-            }
-        p = Product(**{"info": KANG_INFO, "updated_at": at("2026-10-06"), **fields})
-        session.add(p)
+        p = seed_product(session, product_id)
         products[p.id] = p
-        session.flush()
         for i, (oid, label, kg, note) in enumerate(options):
             weights[(p.id, oid)] = round(kg * 1000)
             session.add(
@@ -952,10 +992,23 @@ def seed(session: Session) -> None:
                 id=f"pay-{o.id}",
                 order_id=o.id,
                 amount=o.total_amount,
-                status="APPROVED",
+                status="REFUNDED" if o.status == "REFUNDED" else "APPROVED",
                 approved_at=o.paid_at,
             )
         )
+        if o.status == "REFUNDED":
+            session.add(
+                Refund(
+                    id=f"refund-legacy-{o.id}",
+                    order_id=o.id,
+                    amount=o.total_amount,
+                    reason=o.refund_reason or "기존 전액 환불",
+                    actor="SYSTEM",
+                    actor_user_id=None,
+                    manager_event_id=None,
+                    created_at=o.refunded_at or o.created_at,
+                )
+            )
 
     # 팔로워 수(follower_count)는 시드 표시 값이고, 아래는 테스트 계정의 팔로우다.
     follows = (
@@ -1020,6 +1073,17 @@ def seed(session: Session) -> None:
                 )
             )
             session.flush()
+    # 승인 농가마다 farmclub 문의 대화방과 환영 메시지(DEV-111). 실제 승인 흐름과 같은 함수를 쓴다
+    from app.messaging.support import ensure_support_thread
+
+    for f in FARMS:
+        if f["approval_status"] == "APPROVED":
+            ensure_support_thread(session, f["id"])
+    # 소비자마다 farmclub 문의 대화방(DEV-150). 실제 가입과 같은 함수를 쓴다
+    from app.messaging.support import ensure_consumer_support
+
+    for uid in session.scalars(select(User.id).where(User.role == "CONSUMER")).all():
+        ensure_consumer_support(session, uid)
     for eid, farm, consumer, mid, context, question, reason, when in ESCALATIONS:
         session.add(
             Escalation(

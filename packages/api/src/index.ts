@@ -4,19 +4,28 @@ export {
   ApiError,
   apiUrl,
   isMock,
+  evaluatorBuild,
   configureApi,
   getToken,
   onAuthChange,
+  onOnboardingRequired,
+  onConsentRequired,
   request,
   newIdempotencyKey,
   resetDemoData,
   sharedMockUrl,
-  uploadMockMedia,
+  uploadMedia,
   appName,
+  readStore,
+  writeStore,
 } from "./client";
 export { CARRIERS, carrierLabel, trackingUrl } from "./carriers";
 export { auth, farms, catalog, orders, messaging, admin } from "./endpoints";
 export type * from "./types";
+export type { NativeFile, UploadFile } from "./upload";
+export { appendFile, isNativeFile } from "./upload";
+export { SUPPORT_ID } from "./types";
+export * from "./orderConsents";
 
 import { request } from "./client";
 
@@ -25,3 +34,7 @@ export function health(): Promise<{ status: "ok" }> {
 }
 
 export { allPages } from "./pagination";
+export { referencePrice, productPrices } from "./productPresentation";
+
+export * from "./sourceAnalysis";
+export * from "./productWorkspace";

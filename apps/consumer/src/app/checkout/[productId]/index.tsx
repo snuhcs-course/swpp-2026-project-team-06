@@ -1,11 +1,16 @@
-// SCR-10 주문서 (FEAT-08, R-03 동의 4개는 policy.md 2장 문구) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
+// SCR-10 주문서 (FEAT-08, R-03 동의 4개 + 제3자 제공은 policy.md 2장 문구, 항목은 ORDER_CONSENT_KEYS) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
+import { track } from "@farmclub/analytics";
 import {
   ApiError,
+  ORDER_CONSENT_KEYS,
+  agreedCount,
   auth,
   catalog,
   newIdempotencyKey,
+  orderConsents,
   orders,
   type Address,
+  type OrderConsentKey,
   type Recipient,
 } from "@farmclub/api";
 import {
@@ -36,7 +41,10 @@ import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet } from "../../../lib/views";
 
-const CONSENT_VERSION = "policy-2026-10-06";
+// 예약 전 확인 문구 버전(R-03). DEV-120에서 개인정보 제3자 제공 동의를 더해 올렸다
+const CONSENT_VERSION = "policy-2026-10-23";
+/** 저장 배송지 한도(서버 ADDRESS_LIMIT) */
+const ADDRESS_LIMIT = 50;
 const isRemote = (postal: string, address: string) =>
   /^(63|40[0-2]|23[01])/.test(postal) || /(울릉|옹진|도서)/.test(address);
 /** policy.md 2장 날짜 표기: "11월 10일~11월 20일" */
@@ -64,12 +72,7 @@ export default function Checkout() {
   const [qty, setQty] = useState(Number(params.quantity ?? 1) || 1);
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const [memo, setMemo] = useState("");
-  const [consents, setConsents] = useState({
-    deliveryWindow: false,
-    delayRefund: false,
-    shortage: false,
-    cancelPolicy: false,
-  });
+  const [consents, setConsents] = useState(() => orderConsents(false));
   const [sheet, setSheet] = useState<null | "option" | "address">(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -77,6 +80,8 @@ export default function Checkout() {
     params.changed ? "예약 기간 또는 가격이 바뀌었어요" : null,
   );
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
+  // 입금 안내(물량 선점)도 멱등 키로 한 번만(AC-09-3)
+  const [depositKey, setDepositKey] = useState(newIdempotencyKey);
   const [saveAddress, setSaveAddress] = useState(false);
   const toast = useToast();
   const addressHref = {
@@ -84,15 +89,13 @@ export default function Checkout() {
     params: { productId: params.productId },
   };
 
-  // 로그인 안 했으면 로그인으로 (주문은 로그인 필요)
+  // 로그인 안 했으면 로그인으로, 가입 온보딩이 남았으면 온보딩으로 (주문은 둘 다 필요, AC-01-12)
   useEffect(() => {
+    const here = `/checkout/${params.productId}?optionId=${encodeURIComponent(optionId)}&quantity=${qty}`;
     if (ready && !user)
-      router.replace({
-        pathname: "/login",
-        params: {
-          next: `/checkout/${params.productId}?optionId=${encodeURIComponent(optionId)}&quantity=${qty}`,
-        },
-      });
+      router.replace({ pathname: "/login", params: { next: here } });
+    else if (ready && user?.needsOnboarding)
+      router.replace({ pathname: "/onboarding", params: { next: here } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user, params.productId, router]);
 
@@ -115,6 +118,11 @@ export default function Checkout() {
   }, [addresses.data, recipient]);
 
   const p = product.data;
+  // 구매 퍼널 2단계: 로그인한 사용자에게 주문서가 열림(트래킹 플랜 checkout_started, DEV-71)
+  const startedId = user && p ? p.productId : null;
+  useEffect(() => {
+    if (startedId) track("checkout_started", { productId: startedId });
+  }, [startedId]);
   useEffect(() => {
     if (p && !optionId) setOptionId(p.options[0].optionId);
   }, [p, optionId]);
@@ -128,34 +136,39 @@ export default function Checkout() {
       : 0;
   const shipping = p?.shippingFeeType === "SEPARATE" ? p.shippingFee : 0;
   const total = unit * qty + shipping + remoteFee;
-  const agreed = Object.values(consents).filter(Boolean).length;
-  const allAgreed = agreed === 4;
+  // 항목 수는 ORDER_CONSENT_KEYS에서 센다(DEV-138). 숫자를 직접 쓰지 않는다
+  const consentTotal = ORDER_CONSENT_KEYS.length;
+  const agreed = agreedCount(consents);
+  const allAgreed = agreed === consentTotal;
   const canPay = !!recipient && allAgreed && !!p && !p.soldOut;
 
   const consentText = useMemo(() => {
     if (!p) return null;
-    return [
-      {
-        key: "deliveryWindow" as const,
+    // 항목마다 문구를 하나씩. 키가 빠지면 타입 오류가 난다(DEV-138). 순서는 ORDER_CONSENT_KEYS
+    const text: Record<OrderConsentKey, { title: string; body: string }> = {
+      deliveryWindow: {
         title: "받는 시기",
         body: `이 상품은 수확 전 예약 상품이에요. ${fullPeriod(p.deliveryWindow.start, p.deliveryWindow.end)} 사이에 받아요. 농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.`,
       },
-      {
-        key: "delayRefund" as const,
+      delayRefund: {
         title: "지연 시 환불",
         body: `${md(p.maxDelayUntil)}까지 출하되지 않으면 자동으로 전액 환불해 드려요.`,
       },
-      {
-        key: "shortage" as const,
+      shortage: {
         title: "흉작·수량 부족",
         body: "날씨 등으로 수확량이 모자라면 받을 수 있는 만큼 나눠 보내고, 나머지는 바로 환불해 드려요.",
       },
-      {
-        key: "cancelPolicy" as const,
+      cancelPolicy: {
         title: "취소·반품 조건",
         body: "출하 전에는 언제든 취소하고 전액 환불받을 수 있어요. 신선식품이라 출하 후에는 단순 변심 취소·반품이 안 되고, 받은 상품에 문제가 있을 때만 환불·교환해 드려요.",
       },
-    ];
+      // 개인정보 제3자 제공 동의(DEV-120, 개인정보보호법 제17조 ②의 고지 5가지)
+      thirdParty: {
+        title: "개인정보 제3자 제공 (판매자)",
+        body: `받는 분: 판매자 ${p.farmName}. 목적: 상품 배송, 주문 이행, 주문 문의 응대. 항목: 받는 사람 이름·연락처·주소·배송 메모, 주문 내용, 닉네임. 기간: 주문 이행이 끝날 때까지(판매자는 법령이 정한 기간 동안 보관할 수 있어요). 동의하지 않을 수 있지만, 그러면 판매자가 보낼 곳을 몰라 예약할 수 없어요.`,
+      },
+    };
+    return ORDER_CONSENT_KEYS.map((key) => ({ key, ...text[key] }));
   }, [p]);
 
   async function submit() {
@@ -180,6 +193,14 @@ export default function Checkout() {
         },
         idemKey,
       );
+      // DEV-68: 주문을 만든 뒤 바로 입금 안내를 받는다(물량 선점, 입금 대기)
+      await orders.deposit(o.orderId, depositKey);
+      // 구매 퍼널 3단계: 주문서 제출 → 입금 안내(DEV-71). 받는 사람·주소는 보내지 않는다
+      track("checkout_submitted", {
+        productId: p.productId,
+        orderId: o.orderId,
+        quantity: qty,
+      });
       router.push({
         pathname: "/checkout/[productId]/pay",
         params: {
@@ -194,6 +215,7 @@ export default function Checkout() {
         // 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받는다
         setConflictMsg(e.message);
         setIdemKey(newIdempotencyKey());
+        setDepositKey(newIdempotencyKey());
         await product.reload();
       } else if (e instanceof ApiError && e.details.fields) {
         setErrors(e.details.fields);
@@ -228,7 +250,7 @@ export default function Checkout() {
             : router.replace(`/products/${params.productId}`)
         }
       />
-      <TestBand text="테스트 서비스예요. 실제 결제·배송은 일어나지 않아요." />
+      <TestBand text="테스트 서비스예요. 실제 입금·배송은 일어나지 않아요." />
       <Scroll bottom={170}>
         {conflictMsg && p ? (
           <Notice
@@ -294,14 +316,14 @@ export default function Checkout() {
         >
           {recipient ? (
             <View style={{ gap: 4 }}>
-              <T variant="body" weight="semibold">
+              <T variant="body" weight="semibold" masked>
                 {recipient.recipientName} · {recipient.recipientPhone}
               </T>
-              <T variant="body">
+              <T variant="body" masked>
                 {recipient.address}
                 {recipient.addressDetail ? `, ${recipient.addressDetail}` : ""}
               </T>
-              <T variant="sub" muted>
+              <T variant="sub" muted masked>
                 {recipient.postalCode}
                 {"isDefault" in recipient && (recipient as Address).isDefault
                   ? " · 기본 배송지"
@@ -382,19 +404,11 @@ export default function Checkout() {
           </T>
         </Section>
 
-        <Section title="결제 전 확인">
+        <Section title="예약 전 확인">
           <Checkbox
             checked={allAgreed}
             label="모두 동의해요"
-            onPress={() => {
-              const v = !allAgreed;
-              setConsents({
-                deliveryWindow: v,
-                delayRefund: v,
-                shortage: v,
-                cancelPolicy: v,
-              });
-            }}
+            onPress={() => setConsents(orderConsents(!allAgreed))}
           >
             <T variant="body" weight="bold">
               모두 동의해요
@@ -408,7 +422,7 @@ export default function Checkout() {
                   paddingVertical: 16,
                   borderTopWidth: 1,
                   borderTopColor: tokens.color.border,
-                  borderBottomWidth: i === 3 ? 1 : 0,
+                  borderBottomWidth: i === consentText.length - 1 ? 1 : 0,
                   borderBottomColor: tokens.color.border,
                 }}
               >
@@ -432,9 +446,31 @@ export default function Checkout() {
               {errors.consents}
             </T>
           ) : null}
-          <T variant="caption" muted>
-            이용약관 · 개인정보 처리방침
+          {/* 통신판매중개자 고지·입금 안내(policy 2장, DEV-68) */}
+          <T variant="sub" muted>
+            예약하면 농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면
+            예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고,
+            상품·배송·환불의 책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
           </T>
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            {(
+              [
+                ["이용약관", "/terms"],
+                ["개인정보 처리방침", "/privacy"],
+              ] as const
+            ).map(([label, path]) => (
+              <Pressable
+                key={path}
+                accessibilityRole="link"
+                onPress={() => router.push(path)}
+                style={{ minHeight: 48, justifyContent: "center" }}
+              >
+                <T variant="sub" weight={path === "/privacy" ? "semibold" : "regular"}>
+                  {label}
+                </T>
+              </Pressable>
+            ))}
+          </View>
         </Section>
         {errors._ ? (
           <T variant="sub" color={tokens.color.error} style={{ margin: 20 }}>
@@ -447,11 +483,11 @@ export default function Checkout() {
         summary={
           !recipient ? (
             <T variant="sub" style={{ flex: 1 }}>
-              받는 곳을 입력하면 결제할 수 있어요
+              받는 곳을 입력하면 예약할 수 있어요
             </T>
           ) : !allAgreed ? (
             <T variant="sub" style={{ flex: 1 }}>
-              4개 중 {agreed}개 동의했어요. 모두 동의하면 결제할 수 있어요.
+              {consentTotal}개 중 {agreed}개 동의했어요. 모두 동의하면 예약할 수 있어요.
             </T>
           ) : (
             `${opt?.label ?? ""} × ${qty} · ${remoteFee ? `도서산간 ${won(remoteFee)}` : shipping ? `배송비 ${won(shipping)}` : "무료배송"}`
@@ -461,7 +497,7 @@ export default function Checkout() {
       >
         <Button
           label={
-            conflictMsg && !p?.soldOut ? "바뀐 금액으로 결제하기" : "결제하기"
+            conflictMsg && !p?.soldOut ? "바뀐 금액으로 예약하기" : "예약하기"
           }
           disabled={!canPay}
           loading={busy}
@@ -506,15 +542,20 @@ export default function Checkout() {
               gap: 4,
             }}
           >
-            <T variant="body" weight="semibold">
+            <T variant="body" weight="semibold" masked>
               {a.recipientName} · {a.recipientPhone}
               {a.isDefault ? "  기본" : a.label ? `  ${a.label}` : ""}
             </T>
-            <T variant="sub" muted>
+            <T variant="sub" muted masked>
               {a.address} {a.addressDetail}
             </T>
           </Pressable>
         ))}
+        {(addresses.data?.length ?? 0) >= ADDRESS_LIMIT ? (
+          <T variant="sub" muted style={{ paddingTop: 8 }}>
+            배송지가 {ADDRESS_LIMIT}개라 새 주소는 이번 주문에만 쓰고 저장하지 않아요.
+          </T>
+        ) : null}
         <Button
           label="새 주소 입력"
           variant="outline"

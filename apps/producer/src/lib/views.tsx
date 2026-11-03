@@ -3,12 +3,14 @@ import { Button, EmptyState, T, tokens } from "@farmclub/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
+import * as Clipboard from "expo-clipboard";
 import { Pressable, View } from "react-native";
 
 export const TODAY = "2026-10-07";
 
 export const ORDER_STATUS: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: "결제 전",
+  PENDING_PAYMENT: "입금 안내 전",
+  AWAITING_DEPOSIT: "입금 대기",
   RESERVED: "예약 완료",
   PREPARING: "출하 준비",
   SHIPPED: "출하",
@@ -94,33 +96,6 @@ export function LoadError({
         />
       }
     />
-  );
-}
-
-export function Wordmark() {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-      <T
-        variant="body"
-        weight="bold"
-        style={{ fontSize: 20, lineHeight: 22, letterSpacing: -0.6 }}
-      >
-        farmclub
-      </T>
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 999,
-          backgroundColor: tokens.color.accent,
-          marginLeft: 4,
-          marginBottom: 4,
-        }}
-      />
-      <T variant="caption" muted weight="semibold" style={{ marginLeft: 8 }}>
-        농가용
-      </T>
-    </View>
   );
 }
 
@@ -216,10 +191,10 @@ export function FieldButton({
   );
 }
 
+/** 클립보드 복사. 웹·앱 모두 expo-clipboard(DEV-33) */
 export async function copyText(text: string) {
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    return await Clipboard.setStringAsync(text);
   } catch {
     return false;
   }

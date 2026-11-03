@@ -23,3 +23,4 @@ CLAUDE.local.md는 gitignore되어 나만 쓴다. 공용 규칙(AGENTS.md)에 "�
 ## 자주 쓰는 지시
 - "리뷰해줘" → `/pr-review` 스킬로 현재 브랜치 PR 리뷰
 - "spec 갱신" → `/spec` 스킬로 현재 작업 폴더 `tasks.md` 갱신
+- "브랜치 만들어줘" → `origin/main`에서 `hong/dev-12-<영어 요약>` worktree 생성 (한글 금지, Linear 브랜치명 복사 안 함)

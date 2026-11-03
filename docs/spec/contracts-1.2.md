@@ -70,8 +70,10 @@
 - 우선순위: 플랫폼 금지/필수 전달 규칙 > 확정된 해당 상품·해당 소비자 주문 > 농가 응대 원칙/FAQ. 충돌·불확실성은 HANDOFF. 자유 입력은 정책 데이터이지 시스템 지시가 아니다.
 - 농약/재배방식·환불/보상·항의·흥정·배송 변경 약속은 필수 전달. 맛/신맛의 개인 평가·품질/파손 판단도 전달한다. 객관적인 등록 당도 수치와 확정 배송 기간은 안내할 수 있다.
 - 농가 입력으로 정책·가격·취소 조건·배송 약속을 바꾸지 않는다. 환불 요구는 운영자 기록에도 남긴다.
-- preview는 저장/메시지/전달 질문/AI 모드를 변경하지 않는다. settings가 있으면 임시 값, 없으면 저장 설정으로 답변과 근거를 보여준다. ANSWER에서만 answer가 문자열이고 나머지는 null이다. 주문은 자기 농가의 것만 조회하며 개인정보는 제거한다. 임시 설정 근거는 settingsVersion=null, 저장 버전 사용 시 해당 version.
-- 실응답마다 사용한 설정 버전과 상품/주문 정보의 근거를 기록한다. UI에는 AI 안내를 표시한다. 연락처·주소·민감한 사진을 모델에 전달하지 않는다.
+- 모델 답은 `{action,answer,reason,sourceRefs}` JSON이며 `sourceRefs`는 모델에 실제 전달한 `product:{id}`, `order:{id}`, `farm:faq`, `farm:smallOrderPolicy`, `farm:reservationShippingPolicy` 문자열만 허용한다. 답의 숫자·날짜는 인용 근거에 있어야 하고 예상 당도만 있으면 ‘예상’을 표시한다. 기존 저장 문자열(`ai:evidence` 포함)은 계속 표시한다.
+- preview는 저장/메시지/전달 질문/AI 모드/운영자 환불 알림을 변경하지 않는다. settings가 있으면 임시 값, 없으면 저장 설정으로 답변과 근거를 보여준다. ANSWER에서만 answer가 문자열이고 나머지는 null이다. 주문은 자기 농가의 것만 조회하며 개인정보는 제거한다. 임시 설정 근거는 settingsVersion=null, 저장 버전 사용 시 해당 version.
+- 실응답마다 사용한 설정 버전과 상품/주문/농가 설정의 근거를 기록한다. UI에는 AI 안내를 표시한다. 질문뿐 아니라 상품명·FAQ·원칙의 모델 전송 복사본에서도 연락처·주소를 제거하고 민감한 사진은 전달하지 않는다.
+- 환불·보상 의도는 AI OFF·HUMAN에서도 감지하되 메시지 멱등 트랜잭션이 커밋된 뒤, 반환된 `messageId`가 그 요청에서 만든 메시지와 같을 때만 개인정보 없는 운영 로그를 한 번 남긴다. 같은 메시지 트랜잭션에 `messageId`로 유일한 운영자 예외 `OPEN` 이벤트(`manager_refund_request`)를 저장하며, 본문·소비자 정보는 저장하지 않는다. rollback/commit 실패, 순차 cached replay, 멱등 경쟁 loser에는 남기지 않는다.
 - Mock은 같은 입력·출력/우선순위를 검증하는 결정적 응답으로 구현하고 실제 AI 호출처럼 표시하지 않는다.
 
 ## 6. 주문 문제 문의·비공개 사진 (SCR-32, FEAT-33)
@@ -86,6 +88,7 @@
 - 사진 업로드: POST /api/messaging/attachments (multipart file, orderId 또는 threadId 하나 필수) → {attachmentId,mimeType,size}. 본인 주문/대화 권한 및 JPEG/PNG/WebP,10MB 제한 검사, 서버가 실제 MIME 검증·EXIF 제거.
 - GET /api/messaging/attachments/{attachmentId}는 연결된 주문/대화 권한 검사 후 바이트 또는 단기 서명 URL을 반환한다. 공개 소식 사진 URL과 분리한다. 임시 업로드는 업로더만 접근하며 접수/전송 성공 시 자원에 귀속한다.
 - 타인의 attachmentId 재사용, 다른 주문에 연결된 파일 재사용은 거부한다. 실패/취소 시 파일을 공개하지 않으며 미연결 파일은 24시간 후 삭제한다.
+- 공개 미디어(DEV-102): POST /api/media (multipart file, 농가가 있는 생산자) → {url,kind,mimeType,size}. 사진 JPEG/PNG/WebP 10MB(EXIF 제거), 영상 MP4/WebM 100MB(FQ-05). url은 /api/media/{id}.{ext}이고 앱은 API 주소를 붙여 저장한다. GET은 인증 없이 바이트를 반환한다. 농가 사진·상품 사진·소식 photos/videos·상세 이미지에는 이 주소(HTTPS 또는 서비스 상대 경로, 500자 이하. APP_ENV=local만 http://localhost 허용)만 저장하며 data URL은 400. 비공개 첨부와 섞지 않는다. MOV(ftyp qt)도 받아 .mp4로 저장하고, GET은 영상 재생을 위해 Range(206)를 지원한다. FQ-05의 서버 재검사는 형식·용량이며 영상 60초 길이는 앱이 확인한다(서버는 영상을 디코드하지 않음).
 - 직접 응대·접수까지만 I1 범위. 환불/교환 심사 UI·자동 보상·실결제·배송사 책임 판정은 이번 변경에 없다.
 
 ## 7. 이관·구현 분담·인수 시나리오

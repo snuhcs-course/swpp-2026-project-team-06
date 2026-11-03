@@ -8,11 +8,15 @@ declare const process: {
     EXPO_PUBLIC_API_URL?: string;
     EXPO_PUBLIC_API_MOCK?: string;
     EXPO_PUBLIC_SHARED_MOCK_URL?: string;
+    EXPO_PUBLIC_EVALUATOR_LOGIN?: string;
   };
 };
 
 import { mockTransport, resetMockState } from "./mock";
+import { blobUrl } from "./objectUrl";
+import { storageGet, storageSet } from "./storage";
 import type { ErrorBody, ErrorCode } from "./types";
+import { appendFile, type UploadFile } from "./upload";
 
 const DEFAULT_API_URL = "http://localhost:8000";
 
@@ -24,6 +28,9 @@ export const apiUrl =
   (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, "");
 export const isMock =
   !!sharedMockUrl || process.env.EXPO_PUBLIC_API_MOCK === "1";
+// 평가용 빌드(DEV-200): 앱에는 주소창이 없어 ?evaluator=1(DEV-198)을 줄 수 없으므로 빌드 변수로 켠다.
+// EAS preview 환경에만 둔다. 웹(Vercel)과 production 채널에는 넣지 않는다.
+export const evaluatorBuild = process.env.EXPO_PUBLIC_EVALUATOR_LOGIN === "1";
 
 export class ApiError extends Error {
   readonly code: ErrorCode;
@@ -46,7 +53,7 @@ export class ApiError extends Error {
 let namespace = "farmclub";
 let currentApp: "consumer" | "producer" = "consumer";
 
-/** 앱 시작 때 한 번 부른다. 앱마다 localStorage·토큰을 따로 쓴다(계정 분리, ADR 0010). */
+/** 앱 시작 때 한 번 부른다. 앱마다 저장소·토큰을 따로 쓴다(계정 분리, ADR 0010). 웹은 localStorage, 네이티브는 SecureStore(storage.native.ts, DEV-33) */
 export function configureApi(opts: { namespace: "consumer" | "producer" }) {
   namespace = `farmclub-${opts.namespace}${sharedMockUrl ? "-shared-v1" : ""}`;
   currentApp = opts.namespace;
@@ -59,29 +66,11 @@ export function storageKey(name: string) {
   return `${namespace}:${name}`;
 }
 
-function storage(): Storage | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
-}
 export function readStore(name: string): string | null {
-  try {
-    return storage()?.getItem(storageKey(name)) ?? null;
-  } catch {
-    return null;
-  }
+  return storageGet(storageKey(name));
 }
 export function writeStore(name: string, value: string | null) {
-  try {
-    const s = storage();
-    if (!s) return;
-    if (value === null) s.removeItem(storageKey(name));
-    else s.setItem(storageKey(name), value);
-  } catch {
-    /* 저장 못 해도 화면은 동작 */
-  }
+  storageSet(storageKey(name), value);
 }
 
 /* ---------------- token ---------------- */
@@ -99,6 +88,30 @@ export function onAuthChange(fn: () => void) {
   listeners.add(fn);
   return () => {
     listeners.delete(fn);
+  };
+}
+
+const onboardingListeners = new Set<() => void>();
+/**
+ * 가입 온보딩을 마치지 않은 계정이 농가에 닿는 행동을 해서 403 ONBOARDING_REQUIRED를 받았을 때 알림.
+ * 토큰은 지우지 않는다. 앱은 온보딩 화면을 연다(screens.md 7.1)
+ */
+export function onOnboardingRequired(fn: () => void) {
+  onboardingListeners.add(fn);
+  return () => {
+    onboardingListeners.delete(fn);
+  };
+}
+
+const consentListeners = new Set<() => void>();
+/**
+ * 생산자가 지금 버전 약관·개인정보에 동의하지 않아 403 CONSENT_REQUIRED를 받았을 때 알림(DEV-113).
+ * 토큰은 지우지 않는다. 생산자 앱은 내 정보를 다시 읽고 동의 화면(/consent)으로 보낸다
+ */
+export function onConsentRequired(fn: () => void) {
+  consentListeners.add(fn);
+  return () => {
+    consentListeners.delete(fn);
   };
 }
 
@@ -170,6 +183,18 @@ export async function request<T>(
       "WRONG_APP"
   )
     setToken(null);
+  if (
+    res.status === 403 &&
+    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
+      "ONBOARDING_REQUIRED"
+  )
+    onboardingListeners.forEach((l) => l());
+  if (
+    res.status === 403 &&
+    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
+      "CONSENT_REQUIRED"
+  )
+    consentListeners.forEach((l) => l());
   if (res.status >= 400) throw new ApiError(res.status, res.body);
   return res.body as T;
 }
@@ -192,32 +217,53 @@ export async function resetDemoData() {
   setToken(null);
 }
 
-export async function uploadMockMedia(dataUrl: string): Promise<string> {
-  if (!sharedMockUrl) return dataUrl;
-  const result = await request<{ url: string }>("POST", "/__mock/media", {
-    body: { dataUrl },
+function readDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(blob);
   });
-  return result.url;
+}
+
+/** 공개 사진·영상(농가 프로필·상품·소식·상세)을 올리고 저장할 주소를 돌려준다(DEV-102).
+ *  실제 서버는 POST /api/media, 공유 Mock은 /__mock/media, 브라우저 Mock은 data URL 그대로.
+ *  네이티브는 {uri, name, type}(UploadFile)로 보낸다(DEV-33). Mock은 웹 전용이라 Blob만 data URL로 읽는다. */
+export async function uploadMedia(file: UploadFile, name: string): Promise<string> {
+  if (isMock && !sharedMockUrl) return readDataUrl(file as Blob);
+  if (sharedMockUrl) {
+    const result = await request<{ url: string }>("POST", "/__mock/media", {
+      body: { dataUrl: await readDataUrl(file as Blob) },
+    });
+    return result.url;
+  }
+  const form = new FormData();
+  appendFile(form, "file", file, name);
+  const res = await fetch(`${apiUrl}/api/media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    body: form,
+  });
+  // 프록시의 413·502처럼 JSON이 아닌 오류도 ApiError로 넘겨 화면이 '읽지 못했어요'로 오해하지 않게 한다
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, body);
+  // 소비자 앱·공유 미리보기가 그대로 쓰도록 API 주소를 붙여 저장한다
+  return apiUrl + (body as { url: string }).url;
 }
 
 /** Private images travel with authentication. Never use the public news-media endpoint. */
 export async function uploadAttachment(
-  file: File,
+  file: UploadFile,
   resource: { orderId?: string; threadId?: string },
 ): Promise<import("./types").Attachment> {
   if (isMock && !sharedMockUrl) {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result));
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
+    const dataUrl = await readDataUrl(file as Blob);
     return request("POST", "/api/messaging/attachments", {
       body: { ...resource, dataUrl },
     });
   }
   const form = new FormData();
-  form.append("file", file);
+  appendFile(form, "file", file);
   if (resource.orderId) form.append("orderId", resource.orderId);
   if (resource.threadId) form.append("threadId", resource.threadId);
   const res = await fetch(`${apiUrl}/api/messaging/attachments`, {
@@ -241,5 +287,5 @@ export async function privateImage(id: string): Promise<string> {
     headers: { Authorization: `Bearer ${getToken() ?? ""}` },
   });
   if (!res.ok) throw new ApiError(res.status, await res.json());
-  return URL.createObjectURL(await res.blob());
+  return blobUrl(await res.blob());
 }

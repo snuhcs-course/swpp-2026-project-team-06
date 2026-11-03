@@ -1,8 +1,12 @@
 // 엔드포인트 함수. 경로·요청·응답은 docs/spec/screens.md 7.2 표를 따른다.
-import { appName, newIdempotencyKey, request, setToken } from "./client";
+import { appName, newIdempotencyKey, readStore, request, setToken, writeStore } from "./client";
 import type * as A from "./types";
 
 /* ---------------- accounts (/api/auth) ---------------- */
+
+/** 가입 대기 저장 키와 수명. 서버 가입 토큰(30분)보다 조금 짧게 둔다 */
+const SIGNUP_KEY = "kakao-signup";
+const SIGNUP_TTL_MS = 25 * 60 * 1000;
 
 export const auth = {
   testAccounts: () =>
@@ -16,8 +20,66 @@ export const auth = {
     setToken(res.accessToken);
     return res;
   },
+  /** 카카오 로그인 사용 여부(ADR 0003) */
+  kakaoConfig: () => request<A.KakaoConfig>("GET", "/api/auth/kakao/config"),
+  /**
+   * 카카오 인가 코드로 로그인. redirectUri는 인가 요청에 쓴 값과 같아야 한다.
+   * 새 사용자는 계정 없이 가입 토큰만 온다(DEV-132). 토큰을 잠깐 저장하고, 약관 동의 화면이 kakaoSignup으로 가입한다
+   */
+  async kakaoLogin(code: string, redirectUri: string) {
+    const res = await request<A.KakaoLoginResult>("POST", "/api/auth/kakao", {
+      body: { code, redirectUri, app: appName() },
+    });
+    if (res.signup) {
+      setToken(null);
+      const pending: A.PendingSignup = { ...res.signup, expiresAt: Date.now() + SIGNUP_TTL_MS };
+      writeStore(SIGNUP_KEY, JSON.stringify(pending));
+    } else {
+      writeStore(SIGNUP_KEY, null);
+      setToken(res.accessToken);
+    }
+    return res;
+  },
+  /** 약관 동의 전 가입 대기(DEV-132). 없거나 만료면 null */
+  pendingSignup(): A.PendingSignup | null {
+    try {
+      const raw = readStore(SIGNUP_KEY);
+      const p = raw ? (JSON.parse(raw) as A.PendingSignup) : null;
+      if (p && p.expiresAt > Date.now() && p.signupToken) return p;
+    } catch {
+      /* 깨진 값은 버린다 */
+    }
+    writeStore(SIGNUP_KEY, null);
+    return null;
+  },
+  clearPendingSignup: () => writeStore(SIGNUP_KEY, null),
+  /** 필수 약관 동의와 함께 카카오 계정을 만들고 로그인한다(DEV-132, AC-01-19) */
+  async kakaoSignup(consents: A.ConsentInput[]) {
+    const pending = auth.pendingSignup();
+    if (!pending) throw new Error("가입 요청이 만료됐어요. 카카오 로그인부터 다시 해 주세요.");
+    const res = await request<A.LoginResult>("POST", "/api/auth/kakao/signup", {
+      body: { signupToken: pending.signupToken, consents },
+    });
+    writeStore(SIGNUP_KEY, null);
+    setToken(res.accessToken);
+    return res;
+  },
   logout: () => setToken(null),
+  /**
+   * 회원 탈퇴(DEV-94). 끝나지 않은 주문이 있으면 409 WITHDRAW_BLOCKED(orderNos).
+   * 성공하면 서버가 이 토큰을 받지 않으니, 앱이 로그아웃(토큰 삭제)과 이동을 처리한다
+   */
+  withdraw: () => request<null>("POST", "/api/auth/me/withdraw"),
   me: () => request<A.User>("GET", "/api/auth/me"),
+  /** 온보딩 1장·프로필 수정(닉네임·이름·휴대폰) */
+  updateMe: (input: A.MeUpdateInput) =>
+    request<A.User>("PATCH", "/api/auth/me", { body: input }),
+  consents: () => request<A.Consent[]>("GET", "/api/auth/me/consents"),
+  /** 가입 동의 기록(항목·버전·시각) */
+  saveConsents: (consents: A.ConsentInput[]) =>
+    request<A.Consent[]>("POST", "/api/auth/me/consents", {
+      body: { consents },
+    }),
   apply: (input: A.ProducerApplicationInput) =>
     request<A.ProducerApplication>("POST", "/api/auth/producer-application", {
       body: input,
@@ -62,6 +124,9 @@ export const farms = {
       intro: string;
       detailContent: A.DetailContent;
       photo: string | null;
+      bankName: string;
+      accountNumber: string;
+      accountHolder: string;
     }>,
   ) => request<A.MyFarm>("PATCH", "/api/farms/me", { body: patch }),
 };
@@ -158,15 +223,33 @@ export const orders = {
   /** 멱등 키를 넘기지 않으면 새로 만든다. 재시도 때는 같은 키를 넘긴다. */
   create: (input: A.OrderInput, idempotencyKey: string = newIdempotencyKey()) =>
     request<A.Order>("POST", "/api/orders", { body: input, idempotencyKey }),
-  pay: (
-    orderId: string,
-    mockResult: "success" | "fail",
-    idempotencyKey: string = newIdempotencyKey(),
-  ) =>
-    request<A.PayResult>("POST", `/api/orders/${orderId}/pay`, {
-      body: { mockResult },
+  /** 입금 안내(DEV-68): 물량을 선점하고 입금 대기로. 재시도 때는 같은 키를 넘긴다. */
+  deposit: (orderId: string, idempotencyKey: string = newIdempotencyKey()) =>
+    request<A.Order>("POST", `/api/orders/${orderId}/deposit`, {
+      body: {},
       idempotencyKey,
     }),
+  /** 소비자 '입금했어요' 신호. 상태는 바뀌지 않는다 */
+  depositReported: (orderId: string) =>
+    request<A.Order>("POST", `/api/orders/${orderId}/deposit-reported`),
+  /** 생산자 입금 확인 → 예약 완료 */
+  confirmDeposit: (orderId: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/confirm-deposit`),
+  /** 생산자 입금 미승인. 사유 필수, cancel이면 주문 취소(아니면 입금 대기 유지) */
+  rejectDeposit: (orderId: string, reason: string, cancel = false) =>
+    request<A.ProducerOrder>(
+      "POST",
+      `/api/orders/${orderId}/reject-deposit`,
+      { body: { reason, cancel } },
+    ),
+  /** 생산자 환불 미승인: 아직 송금하지 못한 사유(필수) */
+  refundIssue: (orderId: string, reason: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-issue`, {
+      body: { reason },
+    }),
+  /** 생산자가 입금했던 계좌로 환불 송금을 마쳤다고 표시 */
+  refundSettled: (orderId: string) =>
+    request<A.ProducerOrder>("POST", `/api/orders/${orderId}/refund-settled`),
   list: (q: A.PageQuery = {}) =>
     request<A.Paged<A.Order>>("GET", "/api/orders", { query: q }),
   get: (orderId: string) => request<A.Order>("GET", `/api/orders/${orderId}`),
@@ -191,6 +274,10 @@ export const orders = {
   harvestStart: (productId: string) =>
     request<{ changed: number }>("POST", "/api/orders/producer/harvest-start", {
       body: { productId },
+    }),
+  updateTracking: (orderId: string, version: number, carrier: A.Carrier, trackingNumber: string | null, key: string) =>
+    request<A.ProducerOrder>("PATCH", `/api/orders/${orderId}/tracking`, {
+      body: { version, carrier, trackingNumber }, idempotencyKey: key,
     }),
   ship: (
     orderId: string,
@@ -260,20 +347,46 @@ export const messaging = {
     request<A.ChatPage>("GET", `/api/messaging/chats/${farmId}/messages`, {
       query: q,
     }),
+  reportAiAnswer: (
+    farmId: string,
+    messageId: string,
+    idempotencyKey: string = newIdempotencyKey(),
+  ) =>
+    request<A.Escalation>(
+      "POST",
+      `/api/messaging/chats/${farmId}/messages/${messageId}/report`,
+      { idempotencyKey },
+    ),
   send: (
     farmId: string,
     text: string,
     attachmentIds: string[] = [],
     orderId?: string,
     idempotencyKey: string = newIdempotencyKey(),
+    productId?: string,
   ) =>
     request<A.SendMessageResult>(
       "POST",
       `/api/messaging/chats/${farmId}/messages`,
-      { body: { text, attachmentIds, orderId }, idempotencyKey },
+      { body: { text, attachmentIds, orderId, productId }, idempotencyKey },
     ),
   read: (farmId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/chats/${farmId}/read`, {
+      body: { lastReadMessageId },
+    }),
+  // 소비자 farmclub 문의 대화방(DEV-150). AI는 답하지 않아 reply는 항상 null
+  supportMessages: () =>
+    request<{ items: A.ChatMessage[]; nextCursor: string | null }>(
+      "GET",
+      "/api/messaging/support/messages",
+    ),
+  supportSend: (text: string, idempotencyKey: string = newIdempotencyKey()) =>
+    request<A.SendMessageResult>("POST", "/api/messaging/support/messages", {
+      body: { text },
+      idempotencyKey,
+    }),
+  supportRead: (lastReadMessageId: string) =>
+    request<{ unreadCount: number }>("PUT", "/api/messaging/support/read", {
       body: { lastReadMessageId },
     }),
   producerChats: (q: { needsReply?: boolean } & A.PageQuery = {}) =>

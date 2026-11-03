@@ -1,0 +1,428 @@
+{
+  "date": "2026-10-16",
+  "issue": "DEV-58",
+  "preprocessVersion": "source-parser-v2",
+  "promptVersion": "source-v3",
+  "ocr": {
+    "engine": "rapidocr==3.10.0",
+    "runtime": "onnxruntime==1.31.0",
+    "models": "PP-OCRv5 mobile detection / Korean recognition",
+    "modelManifestSha256": "6aa2338a8ecdd86cafd35e7d77a1f0478e3e9fe66abf80a3f7406ca4d264680a",
+    "offlineMeasurements": [
+      {
+        "id": "oasis-long",
+        "pages": 1,
+        "spanCount": 27,
+        "seconds": 2.377,
+        "peakRssMb": 593.2,
+        "networkBlocked": true
+      },
+      {
+        "id": "oasis-storage",
+        "pages": 1,
+        "spanCount": 7,
+        "seconds": 0.849,
+        "peakRssMb": 596.8,
+        "networkBlocked": true
+      }
+    ]
+  },
+  "corpus": {
+    "count": 12,
+    "sourceUrls": [
+      "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+      "https://m.oasis.co.kr/product/detail/95810?categoryId=2",
+      "https://m.ssarijai.com/product/detail.html?product_no=134"
+    ],
+    "manifestSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+    "cases": [
+      {
+        "id": "farm-mong",
+        "kind": "image",
+        "split": "development",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "3774186c5da2d33723a8a35bd1c25ab2c405435c66221f0271657111c19a9b90",
+        "derivation": "farm-card raster from public PDF"
+      },
+      {
+        "id": "farm-water",
+        "kind": "image",
+        "split": "development",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "c077de51123fab0f02619a23448cba2c28d9e9049587b9826ec8aa36107cd6b3",
+        "derivation": "farm-card raster from public PDF"
+      },
+      {
+        "id": "farm-citrus",
+        "kind": "image",
+        "split": "development",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "30c34a43b03e143dc8dc6867ad2c584f042ef25d8504d6826131d1b2c9a6fbbe",
+        "derivation": "farm-card raster from public PDF"
+      },
+      {
+        "id": "farm-yang",
+        "kind": "image",
+        "split": "holdout",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "40c20ada292635eddae391a080728a1ca5069b59cb4286fb59e5b86217d584f4",
+        "derivation": "farm-card raster from public PDF"
+      },
+      {
+        "id": "farm-shin",
+        "kind": "image",
+        "split": "holdout",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "51090350e9ab7a9aa9d3602a4cb32da68231f26028d2580c1faf70111eaa7bf6",
+        "derivation": "farm-card raster from public PDF"
+      },
+      {
+        "id": "farm-father",
+        "kind": "pdf",
+        "split": "development",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "c2c96b8ca22b2aa3bb491541341401060dbf44434049a031f10aa32141853006",
+        "derivation": "native PDF farm-card crop"
+      },
+      {
+        "id": "farm-jun",
+        "kind": "pdf",
+        "split": "holdout",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "ebf4aa8c9244e2badd1aa5656864b661008cb90215a8006be532c3a3046d1b12",
+        "derivation": "native PDF farm-card crop"
+      },
+      {
+        "id": "oasis-long",
+        "kind": "image",
+        "split": "development",
+        "url": "https://m.oasis.co.kr/product/detail/95810?categoryId=2",
+        "sha256": "778243ce7c2c9fd0c649bcfcfa2c8fa8e5b6cf9a2c8d641145cbb71a3b962911",
+        "derivation": "original seller detail image"
+      },
+      {
+        "id": "oasis-storage",
+        "kind": "pdf",
+        "split": "development",
+        "url": "https://m.oasis.co.kr/product/detail/95810?categoryId=2",
+        "sha256": "7480e3d568801cebbe8c93ccdd65c98d9f9efa459509f2c6d5bf26d7d535454a",
+        "derivation": "raster PDF of seller storage panel (0,3000,900,3550)"
+      },
+      {
+        "id": "ssarijai",
+        "kind": "text",
+        "split": "development",
+        "url": "https://m.ssarijai.com/product/detail.html?product_no=134",
+        "sha256": "cf8d31ce10f08067104c502823085c50cee4a4e4be2eb6600586bb52f9eca332",
+        "derivation": "transcribed public seller excerpt; original field labels preserved"
+      },
+      {
+        "id": "farm-orafield",
+        "kind": "text",
+        "split": "development",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "18353810d11f3be70899f4b883d99daad7be515d9cfc214ac1e98495ec7cd38f",
+        "derivation": "transcribed public seller excerpt; original field labels preserved"
+      },
+      {
+        "id": "farm-close",
+        "kind": "text",
+        "split": "holdout",
+        "url": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf",
+        "sha256": "259be2b264835fa9157a83c2bd6a0d9cb38c490b2db560f052fe8984f24582f8",
+        "derivation": "transcribed public seller excerpt; original field labels preserved"
+      }
+    ],
+    "limitations": [
+      "Several distinct farm profiles share one official brochure: three source URLs, not twelve independent websites.",
+      "Four holdout cases were frozen before the first run. Repeated runs after development changes are not fresh holdout estimates.",
+      "Two cropped PDFs preserve native brochure text; the storage PDF is a raster conversion, not an original seller PDF.",
+      "Raw documents, OCR, gold values and generated candidate text remain in private ignored artifacts."
+    ]
+  },
+  "firstPass": {
+    "model": "google/gemini-3.1-flash-lite",
+    "byFormat": {
+      "text": {
+        "sets": 3,
+        "precision": 1.0,
+        "recall": 1.0,
+        "unsupportedOrIncorrect": 0,
+        "missing": 0,
+        "p50Ms": 1860,
+        "p95Ms": 2102,
+        "totalCostUsd": 0.0018475,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 3,
+        "passed": true
+      },
+      "pdf": {
+        "sets": 3,
+        "precision": 0.0,
+        "recall": 0.0,
+        "unsupportedOrIncorrect": 3,
+        "missing": 8,
+        "p50Ms": 1721.0,
+        "p95Ms": 1980,
+        "totalCostUsd": null,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 1,
+        "evaluated": 2,
+        "passed": false
+      },
+      "image": {
+        "sets": 6,
+        "precision": 0.0,
+        "recall": 0.0,
+        "unsupportedOrIncorrect": 8,
+        "missing": 21,
+        "p50Ms": 2190,
+        "p95Ms": 2670,
+        "totalCostUsd": null,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 2,
+        "evaluated": 4,
+        "passed": false
+      }
+    },
+    "bySplit": {
+      "development": {
+        "sets": 8,
+        "precision": 0.3333333333333333,
+        "recall": 0.11538461538461539,
+        "unsupportedOrIncorrect": 6,
+        "missing": 23,
+        "p50Ms": 2026.5,
+        "p95Ms": 2670,
+        "totalCostUsd": null,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 3,
+        "evaluated": 5,
+        "passed": false
+      },
+      "holdout": {
+        "sets": 4,
+        "precision": 0.16666666666666666,
+        "recall": 0.14285714285714285,
+        "unsupportedOrIncorrect": 5,
+        "missing": 6,
+        "p50Ms": 1920.0,
+        "p95Ms": 2190,
+        "totalCostUsd": 0.00294575,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 4,
+        "passed": false
+      }
+    },
+    "qualityGatePassed": false,
+    "totalKnownCostUsd": 0.00797
+  },
+  "finalReal": {
+    "model": "google/gemini-3.1-flash-lite",
+    "byFormat": {
+      "text": {
+        "sets": 3,
+        "precision": 1.0,
+        "recall": 1.0,
+        "unsupportedOrIncorrect": 0,
+        "missing": 0,
+        "p50Ms": 1609,
+        "p95Ms": 1989,
+        "totalCostUsd": 0.00195475,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 3,
+        "passed": true
+      },
+      "pdf": {
+        "sets": 3,
+        "precision": 0.42857142857142855,
+        "recall": 0.375,
+        "unsupportedOrIncorrect": 4,
+        "missing": 5,
+        "p50Ms": 2231,
+        "p95Ms": 3045,
+        "totalCostUsd": 0.00331575,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 3,
+        "passed": false
+      },
+      "image": {
+        "sets": 6,
+        "precision": 0.1875,
+        "recall": 0.14285714285714285,
+        "unsupportedOrIncorrect": 13,
+        "missing": 18,
+        "p50Ms": 1923.5,
+        "p95Ms": 3264,
+        "totalCostUsd": 0.0074655,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 6,
+        "passed": false
+      }
+    },
+    "bySplit": {
+      "development": {
+        "sets": 8,
+        "precision": 0.35,
+        "recall": 0.2692307692307692,
+        "unsupportedOrIncorrect": 13,
+        "missing": 19,
+        "p50Ms": 2110.0,
+        "p95Ms": 3264,
+        "totalCostUsd": 0.00919025,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 8,
+        "passed": false
+      },
+      "holdout": {
+        "sets": 4,
+        "precision": 0.42857142857142855,
+        "recall": 0.42857142857142855,
+        "unsupportedOrIncorrect": 4,
+        "missing": 4,
+        "p50Ms": 1743.5,
+        "p95Ms": 1899,
+        "totalCostUsd": 0.0035457500000000003,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 4,
+        "passed": false
+      }
+    },
+    "qualityGatePassed": false,
+    "totalKnownCostUsd": 0.012736
+  },
+  "finalSynthetic": {
+    "model": "google/gemini-3.1-flash-lite",
+    "byFormat": {
+      "text": {
+        "sets": 16,
+        "precision": 1.0,
+        "recall": 1.0,
+        "unsupportedOrIncorrect": 0,
+        "missing": 0,
+        "p50Ms": 1476.5,
+        "p95Ms": 2112,
+        "totalCostUsd": 0.00887175,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 16,
+        "passed": true
+      },
+      "pdf": {
+        "sets": 1,
+        "precision": 1.0,
+        "recall": 1.0,
+        "unsupportedOrIncorrect": 0,
+        "missing": 0,
+        "p50Ms": 1556,
+        "p95Ms": 1556,
+        "totalCostUsd": 0.000863,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 1,
+        "passed": true
+      },
+      "image": {
+        "sets": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "unsupportedOrIncorrect": 1,
+        "missing": 1,
+        "p50Ms": 1712,
+        "p95Ms": 1712,
+        "totalCostUsd": 0.00087725,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 1,
+        "passed": false
+      }
+    },
+    "bySplit": {
+      "development": {
+        "sets": 18,
+        "precision": 0.95,
+        "recall": 0.95,
+        "unsupportedOrIncorrect": 1,
+        "missing": 1,
+        "p50Ms": 1511.0,
+        "p95Ms": 2112,
+        "totalCostUsd": 0.010612,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+        "failed": 0,
+        "evaluated": 18,
+        "passed": true
+      }
+    },
+    "qualityGatePassed": false,
+    "totalKnownCostUsd": 0.010612
+  },
+  "localFlow": {
+    "appliedAndReloaded": 3,
+    "ids": [
+      "ssarijai",
+      "farm-citrus",
+      "farm-jun"
+    ],
+    "phase": "Final RapidOCR/source-v3: upload, preparation, privacy approval, live extraction, evidence review, draft save, local product apply and reload.",
+    "mobileWidths": [
+      390
+    ],
+    "renderer": "actual ModuleStory",
+    "horizontalOverflow": false,
+    "formats": [
+      "text",
+      "image",
+      "pdf"
+    ]
+  },
+  "criticalReview": {
+    "automatedForbiddenFieldErrors": 0,
+    "humanAcceptance": "PENDING",
+    "knownQualityFailures": [
+      "Korean OCR glyph errors such as 귤/굴",
+      "Whitespace and punctuation differences in exact-match grading",
+      "Omitted content and incorrect farm/product field assignment",
+      "Synthetic rotated-image wording varies: composition includes a separate unknown-count statement in the final run."
+    ]
+  },
+  "ledger": {
+    "rows": 153,
+    "settledUsd": 0.096049,
+    "unknownReservedUsd": 0.191654,
+    "featureBudgetUsd": 5,
+    "evaluationBudgetUsd": 1
+  },
+  "tests": {
+    "pytest": 190,
+    "ruff": "passed",
+    "migration": "0008 downgrade/upgrade/check passed",
+    "offlineOcrNetworkBlocked": true
+  },
+  "deploymentGate": "HELD_PENDING_QUALITY_AND_FARMER_REVIEW",
+  "note": "Successful parsing/API responses are not a claim of acceptable generated-page quality. Final real quality gate fails. Fixed synthetic cases were used for prompt development; no generalization claim.",
+  "mainSync": {
+    "date": "2026-10-17",
+    "main": "34c9009",
+    "sourceIntegrationRevision": "0008",
+    "preprocessingRevision": "0009",
+    "pytest": 238,
+    "typecheck": "4 workspaces passed",
+    "mockTests": 12,
+    "migration": "fresh upgrade -> 0009, downgrade -> 0007, re-upgrade/check passed",
+    "note": "Original 153-row cost ledger and applied snapshots retained in the pre-sync database and private dump. Integration uses a separate fresh database; no paid calls on the reset test DB.",
+    "realApiScenarios": 7,
+    "chromiumTests": 22,
+    "initialLocalBrowserRuns": [
+      "21 passed / 1 timeout",
+      "20 passed / 2 timeouts"
+    ],
+    "resolution": "Producer waits for session readiness before mounting tabs; delayed-session regression preserves input. Checkout test waits for address response. Final full API/Chromium rerun passed."
+  }
+}

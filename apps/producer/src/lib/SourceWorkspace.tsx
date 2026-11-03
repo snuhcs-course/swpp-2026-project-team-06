@@ -1,0 +1,980 @@
+import { sourceActionError, retryCostLabel, type SourceActionError } from "./sourceFeedback";
+import { SourceRunProgress } from "./SourceRunProgress";
+import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
+import { SourceBasicInfo } from "./SourceBasicInfo";
+import { SourceAttachments } from "./SourceAttachments";
+import {
+  allPages,
+  catalog,
+  isMock,
+  newIdempotencyKey,
+  sourceAnalysis as api,
+  type MyProductCard,
+  type SourceBatch,
+  type SourceDraft,
+  type SourceReview,
+  type SourceRun,
+} from "@farmclub/api";
+import {
+  Button,
+  BottomBar,
+  HeaderBar,
+  Icon,
+  Screen,
+  Scroll,
+  Sheet,
+  T,
+  tokens,
+} from "@farmclub/ui";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
+import { SourceDetailsEditor } from "./SourceDetailsEditor";
+import { useHideTabBar } from "./session";
+const inputStyle = {
+  borderWidth: 1,
+  borderColor: tokens.color.border,
+  borderRadius: 12,
+  padding: 12,
+  fontSize: 16,
+  minHeight: 48,
+  color: tokens.color.text,
+  backgroundColor: "white",
+};
+export const panel = {
+  padding: 16,
+  gap: 12,
+  borderWidth: 1,
+  borderColor: tokens.color.border,
+  borderRadius: 16,
+};
+export const ACTIVE = ["QUEUED", "PREPARING", "ANALYZING", "PRIVACY_REVIEW"];
+export const states: Record<string, string> = {
+  QUEUED: "대기",
+  PREPARING: "자료 읽는 중",
+  ANALYZING: "분석 중",
+  PRIVACY_REVIEW: "개인정보 확인 필요",
+  SUCCEEDED: "완료",
+  PARTIAL: "일부 완료",
+  FAILED: "실패",
+  CANCELLED: "취소",
+  UPLOADED: "업로드됨",
+  PREPARED: "자료 준비됨",
+  RUNNING: "처리 중",
+};
+export function sourceNotices(item: SourceRun["items"][number]): string[] {
+  const notes: string[] = [];
+  const pages = (numbers?: number[]) => numbers?.length
+    ? ` 확인할 쪽: ${numbers.join(", ")}쪽.` : "";
+  if (item.status === "PARTIAL" && (item.pagesFailed ?? 0) > 0) {
+    notes.push(`${item.pagesFailed}쪽을 읽지 못했어요.${pages(item.ocrFailedPageNumbers)} 다시 분석해 보세요.`);
+  }
+  if (item.status === "PARTIAL" && (item.chunksFailed ?? 0) > 0) {
+    notes.push(`일부 내용을 읽지 못했어요.${pages(item.chunkFailedPageNumbers)} 다시 분석해 보세요.`);
+  }
+  if ((item.pagesSkipped ?? 0) > 0) {
+    notes.push(
+      `앞 ${item.pagesAnalysed}쪽만 분석했어요. 나머지 ${item.pagesSkipped}쪽은 필요하면 나눠서 올려 주세요.`,
+    );
+  }
+  if (item.emptyReason && !item.error) {
+    const messages: Record<string, string> = {
+      NO_CANDIDATES: "추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.",
+      NO_SAFE_TEXT: "분석할 텍스트가 없어요. 자료 내용을 확인해 주세요.",
+      NO_TARGET_CANDIDATES:
+        "이 상품에 연결된 내용을 찾지 못했어요. 상품 연결을 확인해 주세요.",
+      ALL_TEXTS_FILTERED:
+        "상세에 넣을 수 있는 문구가 남지 않았어요. 원문을 확인해 주세요.",
+      REFINE_INPUT_LIMIT:
+        "내용이 많아 문구를 정리하지 못했어요. 자료를 나눠서 올려 주세요.",
+    };
+    notes.push(
+      messages[item.emptyReason] ??
+        "추출할 내용을 찾지 못했어요. 원문을 확인해 주세요.",
+    );
+  }
+  if ((item.candidatesSkipped ?? 0) > 0) {
+    notes.push(
+      `내용이 많아 후보 ${item.candidatesSkipped}개는 문구 정리에서 생략했어요. 원문을 확인해 주세요.`,
+    );
+  }
+  return notes;
+}
+
+export function sourceError(code: string, phase?: string, rejectedCount = 0) {
+  if (phase === "REFINE") {
+    const messages: Record<string, string> = {
+      SOURCE_CHANGED:
+        "자료가 바뀌어 문구 정리를 사용하지 않았어요. 다시 분석해 주세요.",
+      PRIVACY_CHANGED:
+        "가림 내용이 바뀌어 문구 정리를 사용하지 않았어요. 확인 후 다시 분석해 주세요.",
+      PROMPT_CHANGED: "문구 정리 방식이 바뀌었어요. 다시 분석해 주세요.",
+      INVALID_MODEL_OUTPUT:
+        "문구 정리 결과를 읽지 못해 원문 그대로 보여 드려요.",
+      INCOMPLETE_OR_REFUSED:
+        "문구 정리를 마치지 못해 원문 그대로 보여 드려요.",
+      REQUEST_UNCERTAIN:
+        "문구 정리 요청의 완료 여부를 확인하지 못해 원문 그대로 보여 드려요.",
+      PROVIDER_REJECTED:
+        "문구 정리 요청이 거절되어 원문 그대로 보여 드려요.",
+      PROVIDER_AUTH:
+        "AI 연결 설정에 문제가 있어 문구 정리 대신 원문 그대로 보여 드려요. 운영팀에 알려 주세요.",
+    };
+    return messages[code] ?? "문구 정리에 실패해서 원문 그대로 보여 드려요.";
+  }
+  const messages: Record<string, string> = {
+    PROVIDER_AUTH: "AI 연결 설정에 문제가 있어요. 운영팀에 알려 주세요.",
+    BUDGET_EXCEEDED:
+      "자료 분석 예산 한도에 도달했어요. 담당자에게 확인해 주세요.",
+    INVALID_EVIDENCE:
+      "자료에서 근거를 확인하지 못했어요. 선명한 자료를 넣거나 직접 내용을 확인해 주세요.",
+    CANDIDATES_REJECTED:
+      rejectedCount > 0
+        ? `근거를 확인하지 못한 후보 ${rejectedCount}개는 제외했어요. 원문을 확인해 주세요.`
+        : "근거를 확인하지 못한 내용은 제외했어요. 원문을 확인해 주세요.",
+    REQUEST_UNCERTAIN: "분석 요청의 완료 여부를 확인하지 못했어요.",
+    UNSUPPORTED_NUMBER: "자료에 없는 수치가 포함되어 결과를 사용하지 않았어요.",
+    UNSUPPORTED_PIECE_COUNT: "상품 개수의 근거를 확인하지 못했어요.",
+    PRIVACY_CHANGED: "가림 내용이 바뀌었어요. 다시 확인한 후 분석해 주세요.",
+    UNKNOWN_MOCK_SOURCE: "테스트 환경에서 지원하지 않는 자료예요.",
+  };
+  return (
+    messages[code] ??
+    "자료를 처리하지 못했어요. 내용을 확인한 후 다시 시도해 주세요."
+  );
+}
+export function Choice({
+  label,
+  selected,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="checkbox"
+      accessibilityLabel={label}
+      aria-checked={selected}
+      style={{
+        minHeight: 48,
+        padding: 10,
+        borderRadius: 10,
+        backgroundColor: selected ? "#FFF3EB" : tokens.color.surface,
+        justifyContent: "center",
+      }}
+    >
+      <T>
+        {selected ? "✓ " : "○ "}
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+function Field({
+  label,
+  value,
+  onChange,
+  multiline = false,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (s: string) => void;
+  multiline?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <View style={{ gap: 6 }}>
+      <T variant="caption">{label}</T>
+      <TextInput
+        accessibilityLabel={label}
+        value={value}
+        onChangeText={onChange}
+        multiline={multiline}
+        editable={!disabled}
+        style={[inputStyle, multiline && { minHeight: 100 }]}
+      />
+    </View>
+  );
+}
+/** 마지막 분석이 현재 첨부와 맞고 편집할 내용이 있으면 상세 편집을 연다(NewProductComposer와 공유). */
+export function canEditBatch(
+  batch: SourceBatch | null,
+  runs: SourceRun[],
+  drafts: SourceDraft[],
+  review: SourceReview | null,
+  activeRun: SourceRun | undefined,
+) {
+  return (
+    !!batch &&
+    !activeRun &&
+    (!!drafts.length ||
+      (!!runs[0] &&
+        (!runs[0].inputs?.length ||
+          (runs[0].inputs.length === batch.sources.length &&
+            runs[0].inputs.every((i) =>
+              batch.sources.some(
+                (s) =>
+                  s.id === i.id &&
+                  s.revision === i.revision &&
+                  (s.description || "") === i.description,
+              ),
+            ))) &&
+        (["SUCCEEDED", "PARTIAL"].includes(runs[0].status) ||
+          (runs[0].status === "FAILED" &&
+            batch.sources.some(
+              (s) => s.originalPhoto && s.status === "PREPARED",
+            ))) &&
+        batch.sources
+          .filter((s) => !s.originalPhoto)
+          .every((s) =>
+            runs[0].items.some(
+              (i) => i.assetId === s.id && i.revision === s.revision,
+            ),
+          ) &&
+        (batch.sources.some(
+          (s) => s.originalPhoto && s.status === "PREPARED",
+        ) ||
+          !!review?.editorFields?.some(
+            (e) =>
+              (e.status === "conflict" || (e.status === "ready" &&
+              (e.field.value || e.field.photoAssetIds.length))),
+          ))))
+  );
+}
+export function SourceWorkspace() {
+  useHideTabBar();
+  const flushAttachments = useRef<(() => Promise<void>) | null>(null);
+  const saveEditor = useRef<
+    ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null
+  >(null);
+  const router = useRouter(),
+    navigation = useNavigation(),
+    { batchId } = useLocalSearchParams<{ batchId?: string }>();
+  const [products, setProducts] = useState<MyProductCard[]>([]),
+    [batches, setBatches] = useState<SourceBatch[]>([]);
+  const [batch, setBatch] = useState<SourceBatch | null>(null),
+    [review, setReview] = useState<SourceReview | null>(null),
+    [runs, setRuns] = useState<SourceRun[]>([]),
+    [drafts, setDrafts] = useState<SourceDraft[]>([]);
+  const [selected, setSelected] = useState<string[]>([]),
+    [name, setName] = useState("");
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState<SourceActionError | null>(null),
+    // Apply rejections stay beside the apply action instead of the page-level alert.
+    [applyError, setApplyError] = useState<SourceActionError | null>(null),
+    [notice, setNotice] = useState("");
+  const [tab, setTab] = useState("자료"),
+    [editing, setEditing] = useState(false);
+  const [startError, setStartError] = useState("");
+  const [visual] = useState<Record<string, number[]>>({});
+  const [ack, setAck] = useState(false),
+    [buyerPreview, setBuyerPreview] = useState(false),
+    [applyTarget, setApplyTarget] = useState<Record<string, string>>({});
+  useEffect(() => setAck(false), [runs[0]?.id]);
+  const [confirmation, setConfirmation] = useState<{
+    draft: SourceDraft;
+    productId: string;
+    version: number;
+    name: string;
+  } | null>(null);
+  const activeRun = runs.find((r) => ACTIVE.includes(r.status));
+  const working = !!activeRun && activeRun.status !== "PRIVACY_REVIEW";
+  const [leaving, setLeaving] = useState<(() => void) | null>(null);
+  const allowLeave = useRef(false);
+  const [basicDirty, setBasicDirty] = useState(false);
+  const flushBasicInfo = useRef<
+    ((required?: boolean) => Promise<void>) | undefined
+  >(undefined);
+  const dirty = editing || basicDirty;
+  useEffect(
+    () =>
+      navigation.addListener("beforeRemove", (event) => {
+        if (allowLeave.current || !(dirty || busy)) return;
+        event.preventDefault();
+        setLeaving(() => () => {
+          allowLeave.current = true;
+          navigation.dispatch(event.data.action);
+        });
+      }),
+    [navigation, dirty, busy],
+  );
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (dirty || busy) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    // 웹 전용: 탭을 닫을 때 경고. 앱에는 beforeunload가 없다(DEV-33)
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty, busy]);
+  const lock = useRef(false),
+    alive = useRef(true),
+    pending = useRef(new Map<string, string>());
+  const keyFor = (scope: string, body: unknown) => {
+    const id = scope + JSON.stringify(body);
+    if (!pending.current.has(id)) pending.current.set(id, newIdempotencyKey());
+    return pending.current.get(id)!;
+  };
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const load = useCallback(async () => {
+    if (!batchId) {
+      const result = await allPages((cursor) => api.list(cursor));
+      if (alive.current) setBatches(result);
+      return;
+    }
+    const [b, r, jobs, ds] = await Promise.all([
+      api.get(batchId),
+      api.review(batchId),
+      api.runs(batchId),
+      api.drafts(batchId),
+    ]);
+    if (!alive.current) return;
+    setBatch(b);
+    setReview(r);
+    setRuns(jobs.items);
+    setDrafts(ds.items);
+  }, [batchId]);
+  const mutate = (fn: () => Promise<void>, starting = false) => {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError(null);
+    setApplyError(null);
+    if (starting) setStartError("");
+    setNotice("");
+    void fn()
+      .catch((e) => {
+        if (alive.current) {
+          const feedback = sourceActionError(e);
+          if (starting) setStartError(feedback.message);
+          else setError(feedback);
+        }
+      })
+      .finally(() => {
+        lock.current = false;
+        if (alive.current) setBusy(false);
+      });
+  };
+  useEffect(() => {
+    if (isMock) return;
+    void Promise.all([
+      load(),
+      allPages((cursor) => catalog.mine({ limit: 50, cursor })).then((p) => {
+        if (alive.current) setProducts(p);
+      }),
+    ]).catch((e) => {
+      if (alive.current) setError(sourceActionError(e));
+    });
+  }, [load]);
+  useEffect(() => {
+    if (!batchId || !runs.some((r) => ACTIVE.includes(r.status))) return;
+    const timer = setInterval(() => {
+      if (lock.current) return;
+      void Promise.all([api.get(batchId), api.runs(batchId)])
+        .then(([b, r]) => {
+          if (alive.current) {
+            setBatch(b);
+            setRuns(r.items);
+            if (!r.items.some((job) => ACTIVE.includes(job.status)))
+              return load();
+          }
+        })
+        .catch((e) => {
+          if (alive.current) setError(sourceActionError(e));
+        });
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [batchId, runs, load]);
+  const canEdit = canEditBatch(batch, runs, drafts, review, activeRun);
+  return (
+    <Screen>
+      <HeaderBar title="판매페이지 만들기" onBack={() => router.back()} />
+      {tab === "상세 편집" && review ? <Button label={buyerPreview ? "편집으로 돌아가기" : "구매자 화면 미리보기"}
+        variant="outline" onPress={() => setBuyerPreview(!buyerPreview)} /> : null}
+      <Scroll bottom={180}>
+        <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
+          {error ? (
+            <View accessibilityRole="alert" style={panel}>
+              <T>{error.message}</T>
+              {error.canRefresh ? (
+                <Button
+                  label="서버 상태 다시 확인"
+                  variant="outline"
+                  disabled={busy}
+                  onPress={() => mutate(load)}
+                />
+              ) : null}
+            </View>
+          ) : null}
+          {notice ? (
+            <View accessibilityRole="alert">
+              <T>{notice}</T>
+            </View>
+          ) : null}
+          {isMock ? (
+            <T>
+              자료 분석은 로컬 API 검증 환경에서 사용할 수 있어요. 현재 데모
+              화면은 서버에 연결되지 않았어요.
+            </T>
+          ) : !batchId ? (
+            <>
+              <T variant="heading">상세를 만들 상품 선택 (최대 10개)</T>
+              {products.map((p) => (
+                <Choice
+                  key={p.productId}
+                  label={p.name}
+                  selected={selected.includes(p.productId)}
+                  disabled={busy}
+                  onPress={() =>
+                    setSelected(
+                      selected.includes(p.productId)
+                        ? selected.filter((id) => id !== p.productId)
+                        : selected.length < 10
+                          ? [...selected, p.productId]
+                          : selected,
+                    )
+                  }
+                />
+              ))}
+              <Field
+                label="새 상품 초안 이름 (선택)"
+                disabled={busy}
+                value={name}
+                onChange={setName}
+              />
+              <Button
+                label="자료 작업 시작"
+                disabled={
+                  busy ||
+                  (!selected.length && !name.trim()) ||
+                  selected.length + (name.trim() ? 1 : 0) > 10
+                }
+                onPress={() =>
+                  mutate(async () => {
+                    const targets: { name: string; productId?: string }[] =
+                      selected.map((id) => ({
+                        name: products.find((p) => p.productId === id)!.name,
+                        productId: id,
+                      }));
+                    if (name.trim())
+                      targets.push({ name: name.trim(), productId: undefined });
+                    const b = await api.create(
+                      targets,
+                      keyFor("create", targets),
+                    );
+                    pending.current.clear();
+                    router.setParams({ batchId: b.id });
+                  })
+                }
+              />
+              <T variant="heading">이전 작업 이어하기</T>
+              {batches.map((b) => (
+                <Button
+                  key={b.id}
+                  label={b.targets.map((t) => t.name).join(" · ")}
+                  variant="outline"
+                  onPress={() => router.setParams({ batchId: b.id })}
+                />
+              ))}
+            </>
+          ) : !batch ? (
+            <T>작업 불러오는 중…</T>
+          ) : (
+            <>
+              <T variant="sub" muted numberOfLines={2}>
+                {batch.targets.map((t) => t.name).join(" · ")}
+              </T>
+              {batch.targets.length === 1 && batch.targets[0].productId ? (
+                <Button
+                  label="상품 정보·판매 설정"
+                  variant="text"
+                  icon="box"
+                  disabled={busy || dirty}
+                  onPress={() =>
+                    router.push(`/products/${batch.targets[0].productId}/edit`)
+                  }
+                />
+              ) : null}
+              {activeRun ? (
+                <View
+                  testID="source-analysis-status"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    ...panel,
+                    backgroundColor: tokens.color.surface,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  {working ? (
+                    <ActivityIndicator color={tokens.color.accent} />
+                  ) : (
+                    <Icon name="lock" color={tokens.color.accent} />
+                  )}
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <T weight="semibold">
+                      {working
+                        ? "분석 중이에요"
+                        : "이전 분석을 다시 시작해 주세요"}
+                    </T>
+                    <T variant="caption" muted>
+                      {activeRun.status === "PREPARING"
+                        ? "올려주신 자료를 읽고 있어요."
+                        : activeRun.status === "PRIVACY_REVIEW"
+                          ? "아래에서 이전 분석을 취소한 뒤 다시 시작해 주세요."
+                          : "자료에서 상품 정보를 찾고 있어요. 잠시만 기다려 주세요."}
+                    </T>
+                  </View>
+                </View>
+              ) : null}
+              <View
+                style={{
+                  flexDirection: "row",
+                  display: buyerPreview ? "none" : "flex",
+                  padding: 4,
+                  backgroundColor: tokens.color.surface,
+                  borderRadius: tokens.radius.md,
+                }}
+              >
+                {["자료", "상세 편집"].map((t) => (
+                  <Button
+                    key={t}
+                    label={t === "상세 편집" ? "상세페이지 편집" : t}
+                    disabled={busy || (t === "상세 편집" && !canEdit)}
+                    variant="text"
+                    style={{
+                      flex: 1,
+                      alignSelf: "stretch",
+                      backgroundColor: tab === t ? "white" : "transparent",
+                      borderRadius: 12,
+                    }}
+                    onPress={() => {
+                      if (t === tab) return;
+                      const go = () => {
+                        setEditing(false);
+                        if (t === "상세 편집")
+                          mutate(async () => {
+                            await flushBasicInfo.current?.();
+                            await load();
+                            setTab(t);
+                          });
+                        else setTab(t);
+                      };
+                      if (editing) setLeaving(() => go);
+                      else go();
+                    }}
+                  />
+                ))}
+              </View>
+              {!canEdit && working ? <T variant="caption" muted>분석이 끝나면 편집할 수 있어요</T> : null}
+              {tab === "자료" ? (
+                <>
+                  <SourceBasicInfo
+                    key={batch.id}
+                    batch={batch}
+                    disabled={busy || !!activeRun}
+                    flushRef={flushBasicInfo}
+                    onDirty={(dirty) => {
+                      setBasicDirty(dirty);
+                      if (dirty) { setError(null); setStartError(""); }
+                    }}
+                    onSaved={setBatch}
+                  />
+                  <T variant="caption" muted>
+                    {AI_POLICY_NOTE}
+                  </T>
+                  <SourceAttachments
+                    key={`attachments-${batch.id}`}
+                    flushRef={flushAttachments}
+                    beforeUpload={async () => {
+                      await flushBasicInfo.current?.();
+                    }}
+                    batch={batch}
+                    busy={busy || !!activeRun}
+                    refresh={load}
+                    onBusy={setBusy}
+                    onDirty={setEditing}
+                  />
+                  {!batch.sources.some(
+                    (s) => s.originalPhoto && s.status === "PREPARED",
+                  ) ? (
+                    <T variant="caption" muted>
+                      공개하기 전에는 대표 상품사진 한 장이 필요해요.
+                    </T>
+                  ) : null}
+                  {startError ? <View accessibilityRole="alert">{/* The basic-info card already shows the variety message; only point to it here. */}{startError.includes("품종") ? <T variant="caption" color={tokens.color.error}>위 기본 정보에서 과일 품종명을 입력해 주세요.</T> : <T color={tokens.color.error}>{startError}</T>}</View> : null}
+                  {!batch.sources.length ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
+                  <Button
+                    label={
+                      working
+                        ? "분석 중이에요"
+                        : activeRun?.status === "PRIVACY_REVIEW"
+                          ? "이전 분석을 취소해 주세요"
+                          : "자료 준비·분석 시작"
+                    }
+                    disabled={
+                      busy ||
+                      batch.sources.length === 0 ||
+                      runs.some((r) => ACTIVE.includes(r.status))
+                    }
+                    onPress={() =>
+                      mutate(async () => {
+                        await flushAttachments.current?.();
+                        await flushBasicInfo.current?.(true);
+                        const latest = await api.get(batch.id);
+                        const pages = Object.fromEntries(
+                          Object.entries(visual).filter(([, ns]) => ns.length),
+                        );
+                        await api.start(
+                          batch.id,
+                          latest.version,
+                          keyFor("start", [latest.version, pages]),
+                          pages,
+                        );
+                        pending.current.clear();
+                        setAck(false);
+                        await load();
+                      }, true)
+                    }
+                  />
+                  {runs.slice(0, 1).map((r) => (
+                    <View key={r.id} style={panel}>
+                      {working ? <SourceRunProgress batch={batch} run={r} /> : null}
+                      <T>
+                        {r.status === "SUCCEEDED"
+                          ? "분석이 완료됐어요"
+                          : r.status === "PARTIAL"
+                            ? "일부 내용을 반영하지 못했어요. 원문을 확인해 주세요."
+                            : r.status === "PRIVACY_REVIEW"
+                              ? "이전 분석을 취소한 뒤 다시 시작해 주세요"
+                              : (states[r.status] ?? r.status)}
+                        {r.mode === "mock" ? " · 테스트 결과" : ""}
+                      </T>
+                      {r.items.flatMap((item) =>
+                        sourceNotices(item).map((note, index) => (
+                          <T key={`${item.id}-note-${index}`} variant="caption">
+                            {item.phase !== "REFINE"
+                              ? `${batch?.sources.find((s) => s.id === item.assetId)?.filename}: `
+                              : ""}
+                            {note}
+                          </T>
+                        )),
+                      )}
+                      {r.items
+                        .filter(
+                          (i) =>
+                            i.error &&
+                            !(
+                              i.status === "PARTIAL" &&
+                              ((i.pagesFailed ?? 0) > 0 || (i.chunksFailed ?? 0) > 0)
+                            ) &&
+                            (i.phase !== "REFINE" || i.status === "FAILED"),
+                        )
+                        .map((i) => (
+                          <T key={i.id} variant="caption">
+                            {i.phase !== "REFINE"
+                              ? `${batch.sources.find((s) => s.id === i.assetId)?.filename}: `
+                              : ""}
+                            {sourceError(
+                              i.error!,
+                              i.phase,
+                              i.status === "PARTIAL" ? i.rejectedCount : 0,
+                            )}
+                          </T>
+                        ))}
+                      {ACTIVE.includes(r.status) ? (
+                        <Button
+                          label="분석 취소"
+                          variant="outline"
+                          disabled={busy}
+                          onPress={() =>
+                            mutate(async () => {
+                              await api.cancel(batch.id, r.id);
+                              await load();
+                            })
+                          }
+                        />
+                      ) : null}
+                      {r.items.some((i) =>
+                        ["FAILED", "PARTIAL"].includes(i.status),
+                      ) ? (
+                        <>
+                          <Choice
+                            label={retryCostLabel(r)}
+                            selected={ack}
+                            disabled={busy}
+                            onPress={() => setAck(!ack)}
+                          />
+                          <Button
+                            label={
+                              r.items.some((i) => i.status === "PARTIAL")
+                                ? "미완료 항목 재시도"
+                                : "실패한 항목 재시도"
+                            }
+                            variant="outline"
+                            disabled={busy || !ack}
+                            onPress={() =>
+                              mutate(async () => {
+                                const ids = r.items
+                                  .filter((i) =>
+                                    ["FAILED", "PARTIAL"].includes(i.status),
+                                  )
+                                  .map((i) => i.id);
+                                await api.retry(
+                                  batch.id,
+                                  r.id,
+                                  ids,
+                                  ack,
+                                  keyFor("retry", [r.id, ids, ack]),
+                                );
+                                pending.current.clear();
+                                setAck(false);
+                                await load();
+                              })
+                            }
+                          />
+                        </>
+                      ) : null}
+                    </View>
+                  ))}
+                </>
+              ) : review ? (
+                <>
+                  <SourceExclusions
+                    batchId={batch.id}
+                    visible={!buyerPreview}
+                    products={batch.targets.map((t) => ({
+                      id: t.id,
+                      name: t.name,
+                      result: activeRun ? undefined : review.refinementResults?.[t.id],
+                    }))}
+                  />
+                  <SourceDetailsEditor
+                    key={batch.id}
+                    preview={buyerPreview}
+                    batch={batch}
+                    review={review}
+                    drafts={drafts}
+                    saveRef={saveEditor}
+                    onDirty={setEditing}
+                    onBusy={setBusy}
+                    onSaved={async () => {
+                      await load();
+                      setBuyerPreview(false);
+                      setNotice(
+                        "비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.",
+                      );
+                    }}
+                  />
+                  <View style={buyerPreview ? { display: "none" } : undefined}>
+                  {drafts
+                    .filter(
+                      (d, i) =>
+                        drafts.findIndex((x) => x.targetId === d.targetId) ===
+                        i,
+                    )
+                    .map((d) => {
+                      const target = batch.targets.find(
+                        (t) => t.id === d.targetId,
+                      )!;
+                      const pid = target.productId ?? applyTarget[d.id];
+                      return (
+                        <View key={d.id} testID="source-drafts" style={panel}>
+                          <T variant="title">
+                            {target.name} 저장 초안
+                            {d.snapshot.mode === "mock" ? " · 테스트 결과" : ""}
+                          </T>
+                          <T>
+                            {d.snapshot.reviewVersion !== review.reviewVersion
+                              ? "검토 내용이 바뀌었어요. 최신 초안을 저장해 주세요."
+                              : "비공개 저장됨"}
+                          </T>
+                          {d.snapshot.warnings.length ? (
+                            <T variant="caption">
+                              내용이 없는 {d.snapshot.warnings.length}개 섹션은
+                              미리보기에서 생략돼요.
+                            </T>
+                          ) : null}
+                          {!target.productId ? (
+                            <>
+                              <T>
+                                기존 상품 등록 화면에서 상품을 만든 뒤 적용할
+                                상품을 선택해 주세요.
+                              </T>
+                              {products.map((p) => (
+                                <Choice
+                                  key={p.productId}
+                                  label={p.name}
+                                  selected={pid === p.productId}
+                                  onPress={() =>
+                                    setApplyTarget({
+                                      ...applyTarget,
+                                      [d.id]: p.productId,
+                                    })
+                                  }
+                                />
+                              ))}
+                            </>
+                          ) : null}
+                          <Button
+                            label="상품 상세에 적용 검토"
+                            disabled={
+                              busy ||
+                              !pid ||
+                              !!editing ||
+                              d.snapshot.reviewVersion !== review.reviewVersion
+                            }
+                            onPress={() =>
+                              mutate(async () => {
+                                const product = await catalog.myProduct(pid!);
+                                setConfirmation({
+                                  draft: d,
+                                  productId: pid!,
+                                  version: product.version,
+                                  name: product.name,
+                                });
+                              })
+                            }
+                          />
+                          <Button
+                            label="저장 초안 삭제"
+                            variant="text"
+                            disabled={busy}
+                            onPress={() =>
+                              mutate(async () => {
+                                await api.deleteDraft(batch.id, d);
+                                await load();
+                              })
+                            }
+                          />
+                        </View>
+                      );
+                    })}
+                  {confirmation ? (
+                    <View testID="source-apply-confirmation" style={panel}>
+                      <T variant="title">{confirmation.name}에 적용할까요?</T>
+                      <T>
+                        현재 모듈 상세를 이 초안으로 교체해요. 판매 중인
+                        상품이면 구매자에게 바로 보여요. 가격과 재고는 바뀌지
+                        않아요.
+                      </T>
+                      {applyError ? (
+                        <View accessibilityRole="alert">
+                          <T color={tokens.color.error}>{applyError.message}</T>
+                          {applyError.canRefresh ? (
+                            <Button
+                              label="서버 상태 다시 확인"
+                              variant="outline"
+                              disabled={busy}
+                              onPress={() => mutate(load)}
+                            />
+                          ) : null}
+                        </View>
+                      ) : null}
+                      <Button
+                        label="확인 · 상품 상세 적용"
+                        disabled={busy}
+                        onPress={() =>
+                          mutate(async () => {
+                            const c = confirmation;
+                            try {
+                              await api.apply(
+                                batch.id,
+                                c.draft,
+                                c.productId,
+                                c.version,
+                                keyFor("apply", [
+                                  c.draft.id,
+                                  c.productId,
+                                  c.version,
+                                ]),
+                              );
+                            } catch (e) {
+                              // Only the apply rejection belongs beside the confirm button.
+                              if (alive.current) setApplyError(sourceActionError(e));
+                              return;
+                            }
+                            pending.current.clear();
+                            setConfirmation(null);
+                            setNotice("상품 상세에 적용했어요.");
+                            await load();
+                          })
+                        }
+                      />
+                      <Button
+                        label="적용 취소"
+                        variant="outline"
+                        disabled={busy}
+                        onPress={() => {
+                          setConfirmation(null);
+                          setApplyError(null);
+                        }}
+                      />
+                    </View>
+                  ) : null}
+                  </View>
+                </>
+              ) : null}
+            </>
+          )}
+        </View>
+      </Scroll>
+      {tab === "상세 편집" && review && !buyerPreview ? (
+        <BottomBar>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Button
+              label="비공개 저장"
+              loading={busy}
+              disabled={busy}
+              style={{ flex: 1 }}
+              onPress={() => saveEditor.current?.()}
+            />
+            {drafts.length ? (
+              <Button
+                label="공개 전 검토"
+                variant="outline"
+                disabled={busy}
+                onPress={() => {
+                  if (typeof document !== "undefined")
+                    document
+                      .querySelector('[data-testid="source-drafts"]')
+                      ?.scrollIntoView({ behavior: "smooth" });
+                }}
+              />
+            ) : null}
+          </View>
+        </BottomBar>
+      ) : null}
+
+      <Sheet visible={!!leaving} onClose={() => setLeaving(null)}>
+        <T variant="title">저장하지 않은 내용을 닫을까요?</T>
+        <T>저장한 비공개 초안은 그대로 남아요.</T>
+        <Button label="계속 편집" onPress={() => setLeaving(null)} />
+        <Button
+          label="저장하지 않고 닫기"
+          variant="outline"
+          onPress={() => {
+            const go = leaving;
+            setLeaving(null);
+            go?.();
+          }}
+        />
+      </Sheet>
+    </Screen>
+  );
+}

@@ -1,0 +1,261 @@
+{
+  "date": "2026-10-17",
+  "issue": "DEV-58",
+  "feature": "FEAT-03/04/07",
+  "purpose": "Explicit Sol comparison; Flash remains default; no merge or deployment",
+  "corpusSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+  "conditions": {
+    "sameSafeInputs": true,
+    "sameGoldLabels": true,
+    "samePrompt": true,
+    "cases": 12,
+    "directImageInputs": 0,
+    "ocr": "RapidOCR PP-OCRv5 Korean",
+    "solReasoning": "low",
+    "maxOutputTokens": 4096,
+    "automaticRetries": 0
+  },
+  "comparisons": [
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "metrics": {
+        "sets": 12,
+        "precision": 0.37037037037037035,
+        "recall": 0.30303030303030304,
+        "unsupportedOrIncorrect": 17,
+        "missing": 23,
+        "p50Ms": 1923.5,
+        "p95Ms": 3264,
+        "totalCostUsd": 0.012736,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "byFormat": {
+        "text": {
+          "sets": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "unsupportedOrIncorrect": 0,
+          "missing": 0,
+          "p50Ms": 1609,
+          "p95Ms": 1989,
+          "totalCostUsd": 0.00195475,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 3,
+          "passed": true
+        },
+        "pdf": {
+          "sets": 3,
+          "precision": 0.42857142857142855,
+          "recall": 0.375,
+          "unsupportedOrIncorrect": 4,
+          "missing": 5,
+          "p50Ms": 2231,
+          "p95Ms": 3045,
+          "totalCostUsd": 0.00331575,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 3,
+          "passed": false
+        },
+        "image": {
+          "sets": 6,
+          "precision": 0.1875,
+          "recall": 0.14285714285714285,
+          "unsupportedOrIncorrect": 13,
+          "missing": 18,
+          "p50Ms": 1923.5,
+          "p95Ms": 3264,
+          "totalCostUsd": 0.0074655,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 6,
+          "passed": false
+        }
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "precision": 0.5185185185185185,
+        "recall": 0.42424242424242425,
+        "note": "Post-hoc diagnostic only. Removes whitespace from values; target/field/punctuation stay exact. Not semantic accuracy; does not replace the fixed gate."
+      }
+    },
+    {
+      "model": "google/gemini-3-flash-preview",
+      "metrics": {
+        "sets": 12,
+        "precision": 0.3870967741935484,
+        "recall": 0.36363636363636365,
+        "unsupportedOrIncorrect": 19,
+        "missing": 21,
+        "p50Ms": 2724.0,
+        "p95Ms": 6457,
+        "totalCostUsd": 0.023114,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "byFormat": {
+        "pdf": {
+          "sets": 3,
+          "precision": 0.4444444444444444,
+          "recall": 0.5,
+          "unsupportedOrIncorrect": 5,
+          "missing": 4,
+          "p50Ms": 3384,
+          "p95Ms": 3648,
+          "totalCostUsd": 0.0059115,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 3,
+          "passed": false
+        },
+        "text": {
+          "sets": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "unsupportedOrIncorrect": 0,
+          "missing": 0,
+          "p50Ms": 1876,
+          "p95Ms": 2921,
+          "totalCostUsd": 0.0033875,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 3,
+          "passed": true
+        },
+        "image": {
+          "sets": 6,
+          "precision": 0.2222222222222222,
+          "recall": 0.19047619047619047,
+          "unsupportedOrIncorrect": 14,
+          "missing": 17,
+          "p50Ms": 2921.5,
+          "p95Ms": 6457,
+          "totalCostUsd": 0.013815000000000001,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 6,
+          "passed": false
+        }
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "precision": 0.5483870967741935,
+        "recall": 0.5151515151515151,
+        "note": "Post-hoc diagnostic only. Removes whitespace from values; target/field/punctuation stay exact. Not semantic accuracy; does not replace the fixed gate."
+      }
+    },
+    {
+      "model": "openai/gpt-6.1-sol",
+      "metrics": {
+        "sets": 12,
+        "precision": 0.36363636363636365,
+        "recall": 0.36363636363636365,
+        "unsupportedOrIncorrect": 21,
+        "missing": 21,
+        "p50Ms": 5408.0,
+        "p95Ms": 26622,
+        "totalCostUsd": 0.087277,
+        "note": "Exact-match baseline; human review still scores wording, evidence and claims."
+      },
+      "byFormat": {
+        "pdf": {
+          "sets": 3,
+          "precision": 0.375,
+          "recall": 0.375,
+          "unsupportedOrIncorrect": 5,
+          "missing": 5,
+          "p50Ms": 4945,
+          "p95Ms": 7695,
+          "totalCostUsd": 0.019228,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 3,
+          "passed": false
+        },
+        "text": {
+          "sets": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "unsupportedOrIncorrect": 0,
+          "missing": 0,
+          "p50Ms": 4893,
+          "p95Ms": 5871,
+          "totalCostUsd": 0.011908,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 3,
+          "passed": true
+        },
+        "image": {
+          "sets": 6,
+          "precision": 0.23809523809523808,
+          "recall": 0.23809523809523808,
+          "unsupportedOrIncorrect": 16,
+          "missing": 16,
+          "p50Ms": 6261.5,
+          "p95Ms": 26622,
+          "totalCostUsd": 0.056140999999999996,
+          "note": "Exact-match baseline; human review still scores wording, evidence and claims.",
+          "failed": 0,
+          "evaluated": 6,
+          "passed": false
+        }
+      },
+      "whitespaceIgnoredDiagnostic": {
+        "precision": 0.5757575757575758,
+        "recall": 0.5757575757575758,
+        "note": "Post-hoc diagnostic only. Removes whitespace from values; target/field/punctuation stay exact. Not semantic accuracy; does not replace the fixed gate."
+      }
+    }
+  ],
+  "solUsage": {
+    "prompt_tokens": 17308,
+    "completion_tokens": 4503,
+    "total_tokens": 21811,
+    "reasoning_tokens": 147
+  },
+  "budget": {
+    "priorEvaluationUsedMicros": 328848,
+    "additionalCapUsd": 0.5,
+    "effectiveEvaluationCapUsd": 0.828848
+  },
+  "cost": {
+    "comparisonActualUsd": 0.087277,
+    "versusFlashCostRatio": 3.775936661763433,
+    "cumulativeSettledLedgerUsd": 0.224474,
+    "unknownReservedUsd": 0.191654,
+    "ledgerRows": 195,
+    "teamTotalUsage": "Not measured"
+  },
+  "manualObservations": [
+    "Sol recovered GAP certification in qualityEvidence, which Flash omitted.",
+    "Sol mapped the AI selection explanation to productionProcess, where Flash used qualityEvidence.",
+    "Sol mapped the taste tagline correctly and omitted the extra photo-derived product name seen in Flash.",
+    "Sol preserved the leading bullet in size/storage text, causing exact-match misses even when sentence content was otherwise present.",
+    "Sol retained OCR glyph errors and one summary/taste misclassification; the snack-use suggestion remains omitted.",
+    "Sol also returned a source-supported delivery fragment outside the gold annotations; not every non-match is a hallucination."
+  ],
+  "interpretation": "Sol improved several omissions/classifications, but exact-match precision fell and recall was unchanged relative to Flash. Whitespace-only diagnostics improved modestly. This does not justify changing the default from Flash on this evidence.",
+  "limitations": [
+    "All inputs were OCR/native-PDF text; this does not evaluate Sol or Gemini direct vision/OCR capabilities.",
+    "Prompt requires verbatim preservation of evidence wording; OCR errors propagate to extracted values.",
+    "Single run per model on twelve reused development cases from three source URLs; not an independent holdout.",
+    "Strict tuple matching penalizes punctuation, bullet markers, grouping and spacing. Semantic accuracy was not measured.",
+    "Quality threshold remains unmet; no new synthetic run or real-farmer acceptance for Sol."
+  ],
+  "validation": {
+    "pytest": 250,
+    "typecheckWorkspaces": 4,
+    "mockTests": 12,
+    "realApiScenarios": 7,
+    "chromiumTests": 22,
+    "ruff": "passed",
+    "comparisonPage": {
+      "modelCards": 3,
+      "mobileWidth": 390,
+      "consoleErrors": 0,
+      "horizontalOverflow": false
+    }
+  },
+  "privateArtifacts": "server/.artifacts/source-real-sol-comparison; .artifacts/source-quality/models.html",
+  "deployment": "HELD",
+  "merge": "NOT_PERFORMED"
+}

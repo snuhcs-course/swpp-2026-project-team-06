@@ -39,7 +39,13 @@ export async function loginConsumer(page: Page, name = "김민지") {
   await expect(page).not.toHaveURL(/\/login/);
 }
 
-export async function loginProducer(page: Page, accountName: string) {
+/** 처음 진입 때 자동으로 열리는 생산자 도움말 시트(DEV-109)를 본 것으로 둔다 */
+export async function skipHelpGuide(page: Page) {
+  await page.addInitScript(() => localStorage.setItem("farmclub-producer:help-guide-seen", "1"));
+}
+
+export async function loginProducer(page: Page, accountName: string, { helpGuide = false } = {}) {
+  if (!helpGuide) await skipHelpGuide(page);
   await page.goto(`${producerUrl}/login`);
   await page.getByRole("radio", { name: new RegExp(accountName) }).click();
   await page.getByRole("button", { name: /시작하기$/ }).click();

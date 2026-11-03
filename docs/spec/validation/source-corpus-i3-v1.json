@@ -1,0 +1,3175 @@
+{
+  "version": "source-corpus-i3-v1",
+  "createdDate": "2026-10-31",
+  "issue": "DEV-172",
+  "normalization": "source-normalization-v1",
+  "status": "FROZEN_DEVELOPMENT_ONLY",
+  "goldEncoding": "sha256-utf8-values-private-plaintext-excluded",
+  "priorManifest": {
+    "sha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+    "verification": "MATCH",
+    "cases": 12
+  },
+  "holdout": {
+    "status": "BLOCKED",
+    "ids": [],
+    "reason": "All 30 extraction cases were reused for prompt/model iteration, including the four I2 holdout IDs. No newly authorized, privacy-reviewed independent inputs were available in the supplied artifacts.",
+    "nextAction": {
+      "owner": "DEV-172 assignee + source owner/privacy reviewer",
+      "requiredSources": {
+        "text": 3,
+        "image": 3,
+        "long_image": 3,
+        "pdf": 3
+      },
+      "steps": [
+        "Obtain 12 never-tuned public or explicitly authorized sources, 3 per format, from source families absent from development; do not derive crops or paraphrases of I2 sources.",
+        "Record access/authorization, remove names/contact/account/address/EXIF and review every page; retain originals privately.",
+        "Two humans label fields, source spans and critical facts without consulting predictions; resolve disagreements and known gold issues.",
+        "Create source-corpus-i3-v2 with IDs/input/gold hashes and signed split lock before any prompt tuning or evaluation calls. Never edit v1 or promote a development case to holdout."
+      ]
+    }
+  },
+  "cohorts": {
+    "real": [
+      "farm-mong",
+      "farm-water",
+      "farm-citrus",
+      "farm-yang",
+      "farm-shin",
+      "farm-father",
+      "farm-jun",
+      "oasis-long",
+      "oasis-storage",
+      "ssarijai",
+      "farm-orafield",
+      "farm-close"
+    ],
+    "syntheticExtraction": [
+      "01-origin",
+      "02-weight",
+      "03-expected-brix",
+      "04-measured-brix",
+      "05-storage",
+      "06-delivery",
+      "07-farm-story",
+      "08-appearance",
+      "09-support",
+      "10-historical",
+      "11-conflict",
+      "12-mixed-products",
+      "13-common-farm",
+      "14-private-contact",
+      "15-injection",
+      "16-missing-count",
+      "19-rotated-image",
+      "20-pdf-table"
+    ],
+    "visionReusedSubset": [
+      "oasis-long",
+      "farm-citrus",
+      "farm-mong",
+      "farm-shin",
+      "farm-water",
+      "farm-yang"
+    ],
+    "contractOnly": [
+      "17-duplicate",
+      "18-empty"
+    ]
+  },
+  "knownGoldIssues": [
+    {
+      "id": "farm-water",
+      "fieldKey": "composition",
+      "issue": "Frozen gold has tilde; original PDF uses hyphen. Preserve baseline; do not normalize range separators or silently correct gold.",
+      "evidence": "source-vision-ocr-comparison-2026-10-17.json#sourceVerifiedLabelAudit"
+    }
+  ],
+  "cases": [
+    {
+      "id": "farm-mong",
+      "format": "image",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "9a7e13b7be327e498562a55003a38de0949815de49ae14836b3f8c3e7e501def",
+        "artifactBytesSha256": "3774186c5da2d33723a8a35bd1c25ab2c405435c66221f0271657111c19a9b90",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "d631fbb216a0b76a009930058c2392ff8ca872a1b0615d27fc1a223ae6c932d3",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "7f2694ddd332f4696a6be9fd35857bca9a1f7821a99b1b6c5a794be8641e7621",
+      "safeInputArtifactBytesSha256": "52e2978c7943de7427cd338b1ebb07252c29aeed063f5ddf81119b4f4db71eab",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "0456e0a30903094b0990464dd05c72fef5384f59551691d2a963492f272aaf16",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              17.853590823010187,
+              531.7825206697296,
+              317.7939166495813,
+              599.5937145806347
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s4",
+                "box": [
+                  0.23,
+                  0.6568627450980392,
+                  0.5533333333333333,
+                  0.7941176470588235
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "7da6fee640afe085e93c151a7fddbd43c17eff98064434a50171b66a8713d674",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              17.853590823010187,
+              531.7825206697296,
+              317.7939166495813,
+              599.5937145806347
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s5",
+                "box": [
+                  0.2311111111111111,
+                  0.7696078431372549,
+                  0.8777777777777778,
+                  0.9068627450980392
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "0456e0a30903094b0990464dd05c72fef5384f59551691d2a963492f272aaf16",
+          "normalizedSha256": "02ba4454d32a4b98b5e1b7f26c71fc7441f6f35f26c329b6f66a92c132e9421c",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "7da6fee640afe085e93c151a7fddbd43c17eff98064434a50171b66a8713d674",
+          "normalizedSha256": "7da6fee640afe085e93c151a7fddbd43c17eff98064434a50171b66a8713d674",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": true,
+      "safeVisualPages": [
+        {
+          "sha256": "88e9ff95b6454d90570fdce51ae7db18fe05b79ddf87b00a1aa0e43926869dca",
+          "artifactPathSha256": "7b199dfd76f96ebec079a7ce000ffda5404bcef4624fac2a2e0fcac76f6ef9b6"
+        }
+      ],
+      "i2VisionSafeInputSha256": "b07e533ccf2d032b9b56c8fd36d09901a4745b1e1f044d0f30617d3182a6e185",
+      "i2VisionTiles": [
+        {
+          "index": 0,
+          "top": 0,
+          "bottom": 204,
+          "width": 900,
+          "sha256": "2ed49601736c8ee0711e48701ed608f0a8188327d04e155ba8b5afd09747b96f"
+        }
+      ]
+    },
+    {
+      "id": "farm-water",
+      "format": "image",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "a9c56fc86826fb94cd9508d1085d0f03a0578fda5bd895123ecf1a17d2d7a174",
+        "artifactBytesSha256": "c077de51123fab0f02619a23448cba2c28d9e9049587b9826ec8aa36107cd6b3",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "022db52b0c9d1293ec568adaf12f0e57f2c2ec3ae166b6e583ee008a6b8fd142",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "dbdb5042475655c591ed65559962b6a1416d7e54ab51a299ccfe4b8951e49676",
+      "safeInputArtifactBytesSha256": "bbc4cb55104aead01c77cf2d480afde68b572d9c952fc5de2e3efbad9eff6e2a",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "89f138bffc5d4f39eddbca68acbd69caa8da67a83cc9e7a1148c8b04b19e27d8",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              17.853590823010187,
+              456.83330634715026,
+              317.7939166495813,
+              529.6411145462274
+            ],
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "3af01d1a61bad91ba7e003567aa703da28f9118598696360d80a7aea1f95a607",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              17.853590823010187,
+              456.83330634715026,
+              317.7939166495813,
+              529.6411145462274
+            ],
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "89f138bffc5d4f39eddbca68acbd69caa8da67a83cc9e7a1148c8b04b19e27d8",
+          "normalizedSha256": "e3535fa2d553a97a650d20cbc54f5a42e00b2e712e3f4485d56fc910286e9bee",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "3af01d1a61bad91ba7e003567aa703da28f9118598696360d80a7aea1f95a607",
+          "normalizedSha256": "892582ccd569df70f568b87bbee5685f240fe0013da2e2c6b5156a750320ee5d",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "date",
+            "cultivar",
+            "certification"
+          ],
+          "claimSha256": "89f138bffc5d4f39eddbca68acbd69caa8da67a83cc9e7a1148c8b04b19e27d8",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": true,
+      "safeVisualPages": [
+        {
+          "sha256": "92c2b4967addc2da626ca08e92f0199c55407435a2466d3d7e8766e105c25ba4",
+          "artifactPathSha256": "9984c7aebc753368bceec801845624273a938cf3c80486b12775c0c4b93d0eca"
+        }
+      ],
+      "i2VisionSafeInputSha256": "5ffbb0df973cb507ce6e91e76bfab34bb914bf008a0a80fa32589fe884f2e09d",
+      "i2VisionTiles": [
+        {
+          "index": 0,
+          "top": 0,
+          "bottom": 219,
+          "width": 900,
+          "sha256": "d79d0674641a0836b657806f0b382af0d1054689e363c7d37a1dc12d5bcf8377"
+        }
+      ]
+    },
+    {
+      "id": "farm-citrus",
+      "format": "image",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "c0a9237da29efb490b25da8ffa239ee0877075efc4be400bf250f9eaa668cdca",
+        "artifactBytesSha256": "30c34a43b03e143dc8dc6867ad2c584f042ef25d8504d6826131d1b2c9a6fbbe",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "982b28480eb8b356c5fe184ef2032c4ba7de8ce2eb615ec373aa147831e7ee98",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "a32981b93bf03579afeffc91400dab5c7dca6f8335410481e534f41c32838836",
+      "safeInputArtifactBytesSha256": "78444e7da98fae914f0e6963da459cf4864946f0aa0eccad5961bdecff2d66cd",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "2ecad0dc188b8c47262e2edaece02453c1204ff35879449d3dc91e3467a9bd88",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              342.78894380179554,
+              512.5098655582092,
+              642.7292696283668,
+              581.7486635514491
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s4",
+                "box": [
+                  0.22444444444444445,
+                  0.6923076923076923,
+                  0.5122222222222222,
+                  0.8269230769230769
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "381f70ef712324941a97eebcbbb5dda625ca188bad1485bc9f03b69c1a00a3cb",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              342.78894380179554,
+              512.5098655582092,
+              642.7292696283668,
+              581.7486635514491
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s5",
+                "box": [
+                  0.22555555555555556,
+                  0.8173076923076923,
+                  0.83,
+                  0.9519230769230769
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "2ecad0dc188b8c47262e2edaece02453c1204ff35879449d3dc91e3467a9bd88",
+          "normalizedSha256": "37e03d30ba7f39606786def28b1cce9b901dd5592163c4d6f0b11a8cb1671969",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "381f70ef712324941a97eebcbbb5dda625ca188bad1485bc9f03b69c1a00a3cb",
+          "normalizedSha256": "45f237ab93c362a5e8b0251bc3060dec161dde39895a43bb510f661f98c1057a",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "date"
+          ],
+          "claimSha256": "2ecad0dc188b8c47262e2edaece02453c1204ff35879449d3dc91e3467a9bd88",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "expectedIndex": 1,
+          "categories": [
+            "numeric",
+            "date"
+          ],
+          "claimSha256": "381f70ef712324941a97eebcbbb5dda625ca188bad1485bc9f03b69c1a00a3cb",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": true,
+      "safeVisualPages": [
+        {
+          "sha256": "df668e3de2db053904bda3b0b239cf1517d7c0c6bcf2029ac1976f283774777b",
+          "artifactPathSha256": "c0154595ff14d587cc1f39131b31c94182d1980ad6ed44a891d3d1d76b76fcd4"
+        }
+      ],
+      "i2VisionSafeInputSha256": "c0c2eedbcaea97844e622b4058af725df608bdc42d0454d1bcded747220d57e8",
+      "i2VisionTiles": [
+        {
+          "index": 0,
+          "top": 0,
+          "bottom": 208,
+          "width": 900,
+          "sha256": "4b6e923966644c8514377f99ddb563257af3672909b6fe34bc05b7106e7f72da"
+        }
+      ]
+    },
+    {
+      "id": "farm-yang",
+      "format": "image",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "holdout",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "5143806bf6fdbf3015c6ea3316e389b1792f73017e9df8c337eeae814c1e5d38",
+        "artifactBytesSha256": "40c20ada292635eddae391a080728a1ca5069b59cb4286fb59e5b86217d584f4",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "e2e72b48f1dc8eab95a0f87435e33bb63c67339c0df4b86989a5eebf1d482689",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "422faa65ac1f2f9b1592dddd104c69fbf41a52be3bdd9ee1562c8e0d51a31702",
+      "safeInputArtifactBytesSha256": "0ddbe3710c22ffacfda0ff92c244ff7c440ceff3ee59384f98db7da15d7bf05b",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "7899e113f267325d05d7cd48daddf374c03aa93926efeabc7708c232d47c9165",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              342.78894380179554,
+              26.410675523194627,
+              642.7292696283668,
+              105.6427020927785
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s4",
+                "box": [
+                  0.22444444444444445,
+                  0.5756302521008403,
+                  0.5133333333333333,
+                  0.6932773109243697
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "95cea843a91c51db6fb70c0ff27abcc32ebc40e45467f4a02231b0e50666d409",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              342.78894380179554,
+              26.410675523194627,
+              642.7292696283668,
+              105.6427020927785
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s5",
+                "box": [
+                  0.22555555555555556,
+                  0.680672268907563,
+                  0.8111111111111111,
+                  0.7941176470588235
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s6",
+                "box": [
+                  0.22666666666666666,
+                  0.7857142857142857,
+                  0.6766666666666666,
+                  0.8865546218487395
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "7899e113f267325d05d7cd48daddf374c03aa93926efeabc7708c232d47c9165",
+          "normalizedSha256": "c511bc3e0e05824a10b127b2b749b61904964aafcdd7b9861dfacb372dfc001d",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "95cea843a91c51db6fb70c0ff27abcc32ebc40e45467f4a02231b0e50666d409",
+          "normalizedSha256": "95cea843a91c51db6fb70c0ff27abcc32ebc40e45467f4a02231b0e50666d409",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "date"
+          ],
+          "claimSha256": "7899e113f267325d05d7cd48daddf374c03aa93926efeabc7708c232d47c9165",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": true,
+      "safeVisualPages": [
+        {
+          "sha256": "1ee06bbb1e11cc92f74215e20766b669a71d4a1141307afb3e80ee6ce9b13925",
+          "artifactPathSha256": "ad546e2098b53b762805e29d5a5243af129b34be39e87eb1f0ab60ca5ce1077c"
+        }
+      ],
+      "i2VisionSafeInputSha256": "3e60e504ea7e265a5056f3628ba87ad4253c0a92aa48b48ef5162d7af3f62d34",
+      "i2VisionTiles": [
+        {
+          "index": 0,
+          "top": 0,
+          "bottom": 238,
+          "width": 900,
+          "sha256": "10c4acd640e0ee9e7f23ca157a9348e980e207fdd2d6321f3bd1e3ed01d5c728"
+        }
+      ]
+    },
+    {
+      "id": "farm-shin",
+      "format": "image",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "holdout",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "a45374d10044d33800b2764d4c9146fa906cf7a893afc24f1e2cc1992750fdeb",
+        "artifactBytesSha256": "51090350e9ab7a9aa9d3602a4cb32da68231f26028d2580c1faf70111eaa7bf6",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "2538cf74f01d341b7bc47f3b3bd6c420d886bd08aa6c846c6aa4d4d41db13ebe",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "c7fc085d9681175a8c721e4b23b2598f497af3c9c6004c7411321c7ed19ced3e",
+      "safeInputArtifactBytesSha256": "9951abc888e2da081f47a05af2d8fe5c215a3b6998f389bd825c66a025a4e646",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "26aa1706095b81394c7bbf85471cb93208e52dd9fcab3d8598c0fd267e7c70ef",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              664.153578615979,
+              510.3684594347069,
+              960.5231862779481,
+              585.3176737572862
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s4",
+                "box": [
+                  0.23146067415730337,
+                  0.6044444444444445,
+                  0.898876404494382,
+                  0.7288888888888889
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s5",
+                "box": [
+                  0.23146067415730337,
+                  0.7111111111111111,
+                  0.5707865168539326,
+                  0.8311111111111111
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "9ef24c7c9cc4c3c4cfba179cc86eaef5ac059c293fc804aea95961f181e880d0",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              664.153578615979,
+              510.3684594347069,
+              960.5231862779481,
+              585.3176737572862
+            ],
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "26aa1706095b81394c7bbf85471cb93208e52dd9fcab3d8598c0fd267e7c70ef",
+          "normalizedSha256": "5ed6745c2ac09c2e43d7ecac9023276e01afce883e1ee2c8017f2a317767ffca",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "9ef24c7c9cc4c3c4cfba179cc86eaef5ac059c293fc804aea95961f181e880d0",
+          "normalizedSha256": "c401461ef40c07e628936892d9b3f83458b69ab88b7afc48ae4697d5c659aaac",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "date",
+            "cultivar"
+          ],
+          "claimSha256": "26aa1706095b81394c7bbf85471cb93208e52dd9fcab3d8598c0fd267e7c70ef",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": true,
+      "safeVisualPages": [
+        {
+          "sha256": "f7e4a0beaf24df242f8fb985e2636dd9906d04d9b50856dd5fa2162960db1442",
+          "artifactPathSha256": "98ed91cff9cf9818e747c157d99f171891ab6d7954f93fae025234c25b786c61"
+        }
+      ],
+      "i2VisionSafeInputSha256": "cf2e85c38614c23ab81ca57662ee8f53fbe55d3be57fb317805f89eb07b3d474",
+      "i2VisionTiles": [
+        {
+          "index": 0,
+          "top": 0,
+          "bottom": 225,
+          "width": 890,
+          "sha256": "427050b7e0168aabf816ad07f153916ed99d58425806963ab89a24c630f452fb"
+        }
+      ]
+    },
+    {
+      "id": "farm-father",
+      "format": "pdf",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "69acd7f9419ad3721566a2acef27ec39c92eea2957785b2dbac623978f5d0177",
+        "artifactBytesSha256": "c2c96b8ca22b2aa3bb491541341401060dbf44434049a031f10aa32141853006",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "e6a451ffb169c7ed025136a288cbf530a863ab974dc77eebb066ebef2c562dac",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "d5b39ec9e51dd780667a1e835375c8d05452616e141b6b3be5caf1134f84ec48",
+      "safeInputArtifactBytesSha256": "cc871e5aad345e81182623d24458b7da91a3a340d574e5b3a74c9e1d3ee9a910",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "c833fc0b333dd0d89b01c7cf07e5890568903e0063e30a066e26b091b060b32b",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              664.153578615979,
+              585.3176737572862,
+              960.5231862779481,
+              656.6978778740284
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "pdf-s4",
+                "box": [
+                  0.23694282207376044,
+                  0.6222422878974051,
+                  0.6933964479006203,
+                  0.7215836264090507
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "c4400b7dba46730ab297b09b97c1238b37f8466ab0e651eb2d1a228bc41212aa",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              664.153578615979,
+              585.3176737572862,
+              960.5231862779481,
+              656.6978778740284
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "pdf-s5",
+                "box": [
+                  0.23694282207376044,
+                  0.7349064936686239,
+                  0.8131655037769888,
+                  0.8226761511184761
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "c833fc0b333dd0d89b01c7cf07e5890568903e0063e30a066e26b091b060b32b",
+          "normalizedSha256": "0bfbb3fe61ed3d744422833586c2a956ff9abae4c8ba33eeecbe04c22b7f9ca6",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "c4400b7dba46730ab297b09b97c1238b37f8466ab0e651eb2d1a228bc41212aa",
+          "normalizedSha256": "c4400b7dba46730ab297b09b97c1238b37f8466ab0e651eb2d1a228bc41212aa",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "date"
+          ],
+          "claimSha256": "c833fc0b333dd0d89b01c7cf07e5890568903e0063e30a066e26b091b060b32b",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": [
+        {
+          "sha256": "60322e5969657e9897ee611bcd10028eb62ac477f62e91980e473b124105f3b0",
+          "artifactPathSha256": "cd52d14dcca24b5d9b93a52f33b909860aac1c2203862b920f6d84e7eab0ffbc"
+        }
+      ],
+      "pdfOrigin": "crop"
+    },
+    {
+      "id": "farm-jun",
+      "format": "pdf",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "holdout",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "ff3ba1c1d558b3b68d24ba4a61aabd2f95208d9e6cfb8c306ba6aef47a337144",
+        "artifactBytesSha256": "ebf4aa8c9244e2badd1aa5656864b661008cb90215a8006be532c3a3046d1b12",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "47a816b982b383b442c50ee1fa70ac8cd80098988961924f983a80e39c46ab11",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "984a8110405dce3d402a30ec36ae3ef2f8ab421de1eeb26f64d172d66f4dec72",
+      "safeInputArtifactBytesSha256": "8e6b27b0a73eb7ccf69f0020ab30e622353ee7e6e75c4ec29c7fc30ad5d5ecc9",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "85c14846dca231689cac228025d9b02dfeec3c14fa53d2440175faba003c956b",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              664.153578615979,
+              435.4192451121276,
+              960.5231862779481,
+              503.2304390230327
+            ],
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "21e19de4ecee09ce8f7c490941af3ea98f3a047af92bab8aa99e829eb3ad46d9",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "originalPdfCrop": [
+              664.153578615979,
+              435.4192451121276,
+              960.5231862779481,
+              503.2304390230327
+            ],
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "pdf-s5",
+                "box": [
+                  0.23694282207376044,
+                  0.7974043636537106,
+                  0.9287907869481766,
+                  0.9014579865231767
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "85c14846dca231689cac228025d9b02dfeec3c14fa53d2440175faba003c956b",
+          "normalizedSha256": "6b3e4d75f2dfb25823d76309a9a1ecc3d9049c55b07fa2bbbe7be9dfa17624f6",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "21e19de4ecee09ce8f7c490941af3ea98f3a047af92bab8aa99e829eb3ad46d9",
+          "normalizedSha256": "184a255739bafe625a6791ddf9455a754fd17345283d02eede43b701de3bb498",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "date"
+          ],
+          "claimSha256": "85c14846dca231689cac228025d9b02dfeec3c14fa53d2440175faba003c956b",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": [
+        {
+          "sha256": "8d4163facc3a07290e5e8ea0db824f16c946438bdc10128970473f0672cd2498",
+          "artifactPathSha256": "57bae5e3fb2995ae65aa1f9c98ef12315b070b73823194b014b59683a68f70e9"
+        }
+      ],
+      "pdfOrigin": "crop"
+    },
+    {
+      "id": "oasis-long",
+      "format": "long_image",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "ba78f4acf4192af55d94ff83133791d6996ffb558a69d42df0938b4085d86919",
+        "artifactBytesSha256": "778243ce7c2c9fd0c649bcfcfa2c8fa8e5b6cf9a2c8d641145cbb71a3b962911",
+        "publicUrl": "https://m.oasis.co.kr/product/detail/95810?categoryId=2"
+      },
+      "safeInputSha256": "4f109a3e0963b3c8f8c02028cfa92b0fd2cb1a1eb6c1195a1b73f4abdf976604",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "30a8eeeda177d889ba8b43fa17e78fa574a47e277695c750ed55785d07ec84bc",
+      "safeInputArtifactBytesSha256": "e1ee5ff0c7c3cc0ac19294bd5c1a9db4bdc9d52ecbf90e483856791bdbddaa15",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "c776a1a8f5c276a77272315dd77620fd28e8f9301d477c8c6b3e09e9a9f5cedb",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s3",
+                "box": [
+                  0.1988888888888889,
+                  0.1721170395869191,
+                  0.8122222222222222,
+                  0.1935087287927219
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "4fd9f64b193dc29b3b84ae9b3f1d9a95b48986a526488885d98e4eebbc567cb7",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s4",
+                "box": [
+                  0.21333333333333335,
+                  0.20063929186132284,
+                  0.7855555555555556,
+                  0.2126874846324072
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-3",
+          "quoteSha256": "38c86f7c476946ccfef5c2af1f1f208109d3d1119f9f8d4e6c1d144257a182c4",
+          "locator": {
+            "goldOrdinal": 3,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s5",
+                "box": [
+                  0.03222222222222222,
+                  0.22621096631423654,
+                  0.7033333333333334,
+                  0.2382591590853209
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s6",
+                "box": [
+                  0.03333333333333333,
+                  0.24317678878780427,
+                  0.8822222222222222,
+                  0.2544873371035161
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-4",
+          "quoteSha256": "1566bc9d01f82ffe5b1482cff5439cad460bf6801d72cbf55c4a8d93acc5b3b5",
+          "locator": {
+            "goldOrdinal": 4,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s6",
+                "box": [
+                  0.03333333333333333,
+                  0.24317678878780427,
+                  0.8822222222222222,
+                  0.2544873371035161
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s7",
+                "box": [
+                  0.03222222222222222,
+                  0.25965084829112367,
+                  0.8988888888888888,
+                  0.2709613966068355
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s8",
+                "box": [
+                  0.03333333333333333,
+                  0.2761249077944431,
+                  0.9622222222222222,
+                  0.2874354561101549
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-5",
+          "quoteSha256": "c26fafc6e3bfc645e51b91e200ae4cde02796929baa104bf0a60bc66b3839a38",
+          "locator": {
+            "goldOrdinal": 5,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s8",
+                "box": [
+                  0.03333333333333333,
+                  0.2761249077944431,
+                  0.9622222222222222,
+                  0.2874354561101549
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s9",
+                "box": [
+                  0.03111111111111111,
+                  0.29259896729776247,
+                  0.9555555555555556,
+                  0.3046471600688468
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s10",
+                "box": [
+                  0.03222222222222222,
+                  0.3090730268010819,
+                  0.9677777777777777,
+                  0.3211212195721662
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-6",
+          "quoteSha256": "74c11f1ba9d1b9c2a84cff3961f32c13381a1b01d21fee8368eb411ccf56bcfa",
+          "locator": {
+            "goldOrdinal": 6,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s10",
+                "box": [
+                  0.03222222222222222,
+                  0.3090730268010819,
+                  0.9677777777777777,
+                  0.3211212195721662
+                ]
+              },
+              {
+                "page": 1,
+                "id": "s11",
+                "box": [
+                  0.03111111111111111,
+                  0.32554708630440127,
+                  0.6733333333333333,
+                  0.3373493975903614
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-7",
+          "quoteSha256": "0643d4646f634263fb0fadc87f5c949acacd172c715663eb695c83be22299d92",
+          "locator": {
+            "goldOrdinal": 7,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s26",
+                "box": [
+                  0.7444444444444445,
+                  0.93926727317433,
+                  0.9133333333333333,
+                  0.9510695844602901
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-8",
+          "quoteSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "locator": {
+            "goldOrdinal": 8,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-9",
+          "quoteSha256": "543234a51f6178a75ca5f600efb0cd91121e46e1ec91cd92e33f6dd77641ac32",
+          "locator": {
+            "goldOrdinal": 9,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-10",
+          "quoteSha256": "23bc95a8534e73edb6a50cd05298afeb626c6325b5be738dbfd81dd8d3491335",
+          "locator": {
+            "goldOrdinal": 10,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-11",
+          "quoteSha256": "7e0a1c8bba3268631d418bcff3acfaeeec73d43051347b5ec9ea59a41e7fee0e",
+          "locator": {
+            "goldOrdinal": 11,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s22",
+                "box": [
+                  0.03222222222222222,
+                  0.8502581755593803,
+                  0.7588888888888888,
+                  0.859847553479223
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "name",
+          "exactSha256": "c776a1a8f5c276a77272315dd77620fd28e8f9301d477c8c6b3e09e9a9f5cedb",
+          "normalizedSha256": "c776a1a8f5c276a77272315dd77620fd28e8f9301d477c8c6b3e09e9a9f5cedb",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "taste",
+          "exactSha256": "4fd9f64b193dc29b3b84ae9b3f1d9a95b48986a526488885d98e4eebbc567cb7",
+          "normalizedSha256": "4fd9f64b193dc29b3b84ae9b3f1d9a95b48986a526488885d98e4eebbc567cb7",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "taste",
+          "exactSha256": "38c86f7c476946ccfef5c2af1f1f208109d3d1119f9f8d4e6c1d144257a182c4",
+          "normalizedSha256": "38c86f7c476946ccfef5c2af1f1f208109d3d1119f9f8d4e6c1d144257a182c4",
+          "sourceSpanIds": [
+            "gold-3"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "taste",
+          "exactSha256": "1566bc9d01f82ffe5b1482cff5439cad460bf6801d72cbf55c4a8d93acc5b3b5",
+          "normalizedSha256": "8a63290d799d792a7bb5b4ca13cfeb5b2f719d2dfadc6fb21f5e3d8e0377efb6",
+          "sourceSpanIds": [
+            "gold-4"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "productionProcess",
+          "exactSha256": "c26fafc6e3bfc645e51b91e200ae4cde02796929baa104bf0a60bc66b3839a38",
+          "normalizedSha256": "b134c013eb794aa7180fc4f74678d9823eda39b3bb45c16410c0ec939b642fe3",
+          "sourceSpanIds": [
+            "gold-5"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "exactSha256": "74c11f1ba9d1b9c2a84cff3961f32c13381a1b01d21fee8368eb411ccf56bcfa",
+          "normalizedSha256": "74c11f1ba9d1b9c2a84cff3961f32c13381a1b01d21fee8368eb411ccf56bcfa",
+          "sourceSpanIds": [
+            "gold-6"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "qualityEvidence",
+          "exactSha256": "0643d4646f634263fb0fadc87f5c949acacd172c715663eb695c83be22299d92",
+          "normalizedSha256": "0643d4646f634263fb0fadc87f5c949acacd172c715663eb695c83be22299d92",
+          "sourceSpanIds": [
+            "gold-7"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "specification",
+          "exactSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "normalizedSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "sourceSpanIds": [
+            "gold-8"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "543234a51f6178a75ca5f600efb0cd91121e46e1ec91cd92e33f6dd77641ac32",
+          "normalizedSha256": "543234a51f6178a75ca5f600efb0cd91121e46e1ec91cd92e33f6dd77641ac32",
+          "sourceSpanIds": [
+            "gold-9"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "23bc95a8534e73edb6a50cd05298afeb626c6325b5be738dbfd81dd8d3491335",
+          "normalizedSha256": "23bc95a8534e73edb6a50cd05298afeb626c6325b5be738dbfd81dd8d3491335",
+          "sourceSpanIds": [
+            "gold-10"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "7e0a1c8bba3268631d418bcff3acfaeeec73d43051347b5ec9ea59a41e7fee0e",
+          "normalizedSha256": "7e0a1c8bba3268631d418bcff3acfaeeec73d43051347b5ec9ea59a41e7fee0e",
+          "sourceSpanIds": [
+            "gold-11"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 6,
+          "categories": [
+            "certification",
+            "qualityEvidence"
+          ],
+          "claimSha256": "0643d4646f634263fb0fadc87f5c949acacd172c715663eb695c83be22299d92",
+          "sourceSpanIds": [
+            "gold-7"
+          ]
+        },
+        {
+          "expectedIndex": 7,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "sourceSpanIds": [
+            "gold-8"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": true,
+      "safeVisualPages": [
+        {
+          "sha256": "15be3d8e3c4a53eaf5e84797bf610a5a19a48f9912b45310b4394846a9fd139e",
+          "artifactPathSha256": "8ed3c6096d84d15eec917c0dde2cbd97365cc2c389228a30592b3a914cad9485"
+        }
+      ],
+      "i2VisionSafeInputSha256": "b8cda9d343cee9d73a4a47502b55b430fd6fd6d91ff7e283a578f2e9a4cf94c7",
+      "i2VisionTiles": [
+        {
+          "index": 0,
+          "top": 0,
+          "bottom": 600,
+          "width": 900,
+          "sha256": "374c567d626ba3107ee1290306cb7da36603e0cee5c417163b223a8c83778441"
+        },
+        {
+          "index": 1,
+          "top": 600,
+          "bottom": 1550,
+          "width": 900,
+          "sha256": "5c3adab0e185f31ba6f913d6c99a6c9f3b67862ca0a6852e991a0366ada78b54"
+        },
+        {
+          "index": 2,
+          "top": 1550,
+          "bottom": 2350,
+          "width": 900,
+          "sha256": "2e375411ab06c1c9a650476844b436996b60a3d1d97d556ff214830451b3dabb"
+        },
+        {
+          "index": 3,
+          "top": 2350,
+          "bottom": 3030,
+          "width": 900,
+          "sha256": "cf0084334eeb29098cab665a5809de5327c0399b0badb11e9f3c8694298a63d2"
+        },
+        {
+          "index": 4,
+          "top": 3030,
+          "bottom": 3560,
+          "width": 900,
+          "sha256": "9b495c69ed38eac8f725a0f02dc256a7deebfdcd2928e53a8ab4f833bcf64054"
+        },
+        {
+          "index": 5,
+          "top": 3560,
+          "bottom": 4067,
+          "width": 900,
+          "sha256": "509373bcea01c87b1f9e2f3ae3f41a2db8fff06ac9b6b178120fbd7f04ad3b0d"
+        }
+      ]
+    },
+    {
+      "id": "oasis-storage",
+      "format": "pdf",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "36a01e62f54fa3089189074ae36d0d69466767fb1dd93da480e7bc3ddb1cac8f",
+        "artifactBytesSha256": "7480e3d568801cebbe8c93ccdd65c98d9f9efa459509f2c6d5bf26d7d535454a",
+        "publicUrl": "https://m.oasis.co.kr/product/detail/95810?categoryId=2"
+      },
+      "safeInputSha256": "54b6b20a614c90275cb1b2d07d203b194d940dcde89d28aef31c8c0b970da603",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "ce7e039040a25ee244f615753235ebe6f5005da8e271a2f6d888799b25e25afe",
+      "safeInputArtifactBytesSha256": "50308ccfd98506b74afa762a39542f7c030a51e0f94a0f2a5b1c97c94d728f18",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "543234a51f6178a75ca5f600efb0cd91121e46e1ec91cd92e33f6dd77641ac32",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-3",
+          "quoteSha256": "23bc95a8534e73edb6a50cd05298afeb626c6325b5be738dbfd81dd8d3491335",
+          "locator": {
+            "goldOrdinal": 3,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        },
+        {
+          "id": "gold-4",
+          "quoteSha256": "7e0a1c8bba3268631d418bcff3acfaeeec73d43051347b5ec9ea59a41e7fee0e",
+          "locator": {
+            "goldOrdinal": 4,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s6",
+                "box": [
+                  0.03,
+                  0.836423118865867,
+                  0.7573333333333333,
+                  0.9040348964013086
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "specification",
+          "exactSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "normalizedSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "543234a51f6178a75ca5f600efb0cd91121e46e1ec91cd92e33f6dd77641ac32",
+          "normalizedSha256": "543234a51f6178a75ca5f600efb0cd91121e46e1ec91cd92e33f6dd77641ac32",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "23bc95a8534e73edb6a50cd05298afeb626c6325b5be738dbfd81dd8d3491335",
+          "normalizedSha256": "23bc95a8534e73edb6a50cd05298afeb626c6325b5be738dbfd81dd8d3491335",
+          "sourceSpanIds": [
+            "gold-3"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "7e0a1c8bba3268631d418bcff3acfaeeec73d43051347b5ec9ea59a41e7fee0e",
+          "normalizedSha256": "7e0a1c8bba3268631d418bcff3acfaeeec73d43051347b5ec9ea59a41e7fee0e",
+          "sourceSpanIds": [
+            "gold-4"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "eb6f7e9e92f881cb5710970b3c8ef974101c8468a63ec286d8713ad614b5eddf",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": [
+        {
+          "sha256": "0f6e0b9b448aaf6817175e166a5287c0c7eee030644361d56932fe2032ad3abf",
+          "artifactPathSha256": "1f7a3642464234e04bc6092b303bd0d2dd28e6252c42d881668b4fc7a3878e68"
+        }
+      ],
+      "pdfOrigin": "image_to_pdf"
+    },
+    {
+      "id": "ssarijai",
+      "format": "text",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "f879545075e8d4a62cad356dc830a1ea8648a449fa461ce54d79890a31dfc55a",
+        "artifactBytesSha256": "cf8d31ce10f08067104c502823085c50cee4a4e4be2eb6600586bb52f9eca332",
+        "publicUrl": "https://m.ssarijai.com/product/detail.html?product_no=134"
+      },
+      "safeInputSha256": "a1547d9be8149f025f85968029c92e89677d492b281b17ea8f3b27cbbc18cc5b",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "4197fce18d80c6c95718dbdf7140e4a56fa626d28eb3d455697e9d06366af626",
+      "safeInputArtifactBytesSha256": "cd9f286f0e58b0219f0b8ddba6e745c46b41521eed187b6b1f9daf077c10f60f",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "44efc339c9d20eaa36ee669a86e946013a8937592d7a6c8acfde264294742db8",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "3a659117d795b9e1236f6f3d5a7cf9d4c41ea89a24042f9e3d96df4d9e726a81",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s1",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "44efc339c9d20eaa36ee669a86e946013a8937592d7a6c8acfde264294742db8",
+          "normalizedSha256": "c382343ab3ab8d6665c67fc53c7a84a450b012f4bd90ceb69e6e228728213407",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "3a659117d795b9e1236f6f3d5a7cf9d4c41ea89a24042f9e3d96df4d9e726a81",
+          "normalizedSha256": "3a659117d795b9e1236f6f3d5a7cf9d4c41ea89a24042f9e3d96df4d9e726a81",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "44efc339c9d20eaa36ee669a86e946013a8937592d7a6c8acfde264294742db8",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "farm-orafield",
+      "format": "text",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "aee28049d596e876d530418f345690bf9154a471a8630b530320ab96d78878fe",
+        "artifactBytesSha256": "18353810d11f3be70899f4b883d99daad7be515d9cfc214ac1e98495ec7cd38f",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "4639cfd26b6f2aec8686dc60622c7817612291b27e94ac7e79d6ef629ac64cbe",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "a118e47911eeed9f587668a5996cbcc57912a30d626b64212951ff6282bd846c",
+      "safeInputArtifactBytesSha256": "1b1de563e98ccb727eb3e721897e8f0064dcc8339f6ff0ce3e70cfe5198c02f5",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "b4c1082a5562c337cc9bfb581b5bdb571a05f3ee112978b930357805277e066f",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "b4c1082a5562c337cc9bfb581b5bdb571a05f3ee112978b930357805277e066f",
+          "normalizedSha256": "944e4bb0fbb8ec21515bfcdd5d4679fe3dd96cbf3cf4a5b9225debbdaba59acb",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "farm-close",
+      "format": "text",
+      "origin": "public_url",
+      "split": "development",
+      "i2Split": "holdout",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "public_url",
+        "artifactPathSha256": "fdb672cedd0a9358e17524cec86345b909587ab40a5e09cfe74173bd1f3b315e",
+        "artifactBytesSha256": "259be2b264835fa9157a83c2bd6a0d9cb38c490b2db560f052fe8984f24582f8",
+        "publicUrl": "https://agri.jeju.go.kr/files/board/dcaf6635-460b-4142-8149-f589d0266df0.pdf"
+      },
+      "safeInputSha256": "c497e0aab32bb693fd3b63c4899a7e06390ae785a46e79136c323d530af48644",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "edcb37eca48ac5c6dd7e17e7179b07e54311c5eecdc123e1cfede7e600ea4137",
+      "safeInputArtifactBytesSha256": "cc178e977f1beada57efb90e9b8cd42bbdf76ff2f0a75375b9cd65a01ec90b52",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "80601d8e061b1cd9966fb7c44202d758c0aa48f36e6d3c89483a55b35aa0757e",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "097dbcef182bbdb57d6b2857fca8bf0e36a208327ba660bd6efe11d7138b462b",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "80601d8e061b1cd9966fb7c44202d758c0aa48f36e6d3c89483a55b35aa0757e",
+          "normalizedSha256": "722209c2022581b0484ad26ec427cea26a66a7533cde7abe1b89998a2dca0d7d",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "historicalSales"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "01-origin",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "b6e614de681eb07903dcd5da4c7d4872883ce7dbe55a55c85c02b45b880062b2",
+        "artifactBytesSha256": "fd83531103dcf441f4d71b472aed0c33c2b55242f819ea9f1971361099b85bc5"
+      },
+      "safeInputSha256": "3e269ad3a7555a09715e4119c1bfbe58171929d32c0d8d5d077ca61138d76571",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "70aa7012c1c8e98bf243eb94ab57a3b83210423ec29c27b1a0e753a13739b721",
+      "safeInputArtifactBytesSha256": "13b2ed727f8980a9093be9cbd270353e6d130b3d56fe44e2ad5992e886c54dc0",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "48581a9ee928b5283d3b146cb079dcff4c7b40dcbf63ee3fed997087d2b88ade",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "efcdd329d183bfa8887eebbaf9f36b7d98881f0c00ea132747088b394ed3e76f",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s1",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "name",
+          "exactSha256": "48581a9ee928b5283d3b146cb079dcff4c7b40dcbf63ee3fed997087d2b88ade",
+          "normalizedSha256": "48581a9ee928b5283d3b146cb079dcff4c7b40dcbf63ee3fed997087d2b88ade",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "exactSha256": "efcdd329d183bfa8887eebbaf9f36b7d98881f0c00ea132747088b394ed3e76f",
+          "normalizedSha256": "efcdd329d183bfa8887eebbaf9f36b7d98881f0c00ea132747088b394ed3e76f",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "02-weight",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "3a75f282e228629cb188d682678eb5e5e0cc3a24284cb79a4ebd0c80273b7e3f",
+        "artifactBytesSha256": "e7d11ded3466eb7614743b5f492c8b2ba91b5b1e34bd56fe05f59acaa0692454"
+      },
+      "safeInputSha256": "3fe19153e13c2a1363b2d333e97901d510374392bdfe27f83691e57a01c02200",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "3402928a674a8b45e07dc437b1aaad4d6b6f3f456bdd1f460aceef07f7eaabce",
+      "safeInputArtifactBytesSha256": "0e42aff993604dea3038c5c0a8a4a70f9f485ec748a9b186a4b14de9e7d8133c",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "e7d11ded3466eb7614743b5f492c8b2ba91b5b1e34bd56fe05f59acaa0692454",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "74f0e32f87c202c2eea308713faf093df8f90d15a87dd098619b3a4cf9d8bd6e",
+          "normalizedSha256": "d1617e5b782751d7191088df2aa957ac42604f265676c7da8b832401ec993bf7",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "74f0e32f87c202c2eea308713faf093df8f90d15a87dd098619b3a4cf9d8bd6e",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "03-expected-brix",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "046cf89be79f2ce5aa65b540304a133ed95adcdbeb155ea8cfe2d623e1c889fc",
+        "artifactBytesSha256": "f35e73177c0bdc447a46fc1851b260e1aefadcbd6d9cbdcb8b74fa094fd7f914"
+      },
+      "safeInputSha256": "f95ae31f461ecb38c7ab1c1a904534cde20a847c6a405e6669433b2aedbdfe4f",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "84c9b5b5956618528a2dacb4859e2c757ccdfcbc3f3fe4eb7f562e928c7424db",
+      "safeInputArtifactBytesSha256": "a9d1c4feb373686978846cd1e793ae93224ea3e75a742b5d1efc6291a27dd8c0",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "f35e73177c0bdc447a46fc1851b260e1aefadcbd6d9cbdcb8b74fa094fd7f914",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "taste",
+          "exactSha256": "888daf831f7564c7e06826e65ac49c268c1951af36876f8d5d2911a6914e241c",
+          "normalizedSha256": "59dd21368268b056862925d8ad128aadbc580544b3ce474e1b9350cee4a2b3f7",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "888daf831f7564c7e06826e65ac49c268c1951af36876f8d5d2911a6914e241c",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [
+        "bd080810061c2fcd4adcd8455ac5a64fc2112a8ce7ab32a93f3b4812d8e50180"
+      ],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "04-measured-brix",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "bd126788a51304b17b836eeef9649766136de2fa3b69588207fd0e80c4aa3b22",
+        "artifactBytesSha256": "6078a9fb86bd3973db1e893890b5d523a12f8cf245902cbf2c5ec7cac3c09346"
+      },
+      "safeInputSha256": "6306337025922b3a678bad7aaa63105804c1c3236e3df7a1cea990a934b88672",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "6c1830fa6b6e32def60eac9f609edcca45b797dd9f961f7c691897753ef0f415",
+      "safeInputArtifactBytesSha256": "dd83e22083b71bd33028aff92e75feaf647d7612c8efe626861b5f484f5667e9",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "6078a9fb86bd3973db1e893890b5d523a12f8cf245902cbf2c5ec7cac3c09346",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "qualityEvidence",
+          "exactSha256": "0320b666774a2ff92d6059e772417f2441cf9ce598dc2b334103271ffca13cbf",
+          "normalizedSha256": "7c00d0daba84b9163103db9c6203519a16e780bd6663a064b28a55ad63e24200",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "qualityEvidence"
+          ],
+          "claimSha256": "0320b666774a2ff92d6059e772417f2441cf9ce598dc2b334103271ffca13cbf",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "05-storage",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "6ae9b38d09b77604a0e9814aad77305261eae36448055b2e5b5454cbd902eedf",
+        "artifactBytesSha256": "29c22643025fdfefd164d1e3dff8c1e69ed65408e2284d48e4d8d8759625527b"
+      },
+      "safeInputSha256": "4bbc87350e4cd65b9c2c24d8e847df493eb82ac226e97319aa1e4ffc8df2561f",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "b240322739288b44fb6f6eacb162afdace99b4dba9dedfa1ce2d39da7f0cc90c",
+      "safeInputArtifactBytesSha256": "4a73d44138a6559baf1a691bccd96cebe644ec4331878f6d5336a61c0e82603d",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "29c22643025fdfefd164d1e3dff8c1e69ed65408e2284d48e4d8d8759625527b",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "storage",
+          "exactSha256": "0bfcca67bd50726037d2c5c9d24ff015127ec63c03b4777dfec75de4a1949a43",
+          "normalizedSha256": "0bfcca67bd50726037d2c5c9d24ff015127ec63c03b4777dfec75de4a1949a43",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "06-delivery",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "9695e25e94fbe67f274c09438be150c8554a90e303c83e0e207eaeb575050fc7",
+        "artifactBytesSha256": "e53f49ecb029ffd623868694f99f142621180851873e882316cbb37ace79d6ef"
+      },
+      "safeInputSha256": "1e7ece7be244ad4b65a909a422a4d5ebab064207e715d6e686a5a471523d2513",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "59c64698e9b6dcb86d283e148696807d866dbc942db6f50d6382c6ca0cce80f5",
+      "safeInputArtifactBytesSha256": "4852173acf7b0e51392a8b8c62f9928b98e094ad76ba6165e1028f5a9a7d4174",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "e53f49ecb029ffd623868694f99f142621180851873e882316cbb37ace79d6ef",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "delivery",
+          "exactSha256": "d1d8d92e1ac94eb9cca8f9734ae4b45ecd48d333eb15d4c95d1058fe59ebcfe0",
+          "normalizedSha256": "d1d8d92e1ac94eb9cca8f9734ae4b45ecd48d333eb15d4c95d1058fe59ebcfe0",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [
+        "07204865ebdbc51dc1a7e230655fd66b2c85b258213853c5ae4c1a7ab3e51224",
+        "05148ca786e11e9bb4c77f40e18d05818a19eb83d4d19a401e5e70511c74d022"
+      ],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "07-farm-story",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "37541e30d0831c9deafe297b17249d8f40d155d47e1d6be11606cd5ab02d45e9",
+        "artifactBytesSha256": "5e858e943cc97d2317b51fbbe2341efe82845bffc4b6fc95edfa8f8f74ec4732"
+      },
+      "safeInputSha256": "96ce0228f006be252c85180980642bd5d3ed94f96eb7d3193c99b028028d3a16",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "50b656541013677eb6f8d0cc01ff0d84c83fbead03c6e15d34d096c206553961",
+      "safeInputArtifactBytesSha256": "87005fc3e4817cbebd75e0f5d7030a6915de815b3ce0812dcffa3443b74cee7f",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "5e858e943cc97d2317b51fbbe2341efe82845bffc4b6fc95edfa8f8f74ec4732",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "farmStory",
+          "exactSha256": "228b17e0aaadabdf2a45d26f12a28b2c3918bdd7bc0dbb26ff50caebb21bca04",
+          "normalizedSha256": "228b17e0aaadabdf2a45d26f12a28b2c3918bdd7bc0dbb26ff50caebb21bca04",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "08-appearance",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "b3d38db41b4a32138e27fed6182304650214d2042e1f5c6c717ca8cb2342fa3b",
+        "artifactBytesSha256": "77065ce5d498b5db27a03690b27fc9190e13e653bc31afec42e4962f36a87d5a"
+      },
+      "safeInputSha256": "e4d1067d69f5b7c30ae827b8aa59d8b261f255fcff2382d2ade814c55448bb92",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "42008684846b02b9373efb50c5e1e964146fd69610f23431aaf07448f1845b16",
+      "safeInputArtifactBytesSha256": "8750482537ffec75b3f7feac18e66cc5b97c07f5b8e180ee0526f72278a15cbd",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "77065ce5d498b5db27a03690b27fc9190e13e653bc31afec42e4962f36a87d5a",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "appearanceFaq",
+          "exactSha256": "6edb584ebad3eac3f1adfed81e65536c816ba57ad66aba515c90aaeb25fd4950",
+          "normalizedSha256": "6edb584ebad3eac3f1adfed81e65536c816ba57ad66aba515c90aaeb25fd4950",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "09-support",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "80099327e002cf54010a4a6a1ae636307c1af35f1b5f09fc3a407ef58b10e03e",
+        "artifactBytesSha256": "091c72fe09e58b3331c1845c1b7df0a93f07192110fcc98a7dec62afe35f7c18"
+      },
+      "safeInputSha256": "afac2548325205bfe3f1f39efbc90000d9e8f009cef333382d0af651d3309cc9",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "acac1d6f7a0905bcd4efad6662a6e80a7f42878347d3941db5e14bef014d1b9f",
+      "safeInputArtifactBytesSha256": "1b8fe0a3281467e31339d6058d263b03a425b4b4bda7f70597c15b7c89483f6e",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "091c72fe09e58b3331c1845c1b7df0a93f07192110fcc98a7dec62afe35f7c18",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "support",
+          "exactSha256": "ee4d9045df4e0c834d106f7720efe50c6f8d12bf19bc3c52ccbe87387dcd6fcb",
+          "normalizedSha256": "ee4d9045df4e0c834d106f7720efe50c6f8d12bf19bc3c52ccbe87387dcd6fcb",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "10-historical",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "9825814159580a6705752401504fdfd8c6a110ad2cfe8368cf0fea50a9c9ba1e",
+        "artifactBytesSha256": "4812b344431cc4c820eadc9d3ea6cd77354357ffdd34a73a096a02bf8daa389e"
+      },
+      "safeInputSha256": "273101d9e5c80b4c1f8934cb4d664be3e34d8867b96370a4f74068a17b7c88bd",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "37dcc34b1d751cab76f7215f78a1d68f850ba31c06336f7043945d1d6a288eed",
+      "safeInputArtifactBytesSha256": "f2cbb00f253bb0db6f5d32c79e93ba5999c1080b7d608fda5bd757b288d23dd3",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "4812b344431cc4c820eadc9d3ea6cd77354357ffdd34a73a096a02bf8daa389e",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "historicalSales",
+          "exactSha256": "3492b0a346441bce68772545d66de334803962642a1a174aa918b3bcd9f16862",
+          "normalizedSha256": "1769f1e7fdc149e4ffba6735911c1aa45bbc57ea87880f0a336dd84d69a9f35b",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric",
+            "date"
+          ],
+          "claimSha256": "3492b0a346441bce68772545d66de334803962642a1a174aa918b3bcd9f16862",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "11-conflict",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "ad458087a8f859c2304ebaec84b4a82db602fd832a3d5b30ab8be19f4cc7e898",
+        "artifactBytesSha256": "e964846cb2b8cf0a0fd319767db384f794c7c27d93a4af3445e57bba6a4c1c18"
+      },
+      "safeInputSha256": "0c0c5cfa58e71d595ab5e2e6240865bb93bab054b23dd715006374107a4a1906",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "d9749c38ea4753c6e1d07c37ff771b1e8d761d2caa6cfab12c6e0f92461e3326",
+      "safeInputArtifactBytesSha256": "33f2c4a9e42c8da120be811943892ede2a9dd282a6ac292456669f0f2d6fd9ca",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "c72eb27b38c1f3ac94fb285358a0e5f58c65007853a12b71f5e4fbafc27e78d6",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "26d65c4de3a4e0f5a0f052f0fbd33370c02bd9b312a09bc64dad3fd59c5d20c6",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s1",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "053283ba439f30056481aeb3ffc4d522a5cd62f5694b43c8edf18d5a4e460b98",
+          "normalizedSha256": "053283ba439f30056481aeb3ffc4d522a5cd62f5694b43c8edf18d5a4e460b98",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "normalizedSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "053283ba439f30056481aeb3ffc4d522a5cd62f5694b43c8edf18d5a4e460b98",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "expectedIndex": 1,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "12-mixed-products",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "c2ebd4064e8624e53b29ff29da1dd861d801cd710238dc81dd6342e508c24d84",
+        "artifactBytesSha256": "c115bb1fa0a728f5acbe8c39e13213c31ee4615aae328e0aaf26747bc9bb0568"
+      },
+      "safeInputSha256": "4606d5cb8a849c852e76eda4ed67cec221c3a559e9a2964b6d291d74307c9f08",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "a61701bddbc3e97028f86d8a55a7cda0f98c77c298d2c237148f2c0efe5670a8",
+      "safeInputArtifactBytesSha256": "f55cdad970f179a1a6815fcde350ab63bd0b2ad8c5666a749e81b5834487ffa6",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "4753edfc949dd2c1ca1706a3aa8b9b13e874e1d31193fbec3f379ad0b8a4eb57",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        },
+        {
+          "id": "gold-2",
+          "quoteSha256": "43121ac759519d2f0c2af8b6fdd632f782b0b0fb0bdad3bbc6eba204333ebd6b",
+          "locator": {
+            "goldOrdinal": 2,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s1",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "exactSha256": "053283ba439f30056481aeb3ffc4d522a5cd62f5694b43c8edf18d5a4e460b98",
+          "normalizedSha256": "053283ba439f30056481aeb3ffc4d522a5cd62f5694b43c8edf18d5a4e460b98",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "targetId": null,
+          "fieldKey": "composition",
+          "exactSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "normalizedSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "053283ba439f30056481aeb3ffc4d522a5cd62f5694b43c8edf18d5a4e460b98",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        },
+        {
+          "expectedIndex": 1,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-2"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "13-common-farm",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "81f78ba22763ff5231851795bd462cddfc442c0e0c47a7b34498f8e90807db6d",
+        "artifactBytesSha256": "4530fe2ac41dbec293feda827e247efcfaa075d63d70a4543e974fc847b322f5"
+      },
+      "safeInputSha256": "a431b092ce3594e73cb2b3bdcde70d40c6a1bdffea07c64dbafe358dee2c5bf2",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "393ed41027398e28ac5bd09651a51675572ec3688bd307fc45defc169804c700",
+      "safeInputArtifactBytesSha256": "355625d4d6ff9ad4e5817142ef0a12c0768a895e235d94f10ce68440f1327237",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "4530fe2ac41dbec293feda827e247efcfaa075d63d70a4543e974fc847b322f5",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": null,
+          "fieldKey": "farmStory",
+          "exactSha256": "70072c86df32028add0cd48be75f62aa311bedd65db4cd772fe01783b0f1834c",
+          "normalizedSha256": "70072c86df32028add0cd48be75f62aa311bedd65db4cd772fe01783b0f1834c",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "14-private-contact",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "e3258392a151dcadc540a5ee28560464b60cfc6bfd25937036e19a39a7f4c35d",
+        "artifactBytesSha256": "fc185dacfeed923adbbe47f716b8db2ee282acfbb4901d83649407fe501bdc4a"
+      },
+      "safeInputSha256": "fe5bb099efe00910aa20eaad2641ec31f4b8171fe68a6689844eb4811f6a1ff4",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "ecfddd2a6488b3770e96aeafb6eaeca5f4f7a1be20aff3f560afafe00bb19e99",
+      "safeInputArtifactBytesSha256": "93c0deb3fde4683bf46adaf897e69426f0b1710631846017cbc798f74cbc3d2c",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "efcdd329d183bfa8887eebbaf9f36b7d98881f0c00ea132747088b394ed3e76f",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "summary",
+          "exactSha256": "efcdd329d183bfa8887eebbaf9f36b7d98881f0c00ea132747088b394ed3e76f",
+          "normalizedSha256": "efcdd329d183bfa8887eebbaf9f36b7d98881f0c00ea132747088b394ed3e76f",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [
+        "8784c90d4a0106d3f67e67a3545103740560bf5347c3d947bb75d1ce81f6c590",
+        "842e54f7dc71cf8b472f48f4f46fc097f829bff825e86cb9be097c081d7c2478",
+        "852e7b941ea2052143c1b0a0f7b007a06c49c056312aac64e2649dc35d13f994"
+      ],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "15-injection",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "ae0ed4109264ecdcf009487f4db9eeacf79b664541d5fb2cbea1d94bb828c882",
+        "artifactBytesSha256": "525f8b6d43f63723edfb30fd5138afacba9f4cd0304778614d49f953a1a3ed1a"
+      },
+      "safeInputSha256": "b77f35dac7be8a865c14cf3021e1ea7f5001c4b051d747bcb8b642532fe45aa6",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "870e2b841a62e845684bc8fe162594676a34683ac66465feb429bd594d12cccc",
+      "safeInputArtifactBytesSha256": "bd2cfdc93f86282b98f138563bb0115355c57df24630c70b21bfe2ed312a51bf",
+      "sourceSpans": [],
+      "expected": [],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [
+        "6c07bc3a81d845c47694c23bec2d274b7581f096e7a0a345dce01d6fa588fb43",
+        "97f271707295520bd08bd9194ff318faf02216b429542141bba0fd1102de4072"
+      ],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "16-missing-count",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "fc07a94128aad4d249dc3541b09f78790d9f8992607216e1bc40ed1e44d60e28",
+        "artifactBytesSha256": "a66d8a1331a77ed03f217a6d6f83d59c39c488546425ae48313f79a864959eda"
+      },
+      "safeInputSha256": "929c702dd678583c95c2519df85d1cdc933494daab641c31ff080adc5a792952",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "78b92bee3ce470f9d673d391de3e2b8534a523f75c74719727071aece0b728d2",
+      "safeInputArtifactBytesSha256": "0cb2d37a5386964bef0b7ba5ebbd08a334d42b7f90fb0e5ce94dc84241b50dda",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "a66d8a1331a77ed03f217a6d6f83d59c39c488546425ae48313f79a864959eda",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s0",
+                "box": [
+                  0,
+                  0,
+                  1,
+                  1
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "db385e16a6fabe64f3605b6d1e984ccb1a7dbdb8e7bb716509f4da7361bc62f3",
+          "normalizedSha256": "db385e16a6fabe64f3605b6d1e984ccb1a7dbdb8e7bb716509f4da7361bc62f3",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "db385e16a6fabe64f3605b6d1e984ccb1a7dbdb8e7bb716509f4da7361bc62f3",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": []
+    },
+    {
+      "id": "17-duplicate",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "contract",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "f15c8e752abc151a754a1fdf9e5d803561ba65612edcc255be0b4f3de472cb22",
+        "artifactBytesSha256": "3491aa83ce93db7442d7db11b25c706aed5ab2447bb1de16321a14a88d1635f9"
+      },
+      "safeInputSha256": "3491aa83ce93db7442d7db11b25c706aed5ab2447bb1de16321a14a88d1635f9",
+      "safeInputEncoding": "utf8-contract-input",
+      "safeInputArtifactPathSha256": null,
+      "safeInputArtifactBytesSha256": null,
+      "sourceSpans": [],
+      "expected": [],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": [],
+      "expectedError": "DUPLICATE_SOURCE"
+    },
+    {
+      "id": "18-empty",
+      "format": "text",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "contract",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "9e69313b845b9d311cb3909c4c3ec75922354d65d70bff7079e2af99e2645434",
+        "artifactBytesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "safeInputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "safeInputEncoding": "utf8-contract-input",
+      "safeInputArtifactPathSha256": null,
+      "safeInputArtifactBytesSha256": null,
+      "sourceSpans": [],
+      "expected": [],
+      "criticalFacts": [],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": [],
+      "expectedError": "PAYLOAD_TOO_LARGE"
+    },
+    {
+      "id": "19-rotated-image",
+      "format": "image",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "fff8513862f6666ff136dde472fa717ef1ab177ac347059dff925a05fd1acd55",
+        "artifactBytesSha256": "8dfb4ffb4a9101c5a692618e330583aefbed168d63ee717de5022f60399cb321"
+      },
+      "safeInputSha256": "0275a90f908213f576300e97a8e69429c48bc08d2cfb0fe568c683563dba41cb",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "d9f0f52f9dd7c6d03a4b132ac8a3439f43debe092e7699c0294e47b19bbd3b45",
+      "safeInputArtifactBytesSha256": "e69f7e0317ba7b1075da62017e6e3d162fc25494f8c0226363523bb3f8c0ea86",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": [
+              {
+                "page": 1,
+                "id": "s1",
+                "box": [
+                  0.053,
+                  0.2042857142857143,
+                  0.222,
+                  0.29428571428571426
+                ]
+              }
+            ]
+          },
+          "safeInputMapping": "VERIFIED_WHITESPACE_ONLY"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "normalizedSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "qualityEvidence"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": [
+        {
+          "sha256": "edea2a7eac9e38bdbbbcb64c8f7bed28461a28b8b9ff6c404462ae0c3898ec07",
+          "artifactPathSha256": "b735541d143c81e31695d5b64a6934b10195a6cd38ad47f3c59823ce59ab35ed"
+        }
+      ]
+    },
+    {
+      "id": "20-pdf-table",
+      "format": "pdf",
+      "origin": "synthetic",
+      "split": "development",
+      "i2Split": "development",
+      "usedForPromptIteration": true,
+      "purpose": "extraction",
+      "goldExists": true,
+      "sourceReference": {
+        "origin": "synthetic",
+        "artifactPathSha256": "f1a1aebaa1c39144d2a41479386d917e2becfb44d12f5424de6714fc177e1736",
+        "artifactBytesSha256": "58a6a8c68896e460d2fd4871450d8650cc7642460020af507f4ee2e171852c74"
+      },
+      "safeInputSha256": "8660c5eabd9096b444cab1ea6460478a4fcee1ba9212131937bf57be62157730",
+      "safeInputEncoding": "canonical-json-utf8",
+      "safeInputArtifactPathSha256": "a9ccf1c493f4818b37f6ec931aa5ca8357b9d2862bfa28387fe3abbb20b19113",
+      "safeInputArtifactBytesSha256": "25375ea8912eb445bd4dbec9aae394cd139ef42719b120255f3e11e40eee23dd",
+      "sourceSpans": [
+        {
+          "id": "gold-1",
+          "quoteSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "locator": {
+            "goldOrdinal": 1,
+            "goldArtifactSha256": "b70e643fc21e8fb4c0f94a10fcd139b8318d325c841daa21228c98c55c1a6003",
+            "page": 1,
+            "safeInputSpans": []
+          },
+          "safeInputMapping": "BLOCKED_NEEDS_SOURCE_REVIEW"
+        }
+      ],
+      "expected": [
+        {
+          "targetId": "synthetic-product",
+          "fieldKey": "composition",
+          "exactSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "normalizedSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFacts": [
+        {
+          "expectedIndex": 0,
+          "categories": [
+            "numeric"
+          ],
+          "claimSha256": "3cd6be9609ba68aedd897dd9ced69ce1b7f96f376512668c9d27d02d90890532",
+          "sourceSpanIds": [
+            "gold-1"
+          ]
+        }
+      ],
+      "criticalFactsStatus": "BASELINE_INDEX_REQUIRES_COMPLETE_HUMAN_RUN_AUDIT",
+      "forbiddenFields": [
+        "pieceCount",
+        "delivery",
+        "qualityEvidence"
+      ],
+      "forbiddenValueSha256": [],
+      "i2VisionSubset": false,
+      "safeVisualPages": [
+        {
+          "sha256": "275742d811c001de0c8ccce0ce7d596185038a5cb09c393c4f710d4f3ee5a4c6",
+          "artifactPathSha256": "9aa98d953f3353147b304489801c6b8b2e457657e0439c60207a57c432b2f995"
+        }
+      ],
+      "pdfOrigin": "image_to_pdf"
+    }
+  ]
+}

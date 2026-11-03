@@ -10,12 +10,13 @@ import {
 import { Icon, type IconName } from "./Icon";
 import { T } from "./Text";
 import { tokens } from "./tokens";
-import { focusRing } from "./web";
+import { focusRing, showFocus } from "./web";
 
 export type ButtonVariant = "primary" | "secondary" | "outline" | "text";
 
 type ButtonProps = {
   label: string;
+  compact?: boolean;
   onPress?: () => void;
   /** primary = 강조색(화면당 하나), secondary = 면 색, outline = 검정 테두리, text = 글자 버튼 */
   variant?: ButtonVariant;
@@ -30,6 +31,7 @@ type ButtonProps = {
 
 export function Button({
   label,
+  compact = false,
   onPress,
   variant = "primary",
   size = "consumer",
@@ -52,7 +54,7 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      aria-busy={loading}
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed, ...st }) => [
@@ -72,7 +74,14 @@ export function Button({
             borderColor: tokens.color.surface,
           },
         pressed && variant !== "primary" && { opacity: 0.7 },
-        (st as { focused?: boolean }).focused && focusRing,
+        showFocus(st as { focused?: boolean }) && focusRing,
+        compact && {
+          minHeight: 44,
+          paddingHorizontal: 10,
+          ...(variant === "outline"
+            ? { borderWidth: 1, borderColor: tokens.color.border }
+            : {}),
+        },
         style,
       ]}
     >
@@ -80,8 +89,8 @@ export function Button({
         {/* 로딩: 글자 자리에 스피너, 폭은 그대로(글자는 투명하게 남김) */}
         {icon && !loading ? <Icon name={icon} size={22} color={fg} /> : null}
         <T
-          variant="body"
-          weight="semibold"
+          variant={compact ? "caption" : "body"}
+          weight={compact ? "regular" : "semibold"}
           color={fg}
           style={loading ? { opacity: 0 } : undefined}
         >

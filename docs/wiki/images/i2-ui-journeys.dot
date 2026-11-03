@@ -1,0 +1,52 @@
+digraph G {
+ graph[rankdir=TB,bgcolor=white,pad="0.3",nodesep="0.25",ranksep="0.5",label="Farmclub · Iteration 2 · Input and navigation wireframes",labelloc=t,fontsize=21];node[shape=box,style="rounded,filled",fillcolor="#FFF4E8",color="#A75E25",fontname=Arial,fontsize=12,margin="0.13,0.1"];edge[fontname=Arial,fontsize=10,color="#637184"];
+ subgraph cluster_c {label="CONSUMER · mobile web";color="#D9E1E8"; discover[label="DISCOVER
+[Search farms] [News >]
+[Product cards >]
+Discover | Orders | Chat | Me"];detail[label="PRODUCT
+[Photo / quality / delivery]
+[Option v] [Quantity +/-]
+[Reserve] [Ask farm]"];login[label="KAKAO / ONBOARDING
+[Sign in] → profile + consents
+[Address] or [Skip]
+Return to requested action"];checkout[label="CHECKOUT
+[Recipient / address / note]
+[Four consents]
+[Reserve]"];deposit[label="DEPOSIT INSTRUCTIONS
+Amount / bank / account
+Order No / deadline / copy
+[I deposited] [Later]"];orders[label="ORDER DETAIL
+Awaiting confirmation → Reserved
+Cancel / issue / track
+[My Orders] [Home]"];discover->detail[label="tap product"];detail->login[label="login gate"];login->checkout[label="return"];detail->checkout[label="already signed in"];checkout->deposit[label="valid terms"];deposit->orders[label="report / later"];}
+ subgraph cluster_p {label="PRODUCER · mobile web";color="#D9E1E8"; gate[label="KAKAO / APPLICATION
+[Farm facts] [Consent]
+Pending / rejected / approved"];dash[label="DASHBOARD
+Deposits / refunds / counts
+Home | Products | Chat | Settings"];source[label="PRIVATE WORKSPACE
+[Variety / size / expected Brix]
+[Source files] [Original photos]
+[Analyse] → progress / partial"];editor[label="PAGE EDITOR
+[Edit text] [Photo + / x]
+[Section eye] [Item x] [Cover star]
+[Private save] [Preview] [Apply]"];sales[label="PRODUCT / SALES
+Required facts / bank account
+Periods / prices / capacity
+[Submit approval]"];gate->dash[label="approved"];dash->source[label="New product"];source->editor[label="analysis read / edit"];editor->sales[label="explicit apply"];}
+ subgraph cluster_a {label="OPERATOR · browser";color="#D9E1E8";admin[label="LOGIN
+[Password] [Sign in]"];approve[label="APPROVAL / CAPACITY
+Review farm/request
+[Approve] [Reject]
+Confirm decision"];inbox[label="INBOX / USER SUPPORT
+[Inquiry] [Reply]
+Limited user/order lookup
+Controlled test-farm visibility"];admin->approve[label="valid session"];approve->inbox[label="navigation"];}
+ error[label="ERROR / RETRY
+Keep input and selected files
+409: refresh + reconcile versions
+401: login return
+Source failure: explicit retry/manual
+Unreported overdue: refreshed stock",shape=note,fillcolor="#EAF3FF",color="#476B9A"];
+ checkout->error[style=dashed,label="validation / changed price"];source->error[style=dashed,label="partial / failure"];editor->error[style=dashed,label="stale save"];sales->approve[constraint=false,label="request supply"];approve->detail[constraint=false,label="approved sale
+with required facts"];orders->dash[constraint=false,label="deposit task"];dash->orders[constraint=false,label="farm confirms deposit",style=dashed];
+}

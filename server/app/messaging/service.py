@@ -4,9 +4,11 @@
 """
 
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import and_, delete, false, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import images, masking
@@ -55,15 +57,25 @@ from app.messaging.schemas import (
 _VIDEO = re.compile(r"^data:video|\.(mp4|webm|mov)$", re.IGNORECASE)
 FORWARDED_TEXT = "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요."
 ATTACHMENT_TTL = timedelta(hours=24)
+_REFUND_OR_COMPENSATION = re.compile(r"환불|보상|돈\s*돌려|refund|compensat", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class ManagerRefundAlert:
+    farm_id: str
+    thread_id: str
+    message_id: str
+
+
+@dataclass(frozen=True)
+class ConsumerSendOutcome:
+    result: SendResult
+    alert: ManagerRefundAlert | None = None
 
 
 def mask(text: str) -> tuple[str, bool]:
     """전화번호·계좌번호를 가린다(M-16)."""
     return masking.mask(text)
-
-
-def masked_name(name: str | None) -> str:
-    return f"{(name or '고')[:1]}○○"
 
 
 # ---------------- 농가 공개 소식·팔로우 소식 (FEAT-15) ----------------
@@ -287,16 +299,17 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                 )
             )
         else:
-            name = names[r.consumer_id].name if r.consumer_id in names else None
+            sender = names.get(r.consumer_id)
             result.append(
                 NewsRoomMessage(
                     message_id=r.id,
                     farm_id=farm.id,
                     sender_id=r.consumer_id,
+                    # 농가에는 닉네임(없으면 가린 이름), 본인에게는 자기 이름
                     sender_name=(
-                        masked_name(name)
+                        accounts.public_name(sender)
                         if user is not None and user.role == "PRODUCER"
-                        else (name or "")
+                        else (sender.name if sender else "")
                     ),
                     sender_role="CONSUMER",
                     body=r.body,
@@ -373,6 +386,10 @@ def room_page(db: Session, user, farm_id: str, cursor: str | None, limit: int) -
 
 def send_room(db: Session, user, farm_id: str, text: str) -> NewsRoomMessage:
     """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 텍스트 답장. AI는 답하지 않는다."""
+    from app.accounts import service as accounts
+
+    if user.role == "CONSUMER" and accounts.needs_onboarding(db, user):
+        raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
     farm, can_reply = _room_access(db, user, farm_id)
     if not can_reply:
         raise forbidden("팔로우한 뒤 답장할 수 있어요.")
@@ -416,7 +433,7 @@ def _thread_view(t: Thread) -> ThreadView:
     )
 
 
-def _message_view(m: ThreadMessage) -> ChatMessage:
+def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
     return ChatMessage(
         message_id=m.id,
         sender_type=m.sender_type,
@@ -432,7 +449,24 @@ def _message_view(m: ThreadMessage) -> ChatMessage:
         source_summary=m.source_summary,
         handoff_status=m.handoff_status,
         masked=m.masked,
+        reported=reported,
     )
+
+
+def _message_views(db: Session, rows: list[ThreadMessage]) -> list[ChatMessage]:
+    ids = [m.id for m in rows if m.sender_type == "AI"]
+    reported = (
+        set(
+            db.scalars(
+                select(Escalation.reported_message_id).where(
+                    Escalation.reported_message_id.in_(ids)
+                )
+            )
+        )
+        if ids
+        else set()
+    )
+    return [_message_view(m, m.id in reported) for m in rows]
 
 
 def _set_mode(t: Thread, mode: str) -> None:
@@ -516,7 +550,8 @@ def _unread(db: Session, t: Thread, producer: bool) -> int:
     )
     query = select(func.count()).where(ThreadMessage.thread_id == t.id, ThreadMessage.seq > last)
     if producer:
-        query = query.where(ThreadMessage.sender_type == "CONSUMER")
+        # 생산자는 소비자 메시지와 farmclub 운영팀 메시지(DEV-111)를 안 읽음으로 센다
+        query = query.where(ThreadMessage.sender_type.in_(("CONSUMER", "OPERATOR")))
     else:
         query = query.where(ThreadMessage.sender_type != "CONSUMER")
     return db.scalar(query) or 0
@@ -576,14 +611,15 @@ def _escalation_view(db: Session, e: Escalation, t: Thread, with_thread: bool) -
     return EscalationView(
         escalation_id=e.id,
         consumer_id=t.consumer_id,
-        consumer_name=masked_name(user.name if user else None),
+        consumer_name=accounts.public_name(user),
         context=e.context,
         question=e.question,
         reason=e.reason,
         created_at=e.created_at,
         status=e.status,
         answer=e.answer,
-        thread=[_message_view(m) for m in _messages(db, t.id)] if with_thread else [],
+        reported_message_id=e.reported_message_id,
+        thread=_message_views(db, _messages(db, t.id)) if with_thread else [],
     )
 
 
@@ -608,7 +644,7 @@ def _chat_page(
         )
         escalations = [_escalation_view(db, e, t, False) for e in found]
     return ChatPage(
-        items=[_message_view(m) for m in rows],
+        items=_message_views(db, rows),
         next_cursor=next_cursor,
         thread=_thread_view(t),
         inquiries=[inquiry_view(db, i) for i in _thread_inquiries(db, t.id)],
@@ -655,6 +691,12 @@ def consumer_chats(db: Session, consumer, cursor: str | None, limit: int) -> Pag
                 unread_count=_unread(db, t, producer=False),
             )
         )
+    # farmclub 문의 대화방(DEV-150). 고정하지 않고 최근 순으로 섞인다
+    from app.messaging.support import consumer_chat_summary
+
+    support = consumer_chat_summary(db, consumer.id)
+    if support is not None:
+        summaries.append(support)
     summaries.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
     return _offset_page(summaries, cursor, limit)
 
@@ -675,6 +717,71 @@ def start_chat(db: Session, consumer, farm_id: str) -> StartChatResult:
 def consumer_page(db: Session, consumer, farm_id: str, cursor: str | None, limit: int) -> ChatPage:
     thread = _consumer_thread(db, consumer.id, farm_id)
     return _chat_page(db, consumer, thread, cursor, limit, producer=False)
+
+
+def report_ai_answer(db: Session, consumer, farm_id: str, message_id: str) -> EscalationView:
+    """Report an AI answer as an open producer question (FEAT-13 AC-13-5)."""
+    from app.orders import service as orders
+
+    thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
+    message = db.scalar(
+        select(ThreadMessage).where(
+            ThreadMessage.id == message_id, ThreadMessage.thread_id == thread.id
+        )
+    )
+    if message is None:
+        raise not_found("찾을 수 없는 메시지예요.")
+    if message.sender_type != "AI" or message.handoff_status == "FORWARDED":
+        raise invalid({"messageId": "신고할 수 있는 AI 답변이 아니에요"})
+
+    existing = db.scalar(
+        select(Escalation).where(Escalation.reported_message_id == message.id)
+    )
+    if existing:
+        return _escalation_view(db, existing, thread, False)
+
+    question = db.scalar(
+        select(ThreadMessage)
+        .where(
+            ThreadMessage.thread_id == thread.id,
+            ThreadMessage.sender_type == "CONSUMER",
+            ThreadMessage.seq < message.seq,
+        )
+        .order_by(ThreadMessage.seq.desc())
+        .limit(1)
+    )
+    if question is None:
+        raise invalid({"messageId": "연결할 소비자 질문이 없어요"})
+    context = None
+    if question.order_id:
+        order = orders.get_paid_order_of(db, consumer.id, question.order_id)
+        if order is not None and orders.order_belongs_to_farm(db, order, farm_id):
+            context = orders.order_context(db, order)
+
+    escalation = Escalation(
+        id=new_id("e"),
+        thread_id=thread.id,
+        thread_message_id=question.id,
+        reported_message_id=message.id,
+        context=context,
+        question=question.body,
+        reason="WRONG_ANSWER",
+        status="OPEN",
+        created_at=now(),
+    )
+    db.add(escalation)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        thread = _consumer_thread(db, consumer.id, farm_id)
+        existing = db.scalar(
+            select(Escalation).where(Escalation.reported_message_id == message_id)
+        )
+        if existing is None:
+            raise
+        return _escalation_view(db, existing, thread, False)
+    return _escalation_view(db, escalation, thread, False)
 
 
 def bind_attachments(
@@ -756,7 +863,9 @@ def build_evidence(
     )
 
 
-def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
+def _evidence(
+    db: Session, farm_id: str, order_id: str | None, settings, product_id: str | None = None
+):
     return build_evidence(
         db,
         farm_id,
@@ -765,15 +874,18 @@ def _evidence(db: Session, farm_id: str, order_id: str | None, settings):
         settings.reservation_shipping_policy,
         settings.faqs,
         settings.handoff_topics,
+        product_id=product_id,
     )
 
 
-def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendResult:
+def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> ConsumerSendOutcome:
     """소비자 질문(FEAT-12·13). 대화 행을 잠그고 AI 답까지 같은 트랜잭션에 저장한다(AC-13-6).
 
     농가 AI ON + 방 AUTO일 때만 AI가 답한다(M-05·M-20). HUMAN/OFF면 직접 응대 대상으로 남긴다.
     """
+    from app.admin import service as admin
     from app.ai import service as ai
+    from app.catalog import service as catalog
     from app.farms import service as farms
     from app.orders import service as orders
 
@@ -790,6 +902,11 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendR
     elif not farms.is_following(db, consumer.id, farm_id):
         # 팔로우 해제 뒤에는 본인 결제 주문 문맥으로만 보낼 수 있다(contracts-1.2 4장)
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
+    if body.product_id:
+        # 판매 중인 그 농가 상품만 근거로 쓴다(DEV-97). 주문이 함께 오면 주문이 먼저다
+        item = catalog.load_product(db, body.product_id)
+        if item is None or item.product.farm_id != farm_id or item.product.status != "PUBLISHED":
+            raise not_found("찾을 수 없는 상품이에요.")
     attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
     settings = farms.ai_settings(db, farm_id)
     captured = (thread.version, settings.version)
@@ -813,7 +930,9 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendR
     db.flush()
     reply = None
     if thread.ai_mode == "AUTO" and settings.enabled and text:
-        answer = ai.answer_question(text, _evidence(db, farm_id, body.order_id, settings))
+        answer = ai.answer_question(
+            text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
+        )
         latest = farms.ai_settings(db, farm_id, fresh=True)
         still_auto = thread.ai_mode == "AUTO" and latest.enabled
         if still_auto and (thread.version, latest.version) == captured:
@@ -851,7 +970,14 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> SendR
         else:
             message.needs_human = True
     db.flush()
-    return SendResult(message=_message_view(message), reply=_message_view(reply) if reply else None)
+    result = SendResult(
+        message=_message_view(message), reply=_message_view(reply) if reply else None
+    )
+    alert = None
+    if text and _REFUND_OR_COMPENSATION.search(text):
+        alert = ManagerRefundAlert(farm_id=farm_id, thread_id=thread.id, message_id=message.id)
+        admin.record_refund_request(db, farm_id, thread.id, message.id)
+    return ConsumerSendOutcome(result=result, alert=alert)
 
 
 def mark_read(db: Session, thread: Thread, message_id: str, producer: bool) -> UnreadState:
@@ -881,6 +1007,7 @@ def producer_chats(
     db: Session, farm, needs_reply: bool, cursor: str | None, limit: int
 ) -> Paged[ProducerChatSummary]:
     from app.accounts import service as accounts
+    from app.messaging.support import SUPPORT_NAME, is_support
 
     threads = list(db.scalars(select(Thread).where(Thread.farm_id == farm.id)))
     users = accounts.get_users(db, [t.consumer_id for t in threads])
@@ -900,12 +1027,13 @@ def producer_chats(
             ProducerChatSummary(
                 thread_id=t.id,
                 consumer_id=t.consumer_id,
-                consumer_name=masked_name(user.name if user else None),
+                consumer_name=SUPPORT_NAME if is_support(t) else accounts.public_name(user),
                 last_message=last.body if last else "대화를 시작해 보세요",
                 last_at=last.created_at if last else None,
                 unread_count=_unread(db, t, producer=True),
                 needs_reply=flagged,
                 ai_mode=t.ai_mode,
+                is_support=is_support(t),
             )
         )
     rows.sort(key=lambda s: (s.last_at is not None, s.last_at or now()), reverse=True)
@@ -995,7 +1123,11 @@ def producer_send(
 
 def set_ai_mode(db: Session, farm, consumer_id: str, mode: str, version: int) -> ThreadView:
     """AUTO는 이후 메시지부터 적용한다. 과거 질문은 다시 처리하지 않는다."""
+    from app.messaging.support import is_support
+
     thread = _producer_thread(db, farm, consumer_id, lock=True)
+    if is_support(thread):
+        raise invalid({"mode": "farmclub 대화방은 AI 응답을 쓰지 않아요"})
     if thread.version != version:
         raise conflict(
             "STALE_VERSION", "최신 대화 상태를 다시 불러와 주세요.", version=thread.version

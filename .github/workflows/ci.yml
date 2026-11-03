@@ -3,6 +3,7 @@ name: CI
 # PR 검사(CI). 배포(CD)는 브랜치 전략(SWPP-58) 결정 후 DEV-8에서 따로 만든다.
 # job은 항상 실행하고, 관련 파일이 바뀌지 않았으면 단계만 건너뛰고 성공한다.
 # (branch protection의 필수 체크 server·apps가 막히지 않게)
+# admin-web job은 관리자 페이지(scripts/admin-web) 테스트다(DEV-114). 배포는 deploy-vercel.yml의 deploy-admin.
 
 on:
   pull_request:
@@ -62,7 +63,7 @@ jobs:
         run: echo "server/와 워크플로 파일 변경 없음. 검사를 건너뛴다."
 
       # setup-uv는 v8부터 메이저 태그를 내지 않는다. upstream 권장대로 불변 전체 태그로 고정한다(업데이트는 Dependabot).
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         if: steps.changes.outputs.server == 'true'
         with:
           python-version: "3.12"
@@ -102,6 +103,8 @@ jobs:
           token: ""
           filters: |
             apps:
+              - "server/app/source_analysis/text_safety_lists.json"
+              - "server/app/source_analysis/text_safety_cases.json"
               - "apps/**"
               - "packages/**"
               - "scripts/**"
@@ -150,6 +153,46 @@ jobs:
         if: steps.changes.outputs.apps == 'true'
         working-directory: apps/producer
         run: npx expo export -p web
+
+  # 관리자 페이지(scripts/admin-web, DEV-114). 빌드·의존성 없이 node 내장 테스트만 돌린다.
+  # scripts/ci·배포 워크플로가 바뀌면 배포 변경 감지 시나리오도 여기서 돌린다(DEV-139).
+  admin-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v4
+        with:
+          token: ""
+          filters: |
+            admin:
+              - "scripts/admin-web/**"
+              - ".nvmrc"
+              - ".github/workflows/ci.yml"
+            deploy_scripts:
+              - "scripts/ci/**"
+              - ".github/workflows/deploy-*.yml"
+
+      - name: Skip (no admin-web changes)
+        if: steps.changes.outputs.admin != 'true'
+        run: echo "scripts/admin-web/·.nvmrc·워크플로 파일 변경 없음. 검사를 건너뛴다."
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.admin == 'true'
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test (node --test)
+        if: steps.changes.outputs.admin == 'true'
+        run: node --test scripts/admin-web/admin.test.mjs
+
+      # DEV-139: 배포 변경 감지 스크립트 시나리오(임시 git 저장소, 네트워크 없음)
+      - name: Test deploy change detection (scripts/ci)
+        if: steps.changes.outputs.deploy_scripts == 'true'
+        run: bash scripts/ci/test-deploy-changed.sh
 
   integration:
     needs: [server, apps]
@@ -202,7 +245,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         if: steps.changes.outputs.integration == 'true'
         with:
           python-version: "3.12"
@@ -226,7 +269,7 @@ jobs:
 
       - name: Upload integration failure artifacts
         if: failure() && steps.changes.outputs.integration == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: integration-failure-${{ github.run_id }}
           if-no-files-found: ignore

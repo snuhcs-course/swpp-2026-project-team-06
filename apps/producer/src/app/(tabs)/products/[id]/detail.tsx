@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
-import { DetailEditor } from "../../../../lib/DetailEditor";
+import { ProductPageEditor } from "../../../../lib/ProductPageEditor";
 export default function ProductDetailEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <DetailEditor productId={id} />;
+  return <ProductPageEditor productId={id} />;
 }

@@ -1,13 +1,13 @@
-// 디자인 토큰. 원본: docs/design/README.md "디자인 토큰".
-// N-02 하한(본문 16px 이상, 누르는 영역 48px 이상)을 지킨다. 디자인 평가 반영(SWPP-81): 메타 15, 4 단위 간격, 썸네일 3종.
+// 디자인 토큰: Figma v6 / docs/spec/conversation-ui-1.6.md.
+// N-02: 본문 17px, 메타 13px, 터치 48px 이상.
 export const tokens = {
   fontFamily:
     '"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
   fontSize: {
-    /** 생산자 현황 할 일 숫자 */
-    display: 48,
+    /** 생산자 현황 주문 숫자 */
+    display: 40,
     /** 큰 제목 */
-    title: 34,
+    title: 28,
     /** 섹션 제목·상품명·시트 제목 */
     heading: 22,
     /** 본문 */
@@ -17,19 +17,19 @@ export const tokens = {
     /** 보조 글자 */
     sub: 15,
     /** 채팅 말풍선 */
-    chat: 15,
-    /** 메타: 날짜·칩·탭·‘n명 예약’·시각 (13은 쓰지 않는다) */
-    caption: 15,
+    chat: 17,
+    /** 메타: 날짜·칩·탭·시각. 본문은 17, 입력은 16 이상. */
+    caption: 13,
   },
   lineHeight: {
     display: 48,
-    title: 39,
-    heading: 28,
+    title: 36,
+    heading: 30,
     body: 25,
     input: 26,
     sub: 22,
-    chat: 22,
-    caption: 22,
+    chat: 25,
+    caption: 18,
   },
   fontWeight: {
     regular: "400",
@@ -75,10 +75,10 @@ export const tokens = {
     button: 52,
     buttonProducer: 56,
     input: 48,
-    header: 48,
-    tabBar: 64,
+    header: 64,
+    tabBar: 72,
     listRowProducer: 56,
-    /** 떠 있는 탭 바가 내용을 가리지 않게 두는 아래 여백 */
+    /** 고정 탭 바가 내용을 가리지 않게 두는 아래 여백 */
     tabBarClearance: 96,
   },
   touchTarget: {

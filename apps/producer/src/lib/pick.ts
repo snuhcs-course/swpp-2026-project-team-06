@@ -1,6 +1,7 @@
-import { sharedMockUrl, uploadMockMedia } from "@farmclub/api";
-// 웹 파일 고르기. 사진은 600px로 줄여 data URL로 만든다(Mock은 localStorage에 저장하므로 작게).
-// 영상은 첫 장면을 사진처럼 저장한다(Mock 한계). 정책: 사진 장당 10MB, 영상 1개 60초·100MB(SCR-27).
+import { ApiError, isMock, sharedMockUrl, uploadMedia } from "@farmclub/api";
+// 웹 파일 고르기. 사진은 600px로 줄인 JPEG로 올리고(uploadMedia) 저장할 주소를 돌려준다(DEV-102).
+// 브라우저 Mock은 localStorage에 저장하므로 data URL을 쓰고, 영상은 첫 장면을 사진처럼 저장한다.
+// 정책: 사진 장당 10MB, 영상 1개 60초·100MB(SCR-27).
 export type Picked =
   | { name: string; ok: true; uri: string; video: boolean }
   | { name: string; ok: false; reason: string };
@@ -20,7 +21,7 @@ function chooseFiles(accept: string, multiple: boolean): Promise<File[]> {
   });
 }
 
-function drawToDataUrl(
+function drawToCanvas(
   src: CanvasImageSource,
   w: number,
   h: number,
@@ -34,16 +35,18 @@ function drawToDataUrl(
   canvas.width = Math.round(w * scale);
   canvas.height = Math.round(h * scale);
   canvas.getContext("2d")?.drawImage(src, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.8);
+  return canvas;
 }
 
-function readImage(file: File, imageWidth?: number): Promise<string> {
+function readImage(file: File, imageWidth?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      resolve(
-        drawToDataUrl(img, img.naturalWidth, img.naturalHeight, imageWidth),
+      drawToCanvas(img, img.naturalWidth, img.naturalHeight, imageWidth).toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("encode"))),
+        "image/jpeg",
+        0.8,
       );
       URL.revokeObjectURL(url);
     };
@@ -64,7 +67,10 @@ function readVideo(file: File): Promise<{ duration: number; frame: string }> {
     v.onseeked = () => {
       resolve({
         duration: v.duration,
-        frame: drawToDataUrl(v, v.videoWidth, v.videoHeight),
+        frame: drawToCanvas(v, v.videoWidth, v.videoHeight).toDataURL(
+          "image/jpeg",
+          0.8,
+        ),
       });
       URL.revokeObjectURL(url);
     };
@@ -113,16 +119,8 @@ export async function pickMedia({
           out.push({
             name: f.name,
             ok: true,
-            uri: sharedMockUrl
-              ? await uploadMockMedia(
-                  await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(String(reader.result));
-                    reader.onerror = reject;
-                    reader.readAsDataURL(f);
-                  }),
-                )
-              : r.frame,
+            uri:
+              isMock && !sharedMockUrl ? r.frame : await uploadMedia(f, f.name),
             video: true,
           });
       } else if (f.type.startsWith("image/")) {
@@ -137,7 +135,10 @@ export async function pickMedia({
         out.push({
           name: f.name,
           ok: true,
-          uri: await uploadMockMedia(await readImage(f, imageWidth)),
+          uri: await uploadMedia(
+            await readImage(f, imageWidth),
+            f.name.replace(/\.[^.]*$/, "") + ".jpg",
+          ),
           video: false,
         });
       } else {
@@ -147,11 +148,19 @@ export async function pickMedia({
           reason: `${f.name} · 사진이나 영상만 올릴 수 있어요`,
         });
       }
-    } catch {
+    } catch (e) {
+      // 서버가 거절하면(형식·용량) 그 문구를, 아니면 읽기 실패로 안내한다
+      const fields = e instanceof ApiError ? e.details.fields : undefined;
       out.push({
         name: f.name,
         ok: false,
-        reason: `${f.name} · 파일을 읽지 못했어요`,
+        reason: `${f.name} · ${
+          fields?.file
+            ? String(fields.file)
+            : e instanceof ApiError
+              ? e.message
+              : "파일을 읽지 못했어요"
+        }`,
       });
     }
   }

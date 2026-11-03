@@ -3,6 +3,7 @@
 import { readStore, writeStore } from "../client";
 import type {
   AiSettings,
+  Consent,
   CapacityRequest,
   Thread,
   Inquiry,
@@ -20,6 +21,7 @@ import type {
   Stage,
   NewsRoomMessage,
 } from "../types";
+import { SUPPORT_ID } from "../types";
 
 /** 데모 기준일. D-day·단계 계산에 쓴다(배포 뒤에도 예시 값이 그대로 보이게). */
 export let TODAY = "2026-10-07";
@@ -34,7 +36,41 @@ export type UserRec = {
   name: string;
   role: Role;
   farmId: string | null;
+  /** 카카오로 만든 계정(Mock 카카오 로그인). 테스트 계정은 없음 → 온보딩 대상 아님 */
+  kakao?: boolean;
+  nickname?: string | null;
+  email?: string | null;
+  phone?: string;
+  /** 가입 동의(FEAT-01 I2) */
+  consents?: Consent[];
+  /** 탈퇴한 회원(DEV-94). 개인정보는 지웠고 로그인할 수 없다 */
+  deleted?: boolean;
 };
+const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
+const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;
+/** 지금 시행 중인 약관·처리방침 버전(서버 accounts.schemas.CONSENT_VERSION과 같은 값, DEV-113) */
+export const CONSENT_VERSION = "2026-10-29";
+
+/** 지금 버전의 필수 동의가 빠졌는가(서버 consent_required와 같은 규칙). 테스트 계정은 항상 false */
+export function consentRequired(u: UserRec): boolean {
+  if (!u.kakao || (u.role !== "CONSUMER" && u.role !== "PRODUCER")) return false;
+  const required =
+    u.role === "CONSUMER" ? REQUIRED_CONSENTS : REQUIRED_PRODUCER_CONSENTS;
+  const agreed = new Set(
+    (u.consents ?? [])
+      .filter((c) => c.agreed && c.version === CONSENT_VERSION)
+      .map((c) => c.kind),
+  );
+  return required.some((k) => !agreed.has(k));
+}
+
+/** 첫 가입 온보딩이 남았는가(서버 needs_onboarding과 같은 규칙). 이름은 조건이 아니다(DEV-142). 테스트 계정은 항상 false */
+export function needsOnboarding(u: UserRec): boolean {
+  if (u.role !== "CONSUMER" || !u.kakao) return false;
+  if (!u.nickname?.trim() || !u.phone?.trim()) return true;
+  return consentRequired(u);
+}
+
 export type FarmRec = {
   farmId: string;
   ownerId: string;
@@ -47,6 +83,9 @@ export type FarmRec = {
   status: Exclude<FarmStatus, "NONE">;
   mainItems: string;
   phone: string;
+  bankName: string | null;
+  accountNumber: string | null;
+  accountHolder: string | null;
   rejectReason: string | null;
   suspendReason: string | null;
   submittedAt: string;
@@ -101,6 +140,7 @@ export type NewsRec = {
   baseReactions: number;
 };
 export type OrderRec = Recipient & {
+  trackingVersion?: number;
   unitWeightGrams: number;
   releasedQuantity: number;
   orderId: string;
@@ -126,6 +166,12 @@ export type OrderRec = Recipient & {
   deliveredAt: string | null;
   refundedAt: string | null;
   refundReason: string | null;
+  depositDueAt: string | null;
+  depositReportedAt: string | null;
+  cancelReason: string | null;
+  refundSettledAt: string | null;
+  depositIssue?: string | null;
+  refundIssue?: string | null;
 };
 export type EscalationRec = {
   escalationId: string;
@@ -138,6 +184,7 @@ export type EscalationRec = {
   createdAt: string;
   status: "OPEN" | "ANSWERED";
   answer: string | null;
+  reportedMessageId?: string | null;
 };
 
 export type DB = {
@@ -160,6 +207,8 @@ export type DB = {
   addresses: Record<string, Address[]>;
   drafts: Record<string, Draft>;
   threadMeta: Record<string, Thread>;
+  /** 소비자 farmclub 문의 대화방(DEV-150). key = userId */
+  supportRooms: Record<string, { messages: ChatMessage[]; userLastRead: string | null }>;
   aiSettings: Record<string, AiSettings>;
   aiHistory: { farmId: string; settings: AiSettings; createdAt: string }[];
   inquiries: Inquiry[];
@@ -180,7 +229,9 @@ export type DB = {
   >;
 };
 
-const DB_VERSION = 7;
+// 8: 농가 입금 계좌·입금 대기 주문 필드(DEV-68). 이전 state.json은 설정 › 데모 데이터 초기화 또는 파일 삭제 후 다시 시작
+// 9: 소비자 farmclub 문의 대화방 supportRooms(DEV-150)
+const DB_VERSION = 9;
 let cache: DB | null = null;
 let persistence = {
   read: () => readStore("mock-db"),
@@ -227,6 +278,26 @@ export const nowIso = () => new Date().toISOString();
 const P = (f: string) => `/photos/${f}`;
 const at = (date: string, time = "10:00") =>
   new Date(`${date}T${time}:00+09:00`).toISOString();
+/** farmclub 문의 대화방 환영 메시지. server/app/messaging/support.py WELCOME과 같다(DEV-111) */
+export const SUPPORT_WELCOME =
+  "안녕하세요, farmclub 운영팀이에요. 농가 가입을 환영해요!\n" +
+  "앱을 쓰다가 모르는 게 생기면 언제든 이 대화방에 편하게 남겨 주세요. " +
+  "운영팀이 확인하고 답해 드릴게요.\n" +
+  "화면 오른쪽 위 ? 버튼을 누르면 사용 안내도 처음부터 다시 볼 수 있어요.";
+/** 소비자 farmclub 문의 대화방 환영 메시지. server/app/messaging/support.py CONSUMER_WELCOME과 같다(DEV-150) */
+export const CONSUMER_WELCOME =
+  "안녕하세요, farmclub 운영팀이에요. 가입을 환영해요!\n" +
+  "주문·입금·배송이나 앱을 쓰다가 궁금한 점이 생기면 언제든 이 대화방에 편하게 남겨 주세요. " +
+  "운영팀이 확인하고 답해 드릴게요.\n" +
+  "상품이나 농가에 대한 질문은 그 농가와의 1:1 채팅에서 물어보면 더 빨리 답을 받을 수 있어요.";
+/** 소비자 가입 때 farmclub 문의 대화방을 연다. 처음 만들 때만 환영 메시지를 넣는다(DEV-150) */
+export function ensureConsumerSupport(d: DB, userId: string, createdAt = nowIso()) {
+  return (d.supportRooms[userId] ??= {
+    // 시드 중에도 부르므로 nextId(전역 db) 대신 받은 d의 순번을 쓴다
+    messages: [msg(`m-${++d.seq}`, "OPERATOR", CONSUMER_WELCOME, createdAt)],
+    userLastRead: null,
+  });
+}
 const msg = (
   id: string,
   senderType: ChatMessage["senderType"],
@@ -349,6 +420,7 @@ export function seed(): DB {
     version: DB_VERSION,
     capacityRequests: [],
     threadMeta: {},
+    supportRooms: {},
     aiSettings: {},
     aiHistory: [],
     inquiries: [],
@@ -356,6 +428,13 @@ export function seed(): DB {
     roomReplies: [],
     seq: 1000,
     users: {
+      // farmclub 문의 대화방의 운영팀 계정(DEV-111)
+      [SUPPORT_ID]: {
+        userId: SUPPORT_ID,
+        name: "farmclub",
+        role: "ADMIN",
+        farmId: null,
+      },
       "u-minji": {
         userId: "u-minji",
         name: "김민지",
@@ -413,6 +492,9 @@ export function seed(): DB {
           "3대째 효돈 하우스 감귤. 밭 소식은 일주일에 두 번, 당도는 잴 때마다 올려요.",
         mainItems: "하우스 감귤, 레드향",
         phone: "010-2222-3333",
+        bankName: "제주은행",
+        accountNumber: "101-23-456789",
+        accountHolder: "강영수",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-01"),
@@ -429,6 +511,9 @@ export function seed(): DB {
         intro: "노지에서 햇볕 듬뿍 받고 자란 귤을 보내요.",
         mainItems: "노지 감귤",
         phone: "010-4444-5555",
+        bankName: "농협",
+        accountNumber: "302-0123-4567-89",
+        accountHolder: "한○○",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-02"),
@@ -445,6 +530,9 @@ export function seed(): DB {
         intro: "작은 하우스에서 한 그루씩 돌봐요.",
         mainItems: "하우스 감귤",
         phone: "010-6666-7777",
+        bankName: "국민은행",
+        accountNumber: "123456-01-234567",
+        accountHolder: "고○○",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-05"),
@@ -461,6 +549,9 @@ export function seed(): DB {
         intro: "11월에 첫 상품을 올릴 예정이에요.",
         mainItems: "노지 감귤",
         phone: "010-8888-9999",
+        bankName: "농협",
+        accountNumber: "351-0987-6543-21",
+        accountHolder: "남○○",
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-09-10"),
@@ -477,6 +568,9 @@ export function seed(): DB {
         intro: "",
         mainItems: "노지 감귤, 레드향",
         phone: "010-4321-8765",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
         rejectReason: null,
         suspendReason: null,
         submittedAt: at("2026-10-07"),
@@ -493,6 +587,9 @@ export function seed(): DB {
         intro: "",
         mainItems: "노지 감귤",
         phone: "010-1111-0000",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
         rejectReason:
           "적어 주신 번호로 세 번 연락했지만 닿지 않았어요. 받을 수 있는 번호로 다시 신청해 주세요.",
         suspendReason: null,
@@ -510,6 +607,9 @@ export function seed(): DB {
         intro: "",
         mainItems: "하우스 감귤",
         phone: "010-2020-3030",
+        bankName: null,
+        accountNumber: null,
+        accountHolder: null,
         rejectReason: null,
         suspendReason: "메시지에 연락처를 적어 직거래를 유도했어요 (10월 9일)",
         submittedAt: at("2026-09-01"),
@@ -525,6 +625,16 @@ export function seed(): DB {
       "p-house": product({
         productId: "p-house",
         farmId: "f-kang",
+        detailContent: {
+          blocks: [
+            {
+              id: "farm-story",
+              type: "image",
+              uri: P("farm-story.png"),
+              alt: "강씨네 귤밭 농가 이야기 · AI 샘플 이미지",
+            },
+          ],
+        },
         name: "하우스 감귤 5kg / 10kg",
         variety: "궁천조생",
         photos: [P("basket.jpg"), P("greenhouse.jpg")],
@@ -928,6 +1038,10 @@ export function seed(): DB {
     deliveredAt: null,
     refundedAt: null,
     refundReason: null,
+    depositDueAt: null,
+    depositReportedAt: null,
+    cancelReason: null,
+    refundSettledAt: null,
     ...o,
   });
   const list: OrderRec[] = [
@@ -1244,15 +1358,32 @@ export function seed(): DB {
       faqs: [],
       handoffTopics: [],
     };
+  // 승인 농가마다 farmclub 문의 대화방과 환영 메시지(DEV-111, 서버 시드와 같다)
+  for (const f of Object.values(d.farms))
+    if (f.status === "APPROVED")
+      d.threads[`${f.farmId}:${SUPPORT_ID}`] = [
+        msg(
+          `m-welcome-${f.farmId}`,
+          "OPERATOR",
+          SUPPORT_WELCOME,
+          at("2026-10-07", "09:00"),
+        ),
+      ];
+  // 소비자마다 farmclub 문의 대화방(DEV-150, 서버 시드와 같다)
+  for (const u of Object.values(d.users))
+    if (u.role === "CONSUMER")
+      ensureConsumerSupport(d, u.userId, at("2026-10-07", "09:00"));
   for (const [k, messages] of Object.entries(d.threads)) {
     const [farmId, consumerId] = k.split(":");
     d.threadMeta[k] = {
       threadId: `thread-${k}`,
       farmId,
       consumerId,
-      aiMode: messages.some((m) => m.senderType === "PRODUCER")
-        ? "HUMAN"
-        : "AUTO",
+      aiMode:
+        consumerId === SUPPORT_ID ||
+        messages.some((m) => m.senderType === "PRODUCER")
+          ? "HUMAN"
+          : "AUTO",
       version: 1,
       consumerLastReadMessageId: null,
       producerLastReadMessageId: null,

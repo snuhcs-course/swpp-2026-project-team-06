@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if farm %}
+  <title>{{ farm.name }} · farmclub</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="farmclub">
+  <meta property="og:title" content="{{ farm.name }}">
+  <meta property="og:description" content="{{ farm.intro }}">
+  <meta property="og:url" content="{{ share_url }}">
+  {% if image %}<meta property="og:image" content="{{ image }}">{% endif %}
+  <meta http-equiv="refresh" content="0;url={{ destination }}">
+  {% else %}
+  <title>찾을 수 없는 농가 · farmclub</title>
+  <meta name="robots" content="noindex">
+  {% endif %}
+</head>
+<body>
+  {% if farm %}
+  <h1>{{ farm.name }}</h1>
+  <p>{{ farm.intro }}</p>
+  <a href="{{ destination }}">농가 페이지 열기</a>
+  {% else %}
+  <h1>찾을 수 없는 농가</h1>
+  <p>현재 볼 수 없는 농가예요.</p>
+  <a href="{{ destination }}">농가 둘러보기</a>
+  {% endif %}
+</body>
+</html>

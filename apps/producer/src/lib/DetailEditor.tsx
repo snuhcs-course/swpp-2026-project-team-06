@@ -24,7 +24,7 @@ import {
 } from "@farmclub/ui";
 import { useNavigation, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { TextInput, View } from "react-native";
+import { Platform, TextInput, View } from "react-native";
 import { pickMedia } from "./pick";
 import { useHideTabBar, useSession } from "./session";
 const inputStyle = {
@@ -104,12 +104,10 @@ function Editor({ productId }: { productId?: string }) {
         e.returnValue = "";
       }
     };
-    if (typeof window !== "undefined")
-      window.addEventListener("beforeunload", handler);
-    return () => {
-      if (typeof window !== "undefined")
-        window.removeEventListener("beforeunload", handler);
-    };
+    // 웹 전용: 탭을 닫을 때 경고. 앱에는 beforeunload가 없다(DEV-33)
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, busy]);
   useEffect(() => {
     alive.current = true;
@@ -262,6 +260,24 @@ function Editor({ productId }: { productId?: string }) {
       ),
     );
   }
+  if (record && "moduleDetail" in record && record.moduleDetail)
+    return (
+      <Screen>
+        <HeaderBar title="상품 상세 편집" onBack={back} />
+        <Scroll>
+          <View style={{ padding: 24, gap: 16 }}>
+            <T>
+              이 상품은 자료로 만든 섹션 상세를 사용하고 있어요. 저장한 자료
+              작업에서 내용을 수정한 뒤 다시 적용해 주세요.
+            </T>
+            <Button
+              label="자료 작업에서 상세 편집"
+              onPress={() => router.push("/products/source-analysis")}
+            />
+          </View>
+        </Scroll>
+      </Screen>
+    );
   return (
     <Screen>
       <HeaderBar

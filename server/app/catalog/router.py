@@ -1,11 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.catalog import service
 from app.catalog.schemas import (
+    AdminCapacityRequest,
     CapacityDecisionInput,
+    CapacityFilter,
     CapacityRequestInput,
     CapacityRequestView,
     CreateProductInput,
@@ -32,6 +34,7 @@ from app.core.security import Admin, ApprovedProducer, CurrentUser
 
 router = APIRouter(prefix="/products", tags=["catalog"])
 admin_router = APIRouter(prefix="/admin/products", tags=["admin"])
+capacity_admin_router = APIRouter(prefix="/admin/capacity-requests", tags=["admin"])
 
 Db = Annotated[Session, Depends(get_db)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
@@ -242,14 +245,20 @@ def approve_capacity(
     body: VersionInput,
     key: IdempotencyKey = None,
 ):
-    return run_idempotent(
+    from app.admin.service import run_manager_action
+
+    raw = body.model_dump(by_alias=True)
+    return run_manager_action(
         db,
-        admin.id,
-        f"capacity-approve:{request_id}",
-        key,
-        body,
-        lambda: service.decide_capacity_request(
-            db, product_id, request_id, body.version, True
+        actor_id=admin.id,
+        action="capacity.approve",
+        target_type="capacity_request",
+        target_id=f"{product_id}:{request_id}",
+        scope=f"capacity-approve:{request_id}",
+        key=key,
+        body=raw,
+        run=lambda _: service.decide_capacity_request(
+            db, product_id, request_id, body.version, True, manager_id=admin.id
         ),
     )
 
@@ -266,13 +275,35 @@ def reject_capacity(
     body: CapacityDecisionInput,
     key: IdempotencyKey = None,
 ):
-    return run_idempotent(
+    from app.admin.service import run_manager_action
+
+    raw = body.model_dump(by_alias=True)
+    return run_manager_action(
         db,
-        admin.id,
-        f"capacity-reject:{request_id}",
-        key,
-        body,
-        lambda: service.decide_capacity_request(
-            db, product_id, request_id, body.version, False, body.reason
+        actor_id=admin.id,
+        action="capacity.reject",
+        target_type="capacity_request",
+        target_id=f"{product_id}:{request_id}",
+        scope=f"capacity-reject:{request_id}",
+        key=key,
+        body=raw,
+        run=lambda _: service.decide_capacity_request(
+            db,
+            product_id,
+            request_id,
+            body.version,
+            False,
+            body.reason,
+            admin.id,
         ),
     )
+
+
+@capacity_admin_router.get("", response_model=list[AdminCapacityRequest])
+def admin_capacity_requests(
+    db: Db,
+    _: Admin,
+    status: Annotated[CapacityFilter, Query()] = "PENDING",
+):
+    """공급 물량 신청 목록(운영자, DEV-87). 기본 심사 중(PENDING), ALL이면 전부. 신청 최신순."""
+    return service.list_capacity_requests(db, None if status == "ALL" else status)

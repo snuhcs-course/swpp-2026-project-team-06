@@ -1,0 +1,289 @@
+{
+  "source_commit": "691949e985080f372a45d54fa950191e88adb8ce",
+  "measured_date": "2026-10-22",
+  "timezone": "Asia/Seoul",
+  "server_report_timestamp": "2026-10-22T22:03:55.735569",
+  "server": [
+    {
+      "num_statements": 8444,
+      "covered_lines": 7676,
+      "num_branches": 2218,
+      "covered_branches": 1674,
+      "name": "Server total",
+      "files": 93,
+      "statement_pct": 90.9,
+      "branch_pct": 75.47,
+      "statement_target": 85,
+      "branch_target": 75
+    },
+    {
+      "num_statements": 540,
+      "covered_lines": 499,
+      "num_branches": 130,
+      "covered_branches": 101,
+      "name": "Accounts",
+      "files": 6,
+      "statement_pct": 92.41,
+      "branch_pct": 77.69,
+      "statement_target": 90,
+      "branch_target": 80
+    },
+    {
+      "num_statements": 881,
+      "covered_lines": 833,
+      "num_branches": 206,
+      "covered_branches": 156,
+      "name": "Orders",
+      "files": 5,
+      "statement_pct": 94.55,
+      "branch_pct": 75.73,
+      "statement_target": 90,
+      "branch_target": 80
+    },
+    {
+      "num_statements": 1107,
+      "covered_lines": 1052,
+      "num_branches": 234,
+      "covered_branches": 190,
+      "name": "Messaging",
+      "files": 6,
+      "statement_pct": 95.03,
+      "branch_pct": 81.2,
+      "statement_target": 90,
+      "branch_target": 80
+    },
+    {
+      "num_statements": 2452,
+      "covered_lines": 2042,
+      "num_branches": 804,
+      "covered_branches": 559,
+      "name": "Source analysis",
+      "files": 19,
+      "statement_pct": 83.28,
+      "branch_pct": 69.53,
+      "statement_target": 80,
+      "branch_target": 70
+    }
+  ],
+  "javascript": [
+    {
+      "name": "Consumer",
+      "scope": "apps/consumer/src/",
+      "files": 42,
+      "line_target": 60,
+      "lines": {
+        "total": 6314,
+        "covered": 3431,
+        "pct": 54.34
+      },
+      "functions": {
+        "total": 252,
+        "covered": 118,
+        "pct": 46.83
+      },
+      "branches": {
+        "total": 645,
+        "covered": 448,
+        "pct": 69.46
+      }
+    },
+    {
+      "name": "Producer",
+      "scope": "apps/producer/src/",
+      "files": 48,
+      "line_target": 60,
+      "lines": {
+        "total": 12158,
+        "covered": 8780,
+        "pct": 72.22
+      },
+      "functions": {
+        "total": 524,
+        "covered": 270,
+        "pct": 51.53
+      },
+      "branches": {
+        "total": 1849,
+        "covered": 1464,
+        "pct": 79.18
+      }
+    },
+    {
+      "name": "Shared API",
+      "scope": "packages/api/src/",
+      "files": 25,
+      "line_target": 80,
+      "lines": {
+        "total": 7298,
+        "covered": 6278,
+        "pct": 86.02
+      },
+      "functions": {
+        "total": 569,
+        "covered": 378,
+        "pct": 66.43
+      },
+      "branches": {
+        "total": 1480,
+        "covered": 1111,
+        "pct": 75.07
+      }
+    },
+    {
+      "name": "Shared UI",
+      "scope": "packages/ui/src/",
+      "files": 25,
+      "line_target": 60,
+      "lines": {
+        "total": 4729,
+        "covered": 4051,
+        "pct": 85.66
+      },
+      "functions": {
+        "total": 141,
+        "covered": 113,
+        "pct": 80.14
+      },
+      "branches": {
+        "total": 716,
+        "covered": 591,
+        "pct": 82.54
+      }
+    },
+    {
+      "name": "Analytics",
+      "scope": "packages/analytics/src/",
+      "files": 2,
+      "line_target": null,
+      "lines": {
+        "total": 254,
+        "covered": 201,
+        "pct": 79.13
+      },
+      "functions": {
+        "total": 16,
+        "covered": 13,
+        "pct": 81.25
+      },
+      "branches": {
+        "total": 52,
+        "covered": 42,
+        "pct": 80.77
+      }
+    },
+    {
+      "name": "Admin JavaScript",
+      "scope": "scripts/admin-web/",
+      "files": 7,
+      "line_target": 80,
+      "lines": {
+        "total": 314,
+        "covered": 214,
+        "pct": 68.15
+      },
+      "functions": {
+        "total": 26,
+        "covered": 24,
+        "pct": 92.31
+      },
+      "branches": {
+        "total": 108,
+        "covered": 79,
+        "pct": 73.15
+      }
+    }
+  ],
+  "javascript_total": {
+    "lines": {
+      "total": 31067,
+      "covered": 22955,
+      "skipped": 0,
+      "pct": 73.88
+    },
+    "statements": {
+      "total": 31067,
+      "covered": 22955,
+      "skipped": 0,
+      "pct": 73.88
+    },
+    "functions": {
+      "total": 1528,
+      "covered": 916,
+      "skipped": 0,
+      "pct": 59.94
+    },
+    "branches": {
+      "total": 4850,
+      "covered": 3735,
+      "skipped": 0,
+      "pct": 77.01
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": 100
+    }
+  },
+  "tools": {
+    "Python": "3.12.14",
+    "Node": "24.19.0",
+    "npm": "11.19.0",
+    "PostgreSQL": "16.15",
+    "pytest": "9.1.1",
+    "pytest-cov": "7.1.0",
+    "coverage.py": "7.16.2",
+    "c8": "12.0.0",
+    "Playwright": "1.64.0",
+    "Chromium": "156.0.8078.4",
+    "uv": "0.13.5"
+  },
+  "results": {
+    "initial_server": {
+      "passed": 420,
+      "failed": 2,
+      "skipped": 0,
+      "seconds": 148.92
+    },
+    "final_server": {
+      "passed": 422,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 72.76
+    },
+    "mock_contracts": {
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "milliseconds": 27055.17825
+    },
+    "admin_node": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "milliseconds": 894.172
+    },
+    "api_integration_enabled": {
+      "passed": 7
+    },
+    "browser_enabled": {
+      "passed": 65,
+      "failed": 0,
+      "skipped": 2,
+      "reported_duration": "5.4m"
+    },
+    "api_integration_disabled": {
+      "passed": 7
+    },
+    "browser_disabled_only": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 4.5
+    },
+    "workspace_typechecks": {
+      "passed": 5
+    },
+    "ruff": "passed"
+  }
+}

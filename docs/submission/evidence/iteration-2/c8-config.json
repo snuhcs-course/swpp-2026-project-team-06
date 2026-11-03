@@ -1,0 +1,39 @@
+{
+  "all": true,
+  "src": [
+    "apps",
+    "packages",
+    "scripts/admin-web"
+  ],
+  "extension": [
+    ".js",
+    ".ts",
+    ".tsx",
+    ".mjs"
+  ],
+  "include": [
+    "apps/consumer/src/**",
+    "apps/producer/src/**",
+    "packages/api/src/**",
+    "packages/ui/src/**",
+    "packages/analytics/src/**",
+    "scripts/admin-web/api/**",
+    "scripts/admin-web/assets/*.js",
+    "scripts/admin-web/server.mjs"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/*.d.ts",
+    "**/*.test.*",
+    "**/*.spec.*"
+  ],
+  "reporter": [
+    "text",
+    "html",
+    "json",
+    "json-summary"
+  ],
+  "exclude-after-remap": true,
+  "temp-directory": ".artifacts/i2-coverage/v8",
+  "reports-dir": ".artifacts/i2-coverage/client-html"
+}

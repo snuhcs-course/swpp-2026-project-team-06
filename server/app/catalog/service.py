@@ -19,6 +19,7 @@ from app.catalog.models import (
     StagePrice,
 )
 from app.catalog.schemas import (
+    AdminCapacityRequest,
     CapacityRequestView,
     DateRange,
     Draft,
@@ -276,6 +277,7 @@ def product_detail(db: Session, product_id: str) -> ProductDetail | None:
         variety=p.variety,
         description=p.description,
         detail_content=detail_content(p.detail_content),
+        module_detail=p.module_detail,
         grade=p.grade,
         measured_brix=p.measured_brix,
         measured_brix_at=p.measured_brix_at,
@@ -367,6 +369,7 @@ def my_product(db: Session, item: Loaded) -> MyProduct:
         variety=p.variety,
         description=p.description,
         detail_content=detail_content(p.detail_content),
+        module_detail=p.module_detail,
         grade=p.grade,
         expected_brix=p.expected_brix,
         measured_brix=p.measured_brix,
@@ -790,6 +793,32 @@ def capacity_history(db: Session, product_id: str) -> list[CapacityRequestView]:
     return [capacity_view(row) for row in rows]
 
 
+def list_capacity_requests(db: Session, status: str | None) -> list[AdminCapacityRequest]:
+    """운영자 공급 물량 신청 목록(DEV-87). status가 None이면 전부, 신청 최신순."""
+    from app.farms.models import Farm
+
+    query = (
+        select(CapacityRequest, Product, Farm)
+        .join(Product, Product.id == CapacityRequest.product_id)
+        .join(Farm, Farm.id == Product.farm_id)
+        .order_by(CapacityRequest.created_at.desc(), CapacityRequest.id.desc())
+    )
+    if status is not None:
+        query = query.where(CapacityRequest.status == status)
+    return [
+        AdminCapacityRequest(
+            **capacity_view(request).model_dump(),
+            product_name=product.name,
+            product_status=product.status,
+            farm_id=farm.id,
+            farm_name=farm.name,
+            approved_supply_grams=product.approved_supply_grams,
+            sales_limit_grams=product.sales_limit_grams,
+        )
+        for request, product, farm in db.execute(query)
+    ]
+
+
 def create_capacity_request(
     db: Session, farm_id: str, product_id: str, requested_total_grams: int, version: int
 ) -> CapacityRequestView:
@@ -805,6 +834,14 @@ def create_capacity_request(
         raise invalid({"requestedTotalGrams": "기존 승인량보다 큰 총중량을 입력해 주세요"})
     kind = "INITIAL" if p.approved_supply_grams == 0 else "INCREASE"
     if kind == "INITIAL":
+        from app.farms import service as farms
+
+        farm = farms.get_farm(db, farm_id)
+        if farm is None or not farms.has_deposit_account(farm):
+            raise conflict(
+                "NO_FARM_ACCOUNT",
+                "입금 계좌를 먼저 등록해 주세요. 소비자가 그 계좌로 직접 입금해요.",
+            )
         missing = missing_fields(item)
         if missing:
             raise invalid(
@@ -870,6 +907,7 @@ def decide_capacity_request(
     version: int,
     approved: bool,
     reason: str | None = None,
+    manager_id: str | None = None,
 ) -> CapacityRequestView:
     product, request = _capacity_request(db, product_id, request_id, version)
     reason = (reason or "").strip()
@@ -897,6 +935,7 @@ def decide_capacity_request(
         request.status = "REJECTED"
         request.reason = reason
     request.decided_at = now()
+    request.decided_by = manager_id
     request.version += 1
     product.version += 1
     product.updated_at = now()

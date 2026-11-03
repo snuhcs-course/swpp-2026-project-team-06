@@ -1,0 +1,108 @@
+{
+  "evaluatedAt": "2026-10-17T15:00:01.257921+00:00",
+  "scope": "Same 3 public sources and frozen 17 gold groups, one paid regression pass; not an independent holdout. Local isolated DB only.",
+  "model": "google/gemini-3-flash-preview",
+  "cases": [
+    {
+      "id": "normal",
+      "analysisStatus": "SUCCEEDED",
+      "elapsedSeconds": 11.783,
+      "costUSD": 0.004521,
+      "calls": 4,
+      "candidateCount": 3,
+      "supportedCandidates": 3,
+      "completeGoldGroups": 3,
+      "goldGroups": 3,
+      "strictMatches": 1,
+      "photoPlacementPassed": true,
+      "manualSaveReloadPublish": "PASS",
+      "notes": [
+        "3개 사실 회수. 친환경 설명은 summary, 당일수확·당일배송은 productionProcess로 분류되어 필드 정확성은 별도 한계."
+      ]
+    },
+    {
+      "id": "long",
+      "analysisStatus": "SUCCEEDED",
+      "elapsedSeconds": 23.29,
+      "costUSD": 0.010505,
+      "calls": 6,
+      "candidateCount": 9,
+      "supportedCandidates": 8,
+      "completeGoldGroups": 6,
+      "goldGroups": 8,
+      "strictMatches": 2,
+      "photoPlacementPassed": true,
+      "manualSaveReloadPublish": "PASS",
+      "notes": [
+        "9개 후보 중 8개는 원문 내용에 부합. 마지막 농가 문장의 1000→100 오독 및 무농약·유기농 반복은 오류.",
+        "원래 전체 실패했던 자료가 이번에는 SUCCEEDED지만 재호출 변동과 코드 변경 효과를 분리할 수 없다. 후보 격리 동작은 결정적 회귀 테스트로 검증했다.",
+        "동일 필드 후보의 충돌로 품질·재배·농가 이야기 편집란은 비어 있음. 공개 영상에서 직접 합치고 수치를 정정했다."
+      ]
+    },
+    {
+      "id": "pdf",
+      "analysisStatus": "SUCCEEDED",
+      "elapsedSeconds": 24.554,
+      "costUSD": 0.012316,
+      "calls": 5,
+      "candidateCount": 6,
+      "supportedCandidates": 6,
+      "completeGoldGroups": 5,
+      "goldGroups": 6,
+      "strictMatches": 4,
+      "photoPlacementPassed": true,
+      "manualSaveReloadPublish": "PASS",
+      "notes": [
+        "대표 특산물 문장 보존, 공용 연락처 자동 반영 없음. 6개 후보 모두 원문에 근거.",
+        "과거 가격은 회수했지만 13% 할인율은 누락되어 해당 정답 그룹은 완전 회수로 세지 않았다. 현재 판매가격은 바꾸지 않았다.",
+        "summary 두 후보 충돌로 편집란이 비어 직접 합쳐 저장했다."
+      ]
+    }
+  ],
+  "supportedCandidates": 17,
+  "candidateCount": 18,
+  "semanticPrecision": 0.9444444444444444,
+  "completeGoldGroups": 14,
+  "goldGroups": 17,
+  "semanticRecall": 0.8235294117647058,
+  "strictMatches": 7,
+  "originalCostUSD": 0.025411,
+  "regressionCostUSD": 0.027342,
+  "cropExperimentCostUSD": 0.007345,
+  "incrementalCostUSD": 0.034687,
+  "cumulativeCostUSD": 0.060098,
+  "cumulativeCalls": 36,
+  "unsettled": 0,
+  "budgetUSD": 0.5,
+  "numericExperiment": {
+    "repeats": 1,
+    "numericErrorsRecovered": 0,
+    "errorLocations": 2,
+    "positiveControlsPassed": 2,
+    "positiveControlCalls": 2,
+    "productionOCRChanged": false,
+    "conclusion": "Both current tiles and context 2x crops read 1000 as 100 at both locations. Both control variants read 5kg (5-6과) correctly. No evidence to justify changing production crops."
+  },
+  "remaining": [
+    "Numeric OCR misreads require source review. No production OCR/model change.",
+    "Multiple different candidates in one field still require manual reconciliation; extraction recall is not prefilled-editor coverage.",
+    "PDF historical 13% discount omitted.",
+    "Real-farmer acceptance remains pending."
+  ],
+  "validation": {
+    "pytestFull": 324,
+    "recoverySuite": 24,
+    "relatedBrowserTests": 18,
+    "browserNote": "17/18 on suite, then changed source-analysis 3/3 after correcting selector and re-save sequence; total distinct covered tests 18.",
+    "mockContracts": 13,
+    "typecheckWorkspaces": 4,
+    "webExports": 2,
+    "alembic": "upgrade head, check, downgrade 0012, upgrade head, check passed"
+  },
+  "definitions": {
+    "semanticPrecision": "Source-supported and target-appropriate full candidate values / all emitted candidates. Field placement ignored.",
+    "semanticRecall": "Fully recovered original frozen fact groups anywhere in accepted candidates. Incomplete historical discount group does not count.",
+    "strict": "Exact field/value equality, same original gold. Whitespace/grouping differences count as misses.",
+    "limitations": "Small reused sample, no general accuracy estimate or causal estimate. Source claims not independently verified. Manual edits/publication scored separately. Photo placement from user descriptions, not visual recognition."
+  }
+}

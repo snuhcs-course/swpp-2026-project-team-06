@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 # 모든 모듈의 models를 불러와 Base.metadata에 테이블을 모은다(autogenerate용).
 from app.accounts import models as _accounts_models  # noqa: F401
+from app.admin import models as _admin_models  # noqa: F401
 from app.ai import models as _ai_models  # noqa: F401
 from app.analytics import models as _analytics_models  # noqa: F401
 from app.catalog import models as _catalog_models  # noqa: F401
@@ -12,8 +13,10 @@ from app.core import models as _core_models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base
 from app.farms import models as _farms_models  # noqa: F401
+from app.media import models as _media_models  # noqa: F401
 from app.messaging import models as _messaging_models  # noqa: F401
 from app.orders import models as _orders_models  # noqa: F401
+from app.source_analysis import models as _source_models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

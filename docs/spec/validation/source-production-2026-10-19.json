@@ -1,0 +1,233 @@
+{
+  "verifiedAt": "2026-10-19T13:14:41.178989+00:00",
+  "issue": "DEV-90",
+  "scope": "Production enablement and controlled synthetic-material smoke checks, not accuracy or farmer acceptance. No real orders/payments/public sale.",
+  "runtime": {
+    "api": "https://api.farmclub.kr",
+    "sourceEnabled": true,
+    "migration": "0016",
+    "workerService": "farmclub-source-worker",
+    "workerDeployment": "8903a4ee-30f6-43f2-bc20-9e775d8a1f92",
+    "apiDeployment": "6ebbf68d-3e3e-48d6-a275-dbe88d89ae6b",
+    "model": "google/gemini-3-flash-preview",
+    "provider": "openrouter",
+    "storage": "private R2",
+    "featureBudgetUSD": 5,
+    "ocrManifestSHA256": "9f64ef4f9d20e41cb506a6015af66d4b0da3939b23286f89a0ff32f98d122049",
+    "ocrEngineReady": true
+  },
+  "cases": [
+    {
+      "id": "image",
+      "productId": "p-19ef5f461f",
+      "batchId": "src_6b115d3a24ad4f509364851c606bc434",
+      "runId": "src_f6780828856d42fdb3a0cd79b3824a81",
+      "status": "SUCCEEDED",
+      "elapsedSeconds": 16.959,
+      "items": [
+        {
+          "phase": "PLACE_PHOTOS",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "PREPARE",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "EXTRACT",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 4,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "PREPARE",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        }
+      ],
+      "saveReloadApply": "PASS",
+      "moduleCount": 6,
+      "publicDraftStatus": 404
+    },
+    {
+      "id": "long",
+      "productId": "p-59142b7dab",
+      "batchId": "src_9a6333793c2d4675a5930f07e960b95b",
+      "runId": "src_2dcd5031046840ff9916e3b91788525c",
+      "status": "SUCCEEDED",
+      "elapsedSeconds": 19.593,
+      "items": [
+        {
+          "phase": "PREPARE",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "PLACE_PHOTOS",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "PREPARE",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "EXTRACT",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 4,
+          "rejectedCount": 0
+        }
+      ],
+      "saveReloadApply": "PASS",
+      "moduleCount": 6,
+      "publicDraftStatus": 404
+    },
+    {
+      "id": "pdf",
+      "productId": "p-5cce824ca3",
+      "batchId": "src_bc45fc312e2f4f7bbbd420cc8ff61fa6",
+      "runId": "src_7023c1160659495aa3bef895890af6e7",
+      "status": "SUCCEEDED",
+      "elapsedSeconds": 41.309,
+      "items": [
+        {
+          "phase": "EXTRACT",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 1,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "PREPARE",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "PREPARE",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        },
+        {
+          "phase": "PLACE_PHOTOS",
+          "status": "SUCCEEDED",
+          "error": null,
+          "acceptedCount": 0,
+          "rejectedCount": 0
+        }
+      ],
+      "saveReloadApply": "PASS",
+      "moduleCount": 3,
+      "publicDraftStatus": 404
+    }
+  ],
+  "timingNote": "elapsedSeconds is observed wall time to polling observation with concurrent jobs and sequential polling; not standalone latency/p50/p95.",
+  "producerUI": {
+    "batchId": "src_83d3ab61ffc94b65933de32b4e213371",
+    "productId": "p-f65b834059",
+    "status": "DRAFT",
+    "publicDraftStatus": 404,
+    "saveReloadAndApply": "PASS",
+    "moduleCount": 6,
+    "errors": []
+  },
+  "checks": {
+    "sourcePytest": 117,
+    "workspaceTypechecks": 4,
+    "mock": 15,
+    "browser": 17,
+    "browserWidths": [
+      360,
+      390,
+      430
+    ],
+    "publicDraftHTTPStatus": 404
+  },
+  "spendSnapshot": {
+    "totalCalls": 20,
+    "settledUSD": 0.032994,
+    "unsettled": 0,
+    "note": "Production ledger snapshot after the three API cases and producer UI run; no pre-existing rows observed. Not per-case attribution."
+  },
+  "limitations": [
+    "Controlled, readable synthetic samples are operational checks, not independent extraction-quality measurements.",
+    "PDF returned only one accepted candidate despite terminal SUCCEEDED; completeness still needs human review.",
+    "Historical numeric OCR errors and conflicting same-field candidates persist.",
+    "Actual farmer acceptance is incomplete; DEV-58 remains In Progress.",
+    "DEV-92: basic-info blur saving can race immediate upload. Retry retained files after persistence.",
+    "Test farm has no deposit account; private product application/buyer preview were verified, production selling/publication was not. Isolated browser tests cover public consumer rendering."
+  ],
+  "artifacts": {
+    "screenshots": "ignored .artifacts/dev90/final-*.png",
+    "video": "ignored .artifacts/dev90/FarmClub_Source_Analysis_Production_Demo.mp4",
+    "deck": "User-provided existing PPTX, maximum two added slides"
+  },
+  "mainReleaseVerification": {
+    "verifiedAt": "2026-10-19T13:47:09.680765+00:00",
+    "commit": "2ed8b281e4a8065375c65bcd0b688c42a013ffe1",
+    "deploymentWorkflow": "https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/39261814494",
+    "apiDeployment": "1473f970-5e47-47a7-8ce1-b410bc404bd4",
+    "workerDeployment": "f72b6735-8895-4f08-9ca6-270671c821f3",
+    "ocrEngineReady": true,
+    "workerPID1": true,
+    "ci": {
+      "serverPassed": 367,
+      "realAPIscenariosPassed": 7,
+      "browserPassed": 45,
+      "browserSkipped": 2
+    },
+    "producerUI": {
+      "marks": {
+        "upload": 3.817,
+        "editor": 26.129,
+        "end": 36.295
+      },
+      "release": "2ed8b281e4a8065375c65bcd0b688c42a013ffe1",
+      "startedAt": "2026-10-19T13:41:15.965Z",
+      "finishedAt": "2026-10-19T13:41:52.809Z",
+      "batchId": "src_eabbd4332dbd43b79868e4b4120321e3",
+      "productId": "p-21c958b000",
+      "status": "DRAFT",
+      "publicDraftStatus": 404,
+      "saveReloadAndApply": "PASS",
+      "moduleCount": 6,
+      "errors": []
+    }
+  },
+  "uploadRaceRemediation": {
+    "issue": "DEV-92",
+    "pullRequest": "https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/188",
+    "behavior": "New file/text uploads wait for basic-info persistence before reading batch.version. Manual input, version checks and failed-file retry are preserved.",
+    "localChecks": {
+      "sourceBrowserPassed": 24,
+      "newOrderingAndRetryCases": 7,
+      "workspaceTypechecks": 4,
+      "mockPassed": 15,
+      "webExports": [
+        "consumer",
+        "producer"
+      ]
+    },
+    "note": "The initial limitations and ledger above describe the original dated smoke-check snapshot; current rollout/media state is maintained in DEV-90/DEV-92."
+  }
+}

@@ -1,4 +1,5 @@
 // SCR-30 농가 프로필·링크 (FEAT-02, 19) — design: p-scr-30
+import { privateArea } from "@farmclub/analytics";
 import { farms } from "@farmclub/api";
 import {
   Button,
@@ -21,19 +22,21 @@ import { useSession } from "../../../lib/session";
 import { LoadError, PhotoShade, copyText, errMsg } from "../../../lib/views";
 
 const CONSUMER_URL =
-  process.env.EXPO_PUBLIC_CONSUMER_URL ??
-  "https://farmclub-consumer.vercel.app";
+  process.env.EXPO_PUBLIC_CONSUMER_URL ?? "https://farmclub.kr";
 
 function Row({
   label,
   value,
   onPress,
   last,
+  error,
 }: {
   label: string;
   value: string;
   onPress: () => void;
   last?: boolean;
+  /** 비어 있어 등록이 필요한 값(오류색 글자만) */
+  error?: boolean;
 }) {
   return (
     <Pressable
@@ -54,7 +57,12 @@ function Row({
       <T variant="sub" muted style={{ width: 72 }}>
         {label}
       </T>
-      <T variant="body" numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
+      <T
+        variant="body"
+        numberOfLines={1}
+        color={error ? tokens.color.error : undefined}
+        style={{ flex: 1, minWidth: 0 }}
+      >
         {value}
       </T>
       <Icon name="chevron" size={20} color={tokens.color.textMuted} />
@@ -91,10 +99,11 @@ export default function Farm() {
     if (nav?.share) {
       try {
         await nav.share({ title: data?.name, url: link });
-      } catch {
-        /* 사용자가 닫음 */
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        await copy();
       }
-    } else void copy();
+    } else await copy();
   }
   async function changePhoto() {
     setPhotoError(null);
@@ -139,7 +148,13 @@ export default function Farm() {
         {data ? (
           <>
             {link ? (
-              <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 8 }}>
+              <View
+                style={{
+                  paddingHorizontal: 20,
+                  paddingTop: tokens.space.md,
+                  gap: 8,
+                }}
+              >
                 <T variant="heading">농가 링크</T>
                 <T variant="body">{link.replace(/^https?:\/\//, "")}</T>
                 <T variant="sub" muted>
@@ -151,7 +166,13 @@ export default function Farm() {
                 </View>
               </View>
             ) : null}
-            <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+            <View
+              style={{
+                paddingHorizontal: 20,
+                paddingTop: tokens.space.md,
+                gap: 12,
+              }}
+            >
               <T variant="heading">프로필</T>
               <View
                 style={{
@@ -221,9 +242,26 @@ export default function Farm() {
                   label="소개"
                   value={data.intro || "소개를 적어 주세요"}
                   onPress={() => router.push("/farm/edit/intro")}
-                  last
                 />
+                {/* 입금 계좌(DEV-68): 소비자가 예약할 때 이 계좌로 직접 입금한다. 세션 녹화에서 가린다(DEV-71) */}
+                <View {...privateArea}>
+                  <Row
+                    label="입금 계좌"
+                    value={
+                      data.accountNumber
+                        ? `${data.bankName} ${data.accountNumber}`
+                        : "계좌를 등록해 주세요"
+                    }
+                    error={!data.accountNumber}
+                    onPress={() => router.push("/farm/account")}
+                    last
+                  />
+                </View>
               </View>
+              <T variant="caption" muted>
+                소비자가 예약할 때 입금 계좌로 직접 입금해요. 계좌가 없으면 상품
+                승인을 요청할 수 없어요.
+              </T>
               <Button
                 label="농가 상세 페이지 편집"
                 variant="outline"

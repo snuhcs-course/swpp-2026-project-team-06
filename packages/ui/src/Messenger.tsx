@@ -61,20 +61,26 @@ export function ConversationRow({
   unread = 0,
   status,
   onPress,
+  testID,
+  avatar,
 }: {
   name: string;
   photo?: string | null;
+  /** 사진 대신 보일 그림(예: farmclub 문의 대화방의 로고, DEV-111) */
+  avatar?: ReactNode;
   preview: string;
   at?: string | null;
   unread?: number;
   status?: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${preview}${unread ? `, 안 읽음 ${unread}` : ""}`}
       onPress={onPress}
+      testID={testID}
       style={({ pressed, ...state }) => [
         {
           flexDirection: "row",
@@ -87,7 +93,7 @@ export function ConversationRow({
         (state as { focused?: boolean }).focused && focusRing,
       ]}
     >
-      <ProfileAvatar uri={photo} name={name} />
+      {avatar ?? <ProfileAvatar uri={photo} name={name} />}
       <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <T
@@ -128,17 +134,21 @@ export function ConversationHeader({
   onBack,
   onProfile,
   right,
+  height = 76,
+  avatar,
 }: {
   name: string;
   photo?: string | null;
+  avatar?: ReactNode;
   subtitle: string;
   onBack: () => void;
   onProfile?: () => void;
   right?: ReactNode;
+  height?: number;
 }) {
   const profile = (
     <>
-      <ProfileAvatar name={name} uri={photo} size={40} />
+      {avatar ?? <ProfileAvatar name={name} uri={photo} size={40} />}
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <T weight="semibold" numberOfLines={1}>
           {name}
@@ -152,7 +162,7 @@ export function ConversationHeader({
   return (
     <View
       style={{
-        minHeight: 76,
+        minHeight: height,
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
@@ -162,7 +172,12 @@ export function ConversationHeader({
         borderBottomColor: tokens.color.border,
       }}
     >
-      <IconButton icon="back" label="뒤로" onPress={onBack} />
+      <IconButton
+        icon="back"
+        label="뒤로"
+        onPress={onBack}
+        testID="header-back"
+      />
       {onProfile ? (
         <Pressable
           accessibilityRole="button"

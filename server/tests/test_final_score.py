@@ -1,0 +1,1369 @@
+"""AC-SRC-2/3/5/6: offline final text, denominator integrity and privacy."""
+
+import copy
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from app.source_analysis import final_score
+from app.source_analysis.corpus_score import canonical_bytes, normalize, sha256
+from app.source_analysis.final_score import (
+    CULTIVARS,
+    FORBIDDEN_WORDS,
+    LOCAL_GOLD_SHA256,
+    PHONE_RE,
+    Gold,
+    LocalGold,
+    compact,
+    contains,
+    load_local_gold,
+    main,
+    markdown,
+    score,
+    sensitive_tokens,
+    split_sentences,
+)
+
+ROOT = Path(__file__).resolve().parents[2]
+VALIDATION = ROOT / "docs/spec/validation"
+TEXT = "감귤 3kg 한 상자입니다."
+
+
+def gold(*, text=TEXT, tokens=None, section="composition", module="composition", critical=True):
+    return {
+        "schemaVersion": 1,
+        "split": "holdout",
+        "sources": [
+            {
+                "id": "holdout-01",
+                "format": "text",
+                "product": "비공개 상품명",
+                "sentences": [
+                    {
+                        "section": section,
+                        "module": module,
+                        "text": text,
+                        "where": "비공개 위치",
+                        "facts": [
+                            {
+                                "id": "f1",
+                                "statement": "비공개 사실",
+                                "mustContain": tokens or ["감귤", "3kg"],
+                                "critical": critical,
+                            }
+                        ],
+                    }
+                ],
+                "forbidden": [],
+            }
+        ],
+    }
+
+
+def run(text=TEXT, *, module="composition", status="EVALUATED"):
+    return {
+        "id": "holdout-01",
+        "format": "text",
+        "status": status,
+        "modules": [{"module": module, "texts": [text]}],
+    }
+
+
+def result(g=None, r=None, safe=TEXT):
+    return score(g or gold(), [run() if r is None else r], {"holdout-01": safe})
+
+
+def test_AC_SRC_2_fact_hit_and_section_aggregates():
+    report = result()
+    for bucket in [report["overall"], report["byFormat"]["text"], report["sources"][0]]:
+        assert bucket["factRecall"] == {"hit": 1, "total": 1, "rate": 1.0}
+        assert bucket["criticalFactRecall"]["rate"] == 1
+        assert bucket["bySection"]["composition"]["factRecall"]["hit"] == 1
+        assert bucket["criticalGate"] == "PASS"
+    assert report["byFormat"]["pdf"]["factRecall"]["rate"] is None
+    assert report["byFormat"]["pdf"]["criticalGate"] == "N/A"
+
+
+def test_AC_SRC_3_partial_token_miss():
+    report = result(r=run("감귤 한 상자입니다."))["overall"]
+    assert report["factRecall"]["hit"] == 0
+    assert report["criticalGate"] == "FAIL"
+
+
+def test_AC_SRC_3_misplacement_and_same_section_different_module():
+    report = result(r=run(module="storage"))["overall"]
+    assert report["misplacement"] == {"hit": 1, "total": 1, "rate": 1.0}
+    assert report["factRecall"]["hit"] == 0
+    assert result(r=run(module="pieceCount"))["overall"]["factRecall"]["hit"] == 1
+    r = run()
+    r["modules"].append({"module": "storage", "texts": [TEXT]})
+    assert result(r=r)["overall"]["misplacement"]["hit"] == 0
+
+
+def test_AC_SRC_3_tokens_split_across_other_sections_are_not_misplacement():
+    r = run("감귤", module="storage")
+    r["modules"].append({"module": "delivery", "texts": ["3kg"]})
+    assert result(r=r)["overall"]["misplacement"]["hit"] == 0
+
+
+@pytest.mark.parametrize("text", ["32,000원", "₩35,000", "3만 원", "3 만 원"])
+def test_AC_03_2_money_violation(text):
+    report = result(r=run(text), safe=text)["overall"]
+    assert report["forbidden"]["price"] == 1
+    assert report["criticalGate"] == "FAIL"
+
+
+@pytest.mark.parametrize("text", ["3kg", "12과", "13~14 브릭스", "2004년", "1-3일", "24시간"])
+def test_AC_03_2_non_money_numbers_allowed(text):
+    g = gold(text=text, tokens=[text])
+    report = result(g=g, r=run(text), safe=text)["overall"]
+    assert report["forbiddenViolations"] == 0
+    assert report["unsupportedTokens"] == 0
+    assert report["criticalGate"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    "text,kind",
+    [
+        ("010-0000-0000", "phone"),
+        ("01000000000", "phone"),
+        ("02 000 0000", "phone"),
+        ("+82-10-0000-0000", "phone"),
+        ("test@example.invalid", "email"),
+        ("1588-0000", "phone"),
+    ],
+)
+def test_AC_SRC_6_phone_email(text, kind):
+    report = result(r=run(TEXT + " " + text), safe=TEXT + text)["overall"]
+    assert report["forbidden"][kind] == 1
+    assert report["criticalGate"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "price",
+        "pii",
+        "ui",
+        "watermark",
+        "other_product",
+        "unsupported",
+        "platform",
+        "health",
+        "other",
+    ],
+)
+def test_AC_SRC_6_forbidden_distinctive_text(kind):
+    g = gold()
+    g["sources"][0]["forbidden"] = [{"kind": kind, "text": "워터마크: 가상표식"}]
+    report = result(g=g, r=run(TEXT + " 가상 표식"), safe=TEXT + " 가상표식")["overall"]
+    assert report["forbidden"][f"gold_{kind}"] == 1
+    assert report["criticalGate"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "extra,kind",
+    [
+        ("5kg", "number"),
+        ("12과", "number"),
+        ("5ml", "number"),
+        ("한라봉", "cultivar"),
+        ("GAP", "certification"),
+        ("HACCP", "certification"),
+        ("무농약", "certification"),
+        ("유기농", "certification"),
+        ("친환경", "certification"),
+        ("인증", "certification"),
+    ],
+)
+def test_AC_SRC_3_unsupported_sensitive_tokens(extra, kind):
+    report = result(r=run(TEXT + " " + extra))["overall"]
+    assert report["unsupported"][kind] >= 1
+    assert report["criticalGate"] == "FAIL"
+    assert report["precisionProxy"]["hit"] == 1  # first safe sentence remains supported
+
+
+def test_AC_SRC_3_numeric_token_boundaries_and_units():
+    g = gold(text="3kg", tokens=["3kg"])
+    # Gold substring recall can match inside 13kg; unsupported tokens must still catch this.
+    report = result(g=g, r=run("13kg"), safe="3kg")["overall"]
+    assert report["unsupported"]["number"] == 1
+    assert report["criticalGate"] == "FAIL"
+    assert result(g=g, r=run("3킬로그램"), safe="3kg")["overall"]["unsupportedTokens"] == 0
+    assert result(g=g, r=run("3g"), safe="3kg")["overall"]["unsupportedTokens"] == 1
+
+
+def test_AC_SRC_3_custom_cultivar_and_deduplication():
+    r = run(TEXT + " 신품종가상 신품종가상 5kg 5kg")
+    report = score(gold(), [r], {"holdout-01": TEXT}, cultivar_words=(*CULTIVARS, "신품종가상"))[
+        "overall"
+    ]
+    assert report["unsupported"] == {"number": 1, "cultivar": 1, "certification": 0}
+
+
+@pytest.mark.parametrize("status", ["FAILED", "EMPTY", "REJECTED", "NOT_RUN"])
+def test_AC_SRC_5_failed_run_denominators_and_residual_safety(status):
+    report = result(r=run(TEXT + " 32,000원", status=status))["overall"]
+    assert report["factRecall"] == {"hit": 0, "total": 1, "rate": 0.0}
+    assert report["criticalFactRecall"]["total"] == 1
+    assert report["failedRuns"] == 1
+    assert report["forbiddenViolations"] == 1
+
+
+def test_AC_SRC_5_missing_empty_and_micro_aggregation():
+    g = gold()
+    second = copy.deepcopy(g["sources"][0])
+    second.update(id="holdout-02", format="pdf")
+    g["sources"].append(second)
+    report = score(g, [run()], {"holdout-01": TEXT, "holdout-02": TEXT})
+    assert report["overall"]["factRecall"] == {"hit": 1, "total": 2, "rate": 0.5}
+    assert report["overall"]["failedRuns"] == 1
+    assert report["byFormat"]["pdf"]["factRecall"]["total"] == 1
+    assert result(r=run("  \n"))["overall"]["factRecall"]["hit"] == 0
+
+
+def test_AC_SRC_2_normalization_reuses_frozen_function():
+    assert compact("‘감귤’ 3.0 KG 한 상자") == compact("'감귤' 3kg 1상자")
+    assert compact("13~14 브릭스") != compact("13-14 브릭스")
+    text = "감귤 3킬로그램 한 상자입니다."
+    assert result(r=run(text))["overall"]["factRecall"]["hit"] == 1
+    assert compact("감귤") == compact("감귤")
+    assert normalize("3 KG") == "3kg"
+
+
+def test_AC_SRC_2_precision_proxy_source_support_and_bound_human_judgment():
+    r = run("감귤 3kg입니다. 서늘한 곳에 보관합니다. 부드럽게 소개합니다.")
+    sentence = split_sentences(r["modules"][0]["texts"][0])[2]
+    r["supportJudgments"] = [
+        {"sentenceIndex": 2, "sentenceSha256": sha256(sentence.encode()), "supported": True}
+    ]
+    report = result(r=r, safe=TEXT + " 서늘한 곳에 보관합니다.")["overall"]
+    assert report["precisionProxy"] == {"hit": 3, "total": 3, "rate": 1.0}
+    r["supportJudgments"][0]["sentenceSha256"] = "0" * 64
+    with pytest.raises(ValueError, match="redacted"):
+        result(r=r)
+
+
+def test_AC_SRC_6_human_judgment_cannot_hide_unsafe_sentence():
+    r = run("한라봉 32,000원")
+    r["supportJudgments"] = [
+        {
+            "sentenceIndex": 0,
+            "sentenceSha256": sha256("한라봉 32,000원".encode()),
+            "supported": True,
+        }
+    ]
+    assert result(r=r)["overall"]["precisionProxy"]["hit"] == 0
+
+
+@pytest.mark.parametrize("change", ["tokens", "module", "duplicate", "unsafe", "blank"])
+def test_AC_SRC_2_gold_validation(change):
+    g = gold()
+    sentence = g["sources"][0]["sentences"][0]
+    if change == "tokens":
+        sentence["facts"][0]["mustContain"] = ["5kg"]
+    elif change == "module":
+        sentence["module"] = "storage"
+    elif change == "duplicate":
+        sentence["facts"].append(copy.deepcopy(sentence["facts"][0]))
+    elif change == "unsafe":
+        sentence["text"] += " 32,000원"
+    else:
+        sentence["facts"][0]["mustContain"] = [" "]
+    with pytest.raises(ValueError, match="redacted"):
+        result(g=g)
+
+
+@pytest.mark.parametrize("change", ["unknown", "format", "duplicate", "safe", "module"])
+def test_AC_SRC_2_invalid_run_or_source_mapping(change):
+    r, safe = run(), {"holdout-01": TEXT}
+    records = [r]
+    if change == "unknown":
+        r["id"] = "unknown"
+    elif change == "format":
+        r["format"] = "pdf"
+    elif change == "duplicate":
+        records.append(r)
+    elif change == "safe":
+        safe = {}
+    else:
+        r["modules"][0]["module"] = "unknown"
+    with pytest.raises(ValueError, match="redacted"):
+        score(gold(), records, safe)
+
+
+def test_AC_SRC_6_holdout_report_redaction():
+    g = gold()
+    g["sources"][0]["forbidden"] = [{"kind": "watermark", "text": "비공개표식"}]
+    report = result(g=g, r=run(TEXT + " 비공개표식 비공개출력"), safe=TEXT + " 비공개원문")
+    serialized = json.dumps(report, ensure_ascii=False) + markdown(report)
+    for secret in [
+        TEXT,
+        "비공개 상품명",
+        "비공개 위치",
+        "비공개 사실",
+        "비공개표식",
+        "비공개출력",
+        "비공개원문",
+    ]:
+        assert secret not in serialized
+    assert report["sources"][0]["id"] == "holdout-01"
+    assert report["sources"][0]["goldSha256"] == sha256(canonical_bytes(g["sources"][0]))
+
+
+def test_AC_SRC_6_cli_envelope_redaction_and_exit_codes(tmp_path, capsys):
+    def write(name, data):
+        path = tmp_path / name
+        path.write_text(json.dumps(data, ensure_ascii=False))
+        return str(path)
+
+    holdout_path = write("holdout-gold.json", gold())
+    development = gold()
+    development["split"] = "development"
+    gold_path = write("gold.json", development)
+    write("output.json", run())
+    (tmp_path / "safe.txt").write_text(TEXT)
+    envelope = {
+        "schemaVersion": 1,
+        "sources": [{"id": "holdout-01", "safeTextPath": "safe.txt", "outputPath": "output.json"}],
+    }
+    runs_path = write("runs.json", envelope)
+    argv = [
+        "--gold",
+        gold_path,
+        "--runs",
+        runs_path,
+        "--report",
+        str(tmp_path / "report.json"),
+        "--markdown",
+        str(tmp_path / "report.md"),
+    ]
+    # holdout은 --gold로 받지 않는다(SHA·lock 고정 경로만).
+    assert main([*argv[:1], holdout_path, *argv[2:]]) == 2
+    assert main(argv) == 0
+    assert TEXT not in capsys.readouterr().out
+    assert TEXT not in (tmp_path / "report.json").read_text()
+    envelope["sources"][0].pop("outputPath")
+    write("runs.json", envelope)
+    assert main(argv) == 1
+    envelope["sources"][0]["safeTextPath"] = "비공개경로-secret.txt"
+    write("runs.json", envelope)
+    assert main(argv) == 2
+    assert "비공개경로" not in capsys.readouterr().out
+    write(
+        "runs.json",
+        {"schemaVersion": 1, "sources": [{"id": "holdout-01", "safeTextPath": "safe.txt"}]},
+    )
+    argv[-1] = gold_path
+    assert main(argv) == 2
+    assert json.loads(Path(gold_path).read_text()) == development
+
+
+def test_AC_SRC_6_cli_subprocess_invalid_gold_never_leaks(tmp_path):
+    private = "SECRET_GOLD_TEXT_MARKER"
+    path = tmp_path / "gold.json"
+    path.write_text(json.dumps({"secret": private}))
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.source_analysis.final_score",
+            "--gold",
+            str(path),
+            "--runs",
+            str(path),
+            "--report",
+            str(tmp_path / "out.json"),
+            "--markdown",
+            str(tmp_path / "out.md"),
+        ],
+        cwd=ROOT / "server",
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 2
+    assert private not in completed.stdout + completed.stderr
+    assert not completed.stderr
+
+
+def test_AC_SRC_2_synthetic_gold_schema_manifest_and_self_score():
+    gold_path = VALIDATION / "source-final-gold-i3-dev-synthetic.json"
+    g = json.loads(gold_path.read_text())
+    assert Gold.model_validate(g)
+    assert (
+        json.loads((VALIDATION / "source-final-gold.schema.json").read_text())
+        == Gold.model_json_schema()
+    )
+    manifest = json.loads((VALIDATION / "source-final-dev-manifest.json").read_text())
+    corpus = json.loads((VALIDATION / "source-corpus-i3-v1.json").read_text())
+    fixtures = json.loads((ROOT / "server/tests/fixtures/source-analysis/cases.json").read_text())
+    assert manifest["goldFileSha256"] == sha256(gold_path.read_bytes())
+    assert len(g["sources"]) == 23
+    assert {s["id"] for s in g["sources"]} == {c["id"] for c in fixtures}
+    private = [c for c in manifest["cases"] if c["status"] == "LOCAL_PRIVATE"]
+    retired = json.loads((VALIDATION / "source-final-holdout-i3-lock.json").read_text())
+    assert len(private) == 24
+    assert len(manifest["cases"]) == len({c["id"] for c in manifest["cases"]}) == 47
+    assert {(c["id"], c["format"]) for c in private} == (
+        {
+            (c["id"], c["format"]) for c in corpus["cases"]
+            if c["id"] not in {f["id"] for f in fixtures}
+        }
+        | {(s["id"], s["format"]) for s in retired["sources"]}
+    )
+    assert all(c["goldSha256"] == LOCAL_GOLD_SHA256["development"] for c in private)
+    assert not {c["id"] for c in private} & {s["id"] for s in g["sources"]}
+    assert {c["id"] for c in manifest["cases"]} == (
+        {c["id"] for c in corpus["cases"]}
+        | {c["id"] for c in fixtures}
+        | {s["id"] for s in retired["sources"]}
+    )
+    for source in g["sources"]:
+        c = next(c for c in manifest["cases"] if c["id"] == source["id"])
+        assert c["goldSha256"] == sha256(canonical_bytes(source))
+        if source["id"] in {"21-long-text", "22-pdf-25-pages", "23-partial-validation"}:
+            fixture = next(f for f in fixtures if f["id"] == source["id"])
+            definition = {k: fixture[k] for k in ("kind", "text", "pages") if k in fixture}
+            assert c["inputDefinitionSha256"] == sha256(canonical_bytes(definition))
+            assert "safeInputSha256" not in c  # OCR output is unknown until evaluation.
+        text = "\n".join(s["text"] for s in source["sentences"])
+        # Self-score checks section and safety consistency, not model performance.
+        report = score(
+            {**g, "sources": [source]},
+            [
+                {
+                    "id": source["id"],
+                    "format": source["format"],
+                    "modules": [
+                        {"module": s["module"], "texts": [s["text"]]} for s in source["sentences"]
+                    ],
+                }
+            ],
+            {source["id"]: next(c["text"] for c in fixtures if c["id"] == source["id"])},
+        )
+        row = report["overall"]
+        assert row["factRecall"]["hit"] == row["factRecall"]["total"]
+        assert row["forbiddenViolations"] == 0
+        assert row["unsupportedTokens"] == 0
+        assert row["criticalGate"] == ("PASS" if text else "FAIL")
+    assert sum(len(s["sentences"]) for s in g["sources"]) == 24
+    assert sum(len(t["facts"]) for s in g["sources"] for t in s["sentences"]) == 30
+    for case_id in ("09-support",):
+        source = next(s for s in g["sources"] if s["id"] == case_id)
+        assert source["sentences"] == []
+        assert source["forbidden"] and all(f["kind"] == "platform" for f in source["forbidden"])
+    delivery = next(s for s in g["sources"] if s["id"] == "06-delivery")
+    assert delivery["sentences"][0]["section"] == "packing"
+    assert delivery["sentences"][0]["module"] == "delivery"
+    assert delivery["sentences"][0]["text"] == "수확 후 순차 출고해요."
+    assert {f["text"] for f in delivery["forbidden"]} == {
+        "익일 도착",
+        "다음 날 도착",
+        "도착일은 확정하지 않습니다",
+    }
+    pdf = next(s for s in g["sources"] if s["id"] == "20-pdf-table")
+    assert {f["text"] for f in pdf["forbidden"]} == {"배송일"}
+    weight = next(s for s in g["sources"] if s["id"] == "02-weight")
+    assert weight["sentences"][0]["text"] == "감귤 5kg 한 상자입니다."
+
+
+def test_AC_SRC_3_noncritical_miss_is_reported_without_critical_failure():
+    report = result(g=gold(critical=False), r=run("새로운 소개입니다."), safe="새로운 소개입니다.")[
+        "overall"
+    ]
+    assert report["factRecall"] == {"hit": 0, "total": 1, "rate": 0.0}
+    assert report["criticalFactRecall"]["rate"] is None
+    assert report["criticalGate"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    "module,section",
+    [("name", "intro"), ("historicalSales", "farm"), ("productionProcess", "production")],
+)
+def test_AC_SRC_3_final_text_section_aliases(module, section):
+    g = gold(module=module, section=section)
+    assert result(g=g, r=run(module=module))["overall"]["factRecall"]["hit"] == 1
+
+
+def test_AC_SRC_2_all_four_formats_and_micro_denominators():
+    g = gold()
+    g["sources"] = []
+    runs, safe = [], {}
+    for fmt in ("text", "image", "long_image", "pdf"):
+        source = copy.deepcopy(gold()["sources"][0])
+        source.update(id=f"case-{fmt}", format=fmt)
+        g["sources"].append(source)
+        safe[source["id"]] = TEXT
+        runs.append({**run(), "id": source["id"], "format": fmt})
+    report = score(g, runs, safe)
+    assert report["overall"]["factRecall"]["total"] == 4
+    assert all(b["factRecall"]["rate"] == 1 for b in report["byFormat"].values())
+    assert report["overall"]["bySection"]["composition"]["factRecall"]["total"] == 4
+
+
+def test_AC_SRC_5_empty_gold_is_na_and_zero_fact_run_still_audited():
+    report = score({"schemaVersion": 1, "split": "holdout", "sources": []}, [], {})
+    assert report["overall"]["criticalGate"] == "N/A"
+    assert report["overall"]["factRecall"]["rate"] is None
+    g = gold()
+    g["sources"][0]["sentences"] = []
+    assert result(g=g, r=run("₩35,000"))["overall"]["criticalGate"] == "FAIL"
+
+
+def test_AC_SRC_2_decimal_sentence_boundaries():
+    assert split_sentences("당도 13.5브릭스입니다. 두 번째 문장!\n세 번째?") == [
+        "당도 13.5브릭스입니다",
+        "두 번째 문장!",
+        "세 번째?",
+    ]
+
+
+@pytest.mark.parametrize("word,number", [("한", 1), ("두", 2), ("세", 3), ("네", 4)])
+@pytest.mark.parametrize("unit", ["개", "상자", "박스"])
+@pytest.mark.parametrize("ending", ["입니다.", "를 담았습니다.", "이며", "는", "."])
+def test_AC_SRC_2_native_counts_match_with_korean_endings(word, number, unit, ending):
+    text = f"감귤 {word} {unit}{ending}"
+    assert contains([f"{word} {unit}"], text)
+    assert contains([f"{number}{unit}"], text)
+    assert contains([f"{word} {unit}"], f"감귤 {number}{unit}{ending}")
+    assert sensitive_tokens(text)["number"] == {f"{number}{unit}"}
+
+
+def test_AC_SRC_3_reverse_count_does_not_invent_unsupported_number():
+    report = result(
+        g=gold(tokens=["감귤", "한 상자"]),
+        r=run("감귤 3kg 한 상자."),
+        safe="감귤 3kg 한 상자입니다.",
+    )["overall"]
+    assert report["factRecall"]["rate"] == 1
+    assert report["unsupportedTokens"] == 0
+    assert report["criticalGate"] == "PASS"
+
+
+def test_AC_SRC_2_verbatim_token_must_also_match_normalized_gold():
+    # Raw inclusion alone succeeds, but the standalone token loses its context.
+    g = gold(text="감귤 한 상자입니다.", tokens=["한"])
+    assert "한" in g["sources"][0]["sentences"][0]["text"]
+    with pytest.raises(ValueError, match="normalized gold"):
+        Gold.model_validate(g)
+    with pytest.raises(ValueError, match="redacted"):
+        result(g=g)
+
+
+@pytest.mark.parametrize("unit", ["Large", "large", "medium", "grams", "brixmeter", "kgBox"])
+def test_AC_SRC_3_unit_prefix_does_not_match_english_word(unit):
+    assert sensitive_tokens(f"3 {unit}")["number"] == {"3"}
+
+
+@pytest.mark.parametrize(
+    "left,right", [("1,000g", "1000g"), ("1,000.0g", "1000g"), ("12,345kg", "12345kg")]
+)
+def test_AC_SRC_3_thousands_separators_are_symmetric(left, right):
+    assert compact(left) == compact(right)
+    assert sensitive_tokens(left) == sensitive_tokens(right)
+    for output, safe in [(left, right), (right, left)]:
+        report = result(g=gold(text=safe, tokens=[safe]), r=run(output), safe=safe)["overall"]
+        assert report["factRecall"]["hit"] == 1
+        assert report["unsupportedTokens"] == 0
+        assert report["criticalGate"] == "PASS"
+    assert compact("1, 000g") != compact("1000g")
+
+
+@pytest.mark.parametrize(
+    "kind,word", [(kind, w) for kind, words in FORBIDDEN_WORDS.items() for w in words]
+)
+def test_AC_SRC_6_health_platform_words_fail_even_with_source_and_human_support(kind, word):
+    text = TEXT + " " + word.replace(" ", "  ")
+    r = run(text)
+    sentences = split_sentences(text)
+    r["supportJudgments"] = [
+        {"sentenceIndex": i, "sentenceSha256": sha256(s.encode()), "supported": True}
+        for i, s in enumerate(sentences)
+    ]
+    report = result(r=r, safe=text)["overall"]
+    assert report["forbidden"][kind] == 1
+    assert report["forbiddenViolations"] == 1
+    assert report["precisionProxy"]["hit"] < report["precisionProxy"]["total"]
+    assert report["criticalGate"] == "FAIL"
+
+
+def test_AC_SRC_6_neutral_healthy_growing_is_allowed():
+    text = "건강하게 키운 감귤입니다."
+    report = result(g=gold(text=text, tokens=["건강하게 키운"]), r=run(text), safe=text)["overall"]
+    assert report["forbiddenViolations"] == 0
+    assert report["criticalGate"] == "PASS"
+
+
+def test_AC_SRC_5_contract_and_extraction_counts_keep_overall_failures():
+    g = gold()
+    contract = copy.deepcopy(g["sources"][0])
+    contract.update(id="contract-01", sentences=[])
+    g["sources"].append(contract)
+    report = score(g, [run()], {"holdout-01": TEXT, "contract-01": ""})
+    assert [r["caseType"] for r in report["sources"]] == ["extraction", "contract"]
+    assert report["overall"]["contractCases"] == 1
+    assert report["overall"]["extractionCases"] == 1
+    assert report["overall"]["criticalGate"] == "FAIL"
+    assert report["byCaseType"]["extraction"]["criticalGate"] == "PASS"
+    assert report["byCaseType"]["contract"]["criticalGate"] == "FAIL"
+    assert report["byCaseType"]["contract"]["factRecall"]["rate"] is None
+    assert "| contract |" in markdown(report)
+
+
+@pytest.mark.parametrize("split", ["development", "holdout"])
+def test_AC_SRC_6_local_list_gold_envelope_hash_lock_and_missing_where(
+    tmp_path, monkeypatch, capsys, split
+):
+    source = copy.deepcopy(gold()["sources"][0])
+    source.pop("format")
+    source["sentences"][0].pop("where")
+    gold_path = tmp_path / "local-gold.json"
+    gold_path.write_text(json.dumps([source], ensure_ascii=False))
+    digest = sha256(gold_path.read_bytes())
+    monkeypatch.setitem(LOCAL_GOLD_SHA256, split, digest)
+    lock = tmp_path / "lock.json"
+    lock.write_text(json.dumps({"sha256": digest}))
+    # 형식은 레포의 잠금 기록(holdout lock·dev manifest)과 대조한다.
+    pins = tmp_path / "pins.json"
+    pins.write_text(
+        json.dumps(
+            {
+                "sha256": digest,
+                "sources": [{"id": "holdout-01", "format": "text"}],
+                "cases": [{"id": "holdout-01", "format": "text", "status": "LOCAL_PRIVATE"}],
+            }
+        )
+    )
+    monkeypatch.setattr(final_score, "HOLDOUT_LOCK", pins)
+    monkeypatch.setattr(final_score, "DEV_MANIFEST", pins)
+    reference = LocalGold(path="local-gold.json", split=split, lockPath="lock.json")
+    with pytest.raises(ValueError, match="redacted"):
+        load_local_gold(reference, tmp_path, {"holdout-01": "pdf"}, holdout_version="v1.1")
+    loaded = load_local_gold(reference, tmp_path, {"holdout-01": "text"}, holdout_version="v1.1")
+    assert loaded.sources[0].sentences[0].where is None
+    assert loaded.split == split
+    (tmp_path / "safe.txt").write_text(TEXT)
+    (tmp_path / "output.json").write_text(json.dumps(run()))
+    envelope = {
+        "schemaVersion": 1,
+        "gold": [reference.model_dump()],
+        "sources": [
+            {
+                "id": "holdout-01",
+                "format": "text",
+                "safeTextPath": "safe.txt",
+                "outputPath": "output.json",
+            }
+        ],
+    }
+    runs = tmp_path / "runs.json"
+    runs.write_text(json.dumps(envelope))
+    argv = [
+        "--holdout-version",
+        "v1.1",
+        "--runs",
+        str(runs),
+        "--report",
+        str(tmp_path / "report.json"),
+        "--markdown",
+        str(tmp_path / "report.md"),
+    ]
+    assert main(argv) == 0
+    assert TEXT not in capsys.readouterr().out
+    # Both private gold and lock files are protected against report overwrites.
+    for destination in [gold_path, lock]:
+        assert main([*argv[:-1], str(destination)]) == 2
+    lock.write_text(json.dumps({"sha256": "0" * 64}))
+    assert main(argv) == 2
+    lock.write_text(json.dumps({"sha256": digest}))
+    gold_path.write_text(gold_path.read_text() + "\n")
+    assert main(argv) == 2
+    output = capsys.readouterr().out
+    assert TEXT not in output
+    assert source["product"] not in output
+
+
+def test_AC_SRC_6_private_gold_requires_pinned_hash_format_and_holdout_lock(tmp_path, monkeypatch):
+    source = copy.deepcopy(gold()["sources"][0])
+    source.pop("format")
+    path = tmp_path / "gold.json"
+    path.write_text(json.dumps([source]))
+    reference = LocalGold(path="gold.json", split="holdout")
+    with pytest.raises(ValueError, match="redacted"):
+        load_local_gold(reference, tmp_path, {"holdout-01": "text"}, holdout_version="v1.1")
+    monkeypatch.setitem(LOCAL_GOLD_SHA256, "holdout", sha256(path.read_bytes()))
+    with pytest.raises(ValueError, match="redacted"):
+        load_local_gold(reference, tmp_path, {"holdout-01": "text"}, holdout_version="v1.1")
+    reference = reference.model_copy(update={"lockPath": "lock.json"})
+    (tmp_path / "lock.json").write_text(json.dumps({"sha256": sha256(path.read_bytes())}))
+    with pytest.raises(ValueError, match="redacted"):
+        load_local_gold(reference, tmp_path, {}, holdout_version="v1.1")
+
+
+def test_AC_SRC_6_validation_json_excludes_holdout_payloads_except_metadata_lock():
+    def check(value):
+        if isinstance(value, dict):
+            assert value.get("split") != "holdout"
+            for v in value.values():
+                check(v)
+        elif isinstance(value, list):
+            for v in value:
+                check(v)
+        elif isinstance(value, str):
+            assert "h3-" not in value
+
+    # 최종 문구 정답 파일만 본다. 이전 기록(source-visual-* 등)의 split 값은 고치지 않는다.
+    lock_path = VALIDATION / "source-final-holdout-i3-lock.json"
+    lock = json.loads(lock_path.read_text())
+    # 평가 보고서(source-final-eval-*)는 holdout id·상태·집계만, 문장 필드는 없어야 한다.
+    text_keys = {"text", "value", "sentences", "statement", "mustContain", "quote", "forbidden"}
+
+    def no_text(value):
+        if isinstance(value, dict):
+            for key, v in value.items():
+                if key in text_keys:
+                    assert not isinstance(v, str)
+                    assert not (isinstance(v, list) and any(isinstance(x, (str, dict)) for x in v))
+                no_text(v)
+        elif isinstance(value, list):
+            for v in value:
+                no_text(v)
+
+    no_text({"formats": {"text": 21, "image": 6}, "text": {"rows": 3}})
+    for key in text_keys:
+        no_text({key: 0})
+        no_text({key: []})
+        for payload in (
+            "SYNTHETIC_CONTENT",
+            ["SYNTHETIC_CONTENT"],
+            [{"id": "synthetic"}],
+            [0, "SYNTHETIC_CONTENT"],
+            {"nested": {"quote": "SYNTHETIC_CONTENT"}},
+        ):
+            with pytest.raises(AssertionError):
+                no_text({"nested": [{key: payload}]})
+
+    for path in VALIDATION.rglob("source-final-*.json"):
+        if path.name.startswith("source-final-eval-"):
+            no_text(json.loads(path.read_text()))
+        elif path.name == "source-final-dev-manifest.json":
+            manifest = json.loads(path.read_text())
+            assert manifest["holdout"]["status"] == "RETIRED_TO_DEV"
+            assert manifest["holdout"]["retiredAt"] == "2026-11-02"
+            retired_ids = {s["id"] for s in lock["sources"]}
+            retired = [c for c in manifest["cases"] if c["id"] in retired_ids]
+            assert len(retired) == 12
+            assert {(c["id"], c["format"]) for c in retired} == {
+                (s["id"], s["format"]) for s in lock["sources"]
+            }
+            for case in retired:
+                assert set(case) == {
+                    "id", "format", "status", "safeInputSha256", "goldSha256", "safeInputEncoding"
+                }
+                assert case["safeInputEncoding"] == "file-bytes"
+                assert case["status"] == "LOCAL_PRIVATE"
+                assert len(case["safeInputSha256"]) == 64
+                assert set(case["safeInputSha256"]) <= set("0123456789abcdef")
+                assert case["goldSha256"] == LOCAL_GOLD_SHA256["development"]
+            # Only the 12 locked IDs are newly allowed, in metadata-only case records.
+            # Every other manifest field keeps the original payload check.
+            manifest["cases"] = [c for c in manifest["cases"] if c["id"] not in retired_ids]
+            check(manifest)
+        elif path != lock_path:
+            check(json.loads(path.read_text()))
+    assert set(lock) == {"name", "sha256", "sources", "totalSentences", "totalFacts", "policy"}
+    assert lock["name"] == "source-holdout-i3-final-v1.1"
+    assert lock["sha256"] == LOCAL_GOLD_SHA256["holdout"]
+    assert lock["totalSentences"] == 146 and lock["totalFacts"] == 261
+    assert lock["policy"] == "local only, never tune on it, run once after DEV-186 (T11/T23)"
+    assert lock["sources"] == [
+        {"id": f"h3-{fmt}-{i:02}", "format": fmt}
+        for fmt in ("text", "image", "long_image", "pdf")
+        for i in range(1, 4)
+    ]
+
+
+def test_AC_SRC_6_brix_unit_matches_regardless_of_neighbors():
+    assert contains(["13~14", "브릭스"], "당도 13~14 브릭스입니다.")
+    assert contains(["13.5Brix"], "13.2Brix, 13.5Brix가 나왔습니다.")
+    assert contains(["12Brix"], "평균 12°Bx 이상")
+
+
+def test_AC_SRC_6_gold_rejects_forbidden_words_and_self_forbidden_text():
+    g = gold()
+    g["sources"][0]["sentences"][0]["text"] += " 교환 가능합니다."
+    with pytest.raises(ValidationError):
+        Gold.model_validate(g)
+    g = gold()
+    token = g["sources"][0]["sentences"][0]["facts"][0]["mustContain"][0]
+    g["sources"][0]["forbidden"] = [{"kind": "ui", "text": token}]
+    with pytest.raises(ValidationError):
+        Gold.model_validate(g)
+
+
+def test_AC_SRC_6_list_markers_and_ranges_are_not_numbers_or_phones():
+    tokens = sensitive_tokens("1. 감귤 3kg 한 상자입니다.")["number"]
+    assert "1" not in tokens
+    assert not PHONE_RE.search("1500-2000g 사이")
+    assert not PHONE_RE.search("해발 1600-1800m")
+    assert PHONE_RE.search("대표번호 1588-1234")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "010-1234-5678과 이메일",
+        "010-1234-5678 개인 휴대폰",
+        "02-123-4567 상자 문의",
+        "010-1234-5678 gmail.com",
+        "1588-1234 mail",
+        "고객센터 1588-1234 원하시는 시간",
+        "1588-1234 개인 상담",
+        "문의 1644-1234 상자 관련",
+        "0505-123-4567",
+        "010 - 1234 - 5678",
+        "(010)1234-5678",
+    ],
+)
+def test_AC_SRC_6_real_phone_numbers_are_still_detected(text):
+    assert PHONE_RE.search(text)
+
+
+def test_AC_SRC_6_korean_count_words_do_not_touch_months_or_persons():
+    assert "1개월" not in compact("한 개월")
+    assert "1개인" not in compact("한 개인 농가")
+    assert "1개" in compact("한 개")
+
+
+def test_AC_SRC_6_forbidden_text_is_matched_per_output_text_not_across_boundaries():
+    g = gold()
+    g["sources"][0]["forbidden"] = [{"kind": "other_product", "text": "비공개끝비공개시작"}]
+    r = run()
+    r["modules"] = [
+        {"module": "composition", "texts": [r["modules"][0]["texts"][0] + " 비공개끝"]},
+        {"module": "taste", "texts": ["비공개시작 맛"]},
+    ]
+    report = score(g, [r], {"holdout-01": TEXT})["overall"]
+    assert report["forbidden"].get("gold_other_product", 0) == 0
+
+
+def test_AC_SRC_6_regex_violations_do_not_cross_output_text_boundaries():
+    r = run()
+    r["modules"] = [
+        {"module": "composition", "texts": [r["modules"][0]["texts"][0] + " 5"]},
+        {"module": "taste", "texts": ["원하시는 맛"]},
+    ]
+    report = score(gold(), [r], {"holdout-01": TEXT + " 5"})["overall"]
+    assert report["forbidden"]["price"] == 0
+
+
+@pytest.mark.parametrize("text", ["080-123-4567", "1588–1234", "1588 - 1234"])
+def test_AC_SRC_6_toll_free_and_dash_variants_are_phones(text):
+    assert PHONE_RE.search(text)
+
+
+def test_AC_SRC_6_scorer_reads_the_shared_product_safety_lists():
+    from app.source_analysis.text_safety import MONEY, SAFETY_LISTS
+
+    assert final_score.MONEY_RE is MONEY
+    assert FORBIDDEN_WORDS == {k: tuple(SAFETY_LISTS[k]) for k in ("health", "platform")}
+
+
+@pytest.mark.parametrize(
+    "source", ["재배 시기 3월-5월", "3월부터 5월까지", "3~5월", "3-5월", "3월에서 5월 사이"]
+)
+@pytest.mark.parametrize("output", ["3-5월", "3~5월", "3월–5월", "3월에서 5월 사이"])
+def test_AC_SRC_3_shared_unit_range_has_one_supported_token(source, output):
+    actual = final_score.sensitive_tokens(output)
+    safe = final_score.sensitive_tokens(source)
+    assert actual["number"] == {"3월~5월"}
+    assert final_score.unsupported_tokens(actual, safe)["number"] == set()
+
+
+@pytest.mark.parametrize(
+    "source", ["3월", "5월", "3개 5개", "3월부터 6월까지", "3월 재배 5월 수확"]
+)
+def test_AC_SRC_3_shared_unit_range_requires_both_endpoints_and_unit(source):
+    unsupported = final_score.unsupported_tokens(
+        final_score.sensitive_tokens("3~5월"), final_score.sensitive_tokens(source)
+    )
+    assert unsupported["number"] == {"3월~5월"}
+
+
+@pytest.mark.parametrize("source", ["3-5kg", "3kg~5kg", "3kg–5kg", "3kg에서 5kg 사이"])
+@pytest.mark.parametrize("endpoint", ["3kg", "5kg"])
+def test_AC_SRC_3_source_range_never_supports_one_endpoint(source, endpoint):
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens(endpoint), final_score.sensitive_tokens(source)
+    )["number"] == {endpoint}
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens(source), final_score.sensitive_tokens(endpoint)
+    )["number"] == {"3kg~5kg"}
+
+
+def test_AC_SRC_3_range_endpoint_fails_score_and_precision():
+    value = gold()
+    sentence = value["sources"][0]["sentences"][0]
+    sentence["text"] = "중량 3-5kg입니다."
+    sentence["facts"] = [
+        {"id": "endpoint", "statement": "중량", "mustContain": ["5kg"], "critical": True}
+    ]
+    report = score(value, [run("5kg")], {value["sources"][0]["id"]: "중량 3-5kg"})
+    assert report["overall"]["unsupportedTokens"] == 1
+    assert report["overall"]["precisionProxy"]["rate"] == 0
+
+
+def test_AC_SRC_3_range_measurement_applies_to_score_and_precision():
+    value = gold()
+    sentence = value["sources"][0]["sentences"][0]
+    sentence["text"] = "재배 시기는 3~5월입니다."
+    sentence["facts"] = [
+        {"id": "range", "statement": "재배 월 범위", "mustContain": ["3~5월"], "critical": True}
+    ]
+    report = score(
+        value,
+        [run("재배 시기는 3~5월입니다.")],
+        {value["sources"][0]["id"]: "재배 시기는 3월부터 5월까지입니다."},
+    )
+    assert report["overall"]["unsupportedTokens"] == 0
+    assert report["overall"]["precisionProxy"]["rate"] == 1
+
+
+@pytest.mark.parametrize(
+    "source,output,tokens",
+    [
+        ("해발 300m에서 5년 길렀다", "300m 고지대에서 5년", {"300m", "5년"}),
+        ("20kg에서 2kg을 덜어", "20kg 중 2kg을 덜어", {"20kg", "2kg"}),
+        ("5%에서 10%까지", "5~10%", {"5%~10%"}),
+        ("3월부터 5월까지", "3월–5월", {"3월~5월"}),
+        ("300m에서 5년까지", "300m 고지대에서 5년까지", {"300m", "5년"}),
+        ("20kg부터 2kg을 덜어", "20kg 중 2kg을 덜어", {"20kg", "2kg"}),
+    ],
+)
+def test_AC_SRC_3_korean_particles_require_matching_units_and_range_ending(source, output, tokens):
+    safe = final_score.sensitive_tokens(source)
+    actual = final_score.sensitive_tokens(output)
+    assert safe["number"] == actual["number"] == tokens
+    assert final_score.unsupported_tokens(actual, safe)["number"] == set()
+    assert final_score.unsupported_tokens(safe, actual)["number"] == set()
+
+
+def test_AC_SRC_3_subtraction_operands_do_not_support_a_range():
+    assert final_score.unsupported_tokens(
+        final_score.sensitive_tokens("20kg~2kg"),
+        final_score.sensitive_tokens("20kg에서 2kg을 덜어"),
+    )["number"] == {"20kg~2kg"}
+
+
+def test_AC_SRC_2_6_t23_rerun_keeps_first_result_and_aggregate_totals():
+    from collections import Counter
+
+    report = json.loads((VALIDATION / "source-final-eval-i3-2026-11-01.json").read_text())
+    rerun = report["t23HoldoutRerun"]
+    assert rerun["label"] == (
+        "T23 holdout rerun — partially contaminated; does not replace the first run"
+    )
+    assert rerun["independent"] is False and rerun["replacesFirstRun"] is False
+    assert report["verdict"] == rerun["verdict"] == "FAIL"
+    assert rerun["config"]["stage1PromptVersion"] == "source-v8-exact-numbers"
+    assert rerun["config"]["stage2PromptVersion"] == "source-refine-v7-farm-common"
+    assert rerun["holdoutAttempt"] == 2
+    assert rerun["date"] == "2026-11-02"
+    assert rerun["rerunReason"] == "DEV-182 T23 rerun after general fixes (partially contaminated)"
+    first = report["holdout"]["overall"]
+    overall = rerun["overall"]
+    for metric, first_hit, rerun_hit, total in (
+        ("factRecall", 59, 74, 261),
+        ("criticalFactRecall", 29, 32, 109),
+        ("misplacement", 10, 26, 261),
+        ("precisionProxy", 60, 82, 91),
+    ):
+        assert first[metric]["hit"] == first_hit
+        assert overall[metric]["hit"] == rerun_hit
+        assert overall[metric]["total"] == total
+        for count in ("hit", "total"):
+            assert overall[metric][count] == sum(
+                q[metric][count] for q in rerun["byFormat"].values()
+            )
+    assert first["forbiddenViolations"] == 0 and overall["forbiddenViolations"] == 2
+    assert overall["forbidden"]["gold_other"] == overall["forbidden"]["gold_unsupported"] == 1
+    assert overall["unsupportedTokens"] == 0
+    assert overall["settledUsd"] == rerun["costSummary"]["settledUsd"] == 0.190412
+    assert overall["calls"] == 93
+    assert overall["statuses"] == {"EVALUATED": 7, "EMPTY": 1, "FAILED": 4}
+    assert overall["errorCodes"] == {"OCR_FAILED": 3, "INCOMPLETE_OR_REFUSED": 1}
+    assert rerun["emptyDiagnostics"] == {
+        "format": "text", "sources": 1, "emptyReason": "ALL_TEXTS_FILTERED",
+        "rejectedCandidates": 12, "rejectedTexts": 1,
+    }
+    for key in ("statuses", "errorCodes", "forbidden", "unsupported"):
+        combined = Counter()
+        for quality in rerun["byFormat"].values():
+            combined.update(quality[key])
+        assert dict(combined) == overall[key]
+    for quality in [overall, *rerun["byFormat"].values()]:
+        assert set(quality) == {
+            "sources", "contractCases", "extractionCases", "failedRuns", "factRecall",
+            "criticalFactRecall", "misplacement", "precisionProxy", "forbidden",
+            "forbiddenViolations", "unsupported", "unsupportedTokens", "criticalGate",
+            "statuses", "errorCodes", "settledUsd", "calls",
+        }
+    for key in ("sources", "calls", "forbiddenViolations", "unsupportedTokens"):
+        assert overall[key] == sum(q[key] for q in rerun["byFormat"].values())
+    assert overall["settledUsd"] == pytest.approx(
+        sum(q["settledUsd"] for q in rerun["byFormat"].values())
+    )
+    comparison = rerun["comparisonWithFirstRun"]
+    for key, value in comparison["firstRun"].items():
+        assert value == (report["holdout"]["settledUsd"] if key == "settledUsd" else first[key])
+    assert comparison["rerun"] == {k: overall[k] for k in comparison["rerun"]}
+    assert rerun["retirement"]["status"] == "RETIRED_TO_DEV"
+    assert rerun["retirement"]["developmentTotal"] == 47
+
+
+def test_AC_SRC_3_existing_year_line_wrap_is_supported_in_both_directions():
+    # Existing behavior before DEV-193: an adjacent wrapped unit remains supported.
+    broken = "2011\n년부터"
+    intact = "2011년부터"
+    assert sensitive_tokens(broken)["number"] == {"2011년"}
+    assert sensitive_tokens(intact)["number"] == {"2011년"}
+    for source, output in [(broken, intact), (intact, broken)]:
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(source)
+        )["number"] == set()
+        report = result(g=gold(text=intact, tokens=["2011"]), r=run(output), safe=source)
+        assert report["overall"]["unsupportedTokens"] == 0
+
+
+@pytest.mark.parametrize(
+    "source,invented,source_tokens,invented_tokens",
+    [
+        ("10\nm/s\n kg", "10kg", {"10m"}, {"10kg"}),
+        ("약 5\nkg/m\n도", "5도", {"5kg"}, {"5도"}),
+        ("2011\n반품/교\n년부터", "2011년부터", {"2011"}, {"2011년"}),
+    ],
+)
+def test_AC_SRC_3_DEV_193_slash_line_cannot_be_skipped_to_invent_units(
+    source, invented, source_tokens, invented_tokens
+):
+    assert sensitive_tokens(source)["number"] == source_tokens
+    assert sensitive_tokens(invented)["number"] == invented_tokens
+    for output, safe, unsupported in [
+        (invented, source, invented_tokens),
+        (source, invented, source_tokens),
+    ]:
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(safe)
+        )["number"] == unsupported
+        report = result(r=run(output), safe=safe)["overall"]
+        assert report["unsupported"]["number"] == len(unsupported)
+        assert report["unsupportedTokens"] >= len(unsupported)
+        assert report["criticalGate"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "source,output",
+    [
+        ("2011\n재배한 농가입니다\n년부터", "2011년부터"),
+        ("20\n11년부터", "2011년부터"),
+        ("2011\n년부터", "2011개월"),
+        ("2011\n년부터", "2011~2012년"),
+        ("12.5브릭스", "12브릭스"),
+        ("12.5브릭스", "5브릭스"),
+    ],
+)
+def test_AC_SRC_3_DEV_193_numeric_repair_does_not_invent_support(source, output):
+    forward = final_score.unsupported_tokens(sensitive_tokens(output), sensitive_tokens(source))
+    reverse = final_score.unsupported_tokens(sensitive_tokens(source), sensitive_tokens(output))
+    assert forward["number"]
+    assert reverse["number"]
+    assert result(r=run(output), safe=source)["overall"]["unsupportedTokens"] > 0
+    assert result(r=run(source), safe=output)["overall"]["unsupportedTokens"] > 0
+
+
+@pytest.mark.parametrize("space", [" ", "  ", "\t", " \t "])
+def test_AC_SRC_3_DEV_193_sentence_period_and_decimal_remain_distinct(space):
+    assert sensitive_tokens(f"since 1966.{space}50년")["number"] == {"1966", "50년"}
+    assert sensitive_tokens("12.5브릭스")["number"] == sensitive_tokens("12.5Brix")["number"]
+    assert sensitive_tokens("12.5브릭스")["number"] != sensitive_tokens(
+        "12브릭스 5브릭스"
+    )["number"]
+
+
+def test_AC_SRC_3_DEV_193_wrapped_decimal_preserves_one_number_bidirectionally():
+    broken, intact = "면적 3.\n5kg", "면적 3.5kg"
+    assert final_score.MEASUREMENT_VERSION == "dev193-number-evidence-v1"
+    for output, safe in [(broken, intact), (intact, broken)]:
+        assert sensitive_tokens(output)["number"] == {"3.5kg"}
+        assert final_score.unsupported_tokens(
+            sensitive_tokens(output), sensitive_tokens(safe)
+        )["number"] == set()
+        assert result(r=run(output), safe=safe)["overall"]["unsupportedTokens"] == 0
+        for invented in ("3", "5kg"):
+            assert final_score.unsupported_tokens(
+                sensitive_tokens(invented), sensitive_tokens(safe)
+            )["number"] == {invented}
+            assert result(r=run(invented), safe=safe)["overall"]["unsupported"]["number"] == 1
+
+def invented_v2_holdout(tmp_path, monkeypatch, *, material=True):
+    """Only invented bytes; never discover or read a real holdout directory."""
+    private = tmp_path / "invented-private-holdout"
+    private.mkdir()
+    sources, cases = [], []
+    for fmt in ("text", "image", "long_image", "pdf"):
+        sid = f"h2-invented-{fmt}"
+        source = copy.deepcopy(gold()["sources"][0])
+        source.pop("format")
+        source["id"] = sid
+        source["product"] = "SYNTHETIC PRIVATE PRODUCT"
+        source["sentences"][0]["where"] = "SYNTHETIC PRIVATE SOURCE NAME"
+        source["sentences"][0]["facts"][0]["statement"] = "SYNTHETIC PRIVATE FACT"
+        sources.append(source)
+        cases.append({"id": sid, "format": fmt})
+    gold_path = private / "final-gold-v2.json"
+    gold_path.write_text(json.dumps(sources, ensure_ascii=False))
+    manifest = private / "manifest.json"
+    # The real private v2 manifest is a plain list.
+    manifest.write_text(json.dumps(cases))
+    private_lock = private / "final-gold-v2.lock.json"
+    private_lock.write_text(
+        json.dumps(
+            {
+                "sha256": sha256(gold_path.read_bytes()),
+                "manifestSha256": sha256(manifest.read_bytes()),
+            }
+        )
+    )
+    repo_lock = tmp_path / "invented-repo-v2-lock.json"
+    repo_lock.write_text(
+        json.dumps(
+            {
+                "goldSha256": sha256(gold_path.read_bytes()),
+                "manifestSha256": sha256(manifest.read_bytes()),
+                "sources": cases,
+                "countsBySourceFormat": {fmt: 1 for fmt in ("text", "image", "long_image", "pdf")},
+            }
+        )
+    )
+    monkeypatch.setattr(final_score, "HOLDOUT_V2_LOCK", repo_lock)
+    if material:
+        safe = private / "safe"
+        safe.mkdir()
+        for case in cases:
+            suffix = {"text": ".txt", "image": ".png", "long_image": ".jpg", "pdf": ".pdf"}[
+                case["format"]
+            ]
+            (safe / (case["id"] + suffix)).write_bytes(TEXT.encode())
+    return private, gold_path, manifest, private_lock, repo_lock, cases
+
+
+def rewrite_v2_metadata(fixture, *, sources=None, manifest=None, pins=None):
+    """Repin invented fixtures to isolate ID/format checks from hash checks."""
+    _, gp, mp, lp, rp, _ = fixture
+    if sources is not None:
+        gp.write_text(json.dumps(sources, ensure_ascii=False))
+    if manifest is not None:
+        mp.write_text(json.dumps(manifest))
+    data = json.loads(rp.read_text()) if pins is None else pins
+    data["goldSha256"] = sha256(gp.read_bytes())
+    data["manifestSha256"] = sha256(mp.read_bytes())
+    rp.write_text(json.dumps(data))
+    lp.write_text(
+        json.dumps({"sha256": sha256(gp.read_bytes()), "manifestSha256": sha256(mp.read_bytes())})
+    )
+
+
+@pytest.mark.parametrize("envelope", ["sources", "cases"])
+def test_AC_SRC_6_DEV_194_v2_rejects_wrapped_manifest(tmp_path, monkeypatch, envelope):
+    fixture = invented_v2_holdout(tmp_path, monkeypatch)
+    private, _, mp, _, _, cases = fixture
+    rewrite_v2_metadata(fixture, manifest={envelope: cases})
+    with pytest.raises(ValueError):
+        final_score.verify_holdout(private)
+
+
+def test_AC_SRC_6_DEV_194_v2_gold_uses_manifest_formats_and_default_paths(tmp_path, monkeypatch):
+    private, gp, _, lp, repo_lock, cases = invented_v2_holdout(tmp_path, monkeypatch)
+    assert final_score.holdout_gold_path(private) == gp
+    assert final_score.holdout_gold_path(private, "v1.1") == private / "final-gold-v1.1.json"
+    assert final_score.holdout_lock_path() == repo_lock
+    assert final_score.holdout_lock_path("v1.1") == final_score.HOLDOUT_LOCK
+    verified = final_score.verify_holdout(private)
+    assert {(s.id, s.format) for s in verified.sources} == {(c["id"], c["format"]) for c in cases}
+    reference = LocalGold(path=str(gp), split="holdout", lockPath=str(lp))
+    loaded = load_local_gold(reference, tmp_path, {c["id"]: c["format"] for c in cases})
+    assert loaded == verified
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "gold-bytes",
+        "manifest-bytes",
+        "private-hash",
+        "private-manifest-hash",
+        "repo-gold-hash",
+        "repo-manifest-hash",
+        "duplicate-gold-id",
+        "duplicate-manifest-id",
+        "duplicate-repo-id",
+        "missing-gold-id",
+        "missing-manifest-id",
+        "missing-repo-id",
+        "manifest-format",
+        "repo-format",
+        "non-v2-id",
+    ],
+)
+def test_AC_SRC_6_DEV_194_v2_verifier_rejects_corrupt_hashes_and_identity_sets(
+    tmp_path, monkeypatch, damage
+):
+    fixture = invented_v2_holdout(tmp_path, monkeypatch)
+    private, gp, mp, lp, rp, _ = fixture
+    sources = json.loads(gp.read_text())
+    manifest = json.loads(mp.read_text())
+    pins = json.loads(rp.read_text())
+    if damage in {"gold-bytes", "manifest-bytes"}:
+        path = gp if damage == "gold-bytes" else mp
+        path.write_bytes(path.read_bytes() + b"\n")
+    elif damage == "private-hash":
+        lp.write_text(json.dumps({**json.loads(lp.read_text()), "sha256": "0" * 64}))
+    elif damage == "private-manifest-hash":
+        lp.write_text(json.dumps({**json.loads(lp.read_text()), "manifestSha256": "0" * 64}))
+    elif damage in {"repo-gold-hash", "repo-manifest-hash"}:
+        pins["goldSha256" if damage == "repo-gold-hash" else "manifestSha256"] = "0" * 64
+        rp.write_text(json.dumps(pins))
+    else:
+        if damage.startswith("duplicate-"):
+            entries = {
+                "gold": sources,
+                "manifest": manifest,
+                "repo": pins["sources"],
+            }
+            target = entries[
+                damage.split("-")[1]
+            ]
+            target.append(copy.deepcopy(target[0]))
+        elif damage.startswith("missing-"):
+            entries = {
+                "gold": sources,
+                "manifest": manifest,
+                "repo": pins["sources"],
+            }
+            target = entries[
+                damage.split("-")[1]
+            ]
+            target.pop()
+        elif damage.endswith("format"):
+            target = manifest if damage == "manifest-format" else pins["sources"]
+            target[0]["format"] = "pdf"
+        else:
+            for target in (sources, manifest, pins["sources"]):
+                target[0]["id"] = "invented-without-v2-prefix"
+        rewrite_v2_metadata(fixture, sources=sources, manifest=manifest, pins=pins)
+    with pytest.raises(ValueError) as exc:
+        final_score.verify_holdout(private)
+    for secret in (str(private), TEXT, sources[0]["id"], "SYNTHETIC PRIVATE"):
+        assert secret not in str(exc.value)
+
+
+@pytest.mark.parametrize("version_args", [[], ["--holdout-version", "v2"]])
+def test_AC_SRC_2_6_DEV_194_score_cli_holdout_reports_only_format_aggregates(
+    tmp_path, monkeypatch, capsys, version_args
+):
+    private, gp, _, lp, _, cases = invented_v2_holdout(tmp_path, monkeypatch)
+    output = tmp_path / "score-output"
+    output.mkdir()
+    refs = []
+    for case in cases:
+        sid = case["id"]
+        safe = output / (sid + ".txt")
+        safe.write_text(TEXT)
+        record = {**run(), "id": sid, "format": case["format"]}
+        result_path = output / (sid + ".json")
+        result_path.write_text(json.dumps(record, ensure_ascii=False))
+        refs.append(
+            {
+                "id": sid,
+                "format": case["format"],
+                "safeTextPath": str(safe),
+                "outputPath": str(result_path),
+            }
+        )
+    envelope = output / "runs.json"
+    envelope.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "gold": [LocalGold(path=str(gp), split="holdout", lockPath=str(lp)).model_dump()],
+                "sources": refs,
+            }
+        )
+    )
+    report_path, md = output / "score.json", output / "score.md"
+    assert (
+        main(
+            [
+                "--runs",
+                str(envelope),
+                "--report",
+                str(report_path),
+                "--markdown",
+                str(md),
+                *version_args,
+            ]
+        )
+        == 0
+    )
+    serialized = report_path.read_text() + md.read_text() + capsys.readouterr().out
+    for secret in (TEXT, "SYNTHETIC PRIVATE", str(private), str(output), *(c["id"] for c in cases)):
+        assert secret not in serialized
+    report = json.loads(report_path.read_text())
+    assert report["overall"]["factRecall"] == {"hit": 4, "total": 4, "rate": 1.0}
+    assert report["byFormat"]["pdf"]["sources"] == 1
+    for bucket in (report["overall"], *report["byFormat"].values()):
+        assert {
+            "factRecall",
+            "criticalFactRecall",
+            "misplacement",
+            "forbidden",
+            "unsupported",
+        } <= bucket.keys()
+
+
+@pytest.mark.parametrize("location", ["private", "repo"])
+def test_AC_SRC_6_DEV_194_v2_lock_keys_are_pinned_per_file(tmp_path, monkeypatch, location):
+    # Private locks name the gold hash `sha256`; the v2 repo lock names it `goldSha256`.
+    private, _, _, lp, rp, _ = invented_v2_holdout(tmp_path, monkeypatch)
+    target = lp if location == "private" else rp
+    value = json.loads(target.read_text())
+    old, new = ("sha256", "goldSha256") if location == "private" else ("goldSha256", "sha256")
+    value[new] = value.pop(old)
+    target.write_text(json.dumps(value))
+    with pytest.raises(ValueError):
+        final_score.verify_holdout(private)
+
+
+@pytest.mark.parametrize("damage", ["missing", "extra", "format"])
+def test_AC_SRC_6_DEV_194_v2_local_gold_rejects_envelope_identity_mismatch(
+    tmp_path, monkeypatch, damage
+):
+    _, gp, _, lp, _, cases = invented_v2_holdout(tmp_path, monkeypatch)
+    formats = {c["id"]: c["format"] for c in cases}
+    if damage == "missing":
+        formats.pop(cases[0]["id"])
+    elif damage == "extra":
+        formats["h2-invented-extra"] = "text"
+    else:
+        formats[cases[0]["id"]] = "pdf"
+    with pytest.raises(ValueError) as exc:
+        load_local_gold(
+            LocalGold(path=str(gp), split="holdout", lockPath=str(lp)), tmp_path, formats
+        )
+    assert str(tmp_path) not in str(exc.value)
+    assert "h2-invented" not in str(exc.value)

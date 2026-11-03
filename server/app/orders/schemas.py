@@ -7,10 +7,12 @@ from pydantic import Field
 
 from app.catalog.schemas import DateRange, SalesState
 from app.core.schemas import CamelModel
+from app.farms.schemas import DepositAccount, SellerInfo
 
-OrderAction = Literal["cancel", "confirm", "respondDeliveryWindow"]
+OrderAction = Literal["cancel", "confirm", "respondDeliveryWindow", "reportDeposit"]
 OrderStatus = Literal[
     "PENDING_PAYMENT",
+    "AWAITING_DEPOSIT",
     "RESERVED",
     "PREPARING",
     "SHIPPED",
@@ -23,31 +25,45 @@ OrderStatus = Literal[
 
 
 class Consents(CamelModel):
-    """결제 전 동의 4개(R-03, 정책 2장)."""
+    """결제 전 동의 4개(R-03, 정책 2장) + 개인정보 제3자 제공(판매자 농가, 제17조, DEV-120)."""
 
     delivery_window: bool = False
     delay_refund: bool = False
     shortage: bool = False
     cancel_policy: bool = False
+    third_party: bool = False
 
 
 class OrderInput(CamelModel):
     product_id: str
     option_id: str
     quantity: int
-    recipient_name: str = ""
-    recipient_phone: str = ""
-    postal_code: str = ""
-    address: str = ""
-    address_detail: str = ""
+    recipient_name: str = Field(default="", max_length=100)
+    recipient_phone: str = Field(default="", max_length=32)
+    postal_code: str = Field(default="", max_length=16)
+    address: str = Field(default="", max_length=300)
+    address_detail: str = Field(default="", max_length=300)
     delivery_note: str | None = None
     consents: Consents = Field(default_factory=Consents)
     consent_version: str = Field(default="", max_length=32)
     save_address: bool = False
 
 
-class PayInput(CamelModel):
-    mock_result: Literal["success", "fail"] = "success"
+class AdminRefundInput(CamelModel):
+    reason: str = Field(min_length=1, max_length=500)
+    amount: int | None = None
+
+
+class RefundView(CamelModel):
+    refund_id: str
+    order_id: str
+    amount: int
+    reason: str
+    actor: Literal["MANAGER", "CONSUMER", "SYSTEM"]
+    actor_user_id: str | None
+    manager_event_id: str | None
+    created_at: datetime
+    settled_at: datetime | None
 
 
 class OrderView(CamelModel):
@@ -79,6 +95,16 @@ class OrderView(CamelModel):
     delivered_at: datetime | None
     refunded_at: datetime | None
     refund_reason: str | None
+    # 무통장 입금(DEV-68). 계좌·판매자 정보는 입금 안내 이후 본인 주문에서만
+    deposit_account: DepositAccount | None
+    seller_info: SellerInfo | None
+    deposit_due_at: datetime | None
+    deposit_reported_at: datetime | None
+    cancel_reason: str | None
+    refund_settled_at: datetime | None
+    # 농가 미승인 사유(DEV-68). 입금 대기로 남은 주문·송금 보류 중인 환불에만
+    deposit_issue: str | None
+    refund_issue: str | None
     recipient_name: str
     recipient_phone: str
     postal_code: str
@@ -87,14 +113,21 @@ class OrderView(CamelModel):
     actions: list[OrderAction]
 
 
-class PayResult(CamelModel):
-    order: OrderView
-    result: Literal["success", "fail"]
-    fail_reason: str | None
-
-
 class DeliveryWindowResponse(CamelModel):
     choice: Literal["accept", "refund"]
+
+
+class RejectDepositInput(CamelModel):
+    """입금 미승인(DEV-68). 사유는 필수이고 소비자에게 그대로 보인다. cancel이면 주문을 취소한다."""
+
+    reason: str = Field(min_length=1, max_length=200)
+    cancel: bool = False
+
+
+class RefundIssueInput(CamelModel):
+    """환불 미승인(DEV-68). 송금하지 못한 사유. 소비자에게 그대로 보인다."""
+
+    reason: str = Field(min_length=1, max_length=200)
 
 
 class HarvestStartInput(CamelModel):
@@ -110,7 +143,14 @@ class ShipInput(CamelModel):
     carrier: Literal["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"] | None = None
 
 
+class TrackingInput(CamelModel):
+    version: int = Field(ge=1)
+    carrier: Literal["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"]
+    tracking_number: str | None = Field(default=None, max_length=50)
+
+
 class ProducerOrder(CamelModel):
+    tracking_version: int
     order_id: str
     order_no: str
     product_id: str
@@ -122,6 +162,12 @@ class ProducerOrder(CamelModel):
     carrier: str | None
     tracking_number: str | None
     created_at: datetime
+    total_amount: int
+    deposit_due_at: datetime | None
+    deposit_reported_at: datetime | None
+    refund_settled_at: datetime | None
+    deposit_issue: str | None
+    refund_issue: str | None
     recipient_name: str
     recipient_phone: str
     postal_code: str
@@ -133,6 +179,9 @@ class DashboardTodo(CamelModel):
     open_questions: int
     to_ship: int
     pending_products: int
+    awaiting_deposit: int
+    refunds_to_settle: int
+    has_account: bool
 
 
 class DashboardProduct(SalesState):

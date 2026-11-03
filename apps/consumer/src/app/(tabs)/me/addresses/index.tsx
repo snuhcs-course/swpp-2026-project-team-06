@@ -22,6 +22,9 @@ import { useHideTabBar } from "../../../../lib/session";
 import { useToast } from "../../../../lib/toast";
 import { LoadError } from "../../../../lib/views";
 
+/** 저장 배송지 한도(서버 ADDRESS_LIMIT, 사용자 결정 10/18) */
+const ADDRESS_LIMIT = 50;
+
 export default function Addresses() {
   useHideTabBar();
   const router = useRouter();
@@ -29,6 +32,7 @@ export default function Addresses() {
   const [target, setTarget] = useState<Address | null>(null);
   const [busy, setBusy] = useState(false);
   const toast = useToast(120);
+  const full = (list.data?.length ?? 0) >= ADDRESS_LIMIT;
 
   useFocusEffect(
     useCallback(() => {
@@ -159,8 +163,19 @@ export default function Addresses() {
         </View>
       </Scroll>
       <BottomBar>
+        {full ? (
+          <T variant="sub" muted center>
+            배송지는 {ADDRESS_LIMIT}개까지 저장할 수 있어요. 안 쓰는 배송지를
+            지워 주세요.
+          </T>
+        ) : null}
         <Button
-          label="새 배송지 추가"
+          label={
+            list.data
+              ? `새 배송지 추가 (${list.data.length}/${ADDRESS_LIMIT})`
+              : "새 배송지 추가"
+          }
+          disabled={full}
           onPress={() => router.push("/me/addresses/edit")}
         />
       </BottomBar>

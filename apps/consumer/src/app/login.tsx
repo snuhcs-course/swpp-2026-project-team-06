@@ -1,8 +1,9 @@
 // SCR-05 로그인 — 테스트 계정 선택(ADR 0009) — design: scr-05
-import { auth, type TestAccount } from "@farmclub/api";
+import { auth, evaluatorBuild, isMock, type TestAccount } from "@farmclub/api";
 import {
   Button,
   EmptyState,
+  LegalFooter,
   HeaderBar,
   Notice,
   Radio,
@@ -19,6 +20,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { beginKakaoLogin, kakaoRedirectUri } from "../lib/kakao";
+import { openKakaoAuth } from "../lib/kakaoAuth";
 import { useSession } from "../lib/session";
 import { isStatus } from "../lib/views";
 
@@ -26,18 +29,45 @@ import { isStatus } from "../lib/views";
 const consumerOnly = (list: TestAccount[] | null) =>
   list?.filter((a) => a.role === "CONSUMER") ?? null;
 
+// 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 탭을 닫을 때까지 기억한다.
+// 로그아웃하거나 관문을 거쳐 맨 /login으로 와도 테스트 계정 목록이 남는다.
+const EVALUATOR_KEY = "farmclub:evaluator";
+function evaluatorMode(param?: string) {
+  // 앱 평가용 빌드(DEV-200)는 주소 없이도 목록을 보인다
+  if (evaluatorBuild) return true;
+  try {
+    if (param === "1") globalThis.sessionStorage?.setItem(EVALUATOR_KEY, "1");
+    return param === "1" || globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1";
+  } catch {
+    return param === "1";
+  }
+}
+
 export default function Login() {
-  const { next, reason } = useLocalSearchParams<{
+  const { next, reason, evaluator } = useLocalSearchParams<{
     next?: string;
     reason?: string;
+    evaluator?: string;
   }>();
   const router = useRouter();
   const { refresh, resume, clearResume } = useSession();
   const { data: all, error, reload } = useAsync(() => auth.testAccounts(), []);
+  // 카카오 로그인 사용 여부(ADR 0003). 꺼져 있으면 버튼을 숨긴다
+  const kakao = useAsync(() => auth.kakaoConfig(), []);
   const data = consumerOnly(all);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 고정 하단 바 높이만큼 스크롤 아래를 비워 푸터가 바 바로 위에 온다(상태마다 바 높이가 다르다)
+  const [barHeight, setBarHeight] = useState(170);
   const [failed, setFailed] = useState<string | null>(null);
+  // 카카오가 켜져 있으면 카카오 로그인만 둔다(사용자 결정 10/17). 꺼져 있으면(CI·Mock 플래그만) 테스트 계정 목록을 보여 준다.
+  // Mock 모드는 시드 데이터 시연에 계정이 필요해 카카오 버튼과 목록을 함께 둔다(생산자 SCR-19와 같음, DEV-136)
+  // 평가용 주소(?evaluator=1, DEV-198)는 카카오가 켜진 운영에서도 테스트 계정 목록을 함께 둔다
+  const showTest = kakao.error
+    ? true
+    : kakao.data
+      ? !kakao.data.enabled || isMock || evaluatorMode(evaluator)
+      : false;
 
   useEffect(() => {
     if (data && !picked) setPicked(data[0]?.userId ?? null);
@@ -62,6 +92,45 @@ export default function Login() {
     }
   }
 
+  const target = next && next.startsWith("/") ? next : "/";
+
+  // 카카오로 시작하기(FEAT-01 I2). 돌아갈 화면·행동을 저장하고 카카오 인가 화면으로 나간다. 복귀는 /auth/kakao
+  async function kakaoLogin() {
+    const cfg = kakao.data;
+    if (!cfg?.enabled || busy) return;
+    setFailed(null);
+    if (isMock) {
+      // Mock: 리다이렉트 없이 바로 로그인(카카오 계정 u-kakao). 처음이면 가입 동의(DEV-132) → 온보딩
+      setBusy(true);
+      try {
+        const res = await auth.kakaoLogin("mock", kakaoRedirectUri(cfg));
+        await refresh();
+        if (!res.user || res.user.needsOnboarding)
+          router.replace({ pathname: "/onboarding", params: { next: target } });
+        else if (resume && router.canGoBack()) router.back();
+        else router.replace(target as never);
+      } catch {
+        setFailed("카카오 로그인에 실패했어요. 다시 시도해 주세요.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    const url = beginKakaoLogin(cfg, target, resume);
+    if (!url) {
+      setFailed("이 브라우저에서는 카카오 로그인을 쓸 수 없어요. 테스트 계정으로 로그인해 주세요.");
+      return;
+    }
+    // 웹: 페이지째 카카오로 이동(돌아오지 않음). 앱: 인증 세션이 닫히면 받은 코드로 복귀 화면을 연다(DEV-33)
+    setBusy(true);
+    try {
+      const result = await openKakaoAuth(url);
+      if (result) router.replace({ pathname: "/auth/kakao", params: result });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Screen>
       <HeaderBar
@@ -73,7 +142,7 @@ export default function Login() {
           else router.replace("/");
         }}
       />
-      <Scroll bottom={170}>
+      <Scroll bottom={barHeight} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
         <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 8 }}>
           <T variant="title" accessibilityRole="header">
             {"로그인하고\n계속해요"}
@@ -93,7 +162,34 @@ export default function Login() {
             />
           ) : null}
         </View>
-        {error ? (
+        {kakao.data?.enabled ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="카카오로 시작하기"
+              disabled={busy}
+              onPress={() => void kakaoLogin()}
+              style={({ pressed }) => ({
+                minHeight: tokens.height.button,
+                borderRadius: 12,
+                backgroundColor: pressed ? "#F2D900" : "#FEE500",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: busy ? 0.6 : 1,
+              })}
+            >
+              <T variant="body" weight="semibold" color="#191919">
+                카카오로 시작하기
+              </T>
+            </Pressable>
+            <T variant="caption" muted center>
+              {isMock
+                ? "Mock: 카카오로 시작하면 처음 가입하는 새 소비자로 들어가요"
+                : "카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요."}
+            </T>
+          </View>
+        ) : null}
+        {!showTest ? null : error ? (
           isStatus(error, 404) ? (
             <EmptyState
               icon="lock"
@@ -132,7 +228,7 @@ export default function Login() {
                   <Pressable
                     key={a.userId}
                     accessibilityRole="radio"
-                    accessibilityState={{ selected: picked === a.userId }}
+                    aria-checked={picked === a.userId}
                     onPress={() => setPicked(a.userId)}
                     style={{
                       flexDirection: "row",
@@ -163,6 +259,8 @@ export default function Login() {
         )}
       </Scroll>
       <View
+        testID="login-bottom-bar"
+        onLayout={(e) => setBarHeight(Math.ceil(e.nativeEvent.layout.height))}
         style={{
           position: "absolute",
           left: 0,
@@ -181,15 +279,18 @@ export default function Login() {
           </T>
         ) : null}
         <T variant="caption" muted center>
-          로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트
-          서비스
+          {kakao.data?.enabled
+            ? "이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요 · 테스트 서비스"
+            : "로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트 서비스"}
         </T>
-        <Button
-          label={account ? `${ro(account.name)} 로그인` : "로그인"}
-          disabled={!account}
-          loading={busy}
-          onPress={login}
-        />
+        {showTest ? (
+          <Button
+            label={account ? `${ro(account.name)} 로그인` : "로그인"}
+            disabled={!account}
+            loading={busy}
+            onPress={login}
+          />
+        ) : null}
       </View>
     </Screen>
   );

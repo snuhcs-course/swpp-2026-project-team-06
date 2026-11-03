@@ -1,5 +1,6 @@
 """FEAT-32 농가 AI 응답 설정, FEAT-33 주문 문제 문의·비공개 사진 (contracts-1.2 5·6장)."""
 
+import logging
 import struct
 import uuid
 import zlib
@@ -8,6 +9,7 @@ from sqlalchemy import select
 
 from app.core.db import get_sessionmaker
 from app.farms.models import FarmAiSettingsHistory
+from app.messaging.models import Escalation, OrderInquiry, Thread, ThreadMessage
 from app.orders.models import Order
 
 
@@ -76,7 +78,7 @@ def test_AC_32_1_save_and_reload_settings(client, login):
     assert [h.version for h in history] == [2]
 
 
-def test_AC_32_4_stale_version_rejected(client, login):
+def test_AC_32_4_refreshed_version_save_succeeds_after_stale_conflict(client, login):
     headers = login("u-kang")
     client.put("/api/farms/me/ai-settings", headers=headers | key(), json=settings_body())
 
@@ -84,6 +86,14 @@ def test_AC_32_4_stale_version_rejected(client, login):
 
     assert stale.status_code == 409
     assert stale.json()["details"]["reason"] == "STALE_VERSION"
+    latest = client.get("/api/farms/me/ai-settings", headers=headers).json()
+    retried = client.put(
+        "/api/farms/me/ai-settings",
+        headers=headers | key(),
+        json=settings_body(version=latest["version"], smallOrderPolicy="재시도한 편집"),
+    )
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["smallOrderPolicy"] == "재시도한 편집"
 
 
 def test_AC_32_4_only_approved_producer(client, login):
@@ -101,6 +111,25 @@ def test_settings_limits(client, login):
 
 def test_AC_32_3_preview_answers_without_writing(client, login):
     headers = login("u-kang")
+    created_inquiry = client.post(
+        "/api/orders/o-42/inquiries",
+        headers=login("u-minji") | key(),
+        json={"type": "OTHER", "text": "미리보기 전 기존 문의"},
+    )
+    assert created_inquiry.status_code == 200, created_inquiry.text
+    with get_sessionmaker()() as session:
+        before_threads = [
+            (t.id, t.version, t.ai_mode) for t in session.scalars(select(Thread))
+        ]
+        before_messages = [
+            (m.id, m.body, m.seq) for m in session.scalars(select(ThreadMessage))
+        ]
+        before_escalations = [
+            (e.id, e.status, e.answer) for e in session.scalars(select(Escalation))
+        ]
+        before_inquiries = [
+            (i.id, i.status, i.version, i.text) for i in session.scalars(select(OrderInquiry))
+        ]
     temp = client.post(
         "/api/farms/me/ai-settings/preview",
         headers=headers,
@@ -115,6 +144,19 @@ def test_AC_32_3_preview_answers_without_writing(client, login):
     assert saved_preview["action"] == "HANDOFF"
     assert saved_preview["settingsVersion"] == 1
     assert client.get("/api/farms/me/ai-settings", headers=headers).json()["version"] == 1
+    with get_sessionmaker()() as session:
+        assert before_threads == [
+            (t.id, t.version, t.ai_mode) for t in session.scalars(select(Thread))
+        ]
+        assert before_messages == [
+            (m.id, m.body, m.seq) for m in session.scalars(select(ThreadMessage))
+        ]
+        assert before_escalations == [
+            (e.id, e.status, e.answer) for e in session.scalars(select(Escalation))
+        ]
+        assert before_inquiries == [
+            (i.id, i.status, i.version, i.text) for i in session.scalars(select(OrderInquiry))
+        ]
 
 
 def test_AC_32_2_unsafe_faq_is_not_used(client, login):
@@ -130,6 +172,34 @@ def test_AC_32_2_unsafe_faq_is_not_used(client, login):
 
     assert preview["action"] == "HANDOFF"
     assert preview["answer"] is None
+
+
+def test_M_07_preview_emits_no_admin_alert(client, login, caplog):
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        preview = client.post(
+            "/api/farms/me/ai-settings/preview",
+            headers=login("u-kang"),
+            json={"question": "환불 요청합니다", "settings": settings_body()},
+        )
+
+    assert preview.json()["action"] == "HANDOFF"
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
+
+
+def test_M_07_photo_only_message_emits_no_admin_alert(client, login, caplog):
+    headers = login("u-seojun")
+    attachment = upload(client, headers, png(), threadId="thread-kang-seojun").json()
+
+    with caplog.at_level(logging.INFO, logger="farmclub.ai.safety"):
+        sent = client.post(
+            "/api/messaging/chats/f-kang/messages",
+            headers=headers | key(),
+            json={"text": "", "attachmentIds": [attachment["attachmentId"]]},
+        )
+
+    assert sent.status_code == 200
+    assert sent.json()["reply"] is None
+    assert not [record for record in caplog.records if record.message == "manager_refund_request"]
 
 
 def test_preview_with_product_and_handoff_topic(client, login):

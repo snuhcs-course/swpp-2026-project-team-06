@@ -3,11 +3,12 @@ import {
   Button,
   ConversationRow,
   EmptyState,
-  LargeTitle,
+  BrandHeader,
+  ChatChoices,
   Screen,
   Scroll,
-  Segmented,
   Skeleton,
+  SupportAvatar,
   T,
   tokens,
   useLiveList,
@@ -62,19 +63,18 @@ export default function Chats() {
     );
   return (
     <Screen>
-      <LargeTitle title="채팅" subtitle="농가의 일상과 나만의 대화" />
-      <View style={{ padding: 20 }}>
-        <Segmented
-          value={tab}
-          onChange={(value) => router.setParams({ view: value })}
-          options={[
-            { value: "news", label: "소식방" },
-            { value: "private", label: "1:1 채팅" },
-          ]}
-        />
-      </View>
+      <BrandHeader title="채팅" />
+      <ChatChoices
+        value={tab}
+        onChange={(value) => router.setParams({ view: value })}
+      />
       {(["news", "private"] as const).map((kind) => {
         const list = kind === "news" ? rooms : chats;
+        // 1:1에는 farmclub 문의 대화방(DEV-150)이 늘 있어서, 농가 대화가 없을 때 빈 안내를 함께 보인다
+        const empty =
+          kind === "news"
+            ? list.data?.length === 0
+            : !!chats.data && !chats.data.some((c) => !c.isSupport);
         return (
           <View
             key={kind}
@@ -98,28 +98,6 @@ export default function Chats() {
                   ))}
                 </View>
               ) : null}
-              {list.data?.length === 0 ? (
-                <EmptyState
-                  icon="chat"
-                  title={
-                    kind === "news"
-                      ? "농가의 첫 소식을 기다려요"
-                      : "아직 1:1 대화가 없어요"
-                  }
-                  body={
-                    kind === "news"
-                      ? "여러 농가를 팔로우하고 일상을 함께해요."
-                      : "농가 페이지에서 궁금한 점을 물어보세요."
-                  }
-                  action={
-                    <Button
-                      label="농가 둘러보기"
-                      variant="text"
-                      onPress={() => router.push("/farms")}
-                    />
-                  }
-                />
-              ) : null}
               {kind === "news"
                 ? rooms.data?.map((room) => (
                     <ConversationRow
@@ -136,14 +114,50 @@ export default function Chats() {
                 : chats.data?.map((chat) => (
                     <ConversationRow
                       key={chat.farmId}
+                      testID={chat.isSupport ? "chat-row-farmclub" : undefined}
+                      avatar={chat.isSupport ? <SupportAvatar /> : undefined}
+                      status={
+                        chat.isSupport
+                          ? "farmclub 운영팀 · 궁금한 점을 물어보세요"
+                          : undefined
+                      }
                       name={chat.farmName}
                       photo={chat.farmPhoto}
-                      preview={`${chat.lastSenderType === "AI" ? "AI 안내 · " : chat.lastSenderType === "CONSUMER" ? "나: " : ""}${chat.lastMessage}`}
+                      preview={`${chat.lastSenderType === "CONSUMER" ? "나: " : ""}${chat.lastMessage}`}
                       at={chat.lastAt}
                       unread={chat.unreadCount}
-                      onPress={() => router.push(`/chats/${chat.farmId}`)}
+                      onPress={() =>
+                        router.push(
+                          chat.isSupport
+                            ? "/chats/support"
+                            : `/chats/${chat.farmId}`,
+                        )
+                      }
                     />
                   ))}
+              {/* 1:1은 farmclub 행 아래에 빈 안내를 둔다(SCR-15) */}
+              {empty ? (
+                <EmptyState
+                  icon="chat"
+                  title={
+                    kind === "news"
+                      ? "농가의 첫 소식을 기다려요"
+                      : "아직 농가와 나눈 1:1 대화가 없어요"
+                  }
+                  body={
+                    kind === "news"
+                      ? "여러 농가를 팔로우하고 일상을 함께해요."
+                      : "농가 페이지에서 궁금한 점을 물어보세요."
+                  }
+                  action={
+                    <Button
+                      label="농가 둘러보기"
+                      variant="text"
+                      onPress={() => router.push("/farms")}
+                    />
+                  }
+                />
+              ) : null}
             </Scroll>
           </View>
         );

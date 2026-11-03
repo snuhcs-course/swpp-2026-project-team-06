@@ -1,16 +1,17 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 import { consumerUrl, loginConsumer, loginProducer, monitor, producerUrl } from "./helpers";
 
 test("AC-03/04/05: producer draft and sales controls are wired to the real server", async ({ page }) => {
   const assertClean = monitor(page);
   await loginProducer(page, "강영수");
-  await page.goto(`${producerUrl}/products/new`);
+  await page.goto(`${producerUrl}/products/manual`);
   await page
     .getByLabel("카톡·밴드에 쓰던 문구")
     .fill("DEV25 하우스 감귤 5kg, 예상 당도 12.5브릭스, 11월 중순 배송입니다.");
   await page.getByRole("button", { name: "초안 만들기" }).click();
   const generated = page.getByRole("heading", { name: "초안이 나왔어요" });
+  await expect(generated.or(page.getByText("초안을 만들지 못했어요"))).toBeVisible();
   if (await generated.isVisible()) await page.getByRole("button", { name: "편집으로" }).click();
   else {
     await expect(page.getByText("초안을 만들지 못했어요")).toBeVisible();

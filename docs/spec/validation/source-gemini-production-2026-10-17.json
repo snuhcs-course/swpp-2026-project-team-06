@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-17",
+  "pipeline": "source-v5-gemini-ocr",
+  "model": "google/gemini-3-flash-preview",
+  "kind": "single real-provider local UI functional validation; not accuracy benchmark",
+  "inputs": {
+    "long_sales_image": 1,
+    "product_photo_excluded_from_ai": 1
+  },
+  "calls": {
+    "ocr": 6,
+    "extraction": 1,
+    "unsettled": 0
+  },
+  "cost_usd": {
+    "ocr": 0.004949,
+    "extraction": 0.006494,
+    "total": 0.011443
+  },
+  "duration_ms": {
+    "local_sales_image_preparation": 3578,
+    "ocr_and_extraction": 28364
+  },
+  "flow": [
+    "upload",
+    "approve sanitized pages",
+    "review extracted evidence",
+    "configure modules and photograph",
+    "save private draft",
+    "preview",
+    "explicitly apply to existing approved product",
+    "verify matching public detail text"
+  ],
+  "tests": {
+    "pytest": 267,
+    "mock": 12,
+    "typecheck_workspaces": 4
+  },
+  "limitations": [
+    "Previously saved six-case 85.71% P/R is not a new measurement of this production cropper.",
+    "Automatic crop boundaries differ from historical manual experiment cuts.",
+    "Existing approved/published product used, not initial product approval.",
+    "Owner walkthrough, main synchronization and migration collision resolution remain pending."
+  ],
+  "merge": false,
+  "deployment": false
+}

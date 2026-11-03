@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Response, UploadFile
@@ -9,9 +10,15 @@ from app.core.errors import not_found
 from app.core.idempotency import run_idempotent
 from app.core.pagination import page_limit
 from app.core.schemas import Paged
-from app.core.security import ApprovedProducer, Consumer, CurrentUser, OptionalUser
+from app.core.security import (
+    ApprovedProducer,
+    Consumer,
+    CurrentUser,
+    OnboardedConsumer,
+    OptionalUser,
+)
 from app.farms import service as farms
-from app.messaging import service
+from app.messaging import service, support
 from app.messaging.schemas import (
     AiModeInput,
     AttachmentView,
@@ -36,12 +43,15 @@ from app.messaging.schemas import (
     SendResult,
     StartChatInput,
     StartChatResult,
+    SupportPage,
+    SupportSendInput,
     TextInput,
     ThreadView,
     UnreadState,
 )
 
 router = APIRouter(prefix="/messaging", tags=["messaging"])
+_safety_logger = logging.getLogger("farmclub.ai.safety")
 
 Db = Annotated[Session, Depends(get_db)]
 Limit = Annotated[int, Depends(page_limit)]
@@ -74,7 +84,7 @@ def farm_news(db: Db, farm_id: str, user: OptionalUser, limit: Limit, cursor: st
 
 
 @router.put("/news/{broadcast_id}/reaction", response_model=ReactionState)
-def react(db: Db, user: Consumer, broadcast_id: str):
+def react(db: Db, user: OnboardedConsumer, broadcast_id: str):
     state = service.set_reaction(db, user.id, broadcast_id, True)
     db.commit()
     return state
@@ -125,7 +135,7 @@ def chats(db: Db, user: Consumer, limit: Limit, cursor: str | None = None):
 
 
 @router.post("/chats", response_model=StartChatResult)
-def start_chat(db: Db, user: Consumer, body: StartChatInput, key: IdempotencyKey = None):
+def start_chat(db: Db, user: OnboardedConsumer, body: StartChatInput, key: IdempotencyKey = None):
     """채팅하기·질문하기. 팔로우하지 않았으면 자동 팔로우(AC-12-4)."""
     return run_idempotent(
         db,
@@ -142,17 +152,55 @@ def chat_messages(db: Db, user: Consumer, farm_id: str, limit: Limit, cursor: st
     return service.consumer_page(db, user, farm_id, cursor, limit)
 
 
+@router.post("/chats/{farm_id}/messages/{message_id}/report", response_model=EscalationView)
+def report_ai_answer(
+    db: Db,
+    user: Consumer,
+    farm_id: str,
+    message_id: str,
+    key: IdempotencyKey = None,
+):
+    # The unique reported_message_id constraint is the idempotency guarantee;
+    # the optional key is accepted consistently with other messaging POSTs.
+    result = service.report_ai_answer(db, user, farm_id, message_id)
+    db.commit()
+    return result
+
+
 @router.post("/chats/{farm_id}/messages", response_model=SendResult)
-def send_chat(db: Db, user: Consumer, farm_id: str, body: SendInput, key: IdempotencyKey = None):
+def send_chat(
+    db: Db, user: OnboardedConsumer, farm_id: str, body: SendInput, key: IdempotencyKey = None
+):
     """질문 → AI 안내 또는 '농가에 전달'. HUMAN·AI OFF면 reply=null."""
-    return run_idempotent(
+    alert: service.ManagerRefundAlert | None = None
+
+    def send():
+        nonlocal alert
+        outcome = service.consumer_send(db, user, farm_id, body)
+        alert = outcome.alert
+        return outcome.result
+
+    result = run_idempotent(
         db,
         user.id,
         f"send:{farm_id}",
         key,
         body,
-        lambda: service.consumer_send(db, user, farm_id, body),
+        send,
     )
+    committed_message_id = result.get("message", {}).get("messageId")
+    if alert is not None and alert.message_id == committed_message_id:
+        _safety_logger.info(
+            "manager_refund_request",
+            extra={
+                "event": "manager_refund_request",
+                "farmId": alert.farm_id,
+                "threadId": alert.thread_id,
+                "messageId": alert.message_id,
+                "category": "refund_or_compensation",
+            },
+        )
+    return result
 
 
 @router.put("/chats/{farm_id}/read", response_model=UnreadState)
@@ -160,6 +208,39 @@ def read_chat(db: Db, user: Consumer, farm_id: str, body: ReadInput):
     state = service.consumer_read(db, user, farm_id, body.last_read_message_id)
     db.commit()
     return state
+
+
+# ---------------- 소비자 farmclub 문의 대화방(DEV-150, FEAT-34) ----------------
+
+
+@router.get("/support/messages", response_model=SupportPage)
+def support_messages(db: Db, user: Consumer):
+    return support.consumer_support_page(db, user.id)
+
+
+@router.post("/support/messages", response_model=SendResult)
+def support_send(
+    db: Db, user: OnboardedConsumer, body: SupportSendInput, key: IdempotencyKey = None
+):
+    """운영팀에 문의. AI는 답하지 않아 reply는 항상 null.
+
+    처리방침의 이 목적(DEV-150)에 다시 동의해야 보낼 수 있다(농가 채팅과 같은 관문).
+    """
+    return run_idempotent(
+        db,
+        user.id,
+        "support-send",
+        key,
+        body,
+        lambda: support.consumer_support_send(db, user.id, body.text),
+    )
+
+
+@router.put("/support/read", response_model=UnreadState)
+def support_read(db: Db, user: Consumer, body: ReadInput):
+    unread = support.consumer_support_read(db, user.id, body.last_read_message_id)
+    db.commit()
+    return UnreadState(unread_count=unread)
 
 
 # ---------------- 생산자 1:1 (M-09) ----------------

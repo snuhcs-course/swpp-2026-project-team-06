@@ -53,7 +53,7 @@ export function DetailStory({
   const blocks = content?.blocks.length
     ? content.blocks
     : fallback?.trim()
-      ? [{ id: "intro", type: "text" as const, title, body: fallback }]
+      ? [{ id: "intro", type: "text" as const, title: "", body: fallback }]
       : [];
   if (!blocks.length) return null;
   return (
@@ -66,8 +66,8 @@ export function DetailStory({
           paddingTop: 28,
         }}
       >
-        <T variant="caption" muted weight="semibold">
-          FARMCLUB · 산지에서 전하는 이야기
+        <T variant="heading" weight="bold">
+          {title}
         </T>
       </View>
       {blocks.map((b) =>

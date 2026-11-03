@@ -5,9 +5,11 @@ from typing import Literal
 
 from pydantic import Field
 
+from app.core.detail import MediaUri
 from app.core.schemas import CamelModel
 
-SenderType = Literal["CONSUMER", "PRODUCER", "AI"]
+# OPERATOR는 farmclub 문의 대화방의 운영팀 메시지(DEV-111, M-22)
+SenderType = Literal["CONSUMER", "PRODUCER", "AI", "OPERATOR"]
 
 
 class NewsItem(CamelModel):
@@ -25,8 +27,8 @@ class NewsItem(CamelModel):
 
 class NewsInput(CamelModel):
     body: str = ""
-    photos: list[str] = Field(default_factory=list)
-    videos: list[str] = Field(default_factory=list)
+    photos: list[MediaUri] = Field(default_factory=list)
+    videos: list[MediaUri] = Field(default_factory=list)
     visibility: Literal["PUBLIC", "FOLLOWERS"] = "FOLLOWERS"
 
 
@@ -90,6 +92,7 @@ class ChatMessage(CamelModel):
     source_summary: str | None
     handoff_status: Literal["FORWARDED"] | None
     masked: bool
+    reported: bool = False
 
 
 class ThreadView(CamelModel):
@@ -120,6 +123,7 @@ class EscalationView(CamelModel):
     created_at: datetime
     status: Literal["OPEN", "ANSWERED"]
     answer: str | None
+    reported_message_id: str | None = None
     thread: list[ChatMessage]
 
 
@@ -176,6 +180,9 @@ class ChatSummary(CamelModel):
     last_sender_type: SenderType
     last_at: datetime | None
     unread_count: int
+    # farmclub 문의 대화방(DEV-150). farm_id는 u-farmclub(SUPPORT_USER_ID),
+    # 대화는 /api/messaging/support로 연다
+    is_support: bool = False
 
 
 class ProducerChatSummary(CamelModel):
@@ -187,6 +194,8 @@ class ProducerChatSummary(CamelModel):
     unread_count: int
     needs_reply: bool
     ai_mode: Literal["AUTO", "HUMAN"]
+    # farmclub 문의 대화방(DEV-111). 다른 대화와 같이 최근 순으로 섞이고, 로고로 구분한다
+    is_support: bool = False
 
 
 class StartChatInput(CamelModel):
@@ -207,6 +216,8 @@ class SendInput(CamelModel):
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
     order_id: str | None = None
+    # 상품 페이지에서 연 채팅의 상품. AI 근거로만 쓰고 저장하지 않는다(DEV-97)
+    product_id: str | None = None
 
 
 class SendResult(CamelModel):
@@ -236,3 +247,14 @@ class ReadInput(CamelModel):
 
 class UnreadState(CamelModel):
     unread_count: int
+
+
+class SupportPage(CamelModel):
+    """소비자 farmclub 문의 대화방 메시지(DEV-150). 짧아서 한 번에 내려 준다."""
+
+    items: list[ChatMessage]
+    next_cursor: str | None = None
+
+
+class SupportSendInput(CamelModel):
+    text: str

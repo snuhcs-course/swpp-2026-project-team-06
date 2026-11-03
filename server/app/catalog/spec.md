@@ -10,7 +10,7 @@
 상품, 중량 옵션, 단계·단계 가격·단계 물량, AI 상품 초안 저장, 운영자의 상품 승인·반려.
 
 ## 구조
-- `router.py` — prefix `/products`(앱에서는 `/api/products`). 관리 API `/admin/products/...`는 기능 이슈에서 추가.
+- `router.py` — prefix `/products`(앱에서는 `/api/products`). 관리 API `/admin/products/{productId}/capacity-requests/{requestId}/approve·reject`, 공급 물량 신청 목록 `GET /admin/capacity-requests?status=`(DEV-87, 상품·농가 이름과 현재 승인량 포함).
 - `models.py` — 담당 엔티티: `Product`, `ProductOption`, `Stage`, `StagePrice`, `StageAllocation`, `ProductDraft`
 - `schemas.py` — 상품 상세·편집, 단계 설정, 초안 입출력
 - `service.py` — 상품 상태 전이(DRAFT/PENDING_APPROVAL/PUBLISHED/CLOSED), 현재 단계 찾기, 기본값 단계 구성, 재승인 판단(R-25)
@@ -34,3 +34,4 @@
 | 2026-10-08 | `reservedCount`는 저장하지 않고 orders의 결제 주문 소비자 수로 계산한다. 상태에 REJECTED를 둔다(스펙 1.1 화면) | tech-design 데이터 모델 | AC-04-2 |
 | 2026-10-08 | 게시 요청 빠진 칸에 원산지·보관 방법도 넣는다 | FEAT-04 입력·검증 | AC-04-1 |
 | 2026-10-09 | `Product.detailContent`는 nullable JSON이고 공개·내 상품 응답에서 null은 생략한다. 초안 생성은 기존 수정 가능 상태·소유권을 따른다 | storefront-1.5 | AC-03-4, AC-07-5 |
+| 2026-10-16 | 공급 물량 결정은 기존 사유 이력 구조를 유지하고 `CapacityRequest.decidedBy`만 추가한다 | 별도 사유 분류 없이 운영자 책임 추적 | AC-04-8 |
