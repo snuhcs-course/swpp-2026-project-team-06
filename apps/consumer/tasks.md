@@ -756,6 +756,7 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 - 10/24 Android 에뮬레이터(Medium_Phone) 확인: 두 앱 설치·실행, 소비자 홈(운영 API)·관문 시트·로그인 화면·‘카카오로 시작하기’ → Chrome Custom Tab에 accounts.kakao.com 로그인 페이지, 닫으면 로그인 화면으로 복귀. 생산자 로그인 화면. 발견 2건을 `eas update`로 반영: ① 상태 표시줄 아이콘이 흰 배경에 흰색이라 보이지 않음 → 두 앱 `_layout.tsx`에 `<StatusBar style="dark" />`(재실행 뒤 보임) ② 에뮬레이터에 PR #164의 TWA(같은 패키지명, 다른 서명 키)가 남아 있으면 `adb install`이 조용히 실패하고 옛 TWA가 실행됨 → 팀 폰에서도 TWA APK를 먼저 지워야 한다(README·DEV-41 확인 항목).
 - 10/24 iOS·Android 모두 로그인 끝까지(앱 복귀)는 PR #270의 웹 `/auth/kakao` 배포 뒤 확인. 그 뒤 화면(온보딩·주문·채팅·사진 첨부)도 같은 조건. 상태: 리뷰 중(사람 리뷰 대기).
 - 11/03 spec-check(run 41614675465) MISMATCH 3건 반영: 범위 목록에 `packages/ui/src/web.ts`·두 앱 `_layout.tsx`를 추가(기록에는 있었지만 범위에 빠짐). 루트 `app.json`(`{"expo": {}}`, 10/23 커밋 107cb73에 섞여 들어감)은 어디서도 읽지 않아 삭제. `eas` CLI를 루트에서 실행했을 때 생긴 것으로 보인다.
+- 11/03 APK 두 개를 GitHub Release `apk-internal-2026-10-23`에 보관(EAS 산출물 30일 만료 대비, SHA-256 포함). HE README·루트 README에 링크. JS는 preview 채널 업데이트라 네이티브가 바뀔 때만 새 Release.
 
 ## DEV-200 [I3] Show evaluator test accounts in native internal builds for HE
 - 이슈: https://linear.app/sswp6/issue/DEV-200 · 관련 DEV-198(웹 평가 주소), DEV-41(기기 확인)
@@ -767,4 +768,3 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
   - 서버 `MOCK_LOGIN_ENABLED`는 바꾸지 않는다(DEV-198과 같음).
 - 검증(11/3, 로컬 실서버 `farmclub_i3`): `npm run typecheck` 통과 · `npm run test:mock` 63/63 · `run-integration.mjs evaluator-login.spec.ts` 플래그 없이 4 passed/2 skipped, `EXPO_PUBLIC_EVALUATOR_LOGIN=1`로 2 passed/4 skipped.
 - 평가 뒤 할 일(사람): EAS `preview` 환경에서 `EXPO_PUBLIC_EVALUATOR_LOGIN` 삭제 → `eas update --channel preview --environment preview`로 일반 업데이트.
-- 11/03 APK 두 개를 GitHub Release `apk-internal-2026-10-23`에 보관(EAS 산출물 30일 만료 대비, SHA-256 포함). HE README·루트 README에 링크. JS는 preview 채널 업데이트라 네이티브가 바뀔 때만 새 Release.
