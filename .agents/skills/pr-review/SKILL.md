@@ -58,6 +58,7 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
    - 마이그레이션이 있으면 `cd server && uv run alembic heads`가 1개인지 확인한다. 겹치면 이 PR의 리비전 번호를 올린다.
 2. `tasks.md`의 상태를 "완료"로, 완료 조건을 체크한다.
 3. PR 체크가 통과했는지, 사람 1명 Approve를 확인한 뒤 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
+   - `spec-code-review`가 fail이면 머지는 막히지 않지만, 보고서(Checks → run → Summary)를 읽고 처리 결정을 PR 코멘트로 남긴 뒤에 머지한다(`.github/spec-check/README.md` 1.1절).
 4. 머지 뒤 main CI와 바뀐 경로의 배포 대상(Railway 서버, Vercel 앱, Vercel 관리자 페이지)을 확인한다. main CI가 깨지면 바로 고치거나 revert한다.
    - 배포는 Actions 실행 목록의 커밋 라벨이 아니라 배포 로그에 찍힌 커밋과 운영 응답(새 API·새 화면 문구)으로 확인한다. 라벨과 실제로 올린 커밋이 다를 수 있고, 바뀐 경로가 없다고 건너뛴 배포도 성공으로 보인다(DEV-139).
    - (권장) 운영 확인은 curl·API 요청으로 한다. 운영 화면을 브라우저로 열면 PostHog 운영 데이터에 기록이 섞인다.

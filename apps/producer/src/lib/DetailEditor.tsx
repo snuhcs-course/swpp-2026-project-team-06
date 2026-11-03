@@ -24,7 +24,7 @@ import {
 } from "@farmclub/ui";
 import { useNavigation, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { TextInput, View } from "react-native";
+import { Platform, TextInput, View } from "react-native";
 import { pickMedia } from "./pick";
 import { useHideTabBar, useSession } from "./session";
 const inputStyle = {
@@ -104,12 +104,10 @@ function Editor({ productId }: { productId?: string }) {
         e.returnValue = "";
       }
     };
-    if (typeof window !== "undefined")
-      window.addEventListener("beforeunload", handler);
-    return () => {
-      if (typeof window !== "undefined")
-        window.removeEventListener("beforeunload", handler);
-    };
+    // 웹 전용: 탭을 닫을 때 경고. 앱에는 beforeunload가 없다(DEV-33)
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, busy]);
   useEffect(() => {
     alive.current = true;

@@ -24,7 +24,7 @@ jobs:
           LIVE_ENABLED: ${{ vars.SPEC_CHECK_ENABLED }}
         run: |
           if [ "$ELIGIBLE" = "true" ] && [ "$LIVE_ENABLED" = "true" ]; then
-            echo "Eligible PR. Live model review requires the protected spec-check environment." >> "$GITHUB_STEP_SUMMARY"
+            echo "Eligible PR. Live model review runs automatically on ready (non-draft) PRs (DEV-196)." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$ELIGIBLE" = "true" ]; then
             echo "SKIPPED: live model review is disabled (SPEC_CHECK_ENABLED is not true). Contract tests still run. No model PASS has been produced; apply human review." >> "$GITHUB_STEP_SUMMARY"
           else
@@ -55,18 +55,18 @@ jobs:
         with:
           ref: ${{ github.sha }} # Include checker files from main on older feature branches.
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Verify checker contract without credentials
         run: python -m unittest discover -s .github/spec-check -p 'test_*.py' -v
 
+  # DEV-196: 환경 승인 없이 자동 실행. draft PR은 건너뛰고 ready_for_review에서 돈다. 결과가 fail이어도 머지를 막지 않는다(README 1.1절).
   spec-code-review:
     permissions:
       contents: read
       pull-requests: read
-      actions: read # Verify required reviewers on the protected environment.
-    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
+    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
     needs: checker-tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -77,7 +77,7 @@ jobs:
           ref: ${{ github.sha }} # Execution revision; reviewed source still uses captured head/base.
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Review captured PR context
@@ -91,7 +91,7 @@ jobs:
         run: python .github/spec-check/check.py
       - name: Retain report even for mismatch or unavailable access
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spec-code-review-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -105,8 +105,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-      actions: read
-    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' && contains(github.event.pull_request.body, '<!-- spec-check-demo -->')
+    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' && contains(github.event.pull_request.body, '<!-- spec-check-demo -->')
     needs: checker-tests
     strategy:
       fail-fast: false
@@ -122,7 +121,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Run genuine model demonstration
@@ -143,7 +142,7 @@ jobs:
           python -c 'import json, os; from pathlib import Path; r=json.loads(Path(".artifacts/spec-check/report.json").read_text()); expected="MISMATCH" if os.environ["SAMPLE"] == "mismatch" else "PASS"; assert r["status"] == expected, "Expected " + expected + ", received " + r["status"]'
       - name: Retain genuine demo result
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spec-code-demo-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

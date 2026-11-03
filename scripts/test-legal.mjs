@@ -96,12 +96,19 @@ test("DEV-113: index.html gets business info in <noscript>", () => {
   assert.match(inserted, /<noscript>.*<\/noscript><\/body>/s);
 });
 
-test("DEV-140: privacy policy lists Kakao name and phone as required, with purpose and prefill", () => {
+test("DEV-140·142: privacy policy lists the Kakao phone as required (no Kakao name), with purpose and prefill", () => {
   const html = pages.pageHtml(content.privacyPolicy);
-  assert.match(html, /카카오 회원번호, 카카오계정 이메일, 이름, 전화번호\(필수\)/);
-  assert.match(html, /받는 사람 이름·연락처, 배송·주문 문의 연락, 생산자 가입 확인 전화/);
+  assert.match(html, /카카오 회원번호, 카카오계정 이메일, 전화번호\(필수\)/);
+  assert.doesNotMatch(html, /카카오계정 이메일, 이름/);
+  assert.match(html, /주문 상품 배송을 위한 연락처, 배송·주문 문의 연락, 생산자 가입 확인 전화/);
   assert.match(html, /미리 채우는 데 쓰며, 이용자가 직접 고칠 수 있습니다/);
   assert.doesNotMatch(html, /카카오에서 동의한 경우/);
+  // DEV-142: 소비자 가입은 닉네임·휴대폰만, 이름·배송지는 첫 주문서에서 받는다
+  assert.match(html, /첫 주문서의 연락처 칸/);
+  assert.doesNotMatch(html, /\(선택\) 기본 배송지/);
+  // 배송지 저장은 미리 체크된 칸이라 동의가 아니라 계약 이행으로 처리한다
+  assert.doesNotMatch(html, /저장을 고를 때 받음/);
+  assert.match(html, /배송지를 기본으로 저장/);
 });
 
 test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async () => {

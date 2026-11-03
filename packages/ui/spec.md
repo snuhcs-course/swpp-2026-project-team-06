@@ -102,3 +102,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 | 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |
 | (DEV-116) 푸터는 `<Scroll footer={<LegalFooter … />}>` 슬롯으로 둔다. footer가 있으면 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'` + 위 여백 section(40)으로 붙인다 | 내용 바로 뒤에 두면 짧은 화면(카카오 운영 로그인)에서 푸터가 화면 중간에 뜬다. flexGrow는 footer가 있을 때만 켜 다른 화면에 영향이 없다 |
 | (DEV-116) 고정 하단 바가 있는 로그인은 바 높이를 `onLayout`으로 재서 `Scroll bottom`으로 쓴다 | 바 높이가 상태(카카오 버튼만·테스트 계정 버튼·오류 문구)마다 달라 고정값이면 푸터와 바 사이가 빈다 |
+## DEV-33 네이티브 분기 (ADR 0013)
+
+- 화면 숨김 판단은 `src/foreground.ts`의 `inBackground()`(`AppState`; 웹에서는 `document.visibilityState`를 비춘다). `ChatThread`·`NewsRoom`·`useLiveList`가 쓴다.
+- 비공개 사진 첨부(`PrivatePhotos`)는 웹 `<input type="file">`, 앱은 `src/pickPhoto.native.ts`(`expo-image-picker`)의 ‘사진 첨부’ 버튼. `upload`는 `File | PickedPhoto({uri, name, type, size})`.

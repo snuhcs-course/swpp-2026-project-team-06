@@ -101,3 +101,5 @@ export {
   type BusinessInfo,
   type LegalPath,
 } from "./legalContent";
+export { inBackground } from "./foreground";
+export { pickPhoto, type PickedPhoto } from "./pickPhoto";

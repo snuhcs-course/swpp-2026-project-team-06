@@ -64,10 +64,10 @@ export function consentRequired(u: UserRec): boolean {
   return required.some((k) => !agreed.has(k));
 }
 
-/** 첫 가입 온보딩이 남았는가(서버 needs_onboarding과 같은 규칙). 테스트 계정은 항상 false */
+/** 첫 가입 온보딩이 남았는가(서버 needs_onboarding과 같은 규칙). 이름은 조건이 아니다(DEV-142). 테스트 계정은 항상 false */
 export function needsOnboarding(u: UserRec): boolean {
   if (u.role !== "CONSUMER" || !u.kakao) return false;
-  if (!u.nickname?.trim() || !u.name.trim() || !u.phone?.trim()) return true;
+  if (!u.nickname?.trim() || !u.phone?.trim()) return true;
   return consentRequired(u);
 }
 

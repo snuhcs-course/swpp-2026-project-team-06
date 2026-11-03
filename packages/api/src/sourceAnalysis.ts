@@ -1,5 +1,7 @@
 export { hasMoney, hasHealthClaim, hasPlatformText, hasPeriodText } from "./sourceTextSafety";
 import { ApiError, apiUrl, getToken, isMock, request } from "./client";
+import { blobUrl } from "./objectUrl";
+import { appendFile, type UploadFile } from "./upload";
 export type SourceBasicInfo = {
   variety: string;
   size: string;
@@ -342,7 +344,7 @@ export async function uploadSource(
   targets: string[],
   common: boolean,
   original: boolean,
-  input: File | string,
+  input: UploadFile | string,
 ) {
   if (isMock)
     throw new Error("자료 업로드는 로컬 API 검증 환경에서 사용할 수 있어요.");
@@ -352,7 +354,7 @@ export async function uploadSource(
   form.append("common", String(common));
   form.append("originalPhoto", String(original));
   if (typeof input === "string") form.append("text", input);
-  else form.append("file", input);
+  else appendFile(form, "file", input);
   const res = await fetch(`${apiUrl}${at(bid)}/sources`, {
     method: "POST",
     headers: { Authorization: `Bearer ${getToken() ?? ""}` },
@@ -368,5 +370,5 @@ export async function sourcePageImage(bid: string, sid: string, page: number) {
     { headers: { Authorization: `Bearer ${getToken() ?? ""}` } },
   );
   if (!res.ok) throw new ApiError(res.status, await res.json());
-  return URL.createObjectURL(await res.blob());
+  return blobUrl(await res.blob());
 }
