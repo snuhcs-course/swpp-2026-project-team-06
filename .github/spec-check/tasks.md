@@ -381,3 +381,31 @@ diff 밖 코드가 필요해 UNVERIFIED로 끝나는 INCOMPLETE(#291)와 입력 
 ### 기록
 - 11/03 `origin/main`(81233e6)에서 시작. DEV-196(#365)과 같은 파일(`check.py`·README·spec.md)을 다른 자리에서 고치므로 뒤에 머지하는 쪽이 main을 병합한다.
 - 11/03 #365 머지 뒤 main(d5c4bb7) 병합. 충돌은 이 파일·`.agents/tasks.md`의 끝 절(DEV-196 → DEV-197 순으로 둘 다 남김).
+
+## DEV-199 표 2열의 폴더·비정규 파일 경로는 문맥으로 읽지 않고 건너뛰기
+
+- 이슈: [DEV-199](https://linear.app/sswp6/issue/DEV-199) (관련: DEV-197)
+- 브랜치: `nemodleo/dev-199-spec-check-skip-dirs`
+- 기능·인수 조건: infra. 제품 동작 변경 없음.
+- 상태: 구현 완료, 리뷰 대기
+
+### 목표
+표 2열에 폴더(예: #270의 `apps/producer`)나 심링크가 적혀 있어도 모델 호출 전에 INCOMPLETE("not a regular repository file")가 나지 않게 한다.
+
+### 범위 (수정 허용 경로)
+- `.github/spec-check/check.py`(문맥 루프 한 분기), `test_check.py`(단언 추가), `README.md` 2.1절 한 구절, 이 파일
+- `.agents/skills/pr-context/check_table.py`(폴더·심링크를 따로 표시), `.agents/tasks.md`
+
+### 결정 사항
+- 11/03 `ls-tree` 모드가 blob(100644/100755)이 아니면 `reference_paths[path] = {size: null, kind: tree|symlink|other}`로 남기고 읽지 않는다. 바뀐 파일(diff) 쪽은 그대로다(`safe_path`·`read_file` 규칙 유지).
+- 11/03 `check_table.py`는 폴더·심링크를 "파일이 아님"과 구분해 알려 준다. 작성자가 파일 경로로 고치게.
+
+### 작업
+- [x] `collect` 분기, 테스트, README, check_table
+- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 53개 통과
+
+### 완료 조건
+- [ ] checker-tests 통과, 사람 1명 승인 후 main 머지
+
+### 기록
+- 11/03 #270 재실행(run 41614337303)에서 발견. 표를 고쳐 우회했다.

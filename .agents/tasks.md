@@ -182,3 +182,9 @@ Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생
 - 이슈: [DEV-197](https://linear.app/sswp6/issue/DEV-197) · 상태: 리뷰 대기
 - 범위: `.agents/skills/pr-context/SKILL.md`(표 절 두 줄), `.agents/tasks.md`
 - 결정: 판단에 필요한 diff 밖 파일은 바뀌지 않았어도 표 2열에 backtick 경로로 적는다. 상세는 `.github/spec-check/tasks.md#DEV-197`.
+
+## DEV-199 check_table.py: 폴더·심링크 경로 구분
+
+- 이슈: [DEV-199](https://linear.app/sswp6/issue/DEV-199) · 상태: 리뷰 대기
+- 범위: `.agents/skills/pr-context/check_table.py`(ls-tree 모드 검사 세 줄), `.agents/tasks.md`
+- 결정: `ls-tree`가 트리·심링크를 돌려주면 "폴더·심링크 경로(파일 경로만 적는다)"로 표시. 상세는 `.github/spec-check/tasks.md#DEV-199`.

@@ -347,6 +347,12 @@ def collect(root, event, demo=None):
         for path in sorted(implementation - set(changed) - set(documents)):
             if excluded(path):
                 continue
+            # DEV-199: a folder or symlink in the table is a reference, not context; read_file would raise.
+            entry = git(root, "ls-tree", "-z", head, "--", path).decode()
+            mode = entry.split(" ", 1)[0] if entry else ""
+            if entry and mode not in {"100644", "100755"}:
+                references_only[path] = {"size": None, "kind": {"040000": "tree", "120000": "symlink"}.get(mode, "other")}
+                continue
             text = read_file(root, head, path, optional=True)
             if text is None:
                 references_only[path] = {"size": None}

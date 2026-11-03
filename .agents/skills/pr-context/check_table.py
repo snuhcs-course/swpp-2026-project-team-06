@@ -20,8 +20,11 @@ try:
         problems.append(f"{task}에 '## {key}' 섹션이 없음")
     problems += [f"표 1·2열에 없는 변경 파일: {p}" for p in sorted(set(changed) - specs - impl - {task})]
     for p in sorted(specs | impl):
-        if not git("ls-tree", head, "--", p) and not git("ls-tree", base, "--", p):
-            problems.append(f"backtick 값이 파일이 아님(함수 이름·폴더 등): {p}")
+        entry = git("ls-tree", head, "--", p) or git("ls-tree", base, "--", p)
+        if not entry:
+            problems.append(f"backtick 값이 파일이 아님(함수 이름 등): {p}")
+        elif not entry.startswith(("100644", "100755")):
+            problems.append(f"폴더·심링크 경로(파일 경로만 적는다, DEV-199): {p}")
     for p in changed:
         try:
             check.safe_path(p)
