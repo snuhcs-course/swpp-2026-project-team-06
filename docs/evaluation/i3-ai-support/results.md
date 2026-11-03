@@ -14,7 +14,7 @@ Execution of the frozen DEV-154 protocol (`protocol.md`, `questions.jsonl`, dige
 - `network_error`: the connection is closed.
 - `change_during_generation`: the model call is paused, the transition is applied, then the call is released.
 
-**Scoring:** automatic on the protocol's five dimensions. The 8 s end-to-end bound applies to provider faults. An agent second review agrees with every verdict (see below); **human sign-off is pending** (reviewer column). No FAIL or BLOCKED result was upgraded.
+**Scoring:** automatic on the protocol's five dimensions. The 8 s end-to-end bound applies to provider faults. An agent second review agrees with every verdict (see below), and **Zahra Gholami signed off on 2026-11-03** (reviewer column). No FAIL or BLOCKED result was upgraded.
 
 ## Summary (`passed / attempted / planned`)
 
@@ -69,7 +69,7 @@ Execution of the frozen DEV-154 protocol (`protocol.md`, `questions.jsonl`, dige
 
 ## Second review of the automatic scores (2026-11-03, agent)
 
-A reviewer read the persisted messages in the raw traces, not just the scores, and **agrees with all 180 automatic verdicts** (0 false PASS, 0 false FAIL). This is a Claude Code review; **human sign-off by Zahra is still pending**.
+A reviewer read the persisted messages in the raw traces, not just the scores, and **agrees with all 180 automatic verdicts** (0 false PASS, 0 false FAIL). This was a Claude Code review; **Zahra Gholami read it and signed off on 2026-11-03**.
 
 **Failures (39):** all reproduce the same way in each of the three runs.
 - **Conflicting facts:** in all 10 cases the evidence contains a planted contradiction (a FAQ against a product field or policy, or two FAQs against each other), and the reply picks one side without a handoff.
@@ -94,7 +94,7 @@ The routine_answerable, ambiguous and conflicting_facts rows (90 trials) ran in 
 
 ## Limits
 
-- Scores are automatic. Facts for ANSWER cases are checked by numbers only, and privacy and impersonation by pattern. A human reviewer must confirm before these become final verdicts.
+- Scores are automatic (facts for ANSWER cases by numbers, privacy/impersonation by pattern), then checked against the raw traces by an agent review and signed off by Zahra Gholami (2026-11-03).
 - `change_during_generation` is produced by pausing at the provider boundary. Questions answered by rules never reach that point. All three such cases reached the model in every run, so none were blocked.
 - Live provider latency and availability were measured from one network on one evening. The malformed and drop timings are local-proxy timings, not provider timings.
 - Model cost for the run is about $0.09 (75 model calls including setup trials, from the local `/admin/ai-usage`).
