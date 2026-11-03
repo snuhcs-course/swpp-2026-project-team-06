@@ -38,5 +38,5 @@ Record one isolated, reproducible environment (build, accounts, fixtures, clock,
 
 ### Record
 - 11/03 Brought up `farmclub_i3` (alembic 0024), smoke 12/12 PASS in three reset → smoke runs with identical non-AI observations; one live Haiku call per run (~$0.0008).
-- 11/03 pytest with the live key: 3 AI-draft tests take the live path and fail by design. Without the key, from `server/` (CI condition): 1452 passed, 1 skipped. A keyless run from the repo root failed 34 (31 source tests use paths relative to `server/`); not a product defect. Local `make` is blocked by the unaccepted Xcode license; commands were run directly.
+- 11/03 pytest with the live key: 3 AI-draft tests take the live path and fail by design. Without the key, from `server/` (CI condition): 1452 passed, 1 skipped. A keyless run from the repo root failed 34 (31 source tests use paths relative to `server/`); not a product defect. `make` was blocked by the unaccepted Xcode license; after Zahra accepted it, `make i3-smoke` passed 12/12.
 - 11/03 Stale local `apps/consumer/.expo/types` (10/20) broke `npm run typecheck`; moved aside, after which all four typechecks pass like CI.

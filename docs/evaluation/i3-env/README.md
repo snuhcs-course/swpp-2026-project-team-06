@@ -64,11 +64,11 @@ make dev                # apps, if the run needs the web UI (real-stack runs: no
 docker compose -f server/docker-compose.yml exec -T db dropdb -U farmclub farmclub_i3
 ```
 
-`make` needs the Xcode license accepted on macOS (`sudo xcodebuild -license`); without it, run the commands each target prints (see `Makefile`). `I3_SMOKE_SKIP_AI=1` skips the live model call. Running pytest with a live key in `.env` sends the AI-draft tests down the live path (3 tests then fail by design, as CI has no key). For a CI-equivalent run, move `server/.env` aside, export `APP_ENV=local MOCK_LOGIN_ENABLED=true DATABASE_URL=…/farmclub_i3`, and run `uv run pytest` **from `server/`** (from the repo root, 31 source tests fail on relative paths).
+`make` needs the Xcode license accepted on macOS (`sudo xcodebuild -license`). `I3_SMOKE_SKIP_AI=1` skips the live model call. Running pytest with a live key in `.env` sends the AI-draft tests down the live path (3 tests then fail by design, as CI has no key). For a CI-equivalent run, move `server/.env` aside, export `APP_ENV=local MOCK_LOGIN_ENABLED=true DATABASE_URL=…/farmclub_i3`, and run `uv run pytest` **from `server/`** (from the repo root, 31 source tests fail on relative paths).
 
 ## Smoke evidence
 
-Run `.artifacts/i3-env/smoke-i3-b1-eb727b6-20261103T114000308Z.json` (local, not committed), UTC 2026-11-03T11:39:58.623Z – 11:40:02.785Z, executor Zahra Gholami with Claude Code (agent). Reset → smoke was repeated three times on 11/03; all non-AI observations were identical between runs.
+Run `.artifacts/i3-env/smoke-i3-b1-eb727b6-20261103T114000308Z.json` (local, not committed), UTC 2026-11-03T11:39:58.623Z – 11:40:02.785Z, executor Zahra Gholami with Claude Code (agent). Reset → smoke was repeated three times on 11/03 with identical non-AI observations, and `make i3-smoke` passed 12/12 afterwards.
 
 | ID | Check | Verdict | Observed |
 | --- | --- | --- | --- |
