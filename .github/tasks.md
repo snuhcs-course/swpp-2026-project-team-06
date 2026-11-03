@@ -192,3 +192,42 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - 10/22 참고: `deploy-vercel.yml`을 고치면 앱 matrix의 변경 감지에도 걸려 이 PR 머지 때 소비자·생산자 앱도 다시 올라간다(기존 규칙, 같은 main 내용)
 - 10/22 PR #228: `admin-web` job 18/18 통과(run 39728193563), server·apps·figma-line 통과. `integration`은 첫 실행에서 e2e AC-10-6(`checkout-and-fulfillment.spec.ts:135`, 같은 문구 2곳 strict mode)이 실패 → 앱·e2e 변경 없고 main 1f1a243 통과라 flaky로 보고 재실행해 통과
 - 10/22 AI 1차 리뷰 코멘트(must 없음). 머지 뒤 사람 확인: 첫 `deploy-admin` 성공(403이면 `VERCEL_TOKEN` 범위), admin.farmclub.kr에 DEV-98·106·107·111 화면
+
+## DEV-139 배포 변경 감지를 마지막 배포 커밋 기준으로(HEAD~1 → 이동 태그)
+
+- 이슈: [DEV-139](https://linear.app/sswp6/issue/DEV-139) (관련: DEV-66, DEV-94, DEV-33 #270, SWPP-125)
+- 브랜치: `nemodleo/dev-139-deploy-base-tag`
+- 기능·인수 조건: 없음(인프라). 제품 동작 변경 없음.
+- 상태: 구현 완료, 리뷰 대기
+
+### 목표
+배포 워크플로가 `HEAD~1..HEAD`만 보던 것을 "마지막으로 배포한 커밋..HEAD"로 바꿔, 앞 커밋의 CI가 취소·실패하거나 뒤 커밋에 묻혀도 변경이 운영에 올라가게 한다. 2026-11-03 #270(DEV-33) 머지 직후 #214가 머지되면서 소비자 앱 배포가 건너뛰어져 카카오 로그인 복귀가 깨진 것이 직접 계기.
+
+### 범위 (수정 허용 경로)
+- `scripts/ci/deploy-changed.sh`, `scripts/ci/deploy-mark.sh`, `scripts/ci/test-deploy-changed.sh` (새 파일)
+- `.github/workflows/deploy-railway.yml`, `.github/workflows/deploy-vercel.yml` (감지 단계 5곳, `fetch-depth`, `permissions`, 태그 단계)
+- `.github/workflows/ci.yml` (job `admin-web`에 시나리오 테스트 한 단계)
+- `Makefile`(`test-ci`), `README.md` 배포 절, `docs/spec/tech-design/stack.md` CI/CD 줄, `.agents/skills/pr-review/SKILL.md` 4장 배포 확인 줄, 이 파일
+
+### 결정 사항
+- 11/03 기준은 **이동 태그** `deploy/railway-api`·`deploy/vercel-consumer`·`deploy/vercel-producer`·`deploy/vercel-admin`·`deploy/vercel-demo`. 배포(+health 확인) 성공 뒤 `deploy-mark.sh`가 `git push --force origin HEAD:refs/tags/<태그>`로 옮긴다. GitHub Deployments API는 `environment: production` job이 건너뛴 실행에도 성공 기록을 남겨 기준으로 못 쓰고, 워크플로 실행 목록도 "실제로 올렸는지"를 구분 못 한다. 태그는 레포에서 바로 보이고 `git` 만으로 읽는다.
+- 11/03 규칙(`deploy-changed.sh`): 수동 실행은 항상 배포. 태그가 없으면 배포(첫 실행·안전한 쪽). HEAD == 태그면 건너뜀. HEAD가 태그의 조상이면 건너뜀(늦게 끝난 옛 CI 실행이 되돌리지 않게). 태그가 HEAD의 조상이 아니면(기록 재작성) 배포. 그 밖엔 `git diff <태그> HEAD`에 대상 경로가 있으면 배포. 로그 첫 줄에 `Comparing <base>..<head>`.
+- 11/03 `fetch-depth: 0`. 태그와 HEAD 사이 기록이 필요하다. 레포 크기에서 수십 초 안.
+- 11/03 `permissions: contents: write`(두 워크플로). 태그 push 때문. 토큰은 여전히 production Environment 안에서만 쓰인다.
+- 11/03 감지 정규식에 `scripts/ci/deploy-(changed|mark).sh`를 더해 스크립트가 바뀌면 그 대상이 한 번 다시 올라간다(워크플로 파일과 같은 취급).
+- 11/03 머지 뒤 첫 실행은 태그가 없어 다섯 대상이 한 번씩 모두 올라간다(의도, 같은 main 내용). 그 뒤부터 태그 기준.
+- 11/03 시나리오 테스트는 bash로 임시 bare 원격을 만들어 돈다(`make test-ci`). CI에서는 `admin-web` job이 `scripts/ci/**`·배포 워크플로 변경 때만 돌린다.
+
+### 작업
+- [x] `deploy-changed.sh`·`deploy-mark.sh`·시나리오 테스트 7개
+- [x] 감지 단계 5곳 교체, 태그 단계 4곳(Railway 1, Vercel 3), fetch-depth, permissions
+- [x] ci.yml 단계, Makefile, README, stack.md, pr-review 스킬
+- [x] 로컬: `bash scripts/ci/test-deploy-changed.sh` 7 시나리오 통과, `shellcheck scripts/ci/*.sh` 경고 없음, 워크플로 YAML 파싱 확인
+
+### 완료 조건
+- [ ] PR CI(`admin-web` job의 시나리오 테스트) 통과
+- [ ] 사람 1명 승인 후 main 머지
+- [ ] 머지 뒤 첫 배포 실행에서 다섯 대상이 올라가고 태그 `deploy/*` 5개가 생기는지, 다음 문서만 커밋에서 "Skipping"이 찍히는지(사람 확인)
+
+### 기록
+- 11/03 `origin/main`(0afd89a)에서 시작.

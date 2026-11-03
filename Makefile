@@ -76,7 +76,7 @@ check: lint test ## Run once before a PR: lint + test
 lint: ## ruff check (CI server job)
 	$(SERVER) uv run ruff check .
 
-test: test-server test-apps test-admin ## Server + apps + admin page (no integration or e2e)
+test: test-server test-apps test-admin test-ci ## Server + apps + admin page + CI scripts (no integration or e2e)
 
 .PHONY: test-source-final
 test-source-final: ## Offline stage-2 evaluator and final-text scorer tests (DEV-170)
@@ -94,6 +94,9 @@ test-apps: ## Mock contract tests + typecheck (CI apps job)
 
 test-admin: ## Admin page tests (CI admin-web job)
 	node --test scripts/admin-web/admin.test.mjs
+
+test-ci: ## Deploy change-detection scenarios (DEV-139, CI admin-web job)
+	bash scripts/ci/test-deploy-changed.sh
 
 test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 	npm run test:integration:full

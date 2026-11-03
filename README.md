@@ -245,10 +245,16 @@ cannot be connected without an organization admin. Instead,
 `.github/workflows/deploy-railway.yml` deploys from GitHub Actions. It waits for the
 **CI** workflow on `main` and runs only when CI succeeded, so a commit that fails tests
 is never deployed. It checks out the exact commit CI tested, and if that commit touches
-`server/**` (or the deploy workflow itself) it runs
+`server/**` (or the deploy workflow itself) since the last successful deploy, it runs
 `railway up ./server --path-as-root --service farmclub-api --environment production --ci`
 and then polls `/health` until it answers; otherwise it skips the deploy and passes.
-Changes are read from that single commit, which matches the squash-merge rule. The
+"Since the last successful deploy" is the moving tag `deploy/railway-api` (the Vercel jobs
+use `deploy/vercel-consumer`, `deploy/vercel-producer`, `deploy/vercel-admin` and
+`deploy/vercel-demo`): `scripts/ci/deploy-changed.sh` diffs that tag against the checked-out
+commit and `scripts/ci/deploy-mark.sh` moves the tag after the deploy succeeds (DEV-139).
+Reading only the last commit used to skip a change whose own CI run was cancelled or
+superseded by a later docs-only commit. Without a tag (first run) it deploys; a commit older
+than the tag is skipped so a late run never rolls production back. The
 workflow can also be started by hand from the Actions tab (**Run workflow**) with the
 `main` branch selected, for example after a variable change; a manual run always deploys
 the current `main`.
