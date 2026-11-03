@@ -1281,9 +1281,29 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
   - 충돌 선택지는 정규화 값으로 묶는다.
   - Composer `render`의 basic 인자를 non-null로 정리했다.
 
+<<<<<<< HEAD
 ## DEV-33 생산자 앱 EAS 네이티브 빌드 전환
 
 - 이슈: [DEV-33](https://linear.app/sswp6/issue/DEV-33) · 목표·결정·검증 기록은 `apps/consumer/tasks.md#DEV-33`에 모은다.
 - 범위: `app.json`·`eas.json`·`vercel.json`·`public/{index.html,manifest.webmanifest,.well-known/**}`, `src/app/login.tsx`·`src/app/auth/kakao.tsx`, `src/lib/kakao.native.ts`·`kakaoAuth(.native).ts`(새 파일), `src/lib/pick.native.ts`·`sourceFiles.native.ts`(새 파일), `sourceFiles.ts`(`PickedFile` 타입)·`SourceAttachments.tsx`(`PickedFile`, 네이티브 미리보기 uri), `DetailEditor.tsx`·`ProductPageEditor.tsx`·`SourceWorkspace.tsx`(beforeunload는 웹에서만), `views.tsx`(copyText).
 - 10/23 결정: 식별자 `kr.farmclub.producer`, 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로), 앱 스킴 `farmclub-producer`. `kakao.ts`(웹)는 기존 export의 동작을 그대로 두고 앱 전달용 export(`appReturnUrl`·`forwardToApp`·`kakaoCallbackUri`·`parseKakaoReturn`·`appOrigin`)만 더해 `scripts/test-producer-kakao.mjs`가 그대로 돈다. 원본 자료 사진 picker 품질은 소비자와 같은 0.8. 원본 자료 PDF·텍스트 첨부는 웹 전용(네이티브는 사진만).
 - [x] 설정·의존성 [x] 카카오 네이티브 복귀 [x] 사진·영상 선택 [x] beforeunload·복사 가드 [x] well-known·manifest
+=======
+## DEV-198 [I3] 평가 로그인 주소 (/login?evaluator=1)
+- 이슈: https://linear.app/sswp6/issue/DEV-198
+- 범위: 로그인 화면(`src/app/login.tsx`), `scripts/e2e/evaluator-login.spec.ts`, `docs/spec/ia.md`, `docs/spec/screens.md`, wiki 요약
+- 결정
+  - 11/4 수업 Heuristic Evaluation용이다. 운영은 카카오가 켜져 있어 테스트 계정 목록이 숨겨져 있다.
+  - 주소에 `evaluator=1`이 있을 때만 카카오 버튼과 함께 목록을 보인다. 표시가 없으면 지금처럼 카카오만 보인다.
+  - 서버 Mock 플래그(`MOCK_LOGIN_ENABLED`)는 바꾸지 않는다. 플래그가 꺼지면 목록은 오류 상태가 되고 로그인은 서버가 거절한다.
+  - 일반(아이디·비밀번호) 로그인은 만들지 않는다(진우 결정).
+- 검증(sandbox 밖 로컬 스택): `evaluator-login`·`consumer-kakao`·`producer-kakao` spec 10 passed. `mock-login` 2건은 공유 Mock이 없어 skip. typecheck 통과.
+- 스캔 반영
+  - 평가 모드는 처음 들어올 때 sessionStorage(`farmclub:evaluator`)에 기억한다. 같은 탭에서 로그아웃하거나 관문을 거쳐 맨 `/login`으로 와도 목록이 남는다.
+  - "Mock:" 안내 문구는 앱 Mock 모드에서만 보인다. 운영 평가 모드에서는 원래 카카오 안내를 쓴다.
+  - 회귀 테스트에 두 가지를 추가했다: Mock 문구가 없는지, 표시 없이 다시 들어와도 목록이 남는지. 10 passed.
+- 평가 뒤 할 일(사람)
+  - 시드 계정은 평가 동안 공용 계정이 된다.
+  - 평가가 끝나면 '강씨네 귤밭'을 다시 숨긴다.
+  - 필요하면 운영 `MOCK_LOGIN_ENABLED`를 끈다. 끄면 이 주소는 '지금은 로그인할 수 없어요'로 막힌다.
+>>>>>>> origin/main

@@ -15,7 +15,7 @@ import {
   tokens,
   useAsync,
 } from "@farmclub/ui";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, View, useWindowDimensions } from "react-native";
 
@@ -44,11 +44,24 @@ const sub = (a: TestAccount) =>
     : "아직 농가 등록 안 함 · 가입 신청 시험용";
 const NEW_PRODUCER = "u-new";
 
+// 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 탭을 닫을 때까지 기억한다.
+// 로그아웃하거나 관문을 거쳐 맨 /login으로 와도 테스트 계정 목록이 남는다.
+const EVALUATOR_KEY = "farmclub:evaluator";
+function evaluatorMode(param?: string) {
+  try {
+    if (param === "1") globalThis.sessionStorage?.setItem(EVALUATOR_KEY, "1");
+    return param === "1" || globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1";
+  } catch {
+    return param === "1";
+  }
+}
+
 export default function Login() {
   const { width } = useWindowDimensions();
   // Reserve 140px for the two title lines, 40px gutters, and the 8px gap.
   const logoWidth = Math.min(172, Math.max(96, width - 188));
   const router = useRouter();
+  const { evaluator } = useLocalSearchParams<{ evaluator?: string }>();
   const { refresh } = useSession();
   const { data, error, reload } = useAsync(
     () =>
@@ -67,7 +80,12 @@ export default function Login() {
   // Mock은 상태별 시연 계정(승인·확인 중·반려·정지)이 필요해 테스트 목록을 함께 둔다
   const kakao = useAsync(() => auth.kakaoConfig(), []);
   const kakaoOn = !!kakao.data?.enabled;
-  const showTest = kakao.error ? true : kakao.data ? !kakaoOn || isMock : false;
+  // 평가용 주소(?evaluator=1, DEV-198)는 카카오가 켜진 운영에서도 테스트 계정 목록을 함께 둔다
+  const showTest = kakao.error
+    ? true
+    : kakao.data
+      ? !kakaoOn || isMock || evaluatorMode(evaluator)
+      : false;
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // 고정 하단 바 높이만큼 스크롤 아래를 비워 푸터가 바 바로 위에 온다(상태마다 바 높이가 다르다)
@@ -171,7 +189,7 @@ export default function Login() {
               style={{ transform: [{ translateX: -16 }, { translateY: -10 }] }}
             />
           </View>
-          {kakaoOn && !showTest ? (
+          {kakaoOn && !isMock ? (
             <T variant="body" muted>
               처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요. 카카오에서는
               이메일만 받고, 대표자 이름·연락처는 가입 신청에서 입력해요.
@@ -181,9 +199,11 @@ export default function Login() {
         {kakaoOn && showTest ? (
           <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 8 }}>
             {kakaoButton}
-            <T variant="caption" muted center>
-              Mock: 카카오로 시작하면 농가 없는 새 생산자로 들어가요
-            </T>
+            {isMock ? (
+              <T variant="caption" muted center>
+                Mock: 카카오로 시작하면 농가 없는 새 생산자로 들어가요
+              </T>
+            ) : null}
           </View>
         ) : null}
         {!showTest ? null : error ? (

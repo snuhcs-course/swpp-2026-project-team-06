@@ -29,10 +29,23 @@ import { isStatus } from "../lib/views";
 const consumerOnly = (list: TestAccount[] | null) =>
   list?.filter((a) => a.role === "CONSUMER") ?? null;
 
+// 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 탭을 닫을 때까지 기억한다.
+// 로그아웃하거나 관문을 거쳐 맨 /login으로 와도 테스트 계정 목록이 남는다.
+const EVALUATOR_KEY = "farmclub:evaluator";
+function evaluatorMode(param?: string) {
+  try {
+    if (param === "1") globalThis.sessionStorage?.setItem(EVALUATOR_KEY, "1");
+    return param === "1" || globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1";
+  } catch {
+    return param === "1";
+  }
+}
+
 export default function Login() {
-  const { next, reason } = useLocalSearchParams<{
+  const { next, reason, evaluator } = useLocalSearchParams<{
     next?: string;
     reason?: string;
+    evaluator?: string;
   }>();
   const router = useRouter();
   const { refresh, resume, clearResume } = useSession();
@@ -47,7 +60,12 @@ export default function Login() {
   const [failed, setFailed] = useState<string | null>(null);
   // 카카오가 켜져 있으면 카카오 로그인만 둔다(사용자 결정 10/17). 꺼져 있으면(CI·Mock 플래그만) 테스트 계정 목록을 보여 준다.
   // Mock 모드는 시드 데이터 시연에 계정이 필요해 카카오 버튼과 목록을 함께 둔다(생산자 SCR-19와 같음, DEV-136)
-  const showTest = kakao.error ? true : kakao.data ? !kakao.data.enabled || isMock : false;
+  // 평가용 주소(?evaluator=1, DEV-198)는 카카오가 켜진 운영에서도 테스트 계정 목록을 함께 둔다
+  const showTest = kakao.error
+    ? true
+    : kakao.data
+      ? !kakao.data.enabled || isMock || evaluatorMode(evaluator)
+      : false;
 
   useEffect(() => {
     if (data && !picked) setPicked(data[0]?.userId ?? null);
@@ -163,7 +181,7 @@ export default function Login() {
               </T>
             </Pressable>
             <T variant="caption" muted center>
-              {showTest
+              {isMock
                 ? "Mock: 카카오로 시작하면 처음 가입하는 새 소비자로 들어가요"
                 : "카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요."}
             </T>

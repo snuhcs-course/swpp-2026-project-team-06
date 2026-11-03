@@ -613,6 +613,7 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 
 ### 기록
 - 10/23 조사(컬리·오아시스·당근·와디즈·텀블벅 처리방침): 가입은 식별자+연락처, 주소는 첫 주문 때가 일반적. 닉네임은 커뮤니티형만
+<<<<<<< HEAD
 
 ## DEV-33 소비자·생산자 앱 EAS 네이티브 빌드 전환
 
@@ -691,3 +692,22 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/24 Android 에뮬레이터(Medium_Phone) 확인: 두 앱 설치·실행, 소비자 홈(운영 API)·관문 시트·로그인 화면·‘카카오로 시작하기’ → Chrome Custom Tab에 accounts.kakao.com 로그인 페이지, 닫으면 로그인 화면으로 복귀. 생산자 로그인 화면. 발견 2건을 `eas update`로 반영: ① 상태 표시줄 아이콘이 흰 배경에 흰색이라 보이지 않음 → 두 앱 `_layout.tsx`에 `<StatusBar style="dark" />`(재실행 뒤 보임) ② 에뮬레이터에 PR #164의 TWA(같은 패키지명, 다른 서명 키)가 남아 있으면 `adb install`이 조용히 실패하고 옛 TWA가 실행됨 → 팀 폰에서도 TWA APK를 먼저 지워야 한다(README·DEV-41 확인 항목).
 - 10/24 iOS·Android 모두 로그인 끝까지(앱 복귀)는 PR #270의 웹 `/auth/kakao` 배포 뒤 확인. 그 뒤 화면(온보딩·주문·채팅·사진 첨부)도 같은 조건. 상태: 리뷰 중(사람 리뷰 대기).
 - 11/03 spec-check(run 41614675465) MISMATCH 3건 반영: 범위 목록에 `packages/ui/src/web.ts`·두 앱 `_layout.tsx`를 추가(기록에는 있었지만 범위에 빠짐). 루트 `app.json`(`{"expo": {}}`, 10/23 커밋 107cb73에 섞여 들어감)은 어디서도 읽지 않아 삭제. `eas` CLI를 루트에서 실행했을 때 생긴 것으로 보인다.
+=======
+## DEV-198 [I3] 평가 로그인 주소 (/login?evaluator=1)
+- 이슈: https://linear.app/sswp6/issue/DEV-198
+- 범위: 로그인 화면(`src/app/login.tsx`), `scripts/e2e/evaluator-login.spec.ts`, `docs/spec/ia.md`, `docs/spec/screens.md`, wiki 요약
+- 결정
+  - 11/4 수업 Heuristic Evaluation용이다. 운영은 카카오가 켜져 있어 테스트 계정 목록이 숨겨져 있다.
+  - 주소에 `evaluator=1`이 있을 때만 카카오 버튼과 함께 목록을 보인다. 표시가 없으면 지금처럼 카카오만 보인다.
+  - 서버 Mock 플래그(`MOCK_LOGIN_ENABLED`)는 바꾸지 않는다. 플래그가 꺼지면 목록은 오류 상태가 되고 로그인은 서버가 거절한다.
+  - 일반(아이디·비밀번호) 로그인은 만들지 않는다(진우 결정).
+- 검증(sandbox 밖 로컬 스택): `evaluator-login`·`consumer-kakao`·`producer-kakao` spec 10 passed. `mock-login` 2건은 공유 Mock이 없어 skip. typecheck 통과.
+- 스캔 반영
+  - 평가 모드는 처음 들어올 때 sessionStorage(`farmclub:evaluator`)에 기억한다. 같은 탭에서 로그아웃하거나 관문을 거쳐 맨 `/login`으로 와도 목록이 남는다.
+  - "Mock:" 안내 문구는 앱 Mock 모드에서만 보인다. 운영 평가 모드에서는 원래 카카오 안내를 쓴다.
+  - 회귀 테스트에 두 가지를 추가했다: Mock 문구가 없는지, 표시 없이 다시 들어와도 목록이 남는지. 10 passed.
+- 평가 뒤 할 일(사람)
+  - 시드 계정은 평가 동안 공용 계정이 된다.
+  - 평가가 끝나면 '강씨네 귤밭'을 다시 숨긴다.
+  - 필요하면 운영 `MOCK_LOGIN_ENABLED`를 끈다. 끄면 이 주소는 '지금은 로그인할 수 없어요'로 막힌다.
+>>>>>>> origin/main
