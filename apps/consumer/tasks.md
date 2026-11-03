@@ -699,7 +699,7 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 - `packages/ui/src/{ChatThread.tsx,NewsRoom.tsx,useLiveList.ts,foreground.ts,PrivatePhotos.tsx,pickPhoto.ts,pickPhoto.native.ts,index.ts}`, `packages/ui/package.json`, `packages/ui/src/web.ts`(`safe()`에 네이티브 안전 영역 인셋, 10/23 iOS 확인에서 추가)
 - `apps/consumer/src/app/_layout.tsx`·`apps/producer/src/app/_layout.tsx`(`<StatusBar style="dark" />` 한 줄, 10/24 Android 확인에서 추가. 화면 모양 변경 아님)
 - 루트 `package.json`·`package-lock.json`(의존성, `test:mock`), `scripts/test-native-config.mjs`(새 파일), `.gitignore`
-- 문서: `docs/spec/tech-design/stack.md`, `docs/spec/tech-design/adr/0013-eas-native-builds.md`(새 파일), `docs/wiki/Design-Documentation.md`, `README.md`, 두 앱 `spec.md`·`tasks.md`, `packages/{api,ui,analytics}/spec.md`, `packages/{api,ui}/tasks.md`
+- 문서: `docs/spec/tech-design/stack.md`, `docs/spec/tech-design/adr/0013-eas-native-builds.md`(새 파일), `docs/wiki/Design-Documentation.md`, `README.md`, 두 앱 `spec.md`·`tasks.md`, `packages/{api,ui,analytics}/spec.md`, `packages/{api,ui}/tasks.md`, `docs/evaluation/he-2026-11-04/README.md`(11/03 APK Release 링크 한 줄)
 
 ### 비범위 (건드리지 않음)
 - 서버(`server/**`): 카카오 복귀 주소 검증은 지금 값(`<앱 주소>/auth/kakao`)을 그대로 쓴다. 서버 변경 없음.
