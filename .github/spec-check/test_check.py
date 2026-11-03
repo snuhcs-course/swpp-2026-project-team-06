@@ -557,6 +557,22 @@ class DiffOnlyContextTests(unittest.TestCase):
         self.assertEqual(data["reference_paths"], {"docs/spec/README.md": {"size": 15}})
         self.assertNotIn("authority text", json.dumps(data))
 
+    def test_model_incomplete_without_findings_is_no_findings_and_exit_zero(self):
+        # DEV-197: unverified context alone is green; findings or error-path INCOMPLETE stay red.
+        base = {"summary": "s", "reviewed_files": [], "findings": [], "missing_context": ["UNVERIFIED: x"]}
+        self.assertEqual(check.scoped({**base, "status": "INCOMPLETE"})["status"], "NO_FINDINGS")
+        self.assertEqual(check.scoped({**base, "status": "PASS", "missing_context": []})["status"], "PASS")
+        finding = {"id": "SC-001"}
+        self.assertEqual(check.scoped({**base, "status": "INCOMPLETE", "findings": [finding]})["status"], "INCOMPLETE")
+        self.assertEqual(check.scoped({**base, "status": "MISMATCH", "findings": [finding], "missing_context": []})["status"], "MISMATCH")
+        with tempfile.TemporaryDirectory() as directory:
+            report = {"schema_version": 1, **base, "status": "NO_FINDINGS", "metadata": {}, "model": "m", "usage": {}}
+            check.publish(report, directory)
+            text = Path(directory, "report.md").read_text()
+            self.assertIn("# Spec-to-code review: NO_FINDINGS", text)
+            self.assertIn("Not a PASS", text)
+            self.assertIn("- UNVERIFIED: x", text)
+
     def test_unchanged_table_files_are_sent_in_full_as_context(self):
         # DEV-197: an implementation path in the table that the PR did not change is context, not diff.
         self.base = repo(self.dir, {"module/helper.py": "def g():\n    return 'ctx'\n"})  # helper exists before the PR

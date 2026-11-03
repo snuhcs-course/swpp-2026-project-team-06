@@ -536,6 +536,9 @@ def publish(report, output, summary=None, secrets=()):
              "Model: " + clean_text(report.get("model", "unconfigured")), ""]
     if report["status"] == "PASS":
         lines += ["No mismatch detected within the reviewed scope. Human review and normal tests still apply.", ""]
+    elif report["status"] == "NO_FINDINGS":
+        lines += ["No mismatch detected in the visible scope, but the items under Missing context could not be verified "
+                  "from the sent excerpts (DEV-197). Not a PASS; the human reviewer covers those items.", ""]
     for f in report.get("findings", []):
         requirement, code = f["requirement"], f["code"]
         lines += ["## " + clean_text(f["id"]),
@@ -586,6 +589,14 @@ def report_usage(report, title, opener=None, ran_at=None):
         return False
 
 
+def scoped(result):
+    """DEV-197: a model INCOMPLETE with no findings is NO_FINDINGS (exit 0): nothing contradicts the spec in the
+    visible scope, only unverified context remains. Error-path INCOMPLETE (table, limit, access) stays exit 2."""
+    if result["status"] == "INCOMPLETE" and not result["findings"]:
+        return {**result, "status": "NO_FINDINGS"}
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--event", default=os.environ.get("GITHUB_EVENT_PATH"))
@@ -615,7 +626,7 @@ def main(argv=None):
             response, usage = model_review(context, prompt, key, model)
             validated = validate(response, context)
             check_current(event, token)
-            result = validated
+            result = scoped(validated)
     except (Incomplete, OSError, ValueError, TypeError, AttributeError, subprocess.TimeoutExpired) as exc:
         message = str(exc) if isinstance(exc, Incomplete) else "Review input or execution failed; inspect configuration and rerun."
         result.update(status="INCOMPLETE", summary=message, findings=[], missing_context=[message])
@@ -626,7 +637,7 @@ def main(argv=None):
     publish(report, args.output, os.environ.get("GITHUB_STEP_SUMMARY"), (key, token))
     report_usage(report, title)
     print(f"Spec-to-code: {report['status']}. See report artifacts.")
-    return {"PASS": 0, "MISMATCH": 1, "INCOMPLETE": 2, "SKIPPED": 0}[report["status"]]
+    return {"PASS": 0, "NO_FINDINGS": 0, "MISMATCH": 1, "INCOMPLETE": 2, "SKIPPED": 0}[report["status"]]
 
 
 if __name__ == "__main__":
