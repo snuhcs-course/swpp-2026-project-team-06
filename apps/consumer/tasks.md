@@ -593,7 +593,8 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - `apps/producer/**` 같은 경로(`apps/producer/tasks.md#DEV-33`), `apps/producer/src/lib/{pick,sourceFiles}.native.ts`, `sourceFiles.ts`(`PickedFile` 타입)·`SourceAttachments.tsx`(`PickedFile`, 네이티브 미리보기 uri), `DetailEditor.tsx`·`ProductPageEditor.tsx`·`SourceWorkspace.tsx`(beforeunload 가드), `views.tsx`(copyText)
 - `packages/api/src/{client.ts,storage.ts,storage.native.ts,objectUrl.ts,objectUrl.native.ts,upload.ts,index.ts,productWorkspace.ts,sourceAnalysis.ts}`(뒤 둘은 업로드 함수의 파일 타입만), `packages/api/package.json`
 - `packages/analytics/src/{index.ts,client.ts,client.native.ts}`, `packages/analytics/package.json`
-- `packages/ui/src/{ChatThread.tsx,NewsRoom.tsx,useLiveList.ts,foreground.ts,PrivatePhotos.tsx,pickPhoto.ts,pickPhoto.native.ts,index.ts}`, `packages/ui/package.json`
+- `packages/ui/src/{ChatThread.tsx,NewsRoom.tsx,useLiveList.ts,foreground.ts,PrivatePhotos.tsx,pickPhoto.ts,pickPhoto.native.ts,index.ts}`, `packages/ui/package.json`, `packages/ui/src/web.ts`(`safe()`에 네이티브 안전 영역 인셋, 10/23 iOS 확인에서 추가)
+- `apps/consumer/src/app/_layout.tsx`·`apps/producer/src/app/_layout.tsx`(`<StatusBar style="dark" />` 한 줄, 10/24 Android 확인에서 추가. 화면 모양 변경 아님)
 - 루트 `package.json`·`package-lock.json`(의존성, `test:mock`), `scripts/test-native-config.mjs`(새 파일), `.gitignore`
 - 문서: `docs/spec/tech-design/stack.md`, `docs/spec/tech-design/adr/0013-eas-native-builds.md`(새 파일), `docs/wiki/Design-Documentation.md`, `README.md`, 두 앱 `spec.md`·`tasks.md`, `packages/{api,ui,analytics}/spec.md`, `packages/{api,ui}/tasks.md`
 
@@ -651,3 +652,4 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 10/24 internal 빌드 결과(Expo 조직 snu-omm, 프로필 internal, 채널 preview). 소비자 iOS 시뮬레이터 646ee78e · 생산자 iOS 시뮬레이터 174e7183 · 소비자 Android APK 28528091(https://expo.dev/accounts/snu-omm/projects/farmclub-consumer/builds/28528091-faa4-4141-bfc2-b431bfd52e13) · 생산자 Android APK db07a7db(https://expo.dev/accounts/snu-omm/projects/farmclub-producer/builds/db07a7db-4ac7-4fe2-8d12-77a906fd0213). 빌드 페이지의 설치 링크·QR로 팀 Android 폰에 설치한다.
 - 10/24 Android 에뮬레이터(Medium_Phone) 확인: 두 앱 설치·실행, 소비자 홈(운영 API)·관문 시트·로그인 화면·‘카카오로 시작하기’ → Chrome Custom Tab에 accounts.kakao.com 로그인 페이지, 닫으면 로그인 화면으로 복귀. 생산자 로그인 화면. 발견 2건을 `eas update`로 반영: ① 상태 표시줄 아이콘이 흰 배경에 흰색이라 보이지 않음 → 두 앱 `_layout.tsx`에 `<StatusBar style="dark" />`(재실행 뒤 보임) ② 에뮬레이터에 PR #164의 TWA(같은 패키지명, 다른 서명 키)가 남아 있으면 `adb install`이 조용히 실패하고 옛 TWA가 실행됨 → 팀 폰에서도 TWA APK를 먼저 지워야 한다(README·DEV-41 확인 항목).
 - 10/24 iOS·Android 모두 로그인 끝까지(앱 복귀)는 PR #270의 웹 `/auth/kakao` 배포 뒤 확인. 그 뒤 화면(온보딩·주문·채팅·사진 첨부)도 같은 조건. 상태: 리뷰 중(사람 리뷰 대기).
+- 11/03 spec-check(run 41614675465) MISMATCH 3건 반영: 범위 목록에 `packages/ui/src/web.ts`·두 앱 `_layout.tsx`를 추가(기록에는 있었지만 범위에 빠짐). 루트 `app.json`(`{"expo": {}}`, 10/23 커밋 107cb73에 섞여 들어감)은 어디서도 읽지 않아 삭제. `eas` CLI를 루트에서 실행했을 때 생긴 것으로 보인다.
