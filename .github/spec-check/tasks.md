@@ -340,3 +340,4 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 
 ### 기록
 - 11/03 `origin/main`(81233e6)에서 시작.
+- 11/03 PR #365 spec-check(run 41603117143) INCOMPLETE: SC-001 README 3장 "draft에서도 실행한다"가 새 결정과 어긋남 → 결정론 job과 모델 job을 나눠 다시 씀. UNVERIFIED 중 `live-demo`에도 draft 조건이 없다는 지적을 받아 같은 조건을 넣음. 나머지(트리거 types에 ready_for_review 있음, NoRedirect·Client는 다른 곳에서 계속 쓰임)는 코드로 확인, 변경 없음.

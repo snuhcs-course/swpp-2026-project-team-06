@@ -84,7 +84,7 @@ checker는 파일을 통째로 보내지 않는다. 모델이 받는 `context`�
 
 ## 3. 실행과 결과
 
-- main 대상 PR의 생성/커밋/본문 수정/재오픈/ready 이벤트에 실행한다. draft에서도 실행한다.
+- main 대상 PR의 생성/커밋/본문 수정/재오픈/ready 이벤트에 실행한다. 결정론 job(`eligibility`·`figma-line`·`checker-tests`)은 draft에서도 돌고, 모델 job(`spec-code-review`·`live-demo`)은 draft를 건너뛴다(DEV-196).
 - fork/bot PR은 SKIPPED 안내 후 수동 리뷰한다.
 - `checker-tests`는 키 없이 계약을 검증한다.
 - checker 실행 파일은 GitHub의 고정 test-merge SHA에서 가져오므로 core 머지 전 생성된 feature branch에도 checker가 존재한다. 검토 대상의 head/base SHA는 바꾸지 않으며 실행 코드의 runner SHA를 별도로 기록한다.
