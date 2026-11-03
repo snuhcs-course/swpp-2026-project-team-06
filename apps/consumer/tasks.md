@@ -613,6 +613,24 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 
 ### 기록
 - 10/23 조사(컬리·오아시스·당근·와디즈·텀블벅 처리방침): 가입은 식별자+연락처, 주소는 첫 주문 때가 일반적. 닉네임은 커뮤니티형만
+## DEV-198 [I3] 평가 로그인 주소 (/login?evaluator=1)
+- 이슈: https://linear.app/sswp6/issue/DEV-198
+- 범위: 로그인 화면(`src/app/login.tsx`), `scripts/e2e/evaluator-login.spec.ts`, `docs/spec/ia.md`, `docs/spec/screens.md`, wiki 요약
+- 결정
+  - 11/4 수업 Heuristic Evaluation용이다. 운영은 카카오가 켜져 있어 테스트 계정 목록이 숨겨져 있다.
+  - 주소에 `evaluator=1`이 있을 때만 카카오 버튼과 함께 목록을 보인다. 표시가 없으면 지금처럼 카카오만 보인다.
+  - 서버 Mock 플래그(`MOCK_LOGIN_ENABLED`)는 바꾸지 않는다. 플래그가 꺼지면 목록은 오류 상태가 되고 로그인은 서버가 거절한다.
+  - 일반(아이디·비밀번호) 로그인은 만들지 않는다(진우 결정).
+- 검증(sandbox 밖 로컬 스택): `evaluator-login`·`consumer-kakao`·`producer-kakao` spec 10 passed. `mock-login` 2건은 공유 Mock이 없어 skip. typecheck 통과.
+- 스캔 반영
+  - 평가 모드는 처음 들어올 때 sessionStorage(`farmclub:evaluator`)에 기억한다. 같은 탭에서 로그아웃하거나 관문을 거쳐 맨 `/login`으로 와도 목록이 남는다.
+  - "Mock:" 안내 문구는 앱 Mock 모드에서만 보인다. 운영 평가 모드에서는 원래 카카오 안내를 쓴다.
+  - 회귀 테스트에 두 가지를 추가했다: Mock 문구가 없는지, 표시 없이 다시 들어와도 목록이 남는지. 10 passed.
+- 평가 뒤 할 일(사람)
+  - 시드 계정은 평가 동안 공용 계정이 된다.
+  - 평가가 끝나면 '강씨네 귤밭'을 다시 숨긴다.
+  - 필요하면 운영 `MOCK_LOGIN_ENABLED`를 끈다. 끄면 이 주소는 '지금은 로그인할 수 없어요'로 막힌다.
+
 
 ## DEV-138 Single source for checkout consent keys
 
