@@ -586,6 +586,11 @@ class DiffOnlyContextTests(unittest.TestCase):
         self.assertIn("return 'ctx'", helper["segments"][0]["text"])
         self.assertEqual(data["metadata"]["source_revisions"]["module/helper.py"], head)
         self.assertEqual(data["reference_paths"]["module/missing.py"], {"size": None})
+        # DEV-199: a folder listed in the table is a reference only, never an INCOMPLETE.
+        folders = check.collect(self.dir, self.event_for(head, body([(["module/spec.md"], ["module/sample.py", "module", "docs/spec"], "x")])))
+        self.assertEqual(folders["reference_paths"]["module"], {"size": None, "kind": "tree"})
+        self.assertEqual(folders["reference_paths"]["docs/spec"], {"size": None, "kind": "tree"})
+        self.assertNotIn("module", folders["documents"])
         self.assertNotIn("docs/wiki/Home.md", data["documents"])  # excluded paths are never sent, changed or not
         # Validation treats context files like other documents: they must be reviewed, and findings cite the diff.
         report = {"status": "PASS", "summary": "ok", "reviewed_files": sorted(set(data["documents"]) | set(data["diff_paths"])),
