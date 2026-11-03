@@ -95,13 +95,13 @@ def consent_required(db: Session, user: User) -> bool:
 def needs_onboarding(db: Session, user: User) -> bool:
     """첫 가입 온보딩이 남았는가(FEAT-01 I2, AC-01-12·17). 소비자 카카오 계정만 해당한다.
 
-    닉네임·이름·연락처 중 하나라도 없거나 지금 버전의 필수 동의(약관·개인정보·만 14세)가
-    빠지면 true.
+    닉네임·연락처 중 하나라도 없거나 지금 버전의 필수 동의(약관·개인정보·만 14세)가
+    빠지면 true. 이름은 가입 때 받지 않고 첫 주문서에서 받는다(DEV-142).
     테스트 계정은 시드가 채운 것으로 보고 항상 false.
     """
     if user.role != "CONSUMER" or user.is_test_account:
         return False
-    if not (user.nickname or "").strip() or not user.name.strip() or not user.phone.strip():
+    if not (user.nickname or "").strip() or not user.phone.strip():
         return True
     return consent_required(db, user)
 
