@@ -14,7 +14,7 @@ td .n { color: var(--muted); font-weight: 400; margin-left: 4px; font-size: 13px
 td a { color: var(--text); }
 td.title { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 .st { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
-.st-PASS { background: #E9F5EE; color: var(--ok); }
+.st-PASS, .st-NO_FINDINGS { background: #E9F5EE; color: var(--ok); }
 .st-MISMATCH { background: #FFF3E8; color: var(--accent); }
 .st-INCOMPLETE, .st-SKIPPED { background: var(--surface); color: var(--muted); }
 </style>
@@ -45,7 +45,7 @@ td.title { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 <script>
 // AI 비용(DEV-144): 기능별·전체 합계(이번 달 KST·최근 7일·전체)와 호출 목록(최신순, 50건씩, 기능으로 거름).
 const FEATURE = { spec_check: "코드 리뷰", product_draft: "상품 초안", detail_draft: "상세 초안", ai_answer: "AI 답변", source_analysis: "자료 분석" };
-const STATUS = { PASS: "통과", MISMATCH: "불일치", INCOMPLETE: "미완료", SKIPPED: "건너뜀" };
+const STATUS = { PASS: "통과", NO_FINDINGS: "지적 없음", MISMATCH: "불일치", INCOMPLETE: "미완료", SKIPPED: "건너뜀" };
 const REPO = "https://github.com/snuhcs-course/swpp-2026-project-team-06";
 const n = (v) => Number(v || 0).toLocaleString("ko-KR");
 // 1센트 미만은 소수 넷째 자리까지 보여 0으로 보이지 않게 한다
