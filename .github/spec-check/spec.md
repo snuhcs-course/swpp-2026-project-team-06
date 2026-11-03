@@ -11,10 +11,10 @@
 
 | 항목 | 결정 |
 | --- | --- |
-| 실행 | main 대상 pull_request. fork/봇 제외. 실제 모델 job은 보호된 spec-check 환경 승인 후 실행. 2026-10-18(DEV-55) 승인자는 필수, 본인 승인은 허용 |
+| 실행 | main 대상 pull_request. fork/봇·draft 제외. 실제 모델 job은 ready PR에서 자동 실행(2026-11-03 DEV-196; 2026-10-18~11-03은 DEV-55로 환경 승인자 필수였음). 같은 PR의 이전 실행은 취소 |
 | 활성화 | repository variable SPEC_CHECK_ENABLED=true일 때만 live job 실행. 기본은 SKIPPED이며 PASS를 뜻하지 않음 |
 | 실행/검토 revision | checker는 고정 GitHub test-merge SHA에서 실행하여 오래된 feature branch도 지원. 검토 파일은 captured PR head/base에서 읽고 runner SHA를 따로 보고 |
-| 권한 | contents/pull-requests read. model job은 환경 보호 검증용 actions read 추가. 자동 코멘트·수정·승인·머지 없음 |
+| 권한 | contents/pull-requests read. 자동 코멘트·수정·승인·머지 없음 |
 | 입력 | 고정한 base/head/merge-base, PR 본문 digest. 2026-10-23(DEV-81) 파일 전문 대신 diff(lock·스냅샷·바이너리·`docs/wiki` 제외) + tasks.md 이슈 섹션 + FEAT·rules의 PR이 적은 AC·R·M ID 항목 + 폴더 spec.md 결정 행 + 표 앵커 절. `files`·`previous_files`·`target_changes`는 보내지 않고 `changed_files` 메타만 |
 | 범위 | PR 표의 명시적 repo 경로. 빠진 변경·문맥·상충 기준은 INCOMPLETE. 필요하면 표의 기존 셀에 backtick 경로(와 `#앵커`)·AC/R/M ID를 추가. 결정론 검사(표 매핑, 안 적힌 변경 파일, 비밀값, 민감 경로)는 DEV-81 뒤에도 그대로 |
 | 호출 | Python 표준 라이브러리의 Claude Messages API. 전용 SPEC_CHECK_API_KEY와 명시적 SPEC_CHECK_MODEL. fallback 없음 |

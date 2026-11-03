@@ -359,19 +359,6 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(check.Incomplete):
                 check.collect(directory, candidate)
 
-    def test_environment_requires_reviewer_but_allows_self_review(self):
-        valid = {"type": "required_reviewers", "reviewers": [{"type": "User"}], "prevent_self_review": True}
-        no_reviewers = {"type": "required_reviewers", "reviewers": [], "prevent_self_review": False}
-        cases = (([], False), ([no_reviewers], False), ([valid], True),
-                 ([{**valid, "prevent_self_review": False}], True))
-        for rules, allowed in cases:
-            with patch.object(check.request, "build_opener", return_value=Client([{"protection_rules": rules}])):
-                if allowed:
-                    check.check_environment(event(), "token")
-                else:
-                    with self.assertRaises(check.Incomplete):
-                        check.check_environment(event(), "token")
-
     def test_git_context_uses_committed_blobs_and_rejects_symlink(self):
         with tempfile.TemporaryDirectory() as directory:
             def run(*args):

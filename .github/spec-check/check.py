@@ -391,22 +391,6 @@ def check_current(event, token):
         raise Incomplete("Current PR identity could not be verified.") from exc
 
 
-def check_environment(event, token):
-    meta = metadata(event)
-    req = request.Request(f"https://api.github.com/repos/{meta['repository']}/environments/spec-check",
-                          headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
-    try:
-        with request.build_opener(NoRedirect()).open(req, timeout=GITHUB_TIMEOUT) as response:
-            environment = json.loads(response.read(MAX_RESPONSE + 1))
-        reviewers = [r for r in environment.get("protection_rules", [])
-                     if r.get("type") == "required_reviewers" and r.get("reviewers")]
-        # 2026-10-18 팀 결정(DEV-55): 승인자는 계속 필수, PR 작성자 본인의 승인은 허용한다
-        if not reviewers:
-            raise Incomplete("spec-check must require a reviewer approval before the model call.")
-    except (error.URLError, ValueError, KeyError, TypeError, AttributeError) as exc:
-        raise Incomplete("Protected spec-check environment could not be verified; ask the repository administrator.") from exc
-
-
 def block_type(block):
     """Name an unexpected block for the report without echoing provider text."""
     value = block.get("type")
@@ -625,7 +609,6 @@ def main(argv=None):
             if not key or not model:
                 raise Incomplete("Configure SPEC_CHECK_API_KEY and SPEC_CHECK_MODEL in the protected spec-check environment.")
             check_current(event, token)
-            check_environment(event, token)
             context = collect(Path(args.repo), event, args.demo)
             meta = context["metadata"]
             prompt = Path(__file__).with_name("prompt.txt").read_text(encoding="utf-8")
