@@ -38,6 +38,6 @@
     "randomization_seed": 1542026,
     "runner": "scripts/i3-ai-support/run.py",
     "cohort_notes": "Prompt (service.py) and grounding blobs identical to freeze (192f5b1, a957534). config.py blob differs from freeze (39329e4 -> 3e811d9) without changes to AI answer defaults (claude-haiku-4-5, 8 s). Server code unchanged since eb727b6. Single cohort for all 180 trials.",
-    "scoring": "automatic per protocol dimensions; human review pending (reviewer column)"
+    "scoring": "automatic per protocol dimensions (scripts/i3-ai-support/run.py); agent second review of raw traces 2026-11-03 agrees with all 180 verdicts; human sign-off Zahra Gholami 2026-11-03. The run-log reviewer column was updated after the run to record these reviews; the verdict columns were not changed by the reviews."
   }
 }

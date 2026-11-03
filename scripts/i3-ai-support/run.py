@@ -357,7 +357,8 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
             state_pass=flag("state_pass"),
             privacy_pass=flag("privacy_pass"),
             evidence_uri=f".artifacts/i3-ai-support/{BASELINE}/{name}",
-            reviewer="auto (scripts/i3-ai-support/run.py); human review pending",
+            # a re-score keeps the recorded reviewer (agent/human sign-off); a fresh run starts as pending
+            reviewer=row["reviewer"] if rescore and row["reviewer"] else "auto (scripts/i3-ai-support/run.py); human review pending",
             blocker_and_next_action=trace.get("blocker", ""),
         )
     with RUN_LOG.open("w", newline="", encoding="utf-8") as handle:
