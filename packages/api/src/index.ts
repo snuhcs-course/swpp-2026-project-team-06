@@ -24,6 +24,7 @@ export type * from "./types";
 export type { NativeFile, UploadFile } from "./upload";
 export { appendFile, isNativeFile } from "./upload";
 export { SUPPORT_ID } from "./types";
+export * from "./orderConsents";
 
 import { request } from "./client";
 
