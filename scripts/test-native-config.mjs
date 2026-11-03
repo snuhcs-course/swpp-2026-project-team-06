@@ -174,3 +174,18 @@ test("네이티브 쌍이 있는 파일은 같은 이름을 내보낸다(양방�
     for (const x of n) assert.ok(w.has(x), `${web}에 ${x} 없음(네이티브 전용 export는 공용 코드가 못 쓴다)`);
   }
 });
+
+// DEV-200: 평가용 로그인 목록은 EAS preview 환경 변수(EXPO_PUBLIC_EVALUATOR_LOGIN=1)로만 켠다.
+// 빌드 프로필(eas.json)·웹 배포 워크플로에 넣으면 production 앱이나 운영 웹에 목록이 새므로 막는다.
+test("AC-01-1 DEV-200 평가용 로그인 플래그는 eas.json·웹 배포에 없고 두 앱 로그인 화면이 같은 규칙을 쓴다", () => {
+  for (const app of Object.keys(APPS)) {
+    for (const [name, profile] of Object.entries(json(`apps/${app}/eas.json`).build)) {
+      assert.equal(profile.env?.EXPO_PUBLIC_EVALUATOR_LOGIN, undefined, `${app} eas.json ${name}`);
+    }
+    const login = read(`apps/${app}/src/app/login.tsx`);
+    assert.match(login, /if \(evaluatorBuild\) return true;/, `${app} login.tsx`);
+  }
+  for (const wf of [".github/workflows/deploy-vercel.yml", ".github/workflows/ci.yml"]) {
+    assert.doesNotMatch(read(wf), /EXPO_PUBLIC_EVALUATOR_LOGIN/, wf);
+  }
+});

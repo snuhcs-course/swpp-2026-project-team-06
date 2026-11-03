@@ -386,6 +386,10 @@ npx eas-cli@latest update --channel preview --environment preview --message "...
 `EXPO_PUBLIC_API_MOCK`, `EXPO_PUBLIC_CONSUMER_URL` and `EXPO_PUBLIC_PRODUCER_URL` were created in
 both projects' `preview` and `production` environments on 2026-10-23 (`eas env:list --environment
 preview`); an update published without them would point the app at `localhost`.
+For the 11/4 Heuristic Evaluation, `EXPO_PUBLIC_EVALUATOR_LOGIN=1` in the `preview` environment
+only makes the internal apps show the test-account list on the login screen (DEV-200; the web
+equivalent is `/login?evaluator=1`, DEV-198). Never set it in `production` or `eas.json`; delete
+it and publish a normal update after the evaluation.
 
 Android: open the build link on the phone, allow installs from this source once, install. A phone
 that still has the TWA APK from PR #164 (same package name, different signing key) must uninstall it
