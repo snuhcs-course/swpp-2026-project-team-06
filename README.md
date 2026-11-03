@@ -397,7 +397,9 @@ only makes the internal apps show the test-account list on the login screen (DEV
 equivalent is `/login?evaluator=1`, DEV-198). Never set it in `production` or `eas.json`; delete
 it and publish a normal update after the evaluation.
 
-Android: open the build link on the phone, allow installs from this source once, install. A phone
+Android: open the build link on the phone, allow installs from this source once, install. The
+same APKs are kept as GitHub Release assets (`apk-internal-<build date>`, with SHA-256) because EAS
+build artifacts expire after 30 days; make a new Release only when a native change needs a new build. A phone
 that still has the TWA APK from PR #164 (same package name, different signing key) must uninstall it
 first, or the install fails silently and the old TWA keeps running.
 The link works for anyone who has it. iOS Simulator: download the build, unpack it and drag

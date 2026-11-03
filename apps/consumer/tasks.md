@@ -767,3 +767,4 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
   - 서버 `MOCK_LOGIN_ENABLED`는 바꾸지 않는다(DEV-198과 같음).
 - 검증(11/3, 로컬 실서버 `farmclub_i3`): `npm run typecheck` 통과 · `npm run test:mock` 63/63 · `run-integration.mjs evaluator-login.spec.ts` 플래그 없이 4 passed/2 skipped, `EXPO_PUBLIC_EVALUATOR_LOGIN=1`로 2 passed/4 skipped.
 - 평가 뒤 할 일(사람): EAS `preview` 환경에서 `EXPO_PUBLIC_EVALUATOR_LOGIN` 삭제 → `eas update --channel preview --environment preview`로 일반 업데이트.
+- 11/03 APK 두 개를 GitHub Release `apk-internal-2026-10-23`에 보관(EAS 산출물 30일 만료 대비, SHA-256 포함). HE README·루트 README에 링크. JS는 preview 채널 업데이트라 네이티브가 바뀔 때만 새 Release.
