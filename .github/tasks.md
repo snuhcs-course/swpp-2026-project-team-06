@@ -232,3 +232,4 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 ### 기록
 - 11/03 `origin/main`(0afd89a)에서 시작.
 - 11/03 PR #374 spec-check SC-001(Comparing 줄이 diff 분기에만 있음) 반영: 모든 분기에서 첫 줄로 찍는다. UNVERIFIED(Railway worker 단계 뒤에 태그를 옮겨야 함) 반영: 태그 단계를 worker 단계 뒤로. "감지 5곳" 표현을 "4단계·5대상"으로. CI apps job 실패: `test-spec12.mjs`의 DEV-186 테스트가 workflow의 `grep -qE '…'`에서 정규식을 읽었는데 호출 형태가 바뀌어 null → 스크립트 호출의 둘째 인자에서 읽게 고침.
+- 11/03 머지 뒤 첫 실행(main f78f898): railway-api·vercel-consumer·producer·admin 배포·태그 ✓. demo는 배포는 됐지만 '확인' 단계의 curl이 15초 시간 초과(exit 28)로 `set -e`에 걸려 루프가 끊겨 실패 → 태그 안 생김(다음 실행이 다시 올림, 안전한 쪽). 후속 PR: 네 확인 단계의 curl에 `|| echo 000`을 붙여 시간 초과도 재시도하게 함. 데모 사이트 자체는 정상(200/206).
