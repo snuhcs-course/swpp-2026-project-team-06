@@ -601,6 +601,7 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 - 10/23 서버는 Python이라 목록을 공유하지 않는다. 계약 테스트가 `server/app/orders/schemas.py`의 `class Consents` 필드(snake_case)를 읽어 앱 목록(camelCase로 바꿔)과 순서까지 같은지 본다.
 
 - 10/23 `Checkbox`(`packages/ui/src/content.tsx`)는 `accessibilityState`만 써서 웹에서 `aria-checked`가 나오지 않는다(스크린 리더가 체크 상태를 못 읽음). 이 작업 범위 밖이라 고치지 않고, Playwright는 `toBeChecked` 대신 개수 문구·버튼 상태로 확인한다. 후속 이슈로 남긴다.
+- 11/03 위 결정은 폐기. 후속 DEV-141이 main에 들어와 `Checkbox`가 `aria-checked`를 내므로, main 병합 때 Playwright에 `toBeChecked` 단언을 남겼다(개수 문구 확인도 유지). spec-check SC-001이 이 어긋남을 잡았다.
 
 ### 작업
 - [x] `ORDER_CONSENT_KEYS`와 타입, Mock 검사
