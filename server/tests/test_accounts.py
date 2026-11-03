@@ -556,6 +556,20 @@ def test_AC_01_12_onboarding_validates_fields_and_required_consents(client, monk
     assert client.get("/api/auth/me", headers=headers).json()["needsOnboarding"] is False
 
 
+def test_AC_01_12_DEV_142_onboarding_needs_only_nickname_phone_and_consents(client, monkeypatch):
+    # 가입은 닉네임·휴대폰·필수 동의만. 이름은 첫 주문서의 받는 사람으로 받는다
+    _kakao_on(monkeypatch)
+    _, headers = _kakao_consumer(client)
+    me = client.patch(
+        "/api/auth/me",
+        json={"nickname": "귤러버", "phone": "010-2345-6789"},
+        headers=headers,
+    ).json()
+    assert me["name"] == ""
+    assert me["needsOnboarding"] is False
+    assert client.put("/api/farms/f-kang/follow", headers=headers).status_code == 200
+
+
 def test_AC_01_13_returning_kakao_user_skips_onboarding(client, monkeypatch):
     _kakao_on(monkeypatch)
     _, headers = _kakao_consumer(client)

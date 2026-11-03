@@ -5,6 +5,7 @@ import { useAsync } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { AddressForm } from "../../../lib/AddressForm";
+import { realName } from "../../../lib/onboarding";
 import { useSession } from "../../../lib/session";
 
 export default function CheckoutAddress() {
@@ -25,7 +26,7 @@ export default function CheckoutAddress() {
   return (
     <AddressForm
       mode="checkout"
-      defaultName={user?.name}
+      defaultName={realName(user?.name)}
       defaultPhone={user?.phone}
       saveBlocked={
         full ? "배송지가 50개라 이 주소는 이번 주문에만 써요. 배송지 관리에서 지우면 다시 저장할 수 있어요." : undefined

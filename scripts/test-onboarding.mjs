@@ -96,12 +96,13 @@ test("AC-01-12~15: Mock onboarding gate, consents and 50-address limit", async (
     });
     assert.equal(consents.status, 200);
     assert.equal(consents.body.length, 3);
+    // 이름 없이 닉네임·휴대폰만으로 가입이 끝난다(DEV-142, 이름은 첫 주문서에서 받는다)
     const me = await api("PATCH", "/api/auth/me", t, {
       nickname: "귤러버",
-      name: "박현",
       phone: "010-2345-6789",
     });
     assert.equal(me.status, 200);
+    assert.equal(me.body.name, "");
     assert.equal(me.body.needsOnboarding, true);
     assert.equal(me.body.consentRequired, true);
     assert.equal((await api("PUT", "/api/farms/f-kang/follow", t)).status, 403);
