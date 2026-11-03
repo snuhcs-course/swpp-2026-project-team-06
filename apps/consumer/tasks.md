@@ -624,6 +624,7 @@ Mock 모드에서 생산자 SCR-19는 카카오 버튼과 시드 계정 목록�
 - 검증(sandbox 밖 로컬 스택): `evaluator-login`·`consumer-kakao`·`producer-kakao` spec 10 passed. `mock-login` 2건은 공유 Mock이 없어 skip. typecheck 통과.
 - 스캔 반영
   - 평가 모드는 처음 들어올 때 sessionStorage(`farmclub:evaluator`)에 기억한다. 같은 탭에서 로그아웃하거나 관문을 거쳐 맨 `/login`으로 와도 목록이 남는다.
+  - 11/03 보완(박현): sessionStorage → **localStorage**(sessionStorage 값도 계속 읽음). 홈 화면에 추가한 PWA는 manifest `start_url`(`/`)로 새 창을 열어 sessionStorage가 비므로, 평가 주소를 한 번 연 기기에서는 홈 아이콘으로 열어도 목록이 보이게 한다(폰 PWA 점검 `docs/evaluation/he-2026-11-04/he-claude-pwa-2026-11-03.md`). 생산자 `login.tsx`도 같은 함수라 함께 바꿈. 끄려면 브라우저 사이트 데이터 삭제.
   - "Mock:" 안내 문구는 앱 Mock 모드에서만 보인다. 운영 평가 모드에서는 원래 카카오 안내를 쓴다.
   - 회귀 테스트에 두 가지를 추가했다: Mock 문구가 없는지, 표시 없이 다시 들어와도 목록이 남는지. 10 passed.
 - 평가 뒤 할 일(사람)
