@@ -2151,7 +2151,7 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - `server/app/messaging/service.py`(`consumer_send`), `server/app/ai/service.py`(`_rule_answer`), `server/app/core/config.py`
 - `server/tests/test_messaging.py`, `server/tests/test_ai_service.py`
 - `server/app/messaging/spec.md`, `server/app/ai/spec.md`, `server/tasks.md`
-- 재실행 결과: `docs/evaluation/i3-ai-support/**`, `docs/evaluation/i3-journeys/results/i3-b2-*/**`
+- 재실행 하네스·결과: `scripts/i3-ai-support/run.py`(코호트 분리), `docs/evaluation/i3-ai-support/**`, `docs/evaluation/i3-journeys/results/i3-b2-*/**`
 
 ### 결정
 - 11/03 결함 1(오래된 AI 답 저장): AI 호출 전에 대화 행을 잠그지 않고, 저장 직전에 잠가 캡처한 모드·버전과 비교한다. 중간 커밋은 하지 않는다 — `run_idempotent`가 멱등 기록을 같은 트랜잭션에 커밋하므로(재전송 안전). 스펙(contracts-1.2 5장·AC-13-6)은 그대로, 코드가 스펙에 맞게 바뀐다.
