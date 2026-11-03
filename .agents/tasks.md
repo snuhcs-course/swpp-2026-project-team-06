@@ -213,7 +213,8 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 - 11/03 팀 결정(Zahra 전달): 고위험 변경은 사람 Approve를 예외 없이 받는다. 일정 때문에 승인 생략을 합의한 기간(I2)에도 고위험 PR은 생략하지 않는다.
 - 11/03 원칙: 사람이 무엇을·왜(범위, 인수 조건, 설계 결정)와 확인(직접 실행, 리뷰, 머지, 배포 확인)을 책임지고, 에이전트는 어떻게(코드·테스트·문서 초안, 1차 리뷰)를 맡는다. 작성자는 에이전트가 쓴 줄도 자기 코드로 설명할 수 있어야 한다.
 - 11/03 고위험 경로: 데이터 구조(`server/migrations/**`, `server/app/*/models.py`), 인증·권한(`server/app/accounts/**`, `server/app/admin/**`, `server/app/core/security.py`, `server/app/core/config.py`), 주문·결제(`server/app/orders/**`), 개인정보(`server/app/core/masking.py`), 제품 AI 프롬프트·가드레일(`server/app/ai/**`), 배포·CI(`.github/workflows/**`, `server/railway.json`, `server/Dockerfile*`, `**/vercel.json`, `**/eas.json`), 팀 규칙(`AGENTS.md`, `.agents/skills/**`).
-- 11/03 PR 템플릿: "AI 사용"의 `사람이 고친 점` 대신 위험 등급 줄과 "사람이 한 일" 체크리스트. 사람이 직접 체크한다(에이전트가 대신 체크하지 않음).
+- 11/03 PR 템플릿: "AI 사용"의 `사람이 고친 점` 대신 위험 등급 줄과 "사람이 한 일" 체크리스트.
+- 11/03 사용자(Zahra) 결정으로 수정: (1) 에이전트도 "사람이 한 일"·"사람이 바꾼 점"을 채울 수 있다. 단 근거(사람과의 대화, 사람이 직접 한 변경·커밋)가 있는 것만, 근거 없으면 비움. (2) 리뷰어는 작성자 본인이어도 된다(고위험 포함). GitHub는 자기 PR Approve를 막으므로 작성자 리뷰는 PR 본문 "사람 리뷰어 확인" 기록으로 대신한다. 고위험은 이 사람 리뷰(한 줄씩 읽음·직접 실행 기록)가 예외 없이 필요하다.
 
 ### 작업
 - [x] `AGENTS.md`: "사람·에이전트 역할" 절(단계별 표, 고위험 경로·규칙), 머지 줄 수정
@@ -223,7 +224,7 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 - [ ] `check_table.py`로 이 PR 본문 표 점검
 
 ### 완료 조건
-- [ ] 위 작업 완료, 팀원 1명 Approve(이 PR 자체가 고위험: `AGENTS.md`·`.agents/skills/**`)
+- [ ] 위 작업 완료, 사람 리뷰 기록(이 PR 자체가 고위험: `AGENTS.md`·`.agents/skills/**`)
 - [ ] main 머지
 
 ### 기록
