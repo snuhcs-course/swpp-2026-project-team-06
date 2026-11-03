@@ -1,0 +1,75 @@
+{
+  "baseline": "i3-b1-eb727b6",
+  "issue": "DEV-165",
+  "sourceTask": "I3-T03",
+  "status": "READY_WITH_GAPS",
+  "recordedAt": "2026-11-03T11:40:02.785Z",
+  "productSha": "eb727b6d5808c1a3b209f851db4d5f8e18f0b0f2",
+  "environment": {
+    "kind": "isolated-local",
+    "database": { "engine": "postgresql", "version": "16.15", "name": "farmclub_i3", "testName": "farmclub_i3_test", "alembicHead": "0024" },
+    "appEnv": "local",
+    "mockLogin": true,
+    "fixedNow": "2026-10-07T10:00:00+09:00",
+    "urls": {
+      "api": "http://localhost:8000",
+      "consumer": "http://localhost:8081",
+      "producer": "http://localhost:8082"
+    },
+    "productionReadOnly": {
+      "api": "https://api.farmclub.kr",
+      "consumer": "https://farmclub.kr",
+      "producer": "https://farm.farmclub.kr",
+      "admin": "https://admin.farmclub.kr"
+    },
+    "tooling": { "node": "v26.0.0", "uv": "0.10.12", "python": "3.12.13", "expoCli": "57.0.28", "playwright": "1.64.0", "chromiumBuild": "1248" }
+  },
+  "ai": {
+    "supportProvider": "anthropic",
+    "supportModel": "claude-haiku-4-5",
+    "answerTimeoutSeconds": 8,
+    "answerMaxTokens": 512,
+    "answerPrompt": { "file": "server/app/ai/service.py", "symbol": "_ANSWER_SYSTEM", "lastChanged": "0e852fc" },
+    "liveKeyPresent": true,
+    "farmSettings": { "farmId": "f-kang", "enabled": true, "version": 1 }
+  },
+  "sourceAnalysis": {
+    "enabledByDefault": false,
+    "provider": "mock",
+    "preprocess": "source-parser-v4",
+    "stage1Prompt": "source-v8-exact-numbers",
+    "stage2Prompt": "source-refine-v7-farm-common",
+    "scorer": "dev193-number-evidence-v1",
+    "holdout": "v2",
+    "ocrModels": "ocr-models-v3.10.0"
+  },
+  "accounts": {
+    "consumers": ["u-minji", "u-seojun"],
+    "producerA": { "userId": "u-kang", "farmId": "f-kang", "farmStatus": "APPROVED" },
+    "producerB": { "userId": "u-misook", "farmId": "f-wimi", "farmStatus": "PENDING" },
+    "otherProducers": { "u-new": "NONE", "u-soonja": "REJECTED", "u-taeho": "SUSPENDED" },
+    "approvedFarmsConsumerSide": ["f-kang", "f-halla", "f-hyodon", "f-namwon"],
+    "operator": { "userId": "u-admin", "token": "uv run python -m app.accounts.admin_token (local only)" }
+  },
+  "fixtures": {
+    "source": "server/app/core/seed.py",
+    "reset": "make i3-smoke (runs: cd server && uv run python -m app.core.seed --reset)",
+    "orders": { "count": 14, "examples": { "o-42": "u-minji/f-kang/RESERVED", "o-07": "DELIVERED", "o-03": "REFUNDED", "o-11": "f-halla/RESERVED" } },
+    "managerExceptionsSeeded": 0
+  },
+  "smoke": {
+    "command": "make i3-smoke",
+    "script": "scripts/i3-env-smoke.mjs",
+    "lastRun": "smoke-i3-b1-eb727b6-20261103T114000308Z.json",
+    "runsCompared": 3,
+    "nonAiIdentical": true,
+    "summary": { "PASS": 12 }
+  },
+  "gaps": [
+    { "id": "G-1", "status": "BLOCKED", "owner": "Zahra", "issue": "DEV-169", "what": "No runtime AI fault/transition hooks (timeout, malformed_json, network_error, change_during_generation)", "trialsAffected": 18 },
+    { "id": "G-2", "status": "NOT_READY", "owner": "Zahra", "issue": "DEV-169", "what": "DEV-154 eval- fixtures not loaded into any database" },
+    { "id": "G-3", "status": "NOT_READY", "owner": "Jinwoo", "issue": "DEV-170", "what": "No live source-analysis key locally" },
+    { "id": "G-4", "status": "GAP", "owner": "Zahra", "what": "Owners of approved farms other than f-kang have no test login" },
+    { "id": "G-5", "status": "NOT_READY", "owner": "Minsun/Hyun", "what": "Android/native device builds not in the I3 environment" }
+  ]
+}
