@@ -69,7 +69,7 @@ dev-api: ## FastAPI server on the local database with Mock login
 
 
 ##@ Check (same commands as CI; add new test suites to the matching test-*)
-.PHONY: check lint test test-server test-apps test-admin test-integration test-e2e coverage-producer coverage-producer-ui
+.PHONY: check lint test test-server test-apps test-admin test-integration test-e2e i3-smoke coverage-producer coverage-producer-ui
 
 check: lint test ## Run once before a PR: lint + test
 
@@ -101,6 +101,12 @@ test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 # Includes producer-format-flow.spec.ts (DEV-171); see docs/evaluation/i3-t12-producer-flow.md.
 test-e2e: ## Chromium only, against an already-running real stack
 	npm run test:e2e
+
+# I3 evaluation environment (DEV-165); see docs/evaluation/i3-env/README.md. Not run in CI (one live AI call).
+i3-smoke: ## I3 env smoke: reseed the local DB, then check roles/orders/AI against the running API
+	@$(LOCAL_DB_ONLY)
+	$(SERVER) uv run python -m app.core.seed --reset
+	node scripts/i3-env-smoke.mjs
 
 # Coverage (Testing Documentation 3.6): local measurement only, not run in CI.
 # The UI report needs the coverage run first and clears its cache after one report.
