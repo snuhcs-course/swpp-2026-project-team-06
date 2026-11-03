@@ -763,6 +763,89 @@ def test_AC_13_6_saved_settings_change_during_ai_discards_reply(client, login, m
     assert result["message"]["needsHuman"] is True
 
 
+def _during_ai_from_another_session(monkeypatch, action):
+    """AI 호출 중에 다른 세션(생산자 요청)이 action을 실행하고 커밋한다.
+
+    대화 행이 AI 호출 내내 잠겨 있으면(DEV-180 이전) 다른 세션은 기다리다 2초 뒤
+    LockNotAvailable로 실패한다 — 그래서 수정 전에는 이 테스트가 실패한다.
+    """
+    from sqlalchemy import text
+
+    from app.ai import service as ai
+
+    original = ai.answer_question
+    pending = [action]  # 첫 AI 호출 중에만 한 번 실행한다(이후 질문은 그대로 처리)
+
+    def answer_while_producer_acts(question, evidence, enabled=True):
+        result = original(question, evidence, enabled)
+        if pending:
+            with get_sessionmaker()() as other, other.begin():
+                other.execute(text("SET LOCAL lock_timeout = '2s'"))
+                pending.pop()(other)
+        return result
+
+    monkeypatch.setattr(ai, "answer_question", answer_while_producer_acts)
+
+
+def _kang(session):
+    from app.farms import service as farms
+
+    return farms.get_farm_of_producer(session, "u-kang")
+
+
+def test_AC_13_6_producer_reply_during_ai_discards_stale_reply(client, login, monkeypatch):
+    """DEV-180: AI 작업 중 생산자가 답하면 생산자 답이 바로 저장되고, AI 답은 버린다."""
+    from app.messaging import service as messaging
+    from app.messaging.schemas import ProducerSendInput
+
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Thread).where(Thread.id == "thread-kang-seojun").values(ai_mode="AUTO")
+        )
+    _during_ai_from_another_session(
+        monkeypatch,
+        lambda s: messaging.producer_send(
+            s, _kang(s), "u-seojun", ProducerSendInput(text="직접 확인해서 답드릴게요.")
+        ),
+    )
+
+    result = send(client, login("u-seojun"), "f-kang", "한 상자에 몇 개 들어 있나요?").json()
+
+    assert result["reply"] is None
+    assert result["message"]["needsHuman"] is True
+    page = client.get("/api/messaging/chats/f-kang/messages", headers=login("u-seojun")).json()
+    sent_at = result["message"]["createdAt"]
+    assert not [m for m in page["items"] if m["senderType"] == "AI" and m["createdAt"] >= sent_at]
+    assert page["thread"]["aiMode"] == "HUMAN"
+
+
+def test_AC_13_6_human_auto_roundtrip_during_ai_discards_stale_reply(client, login, monkeypatch):
+    """DEV-180: AI 작업 중 HUMAN→AUTO 왕복이 있으면 이전 작업의 답을 저장하지 않는다."""
+    from app.messaging import service as messaging
+
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Thread).where(Thread.id == "thread-kang-seojun").values(ai_mode="AUTO")
+        )
+
+    def roundtrip(s):
+        view = messaging.set_ai_mode(s, _kang(s), "u-seojun", "HUMAN", _version(s))
+        messaging.set_ai_mode(s, _kang(s), "u-seojun", "AUTO", view.version)
+
+    _during_ai_from_another_session(monkeypatch, roundtrip)
+
+    result = send(client, login("u-seojun"), "f-kang", "배송비는 얼마예요?").json()
+
+    assert result["reply"] is None
+    assert result["message"]["needsHuman"] is True
+    later = send(client, login("u-seojun"), "f-kang", "배송비는 얼마예요?").json()
+    assert later["reply"] is not None  # AUTO 재개는 이후 메시지부터(AC-13-6)
+
+
+def _version(session) -> int:
+    return session.get(Thread, "thread-kang-seojun").version
+
+
 def test_masking_keeps_dates():
     from app.core.masking import mask
 

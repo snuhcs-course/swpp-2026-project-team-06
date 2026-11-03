@@ -243,41 +243,83 @@ def _handoff(reason: str) -> AiAnswer:
     return AiAnswer(action="HANDOFF", answer=None, reason=reason)
 
 
+# 배송비 질문(무료배송 여부 포함)은 받는 시기 규칙보다 먼저 본다
+# (DEV-180: "무료배송인가요?"에 받는 날짜로 답했다)
+_FEE_QUESTION = re.compile(r"배송비|택배비|배송료|무료\s*배송|유료\s*배송")
+_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+CONFLICT_REASON = "등록 정보가 서로 달라요"
+
+
+def _numbers(text: str) -> set[str]:
+    """숫자를 같은 모양으로: 3,500 → 3500, 12.40 → 12.4 (소수만 끝의 0을 지운다)."""
+    found = set()
+    for raw in _NUMBER.findall(text):
+        n = raw.replace(",", "")
+        if "." in n:
+            n = n.rstrip("0").rstrip(".")
+        found.add(n)
+    return found
+
+
+def _agree(a: str, b: str) -> bool:
+    """두 근거 문구가 같은 사실을 말하는가.
+
+    숫자(금액·날짜·당도)가 있으면 한쪽 숫자가 다른 쪽에 모두 들어 있을 때 같다고 본다
+    (예: "11월 10~14일" ⊂ "2026-11-10 ~ 2026-11-14"). 숫자가 없으면 글자를 비교한다.
+    """
+    na, nb = _numbers(a), _numbers(b)
+    if na or nb:
+        return na <= nb or nb <= na
+    norm = lambda t: re.sub(r"[\s.,!?~·]", "", t)  # noqa: E731
+    return norm(a) == norm(b)
+
+
 def _rule_answer(question: str, ev: Evidence) -> AiAnswer | None:
-    """등록된 사실로 바로 답할 수 있는 질문(배송비·받는 시기·당도·FAQ·원칙)."""
+    """등록된 사실로 바로 답할 수 있는 질문(배송비·받는 시기·당도·FAQ·원칙).
+
+    같은 질문에 답하는 근거(상품 정보·같은 질문의 FAQ·원칙)를 모두 모아 서로 다르면 답하지 않고
+    전달한다(DEV-154 결정 10/31, DEV-180). 정책을 바꾸려는 문구(_UNSAFE_POLICY)는 답으로 쓰지
+    않지만, 다른 근거와 어긋나는지 볼 때는 센다.
+    """
     q = question.strip()
     product_ref = [f"product:{ev.product_id}"] if ev.product_id else []
-    if re.search(r"배송비|택배비", q) and ev.shipping_fee_type:
+    # (답 문구, 이유, 근거, 답으로 써도 되는가) — 앞에 있을수록 우선이다
+    found: list[tuple[str, str, list[str], bool]] = []
+    window = ev.order_delivery_window or ev.delivery_window
+    if _FEE_QUESTION.search(q) and ev.shipping_fee_type:
         if ev.shipping_fee_type == "FREE":
             text = f"무료배송이에요. 도서산간은 추가 운임 {ev.remote_area_fee:,}원이 붙어요."
         else:
             text = f"배송비는 {ev.shipping_fee:,}원이에요."
-        return _answer(text, "등록 상품 정보", product_ref)
-    window = ev.order_delivery_window or ev.delivery_window
-    if re.search(r"배송|도착|수령|받는|받을|출하", q) and window:
+        found.append((text, "등록 상품 정보", product_ref, True))
+    elif re.search(r"배송|도착|수령|받는|받을|출하", q) and window:
         ref = [f"order:{ev.order_id}"] if ev.order_delivery_window else product_ref
-        return _answer(f"{window[0]} ~ {window[1]}에 받을 예정이에요.", "확정 배송 기간", ref)
+        found.append((f"{window[0]} ~ {window[1]}에 받을 예정이에요.", "확정 배송 기간", ref, True))
     if re.search(r"당도|브릭스|brix", q, re.IGNORECASE):
         if ev.measured_brix is not None:
-            return _answer(
-                f"등록된 실측 당도는 {ev.measured_brix}Brix예요.", "등록된 당도", product_ref
-            )
-        if ev.expected_brix is not None:
+            text = f"등록된 실측 당도는 {ev.measured_brix}Brix예요."
+            found.append((text, "등록된 당도", product_ref, True))
+        elif ev.expected_brix is not None:
             text = f"예상 당도는 {ev.expected_brix}Brix이고 실측값은 아직 없어요."
-            return _answer(text, "등록된 당도(예상)", product_ref)
-    faq = next((f for f in ev.faqs if f.get("question", "").strip() == q), None)
-    if faq and not _UNSAFE_POLICY.search(faq.get("answer", "")):
-        return _answer(faq["answer"], "농가 FAQ", ["farm:faq"])
+            found.append((text, "등록된 당도(예상)", product_ref, True))
+    for faq in ev.faqs:
+        if faq.get("question", "").strip() == q:
+            answer = faq.get("answer", "")
+            found.append((answer, "농가 FAQ", ["farm:faq"], not _UNSAFE_POLICY.search(answer)))
     if re.search(r"소량|최소", q) and ev.small_order_policy:
-        if not _UNSAFE_POLICY.search(ev.small_order_policy):
-            return _answer(ev.small_order_policy, "농가 소량 주문 원칙", ["farm:smallOrderPolicy"])
+        policy = ev.small_order_policy
+        safe = not _UNSAFE_POLICY.search(policy)
+        found.append((policy, "농가 소량 주문 원칙", ["farm:smallOrderPolicy"], safe))
     if re.search(r"예약.*(?:배송|출하)|(?:배송|출하).*예약", q) and ev.reservation_shipping_policy:
-        if not _UNSAFE_POLICY.search(ev.reservation_shipping_policy):
-            return _answer(
-                ev.reservation_shipping_policy,
-                "농가 예약 출하 원칙",
-                ["farm:reservationShippingPolicy"],
-            )
+        policy = ev.reservation_shipping_policy
+        safe = not _UNSAFE_POLICY.search(policy)
+        found.append((policy, "농가 예약 출하 원칙", ["farm:reservationShippingPolicy"], safe))
+    texts = [text for text, *_ in found]
+    if any(not _agree(a, b) for i, a in enumerate(texts) for b in texts[i + 1 :]):
+        return _handoff(CONFLICT_REASON)
+    for text, reason, refs, safe in found:
+        if safe:
+            return _answer(text, reason, refs)
     return None
 
 
