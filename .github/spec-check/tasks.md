@@ -302,3 +302,41 @@ DEV-74는 `tasks.md`에 Figma를 비범위로 적고 넘어가 Figma만 옛 화�
 - 이슈: [DEV-144](https://linear.app/sswp6/issue/DEV-144) · 작업 기록 본문은 [`server/tasks.md#DEV-144`](../../server/tasks.md)
 - 범위: `check.py`(보고 함수), `test_check.py`, `backfill_usage.py`(새 파일), `README.md`, 이 파일, `.github/workflows/spec-check.yml`(spec-code-review·live-demo 단계에 `SPEC_CHECK_USAGE_URL`·`SPEC_CHECK_USAGE_TOKEN` 두 줄)
 - 결정: 모델 응답에 `usage`가 있을 때만 PR 번호·제목·head SHA·결과·모드·모델·입력/출력 토큰·실행 URL을 `POST <SPEC_CHECK_USAGE_URL>`로 보낸다. 두 값 중 하나라도 없으면 보내지 않는다. 보고 실패는 경고 한 줄만 찍고 리뷰 결과·보고서·종료 코드는 바꾸지 않는다. 표준 라이브러리만 쓴다.
+
+## DEV-196 spec-check 모델 리뷰를 환경 승인 없이 자동 실행
+
+- 이슈: [DEV-196](https://linear.app/sswp6/issue/DEV-196) (관련: DEV-55, DEV-144)
+- 브랜치: `nemodleo/dev-196-spec-check-auto-run`
+- 기능·인수 조건: infra. 제품 동작 변경 없음.
+- 상태: 구현 완료, 리뷰 대기
+
+### 목표
+`spec-code-review`가 보호 환경의 required reviewers 승인을 기다리지 않고 ready PR에서 바로 돈다. fail은 머지를 막지 않되, 작성자가 보고서를 읽고 처리 결정을 PR 코멘트에 적는 규칙을 둔다.
+
+### 범위 (수정 허용 경로)
+- `.github/workflows/spec-check.yml` — draft 제외 조건, `actions: read` 제거, 안내 문구
+- `.github/spec-check/check.py`, `test_check.py` — `check_environment`(required reviewers 요구)와 그 테스트 삭제
+- `.github/spec-check/README.md`, `spec.md`, 이 파일 — 승인 절차 삭제, 1.1절(fail 처리) 추가
+- `AGENTS.md`, `.agents/skills/pr-review/SKILL.md`, `.agents/tasks.md` — fail 보고서 처리 규칙 한 줄
+
+### 결정 사항
+- 11/03 PM 제안으로 전환. 승인 단계가 있는 동안(#265 #270 #280 #291) 매번 PM이 Actions에서 눌러야 체크가 끝났고, 승인이 걸러낸 실행은 없었다.
+- 11/03 환경 `spec-check` 자체는 유지한다(키·모델 변수를 PR 코드와 분리). Required reviewers만 GitHub 설정에서 뺀다(사람 몫, 박현). 설정을 빼기 전까지는 기존처럼 승인 대기한다.
+- 11/03 draft PR은 `github.event.pull_request.draft == false`로 건너뛴다. draft 동안의 push마다 모델을 부르지 않기 위해서다. `ready_for_review` 이벤트가 이미 트리거에 있어 draft 해제 때 돈다. `concurrency: cancel-in-progress`는 이미 있었다.
+- 11/03 `check_environment`는 환경 API를 읽어 reviewers가 없으면 INCOMPLETE를 내던 함수다. 설정만 바꾸면 모든 실행이 INCOMPLETE가 되므로 코드에서 함께 지운다.
+
+### 작업
+- [x] workflow 조건·권한·문구
+- [x] `check_environment`·테스트 삭제
+- [x] README 1장·1.1절·3장, spec.md 실행·권한 행
+- [x] AGENTS.md·pr-review 스킬 규칙 한 줄
+- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'`
+
+### 완료 조건
+- [ ] 계약 테스트 통과(로컬·GitHub checker-tests)
+- [ ] 박현이 Settings → Environments → spec-check의 Required reviewers 해제
+- [ ] 머지 뒤 ready PR 하나에서 승인 없이 `spec-code-review`가 도는지 확인
+- [ ] 사람 1명 승인 후 main 머지
+
+### 기록
+- 11/03 `origin/main`(81233e6)에서 시작.
