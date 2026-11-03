@@ -188,3 +188,43 @@ Linear "Copy git branch name"이 한글 제목을 브랜치 이름에 넣어 생
 - 이슈: [DEV-199](https://linear.app/sswp6/issue/DEV-199) · 상태: 리뷰 대기
 - 범위: `.agents/skills/pr-context/check_table.py`(ls-tree 모드 검사 세 줄), `.agents/tasks.md`
 - 결정: `ls-tree`가 트리·심링크를 돌려주면 "폴더·심링크 경로(파일 경로만 적는다)"로 표시. 상세는 `.github/spec-check/tasks.md#DEV-199`.
+
+## SWPP-126 PR 작업에서 사람·에이전트 역할 기준과 고위험 변경 사람 승인 규칙
+
+- 이슈: [SWPP-126](https://linear.app/sswp6/issue/SWPP-126)
+- 브랜치: `zahra/swpp-126-human-agent-roles`
+- 기능·인수 조건: infra(팀 작업 규칙). 제품 동작 변경 없음.
+- 상태: 진행 중
+
+### 목표
+TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 할지 명확한 기준 필요")에 따라, PR 단계별로 사람이 책임지는 일과 에이전트가 해도 되는 일을 정하고, 고위험 변경은 사람 승인을 예외 없이 받게 한다. PR 본문에 사람이 한 일이 드러나게 한다.
+
+### 범위 (수정 허용 경로)
+- `AGENTS.md`
+- `.agents/skills/pr-review/SKILL.md`, `.agents/skills/pr-context/SKILL.md`, `.agents/tasks.md`
+- `.github/pull_request_template.md`
+
+### 비범위 (건드리지 않음)
+- `.github/workflows/**`, `.github/spec-check/**` — 위험 등급 자동 검사(CI)는 후속 제안
+- GitHub 브랜치 보호·CODEOWNERS 설정(관리자 수동)
+- `docs/wiki/**` — I3 AI Collaboration Report 작성 때 반영
+
+### 결정 사항
+- 11/03 팀 결정(Zahra 전달): 고위험 변경은 사람 Approve를 예외 없이 받는다. 일정 때문에 승인 생략을 합의한 기간(I2)에도 고위험 PR은 생략하지 않는다.
+- 11/03 원칙: 사람이 무엇을·왜(범위, 인수 조건, 설계 결정)와 확인(직접 실행, 리뷰, 머지, 배포 확인)을 책임지고, 에이전트는 어떻게(코드·테스트·문서 초안, 1차 리뷰)를 맡는다. 작성자는 에이전트가 쓴 줄도 자기 코드로 설명할 수 있어야 한다.
+- 11/03 고위험 경로: 데이터 구조(`server/migrations/**`, `server/app/*/models.py`), 인증·권한(`server/app/accounts/**`, `server/app/admin/**`, `server/app/core/security.py`, `server/app/core/config.py`), 주문·결제(`server/app/orders/**`), 개인정보(`server/app/core/masking.py`), 제품 AI 프롬프트·가드레일(`server/app/ai/**`), 배포·CI(`.github/workflows/**`, 배포 설정), 팀 규칙(`AGENTS.md`, `.agents/skills/**`).
+- 11/03 PR 템플릿: "AI 사용"의 `사람이 고친 점` 대신 위험 등급 줄과 "사람이 한 일" 체크리스트. 사람이 직접 체크한다(에이전트가 대신 체크하지 않음).
+
+### 작업
+- [ ] `AGENTS.md`: "사람·에이전트 역할" 절(단계별 표, 고위험 경로·규칙), 머지 줄 수정
+- [ ] `.github/pull_request_template.md`: 위험 등급, 사람이 한 일
+- [ ] `pr-context`: 에이전트가 사람 체크 항목을 채우지 않음, 위험 등급 판정
+- [ ] `pr-review`: 사람 리뷰 체크리스트·머지 절차에 고위험 규칙
+- [ ] `check_table.py`로 이 PR 본문 표 점검
+
+### 완료 조건
+- [ ] 위 작업 완료, 팀원 1명 Approve(이 PR 자체가 고위험: `AGENTS.md`·`.agents/skills/**`)
+- [ ] main 머지
+
+### 기록
+- 11/03 main 896b836에서 시작.
