@@ -480,7 +480,8 @@ test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", asyn
   const { readFile } = await import("node:fs/promises");
   const { spawnSync } = await import("node:child_process");
   const workflow = await readFile(new URL("../.github/workflows/deploy-vercel.yml", import.meta.url), "utf8");
-  const pattern = workflow.match(/grep -qE '([^']+)'/)[1];
+  // DEV-139: 감지 정규식은 scripts/ci/deploy-changed.sh 호출의 둘째 인자
+  const pattern = workflow.match(/deploy-changed\.sh deploy\/vercel-\$\{\{ matrix\.app \}\} '([^']+)'/)[1];
   for (const [path, expected] of [
     ["server/app/source_analysis/text_safety_lists.json", 0],
     ["server/app/source_analysis/text_safety.py", 1],

@@ -207,7 +207,7 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 - `scripts/ci/deploy-changed.sh`, `scripts/ci/deploy-mark.sh`, `scripts/ci/test-deploy-changed.sh` (새 파일)
 - `.github/workflows/deploy-railway.yml`, `.github/workflows/deploy-vercel.yml` (감지 단계 5곳, `fetch-depth`, `permissions`, 태그 단계)
 - `.github/workflows/ci.yml` (job `admin-web`에 시나리오 테스트 한 단계)
-- `Makefile`(`test-ci`), `README.md` 배포 절, `docs/spec/tech-design/stack.md` CI/CD 줄, `.agents/skills/pr-review/SKILL.md` 4장 배포 확인 줄, 이 파일
+- `scripts/test-spec12.mjs`(DEV-186 테스트가 감지 정규식을 읽는 위치 한 줄), `Makefile`(`test-ci`), `README.md` 배포 절, `docs/spec/tech-design/stack.md` CI/CD 줄, `.agents/skills/pr-review/SKILL.md` 4장 배포 확인 줄, 이 파일
 
 ### 결정 사항
 - 11/03 기준은 **이동 태그** `deploy/railway-api`·`deploy/vercel-consumer`·`deploy/vercel-producer`·`deploy/vercel-admin`·`deploy/vercel-demo`. 배포(+health 확인) 성공 뒤 `deploy-mark.sh`가 `git push --force origin HEAD:refs/tags/<태그>`로 옮긴다. GitHub Deployments API는 `environment: production` job이 건너뛴 실행에도 성공 기록을 남겨 기준으로 못 쓰고, 워크플로 실행 목록도 "실제로 올렸는지"를 구분 못 한다. 태그는 레포에서 바로 보이고 `git` 만으로 읽는다.
@@ -231,4 +231,4 @@ PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타�
 
 ### 기록
 - 11/03 `origin/main`(0afd89a)에서 시작.
-- 11/03 PR #374 spec-check SC-001(Comparing 줄이 diff 분기에만 있음) 반영: 모든 분기에서 첫 줄로 찍는다. UNVERIFIED(Railway worker 단계 뒤에 태그를 옮겨야 함) 반영: 태그 단계를 worker 단계 뒤로. "감지 5곳" 표현을 "4단계·5대상"으로.
+- 11/03 PR #374 spec-check SC-001(Comparing 줄이 diff 분기에만 있음) 반영: 모든 분기에서 첫 줄로 찍는다. UNVERIFIED(Railway worker 단계 뒤에 태그를 옮겨야 함) 반영: 태그 단계를 worker 단계 뒤로. "감지 5곳" 표현을 "4단계·5대상"으로. CI apps job 실패: `test-spec12.mjs`의 DEV-186 테스트가 workflow의 `grep -qE '…'`에서 정규식을 읽었는데 호출 형태가 바뀌어 null → 스크립트 호출의 둘째 인자에서 읽게 고침.
