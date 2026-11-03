@@ -221,7 +221,7 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 - [x] `.github/pull_request_template.md`: 위험 등급, 사람이 한 일
 - [x] `pr-context`: 에이전트가 사람 체크 항목을 채우지 않음, 위험 등급 판정
 - [x] `pr-review`: 사람 리뷰 체크리스트·머지 절차에 고위험 규칙
-- [ ] `check_table.py`로 이 PR 본문 표 점검
+- [x] `check_table.py`로 이 PR 본문 표 점검
 
 ### 완료 조건
 - [ ] 위 작업 완료, 사람 리뷰 기록(이 PR 자체가 고위험: `AGENTS.md`·`.agents/skills/**`)
@@ -229,3 +229,4 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 
 ### 기록
 - 11/03 main 896b836에서 시작.
+- 11/03 AI 1차 리뷰: AGENTS.md 머지 줄이 "Approve 후에만"으로 남아 작성자 본인 리뷰와 모순 → 고침. Zahra가 `52066e9`까지 확인(작성자 본인 리뷰).
