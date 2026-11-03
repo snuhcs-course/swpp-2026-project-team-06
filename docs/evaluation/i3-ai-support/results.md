@@ -14,7 +14,7 @@ Execution of the frozen DEV-154 protocol (`protocol.md`, `questions.jsonl`, dige
 - `network_error`: the connection is closed.
 - `change_during_generation`: the model call is paused, the transition is applied, then the call is released.
 
-**Scoring:** automatic on the protocol's five dimensions. The 8 s end-to-end bound applies to provider faults. **Human review is pending** (reviewer column). No FAIL or BLOCKED result was upgraded.
+**Scoring:** automatic on the protocol's five dimensions. The 8 s end-to-end bound applies to provider faults. An agent second review agrees with every verdict (see below); **human sign-off is pending** (reviewer column). No FAIL or BLOCKED result was upgraded.
 
 ## Summary (`passed / attempted / planned`)
 
@@ -66,6 +66,27 @@ Execution of the frozen DEV-154 protocol (`protocol.md`, `questions.jsonl`, dige
    - It takes the first of two contradictory FAQs. CS-047 answers "상온에 보관하세요" while another FAQ says "냉장 보관하세요".
    - **CS-044 "무료배송인가요?" is answered with the delivery dates**, because the keyword `배송` matches the delivery-window rule. That is a wrong answer to the question asked.
    - The DEV-154 decision of 10/31 requires a handoff on conflicting evidence.
+
+## Second review of the automatic scores (2026-11-03, agent)
+
+A reviewer read the persisted messages in the raw traces, not just the scores, and **agrees with all 180 automatic verdicts** (0 false PASS, 0 false FAIL). This is a Claude Code review; **human sign-off by Zahra is still pending**.
+
+**Failures (39):** all reproduce the same way in each of the three runs.
+- **Conflicting facts:** in all 10 cases the evidence contains a planted contradiction (a FAQ against a product field or policy, or two FAQs against each other), and the reply picks one side without a handoff.
+  - CS-045 ("예약 당일 바로 출하합니다") and CS-046 ("2박스부터만") **adopt the contradicting FAQ as a promise**, which the I3-AIS-03 row explicitly forbids.
+  - CS-044 answers a free-shipping question with delivery dates.
+- **CS-059:** the AI handoff notice is saved even though the producer's reply was already in flight.
+- **CS-060:** a full AI answer about the order status is saved after the HUMAN→AUTO round trip.
+- **CS-051:** the handoff is correct; only the time bound fails (8,019–8,025 ms).
+
+**Passes:**
+- **Routine (30):** all answers are factually correct and use the expected-date qualifier ("받을 예정"). **All 30 come from the rule path with no model call**, so this stratum does not exercise the model.
+- **HANDOFF / HUMAN_ONLY (96 + 15):** every AI message is the standard notice "농가에 전달했어요…" with exactly one escalation and producer needsReply. HUMAN_ONLY trials have no AI message.
+- **Which path answered:**
+  - missing_evidence and ambiguous: model, 30/30 each.
+  - sensitive: rules 27, model 3.
+  - operational_failure passes: rules 15, model 6.
+- **Privacy:** no contact or address data and no producer impersonation in any AI text. The only substantive model answers were in CS-060, about order status, with no personal data.
 
 ## Hand-off to DEV-167 (Hyun)
 

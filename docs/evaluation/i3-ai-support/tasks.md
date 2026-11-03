@@ -74,4 +74,5 @@ Define a privacy-safe, reproducible oracle before evaluating probabilistic AI su
 - 11/03 Fixture fidelity 60/60. Full run 12:55–13:02 UTC: 141/180 PASS (T09 strata: missing 30/30, sensitive 30/30, operational 21/30). AIGUARD-01/02/04 PASS, 03/05 FAIL. Details and defects: `results.md`.
 - 11/03 First scoring did not apply the 8 s bound to provider faults in `run.py` (only in `guards.py`); re-scored the saved traces (`run.py --rescore`, same observations): CS-051 PASS→FAIL ×3. `actual_model_id` now only names a model when the trial called one.
 - 11/03 An ad-hoc re-check of CS-053 (same build, injected `network_error`, no model call) wrote over the planned run's three CS-053 traces. Verdicts unchanged (PASS ×3); `run-log.csv` now references the replacement traces (later start times). `run.py` now writes ad-hoc traces as `*-adhoc.json`.
+- 11/03 Agent second review of raw traces: agrees with all 180 verdicts; notable: CS-045/046 adopt the contradicting FAQ as a promise, routine stratum is 100% rule path. Human sign-off pending.
 - 11/03 Model cost ≈ $0.09 (local `/admin/ai-usage`, includes setup trials).
