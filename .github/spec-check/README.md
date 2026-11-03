@@ -73,7 +73,7 @@ checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `con
 | `documents[rules.md]` | 적힌 R·M ID의 표 행만. 없으면 전문 |
 | `documents[<폴더>/spec.md]` | "결정" 표에서 이슈 키 또는 ID가 있는 행(+표 머리). 없으면 최근 10행. 결정 표가 없으면 이슈 키 절, 그것도 없으면 제목 줄 |
 | 그 밖의 1열 파일 | `경로#앵커`면 그 제목 절만. 아니면 `reference_paths`에 크기만(내용은 보내지 않음) |
-| 2열의 **바뀌지 않은** 파일 | 전문(`kind: full`, `selection: context: …`). 판단에 필요한 diff 밖 코드(예: 호출하는 서비스 함수, 스키마, 기존 테스트)를 작성자가 표 2열에 적어 보낸다(DEV-197). 제외 규칙·비밀값 검사는 같다. head에 없는 경로는 `reference_paths`에 `size: null`. finding은 여전히 스펙 세그먼트와 diff 줄만 인용한다 |
+| 2열의 **바뀌지 않은** 파일 | 전문(`kind: full`, `selection: context: …`). 판단에 필요한 diff 밖 코드(예: 호출하는 서비스 함수, 스키마, 기존 테스트)를 작성자가 표 2열에 적어 보낸다(DEV-197). 제외 규칙·비밀값 검사는 같다. head에 없는 경로는 `reference_paths`에 `size: null`, 폴더·심링크는 `kind: tree|symlink`로만 남기고 읽지 않는다(DEV-199). finding은 여전히 스펙 세그먼트와 diff 줄만 인용한다 |
 | `changed_files` | 바뀐 파일마다 status·크기·이전 크기 |
 
 | 안 보내는 것 | 대신 |
