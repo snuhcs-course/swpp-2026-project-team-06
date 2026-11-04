@@ -163,11 +163,7 @@ export default function Home() {
                   soldOut={p.soldOut}
                   availability={p.availability}
                 />
-                {joinMeta(reservedText(p.reservedCount), closesText(p.dDay)) ? (
-                  <T variant="caption" muted numberOfLines={1}>
-                    {joinMeta(reservedText(p.reservedCount), closesText(p.dDay))}
-                  </T>
-                ) : null}
+                <CardMeta reserved={p.reservedCount} dDay={p.dDay} />
               </Pressable>
             </View>
           ))}
@@ -178,4 +174,14 @@ export default function Home() {
       </Scroll>
     </Screen>
   );
+}
+
+/** 카드 메타 줄: 있는 조각만 잇고, 다 비면 줄도 없다(DEV-227, M-24). */
+function CardMeta({ reserved, dDay }: { reserved: number; dDay: number | null }) {
+  const meta = joinMeta(reservedText(reserved), closesText(dDay));
+  return meta ? (
+    <T variant="caption" muted numberOfLines={1}>
+      {meta}
+    </T>
+  ) : null;
 }

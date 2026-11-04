@@ -10,7 +10,6 @@ import { Photo } from "./content";
 import { Price } from "./Storefront";
 import { T } from "./Text";
 import {
-  AVAILABILITY_LABEL,
   closesText,
   DELIVERY_PENDING_NOTE,
   deliveryText,
@@ -63,7 +62,6 @@ export type ProductPageData = {
     contact: string;
   };
 };
-
 
 /**
  * 새 상품 채우기(DEV-184): 미리보기와 같은 화면에서 자리만 편집 칸으로 바꾼다.
@@ -339,7 +337,7 @@ function SaleRows({
       {p.soldOut ? (
         <>
           <T variant="heading">
-            {AVAILABILITY_LABEL[p.availability] ?? unavailableLabel(p.availability)}
+            {unavailableLabel(p.availability)}
           </T>
           <T variant="sub" muted>
             {p.nextStageStartsAt
