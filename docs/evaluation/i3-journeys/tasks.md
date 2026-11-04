@@ -34,3 +34,15 @@ Freeze a comparable oracle before I3 evaluation starts, with explicit denominato
 - 10/31 Started from `origin/main` at `8f8d4d5`; DEV-151 dependency is Done; baseline environment and build are pending DEV-165.
 - 10/31 Added five direct AI guard cases because DEV-154's corpus does not exercise wrong-answer report and cross-consumer routing. Added separate full source workflow cases for image, long image, and PDF after review found that analysis-only coverage was insufficient. The final frozen matrix has 44 cases (34 P0, 10 P1). `python3 docs/evaluation/i3-journeys/validate.py` passed with the DEV-154 link to 60 questions / 180 planned trials and no measured results. Product execution remains pending DEV-165 and downstream issues.
 - 10/31 Draft PR #336 opened and updated; AI first review recorded at PR comment `6544860385` with no remaining findings. Human approval and merge remain pending.
+
+## DEV-167 Record I3-AIS-01..03 results on baseline i3-b2-87792b7
+
+- Issue: [DEV-167](https://linear.app/sswp6/issue/DEV-167) (I3-T08) · Branch: `nemodleo/dev-167-i3-ai-answer-review`
+- Work record and commands: `docs/evaluation/i3-ai-support/tasks.md` (## DEV-167).
+
+### Scope (editable paths)
+- `docs/evaluation/i3-journeys/results/i3-b2-87792b7/I3-AIS-0{1,2,3}.md` and this section. `matrix.csv` and `protocol.md` stay frozen (`execution_status` is not edited).
+
+### Record
+- 11/04 I3-AIS-01 PASS 30/30/30 (10/10 stable), I3-AIS-02 PASS 30/30/30 (10/10), I3-AIS-03 FAIL 0/30/30 (0/10). Cohort app `87792b7`, Haiku `claude-haiku-4-5-20251001`, local `farmclub_i3_ais`, run 2026-11-04 04:28–04:30 UTC. Agent review agrees with the automatic verdicts; Hyun's sign-off pending.
+- 11/04 `python3 docs/evaluation/i3-journeys/validate.py` PASS.
