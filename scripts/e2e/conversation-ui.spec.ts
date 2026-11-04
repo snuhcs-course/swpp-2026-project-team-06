@@ -304,6 +304,36 @@ test("AC-12-14/16: producer deletes own news, or deletes and rewrites it", async
   await expect(input).toHaveValue("");
 });
 
+test("AC-12-14: an open consumer room drops news the farm deleted", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const token = await apiLogin(request, "u-kang", "producer");
+  const auth = { Authorization: `Bearer ${token}` };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginConsumer(page);
+  await page.goto(`${consumerUrl}/farms/f-kang`);
+  await expect(page.getByRole("textbox", { name: "농가에 답장", exact: true })).toBeVisible();
+
+  const text = `DEV210 곧 지울 소식 ${Date.now()}`;
+  const sent = await request.post(`${apiUrl}/api/messaging/rooms/f-kang/messages`, {
+    headers: { ...auth, "Idempotency-Key": `dev210-open-${Date.now()}` },
+    data: { text },
+  });
+  expect(sent.status()).toBe(200);
+  const bubble = page.locator(`div[dir="auto"]:text-is("${text}")`);
+  await expect(bubble).toHaveCount(1);
+
+  const deleted = await request.delete(
+    `${apiUrl}/api/messaging/news/${(await sent.json()).broadcastId}`,
+    { headers: auth },
+  );
+  expect(deleted.status()).toBe(204);
+  // 2초 새로고침에서 빠진다(가장 최근 소식이어도)
+  await expect(bubble).toHaveCount(0);
+});
+
 test("AC-07-6 N-02: long farm names and full-ratio story image retain fixed controls", async ({
   page,
 }, info) => {
