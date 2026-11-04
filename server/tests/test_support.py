@@ -343,3 +343,4 @@ def test_AC_34_9_suspended_producer_can_attach_photos(client, login):
     # 다른 농가의 생산자는 그 사진을 못 본다
     other = client.get(f"/api/messaging/attachments/{attachment_id}", headers=login("u-kang"))
     assert other.status_code == 404
+

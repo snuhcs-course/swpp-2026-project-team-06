@@ -2171,3 +2171,4 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 
 ### 기록
 - 11/04 `uv run pytest tests/test_support.py` 15 passed. 전체 `uv run pytest` 1452 passed / 5 failed / 1 skipped. 실패 5개(`test_catalog` 2, `test_core` R2 1, `test_farms` 1, `test_source_integration` 1)는 main 체크아웃에서 복사한 `server/.env`의 AI·R2 값 때문이다. `.env`를 빼고 그 5개만 다시 돌리면 5 passed. `alembic check` 새 변경 없음, `ruff check .` 통과.
+- 11/04 AI 1차 리뷰 반영: 처음 여는 요청 둘이 겹치면 같은 방 id(`thread-support-{farmId}`)로 부딪쳐 한쪽이 500이 될 수 있어, 방 만들기를 savepoint(`begin_nested`)로 감싸고 `IntegrityError`면 먼저 만든 방을 쓴다. 스레드 4개로 재현 테스트를 써 봤지만 고치기 전 코드에서도 통과해(TestClient가 요청을 겹치게 보내지 못함) 테스트는 넣지 않았다. `tests/test_support.py tests/test_admin.py tests/test_settings_inquiries.py` 44 passed, `ruff check .` 통과.

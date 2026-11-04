@@ -10,6 +10,7 @@
 from datetime import datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.clock import now
@@ -123,7 +124,13 @@ def farm_support_thread(db: Session, farm, lock: bool = False) -> Thread:
     first = {"SUSPENDED": SUSPENDED_FIRST, "REJECTED": REJECTED_FIRST}.get(
         farm.approval_status, WELCOME
     )
-    ensure_support_thread(db, farm.id, first)
+    # 처음 여는 요청 둘이 동시에 오면 한쪽은 같은 방 id로 부딪친다.
+    # 그때는 먼저 만든 방을 쓴다
+    try:
+        with db.begin_nested():
+            ensure_support_thread(db, farm.id, first)
+    except IntegrityError:
+        pass
     return get_thread(db, farm.id, SUPPORT_USER_ID, lock=lock)
 
 
