@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core import images
 from app.core.db import get_db
-from app.core.errors import not_found
+from app.core.errors import forbidden, not_found
 from app.core.idempotency import run_idempotent
 from app.core.pagination import page_limit
 from app.core.schemas import Paged
@@ -16,6 +16,7 @@ from app.core.security import (
     CurrentUser,
     OnboardedConsumer,
     OptionalUser,
+    Producer,
 )
 from app.farms import service as farms
 from app.messaging import service, support
@@ -44,6 +45,7 @@ from app.messaging.schemas import (
     StartChatInput,
     StartChatResult,
     SupportPage,
+    SupportProducerSendInput,
     SupportSendInput,
     TextInput,
     ThreadView,
@@ -56,6 +58,20 @@ _safety_logger = logging.getLogger("farmclub.ai.safety")
 Db = Annotated[Session, Depends(get_db)]
 Limit = Annotated[int, Depends(page_limit)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
+
+
+def require_support_producer(db: Db, user: Producer):
+    """약관 동의한 생산자 + 농가 상태가 승인·정지·반려(DEV-209, AC-34-9). 값은 (User, Farm).
+
+    정지·반려 농가는 다른 생산자 API를 못 쓰고 farmclub 대화방만 쓴다.
+    """
+    farm = farms.get_farm_of_producer(db, user.id)
+    if farm is None or farm.approval_status not in support.SUPPORT_STATUSES:
+        raise forbidden("승인·정지·반려된 농가만 farmclub 대화방을 쓸 수 있어요.")
+    return user, farm
+
+
+SupportProducer = Annotated[tuple, Depends(require_support_producer)]
 
 
 # ---------------- 소식·좋아요 (FEAT-12·15) ----------------
@@ -241,6 +257,43 @@ def support_read(db: Db, user: Consumer, body: ReadInput):
     unread = support.consumer_support_read(db, user.id, body.last_read_message_id)
     db.commit()
     return UnreadState(unread_count=unread)
+
+
+# ---------------- 생산자 farmclub 문의 대화방 (DEV-209, AC-34-9) ----------------
+
+
+@router.get("/producer/support/messages", response_model=ChatPage)
+def producer_support_messages(
+    db: Db, producer: SupportProducer, limit: Limit, cursor: str | None = None
+):
+    """자기 농가의 farmclub 방. 정지·반려 농가도 열고, 방이 없으면 처음 열 때 만든다."""
+    user, farm = producer
+    page = support.producer_support_page(db, user, farm, cursor, limit)
+    db.commit()
+    return page
+
+
+@router.post("/producer/support/messages", response_model=ProducerSendResult)
+def producer_support_send(
+    db: Db, producer: SupportProducer, body: SupportProducerSendInput, key: IdempotencyKey = None
+):
+    user, farm = producer
+    return run_idempotent(
+        db,
+        user.id,
+        "producer-support-send",
+        key,
+        body,
+        lambda: support.producer_support_send(db, farm, body.text, body.attachment_ids),
+    )
+
+
+@router.put("/producer/support/read", response_model=UnreadState)
+def producer_support_read(db: Db, producer: SupportProducer, body: ReadInput):
+    _, farm = producer
+    state = support.producer_support_read(db, farm, body.last_read_message_id)
+    db.commit()
+    return state
 
 
 # ---------------- 생산자 1:1 (M-09) ----------------

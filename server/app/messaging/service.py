@@ -1200,7 +1200,17 @@ def _check_resource(db: Session, user, order_id: str | None, thread_id: str | No
             raise not_found("결제한 본인 주문만 문의할 수 있어요.")
         return
     thread = db.get(Thread, thread_id)
-    if thread is None or farms.get_approved_farm(db, thread.farm_id) is None:
+    if thread is None:
+        raise not_found("찾을 수 없는 대화예요.")
+    from app.messaging.support import SUPPORT_STATUSES, is_support
+
+    if is_support(thread):
+        # farmclub 방은 그 농가 생산자만, 정지·반려 상태에서도 쓴다(DEV-209, AC-34-9)
+        own = farms.get_farm_of_producer(db, user.id) if user.role == "PRODUCER" else None
+        if own is None or own.id != thread.farm_id or own.approval_status not in SUPPORT_STATUSES:
+            raise not_found("찾을 수 없는 대화예요.")
+        return
+    if farms.get_approved_farm(db, thread.farm_id) is None:
         raise not_found("찾을 수 없는 대화예요.")
     if user.role == "CONSUMER":
         if thread.consumer_id != user.id:

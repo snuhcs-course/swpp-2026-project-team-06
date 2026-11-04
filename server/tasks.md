@@ -2144,25 +2144,30 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 ## DEV-209 [HE 후속] 정지·반려 생산자의 farmclub 문의 대화방
 
 - 이슈: https://linear.app/sswp6/issue/DEV-209 · 화면 쪽 기록은 `apps/producer/tasks.md#DEV-209`
-- 상태: 진행 중 — 1단계 디자인 제안만. PM 승인 전에는 코드를 고치지 않는다.
+- 상태: 리뷰 중 — 11/04 PM 승인 뒤 구현
 
 ### 목표
 지금 생산자 채팅 API는 승인된 농가만 받는다(`require_approved_producer`, `app/messaging/service.py`의 APPROVED 검사). 정지·반려 생산자가 자기 farmclub 방만 읽고, 보내고, 읽음 처리할 수 있게 한다. 다른 1:1 대화와 소식방은 계속 막는다.
 
 ### 범위 (수정 허용 경로, 승인 뒤)
-- `server/app/messaging/{router.py,support.py,schemas.py}`, `server/tests/test_support.py`
+- `server/app/messaging/{router.py,support.py,schemas.py,service.py}`, `server/tests/test_support.py`. `service.py`는 첨부 접근 검사(`_check_resource`)에서 farmclub 방만 예외로 두는 몇 줄이다(정지 농가는 `get_approved_farm`에 걸려 사진을 못 올렸다).
 - 가능하면 `server/app/core/security.py`는 고치지 않고 messaging 라우터 안에 좁은 의존성을 둔다. 고쳐야 하면 범위를 먼저 고치고 PR을 고위험으로 표시한다.
 
 ### 비범위
 - 모델·마이그레이션(기존 Thread·`thread-support-{farmId}`를 쓴다), 관리자 문의함 화면(이미 정지·숨김 농가 방을 보인다), 새 서버 설정(메일 값은 앱 빌드 변수)
 
-### 결정 사항 (제안, PM 승인 대기)
-- 새 API 3개(가칭): `GET/POST /api/messaging/farm-support/messages`, `PUT /api/messaging/farm-support/read`. 생산자이고 농가 상태가 APPROVED·SUSPENDED·REJECTED일 때만 받는다.
+### 결정 사항 (11/04 PM 승인)
+- 새 API 3개: `GET/POST /api/messaging/producer/support/messages`, `PUT /api/messaging/producer/support/read`. 의존성 `require_support_producer`는 messaging 라우터 안에 두고 기존 `Producer`(약관 동의한 생산자) 위에서 농가 상태가 APPROVED·SUSPENDED·REJECTED인지 본다. `security.py`·accounts·models·마이그레이션은 바꾸지 않아 일반 위험 등급이다.
+- 응답 모양은 생산자 1:1과 같다(`ChatPage`, `ProducerSendResult`, `UnreadState`). 보내기 입력은 `SupportProducerSendInput`(글·사진만, 질문함 답변 연결 없음). 멱등 범위는 `producer-support-send`.
+- 시드의 정지 농가(`f-stop`)도 방이 없다(시드는 승인 농가만 방을 만든다). 그래서 정지 농가도 처음 열 때 만든다. 첫 메시지는 `SUSPENDED_FIRST`·`REJECTED_FIRST`.
 - 반려 농가는 방이 없으므로 처음 열 때 `ensure_support_thread`로 만들고, 환영 문구 대신 신청 결과용 첫 메시지를 넣는다. AC-34-1("반려는 대화방을 만들지 않는다")을 바꾼다.
 - M-16 연락처 가림, 멱등 키는 기존 farmclub 방과 같게 적용한다.
-- 운영 DB(사람이 실행): `f-wimi`를 `approval_status='PENDING'`, `reject_reason=NULL`, `decided_at=NULL`로 되돌린다. 확인 쿼리와 명령은 승인 뒤 이 섹션에 적는다.
+- 오미숙(`f-wimi`) 되돌리기는 운영 DB를 직접 고치지 않는다. 반려를 확인 중으로 되돌리는 관리자 API는 없다. 반려 농가의 재신청 API(`POST /api/auth/producer-application`, 앱의 '다시 신청하기'와 같음)가 `PENDING`·`reject_reason=NULL`·`decided_at=NULL`로 되돌린다. 사람이 실행할 명령과 확인 방법은 PR #395 본문 "사람이 할 일"에 적는다.
 
 ### 작업
-- [ ] PM 승인
-- [ ] API·테스트(`test_AC_34_9_...`)
-- [ ] 운영 DB 되돌리기 명령 준비
+- [x] PM 승인
+- [x] API·테스트(`test_AC_34_9_...` 5개)
+- [x] 오미숙 되돌리기 안내(PR 본문)
+
+### 기록
+- 11/04 `uv run pytest tests/test_support.py` 15 passed. 전체 `uv run pytest` 1452 passed / 5 failed / 1 skipped. 실패 5개(`test_catalog` 2, `test_core` R2 1, `test_farms` 1, `test_source_integration` 1)는 main 체크아웃에서 복사한 `server/.env`의 AI·R2 값 때문이다. `.env`를 빼고 그 5개만 다시 돌리면 5 passed. `alembic check` 새 변경 없음, `ruff check .` 통과.

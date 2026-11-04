@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import now
-from app.core.errors import conflict, invalid, not_found
+from app.core.errors import conflict, forbidden, invalid, not_found
 from app.core.ids import new_id
 from app.messaging.models import SupportMessage, SupportThread, Thread, ThreadMessage
 from app.messaging.schemas import ChatMessage, ChatSummary
@@ -26,6 +26,18 @@ WELCOME = (
     "운영팀이 확인하고 답해 드릴게요.\n"
     "화면 오른쪽 위 ? 버튼을 누르면 사용 안내도 처음부터 다시 볼 수 있어요."
 )
+# 정지·반려 농가가 방 없이 처음 문의 화면을 열 때 넣는 첫 메시지(DEV-209, AC-34-9)
+SUSPENDED_FIRST = (
+    "안녕하세요, farmclub 운영팀이에요.\n"
+    "계정 정지에 궁금한 점이나 이의가 있으면 이 대화방에 남겨 주세요. "
+    "운영팀이 확인하고 답해 드릴게요."
+)
+REJECTED_FIRST = (
+    "안녕하세요, farmclub 운영팀이에요.\n"
+    "신청 결과에 궁금한 점이 있으면 이 대화방에 남겨 주세요. 확인하고 답해 드릴게요."
+)
+# farmclub 방을 쓸 수 있는 농가 상태. 확인 중(PENDING)은 운영팀이 전화로 확인한다(DEV-209)
+SUPPORT_STATUSES = ("APPROVED", "SUSPENDED", "REJECTED")
 
 
 def is_support(thread: Thread) -> bool:
@@ -45,8 +57,11 @@ def ensure_support_user(db: Session) -> None:
         db.flush()
 
 
-def ensure_support_thread(db: Session, farm_id: str) -> Thread:
-    """농가 승인 때 부른다. 방이 이미 있으면 그대로 두고, 처음 만들 때만 환영 메시지를 넣는다."""
+def ensure_support_thread(db: Session, farm_id: str, first_message: str = WELCOME) -> Thread:
+    """농가 승인 때 부른다. 방이 이미 있으면 그대로 두고, 처음 만들 때만 환영 메시지를 넣는다.
+
+    정지·반려 농가가 처음 문의 화면을 열 때도 부른다(DEV-209). 그때는 상태에 맞는 첫 메시지.
+    """
     from app.messaging.service import get_thread
 
     ensure_support_user(db)
@@ -64,7 +79,7 @@ def ensure_support_thread(db: Session, farm_id: str) -> Thread:
     )
     db.add(thread)
     db.flush()
-    db.add(_operator_message(thread.id, WELCOME, created))
+    db.add(_operator_message(thread.id, first_message, created))
     db.flush()
     return thread
 
@@ -91,6 +106,47 @@ def _support_thread(db: Session, farm_id: str, lock: bool = False) -> Thread:
     if thread is None:
         raise not_found("이 농가의 farmclub 대화방이 없어요.")
     return thread
+
+
+def farm_support_thread(db: Session, farm, lock: bool = False) -> Thread:
+    """생산자 자기 농가의 farmclub 방(DEV-209). 승인·정지·반려 농가만 쓴다.
+
+    승인 때 방이 생기므로 승인 농가는 이미 있다. 반려 농가와 방 없는 정지 농가는 처음 열 때 만든다.
+    """
+    from app.messaging.service import get_thread
+
+    if farm.approval_status not in SUPPORT_STATUSES:
+        raise forbidden("승인·정지·반려된 농가만 farmclub 대화방을 쓸 수 있어요.")
+    thread = get_thread(db, farm.id, SUPPORT_USER_ID, lock=lock)
+    if thread is not None:
+        return thread
+    first = {"SUSPENDED": SUSPENDED_FIRST, "REJECTED": REJECTED_FIRST}.get(
+        farm.approval_status, WELCOME
+    )
+    ensure_support_thread(db, farm.id, first)
+    return get_thread(db, farm.id, SUPPORT_USER_ID, lock=lock)
+
+
+def producer_support_page(db: Session, user, farm, cursor: str | None, limit: int):
+    from app.messaging.service import _chat_page
+
+    return _chat_page(db, user, farm_support_thread(db, farm), cursor, limit, producer=True)
+
+
+def producer_support_send(db: Session, farm, text: str, attachment_ids: list[str]):
+    """생산자 문의. 사진 3장까지, 연락처 가림(M-16)은 다른 1:1과 같다. 질문함 답변 연결은 없다."""
+    from app.messaging.schemas import ProducerSendResult
+    from app.messaging.service import _message_view, _producer_reply, _thread_view
+
+    thread = farm_support_thread(db, farm, lock=True)
+    message = _producer_reply(db, thread, text, [], attachment_ids, farm.producer_id)
+    return ProducerSendResult(message=_message_view(message), thread=_thread_view(thread))
+
+
+def producer_support_read(db: Session, farm, message_id: str):
+    from app.messaging.service import mark_read
+
+    return mark_read(db, farm_support_thread(db, farm, lock=True), message_id, True)
 
 
 def _last(db: Session, thread_id: str) -> ThreadMessage | None:
