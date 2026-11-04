@@ -6,12 +6,13 @@ farmclub은 감귤 농가(생산자)와 소비자를 잇는 산지 직거래·�
 
 | 어디서 | 소비자 앱 | 생산자 앱 |
 | --- | --- | --- |
-| 팀 Android 기기 (APK) | `farmclub-consumer` 앱 | `farmclub-producer` 앱 |
+| 팀 Android 기기 | Chrome에서 아래 주소를 연 뒤 ⋮ → ‘설치 및 바로가기 만들기’ → 홈 화면의 `farmclub` 아이콘 | 같은 방법, 홈 화면의 `farmclub 농가` 아이콘 |
 | 노트북 브라우저 | https://farmclub.kr/login?evaluator=1 | https://farm.farmclub.kr/login?evaluator=1 |
 
 - 로그인 화면에서 **테스트 계정을 골라** 들어갑니다. ‘카카오로 시작하기’는 개인 카카오 계정으로 운영 서버에 가입되므로 **쓰지 말아 주세요**.
-- 노트북에서는 반드시 위 주소(`?evaluator=1` 포함)로 들어가야 테스트 계정 목록이 보입니다.
-- APK 설치 파일(Expo internal 빌드): GitHub Release <https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/apk-internal-2026-10-23>(두 앱 APK + SHA-256, Expo 링크는 30일 뒤 만료라 여기 보관). 원본 빌드 페이지: 소비자 <https://expo.dev/accounts/snu-omm/projects/farmclub-consumer/builds/28528091-faa4-4141-bfc2-b431bfd52e13>, 생산자 <https://expo.dev/accounts/snu-omm/projects/farmclub-producer/builds/db07a7db-4ac7-4fe2-8d12-77a906fd0213>. 설치 뒤 **두 번 실행**해야 최신 화면(업데이트)이 적용됩니다.
+- 반드시 위 주소(`?evaluator=1` 포함)로 들어가야 테스트 계정 목록이 보입니다. Android는 Chrome에서 이 주소를 한 번 열면 기기에 기억되어 홈 화면 아이콘(PWA)으로 열어도 목록이 보입니다(DEV-198).
+- **APK 앱은 쓰지 말아 주세요.** 키보드가 입력칸을 가리고(DEV-205) 생산자 첫 화면이 반쪽으로 밀리는(DEV-206) 네이티브 문제가 있어 웹(PWA)으로 평가합니다.
+- (참고) APK 설치 파일(Expo internal 빌드): GitHub Release <https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/apk-internal-2026-10-23>(두 앱 APK + SHA-256, Expo 링크는 30일 뒤 만료라 여기 보관). 원본 빌드 페이지: 소비자 <https://expo.dev/accounts/snu-omm/projects/farmclub-consumer/builds/28528091-faa4-4141-bfc2-b431bfd52e13>, 생산자 <https://expo.dev/accounts/snu-omm/projects/farmclub-producer/builds/db07a7db-4ac7-4fe2-8d12-77a906fd0213>. 설치 뒤 **두 번 실행**해야 최신 화면(업데이트)이 적용됩니다.
 
 ## 2. 테스트 계정
 
@@ -32,11 +33,11 @@ farmclub은 감귤 농가(생산자)와 소비자를 잇는 산지 직거래·�
 1. 홈에서 농가·상품 둘러보기 → 농가 팔로우, 소식 보기
 2. 상품 상세 → 선주문(옵션·수량) → 주문서 동의 → 무통장 입금 안내 → ‘입금했어요’ (실제 송금 없음)
 3. 주문 내역에서 상태 확인, 취소·문의
-4. 상품 페이지에서 농가에 질문하기 → ‘AI 안내’ 답변 또는 농가 전달 안내 확인
+4. 상품 페이지에서 농가에 질문하기 → ‘AI 안내’ 답변 또는 농가 전달 안내 확인 — **한라네 과수원 상품에서** 물어보세요. 김민지–강씨네 귤밭 대화방은 농가 직접 응대 상태라 AI 안내가 나오지 않습니다
 5. 대화 탭 → farmclub 고객센터 문의
 
 **생산자 앱 (강영수)**
-1. 주문 관리: 새 주문, 입금 확인(시뮬레이션), 출하·송장 입력
+1. 주문 관리: 새 주문, 입금 확인(시뮬레이션), 출하·송장 입력 — **출하·송장은 ‘출하 준비’ 탭의 시드 주문으로** 해 보세요. 입금을 승인한 새 주문은 ‘예약’ 탭에 남고 아직 출하 준비로 옮기는 버튼이 없습니다(알려진 제한)
 2. 새 상품: 자료 올리기 → AI로 상세 채우기 → 미리보기 → 판매 요청
 3. 소식 보내기, 손님 대화 답하기와 AI 응답 설정
 4. 화면 오른쪽 위 ‘?’ 도움말 투어
@@ -46,6 +47,7 @@ farmclub은 감귤 농가(생산자)와 소비자를 잇는 산지 직거래·�
 - 결제는 무통장 입금 **안내까지만** 있고, 입금 확인은 농가·운영자가 버튼으로 처리합니다(실제 계좌 이체 없음).
 - 휴대폰이 Wi-Fi에 연결되지 않으면 홈이 ‘소식을 불러오지 못했어요’만 보입니다(오프라인 안내 문구 없음, 알려진 문제).
 - 카카오톡 앱으로 바로 로그인 전환은 기기에 따라 되지 않을 수 있습니다(평가에는 테스트 계정 사용).
+- 사전 점검에서 찾은 문제는 같은 폴더의 `he-claude-2026-11-03.md`(웹), `he-claude-phone-2026-11-03.md`(APK), `he-claude-pwa-2026-11-03.md`(PWA)에 있습니다.
 
 ---
 
@@ -53,7 +55,7 @@ farmclub은 감귤 농가(생산자)와 소비자를 잇는 산지 직거래·�
 
 **평가 전 (11/3 밤 ~ 11/4 수업 전)**
 - [ ] DEV-200 머지 뒤 EAS `preview` 환경에 `EXPO_PUBLIC_EVALUATOR_LOGIN=1` 등록 → 두 앱 `eas update --channel preview --environment preview` (Expo snu-omm 권한, PR #373 본문 명령)
-- [ ] 팀 Galaxy에서 두 앱을 두 번 실행 → 로그인 화면에 테스트 계정 목록, 김민지·강영수로 로그인, 홈·농가 로딩 확인 (DEV-41 기록)
+- [x] 팀 Galaxy에서 Chrome으로 두 주소를 열고 홈 화면에 추가 → PWA에서 테스트 계정 목록, 김민지·강영수로 로그인, 홈·농가 로딩 확인 (11/3, `he-claude-pwa-2026-11-03.md`)
 - [ ] 노트북 2대: 위 두 주소를 각각 열어 두고 로그인 확인
 - [ ] 운영 데이터 확인(읽기만): `GET https://api.farmclub.kr/api/auth/test-accounts?app=consumer|producer`에 위 계정, `GET /api/farms`에 농가 4곳
 - [ ] eTL ZIP(11/3 23:59): APK 두 개(위 Expo 빌드 페이지에서 내려받기) + 이 안내(PDF/MD)
