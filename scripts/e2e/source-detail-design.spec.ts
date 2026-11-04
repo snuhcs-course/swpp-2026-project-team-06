@@ -273,11 +273,18 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
   );
   reading = { measuredBrix: null, measuredBrixAt: null, expectedBrix: null };
   await page.reload();
+  // DEV-227: 실측·예상이 둘 다 없으면 숫자 자리('-Brix') 없이 '당도 등록 전'(M-11, M-15).
   await expect(
     page
       .getByTestId("brix-reading")
-      .getByText("당도 예상 -Brix", { exact: true }),
+      .getByText("당도 등록 전", { exact: true }),
   ).toBeVisible();
+  await expect(
+    page
+      .getByTestId("brix-reading")
+      .getByText("궁금하면 1:1 채팅으로 농가에 물어보세요", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByTestId("brix-reading")).not.toContainText("Brix");
   await expect(page.getByTestId("brix-meter-illustration")).toHaveCount(0);
   clean();
 });

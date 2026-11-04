@@ -359,6 +359,12 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** I open the home, the farm list or the product page
 - **THEN** it is left out of home recommendations and farm highlights, stays on its product page and farm page with Reserve turned off, and shows a next start date only when waiting for the next period will open it
 
+**AC-07-7: Empty values**
+- **GIVEN** a value is missing (no sweetness reading, no confirmed delivery window, no separate shipping fee amount, zero reservations, no deadline)
+- **WHEN** a product card, product page or the producer's buyer preview shows it
+- **THEN** no placeholder appears ("-Brix", "0 reserved", a dangling label, today's date); the label is dropped, or a finished phrase is shown ("Sweetness not registered yet", "Shipping fee not confirmed yet"), and an approximation derived from stored data is labelled "estimated" (e.g. "Arrives after mid-November (estimated)", from the last reservation period's end)
+- **AND** a product that cannot be reserved shows one name per availability state on cards, the product page and the producer list
+
 **AC-07-5: Full product story**
 - **GIVEN** a product has story blocks, or only a plain description
 - **WHEN** I read the product page

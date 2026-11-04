@@ -22,6 +22,7 @@ import { Sheet } from "./bars";
 import { tokens } from "./tokens";
 import { safe } from "./web";
 import { inBackground } from "./foreground";
+import { time } from "./format";
 
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
@@ -444,10 +445,7 @@ export function NewsRoom({
               kind={m.senderId === userId ? "me" : "farm"}
               text={m.body}
               sender={m.senderId === userId ? undefined : m.senderName}
-              time={new Date(m.createdAt).toLocaleTimeString("ko-KR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              time={time(m.createdAt)}
             >
               {[...m.photos, ...m.videos].map((uri) => (
                 <RoomMedia key={uri} uri={uri} />
