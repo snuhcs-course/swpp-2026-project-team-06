@@ -124,6 +124,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .card .c { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .tabbar { margin: 12px; height: 64px; border-radius: 999px; background: var(--app-bar); border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: var(--app-muted); }
 .tabbar .on { background: var(--app-surface); color: var(--app-text); font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+.when { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--app-muted); padding-top: 16px; border-top: 1px solid var(--app-border); }
+.px > .when:first-child { border-top: 0; padding-top: 0; }
+.same-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.same-note.ok { background: var(--good-soft); color: var(--good); }
+.ex { font-size: 11px; line-height: 16px; padding: 2px 8px; border-radius: 999px; border: 1px dashed var(--app-muted); color: var(--app-muted); font-weight: 600; }
 .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 132px; background: #111111; color: #FFFFFF; height: 48px; border-radius: 999px; padding: 0 20px; display: grid; place-items: center; font-size: 17px; white-space: nowrap; }
 
 /* 표 */
@@ -143,13 +148,14 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
 
 <div class="wrap">
   <header class="head">
-    <span class="eyebrow">DEV-207 · HE 후속 C1·C2 · 디자인 제안 (승인 전)</span>
+    <span class="eyebrow">DEV-207 · HE 후속 C1·C2 · 디자인 제안 (11/04 PM 승인)</span>
     <h1>소비자 주문 상태 문구: 지금 누구 차례인지, 돈이 실제로 움직였는지</h1>
     <p class="lede">‘입금을 마쳤어요’를 누른 뒤에도 “입금해 주세요”가 남고, 예약을 취소하자마자 “환불됨”이 뜨는 문제를 고친다. 서버 상태값은 그대로 두고, 이미 응답에 있는 <code>depositReportedAt</code>·<code>refundSettledAt</code>·<code>refundIssue</code>로 소비자 라벨만 나눈다. 왼쪽은 지금 main 코드 그대로 다시 그린 화면, 오른쪽은 제안이다.</p>
     <div class="meta">
       <span>기준: Figma v6(보기 권한만) · docs/design/README.md 토큰 · main 3eee9d0</span>
       <span>근거: he-claude-2026-11-03.md C1·C2, 스크린샷 c12·c13·c18</span>
-      <span>2026-11-04</span>
+      <span>2026-11-04 · PM 승인(알림 전 ‘입금 대기’, 앱에서만 취소 숨김, 생산자 라벨도 맞춤, 용어 ‘환불 대기’)</span>
+      <span>화면 속 이름·주문 번호·계좌·금액은 모두 예시 데이터</span>
     </div>
   </header>
 
@@ -181,29 +187,32 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col">
         <span class="tag before"><i></i>BEFORE · 지금 코드</span>
         <div class="phone" style="min-height: 760px">
-          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
           <div class="px stack" style="padding-top: 12px">
             <div class="big">내 주문</div>
             <div class="t-sub muted">예약부터 받는 날까지, 한눈에 확인해요</div>
           </div>
           <div class="tabs"><span class="chip">확정 0</span><span class="chip on">미확정 4</span><span class="chip">취소·환불 3</span></div>
           <div class="px">
-            <div class="card">
+            <div class="when">입금 알리기 전 · FC-1103-4821</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
               <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
               <div class="c">
                 <span class="t-body b"><span class="hl">입금 확인 중 · 입금해 주세요</span></span>
                 <span class="t-body">하우스 감귤 5kg × 1</span>
-                <span class="t-sub muted"><span class="hl">11월 4일 (수) 22:22까지 입금</span> · 33,000원</span>
+                <span class="t-sub muted">11월 4일 (수) 22:22까지 입금 · 33,000원</span>
               </div>
             </div>
-            <div class="card">
+            <div class="when">입금 알린 뒤 · FC-1103-5170</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
               <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
               <div class="c">
-                <span class="t-body b">예약 완료</span>
+                <span class="t-body b"><span class="hl">입금 확인 중 · 입금해 주세요</span></span>
                 <span class="t-body">노지 감귤 10kg × 1</span>
-                <span class="t-sub muted">12월 1일~15일 도착 · 27,000원</span>
+                <span class="t-sub muted"><span class="hl">11월 4일 (수) 23:05까지 입금</span> · 27,000원</span>
               </div>
             </div>
+            <p class="t-cap same-note">지금 코드는 두 시점이 같은 글자</p>
           </div>
           <div class="tabs" style="padding-top: 8px"><span class="chip">확정 0</span><span class="chip">미확정 4</span><span class="chip on">취소·환불 3</span></div>
           <div class="px">
@@ -222,29 +231,32 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col">
         <span class="tag after"><i></i>AFTER · 제안</span>
         <div class="phone" style="min-height: 760px">
-          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
           <div class="px stack" style="padding-top: 12px">
             <div class="big">내 주문</div>
             <div class="t-sub muted">예약부터 받는 날까지, 한눈에 확인해요</div>
           </div>
           <div class="tabs"><span class="chip">확정 0</span><span class="chip on">미확정 4</span><span class="chip">취소·환불 3</span></div>
           <div class="px">
-            <div class="card">
+            <div class="when">입금 알리기 전 · FC-1103-4821</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
+              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+              <div class="c">
+                <span class="t-body b"><span class="hl-ok">입금 대기 · 입금해 주세요</span></span>
+                <span class="t-body">하우스 감귤 5kg × 1</span>
+                <span class="t-sub muted">11월 4일 (수) 22:22까지 입금 · 33,000원</span>
+              </div>
+            </div>
+            <div class="when">입금 알린 뒤 · FC-1103-5170</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
               <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
               <div class="c">
                 <span class="t-body b"><span class="hl-ok">입금 확인 중 · 농가가 확인하고 있어요</span></span>
-                <span class="t-body">하우스 감귤 5kg × 1</span>
-                <span class="t-sub muted"><span class="hl-ok">11월 3일 입금 알림</span> · 33,000원</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
-              <div class="c">
-                <span class="t-body b">예약 완료</span>
                 <span class="t-body">노지 감귤 10kg × 1</span>
-                <span class="t-sub muted">12월 1일~15일 도착 · 27,000원</span>
+                <span class="t-sub muted"><span class="hl-ok">11월 3일 입금 알림</span> · 27,000원</span>
               </div>
             </div>
+            <p class="t-cap same-note ok">알리기 전은 내 차례, 알린 뒤는 농가 차례</p>
           </div>
           <div class="tabs" style="padding-top: 8px"><span class="chip">확정 0</span><span class="chip">미확정 4</span><span class="chip on">취소·환불 3</span></div>
           <div class="px">
@@ -261,9 +273,9 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
         </div>
       </div>
       <div class="notes">
-        <div class="note bad"><span class="dot">!</span><p>굵은 줄이 “확인 중”이면서 “입금해 주세요”. 아래 줄에도 기한이 남아 다시 송금하라는 뜻으로 읽힌다(C1, c12).</p></div>
+        <div class="note bad"><span class="dot">!</span><p>지금 코드는 입금을 알리기 전과 알린 뒤 카드가 같은 글자다. 굵은 줄이 “확인 중”이면서 “입금해 주세요”, 아래 줄에도 기한이 남아 알린 사람에게 다시 송금하라는 뜻으로 읽힌다(C1, c12).</p></div>
         <div class="note bad"><span class="dot">!</span><p>“환불됨”은 완료형인데 아래 줄은 “송금 대기”. 둘이 서로 반대 말을 한다(C2).</p></div>
-        <div class="note"><span class="num">1</span><p>알린 뒤는 ‘입금 확인 중 · 농가가 확인하고 있어요’. 알리기 전 카드는 ‘입금 대기 · 입금해 주세요’와 기한 줄(아래 상태표).</p></div>
+        <div class="note"><span class="num">1</span><p>알리기 전 카드는 ‘입금 대기 · 입금해 주세요’와 기한 줄, 알린 뒤 카드는 ‘입금 확인 중 · 농가가 확인하고 있어요’와 알린 날. 두 시점이 글자로 구분된다.</p></div>
         <div class="note"><span class="num">5</span><p>송금 전 환불은 ‘환불 대기’. 흐린 글자(muted)는 끝난 주문(취소됨·환불 완료)에만 남기고, 아직 돈이 오갈 주문은 진하게 둔다.</p></div>
         <div class="note"><span class="num">6</span><p>아래 줄 날짜는 상태를 만든 사건 하나: 알린 날, 취소한 날.</p></div>
       </div>
@@ -280,7 +292,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col">
         <span class="tag before"><i></i>BEFORE · 지금 코드</span>
         <div class="phone" style="min-height: 1180px">
-          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
           <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
           <div class="px stack">
             <span class="t-sub muted">FC-1103-4821 · 11월 3일 예약</span>
@@ -316,7 +328,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col">
         <span class="tag after"><i></i>AFTER · 제안</span>
         <div class="phone" style="min-height: 1180px">
-          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
           <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
           <div class="px stack">
             <span class="t-sub muted">FC-1103-4821 · 11월 3일 예약</span>
@@ -369,7 +381,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col">
         <span class="tag before"><i></i>BEFORE · 지금 코드</span>
         <div class="phone" style="min-height: 900px">
-          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
           <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
           <div style="padding: 20px"><div class="btn-outline" style="margin: 0">상품 문제 문의 · 사진 첨부</div></div>
           <div class="px stack">
@@ -396,7 +408,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col">
         <span class="tag after"><i></i>AFTER · 제안</span>
         <div class="phone" style="min-height: 900px">
-          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
           <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
           <div style="padding: 20px"><div class="btn-outline" style="margin: 0">상품 문제 문의 · 사진 첨부</div></div>
           <div class="px stack">
@@ -433,7 +445,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
 
   <section class="head">
     <h2>상태별 소비자 문구 (모든 주문 상태)</h2>
-    <p class="lede">서버 상태값과 생산자 앱 문구는 바꾸지 않는다. 굵은 칸이 바뀌는 곳, 회색은 그대로.</p>
+    <p class="lede">서버 상태값은 바꾸지 않는다. 생산자 앱은 환불 줄 라벨만 ‘환불 대기 / 환불 완료’로 맞춘다. 굵은 칸이 바뀌는 곳, 회색은 그대로.</p>
     <div class="tblwrap">
       <table>
         <thead><tr><th>서버 상태 · 조건</th><th>목록 굵은 줄 (지금 → 제안)</th><th>목록 아래 줄</th><th>상세 제목</th><th>상세 본문 / 하단 바</th></tr></thead>
@@ -471,12 +483,12 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       </ul>
     </div>
     <div class="box warn">
-      <h3>PM이 정할 것</h3>
+      <h3>PM 결정 (11/04)</h3>
       <ol>
-        <li><b>알림 전 제목을 ‘입금 대기’로 바꿀까?</b> 바꾸면 SCR-12 주문 완료 화면 제목도 같이 바뀐다. 이슈는 알림 뒤만 요구하지만, 송금 전 ‘확인 중’도 같은 오해의 시작이라 함께 바꾸길 권한다.</li>
-        <li><b>알린 뒤 취소를 화면에서만 막을까, 서버에서도 막을까?</b> 1안: 앱만 버튼을 숨긴다(서버 그대로, 이슈의 1안 범위). 2안: 서버 <code>_actions</code>에서도 <code>cancel</code>을 빼 API로도 못 하게 한다(<code>server/app/orders/**</code> 고위험, 이슈에 먼저 적어야 함). 3안: 알린 뒤 취소를 ‘환불 대기’로 보내 생산자 환불 목록에 올린다(상태 흐름 변경). 권장은 1안으로 고치고 2안은 따로 이슈.</li>
-        <li><b>생산자 앱 ‘환불됨’ 라벨</b>(<code>apps/producer/src/lib/views.tsx</code>)도 ‘환불 보낼 주문 / 송금 완료’로 맞출까? 지금 이슈는 소비자만.</li>
-        <li><b>‘환불 대기’ vs ‘환불 예정’ vs ‘환불 송금 대기’</b>: 짧은 ‘환불 대기’를 권한다(목록 한 줄에 다음 일까지 들어감).</li>
+        <li><b>알림 전 제목도 ‘입금 대기’</b>로 바꾼다. SCR-12 주문 완료 화면 제목도 같이 맞춘다.</li>
+        <li><b>알린 뒤 취소는 앱에서만 숨기고</b> ‘농가에 물어보기’로 바꾼다(1안). 서버 <code>server/app/orders</code>는 그대로 두고, API로는 여전히 환불 기록 없이 취소될 수 있다는 위험은 후속 이슈 후보로 남긴다.</li>
+        <li><b>생산자 앱 ‘환불됨’ 라벨</b>(<code>apps/producer/src/lib/views.tsx</code>)도 송금 전 ‘환불 대기’, 송금 뒤 ‘환불 완료’로 맞춘다.</li>
+        <li><b>용어는 ‘환불 대기’.</b></li>
       </ol>
     </div>
   </section>
