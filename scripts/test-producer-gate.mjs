@@ -55,3 +55,14 @@ test("DEV-113 AC-01-18: producers without current consent only reach /consent, w
   assert.equal(homeFor(producer("APPROVED")).allowed("/consent"), false);
   assert.deepEqual(PUBLIC_PATHS, ["/privacy", "/terms"]);
 });
+
+test("DEV-209 AC-34-9: rejected and suspended farms reach only their status screen and /support", () => {
+  for (const status of ["REJECTED", "SUSPENDED"]) {
+    const g = homeFor(producer(status));
+    assert.equal(g.allowed("/support"), true, status);
+    for (const p of ["/", "/chats", "/products", "/ship", "/settings"])
+      assert.equal(g.allowed(p), false, `${status} ${p}`);
+  }
+  assert.equal(homeFor(producer("PENDING")).allowed("/support"), false);
+  assert.equal(homeFor(producer("NONE")).allowed("/support"), false);
+});

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
+import { Icon } from "./Icon";
 import { T } from "./Text";
 import { tokens } from "./tokens";
 
@@ -16,6 +17,8 @@ type Props = {
   basis?: string;
   /** 말풍선 아래 보조 줄(넘긴 이유, 연락처 가림 안내 등) */
   note?: string;
+  /** 내 질문의 전달 상태 줄(DEV-208). 시각 아래, 본문 색 13/18 + 넘김 아이콘 16 */
+  status?: string;
   children?: ReactNode;
 };
 
@@ -27,6 +30,7 @@ export function ChatBubble({
   sender,
   basis,
   note,
+  status,
   children,
 }: Props) {
   const mine = kind === "me";
@@ -79,6 +83,16 @@ export function ChatBubble({
         <T variant="caption" muted>
           {time}
         </T>
+      ) : null}
+      {status ? (
+        <View
+          testID="chat-forward-status"
+          accessibilityRole="text"
+          style={{ flexDirection: "row", alignItems: "center", gap: 4, maxWidth: 300 }}
+        >
+          <Icon name="forward" size={16} strokeWidth={2} color={tokens.color.text} />
+          <T variant="caption">{status}</T>
+        </View>
       ) : null}
       {note ? (
         <T variant="caption" muted style={{ maxWidth: 300 }}>

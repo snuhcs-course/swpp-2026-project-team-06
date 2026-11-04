@@ -101,6 +101,8 @@ function routeApp(method: string, path: string): RouteApp {
   )
     return "producer";
   if (method === "POST" && path === "/api/messaging/news") return "producer";
+  if (method === "DELETE" && path === "/api/messaging/news/:broadcastId")
+    return "producer";
   if (path === "/api/orders/:orderId/ship" || path === "/api/orders/:orderId/tracking") return "producer";
   if (CONSUMER_ROUTES.some((r) => r.test(path))) return "consumer";
   if (method === "GET" && path === "/api/messaging/news") return "consumer";
@@ -222,6 +224,8 @@ export async function dispatch(req: {
     if (
       m.app === "producer" &&
       !pathname.startsWith("/api/auth/") &&
+      // farmclub 운영팀 대화방은 정지·반려 농가도 쓴다(DEV-209). 상태 검사는 그 라우트가 한다
+      !pathname.startsWith("/api/messaging/producer/support/") &&
       (!user?.farmId || d.farms[user.farmId]?.status !== "APPROVED")
     )
       fail(403, "FORBIDDEN", "승인된 농가만 사용할 수 있어요.");

@@ -67,6 +67,7 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
         broadcastId: n.broadcastId,
         reactionCount: reaction.reactionCount,
         myReaction: reaction.myReaction,
+        visibility: n.visibility,
       };
     });
   const replies = ctx.db.roomReplies.filter(
@@ -177,6 +178,7 @@ register({
         broadcastId: null,
         reactionCount: 0,
         myReaction: false,
+        visibility: null,
       };
       ctx.db.roomReplies.push(message);
       return message;

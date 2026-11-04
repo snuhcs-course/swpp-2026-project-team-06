@@ -1316,3 +1316,104 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
   - 서버 `MOCK_LOGIN_ENABLED`는 바꾸지 않는다(DEV-198과 같음).
 - 검증(11/3, 로컬 실서버 `farmclub_i3`): `npm run typecheck` 통과 · `npm run test:mock` 63/63 · `run-integration.mjs evaluator-login.spec.ts` 플래그 없이 4 passed/2 skipped, `EXPO_PUBLIC_EVALUATOR_LOGIN=1`로 2 passed/4 skipped.
 - 평가 뒤 할 일(사람): EAS `preview` 환경에서 `EXPO_PUBLIC_EVALUATOR_LOGIN` 삭제 → `eas update --channel preview --environment preview`로 일반 업데이트.
+
+## DEV-207 [HE 후속] 주문 상태 문구 모순 (소비자 중심, 생산자 라벨 한 줄)
+- 이슈: https://linear.app/sswp6/issue/DEV-207 · 상세 기록은 `apps/consumer/tasks.md#DEV-207`
+- 범위(생산자): `apps/producer/src/lib/views.tsx` `ORDER_STATUS.REFUNDED` 한 줄
+- 결정: 11/04 PM이 생산자 ‘환불됨’도 ‘환불 대기/환불 완료’로 맞추라고 했지만, 이 라벨을 쓰는 곳은 채팅 ‘연결 주문’뿐이고 응답(`LinkedOrder`)에 송금 여부가 없다. 완료형 ‘환불됨’만 중립 ‘환불’로 바꿨다. 환불 탭 줄(SCR-29)은 이미 송금 전 승인 버튼 / 송금 뒤 ‘○월 ○일 송금 완료’라 그대로. 채팅에서도 나누려면 서버 `LinkedOrder`에 `refundSettledAt`이 필요하다(PM 확인).
+
+## DEV-209 [HE 후속] 정지·반려 화면의 "[운영팀 연락처]" 자리표시자와 운영팀 문의 경로
+
+- 이슈: https://linear.app/sswp6/issue/DEV-209 · GitHub #392 · 근거: HE 사전 점검 `he-claude-2026-11-03.md` P2(심각도 3)·P9(심각도 2), PR #388
+- 브랜치: `nemodleo/dev-209-suspended-contact`
+- 기준: FEAT-01(E2·E3), FEAT-34(AC-34-1~3), 규칙 M-16·M-22·R-24, ia.md SCR-19 하위 정지 안내·SCR-21, docs/design/README.md(상태 화면 머리·강조색 규칙), Figma v6(보기 권한)
+- 상태: 리뷰 중 — 11/04 PM 승인 뒤 2단계 구현
+
+### 목표
+정지된 농가와 반려된 농가가 화면 안에서 farmclub 운영팀에 닿을 수 있게 한다. 자리표시자 문구는 없앤다. 연락처 값을 화면 코드에 박지 않고 이미 있는 farmclub 대화방(FEAT-34)을 정지·반려 상태에서도 연다. 메일은 값이 있을 때만 보조로 보인다.
+
+### 범위 (수정 허용 경로)
+- 1단계(이번): `docs/design/proposals/dev-209-suspended-rejected-contact.html`(새 보드), `apps/producer/tasks.md`, `server/tasks.md`
+- 2단계(승인 뒤): `apps/producer/src/app/suspended.tsx`, `apps/producer/src/app/pending.tsx`, `apps/producer/src/app/support.tsx`(새 파일), `apps/producer/src/lib/gate.ts`(관문 허용 경로, 처음 적은 session.tsx가 아니라 관문 규칙이 있는 gate.ts), `packages/api/src/endpoints.ts`, `packages/api/src/mock/{conversations.ts,db.ts,router.ts}`, `packages/ui/src/ChatThread.tsx`(입력칸 안내 문구 `placeholder` prop만), `scripts/test-producer-gate.mjs`, `scripts/test-producer-support.mjs`(새 파일), `package.json`(`test:mock` 목록에 한 줄), `scripts/e2e/producer-support-contact.spec.ts`(새 파일), `docs/spec/functional/{FEAT-01-login.md,FEAT-34-farmclub-support.md,rules.md}`, `docs/spec/{ia.md,screens.md}`, `docs/wiki/{Requirements-and-Specifications.md,Design-Documentation.md}`, `docs/design/screens/{s-19-suspended.html,s-21-rejected.html}`, `docs/design/proposals/dev-209-suspended-rejected-contact.html`. 서버 범위는 `server/tasks.md#DEV-209`.
+
+### 비범위 (건드리지 않음)
+- 확인 중(PENDING) 화면의 문의 경로(운영팀이 전화로 확인하는 단계)
+- 관리자 반려 사유 최소 글자 수(후속 후보, 보드 "시드와 운영 데이터" 절)
+- 운영 DB·운영 변수 변경(사람이 실행)
+- Figma v6 반영(보기 권한뿐, 후속 요청)
+
+### 결정 사항
+- 11/04 제안(PM 승인 대기): 기본 수단은 farmclub 대화방이다. 새 주소 `/support`(탭 밖)에서 정지·반려 생산자가 자기 farmclub 방만 연다. 정지 화면은 '운영팀에 문의하기'가 주 버튼이고, 반려 화면은 '다시 신청하기'가 주 버튼이며 문의는 글자 버튼이다(화면당 강조 하나).
+- 11/04 메일 줄은 이미 있는 빌드 변수 `EXPO_PUBLIC_BUSINESS_EMAIL`(`packages/ui/src/legalContent.ts`의 `business.email`)을 쓰고, 비면 줄을 그리지 않는다. 새 서버 설정은 만들지 않는다. 값은 레포에 쓰지 않는다.
+- 11/04 오미숙(`f-wimi`)은 시드에서 PENDING이고 반려 사유가 없다. "테스트"는 운영 관리자 페이지에서 손으로 반려한 값이므로 시드는 그대로 두고, 운영 DB를 확인 중으로 되돌리는 명령을 준비한다(실행은 사람). 반려 예시는 박순자(`f-reject`)다.
+- 문구·무브 6개·스펙 줄 목록은 보드에 있다.
+
+- 11/04 PM 결정: Q1 대화방 + 메일 줄. Q2 반려 농가에도 방을 연다(AC-34-1 수정, AC-34-9 추가). Q3 메일은 기존 `EXPO_PUBLIC_BUSINESS_EMAIL`(`business.email`), 새 변수 없음. Q4 오미숙은 '확인 중'으로 되돌린다. 되돌리는 관리자 API는 없어 반려 농가 재신청 API(앱의 '다시 신청하기'와 같음)로 사람이 실행한다(PR 본문 "사람이 할 일"). Q5 정지 중 문의도 사진 첨부 허용.
+- 11/04 구현: `/support`는 탭 밖 화면이고 지금 farmclub 방과 같은 `ChatThread`를 쓴다. 뒤로는 상태 화면으로 `replace`한다(정지 → `/suspended`, 반려 → `/pending`, 승인 → 채팅 목록). 승인 농가는 채팅 탭의 기존 방(`/chats/u-farmclub`)을 그대로 쓴다.
+- 11/04 반려 화면의 '운영팀에 문의하기'는 하단 글자 버튼 줄(로그아웃·회원 탈퇴와 같은 줄, 줄바꿈 허용)에 둔다. 주 버튼은 '다시 신청하기' 하나다.
+- 11/04 Mock 관문(`mock/router.ts`)은 `/api/messaging/producer/support/`를 승인 검사에서 빼고, 상태 검사는 그 라우트(`farmSupport`)가 서버와 같게 한다.
+
+### 작업
+- [x] 이슈·스펙·코드 읽기, Linear In Progress
+- [x] before/after 디자인 제안 보드
+- [x] PM 승인(Q1~Q5 답)
+- [x] 2단계 구현·테스트·스펙/위키·지금 버전 보드 맞추기
+- [ ] AI 1차 리뷰, draft 해제, 사람 리뷰
+
+### 기록
+- 11/04 검증(로컬, Docker PostgreSQL `farmclub_dev209`): `npm run typecheck` 5 workspace 통과. `npm run test:mock` 66 passed / 0 failed. `node scripts/run-integration.mjs producer-support-contact.spec.ts discovery-and-gates.spec.ts` 통합 시나리오 7 passed, Playwright 5 passed. 실행에는 `server/.env`의 카카오 키를 비웠다(켜져 있으면 테스트 계정 목록이 숨겨져 기존 spec도 실패한다).
+- 11/04 보드는 `docs/design/proposals/`에 두었다. `docs/design/board.json`의 보드 키는 모두 `screens/` 안 파일 이름이라 다른 폴더의 파일을 어떻게 가리키는지 확실하지 않아 등록하지 않았다.
+
+## DEV-210 [HE 후속] 생산자 소식 보내기: 확인 없이 팔로워 전체에 바로 올라가고 삭제·수정이 없음
+
+- 이슈: [DEV-210](https://linear.app/sswp6/issue/DEV-210) · GitHub #391 · 근거 HE 사전 점검 P3(`docs/evaluation/he-2026-11-04/he-claude-2026-11-03.md`, PR #388)
+- 브랜치: `nemodleo/dev-210-news-confirm-delete`
+- 기능·인수 조건: FEAT-12 / AC-12-13, AC-12-14, AC-12-16 (새로 추가 예정), FEAT-15 · 규칙 M-01, M-14, M-19, 새 M-23
+- 서버 쪽 작업은 `server/tasks.md#DEV-210`
+- 상태: 진행 중 (11/04 PM 승인, 2단계 개발)
+
+### 목표
+소식방 입력칸 전송 한 번에 팔로워 전원에게 바로 올라가고 되돌릴 수 없는 문제(H5·H3)를 고친다. 보내기 전에 받는 사람 수·미리보기를 확인하고, 보낸 소식은 생산자가 지울 수 있게 한다.
+
+### 범위 (수정 허용 경로)
+- `docs/design/proposals/dev-210-news-confirm-delete.html` (1단계, 제안 보드)
+- `apps/producer/src/lib/OwnNewsRoom.tsx` (팔로워 수 전달, 삭제 호출)
+- `packages/ui/src/NewsRoom.tsx` (확인 시트, 본인 방송 ⋯·삭제 시트, 삭제된 방송을 목록에서 빼는 merge)
+- `packages/api/src/endpoints.ts`, `packages/api/src/types.ts`, `packages/api/src/mock/**` (`messaging.deleteNews`, 방송 `visibility`)
+- `scripts/e2e/conversation-ui.spec.ts`, `scripts/test-news-rooms.mjs`
+- `docs/spec/functional/FEAT-12-messaging.md`, `FEAT-15-farm-news.md`, `rules.md`, `functional/README.md`, `docs/spec/conversation-ui-1.6.md`, `docs/spec/contracts-1.2.md`, `docs/wiki/Requirements-and-Specifications.md`, `docs/wiki/Testing-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 1:1 채팅 전송(확인 없이 바로 보내기 유지)
+- 사진 소식 작성 화면 `/broadcast/new`(이미 미리보기·대상 수가 있는 확인 화면, PM 질문 2)
+- 소식 수정, 푸시·알림 발송, 운영자 대리 삭제
+- 운영 데이터(HE 테스트 소식 삭제는 배포 뒤 사람이 생산자 계정으로)
+
+### 결정 사항
+- 11/04 전송 버튼은 확인 시트를 연다: 「팔로워 N명에게 보낼까요?」 + 미리보기 + 「아니요 | 확인 · 보내기」(입금 승인 시트와 같은 1:2). 0명이면 제목·안내를 바꾼다.
+- 11/04 입력칸 placeholder를 「팔로워 N명에게 소식 보내기」로(followerCount).
+- 11/04 수정은 넣지 않는다. 본인 방송에 보이는 ⋯(48×48, 길게 누르기는 보조) → 삭제 시트(「삭제하고 다시 쓰기」(글 소식만) · 「아니요」 · 「삭제」).
+- 11/04 소비자 화면은 자리 표시 없이 빠진다. 소비자 답장은 남는다.
+- 11/04 알림: 지금 소식 알림 발송이 없어 회수할 것이 없다. 나중에 붙이면 본문을 넣지 않는다(M-23).
+- 11/04 PM 승인: (1) 수정 없이 삭제만 (2) `/broadcast/new`에는 확인 시트를 더하지 않음 (3) 사진 소식은 「다시 쓰기」 없이 삭제만 (4) 소프트 삭제 행은 보관 기간 없이 유지(운영자 복구용) (5) 운영의 「HE 테스트 소식…」은 배포 뒤 사람이 생산자 계정으로 삭제.
+- 11/04 보드의 BEFORE 예시 글을 PM이 실제 버그로 오해해 「예시」 라벨을 붙이고 전화번호 흔적을 다른 끊긴 문장으로 바꿈.
+- 11/04 삭제 시트에서 공개·팔로워만을 구분하려고 소식방 메시지에 `visibility`(소비자 답장은 null)를 더함(contracts-1.2 4장).
+- 11/04 NewsRoom은 새로고침 응답이 덮는 범위(가장 오래된 항목 이후, 마지막 페이지까지 읽었으면 전부) 안에서 응답에 없는 방송을 뺀다. 내가 막 보내 아직 응답에 나온 적 없는 소식(fresh)만 남긴다. 처음에는 위쪽 범위를 [가장 새로운]까지로 잘랐는데, 가장 최근 소식을 지우면 열린 소비자 화면에 남는 문제를 spec-check SC-001이 찾아 고쳤다. 소비자 좋아요 404는 그 소식을 빼고 「삭제된 소식이에요」.
+
+### 작업
+- [x] 디자인 제안 보드(before/after) `docs/design/proposals/dev-210-news-confirm-delete.html`
+- [x] PM 승인
+- [x] 스펙·wiki 갱신(AC-12-13~16, M-23)
+- [x] NewsRoom 확인 시트·⋯·삭제 시트, OwnNewsRoom 연결
+- [x] API 클라이언트·Mock `deleteNews`
+- [ ] Playwright AC-12-13, AC-12-16 · Mock AC-12-14
+- [ ] Figma v6 반영 요청(후속)
+
+### 완료 조건
+- [ ] 보내기 전에 받는 사람 수와 내용을 확인한다
+- [ ] 보낸 소식을 삭제할 수 있고 소비자 소식방·채팅 목록에서도 사라진다
+- [ ] `npm run typecheck`, `npm run test:mock`, 해당 Playwright spec 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 11/04 1단계: 코드·서버 조사 후 제안 보드 작성, draft PR. 소식 푸시 없음, 소식방 안 읽음 배지 없음, NewsRoom merge는 추가만 함(삭제 반영 필요) 확인.

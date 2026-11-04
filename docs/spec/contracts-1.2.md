@@ -24,11 +24,12 @@
 
 - 소비자 GET /api/messaging/rooms: 팔로우한 승인 농가, 생산자: 자기 농가 1개. summary={farmId,farmName,farmPhoto,lastMessage,lastAt}.
 - GET /api/messaging/rooms/{farmId}/messages → {room,items,nextCursor}.
-- items: {messageId,farmId,senderId,senderName,senderRole,body,photos,videos,createdAt,broadcastId,reactionCount,myReaction}.
+- items: {messageId,farmId,senderId,senderName,senderRole,body,photos,videos,createdAt,broadcastId,reactionCount,myReaction,visibility}. visibility는 방송의 PUBLIC/FOLLOWERS, 소비자 답장은 null(DEV-210).
 - photos/videos는 방송에 연결된 기존 미디어 배열이며 텍스트 답장은 빈 배열이다. 소비자 답장의 broadcastId는 null, reactionCount=0, myReaction=false이다.
 - 생산자는 자기 농가의 방송+모든 답장, 소비자는 방송+본인 답장만 받는다. 요약·cursor에도 같은 필터. 소비자 이름은 생산자 응답에서 앞 글자+○○.
 - POST 같은 messages 경로: {text}, 소비자 1~1000자/생산자 1~2000자 → 저장된 메시지. 생산자는 FOLLOWERS 방송, 소비자는 텍스트 비공개 답장. AI/1:1 대화에는 넣지 않는다.
 - 사진·영상 방송은 기존 POST /api/messaging/news로 작성. FOLLOWERS가 기본, PUBLIC은 농가 공개 목록에도 노출한다. 본문 <=2000자, 사진 최대5장(각10MB), 영상1개(60초/100MB). Idempotency-Key 필수.
+- 소식 삭제(M-23, DEV-210): DELETE /api/messaging/news/{broadcastId}. 승인 생산자의 자기 농가 소식만 204, 다른 농가·없는 소식 404, 소비자·미승인 생산자 403. 이미 지운 자기 소식도 204(멱등). 소프트 삭제(`broadcasts.deleted_at`)이고 방 목록·요약·cursor·소식 목록·공개 소식·좋아요 모두 삭제분을 뺀다(좋아요 404). 답장·좋아요 행·첨부는 그대로 둔다. 수정 API는 없다.
 - 소비자 좋아요는 기존 reaction API를 공유한다. 소비자 답장에는 좋아요가 없다.
 
 ### 1:1 식별과 엔드포인트
@@ -47,7 +48,7 @@
 - PUT /api/messaging/producer/chats/{consumerId}/ai-mode {mode:AUTO|HUMAN,version} → Thread. AUTO 전환은 이후 메시지부터 적용하고 과거 질문을 자동 재처리하지 않는다.
 - PUT /api/messaging/chats/{farmId}/read 및 /api/messaging/producer/chats/{consumerId}/read {lastReadMessageId} → {unreadCount}. 해당 방에 보이는 메시지만 허용하고 읽음 위치는 뒤로 이동하지 않는다.
 - 1.1의 사진 URL 입력은 이 기능 구현 시 비공개 attachmentIds로 교체하며 프론트 클라이언트·Mock·서버를 함께 맞춘다. 임의 외부 사진 URL을 private attachment로 간주하지 않는다.
-- 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
+- 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. 소비자 messages 조회는 farmReply {mode:AI|FARM, typicalReplyHours:int|null}를 함께 준다. mode는 방 AUTO·농가 AI ON일 때만 AI. typicalReplyHours는 최근 30일 농가 답 대기시간 중앙값을 1·2·3·6·12·24·48·72시간으로 올림하고 5건 미만·72시간 초과는 null, 농가별 10분 캐시. 생산자 조회는 farmReply=null(DEV-208). AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
 - AI 작업 시작 시 Thread.version과 AiSettings.version을 캡처한다. 저장 직전 현재 ON/AUTO 여부와 두 버전이 모두 같은지 같은 트랜잭션에서 검사한다. HUMAN→AUTO 또는 OFF→ON 왕복에도 이전 작업의 답은 저장하지 않는다. 폐기된 질문에 생산자 답변이 아직 없으면 직접 응대 대상으로 남기며 자동 재실행하지 않는다.
 - 기존 questions 조회/answer 계약은 유지하고 같은 Thread·Escalation을 사용한다. 기존 answer도 HUMAN 전환 규칙을 적용한다. 새 화면은 producer/chats를 사용한다.
 - 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수이며 임의 다른 주문의 문맥을 첨부할 수 없다.

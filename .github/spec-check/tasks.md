@@ -409,3 +409,31 @@ diff 밖 코드가 필요해 UNVERIFIED로 끝나는 INCOMPLETE(#291)와 입력 
 
 ### 기록
 - 11/03 #270 재실행(run 41614337303)에서 발견. 표를 고쳐 우회했다.
+
+## DEV-211 인용을 확인할 수 없는 finding은 버리고 NO_FINDINGS로
+
+- 이슈: [DEV-211](https://linear.app/sswp6/issue/DEV-211) (관련: DEV-197)
+- 브랜치: `nemodleo/dev-211-dropped-findings-no-findings`
+- 기능·인수 조건: infra. 제품 동작 변경 없음.
+- 상태: 구현 완료, 리뷰 대기
+
+### 목표
+모델이 낸 finding의 인용 줄이 보낸 발췌·diff에 없을 때 리뷰 전체를 INCOMPLETE로 끝내지 않는다. 그 finding만 버리고, 남은 finding이 없으면 DEV-197 규칙대로 NO_FINDINGS(초록)가 된다. #388에서 재실행 2회 모두 같은 이유로 빨간 체크가 반복됐다.
+
+### 범위 (수정 허용 경로)
+- `.github/spec-check/check.py`(`validate` 인용 검증 분기), `test_check.py`, `README.md` 2.1절·3장 상태표, `spec.md` 결과 행, 이 파일
+
+### 결정 사항
+- 11/04 버린 finding은 summary 끝에 `n finding(s) dropped: … SC-00x. Reviewer: check the diff by hand.`로 남긴다. `missing_context`에 넣지 않는 이유: MISMATCH 규칙이 missing_context 비어 있음을 요구해, 검증된 finding이 남는 경우를 깨뜨린다.
+- 11/04 상태 전이: PASS에 finding이 붙어 있다가 버려지면 INCOMPLETE(모순된 응답), MISMATCH에서 전부 버려지면 INCOMPLETE(→ scoped에서 NO_FINDINGS), 일부만 버려지고 supported finding이 남으면 MISMATCH 유지. 어떤 경우에도 PASS로 올리지 않는다.
+- 경로·줄 타입이 틀린 finding("outside declared scope")은 여전히 Incomplete 예외다. 버리는 것은 인용·줄 번호 불일치만.
+
+### 작업
+- [x] `validate` 분기, 테스트 2개 갱신·1개 추가, README·spec.md
+- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 54개 통과
+
+### 완료 조건
+- [ ] checker-tests 통과, 사람 리뷰 후 main 머지, #388에 main 병합해 재실행 → NO_FINDINGS 확인
+
+### 기록
+- 11/04 재현: PR #388 run 41762115836 attempt 1·2 (`Finding quote/line cannot be verified…`, finding 0건, INCOMPLETE).
