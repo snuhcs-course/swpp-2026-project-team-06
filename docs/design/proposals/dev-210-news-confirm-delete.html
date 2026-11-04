@@ -105,6 +105,7 @@ section{display:flex;flex-direction:column;gap:20px}
 .mk{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--note);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 0 0 3px #fff}
 .mk.bad{background:var(--error)}
 .gone{border:2px dashed var(--note);border-radius:16px;padding:10px 12px;font-size:13px;color:var(--note);background:var(--note-soft);align-self:stretch;text-align:center}
+.ex{display:inline-flex;align-items:center;height:20px;padding:0 6px;margin-right:6px;border-radius:4px;background:var(--note);color:#fff;font-size:11px;font-weight:700;vertical-align:middle}
 .prob{background:var(--paper);border-left:3px solid var(--error);border-radius:0 12px 12px 0;padding:10px 14px;font-size:13px;line-height:1.5}
 
 /* ---------- 문서 표·목록 ---------- */
@@ -157,11 +158,11 @@ pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:v
   <div style="display:flex;flex-direction:column;gap:6px">
     <span class="eyebrow" style="color:var(--error)">BEFORE · 지금 코드 (main 3eee9d0)</span>
     <h2>전송 한 번에 바로 129명에게, 보낸 뒤에는 손댈 곳이 없다</h2>
-    <p class="sub">근거 코드: <code>packages/ui/src/NewsRoom.tsx</code> submit()은 확인 없이 <code>messaging.sendRoom</code>을 부른다. 생산자 쪽 말풍선 아래에는 「♡ 좋아요 N」 글자만 있다. 서버에는 소식 삭제 API가 없다.</p>
+    <p class="sub"><span class="ex">예시</span>프레임 속 「이번 주 토요일 수확 체험은…」은 쓰다 만 글을 실수로 보낸 상황을 보여 주려고 지어낸 예시 글이다. 운영 데이터나 실제 버그가 아니다. 근거 코드: <code>packages/ui/src/NewsRoom.tsx</code> submit()은 확인 없이 <code>messaging.sendRoom</code>을 부른다. 생산자 쪽 말풍선 아래에는 「♡ 좋아요 N」 글자만 있다. 서버에는 소식 삭제 API가 없다.</p>
   </div>
   <div class="strip">
     <div class="col">
-      <div class="cap bad"><span class="k">B1</span><h3>입력하고 전송</h3></div>
+      <div class="cap bad"><span class="k">B1</span><h3><span class="ex">예시</span>입력하고 전송</h3></div>
       <div class="ph">
         <div class="hd"><span class="ib"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><span class="hp"><span class="av">강</span><span class="hn"><b>강씨네 귤밭</b><span>소식방</span></span></span></div>
         <div class="conv">
@@ -170,32 +171,32 @@ pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:v
           <div class="me"><span class="photo"></span><span class="ln"><span class="tm">오전 9:40</span><span class="bb mine">하우스 안 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</span></span><span class="likes">♡ 좋아요 42</span></div>
           <div class="other"><span class="av sm">김</span><span class="oc"><span class="on">김○○</span><span class="ln"><span class="bb farm">와 벌써요! 기대돼요.</span><span class="tm">오전 9:02</span></span><span class="reply1">김○○에게 1:1 답장</span></span></div>
         </div>
-        <div class="bar"><span class="ib" style="font-size:24px">＋</span><span class="in filled">이번 주 토요일 수확 체험 오세요 5만원 입금은 010-1234-</span><span class="send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span class="mk bad" style="right:-6px;top:-8px">!</span></span></div>
+        <div class="bar"><span class="ib" style="font-size:24px">＋</span><span class="in filled">이번 주 토요일 수확 체험은 오전 10시에 농장 입구에서</span><span class="send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span class="mk bad" style="right:-6px;top:-8px">!</span></span></div>
         <div class="tabs"><span class="tab">현황</span><span class="tab">상품</span><span class="tab on">채팅</span><span class="tab">환경설정</span></div>
       </div>
       <p class="prob"><b>문제 1.</b> 받는 사람 수는 대화 맨 위 안내(스크롤하면 사라짐)에만 있고 입력칸 근처에는 없다. 쓰다 만 글, 잘못 고른 방도 전송 한 번이면 끝난다.</p>
     </div>
     <div class="col">
-      <div class="cap bad"><span class="k">B2</span><h3>바로 올라감 · 메뉴 없음</h3></div>
+      <div class="cap bad"><span class="k">B2</span><h3><span class="ex">예시</span>바로 올라감 · 메뉴 없음</h3></div>
       <div class="ph">
         <div class="hd"><span class="ib"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><span class="hp"><span class="av">강</span><span class="hn"><b>강씨네 귤밭</b><span>소식방</span></span></span></div>
         <div class="conv">
           <span class="day">2026년 11월 2일</span>
           <div class="me"><span class="photo"></span><span class="ln"><span class="tm">오전 9:40</span><span class="bb mine">하우스 안 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</span></span><span class="likes">♡ 좋아요 42</span></div>
           <span class="day">2026년 11월 4일</span>
-          <div class="me" style="position:relative"><span class="ln"><span class="tm">오후 2:15</span><span class="bb mine">이번 주 토요일 수확 체험 오세요 5만원 입금은 010-○○○○-</span></span><span class="likes">♡ 좋아요 0</span><span class="mk bad" style="left:-30px;top:8px">!</span></div>
+          <div class="me" style="position:relative"><span class="ln"><span class="tm">오후 2:15</span><span class="bb mine">이번 주 토요일 수확 체험은 오전 10시에 농장 입구에서</span></span><span class="likes">♡ 좋아요 0</span><span class="mk bad" style="left:-30px;top:8px">!</span></div>
         </div>
         <div class="bar"><span class="ib" style="font-size:24px">＋</span><span class="in">모든 팔로워에게 소식 보내기</span><span class="send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
         <div class="tabs"><span class="tab">현황</span><span class="tab">상품</span><span class="tab on">채팅</span><span class="tab">환경설정</span></div>
       </div>
-      <p class="prob"><b>문제 2.</b> 쓰다 만 글이 129명의 소식방·채팅 목록 미리보기에 그대로 남는다. 말풍선을 눌러도, 길게 눌러도 아무 일이 없다. HE 중 보낸 「HE 테스트 소식입니다…」도 아직 운영에 남아 있다.</p>
+      <p class="prob"><b>문제 2.</b> (예시) 쓰다 만 글이 129명의 소식방·채팅 목록 미리보기에 그대로 남는다. 말풍선을 눌러도, 길게 눌러도 아무 일이 없다. HE 중 보낸 「HE 테스트 소식입니다…」도 아직 운영에 남아 있다.</p>
     </div>
     <div class="col">
-      <div class="cap bad"><span class="k">B3</span><h3>소비자 채팅 목록</h3></div>
+      <div class="cap bad"><span class="k">B3</span><h3><span class="ex">예시</span>소비자 채팅 목록</h3></div>
       <div class="ph short">
         <div class="hd" style="padding-left:20px"><b style="font-size:22px">채팅</b></div>
         <div class="seg"><span class="on">소식방</span><span>1:1 채팅</span></div>
-        <div class="row"><span class="av">강</span><span class="rt"><span class="rl"><b>강씨네 귤밭</b><span class="t">오후 2:15</span></span><span class="pvw">이번 주 토요일 수확 체험 오세요 5만원 입금은 010-○○○○-</span></span></div>
+        <div class="row"><span class="av">강</span><span class="rt"><span class="rl"><b>강씨네 귤밭</b><span class="t">오후 2:15</span></span><span class="pvw">이번 주 토요일 수확 체험은 오전 10시에 농장 입구에서</span></span></div>
         <div class="row"><span class="av">한</span><span class="rt"><span class="rl"><b>한라네 과수원</b><span class="t">어제</span></span><span class="pvw">올해 첫 노지 귤 따기 시작했어요</span></span></div>
         <div class="tabs"><span class="tab">발견</span><span class="tab">내 주문</span><span class="tab on">채팅</span><span class="tab">내 정보</span></div>
       </div>
@@ -213,7 +214,7 @@ pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:v
   </div>
   <div class="strip">
     <div class="col">
-      <div class="cap"><span class="k">A1</span><h3>전송 → 확인 시트</h3></div>
+      <div class="cap"><span class="k">A1</span><h3><span class="ex">예시</span>전송 → 확인 시트</h3></div>
       <div class="ph">
         <div class="hd"><span class="ib"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><span class="hp"><span class="av">강</span><span class="hn"><b>강씨네 귤밭</b><span>소식방</span></span></span></div>
         <div class="conv">
@@ -235,14 +236,14 @@ pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:v
     </div>
 
     <div class="col">
-      <div class="cap"><span class="k">A2</span><h3>입력칸 · 보낸 소식의 ⋯</h3></div>
+      <div class="cap"><span class="k">A2</span><h3><span class="ex">예시</span>입력칸 · 보낸 소식의 ⋯</h3></div>
       <div class="ph">
         <div class="hd"><span class="ib"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><span class="hp"><span class="av">강</span><span class="hn"><b>강씨네 귤밭</b><span>소식방</span></span></span></div>
         <div class="conv">
           <span class="day">2026년 11월 2일</span>
           <div class="me"><span class="photo"></span><span class="ln"><span class="tm">오전 9:40</span><span class="bb mine">하우스 안 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</span></span><span class="acts"><span class="likes">♡ 좋아요 42</span><span class="more" aria-label="소식 메뉴"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></span></span></div>
           <span class="day">2026년 11월 4일</span>
-          <div class="me" style="position:relative"><span class="ln"><span class="tm">오후 2:15</span><span class="bb mine">이번 주 토요일 수확 체험 오세요 5만원 입금은 010-○○○○-</span></span><span class="acts"><span class="likes">♡ 좋아요 0</span><span class="more hl" aria-label="소식 메뉴"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg><span class="mk" style="right:-14px;top:-14px">3</span></span></span></div>
+          <div class="me" style="position:relative"><span class="ln"><span class="tm">오후 2:15</span><span class="bb mine">이번 주 토요일 수확 체험은 오전 10시에 농장 입구에서</span></span><span class="acts"><span class="likes">♡ 좋아요 0</span><span class="more hl" aria-label="소식 메뉴"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg><span class="mk" style="right:-14px;top:-14px">3</span></span></span></div>
         </div>
         <div class="bar" style="position:absolute"><span class="ib" style="font-size:24px">＋</span><span class="in" style="position:relative">팔로워 129명에게 소식 보내기<span class="mk" style="right:-6px;top:-12px">2</span></span><span class="send" style="opacity:.35"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
         <div class="tabs"><span class="tab">현황</span><span class="tab">상품</span><span class="tab on">채팅</span><span class="tab">환경설정</span></div>
@@ -251,19 +252,19 @@ pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:v
     </div>
 
     <div class="col">
-      <div class="cap"><span class="k">A3</span><h3>⋯ → 삭제 시트</h3></div>
+      <div class="cap"><span class="k">A3</span><h3><span class="ex">예시</span>⋯ → 삭제 시트</h3></div>
       <div class="ph">
         <div class="hd"><span class="ib"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><span class="hp"><span class="av">강</span><span class="hn"><b>강씨네 귤밭</b><span>소식방</span></span></span></div>
         <div class="conv">
           <span class="day">2026년 11월 4일</span>
-          <div class="me"><span class="ln"><span class="tm">오후 2:15</span><span class="bb mine">이번 주 토요일 수확 체험 오세요 5만원 입금은 010-○○○○-</span></span></div>
+          <div class="me"><span class="ln"><span class="tm">오후 2:15</span><span class="bb mine">이번 주 토요일 수확 체험은 오전 10시에 농장 입구에서</span></span></div>
         </div>
         <div class="shade"></div>
         <div class="sheet">
           <span class="handle"></span>
           <span class="mk" style="left:12px;top:-12px">4</span>
           <h4>이 소식을 삭제할까요?</h4>
-          <div class="pv"><span class="top"><b>11월 4일 오후 2:15</b><span>팔로워만 · 좋아요 0</span></span><p>이번 주 토요일 수확 체험 오세요 5만원 입금은 010-○○○○-</p></div>
+          <div class="pv"><span class="top"><b>11월 4일 오후 2:15</b><span>팔로워만 · 좋아요 0</span></span><p>이번 주 토요일 수확 체험은 오전 10시에 농장 입구에서</p></div>
           <p class="facts"><span>팔로워 129명의 소식방과 채팅 목록에서 사라져요.</span><span class="m">받은 답장은 지워지지 않아요. 삭제한 소식은 되돌릴 수 없어요.</span></p>
           <span class="tbtn" style="position:relative">삭제하고 다시 쓰기<span class="mk" style="right:76px;top:12px">5</span></span>
           <div class="btns"><span class="btn">아니요</span><span class="btn pri">삭제</span></div>
@@ -273,7 +274,7 @@ pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:v
     </div>
 
     <div class="col">
-      <div class="cap"><span class="k">A4</span><h3>소비자 소식방 · 삭제 뒤</h3></div>
+      <div class="cap"><span class="k">A4</span><h3><span class="ex">예시</span>소비자 소식방 · 삭제 뒤</h3></div>
       <div class="ph">
         <div class="hd"><span class="ib"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><span class="hp"><span class="av">강</span><span class="hn"><b>강씨네 귤밭</b><span>팔로잉</span></span></span></div>
         <div class="conv" style="padding-bottom:120px">
@@ -289,7 +290,7 @@ pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:v
     </div>
 
     <div class="col">
-      <div class="cap"><span class="k">A5</span><h3>소비자 채팅 목록 · 삭제 뒤</h3></div>
+      <div class="cap"><span class="k">A5</span><h3><span class="ex">예시</span>소비자 채팅 목록 · 삭제 뒤</h3></div>
       <div class="ph short">
         <div class="hd" style="padding-left:20px"><b style="font-size:22px">채팅</b></div>
         <div class="seg"><span class="on">소식방</span><span>1:1 채팅</span></div>
