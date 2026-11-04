@@ -4,6 +4,8 @@
 """
 
 import re
+import statistics
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -33,6 +35,7 @@ from app.messaging.schemas import (
     ChatPage,
     ChatSummary,
     EscalationView,
+    FarmReply,
     InquiryCreated,
     InquiryInput,
     InquiryView,
@@ -736,9 +739,72 @@ def start_chat(db: Session, consumer, farm_id: str) -> StartChatResult:
     return StartChatResult(farm_id=farm_id, auto_followed=auto_followed)
 
 
+# 예상 답 시간(DEV-208, AC-13-10): 최근 30일 농가 답 대기시간 중앙값을 구간으로 올림한다
+REPLY_WINDOW = timedelta(days=30)
+REPLY_MIN_SAMPLES = 5
+REPLY_BUCKETS = (1, 2, 3, 6, 12, 24, 48, 72)
+REPLY_CACHE_SECONDS = 600
+# 농가 id → (monotonic 시각, 값). 고정 시계(FIXED_NOW)에서도 만료되도록 monotonic을 쓴다
+_reply_hours_cache: dict[str, tuple[float, int | None]] = {}
+
+
+def typical_reply_hours(db: Session, farm_id: str) -> int | None:
+    """그 농가의 보통 답 시간(시간). 5건 미만이거나 72시간을 넘으면 None.
+
+    농가 메시지마다 같은 대화에서 직전 농가 메시지 이후 가장 먼저 온 소비자 메시지와의
+    시간차를 잰다. 답할 소비자 메시지가 없던 농가 메시지(먼저 건 말)는 뺀다.
+    소비자 화면이 2초마다 조회하므로 농가별로 10분 캐시한다.
+    """
+    tick = time.monotonic()
+    cached = _reply_hours_cache.get(farm_id)
+    if cached and tick - cached[0] < REPLY_CACHE_SECONDS:
+        return cached[1]
+    current = now()
+    since = current - REPLY_WINDOW
+    rows = db.execute(
+        select(ThreadMessage.thread_id, ThreadMessage.sender_type, ThreadMessage.created_at)
+        .join(Thread, Thread.id == ThreadMessage.thread_id)
+        .where(
+            Thread.farm_id == farm_id,
+            ThreadMessage.sender_type.in_(("CONSUMER", "PRODUCER")),
+            # 창 앞 30일까지만 읽는다(그보다 오래 기다린 답은 어차피 72시간 초과)
+            ThreadMessage.created_at >= since - REPLY_WINDOW,
+            ThreadMessage.created_at <= current,
+        )
+        .order_by(ThreadMessage.thread_id, ThreadMessage.seq)
+    ).all()
+    waits: list[float] = []
+    pending: dict[str, datetime] = {}
+    for thread_id, sender, created in rows:
+        if sender == "CONSUMER":
+            pending.setdefault(thread_id, created)
+        elif thread_id in pending:
+            asked = pending.pop(thread_id)
+            if created >= since:
+                waits.append((created - asked).total_seconds() / 3600)
+    hours = None
+    if len(waits) >= REPLY_MIN_SAMPLES:
+        middle = statistics.median(waits)
+        hours = next((b for b in REPLY_BUCKETS if middle <= b), None)
+    _reply_hours_cache[farm_id] = (tick, hours)
+    return hours
+
+
+def farm_reply(db: Session, thread: Thread) -> FarmReply:
+    from app.farms import service as farms
+
+    auto = thread.ai_mode == "AUTO" and farms.ai_settings(db, thread.farm_id).enabled
+    return FarmReply(
+        mode="AI" if auto else "FARM",
+        typical_reply_hours=typical_reply_hours(db, thread.farm_id),
+    )
+
+
 def consumer_page(db: Session, consumer, farm_id: str, cursor: str | None, limit: int) -> ChatPage:
     thread = _consumer_thread(db, consumer.id, farm_id)
-    return _chat_page(db, consumer, thread, cursor, limit, producer=False)
+    page = _chat_page(db, consumer, thread, cursor, limit, producer=False)
+    page.farm_reply = farm_reply(db, thread)
+    return page
 
 
 def report_ai_answer(db: Session, consumer, farm_id: str, message_id: str) -> EscalationView:
@@ -1222,7 +1288,17 @@ def _check_resource(db: Session, user, order_id: str | None, thread_id: str | No
             raise not_found("결제한 본인 주문만 문의할 수 있어요.")
         return
     thread = db.get(Thread, thread_id)
-    if thread is None or farms.get_approved_farm(db, thread.farm_id) is None:
+    if thread is None:
+        raise not_found("찾을 수 없는 대화예요.")
+    from app.messaging.support import SUPPORT_STATUSES, is_support
+
+    if is_support(thread):
+        # farmclub 방은 그 농가 생산자만, 정지·반려 상태에서도 쓴다(DEV-209, AC-34-9)
+        own = farms.get_farm_of_producer(db, user.id) if user.role == "PRODUCER" else None
+        if own is None or own.id != thread.farm_id or own.approval_status not in SUPPORT_STATUSES:
+            raise not_found("찾을 수 없는 대화예요.")
+        return
+    if farms.get_approved_farm(db, thread.farm_id) is None:
         raise not_found("찾을 수 없는 대화예요.")
     if user.role == "CONSUMER":
         if thread.consumer_id != user.id:

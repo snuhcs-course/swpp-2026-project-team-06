@@ -224,6 +224,8 @@ export async function dispatch(req: {
     if (
       m.app === "producer" &&
       !pathname.startsWith("/api/auth/") &&
+      // farmclub 운영팀 대화방은 정지·반려 농가도 쓴다(DEV-209). 상태 검사는 그 라우트가 한다
+      !pathname.startsWith("/api/messaging/producer/support/") &&
       (!user?.farmId || d.farms[user.farmId]?.status !== "APPROVED")
     )
       fail(403, "FORBIDDEN", "승인된 농가만 사용할 수 있어요.");

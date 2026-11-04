@@ -1,0 +1,495 @@
+<title>주문 상태 문구 제안 DEV-207</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 위에 결정(디자인 무브), 아래에 화면별 BEFORE | AFTER 390 프레임 한 줄씩, 끝에 상태표·문서 변경·질문.
+   휴대폰 프레임 안은 앱이 밝은 화면만 쓰므로(I1 color-scheme: light) 두 테마 모두 같은 앱 토큰을 쓴다. */
+:root {
+  /* 보드 바깥(테마 따라 바뀜) */
+  --bg: #EFEEEA;
+  --panel: #FFFFFF;
+  --ink: #111111;
+  --ink-2: #5E5D59;
+  --rule: #DAD9D4;
+  --mark: #C94F0C;
+  --mark-ink: #FFFFFF;
+  --bad: #B42318;
+  --bad-soft: #FBEAE8;
+  --good: #2F6B3A;
+  --good-soft: #E7F1E8;
+  /* 앱 토큰(docs/design/README.md UI 1.6, packages/ui/src/tokens.ts) — 테마와 무관 */
+  --app-bg: #FFFFFF;
+  --app-text: #111111;
+  --app-muted: #6B6B6B;
+  --app-surface: #F5F5F3;
+  --app-border: #E8E8E6;
+  --app-accent: #C94F0C;
+  --app-error: #B42318;
+  --app-bar: rgba(255,255,255,0.82);
+  --app-dim: rgba(0,0,0,0.04);
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+    --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+  --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px; font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 30px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 68ch; color: var(--ink-2); font-size: 17px; line-height: 25px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--rule); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+
+/* 디자인 무브 */
+.moves { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.moves li { background: var(--panel); border-radius: 16px; padding: 20px; display: grid; grid-template-columns: 32px 1fr; gap: 4px 12px; min-width: 0; }
+.num { width: 28px; height: 28px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 15px; display: grid; place-items: center; grid-row: span 2; }
+.moves h3 { align-self: center; }
+.moves p { color: var(--ink-2); grid-column: 2; }
+
+/* 화면 비교 */
+.cmp { display: flex; flex-direction: column; gap: 20px; }
+.pair { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.col { display: flex; flex-direction: column; gap: 12px; width: min(390px, 100%); }
+.tag { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 700; letter-spacing: 0.06em; }
+.tag i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.tag.before i { background: var(--bad); }
+.tag.after i { background: var(--good); }
+.notes { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 30px; }
+.note { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+.note .num { width: 24px; height: 24px; font-size: 13px; grid-row: auto; }
+.note.bad .dot { width: 24px; height: 24px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+
+/* 휴대폰 프레임 — 앱 토큰만 */
+.phone { width: 100%; background: var(--app-bg); color: var(--app-text); border-radius: 28px; border: 1px solid var(--rule); overflow: hidden; position: relative; display: flex; flex-direction: column; }
+.status { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 13px; font-weight: 600; }
+.hbar { height: 48px; display: flex; align-items: center; padding: 0 8px; }
+.back { width: 48px; height: 48px; display: grid; place-items: center; }
+.back svg { width: 24px; height: 24px; stroke: var(--app-text); stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ttl { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; white-space: pre-line; }
+.t-body { font-size: 17px; line-height: 25px; }
+.t-sub { font-size: 15px; line-height: 22px; }
+.t-cap { font-size: 13px; line-height: 18px; }
+.muted { color: var(--app-muted); }
+.b { font-weight: 700; }
+.sb { font-weight: 600; }
+.px { padding-left: 20px; padding-right: 20px; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.steps { display: flex; gap: 8px; margin-top: 16px; }
+.steps div { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.steps span { height: 4px; border-radius: 999px; background: var(--app-border); display: block; }
+.steps em { font-style: normal; font-size: 13px; line-height: 18px; color: var(--app-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rows { padding: 0 20px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 48px; padding: 12px 0; border-top: 1px solid var(--app-border); font-size: 17px; line-height: 25px; }
+.row.last { border-bottom: 1px solid var(--app-border); }
+.row .k { color: var(--app-muted); flex-shrink: 0; }
+.row .v { text-align: right; min-width: 0; display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.copy { font-size: 17px; font-weight: 600; color: var(--app-text); }
+.prod { display: flex; gap: 16px; align-items: center; padding: 0 20px; margin-top: 40px; }
+.thumb { width: 64px; height: 64px; border-radius: 16px; background: var(--app-surface); flex-shrink: 0; display: grid; place-items: center; }
+.thumb svg { width: 28px; height: 28px; stroke: var(--app-muted); fill: none; stroke-width: 1.75; }
+.btn-outline { margin: 0 20px; height: 52px; border-radius: 16px; border: 1px solid var(--app-text); display: grid; place-items: center; font-size: 17px; font-weight: 600; color: var(--app-text); }
+.btn-text { padding: 12px 20px; font-size: 17px; font-weight: 600; }
+.bbar { margin-top: auto; background: var(--app-bar); border-top: 1px solid var(--app-border); padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 12px; }
+.bbar .btn-outline { margin: 0; }
+.notice { margin-top: 8px; background: var(--app-surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.hl { outline: 2px dashed var(--bad); outline-offset: 3px; border-radius: 6px; }
+.hl-ok { outline: 2px dashed var(--good); outline-offset: 3px; border-radius: 6px; }
+.big { font-size: 34px; line-height: 42px; font-weight: 700; letter-spacing: -0.02em; }
+.tabs { display: flex; gap: 8px; padding: 20px; overflow: hidden; }
+.chip { height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--app-border); display: grid; place-items: center; font-size: 15px; white-space: nowrap; }
+.chip.on { background: var(--app-text); color: var(--app-bg); border-color: var(--app-text); font-weight: 600; }
+.card { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--app-border); }
+.card:first-child { border-top: 0; }
+.card .c { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tabbar { margin: 12px; height: 64px; border-radius: 999px; background: var(--app-bar); border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: var(--app-muted); }
+.tabbar .on { background: var(--app-surface); color: var(--app-text); font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+.when { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--app-muted); padding-top: 16px; border-top: 1px solid var(--app-border); }
+.px > .when:first-child { border-top: 0; padding-top: 0; }
+.same-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.same-note.ok { background: var(--good-soft); color: var(--good); }
+.ex { font-size: 11px; line-height: 16px; padding: 2px 8px; border-radius: 999px; border: 1px dashed var(--app-muted); color: var(--app-muted); font-weight: 600; }
+.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 132px; background: #111111; color: #FFFFFF; height: 48px; border-radius: 999px; padding: 0 20px; display: grid; place-items: center; font-size: 17px; white-space: nowrap; }
+
+/* 표 */
+.tblwrap { overflow-x: auto; background: var(--panel); border-radius: 16px; }
+table { border-collapse: collapse; width: 100%; min-width: 880px; font-size: 15px; line-height: 22px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--rule); }
+thead th { border-top: 0; font-size: 13px; line-height: 18px; color: var(--ink-2); letter-spacing: 0.04em; }
+td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; white-space: nowrap; }
+.same { color: var(--ink-2); }
+.chg { font-weight: 700; }
+.del { text-decoration: line-through; color: var(--ink-2); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.box { background: var(--panel); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box ul, .box ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.warn { border: 1px solid var(--bad); }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">DEV-207 · HE 후속 C1·C2 · 디자인 제안 (11/04 PM 승인)</span>
+    <h1>소비자 주문 상태 문구: 지금 누구 차례인지, 돈이 실제로 움직였는지</h1>
+    <p class="lede">‘입금을 마쳤어요’를 누른 뒤에도 “입금해 주세요”가 남고, 예약을 취소하자마자 “환불됨”이 뜨는 문제를 고친다. 서버 상태값은 그대로 두고, 이미 응답에 있는 <code>depositReportedAt</code>·<code>refundSettledAt</code>·<code>refundIssue</code>로 소비자 라벨만 나눈다. 왼쪽은 지금 main 코드 그대로 다시 그린 화면, 오른쪽은 제안이다.</p>
+    <div class="meta">
+      <span>기준: Figma v6(보기 권한만) · docs/design/README.md 토큰 · main 3eee9d0</span>
+      <span>근거: he-claude-2026-11-03.md C1·C2, 스크린샷 c12·c13·c18</span>
+      <span>2026-11-04 · PM 승인(알림 전 ‘입금 대기’, 앱에서만 취소 숨김, 생산자 라벨도 맞춤, 용어 ‘환불 대기’)</span>
+      <span>화면 속 이름·주문 번호·계좌·금액은 모두 예시 데이터</span>
+    </div>
+  </header>
+
+  <section class="head">
+    <h2>디자인 무브</h2>
+    <ol class="moves">
+      <li><span class="num">1</span><h3>라벨은 다음 행동을 할 사람을 따른다</h3>
+        <p>입금 대기(<code>AWAITING_DEPOSIT</code>)를 알림 전·후 둘로 나눈다. 알림 전은 ‘입금 대기 · 입금해 주세요’(내 차례), 알림 뒤는 ‘입금 확인 중’(농가 차례). 지금은 둘 다 ‘입금 확인 중’이라 송금 전에도 이미 확인 중인 것처럼, 송금 뒤에도 또 보내라는 것처럼 읽힌다.</p></li>
+      <li><span class="num">2</span><h3>기한은 내 차례일 때만 보인다</h3>
+        <p>알린 뒤에는 본문의 “○일 ○시까지 입금해 주세요”와 입금 정보의 ‘입금 기한’ 줄을 빼고 ‘알린 시각’ 줄로 바꾼다. 서버도 알린 주문은 기한으로 자동 취소하지 않는다(AC-09-7). 기한이 남아 있으면 소비자는 아직 할 일이 있다고 읽는다.</p></li>
+      <li><span class="num">3</span><h3>같은 말은 화면에 한 번만</h3>
+        <p>상세 입금 정보 아래 캡션 “입금했다고 알렸어요 · 농가가 통장을 확인하는 중이에요”를 지우고 본문 문장이 그 역할을 한다. 환불 대기 화면에서 본문과 하단 바가 같은 문장(3영업일 안에 보내요)을 두 번 말하는 것도 하나로 줄인다.</p></li>
+      <li><span class="num">4</span><h3>보낸 돈이 있을 수 있으면 ‘취소’ 대신 ‘물어보기’</h3>
+        <p>알린 뒤에는 하단 ‘예약 취소하기’와 “환불할 돈은 없어요”를 빼고 ‘농가에 물어보기’로 바꾼다. 지금 서버는 이 상태의 취소를 환불 기록 없이 끝내므로(직접 취소(입금 전)) 실제로 보낸 돈이 생산자 ‘환불 보낼 주문’에 잡히지 않는다. 확인이 끝나 예약 완료가 되면 다시 취소(전액 환불)할 수 있다.</p></li>
+      <li><span class="num">5</span><h3>완료형은 돈이 움직인 뒤에만</h3>
+        <p><code>REFUNDED</code>를 ‘환불 대기’(송금 전) → ‘환불 늦어짐’(농가 미승인) → ‘환불 완료’(농가가 송금 기록)로 나눈다. ‘환불 대기’ 시점은 생산자 홈 ‘환불 보낼 주문’ 건수에 남아 있는 시점과 같다.</p></li>
+      <li><span class="num">6</span><h3>목록 한 줄은 ‘상태 · 다음 일’, 아래 줄은 날짜 · 금액</h3>
+        <p>목록 굵은 줄은 이미 쓰는 ‘배송 완료 · 구매 확정해 주세요’ 형식을 모든 대기 상태에 맞춘다. 아래 줄의 날짜는 지금 상태를 만든 사건(입금 기한, 알린 날, 취소한 날, 보낸 날) 하나만 쓴다.</p></li>
+    </ol>
+  </section>
+
+  <!-- ① 주문 목록 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 1 · SCR-13 내 주문 <code>apps/consumer/src/app/(tabs)/orders/index.tsx</code> headline()·subline()</span>
+      <h2>주문 목록 카드</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · 지금 코드</span>
+        <div class="phone" style="min-height: 760px">
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
+          <div class="px stack" style="padding-top: 12px">
+            <div class="big">내 주문</div>
+            <div class="t-sub muted">예약부터 받는 날까지, 한눈에 확인해요</div>
+          </div>
+          <div class="tabs"><span class="chip">확정 0</span><span class="chip on">미확정 4</span><span class="chip">취소·환불 3</span></div>
+          <div class="px">
+            <div class="when">입금 알리기 전 · FC-1103-4821</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
+              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+              <div class="c">
+                <span class="t-body b"><span class="hl">입금 확인 중 · 입금해 주세요</span></span>
+                <span class="t-body">하우스 감귤 5kg × 1</span>
+                <span class="t-sub muted">11월 4일 (수) 22:22까지 입금 · 33,000원</span>
+              </div>
+            </div>
+            <div class="when">입금 알린 뒤 · FC-1103-5170</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
+              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+              <div class="c">
+                <span class="t-body b"><span class="hl">입금 확인 중 · 입금해 주세요</span></span>
+                <span class="t-body">노지 감귤 10kg × 1</span>
+                <span class="t-sub muted"><span class="hl">11월 4일 (수) 23:05까지 입금</span> · 27,000원</span>
+              </div>
+            </div>
+            <p class="t-cap same-note">지금 코드는 두 시점이 같은 글자</p>
+          </div>
+          <div class="tabs" style="padding-top: 8px"><span class="chip">확정 0</span><span class="chip">미확정 4</span><span class="chip on">취소·환불 3</span></div>
+          <div class="px">
+            <div class="card">
+              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+              <div class="c">
+                <span class="t-body b muted"><span class="hl">환불됨</span></span>
+                <span class="t-body">하우스 감귤 5kg × 1</span>
+                <span class="t-sub muted">11월 3일 환불 송금 대기 · 33,000원</span>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="margin-top: auto"><span>발견</span><span class="on">내 주문</span><span>채팅</span><span>내 정보</span></div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안</span>
+        <div class="phone" style="min-height: 760px">
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
+          <div class="px stack" style="padding-top: 12px">
+            <div class="big">내 주문</div>
+            <div class="t-sub muted">예약부터 받는 날까지, 한눈에 확인해요</div>
+          </div>
+          <div class="tabs"><span class="chip">확정 0</span><span class="chip on">미확정 4</span><span class="chip">취소·환불 3</span></div>
+          <div class="px">
+            <div class="when">입금 알리기 전 · FC-1103-4821</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
+              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+              <div class="c">
+                <span class="t-body b"><span class="hl-ok">입금 대기 · 입금해 주세요</span></span>
+                <span class="t-body">하우스 감귤 5kg × 1</span>
+                <span class="t-sub muted">11월 4일 (수) 22:22까지 입금 · 33,000원</span>
+              </div>
+            </div>
+            <div class="when">입금 알린 뒤 · FC-1103-5170</div>
+            <div class="card" style="border-top: 0; padding-top: 8px">
+              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+              <div class="c">
+                <span class="t-body b"><span class="hl-ok">입금 확인 중 · 농가가 확인하고 있어요</span></span>
+                <span class="t-body">노지 감귤 10kg × 1</span>
+                <span class="t-sub muted"><span class="hl-ok">11월 3일 입금 알림</span> · 27,000원</span>
+              </div>
+            </div>
+            <p class="t-cap same-note ok">알리기 전은 내 차례, 알린 뒤는 농가 차례</p>
+          </div>
+          <div class="tabs" style="padding-top: 8px"><span class="chip">확정 0</span><span class="chip">미확정 4</span><span class="chip on">취소·환불 3</span></div>
+          <div class="px">
+            <div class="card">
+              <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+              <div class="c">
+                <span class="t-body b"><span class="hl-ok">환불 대기 · 농가가 보낼 거예요</span></span>
+                <span class="t-body">하우스 감귤 5kg × 1</span>
+                <span class="t-sub muted"><span class="hl-ok">11월 3일 취소</span> · 33,000원</span>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="margin-top: auto"><span>발견</span><span class="on">내 주문</span><span>채팅</span><span>내 정보</span></div>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note bad"><span class="dot">!</span><p>지금 코드는 입금을 알리기 전과 알린 뒤 카드가 같은 글자다. 굵은 줄이 “확인 중”이면서 “입금해 주세요”, 아래 줄에도 기한이 남아 알린 사람에게 다시 송금하라는 뜻으로 읽힌다(C1, c12).</p></div>
+        <div class="note bad"><span class="dot">!</span><p>“환불됨”은 완료형인데 아래 줄은 “송금 대기”. 둘이 서로 반대 말을 한다(C2).</p></div>
+        <div class="note"><span class="num">1</span><p>알리기 전 카드는 ‘입금 대기 · 입금해 주세요’와 기한 줄, 알린 뒤 카드는 ‘입금 확인 중 · 농가가 확인하고 있어요’와 알린 날. 두 시점이 글자로 구분된다.</p></div>
+        <div class="note"><span class="num">5</span><p>송금 전 환불은 ‘환불 대기’. 흐린 글자(muted)는 끝난 주문(취소됨·환불 완료)에만 남기고, 아직 돈이 오갈 주문은 진하게 둔다.</p></div>
+        <div class="note"><span class="num">6</span><p>아래 줄 날짜는 상태를 만든 사건 하나: 알린 날, 취소한 날.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② 상세: 입금 알린 뒤 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 2 · SCR-14 주문 상세 <code>orders/[orderId]/index.tsx</code>, <code>lib/DepositCard.tsx</code></span>
+      <h2>주문 상세, ‘입금을 마쳤어요’를 누른 직후</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · 지금 코드</span>
+        <div class="phone" style="min-height: 1180px">
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
+          <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+          <div class="px stack">
+            <span class="t-sub muted">FC-1103-4821 · 11월 3일 예약</span>
+            <span class="ttl">입금 확인 중</span>
+            <span class="t-body"><span class="hl">11월 4일 (수) 22:22까지 입금해 주세요.</span> 농가가 확인하면 예약 완료로 바뀌어요.</span>
+            <div class="steps"><div><span></span><em>예약 완료</em></div><div><span></span><em>수확·포장 중</em></div><div><span></span><em>배송 중</em></div><div><span></span><em>배송 완료</em></div></div>
+          </div>
+          <div class="rows" style="margin-top: 24px">
+            <div class="row"><span class="k">입금액</span><span class="v b">33,000원</span></div>
+            <div class="row"><span class="k">계좌번호</span><span class="v"><span class="b">농협 351-****-****-23</span><span class="copy">복사</span></span></div>
+            <div class="row"><span class="k">예금주</span><span class="v">강영수 (강씨네 귤밭)</span></div>
+            <div class="row"><span class="k">입금자명</span><span class="v"><span class="b">FC-1103-4821</span><span class="copy">복사</span></span></div>
+            <div class="row last"><span class="k">입금 기한</span><span class="v"><span class="hl">11월 4일 (수) 22:22까지</span></span></div>
+          </div>
+          <p class="t-cap muted px" style="margin-top: 8px"><span class="hl">입금했다고 알렸어요 · 농가가 통장을 확인하는 중이에요</span></p>
+          <div class="prod">
+            <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+            <div style="flex: 1"><div class="t-body sb">하우스 감귤 5kg × 1</div><div class="t-sub muted">강씨네 귤밭 · 예약가 33,000원</div></div>
+          </div>
+          <div class="rows" style="padding-top: 24px">
+            <div class="row"><span class="k">합계</span><span class="v b">33,000원 <span class="t-sub muted" style="font-weight: 400">무료배송</span></span></div>
+            <div class="row"><span class="k">받는 사람</span><span class="v">김*지 · 010-****-1234</span></div>
+            <div class="row last"><span class="k">배송 메모</span><span class="v">없음</span></div>
+          </div>
+          <div class="btn-text">농가에 물어보기 ›</div>
+          <div class="toast">농가에 입금했다고 알렸어요</div>
+          <div class="bbar">
+            <span class="t-sub"><span class="hl">입금 전에는 바로 취소돼요. 환불할 돈은 없어요.</span></span>
+            <div class="btn-outline">예약 취소하기</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안</span>
+        <div class="phone" style="min-height: 1180px">
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
+          <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+          <div class="px stack">
+            <span class="t-sub muted">FC-1103-4821 · 11월 3일 예약</span>
+            <span class="ttl">입금 확인 중</span>
+            <span class="t-body"><span class="hl-ok">오후 10:31에 입금했다고 알려 주셨어요. 농가가 통장을 확인하면 예약 완료로 바뀌어요.</span></span>
+            <div class="steps"><div><span></span><em>예약 완료</em></div><div><span></span><em>수확·포장 중</em></div><div><span></span><em>배송 중</em></div><div><span></span><em>배송 완료</em></div></div>
+          </div>
+          <div class="rows" style="margin-top: 24px">
+            <div class="row"><span class="k">입금액</span><span class="v b">33,000원</span></div>
+            <div class="row"><span class="k">계좌번호</span><span class="v"><span class="b">농협 351-****-****-23</span><span class="copy">복사</span></span></div>
+            <div class="row"><span class="k">예금주</span><span class="v">강영수 (강씨네 귤밭)</span></div>
+            <div class="row"><span class="k">입금자명</span><span class="v"><span class="b">FC-1103-4821</span><span class="copy">복사</span></span></div>
+            <div class="row last"><span class="k">입금 알림</span><span class="v"><span class="hl-ok">11월 3일 (화) 22:31</span></span></div>
+          </div>
+          <div class="prod">
+            <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+            <div style="flex: 1"><div class="t-body sb">하우스 감귤 5kg × 1</div><div class="t-sub muted">강씨네 귤밭 · 예약가 33,000원</div></div>
+          </div>
+          <div class="rows" style="padding-top: 24px">
+            <div class="row"><span class="k">합계</span><span class="v b">33,000원 <span class="t-sub muted" style="font-weight: 400">무료배송</span></span></div>
+            <div class="row"><span class="k">받는 사람</span><span class="v">김*지 · 010-****-1234</span></div>
+            <div class="row last"><span class="k">배송 메모</span><span class="v">없음</span></div>
+          </div>
+          <div style="height: 64px"></div>
+          <div class="toast">농가에 입금했다고 알렸어요</div>
+          <div class="bbar">
+            <span class="t-sub"><span class="hl-ok">농가가 입금을 확인하기 전에는 취소할 수 없어요. 확인된 뒤에는 보내기 전까지 취소하면 전액 돌려받아요.</span></span>
+            <div class="btn-outline">농가에 물어보기</div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note bad"><span class="dot">!</span><p>제목 ‘확인 중’ 바로 밑에서 “까지 입금해 주세요”. 입금 정보 맨 아래 기한 줄도 그대로(C1, c13).</p></div>
+        <div class="note bad"><span class="dot">!</span><p>“환불할 돈은 없어요”는 이미 송금한 사람에게 ‘취소하면 돈을 못 돌려받는다’로 읽힌다. 실제로 지금 서버는 이 상태 취소를 환불 기록 없이 끝낸다.</p></div>
+        <div class="note"><span class="num">2</span><p>본문은 알린 시각, 입금 정보 마지막 줄은 ‘입금 알림’. 계좌·입금자명은 대조용으로 남긴다.</p></div>
+        <div class="note"><span class="num">3</span><p>입금 정보 밑 캡션은 본문과 같은 말이라 뺀다. 스크롤 아래 ‘농가에 물어보기 ›’ 글자 버튼은 하단 바로 올라가 한 번만 둔다.</p></div>
+        <div class="note"><span class="num">4</span><p>하단 바는 테두리 버튼 ‘농가에 물어보기’(채팅으로 이동). 강조색 버튼은 없다(화면당 주요 버튼 규칙 유지).</p></div>
+        <div class="note"><span class="num">·</span><p>기한이 지났는데 아직 확인 전이면 본문은 지금 문구 그대로: “농가 확인이 늦어져 farmclub이 농가에 연락하고 있어요. 주문은 취소되지 않아요.” 목록은 ‘입금 확인 늦어짐 · farmclub이 연락하고 있어요’.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ 상세: 취소 직후 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 3 · SCR-14 주문 상세 <code>orders/[orderId]/index.tsx</code> title·sentence·Bar, <code>lib/orderText.ts</code></span>
+      <h2>주문 상세, 예약 완료 주문을 취소한 직후</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · 지금 코드</span>
+        <div class="phone" style="min-height: 900px">
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
+          <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+          <div style="padding: 20px"><div class="btn-outline" style="margin: 0">상품 문제 문의 · 사진 첨부</div></div>
+          <div class="px stack">
+            <span class="t-sub muted">FC-1102-7395 · 11월 2일 예약</span>
+            <span class="ttl"><span class="hl">환불됨</span></span>
+            <span class="t-body"><span class="hl">농가가 33,000원을 입금했던 계좌로 3영업일 안에 보내요.</span></span>
+            <span class="t-sub sb" style="margin-top: 8px">사유 · 11월 3일 직접 취소(출하 전)</span>
+          </div>
+          <div class="prod">
+            <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+            <div style="flex: 1"><div class="t-body sb">하우스 감귤 5kg × 1</div><div class="t-sub muted">강씨네 귤밭 · 예약가 33,000원</div></div>
+          </div>
+          <div class="rows" style="padding-top: 24px">
+            <div class="row"><span class="k">합계</span><span class="v b">33,000원</span></div>
+            <div class="row last"><span class="k">받는 사람</span><span class="v">김*지 · 010-****-1234</span></div>
+          </div>
+          <div class="btn-text">농가에 물어보기 ›</div>
+          <div class="toast">예약을 취소했어요</div>
+          <div class="bbar">
+            <span class="t-sub"><span class="hl">농가가 입금했던 계좌로 3영업일 안에 보내요.</span> 늦어지면 농가에 물어보세요.</span>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안</span>
+        <div class="phone" style="min-height: 900px">
+          <div class="status"><span>9:41</span><span class="ex">예시 데이터</span><span>●●● ▮</span></div>
+          <div class="hbar"><span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+          <div style="padding: 20px"><div class="btn-outline" style="margin: 0">상품 문제 문의 · 사진 첨부</div></div>
+          <div class="px stack">
+            <span class="t-sub muted">FC-1102-7395 · 11월 2일 예약</span>
+            <span class="ttl"><span class="hl-ok">환불 대기</span></span>
+            <span class="t-body"><span class="hl-ok">농가가 33,000원을 입금했던 계좌로 3영업일 안에 보내요. 보내면 ‘환불 완료’로 바뀌어요.</span></span>
+            <span class="t-sub sb" style="margin-top: 8px">사유 · 11월 3일 직접 취소(출하 전)</span>
+          </div>
+          <div class="prod">
+            <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-2 1-3 3-3"/></svg></div>
+            <div style="flex: 1"><div class="t-body sb">하우스 감귤 5kg × 1</div><div class="t-sub muted">강씨네 귤밭 · 예약가 33,000원</div></div>
+          </div>
+          <div class="rows" style="padding-top: 24px">
+            <div class="row"><span class="k">합계</span><span class="v b">33,000원</span></div>
+            <div class="row last"><span class="k">받는 사람</span><span class="v">김*지 · 010-****-1234</span></div>
+          </div>
+          <div style="height: 64px"></div>
+          <div class="toast">예약을 취소했어요</div>
+          <div class="bbar">
+            <span class="t-sub"><span class="hl-ok">3영업일이 지나도 안 들어오면 농가에 물어보세요.</span></span>
+            <div class="btn-outline">농가에 물어보기</div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note bad"><span class="dot">!</span><p>큰 제목은 끝난 일(환불됨), 본문은 앞으로 할 일(보내요). 생산자 홈에는 아직 ‘환불 보낼 주문’으로 남아 있다(C2, c18).</p></div>
+        <div class="note bad"><span class="dot">!</span><p>본문과 하단 바가 “입금했던 계좌로 3영업일 안에 보내요”를 두 번 말한다.</p></div>
+        <div class="note"><span class="num">5</span><p>송금 전은 ‘환불 대기’, 농가가 송금을 기록하면 제목 ‘환불 완료’·본문 “11월 5일에 농가가 33,000원을 입금했던 계좌로 보냈어요.” 미승인이면 ‘환불 늦어짐’ + 지금 Notice 그대로.</p></div>
+        <div class="note"><span class="num">3</span><p>하단 바는 다음 행동만: 늦어질 때 물어볼 곳. 같은 화면 아래 글자 버튼은 바로 올린다.</p></div>
+        <div class="note"><span class="num">·</span><p>맨 위 ‘상품 문제 문의’ 버튼(C14)은 이 이슈 범위 밖이라 그대로 둔다.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>상태별 소비자 문구 (모든 주문 상태)</h2>
+    <p class="lede">서버 상태값은 바꾸지 않는다. 생산자 앱은 환불 줄 라벨만 ‘환불 대기 / 환불 완료’로 맞춘다. 굵은 칸이 바뀌는 곳, 회색은 그대로.</p>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>서버 상태 · 조건</th><th>목록 굵은 줄 (지금 → 제안)</th><th>목록 아래 줄</th><th>상세 제목</th><th>상세 본문 / 하단 바</th></tr></thead>
+        <tbody>
+          <tr><td class="code">PENDING_PAYMENT</td><td class="same">목록에서 뺌(그대로)</td><td class="same">—</td><td class="same">입금 안내 전</td><td class="same">—</td></tr>
+          <tr><td class="code">AWAITING_DEPOSIT<br>알림 전</td><td><span class="del">입금 확인 중 · 입금해 주세요</span><br><span class="chg">입금 대기 · 입금해 주세요</span></td><td class="same">○일 (요) HH:MM까지 입금 · 금액</td><td><span class="del">입금 확인 중</span> <span class="chg">입금 대기</span></td><td>본문 그대로(기한까지 입금해 주세요). 하단 바 <span class="del">입금 전에는 바로 취소돼요. 환불할 돈은 없어요.</span> → <span class="chg">입금 전에는 바로 취소돼요.</span> 버튼 ‘예약 취소하기’ 유지</td></tr>
+          <tr><td class="code">AWAITING_DEPOSIT<br>depositIssue 있음</td><td class="same">입금 확인 안 됨 · 사유를 봐 주세요</td><td class="same">기한까지 입금 · 금액</td><td><span class="chg">입금 대기</span></td><td class="same">Notice ‘농가가 입금을 확인하지 못했어요 · 사유’ 그대로, ‘입금을 마쳤어요’ 다시 가능</td></tr>
+          <tr><td class="code">AWAITING_DEPOSIT<br>depositReportedAt, 기한 전</td><td><span class="del">입금 확인 중 · 입금해 주세요</span><br><span class="chg">입금 확인 중 · 농가가 확인하고 있어요</span></td><td><span class="chg">○일 입금 알림 · 금액</span></td><td class="same">입금 확인 중</td><td><span class="chg">HH시에 입금했다고 알려 주셨어요. 농가가 통장을 확인하면 예약 완료로 바뀌어요.</span> 입금 정보 마지막 줄 <span class="chg">입금 알림</span>. 하단 바 <span class="chg">취소 대신 ‘농가에 물어보기’</span>(무브 4)</td></tr>
+          <tr><td class="code">AWAITING_DEPOSIT<br>depositReportedAt, 기한 지남</td><td><span class="chg">입금 확인 늦어짐 · farmclub이 연락하고 있어요</span></td><td><span class="chg">○일 입금 알림 · 금액</span></td><td><span class="chg">입금 확인 중</span></td><td class="same">본문 지금 문구 그대로(farmclub이 농가에 연락, 취소되지 않아요). 하단 바는 위와 같음</td></tr>
+          <tr><td class="code">RESERVED</td><td class="same">예약 완료</td><td class="same">받는 시기 도착 · 금액</td><td class="same">예약 완료</td><td class="same">보내기 전 취소 = 전액 환불</td></tr>
+          <tr><td class="code">PREPARING · SHIPPED · DELIVERED · COMPLETED</td><td class="same">수확·포장 중 / 배송 중 / 배송 완료 · 구매 확정해 주세요 / 구매 확정</td><td class="same">그대로</td><td class="same">그대로</td><td class="same">그대로</td></tr>
+          <tr><td class="code">CANCELED</td><td class="same">취소됨 (기한 초과면 상세 제목 ‘입금 기한이 지나 취소됐어요’)</td><td class="same">사유 · 금액</td><td class="same">취소됨</td><td class="same">그대로</td></tr>
+          <tr><td class="code">REFUNDED<br>송금 전</td><td><span class="del">환불됨</span> <span class="chg">환불 대기 · 농가가 보낼 거예요</span> (흐리지 않게)</td><td><span class="del">○일 환불 송금 대기</span> <span class="chg">○일 취소 · 금액</span>*</td><td><span class="del">환불됨</span> <span class="chg">환불 대기</span></td><td>본문 <span class="chg">… 3영업일 안에 보내요. 보내면 ‘환불 완료’로 바뀌어요.</span> 하단 바 <span class="chg">3영업일이 지나도 안 들어오면 농가에 물어보세요.</span> + ‘농가에 물어보기’</td></tr>
+          <tr><td class="code">REFUNDED<br>refundIssue 있음</td><td><span class="chg">환불 늦어짐 · 사유를 봐 주세요</span></td><td class="same">○일 취소 · 금액*</td><td><span class="chg">환불 늦어짐</span></td><td class="same">Notice ‘환불 송금이 늦어지고 있어요 · 사유’ 그대로 + ‘농가에 물어보기’</td></tr>
+          <tr><td class="code">REFUNDED<br>refundSettledAt 있음</td><td><span class="chg">환불 완료</span> (흐리게)</td><td><span class="chg">○일 보냄 · 금액</span></td><td><span class="chg">환불 완료</span></td><td class="same">본문 “○일에 농가가 … 보냈어요.” 하단 바 ‘○일 환불 완료 · 입금했던 계좌로 보냈어요.’ 그대로</td></tr>
+          <tr><td class="code">PARTIALLY_REFUNDED</td><td class="same">일부 환불</td><td class="same">그대로</td><td class="same">일부 환불</td><td class="same">그대로(이 이슈에서 다루지 않음)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="meta">* 배송 기간 변경 거절·운영자 환불처럼 소비자가 직접 취소하지 않은 환불은 ‘○일 환불 결정’으로 쓴다(<code>refundedAt</code>, 사유 줄은 상세에 그대로).</p>
+  </section>
+
+  <section class="two">
+    <div class="box">
+      <h3>같은 PR에서 바뀌는 문서 (승인 뒤 개발 단계)</h3>
+      <ul>
+        <li><code>docs/spec/screens.md</code> SCR-13 입금 대기 카드 제목·환불 카드 부제, SCR-14 입금 대기 알림 전/후·환불 대기/늦어짐/완료 문구, SCR-12 알림 전 제목 ‘입금 대기’</li>
+        <li><code>docs/spec/functional/FEAT-09-mock-payment.md</code> E1 뒤에 “입금했다고 알린 뒤에는 소비자 취소 버튼 없음, 농가에 물어보기” + AC 하나</li>
+        <li><code>docs/spec/functional/FEAT-11-cancel-before-shipping.md</code> 사후 조건: 소비자 화면은 ‘환불 대기’, 송금 기록 뒤 ‘환불 완료’</li>
+        <li><code>docs/spec/functional/rules.md</code> R-28 끝에 소비자 라벨 원칙 한 문장, <code>docs/spec/ia.md</code> 용어표 ‘입금 대기 / 입금 확인 중 / 환불 대기 / 환불 완료’</li>
+        <li><code>docs/design/README.md</code> 규칙 ‘소비자 상태 문구’ 줄</li>
+        <li><code>docs/wiki/Requirements-and-Specifications.md</code>·<code>Design-Documentation.md</code> 영문 요약 한두 줄</li>
+        <li>Figma v6: 보기 권한뿐이라 PR <code>Figma:</code> 줄에 후속(승인 뒤 반영 요청)</li>
+        <li>테스트: 상태별 문구를 순수 함수(<code>lib/orderText.ts</code>)로 모아 <code>test:mock</code>에서 검사, 입금 알림 → 상세 Playwright 한 개</li>
+      </ul>
+    </div>
+    <div class="box warn">
+      <h3>PM 결정 (11/04)</h3>
+      <ol>
+        <li><b>알림 전 제목도 ‘입금 대기’</b>로 바꾼다. SCR-12 주문 완료 화면 제목도 같이 맞춘다.</li>
+        <li><b>알린 뒤 취소는 앱에서만 숨기고</b> ‘농가에 물어보기’로 바꾼다(1안). 서버 <code>server/app/orders</code>는 그대로 두고, API로는 여전히 환불 기록 없이 취소될 수 있다는 위험은 후속 이슈 후보로 남긴다.</li>
+        <li><b>생산자 앱 ‘환불됨’ 라벨</b>(<code>apps/producer/src/lib/views.tsx</code>)도 송금 전 ‘환불 대기’, 송금 뒤 ‘환불 완료’로 맞춘다.</li>
+        <li><b>용어는 ‘환불 대기’.</b></li>
+      </ol>
+    </div>
+  </section>
+</div>

@@ -15,12 +15,13 @@ import {
   useLiveList,
   won,
   deadline,
+  time,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
-import { STATUS_LABEL } from "../../../lib/orderText";
+import { isClosed, listHeadline, listSubline } from "../../../lib/orderText";
 import { useSession } from "../../../lib/session";
 import {
   orderGroups,
@@ -29,25 +30,14 @@ import {
   compareOrders,
 } from "../../../lib/orderGroups";
 
-function headline(o: Order) {
-  if (o.actions.includes("respondDeliveryWindow"))
-    return "받는 시기 변경 · 답해 주세요";
-  if (o.status === "AWAITING_DEPOSIT")
-    return o.depositIssue
-      ? "입금 확인 안 됨 · 사유를 봐 주세요"
-      : "입금 확인 중 · 입금해 주세요";
-  if (o.actions.includes("confirm")) return "배송 완료 · 구매 확정해 주세요";
-  return STATUS_LABEL[o.status];
-}
+const fmt = { md, deadline, time, won };
 function subline(o: Order) {
   if (o.proposedDeliveryWindow)
     return `새 기간 ${period(o.proposedDeliveryWindow.start, o.proposedDeliveryWindow.end)} · ${won(o.totalAmount)}`;
   if (o.status === "DELIVERED" || o.status === "COMPLETED")
     return `${md(o.deliveredAt)} 받음 · ${won(o.totalAmount)}`;
-  if (o.status === "REFUNDED")
-    return `${md(o.refundedAt)} 환불${o.refundSettledAt ? " 완료" : o.refundIssue ? " 송금 늦어짐" : " 송금 대기"} · ${won(o.totalAmount)}`;
-  if (o.status === "AWAITING_DEPOSIT")
-    return `${deadline(o.depositDueAt)}까지 입금 · ${won(o.totalAmount)}`;
+  const depositOrRefund = listSubline(o, fmt);
+  if (depositOrRefund) return depositOrRefund;
   if (o.status === "CANCELED")
     return `${o.cancelReason ?? "취소"} · ${won(o.totalAmount)}`;
   return `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 도착 · ${won(o.totalAmount)}`;
@@ -111,9 +101,9 @@ export default function OrderList() {
         <T
           variant="body"
           weight="bold"
-          muted={o.status === "REFUNDED" || o.status === "CANCELED"}
+          muted={isClosed(o)}
         >
-          {headline(o)}
+          {listHeadline(o)}
         </T>
         <T variant="body">
           {o.productName} {o.optionLabel} × {o.quantity}

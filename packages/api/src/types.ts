@@ -743,11 +743,19 @@ export type LinkedOrder = {
   quantity: number;
   status: OrderStatus;
 };
+/** 소비자에게 보이는 응답 주체와 예상 답 시간(DEV-208, AC-13-9·13-10). 생산자 조회는 null */
+export type FarmReply = {
+  /** AI = 방 AUTO + 농가 AI ON, FARM = 직접 응대 또는 농가 AI OFF */
+  mode: "AI" | "FARM";
+  /** 최근 30일 답 대기 중앙값을 1·2·3·6·12·24·48·72시간으로 올림. 5건 미만·72시간 초과면 null */
+  typicalReplyHours: number | null;
+};
 export type ChatPage = Paged<ChatMessage> & {
   thread: Thread;
   inquiries: Inquiry[];
   orders: LinkedOrder[];
   escalations?: Escalation[];
+  farmReply?: FarmReply | null;
 };
 
 export type CapacityRequest = {

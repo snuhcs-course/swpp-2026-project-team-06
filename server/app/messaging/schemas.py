@@ -165,6 +165,16 @@ class InquiryStatusInput(CamelModel):
     version: int
 
 
+class FarmReply(CamelModel):
+    """소비자에게 보이는 응답 주체와 예상 답 시간(DEV-208, AC-13-9·13-10).
+
+    mode는 방 AUTO + 농가 AI ON일 때만 AI. typical_reply_hours는 근거가 부족하면 None.
+    """
+
+    mode: Literal["AI", "FARM"]
+    typical_reply_hours: int | None
+
+
 class ChatPage(CamelModel):
     items: list[ChatMessage]
     next_cursor: str | None
@@ -172,6 +182,8 @@ class ChatPage(CamelModel):
     inquiries: list[InquiryView]
     orders: list[LinkedOrder]
     escalations: list[EscalationView] | None = None
+    # 소비자 조회에만 채운다. 생산자 조회는 None(DEV-208)
+    farm_reply: FarmReply | None = None
 
 
 class ChatSummary(CamelModel):
@@ -231,6 +243,13 @@ class ProducerSendInput(CamelModel):
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
     answer_to_escalation_ids: list[str] = Field(default_factory=list)
+
+
+class SupportProducerSendInput(CamelModel):
+    """생산자 farmclub 문의(DEV-209). 질문함 답변 연결이 없어 글·사진만 받는다."""
+
+    text: str = ""
+    attachment_ids: list[str] = Field(default_factory=list)
 
 
 class ProducerSendResult(CamelModel):

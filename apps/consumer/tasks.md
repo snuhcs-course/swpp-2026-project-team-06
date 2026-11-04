@@ -778,3 +778,102 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 - 범위: `apps/consumer/src/app/(tabs)/orders/index.tsx` 한 파일
 - 결정: 탭별 개수를 렌더 중 매번 `list.data.filter`로 세던 것을 `groupCounts` 한 번으로, 빈 상태 문구의 그룹 라벨을 `selectedGroupLabel` 한 번으로. `list.data`를 지역 변수 `data`로 잡아 콜백 안 null 좁힘 유지.
 - 기록: 11/03 PM 지시로 박현이 마무리. `origin/main`(f78f898) 병합(충돌 없음), `apps/consumer` `npx tsc --noEmit` 통과, `npm run test:mock` 63/63. 파생 값만 바뀌어 화면 결과는 같다(탭 개수 `groupCounts?.[v] ?? "—"` = 이전 `list.data ? count : "—"`, 빈 상태 라벨 `?? ""` = 이전 `!.label`).
+
+## DEV-207 [HE 후속] 소비자 주문 상태 문구 모순 (입금 알림 뒤 "입금해 주세요", 취소 직후 "환불됨")
+- 이슈: https://linear.app/sswp6/issue/DEV-207 · GitHub #389 · 근거 HE 사전 점검 C1·C2(`docs/evaluation/he-2026-11-04/he-claude-2026-11-03.md`, PR #388)
+- 브랜치: `nemodleo/dev-207-order-status-copy`
+- 관련 스펙: FEAT-09(E1, AC-09-2·7·9), FEAT-10(SCR-13), FEAT-11(AC-11-1), FEAT-17(AC-17-8), R-07, R-28, screens.md SCR-12·13·14
+
+### 왜
+- '입금을 마쳤어요'를 누른 뒤에도 목록·상세에 "입금해 주세요"와 기한이 남고, 취소 안내가 "환불할 돈은 없어요"라 이미 송금한 사람이 다시 보내거나 취소하면 돈을 못 돌려받는다고 오해한다(C1, 심각도 3).
+- 예약 완료 주문을 취소하자마자 제목이 "환불됨"인데 실제로는 농가 송금 전이다(C2, 심각도 3). 생산자 '환불 보낼 주문'과 시점이 맞지 않는다.
+
+### 범위 (수정 허용 경로)
+- 1단계(제안, 이번 커밋): `docs/design/proposals/dev-207-order-status-copy.html`, 이 섹션
+- 2단계(승인 뒤 개발): `apps/consumer/src/lib/orderText.ts`, `apps/consumer/src/app/(tabs)/orders/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`, `apps/consumer/src/lib/DepositCard.tsx`, `apps/consumer/spec.md`(구현 결정 한 절), `apps/producer/src/lib/views.tsx`(PM 결정 3), `apps/producer/tasks.md`, `scripts/test-order-text.mjs`, `package.json`(`test:mock` 한 줄), `scripts/e2e/order-status-copy.spec.ts`, `docs/spec/screens.md`, `docs/spec/ia.md`, `docs/spec/functional/FEAT-09-mock-payment.md`, `docs/spec/functional/FEAT-11-cancel-before-shipping.md`, `docs/spec/functional/rules.md`(R-28 한 문장), `docs/design/README.md`, `docs/wiki/Requirements-and-Specifications.md`
+- 범위 밖: 서버 상태 모델·`server/app/orders/**`(이슈 1안, PM 결정 2), 주문 목록 필터(C8), 상세 맨 위 문의 버튼(C14)
+
+### 체크리스트
+- [x] 디자인 제안 보드(before/after, 무브 6개, 상태→문구 표) `docs/design/proposals/dev-207-order-status-copy.html`
+- [x] PM 승인(11/04, 아래 결정 사항)
+- [x] 소비자 문구를 `lib/orderText.ts` 한곳의 순수 함수로 모으고 목록·상세·주문 완료가 그것을 쓰게
+- [x] 알림 전 제목 ‘입금 대기’(SCR-12·14), 입금 알림 뒤: 기한 문구·기한 줄·중복 캡션 제거, 하단 바 '농가에 물어보기'
+- [x] 환불: 환불 대기 / 환불 늦어짐 / 환불 완료. 생산자 채팅 ‘연결 주문’의 ‘환불됨’도 바꿈
+- [x] 문구 테스트 `scripts/test-order-text.mjs`(`test:mock`) + Playwright `scripts/e2e/order-status-copy.spec.ts`
+- [x] spec·wiki·design README 갱신, PR `Figma:` 줄 후속
+- [ ] `npm run typecheck`, `npm run test:mock`, 해당 Playwright 통과
+
+### 결정 사항
+- 11/04 서버 상태값은 그대로 두고 응답에 이미 있는 `depositReportedAt`·`depositIssue`·`refundSettledAt`·`refundIssue`로 소비자 라벨만 나눈다(이슈 1안).
+- 11/04 발견: 서버 `cancel_order`는 `AWAITING_DEPOSIT`이면 입금 알림 여부와 관계없이 환불 기록 없이 취소한다(`직접 취소(입금 전)`). 알린 뒤 취소하면 실제로 보낸 돈이 생산자 '환불 보낼 주문'에 잡히지 않는다. 제안은 앱에서 알린 뒤 취소 버튼을 숨기는 것(1안). 서버에서도 막을지(2안, 고위험 경로)는 PM 결정 뒤 별도 이슈.
+- 11/04 PM 결정: ① 알림 전 제목도 ‘입금 대기’, SCR-12 주문 완료 제목도 맞춘다 ② 알린 뒤 취소는 1안 — 앱에서만 취소 버튼을 숨기고 ‘농가에 물어보기’, `server/app/orders`는 건드리지 않는다 ③ 생산자 ‘환불됨’ 라벨도 맞춘다 ④ 용어는 ‘환불 대기’.
+- 11/04 후속 이슈 후보(서버, 고위험 경로): API로는 여전히 입금을 알린 `AWAITING_DEPOSIT` 주문을 취소할 수 있고 환불 기록 없이 `CANCELED`가 된다(`server/app/orders/service.py` `cancel_order`, `_actions`가 `cancel`을 계속 줌). 실제로 보낸 돈이 생산자 ‘환불 보낼 주문’에 잡히지 않는다. 앱 화면은 막았지만 오래된 앱·직접 호출은 막지 못한다. 2안(알린 뒤 `cancel` 행동 제거) 또는 3안(알린 뒤 취소를 환불 흐름으로)을 따로 이슈로 정한다.
+- 11/04 생산자 라벨(결정 ③): `ORDER_STATUS.REFUNDED`는 채팅 ‘연결 주문’에서만 쓰이고, 그 응답(`LinkedOrder`)에는 송금 여부(`refundSettledAt`)가 없다. 그래서 ‘환불 대기/환불 완료’로 나눌 수 없어 완료형 ‘환불됨’만 중립 ‘환불’로 바꿨다. 환불 탭 줄은 이미 송금 전엔 승인 버튼, 뒤엔 ‘○월 ○일 송금 완료’라 바꿀 곳이 없다. 채팅에서도 나누려면 `LinkedOrder`에 `refundSettledAt`을 더하는 서버 변경(messaging)이 필요하다 → PM 확인 필요.
+- 11/04 문구는 `lib/orderText.ts` 순수 함수(`listHeadline`·`listSubline`·`statusTitle`·`depositRefundSentence`·`bottomSummary`·`canCancel`)에 모았다. 날짜 도우미는 화면이 넘긴다(node 테스트가 React Native 없이 import하도록).
+- 11/04 ‘알렸는데 기한 지남’은 기존처럼 기기 시각(`Date.now()`)으로 가른다. 로컬 통합 서버는 `FIXED_NOW`가 10/07이라 Playwright에서는 알린 주문이 ‘늦어짐’ 문구로 보인다(제목은 같은 ‘입금 확인 중’).
+- board.json은 `screens/` 안 파일 이름만 키로 쓰는 구조라 `proposals/` 하위 보드는 등록하지 않았다(캔버스가 하위 경로를 읽는지 확인 못 함).
+
+### 기록
+- 11/04 origin/main 3eee9d0에서 시작. 문구 출처 확인: 목록 `headline()`·`subline()`, 상세 `title`·`sentence`·`Bar`·취소 시트, `DepositCard` 기한 줄, `STATUS_LABEL.REFUNDED`. 제안 보드 작성, PM 승인 대기. 코드는 아직 바꾸지 않았다.
+- 11/04 PM 승인 뒤 보드 보완(화면 1에 알리기 전/알린 뒤 카드를 나란히, 예시 데이터 표시) → 구현.
+- 11/04 검증: `npm run typecheck` 통과(5개 워크스페이스) · `npm run test:mock` 73/73(새 `test-order-text.mjs` 10개 포함) · 실서버 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, DB `farmclub_dev207`, `run-integration.mjs scripts/e2e/order-status-copy.spec.ts scripts/e2e/checkout-and-fulfillment.spec.ts`): 시나리오 7/7, Playwright 3/3. 첫 실행에서 새 spec 1건 실패(서버 `FIXED_NOW` 10/07 때문에 목록이 ‘입금 확인 늦어짐’으로 보임) → 두 문구를 모두 받도록 고쳐 통과.
+- 11/04 AI 1차 리뷰(pr-review): must 없음. should 1건(구현 결정을 `spec.md`에) 반영.
+
+## DEV-208 [HE 후속] 직접 응대 방에서 질문을 보내도 AI 안내·전달 안내가 없음
+
+- 이슈: [DEV-208](https://linear.app/sswp6/issue/DEV-208) · GitHub #390
+- 브랜치: `nemodleo/dev-208-direct-mode-chat-feedback`
+- 기능·인수 조건: FEAT-13 / AC-13-6, AC-13-7(유지), AC-13-9·AC-13-10(신규 제안) · 규칙 M-06, M-09, M-20 · SCR-16
+- 상태: 리뷰 중 — 11/04 PM 승인(방식 a), 2단계 구현 완료
+- 디자인 제안: `docs/design/proposals/dev-208-direct-mode-feedback.html`
+
+### 목표
+직접 응대(HUMAN)·농가 AI OFF 방에서 소비자가 질문을 보내면 AI도 전달 안내도 없어 "질문이 갔는지, 누가 언제 답하는지" 알 수 없다(HE 11/3 C5, 심각도 3). 보내자마자 전달 상태와 기대할 답 시간을 보인다.
+
+### 범위 (수정 허용 경로)
+- 1단계(지금): `docs/design/proposals/dev-208-direct-mode-feedback.html`, `apps/consumer/tasks.md`, `server/tasks.md`
+- 2단계(승인 뒤): `apps/consumer/src/app/(tabs)/chats/[farmId].tsx`, `packages/ui/src/ChatThread.tsx`, `packages/ui/src/ChatBubble.tsx`, `packages/api/src/{types,endpoints}.ts`, `packages/api/src/mock/**`(소비자 messages 응답), `server/app/messaging/{schemas,service,router}.py`, `server/tests/test_messaging.py`, `scripts/e2e/conversation-ui.spec.ts`, `scripts/test-spec12.mjs`(Mock 계약), `packages/ui/src/Icon.tsx`(넘김 아이콘), `docs/design/README.md`(메신저 규칙 한 줄), `docs/spec/functional/{FEAT-13-ai-reply,rules}.md`, `docs/spec/{contracts-1.2,screens,ia}.md`, `docs/wiki/AI-Customer-Support.md`
+
+### 비범위 (건드리지 않음)
+- AI 응답 조건(M-05·M-09·M-20)과 `server/app/ai/**`: 직접 응대 방에서 AI가 답하게 하는 (b)안은 채택하지 않음
+- `server/app/messaging/models.py`, 마이그레이션: 새 메시지·컬럼을 만들지 않음
+- 생산자 앱 화면, HUMAN→AUTO 자동 복귀 규칙, 읽음 표시
+- 시드 변경(PM 결정: 그대로 둠)
+
+### 결정 사항
+- 11/04 (a)안 채택: HUMAN/AI OFF 방에서 `needsHuman=true`인 소비자 질문 아래 상태 줄 "농가에 전달했어요 · 보통 N시간 안에 답해요". 새 메시지 행 없음 → DEV-169의 "HUMAN/OFF 뒤 저장되는 답 0건"과 AC-13-6·13-7을 그대로 지킴.
+- 11/04 상태 줄은 농가 답 이후 소비자 메시지 묶음의 마지막 `needsHuman` 메시지 아래 한 번만, 뒤에 PRODUCER 메시지가 오면 숨김(클라이언트 계산).
+- 11/04 상단 띠: HUMAN 또는 농가 AI OFF면 "AI 안내 없이 농가가 직접 답해요 · 보통 N시간 안에"(숫자 없으면 "· 답이 오면 여기에 보여요"). AUTO+ON 문구는 그대로.
+- 11/04 서버: 소비자 `ChatPage`에 `farmReply {mode: AI|FARM, typicalReplyHours: int|null}` 추가. N = 최근 30일 농가 답 대기시간 중앙값, 5건 미만 null, 1·2·3·6·12·24·48·72시간 구간 올림, 72시간 초과 null, 농가별 10분 메모리 캐시.
+- 11/04 보드는 지시대로 `docs/design/proposals/`에 둠. easel 캔버스는 `screens/*.html`만 읽어 `board.json`에는 등록하지 않음(옮길지 PM 결정).
+
+### 작업
+- [x] 디자인 제안 보드(before/after, 무브 5개, 문구, 서버 변경, 스펙 줄)
+- [x] PM 승인(11/04, 방식 a)
+- [x] 서버 `farmReply`·`typicalReplyHours` + `test_AC_13_9_*`(4), `test_AC_13_10_*`(6)
+- [x] Mock·API 타입 + `scripts/test-spec12.mjs` DEV-208 테스트
+- [x] `ChatThread` 상태 줄(`waitingIndex`), `ChatBubble.status`, 소비자 채팅 상단 띠
+- [x] FEAT-13·rules·contracts·screens·ia·wiki·design README 갱신
+- [ ] Figma v6 반영(후속: 승인 뒤 Figma v6 반영 요청)
+
+### 완료 조건
+- [x] 직접 응대·AI OFF 방에서 질문을 보내면 즉시 전달 상태가 보인다
+- [x] 상단 한 줄이 응답 주체와 기대 시점을 말한다
+- [x] FEAT-13 규칙·wiki 영문 요약·서버 테스트(AC ID) 반영
+- [x] 테스트 통과(pytest 관련 묶음, `npm run test:mock`, `npm run typecheck`, SCR-16 Playwright) — 아래 기록
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 11/04 원인: 시드 `("f-kang","u-minji")` 대화에 농가 답(m-5)이 있어 HUMAN으로 생성됨. 서버는 스펙대로 `reply=null`, 앱은 `needsHuman`을 받지만 그리지 않음. 스펙에 HUMAN/OFF 방의 소비자 안내가 없음(빈칸).
+- 11/04 열린 질문: ① HUMAN 영구 유지 규칙 재검토(별도 이슈) ② HE 시드 강씨네 방을 AUTO로 둘지 ③ 상태를 헤더 부제로 올릴지 ④ 읽음 표시 ⑤ 보드를 `screens/`로 옮겨 캔버스 등록할지.
+- 11/04 PM 결정: 방식 (a) 승인. HE 시드 그대로, 상태 줄은 내 말풍선 아래, 읽음 표시 없음, 보드는 proposals/ 유지(가상 예시에 "예시" 라벨).
+- 11/04 별도 이슈 후보(이슈는 만들지 않음): 농가가 한 번 답하면 AUTO를 직접 켜기 전까지 직접 응대가 계속되는 규칙(M-09) 재검토 — 일정 시간 뒤 AUTO 복귀나 (b)안을 FEAT-32·DEV-169와 함께.
+- 11/04 범위 추가(구현 전): `packages/ui/src/Icon.tsx`, `scripts/test-spec12.mjs`, `scripts/e2e/conversation-ui.spec.ts`(처음 적은 `e2e/**`는 실제 경로가 아니었음), `docs/design/README.md`.
+- 11/04 결정: 상태 줄 숨김은 정렬 순서가 아니라 시각으로 판단한다(같은 시각의 농가 답이 있으면 숨김). FIXED_NOW 환경에서 질문과 답의 createdAt이 같아 정렬이 messageId 순으로 바뀌는 것을 e2e에서 발견. AUTO 방에서도 `needsHuman` 질문(사진만, AI 답 폐기)에는 같은 상태 줄이 뜬다(무브 5). `typicalReplyHours`는 AUTO 방에서도 계산해 준다.
+- 11/04 실행 결과:
+  - `cd server && DATABASE_URL=…/farmclub_dev208 uv run pytest -q` → **1462 passed, 1 skipped**(337s). DEV-208 10건 포함.
+  - `cd server && uv run ruff check .` → 통과(import 정렬 1건 고침).
+  - `npm run typecheck` → 5 workspace 통과.
+  - `npm run test:mock` → **64 passed / 0 failed**.
+  - Playwright(로컬 실서버, 다른 세션이 8000/8081/8082를 써서 8100/8181/8182로 띄움, 키 없는 server/.env, 시드 reset): `npx playwright test scripts/e2e/conversation-ui.spec.ts scripts/e2e/producer-help-guide.spec.ts scripts/e2e/consumer-support.spec.ts` → **12 passed**.
+

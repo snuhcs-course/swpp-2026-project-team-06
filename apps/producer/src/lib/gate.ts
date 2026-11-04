@@ -21,13 +21,17 @@ export function homeFor(user: User | null): {
       return { allowed: (p) => p === "/apply", home: "/apply" };
     case "PENDING":
       return { allowed: (p) => p === "/pending", home: "/pending" };
+    // 반려·정지 농가도 farmclub 운영팀 대화방(/support)은 연다(DEV-209, AC-34-9)
     case "REJECTED":
       return {
-        allowed: (p) => p === "/pending" || p === "/apply",
+        allowed: (p) => p === "/pending" || p === "/apply" || p === "/support",
         home: "/pending",
       };
     case "SUSPENDED":
-      return { allowed: (p) => p === "/suspended", home: "/suspended" };
+      return {
+        allowed: (p) => p === "/suspended" || p === "/support",
+        home: "/suspended",
+      };
     default:
       return {
         allowed: (p) =>

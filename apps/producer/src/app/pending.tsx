@@ -1,4 +1,4 @@
-// SCR-21 승인 대기 · 반려 (FEAT-01, AC-01-3, 결정 29, D-06) — design: p-scr-21, s-21-application, s-21-rejected
+// SCR-21 승인 대기 · 반려 (FEAT-01, AC-01-3, 결정 29, D-06, DEV-209) — design: p-scr-21, s-21-application, s-21-rejected
 import { auth, type ProducerApplication } from "@farmclub/api";
 import {
   Button,
@@ -170,15 +170,16 @@ export default function Pending() {
               </T>
               <T variant="body">
                 {rejected
-                  ? "고쳐서 다시 신청할 수 있어요."
+                  ? "아래 사유를 고쳐서 다시 신청할 수 있어요."
                   : "곧 전화를 드릴게요."}
               </T>
             </View>
             {rejected ? (
               <View
+                testID="reject-reason"
                 style={{
                   marginHorizontal: 20,
-                  marginTop: 40,
+                  marginTop: 32,
                   padding: 16,
                   paddingVertical: 20,
                   borderRadius: tokens.radius.md,
@@ -235,7 +236,15 @@ export default function Pending() {
                 />
               </View>
             ) : null}
-            {rejected ? null : (
+            {rejected ? (
+              <T
+                variant="sub"
+                muted
+                style={{ marginHorizontal: 20, marginTop: 16 }}
+              >
+                사유가 잘 이해되지 않으면 운영팀에 물어보세요.
+              </T>
+            ) : (
               <T
                 variant="sub"
                 muted
@@ -282,7 +291,23 @@ export default function Pending() {
             onPress={() => setShowApp(true)}
           />
         )}
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 8 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          {/* 반려 농가도 farmclub 운영팀 대화방에 묻는다(DEV-209, AC-34-9). 주 버튼은 다시 신청하기 하나 */}
+          {rejected ? (
+            <Button
+              label="운영팀에 문의하기"
+              variant="text"
+              icon="chat"
+              onPress={() => router.push("/support")}
+            />
+          ) : null}
           <Button label="로그아웃" variant="text" onPress={() => auth.logout()} />
           {/* 확인 중·반려 상태에서도 탈퇴할 수 있다(DEV-94). 환경설정은 승인 뒤에만 열린다 */}
           {user?.isTestAccount ? null : (

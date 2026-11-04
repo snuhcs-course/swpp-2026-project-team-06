@@ -382,3 +382,30 @@ test("AC-07-6 N-02: long farm names and full-ratio story image retain fixed cont
   ).toBeTruthy();
   await page.screenshot({ path: info.outputPath("story-fixed-controls.png") });
 });
+
+test("DEV-208 AC-13-9: direct-mode room shows who answers and a forwarded status under the question", async ({
+  page,
+  request,
+}) => {
+  // 시드 김민지–강씨네 방은 농가가 답한 대화라 HUMAN이다. 강씨네는 최근 답이 5건 미만이라 숫자 없는 문구가 나온다.
+  await loginConsumer(page, "김민지");
+  await page.goto(`${consumerUrl}/chats/f-kang`);
+  await expect(page.getByText("AI 안내 없이 농가가 직접 답해요 · 답이 오면 여기에 보여요")).toBeVisible();
+  const question = `DEV-208 당도는 얼마예요? ${Date.now()}`;
+  await page.getByRole("textbox", { name: "메시지" }).fill(question);
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  await expect(page.getByText(question, { exact: true })).toBeVisible();
+  const status = page.getByTestId("chat-forward-status");
+  await expect(status).toHaveCount(1);
+  await expect(status).toHaveText("농가에 전달했어요 · 답이 오면 여기에 보여요");
+
+  // 농가가 답하면 상태 줄은 사라진다
+  const producerToken = await apiLogin(request, "u-kang", "producer");
+  const reply = await request.post(`${apiUrl}/api/messaging/producer/chats/u-minji/messages`, {
+    headers: { Authorization: `Bearer ${producerToken}`, "Idempotency-Key": `dev208-${Date.now()}` },
+    data: { text: "당도는 11.8Brix예요." },
+  });
+  expect(reply.ok()).toBeTruthy();
+  await expect(page.getByText("당도는 11.8Brix예요.", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("chat-forward-status")).toHaveCount(0);
+});

@@ -22,6 +22,7 @@ type Message = {
   orderId?: string;
   reported?: boolean;
   handoffStatus?: string | null;
+  needsHuman?: boolean;
 };
 type Page = { items: Message[]; nextCursor: string | null };
 type Props = {
@@ -35,6 +36,10 @@ type Props = {
   loadPhoto: (id: string) => Promise<string>;
   /** 웹은 File, 앱은 사진 보관함에서 고른 {uri, name, type}(DEV-33). 없으면 사진 첨부(＋)를 숨긴다(예: 소비자 farmclub 문의 대화방, DEV-150) */
   upload?: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
+  /** 입력칸 안내 문구. 기본은 '메시지를 입력하세요'(생산자 farmclub 방은 '운영팀에 문의 남기기', DEV-209) */
+  placeholder?: string;
+  /** 소비자 화면: 농가 답을 기다리는 마지막 질문 아래 상태 줄 문구(DEV-208). 없으면 그리지 않는다 */
+  forwardStatus?: string;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -47,6 +52,8 @@ export function ChatThread({
   makeKey,
   loadPhoto,
   upload,
+  placeholder = "메시지를 입력하세요",
+  forwardStatus,
   children,
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]),
@@ -203,6 +210,8 @@ export function ChatThread({
       if (alive.current) setOlder(false);
     }
   }
+  // 마지막 농가 답 이후 needsHuman인 내 질문 중 마지막 것 하나에만 상태 줄을 붙인다(DEV-208)
+  const waiting = producer || !forwardStatus ? -1 : waitingIndex(messages);
   return (
     // 메시지 본문·보낸 사람은 세션 녹화에서 가린다(N-05, DEV-71). react-native-web이 data-ph-private로 내보낸다
     <View
@@ -292,6 +301,7 @@ export function ChatThread({
               }
               time={time(m.createdAt)}
               basis={m.sourceSummary ?? undefined}
+              status={i === waiting ? forwardStatus : undefined}
               note={
                 m.inquiryId
                   ? "주문 문제 문의 · 직접 응대"
@@ -387,7 +397,7 @@ export function ChatThread({
           ) : null}
           <TextInput
             accessibilityLabel="메시지"
-            placeholder="메시지를 입력하세요"
+            placeholder={placeholder}
             value={text}
             onChangeText={setText}
             editable={!busy}
@@ -415,4 +425,20 @@ export function ChatThread({
       </View>
     </View>
   );
+}
+
+/** 농가 답을 기다리는 마지막 needsHuman 소비자 메시지의 위치. 그 뒤(같은 시각 포함)에 농가 답이 있으면 -1 */
+export function waitingIndex(
+  messages: Pick<Message, "senderType" | "needsHuman" | "createdAt">[],
+) {
+  let found = -1;
+  messages.forEach((m, i) => {
+    if (m.senderType === "CONSUMER" && m.needsHuman) found = i;
+  });
+  if (found < 0) return -1;
+  const asked = messages[found].createdAt;
+  // 같은 시각이면 정렬 순서가 정해지지 않으므로 시각으로 비교한다
+  return messages.some((m) => m.senderType === "PRODUCER" && m.createdAt >= asked)
+    ? -1
+    : found;
 }
