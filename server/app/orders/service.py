@@ -214,7 +214,7 @@ def _new_order_no(db: Session) -> str:
     raise conflict("INVALID_TRANSITION", "주문 번호를 만들지 못했어요. 다시 시도해 주세요.")
 
 
-def _stage_changed(item, option, stage, previous: dict, message: str):
+def _stage_changed(item, option, stage, previous: dict, message: str, *, upcoming=True):
     """409 STAGE_CHANGED. details에 소비자가 본 값(previous)과 지금 값(current)을 싣는다
     (AC-08-8, contracts-1.2 1장). 지금 기간이 없으면 current는 null, 다음 기간 시작일을 준다."""
     from app.catalog import service as catalog
@@ -228,7 +228,8 @@ def _stage_changed(item, option, stage, previous: dict, message: str):
             "startsAt": stage.starts_at.isoformat(),
             "endsAt": stage.ends_at.isoformat(),
         }
-    upcoming = catalog.next_stage(item) if stage is None else None
+    # 판매 중인 상품에서 지금 기간이 없을 때만 다음 기간 시작일을 알린다(내린 상품은 null)
+    upcoming = catalog.next_stage(item) if stage is None and upcoming else None
     return conflict(
         "STAGE_CHANGED",
         message,
@@ -698,7 +699,14 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
         "unitWeightGrams": order.unit_weight_grams,
     }
     if item.product.status != "PUBLISHED" or current is None:
-        raise _stage_changed(item, option, None, snapshot, "그사이 단계가 바뀌었어요.")
+        raise _stage_changed(
+            item,
+            option,
+            None,
+            snapshot,
+            "그사이 단계가 바뀌었어요.",
+            upcoming=item.product.status == "PUBLISHED",
+        )
     if current.id != order.stage_id:
         raise _stage_changed(item, option, current, snapshot, "그사이 단계가 바뀌었어요.")
     price = item.prices.get((order.stage_id, order.option_id))

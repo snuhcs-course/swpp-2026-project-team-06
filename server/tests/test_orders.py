@@ -1216,3 +1216,24 @@ def test_AC_08_9_sold_out_and_paused_win_over_price_change(client, login):
     assert paused.status_code == 409
     assert paused.json()["details"]["reason"] == "SALES_PAUSED"
     assert "previous" not in paused.json()["details"]
+
+
+def test_AC_08_8_deposit_on_closed_product_has_no_next_stage(client, login):
+    from datetime import date
+
+    from app.catalog.models import Product, Stage
+
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN)).json()
+    # 다음 기간이 남아 있어도 내린 상품이면 '다음 예약은 …에 열려요'를 주지 않는다
+    _db_update(Stage, {"starts_at": date(2026, 10, 8)}, id="st-house-1")
+    _db_update(Product, {"status": "CLOSED"}, id="p-house")
+
+    response = deposit(client, headers, order["orderId"])
+
+    assert response.status_code == 409
+    details = response.json()["details"]
+    assert details["reason"] == "STAGE_CHANGED"
+    assert details["current"] is None
+    assert details["nextStageStartsAt"] is None
+    assert details["previous"] == SNAPSHOT
