@@ -21,6 +21,7 @@ import {
   deadline,
   md,
   period,
+  time,
   tokens,
   useAsync,
   won,
@@ -30,7 +31,14 @@ import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
 import { DepositCard } from "../../../../lib/DepositCard";
-import { STATUS_LABEL, STEPS, stepIndex } from "../../../../lib/orderText";
+import {
+  STEPS,
+  bottomSummary,
+  canCancel,
+  depositRefundSentence,
+  statusTitle,
+  stepIndex,
+} from "../../../../lib/orderText";
 import { useHideTabBar } from "../../../../lib/session";
 import { isNetworkError, useToast } from "../../../../lib/toast";
 import {
@@ -40,6 +48,8 @@ import {
   isStatus,
   openExternal,
 } from "../../../../lib/views";
+
+const fmt = { md, deadline, time, won };
 
 export default function OrderDetail() {
   useHideTabBar();
@@ -95,7 +105,7 @@ export default function OrderDetail() {
       ? "받는 시기가\n바뀌었어요"
       : o.status === "CANCELED" && o.cancelReason === "입금 기한 초과"
         ? "입금 기한이 지나\n취소됐어요"
-        : STATUS_LABEL[o.status];
+        : statusTitle(o);
   const sentence = !o
     ? ""
     : changing && o.proposedDeliveryWindow
@@ -106,19 +116,11 @@ export default function OrderDetail() {
           ? `${md(o.shippedAt)}에 보냈어요. ${trackingUrl(o.carrier, o.trackingNumber) ? "배송 조회로 위치를 볼 수 있어요." : "곧 도착해요."}`
           : o.status === "DELIVERED" || o.status === "COMPLETED"
             ? `${md(o.deliveredAt)}에 도착했어요.`
-            : o.status === "REFUNDED"
-              ? o.refundSettledAt
-                ? `${md(o.refundSettledAt)}에 농가가 ${won(o.totalAmount)}을 입금했던 계좌로 보냈어요.`
-                : `농가가 ${won(o.totalAmount)}을 입금했던 계좌로 3영업일 안에 보내요.`
-              : o.status === "AWAITING_DEPOSIT"
-                ? o.depositReportedAt &&
-                  o.depositDueAt &&
-                  Date.parse(o.depositDueAt) <= Date.now()
-                  ? "입금했다고 알려 주셨어요. 농가 확인이 늦어져 farmclub이 농가에 연락하고 있어요. 주문은 취소되지 않아요."
-                  : `${deadline(o.depositDueAt)}까지 입금해 주세요. 농가가 확인하면 예약 완료로 바뀌어요.`
-                : o.status === "CANCELED"
-                  ? "물량은 다른 분께 돌아갔어요. 다시 예약할 수 있어요."
-                  : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`;
+            : o.status === "REFUNDED" || o.status === "AWAITING_DEPOSIT"
+              ? (depositRefundSentence(o, fmt) ?? "")
+              : o.status === "CANCELED"
+                ? "물량은 다른 분께 돌아갔어요. 다시 예약할 수 있어요."
+                : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`;
 
   return (
     <Screen>
@@ -250,15 +252,7 @@ export default function OrderDetail() {
                   }
                   style={{ marginHorizontal: 20, marginTop: 12 }}
                 />
-              ) : (
-                <T
-                  variant="caption"
-                  muted
-                  style={{ marginHorizontal: 20, marginTop: 8 }}
-                >
-                  입금했다고 알렸어요 · 농가가 통장을 확인하는 중이에요
-                </T>
-              )}
+              ) : null}
             </>
           ) : null}
 
@@ -325,12 +319,14 @@ export default function OrderDetail() {
             />
             <Row k="배송 메모" v={o.deliveryNote ?? "없음"} last masked />
           </View>
-          <Button
-            label="농가에 물어보기 ›"
-            variant="text"
-            onPress={() => router.push(`/chats/${o.farmId}`)}
-            style={{ marginHorizontal: 20, marginTop: 16 }}
-          />
+          {askInBar(o) ? null : (
+            <Button
+              label="농가에 물어보기 ›"
+              variant="text"
+              onPress={() => router.push(`/chats/${o.farmId}`)}
+              style={{ marginHorizontal: 20, marginTop: 16 }}
+            />
+          )}
         </Scroll>
       )}
 
@@ -339,6 +335,7 @@ export default function OrderDetail() {
           o={o}
           busy={busy}
           onCancel={() => setCancelSheet(true)}
+          onAsk={() => router.push(`/chats/${o.farmId}`)}
           act={act}
         />
       ) : null}
@@ -347,9 +344,7 @@ export default function OrderDetail() {
         <T variant="heading">예약을 취소할까요?</T>
         {awaiting ? (
           <>
-            <T variant="body">
-              아직 입금 전이라 바로 취소돼요. 환불할 돈은 없어요.
-            </T>
+            <T variant="body">아직 입금 전이라 바로 취소돼요.</T>
             <T variant="sub" muted>
               이미 입금했다면 취소하지 말고 「입금을 마쳤어요」를 눌러 주세요.
             </T>
@@ -388,15 +383,22 @@ export default function OrderDetail() {
   );
 }
 
+/** 입금을 알린 뒤·환불 송금 전에는 하단 바에 ‘농가에 물어보기’를 둔다(DEV-207) */
+const askInBar = (o: Order) =>
+  (o.status === "AWAITING_DEPOSIT" && !!o.depositReportedAt) ||
+  (o.status === "REFUNDED" && !o.refundSettledAt);
+
 function Bar({
   o,
   busy,
   onCancel,
+  onAsk,
   act,
 }: {
   o: Order;
   busy: boolean;
   onCancel: () => void;
+  onAsk: () => void;
   act: (fn: () => Promise<Order>) => Promise<void>;
 }) {
   if (o.actions.includes("respondDeliveryWindow"))
@@ -423,13 +425,18 @@ function Bar({
         </View>
       </BottomBar>
     );
-  if (o.actions.includes("cancel"))
+  if (askInBar(o))
+    return (
+      <BottomBar summary={bottomSummary(o, fmt) ?? ""}>
+        <Button label="농가에 물어보기" variant="outline" onPress={onAsk} />
+      </BottomBar>
+    );
+  if (canCancel(o))
     return (
       <BottomBar
         summary={
-          o.status === "AWAITING_DEPOSIT"
-            ? "입금 전에는 바로 취소돼요. 환불할 돈은 없어요."
-            : "보내기 전에는 언제든 취소할 수 있고 전액 환불돼요."
+          bottomSummary(o, fmt) ??
+          "보내기 전에는 언제든 취소할 수 있고 전액 환불돼요."
         }
       >
         <Button
@@ -465,13 +472,7 @@ function Bar({
     );
   if (o.status === "REFUNDED")
     return (
-      <BottomBar
-        summary={
-          o.refundSettledAt
-            ? `${md(o.refundSettledAt)} 환불 완료 · 입금했던 계좌로 보냈어요.`
-            : "농가가 입금했던 계좌로 3영업일 안에 보내요. 늦어지면 농가에 물어보세요."
-        }
-      >
+      <BottomBar summary={bottomSummary(o, fmt) ?? ""}>
         <View />
       </BottomBar>
     );

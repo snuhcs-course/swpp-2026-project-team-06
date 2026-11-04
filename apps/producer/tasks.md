@@ -1317,6 +1317,11 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 검증(11/3, 로컬 실서버 `farmclub_i3`): `npm run typecheck` 통과 · `npm run test:mock` 63/63 · `run-integration.mjs evaluator-login.spec.ts` 플래그 없이 4 passed/2 skipped, `EXPO_PUBLIC_EVALUATOR_LOGIN=1`로 2 passed/4 skipped.
 - 평가 뒤 할 일(사람): EAS `preview` 환경에서 `EXPO_PUBLIC_EVALUATOR_LOGIN` 삭제 → `eas update --channel preview --environment preview`로 일반 업데이트.
 
+## DEV-207 [HE 후속] 주문 상태 문구 모순 (소비자 중심, 생산자 라벨 한 줄)
+- 이슈: https://linear.app/sswp6/issue/DEV-207 · 상세 기록은 `apps/consumer/tasks.md#DEV-207`
+- 범위(생산자): `apps/producer/src/lib/views.tsx` `ORDER_STATUS.REFUNDED` 한 줄
+- 결정: 11/04 PM이 생산자 ‘환불됨’도 ‘환불 대기/환불 완료’로 맞추라고 했지만, 이 라벨을 쓰는 곳은 채팅 ‘연결 주문’뿐이고 응답(`LinkedOrder`)에 송금 여부가 없다. 완료형 ‘환불됨’만 중립 ‘환불’로 바꿨다. 환불 탭 줄(SCR-29)은 이미 송금 전 승인 버튼 / 송금 뒤 ‘○월 ○일 송금 완료’라 그대로. 채팅에서도 나누려면 서버 `LinkedOrder`에 `refundSettledAt`이 필요하다(PM 확인).
+
 ## DEV-209 [HE 후속] 정지·반려 화면의 "[운영팀 연락처]" 자리표시자와 운영팀 문의 경로
 
 - 이슈: https://linear.app/sswp6/issue/DEV-209 · GitHub #392 · 근거: HE 사전 점검 `he-claude-2026-11-03.md` P2(심각도 3)·P9(심각도 2), PR #388
