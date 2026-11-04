@@ -4,6 +4,7 @@
 """
 
 import re
+import statistics
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -33,6 +34,7 @@ from app.messaging.schemas import (
     ChatPage,
     ChatSummary,
     EscalationView,
+    FarmReply,
     InquiryCreated,
     InquiryInput,
     InquiryView,
@@ -714,9 +716,68 @@ def start_chat(db: Session, consumer, farm_id: str) -> StartChatResult:
     return StartChatResult(farm_id=farm_id, auto_followed=auto_followed)
 
 
+# 예상 답 시간(DEV-208, AC-13-10): 최근 30일 농가 답 대기시간 중앙값을 구간으로 올림한다
+REPLY_WINDOW = timedelta(days=30)
+REPLY_MIN_SAMPLES = 5
+REPLY_BUCKETS = (1, 2, 3, 6, 12, 24, 48, 72)
+REPLY_CACHE_TTL = timedelta(minutes=10)
+_reply_hours_cache: dict[str, tuple[datetime, int | None]] = {}
+
+
+def typical_reply_hours(db: Session, farm_id: str) -> int | None:
+    """그 농가의 보통 답 시간(시간). 5건 미만이거나 72시간을 넘으면 None.
+
+    농가 메시지마다 같은 대화에서 직전 농가 메시지 이후 가장 먼저 온 소비자 메시지와의
+    시간차를 잰다. 답할 소비자 메시지가 없던 농가 메시지(먼저 건 말)는 뺀다.
+    소비자 화면이 2초마다 조회하므로 농가별로 10분 캐시한다.
+    """
+    current = now()
+    cached = _reply_hours_cache.get(farm_id)
+    if cached and current - cached[0] < REPLY_CACHE_TTL:
+        return cached[1]
+    since = current - REPLY_WINDOW
+    rows = db.execute(
+        select(ThreadMessage.thread_id, ThreadMessage.sender_type, ThreadMessage.created_at)
+        .join(Thread, Thread.id == ThreadMessage.thread_id)
+        .where(
+            Thread.farm_id == farm_id,
+            ThreadMessage.sender_type.in_(("CONSUMER", "PRODUCER")),
+            ThreadMessage.created_at <= current,
+        )
+        .order_by(ThreadMessage.thread_id, ThreadMessage.seq)
+    ).all()
+    waits: list[float] = []
+    pending: dict[str, datetime] = {}
+    for thread_id, sender, created in rows:
+        if sender == "CONSUMER":
+            pending.setdefault(thread_id, created)
+        elif thread_id in pending:
+            asked = pending.pop(thread_id)
+            if created >= since:
+                waits.append((created - asked).total_seconds() / 3600)
+    hours = None
+    if len(waits) >= REPLY_MIN_SAMPLES:
+        middle = statistics.median(waits)
+        hours = next((b for b in REPLY_BUCKETS if middle <= b), None)
+    _reply_hours_cache[farm_id] = (current, hours)
+    return hours
+
+
+def farm_reply(db: Session, thread: Thread) -> FarmReply:
+    from app.farms import service as farms
+
+    auto = thread.ai_mode == "AUTO" and farms.ai_settings(db, thread.farm_id).enabled
+    return FarmReply(
+        mode="AI" if auto else "FARM",
+        typical_reply_hours=typical_reply_hours(db, thread.farm_id),
+    )
+
+
 def consumer_page(db: Session, consumer, farm_id: str, cursor: str | None, limit: int) -> ChatPage:
     thread = _consumer_thread(db, consumer.id, farm_id)
-    return _chat_page(db, consumer, thread, cursor, limit, producer=False)
+    page = _chat_page(db, consumer, thread, cursor, limit, producer=False)
+    page.farm_reply = farm_reply(db, thread)
+    return page
 
 
 def report_ai_answer(db: Session, consumer, farm_id: str, message_id: str) -> EscalationView:
