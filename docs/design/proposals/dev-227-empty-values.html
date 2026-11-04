@@ -159,7 +159,7 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
     <div class="eyebrow">DEV-227 · 디자인 제안 · BEFORE / AFTER</div>
     <h1>값이 없을 때 자리표시자 대신, 값 종류마다 규칙 하나</h1>
     <p class="lead">예상 당도가 비면 구매자 화면에 “당도 예상 -Brix”, 예약이 0건이면 “0명 예약 · 마감 D-9”, 마감일이 없으면 “마감 ”, 배송비 금액이 없으면 “배송비 ”가 나온다. 예약할 수 없는 상품은 화면마다 ‘현재 예약 불가’ / ‘이번 기간 품절’ / ‘현재 기간 품절’로 부르고, 소식방 말풍선만 ‘오전 09:40’이다. 지금 코드는 “값이 없으면 빈 글자”까지만 정해 두고, 그 앞에 붙는 라벨은 그대로 남긴다. 이 보드는 값 종류(당도·예약 수·마감·배송비·받는 시기·예약 가능 상태·시각)마다 빈 값일 때 무엇을 보일지 한 가지씩 정한다.</p>
-    <div class="status"><span class="pill hot">PM 승인 대기</span><span class="pill">기준: Figma v6 · docs/design/README.md 토큰 · format.ts</span><span class="pill">근거: HE-34(표시), HE-X7·X8·X10, 디자인 감사 결함 5</span><span class="pill">2026-11-04</span></div>
+    <div class="status"><span class="pill hot">PM 승인 11/04 · 무브 6 수정</span><span class="pill">기준: Figma v6 · docs/design/README.md 토큰 · format.ts</span><span class="pill">근거: HE-34(표시), HE-X7·X8·X10, 디자인 감사 결함 5</span><span class="pill">2026-11-04</span></div>
   </header>
 
   <section>
@@ -369,16 +369,17 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
           <p class="anno"><span class="mark">5</span><code>BuyerPreview.tsx:31-32</code>가 빈 받는 시기·최대 지연을 <b>오늘</b>로 채워 있는 값처럼 보인다(HE-X7). <code>ProductPage.tsx:108-109</code> <code>`배송비 ${won(null)}`</code> = “배송비 ”(HE-X8, 상세도 같은 줄).</p>
         </div>
         <div class="fcol">
-          <div class="flabel"><b class="good">AFTER</b><span>빈 칸은 점선, 끝난 문장</span></div>
+          <div class="flabel"><b class="good">AFTER</b><span>확정 전에는 데이터에서 유도한 ‘예상’ (PM 11/04 수정)</span></div>
           <div class="phone">
             <div class="hbar"><span class="back">‹</span>구매자 화면 미리보기</div>
             <div class="body" style="padding-top:16px">
               <div class="pname">효돈 노지 감귤 5kg <span class="ex">예시</span></div>
-              <div class="later changed">받는 시기를 정하면 여기에 보여요</div>
-              <div class="fold changed">배송비 별도 <span>⌄</span></div>
+              <div class="fold changed">10월 중순 이후 도착 예상 <span>⌃</span></div>
+              <div class="sub changed">받는 시기는 예약 전에 확정돼요. 농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.</div>
+              <div class="fold changed">배송비 확정 전 · 도서산간 추가 <span>⌄</span></div>
             </div>
           </div>
-          <p class="anno">점선 칸은 DEV-184 채우기 화면의 <code>LaterNote</code>와 같은 모양(테두리 1 점선 <code>border</code>, 모서리 8, 보조 15 muted). 최대 지연이 없으면 환불 약속 문장을 뺀다. 배송비는 별도인데 금액이 없을 때 “배송비 별도”(소비자 상세도 같은 규칙).</p>
+          <p class="anno">받는 시기가 비면 오늘로 채우지 않고 <b>마지막 예약 기간 끝날</b>(예: 10월 15일)의 월·순으로 ‘10월 중순 이후 도착 예상’. FEAT-05가 “마지막 예약 종료일 &lt; 배송 시작일”을 정해 두어서 ‘이후’까지는 데이터가 보장한다. 예약 기간도 없으면 ‘받는 시기 확정 전’. 최대 지연이 없으면 환불 기한 문장을 뺀다. 배송비는 농가 기본 배송비가 구조화된 값으로 없어(<code>reservation_shipping_policy</code>는 AI용 자유 글) 유도하지 않고 ‘배송비 확정 전’.</p>
         </div>
       </div>
     </div>
@@ -392,9 +393,9 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
       <div class="card move"><h3><span class="mark">3</span>0은 사회적 증거가 아니다</h3><p>예약 수는 1명부터 보인다. 0명은 수를 말하지 않고 마감만 남긴다. “0명”은 상품이 안 팔린다는 신호로 읽혀 첫 예약을 막는다. 생산자 목록의 ‘n명 예약’도 같은 규칙.</p></div>
       <div class="card move"><h3><span class="mark">4</span>예약할 수 없는 이유는 <code>availability</code>에서 나온다</h3><p>상태 6개 → 이름 6개 표 하나(<code>packages/ui</code>)를 소비자 카드·상세·생산자 목록이 같이 쓴다. ‘현재 예약 불가’(이유를 숨김)와 ‘현재 기간 품절’(Figma에 없음)은 없앤다. 카드 가격 자리에는 이유 이름이 들어간다.</p></div>
       <div class="card move"><h3><span class="mark">5</span>시각은 <code>time()</code> 하나</h3><p>화면에 찍는 하루 안 시각은 모두 <code>format.ts</code> <code>time()</code>(한국 시간, “오전 9:40”). 기기 시간대·<code>2-digit</code>을 직접 부르지 않는다. 마감 시각(<code>deadline()</code>)만 24시 두 자리로 따로 둔다.</p></div>
-      <div class="card move"><h3><span class="mark">6</span>미리보기는 빈 값을 채우지 않는다</h3><p>생산자 미리보기는 “구매자가 이렇게 본다”를 보여 주는 곳이라 빈 값을 오늘 날짜로 채우면 거짓 미리보기가 된다. 빈 받는 시기는 DEV-184 점선 칸, 빈 당도·배송비는 무브 1·2 규칙 그대로(소비자 화면과 같은 글자).</p></div>
+      <div class="card move"><h3><span class="mark">6</span>확정 전에는 ‘예상’ 근사값, 근거가 없으면 ‘확정 전’ <span class="tag">PM 수정</span></h3><p>PM: “예약 전에도 소비자는 대략이라도 알고 싶다.” 그래서 빈 칸(점선)으로 두지 않고 <b>저장된 데이터에서 유도한 근사값에 ‘예상’</b>을 붙인다(M-11을 지키는 조건, 새 규칙 M-24). 받는 시기 = 마지막 예약 기간 끝날의 월·순(초순 1~10·중순 11~20·하순 21~) + ‘이후 도착 예상’ + ‘받는 시기는 예약 전에 확정돼요.’(R-03). 근거 데이터가 없으면 ‘받는 시기 확정 전’, 배송비는 ‘배송비 확정 전’. 확정 값(‘11월 10일~20일 도착 예정’)과 예상 값은 <code>deliveryText()</code> 한 함수에서 나온다. 공개 상품은 받는 시기·배송비 금액이 게시 필수(AC-04-1·FEAT-04)라 예상 상태는 실제로는 생산자 미리보기에서만 보인다.</p></div>
     </div>
-    <p class="anno" style="margin-top:12px">검산: 바뀌는 곳 6개 화면 모두 새 부품 없이 기존 글자 변형(<code>sub</code>·<code>meta</code>·<code>na</code>·<code>statusblock</code>)과 기존 점선 칸만 쓴다. 새 문구는 4개(‘당도 등록 전’, ‘궁금하면 1:1 채팅으로 농가에 물어보세요’, ‘배송비 별도’, ‘받는 시기를 정하면 여기에 보여요’), 나머지는 이미 코드·Figma에 있는 이름이다.</p>
+    <p class="anno" style="margin-top:12px">검산: 바뀌는 곳 모두 새 부품 없이 기존 글자 변형(<code>sub</code>·<code>meta</code>·<code>na</code>·<code>statusblock</code>·<code>Fold</code>)만 쓴다. 새 문구는 ‘당도 등록 전’, ‘궁금하면 1:1 채팅으로 농가에 물어보세요’, ‘M월 ○순 이후 도착 예상’, ‘받는 시기 확정 전’, ‘받는 시기는 예약 전에 확정돼요.’, ‘배송비 확정 전’, ‘배송비는 확정 전이에요.’이고, 나머지는 이미 코드·Figma에 있는 이름이다.</p>
   </section>
 
   <section>
@@ -411,9 +412,10 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
         <tr><td>0명, 마감 없음</td><td class="copy">(줄 없음)</td><td>0명 예약 · 마감 </td></tr>
         <tr><td rowspan="3">배송비</td><td>무료</td><td class="copy">무료배송</td><td rowspan="3">SCR-04, 미리보기</td><td>그대로</td></tr>
         <tr><td>별도 + 금액</td><td class="copy">배송비 4,000원</td><td>그대로</td></tr>
-        <tr><td>별도 + 금액 없음</td><td class="copy">배송비 별도</td><td>배송비 </td></tr>
-        <tr><td rowspan="2">받는 시기 · 최대 지연</td><td>둘 다 있음</td><td class="copy">11월 10일~20일 도착 예정 / 11월 27일까지 보내지 못하면 자동으로 전액 환불해 드려요.</td><td rowspan="2">SCR-04, 미리보기</td><td>그대로</td></tr>
-        <tr><td>비어 있음 (미리보기만)</td><td class="copy">점선 칸 ‘받는 시기를 정하면 여기에 보여요’, 환불 약속 문장 없음</td><td>오늘~오늘 도착 예정</td></tr>
+        <tr><td>별도 + 금액 없음</td><td class="copy">배송비 확정 전 (펼치면 ‘배송비는 확정 전이에요.’) <span class="tag">PM 수정</span></td><td>배송비 </td></tr>
+        <tr><td rowspan="3">받는 시기 · 최대 지연</td><td>확정</td><td class="copy">11월 10일~20일 도착 예정 (카드 ‘도착’) / 11월 27일까지 보내지 못하면 자동으로 전액 환불해 드려요.</td><td rowspan="3">SCR-01 카드, SCR-04, 미리보기 (<code>deliveryText</code>)</td><td>그대로</td></tr>
+        <tr><td>확정 전 · 예약 기간 있음</td><td class="copy">10월 중순 이후 도착 예상 / 받는 시기는 예약 전에 확정돼요. (최대 지연 없으면 환불 기한 문장 없음) <span class="tag">PM 수정</span></td><td>오늘~오늘 도착 예정</td></tr>
+        <tr><td>확정 전 · 예약 기간 없음</td><td class="copy">받는 시기 확정 전 / 받는 시기는 예약 전에 확정돼요.</td><td>오늘~오늘 도착 예정</td></tr>
         <tr><td rowspan="6">예약 가능 상태 (<code>availability</code>)</td><td><code>AVAILABLE</code></td><td class="copy">가격</td><td rowspan="6">카드 가격 자리(SCR-01·02·03), SCR-04 상태 제목, SCR-23 생산자 목록 보조 상태</td><td>그대로</td></tr>
         <tr><td><code>NOT_OPEN</code></td><td class="copy">예약 시작 전 (+ 상세 ‘다음 예약은 M월 D일에 열려요.’, 생산자 ‘ · 판매 기간 확인’)</td><td>카드 ‘현재 예약 불가’, 생산자 ‘예약 대기 · 판매 기간 확인’</td></tr>
         <tr><td><code>PERIOD_SOLD_OUT</code></td><td class="copy">이번 기간 품절 (+ 상세 ‘다음 예약은 M월 D일에 열려요.’)</td><td>카드 ‘현재 예약 불가’, 생산자 ‘현재 기간 품절’</td></tr>
@@ -429,7 +431,7 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
     <h2>승인 뒤 바뀌는 코드 (일반 위험, 서버·API 변경 없음)</h2>
     <div class="cols">
       <div class="card"><h3><code>packages/ui</code></h3><ul>
-        <li><code>format.ts</code>: <code>joinMeta(...parts)</code>(빈 조각 버림), <code>shippingFee(type, fee)</code>(“무료배송”/“배송비 4,000원”/“배송비 별도”), <code>brixLabel(expected)</code>, <code>availabilityLabel(a)</code> 표 추가</li>
+        <li><code>format.ts</code>: <code>joinMeta</code>·<code>reservedText</code>·<code>closesText</code>(빈 조각 버림), <code>shippingText</code>(“무료배송”/“배송비 4,000원”/“배송비 확정 전”), <code>deliveryText</code>(확정/‘예상’/확정 전), <code>brixText</code>, <code>AVAILABILITY_LABEL</code>·<code>unavailableLabel</code> 추가</li>
         <li><code>BrixReading.tsx</code>: 셋째 상태(무브 2)</li>
         <li><code>ProductPage.tsx</code>: <code>AVAILABILITY</code> 표를 <code>availabilityLabel</code>로, 배송비 줄을 <code>shippingFee()</code>로, 받는 시기·최대 지연 null 처리</li>
         <li><code>Storefront.tsx</code> <code>Price</code>: <code>availability</code>를 받아 이름 표시(<code>soldOut</code>만 오면 지금처럼)</li>
@@ -439,7 +441,7 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
         <li><code>apps/consumer/src/app/(tabs)/index.tsx</code>: 메타 줄 <code>joinMeta</code>, <code>Price</code>에 <code>availability</code></li>
         <li><code>apps/consumer/src/app/(tabs)/farms/index.tsx</code>: <code>Price</code>에 <code>availability</code></li>
         <li><code>apps/producer/src/lib/productGroups.ts</code>: <code>availabilityLabel</code> 사용</li>
-        <li><code>apps/producer/src/lib/BuyerPreview.tsx</code>: 오늘 날짜로 채우지 않음(<code>ProductPageData</code>의 받는 시기·최대 지연을 null 허용으로 넓히거나 미리보기 <code>slots.sale</code>로 점선 칸 — 구현 때 작은 쪽으로)</li>
+        <li><code>apps/producer/src/lib/BuyerPreview.tsx</code>: 오늘 날짜로 채우지 않음(<code>ProductPageData</code>의 받는 시기·최대 지연을 null 허용으로 넓히고, 상세가 <code>deliveryText()</code>로 ‘예상’/‘확정 전’을 그림)</li>
       </ul></div>
       <div class="card"><h3>범위 밖</h3><ul>
         <li>AI 당도 추출(<code>server/app/ai/grounding.py</code>) — DEV-228, 고위험</li>
@@ -457,9 +459,9 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
         <li><code>AC-07-2</code>: 실측·예상 null/null → ‘당도 등록 전’, 예상 12 → ‘당도 예상 12Brix’, 어떤 조합도 “-Brix”를 만들지 않음</li>
         <li><code>AC-07-3</code>: <code>availabilityLabel</code> 6값, 같은 표를 쓰는지(소비자·생산자 결과 같음)</li>
         <li>SCR-01 메타: <code>joinMeta</code> (0명, D-9) → ‘마감 D-9’, (12명, null) → ‘12명 예약’, (0, null) → ‘’</li>
-        <li>배송비: (<code>SEPARATE</code>, null) → ‘배송비 별도’, 끝이 공백으로 끝나는 결과 없음</li>
+        <li>배송비: (<code>SEPARATE</code>, null·0) → ‘배송비 확정 전’, 끝이 공백으로 끝나는 결과 없음</li>
         <li>시각: <code>time("2026-10-07T00:40:00Z")</code> → ‘오전 9:40’, 정오·자정</li>
-        <li>미리보기: <code>toPageData</code>가 빈 받는 시기를 오늘로 채우지 않음</li>
+        <li>받는 시기: 확정 → ‘11월 10일~20일 도착 예정’, 확정 전 → 마지막 예약 끝날의 월·순 ‘이후 도착 예상’(한국 시간 경계), 근거 없음 → ‘받는 시기 확정 전’</li>
       </ul></div>
       <div class="card"><h3>바꿀 기존 테스트</h3><ul>
         <li><code>scripts/test-producer-status.mjs:32</code>의 기대값 ‘현재 기간 품절’ → ‘이번 기간 품절’(규칙이 바뀌어서 고치는 것, 약하게 하지 않음)</li>
@@ -478,10 +480,10 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
       <thead><tr><th>문서</th><th>지금</th><th>바꿀 줄</th></tr></thead>
       <tbody>
         <tr><td><code>docs/spec/screens.md</code> 3장 공통 규칙</td><td>빈 값 규칙 없음, ‘날짜·금액’ 줄에 시각 형식 없음</td><td><b>빈 값</b>: 라벨+값은 한 덩어리로 보고 값이 없으면 라벨째 뺀다. ‘-’·‘0명’·오늘 날짜 같은 자리표시자를 쓰지 않는다. 미리보기의 빈 칸은 점선(DEV-184). / <b>날짜·금액</b> 끝에: 하루 안 시각은 ‘오전 9:40’(시 앞 0 없음), 마감 시각만 ‘01:06’</td></tr>
-        <tr><td><code>docs/spec/screens.md</code> SCR-01·SCR-04</td><td>“n명 예약”, “배송비”</td><td>SCR-01: ‘n명 예약’은 1명부터, 없으면 마감만. SCR-04: 당도 세 상태(실측/예상/‘당도 등록 전’), 배송비 별도 금액 없음 ‘배송비 별도’, 예약 불가 이름은 ia.md 레이블 표</td></tr>
+        <tr><td><code>docs/spec/screens.md</code> SCR-01·SCR-04</td><td>“n명 예약”, “배송비”</td><td>SCR-01: ‘n명 예약’은 1명부터, 없으면 마감만. SCR-04: 당도 세 상태(실측/예상/‘당도 등록 전’), 배송비 별도 금액 없음 ‘배송비 확정 전’, 받는 시기 확정 전 ‘M월 ○순 이후 도착 예상’, 예약 불가 이름은 ia.md 레이블 표</td></tr>
         <tr><td><code>docs/spec/ia.md</code> 4장 레이블 표</td><td>품절 — 단계 물량 소진 — 매진</td><td>이번 기간 품절(<code>PERIOD_SOLD_OUT</code>) · 전체 물량 품절(<code>TOTAL_SOLD_OUT</code>) · 예약 시작 전(<code>NOT_OPEN</code>) · 판매 일시 중지(<code>PAUSED</code>) · 예약 종료(<code>ENDED</code>). 쓰지 않는 말: 매진, 현재 예약 불가, 현재 기간 품절</td></tr>
         <tr><td><code>docs/spec/functional/FEAT-07-product-detail.md</code> 입력·검증</td><td>실측이면 실측, 없으면 ‘예상’</td><td>뒤에 “둘 다 없으면 ‘당도 등록 전’(숫자를 만들지 않음, M-11)” — 동작 추가라 wiki 영문 요약도 같이</td></tr>
-        <tr><td><code>docs/spec/functional/rules.md</code></td><td>M-11·M-15</td><td>바꾸지 않음(근거로만 가리킴). 측정·예상 문구 규칙은 M-15와 같은 결</td></tr>
+        <tr><td><code>docs/spec/functional/rules.md</code></td><td>M-11·M-15</td><td>새 <b>M-24</b>: 자리표시자 금지, 라벨째 빼기, 확정 전 근사값은 저장 데이터에서 유도할 때만 ‘예상’을 붙여 보임(받는 시기 = 마지막 예약 끝날의 월·순 ‘이후’), 근거 없으면 ‘확정 전’, 결제 전에는 확정 값만(R-03). FEAT-07에 <b>AC-07-7</b></td></tr>
         <tr><td><code>docs/design/README.md</code></td><td>컴포넌트 목록 ‘상태 배지(칩은 D-day·품절만…)’</td><td>“빈 값” 한 줄 + 이 보드 링크, 예약 불가 이름은 ia 표</td></tr>
         <tr><td><code>docs/wiki/Requirements-and-Specifications.md</code></td><td>AC-07-2·AC-07-3 요약</td><td>영문 한 줄씩</td></tr>
       </tbody>
@@ -489,14 +491,14 @@ pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1
   </section>
 
   <section>
-    <h2>열린 질문 (PM)</h2>
+    <h2>PM 결정 (11/04)</h2>
     <div class="cols">
-      <div class="card decision"><h3>Q1. 당도가 둘 다 없을 때</h3><p><b>A(추천)</b> ‘당도 등록 전 / 궁금하면 1:1 채팅으로 농가에 물어보세요’ 줄을 남긴다. <b>B</b> 블록을 숨긴다. A는 당도 중심 서비스에서 빈 정보도 알려 주고 M-15 흐름과 이어진다.</p></div>
-      <div class="card decision"><h3>Q2. 예약 0명 카드</h3><p><b>추천</b>: 수를 빼고 ‘마감 D-9’만. 대안: ‘첫 예약을 받아요 · 마감 D-9’. 메타 줄이 통째로 비면 줄 자리(18px)를 남길지 — 추천은 남기지 않음(카드는 가로 스크롤이라 높이 차이가 잘 안 보임).</p></div>
-      <div class="card decision"><h3>Q3. 예약 불가 이름 표 승인</h3><p>카드 가격 자리 ‘현재 예약 불가’를 상태 이름으로 바꾼다. DEV-215에서 승인한 “판매 품목에는 ‘현재 예약 불가’”가 ‘판매 일시 중지’로 바뀌는 것이라 다시 확인한다. ia 레이블 ‘품절’은 ‘이번 기간 품절’·‘전체 물량 품절’ 둘로 나뉜다.</p></div>
-      <div class="card decision"><h3>Q4. 생산자 ‘예약 대기 · 판매 기간 확인’</h3><p>‘예약 시작 전 · 판매 기간 확인’으로 이름만 맞출지(추천), 생산자 쪽은 그대로 둘지.</p></div>
-      <div class="card decision"><h3>Q5. Brix 띄어쓰기</h3><p>실측 큰 숫자는 ‘11.8 Brix’, 예상 줄은 ‘12Brix’, design README 예시는 둘 다 붙여 씀. 이번 이슈에서 맞출지 — 추천은 그대로 두고(큰 숫자 줄은 Figma 기준) 별도로.</p></div>
-      <div class="card decision"><h3>Q6. Figma v6</h3><p>새 부품 없이 상태 프레임 문구만 바뀜(상세 당도 셋째 상태, 홈 카드 0명, 판매 품목 이름, 미리보기 점선 받는 시기). 승인 뒤 Figma v6 반영 요청(PR <code>Figma:</code> 후속).</p></div>
+      <div class="card decision"><h3>Q1. 당도가 둘 다 없을 때 → A</h3><p><b>A(추천)</b> ‘당도 등록 전 / 궁금하면 1:1 채팅으로 농가에 물어보세요’ 줄을 남긴다. <b>B</b> 블록을 숨긴다. A는 당도 중심 서비스에서 빈 정보도 알려 주고 M-15 흐름과 이어진다.</p></div>
+      <div class="card decision"><h3>Q2. 예약 0명 카드 → 수 빼고 ‘마감 D-9’, 빈 줄 자리 없음</h3><p><b>추천</b>: 수를 빼고 ‘마감 D-9’만. 대안: ‘첫 예약을 받아요 · 마감 D-9’. 메타 줄이 통째로 비면 줄 자리(18px)를 남길지 — 추천은 남기지 않음(카드는 가로 스크롤이라 높이 차이가 잘 안 보임).</p></div>
+      <div class="card decision"><h3>Q3. 예약 불가 이름 표 → 승인(DEV-215 문구 교체 포함)</h3><p>카드 가격 자리 ‘현재 예약 불가’를 상태 이름으로 바꾼다. DEV-215에서 승인한 “판매 품목에는 ‘현재 예약 불가’”가 ‘판매 일시 중지’로 바뀌는 것이라 다시 확인한다. ia 레이블 ‘품절’은 ‘이번 기간 품절’·‘전체 물량 품절’ 둘로 나뉜다.</p></div>
+      <div class="card decision"><h3>Q4. 생산자 목록 → ‘예약 시작 전’</h3><p>‘예약 대기 · 판매 기간 확인’ 대신 소비자와 같은 ‘예약 시작 전’.</p></div>
+      <div class="card decision"><h3>Q5. Brix 띄어쓰기 → 그대로</h3><p>실측 큰 숫자는 ‘11.8 Brix’, 예상 줄은 ‘12Brix’, design README 예시는 둘 다 붙여 씀. 이번 이슈에서 맞출지 — 추천은 그대로 두고(큰 숫자 줄은 Figma 기준) 별도로.</p></div>
+      <div class="card decision"><h3>Q6. Figma v6 → 후속</h3><p>새 부품 없이 상태 프레임 문구만 바뀜(상세 당도 셋째 상태, 홈 카드 0명, 판매 품목 이름, 미리보기 점선 받는 시기). 승인 뒤 Figma v6 반영 요청(PR <code>Figma:</code> 후속).</p></div>
     </div>
   </section>
 </div>
