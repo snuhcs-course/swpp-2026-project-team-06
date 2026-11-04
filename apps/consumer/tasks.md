@@ -790,7 +790,7 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 
 ### 범위 (수정 허용 경로)
 - 1단계(제안, 이번 커밋): `docs/design/proposals/dev-207-order-status-copy.html`, 이 섹션
-- 2단계(승인 뒤 개발): `apps/consumer/src/lib/orderText.ts`, `apps/consumer/src/app/(tabs)/orders/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`, `apps/consumer/src/lib/DepositCard.tsx`, `apps/producer/src/lib/views.tsx`(PM 결정 3), `apps/producer/tasks.md`, `scripts/test-order-text.mjs`, `package.json`(`test:mock` 한 줄), `scripts/e2e/order-status-copy.spec.ts`, `docs/spec/screens.md`, `docs/spec/ia.md`, `docs/spec/functional/FEAT-09-mock-payment.md`, `docs/spec/functional/FEAT-11-cancel-before-shipping.md`, `docs/spec/functional/rules.md`(R-28 한 문장), `docs/design/README.md`, `docs/wiki/Requirements-and-Specifications.md`
+- 2단계(승인 뒤 개발): `apps/consumer/src/lib/orderText.ts`, `apps/consumer/src/app/(tabs)/orders/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`, `apps/consumer/src/lib/DepositCard.tsx`, `apps/consumer/spec.md`(구현 결정 한 절), `apps/producer/src/lib/views.tsx`(PM 결정 3), `apps/producer/tasks.md`, `scripts/test-order-text.mjs`, `package.json`(`test:mock` 한 줄), `scripts/e2e/order-status-copy.spec.ts`, `docs/spec/screens.md`, `docs/spec/ia.md`, `docs/spec/functional/FEAT-09-mock-payment.md`, `docs/spec/functional/FEAT-11-cancel-before-shipping.md`, `docs/spec/functional/rules.md`(R-28 한 문장), `docs/design/README.md`, `docs/wiki/Requirements-and-Specifications.md`
 - 범위 밖: 서버 상태 모델·`server/app/orders/**`(이슈 1안, PM 결정 2), 주문 목록 필터(C8), 상세 맨 위 문의 버튼(C14)
 
 ### 체크리스트
@@ -816,3 +816,5 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 ### 기록
 - 11/04 origin/main 3eee9d0에서 시작. 문구 출처 확인: 목록 `headline()`·`subline()`, 상세 `title`·`sentence`·`Bar`·취소 시트, `DepositCard` 기한 줄, `STATUS_LABEL.REFUNDED`. 제안 보드 작성, PM 승인 대기. 코드는 아직 바꾸지 않았다.
 - 11/04 PM 승인 뒤 보드 보완(화면 1에 알리기 전/알린 뒤 카드를 나란히, 예시 데이터 표시) → 구현.
+- 11/04 검증: `npm run typecheck` 통과(5개 워크스페이스) · `npm run test:mock` 73/73(새 `test-order-text.mjs` 10개 포함) · 실서버 통합(`FARMCLUB_INTEGRATION_SKIP_DOCKER=1`, DB `farmclub_dev207`, `run-integration.mjs scripts/e2e/order-status-copy.spec.ts scripts/e2e/checkout-and-fulfillment.spec.ts`): 시나리오 7/7, Playwright 3/3. 첫 실행에서 새 spec 1건 실패(서버 `FIXED_NOW` 10/07 때문에 목록이 ‘입금 확인 늦어짐’으로 보임) → 두 문구를 모두 받도록 고쳐 통과.
+- 11/04 AI 1차 리뷰(pr-review): must 없음. should 1건(구현 결정을 `spec.md`에) 반영.
