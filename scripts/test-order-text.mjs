@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as t from "../apps/consumer/src/lib/orderText.ts";
-import { deadline, md, time, won } from "../packages/ui/src/format.ts";
+import { deadline, md, period, time, won } from "../packages/ui/src/format.ts";
 
 const f = { md, deadline, time, won };
 const NOW = Date.parse("2026-11-03T14:00:00Z"); // 11월 3일 23:00 KST
@@ -137,4 +137,34 @@ test("DEV-207: other statuses keep their labels and the cancel action", () => {
   assert.equal(t.listHeadline(delivered, NOW), "배송 완료 · 구매 확정해 주세요");
   const changing = { ...reserved, actions: ["cancel", "respondDeliveryWindow"] };
   assert.equal(t.listHeadline(changing, NOW), "받는 시기 변경 · 답해 주세요");
+});
+
+// DEV-226 (FEAT-10 AC-10-8, SCR-13): 같은 상품을 여러 번 주문해도 줄만 보고 가른다
+const window = { start: "2026-11-10", end: "2026-11-20" };
+const first = { ...reported, orderNo: "FC-1103-0007", createdAt: "2026-11-03T01:00:00Z", deliveryWindow: window, proposedDeliveryWindow: null };
+const second = { ...first, orderNo: "FC-1104-0013", createdAt: "2026-11-04T03:00:00Z" };
+
+test("AC-10-8: repeated orders of one product differ by order number and order date", () => {
+  assert.equal(t.listRef(first, f), "FC-1103-0007 · 11월 3일 주문");
+  assert.equal(t.listRef(second, f), "FC-1104-0013 · 11월 4일 주문");
+  // DEV-207 굵은 줄·부제는 그대로라 두 줄을 가르는 건 맨 아래 줄뿐
+  assert.equal(t.listHeadline(first, NOW), t.listHeadline(second, NOW));
+  assert.equal(t.listSubline(first, f), t.listSubline(second, f));
+  assert.notEqual(t.listRef(first, f), t.listRef(second, f));
+});
+
+test("AC-10-8: order date follows Seoul time, not UTC", () => {
+  // 11월 3일 23:30 UTC = 11월 4일 08:30 KST
+  assert.equal(t.listRef({ orderNo: "FC-1104-0001", createdAt: "2026-11-03T23:30:00Z" }, f), "FC-1104-0001 · 11월 4일 주문");
+});
+
+test("AC-10-8: deposit-stage rows keep the delivery window as its own line", () => {
+  assert.equal(t.listWhen(first, period), "11월 10일~20일 도착 예정");
+  assert.equal(t.listWhen({ ...before, deliveryWindow: window, proposedDeliveryWindow: null }, period), "11월 10일~20일 도착 예정");
+});
+
+test("AC-10-8: other stages and pending window changes add no extra line", () => {
+  assert.equal(t.listWhen({ ...first, status: "RESERVED" }, period), null);
+  assert.equal(t.listWhen({ ...first, status: "REFUNDED" }, period), null);
+  assert.equal(t.listWhen({ ...first, proposedDeliveryWindow: { start: "2026-11-24", end: "2026-12-04" } }, period), null);
 });

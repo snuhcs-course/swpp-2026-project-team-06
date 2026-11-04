@@ -49,13 +49,20 @@ function evaluatorMode(param?: string) {
 }
 
 export default function Login() {
-  const { next, reason, evaluator } = useLocalSearchParams<{
+  const { next, reason, evaluator, from } = useLocalSearchParams<{
     next?: string;
     reason?: string;
     evaluator?: string;
+    from?: string;
   }>();
   const router = useRouter();
-  const { refresh, resume, clearResume } = useSession();
+  const { refresh, resume: pending, clearResume } = useSession();
+  // 이어서 할 행동은 관문 시트에서 온 로그인(from)만 쓴다. 관문 로그인을 브라우저 뒤로로 나가면 행동이 남는데,
+  // 나중에 직접 연 로그인(내 정보 버튼·로그인 풀림 등)이 그 행동을 이어 붙이지 않게 지운다(DEV-222, 결정 25)
+  const resume = from ? pending : null;
+  useEffect(() => {
+    if (!from) clearResume();
+  }, [from, clearResume]);
   const { data: all, error, reload } = useAsync(() => auth.testAccounts(), []);
   // 카카오 로그인 사용 여부(ADR 0003). 꺼져 있으면 버튼을 숨긴다
   const kakao = useAsync(() => auth.kakaoConfig(), []);
