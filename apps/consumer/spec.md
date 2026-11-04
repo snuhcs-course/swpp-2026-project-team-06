@@ -120,3 +120,12 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - SCR-02 FarmList 상태는 `src/lib/farmSearch.ts` 리듀서(`start`·`success`·`fail`) 한곳에서 바꾼다. 요청마다 번호(`useRef`)를 붙이고 마지막 요청이 아닌 응답은 버린다. 페이지를 합칠 때 `farmId`로 거른다.
 - 실패 종류로 재시도를 가른다(FEAT-06 E4): 새 검색(reset) 실패는 검색칸 아래 `Notice tone="error"` + ‘다시 시도’(cursor 없이 처음부터, 목록을 바꿈), ‘더 보기’(more) 실패는 목록 아래 한 줄 + 같은 cursor로 이어 받기. 목록이 없을 때 실패는 `LoadError` 그대로.
 - 오류 상자 본문은 서버 메시지 대신 고정 문구 두 가지(`ApiError.status === 0`이면 연결 끊김). 머리줄·문구는 `listHeader`·`failureCopy`, `scripts/test-farm-search.mjs`가 React Native 없이 검사한다.
+
+## 주문서 409 분기 (DEV-216·DEV-218, 2026-11-04)
+
+- 안내·버튼은 `src/lib/checkoutConflict.ts` 순수 함수(`conflictView`)가 `details.reason`·`details`·다시 읽은 상품 `availability`로 정한다. 서버 `message`와 상품 `soldOut`은 쓰지 않는다(`soldOut`은 서버에서 판매 중지를 보지 않음, DEV-215).
+- ‘바뀐 금액으로 예약하기’는 `STAGE_CHANGED`이면서 `details.current`가 있을 때만. 주문 생성 본문에 화면이 보인 기간·단가·중량(`seenValues`)을 싣는다(FEAT-08 AC-08-8).
+- 409 뒤에는 주문·입금 멱등 키를 둘 다 새로 만들고 받는 곳·메모·동의·수량은 지우지 않는다. `IDEMPOTENCY_MISMATCH`는 새 키로 한 번만 다시 보낸다.
+- 판매 중지·계좌 없음의 ‘다시 확인하기’는 상품을 다시 읽어 열렸으면 안내를 지우되, 처음 보낸 값과 지금 값이 다르면 가격 안내로 바꾼다(`recheckedConflict`). 품절·물량·수량 안내는 옵션·수량을 바꾸면 사라진다.
+- 입금 기한이 지나 SCR-11에서 돌아온 경우(`changed=1`)는 `EXPIRED`로 ‘입금 기한이 지나 예약이 취소됐어요’ + ‘다시 예약하기’.
+- 보드 `docs/design/proposals/dev-216-checkout-stage-changed.html`, 테스트 `scripts/test-checkout-conflict.mjs`·`scripts/e2e/checkout-stage-changed.spec.ts`.

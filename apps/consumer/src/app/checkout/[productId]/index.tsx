@@ -1,4 +1,5 @@
 // SCR-10 주문서 (FEAT-08, R-03 동의 4개 + 제3자 제공은 policy.md 2장 문구, 항목은 ORDER_CONSENT_KEYS) — design: scr-10, s-10-noconsent, s-10-remote, s-10-stagechanged, s-10-noaddr
+// 409 안내·버튼은 lib/checkoutConflict.ts(AC-08-8·AC-08-9, DEV-216·DEV-218, 보드 docs/design/proposals/dev-216-checkout-stage-changed.html)
 import { track } from "@farmclub/analytics";
 import {
   ApiError,
@@ -34,9 +35,17 @@ import {
   won,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import {
+  availabilityConflict,
+  clearsOnSelection,
+  conflictView,
+  recheckedConflict,
+  seenValues,
+  type CheckoutConflict,
+} from "../../../lib/checkoutConflict";
 import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet } from "../../../lib/views";
@@ -76,9 +85,12 @@ export default function Checkout() {
   const [sheet, setSheet] = useState<null | "option" | "address">(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [conflictMsg, setConflictMsg] = useState<string | null>(
-    params.changed ? "예약 기간 또는 가격이 바뀌었어요" : null,
+  // 409 또는 입금 기한 만료 복귀(SCR-11 → changed=1). 입력값은 어떤 경우에도 지우지 않는다
+  const [conflict, setConflict] = useState<CheckoutConflict | null>(() =>
+    params.changed ? { reason: "EXPIRED", details: {} } : null,
   );
+  // 마지막으로 보낸 '본 값'(다시 확인하기 뒤 가격도 바뀌었는지 비교)
+  const sentRef = useRef<ReturnType<typeof seenValues>>(null);
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
   // 입금 안내(물량 선점)도 멱등 키로 한 번만(AC-09-3)
   const [depositKey, setDepositKey] = useState(newIdempotencyKey);
@@ -140,7 +152,23 @@ export default function Checkout() {
   const consentTotal = ORDER_CONSENT_KEYS.length;
   const agreed = agreedCount(consents);
   const allAgreed = agreed === consentTotal;
-  const canPay = !!recipient && allAgreed && !!p && !p.soldOut;
+  // 예약할 수 있나는 서버 soldOut 대신 availability로 본다(soldOut은 판매 중지를 보지 않음, DEV-215 전).
+  // 409 안내가 없거나 기한 만료 복귀 안내만 있을 때는 상품 availability가 앞선다
+  const shown =
+    p && (!conflict || conflict.reason === "EXPIRED")
+      ? (availabilityConflict(p) ?? conflict)
+      : conflict;
+  const view = p
+    ? conflictView(
+        shown,
+        { product: p, optionId: opt?.optionId ?? "", quantity: qty },
+        { md, won },
+      )
+    : null;
+  const leaving = view?.primary.action === "backToProduct";
+  const canPay =
+    leaving ||
+    (!!recipient && allAgreed && !!p && (view ? view.primary.enabled : true));
 
   const consentText = useMemo(() => {
     if (!p) return null;
@@ -171,10 +199,43 @@ export default function Checkout() {
     return ORDER_CONSENT_KEYS.map((key) => ({ key, ...text[key] }));
   }, [p]);
 
-  async function submit() {
+  function backToProduct() {
+    router.replace(`/products/${params.productId}`);
+  }
+
+  // '다시 확인하기': 상품을 다시 읽어 예약할 수 있으면 안내를 지운다. 가격도 바뀌었으면 가격 안내로
+  async function recheck() {
+    if (!opt) return;
+    setBusy(true);
+    try {
+      const fresh = await catalog.product(params.productId);
+      product.setData(() => fresh);
+      if (
+        conflict?.reason === "SALES_PAUSED" &&
+        fresh.availability === "PAUSED"
+      )
+        toast.show("아직 예약을 쉬고 있어요");
+      else if (fresh.availability === "AVAILABLE")
+        setConflict(
+          recheckedConflict(sentRef.current, fresh, opt.optionId, total),
+        );
+      else setConflict(null);
+    } catch (e) {
+      toast.fail(e, () => void recheck());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submit(retried = false) {
+    if (leaving) return backToProduct();
     if (!p || !opt || !recipient) return;
     setBusy(true);
     setErrors({});
+    // 주문서가 지금 보여 준 기간·단가·중량. 서버가 지금 값과 비교한다(AC-08-8)
+    const seen = seenValues(p, opt.optionId);
+    sentRef.current = seen;
+    const shownTotal = total;
     try {
       const o = await orders.create(
         {
@@ -190,6 +251,13 @@ export default function Checkout() {
           consents,
           consentVersion: CONSENT_VERSION,
           saveAddress,
+          ...(seen
+            ? {
+                expectedStageId: seen.stageId ?? undefined,
+                expectedUnitPrice: seen.unitPrice ?? undefined,
+                expectedUnitWeightGrams: seen.unitWeightGrams ?? undefined,
+              }
+            : {}),
         },
         idemKey,
       );
@@ -212,11 +280,24 @@ export default function Checkout() {
       });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        // 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 다시 확인받는다
-        setConflictMsg(e.message);
-        setIdemKey(newIdempotencyKey());
+        const reason = String(e.details.reason ?? "");
+        // 409도 멱등 결과로 저장되므로 키를 둘 다 새로 만든다
+        const nextOrderKey = newIdempotencyKey();
+        setIdemKey(nextOrderKey);
         setDepositKey(newIdempotencyKey());
-        await product.reload();
+        if (reason === "IDEMPOTENCY_MISMATCH") {
+          // 같은 키에 다른 본문(앱 버그): 새 키로 한 번만 다시 보낸다
+          if (retried) setErrors({ _: "잠시 뒤 다시 시도해 주세요." });
+          else setRetryKey(nextOrderKey);
+        } else {
+          // 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 안내는 reason으로 고른다
+          setConflict({
+            reason,
+            details: e.details,
+            firstTotal: reason === "STAGE_CHANGED" ? shownTotal : undefined,
+          });
+          await product.reload();
+        }
       } else if (e instanceof ApiError && e.details.fields) {
         setErrors(e.details.fields);
       } else if (isNetworkError(e)) {
@@ -231,6 +312,16 @@ export default function Checkout() {
       setBusy(false);
     }
   }
+
+  // IDEMPOTENCY_MISMATCH 뒤 새 키가 state에 들어간 다음 한 번 다시 보낸다
+  const [retryKey, setRetryKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (retryKey && retryKey === idemKey) {
+      setRetryKey(null);
+      void submit(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryKey, idemKey]);
 
   if (product.error && !p)
     return (
@@ -252,14 +343,25 @@ export default function Checkout() {
       />
       <TestBand text="테스트 서비스예요. 실제 입금·배송은 일어나지 않아요." />
       <Scroll bottom={170}>
-        {conflictMsg && p ? (
+        {view ? (
           <Notice
             style={{ margin: 20, marginBottom: 0 }}
-            title={conflictMsg}
-            body={
-              p.soldOut
-                ? "지금은 예약할 수 없어요. 다음 예약 기간가 열리면 다시 예약해 주세요."
-                : `지금 가격은 ${won(unit)}이에요. 입력한 내용은 그대로 두었어요.`
+            title={view.title}
+            body={view.body}
+            action={
+              view.inline ? (
+                <View style={{ alignItems: "flex-start" }}>
+                  <Button
+                    label={view.inline.label}
+                    variant="text"
+                    onPress={() =>
+                      view.inline?.action === "recheck"
+                        ? void recheck()
+                        : setSheet("option")
+                    }
+                  />
+                </View>
+              ) : undefined
             }
           />
         ) : null}
@@ -289,9 +391,11 @@ export default function Checkout() {
               </T>
               <T variant="sub" muted>
                 {p.farmName} ·{" "}
-                {stage
-                  ? `${`${md(stage.startsAt)} ~ ${md(stage.endsAt)}`} ${won(unit)}`
-                  : "품절"}
+                {!stage
+                  ? "지금은 예약 기간이 아니에요"
+                  : shown?.reason === "SOLD_OUT"
+                    ? "품절"
+                    : `${`${md(stage.startsAt)} ~ ${md(stage.endsAt)}`} ${won(unit)}`}
               </T>
             </View>
             <Button
@@ -375,34 +479,55 @@ export default function Checkout() {
           />
         </Section>
 
-        <Section title="금액">
-          <View style={{ gap: 8 }}>
-            <Line k={`상품 ${won(unit)} × ${qty}`} v={won(unit * qty)} />
-            <Line k="배송비" v={shipping ? won(shipping) : "무료"} />
-            {remoteFee ? (
-              <Line k="도서산간 추가 운임" v={won(remoteFee)} />
-            ) : null}
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                paddingTop: 12,
-                marginTop: 4,
-                borderTopWidth: 1,
-                borderTopColor: tokens.color.border,
-              }}
-            >
-              <T variant="body" weight="semibold">
-                합계
-              </T>
-              <T variant="heading">{won(total)}</T>
+        {view?.hideAmount ? null : (
+          <Section title="금액">
+            <View style={{ gap: 8 }}>
+              <Line k={`상품 ${won(unit)} × ${qty}`} v={won(unit * qty)} />
+              <Line k="배송비" v={shipping ? won(shipping) : "무료"} />
+              {remoteFee ? (
+                <Line k="도서산간 추가 운임" v={won(remoteFee)} />
+              ) : null}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  paddingTop: 12,
+                  marginTop: 4,
+                  borderTopWidth: 1,
+                  borderTopColor: tokens.color.border,
+                }}
+              >
+                <T variant="body" weight="semibold">
+                  합계
+                </T>
+                <T variant="heading">{won(total)}</T>
+              </View>
+              {view?.firstTotal != null && view.firstTotal !== total ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <T variant="sub" muted>
+                    처음 본 합계
+                  </T>
+                  <T
+                    variant="sub"
+                    muted
+                    style={{ textDecorationLine: "line-through" }}
+                  >
+                    {won(view.firstTotal)}
+                  </T>
+                </View>
+              ) : null}
             </View>
-          </View>
-          <T variant="sub" muted>
-            예약한 때의 가격으로 확정돼요. 나중에 가격이 바뀌어도 그대로예요.
-          </T>
-        </Section>
+            <T variant="sub" muted>
+              예약한 때의 가격으로 확정돼요. 나중에 가격이 바뀌어도 그대로예요.
+            </T>
+          </Section>
+        )}
 
         <Section title="예약 전 확인">
           <Checkbox
@@ -481,7 +606,11 @@ export default function Checkout() {
 
       <BottomBar
         summary={
-          !recipient ? (
+          view?.summary ? (
+            <T variant="sub" style={{ flex: 1 }}>
+              {view.summary}
+            </T>
+          ) : !recipient ? (
             <T variant="sub" style={{ flex: 1 }}>
               받는 곳을 입력하면 예약할 수 있어요
             </T>
@@ -493,15 +622,15 @@ export default function Checkout() {
             `${opt?.label ?? ""} × ${qty} · ${remoteFee ? `도서산간 ${won(remoteFee)}` : shipping ? `배송비 ${won(shipping)}` : "무료배송"}`
           )
         }
-        summaryRight={recipient && allAgreed ? won(total) : undefined}
+        summaryRight={
+          recipient && allAgreed && !view?.hideAmount ? won(total) : undefined
+        }
       >
         <Button
-          label={
-            conflictMsg && !p?.soldOut ? "바뀐 금액으로 예약하기" : "예약하기"
-          }
+          label={view?.primary.label ?? "예약하기"}
           disabled={!canPay}
           loading={busy}
-          onPress={submit}
+          onPress={() => void submit()}
         />
       </BottomBar>
 
@@ -513,6 +642,8 @@ export default function Checkout() {
         onChange={(o, q) => {
           setOptionId(o);
           setQty(q);
+          // 품절·물량·수량 안내는 옵션·수량을 바꾸면 사라지고 버튼이 다시 켜진다
+          if (clearsOnSelection(conflict)) setConflict(null);
         }}
         onClose={() => setSheet(null)}
         onSubmit={() => setSheet(null)}

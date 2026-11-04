@@ -70,12 +70,22 @@ export function releaseQuantity(p: ProductRec, o: OrderRec, quantity: number) {
   allocation.reservedCount -= quantity;
   o.releasedQuantity += quantity;
 }
+export type SaleExpected = {
+  stageId?: string | null;
+  unitPrice?: number | null;
+  unitWeightGrams?: number | null;
+};
+/**
+ * 예약 가능 검사. 순서는 서버 create_order와 같다(AC-08-9, DEV-216):
+ * 수량 → 판매 중지 → 지금 기간 없음 → 전체 물량 → 기간 물량 → 본 값 비교.
+ * expected는 주문서가 본 값(주문 생성) 또는 주문 스냅샷(입금 안내). 보낸 값만 비교한다.
+ */
 export function assertSale(
   d: DB,
   p: ProductRec,
   optionId: string,
   quantity: number,
-  expected?: { stageId: string; unitPrice: number; unitWeightGrams: number },
+  expected?: SaleExpected,
 ): Stage {
   if (p.status !== "PUBLISHED" || d.farms[p.farmId]?.status !== "APPROVED")
     notFound("지금 예약할 수 없는 상품이에요.");
@@ -85,31 +95,36 @@ export function assertSale(
       productId: p.productId,
       maxQuantity: p.maxQuantityPerOrder,
     };
-  if (p.salesPaused)
-    conflict("SALES_PAUSED", "농가가 잠시 예약을 쉬고 있어요.", details);
-  const s = p.stages.find((s) => s.startsAt <= TODAY && s.endsAt >= TODAY);
-  if (
-    !s ||
-    !s.options[optionId] ||
-    (expected &&
-      (expected.stageId !== s.stageId ||
-        expected.unitPrice !== s.options[optionId].price ||
-        expected.unitWeightGrams !==
-          Math.round(
-            (p.options.find((o) => o.optionId === optionId)?.weightKg ?? 0) *
-              1000,
-          )))
-  )
-    conflict(
-      "STAGE_CHANGED",
-      "예약 기간 또는 가격이 바뀌었어요. 상품에서 다시 확인해 주세요.",
-      details,
-    );
   if (!Number.isSafeInteger(quantity) || quantity < 1)
     invalid({ quantity: "1 이상의 정수로 적어 주세요" });
-  const weight = Math.round(
-    (p.options.find((o) => o.optionId === optionId)?.weightKg ?? 0) * 1000,
-  );
+  if (quantity > p.maxQuantityPerOrder)
+    conflict(
+      "QUANTITY_LIMIT",
+      `한 번에 최대 ${p.maxQuantityPerOrder}박스까지 예약할 수 있어요.`,
+      details,
+    );
+  if (p.salesPaused)
+    conflict("SALES_PAUSED", "농가가 잠시 예약을 쉬고 있어요.", details);
+  const option = p.options.find((o) => o.optionId === optionId);
+  const weight = Math.round((option?.weightKg ?? 0) * 1000);
+  const previous = {
+    stageId: expected?.stageId ?? null,
+    unitPrice: expected?.unitPrice ?? null,
+    unitWeightGrams: expected?.unitWeightGrams ?? null,
+  };
+  const s = p.stages.find((s) => s.startsAt <= TODAY && s.endsAt >= TODAY);
+  if (!s || !s.options[optionId]) {
+    const next = p.stages
+      .filter((x) => x.startsAt > TODAY)
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+    conflict("STAGE_CHANGED", "예약 기간이 바뀌었어요.", {
+      ...details,
+      optionId,
+      previous,
+      current: null,
+      nextStageStartsAt: s ? null : (next?.startsAt ?? null),
+    });
+  }
   if (!weight || state.remainingGrams < quantity * weight)
     conflict(
       "TOTAL_LIMIT_REACHED",
@@ -120,17 +135,26 @@ export function assertSale(
     s.options[optionId].quantity - s.options[optionId].reservedCount <
     quantity
   )
-    conflict("SOLD_OUT", "이 기간의 선택 옵션이 품절됐어요.", details);
-  if (
-    !Number.isInteger(quantity) ||
-    quantity < 1 ||
-    quantity > p.maxQuantityPerOrder
-  )
-    conflict(
-      "QUANTITY_LIMIT",
-      `한 번에 최대 ${p.maxQuantityPerOrder}박스까지 예약할 수 있어요.`,
-      details,
-    );
+    conflict("SOLD_OUT", "이 기간의 선택 옵션이 품절됐어요.", {
+      ...details,
+      optionId,
+    });
+  const now = {
+    stageId: s.stageId,
+    unitPrice: s.options[optionId].price,
+    unitWeightGrams: weight,
+  };
+  const differs = (["stageId", "unitPrice", "unitWeightGrams"] as const).some(
+    (k) => expected?.[k] != null && expected[k] !== now[k],
+  );
+  if (differs)
+    conflict("STAGE_CHANGED", "예약 기간 또는 가격이 바뀌었어요.", {
+      ...details,
+      optionId,
+      previous,
+      current: { ...now, startsAt: s.startsAt, endsAt: s.endsAt },
+      nextStageStartsAt: null,
+    });
   return s;
 }
 const validDate = (s: string) =>

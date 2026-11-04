@@ -47,6 +47,11 @@ class OrderInput(CamelModel):
     consents: Consents = Field(default_factory=Consents)
     consent_version: str = Field(default="", max_length=32)
     save_address: bool = False
+    # 주문서가 본 지금 기간·단가·옵션 중량(AC-08-8, DEV-216). 보내면 지금 값과 비교해 다르면
+    # 409 STAGE_CHANGED. 이번에는 선택(오래된 앱 보호), 다음 이터레이션에 필수로 바꾼다
+    expected_stage_id: str | None = Field(default=None, max_length=64)
+    expected_unit_price: int | None = None
+    expected_unit_weight_grams: int | None = None
 
 
 class AdminRefundInput(CamelModel):

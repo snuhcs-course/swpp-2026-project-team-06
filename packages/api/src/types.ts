@@ -45,12 +45,29 @@ export type ConflictReason =
  */
 export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED" | "TEST_ACCOUNT";
 
+/** 409 STAGE_CHANGED의 이전(주문서가 본 값·주문 스냅샷)·지금 값(AC-08-8, contracts-1.2 1장) */
+export type StageSnapshot = {
+  stageId: string | null;
+  unitPrice: number | null;
+  unitWeightGrams: number | null;
+};
+export type CurrentStageSnapshot = StageSnapshot & {
+  startsAt: string;
+  endsAt: string;
+};
+
 export type ErrorBody = {
   code: ErrorCode;
   message: string;
   details: {
     fields?: Record<string, string>;
     reason?: ConflictReason | ForbiddenReason;
+    /** STAGE_CHANGED·SOLD_OUT: 고른 옵션 */
+    optionId?: string | null;
+    previous?: StageSnapshot;
+    /** 지금 예약 기간이 없으면 null */
+    current?: CurrentStageSnapshot | null;
+    nextStageStartsAt?: string | null;
     [k: string]: unknown;
   };
 };
@@ -474,6 +491,11 @@ export type OrderInput = Recipient & {
   consents: OrderConsents;
   consentVersion: string;
   saveAddress?: boolean;
+  /** 주문서가 본 지금 기간·단가·옵션 중량(AC-08-8, DEV-216). 다르면 409 STAGE_CHANGED.
+   * 지금은 선택(오래된 앱 보호), 다음 이터레이션에 필수 */
+  expectedStageId?: string;
+  expectedUnitPrice?: number;
+  expectedUnitWeightGrams?: number;
 };
 
 export type OrderAction =

@@ -9,6 +9,7 @@
 - 생산자 API는 PRODUCER + APPROVED + 자원 소유를 검사한다. 다른 앱 토큰은 403 FORBIDDEN/details.reason=WRONG_APP, 미로그인 401. 같은 역할의 타 농가/타 소비자 자원은 404. 미팔로우 소식방은 403.
 - 읽기/쓰기에 동일 권한을 적용한다. 첨부 URL 추측, 목록 미리보기, cursor로 다른 사람의 메시지를 알아낼 수 없어야 한다.
 - 400 VALIDATION_ERROR/details.fields, 409 CONFLICT/details.reason을 유지한다. 추가 reason: SALES_PAUSED, TOTAL_LIMIT_REACHED, CAP_BELOW_SOLD, STALE_VERSION, PERIOD_LOCKED, NOT_RESUMABLE. 기간 변경은 기존 STAGE_CHANGED, 기간 물량 소진은 SOLD_OUT.
+- 주문 생성(POST /api/orders)은 주문서가 본 expectedStageId·expectedUnitPrice·expectedUnitWeightGrams(지금은 선택, 다음 이터레이션 필수)를 받아 지금 값과 다르면 409 STAGE_CHANGED. 검사 순서는 판매 중지(SALES_PAUSED) → 지금 기간 없음(STAGE_CHANGED, current=null) → 전체 물량(TOTAL_LIMIT_REACHED) → 기간 물량(SOLD_OUT, details.optionId) → 본 값 비교(STAGE_CHANGED). STAGE_CHANGED details는 {reason,productId,optionId,previous:{stageId,unitPrice,unitWeightGrams},current:{stageId,unitPrice,unitWeightGrams,startsAt,endsAt}|null,nextStageStartsAt}이고 입금 안내(POST /api/orders/{id}/deposit)도 같은 모양(previous=주문 스냅샷). 기대값은 멱등 본문 해시에 들어가 같은 키·다른 기대값은 IDEMPOTENCY_MISMATCH(FEAT-08 AC-08-8·AC-08-9, DEV-216).
 - 아래 POST 생성/메시지 전송은 Idempotency-Key 필수. 사용자+동작+자원+키 범위로 같은 본문은 같은 결과, 다른 본문은 409 IDEMPOTENCY_MISMATCH. 키·본문 해시·결과는 24시간 이상 보관한다. 성공 재전송은 현재 판매 상태가 달라도 기존 결과를 반환하되 권한은 다시 확인한다.
 - 설정 PUT에는 version을 받는다. 응답 version은 증가하며 오래된 버전은 409 STALE_VERSION. 같은 요청 재전송은 Idempotency-Key로 기존 성공을 반환한다. 상태를 바꾸는 GET은 만들지 않는다.
 - 페이지 응답은 {items,nextCursor}. 메시지는 최신 페이지를 조회하되 items는 오래된 순으로 반환한다. cursor는 (createdAt,id) 기반 opaque 값이며 사용자·자원에 귀속된다. 권한 필터 후 limit(기본 20, 최대 50)을 적용한다.

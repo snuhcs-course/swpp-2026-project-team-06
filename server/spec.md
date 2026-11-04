@@ -62,7 +62,7 @@ server/
 
 **에러 형식** (screens.md 7.1, 구현은 DEV-4)
 - 본문: `{"code": "...", "message": "<사용자 문구>", "details": {}}`. FastAPI 기본 형식(`detail`)과 검증 오류(422)는 예외 처리기에서 이 형식으로 바꾼다.
-- 상태·code: 400 `VALIDATION_ERROR`(`details.fields`), 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`(`details.reason`: `STAGE_CHANGED`, `SOLD_OUT`, `QUANTITY_LIMIT`, `INVALID_TRANSITION`, `IDEMPOTENCY_MISMATCH`), 413 `PAYLOAD_TOO_LARGE`, 5xx `INTERNAL_ERROR`. AI 실패·시간 초과는 오류로 돌려주지 않고 각 FEAT의 대체 동작(전달, 빈 초안)으로 처리.
+- 상태·code: 400 `VALIDATION_ERROR`(`details.fields`), 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`(`details.reason`: `STAGE_CHANGED`, `SOLD_OUT`, `QUANTITY_LIMIT`, `INVALID_TRANSITION`, `IDEMPOTENCY_MISMATCH`, `SALES_PAUSED`, `TOTAL_LIMIT_REACHED` 외 contracts-1.2 1장. `STAGE_CHANGED`는 `previous`·`current`·`nextStageStartsAt`을 싣는다, DEV-216), 413 `PAYLOAD_TOO_LARGE`, 5xx `INTERNAL_ERROR`. AI 실패·시간 초과는 오류로 돌려주지 않고 각 FEAT의 대체 동작(전달, 빈 초안)으로 처리.
 - 응답·로그에 개인정보를 넣지 않는다(N-05).
 
 **페이지네이션·멱등 키** (screens.md 7.1)

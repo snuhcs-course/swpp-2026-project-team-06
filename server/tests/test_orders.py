@@ -1019,3 +1019,221 @@ def test_AC_17_9_tracking_requires_idempotency_key(client, login):
     )
     assert response.status_code == 400, response.text
     assert _tracking_events(order_id) == []
+
+
+# --- AC-08-8·AC-08-9: 주문서가 본 값과 다르면 재확인(DEV-216, DEV-218) ---
+
+SEEN = {
+    "expectedStageId": "st-house-1",
+    "expectedUnitPrice": 29000,
+    "expectedUnitWeightGrams": 5000,
+}
+SNAPSHOT = {"stageId": "st-house-1", "unitPrice": 29000, "unitWeightGrams": 5000}
+
+
+def _db_update(model, values, **where):
+    with get_sessionmaker()() as session, session.begin():
+        conditions = [getattr(model, k) == v for k, v in where.items()]
+        session.execute(update(model).where(*conditions).values(**values))
+
+
+def _set_price(stage_id: str, option_id: str, price: int):
+    from app.catalog.models import StagePrice
+
+    _db_update(StagePrice, {"price": price}, stage_id=stage_id, option_id=option_id)
+
+
+def _order_count() -> int:
+    from app.orders.models import Order
+
+    with get_sessionmaker()() as session:
+        return len(session.scalars(select(Order.id)).all())
+
+
+def test_AC_08_8_stale_price_rejects_with_stage_changed(client, login):
+    headers = login("u-seojun")
+    before = _order_count()
+    _set_price("st-house-1", "opt-5", 30000)
+
+    response = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN))
+
+    assert response.status_code == 409, response.text
+    details = response.json()["details"]
+    assert details["reason"] == "STAGE_CHANGED"
+    assert details["optionId"] == "opt-5"
+    assert details["previous"] == SNAPSHOT
+    assert details["current"] == {
+        "stageId": "st-house-1",
+        "unitPrice": 30000,
+        "unitWeightGrams": 5000,
+        "startsAt": "2026-10-01",
+        "endsAt": "2026-10-12",
+    }
+    assert details["nextStageStartsAt"] is None
+    assert _order_count() == before
+
+
+def test_AC_08_8_stage_boundary_rejects(client, login, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "fixed_now", "2026-10-13T10:00:00+09:00")
+    headers = login("u-seojun")
+
+    response = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN))
+
+    assert response.status_code == 409
+    details = response.json()["details"]
+    assert details["reason"] == "STAGE_CHANGED"
+    assert details["current"]["stageId"] == "st-house-2"
+    assert details["current"]["unitPrice"] == 33000
+    assert details["previous"]["stageId"] == "st-house-1"
+
+
+def test_AC_08_8_no_current_stage_returns_null_current(client, login):
+    from datetime import date
+
+    from app.catalog.models import Stage
+
+    headers = login("u-seojun")
+    # 1단계 시작을 내일로 미뤄 오늘은 예약 기간이 아니게(공백) 만든다
+    _db_update(Stage, {"starts_at": date(2026, 10, 8)}, id="st-house-1")
+
+    response = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN))
+
+    assert response.status_code == 409
+    details = response.json()["details"]
+    assert details["reason"] == "STAGE_CHANGED"
+    assert details["current"] is None
+    assert details["nextStageStartsAt"] == "2026-10-08"
+    assert details["previous"]["unitPrice"] == 29000
+
+
+def test_AC_08_8_weight_change_rejects(client, login):
+    from app.catalog.models import ProductOption
+
+    headers = login("u-seojun")
+    _db_update(ProductOption, {"weight_kg": 4.5}, product_id="p-house", id="opt-5")
+
+    response = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN))
+
+    assert response.status_code == 409
+    details = response.json()["details"]
+    assert details["reason"] == "STAGE_CHANGED"
+    assert details["current"]["unitWeightGrams"] == 4500
+    assert details["current"]["unitPrice"] == 29000
+
+
+def test_AC_08_8_reconfirm_with_current_values_creates_order(client, login):
+    headers = login("u-seojun")
+    _set_price("st-house-1", "opt-5", 30000)
+    first = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN))
+    assert first.status_code == 409
+    current = first.json()["details"]["current"]
+
+    again = client.post(
+        "/api/orders",
+        headers=headers | key(),
+        json=order_body(
+            expectedStageId=current["stageId"],
+            expectedUnitPrice=current["unitPrice"],
+            expectedUnitWeightGrams=current["unitWeightGrams"],
+        ),
+    )
+
+    assert again.status_code == 200, again.text
+    assert again.json()["unitPrice"] == 30000
+    assert again.json()["totalAmount"] == 30000
+    assert deposit(client, headers, again.json()["orderId"]).status_code == 200
+
+
+def test_AC_08_8_without_expected_keeps_legacy(client, login):
+    headers = login("u-seojun")
+    _set_price("st-house-1", "opt-5", 30000)
+
+    response = client.post("/api/orders", headers=headers | key(), json=order_body())
+
+    assert response.status_code == 200, response.text
+    assert response.json()["unitPrice"] == 30000
+
+
+def test_AC_08_8_idempotent_replay_and_mismatch(client, login):
+    headers = login("u-seojun")
+    _set_price("st-house-1", "opt-5", 30000)
+    same = key()
+    first = client.post("/api/orders", headers=headers | same, json=order_body(**SEEN))
+    assert first.status_code == 409
+
+    # 같은 키·같은 본문은 처음 409를 그대로(가격을 되돌려도)
+    _set_price("st-house-1", "opt-5", 29000)
+    replay = client.post("/api/orders", headers=headers | same, json=order_body(**SEEN))
+    assert replay.status_code == 409
+    assert replay.json() == first.json()
+
+    # 같은 키·다른 기대값은 IDEMPOTENCY_MISMATCH
+    changed = order_body(**(SEEN | {"expectedUnitPrice": 30000}))
+    other = client.post("/api/orders", headers=headers | same, json=changed)
+    assert other.status_code == 409
+    assert other.json()["details"]["reason"] == "IDEMPOTENCY_MISMATCH"
+
+
+def test_AC_08_8_deposit_stage_changed_details(client, login):
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN)).json()
+    _set_price("st-house-1", "opt-5", 30000)
+
+    response = deposit(client, headers, order["orderId"])
+
+    assert response.status_code == 409
+    details = response.json()["details"]
+    assert details["reason"] == "STAGE_CHANGED"
+    assert details["previous"] == SNAPSHOT
+    assert details["current"]["unitPrice"] == 30000
+    assert details["optionId"] == "opt-5"
+
+
+def test_AC_08_9_sold_out_and_paused_win_over_price_change(client, login):
+    from app.catalog.models import Product
+
+    headers = login("u-seojun")
+    sold_out = client.post(
+        "/api/orders",
+        headers=headers | key(),
+        json=order_body(
+            productId="p-redhyang",
+            optionId="opt-3",
+            expectedStageId="st-redhyang-1",
+            expectedUnitPrice=1,
+            expectedUnitWeightGrams=3000,
+        ),
+    )
+    assert sold_out.status_code == 409
+    assert sold_out.json()["details"]["reason"] == "SOLD_OUT"
+    assert sold_out.json()["details"]["optionId"] == "opt-3"
+
+    _set_price("st-house-1", "opt-5", 30000)
+    _db_update(Product, {"sales_paused": True}, id="p-house")
+    paused = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN))
+    assert paused.status_code == 409
+    assert paused.json()["details"]["reason"] == "SALES_PAUSED"
+    assert "previous" not in paused.json()["details"]
+
+
+def test_AC_08_8_deposit_on_closed_product_has_no_next_stage(client, login):
+    from datetime import date
+
+    from app.catalog.models import Product, Stage
+
+    headers = login("u-seojun")
+    order = client.post("/api/orders", headers=headers | key(), json=order_body(**SEEN)).json()
+    # 다음 기간이 남아 있어도 내린 상품이면 '다음 예약은 …에 열려요'를 주지 않는다
+    _db_update(Stage, {"starts_at": date(2026, 10, 8)}, id="st-house-1")
+    _db_update(Product, {"status": "CLOSED"}, id="p-house")
+
+    response = deposit(client, headers, order["orderId"])
+
+    assert response.status_code == 409
+    details = response.json()["details"]
+    assert details["reason"] == "STAGE_CHANGED"
+    assert details["current"] is None
+    assert details["nextStageStartsAt"] is None
+    assert details["previous"] == SNAPSHOT

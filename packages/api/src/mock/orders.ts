@@ -146,7 +146,12 @@ register({
       if (!allOrderConsents(b.consents))
         fields.consents = `예약 전 확인 ${ORDER_CONSENT_KEYS.length}개에 모두 동의해 주세요`;
       if (Object.keys(fields).length) invalid(fields);
-      const s = assertSale(ctx.db, p, b.optionId, b.quantity);
+      // 주문서가 본 기간·단가·중량(AC-08-8). 안 보내면 지금 값으로 만든다(서버와 같다)
+      const s = assertSale(ctx.db, p, b.optionId, b.quantity, {
+        stageId: b.expectedStageId,
+        unitPrice: b.expectedUnitPrice,
+        unitWeightGrams: b.expectedUnitWeightGrams,
+      });
       const remoteFee = REMOTE(b.postalCode, b.address) ? p.remoteAreaFee : 0;
       const o: OrderRec = {
         orderId: nextId("o"),
