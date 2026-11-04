@@ -12,7 +12,7 @@ CLAUDE.local.md는 gitignore되어 나만 쓴다. 공용 규칙(AGENTS.md)에 "�
 - 결론 먼저, 이유는 3줄 이내.
 
 ## 작업 방식
-- 파일 3개 이상 바꾸는 작업은 plan mode로 시작하고, 계획을 확인받은 뒤 `tasks.md`에 반영한다.
+- 파일 3개 이상 바꾸는 작업은 plan mode로 시작하고, 계획을 확인받은 뒤 이슈 파일(`tasks/<이슈 키>.md`)에 반영한다.
 - 구현 후 바로 커밋하지 말고 `git diff`를 요약해 보여준 다음 내가 커밋을 지시한다.
 - 같은 에러로 2번 실패하면 멈추고 원인 가설 2~3개를 제시한다.
 
@@ -22,5 +22,5 @@ CLAUDE.local.md는 gitignore되어 나만 쓴다. 공용 규칙(AGENTS.md)에 "�
 
 ## 자주 쓰는 지시
 - "리뷰해줘" → `/pr-review` 스킬로 현재 브랜치 PR 리뷰
-- "spec 갱신" → `/spec` 스킬로 현재 작업 폴더 `tasks.md` 갱신
+- "spec 갱신" → `/spec` 스킬로 현재 작업 폴더 이슈 파일(`tasks/<이슈 키>.md`) 갱신
 - "브랜치 만들어줘" → `origin/main`에서 `hong/dev-12-<영어 요약>` worktree 생성 (한글 금지, Linear 브랜치명 복사 안 함)

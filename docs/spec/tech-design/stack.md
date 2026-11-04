@@ -66,7 +66,7 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 
 도메인 모듈마다 `router.py`(API 경로), `models.py`(SQLAlchemy 모델), `schemas.py`(Pydantic 입출력), `service.py`(업무 로직)를 둔다.
 
-코드 폴더마다 `spec.md`(구현 결정)와 `tasks.md`(작업 기록)를 둔다([docs/spec/README.md](../README.md) 두 층 스펙).
+코드 폴더마다 `spec.md`(구현 결정)와 `tasks/<이슈 키>.md`(이슈별 작업 기록, ADR 0014)를 둔다([docs/spec/README.md](../README.md) 두 층 스펙).
 
 ## 4. FEAT ↔ 코드 폴더
 
