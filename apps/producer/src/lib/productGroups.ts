@@ -21,10 +21,11 @@ export function productStatus(product: MyProductCard): string {
   if (product.status === "REJECTED") return "수정 필요";
   const group = productGroup(product);
   if (group === "selling") {
-    if (product.availability === "NOT_OPEN")
-      return "예약 대기 · 판매 기간 확인";
+    // 이름은 소비자 화면과 같은 표(packages/ui format.ts AVAILABILITY_LABEL, ia.md 4장, DEV-227).
+    // 이 파일은 Mock 테스트가 node로 바로 읽어 UI 패키지를 import하지 않는다 — 같은지는 test-empty-values.mjs가 확인한다.
+    if (product.availability === "NOT_OPEN") return "예약 시작 전";
     if (product.availability === "TOTAL_SOLD_OUT") return "전체 물량 품절";
-    if (product.availability === "PERIOD_SOLD_OUT") return "현재 기간 품절";
+    if (product.availability === "PERIOD_SOLD_OUT") return "이번 기간 품절";
   }
   return productGroups.find((item) => item.value === group)!.label;
 }

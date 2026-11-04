@@ -21,7 +21,7 @@ test("AC-04-7: selling products separate pre-open and sold-out sub-states", () =
   assert.equal(productStatus(card("PUBLISHED")), "판매 중");
   assert.equal(
     productStatus(card("PUBLISHED", "NOT_OPEN")),
-    "예약 대기 · 판매 기간 확인",
+    "예약 시작 전",
   );
   assert.equal(
     productStatus(card("PUBLISHED", "TOTAL_SOLD_OUT")),
@@ -29,7 +29,7 @@ test("AC-04-7: selling products separate pre-open and sold-out sub-states", () =
   );
   assert.equal(
     productStatus(card("PUBLISHED", "PERIOD_SOLD_OUT")),
-    "현재 기간 품절",
+    "이번 기간 품절",
   );
 });
 
