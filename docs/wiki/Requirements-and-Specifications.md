@@ -347,6 +347,11 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** I open the product page
 - **THEN** the measured value is shown instead of the estimate
 
+**AC-07-3: Not reservable**
+- **GIVEN** a product is paused, out of total capacity, between periods, sold out for this period or ended
+- **WHEN** I open the home, the farm list or the product page
+- **THEN** it is left out of home recommendations and farm highlights, stays on its product page and farm page with Reserve turned off, and shows a next start date only when waiting for the next period will open it
+
 **AC-07-5: Full product story**
 - **GIVEN** a product has story blocks, or only a plain description
 - **WHEN** I read the product page
