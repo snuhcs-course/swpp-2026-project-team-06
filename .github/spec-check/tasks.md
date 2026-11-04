@@ -430,7 +430,7 @@ diff 밖 코드가 필요해 UNVERIFIED로 끝나는 INCOMPLETE(#291)와 입력 
 
 ### 작업
 - [x] `validate` 분기, 테스트 2개 갱신·1개 추가, README·spec.md
-- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 56개 통과
+- [x] `python3 -m unittest discover -s .github/spec-check -p 'test_*.py'` 54개 통과
 
 ### 완료 조건
 - [ ] checker-tests 통과, 사람 리뷰 후 main 머지, #388에 main 병합해 재실행 → NO_FINDINGS 확인
