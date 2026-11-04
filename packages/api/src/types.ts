@@ -242,6 +242,8 @@ export type NewsRoomMessage = {
   broadcastId: string | null;
   reactionCount: number;
   myReaction: boolean;
+  /** 방송의 공개 범위(M-14). 소비자 답장은 null (DEV-210) */
+  visibility: "PUBLIC" | "FOLLOWERS" | null;
 };
 export type NewsRoomSummary = {
   canReply: boolean;

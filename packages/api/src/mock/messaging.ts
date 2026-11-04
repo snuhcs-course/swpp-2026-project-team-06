@@ -58,7 +58,14 @@ register({
     const n = visibleNews(ctx.db, uid).find(
       (x) => x.broadcastId === ctx.params.broadcastId,
     );
-    if (!n) notFound("볼 수 없는 소식이에요.");
+    if (!n)
+      notFound(
+        (ctx.db.deletedNews ?? []).some(
+          (x) => x.broadcastId === ctx.params.broadcastId,
+        )
+          ? "삭제된 소식이에요."
+          : "볼 수 없는 소식이에요.",
+      );
     if (
       !ctx.db.reactions.some(
         (r) => r.broadcastId === n.broadcastId && r.userId === uid,
@@ -80,6 +87,25 @@ register({
       reactionCount: newsItem(ctx.db, n, uid).reactionCount,
       myReaction: false,
     };
+  },
+
+  // 내 농가 소식 삭제(M-23, AC-12-14·15). 다른 농가·없는 소식 404, 이미 지운 내 소식 204
+  "DELETE /api/messaging/news/:broadcastId": (ctx) => {
+    const u = ctx.me();
+    if (
+      !u.farmId ||
+      ctx.db.farms[u.farmId]?.status !== "APPROVED" ||
+      ctx.db.farms[u.farmId]?.ownerId !== u.userId
+    )
+      fail(403, "FORBIDDEN", "승인된 농가만 쓸 수 있어요.");
+    const id = ctx.params.broadcastId;
+    const gone = (ctx.db.deletedNews ?? []).find((n) => n.broadcastId === id);
+    if (gone && gone.farmId === u.farmId) return null;
+    const n = ctx.db.news.find((x) => x.broadcastId === id);
+    if (!n || n.farmId !== u.farmId) notFound("찾을 수 없는 소식이에요.");
+    ctx.db.news = ctx.db.news.filter((x) => x.broadcastId !== id);
+    ctx.db.deletedNews = [...(ctx.db.deletedNews ?? []), n];
+    return null;
   },
 
   "POST /api/messaging/news": (ctx) => {

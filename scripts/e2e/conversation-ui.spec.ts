@@ -172,6 +172,8 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   await expect(input).toHaveValue(message);
   await shelf.click();
   await page.getByRole("button", { name: "전송", exact: true }).click();
+  await page.getByRole("button", { name: "확인 · 보내기", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText(message, { exact: true })).toBeVisible();
   await expect(shelf).toHaveAttribute("aria-expanded", "false");
   const a = await input.boundingBox(),
@@ -190,6 +192,146 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
     "aria-selected",
     "true",
   );
+});
+
+test("AC-12-13: producer confirms follower count and preview before sending news", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginProducer(page, "강영수");
+  await page.getByRole("tab", { name: /^채팅(?:, 안 읽음 \d+)?$/ }).click();
+  const input = page.getByRole("textbox", {
+    name: "모두에게 보낼 소식",
+    exact: true,
+  });
+  await expect(input).toHaveAttribute(
+    "placeholder",
+    /^팔로워 \d+명에게 소식 보내기$/,
+  );
+  const posts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/api/messaging/rooms/"))
+      posts.push(r.url());
+  });
+  const message = `DEV210 확인 ${Date.now()}`;
+  await input.fill(message);
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByText(/^팔로워 \d+명에게 보낼까요\?$/)).toBeVisible();
+  await expect(sheet.getByText(message, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("보낸 소식은 지울 수 있지만 고칠 수는 없어요.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "아니요", exact: true }).click();
+  await expect(page.getByText(/^팔로워 \d+명에게 보낼까요\?$/)).toHaveCount(0);
+  await expect(input).toHaveValue(message);
+  expect(posts).toHaveLength(0);
+
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  await page.getByRole("button", { name: "확인 · 보내기", exact: true }).click();
+  await expect(page.getByText(/^팔로워 \d+명에게 보냈어요$/)).toBeVisible();
+  await expect(sheet).toHaveCount(0);
+  await expect(input).toHaveValue("");
+  await expect(page.getByText(message, { exact: true })).toBeVisible();
+  expect(posts).toHaveLength(1);
+});
+
+test("AC-12-14/16: producer deletes own news, or deletes and rewrites it", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const token = await apiLogin(request, "u-kang", "producer");
+  const auth = { Authorization: `Bearer ${token}` };
+  const post = async (text: string) => {
+    const r = await request.post(`${apiUrl}/api/messaging/rooms/f-kang/messages`, {
+      headers: { ...auth, "Idempotency-Key": `dev210-${Date.now()}-${Math.random()}` },
+      data: { text },
+    });
+    expect(r.status()).toBe(200);
+    return (await r.json()).broadcastId as string;
+  };
+  const typo = `DEV210 오타 ${Date.now()}`;
+  const typoId = await post(typo);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginProducer(page, "강영수");
+  await page.getByRole("tab", { name: /^채팅(?:, 안 읽음 \d+)?$/ }).click();
+  const input = page.getByRole("textbox", {
+    name: "모두에게 보낼 소식",
+    exact: true,
+  });
+  // 통합 환경은 시각이 고정돼 같은 시각 소식끼리 순서가 정해지지 않으므로 그 말풍선의 ⋯를 찾는다
+  const menuOf = (text: string) =>
+    page
+      .locator("div")
+      .filter({ has: page.getByText(text, { exact: true }) })
+      .filter({ has: page.getByRole("button", { name: "소식 메뉴", exact: true }) })
+      .last()
+      .getByRole("button", { name: "소식 메뉴", exact: true });
+  await expect(page.getByText(typo, { exact: true })).toBeVisible();
+  await menuOf(typo).click();
+  await expect(page.getByText("이 소식을 삭제할까요?", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "삭제하고 다시 쓰기", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(input).toHaveValue(typo);
+  // 입력칸(textarea)에 돌아온 글은 빼고 말풍선만 센다
+  const bubble = (text: string) => page.locator(`div[dir="auto"]:text-is("${text}")`);
+  await expect(bubble(typo)).toHaveCount(0);
+
+  const minji = await apiLogin(request, "u-minji", "consumer");
+  const room = await (
+    await request.get(`${apiUrl}/api/messaging/rooms/f-kang/messages`, {
+      headers: { Authorization: `Bearer ${minji}` },
+    })
+  ).json();
+  expect(room.items.map((m: { messageId: string }) => m.messageId)).not.toContain(typoId);
+
+  await input.fill("");
+  const wrong = `DEV210 잘못 보냄 ${Date.now()}`;
+  await post(wrong);
+  await expect(page.getByText(wrong, { exact: true })).toBeVisible();
+  await menuOf(wrong).click();
+  await page.getByRole("button", { name: "삭제", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("소식을 삭제했어요", { exact: true })).toBeVisible();
+  await expect(bubble(wrong)).toHaveCount(0);
+  await expect(input).toHaveValue("");
+});
+
+test("AC-12-14: an open consumer room drops news the farm deleted", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const token = await apiLogin(request, "u-kang", "producer");
+  const auth = { Authorization: `Bearer ${token}` };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginConsumer(page);
+  await page.goto(`${consumerUrl}/farms/f-kang`);
+  await expect(page.getByRole("textbox", { name: "농가에 답장", exact: true })).toBeVisible();
+
+  const text = `DEV210 곧 지울 소식 ${Date.now()}`;
+  const sent = await request.post(`${apiUrl}/api/messaging/rooms/f-kang/messages`, {
+    headers: { ...auth, "Idempotency-Key": `dev210-open-${Date.now()}` },
+    data: { text },
+  });
+  expect(sent.status()).toBe(200);
+  const bubble = page.locator(`div[dir="auto"]:text-is("${text}")`);
+  await expect(bubble).toHaveCount(1);
+
+  const deleted = await request.delete(
+    `${apiUrl}/api/messaging/news/${(await sent.json()).broadcastId}`,
+    { headers: auth },
+  );
+  expect(deleted.status()).toBe(204);
+  // 2초 새로고침에서 빠진다(가장 최근 소식이어도)
+  await expect(bubble).toHaveCount(0);
 });
 
 test("AC-07-6 N-02: long farm names and full-ratio story image retain fixed controls", async ({

@@ -24,11 +24,12 @@
 
 - 소비자 GET /api/messaging/rooms: 팔로우한 승인 농가, 생산자: 자기 농가 1개. summary={farmId,farmName,farmPhoto,lastMessage,lastAt}.
 - GET /api/messaging/rooms/{farmId}/messages → {room,items,nextCursor}.
-- items: {messageId,farmId,senderId,senderName,senderRole,body,photos,videos,createdAt,broadcastId,reactionCount,myReaction}.
+- items: {messageId,farmId,senderId,senderName,senderRole,body,photos,videos,createdAt,broadcastId,reactionCount,myReaction,visibility}. visibility는 방송의 PUBLIC/FOLLOWERS, 소비자 답장은 null(DEV-210).
 - photos/videos는 방송에 연결된 기존 미디어 배열이며 텍스트 답장은 빈 배열이다. 소비자 답장의 broadcastId는 null, reactionCount=0, myReaction=false이다.
 - 생산자는 자기 농가의 방송+모든 답장, 소비자는 방송+본인 답장만 받는다. 요약·cursor에도 같은 필터. 소비자 이름은 생산자 응답에서 앞 글자+○○.
 - POST 같은 messages 경로: {text}, 소비자 1~1000자/생산자 1~2000자 → 저장된 메시지. 생산자는 FOLLOWERS 방송, 소비자는 텍스트 비공개 답장. AI/1:1 대화에는 넣지 않는다.
 - 사진·영상 방송은 기존 POST /api/messaging/news로 작성. FOLLOWERS가 기본, PUBLIC은 농가 공개 목록에도 노출한다. 본문 <=2000자, 사진 최대5장(각10MB), 영상1개(60초/100MB). Idempotency-Key 필수.
+- 소식 삭제(M-23, DEV-210): DELETE /api/messaging/news/{broadcastId}. 승인 생산자의 자기 농가 소식만 204, 다른 농가·없는 소식 404, 소비자·미승인 생산자 403. 이미 지운 자기 소식도 204(멱등). 소프트 삭제(`broadcasts.deleted_at`)이고 방 목록·요약·cursor·소식 목록·공개 소식·좋아요 모두 삭제분을 뺀다(좋아요 404). 답장·좋아요 행·첨부는 그대로 둔다. 수정 API는 없다.
 - 소비자 좋아요는 기존 reaction API를 공유한다. 소비자 답장에는 좋아요가 없다.
 
 ### 1:1 식별과 엔드포인트
