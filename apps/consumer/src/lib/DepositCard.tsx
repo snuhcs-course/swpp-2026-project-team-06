@@ -1,4 +1,4 @@
-// 농가 계좌·입금자명·기한 목록 (SCR-11·12·14, DEV-68). 기존 주문 상세·주문 완료와 같은 Row 목록 부품, 복사는 글자 버튼.
+// 농가 계좌·입금자명·기한(알린 뒤에는 알린 시각) 목록 (SCR-11·12·14, DEV-68, DEV-207). 기존 주문 상세·주문 완료와 같은 Row 목록 부품, 복사는 글자 버튼.
 import type { Order } from "@farmclub/api";
 import { Button, T, deadline, tokens, won } from "@farmclub/ui";
 import type { ReactNode } from "react";
@@ -30,7 +30,12 @@ export function DepositCard({
       <Row k="입금자명">
         <Value text={o.orderNo} bold onCopy={() => onCopy(o.orderNo, "입금자명")} />
       </Row>
-      <Row k="입금 기한" v={`${deadline(o.depositDueAt)}까지`} last />
+      {/* 알린 뒤에는 기한 대신 알린 시각(DEV-207): 서버도 알린 주문은 기한으로 취소하지 않는다(AC-09-7) */}
+      {o.depositReportedAt ? (
+        <Row k="입금 알림" v={deadline(o.depositReportedAt)} last />
+      ) : (
+        <Row k="입금 기한" v={`${deadline(o.depositDueAt)}까지`} last />
+      )}
     </View>
   );
 }
