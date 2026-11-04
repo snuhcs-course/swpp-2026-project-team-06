@@ -16,8 +16,10 @@ import {
   tokens,
   useAsync,
   useFeedCardWidth,
-  period,
-  dday,
+  closesText,
+  deliveryText,
+  joinMeta,
+  reservedText,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
@@ -148,7 +150,7 @@ export default function Home() {
                   {p.name}
                 </T>
                 <T variant="sub" muted>
-                  {period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착
+                  {deliveryText(p.deliveryWindow, null, true)}
                 </T>
                 <Price
                   current={p.currentPrice}
@@ -159,10 +161,13 @@ export default function Home() {
                       : undefined
                   }
                   soldOut={p.soldOut}
+                  availability={p.availability}
                 />
-                <T variant="caption" muted numberOfLines={1}>
-                  {p.reservedCount}명 예약 · 마감 {dday(p.dDay)}
-                </T>
+                {joinMeta(reservedText(p.reservedCount), closesText(p.dDay)) ? (
+                  <T variant="caption" muted numberOfLines={1}>
+                    {joinMeta(reservedText(p.reservedCount), closesText(p.dDay))}
+                  </T>
+                ) : null}
               </Pressable>
             </View>
           ))}
