@@ -125,27 +125,27 @@ export function NewsRoom({
   const alive = useRef(true);
   const initialized = useRef(false);
   const known = useRef(new Set<string>());
+  const fresh = useRef(new Set<string>());
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
     };
   }, []);
-  /** 최신 페이지가 덮는 시간 범위 안에서 응답에 없는 방송은 지워진 것이다(M-23). 답장은 지우지 않는다 */
+  /** 새로고침 응답이 덮는 범위(가장 오래된 항목 이후, complete면 전부)에서 응답에 없는 방송은 지워진 것이다(M-23).
+   * 답장은 지우지 않는다. 내가 막 보내 아직 응답에 나온 적 없는 소식(fresh)은 늦게 온 응답이 지우지 않게 남긴다 */
   const reconcile = (items: Message[], complete: boolean) => {
     if (!items.length && !complete) return;
     const ids = new Set(items.map((m) => m.messageId));
-    const times = items.map((m) => m.createdAt).sort();
-    const from = complete ? "" : times[0];
-    const to = times[times.length - 1] ?? "";
+    for (const id of ids) fresh.current.delete(id);
+    const from = complete ? "" : items.map((m) => m.createdAt).sort()[0];
     setMessages((previous) => {
       const next = previous.filter(
         (m) =>
           !m.broadcastId ||
           ids.has(m.messageId) ||
-          m.createdAt < from ||
-          (to !== "" && m.createdAt > to) ||
-          (to === "" && !complete),
+          fresh.current.has(m.messageId) ||
+          m.createdAt < from,
       );
       for (const m of previous)
         if (!next.includes(m)) known.current.delete(m.messageId);
@@ -154,6 +154,7 @@ export function NewsRoom({
   };
   const drop = (messageId: string) => {
     known.current.delete(messageId);
+    fresh.current.delete(messageId);
     setMessages((previous) => previous.filter((m) => m.messageId !== messageId));
   };
   const merge = (items: Message[]) =>
@@ -283,6 +284,7 @@ export function NewsRoom({
       const message = await send(text, pending.current.key);
       if (!alive.current || epoch !== accessEpoch.current) return;
       nearBottom.current = true;
+      if (message.broadcastId) fresh.current.add(message.messageId);
       merge([message]);
       setBody("");
       pending.current = null;
