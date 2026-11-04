@@ -5,6 +5,7 @@
 
 import re
 import statistics
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -720,8 +721,9 @@ def start_chat(db: Session, consumer, farm_id: str) -> StartChatResult:
 REPLY_WINDOW = timedelta(days=30)
 REPLY_MIN_SAMPLES = 5
 REPLY_BUCKETS = (1, 2, 3, 6, 12, 24, 48, 72)
-REPLY_CACHE_TTL = timedelta(minutes=10)
-_reply_hours_cache: dict[str, tuple[datetime, int | None]] = {}
+REPLY_CACHE_SECONDS = 600
+# 농가 id → (monotonic 시각, 값). 고정 시계(FIXED_NOW)에서도 만료되도록 monotonic을 쓴다
+_reply_hours_cache: dict[str, tuple[float, int | None]] = {}
 
 
 def typical_reply_hours(db: Session, farm_id: str) -> int | None:
@@ -731,10 +733,11 @@ def typical_reply_hours(db: Session, farm_id: str) -> int | None:
     시간차를 잰다. 답할 소비자 메시지가 없던 농가 메시지(먼저 건 말)는 뺀다.
     소비자 화면이 2초마다 조회하므로 농가별로 10분 캐시한다.
     """
-    current = now()
+    tick = time.monotonic()
     cached = _reply_hours_cache.get(farm_id)
-    if cached and current - cached[0] < REPLY_CACHE_TTL:
+    if cached and tick - cached[0] < REPLY_CACHE_SECONDS:
         return cached[1]
+    current = now()
     since = current - REPLY_WINDOW
     rows = db.execute(
         select(ThreadMessage.thread_id, ThreadMessage.sender_type, ThreadMessage.created_at)
@@ -742,6 +745,8 @@ def typical_reply_hours(db: Session, farm_id: str) -> int | None:
         .where(
             Thread.farm_id == farm_id,
             ThreadMessage.sender_type.in_(("CONSUMER", "PRODUCER")),
+            # 창 앞 30일까지만 읽는다(그보다 오래 기다린 답은 어차피 72시간 초과)
+            ThreadMessage.created_at >= since - REPLY_WINDOW,
             ThreadMessage.created_at <= current,
         )
         .order_by(ThreadMessage.thread_id, ThreadMessage.seq)
@@ -759,7 +764,7 @@ def typical_reply_hours(db: Session, farm_id: str) -> int | None:
     if len(waits) >= REPLY_MIN_SAMPLES:
         middle = statistics.median(waits)
         hours = next((b for b in REPLY_BUCKETS if middle <= b), None)
-    _reply_hours_cache[farm_id] = (current, hours)
+    _reply_hours_cache[farm_id] = (tick, hours)
     return hours
 
 
