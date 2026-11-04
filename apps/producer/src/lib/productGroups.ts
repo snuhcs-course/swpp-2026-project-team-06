@@ -29,3 +29,23 @@ export function productStatus(product: MyProductCard): string {
   }
   return productGroups.find((item) => item.value === group)!.label;
 }
+
+/** 서울 날짜 "2026-11-04" */
+const seoulDay = (t: number) =>
+  new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
+
+/** 작성 중 카드의 마지막 저장(DEV-226, HE-X5). 오늘·어제는 시각까지, 그 전은 날짜만 */
+export function draftSaved(
+  updatedAt: string | null | undefined,
+  f: { md: (iso: string) => string; time: (iso: string) => string },
+  now = Date.now(),
+): string | null {
+  if (!updatedAt) return null;
+  const t = Date.parse(updatedAt);
+  if (Number.isNaN(t)) return null;
+  const recent =
+    seoulDay(t) === seoulDay(now) || seoulDay(t) === seoulDay(now - 86400000);
+  return recent
+    ? `${f.md(updatedAt)} ${f.time(updatedAt)} 저장`
+    : `${f.md(updatedAt)} 저장`;
+}
