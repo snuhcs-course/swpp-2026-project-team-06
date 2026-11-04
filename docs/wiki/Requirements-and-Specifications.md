@@ -752,6 +752,7 @@ N-04, N-08, N-09, N-10 and N-11 express quality targets, not measured I2 achieve
 - Product filters: Selling / Under review / Draft / Paused / Ended. A pending capacity increase stays in the current group with a label.
 - My Orders opens on Unconfirmed and keeps the selected tab after viewing an order.
 - On desktop the content is centered at 480px wide.
+- A sheet button that leads to another screen (for example "To checkout", the login prompt's "Log in", "Enter a new address") closes the sheet at once, without the slide-down animation, so the sheet never stays on top of the new screen (DEV-225).
 
 ### 7.2 Main flow and failure branches
 
