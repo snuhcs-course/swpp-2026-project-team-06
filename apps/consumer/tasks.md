@@ -906,3 +906,52 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 
 ### 기록
 - 11/04 spec-check가 DEV-33 절("README 한 줄")을 기준으로 범위 이탈(MISMATCH SC-001·002)을 잡아 이 절을 따로 만들었다. 체커 수정(DEV-211)이 먼저 머지된 뒤의 결과.
+
+
+## DEV-215 [I3-T04 결함] 판매 일시 중지(PAUSED)한 상품이 소비자 앱에서 판매 중으로 보이고 예약하기가 눌림
+
+- 이슈: [DEV-215](https://linear.app/sswp6/issue/DEV-215) · GitHub #405 · 상위 DEV-177
+- 브랜치: `nemodleo/dev-215-paused-product-visibility`
+- 기능·인수 조건: FEAT-07 / AC-07-3(AC-07-1 유지) · FEAT-06 / AC-06-4·AC-06-5 · 규칙 R-27, AC-04-6 · SCR-01·02·03·04
+- 상태: 1단계(디자인 제안) — PM 승인 대기
+- 디자인 제안: `docs/design/proposals/dev-215-paused-product.html`
+- 근거: I3-DISC-05 FAIL(baseline `i3-b2-87792b7`, PR #402 `docs/evaluation/i3-journeys/results/i3-b2-87792b7/I3-DISC-05.md`)
+
+### 목표
+생산자가 판매를 일시 중지한 상품을 소비자 앱이 판매 중으로 보여 준다(홈 추천 첫 칸, 농가 목록 대표 상품, 상세 가격·‘42박스 남음 · 마감 D-5’, 예약하기 켜짐). 스펙대로 홈 추천·농가 대표에서는 빼고, 상세·소식방 판매 품목에는 남기되 ‘판매 일시 중지’ / ‘현재 예약 불가’로 보이고 예약하기를 끈다.
+
+### 범위 (수정 허용 경로)
+- 1단계(지금): `docs/design/proposals/dev-215-paused-product.html`, `apps/consumer/tasks.md`, `server/tasks.md`
+- 2단계(승인 뒤): `server/app/catalog/service.py`(`card()`), `server/tests/test_catalog.py`, `server/tests/test_farms.py`, `server/spec.md`(한 줄), `packages/api/src/mock/derive.ts`(`nextStageStartsAt`), `scripts/test-storefront.mjs`(Mock AC-07-3), `docs/spec/functional/{FEAT-06-farm-search-follow,FEAT-07-product-detail}.md`, `docs/spec/{screens,contracts-1.2}.md`, `docs/wiki/Requirements-and-Specifications.md`, `docs/evaluation/i3-journeys/results/**`(I3-DISC-05 재실행 결과 추가, 원래 결과 보존 — DEV-166 PR #402 머지 상태에 따라 그쪽에서 할 수도 있음)
+
+### 비범위 (건드리지 않음)
+- 앱 화면 코드(`apps/consumer/src/**`, `packages/ui/src/**`): 이미 `soldOut`·`availability`로 그리므로 바꾸지 않는다
+- `server/app/orders/**`(주문 생성 `SALES_PAUSED` 거절은 안전망으로 유지, 고위험 경로), `server/app/*/models.py`, 마이그레이션
+- 생산자 앱 상품 그룹(navigation-1.3), 판매 중지·재개 API
+- 새 API 필드(`reservable` 등)
+
+### 결정 사항
+- 11/04 스펙 확인: R-27 “판매 중지 상품은 공개 화면에 남되 신규 예약을 막는다”, AC-04-6 “중지 중에도 상품은 보인다” → 숨기지 않는다. FEAT-06은 홈 추천·농가 정렬을 “판매 중 상품”으로 한정 → 품절·기간 공백처럼 추천·대표에서 빠진다. AC-07-3 → 상세에서 PAUSED를 구분해 예약 버튼 제한.
+- 11/04 제안(A안): 서버 카드 `sold_out = availability != "AVAILABLE"`(Mock과 같음), `next_stage_starts_at`은 `NOT_OPEN`·`PERIOD_SOLD_OUT`에만. 응답 필드·타입 그대로라 API 호환. 새 문구 0개(기존 `AVAILABILITY.PAUSED`·‘현재 예약 불가’·‘지금 판매 중인 상품 없음’·‘지금은 새 예약을 받지 않아요.’).
+- 11/04 같은 판정으로 `TOTAL_SOLD_OUT`(총 한도 소진)도 `soldOut=true`가 된다 — 같은 결함, PM 확인 필요(보드 Q3).
+- 11/04 `server/app/catalog`·`server/app/farms`는 AGENTS.md 고위험 목록이 아님 → 위험 등급 일반.
+
+### 작업
+- [x] 디자인 제안 보드(before/after 3쌍, 무브 5개, 문구, 서버 변경, 테스트, 스펙 줄)
+- [ ] PM 승인
+- [ ] 서버 `card()` 판정 + `test_AC_07_3_*`(catalog·farms)
+- [ ] Mock `derive.ts` `nextStageStartsAt` + `scripts/test-storefront.mjs` AC-07-3
+- [ ] FEAT-06·FEAT-07·screens·contracts·wiki 줄
+- [ ] I3-DISC-05 재실행(원래 결과 보존)
+- [ ] Figma v6 반영(후속: 승인 뒤 Figma v6 반영 요청)
+
+### 완료 조건
+- [ ] PAUSED 상품이 홈 추천·농가 대표 상품에서 빠지고, 소식방 판매 품목·상세에는 남아 ‘현재 예약 불가’ / ‘판매 일시 중지’로 보인다
+- [ ] 상세 예약하기가 꺼지고 다음 기간 날짜를 약속하지 않는다
+- [ ] 서버·Mock 판정 일치, pytest·Mock 테스트(AC-07-3 이름) 통과
+- [ ] 테스트 통과(pytest 관련 묶음, `npm run test:mock`, `npm run typecheck`)
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 11/04 원인: `server/app/catalog/service.py` `card()`가 `sold_out`을 현재 단계 옵션 잔여 박스로만 계산(`availability` 무시). `farms/service.py` `home()`·`farm_cards()`는 `sold_out`으로만 거름. 앱은 `disabled={p.soldOut}`, `ProductPage.tsx`는 `soldOut`일 때만 상태 문구. Mock은 `availability !== "AVAILABLE"`이라 Mock 테스트에선 안 드러남.
+- 11/04 열린 질문: ① 농가 목록에 ‘판매 잠시 멈춤’을 따로 말할지 ② 상세 보조 문장을 중지 전용으로 할지 ③ TOTAL_SOLD_OUT 함께 고칠지 ④ Figma 후속.
