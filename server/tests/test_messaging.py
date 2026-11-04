@@ -1044,6 +1044,29 @@ def test_AC_13_9_producer_page_has_no_farm_reply(client, login):
     assert page["farmReply"] is None
 
 
+def test_DEV_232_producer_page_has_same_masked_name_as_list(client, login):
+    # 새로고침·직접 링크로 열어도 머리 이름을 대화 응답에서 읽는다(목록과 같은 값, R-15 가림)
+    producer = login("u-kang")
+    rows = client.get("/api/messaging/producer/chats", headers=producer).json()["items"]
+    for row in rows:
+        page = client.get(
+            f"/api/messaging/producer/chats/{row['consumerId']}/messages", headers=producer
+        ).json()
+        assert page["consumerName"] == row["consumerName"]
+    minji = client.get(
+        "/api/messaging/producer/chats/u-minji/messages", headers=producer
+    ).json()
+    assert minji["consumerName"].endswith("○○")
+    # 문의 방도 같은 반복에서 확인된다('farmclub')
+    assert any(r["isSupport"] and r["consumerName"] == "farmclub" for r in rows)
+
+
+def test_DEV_232_consumer_page_has_no_consumer_name(client, login):
+    page = client.get("/api/messaging/chats/f-kang/messages", headers=login("u-minji")).json()
+
+    assert page["consumerName"] is None
+
+
 def test_AC_13_10_typical_reply_hours_rounds_median_up_to_bucket():
     # 중앙값 2.5시간 → 3시간 구간
     _reply_history([1, 2, 2.5, 2.8, 10])

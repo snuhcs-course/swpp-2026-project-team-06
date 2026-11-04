@@ -663,11 +663,20 @@ def _chat_page(
         next_cursor = encode_cursor([scope, rows[-1].seq, rows[-1].id])
     rows.reverse()
     escalations = None
+    consumer_name = None
     if producer:
+        from app.accounts import service as accounts
+        from app.messaging.support import SUPPORT_NAME, is_support
+
         found = db.scalars(
             select(Escalation).where(Escalation.thread_id == t.id).order_by(Escalation.created_at)
         )
         escalations = [_escalation_view(db, e, t, False) for e in found]
+        consumer_name = (
+            SUPPORT_NAME
+            if is_support(t)
+            else accounts.public_name(accounts.get_user(db, t.consumer_id))
+        )
     return ChatPage(
         items=_message_views(db, rows),
         next_cursor=next_cursor,
@@ -675,6 +684,7 @@ def _chat_page(
         inquiries=[inquiry_view(db, i) for i in _thread_inquiries(db, t.id)],
         orders=_linked_orders(db, t, _messages(db, t.id)),
         escalations=escalations,
+        consumer_name=consumer_name,
     )
 
 
