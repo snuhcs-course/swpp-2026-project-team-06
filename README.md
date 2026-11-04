@@ -75,7 +75,7 @@ docs/
 .github/           CI workflow, Dependabot, PR template
 ```
 
-Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (a log of work per issue).
+Each code folder has a `spec.md` (implementation decisions) and a `tasks/` folder with one work log per issue (`tasks/DEV-123.md`). The older per-folder `tasks.md` files are frozen indexes of work before 2026-11-04.
 
 ## Getting started
 
@@ -477,7 +477,7 @@ Accounts, purchases and console changes are done by a person. In order:
 
 1. Every change starts from an issue in Linear, synced with GitHub Issues.
 2. Branch from `main` using the issue's branch name. Issue keys go in branch names, commits, and PR titles, for example `[DEV-12] ...`.
-3. Record scope and decisions in the code folder's `tasks.md`, then open a draft PR.
+3. Record scope and decisions in a new issue file in the code folder (`tasks/DEV-123.md`), then open a draft PR.
 4. Run an AI first-pass review, then get one human approval. CI must pass before merge.
 
 Features are written against IDs in the spec (`FEAT-xx`, rules `R-xx` and `M-xx`, screens `SCR-xx`), and test names include acceptance criteria IDs, for example `test_AC_09_1_...`. Details are in [`AGENTS.md`](AGENTS.md).
