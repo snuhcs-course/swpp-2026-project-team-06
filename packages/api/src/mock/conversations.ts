@@ -219,6 +219,36 @@ export function messagePage<T extends { messageId: string; createdAt: string }>(
         : null,
   };
 }
+/** 서버 typical_reply_hours와 같은 규칙(DEV-208, AC-13-10). Mock은 매번 계산한다 */
+const REPLY_BUCKETS = [1, 2, 3, 6, 12, 24, 48, 72];
+export function typicalReplyHours(d: DB, farmId: string, now = Date.now()) {
+  const since = now - 30 * 86400000,
+    waits: number[] = [];
+  for (const t of Object.values(d.threadMeta)) {
+    if (t.farmId !== farmId) continue;
+    let asked: number | null = null;
+    for (const m of list(d, t)) {
+      const at = Date.parse(m.createdAt);
+      if (at > now) continue;
+      if (m.senderType === "CONSUMER") asked ??= at;
+      else if (m.senderType === "PRODUCER" && asked !== null) {
+        if (at >= since) waits.push((at - asked) / 3600000);
+        asked = null;
+      }
+    }
+  }
+  if (waits.length < 5) return null;
+  const s = [...waits].sort((a, b) => a - b),
+    mid = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+  return REPLY_BUCKETS.find((b) => mid <= b) ?? null;
+}
+function farmReply(d: DB, t: Thread) {
+  const settings = d.aiSettings[t.farmId] ?? defaultSettings();
+  return {
+    mode: t.aiMode === "AUTO" && settings.enabled ? ("AI" as const) : ("FARM" as const),
+    typicalReplyHours: typicalReplyHours(d, t.farmId),
+  };
+}
 function page(ctx: Ctx, t: Thread) {
   const d = ctx.db,
     ins = inquiries(d, t),
@@ -256,8 +286,9 @@ function page(ctx: Ctx, t: Thread) {
               (e) => e.farmId === t.farmId && e.consumerId === t.consumerId,
             )
             .map((e) => ({ ...e, thread: [] })),
+          farmReply: null,
         }
-      : {}),
+      : { farmReply: farmReply(d, t) }),
   };
 }
 function validateSettings(raw: unknown): AiSettings {

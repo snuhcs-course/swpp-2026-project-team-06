@@ -47,7 +47,7 @@
 - PUT /api/messaging/producer/chats/{consumerId}/ai-mode {mode:AUTO|HUMAN,version} → Thread. AUTO 전환은 이후 메시지부터 적용하고 과거 질문을 자동 재처리하지 않는다.
 - PUT /api/messaging/chats/{farmId}/read 및 /api/messaging/producer/chats/{consumerId}/read {lastReadMessageId} → {unreadCount}. 해당 방에 보이는 메시지만 허용하고 읽음 위치는 뒤로 이동하지 않는다.
 - 1.1의 사진 URL 입력은 이 기능 구현 시 비공개 attachmentIds로 교체하며 프론트 클라이언트·Mock·서버를 함께 맞춘다. 임의 외부 사진 URL을 private attachment로 간주하지 않는다.
-- 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
+- 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. 소비자 messages 조회는 farmReply {mode:AI|FARM, typicalReplyHours:int|null}를 함께 준다. mode는 방 AUTO·농가 AI ON일 때만 AI. typicalReplyHours는 최근 30일 농가 답 대기시간 중앙값을 1·2·3·6·12·24·48·72시간으로 올림하고 5건 미만·72시간 초과는 null, 농가별 10분 캐시. 생산자 조회는 farmReply=null(DEV-208). AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
 - AI 작업 시작 시 Thread.version과 AiSettings.version을 캡처한다. 저장 직전 현재 ON/AUTO 여부와 두 버전이 모두 같은지 같은 트랜잭션에서 검사한다. HUMAN→AUTO 또는 OFF→ON 왕복에도 이전 작업의 답은 저장하지 않는다. 폐기된 질문에 생산자 답변이 아직 없으면 직접 응대 대상으로 남기며 자동 재실행하지 않는다.
 - 기존 questions 조회/answer 계약은 유지하고 같은 Thread·Escalation을 사용한다. 기존 answer도 HUMAN 전환 규칙을 적용한다. 새 화면은 producer/chats를 사용한다.
 - 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수이며 임의 다른 주문의 문맥을 첨부할 수 없다.

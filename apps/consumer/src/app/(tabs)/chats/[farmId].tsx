@@ -63,6 +63,12 @@ export default function Chat() {
     },
     [farmId],
   );
+  // DEV-208: 직접 응대·농가 AI OFF면 응답 주체와 예상 시간을 알린다(AC-13-9·13-10)
+  const replyMode =
+      page?.farmReply?.mode ??
+      (page?.thread.aiMode === "HUMAN" ? "FARM" : "AI"),
+    replyTime = replyHoursLabel(page?.farmReply?.typicalReplyHours),
+    forwardStatus = `농가에 전달했어요 · ${replyTime ? `보통 ${replyTime} 안에 답해요` : "답이 오면 여기에 보여요"}`;
   return (
     <Screen>
       <ConversationHeader
@@ -78,8 +84,8 @@ export default function Chat() {
       />
       <View style={{ padding: 12 }}>
         <T variant="caption" muted>
-          {page?.thread.aiMode === "HUMAN"
-            ? "농가가 직접 답변하는 대화예요."
+          {replyMode === "FARM"
+            ? `AI 안내 없이 농가가 직접 답해요 · ${replyTime ? `보통 ${replyTime} 안에` : "답이 오면 여기에 보여요"}`
             : "등록된 정보는 AI가 안내하고, 확인이 필요한 질문은 농가에 전달해요."}
           {isMock ? " · Mock AI 안내" : ""}
         </T>
@@ -107,10 +113,17 @@ export default function Chat() {
             )
           }
           report={(messageId, key) => messaging.reportAiAnswer(farmId, messageId, key)}
+          forwardStatus={forwardStatus}
         />
       ) : (
         <T muted>대화를 여는 중…</T>
       )}
     </Screen>
   );
+}
+
+/** 3 → "3시간", 48 → "2일". 숫자가 없으면 빈 문자열(DEV-208) */
+function replyHoursLabel(hours?: number | null) {
+  if (!hours) return "";
+  return hours >= 24 ? `${Math.round(hours / 24)}일` : `${hours}시간`;
 }
