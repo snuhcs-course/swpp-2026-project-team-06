@@ -65,6 +65,8 @@ class NewsRoomMessage(CamelModel):
     broadcast_id: str | None
     reaction_count: int
     my_reaction: bool
+    # 방송의 공개 범위(M-14). 소비자 답장은 None. 생산자 삭제 시트 안내에 쓴다(DEV-210)
+    visibility: Literal["PUBLIC", "FOLLOWERS"] | None = None
 
 
 class NewsRoomPage(CamelModel):

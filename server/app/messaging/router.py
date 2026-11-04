@@ -83,6 +83,15 @@ def farm_news(db: Db, farm_id: str, user: OptionalUser, limit: Limit, cursor: st
     return service.farm_public_news(db, farm, user.id if user else None, cursor, limit)
 
 
+@router.delete("/news/{broadcast_id}", status_code=204, response_class=Response)
+def delete_news(db: Db, producer: ApprovedProducer, broadcast_id: str):
+    """내 농가 소식 삭제(M-23). 다른 농가·없는 소식 404, 이미 지운 내 소식도 204."""
+    _, farm = producer
+    service.delete_news(db, farm, broadcast_id)
+    db.commit()
+    return Response(status_code=204)
+
+
 @router.put("/news/{broadcast_id}/reaction", response_model=ReactionState)
 def react(db: Db, user: OnboardedConsumer, broadcast_id: str):
     state = service.set_reaction(db, user.id, broadcast_id, True)

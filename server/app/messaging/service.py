@@ -112,6 +112,10 @@ def _news_items(db: Session, rows: list[Broadcast], user_id: str | None) -> list
     ]
 
 
+# 생산자가 지운 소식은 모든 소비자·생산자 조회에서 뺀다(M-23, AC-12-14).
+_LIVE = Broadcast.deleted_at.is_(None)
+
+
 def _older_than(column_at, column_id, cursor: list | None):
     if not cursor:
         return None
@@ -136,7 +140,9 @@ def farm_public_news(
     db: Session, farm, user_id: str | None, cursor: str | None, limit: int
 ) -> Paged[NewsItem]:
     """농가의 공개 소식(M-14, AC-15-1). 최신순, cursor = (createdAt, id)."""
-    query = select(Broadcast).where(Broadcast.farm_id == farm.id, Broadcast.visibility == "PUBLIC")
+    query = select(Broadcast).where(
+        Broadcast.farm_id == farm.id, Broadcast.visibility == "PUBLIC", _LIVE
+    )
     return _news_page(db, query, user_id, cursor, limit)
 
 
@@ -154,7 +160,7 @@ def followed_news(db: Session, consumer_id: str, cursor: str | None, limit: int)
         for f in farms.get_farms(db, farms.followed_farm_ids(db, consumer_id)).values()
         if f.approval_status == "APPROVED"
     ]
-    query = select(Broadcast).where(Broadcast.farm_id.in_(farm_ids))
+    query = select(Broadcast).where(Broadcast.farm_id.in_(farm_ids), _LIVE)
     return _news_page(db, query, consumer_id, cursor, limit)
 
 
@@ -163,6 +169,8 @@ def _visible_broadcast(db: Session, consumer_id: str, broadcast_id: str) -> Broa
     from app.farms import service as farms
 
     b = db.scalar(select(Broadcast).where(Broadcast.id == broadcast_id).with_for_update())
+    if b is not None and b.deleted_at is not None:
+        raise not_found("삭제된 소식이에요.")
     if b is None or farms.get_approved_farm(db, b.farm_id) is None:
         raise not_found("볼 수 없는 소식이에요.")
     if b.visibility != "PUBLIC" and not farms.is_following(db, consumer_id, b.farm_id):
@@ -242,7 +250,7 @@ def _room_access(db: Session, user, farm_id: str):
 
 def _room_rows(db: Session, user, farm, can_reply: bool, cursor: list | None, limit: int):
     """권한 필터를 먼저 걸고 (createdAt, id) 최신순으로 limit+1개를 합친다."""
-    broadcasts = select(Broadcast).where(Broadcast.farm_id == farm.id)
+    broadcasts = select(Broadcast).where(Broadcast.farm_id == farm.id, _LIVE)
     replies = select(RoomReply).where(RoomReply.farm_id == farm.id)
     if not can_reply:
         broadcasts = broadcasts.where(Broadcast.visibility == "PUBLIC")
@@ -296,6 +304,7 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     broadcast_id=r.id,
                     reaction_count=r.reaction_count,
                     my_reaction=r.id in mine,
+                    visibility=r.visibility,
                 )
             )
         else:
@@ -338,6 +347,19 @@ def _room_summary(db: Session, user, farm, can_reply: bool) -> NewsRoomSummary:
         last_message=preview,
         last_at=last.created_at if last else None,
     )
+
+
+def delete_news(db: Session, farm, broadcast_id: str) -> None:
+    """생산자가 자기 농가 소식을 지운다(M-23, AC-12-14·15). 소프트 삭제이고 다시 불러도 같다.
+
+    다른 농가의 소식은 있는지도 알리지 않고 404. 좋아요·답장·첨부 행은 그대로 둔다.
+    """
+    b = db.scalar(select(Broadcast).where(Broadcast.id == broadcast_id).with_for_update())
+    if b is None or b.farm_id != farm.id:
+        raise not_found("찾을 수 없는 소식이에요.")
+    if b.deleted_at is None:
+        b.deleted_at = now()
+        db.flush()
 
 
 def rooms(db: Session, user, cursor: str | None, limit: int) -> Paged[NewsRoomSummary]:
