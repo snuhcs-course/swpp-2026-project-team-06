@@ -246,6 +246,95 @@ def test_AC_15_5_cannot_like_followers_only_news_of_unfollowed_farm(client, logi
     assert blocked.status_code == 404
 
 
+# ---------------- 소식 삭제 (M-23, DEV-210) ----------------
+
+
+def room_ids(client, headers, farm_id="f-kang"):
+    page = client.get(f"/api/messaging/rooms/{farm_id}/messages", headers=headers).json()
+    return [m["messageId"] for m in page["items"]], page["room"]["lastMessage"]
+
+
+def test_AC_12_14_deleted_news_hidden_everywhere(client, login):
+    producer, minji = login("u-kang"), login("u-minji")
+    sent = client.post(
+        "/api/messaging/rooms/f-kang/messages",
+        headers=producer | key(),
+        json={"text": "이번 주 토요일 수확 체험은"},
+    ).json()
+    news_id = sent["broadcastId"]
+    assert news_id in room_ids(client, minji)[0]
+    assert room_ids(client, minji)[1] == "이번 주 토요일 수확 체험은"
+
+    deleted = client.delete(f"/api/messaging/news/{news_id}", headers=producer)
+    assert deleted.status_code == 204
+
+    ids, last = room_ids(client, minji)
+    assert news_id not in ids
+    assert last != "이번 주 토요일 수확 체험은"
+    assert news_id not in room_ids(client, producer)[0]
+    followed = client.get("/api/messaging/news", headers=minji).json()
+    assert news_id not in [n["broadcastId"] for n in followed["items"]]
+    rooms = client.get("/api/messaging/rooms", headers=minji).json()
+    kang = next(r for r in rooms["items"] if r["farmId"] == "f-kang")
+    assert kang["lastMessage"] != "이번 주 토요일 수확 체험은"
+
+
+def test_AC_12_14_deleted_public_news_leaves_farm_news(client, login):
+    producer = login("u-kang")
+    assert client.delete("/api/messaging/news/n-2", headers=producer).status_code == 204
+
+    farm_news = client.get("/api/messaging/farms/f-kang/news").json()
+    anonymous = client.get("/api/messaging/rooms/f-kang/messages").json()
+    assert "n-2" not in [n["broadcastId"] for n in farm_news["items"]]
+    assert anonymous["items"] == []
+    assert anonymous["room"]["lastMessage"] is None
+
+
+def test_AC_12_14_delete_keeps_consumer_replies(client, login):
+    assert client.delete("/api/messaging/news/n-1", headers=login("u-kang")).status_code == 204
+
+    ids, _ = room_ids(client, login("u-minji"))
+    assert "n-1" not in ids
+    assert "reply-1" in ids
+
+
+def test_AC_12_14_delete_is_idempotent(client, login):
+    producer = login("u-kang")
+    first = client.delete("/api/messaging/news/n-1", headers=producer)
+    again = client.delete("/api/messaging/news/n-1", headers=producer)
+
+    assert (first.status_code, again.status_code) == (204, 204)
+
+
+def test_AC_12_14_like_on_deleted_news_404(client, login):
+    client.delete("/api/messaging/news/n-2", headers=login("u-kang"))
+    liked = client.put("/api/messaging/news/n-2/reaction", headers=login("u-seojun"))
+    unliked = client.delete("/api/messaging/news/n-2/reaction", headers=login("u-minji"))
+
+    assert liked.status_code == 404
+    assert unliked.status_code == 404
+
+
+def test_AC_12_15_other_farm_cannot_delete_news(client, login):
+    # n-3은 한라네(f-halla) 공개 소식. 강씨네 생산자가 지우려 하면 있는지도 알리지 않는다.
+    other = client.delete("/api/messaging/news/n-3", headers=login("u-kang"))
+    missing = client.delete("/api/messaging/news/n-nope", headers=login("u-kang"))
+    pending = client.delete("/api/messaging/news/n-2", headers=login("u-misook"))
+
+    assert other.status_code == 404
+    assert missing.status_code == 404
+    assert pending.status_code == 403
+    farm_news = client.get("/api/messaging/farms/f-halla/news").json()
+    assert "n-3" in [n["broadcastId"] for n in farm_news["items"]]
+
+
+def test_AC_12_15_consumer_cannot_delete_news(client, login):
+    response = client.delete("/api/messaging/news/n-2", headers=login("u-minji"))
+
+    assert response.status_code == 403
+    assert "n-2" in room_ids(client, login("u-minji"))[0]
+
+
 # ---------------- 1:1 채팅 ----------------
 
 
