@@ -2140,3 +2140,29 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 수정: 소비자 취소 직전에 `monkeypatch`로 `fixed_now`를 1초 뒤(10:00:01)로 옮겨 실제처럼 뒤 시각에 환불한다. 순서 assertion `[(MANAGER, 10000), (CONSUMER, total - 10000)]`은 그대로이고, 이제 시간 순서로 의미가 있다.
 - 결정적 재현: 원래 테스트에서 MANAGER 환불 행을 지웠다 다시 넣어(같은 값, 뒤 TID) 순서를 바꾸면 CI와 같은 `assert [('CONSUMER',...AGER', 10000)] == [('MANAGER', ...UMER', 48000)]`로 **1/1 실패**. 같은 조작을 한 수정본은 **통과**. 두 행의 `created_at`이 같다는 것도 확인했다. (임시 probe 파일은 지웠다)
 - 반복: 수정 전 단독 0/20, 파일 일부(-k) 0/10 실패(로컬 자연 재현 안 됨, CI 전체 실행에서 실패). 수정 후 단독 **0/20**, 파일 전체 **0/3**, 전체 pytest **0/3 실패(각 1264 passed)**.
+
+## DEV-209 [HE 후속] 정지·반려 생산자의 farmclub 문의 대화방
+
+- 이슈: https://linear.app/sswp6/issue/DEV-209 · 화면 쪽 기록은 `apps/producer/tasks.md#DEV-209`
+- 상태: 진행 중 — 1단계 디자인 제안만. PM 승인 전에는 코드를 고치지 않는다.
+
+### 목표
+지금 생산자 채팅 API는 승인된 농가만 받는다(`require_approved_producer`, `app/messaging/service.py`의 APPROVED 검사). 정지·반려 생산자가 자기 farmclub 방만 읽고, 보내고, 읽음 처리할 수 있게 한다. 다른 1:1 대화와 소식방은 계속 막는다.
+
+### 범위 (수정 허용 경로, 승인 뒤)
+- `server/app/messaging/{router.py,support.py,schemas.py}`, `server/tests/test_support.py`
+- 가능하면 `server/app/core/security.py`는 고치지 않고 messaging 라우터 안에 좁은 의존성을 둔다. 고쳐야 하면 범위를 먼저 고치고 PR을 고위험으로 표시한다.
+
+### 비범위
+- 모델·마이그레이션(기존 Thread·`thread-support-{farmId}`를 쓴다), 관리자 문의함 화면(이미 정지·숨김 농가 방을 보인다), 새 서버 설정(메일 값은 앱 빌드 변수)
+
+### 결정 사항 (제안, PM 승인 대기)
+- 새 API 3개(가칭): `GET/POST /api/messaging/farm-support/messages`, `PUT /api/messaging/farm-support/read`. 생산자이고 농가 상태가 APPROVED·SUSPENDED·REJECTED일 때만 받는다.
+- 반려 농가는 방이 없으므로 처음 열 때 `ensure_support_thread`로 만들고, 환영 문구 대신 신청 결과용 첫 메시지를 넣는다. AC-34-1("반려는 대화방을 만들지 않는다")을 바꾼다.
+- M-16 연락처 가림, 멱등 키는 기존 farmclub 방과 같게 적용한다.
+- 운영 DB(사람이 실행): `f-wimi`를 `approval_status='PENDING'`, `reject_reason=NULL`, `decided_at=NULL`로 되돌린다. 확인 쿼리와 명령은 승인 뒤 이 섹션에 적는다.
+
+### 작업
+- [ ] PM 승인
+- [ ] API·테스트(`test_AC_34_9_...`)
+- [ ] 운영 DB 되돌리기 명령 준비
