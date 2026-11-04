@@ -229,3 +229,7 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 ### 기록
 - 11/03 main 896b836에서 시작. 처음엔 단계별 역할 표·체크리스트·근거 규칙까지 넣었으나(`31db9df`~`017c961`) Zahra가 너무 복잡하다고 해 짧게 다시 씀.
 - 11/03 spec-code-review pass. Zahra가 짧게 다시 쓴 최종본을 읽고 머지 지시.
+
+## DEV-219 [repo] Split per-folder tasks.md into per-issue task files
+
+→ [tasks/DEV-219.md](tasks/DEV-219.md)
