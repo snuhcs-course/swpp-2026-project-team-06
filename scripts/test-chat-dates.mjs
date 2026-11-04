@@ -5,7 +5,7 @@ process.env.TZ = "America/Los_Angeles";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { daySeparator, seoulDay, ymd } from "../packages/ui/src/format.ts";
+import { daySeparator, longDate, seoulDay } from "../packages/ui/src/format.ts";
 
 // 10월 6일 22:00 KST, 10월 7일 08:30 KST(= 10/6 23:30 UTC), 10월 7일 09:30 KST(= 10/7 00:30 UTC), 10월 8일 00:10 KST
 const thread = [
@@ -25,9 +25,9 @@ test("DEV-223 seoulDay groups by KST date, not the UTC date prefix", () => {
   assert.equal(seoulDay("2026-10-07T08:05:00+09:00"), "2026-10-07");
 });
 
-test("DEV-223 ymd label is '2026년 10월 7일' in KST", () => {
-  assert.equal(ymd("2026-10-06T23:30:00Z"), "2026년 10월 7일");
-  assert.equal(ymd("2026-12-31T15:00:00Z"), "2027년 1월 1일");
+test("DEV-223 longDate label is '2026년 10월 7일' in KST", () => {
+  assert.equal(longDate("2026-10-06T23:30:00Z"), "2026년 10월 7일");
+  assert.equal(longDate("2026-12-31T15:00:00Z"), "2027년 1월 1일");
 });
 
 test("DEV-223 messages before and after 09:00 KST share one separator", () => {

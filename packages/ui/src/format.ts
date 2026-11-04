@@ -30,14 +30,14 @@ export function seoulDay(iso: string) {
 }
 
 /** "2026년 10월 7일" — 대화 날짜 구분(소식방·Figma v6와 같은 형식) */
-export function ymd(iso: string) {
+export function longDate(iso: string) {
   const d = toSeoul(iso);
   return `${d.year}년 ${d.month}월 ${d.day}일`;
 }
 
 /** 대화 날짜 구분: 첫 메시지이거나 앞 메시지와 한국 날짜가 다르면 "2026년 10월 7일", 같으면 null */
 export function daySeparator(iso: string, prev?: string) {
-  return prev && seoulDay(prev) === seoulDay(iso) ? null : ymd(iso);
+  return prev && seoulDay(prev) === seoulDay(iso) ? null : longDate(iso);
 }
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
