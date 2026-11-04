@@ -180,6 +180,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       before?.();
       auth.logout();
       setResume(null);
+      // SCR-17 로그아웃 → SCR-01. 루트 스택에 남은 화면(주문서 등)을 먼저 걷어 내 뒤로·재로그인 때 다시 열리지 않게 한다(DEV-222)
+      if (router.canDismiss()) router.dismissAll();
       router.replace("/");
     },
     [router],

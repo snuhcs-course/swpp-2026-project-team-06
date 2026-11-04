@@ -55,6 +55,12 @@ export default function DepositGuide() {
   }, [expired, router, productId, optionId, quantity]);
   if (expired) return null;
 
+  // 완료 화면으로 갈 때 주문서·입금 안내를 스택에서 걷어 낸다. 남겨 두면 끝난 주문서가 뒤로·로그아웃 때 다시 나온다(DEV-222)
+  function toDone(orderId: string) {
+    if (router.canDismiss()) router.dismissAll();
+    router.replace(`/orders/${orderId}/done`);
+  }
+
   async function reported() {
     if (!o) return;
     setBusy(true);
@@ -65,7 +71,7 @@ export default function DepositGuide() {
       // 구매 퍼널 4단계: 입금했어요(DEV-71). 입금 확인(order_paid)은 생산자 확인 뒤 서버가 보낸다
       if (next !== o) track("deposit_reported", { orderId: o.orderId });
       setData(() => next);
-      router.replace(`/orders/${o.orderId}/done`);
+      toDone(o.orderId);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await reload();
       else toast.fail(e, () => void reported());
@@ -148,7 +154,7 @@ export default function DepositGuide() {
           label="나중에 입금할게요"
           variant="text"
           disabled={!o || busy}
-          onPress={() => o && router.replace(`/orders/${o.orderId}/done`)}
+          onPress={() => o && toDone(o.orderId)}
           style={{ alignSelf: "center" }}
         />
       </BottomBar>
