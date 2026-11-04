@@ -75,7 +75,7 @@ docs/
 .github/           CI workflow, Dependabot, PR template
 ```
 
-Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (a log of work per issue).
+Each code folder has a `spec.md` (implementation decisions) and a `tasks/` folder with one work log per issue (`tasks/DEV-123.md`). The older per-folder `tasks.md` files are frozen indexes of work before 2026-11-04.
 
 ## Getting started
 
@@ -477,7 +477,7 @@ Accounts, purchases and console changes are done by a person. In order:
 
 1. Every change starts from an issue in Linear, synced with GitHub Issues.
 2. Branch from `main` using the issue's branch name. Issue keys go in branch names, commits, and PR titles, for example `[DEV-12] ...`.
-3. Record scope and decisions in the code folder's `tasks.md`, then open a draft PR.
+3. Record scope and decisions in a new issue file in the code folder (`tasks/DEV-123.md`), then open a draft PR.
 4. Run an AI first-pass review, then get one human approval. CI must pass before merge.
 
 Features are written against IDs in the spec (`FEAT-xx`, rules `R-xx` and `M-xx`, screens `SCR-xx`), and test names include acceptance criteria IDs, for example `test_AC_09_1_...`. Details are in [`AGENTS.md`](AGENTS.md).
@@ -525,7 +525,7 @@ Local shared Mock: `npm run dev` compiles the API fixtures and starts a loopback
 - Supply approval is per product, entered in kg and stored as integer grams. Initial approval opens sales; only additional capacity requires another request. Approval and the producer's sales limit are separate. Pending increases keep existing sales open.
 - Date-based reservation periods, immediate prices for new orders, per-order box limits, pause/resume, mixed-weight capacity accounting. Paid orders retain price/weight snapshots; pre-shipping cancellations restore capacity once.
 - Order problem inquiries support private photos, participant-only access and producer handoff. AI replies and previews are deterministic Mock behavior.
-- `npm run test:mock` checks isolated fixtures/storage; it does not reset the running demo. CI also runs these contracts. `npm run typecheck` and `npm run build:web` check both apps.
+- `npm run test:mock` runs every `scripts/test-*.mjs` (except the live `test-integration.mjs`) through `scripts/run-mock-tests.mjs`; a new test file needs no `package.json` edit. It checks isolated fixtures/storage; it does not reset the running demo. CI also runs these contracts. `npm run typecheck` and `npm run build:web` check both apps.
 - Changes to `packages/api/src/mock` require restarting `npm run dev` to recompile the shared backend. Frontend/UI edits use Fast Refresh. Stop the existing launcher first to retain ports 8081/8082/8083.
 - Mock schema 7 requires explicit local migration/reset on a schema mismatch. Existing local orders/messages were backed up and converted once; no legacy schema compatibility is shipped. Do not commit `.expo`, tokens or backups.
 - Scope: frontend + local Mock. DEV-4 implements the corresponding FastAPI endpoints and production transactions. These tests do not verify real payments, AI or server API implementation. Admin approval is a management API, never a producer self-approval button.

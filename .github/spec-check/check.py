@@ -23,6 +23,8 @@ SHA = re.compile(r"^[0-9a-f]{40}$")
 SECRET = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bsk-ant-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}")
 THINKING = {"thinking", "redacted_thinking"}
 # DEV-81: only spec excerpts and the diff are sent. IDs name the FEAT/rule items worth excerpting.
+# DEV-219: one task file per issue, `<folder>/tasks/DEV-123.md`. Old per-folder `tasks.md#dev-123` sections still work.
+TASK_FILE = re.compile(r"(?:^|/)tasks/((?:dev|swpp)-\d+)\.md$", re.I)
 ID = re.compile(r"\b(?:AC-[A-Za-z0-9]+-\d+|[RM]-\d{2,3})\b")
 KEY = re.compile(r"\b(?:DEV|SWPP)-\d+\b", re.I)
 EXCLUDED_NAMES = {"package-lock.json", "pnpm-lock.yaml", "yarn.lock"}
@@ -106,6 +108,12 @@ def metadata(event):
             "body_digest": digest(pr.get("body") or "")}
 
 
+def task_file_key(path):
+    """Issue key when `path` is a per-issue task file (`…/tasks/DEV-123.md`), else None."""
+    match = TASK_FILE.search(path)
+    return match[1] if match else None
+
+
 def references(cell):
     return [safe_path(p.split("#", 1)[0]) for p in re.findall(r"`([^`]+)`", cell)]
 
@@ -129,11 +137,13 @@ def author_mapping(body):
                 implementation.update(right)
     task = re.search(r"작업 기록:\s*`([^`]+)`", section[1])
     if not specs or not implementation or not task:
-        raise Incomplete("Add backtick spec/code paths to the existing mapping table and a tasks.md issue section.")
+        raise Incomplete("Add backtick spec/code paths to the existing mapping table and a task record (tasks/DEV-40.md).")
     path, separator, anchor = task[1].partition("#")
+    if task_file_key(path):
+        return specs, implementation, safe_path(path), task_file_key(path)
     match = re.match(r"((?:dev|swpp)-\d+)", anchor, re.I)
-    if not separator or not match or not path.endswith("/tasks.md"):
-        raise Incomplete("Task reference needs an issue anchor, e.g. tasks.md#dev-40.")
+    if not separator or not match or not (path == "tasks.md" or path.endswith("/tasks.md")):
+        raise Incomplete("Task reference needs an issue file or anchor, e.g. server/tasks/DEV-40.md or server/tasks.md#dev-40.")
     return specs, implementation, safe_path(path), match[1]
 
 
@@ -301,14 +311,23 @@ def collect(root, event, demo=None):
         body = event["pull_request"].get("body") or ""
         specs, implementation, task_path, issue = author_mapping(body)
         anchors, old_rev = mapping_anchors(body), merge_base
+        if not task_file_key(task_path):
+            # DEV-219: after the split the old section is a link stub; read the issue file next to it instead.
+            sibling = str(PurePosixPath(task_path).parent / "tasks" / f"{issue.upper()}.md")
+            if git(root, "ls-tree", "-z", head, "--", sibling):
+                specs.add(task_path)
+                task_path = sibling
         task = read_file(root, head, task_path)
-        section = tasks_excerpt(task, issue)
+        if task_file_key(task_path):
+            section = excerpt(task, range(10 ** 6), f"issue file {issue}")
+        else:
+            section = tasks_excerpt(task, issue)
         if section is None:
             raise Incomplete("The referenced tasks.md issue section is missing.")
         documents[task_path] = section
         meta["source_revisions"][task_path] = head
         specs.add(task_path)
-        # IDs may be written only in the tasks.md issue section; segments[0] is always the file title line.
+        # IDs may be written only in the task record (issue file or tasks.md section); segments[0] is the title line.
         section_text = "\n".join(seg["text"] for seg in section["segments"])
         ids = set(ID.findall(mapping_section(body))) | set(ID.findall(section_text))
         changed = [safe_path(p) for p in git(root, "diff", "--name-only", "--no-renames", "-z", merge_base, head).decode().split("\0") if p]
@@ -333,6 +352,8 @@ def collect(root, event, demo=None):
                 document = rules_excerpt(text, ids)
             elif name == "spec.md":
                 document = decisions_excerpt(text, ids, issue)
+            elif task_file_key(path):
+                document = excerpt(text, range(10 ** 6), f"issue file {task_file_key(path)}")
             elif name == "tasks.md":
                 document = tasks_excerpt(text, issue) or excerpt(text, set(), f"title only (no {issue} section)")
             else:

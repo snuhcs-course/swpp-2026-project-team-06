@@ -39,7 +39,7 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 3. [functional/rules.md](./functional/rules.md) — FEAT 파일이 가리키는 규칙
 4. 화면이 걸리면 [ia.md](./ia.md)의 해당 SCR과 [screens.md](./screens.md)의 화면·API
    - 1.2 변경 기능은 [공통 계약](./contracts-1.2.md)도 읽는다.
-5. 작업하는 코드 폴더의 `spec.md`와 `tasks.md`
+5. 작업하는 코드 폴더의 `spec.md`와 이슈 파일 `tasks/<이슈 키>.md`
 
 ## 문서끼리 다를 때
 
@@ -51,9 +51,9 @@ farmclub 스펙 문서의 원본이다(한글). 위키(`docs/wiki/`)는 TA용 �
 | 층 | 무엇 | 어디 |
 | --- | --- | --- |
 | 무엇을 만드나 | 동작, 규칙, 인수 조건 | 이 폴더 (`docs/spec/`) |
-| 어떻게 만드나 | 구현 결정(`spec.md`), 이슈별 작업 기록(`tasks.md`) | 기능을 구현하는 코드 폴더 |
+| 어떻게 만드나 | 구현 결정(`spec.md`), 이슈별 작업 기록(`tasks/<이슈 키>.md`) | 기능을 구현하는 코드 폴더 |
 
-코드 폴더의 `spec.md`는 FEAT·규칙 ID만 적고 내용을 다시 쓰지 않는다. `tasks.md`는 Linear 이슈별 섹션을 쌓고 머지 후에도 남긴다. FEAT와 코드 폴더의 대응표는 [기술 스택 4장](./tech-design/stack.md#4-feat--코드-폴더)에 둔다.
+코드 폴더의 `spec.md`는 FEAT·규칙 ID만 적고 내용을 다시 쓰지 않는다. 작업 기록은 Linear 이슈 하나에 파일 하나(`tasks/DEV-123.md`)로 만들고 머지 후에도 남긴다. 폴더의 `tasks.md`는 2026-11-04 분리 전 기록의 색인이다([ADR 0014](./tech-design/adr/0014-per-issue-task-files.md)). FEAT와 코드 폴더의 대응표는 [기술 스택 4장](./tech-design/stack.md#4-feat--코드-폴더)에 둔다.
 
 ## ID
 

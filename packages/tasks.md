@@ -1,426 +1,48 @@
 # packages tasks
 
-이슈별 작업 기록. 새 작업은 맨 아래에 섹션을 추가하고, 머지 후에도 지우지 않는다.
+<!-- split-tasks: DEV-219 -->
+> 이슈별 작업 기록은 `tasks/<이슈 키>.md`에 있다(ADR 0014). 새 이슈는 여기 절을 추가하지 말고 `tasks/<이슈 키>.md`를 새로 만든다. 아래 목록은 분리 시점 기록이며 더 고치지 않는다.
 
 ## DEV-12 [I1] 구현 뼈대: apps·packages·server 폴더와 폴더별 spec.md
 
-- 이슈: [DEV-12](https://linear.app/sswp6/issue/DEV-12) (GitHub #19)
-- 브랜치: `nemodleo/dev-12-i1-구현-뼈대-appspackagesserver-폴더와-폴더별-specmd`
-- 기능·인수 조건: 없음(뼈대). 규칙: N-02
-- 상태: 리뷰 중
-
-### 목표
-두 앱이 함께 쓰는 `@farmclub/ui`(N-02 크기 토큰·기본 버튼·Placeholder)와 `@farmclub/api`(API 클라이언트 자리), npm workspaces를 만든다.
-
-### 범위 (수정 허용 경로)
-- `packages/**`
-- 레포 루트 공통 파일: `package.json`, `package-lock.json`(npm workspaces), `.gitignore`, `README.md`("로컬 실행" 절)
-
-### 비범위 (건드리지 않음)
-- OpenAPI 클라이언트 생성 도구 도입, 인증 헤더·토큰 갱신(DEV-3·DEV-4)
-- 디자인 토큰 세부 수치(화면 명세 P21)
-- `docs/**`, `.agents/**`, `AGENTS.md`
-
-### 결정 사항
-- 10/07 루트 공통 파일(`package.json`·`package-lock.json`·`.gitignore`·`README.md`)은 이 섹션 범위에 둔다. 레포 루트에는 tasks.md를 두지 않는다
-- 10/07 두 패키지 모두 빌드 없이 TS 소스를 `main`으로 둔다
-- 10/07 Expo 57 앱 tsconfig에는 Node 타입이 없어 `process.env`가 타입 오류 → `packages/api/src/client.ts` 안에서만 `process`를 선언(@types/node를 추가하지 않음)
-- 10/07 PR 리뷰 반영: `request()`가 `Headers` 객체로 받은 헤더를 잃던 문제와, `EXPO_PUBLIC_API_URL`이 빈 문자열이면 상대 경로가 되던 문제 수정
-- 10/07 루트 `.gitignore`에 node_modules·.expo·dist·.venv 등 추가(앱 커밋 전에 필요)
-
-### 작업
-- [x] `packages/ui/spec.md`, `packages/api/spec.md` 작성
-- [x] 루트 `package.json`: private, workspaces `["apps/*", "packages/*"]`
-- [x] `@farmclub/ui`: `tokens.ts`(본문 16px, 누르는 영역 48px), `Button`, `Placeholder`
-- [x] `@farmclub/api`: `EXPO_PUBLIC_API_URL` fetch 래퍼, `health()`
-- [x] 루트 `.gitignore` 확인(node_modules, .venv, .env, dist, .expo 등)
-- [x] 루트 `README.md` "로컬 실행" 절
-
-### 완료 조건
-- [x] `packages/ui`(N-02 크기 토큰·기본 버튼), `packages/api`(API 클라이언트 자리)
-- [x] 실행 방법 README
-- [x] 두 앱에서 import해 `npx tsc --noEmit` 통과
-- [ ] 리뷰 1명 승인 후 main 머지
-
-### 기록
-- 10/07 spec.md·tasks.md 먼저 커밋
-- 10/07 루트 README "로컬 실행" 절 추가. `git diff main...HEAD`를 네 tasks.md 범위와 대조: 범위 밖 파일 없음, docs/·.agents/ 변경 없음
-- 10/07 앱 tsconfig로 packages/ui·api `tsc --noEmit` 통과
+→ [tasks/DEV-12.md](tasks/DEV-12.md)
 
 ## DEV-3 [I1-P23] Implement frontend (prototype)
 
-- 이슈: [DEV-3](https://linear.app/sswp6/issue/DEV-3)
-- 상태: 시작 전 — 아래는 SWPP-26(P22 스펙 확정)에서 넘어온 할 일만 미리 적었다. 시작할 때 `spec` 스킬로 목표·범위·완료 조건을 채운다
-- 기준 문서: `docs/spec/screens.md`(화면·API), Must 범위는 screens.md 4장
-
-### SWPP-26에서 넘어온 할 일
-- [ ] `@farmclub/api`: `ApiError`가 오류 본문 `{code, message, details}`를 꺼내 주게 바꾸기(screens.md 7.1)
-- [ ] `@farmclub/api`: 토큰 보관과 `Authorization` 헤더, 테스트 로그인 함수(`GET /api/auth/test-accounts`, `POST /api/auth/test-login`)
-- [ ] `@farmclub/api`: 목록 함수 `{ items, nextCursor }`, 주문·결제에 `Idempotency-Key`(재시도 때 같은 키)
+→ [tasks/DEV-3.md](tasks/DEV-3.md)
 
 ## DEV-14 README 영문 완성
 
-- 이슈: [DEV-14](https://linear.app/sswp6/issue/DEV-14)
-- 브랜치: `nemodleo/dev-14-readme-영문-완성`
-- 기능·인수 조건: 없음(문서)
-- 상태: 진행 중
-
-### 목표
-루트 `README.md`의 SWPP 템플릿 문구를 걷어내고, 레포를 처음 보는 사람이 서비스, 실행 방법, 문서 위치를 바로 알 수 있게 영어로 완성한다.
-
-### 범위 (수정 허용 경로)
-- `README.md`
-- `packages/tasks.md` (이 섹션)
-
-### 비범위 (건드리지 않음)
-- `docs/**`, `AGENTS.md`, 코드
-- 스크린샷(디자인 확정 후)
-
-### 결정 사항
-- 10/07 루트 공통 파일은 DEV-12 결정대로 이 파일 범위에 기록한다(루트에 tasks.md를 두지 않음)
-- 10/07 README는 영어로 쓴다. 스펙 원본(`docs/spec/`)은 한국어로 유지하고 README에서 위치만 안내한다
-- 10/07 공개 레포 규칙에 따라 가격·운영 수치, 개인정보, 내부 도구 링크는 넣지 않는다. 팀은 이름만 적는다(wiki Home과 같음)
-
-### 작업
-- [x] 소개, I1 범위의 핵심 기능, 기술 스택, 레포 구조
-- [x] 로컬 실행(서버, 두 앱), 테스트·CI
-- [x] 문서 안내, 작업 방식 요약, 팀
-
-### 완료 조건
-- [x] README에 템플릿 문구가 남아 있지 않다
-- [x] 적힌 실행 명령이 레포의 실제 스크립트·설정과 같다
-- [ ] CI 통과 후 main 머지
+→ [tasks/DEV-14.md](tasks/DEV-14.md)
 
 ## DEV-3 로컬 프로토타입 통합 작업 (2026-10-07)
 
-- 이슈: https://linear.app/sswp6/issue/DEV-3
-- 브랜치: `jinwoo/dev-3-frontend`
-- 상태: 로컬 실행 완료, 사용자 수정 대기
-- 기준: screens.md 1.1, docs/design, ADR 0009·0010, 사용자 승인 계획
-
-### 목표
-Hyun Park 작성 farmclub-proto-ref.zip을 기준으로 두 앱을 Mock 모드로 실행하고 사용자 피드백을 반영한다.
-
-### 범위
-- packages/**, package.json, package-lock.json, scripts/**, README.md
-
-### 결정 사항
-- 기존 두 작업 폴더를 보존하고 최신 main의 별도 clone에서 작업한다.
-- ZIP의 소스·자산을 이식하되 main의 spec.md·tasks.md는 보존한다.
-- 하나의 DEV-3 브랜치를 사용한다. 사용자 지시로 push·PR·배포는 보류한다.
-- scripts/local.mjs가 Windows에서도 Mock 환경과 두 앱의 로컬 URL을 설정한다.
-- 이전 DEV-12·DEV-14의 진행 중 표시는 main에 반영된 과거 기록으로 보존한다.
-- Mock 상태는 ZIP과 같이 앱별 브라우저 저장소이며 두 앱 사이에 동기화되지 않는다.
-
-### 작업 및 로컬 완료 조건
-- [x] ZIP 이식, 옛 중복 라우트 제거, 의존성 설치
-- [x] 소비자·생산자·API·UI 타입 검사 통과
-- [x] 두 앱 웹 export 통과, git diff --check 통과
-- [x] 소비자 8081·생산자 8082 로컬 개발 서버 실행
-- [x] 소비자 로그인 복귀·동의 전 결제 비활성·Mock 결제·예약 완료·주문 내역 확인
-- [x] 생산자 로그인·현황·상품 편집 입력값·질문함·출하 목록 표시 확인
-- [x] 모바일 390px 화면과 PC 1440px 중앙 정렬 육안 확인
-- [ ] 사용자 요청 수정 반영 (후속 작업)
-
-### 기록 및 검증 한계
-- 2026-10-07: Linear DEV-3 목표·완료 조건 확인. 이 기록은 DEV-3 전체 완료·리뷰 승인·main 머지를 뜻하지 않는다.
-- 브라우저에서 확인한 화면의 콘솔 오류 0건. 상품 저장 테스트는 자동 승인 검토 거절로 미실행; 출하 상태 변경·모든 생산자 계정 상태·전체 인수 조건은 미검증.
-- npm install 보고: 의존성 취약점 28건(중간 10, 높음 18). ZIP 버전 유지; 임의 major upgrade·audit fix 미실행.
-- Git 작성자 이메일은 기존 설정 유지. GitHub 이메일 조회 권한이 없어 등록 일치 여부는 미확인.
-- 서버 로그/PID는 루트 .expo/local-dev.*에 저장. 사용자에게 로컬 주소 안내 후 화면 수정부터 이어간다.
-
+→ [tasks/DEV-3.md](tasks/DEV-3.md)
 
 ## DEV-3 소식방 및 공유 로컬 Mock (2026-10-07)
 
-- 상태: 로컬 구현·검증 완료 (커밋·push·PR 없음)
-- 목표: 농가별 소식방, 소비자 본인 답장만 노출, 생산자 전체 수신, 기존 1:1 채팅 유지.
-- 승인: 사용자가 계획 승인 후 구현 요청. push·PR·배포 없음.
-- 범위: apps/consumer/**, apps/producer/**, packages/api/**, packages/ui/**, scripts/**, package.json, package-lock.json, README.md, docs/spec/**, docs/design/README.md, docs/wiki/Requirements-and-Specifications.md, docs/wiki/Design-Documentation.md, docs/wiki/Testing-Documentation.md.
-- 결정: 서버 응답에서 역할·농가·팔로우별 필터링. 2초 foreground polling. 소식방 AI 답변 없음. 생산자 답변은 방 전체 공개.
-- 결정: 기존 Mock를 로컬 Node 서버에서 공유하고 .expo에 지속 저장. 기존 브라우저 데이터 보존·인증 키 분리. 신규 데모는 공유 시드로 시작.
-- 검증: A/B 소비자·생산자 격리, 목록·페이지네이션 누출 방지, 동기화·재시작·첨부·실패 및 중복 전송, 타입 검사·웹 빌드·UI.
-
-### 구현·검증 기록
-- 농가별 목록/소식방, 생산자 전체 방송과 소비자 본인 답장, 기존 1:1 채팅 이름 분리 완료.
-- 공유 Mock 상태·미디어 영속 저장, 앱별 인증 키 분리, 멱등 재전송, 승인·소유·팔로우 검사 완료.
-- API 격리 테스트 통과: 두 소비자/생산자, 요약·cursor 누출 차단, 연락처 가림, 중복 키·본문 충돌, 방송·좋아요·첨부, 재시작·초기화·Origin 검사.
-- 브라우저: 두 소비자 세션에서 상대 답장 미노출, 생산자에서 모두 표시, 2초 동기화 확인. 네트워크 실패 시 글 보존·재시도 1회 저장 확인.
-- 브라우저: 과거 읽기 위치 0 → 신규 메시지 후 0 유지, 새 소식 버튼으로 하단 이동. PC 1440px·모바일 390px 육안 확인.
-- 타입 검사 4개 workspace 및 소비자/생산자 웹 export 통과. 의도적 네트워크 차단 테스트 외 새 UI 콘솔 오류 없음.
-- 제품·디자인 원본 및 영어 wiki에 소식방 계약/검증을 함께 기록.
-- 범위 한계: 새 API는 로컬 Mock 구현이다. FastAPI 서버·실서비스 저장소 반영 및 PR은 이번 작업에 포함하지 않았다. 기존 전체 주문/생산자 기능의 검증 범위는 이전 기록 참조.
-
+→ [tasks/DEV-3.md](tasks/DEV-3.md)
 
 ## DEV-3 전체 프론트 및 스펙 1.4
-- 공용 UI·API/Mock과 두 앱을 단일 프론트 PR로 통합한다. 상세 범위·결정·검증은 각 패키지 tasks.md의 스펙 1.4 절을 따른다.
-- 스펙 PR #40 선행 머지. 데모 프로토타입(Hyun Park 작성)을 참고.
+
+→ [tasks/DEV-3.md](tasks/DEV-3.md)
 
 ## DEV-6 [I1-P26] Integration test
 
-- 이슈: [DEV-6 / GitHub #7](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/7)
-- 브랜치: `zahra/dev-6-i1-p26-integration-test`
-- 기능·인수 조건: I1 P0 핵심 흐름, 스펙 1.1~1.5 AC / `docs/wiki/Testing-Documentation.md`
-- 상태: 진행 중
-
-### 목표
-두 Expo 웹 앱을 Mock이 아닌 FastAPI·PostgreSQL에 연결해 소비자·생산자 핵심 흐름이 끝까지 이어지는지 검증한다. 반복 가능한 실제 서버 API smoke와 브라우저 결과를 남기고, 발견한 제품 결함은 #8 후속 Bug 이슈로 분리한다.
-
-### 범위 (수정 허용 경로)
-- `scripts/**`
-- `package.json`
-- `docs/wiki/Testing-Documentation.md`
-- `packages/tasks.md`
-
-### 비범위 (건드리지 않음)
-- `apps/**`, `packages/api/**`, `packages/ui/**`, `server/**` 제품 코드
-- 통합 테스트에서 발견한 제품 결함 수정(별도 Bug 이슈·브랜치, 관련 #8)
-- 배포 환경 검증(P28/DEV-8)
-
-### 결정 사항
-- 10/09 GitHub #7은 P23→DEV-3, P24→DEV-4 순서에 따라 DEV-6으로 기록한다
-- 10/09 실제 서버 smoke는 새 의존성 없이 Node `fetch`로 만들고 localhost만 허용한다. 실행 전 DB를 0005로 올리고 시드를 reset한다
-- 10/09 브라우저는 `EXPO_PUBLIC_API_MOCK=0`, `EXPO_PUBLIC_API_URL=http://localhost:8000`으로 두 앱을 띄우며 `/__mock` 요청이 없어야 한다
-- 10/09 동시성·세부 권한은 기존 pytest/Mock 계약 테스트를 유지하고, 브라우저는 실제 client↔server 연결·교차 앱 상태·오류 복구·레이아웃을 검증한다
-- 10/09 실패는 재현 정보·예상/실제·증거를 담은 별도 Bug 이슈로 등록하고 DEV-6에는 수정하지 않는다. blocker 수정 후 전체 matrix를 다시 실행한다
-- 10/09 #54 수정 후 smoke의 계정 gate 흐름에 승인 대기·반려 신청 내용 조회와 농가 없는 계정의 404를 추가해 같은 client↔server 계약 회귀를 자동 검출한다
-
-### 작업
-- [x] `npm run test:integration` 실제 FastAPI smoke harness
-- [x] 인증·상품 승인·주문·용량·소식/채팅·상세 콘텐츠 API 흐름
-- [x] 소비자·생산자 브라우저 핵심 흐름과 계정 gate
-- [x] privacy·오류 복구·390/1440px·Mock 미사용 확인
-- [x] 전체 자동 검사와 browser 결과를 영어 Testing Documentation에 기록
-- [x] 실패별 Bug 이슈 등록·수정 후 전체 재실행 (#54 → PR #55 머지, 자동 전체·영향 browser 재실행)
-
-### 완료 조건
-- [x] 실제 FastAPI smoke 전체 통과
-- [x] 브라우저 시나리오 전체 expected=actual, 예상하지 않은 5xx·console error·Mock 요청 없음
-- [x] ruff·pytest·alembic, typecheck·Mock tests·web export 통과
-- [x] 모든 실패가 별도 Bug 이슈로 추적되고 blocker 해결 후 재검증
-- [ ] AI 1차 리뷰 후 사람 1명 승인, CI 통과, main 머지
-
-### 기록
-- 10/09 PR #52(스펙 1.5) 머지·CI 통과 후 최신 main에서 브랜치 생성. GitHub #7 완료 조건과 기존 pytest·Mock·browser 검증 기록, 실제 API 실행 방법 확인
-- 10/09 draft PR #53 생성. `scripts/test-integration.mjs`는 localhost만 허용하고 새 의존성 없이 7개 실제 서버 흐름을 순차 검증한다
-- 10/09 DB reset 뒤 실제 API smoke 7/7 통과. ruff 통과, pytest 128개 통과, Alembic upgrade/check 통과. frontend typecheck 4개 workspace, Mock 11개, 두 Expo web export 통과
-- 10/09 브라우저에서 익명 탐색·로그인 복귀, 소비자 결제, 생산자 수확/송장/출하, 소비자 배송 상태, 상품 상세 초안/재정렬/미리보기/저장, 공개 소식방 privacy, AI 답변/전달, reload·API 중단/재시도, 390/1440px를 실제 port 8000으로 확인. 예상하지 않은 5xx·browser error·Mock 요청 없음
-- 10/09 승인 대기·반려 생산자에서 `/api/auth/producer-application` 404로 `/pending`이 `Not Found`를 표시하는 blocker 발견. 제품 수정은 섞지 않고 Bug #54로 등록해 #7·#8에 연결. 정지·신규 gate는 정상
-- 10/09 #54 수정 머지 후 최신 main 병합, DB reset, 전체 API/브라우저 matrix 재실행 전까지 draft 유지하고 완료 처리하지 않는다
-- 10/09 PR #55 머지 commit `297b27a`를 병합하고 DB를 reset. smoke에 PENDING·REJECTED 신청 조회와 NONE 404를 추가해 7/7 재통과. Ruff, pytest 133개, Alembic upgrade/check, typecheck, Mock 11개, 두 web export 재통과
-- 10/09 실제 생산자 앱에서 오미숙은 신청 일정·읽기 전용 신청 내용, 박순자는 반려 사유·이전 값이 채워진 재신청 폼을 확인. `/api/auth/producer-application` 200, browser error 없음. #54 blocker 해소
-- 10/09 AI 1차 diff 점검에서 integration scenario 이름의 AC 추적 ID 누락을 발견해 7개 흐름 모두 관련 AC ID를 붙임
+→ [tasks/DEV-6.md](tasks/DEV-6.md)
 
 ## DEV-25 [I1-P26-1] Comprehensive Integration Test Automation
 
-- 이슈: [DEV-25 / GitHub #56](https://github.com/snuhcs-course/swpp-2026-project-team-06/issues/56)
-- 브랜치: `zahra/dev-25-i1-p26-1-comprehensive-integration-test-automation`
-- 기능·인수 조건: I1 P0 FEAT-01~15·17·19, 스펙 1.1~1.5 AC / `docs/wiki/Testing-Documentation.md`
-- 상태: 진행 중
-
-### 목표
-DEV-6의 실제 API smoke와 수동 브라우저 결과를 반복 가능한 실제 스택 자동화로 확장한다. 두 Expo 웹 앱과 FastAPI·PostgreSQL의 연결을 Chromium에서 검증하고, DEV-6에서 빠진 계약과 privacy·격리 흐름을 보완한다.
-
-### 범위 (수정 허용 경로)
-- `scripts/**`
-- 루트 `package.json`, `package-lock.json`, `playwright.config.ts`, `.gitignore`, `README.md`
-- `docs/wiki/Testing-Documentation.md`
-- `packages/tasks.md` (이 절)
-
-### 비범위 (건드리지 않음)
-- `apps/**`, `packages/api/**`, `packages/ui/**`, `server/**` 제품 코드
-- Railway·Vercel 배포 환경 검증(P28/DEV-8)
-- native iOS·Android, 다중 브라우저, 부하·성능·침투 테스트, 외부 관측 서비스·R2·실제 Anthropic 호출
-- 발견한 제품 결함 수정(별도 Bug 이슈·브랜치에서 처리 후 전체 matrix 재실행)
-
-### 결정 사항
-- 10/09 DEV-6·DEV-7과 GitHub #7·#8을 재사용하지 않고 후속 작업을 `[I1-P26-1]` DEV-25 / GitHub #56으로 분리한다
-- 10/09 기존 `npm run test:integration`은 API smoke로 유지하고 `test:e2e`와 전체 orchestration인 `test:integration:full`을 추가한다
-- 10/09 Chromium 하나를 직렬 실행하며, 사용자 행동은 UI로 검증하고 운영자 승인·결정적 준비와 UI에서 볼 수 없는 검증만 API를 사용한다
-- 10/09 로컬 실제 스택만 다루고 Mock 요청·예상하지 않은 5xx·page error·설명되지 않은 console error를 실패로 처리한다
-- 10/09 CI 변경 결정과 검증은 `.github/tasks.md`의 같은 DEV-25 절에도 기록한다
-
-### 작업
-- [x] 실제 스택을 reset·실행·종료하는 `test:integration:full`
-- [x] DEV-6 API smoke 누락 계약과 clean-seed preflight
-- [x] Chromium Playwright 교차 앱·privacy·resilience·responsive 시나리오
-- [x] 실패 screenshot·trace·report·HTTP/process log
-- [x] README 실행 방법과 영문 Testing Documentation 결과
-- [x] 제품 결함 발견 여부 확인(새 제품 결함 없음; 테스트 locator·lifecycle 기대만 수정)
-
-### 완료 조건
-- [x] 실제 스택을 한 명령으로 초기화·실행·종료
-- [x] API smoke와 Chromium suite가 DEV-6 누락 범위를 자동 검증
-- [x] Mock traffic·예상하지 않은 5xx·browser error가 없음
-- [x] 자동·수동·미검증 범위와 실제 결과가 Testing Documentation에 기록됨
-- [x] 전체 기존 검사와 DEV-25 integration CI 통과
-- [ ] AI 1차 리뷰 후 사람 1명 승인, main에 squash merge
-
-### 기록
-- 10/09 DEV-25를 Linear에서 In Progress로 만들고 GitHub #56 동기화 확인. PR #53·#55가 포함된 최신 main에서 Linear branch를 생성
-- 10/09 draft PR #57 생성. 기존 API-only `test:integration`을 유지하고 Playwright Chromium·전체 runner를 추가
-- 10/09 clean-seed 검사, 물량 증가/철회/반려/이력, 상세 제약, 주문 pagination/filter/window, 생산자 이름 가림 계약을 API smoke에 추가해 7/7 통과
-- 10/09 Chromium 8/8 통과: 익명 탐색·로그인 복귀, 실제 결제, 생산자 UI 수확/송장/출하, 소비자 배송 확인, 실패 문의 입력 보존, 생산자 5개 gate, 상품 초안·판매 중지/재개, 소식방 session, farm editor, 360/390/430/1440px
-- 10/09 최종 로컬 검증: Ruff 통과, pytest 133개, Alembic upgrade/check, 4개 workspace typecheck, Mock 11개, consumer/producer web export, full integration 7 API + 8 Chromium 통과. Mock 첫 실행 실패는 sandbox loopback EPERM이었고 권한 있는 동일 명령에서 통과
-- 10/09 자동화/기존 수동/미검증 범위를 영어 Testing Documentation에 분리 기록. 새 제품 Bug는 발견되지 않음
-- 10/09 AI 1차 검토에서 stateful browser suite의 CI retry가 dirty DB를 재사용하는 문제와 실패 문의의 실제 retry 누락을 찾아 retry를 끄고 두 번째 전송·채팅 표시까지 검증
-- 10/09 첫 integration CI는 Linux 접근성 이름에 `소식방`이 없는 농가 보기 버튼을 과도하게 한정해 7/8 실패. 제품 결함이 아니며 semantic name을 `/농가 보기/`로 맞춘 뒤 전체 CI 재실행
-- 10/09 Actions run 37819337425에서 server(133 pytest 포함), apps(typecheck·Mock 11·두 export), integration(API 7 + Chromium 8) 모두 통과. `origin/main` 병합 확인 결과 Already up to date
-- 10/09 인계: spec 커밋(987c752)만 push, draft PR #57의 server·apps CI는 그 커밋 기준. 로컬에 push 안 한 커밋 4개(runner `scripts/run-integration.mjs`, API smoke 확장 `scripts/test-integration.mjs`, Playwright `scripts/e2e/*`, CI `integration` job). 미커밋 변경 1개: `checkout-and-fulfillment.spec.ts`의 수확 시작·출하를 API 호출에서 생산자 화면 조작으로 바꾸는 중. `test:integration:full` 실행 결과·Testing Documentation·README는 아직 기록 없음
-- 10/09 위 인계 기록 뒤 구현·문서·AI 리뷰·CI를 모두 완료했다. 브랜치 prefix를 팀 규칙에 맞춰 `zahra/`로 수정하면서 GitHub가 PR #57을 자동 종료해 동일 작업의 replacement PR #61로 리뷰를 이어간다
+→ [tasks/DEV-25.md](tasks/DEV-25.md)
 
 ## DEV-71 [I2] PostHog 연결: 두 웹앱 세션 녹화·퍼널·히트맵 (test2 사용자 테스트)
 
-- 이슈: [DEV-71](https://linear.app/sswp6/issue/DEV-71)
-- 브랜치: `nemodleo/dev-71-i2-posthog-연결-두-웹앱-세션-녹화퍼널히트맵-test2`
-- 기능·규칙: ADR 0005, N-05, 트래킹 플랜(`docs/spec/tech-design/README.md`), stack.md TQ-01
-- 상태: 완료(PR #146 머지 09c2902, 2026-10-21)
-
-### 목표
-ADR 0005대로 두 웹앱에 PostHog를 붙여 test2 사용자 테스트에서 세션 녹화·구매 퍼널·히트맵을 본다. 개인정보는 녹화·이벤트 어디에도 남기지 않는다(N-05).
-
-### 범위 (수정 허용 경로)
-- `packages/analytics/**`(새 패키지 `@farmclub/analytics`), `packages/tasks.md`
-- `packages/ui/src/ChatThread.tsx`, `packages/ui/src/NewsRoom.tsx`: 메시지 영역에 `data-ph-private` 표시만
-- `apps/consumer/package.json`, `apps/producer/package.json`, 루트 `package.json`(test:mock에 테스트 추가), `package-lock.json`
-- `apps/*/src/app/_layout.tsx`, `apps/*/src/lib/session.tsx`(초기화·identify·reset·pageview)
-- 소비자 화면 이벤트: `apps/consumer/src/app/(tabs)/products/[productId].tsx`, `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/src/app/checkout/[productId]/pay.tsx`
-- 생산자 입금 계좌 줄 가리기: `apps/producer/src/app/(tabs)/farm/index.tsx`
-- `scripts/test-analytics.mjs`(새 테스트)
-- `.github/workflows/deploy-vercel.yml`(변수 주입), `README.md` Deployment 표
-- `docs/spec/tech-design/README.md`(트래킹 플랜), `docs/spec/tech-design/stack.md`(TQ-01, 지표), `docs/spec/tech-design/adr/0005-analytics-posthog.md`, `docs/wiki/Design-Documentation.md`
-
-### 비범위 (건드리지 않음)
-- 서버 이벤트(`server/app/analytics`, `order_paid`·`order_canceled`·`farm_followed` 등): [DEV-100](https://linear.app/sswp6/issue/DEV-100)(test2 뒤). 서버 의존성 추가 없음
-- PostHog 계정·프로젝트·대시보드 설정(사람이 함), Figma, Meta Pixel(쓰지 않음)
-- Android·iOS(EAS) 빌드용 posthog-react-native
-
-### 결정 사항
-- 10/18 리전 US Cloud(`https://us.i.posthog.com`)로 TQ-01을 닫는다(사용자 결정)
-- 10/18 범위는 두 웹앱만. 서버 이벤트는 다음 이슈(사용자 결정)
-- 10/18 posthog-js는 3주 넘은 `1.434.14`로 고정한다(새 의존성, 사용자 요청)
-- 10/18 공용 패키지 `@farmclub/analytics`를 새로 둔다. `@farmclub/api`(서버 호출)와 `@farmclub/ui`(화면) 어느 쪽 책임도 아니어서
-- 10/18 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 posthog-js를 아예 초기화하지 않는다(로컬·Mock·CI·Playwright에서 꺼짐). 웹(`Platform.OS === "web"`)에서만 켠다
-- 10/18 개인정보 보호(N-05): 입력칸 전부 마스킹, 개인정보가 보이는 경로(소비자 `/checkout`·`/orders`·`/chats`·`/me`, 생산자 `/chats`·`/ship`·`/products/*/sales`·`/settings`)는 녹화 텍스트 전부 마스킹, 그 밖의 경로는 `data-ph-private` 영역만 마스킹. 자동 수집(autocapture)은 요소 글자·속성을 보내지 않는다(`mask_all_text`·`mask_all_element_attributes`). 네트워크·콘솔 녹화 끔. URL 쿼리는 보내기 전에 지운다
-- 10/18 `ph-no-capture` 클래스 대신 `data-ph-private` 속성을 쓴다. react-native-web은 `className`을 받지 않고 `dataSet`만 `data-*`로 내보낸다. 모달(Sheet)은 화면 밖 portal에 그려지므로 경로 기준 마스킹을 함께 쓴다
-- 10/18 (처음) 앱에는 '입금 안내/입금했어요' 화면이 없고 카드 결제(Mock)라 마지막 단계를 `payment_submitted`로 뒀다 → 같은 날 DEV-68(무통장 입금, #141) 머지 뒤 아래로 바꿈
-- 10/18 main 병합(DEV-68). 퍼널은 상품 → 주문서 → 입금 안내 → 입금했어요: `product_viewed` → `checkout_started` → `checkout_submitted`(주문 생성·입금 대기, 입금 안내로) → `deposit_reported`(‘입금을 마쳤어요’). `payment_submitted`는 없앰. 입금 확인(`order_paid`)은 서버 이슈
-- 10/18 DEV-68로 생긴 생산자 입금 계좌 화면 `/farm/account`를 가릴 경로에 추가하고, 농가 프로필(`/farm`)의 입금 계좌 줄은 `privateArea`로 가린다. 소비자 입금 안내(`/checkout/*/pay`, 판매자 대표·연락처·계좌)는 이미 `/checkout`으로 가려짐
-- 10/18 identify는 내부 `userId`만, person 속성은 `app`·`role`·`isTestAccount`만. 이름은 보내지 않는다
-
-### 작업
-- [x] `@farmclub/analytics`: 설정(no-op), 마스킹 규칙, 속성 정리, identify·reset·pageview 훅
-- [x] 두 앱 `session` 연결(`_layout`은 고칠 필요 없었음)
-- [x] 메시지 영역 `data-ph-private`(ChatThread·NewsRoom)
-- [x] 소비자 퍼널 이벤트 4개
-- [x] `scripts/test-analytics.mjs`(no-op, 마스킹 경로, 속성 정리)와 test:mock 연결
-- [x] deploy-vercel.yml 변수, README Deployment 표
-- [x] docs/spec 트래킹 플랜·TQ-01·ADR 0005, docs/wiki 요약
-
-### 완료 조건
-- [x] 키 없으면 no-op, 로그인 identify·로그아웃 reset·화면 전환 pageview
-- [x] 녹화 마스킹·이벤트 속성에 개인정보 없음
-- [x] 핵심 화면 이벤트와 구매 퍼널
-- [x] 배포 변수 주입, spec·wiki 갱신
-- [x] 테스트 통과(`npm run typecheck`, `npm run test:mock`, 관련 Playwright)
-- [ ] 리뷰 1명 승인 후 main 머지
-
-### 기록
-- 10/18 Linear DEV-71 생성(In Progress), main(f31c7b0)에서 브랜치. 사용자 지시로 커밋은 구현이 끝난 뒤 의미 단위로 나눠 한다(spec 커밋을 맨 앞에 둠)
-- 10/18 `packages/analytics/spec.md` 추가(구현 결정 표). `Messenger.tsx`는 고칠 필요가 없어 범위에서 뺌(대화 목록은 `/chats` 경로 마스킹으로 가려짐)
-- 10/18 `npm run typecheck` 5개 workspace 통과, `npm run test:mock` 17/17 통과(새 test-analytics 4개 포함), `actionlint` 통과
-- 10/18 실서버 통합: 포트 8082를 다른 프로세스가 써서 러너를 스크래치에 복사해 포트(8100·8181·8182)와 DB(`farmclub_dev71`)만 바꿔 실행. API smoke 7/7, Playwright Chromium 43/43 통과
-- 10/18 키를 넣은 Mock export를 로컬 수집기(127.0.0.1)로 보내 확인: pageview(앱 안 이동 포함)·product_viewed·checkout_started·heatmap 수신, 로그인 뒤 distinct_id=`u-minji`·person 속성 role·isTestAccount만, 로그아웃 뒤 새 익명 ID, URL 쿼리 제거, 이름·연락처·주소 문자열 없음. 헤드리스 Chrome은 PostHog가 봇으로 보고 이벤트를 버려 검증 때만 webdriver·userAgentData를 숨김
-- 10/18 미검증: 실제 PostHog 녹화 화면의 마스킹(녹화 스크립트는 PostHog 서버에서 받음). 키 등록 뒤 첫 배포에서 `/checkout`·`/chats` 녹화를 열어 확인한다
-- 10/18 main(54dc274, DEV-68 무통장 입금) 병합. 충돌 3곳(주문서·입금 안내·wiki 개정 이력) 해결, 퍼널·마스킹 경로를 무통장 흐름에 맞춤(결정 사항 참고)
-- 10/18 AI 1차 리뷰: must 2(무통장 퍼널, `/farm/account` 마스킹) 해결, should 히트맵 `$heatmap_data` URL 키의 쿼리 제거 해결. 경로 기준 마스킹의 화면 전환 타이밍은 배포 뒤 녹화로 확인
-- 10/18 병합 뒤 `npm run typecheck` 통과(오래된 `.expo/types` 생성 파일을 지운 뒤. CI에는 없음), `npm run test:mock` 18/18 통과
-
-- 10/18 병합 뒤 실서버 통합(포트 8100·8181·8182, DB farmclub_dev71, 끝나고 삭제): API smoke 7/7, Playwright Chromium 43/43 통과
-- 10/21 main(b7d3417) 병합. 충돌 2곳(소비자 `session.tsx`: 온보딩 resume 숨김과 `useAnalytics` 둘 다 유지, `package.json` test:mock: test-onboarding·test-analytics 둘 다). 카카오 로그인(DEV-32·74)으로 생긴 소비자 `/onboarding`·`/auth`, 생산자 `/auth`를 가릴 경로에 추가. 카카오 복귀 URL의 `?code=`는 이벤트에서 쿼리 제거로 빠진다
-- 10/21 서버 이벤트를 Linear DEV-100(Backlog, DEV-71과 관련 연결)으로 분리
-- 10/21 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 19/19 통과. 실서버 통합 1회차: API 7/7, Playwright 51/52(AC-SRC-11 상품 작업공간 API 직접 호출이 `ECONNRESET`, API 로그에 오류 없음, 분석 코드와 무관) → 2회차 API 7/7, Playwright 52/52 통과
+→ [tasks/DEV-71.md](tasks/DEV-71.md)
 
 ## DEV-104 [I2] PostHog 녹화: 내 정보·주문·주문서는 개인정보만 가리기
 
-- 이슈: [DEV-104](https://linear.app/sswp6/issue/DEV-104)
-- 브랜치: `nemodleo/dev-104-i2-posthog-녹화-내-정보주문주문서는-개인정보만`
-- 기능·규칙: N-05, ADR 0005, 트래킹 플랜(세션 녹화), DEV-71 후속
-- 상태: 리뷰 중
-
-### 목표
-경로째 가리던 소비자 `/me`·`/orders`·`/checkout`을 개인정보 글자만 가리도록 바꿔, test2 녹화에서 주문서 → 입금 안내 퍼널과 내 정보 화면을 읽을 수 있게 한다.
-
-### 범위 (수정 허용 경로)
-- `packages/analytics/src/privacy.ts`, `packages/analytics/spec.md`, `packages/tasks.md`, `scripts/test-analytics.mjs`
-- `packages/ui/src/Text.tsx`(`masked`), `packages/ui/src/content.tsx`(`ListRow subMasked`)
-- 소비자: `apps/consumer/src/app/(tabs)/me/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`, `apps/consumer/src/app/checkout/[productId]/index.tsx`, `apps/consumer/src/lib/DepositCard.tsx`
-- `docs/spec/tech-design/README.md`(트래킹 플랜 세션 녹화 줄), `docs/wiki/Design-Documentation.md`
-
-### 비범위 (건드리지 않음)
-- 입금 안내 `pay.tsx`(판매자 정보는 열어 둬서 바꿀 것 없음)
-- 생산자 앱 마스킹(경로째 그대로), 이벤트 이름·속성, 서버 이벤트(DEV-100)
-- 건드린 파일의 기존 서식(Prettier 일괄 정리 안 함)
-
-### 결정 사항
-- 10/21 경로째 가리는 곳은 화면 대부분이 개인정보이거나 입력 화면인 곳만: 소비자 `/chats`·`/me/profile`·`/me/addresses`·`/checkout/*/address`·`/orders/*/inquiry`·`/onboarding`·`/auth`(생산자 목록은 그대로). 경로 패턴 `*`는 한 칸
-- 10/21 나머지는 개인정보 글자만: 공용 글자 컴포넌트 `T`에 `masked`(RNText `dataSet` → `data-ph-private`), `ListRow`에 `subMasked`, 화면 안 `Row`·`KV`·`Value`에 `masked`(라벨은 남기고 값만)
-- 10/21 가리는 값은 법적으로 개인정보인 것만(사용자 결정): 소비자 이름·연락처·이메일, 기본 배송지 주소, 받는 사람·주소·우편번호·배송 메모(R-15, 주문서·배송지 시트·주문 상세·완료), 송장 번호(조회하면 받는 사람이 드러남), 입금 계좌번호·예금주
-- 10/21 열어 두는 값(사용자 결정): 판매자 상호·대표·지역·연락처(전자상거래법 통신판매업자 공개 표시 항목, 공개 농가 정보 화면에도 그대로 보임), 취소·환불 사유, 농가가 적은 입금 미확인·환불 지연 사유
-
-### 작업
-- [x] 경로 패턴(`*`)과 경로 목록 축소
-- [x] `T masked`, `ListRow subMasked`
-- [x] 내 정보·주문 상세·주문 완료·주문서(배송지 시트 포함)·입금 카드에 표시
-- [x] `scripts/test-analytics.mjs` 경로·라벨/값 테스트
-- [x] 트래킹 플랜·analytics spec·wiki
-
-### 완료 조건
-- [x] 개인정보 글자만 가리고 메뉴·버튼·안내 문구는 녹화에 보임
-- [x] 테스트 통과(`npm run typecheck`, `npm run test:mock`, 통합 Playwright)
-- [ ] 리뷰 1명 승인 후 main 머지
-- [ ] 배포 뒤 실제 녹화로 `/me`·`/checkout`·`/orders/*` 확인
-
-### 기록
-- 10/21 DEV-71 배포 뒤 `/me` 녹화가 메뉴까지 `***`인 것을 사용자가 확인해 분리. main(b7d3417 이후)에서 브랜치
-- 10/21 Prettier가 건드린 파일의 기존 줄(4곳)과 `DepositCard.tsx` 전체를 다시 감싸서 되돌리고 바꾼 줄만 남김
-- 10/21 Mock export에서 `data-ph-private`가 붙은 글자만 뽑아 확인: `/me` 이름·기본 배송지, 주문서 받는 사람·주소·우편번호, 주문 상세 받는 사람·주소·배송 메모, 입금 안내 계좌·예금주·대표·지역/연락처. 메뉴·라벨·버튼은 표시 없음. 화면 모양 변화 없음(스크린샷)
-- 10/21 `npm run typecheck` 통과, `npm run test:mock` 19/19 통과, 실서버 통합(포트 8100·8181·8182, DB farmclub_dev104, 끝나고 삭제) API 7/7, Playwright 52/52 통과
-- 10/21 사용자 지시 "법적으로 문제되지 않는 정도 빼고는 모두 열어": 사유 3종과 판매자 대표·지역·연락처 가리기를 해제(`pay.tsx`는 main 그대로)
-- 10/21 사유·판매자 정보 해제와 main(25e4af5) 병합 뒤 `npm run typecheck` 통과, `npm run test:mock` 19/19, 실서버 통합 API 7/7·Playwright 53/53 통과. Mock 확인: 입금 안내는 계좌번호·예금주만 가려지고 판매자 대표·연락처는 보임
+→ [tasks/DEV-104.md](tasks/DEV-104.md)
 
 ## DEV-125 [I2] PostHog는 운영 도메인에서만 켜기
 
-- 이슈: [DEV-125](https://linear.app/sswp6/issue/DEV-125)
-- 브랜치: `nemodleo/dev-125-posthog-prod-hosts`
-- 기능·규칙: N-05, ADR 0005·0012, DEV-71·DEV-104 후속
-- 상태: 리뷰 대기
-
-### 목표
-운영 빌드가 `*.vercel.app`·`demo.farmclub.kr`·localhost에서 열려도 PostHog를 켜지 않아, 팀원·평가자 접속이 실사용자 퍼널·녹화에 섞이지 않게 한다.
-
-### 범위 (수정 허용 경로)
-- `packages/analytics/src/index.ts`, `packages/analytics/src/privacy.ts`, `packages/analytics/spec.md`, `packages/tasks.md`
-- `scripts/test-analytics.mjs`
-- `docs/spec/tech-design/stack.md`, `docs/wiki/Design-Documentation.md`
-
-### 비범위 (건드리지 않음)
-- 이벤트 이름·속성, 마스킹 규칙, 서버 이벤트, `.github/workflows/deploy-vercel.yml`(변수 추가 없음)
-
-### 결정 사항
-- 10/23 허용 목록 방식(정확히 일치). 기본값 `farmclub.kr`, `farm.farmclub.kr`. `www.farmclub.kr`은 ADR 0012대로 308 리다이렉트라 넣지 않는다
-- 10/23 목록은 코드 기본값 + 빌드 변수 `EXPO_PUBLIC_POSTHOG_HOSTS`로만 바꾼다. 배포 워크플로에 레포 변수(`APP_POSTHOG_HOSTS`)는 추가하지 않는다 — 운영 도메인이 ADR 0012에 고정돼 있어 아무도 바꾸지 않을 손잡이가 늘어난다. 데모에서 수집이 필요해지면 그 빌드에만 변수를 넣는다
-- 10/23 검사 함수(`parseHosts`·`isAllowedHost`)는 `privacy.ts`에 둬서 posthog-js 없이 `scripts/test-analytics.mjs`가 검사한다
-
-### 작업
-- [x] `isAllowedHost`·`parseHosts`, `start()`에 호스트 검사
-- [x] `scripts/test-analytics.mjs` 허용·거부·덮어쓰기 케이스 2개
-- [x] analytics spec.md, stack.md, wiki 한 줄
-
-### 완료 조건
-- [x] 운영 두 도메인에서만 켜지고 `*.vercel.app`·`demo.farmclub.kr`·localhost에서 꺼진다(단위 테스트)
-- [x] `npm run typecheck`, `npm run test:mock` 통과
-- [ ] 리뷰 1명 승인 후 main 머지
-
-### 기록
-- 10/23 main(107e14a)에서 브랜치. 워킹 데모(demo.farmclub.kr)는 수집하지 않으므로 iteration-2-demo README에 "analytics off on the demo host"로 적을 수 있다
-- 10/23 검증: `node --test scripts/test-analytics.mjs` 6 passed(새 2개 포함), `npm run typecheck` 통과, `npm run test:mock` 34 passed
+→ [tasks/DEV-125.md](tasks/DEV-125.md)
