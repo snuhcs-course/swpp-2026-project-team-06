@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구현 결정, tasks.md 이 이슈 섹션의 범위와 대조해 리뷰한다. 작성자가 draft 해제 전에 돌리는 AI 1차 리뷰, 사람 리뷰어의 체크리스트, 받은 리뷰 반영 절차를 포함. PR 리뷰·리뷰 반영 요청 시 사용.
+description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구현 결정, 이슈 파일(tasks/<이슈 키>.md)의 범위와 대조해 리뷰한다. 작성자가 draft 해제 전에 돌리는 AI 1차 리뷰, 사람 리뷰어의 체크리스트, 받은 리뷰 반영 절차를 포함. PR 리뷰·리뷰 반영 요청 시 사용.
 ---
 
 # pr-review — AI 1차 리뷰 + 사람 1명 승인
@@ -8,14 +8,14 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 리뷰 흐름: **작성자가 AI 1차 리뷰 → must 해결 → draft 해제 → 사람 1명 Approve → 머지**.
 
 ## 1. AI 1차 리뷰 (작성자가 실행)
-입력: PR 번호 또는 현재 브랜치. 관련 FEAT 파일(`docs/spec/functional/FEAT-xx-*.md`), 작업 폴더 `spec.md`, `tasks.md` 이 이슈 섹션, `gh pr view <번호>`, `git diff main...HEAD`.
+입력: PR 번호 또는 현재 브랜치. 관련 FEAT 파일(`docs/spec/functional/FEAT-xx-*.md`), 작업 폴더 `spec.md`, 이슈 파일 `tasks/<이슈 키>.md`, `gh pr view <번호>`, `git diff main...HEAD`.
 
 아래 순서로 본다. 스타일보다 앞의 항목이 우선이다.
 1. **spec 일치**: diff를 다음과 대조한다. 빠진 것과, diff에 있는데 근거가 없는 것을 찾는다.
    - (a) 관련 FEAT 파일의 인수 조건(AC)
    - (b) 작업 폴더 `spec.md`의 구현 결정
-   - (c) `tasks.md` 이 이슈 섹션의 작업·완료 조건
-2. **범위 이탈**: `tasks.md` 이 이슈 섹션의 "범위(수정 허용 경로)" 밖 파일 변경, "비범위" 영역 변경. PR 본문 "Spec ↔ Code 확인" 표가 diff의 모든 파일을 덮는지 `python3 .agents/skills/pr-context/check_table.py <본문 파일>`로 확인한다(형식은 `pr-context` 스킬). 실패하면 should.
+   - (c) 이슈 파일의 작업·완료 조건
+2. **범위 이탈**: 이슈 파일의 "범위(수정 허용 경로)" 밖 파일 변경, "비범위" 영역 변경. PR 본문 "Spec ↔ Code 확인" 표가 diff의 모든 파일을 덮는지 `python3 .agents/skills/pr-context/check_table.py <본문 파일>`로 확인한다(형식은 `pr-context` 스킬). 실패하면 should.
 3. **스펙 문서 동기화**: 동작·규칙이 바뀌었는데 `docs/spec/`과 `docs/wiki/` 영문 요약이 같은 PR에서 같이 안 바뀌었으면 must.
 4. **정확성**: 버그, 경계값, 에러 처리 누락, 동시성, 잘못된 가정.
 5. **테스트**: 변경을 검증하는 테스트가 있는지, 지우거나 약하게 만든 테스트는 없는지. 고정 시계에서 같은 시각끼리 순서를 비교하는 테스트(간헐 실패)는 없는지.
@@ -37,8 +37,8 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 결과는 `gh pr comment <번호> --body-file <파일>`로 PR에 남긴다(제목: `AI 1차 리뷰 (<도구/모델>)`). must를 모두 해결한 뒤 `gh pr ready <번호>`.
 
 ## 2. 사람 리뷰 (리뷰어 1명)
-- [ ] PR 본문과 `tasks.md` 이 이슈 섹션만 읽고 무엇을 왜 바꿨는지 이해되는가
-- [ ] diff가 관련 FEAT 인수 조건, `spec.md` 구현 결정과 맞고, `tasks.md` 범위 밖 변경이 없는가
+- [ ] PR 본문과 이슈 파일만 읽고 무엇을 왜 바꿨는지 이해되는가
+- [ ] diff가 관련 FEAT 인수 조건, `spec.md` 구현 결정과 맞고, 이슈 파일 범위 밖 변경이 없는가
 - [ ] 동작이 바뀌었다면 `docs/spec/`·`docs/wiki/`도 같이 바뀌었는가
 - [ ] AI 1차 리뷰의 must가 해결됐는가
 - [ ] 직접 실행·테스트해 봤는가 (못 했으면 코멘트에 명시)
@@ -48,7 +48,7 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
 
 ## 3. 리뷰 반영 (작성자)
 - 코멘트마다 수정 커밋(`fix(scope): 리뷰 반영 — <요약> (DEV-12)`)으로 해결하거나, 하지 않는 이유를 답글로 남긴다.
-- 반영 중 생긴 결정은 `tasks.md`의 "결정 사항"에 적는다.
+- 반영 중 생긴 결정은 이슈 파일의 "결정 사항"에 적는다.
 - 해결한 스레드는 리뷰어가 resolve한다.
 - 반영 후 다시 리뷰를 요청한다.
 
@@ -57,7 +57,7 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
    - 쌓은 PR은 base 브랜치가 먼저 main을 받아 둔다(위에서부터). 절차는 `pr-context` "PR 쌓기".
    - base를 바꿨다면 push 뒤 server·apps·integration CI와 spec-check가 새로 돌았는지 본다.
    - 마이그레이션이 있으면 `cd server && uv run alembic heads`가 1개인지 확인한다. 겹치면 이 PR의 리비전 번호를 올린다.
-2. `tasks.md`의 상태를 "완료"로, 완료 조건을 체크한다.
+2. 이슈 파일의 상태를 "완료"로, 완료 조건을 체크한다.
 3. PR 체크가 통과했는지, 사람 리뷰(다른 팀원 Approve 또는 작성자 본인의 `사람이 한 일:`)를 확인한 뒤 머지한다. 에이전트는 사람의 지시 없이 머지하지 않는다.
    - 고위험 PR은 사람 리뷰가 없으면 지시가 있어도 머지하지 않고 멈춘다.
    - `spec-code-review`가 fail이면 머지는 막히지 않지만, 보고서(Checks → run → Summary)를 읽고 처리 결정을 PR 코멘트로 남긴 뒤에 머지한다(`.github/spec-check/README.md` 1.1절).

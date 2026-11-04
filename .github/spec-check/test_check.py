@@ -276,6 +276,54 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(check.Incomplete):
                 check.author_mapping(invalid)
 
+    def test_per_issue_task_file_reference(self):
+        # DEV-219: the task record may be the issue file itself; the anchor is optional and the key comes from the name.
+        tick = chr(96)
+        def body(task):
+            return ("## Spec ↔ Code 확인\n- 작업 기록: " + tick + task + tick + "\n"
+                    "| " + tick + "spec.md" + tick + " | " + tick + "sample.py" + tick + " | inspect |\n")
+        for task, path, key in (("server/tasks/DEV-40.md", "server/tasks/DEV-40.md", "DEV-40"),
+                                ("tasks/SWPP-18.md", "tasks/SWPP-18.md", "SWPP-18"),
+                                ("server/tasks/dev-40.md#dev-40", "server/tasks/dev-40.md", "dev-40"),
+                                ("tasks.md#dev-117", "tasks.md", "dev-117")):
+            self.assertEqual(check.author_mapping(body(task))[2:], (path, key))
+        for invalid in ("server/tasks/notes.md", "server/tasks/DEV-40.txt", "server/notes.md#dev-40", "server/tasks.md"):
+            with self.assertRaises(check.Incomplete):
+                check.author_mapping(body(invalid))
+
+    def test_collect_reads_whole_issue_file_and_follows_old_anchor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def run(*args):
+                return subprocess.check_output(["git", "-C", directory, *args]).decode().strip()
+            run("init", "-q")
+            run("config", "user.name", "Contract fixture")
+            run("config", "user.email", "fixture@example.invalid")
+            issue_text = "## DEV-40 Example\nScope: sample.py\n\n## DEV-40 Second part\nMore\n"
+            for name, text in {"spec.md": "Requirement\n", "sample.py": "return 1\n",
+                               "module/tasks.md": "# module tasks\n\n## DEV-40 Example\n\n→ [tasks/DEV-40.md](tasks/DEV-40.md)\n",
+                               "module/tasks/DEV-40.md": issue_text}.items():
+                path = Path(directory, name)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+            run("add", ".")
+            run("commit", "-qm", "Base")
+            base = run("rev-parse", "HEAD")
+            Path(directory, "sample.py").write_text("return 2\n")
+            run("add", ".")
+            run("commit", "-qm", "Change")
+            tick = chr(96)
+            for task in ("module/tasks/DEV-40.md", "module/tasks.md#dev-40"):
+                candidate = event()
+                candidate["pull_request"]["base"]["sha"] = base
+                candidate["pull_request"]["head"]["sha"] = run("rev-parse", "HEAD")
+                candidate["pull_request"]["body"] = (
+                    "## Spec ↔ Code 확인\n- 작업 기록: " + tick + task + tick
+                    + "\n| " + tick + "spec.md" + tick + " | " + tick + "sample.py" + tick + " | review |\n")
+                data = check.collect(directory, candidate)
+                document = data["documents"]["module/tasks/DEV-40.md"]
+                self.assertEqual(document["kind"], "full")
+                self.assertEqual(document["segments"][0]["text"], issue_text)
+
     def test_reports_escape_untrusted_text_and_redact_key(self):
         with tempfile.TemporaryDirectory() as directory:
             report = {**result("MISMATCH"), "metadata": {"head_sha": "a" * 40},
