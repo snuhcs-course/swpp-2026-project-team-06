@@ -81,7 +81,7 @@ checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `con
 | 표의 파일 전문(`files`), 이전 버전 전문(`previous_files`), base 변경본(`target_changes`) | diff가 바뀐 줄을 보여 준다. 보이지 않는 코드·스펙이 판단에 필요하면 모델은 `missing_context`에 `UNVERIFIED: …`를 적고 PASS를 내지 않는다 |
 | `docs/spec/README.md` 자동 포함 | 필요하면 표 1열에 `docs/spec/README.md#앵커`로 적는다 |
 
-발췌 문서의 줄 번호는 원본 파일 기준이라 보고서의 `rules.md:12`는 실제 파일 12행이다. 코드 인용은 diff에서 계산한 새 쪽 줄 번호(추가·문맥 줄)만 받고, 지운 줄은 인용할 수 없다. 틀린 줄 번호·인용은 검증에서 걸려 INCOMPLETE가 된다(PASS로 새지 않음).
+발췌 문서의 줄 번호는 원본 파일 기준이라 보고서의 `rules.md:12`는 실제 파일 12행이다. 코드 인용은 diff에서 계산한 새 쪽 줄 번호(추가·문맥 줄)만 받고, 지운 줄은 인용할 수 없다. 틀린 줄 번호·인용이 붙은 지적은 검증에서 버려지고 summary에 `n finding(s) dropped`로 남는다(DEV-211). 버린 뒤 검증된 지적이 없으면 INCOMPLETE → NO_FINDINGS(초록), 검증된 지적이 남으면 MISMATCH 그대로. 모델이 PASS라며 지적을 붙인 경우는 INCOMPLETE다. 어느 경우에도 PASS로 새지 않는다.
 
 ## 3. 실행과 결과
 
@@ -97,7 +97,7 @@ checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `con
 | 결과 | 의미와 조치 |
 | --- | --- |
 | PASS (exit 0) | 제공된 범위에서 불일치가 발견되지 않음. 일반 테스트/사람 리뷰 계속 |
-| NO_FINDINGS (exit 0) | 보이는 범위에서 지적(finding) 0건이지만 diff 밖 문맥이 있어 모델이 `UNVERIFIED`를 남김(DEV-197). 체크는 초록. PASS가 아니므로 `Missing context` 항목은 사람 리뷰어가 본다. 더 보여 주려면 표 2열에 그 파일을 적는다(2.1절) |
+| NO_FINDINGS (exit 0) | 보이는 범위에서 지적(finding) 0건이지만 diff 밖 문맥이 있어 모델이 `UNVERIFIED`를 남김(DEV-197), 또는 인용을 확인할 수 없어 버린 지적만 있었음(summary의 `dropped`, DEV-211). 체크는 초록. PASS가 아니므로 `Missing context` 항목은 사람 리뷰어가 본다. 더 보여 주려면 표 2열에 그 파일을 적는다(2.1절) |
 | MISMATCH (exit 1) | 검증 가능한 근거가 있는 지적. 사람이 확인·해결 |
 | INCOMPLETE (exit 2) | 키/모델/표 형식/응답 오류 또는 크기 제한, 또는 finding이 있는데 문맥이 모자라 MISMATCH로 확정하지 못함. 원인을 해소하고 재실행 |
 | SKIPPED (exit 0 + 명시 안내) | v1 지원 대상이 아님. PASS가 아님 |

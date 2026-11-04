@@ -90,12 +90,36 @@ class ContractTests(unittest.TestCase):
                     check.validate(candidate, context())
 
     def test_finding_must_have_real_quote_and_location(self):
-        for key, value in (("path", "unseen.py"), ("line", 900), ("line", 0), ("line", True),
-                           ("quote", "invented"), ("quote", "")):
+        for key, value in (("path", "unseen.py"), ("line", True)):
             candidate = result("MISMATCH")
             candidate["findings"][0]["code"][key] = value
             with self.assertRaises(check.Incomplete):
                 check.validate(candidate, context())
+        # DEV-211: a quote/line that is not in the sent diff is dropped, not a review failure. With nothing verified
+        # left, MISMATCH cannot stand and the result is INCOMPLETE with no findings (NO_FINDINGS after scoped()).
+        for key, value in (("line", 900), ("line", 0), ("quote", "invented"), ("quote", "")):
+            candidate = result("MISMATCH")
+            candidate["findings"][0]["code"][key] = value
+            out = check.validate(candidate, context())
+            self.assertEqual((out["status"], out["findings"]), ("INCOMPLETE", []))
+            self.assertIn("1 finding(s) dropped", out["summary"])
+            self.assertIn("SC-001", out["summary"])
+            self.assertEqual(check.scoped(out)["status"], "NO_FINDINGS")
+
+    def test_dropped_finding_keeps_verified_mismatch_and_never_passes(self):
+        # DEV-211: a verified finding beside a dropped one keeps MISMATCH; PASS with a dropped finding is INCOMPLETE.
+        candidate = result("MISMATCH")
+        bad = copy.deepcopy(candidate["findings"][0])
+        bad.update(id="SC-002", code={"path": "sample.py", "line": 1, "quote": "not there"})
+        candidate["findings"].append(bad)
+        out = check.validate(candidate, context())
+        self.assertEqual(out["status"], "MISMATCH")
+        self.assertEqual([f["id"] for f in out["findings"]], ["SC-001"])
+        self.assertIn("SC-002", out["summary"])
+        passed = result("PASS")
+        passed["findings"] = [bad]
+        out = check.validate(passed, context())
+        self.assertEqual((out["status"], out["findings"]), ("INCOMPLETE", []))
 
     def test_uncertainty_and_duplicate_finding(self):
         candidate = result("MISMATCH")
@@ -630,8 +654,9 @@ class DiffOnlyContextTests(unittest.TestCase):
             with self.subTest(name=name):
                 bad = copy.deepcopy(good)
                 bad["findings"][0][part][field] = value
-                with self.assertRaisesRegex(check.Incomplete, "cannot be verified"):
-                    check.validate(bad, sample)
+                out = check.validate(bad, sample)  # DEV-211: dropped, not raised
+                self.assertEqual((out["status"], out["findings"]), ("INCOMPLETE", []))
+                self.assertIn("dropped", out["summary"])
         context_line = copy.deepcopy(good)
         context_line["findings"][0]["code"].update(line=2, quote="unchanged tail")
         check.validate(context_line, sample)

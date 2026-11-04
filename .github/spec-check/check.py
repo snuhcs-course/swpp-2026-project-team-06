@@ -478,7 +478,7 @@ def validate(result, context):
     if status != "INCOMPLETE" and set(result["reviewed_files"]) != supplied:
         raise Incomplete("Model did not account for all supplied context.")
     code_lines = diff_lines(context["diff"])
-    seen = set()
+    seen, kept, dropped = set(), [], []
     for finding in result["findings"]:
         if not isinstance(finding, dict) or set(finding) != {"id", "requirement", "code", "explanation", "suggestion", "certainty"}:
             raise Incomplete("Invalid finding fields.")
@@ -503,7 +503,19 @@ def validate(result, context):
             else:
                 source = code_lines.get(path, {})  # New-side numbers of added/context diff lines only.
             if line not in source or not isinstance(quote, str) or not quote.strip() or quote not in source[line]:
-                raise Incomplete("Finding quote/line cannot be verified against supplied excerpts or diff.")
+                dropped.append(finding["id"])  # DEV-211: unverifiable evidence is not a finding; see below.
+                break
+        else:
+            kept.append(finding)
+    if dropped:
+        # DEV-211: a finding whose quote/line is not in the sent excerpts or diff is dropped instead of failing the
+        # whole review. Nothing verified remains for it, so the model status cannot stand as PASS or MISMATCH
+        # unless verified findings remain; INCOMPLETE with no findings then becomes NO_FINDINGS in scoped().
+        result["findings"] = kept
+        result["summary"] = (result["summary"].rstrip() + f" ({len(dropped)} finding(s) dropped: quote/line not in"
+                             f" supplied excerpts or diff: {', '.join(dropped)}. Reviewer: check the diff by hand.)")
+        if status == "PASS" or (status == "MISMATCH" and not kept):
+            status = result["status"] = "INCOMPLETE"
     if status == "PASS" and (result["findings"] or result["missing_context"]):
         raise Incomplete("PASS cannot contain unresolved findings or missing context.")
     if status == "MISMATCH" and (not result["findings"] or result["missing_context"]
