@@ -230,7 +230,7 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 - 11/03 main 896b836에서 시작. 처음엔 단계별 역할 표·체크리스트·근거 규칙까지 넣었으나(`31db9df`~`017c961`) Zahra가 너무 복잡하다고 해 짧게 다시 씀.
 - 11/03 spec-code-review pass. Zahra가 짧게 다시 쓴 최종본을 읽고 머지 지시.
 
-## DEV-212 병렬 PR 충돌 줄이기: tasks.md union merge, Mock 테스트 글롭
+## DEV-212 병렬 PR 충돌 줄이기: Mock 테스트 글롭 (union merge는 뺌)
 
 - 이슈: [DEV-212](https://linear.app/sswp6/issue/DEV-212)
 - 브랜치: `nemodleo/dev-212-parallel-pr-conflicts`
@@ -241,13 +241,13 @@ TA 피드백("어떤 부분을 agent에게 맡기고 어떤 부분을 사람이 
 11/4 HE 후속 PR 4개(#393~#396)가 머지마다 서로 충돌한 구조적 원인 둘을 없앤다: 폴더별 `tasks.md`의 끝 절 덧붙이기, `package.json` `test:mock`의 한 줄 파일 나열.
 
 ### 범위 (수정 허용 경로)
-- `.gitattributes`(새 파일), `scripts/run-mock-tests.mjs`(새 파일), `package.json`(`test:mock` 한 줄), `AGENTS.md`(병렬 작업 줄 하나), `README.md`(test:mock 설명 한 줄), 이 파일
+- `scripts/run-mock-tests.mjs`(새 파일), `package.json`(`test:mock` 한 줄), `AGENTS.md`(병렬 작업 줄 하나), `README.md`(test:mock 설명 한 줄), 이 파일
 
 ### 비범위
 - 이슈별 `tasks/DEV-xxx.md`로 나누기(스킬·체커·규칙 46곳) — 이번엔 하지 않음. `coverage:producer`의 4개 파일 목록은 그대로(자주 안 바뀜).
 
 ### 결정 사항
-- 11/04 `merge=union`은 로컬 머지에만 듣는다. GitHub PR 화면 충돌 표시는 남으므로 규칙은 "앞 PR 머지 뒤 바로 main 병합·push". 절 순서는 머지 순서에 따라 바뀔 수 있으나 절은 독립이고 spec-check는 앵커로 찾는다.
+- 11/04 처음 넣었던 `.gitattributes` `tasks.md merge=union`은 뺐다. DEV-219(이슈별 task 파일) 분리 커밋처럼 파일 전체가 바뀌는 병합에서 옛 내용과 새 색인을 섞을 위험이 있고, 분리 뒤에는 필요가 없다. 이 PR은 글롭 러너와 규칙 한 줄만 남긴다.
 - 11/04 `run-mock-tests.mjs`는 `scripts/test-*.mjs`를 정렬해 `node --test`에 넘긴다. `test-integration.mjs`(실서버 러너)만 제외 목록.
 
 ### 작업
