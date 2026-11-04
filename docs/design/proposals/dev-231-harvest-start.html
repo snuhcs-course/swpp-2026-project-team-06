@@ -1,0 +1,630 @@
+<title>수확 시작 제안 DEV-231</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 위에 결정(디자인 무브), 아래에 화면별 BEFORE | AFTER 390 프레임 한 줄씩, 끝에 상태표·문서 변경·질문.
+   휴대폰 프레임 안은 앱이 밝은 화면만 쓰므로(I1 color-scheme: light) 두 테마 모두 같은 앱 토큰을 쓴다. */
+:root {
+  /* 보드 바깥(테마 따라 바뀜) */
+  --bg: #EFEEEA;
+  --panel: #FFFFFF;
+  --ink: #111111;
+  --ink-2: #5E5D59;
+  --rule: #DAD9D4;
+  --mark: #C94F0C;
+  --mark-ink: #FFFFFF;
+  --bad: #B42318;
+  --bad-soft: #FBEAE8;
+  --good: #2F6B3A;
+  --good-soft: #E7F1E8;
+  /* 앱 토큰(docs/design/README.md UI 1.6, packages/ui/src/tokens.ts) — 테마와 무관 */
+  --app-bg: #FFFFFF;
+  --app-text: #111111;
+  --app-muted: #6B6B6B;
+  --app-surface: #F5F5F3;
+  --app-border: #E8E8E6;
+  --app-accent: #C94F0C;
+  --app-error: #B42318;
+  --app-bar: rgba(255,255,255,0.82);
+  --app-dim: rgba(0,0,0,0.04);
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+    --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+  --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px; font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 30px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 68ch; color: var(--ink-2); font-size: 17px; line-height: 25px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--rule); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+
+/* 디자인 무브 */
+.moves { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.moves li { background: var(--panel); border-radius: 16px; padding: 20px; display: grid; grid-template-columns: 32px 1fr; gap: 4px 12px; min-width: 0; }
+.num { width: 28px; height: 28px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 15px; display: grid; place-items: center; grid-row: span 2; }
+.moves h3 { align-self: center; }
+.moves p { color: var(--ink-2); grid-column: 2; }
+
+/* 화면 비교 */
+.cmp { display: flex; flex-direction: column; gap: 20px; }
+.pair { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.col { display: flex; flex-direction: column; gap: 12px; width: min(390px, 100%); }
+.tag { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 700; letter-spacing: 0.06em; }
+.tag i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.tag.before i { background: var(--bad); }
+.tag.after i { background: var(--good); }
+.notes { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 30px; }
+.note { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+.note .num { width: 24px; height: 24px; font-size: 13px; grid-row: auto; }
+.note.bad .dot { width: 24px; height: 24px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+
+/* 휴대폰 프레임 — 앱 토큰만 */
+.phone { width: 100%; background: var(--app-bg); color: var(--app-text); border-radius: 28px; border: 1px solid var(--rule); overflow: hidden; position: relative; display: flex; flex-direction: column; }
+.status { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 13px; font-weight: 600; }
+.hbar { height: 48px; display: flex; align-items: center; padding: 0 8px; }
+.back { width: 48px; height: 48px; display: grid; place-items: center; }
+.back svg { width: 24px; height: 24px; stroke: var(--app-text); stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ttl { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; white-space: pre-line; }
+.t-body { font-size: 17px; line-height: 25px; }
+.t-sub { font-size: 15px; line-height: 22px; }
+.t-cap { font-size: 13px; line-height: 18px; }
+.muted { color: var(--app-muted); }
+.b { font-weight: 700; }
+.sb { font-weight: 600; }
+.px { padding-left: 20px; padding-right: 20px; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.steps { display: flex; gap: 8px; margin-top: 16px; }
+.steps div { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.steps span { height: 4px; border-radius: 999px; background: var(--app-border); display: block; }
+.steps em { font-style: normal; font-size: 13px; line-height: 18px; color: var(--app-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rows { padding: 0 20px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 48px; padding: 12px 0; border-top: 1px solid var(--app-border); font-size: 17px; line-height: 25px; }
+.row.last { border-bottom: 1px solid var(--app-border); }
+.row .k { color: var(--app-muted); flex-shrink: 0; }
+.row .v { text-align: right; min-width: 0; display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.copy { font-size: 17px; font-weight: 600; color: var(--app-text); }
+.prod { display: flex; gap: 16px; align-items: center; padding: 0 20px; margin-top: 40px; }
+.thumb { width: 64px; height: 64px; border-radius: 16px; background: var(--app-surface); flex-shrink: 0; display: grid; place-items: center; }
+.thumb svg { width: 28px; height: 28px; stroke: var(--app-muted); fill: none; stroke-width: 1.75; }
+.btn-outline { margin: 0 20px; height: 52px; border-radius: 16px; border: 1px solid var(--app-text); display: grid; place-items: center; font-size: 17px; font-weight: 600; color: var(--app-text); }
+.btn-text { padding: 12px 20px; font-size: 17px; font-weight: 600; }
+.bbar { margin-top: auto; background: var(--app-bar); border-top: 1px solid var(--app-border); padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 12px; }
+.bbar .btn-outline { margin: 0; }
+.notice { margin-top: 8px; background: var(--app-surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.hl { outline: 2px dashed var(--bad); outline-offset: 3px; border-radius: 6px; }
+.hl-ok { outline: 2px dashed var(--good); outline-offset: 3px; border-radius: 6px; }
+.big { font-size: 34px; line-height: 42px; font-weight: 700; letter-spacing: -0.02em; }
+.tabs { display: flex; gap: 8px; padding: 20px; overflow: hidden; }
+.chip { height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--app-border); display: grid; place-items: center; font-size: 15px; white-space: nowrap; }
+.chip.on { background: var(--app-text); color: var(--app-bg); border-color: var(--app-text); font-weight: 600; }
+.card { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--app-border); }
+.card:first-child { border-top: 0; }
+.card .c { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tabbar { margin: 12px; height: 64px; border-radius: 999px; background: var(--app-bar); border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: var(--app-muted); }
+.tabbar .on { background: var(--app-surface); color: var(--app-text); font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+.when { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--app-muted); padding-top: 16px; border-top: 1px solid var(--app-border); }
+.px > .when:first-child { border-top: 0; padding-top: 0; }
+.same-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.same-note.ok { background: var(--good-soft); color: var(--good); }
+.ex { font-size: 11px; line-height: 16px; padding: 2px 8px; border-radius: 999px; border: 1px dashed var(--app-muted); color: var(--app-muted); font-weight: 600; }
+.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 132px; background: #111111; color: #FFFFFF; height: 48px; border-radius: 999px; padding: 0 20px; display: grid; place-items: center; font-size: 17px; white-space: nowrap; }
+
+/* 표 */
+.tblwrap { overflow-x: auto; background: var(--panel); border-radius: 16px; }
+table { border-collapse: collapse; width: 100%; min-width: 880px; font-size: 15px; line-height: 22px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--rule); }
+thead th { border-top: 0; font-size: 13px; line-height: 18px; color: var(--ink-2); letter-spacing: 0.04em; }
+td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; white-space: nowrap; }
+.same { color: var(--ink-2); }
+.chg { font-weight: 700; }
+.del { text-decoration: line-through; color: var(--ink-2); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.box { background: var(--panel); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box ul, .box ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.warn { border: 1px solid var(--bad); }
+</style>
+<style>
+/* DEV-231 추가: 생산자 프레임 부품(앱 토큰만). 생산자 버튼 높이 56, 시트는 흰 반투명 + 1:2 버튼 */
+.hbar .mid { flex: 1; text-align: center; font-size: 17px; font-weight: 700; margin-right: 48px; }
+.ptitle { padding: 8px 20px 0; }
+.seg { display: flex; gap: 0; margin: 16px 20px 0; background: var(--app-surface); border-radius: 12px; padding: 4px; overflow: hidden; }
+.seg span { flex: 0 0 auto; height: 44px; padding: 0 14px; display: grid; place-items: center; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--app-muted); white-space: nowrap; }
+.seg span.on { background: var(--app-bg); color: var(--app-text); box-shadow: 0 0 0 1px var(--app-border); }
+.olist { padding: 8px 20px 0; }
+.orow { display: flex; gap: 4px; padding: 16px 0; border-top: 1px solid var(--app-border); }
+.orow .c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.orow.endline { border-bottom: 1px solid var(--app-border); }
+.chk { width: 48px; padding-top: 0; flex-shrink: 0; }
+.chk i { width: 24px; height: 24px; border-radius: 8px; border: 1.5px solid var(--app-muted); display: block; }
+.chk i.on { background: var(--app-text); border-color: var(--app-text); }
+.guide { padding: 16px 20px 0; }
+.btn56 { height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.btn56.pri { background: var(--app-accent); color: #FFFFFF; }
+.btn56.sec { background: var(--app-surface); color: var(--app-text); }
+.btn56.out { border: 1px solid var(--app-text); color: var(--app-text); background: var(--app-bg); }
+.btn56.off { border: 1px solid var(--app-border); color: var(--app-muted); background: var(--app-bg); }
+.pbar { margin-top: auto; background: var(--app-bar); border-top: 1px solid var(--app-border); padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px; }
+.scard { margin: 0 20px; padding: 18px; border: 1px solid var(--app-border); border-radius: 22px; display: flex; flex-direction: column; gap: 14px; background: var(--app-bg); }
+.scard .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.opt { border-top: 1px solid var(--app-border); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.fields { display: flex; gap: 12px; }
+.fld { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fld label { font-size: 15px; font-weight: 700; }
+.fld div { height: 48px; border-radius: 8px; border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 16px; }
+.harv { border-top: 1px solid var(--app-text); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.harv .lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 12px 0; border-top: 1px solid var(--app-border); }
+.lrow .c { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lrow.last { border-bottom: 1px solid var(--app-border); }
+.chev { color: var(--app-muted); font-size: 22px; flex-shrink: 0; }
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.metric { background: var(--app-surface); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-height: 112px; }
+.metric .n { font-size: 34px; line-height: 42px; font-weight: 700; }
+.ptab { margin: 12px; height: 64px; border-radius: 999px; background: var(--app-bar); border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: var(--app-muted); }
+.ptab .on { background: var(--app-surface); color: var(--app-text); font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+.shade { position: absolute; inset: 0; background: rgba(0,0,0,.4); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.97); border-radius: 20px 20px 0 0; padding: 10px 20px 28px; display: flex; flex-direction: column; gap: 14px; color: var(--app-text); }
+.handle { width: 36px; height: 4px; border-radius: 2px; background: #D5D5D2; align-self: center; }
+.sheet h4 { font-size: 22px; line-height: 30px; margin: 0; letter-spacing: -0.01em; }
+.srow { display: flex; justify-content: space-between; gap: 12px; min-height: 52px; align-items: center; border-top: 1px solid var(--app-border); font-size: 17px; }
+.srow.endline { border-bottom: 1px solid var(--app-border); }
+.facts { display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 22px; }
+.facts li { list-style: none; display: grid; grid-template-columns: 16px 1fr; gap: 6px; }
+.facts li::before { content: "·"; font-weight: 700; color: var(--app-muted); }
+.facts { padding: 0; margin: 0; }
+.btns { display: flex; gap: 8px; }
+.btns .sec { flex: 1; }
+.btns .pri { flex: 2; }
+.mk { position: absolute; width: 24px; height: 24px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 13px; display: grid; place-items: center; z-index: 3; }
+.rel { position: relative; }
+.toast2 { position: absolute; left: 50%; transform: translateX(-50%); bottom: 110px; background: #111111; color: #FFFFFF; height: 48px; border-radius: 999px; padding: 0 20px; display: grid; place-items: center; font-size: 17px; white-space: nowrap; z-index: 4; }
+.cap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cap h3 { font-size: 15px; line-height: 22px; }
+.sub { color: var(--ink-2); font-size: 14px; line-height: 21px; }
+.bars4 { display: flex; gap: 6px; padding: 16px 20px 0; }
+.bars4 div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.bars4 span { height: 4px; border-radius: 999px; background: var(--app-border); display: block; }
+.bars4 span.on { background: var(--app-text); }
+.bars4 em { font-style: normal; font-size: 13px; color: var(--app-muted); white-space: nowrap; }
+.bars4 em.on { color: var(--app-text); font-weight: 600; }
+pre.code { margin: 0; background: var(--bg); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 13px; line-height: 19px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+.pairs-grid { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.back svg path { fill: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">DEV-231 · HE-06(사전 점검 P1 심각도 4, P12) · 스펙 결정 B · 디자인 제안 (PM 승인 대기)</span>
+    <h1>수확을 시작하면, 그 기간의 예약 주문이 출하 준비로 넘어간다</h1>
+    <p class="lede">지금은 입금을 승인한 주문이 '예약' 탭에 들어간 뒤 아무 데도 갈 수 없다. 줄에는 '예약 완료' 글자뿐이고, '출하 준비' 탭에는 시드 주문만 있어 평가자가 만든 주문으로는 출하·송장 과제를 끝낼 수 없었다(FQ-06·AC-17-3이 수확 시작 UI를 일부러 뺐다). PM 결정 B는 "수확 시작 = 출하 준비 시작"이다. 예약 기간 카드에 결과를 말하는 버튼 하나를 두고, 현황과 예약 탭에서는 그 버튼으로 데려간다. 서버에는 이미 있던 수확 시작 API를 기간 단위로 좁혀 다시 쓴다. 왼쪽은 main 코드 그대로 다시 그린 화면, 오른쪽은 제안이다. 이름·금액·건수는 모두 <span class="ex">예시</span>다.</p>
+    <div class="meta"><span>브랜치 <code>nemodleo/dev-231-harvest-start-preparing</code></span><span>작업 기록 <code>server/tasks/DEV-231.md</code> · <code>apps/producer/tasks/DEV-231.md</code></span><span>개발 PR 위험 등급: 고위험 (<code>server/app/orders/**</code>)</span></div>
+  </header>
+
+  <section class="head">
+    <h2>디자인 무브</h2>
+    <ol class="moves">
+      <li><span class="num">1</span><h3>버튼은 예약 기간 카드 안, 저장 폼과 선으로 나눈다</h3><p>주문은 기간(단계)에 묶여 있으니(<code>Order.stage_id</code>) 기간 카드 맨 아래에 '수확' 칸을 둔다. 위 가격·물량 칸과 굵은 선으로 갈라 '저장'과 다른 일임을 보인다. 강조색은 하단 '예약 기간 저장' 하나로 두고 이 버튼은 테두리 버튼이다.</p></li>
+      <li><span class="num">2</span><h3>버튼 글자가 결과를 말한다</h3><p>「수확 시작 · 출하 준비 3건」. 무엇을 누르는지(수확 시작)와 무엇이 바뀌는지(3건이 출하 준비로)를 한 줄에. 위 줄에 '예약 완료 3건 · 입금 대기 1건'을 두어 3에 들어가지 않는 주문도 보인다.</p></li>
+      <li><span class="num">3</span><h3>확인 시트에 옮겨질 주문과 소비자 쪽 변화를 적는다</h3><p>입금 승인·출하 확인과 같은 시트, '아니요' 1 : '수확 시작 · 3건' 2. 주문 줄(최대 3줄 + '외 n건'), 소비자 주문 상세가 '수확·포장 중'이 된다는 것, 보내기 전까지 소비자는 취소할 수 있다는 것, 되돌릴 수 없다는 것을 적는다.</p></li>
+      <li><span class="num">4</span><h3>찾아오는 길은 둘, 누르는 곳은 하나</h3><p>현황 할 일 줄 「수확을 시작할 예약 3건」과 주문 현황 '예약' 탭 안내 줄 「하우스 감귤 1단계 · 3건 수확 시작하기 ›」는 모두 그 기간 카드로 데려간다. 상태를 바꾸는 버튼은 기간 카드에만 있다(주문별 버튼은 이번에 없음, 후속).</p></li>
+      <li><span class="num">5</span><h3>수확을 시작한 뒤에도 카드가 상태를 말한다</h3><p>다 옮기면 「수확 시작함 · 출하 준비 3건 보기 ›」(출하 준비 탭으로). 시작한 뒤에 입금 승인된 주문이 생기면 「남은 예약 1건도 출하 준비로」. 저장 안 한 값이 있으면 버튼을 막고 「저장한 뒤 수확을 시작할 수 있어요」.</p></li>
+      <li><span class="num">6</span><h3>소비자 화면은 손대지 않는다</h3><p>출하 준비는 이미 소비자에게 '수확·포장 중'이고 상세 본문은 「농가가 수확을 시작했어요. 11월 10일 ~ 11월 20일 사이에 받아요.」다(<code>orderText.ts</code>, 주문 상세). 결정 B와 그대로 맞는다. 외부 알림은 지금 보낼 수단이 없다.</p></li>
+    </ol>
+  </section>
+
+  <!-- A. 주문 현황 예약 탭 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 A · SCR-29 주문 현황 '예약' 탭</span>
+      <h2>입금 승인한 주문이 '예약'에 들어간 뒤</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main</span>
+        <div class="phone" id="f-before-reserved" style="min-height: 760px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">주문 현황</span></div>
+          <div class="seg"><span>전체 41</span><span>입금 대기 1</span><span class="on">예약 32</span><span>출하 준비 7</span><span>출하 1</span></div>
+          <div class="olist">
+            <div class="orow"><div class="c"><span class="t-sub muted">FC-1103-2406</span><span class="t-body sb">김민지 · 5kg × 1</span><span class="t-body">29,000원</span><span class="t-sub muted">서울 관악구 관악로 1 101동 1203호</span><span class="t-sub sb muted hl">예약 완료</span></div></div>
+            <div class="orow"><div class="c"><span class="t-sub muted">FC-1102-1187</span><span class="t-body sb">이서준 · 10kg × 1</span><span class="t-body">55,000원</span><span class="t-sub muted">경기 성남시 분당구 …</span><span class="t-sub sb muted">예약 완료</span></div></div>
+            <div class="orow endline"><div class="c"><span class="t-sub muted">FC-1101-0932</span><span class="t-body sb">박하늘 · 5kg × 2</span><span class="t-body">58,000원</span><span class="t-sub muted">부산 해운대구 …</span><span class="t-sub sb muted">예약 완료</span></div></div>
+          </div>
+          <p class="guide t-sub muted"><span class="hl">배송 완료는 farmclub이 확인해서 바꿔요.</span></p>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안</span>
+        <div class="phone" id="f-after-reserved" style="min-height: 760px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">주문 현황</span></div>
+          <div class="seg"><span>전체 41</span><span>입금 대기 1</span><span class="on">예약 32</span><span>출하 준비 7</span><span>출하 1</span></div>
+          <div class="px rel" style="padding-top: 12px">
+            <span class="mk" style="right: 8px; top: 2px">4</span>
+            <div class="lrow"><div class="c"><span class="t-body sb">하우스 감귤 1단계 · 3건 수확 시작하기</span><span class="t-sub muted">수확을 시작하면 출하 준비로 옮겨져요</span></div><span class="chev">›</span></div>
+            <div class="lrow last"><div class="c"><span class="t-body sb">레드향 1단계 · 29건 수확 시작하기</span><span class="t-sub muted">예약 기간 12월 15일까지</span></div><span class="chev">›</span></div>
+          </div>
+          <div class="olist">
+            <div class="orow"><div class="c"><span class="t-sub muted">FC-1103-2406</span><span class="t-body sb">김민지 · 5kg × 1</span><span class="t-body">29,000원</span><span class="t-sub muted">서울 관악구 관악로 1 101동 1203호</span><span class="t-sub sb muted">예약 완료</span></div></div>
+            <div class="orow endline"><div class="c"><span class="t-sub muted">FC-1102-1187</span><span class="t-body sb">이서준 · 10kg × 1</span><span class="t-body">55,000원</span><span class="t-sub muted">경기 성남시 분당구 …</span><span class="t-sub sb muted">예약 완료</span></div></div>
+          </div>
+          <p class="guide t-sub muted hl-ok">예약 완료 주문은 상품의 예약 기간에서 「수확 시작」을 누르면 출하 준비로 옮겨져요. 배송 완료는 farmclub이 확인해서 바꿔요.</p>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note bad"><span class="dot">!</span><p>BEFORE: 줄을 눌러도 아무 일이 없고, 탭 아래 안내는 배송 완료 이야기뿐이다. 다음에 무엇을 하는지 화면에 없다(P1).</p></div>
+        <div class="note"><span class="num">4</span><p>AFTER: 탭 맨 위에 기간마다 한 줄(예약 완료 주문이 있는 기간만, 예약 기간 끝난 순). 누르면 <code>/products/{id}/stages#{stageId}</code>로 가서 그 카드로 스크롤한다. 줄 자체에는 버튼이 없다.</p></div>
+        <div class="note"><span class="num">2</span><p>탭 아래 안내 문구가 이 탭에서만 바뀐다. 다른 탭(전체·출하 준비·출하)은 지금 문구 그대로.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B. 예약 기간 카드 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 B · SCR-26 예약 기간·가격 (상품 › 기간·가격)</span>
+      <h2>예약 완료 주문이 있는 기간 카드</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main</span>
+        <div class="phone" id="f-before-stage" style="min-height: 800px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">예약 기간·가격</span></div>
+          <div class="px stack" style="padding-bottom: 20px"><span class="t-body sb" style="font-size: 22px; line-height: 30px">언제, 얼마에 예약받을까요?</span></div>
+          <div class="scard">
+            <div class="top"><span class="b">10.01 — 10.12</span><span class="t-sub sb muted">기간 삭제</span></div>
+            <span class="t-cap muted">예약 이력이 있어 날짜는 유지해요. 가격은 새 주문부터 적용돼요.</span>
+            <div class="opt"><span class="sb">5kg</span><div class="fields"><div class="fld"><label>5kg 가격</label><div>29,000<span class="muted">원</span></div></div><div class="fld"><label>5kg 판매 물량</label><div>80<span class="muted">박스</span></div></div></div><span class="t-cap muted hl">38박스 확보됨</span></div>
+            <div class="opt"><span class="sb">10kg</span><div class="fields"><div class="fld"><label>10kg 가격</label><div>55,000<span class="muted">원</span></div></div><div class="fld"><label>10kg 판매 물량</label><div>20<span class="muted">박스</span></div></div></div><span class="t-cap muted">6박스 확보됨</span></div>
+          </div>
+          <div class="pbar"><div class="btn56 pri">예약 기간 저장</div></div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안</span>
+        <div class="phone" id="f-after-stage" style="min-height: 800px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">예약 기간·가격</span></div>
+          <div class="px stack" style="padding-bottom: 20px"><span class="t-body sb" style="font-size: 22px; line-height: 30px">언제, 얼마에 예약받을까요?</span></div>
+          <div class="scard">
+            <div class="top"><span class="b">10.01 — 10.12</span><span class="t-sub sb muted">기간 삭제</span></div>
+            <span class="t-cap muted">예약 이력이 있어 날짜는 유지해요. 가격은 새 주문부터 적용돼요.</span>
+            <div class="opt"><span class="sb">5kg</span><div class="fields"><div class="fld"><label>5kg 가격</label><div>29,000<span class="muted">원</span></div></div><div class="fld"><label>5kg 판매 물량</label><div>80<span class="muted">박스</span></div></div></div><span class="t-cap muted">38박스 확보됨</span></div>
+            <div class="opt"><span class="sb">10kg</span><div class="fields"><div class="fld"><label>10kg 가격</label><div>55,000<span class="muted">원</span></div></div><div class="fld"><label>10kg 판매 물량</label><div>20<span class="muted">박스</span></div></div></div><span class="t-cap muted">6박스 확보됨</span></div>
+            <div class="harv rel">
+              <span class="mk" style="left: -30px; top: -12px">1</span>
+              <div class="lbl"><span class="sb">수확</span><span class="t-sub muted">예약 완료 3건 · 입금 대기 1건</span></div>
+              <div class="btn56 out rel">수확 시작 · 출하 준비 3건<span class="mk" style="right: -10px; top: -10px">2</span></div>
+              <span class="t-cap muted">입금 대기 주문은 승인한 뒤 따로 옮겨요.</span>
+            </div>
+          </div>
+          <div class="pbar"><div class="btn56 pri">예약 기간 저장</div></div>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note bad"><span class="dot">!</span><p>BEFORE: 'n박스 확보됨'만 있고 그 예약으로 무엇을 할지 없다.</p></div>
+        <div class="note"><span class="num">1</span><p>'수확' 칸은 저장된 기간이고 예약 완료 또는 출하 준비 이후 주문이 하나라도 있을 때만 보인다. 새로 추가한 기간·주문 없는 기간에는 없다.</p></div>
+        <div class="note"><span class="num">2</span><p>건수는 박스 수가 아니라 주문 수다(시트·탭과 같은 단위). 박스 수는 위 '확보됨' 줄이 이미 말한다.</p></div>
+        <div class="note"><span class="num">5</span><p>저장 안 한 값이 있으면 버튼은 흐리게, 아래 줄은 「저장한 뒤 수확을 시작할 수 있어요」.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- C. 확인 시트와 결과 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 C · 확인 시트 → 결과 (새 화면, BEFORE 없음)</span>
+      <h2>「수확 시작 · 출하 준비 3건」을 누른 뒤</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 확인 시트</span>
+        <div class="phone" id="f-after-sheet" style="min-height: 800px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">예약 기간·가격</span></div>
+          <div class="scard" style="margin-top: 8px"><div class="top"><span class="b">10.01 — 10.12</span><span class="t-sub sb muted">기간 삭제</span></div></div>
+          <div class="shade"></div>
+          <div class="sheet">
+            <span class="handle"></span>
+            <div class="stack" style="gap: 2px"><h4>수확을 시작할까요?</h4><span class="t-sub muted">하우스 감귤 5kg / 10kg · 1단계(10.01—10.12)</span></div>
+            <div class="rel"><span class="mk" style="right: -6px; top: -12px">3</span>
+              <div class="srow"><span>김민지 · 5kg × 1</span><span class="muted">29,000원</span></div>
+              <div class="srow"><span>이서준 · 10kg × 1</span><span class="muted">55,000원</span></div>
+              <div class="srow endline"><span>박하늘 · 5kg × 2</span><span class="muted">58,000원</span></div>
+            </div>
+            <ul class="facts">
+              <li><span>예약 완료 3건이 출하 준비로 옮겨져요. 출하 준비 탭에서 송장을 넣고 보내요.</span></li>
+              <li><span>소비자 주문 상세에는 ‘수확·포장 중’으로 보여요. 보내기 전까지는 소비자가 취소(전액 환불)할 수 있어요.</span></li>
+              <li><span>출하 준비에서 예약 완료로 되돌릴 수 없어요.</span></li>
+            </ul>
+            <div class="btns"><div class="btn56 sec">아니요</div><div class="btn56 pri">수확 시작 · 3건</div></div>
+          </div>
+        </div>
+        <p class="sub">4건 이상이면 3줄 + 「외 n건」. 예약 기간이 아직 끝나지 않았으면 맨 위 사실 줄 앞에 「이 기간은 10월 12일까지 예약을 받아요. 그 뒤 들어온 주문은 다시 눌러 옮겨요.」. 「아니요」·바깥 누르기·뒤로는 호출하지 않는다. 요청 중에는 시트를 닫을 수 없다(출하 시트와 같음).</p>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 결과</span>
+        <div class="phone" id="f-after-done" style="min-height: 800px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">예약 기간·가격</span></div>
+          <div class="scard" style="margin-top: 8px">
+            <div class="top"><span class="b">10.01 — 10.12</span><span class="t-sub sb muted">기간 삭제</span></div>
+            <div class="opt"><span class="sb">5kg</span><span class="t-cap muted">38박스 확보됨</span></div>
+            <div class="opt"><span class="sb">10kg</span><span class="t-cap muted">6박스 확보됨</span></div>
+            <div class="harv rel">
+              <span class="mk" style="left: -30px; top: -12px">5</span>
+              <div class="lbl"><span class="sb">수확</span><span class="t-sub muted">입금 대기 1건</span></div>
+              <div class="lrow last" style="min-height: 52px"><div class="c"><span class="t-body sb">수확 시작함 · 출하 준비 3건 보기</span></div><span class="chev">›</span></div>
+            </div>
+          </div>
+          <div class="scard" style="margin-top: 12px">
+            <div class="top"><span class="b">10.13 — 11.05</span><span class="t-sub sb muted">기간 삭제</span></div>
+            <div class="harv">
+              <div class="lbl"><span class="sb">수확</span><span class="t-sub muted">예약 완료 1건</span></div>
+              <div class="btn56 out">남은 예약 1건도 출하 준비로</div>
+            </div>
+          </div>
+          <div class="toast2">3건을 출하 준비로 옮겼어요</div>
+          <div class="pbar"><div class="btn56 pri">예약 기간 저장</div></div>
+        </div>
+        <p class="sub">위 카드: 방금 수확을 시작한 1단계. 아래 카드(<span class="ex">예시</span>): 2단계는 이미 수확을 시작했는데 그 뒤 입금 승인된 주문이 1건 있는 경우. 시트의 n과 서버가 실제로 옮긴 수가 다르면 토스트는 실제 수를 말한다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- D. 현황 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 D · SCR-22 현황(홈) 할 일</span>
+      <h2>예약 기간이 끝난 예약 완료 주문이 있을 때</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main</span>
+        <div class="phone" id="f-before-home" style="min-height: 760px">
+          <div class="px stack" style="padding-top: 20px; gap: 12px">
+            <span class="t-sub muted">강씨네 귤밭 · 11월 4일</span>
+            <span class="ttl">주문·배송 현황</span>
+            <div>
+              <div class="lrow last"><div class="c"><span class="t-body sb">입금 확인할 주문 1건</span><span class="t-sub muted">통장과 대조한 뒤 입금 확인을 눌러 주세요</span></div><span class="chev">›</span></div>
+            </div>
+            <div class="metrics">
+              <div class="metric"><span class="t-sub sb">전체 주문</span><span class="n">41</span><span class="t-cap muted">입금 대기 포함</span></div>
+              <div class="metric hl"><span class="t-sub sb">예약 완료</span><span class="n">32</span><span class="t-cap muted">입금이 확인된 주문</span></div>
+              <div class="metric"><span class="t-sub sb">출하 준비</span><span class="n">7</span><span class="t-cap muted">택배사·송장 입력</span></div>
+              <div class="metric"><span class="t-sub sb">출하</span><span class="n">1</span><span class="t-cap muted">발송한 주문</span></div>
+            </div>
+          </div>
+          <div class="ptab" style="margin-top: auto"><span class="on">현황</span><span>상품</span><span>채팅</span><span>환경설정</span></div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안</span>
+        <div class="phone" id="f-after-home" style="min-height: 760px">
+          <div class="px stack" style="padding-top: 20px; gap: 12px">
+            <span class="t-sub muted">강씨네 귤밭 · 11월 4일</span>
+            <span class="ttl">주문·배송 현황</span>
+            <div class="rel">
+              <span class="mk" style="right: 24px; top: 4px">4</span>
+              <div class="lrow"><div class="c"><span class="t-body sb">입금 확인할 주문 1건</span><span class="t-sub muted">통장과 대조한 뒤 입금 확인을 눌러 주세요</span></div><span class="chev">›</span></div>
+              <div class="lrow last hl-ok"><div class="c"><span class="t-body sb">수확을 시작할 예약 3건</span><span class="t-sub muted">하우스 감귤 1단계 · 예약 기간이 끝났어요</span></div><span class="chev">›</span></div>
+            </div>
+            <div class="metrics">
+              <div class="metric"><span class="t-sub sb">전체 주문</span><span class="n">41</span><span class="t-cap muted">입금 대기 포함</span></div>
+              <div class="metric"><span class="t-sub sb">예약 완료</span><span class="n">32</span><span class="t-cap muted">수확을 시작하면 출하 준비로</span></div>
+              <div class="metric"><span class="t-sub sb">출하 준비</span><span class="n">7</span><span class="t-cap muted">택배사·송장 입력</span></div>
+              <div class="metric"><span class="t-sub sb">출하</span><span class="n">1</span><span class="t-cap muted">발송한 주문</span></div>
+            </div>
+          </div>
+          <div class="ptab" style="margin-top: auto"><span class="on">현황</span><span>상품</span><span>채팅</span><span>환경설정</span></div>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note"><span class="num">4</span><p>할 일 줄은 DEV-68과 같은 ListRow, 입금 확인 줄 다음·환불 줄 앞. 세는 것: 예약 기간이 끝난(<code>endsAt</code> &lt; 오늘, 한국 날짜) 기간의 예약 완료 주문. 여러 기간이면 합계, 부제는 가장 먼저 끝난 기간 이름과 「외 n개 기간」. 누르면 그 상품의 예약 기간 화면, 그 카드로.</p></div>
+        <div class="note"><span class="num">2</span><p>'예약 완료' 지표 아래 설명을 「입금이 확인된 주문」에서 「수확을 시작하면 출하 준비로」로. 이 지표는 지금처럼 예약 탭으로 간다.</p></div>
+        <div class="note"><span class="num">6</span><p>예약 기간이 아직 열린 기간의 예약은 할 일로 세지 않는다(수확하기 이르다). 그래도 기간 카드와 예약 탭에서는 언제든 시작할 수 있다(질문 ③).</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- E. 출하 준비 탭 + 소비자 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 E · SCR-29 '출하 준비' 탭 · 소비자 SCR-14 주문 상세</span>
+      <h2>옮겨진 뒤 생산자와 소비자가 보는 것</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main</span>
+        <div class="phone" id="f-before-preparing" style="min-height: 760px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">배송 현황</span></div>
+          <div class="seg"><span>전체 41</span><span>입금 대기 1</span><span>예약 32</span><span class="on">출하 준비 7</span><span>출하 1</span></div>
+          <div class="olist">
+            <div class="orow"><span class="chk"><i></i></span><div class="c"><span class="t-sub muted">FC-1006-0101</span><span class="t-body sb">최지우 · 5kg × 1</span><span class="t-body">29,000원</span><span class="t-sub muted">제주 제주시 …</span><span class="t-sub sb muted">택배사·송장 번호 넣기 ›</span></div></div>
+            <div class="orow endline"><span class="chk"><i></i></span><div class="c"><span class="t-sub muted">FC-1006-0102</span><span class="t-body sb">정우진 · 10kg × 1</span><span class="t-body">55,000원</span><span class="t-sub muted">대전 유성구 …</span><span class="t-sub sb muted">택배사·송장 번호 넣기 ›</span></div></div>
+          </div>
+          <p class="guide t-sub muted"><span class="hl">시드 주문 7건뿐. 평가자가 입금 승인한 주문은 여기에 오지 않는다.</span></p>
+          <div class="pbar"><span class="t-sub muted">보낸 주문을 골라 주세요</span><div class="btn56 off">출하로 바꾸기</div></div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안 (화면 코드 변경 없음)</span>
+        <div class="phone" id="f-after-preparing" style="min-height: 760px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">배송 현황</span></div>
+          <div class="seg"><span>전체 41</span><span>입금 대기 1</span><span>예약 29</span><span class="on">출하 준비 10</span><span>출하 1</span></div>
+          <div class="olist">
+            <div class="orow hl-ok"><span class="chk"><i class="on"></i></span><div class="c"><span class="t-sub muted">FC-1103-2406</span><span class="t-body sb">김민지 · 5kg × 1</span><span class="t-body">29,000원</span><span class="t-sub muted">서울 관악구 관악로 1 101동 1203호</span><span class="t-sub sb">CJ대한통운 6012-3456-7890 ›</span></div></div>
+            <div class="orow endline"><span class="chk"><i></i></span><div class="c"><span class="t-sub muted">FC-1102-1187</span><span class="t-body sb">이서준 · 10kg × 1</span><span class="t-body">55,000원</span><span class="t-sub muted">경기 성남시 분당구 …</span><span class="t-sub sb muted">택배사·송장 번호 넣기 ›</span></div></div>
+          </div>
+          <p class="guide t-sub muted">배송 완료는 farmclub이 확인해서 바꿔요.</p>
+          <div class="pbar"><span class="t-sub muted">1건 골랐어요 · 송장 1건 입력</span><div class="btn56 pri">1건 출하로 바꾸기</div></div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>소비자 주문 상세 · 지금 그대로</span>
+        <div class="phone" id="f-after-consumer" style="min-height: 760px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div></div>
+          <div class="px stack" style="gap: 6px"><span class="t-sub muted">FC-1103-2406 · 11월 3일 예약</span><span class="ttl">수확·포장 중</span><span class="t-body">농가가 수확을 시작했어요. 11월 10일 ~ 11월 20일 사이에 받아요.</span></div>
+          <div class="bars4"><div><span class="on"></span><em>예약 완료</em></div><div><span class="on"></span><em class="on">수확·포장 중</em></div><div><span></span><em>배송 중</em></div><div><span></span><em>배송 완료</em></div></div>
+          <div class="rows" style="margin-top: 24px">
+            <div class="row"><span class="k">받는 시기</span><span class="v">11월 10일 ~ 11월 20일</span></div>
+            <div class="row last"><span class="k">금액</span><span class="v">29,000원</span></div>
+          </div>
+          <div class="bbar"><span class="t-sub muted">보내기 전에는 언제든 취소할 수 있고 전액 환불돼요.</span><div class="btn-outline" style="height: 52px">예약 취소하기</div></div>
+        </div>
+      </div>
+    </div>
+    <p class="sub">출하 준비 탭과 소비자 주문 상세는 코드를 바꾸지 않는다. 옮겨진 주문이 지금 있는 출하 흐름(골라서 송장 → 「n건 출하로 바꾸기」)을 그대로 탄다. 소비자 화면 본문·막대는 <code>apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx</code>의 PREPARING 문구 그대로 그렸다.</p>
+  </section>
+
+  <!-- 상태표 -->
+  <section class="head">
+    <h2>기간 카드 '수확' 칸 상태</h2>
+    <div class="tblwrap"><table>
+      <thead><tr><th>조건 (그 기간의 주문)</th><th>윗줄 오른쪽</th><th>버튼·줄</th><th>누르면</th></tr></thead>
+      <tbody>
+        <tr><td>주문 없음, 또는 입금 대기만</td><td colspan="3" class="same">'수확' 칸 없음 (입금 대기만이면 「입금 대기 n건」만 보이고 버튼 없음)</td></tr>
+        <tr><td>예약 완료 n &gt; 0, 아직 수확 시작 안 함</td><td>예약 완료 n건 · 입금 대기 m건</td><td>테두리 버튼 「수확 시작 · 출하 준비 n건」</td><td>확인 시트</td></tr>
+        <tr><td>수확 시작함, 예약 완료 0</td><td>(입금 대기 m건)</td><td>줄 「수확 시작함 · 출하 준비 k건 보기 ›」</td><td><code>/ship?status=PREPARING</code></td></tr>
+        <tr><td>수확 시작함, 예약 완료 n &gt; 0 (그 뒤 승인)</td><td>예약 완료 n건</td><td>테두리 버튼 「남은 예약 n건도 출하 준비로」</td><td>확인 시트(제목 「남은 예약 n건도 옮길까요?」)</td></tr>
+        <tr><td>저장 안 한 값이 있음</td><td>그대로</td><td>버튼 흐리게 + 「저장한 뒤 수확을 시작할 수 있어요」</td><td>—</td></tr>
+        <tr><td>요청 실패</td><td colspan="3">시트 안 오류 줄 「수확을 시작하지 못했어요. 다시 눌러 주세요.」, 같은 멱등 키로 다시. 409/404면 시트를 닫고 카드 새로 읽기 + Notice 「이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.」(주문 현황과 같은 문구)</td></tr>
+      </tbody>
+    </table></div>
+    <p class="sub">'수확 시작함'은 저장된 칸이 아니라 계산이다: 그 기간에 출하 준비·출하·배송 완료·구매 확정 주문이 하나라도 있으면 시작함(마이그레이션 없음, 질문 ②).</p>
+  </section>
+
+  <!-- 서버 -->
+  <section class="head">
+    <h2>서버 설계 (고위험 경로 <code>server/app/orders/**</code>)</h2>
+    <div class="two">
+      <div class="box">
+        <h3>엔드포인트: 있던 것을 기간 단위로</h3>
+        <pre class="code">POST /api/orders/producer/harvest-start
+Idempotency-Key: &lt;uuid&gt;          # 새로 필수(run_idempotent)
+{ "productId": "p-house",
+  "stageId":   "st-1-2026-10-01" }  # 새 필드. 없으면 지금처럼 상품 전체
+
+200 { "changed": 3,
+      "stageId": "st-1-2026-10-01",
+      "orderIds": ["…", "…", "…"] }</pre>
+        <ul>
+          <li>지금 <code>harvest_start(db, farm_id, product_id)</code>는 상품의 <code>RESERVED</code> 전체를 <code>PREPARING</code>으로 바꾸고 <code>{changed}</code>만 준다. 감사·멱등 없음. 프론트는 안 부르고 테스트 4곳이 시드 준비용으로 부른다.</li>
+          <li>새 경로를 만들지 않고 본문에 <code>stageId</code>를 더한다. 기존 호출(테스트·Mock)이 그대로 돈다. 새 앱은 항상 <code>stageId</code>를 보낸다.</li>
+          <li>대상: <code>product_id</code>·<code>stage_id</code>가 맞고 <code>status = 'RESERVED'</code>. 입금 대기·환불·취소는 그대로. <code>SELECT … FOR UPDATE</code> 뒤 바꾼다(지금과 같음).</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>오류·멱등·감사</h3>
+        <ul>
+          <li>다른 농가 상품·없는 상품: 404 「찾을 수 없는 상품이에요.」(지금 <code>load_my_product</code>). 기간이 그 상품 것이 아님: 404 「찾을 수 없는 예약 기간이에요.」</li>
+          <li>옮길 주문 0건: 200 <code>changed: 0</code>(자연 멱등, 오류 아님). 같은 키 재시도는 첫 응답 그대로, 감사 중복 없음. 키 없이 오면 400(다른 멱등 엔드포인트와 같음).</li>
+          <li>감사: <code>changed &gt; 0</code>일 때 <code>ManagerEvent(event_type="orders.harvest_started", target_type="stage", target_id=stageId, actor_id, result={productId, orderIds, changed})</code> 한 행. <code>update_tracking</code>과 같은 방식이라 모델 변경 없음.</li>
+          <li>소비자 알림: 보내지 않는다(지금 외부 알림 수단 없음). 주문 상세가 바뀌는 것으로 끝.</li>
+          <li>상태 전이표: 예약 완료 → 출하 준비는 이미 표에 있다(<code>server/app/orders/spec.md</code> 계약). 새 전이 없음.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>읽기 쪽 (앱이 버튼 글자·할 일을 그리려면)</h3>
+        <ul>
+          <li>생산자 상품 <code>GET /api/products/mine/{id}</code>의 <code>stages[]</code>에 <code>reservedOrderCount</code>·<code>awaitingOrderCount</code>·<code>preparingOrderCount</code>·<code>harvestStarted</code>를 더한다(<code>catalog/schemas.py</code>·<code>service.py</code>, 모델 변경 없음). 질문 ⑦: 앱이 주문 목록에서 셀 수도 있다.</li>
+          <li>현황 <code>GET /api/orders/producer/dashboard</code>의 <code>todo</code>에 <code>toHarvest</code>(예약 기간 끝난 기간의 예약 완료 주문 수)와 <code>harvestTargets: [{productId, stageId, stageName, count}]</code>(끝난 순).</li>
+          <li>예약 탭 안내 줄은 앱이 <code>harvestTargets</code>를 그대로 쓰고, 아직 열린 기간도 보이도록 같은 모양을 기간 끝 조건 없이 한 번 더 받는다(<code>?status=RESERVED</code> 목록에서 <code>stageId</code>로 묶어도 됨, 주문 응답에 <code>stageId</code>·<code>stageName</code> 추가).</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>바뀌지 않는 것</h3>
+        <ul>
+          <li><code>server/app/*/models.py</code>, <code>server/migrations/**</code>: 손대지 않는다.</li>
+          <li>출하(<code>/ship</code>)·송장 수정·취소: 그대로. 출하 준비에서도 소비자 취소 = 전액 환불(FEAT-11 사전 조건 그대로).</li>
+          <li>R-06 물량: 상태만 바뀌고 <code>reserved_count</code>·kg 집계는 그대로(출하 때 옮겨짐).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 문서 -->
+  <section class="head">
+    <h2>문서 변경 (개발 PR에서 함께)</h2>
+    <div class="tblwrap"><table>
+      <thead><tr><th>문서</th><th>지금</th><th>바꿀 내용</th></tr></thead>
+      <tbody>
+        <tr><td class="code">functional/README.md FQ-06</td><td>프론트에서 수확 시작 제거, 자동 전이 없음</td><td class="chg">결정 B(2026-11-04, DEV-231): 기간 카드의 '수확 시작'이 그 기간의 예약 완료 주문을 출하 준비로 옮긴다. 자동 전이·주문별 버튼은 없다</td></tr>
+        <tr><td class="code">FEAT-17 AC-17-3</td><td>조회만, 수확 시작 UI·호출 없음, RESERVED 그대로</td><td class="chg">예약 화면을 여는 것만으로는 상태가 바뀌지 않는다(조회는 그대로). 새 AC-17-10: 기간 하나의 수확 시작 → 그 기간 RESERVED만 PREPARING, 다른 기간·입금 대기 그대로, 소비자 상세 '수확·포장 중'. 새 AC-17-11: 다른 농가 404, 같은 키 재시도 중복 없음, 0건 200, 감사 한 행</td></tr>
+        <tr><td class="code">FEAT-17 정상 흐름·입력·검증</td><td>"UI·프론트 호출 및 자동 전이는 없다"</td><td class="chg">정상 흐름 1.5) 예약 기간 카드 '수확 시작 · 출하 준비 n건' → 확인 시트 → 출하 준비. 입력·검증 문장 교체</td></tr>
+        <tr><td class="code">FEAT-14 정상 흐름</td><td>할 일: 입금 확인·환불·계좌</td><td class="chg">할 일 줄 「수확을 시작할 예약 n건」 추가, 예약 완료 지표 설명 문구</td></tr>
+        <tr><td class="code">screens.md SCR-22·26·29, API 표</td><td>SCR-29 "수확 시작 UI/확인/완료 없음", API 표 harvest-start <code>productId</code></td><td class="chg">SCR-26 기간 카드 '수확' 칸, SCR-29 예약 탭 안내 줄·문구, SCR-22 할 일 줄, API 표 <code>stageId</code>·<code>Idempotency-Key</code>·응답</td></tr>
+        <tr><td class="code">ia.md SCR-29, conversation-ui-1.6.md SCR-29·AC-17-6</td><td>"수확 시작과 자동 전이 없음", "모든 수확 시작 UI 제거"</td><td class="chg">수확 시작은 SCR-26 기간 카드에서, SCR-29는 바로가기만. AC-17-6을 '자동 전이 없음, RESERVED 조회는 상태를 바꾸지 않음'으로 좁힌다</td></tr>
+        <tr><td class="code">contracts-1.2.md 주문 절</td><td>harvest-start 언급 없음</td><td class="chg">한 줄: harvest-start <code>{productId, stageId}</code> + <code>Idempotency-Key</code> → <code>{changed, stageId, orderIds}</code></td></tr>
+        <tr><td class="code">capacity-1.4.md</td><td>미확정 = RESERVED/PREPARING/…</td><td class="same">바꿀 것 없음</td></tr>
+        <tr><td class="code">apps/producer/spec.md 90행</td><td>"수확 시작 호출은 없다"</td><td class="chg">"예약 기간 카드에서 기간 단위 수확 시작을 호출한다(DEV-231)"</td></tr>
+        <tr><td class="code">docs/wiki Requirements-and-Specifications.md, Design-Documentation.md</td><td>"no current UI action for RESERVED → PREPARING" 6곳</td><td class="chg">영문 요약: Start harvest on a sale period moves that period's reserved orders to preparing</td></tr>
+        <tr><td class="code">docs/evaluation/he-2026-11-04 README 3절</td><td>"출하·송장은 '출하 준비' 탭의 시드 주문으로"</td><td class="chg">우회 문장 정리(배포 뒤)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- 테스트 -->
+  <section class="head">
+    <h2>테스트 계획</h2>
+    <div class="two">
+      <div class="box">
+        <h3>pytest (<code>server/tests/test_orders.py</code>)</h3>
+        <ul>
+          <li><code>test_AC_17_10_harvest_start_moves_only_that_stage_reserved</code> — 1단계 RESERVED 2 + 2단계 RESERVED 1 + 1단계 AWAITING_DEPOSIT 1 → 1단계만 2건 PREPARING</li>
+          <li><code>test_AC_17_10_consumer_sees_preparing</code> — 소비자 주문 상세 status PREPARING, 취소 가능(REFUNDED로)</li>
+          <li><code>test_AC_17_11_other_farm_404</code>, <code>…_stage_of_other_product_404</code></li>
+          <li><code>test_AC_17_11_same_key_replay_no_duplicate_event</code>, <code>…_zero_orders_200</code>, <code>…_missing_key_400</code></li>
+          <li><code>test_AC_17_11_audit_event_once</code> — ManagerEvent 한 행, orderIds 일치</li>
+          <li><code>test_AC_17_3_listing_does_not_change_state</code> — 생산자 목록·현황 조회만으로 RESERVED 그대로(뒤집은 AC의 남는 부분)</li>
+          <li><code>test_AC_14_*_to_harvest_counts_closed_stages</code> — 끝난 기간만 셈, KST 경계</li>
+          <li>기존 harvest-start 호출 4곳: <code>stageId</code> 없이 그대로 통과(호환)</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Mock·타입·e2e</h3>
+        <ul>
+          <li><code>packages/api/src/mock/orders.ts</code> harvest-start에 <code>stageId</code> 필터·<code>orderIds</code>, 대시보드 <code>toHarvest</code>. <code>scripts/test-*.mjs</code> 한 파일: 기간 필터, 0건, 재시도</li>
+          <li><code>npm run typecheck</code>, <code>npm run test:mock</code></li>
+          <li>Playwright(생산자 출하 흐름 spec): 소비자 예약 → 생산자 입금 승인 → 현황 「수확을 시작할 예약」 → 기간 카드 → 시트 → 출하 준비 탭에서 송장·출하 → 소비자 '배송 중'. HE 과제 "출하·송장 입력"을 새 주문으로 끝까지</li>
+          <li>390px before/after 캡처는 개발 PR에서 실제 화면으로 다시</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 질문 -->
+  <section class="head">
+    <h2>PM 확인 질문</h2>
+    <div class="box warn">
+      <ol>
+        <li><b>① 기간 단위가 맞나?</b> 기간(단계)은 같은 '받는 시기'를 나누는 얼리버드 가격 구간이다(Mock 하우스 감귤 1~3단계 모두 11.10~11.20 배송). 농가 입장에서 수확은 보통 상품 단위다. 제안: 결정대로 기간 단위로 두되(먼저 예약한 분부터 보낼 수 있음), 기간이 여럿이고 모두 끝났으면 맨 아래 「모든 기간 수확 시작 · n건」을 둘지 정해 주세요. 서버는 <code>stageId</code> 없이 부르면 상품 전체라 둘 다 된다.</li>
+        <li><b>② '수확 시작함' 기록 칸</b>: 제안은 칸 없이 계산(출하 준비 이후 주문이 있으면 시작함). 시작 시각을 소비자에게 보여 주거나, 시작한 뒤 입금 승인되는 주문을 바로 출하 준비로 보내려면 <code>stages.harvest_started_at</code>과 마이그레이션이 필요하다(고위험 경로 추가).</li>
+        <li><b>③ 예약 기간이 아직 열린 기간</b>도 수확을 시작할 수 있나? 제안: 된다(시트에 「그 뒤 들어온 주문은 다시 눌러 옮겨요」). 막으면 마지막 기간은 받는 시기 전날까지 열려 있어 시작이 늦어진다.</li>
+        <li><b>④ 시트의 n과 실제 수가 다를 때</b>(그사이 입금 승인·취소): 제안은 막지 않고 그때의 예약 완료를 모두 옮기고 토스트가 실제 수를 말한다. 정확히 본 주문만 옮기려면 <code>expectedOrderIds</code>를 받아 다르면 409로 바꿀 수 있다.</li>
+        <li><b>⑤ 받는 시기 변경에 아직 답하지 않은 주문</b>(<code>proposedDeliveryStart</code>)도 옮기나? 제안: 옮긴다(출하 준비에서도 답할 수 있음). 출하를 그 답 뒤로 막을지는 이번 범위 밖.</li>
+        <li><b>⑥ HE-06의 나머지(탭 구분이 헷갈림, P12)</b>는 이번에 안내 문구 한 줄만 바꾸고 탭 이름은 그대로 둔다. 탭 이름까지 바꿀지?</li>
+        <li><b>⑦ 기간별 주문 수</b>를 서버 상품 응답에 더할지(제안), 앱이 주문 목록(<code>stageId</code> 추가)에서 셀지.</li>
+        <li><b>⑧ 후속 이슈</b>: 주문 줄마다 '출하 준비로' 버튼(일부만 먼저 보낼 때)을 따로 등록해 둘까? Figma v6 반영은 승인 뒤 후속 요청.</li>
+      </ol>
+    </div>
+  </section>
+</div>
