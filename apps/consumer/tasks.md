@@ -790,24 +790,29 @@ DEV-120에서 주문서 동의가 5개가 됐지만 하단 바 문구는 ‘4개
 
 ### 범위 (수정 허용 경로)
 - 1단계(제안, 이번 커밋): `docs/design/proposals/dev-207-order-status-copy.html`, 이 섹션
-- 2단계(승인 뒤 개발): `apps/consumer/src/lib/orderText.ts`, `apps/consumer/src/app/(tabs)/orders/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`(알림 전 제목을 바꾸기로 하면), `apps/consumer/src/lib/DepositCard.tsx`, 문구 테스트(`scripts/` mock 테스트·Playwright spec), `docs/spec/screens.md`, `docs/spec/ia.md`, `docs/spec/functional/FEAT-09-mock-payment.md`, `docs/spec/functional/FEAT-11-cancel-before-shipping.md`, `docs/spec/functional/rules.md`(R-28 한 문장), `docs/design/README.md`, `docs/wiki/` 영문 요약
-- 범위 밖: 서버 상태 모델·`server/app/orders/**`(이슈 1안), 생산자 앱 라벨, 주문 목록 필터(C8), 상세 맨 위 문의 버튼(C14)
+- 2단계(승인 뒤 개발): `apps/consumer/src/lib/orderText.ts`, `apps/consumer/src/app/(tabs)/orders/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/index.tsx`, `apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx`, `apps/consumer/src/lib/DepositCard.tsx`, `apps/producer/src/lib/views.tsx`(PM 결정 3), `apps/producer/tasks.md`, `scripts/test-order-text.mjs`, `package.json`(`test:mock` 한 줄), `scripts/e2e/order-status-copy.spec.ts`, `docs/spec/screens.md`, `docs/spec/ia.md`, `docs/spec/functional/FEAT-09-mock-payment.md`, `docs/spec/functional/FEAT-11-cancel-before-shipping.md`, `docs/spec/functional/rules.md`(R-28 한 문장), `docs/design/README.md`, `docs/wiki/Requirements-and-Specifications.md`
+- 범위 밖: 서버 상태 모델·`server/app/orders/**`(이슈 1안, PM 결정 2), 주문 목록 필터(C8), 상세 맨 위 문의 버튼(C14)
 
 ### 체크리스트
 - [x] 디자인 제안 보드(before/after, 무브 6개, 상태→문구 표) `docs/design/proposals/dev-207-order-status-copy.html`
-- [ ] PM 승인(아래 결정 사항의 질문 1~4)
-- [ ] 소비자 문구를 `lib/orderText.ts` 한곳의 순수 함수로 모으고 목록·상세가 그것을 쓰게
-- [ ] 입금 알림 뒤: 기한 문구·기한 줄·중복 캡션 제거, 하단 바 '농가에 물어보기'
-- [ ] 환불: 환불 대기 / 환불 늦어짐 / 환불 완료
-- [ ] 문구 테스트(`test:mock`) + Playwright 입금 알림 → 상세 1개
-- [ ] spec·wiki·design README 갱신, PR `Figma:` 줄 후속
+- [x] PM 승인(11/04, 아래 결정 사항)
+- [x] 소비자 문구를 `lib/orderText.ts` 한곳의 순수 함수로 모으고 목록·상세·주문 완료가 그것을 쓰게
+- [x] 알림 전 제목 ‘입금 대기’(SCR-12·14), 입금 알림 뒤: 기한 문구·기한 줄·중복 캡션 제거, 하단 바 '농가에 물어보기'
+- [x] 환불: 환불 대기 / 환불 늦어짐 / 환불 완료. 생산자 채팅 ‘연결 주문’의 ‘환불됨’도 바꿈
+- [x] 문구 테스트 `scripts/test-order-text.mjs`(`test:mock`) + Playwright `scripts/e2e/order-status-copy.spec.ts`
+- [x] spec·wiki·design README 갱신, PR `Figma:` 줄 후속
 - [ ] `npm run typecheck`, `npm run test:mock`, 해당 Playwright 통과
 
 ### 결정 사항
 - 11/04 서버 상태값은 그대로 두고 응답에 이미 있는 `depositReportedAt`·`depositIssue`·`refundSettledAt`·`refundIssue`로 소비자 라벨만 나눈다(이슈 1안).
 - 11/04 발견: 서버 `cancel_order`는 `AWAITING_DEPOSIT`이면 입금 알림 여부와 관계없이 환불 기록 없이 취소한다(`직접 취소(입금 전)`). 알린 뒤 취소하면 실제로 보낸 돈이 생산자 '환불 보낼 주문'에 잡히지 않는다. 제안은 앱에서 알린 뒤 취소 버튼을 숨기는 것(1안). 서버에서도 막을지(2안, 고위험 경로)는 PM 결정 뒤 별도 이슈.
-- PM에게 묻는 것: ① 알림 전 제목 '입금 확인 중' → '입금 대기'(SCR-12 포함)로 바꿀지 ② 알린 뒤 취소를 앱만/서버도/환불 흐름으로 ③ 생산자 '환불됨' 라벨도 맞출지 ④ '환불 대기' 용어.
+- 11/04 PM 결정: ① 알림 전 제목도 ‘입금 대기’, SCR-12 주문 완료 제목도 맞춘다 ② 알린 뒤 취소는 1안 — 앱에서만 취소 버튼을 숨기고 ‘농가에 물어보기’, `server/app/orders`는 건드리지 않는다 ③ 생산자 ‘환불됨’ 라벨도 맞춘다 ④ 용어는 ‘환불 대기’.
+- 11/04 후속 이슈 후보(서버, 고위험 경로): API로는 여전히 입금을 알린 `AWAITING_DEPOSIT` 주문을 취소할 수 있고 환불 기록 없이 `CANCELED`가 된다(`server/app/orders/service.py` `cancel_order`, `_actions`가 `cancel`을 계속 줌). 실제로 보낸 돈이 생산자 ‘환불 보낼 주문’에 잡히지 않는다. 앱 화면은 막았지만 오래된 앱·직접 호출은 막지 못한다. 2안(알린 뒤 `cancel` 행동 제거) 또는 3안(알린 뒤 취소를 환불 흐름으로)을 따로 이슈로 정한다.
+- 11/04 생산자 라벨(결정 ③): `ORDER_STATUS.REFUNDED`는 채팅 ‘연결 주문’에서만 쓰이고, 그 응답(`LinkedOrder`)에는 송금 여부(`refundSettledAt`)가 없다. 그래서 ‘환불 대기/환불 완료’로 나눌 수 없어 완료형 ‘환불됨’만 중립 ‘환불’로 바꿨다. 환불 탭 줄은 이미 송금 전엔 승인 버튼, 뒤엔 ‘○월 ○일 송금 완료’라 바꿀 곳이 없다. 채팅에서도 나누려면 `LinkedOrder`에 `refundSettledAt`을 더하는 서버 변경(messaging)이 필요하다 → PM 확인 필요.
+- 11/04 문구는 `lib/orderText.ts` 순수 함수(`listHeadline`·`listSubline`·`statusTitle`·`depositRefundSentence`·`bottomSummary`·`canCancel`)에 모았다. 날짜 도우미는 화면이 넘긴다(node 테스트가 React Native 없이 import하도록).
+- 11/04 ‘알렸는데 기한 지남’은 기존처럼 기기 시각(`Date.now()`)으로 가른다. 로컬 통합 서버는 `FIXED_NOW`가 10/07이라 Playwright에서는 알린 주문이 ‘늦어짐’ 문구로 보인다(제목은 같은 ‘입금 확인 중’).
 - board.json은 `screens/` 안 파일 이름만 키로 쓰는 구조라 `proposals/` 하위 보드는 등록하지 않았다(캔버스가 하위 경로를 읽는지 확인 못 함).
 
 ### 기록
 - 11/04 origin/main 3eee9d0에서 시작. 문구 출처 확인: 목록 `headline()`·`subline()`, 상세 `title`·`sentence`·`Bar`·취소 시트, `DepositCard` 기한 줄, `STATUS_LABEL.REFUNDED`. 제안 보드 작성, PM 승인 대기. 코드는 아직 바꾸지 않았다.
+- 11/04 PM 승인 뒤 보드 보완(화면 1에 알리기 전/알린 뒤 카드를 나란히, 예시 데이터 표시) → 구현.
