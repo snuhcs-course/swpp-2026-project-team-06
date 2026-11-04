@@ -2218,10 +2218,3 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 
 ### 기록
 - 11/04 1단계: 기존 삭제·수정 API 없음, 소식 푸시 없음 확인. 제안 보드 `docs/design/proposals/dev-210-news-confirm-delete.html`.
-
-## DEV-215 [I3-T04 결함] 판매 일시 중지 상품의 소비자 카드 판정
-
-- 이슈: [DEV-215](https://linear.app/sswp6/issue/DEV-215) · 목표·범위·결정·기록은 `apps/consumer/tasks.md` DEV-215 섹션에 모은다.
-- 상태: 1단계(디자인 제안) — PM 승인 대기
-- 서버 몫(승인 뒤): `app/catalog/service.py` `card()`에서 `sold_out = availability != "AVAILABLE"`, `next_stage_starts_at`은 `NOT_OPEN`·`PERIOD_SOLD_OUT`일 때만. `app/farms/service.py` `home()`·`farm_cards()`·`by_deadline()`은 그대로(이미 `sold_out`으로 거르고 정렬). 응답 필드·타입 변경 없음, 마이그레이션·모델 없음, `app/orders/**`의 `SALES_PAUSED` 거절 유지. 테스트 `tests/test_catalog.py`·`tests/test_farms.py`의 `test_AC_07_3_*`, 기존 `test_AC_07_1_*` 유지.
-- 위험 등급: 일반(`app/catalog`·`app/farms` service는 고위험 목록 아님).
