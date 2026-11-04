@@ -235,3 +235,77 @@ test("AC-12-1/2/3/5/6/7/9: shared rooms enforce privacy, permissions, idempotenc
     if (child?.exitCode === null) await stop();
   }
 });
+
+test("AC-12-14/15: producers delete their own news and it leaves every consumer view", async () => {
+  const dir = mkdtempSync(path.resolve(".expo/room-delete-test-"));
+  const port = 18093,
+    base = "http://127.0.0.1:" + port;
+  const child = spawn(process.execPath, ["scripts/mock-server.mjs"], {
+    env: { ...process.env, FARMCLUB_MOCK_PORT: String(port), FARMCLUB_MOCK_DIR: dir },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  async function api(method, url, token, body, key) {
+    const r = await fetch(base + url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: "Bearer " + token } : {}),
+        ...(key ? { "Idempotency-Key": key } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    return { status: r.status, body: r.status === 204 ? null : await r.json() };
+  }
+  try {
+    await Promise.race([
+      once(child.stdout, "data"),
+      once(child, "exit").then(() => {
+        throw new Error("Mock server exited");
+      }),
+    ]);
+    const login = async (userId, app) =>
+      (await api("POST", "/api/auth/test-login", null, { userId, app })).body.accessToken;
+    const minji = await login("u-minji", "consumer"),
+      kang = await login("u-kang", "producer");
+    const room = "/api/messaging/rooms/f-kang/messages";
+    const sent = await api("POST", room, kang, { text: "쓰다 만 소식" }, "draft-news");
+    assert.equal(sent.status, 200);
+    const id = sent.body.broadcastId;
+    const ids = async (token) => (await api("GET", room, token)).body.items.map((m) => m.messageId);
+    assert.ok((await ids(minji)).includes(id));
+    const reply = await api("POST", room, minji, { text: "몇 시예요?" }, "minji-reply");
+    assert.equal(reply.status, 200);
+
+    // AC-12-15: consumers get 403, other farms' news is 404 and stays
+    assert.equal((await api("DELETE", "/api/messaging/news/" + id, minji)).status, 403);
+    assert.equal((await api("DELETE", "/api/messaging/news/n-3", kang)).status, 404);
+    const halla = await api("GET", "/api/messaging/farms/f-halla/news");
+    assert.ok(halla.body.items.some((n) => n.broadcastId === "n-3"));
+
+    // AC-12-14: delete hides it from the room, room preview and followed news; repeat is 204
+    assert.equal((await api("DELETE", "/api/messaging/news/" + id, kang)).status, 204);
+    assert.equal((await api("DELETE", "/api/messaging/news/" + id, kang)).status, 204);
+    assert.ok(!(await ids(minji)).includes(id));
+    assert.ok(!(await ids(kang)).includes(id));
+    const rooms = await api("GET", "/api/messaging/rooms", minji);
+    assert.notEqual(rooms.body.items.find((r) => r.farmId === "f-kang").lastMessage, "쓰다 만 소식");
+    const news = await api("GET", "/api/messaging/news", minji);
+    assert.ok(!news.body.items.some((n) => n.broadcastId === id));
+    assert.ok((await ids(minji)).includes(reply.body.messageId));
+
+    // public news leaves the farm news list, and liking it is 404
+    assert.equal((await api("DELETE", "/api/messaging/news/n-2", kang)).status, 204);
+    const farm = await api("GET", "/api/messaging/farms/f-kang/news");
+    assert.ok(!farm.body.items.some((n) => n.broadcastId === "n-2"));
+    const liked = await api("PUT", "/api/messaging/news/n-2/reaction", minji);
+    assert.equal(liked.status, 404);
+    assert.equal(liked.body.message, "삭제된 소식이에요.");
+  } finally {
+    if (child.exitCode === null) {
+      const exit = once(child, "exit");
+      child.kill();
+      await exit;
+    }
+  }
+});
