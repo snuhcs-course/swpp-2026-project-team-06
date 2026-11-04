@@ -14,6 +14,7 @@ declare const process: {
 
 import { mockTransport, resetMockState } from "./mock";
 import { blobUrl } from "./objectUrl";
+import { recordServerTime, SERVER_TIME_HEADER } from "./serverClock";
 import { storageGet, storageSet } from "./storage";
 import type { ErrorBody, ErrorCode } from "./types";
 import { appendFile, type UploadFile } from "./upload";
@@ -140,6 +141,8 @@ const httpTransport: Transport = async ({ method, path, body, headers }) => {
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+  // 기한·날짜 판단을 서버 시각으로(DEV-229). 본문을 읽기 전, 받은 직후 시각으로 차이를 잰다
+  recordServerTime(res.headers.get(SERVER_TIME_HEADER));
   const data: unknown =
     res.status === 204 ? null : await res.json().catch(() => null);
   return { status: res.status, body: data };
