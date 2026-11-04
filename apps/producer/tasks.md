@@ -1322,14 +1322,14 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 이슈: https://linear.app/sswp6/issue/DEV-209 · GitHub #392 · 근거: HE 사전 점검 `he-claude-2026-11-03.md` P2(심각도 3)·P9(심각도 2), PR #388
 - 브랜치: `nemodleo/dev-209-suspended-contact`
 - 기준: FEAT-01(E2·E3), FEAT-34(AC-34-1~3), 규칙 M-16·M-22·R-24, ia.md SCR-19 하위 정지 안내·SCR-21, docs/design/README.md(상태 화면 머리·강조색 규칙), Figma v6(보기 권한)
-- 상태: 진행 중 — 1단계 디자인 제안만. PM 승인 전에는 코드를 고치지 않는다.
+- 상태: 리뷰 중 — 11/04 PM 승인 뒤 2단계 구현
 
 ### 목표
 정지된 농가와 반려된 농가가 화면 안에서 farmclub 운영팀에 닿을 수 있게 한다. 자리표시자 문구는 없앤다. 연락처 값을 화면 코드에 박지 않고 이미 있는 farmclub 대화방(FEAT-34)을 정지·반려 상태에서도 연다. 메일은 값이 있을 때만 보조로 보인다.
 
 ### 범위 (수정 허용 경로)
 - 1단계(이번): `docs/design/proposals/dev-209-suspended-rejected-contact.html`(새 보드), `apps/producer/tasks.md`, `server/tasks.md`
-- 2단계(승인 뒤, 안 A 기준): `apps/producer/src/app/suspended.tsx`, `apps/producer/src/app/pending.tsx`, `apps/producer/src/app/support.tsx`(새 파일), `apps/producer/src/lib/session.tsx`(관문 허용 경로), `packages/api/src/{endpoints.ts,types.ts}`, `packages/api/src/mock/**`(Mock 대응), `scripts/e2e/*.spec.ts`(정지·반려 문의 spec), `docs/spec/functional/{FEAT-01-login.md,FEAT-34-farmclub-support.md,rules.md}`, `docs/spec/ia.md`, `docs/wiki/{Requirements-and-Specifications.md,Design-Documentation.md}`, `docs/design/screens/{s-19-suspended.html,s-21-rejected.html}`. 서버 범위는 `server/tasks.md#DEV-209`.
+- 2단계(승인 뒤): `apps/producer/src/app/suspended.tsx`, `apps/producer/src/app/pending.tsx`, `apps/producer/src/app/support.tsx`(새 파일), `apps/producer/src/lib/gate.ts`(관문 허용 경로, 처음 적은 session.tsx가 아니라 관문 규칙이 있는 gate.ts), `packages/api/src/endpoints.ts`, `packages/api/src/mock/{conversations.ts,db.ts,router.ts}`, `packages/ui/src/ChatThread.tsx`(입력칸 안내 문구 `placeholder` prop만), `scripts/test-producer-gate.mjs`, `scripts/test-producer-support.mjs`(새 파일), `package.json`(`test:mock` 목록에 한 줄), `scripts/e2e/producer-support-contact.spec.ts`(새 파일), `docs/spec/functional/{FEAT-01-login.md,FEAT-34-farmclub-support.md,rules.md}`, `docs/spec/{ia.md,screens.md}`, `docs/wiki/{Requirements-and-Specifications.md,Design-Documentation.md}`, `docs/design/screens/{s-19-suspended.html,s-21-rejected.html}`, `docs/design/proposals/dev-209-suspended-rejected-contact.html`. 서버 범위는 `server/tasks.md#DEV-209`.
 
 ### 비범위 (건드리지 않음)
 - 확인 중(PENDING) 화면의 문의 경로(운영팀이 전화로 확인하는 단계)
@@ -1343,11 +1343,18 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 11/04 오미숙(`f-wimi`)은 시드에서 PENDING이고 반려 사유가 없다. "테스트"는 운영 관리자 페이지에서 손으로 반려한 값이므로 시드는 그대로 두고, 운영 DB를 확인 중으로 되돌리는 명령을 준비한다(실행은 사람). 반려 예시는 박순자(`f-reject`)다.
 - 문구·무브 6개·스펙 줄 목록은 보드에 있다.
 
+- 11/04 PM 결정: Q1 대화방 + 메일 줄. Q2 반려 농가에도 방을 연다(AC-34-1 수정, AC-34-9 추가). Q3 메일은 기존 `EXPO_PUBLIC_BUSINESS_EMAIL`(`business.email`), 새 변수 없음. Q4 오미숙은 '확인 중'으로 되돌린다. 되돌리는 관리자 API는 없어 반려 농가 재신청 API(앱의 '다시 신청하기'와 같음)로 사람이 실행한다(PR 본문 "사람이 할 일"). Q5 정지 중 문의도 사진 첨부 허용.
+- 11/04 구현: `/support`는 탭 밖 화면이고 지금 farmclub 방과 같은 `ChatThread`를 쓴다. 뒤로는 상태 화면으로 `replace`한다(정지 → `/suspended`, 반려 → `/pending`, 승인 → 채팅 목록). 승인 농가는 채팅 탭의 기존 방(`/chats/u-farmclub`)을 그대로 쓴다.
+- 11/04 반려 화면의 '운영팀에 문의하기'는 하단 글자 버튼 줄(로그아웃·회원 탈퇴와 같은 줄, 줄바꿈 허용)에 둔다. 주 버튼은 '다시 신청하기' 하나다.
+- 11/04 Mock 관문(`mock/router.ts`)은 `/api/messaging/producer/support/`를 승인 검사에서 빼고, 상태 검사는 그 라우트(`farmSupport`)가 서버와 같게 한다.
+
 ### 작업
 - [x] 이슈·스펙·코드 읽기, Linear In Progress
 - [x] before/after 디자인 제안 보드
-- [ ] PM 승인(Q1~Q5 답)
-- [ ] 2단계 구현·테스트·스펙/위키·지금 버전 보드 맞추기
+- [x] PM 승인(Q1~Q5 답)
+- [x] 2단계 구현·테스트·스펙/위키·지금 버전 보드 맞추기
+- [ ] AI 1차 리뷰, draft 해제, 사람 리뷰
 
 ### 기록
+- 11/04 검증(로컬, Docker PostgreSQL `farmclub_dev209`): `npm run typecheck` 5 workspace 통과. `npm run test:mock` 66 passed / 0 failed. `node scripts/run-integration.mjs producer-support-contact.spec.ts discovery-and-gates.spec.ts` 통합 시나리오 7 passed, Playwright 5 passed. 실행에는 `server/.env`의 카카오 키를 비웠다(켜져 있으면 테스트 계정 목록이 숨겨져 기존 spec도 실패한다).
 - 11/04 보드는 `docs/design/proposals/`에 두었다. `docs/design/board.json`의 보드 키는 모두 `screens/` 안 파일 이름이라 다른 폴더의 파일을 어떻게 가리키는지 확실하지 않아 등록하지 않았다.

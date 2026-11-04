@@ -35,6 +35,8 @@ type Props = {
   loadPhoto: (id: string) => Promise<string>;
   /** 웹은 File, 앱은 사진 보관함에서 고른 {uri, name, type}(DEV-33). 없으면 사진 첨부(＋)를 숨긴다(예: 소비자 farmclub 문의 대화방, DEV-150) */
   upload?: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
+  /** 입력칸 안내 문구. 기본은 '메시지를 입력하세요'(생산자 farmclub 방은 '운영팀에 문의 남기기', DEV-209) */
+  placeholder?: string;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -47,6 +49,7 @@ export function ChatThread({
   makeKey,
   loadPhoto,
   upload,
+  placeholder = "메시지를 입력하세요",
   children,
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]),
@@ -387,7 +390,7 @@ export function ChatThread({
           ) : null}
           <TextInput
             accessibilityLabel="메시지"
-            placeholder="메시지를 입력하세요"
+            placeholder={placeholder}
             value={text}
             onChangeText={setText}
             editable={!busy}
