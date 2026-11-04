@@ -133,7 +133,7 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 ## 로그인 필요 화면과 로그아웃 이동 (DEV-222, 2026-11-04)
 
 - 주문서(`checkout/[productId]/index.tsx`)의 로그인·온보딩 이동은 `useFocusEffect`로 화면이 보일 때만 하고, `user`는 의존성이 아니라 ref로 읽는다. 보는 중에 계정이 사라지면(로그아웃·401) 세션(`lib/session.tsx`)만 이동한다. expo-router `<Redirect>`(내 주문·채팅 탭)와 같은 규칙이다.
-- 입금 안내 → 완료 화면은 `router.dismissAll()` 뒤 `replace`로 주문서·입금 안내를 루트 스택에서 걷어 낸다. 로그아웃도 `dismissAll()` 뒤 홈으로 간다(`canDismiss()`일 때만).
+- 입금 안내 → 완료 화면은 `canDismiss()`이면 `router.dismissAll()` 뒤 `replace`로 주문서·입금 안내를 루트 스택에서 걷어 낸다. 로그아웃(`logout`)은 그대로 `replace("/")`.
 - 이어서 할 행동(`resume`)은 관문 시트가 연 로그인(`from` 파라미터)만 쓴다. `from` 없는 로그인 화면은 열릴 때 `clearResume()`.
 - 온보딩(`onboarding/index.tsx`)도 `user` 변화에 반응해 로그인으로 보내지만, 온보딩 위에 쌓이는 화면은 약관·처리방침뿐이라 로그아웃이 일어나지 않아 그대로 둔다.
 - 테스트 `scripts/e2e/checkout-logout.spec.ts`.
