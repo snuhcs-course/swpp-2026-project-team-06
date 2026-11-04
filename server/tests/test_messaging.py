@@ -855,3 +855,197 @@ def test_dashboard_open_questions_follow_chat(client, login):
 
     body = client.get("/api/orders/producer/dashboard", headers=producer).json()
     assert body["todo"]["openQuestions"] == 2
+
+
+# ---------------- DEV-208 직접 응대 방 소비자 피드백 (AC-13-9·13-10) ----------------
+
+
+def _reply_history(waits_hours, farm_id="f-halla", consumer_id="u-seojun", days_ago=1):
+    """그 농가에 소비자 질문 → 농가 답 쌍을 waits_hours 간격으로 넣는다(새 대화 하나)."""
+    from datetime import timedelta
+
+    from app.core.clock import now
+    from app.messaging import service
+    from app.messaging.models import ThreadMessage
+
+    service._reply_hours_cache.clear()
+    start = now() - timedelta(days=days_ago, hours=sum(waits_hours) + len(waits_hours))
+    thread_id = f"t-dev208-{farm_id}-{consumer_id}"
+    with get_sessionmaker()() as session, session.begin():
+        session.add(
+            Thread(
+                id=thread_id,
+                farm_id=farm_id,
+                consumer_id=consumer_id,
+                ai_mode="HUMAN",
+                version=2,
+                created_at=start,
+            )
+        )
+        session.flush()
+        at = start
+        for wait in waits_hours:
+            for sender, when in (("CONSUMER", at), ("PRODUCER", at + timedelta(hours=wait))):
+                session.add(
+                    ThreadMessage(
+                        id=f"m-dev208-{uuid.uuid4().hex[:12]}",
+                        thread_id=thread_id,
+                        sender_type=sender,
+                        body="질문" if sender == "CONSUMER" else "답",
+                        photos=[],
+                        attachment_ids=[],
+                        source_refs=[],
+                        needs_human=sender == "CONSUMER",
+                        created_at=when,
+                    )
+                )
+                session.flush()
+            at += timedelta(hours=wait + 1)
+
+
+def _hours(farm_id="f-halla"):
+    from app.messaging import service
+
+    service._reply_hours_cache.clear()
+    with get_sessionmaker()() as session:
+        return service.typical_reply_hours(session, farm_id)
+
+
+def test_AC_13_9_human_room_question_returns_farm_mode_without_ai_message(client, login):
+    from app.messaging import service
+
+    service._reply_hours_cache.clear()
+    minji = login("u-minji")
+    # f-kang:u-minji는 농가가 답한 대화라 HUMAN(시드)
+    sent = send(client, minji, "f-kang", "이 하우스 감귤 당도는 얼마예요?").json()
+    page = client.get("/api/messaging/chats/f-kang/messages", headers=minji).json()
+
+    assert sent["reply"] is None
+    assert sent["message"]["needsHuman"] is True
+    assert page["farmReply"]["mode"] == "FARM"
+    # 시드 강씨네는 최근 30일 답이 5건 미만이라 숫자를 보이지 않는다
+    assert page["farmReply"]["typicalReplyHours"] is None
+    assert page["items"][-1]["messageId"] == sent["message"]["messageId"]
+    assert page["items"][-1]["senderType"] == "CONSUMER"
+
+
+def test_AC_13_9_farm_ai_off_returns_farm_mode_for_auto_room(client, login):
+    ai_off()
+    seojun = login("u-seojun")
+
+    sent = send(client, seojun, "f-kang", "배송비는 얼마예요?").json()
+    page = client.get("/api/messaging/chats/f-kang/messages", headers=seojun).json()
+
+    assert sent["reply"] is None
+    assert page["thread"]["aiMode"] == "AUTO"
+    assert page["farmReply"]["mode"] == "FARM"
+
+
+def test_AC_13_9_auto_room_with_ai_on_returns_ai_mode(client, login):
+    page = client.get("/api/messaging/chats/f-kang/messages", headers=login("u-seojun")).json()
+
+    assert page["farmReply"]["mode"] == "AI"
+
+
+def test_AC_13_9_producer_page_has_no_farm_reply(client, login):
+    page = client.get(
+        "/api/messaging/producer/chats/u-minji/messages", headers=login("u-kang")
+    ).json()
+
+    assert page["farmReply"] is None
+
+
+def test_AC_13_10_typical_reply_hours_rounds_median_up_to_bucket():
+    # 중앙값 2.5시간 → 3시간 구간
+    _reply_history([1, 2, 2.5, 2.8, 10])
+
+    assert _hours() == 3
+
+
+def test_AC_13_10_typical_reply_hours_needs_five_replies():
+    _reply_history([1, 1, 1, 1])
+
+    assert _hours() is None
+
+
+def test_AC_13_10_typical_reply_hours_none_over_72_hours():
+    _reply_history([80, 80, 80, 80, 80])
+
+    assert _hours() is None
+
+
+def test_AC_13_10_typical_reply_hours_uses_last_30_days_only():
+    _reply_history([1, 1, 1, 1], consumer_id="u-seojun")
+    _reply_history([1], consumer_id="u-buyer-park", days_ago=40)
+
+    assert _hours() is None
+
+
+def test_AC_13_10_typical_reply_hours_waits_from_first_unanswered_question():
+    from datetime import timedelta
+
+    from app.core.clock import now
+    from app.messaging import service
+    from app.messaging.models import ThreadMessage
+
+    service._reply_hours_cache.clear()
+    start = now() - timedelta(days=2)
+    with get_sessionmaker()() as session, session.begin():
+        session.add(
+            Thread(
+                id="t-dev208-burst", farm_id="f-halla", consumer_id="u-seojun",
+                ai_mode="HUMAN", version=2, created_at=start,
+            )
+        )
+        session.flush()
+        # 질문 두 개 연달아(0h, 1h) → 농가 답(5h) 다섯 번: 대기는 첫 질문부터 5시간
+        at = start
+        for _ in range(5):
+            for sender, offset in (("CONSUMER", 0), ("CONSUMER", 1), ("PRODUCER", 5)):
+                session.add(
+                    ThreadMessage(
+                        id=f"m-dev208-{uuid.uuid4().hex[:12]}", thread_id="t-dev208-burst",
+                        sender_type=sender, body="x", photos=[], attachment_ids=[],
+                        source_refs=[], created_at=at + timedelta(hours=offset),
+                    )
+                )
+                session.flush()
+            at += timedelta(hours=6)
+
+    assert _hours() == 6
+
+
+def test_AC_13_10_typical_reply_hours_is_cached_for_ten_minutes(client, login):
+    from app.messaging import service
+
+    service._reply_hours_cache.clear()
+    with get_sessionmaker()() as session:
+        assert service.typical_reply_hours(session, "f-halla") is None
+    # 캐시를 지우지 않고 기록만 늘리면 10분 동안 이전 값을 쓴다
+    from datetime import timedelta
+
+    from app.core.clock import now
+    from app.messaging.models import ThreadMessage
+
+    start = now() - timedelta(days=1)
+    with get_sessionmaker()() as session, session.begin():
+        session.add(
+            Thread(
+                id="t-dev208-cache", farm_id="f-halla", consumer_id="u-seojun",
+                ai_mode="HUMAN", version=2, created_at=start,
+            )
+        )
+        session.flush()
+        for i in range(5):
+            for sender, offset in (("CONSUMER", 0), ("PRODUCER", 1)):
+                session.add(
+                    ThreadMessage(
+                        id=f"m-dev208-c{i}{sender[0]}", thread_id="t-dev208-cache",
+                        sender_type=sender, body="x", photos=[], attachment_ids=[],
+                        source_refs=[], created_at=start + timedelta(hours=2 * i + offset),
+                    )
+                )
+                session.flush()
+    with get_sessionmaker()() as session:
+        assert service.typical_reply_hours(session, "f-halla") is None
+    assert _hours() == 1

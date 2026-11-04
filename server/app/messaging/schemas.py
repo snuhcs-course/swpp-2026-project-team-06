@@ -163,6 +163,16 @@ class InquiryStatusInput(CamelModel):
     version: int
 
 
+class FarmReply(CamelModel):
+    """소비자에게 보이는 응답 주체와 예상 답 시간(DEV-208, AC-13-9·13-10).
+
+    mode는 방 AUTO + 농가 AI ON일 때만 AI. typical_reply_hours는 근거가 부족하면 None.
+    """
+
+    mode: Literal["AI", "FARM"]
+    typical_reply_hours: int | None
+
+
 class ChatPage(CamelModel):
     items: list[ChatMessage]
     next_cursor: str | None
@@ -170,6 +180,8 @@ class ChatPage(CamelModel):
     inquiries: list[InquiryView]
     orders: list[LinkedOrder]
     escalations: list[EscalationView] | None = None
+    # 소비자 조회에만 채운다. 생산자 조회는 None(DEV-208)
+    farm_reply: FarmReply | None = None
 
 
 class ChatSummary(CamelModel):
