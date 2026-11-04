@@ -1,0 +1,424 @@
+<title>팔로우 해제 뒤 소식방</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 보드 레이아웃: 문제 요약 → 스펙 → 화면 3쌍(BEFORE / AFTER) → 디자인 무브 → 문구 → 서버 → 테스트 → 스펙 줄 → 질문.
+   폰 프레임은 앱(I1 밝은 화면 전용) 그대로라 테마를 따르지 않는다. 보드 바탕만 테마를 따른다. */
+:root {
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --muted: #5F5F5B; --line: #DCDBD6;
+  --accent: #C94F0C; --new: #FFF2E9; --newline: #E8B896; --bad: #B42318;
+  /* 앱 화면(Figma v6 / packages/ui/src/tokens.ts) — 테마 고정 */
+  --a-text: #111111; --a-muted: #6B6B6B; --a-bg: #FFFFFF; --a-surface: #F5F5F3; --a-feed: #F4F4F2;
+  --a-border: #E8E8E6; --a-accent: #C94F0C; --a-mine: #FFF1E6; --a-disabled-text: #9A9A96;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+    --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+  --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+  font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+header { display: flex; flex-direction: column; gap: 10px; max-width: 880px; }
+.eyebrow { font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+h1 { font-size: 32px; line-height: 1.25; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 1.35; margin: 0 0 14px; letter-spacing: -0.01em; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0 0 6px; }
+p { margin: 0; }
+.lead { font-size: 17px; color: var(--muted); }
+.status { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.pill.hot { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.ex { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .02em; padding: 1px 8px; border-radius: 999px; border: 1px dashed var(--muted); color: var(--muted); vertical-align: 2px; }
+.opt { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--new); border: 1px solid var(--newline); color: var(--accent); vertical-align: 2px; }
+code { font-family: var(--mono); font-size: .88em; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+section { display: flex; flex-direction: column; gap: 4px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.card p + p { margin-top: 8px; }
+ul, ol { margin: 0; padding-left: 20px; }
+li { margin-bottom: 6px; }
+blockquote { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--new); border-radius: 0 8px 8px 0; font-size: 15px; }
+
+.pair { display: flex; flex-direction: column; gap: 14px; margin-top: 20px; }
+.pair > h3 { font-size: 19px; }
+.frames { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+.fcol { display: flex; flex-direction: column; gap: 12px; width: 390px; max-width: 100%; }
+.flabel { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.flabel b { font-size: 15px; letter-spacing: .04em; }
+.flabel b.bad { color: var(--bad); }
+.flabel b.good { color: var(--accent); }
+.flabel span { font-size: 14px; color: var(--muted); }
+.anno { font-size: 14px; color: var(--muted); }
+.anno b { color: var(--ink); }
+.mark { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; vertical-align: 1px; margin-right: 4px; flex: none; }
+
+/* 폰 프레임(앱) */
+.phone {
+  width: 390px; height: 844px; max-width: 100%; border-radius: 28px; overflow: hidden; position: relative;
+  background: var(--a-bg); color: var(--a-text); border: 1px solid var(--line);
+  display: flex; flex-direction: column; font-family: var(--font); color-scheme: light; line-height: 1.45;
+}
+.phone .mk { position: absolute; z-index: 5; }
+.wrong { outline: 2px solid #F04438; outline-offset: -2px; border-radius: 8px; }
+.changed { outline: 2px dashed #E8B896; outline-offset: -2px; border-radius: 8px; }
+.pin { position: absolute; z-index: 6; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #C94F0C; color: #fff; font-size: 12px; font-weight: 700; box-shadow: 0 0 0 2px #fff; }
+.pin.bad { background: #F04438; }
+
+.rh { height: 96px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 4px; border-bottom: 1px solid var(--a-border); }
+.rh .back { width: 48px; height: 48px; display: grid; place-items: center; }
+.rh .av { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #9DBE7A, #4F6E3A); flex: none; }
+.rh .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rh .nm b { font-size: 17px; }
+.rh .nm span { font-size: 13px; color: var(--a-muted); }
+.fbtn { width: 88px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 17px; font-weight: 600; flex: none; }
+.fbtn.p { background: var(--a-accent); color: #fff; }
+.fbtn.s { background: var(--a-surface); color: var(--a-text); }
+.shelf { flex: none; background: var(--a-feed); border-bottom: 1px solid var(--a-border); }
+.shelf-h { height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600; }
+.shelf-l { display: flex; gap: 12px; padding: 0 12px 12px; overflow: hidden; }
+.si { width: 270px; flex: none; padding: 12px; border-radius: 16px; background: #fff; display: flex; gap: 12px; align-items: center; }
+.si .ph { width: 52px; height: 52px; border-radius: 12px; flex: none; background: linear-gradient(135deg, #F3C58B, #E48A3C 60%, #9C5A24); }
+.si b { font-size: 15px; display: block; }
+.si s { font-size: 13px; color: var(--a-muted); display: block; }
+.si .pr { font-size: 17px; font-weight: 700; color: var(--a-accent); }
+.feed { flex: 1; min-height: 0; overflow: hidden; background: var(--a-feed); padding: 12px 20px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.day { align-self: center; font-size: 13px; color: var(--a-muted); padding: 8px 0; }
+.who { font-size: 13px; color: var(--a-muted); }
+.bub { max-width: 272px; padding: 12px 16px; border-radius: 16px; font-size: 17px; line-height: 1.5; background: #fff; }
+.pic { width: 272px; height: 170px; border-radius: 16px; background: linear-gradient(140deg, #CFE0B4, #8DB36A 45%, #E48A3C 70%, #4F7A35); flex: none; }
+.pic.basket { background: radial-gradient(circle at 55% 60%, #F08A2C 0 22%, transparent 23%), radial-gradient(circle at 35% 45%, #F39A3A 0 16%, transparent 17%), linear-gradient(140deg, #D9D2C4, #9B8F7A); }
+.like { font-size: 15px; font-weight: 600; padding: 4px 4px 8px; }
+.mine { align-self: flex-end; background: var(--a-mine); max-width: 272px; }
+.mine-t { align-self: flex-end; font-size: 13px; color: var(--a-muted); }
+.dim { opacity: .45; }
+.dimnote { align-self: flex-end; font-size: 13px; color: var(--a-muted); }
+.banner { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 20px; background: #fff; border-bottom: 1px solid var(--a-border); font-size: 15px; }
+.banner span { flex: 1; }
+.tbtn { min-height: 48px; padding: 0 12px; display: inline-flex; align-items: center; font-size: 15px; font-weight: 700; color: var(--a-text); text-decoration: underline; text-underline-offset: 3px; }
+.comp { flex: none; padding: 12px; border-top: 1px solid var(--a-border); background: #fff; display: flex; gap: 8px; align-items: center; }
+.field { flex: 1; min-height: 48px; border-radius: 24px; background: var(--a-surface); padding: 12px 16px; font-size: 16px; color: var(--a-muted); display: flex; align-items: center; gap: 8px; }
+.send { width: 48px; height: 48px; border-radius: 24px; background: var(--a-accent); opacity: .35; display: grid; place-items: center; flex: none; }
+.send.on { opacity: 1; }
+.locked .field { color: var(--a-disabled-text); }
+.join { flex: none; padding: 16px; background: var(--a-feed); }
+.join div { height: 52px; border-radius: 16px; background: var(--a-accent); color: #fff; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 84px; z-index: 4; display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 8px 0 20px; border-radius: 999px; background: #111; color: #fff; font-size: 17px; font-weight: 600; white-space: nowrap; }
+.toast .act { min-height: 48px; display: inline-flex; align-items: center; padding: 0 12px; border-left: 1px solid rgba(255,255,255,.28); margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; }
+.toast .bar { position: absolute; left: 20px; right: 20px; bottom: 6px; height: 2px; background: rgba(255,255,255,.18); border-radius: 2px; }
+.toast .bar i { display: block; width: 62%; height: 2px; background: rgba(255,255,255,.7); border-radius: 2px; }
+
+/* 채팅 목록 */
+.big { padding: 20px 20px 8px; font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; }
+.seg { margin: 8px 20px 4px; height: 48px; border-radius: 16px; background: var(--a-surface); display: flex; padding: 4px; }
+.seg span { flex: 1; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: var(--a-muted); border-radius: 12px; }
+.seg span.on { background: #fff; color: var(--a-text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.crow { display: flex; align-items: center; gap: 12px; padding: 20px; position: relative; }
+.crow .cav { width: 48px; height: 48px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 35%, #9DBE7A, #4F6E3A); }
+.crow .cav.b { background: radial-gradient(circle at 35% 35%, #F3C58B, #B8642A); }
+.crow .cav.c { background: radial-gradient(circle at 35% 35%, #C9B9E8, #6E5AA0); }
+.crow .cb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.crow .l1 { display: flex; gap: 8px; align-items: center; }
+.crow .l1 b { flex: 1; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crow .l1 small { font-size: 13px; color: var(--a-muted); }
+.crow .pv { font-size: 15px; color: var(--a-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crow .st { font-size: 13px; color: var(--a-muted); }
+.crow.off .cav { filter: grayscale(1); opacity: .5; }
+.crow.off .l1 b { color: var(--a-muted); }
+.crow .hide { flex: none; min-height: 48px; padding: 0 12px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: var(--a-text); border-radius: 12px; background: var(--a-surface); }
+.grp { padding: 16px 20px 0; font-size: 13px; font-weight: 600; color: var(--a-muted); border-top: 1px solid var(--a-border); margin-top: 4px; }
+.tabbar { position: absolute; left: 12px; right: 12px; bottom: 12px; height: 64px; border-radius: 999px; background: rgba(255,255,255,.92); border: 1px solid rgba(0,0,0,.06); display: flex; align-items: center; padding: 0 8px; }
+.tabbar span { flex: 1; height: 52px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: var(--a-muted); border-radius: 999px; }
+.tabbar span.on { background: var(--a-surface); color: var(--a-text); }
+.gone { margin: 8px 20px; border: 2px dashed #F04438; border-radius: 16px; padding: 12px; font-size: 13px; line-height: 18px; color: #B42318; background: #FEF3F2; }
+
+/* 무브·표 */
+.moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.move h3 { display: flex; gap: 8px; align-items: baseline; }
+.tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+tr:last-child td { border-bottom: 0; }
+td.copy { font-weight: 600; }
+pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; }
+.decision { border-left: 4px solid var(--accent); }
+@media (max-width: 440px) { h1 { font-size: 26px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">DEV-230 · 디자인 제안 · BEFORE / AFTER · HE-02 · HE-X4</div>
+    <h1>팔로우를 끊어도 소식방은 비우지 않는다 — 되돌리기 토스트, 흐린 내 답장, 다시 팔로우하면 그대로</h1>
+    <p class="lead">지금은 소식방 헤더의 ‘팔로잉’을 한 번 누르면 확인도 토스트도 없이 버튼이 ‘팔로우’로 바뀌고, 팔로워 전용 소식과 <b>내가 쓴 답장까지</b> 화면에서 사라진다. 채팅 탭의 소식방 목록에서도 그 농가가 빠진다. 평가자는 이것을 “팔로우에 불이 들어오면 오히려 소식방에서 빠진다”로 읽었다(11/4 HE H4, 심각도 3, 사전 점검 C4). PM 결정: <b>확인 시트는 두지 않는다.</b> 해제는 지금처럼 바로 되고, 대신 무엇이 일어났는지 보여 주고 한 번에 되돌릴 수 있게 한다.</p>
+    <div class="status"><span class="pill hot">PM 승인 대기</span><span class="pill">기준: Figma v6 · docs/design/README.md</span><span class="pill">계약: FEAT-06 흐름 4·사후 조건 · FEAT-15 · M-02·M-14·M-19 · storefront-1.5 소식방 · screens.md 토스트</span><span class="pill">2026-11-04</span></div>
+  </header>
+
+  <section>
+    <h2>스펙이 지금 정한 것</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>확인 없이 끊는다 — 그대로 둔다</h3>
+        <p><b>FEAT-06</b> 정상 흐름 4) “팔로우를 누르면 ‘팔로잉’, 다시 누르면 확인 없이 끊고 버튼이 ‘팔로우’로 바뀜”. design README “팔로우 토글: 면색 + 체크 + ‘팔로잉’. 다시 누르면 확인 없이 끊고 토스트 ‘팔로우를 끊었어요’”.</p>
+        <p>→ PM 결정과 같다. 확인 시트를 만들지 않는다.</p>
+      </div>
+      <div class="card">
+        <h3>토스트는 이미 정해져 있다 — 빠진 것은 버그</h3>
+        <p><b>screens.md</b> 공통 규칙 토스트 “쓰는 곳: … 팔로우 해제 …”. 주문 완료 화면은 이미 띄운다(<code>orders/[orderId]/done.tsx:61</code>). 소식방 <code>apps/consumer/src/lib/FarmRoom.tsx:63-91</code> <code>follow()</code>에는 없다.</p>
+      </div>
+      <div class="card">
+        <h3>해제하면 전용 내용 폐기 — 이번에 바꾸는 줄</h3>
+        <p><b>storefront-1.5</b> 소식방 “소비자가 팔로우 해제하면 공개 방송만 반환한다”, “권한 변경 시 … 전용 소식·답장이 남지 않게 한다”. <b>conversation-ui-1.6</b> SCR-18 “팔로우 해제 시 전용 내용 폐기”. <b>FEAT-06</b> 사후 조건 “해제하면 채팅 안 소식방에서 빠지고, 다시 팔로우하면 이전 채팅이 그대로 보인다”.</p>
+        <p>→ <b>내 답장</b>과 <b>채팅 목록의 방</b>은 이 줄을 바꿔야 남길 수 있다(아래 “바꿀 스펙 줄”). 팔로워 전용 소식은 지금처럼 숨긴다(M-14, AC-15-1).</p>
+      </div>
+    </div>
+    <blockquote>결론: 해제는 그대로 한 번에, 대신 <b>①토스트로 알리고 되돌리기</b>, <b>②방을 비우지 않고 내 답장은 흐리게</b>, <b>③왜 흐린지 띠 한 줄 + 잠긴 입력</b>, <b>④다시 팔로우하면 원래대로</b>. 내 답장은 원래 나와 농가만 보는 글이라(M-02) 나에게 계속 보여도 공개 범위는 넓어지지 않는다.</blockquote>
+  </section>
+
+  <section>
+    <h2>화면 <span class="ex">예시</span></h2>
+    <p class="anno">김민지(강씨네 귤밭 팔로워), Mock 시드 <code>FIXED_NOW=2026-10-07</code>. 강씨네 소식·답장 문구는 시드 그대로이고, 채팅 목록의 다른 농가(효돈 햇살농원·한라 레드향집)와 모든 사진은 자리 표시용 <b>예시</b>다. <span class="wrong" style="padding:0 4px">빨간 테두리</span> = 지금 틀린 곳, <span class="changed" style="padding:0 4px">점선</span> = 바뀌는 곳.</p>
+
+    <!-- ① 소식방: 팔로잉 탭 직후 -->
+    <div class="pair">
+      <h3>① 소식방 <code>/farms/f-kang</code> — ‘팔로잉’을 누른 직후</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>main <code>cedca2f</code>, 코드 그대로</span></div>
+          <div class="phone" id="f-before-room">
+            <div class="rh"><div class="back">‹</div><div class="av"></div><div class="nm"><b>강씨네 귤밭</b><span>소식방</span></div><div class="fbtn p wrong">팔로우</div></div>
+            <div class="shelf"><div class="shelf-h">판매 품목 <span>⌃</span></div><div class="shelf-l"><div class="si"><div class="ph"></div><div><b>하우스 감귤 5kg / 10kg</b><s>36,000원</s><span class="pr">29,000원</span></div></div><div class="si"><div class="ph"></div><div><b>레드향 3kg</b></div></div></div></div>
+            <div class="feed">
+              <div class="day">2026년 10월 5일</div>
+              <div class="who">강씨네 귤밭 · 오전 09:40</div>
+              <div class="bub">하우스 안 온도가 잘 유지돼서 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</div>
+              <div class="pic"></div>
+              <div class="like">♥ 좋아요 128</div>
+              <div class="gone">10/7 팔로워 소식 “첫 바구니 따봤어요…”와 내 답장 “첫 바구니 사진 반가워요!”가 함께 사라짐</div>
+            </div>
+            <div class="join"><div>팔로우하고 답장하기</div></div>
+            <span class="pin bad" style="right:12px;top:8px">1</span>
+            <span class="pin bad" style="left:8px;top:640px">2</span>
+            <span class="pin bad" style="left:8px;bottom:60px">3</span>
+          </div>
+          <p class="anno"><span class="mark" style="background:#F04438">1</span>버튼이 ‘팔로우’로 바뀐 것 말고는 알림이 없다(토스트 누락, screens.md 토스트 규칙). <span class="mark" style="background:#F04438">2</span>내가 쓴 답장도 같이 사라져 “방에서 쫓겨난” 것처럼 보인다. <span class="mark" style="background:#F04438">3</span>그 자리에 강조색 큰 버튼만 남아 되돌리는 방법이 ‘다시 팔로우’인지 알기 어렵다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>제안 · 토스트가 떠 있는 첫 4초</span></div>
+          <div class="phone" id="f-after-room">
+            <div class="rh"><div class="back">‹</div><div class="av"></div><div class="nm"><b>강씨네 귤밭</b><span>소식방</span></div><div class="fbtn p">팔로우</div></div>
+            <div class="shelf"><div class="shelf-h">판매 품목 <span>⌃</span></div><div class="shelf-l"><div class="si"><div class="ph"></div><div><b>하우스 감귤 5kg / 10kg</b><s>36,000원</s><span class="pr">29,000원</span></div></div><div class="si"><div class="ph"></div><div><b>레드향 3kg</b></div></div></div></div>
+            <div class="banner changed"><span>팔로우를 끊어 새 소식이 오지 않아요</span><span class="tbtn" style="flex:none">다시 팔로우</span></div>
+            <div class="feed">
+              <div class="day">2026년 10월 5일</div>
+              <div class="who">강씨네 귤밭 · 오전 09:40</div>
+              <div class="bub">하우스 안 온도가 잘 유지돼서 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</div>
+                            <div class="like">♥ 좋아요 128</div>
+              <div class="day">2026년 10월 7일</div>
+              <div class="bub mine dim changed">첫 바구니 사진 반가워요! 일주일 뒤에 꼭 맛볼게요.</div>
+              <div class="mine-t">오전 09:00</div>
+            </div>
+            <div class="comp locked changed"><div class="field">🔒 다시 팔로우하면 답장할 수 있어요</div></div>
+            <div class="toast">✓ 팔로우를 끊었어요<span class="act">되돌리기</span><span class="bar"><i></i></span></div>
+            <span class="pin" style="left:52px;bottom:132px">1</span>
+            <span class="pin" style="right:4px;top:236px">3</span>
+            <span class="pin" style="left:84px;top:586px">2</span>
+            <span class="pin" style="right:4px;bottom:58px">4</span>
+          </div>
+          <p class="anno"><span class="mark">1</span>토스트 ‘팔로우를 끊었어요 · 되돌리기’, 4초. <span class="mark">2</span>내 답장은 자리에 남고 흐리게(45%). 팔로워 전용 소식은 지금처럼 숨긴다. <span class="mark">3</span>판매 품목 아래 띠 한 줄 — 토스트가 사라진 뒤에도 남는 설명과 ‘다시 팔로우’. <span class="mark">4</span>강조색 큰 버튼 대신 잠긴 입력칸. 헤더 ‘팔로우’는 디자인 규칙대로 강조색.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 채팅 목록 -->
+    <div class="pair">
+      <h3>② 채팅 탭 · 소식방 목록 (SCR-15) — 해제 뒤</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>main, <code>GET /api/messaging/rooms</code>가 팔로우한 농가만</span></div>
+          <div class="phone" id="f-before-list">
+            <div class="big">채팅</div>
+            <div class="seg"><span class="on">소식방</span><span>1:1 채팅</span></div>
+            <div class="crow"><div class="cav b"></div><div class="cb"><div class="l1"><b>효돈 햇살농원</b><small>어제</small></div><div class="pv">노지 감귤 첫 선별 들어갑니다</div></div></div>
+            <div class="crow"><div class="cav c"></div><div class="cb"><div class="l1"><b>한라 레드향집</b><small>10월 3일</small></div><div class="pv">레드향 꽃이 피기 시작했어요</div></div></div>
+            <div class="gone">강씨네 귤밭 줄이 사라짐 — 다시 들어가려면 발견 탭에서 농가를 찾아야 함</div>
+            <div class="tabbar"><span>발견</span><span>내 주문</span><span class="on">채팅</span><span>내 정보</span></div>
+          </div>
+          <p class="anno">FEAT-06 사후 조건 “해제하면 채팅 안 소식방에서 빠지고”대로다. 내 답장이 있던 방이 통째로 사라져 다시 찾을 길이 없다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>제안 · 흐린 줄이 기본, ‘숨기기’는 <span class="opt">선택</span></span></div>
+          <div class="phone" id="f-after-list">
+            <div class="big">채팅</div>
+            <div class="seg"><span class="on">소식방</span><span>1:1 채팅</span></div>
+            <div class="crow"><div class="cav b"></div><div class="cb"><div class="l1"><b>효돈 햇살농원</b><small>어제</small></div><div class="pv">노지 감귤 첫 선별 들어갑니다</div></div></div>
+            <div class="crow"><div class="cav c"></div><div class="cb"><div class="l1"><b>한라 레드향집</b><small>10월 3일</small></div><div class="pv">레드향 꽃이 피기 시작했어요</div></div></div>
+            <div class="grp changed">팔로우 끊은 농가</div>
+            <div class="crow off changed"><div class="cav"></div><div class="cb"><div class="l1"><b>강씨네 귤밭</b><small>10월 7일</small></div><div class="pv">나: 첫 바구니 사진 반가워요! 일주일 뒤에…</div><div class="st">팔로우 끊음</div></div><div class="hide" style="outline:2px dashed #E8B896;outline-offset:2px">숨기기</div></div>
+            <div class="tabbar"><span>발견</span><span>내 주문</span><span class="on">채팅</span><span>내 정보</span></div>
+            <span class="pin" style="right:4px;top:306px">5</span>
+            <span class="pin" style="right:8px;top:356px">6</span>
+          </div>
+          <p class="anno"><span class="mark">5</span>끊은 방은 목록 아래 ‘팔로우 끊은 농가’ 묶음에 흐리게 남는다(사진 회색, 이름 보조색, 셋째 줄 ‘팔로우 끊음’). 누르면 ①의 AFTER 화면. <span class="mark">6</span><span class="opt">선택</span> ‘숨기기’를 누르면 이 줄만 목록에서 빠진다. 데이터는 지우지 않고, 다시 팔로우하면 위 묶음으로 돌아온다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ 다시 팔로우 -->
+    <div class="pair">
+      <h3>③ 다시 팔로우 — 띠의 ‘다시 팔로우’, 헤더 ‘팔로우’, 토스트 ‘되돌리기’ 어느 것이든</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>main, 해제 전(팔로잉) — HE 근거 <code>he02/01-room-following.png</code></span></div>
+          <div class="phone" id="f-before-following">
+            <div class="rh"><div class="back">‹</div><div class="av"></div><div class="nm"><b>강씨네 귤밭</b><span>소식방</span></div><div class="fbtn s wrong">팔로잉</div></div>
+            <div class="shelf"><div class="shelf-h">판매 품목 <span>⌃</span></div><div class="shelf-l"><div class="si"><div class="ph"></div><div><b>하우스 감귤 5kg / 10kg</b><s>36,000원</s><span class="pr">29,000원</span></div></div><div class="si"><div class="ph"></div><div><b>레드향 3kg</b></div></div></div></div>
+            <div class="feed">
+              <div class="day">2026년 10월 7일</div>
+              <div class="who">강씨네 귤밭 · 오전 08:10</div>
+              <div class="bub">첫 바구니 따봤어요. 아직 신맛이 조금 남아서 일주일 더 기다립니다.</div>
+              <div class="pic basket"></div>
+              <div class="like">♡ 좋아요 42</div>
+              <div class="bub mine">첫 바구니 사진 반가워요! 일주일 뒤에 꼭 맛볼게요.</div>
+              <div class="mine-t">오전 09:00</div>
+            </div>
+            <div class="comp"><div class="field">농가에 답장하기</div><div class="send"></div></div>
+            <span class="pin bad" style="right:12px;top:8px">7</span>
+          </div>
+          <p class="anno"><span class="mark" style="background:#F04438">7</span>‘팔로잉’이 회색 면 글자만이라 상태 표시인지 누르는 버튼인지 구분이 안 된다. design README는 “면색 + <b>체크</b> + 팔로잉”인데 코드에 체크가 없다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>제안 · 다시 팔로우한 직후</span></div>
+          <div class="phone" id="f-after-refollow">
+            <div class="rh"><div class="back">‹</div><div class="av"></div><div class="nm"><b>강씨네 귤밭</b><span>소식방</span></div><div class="fbtn s changed">✓ 팔로잉</div></div>
+            <div class="shelf"><div class="shelf-h">판매 품목 <span>⌃</span></div><div class="shelf-l"><div class="si"><div class="ph"></div><div><b>하우스 감귤 5kg / 10kg</b><s>36,000원</s><span class="pr">29,000원</span></div></div><div class="si"><div class="ph"></div><div><b>레드향 3kg</b></div></div></div></div>
+            <div class="feed">
+              <div class="day">2026년 10월 7일</div>
+              <div class="who">강씨네 귤밭 · 오전 08:10</div>
+              <div class="bub">첫 바구니 따봤어요. 아직 신맛이 조금 남아서 일주일 더 기다립니다.</div>
+              <div class="pic basket"></div>
+              <div class="like">♡ 좋아요 42</div>
+              <div class="bub mine">첫 바구니 사진 반가워요! 일주일 뒤에 꼭 맛볼게요.</div>
+              <div class="mine-t">오전 09:00</div>
+            </div>
+            <div class="comp"><div class="field">농가에 답장하기</div><div class="send"></div></div>
+            <span class="pin" style="right:12px;top:8px">8</span>
+          </div>
+          <p class="anno"><span class="mark">8</span>해제 전과 똑같이 돌아온다: 팔로워 전용 소식, 진한 내 답장, 열린 입력칸, 띠 없음, 채팅 목록 위 묶음. 서버는 답장을 지운 적이 없어 다시 불러오기만 한다. 헤더는 README대로 <b>✓ 팔로잉</b>. 다시 팔로우에는 토스트를 띄우지 않는다(토스트 목록에 없음, 화면 변화로 충분).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>디자인 무브</h2>
+    <div class="moves">
+      <div class="card move"><h3><span class="mark">1</span>해제는 한 번, 되돌리기도 한 번</h3><p>확인 시트 대신 토스트 ‘팔로우를 끊었어요’ 오른쪽에 <b>되돌리기</b>(누르는 영역 48). 되돌리기가 있는 토스트만 4초(오류 토스트와 같은 길이), 남은 시간 막대 2px. 소식방과 주문 완료 화면(HE-X4) 두 곳이 같은 토스트를 쓴다. 되돌리기 = <code>PUT /api/farms/:id/follow</code>, 실패하면 공통 오류 토스트 ‘연결이 불안정해요 · 다시 시도’.</p></div>
+      <div class="card move"><h3><span class="mark">2</span>방을 비우지 않는다 — 내 글은 흐리게 남김</h3><p>해제 뒤에도 서버가 <b>내 답장</b>을 계속 준다. 화면은 말풍선 모양·자리·시각을 그대로 두고 투명도만 45%로. 지울지 말지는 사용자가 정한 적이 없으므로 사라지게 하지 않는다. 팔로워 전용 소식은 규칙(M-14, AC-15-1)대로 숨기고, 공개 소식과 좋아요는 그대로.</p></div>
+      <div class="card move"><h3><span class="mark">3</span>흐린 이유는 한 줄로, 한 자리에</h3><p>판매 품목 바로 아래 흰 띠: ‘팔로우를 끊어 새 소식이 오지 않아요’ + 밑줄 글자 버튼 ‘다시 팔로우’. 토스트가 사라진 뒤 다시 들어온 사람에게도 같은 설명이 보인다. 띠는 <b>내 답장이 있는 방</b>(=예전에 팔로우했던 방)에만 — 처음 온 사람에게는 지금처럼 ‘팔로우하고 답장하기’.</p></div>
+      <div class="card move"><h3><span class="mark">4</span>강조색 버튼 대신 잠긴 입력칸</h3><p>예전 팔로워에게는 하단의 강조색 ‘팔로우하고 답장하기’를 빼고, 같은 자리에 회색 입력칸 + 자물쇠 ‘다시 팔로우하면 답장할 수 있어요’(누를 수 없음, 전송 버튼 없음). 화면의 다시-팔로우 경로를 띠·헤더 둘로 줄이고, 강조 버튼 위치 규칙(화면 아래에는 하단 바·시트만)과도 맞는다.</p></div>
+      <div class="card move"><h3><span class="mark">5</span>채팅 목록: 끊은 방은 아래 묶음에 흐리게 <span class="opt">숨기기 선택</span></h3><p>소식방 목록 끝에 13 굵게 ‘팔로우 끊은 농가’ 묶음, 줄은 사진 회색·이름 보조색·셋째 줄 ‘팔로우 끊음’. 흐림이 기본이고 <b>숨기기</b>는 사용자가 고를 때만 — 줄 오른쪽 면색 버튼(48). 숨긴 방은 다시 팔로우하면 돌아온다.</p></div>
+      <div class="card move"><h3><span class="mark">6</span>‘팔로잉’은 체크로 상태를 말한다</h3><p>README에 이미 있는 “면색 + 체크 + 팔로잉”을 코드에 맞춘다(지금은 체크가 없다). 평가자가 채워진 버튼을 “불이 들어온” 것으로 읽은 문제(HE-02)를 아이콘 하나로 줄인다. 다시 팔로우하면 모든 것이 해제 전과 같다 — 서버에서 지우는 데이터가 없다.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>문구</h2>
+    <div class="tbl"><table>
+      <tr><th>자리</th><th>BEFORE</th><th>AFTER</th><th>새 문구?</th></tr>
+      <tr><td>해제 토스트</td><td>(없음)</td><td class="copy">팔로우를 끊었어요 · 되돌리기</td><td>문장은 기존(완료 화면·README), ‘되돌리기’ 새로</td></tr>
+      <tr><td>소식방 띠</td><td>(없음)</td><td class="copy">팔로우를 끊어 새 소식이 오지 않아요 · 다시 팔로우</td><td>새로</td></tr>
+      <tr><td>잠긴 입력칸</td><td>버튼 ‘팔로우하고 답장하기’</td><td class="copy">다시 팔로우하면 답장할 수 있어요</td><td>새로(처음 온 사람은 기존 버튼 유지)</td></tr>
+      <tr><td>흐린 내 답장(화면 읽기)</td><td>—</td><td class="copy">내 답장, 팔로우를 끊어 흐리게 보여요</td><td>새로(접근성 라벨만)</td></tr>
+      <tr><td>채팅 목록 묶음 이름</td><td>—</td><td class="copy">팔로우 끊은 농가</td><td>새로</td></tr>
+      <tr><td>채팅 목록 줄 셋째 줄</td><td>—</td><td class="copy">팔로우 끊음</td><td>새로</td></tr>
+      <tr><td>채팅 목록 미리보기</td><td>—</td><td class="copy">나: 첫 바구니 사진 반가워요! …</td><td>1:1 줄의 ‘나: ’ 규칙 재사용</td></tr>
+      <tr><td>숨기기 <span class="opt">선택</span></td><td>—</td><td class="copy">숨기기</td><td>새로</td></tr>
+      <tr><td>헤더(팔로우 중)</td><td>팔로잉</td><td class="copy">✓ 팔로잉</td><td>README 규칙 반영(문구 같음)</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>서버가 지금 주는 것과 바꿀 것 (승인 뒤)</h2>
+    <div class="cols">
+      <div class="card decision">
+        <h3>지금: 해제하면 내 답장을 서버가 뺀다 → API 변경 필요</h3>
+        <p><code>server/app/messaging/service.py</code> <code>_room_rows</code>(254-262행): <code>can_reply</code>가 거짓이면 공개 방송만, 답장은 <code>replies.where(false())</code>. 소비자에게 <code>can_reply</code> = 팔로우 여부(<code>_room_access</code>). 그래서 클라이언트만으로는 흐린 답장을 그릴 수 없다.</p>
+<pre>if not can_reply:
+    broadcasts = broadcasts.where(Broadcast.visibility == "PUBLIC")
+    replies = (replies.where(RoomReply.consumer_id == user.id)
+               if user is not None and user.role == "CONSUMER"
+               else replies.where(false()))</pre>
+        <p>답장 행은 해제 때 지우지 않는다(<code>farms.set_follow</code>는 Follow 행만) → 다시 팔로우하면 지금도 그대로 돌아온다(무브 6은 서버 변경 없음).</p>
+      </div>
+      <div class="card">
+        <h3>채팅 목록 <code>GET /api/messaging/rooms</code></h3>
+        <p><code>rooms()</code>(368행)는 팔로우한 농가만 돌고 <code>_room_summary(..., True)</code>로 고정. 바꿀 것: 팔로우한 농가 ∪ <b>내 답장이 있는 승인 농가</b>, 요약의 <code>canReply</code>는 실제 팔로우 여부. 새 필드는 없다 — 앱은 <code>canReply=false</code>인 줄을 ‘팔로우 끊은 농가’로 묶는다. Mock <code>packages/api/src/mock/rooms.ts</code>도 같게.</p>
+        <p>요약 <code>lastMessage</code>는 같은 <code>_room_rows</code>를 쓰므로 위 수정으로 ‘내 답장’이 미리보기가 된다.</p>
+      </div>
+      <div class="card">
+        <h3>위험과 확인할 것</h3>
+        <ul>
+          <li><b>공개 범위</b>: 더 보이는 것은 본인 글뿐(M-02 유지). 다른 소비자 답장·팔로워 전용 방송은 계속 숨김. pytest로 고정.</li>
+          <li><b>캐시 격리</b>(storefront-1.5, AC-12-11): cursor scope에 <code>reply:{can_reply}</code>가 있어 권한이 바뀌면 이전 cursor는 거부된다 — 그대로. 앱의 <code>NewsRoom</code> key에 <code>revision</code>이 있어 해제·재팔로우 때 새로 불러온다.</li>
+          <li><b>쓰기는 그대로 막힘</b>: <code>send_room</code>은 팔로우 검사 유지, 좋아요도 기존 규칙(공개 소식만).</li>
+          <li><b>숨기기 <span class="opt">선택</span></b> 저장 위치: (가) 기기 저장(사용자별 키, 서버 변경 없음, 기기마다 따로) (나) 서버 새 표 → <code>models.py</code>+마이그레이션 = <b>고위험</b>. 제안은 (가) 또는 이번엔 빼기.</li>
+          <li><code>server/app/messaging/service.py</code>는 AGENTS.md 고위험 목록이 아니지만 <b>권한 규칙을 바꾸는 변경</b>이라 스펙 PR을 같이 하고 사람 리뷰 필수로 다룬다. (가)안이면 마이그레이션·모델 없음.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>테스트 (승인 뒤)</h2>
+    <div class="tbl"><table>
+      <tr><th>묶음</th><th>테스트</th><th>확인</th></tr>
+      <tr><td>pytest <code>server/tests/test_messaging*.py</code></td><td><code>test_AC_12_11_unfollowed_consumer_keeps_own_replies</code></td><td>팔로우 → 답장 → 해제 → <code>GET rooms/f-kang/messages</code>: 내 답장 있음, 팔로워 전용 방송 없음, 다른 소비자 답장 없음, <code>canReply=false</code></td></tr>
+      <tr><td>pytest</td><td><code>test_AC_12_11_refollow_restores_room</code></td><td>다시 팔로우 → 해제 전 응답과 같은 항목 집합(전용 방송 + 내 답장), <code>canReply=true</code>; 이전 cursor는 400</td></tr>
+      <tr><td>pytest</td><td><code>test_AC_06_3_rooms_list_keeps_unfollowed_room_with_my_replies</code></td><td>해제한 방이 <code>rooms</code>에 <code>canReply=false</code>로 남고 미리보기는 내 답장; 답장 없이 해제한 농가는 목록에 없음</td></tr>
+      <tr><td>pytest</td><td><code>test_AC_12_11_unfollowed_cannot_reply</code></td><td>해제 뒤 <code>POST rooms/f-kang/messages</code> 거부(기존 테스트가 있으면 유지 확인)</td></tr>
+      <tr><td>Mock <code>scripts/test-*.mjs</code></td><td>AC-12-11 unfollow keeps own replies</td><td>Mock <code>rooms.ts</code>가 서버와 같은 항목·<code>canReply</code>를 준다</td></tr>
+      <tr><td>Playwright <code>scripts/e2e/</code></td><td>unfollow-feedback</td><td>소식방 ‘팔로잉’ → 토스트 ‘팔로우를 끊었어요’·띠·잠긴 입력·흐린 답장 → ‘되돌리기’ → ‘✓ 팔로잉’·전용 소식 복귀. 주문 완료 화면 토스트 되돌리기(HE-X4). 390px 캡처를 PR Before/After에</td></tr>
+      <tr><td>공통</td><td><code>npm run typecheck</code>, <code>npm run test:mock</code>, pytest messaging·farms 묶음</td><td>—</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>바꿀 스펙·wiki 줄 (승인 뒤)</h2>
+    <div class="tbl"><table>
+      <tr><th>파일</th><th>지금</th><th>바꿀 줄</th></tr>
+      <tr><td><code>docs/spec/functional/FEAT-06-farm-search-follow.md</code></td><td>정상 흐름 4 “다시 누르면 확인 없이 끊고 버튼이 ‘팔로우’로 바뀜” · 사후 조건 “해제하면 채팅 안 소식방에서 빠지고”</td><td>4) 뒤 “… 토스트 ‘팔로우를 끊었어요 · 되돌리기’(4초)를 보인다”. 사후 조건 “해제하면 새 소식이 오지 않고, 소식방에는 공개 소식과 본인 답장(흐리게)만 남는다. 본인 답장이 있는 방은 채팅 목록 ‘팔로우 끊은 농가’에 남는다(숨기기 선택). 다시 팔로우하면 이전 채팅이 그대로 보인다”. AC 1개 추가(AC-06-8)</td></tr>
+      <tr><td><code>docs/spec/functional/FEAT-15-farm-news.md</code></td><td>AC-15-1 전용 소식 비공개</td><td>그대로. 입력·검증에 “해제한 소비자도 전용 소식은 보지 못한다” 한 줄(변경 없음 확인)</td></tr>
+      <tr><td><code>docs/spec/storefront-1.5.md</code> 소식방</td><td>“소비자가 팔로우 해제하면 공개 방송만 반환한다”, “권한 변경 시 … 전용 소식·답장이 남지 않게”</td><td>“해제한 소비자에게는 공개 방송과 본인 답장을 반환한다(답장 권한 없음)”, “권한 변경 시 기존 캐시를 폐기해 전용 소식이 남지 않게 한다”</td></tr>
+      <tr><td><code>docs/spec/conversation-ui-1.6.md</code> SCR-18</td><td>“팔로우 해제 시 전용 내용 폐기”</td><td>“팔로우 해제 시 팔로워 전용 소식은 숨기고 본인 답장은 흐리게 남긴다, 상단 띠·잠긴 입력”</td></tr>
+      <tr><td><code>docs/spec/functional/rules.md</code></td><td>M-19 “소비자는 방송과 본인 답장만”, 91행 “미팔로우/비로그인에는 공개 방송만”</td><td>91행: “미팔로우에는 공개 방송(+본인 답장이 있으면 그 답장), 비로그인에는 공개 방송만”</td></tr>
+      <tr><td><code>docs/spec/screens.md</code></td><td>공통 토스트 “성공은 … 2초”, SCR-03 상태 “해제 시 전용 메시지 폐기”, SCR-15 소식방 목록</td><td>토스트: “되돌리기가 있는 토스트는 4초”. SCR-03: 무브 2~4. SCR-15: ‘팔로우 끊은 농가’ 묶음</td></tr>
+      <tr><td><code>docs/design/README.md</code></td><td>팔로우 토글 줄, 토스트 쓰는 곳</td><td>“토스트 ‘팔로우를 끊었어요 · 되돌리기’”, 소식방 띠·잠긴 입력 부품 한 줄</td></tr>
+      <tr><td><code>docs/wiki/Requirements-and-Specifications.md</code></td><td>FEAT-06 follow 요약</td><td>영문 1~2줄: unfollow is immediate with an undo toast; the room keeps the consumer’s own replies dimmed and hides follower-only posts; re-follow restores everything.</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>열린 질문</h2>
+    <div class="cols">
+      <div class="card"><h3>Q1. 숨기기를 이번에 넣을까</h3><p>넣는다면 기기 저장(서버 변경 없음, 다른 기기에서는 다시 보임)으로 할지, 서버 저장(모델·마이그레이션, 고위험)으로 할지. 제안: 이번엔 기기 저장 또는 빼고 후속.</p></div>
+      <div class="card"><h3>Q2. 숨긴 팔로워 전용 소식의 자리</h3><p>흐린 답장 “첫 바구니 사진 반가워요!”가 무엇에 대한 답인지(전용 소식) 안 보인다. 그 자리에 ‘팔로워 전용 소식’이라는 빈 줄을 둘지 — 내용은 안 보이지만 <b>있다는 것과 시각</b>이 드러난다(AC-15-1 “보이지 않는다”와 충돌 가능). 제안: 두지 않음.</p></div>
+      <div class="card"><h3>Q3. 다시-팔로우 입구가 셋(헤더·띠·토스트)</h3><p>헤더 ‘팔로우’는 README 강조색 예외라 그대로 두었다. 띠의 ‘다시 팔로우’를 빼고 헤더 하나로 할지, 헤더를 해제 상태에서 테두리 버튼으로 낮출지.</p></div>
+      <div class="card"><h3>Q4. 되돌리기 토스트 4초</h3><p>성공 토스트 2초 규칙(D-19)에 “되돌리기가 있으면 4초” 예외를 두는 안. 2초면 누르기 전에 사라진다는 HE 의견이 있으면 그대로, 아니면 띠가 있으니 2초도 가능.</p></div>
+      <div class="card"><h3>Q5. 예전 팔로워의 판정</h3><p>띠·잠긴 입력은 “이 방에 내 답장이 있음”으로 판정한다(서버 새 필드 없음). 답장 없이 팔로우만 했다 끊은 사람은 처음 온 사람과 같은 화면(‘팔로우하고 답장하기’)이 된다 — 괜찮은지.</p></div>
+      <div class="card"><h3>Q6. Figma v6</h3><p>승인 뒤 SCR-03 해제 상태·SCR-15 묶음·토스트 되돌리기·‘✓ 팔로잉’ 프레임 반영 요청(PR <code>Figma:</code> 후속 — DEV-230).</p></div>
+    </div>
+  </section>
+</div>
