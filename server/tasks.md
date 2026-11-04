@@ -2140,3 +2140,8 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 수정: 소비자 취소 직전에 `monkeypatch`로 `fixed_now`를 1초 뒤(10:00:01)로 옮겨 실제처럼 뒤 시각에 환불한다. 순서 assertion `[(MANAGER, 10000), (CONSUMER, total - 10000)]`은 그대로이고, 이제 시간 순서로 의미가 있다.
 - 결정적 재현: 원래 테스트에서 MANAGER 환불 행을 지웠다 다시 넣어(같은 값, 뒤 TID) 순서를 바꾸면 CI와 같은 `assert [('CONSUMER',...AGER', 10000)] == [('MANAGER', ...UMER', 48000)]`로 **1/1 실패**. 같은 조작을 한 수정본은 **통과**. 두 행의 `created_at`이 같다는 것도 확인했다. (임시 probe 파일은 지웠다)
 - 반복: 수정 전 단독 0/20, 파일 일부(-k) 0/10 실패(로컬 자연 재현 안 됨, CI 전체 실행에서 실패). 수정 후 단독 **0/20**, 파일 전체 **0/3**, 전체 pytest **0/3 실패(각 1264 passed)**.
+
+## DEV-208 [HE 후속] 직접 응대 방 소비자 피드백
+
+- 이슈: [DEV-208](https://linear.app/sswp6/issue/DEV-208) · 목표·범위·결정·기록은 `apps/consumer/tasks.md` DEV-208 섹션에 모은다.
+- 서버 몫(승인 뒤): 소비자 `ChatPage.farmReply {mode, typicalReplyHours}` 추가(`app/messaging/{schemas,service,router}.py`), 새 메시지·컬럼·마이그레이션 없음, AI 응답 조건(M-05·M-09·M-20) 변경 없음. 테스트 `tests/test_messaging.py`의 `test_AC_13_9_*`, `test_AC_13_10_*`.
