@@ -21,7 +21,13 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
-import { isClosed, listHeadline, listSubline } from "../../../lib/orderText";
+import {
+  isClosed,
+  listHeadline,
+  listRef,
+  listSubline,
+  listWhen,
+} from "../../../lib/orderText";
 import { useSession } from "../../../lib/session";
 import {
   orderGroups,
@@ -105,11 +111,26 @@ export default function OrderList() {
         >
           {listHeadline(o)}
         </T>
-        <T variant="body">
-          {o.productName} {o.optionLabel} × {o.quantity}
-        </T>
+        {/* 상품 줄은 한 줄, 넘치면 상품명만 줄이고 옵션 × 수량은 끝까지(DEV-226).
+            줄임은 화면에서만이라 화면 읽기는 전체 글자를 읽는다 */}
+        <View style={{ flexDirection: "row", minWidth: 0 }}>
+          <T variant="body" numberOfLines={1} style={{ flexShrink: 1 }}>
+            {o.productName}
+          </T>
+          <T variant="body" style={{ flexShrink: 0 }}>
+            {` ${o.optionLabel} × ${o.quantity}`}
+          </T>
+        </View>
+        {listWhen(o, period) ? (
+          <T variant="sub" muted>
+            {listWhen(o, period)}
+          </T>
+        ) : null}
         <T variant="sub" muted>
           {subline(o)}
+        </T>
+        <T variant="caption" muted numberOfLines={1}>
+          {listRef(o, fmt)}
         </T>
       </View>
     </Pressable>
