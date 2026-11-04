@@ -3,6 +3,7 @@ import {
   ApiError,
   carrierLabel,
   orders,
+  serverNow,
   trackingUrl,
   type Order,
 } from "@farmclub/api";
@@ -117,7 +118,7 @@ export default function OrderDetail() {
           : o.status === "DELIVERED" || o.status === "COMPLETED"
             ? `${md(o.deliveredAt)}에 도착했어요.`
             : o.status === "REFUNDED" || o.status === "AWAITING_DEPOSIT"
-              ? (depositRefundSentence(o, fmt) ?? "")
+              ? (depositRefundSentence(o, fmt, serverNow()) ?? "")
               : o.status === "CANCELED"
                 ? "물량은 다른 분께 돌아갔어요. 다시 예약할 수 있어요."
                 : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`;
