@@ -6,26 +6,29 @@ import { T } from "./Text";
 import { Photo } from "./content";
 import { ProfileAvatar, messageTime } from "./Messenger";
 import { tokens } from "./tokens";
-import { won } from "./format";
+import { unavailableLabel, won } from "./format";
 
 /** The comparison is a later selling-period price, never an invented retail price. */
 export function Price({
   current,
   reference,
   soldOut = false,
+  availability,
   compact = false,
   large = false,
 }: {
   current: number | null;
   reference?: number | null;
   soldOut?: boolean;
+  /** 예약할 수 없을 때 가격 자리에 이유 이름을 보인다(ia.md 4장, DEV-227). */
+  availability?: string | null;
   compact?: boolean;
   large?: boolean;
 }) {
   if (soldOut || current === null)
     return (
       <T muted weight="semibold" numberOfLines={1}>
-        현재 예약 불가
+        {unavailableLabel(availability)}
       </T>
     );
   return (
@@ -59,6 +62,7 @@ export type ShelfProduct = {
   currentPrice: number | null;
   referencePrice?: number | null;
   soldOut: boolean;
+  availability?: string;
 };
 export function ProductShelf({
   products,
@@ -135,6 +139,7 @@ export function ProductShelf({
                     current={p.currentPrice}
                     reference={p.referencePrice}
                     soldOut={p.soldOut}
+                    availability={p.availability}
                     compact
                   />
                 </View>

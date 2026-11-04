@@ -9,7 +9,17 @@ import { ModuleStory } from "./ModuleStory";
 import { Photo } from "./content";
 import { Price } from "./Storefront";
 import { T } from "./Text";
-import { dday, md, period, won } from "./format";
+import {
+  AVAILABILITY_LABEL,
+  closesText,
+  DELIVERY_PENDING_NOTE,
+  deliveryText,
+  joinMeta,
+  md,
+  shippingText,
+  unavailableLabel,
+  won,
+} from "./format";
 import { tokens } from "./tokens";
 
 type StageOption = { price: number; quantity: number; reservedCount: number };
@@ -19,13 +29,18 @@ export type ProductPageData = {
   photo: string | null;
   name: string;
   farmName: string;
-  deliveryWindow: { start: string; end: string };
-  maxDelayUntil: string;
+  /** 생산자 미리보기에서는 아직 비어 있을 수 있다(DEV-227: 오늘 날짜로 채우지 않는다). */
+  deliveryWindow: { start: string; end: string } | null;
+  maxDelayUntil: string | null;
   soldOut: boolean;
   nextStageStartsAt: string | null;
   availability: string;
   options: { optionId: string; label: string; weightKg: number }[];
-  stages: { stageId: string; options: Record<string, StageOption> }[];
+  stages: {
+    stageId: string;
+    endsAt?: string;
+    options: Record<string, StageOption>;
+  }[];
   currentStageId: string | null;
   remainingGrams: number;
   dDay: number | null;
@@ -49,14 +64,6 @@ export type ProductPageData = {
   };
 };
 
-const AVAILABILITY: Record<string, string> = {
-  PAUSED: "판매 일시 중지",
-  ENDED: "예약 종료",
-  NOT_OPEN: "예약 시작 전",
-  TOTAL_SOLD_OUT: "전체 물량 품절",
-  PERIOD_SOLD_OUT: "이번 기간 품절",
-  AVAILABLE: "예약 가능",
-};
 
 /**
  * 새 상품 채우기(DEV-184): 미리보기와 같은 화면에서 자리만 편집 칸으로 바꾼다.
@@ -105,8 +112,7 @@ export function ProductPageBody({
             (cur.options[firstOpt]?.reservedCount ?? 0),
         )
       : 0;
-  const fee =
-    p.shippingFeeType === "FREE" ? "무료배송" : `배송비 ${won(p.shippingFee)}`;
+  const fee = shippingText(p.shippingFeeType, p.shippingFee);
   const infoOpen = slots?.infoOpen || open === "info";
   return (
     <>
@@ -289,6 +295,13 @@ function Fold({
 }
 
 type Open = null | "window" | "fee" | "info" | "cancel";
+/** 마지막 예약 기간 끝날(받는 시기 '예상'의 근거, FEAT-05) */
+function lastReservationEnd(p: ProductPageData) {
+  const ends = p.stages.map((s) => s.endsAt).filter((e): e is string => !!e);
+  return ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : null;
+}
+const joinSentences = (...parts: (string | null)[]) =>
+  parts.filter(Boolean).join(" ");
 function SaleRows({
   p,
   cur,
@@ -309,18 +322,25 @@ function SaleRows({
   return (
     <>
       <Fold
-        label={`${period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착 예정`}
+        label={deliveryText(p.deliveryWindow, lastReservationEnd(p))}
         open={open === "window"}
         onPress={() => toggle("window")}
       >
         <T variant="sub">
-          농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.{" "}
-          {md(p.maxDelayUntil)}까지 보내지 못하면 자동으로 전액 환불해 드려요.
+          {joinSentences(
+            p.deliveryWindow ? null : DELIVERY_PENDING_NOTE,
+            "농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.",
+            p.maxDelayUntil
+              ? `${md(p.maxDelayUntil)}까지 보내지 못하면 자동으로 전액 환불해 드려요.`
+              : null,
+          )}
         </T>
       </Fold>
       {p.soldOut ? (
         <>
-          <T variant="heading">{AVAILABILITY[p.availability]}</T>
+          <T variant="heading">
+            {AVAILABILITY_LABEL[p.availability] ?? unavailableLabel(p.availability)}
+          </T>
           <T variant="sub" muted>
             {p.nextStageStartsAt
               ? `다음 예약은 ${md(p.nextStageStartsAt)}에 열려요.`
@@ -345,6 +365,7 @@ function SaleRows({
                   current={value?.price ?? null}
                   reference={reference(o.optionId)}
                   soldOut={sold}
+                  availability={p.availability}
                 />
               </View>
             );
@@ -353,7 +374,7 @@ function SaleRows({
       )}
       {!p.soldOut ? (
         <T variant="sub" muted numberOfLines={1}>
-          {left}박스 남음 · 마감 {dday(p.dDay)}
+          {joinMeta(`${left}박스 남음`, closesText(p.dDay))}
         </T>
       ) : null}
       <Fold
@@ -362,7 +383,12 @@ function SaleRows({
         onPress={() => toggle("fee")}
       >
         <T variant="sub">
-          도서산간 주소는 추가 운임 {won(p.remoteAreaFee)}이 붙어요.
+          {joinSentences(
+            p.shippingFeeType !== "FREE" && !(p.shippingFee > 0)
+              ? "배송비는 확정 전이에요."
+              : null,
+            `도서산간 주소는 추가 운임 ${won(p.remoteAreaFee)}이 붙어요.`,
+          )}
         </T>
       </Fold>
     </>
