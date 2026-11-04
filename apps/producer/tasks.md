@@ -1316,3 +1316,54 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
   - 서버 `MOCK_LOGIN_ENABLED`는 바꾸지 않는다(DEV-198과 같음).
 - 검증(11/3, 로컬 실서버 `farmclub_i3`): `npm run typecheck` 통과 · `npm run test:mock` 63/63 · `run-integration.mjs evaluator-login.spec.ts` 플래그 없이 4 passed/2 skipped, `EXPO_PUBLIC_EVALUATOR_LOGIN=1`로 2 passed/4 skipped.
 - 평가 뒤 할 일(사람): EAS `preview` 환경에서 `EXPO_PUBLIC_EVALUATOR_LOGIN` 삭제 → `eas update --channel preview --environment preview`로 일반 업데이트.
+
+## DEV-210 [HE 후속] 생산자 소식 보내기: 확인 없이 팔로워 전체에 바로 올라가고 삭제·수정이 없음
+
+- 이슈: [DEV-210](https://linear.app/sswp6/issue/DEV-210) · GitHub #391 · 근거 HE 사전 점검 P3(`docs/evaluation/he-2026-11-04/he-claude-2026-11-03.md`, PR #388)
+- 브랜치: `nemodleo/dev-210-news-confirm-delete`
+- 기능·인수 조건: FEAT-12 / AC-12-13, AC-12-14, AC-12-16 (새로 추가 예정), FEAT-15 · 규칙 M-01, M-14, M-19, 새 M-23
+- 서버 쪽 작업은 `server/tasks.md#DEV-210`
+- 상태: 디자인 제안 · PM 승인 대기 (1단계). 승인 전에는 코드를 고치지 않는다.
+
+### 목표
+소식방 입력칸 전송 한 번에 팔로워 전원에게 바로 올라가고 되돌릴 수 없는 문제(H5·H3)를 고친다. 보내기 전에 받는 사람 수·미리보기를 확인하고, 보낸 소식은 생산자가 지울 수 있게 한다.
+
+### 범위 (수정 허용 경로)
+- `docs/design/proposals/dev-210-news-confirm-delete.html` (1단계, 제안 보드)
+- `apps/producer/src/lib/OwnNewsRoom.tsx` (팔로워 수 전달, 삭제 호출)
+- `packages/ui/src/NewsRoom.tsx` (확인 시트, 본인 방송 ⋯·삭제 시트, 삭제된 방송을 목록에서 빼는 merge)
+- `packages/api/src/endpoints.ts`, `packages/api/src/mock/**` (`messaging.deleteNews`)
+- `scripts/e2e/conversation-ui.spec.ts`, `scripts/test-news-rooms.mjs`
+- `docs/spec/functional/FEAT-12-messaging.md`, `FEAT-15-farm-news.md`, `rules.md`, `docs/spec/conversation-ui-1.6.md`, `docs/spec/contracts-1.2.md`, `docs/wiki/Requirements-and-Specifications.md`, `docs/wiki/Testing-Documentation.md`
+
+### 비범위 (건드리지 않음)
+- 1:1 채팅 전송(확인 없이 바로 보내기 유지)
+- 사진 소식 작성 화면 `/broadcast/new`(이미 미리보기·대상 수가 있는 확인 화면, PM 질문 2)
+- 소식 수정, 푸시·알림 발송, 운영자 대리 삭제
+- 운영 데이터(HE 테스트 소식 삭제는 배포 뒤 사람이 생산자 계정으로)
+
+### 결정 사항
+- 11/04 전송 버튼은 확인 시트를 연다: 「팔로워 N명에게 보낼까요?」 + 미리보기 + 「아니요 | 확인 · 보내기」(입금 승인 시트와 같은 1:2). 0명이면 제목·안내를 바꾼다.
+- 11/04 입력칸 placeholder를 「팔로워 N명에게 소식 보내기」로(followerCount).
+- 11/04 수정은 넣지 않는다. 본인 방송에 보이는 ⋯(48×48, 길게 누르기는 보조) → 삭제 시트(「삭제하고 다시 쓰기」(글 소식만) · 「아니요」 · 「삭제」).
+- 11/04 소비자 화면은 자리 표시 없이 빠진다. 소비자 답장은 남는다.
+- 11/04 알림: 지금 소식 알림 발송이 없어 회수할 것이 없다. 나중에 붙이면 본문을 넣지 않는다(M-23).
+- 결정 필요: PM 질문 5개(보드 마지막 절).
+
+### 작업
+- [x] 디자인 제안 보드(before/after) `docs/design/proposals/dev-210-news-confirm-delete.html`
+- [ ] PM 승인
+- [ ] 스펙·wiki 갱신(AC-12-13~16, M-23)
+- [ ] NewsRoom 확인 시트·⋯·삭제 시트, OwnNewsRoom 연결
+- [ ] API 클라이언트·Mock `deleteNews`
+- [ ] Playwright AC-12-13, AC-12-16 · Mock AC-12-14
+- [ ] Figma v6 반영 요청(후속)
+
+### 완료 조건
+- [ ] 보내기 전에 받는 사람 수와 내용을 확인한다
+- [ ] 보낸 소식을 삭제할 수 있고 소비자 소식방·채팅 목록에서도 사라진다
+- [ ] `npm run typecheck`, `npm run test:mock`, 해당 Playwright spec 통과
+- [ ] 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 11/04 1단계: 코드·서버 조사 후 제안 보드 작성, draft PR. 소식 푸시 없음, 소식방 안 읽음 배지 없음, NewsRoom merge는 추가만 함(삭제 반영 필요) 확인.

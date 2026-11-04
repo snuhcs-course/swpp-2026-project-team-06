@@ -2140,3 +2140,43 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 수정: 소비자 취소 직전에 `monkeypatch`로 `fixed_now`를 1초 뒤(10:00:01)로 옮겨 실제처럼 뒤 시각에 환불한다. 순서 assertion `[(MANAGER, 10000), (CONSUMER, total - 10000)]`은 그대로이고, 이제 시간 순서로 의미가 있다.
 - 결정적 재현: 원래 테스트에서 MANAGER 환불 행을 지웠다 다시 넣어(같은 값, 뒤 TID) 순서를 바꾸면 CI와 같은 `assert [('CONSUMER',...AGER', 10000)] == [('MANAGER', ...UMER', 48000)]`로 **1/1 실패**. 같은 조작을 한 수정본은 **통과**. 두 행의 `created_at`이 같다는 것도 확인했다. (임시 probe 파일은 지웠다)
 - 반복: 수정 전 단독 0/20, 파일 일부(-k) 0/10 실패(로컬 자연 재현 안 됨, CI 전체 실행에서 실패). 수정 후 단독 **0/20**, 파일 전체 **0/3**, 전체 pytest **0/3 실패(각 1264 passed)**.
+
+## DEV-210 [HE 후속] 생산자 소식 삭제 API (소식 보내기 확인·삭제)
+
+- 이슈: [DEV-210](https://linear.app/sswp6/issue/DEV-210) · 화면 쪽은 `apps/producer/tasks.md#DEV-210`
+- 브랜치: `nemodleo/dev-210-news-confirm-delete`
+- 기능·인수 조건: FEAT-12 / AC-12-14, AC-12-15 (새로 추가 예정), FEAT-15 · 규칙 M-01, M-14, M-19, 새 M-23
+- 상태: 디자인 제안 · PM 승인 대기 (1단계). 승인 전에는 코드를 고치지 않는다.
+
+### 목표
+생산자가 자기 농가 소식을 지울 수 있게 하고, 지운 소식은 소비자의 모든 조회에서 빠지게 한다.
+
+### 범위 (수정 허용 경로)
+- `server/app/messaging/router.py`, `service.py`, `models.py`
+- `server/migrations/versions/` (새 리비전 1개: `broadcasts.deleted_at`)
+- `server/tests/test_messaging.py`
+
+### 비범위 (건드리지 않음)
+- 소식 수정 API, 운영자 대리 삭제(관리 API), 푸시·알림
+- reactions·room_replies·R2 첨부 정리
+
+### 결정 사항
+- 11/04 `DELETE /api/messaging/news/{broadcast_id}`: ApprovedProducer, 내 농가 소식만. 다른 농가·없는 소식 404, 소비자 403, 이미 지운 내 소식 204(멱등).
+- 11/04 소프트 삭제 `broadcasts.deleted_at timestamptz NULL`. `followed_news`, `farm_public_news`, `_room_rows`, `_room_summary`, `_visible_broadcast`가 `deleted_at IS NULL`만 본다. 분쟁 확인·운영자 복구 때문에 행은 남긴다.
+- 11/04 `models.py`·마이그레이션 변경이라 PR 위험 등급 고위험.
+- 결정 필요: 삭제 행 보관 기간(PM 질문 4).
+
+### 작업
+- [ ] PM 승인
+- [ ] 마이그레이션·모델 `deleted_at`
+- [ ] 라우터·서비스 삭제와 조회 필터
+- [ ] pytest `test_AC_12_14_*`, `test_AC_12_15_*`
+- [ ] 머지 직전 `alembic heads` 1개 확인
+
+### 완료 조건
+- [ ] 본인 농가 소식만 삭제되고, 삭제하면 소식방·채팅 목록 미리보기·공개 소식에서 빠진다
+- [ ] pytest·ruff 통과
+- [ ] 사람 리뷰 1명 승인 후 main 머지
+
+### 기록
+- 11/04 1단계: 기존 삭제·수정 API 없음, 소식 푸시 없음 확인. 제안 보드 `docs/design/proposals/dev-210-news-confirm-delete.html`.
