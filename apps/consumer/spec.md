@@ -111,3 +111,7 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - 플랫폼 분기는 `*.native.ts` 쌍(Metro가 고른다)이 우선이고, 웹 파일은 런타임 import 없이 두어 Node 테스트가 읽는다. `lib/kakao.ts`(웹: sessionStorage, `window.location.origin`) / `lib/kakao.native.ts`(메모리, `EXPO_PUBLIC_CONSUMER_URL`, state `app-` 접두어), `lib/kakaoAuth.ts`(페이지 이동) / `lib/kakaoAuth.native.ts`(`expo-web-browser` 인증 세션).
 - 카카오 복귀(앱): 인가 요청의 복귀 주소는 웹과 같은 `https://farmclub.kr/auth/kakao`. 웹 복귀 화면 `/auth/kakao`는 `state`가 `app-`이면 `appReturnUrl`로 코드를 `farmclub-consumer://auth/kakao?code&state`에 넘기고 ‘앱으로 돌아가는 중’ + ‘앱 열기’ 버튼을 보인다. 앱의 `login.tsx`는 인증 세션 결과를 받아 같은 `/auth/kakao` 화면을 열고, 그 화면이 메모리 복귀 정보로 `state`를 대조한 뒤 `POST /api/auth/kakao`(`redirectUri`는 `kakaoCallbackUri()`)를 부른다. 서버 변경 없음.
 - 복사는 `expo-clipboard`, 바깥 주소는 `Linking`, 토큰은 `@farmclub/api`가 SecureStore에 둔다. `public/.well-known/`의 `apple-app-site-association`·`assetlinks.json`은 Team ID·지문 자리표시자(사람이 채움), `vercel.json`이 JSON으로 응답. 앱 링크로 여는 경로는 아직 없다(AASA 전부 제외). Android는 복귀 스킴을 expo-router 딥링크로 받으므로 `kakaoAuth.native.ts`가 결과를 돌려주지 않는다.
+
+## DEV-207 주문 상태 문구
+- 주문 상태 문구(목록 굵은 줄·아래 줄, 상세·주문 완료 제목, 입금 대기·환불 본문, 하단 바 요약, 취소 가능 여부)는 `src/lib/orderText.ts` 순수 함수 한곳에서 만든다. 날짜 도우미는 화면이 넘기고, `scripts/test-order-text.mjs`가 React Native 없이 검사한다.
+- 라벨 원칙은 R-28 끝 문장(입금 대기·입금 확인 중·환불 대기·환불 완료). 입금을 알린 뒤 취소 버튼은 앱에서만 숨긴다(서버 `cancel` 행동은 그대로, 후속 이슈 후보는 `tasks.md#DEV-207`).
