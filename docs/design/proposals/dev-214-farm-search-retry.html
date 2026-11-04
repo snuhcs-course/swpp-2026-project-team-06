@@ -1,0 +1,348 @@
+<meta charset="utf-8">
+<title>농가 검색 실패와 다시 시도</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 레이아웃: 위에서 아래로 읽는 제안 보드. 결정 요약 → 지금(BEFORE) 프레임 줄 → 바꾼 뒤(AFTER) 프레임 줄 → 무브·문구·코드·테스트·스펙 표.
+   프레임은 390px 휴대폰 화면(SCR-02 농가 목록)이고 줄마다 가로로 넘긴다. farmclub UI 1.6 토큰(Pretendard, 강조 #C94F0C, 면 #F5F5F3,
+   오류 #B42318, 썸네일 104, 좌우 여백 20)을 그대로 쓰고 보드 주석만 파랑(--note)으로 구분한다. 제품이 밝은 화면만 쓰므로 보드도 밝게 고정한다. */
+:root{
+  --ink:#111111; --muted:#6B6B6B; --line:#E8E8E6; --surface:#F5F5F3; --paper:#FFFFFF;
+  --board:#EBEBE7; --accent:#C94F0C; --accent-soft:#FBEDE4; --error:#B42318; --note:#2457C5; --note-soft:#E8EEFB;
+  --font:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+body{margin:0;background:var(--board);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.wrap{max-width:1760px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:48px}
+h1{font-size:34px;line-height:1.2;letter-spacing:-0.02em;margin:0;text-wrap:balance}
+h2{font-size:22px;line-height:1.3;letter-spacing:-0.01em;margin:0}
+h3{font-size:17px;margin:0}
+p{margin:0}
+code{font-family:var(--mono);font-size:13px;background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.lede{max-width:76ch;font-size:17px}
+.meta{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:600}
+.pill.warn{border-color:var(--error);color:var(--error)}
+.pill.note{border-color:var(--note);color:var(--note)}
+section{display:flex;flex-direction:column;gap:20px}
+.decide{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.decide div{background:var(--paper);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.decide b{font-size:13px;color:var(--muted);font-weight:700}
+.decide strong{font-size:17px}
+.strip{display:flex;gap:40px;overflow-x:auto;padding:8px 4px 24px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:12px;flex:none;width:390px}
+.cap{display:flex;gap:10px;align-items:baseline}
+.cap .k{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--note)}
+.cap.bad .k{color:var(--error)}
+.cap h3{font-size:15px}
+.sub{font-size:13px;color:var(--muted);line-height:1.5}
+.prob{background:var(--paper);border-left:3px solid var(--error);border-radius:0 12px 12px 0;padding:10px 14px;font-size:13px;line-height:1.5}
+.ok{background:var(--paper);border-left:3px solid var(--note);border-radius:0 12px 12px 0;padding:10px 14px;font-size:13px;line-height:1.5}
+
+/* ---------- 휴대폰 프레임 (SCR-02, UI 1.6 토큰) ---------- */
+.ph{width:390px;height:844px;background:var(--paper);position:relative;overflow:hidden;display:flex;flex-direction:column;border-radius:28px;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.hd{height:64px;display:flex;align-items:center;padding:0 8px;flex:none}
+.ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center}
+.body{padding:0 20px;display:flex;flex-direction:column;gap:16px}
+.ttl{font-size:28px;line-height:36px;font-weight:700;letter-spacing:-0.01em}
+.search{height:48px;border-radius:8px;background:var(--surface);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:16px}
+.search .ph-t{color:var(--muted)}
+.lh{font-size:15px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.list{padding:4px 20px 0}
+.card{display:flex;gap:16px;padding:16px 0;border-top:1px solid var(--line);position:relative}
+.card:first-child{border-top:0}
+.th{width:104px;height:104px;border-radius:16px;flex:none}
+.g1{background:linear-gradient(135deg,#6E8B4E,#B68A5A 60%,#D9772F)}
+.g2{background:linear-gradient(160deg,#B9C4C8,#7E9A6A 55%,#E08A38)}
+.g3{background:linear-gradient(135deg,#4F7A3A,#86A55A 50%,#F09A2A)}
+.g4{background:linear-gradient(135deg,#5E7F45,#9DB46A 50%,#E7742B)}
+.g5{background:linear-gradient(135deg,#7D8F5A,#C7A55A 60%,#E69A3D)}
+.cb{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.cb b{font-size:17px;line-height:24px;font-weight:600}
+.cb .r{font-size:15px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr{display:flex;align-items:center;gap:8px;margin-top:4px}
+.pr .st{display:flex;flex-direction:column;line-height:1.2}
+.pr s{font-size:13px;color:var(--muted)}
+.pr em{font-style:normal;font-size:17px;font-weight:700;color:var(--accent)}
+.chip{height:24px;padding:0 8px;border-radius:999px;background:var(--surface);font-size:13px;font-weight:600;display:inline-flex;align-items:center}
+.tbtn{min-height:48px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:var(--ink)}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:72px;background:var(--paper);border-top:1px solid var(--line);display:flex}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;color:var(--muted);gap:2px}
+.tab.on{color:var(--ink);font-weight:700}
+.tab i{width:22px;height:22px;border-radius:6px;border:2px solid currentColor;display:block;opacity:.8}
+.console{position:absolute;left:10px;right:10px;bottom:80px;height:44px;border-radius:8px;background:#5B1B1B;color:#fff;font-size:13px;display:flex;align-items:center;gap:10px;padding:0 12px;z-index:4}
+.console span{width:22px;height:22px;border-radius:4px;background:#E5484D;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+/* Notice (packages/ui content.tsx: padding 16, radius 16, 면 색, gap 4, tone=error면 제목 오류색) */
+.notice{background:var(--surface);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:4px;position:relative}
+.notice b{font-size:17px;line-height:24px;color:var(--error)}
+.notice p{font-size:15px;line-height:22px}
+.obtn{margin-top:12px;height:52px;border-radius:16px;border:1px solid var(--ink);background:var(--paper);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;gap:8px}
+.obtn.busy{color:var(--muted);border-color:var(--line)}
+.spin{width:18px;height:18px;border-radius:999px;border:2px solid var(--line);border-top-color:var(--ink);display:inline-block}
+.empty{padding:56px 32px 0;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.empty .ic{width:40px;height:40px;border-radius:999px;border:2px solid var(--muted);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700}
+.empty b{font-size:17px;font-weight:600}
+.empty p{font-size:15px;color:var(--muted)}
+.pgfail{display:flex;flex-direction:column;align-items:center;gap:0;padding:8px 0 12px}
+.pgfail p{font-size:15px;color:var(--muted)}
+
+/* ---------- 주석 ---------- */
+.mk{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--note);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 0 0 3px #fff}
+.mk.bad{background:var(--error)}
+.hl{box-shadow:0 0 0 2px var(--note);border-radius:8px;position:relative}
+.mk.in{top:-12px;right:-12px}
+.scrolled .list{padding-top:8px}
+.hl.bad{box-shadow:0 0 0 2px var(--error)}
+.ex{display:inline-flex;align-items:center;height:20px;padding:0 6px;margin-right:6px;border-radius:4px;background:var(--note);color:#fff;font-size:11px;font-weight:700;vertical-align:middle}
+
+/* ---------- 문서 표·목록 ---------- */
+.moves{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.mv{background:var(--paper);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mv .n{width:28px;height:28px;border-radius:999px;background:var(--note);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}
+.mv h3{font-size:17px;line-height:1.4}
+.mv .why{color:var(--muted);font-size:14px}
+.tw{overflow-x:auto;background:var(--paper);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line)}
+th{font-size:13px;color:var(--muted);font-weight:700;background:var(--surface)}
+tr:last-child td{border-bottom:0}
+td.q{font-weight:600}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}
+.box{background:var(--paper);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.box ul,.box ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:var(--surface);border-radius:10px;padding:12px 14px;overflow-x:auto;white-space:pre}
+.open li b{color:var(--note)}
+@media (max-width:480px){h1{font-size:28px}.strip{gap:24px}.col{width:390px}}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:14px">
+  <span class="eyebrow">DEV-214 · 디자인 제안 · before / after</span>
+  <h1>농가 검색이 실패하면 실패라고 말하고, 다시 시도는 처음부터</h1>
+  <p class="lede">I3 탐색 여정 I3-DISC-03(오류) FAIL, baseline <code>i3-b2-87792b7</code>. 농가 목록(SCR-02)에서 검색 요청 하나가 실패하면 검색 전 목록이 새 결과인 것처럼 남고 안내가 없다. 맨 아래 ‘다시 시도’를 누르면 결과가 기존 목록 뒤에 붙어 같은 농가가 두 번 보이고 ‘농가 5곳’이 된다. 이 보드는 개발 전에 PM 승인을 받기 위한 제안이다.</p>
+  <div class="meta">
+    <span class="pill warn">I3-DISC-03 FAIL</span>
+    <span class="pill">FEAT-06 · AC-06-2 · SCR-02</span>
+    <span class="pill">screens.md 3장 목록 규칙</span>
+    <span class="pill note">부모: DEV-177 (I3-T20)</span>
+  </div>
+</header>
+
+<section>
+  <h2>정할 것 (요약)</h2>
+  <div class="decide">
+    <div><b>실패를 어디에</b><strong>검색칸 바로 아래 오류 상자(Notice)</strong><span class="sub">공용 <code>Notice tone="error"</code> + 테두리 ‘다시 시도’. 토스트는 쓰지 않는다(결정 37).</span></div>
+    <div><b>남은 목록</b><strong>지우지 않고 ‘이전 목록’이라고 이름 붙임</strong><span class="sub">완료 조건 “기존 목록 위에 실패 안내”. 대안 B(목록을 지우고 오류만)는 아래 열린 질문 1.</span></div>
+    <div><b>다시 시도</b><strong>실패한 검색을 처음부터 받아 목록을 바꿈</strong><span class="sub">덧붙이기(<code>load(false)</code>)는 ‘더 보기’ 실패에만.</span></div>
+    <div><b>중복</b><strong>같은 농가는 한 번만, 늦게 온 응답은 버림</strong><span class="sub">요청 번호로 지난 검색 응답 무시, 페이지 합칠 때 <code>farmId</code>로 거름.</span></div>
+  </div>
+</section>
+
+<!-- =================== BEFORE =================== -->
+<section>
+  <h2>지금 (BEFORE) — 코드 <code>apps/consumer/src/app/(tabs)/farms/index.tsx</code> FarmList에서 재현</h2>
+  <p class="sub">시드 데이터 그대로(기록 화면 <code>I3-DISC-03-01-search-failed.png</code>, <code>-02-search-retried.png</code>, 390×844). 첫 <code>GET /api/farms?q=한라네</code>만 503으로 실패시킴.</p>
+  <div class="strip" id="before"></div>
+</section>
+
+<!-- =================== AFTER =================== -->
+<section>
+  <h2>바꾼 뒤 (AFTER)</h2>
+  <p class="sub">A1→A2→A3이 기록과 같은 흐름(한라네 검색 실패 → 다시 시도 → 1곳). A4는 공통 목록 규칙(다음 페이지 실패), A5는 PM이 고를 대안 B.</p>
+  <div class="strip" id="after"></div>
+</section>
+
+<section>
+  <h2>디자인 무브</h2>
+  <div class="moves">
+    <div class="mv"><span class="n">1</span><h3>실패는 검색칸 바로 아래, 결과 머리줄 자리에 오류 상자로</h3>
+      <p>목록이 이미 있을 때 새 검색(검색어 바뀜)이 실패하면 검색칸 아래에 <code>Notice tone="error"</code>를 둔다. 제목에 사용자가 친 검색어를 그대로 넣어 “무엇이” 실패했는지 말한다. <code>accessibilityRole="alert"</code>라 스크린 리더도 읽는다.</p>
+      <p class="why">왜: 지금은 실패 신호가 마지막 카드 아래 글자 버튼 하나뿐이라 스크롤하지 않으면 안 보인다(I3-DISC-03 “Failure is visible” ✗). 눈이 가는 자리(입력 바로 아래)에 원인과 행동을 함께 둔다. 새 컴포넌트를 만들지 않고 생산자 앱·주문서에서 이미 쓰는 Notice를 재사용한다.</p></div>
+    <div class="mv"><span class="n">2</span><h3>남은 목록은 ‘이전 목록’이라고 이름을 바꾼다</h3>
+      <p>머리줄 ‘마감 임박순 · 농가 4곳’을 ‘이전 목록 · 농가 4곳’으로 바꾼다. 카드는 그대로 누를 수 있고 흐리게 하지 않는다(대비 유지).</p>
+      <p class="why">왜: 지금은 검색칸에 ‘한라네’, 머리줄에 ‘농가 4곳’이 함께 보여 검색 결과가 4곳인 것처럼 속인다. 지우면 보던 것을 잃고(완료 조건과도 어긋남), 흐리게 하면 15px 보조 글자 대비가 무너진다. 이름만 바꾸는 것이 가장 작고 정직한 변경이다.</p></div>
+    <div class="mv"><span class="n">3</span><h3>‘다시 시도’는 실패한 그 검색을 처음부터</h3>
+      <p>오류 상자 안의 ‘다시 시도’는 <code>load(true)</code>: cursor 없이 실패한 검색어로 다시 받아 목록을 <b>바꾼다</b>. 성공하면 오류 상자가 사라지고 머리줄이 ‘마감 임박순 · 농가 1곳’으로 돌아온다. 맨 아래 덧붙이기 ‘다시 시도’는 ‘더 보기’가 실패했을 때만 남는다(A4).</p>
+      <p class="why">왜: 버그의 직접 원인(검색 실패를 페이지 실패처럼 <code>load(false)</code>로 재시도)을 없앤다. 실패의 종류(새 검색 / 다음 페이지)에 따라 재시도 위치와 방식이 달라야 screens.md 3장 “다음 페이지 실패는 하단에 다시 시도” 규칙과도 맞는다.</p></div>
+    <div class="mv"><span class="n">4</span><h3>다시 시도 중엔 버튼을 잠그고 머리줄로 진행을 보인다</h3>
+      <p>재시도 중 버튼은 로딩(<code>Button loading</code>, 누를 수 없음), 머리줄은 ‘‘한라네’ 찾는 중’. 처음 검색할 때(목록이 있는 채 검색어를 바꿀 때)도 같은 머리줄을 써서, 응답 전의 옛 목록이 새 결과처럼 보이는 순간을 줄인다.</p>
+      <p class="why">왜: 공통 규칙 “처리 중에는 버튼을 잠근다”(screens.md 3장 중복 방지). 연타로 같은 요청이 여러 번 가면 응답 순서에 따라 다시 섞일 수 있다. 지금은 검색 중 표시가 전혀 없어 300ms 디바운스 뒤 응답까지 옛 목록이 그대로다.</p></div>
+    <div class="mv"><span class="n">5</span><h3>보이지 않는 보증: 늦은 응답은 버리고, 같은 농가는 한 번만</h3>
+      <p>요청마다 번호를 붙여 마지막 요청의 응답만 반영한다. 페이지를 합칠 때 <code>farmId</code>로 이미 있는 농가를 거른다. 화면 변화는 없지만 콘솔 “two children with the same key” 경고가 다시 나올 길을 막는다.</p>
+      <p class="why">왜: ‘한라네’ → ‘한라’처럼 빠르게 바꾸면 앞 요청이 늦게 와서 목록을 덮을 수 있다. 서버가 같은 농가를 두 페이지에 걸쳐 줄 가능성(정렬 키 동률)도 막는다. 키 중복은 React가 카드를 잘못 재사용하는 원인이라 리스트의 키 보장은 화면 정확성 문제다.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>문구</h2>
+  <div class="tw"><table>
+    <thead><tr><th>자리</th><th>지금</th><th>제안</th><th>조건</th></tr></thead>
+    <tbody>
+      <tr><td class="q">오류 상자 제목</td><td>(없음)</td><td>‘{검색어}’ 검색 결과를 불러오지 못했어요</td><td>목록이 있는 채 새 검색 실패, 검색어 있음</td></tr>
+      <tr><td class="q">오류 상자 제목(검색어 없음)</td><td>(없음)</td><td>농가 목록을 새로 불러오지 못했어요</td><td>검색어를 지워 전체 목록으로 돌아가다 실패</td></tr>
+      <tr><td class="q">오류 상자 본문</td><td>(없음)</td><td>잠시 뒤 다시 시도해 주세요. 아래는 이전 목록이에요.</td><td>서버 오류(5xx 등)</td></tr>
+      <tr><td class="q">오류 상자 본문(연결 끊김)</td><td>(없음)</td><td>인터넷 연결을 확인하고 다시 시도해 주세요. 아래는 이전 목록이에요.</td><td><code>ApiError.status === 0</code> (LoadError의 offline 판정과 같음)</td></tr>
+      <tr><td class="q">오류 상자 버튼</td><td>맨 아래 글자 버튼 ‘다시 시도’</td><td>다시 시도 (테두리 버튼, 상자 안)</td><td>누르면 처음부터 다시 받음</td></tr>
+      <tr><td class="q">머리줄(실패 뒤)</td><td>마감 임박순 · 농가 4곳</td><td>이전 목록 · 농가 4곳</td><td>새 검색 실패로 남은 목록</td></tr>
+      <tr><td class="q">머리줄(받는 중)</td><td>마감 임박순 · 농가 4곳(그대로)</td><td>‘{검색어}’ 찾는 중 / 검색어 없으면 ‘농가 찾는 중’</td><td>목록이 있는 채 새로 받는 동안</td></tr>
+      <tr><td class="q">다음 페이지 실패</td><td>맨 아래 ‘다시 시도’만</td><td>다음 농가를 불러오지 못했어요 + ‘다시 시도’(글자 버튼)</td><td>‘더 보기’ 실패. 이어 받기(덧붙이기)</td></tr>
+      <tr><td class="q">처음 불러오기 실패</td><td>불러오지 못했어요 / 다시 시도</td><td>그대로(LoadError)</td><td>목록이 아직 없을 때</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="two">
+  <div class="box">
+    <h2>코드 변경 계획 (승인 뒤)</h2>
+    <ol>
+      <li><b>순수 로직 분리</b> <code>apps/consumer/src/lib/farmSearch.ts</code>: <code>farmListReducer(state, action)</code> — 상태 <code>{items, cursor, shownQuery, pending: {seq, query, mode}|null, failed: {mode: "reset"|"more", query, offline}|null}</code>, 동작 <code>start</code>·<code>success</code>·<code>fail</code>. 그리고 <code>listHeader(state)</code>, <code>failureCopy(failed)</code>. React Native 없이 node 테스트가 import한다(DEV-207 <code>orderText.ts</code>와 같은 방식).</li>
+      <li><b>reset vs append</b>: <code>success</code>가 <code>mode === "reset"</code>이면 <code>items = page.items</code>(바꿈), <code>"more"</code>면 기존 뒤에 붙이되 <code>farmId</code> 기준으로 이미 있는 것은 거른다(Map, 순서 유지).</li>
+      <li><b>늦은 응답 무시</b>: <code>useRef</code> 요청 번호. <code>success</code>/<code>fail</code>의 seq가 <code>pending.seq</code>와 다르면 상태를 바꾸지 않는다.</li>
+      <li><b>FarmList 화면</b>: <code>error &amp;&amp; !items</code> → LoadError(그대로). <code>failed.mode === "reset" &amp;&amp; items</code> → 검색칸 아래 <code>Notice tone="error"</code> + <code>Button variant="outline" loading</code>, <code>onPress={() =&gt; load(true)}</code>. <code>failed.mode === "more"</code> → 목록 아래 한 줄 + 글자 버튼 <code>load(false)</code>. 맨 아래 공용 ‘다시 시도’(<code>error &amp;&amp; items → load(false)</code>)는 지운다.</li>
+      <li><b>키</b>: 카드 키는 지금처럼 <code>farmId</code>. 2번의 거름 덕에 같은 키가 두 번 생기지 않는다.</li>
+      <li>서버·API 타입은 바꾸지 않는다(<code>GET /api/farms</code> 그대로).</li>
+    </ol>
+  </div>
+  <div class="box">
+    <h2>테스트</h2>
+    <ul>
+      <li><b>Mock(필수)</b> 새 <code>scripts/test-farm-search.mjs</code>, <code>package.json</code> <code>test:mock</code>에 한 줄:
+        <ul>
+          <li><code>AC-06-2 첫 검색 실패 → 다시 시도 → 항목 수 동일(중복 없음)</code>: 4곳 목록 → ‘한라네’ start/fail → 오류 상자·‘이전 목록 · 농가 4곳’ → 다시 시도 start/success([f-halla]) → 1곳, 다시 시도를 한 번 더 해도 1곳.</li>
+          <li><code>AC-06-2 늦게 온 이전 검색 응답은 무시</code>: ‘한라’ 요청 뒤 ‘한라네’ 요청 → ‘한라네’ 응답 먼저, ‘한라’ 응답 나중 → 목록은 ‘한라네’ 결과.</li>
+          <li><code>AC-06-2 다음 페이지 실패 → 이어 받기, farmId 중복 거름</code>: more fail → 기존 유지·하단 문구, more success에 겹치는 농가 섞음 → 고유 개수.</li>
+          <li><code>failureCopy</code>: 검색어 있음/없음 × 연결 끊김/서버 오류 문구 4가지.</li>
+        </ul></li>
+      <li><b>Playwright(선택)</b> <code>scripts/e2e/discovery-and-gates.spec.ts</code>에 <code>AC-06-2: search failure shows a notice and retry does not duplicate</code> — <code>page.route</code>로 첫 <code>/api/farms?…q=</code>만 503 → 오류 상자 보임 → ‘다시 시도’ → 카드 1개·‘농가 1곳’, <code>monitor(page)</code>로 콘솔 키 경고 없음.</li>
+      <li><b>여정 재실행</b>: 고친 빌드에서 I3-DISC-03을 새 baseline으로 다시 돌리고 <code>i3-b2-87792b7</code> 결과는 덮어쓰지 않는다(DEV-166 하네스 <code>scripts/i3-discovery/run.mjs I3-DISC-03</code>).</li>
+      <li>함께: <code>npm run typecheck</code>, <code>npm run test:mock</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>스펙·wiki 바꿀 줄 (승인 뒤 같은 PR)</h2>
+  <p class="sub">지금 스펙에는 “불러오기 실패 → 다시 시도”(SCR-02)와 “다음 페이지 실패는 하단에 다시 시도”(3장)만 있고, <b>목록이 있는 채 새 검색이 실패하는 경우</b>의 규칙이 없다. 아래 줄을 제안한다.</p>
+  <div class="tw"><table>
+    <thead><tr><th>문서</th><th>지금</th><th>제안</th></tr></thead>
+    <tbody>
+      <tr><td class="q"><code>docs/spec/screens.md</code> 3장 목록</td><td>cursor 페이지네이션(7.1). 다음 페이지 실패는 이미 보인 항목을 유지하고 하단에 다시 시도를 둔다.</td><td>(뒤에 덧붙임) 검색어·탭이 바뀌어 처음부터 받다 실패하면 이전 항목을 새 결과처럼 보이지 않는다: 위에 오류를 보이고 남은 항목은 이전 것이라고 표시한다. 그 다시 시도는 처음부터 받아 목록을 바꾼다. 같은 항목은 한 번만 보인다.</td></tr>
+      <tr><td class="q"><code>docs/spec/screens.md</code> SCR-02 빈 상태·오류</td><td>검색 결과 없음 → ‘찾는 농가가 없어요’와 전체 목록으로. 불러오기 실패 → 다시 시도.</td><td>검색 결과 없음 → (그대로). 처음 불러오기 실패 → ‘불러오지 못했어요’와 다시 시도. 목록이 있는 채 검색이 실패하면 검색칸 아래 오류 상자 ‘‘{검색어}’ 검색 결과를 불러오지 못했어요’와 다시 시도, 남은 목록 머리줄은 ‘이전 목록 · 농가 n곳’. 받는 동안 머리줄 ‘‘{검색어}’ 찾는 중’. 다음 페이지 실패는 3장 목록 규칙.</td></tr>
+      <tr><td class="q"><code>docs/spec/functional/FEAT-06-farm-search-follow.md</code> 예외 흐름</td><td>E1 검색 결과 없음 … E3 …</td><td>(덧붙임) E4 검색 요청 실패 → 실패 안내와 다시 시도. 이전 목록을 검색 결과처럼 보이지 않고, 다시 시도해도 같은 농가가 두 번 나오지 않는다(SCR-02).</td></tr>
+      <tr><td class="q"><code>docs/wiki/Requirements-and-Specifications.md</code> SCR-02 행</td><td>No results: "We couldn't find that farm" and a link back to all farms</td><td>(덧붙임) Search fails: an error box above the previous list (labelled as the previous list) with Retry, which reloads that search from the start without duplicates.</td></tr>
+      <tr><td class="q"><code>apps/consumer/spec.md</code></td><td>(없음)</td><td>DEV-214 절: FarmList 상태는 <code>lib/farmSearch.ts</code> 리듀서, 실패 종류(reset/more)로 재시도 위치·방식을 가름, 요청 번호로 늦은 응답 무시.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>열린 질문 (PM)</h2>
+  <div class="box open"><ol>
+    <li><b>남은 목록: A(유지 + ‘이전 목록’) vs B(지우고 오류만, A5)?</b> 제안은 A(이슈 완료 조건 “기존 목록 위에 실패 안내”). B는 오해 여지가 0이지만 보던 목록을 잃는다.</li>
+    <li><b>오류 본문에 서버 메시지를 쓸지?</b> 첫 불러오기의 LoadError는 <code>ApiError.message</code>를 그대로 보인다. 검색 오류 상자는 고정 문구(연결 끊김/그 밖) 두 가지를 제안한다 — 503 등에서 기술적인 문장이 나오지 않게.</li>
+    <li><b>머리줄 ‘찾는 중’(무브 4)을 이번 범위에 넣을지?</b> 버그 수정에 꼭 필요하진 않지만 같은 오해(옛 목록이 새 결과처럼)를 막는다. 빼면 무브 1·2·3·5만.</li>
+    <li><b>새 AC를 만들지?</b> 이슈 지시대로 테스트 이름은 AC-06-2를 쓴다. 실패·재시도 자체를 AC로 남기려면 FEAT-06에 AC-06-7을 새로 둘 수 있다(제안은 E4 예외 흐름만).</li>
+    <li><b>Figma v6</b>: 승인 뒤 SCR-02 ‘검색 실패’ 상태 프레임 추가를 요청(PR <code>Figma:</code> 줄 후속).</li>
+  </ol></div>
+</section>
+
+</div>
+
+<script>
+// 프레임은 같은 SCR-02 뼈대에 상태만 바꿔 그린다. 농가 4곳은 시드 그대로(기록 화면과 같은 값).
+const FARMS = {
+  kang:  {n:"강씨네 귤밭",   r:"제주 서귀포 · 하우스 감귤 5kg", s:"36,000원", p:"29,000원", d:"D-5",  g:"g1"},
+  hyodon:{n:"효돈 하우스농원",r:"제주 서귀포 · 하우스 감귤 3kg", s:"22,000원", p:"19,000원", d:"D-9",  g:"g2"},
+  halla: {n:"한라네 과수원", r:"제주 제주시 · 노지 감귤 10kg",  s:"27,000원", p:"24,000원", d:"D-18", g:"g3"},
+  namwon:{n:"남원 귤빛농원", r:"제주 남원 · 지금 판매 중인 상품 없음", g:"g4"},
+};
+const ICON_BACK = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>';
+const ICON_SEARCH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
+function card(k, extra=""){
+  const f = FARMS[k];
+  const price = f.p ? `<div class="pr"><div class="st"><s>${f.s}</s><em>${f.p}</em></div><span class="chip">${f.d}</span></div>` : "";
+  return `<div class="card">${extra}<div class="th ${f.g}"></div><div class="cb"><b>${f.n}</b><span class="r">${f.r}</span>${price}</div></div>`;
+}
+function tabs(){
+  return `<div class="tabs"><div class="tab on"><i></i>발견</div><div class="tab"><i></i>내 주문</div><div class="tab"><i></i>채팅</div><div class="tab"><i></i>내 정보</div></div>`;
+}
+function frame({q="한라네", above="", head="", cards=[], below="", overlay="", marks=""}){
+  return `<div class="ph">${marks}
+    <div class="hd"><div class="ib">${ICON_BACK}</div></div>
+    <div class="body">
+      <div class="ttl">농가</div>
+      <div class="search">${ICON_SEARCH}<span>${q}</span></div>
+      ${above}
+      ${head}
+    </div>
+    <div class="list">${cards.join("")}${below}</div>
+    ${overlay}${tabs()}
+  </div>`;
+}
+function col(k, title, desc, ph, note, bad){
+  return `<div class="col"><div class="cap ${bad?"bad":""}"><span class="k">${k}</span><h3>${title}</h3></div><p class="sub">${desc}</p>${ph}${note}</div>`;
+}
+const tag = (n, bad=true) => `<span class="mk in ${bad?"bad":""}">${n}</span>`;
+
+const before = [
+  col("B1","검색 실패 직후", "‘한라네’를 쳤고 요청이 503으로 실패. <code>error && !items</code>가 거짓이라 LoadError가 안 뜬다.",
+    frame({
+      head:`<div class="lh hl bad" style="padding:2px 4px;margin:-2px -4px">마감 임박순 · 농가 4곳${tag(1)}</div>`,
+      cards:["kang","hyodon","halla","namwon"].map(k=>card(k)),
+    }),
+    `<div class="prob"><b>1</b> 검색칸은 ‘한라네’인데 머리줄은 검색 전 목록 ‘농가 4곳’ — 4곳이 검색 결과인 것처럼 보임. 첫 화면에 실패 안내가 하나도 없음.</div>`, true),
+  col("B1′","같은 상태, 끝까지 스크롤", "유일한 실패 신호는 마지막 카드 아래 글자 버튼. 첫 화면(844px)에선 탭 바 뒤에 있어 안 보인다.",
+    `<div class="ph scrolled"><div class="list">${["hyodon","halla","namwon"].map(k=>card(k)).join("")}<div class="tbtn hl bad" style="margin:4px 120px">다시 시도${tag(2)}</div></div>${tabs()}</div>`,
+    `<div class="prob"><b>2</b> 이유 없는 ‘다시 시도’ 하나. 누르면 B2.</div>`, true),
+  col("B2","‘다시 시도’를 누른 뒤", "버튼이 <code>load(false)</code>(덧붙이기)를 불러 재시도 결과 [한라네 과수원]이 기존 4곳 뒤에 붙는다.",
+    frame({
+      head:`<div class="lh hl bad" style="padding:2px 4px;margin:-2px -4px">마감 임박순 · 농가 5곳${tag(1)}</div>`,
+      cards:["kang","hyodon","halla","namwon"].map(k=>card(k)).concat([card("halla")]),
+      overlay:`<div class="console"><span>!</span>Encountered two children with the same key…${tag(3)}</div>`,
+    }),
+    `<div class="prob"><b>1</b> ‘농가 5곳’ — 실제 결과는 1곳.<br><b>3</b> 다섯째 카드(스크롤 아래)로 한라네 과수원이 한 번 더 붙어 두 번. 콘솔에 React 키 중복 경고(개발 빌드 표시). 여전히 오류 안내 없음.</div>`, true),
+];
+
+const notice = (busy=false, n=[1,3]) => `<div class="notice hl" style="box-shadow:none">${tag(n[0],false)}<b>‘한라네’ 검색 결과를 불러오지 못했어요</b><p>잠시 뒤 다시 시도해 주세요. 아래는 이전 목록이에요.</p><div class="obtn ${busy?"busy":""}">${busy?'<span class="spin"></span>':''}다시 시도</div></div>`;
+
+const after = [
+  col("A1","검색 실패 — 목록 위 오류 상자", "검색칸 바로 아래 <code>Notice tone=\"error\"</code>. 남은 목록은 ‘이전 목록’.",
+    frame({
+      above: notice(false,[1]),
+      head:`<div class="lh hl" style="box-shadow:none;align-self:flex-start;padding-right:16px">이전 목록 · 농가 4곳${tag(2,false)}</div>`,
+      cards:["kang","hyodon","halla"].map(k=>card(k)),
+    }),
+    `<div class="ok"><b>1</b> 무엇이 실패했는지(검색어), 무엇을 하면 되는지 한 상자에.<br><b>2</b> 머리줄 ‘이전 목록’ — 4곳이 ‘한라네’ 결과가 아님을 말함.<br>상자 안 ‘다시 시도’ = 그 검색을 처음부터(<code>load(true)</code>, 무브 3).</div>`),
+  col("A2","다시 시도 중", "버튼은 로딩·잠금, 머리줄은 진행 표시. 목록은 응답이 올 때까지 그대로.",
+    frame({
+      above: notice(true,[4]),
+      head:`<div class="lh">‘한라네’ 찾는 중</div>`,
+      cards:["kang","hyodon","halla"].map(k=>card(k)),
+    }),
+    `<div class="ok"><b>4</b> 연타로 같은 요청이 겹치지 않게 잠금(screens.md 3장 중복 방지). 검색어를 처음 바꿀 때도 같은 ‘찾는 중’ 머리줄.</div>`),
+  col("A3","다시 시도 성공", "목록을 <b>바꿈</b>. 오류 상자 사라짐, 1곳, 중복 없음.",
+    frame({
+      head:`<div class="lh hl" style="box-shadow:none;align-self:flex-start;padding-right:16px">마감 임박순 · 농가 1곳${tag(5,false)}</div>`,
+      cards:[card("halla")],
+    }),
+    `<div class="ok"><b>5</b> 요청 번호로 늦은 응답 무시 + <code>farmId</code>로 거름 → 같은 키가 두 번 생기지 않음. 콘솔 경고 없음.</div>`),
+  col("A4","다음 페이지 실패 (공통 규칙)", "<span class='ex'>예시</span>시드는 한 페이지라 실제로는 안 보임. 페이지가 3곳씩이라고 가정한 그림.",
+    frame({
+      q:'<span class="ph-t">농가 이름, 품종, 지역</span>',
+      head:`<div class="lh">마감 임박순 · 농가 3곳</div>`,
+      cards:["kang","hyodon","halla"].map(k=>card(k)),
+      below:`<div class="pgfail"><p>다음 농가를 불러오지 못했어요</p><div class="tbtn">다시 시도</div></div>`,
+    }),
+    `<div class="ok">‘더 보기’ 실패만 맨 아래에서 <b>이어 받기</b>(<code>load(false)</code>, 같은 cursor). 지금의 글자 버튼 하나에 한 줄 이유를 더함.</div>`),
+  col("A5","대안 B — 목록을 지우고 오류만", "PM 선택지(열린 질문 1). 기존 LoadError 재사용.",
+    frame({
+      cards:[],
+      below:`<div class="empty"><div class="ic">!</div><b>불러오지 못했어요</b><p>‘한라네’ 검색 결과를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</p><div class="obtn" style="width:140px">다시 시도</div></div>`,
+    }),
+    `<div class="ok">오해 여지는 없지만 보던 목록이 사라져 검색어를 지우면 다시 받아야 함. 이슈 완료 조건(“기존 목록 위에”)과 다름 → 제안은 A.</div>`),
+];
+document.getElementById("before").innerHTML = before.join("");
+document.getElementById("after").innerHTML = after.join("");
+</script>

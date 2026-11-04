@@ -94,6 +94,7 @@ server/
 | 2026-10-08 | 연락처 가림은 `core/masking.py` 하나(전화번호, 숫자 10자리 이상 계좌). 날짜는 가리지 않는다 | M-16, M-18 | AC-12-2 |
 | 2026-10-16 | 운영자 작업은 기존 멱등 레코드와 별도 `ManagerEvent`에 정제된 감사 요약·실패 복구 상태를 저장한다 | DEV-35, 원문 비노출과 재시도 책임 분리 | M01~M03 |
 | 2026-10-21 | 공개 사진·영상은 `POST /api/media`로 받아 R2에 두고 주소만 저장한다. 사진 필드는 HTTPS·서비스 경로 500자까지만 받아 data URL은 400. local이 아니면 저장소가 R2여야 한다는 검사를 자료 분석 설정과 무관하게 한다(DEV-102) | 공개 사진 업로드 API가 없어 앱이 base64를 URL 자리에 보내 농가 사진 저장이 500으로 실패했다 | AC-02-3, AC-12-10 |
+| 2026-11-04 | 상품 카드 `sold_out`은 `availability != "AVAILABLE"`(PAUSED·TOTAL_SOLD_OUT·PERIOD_SOLD_OUT·NOT_OPEN·ENDED 모두 true, Mock과 같음). `next_stage_starts_at`은 NOT_OPEN·PERIOD_SOLD_OUT일 때만 | DEV-215. 중지·총 한도 소진 상품이 홈 추천·농가 대표에 남고 상세가 예약 가능처럼 보였다. 기다려도 열리지 않는 상태엔 다음 기간 날짜를 약속하지 않는다 | AC-07-1, AC-07-3, R-27 |
 
 - DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
 

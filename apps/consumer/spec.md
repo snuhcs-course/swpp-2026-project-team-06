@@ -116,6 +116,11 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - 주문 상태 문구(목록 굵은 줄·아래 줄, 상세·주문 완료 제목, 입금 대기·환불 본문, 하단 바 요약, 취소 가능 여부)는 `src/lib/orderText.ts` 순수 함수 한곳에서 만든다. 날짜 도우미는 화면이 넘기고, `scripts/test-order-text.mjs`가 React Native 없이 검사한다.
 - 라벨 원칙은 R-28 끝 문장(입금 대기·입금 확인 중·환불 대기·환불 완료). 입금을 알린 뒤 취소 버튼은 앱에서만 숨긴다(서버 `cancel` 행동은 그대로, 후속 이슈 후보는 `tasks.md#DEV-207`).
 
+## DEV-214 농가 목록 검색 실패·다시 시도
+- SCR-02 FarmList 상태는 `src/lib/farmSearch.ts` 리듀서(`start`·`success`·`fail`) 한곳에서 바꾼다. 요청마다 번호(`useRef`)를 붙이고 마지막 요청이 아닌 응답은 버린다. 페이지를 합칠 때 `farmId`로 거른다.
+- 실패 종류로 재시도를 가른다(FEAT-06 E4): 새 검색(reset) 실패는 검색칸 아래 `Notice tone="error"` + ‘다시 시도’(cursor 없이 처음부터, 목록을 바꿈), ‘더 보기’(more) 실패는 목록 아래 한 줄 + 같은 cursor로 이어 받기. 목록이 없을 때 실패는 `LoadError` 그대로.
+- 오류 상자 본문은 서버 메시지 대신 고정 문구 두 가지(`ApiError.status === 0`이면 연결 끊김). 머리줄·문구는 `listHeader`·`failureCopy`, `scripts/test-farm-search.mjs`가 React Native 없이 검사한다.
+
 ## 주문서 409 분기 (DEV-216·DEV-218, 2026-11-04)
 
 - 안내·버튼은 `src/lib/checkoutConflict.ts` 순수 함수(`conflictView`)가 `details.reason`·`details`·다시 읽은 상품 `availability`로 정한다. 서버 `message`와 상품 `soldOut`은 쓰지 않는다(`soldOut`은 서버에서 판매 중지를 보지 않음, DEV-215).

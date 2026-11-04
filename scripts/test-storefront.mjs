@@ -252,3 +252,31 @@ test("AC-07-6: comparison uses the same option in the last period and suppresses
   );
   assert.equal(p.detailContent.blocks[0].uri, "/photos/farm-story.png");
 });
+
+test("AC-07-3: paused or total-sold-out products leave home/farm featured but stay visible and unreservable", async () => {
+  for (const [change, availability] of [
+    [(p) => (p.salesPaused = true), "PAUSED"],
+    [(p) => (p.salesLimitGrams = 0), "TOTAL_SOLD_OUT"],
+  ]) {
+    reset();
+    change(db().products["p-house"]);
+    const home = await ok("GET", "/api/home");
+    assert.ok(!home.recommended.some((c) => c.productId === "p-house"), availability);
+    const kang = home.farms.find((f) => f.farmId === "f-kang");
+    assert.notEqual(kang.featured?.productId, "p-house");
+    const detail = await ok("GET", "/api/products/p-house");
+    assert.equal(detail.availability, availability);
+    assert.equal(detail.soldOut, true);
+    assert.equal(detail.nextStageStartsAt, null);
+    const farm = await ok("GET", "/api/farms/f-kang");
+    const card = farm.products.find((c) => c.productId === "p-house");
+    assert.equal(card.soldOut, true);
+    assert.equal(card.nextStageStartsAt, null);
+  }
+  // 이번 기간만 품절(AC-07-1)은 다음 기간 날짜를 그대로 알려 준다.
+  reset();
+  const redhyang = await ok("GET", "/api/products/p-redhyang");
+  assert.equal(redhyang.availability, "PERIOD_SOLD_OUT");
+  assert.equal(redhyang.soldOut, true);
+  assert.ok(redhyang.nextStageStartsAt);
+});

@@ -40,6 +40,44 @@ def test_AC_06_5_home_without_products_on_sale(client):
     assert len(body["farms"]) == 4
 
 
+def test_AC_07_3_paused_product_leaves_home_and_farm_featured(client):
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(update(Product).where(Product.id == "p-house").values(sales_paused=True))
+
+    body = client.get("/api/home").json()
+
+    # FEAT-06: 홈 추천·히어로·농가 대표는 판매 중 상품만.
+    # 강씨네는 레드향도 이번 기간 품절이라 대표가 없다.
+    assert [c["productId"] for c in body["recommended"]] == ["p-hyodon", "p-noji"]
+    assert body["hero"]["productId"] is None
+    kang = next(f for f in body["farms"] if f["farmId"] == "f-kang")
+    assert kang["featured"] is None
+
+
+def test_AC_07_3_total_sold_out_product_leaves_home(client):
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(update(Product).where(Product.id == "p-house").values(sales_limit_grams=0))
+
+    body = client.get("/api/home").json()
+
+    assert "p-house" not in [c["productId"] for c in body["recommended"]]
+    kang = next(f for f in body["farms"] if f["farmId"] == "f-kang")
+    assert kang["featured"] is None
+
+
+def test_AC_07_3_paused_product_stays_on_farm_page(client):
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(update(Product).where(Product.id == "p-house").values(sales_paused=True))
+
+    products = client.get("/api/farms/f-kang").json()["products"]
+
+    # R-27·AC-04-6: 중지 상품은 공개 화면에 남되 예약할 수 없게 보인다.
+    house = next(p for p in products if p["productId"] == "p-house")
+    assert house["availability"] == "PAUSED"
+    assert house["soldOut"] is True
+    assert house["nextStageStartsAt"] is None
+
+
 def test_AC_02_4_farm_page_shows_products_and_detail_fallback(client, login):
     body = client.get("/api/farms/f-kang", headers=login("u-minji")).json()
 

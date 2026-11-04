@@ -190,9 +190,13 @@ def card(db: Session, item: Loaded, farm_name: str, reserved_people: int) -> Pro
     cur = current_stage(item)
     nxt = next_stage(item)
     first = item.options[0].id if item.options else None
-    sold_out = cur is None or all(item.remaining(cur, o.id) == 0 for o in item.options)
+    state = sales_state(db, item)
+    # AC-07-3·R-27: 예약할 수 없는 상품(중지·한도 소진·기간 공백·종료)은 모두 sold_out이다.
+    # 다음 기간 날짜는 기다리면 열리는 경우(아직 시작 전·이번 기간 매진)에만 알려 준다.
+    sold_out = state.availability != "AVAILABLE"
+    waits_for_next = state.availability in ("NOT_OPEN", "PERIOD_SOLD_OUT")
     return ProductCard(
-        **sales_state(db, item).model_dump(),
+        **state.model_dump(),
         product_id=p.id,
         name=p.name,
         farm_id=p.farm_id,
@@ -204,7 +208,7 @@ def card(db: Session, item: Loaded, farm_name: str, reserved_people: int) -> Pro
         d_day=days_until(cur.ends_at) if cur else None,
         delivery_window=_delivery_window(p),
         sold_out=sold_out,
-        next_stage_starts_at=nxt.starts_at if sold_out and nxt else None,
+        next_stage_starts_at=nxt.starts_at if waits_for_next and nxt else None,
         reserved_count=reserved_people,
         expected_brix=p.expected_brix,
     )
