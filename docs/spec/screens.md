@@ -17,7 +17,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 | --- | --- |
 | 문서 | farmclub 화면 명세 (Screen Specifications) |
 | 태스크 | \[I1-P21\] SWPP-25(초안) · \[I1-P22\] SWPP-26(확정) · SWPP-81(디자인 평가 반영, 계정 분리) |
-| 버전 | 1.7.3 (2026-11-04). 버전별 내용은 9장 변경 이력(DEV-233) |
+| 버전 | 1.7.5 (2026-11-04). 버전별 내용은 9장 변경 이력(DEV-233) |
 | 상태 | 스펙 1.2 — DEV-3·DEV-4 공통 구현 기준. 디자인(`docs/design/`)은 1.2~1.5 반영(SWPP-83) |
 | 근거 | P21 초안 `P21_FarmClub_Screen_Specifications.md`(2026-10-06, Figma 와이어프레임 기준) + `docs/spec` 전체. 둘이 다르면 1장 결정 표를 따른다 |
 | 상위 문서 | [PRD](./prd.md), [IA](./ia.md)(화면 목록·이동), [기능 명세](./functional/README.md)(동작·인수 조건), [서비스 정책](./policy.md)(문구), [기술 설계](./tech-design/README.md)(데이터 모델·주문 상태·시드 데이터). 화면 모양·문구·크기는 [디자인](/docs/design/README.md)이 기준이다 |
