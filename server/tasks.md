@@ -2146,13 +2146,13 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 이슈: [DEV-210](https://linear.app/sswp6/issue/DEV-210) · 화면 쪽은 `apps/producer/tasks.md#DEV-210`
 - 브랜치: `nemodleo/dev-210-news-confirm-delete`
 - 기능·인수 조건: FEAT-12 / AC-12-14, AC-12-15 (새로 추가 예정), FEAT-15 · 규칙 M-01, M-14, M-19, 새 M-23
-- 상태: 디자인 제안 · PM 승인 대기 (1단계). 승인 전에는 코드를 고치지 않는다.
+- 상태: 진행 중 (11/04 PM 승인, 2단계 개발)
 
 ### 목표
 생산자가 자기 농가 소식을 지울 수 있게 하고, 지운 소식은 소비자의 모든 조회에서 빠지게 한다.
 
 ### 범위 (수정 허용 경로)
-- `server/app/messaging/router.py`, `service.py`, `models.py`
+- `server/app/messaging/router.py`, `service.py`, `models.py`, `schemas.py`, `spec.md`
 - `server/migrations/versions/` (새 리비전 1개: `broadcasts.deleted_at`)
 - `server/tests/test_messaging.py`
 
@@ -2164,12 +2164,13 @@ spec-check(`spec-code-review`)가 PR마다 부르는 Claude API 비용을 관리
 - 11/04 `DELETE /api/messaging/news/{broadcast_id}`: ApprovedProducer, 내 농가 소식만. 다른 농가·없는 소식 404, 소비자 403, 이미 지운 내 소식 204(멱등).
 - 11/04 소프트 삭제 `broadcasts.deleted_at timestamptz NULL`. `followed_news`, `farm_public_news`, `_room_rows`, `_room_summary`, `_visible_broadcast`가 `deleted_at IS NULL`만 본다. 분쟁 확인·운영자 복구 때문에 행은 남긴다.
 - 11/04 `models.py`·마이그레이션 변경이라 PR 위험 등급 고위험.
-- 결정 필요: 삭제 행 보관 기간(PM 질문 4).
+- 11/04 PM 승인: 삭제 행은 보관 기간 없이 유지(운영자 복구용, M-23).
+- 11/04 소식방 메시지 응답에 `visibility`(방송 PUBLIC/FOLLOWERS, 답장 null)를 더함. 기본값 None이라 기존 호출자 영향 없음.
 
 ### 작업
-- [ ] PM 승인
-- [ ] 마이그레이션·모델 `deleted_at`
-- [ ] 라우터·서비스 삭제와 조회 필터
+- [x] PM 승인
+- [x] 마이그레이션·모델 `deleted_at` (0025)
+- [x] 라우터·서비스 삭제와 조회 필터
 - [ ] pytest `test_AC_12_14_*`, `test_AC_12_15_*`
 - [ ] 머지 직전 `alembic heads` 1개 확인
 

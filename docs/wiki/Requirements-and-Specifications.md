@@ -473,6 +473,30 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **THEN** I only see what my new role allows
 - **AND** posts I can no longer see disappear right away
 
+**Send confirmation and delete (DEV-210, rule M-23).** Sending from the producer's room input first opens a sheet with the follower count and a preview of what consumers will see. Producers can delete their own news at any time; there is no edit (delete and send again instead). Deleted news leaves every consumer view (news room, chat list preview, news list, public farm room) while consumer replies stay. The server keeps the row as a soft delete with no retention limit, for operator recovery only. If news notifications are added later, they must not include the post body.
+
+**AC-12-13: Confirm before sending news**
+- **GIVEN** I typed news in my own room
+- **WHEN** I press Send
+- **THEN** a sheet asks "Send to N followers?" with a preview
+- **AND** "No" keeps my text without sending, and "Confirm · Send" posts it exactly once
+
+**AC-12-14: Deleted news disappears**
+- **GIVEN** I sent news from my farm
+- **WHEN** I open its ⋯ menu and delete it
+- **THEN** it leaves followers' rooms, chat list previews, news lists and the public farm room, and liking it returns 404
+- **AND** consumer replies stay, and repeating the delete still succeeds
+
+**AC-12-15: Only my own news**
+- **GIVEN** the news belongs to another farm or does not exist
+- **WHEN** a producer calls the delete API
+- **THEN** it returns 404 and nothing changes; consumers and unapproved producers get 403
+
+**AC-12-16: Delete and rewrite**
+- **GIVEN** I sent a text-only news post
+- **WHEN** I choose "Delete and rewrite"
+- **THEN** it is deleted and its text returns to the input; photo or video news has no such option
+
 ### FEAT-13: Answers and handoff
 
 **As a** producer, **I want** routine questions answered for me and judgment calls passed to me, **so that** I only spend time where I am needed.

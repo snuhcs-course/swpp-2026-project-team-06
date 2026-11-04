@@ -1323,7 +1323,7 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 브랜치: `nemodleo/dev-210-news-confirm-delete`
 - 기능·인수 조건: FEAT-12 / AC-12-13, AC-12-14, AC-12-16 (새로 추가 예정), FEAT-15 · 규칙 M-01, M-14, M-19, 새 M-23
 - 서버 쪽 작업은 `server/tasks.md#DEV-210`
-- 상태: 디자인 제안 · PM 승인 대기 (1단계). 승인 전에는 코드를 고치지 않는다.
+- 상태: 진행 중 (11/04 PM 승인, 2단계 개발)
 
 ### 목표
 소식방 입력칸 전송 한 번에 팔로워 전원에게 바로 올라가고 되돌릴 수 없는 문제(H5·H3)를 고친다. 보내기 전에 받는 사람 수·미리보기를 확인하고, 보낸 소식은 생산자가 지울 수 있게 한다.
@@ -1332,9 +1332,9 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - `docs/design/proposals/dev-210-news-confirm-delete.html` (1단계, 제안 보드)
 - `apps/producer/src/lib/OwnNewsRoom.tsx` (팔로워 수 전달, 삭제 호출)
 - `packages/ui/src/NewsRoom.tsx` (확인 시트, 본인 방송 ⋯·삭제 시트, 삭제된 방송을 목록에서 빼는 merge)
-- `packages/api/src/endpoints.ts`, `packages/api/src/mock/**` (`messaging.deleteNews`)
+- `packages/api/src/endpoints.ts`, `packages/api/src/types.ts`, `packages/api/src/mock/**` (`messaging.deleteNews`, 방송 `visibility`)
 - `scripts/e2e/conversation-ui.spec.ts`, `scripts/test-news-rooms.mjs`
-- `docs/spec/functional/FEAT-12-messaging.md`, `FEAT-15-farm-news.md`, `rules.md`, `docs/spec/conversation-ui-1.6.md`, `docs/spec/contracts-1.2.md`, `docs/wiki/Requirements-and-Specifications.md`, `docs/wiki/Testing-Documentation.md`
+- `docs/spec/functional/FEAT-12-messaging.md`, `FEAT-15-farm-news.md`, `rules.md`, `functional/README.md`, `docs/spec/conversation-ui-1.6.md`, `docs/spec/contracts-1.2.md`, `docs/wiki/Requirements-and-Specifications.md`, `docs/wiki/Testing-Documentation.md`
 
 ### 비범위 (건드리지 않음)
 - 1:1 채팅 전송(확인 없이 바로 보내기 유지)
@@ -1348,14 +1348,17 @@ T16 녹화 리뷰의 owner 결정 1~15를 반영하고 기존 저장·공개·�
 - 11/04 수정은 넣지 않는다. 본인 방송에 보이는 ⋯(48×48, 길게 누르기는 보조) → 삭제 시트(「삭제하고 다시 쓰기」(글 소식만) · 「아니요」 · 「삭제」).
 - 11/04 소비자 화면은 자리 표시 없이 빠진다. 소비자 답장은 남는다.
 - 11/04 알림: 지금 소식 알림 발송이 없어 회수할 것이 없다. 나중에 붙이면 본문을 넣지 않는다(M-23).
-- 결정 필요: PM 질문 5개(보드 마지막 절).
+- 11/04 PM 승인: (1) 수정 없이 삭제만 (2) `/broadcast/new`에는 확인 시트를 더하지 않음 (3) 사진 소식은 「다시 쓰기」 없이 삭제만 (4) 소프트 삭제 행은 보관 기간 없이 유지(운영자 복구용) (5) 운영의 「HE 테스트 소식…」은 배포 뒤 사람이 생산자 계정으로 삭제.
+- 11/04 보드의 BEFORE 예시 글을 PM이 실제 버그로 오해해 「예시」 라벨을 붙이고 전화번호 흔적을 다른 끊긴 문장으로 바꿈.
+- 11/04 삭제 시트에서 공개·팔로워만을 구분하려고 소식방 메시지에 `visibility`(소비자 답장은 null)를 더함(contracts-1.2 4장).
+- 11/04 NewsRoom은 새로고침 응답이 덮는 시간 범위([가장 오래된, 가장 새로운]) 안에서 응답에 없는 방송을 뺀다. 보내는 중 늦게 온 응답이 막 보낸 소식을 지우지 않게 범위 밖은 남긴다. 소비자 좋아요 404는 그 소식을 빼고 「삭제된 소식이에요」.
 
 ### 작업
 - [x] 디자인 제안 보드(before/after) `docs/design/proposals/dev-210-news-confirm-delete.html`
-- [ ] PM 승인
-- [ ] 스펙·wiki 갱신(AC-12-13~16, M-23)
-- [ ] NewsRoom 확인 시트·⋯·삭제 시트, OwnNewsRoom 연결
-- [ ] API 클라이언트·Mock `deleteNews`
+- [x] PM 승인
+- [x] 스펙·wiki 갱신(AC-12-13~16, M-23)
+- [x] NewsRoom 확인 시트·⋯·삭제 시트, OwnNewsRoom 연결
+- [x] API 클라이언트·Mock `deleteNews`
 - [ ] Playwright AC-12-13, AC-12-16 · Mock AC-12-14
 - [ ] Figma v6 반영 요청(후속)
 
