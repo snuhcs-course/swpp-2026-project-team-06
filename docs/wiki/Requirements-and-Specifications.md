@@ -90,7 +90,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 | --- | --- | --- |
 | Approval | Farms are verified; an operator approves a product's initial supply and any increase | R-22, R-25 |
 | Payment | One full **bank transfer to the farm's own account** per order (DEV-68). Issuing deposit instructions takes the stock and starts a 24-hour deposit deadline; the depositor name is the order number; the producer confirms the deposit after checking the bank statement, and only then is the order reserved. farmclub is a marketplace intermediary and never receives or holds money. The consents the buyer agreed to are recorded | R-01-03, R-28 |
-| Deadline | Automatically expire only unreported overdue deposits; a buyer-reported deposit stays awaiting confirmation/exception handling rather than being canceled automatically | R-28 |
+| Deadline | Apps judge "past the deposit deadline" and "today/yesterday" with the server clock (every API response carries an `X-Server-Time` header), not the device clock, so labels match the server's deadline even when the device clock is wrong or the server clock is fixed for a demo (DEV-229). Automatically expire only unreported overdue deposits; a buyer-reported deposit stays awaiting confirmation/exception handling rather than being canceled automatically | R-28 |
 | Pricing | Earlier periods are cheaper and periods do not overlap. Changed terms are reconfirmed before payment; paid orders keep their price | R-17-18 |
 | Capacity | Reserved plus shipped weight <= sales limit <= approved weight. Shown to producers in kg | R-06, R-26 |
 | Quantity | One option and one address per order, within the per-order and per-period box limits | R-23 |
