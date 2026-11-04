@@ -27,6 +27,7 @@ import {
   Scroll,
   Section,
   Sheet,
+  useSheetLeave,
   T,
   TestBand,
   md,
@@ -83,6 +84,8 @@ export default function Checkout() {
   const [memo, setMemo] = useState("");
   const [consents, setConsents] = useState(() => orderConsents(false));
   const [sheet, setSheet] = useState<null | "option" | "address">(null);
+  // 받는 곳 시트의 ‘새 주소 입력’은 시트를 바로 닫고 배송지 입력으로 간다(DEV-225)
+  const sheetLeave = useSheetLeave();
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   // 409 또는 입금 기한 만료 복귀(SCR-11 → changed=1). 입력값은 어떤 경우에도 지우지 않는다
@@ -661,6 +664,7 @@ export default function Checkout() {
         visible={sheet === "address"}
         onClose={() => setSheet(null)}
         title="받는 곳"
+        instant={sheetLeave.instant}
       >
         {addresses.data?.map((a) => (
           <Pressable
@@ -697,10 +701,12 @@ export default function Checkout() {
         <Button
           label="새 주소 입력"
           variant="outline"
-          onPress={() => {
-            setSheet(null);
-            router.push(addressHref);
-          }}
+          onPress={() =>
+            sheetLeave.leave(
+              () => setSheet(null),
+              () => router.push(addressHref),
+            )
+          }
         />
       </Sheet>
     </Screen>
