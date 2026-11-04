@@ -284,6 +284,14 @@ export const SUPPORT_WELCOME =
   "앱을 쓰다가 모르는 게 생기면 언제든 이 대화방에 편하게 남겨 주세요. " +
   "운영팀이 확인하고 답해 드릴게요.\n" +
   "화면 오른쪽 위 ? 버튼을 누르면 사용 안내도 처음부터 다시 볼 수 있어요.";
+/** 정지·반려 농가가 방 없이 처음 문의 화면을 열 때의 첫 메시지. server support.py SUSPENDED_FIRST·REJECTED_FIRST와 같다(DEV-209) */
+export const SUSPENDED_FIRST =
+  "안녕하세요, farmclub 운영팀이에요.\n" +
+  "계정 정지에 궁금한 점이나 이의가 있으면 이 대화방에 남겨 주세요. " +
+  "운영팀이 확인하고 답해 드릴게요.";
+export const REJECTED_FIRST =
+  "안녕하세요, farmclub 운영팀이에요.\n" +
+  "신청 결과에 궁금한 점이 있으면 이 대화방에 남겨 주세요. 확인하고 답해 드릴게요.";
 /** 소비자 farmclub 문의 대화방 환영 메시지. server/app/messaging/support.py CONSUMER_WELCOME과 같다(DEV-150) */
 export const CONSUMER_WELCOME =
   "안녕하세요, farmclub 운영팀이에요. 가입을 환영해요!\n" +

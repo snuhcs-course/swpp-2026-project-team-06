@@ -389,6 +389,27 @@ export const messaging = {
     request<{ unreadCount: number }>("PUT", "/api/messaging/support/read", {
       body: { lastReadMessageId },
     }),
+  // 생산자 자기 농가의 farmclub 운영팀 대화방(DEV-209). 정지·반려 농가도 쓰고, 방이 없으면 처음 열 때 생긴다
+  producerSupportMessages: (q: A.PageQuery = {}) =>
+    request<A.ChatPage>("GET", "/api/messaging/producer/support/messages", {
+      query: q,
+    }),
+  producerSupportSend: (
+    text: string,
+    attachmentIds: string[] = [],
+    idempotencyKey: string = newIdempotencyKey(),
+  ) =>
+    request<{ message: A.ChatMessage; thread: A.Thread }>(
+      "POST",
+      "/api/messaging/producer/support/messages",
+      { body: { text, attachmentIds }, idempotencyKey },
+    ),
+  producerSupportRead: (lastReadMessageId: string) =>
+    request<{ unreadCount: number }>(
+      "PUT",
+      "/api/messaging/producer/support/read",
+      { body: { lastReadMessageId } },
+    ),
   producerChats: (q: { needsReply?: boolean } & A.PageQuery = {}) =>
     request<A.Paged<A.ProducerChatSummary>>(
       "GET",

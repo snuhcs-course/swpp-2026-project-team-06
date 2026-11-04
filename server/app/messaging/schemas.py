@@ -243,6 +243,13 @@ class ProducerSendInput(CamelModel):
     answer_to_escalation_ids: list[str] = Field(default_factory=list)
 
 
+class SupportProducerSendInput(CamelModel):
+    """생산자 farmclub 문의(DEV-209). 질문함 답변 연결이 없어 글·사진만 받는다."""
+
+    text: str = ""
+    attachment_ids: list[str] = Field(default_factory=list)
+
+
 class ProducerSendResult(CamelModel):
     message: ChatMessage
     thread: ThreadView
