@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   MORE_FAILED,
+  canLoadMore,
   failureCopy,
   farmListReducer as reduce,
   initialFarmListState,
@@ -144,6 +145,25 @@ test("AC-06-2 AC-06-7 다음 페이지 실패 → 이어 받기, farmId 중복 �
   assert.equal(run(moreFailed, start(4, "한라")).failed, null);
   // 한 페이지 안의 중복도 거른다
   assert.equal(mergeFarms([], [farm("a"), farm("a"), farm("b")]).length, 2);
+});
+
+test("AC-06-7 새 검색이 실패해 남은 목록이 이전 것이면 ‘더 보기’를 막는다", () => {
+  const page1 = run(initialFarmListState, start(1, ""), ok(1, SEED, "c2"));
+  assert.equal(canLoadMore(page1), true);
+  // 받는 중에는 막는다
+  assert.equal(canLoadMore(run(page1, start(2, "한라네"))), false);
+  // ‘한라네’ 실패: 남은 4곳의 cursor(c2)는 전체 목록의 것이라 ‘한라네’와 섞지 않는다
+  const failed = run(page1, start(2, "한라네"), fail(2));
+  assert.equal(failed.cursor, "c2");
+  assert.equal(failed.shownQuery, "");
+  assert.equal(canLoadMore(failed), false);
+  // ‘더 보기’ 실패 뒤에는 이어 받기를 허용
+  assert.equal(canLoadMore(run(page1, start(3, "", "more"), fail(3))), true);
+  // 마지막 페이지면 막는다
+  assert.equal(
+    canLoadMore(run(initialFarmListState, start(1, ""), ok(1, SEED))),
+    false,
+  );
 });
 
 test("AC-06-7 첫 불러오기 실패는 목록 없이 실패만(LoadError 자리)", () => {

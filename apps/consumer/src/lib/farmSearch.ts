@@ -95,6 +95,12 @@ export function farmListReducer(
   };
 }
 
+/** ‘더 보기’를 보낼 수 있는지. 다른 요청 중이거나 새 검색이 실패해 남은 목록이 이전 것이면 막는다
+ * (이전 목록의 cursor를 새 검색어와 섞지 않는다). 보낼 때 검색어는 shownQuery를 쓴다 */
+export function canLoadMore(state: FarmListState): boolean {
+  return !!state.cursor && !state.pending && state.failed?.mode !== "reset";
+}
+
 /** 검색칸 아래 머리줄. null이면 숨긴다 */
 export function listHeader(state: FarmListState): string | null {
   const { items, pending, failed } = state;

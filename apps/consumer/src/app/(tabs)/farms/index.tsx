@@ -23,6 +23,7 @@ import { Pressable, TextInput, View } from "react-native";
 
 import {
   MORE_FAILED,
+  canLoadMore,
   failureCopy,
   farmListReducer,
   initialFarmListState,
@@ -45,8 +46,11 @@ export default function FarmList() {
 
   // reset: cursor 없이 처음부터 받아 목록을 바꾼다(새 검색·그 재시도). more: 같은 cursor로 이어 붙인다(‘더 보기’·그 재시도)
   async function load(mode: FarmLoadMode, q: string = query) {
-    // ‘더 보기’는 다른 요청이 없을 때만. 새 검색은 앞 요청을 덮는다
-    if (mode === "more" && (state.pending || !cursor)) return;
+    // ‘더 보기’는 다른 요청이 없고 남은 목록이 이전 것이 아닐 때만, 보이는 결과의 검색어로. 새 검색은 앞 요청을 덮는다
+    if (mode === "more") {
+      if (!canLoadMore(state)) return;
+      q = state.shownQuery;
+    }
     const n = ++seq.current;
     dispatch({ type: "start", seq: n, query: q, mode });
     try {
@@ -254,7 +258,7 @@ export default function FarmList() {
               label="더 보기"
               variant="text"
               loading={pending?.mode === "more"}
-              disabled={pending?.mode === "reset"}
+              disabled={pending?.mode !== "more" && !canLoadMore(state)}
               onPress={() => void load("more")}
               style={{ alignSelf: "center" }}
             />
