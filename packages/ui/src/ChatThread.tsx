@@ -6,7 +6,7 @@ import { T } from "./Text";
 import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
 import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
-import { time } from "./format";
+import { daySeparator, time } from "./format";
 import { inBackground } from "./foreground";
 
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
@@ -212,6 +212,10 @@ export function ChatThread({
   }
   // 마지막 농가 답 이후 needsHuman인 내 질문 중 마지막 것 하나에만 상태 줄을 붙인다(DEV-208)
   const waiting = producer || !forwardStatus ? -1 : waitingIndex(messages);
+  // 날짜 구분은 한국 날짜로 묶는다(UTC 날짜로 묶으면 오전 9시 전 메시지가 전날로 간다, DEV-223)
+  const days = messages.map((m, i) =>
+    daySeparator(m.createdAt, messages[i - 1]?.createdAt),
+  );
   return (
     // 메시지 본문·보낸 사람은 세션 녹화에서 가린다(N-05, DEV-71). react-native-web이 data-ph-private로 내보낸다
     <View
@@ -272,11 +276,9 @@ export function ChatThread({
         ) : null}
         {messages.map((m, i) => (
           <View key={m.messageId} style={{ gap: 14 }}>
-            {!i ||
-            m.createdAt.slice(0, 10) !==
-              messages[i - 1].createdAt.slice(0, 10) ? (
+            {days[i] ? (
               <T variant="caption" muted center>
-                {m.createdAt.slice(0, 10)}
+                {days[i]}
               </T>
             ) : null}
             <ChatBubble

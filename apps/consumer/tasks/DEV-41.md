@@ -11,6 +11,7 @@
 ### 범위 (수정 허용 경로)
 - `docs/evaluation/he-2026-11-04/README.md`: 1절 '앱 여는 법' 표(Android 줄을 Chrome/PWA로), 평가 주소 기억 설명(DEV-198), APK 금지 줄(DEV-205·206), 3절 생산자 흐름 1번·소비자 흐름 4번 안내, 4절 보고서 링크, 팀용 체크리스트 한 항목
 - 새 파일 `docs/evaluation/he-2026-11-04/he-claude-2026-11-03.md`(웹 30건), `he-claude-phone-2026-11-03.md`(APK), `he-claude-pwa-2026-11-03.md`(PWA 설치·확인)
+- 새 파일 `docs/evaluation/he-2026-11-04/results.md`(11/4 평가 결과, 재현 조사, 후속 이슈 DEV-222~232), README 4절 보고서 줄에 한 문장 추가
 - 이 파일(이 절)
 
 ### 비범위
@@ -26,3 +27,4 @@
 
 ### 기록
 - 11/04 spec-check가 DEV-33 절("README 한 줄")을 기준으로 범위 이탈(MISMATCH SC-001·002)을 잡아 이 절을 따로 만들었다. 체커 수정(DEV-211)이 먼저 머지된 뒤의 결과.
+- 11/04 평가 뒤: 시트 5명(원시 문제 27, 묶음 43)과 재현 조사·디자인 감사의 코드 결함을 `docs/evaluation/he-2026-11-04/results.md`로 정리하고 후속 이슈 11건(DEV-222~232)을 만들었다. 브랜치 `nemodleo/dev-41-he-results-doc`.
