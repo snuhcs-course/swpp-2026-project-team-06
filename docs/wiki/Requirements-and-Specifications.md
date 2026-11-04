@@ -326,6 +326,12 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** I search for "Hallabong"
 - **THEN** only that farm is shown
 
+**AC-06-7: Failed search and retry**
+- **GIVEN** four farms are listed
+- **WHEN** the search for "Hallane" fails and I tap Retry, which succeeds
+- **THEN** after the failure I see an error box under the search field and "Previous list · 4 farms"
+- **AND** after Retry only that farm is shown, once
+
 **AC-06-3: Follow a farm**
 - **GIVEN** I am logged in
 - **WHEN** I follow a farm
@@ -751,7 +757,7 @@ Key consumer screens:
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
 | **SCR-01 Discover** | First screen: photo/text farm news, then products; each is an independent horizontal carousel | Search, open a news card or product | News/farm → direct room; product → SCR-04 | Each section has its own empty/error state; no profile-only row or seasonal hero |
-| **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms |
+| **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms. Search fails with farms already listed: an error box under the search field with Retry, the remaining list labelled "Previous list"; Retry reloads that search from the start without duplicates |
 | **SCR-03 Farm page** | Direct farm news room with profile and adjacent Follow button | Fold/unfold the product shelf, send a same-room reply, open short farm info | Product → SCR-04; profile → short info | Shelf expanded for consumers; public/follower access unchanged; no reply-privacy hint |
 | **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
 | **SCR-05 Login** | Sign in with Kakao (returns through `/auth/kakao`); test accounts appear only while Kakao is off, in the app Mock mode, or on the evaluator link `/login?evaluator=1` (DEV-198), next to the Kakao button (same as the producer app, DEV-136) | Tap Kakao or an account; close | Back to the screen and action that asked for login; first sign-up goes through SCR-06. The Kakao return screen shows only a spinner and one line; a reload while signed in goes home without an error | Producer accounts are not listed. Test login off: "You can't log in right now". No server reply within 15 s: "Login is taking too long". Closing does nothing |
