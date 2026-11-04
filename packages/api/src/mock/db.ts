@@ -197,6 +197,8 @@ export type DB = {
   follows: { userId: string; farmId: string }[];
   products: Record<string, ProductRec>;
   news: NewsRec[];
+  /** 생산자가 지운 소식(M-23, DEV-210). 서버의 소프트 삭제처럼 모든 조회에서 빠지고 다시 지워도 204 */
+  deletedNews?: NewsRec[];
   roomReplies: NewsRoomMessage[];
   reactions: { broadcastId: string; userId: string }[];
   /** key = `${farmId}:${consumerId}` */

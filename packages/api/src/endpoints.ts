@@ -325,6 +325,9 @@ export const messaging = {
       "DELETE",
       `/api/messaging/news/${broadcastId}/reaction`,
     ),
+  /** 내 농가 소식 삭제(M-23, DEV-210). 소프트 삭제, 이미 지운 소식도 성공 */
+  deleteNews: (broadcastId: string) =>
+    request<null>("DELETE", `/api/messaging/news/${broadcastId}`),
   postNews: (
     input: A.NewsInput,
     idempotencyKey: string = newIdempotencyKey(),
