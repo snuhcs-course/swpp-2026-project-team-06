@@ -395,7 +395,8 @@ preview`); an update published without them would point the app at `localhost`.
 For the 11/4 Heuristic Evaluation, `EXPO_PUBLIC_EVALUATOR_LOGIN=1` in the `preview` environment
 only makes the internal apps show the test-account list on the login screen (DEV-200; the web
 equivalent is `/login?evaluator=1`, DEV-198). Never set it in `production` or `eas.json`; delete
-it and publish a normal update after the evaluation.
+it and publish a normal update after the evaluation. Deleted from both projects and a normal update published on
+2026-11-04.
 
 Android: open the build link on the phone, allow installs from this source once, install. The
 same APKs are kept as GitHub Release assets (`apk-internal-<build date>`, with SHA-256; current:
