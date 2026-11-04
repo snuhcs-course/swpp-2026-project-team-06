@@ -368,6 +368,16 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **THEN** the address is filled in for me
 - **AND** the order keeps its own copy, so later edits to my address book do not change it
 
+**AC-08-8: Reconfirm a changed price**
+- **GIVEN** the farm changed the price or box weight (or the sales period rolled over) while my checkout was open
+- **WHEN** I tap Reserve
+- **THEN** no order is created; the checkout shows the old and new price (for example 29,000 → 30,000 won) and the new total, keeps everything I entered, and only "Reserve at the new price" creates the order
+
+**AC-08-9: Paused, sold out or ended comes first**
+- **GIVEN** sales were paused, my option sold out, or the sales period ended while my checkout was open
+- **WHEN** I tap Reserve
+- **THEN** I see that reason even if the price also changed, without "Reserve at the new price": paused disables Reserve with a "Check again" link, a sold-out option offers "Change option", and an ended period or full stock offers "Back to product"
+
 ### FEAT-09: Bank transfer to the farm (deposit and confirmation)
 
 **As a** consumer, **I want to** pay the full amount once by transferring it to the farm's account, **so that** stock is never taken twice and the farm, not a platform, receives my money. (Revised in DEV-68, 2026-10-18: card payment was put on hold; farmclub is a marketplace intermediary.)
