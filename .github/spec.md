@@ -12,6 +12,6 @@
 
 ## AI-assisted Spec ↔ Code 확인 (DEV-40)
 
-- 자동 확인의 구현 결정은 `spec-check/spec.md`, 작업 기록은 `spec-check/tasks.md#dev-40`에 둔다.
+- 자동 확인의 구현 결정은 `spec-check/spec.md`, 작업 기록은 `spec-check/tasks/DEV-40.md`에 둔다.
 - 기존 작성자 표를 입력으로 사용하고 사람 확인란을 대신 채우지 않는다. 오류·문맥 누락을 통과로 처리하지 않는다.
 - live model 접근 및 사람 검토가 완료되기 전까지 선택적 check로 도입한다.
