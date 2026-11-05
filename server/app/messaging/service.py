@@ -982,9 +982,12 @@ def _evidence(
 
 
 def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> ConsumerSendOutcome:
-    """소비자 질문(FEAT-12·13). 대화 행을 잠그고 AI 답까지 같은 트랜잭션에 저장한다(AC-13-6).
+    """소비자 질문(FEAT-12·13). 질문과 AI 답을 같은 트랜잭션에 저장한다(AC-13-6).
 
     농가 AI ON + 방 AUTO일 때만 AI가 답한다(M-05·M-20). HUMAN/OFF면 직접 응대 대상으로 남긴다.
+    AI 호출 동안에는 대화 행을 잠그지 않는다(DEV-180): 시작할 때 모드·두 버전을 캡처하고,
+    저장 직전에 행을 잠가 다시 확인한다. 그사이 생산자 답변·모드 변경·설정 변경이 있었으면
+    이전 작업의 답을 저장하지 않고 직접 응대 대상으로 남긴다(contracts-1.2 5장).
     """
     from app.admin import service as admin
     from app.ai import service as ai
@@ -992,7 +995,8 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     from app.farms import service as farms
     from app.orders import service as orders
 
-    thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
+    # 잠그지 않고 읽는다. AI 호출이 끝난 뒤 저장 직전에 잠근다(DEV-180).
+    thread = _consumer_thread(db, consumer.id, farm_id)
     text = body.text.strip()
     if (not text and not body.attachment_ids) or len(text) > 1000:
         raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
@@ -1012,9 +1016,18 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
             raise not_found("찾을 수 없는 상품이에요.")
     attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
     settings = farms.ai_settings(db, farm_id)
-    captured = (thread.version, settings.version)
+    captured = (thread.ai_mode, thread.version, settings.enabled, settings.version)
     masked_text, was_masked = mask(text)
     created = now()
+    answer = None
+    if thread.ai_mode == "AUTO" and settings.enabled and text:
+        answer = ai.answer_question(
+            text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
+        )
+    # 저장 직전: 대화 행을 잠그고 최신 모드·버전·설정을 다시 읽는다(직접 답변·모드 변경과 직렬화)
+    thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
+    latest = farms.ai_settings(db, farm_id, fresh=True)
+    unchanged = (thread.ai_mode, thread.version, latest.enabled, latest.version) == captured
     message = ThreadMessage(
         id=new_id("m"),
         thread_id=thread.id,
@@ -1025,20 +1038,17 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         order_id=body.order_id,
         source_refs=[],
         masked=was_masked,
-        # 사진만 보낸 메시지는 AI가 판단하지 않는다(M-21)
-        needs_human=thread.ai_mode == "HUMAN" or not settings.enabled or not text,
+        # AI 답이 저장되지 않는 질문은 모두 직접 응대 대상이다: HUMAN·OFF, 사진만 보낸 메시지(M-21),
+        # 그리고 AI 작업 중 모드·설정이 바뀌어 답을 버린 경우(AC-13-6). 시작 때 HUMAN이었다가
+        # 저장 전에 AUTO로 돌아온 질문도 AI 답이 없으므로 여기에 남는다.
+        needs_human=not (answer is not None and unchanged),
         created_at=created,
     )
     db.add(message)
     db.flush()
     reply = None
-    if thread.ai_mode == "AUTO" and settings.enabled and text:
-        answer = ai.answer_question(
-            text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
-        )
-        latest = farms.ai_settings(db, farm_id, fresh=True)
-        still_auto = thread.ai_mode == "AUTO" and latest.enabled
-        if still_auto and (thread.version, latest.version) == captured:
+    if answer is not None:
+        if unchanged:
             forwarded = answer.action != "ANSWER"
             reply = ThreadMessage(
                 id=new_id("m"),

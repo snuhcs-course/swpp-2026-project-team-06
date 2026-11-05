@@ -1496,7 +1496,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v7-farm-common"
+    assert PROMPT_VERSION == "source-refine-v8-bounded-batches"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 
@@ -1706,7 +1706,7 @@ def test_AC_SRC_5_8_refine_empty_reasons(source, reason):
     assert refinement.empty_reason(source, "target", [{"module": "summary"}]) is None
 
 
-def test_AC_SRC_2_5_refine_cap_keeps_full_freshness_and_excludes_omitted(
+def test_AC_SRC_2_5_refine_batches_keep_full_freshness_and_cover_all_candidates(
     client,
     login,
     monkeypatch,
@@ -1718,15 +1718,18 @@ def test_AC_SRC_2_5_refine_cap_keeps_full_freshness_and_excludes_omitted(
         item = db.scalar(select(Item).where(Item.run_id == run["id"], Item.phase == "REFINE"))
         current = refinement.current_candidates(db, batch["id"], batch["targets"][0]["id"])
         assert item.status == "SUCCEEDED" and refinement.is_current(item, current)
-        assert item.diagnostics["candidatesSkipped"] == len(current) - 1
-        skipped = {c.id for c in current[1:]}
-        assert skipped <= {cid for e in item.refinement["excluded"] for cid in e["candidateIds"]}
-        assert not skipped & {
+        assert item.diagnostics["candidatesSkipped"] == 0
+        assert item.diagnostics["candidatesAnalysed"] == len(current)
+        assert item.diagnostics["refinementBatches"] == len(current)
+        cited = {
             cid for m in item.refinement["modules"] for t in m["texts"] for cid in t["candidateIds"]
         }
+        excluded = {cid for e in item.refinement["excluded"] for cid in e["candidateIds"]}
+        assert cited | excluded == {c.id for c in current}
+        assert cited & {c.id for c in current[1:]}
     assert not worker.run_once()
     r = client.get(f"{PREFIX}/{batch['id']}/runs/{run['id']}", headers=h).json()
-    assert next(i for i in r["items"] if i["phase"] == "REFINE")["candidatesSkipped"] > 0
+    assert next(i for i in r["items"] if i["phase"] == "REFINE")["candidatesSkipped"] == 0
 
 
 @pytest.mark.parametrize("code", ["CANDIDATES_REJECTED", "REQUEST_UNCERTAIN"])
@@ -2080,7 +2083,7 @@ def test_AC_SRC_1_2_11_common_farm_only_refines_for_single_product(
 
 
 @pytest.mark.parametrize("changed_index", [0, 4])
-def test_AC_SRC_2_5_common_candidates_source_prefix_cap_and_content_freshness(
+def test_AC_SRC_2_5_common_candidates_source_batches_and_content_freshness(
     client, login, monkeypatch, changed_index
 ):
     from app.source_analysis.models import Batch, Candidate
@@ -2118,18 +2121,16 @@ def test_AC_SRC_2_5_common_candidates_source_prefix_cap_and_content_freshness(
         selected, limits = refinement.limit_candidates(refinement.payload(current))
         assert [c["value"] for c in selected] == lines[:3]
         assert refinement.limit_candidates(refinement.payload(current)) == (selected, limits)
-        assert item.diagnostics["candidatesAnalysed"] == 3
-        assert item.diagnostics["candidatesSkipped"] == 3
+        assert item.diagnostics["candidatesAnalysed"] == 6
+        assert item.diagnostics["candidatesSkipped"] == 0
+        assert item.diagnostics["refinementBatches"] == 2
         cited = {
             cid for m in item.refinement["modules"] for t in m["texts"] for cid in t["candidateIds"]
         }
-        assert cited == {c.id for c in current[:3]}
-        assert {c.id for c in current[3:]} <= {
-            cid for e in item.refinement["excluded"] for cid in e["candidateIds"]
-        }
+        assert cited == {c.id for c in current}
         candidate = db.get(Candidate, current[changed_index].id)
         assert candidate.target_id is None
-        # Same ID, changed content: both included and capped-out common inputs must go stale.
+        # Same ID, changed content: common inputs from every batch must go stale.
         candidate.value += " 가상 기록을 고쳤습니다."
         db.commit()
         current = refinement.current_candidates(db, batch["id"], tid)

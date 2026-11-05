@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v7-farm-common"
+PROMPT_VERSION = "source-refine-v8-bounded-batches"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)

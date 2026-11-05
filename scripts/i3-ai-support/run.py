@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import random
 import re
 import subprocess
@@ -34,9 +35,14 @@ from app.core.security import issue_token  # noqa: E402
 ROOT = fixtures.ROOT
 API = "http://localhost:8000"
 PROXY = "http://127.0.0.1:8787"
-BASELINE = "i3-b1-eb727b6"
+# First cohort (DEV-169) is i3-b1-eb727b6; a later cohort sets I3_BASELINE (e.g. i3-b2-<sha>, DEV-180)
+# and gets its own run log, traces and fresh consumers, so earlier results are never overwritten.
+FIRST_BASELINE = "i3-b1-eb727b6"
+BASELINE = os.environ.get("I3_BASELINE", FIRST_BASELINE)
+COHORT_SUFFIX = "" if BASELINE == FIRST_BASELINE else f"-{BASELINE}"
 SEED = 1542026
-RUN_LOG = ROOT / "docs" / "evaluation" / "i3-ai-support" / "run-log.csv"
+TEMPLATE_LOG = ROOT / "docs" / "evaluation" / "i3-ai-support" / "run-log.csv"
+RUN_LOG = TEMPLATE_LOG if not COHORT_SUFFIX else TEMPLATE_LOG.with_name(f"run-log-{BASELINE}.csv")
 TRACES = ROOT / ".artifacts" / "i3-ai-support" / BASELINE
 PROVIDER_MODE = {
     "available": "passthrough",
@@ -140,7 +146,7 @@ def transition(kind: str, trial, log: list) -> None:
 def run_trial(case: dict, run: int, suffix: str = "") -> dict:
     runtime = case["runtime"]
     change = runtime.get("change_during_generation")
-    proxy(mode="pause" if change else PROVIDER_MODE[runtime["provider"]])
+    initial_stats = proxy(mode="pause" if change else PROVIDER_MODE[runtime["provider"]])
     trial = fixtures.prepare(case, run, suffix)
     started = datetime.now(UTC).isoformat(timespec="seconds")
     trace = {
@@ -226,6 +232,25 @@ def run_trial(case: dict, run: int, suffix: str = "") -> dict:
             blocker="no model call to pause (rule path); transition not injected during generation. Next: Zahra adds a pre-rule hook or reclassifies with DEV-154 owner",
         )
         return trace
+    stats = proxy()
+    trace["provider_result"] = {
+        k: stats.get(k)
+        for k in ("provider", "upstream_status", "usage", "response_id", "last_model")
+    }
+    trace["provider_result"]["request_delta"] = stats.get(
+        "upstream_requests", 0
+    ) - initial_stats.get("upstream_requests", 0)
+    trace["provider_result"]["cost_usd"] = (stats.get("usage") or {}).get("cost")
+    if (
+        runtime["provider"] == "available"
+        and stats.get("upstream_status", 0) is not None
+        and stats.get("upstream_status", 0) >= 400
+    ):
+        return {
+            **trace,
+            "status": "BLOCKED",
+            "blocker": "Live provider request failed; fallback is not model quality.",
+        }
     return {**trace, **score(case, trace)}
 
 
@@ -295,7 +320,8 @@ def main(selected: list[str]) -> None:
     TRACES.mkdir(parents=True, exist_ok=True)
     results = {}
     for i, (case, run) in enumerate(schedule, 1):
-        trace = run_trial(case, run, suffix="" if not selected else f"-adhoc{int(time.time())}")
+        suffix = COHORT_SUFFIX if not selected else f"{COHORT_SUFFIX}-adhoc{int(time.time())}"
+        trace = run_trial(case, run, suffix=suffix)
         # ad-hoc runs never overwrite the planned run's traces
         name = f"{case['id']}-r{run}{'-adhoc' if selected else ''}.json"
         (TRACES / name).write_text(
@@ -326,7 +352,10 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
             results[(trace["case"], trace["run"])] = (trace, path.name)
     commit = git("rev-parse", "HEAD")
     prompt_blob = git("rev-parse", "HEAD:server/app/ai/service.py")
-    with RUN_LOG.open(newline="", encoding="utf-8") as handle:
+    source = (
+        RUN_LOG if RUN_LOG.exists() else TEMPLATE_LOG
+    )  # a new cohort starts from the row layout
+    with source.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
         fields = list(rows[0].keys())
     for row in rows:
@@ -358,7 +387,9 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
             privacy_pass=flag("privacy_pass"),
             evidence_uri=f".artifacts/i3-ai-support/{BASELINE}/{name}",
             # a re-score keeps the recorded reviewer (agent/human sign-off); a fresh run starts as pending
-            reviewer=row["reviewer"] if rescore and row["reviewer"] else "auto (scripts/i3-ai-support/run.py); human review pending",
+            reviewer=row["reviewer"]
+            if rescore and row["reviewer"]
+            else "auto (scripts/i3-ai-support/run.py); human review pending",
             blocker_and_next_action=trace.get("blocker", ""),
         )
     with RUN_LOG.open("w", newline="", encoding="utf-8") as handle:

@@ -2,15 +2,19 @@
 
 import hashlib
 import json
+import math
 import time
 
+from pydantic import ValidationError
 from sqlalchemy import or_, select
 
+from app.ai.source_analysis import ExtractionError
 from app.ai.source_refine import (
     PROMPT,
     PROMPT_VERSION,
     TEXT_MODULE_FIELDS,
     RefineError,
+    Refinement,
     farm_common_allowed,
     refine,
 )
@@ -164,9 +168,7 @@ def enqueue(db, batch, run, items):
 def validate(output, candidates, target_id, *, target_count=0):
     """Drop bad texts independently. Never rescue rejected text with raw candidates."""
     by_id = {
-        c["id"]: c
-        for c in candidates
-        if includes_target(c["targetId"], target_id, target_count)
+        c["id"]: c for c in candidates if includes_target(c["targetId"], target_id, target_count)
     }
     accepted, rejected, warnings = {}, [], []
     for module in output.modules:
@@ -298,6 +300,116 @@ def limit_candidates(candidates):
     }
 
 
+def refine_candidates(mode, model, target, candidates, call, *, target_count, refine_fn=None):
+    """Refine bounded batches, fence every paid call, then enforce aggregate field limits.
+
+    Each response is validated only against its own request's candidates. Failed calls
+    propagate, so no successful prefix is published as a completed target.
+    """
+    refine_fn = refine_fn or refine
+    batches, skipped, pending = [], [], list(candidates)
+    while pending:
+        selected, _ = limit_candidates(pending)
+        if not selected:
+            skipped.append(pending.pop(0))
+            continue
+        batches.append(selected)
+        pending = pending[len(selected) :]
+    accepted, excluded, rejected, warnings, usages, request_ids = {}, [], [], [], [], []
+    if not batches:
+        # Empty targets keep the existing local/mock response accounting without a paid call.
+        empty = refine_fn("mock", model, target, [])
+        usages.append(empty.usage)
+        request_ids.append(empty.request_id)
+
+    def combined_usage():
+        if len(usages) == 1:
+            return dict(usages[0])
+        usage = {
+            key: sum(u.get(key, 0) for u in usages)
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+            if any(key in u for u in usages)
+        }
+        if all(
+            isinstance(u.get("cost"), (int, float)) and math.isfinite(u["cost"]) and u["cost"] >= 0
+            for u in usages
+        ):
+            usage["cost"] = sum(u["cost"] for u in usages)
+        return usage
+
+    for index, batch in enumerate(batches):
+        safe = [
+            {
+                **c,
+                "value": scrub(c["value"]),
+                "evidence": [{**e, "quote": scrub(e["quote"])} for e in c["evidence"]],
+            }
+            for c in batch
+        ]
+        try:
+            response = (
+                refine_fn("mock", model, target, safe)
+                if mode == "mock"
+                else call(index, safe, lambda safe=safe: refine_fn(mode, model, target, safe))
+            )
+        except ExtractionError as exc:
+            usages.append(exc.usage)
+            raise RefineError(
+                exc.code, usage=combined_usage(), request_id=exc.request_id, details=exc.details
+            ) from exc
+        modules, diagnostic = validate(
+            response.refinement, batch, target["id"], target_count=target_count
+        )
+        usages.append(response.usage)
+        request_ids.append(response.request_id)
+        rejected.extend(diagnostic["rejected"])
+        warnings.extend(diagnostic["warnings"])
+        excluded.extend(diagnostic["excluded"])
+        for module in modules:
+            texts = accepted.setdefault(module["module"], [])
+            for text in module["texts"]:
+                duplicate = next((t for t in texts if t["value"] == text["value"]), None)
+                if duplicate is None:
+                    texts.append(text)
+                else:
+                    duplicate["candidateIds"] = list(
+                        dict.fromkeys(duplicate["candidateIds"] + text["candidateIds"])
+                    )
+    # No schema limit is relaxed to accommodate more requests.
+    try:
+        combined = Refinement.model_validate(
+            {
+                "modules": [{"module": m, "texts": texts} for m, texts in accepted.items()],
+                "excluded": [e for e in excluded if e["reason"] != "unused"],
+            }
+        )
+    except ValidationError as exc:
+        raise RefineError(
+            "INVALID_MODEL_OUTPUT",
+            usage=combined_usage(),
+            request_id=next((r for r in reversed(request_ids) if r), None),
+        ) from exc
+    selected = [c for batch in batches for c in batch]
+    modules, diagnostic = validate(combined, selected, target["id"], target_count=target_count)
+    diagnostic["rejected"] = rejected + diagnostic["rejected"]
+    diagnostic["rejectedCount"] = len(diagnostic["rejected"])
+    diagnostic["warnings"] = warnings
+    diagnostic["warningCount"] = len(warnings)
+    diagnostic["excluded"].extend({"candidateIds": [c["id"]], "reason": "unused"} for c in skipped)
+    diagnostic.update(
+        candidatesAnalysed=len(selected),
+        candidatesSkipped=len(skipped),
+        refinementBatches=len(batches),
+        emptyReason="REFINE_INPUT_LIMIT" if candidates and not selected else None,
+    )
+    return (
+        modules,
+        diagnostic,
+        combined_usage(),
+        next((r for r in reversed(request_ids) if r), None),
+    )
+
+
 def empty_reason(candidates, target_id, modules, *, target_count=0):
     # Extraction owns the file-level explanation when it produced no candidates.
     if modules or not candidates:
@@ -309,9 +421,7 @@ def empty_reason(candidates, target_id, modules, *, target_count=0):
 
 def check_inputs(db, context):
     batch, _, run, item = context
-    candidates = current_candidates(
-        db, batch.id, item.target_ids[0], target_count=len(run.targets)
-    )
+    candidates = current_candidates(db, batch.id, item.target_ids[0], target_count=len(run.targets))
     if (
         item.refinement["version"] != PROMPT_VERSION
         or item.refinement["safetyListsHash"] != SAFETY_LISTS_HASH
@@ -337,7 +447,6 @@ def process(item_id, token):
             return
         batch, _, run, item = context
         all_candidates = payload(check_inputs(db, context))
-        candidates, limits = limit_candidates(all_candidates)
         diagnostic_candidates = all_candidates + (
             payload(current_candidates(db, batch.id, None)) if len(run.targets) > 1 else []
         )
@@ -345,53 +454,37 @@ def process(item_id, token):
         target = {"id": item.target_ids[0]}
         mode, model = run.mode, run.model
         target_count = len(run.targets)
-    if mode == "mock" or not candidates:
-        response = refine("mock", model, target, candidates)
-    else:
-        # Quotes can include surrounding contact details; scrub them before transmission.
-        safe = [
-            {
-                **c,
-                "value": scrub(c["value"]),
-                "evidence": [{**e, "quote": scrub(e["quote"])} for e in c["evidence"]],
-            }
-            for c in candidates
-        ]
-        response = paid_vision_call(
+
+    def call(index, safe, fn):
+        return paid_vision_call(
             item_id,
             token,
-            "refine",
+            "refine" if index == 0 else f"refine-{index}",
             model,
             {"prompt": PROMPT, "candidates": safe},
             [target],
             [],
-            lambda: refine(mode, model, target, safe),
+            fn,
             guard=check_inputs,
         )
-    modules, diagnostics = validate(
-        response.refinement, candidates, target["id"], target_count=target_count
+
+    modules, diagnostics, usage, request_id = refine_candidates(
+        mode, model, target, all_candidates, call, target_count=target_count
     )
-    diagnostics["excluded"].extend(
-        {"candidateIds": [c["id"]], "reason": "unused"} for c in all_candidates[len(candidates) :]
-    )
-    diagnostics.update(
-        limits,
-        emptyReason=limits["emptyReason"]
-        or empty_reason(diagnostic_candidates, target["id"], modules, target_count=target_count),
+    diagnostics["emptyReason"] = diagnostics["emptyReason"] or empty_reason(
+        diagnostic_candidates, target["id"], modules, target_count=target_count
     )
     with get_sessionmaker()() as db:
         context = lock_context(db, item_id, token)
         current = db.get(Item, item_id)
         if current:
-            current.usage, current.provider_request_id = response.usage, response.request_id
+            current.usage, current.provider_request_id = usage, request_id
             current.duration_ms = int((time.monotonic() - started) * 1000)
         if context:
             try:
                 check_inputs(db, context)
             except RefineError as exc:
-                raise RefineError(
-                    str(exc), usage=response.usage, request_id=response.request_id
-                ) from exc
+                raise RefineError(str(exc), usage=usage, request_id=request_id) from exc
             batch, _, _, item = context
             result = {"modules": modules, "excluded": diagnostics["excluded"]}
             fingerprint = hashlib.sha256(

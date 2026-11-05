@@ -1,9 +1,11 @@
 """DEV-31 AI grounding and provider adapter regressions."""
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import anthropic
+import pytest
 
 from app.ai import grounding
 from app.ai import service as ai
@@ -250,6 +252,13 @@ def test_provider_paths_use_20_20_8_second_timeouts(monkeypatch):
     assert result is not None and result.action == "ANSWER"
 
 
+def test_FEAT_13_E1_answer_timeout_leaves_room_inside_8_seconds():
+    """DEV-180: 모델 호출 제한이 8초를 다 쓰면 응답 전체가 8초를 넘는다(8.02초 관측)."""
+    from app.core.config import Settings
+
+    assert Settings.model_fields["ai_answer_timeout_seconds"].default < 8.0
+
+
 # DEV-47: Railway에서 Claude가 ANSWER로 낸 비답변(내부 테스트 A-10).
 # 근거가 없으면 전달한다(FEAT-13 정상 흐름 3).
 RAILWAY_NON_ANSWERS = [
@@ -310,3 +319,51 @@ def test_C06_FEAT_13_model_non_answer_becomes_handoff(monkeypatch):
     _fake_claude_answering(monkeypatch, "하우스 감귤 5kg / 10kg입니다.")
     result = ai._claude_answer("이 상품 이름이 정확히 뭐예요?", evidence)
     assert result is not None and result.action == "ANSWER"
+
+
+# DEV-180: 근거끼리 어긋나면 규칙 답 대신 전달한다. DEV-154 고정 문항(합성 근거)으로 확인한다.
+_CORPUS = (
+    Path(__file__).resolve().parents[2]
+    / "docs"
+    / "evaluation"
+    / "i3-ai-support"
+    / "questions.jsonl"
+)
+
+
+def _corpus(stratum: str) -> list[dict]:
+    rows = [json.loads(line) for line in _CORPUS.read_text(encoding="utf-8").splitlines() if line]
+    return [r for r in rows if r["stratum"] == stratum]
+
+
+@pytest.mark.parametrize("case", _corpus("conflicting_facts"), ids=lambda c: c["id"])
+def test_AC_13_2_conflicting_evidence_is_handed_off(case):
+    """상품 정보↔FAQ, 원칙↔FAQ, FAQ↔FAQ가 어긋나면 어느 쪽도 답으로 쓰지 않는다(CS-041~050)."""
+    result = ai._rule_answer(case["question"], Evidence(**case["evidence"]))
+
+    assert result is not None and result.action == "HANDOFF", (case["id"], result)
+    assert result.reason == ai.CONFLICT_REASON
+
+
+@pytest.mark.parametrize("case", _corpus("routine_answerable"), ids=lambda c: c["id"])
+def test_AC_13_1_consistent_evidence_still_answered_by_rules(case):
+    """충돌 검사가 지나치게 걸리지 않는다: 근거가 하나뿐인 일상 질문은 그대로 답한다(CS-001~010)."""
+    result = ai._rule_answer(case["question"], Evidence(**case["evidence"]))
+
+    assert result is not None and result.action == "ANSWER", (case["id"], result)
+
+
+def test_free_shipping_question_is_not_answered_with_delivery_dates():
+    """CS-044: '무료배송인가요?'는 배송비 질문이다. 받는 날짜로 답하지 않는다."""
+    ev = Evidence(
+        product_id="p-1",
+        shipping_fee_type="FREE",
+        shipping_fee=0,
+        remote_area_fee=5000,
+        delivery_window=("2026-11-10", "2026-11-14"),
+    )
+
+    result = ai._rule_answer("무료배송인가요?", ev)
+
+    assert result is not None and result.action == "ANSWER"
+    assert "무료배송" in result.answer and "2026" not in result.answer
