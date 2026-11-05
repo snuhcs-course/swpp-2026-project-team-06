@@ -258,6 +258,7 @@ export function SourceWorkspace() {
   const router = useRouter(),
     navigation = useNavigation(),
     { batchId } = useLocalSearchParams<{ batchId?: string }>();
+  const [pendingText, setPendingText] = useState(false);
   const [products, setProducts] = useState<MyProductCard[]>([]),
     [batches, setBatches] = useState<SourceBatch[]>([]);
   const [batch, setBatch] = useState<SourceBatch | null>(null),
@@ -610,6 +611,7 @@ export function SourceWorkspace() {
                     refresh={load}
                     onBusy={setBusy}
                     onDirty={setEditing}
+                    onPendingText={setPendingText}
                   />
                   {!batch.sources.some(
                     (s) => s.originalPhoto && s.status === "PREPARED",
@@ -619,7 +621,7 @@ export function SourceWorkspace() {
                     </T>
                   ) : null}
                   {startError ? <View accessibilityRole="alert">{/* The basic-info card already shows the variety message; only point to it here. */}{startError.includes("품종") ? <T variant="caption" color={tokens.color.error}>위 기본 정보에서 과일 품종명을 입력해 주세요.</T> : <T color={tokens.color.error}>{startError}</T>}</View> : null}
-                  {!batch.sources.length ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
+                  {!batch.sources.length && !pendingText ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
                   <Button
                     label={
                       working
@@ -630,7 +632,7 @@ export function SourceWorkspace() {
                     }
                     disabled={
                       busy ||
-                      batch.sources.length === 0 ||
+                      (batch.sources.length === 0 && !pendingText) ||
                       runs.some((r) => ACTIVE.includes(r.status))
                     }
                     onPress={() =>

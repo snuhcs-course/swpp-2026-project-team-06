@@ -196,6 +196,7 @@ export function NewProductComposer() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState<SourceActionError | null>(null),
     [notice, setNotice] = useState("");
+  const [pendingText, setPendingText] = useState(false);
   const [attachDirty, setAttachDirty] = useState(false),
     [editorDirty, setEditorDirty] = useState(false);
   const [ack, setAck] = useState(false);
@@ -708,9 +709,9 @@ export function NewProductComposer() {
         onPress={() => { setBuyerPreview(!buyerPreview); setSheetOpen(false); }} />}
       <Scroll bottom={batch ? 240 : 40}>
         {/* 미리보기와 같은 구매자 화면(ProductPageBody)에서 빈 칸만 점선으로, 누르면 그 자리에서 고친다(DEV-184). */}
-        {(sheetOpen ? null : errorPanel) || notice ? (
+        {(!batch ? errorPanel : null) || notice ? (
           <View style={{ padding: tokens.space.gutter, gap: 8 }}>
-            {sheetOpen ? null : errorPanel}
+            {!batch ? errorPanel : null}
             {notice ? (
               <View accessibilityRole="alert">
                 <T>{notice}</T>
@@ -1091,7 +1092,7 @@ export function NewProductComposer() {
                   placeholder="예: 온주밀감" maxLength={100} editable={!busy && !activeRun && !editorDirty}
                   onChange={(v) => { if (target) basic.change(target.id, "variety", v); setStartError(""); }} onBlur={basic.blur} />
                 {startError || basic.error ? <View accessibilityRole="alert"><T color={tokens.color.error}>{startError || basic.error}</T></View> : null}
-              {!batch.sources.length ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
+              {!batch.sources.length && !pendingText ? <T variant="caption" muted>자료를 먼저 넣어 주세요.</T> : null}
               <Button
                 label={startLabel}
                 size="producer"
@@ -1101,13 +1102,15 @@ export function NewProductComposer() {
                   // 기본 정보 칸(품종 필수 검사)이 화면에 올라오기 전에는 시작하지 않는다.
                   !form ||
                   !productId ||
-                  batch.sources.length === 0 ||
+                  (batch.sources.length === 0 && !pendingText) ||
                   runs.some((r) => ACTIVE.includes(r.status))
                 }
                 onPress={start}
               />
               </View>
             ) : (
+              <View style={{ gap: 8 }}>
+              {errorPanel}
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Button
                   label="임시 저장"
@@ -1178,6 +1181,7 @@ export function NewProductComposer() {
                   }
                 />
               </View>
+              </View>
             )
           }
         >
@@ -1203,6 +1207,7 @@ export function NewProductComposer() {
             refresh={load}
             onBusy={editorBusy}
             onDirty={setAttachDirty}
+            onPendingText={setPendingText}
           />
           {runPanel}
         </PeekSheet>
