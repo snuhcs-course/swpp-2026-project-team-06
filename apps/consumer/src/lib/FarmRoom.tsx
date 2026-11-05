@@ -40,6 +40,7 @@ export default function FarmRoom() {
   useEffect(() => {
     setBusy(false);
     setError("");
+    setLapsed(false);
   }, [identity]);
   useEffect(() => {
     alive.current = true;
