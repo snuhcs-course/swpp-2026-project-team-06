@@ -111,3 +111,8 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 - `Toast`에 `action`(라벨·동작)을 더했다. 행동 버튼이 있으면 오류 토스트처럼 4초. `onRetry`는 ‘다시 시도’ action과 같다.
 - `FollowButton`의 `quiet`: 팔로우를 끊은 예전 팔로워의 소식방 헤더에서 강조색 대신 검정 테두리.
 - `NewsRoom`은 `canReply=false`인데 본인 답장이 보이면 예전 팔로워로 본다(서버 새 필드 없음, AC-15-8). 이때 띠(`room-lapsed-banner`, `onRefollow`), 본인 답장 45%(`room-dimmed-reply`), 잠긴 입력(`room-locked-input`)을 그리고 `onLapsedChange`로 알린다(불러온 뒤에만).
+
+## Android 앱 키보드·하단 인셋 (DEV-205, 2026-11-05)
+- 두 앱 루트는 `KeyboardRoot`(`src/keyboard.tsx`)로 Stack을 감싼다. Android만 `KeyboardAvoidingView behavior="padding"`, 웹·iOS는 children 그대로(감싸는 View 없음). app.json `softwareKeyboardLayoutMode`는 쓰지 않는다: Android 15+ edge-to-edge에서 adjustResize가 창을 줄이지 않고, 네이티브 설정은 새 빌드가 필요하다.
+- Android에서 키보드가 떠 있는 동안 `TabBar`·`BottomBar`는 그리지 않는다(`useKeyboardShown`). 루트가 올라가면 absolute 하단 바가 키보드 위에 떠 입력칸을 가린다.
+- `ChatThread` 입력창 아래 여백은 앱에서만 하단 안전 영역을 더한다(키보드가 떠 있으면 뺀다). 웹은 20 그대로.
