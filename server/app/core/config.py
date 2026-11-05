@@ -61,7 +61,9 @@ class Settings(BaseSettings):
     spec_check_usage_token: str = ""
     ai_model: str = "claude-haiku-4-5"
     ai_draft_timeout_seconds: float = 20.0
-    ai_answer_timeout_seconds: float = 8.0
+    # FEAT-13 E1의 8초는 응답 전체 기준이다. 모델 호출만 8초를 다 쓰면 응답이 8초를 넘으므로
+    # 저장·전달 처리 여유를 두고 7.5초로 끊는다(DEV-180, I3-AIGUARD-03에서 8.02초 관측).
+    ai_answer_timeout_seconds: float = 7.5
 
     source_analysis_enabled: bool = False
     source_analysis_provider: str = "mock"
