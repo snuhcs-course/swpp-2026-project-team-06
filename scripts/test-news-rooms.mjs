@@ -5,27 +5,39 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { once } from "node:events";
 
+// DEV-221: 포트 0으로 띄우고 Mock 서버가 첫 줄에 알린 실제 주소를 쓴다(병렬 worktree에서 고정 포트가 부딪히지 않게).
+// 열기 전에 죽으면 요청한 포트·종료 코드·stderr를 메시지에 남긴다(EADDRINUSE·EPERM을 구분할 수 있게).
+async function startMock(dir) {
+  const child = spawn(process.execPath, ["scripts/mock-server.mjs"], {
+    env: { ...process.env, FARMCLUB_MOCK_PORT: "0", FARMCLUB_MOCK_DIR: dir },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  let out = "",
+    err = "";
+  child.stderr.on("data", (d) => (err += d));
+  const base = await new Promise((resolve, reject) => {
+    child.stdout.on("data", (d) => {
+      const m = /Shared Mock: (http:\/\/\S+)/.exec((out += d));
+      if (m) resolve(m[1]);
+    });
+    child.once("close", (code, signal) =>
+      reject(
+        new Error(
+          `Mock server exited before listening (FARMCLUB_MOCK_PORT=0, exit ${code ?? signal}): ${err.trim() || "no stderr"}`,
+        ),
+      ),
+    );
+  });
+  return { child, base };
+}
+
 test("AC-12-1/2/3/5/6/7/9: shared rooms enforce privacy, permissions, idempotency and durable storage", async () => {
   const dir = mkdtempSync(path.resolve(".expo/room-test-"));
-  const port = 18083,
-    base = "http://127.0.0.1:" + port;
-  let child;
+  // 다시 켜면 포트가 바뀌므로 start()마다 주소를 새로 읽는다
+  let child, base;
   async function start() {
-    child = spawn(process.execPath, ["scripts/mock-server.mjs"], {
-      env: {
-        ...process.env,
-        FARMCLUB_MOCK_PORT: String(port),
-        FARMCLUB_MOCK_DIR: dir,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-    await Promise.race([
-      once(child.stdout, "data"),
-      once(child, "exit").then(() => {
-        throw new Error("Mock server exited");
-      }),
-    ]);
+    ({ child, base } = await startMock(dir));
   }
   async function stop() {
     const exit = once(child, "exit");
@@ -220,7 +232,8 @@ test("AC-12-1/2/3/5/6/7/9: shared rooms enforce privacy, permissions, idempotenc
         (x) => x.messageId === replyA.body.messageId,
       ),
     );
-    assert.equal((await fetch(media)).status, 200);
+    // 사진 주소에는 처음 켠 서버의 포트가 들어 있다. 경로만 새 주소에 붙여 같은 파일이 남았는지 본다
+    assert.equal((await fetch(base + new URL(media).pathname)).status, 200);
     assert.equal(
       (
         await fetch(base + "/health", {
@@ -238,13 +251,7 @@ test("AC-12-1/2/3/5/6/7/9: shared rooms enforce privacy, permissions, idempotenc
 
 test("AC-12-14/15: producers delete their own news and it leaves every consumer view", async () => {
   const dir = mkdtempSync(path.resolve(".expo/room-delete-test-"));
-  const port = 18093,
-    base = "http://127.0.0.1:" + port;
-  const child = spawn(process.execPath, ["scripts/mock-server.mjs"], {
-    env: { ...process.env, FARMCLUB_MOCK_PORT: String(port), FARMCLUB_MOCK_DIR: dir },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-  });
+  const { child, base } = await startMock(dir);
   async function api(method, url, token, body, key) {
     const r = await fetch(base + url, {
       method,
@@ -258,12 +265,6 @@ test("AC-12-14/15: producers delete their own news and it leaves every consumer 
     return { status: r.status, body: r.status === 204 ? null : await r.json() };
   }
   try {
-    await Promise.race([
-      once(child.stdout, "data"),
-      once(child, "exit").then(() => {
-        throw new Error("Mock server exited");
-      }),
-    ]);
     const login = async (userId, app) =>
       (await api("POST", "/api/auth/test-login", null, { userId, app })).body.accessToken;
     const minji = await login("u-minji", "consumer"),
