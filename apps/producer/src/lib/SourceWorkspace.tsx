@@ -31,6 +31,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
 import { SourceDetailsEditor } from "./SourceDetailsEditor";
 import { useHideTabBar } from "./session";
+import { goBackOr } from "./nav";
 const inputStyle = {
   borderWidth: 1,
   borderColor: tokens.color.border,
@@ -403,7 +404,7 @@ export function SourceWorkspace() {
   const canEdit = canEditBatch(batch, runs, drafts, review, activeRun);
   return (
     <Screen>
-      <HeaderBar title="판매페이지 만들기" onBack={() => router.back()} />
+      <HeaderBar title="판매페이지 만들기" onBack={() => goBackOr(router, "/products")} />
       {tab === "상세 편집" && review ? <Button label={buyerPreview ? "편집으로 돌아가기" : "구매자 화면 미리보기"}
         variant="outline" onPress={() => setBuyerPreview(!buyerPreview)} /> : null}
       <Scroll bottom={180}>

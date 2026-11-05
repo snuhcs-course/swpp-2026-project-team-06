@@ -21,6 +21,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
+import { goBackOr } from "../../../../lib/nav";
 const kg = (g: number) =>
   `${(g / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg`;
 function grams(text: string) {
@@ -173,7 +174,7 @@ export default function Sales() {
       <HeaderBar
         title="물량·판매 설정"
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/products")
+          goBackOr(router, "/products")
         }
       />
       <Scroll>

@@ -50,6 +50,7 @@ import {
 import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet } from "../../../lib/views";
+import { goBackOr } from "../../../lib/nav";
 
 // 예약 전 확인 문구 버전(R-03). DEV-120에서 개인정보 제3자 제공 동의를 더해 올렸다
 const CONSENT_VERSION = "policy-2026-10-23";
@@ -336,7 +337,10 @@ export default function Checkout() {
   if (product.error && !p)
     return (
       <Screen>
-        <HeaderBar title="주문서" onBack={() => router.back()} />
+        <HeaderBar
+          title="주문서"
+          onBack={() => goBackOr(router, `/products/${params.productId}`)}
+        />
         <LoadError error={product.error} onRetry={product.reload} />
       </Screen>
     );
@@ -346,9 +350,7 @@ export default function Checkout() {
       <HeaderBar
         title="주문서"
         onBack={() =>
-          router.canGoBack()
-            ? router.back()
-            : router.replace(`/products/${params.productId}`)
+          goBackOr(router, `/products/${params.productId}`)
         }
       />
       <TestBand text="테스트 서비스예요. 실제 입금·배송은 일어나지 않아요." />

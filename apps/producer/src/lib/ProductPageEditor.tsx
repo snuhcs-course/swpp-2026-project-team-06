@@ -30,6 +30,7 @@ import { ActivityIndicator, Platform, TextInput, View } from "react-native";
 import { useHideTabBar, useSession } from "./session";
 import { DetailEditor } from "./DetailEditor";
 import { isMock } from "@farmclub/api";
+import { goBackOr } from "./nav";
 
 const fieldStyle = {
   borderWidth: 1,
@@ -72,7 +73,7 @@ export function ProductPageEditor({ productId }: { productId: string }) {
       <HeaderBar
         title="판매페이지 수정"
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/products")
+          goBackOr(router, "/products")
         }
       />
       <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
@@ -278,7 +279,7 @@ function Editor({ productId }: { productId: string }) {
       <HeaderBar
         title="판매페이지 수정"
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/products")
+          goBackOr(router, "/products")
         }
       />
       <Button
