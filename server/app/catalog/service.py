@@ -341,6 +341,20 @@ def group_by_farm(cards: list[ProductCard]) -> dict[str, list[ProductCard]]:
     return grouped
 
 
+def published_varieties(db: Session, farm_ids: list[str]) -> dict[str, list[str]]:
+    """농가별 판매 중(PUBLISHED) 상품의 품종. 농가 검색용(FEAT-06), 카드에는 없다(DEV-217)."""
+    grouped: dict[str, list[str]] = defaultdict(list)
+    rows = db.execute(
+        select(Product.farm_id, Product.variety)
+        .where(Product.status == "PUBLISHED", Product.farm_id.in_(farm_ids))
+        .order_by(Product.id)
+    )
+    for farm_id, variety in rows:
+        if variety:
+            grouped[farm_id].append(variety)
+    return grouped
+
+
 # ---------------- 생산자: 상품 편집·단계·게시 요청 (FEAT-03·04·05) ----------------
 
 STAGE_PRESETS = [

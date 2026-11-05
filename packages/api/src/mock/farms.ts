@@ -78,8 +78,9 @@ register({
     if (q) {
       cards = cards.filter((c) => {
         const f = ctx.db.farms[c.farmId];
+        // 판매 중(PUBLISHED) 상품의 상품명·품종만 본다. 서버 search_farms와 같다(AC-06-2, DEV-217)
         const varieties = Object.values(ctx.db.products)
-          .filter((p) => p.farmId === c.farmId)
+          .filter((p) => p.farmId === c.farmId && p.status === "PUBLISHED")
           .map((p) => `${p.name} ${p.variety}`)
           .join(" ");
         return `${f.name} ${f.region} ${f.mainItems} ${varieties}`.includes(q);

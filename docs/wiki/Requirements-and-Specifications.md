@@ -330,9 +330,10 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **THEN** farm A is listed above farm B
 
 **AC-06-2: Search by variety**
-- **GIVEN** one farm grows Hallabong
-- **WHEN** I search for "Hallabong"
-- **THEN** only that farm is shown
+- **GIVEN** two farms sell Gungcheon early mandarins, and one of them also has a draft Hallabong product
+- **WHEN** I search for "Gungcheon", then for "Hallabong"
+- **THEN** the first search shows just those two farms, and the second shows none
+- **AND** only products on sale count. Drafts, products waiting for approval, rejected and closed products are not searched; paused products are, since they stay on the farm page
 
 **AC-06-7: Failed search and retry**
 - **GIVEN** four farms are listed
