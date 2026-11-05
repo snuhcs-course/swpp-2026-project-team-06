@@ -47,7 +47,13 @@ export default function FarmRoom() {
   }, []);
   const farm = useAsync(() => farms.get(farmId), [farmId, user?.userId]);
   // 없는 농가·승인 취소된 농가 링크(404) → 안내와 농가 목록(ia.md 5장, DEV-224 d1)
-  const notFound = !!farm.error && isStatus(farm.error, 404);
+  // 다시 불러오는 동안 error가 비어도 안내 화면을 유지한다(같은 farmId에서 404를 본 뒤)
+  const [goneId, setGoneId] = useState<string | null>(null);
+  useEffect(() => {
+    if (farm.error && isStatus(farm.error, 404)) setGoneId(farmId);
+    else if (farm.data) setGoneId(null);
+  }, [farm.error, farm.data, farmId]);
+  const notFound = goneId === farmId;
   useHideTabBar(!notFound);
   const products = useAsync(
     () => productPrices(farm.data?.products ?? []),
