@@ -1,0 +1,48 @@
+{
+  "completed_at_utc": "2026-11-05T13:16:24.913544+00:00",
+  "arms": [
+    {
+      "version": "before",
+      "cases": 30,
+      "exactly_three_trials_each_verified": true,
+      "trials": 90,
+      "primary_trials": 84,
+      "diagnostic_trials": 6,
+      "fixed_clock_rows_verified": 90,
+      "privacy_unreviewed_trials": 90,
+      "paid_full_dispatches": 48,
+      "paid_smoke_dispatches": 1,
+      "full_known_cost_usd": 0.052917,
+      "smoke_known_cost_usd": 0.000714,
+      "total_known_cost_usd": 0.053631,
+      "ledger_matches_per_request_cost_sum": true,
+      "unsettled_calls": 0
+    },
+    {
+      "version": "after",
+      "cases": 30,
+      "exactly_three_trials_each_verified": true,
+      "trials": 90,
+      "primary_trials": 84,
+      "diagnostic_trials": 6,
+      "fixed_clock_rows_verified": 90,
+      "privacy_unreviewed_trials": 90,
+      "paid_full_dispatches": 48,
+      "paid_smoke_dispatches": 1,
+      "full_known_cost_usd": 0.052672,
+      "smoke_known_cost_usd": 0.000754,
+      "total_known_cost_usd": 0.053426,
+      "ledger_matches_per_request_cost_sum": true,
+      "unsettled_calls": 0
+    }
+  ],
+  "total_trial_count": 180,
+  "total_paid_dispatches_including_smokes": 98,
+  "total_known_cost_including_smokes_usd": 0.107057,
+  "total_unsettled_calls": 0,
+  "question_sha256_unchanged": true,
+  "metadata_only_no_questions_gold_ids_or_response_bodies": true,
+  "privacy_transmission_audit": "UNREVIEWED",
+  "whole_quality_verdict": "UNDETERMINED",
+  "readiness": false
+}
