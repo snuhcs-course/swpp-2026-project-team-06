@@ -318,9 +318,7 @@ const segments = {
     if (!page.url().includes(`/products/${state.productId}`)) await go(`${consumerUrl}/products/${state.productId}`);
     await tap(btn("1:1 채팅").last(), { after: 3000 });
     await scroll(800);
-    await wait(1500);
-    await cap("끝", "카카오로 시작한 농가가 승인을 받아 상품을 올리고,\n운영자가 공급 물량을 승인하자 소비자가 찾아\n예약·입금하고, 농가와 소통하는 한 흐름이에요.");
-    await wait(2500);
+    await wait(2500); // 끝 장면은 출하 뒤 c4에 있다(I3)
   },
   // 10. 생산자: 출하
   async p5() {
