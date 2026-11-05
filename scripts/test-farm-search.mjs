@@ -222,9 +222,12 @@ const searchFarms = async (q) => {
   return r.body.items.map((c) => c.farmId);
 };
 
-test("AC-06-2 판매 중 상품의 품종으로 농가를 찾는다(Mock)", async () => {
+test("AC-06-2 판매 중(일시 중지 포함) 상품의 품종으로 농가를 찾는다(Mock)", async () => {
   reset();
   assert.deepEqual(await searchFarms("궁천조생"), ["f-kang", "f-hyodon"]);
+  assert.deepEqual(await searchFarms("온주"), ["f-halla"]);
+  // 판매 일시 중지 상품은 공개 화면에 남으므로(R-27) 품종으로 계속 찾는다
+  db().products["p-noji"].salesPaused = true;
   assert.deepEqual(await searchFarms("온주"), ["f-halla"]);
 });
 

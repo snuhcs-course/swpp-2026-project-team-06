@@ -292,6 +292,12 @@ def test_AC_06_2_search_matches_variety_of_products_on_sale(client):
     partial = client.get("/api/farms", params={"q": "온주"}).json()["items"]
     assert [c["farmId"] for c in partial] == ["f-halla"]
 
+    # 판매 일시 중지 상품은 공개 화면에 남으므로(R-27) 품종으로 계속 찾는다
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(update(Product).where(Product.id == "p-noji").values(sales_paused=True))
+    paused = client.get("/api/farms", params={"q": "온주"}).json()["items"]
+    assert [c["farmId"] for c in paused] == ["f-halla"]
+
 
 def test_AC_06_2_search_ignores_variety_of_products_not_on_sale(client):
     # 강씨네의 반려(천혜향)·승인 대기(청견)·초안(한라봉) 상품 품종으로는 찾지 않는다
