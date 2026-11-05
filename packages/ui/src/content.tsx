@@ -580,25 +580,30 @@ export function Skeleton({
   );
 }
 
-/** 짧은 알림: 검정 알약 48, 글자 17, 2초(D-19). tone="error"는 공통 오류 ‘연결이 불안정해요’ + 다시 시도(4초) */
+/** 짧은 알림: 검정 알약 48, 글자 17, 2초(D-19). tone="error"는 공통 오류 ‘연결이 불안정해요’ + 다시 시도(4초).
+ * action이 있는 성공 토스트(예: ‘팔로우를 끊었어요 · 되돌리기’, DEV-230)도 누를 시간을 주려고 4초 */
 export function Toast({
   message,
   onHide,
   tone = "success",
   onRetry,
+  action,
   bottom = 168,
 }: {
   message: string | null;
   onHide: () => void;
   tone?: "success" | "error";
   onRetry?: () => void;
+  action?: { label: string; onPress: () => void };
   bottom?: number;
 }) {
+  const button = onRetry ? { label: "다시 시도", onPress: onRetry } : action;
+  const long = tone === "error" || !!action;
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(onHide, tone === "error" ? 4000 : 2000);
+    const t = setTimeout(onHide, long ? 4000 : 2000);
     return () => clearTimeout(t);
-  }, [message, onHide, tone]);
+  }, [message, onHide, long]);
   if (!message) return null;
   return (
     <View
@@ -607,7 +612,7 @@ export function Toast({
       accessibilityLiveRegion="polite"
     >
       <View
-        style={[styles.toast, onRetry && { paddingRight: 8 }]}
+        style={[styles.toast, button && { paddingRight: 8 }]}
         accessibilityRole="alert"
       >
         <Icon
@@ -618,12 +623,12 @@ export function Toast({
         <T variant="body" weight="semibold" color="#FFFFFF">
           {message}
         </T>
-        {onRetry ? (
+        {button ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => {
               onHide();
-              onRetry();
+              button.onPress();
             }}
             style={(st) =>
               [
@@ -644,7 +649,7 @@ export function Toast({
               color="#FFFFFF"
               style={{ textDecorationLine: "underline" }}
             >
-              다시 시도
+              {button.label}
             </T>
           </Pressable>
         ) : null}
@@ -658,11 +663,14 @@ export function FollowButton({
   following,
   onPress,
   loading,
+  quiet = false,
   style,
 }: {
   following: boolean;
   onPress: () => void;
   loading?: boolean;
+  /** 팔로우를 끊은 예전 팔로워의 소식방: 강조색 대신 검정 테두리(띠의 ‘다시 팔로우’와 다투지 않게, DEV-230) */
+  quiet?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -680,7 +688,14 @@ export function FollowButton({
           styles.follow,
           following
             ? { backgroundColor: tokens.color.surface }
-            : {
+            : quiet
+              ? {
+                  backgroundColor: tokens.color.background,
+                  borderWidth: 1.5,
+                  borderColor: tokens.color.text,
+                  opacity: pressed ? 0.7 : 1,
+                }
+              : {
                 backgroundColor: pressed
                   ? tokens.color.accentPressed
                   : tokens.color.accent,
@@ -696,7 +711,9 @@ export function FollowButton({
       <T
         variant="body"
         weight="semibold"
-        color={following ? tokens.color.text : tokens.color.onAccent}
+        color={
+          following || quiet ? tokens.color.text : tokens.color.onAccent
+        }
       >
         {following ? "팔로잉" : "팔로우"}
       </T>

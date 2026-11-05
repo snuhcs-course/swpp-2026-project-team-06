@@ -137,3 +137,8 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - 이어서 할 행동(`resume`)은 관문 시트가 연 로그인(`from` 파라미터)만 쓴다. `from` 없는 로그인 화면은 열릴 때 `clearResume()`.
 - 온보딩(`onboarding/index.tsx`)도 `user` 변화에 반응해 로그인으로 보내지만, 온보딩 위에 쌓이는 화면은 약관·처리방침뿐이라 로그아웃이 일어나지 않아 그대로 둔다.
 - 테스트 `scripts/e2e/checkout-logout.spec.ts`.
+
+## 팔로우 해제 토스트와 소식방 해제 상태 (DEV-230, 2026-11-05)
+- `useToast().act(message, label, onPress)`: 행동 버튼 토스트. 소식방(`lib/FarmRoom.tsx`)과 주문 완료(`orders/[orderId]/done.tsx`) 모두 해제 성공 뒤 ‘팔로우를 끊었어요 · 되돌리기’, 되돌리기는 다시 팔로우.
+- `FarmRoom`은 `FollowButton`(체크 + 팔로잉)을 쓰고 `NewsRoom`의 `onLapsedChange`로 헤더를 테두리 버튼으로 낮춘다. 띠의 ‘다시 팔로우’는 `join`(관문 포함)과 같다.
+- 채팅 소식방 목록은 바꾸지 않았다(서버 `rooms()`가 팔로우한 농가만). 테스트 `scripts/e2e/unfollow-feedback.spec.ts`.

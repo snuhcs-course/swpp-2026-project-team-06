@@ -66,6 +66,10 @@ type Props = {
   remove?: (broadcastId: string) => Promise<unknown>;
   /** 토스트 */
   notify?: (message: string) => void;
+  /** 소비자: 팔로우를 끊은 방(본인 답장이 남은 방)에서 띠의 '다시 팔로우'(DEV-230) */
+  onRefollow?: () => void;
+  /** 소비자: 팔로우를 끊었지만 본인 답장이 남은 방인지 알린다(헤더 버튼 모양, DEV-230) */
+  onLapsedChange?: (lapsed: boolean) => void;
 };
 const statusOf = (e: unknown) =>
   e && typeof e === "object" && "status" in e ? Number(e.status) : 0;
@@ -96,6 +100,8 @@ export function NewsRoom({
   recipientCount,
   remove,
   notify,
+  onRefollow,
+  onLapsedChange,
 }: Props) {
   const [canReply, setCanReply] = useState(producer);
   const access = useRef<boolean | null>(null);
@@ -358,6 +364,15 @@ export function NewsRoom({
       setTimeout(() => input.current?.focus(), 0);
     } else notify?.("소식을 삭제했어요");
   }
+  // 팔로우를 끊은 소비자: 서버가 공개 소식과 본인 답장만 준다(AC-15-8). 본인 답장이 있으면 예전 팔로워로 본다(DEV-230)
+  const lapsed =
+    !producer &&
+    !canReply &&
+    !!userId &&
+    messages.some((m) => m.senderRole === "CONSUMER" && m.senderId === userId);
+  useEffect(() => {
+    if (ready) onLapsedChange?.(lapsed);
+  }, [lapsed, ready]);
   const followers =
     recipientCount != null ? `팔로워 ${recipientCount}명` : "팔로워";
   const openMenu = (m: Message) => {
@@ -370,6 +385,33 @@ export function NewsRoom({
       {...PRIVATE_AREA}
       style={{ flex: 1, minHeight: 0, backgroundColor: tokens.color.surface }}
     >
+      {lapsed ? (
+        <View
+          testID="room-lapsed-banner"
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            paddingLeft: 20,
+            paddingRight: 8,
+            paddingVertical: 4,
+            backgroundColor: tokens.color.background,
+            borderBottomWidth: 1,
+            borderColor: tokens.color.border,
+          }}
+        >
+          <T variant="sub" style={{ flex: 1, minWidth: 0 }}>
+            팔로우를 끊어 새 소식이 오지 않아요
+          </T>
+          {onRefollow ? (
+            <Button
+              label="다시 팔로우"
+              variant="text"
+              onPress={onRefollow}
+            />
+          ) : null}
+        </View>
+      ) : null}
       {error || loadError ? (
         <View accessibilityRole="alert" style={{ padding: 12 }}>
           <T color={tokens.color.error}>{error || loadError}</T>
@@ -440,6 +482,13 @@ export function NewsRoom({
               accessible={false}
               disabled={!(producer && remove && m.broadcastId)}
               onLongPress={() => openMenu(m)}
+              // 팔로우를 끊은 방의 내 답장은 흐리게 남긴다(DEV-230)
+              style={
+                lapsed && m.senderId === userId ? { opacity: 0.45 } : undefined
+              }
+              testID={
+                lapsed && m.senderId === userId ? "room-dimmed-reply" : undefined
+              }
             >
             <ChatBubble
               kind={m.senderId === userId ? "me" : "farm"}
@@ -587,6 +636,39 @@ export function NewsRoom({
                 <Icon name="send" color={tokens.color.onAccent} />
               )}
             </Pressable>
+          </View>
+        </View>
+      ) : lapsed ? (
+        // 예전 팔로워는 강조색 버튼 대신 잠긴 입력칸(DEV-230). 다시 팔로우는 띠·헤더에서
+        <View
+          style={{
+            padding: 12,
+            paddingBottom: safe("bottom", 12),
+            backgroundColor: tokens.color.background,
+            borderTopWidth: 1,
+            borderColor: tokens.color.border,
+          }}
+        >
+          <View
+            testID="room-locked-input"
+            accessible
+            accessibilityRole="text"
+            accessibilityState={{ disabled: true }}
+            accessibilityLabel="답장 잠김. 다시 팔로우하면 답장할 수 있어요"
+            style={{
+              minHeight: 48,
+              borderRadius: 24,
+              paddingHorizontal: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              backgroundColor: tokens.color.surface,
+            }}
+          >
+            <Icon name="lock" size={20} color={tokens.color.textMuted} />
+            <T variant="sub" muted>
+              다시 팔로우하면 답장할 수 있어요
+            </T>
           </View>
         </View>
       ) : (

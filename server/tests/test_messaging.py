@@ -143,8 +143,52 @@ def test_AC_12_10_unfollow_hides_private_messages_and_blocks_reply(client, login
     )
 
     assert after["room"]["canReply"] is False
-    assert [message["messageId"] for message in after["items"]] == ["n-2"]
+    # 팔로워 전용 소식(n-1)은 숨고, 본인 답장(reply-2)은 남는다(DEV-230, AC-15-8)
+    assert [message["messageId"] for message in after["items"]] == ["n-2", "reply-2"]
     assert reply.status_code == 403
+
+
+def test_AC_15_8_unfollowed_consumer_sees_only_own_replies(client, login):
+    headers = login("u-seojun")
+    client.delete("/api/farms/f-kang/follow", headers=headers)
+    page = client.get("/api/messaging/rooms/f-kang/messages", headers=headers).json()
+    ids = [m["messageId"] for m in page["items"]]
+
+    assert page["room"]["canReply"] is False
+    assert "n-1" not in ids  # 팔로워 전용 소식
+    assert "reply-1" not in ids  # 다른 소비자(김민지)의 답장(M-02)
+    assert "reply-2" in ids
+    assert [m["senderId"] for m in page["items"] if m["senderRole"] == "CONSUMER"] == ["u-seojun"]
+    assert page["room"]["lastMessage"] == "신맛 빠지면 소식 또 올려 주세요."
+    reply = client.post(
+        "/api/messaging/rooms/f-kang/messages", headers=headers | key(), json={"text": "답장"}
+    )
+    assert reply.status_code == 403
+    # 비로그인에게는 여전히 공개 방송만
+    anonymous = client.get("/api/messaging/rooms/f-kang/messages").json()
+    assert [m["messageId"] for m in anonymous["items"]] == ["n-2"]
+
+
+def test_AC_06_8_refollow_restores_room_and_chat_list(client, login):
+    headers = login("u-seojun")
+
+    def ids():
+        page = client.get("/api/messaging/rooms/f-kang/messages", headers=headers).json()
+        return [m["messageId"] for m in page["items"]], page["room"]["canReply"]
+
+    def listed():
+        rooms = client.get("/api/messaging/rooms", headers=headers).json()["items"]
+        return {r["farmId"] for r in rooms}
+
+    before = ids()
+    assert "f-kang" in listed()
+    client.delete("/api/farms/f-kang/follow", headers=headers)
+    assert "f-kang" not in listed()  # 채팅 목록에서는 빠진다(PM 결정, rooms() 변경 없음)
+    assert client.put("/api/farms/f-kang/follow", headers=headers).status_code == 200
+
+    assert ids() == before
+    assert before[1] is True
+    assert "f-kang" in listed()
 
 
 def test_AC_15_6_public_room_read_does_not_follow(client, login):

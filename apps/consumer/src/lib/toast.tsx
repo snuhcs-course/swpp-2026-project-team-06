@@ -13,6 +13,7 @@ type State = {
   message: string;
   tone: "success" | "error";
   retry?: () => void;
+  action?: { label: string; onPress: () => void };
 } | null;
 
 export function useToast(bottom?: number) {
@@ -20,6 +21,12 @@ export function useToast(bottom?: number) {
   const hide = useCallback(() => setT(null), []);
   const show = useCallback(
     (message: string) => setT({ message, tone: "success" }),
+    [],
+  );
+  /** 행동 버튼이 있는 성공 토스트(4초). 예: ‘팔로우를 끊었어요 · 되돌리기’(DEV-230) */
+  const act = useCallback(
+    (message: string, label: string, onPress: () => void) =>
+      setT({ message, tone: "success", action: { label, onPress } }),
     [],
   );
   /** 공통 오류 토스트. 서버가 준 문구가 있는 4xx는 그 문구, 그 밖은 '연결이 불안정해요' + 다시 시도 */
@@ -33,9 +40,10 @@ export function useToast(bottom?: number) {
       message={t?.message ?? null}
       tone={t?.tone}
       onRetry={t?.retry}
+      action={t?.action}
       onHide={hide}
       bottom={bottom}
     />
   );
-  return { show, fail, node };
+  return { show, act, fail, node };
 }
