@@ -466,6 +466,7 @@ def _thread_view(t: Thread) -> ThreadView:
 def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
     return ChatMessage(
         message_id=m.id,
+        sequence=m.seq,
         sender_type=m.sender_type,
         body=m.body,
         photos=m.photos,
@@ -476,7 +477,7 @@ def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
         source_refs=m.source_refs,
         settings_version=m.settings_version,
         needs_human=m.needs_human,
-        source_summary=m.source_summary,
+        source_summary=None if m.handoff_status == "FORWARDED" else m.source_summary,
         handoff_status=m.handoff_status,
         masked=m.masked,
         reported=reported,
@@ -1047,7 +1048,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
                 body=FORWARDED_TEXT if forwarded else (answer.answer or ""),
                 photos=[],
                 attachment_ids=[],
-                source_summary=answer.reason,
+                source_summary=None if forwarded else answer.reason,
                 source_refs=answer.source_refs,
                 settings_version=latest.version,
                 handoff_status="FORWARDED" if forwarded else None,

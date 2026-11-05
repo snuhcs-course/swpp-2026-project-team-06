@@ -698,6 +698,8 @@ export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
 export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
+  /** Server insertion order. Optional while an older API is deployed. */
+  sequence?: number;
   messageId: string;
   senderType: SenderType;
   body: string;
