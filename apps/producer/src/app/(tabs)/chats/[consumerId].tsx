@@ -50,6 +50,8 @@ export default function Chat() {
     },
     [consumerId],
   );
+  // 머리 이름은 대화 응답의 가림 이름(서버 값 그대로). 첫 응답 전에는 목록에서 넘긴 param(DEV-232)
+  const consumerName = page?.consumerName ?? name;
   async function toggle() {
     if (!page || changing) return;
     setChanging(true);
@@ -70,7 +72,7 @@ export default function Chat() {
   return (
     <Screen>
       <ConversationHeader
-        name={support ? "farmclub" : (name ?? "소비자")}
+        name={support ? "farmclub" : (consumerName ?? "소비자")}
         subtitle={support ? "운영팀 문의" : "1:1 채팅"}
         avatar={support ? <SupportAvatar size={40} /> : undefined}
         onBack={() => router.navigate("/chats?view=private")}
@@ -135,7 +137,10 @@ export default function Chat() {
             onPress={() =>
               router.push({
                 pathname: "/farm/ai-settings",
-                params: { consumerId, ...(name ? { name } : {}) },
+                params: {
+                  consumerId,
+                  ...(consumerName ? { name: consumerName } : {}),
+                },
               })
             }
           />

@@ -90,7 +90,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 | --- | --- | --- |
 | Approval | Farms are verified; an operator approves a product's initial supply and any increase | R-22, R-25 |
 | Payment | One full **bank transfer to the farm's own account** per order (DEV-68). Issuing deposit instructions takes the stock and starts a 24-hour deposit deadline; the depositor name is the order number; the producer confirms the deposit after checking the bank statement, and only then is the order reserved. farmclub is a marketplace intermediary and never receives or holds money. The consents the buyer agreed to are recorded | R-01-03, R-28 |
-| Deadline | Automatically expire only unreported overdue deposits; a buyer-reported deposit stays awaiting confirmation/exception handling rather than being canceled automatically | R-28 |
+| Deadline | Apps judge "past the deposit deadline" and "today/yesterday" with the server clock (every API response carries an `X-Server-Time` header), not the device clock, so labels match the server's deadline even when the device clock is wrong or the server clock is fixed for a demo (DEV-229). Automatically expire only unreported overdue deposits; a buyer-reported deposit stays awaiting confirmation/exception handling rather than being canceled automatically | R-28 |
 | Pricing | Earlier periods are cheaper and periods do not overlap. Changed terms are reconfirmed before payment; paid orders keep their price | R-17-18 |
 | Capacity | Reserved plus shipped weight <= sales limit <= approved weight. Shown to producers in kg | R-06, R-26 |
 | Quantity | One option and one address per order, within the per-order and per-period box limits | R-23 |
@@ -752,6 +752,7 @@ N-04, N-08, N-09, N-10 and N-11 express quality targets, not measured I2 achieve
 - Product filters: Selling / Under review / Draft / Paused / Ended. A pending capacity increase stays in the current group with a label.
 - My Orders opens on Unconfirmed and keeps the selected tab after viewing an order.
 - On desktop the content is centered at 480px wide.
+- A sheet button that leads to another screen (for example "To checkout", the login prompt's "Log in", "Enter a new address") closes the sheet at once, without the slide-down animation, so the sheet never stays on top of the new screen (DEV-225).
 
 ### 7.2 Main flow and failure branches
 

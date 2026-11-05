@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Modal,
   Pressable,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { Icon, type IconName } from "./Icon";
+import { leaveSheet, sheetAnimation } from "./sheetLeave";
 import { T } from "./Text";
 import { tokens } from "./tokens";
 import { focusRing, safe, showFocus } from "./web";
@@ -315,23 +316,44 @@ export function Fab({
 
 /* ---------------- Sheet ---------------- */
 
+/**
+ * 시트 안 버튼으로 다른 화면으로 갈 때 쓴다(DEV-225). `leave(close, go)`는 시트를 애니메이션 없이 닫고
+ * 같은 틱에 이동하므로 새 화면 위에 시트가 남지 않는다. `instant`를 그 시트의 `Sheet`에 넘긴다.
+ * 닫힌 뒤 바로 꺼지므로 다음에 열 때는 그대로 아래에서 올라온다.
+ */
+export function useSheetLeave() {
+  const [instant, setInstant] = useState(false);
+  useEffect(() => {
+    if (instant) setInstant(false);
+  }, [instant]);
+  const leave = useCallback(
+    (close: () => void, go: () => void) =>
+      leaveSheet(() => setInstant(true), close, go),
+    [],
+  );
+  return { instant, leave };
+}
+
 /** 아래에서 올라오는 시트. 뒤 화면 위에 검정 40%. 제목 22. */
 export function Sheet({
   visible,
   onClose,
   title,
+  instant,
   children,
 }: {
   visible: boolean;
   onClose: () => void;
   title?: string;
+  /** 다른 화면으로 가며 닫을 때 애니메이션 없이 바로 닫는다. `useSheetLeave().instant`를 넘긴다 */
+  instant?: boolean;
   children: ReactNode;
 }) {
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={sheetAnimation(instant)}
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>

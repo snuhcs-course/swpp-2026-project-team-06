@@ -34,11 +34,11 @@ export function productStatus(product: MyProductCard): string {
 const seoulDay = (t: number) =>
   new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
-/** 작성 중 카드의 마지막 저장(DEV-226, HE-X5). 오늘·어제는 시각까지, 그 전은 날짜만 */
+/** 작성 중 카드의 마지막 저장(DEV-226, HE-X5). 오늘·어제는 시각까지, 그 전은 날짜만. now는 서버 시각(`serverNow()`, DEV-229) */
 export function draftSaved(
   updatedAt: string | null | undefined,
   f: { md: (iso: string) => string; time: (iso: string) => string },
-  now = Date.now(),
+  now: number,
 ): string | null {
   if (!updatedAt) return null;
   const t = Date.parse(updatedAt);
