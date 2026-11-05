@@ -111,3 +111,6 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 - `Toast`에 `action`(라벨·동작)을 더했다. 행동 버튼이 있으면 오류 토스트처럼 4초. `onRetry`는 ‘다시 시도’ action과 같다.
 - `FollowButton`의 `quiet`: 팔로우를 끊은 예전 팔로워의 소식방 헤더에서 강조색 대신 검정 테두리.
 - `NewsRoom`은 `canReply=false`인데 본인 답장이 보이면 예전 팔로워로 본다(서버 새 필드 없음, AC-15-8). 이때 띠(`room-lapsed-banner`, `onRefollow`), 본인 답장 45%(`room-dimmed-reply`), 잠긴 입력(`room-locked-input`)을 그리고 `onLapsedChange`로 알린다(불러온 뒤에만).
+
+## DEV-235/213 채팅 표시
+모든 메시지에 sequence가 있으면 저장 순서로 정렬한다. 구 API 응답이 섞여 순번이 빠진 경우 전체를 시각순으로 정렬하고 동시각은 입력 순서를 유지한다. 무작위 messageId로 순서를 정하지 않는다. 전달 메시지는 내부 근거 요약을 표시하지 않는다.

@@ -80,6 +80,7 @@ class TextInput(CamelModel):
 
 
 class ChatMessage(CamelModel):
+    sequence: int
     message_id: str
     sender_type: SenderType
     body: str
