@@ -217,7 +217,7 @@ pre.code { margin: 0; background: var(--bg); border-radius: 8px; padding: 12px; 
 
 <div class="wrap">
   <header class="head">
-    <span class="eyebrow">DEV-231 · HE-06(사전 점검 P1 심각도 4, P12) · 스펙 결정 B · 디자인 제안 (PM 승인 대기)</span>
+    <span class="eyebrow">DEV-231 · HE-06(사전 점검 P1 심각도 4, P12) · 스펙 결정 B · 디자인 제안 (2026-11-05 PM 승인, 추천안대로)</span>
     <h1>수확을 시작하면, 그 기간의 예약 주문이 출하 준비로 넘어간다</h1>
     <p class="lede">지금은 입금을 승인한 주문이 '예약' 탭에 들어간 뒤 아무 데도 갈 수 없다. 줄에는 '예약 완료' 글자뿐이고, '출하 준비' 탭에는 시드 주문만 있어 평가자가 만든 주문으로는 출하·송장 과제를 끝낼 수 없었다(FQ-06·AC-17-3이 수확 시작 UI를 일부러 뺐다). PM 결정 B는 "수확 시작 = 출하 준비 시작"이다. 예약 기간 카드에 결과를 말하는 버튼 하나를 두고, 현황과 예약 탭에서는 그 버튼으로 데려간다. 서버에는 이미 있던 수확 시작 API를 기간 단위로 좁혀 다시 쓴다. 왼쪽은 main 코드 그대로 다시 그린 화면, 오른쪽은 제안이다. 이름·금액·건수는 모두 <span class="ex">예시</span>다.</p>
     <div class="meta"><span>브랜치 <code>nemodleo/dev-231-harvest-start-preparing</code></span><span>작업 기록 <code>server/tasks/DEV-231.md</code> · <code>apps/producer/tasks/DEV-231.md</code></span><span>개발 PR 위험 등급: 고위험 (<code>server/app/orders/**</code>)</span></div>
@@ -568,7 +568,7 @@ Idempotency-Key: &lt;uuid&gt;          # 새로 필수(run_idempotent)
       <thead><tr><th>문서</th><th>지금</th><th>바꿀 내용</th></tr></thead>
       <tbody>
         <tr><td class="code">functional/README.md FQ-06</td><td>프론트에서 수확 시작 제거, 자동 전이 없음</td><td class="chg">결정 B(2026-11-04, DEV-231): 기간 카드의 '수확 시작'이 그 기간의 예약 완료 주문을 출하 준비로 옮긴다. 자동 전이·주문별 버튼은 없다</td></tr>
-        <tr><td class="code">FEAT-17 AC-17-3</td><td>조회만, 수확 시작 UI·호출 없음, RESERVED 그대로</td><td class="chg">예약 화면을 여는 것만으로는 상태가 바뀌지 않는다(조회는 그대로). 새 AC-17-10: 기간 하나의 수확 시작 → 그 기간 RESERVED만 PREPARING, 다른 기간·입금 대기 그대로, 소비자 상세 '수확·포장 중'. 새 AC-17-11: 다른 농가 404, 같은 키 재시도 중복 없음, 0건 200, 감사 한 행</td></tr>
+        <tr><td class="code">FEAT-17 AC-17-3</td><td>조회만, 수확 시작 UI·호출 없음, RESERVED 그대로</td><td class="chg">예약 화면을 여는 것만으로는 상태가 바뀌지 않는다(조회는 그대로). 새 AC-17-11: 기간 하나의 수확 시작 → 그 기간 RESERVED만 PREPARING, 다른 기간·입금 대기 그대로, 소비자 상세 '수확·포장 중'. 새 AC-17-12: 다른 농가 404, 같은 키 재시도 중복 없음, 0건 200, 감사 한 행</td></tr>
         <tr><td class="code">FEAT-17 정상 흐름·입력·검증</td><td>"UI·프론트 호출 및 자동 전이는 없다"</td><td class="chg">정상 흐름 1.5) 예약 기간 카드 '수확 시작 · 출하 준비 n건' → 확인 시트 → 출하 준비. 입력·검증 문장 교체</td></tr>
         <tr><td class="code">FEAT-14 정상 흐름</td><td>할 일: 입금 확인·환불·계좌</td><td class="chg">할 일 줄 「수확을 시작할 예약 n건」 추가, 예약 완료 지표 설명 문구</td></tr>
         <tr><td class="code">screens.md SCR-22·26·29, API 표</td><td>SCR-29 "수확 시작 UI/확인/완료 없음", API 표 harvest-start <code>productId</code></td><td class="chg">SCR-26 기간 카드 '수확' 칸, SCR-29 예약 탭 안내 줄·문구, SCR-22 할 일 줄, API 표 <code>stageId</code>·<code>Idempotency-Key</code>·응답</td></tr>
@@ -589,11 +589,11 @@ Idempotency-Key: &lt;uuid&gt;          # 새로 필수(run_idempotent)
       <div class="box">
         <h3>pytest (<code>server/tests/test_orders.py</code>)</h3>
         <ul>
-          <li><code>test_AC_17_10_harvest_start_moves_only_that_stage_reserved</code> — 1단계 RESERVED 2 + 2단계 RESERVED 1 + 1단계 AWAITING_DEPOSIT 1 → 1단계만 2건 PREPARING</li>
-          <li><code>test_AC_17_10_consumer_sees_preparing</code> — 소비자 주문 상세 status PREPARING, 취소 가능(REFUNDED로)</li>
-          <li><code>test_AC_17_11_other_farm_404</code>, <code>…_stage_of_other_product_404</code></li>
-          <li><code>test_AC_17_11_same_key_replay_no_duplicate_event</code>, <code>…_zero_orders_200</code>, <code>…_missing_key_400</code></li>
-          <li><code>test_AC_17_11_audit_event_once</code> — ManagerEvent 한 행, orderIds 일치</li>
+          <li><code>test_AC_17_11_harvest_start_moves_only_that_stage_reserved</code> — 1단계 RESERVED 2 + 2단계 RESERVED 1 + 1단계 AWAITING_DEPOSIT 1 → 1단계만 2건 PREPARING</li>
+          <li><code>test_AC_17_11_consumer_sees_preparing</code> — 소비자 주문 상세 status PREPARING, 취소 가능(REFUNDED로)</li>
+          <li><code>test_AC_17_12_other_farm_404</code>, <code>…_stage_of_other_product_404</code></li>
+          <li><code>test_AC_17_12_same_key_replay_no_duplicate_event</code>, <code>…_zero_orders_200</code>, <code>…_missing_key_400</code></li>
+          <li><code>test_AC_17_12_audit_event_once</code> — ManagerEvent 한 행, orderIds 일치</li>
           <li><code>test_AC_17_3_listing_does_not_change_state</code> — 생산자 목록·현황 조회만으로 RESERVED 그대로(뒤집은 AC의 남는 부분)</li>
           <li><code>test_AC_14_*_to_harvest_counts_closed_stages</code> — 끝난 기간만 셈, KST 경계</li>
           <li>기존 harvest-start 호출 4곳: <code>stageId</code> 없이 그대로 통과(호환)</li>
