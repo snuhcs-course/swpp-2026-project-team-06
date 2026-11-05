@@ -1,5 +1,7 @@
 # `.github` — CI·배포·리뷰 워크플로
 
+이 파일 이름을 `README.md`로 바꾸지 않는다. GitHub는 `.github/README.md`를 루트 `README.md`보다 먼저 저장소 첫 화면에 보여 준다(DEV-234 후속).
+
 | 파일 | 하는 일 |
 | --- | --- |
 | `workflows/ci.yml` (이름 **CI**) | PR·머지 큐·main 검사. 필수 체크는 job `ci-ok` |
