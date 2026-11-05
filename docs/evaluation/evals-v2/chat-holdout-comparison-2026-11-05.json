@@ -1,0 +1,779 @@
+{
+  "generated_at_utc": "2026-11-05T13:15:28.446638+00:00",
+  "schema": "sealed-holdout-aggregate-comparison-v1",
+  "question_file_sha256": "94c6cd7fd88ab8ff5c2fa8a051c8661eac875432ede970dcae42749f156633f2",
+  "scorer_sha256": "bc990c4717ef8d6aac8d88dbbfab5d449b3b0a1bb33be9f0feb8257f14f91245",
+  "runner_sha256": "df9f5a8f988e2e5802bc11120fcd4a10df946fe32ea6341ac2f4f4a5bc5d794f",
+  "config_sha256": "61b46160d44318e920357ab3f0642a38b92d9a9b6988edaceb1e8a6ecf636baa",
+  "comparison_gate": {
+    "eligible": true,
+    "application_changed": true,
+    "note": "Same corpus/rubric/scorer/config; this is not evidence of population-level significance."
+  },
+  "primary_paired_quality": {
+    "cases": 28,
+    "planned_trials_per_arm": 84,
+    "jointly_observed_pairs": 84,
+    "missing_pairs": 0,
+    "dimension_transition_counts": {
+      "action": {
+        "FAIL_to_FAIL": 22,
+        "FAIL_to_PASS": 3,
+        "PASS_to_FAIL": 1,
+        "PASS_to_PASS": 58
+      },
+      "factual_grounding": {
+        "FAIL_to_FAIL": 22,
+        "FAIL_to_PASS": 3,
+        "PASS_to_FAIL": 1,
+        "PASS_to_PASS": 58
+      },
+      "semantic_correctness": {
+        "FAIL_to_FAIL": 21,
+        "FAIL_to_PASS": 3,
+        "PASS_to_PASS": 57,
+        "UNREVIEWED_to_UNREVIEWED": 3
+      },
+      "state_outcome": {
+        "FAIL_to_FAIL": 22,
+        "FAIL_to_PASS": 3,
+        "PASS_to_FAIL": 1,
+        "PASS_to_PASS": 58
+      },
+      "privacy": {
+        "UNREVIEWED_to_UNREVIEWED": 84
+      }
+    },
+    "diagnostics_included": false
+  },
+  "concurrency_planned_trials_per_arm": 6,
+  "original_planned_trials_per_arm": 90,
+  "arms": [
+    {
+      "version": "before",
+      "cohort": "holdout-before-5f27a22",
+      "application_commit": "5f27a229c105c5aabe52b641709c38cb23026dd8",
+      "source_sha256": "f9242dc3da61bb6ec0baf419c33802e9aa048bce80004ad4089a4f35d3a42f4a",
+      "original_planned": 90,
+      "original_attempted": 90,
+      "original_statuses": {
+        "FAIL": 25,
+        "INVALID": 3,
+        "UNREVIEWED": 62
+      },
+      "primary_quality": {
+        "schema_version": "evals-v2.1",
+        "cohort": "holdout-before-5f27a22",
+        "planned": 84,
+        "attempted": 84,
+        "not_run": 0,
+        "statuses": {
+          "FAIL": 25,
+          "UNREVIEWED": 59
+        },
+        "dimension_counts": {
+          "action": {
+            "FAIL": 25,
+            "PASS": 59
+          },
+          "factual_grounding": {
+            "FAIL": 25,
+            "PASS": 59
+          },
+          "semantic_correctness": {
+            "FAIL": 24,
+            "PASS": 57,
+            "UNREVIEWED": 3
+          },
+          "state_outcome": {
+            "FAIL": 25,
+            "PASS": 59
+          },
+          "privacy": {
+            "UNREVIEWED": 84
+          }
+        },
+        "strata": {
+          "ambiguous": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "UNREVIEWED": 15
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "conflicting_facts": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "UNREVIEWED": 15
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "missing_evidence": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "FAIL": 9,
+              "UNREVIEWED": 6
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "operational_failure": {
+            "planned": 9,
+            "attempted": 9,
+            "statuses": {
+              "UNREVIEWED": 9
+            },
+            "cases": 3,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "routine_answerable": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "FAIL": 13,
+              "UNREVIEWED": 2
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "sensitive_subjective_complaint_refund": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "FAIL": 3,
+              "UNREVIEWED": 12
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          }
+        },
+        "path_coverage": {
+          "rule": 30,
+          "fault": 6,
+          "model": 45,
+          "human": 3
+        },
+        "model_quality_eligible_trials": 45,
+        "latency_ms": {
+          "n": 84,
+          "p50": 1171,
+          "p95": 1881
+        },
+        "cost": {
+          "known_usd": 0.049622999999999994,
+          "unknown_trials": 0,
+          "all_cost_known": true
+        },
+        "human_review_pending": true,
+        "llm_calibration": "UNREVIEWED",
+        "measured_readiness": false
+      },
+      "primary_dimension_case_stability": {
+        "action": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 59,
+            "FAIL": 25,
+            "UNREVIEWED": 0
+          },
+          "all_three_pass_cases": 19,
+          "at_least_one_pass_in_three_cases": 20,
+          "all_three_unreviewed_cases": 0,
+          "any_unreviewed_cases": 0,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "semantic_correctness": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 57,
+            "FAIL": 24,
+            "UNREVIEWED": 3
+          },
+          "all_three_pass_cases": 19,
+          "at_least_one_pass_in_three_cases": 19,
+          "all_three_unreviewed_cases": 1,
+          "any_unreviewed_cases": 1,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "factual_grounding": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 59,
+            "FAIL": 25,
+            "UNREVIEWED": 0
+          },
+          "all_three_pass_cases": 19,
+          "at_least_one_pass_in_three_cases": 20,
+          "all_three_unreviewed_cases": 0,
+          "any_unreviewed_cases": 0,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "state_outcome": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 59,
+            "FAIL": 25,
+            "UNREVIEWED": 0
+          },
+          "all_three_pass_cases": 19,
+          "at_least_one_pass_in_three_cases": 20,
+          "all_three_unreviewed_cases": 0,
+          "any_unreviewed_cases": 0,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "privacy": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 0,
+            "FAIL": 0,
+            "UNREVIEWED": 84
+          },
+          "all_three_pass_cases": 0,
+          "at_least_one_pass_in_three_cases": 0,
+          "all_three_unreviewed_cases": 28,
+          "any_unreviewed_cases": 28,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        }
+      },
+      "primary_action_confusion": {
+        "HANDOFF": {
+          "HANDOFF": 54,
+          "ANSWER": 12
+        },
+        "ANSWER": {
+          "HANDOFF": 13,
+          "ANSWER": 2
+        },
+        "HUMAN_ONLY": {
+          "HUMAN_ONLY": 3
+        }
+      },
+      "primary_stable_action_cases_3_of_3": 19,
+      "primary_stable_four_screened_dimensions_cases_3_of_3": 19,
+      "primary_cases": 28,
+      "primary_stratum_action_summary": {
+        "ambiguous": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 15
+          },
+          "stable_action_cases_3_of_3": 5
+        },
+        "conflicting_facts": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 15
+          },
+          "stable_action_cases_3_of_3": 5
+        },
+        "missing_evidence": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 6,
+            "FAIL": 9
+          },
+          "stable_action_cases_3_of_3": 2
+        },
+        "operational_failure": {
+          "planned": 9,
+          "attempted": 9,
+          "action_dimensions": {
+            "PASS": 9
+          },
+          "stable_action_cases_3_of_3": 3
+        },
+        "routine_answerable": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "FAIL": 13,
+            "PASS": 2
+          },
+          "stable_action_cases_3_of_3": 0
+        },
+        "sensitive_subjective_complaint_refund": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 12,
+            "FAIL": 3
+          },
+          "stable_action_cases_3_of_3": 4
+        }
+      },
+      "concurrency_diagnostics": {
+        "schema_version": "evals-v2.1",
+        "cohort": "holdout-before-5f27a22",
+        "planned": 6,
+        "attempted": 6,
+        "not_run": 0,
+        "statuses": {
+          "INVALID": 3,
+          "UNREVIEWED": 3
+        },
+        "dimension_counts": {
+          "action": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "factual_grounding": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "semantic_correctness": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "state_outcome": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "privacy": {
+            "UNREVIEWED": 6
+          }
+        },
+        "strata": {
+          "operational_failure": {
+            "planned": 6,
+            "attempted": 6,
+            "statuses": {
+              "INVALID": 3,
+              "UNREVIEWED": 3
+            },
+            "cases": 2,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          }
+        },
+        "path_coverage": {
+          "rule": 3,
+          "model": 3
+        },
+        "model_quality_eligible_trials": 3,
+        "latency_ms": {
+          "n": 6,
+          "p50": 57,
+          "p95": 2346
+        },
+        "cost": {
+          "known_usd": 0.003294,
+          "unknown_trials": 0,
+          "all_cost_known": true
+        },
+        "human_review_pending": true,
+        "llm_calibration": "UNREVIEWED",
+        "measured_readiness": false,
+        "prerequisite_invalid_trials": 3,
+        "included_in_primary_quality": false
+      },
+      "path_coverage": {
+        "rule": 33,
+        "model": 48,
+        "fault": 6,
+        "human": 3
+      },
+      "budget": {
+        "max_usd": 0.75,
+        "trial_reserve_usd": 0.05,
+        "known_spent_usd": 0.053631,
+        "unsettled_calls": 0,
+        "pending_call": false,
+        "stop_reason": null,
+        "can_start": true,
+        "reserve_is_billing_cap": false,
+        "initial_known_spent_usd": 0.000714,
+        "smoke_cost_usd": 0.000714,
+        "stopped_reason": null
+      },
+      "holdout_cost_usd": 0.052917,
+      "model_quality_rate_established": false,
+      "reason_model_quality_rate_not_established": "All trials require transmission-privacy review; zero provisional overall successes is not zero model capability."
+    },
+    {
+      "version": "after",
+      "cohort": "holdout-after-f4715b1",
+      "application_commit": "f4715b1cd79074d77cb32bed385cf86b9091adbb",
+      "source_sha256": "dfdd3b49d5a4cdc054737e4cc7cf797f315b60390226063a016d43aa43794114",
+      "original_planned": 90,
+      "original_attempted": 90,
+      "original_statuses": {
+        "FAIL": 23,
+        "INVALID": 3,
+        "UNREVIEWED": 64
+      },
+      "primary_quality": {
+        "schema_version": "evals-v2.1",
+        "cohort": "holdout-after-f4715b1",
+        "planned": 84,
+        "attempted": 84,
+        "not_run": 0,
+        "statuses": {
+          "FAIL": 23,
+          "UNREVIEWED": 61
+        },
+        "dimension_counts": {
+          "action": {
+            "FAIL": 23,
+            "PASS": 61
+          },
+          "factual_grounding": {
+            "FAIL": 23,
+            "PASS": 61
+          },
+          "semantic_correctness": {
+            "FAIL": 21,
+            "PASS": 60,
+            "UNREVIEWED": 3
+          },
+          "state_outcome": {
+            "FAIL": 23,
+            "PASS": 61
+          },
+          "privacy": {
+            "UNREVIEWED": 84
+          }
+        },
+        "strata": {
+          "ambiguous": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "UNREVIEWED": 15
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "conflicting_facts": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "UNREVIEWED": 15
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "missing_evidence": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "FAIL": 6,
+              "UNREVIEWED": 9
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "operational_failure": {
+            "planned": 9,
+            "attempted": 9,
+            "statuses": {
+              "UNREVIEWED": 9
+            },
+            "cases": 3,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "routine_answerable": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "FAIL": 14,
+              "UNREVIEWED": 1
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          },
+          "sensitive_subjective_complaint_refund": {
+            "planned": 15,
+            "attempted": 15,
+            "statuses": {
+              "FAIL": 3,
+              "UNREVIEWED": 12
+            },
+            "cases": 5,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          }
+        },
+        "path_coverage": {
+          "rule": 30,
+          "fault": 6,
+          "model": 45,
+          "human": 3
+        },
+        "model_quality_eligible_trials": 45,
+        "latency_ms": {
+          "n": 84,
+          "p50": 1208,
+          "p95": 1816
+        },
+        "cost": {
+          "known_usd": 0.049287999999999985,
+          "unknown_trials": 0,
+          "all_cost_known": true
+        },
+        "human_review_pending": true,
+        "llm_calibration": "UNREVIEWED",
+        "measured_readiness": false
+      },
+      "primary_dimension_case_stability": {
+        "action": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 61,
+            "FAIL": 23,
+            "UNREVIEWED": 0
+          },
+          "all_three_pass_cases": 20,
+          "at_least_one_pass_in_three_cases": 21,
+          "all_three_unreviewed_cases": 0,
+          "any_unreviewed_cases": 0,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "semantic_correctness": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 60,
+            "FAIL": 21,
+            "UNREVIEWED": 3
+          },
+          "all_three_pass_cases": 20,
+          "at_least_one_pass_in_three_cases": 20,
+          "all_three_unreviewed_cases": 1,
+          "any_unreviewed_cases": 1,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "factual_grounding": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 61,
+            "FAIL": 23,
+            "UNREVIEWED": 0
+          },
+          "all_three_pass_cases": 20,
+          "at_least_one_pass_in_three_cases": 21,
+          "all_three_unreviewed_cases": 0,
+          "any_unreviewed_cases": 0,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "state_outcome": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 61,
+            "FAIL": 23,
+            "UNREVIEWED": 0
+          },
+          "all_three_pass_cases": 20,
+          "at_least_one_pass_in_three_cases": 21,
+          "all_three_unreviewed_cases": 0,
+          "any_unreviewed_cases": 0,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        },
+        "privacy": {
+          "cases": 28,
+          "planned_trials": 84,
+          "trial_counts": {
+            "PASS": 0,
+            "FAIL": 0,
+            "UNREVIEWED": 84
+          },
+          "all_three_pass_cases": 0,
+          "at_least_one_pass_in_three_cases": 0,
+          "all_three_unreviewed_cases": 28,
+          "any_unreviewed_cases": 28,
+          "interpretation": "Observed ^3=all three dimension PASS; @3=at least one dimension PASS. UNREVIEWED is undetermined, not failure or zero quality."
+        }
+      },
+      "primary_action_confusion": {
+        "HANDOFF": {
+          "HANDOFF": 57,
+          "ANSWER": 9
+        },
+        "ANSWER": {
+          "HANDOFF": 14,
+          "ANSWER": 1
+        },
+        "HUMAN_ONLY": {
+          "HUMAN_ONLY": 3
+        }
+      },
+      "primary_stable_action_cases_3_of_3": 20,
+      "primary_stable_four_screened_dimensions_cases_3_of_3": 20,
+      "primary_cases": 28,
+      "primary_stratum_action_summary": {
+        "ambiguous": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 15
+          },
+          "stable_action_cases_3_of_3": 5
+        },
+        "conflicting_facts": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 15
+          },
+          "stable_action_cases_3_of_3": 5
+        },
+        "missing_evidence": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 9,
+            "FAIL": 6
+          },
+          "stable_action_cases_3_of_3": 3
+        },
+        "operational_failure": {
+          "planned": 9,
+          "attempted": 9,
+          "action_dimensions": {
+            "PASS": 9
+          },
+          "stable_action_cases_3_of_3": 3
+        },
+        "routine_answerable": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "FAIL": 14,
+            "PASS": 1
+          },
+          "stable_action_cases_3_of_3": 0
+        },
+        "sensitive_subjective_complaint_refund": {
+          "planned": 15,
+          "attempted": 15,
+          "action_dimensions": {
+            "PASS": 12,
+            "FAIL": 3
+          },
+          "stable_action_cases_3_of_3": 4
+        }
+      },
+      "concurrency_diagnostics": {
+        "schema_version": "evals-v2.1",
+        "cohort": "holdout-after-f4715b1",
+        "planned": 6,
+        "attempted": 6,
+        "not_run": 0,
+        "statuses": {
+          "INVALID": 3,
+          "UNREVIEWED": 3
+        },
+        "dimension_counts": {
+          "action": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "factual_grounding": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "semantic_correctness": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "state_outcome": {
+            "FAIL": 3,
+            "PASS": 3
+          },
+          "privacy": {
+            "UNREVIEWED": 6
+          }
+        },
+        "strata": {
+          "operational_failure": {
+            "planned": 6,
+            "attempted": 6,
+            "statuses": {
+              "INVALID": 3,
+              "UNREVIEWED": 3
+            },
+            "cases": 2,
+            "stable_screening_cases_3_of_3": 0,
+            "screening_cases_at_least_one_of_3": 0
+          }
+        },
+        "path_coverage": {
+          "rule": 3,
+          "model": 3
+        },
+        "model_quality_eligible_trials": 3,
+        "latency_ms": {
+          "n": 6,
+          "p50": 127,
+          "p95": 1888
+        },
+        "cost": {
+          "known_usd": 0.003384,
+          "unknown_trials": 0,
+          "all_cost_known": true
+        },
+        "human_review_pending": true,
+        "llm_calibration": "UNREVIEWED",
+        "measured_readiness": false,
+        "prerequisite_invalid_trials": 3,
+        "included_in_primary_quality": false
+      },
+      "path_coverage": {
+        "rule": 33,
+        "model": 48,
+        "fault": 6,
+        "human": 3
+      },
+      "budget": {
+        "max_usd": 0.75,
+        "trial_reserve_usd": 0.05,
+        "known_spent_usd": 0.053426,
+        "unsettled_calls": 0,
+        "pending_call": false,
+        "stop_reason": null,
+        "can_start": true,
+        "reserve_is_billing_cap": false,
+        "initial_known_spent_usd": 0.000754,
+        "smoke_cost_usd": 0.000754,
+        "stopped_reason": null
+      },
+      "holdout_cost_usd": 0.052672,
+      "model_quality_rate_established": false,
+      "reason_model_quality_rate_not_established": "All trials require transmission-privacy review; zero provisional overall successes is not zero model capability."
+    }
+  ],
+  "total_known_cost_including_smokes_usd": 0.107057,
+  "total_unsettled_calls": 0,
+  "human_review_pending": true,
+  "llm_calibration": "UNREVIEWED",
+  "measured_readiness": false,
+  "privacy_transmission_review": "UNREVIEWED for every trial",
+  "independence": "Frozen before both cohorts; no tuning between arms. Do not tune using these results or reuse as an independent holdout after tuning.",
+  "raw_cases_or_failures_disclosed": false
+}

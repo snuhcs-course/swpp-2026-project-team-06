@@ -1,0 +1,186 @@
+{
+  "status": "INVALID_INCOMPLETE_COHORT",
+  "subject_commit": "f4715b1cd79074d77cb32bed385cf86b9091adbb",
+  "measurement": "final-only absolute holdout; not an improvement delta",
+  "planned": {
+    "sources": 12,
+    "facts": 134,
+    "critical_facts": 33
+  },
+  "observed_outputs": {
+    "sources": 9,
+    "facts_denominator": 98,
+    "critical_facts_denominator": 24
+  },
+  "observed_output_screening": {
+    "facts_hit": 53,
+    "facts_total": 98,
+    "critical_hit": 11,
+    "critical_total": 24,
+    "interpretation": "conditional diagnostic for observed outputs, not full-cohort accuracy"
+  },
+  "full_plan_coverage_lower_bound": {
+    "factRecall": {
+      "hit": 53,
+      "total": 134,
+      "rate": 0.39552238805970147
+    },
+    "criticalFactRecall": {
+      "hit": 11,
+      "total": 33,
+      "rate": 0.3333333333333333
+    },
+    "misplacement": {
+      "hit": 9,
+      "total": 134,
+      "rate": 0.06716417910447761
+    },
+    "forbiddenViolations": 2,
+    "unsupportedTokens": 2,
+    "precisionProxy": {
+      "hit": 42,
+      "total": 54,
+      "rate": 0.7777777777777778
+    }
+  },
+  "by_format": {
+    "text": {
+      "factRecall": {
+        "hit": 21,
+        "total": 49,
+        "rate": 0.42857142857142855
+      },
+      "criticalFactRecall": {
+        "hit": 6,
+        "total": 15,
+        "rate": 0.4
+      },
+      "misplacement": {
+        "hit": 3,
+        "total": 49,
+        "rate": 0.061224489795918366
+      },
+      "forbiddenViolations": 1,
+      "unsupportedTokens": 2,
+      "precisionProxy": {
+        "hit": 15,
+        "total": 19,
+        "rate": 0.7894736842105263
+      },
+      "output_observed": 3
+    },
+    "image": {
+      "factRecall": {
+        "hit": 17,
+        "total": 25,
+        "rate": 0.68
+      },
+      "criticalFactRecall": {
+        "hit": 4,
+        "total": 6,
+        "rate": 0.6666666666666666
+      },
+      "misplacement": {
+        "hit": 6,
+        "total": 25,
+        "rate": 0.24
+      },
+      "forbiddenViolations": 1,
+      "unsupportedTokens": 0,
+      "precisionProxy": {
+        "hit": 13,
+        "total": 20,
+        "rate": 0.65
+      },
+      "output_observed": 3
+    },
+    "long_image": {
+      "factRecall": {
+        "hit": 15,
+        "total": 24,
+        "rate": 0.625
+      },
+      "criticalFactRecall": {
+        "hit": 1,
+        "total": 3,
+        "rate": 0.3333333333333333
+      },
+      "misplacement": {
+        "hit": 0,
+        "total": 24,
+        "rate": 0.0
+      },
+      "forbiddenViolations": 0,
+      "unsupportedTokens": 0,
+      "precisionProxy": {
+        "hit": 14,
+        "total": 15,
+        "rate": 0.9333333333333333
+      },
+      "output_observed": 3
+    },
+    "pdf": {
+      "factRecall": {
+        "hit": 0,
+        "total": 36,
+        "rate": 0.0
+      },
+      "criticalFactRecall": {
+        "hit": 0,
+        "total": 9,
+        "rate": 0.0
+      },
+      "misplacement": {
+        "hit": 0,
+        "total": 36,
+        "rate": 0.0
+      },
+      "forbiddenViolations": 0,
+      "unsupportedTokens": 0,
+      "precisionProxy": {
+        "hit": 0,
+        "total": 0,
+        "rate": null
+      },
+      "output_observed": 0,
+      "interpretation": "3 unobserved outputs; zero hits are a coverage lower bound, not semantic wrong answers"
+    }
+  },
+  "runtime_statuses": {
+    "EVALUATED": 7,
+    "EMPTY": 2,
+    "FAILED": 3
+  },
+  "runtime_errors_by_format": {
+    "pdf": {
+      "SOURCE_FAILED": 1,
+      "PROVIDER_REJECTED": 2
+    }
+  },
+  "provider_attestation": {
+    "provider": "openrouter",
+    "actual_models": [
+      "google/gemini-3-flash-preview"
+    ],
+    "observed_responses": 59,
+    "http200_valid_responses": 59,
+    "block_reason": "REQUEST_UNCERTAIN",
+    "original_exception_stack": "NOT_RECORDED",
+    "dispatch_of_uncertain_request": "UNVERIFIED"
+  },
+  "cost": {
+    "full_settled_usd": 0.110882,
+    "smoke_settled_usd": 0.001594,
+    "including_smoke_settled_usd": 0.112476,
+    "unsettled_reservation_usd": 0.580738,
+    "conservative_budget_consumption_usd": 0.693214
+  },
+  "semantic_review": "UNREVIEWED",
+  "human_review": "UNREVIEWED",
+  "readiness": false,
+  "count_units": {
+    "forbidden": "detector hits, can overlap",
+    "unsupported": "numeric token detector hits"
+  },
+  "original_artifacts": "preserved; partial scorer outputs are separate; missing outputPath=null, no fabricated output"
+}
