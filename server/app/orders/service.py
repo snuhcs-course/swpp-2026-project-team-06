@@ -15,12 +15,13 @@ from app.core.errors import conflict, invalid, not_found
 from app.core.ids import new_id
 from app.orders.models import Order, Payment, Refund
 from app.orders.schemas import (
-    Changed,
     Dashboard,
     DashboardProduct,
     DashboardStage,
     DashboardStageOption,
     DashboardTodo,
+    HarvestStarted,
+    HarvestTarget,
     OrderInput,
     OrderView,
     ProducerOrder,
@@ -923,6 +924,7 @@ def dashboard(db: Session, farm) -> Dashboard:
             )
             for s in main.stages
         ]
+    targets = harvest_targets(products, farm_orders)
     labels = {(p.product.id, o.id): o.label for p in products for o in p.options}
     recent = sorted(farm_orders, key=lambda o: o.created_at, reverse=True)[:3]
     buyers = accounts.get_users(db, [o.consumer_id for o in recent])
@@ -936,6 +938,8 @@ def dashboard(db: Session, farm) -> Dashboard:
                 1 for o in farm_orders if o.status == "REFUNDED" and o.id in unsettled
             ),
             has_account=farms.has_deposit_account(farm),
+            to_harvest=sum(t.count for t in targets if t.closed),
+            harvest_targets=targets,
         ),
         product=product,
         stages=stages or [],
@@ -966,6 +970,7 @@ def producer_order_view(db: Session, order: Order) -> ProducerOrder:
         order_id=order.id,
         order_no=order.order_no,
         product_id=order.product_id,
+        stage_id=order.stage_id,
         product_name=_short_name(item.product.name),
         option_label=option.label if option else "",
         quantity=order.quantity,
@@ -1011,21 +1016,86 @@ def producer_orders(
     return [producer_order_view(db, row) for row in rows]
 
 
-def harvest_start(db: Session, farm_id: str, product_id: str) -> Changed:
+HARVESTED = ("PREPARING", "SHIPPED", "DELIVERED", "COMPLETED")
+
+
+def harvest_targets(products, farm_orders) -> list[HarvestTarget]:
+    """예약 완료 주문이 남은 예약 기간(DEV-231). 끝난 기간부터, 끝나는 날 순."""
+    day = today()
+    reserved: dict[str, int] = {}
+    for o in farm_orders:
+        if o.status == "RESERVED":
+            reserved[o.stage_id] = reserved.get(o.stage_id, 0) + 1
+    targets = [
+        HarvestTarget(
+            product_id=item.product.id,
+            product_name=item.product.name,
+            stage_id=s.id,
+            stage_name=s.name,
+            ends_at=s.ends_at,
+            count=reserved[s.id],
+            closed=s.ends_at < day,
+        )
+        for item in products
+        for s in item.stages
+        if reserved.get(s.id)
+    ]
+    return sorted(targets, key=lambda t: (t.ends_at, t.product_name, t.stage_name))
+
+
+def stage_order_counts(db: Session, product_id: str) -> dict[str, dict[str, int]]:
+    """기간별 상태별 주문 수(DEV-231, 생산자 예약 기간 화면)."""
+    rows = db.execute(
+        select(Order.stage_id, Order.status, func.count())
+        .where(Order.product_id == product_id)
+        .group_by(Order.stage_id, Order.status)
+    )
+    counts: dict[str, dict[str, int]] = {}
+    for stage_id, status, n in rows:
+        counts.setdefault(stage_id, {})[status] = n
+    return counts
+
+
+def harvest_start(
+    db: Session, farm_id: str, actor_id: str, product_id: str, stage_id: str | None
+) -> HarvestStarted:
+    """수확 시작 = 출하 준비 시작(DEV-231, FEAT-17 AC-17-11).
+
+    그 기간(없으면 상품 전체)의 예약 완료 주문만 출하 준비로 옮긴다. 입금 대기·환불·취소는 그대로.
+    """
+    from app.admin.models import ManagerEvent
     from app.catalog import service as catalog
 
-    catalog.load_my_product(db, farm_id, product_id)
-    orders = list(
-        db.scalars(
-            select(Order).where(
-                Order.product_id == product_id, Order.status == "RESERVED"
-            ).with_for_update()
-        )
-    )
+    item = catalog.load_my_product(db, farm_id, product_id)
+    if stage_id is not None and all(s.id != stage_id for s in item.stages):
+        raise not_found("찾을 수 없는 예약 기간이에요.")
+    query = select(Order).where(Order.product_id == product_id, Order.status == "RESERVED")
+    if stage_id is not None:
+        query = query.where(Order.stage_id == stage_id)
+    orders = list(db.scalars(query.order_by(Order.created_at, Order.id).with_for_update()))
     for order in orders:
         order.status = "PREPARING"
+    order_ids = [o.id for o in orders]
+    if orders:
+        timestamp = now()
+        db.add(
+            ManagerEvent(
+                id=new_id("manager-event"),
+                event_type="orders.harvest_started",
+                actor_id=actor_id,
+                target_type="stage" if stage_id else "product",
+                target_id=stage_id or product_id,
+                request_summary={"productId": product_id, "stageId": stage_id},
+                result={"changed": len(orders), "orderIds": order_ids},
+                status="SUCCEEDED",
+                retryable=False,
+                attempts=1,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+        )
     db.flush()
-    return Changed(changed=len(orders))
+    return HarvestStarted(changed=len(orders), stage_id=stage_id, order_ids=order_ids)
 
 
 def ship_order(

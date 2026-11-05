@@ -16,6 +16,7 @@ from app.orders.schemas import (
     Changed,
     Dashboard,
     DeliveryWindowResponse,
+    HarvestStarted,
     HarvestStartInput,
     OrderInput,
     OrderView,
@@ -69,12 +70,20 @@ def producer_orders(
     return _page(service.producer_orders(db, farm.id, status, product_id), cursor, limit)
 
 
-@router.post("/producer/harvest-start", response_model=Changed)
-def harvest_start(db: Db, producer: ApprovedProducer, body: HarvestStartInput):
-    _, farm = producer
-    result = service.harvest_start(db, farm.id, body.product_id)
-    db.commit()
-    return result
+@router.post("/producer/harvest-start", response_model=HarvestStarted)
+def harvest_start(
+    db: Db, producer: ApprovedProducer, body: HarvestStartInput, key: IdempotencyKey = None
+):
+    """수확 시작 = 출하 준비 시작(DEV-231, AC-17-11). Idempotency-Key 필수."""
+    user, farm = producer
+    return run_idempotent(
+        db,
+        user.id,
+        "orders.harvest_start",
+        key,
+        body,
+        lambda: service.harvest_start(db, farm.id, user.id, body.product_id, body.stage_id),
+    )
 
 
 @router.post("/{order_id}/deposit", response_model=OrderView)
