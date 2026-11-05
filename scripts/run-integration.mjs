@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -235,8 +235,13 @@ async function main() {
     await resetSeed(serverEnv);
   }
   // 뒤에 붙인 인자(spec 경로 등)는 Playwright에 넘긴다(DEV-84).
-  // 격리 목록(scripts/ci/quarantine.json)으로 고른 spec의 테스트가 다 빠져도 실패로 보지 않는다(DEV-234).
-  await command(playwrightBin, ["test", "--pass-with-no-tests", ...playwrightArgs], { env: testEnv });
+  // 격리 목록에 항목이 있을 때만 "고른 spec의 테스트가 다 빠져도 통과"를 허용한다. 비어 있으면 0개 실행은 실패다.
+  const quarantine = JSON.parse(readFileSync(path.join(root, "scripts", "ci", "quarantine.json"), "utf8"));
+  const quarantined =
+    process.env.FARMCLUB_INCLUDE_QUARANTINE !== "1" && (quarantine.specs?.length || quarantine.tests?.length);
+  await command(playwrightBin, ["test", ...(quarantined ? ["--pass-with-no-tests"] : []), ...playwrightArgs], {
+    env: testEnv,
+  });
 }
 
 try {
