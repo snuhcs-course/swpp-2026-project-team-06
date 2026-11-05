@@ -257,7 +257,12 @@ def _room_rows(db: Session, user, farm, can_reply: bool, cursor: list | None, li
     replies = select(RoomReply).where(RoomReply.farm_id == farm.id)
     if not can_reply:
         broadcasts = broadcasts.where(Broadcast.visibility == "PUBLIC")
-        replies = replies.where(false())
+        # 팔로우를 끊은 소비자도 본인 답장은 계속 본다(DEV-230, AC-15-8).
+        # 다른 소비자 답장은 없다(M-02)
+        if user is not None and user.role == "CONSUMER":
+            replies = replies.where(RoomReply.consumer_id == user.id)
+        else:
+            replies = replies.where(false())
     elif user.role == "CONSUMER":
         replies = replies.where(RoomReply.consumer_id == user.id)
     b_cond = _older_than(Broadcast.created_at, Broadcast.id, cursor)

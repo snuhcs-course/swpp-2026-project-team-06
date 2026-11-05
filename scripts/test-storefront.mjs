@@ -280,3 +280,37 @@ test("AC-07-3: paused or total-sold-out products leave home/farm featured but st
   assert.equal(redhyang.soldOut, true);
   assert.ok(redhyang.nextStageStartsAt);
 });
+
+test("AC-15-8/AC-06-8: unfollowed consumer keeps only own replies, re-follow restores room and chat list (DEV-230)", async () => {
+  reset();
+  const a = await login("u-minji", "consumer"),
+    b = await login("u-seojun", "consumer"),
+    p = await login("u-kang", "producer");
+  const room = "/api/messaging/rooms/f-kang/messages";
+  await ok("PUT", "/api/farms/f-kang/follow", b);
+  const secret = await ok("POST", room, p, { text: "FOLLOWER SECRET" });
+  const mine = await ok("POST", room, a, { text: "MY REPLY" });
+  const other = await ok("POST", room, b, { text: "OTHER REPLY" });
+  const ids = async () => (await ok("GET", room, a)).items.map((x) => x.messageId);
+  const listed = async () =>
+    (await ok("GET", "/api/messaging/rooms", a)).items.map((r) => r.farmId);
+  const before = await ids();
+  assert.ok(before.includes(secret.messageId) && before.includes(mine.messageId));
+
+  await ok("DELETE", "/api/farms/f-kang/follow", a);
+  const page = await ok("GET", room, a);
+  const after = page.items.map((x) => x.messageId);
+  assert.equal(page.room.canReply, false);
+  assert.ok(after.includes(mine.messageId));
+  assert.ok(!after.includes(secret.messageId));
+  assert.ok(!after.includes(other.messageId));
+  assert.equal(page.room.lastMessage, "MY REPLY");
+  assert.ok(!(await listed()).includes("f-kang"));
+  assert.equal((await api("POST", room, a, { text: "blocked" })).status, 403);
+  const anonymous = (await ok("GET", room, null)).items.map((x) => x.messageId);
+  assert.ok(!anonymous.includes(mine.messageId));
+
+  await ok("PUT", "/api/farms/f-kang/follow", a);
+  assert.deepEqual(await ids(), before);
+  assert.ok((await listed()).includes("f-kang"));
+});

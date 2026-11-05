@@ -340,6 +340,12 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **THEN** it appears in my followed farms under Me
 - **AND** its news room appears in Chat
 
+**AC-06-8: Unfollow with undo (DEV-230)**
+- **GIVEN** I follow a farm and have replied in its news room
+- **WHEN** I tap Following, then Undo (or Follow again in the banner)
+- **THEN** right after unfollowing I see the toast "Unfollowed · Undo", my replies stay dimmed, follower-only posts are hidden, a banner says new posts will not come, the reply box is locked, and the farm leaves the Chat news room list
+- **AND** following again brings back everything as before, including the list row
+
 ### FEAT-07: Product information
 
 **As a** consumer, **I want to** see quality, price and delivery timing, **so that** I can decide whether to reserve.
@@ -585,6 +591,11 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **GIVEN** a post is for followers only
 - **WHEN** an anonymous visitor or non-follower opens the public room
 - **THEN** that post is not shown
+
+**AC-15-8: After unfollowing (DEV-230)**
+- **GIVEN** I replied in a farm's room and then unfollowed it
+- **WHEN** I open that room
+- **THEN** I see public posts and only my own replies, not follower-only posts or other consumers' replies, and sending a reply is refused
 
 **AC-15-3: Like and unlike**
 - **GIVEN** I am logged in and a post has 3 likes

@@ -9,6 +9,7 @@ import {
   ConversationHeader,
   EmptyState,
   HeaderBar,
+  FollowButton,
   NewsRoom,
   ProductShelf,
   Screen,
@@ -19,6 +20,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession, useHideTabBar } from "./session";
+import { useToast } from "./toast";
 import { LoadError, isStatus } from "./views";
 import { goBackOr } from "./nav";
 
@@ -31,6 +33,9 @@ export default function FarmRoom() {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // 팔로우를 끊었지만 내 답장이 남은 방(NewsRoom이 알려 줌): 헤더 ‘팔로우’를 테두리로 낮춘다(DEV-230)
+  const [lapsed, setLapsed] = useState(false);
+  const toast = useToast(88);
   const identity = `${farmId}:${user?.userId ?? "public"}`;
   const currentIdentity = useRef(identity);
   currentIdentity.current = identity;
@@ -38,6 +43,7 @@ export default function FarmRoom() {
   useEffect(() => {
     setBusy(false);
     setError("");
+    setLapsed(false);
   }, [identity]);
   useEffect(() => {
     alive.current = true;
@@ -93,6 +99,9 @@ export default function FarmRoom() {
           : p,
       );
       setRevision((n) => n + 1);
+      // 확인 없이 끊고 되돌리기를 준다(FEAT-06 4, screens.md 토스트, DEV-230)
+      if (!target)
+        toast.act("팔로우를 끊었어요", "되돌리기", () => void follow(true));
     } catch (e) {
       if (valid())
         setError(e instanceof Error ? e.message : "팔로우를 변경하지 못했어요");
@@ -126,12 +135,11 @@ export default function FarmRoom() {
         }
         onProfile={() => router.push(`/farms/${farmId}/info`)}
         right={
-          <Button
-            label={farm.data?.isFollowing ? "팔로잉" : "팔로우"}
-            variant={farm.data?.isFollowing ? "secondary" : "primary"}
-            loading={busy}
-            disabled={!farm.data}
-            style={{ width: 88, paddingHorizontal: 8 }}
+          <FollowButton
+            following={!!farm.data?.isFollowing}
+            quiet={lapsed && !farm.data?.isFollowing}
+            loading={busy || !farm.data}
+            style={{ flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: 104, paddingHorizontal: 8 }}
             onPress={() =>
               requireLogin(
                 "follow",
@@ -166,6 +174,8 @@ export default function FarmRoom() {
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)
           }
+          onRefollow={join}
+          onLapsedChange={setLapsed}
           onLogin={() =>
             router.push({ pathname: "/login", params: { next: here } })
           }
@@ -178,6 +188,7 @@ export default function FarmRoom() {
           }
         />
       ) : null}
+      {toast.node}
     </Screen>
   );
 }
