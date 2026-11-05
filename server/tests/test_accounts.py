@@ -456,6 +456,36 @@ def test_kakao_login_rejects_unknown_redirect_origin(client, monkeypatch):
     assert _kakao_users("kakao-1001") == []
 
 
+def test_kakao_login_accepts_alt_app_urls_only_for_that_app(client, monkeypatch):
+    """DEV-236: 보조 주소(Vercel 기본 주소 등)의 /auth/kakao도 받는다. 앱이 엇갈리면 거절한다."""
+    _kakao_on(monkeypatch)
+    settings = config.get_settings()
+    monkeypatch.setattr(settings, "consumer_app_alt_urls", "https://farmclub-consumer.vercel.app")
+    monkeypatch.setattr(settings, "producer_app_alt_urls", "https://farmclub-producer.vercel.app")
+
+    def post(redirect: str, app: str):
+        return client.post(
+            "/api/auth/kakao", json={"code": "abc", "redirectUri": redirect, "app": app}
+        )
+
+    # 다른 앱의 보조 주소, 등록 안 된 vercel.app 주소, 경로가 다른 주소는 거절
+    for redirect, app in (
+        ("https://farmclub-producer.vercel.app/auth/kakao", "consumer"),
+        ("https://farmclub-consumer.vercel.app/auth/kakao", "producer"),
+        ("https://farmclub-consumer-git-main-x.vercel.app/auth/kakao", "consumer"),
+        ("https://farmclub-consumer.vercel.app/auth/kakao/x", "consumer"),
+        ("https://farmclub-consumer.vercel.app", "consumer"),
+    ):
+        response = post(redirect, app)
+        assert response.status_code == 400, redirect
+        assert "redirectUri" in response.json()["details"]["fields"]
+    assert _kakao_users("kakao-1001") == []
+
+    assert post("https://farmclub-consumer.vercel.app/auth/kakao", "consumer").status_code == 200
+    assert post(CONSUMER_REDIRECT, "consumer").status_code == 200  # 대표 주소도 그대로
+    assert post("https://farmclub-producer.vercel.app/auth/kakao", "producer").status_code == 200
+
+
 def test_kakao_exchange_failure_creates_no_account(client, monkeypatch):
     from app.accounts import service
 
