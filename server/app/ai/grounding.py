@@ -149,7 +149,8 @@ def _dates_supported(answer: str, evidence: str) -> bool:
     for match in _VAGUE_DATE.finditer(answer):
         month = int(match.group("month"))
         if any(
-            int(source.group("month")) == month and source.group("bucket") == match.group("bucket")
+            int(source.group("month")) == month
+            and source.group("bucket") == match.group("bucket")
             for source in _VAGUE_DATE.finditer(evidence)
         ):
             continue
