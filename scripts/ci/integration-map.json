@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "DEV-234: CI가 PR에서 무엇을 돌릴지 정하는 경로 분류. 읽는 쪽은 scripts/ci/classify.mjs(규칙 설명은 .github/README.md).",
+    "DEV-234: CI가 PR에서 무엇을 돌릴지 정하는 경로 분류. 읽는 쪽은 scripts/ci/classify.mjs(규칙 설명은 .github/CI.md).",
     "글롭: ** = 폴더 여러 단계, * = 한 단계 안, ! 로 시작하면 그 묶음에서 뺀다. 파일 하나는 위에서부터 docs → core → 각 job 분류로 본다.",
     "docs: CI job(server·apps·admin-web·integration)이 읽지 않는 파일. PR의 바뀐 파일이 전부 여기면 문서 전용 길(아무 job도 안 돎).",
     "core: CI 자체. 바뀌면 모든 job과 integration 전체를 돈다.",

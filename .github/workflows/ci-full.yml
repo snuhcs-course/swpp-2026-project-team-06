@@ -101,7 +101,7 @@ jobs:
             "- 실행: ${RUN_URL}" \
             "- 실패한 job의 아티팩트(integration-failure-*)에 Playwright 보고서가 있다." \
             "- 고칠 사람: 마지막으로 머지한 사람(AGENTS.md: main CI가 깨지면 머지한 사람이 바로 고치거나 revert)." \
-            "- 간헐 실패면 scripts/ci/quarantine.json에 이슈와 함께 격리(.github/README.md).")"
+            "- 간헐 실패면 scripts/ci/quarantine.json에 이슈와 함께 격리(.github/CI.md).")"
           if [ -n "$issue" ]; then
             gh issue comment "$issue" --body "$body"
           else

@@ -75,7 +75,7 @@
 - 로컬 DB는 브랜치마다 따로 쓴다: `DATABASE_URL`의 DB 이름을 바꾼다(예: `farmclub_dev12`, pytest는 `_test`를 붙인 DB를 따로 만든다). 공용 `farmclub`에는 다른 브랜치의 마이그레이션이 섞여 `alembic upgrade`·테스트가 깨진다.
 - 머지는 사람 리뷰 후에만 한다(아래 "사람·에이전트 역할"). 에이전트는 사람의 지시 없이 머지하지 않는다.
 - 작업 브랜치를 `main`에 머지할 때는 가능한 한 **Squash merge**를 사용한다.
-- 머지 큐를 켠 뒤에는 **Merge when ready**(머지 큐)로 머지한다: 큐가 최신 main 위에서 전체 integration을 돌리고 통과한 커밋을 main에 넣는다(필수 체크 `ci-ok`·`figma-line`·`checker-tests`). 운영 장애 급한 수정만 `hotfix` 라벨(integration은 머지 뒤 `CI full`이 돌고 실패하면 이슈가 열린다). 길·설정은 `.github/README.md`(DEV-234).
+- 머지 큐를 켠 뒤에는 **Merge when ready**(머지 큐)로 머지한다: 큐가 최신 main 위에서 전체 integration을 돌리고 통과한 커밋을 main에 넣는다(필수 체크 `ci-ok`·`figma-line`·`checker-tests`). 운영 장애 급한 수정만 `hotfix` 라벨(integration은 머지 뒤 `CI full`이 돌고 실패하면 이슈가 열린다). 길·설정은 `.github/CI.md`(DEV-234).
 - 머지 전에 PR 체크(CI·spec-check)가 통과했는지 확인한다. main CI가 깨지면 머지한 사람이 바로 고치거나 revert한다(깨진 동안 다른 사람의 배포와 CI가 막힌다).
 - spec-check(`spec-code-review`)는 ready PR에서 자동으로 돌고, fail이어도 머지를 막지 않는다. 대신 작성자가 보고서를 읽고 처리 결정(고침·스펙 변경·오탐·사람 리뷰 대체)을 PR 코멘트에 적는다. 리뷰어는 그 코멘트가 없으면 Approve를 미룬다(`.github/spec-check/README.md` 1.1절, DEV-196).
 
