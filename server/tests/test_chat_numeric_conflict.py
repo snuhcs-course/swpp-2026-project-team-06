@@ -5,8 +5,17 @@ import pytest
 from app.ai import service as ai
 from app.ai.schemas import Evidence
 
-
 QUESTION = "배송비는 얼마예요?"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _schema():
+    yield
+
+
+@pytest.fixture(autouse=True)
+def seeded():
+    yield
 
 
 @pytest.fixture(autouse=True)

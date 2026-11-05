@@ -555,6 +555,18 @@ def evaluate_source(row, provider, model, calls):
                 "refine", model, {"prompt": refine_ai.PROMPT, "candidates": safe}, [target], [], fn
             )
 
+        def evaluator_refine(mode, model, target, safe):
+            if provider == "mock":
+                return calls(
+                    "refine",
+                    model,
+                    {},
+                    [target],
+                    [],
+                    lambda: refine_ai.refine("mock", model, target, safe),
+                )
+            return refine_ai.refine(mode, model, target, safe)
+
         stored, diagnostics, stage2_usage, _ = refinement.refine_candidates(
             provider,
             model,
@@ -562,7 +574,7 @@ def evaluate_source(row, provider, model, calls):
             selected,
             refine_call,
             target_count=1,
-            refine_fn=refine_ai.refine,
+            refine_fn=evaluator_refine,
         )
         limits = {
             k: diagnostics[k]
