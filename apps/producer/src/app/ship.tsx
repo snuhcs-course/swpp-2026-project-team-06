@@ -10,6 +10,7 @@ import {
   newIdempotencyKey,
   serverNow,
   type Carrier,
+  type HarvestTarget,
   type ProducerOrder,
 } from "@farmclub/api";
 import {
@@ -18,6 +19,7 @@ import {
   HeaderBar,
   Icon,
   Input,
+  ListRow,
   Notice,
   Radio,
   Screen,
@@ -135,9 +137,15 @@ export default function Ship() {
   const [reason, setReason] = useState("");
   const [cancelOrder, setCancelOrder] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
+  // DEV-231: 예약 탭 맨 위 '수확 시작하기' 줄(누르면 그 예약 기간 카드로)
+  const [targets, setTargets] = useState<HarvestTarget[]>([]);
 
   const load = useCallback(async () => {
     setError(null);
+    void orders
+      .dashboard()
+      .then((d) => setTargets(d.todo.harvestTargets ?? []))
+      .catch(() => setTargets([]));
     try {
       const all = await allPages((cursor) =>
         orders.producerOrders({ limit: 50, cursor }),
@@ -547,6 +555,25 @@ export default function Ship() {
             />
           </View>
         </ScrollView>
+        {tab === "RESERVED" && targets.length ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+            {targets.map((t, i) => (
+              <ListRow
+                key={t.stageId}
+                label={`${t.productName} ${t.stageName} · ${t.count}건 수확 시작하기`}
+                sub={
+                  t.closed
+                    ? "수확을 시작하면 출하 준비로 옮겨져요"
+                    : `예약 기간 ${Number(t.endsAt.slice(5, 7))}월 ${Number(t.endsAt.slice(8, 10))}일까지`
+                }
+                onPress={() =>
+                  router.push(`/products/${t.productId}/stages?stage=${t.stageId}`)
+                }
+                last={i === targets.length - 1}
+              />
+            ))}
+          </View>
+        ) : null}
         <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
           {list.length === 0 ? (
             <T variant="sub" muted style={{ paddingVertical: 24 }}>
@@ -770,7 +797,9 @@ export default function Ship() {
               ? "통장에서 입금자명(주문 번호)과 금액을 확인하고 「승인」을 누르면 소비자에게 예약 완료로 보여요. 맞지 않으면 「미승인」에 사유를 적어 주세요. 24시간 안에 입금이 없으면 자동으로 취소돼요."
               : tab === "REFUNDED"
                 ? "환불은 소비자가 입금했던 계좌로 직접 보내 주세요. 보낸 뒤 「승인」을 누르면 소비자 주문 상세에 환불 완료로 보여요. 보내지 못하면 「미승인」에 사유를 적어 주세요."
-                : "배송 완료는 farmclub이 확인해서 바꿔요."}
+                : tab === "RESERVED"
+                  ? "예약 완료 주문은 상품의 예약 기간에서 「수확 시작」을 누르면 출하 준비로 옮겨져요. 배송 완료는 farmclub이 확인해서 바꿔요."
+                  : "배송 완료는 farmclub이 확인해서 바꿔요."}
           </T>
         </View>
       </Scroll>
