@@ -283,6 +283,32 @@ def test_AC_06_1_farm_list_sorted_by_soonest_deadline_and_searchable(client):
     none = client.get("/api/farms", params={"q": "없는농가zzz"}).json()
     assert none == {"items": [], "nextCursor": None}
 
+
+def test_AC_06_2_search_matches_variety_of_products_on_sale(client):
+    # 품종만 궁천조생이고 농가명·주 품목·상품명에는 없다(p-house·p-hyodon, DEV-217)
+    found = client.get("/api/farms", params={"q": "궁천조생"}).json()["items"]
+    assert [c["farmId"] for c in found] == ["f-kang", "f-hyodon"]
+    assert all("variety" not in c["featured"] for c in found)
+    partial = client.get("/api/farms", params={"q": "온주"}).json()["items"]
+    assert [c["farmId"] for c in partial] == ["f-halla"]
+
+
+def test_AC_06_2_search_ignores_variety_of_products_not_on_sale(client):
+    # 강씨네의 반려(천혜향)·승인 대기(청견)·초안(한라봉) 상품 품종으로는 찾지 않는다
+    for q in ["천혜향", "청견", "한라봉"]:
+        assert client.get("/api/farms", params={"q": q}).json()["items"] == [], q
+
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Product).where(Product.id == "p-cheonggyeon").values(status="PUBLISHED")
+        )
+        session.execute(update(Product).where(Product.id == "p-noji").values(status="CLOSED"))
+    # 게시되면 찾고, 판매가 끝나면(CLOSED) 품종으로 더는 찾지 않는다
+    published = client.get("/api/farms", params={"q": "청견"}).json()["items"]
+    assert [c["farmId"] for c in published] == ["f-kang"]
+    assert client.get("/api/farms", params={"q": "온주"}).json()["items"] == []
+
+
 def test_DEV_68_producer_registers_deposit_account(client, login):
     headers = login("u-kang")
     mine = client.get("/api/farms/me", headers=headers).json()
