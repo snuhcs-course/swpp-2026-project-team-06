@@ -1,6 +1,6 @@
 // farmclub 전체 이야기 데모(한 농가·한 소비자). 구간마다 따로 녹화하고 나중에 이어 붙인다.
 //   node demo/record/story.mjs <구간>   → demo/.raw/story/<구간>.webm
-// 구간 순서: p1 a1 p2 a2 c1 p3 c2 p4 c3 (출하는 앱에 '예약 → 출하 준비' 화면이 없어 뺌, FEAT-17 AC-17-3)
+// 구간 순서: p1 a1 p2 a2 c1 p3 c2 p4 c3 p5 c4 (I3: 수확 시작 → 출하 준비 화면이 생겨(DEV-231) 출하 p5·c4를 넣음)
 //   p = 생산자 앱, a = 관리자 페이지, c = 소비자 앱
 // 로컬: 테스트 계정 로그인. 운영: DEMO_KAKAO=1 + DEMO_PROFILE(카카오·관리자 로그인을 미리 해 둔 브라우저 프로필)
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -271,8 +271,9 @@ const segments = {
     await go(`${producerUrl}/ship?status=AWAITING_DEPOSIT`);
     await wait(1200);
     await tap(btn(/입금 승인$/).first(), { after: 1200 });
-    const okDeposit = btn(/^확인$|^입금 승인$|승인하기/).last();
-    if (await okDeposit.isVisible().catch(() => false)) await tap(okDeposit, { after: 1800 });
+    // 확인 시트(DEV-68): '확인 · 입금 승인'. 못 누르면 예약 완료 장면이 거짓이 되므로 실패로 멈춘다
+    await tap(btn(/^확인 · 입금 승인$/).last(), { after: 2200 });
+    await page.getByText(/^입금 대기 0$/).first().waitFor({ timeout: 10000 });
     await cap("소식 올리기", "밭 소식을 팔로워 모두에게 올려요.", "FEAT-12 · FEAT-15");
     await go(`${producerUrl}/broadcast/new`);
     await type(page.getByLabel("소식 내용"), "이번 주 착색 시작했어요! 12월 초에 수확해서 바로 보내 드릴게요.");
@@ -323,9 +324,15 @@ const segments = {
   },
   // 10. 생산자: 출하
   async p5() {
-    await cap("출하 처리", "택배를 보낸 뒤 그 주문을 골라 택배사·송장 번호를\n넣고 출하로 바꿔요.", "FEAT-17 · SCR-29");
     await loginProducer("강영호|신규 생산자");
-    await go(`${producerUrl}/ship`);
+    // I3(DEV-231): 예약 기간 카드의 '수확 시작'으로 예약 완료 주문을 출하 준비로 옮긴다
+    await cap("수확 시작", "수확할 때 예약 기간에서 '수확 시작'을 누르면\n그 기간의 예약 주문이 출하 준비로 옮겨져요.", "FEAT-17 · DEV-231");
+    await go(`${producerUrl}/products/${state.productId}/stages`);
+    await wait(1200);
+    await tap(btn(/^수확 시작 · 출하 준비 \d+건$/).first(), { after: 1200 });
+    await tap(btn(/^수확 시작 · \d+건$/).last(), { after: 2200 });
+    await cap("출하 처리", "택배를 보낸 뒤 그 주문을 골라 택배사·송장 번호를\n넣고 출하로 바꿔요.", "FEAT-17 · SCR-29");
+    await go(`${producerUrl}/ship?status=PREPARING`);
     await wait(1200);
     await tap(page.getByRole("button").filter({ hasText: "데모 고객" }).first(), { after: 1000 });
     await tap(page.getByText("CJ대한통운", { exact: true }).last(), { after: 400 });
