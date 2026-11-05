@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // DEV-234: 바뀐 파일 목록과 길(lane)로 CI가 무엇을 돌릴지 정한다. 의존성 없음(node만).
-// 규칙 원본은 scripts/ci/integration-map.json, 설명은 .github/README.md.
+// 규칙 원본은 scripts/ci/integration-map.json, 설명은 .github/CI.md.
 //
 //   node scripts/ci/classify.mjs --lane pr --files changed.txt [--github-output] [--max-shards 3]
 //   node scripts/ci/classify.mjs --lane full --github-output        # nightly·hotfix 사후: integration 전체

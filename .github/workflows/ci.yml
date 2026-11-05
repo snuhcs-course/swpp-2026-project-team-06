@@ -3,7 +3,7 @@ name: CI
 # PR·머지 큐·main 검사. 배포(CD)는 deploy-railway.yml·deploy-vercel.yml이 main push의 이 워크플로 성공 뒤에 한다.
 # DEV-234: 첫 job `changes`가 길(lane)과 바뀐 경로로 무엇을 돌릴지 정하고(scripts/ci/classify.mjs, 규칙은
 # scripts/ci/integration-map.json), 마지막 job `ci-ok`가 결과를 모은다. 브랜치 보호의 필수 체크는 `ci-ok` 하나로 둔다
-# (건너뛴 job도 성공으로 보고되지만, 이름이 바뀌어도 보호 설정을 고치지 않게). 길·사람 설정은 .github/README.md.
+# (건너뛴 job도 성공으로 보고되지만, 이름이 바뀌어도 보호 설정을 고치지 않게). 길·사람 설정은 .github/CI.md.
 #   pull_request  → pr: 바뀐 경로의 job만, integration은 영향받는 spec만(샤드)
 #   merge_group   → queue: 바뀐 경로의 job, integration은 관련 변경이 있으면 전체
 #   push(main)    → validated: 같은 커밋이 머지 큐에서 이미 통과했으면 아무것도 안 하고 성공(배포가 바로 시작)
