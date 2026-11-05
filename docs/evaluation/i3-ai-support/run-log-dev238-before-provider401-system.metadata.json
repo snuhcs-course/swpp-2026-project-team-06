@@ -1,0 +1,25 @@
+{
+  "issue": "DEV-238",
+  "kind": "fallback-system-regression",
+  "modelQualityValid": false,
+  "applicationCommit": "5f27a229c105c5aabe52b641709c38cb23026dd8",
+  "originalProtocol": "DEV-154",
+  "trials": 180,
+  "automaticOutcomes": {
+    "PASS": 141,
+    "FAIL": 39
+  },
+  "modelIdsObserved": {
+    "missing": 180
+  },
+  "aiAnswerCallsDelta": {
+    "zero": 177,
+    "oneSyntheticMalformedFault": 3
+  },
+  "directCredentialProbe": {
+    "httpStatus": 401,
+    "errorType": "authentication_error"
+  },
+  "interpretation": "Provider failure fallback can satisfy HANDOFF or HUMAN_ONLY expected actions; these are not live model quality results. Original per-trial upstream status was not captured. No true answer accuracy is inferred.",
+  "rawTraces": "Local artifacts retained; excluded from git."
+}

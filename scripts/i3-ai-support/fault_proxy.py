@@ -82,6 +82,7 @@ class Handler(BaseHTTPRequestHandler):
                     RELEASE.clear()
                     STATE.update(
                         last_model=None,
+                        waiting=False,
                         upstream_status=None,
                         usage=None,
                         response_id=None,
@@ -111,9 +112,13 @@ class Handler(BaseHTTPRequestHandler):
         if mode == "malformed":
             return self._json(200, MALFORMED)
         if mode == "pause":
-            STATE["waiting"] = True
+            with LOCK:
+                if epoch == STATE["epoch"]:
+                    STATE["waiting"] = True
             RELEASE.wait(timeout=60)
-            STATE["waiting"] = False
+            with LOCK:
+                if epoch == STATE["epoch"]:
+                    STATE["waiting"] = False
         self._forward(payload, epoch)
 
     def _forward(self, payload: bytes, epoch: int) -> None:

@@ -1712,3 +1712,41 @@ The [document at `a262714`][prior] preserves the submitted AC catalogue, spec 1.
 [pr113]: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113
 [pr168]: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/168
 [wiki]: https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation
+
+
+## Iteration 3 — DEV-238 paired development measurements (5 November)
+
+The source-draft pair uses 47 development inputs (43 extraction and four contract cases),
+identical frozen input bytes, the same model/provider and prompt text, and the unchanged
+`dev193-number-evidence-v1` scorer. The candidate partitions refinement candidates into
+bounded requests instead of dropping the tail after one request. This is one stochastic
+realization per build, not a causal estimate or independent holdout result.
+
+| Source format | Fact matches before | Fact matches after | Critical matches before | Critical matches after |
+| --- | ---: | ---: | ---: | ---: |
+| Text | 67/103 | 64/103 | 31/46 | 33/46 |
+| Image | 41/52 | 42/52 | 30/35 | 30/35 |
+| Long image | 67/92 | 47/92 | 21/25 | 11/25 |
+| PDF | 47/107 | 65/107 | 25/48 | 28/48 |
+| Overall | 222/354 | 218/354 | 107/154 | 102/154 |
+
+The paired result does **not** establish overall quality improvement. Skipped refinement
+candidates fell from 18 to zero, but other extraction/provider failures and content misses
+remain in the denominator. Automatic forbidden-pattern hits increased from one to three;
+the three candidate hits refer to two source cases, including one refund/compensation
+policy sentence that remained accepted with a platform warning. Unsupported-token hits
+fell from one to zero. These detectors and precision proxies do not establish semantic
+precision, human audit completion, or safety of applied/public product pages.
+
+Source settled costs were $0.547032 before and $0.538427 after; unsettled reservations
+were $0.041332 and $0.115066 respectively and still consume the budget. Aggregates and
+configuration hashes are preserved in [the paired development record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/e2673e8/docs/spec/validation/source-dev238-pair-2026-11-05.json).
+No new source holdout was run in this task snapshot.
+
+The first chat run recorded 141/180 automatic outcome passes, but subsequent provider
+audit found no actual model IDs in any trace; the direct credential probe returned 401.
+It is retained explicitly as a **fallback/system regression cohort**, never live model
+quality. A separate local OpenRouter Messages compatibility smoke then succeeded with
+Haiku 4.5, HTTP 200, one upstream request, a response ID and nonzero token usage. This
+changes only the test proxy route; production remains Anthropic. New paid quality cohorts
+are held pending the DEV-241 evaluation-v2 validity and grading gates.
