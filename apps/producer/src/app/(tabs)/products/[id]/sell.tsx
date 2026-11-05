@@ -38,6 +38,7 @@ import { BuyerPreview } from "../../../../lib/BuyerPreview";
 import { DateSheet, NumField, addDays } from "../../../../lib/fields";
 import { useHideTabBar, useSession } from "../../../../lib/session";
 import { FieldButton, LoadError, TODAY } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 
 const WEIGHTS = [3, 5, 10];
 type Cell = { price: number | null; quantity: number | null };
@@ -161,7 +162,7 @@ export default function Sell() {
   if (!p || !form || !farm)
     return (
       <Screen>
-        <HeaderBar title="판매·가격" onBack={() => router.back()} />
+        <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} />
         {loadError ? (
           <LoadError error={loadError} onRetry={load} />
         ) : (
@@ -379,7 +380,7 @@ export default function Sell() {
     .pop()!;
   return (
     <Screen>
-      <HeaderBar title="판매·가격" onBack={() => router.back()} />
+      <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} />
       <Scroll bottom={160}>
         <View style={{ padding: tokens.space.gutter, gap: 32 }}>
           {!editable ? (

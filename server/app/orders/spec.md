@@ -51,3 +51,4 @@
 | 2026-10-18 | `AWAITING_DEPOSIT` 신설, `/pay`·`mockResult` 삭제 → `deposit`·`deposit-reported`·`confirm-deposit`·`refund-settled`, 관리 `confirm-deposit`·`expire-deposits`. 만료는 지연 검사 + 일괄 API(스케줄러 없음). 입금 대기 줄의 배송지는 생산자에게 숨김 | DEV-68(C안: farmclub은 통신판매중개자), R-28 | AC-09-1·2·3·7·8, AC-17-7 |
 
 | 2026-11-02 | SHIPPED 정정은 PATCH orders/:id/tracking + tracking_version(0024) + run_idempotent. 행 잠금·농가 소유권·상태·버전 검사를 적용한다. 실제 변경은 기존 ManagerEvent(order.tracking_updated)의 request_summary.previous/result와 actor_id/created_at에 같은 트랜잭션으로 기록한다. | 기존 운영자 감사 조회를 재사용하고 양쪽 주문 응답에 이력을 넣지 않는다. 소비자 조회는 Order의 최신 필드를 사용한다. | AC-17-9, R-19 |
+| 2026-11-05 | 수확 시작은 기존 `harvest-start`에 `stageId`(없으면 상품 전체)·`Idempotency-Key`(필수, `run_idempotent` scope `orders.harvest_start`)를 더해 기간 단위로 옮기고, 옮긴 주문이 있을 때만 `ManagerEvent(orders.harvest_started)` 한 행. '수확 시작함'은 저장 칸 없이 출하 준비 이후 주문 유무로 계산(마이그레이션 없음) | PM 결정 B(DEV-231). 재시도 중복 없음, 모델 변경 없이 감사 | AC-17-11·12, AC-14-5 |

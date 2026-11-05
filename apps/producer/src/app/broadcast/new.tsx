@@ -23,6 +23,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { pickMedia } from "../../lib/pick";
 import { useSession } from "../../lib/session";
 import { errMsg } from "../../lib/views";
+import { goBackOr } from "../../lib/nav";
 
 type Item = { uri: string; video: boolean };
 
@@ -96,9 +97,7 @@ export default function NewBroadcast() {
   const close = () =>
     dirty && !done
       ? setLeave(true)
-      : router.canGoBack()
-        ? router.back()
-        : router.replace("/chats?view=news");
+      : goBackOr(router, "/chats?view=news");
   const canPost = (body.trim().length > 0 || items.length > 0) && !done;
 
   return (

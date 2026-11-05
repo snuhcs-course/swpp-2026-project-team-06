@@ -259,6 +259,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
     orderId: o.orderId,
     orderNo: o.orderNo,
     productId: o.productId,
+    stageId: o.stageId,
     productName: p?.name ?? "",
     trackingVersion: o.trackingVersion ?? 1,
     optionLabel: opt?.label ?? "",

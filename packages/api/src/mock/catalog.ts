@@ -7,6 +7,7 @@ import type {
   DraftFields,
   MyProduct,
   MyProductCard,
+  MyStage,
   ProductPatch,
   Stage,
   StageInput,
@@ -57,6 +58,27 @@ export function editable(p: ProductRec) {
     );
 }
 
+const HARVESTED = ["PREPARING", "SHIPPED", "DELIVERED", "COMPLETED"];
+
+/** 기간별 주문 수·수확 시작 여부(DEV-231, 서버 my_stage_views와 같은 규칙) */
+function myStages(p: ProductRec): MyStage[] {
+  const orders = Object.values(db().orders).filter(
+    (o) => o.productId === p.productId,
+  );
+  return p.stages.map((s) => {
+    const mine = orders.filter((o) => o.stageId === s.stageId);
+    const count = (status: string) =>
+      mine.filter((o) => o.status === status).length;
+    return {
+      ...s,
+      reservedOrderCount: count("RESERVED"),
+      awaitingOrderCount: count("AWAITING_DEPOSIT"),
+      preparingOrderCount: count("PREPARING"),
+      harvestStarted: mine.some((o) => HARVESTED.includes(o.status)),
+    };
+  });
+}
+
 function myProduct(p: ProductRec): MyProduct {
   return {
     ...salesState(db(), p),
@@ -73,7 +95,7 @@ function myProduct(p: ProductRec): MyProduct {
     measuredBrix: p.measuredBrix,
     measuredBrixAt: p.measuredBrixAt,
     options: p.options,
-    stages: p.stages,
+    stages: myStages(p),
     shippingFeeType: p.shippingFeeType,
     shippingFee: p.shippingFee,
     remoteAreaFee: p.remoteAreaFee,

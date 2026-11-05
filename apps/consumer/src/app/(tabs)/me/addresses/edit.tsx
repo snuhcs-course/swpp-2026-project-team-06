@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { AddressForm } from "../../../../lib/AddressForm";
 import { setFlash } from "../../../../lib/flash";
 import { useHideTabBar, useSession } from "../../../../lib/session";
+import { goBackOr } from "../../../../lib/nav";
 
 export default function AddressEdit() {
   useHideTabBar();
@@ -18,7 +19,7 @@ export default function AddressEdit() {
   );
   const initial = list.data?.find((a) => a.addressId === addressId) ?? null;
   const back = () =>
-    router.canGoBack() ? router.back() : router.replace("/me/addresses");
+    goBackOr(router, "/me/addresses");
 
   return (
     <AddressForm

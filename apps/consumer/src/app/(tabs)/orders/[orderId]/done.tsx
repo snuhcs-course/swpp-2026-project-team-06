@@ -48,23 +48,25 @@ export default function Done() {
     }
   }, [farm.data, showFollow]);
 
-  async function toggleFollow() {
+  async function setFollow(on: boolean) {
     const f = farm.data;
     if (!f) return;
-    const on = !following;
     setBusy(true);
     try {
       const r = on
         ? await farms.follow(f.farmId)
         : await farms.unfollow(f.farmId);
       setFollowing(r.following);
-      if (!on) toast.show("팔로우를 끊었어요");
+      // 확인 없이 끊고 되돌리기를 준다(FEAT-06 4, DEV-230 HE-X4)
+      if (!on)
+        toast.act("팔로우를 끊었어요", "되돌리기", () => void setFollow(true));
     } catch (e) {
-      toast.fail(e, () => void toggleFollow());
+      toast.fail(e, () => void setFollow(on));
     } finally {
       setBusy(false);
     }
   }
+  const toggleFollow = () => setFollow(!following);
 
   const awaiting = !o || o.status === "AWAITING_DEPOSIT";
   const copy = async (text: string, what: string) =>

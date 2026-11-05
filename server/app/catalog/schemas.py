@@ -39,6 +39,15 @@ class StageView(CamelModel):
     options: dict[str, StageOptionValue]
 
 
+class MyStageView(StageView):
+    """생산자 예약 기간 화면용(DEV-231). 주문 수는 박스가 아니라 주문 건수다."""
+
+    reserved_order_count: int = 0
+    awaiting_order_count: int = 0
+    preparing_order_count: int = 0
+    harvest_started: bool = False
+
+
 class ProductInfo(CamelModel):
     origin: str = ""
     producer: str = ""
@@ -148,7 +157,7 @@ class MyProduct(SalesState):
     measured_brix: float | None
     measured_brix_at: datetime | None
     options: list[ProductOptionView]
-    stages: list[StageView]
+    stages: list[MyStageView]
     shipping_fee_type: ShippingFeeType
     shipping_fee: int
     remote_area_fee: int

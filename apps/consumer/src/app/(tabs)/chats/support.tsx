@@ -13,6 +13,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../lib/session";
+import { goBackOr } from "../../../lib/nav";
 
 export default function SupportChat() {
   useHideTabBar();
@@ -32,9 +33,7 @@ export default function SupportChat() {
         subtitle="고객센터"
         avatar={<SupportAvatar size={40} />}
         onBack={() =>
-          router.canGoBack()
-            ? router.back()
-            : router.replace("/chats?view=private")
+          goBackOr(router, "/chats?view=private")
         }
       />
       <View

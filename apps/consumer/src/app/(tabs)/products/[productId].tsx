@@ -23,6 +23,7 @@ import { View } from "react-native";
 import { useSession } from "../../../lib/session";
 import { useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet, isStatus } from "../../../lib/views";
+import { goBackOr } from "../../../lib/nav";
 
 export default function ProductPage() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
@@ -98,7 +99,7 @@ export default function ProductPage() {
       <Screen>
         {error ? (
           <>
-            <HeaderBar onBack={() => router.back()} />
+            <HeaderBar onBack={() => goBackOr(router, "/")} />
             <LoadError error={error} onRetry={reload} />
           </>
         ) : (
@@ -125,9 +126,7 @@ export default function ProductPage() {
       <HeaderBar
         title="상품 상세"
         onBack={() =>
-          router.canGoBack()
-            ? router.back()
-            : router.replace(`/farms/${p.farmId}`)
+          goBackOr(router, `/farms/${p.farmId}`)
         }
       />
       <Scroll bottom={180}>
@@ -227,7 +226,7 @@ function Ended() {
     <Screen>
       <HeaderBar
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/")
+          goBackOr(router, "/")
         }
       />
       <EmptyState
@@ -239,7 +238,7 @@ function Ended() {
             label={router.canGoBack() ? "농가 페이지로" : "농가 둘러보기"}
             variant="outline"
             onPress={() =>
-              router.canGoBack() ? router.back() : router.replace("/farms")
+              goBackOr(router, "/farms")
             }
             style={{ marginTop: 12, alignSelf: "center" }}
           />

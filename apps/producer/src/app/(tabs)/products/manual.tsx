@@ -18,6 +18,7 @@ import { ActivityIndicator, TextInput, View } from "react-native";
 
 import { useHideTabBar } from "../../../lib/session";
 import { errMsg } from "../../../lib/views";
+import { goBackOr } from "../../../lib/nav";
 
 const MAX = 3000;
 const LABEL: Record<keyof DraftFields, string> = {
@@ -88,9 +89,7 @@ export default function NewProduct() {
   const back = () =>
     draft
       ? setDraft(null)
-      : router.canGoBack()
-        ? router.back()
-        : router.replace("/products");
+      : goBackOr(router, "/products");
 
   /* ---------- 결과 ---------- */
   if (draft) {

@@ -21,6 +21,7 @@ import { View } from "react-native";
 import { useToast } from "../../../lib/toast";
 import { DepositCard } from "../../../lib/DepositCard";
 import { LoadError, copyText } from "../../../lib/views";
+import { useGoBack } from "../../../lib/nav";
 
 export default function DepositGuide() {
   const { productId, orderId, optionId, quantity } = useLocalSearchParams<{
@@ -30,6 +31,8 @@ export default function DepositGuide() {
     quantity?: string;
   }>();
   const router = useRouter();
+  // 새로고침·직접 열기면 그 주문 상세(DEV-224 c1, 주문은 이미 입금 대기)
+  const back = useGoBack();
   const {
     data: o,
     error,
@@ -85,7 +88,7 @@ export default function DepositGuide() {
 
   return (
     <Screen>
-      <HeaderBar title="입금 안내" onBack={() => router.back()} />
+      <HeaderBar title="입금 안내" onBack={back} />
       <TestBand text="테스트 서비스예요. 실제 돈은 나가지 않아요." />
       {error && !o ? (
         <LoadError error={error} onRetry={reload} />

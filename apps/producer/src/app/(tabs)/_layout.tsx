@@ -1,6 +1,7 @@
 import { allPages, messaging } from "@farmclub/api";
 import { TabBar, type IconName } from "@farmclub/ui";
 import { Tabs, usePathname } from "expo-router";
+import { CommonActions } from "expo-router/react-navigation";
 import { useEffect, useState } from "react";
 import { ActivityIndicator } from "react-native";
 
@@ -13,6 +14,42 @@ const TABS: { name: string; label: string; icon: IconName }[] = [
   { name: "chats", label: "채팅", icon: "chat" },
   { name: "settings", label: "환경설정", icon: "settings" },
 ];
+
+// 하위 스택이 있는 탭(상품·채팅)
+const STACK_TABS = new Set(["products", "chats"]);
+
+// 탭을 누르면 언제나 그 탭의 첫 화면(ia.md 4장, DEV-224 b1). 다른 탭에서 연 하위 화면(방·주문 완료)과 그 params를 남기지 않는다.
+// 숨은 탭에서 연 하위 화면은 탭 route의 params(screen·params)로만 남아 있어 navigate에 빈 params를 꼭 넘긴다.
+function openTabRoot(
+  navigation: unknown,
+  route: { name: string; state?: unknown },
+  stack: boolean,
+) {
+  const nav = navigation as unknown as {
+    dispatch: (a: object) => void;
+    navigate: (name: string, params?: object) => void;
+  };
+  if (!stack) return nav.navigate(route.name);
+  const nested = route.state as
+    | {
+        key?: string;
+        index?: number;
+        routes?: { name: string; params?: object }[];
+      }
+    | undefined;
+  // 첫 화면이 이미 바닥에 있으면 그 params(내 주문 filter·채팅 view)는 지킨다
+  const root = nested?.routes?.[0];
+  const keep = root?.name === "index" ? (root.params ?? {}) : {};
+  if (nested?.key && ((nested.index ?? 0) > 0 || root?.name !== "index"))
+    nav.dispatch({
+      ...CommonActions.reset({
+        index: 0,
+        routes: [{ name: "index", params: keep }],
+      }),
+      target: nested.key,
+    });
+  nav.navigate(route.name, { screen: "index", params: keep });
+}
 
 export default function TabsLayout() {
   const { user, ready, tabBarHidden } = useSession();
@@ -67,8 +104,8 @@ export default function TabsLayout() {
                 badge: t.name === "chats" ? open : undefined,
                 testID: `tab-${t.name}`,
                 onPress: () => {
-                  if (active) navigation.navigate(t.name, { screen: "index" });
-                  else navigation.navigate(t.name);
+                  const idx = state.routes.findIndex((r) => r.name === t.name);
+                  openTabRoot(navigation, state.routes[idx], STACK_TABS.has(t.name));
                 },
               };
             })}

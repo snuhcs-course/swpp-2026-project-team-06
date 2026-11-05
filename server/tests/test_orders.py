@@ -546,7 +546,7 @@ def test_AC_09_6_mixed_weight_release_and_shipping_accounting(client, login):
 
     client.post(
         "/api/orders/producer/harvest-start",
-        headers=producer,
+        headers=producer | key(),
         json={"productId": "p-house"},
     )
     shipped = client.post(
@@ -637,6 +637,19 @@ def test_AC_14_1_dashboard_counts(client, login):
         "awaitingDeposit": 0,
         "refundsToSettle": 1,
         "hasAccount": True,
+        # DEV-231: 1단계(10-12까지)는 아직 열려 있어 할 일 수에는 안 들어간다
+        "toHarvest": 0,
+        "harvestTargets": [
+            {
+                "productId": "p-house",
+                "productName": "하우스 감귤 5kg / 10kg",
+                "stageId": "st-house-1",
+                "stageName": "1단계",
+                "endsAt": "2026-10-12",
+                "count": 30,
+                "closed": False,
+            }
+        ],
     }
     assert {
         key: body["product"][key]
@@ -770,7 +783,7 @@ def test_AC_17_9_shipped_order_cannot_be_shipped_again_to_change_tracking(client
     reserve(client, consumer, order_id, login=login)
     harvest = client.post(
         "/api/orders/producer/harvest-start",
-        headers=producer,
+        headers=producer | key(),
         json={"productId": "p-house"},
     )
     assert harvest.status_code == 200, harvest.text
@@ -839,7 +852,7 @@ def _order(client, login, *, ship=True):
         reserve(client, consumer, order_id, login=login)
         harvest = client.post(
             "/api/orders/producer/harvest-start",
-            headers=producer,
+            headers=producer | key(),
             json={"productId": "p-house"},
         )
         assert harvest.status_code == 200, harvest.text
@@ -967,7 +980,7 @@ def test_AC_17_9_tracking_owner_and_status_guards(client, login, other_farm_head
             assert (
                 client.post(
                     "/api/orders/producer/harvest-start",
-                    headers=producer,
+                    headers=producer | key(),
                     json={"productId": "p-house"},
                 ).status_code
                 == 200

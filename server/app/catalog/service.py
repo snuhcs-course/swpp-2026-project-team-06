@@ -26,6 +26,7 @@ from app.catalog.schemas import (
     DraftFields,
     MyProduct,
     MyProductCard,
+    MyStageView,
     ProductCard,
     ProductDetail,
     ProductInfo,
@@ -235,6 +236,29 @@ def stage_views(item: Loaded) -> list[StageView]:
     ]
 
 
+def my_stage_views(db: Session, item: Loaded) -> list[MyStageView]:
+    """기간별 주문 수와 수확 시작 여부(DEV-231).
+
+    시작 여부는 저장 칸 없이 출하 준비 이후 주문이 있는지로 판단한다.
+    """
+    from app.orders import service as orders
+
+    counts = orders.stage_order_counts(db, item.product.id)
+    views = []
+    for view in stage_views(item):
+        by = counts.get(view.stage_id, {})
+        views.append(
+            MyStageView(
+                **view.model_dump(),
+                reserved_order_count=by.get("RESERVED", 0),
+                awaiting_order_count=by.get("AWAITING_DEPOSIT", 0),
+                preparing_order_count=by.get("PREPARING", 0),
+                harvest_started=any(by.get(st) for st in orders.HARVESTED),
+            )
+        )
+    return views
+
+
 def _reserved_people(db: Session, product_ids: list[str]) -> dict[str, int]:
     from app.orders import service as orders
 
@@ -379,7 +403,7 @@ def my_product(db: Session, item: Loaded) -> MyProduct:
         measured_brix=p.measured_brix,
         measured_brix_at=p.measured_brix_at,
         options=option_views(item),
-        stages=stage_views(item),
+        stages=my_stage_views(db, item),
         shipping_fee_type=p.shipping_fee_type,
         shipping_fee=p.shipping_fee,
         remote_area_fee=p.remote_area_fee,

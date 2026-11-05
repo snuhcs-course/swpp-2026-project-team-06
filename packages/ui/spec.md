@@ -106,3 +106,8 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 
 - 화면 숨김 판단은 `src/foreground.ts`의 `inBackground()`(`AppState`; 웹에서는 `document.visibilityState`를 비춘다). `ChatThread`·`NewsRoom`·`useLiveList`가 쓴다.
 - 비공개 사진 첨부(`PrivatePhotos`)는 웹 `<input type="file">`, 앱은 `src/pickPhoto.native.ts`(`expo-image-picker`)의 ‘사진 첨부’ 버튼. `upload`는 `File | PickedPhoto({uri, name, type, size})`.
+
+## 팔로우 해제 뒤 소식방 (DEV-230, 2026-11-05)
+- `Toast`에 `action`(라벨·동작)을 더했다. 행동 버튼이 있으면 오류 토스트처럼 4초. `onRetry`는 ‘다시 시도’ action과 같다.
+- `FollowButton`의 `quiet`: 팔로우를 끊은 예전 팔로워의 소식방 헤더에서 강조색 대신 검정 테두리.
+- `NewsRoom`은 `canReply=false`인데 본인 답장이 보이면 예전 팔로워로 본다(서버 새 필드 없음, AC-15-8). 이때 띠(`room-lapsed-banner`, `onRefollow`), 본인 답장 45%(`room-dimmed-reply`), 잠긴 입력(`room-locked-input`)을 그리고 `onLapsedChange`로 알린다(불러온 뒤에만).
