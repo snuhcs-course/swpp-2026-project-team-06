@@ -489,11 +489,15 @@ test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", asyn
   ]) {
     assert.equal(spawnSync("grep", ["-qE", pattern], { input: path + "\n" }).status, expected);
   }
-  const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
-  const appsFilter = ci.split("            apps:\n")[1].split("\n      - name:")[0];
-  assert.ok(appsFilter.includes('"server/app/source_analysis/text_safety_lists.json"'));
-  const integrationFilter = ci.split("            integration:\n")[1].split("\n      - name:")[0];
-  assert.ok(integrationFilter.includes('"server/**"'));
+  // DEV-234: CI 경로 분류는 scripts/ci/integration-map.json(classify.mjs)으로 옮겼다
+  const { classify, loadConfig } = await import("./ci/classify.mjs");
+  const ciConfig = loadConfig();
+  const safety = classify({ lane: "pr", files: ["server/app/source_analysis/text_safety_lists.json"], config: ciConfig });
+  assert.equal(safety.jobs.apps, true);
+  assert.equal(safety.integration, true);
+  const server = classify({ lane: "pr", files: ["server/app/source_analysis/text_safety.py"], config: ciConfig });
+  assert.equal(server.jobs.server, true);
+  assert.equal(server.integration, true);
 });
 
 

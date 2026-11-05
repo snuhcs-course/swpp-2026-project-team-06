@@ -1,0 +1,143 @@
+{
+  "$comment": [
+    "DEV-234: CI가 PR에서 무엇을 돌릴지 정하는 경로 분류. 읽는 쪽은 scripts/ci/classify.mjs(규칙 설명은 .github/README.md).",
+    "글롭: ** = 폴더 여러 단계, * = 한 단계 안, ! 로 시작하면 그 묶음에서 뺀다. 파일 하나는 위에서부터 docs → core → 각 job 분류로 본다.",
+    "docs: CI job(server·apps·admin-web·integration)이 읽지 않는 파일. PR의 바뀐 파일이 전부 여기면 문서 전용 길(아무 job도 안 돎).",
+    "core: CI 자체. 바뀌면 모든 job과 integration 전체를 돈다.",
+    "jobs: job마다 그 job을 켜는 경로. 어느 묶음(docs·core·jobs)에도 안 걸리는 파일은 모르는 경로로 보고 모든 job·integration 전체를 돈다(안전한 쪽).",
+    "integration.map: 위에서부터 첫 번째로 걸린 규칙이 이긴다. specs는 spec 파일 글롭, specsMatching은 spec 소스에서 찾을 정규식(새 spec이 저절로 들어가게).",
+    "integration.all → spec 전체, integration.none → integration 안 돎. 어디에도 안 걸리면 spec 전체."
+  ],
+  "docs": [
+    "docs/**",
+    "!docs/spec/validation/**",
+    "**/*.md",
+    "tasks/**",
+    ".github/tasks/**",
+    ".github/spec-check/**",
+    ".github/dependabot.yml",
+    ".github/workflows/spec-check.yml",
+    ".github/workflows/wiki-sync.yml",
+    ".github/workflows/ci-full.yml",
+    ".agents/**",
+    ".claude/**",
+    ".mcp.json",
+    ".gitignore",
+    ".gitattributes",
+    "Makefile",
+    "demo/**",
+    "scripts/ci/ci_timings.py",
+    "scripts/split-tasks.py"
+  ],
+  "core": [
+    ".github/workflows/ci.yml",
+    "scripts/ci/classify.mjs",
+    "scripts/ci/integration-map.json"
+  ],
+  "jobs": {
+    "server": [
+      "server/**",
+      "docs/spec/validation/**"
+    ],
+    "apps": [
+      "apps/**",
+      "packages/**",
+      "scripts/**",
+      "!scripts/admin-web/**",
+      "!scripts/ci/**",
+      "!scripts/i3-*/**",
+      "!scripts/i3-env-smoke.mjs",
+      "package.json",
+      "package-lock.json",
+      ".nvmrc",
+      "playwright.config.ts",
+      "server/app/source_analysis/text_safety_lists.json",
+      "server/app/source_analysis/text_safety_cases.json",
+      ".github/workflows/deploy-vercel.yml"
+    ],
+    "admin": [
+      "scripts/admin-web/**",
+      ".nvmrc"
+    ],
+    "deploy_scripts": [
+      "scripts/ci/**",
+      ".github/workflows/deploy-*.yml"
+    ]
+  },
+  "integration": {
+    "map": [
+      {
+        "paths": [
+          "scripts/e2e/*.spec.ts"
+        ],
+        "self": true
+      },
+      {
+        "paths": [
+          "server/app/source_analysis/**",
+          "packages/api/src/sourceAnalysis.ts",
+          "packages/api/src/sourceTextSafety.ts",
+          "packages/api/src/productWorkspace.ts",
+          "packages/ui/src/SourcePhoto.tsx",
+          "packages/ui/src/DetailStory.tsx",
+          "packages/ui/src/ModuleStory.tsx",
+          "packages/ui/src/PrivatePhotos.tsx"
+        ],
+        "specs": [
+          "scripts/e2e/source-*.spec.ts",
+          "scripts/e2e/new-product-*.spec.ts",
+          "scripts/e2e/product-page-workspace.spec.ts",
+          "scripts/e2e/producer-format-flow.spec.ts"
+        ]
+      },
+      {
+        "paths": [
+          "server/app/admin/**"
+        ],
+        "specsMatching": "/admin"
+      },
+      {
+        "paths": [
+          "apps/consumer/**"
+        ],
+        "specsMatching": "consumerUrl|loginConsumer"
+      },
+      {
+        "paths": [
+          "apps/producer/**"
+        ],
+        "specsMatching": "producerUrl|loginProducer"
+      }
+    ],
+    "all": [
+      "scripts/e2e/**",
+      "scripts/run-integration.mjs",
+      "scripts/test-integration.mjs",
+      "scripts/ci/quarantine.json",
+      "playwright.config.ts",
+      "package.json",
+      "package-lock.json",
+      ".nvmrc",
+      "server/**",
+      "!server/tests/**",
+      "packages/**"
+    ],
+    "none": [
+      "server/tests/**",
+      "docs/spec/validation/**",
+      "scripts/test-*.mjs",
+      "scripts/run-mock-tests.mjs",
+      "scripts/mock-server.mjs",
+      "scripts/mock-tsconfig.json",
+      "scripts/producer-ui-coverage.mjs",
+      "scripts/legal-pages.mjs",
+      "scripts/demo.mjs",
+      "scripts/local.mjs",
+      "scripts/admin-web/**",
+      "scripts/ci/**",
+      "scripts/i3-*/**",
+      "scripts/i3-env-smoke.mjs",
+      ".github/workflows/deploy-*.yml"
+    ]
+  }
+}
