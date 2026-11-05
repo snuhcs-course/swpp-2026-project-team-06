@@ -266,10 +266,11 @@ def _agree(a: str, b: str) -> bool:
 
     숫자(금액·날짜·당도)가 있으면 한쪽 숫자가 다른 쪽에 모두 들어 있을 때 같다고 본다
     (예: "11월 10~14일" ⊂ "2026-11-10 ~ 2026-11-14"). 숫자가 없으면 글자를 비교한다.
+    한쪽만 숫자가 있으면 같다고 보지 않는다(예: "배송비 3,500원" ↔ "무료배송이에요", DEV-180).
     """
     na, nb = _numbers(a), _numbers(b)
     if na or nb:
-        return na <= nb or nb <= na
+        return bool(na and nb) and (na <= nb or nb <= na)
     norm = lambda t: re.sub(r"[\s.,!?~·]", "", t)  # noqa: E731
     return norm(a) == norm(b)
 
