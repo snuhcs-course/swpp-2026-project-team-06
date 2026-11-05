@@ -23,6 +23,7 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { useSession } from "./session";
 
@@ -30,6 +31,13 @@ const HELP_GUIDE_SEEN = "help-guide-seen";
 /** 대상을 이만큼 못 찾으면 가운데 카드에 다음 버튼을 띄워 갇히지 않게 한다 */
 const MISSING_MS = 3000;
 const PAD = 6;
+/**
+ * 화면 위에 겹쳐 그리는 위치. 웹은 position: fixed(스크롤과 상관없이 창 기준).
+ * 앱(React Native)에는 fixed가 없어 relative로 처리되고 본문을 반으로 밀었다(DEV-206). 앱은 앱 루트 기준 absolute로 겹친다.
+ */
+const fixed = (
+  Platform.OS === "web" ? { position: "fixed" } : { position: "absolute" }
+) as unknown as ViewStyle;
 
 type Route = { path: string; params: Record<string, unknown> };
 type Step = {
@@ -265,8 +273,13 @@ function TourOverlay({
 
   // 대상 위치를 계속 따라간다(화면 전환·스크롤·크기 변경)
   useEffect(() => {
-    // 웹 출력 전용(README): 대상 위치는 DOM으로 잰다
-    if (!step.target || Platform.OS !== "web") return;
+    if (!step.target) return;
+    // 대상 위치는 DOM으로 잰다(웹 출력 전용, README). 앱은 잴 수 없어 곧바로 가운데 카드 + 다음 버튼으로 보여 준다.
+    // 기다리기만 하면 버튼이 없는 카드에 갇힌다(DEV-206)
+    if (Platform.OS !== "web") {
+      setMissing(true);
+      return;
+    }
     const since = Date.now();
     const tick = () => {
       const hit = findTarget(step.target!);
@@ -331,6 +344,12 @@ function TourOverlay({
 
   const [cardH, setCardH] = useState(240);
   const { width: vw, height: vh } = useWindowDimensions();
+  // 앱: 카드가 상태 표시줄·하단 내비 바 밑으로 들어가지 않게 안전 영역만큼 더 띄운다(DEV-206). 웹은 0
+  const insets = useSafeAreaInsets();
+  const inset =
+    Platform.OS === "web"
+      ? { top: 0, bottom: 0 }
+      : { top: insets.top, bottom: insets.bottom };
   const hole =
     step.target && rect && !missing
       ? {
@@ -357,11 +376,13 @@ function TourOverlay({
       : hole.y - GAP - cardH
     : vh / 2 - cardH / 2;
   const cardPos: ViewStyle = {
-    top: Math.max(16, Math.min(wanted, vh - cardH - 16)),
+    top: Math.max(
+      16 + inset.top,
+      Math.min(wanted, vh - cardH - 16 - inset.bottom),
+    ),
   };
 
   const dim = "rgba(0,0,0,0.62)";
-  const fixed = { position: "fixed" } as unknown as ViewStyle;
   return (
     <View
       pointerEvents="box-none"
@@ -523,7 +544,8 @@ function TourOverlay({
           {step.title}
         </T>
         <T style={{ marginTop: tokens.space.sm }}>
-          {missing
+          {/* 앱은 대상을 잴 수 없어 늘 missing이므로 단계 설명을 그대로 보여 준다(DEV-206) */}
+          {missing && Platform.OS === "web"
             ? "이 화면에서는 안내할 곳을 찾지 못했어요. 다음으로 넘어갈게요."
             : withIcons(step.body)}
         </T>
@@ -576,7 +598,7 @@ function Arrow({
     <Animated.View
       pointerEvents="none"
       style={[
-        { position: "fixed" } as unknown as ViewStyle,
+        fixed,
         {
           top,
           left: cx - 12,
