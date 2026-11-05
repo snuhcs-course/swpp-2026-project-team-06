@@ -95,8 +95,10 @@ test-apps: ## Mock contract tests + typecheck (CI apps job)
 test-admin: ## Admin page tests (CI admin-web job)
 	node --test scripts/admin-web/admin.test.mjs
 
-test-ci: ## Deploy change-detection scenarios (DEV-139, CI admin-web job)
+test-ci: ## CI scripts: deploy change detection (DEV-139) + CI path classification (DEV-234)
 	bash scripts/ci/test-deploy-changed.sh
+	node --test scripts/ci/test-classify.mjs
+	node scripts/ci/classify.mjs --check
 
 test-integration: ## Real-stack API + Chromium (CI integration job, heavy)
 	npm run test:integration:full

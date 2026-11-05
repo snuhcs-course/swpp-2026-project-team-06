@@ -4,17 +4,23 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, edited]
+  # DEV-234: 머지 큐가 필수 체크(figma-line·checker-tests)를 기다리므로 큐 실행에도 보고한다.
+  # figma-line은 PR 본문 검사라 큐에서는 건너뛴다(건너뜀 = 통과). checker-tests는 큐에서도 돈다.
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
   pull-requests: read
 
 concurrency:
-  group: spec-check-${{ github.event.pull_request.number }}
+  # 큐 실행은 PR 번호가 없어 ref(gh-readonly-queue/...)로 나눈다. 같은 그룹이면 큐의 다른 실행을 취소한다.
+  group: spec-check-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   eligibility:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -34,7 +40,7 @@ jobs:
   # DEV-88: 화면 경로가 바뀐 PR은 본문에 `Figma:` 줄(반영함/해당 없음/후속)이 있어야 한다.
   # 모델·키 없이 도는 결정적 검사. 본문을 고치면(edited) 다시 돈다.
   figma-line:
-    if: github.event.pull_request.user.type == 'User'
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.type == 'User'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -47,7 +53,7 @@ jobs:
         run: python3 .github/spec-check/figma_line.py
 
   checker-tests:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
+    if: github.event_name == 'merge_group' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -66,7 +72,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
+    if: github.event_name == 'pull_request' && vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User'
     needs: checker-tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -105,7 +111,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    if: vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' && contains(github.event.pull_request.body, '<!-- spec-check-demo -->')
+    if: github.event_name == 'pull_request' && vars.SPEC_CHECK_ENABLED == 'true' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type == 'User' && contains(github.event.pull_request.body, '<!-- spec-check-demo -->')
     needs: checker-tests
     strategy:
       fail-fast: false
