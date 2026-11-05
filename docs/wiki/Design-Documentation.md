@@ -169,20 +169,20 @@ FastAPI generates the complete request/response schemas at `/docs` and `/openapi
 
 **Example — a private question.** A consumer posts `{ "text": "배송은 언제예요?", "attachmentIds": [], "orderId": null, "productId": "p-house" }` to `/api/messaging/chats/{farmId}/messages`. `productId` is optional: the consumer app sends it when the chat was opened from a product page, so the AI answers from that product even when the farm sells more than one. It must be a published product of this farm, or the request returns 404 and the message is not saved. It is used only as AI evidence and is not stored; if `orderId` is also sent, the order's product wins. Evidence sufficient for a factual answer produces a labeled AI reply with `sourceSummary`; a sensitive or uncertain question instead has a forwarded handoff state and no fabricated answer. A wrong-answer report references the exact AI message and preceding question; repeat reports reuse the existing open escalation.
 
-**Example — ship.** `POST /api/orders/{id}/ship` receives carrier and tracking number from the owning producer. It requires `PREPARING`; an invalid transition returns `409`. The current UI does not call the retained harvest-start API, so ordinary `RESERVED` rows cannot be moved to preparation from that UI.
+**Example — ship.** `POST /api/orders/{id}/ship` receives carrier and tracking number from the owning producer. It requires `PREPARING`; an invalid transition returns `409`. Reserved orders reach `PREPARING` through `POST /api/orders/producer/harvest-start` with a `stageId` and an `Idempotency-Key`, called from the producer's sale-period card (DEV-231).
 
 ### 2.5 Transaction and state flows
 
 ![Iteration 2 order lifecycle](images/i2-order-state.png)
 
-Figure 3. Deposit, cancellation, fulfillment and refund transitions. The dashed preparation edge is a retained API without a current producer button. Partial refunds are history/payment changes, not a new fulfillment state.
+Figure 3. Deposit, cancellation, fulfillment and refund transitions. The preparation edge is the producer's Start harvest action on one sale period (DEV-231); there is no automatic transition. Partial refunds are history/payment changes, not a new fulfillment state.
 
 1. Checkout copies price, quantity, unit weight, recipient, address, delivery window and four consents into `PENDING_PAYMENT`.
 2. Issuing deposit instructions locks product/allocation rows, rechecks terms and the farm's account, reserves boxes/grams, and starts a 24-hour `AWAITING_DEPOSIT` deadline.
 3. A buyer's deposit report is a declaration, not verification. The farm checks its bank statement and confirms, creating `Payment` and `RESERVED`.
 4. Unreported overdue deposits expire on access or an operator expiry call and release stock once. **Reported deposits are excluded from automatic expiry**; they remain awaiting confirmation/exception handling. Producer issue reasons are recorded without pretending confirmation succeeded.
 5. Full cancellation before shipment releases eligible unshipped capacity once. Refund history records the amount and farm settlement. Partial refunds leave the order's fulfillment status and quantities unchanged; only a final full refund ends fulfillment.
-6. The existing harvest-start endpoint moves `RESERVED` to `PREPARING`, but it is absent from UI 1.6. Shipping works for already preparing orders. Shipment records carrier/tracking and moves reserved weight into shipped weight. Operator delivery confirmation precedes consumer receipt confirmation.
+6. Start harvest on a sale period moves that period's `RESERVED` orders to `PREPARING` (DEV-231; idempotent, audited, other periods and awaiting deposits untouched). Shipping then works on those preparing orders. Shipment records carrier/tracking and moves reserved weight into shipped weight. Operator delivery confirmation precedes consumer receipt confirmation.
 
 Repeated requests use the same idempotency key. Reusing a key with a different body is refused. Idempotency records expire after 24 hours; retry safety at that boundary also relies on persisted business state and unique constraints.
 
@@ -246,7 +246,7 @@ The I5 expansion should select at least two patterns and provide the required cl
 | Communication | Wrong-answer reports, farmclub producer support and help tour extend existing private rooms/AI takeover |
 | Deployment/analytics | Vercel clients/admin and Railway API/worker; build-key-enabled PostHog client events and masked replay |
 | Remaining scope | Automatic deposit matching, courier integration, notifications, automatic eight-day completion/scheduled refunds, individual operator attribution, Sentry/Langfuse and server PostHog events are not wired |
-| Fulfillment limitation | `RESERVED` → `PREPARING` has a retained API but no current producer UI action; do not describe the recording as a complete shipping journey |
+| Fulfillment | `RESERVED` → `PREPARING` happens only when the producer starts harvest on a sale period (DEV-231); there is no per-order button or automatic transition |
 
 Implementation availability is distinct from operational acceptance. Refer to Testing Documentation for environment-specific defects and readiness; design descriptions do not imply that every deployed workflow has passed.
 
