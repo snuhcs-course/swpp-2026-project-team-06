@@ -35,6 +35,9 @@ class Broadcast(Base):
     # 좋아요 수. 좋아요 켬·끔 때 같은 트랜잭션에서 바꾼다.
     reaction_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # 생산자가 지운 시각(M-23, DEV-210). 소프트 삭제: 행은 운영자 복구용으로 남고
+    # 모든 조회에서 빠진다.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Reaction(Base):

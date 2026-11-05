@@ -54,9 +54,13 @@ export function productCard(d: DB, p: ProductRec): ProductCard {
   const cur = currentStage(p);
   const nxt = nextStage(p);
   const firstOpt = p.options[0]?.optionId ?? "";
-  const soldOut = salesState(d, p).availability !== "AVAILABLE";
+  const state = salesState(d, p);
+  // AC-07-3·R-27: 예약할 수 없으면 soldOut. 다음 기간 날짜는 기다리면 열릴 때만(서버 card()와 같음).
+  const soldOut = state.availability !== "AVAILABLE";
+  const waitsForNext =
+    state.availability === "NOT_OPEN" || state.availability === "PERIOD_SOLD_OUT";
   return {
-    ...salesState(d, p),
+    ...state,
     productId: p.productId,
     name: p.name,
     farmId: p.farmId,
@@ -68,7 +72,7 @@ export function productCard(d: DB, p: ProductRec): ProductCard {
     dDay: cur ? daysBetween(TODAY, cur.endsAt) : null,
     deliveryWindow: p.deliveryWindow ?? { start: TODAY, end: TODAY },
     soldOut,
-    nextStageStartsAt: soldOut ? (nxt?.startsAt ?? null) : null,
+    nextStageStartsAt: waitsForNext ? (nxt?.startsAt ?? null) : null,
     reservedCount: p.reservedCount,
     expectedBrix: p.expectedBrix,
   };
@@ -255,6 +259,7 @@ export function producerOrder(d: DB, o: OrderRec): ProducerOrder {
     orderId: o.orderId,
     orderNo: o.orderNo,
     productId: o.productId,
+    stageId: o.stageId,
     productName: p?.name ?? "",
     trackingVersion: o.trackingVersion ?? 1,
     optionLabel: opt?.label ?? "",

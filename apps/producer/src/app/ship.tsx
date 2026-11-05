@@ -8,7 +8,9 @@ import {
   allPages,
   orders,
   newIdempotencyKey,
+  serverNow,
   type Carrier,
+  type HarvestTarget,
   type ProducerOrder,
 } from "@farmclub/api";
 import {
@@ -17,6 +19,7 @@ import {
   HeaderBar,
   Icon,
   Input,
+  ListRow,
   Notice,
   Radio,
   Screen,
@@ -37,6 +40,8 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, errMsg } from "../lib/views";
+import { orderWho, orderWhoParts } from "../lib/orderWho";
+import { goBackOr } from "../lib/nav";
 
 type Data = {
   awaiting: ProducerOrder[];
@@ -63,8 +68,32 @@ const REFUND_REASONS = [
   "소비자와 연락하고 있어요",
   "환불 대상이 아니에요",
 ];
-const who = (o: ProducerOrder) =>
-  `${o.recipientName} · ${o.optionLabel} × ${o.quantity}`;
+/** 시트·화면 읽기 라벨: "김민지 · 하우스 감귤 5kg × 1"(DEV-226) */
+const who = (o: ProducerOrder) => orderWho(o);
+/** 줄: 한 줄, 넘치면 상품명만 줄이고 이름·옵션 × 수량은 끝까지(DEV-226) */
+function WhoLine({ o }: { o: ProducerOrder }) {
+  const { head, name, tail } = orderWhoParts(o);
+  return (
+    <View style={{ flexDirection: "row", minWidth: 0 }}>
+      <T variant="body" weight="semibold" style={{ flexShrink: 0 }}>
+        {head}
+      </T>
+      {name ? (
+        <T
+          variant="body"
+          weight="semibold"
+          numberOfLines={1}
+          style={{ flexShrink: 1 }}
+        >
+          {name}
+        </T>
+      ) : null}
+      <T variant="body" weight="semibold" style={{ flexShrink: 0 }}>
+        {name ? ` ${tail}` : tail}
+      </T>
+    </View>
+  );
+}
 /** "CJ대한통운 6012-3456-7890" / "송장 없음" */
 const invoiceText = (
   carrier: Carrier | null | undefined,
@@ -109,9 +138,15 @@ export default function Ship() {
   const [reason, setReason] = useState("");
   const [cancelOrder, setCancelOrder] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
+  // DEV-231: 예약 탭 맨 위 '수확 시작하기' 줄(누르면 그 예약 기간 카드로)
+  const [targets, setTargets] = useState<HarvestTarget[]>([]);
 
   const load = useCallback(async () => {
     setError(null);
+    void orders
+      .dashboard()
+      .then((d) => setTargets(d.todo.harvestTargets ?? []))
+      .catch(() => setTargets([]));
     try {
       const all = await allPages((cursor) =>
         orders.producerOrders({ limit: 50, cursor }),
@@ -137,7 +172,7 @@ export default function Ship() {
     void load();
   }, [load]);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/"));
+  const back = () => (goBackOr(router, "/"));
 
   if (!data) {
     return (
@@ -521,6 +556,25 @@ export default function Ship() {
             />
           </View>
         </ScrollView>
+        {tab === "RESERVED" && targets.length ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+            {targets.map((t, i) => (
+              <ListRow
+                key={t.stageId}
+                label={`${t.productName} ${t.stageName} · ${t.count}건 수확 시작하기`}
+                sub={
+                  t.closed
+                    ? "수확을 시작하면 출하 준비로 옮겨져요"
+                    : `예약 기간 ${Number(t.endsAt.slice(5, 7))}월 ${Number(t.endsAt.slice(8, 10))}일까지`
+                }
+                onPress={() =>
+                  router.push(`/products/${t.productId}/stages?stage=${t.stageId}`)
+                }
+                last={i === targets.length - 1}
+              />
+            ))}
+          </View>
+        ) : null}
         <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
           {list.length === 0 ? (
             <T variant="sub" muted style={{ paddingVertical: 24 }}>
@@ -547,14 +601,12 @@ export default function Ship() {
                 <T variant="sub" muted numberOfLines={1}>
                   {o.orderNo}
                   {awaiting
-                    ? o.depositDueAt && Date.parse(o.depositDueAt) <= Date.now()
+                    ? o.depositDueAt && Date.parse(o.depositDueAt) <= serverNow()
                       ? " · 기한 지남"
                       : ` · 기한 ${deadline(o.depositDueAt)}`
                     : ""}
                 </T>
-                <T variant="body" weight="semibold">
-                  {who(o)}
-                </T>
+                <WhoLine o={o} />
                 {!awaiting && !refunded ? <T variant="body">{won(o.totalAmount)}</T> : null}
                 {awaiting ? (
                   // 입금 전에는 배송지 대신 금액·입금자명(R-15, DEV-68)
@@ -746,7 +798,9 @@ export default function Ship() {
               ? "통장에서 입금자명(주문 번호)과 금액을 확인하고 「승인」을 누르면 소비자에게 예약 완료로 보여요. 맞지 않으면 「미승인」에 사유를 적어 주세요. 24시간 안에 입금이 없으면 자동으로 취소돼요."
               : tab === "REFUNDED"
                 ? "환불은 소비자가 입금했던 계좌로 직접 보내 주세요. 보낸 뒤 「승인」을 누르면 소비자 주문 상세에 환불 완료로 보여요. 보내지 못하면 「미승인」에 사유를 적어 주세요."
-                : "배송 완료는 farmclub이 확인해서 바꿔요."}
+                : tab === "RESERVED"
+                  ? "예약 완료 주문은 상품의 예약 기간에서 「수확 시작」을 누르면 출하 준비로 옮겨져요. 배송 완료는 farmclub이 확인해서 바꿔요."
+                  : "배송 완료는 farmclub이 확인해서 바꿔요."}
           </T>
         </View>
       </Scroll>

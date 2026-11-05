@@ -67,13 +67,15 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
         broadcastId: n.broadcastId,
         reactionCount: reaction.reactionCount,
         myReaction: reaction.myReaction,
+        visibility: n.visibility,
       };
     });
   const replies = ctx.db.roomReplies.filter(
     (m) =>
       m.farmId === farmId &&
-      canReply &&
-      (user?.role === "PRODUCER" || m.senderId === user?.userId),
+      // 팔로우를 끊은 소비자도 본인 답장은 본다(DEV-230, AC-15-8). 생산자는 소유 농가일 때만 canReply
+      ((user?.role === "PRODUCER" && canReply) ||
+        (user?.role === "CONSUMER" && m.senderId === user.userId)),
   );
   return [
     ...broadcasts,
@@ -177,6 +179,7 @@ register({
         broadcastId: null,
         reactionCount: 0,
         myReaction: false,
+        visibility: null,
       };
       ctx.db.roomReplies.push(message);
       return message;

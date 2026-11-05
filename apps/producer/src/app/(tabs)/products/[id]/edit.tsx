@@ -20,6 +20,7 @@ import {
   Scroll,
   Segmented,
   Sheet,
+  useSheetLeave,
   Skeleton,
   T,
   md,
@@ -48,6 +49,7 @@ import {
   errMsg,
   fieldErrors,
 } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 
 const STATUS: Record<ProductStatus, string> = {
   DRAFT: "초안",
@@ -130,6 +132,8 @@ export default function EditProduct() {
     null | "leave" | "window" | "options" | "delivery" | "maxDelay"
   >(null);
   const [afterWindow, setAfterWindow] = useState<null | (() => void)>(null);
+  // 나가기 시트에서 목록으로 갈 때 시트를 바로 닫고 이동한다(DEV-225)
+  const sheetLeave = useSheetLeave();
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -201,7 +205,7 @@ export default function EditProduct() {
   if (!form || !p) {
     return (
       <Screen>
-        <HeaderBar title="상품 편집" onBack={() => router.back()} />
+        <HeaderBar title="상품 편집" onBack={() => goBackOr(router, "/products")} />
         {loadError ? (
           <LoadError error={loadError} onRetry={load} />
         ) : (
@@ -321,9 +325,7 @@ export default function EditProduct() {
   const back = () =>
     dirty
       ? setSheet("leave")
-      : router.canGoBack()
-        ? router.back()
-        : router.replace("/products");
+      : goBackOr(router, "/products");
   const closed = p.status === "CLOSED";
   // 받는 시기: 오늘 다음 날부터, 그리고 마지막 예약 기간가 끝난 다음 날부터(s-25-datesheet)
   const lastStageEnd = p.stages.reduce<string | null>(
@@ -751,7 +753,11 @@ export default function EditProduct() {
       />
 
       {/* 저장 안 하고 나가기 */}
-      <Sheet visible={sheet === "leave"} onClose={() => setSheet(null)}>
+      <Sheet
+        visible={sheet === "leave"}
+        onClose={() => setSheet(null)}
+        instant={sheetLeave.instant}
+      >
         <T variant="heading">{"저장하지 않고\n나갈까요?"}</T>
         <T variant="body">고친 내용 {changed.length}곳이 사라져요.</T>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
@@ -760,24 +766,28 @@ export default function EditProduct() {
             variant="secondary"
             size="producer"
             style={{ flex: 1 }}
-            onPress={() => {
-              setSheet(null);
-              router.canGoBack() ? router.back() : router.replace("/products");
-            }}
+            onPress={() =>
+              sheetLeave.leave(
+                () => setSheet(null),
+                () =>
+                  goBackOr(router, "/products"),
+              )
+            }
           />
           <Button
             label="저장하고 나가기"
             size="producer"
             style={{ flex: 2 }}
             loading={saving}
-            onPress={() => {
-              setSheet(null);
-              void save(() =>
-                router.canGoBack()
-                  ? router.back()
-                  : router.replace("/products"),
-              );
-            }}
+            onPress={() =>
+              sheetLeave.leave(
+                () => setSheet(null),
+                () =>
+                  void save(() =>
+                    goBackOr(router, "/products"),
+                  ),
+              )
+            }
           />
         </View>
       </Sheet>

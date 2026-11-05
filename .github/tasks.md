@@ -2,234 +2,29 @@
 
 이슈별 작업 기록. 새 작업은 맨 아래에 섹션을 추가하고, 머지 후에도 지우지 않는다. CI/CD 워크플로 작업은 이 파일에 기록한다.
 
+<!-- split-tasks: DEV-219 -->
+> 이슈별 작업 기록은 `tasks/<이슈 키>.md`에 있다(ADR 0014). 새 이슈는 여기 절을 추가하지 말고 `tasks/<이슈 키>.md`를 새로 만든다. 아래 목록은 분리 시점 기록이며 더 고치지 않는다.
+
 ## DEV-9 [I1] GitHub Actions CI/CD 배포 파이프라인 구성 — CI
 
-- 이슈: [DEV-9](https://linear.app/sswp6/issue/DEV-9) (GitHub #10)
-- 브랜치: `nemodleo/dev-9-i1-github-actions-cicd-배포-파이프라인-구성`
-- 기능·인수 조건: 없음(인프라). 관련: server/spec.md "테스트 방법", stack.md 2장 CI/CD
-- 상태: 리뷰 중
-
-### 목표
-PR마다 서버 린트·테스트·마이그레이션 검사와 두 앱의 타입 검사·웹 빌드를 자동으로 돌려, 깨진 변경이 main에 들어가지 않게 한다. 이번에는 CI만 만든다. CD(배포)는 브랜치 전략(SWPP-58)이 정해진 뒤 DEV-8과 함께 한다.
-
-### 범위 (수정 허용 경로)
-- `.github/workflows/ci.yml` (새 파일)
-- `.github/dependabot.yml` (새 파일, github-actions만)
-- `.nvmrc` (새 파일, Node 24)
-- `AGENTS.md` "브랜치·커밋·PR"의 PR 제목 규칙 한 줄(봇 PR 예외)
-- `.github/tasks.md` (이 절)
-- 실패 확인용 임시 커밋: `server/` 안 한 파일(같은 PR에서 revert)
-
-### 비범위 (건드리지 않음)
-- 배포 워크플로, Vercel·Railway 설정, 비밀값(DEV-8)
-- 저장소 설정(branch protection, secrets) — 사람이 직접
-- `.github/workflows/wiki-sync.yml`(actionlint 경고 SC2207도 그대로 둔다), 앱·서버 코드
-
-### 결정 사항
-- 10/07 CI는 `ci.yml` 하나, job `server`·`apps`. paths-filter로 변경이 없으면 단계만 건너뛰고 job은 항상 성공(필수 체크로 지정해도 막히지 않게)
-- 10/07 paths-filter는 `token: ""`로 git diff 방식을 쓴다. 기본(API) 방식은 PR에서 `pull-requests: read` 권한이 필요해 `contents: read`만으로는 안 됨
-- 10/07 액션은 메이저 태그로 고정한다(checkout@v7, setup-node@v7, paths-filter@v4). 단 `astral-sh/setup-uv`는 v8부터 메이저 태그를 내지 않으므로 upstream 권장대로 불변 전체 태그 `@v10.2.0`(현재 최신 v10)으로 고정한다. 첫 CI 실행은 없는 `@v10`을 찾다 실패했다
-- 10/07 job마다 `timeout-minutes: 15` (기본 360분 대신)
-- 10/07 `.github/dependabot.yml`: github-actions 생태계만 매주 업데이트 PR. 한 주의 업데이트는 한 PR로 묶는다. npm·pip은 지금 넣지 않음
-- 10/07 레포에 Node 버전 설정이 없어 현재 LTS인 Node 24로 한다(로컬 v24와 같음) → 팀 결정: 루트 `.nvmrc`(24)를 두고 setup-node는 `node-version-file: .nvmrc`. apps 경로 필터에 `.nvmrc` 포함
-- 10/07 팀 결정: concurrency `cancel-in-progress`는 pull_request일 때만 true. main push는 취소하지 않는다(연달아 머지해도 커밋마다 CI 결과가 남게)
-- 10/07 팀 결정: Dependabot 등 봇이 만든 PR은 이슈 키 규칙 예외 → AGENTS.md에 한 줄
-- 10/07 팀 결정: `wiki-sync.yml`의 actionlint 경고는 그대로 둔다
-
-### 작업
-- [x] `.github/workflows/ci.yml`: 트리거(main 대상 PR, main push), concurrency, `contents: read`
-- [x] job `server`: paths-filter, setup-uv, Python 3.12, `uv sync --frozen`, ruff, postgres:16 서비스, pytest, `alembic upgrade head` → `alembic check`
-- [x] job `apps`: paths-filter, setup-node(npm 캐시), `npm ci`, consumer·producer `tsc --noEmit`·`expo export -p web`, `EXPO_NO_TELEMETRY=1`
-- [x] job `timeout-minutes: 15`
-- [x] `.github/dependabot.yml` (github-actions, 매주)
-- [x] 로컬에서 같은 명령 통과, actionlint 통과
-- [x] 팀 결정 반영: PR만 cancel-in-progress, `.nvmrc` + `node-version-file`, AGENTS.md 봇 PR 예외
-- [x] draft PR에서 Actions 통과
-- [x] ruff 위반 커밋으로 server job 실패 확인 → revert로 다시 통과
-
-### 완료 조건
-- [x] PR에서 `server`·`apps` job이 실행되고 통과
-- [x] 일부러 넣은 실패를 CI가 잡음
-- [x] AI 1차 리뷰 반영
-- [ ] 리뷰 1명 승인 후 main 머지
-
-### 기록
-- 10/07 tasks.md 작성
-- 10/07 로컬 통과: actionlint(ci.yml), `uv sync --frozen`·ruff·pytest(3)·docker Postgres 16에서 `alembic upgrade head`·`alembic check`, `npm ci`·두 앱 tsc·expo export
-- 10/07 Actions: 첫 실행 server 실패(`setup-uv@v10` 없는 태그) → `@v10.2.0`으로 고정 후 통과. ruff 위반 커밋(16cf5ed)에서 server가 "Lint (ruff)" 실패(run 37569707109), revert(050a46d) 후 통과(run 37569836517: server 31s, apps 56s)
-- 10/07 AI 1차 리뷰 PR 코멘트. 남은 판단: main push의 cancel-in-progress, Dependabot PR 제목의 이슈 키, Node 버전 고정 방식
-- 10/07 남은 일(DEV-9): CD는 SWPP-58 브랜치 전략 결정 후 DEV-8과 함께. 저장소 설정(필수 체크 server·apps, 승인 1명)은 사람이 직접
+→ [tasks/DEV-9.md](tasks/DEV-9.md)
 
 ## DEV-25 [I1-P26-1] Comprehensive Integration Test Automation — CI
 
-- 이슈: [DEV-25](https://linear.app/sswp6/issue/DEV-25) (GitHub #56)
-- 브랜치: `zahra/dev-25-i1-p26-1-comprehensive-integration-test-automation`
-- 기능·인수 조건: I1 P0 실제 client↔server 통합 회귀
-- 상태: 진행 중
-
-### 목표
-기존 server·apps CI 뒤에 PostgreSQL·FastAPI·두 Expo 웹 앱·Chromium을 실제로 연결하는 필수 통합 검사를 추가한다.
-
-### 범위 (수정 허용 경로)
-- `.github/workflows/ci.yml`
-- `.github/tasks.md` (이 절)
-
-### 비범위 (건드리지 않음)
-- 배포 workflow·Vercel·Railway·secrets
-- 기존 server·apps 검사 약화 또는 삭제
-- branch protection 설정(머지 후 저장소 관리자가 `integration`을 필수 체크로 지정)
-
-### 결정 사항
-- 10/09 `integration` job은 server·apps 뒤에서 PostgreSQL 16과 Chromium으로 `npm run test:integration:full`을 실행한다
-- 10/09 job timeout은 25분이며 실패 때 Playwright report·trace·screenshots와 server/app/request log를 artifact로 올린다
-- 10/09 경로 필터에 앱·패키지·서버·스크립트·루트 package 파일·Playwright 설정·workflow를 포함한다
-
-### 작업
-- [x] integration 변경 감지와 PostgreSQL service
-- [x] Node·uv·Chromium 설치와 full integration 실행
-- [x] 실패 artifact 업로드와 항상 성공하는 skip 경로
-- [x] action syntax와 실제 Actions 실행 확인
-
-### 완료 조건
-- [x] 관련 PR에서 integration job이 실행되고 통과
-- [ ] 관련 없는 변경에서는 job이 skip 단계 후 성공
-- [x] 실패 증거 upload 단계가 report·trace·screenshot/video·process/HTTP log를 포함
-- [x] 기존 server·apps job 유지
-- [ ] 리뷰 1명 승인 후 main 머지
-
-### 기록
-- 10/09 DEV-25는 root test automation과 CI를 함께 바꾸므로 packages/tasks.md와 이 파일에 각각 범위·결정을 기록
-- 10/09 `integration` job을 `needs: [server, apps]`, PostgreSQL 16, Node 24, Python 3.12/uv, Chromium, 25분 제한으로 추가. 관련 경로가 없으면 skip 단계만 실행
-- 10/09 실패 시 `playwright-report/`, `test-results/`, `.artifacts/integration/`을 7일 artifact로 업로드하도록 구성. 로컬 YAML parse와 full integration 통과; GitHub Actions 결과는 push 후 확인
-- 10/09 첫 run 37818613030에서 Linux 전용 locator 차이를 artifact로 확인·수정. 재실행 run 37819337425에서 server 44초, apps 1분 28초, integration 2분 7초로 모두 통과
-
+→ [tasks/DEV-25.md](tasks/DEV-25.md)
 
 ## SWPP-89 [I2-T04] 리뷰 전 수동 Spec ↔ Code 확인 체크리스트
 
-- 이슈: https://linear.app/sswp6/issue/SWPP-89
-- 상태: 진행 중
-- 선행 작업: SWPP-88 — Done
-
-### 목표
-각 PR에서 적용·변경 스펙, 구현 위치, 실제 확인자를 확인할 수 있게 한다.
-
-### 범위
-- `.github/spec.md`
-- `.github/tasks.md`의 이 이슈 섹션
-- `.github/pull_request_template.md`
-
-### 결정 사항
-- 기존 PR 템플릿을 유지하고 Spec ↔ Code 확인란을 추가한다.
-- 스펙 변경이 없거나 제품 구현이 없는 경우 이유를 명시한다.
-- 사람의 확인 결과는 실제 검토 후 기록한다.
-- 확인 후 변경이 추가되면 영향받는 부분을 다시 검토한다.
-
-### 작업 및 완료 조건
-- [ ] PR 템플릿에 스펙·구현 위치·검증 근거·확인자 항목 추가
-- [ ] 이 PR 본문에 새 확인란을 작성하여 사용 예시 제시
-- [ ] Markdown 표시와 변경 범위 확인
-- [ ] AI 1차 리뷰 및 must 항목 해결
-- [ ] 사람 리뷰어 1명 승인
-- [ ] main에 머지하고 Linear에 결과 기록
-
-### 기록
-- 실제 검토 결과, 결정 변경, PR 링크와 완료 근거를 작업하면서 추가한다.
+→ [tasks/SWPP-89.md](tasks/SWPP-89.md)
 
 ## DEV-40 [I2-T23] AI-assisted spec-to-code GitHub Actions check
 
-- 이슈: https://linear.app/sswp6/issue/DEV-40
-- 작업·허용 경로·완료 조건: `spec-check/tasks.md#dev-40`
-- 구현 결정: `spec-check/spec.md`
-- 상태: core 리뷰 중. live 모델 접근/증거는 사용자 승인으로 DEV-55에 이전했으며 core 머지를 막지 않는다. Core 사람 승인은 필요하다.
-- 기존 workflow/PR template/과거 이슈 기록을 보존한다.
+→ [tasks/DEV-40.md](tasks/DEV-40.md)
 
 ## DEV-114 관리자 페이지(admin-web) CI 테스트 + main 머지 뒤 Vercel 자동 배포
 
-- 이슈: [DEV-114](https://linear.app/sswp6/issue/DEV-114)
-- 브랜치: `nemodleo/dev-114-관리자-페이지admin-web-ci-테스트-main-머지-뒤-vercel-자동`
-- 기능·인수 조건: 없음(인프라). 관련: `scripts/admin-web/README.md`, DEV-67(앱 자동 배포), DEV-70(production Environment), DEV-91(admin.farmclub.kr)
-- 상태: 리뷰 중
-
-### 목표
-관리자 페이지(`scripts/admin-web`, Vercel 프로젝트 `farmclub-admin`)의 테스트를 PR CI에서 돌리고, main에 관리자 페이지 변경이 머지되면 CI 성공 뒤 자동으로 운영에 올린다. 지금은 수동 `vercel deploy --prod`라 DEV-98·106·107·111처럼 머지돼도 반영되지 않을 수 있다.
-
-### 범위 (수정 허용 경로)
-- `.github/workflows/ci.yml` (job `admin-web` 추가, 상단 주석)
-- `.github/workflows/deploy-vercel.yml` (job `deploy-admin` 추가, 상단 주석)
-- `scripts/admin-web/README.md` (배포 절)
-- `docs/spec/tech-design/stack.md` (CI/CD 줄)
-- `.github/tasks.md` (이 절)
-
-### 비범위 (건드리지 않음)
-- Vercel 프로젝트 환경 변수(`ADMIN_WEB_PASSWORD`·`ADMIN_TOKEN`·`FARMCLUB_API_URL`)와 `ADMIN_TOKEN` 교체(JWT_SECRET 교체와 함께 사용자가 따로)
-- 저장소 설정(필수 체크, secrets, Environment), 관리자 페이지 코드, 소비자·생산자 앱 배포 단계
-
-### 결정 사항
-- 10/22 CI는 기존 잡에 단계를 넣지 않고 job `admin-web`을 따로 둔다. 의존성 설치 없이 `node --test scripts/admin-web/admin.test.mjs`만 돌려 `apps`의 `npm ci`·export를 기다리지 않는다. 필터: `scripts/admin-web/**`, `.nvmrc`, `ci.yml`. 기존처럼 변경이 없으면 단계만 건너뛰고 성공
-- 10/22 배포는 matrix(consumer·producer)를 넓히지 않고 job `deploy-admin`을 따로 둔다. 빌드·`npm ci`가 없고 변경 감지 경로가 달라서 matrix 안에 조건을 섞는 것보다 읽기 쉽다. 트리거·`if`·production Environment·`VERCEL_TOKEN` 옵트인은 앱 잡과 같다
-- 10/22 업로드는 `vercel deploy scripts/admin-web --prod`(빌드 없이 원본 업로드, Vercel이 `vercel.json` rewrites·functions로 함수를 만든다). 지금까지의 수동 배포(`cd scripts/admin-web && vercel deploy --prod`)와 같은 방식이라 `vercel build`/`--prebuilt`는 쓰지 않는다. 로컬 `vercel build`는 `vercel pull`로 환경 변수를 디스크에 받아야 해서 하지 않는다
-- 10/22 프로젝트 ID `prj_ex1siKHTosUuGYJM7jQh3571yecU`(`vercel project inspect farmclub-admin`, Root Directory `.`, Node 24.x). 비밀값 아님, 워크플로에 적는다
-- 10/22 변경 감지: CI가 검사한 커밋의 `HEAD~1..HEAD`에 `scripts/admin-web/` 또는 `deploy-vercel.yml` 변경이 있을 때. 수동 실행은 앱과 함께 항상 올린다
-- 10/22 배포 뒤 확인: `https://admin.farmclub.kr/login`이 200인지(로그인 전 화면, 비밀값 불필요)
-
-### 작업
-- [x] tasks.md 절
-- [x] `ci.yml` job `admin-web`
-- [x] `deploy-vercel.yml` job `deploy-admin`
-- [x] README 배포 절, stack.md CI/CD 줄
-- [x] 로컬: `node --test scripts/admin-web/admin.test.mjs`, actionlint
-- [x] draft PR에서 `admin-web` job 실행·통과
-- [x] AI 1차 리뷰 반영
-
-### 완료 조건
-- [x] PR에서 `admin-web` job이 테스트를 돌리고 통과
-- [ ] 리뷰 1명 승인 후 main 머지
-- [ ] 머지 뒤 `Deploy apps to Vercel`의 `deploy-admin`이 성공하고 admin.farmclub.kr에 반영(사람이 확인)
-
-### 기록
-- 10/22 tasks.md 작성. 로컬 `node --test scripts/admin-web/admin.test.mjs` 18개 통과(origin/main 1f1a243)
-- 10/22 job 추가 후 로컬: `node --test scripts/admin-web/admin.test.mjs` 18/18 통과, `actionlint ci.yml deploy-vercel.yml` 경고 없음. 실제 배포는 main 머지 뒤라 PR에서는 하지 않는다
-- 10/22 참고: `deploy-vercel.yml`을 고치면 앱 matrix의 변경 감지에도 걸려 이 PR 머지 때 소비자·생산자 앱도 다시 올라간다(기존 규칙, 같은 main 내용)
-- 10/22 PR #228: `admin-web` job 18/18 통과(run 39728193563), server·apps·figma-line 통과. `integration`은 첫 실행에서 e2e AC-10-6(`checkout-and-fulfillment.spec.ts:135`, 같은 문구 2곳 strict mode)이 실패 → 앱·e2e 변경 없고 main 1f1a243 통과라 flaky로 보고 재실행해 통과
-- 10/22 AI 1차 리뷰 코멘트(must 없음). 머지 뒤 사람 확인: 첫 `deploy-admin` 성공(403이면 `VERCEL_TOKEN` 범위), admin.farmclub.kr에 DEV-98·106·107·111 화면
+→ [tasks/DEV-114.md](tasks/DEV-114.md)
 
 ## DEV-139 배포 변경 감지를 마지막 배포 커밋 기준으로(HEAD~1 → 이동 태그)
 
-- 이슈: [DEV-139](https://linear.app/sswp6/issue/DEV-139) (관련: DEV-66, DEV-94, DEV-33 #270, SWPP-125)
-- 브랜치: `nemodleo/dev-139-deploy-base-tag`
-- 기능·인수 조건: 없음(인프라). 제품 동작 변경 없음.
-- 상태: 구현 완료, 리뷰 대기
-
-### 목표
-배포 워크플로가 `HEAD~1..HEAD`만 보던 것을 "마지막으로 배포한 커밋..HEAD"로 바꿔, 앞 커밋의 CI가 취소·실패하거나 뒤 커밋에 묻혀도 변경이 운영에 올라가게 한다. 2026-11-03 #270(DEV-33) 머지 직후 #214가 머지되면서 소비자 앱 배포가 건너뛰어져 카카오 로그인 복귀가 깨진 것이 직접 계기.
-
-### 범위 (수정 허용 경로)
-- `scripts/ci/deploy-changed.sh`, `scripts/ci/deploy-mark.sh`, `scripts/ci/test-deploy-changed.sh` (새 파일)
-- `.github/workflows/deploy-railway.yml`, `.github/workflows/deploy-vercel.yml` (감지 단계 5곳, `fetch-depth`, `permissions`, 태그 단계)
-- `.github/workflows/ci.yml` (job `admin-web`에 시나리오 테스트 한 단계)
-- `scripts/test-spec12.mjs`(DEV-186 테스트가 감지 정규식을 읽는 위치 한 줄), `Makefile`(`test-ci`), `README.md` 배포 절, `docs/spec/tech-design/stack.md` CI/CD 줄, `.agents/skills/pr-review/SKILL.md` 4장 배포 확인 줄, 이 파일
-
-### 결정 사항
-- 11/03 기준은 **이동 태그** `deploy/railway-api`·`deploy/vercel-consumer`·`deploy/vercel-producer`·`deploy/vercel-admin`·`deploy/vercel-demo`. 배포(+health 확인) 성공 뒤 `deploy-mark.sh`가 `git push --force origin HEAD:refs/tags/<태그>`로 옮긴다. GitHub Deployments API는 `environment: production` job이 건너뛴 실행에도 성공 기록을 남겨 기준으로 못 쓰고, 워크플로 실행 목록도 "실제로 올렸는지"를 구분 못 한다. 태그는 레포에서 바로 보이고 `git` 만으로 읽는다.
-- 11/03 규칙(`deploy-changed.sh`): 수동 실행은 항상 배포. 태그가 없으면 배포(첫 실행·안전한 쪽). HEAD == 태그면 건너뜀. HEAD가 태그의 조상이면 건너뜀(늦게 끝난 옛 CI 실행이 되돌리지 않게). 태그가 HEAD의 조상이 아니면(기록 재작성) 배포. 그 밖엔 `git diff <태그> HEAD`에 대상 경로가 있으면 배포. 모든 분기에서 로그 첫 줄은 `Comparing <base|none>..<head>`, 마지막 줄은 `deploy=true|false`.
-- 11/03 `fetch-depth: 0`. 태그와 HEAD 사이 기록이 필요하다. 레포 크기에서 수십 초 안.
-- 11/03 `permissions: contents: write`(두 워크플로). 태그 push 때문. 토큰은 여전히 production Environment 안에서만 쓰인다.
-- 11/03 감지 정규식에 `scripts/ci/deploy-(changed|mark).sh`를 더해 스크립트가 바뀌면 그 대상이 한 번 다시 올라간다(워크플로 파일과 같은 취급).
-- 11/03 머지 뒤 첫 실행은 태그가 없어 다섯 대상이 한 번씩 모두 올라간다(의도, 같은 main 내용). 그 뒤부터 태그 기준.
-- 11/03 시나리오 테스트는 bash로 임시 bare 원격을 만들어 돈다(`make test-ci`). CI에서는 `admin-web` job이 `scripts/ci/**`·배포 워크플로 변경 때만 돌린다.
-
-### 작업
-- [x] `deploy-changed.sh`·`deploy-mark.sh`·시나리오 테스트 7개
-- [x] 감지 단계 4곳(대상 5개: Railway, Vercel 앱 matrix 2, admin, demo) 교체, 태그 단계 4곳(Railway는 worker까지 올라간 뒤), fetch-depth, permissions
-- [x] ci.yml 단계, Makefile, README, stack.md, pr-review 스킬
-- [x] 로컬: `bash scripts/ci/test-deploy-changed.sh` 7 시나리오 통과, `shellcheck scripts/ci/*.sh` 경고 없음, 워크플로 YAML 파싱 확인
-
-### 완료 조건
-- [ ] PR CI(`admin-web` job의 시나리오 테스트) 통과
-- [ ] 사람 1명 승인 후 main 머지
-- [ ] 머지 뒤 첫 배포 실행에서 다섯 대상이 올라가고 태그 `deploy/*` 5개가 생기는지, 다음 문서만 커밋에서 "Skipping"이 찍히는지(사람 확인)
-
-### 기록
-- 11/03 `origin/main`(0afd89a)에서 시작.
-- 11/03 PR #374 spec-check SC-001(Comparing 줄이 diff 분기에만 있음) 반영: 모든 분기에서 첫 줄로 찍는다. UNVERIFIED(Railway worker 단계 뒤에 태그를 옮겨야 함) 반영: 태그 단계를 worker 단계 뒤로. "감지 5곳" 표현을 "4단계·5대상"으로. CI apps job 실패: `test-spec12.mjs`의 DEV-186 테스트가 workflow의 `grep -qE '…'`에서 정규식을 읽었는데 호출 형태가 바뀌어 null → 스크립트 호출의 둘째 인자에서 읽게 고침.
-- 11/03 머지 뒤 첫 실행(main f78f898): railway-api·vercel-consumer·producer·admin 배포·태그 ✓. demo는 배포는 됐지만 '확인' 단계의 curl이 15초 시간 초과(exit 28)로 `set -e`에 걸려 루프가 끊겨 실패 → 태그 안 생김(다음 실행이 다시 올림, 안전한 쪽). 후속 PR: 네 확인 단계의 curl에 `|| echo 000`을 붙여 시간 초과도 재시도하게 함. 데모 사이트 자체는 정상(200/206).
+→ [tasks/DEV-139.md](tasks/DEV-139.md)

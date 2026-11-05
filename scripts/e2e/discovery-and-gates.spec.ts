@@ -84,3 +84,43 @@ test("N-02: core discovery remains usable at supported widths", async ({
   }
   assertClean();
 });
+
+// DEV-214 (FEAT-06 E4): 목록이 있는 채 검색이 실패하면 오류 상자와 ‘이전 목록’, 다시 시도는 처음부터 받아 중복이 없다
+test("AC-06-2 AC-06-7: search failure shows a notice and retry does not duplicate", async ({
+  page,
+}) => {
+  // 첫 검색 요청만 네트워크 실패(연결 끊김 문구). 브라우저가 남기는 리소스 실패 로그는 허용
+  const assertClean = monitor(page, [/Failed to load resource|ERR_FAILED/]);
+  let injected = false;
+  await page.route(/\/api\/farms\?.*q=/, async (route) => {
+    if (!injected) {
+      injected = true;
+      await route.abort("failed");
+    } else await route.continue();
+  });
+  await page.goto(`${consumerUrl}/farms`);
+  await expect(page.getByText(/마감 임박순 · 농가 \d+곳/)).toBeVisible();
+  const before = await page.getByText(/마감 임박순 · 농가 \d+곳/).innerText();
+  const count = before.match(/농가 (\d+)곳/)![1];
+
+  await page.getByLabel("농가 검색").fill("한라네");
+  await expect(
+    page.getByText("‘한라네’ 검색 결과를 불러오지 못했어요"),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "인터넷 연결을 확인하고 다시 시도해 주세요. 아래는 이전 목록이에요.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText(`이전 목록 · 농가 ${count}곳`)).toBeVisible();
+  await expect(page.getByText("찾는 농가가 없어요")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "다시 시도" }).click();
+  await expect(page.getByText("마감 임박순 · 농가 1곳")).toBeVisible();
+  await expect(
+    page.getByText("‘한라네’ 검색 결과를 불러오지 못했어요"),
+  ).toHaveCount(0);
+  await expect(page.getByText("한라네 과수원")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "다시 시도" })).toHaveCount(0);
+  assertClean();
+});

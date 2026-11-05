@@ -1,6 +1,7 @@
 """환경 변수 설정. 이름은 server/.env.example이 원본이다."""
 
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,6 +47,10 @@ class Settings(BaseSettings):
     # 앱 주소: CORS, 공유 링크 이동(ADR 0006)
     consumer_app_url: str = "http://localhost:8081"
     producer_app_url: str = "http://localhost:8082"
+    # 같은 앱을 여는 다른 주소(쉼표 구분, DEV-236). 운영은 Vercel 기본 주소(테스트용, PostHog 꺼짐).
+    # CORS·카카오 복귀 주소 검증만 받고, 공유 링크 등 대표 주소는 위 두 값만 쓴다. 비면 기존과 같다.
+    consumer_app_alt_urls: str = ""
+    producer_app_alt_urls: str = ""
     # 공유 링크 /s/farms/<id>의 앞부분(ADR 0012). 운영은 https://farmclub.kr
     # (소비자 앱이 /s/를 서버로 프록시). 비우면 요청이 들어온 서버 주소를 쓴다.
     share_base_url: str = ""
@@ -130,6 +135,44 @@ class Settings(BaseSettings):
     # 데모·테스트용 고정 시각(ISO 8601). 비면 실제 시각을 쓴다.
     fixed_now: str = ""
 
+    @field_validator("consumer_app_alt_urls", "producer_app_alt_urls")
+    @classmethod
+    def _alt_urls_are_origins(cls, value: str) -> str:
+        """보조 주소는 출처(scheme://호스트[:포트])만 받는다.
+
+        `*`가 섞이면 CORS가 모든 출처를 연다.
+        """
+        for url in _split_urls(value):
+            parts = urlsplit(url)
+            if (
+                parts.scheme not in {"http", "https"}
+                or not parts.netloc
+                or "*" in url
+                or parts.path
+                or parts.query
+                or parts.fragment
+            ):
+                raise ValueError(f"앱 보조 주소는 http(s)://호스트[:포트]만 적어요: {url}")
+        return value
+
+    def app_urls(self, app: str) -> list[str]:
+        """그 앱(consumer·producer)을 여는 주소. 첫째가 대표 주소, 뒤는 보조 주소(DEV-236)."""
+        if app == "consumer":
+            main, alt = self.consumer_app_url, self.consumer_app_alt_urls
+        elif app == "producer":
+            main, alt = self.producer_app_url, self.producer_app_alt_urls
+        else:
+            raise ValueError(f"알 수 없는 앱: {app}")
+        urls: list[str] = []
+        for url in [main.rstrip("/"), *_split_urls(alt)]:
+            if url and url not in urls:
+                urls.append(url)
+        return urls
+
+    def app_origins(self) -> list[str]:
+        """CORS 허용 출처: 두 앱의 대표 주소와 보조 주소."""
+        return [*self.app_urls("consumer"), *self.app_urls("producer")]
+
     @model_validator(mode="after")
     def _require_jwt_secret(self) -> "Settings":
         if not self.jwt_secret:
@@ -137,6 +180,11 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET이 비어 있어요. local이 아니면 꼭 설정해야 해요.")
             self.jwt_secret = LOCAL_JWT_SECRET
         return self
+
+
+def _split_urls(value: str) -> list[str]:
+    """쉼표로 나눈 주소 목록. 공백·빈 칸은 버리고 끝의 /는 뗀다."""
+    return [u.strip().rstrip("/") for u in value.split(",") if u.strip()]
 
 
 @lru_cache

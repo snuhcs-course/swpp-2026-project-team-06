@@ -3,23 +3,42 @@ import {
   catalog,
   newIdempotencyKey,
   type MyProduct,
+  type MyStage,
   type StageInput,
 } from "@farmclub/api";
-import { Button, HeaderBar, Screen, Scroll, T, tokens } from "@farmclub/ui";
+import { Button, HeaderBar, Notice, Screen, Scroll, T, tokens } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
+import { HarvestRow, HarvestSheet } from "../../../../lib/HarvestStart";
 import { DateInput, NumField, addDays } from "../../../../lib/fields";
-import { useHideTabBar } from "../../../../lib/session";
+import { useHideTabBar, useSession } from "../../../../lib/session";
 import { TODAY } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 type Row = Omit<StageInput, "options"> & {
   key: string;
   options: Record<string, { price: number | null; quantity: number | null }>;
 };
+/** 저장 안 한 값이 있는지 비교할 모양(DEV-231: 있으면 수확 버튼을 막는다) */
+const snap = (rows: Row[]) =>
+  JSON.stringify(
+    rows.map((r) => ({
+      stageId: r.stageId ?? null,
+      startsAt: r.startsAt,
+      endsAt: r.endsAt,
+      options: Object.entries(r.options)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => [k, v.price, v.quantity]),
+    })),
+  );
 export default function Periods() {
   useHideTabBar();
-  const { id } = useLocalSearchParams<{ id: string }>(),
+  const { id, stage: focus } = useLocalSearchParams<{ id: string; stage?: string }>(),
     router = useRouter(),
+    { toast } = useSession(),
+    [saved, setSaved] = useState(""),
+    [harvestFor, setHarvestFor] = useState<MyStage | null>(null),
+    [notice, setNotice] = useState<string | null>(null),
     [p, setP] = useState<MyProduct | null>(null),
     [rows, setRows] = useState<Row[]>([]),
     [error, setError] = useState(""),
@@ -41,11 +60,18 @@ export default function Periods() {
     try {
       const r = await catalog.myProduct(id);
       setP(r);
-      setRows(
-        r.stages.length
-          ? r.stages.map((s) => ({ ...s, key: s.stageId }))
-          : [blank(r)],
-      );
+      const next: Row[] = r.stages.length
+        ? r.stages.map((s) => ({
+            stageId: s.stageId,
+            name: s.name,
+            startsAt: s.startsAt,
+            endsAt: s.endsAt,
+            options: s.options,
+            key: s.stageId,
+          }))
+        : [blank(r)];
+      setRows(next);
+      setSaved(r.stages.length ? snap(next) : "");
       setError("");
     } catch (e) {
       setError(String(e));
@@ -54,6 +80,15 @@ export default function Periods() {
   useEffect(() => {
     void load();
   }, [id]);
+  // 현황·주문 현황에서 온 기간 카드로 스크롤(DEV-231)
+  useEffect(() => {
+    if (!p || !focus || Platform.OS !== "web") return;
+    const el = (globalThis as { document?: Document }).document?.getElementById(
+      `stage-${focus}`,
+    );
+    el?.scrollIntoView({ block: "center" });
+  }, [p, focus]);
+  const dirty = !!saved && snap(rows) !== saved;
   function update(i: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   }
@@ -83,7 +118,7 @@ export default function Periods() {
       if (pending.current?.body !== body)
         pending.current = { body, key: newIdempotencyKey() };
       await catalog.putStages(id, stages, p.version, pending.current.key);
-      router.back();
+      goBackOr(router, "/products");
     } catch (e) {
       setError(
         e instanceof ApiError && e.details.fields
@@ -98,7 +133,7 @@ export default function Periods() {
   }
   return (
     <Screen>
-      <HeaderBar title="예약 기간·가격" onBack={() => router.back()} />
+      <HeaderBar title="예약 기간·가격" onBack={() => goBackOr(router, "/products")} />
       <Scroll>
         <View style={{ padding: 20, gap: 20 }}>
           <View
@@ -121,6 +156,7 @@ export default function Periods() {
               그대로예요.
             </T>
           ) : null}
+          {notice ? <Notice title={notice} /> : null}
           {error ? (
             <View accessibilityRole="alert" style={{ gap: 8 }}>
               <T color={tokens.color.error}>{error}</T>
@@ -134,7 +170,7 @@ export default function Periods() {
           {p && !p.options.length ? (
             <Button
               label="상품 편집에서 중량 옵션 먼저 추가"
-              onPress={() => router.back()}
+              onPress={() => goBackOr(router, "/products")}
             />
           ) : null}
           {p?.options.length
@@ -146,6 +182,7 @@ export default function Periods() {
                 return (
                   <View
                     key={r.key}
+                    nativeID={r.stageId ? `stage-${r.stageId}` : undefined}
                     style={{
                       padding: 18,
                       gap: 18,
@@ -248,6 +285,15 @@ export default function Periods() {
                         ) : null}
                       </View>
                     ))}
+                    {old ? (
+                      <HarvestRow
+                        stage={old}
+                        dirty={dirty}
+                        busy={busy}
+                        onStart={() => setHarvestFor(old)}
+                        onOpenPreparing={() => router.push("/ship?status=PREPARING")}
+                      />
+                    ) : null}
                   </View>
                 );
               })
@@ -274,6 +320,23 @@ export default function Periods() {
           ) : null}
         </View>
       </Scroll>
+      <HarvestSheet
+        productId={id}
+        productName={p?.name ?? ""}
+        stage={harvestFor}
+        onClose={() => setHarvestFor(null)}
+        onDone={(changed) => {
+          setHarvestFor(null);
+          setNotice(null);
+          toast(`${changed}건을 출하 준비로 옮겼어요`);
+          void load();
+        }}
+        onStale={() => {
+          setHarvestFor(null);
+          setNotice("이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.");
+          void load();
+        }}
+      />
     </Screen>
   );
 }

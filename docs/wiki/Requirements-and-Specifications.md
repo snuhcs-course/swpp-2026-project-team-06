@@ -28,6 +28,8 @@ Implementation reference: [`691949e985080f372a45d54fa950191e88adb8ce`](https://g
 | 1.6 | 2026-10-13 | Team 6 | DEV-51: conversation-centered Figma v6, horizontal feeds, direct farm rooms, collapsible shelves, fulfillment dashboard; API contracts unchanged |
 | 1.7 | 2026-10-18 | Team 6 | DEV-68: payment becomes a direct bank transfer to the farm's account (farmclub is a marketplace intermediary and never holds money). Deposit instructions, 24-hour deposit deadline, producer deposit confirmation, refunds sent back by the farm, farm bank account registration; R-01/02/13 revised, R-28 added |
 | 2.0 | 2026-10-22 | Team 6 | I2 scope and implementation alignment: Kakao onboarding, private source workspace, operator/support workflows, deposit exceptions, current UI journeys and explicit outstanding NFR validation |
+| 2.1 | 2026-11-04 | Team 6 | DEV-233: screen summaries synced with the implemented screens (product sales page and sales settings routes, farm detail editor, news send confirmation and delete, late deposit notice, wrong-answer button) |
+| 2.2 | 2026-11-05 | Team 6 | DEV-224: bottom tabs always open their first screen, Back has a parent screen when there is no previous one, 1:1 chats return to the screen that opened them, not-found farm screen |
 
 ## 1. Project Abstract
 
@@ -81,7 +83,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 
 - **I1 baseline retained:** discovery/following, separate accounts, farm/product setup, capacity approval, reservation/order history, fulfillment APIs, news/private chat, AI settings and order inquiries. The I1 simulated-payment path remains a local Mock facility, not the deployed I2 payment policy.
 - **I2 implemented extension:** Kakao sign-in and onboarding, direct farm bank transfer with producer confirmation, operator browser tools, wrong-answer reporting, private document/photo-assisted product workspaces with explicit apply, public media/share previews, conversation UI 1.6, producer help and farmclub support, deployed API/source worker and optional client analytics.
-- **Later / incomplete:** automatic bank matching, courier integration, external notifications, scheduled completion/refunds, natural-language shipping and independent farmer acceptance of AI extraction. The retained harvest-start API has no current producer UI action. Implementation availability does not establish that every deployed path has passed; see section 8 and Testing Documentation.
+- **Later / incomplete:** automatic bank matching, courier integration, external notifications, scheduled completion/refunds, natural-language shipping and independent farmer acceptance of AI extraction. Start harvest works per sale period only; there is no per-order move or automatic transition (DEV-231). Implementation availability does not establish that every deployed path has passed; see section 8 and Testing Documentation.
 
 ### 4.2 Transaction rules
 
@@ -89,14 +91,14 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 | --- | --- | --- |
 | Approval | Farms are verified; an operator approves a product's initial supply and any increase | R-22, R-25 |
 | Payment | One full **bank transfer to the farm's own account** per order (DEV-68). Issuing deposit instructions takes the stock and starts a 24-hour deposit deadline; the depositor name is the order number; the producer confirms the deposit after checking the bank statement, and only then is the order reserved. farmclub is a marketplace intermediary and never receives or holds money. The consents the buyer agreed to are recorded | R-01-03, R-28 |
-| Deadline | Automatically expire only unreported overdue deposits; a buyer-reported deposit stays awaiting confirmation/exception handling rather than being canceled automatically | R-28 |
+| Deadline | Apps judge "past the deposit deadline" and "today/yesterday" with the server clock (every API response carries an `X-Server-Time` header), not the device clock, so labels match the server's deadline even when the device clock is wrong or the server clock is fixed for a demo (DEV-229). Automatically expire only unreported overdue deposits; a buyer-reported deposit stays awaiting confirmation/exception handling rather than being canceled automatically | R-28 |
 | Pricing | Earlier periods are cheaper and periods do not overlap. Changed terms are reconfirmed before payment; paid orders keep their price | R-17-18 |
 | Capacity | Reserved plus shipped weight <= sales limit <= approved weight. Shown to producers in kg | R-06, R-26 |
 | Quantity | One option and one address per order, within the per-order and per-period box limits | R-23 |
 | Pause | The product stays visible, new orders and unpaid payments are blocked, existing paid orders can still ship | R-27 |
 | Cancellation | Before confirmed payment: cancel unpaid instructions with no recorded refund and release held stock once; a reported transfer requires factual reconciliation. After confirmed payment: full refund before shipment, sent by the farm back to the account the buyer paid from, and eligible stock is restored once. Refunds after shipping do not restore capacity | R-07-08, R-26, R-28 |
 | Delivery change | The buyer accepts the new window or takes a full refund | R-21 |
-| Shipment | Only PREPARING orders can ship; the current producer UI has no RESERVED → PREPARING control. Delivery confirmation belongs to the operator, then receipt confirmation to the consumer | R-19 |
+| Shipment | Only PREPARING orders can ship. Starting harvest on a sale period moves that period's reserved orders to PREPARING (DEV-231). Delivery confirmation belongs to the operator, then receipt confirmation to the consumer | R-19 |
 | Partial refund | Record a refund history/payment change without changing fulfillment status or releasing stock; only a final full refund ends fulfillment and releases eligible unshipped stock once | R-07-08, R-26 |
 
 ### 4.3 Communication and AI
@@ -240,6 +242,12 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **THEN** no public content changes until I save
 - **AND** my edits are kept after a cancel or failed save
 
+**AC-03-5: Expected Brix from sources (DEV-228)**
+- **GIVEN** the expected Brix field of a new product is empty and my sources (text, photo OCR or PDF) say "Brix about 11"
+- **WHEN** source analysis finishes
+- **THEN** the expected Brix field is prefilled with 11 by a server rule (no model decides it), and I can edit it
+- **AND** a range such as "11–12 Brix" fills the lower bound (11); different values ("12 this year, 13 last year") leave it empty; a value I already entered is never overwritten; weight, price, count and date numbers are ignored
+
 ### FEAT-03 extension: Private source-assisted product pages (AC-SRC)
 
 **As a** producer, **I want to** turn my existing documents, sales text and original photos into a private, editable product page, **so that** I can reuse evidence while retaining control over facts and publication.
@@ -322,15 +330,28 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **THEN** farm A is listed above farm B
 
 **AC-06-2: Search by variety**
-- **GIVEN** one farm grows Hallabong
-- **WHEN** I search for "Hallabong"
-- **THEN** only that farm is shown
+- **GIVEN** two farms sell Gungcheon early mandarins, and one of them also has a draft Hallabong product
+- **WHEN** I search for "Gungcheon", then for "Hallabong"
+- **THEN** the first search shows just those two farms, and the second shows none
+- **AND** only products on sale count. Drafts, products waiting for approval, rejected and closed products are not searched; paused products are, since they stay on the farm page
+
+**AC-06-7: Failed search and retry**
+- **GIVEN** four farms are listed
+- **WHEN** the search for "Hallane" fails and I tap Retry, which succeeds
+- **THEN** after the failure I see an error box under the search field and "Previous list · 4 farms"
+- **AND** after Retry only that farm is shown, once
 
 **AC-06-3: Follow a farm**
 - **GIVEN** I am logged in
 - **WHEN** I follow a farm
 - **THEN** it appears in my followed farms under Me
 - **AND** its news room appears in Chat
+
+**AC-06-8: Unfollow with undo (DEV-230)**
+- **GIVEN** I follow a farm and have replied in its news room
+- **WHEN** I tap Following, then Undo (or Follow again in the banner)
+- **THEN** right after unfollowing I see the toast "Unfollowed · Undo", my replies stay dimmed, follower-only posts are hidden, a banner says new posts will not come, the reply box is locked, and the farm leaves the Chat news room list
+- **AND** following again brings back everything as before, including the list row
 
 ### FEAT-07: Product information
 
@@ -346,6 +367,17 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **GIVEN** the farm has recorded a measured sweetness
 - **WHEN** I open the product page
 - **THEN** the measured value is shown instead of the estimate
+
+**AC-07-3: Not reservable**
+- **GIVEN** a product is paused, out of total capacity, between periods, sold out for this period or ended
+- **WHEN** I open the home, the farm list or the product page
+- **THEN** it is left out of home recommendations and farm highlights, stays on its product page and farm page with Reserve turned off, and shows a next start date only when waiting for the next period will open it
+
+**AC-07-7: Empty values**
+- **GIVEN** a value is missing (no sweetness reading, no confirmed delivery window, no separate shipping fee amount, zero reservations, no deadline)
+- **WHEN** a product card, product page or the producer's buyer preview shows it
+- **THEN** no placeholder appears ("-Brix", "0 reserved", a dangling label, today's date); the label is dropped, or a finished phrase is shown ("Sweetness not registered yet", "Shipping fee not confirmed yet"), and an approximation derived from stored data is labelled "estimated" (e.g. "Arrives after mid-November (estimated)", from the last reservation period's end)
+- **AND** a product that cannot be reserved shows one name per availability state on cards, the product page and the producer list
 
 **AC-07-5: Full product story**
 - **GIVEN** a product has story blocks, or only a plain description
@@ -367,6 +399,16 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** checkout opens
 - **THEN** the address is filled in for me
 - **AND** the order keeps its own copy, so later edits to my address book do not change it
+
+**AC-08-8: Reconfirm a changed price**
+- **GIVEN** the farm changed the price or box weight (or the sales period rolled over) while my checkout was open
+- **WHEN** I tap Reserve
+- **THEN** no order is created; the checkout shows the old and new price (for example 29,000 → 30,000 won) and the new total, keeps everything I entered, and only "Reserve at the new price" creates the order
+
+**AC-08-9: Paused, sold out or ended comes first**
+- **GIVEN** sales were paused, my option sold out, or the sales period ended while my checkout was open
+- **WHEN** I tap Reserve
+- **THEN** I see that reason even if the price also changed, without "Reserve at the new price": paused disables Reserve with a "Check again" link, a sold-out option offers "Change option", and an ended period or full stock offers "Back to product"
 
 ### FEAT-09: Bank transfer to the farm (deposit and confirmation)
 
@@ -432,6 +474,11 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **WHEN** I go back to the list
 - **THEN** the order moves to the right tab and the counts update
 
+**AC-10-8: Telling repeated orders apart (DEV-226)**
+- **GIVEN** I ordered the same product twice and reported both deposits
+- **WHEN** I open the Unconfirmed tab
+- **THEN** each row ends with its own "order number · ordered on" line, and rows waiting for a deposit still show the delivery window
+
 ### FEAT-11: Cancellation before shipping
 
 **As a** consumer, **I want to** cancel before shipping, **so that** I get a full refund if my plans change.
@@ -472,6 +519,30 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **WHEN** I follow, unfollow or log out
 - **THEN** I only see what my new role allows
 - **AND** posts I can no longer see disappear right away
+
+**Send confirmation and delete (DEV-210, rule M-23).** Sending from the producer's room input first opens a sheet with the follower count and a preview of what consumers will see. Producers can delete their own news at any time; there is no edit (delete and send again instead). Deleted news leaves every consumer view (news room, chat list preview, news list, public farm room) while consumer replies stay. The server keeps the row as a soft delete with no retention limit, for operator recovery only. If news notifications are added later, they must not include the post body.
+
+**AC-12-13: Confirm before sending news**
+- **GIVEN** I typed news in my own room
+- **WHEN** I press Send
+- **THEN** a sheet asks "Send to N followers?" with a preview
+- **AND** "No" keeps my text without sending, and "Confirm · Send" posts it exactly once
+
+**AC-12-14: Deleted news disappears**
+- **GIVEN** I sent news from my farm
+- **WHEN** I open its ⋯ menu and delete it
+- **THEN** it leaves followers' rooms, chat list previews, news lists and the public farm room, and liking it returns 404
+- **AND** consumer replies stay, and repeating the delete still succeeds
+
+**AC-12-15: Only my own news**
+- **GIVEN** the news belongs to another farm or does not exist
+- **WHEN** a producer calls the delete API
+- **THEN** it returns 404 and nothing changes; consumers and unapproved producers get 403
+
+**AC-12-16: Delete and rewrite**
+- **GIVEN** I sent a text-only news post
+- **WHEN** I choose "Delete and rewrite"
+- **THEN** it is deleted and its text returns to the input; photo or video news has no such option
 
 ### FEAT-13: Answers and handoff
 
@@ -528,6 +599,11 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **WHEN** an anonymous visitor or non-follower opens the public room
 - **THEN** that post is not shown
 
+**AC-15-8: After unfollowing (DEV-230)**
+- **GIVEN** I replied in a farm's room and then unfollowed it
+- **WHEN** I open that room
+- **THEN** I see public posts and only my own replies, not follower-only posts or other consumers' replies, and sending a reply is refused
+
 **AC-15-3: Like and unlike**
 - **GIVEN** I am logged in and a post has 3 likes
 - **WHEN** I tap Like and then tap it again
@@ -542,11 +618,23 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 
 **As a** producer, **I want to** inspect reservations and ship preparing orders, **so that** buyers can follow their order accurately.
 
-**AC-17-3: Reserved orders remain read-only**
+**AC-17-3: Viewing reserved orders does not change them**
 - **GIVEN** a product has three reserved orders
 - **WHEN** I view them in the producer application
-- **THEN** they remain reserved, with no Start harvest control or automatic transition
+- **THEN** they remain reserved; there is no automatic transition, and only Start harvest on a sale period (AC-17-11) moves them
 - **AND** only existing preparing orders can use the shipment flow
+
+**AC-17-11: Start harvest moves one sale period to preparing**
+
+- **GIVEN** period 1 has two reserved orders and one awaiting deposit, and period 2 has one reserved order
+- **WHEN** I press "Start harvest · 2 to preparing" on period 1 and confirm
+- **THEN** only period 1's two reserved orders become PREPARING, consumers see "harvesting and packing" and can still cancel before shipment, and the card then links to the preparing list
+
+**AC-17-12: Start harvest is safe to retry**
+
+- **GIVEN** a Start harvest request
+- **WHEN** it lacks an Idempotency-Key, targets another farm or a foreign period, or is retried
+- **THEN** it returns 400, 404 without changes, or the first response; nothing left to move returns 200 with zero, and each real change writes one audit event
 
 **AC-17-2: Ship an order**
 - **GIVEN** an order is Preparing
@@ -568,6 +656,11 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **WHEN** I tap "Not approved" on the row and write a reason (required)
 - **THEN** the refund stays pending, the buyer sees "Refund delayed" with the reason, and approving later clears it
 - **AND** the buyer sees the tracking number on the order page
+
+**AC-17-10: Product name on order rows (DEV-226)**
+- **GIVEN** one buyer ordered the same option of two different products
+- **WHEN** I look at the order rows or the deposit approval sheet
+- **THEN** each reads "name · product option × quantity"; on a row only a long product name is shortened, never the name or option × quantity
 
 **AC-17-4: Producers cannot mark delivered**
 - **GIVEN** an order has shipped
@@ -640,13 +733,14 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 
 | Criterion | Given | When | Then |
 | --- | --- | --- | --- |
-| AC-34-1 | My farm application is pending or already approved | An operator approves it, including repeated approval, or existing farms are migrated | Exactly one farmclub room and welcome message exist; rejection does not create one |
+| AC-34-1 | My farm application is pending or already approved | An operator approves it, including repeated approval, or existing farms are migrated | Exactly one farmclub room and welcome message exist; rejection itself does not create one (a rejected producer gets the room on first open, AC-34-9) |
 | AC-34-2 | My approved farm has a support room | I open producer 1:1 chats | The farmclub logo/name, recent-activity order and unread operator count appear; the room has no AI controls or order panel |
 | AC-34-3 | I have sent a support inquiry | An operator opens it and replies, including a retry with the same key | Inbox marks it read, one operator reply reaches my room, and duplicate replies are prevented |
 | AC-34-4 | A consumer or non-operator requests support data | They browse the app, user list or inbox API | The room is absent from consumer views, the non-login support identity is omitted from ordinary user search, and inbox access is denied |
 | AC-34-5 | I start the producer help tour | The tour reaches support guidance | It opens the farmclub room when available; if unavailable it offers Next and skips those steps |
+| AC-34-9 | My farm is suspended or my application was rejected | I tap "Contact the farmclub team" on the suspension notice or the rejected SCR-21 screen | `/support` opens my own farmclub room (created on first open with a status-specific operator message); I can send text and photos and mark replies read, while every other producer API and screen stays closed. Pending producers and consumers get 403 (DEV-209) |
 
-Support history remains available to operators for hidden/suspended farms. Multi-operator assignment, notifications and operator photo viewing are outside I2; the inbox shows attachment counts only. Source: [FEAT-34](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/functional/FEAT-34-farmclub-support.md).
+Support history remains available to operators for hidden/suspended/rejected farms, and since DEV-209 suspended and rejected producers can still write to the team. The suspension notice also shows the business email when the build variable `EXPO_PUBLIC_BUSINESS_EMAIL` is set. Multi-operator assignment, notifications and operator photo viewing are outside I2; the inbox shows attachment counts only. Source: [FEAT-34](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/functional/FEAT-34-farmclub-support.md).
 
 ## 6. Non-Functional Requirements
 
@@ -689,6 +783,8 @@ N-04, N-08, N-09, N-10 and N-11 express quality targets, not measured I2 achieve
 - Product filters: Selling / Under review / Draft / Paused / Ended. A pending capacity increase stays in the current group with a label.
 - My Orders opens on Unconfirmed and keeps the selected tab after viewing an order.
 - On desktop the content is centered at 480px wide.
+- Tapping a bottom tab always opens that tab's first screen (Chat → chat list, My Orders → order list), never a sub-screen left over from another tab. The header Back goes to the previous screen in the app; when there is none (opened from a link or after a reload) it opens a fixed parent screen, so Back never does nothing. A 1:1 chat opened from a product, short farm info or an order goes back there; one opened from the chat list goes back to the list (DEV-224).
+- A sheet button that leads to another screen (for example "To checkout", the login prompt's "Log in", "Enter a new address") closes the sheet at once, without the slide-down animation, so the sheet never stays on top of the new screen (DEV-225).
 
 ### 7.2 Main flow and failure branches
 
@@ -698,9 +794,9 @@ Figure 1a. Current schematic wireframes and user-triggered transitions for consu
 
 The images in sections 7.2–7.5 are archived I1 evaluation captures, not current v6 acceptance references. Current screen behavior is specified in the tables below and [UI 1.6](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/conversation-ui-1.6.md). The editable source is [Figma v6](https://www.figma.com/design/X8RKiRPZbFEEEwi4OhkF0G).
 
-Current additions: AC-06-6 independent horizontal feeds; AC-07-6 same-option comparison and fixed purchase/tabs; AC-12-12 shelf defaults, draft retention and same-room replies; AC-14-4 fulfillment-only dashboard; AC-17-6 no harvest UI/automatic state transition. Chat previews do not show AI/direct-response badges; private-thread AI controls remain.
+Current additions: AC-06-6 independent horizontal feeds; AC-07-6 same-option comparison and fixed purchase/tabs; AC-12-12 shelf defaults, draft retention and same-room replies; AC-14-4 fulfillment-only dashboard; AC-17-6 no automatic state transition (Start harvest lives on the sale-period card since DEV-231). Chat previews do not show AI/direct-response badges; private-thread AI controls remain.
 
-The API still supports the existing harvest transition for compatibility, but the current frontend never invokes it. A new operational policy for transitioning reserved orders is outside DEV-51; this release only ships orders already in PREPARING. The approved AI farm-story sample is used only by the matching Mock seed product, never as fabricated live product content.
+Since DEV-231 the producer starts harvest per sale period: the card button "Start harvest · n to preparing" opens a confirmation sheet listing the orders and what the consumer sees ("harvesting and packing", still cancellable before shipment), then moves that period's reserved orders to PREPARING. The dashboard to-do and the Reserved tab link to that card. The approved AI farm-story sample is used only by the matching Mock seed product, never as fabricated live product content.
 
 
 ![Consumer and producer journey](images/i1-user-flow.png)
@@ -726,19 +822,19 @@ Key consumer screens:
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
 | **SCR-01 Discover** | First screen: photo/text farm news, then products; each is an independent horizontal carousel | Search, open a news card or product | News/farm → direct room; product → SCR-04 | Each section has its own empty/error state; no profile-only row or seasonal hero |
-| **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms |
-| **SCR-03 Farm page** | Direct farm news room with profile and adjacent Follow button | Fold/unfold the product shelf, send a same-room reply, open short farm info | Product → SCR-04; profile → short info | Shelf expanded for consumers; public/follower access unchanged; no reply-privacy hint |
+| **SCR-02 Farm list** | Approved farms, closing soonest first, with search | Type a search term; scroll for more | Farm card → SCR-03 | No results: "We couldn't find that farm" and a link back to all farms. Search fails with farms already listed: an error box under the search field with Retry, the remaining list labelled "Previous list"; Retry reloads that search from the start without duplicates |
+| **SCR-03 Farm page** | Direct farm news room with profile and adjacent Follow button | Fold/unfold the product shelf, send a same-room reply, open short farm info | Product → SCR-04; profile → short info | Shelf expanded for consumers; public/follower access unchanged; no reply-privacy hint. A farm that does not exist or was suspended shows "We can't find this farm" with Browse farms (→ SCR-02) and only a Back button in the header (DEV-224) |
 | **SCR-04 Product detail** | Photo, title, delivery, option prices, full-ratio story image/blocks, quality and disclosures | Reserve opens option sheet; explicit 1:1 inquiry; farm link | Checkout → SCR-10; farm → direct room | Purchase bar and four tabs stay fixed; no period price table; comparison is the same option’s final-period price only when higher and available |
 | **SCR-05 Login** | Sign in with Kakao (returns through `/auth/kakao`); test accounts appear only while Kakao is off, in the app Mock mode, or on the evaluator link `/login?evaluator=1` (DEV-198), next to the Kakao button (same as the producer app, DEV-136) | Tap Kakao or an account; close | Back to the screen and action that asked for login; first sign-up goes through SCR-06. The Kakao return screen shows only a spinner and one line; a reload while signed in goes home without an error | Producer accounts are not listed. Test login off: "You can't log in right now". No server reply within 15 s: "Login is taking too long". Closing does nothing |
 | **SCR-06 Sign-up** | First Kakao sign-up only, one screen: nickname, mobile number, consents (terms, privacy, age 14+ required; farm news alerts optional). Name and address are asked at the first checkout instead, like Karrot (DEV-142) | Fill in, agree, Start | Back to the screen and action that asked for login | Start stays off until required fields and consents are valid. Closing keeps the account and asks again at the next login gate. Kakao values are prefilled; only missing ones are typed |
 | **SCR-10 Checkout** | Option, quantity, recipient, address, delivery note, total, five consents (incl. consent to share delivery details with the farm), intermediary notice | Change option, pick another saved address or enter a new one, check consents, Reserve | Address → address screen; Reserve → SCR-11 | Reserve is disabled until an address exists and all five consents are checked. Unfinished sign-up → SCR-06. With 50 saved addresses a new one is used for this order only. Price or stock changed meanwhile: screen refreshes with the latest values and keeps the input. The farm has no bank account: 409 explained on the checkout |
-| **SCR-11 Deposit instructions** | Rows in the existing list style: amount, bank and account number (copy), account holder, depositor name = order number (copy), 24-hour deadline (amount, account number and depositor name in bold); seller information; "farmclub is a marketplace intermediary" notice; one factual line that buyers may use their own bank's escrow transfer (no recommendation) | "I made the deposit" (hint only), "I'll deposit later" | Both → SCR-12 | Unreported deadline passed: return to current checkout/stock. Reported transfers remain pending operator/farm reconciliation. Lost response on the deposit request: retried with the same key without taking stock twice |
-| **SCR-12 Order received** | While unconfirmed: "Awaiting deposit confirmation" with the deposit rows, then product and address only (order number and total are not repeated). After confirmation: "Reserved" with order number, product, total and address; following | Copy account number or depositor name, Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
-| **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
-| **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions; while awaiting a deposit: the account card, deadline and "I made the deposit"; refunded: "the farm sends it back within 3 business days" or "Refund complete &lt;date&gt;"; expired: "canceled because the deposit deadline passed" | Cancel (confirm sheet; no refund before the deposit), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
+| **SCR-11 Deposit instructions** | Rows in the existing list style: amount, bank and account number (copy), account holder, depositor name = order number (copy), 24-hour deadline (amount, account number and depositor name in bold); seller information; "farmclub is a marketplace intermediary" notice; one factual line that buyers may use their own bank's escrow transfer (no recommendation) | "I made the deposit" (hint only), "I'll deposit later" | Both → SCR-12, closing the checkout and deposit screens so Back from SCR-12 never reopens the finished checkout (DEV-222) | Unreported deadline passed: return to current checkout/stock. Reported transfers remain pending operator/farm reconciliation. Lost response on the deposit request: retried with the same key without taking stock twice |
+| **SCR-12 Order received** | While unconfirmed: "Awaiting deposit" ("Checking your deposit" once the buyer has said they paid, DEV-207) with the deposit rows, then product and address only (order number and total are not repeated). After confirmation: "Reserved" with order number, product, total and address; following | Copy account number or depositor name, Follow, My Orders, Home | SCR-13, SCR-01 | No news-room entry button; failed load offers retry |
+| **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts. Each card reads "status · next step", e.g. "Awaiting deposit · please transfer", "Checking your deposit · the farm is checking", "Refund pending · the farm will send it" (DEV-207), and ends with "order number · ordered on" so repeated orders can be told apart; cards waiting for a deposit also show the delivery window (DEV-226) | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
+| **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions; while awaiting a deposit: the account card, deadline and "I made the deposit"; after "I made the deposit" the title is "Checking your deposit", the deadline and Cancel disappear, the time of the notice and "Ask the farm" appear (DEV-207); refunded: "Refund pending" (the farm sends it back within 3 business days), "Refund delayed" if the farm has not approved it, and "Refund complete" only after the farm records the transfer (DEV-207); expired: "canceled because the deposit deadline passed"; reported but still unconfirmed at the deadline: the title stays "Checking your deposit" and the body says farmclub is contacting the farm and the order will not be canceled (DEV-233) | Cancel (confirm sheet; no refund before the deposit), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
 | **SCR-15 / SCR-18 Chat** | News Rooms (farms you follow) and 1:1 chats in one tab. The 1:1 list also has the consumer's own "farmclub" support room (DEV-150): created at sign-up with a welcome message, sorted by recent activity, answered by the farmclub team from the admin Inbox (no AI, text only, contact details masked) | Switch views, open a room or chat | Room → news room; chat → SCR-16 | No chats: "Ask a farm anything" with a link to farms. Other buyers' replies never appear |
-| **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers or "Sent to the farm" | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | Explicit chat entry starts the thread and follows the eligible farm; inaccessible farms/roles are refused. After unfollowing, ordinary threads are hidden unless an order inquiry preserves access. Send fails: text and photos are kept for retry. AI fails or times out: question goes to the producer |
-| **SCR-17 Me** | Nickname, followed farms, edit profile, address book (up to 50, edit and delete), "Start as a farm", log out | Tap a farm, edit profile, manage addresses, log out | Farm → SCR-03; profile → `/me/profile`; addresses → address book; log out → SCR-01 | Unfinished sign-up shows "Finish signing up". Starting a farm explains that the producer app needs its own account. 50 addresses: adding is off until one is deleted |
+| **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers (each answer that was not forwarded has a "This is wrong" report button, AC-13-5) or "Sent to the farm". Messages are grouped under a date line in Korean time ("2026년 10월 7일", same as News Rooms) | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | Explicit chat entry starts the thread and follows the eligible farm; inaccessible farms/roles are refused. After unfollowing, ordinary threads are hidden unless an order inquiry preserves access. Send fails: text and photos are kept for retry. AI fails or times out: question goes to the producer |
+| **SCR-17 Me** | Nickname, followed farms, edit profile, address book (up to 50, edit and delete), "Start as a farm", log out | Tap a farm, edit profile, manage addresses, log out | Farm → SCR-03; profile → `/me/profile`; addresses → address book; log out → SCR-01; screens left in the stack no longer turn into a login, so logging in again never reopens an earlier checkout (DEV-222) | Unfinished sign-up shows "Finish signing up". Starting a farm explains that the producer app needs its own account. 50 addresses: adding is off until one is deleted |
 | **SCR-32 Order problem** | Report damage, quality, taste or other with up to 3 private photos | Pick a type, describe it, attach photos, Send | Success → SCR-16 with the order attached | Not your order or not paid: cannot be sent. Upload or send fails: input is kept, and a retry never files it twice |
 
 ### 7.4 Producer app screens
@@ -767,20 +863,20 @@ Key producer screens:
 
 | Screen | What it does | Input and actions | Goes to | Failure / not allowed |
 | --- | --- | --- | --- | --- |
-| **SCR-19 Login** | Start with Kakao (returns through `/auth/kakao`); test accounts appear only while Kakao is off (the Mock and the evaluator link `/login?evaluator=1`, DEV-198, keep both) | Tap Kakao, or an account and Start | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice. The Kakao return screen shows only a spinner and one line, sends the producer straight to that screen, and a reload while signed in goes there too | Consumer accounts are not listed. Test login off: "You can't log in right now". No server reply within 15 s: "Login is taking too long" and Log in again |
+| **SCR-19 Login** | Start with Kakao (returns through `/auth/kakao`); test accounts appear only while Kakao is off (the Mock and the evaluator link `/login?evaluator=1`, DEV-198, keep both) | Tap Kakao, or an account and Start | No farm → SCR-20; under review or rejected → SCR-21; approved → SCR-22; suspended → suspension notice (reason box, "Contact the farmclub team" main button to `/support`, log out; DEV-209). The Kakao return screen shows only a spinner and one line, sends the producer straight to that screen, and a reload while signed in goes there too | Consumer accounts are not listed. Test login off: "You can't log in right now". No server reply within 15 s: "Login is taking too long" and Log in again |
 | **SCR-20 Application** | Farm details for joining; creates the producer account | Owner name, farm name, region, main crops, mobile number, policy consent; Apply | SCR-21 | Field errors keep the input. Already applied → SCR-21. Reapplying after rejection fills in the previous values |
-| **SCR-21 Pending approval** | Application status, refreshed every time the screen opens | View application, pull to refresh, log out, reapply if rejected | Approved → SCR-22 automatically; reapply → SCR-20 | Before approval, every other producer screen redirects here |
+| **SCR-21 Pending approval** | Application status, refreshed every time the screen opens | View application, pull to refresh, log out, reapply if rejected (main button) or contact the farmclub team (text button, opens `/support`, DEV-209) | Approved → SCR-22 automatically; reapply → SCR-20 | Before approval, every other producer screen redirects here |
 | **SCR-22 Dashboard** | To-do band (deposits to confirm, refunds to send, register a bank account), large 2×2 total/reserved/preparing/shipped counts and representative product reserved/shipped kg | Open a to-do, order or shipping management | SCR-29 filtered list, bank account screen | All cursor pages contribute to order counts (orders awaiting a deposit included); no chat tasks or news-writing entry |
-| **SCR-23 Products** | Products grouped by status with reservation counts and kg | Filter, tap a product, "+ New product" | Product → SCR-25; new → SCR-24 | No products: "Add your first product" |
+| **SCR-23 Products** | Products grouped by status with reservation counts and kg; drafts show when they were last saved (DEV-226) | Filter, tap a product, "+ New product"; per card "Edit sales page", "Sales settings", "Periods and prices" | Product → SCR-25; new → SCR-24 | No products: "Add your first product" |
 | **SCR-24 Product source workspace** | When analysis is enabled: basic variety/size/expected Brix, source attachments and a separate original-photo box; analyse and directly edit the page. Disabled flag: legacy text/manual editor | Save basic facts, add/edit text/TXT/image/PDF, describe/select photos, Analyse, edit modules, hide sections/items, choose representative photo, Save privately, Apply explicitly | Fill the buyer-shaped page → "Next: sell and price" applies the detail and opens SCR-24b (published products: confirm, then SCR-25) | Upload waits for pending basic-info save; show partial/failed work and explicit retry, preserve direct input/files, reject stale versions; no representative photo blocks new analysis/apply but not private editing. Legacy AI failure retains text and manual editing |
 | **SCR-24b Sell and price (new products, DEV-184)** | Weight options, delivery window, refund date, period prices (one period by default, add early-bird periods), shipping fees, total supply and per-order limit on one screen | Save, Preview (buyer page without edit boxes), Request to start selling | Request → operator approval → published | Later periods must cost more and end before delivery; separate shipping needs an amount; missing bank account shows a link to register it and keeps input |
 | **SCR-25 Product edit** | Product details, quality, options, delivery window, shipping fee, sales settings | Save, set periods, Submit for approval, pause or resume | Periods → SCR-26 | Submit stays disabled until required fields and period prices are set. Unsaved changes: confirm before leaving. Changing the delivery window with existing orders asks buyers to accept or refund |
 | **SCR-26 Periods, prices and supply** | Date-based reservation periods with a price and box count per option | Add or remove periods, pick dates, enter prices and quantities, Save | Back to SCR-25 | Earlier price must be lower and periods cannot overlap. A period with reservations cannot be deleted or re-dated If someone else saved first, the input is kept |
-| **SCR-28 Chat** | News Room / 1:1 Chat only; own room opens immediately by default. The 1:1 list also shows a "farmclub" support room with the logo, sorted by recent activity like other chats (DEV-111): the producer asks the farmclub team there and the team replies from the admin Inbox; no AI answers in that room and consumers never see it | Send, attach, fold product shelf, switch to private chat list | Private thread or attachment composer | Producer shelf starts collapsed; broadcast notice is the first scrolling system message; composer is fixed above four tabs |
+| **SCR-28 Chat** | News Room / 1:1 Chat only; own room opens immediately by default. The 1:1 list also shows a "farmclub" support room with the logo, sorted by recent activity like other chats (DEV-111): the producer asks the farmclub team there and the team replies from the admin Inbox; no AI answers in that room and consumers never see it | Send (a confirm sheet shows the follower count and a preview first; "Not now" keeps the text), attach, fold product shelf, delete own news from ⋯ (text news can also be deleted and rewritten), switch to private chat list (DEV-210) | Private thread or attachment composer | Producer shelf starts collapsed; broadcast notice is the first scrolling system message; composer is fixed above four tabs |
 | **SCR-27 Post news** | Text with up to 5 photos (10MB each) or 1 video (60s, 100MB); public or followers only | Write, attach, choose visibility, Post | Back to the farm's own room | Wrong format or size: reason per file. Attachment fails: the text is kept |
-| **SCR-29 Orders and shipping** | Read all/awaiting deposit/reserved/preparing/shipped/refunded orders; confirm deposits; mark refunds as sent; ship existing preparing orders | "Confirm deposit ›" → sheet with amount and depositor name (No / Confirm deposit) → confirm; "I refunded ›" on refunded orders → sheet (No / Refund complete) records that the farm sent the money back; select preparing orders, edit invoice, confirm shipment | Back to the list | Rows awaiting a deposit hide the delivery address. No Start harvest controls or calls; no automatic RESERVED → PREPARING; stale states refresh after conflict |
+| **SCR-29 Orders and shipping** | Read all/awaiting deposit/reserved/preparing/shipped/refunded orders, each row and sheet reading "name · product option × quantity" (DEV-226); confirm deposits; mark refunds as sent; ship existing preparing orders | "Confirm deposit ›" → sheet with amount and depositor name (No / Confirm deposit) → confirm; "I refunded ›" on refunded orders → sheet (No / Refund complete) records that the farm sent the money back; select preparing orders, edit invoice, confirm shipment | Back to the list | Rows awaiting a deposit hide the delivery address. The Reserved tab lists one "Start harvest" link per sale period that leads to the period card (SCR-26), with no state-changing button on rows; no automatic RESERVED → PREPARING; stale states refresh after conflict |
 | **SCR-33 Settings** | Farm summary, profile and share link, AI settings, log out | Tap an item | SCR-30, SCR-31, SCR-19 | Retry if loading fails |
-| **SCR-30 Farm profile and link** | Edit name, region, introduction and the deposit bank account (bank, account number, holder); copy or share the farm link | Copy, Share, edit one field, change photo, register the account | Field → single-field edit screen; account → bank account screen | Name and region cannot be empty. The link is hidden until the farm is approved. Without a bank account the first capacity approval request is rejected (`NO_FARM_ACCOUNT`) |
+| **SCR-30 Farm profile and link** | Edit name, region, introduction and the deposit bank account (bank, account number, holder); copy or share the farm link | Copy, Share, edit one field, change photo, register the account, edit the farm detail page | Field → single-field edit screen; account → bank account screen (`/farm/account`); detail → farm detail editor (`/farm/detail`: draft from notes and photos, edit blocks, save; DEV-233) | Name and region cannot be empty. The link is hidden until the farm is approved. Without a bank account the first capacity approval request is rejected (`NO_FARM_ACCOUNT`) |
 | **SCR-31 AI settings** | AI on/off, answering guidelines, FAQs, extra handoff topics, preview | Edit, Save, Preview | Back to SCR-33 | Unsaved changes are marked and confirmed before leaving. On `STALE_VERSION`, fetch the latest version while keeping producer edits so they can save again |
 
 ### 7.5 Failure screens
@@ -830,7 +926,7 @@ Reading a room never follows the farm automatically.
 | Area | I2 progress | Remaining boundary |
 | --- | --- | --- |
 | Accounts and communication | Kakao onboarding/state return, wrong-answer reports, farmclub support and producer help tour | Live account behavior needs environment-specific validation; external notifications are not implemented |
-| Commerce | Farm account registration, deposit instructions/report/confirmation, expiry exceptions, refund settlement and retry protection | No automatic bank matching, payment custody or integrated escrow; no current UI action for RESERVED → PREPARING |
+| Commerce | Farm account registration, deposit instructions/report/confirmation, expiry exceptions, refund settlement and retry protection | No automatic bank matching, payment custody or integrated escrow; RESERVED → PREPARING only through per-period Start harvest |
 | Producer pages | Private source worker/editor, direct module editing, photos, explicit apply and manual/legacy fallback | Numeric OCR, omissions/conflicts and actual farmer acceptance require review; deployment does not establish general AI accuracy |
 | Operator | Producer/capacity tools, controlled farm visibility, privacy-limited user lookup and support inbox | Shared admin identity; no full multi-operator case management or inbox image rendering |
 | Deployment/media | Vercel clients/admin, Railway API/worker, R2 media/private sources, approved-farm Open Graph sharing, optional PostHog client instrumentation | Sentry/Langfuse and server analytics events are not wired; performance/uptime targets are not yet established |

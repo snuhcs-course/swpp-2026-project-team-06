@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>뒤로 규칙 제안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* DEV-224 1단계 제안. 화면 다시 그리기가 아니라 이동 규칙 표다.
+   순서: 문제 → PM이 정할 것(a~d) → 규칙 표(소비자·생산자, BEFORE/AFTER) → 재현 화면 → 도우미 → 구현 메모 → 테스트 → 스펙 줄 → 질문. */
+:root {
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --muted: #5F5F5B; --line: #DCDBD6;
+  --accent: #C94F0C; --new: #FFF2E9; --newline: #E8B896; --bad: #B42318; --badbg: #FDECEA; --ok: #1B6E3A; --okbg: #E8F4EC;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+    --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; --badbg: #3B1D1A; --ok: #6FCF97; --okbg: #1C3326; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+  --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; --badbg: #3B1D1A; --ok: #6FCF97; --okbg: #1C3326; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+  font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+header { display: flex; flex-direction: column; gap: 10px; max-width: 900px; }
+.eyebrow { font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+h1 { font-size: 32px; line-height: 1.25; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 1.35; margin: 0 0 14px; letter-spacing: -0.01em; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0 0 6px; }
+p { margin: 0; }
+.lead { font-size: 17px; color: var(--muted); }
+.status { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.pill.hot { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+code { font-family: var(--mono); font-size: .86em; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+section { display: flex; flex-direction: column; gap: 4px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.card p + p, .card p + ul, .card ul + p { margin-top: 8px; }
+.card.rec { border: 2px solid var(--accent); }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; }
+.tag.rec { background: var(--accent); color: #fff; }
+.tag.bug { background: var(--badbg); color: var(--bad); }
+.tag.ok { background: var(--okbg); color: var(--ok); }
+ul, ol { margin: 0; padding-left: 20px; }
+li { margin-bottom: 6px; }
+blockquote { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--new); border-radius: 0 8px 8px 0; font-size: 15px; }
+.qgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.qhead { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 8px; }
+.qhead b { font-size: 19px; }
+.qhead span { color: var(--muted); font-size: 15px; }
+
+/* 규칙 표 */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.45; min-width: 980px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0; }
+td.before { color: var(--muted); }
+td.dead { color: var(--bad); font-weight: 600; background: var(--badbg); }
+td.chg { background: var(--new); font-weight: 600; }
+tr.grp td { background: var(--bg); font-weight: 700; font-size: 13px; letter-spacing: .03em; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 6px 0 10px; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line); }
+
+/* 재현 화면 */
+.strip { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.shot { width: 180px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.shot img { width: 180px; height: auto; border-radius: 14px; border: 1px solid var(--line); background: #fff; display: block; }
+.shot.big, .shot.big img { width: 260px; }
+.shot b { color: var(--ink); }
+.shot.badshot img { outline: 3px solid #F04438; outline-offset: 2px; }
+.arrow { align-self: center; color: var(--muted); font-size: 20px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; align-items: start; }
+.flabel b { font-size: 15px; letter-spacing: .04em; }
+.flabel b.bad { color: var(--bad); }
+.flabel b.good { color: var(--accent); }
+
+/* AFTER 흐름 카드(390 폭, PNG로 찍는다) */
+.flow { width: 390px; max-width: 100%; background: #FFFFFF; color: #111111; border: 1px solid #E8E8E6; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px; font-family: var(--font); color-scheme: light; }
+.flow h4 { margin: 0 0 4px; font-size: 17px; }
+.flow .sub { font-size: 13px; color: #6B6B6B; }
+.step { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.step .n { width: 28px; height: 28px; border-radius: 50%; background: #F5F5F3; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.step .n.hit { background: #C94F0C; color: #fff; }
+.step .act { font-size: 15px; }
+.step .to { display: inline-block; margin-top: 3px; font-size: 13px; padding: 1px 8px; border-radius: 999px; background: #F5F5F3; font-family: var(--mono); }
+.step .to.hit { background: #FFF2E9; color: #C94F0C; font-weight: 700; }
+.mini { font-size: 13px; color: #6B6B6B; border-top: 1px solid #E8E8E6; padding-top: 10px; }
+
+pre { margin: 0; font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+@media (max-width: 600px) {
+  h1 { font-size: 26px; }
+  .shot, .shot img { width: 150px; }
+  .shot.big, .shot.big img { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">DEV-224 · 1단계 제안 · 이동 규칙(화면 모양은 없는 농가 하나만)</div>
+  <h1>탭 하위 화면과 뒤로 규칙</h1>
+  <p class="lead">채팅 탭이 다른 탭에서 연 방을 다시 열고, 새로고침한 화면의 뒤로가 아무 데도 안 가고, 없는 농가 링크가 고장 난 소식방처럼 보인다. 스펙이 정하지 않은 네 가지를 정하고 나면 두 앱의 모든 하위 화면에 뒤로 목적지가 하나씩 생긴다.</p>
+  <div class="status">
+    <span class="pill hot">PM 승인 11/05 — a1 · b1 · c1 · d1, 구현됨</span>
+    <span class="pill">근거: HE-01 · HE-X1 · HE-X3 · 디자인 감사 코드 결함 3</span>
+    <span class="pill">위험 등급 일반 · 서버 변경 없음</span>
+    <span class="pill">재현: 로컬 스택 origin/main 581b8c0, 390px</span>
+  </div>
+</header>
+
+<section>
+  <h2>무엇이 틀렸나</h2>
+  <div class="cols">
+    <div class="card">
+      <h3>1. 채팅 탭이 목록이 아니다 <span class="tag bug">재현</span></h3>
+      <p>상품 → ‘1:1 채팅’ → 뒤로(상품) → <b>채팅 탭</b>을 누르면 그 방이 다시 열리고, 거기서 뒤로를 누르면 <b>상품 상세</b>로 간다. ia.md는 채팅 탭 첫 화면을 SCR-15 목록으로 정했다.</p>
+      <p>원인: 채팅 하위 스택에 방 하나만 남고(<code>chats/_layout.tsx</code>), 다른 탭에서 탭을 누르면 남은 스택 그대로 연다(<code>(tabs)/_layout.tsx:98</code>). 방의 뒤로는 탭 기록(<code>backBehavior="history"</code>)을 타고 다른 탭으로 간다.</p>
+    </div>
+    <div class="card">
+      <h3>2. 내 주문 탭도 같다 <span class="tag bug">재현</span></h3>
+      <p>주문 완료 화면에서 ‘홈으로’ → <b>내 주문 탭</b>을 누르면 주문 목록이 아니라 <b>방금 그 완료 화면</b>이 다시 열린다(탭 바도 없다). HE-X3는 코드만 봤는데 이번에 화면으로 확인했다. 생산자 앱 탭도 같은 코드라 같은 구조다.</p>
+    </div>
+    <div class="card">
+      <h3>3. 새로고침 뒤 헤더 뒤로가 안 움직인다 <span class="tag bug">재현 5곳</span></h3>
+      <p>두 앱의 하위 화면 38곳을 주소로 바로 열고 뒤로를 눌렀다. 33곳은 정해 둔 곳으로 가고, 5곳은 <code>router.back()</code>만 있어 제자리다. 소비자 입금 안내·주문 문의, 생산자 판매·가격·예약 기간·가격·판매페이지 만들기. 불러오는 중이나 오류 상태의 헤더 3곳도 코드상 같다.</p>
+    </div>
+    <div class="card">
+      <h3>4. 없는 농가 링크 <span class="tag bug">재현</span></h3>
+      <p><code>/farms/&lt;없는 id&gt;</code>가 헤더 ‘소식방’·아바타 ‘소’·켜진 ‘팔로우’와 ‘불러오지 못했어요 · 다시 시도’를 보인다. ia.md 5장 예외 경로는 ‘찾을 수 없는 농가’ 안내 → 농가 목록(SCR-02)이고, 디자인 보드에 <code>s-03-notfound</code>가 이미 있다.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>PM이 정할 것 — 스펙이 말하지 않는 네 곳</h2>
+  <p class="lead">ia.md는 탭 첫 화면과 몇몇 화면의 뒤로만 정해 두었다. 아래 네 가지를 정하면 나머지는 표대로 하면 된다. 추천안에 테두리를 쳤다.</p>
+
+  <div class="qhead"><b>(a)</b><span>상품·농가 정보·주문 상세에서 연 1:1 방의 헤더 뒤로</span></div>
+  <div class="qgrid">
+    <div class="card rec">
+      <h3>a1. 연 화면으로 돌아간다 <span class="tag rec">추천</span></h3>
+      <p>상품에서 열었으면 상품, 농가 정보에서 열었으면 농가 정보, 주문 상세에서 열었으면 주문 상세. 채팅 목록에서 연 방과 주소로 바로 연 방은 목록으로 간다.</p>
+      <ul>
+        <li>소식방 규칙(“뒤로는 이전 화면”, screens.md SCR-03)과 같다.</li>
+        <li>HE 재현에서 평가자가 문제 삼은 건 <b>채팅 탭 안</b>의 뒤로였다. 상품에서 연 방 → 뒤로 → 상품은 기대대로였다.</li>
+        <li>방 주소에 이미 <code>productId</code>가 있다. 탭 기록에 기대지 않고 돌아갈 곳을 명시한다.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>a2. 언제나 채팅 목록</h3>
+      <p>생산자 앱 소비자별 채팅(<code>chats/[consumerId].tsx:76</code>, 늘 목록)과 같고, navigation-1.3.md:20 “1:1은 해당 목록”을 글자 그대로 따른다.</p>
+      <ul>
+        <li>질문하고 상품으로 돌아가려면 발견 탭에서 상품을 다시 찾아야 한다. 상품 상세는 발견 탭 스택이 아니라 숨은 탭이라 발견 탭을 눌러도 상품이 나오지 않는다.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="qhead"><b>(b)</b><span>하단 탭을 눌렀을 때 첫 화면</span></div>
+  <div class="qgrid">
+    <div class="card rec">
+      <h3>b1. 탭을 누르면 늘 그 탭의 첫 화면 <span class="tag rec">추천</span></h3>
+      <p>채팅 → 목록, 내 주문 → 주문 내역, 내 정보 → 내 정보, 생산자 상품·채팅·환경설정도 같다. 다른 탭에서 연 방·완료 화면이 탭 첫 화면처럼 남지 않는다.</p>
+      <ul>
+        <li>ia.md “세 번째 탭 첫 화면”을 그대로 지킨다. 규칙이 하나라 설명·테스트가 쉽다.</li>
+        <li>지금도 <b>이미 켜진 탭</b>을 다시 누르면 첫 화면으로 간다(<code>_layout.tsx:97</code>). 그 동작을 꺼진 탭에도 똑같이 쓴다.</li>
+        <li>잃는 것: 채팅 탭 안에서 방을 보다가 발견 탭에 다녀오면 방이 아니라 목록이 열린다. 목록 맨 위에 그 방이 있어 한 번 더 누르면 된다.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>b2. 탭 안에서 연 화면은 기억, 다른 탭에서 연 화면만 지움</h3>
+      <p>iOS 기본 앱에 가깝다. 대신 화면마다 “어디서 열렸나”를 들고 다녀야 하고, 탭 누름 규칙이 둘이 되어 테스트가 두 배다. 주문 완료처럼 탭 바가 없는 화면이 남는 문제는 따로 막아야 한다.</p>
+    </div>
+  </div>
+
+  <div class="qhead"><b>(c)</b><span>앱 안 이전 화면이 없을 때(주소로 바로 열기·새로고침)의 뒤로</span></div>
+  <div class="qgrid">
+    <div class="card rec">
+      <h3>c1. 화면마다 정한 부모 화면(ia.md 계층 표) <span class="tag rec">추천</span></h3>
+      <p>아래 규칙 표의 “새로고침·직접 열기” 열이다. 33곳은 이미 이렇게 되어 있고, 빠진 8곳만 채운다. 표에 없는 새 화면은 c2를 기본값으로 쓴다.</p>
+      <ul>
+        <li>주문 문의 → 그 주문 상세, 상품 → 그 농가, 생산자 하위 화면 → 상품 목록처럼 맥락을 잃지 않는다.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>c2. 언제나 그 탭의 첫 화면</h3>
+      <p>규칙은 한 줄이지만 주문 문의 → 주문 내역(어느 주문이었는지 잃음), 상품 → 홈, 1:1 방 → 목록이 된다. 이미 정해 둔 33곳 가운데 여럿(<code>/farms/:id/info</code> → 소식방, <code>/me/addresses/edit</code> → 배송지 관리 등)을 바꿔야 한다.</p>
+    </div>
+  </div>
+  <blockquote><b>(c)에 딸린 작은 결정 — 입금 안내를 새로고침한 뒤 뒤로.</b> 앱 안에서는 스펙대로 주문서(SCR-10)로 간다. 새로고침 뒤에는 <b>그 주문 상세(SCR-14)</b>를 추천한다. 주문은 이미 ‘입금 대기’로 만들어졌고 스펙도 “SCR-13·14에서 이어서 입금”이라고 적었다. 주문서로 보내면 같은 상품의 새 주문서가 열려 두 번 예약할 수 있다.</blockquote>
+
+  <div class="qhead"><b>(d)</b><span>없는 농가·승인 취소된 농가 링크</span></div>
+  <div class="qgrid">
+    <div class="card rec">
+      <h3>d1. 그 자리에 안내 화면 + ‘농가 둘러보기’ <span class="tag rec">추천</span></h3>
+      <p>디자인 보드 <code>s-03-notfound</code> 그대로다. 헤더는 뒤로만(팔로우·‘소식방’·아바타 없음), ‘찾을 수 없는 농가예요 · 링크가 바뀌었거나 지금은 활동하지 않는 농가예요.’, 버튼 ‘농가 둘러보기’ → SCR-02. 판매 종료 상품 화면과 모양이 같다.</p>
+      <ul>
+        <li>ia.md 5장 “안내 → 농가 목록”, Linear 완료 조건(“안내와 농가 목록 버튼”)과 같다.</li>
+        <li>404일 때만이다. 네트워크 오류는 지금처럼 ‘다시 시도’.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>d2. 바로 농가 목록으로 보내고 토스트</h3>
+      <p>한 번 덜 누른다. 하지만 screens.md 3장에서 토스트는 성공 알림용이고(오류는 화면 안 상자), 링크가 왜 안 열렸는지 설명할 자리가 2초뿐이다. 받은 링크를 눌렀는데 아무 설명 없이 목록이 뜨면 앱이 링크를 잘못 연 것처럼 보인다.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>규칙 표 — 소비자 앱</h2>
+  <p class="lead">BEFORE는 로컬 스택에서 주소로 바로 열고 헤더 뒤로를 눌러 실제로 간 곳이다(<code>.artifacts/dev224/probe.mjs</code>). AFTER는 추천안(a1·b1·c1·d1) 기준이다.</p>
+  <div class="legend"><span><i class="sw" style="background:var(--badbg)"></i>지금 고장(재현)</span><span><i class="sw" style="background:var(--new)"></i>바뀌는 곳</span><span>나머지는 지금 그대로</span></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>화면</th><th>들어온 경로</th><th>헤더 뒤로(앱 안) BEFORE</th><th>AFTER</th><th>새로고침·직접 열기 BEFORE</th><th>AFTER</th><th>탭 / 탭을 눌렀을 때</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="7">발견 탭</td></tr>
+      <tr><td>SCR-01 홈·발견 <code>/</code></td><td>앱 주소·SNS</td><td colspan="4">탭 첫 화면(뒤로 없음)</td><td>발견 첫 화면</td></tr>
+      <tr><td>SCR-02 농가 목록 <code>/farms</code></td><td>홈 검색, 내 정보·채팅 빈 상태, 판매 종료 상품, 없는 농가</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/</code></td><td><code>/</code></td><td>발견 안</td></tr>
+      <tr><td>SCR-03 농가 소식방 <code>/farms/:id</code></td><td>농가 링크, 홈 소식·카드, 농가 목록, 내 정보 팔로우, 상품 농가 줄, 1:1 방 헤더</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/</code></td><td><code>/</code>(storefront 1.5)</td><td>발견 안</td></tr>
+      <tr><td>없는 농가 <code>/farms/&lt;없는 id&gt;</code></td><td>링크</td><td class="dead">이전 화면, 그러나 화면이 고장 난 소식방</td><td class="chg">이전 화면 · 본문 ‘농가 둘러보기’ → <code>/farms</code></td><td class="before"><code>/</code></td><td><code>/</code></td><td>발견 안</td></tr>
+      <tr><td>SCR-03 하위 짧은 정보 <code>/farms/:id/info</code></td><td>소식방 프로필</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/farms/:id</code></td><td><code>/farms/:id</code></td><td>발견 안</td></tr>
+      <tr><td>SCR-04 상품 상세 <code>/products/:id</code></td><td>홈 카드, 소식방 판매 품목, 주문 상세</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/farms/:farmId</code>, 불러오기 오류 상태는 <code>back()</code>만(코드 <code>:98</code>)</td><td class="chg"><code>/farms/:farmId</code>, 오류 상태는 <code>/</code></td><td>발견 안(숨은 탭)</td></tr>
+      <tr><td>SCR-04 판매 종료 상품</td><td>같은 링크</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/</code></td><td><code>/</code></td><td>발견 안</td></tr>
+      <tr class="grp"><td colspan="7">탭 밖(루트 스택) — 주문 흐름</td></tr>
+      <tr><td>SCR-10 주문서 <code>/checkout/:pid</code></td><td>상품 옵션 시트 ‘주문서로’, 로그인 복귀</td><td class="before">이전 화면(상품)</td><td>이전 화면</td><td class="before"><code>/products/:pid</code>, 준비 중 헤더는 <code>back()</code>만(코드 <code>:336</code>)</td><td class="chg"><code>/products/:pid</code>(두 헤더 모두)</td><td>탭 바 없음</td></tr>
+      <tr><td>SCR-10 하위 배송지 입력</td><td>주문서</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/checkout/:pid</code></td><td><code>/checkout/:pid</code></td><td>탭 바 없음</td></tr>
+      <tr><td>SCR-11 입금 안내 <code>/checkout/:pid/pay</code></td><td>주문서 ‘예약하기’</td><td class="before">이전 화면(주문서)</td><td>이전 화면(주문서)</td><td class="dead">제자리(재현)</td><td class="chg"><code>/orders/:orderId</code>((c) 딸린 결정)</td><td>탭 바 없음</td></tr>
+      <tr class="grp"><td colspan="7">내 주문 탭</td></tr>
+      <tr><td>SCR-13 주문 내역 <code>/orders</code></td><td>탭</td><td colspan="4">탭 첫 화면(뒤로 없음)</td><td class="chg">BEFORE: 남은 하위 화면(완료 화면 재현) → AFTER: 늘 주문 내역</td></tr>
+      <tr><td>SCR-12 주문 완료 <code>/orders/:id/done</code></td><td>입금 안내(바꿔 열기)</td><td colspan="2">헤더 뒤로 없음. ‘주문 내역’ → <code>/orders</code>, ‘홈으로’ → <code>/</code></td><td colspan="2">같음</td><td>내 주문 안(탭 바 숨김)</td></tr>
+      <tr><td>SCR-14 주문 상세 <code>/orders/:id</code></td><td>주문 내역</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/orders</code></td><td><code>/orders</code></td><td>내 주문 안</td></tr>
+      <tr><td>SCR-32 주문 문의 <code>/orders/:id/inquiry</code></td><td>주문 상세 ‘주문 문제 문의’</td><td class="before">이전 화면</td><td>이전 화면</td><td class="dead">제자리(재현)</td><td class="chg"><code>/orders/:id</code></td><td>내 주문 안</td></tr>
+      <tr class="grp"><td colspan="7">채팅 탭</td></tr>
+      <tr><td>SCR-15 채팅 <code>/chats</code></td><td>탭</td><td colspan="4">탭 첫 화면(뒤로 없음)</td><td class="chg">BEFORE: 다른 탭에서 연 방(재현) → AFTER: 늘 목록</td></tr>
+      <tr><td>SCR-16 1:1 <code>/chats/:farmId</code> — 목록에서</td><td>채팅 목록 1:1</td><td class="before">목록</td><td>목록</td><td class="before"><code>/chats?view=private</code></td><td><code>/chats?view=private</code></td><td>채팅 안</td></tr>
+      <tr><td>SCR-16 — 상품에서 <code>?start=1&amp;productId=</code></td><td>상품 상세 ‘1:1 채팅’</td><td class="before">상품(탭 기록). 그 뒤 채팅 탭을 누르면 이 방, 또 뒤로 → 상품(재현)</td><td class="chg">(a1) <code>/products/:productId</code>를 명시</td><td class="before"><code>/chats?view=private</code></td><td>(a1) <code>/products/:productId</code></td><td>채팅 안</td></tr>
+      <tr><td>SCR-16 — 농가 정보에서 <code>?start=1</code></td><td>짧은 농가 정보 ‘1:1 채팅’</td><td class="before">농가 정보(탭 기록)</td><td class="chg">(a1) <code>/farms/:farmId/info</code>를 명시</td><td class="before"><code>/chats?view=private</code></td><td><code>/chats?view=private</code></td><td>채팅 안</td></tr>
+      <tr><td>SCR-16 — 주문 상세에서</td><td>주문 상세 ‘농가에 문의’</td><td class="before">주문 상세(탭 기록)</td><td class="chg">(a1) <code>/orders/:orderId</code>를 명시</td><td class="before"><code>/chats?view=private</code></td><td><code>/chats?view=private</code></td><td>채팅 안</td></tr>
+      <tr><td>SCR-16 하위 farmclub <code>/chats/support</code></td><td>채팅 목록</td><td class="before">목록</td><td>목록</td><td class="before"><code>/chats?view=private</code></td><td><code>/chats?view=private</code></td><td>채팅 안</td></tr>
+      <tr><td>SCR-18 소식방 <code>/news/:farmId</code></td><td>채팅 소식방 목록</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/</code></td><td><code>/</code>(conversation-ui 1.6)</td><td>채팅 안(숨은 탭)</td></tr>
+      <tr class="grp"><td colspan="7">내 정보 탭</td></tr>
+      <tr><td>SCR-17 내 정보 <code>/me</code></td><td>탭</td><td colspan="4">탭 첫 화면(뒤로 없음)</td><td class="chg">늘 내 정보(b1)</td></tr>
+      <tr><td>내 정보 고치기 <code>/me/profile</code></td><td>내 정보</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/me</code></td><td><code>/me</code></td><td>내 정보 안</td></tr>
+      <tr><td>배송지 관리 <code>/me/addresses</code></td><td>내 정보</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/me</code></td><td><code>/me</code></td><td>내 정보 안</td></tr>
+      <tr><td>배송지 추가·수정 <code>/me/addresses/edit</code></td><td>배송지 관리</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/me/addresses</code></td><td><code>/me/addresses</code></td><td>내 정보 안</td></tr>
+      <tr class="grp"><td colspan="7">공통</td></tr>
+      <tr><td>개인정보 처리방침·이용약관</td><td>가입 동의 ‘보기’, 푸터</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/</code></td><td><code>/</code></td><td>탭 바 없음</td></tr>
+      <tr><td>로그인·온보딩·카카오 복귀</td><td>관문</td><td colspan="4">DEV-222 관문 규칙 그대로(이번 범위 밖)</td><td>탭 바 없음</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>규칙 표 — 생산자 앱</h2>
+  <p class="lead">생산자 앱은 대부분 이미 고정 목적지(상품 목록·채팅 목록·환경설정)로 간다. 빠진 곳은 상품 하위 화면 셋이다.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>화면</th><th>들어온 경로</th><th>헤더 뒤로(앱 안) BEFORE</th><th>AFTER</th><th>새로고침·직접 열기 BEFORE</th><th>AFTER</th><th>탭 / 탭을 눌렀을 때</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="7">현황 탭</td></tr>
+      <tr><td>SCR-22 현황 <code>/</code></td><td>로그인</td><td colspan="4">탭 첫 화면</td><td>현황 첫 화면</td></tr>
+      <tr><td>SCR-29 출하 처리 <code>/ship</code></td><td>현황 할 일</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/</code></td><td><code>/</code></td><td>탭 바 없음</td></tr>
+      <tr class="grp"><td colspan="7">상품 탭</td></tr>
+      <tr><td>SCR-23 상품 목록 <code>/products</code></td><td>탭</td><td colspan="4">탭 첫 화면</td><td class="chg">늘 상품 목록(b1, 지금은 남은 하위 화면 — 코드상 같은 구조)</td></tr>
+      <tr><td>SCR-24 새 상품 <code>/products/new</code></td><td>‘+ 새 상품’</td><td colspan="2"><code>/products</code>(고정)</td><td colspan="2">판매페이지 만들기로 넘김</td><td>상품 안</td></tr>
+      <tr><td>판매페이지 만들기 <code>/products/source-analysis?composer=1</code></td><td>새 상품</td><td class="before">이전 화면</td><td>이전 화면</td><td class="dead">제자리(재현, <code>SourceWorkspace.tsx:406</code>·<code>NewProductComposer.tsx:705</code>)</td><td class="chg"><code>/products</code></td><td>상품 안</td></tr>
+      <tr><td>문구 붙여넣기 <code>/products/manual</code></td><td>자료 분석이 꺼진 서버</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/products</code></td><td><code>/products</code></td><td>상품 안</td></tr>
+      <tr><td>SCR-25 상품 편집 <code>/products/:id/edit</code></td><td>상품 카드</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/products</code>, 불러오는 중 헤더는 <code>back()</code>만(코드 <code>:204</code>)</td><td class="chg"><code>/products</code>(두 헤더 모두)</td><td>상품 안</td></tr>
+      <tr><td>SCR-24b 판매·가격 <code>/products/:id/sell</code></td><td>판매페이지 만들기 다음 단계</td><td class="before">이전 화면</td><td>이전 화면</td><td class="dead">제자리(재현, <code>:164</code>·<code>:382</code>)</td><td class="chg"><code>/products</code></td><td>상품 안</td></tr>
+      <tr><td>SCR-26 예약 기간·가격 <code>/products/:id/stages</code></td><td>상품 카드 ‘기간·가격’</td><td class="before">이전 화면</td><td>이전 화면</td><td class="dead">제자리(재현, 헤더 <code>:101</code>, 저장 뒤 <code>:86</code>, 취소 <code>:137</code>)</td><td class="chg"><code>/products</code>(셋 모두)</td><td>상품 안</td></tr>
+      <tr><td>물량·판매 설정 <code>/products/:id/sales</code></td><td>상품 카드 ‘판매 설정’</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/products</code></td><td><code>/products</code></td><td>상품 안</td></tr>
+      <tr><td>판매페이지 수정 <code>/products/:id/detail</code></td><td>상품 카드 ‘판매페이지 수정’</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/products</code></td><td><code>/products</code></td><td>상품 안</td></tr>
+      <tr class="grp"><td colspan="7">채팅 탭</td></tr>
+      <tr><td>SCR-28 채팅 <code>/chats</code></td><td>탭</td><td colspan="4">탭 첫 화면(자기 소식방)</td><td class="chg">늘 채팅 첫 화면(b1)</td></tr>
+      <tr><td>소비자별 채팅 <code>/chats/:consumerId</code></td><td>1:1 목록, 현황 할 일</td><td class="before">1:1 목록(고정)</td><td>1:1 목록</td><td class="before"><code>/chats?view=private</code></td><td><code>/chats?view=private</code></td><td>채팅 안</td></tr>
+      <tr><td>SCR-27 소식 올리기 <code>/broadcast/new</code></td><td>소식방 첨부</td><td class="before">이전 화면(쓰던 글 확인)</td><td>이전 화면</td><td class="before"><code>/chats?view=news</code></td><td><code>/chats?view=news</code></td><td>탭 바 없음</td></tr>
+      <tr><td>소식방 <code>/news/:farmId</code></td><td>옛 링크</td><td colspan="4"><code>/chats?view=news</code>로 넘김</td><td>채팅 안</td></tr>
+      <tr class="grp"><td colspan="7">환경설정 탭</td></tr>
+      <tr><td>SCR-33 환경설정 <code>/settings</code></td><td>탭</td><td colspan="4">탭 첫 화면</td><td class="chg">늘 환경설정(b1)</td></tr>
+      <tr><td>SCR-30 농가 프로필 <code>/farm</code></td><td>환경설정</td><td class="before"><code>/settings</code>(고정)</td><td><code>/settings</code></td><td class="before"><code>/settings</code></td><td><code>/settings</code></td><td>환경설정 안(숨은 탭)</td></tr>
+      <tr><td>입금 계좌·항목 고치기·농가 상세 <code>/farm/*</code></td><td>농가 프로필</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/farm</code></td><td><code>/farm</code></td><td>환경설정 안</td></tr>
+      <tr><td>SCR-31 AI 응답 설정 <code>/farm/ai-settings</code></td><td>환경설정</td><td class="before"><code>/settings</code>(고정)</td><td><code>/settings</code></td><td class="before"><code>/settings</code></td><td><code>/settings</code></td><td>환경설정 안</td></tr>
+      <tr><td>farmclub 문의 <code>/support</code></td><td>정지·반려 안내, 채팅</td><td colspan="4">상태별 고정(정지 <code>/suspended</code>, 반려 SCR-21, 승인 채팅 목록)</td><td>탭 바 없음</td></tr>
+      <tr><td>개인정보 처리방침·이용약관</td><td>약관 동의 ‘보기’</td><td class="before">이전 화면</td><td>이전 화면</td><td class="before"><code>/</code></td><td><code>/</code></td><td>탭 바 없음</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>재현 화면과 AFTER</h2>
+
+  <h3 style="margin-top:8px">HE-01 상품에서 연 방이 채팅 탭에 남는다</h3>
+  <div class="flabel"><b class="bad">BEFORE</b> <span style="color:var(--muted);font-size:14px">로컬 9281, 김민지</span></div>
+  <div class="strip">
+    <div class="shot"><img src="DEV-224/before-he01-1-product.png" alt="하우스 감귤 상품 상세"><span><b>1</b> 상품 상세</span></div>
+    <div class="arrow">→</div>
+    <div class="shot"><img src="DEV-224/before-he01-2-room.png" alt="강씨네 귤밭 1:1 채팅"><span><b>2</b> ‘1:1 채팅’ → 방</span></div>
+    <div class="arrow">→</div>
+    <div class="shot"><img src="DEV-224/before-he01-3-back.png" alt="상품 상세로 돌아옴"><span><b>3</b> 뒤로 → 상품(정상)</span></div>
+    <div class="arrow">→</div>
+    <div class="shot badshot"><img src="DEV-224/before-he01-4-chat-tab.png" alt="채팅 탭을 눌렀는데 같은 방"><span><b>4</b> 채팅 탭 → <b>목록이 아니라 그 방</b></span></div>
+    <div class="arrow">→</div>
+    <div class="shot badshot"><img src="DEV-224/before-he01-5-back-again.png" alt="채팅 탭에서 뒤로 눌렀는데 상품 상세"><span><b>5</b> 뒤로 → <b>상품 상세</b></span></div>
+  </div>
+  <div class="flabel" style="margin-top:14px"><b class="good">AFTER</b> <span style="color:var(--muted);font-size:14px">a1 · b1</span></div>
+  <div class="flow" id="after-he01">
+    <h4>상품에서 연 1:1, 그다음 채팅 탭</h4>
+    <div class="sub">a1 연 화면으로 · b1 탭은 늘 첫 화면</div>
+    <div class="step"><div class="n">1</div><div><div class="act">상품 상세 ‘1:1 채팅’</div><span class="to">/chats/f-kang?start=1&amp;productId=p-house</span></div></div>
+    <div class="step"><div class="n hit">2</div><div><div class="act">헤더 뒤로</div><span class="to hit">/products/p-house</span></div></div>
+    <div class="step"><div class="n hit">3</div><div><div class="act">하단 채팅 탭</div><span class="to hit">/chats — 목록</span></div></div>
+    <div class="step"><div class="n">4</div><div><div class="act">목록에서 강씨네 귤밭 → 헤더 뒤로</div><span class="to">/chats?view=private — 목록</span></div></div>
+    <div class="mini">새로고침한 방(<code>productId</code> 있음)의 뒤로도 상품. <code>productId</code>가 없으면 목록.</div>
+  </div>
+  <div class="strip" style="margin-top:12px"><div class="shot"><img src="DEV-224/after-he01-chat-tab.png" alt="채팅 탭을 누르면 채팅 목록"><span><b>구현</b> 3단계 채팅 탭 → 목록</span></div></div>
+
+  <h3 style="margin-top:28px">HE-X3 내 주문 탭이 주문 완료를 다시 연다</h3>
+  <div class="pair">
+    <div>
+      <div class="flabel"><b class="bad">BEFORE</b></div>
+      <div class="strip">
+        <div class="shot"><img src="DEV-224/before-x3-1-home.png" alt="주문 완료에서 홈으로 누른 뒤 홈"><span><b>1</b> 주문 완료 ‘홈으로’ → 홈</span></div>
+        <div class="arrow">→</div>
+        <div class="shot badshot"><img src="DEV-224/before-x3-2-orders-tab.png" alt="내 주문 탭을 눌렀는데 주문 완료 화면"><span><b>2</b> 내 주문 탭 → <b>주문 완료</b>(탭 바도 없음)</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="flabel"><b class="good">AFTER</b></div>
+      <div class="flow" id="after-x3">
+        <h4>주문 완료 뒤 내 주문 탭</h4>
+        <div class="sub">b1 탭은 늘 첫 화면</div>
+        <div class="step"><div class="n">1</div><div><div class="act">입금 안내 ‘입금을 마쳤어요’</div><span class="to">/orders/o-11/done</span></div></div>
+        <div class="step"><div class="n">2</div><div><div class="act">‘홈으로’</div><span class="to">/</span></div></div>
+        <div class="step"><div class="n hit">3</div><div><div class="act">하단 내 주문 탭</div><span class="to hit">/orders — 주문 내역</span></div></div>
+        <div class="mini">채팅·내 정보, 생산자 상품·채팅·환경설정 탭도 같은 규칙.</div>
+      </div>
+      <div class="strip" style="margin-top:12px"><div class="shot"><img src="DEV-224/after-x3-orders-tab.png" alt="내 주문 탭을 누르면 주문 내역"><span><b>구현</b> 내 주문 탭 → 주문 내역</span></div></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:28px">HE-X1 새로고침 뒤 헤더 뒤로 무반응 — 재현 4건(390px)</h3>
+  <div class="flabel"><b class="bad">BEFORE</b> <span style="color:var(--muted);font-size:14px">주소로 바로 열고 헤더 뒤로를 누른 뒤의 화면. 모두 제자리</span></div>
+  <div class="strip">
+    <div class="shot badshot"><img src="DEV-224/before-x1-1-pay.png" alt="입금 안내 그대로"><span>소비자 입금 안내</span></div>
+    <div class="shot badshot"><img src="DEV-224/before-x1-2-inquiry.png" alt="주문 문제 문의 그대로"><span>소비자 주문 문의</span></div>
+    <div class="shot badshot"><img src="DEV-224/before-x1-3-sell.png" alt="생산자 판매·가격 그대로"><span>생산자 판매·가격</span></div>
+    <div class="shot badshot"><img src="DEV-224/before-x1-4-stages.png" alt="생산자 예약 기간·가격 그대로"><span>생산자 예약 기간·가격</span></div>
+  </div>
+  <div class="flabel" style="margin-top:14px"><b class="good">AFTER</b> <span style="color:var(--muted);font-size:14px">c1 화면마다 정한 부모</span></div>
+  <div class="flow" id="after-x1">
+    <h4>새로고침·직접 열기 뒤 헤더 뒤로</h4>
+    <div class="sub">이전 화면이 없으면 부모 화면으로 바꿔 연다</div>
+    <div class="step"><div class="n hit">1</div><div><div class="act">입금 안내 <code>/checkout/p-house/pay?orderId=o-11</code></div><span class="to hit">/orders/o-11</span></div></div>
+    <div class="step"><div class="n hit">2</div><div><div class="act">주문 문의 <code>/orders/o-11/inquiry</code></div><span class="to hit">/orders/o-11</span></div></div>
+    <div class="step"><div class="n hit">3</div><div><div class="act">판매·가격 <code>/products/p-house/sell</code></div><span class="to hit">/products</span></div></div>
+    <div class="step"><div class="n hit">4</div><div><div class="act">예약 기간·가격 <code>/products/p-house/stages</code></div><span class="to hit">/products</span></div></div>
+    <div class="step"><div class="n hit">5</div><div><div class="act">판매페이지 만들기 <code>/products/source-analysis</code></div><span class="to hit">/products</span></div></div>
+    <div class="mini">앱 안에서 들어왔으면 지금처럼 이전 화면.</div>
+  </div>
+  <div class="strip" style="margin-top:12px">
+    <div class="shot"><img src="DEV-224/after-x1-1-pay.png" alt="입금 안내 뒤로 → 주문 상세"><span><b>구현</b> 입금 안내 → 주문 상세</span></div>
+    <div class="shot"><img src="DEV-224/after-x1-2-inquiry.png" alt="주문 문의 뒤로 → 주문 상세"><span>주문 문의 → 주문 상세</span></div>
+    <div class="shot"><img src="DEV-224/after-x1-3-sell.png" alt="판매·가격 뒤로 → 상품 목록"><span>판매·가격 → 상품 목록</span></div>
+    <div class="shot"><img src="DEV-224/after-x1-4-stages.png" alt="예약 기간·가격 뒤로 → 상품 목록"><span>예약 기간·가격 → 상품 목록</span></div>
+  </div>
+
+  <h3 style="margin-top:28px">없는 농가 링크</h3>
+  <div class="pair">
+    <div>
+      <div class="flabel"><b class="bad">BEFORE</b> <span style="color:var(--muted);font-size:14px"><code>/farms/f-nope</code></span></div>
+      <div class="strip"><div class="shot big badshot"><img src="DEV-224/before-farm-notfound.png" alt="소식방 헤더와 팔로우 버튼, 불러오지 못했어요"><span>헤더 ‘소식방’·아바타 ‘소’·켜진 팔로우, ‘불러오지 못했어요 · 다시 시도’</span></div></div>
+    </div>
+    <div>
+      <div class="flabel"><b class="good">AFTER</b> <span style="color:var(--muted);font-size:14px">d1 · 디자인 보드 <code>s-03-notfound</code></span></div>
+      <div class="strip"><div class="shot big"><img src="DEV-224/after-farm-notfound.png" alt="찾을 수 없는 농가예요, 농가 둘러보기"><span><b>구현</b> 헤더는 뒤로만. ‘찾을 수 없는 농가예요’ · ‘농가 둘러보기’ → <code>/farms</code></span></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>도우미 한 줄</h2>
+  <div class="cols">
+    <div class="card">
+      <pre>// apps/{consumer,producer}/src/lib/nav.ts
+export const goBackOr = (router: Router, fallback: Href) =&gt;
+  router.canGoBack() ? router.back() : router.replace(fallback);</pre>
+      <p style="margin-top:10px">헤더 뒤로·취소·저장 뒤 이동에 맨 <code>router.back()</code>을 쓰지 않는다. 지금 33곳에 흩어진 같은 삼항식을 이것으로 바꾸고, 빠진 8곳에 붙인다. <code>fallback</code>은 위 표의 “새로고침·직접 열기 AFTER” 칸이다.</p>
+    </div>
+    <div class="card">
+      <h3>도우미만으로는 HE-01이 안 고쳐진다</h3>
+      <p><code>router.canGoBack()</code>은 탭 기록까지 본다. 그래서 채팅 스택에 방 하나만 있어도 참이 되고, 뒤로가 다른 탭으로 간다. HE-01은 도우미가 아니라 <b>(a) 명시 목적지</b>와 <b>(b) 탭 누름 규칙</b>으로 고친다.</p>
+      <p><b>2단계에서 확인한 원인과 방법.</b> 다른 탭에서 연 방은 채팅 탭 route에 하위 스택 상태 없이 <code>params</code>(<code>screen: "[farmId]"</code>)로만 남는다. 그래서 탭 누름에서 <code>navigation.navigate(name, { screen: "index", params: {} })</code>로 그 params를 덮고, 하위 스택 상태가 있으면 <code>CommonActions.reset</code>으로 첫 화면만 남긴다(<code>openTabRoot</code>). Playwright로 HE-01·HE-X3 모두 확인했다.</p>
+      <p>1단계 메모의 “쉬운 수정 3가지가 효과 없음”은 로컬 개발 서버가 고친 파일을 다시 읽지 않은 상태에서 본 결과였다(서버를 다시 띄운 뒤 확인).</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>승인 뒤 바뀌는 코드 (일반 위험, 서버·API 변경 없음)</h2>
+  <div class="cols">
+    <div class="card">
+      <h3>소비자 <code>apps/consumer</code></h3>
+      <ul>
+        <li><code>src/lib/nav.ts</code>(새): <code>goBackOr</code></li>
+        <li><code>(tabs)/_layout.tsx</code>: 탭 누름 → 늘 첫 화면(b1)</li>
+        <li><code>(tabs)/chats/[farmId].tsx</code>: <code>productId</code>·<code>from</code>로 목적지 명시(a1). <code>farms/[farmId]/info.tsx</code>·<code>orders/[orderId]/index.tsx</code>는 방을 열 때 <code>from</code>을 붙임</li>
+        <li>죽은 뒤로: <code>checkout/[productId]/pay.tsx</code>, <code>orders/[orderId]/inquiry.tsx</code>, <code>checkout/[productId]/index.tsx:336</code>, <code>products/[productId].tsx:98</code></li>
+        <li>없는 농가(d1): <code>src/lib/FarmRoom.tsx</code> 404 분기(헤더 뒤로만, 안내 + ‘농가 둘러보기’)</li>
+        <li>나머지 삼항식 → <code>goBackOr</code>(동작 그대로)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>생산자 <code>apps/producer</code></h3>
+      <ul>
+        <li><code>src/lib/nav.ts</code>(새): <code>goBackOr</code></li>
+        <li><code>(tabs)/_layout.tsx</code>: 탭 누름 → 늘 첫 화면(b1)</li>
+        <li>죽은 뒤로: <code>products/[id]/sell.tsx:164·382</code>, <code>stages.tsx:86·101·137</code>, <code>edit.tsx:204</code>, <code>lib/NewProductComposer.tsx:705</code>, <code>lib/SourceWorkspace.tsx:406</code></li>
+        <li>나머지 삼항식 → <code>goBackOr</code>(동작 그대로)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>테스트 계획</h2>
+  <div class="cols">
+    <div class="card">
+      <h3>Playwright <code>scripts/e2e/back-rules.spec.ts</code>(새)</h3>
+      <ul>
+        <li>상품 → ‘1:1 채팅’ → 뒤로 → <code>/products/p-house</code>, 채팅 탭 → <code>/chats</code> 목록이 보임(HE-01)</li>
+        <li>채팅 목록 → 방 → 뒤로 → 목록</li>
+        <li>주문 완료 ‘홈으로’ → 내 주문 탭 → <code>/orders</code>(HE-X3)</li>
+        <li>표 전체를 한 묶음으로: 주소로 바로 열기 → 헤더 뒤로 → 표의 AFTER 목적지(소비자 25줄·생산자 13줄, 이번 <code>probe.mjs</code>를 테스트로 옮김). 새로고침 뒤 뒤로가 제자리인 화면이 0개(HE-X1)</li>
+        <li>생산자 상품 하위 화면 → 상품 탭 → <code>/products</code></li>
+        <li><code>/farms/f-nope</code> → ‘찾을 수 없는 농가예요’, 팔로우 버튼 없음, ‘농가 둘러보기’ → <code>/farms</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Mock·정적 검사</h3>
+      <ul>
+        <li><code>scripts/test-back-fallback.mjs</code>(새, <code>test:mock</code>이 글롭으로 모음): <code>apps/*/src</code>에 <code>canGoBack</code>·<code>goBackOr</code> 없는 맨 <code>router.back()</code>이 0개</li>
+        <li><code>npm run typecheck</code>, <code>npm run test:mock</code> 전체</li>
+        <li>기존 Playwright 중 뒤로·탭을 쓰는 <code>conversation-ui</code>·<code>discovery-and-gates</code>·<code>checkout-logout</code>·<code>consumer-support</code> 다시 돌림</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>같이 고칠 스펙 줄</h2>
+  <div class="cols">
+    <div class="card">
+      <h3><code>docs/spec/ia.md</code> 4장 — “뒤로 규칙” 절 추가</h3>
+      <blockquote>헤더 뒤로는 앱 안의 이전 화면으로 간다. 이전 화면이 없으면(주소로 바로 열기·새로고침) 아래 표의 부모 화면을 연다. 하단 탭을 누르면 언제나 그 탭의 첫 화면이 열리고, 다른 탭에서 연 하위 화면을 남기지 않는다. 상품 상세·농가 정보·주문 상세에서 연 1:1의 뒤로는 연 화면이고, 채팅 목록에서 열었거나 주소로 연 1:1은 목록이다(DEV-224).</blockquote>
+      <p>+ 화면별 부모 표(위 두 표의 “새로고침·직접 열기 AFTER” 열).</p>
+      <p>5장 예외 경로 ‘없는 농가’ 줄: “헤더는 뒤로만, 팔로우 버튼 없음”을 덧붙임.</p>
+    </div>
+    <div class="card">
+      <h3><code>docs/spec/screens.md</code></h3>
+      <ul>
+        <li>3장 새 줄 <b>뒤로·탭 첫 화면(DEV-224)</b>: “헤더 뒤로는 이전 화면, 없으면 ia.md 4장 부모 화면. 맨 <code>back()</code>만 쓰지 않는다. 탭을 누르면 늘 첫 화면.”</li>
+        <li>SCR-11 버튼 동작: “뒤로 → 주문서. 새로고침·직접 열기면 주문 상세(SCR-14).”</li>
+        <li>SCR-16 버튼 동작: 1:1 방 뒤로 목적지(a 결정).</li>
+        <li>SCR-03 상태: “404 → ‘찾을 수 없는 농가예요’와 ‘농가 둘러보기’(SCR-02), 헤더는 뒤로만.”</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>그 밖</h3>
+      <ul>
+        <li><code>docs/spec/navigation-1.3.md:20</code> “1:1은 해당 목록” → “1:1을 주소로 열면 목록, 상품·농가 정보·주문 상세에서 열면 연 화면(DEV-224)”</li>
+        <li><code>docs/wiki/Requirements-and-Specifications.md</code> 영문 한 줄</li>
+        <li>Figma v6: 이동 규칙은 해당 없음. 없는 농가 화면은 Figma에 프레임이 없어(디자인 감사 C2) 구현 PR에서 추가하거나 후속 이슈</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>PM에게 묻는 것</h2>
+  <div class="card">
+    <ol>
+      <li><b>(a)</b> 상품·농가 정보·주문 상세에서 연 1:1의 뒤로: <b>a1 연 화면(추천)</b> / a2 늘 목록</li>
+      <li><b>(b)</b> 탭을 눌렀을 때: <b>b1 늘 첫 화면(추천)</b> / b2 탭 안에서 연 화면은 기억</li>
+      <li><b>(c)</b> 이전 화면이 없을 때: <b>c1 화면마다 정한 부모(추천)</b> / c2 늘 탭 첫 화면. 그리고 입금 안내 새로고침 뒤 뒤로: <b>주문 상세(추천)</b> / 주문서</li>
+      <li><b>(d)</b> 없는 농가: <b>d1 안내 화면 + ‘농가 둘러보기’(추천, 보드 <code>s-03-notfound</code>)</b> / d2 농가 목록으로 보내고 토스트</li>
+    </ol>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

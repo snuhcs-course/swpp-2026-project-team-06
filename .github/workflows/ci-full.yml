@@ -1,0 +1,111 @@
+name: CI full
+
+# DEV-234: main의 안전망. ci.yml을 lane=full(모든 job + integration spec 전체)로 부른다.
+# - nightly(매일 03:00 KST): 경로 분류(scripts/ci/integration-map.json)가 놓친 영향을 잡는다.
+# - hotfix 사후: hotfix 라벨 PR이 머지되면(main push) integration 없이 배포된 커밋을 전체로 다시 검사한다.
+# - 수동 실행: Actions → CI full → Run workflow.
+# 실패하면 이 실행이 빨갛게 남고, 열린 알림 이슈("[CI] main full check failing")에 댓글을 달거나 새로 연다.
+# 다음 실행이 통과하면 그 이슈에 통과 댓글을 달고 닫는다. 이 워크플로는 배포(deploy-*.yml, workflow_run: CI)를 막지 않는다.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 18 * * *" # 03:00 KST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-full-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      reason: ${{ steps.gate.outputs.reason }}
+    steps:
+      - name: Decide whether to run
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != push ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=$EVENT" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pr="$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)][0].number // empty')"
+          if [ -n "$pr" ] && gh pr view "$pr" -R "$REPO" --json labels --jq '.labels[].name' | grep -qx hotfix; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=hotfix #$pr" >> "$GITHUB_OUTPUT"
+            echo "hotfix PR #$pr: running the full suite after merge" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "reason=not a hotfix merge" >> "$GITHUB_OUTPUT"
+            echo "Not a hotfix merge (PR ${pr:-none}); main CI already covers it." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  full:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      lane: full
+
+  notify:
+    needs: [gate, full]
+    if: always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      issues: write
+    steps:
+      - name: Open, update or close the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ needs.full.result }}
+          REASON: ${{ needs.gate.outputs.reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          title="[CI] main full check failing"
+          issue="$(gh issue list --state open --limit 100 --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+          if [ "$RESULT" = success ]; then
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --body "통과: ${REASON} · ${SHA:0:7} · ${RUN_URL}"
+              gh issue close "$issue"
+            fi
+            exit 0
+          fi
+          body="$(printf '%s\n' \
+            "CI full(${REASON})이 main ${SHA:0:7}에서 ${RESULT}." \
+            "" \
+            "- 실행: ${RUN_URL}" \
+            "- 실패한 job의 아티팩트(integration-failure-*)에 Playwright 보고서가 있다." \
+            "- 고칠 사람: 마지막으로 머지한 사람(AGENTS.md: main CI가 깨지면 머지한 사람이 바로 고치거나 revert)." \
+            "- 간헐 실패면 scripts/ci/quarantine.json에 이슈와 함께 격리(.github/CI.md).")"
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+          echo "::error::CI full ${RESULT} (${REASON}). See ${RUN_URL}"
+          exit 1

@@ -9,7 +9,7 @@ import {
   type User,
 } from "@farmclub/api";
 import { useAnalytics } from "@farmclub/analytics";
-import { Button, Sheet, T } from "@farmclub/ui";
+import { Button, Sheet, T, useSheetLeave } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
   createContext,
@@ -80,6 +80,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [gate, setGate] = useState<Resume | null>(null);
+  // 관문 시트의 ‘로그인’은 시트를 바로 닫고 로그인 화면으로 간다(DEV-225)
+  const gateLeave = useSheetLeave();
   const [resume, setResume] = useState<Resume | null>(null);
   const [tabBarHidden, setTabBarHidden] = useState(false);
   const [pendingRecipient, setPendingRecipient] =
@@ -225,7 +227,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <Sheet visible={!!gate} onClose={() => setGate(null)}>
+      <Sheet
+        visible={!!gate}
+        onClose={() => setGate(null)}
+        instant={gateLeave.instant}
+      >
         <T variant="heading">{gate ? GATE_TITLE[gate.action] : ""}</T>
         <T variant="body">
           팔로우·예약·채팅은 로그인이 필요해요. 로그인하면 지금 보던 화면으로
@@ -235,13 +241,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           label="로그인"
           onPress={() => {
             const g = gate;
-            setGate(null);
-            if (!g) return;
-            setResume(g.action === "tab" ? null : g);
-            router.push({
-              pathname: "/login",
-              params: { next: g.next, from: g.action },
-            });
+            if (!g) return setGate(null);
+            gateLeave.leave(
+              () => setGate(null),
+              () => {
+                setResume(g.action === "tab" ? null : g);
+                router.push({
+                  pathname: "/login",
+                  params: { next: g.next, from: g.action },
+                });
+              },
+            );
           }}
           style={{ marginTop: 8 }}
         />
@@ -263,13 +273,15 @@ export function useSession() {
 }
 
 /** 하단 고정 바에 주 행동이 있는 작업 화면은 탭 바를 숨긴다(docs/design 레이아웃 규칙) */
-export function useHideTabBar() {
+/** 이 화면에서 하단 탭 바를 숨긴다. hidden=false면 숨기지 않는다(예: 없는 농가 안내, DEV-224). */
+export function useHideTabBar(hidden = true) {
   const { setTabBarHidden } = useSession();
   useFocusEffect(
     useCallback(() => {
+      if (!hidden) return;
       setTabBarHidden(true);
       return () => setTabBarHidden(false);
-    }, [setTabBarHidden]),
+    }, [setTabBarHidden, hidden]),
   );
 }
 

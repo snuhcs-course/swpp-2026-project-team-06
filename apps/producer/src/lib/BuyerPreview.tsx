@@ -28,8 +28,9 @@ export function toPageData(
     ...p,
     photo: p.photos[0] ?? null,
     farmName,
-    deliveryWindow: p.deliveryWindow ?? { start: TODAY, end: TODAY },
-    maxDelayUntil: p.maxDelayUntil ?? TODAY,
+    // 비어 있으면 비운 채로 넘긴다. 상세가 '예상'(마지막 예약 기간에서 유도) 또는 '확정 전'으로 그린다(DEV-227, HE-X7).
+    deliveryWindow: p.deliveryWindow,
+    maxDelayUntil: p.maxDelayUntil,
     // 승인되면 신청 물량만큼 열리고 첫 기간부터 예약을 받는다고 보고 그린다.
     soldOut: false,
     availability: "AVAILABLE",

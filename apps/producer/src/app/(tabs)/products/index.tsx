@@ -1,4 +1,4 @@
-import { allPages, catalog } from "@farmclub/api";
+import { allPages, catalog, serverNow } from "@farmclub/api";
 import {
   Button,
   EmptyState,
@@ -9,6 +9,8 @@ import {
   Scroll,
   Skeleton,
   T,
+  md,
+  time,
   tokens,
   useLiveList,
 } from "@farmclub/ui";
@@ -21,6 +23,7 @@ import {
   productGroup,
   productGroups,
   productStatus,
+  draftSaved,
 } from "../../../lib/productGroups";
 export default function Products() {
   const router = useRouter(),
@@ -171,6 +174,12 @@ export default function Products() {
                 <T weight="semibold" numberOfLines={2}>
                   {product.name || "이름 없는 초안"}
                 </T>
+                {/* 이름 없는 초안끼리 가르는 마지막 저장 시각(DEV-226, HE-X5) */}
+                {product.status === "DRAFT" && draftSaved(product.updatedAt, { md, time }, serverNow()) ? (
+                  <T variant="caption" muted numberOfLines={1}>
+                    {draftSaved(product.updatedAt, { md, time }, serverNow())}
+                  </T>
+                ) : null}
                 {product.pendingCapacityRequest?.kind === "INCREASE" ? (
                   <T variant="caption" muted>
                     물량 추가 심사 중

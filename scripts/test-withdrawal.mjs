@@ -6,24 +6,39 @@ import { mkdtempSync } from "node:fs";
 import path from "node:path";
 import { once } from "node:events";
 
+// DEV-221: 포트 0으로 띄우고 Mock 서버가 첫 줄에 알린 실제 주소를 쓴다(병렬 worktree에서 고정 포트가 부딪히지 않게).
+// 열기 전에 죽으면 요청한 포트·종료 코드·stderr를 메시지에 남긴다(EADDRINUSE·EPERM을 구분할 수 있게).
+async function startMock(dir) {
+  const child = spawn(process.execPath, ["scripts/mock-server.mjs"], {
+    env: { ...process.env, FARMCLUB_MOCK_PORT: "0", FARMCLUB_MOCK_DIR: dir },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  let out = "",
+    err = "";
+  child.stderr.on("data", (d) => (err += d));
+  const base = await new Promise((resolve, reject) => {
+    child.stdout.on("data", (d) => {
+      const m = /Shared Mock: (http:\/\/\S+)\r?\n/.exec((out += d)); // 줄 끝까지 와야 포트가 다 온 것
+      if (m) resolve(m[1]);
+    });
+    child.once("close", (code, signal) =>
+      reject(
+        new Error(
+          `Mock server exited before listening (FARMCLUB_MOCK_PORT=0, exit ${code ?? signal}): ${err.trim() || "no stderr"}`,
+        ),
+      ),
+    );
+  });
+  return { child, base };
+}
+
 // 서버 accounts.schemas.CONSENT_VERSION과 같은 값(test-legal.mjs가 셋이 같은지 본다)
 const CONSENT_VERSION = "2026-10-29";
 
 test("AC-01-20: Mock withdrawal blocks open orders, erases the account and frees the Kakao id", async () => {
   const dir = mkdtempSync(path.resolve(".expo/withdrawal-test-"));
-  const port = 18085,
-    base = "http://127.0.0.1:" + port;
-  const child = spawn(process.execPath, ["scripts/mock-server.mjs"], {
-    env: { ...process.env, FARMCLUB_MOCK_PORT: String(port), FARMCLUB_MOCK_DIR: dir },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-  });
-  await Promise.race([
-    once(child.stdout, "data"),
-    once(child, "exit").then(() => {
-      throw new Error("Mock server exited");
-    }),
-  ]);
+  const { child, base } = await startMock(dir);
   let n = 0;
   async function api(method, url, token, body) {
     const r = await fetch(base + url, {

@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "../../../../lib/session";
 import { LoadError, copyText } from "../../../../lib/views";
 import { useToast } from "../../../../lib/toast";
+import { goBackOr } from "../../../../lib/nav";
 export default function FarmInfo() {
   const { farmId } = useLocalSearchParams<{ farmId: string }>();
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function FarmInfo() {
   const farm = useAsync(() => farms.get(farmId), [farmId, user?.userId]);
   const [confirm, setConfirm] = useState(false);
   const here = `/farms/${farmId}/info`;
-  const start = () => router.push(`/chats/${farmId}?start=1`);
+  const start = () => router.push(`/chats/${farmId}?start=1&from=info`);
   const chat = () => (farm.data?.isFollowing ? start() : setConfirm(true));
   useEffect(() => {
     if (
@@ -43,9 +44,7 @@ export default function FarmInfo() {
       <HeaderBar
         title="농가 정보"
         onBack={() =>
-          router.canGoBack()
-            ? router.back()
-            : router.replace(`/farms/${farmId}`)
+          goBackOr(router, `/farms/${farmId}`)
         }
       />
       <Scroll bottom={tokens.height.tabBarClearance}>

@@ -17,7 +17,8 @@ export const ORDER_STATUS: Record<OrderStatus, string> = {
   DELIVERED: "배송 완료",
   COMPLETED: "구매 확정",
   CANCELED: "취소됨",
-  REFUNDED: "환불됨",
+  // 채팅 ‘연결 주문’만 쓰고 송금 여부를 받지 않아 ‘환불됨’(완료형) 대신 중립으로(DEV-207). 환불 탭 줄은 ‘○월 ○일 송금 완료’를 따로 보인다
+  REFUNDED: "환불",
   PARTIALLY_REFUNDED: "일부 환불",
 };
 

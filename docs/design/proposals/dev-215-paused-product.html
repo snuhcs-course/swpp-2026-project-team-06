@@ -1,0 +1,440 @@
+<title>판매 중지 상품 표시</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 보드 레이아웃: 문제 요약 → 계약 → 화면 3쌍(BEFORE / AFTER) → 디자인 무브 → 문구 → 서버 → 테스트 → 스펙 줄 → 질문.
+   폰 프레임은 앱(I1 밝은 화면 전용) 그대로라 테마를 따르지 않는다. 보드 바탕만 테마를 따른다. */
+:root {
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --muted: #5F5F5B; --line: #DCDBD6;
+  --accent: #C94F0C; --new: #FFF2E9; --newline: #E8B896; --bad: #B42318;
+  /* 앱 화면(Figma v6 / packages/ui/src/tokens.ts) — 테마 고정 */
+  --a-text: #111111; --a-muted: #6B6B6B; --a-bg: #FFFFFF; --a-surface: #F5F5F3;
+  --a-border: #E8E8E6; --a-accent: #C94F0C; --a-disabled: #E8E8E6; --a-disabled-text: #9A9A96;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+    --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+  --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+  font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+header { display: flex; flex-direction: column; gap: 10px; max-width: 860px; }
+.eyebrow { font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+h1 { font-size: 32px; line-height: 1.25; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 1.35; margin: 0 0 14px; letter-spacing: -0.01em; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0 0 6px; }
+p { margin: 0; }
+.lead { font-size: 17px; color: var(--muted); }
+.status { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.pill.hot { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.ex { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .02em; padding: 1px 8px; border-radius: 999px; border: 1px dashed var(--muted); color: var(--muted); }
+code { font-family: var(--mono); font-size: .88em; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+section { display: flex; flex-direction: column; gap: 4px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.card p + p { margin-top: 8px; }
+ul, ol { margin: 0; padding-left: 20px; }
+li { margin-bottom: 6px; }
+blockquote { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--new); border-radius: 0 8px 8px 0; font-size: 15px; }
+
+/* 화면 쌍 */
+.pair { display: flex; flex-direction: column; gap: 14px; }
+.pair > h3 { font-size: 19px; }
+.frames { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+.fcol { display: flex; flex-direction: column; gap: 12px; width: 390px; max-width: 100%; }
+.flabel { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.flabel b { font-size: 15px; letter-spacing: .04em; }
+.flabel b.bad { color: var(--bad); }
+.flabel b.good { color: var(--accent); }
+.flabel span { font-size: 14px; color: var(--muted); }
+.phone {
+  width: 390px; max-width: 100%; border-radius: 28px; overflow: hidden; position: relative;
+  background: var(--a-bg); color: var(--a-text); border: 1px solid var(--line);
+  display: flex; flex-direction: column; font-family: var(--font); color-scheme: light;
+}
+.phone.tall { height: 844px; }
+.anno { font-size: 14px; color: var(--muted); }
+.anno b { color: var(--ink); }
+.mark { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; vertical-align: 1px; margin-right: 4px; flex: none; }
+.wrong { outline: 2px solid #F04438; outline-offset: 2px; border-radius: 6px; }
+.changed { outline: 2px dashed var(--newline); outline-offset: 2px; border-radius: 6px; }
+
+/* 앱 부품 */
+.big { padding: 20px 20px 8px; font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; display: flex; justify-content: space-between; align-items: center; }
+.big small { font-size: 13px; font-weight: 600; color: var(--a-muted); }
+.sec { padding: 16px 20px 8px; font-size: 22px; line-height: 30px; font-weight: 700; }
+.carousel { display: flex; gap: 12px; padding: 0 20px 20px; overflow: hidden; }
+.pcard { width: 260px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+.pcard.peek { width: 80px; opacity: .55; }
+.photo { border-radius: 16px; background: linear-gradient(135deg, #F3C58B, #E48A3C 60%, #9C5A24); }
+.photo.green { background: linear-gradient(135deg, #CFE0B4, #8DB36A 60%, #4F7A35); }
+.photo.box { background: linear-gradient(135deg, #F6D9B0, #D9A066 60%, #8E5C2E); }
+.photo.farm { background: linear-gradient(135deg, #DCE7D0, #A9C58E 55%, #6E8F57); }
+.farm { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--a-muted); }
+.pname { font-size: 22px; line-height: 30px; font-weight: 700; }
+.sub { font-size: 15px; line-height: 22px; color: var(--a-muted); }
+.meta { font-size: 13px; line-height: 18px; color: var(--a-muted); }
+.strike { font-size: 13px; line-height: 18px; color: var(--a-muted); text-decoration: line-through; }
+.price { font-size: 22px; line-height: 30px; font-weight: 700; color: var(--a-accent); }
+.price.l { font-size: 28px; line-height: 36px; }
+.price.c { font-size: 17px; line-height: 25px; }
+.na { font-size: 17px; line-height: 25px; font-weight: 600; color: var(--a-muted); }
+.row { display: flex; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--a-border); }
+.row:first-child { border-top: 0; }
+.thumb { width: 104px; height: 104px; flex: none; }
+.chip { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--a-surface); font-size: 13px; font-weight: 600; }
+.search { margin: 0 20px 8px; height: 48px; border-radius: 16px; background: var(--a-surface); padding: 12px 16px; color: var(--a-muted); font-size: 16px; }
+.shelf { background: var(--a-surface); }
+.shelf-h { height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600; }
+.shelf-list { display: flex; gap: 12px; padding: 0 12px 12px; overflow: hidden; }
+.sitem { width: 270px; flex: none; min-height: 86px; padding: 12px; border-radius: 16px; background: var(--a-bg); display: flex; gap: 12px; align-items: center; }
+.sitem .photo { width: 52px; height: 52px; border-radius: 12px; flex: none; }
+.roomhead { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-bottom: 1px solid var(--a-border); }
+.av { width: 40px; height: 40px; border-radius: 50%; background: #E9D9C9; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: #6B4A2E; flex: none; }
+.roomfeed { background: #FAF9F6; padding: 16px 20px; font-size: 15px; color: var(--a-muted); }
+.hbar { height: 64px; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--a-border); font-size: 17px; font-weight: 600; }
+.hbar .back { width: 48px; height: 48px; display: grid; place-items: center; }
+.body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 16px; padding: 0 20px 20px; }
+.fold { min-height: 48px; display: flex; justify-content: space-between; align-items: center; font-size: 15px; border-bottom: 1px solid var(--a-border); }
+.opts { display: flex; gap: 16px; }
+.opts > div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.statusblock { display: flex; flex-direction: column; gap: 4px; }
+.statusblock .h { font-size: 22px; line-height: 30px; font-weight: 700; }
+.bottom { padding: 12px 12px 8px; display: flex; gap: 8px; background: rgba(255,255,255,.92); border-top: 1px solid var(--a-border); }
+.btn { height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.btn.sec2 { flex: 1; border: 1px solid var(--a-text); }
+.btn.pri { flex: 2; background: var(--a-accent); color: #fff; }
+.btn.off { flex: 2; background: var(--a-disabled); color: var(--a-disabled-text); }
+.tabs { margin: 0 12px 12px; height: 64px; border-radius: 20px; background: var(--a-surface); display: flex; align-items: center; justify-content: space-around; font-size: 13px; color: var(--a-muted); }
+.tabs .on { color: var(--a-text); font-weight: 700; }
+.sheet { position: absolute; inset: auto 0 0 0; background: rgba(255,255,255,.96); border-radius: 20px 20px 0 0; border-top: 1px solid var(--a-border); padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 -40px 0 400px rgba(0,0,0,.40); }
+.sheet .t { font-size: 22px; font-weight: 700; }
+.ghost { opacity: .35; }
+.gone { margin: 0 20px 16px; border: 2px dashed var(--newline); border-radius: 16px; padding: 12px; font-size: 13px; line-height: 18px; color: var(--a-muted); background: var(--new); }
+
+/* 무브·표 */
+.moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.move h3 { display: flex; gap: 8px; align-items: baseline; }
+.tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+tr:last-child td { border-bottom: 0; }
+td.copy { font-weight: 600; }
+pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; }
+.decision { border-left: 4px solid var(--accent); }
+@media (max-width: 440px) { h1 { font-size: 26px; } .phone.tall { height: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">DEV-215 · 디자인 제안 · BEFORE / AFTER</div>
+    <h1>판매를 잠시 멈춘 상품은 소비자 앱에서 “판매 일시 중지”로 보이고 예약하기가 꺼지게</h1>
+    <p class="lead">생산자가 <code>하우스 감귤 5kg / 10kg</code>(강씨네 귤밭)을 일시 중지해도 API는 <code>availability=PAUSED</code>, <code>soldOut=false</code>를 준다. 그래서 홈 추천 첫 칸과 농가 목록 대표 상품에 그대로 남고, 상세에는 가격과 ‘42박스 남음 · 마감 D-5’가 나오며 예약하기를 누르면 옵션 시트가 열린다. 막히는 곳은 마지막 주문 단계(서버 <code>SALES_PAUSED</code>)뿐이다. I3-DISC-05 FAIL(baseline <code>i3-b2-87792b7</code>, PR #402).</p>
+    <div class="status"><span class="pill hot">PM 승인 대기</span><span class="pill">기준: Figma v6 · docs/design/README.md 토큰</span><span class="pill">계약: R-27 · AC-04-6 · FEAT-06 · AC-07-1 · AC-07-3</span><span class="pill">2026-11-04</span></div>
+  </header>
+
+  <section>
+    <h2>스펙이 정한 것</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>숨기지 않는다 — 공개 화면에는 남긴다</h3>
+        <p><b>R-27</b>(rules.md): 판매 중지 상품은 공개 화면에 남되 신규 예약을 막는다. <b>AC-04-6</b>: 중지 중에도 상품은 보인다.</p>
+        <p>→ 상품 상세 링크·농가 소식방 ‘판매 품목’에서 사라지면 안 된다.</p>
+      </div>
+      <div class="card">
+        <h3>홈 추천·농가 대표는 ‘판매 중’만</h3>
+        <p><b>FEAT-06</b> 입력·검증: 정렬은 판매 중 상품의 현재 단계 마감순, 판매 중 상품이 없는 농가는 맨 아래, 홈 추천은 같은 정렬의 상위 N개. <b>AC-06-5</b>: 판매 중인 상품이 없으면 ‘현재 예약 가능한 상품이 없어요’.</p>
+        <p>지금 품절·기간 공백 상품도 이 두 곳에서 빠진다(<code>if not c.sold_out</code>). 중지 상품도 같이 빠지는 것이 스펙과 맞다.</p>
+      </div>
+      <div class="card">
+        <h3>상세는 상태를 구분해 예약을 막는다</h3>
+        <p><b>AC-07-3</b>: PAUSED/기간 공백/품절/종료를 구분하여 예약 버튼을 제한한다. <b>AC-07-1</b>(품절): 상태와 다음 단계 시작일, 예약하기 안 눌림. screens.md SCR-04: “PAUSED/공백/품절/종료는 기존 예약 제한과 다음 시작 안내 유지”, “품절에 가짜 가격 없음”.</p>
+        <p>문구는 이미 코드에 있다: <code>packages/ui/src/ProductPage.tsx</code> <code>AVAILABILITY.PAUSED = "판매 일시 중지"</code>. <code>soldOut</code>일 때만 보여서 안 나올 뿐이다.</p>
+      </div>
+    </div>
+    <blockquote>결론: <b>숨김이 아니라 ‘판매 중이 아님’으로 다룬다.</b> 품절과 같은 결로 홈 추천·농가 대표에서는 빠지고, 소식방 판매 품목과 상세에는 남아 ‘현재 예약 불가’ / ‘판매 일시 중지’로 보이며 예약하기는 꺼진다. 스펙이 이미 정해 둔 동작이라 새 규칙은 없고, 서버 판정 한 줄이 계약을 어기고 있다.</blockquote>
+  </section>
+
+  <section>
+    <h2>화면 <span class="ex">예시</span></h2>
+    <p class="anno" style="margin-bottom:16px">강씨네 귤밭·하우스 감귤 값은 시드(<code>FIXED_NOW=2026-10-07</code>)와 같다. 다른 농가 상품(효돈 노지 감귤·한라봉 3kg)과 사진은 자리 표시용 <b>예시</b>다. <span class="wrong" style="padding:0 4px">빨간 테두리</span> = 지금 틀린 곳, <span class="changed" style="padding:0 4px">점선</span> = 바뀌는 곳.</p>
+
+    <div class="pair">
+      <h3>① 홈 · 추천 상품 (SCR-01)</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>main <code>87792b7</code>, 일시 중지 직후</span></div>
+          <div class="phone">
+            <div class="big">farmclub <small>검색</small></div>
+            <div class="sec">마감이 가까운 상품</div>
+            <div class="carousel">
+              <div class="pcard wrong">
+                <div class="photo" style="height:200px"></div>
+                <div class="farm">강씨네 귤밭 ›</div>
+                <div class="pname">하우스 감귤 5kg / 10kg</div>
+                <div class="sub">11.10~11.20 도착</div>
+                <div><div class="strike">36,000원</div><div class="price">29,000원</div></div>
+                <div class="meta">38명 예약 · 마감 D-5</div>
+              </div>
+              <div class="pcard peek"><div class="photo green" style="height:200px"></div></div>
+            </div>
+            <div class="tabs"><span class="on">발견</span><span>내 주문</span><span>채팅</span><span>내 정보</span></div>
+          </div>
+          <p class="anno"><span class="mark">1</span>중지한 상품이 <b>첫 칸</b>에 가격·D-5와 함께 그대로 있다. 누르면 예약 가능한 상세로 간다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>판매 중인 상품만</span></div>
+          <div class="phone">
+            <div class="big">farmclub <small>검색</small></div>
+            <div class="sec">마감이 가까운 상품</div>
+            <div class="gone changed">하우스 감귤은 추천에서 빠짐(품절·기간 공백과 같은 규칙). 순서는 다음 마감순 그대로.</div>
+            <div class="carousel">
+              <div class="pcard">
+                <div class="photo green" style="height:200px"></div>
+                <div class="farm">효돈 언덕농원 › <span class="ex">예시</span></div>
+                <div class="pname">효돈 노지 감귤 5kg</div>
+                <div class="sub">11.15~11.25 도착</div>
+                <div><div class="strike">31,000원</div><div class="price">27,000원</div></div>
+                <div class="meta">12명 예약 · 마감 D-8</div>
+              </div>
+              <div class="pcard peek"><div class="photo box" style="height:200px"></div></div>
+            </div>
+            <div class="tabs"><span class="on">발견</span><span>내 주문</span><span>채팅</span><span>내 정보</span></div>
+          </div>
+          <p class="anno">새 문구·새 부품 없음. 추천이 0개가 되면 기존 ‘현재 예약 가능한 상품이 없어요’(AC-06-5).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair" style="margin-top:40px">
+      <h3>② 농가 목록(SCR-02) · 농가 소식방 판매 품목(SCR-03)</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>농가 목록 → 강씨네 귤밭 소식방</span></div>
+          <div class="phone">
+            <div class="big">농가</div>
+            <div class="search">농가·품종·지역 검색</div>
+            <div class="row">
+              <div class="photo farm thumb"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                <div style="font-size:17px;font-weight:600">강씨네 귤밭</div>
+                <div class="sub">제주 서귀포 · 하우스 감귤</div>
+                <div class="wrong" style="display:flex;gap:8px;align-items:center;margin-top:4px;width:max-content;padding-right:4px"><span class="price c">29,000원</span><span class="chip">D-5</span></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="photo green thumb"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                <div style="font-size:17px;font-weight:600">효돈 언덕농원 <span class="ex">예시</span></div>
+                <div class="sub">제주 서귀포 · 효돈 노지 감귤</div>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:4px"><span class="price c">27,000원</span><span class="chip">D-8</span></div>
+              </div>
+            </div>
+            <div class="roomhead" style="border-top:8px solid var(--a-surface)"><span style="width:40px;text-align:center">‹</span><div class="av">강</div><div><div style="font-weight:600">강씨네 귤밭</div><div class="meta">팔로잉</div></div></div>
+            <div class="shelf">
+              <div class="shelf-h">판매 품목 <span>⌃</span></div>
+              <div class="shelf-list">
+                <div class="sitem wrong"><div class="photo"></div><div><div style="font-size:15px;font-weight:600">하우스 감귤 5kg / 10kg</div><div class="strike">36,000원</div><div class="price c">29,000원</div></div></div>
+                <div class="sitem"><div class="photo box"></div><div><div style="font-size:15px;font-weight:600">레드향 3kg</div><div class="na">현재 예약 불가</div></div></div>
+              </div>
+            </div>
+            <div class="roomfeed">소식 2개 · 팔로우 유지됨</div>
+          </div>
+          <p class="anno"><span class="mark">2</span>중지 상품이 농가의 <b>대표 상품</b>이라 강씨네가 맨 위, 가격·D-5. 소식방 판매 품목도 판매 중처럼 가격을 보인다(옆 레드향 품절은 ‘현재 예약 불가’).</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>대표에서 빠지고, 판매 품목엔 남는다</span></div>
+          <div class="phone">
+            <div class="big">농가</div>
+            <div class="search">농가·품종·지역 검색</div>
+            <div class="row">
+              <div class="photo green thumb"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                <div style="font-size:17px;font-weight:600">효돈 언덕농원 <span class="ex">예시</span></div>
+                <div class="sub">제주 서귀포 · 효돈 노지 감귤</div>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:4px"><span class="price c">27,000원</span><span class="chip">D-8</span></div>
+              </div>
+            </div>
+            <div class="row changed" style="margin:0 2px">
+              <div class="photo farm thumb"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                <div style="font-size:17px;font-weight:600">강씨네 귤밭</div>
+                <div class="sub">제주 서귀포 · 지금 판매 중인 상품 없음</div>
+              </div>
+            </div>
+            <div class="roomhead" style="border-top:8px solid var(--a-surface)"><span style="width:40px;text-align:center">‹</span><div class="av">강</div><div><div style="font-weight:600">강씨네 귤밭</div><div class="meta">팔로잉</div></div></div>
+            <div class="shelf">
+              <div class="shelf-h">판매 품목 <span>⌃</span></div>
+              <div class="shelf-list">
+                <div class="sitem changed"><div class="photo"></div><div><div style="font-size:15px;font-weight:600">하우스 감귤 5kg / 10kg</div><div class="na">현재 예약 불가</div></div></div>
+                <div class="sitem"><div class="photo box"></div><div><div style="font-size:15px;font-weight:600">레드향 3kg</div><div class="na">현재 예약 불가</div></div></div>
+              </div>
+            </div>
+            <div class="roomfeed">소식 2개 · 팔로우 유지됨</div>
+          </div>
+          <p class="anno">강씨네는 판매 중 상품이 없어 <b>맨 아래</b>로, 둘째 줄은 기존 문구 ‘지금 판매 중인 상품 없음’. 판매 품목에는 그대로 남고 가격 자리만 품절과 같은 ‘현재 예약 불가’(R-27 “공개 화면에 남되”).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair" style="margin-top:40px">
+      <h3>③ 상품 상세 (SCR-04)</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>예약하기를 누른 뒤</span></div>
+          <div class="phone tall">
+            <div class="hbar"><span class="back">‹</span>상품 상세</div>
+            <div class="body">
+              <div class="photo" style="height:220px;margin:0 -20px"></div>
+              <div class="farm">강씨네 귤밭 ›</div>
+              <div class="pname">하우스 감귤 5kg / 10kg</div>
+              <div class="fold">11.10~11.20 도착 예정 <span>⌄</span></div>
+              <div class="opts wrong">
+                <div><b style="font-size:17px">5kg</b><div class="strike">36,000원</div><div class="price l">29,000원</div></div>
+                <div><b style="font-size:17px">10kg</b><div class="strike">68,000원</div><div class="price l">55,000원</div></div>
+              </div>
+              <div class="sub wrong" style="width:max-content;padding-right:4px">42박스 남음 · 마감 D-5</div>
+              <div class="fold">배송비 4,000원 · 도서산간 추가 <span>⌄</span></div>
+            </div>
+            <div class="sheet">
+              <div class="t">옵션 선택</div>
+              <div class="fold">5kg · 29,000원 <span>1개</span></div>
+              <div class="btn pri wrong" style="flex:none">주문서로</div>
+            </div>
+          </div>
+          <p class="anno"><span class="mark">3</span>중지 상태를 어디에도 말하지 않고 가격·남은 박스·마감을 보인다. <b>예약하기가 켜져</b> 옵션 시트·‘주문서로’까지 열리고, 주문을 만들 때에야 <code>409 SALES_PAUSED</code>로 막힌다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>품절 상세와 같은 자리·같은 결</span></div>
+          <div class="phone tall">
+            <div class="hbar"><span class="back">‹</span>상품 상세</div>
+            <div class="body">
+              <div class="photo" style="height:220px;margin:0 -20px"></div>
+              <div class="farm">강씨네 귤밭 ›</div>
+              <div class="pname">하우스 감귤 5kg / 10kg</div>
+              <div class="fold">11.10~11.20 도착 예정 <span>⌄</span></div>
+              <div class="statusblock changed">
+                <div class="h">판매 일시 중지</div>
+                <div class="sub">지금은 새 예약을 받지 않아요.</div>
+              </div>
+              <div class="fold">배송비 4,000원 · 도서산간 추가 <span>⌄</span></div>
+              <div class="sub" style="margin-top:4px">긴 상세 이야기·품질·고시·취소 규정은 그대로</div>
+            </div>
+            <div class="bottom">
+              <div class="btn sec2">1:1 채팅</div>
+              <div class="btn off changed">예약하기</div>
+            </div>
+            <div class="tabs"><span class="on">발견</span><span>내 주문</span><span>채팅</span><span>내 정보</span></div>
+          </div>
+          <p class="anno">가격 줄 자리에 상태 제목과 한 문장, ‘n박스 남음 · 마감’ 줄 없음, 예약하기 비활성(누르면 아무 일 없음). 다음 기간 날짜는 <b>보이지 않는다</b> — 중지는 기간과 무관해 “다음 예약은 10월 13일에 열려요”는 거짓 약속이 된다. 1:1 채팅은 켜 둔다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>디자인 무브</h2>
+    <div class="moves">
+      <div class="card move"><h3><span class="mark">1</span>‘판매 중’ 판정은 한 곳</h3><p>서버 카드의 <code>soldOut</code>을 “지금 예약할 수 없음” = <code>availability ≠ AVAILABLE</code>로 정의한다(Mock은 이미 이렇게 계산). 홈·농가 목록·소식방·상세·주문서가 모두 이 값 하나를 보므로 화면 다섯 곳이 한 번에 맞는다.</p></div>
+      <div class="card move"><h3><span class="mark">2</span>추천·대표는 빼고, 소식방·상세에는 남긴다</h3><p>FEAT-06의 “판매 중 상품만”과 R-27의 “공개 화면에 남되”를 둘 다 지킨다. 숨김 플래그나 별도 목록을 만들지 않고 품절과 똑같이 다룬다.</p></div>
+      <div class="card move"><h3><span class="mark">3</span>가격 대신 상태 — 가짜 가격 없음</h3><p>상세는 옵션 가격·취소선·남은 박스·마감 줄을 걷고 그 자리에 ‘판매 일시 중지’(22 굵게) + 보조 한 문장. 목록 부품은 기존 <code>Price</code>의 ‘현재 예약 불가’. SCR-04 “품절에 가짜 가격 없음”을 중지에도 적용.</p></div>
+      <div class="card move"><h3><span class="mark">4</span>중지에는 날짜를 약속하지 않는다</h3><p><code>nextStageStartsAt</code>은 기간 때문에 막힌 경우(기간 공백 <code>NOT_OPEN</code>, 기간 물량 소진 <code>PERIOD_SOLD_OUT</code>)에만 준다. 중지·종료는 <code>null</code> → 보조 문장은 기존 ‘지금은 새 예약을 받지 않아요.’</p></div>
+      <div class="card move"><h3><span class="mark">5</span>막는 곳은 첫 단추, 서버 409는 안전망</h3><p>예약하기를 상세에서 끄고, 1:1 채팅은 남겨 “언제 다시 여나요?”를 물을 길을 둔다. 주문 생성의 <code>SALES_PAUSED</code> 거절은 그대로 두어 상세를 연 채 중지된 경우를 막는다(contracts-1.2 4장).</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>문구 — 새 문구 0개</h2>
+    <div class="tbl"><table>
+      <tr><th>자리</th><th>BEFORE</th><th>AFTER</th><th>출처(이미 있는 문구)</th></tr>
+      <tr><td>홈 추천 카드</td><td>하우스 감귤 · 29,000원 · 38명 예약 · 마감 D-5</td><td class="copy">(카드 없음)</td><td>추천 0개면 ‘현재 예약 가능한 상품이 없어요’(AC-06-5)</td></tr>
+      <tr><td>농가 목록 둘째 줄</td><td>제주 서귀포 · 하우스 감귤 + 29,000원 · D-5</td><td class="copy">제주 서귀포 · 지금 판매 중인 상품 없음</td><td><code>apps/consumer/src/app/(tabs)/farms/index.tsx</code></td></tr>
+      <tr><td>소식방 판매 품목 가격</td><td>36,000원 / 29,000원</td><td class="copy">현재 예약 불가</td><td><code>packages/ui/src/Storefront.tsx</code> <code>Price</code></td></tr>
+      <tr><td>상세 상태 제목</td><td>5kg 29,000원 · 10kg 55,000원</td><td class="copy">판매 일시 중지</td><td><code>ProductPage.tsx</code> <code>AVAILABILITY.PAUSED</code></td></tr>
+      <tr><td>상세 보조 문장</td><td>42박스 남음 · 마감 D-5</td><td class="copy">지금은 새 예약을 받지 않아요.</td><td><code>ProductPage.tsx</code> (<code>nextStageStartsAt</code> 없을 때)</td></tr>
+      <tr><td>예약하기</td><td>켜짐 → 옵션 시트 → 주문서로</td><td class="copy">예약하기 (비활성)</td><td><code>products/[productId].tsx</code> <code>disabled={p.soldOut}</code></td></tr>
+    </table></div>
+    <p class="anno" style="margin-top:8px">앱 코드(<code>apps/consumer</code>, <code>packages/ui</code>)는 바꾸지 않는다. 화면은 서버 값만 고치면 위처럼 바뀐다.</p>
+  </section>
+
+  <section>
+    <h2>서버 변경 (승인 뒤)</h2>
+    <div class="cols">
+      <div class="card decision">
+        <h3>A안(제안): <code>sold_out</code> 뜻을 계약대로 — 필드 추가 없음</h3>
+        <p><code>server/app/catalog/service.py</code> <code>card()</code>:</p>
+<pre>state = sales_state(db, item)
+blocked = state.availability != "AVAILABLE"
+dated = state.availability in ("NOT_OPEN", "PERIOD_SOLD_OUT")
+...
+sold_out=blocked,
+next_stage_starts_at=nxt.starts_at if dated and nxt else None,</pre>
+        <p><code>farms/service.py</code> <code>home()</code>·<code>farm_cards()</code>·<code>by_deadline()</code>는 그대로(이미 <code>sold_out</code>으로 거르고 정렬). 응답 필드·타입이 같아 API 호환. Mock <code>packages/api/src/mock/derive.ts</code>는 <code>soldOut</code>이 이미 같고, <code>nextStageStartsAt</code>만 같은 규칙으로 맞춘다.</p>
+      </div>
+      <div class="card">
+        <h3>B안(안 씀): <code>reservable</code> 새 필드</h3>
+        <p>앱 5곳(홈·농가 목록·소식방·상세·주문서)과 <code>productPresentation.ts</code>가 모두 <code>soldOut</code>을 보므로 새 필드는 클라이언트를 다 고쳐야 하고, 이름과 뜻이 다른 두 값이 남는다. 상태별 문구는 이미 <code>availability</code>로 나뉜다.</p>
+      </div>
+      <div class="card">
+        <h3>같이 고쳐지는 것·그대로인 것</h3>
+        <ul>
+          <li>같은 결함: 상품 총 한도로 막힌 <code>TOTAL_SOLD_OUT</code>도 지금은 <code>soldOut=false</code>(기간 박스만 봄). A안으로 함께 ‘전체 물량 품절’·예약하기 꺼짐.</li>
+          <li>기존 <code>AC-07-1</code> 테스트 2개(레드향 기간 공백·하우스 기간 물량 소진의 <code>nextStageStartsAt</code>)는 그대로 통과해야 한다.</li>
+          <li>그대로: 주문 생성 <code>SALES_PAUSED</code>(<code>server/app/orders/**</code>, 고위험 — 안 건드림), 생산자 앱 상품 그룹(<code>availability</code>·<code>salesPaused</code> 기준), 마이그레이션·모델 없음.</li>
+          <li><code>server/app/catalog</code>·<code>server/app/farms</code>의 service는 AGENTS.md 고위험 목록이 아니다(목록은 <code>*/models.py</code>·<code>orders/**</code> 등) → <b>위험 등급: 일반</b>.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>테스트 (승인 뒤)</h2>
+    <div class="tbl"><table>
+      <tr><th>묶음</th><th>테스트</th><th>확인</th></tr>
+      <tr><td>pytest <code>server/tests/test_catalog.py</code></td><td><code>test_AC_07_3_paused_product_not_reservable</code></td><td>판매 설정 API로 중지 → <code>GET /api/products/p-house</code>: <code>availability=PAUSED</code>, <code>soldOut=true</code>, <code>nextStageStartsAt=null</code>. 재개 → <code>AVAILABLE</code>, <code>soldOut=false</code></td></tr>
+      <tr><td>pytest <code>server/tests/test_farms.py</code>(있는 파일에)</td><td><code>test_AC_07_3_paused_product_left_out_of_home_and_featured</code></td><td>중지 상품이 <code>/api/home</code> <code>recommended</code>와 <code>/api/farms</code> <code>featured</code>에 없고, <code>/api/farms/f-kang</code> 판매 품목에는 <code>soldOut=true</code>로 남음(R-27)</td></tr>
+      <tr><td>pytest</td><td><code>test_AC_07_3_total_sold_out_not_reservable</code></td><td>총 한도 소진 시 <code>soldOut=true</code>, <code>nextStageStartsAt=null</code></td></tr>
+      <tr><td>Mock <code>scripts/test-storefront.mjs</code></td><td>AC-07-3 paused card</td><td>Mock <code>productCard</code>: PAUSED → <code>soldOut</code> true, <code>nextStageStartsAt</code> null; <code>farmCard</code> featured 제외</td></tr>
+      <tr><td>재실행</td><td>I3-DISC-05</td><td>고친 빌드에서 하네스 재실행, 원래 FAIL 기록은 보존하고 새 결과 추가(DEV-166/PR #402 쪽)</td></tr>
+      <tr><td>Playwright(선택)</td><td>—</td><td>앱 코드 변경이 없어 새 spec은 만들지 않는 안. 필요하면 I3-DISC-05 하네스가 화면 확인을 대신함</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>바꿀 스펙·wiki 줄 (승인 뒤)</h2>
+    <div class="tbl"><table>
+      <tr><th>파일</th><th>지금</th><th>바꿀 줄</th></tr>
+      <tr><td><code>docs/spec/functional/FEAT-07-product-detail.md</code></td><td>AC-07-3 “PAUSED/기간 공백/품절/종료를 구분하여 예약 버튼을 제한한다.”</td><td>뒤에 덧붙임: “PAUSED는 가격·남은 박스·마감 대신 ‘판매 일시 중지’와 ‘지금은 새 예약을 받지 않아요.’를 보이고 다음 기간 날짜를 보이지 않는다.”</td></tr>
+      <tr><td><code>docs/spec/functional/FEAT-06-farm-search-follow.md</code></td><td>입력·검증 “판매 중 상품의 현재 단계…”</td><td>덧붙임: “여기서 판매 중은 지금 예약할 수 있는 상품(availability=AVAILABLE)이다. 판매 중지·품절·기간 공백·종료 상품은 홈 추천과 농가 대표 상품에서 빠지고 상세·소식방 판매 품목에는 남는다(R-27).”</td></tr>
+      <tr><td><code>docs/spec/screens.md</code></td><td>SCR-04 고정 “PAUSED/공백/품절/종료는 기존 예약 제한과 다음 시작 안내 유지.”</td><td>“다음 시작 안내는 공백·기간 품절에만, PAUSED·종료·전체 품절은 ‘지금은 새 예약을 받지 않아요.’” + 변경 이력 1줄</td></tr>
+      <tr><td><code>docs/spec/contracts-1.2.md</code></td><td>상품 카드 필드 설명 없음</td><td>“<code>soldOut</code> = availability가 AVAILABLE이 아님, <code>nextStageStartsAt</code>은 NOT_OPEN·PERIOD_SOLD_OUT일 때만” 1줄</td></tr>
+      <tr><td><code>docs/wiki/Requirements-and-Specifications.md</code></td><td>AC-07-1 Sold out만 있음</td><td>영문 1줄: paused products stay visible on the product page and farm room shelf as “Sales paused” with Reserve disabled, and are left out of home recommendations and the farm’s featured product.</td></tr>
+      <tr><td><code>server/spec.md</code></td><td>—</td><td>catalog 카드 판정 1줄(머지 때)</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>열린 질문</h2>
+    <div class="cols">
+      <div class="card"><h3>Q1. 농가 목록에서 ‘판매 일시 중지’라고 말할까</h3><p>제안은 품절과 같은 ‘지금 판매 중인 상품 없음’(새 문구 없음). 단골이 “문 닫았나?” 오해할 수 있다면 <code>featured</code>가 없을 때 둘째 줄을 ‘판매 잠시 멈춤’으로 바꾸는 안도 있다 — 서버에 이유 필드가 필요해 범위가 커진다.</p></div>
+      <div class="card"><h3>Q2. 상세 보조 문장을 더 구체적으로</h3><p>‘지금은 새 예약을 받지 않아요.’ 대신 ‘농가가 판매를 잠시 멈췄어요. 1:1 채팅으로 물어볼 수 있어요.’처럼 중지에만 다른 문장을 둘까. 재개 알림 기능은 없어 “다시 열면 알려 드려요”는 쓰지 않는다.</p></div>
+      <div class="card"><h3>Q3. 전체 물량 품절(TOTAL_SOLD_OUT)도 같이 고칠까</h3><p>같은 한 줄로 고쳐진다. 범위를 넓히는 것이라 PM 확인. 제외하려면 <code>blocked</code>를 PAUSED만 보게 해야 하는데 그러면 Mock과 다시 어긋난다.</p></div>
+      <div class="card"><h3>Q4. Figma v6</h3><p>새 문구·부품이 없어 상태 프레임 추가(상세 ‘판매 일시 중지’, 소식방 품목 ‘현재 예약 불가’)만 필요. 승인 뒤 Figma v6 반영 요청(PR <code>Figma:</code> 후속).</p></div>
+    </div>
+  </section>
+</div>

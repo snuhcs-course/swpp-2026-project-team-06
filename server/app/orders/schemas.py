@@ -47,6 +47,11 @@ class OrderInput(CamelModel):
     consents: Consents = Field(default_factory=Consents)
     consent_version: str = Field(default="", max_length=32)
     save_address: bool = False
+    # 주문서가 본 지금 기간·단가·옵션 중량(AC-08-8, DEV-216). 보내면 지금 값과 비교해 다르면
+    # 409 STAGE_CHANGED. 이번에는 선택(오래된 앱 보호), 다음 이터레이션에 필수로 바꾼다
+    expected_stage_id: str | None = Field(default=None, max_length=64)
+    expected_unit_price: int | None = None
+    expected_unit_weight_grams: int | None = None
 
 
 class AdminRefundInput(CamelModel):
@@ -132,6 +137,14 @@ class RefundIssueInput(CamelModel):
 
 class HarvestStartInput(CamelModel):
     product_id: str
+    # DEV-231: 예약 기간(단계) 하나만. 없으면 예전처럼 상품 전체
+    stage_id: str | None = None
+
+
+class HarvestStarted(CamelModel):
+    changed: int
+    stage_id: str | None
+    order_ids: list[str]
 
 
 class Changed(CamelModel):
@@ -154,6 +167,8 @@ class ProducerOrder(CamelModel):
     order_id: str
     order_no: str
     product_id: str
+    # DEV-231: 예약 기간 화면 수확 시작 시트가 그 기간 주문만 고른다
+    stage_id: str
     product_name: str
     option_label: str
     quantity: int
@@ -175,6 +190,18 @@ class ProducerOrder(CamelModel):
     address_detail: str
 
 
+class HarvestTarget(CamelModel):
+    """예약 완료 주문이 남은 예약 기간(DEV-231). closed는 예약 기간이 끝났는지(KST)."""
+
+    product_id: str
+    product_name: str
+    stage_id: str
+    stage_name: str
+    ends_at: date
+    count: int
+    closed: bool
+
+
 class DashboardTodo(CamelModel):
     open_questions: int
     to_ship: int
@@ -182,6 +209,9 @@ class DashboardTodo(CamelModel):
     awaiting_deposit: int
     refunds_to_settle: int
     has_account: bool
+    # DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 수, 수확을 시작할 수 있는 기간들
+    to_harvest: int = 0
+    harvest_targets: list[HarvestTarget] = []
 
 
 class DashboardProduct(SalesState):

@@ -45,12 +45,29 @@ export type ConflictReason =
  */
 export type ForbiddenReason = "WRONG_APP" | "ONBOARDING_REQUIRED" | "CONSENT_REQUIRED" | "TEST_ACCOUNT";
 
+/** 409 STAGE_CHANGED의 이전(주문서가 본 값·주문 스냅샷)·지금 값(AC-08-8, contracts-1.2 1장) */
+export type StageSnapshot = {
+  stageId: string | null;
+  unitPrice: number | null;
+  unitWeightGrams: number | null;
+};
+export type CurrentStageSnapshot = StageSnapshot & {
+  startsAt: string;
+  endsAt: string;
+};
+
 export type ErrorBody = {
   code: ErrorCode;
   message: string;
   details: {
     fields?: Record<string, string>;
     reason?: ConflictReason | ForbiddenReason;
+    /** STAGE_CHANGED·SOLD_OUT: 고른 옵션 */
+    optionId?: string | null;
+    previous?: StageSnapshot;
+    /** 지금 예약 기간이 없으면 null */
+    current?: CurrentStageSnapshot | null;
+    nextStageStartsAt?: string | null;
     [k: string]: unknown;
   };
 };
@@ -242,6 +259,8 @@ export type NewsRoomMessage = {
   broadcastId: string | null;
   reactionCount: number;
   myReaction: boolean;
+  /** 방송의 공개 범위(M-14). 소비자 답장은 null (DEV-210) */
+  visibility: "PUBLIC" | "FOLLOWERS" | null;
 };
 export type NewsRoomSummary = {
   canReply: boolean;
@@ -315,6 +334,32 @@ export type Stage = {
   options: Record<string, StageOptionValue>;
 };
 
+/** 생산자 예약 기간 화면용(DEV-231). 주문 수는 박스가 아니라 주문 건수 */
+export type MyStage = Stage & {
+  reservedOrderCount: number;
+  awaitingOrderCount: number;
+  preparingOrderCount: number;
+  /** 그 기간에 출하 준비 이후 주문이 하나라도 있으면 수확 시작함 */
+  harvestStarted: boolean;
+};
+
+/** 예약 완료 주문이 남은 예약 기간(DEV-231). closed = 예약 기간이 끝남(KST) */
+export type HarvestTarget = {
+  productId: string;
+  productName: string;
+  stageId: string;
+  stageName: string;
+  endsAt: ISODate;
+  count: number;
+  closed: boolean;
+};
+
+export type HarvestStarted = {
+  changed: number;
+  stageId: string | null;
+  orderIds: string[];
+};
+
 export type ProductDetail = ProductCard & {
   variety: string;
   description: string;
@@ -376,7 +421,9 @@ export type MyProduct = Omit<
   | "reservedCount"
   | "deliveryWindow"
   | "maxDelayUntil"
+  | "stages"
 > & {
+  stages: MyStage[];
   deliveryWindow: { start: ISODate; end: ISODate } | null;
   maxDelayUntil: ISODate | null;
   rejectReason: string | null;
@@ -472,6 +519,11 @@ export type OrderInput = Recipient & {
   consents: OrderConsents;
   consentVersion: string;
   saveAddress?: boolean;
+  /** 주문서가 본 지금 기간·단가·옵션 중량(AC-08-8, DEV-216). 다르면 409 STAGE_CHANGED.
+   * 지금은 선택(오래된 앱 보호), 다음 이터레이션에 필수 */
+  expectedStageId?: string;
+  expectedUnitPrice?: number;
+  expectedUnitWeightGrams?: number;
 };
 
 export type OrderAction =
@@ -549,6 +601,10 @@ export type Dashboard = {
     refundsToSettle: number;
     /** 입금 계좌 등록 여부 */
     hasAccount: boolean;
+    /** 예약 기간이 끝난 기간의 예약 완료 주문 수(DEV-231) */
+    toHarvest: number;
+    /** 예약 완료 주문이 남은 기간, 끝나는 날 순(DEV-231) */
+    harvestTargets: HarvestTarget[];
   };
   /** 판매 중 대표 상품 요약(예약한 사람 수·주문 수) */
   product:
@@ -588,6 +644,8 @@ export type ProducerOrder = Recipient & {
   orderId: string;
   orderNo: string;
   productId: string;
+  /** 예약 기간(DEV-231) */
+  stageId: string;
   productName: string;
   optionLabel: string;
   quantity: number;
@@ -741,11 +799,21 @@ export type LinkedOrder = {
   quantity: number;
   status: OrderStatus;
 };
+/** 소비자에게 보이는 응답 주체와 예상 답 시간(DEV-208, AC-13-9·13-10). 생산자 조회는 null */
+export type FarmReply = {
+  /** AI = 방 AUTO + 농가 AI ON, FARM = 직접 응대 또는 농가 AI OFF */
+  mode: "AI" | "FARM";
+  /** 최근 30일 답 대기 중앙값을 1·2·3·6·12·24·48·72시간으로 올림. 5건 미만·72시간 초과면 null */
+  typicalReplyHours: number | null;
+};
 export type ChatPage = Paged<ChatMessage> & {
   thread: Thread;
   inquiries: Inquiry[];
   orders: LinkedOrder[];
   escalations?: Escalation[];
+  farmReply?: FarmReply | null;
+  /** 생산자 조회에만 채움: 목록과 같은 가림 이름(김○○), 문의 방은 'farmclub'. 소비자 조회는 null(DEV-232) */
+  consumerName?: string | null;
 };
 
 export type CapacityRequest = {

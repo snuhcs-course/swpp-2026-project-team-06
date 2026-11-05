@@ -34,7 +34,7 @@
 | 지표 | PostHog Cloud(무료), I1부터 | PRD 4장 지표, 개인정보 없이 | [0005](./adr/0005-analytics-posthog.md) |
 | 에러 | Sentry(앱·서버, 무료) | | — |
 | 결제 | I1 Mock. I2부터 PortOne(NHN KCP) | 주문·결제 모델은 PortOne 연동을 가정 | — |
-| CI/CD | GitHub Actions: 서버 테스트·린트, 앱 타입체크(ci.yml). 서버 배포는 main CI 성공 뒤, 마지막 배포 커밋(이동 태그 `deploy/railway-api`)과 그 커밋 사이에 `server/**` 변경이 있으면 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65·66·139; GitHub App은 조직 승인 문제로 미연결). 앱은 main CI 성공 뒤 마지막 배포(`deploy/vercel-<app>`) 이후 앱 관련 변경이 있으면 Actions가 `expo export` → `vercel deploy --prod`(deploy-vercel.yml, DEV-67; `VERCEL_TOKEN` 등록 시에만 동작, 레포 변수 `APP_API_URL`이 비면 Mock 빌드). 관리자 페이지(`scripts/admin-web`)는 CI job `admin-web`에서 테스트하고, main CI 성공 뒤 마지막 배포(`deploy/vercel-admin`) 이후 `scripts/admin-web/` 변경이 있으면 빌드 없이 `vercel deploy scripts/admin-web --prod`(같은 workflow의 `deploy-admin`, DEV-114) | | — |
+| CI/CD | GitHub Actions CI(ci.yml): 첫 job `changes`가 바뀐 경로(`scripts/ci/integration-map.json`)로 server(ruff·pytest·alembic)·apps(타입체크·Mock·웹 export)·admin-web·integration(실제 스택 + Playwright, 영향받는 spec만, 시간 기준 최대 3샤드)을 골라 돌리고 `ci-ok`가 모은다. 문서만 바뀌면 다 건너뛴다. 머지 큐(`merge_group`)는 integration 전체, 큐에서 통과한 커밋의 main push는 다시 돌리지 않는다. nightly·`hotfix` 머지 뒤 전체 검사는 ci-full.yml(DEV-234, `.github/CI.md`). 서버 배포는 main CI 성공 뒤, 마지막 배포 커밋(이동 태그 `deploy/railway-api`)과 그 커밋 사이에 `server/**` 변경이 있으면 Actions가 Railway CLI `railway up`으로 올림(deploy-railway.yml, DEV-65·66·139; GitHub App은 조직 승인 문제로 미연결). 앱은 main CI 성공 뒤 마지막 배포(`deploy/vercel-<app>`) 이후 앱 관련 변경이 있으면 Actions가 `expo export` → `vercel deploy --prod`(deploy-vercel.yml, DEV-67; `VERCEL_TOKEN` 등록 시에만 동작, 레포 변수 `APP_API_URL`이 비면 Mock 빌드). 관리자 페이지(`scripts/admin-web`)는 CI job `admin-web`에서 테스트하고, main CI 성공 뒤 마지막 배포(`deploy/vercel-admin`) 이후 `scripts/admin-web/` 변경이 있으면 빌드 없이 `vercel deploy scripts/admin-web --prod`(같은 workflow의 `deploy-admin`, DEV-114) | | — |
 | 패키지 | npm workspaces(앱), uv 또는 pip(서버) | 설정 최소 | — |
 
 [0002](./adr/0002-backend-django-admin.md)(Django + DRF, Django Admin)는 [0007](./adr/0007-backend-fastapi.md)·[0008](./adr/0008-operator-admin-api.md)로 대체됐다.
@@ -66,7 +66,7 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 
 도메인 모듈마다 `router.py`(API 경로), `models.py`(SQLAlchemy 모델), `schemas.py`(Pydantic 입출력), `service.py`(업무 로직)를 둔다.
 
-코드 폴더마다 `spec.md`(구현 결정)와 `tasks.md`(작업 기록)를 둔다([docs/spec/README.md](../README.md) 두 층 스펙).
+코드 폴더마다 `spec.md`(구현 결정)와 `tasks/<이슈 키>.md`(이슈별 작업 기록, ADR 0014)를 둔다([docs/spec/README.md](../README.md) 두 층 스펙).
 
 ## 4. FEAT ↔ 코드 폴더
 
@@ -120,7 +120,7 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 - 화면 이벤트는 앱에서, 결제·취소·구매 확정처럼 확정된 사실은 서버에서 보낸다.
 - 이벤트에 이름·연락처·주소·메시지 본문을 넣지 않는다(N-05). 사용자 구분은 내부 ID만 쓴다.
 - 이벤트 이름과 속성은 [트래킹 플랜](./README.md)을 따른다.
-- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71). 키가 있어도 접속 호스트가 운영 도메인(`farmclub.kr`·`farm.farmclub.kr`)이 아니면 켜지 않는다 — Vercel 기본 주소(`*.vercel.app`)·워킹 데모(`demo.farmclub.kr`)·localhost 접속은 지표에 넣지 않는다(DEV-125, 목록은 `EXPO_PUBLIC_POSTHOG_HOSTS`로 덮어씀).
+- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71). 키가 있어도 접속 호스트가 운영 도메인(`farmclub.kr`·`farm.farmclub.kr`)이 아니면 켜지 않는다 — Vercel 기본 주소(`*.vercel.app`)·워킹 데모(`demo.farmclub.kr`)·localhost 접속은 지표에 넣지 않는다(DEV-125, 목록은 `EXPO_PUBLIC_POSTHOG_HOSTS`로 덮어씀). 그래서 운영 화면 테스트·캡처는 Vercel 기본 주소에서 한다. 기본 주소는 공식 도메인으로 넘기지 않고(검색엔진에는 `X-Robots-Tag: noindex`), 서버가 `CONSUMER_APP_ALT_URLS`·`PRODUCER_APP_ALT_URLS`로 그 주소의 CORS·카카오 복귀를 받는다(DEV-236, ADR 0012 갱신).
 
 ## 6. 이번에 정한 값
 
@@ -157,3 +157,4 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 | 2026-10-23 | 0.6 | DEV-125: PostHog는 운영 도메인에서만 켠다(Vercel 기본 주소·데모·localhost 제외) |
 | 2026-10-23 | 0.7 | DEV-133: 워킹 데모 원본을 `demo/`로, main 머지 시 `farmclub-demo` 자동 배포, 영상은 GitHub Release |
 | 2026-10-23 | 0.8 | DEV-33: 소비자·생산자 앱을 EAS 네이티브 빌드로(ADR 0013). 2장 ‘앱 빌드’ 줄, 7장 남은 일 |
+| 2026-11-05 | 0.9 | DEV-236: Vercel 기본 주소를 공식 도메인으로 넘기지 않고(DEV-127 리다이렉트 제거, noindex 헤더) 서버 보조 주소로 CORS·카카오 복귀를 받는다. 운영 화면 테스트는 기본 주소에서(PostHog 꺼짐) |

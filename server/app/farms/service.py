@@ -212,7 +212,8 @@ def farm_cards(db: Session) -> list[FarmCard]:
 def search_farms(db: Session, q: str | None) -> list[FarmCard]:
     """농가 목록·검색(SCR-02, FEAT-06).
 
-    정렬은 farm_cards와 같고, q는 농가명·지역·주 품목·판매 중 상품명 부분 일치.
+    정렬은 farm_cards와 같고, q는 농가명·지역·주 품목·판매 중 상품의 상품명·품종 부분 일치
+    (AC-06-2). 미게시·반려·종료 상품은 보지 않는다(DEV-217).
     """
     from app.catalog import service as catalog
 
@@ -222,12 +223,14 @@ def search_farms(db: Session, q: str | None) -> list[FarmCard]:
         return cards
     farms = get_farms(db, [c.farm_id for c in cards])
     grouped = catalog.group_by_farm(catalog.published_cards(db, list(farms)))
+    varieties = catalog.published_varieties(db, list(farms))
     matched = []
     for card in cards:
         farm = farms[card.farm_id]
         haystack = " ".join(
             [farm.name, farm.region, farm.main_items or ""]
             + [c.name for c in grouped.get(card.farm_id, [])]
+            + varieties.get(card.farm_id, [])
         )
         if needle in haystack:
             matched.append(card)

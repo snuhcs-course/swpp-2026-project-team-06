@@ -1,5 +1,5 @@
 // SCR-12 주문 접수·입금 확인 중 (FEAT-09 개정 DEV-68, 06) — design: scr-12, s-12-detailfail
-// 입금 대기면 「입금 확인 중」과 계좌·입금자명·기한을, 확인된 뒤에 열면 「예약 완료」를 보여 준다.
+// 입금 대기면 「입금 대기」(알린 뒤 「입금 확인 중」, DEV-207)와 계좌·입금자명·기한을, 확인된 뒤에 열면 「예약 완료」를 보여 준다.
 import { farms, orders } from "@farmclub/api";
 import {
   Button,
@@ -18,6 +18,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
 
 import { DepositCard } from "../../../../lib/DepositCard";
+import { statusTitle } from "../../../../lib/orderText";
 import { useHideTabBar } from "../../../../lib/session";
 import { useToast } from "../../../../lib/toast";
 import { Avatar, copyText } from "../../../../lib/views";
@@ -47,23 +48,25 @@ export default function Done() {
     }
   }, [farm.data, showFollow]);
 
-  async function toggleFollow() {
+  async function setFollow(on: boolean) {
     const f = farm.data;
     if (!f) return;
-    const on = !following;
     setBusy(true);
     try {
       const r = on
         ? await farms.follow(f.farmId)
         : await farms.unfollow(f.farmId);
       setFollowing(r.following);
-      if (!on) toast.show("팔로우를 끊었어요");
+      // 확인 없이 끊고 되돌리기를 준다(FEAT-06 4, DEV-230 HE-X4)
+      if (!on)
+        toast.act("팔로우를 끊었어요", "되돌리기", () => void setFollow(true));
     } catch (e) {
-      toast.fail(e, () => void toggleFollow());
+      toast.fail(e, () => void setFollow(on));
     } finally {
       setBusy(false);
     }
   }
+  const toggleFollow = () => setFollow(!following);
 
   const awaiting = !o || o.status === "AWAITING_DEPOSIT";
   const copy = async (text: string, what: string) =>
@@ -89,7 +92,7 @@ export default function Done() {
             style={{ marginTop: 16 }}
             accessibilityRole="header"
           >
-            {awaiting ? "입금 확인 중" : "예약 완료"}
+            {o && awaiting ? statusTitle(o) : awaiting ? "입금 대기" : "예약 완료"}
           </T>
           <T variant="body">
             {o

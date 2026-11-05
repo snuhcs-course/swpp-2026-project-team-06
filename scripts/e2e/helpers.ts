@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 
 export const consumerUrl = process.env.FARMCLUB_CONSUMER_URL ?? "http://localhost:8081";
 export const producerUrl = process.env.FARMCLUB_PRODUCER_URL ?? "http://localhost:8082";
@@ -10,10 +10,33 @@ const ignoredConsoleErrors = [
   /Download the React DevTools/,
 ];
 
+// DEV-234: 로컬 스택 밖(외부 폰트·이미지 CDN 등) 리소스를 못 받은 콘솔 오류는 실패가 아니라 경고 주석으로 남긴다.
+// 2026-11-05 main CI 41962666285에서 외부 리소스 net::ERR_TIMED_OUT 한 건이 producer-and-privacy를 떨어뜨렸다.
+// localhost(API·앱) 리소스 실패는 그대로 실패다.
+const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+function externalResourceFailure(text: string, url: string | undefined) {
+  if (!/^Failed to load resource/.test(text) || !url) return false;
+  try {
+    return !localHosts.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function monitor(page: Page, allowedErrors: RegExp[] = []) {
   const failures: string[] = [];
   page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
+    if (message.type() === "error" && externalResourceFailure(message.text(), message.location().url)) {
+      const description = `external resource failed (not counted): ${message.text()} ${message.location().url}`;
+      try {
+        test.info().annotations.push({ type: "warning", description });
+      } catch {
+        // 테스트가 끝난 뒤 들어온 콘솔 이벤트(test.info() 없음)
+        console.warn(description);
+      }
+      return;
+    }
     if (
       message.type() === "error" &&
       !ignoredConsoleErrors.some((pattern) => pattern.test(message.text())) &&

@@ -1,0 +1,478 @@
+<title>주문 줄 구별 정보</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 보드 레이아웃: 문제 요약 → 계약(API에 이미 있는 값) → 화면 3쌍(BEFORE / AFTER) → 디자인 무브 → 문구·말줄임 → 서버 → 테스트 → 스펙 줄 → 질문.
+   폰 프레임은 앱(I1 밝은 화면 전용) 그대로라 테마를 따르지 않는다. 보드 바탕만 테마를 따른다. */
+:root {
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --muted: #5F5F5B; --line: #DCDBD6;
+  --accent: #C94F0C; --new: #FFF2E9; --newline: #E8B896; --bad: #B42318;
+  /* 앱 화면(Figma v6 / packages/ui/src/tokens.ts) — 테마 고정 */
+  --a-text: #111111; --a-muted: #6B6B6B; --a-bg: #FFFFFF; --a-surface: #F5F5F3;
+  --a-border: #E8E8E6; --a-accent: #C94F0C; --a-disabled: #E8E8E6; --a-disabled-text: #9A9A96;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+    --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+  --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+  font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+header { display: flex; flex-direction: column; gap: 10px; max-width: 860px; }
+.eyebrow { font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+h1 { font-size: 32px; line-height: 1.25; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 1.35; margin: 0 0 14px; letter-spacing: -0.01em; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0 0 6px; }
+p { margin: 0; }
+.lead { font-size: 17px; color: var(--muted); }
+.status { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.pill.hot { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.ex { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .02em; padding: 1px 8px; border-radius: 999px; border: 1px dashed var(--muted); color: var(--muted); }
+code { font-family: var(--mono); font-size: .88em; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+section { display: flex; flex-direction: column; gap: 4px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.card p + p { margin-top: 8px; }
+ul, ol { margin: 0; padding-left: 20px; }
+li { margin-bottom: 6px; }
+blockquote { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--new); border-radius: 0 8px 8px 0; font-size: 15px; }
+
+/* 화면 쌍 */
+.pair { display: flex; flex-direction: column; gap: 14px; }
+.pair > h3 { font-size: 19px; }
+.frames { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+.fcol { display: flex; flex-direction: column; gap: 12px; width: 390px; max-width: 100%; }
+.flabel { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.flabel b { font-size: 15px; letter-spacing: .04em; }
+.flabel b.bad { color: var(--bad); }
+.flabel b.good { color: var(--accent); }
+.flabel span { font-size: 14px; color: var(--muted); }
+.phone {
+  width: 390px; max-width: 100%; border-radius: 28px; overflow: hidden; position: relative;
+  background: var(--a-bg); color: var(--a-text); border: 1px solid var(--line);
+  display: flex; flex-direction: column; font-family: var(--font); color-scheme: light;
+}
+.phone.tall { height: 844px; }
+.anno { font-size: 14px; color: var(--muted); }
+.anno b { color: var(--ink); }
+.mark { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; vertical-align: 1px; margin-right: 4px; flex: none; }
+.wrong { outline: 2px solid #F04438; outline-offset: 2px; border-radius: 6px; }
+.changed { outline: 2px dashed var(--newline); outline-offset: 2px; border-radius: 6px; }
+
+/* 앱 부품 */
+.big { padding: 20px 20px 8px; font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; display: flex; justify-content: space-between; align-items: center; }
+.big small { font-size: 13px; font-weight: 600; color: var(--a-muted); }
+.sec { padding: 16px 20px 8px; font-size: 22px; line-height: 30px; font-weight: 700; }
+.carousel { display: flex; gap: 12px; padding: 0 20px 20px; overflow: hidden; }
+.pcard { width: 260px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+.pcard.peek { width: 80px; opacity: .55; }
+.photo { border-radius: 16px; background: linear-gradient(135deg, #F3C58B, #E48A3C 60%, #9C5A24); }
+.photo.green { background: linear-gradient(135deg, #CFE0B4, #8DB36A 60%, #4F7A35); }
+.photo.box { background: linear-gradient(135deg, #F6D9B0, #D9A066 60%, #8E5C2E); }
+.photo.farm { background: linear-gradient(135deg, #DCE7D0, #A9C58E 55%, #6E8F57); }
+.farm { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--a-muted); }
+.pname { font-size: 22px; line-height: 30px; font-weight: 700; }
+.sub { font-size: 15px; line-height: 22px; color: var(--a-muted); }
+.meta { font-size: 13px; line-height: 18px; color: var(--a-muted); }
+.strike { font-size: 13px; line-height: 18px; color: var(--a-muted); text-decoration: line-through; }
+.price { font-size: 22px; line-height: 30px; font-weight: 700; color: var(--a-accent); }
+.price.l { font-size: 28px; line-height: 36px; }
+.price.c { font-size: 17px; line-height: 25px; }
+.na { font-size: 17px; line-height: 25px; font-weight: 600; color: var(--a-muted); }
+.row { display: flex; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--a-border); }
+.row:first-child { border-top: 0; }
+.thumb { width: 104px; height: 104px; flex: none; }
+.chip { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--a-surface); font-size: 13px; font-weight: 600; }
+.search { margin: 0 20px 8px; height: 48px; border-radius: 16px; background: var(--a-surface); padding: 12px 16px; color: var(--a-muted); font-size: 16px; }
+.shelf { background: var(--a-surface); }
+.shelf-h { height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600; }
+.shelf-list { display: flex; gap: 12px; padding: 0 12px 12px; overflow: hidden; }
+.sitem { width: 270px; flex: none; min-height: 86px; padding: 12px; border-radius: 16px; background: var(--a-bg); display: flex; gap: 12px; align-items: center; }
+.sitem .photo { width: 52px; height: 52px; border-radius: 12px; flex: none; }
+.roomhead { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-bottom: 1px solid var(--a-border); }
+.av { width: 40px; height: 40px; border-radius: 50%; background: #E9D9C9; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: #6B4A2E; flex: none; }
+.roomfeed { background: #FAF9F6; padding: 16px 20px; font-size: 15px; color: var(--a-muted); }
+.hbar { height: 64px; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--a-border); font-size: 17px; font-weight: 600; }
+.hbar .back { width: 48px; height: 48px; display: grid; place-items: center; }
+.body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 16px; padding: 0 20px 20px; }
+.fold { min-height: 48px; display: flex; justify-content: space-between; align-items: center; font-size: 15px; border-bottom: 1px solid var(--a-border); }
+.opts { display: flex; gap: 16px; }
+.opts > div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.statusblock { display: flex; flex-direction: column; gap: 4px; }
+.statusblock .h { font-size: 22px; line-height: 30px; font-weight: 700; }
+.bottom { padding: 12px 12px 8px; display: flex; gap: 8px; background: rgba(255,255,255,.92); border-top: 1px solid var(--a-border); }
+.btn { height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.btn.sec2 { flex: 1; border: 1px solid var(--a-text); }
+.btn.pri { flex: 2; background: var(--a-accent); color: #fff; }
+.btn.off { flex: 2; background: var(--a-disabled); color: var(--a-disabled-text); }
+.tabs { margin: 0 12px 12px; height: 64px; border-radius: 20px; background: var(--a-surface); display: flex; align-items: center; justify-content: space-around; font-size: 13px; color: var(--a-muted); }
+.tabs .on { color: var(--a-text); font-weight: 700; }
+.sheet { position: absolute; inset: auto 0 0 0; background: rgba(255,255,255,.96); border-radius: 20px 20px 0 0; border-top: 1px solid var(--a-border); padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 -40px 0 400px rgba(0,0,0,.40); }
+.sheet .t { font-size: 22px; font-weight: 700; }
+.ghost { opacity: .35; }
+.gone { margin: 0 20px 16px; border: 2px dashed var(--newline); border-radius: 16px; padding: 12px; font-size: 13px; line-height: 18px; color: var(--a-muted); background: var(--new); }
+
+/* 무브·표 */
+.moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.move h3 { display: flex; gap: 8px; align-items: baseline; }
+.tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+tr:last-child td { border-bottom: 0; }
+td.copy { font-weight: 600; }
+pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; }
+.decision { border-left: 4px solid var(--accent); }
+@media (max-width: 440px) { h1 { font-size: 26px; } .phone.tall { height: auto; } }
+/* DEV-226 추가 부품 */
+.orow { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--a-border); }
+.orow:first-child { border-top: 0; }
+.orow .photo { width: 64px; height: 64px; flex: none; }
+.otext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.b17 { font-size: 17px; line-height: 25px; font-weight: 700; }
+.r17 { font-size: 17px; line-height: 25px; }
+.s17 { font-size: 17px; line-height: 25px; font-weight: 600; }
+.one { display: flex; min-width: 0; white-space: nowrap; }
+.one .shrink { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.one .keep { flex: none; }
+.list { padding: 0 20px 16px; }
+.ftabs { display: flex; gap: 8px; padding: 12px 20px 16px; overflow: hidden; }
+.ftab { height: 40px; padding: 0 14px; border-radius: 20px; background: var(--a-surface); display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; flex: none; }
+.ftab.on { background: var(--a-text); color: #fff; }
+.ftab small { font-size: 13px; font-weight: 400; opacity: .8; }
+.prow { padding: 16px 0; border-top: 1px solid var(--a-border); display: flex; flex-direction: column; gap: 4px; }
+.prow:first-of-type { border-top: 0; }
+.pbtns { display: flex; gap: 8px; margin-top: 8px; }
+.pbtn { height: 48px; border-radius: 16px; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.pbtn.s { flex: 1; border: 1px solid var(--a-text); }
+.pbtn.p { flex: 2; background: var(--a-text); color: #fff; }
+.dcard { margin: 0 20px 16px; padding: 16px; border: 1px solid var(--a-border); border-radius: 16px; display: flex; flex-direction: column; gap: 16px; }
+.dtop { display: flex; gap: 16px; }
+.dtop .ph { width: 64px; height: 64px; border-radius: 16px; background: var(--a-surface); flex: none; display: grid; place-items: center; color: var(--a-muted); font-size: 12px; }
+.stat { background: var(--a-surface); border-radius: 12px; padding: 12px; font-size: 15px; line-height: 22px; }
+.stat .meta { display: block; }
+.phone .sheet { position: relative; inset: auto; box-shadow: none; border-radius: 20px; border: 1px solid var(--a-border); margin: 0 12px 12px; }
+.shade { background: rgba(0,0,0,.40); padding-top: 24px; }
+.fab { align-self: flex-end; margin: 0 20px 16px; height: 48px; padding: 0 18px; border-radius: 24px; background: var(--a-accent); color: #fff; font-size: 17px; font-weight: 600; display: grid; place-items: center; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">DEV-226 · 디자인 제안 · BEFORE / AFTER</div>
+    <h1>같은 상품을 두 번 주문해도 줄만 보고 가를 수 있게</h1>
+    <p class="lead">HE-03(심각도 3): 소비자 내 주문에 같은 줄이 두 개 생긴다. HE-12 일부: 생산자 주문 줄에 상품명이 없다. HE-X5: ‘작성 중’의 이름 없는 초안을 서로 구별할 수 없다. 세 가지 모두 API가 이미 주는 값을 화면에 그리지 않아서 생긴 문제라, 앱만 고친다.</p>
+    <div class="status">
+      <span class="pill hot">1단계 · 제안, 승인 대기</span>
+      <span class="pill">서버 변경 없음</span>
+      <span class="pill">위험 등급 일반</span>
+      <span class="pill">DEV-207 줄 구조 유지</span>
+      <span class="pill">Figma v6 후속</span>
+    </div>
+    <p class="anno">화면 안 이름·번호·금액·상품명은 모두 <span class="ex">예시</span>다. 실제 주문이 아니다.</p>
+  </header>
+
+  <section>
+    <h2>문제 요약</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>HE-03 소비자 내 주문</h3>
+        <p>하우스 감귤 5kg × 1을 두 번 주문하고 둘 다 ‘입금을 마쳤어요’를 누르면 <code>/orders?filter=pending</code>에 글자까지 똑같은 줄이 두 개 생긴다.</p>
+        <blockquote>“무슨 주문이 입금 확인 중인지 알 수가 없습니다” (평가자, H6)</blockquote>
+        <p class="anno">입금 단계에서는 부제가 ‘○일 입금 알림 · 금액’으로 바뀌어 SCR-13 카드 항목인 받는 시기도 빠진다.</p>
+      </div>
+      <div class="card">
+        <h3>HE-12 생산자 주문 줄</h3>
+        <p><code>ship.tsx</code>의 <code>who()</code>가 <code>김민지 · 5kg × 1</code>만 만든다. 하우스 5kg와 노지 5kg를 가를 수 없다. 이 함수를 줄, 출하 고르기, 송장 줄, 송장 시트, 입금 승인 시트, 출하 확인 시트 6곳이 쓴다.</p>
+        <p class="anno">같은 앱 1:1 채팅 주문 패널은 이미 <code>상품명 · 옵션 × 수량</code>이다.</p>
+      </div>
+      <div class="card">
+        <h3>HE-X5 생산자 초안 줄</h3>
+        <p>‘새 상품’을 열 때마다 작성 중 상품이 하나 생기고(SCR-24), 이름을 안 넣으면 카드가 모두 “이름 없는 초안”이다. 만든 날도 저장 시각도 없다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>계약: 필요한 값은 이미 온다</h2>
+    <div class="tbl"><table>
+      <tr><th>화면</th><th>API</th><th>쓰는 필드</th><th>지금 화면</th></tr>
+      <tr><td>SCR-13 내 주문</td><td><code>GET /api/orders</code> (<code>OrderView</code>)</td><td><code>orderNo</code> · <code>createdAt</code> · <code>deliveryWindow</code></td><td>셋 다 목록에서 안 씀(입금 단계는 <code>deliveryWindow</code>도 빠짐)</td></tr>
+      <tr><td>SCR-29 주문·출하</td><td><code>GET /api/orders/producer</code></td><td><code>productName</code></td><td>안 씀(<code>orderNo</code>는 이미 줄 첫 줄)</td></tr>
+      <tr><td>SCR-23 상품 목록</td><td><code>GET /api/products/mine</code> (<code>MyProductCard</code>)</td><td><code>updatedAt</code></td><td>정렬에만 쓰고 화면에는 안 씀</td></tr>
+    </table></div>
+    <p class="anno">확인한 곳: <code>server/app/orders/schemas.py</code>(<code>order_no</code>·<code>product_name</code>·<code>created_at</code>), <code>server/app/catalog/schemas.py</code> <code>MyProductCard.updated_at</code>, <code>packages/api/src/types.ts</code>, Mock <code>packages/api/src/mock/orders.ts</code>·<code>catalog.ts</code>.</p>
+  </section>
+
+  <!-- 쌍 1: 소비자 -->
+  <section class="pair">
+    <h3>① 소비자 내 주문 · 미확정 탭 (SCR-13)</h3>
+    <div class="frames">
+      <div class="fcol">
+        <div class="flabel"><b class="bad">BEFORE</b><span>지금 코드(<code>orders/index.tsx:80-115</code>)</span></div>
+        <div class="phone">
+          <div class="big">내 주문</div>
+          <div class="ftabs"><span class="ftab">구매 확정 <small>4</small></span><span class="ftab on">미확정 <small>3</small></span><span class="ftab">취소·환불 <small>1</small></span></div>
+          <div class="list">
+            <div class="orow wrong"><div class="photo"></div><div class="otext">
+              <div class="b17">입금 확인 중 · 농가가 확인하고 있어요</div>
+              <div class="r17">하우스 감귤 5kg × 1</div>
+              <div class="sub">11월 4일 입금 알림 · 29,000원</div>
+            </div></div>
+            <div class="orow wrong"><div class="photo"></div><div class="otext">
+              <div class="b17">입금 확인 중 · 농가가 확인하고 있어요</div>
+              <div class="r17">하우스 감귤 5kg × 1</div>
+              <div class="sub">11월 4일 입금 알림 · 29,000원</div>
+            </div></div>
+            <div class="orow"><div class="photo green"></div><div class="otext">
+              <div class="b17">예약 완료</div>
+              <div class="r17">노지 감귤 10kg × 1</div>
+              <div class="sub">11월 24일~12월 4일 도착 · 41,000원</div>
+            </div></div>
+          </div>
+          <div class="tabs"><span>발견</span><span class="on">내 주문</span><span>채팅</span><span>내 정보</span></div>
+        </div>
+        <p class="anno">위 두 줄은 사진·글자·금액이 모두 같다. 입금 단계 두 줄에는 받는 시기도 없다.</p>
+      </div>
+      <div class="fcol">
+        <div class="flabel"><b class="good">AFTER</b><span>무브 1·2·4</span></div>
+        <div class="phone">
+          <div class="big">내 주문</div>
+          <div class="ftabs"><span class="ftab">구매 확정 <small>4</small></span><span class="ftab on">미확정 <small>3</small></span><span class="ftab">취소·환불 <small>1</small></span></div>
+          <div class="list">
+            <div class="orow"><div class="photo"></div><div class="otext">
+              <div class="b17">입금 확인 중 · 농가가 확인하고 있어요</div>
+              <div class="r17 one"><span class="shrink">하우스 감귤</span><span class="keep">&nbsp;5kg × 1</span></div>
+              <div class="sub changed"><span class="mark">2</span>11월 10일~20일 도착 예정</div>
+              <div class="sub">11월 4일 입금 알림 · 29,000원</div>
+              <div class="meta changed"><span class="mark">1</span>FC-1104-0013 · 11월 4일 주문</div>
+            </div></div>
+            <div class="orow"><div class="photo"></div><div class="otext">
+              <div class="b17">입금 확인 중 · 농가가 확인하고 있어요</div>
+              <div class="r17 one"><span class="shrink">하우스 감귤</span><span class="keep">&nbsp;5kg × 1</span></div>
+              <div class="sub">11월 10일~20일 도착 예정</div>
+              <div class="sub">11월 4일 입금 알림 · 29,000원</div>
+              <div class="meta changed">FC-1103-0007 · 11월 3일 주문</div>
+            </div></div>
+            <div class="orow"><div class="photo green"></div><div class="otext">
+              <div class="b17">예약 완료</div>
+              <div class="r17 one"><span class="shrink">노지 감귤</span><span class="keep">&nbsp;10kg × 1</span></div>
+              <div class="sub">11월 24일~12월 4일 도착 · 41,000원</div>
+              <div class="meta changed">FC-1028-0031 · 10월 28일 주문</div>
+            </div></div>
+          </div>
+          <div class="tabs"><span>발견</span><span class="on">내 주문</span><span>채팅</span><span>내 정보</span></div>
+        </div>
+        <p class="anno"><b>굵은 줄·부제는 DEV-207 그대로.</b> 맨 아래 메타 줄만 모든 줄에 붙고, ‘도착 예정’ 줄은 입금 단계(<code>AWAITING_DEPOSIT</code>)에만 붙는다. 같은 날 두 번 주문해도 번호 끝 4자리가 다르다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 쌍 2: 생산자 주문 -->
+  <section class="pair">
+    <h3>② 생산자 주문 현황 · 입금 대기 탭과 입금 승인 시트 (SCR-29)</h3>
+    <div class="frames">
+      <div class="fcol">
+        <div class="flabel"><b class="bad">BEFORE</b><span><code>ship.tsx:66-67</code> <code>who()</code></span></div>
+        <div class="phone">
+          <div class="hbar"><span class="back">‹</span>주문 현황</div>
+          <div class="ftabs"><span class="ftab">전체</span><span class="ftab on">입금 대기 <small>2</small></span><span class="ftab">예약</span><span class="ftab">출하 준비</span></div>
+          <div class="list">
+            <div class="prow">
+              <div class="sub">FC-1104-0013 · 기한 11월 5일 (수) 22:22</div>
+              <div class="s17 wrong">김민지 · 5kg × 1</div>
+              <div class="r17">29,000원 · 입금자명 <b>FC-1104-0013</b></div>
+              <div class="sub">소비자가 입금했다고 알렸어요</div>
+              <div class="pbtns"><span class="pbtn s">미승인</span><span class="pbtn p">승인</span></div>
+            </div>
+            <div class="prow">
+              <div class="sub">FC-1104-0014 · 기한 11월 5일 (수) 23:10</div>
+              <div class="s17 wrong">박서준 · 5kg × 1</div>
+              <div class="r17">25,000원 · 입금자명 <b>FC-1104-0014</b></div>
+              <div class="pbtns"><span class="pbtn s">미승인</span><span class="pbtn p">승인</span></div>
+            </div>
+          </div>
+          <div class="shade">
+            <div class="sheet">
+              <div class="t">입금을 승인할까요?</div>
+              <div class="r17">FC-1104-0013</div>
+              <div class="r17 wrong">김민지 · 5kg × 1</div>
+              <div class="r17">29,000원</div>
+              <div class="pbtns"><span class="pbtn s">아니요</span><span class="pbtn p">확인 · 입금 승인</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="anno">29,000원 줄이 하우스인지 노지인지 줄에서도, 승인 직전 시트에서도 알 수 없다.</p>
+      </div>
+      <div class="fcol">
+        <div class="flabel"><b class="good">AFTER</b><span>무브 3·4</span></div>
+        <div class="phone">
+          <div class="hbar"><span class="back">‹</span>주문 현황</div>
+          <div class="ftabs"><span class="ftab">전체</span><span class="ftab on">입금 대기 <small>2</small></span><span class="ftab">예약</span><span class="ftab">출하 준비</span></div>
+          <div class="list">
+            <div class="prow">
+              <div class="sub">FC-1104-0013 · 기한 11월 5일 (수) 22:22</div>
+              <div class="s17 one changed"><span class="mark">3</span><span class="keep">김민지 ·&nbsp;</span><span class="shrink">하우스 감귤</span><span class="keep">&nbsp;5kg × 1</span></div>
+              <div class="r17">29,000원 · 입금자명 <b>FC-1104-0013</b></div>
+              <div class="sub">소비자가 입금했다고 알렸어요</div>
+              <div class="pbtns"><span class="pbtn s">미승인</span><span class="pbtn p">승인</span></div>
+            </div>
+            <div class="prow">
+              <div class="sub">FC-1104-0014 · 기한 11월 5일 (수) 23:10</div>
+              <div class="s17 one changed"><span class="mark">4</span><span class="keep">박서준 ·&nbsp;</span><span class="shrink">서귀포 타이벡 노지 감귤 고당도 선별</span><span class="keep">&nbsp;5kg × 1</span></div>
+              <div class="r17">25,000원 · 입금자명 <b>FC-1104-0014</b></div>
+              <div class="pbtns"><span class="pbtn s">미승인</span><span class="pbtn p">승인</span></div>
+            </div>
+          </div>
+          <div class="shade">
+            <div class="sheet">
+              <div class="t">입금을 승인할까요?</div>
+              <div class="r17">FC-1104-0013</div>
+              <div class="r17 changed">김민지 · 하우스 감귤 5kg × 1</div>
+              <div class="r17">29,000원</div>
+              <div class="pbtns"><span class="pbtn s">아니요</span><span class="pbtn p">확인 · 입금 승인</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="anno">줄은 한 줄 그대로, 긴 상품명만 말줄임(둘째 줄). 시트는 폭이 넓어 보통 다 보이고, 넘치면 줄바꿈한다. 나머지 4곳(출하 고르기·송장 줄 접근성 라벨, 송장 시트, 출하 확인 시트)도 같은 함수라 함께 바뀐다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 쌍 3: 초안 -->
+  <section class="pair">
+    <h3>③ 생산자 상품 목록 · 작성 중 필터 (SCR-23)</h3>
+    <div class="frames">
+      <div class="fcol">
+        <div class="flabel"><b class="bad">BEFORE</b><span><code>products/index.tsx:148·172</code></span></div>
+        <div class="phone">
+          <div class="big">상품</div>
+          <div class="ftabs"><span class="ftab">판매 중 <small>2</small></span><span class="ftab">심사 중 <small>0</small></span><span class="ftab on">작성 중 <small>3</small></span></div>
+          <div class="dcard"><div class="dtop"><div class="ph">사진 없음</div><div class="otext"><div class="meta"><b>작성 중</b></div><div class="s17 wrong">이름 없는 초안</div></div></div></div>
+          <div class="dcard"><div class="dtop"><div class="ph">사진 없음</div><div class="otext"><div class="meta"><b>작성 중</b></div><div class="s17 wrong">이름 없는 초안</div></div></div></div>
+          <div class="dcard"><div class="dtop"><div class="photo" style="width:64px;height:64px;flex:none"></div><div class="otext"><div class="meta"><b>작성 중</b></div><div class="s17">하우스 만감류 세트</div></div></div></div>
+          <div class="fab">+ 새 상품</div>
+        </div>
+        <p class="anno">위 두 장은 어느 쪽이 방금 쓰던 것인지 열어 봐야 안다. 판매 수치 상자는 그림에서 생략했다(바뀌지 않음).</p>
+      </div>
+      <div class="fcol">
+        <div class="flabel"><b class="good">AFTER</b><span>무브 5</span></div>
+        <div class="phone">
+          <div class="big">상품</div>
+          <div class="ftabs"><span class="ftab">판매 중 <small>2</small></span><span class="ftab">심사 중 <small>0</small></span><span class="ftab on">작성 중 <small>3</small></span></div>
+          <div class="dcard"><div class="dtop"><div class="ph">사진 없음</div><div class="otext"><div class="meta"><b>작성 중</b></div><div class="s17">이름 없는 초안</div><div class="meta changed"><span class="mark">5</span>11월 4일 오후 2:20 저장</div></div></div></div>
+          <div class="dcard"><div class="dtop"><div class="ph">사진 없음</div><div class="otext"><div class="meta"><b>작성 중</b></div><div class="s17">이름 없는 초안</div><div class="meta changed">11월 3일 오전 9:05 저장</div></div></div></div>
+          <div class="dcard"><div class="dtop"><div class="photo" style="width:64px;height:64px;flex:none"></div><div class="otext"><div class="meta"><b>작성 중</b></div><div class="s17">하우스 만감류 세트</div><div class="meta changed">10월 30일 저장</div></div></div></div>
+          <div class="fab">+ 새 상품</div>
+        </div>
+        <p class="anno">작성 중 카드에만 붙인다(판매 중·심사 중 카드는 그대로). 오늘·어제는 시각까지, 그보다 오래되면 날짜만. 최근 저장이 위(지금 정렬과 같음).</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>디자인 무브</h2>
+    <div class="moves">
+      <div class="card move"><h3><span class="mark">1</span>구별 정보는 맨 아래 메타 한 줄</h3>
+        <p>소비자 줄 맨 아래에 13/18 보조색 한 줄 <code>FC-1104-0013 · 11월 4일 주문</code>. 굵은 줄(상태 · 다음 일)이 여전히 처음 읽히고, 번호는 확인할 때만 읽는 값이라 가장 작은 글자로 둔다.</p>
+        <p class="anno">번호는 생산자 줄 첫 줄·입금자명과 같은 글자라, 농가와 문의할 때 그대로 말하면 된다. 위치는 질문 Q1.</p></div>
+      <div class="card move"><h3><span class="mark">2</span>입금 단계에만 받는 시기 되살리기</h3>
+        <p>입금 단계 부제는 DEV-207이 ‘지금 상태를 만든 사건의 날짜 · 금액’으로 정했으므로 건드리지 않고, 상품 줄 바로 아래에 15/22 보조색 <code>11월 10일~20일 도착 예정</code>을 넣는다. 다른 단계는 부제가 이미 받는 시기라 줄을 더하지 않는다.</p></div>
+      <div class="card move"><h3><span class="mark">3</span>생산자 이름 줄에 상품명을 끼운다</h3>
+        <p><code>who()</code>를 <code>김민지 · 하우스 감귤 5kg × 1</code>로 바꾼다. 줄 수는 그대로. 줄·시트 6곳이 한 함수를 쓰므로 한 번에 같아진다. 1:1 채팅 주문 패널의 순서(상품명 → 옵션 × 수량)와도 맞는다.</p></div>
+      <div class="card move"><h3><span class="mark">4</span>상품명만 줄인다</h3>
+        <p>상품 줄은 한 줄. 넘치면 <b>상품명만</b> 말줄임하고 이름과 <code>옵션 × 수량</code>은 끝까지 보인다(옵션·수량이 잘리면 출하가 틀린다). 소비자 상품 줄도 같은 규칙. 화면 읽기 라벨은 줄이지 않은 전체 글자.</p></div>
+      <div class="card move"><h3><span class="mark">5</span>초안에는 마지막 저장 시각</h3>
+        <p>작성 중 카드 이름 아래 13/18 보조색 <code>11월 4일 오후 2:20 저장</code>(<code>updatedAt</code>). 생산자가 기억하는 건 “아까 쓰던 것”이라 만든 날보다 마지막 저장이 맞다. 자료 요약은 응답에 없어 이번엔 넣지 않는다(Q4).</p></div>
+    </div>
+    <div class="card decision" style="margin-top:16px">
+      <h3>썸네일</h3>
+      <p>소비자 줄은 지금처럼 64(디자인 README ‘거래 요약’). 같은 상품을 두 번 산 경우 사진도 같아서 썸네일로는 가를 수 없고, 그래서 글자(번호·주문일)로 가른다. 생산자 주문 줄에는 썸네일을 새로 넣지 않는다: 줄 아래 버튼 한 쌍과 체크 고르기가 이미 폭을 쓰고, 같은 농가 감귤 사진은 서로 비슷해 상품명 글자가 더 확실하다(Q3).</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>문구</h2>
+    <div class="tbl"><table>
+      <tr><th>자리</th><th>문구</th><th>만드는 값</th><th>규칙</th></tr>
+      <tr><td>소비자 줄 맨 아래(모든 상태)</td><td class="copy">FC-1104-0013 · 11월 4일 주문</td><td><code>orderNo</code> · <code>md(createdAt)</code></td><td>13/18 보조색, 한 줄, 줄바꿈 없음</td></tr>
+      <tr><td>소비자 줄 상품 아래(입금 단계만)</td><td class="copy">11월 10일~20일 도착 예정</td><td><code>period(deliveryWindow)</code></td><td>15/22 보조색. 받는 시기 변경 요청 중이면 부제가 이미 ‘새 기간 …’이라 붙이지 않음</td></tr>
+      <tr><td>생산자 이름 줄·시트(6곳)</td><td class="copy">김민지 · 하우스 감귤 5kg × 1</td><td><code>recipientName</code> · <code>productName</code> <code>optionLabel</code> × <code>quantity</code></td><td>이름은 서버가 준 그대로(마스킹 유지). 줄에서는 상품명만 말줄임</td></tr>
+      <tr><td>생산자 작성 중 카드</td><td class="copy">11월 4일 오후 2:20 저장 / 10월 30일 저장</td><td><code>updatedAt</code></td><td>오늘·어제는 <code>md</code> + <code>time</code>, 그 전은 <code>md</code>만. 작성 중(<code>DRAFT</code>)에만</td></tr>
+    </table></div>
+    <p class="anno">새로 생기는 낱말은 ‘주문’, ‘도착 예정’, ‘저장’ 셋뿐이고 모두 이미 앱에 있는 말이다(‘도착’은 SCR-13 부제, ‘저장’은 편집 화면 버튼).</p>
+  </section>
+
+  <section>
+    <h2>말줄임 규칙</h2>
+    <div class="tbl"><table>
+      <tr><th>줄</th><th>줄 수</th><th>넘치면</th><th>구현</th></tr>
+      <tr><td>소비자 굵은 줄(상태 · 다음 일)</td><td>제한 없음</td><td>줄바꿈(글자 200% 대비, DEV-207 그대로)</td><td>변경 없음</td></tr>
+      <tr><td>소비자 상품 줄 / 생산자 이름 줄</td><td>1</td><td>상품명만 …</td><td>가로 줄: 이름(생산자만) <code>flex: none</code> + 상품명 <code>numberOfLines={1}</code> <code>flexShrink: 1</code> + <code>옵션 × 수량</code> <code>flex: none</code></td></tr>
+      <tr><td>메타 줄(번호·주문일, 저장 시각)</td><td>1</td><td>번호는 고정 길이라 안 넘침</td><td><code>numberOfLines={1}</code></td></tr>
+      <tr><td>시트(입금 승인·송장·출하 확인)</td><td>제한 없음</td><td>줄바꿈</td><td>승인 직전 확인이라 다 보여 준다</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>서버</h2>
+    <div class="card"><p><b>변경 없음.</b> <code>server/**</code>를 건드리지 않으므로 위험 등급 일반이다. 위 ‘계약’ 표의 세 필드는 지금 응답에 있고, Mock도 같은 값을 채운다. 초안 자료 요약(Q4)을 넣기로 하면 <code>MyProductCard</code>에 필드를 더해야 해서 따로 이슈로 뺀다.</p></div>
+  </section>
+
+  <section>
+    <h2>테스트 계획</h2>
+    <div class="cols">
+      <div class="card"><h3>Mock (<code>npm run test:mock</code>)</h3>
+        <ul>
+          <li><code>scripts/test-order-text.mjs</code>: <code>listRef(o, md)</code> → <code>FC-… · ○월 ○일 주문</code>, <code>listWhen(o, period)</code>는 입금 단계에서만 값, 받는 시기 변경 요청 중이면 null. DEV-207 기존 테스트는 그대로 통과해야 한다.</li>
+          <li><code>scripts/test-producer-order-rows.mjs</code>(새): <code>orderWho()</code>가 상품명을 포함하고 이름·옵션·수량 순서를 지킨다, 접근성 라벨은 전체 글자. <code>draftSaved()</code> 오늘/어제/그 전 세 경우.</li>
+        </ul></div>
+      <div class="card"><h3>Playwright (<code>scripts/e2e/order-row-identity.spec.ts</code>, 새)</h3>
+        <ul>
+          <li>소비자: 같은 상품 2건 주문 → 입금 알림 → 미확정 탭 두 줄의 텍스트가 서로 다르고 각각 <code>FC-</code> 번호와 ‘도착 예정’이 보인다.</li>
+          <li>생산자: <code>/ship</code> 각 탭 줄과 입금 승인 시트에 상품명이 보인다(HE 조사의 <code>productNameShown: 0</code> → 줄 수와 같아야 함).</li>
+          <li>생산자: 이름 없는 초안 2장 → ‘작성 중’ 카드마다 ‘저장’ 메타 줄.</li>
+          <li>390px에서 긴 상품명 줄이 한 줄이고 <code>× 1</code>이 보인다.</li>
+        </ul></div>
+    </div>
+    <p class="anno">테스트 이름에는 <code>DEV-226 SCR-13</code> / <code>SCR-29</code> / <code>SCR-23</code>을 넣는다(새 AC를 만들지 않으면). 함께 <code>npm run typecheck</code>.</p>
+  </section>
+
+  <section>
+    <h2>스펙 줄(승인 뒤 같은 PR에서)</h2>
+    <div class="tbl"><table>
+      <tr><th>문서</th><th>지금</th><th>바꿀 문장</th></tr>
+      <tr><td><code>docs/spec/screens.md</code> SCR-13 화면 요소</td><td>주문 카드(상품, 상태, 받는 시기, 합계).</td><td class="copy">주문 카드(상품, 상태, 받는 시기, 합계, 주문 번호·주문일). 맨 아래 한 줄 ‘FC-… · ○월 ○일 주문’, 입금 단계는 상품 아래 ‘○일~○일 도착 예정’을 더한다. 상품 줄은 한 줄이고 상품명만 말줄임(DEV-226).</td></tr>
+      <tr><td><code>docs/spec/screens.md</code> SCR-29 화면(408)·DEV-179 절(673)</td><td>모든 주문 줄에 옵션×수량·주문 총액을 표시한다. / 이름·옵션×수량·금액 확인 시트</td><td class="copy">모든 주문 줄과 시트(입금 승인·송장·출하 확인)에 ‘이름 · 상품명 옵션 × 수량’과 주문 총액을 표시한다. 줄에서는 상품명만 한 줄 말줄임(DEV-226).</td></tr>
+      <tr><td><code>docs/spec/screens.md</code> SCR-23 화면 요소(351)</td><td>상품 카드(썸네일 64 …, 상품명, …)</td><td class="copy">… 상품명(비면 ‘이름 없는 초안’), 작성 중이면 마지막 저장 시각 ‘○월 ○일 오후 H:MM 저장’ …(DEV-226)</td></tr>
+      <tr><td><code>docs/design/README.md</code> 규칙</td><td>—</td><td class="copy">주문 줄 구별(DEV-226): 소비자 줄 맨 아래 주문 번호 · 주문일, 생산자 줄 이름 · 상품명 옵션 × 수량. 넘치면 상품명만 줄인다.</td></tr>
+      <tr><td><code>docs/wiki/Requirements-and-Specifications.md</code></td><td>—</td><td class="copy">Order rows show the order number and order date (consumer) and the product name (producer) so repeated orders can be told apart (DEV-226).</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>질문</h2>
+    <div class="card decision">
+      <ol>
+        <li><b>Q1 번호 줄 위치.</b> 제안은 맨 아래(굵은 줄이 먼저 읽히도록). 생산자 줄처럼 맨 위 작은 글자로 올리면 두 앱이 같은 자리가 되지만, DEV-207이 정한 ‘처음 읽는 줄 = 상태 · 다음 일’이 둘째 줄로 밀린다. 맨 아래로 갈까요?</li>
+        <li><b>Q2 주문일과 번호를 둘 다.</b> 번호 가운데 4자리(1104)가 이미 날짜지만 소비자는 그렇게 읽지 않는다. 둘 다 보이는 안으로 갈까요, 번호만 둘까요?</li>
+        <li><b>Q3 생산자 줄 썸네일.</b> 디자인 README는 ‘출하’도 썸네일 64로 적었지만 지금 줄에는 없다. 이번에도 넣지 않는 안으로 갈까요?</li>
+        <li><b>Q4 초안 범위.</b> HE-X5를 이 이슈에서 함께 고칠까요? ‘저장 시각’만은 서버 변경 없이 되고, ‘자료 3개 · 사진 2장’ 같은 요약은 서버 필드가 필요해 따로 뺀다.</li>
+        <li><b>Q5 Figma.</b> v6는 보기 권한뿐이라 승인 뒤 반영을 요청하는 후속으로 둔다(PR <code>Figma:</code> 줄 ‘후속 — DEV-226’).</li>
+      </ol>
+    </div>
+  </section>
+</div>

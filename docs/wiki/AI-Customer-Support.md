@@ -57,6 +57,7 @@ The model's `ANSWER` is not trusted as is. It is stored only if all of these pas
 - The consumer message, the AI reply and the escalation are saved in **one transaction** while the thread row is locked, so two messages cannot interleave their answers (AC-13-6).
 - The service captures the thread version and the AI settings version before calling the model, and checks both again before saving. If the producer replied, switched the thread to `HUMAN`, or changed or turned off the AI settings in the meantime, the AI reply is discarded and the question stays with the producer.
 - A producer reply switches the thread to `HUMAN` in the same transaction. Switching back to `AUTO` only affects later messages; old questions are not re-answered.
+- In a `HUMAN` thread, or when the farm turned AI off, no AI message is stored. Instead the consumer sees "농가에 전달했어요" (forwarded to the farm) under their latest waiting question right away, and the header line says the farm answers directly. The consumer chat page returns `farmReply {mode, typicalReplyHours}`: the typical reply time is the median wait over the farm's replies in the last 30 days, rounded up to 1, 2, 3, 6, 12, 24, 48 or 72 hours, and is left out when there are fewer than 5 replies or the median is over 72 hours (DEV-208, AC-13-9, AC-13-10).
 - Model calls have **no SDK retries** and an 8-second budget (product drafts use 20 seconds). A slow or failed call degrades to a handoff, never to an error for the consumer.
 
 ## 6. Producer and operator side
@@ -76,6 +77,7 @@ The model's `ANSWER` is not trusted as is. It is stored only if all of these pas
 | Model answer checks | `test_C06_AC_13_3_model_fact_normalization_and_expected_label`, `test_C06_korean_dates_prices_and_vague_periods_are_grounded`, `test_C06_AC_13_8_model_rejects_unknown_refs_and_farmer_voice`, `test_C06_FEAT_13_model_non_answers_are_detected`, `test_C06_FEAT_13_model_non_answer_becomes_handoff`, `test_C06_FEAT_13_model_non_answer_is_forwarded_to_producer` |
 | Privacy and client | `test_C06_model_payload_sanitizes_copies_without_mutating_local_values`, `test_shared_client_disables_retries`, `test_provider_paths_use_20_20_8_second_timeouts` |
 | Modes and concurrency | `test_AC_13_4_ai_reply_is_labeled`, `test_human_mode_has_no_ai_reply`, `test_AC_13_7_farm_ai_off_overrides_auto`, `test_AC_13_6_*` (4 tests) |
+| Direct-mode feedback (DEV-208) | `test_AC_13_9_*` (4 tests), `test_AC_13_10_*` (6 tests) |
 | Reports and alerts | `test_AC_13_5_*` (5 tests), `test_M_07_*` (6 tests) |
 | Settings and preview | `test_AC_32_*` (5 tests), `test_preview_with_product_and_handoff_topic`, `test_saved_disabled_settings_stop_ai_replies` |
 | Product context (DEV-97, `main` `f30f0f2`) | `test_AC_13_3_two_product_farm_answers_brix_from_given_product`, `test_AC_13_3_two_product_farm_without_product_forwards`, `test_AC_13_1_order_context_wins_over_product`, `test_AC_13_3_product_of_other_farm_or_not_published_is_404` |

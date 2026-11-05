@@ -8,7 +8,15 @@ import type {
   Attachment,
 } from "../types";
 import { SUPPORT_ID } from "../types";
-import { nextId, nowIso, SUPPORT_WELCOME, type DB, type OrderRec } from "./db";
+import {
+  nextId,
+  nowIso,
+  REJECTED_FIRST,
+  SUPPORT_WELCOME,
+  SUSPENDED_FIRST,
+  type DB,
+  type OrderRec,
+} from "./db";
 import { chatMessage, mask } from "./derive";
 import {
   conflict,
@@ -53,7 +61,11 @@ export function ensureThread(
   });
 }
 /** 농가 승인 때 farmclub 문의 대화방을 연다. 처음 만들 때만 환영 메시지를 넣는다(DEV-111) */
-export function ensureSupportThread(d: DB, farmId: string): Thread {
+export function ensureSupportThread(
+  d: DB,
+  farmId: string,
+  first: string = SUPPORT_WELCOME,
+): Thread {
   const k = key(farmId, SUPPORT_ID),
     fresh = !d.threadMeta[k];
   const t = ensureThread(d, farmId, SUPPORT_ID);
@@ -63,7 +75,7 @@ export function ensureSupportThread(d: DB, farmId: string): Thread {
       chatMessage({
         messageId: nextId("m"),
         senderType: "OPERATOR",
-        body: SUPPORT_WELCOME,
+        body: first,
         photos: [],
         createdAt: nowIso(),
         sourceSummary: null,
@@ -73,6 +85,30 @@ export function ensureSupportThread(d: DB, farmId: string): Thread {
     );
   }
   return t;
+}
+/** farmclub 방을 쓰는 농가 상태(DEV-209, 서버 support.py SUPPORT_STATUSES와 같다) */
+const SUPPORT_STATUSES = ["APPROVED", "SUSPENDED", "REJECTED"];
+/** 생산자 자기 농가의 farmclub 방. 정지·반려 농가는 처음 열 때 만든다(DEV-209, AC-34-9) */
+function farmSupport(ctx: Ctx): Thread {
+  const u = ctx.me();
+  if (u.role !== "PRODUCER")
+    fail(403, "FORBIDDEN", "생산자 계정만 쓸 수 있어요.");
+  const f = u.farmId ? ctx.db.farms[u.farmId] : undefined;
+  if (!f || !SUPPORT_STATUSES.includes(f.status))
+    fail(
+      403,
+      "FORBIDDEN",
+      "승인·정지·반려된 농가만 farmclub 대화방을 쓸 수 있어요.",
+    );
+  return ensureSupportThread(
+    ctx.db,
+    f.farmId,
+    f.status === "SUSPENDED"
+      ? SUSPENDED_FIRST
+      : f.status === "REJECTED"
+        ? REJECTED_FIRST
+        : SUPPORT_WELCOME,
+  );
 }
 /* ---------- 소비자 farmclub 문의 대화방(DEV-150, 서버 support.py와 같다) ---------- */
 type SupportRoom = DB["supportRooms"][string];
@@ -219,6 +255,36 @@ export function messagePage<T extends { messageId: string; createdAt: string }>(
         : null,
   };
 }
+/** 서버 typical_reply_hours와 같은 규칙(DEV-208, AC-13-10). Mock은 매번 계산한다 */
+const REPLY_BUCKETS = [1, 2, 3, 6, 12, 24, 48, 72];
+export function typicalReplyHours(d: DB, farmId: string, now = Date.now()) {
+  const since = now - 30 * 86400000,
+    waits: number[] = [];
+  for (const t of Object.values(d.threadMeta)) {
+    if (t.farmId !== farmId) continue;
+    let asked: number | null = null;
+    for (const m of list(d, t)) {
+      const at = Date.parse(m.createdAt);
+      if (at > now) continue;
+      if (m.senderType === "CONSUMER") asked ??= at;
+      else if (m.senderType === "PRODUCER" && asked !== null) {
+        if (at >= since) waits.push((at - asked) / 3600000);
+        asked = null;
+      }
+    }
+  }
+  if (waits.length < 5) return null;
+  const s = [...waits].sort((a, b) => a - b),
+    mid = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+  return REPLY_BUCKETS.find((b) => mid <= b) ?? null;
+}
+function farmReply(d: DB, t: Thread) {
+  const settings = d.aiSettings[t.farmId] ?? defaultSettings();
+  return {
+    mode: t.aiMode === "AUTO" && settings.enabled ? ("AI" as const) : ("FARM" as const),
+    typicalReplyHours: typicalReplyHours(d, t.farmId),
+  };
+}
 function page(ctx: Ctx, t: Thread) {
   const d = ctx.db,
     ins = inquiries(d, t),
@@ -256,8 +322,13 @@ function page(ctx: Ctx, t: Thread) {
               (e) => e.farmId === t.farmId && e.consumerId === t.consumerId,
             )
             .map((e) => ({ ...e, thread: [] })),
+          farmReply: null,
+          consumerName:
+            t.consumerId === SUPPORT_ID
+              ? "farmclub"
+              : publicName(d.users[t.consumerId]),
         }
-      : {}),
+      : { farmReply: farmReply(d, t), consumerName: null }),
   };
 }
 function validateSettings(raw: unknown): AiSettings {
@@ -648,6 +719,19 @@ register({
   },
   "POST /api/messaging/chats/:farmId/messages": (ctx) =>
     send(ctx, access(ctx, true), false),
+  "GET /api/messaging/producer/support/messages": (ctx) =>
+    page(ctx, farmSupport(ctx)),
+  "POST /api/messaging/producer/support/messages": (ctx) =>
+    send(ctx, farmSupport(ctx), true),
+  "PUT /api/messaging/producer/support/read": (ctx) => {
+    const t = farmSupport(ctx),
+      m = list(ctx.db, t),
+      i = m.findIndex((m) => m.messageId === ctx.body.lastReadMessageId);
+    if (i < 0) notFound();
+    if (i > m.findIndex((m) => m.messageId === t.producerLastReadMessageId))
+      t.producerLastReadMessageId = m[i].messageId;
+    return { unreadCount: unread(ctx.db, t, true) };
+  },
   "GET /api/messaging/producer/chats": (ctx) => {
     const f = ctx.me().farmId!;
     const rows = Object.values(ctx.db.threadMeta)
@@ -859,6 +943,12 @@ export function attachmentAccess(
     (u.role === "CONSUMER" ? t.consumerId !== u.userId : t.farmId !== u.farmId)
   )
     notFound();
+  // farmclub 방은 정지·반려 농가도 사진을 붙인다(DEV-209)
+  if (t.consumerId === SUPPORT_ID) {
+    if (!SUPPORT_STATUSES.includes(ctx.db.farms[t.farmId]?.status ?? ""))
+      notFound();
+    return;
+  }
   approved(ctx, t.farmId);
   if (
     u.role === "CONSUMER" &&

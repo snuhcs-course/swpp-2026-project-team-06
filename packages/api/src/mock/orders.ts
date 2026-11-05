@@ -1,10 +1,16 @@
 import { needsReply } from "./conversations";
 import { assertSale, releaseQuantity, salesState } from "./sales";
 // /api/orders Mock (FEAT-08 주문서, 09 무통장 입금(DEV-68), 10 주문 내역, 11 취소, 14 현황, 17 출하)
-import type { Carrier, Dashboard, HarvestProduct, OrderInput } from "../types";
+import type {
+  Carrier,
+  Dashboard,
+  HarvestProduct,
+  HarvestTarget,
+  OrderInput,
+} from "../types";
 
 const CARRIERS: Carrier[] = ["CJ", "EPOST", "HANJIN", "LOTTE", "LOGEN", "ETC"];
-import { nextId, nowIso, TODAY, type OrderRec } from "./db";
+import { nextId, nowIso, TODAY, type OrderRec, type ProductRec } from "./db";
 import { currentStage, order, producerOrder, remaining } from "./derive";
 import type { Ctx } from "./router";
 import {
@@ -146,7 +152,12 @@ register({
       if (!allOrderConsents(b.consents))
         fields.consents = `예약 전 확인 ${ORDER_CONSENT_KEYS.length}개에 모두 동의해 주세요`;
       if (Object.keys(fields).length) invalid(fields);
-      const s = assertSale(ctx.db, p, b.optionId, b.quantity);
+      // 주문서가 본 기간·단가·중량(AC-08-8). 안 보내면 지금 값으로 만든다(서버와 같다)
+      const s = assertSale(ctx.db, p, b.optionId, b.quantity, {
+        stageId: b.expectedStageId,
+        unitPrice: b.expectedUnitPrice,
+        unitWeightGrams: b.expectedUnitWeightGrams,
+      });
       const remoteFee = REMOTE(b.postalCode, b.address) ? p.remoteAreaFee : 0;
       const o: OrderRec = {
         orderId: nextId("o"),
@@ -354,6 +365,7 @@ register({
         ).length,
         hasAccount:
           !!farm?.bankName && !!farm.accountNumber && !!farm.accountHolder,
+        ...harvestTodo(products, farmOrders),
       },
       product: main
         ? {
@@ -419,19 +431,31 @@ register({
     return paginate(list, ctx.query);
   },
 
+  // DEV-231: 수확 시작 = 출하 준비 시작. stageId가 있으면 그 기간만, 없으면 상품 전체
   "POST /api/orders/producer/harvest-start": (ctx) => {
     const u = ctx.me();
     const pid = String(ctx.body.productId ?? "");
+    const sid = ctx.body.stageId == null ? null : String(ctx.body.stageId);
     const p = ctx.db.products[pid];
     if (!p || p.farmId !== u.farmId) notFound("찾을 수 없는 상품이에요.");
-    let changed = 0;
-    Object.values(ctx.db.orders).forEach((o) => {
-      if (o.productId === pid && o.status === "RESERVED") {
-        o.status = "PREPARING";
-        changed += 1;
-      }
+    if (sid !== null && !p.stages.some((s) => s.stageId === sid))
+      notFound("찾을 수 없는 예약 기간이에요.");
+    return idempotent(ctx, `harvest-start:${pid}`, () => {
+      const orderIds: string[] = [];
+      Object.values(ctx.db.orders)
+        .filter(
+          (o) =>
+            o.productId === pid &&
+            o.status === "RESERVED" &&
+            (sid === null || o.stageId === sid),
+        )
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        .forEach((o) => {
+          o.status = "PREPARING";
+          orderIds.push(o.orderId);
+        });
+      return { changed: orderIds.length, stageId: sid, orderIds };
     });
-    return { changed };
   },
 
   "POST /api/orders/:orderId/ship": (ctx) => {
@@ -545,3 +569,40 @@ register({
 });
 
 export type { HarvestProduct };
+
+/** 예약 완료 주문이 남은 예약 기간(DEV-231, 서버 harvest_targets와 같은 규칙) */
+export function harvestTodo(
+  products: ProductRec[],
+  farmOrders: OrderRec[],
+): { toHarvest: number; harvestTargets: HarvestTarget[] } {
+  const reserved = new Map<string, number>();
+  for (const o of farmOrders)
+    if (o.status === "RESERVED")
+      reserved.set(o.stageId, (reserved.get(o.stageId) ?? 0) + 1);
+  const harvestTargets = products
+    .flatMap((p) =>
+      p.stages
+        .filter((s) => reserved.get(s.stageId))
+        .map((s) => ({
+          productId: p.productId,
+          productName: p.name,
+          stageId: s.stageId,
+          stageName: s.name,
+          endsAt: s.endsAt,
+          count: reserved.get(s.stageId) ?? 0,
+          closed: s.endsAt < TODAY,
+        })),
+    )
+    .sort(
+      (a, b) =>
+        a.endsAt.localeCompare(b.endsAt) ||
+        a.productName.localeCompare(b.productName) ||
+        a.stageName.localeCompare(b.stageName),
+    );
+  return {
+    toHarvest: harvestTargets
+      .filter((t) => t.closed)
+      .reduce((n, t) => n + t.count, 0),
+    harvestTargets,
+  };
+}

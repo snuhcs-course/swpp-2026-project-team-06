@@ -1,0 +1,504 @@
+<title>빈 값 표시 규칙</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 보드 레이아웃: 문제 요약 → 스펙 → 화면 5쌍(BEFORE / AFTER) → 디자인 무브 → 문구표 → 코드 → 테스트 → 스펙 줄 → 질문.
+   폰 프레임은 앱(I1 밝은 화면 전용) 그대로라 테마를 따르지 않는다. 보드 바탕만 테마를 따른다. */
+:root {
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --muted: #5F5F5B; --line: #DCDBD6;
+  --accent: #C94F0C; --new: #FFF2E9; --newline: #E8B896; --bad: #B42318;
+  /* 앱 화면(Figma v6 / packages/ui/src/tokens.ts) — 테마 고정 */
+  --a-text: #111111; --a-muted: #6B6B6B; --a-bg: #FFFFFF; --a-surface: #F5F5F3;
+  --a-border: #E8E8E6; --a-accent: #C94F0C; --a-disabled: #E8E8E6; --a-disabled-text: #9A9A96;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+    --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1B1B19; --panel: #262624; --ink: #F1F0EC; --muted: #B0AFA9; --line: #3A3A37;
+  --accent: #F08A4B; --new: #3A2618; --newline: #8A4E27; --bad: #F97066; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+  font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+header { display: flex; flex-direction: column; gap: 10px; max-width: 860px; }
+.eyebrow { font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+h1 { font-size: 32px; line-height: 1.25; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 1.35; margin: 0 0 14px; letter-spacing: -0.01em; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0 0 6px; }
+p { margin: 0; }
+.lead { font-size: 17px; color: var(--muted); }
+.status { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.pill.hot { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.ex { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .02em; padding: 1px 8px; border-radius: 999px; border: 1px dashed var(--muted); color: var(--muted); }
+code { font-family: var(--mono); font-size: .88em; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+section { display: flex; flex-direction: column; gap: 4px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.card p + p { margin-top: 8px; }
+ul, ol { margin: 0; padding-left: 20px; }
+li { margin-bottom: 6px; }
+blockquote { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--new); border-radius: 0 8px 8px 0; font-size: 15px; }
+
+/* 화면 쌍 */
+.pair { display: flex; flex-direction: column; gap: 14px; }
+.pair > h3 { font-size: 19px; }
+.frames { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+.fcol { display: flex; flex-direction: column; gap: 12px; width: 390px; max-width: 100%; }
+.flabel { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.flabel b { font-size: 15px; letter-spacing: .04em; }
+.flabel b.bad { color: var(--bad); }
+.flabel b.good { color: var(--accent); }
+.flabel span { font-size: 14px; color: var(--muted); }
+.phone {
+  width: 390px; max-width: 100%; border-radius: 28px; overflow: hidden; position: relative;
+  background: var(--a-bg); color: var(--a-text); border: 1px solid var(--line);
+  display: flex; flex-direction: column; font-family: var(--font); color-scheme: light;
+}
+.phone.tall { height: 844px; }
+.anno { font-size: 14px; color: var(--muted); }
+.anno b { color: var(--ink); }
+.mark { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; vertical-align: 1px; margin-right: 4px; flex: none; }
+.wrong { outline: 2px solid #F04438; outline-offset: 2px; border-radius: 6px; }
+.changed { outline: 2px dashed var(--newline); outline-offset: 2px; border-radius: 6px; }
+
+/* 앱 부품 */
+.big { padding: 20px 20px 8px; font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; display: flex; justify-content: space-between; align-items: center; }
+.big small { font-size: 13px; font-weight: 600; color: var(--a-muted); }
+.sec { padding: 16px 20px 8px; font-size: 22px; line-height: 30px; font-weight: 700; }
+.carousel { display: flex; gap: 12px; padding: 0 20px 20px; overflow: hidden; }
+.pcard { width: 260px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+.pcard.peek { width: 80px; opacity: .55; }
+.photo { border-radius: 16px; background: linear-gradient(135deg, #F3C58B, #E48A3C 60%, #9C5A24); }
+.photo.green { background: linear-gradient(135deg, #CFE0B4, #8DB36A 60%, #4F7A35); }
+.photo.box { background: linear-gradient(135deg, #F6D9B0, #D9A066 60%, #8E5C2E); }
+.photo.farm { background: linear-gradient(135deg, #DCE7D0, #A9C58E 55%, #6E8F57); }
+.farm { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--a-muted); }
+.pname { font-size: 22px; line-height: 30px; font-weight: 700; }
+.sub { font-size: 15px; line-height: 22px; color: var(--a-muted); }
+.meta { font-size: 13px; line-height: 18px; color: var(--a-muted); }
+.strike { font-size: 13px; line-height: 18px; color: var(--a-muted); text-decoration: line-through; }
+.price { font-size: 22px; line-height: 30px; font-weight: 700; color: var(--a-accent); }
+.price.l { font-size: 28px; line-height: 36px; }
+.price.c { font-size: 17px; line-height: 25px; }
+.na { font-size: 17px; line-height: 25px; font-weight: 600; color: var(--a-muted); }
+.row { display: flex; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--a-border); }
+.row:first-child { border-top: 0; }
+.thumb { width: 104px; height: 104px; flex: none; }
+.chip { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--a-surface); font-size: 13px; font-weight: 600; }
+.search { margin: 0 20px 8px; height: 48px; border-radius: 16px; background: var(--a-surface); padding: 12px 16px; color: var(--a-muted); font-size: 16px; }
+.shelf { background: var(--a-surface); }
+.shelf-h { height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600; }
+.shelf-list { display: flex; gap: 12px; padding: 0 12px 12px; overflow: hidden; }
+.sitem { width: 270px; flex: none; min-height: 86px; padding: 12px; border-radius: 16px; background: var(--a-bg); display: flex; gap: 12px; align-items: center; }
+.sitem .photo { width: 52px; height: 52px; border-radius: 12px; flex: none; }
+.roomhead { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-bottom: 1px solid var(--a-border); }
+.av { width: 40px; height: 40px; border-radius: 50%; background: #E9D9C9; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: #6B4A2E; flex: none; }
+.roomfeed { background: #FAF9F6; padding: 16px 20px; font-size: 15px; color: var(--a-muted); }
+.hbar { height: 64px; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--a-border); font-size: 17px; font-weight: 600; }
+.hbar .back { width: 48px; height: 48px; display: grid; place-items: center; }
+.body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 16px; padding: 0 20px 20px; }
+.fold { min-height: 48px; display: flex; justify-content: space-between; align-items: center; font-size: 15px; border-bottom: 1px solid var(--a-border); }
+.opts { display: flex; gap: 16px; }
+.opts > div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.statusblock { display: flex; flex-direction: column; gap: 4px; }
+.statusblock .h { font-size: 22px; line-height: 30px; font-weight: 700; }
+.bottom { padding: 12px 12px 8px; display: flex; gap: 8px; background: rgba(255,255,255,.92); border-top: 1px solid var(--a-border); }
+.btn { height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.btn.sec2 { flex: 1; border: 1px solid var(--a-text); }
+.btn.pri { flex: 2; background: var(--a-accent); color: #fff; }
+.btn.off { flex: 2; background: var(--a-disabled); color: var(--a-disabled-text); }
+.tabs { margin: 0 12px 12px; height: 64px; border-radius: 20px; background: var(--a-surface); display: flex; align-items: center; justify-content: space-around; font-size: 13px; color: var(--a-muted); }
+.tabs .on { color: var(--a-text); font-weight: 700; }
+.sheet { position: absolute; inset: auto 0 0 0; background: rgba(255,255,255,.96); border-radius: 20px 20px 0 0; border-top: 1px solid var(--a-border); padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 -40px 0 400px rgba(0,0,0,.40); }
+.sheet .t { font-size: 22px; font-weight: 700; }
+.ghost { opacity: .35; }
+.gone { margin: 0 20px 16px; border: 2px dashed var(--newline); border-radius: 16px; padding: 12px; font-size: 13px; line-height: 18px; color: var(--a-muted); background: var(--new); }
+
+/* 무브·표 */
+.moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.move h3 { display: flex; gap: 8px; align-items: baseline; }
+.tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+tr:last-child td { border-bottom: 0; }
+td.copy { font-weight: 600; }
+pre { margin: 8px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; }
+.decision { border-left: 4px solid var(--accent); }
+@media (max-width: 440px) { h1 { font-size: 26px; } .phone.tall { height: auto; } }
+/* DEV-227 추가 */
+.brix { display: flex; gap: 16px; align-items: center; padding: 8px 0; }
+.drop { width: 24px; height: 24px; flex: none; }
+.bt { font-size: 17px; line-height: 25px; font-weight: 600; }
+.mini { display: flex; flex-direction: column; gap: 6px; }
+.mini .cap { font-size: 13px; color: var(--muted); font-weight: 600; }
+.panel { background: var(--a-bg); color: var(--a-text); border: 1px solid var(--line); border-radius: 16px; padding: 14px; color-scheme: light; }
+.three { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.bub { display: flex; align-items: flex-end; gap: 6px; padding: 6px 0; }
+.bub .b { background: #F5F1EA; border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-size: 17px; line-height: 25px; max-width: 250px; }
+.bub .t { font-size: 13px; line-height: 18px; color: var(--a-muted); }
+.later { border: 1px dashed var(--a-border); border-radius: 8px; padding: 12px; font-size: 15px; line-height: 22px; color: var(--a-muted); }
+.alt { font-size: 15px; letter-spacing: .04em; color: var(--muted); }
+.tag { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--new); color: var(--accent); border: 1px solid var(--newline); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">DEV-227 · 디자인 제안 · BEFORE / AFTER</div>
+    <h1>값이 없을 때 자리표시자 대신, 값 종류마다 규칙 하나</h1>
+    <p class="lead">예상 당도가 비면 구매자 화면에 “당도 예상 -Brix”, 예약이 0건이면 “0명 예약 · 마감 D-9”, 마감일이 없으면 “마감 ”, 배송비 금액이 없으면 “배송비 ”가 나온다. 예약할 수 없는 상품은 화면마다 ‘현재 예약 불가’ / ‘이번 기간 품절’ / ‘현재 기간 품절’로 부르고, 소식방 말풍선만 ‘오전 09:40’이다. 지금 코드는 “값이 없으면 빈 글자”까지만 정해 두고, 그 앞에 붙는 라벨은 그대로 남긴다. 이 보드는 값 종류(당도·예약 수·마감·배송비·받는 시기·예약 가능 상태·시각)마다 빈 값일 때 무엇을 보일지 한 가지씩 정한다.</p>
+    <div class="status"><span class="pill hot">PM 승인 11/04 · 무브 6 수정</span><span class="pill">기준: Figma v6 · docs/design/README.md 토큰 · format.ts</span><span class="pill">근거: HE-34(표시), HE-X7·X8·X10, 디자인 감사 결함 5</span><span class="pill">2026-11-04</span></div>
+  </header>
+
+  <section>
+    <h2>스펙이 정한 것과 정하지 않은 것</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>당도: 실측 / 예상까지만</h3>
+        <p><b>FEAT-07</b> 입력·검증 “당도는 실측값이 있으면 실측, 없으면 ‘예상’으로 표시”, <b>AC-07-2</b> 실측이 있으면 예상 대신 실측. 둘 다 없을 때는 <b>정하지 않았다</b>.</p>
+        <p><b>M-11</b>: 입력에 없는 값은 빈 칸으로 두고 지어내지 않는다. <b>M-15</b>: 당도 질문에 둘 다 없으면 AI는 농가에 전달한다. 당도는 게시 필수 항목이 아니라(<code>server/app/catalog/service.py</code> <code>missing_fields</code>) 둘 다 빈 채 공개될 수 있다.</p>
+      </div>
+      <div class="card">
+        <h3>예약 수·마감·배송비: 값이 있을 때만</h3>
+        <p>screens.md 3장·SCR-01 “n명 예약”, design README “예약 수 15”, SCR-04 “배송비”. 0명·마감일 없음·별도인데 금액 없음은 <b>정하지 않았다</b>.</p>
+        <p>미리보기는 DEV-184 원칙 “빈 칸만 점선”(SCR-24)이 있는데 <code>BuyerPreview.tsx</code>가 받는 시기를 오늘 날짜로 채운다(HE-X7).</p>
+      </div>
+      <div class="card">
+        <h3>예약 가능 상태: 이름이 셋</h3>
+        <p>ia.md 레이블 표 “품절 — 단계 물량 소진 — 쓰지 않는 말: 매진”. 코드는 <code>availability</code> 6값(<code>AVAILABLE</code>·<code>NOT_OPEN</code>·<code>PERIOD_SOLD_OUT</code>·<code>TOTAL_SOLD_OUT</code>·<code>PAUSED</code>·<code>ENDED</code>)을 이미 주지만, 카드의 <code>Price</code>는 <code>soldOut</code> 하나로 ‘현재 예약 불가’, 상세는 표(<code>ProductPage.tsx</code> <code>AVAILABILITY</code>), 생산자 목록은 따로 쓴 글자(<code>productGroups.ts</code>)다. Figma는 ‘이번 기간 품절’.</p>
+      </div>
+      <div class="card">
+        <h3>시각: 도우미가 이미 있다</h3>
+        <p><code>packages/ui/src/format.ts</code> <code>time()</code> = “오후 3:12”(한국 시간, 시 앞 0 없음). 1:1 대화(<code>ChatThread.tsx</code>)는 이걸 쓰고, 소식방(<code>NewsRoom.tsx:447-450</code>)만 기기 시간대 <code>toLocaleTimeString</code> + <code>hour: "2-digit"</code>라 “오전 09:40”. 입금 기한 <code>deadline()</code>의 “01:06”은 마감 시각 표기라 그대로 둔다.</p>
+      </div>
+    </div>
+    <blockquote>결론: <b>새 화면·새 부품 없이 문구 규칙만 바꾼다.</b> “라벨 + 값”을 한 덩어리로 보고 값이 없으면 라벨째 뺀다. 빼면 뜻이 사라지는 곳(당도, 받는 시기)에만 끝난 문장을 둔다. 예약할 수 없는 이유는 <code>availability</code> 하나에서 이름을 뽑아 세 화면이 같은 표를 쓴다. AI가 당도를 못 채우는 문제(grounding)는 DEV-228에서 따로 다룬다. 여기서는 그리는 쪽만 고친다.</blockquote>
+  </section>
+
+  <section>
+    <h2>화면 <span class="ex">예시</span></h2>
+    <p class="anno" style="margin-bottom:16px">상품·농가 이름과 숫자는 자리 표시용 <b>예시</b>다(시드 <code>p-hyodon</code>은 실제로 <code>reservedCount: 0</code>). BEFORE 문구는 지금 코드가 만드는 글자 그대로다. <span class="wrong" style="padding:0 4px">빨간 테두리</span> = 지금 틀린 곳, <span class="changed" style="padding:0 4px">점선</span> = 바뀌는 곳.</p>
+
+    <div class="pair">
+      <h3>① 상품 상세 · 당도 블록 (SCR-04, 생산자 구매자 화면 미리보기도 같은 부품)</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>실측·예상 둘 다 null</span></div>
+          <div class="phone">
+            <div class="hbar"><span class="back">‹</span>상품 상세</div>
+            <div class="body" style="padding-top:16px">
+              <div class="farm">효돈 언덕농원 › <span class="ex">예시</span></div>
+              <div class="pname">효돈 노지 감귤 5kg</div>
+              <div class="fold">11월 15일~25일 도착 예정 <span>⌄</span></div>
+              <div class="brix wrong">
+                <svg class="drop" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z" fill="none" stroke="#111" stroke-width="1.8"/></svg>
+                <div><div class="bt">당도 예상 -Brix</div><div class="sub">실측 당도가 등록되면 이곳에서 확인할 수 있어요</div></div>
+              </div>
+            </div>
+          </div>
+          <p class="anno"><span class="mark">1</span><code>BrixReading.tsx:52-54</code> <code>`당도 예상 ${expected ?? "-"}Brix`</code>. 구매자는 “-”를 고장으로 읽는다. 아래 줄도 실측이 곧 올 것처럼 약속한다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER A</b><span>추천 · 줄은 남기고 끝난 문장</span></div>
+          <div class="phone">
+            <div class="hbar"><span class="back">‹</span>상품 상세</div>
+            <div class="body" style="padding-top:16px">
+              <div class="farm">효돈 언덕농원 › <span class="ex">예시</span></div>
+              <div class="pname">효돈 노지 감귤 5kg</div>
+              <div class="fold">11월 15일~25일 도착 예정 <span>⌄</span></div>
+              <div class="brix changed">
+                <svg class="drop" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z" fill="none" stroke="#111" stroke-width="1.8"/></svg>
+                <div><div class="bt">당도 등록 전</div><div class="sub">궁금하면 1:1 채팅으로 농가에 물어보세요</div></div>
+              </div>
+            </div>
+          </div>
+          <p class="anno">아이콘·자리·글자 크기는 ‘예상’ 줄 그대로, 글자만 바뀐다. 숫자를 지어내지 않고(M-11), 물으면 농가에 전달되는 M-15 흐름으로 이어진다. 감귤을 당도로 고르는 서비스라 “당도 정보가 없다”는 것도 정보다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="alt">대안 B</b><span>블록 숨김</span></div>
+          <div class="phone">
+            <div class="hbar"><span class="back">‹</span>상품 상세</div>
+            <div class="body" style="padding-top:16px">
+              <div class="farm">효돈 언덕농원 › <span class="ex">예시</span></div>
+              <div class="pname">효돈 노지 감귤 5kg</div>
+              <div class="fold">11월 15일~25일 도착 예정 <span>⌄</span></div>
+              <div class="gone" style="margin:0">당도 블록 없음 — 바로 다음 칸(상품정보 접힘)</div>
+            </div>
+          </div>
+          <p class="anno">가장 조용하다. 다만 당도가 있는 상품과 나란히 보면 “이 상품은 왜 당도가 없지”를 화면이 설명하지 않는다. 생산자 미리보기에서도 빈 당도를 알아채기 어렵다.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair" style="margin-top:40px">
+      <h3>② 홈 · 제철 상품 카드 메타 줄 (SCR-01)</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>예약 0건 / 마감일 없음</span></div>
+          <div class="phone">
+            <div class="sec">제철 상품</div>
+            <div class="carousel">
+              <div class="pcard" style="width:165px">
+                <div class="photo green" style="height:160px"></div>
+                <div class="farm">효돈 언덕농원 › <span class="ex">예시</span></div>
+                <div class="pname">효돈 노지 감귤 5kg</div>
+                <div class="sub">11월 15일~25일 도착</div>
+                <div class="price">27,000원</div>
+                <div class="meta wrong" style="width:max-content;padding-right:4px">0명 예약 · 마감 D-9</div>
+              </div>
+              <div class="pcard" style="width:165px">
+                <div class="photo box" style="height:160px"></div>
+                <div class="farm">한라 과수원 › <span class="ex">예시</span></div>
+                <div class="pname">레드향 3kg</div>
+                <div class="sub">12월 1일~10일 도착</div>
+                <div class="price">32,000원</div>
+                <div class="meta wrong" style="width:max-content;padding-right:4px">12명 예약 · 마감 </div>
+              </div>
+            </div>
+          </div>
+          <p class="anno"><span class="mark">2</span><code>(tabs)/index.tsx:164</code> <code>{p.reservedCount}명 예약 · 마감 {dday(p.dDay)}</code>. 0명은 사회적 증거가 거꾸로 작동하고(“아무도 안 산다”), <code>dDay</code>가 null이면 “마감 ”으로 끝난다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>있는 조각만 · 로 잇는다</span></div>
+          <div class="phone">
+            <div class="sec">제철 상품</div>
+            <div class="carousel">
+              <div class="pcard" style="width:165px">
+                <div class="photo green" style="height:160px"></div>
+                <div class="farm">효돈 언덕농원 › <span class="ex">예시</span></div>
+                <div class="pname">효돈 노지 감귤 5kg</div>
+                <div class="sub">11월 15일~25일 도착</div>
+                <div class="price">27,000원</div>
+                <div class="meta changed" style="width:max-content;padding-right:4px">마감 D-9</div>
+              </div>
+              <div class="pcard" style="width:165px">
+                <div class="photo box" style="height:160px"></div>
+                <div class="farm">한라 과수원 › <span class="ex">예시</span></div>
+                <div class="pname">레드향 3kg</div>
+                <div class="sub">12월 1일~10일 도착</div>
+                <div class="price">32,000원</div>
+                <div class="meta changed" style="width:max-content;padding-right:4px">12명 예약</div>
+              </div>
+            </div>
+          </div>
+          <p class="anno">0명이면 수를 말하지 않는다(대안: “첫 예약을 받아요 · 마감 D-9”, Q2). 둘 다 없으면 메타 줄이 통째로 빠진다. 카드 높이가 달라지지 않게 줄 자리는 남길지 Q2에서 함께 고른다.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair" style="margin-top:40px">
+      <h3>③ 예약할 수 없는 상품의 이름 — 세 화면 (SCR-03 판매 품목 · SCR-04 상세 · SCR-23 생산자 상품 목록)</h3>
+      <div class="flabel" style="margin-bottom:8px"><b class="bad">BEFORE</b><span>같은 상품(이번 기간 물량 소진, <code>PERIOD_SOLD_OUT</code>)이 셋으로 불린다</span></div>
+      <div class="three">
+        <div class="mini"><div class="cap">소비자 · 농가 소식방 판매 품목</div>
+          <div class="panel"><div class="sitem" style="width:auto;padding:0"><div class="photo box"></div><div><div style="font-size:15px;font-weight:600">레드향 3kg <span class="ex">예시</span></div><div class="na wrong" style="width:max-content;padding-right:4px">현재 예약 불가</div></div></div></div>
+          <p class="anno"><code>Storefront.tsx:28</code> <code>Price</code>: <code>soldOut</code>이면 상태와 관계없이 이 글자(홈·농가 목록 카드도 같은 부품).</p></div>
+        <div class="mini"><div class="cap">소비자 · 상품 상세</div>
+          <div class="panel"><div class="statusblock"><div class="h">이번 기간 품절</div><div class="sub">다음 예약은 11월 1일에 열려요.</div></div></div>
+          <p class="anno"><code>ProductPage.tsx</code> <code>AVAILABILITY</code> 표. Figma와 같다.</p></div>
+        <div class="mini"><div class="cap">생산자 · 상품 목록 (판매 중)</div>
+          <div class="panel"><div style="font-size:17px;font-weight:600">레드향 3kg <span class="ex">예시</span></div><div class="sub wrong" style="width:max-content;padding-right:4px">현재 기간 품절</div></div>
+          <p class="anno"><code>productGroups.ts:27</code> 따로 쓴 글자. NOT_OPEN은 “예약 대기 · 판매 기간 확인”.</p></div>
+      </div>
+      <div class="flabel" style="margin:20px 0 8px"><b class="good">AFTER</b><span>세 곳이 <code>availability</code> → 이름 표 하나를 쓴다</span></div>
+      <div class="three">
+        <div class="mini"><div class="cap">소비자 · 농가 소식방 판매 품목</div>
+          <div class="panel"><div class="sitem" style="width:auto;padding:0"><div class="photo box"></div><div><div style="font-size:15px;font-weight:600">레드향 3kg <span class="ex">예시</span></div><div class="na changed" style="width:max-content;padding-right:4px">이번 기간 품절</div></div></div></div>
+          <p class="anno">가격 자리 글자만 상태 이름으로(색·크기 그대로). 중지 상품은 ‘판매 일시 중지’, 시작 전은 ‘예약 시작 전’.</p></div>
+        <div class="mini"><div class="cap">소비자 · 상품 상세</div>
+          <div class="panel"><div class="statusblock"><div class="h">이번 기간 품절</div><div class="sub">다음 예약은 11월 1일에 열려요.</div></div></div>
+          <p class="anno">그대로. 표를 공용으로 옮길 뿐이다.</p></div>
+        <div class="mini"><div class="cap">생산자 · 상품 목록 (판매 중)</div>
+          <div class="panel"><div style="font-size:17px;font-weight:600">레드향 3kg <span class="ex">예시</span></div><div class="sub changed" style="width:max-content;padding-right:4px">이번 기간 품절</div></div>
+          <p class="anno">생산자에게만 필요한 안내는 이름 뒤 “ · ”로 붙인다: “예약 시작 전 · 판매 기간 확인”(Q4).</p></div>
+      </div>
+    </div>
+
+    <div class="pair" style="margin-top:40px">
+      <h3>④ 소식방 말풍선 시각 (SCR-03 · 생산자 소식방)</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>소식방만 시 앞 0</span></div>
+          <div class="panel">
+            <div class="cap" style="font-size:13px;color:var(--muted);font-weight:600">소식방</div>
+            <div class="bub"><div class="b">오늘 아침 첫 수확했어요. 당도는 다음 주에 재요. <span class="ex">예시</span></div><div class="t wrong">오전 09:40</div></div>
+            <div class="cap" style="font-size:13px;color:var(--muted);font-weight:600;margin-top:10px">1:1 채팅</div>
+            <div class="bub"><div class="b">내일 보내 드릴게요. <span class="ex">예시</span></div><div class="t">오전 9:40</div></div>
+          </div>
+          <p class="anno"><span class="mark">4</span><code>NewsRoom.tsx:447-450</code> <code>toLocaleTimeString("ko-KR", {hour: "2-digit"})</code>. 기기 시간대를 따라 한국 밖 기기에선 시각도 달라진다.</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span><code>format.ts</code> <code>time()</code> 하나</span></div>
+          <div class="panel">
+            <div class="cap" style="font-size:13px;color:var(--muted);font-weight:600">소식방</div>
+            <div class="bub"><div class="b">오늘 아침 첫 수확했어요. 당도는 다음 주에 재요. <span class="ex">예시</span></div><div class="t changed">오전 9:40</div></div>
+            <div class="cap" style="font-size:13px;color:var(--muted);font-weight:600;margin-top:10px">1:1 채팅</div>
+            <div class="bub"><div class="b">내일 보내 드릴게요. <span class="ex">예시</span></div><div class="t">오전 9:40</div></div>
+          </div>
+          <p class="anno">정오는 “오후 12:05”, 자정은 “오전 12:05”(<code>time()</code> 그대로). 분은 두 자리. 마감 시각 <code>deadline()</code> “10월 19일 (일) 01:06”은 바꾸지 않는다.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair" style="margin-top:40px">
+      <h3>⑤ 배송비·받는 시기 (SCR-04 상세 · 생산자 구매자 화면 미리보기)</h3>
+      <div class="frames">
+        <div class="fcol">
+          <div class="flabel"><b class="bad">BEFORE</b><span>미리보기, 받는 시기·배송비 금액 비어 있음</span></div>
+          <div class="phone">
+            <div class="hbar"><span class="back">‹</span>구매자 화면 미리보기</div>
+            <div class="body" style="padding-top:16px">
+              <div class="pname">효돈 노지 감귤 5kg <span class="ex">예시</span></div>
+              <div class="fold wrong">11월 4일~4일 도착 예정 <span>⌄</span></div>
+              <div class="sub wrong" style="width:max-content;padding-right:4px">11월 4일까지 보내지 못하면 자동으로 전액 환불해 드려요.</div>
+              <div class="fold wrong">배송비  <span>⌄</span></div>
+            </div>
+          </div>
+          <p class="anno"><span class="mark">5</span><code>BuyerPreview.tsx:31-32</code>가 빈 받는 시기·최대 지연을 <b>오늘</b>로 채워 있는 값처럼 보인다(HE-X7). <code>ProductPage.tsx:108-109</code> <code>`배송비 ${won(null)}`</code> = “배송비 ”(HE-X8, 상세도 같은 줄).</p>
+        </div>
+        <div class="fcol">
+          <div class="flabel"><b class="good">AFTER</b><span>확정 전에는 데이터에서 유도한 ‘예상’ (PM 11/04 수정)</span></div>
+          <div class="phone">
+            <div class="hbar"><span class="back">‹</span>구매자 화면 미리보기</div>
+            <div class="body" style="padding-top:16px">
+              <div class="pname">효돈 노지 감귤 5kg <span class="ex">예시</span></div>
+              <div class="fold changed">10월 중순 이후 도착 예상 <span>⌃</span></div>
+              <div class="sub changed">받는 시기는 예약 전에 확정돼요. 농가 사정으로 바뀌면 새 기간으로 받거나 전액 환불받을 수 있어요.</div>
+              <div class="fold changed">배송비 확정 전 · 도서산간 추가 <span>⌄</span></div>
+            </div>
+          </div>
+          <p class="anno">받는 시기가 비면 오늘로 채우지 않고 <b>마지막 예약 기간 끝날</b>(예: 10월 15일)의 월·순으로 ‘10월 중순 이후 도착 예상’. FEAT-05가 “마지막 예약 종료일 &lt; 배송 시작일”을 정해 두어서 ‘이후’까지는 데이터가 보장한다. 예약 기간도 없으면 ‘받는 시기 확정 전’. 최대 지연이 없으면 환불 기한 문장을 뺀다. 배송비는 농가 기본 배송비가 구조화된 값으로 없어(<code>reservation_shipping_policy</code>는 AI용 자유 글) 유도하지 않고 ‘배송비 확정 전’.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>디자인 무브</h2>
+    <div class="moves">
+      <div class="card move"><h3><span class="mark">1</span>라벨과 값은 한 덩어리</h3><p>“마감 D-9”, “배송비 4,000원”, “12명 예약”처럼 라벨+값을 한 조각으로 만들고, 값이 없으면 조각째 뺀다. 조각은 “ · ”로 잇고 빈 조각은 버린다(<code>joinMeta</code>). <code>format.ts</code>의 “없으면 빈 글자” 규칙은 그대로 두고, 부르는 쪽이 라벨을 혼자 남기지 않게 한다.</p></div>
+      <div class="card move"><h3><span class="mark">2</span>당도는 세 상태, 숫자는 지어내지 않는다</h3><p>실측(큰 숫자) → 예상(“당도 예상 12Brix”) → 등록 전(“당도 등록 전” + 1:1 채팅 안내). 셋째 상태는 예상 줄과 같은 자리·아이콘·크기라 레이아웃이 흔들리지 않는다. “-”, “0”, “?”는 쓰지 않는다(M-11).</p></div>
+      <div class="card move"><h3><span class="mark">3</span>0은 사회적 증거가 아니다</h3><p>예약 수는 1명부터 보인다. 0명은 수를 말하지 않고 마감만 남긴다. “0명”은 상품이 안 팔린다는 신호로 읽혀 첫 예약을 막는다. 생산자 목록의 ‘n명 예약’도 같은 규칙.</p></div>
+      <div class="card move"><h3><span class="mark">4</span>예약할 수 없는 이유는 <code>availability</code>에서 나온다</h3><p>상태 6개 → 이름 6개 표 하나(<code>packages/ui</code>)를 소비자 카드·상세·생산자 목록이 같이 쓴다. ‘현재 예약 불가’(이유를 숨김)와 ‘현재 기간 품절’(Figma에 없음)은 없앤다. 카드 가격 자리에는 이유 이름이 들어간다.</p></div>
+      <div class="card move"><h3><span class="mark">5</span>시각은 <code>time()</code> 하나</h3><p>화면에 찍는 하루 안 시각은 모두 <code>format.ts</code> <code>time()</code>(한국 시간, “오전 9:40”). 기기 시간대·<code>2-digit</code>을 직접 부르지 않는다. 마감 시각(<code>deadline()</code>)만 24시 두 자리로 따로 둔다.</p></div>
+      <div class="card move"><h3><span class="mark">6</span>확정 전에는 ‘예상’ 근사값, 근거가 없으면 ‘확정 전’ <span class="tag">PM 수정</span></h3><p>PM: “예약 전에도 소비자는 대략이라도 알고 싶다.” 그래서 빈 칸(점선)으로 두지 않고 <b>저장된 데이터에서 유도한 근사값에 ‘예상’</b>을 붙인다(M-11을 지키는 조건, 새 규칙 M-24). 받는 시기 = 마지막 예약 기간 끝날의 월·순(초순 1~10·중순 11~20·하순 21~) + ‘이후 도착 예상’ + ‘받는 시기는 예약 전에 확정돼요.’(R-03). 근거 데이터가 없으면 ‘받는 시기 확정 전’, 배송비는 ‘배송비 확정 전’. 확정 값(‘11월 10일~20일 도착 예정’)과 예상 값은 <code>deliveryText()</code> 한 함수에서 나온다. 공개 상품은 받는 시기·배송비 금액이 게시 필수(AC-04-1·FEAT-04)라 예상 상태는 실제로는 생산자 미리보기에서만 보인다.</p></div>
+    </div>
+    <p class="anno" style="margin-top:12px">검산: 바뀌는 곳 모두 새 부품 없이 기존 글자 변형(<code>sub</code>·<code>meta</code>·<code>na</code>·<code>statusblock</code>·<code>Fold</code>)만 쓴다. 새 문구는 ‘당도 등록 전’, ‘궁금하면 1:1 채팅으로 농가에 물어보세요’, ‘M월 ○순 이후 도착 예상’, ‘받는 시기 확정 전’, ‘받는 시기는 예약 전에 확정돼요.’, ‘배송비 확정 전’, ‘배송비는 확정 전이에요.’이고, 나머지는 이미 코드·Figma에 있는 이름이다.</p>
+  </section>
+
+  <section>
+    <h2>문구표 — 값 종류 × 상태</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>값 종류</th><th>상태</th><th>보이는 글자</th><th>쓰는 곳</th><th>지금</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="3">당도</td><td>실측 있음</td><td class="copy">당도 실측 / 11.8 Brix / 10월 5일 측정 (측정일 없으면 ‘측정일 미등록’)</td><td rowspan="3">SCR-04, 생산자 미리보기 (<code>BrixReading</code>)</td><td>그대로</td></tr>
+        <tr><td>예상만</td><td class="copy">당도 예상 12Brix / 실측 당도가 등록되면 이곳에서 확인할 수 있어요</td><td>그대로</td></tr>
+        <tr><td>둘 다 없음</td><td class="copy">당도 등록 전 / 궁금하면 1:1 채팅으로 농가에 물어보세요 <span class="tag">A 추천</span> · 대안 B: 블록 숨김</td><td>당도 예상 -Brix</td></tr>
+        <tr><td rowspan="4">카드 메타 (예약 수 · 마감)</td><td>n≥1, 마감 있음</td><td class="copy">38명 예약 · 마감 D-5 (오늘 마감이면 ‘마감 D-day’)</td><td rowspan="4">SCR-01 홈 카드</td><td>그대로</td></tr>
+        <tr><td>0명, 마감 있음</td><td class="copy">마감 D-9 <span class="tag">추천</span> · 대안: 첫 예약을 받아요 · 마감 D-9</td><td>0명 예약 · 마감 D-9</td></tr>
+        <tr><td>n≥1, 마감 없음</td><td class="copy">12명 예약</td><td>12명 예약 · 마감 </td></tr>
+        <tr><td>0명, 마감 없음</td><td class="copy">(줄 없음)</td><td>0명 예약 · 마감 </td></tr>
+        <tr><td rowspan="3">배송비</td><td>무료</td><td class="copy">무료배송</td><td rowspan="3">SCR-04, 미리보기</td><td>그대로</td></tr>
+        <tr><td>별도 + 금액</td><td class="copy">배송비 4,000원</td><td>그대로</td></tr>
+        <tr><td>별도 + 금액 없음</td><td class="copy">배송비 확정 전 (펼치면 ‘배송비는 확정 전이에요.’) <span class="tag">PM 수정</span></td><td>배송비 </td></tr>
+        <tr><td rowspan="3">받는 시기 · 최대 지연</td><td>확정</td><td class="copy">11월 10일~20일 도착 예정 (카드 ‘도착’) / 11월 27일까지 보내지 못하면 자동으로 전액 환불해 드려요.</td><td rowspan="3">SCR-01 카드, SCR-04, 미리보기 (<code>deliveryText</code>)</td><td>그대로</td></tr>
+        <tr><td>확정 전 · 예약 기간 있음</td><td class="copy">10월 중순 이후 도착 예상 / 받는 시기는 예약 전에 확정돼요. (최대 지연 없으면 환불 기한 문장 없음) <span class="tag">PM 수정</span></td><td>오늘~오늘 도착 예정</td></tr>
+        <tr><td>확정 전 · 예약 기간 없음</td><td class="copy">받는 시기 확정 전 / 받는 시기는 예약 전에 확정돼요.</td><td>오늘~오늘 도착 예정</td></tr>
+        <tr><td rowspan="6">예약 가능 상태 (<code>availability</code>)</td><td><code>AVAILABLE</code></td><td class="copy">가격</td><td rowspan="6">카드 가격 자리(SCR-01·02·03), SCR-04 상태 제목, SCR-23 생산자 목록 보조 상태</td><td>그대로</td></tr>
+        <tr><td><code>NOT_OPEN</code></td><td class="copy">예약 시작 전 (+ 상세 ‘다음 예약은 M월 D일에 열려요.’, 생산자 ‘ · 판매 기간 확인’)</td><td>카드 ‘현재 예약 불가’, 생산자 ‘예약 대기 · 판매 기간 확인’</td></tr>
+        <tr><td><code>PERIOD_SOLD_OUT</code></td><td class="copy">이번 기간 품절 (+ 상세 ‘다음 예약은 M월 D일에 열려요.’)</td><td>카드 ‘현재 예약 불가’, 생산자 ‘현재 기간 품절’</td></tr>
+        <tr><td><code>TOTAL_SOLD_OUT</code></td><td class="copy">전체 물량 품절 (+ 상세 ‘지금은 새 예약을 받지 않아요.’)</td><td>카드 ‘현재 예약 불가’</td></tr>
+        <tr><td><code>PAUSED</code></td><td class="copy">판매 일시 중지 (+ 상세 ‘지금은 새 예약을 받지 않아요.’)</td><td>카드 ‘현재 예약 불가’(DEV-215)</td></tr>
+        <tr><td><code>ENDED</code></td><td class="copy">예약 종료</td><td>카드 ‘현재 예약 불가’</td></tr>
+        <tr><td>하루 안 시각</td><td>모든 말풍선</td><td class="copy">오전 9:40 · 오후 12:05 · 오전 12:05</td><td>소식방, 1:1 채팅</td><td>소식방 ‘오전 09:40’</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>승인 뒤 바뀌는 코드 (일반 위험, 서버·API 변경 없음)</h2>
+    <div class="cols">
+      <div class="card"><h3><code>packages/ui</code></h3><ul>
+        <li><code>format.ts</code>: <code>joinMeta</code>·<code>reservedText</code>·<code>closesText</code>(빈 조각 버림), <code>shippingText</code>(“무료배송”/“배송비 4,000원”/“배송비 확정 전”), <code>deliveryText</code>(확정/‘예상’/확정 전), <code>brixText</code>, <code>AVAILABILITY_LABEL</code>·<code>unavailableLabel</code> 추가</li>
+        <li><code>BrixReading.tsx</code>: 셋째 상태(무브 2)</li>
+        <li><code>ProductPage.tsx</code>: <code>AVAILABILITY</code> 표를 <code>availabilityLabel</code>로, 배송비 줄을 <code>shippingFee()</code>로, 받는 시기·최대 지연 null 처리</li>
+        <li><code>Storefront.tsx</code> <code>Price</code>: <code>availability</code>를 받아 이름 표시(<code>soldOut</code>만 오면 지금처럼)</li>
+        <li><code>NewsRoom.tsx</code>: <code>time(m.createdAt)</code></li>
+      </ul></div>
+      <div class="card"><h3>앱</h3><ul>
+        <li><code>apps/consumer/src/app/(tabs)/index.tsx</code>: 메타 줄 <code>joinMeta</code>, <code>Price</code>에 <code>availability</code></li>
+        <li><code>apps/consumer/src/app/(tabs)/farms/index.tsx</code>: <code>Price</code>에 <code>availability</code></li>
+        <li><code>apps/producer/src/lib/productGroups.ts</code>: <code>availabilityLabel</code> 사용</li>
+        <li><code>apps/producer/src/lib/BuyerPreview.tsx</code>: 오늘 날짜로 채우지 않음(<code>ProductPageData</code>의 받는 시기·최대 지연을 null 허용으로 넓히고, 상세가 <code>deliveryText()</code>로 ‘예상’/‘확정 전’을 그림)</li>
+      </ul></div>
+      <div class="card"><h3>범위 밖</h3><ul>
+        <li>AI 당도 추출(<code>server/app/ai/grounding.py</code>) — DEV-228, 고위험</li>
+        <li>당도를 게시 필수로 만들기(스펙 결정)</li>
+        <li><code>Messenger.tsx</code> <code>messageTime</code>(목록 시각, 기기 시간대) — 앞 0은 없지만 시간대가 다르다. 후속 후보로 기록만</li>
+        <li>Mock <code>derive.ts</code>의 <code>deliveryWindow ?? TODAY</code>(공개 상품은 받는 시기가 필수라 소비자 화면에선 안 나옴)</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>테스트 계획</h2>
+    <div class="cols">
+      <div class="card"><h3>Mock 테스트 <code>scripts/test-empty-values.mjs</code> (새 파일, <code>test:mock</code> 글롭이 모음)</h3><ul>
+        <li><code>AC-07-2</code>: 실측·예상 null/null → ‘당도 등록 전’, 예상 12 → ‘당도 예상 12Brix’, 어떤 조합도 “-Brix”를 만들지 않음</li>
+        <li><code>AC-07-3</code>: <code>availabilityLabel</code> 6값, 같은 표를 쓰는지(소비자·생산자 결과 같음)</li>
+        <li>SCR-01 메타: <code>joinMeta</code> (0명, D-9) → ‘마감 D-9’, (12명, null) → ‘12명 예약’, (0, null) → ‘’</li>
+        <li>배송비: (<code>SEPARATE</code>, null·0) → ‘배송비 확정 전’, 끝이 공백으로 끝나는 결과 없음</li>
+        <li>시각: <code>time("2026-10-07T00:40:00Z")</code> → ‘오전 9:40’, 정오·자정</li>
+        <li>받는 시기: 확정 → ‘11월 10일~20일 도착 예정’, 확정 전 → 마지막 예약 끝날의 월·순 ‘이후 도착 예상’(한국 시간 경계), 근거 없음 → ‘받는 시기 확정 전’</li>
+      </ul></div>
+      <div class="card"><h3>바꿀 기존 테스트</h3><ul>
+        <li><code>scripts/test-producer-status.mjs:32</code>의 기대값 ‘현재 기간 품절’ → ‘이번 기간 품절’(규칙이 바뀌어서 고치는 것, 약하게 하지 않음)</li>
+        <li><code>npm run typecheck</code>, <code>npm run test:mock</code> 전체</li>
+      </ul></div>
+      <div class="card"><h3>Playwright (선택)</h3><ul>
+        <li><code>scripts/e2e/source-detail-design.spec.ts</code>의 AC-07-2 옆에 “실측·예상 null이면 ‘당도 등록 전’, ‘-Brix’ 없음” 한 건</li>
+        <li>시드 <code>p-hyodon</code>(0명) 홈 카드에 ‘0명’이 없는지</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>같이 고칠 스펙 줄</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>문서</th><th>지금</th><th>바꿀 줄</th></tr></thead>
+      <tbody>
+        <tr><td><code>docs/spec/screens.md</code> 3장 공통 규칙</td><td>빈 값 규칙 없음, ‘날짜·금액’ 줄에 시각 형식 없음</td><td><b>빈 값</b>: 라벨+값은 한 덩어리로 보고 값이 없으면 라벨째 뺀다. ‘-’·‘0명’·오늘 날짜 같은 자리표시자를 쓰지 않는다. 미리보기의 빈 칸은 점선(DEV-184). / <b>날짜·금액</b> 끝에: 하루 안 시각은 ‘오전 9:40’(시 앞 0 없음), 마감 시각만 ‘01:06’</td></tr>
+        <tr><td><code>docs/spec/screens.md</code> SCR-01·SCR-04</td><td>“n명 예약”, “배송비”</td><td>SCR-01: ‘n명 예약’은 1명부터, 없으면 마감만. SCR-04: 당도 세 상태(실측/예상/‘당도 등록 전’), 배송비 별도 금액 없음 ‘배송비 확정 전’, 받는 시기 확정 전 ‘M월 ○순 이후 도착 예상’, 예약 불가 이름은 ia.md 레이블 표</td></tr>
+        <tr><td><code>docs/spec/ia.md</code> 4장 레이블 표</td><td>품절 — 단계 물량 소진 — 매진</td><td>이번 기간 품절(<code>PERIOD_SOLD_OUT</code>) · 전체 물량 품절(<code>TOTAL_SOLD_OUT</code>) · 예약 시작 전(<code>NOT_OPEN</code>) · 판매 일시 중지(<code>PAUSED</code>) · 예약 종료(<code>ENDED</code>). 쓰지 않는 말: 매진, 현재 예약 불가, 현재 기간 품절</td></tr>
+        <tr><td><code>docs/spec/functional/FEAT-07-product-detail.md</code> 입력·검증</td><td>실측이면 실측, 없으면 ‘예상’</td><td>뒤에 “둘 다 없으면 ‘당도 등록 전’(숫자를 만들지 않음, M-11)” — 동작 추가라 wiki 영문 요약도 같이</td></tr>
+        <tr><td><code>docs/spec/functional/rules.md</code></td><td>M-11·M-15</td><td>새 <b>M-24</b>: 자리표시자 금지, 라벨째 빼기, 확정 전 근사값은 저장 데이터에서 유도할 때만 ‘예상’을 붙여 보임(받는 시기 = 마지막 예약 끝날의 월·순 ‘이후’), 근거 없으면 ‘확정 전’, 결제 전에는 확정 값만(R-03). FEAT-07에 <b>AC-07-7</b></td></tr>
+        <tr><td><code>docs/design/README.md</code></td><td>컴포넌트 목록 ‘상태 배지(칩은 D-day·품절만…)’</td><td>“빈 값” 한 줄 + 이 보드 링크, 예약 불가 이름은 ia 표</td></tr>
+        <tr><td><code>docs/wiki/Requirements-and-Specifications.md</code></td><td>AC-07-2·AC-07-3 요약</td><td>영문 한 줄씩</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>PM 결정 (11/04)</h2>
+    <div class="cols">
+      <div class="card decision"><h3>Q1. 당도가 둘 다 없을 때 → A</h3><p><b>A(추천)</b> ‘당도 등록 전 / 궁금하면 1:1 채팅으로 농가에 물어보세요’ 줄을 남긴다. <b>B</b> 블록을 숨긴다. A는 당도 중심 서비스에서 빈 정보도 알려 주고 M-15 흐름과 이어진다.</p></div>
+      <div class="card decision"><h3>Q2. 예약 0명 카드 → 수 빼고 ‘마감 D-9’, 빈 줄 자리 없음</h3><p><b>추천</b>: 수를 빼고 ‘마감 D-9’만. 대안: ‘첫 예약을 받아요 · 마감 D-9’. 메타 줄이 통째로 비면 줄 자리(18px)를 남길지 — 추천은 남기지 않음(카드는 가로 스크롤이라 높이 차이가 잘 안 보임).</p></div>
+      <div class="card decision"><h3>Q3. 예약 불가 이름 표 → 승인(DEV-215 문구 교체 포함)</h3><p>카드 가격 자리 ‘현재 예약 불가’를 상태 이름으로 바꾼다. DEV-215에서 승인한 “판매 품목에는 ‘현재 예약 불가’”가 ‘판매 일시 중지’로 바뀌는 것이라 다시 확인한다. ia 레이블 ‘품절’은 ‘이번 기간 품절’·‘전체 물량 품절’ 둘로 나뉜다.</p></div>
+      <div class="card decision"><h3>Q4. 생산자 목록 → ‘예약 시작 전’</h3><p>‘예약 대기 · 판매 기간 확인’ 대신 소비자와 같은 ‘예약 시작 전’.</p></div>
+      <div class="card decision"><h3>Q5. Brix 띄어쓰기 → 그대로</h3><p>실측 큰 숫자는 ‘11.8 Brix’, 예상 줄은 ‘12Brix’, design README 예시는 둘 다 붙여 씀. 이번 이슈에서 맞출지 — 추천은 그대로 두고(큰 숫자 줄은 Figma 기준) 별도로.</p></div>
+      <div class="card decision"><h3>Q6. Figma v6 → 후속</h3><p>새 부품 없이 상태 프레임 문구만 바뀜(상세 당도 셋째 상태, 홈 카드 0명, 판매 품목 이름, 미리보기 점선 받는 시기). 승인 뒤 Figma v6 반영 요청(PR <code>Figma:</code> 후속).</p></div>
+    </div>
+  </section>
+</div>

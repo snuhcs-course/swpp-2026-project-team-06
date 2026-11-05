@@ -111,3 +111,34 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - 플랫폼 분기는 `*.native.ts` 쌍(Metro가 고른다)이 우선이고, 웹 파일은 런타임 import 없이 두어 Node 테스트가 읽는다. `lib/kakao.ts`(웹: sessionStorage, `window.location.origin`) / `lib/kakao.native.ts`(메모리, `EXPO_PUBLIC_CONSUMER_URL`, state `app-` 접두어), `lib/kakaoAuth.ts`(페이지 이동) / `lib/kakaoAuth.native.ts`(`expo-web-browser` 인증 세션).
 - 카카오 복귀(앱): 인가 요청의 복귀 주소는 웹과 같은 `https://farmclub.kr/auth/kakao`. 웹 복귀 화면 `/auth/kakao`는 `state`가 `app-`이면 `appReturnUrl`로 코드를 `farmclub-consumer://auth/kakao?code&state`에 넘기고 ‘앱으로 돌아가는 중’ + ‘앱 열기’ 버튼을 보인다. 앱의 `login.tsx`는 인증 세션 결과를 받아 같은 `/auth/kakao` 화면을 열고, 그 화면이 메모리 복귀 정보로 `state`를 대조한 뒤 `POST /api/auth/kakao`(`redirectUri`는 `kakaoCallbackUri()`)를 부른다. 서버 변경 없음.
 - 복사는 `expo-clipboard`, 바깥 주소는 `Linking`, 토큰은 `@farmclub/api`가 SecureStore에 둔다. `public/.well-known/`의 `apple-app-site-association`·`assetlinks.json`은 Team ID·지문 자리표시자(사람이 채움), `vercel.json`이 JSON으로 응답. 앱 링크로 여는 경로는 아직 없다(AASA 전부 제외). Android는 복귀 스킴을 expo-router 딥링크로 받으므로 `kakaoAuth.native.ts`가 결과를 돌려주지 않는다.
+
+## DEV-207 주문 상태 문구
+- 주문 상태 문구(목록 굵은 줄·아래 줄, 상세·주문 완료 제목, 입금 대기·환불 본문, 하단 바 요약, 취소 가능 여부)는 `src/lib/orderText.ts` 순수 함수 한곳에서 만든다. 날짜 도우미는 화면이 넘기고, `scripts/test-order-text.mjs`가 React Native 없이 검사한다.
+- 라벨 원칙은 R-28 끝 문장(입금 대기·입금 확인 중·환불 대기·환불 완료). 입금을 알린 뒤 취소 버튼은 앱에서만 숨긴다(서버 `cancel` 행동은 그대로, 후속 이슈 후보는 `tasks.md#DEV-207`).
+
+## DEV-214 농가 목록 검색 실패·다시 시도
+- SCR-02 FarmList 상태는 `src/lib/farmSearch.ts` 리듀서(`start`·`success`·`fail`) 한곳에서 바꾼다. 요청마다 번호(`useRef`)를 붙이고 마지막 요청이 아닌 응답은 버린다. 페이지를 합칠 때 `farmId`로 거른다.
+- 실패 종류로 재시도를 가른다(FEAT-06 E4): 새 검색(reset) 실패는 검색칸 아래 `Notice tone="error"` + ‘다시 시도’(cursor 없이 처음부터, 목록을 바꿈), ‘더 보기’(more) 실패는 목록 아래 한 줄 + 같은 cursor로 이어 받기. 목록이 없을 때 실패는 `LoadError` 그대로.
+- 오류 상자 본문은 서버 메시지 대신 고정 문구 두 가지(`ApiError.status === 0`이면 연결 끊김). 머리줄·문구는 `listHeader`·`failureCopy`, `scripts/test-farm-search.mjs`가 React Native 없이 검사한다.
+
+## 주문서 409 분기 (DEV-216·DEV-218, 2026-11-04)
+
+- 안내·버튼은 `src/lib/checkoutConflict.ts` 순수 함수(`conflictView`)가 `details.reason`·`details`·다시 읽은 상품 `availability`로 정한다. 서버 `message`와 상품 `soldOut`은 쓰지 않는다(`soldOut`은 서버에서 판매 중지를 보지 않음, DEV-215).
+- ‘바뀐 금액으로 예약하기’는 `STAGE_CHANGED`이면서 `details.current`가 있을 때만. 주문 생성 본문에 화면이 보인 기간·단가·중량(`seenValues`)을 싣는다(FEAT-08 AC-08-8).
+- 409 뒤에는 주문·입금 멱등 키를 둘 다 새로 만들고 받는 곳·메모·동의·수량은 지우지 않는다. `IDEMPOTENCY_MISMATCH`는 새 키로 한 번만 다시 보낸다.
+- 판매 중지·계좌 없음의 ‘다시 확인하기’는 상품을 다시 읽어 열렸으면 안내를 지우되, 처음 보낸 값과 지금 값이 다르면 가격 안내로 바꾼다(`recheckedConflict`). 품절·물량·수량 안내는 옵션·수량을 바꾸면 사라진다.
+- 입금 기한이 지나 SCR-11에서 돌아온 경우(`changed=1`)는 `EXPIRED`로 ‘입금 기한이 지나 예약이 취소됐어요’ + ‘다시 예약하기’.
+- 보드 `docs/design/proposals/dev-216-checkout-stage-changed.html`, 테스트 `scripts/test-checkout-conflict.mjs`·`scripts/e2e/checkout-stage-changed.spec.ts`.
+
+## 로그인 필요 화면과 로그아웃 이동 (DEV-222, 2026-11-04)
+
+- 주문서(`checkout/[productId]/index.tsx`)의 로그인·온보딩 이동은 `useFocusEffect`로 화면이 보일 때만 하고, `user`는 의존성이 아니라 ref로 읽는다. 보는 중에 계정이 사라지면(로그아웃·401) 세션(`lib/session.tsx`)만 이동한다. expo-router `<Redirect>`(내 주문·채팅 탭)와 같은 규칙이다.
+- 입금 안내 → 완료 화면은 `canDismiss()`이면 `router.dismissAll()` 뒤 `replace`로 주문서·입금 안내를 루트 스택에서 걷어 낸다. 로그아웃(`logout`)은 그대로 `replace("/")`.
+- 이어서 할 행동(`resume`)은 관문 시트가 연 로그인(`from` 파라미터)만 쓴다. `from` 없는 로그인 화면은 열릴 때 `clearResume()`.
+- 온보딩(`onboarding/index.tsx`)도 `user` 변화에 반응해 로그인으로 보내지만, 온보딩 위에 쌓이는 화면은 약관·처리방침뿐이라 로그아웃이 일어나지 않아 그대로 둔다.
+- 테스트 `scripts/e2e/checkout-logout.spec.ts`.
+
+## 팔로우 해제 토스트와 소식방 해제 상태 (DEV-230, 2026-11-05)
+- `useToast().act(message, label, onPress)`: 행동 버튼 토스트. 소식방(`lib/FarmRoom.tsx`)과 주문 완료(`orders/[orderId]/done.tsx`) 모두 해제 성공 뒤 ‘팔로우를 끊었어요 · 되돌리기’, 되돌리기는 다시 팔로우.
+- `FarmRoom`은 `FollowButton`(체크 + 팔로잉)을 쓰고 `NewsRoom`의 `onLapsedChange`로 헤더를 테두리 버튼으로 낮춘다. 띠의 ‘다시 팔로우’는 `join`(관문 포함)과 같다.
+- 채팅 소식방 목록은 바꾸지 않았다(서버 `rooms()`가 팔로우한 농가만). 테스트 `scripts/e2e/unfollow-feedback.spec.ts`.

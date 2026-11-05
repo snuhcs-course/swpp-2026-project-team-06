@@ -1075,6 +1075,22 @@ Every case retains plan, criterion, actual result, evidence, and follow-up. Sour
 
 **Dependency/follow-up:** Chromium mobile viewports only; physical devices and deployment require separate verification.
 
+#### P-19 — Confirm before sending news and delete sent news (DEV-210)
+
+**Record:** **PASS** (local); priority P1; area: News room; related: Producer frontend, messaging API. Added after the 3 November HE pre-check (P3, severity 3); not part of the 19 October workbook counts.
+
+**Execution:** Local; 4 November 2026, branch `nemodleo/dev-210-news-confirm-delete`, isolated PostgreSQL database.
+
+**Procedure:** In the producer's own news room, type news and press Send; check the sheet, press No, then send. Delete one post with ⋯ → Delete and another with Delete and rewrite; check the consumer room, chat list preview, news list and public farm room.
+
+**PASS criterion:** AC-12-13 to AC-12-16 (FEAT-12, rule M-23).
+
+**Actual result:** pytest `test_AC_12_14_*` and `test_AC_12_15_*` (7 tests) passed inside the full server suite (1459 passed, 1 skipped). Mock `scripts/test-news-rooms.mjs` AC-12-14/15 passed within `npm run test:mock` (64 passed). Playwright `scripts/e2e/conversation-ui.spec.ts` AC-12-13 and AC-12-14/16 passed on the local real stack (9 passed).
+
+**Evidence:** [PR #396](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/396)
+
+**Dependency/follow-up:** Deployed verification after merge. The HE test post left in production is deleted by a person from the producer account after deployment.
+
 ### A.3 Manager and AI
 
 **Owner:** Zahra. **Source sheet:** `자라_운영자AI`.

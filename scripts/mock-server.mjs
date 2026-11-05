@@ -32,8 +32,10 @@ configureMockStorage({
     renameSync(`${statePath}.tmp`, statePath);
   },
 });
+// FARMCLUB_MOCK_PORT=0 lets the OS pick a free port (Mock tests run in parallel worktrees, DEV-221).
+// `base` is set from the real port once the server is listening.
 const port = Number(process.env.FARMCLUB_MOCK_PORT || 8083);
-const base = `http://127.0.0.1:${port}`;
+let base = `http://127.0.0.1:${port}`;
 const origins = new Set(
   (
     process.env.FARMCLUB_APP_ORIGINS ||
@@ -77,9 +79,10 @@ async function readBody(req) {
     : undefined;
 }
 const server = createServer(async (req, res) => {
+  const listening = server.address().port; // real port, also when FARMCLUB_MOCK_PORT=0
   if (
-    req.headers.host !== `127.0.0.1:${port}` &&
-    req.headers.host !== `localhost:${port}`
+    req.headers.host !== `127.0.0.1:${listening}` &&
+    req.headers.host !== `localhost:${listening}`
   )
     return error(res, 403, "Local host only");
   const origin = req.headers.origin;
@@ -207,6 +210,9 @@ const server = createServer(async (req, res) => {
     error(res, 400, "요청을 처리하지 못했어요.");
   }
 });
-server.listen(port, "127.0.0.1", () => console.log(`Shared Mock: ${base}`));
+server.listen(port, "127.0.0.1", () => {
+  base = `http://127.0.0.1:${server.address().port}`;
+  console.log(`Shared Mock: ${base}`);
+});
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => server.close(() => process.exit()));

@@ -271,9 +271,11 @@ export const orders = {
     request<A.Paged<A.ProducerOrder>>("GET", "/api/orders/producer", {
       query: q,
     }),
-  harvestStart: (productId: string) =>
-    request<{ changed: number }>("POST", "/api/orders/producer/harvest-start", {
-      body: { productId },
+  /** 수확 시작 = 출하 준비 시작(DEV-231). 그 기간의 예약 완료 주문만 옮긴다 */
+  harvestStart: (productId: string, stageId: string, key: string) =>
+    request<A.HarvestStarted>("POST", "/api/orders/producer/harvest-start", {
+      body: { productId, stageId },
+      idempotencyKey: key,
     }),
   updateTracking: (orderId: string, version: number, carrier: A.Carrier, trackingNumber: string | null, key: string) =>
     request<A.ProducerOrder>("PATCH", `/api/orders/${orderId}/tracking`, {
@@ -325,6 +327,9 @@ export const messaging = {
       "DELETE",
       `/api/messaging/news/${broadcastId}/reaction`,
     ),
+  /** 내 농가 소식 삭제(M-23, DEV-210). 소프트 삭제, 이미 지운 소식도 성공 */
+  deleteNews: (broadcastId: string) =>
+    request<null>("DELETE", `/api/messaging/news/${broadcastId}`),
   postNews: (
     input: A.NewsInput,
     idempotencyKey: string = newIdempotencyKey(),
@@ -389,6 +394,27 @@ export const messaging = {
     request<{ unreadCount: number }>("PUT", "/api/messaging/support/read", {
       body: { lastReadMessageId },
     }),
+  // 생산자 자기 농가의 farmclub 운영팀 대화방(DEV-209). 정지·반려 농가도 쓰고, 방이 없으면 처음 열 때 생긴다
+  producerSupportMessages: (q: A.PageQuery = {}) =>
+    request<A.ChatPage>("GET", "/api/messaging/producer/support/messages", {
+      query: q,
+    }),
+  producerSupportSend: (
+    text: string,
+    attachmentIds: string[] = [],
+    idempotencyKey: string = newIdempotencyKey(),
+  ) =>
+    request<{ message: A.ChatMessage; thread: A.Thread }>(
+      "POST",
+      "/api/messaging/producer/support/messages",
+      { body: { text, attachmentIds }, idempotencyKey },
+    ),
+  producerSupportRead: (lastReadMessageId: string) =>
+    request<{ unreadCount: number }>(
+      "PUT",
+      "/api/messaging/producer/support/read",
+      { body: { lastReadMessageId } },
+    ),
   producerChats: (q: { needsReply?: boolean } & A.PageQuery = {}) =>
     request<A.Paged<A.ProducerChatSummary>>(
       "GET",

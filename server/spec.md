@@ -62,7 +62,7 @@ server/
 
 **에러 형식** (screens.md 7.1, 구현은 DEV-4)
 - 본문: `{"code": "...", "message": "<사용자 문구>", "details": {}}`. FastAPI 기본 형식(`detail`)과 검증 오류(422)는 예외 처리기에서 이 형식으로 바꾼다.
-- 상태·code: 400 `VALIDATION_ERROR`(`details.fields`), 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`(`details.reason`: `STAGE_CHANGED`, `SOLD_OUT`, `QUANTITY_LIMIT`, `INVALID_TRANSITION`, `IDEMPOTENCY_MISMATCH`), 413 `PAYLOAD_TOO_LARGE`, 5xx `INTERNAL_ERROR`. AI 실패·시간 초과는 오류로 돌려주지 않고 각 FEAT의 대체 동작(전달, 빈 초안)으로 처리.
+- 상태·code: 400 `VALIDATION_ERROR`(`details.fields`), 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`(`details.reason`: `STAGE_CHANGED`, `SOLD_OUT`, `QUANTITY_LIMIT`, `INVALID_TRANSITION`, `IDEMPOTENCY_MISMATCH`, `SALES_PAUSED`, `TOTAL_LIMIT_REACHED` 외 contracts-1.2 1장. `STAGE_CHANGED`는 `previous`·`current`·`nextStageStartsAt`을 싣는다, DEV-216), 413 `PAYLOAD_TOO_LARGE`, 5xx `INTERNAL_ERROR`. AI 실패·시간 초과는 오류로 돌려주지 않고 각 FEAT의 대체 동작(전달, 빈 초안)으로 처리.
 - 응답·로그에 개인정보를 넣지 않는다(N-05).
 
 **페이지네이션·멱등 키** (screens.md 7.1)
@@ -94,6 +94,8 @@ server/
 | 2026-10-08 | 연락처 가림은 `core/masking.py` 하나(전화번호, 숫자 10자리 이상 계좌). 날짜는 가리지 않는다 | M-16, M-18 | AC-12-2 |
 | 2026-10-16 | 운영자 작업은 기존 멱등 레코드와 별도 `ManagerEvent`에 정제된 감사 요약·실패 복구 상태를 저장한다 | DEV-35, 원문 비노출과 재시도 책임 분리 | M01~M03 |
 | 2026-10-21 | 공개 사진·영상은 `POST /api/media`로 받아 R2에 두고 주소만 저장한다. 사진 필드는 HTTPS·서비스 경로 500자까지만 받아 data URL은 400. local이 아니면 저장소가 R2여야 한다는 검사를 자료 분석 설정과 무관하게 한다(DEV-102) | 공개 사진 업로드 API가 없어 앱이 base64를 URL 자리에 보내 농가 사진 저장이 500으로 실패했다 | AC-02-3, AC-12-10 |
+| 2026-11-04 | 상품 카드 `sold_out`은 `availability != "AVAILABLE"`(PAUSED·TOTAL_SOLD_OUT·PERIOD_SOLD_OUT·NOT_OPEN·ENDED 모두 true, Mock과 같음). `next_stage_starts_at`은 NOT_OPEN·PERIOD_SOLD_OUT일 때만 | DEV-215. 중지·총 한도 소진 상품이 홈 추천·농가 대표에 남고 상세가 예약 가능처럼 보였다. 기다려도 열리지 않는 상태엔 다음 기간 날짜를 약속하지 않는다 | AC-07-1, AC-07-3, R-27 |
+| 2026-11-05 | 소식방 `_room_rows`는 팔로우하지 않은 소비자에게도 본인 답장(`consumer_id == user.id`)을 준다. 공개 방송만 함께 주고 `canReply`는 거짓, 비로그인은 답장 없음. `rooms()`는 팔로우한 농가만(변경 없음) | 팔로우를 끊어도 내 글이 사라지지 않게(DEV-230, PM 결정). 더 보이는 것은 본인 글뿐(M-02) | AC-15-8, AC-06-8 |
 
 - DEV-58: see docs/spec/source-editor.md for the approved two-box input, description-only placement, and in-page editor contract. Source assets retain their existing role flag; description revisions are independent of image revisions.
 

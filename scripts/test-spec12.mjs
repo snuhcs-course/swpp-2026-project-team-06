@@ -489,11 +489,15 @@ test("DEV-186 AC-SRC-3: shared safety JSON triggers app CI and deployment", asyn
   ]) {
     assert.equal(spawnSync("grep", ["-qE", pattern], { input: path + "\n" }).status, expected);
   }
-  const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
-  const appsFilter = ci.split("            apps:\n")[1].split("\n      - name:")[0];
-  assert.ok(appsFilter.includes('"server/app/source_analysis/text_safety_lists.json"'));
-  const integrationFilter = ci.split("            integration:\n")[1].split("\n      - name:")[0];
-  assert.ok(integrationFilter.includes('"server/**"'));
+  // DEV-234: CI 경로 분류는 scripts/ci/integration-map.json(classify.mjs)으로 옮겼다
+  const { classify, loadConfig } = await import("./ci/classify.mjs");
+  const ciConfig = loadConfig();
+  const safety = classify({ lane: "pr", files: ["server/app/source_analysis/text_safety_lists.json"], config: ciConfig });
+  assert.equal(safety.jobs.apps, true);
+  assert.equal(safety.integration, true);
+  const server = classify({ lane: "pr", files: ["server/app/source_analysis/text_safety.py"], config: ciConfig });
+  assert.equal(server.jobs.server, true);
+  assert.equal(server.integration, true);
 });
 
 
@@ -620,4 +624,40 @@ test("DEV-179 AC-17-9: Mock tracking correction is versioned, idempotent and pri
     for (const privateKey of ["trackingHistory", "events", "request_summary", "requestSummary", "previous"])
       assert.equal(privateKey in response, false, `${privateKey} must remain server-only`);
   }
+});
+
+test("DEV-208 AC-13-9·13-10: consumer chat page tells who answers and the typical reply time", async () => {
+  const a = await login("u-minji", "consumer"),
+    b = await login("u-seojun", "consumer"),
+    p = await login("u-kang", "producer");
+  const human = await ok("GET", "/api/messaging/chats/f-kang/messages", a);
+  assert.equal(human.thread.aiMode, "HUMAN");
+  assert.equal(human.farmReply.mode, "FARM");
+  const auto = await ok("GET", "/api/messaging/chats/f-kang/messages", b),
+    settings = await ok("GET", "/api/farms/me/ai-settings", p);
+  // 앞 테스트가 농가 AI를 끌 수 있어 현재 설정으로 기대값을 정한다(AI OFF는 AUTO 방도 FARM)
+  assert.equal(
+    auto.farmReply.mode,
+    auto.thread.aiMode === "AUTO" && settings.enabled ? "AI" : "FARM",
+  );
+  const producer = await ok("GET", "/api/messaging/producer/chats/u-minji/messages", p);
+  assert.equal(producer.farmReply, null);
+
+  const { typicalReplyHours } = require("../.expo/mock-build/packages/api/src/mock/conversations.js");
+  const now = Date.parse("2026-11-04T12:00:00Z"),
+    at = (h) => new Date(now - h * 3600000).toISOString(),
+    pair = (askedH, waitH) => [
+      { senderType: "CONSUMER", createdAt: at(askedH) },
+      { senderType: "PRODUCER", createdAt: at(askedH - waitH) },
+    ];
+  const fake = (messages) => ({
+    threadMeta: { k: { farmId: "f-x", consumerId: "u-x" } },
+    threads: { "f-x:u-x": messages },
+  });
+  // 중앙값 2.5시간 → 3, 4건이면 null, 72시간 초과면 null
+  const five = [1, 2, 2.5, 2.8, 10].flatMap((w, i) => pair(200 - i * 20, w));
+  assert.equal(typicalReplyHours(fake(five), "f-x", now), 3);
+  assert.equal(typicalReplyHours(fake(five.slice(0, 8)), "f-x", now), null);
+  const slow = [80, 80, 80, 80, 80].flatMap((w, i) => pair(600 - i * 100, w));
+  assert.equal(typicalReplyHours(fake(slow), "f-x", now), null);
 });

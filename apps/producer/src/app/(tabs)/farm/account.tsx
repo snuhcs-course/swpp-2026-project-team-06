@@ -18,6 +18,7 @@ import { View } from "react-native";
 
 import { useHideTabBar, useSession } from "../../../lib/session";
 import { errMsg, fieldErrors } from "../../../lib/views";
+import { goBackOr } from "../../../lib/nav";
 
 const ACCOUNT_NUMBER = /^[0-9][0-9-]{4,30}[0-9]$/;
 
@@ -42,7 +43,7 @@ export default function FarmAccount() {
   }, [farm.data]);
 
   const back = () =>
-    router.canGoBack() ? router.back() : router.replace("/farm");
+    goBackOr(router, "/farm");
 
   async function save() {
     const next: Record<string, string> = {};

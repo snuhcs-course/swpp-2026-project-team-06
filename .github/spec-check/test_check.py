@@ -90,12 +90,36 @@ class ContractTests(unittest.TestCase):
                     check.validate(candidate, context())
 
     def test_finding_must_have_real_quote_and_location(self):
-        for key, value in (("path", "unseen.py"), ("line", 900), ("line", 0), ("line", True),
-                           ("quote", "invented"), ("quote", "")):
+        for key, value in (("path", "unseen.py"), ("line", True)):
             candidate = result("MISMATCH")
             candidate["findings"][0]["code"][key] = value
             with self.assertRaises(check.Incomplete):
                 check.validate(candidate, context())
+        # DEV-211: a quote/line that is not in the sent diff is dropped, not a review failure. With nothing verified
+        # left, MISMATCH cannot stand and the result is INCOMPLETE with no findings (NO_FINDINGS after scoped()).
+        for key, value in (("line", 900), ("line", 0), ("quote", "invented"), ("quote", "")):
+            candidate = result("MISMATCH")
+            candidate["findings"][0]["code"][key] = value
+            out = check.validate(candidate, context())
+            self.assertEqual((out["status"], out["findings"]), ("INCOMPLETE", []))
+            self.assertIn("1 finding(s) dropped", out["summary"])
+            self.assertIn("SC-001", out["summary"])
+            self.assertEqual(check.scoped(out)["status"], "NO_FINDINGS")
+
+    def test_dropped_finding_keeps_verified_mismatch_and_never_passes(self):
+        # DEV-211: a verified finding beside a dropped one keeps MISMATCH; PASS with a dropped finding is INCOMPLETE.
+        candidate = result("MISMATCH")
+        bad = copy.deepcopy(candidate["findings"][0])
+        bad.update(id="SC-002", code={"path": "sample.py", "line": 1, "quote": "not there"})
+        candidate["findings"].append(bad)
+        out = check.validate(candidate, context())
+        self.assertEqual(out["status"], "MISMATCH")
+        self.assertEqual([f["id"] for f in out["findings"]], ["SC-001"])
+        self.assertIn("SC-002", out["summary"])
+        passed = result("PASS")
+        passed["findings"] = [bad]
+        out = check.validate(passed, context())
+        self.assertEqual((out["status"], out["findings"]), ("INCOMPLETE", []))
 
     def test_uncertainty_and_duplicate_finding(self):
         candidate = result("MISMATCH")
@@ -251,6 +275,54 @@ class ContractTests(unittest.TestCase):
         for invalid in ("", body.replace("#dev-40", ""), body.replace("sample.py", "../escape")):
             with self.assertRaises(check.Incomplete):
                 check.author_mapping(invalid)
+
+    def test_per_issue_task_file_reference(self):
+        # DEV-219: the task record may be the issue file itself; the anchor is optional and the key comes from the name.
+        tick = chr(96)
+        def body(task):
+            return ("## Spec ↔ Code 확인\n- 작업 기록: " + tick + task + tick + "\n"
+                    "| " + tick + "spec.md" + tick + " | " + tick + "sample.py" + tick + " | inspect |\n")
+        for task, path, key in (("server/tasks/DEV-40.md", "server/tasks/DEV-40.md", "DEV-40"),
+                                ("tasks/SWPP-18.md", "tasks/SWPP-18.md", "SWPP-18"),
+                                ("server/tasks/dev-40.md#dev-40", "server/tasks/dev-40.md", "dev-40"),
+                                ("tasks.md#dev-117", "tasks.md", "dev-117")):
+            self.assertEqual(check.author_mapping(body(task))[2:], (path, key))
+        for invalid in ("server/tasks/notes.md", "server/tasks/DEV-40.txt", "server/notes.md#dev-40", "server/tasks.md"):
+            with self.assertRaises(check.Incomplete):
+                check.author_mapping(body(invalid))
+
+    def test_collect_reads_whole_issue_file_and_follows_old_anchor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def run(*args):
+                return subprocess.check_output(["git", "-C", directory, *args]).decode().strip()
+            run("init", "-q")
+            run("config", "user.name", "Contract fixture")
+            run("config", "user.email", "fixture@example.invalid")
+            issue_text = "## DEV-40 Example\nScope: sample.py\n\n## DEV-40 Second part\nMore\n"
+            for name, text in {"spec.md": "Requirement\n", "sample.py": "return 1\n",
+                               "module/tasks.md": "# module tasks\n\n## DEV-40 Example\n\n→ [tasks/DEV-40.md](tasks/DEV-40.md)\n",
+                               "module/tasks/DEV-40.md": issue_text}.items():
+                path = Path(directory, name)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+            run("add", ".")
+            run("commit", "-qm", "Base")
+            base = run("rev-parse", "HEAD")
+            Path(directory, "sample.py").write_text("return 2\n")
+            run("add", ".")
+            run("commit", "-qm", "Change")
+            tick = chr(96)
+            for task in ("module/tasks/DEV-40.md", "module/tasks.md#dev-40"):
+                candidate = event()
+                candidate["pull_request"]["base"]["sha"] = base
+                candidate["pull_request"]["head"]["sha"] = run("rev-parse", "HEAD")
+                candidate["pull_request"]["body"] = (
+                    "## Spec ↔ Code 확인\n- 작업 기록: " + tick + task + tick
+                    + "\n| " + tick + "spec.md" + tick + " | " + tick + "sample.py" + tick + " | review |\n")
+                data = check.collect(directory, candidate)
+                document = data["documents"]["module/tasks/DEV-40.md"]
+                self.assertEqual(document["kind"], "full")
+                self.assertEqual(document["segments"][0]["text"], issue_text)
 
     def test_reports_escape_untrusted_text_and_redact_key(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -630,8 +702,9 @@ class DiffOnlyContextTests(unittest.TestCase):
             with self.subTest(name=name):
                 bad = copy.deepcopy(good)
                 bad["findings"][0][part][field] = value
-                with self.assertRaisesRegex(check.Incomplete, "cannot be verified"):
-                    check.validate(bad, sample)
+                out = check.validate(bad, sample)  # DEV-211: dropped, not raised
+                self.assertEqual((out["status"], out["findings"]), ("INCOMPLETE", []))
+                self.assertIn("dropped", out["summary"])
         context_line = copy.deepcopy(good)
         context_line["findings"][0]["code"].update(line=2, quote="unchanged tail")
         check.validate(context_line, sample)

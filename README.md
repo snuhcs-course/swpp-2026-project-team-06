@@ -75,7 +75,7 @@ docs/
 .github/           CI workflow, Dependabot, PR template
 ```
 
-Each code folder has a `spec.md` (implementation decisions) and a `tasks.md` (a log of work per issue).
+Each code folder has a `spec.md` (implementation decisions) and a `tasks/` folder with one work log per issue (`tasks/DEV-123.md`). The older per-folder `tasks.md` files are frozen indexes of work before 2026-11-04.
 
 ## Getting started
 
@@ -279,6 +279,7 @@ Variables to add on the Railway service as features land, in merge order:
 | When | Variables |
 | -- | -- |
 | Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub.kr/auth/kakao` as a redirect URI in the Kakao console |
+| Testing on the Vercel default addresses (DEV-236) | `CONSUMER_APP_ALT_URLS=https://farmclub-consumer.vercel.app`, `PRODUCER_APP_ALT_URLS=https://farmclub-producer.vercel.app`, and register `<address>/auth/kakao` for both as redirect URIs and both addresses as Web site domains in the Kakao console |
 | PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://api.farmclub.kr/api/payments/portone/webhook` as the PortOne webhook |
 | Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
 
@@ -395,7 +396,8 @@ preview`); an update published without them would point the app at `localhost`.
 For the 11/4 Heuristic Evaluation, `EXPO_PUBLIC_EVALUATOR_LOGIN=1` in the `preview` environment
 only makes the internal apps show the test-account list on the login screen (DEV-200; the web
 equivalent is `/login?evaluator=1`, DEV-198). Never set it in `production` or `eas.json`; delete
-it and publish a normal update after the evaluation.
+it and publish a normal update after the evaluation. Deleted from both projects and a normal update published on
+2026-11-04.
 
 Android: open the build link on the phone, allow installs from this source once, install. The
 same APKs are kept as GitHub Release assets (`apk-internal-<build date>`, with SHA-256; current:
@@ -442,9 +444,14 @@ republishing the previous one (`eas update:republish --channel production`). Fre
 
 `dev` and `staging` are reserved; no DNS records exist until they have a target.
 The Vercel default addresses `farmclub-consumer.vercel.app` and `farmclub-producer.vercel.app`
-permanently redirect (308, path and query kept) to `farmclub.kr` and `farm.farmclub.kr` through a
-host rule in each app's `vercel.json` (DEV-127). The API only allows the two official origins
-(CORS) and Kakao only returns to them, so the apps do not work on the `vercel.app` addresses.
+serve the same deployments and stay on their own address (DEV-236 removed the DEV-127 redirect).
+They are the addresses for testing the live apps in a browser: PostHog only runs on the official
+domains (DEV-125), so tests there do not touch the stats or the session-recording quota. A host
+rule in each app's `vercel.json` sends `X-Robots-Tag: noindex, nofollow` on the default address
+only, so search engines index just the official domains. The API accepts the default addresses
+through `CONSUMER_APP_ALT_URLS` and `PRODUCER_APP_ALT_URLS` on Railway (CORS and the Kakao return
+address); share links, the share page and links to the other app still use the official domains.
+Both addresses use the same production API and database.
 The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
 KakaoTalk reads the server's OG page under the consumer domain. All five records (`@`,
 `www`, `farm`, `api`, `admin`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a
@@ -477,7 +484,7 @@ Accounts, purchases and console changes are done by a person. In order:
 
 1. Every change starts from an issue in Linear, synced with GitHub Issues.
 2. Branch from `main` using the issue's branch name. Issue keys go in branch names, commits, and PR titles, for example `[DEV-12] ...`.
-3. Record scope and decisions in the code folder's `tasks.md`, then open a draft PR.
+3. Record scope and decisions in a new issue file in the code folder (`tasks/DEV-123.md`), then open a draft PR.
 4. Run an AI first-pass review, then get one human approval. CI must pass before merge.
 
 Features are written against IDs in the spec (`FEAT-xx`, rules `R-xx` and `M-xx`, screens `SCR-xx`), and test names include acceptance criteria IDs, for example `test_AC_09_1_...`. Details are in [`AGENTS.md`](AGENTS.md).
@@ -525,7 +532,7 @@ Local shared Mock: `npm run dev` compiles the API fixtures and starts a loopback
 - Supply approval is per product, entered in kg and stored as integer grams. Initial approval opens sales; only additional capacity requires another request. Approval and the producer's sales limit are separate. Pending increases keep existing sales open.
 - Date-based reservation periods, immediate prices for new orders, per-order box limits, pause/resume, mixed-weight capacity accounting. Paid orders retain price/weight snapshots; pre-shipping cancellations restore capacity once.
 - Order problem inquiries support private photos, participant-only access and producer handoff. AI replies and previews are deterministic Mock behavior.
-- `npm run test:mock` checks isolated fixtures/storage; it does not reset the running demo. CI also runs these contracts. `npm run typecheck` and `npm run build:web` check both apps.
+- `npm run test:mock` runs every `scripts/test-*.mjs` (except the live `test-integration.mjs`) through `scripts/run-mock-tests.mjs`; a new test file needs no `package.json` edit. It checks isolated fixtures/storage; it does not reset the running demo. CI also runs these contracts. `npm run typecheck` and `npm run build:web` check both apps.
 - Changes to `packages/api/src/mock` require restarting `npm run dev` to recompile the shared backend. Frontend/UI edits use Fast Refresh. Stop the existing launcher first to retain ports 8081/8082/8083.
 - Mock schema 7 requires explicit local migration/reset on a schema mismatch. Existing local orders/messages were backed up and converted once; no legacy schema compatibility is shipped. Do not commit `.expo`, tokens or backups.
 - Scope: frontend + local Mock. DEV-4 implements the corresponding FastAPI endpoints and production transactions. These tests do not verify real payments, AI or server API implementation. Admin approval is a management API, never a producer self-approval button.

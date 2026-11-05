@@ -224,3 +224,123 @@ def test_AC_34_1_restoring_a_hidden_test_farm_opens_its_support_room():
         session.commit()
     assert [m.sender_type for m in support_messages("f-namwon")] == ["OPERATOR"]
 
+
+
+# ---------------- 정지·반려 농가의 farmclub 방 (DEV-209, AC-34-9) ----------------
+
+SUPPORT = "/api/messaging/producer/support"
+
+
+def _png() -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    out = BytesIO()
+    Image.new("RGB", (8, 8), "orange").save(out, "PNG")
+    return out.getvalue()
+
+
+def test_AC_34_9_suspended_producer_opens_only_the_farmclub_room(client, login, admin_headers):
+    from app.messaging.support import SUSPENDED_FIRST
+
+    producer = login("u-taeho")
+    # 정지 농가는 다른 생산자 API를 계속 못 쓴다
+    assert client.get(CHATS, headers=producer).status_code == 403
+    assert support_messages("f-stop") == []  # 시드의 정지 농가는 방이 없다
+
+    page = client.get(f"{SUPPORT}/messages", headers=producer)
+    assert page.status_code == 200, page.text
+    items = page.json()["items"]
+    assert [(m["senderType"], m["body"]) for m in items] == [("OPERATOR", SUSPENDED_FIRST)]
+    assert page.json()["thread"]["aiMode"] == "HUMAN"
+
+    sent = client.post(
+        f"{SUPPORT}/messages",
+        headers=producer | key(),
+        json={"text": "정지 사유를 자세히 알고 싶어요. 010-1234-5678로 연락 주세요."},
+    )
+    assert sent.status_code == 200, sent.text
+    message = sent.json()["message"]
+    assert message["senderType"] == "PRODUCER" and message["masked"] is True  # M-16
+    assert "1234-5678" not in message["body"]
+    assert all(m.sender_type != "AI" for m in support_messages("f-stop"))
+
+    inbox = client.get("/admin/support", headers=admin_headers).json()
+    stop = next(r for r in inbox if r["targetId"] == "f-stop")
+    assert (stop["kind"], stop["waiting"], stop["unreadCount"]) == ("PRODUCER", True, 1)
+
+    reply = client.post(
+        "/admin/support/f-stop/messages",
+        headers=admin_headers | key(),
+        json={"text": "확인하고 다시 알려 드릴게요."},
+    )
+    assert reply.status_code == 200, reply.text
+    latest = client.get(f"{SUPPORT}/messages", headers=producer).json()["items"][-1]
+    assert (latest["senderType"], latest["body"]) == ("OPERATOR", "확인하고 다시 알려 드릴게요.")
+    read = client.put(
+        f"{SUPPORT}/read", headers=producer, json={"lastReadMessageId": latest["messageId"]}
+    )
+    assert read.json() == {"unreadCount": 0}
+
+
+def test_AC_34_9_rejected_producer_room_is_created_once_on_first_open(client, login):
+    from app.messaging.support import REJECTED_FIRST
+
+    producer = login("u-soonja")
+    assert support_messages("f-reject") == []
+    first = client.get(f"{SUPPORT}/messages", headers=producer)
+    again = client.get(f"{SUPPORT}/messages", headers=producer)
+    assert first.status_code == again.status_code == 200, first.text
+    assert [m.body for m in support_messages("f-reject")] == [REJECTED_FIRST]
+
+    send_key = key()
+    body = {"text": "어떤 번호로 다시 신청하면 될까요?"}
+    sent = client.post(f"{SUPPORT}/messages", headers=producer | send_key, json=body)
+    repeat = client.post(f"{SUPPORT}/messages", headers=producer | send_key, json=body)
+    assert sent.status_code == repeat.status_code == 200, sent.text
+    assert sent.json()["message"]["messageId"] == repeat.json()["message"]["messageId"]
+    assert len(support_messages("f-reject")) == 2
+
+
+def test_AC_34_9_approved_producer_sees_the_same_room_as_the_chat_tab(client, login):
+    producer = login("u-kang")
+    page = client.get(f"{SUPPORT}/messages", headers=producer).json()
+    assert page["items"][0]["body"] == WELCOME
+    assert page["thread"]["threadId"] == support_thread_id("f-kang")
+
+
+def test_AC_34_9_pending_producer_and_consumer_cannot_use_the_room(client, login):
+    assert client.get(f"{SUPPORT}/messages", headers=login("u-misook")).status_code == 403
+    assert support_messages("f-wimi") == []
+    consumer = login("u-minji")
+    assert client.get(f"{SUPPORT}/messages", headers=consumer).status_code == 403
+    assert (
+        client.post(f"{SUPPORT}/messages", headers=consumer | key(), json={"text": "안녕"})
+    ).status_code == 403
+
+
+def test_AC_34_9_suspended_producer_can_attach_photos(client, login):
+    producer = login("u-taeho")
+    thread_id = client.get(f"{SUPPORT}/messages", headers=producer).json()["thread"]["threadId"]
+    uploaded = client.post(
+        "/api/messaging/attachments",
+        headers=producer,
+        files={"file": ("a.png", _png(), "image/png")},
+        data={"threadId": thread_id},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    attachment_id = uploaded.json()["attachmentId"]
+    sent = client.post(
+        f"{SUPPORT}/messages",
+        headers=producer | key(),
+        json={"text": "", "attachmentIds": [attachment_id]},
+    )
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["message"]["attachmentIds"] == [attachment_id]
+    image = client.get(f"/api/messaging/attachments/{attachment_id}", headers=producer)
+    assert image.status_code == 200
+    # 다른 농가의 생산자는 그 사진을 못 본다
+    other = client.get(f"/api/messaging/attachments/{attachment_id}", headers=login("u-kang"))
+    assert other.status_code == 404
+

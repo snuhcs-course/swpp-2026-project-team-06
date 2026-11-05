@@ -1,7 +1,7 @@
 # Spec-to-code review 운영 안내
 
 [DEV-40](https://linear.app/sswp6/issue/DEV-40) / [SWPP-90](https://linear.app/sswp6/issue/SWPP-90).
-구현 결정은 [spec.md](spec.md), 허용 경로·진행 기록은 [tasks.md](tasks.md).
+구현 결정은 [spec.md](spec.md), 허용 경로·진행 기록은 이슈별 [tasks/](tasks/) 파일(분리 전 목록은 [tasks.md](tasks.md)).
 제품 동작은 바꾸지 않는 CI 전용 도구다.
 
 2026-10-16 사용자 승인으로 배포 범위를 분리했다. DEV-40/PR #107은 기본 비활성인 checker 기반을 제공한다. 아래 API 설정·실제 모델 mismatch/PASS·finding의 사람 판단은 [DEV-55](https://linear.app/sswp6/issue/DEV-55)에서 진행하며, core 머지나 다른 개발의 선행 조건이 아니다. Core PR 자체의 사람 승인 규칙은 유지한다.
@@ -43,7 +43,7 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 ### 작성자 기록
 - 적용 스펙 및 FEAT/AC/규칙 ID: 관련 AC를 명시
 - 스펙 변경: 없음 — 기존 계약 구현
-- 작업 기록: `server/app/orders/tasks.md#dev-123`
+- 작업 기록: `server/app/orders/tasks/DEV-123.md`
 
 | 요구사항 또는 AC | 구현 파일·함수 또는 변경 문서 | 테스트·검토 근거 |
 | --- | --- | --- |
@@ -57,7 +57,9 @@ SWPP-89의 기존 `Spec ↔ Code 확인` 표를 그대로 사용한다. 별도 �
 ```
 
 예시 DEV-123은 실제 이슈/완료 증거가 아니다. 실제 PR의 파일과 이슈로 바꾼다.
-변경된 파일은 모두 표의 spec/구현 경로에 포함한다. 누락된 변경, 참조할 수 없는 파일, 없는 tasks 이슈 절은 INCOMPLETE다.
+변경된 파일은 모두 표의 spec/구현 경로에 포함한다. 누락된 변경, 참조할 수 없는 파일, 없는 작업 기록 파일(또는 옛 형식의 없는 tasks.md 이슈 절)은 INCOMPLETE다.
+
+작업 기록은 이슈 파일 `<폴더>/tasks/DEV-123.md`를 가리킨다(DEV-219, ADR 0014). 앵커는 필요 없고 이슈 키는 파일 이름에서 읽는다. 분리 전 형식 `<폴더>/tasks.md#dev-123`도 받으며, 같은 폴더에 `tasks/DEV-123.md`가 있으면 그 파일을 읽는다.
 제품 spec이 참조하는 규칙·계약·관련 구현도 표에 넣어 충분한 문맥을 제공한다. 1열 경로 뒤나 3열에 AC·R·M ID(`AC-09-2`, `R-06`)를 적으면 FEAT·rules.md에서 그 항목만 발췌해 보낸다(아래 2.1절).
 문서/절차 변경도 관련 spec과 변경 문서 경로로 매핑한다. 확인되지 않은 사람 검토는 채우지 않는다.
 
@@ -68,8 +70,8 @@ checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `con
 | 보내는 것 | 내용 |
 | --- | --- |
 | `diff` | merge-base → head `git diff --unified=5`. lock 파일(`*.lock`, `package-lock.json` 등)·스냅샷·이미지·폰트·`*.min.*`·`*.map`·`docs/wiki/**`는 빼고 `excluded_paths`에 경로만 |
-| `documents[tasks.md]` | 작업 기록의 `## <이슈 키>` 섹션만 |
-| `documents[FEAT-xx]` | PR 표(`## Spec ↔ Code 확인` 절 전체)와 tasks.md 섹션에 적힌 `AC-xx-y`·`R-xx`·`M-xx`가 있는 줄 + 들여쓴 하위 줄. ID가 없으면 `- [ ] AC-…` 항목 전부 |
+| `documents[<폴더>/tasks/DEV-xx.md]` | 작업 기록 이슈 파일 전체(DEV-219). 옛 형식이면 `tasks.md`의 `## <이슈 키>` 섹션만 |
+| `documents[FEAT-xx]` | PR 표(`## Spec ↔ Code 확인` 절 전체)와 작업 기록에 적힌 `AC-xx-y`·`R-xx`·`M-xx`가 있는 줄 + 들여쓴 하위 줄. ID가 없으면 `- [ ] AC-…` 항목 전부 |
 | `documents[rules.md]` | 적힌 R·M ID의 표 행만. 없으면 전문 |
 | `documents[<폴더>/spec.md]` | "결정" 표에서 이슈 키 또는 ID가 있는 행(+표 머리). 없으면 최근 10행. 결정 표가 없으면 이슈 키 절, 그것도 없으면 제목 줄 |
 | 그 밖의 1열 파일 | `경로#앵커`면 그 제목 절만. 아니면 `reference_paths`에 크기만(내용은 보내지 않음) |
@@ -81,7 +83,7 @@ checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `con
 | 표의 파일 전문(`files`), 이전 버전 전문(`previous_files`), base 변경본(`target_changes`) | diff가 바뀐 줄을 보여 준다. 보이지 않는 코드·스펙이 판단에 필요하면 모델은 `missing_context`에 `UNVERIFIED: …`를 적고 PASS를 내지 않는다 |
 | `docs/spec/README.md` 자동 포함 | 필요하면 표 1열에 `docs/spec/README.md#앵커`로 적는다 |
 
-발췌 문서의 줄 번호는 원본 파일 기준이라 보고서의 `rules.md:12`는 실제 파일 12행이다. 코드 인용은 diff에서 계산한 새 쪽 줄 번호(추가·문맥 줄)만 받고, 지운 줄은 인용할 수 없다. 틀린 줄 번호·인용은 검증에서 걸려 INCOMPLETE가 된다(PASS로 새지 않음).
+발췌 문서의 줄 번호는 원본 파일 기준이라 보고서의 `rules.md:12`는 실제 파일 12행이다. 코드 인용은 diff에서 계산한 새 쪽 줄 번호(추가·문맥 줄)만 받고, 지운 줄은 인용할 수 없다. 틀린 줄 번호·인용이 붙은 지적은 검증에서 버려지고 summary에 `n finding(s) dropped`로 남는다(DEV-211). 버린 뒤 검증된 지적이 없으면 INCOMPLETE → NO_FINDINGS(초록), 검증된 지적이 남으면 MISMATCH 그대로. 모델이 PASS라며 지적을 붙인 경우는 INCOMPLETE다. 어느 경우에도 PASS로 새지 않는다.
 
 ## 3. 실행과 결과
 
@@ -97,7 +99,7 @@ checker는 바뀐 파일을 통째로 보내지 않는다. 모델이 받는 `con
 | 결과 | 의미와 조치 |
 | --- | --- |
 | PASS (exit 0) | 제공된 범위에서 불일치가 발견되지 않음. 일반 테스트/사람 리뷰 계속 |
-| NO_FINDINGS (exit 0) | 보이는 범위에서 지적(finding) 0건이지만 diff 밖 문맥이 있어 모델이 `UNVERIFIED`를 남김(DEV-197). 체크는 초록. PASS가 아니므로 `Missing context` 항목은 사람 리뷰어가 본다. 더 보여 주려면 표 2열에 그 파일을 적는다(2.1절) |
+| NO_FINDINGS (exit 0) | 보이는 범위에서 지적(finding) 0건이지만 diff 밖 문맥이 있어 모델이 `UNVERIFIED`를 남김(DEV-197), 또는 인용을 확인할 수 없어 버린 지적만 있었음(summary의 `dropped`, DEV-211). 체크는 초록. PASS가 아니므로 `Missing context` 항목은 사람 리뷰어가 본다. 더 보여 주려면 표 2열에 그 파일을 적는다(2.1절) |
 | MISMATCH (exit 1) | 검증 가능한 근거가 있는 지적. 사람이 확인·해결 |
 | INCOMPLETE (exit 2) | 키/모델/표 형식/응답 오류 또는 크기 제한, 또는 finding이 있는데 문맥이 모자라 MISMATCH로 확정하지 못함. 원인을 해소하고 재실행 |
 | SKIPPED (exit 0 + 명시 안내) | v1 지원 대상이 아님. PASS가 아님 |

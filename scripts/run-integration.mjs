@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,7 +124,43 @@ async function resetSeed(env) {
   });
 }
 
+// DEV-234: `file@k/n`(classify.mjs의 긴 spec 나누기) → 그 파일 test 줄 번호 목록의 k번째 몫을 `file:줄` 인자로.
+// 줄 목록은 Playwright가 직접 읽는다(--list --reporter=json). 같은 줄의 test(반복문으로 만든 것)는 같은 몫에 든다.
+const playwrightBin = path.join(root, "node_modules", ".bin", "playwright");
+async function expandSplits(args) {
+  const out = [];
+  for (const arg of args) {
+    const m = arg.match(/^(.+\.spec\.ts)@(\d+)\/(\d+)$/);
+    if (!m) {
+      out.push(arg);
+      continue;
+    }
+    const [, file, k, n] = m;
+    const { stdout } = await command(playwrightBin, ["test", "--list", "--reporter=json", file], { capture: true });
+    const lines = new Set();
+    const walk = (suite) => {
+      for (const spec of suite.specs ?? []) lines.add(spec.line);
+      for (const child of suite.suites ?? []) walk(child);
+    };
+    for (const suite of JSON.parse(stdout).suites ?? []) walk(suite);
+    const sorted = [...lines].sort((a, b) => a - b);
+    const from = Math.floor(((Number(k) - 1) * sorted.length) / Number(n));
+    const to = Math.floor((Number(k) * sorted.length) / Number(n));
+    const picked = sorted.slice(from, to);
+    process.stdout.write(`${arg}: ${picked.length} of ${sorted.length} test lines\n`);
+    out.push(...picked.map((line) => `${file}:${line}`));
+  }
+  return out;
+}
+
 async function main() {
+  const requested = process.argv.slice(2);
+  const playwrightArgs = await expandSplits(requested);
+  // 나눈 몫이 비면 인자 없이 돌아 spec 전체가 도는 일을 막는다
+  if (requested.length && !playwrightArgs.length) {
+    process.stdout.write("No tests left for this shard; skipping the real-stack run.\n");
+    return;
+  }
   for (const [port, name] of [
     [8000, "FastAPI"],
     [8081, "consumer Expo"],
@@ -193,10 +229,17 @@ async function main() {
     FARMCLUB_ADMIN_TOKEN: adminToken,
     FARMCLUB_INTEGRATION_ARTIFACTS: artifacts,
   };
-  await command(process.execPath, ["scripts/test-integration.mjs"], { env: testEnv });
-  await resetSeed(serverEnv);
-  // 뒤에 붙인 인자(spec 경로 등)는 Playwright에 넘긴다(DEV-84)
-  await command(path.join(root, "node_modules", ".bin", "playwright"), ["test", ...process.argv.slice(2)], {
+  // DEV-234: CI 샤드는 첫 샤드만 API 시나리오를 돈다(FARMCLUB_INTEGRATION_API=0이면 건너뜀)
+  if (process.env.FARMCLUB_INTEGRATION_API !== "0") {
+    await command(process.execPath, ["scripts/test-integration.mjs"], { env: testEnv });
+    await resetSeed(serverEnv);
+  }
+  // 뒤에 붙인 인자(spec 경로 등)는 Playwright에 넘긴다(DEV-84).
+  // 격리 목록에 항목이 있을 때만 "고른 spec의 테스트가 다 빠져도 통과"를 허용한다. 비어 있으면 0개 실행은 실패다.
+  const quarantine = JSON.parse(readFileSync(path.join(root, "scripts", "ci", "quarantine.json"), "utf8"));
+  const quarantined =
+    process.env.FARMCLUB_INCLUDE_QUARANTINE !== "1" && (quarantine.specs?.length || quarantine.tests?.length);
+  await command(playwrightBin, ["test", ...(quarantined ? ["--pass-with-no-tests"] : []), ...playwrightArgs], {
     env: testEnv,
   });
 }

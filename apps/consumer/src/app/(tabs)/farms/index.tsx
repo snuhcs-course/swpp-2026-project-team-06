@@ -1,11 +1,12 @@
-// SCR-02 농가 목록 (FEAT-06) — design: scr-02, s-02-noresult
-import { catalog, farms, referencePrice, type FarmCard } from "@farmclub/api";
+// SCR-02 농가 목록 (FEAT-06, E4·AC-06-7 DEV-214) — design: scr-02, s-02-noresult
+import { ApiError, catalog, farms, referencePrice } from "@farmclub/api";
 import {
   Button,
   Chip,
   EmptyState,
   HeaderBar,
   Icon,
+  Notice,
   Photo,
   Price,
   useAsync,
@@ -17,10 +18,20 @@ import {
   tokens,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
+import {
+  MORE_FAILED,
+  canLoadMore,
+  failureCopy,
+  farmListReducer,
+  initialFarmListState,
+  listHeader,
+  type FarmLoadMode,
+} from "../../../lib/farmSearch";
 import { LoadError } from "../../../lib/views";
+import { goBackOr } from "../../../lib/nav";
 
 export default function FarmList() {
   const router = useRouter();
@@ -29,29 +40,43 @@ export default function FarmList() {
   const input = useRef<TextInput>(null);
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState<FarmCard[] | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, dispatch] = useReducer(farmListReducer, initialFarmListState);
+  const { items, cursor, pending, failed } = state;
+  // 요청 번호. 리듀서가 마지막 요청이 아닌 응답을 버린다(늦게 온 지난 검색)
+  const seq = useRef(0);
 
-  async function load(reset: boolean) {
-    setLoading(true);
-    setError(null);
+  // reset: cursor 없이 처음부터 받아 목록을 바꾼다(새 검색·그 재시도). more: 같은 cursor로 이어 붙인다(‘더 보기’·그 재시도)
+  async function load(mode: FarmLoadMode, q: string = query) {
+    // ‘더 보기’는 다른 요청이 없고 남은 목록이 이전 것이 아닐 때만, 보이는 결과의 검색어로. 새 검색은 앞 요청을 덮는다
+    if (mode === "more") {
+      if (!canLoadMore(state)) return;
+      q = state.shownQuery;
+    }
+    const n = ++seq.current;
+    dispatch({ type: "start", seq: n, query: q, mode });
     try {
-      const r = await farms.list({ q: query, cursor: reset ? null : cursor });
-      setItems((prev) => (reset || !prev ? r.items : [...prev, ...r.items]));
-      setCursor(r.nextCursor);
+      const page = await farms.list({
+        q,
+        cursor: mode === "reset" ? null : cursor,
+      });
+      dispatch({ type: "success", seq: n, page });
     } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
+      dispatch({
+        type: "fail",
+        seq: n,
+        offline: e instanceof ApiError && e.status === 0,
+        error: e,
+      });
     }
   }
 
   useEffect(() => {
-    void load(true);
+    void load("reset", query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
+
+  const header = listHeader(state);
+  const resetFailed = failed?.mode === "reset" && items ? failed : null;
 
   // 입력이 멈추면 검색 (앞뒤 공백 제거)
   useEffect(() => {
@@ -69,7 +94,7 @@ export default function FarmList() {
     <Screen>
       <HeaderBar
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/")
+          goBackOr(router, "/")
         }
       />
       <Scroll bottom={tokens.height.tabBarClearance}>
@@ -106,18 +131,33 @@ export default function FarmList() {
               }}
             />
           </View>
-          {items && items.length > 0 ? (
+          {resetFailed ? (
+            <Notice
+              tone="error"
+              {...failureCopy(resetFailed, items!.length > 0)}
+              action={
+                <Button
+                  label="다시 시도"
+                  variant="outline"
+                  loading={pending?.mode === "reset"}
+                  onPress={() => void load("reset", resetFailed.query)}
+                  style={{ marginTop: 8, alignSelf: "flex-start" }}
+                />
+              }
+            />
+          ) : null}
+          {header ? (
             <T variant="sub" muted>
-              마감 임박순 · 농가 {items.length}곳
+              {header}
             </T>
           ) : null}
         </View>
 
-        {error && !items ? (
-          <LoadError error={error} onRetry={() => load(true)} />
+        {failed && !items && !pending ? (
+          <LoadError error={failed.error} onRetry={() => void load("reset")} />
         ) : null}
 
-        {!items && loading ? (
+        {!items && pending ? (
           <View style={{ padding: tokens.space.gutter, gap: 16 }}>
             {[0, 1, 2].map((i) => (
               <View key={i} style={{ flexDirection: "row", gap: 16 }}>
@@ -131,11 +171,11 @@ export default function FarmList() {
           </View>
         ) : null}
 
-        {items && items.length === 0 ? (
+        {items && items.length === 0 && !resetFailed ? (
           <EmptyState
             icon="search"
             title="찾는 농가가 없어요"
-            body={`‘${query}’와 맞는 농가·품종·지역이 없어요.`}
+            body={`‘${state.shownQuery}’와 맞는 농가·품종·지역이 없어요.`}
             action={
               <Button
                 label="전체 농가 보기"
@@ -198,20 +238,29 @@ export default function FarmList() {
               </View>
             </Pressable>
           ))}
-          {cursor ? (
+          {failed?.mode === "more" ? (
+            <View
+              accessibilityRole="alert"
+              style={{ alignItems: "center", paddingTop: 8 }}
+            >
+              <T variant="sub" color={tokens.color.error}>
+                {MORE_FAILED}
+              </T>
+              <Button
+                label="다시 시도"
+                variant="text"
+                loading={pending?.mode === "more"}
+                onPress={() => void load("more")}
+                style={{ alignSelf: "center" }}
+              />
+            </View>
+          ) : cursor ? (
             <Button
               label="더 보기"
               variant="text"
-              loading={loading}
-              onPress={() => load(false)}
-              style={{ alignSelf: "center" }}
-            />
-          ) : null}
-          {error && items ? (
-            <Button
-              label="다시 시도"
-              variant="text"
-              onPress={() => load(false)}
+              loading={pending?.mode === "more"}
+              disabled={pending?.mode !== "more" && !canLoadMore(state)}
+              onPress={() => void load("more")}
               style={{ alignSelf: "center" }}
             />
           ) : null}
@@ -235,6 +284,7 @@ function FeaturedPrice({
       current={product.data ? product.data.currentPrice : current}
       reference={product.data ? referencePrice(product.data) : null}
       soldOut={product.data?.soldOut}
+      availability={product.data?.availability}
     />
   );
 }

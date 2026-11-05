@@ -6,7 +6,7 @@ from sqlalchemy import update
 
 from app.ai import service as ai
 from app.ai.schemas import DraftExtraction
-from app.catalog.models import StageAllocation
+from app.catalog.models import Product, StageAllocation
 from app.core.db import get_sessionmaker
 
 STAGES = {
@@ -65,6 +65,41 @@ def test_AC_07_1_house_sold_out_when_current_stage_full(client):
     body = client.get("/api/products/p-house").json()
     assert body["soldOut"] is True
     assert body["nextStageStartsAt"] == "2026-10-13"
+
+
+def _set_house(**values) -> None:
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(update(Product).where(Product.id == "p-house").values(**values))
+
+
+def test_AC_07_3_paused_product_detail_is_not_reservable(client):
+    _set_house(sales_paused=True)
+
+    body = client.get("/api/products/p-house").json()
+
+    # R-27: 중지해도 상세는 열리고, 예약할 수 없는 상태로 보인다. 다음 기간 날짜는 약속하지 않는다.
+    assert body["availability"] == "PAUSED"
+    assert body["salesPaused"] is True
+    assert body["soldOut"] is True
+    assert body["nextStageStartsAt"] is None
+
+
+def test_AC_07_3_total_sold_out_product_detail_is_not_reservable(client):
+    _set_house(sales_limit_grams=0)
+
+    body = client.get("/api/products/p-house").json()
+
+    assert body["availability"] == "TOTAL_SOLD_OUT"
+    assert body["soldOut"] is True
+    assert body["nextStageStartsAt"] is None
+
+
+def test_AC_07_3_available_product_is_not_sold_out(client):
+    body = client.get("/api/products/p-house").json()
+
+    assert body["availability"] == "AVAILABLE"
+    assert body["soldOut"] is False
+    assert body["nextStageStartsAt"] is None
 
 
 def test_AC_07_2_measured_brix_shown(client):

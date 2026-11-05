@@ -1,26 +1,133 @@
 name: CI
 
-# PR 검사(CI). 배포(CD)는 브랜치 전략(SWPP-58) 결정 후 DEV-8에서 따로 만든다.
-# job은 항상 실행하고, 관련 파일이 바뀌지 않았으면 단계만 건너뛰고 성공한다.
-# (branch protection의 필수 체크 server·apps가 막히지 않게)
-# admin-web job은 관리자 페이지(scripts/admin-web) 테스트다(DEV-114). 배포는 deploy-vercel.yml의 deploy-admin.
+# PR·머지 큐·main 검사. 배포(CD)는 deploy-railway.yml·deploy-vercel.yml이 main push의 이 워크플로 성공 뒤에 한다.
+# DEV-234: 첫 job `changes`가 길(lane)과 바뀐 경로로 무엇을 돌릴지 정하고(scripts/ci/classify.mjs, 규칙은
+# scripts/ci/integration-map.json), 마지막 job `ci-ok`가 결과를 모은다. 브랜치 보호의 필수 체크는 `ci-ok` 하나로 둔다
+# (건너뛴 job도 성공으로 보고되지만, 이름이 바뀌어도 보호 설정을 고치지 않게). 길·사람 설정은 .github/CI.md.
+#   pull_request  → pr: 바뀐 경로의 job만, integration은 영향받는 spec만(샤드)
+#   merge_group   → queue: 바뀐 경로의 job, integration은 관련 변경이 있으면 전체
+#   push(main)    → validated: 같은 커밋이 머지 큐에서 이미 통과했으면 아무것도 안 하고 성공(배포가 바로 시작)
+#                   hotfix: hotfix 라벨 PR이면 integration 없이(ci-full.yml이 머지 뒤 전체 실행)
+#                   push: 그 밖(큐를 켜기 전·직접 머지)은 queue와 같게
+#   workflow_call → 부르는 쪽이 lane을 준다(ci-full.yml의 nightly·hotfix 사후 전체 실행 = full)
+# 문서·CI 밖 파일만 바뀌면 server·apps·integration을 건너뛴다. admin-web job은 관리자 페이지(DEV-114)와
+# 배포 변경 감지 시나리오(DEV-139) 테스트다.
 
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
+  merge_group:
+    types: [checks_requested]
+  workflow_call:
+    inputs:
+      lane:
+        description: "classify.mjs lane (full = 모든 job·integration 전체)"
+        type: string
+        default: full
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  # PR은 새 push가 오면 이전 실행을 취소한다. main push는 커밋마다 결과를 남기려고 취소하지 않는다.
+  # workflow_call로 불린 실행(ci-full.yml)은 main push 실행과 다른 그룹이어야 서로 기다리거나 취소하지 않는다.
+  group: ci-${{ github.ref }}-${{ inputs.lane || 'auto' }}
+  # PR은 새 push가 오면 이전 실행을 취소한다. main push·큐는 커밋마다 결과를 남기려고 취소하지 않는다.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # hotfix 라벨 읽기
+      actions: read # main push: 같은 커밋의 머지 큐 실행 찾기
+    outputs:
+      lane: ${{ steps.classify.outputs.lane }}
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+      server: ${{ steps.classify.outputs.server }}
+      apps: ${{ steps.classify.outputs.apps }}
+      admin: ${{ steps.classify.outputs.admin }}
+      deploy_scripts: ${{ steps.classify.outputs.deploy_scripts }}
+      integration: ${{ steps.classify.outputs.integration }}
+      matrix: ${{ steps.classify.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # PR은 test-merge 커밋(첫 부모 = base). 큐·push는 아래에서 base 커밋만 따로 받는다.
+          fetch-depth: 2
+
+      - name: Pick lane and changed files
+        id: lane
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          CALL_LANE: ${{ inputs.lane }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          QUEUE_REF: ${{ github.event.merge_group.head_ref }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base=""
+          pr=""
+          if [ -n "$CALL_LANE" ]; then
+            lane="$CALL_LANE"
+          else
+            case "$EVENT" in
+              pull_request) lane="pr"; pr="$PR_NUMBER"; base="$(git rev-parse HEAD^1)" ;;
+              merge_group)
+                lane="queue"; base="$QUEUE_BASE"
+                # gh-readonly-queue/main/pr-123-<sha>: 큐 묶음의 마지막 PR. hotfix는 PR 하나만 든 묶음일 때만 인정한다.
+                if [[ "$QUEUE_REF" =~ /pr-([0-9]+)- ]]; then
+                  commits="$(gh api "repos/$REPO/compare/$QUEUE_BASE...$SHA" --jq .total_commits)"
+                  if [ "$commits" = 1 ]; then pr="${BASH_REMATCH[1]}"; fi
+                fi
+                ;;
+              push)
+                lane="push"; base="$PUSH_BEFORE"
+                pr="$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)][0].number // empty')"
+                ;;
+              *) lane="full" ;;
+            esac
+          fi
+          if [ -n "$pr" ] && gh pr view "$pr" -R "$REPO" --json labels --jq '.labels[].name' | grep -qx hotfix; then
+            lane="hotfix"
+          fi
+          if [ "$lane" = push ]; then
+            # 머지 큐는 검사한 커밋 그대로 main을 앞으로 옮긴다. 같은 커밋의 큐 실행이 성공했으면 다시 돌리지 않는다.
+            queued="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&event=merge_group&status=success" --jq .total_count)"
+            if [ "$queued" -gt 0 ]; then lane="validated"; fi
+          fi
+          : > "$RUNNER_TEMP/changed.txt"
+          if [ -n "$base" ] && [ "$lane" != full ] && [ "$lane" != validated ]; then
+            if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "$base"
+            fi
+            git diff --name-only "$base" "$SHA" > "$RUNNER_TEMP/changed.txt"
+          elif [ "$lane" != full ] && [ "$lane" != validated ]; then
+            lane="full" # base를 모르면 안전하게 전체
+          fi
+          echo "lane=$lane" >> "$GITHUB_OUTPUT"
+          echo "lane=$lane pr=${pr:-none} base=${base:-none} files=$(wc -l < "$RUNNER_TEMP/changed.txt")"
+          sed 's/^/  /' "$RUNNER_TEMP/changed.txt" | head -200
+
+      - name: Check the integration map
+        run: |
+          node --test scripts/ci/test-classify.mjs
+          node scripts/ci/classify.mjs --check
+
+      - name: Classify
+        id: classify
+        run: node scripts/ci/classify.mjs --lane "${{ steps.lane.outputs.lane }}" --files "$RUNNER_TEMP/changed.txt" --github-output
+
   server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -46,49 +153,30 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Detect changes
-        id: changes
-        uses: dorny/paths-filter@v4
-        with:
-          # git diff로 비교한다(API 방식은 pull-requests: read 권한이 필요).
-          token: ""
-          filters: |
-            server:
-              - "server/**"
-              - ".github/workflows/ci.yml"
-
-      - name: Skip (no server changes)
-        if: steps.changes.outputs.server != 'true'
-        working-directory: .
-        run: echo "server/와 워크플로 파일 변경 없음. 검사를 건너뛴다."
-
       # setup-uv는 v8부터 메이저 태그를 내지 않는다. upstream 권장대로 불변 전체 태그로 고정한다(업데이트는 Dependabot).
-      - uses: astral-sh/setup-uv@v10.3.2
-        if: steps.changes.outputs.server == 'true'
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: server/uv.lock
 
       - name: Install
-        if: steps.changes.outputs.server == 'true'
         run: uv sync --frozen
 
       - name: Lint (ruff)
-        if: steps.changes.outputs.server == 'true'
         run: uv run ruff check .
 
       - name: Test (pytest)
-        if: steps.changes.outputs.server == 'true'
         run: uv run pytest
 
       - name: Migrations (alembic)
-        if: steps.changes.outputs.server == 'true'
         run: |
           uv run alembic upgrade head
           uv run alembic check
 
   apps:
+    needs: changes
+    if: needs.changes.outputs.apps == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -96,108 +184,71 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Detect changes
-        id: changes
-        uses: dorny/paths-filter@v4
-        with:
-          token: ""
-          filters: |
-            apps:
-              - "server/app/source_analysis/text_safety_lists.json"
-              - "server/app/source_analysis/text_safety_cases.json"
-              - "apps/**"
-              - "packages/**"
-              - "scripts/**"
-              - "package.json"
-              - "package-lock.json"
-              - ".nvmrc"
-              - ".github/workflows/ci.yml"
-
-      - name: Skip (no app changes)
-        if: steps.changes.outputs.apps != 'true'
-        run: echo "apps/·packages/·루트 package 파일·.nvmrc·워크플로 파일 변경 없음. 검사를 건너뛴다."
-
       - uses: actions/setup-node@v7
-        if: steps.changes.outputs.apps == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install
-        if: steps.changes.outputs.apps == 'true'
         run: npm ci
 
       - name: Shared packages and Mock contracts
-        if: steps.changes.outputs.apps == 'true'
         run: |
           npm run typecheck -w packages/api
           npm run typecheck -w packages/ui
           npm run test:mock
 
       - name: Typecheck consumer
-        if: steps.changes.outputs.apps == 'true'
         working-directory: apps/consumer
         run: npx tsc --noEmit
 
       - name: Web export consumer
-        if: steps.changes.outputs.apps == 'true'
         working-directory: apps/consumer
         run: npx expo export -p web
 
       - name: Typecheck producer
-        if: steps.changes.outputs.apps == 'true'
         working-directory: apps/producer
         run: npx tsc --noEmit
 
       - name: Web export producer
-        if: steps.changes.outputs.apps == 'true'
         working-directory: apps/producer
         run: npx expo export -p web
 
   # 관리자 페이지(scripts/admin-web, DEV-114). 빌드·의존성 없이 node 내장 테스트만 돌린다.
   # scripts/ci·배포 워크플로가 바뀌면 배포 변경 감지 시나리오도 여기서 돌린다(DEV-139).
   admin-web:
+    needs: changes
+    if: needs.changes.outputs.admin == 'true' || needs.changes.outputs.deploy_scripts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
-      - name: Detect changes
-        id: changes
-        uses: dorny/paths-filter@v4
-        with:
-          token: ""
-          filters: |
-            admin:
-              - "scripts/admin-web/**"
-              - ".nvmrc"
-              - ".github/workflows/ci.yml"
-            deploy_scripts:
-              - "scripts/ci/**"
-              - ".github/workflows/deploy-*.yml"
-
-      - name: Skip (no admin-web changes)
-        if: steps.changes.outputs.admin != 'true'
-        run: echo "scripts/admin-web/·.nvmrc·워크플로 파일 변경 없음. 검사를 건너뛴다."
-
       - uses: actions/setup-node@v7
-        if: steps.changes.outputs.admin == 'true'
         with:
           node-version-file: .nvmrc
 
       - name: Test (node --test)
-        if: steps.changes.outputs.admin == 'true'
+        if: needs.changes.outputs.admin == 'true'
         run: node --test scripts/admin-web/admin.test.mjs
 
       # DEV-139: 배포 변경 감지 스크립트 시나리오(임시 git 저장소, 네트워크 없음)
       - name: Test deploy change detection (scripts/ci)
-        if: steps.changes.outputs.deploy_scripts == 'true'
+        if: needs.changes.outputs.deploy_scripts == 'true'
         run: bash scripts/ci/test-deploy-changed.sh
 
+  # DEV-234: 실제 스택(FastAPI + PostgreSQL + Expo 웹 2개) + Chromium. server·apps를 기다리지 않고 바로 시작하고,
+  # changes가 고른 spec을 실행 시간 기준으로 나눈 샤드(최대 3개)에서 돈다. 샤드마다 DB·서버를 따로 띄운다.
   integration:
-    needs: [server, apps]
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    name: integration (${{ matrix.shard }}/${{ matrix.of }})
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.matrix) }}
     services:
       postgres:
         image: postgres:16
@@ -215,66 +266,87 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://farmclub:farmclub@localhost:5432/farmclub
       FARMCLUB_INTEGRATION_SKIP_DOCKER: "1"
+      # API 시나리오(test-integration.mjs)는 첫 샤드만
+      FARMCLUB_INTEGRATION_API: ${{ matrix.api && '1' || '0' }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Detect changes
-        id: changes
-        uses: dorny/paths-filter@v4
-        with:
-          token: ""
-          filters: |
-            integration:
-              - "apps/**"
-              - "packages/**"
-              - "server/**"
-              - "scripts/**"
-              - "package.json"
-              - "package-lock.json"
-              - "playwright.config.ts"
-              - ".nvmrc"
-              - ".github/workflows/ci.yml"
-
-      - name: Skip (no integration changes)
-        if: steps.changes.outputs.integration != 'true'
-        run: echo "통합 경로 변경 없음. 검사를 건너뛴다."
-
       - uses: actions/setup-node@v7
-        if: steps.changes.outputs.integration == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
 
-      - uses: astral-sh/setup-uv@v10.3.2
-        if: steps.changes.outputs.integration == 'true'
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: server/uv.lock
 
       - name: Install application dependencies
-        if: steps.changes.outputs.integration == 'true'
         run: |
           npm ci
           cd server
           uv sync --frozen
 
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # 브라우저 내려받기만 캐시한다. apt 의존성(--with-deps)은 러너마다 설치해야 한다.
+      - name: Cache Playwright browsers
+        id: browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
       - name: Install Chromium
-        if: steps.changes.outputs.integration == 'true'
+        if: steps.browsers.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
+      - name: Install Chromium system dependencies
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
       - name: Real-stack API and Chromium integration
-        if: steps.changes.outputs.integration == 'true'
-        run: npm run test:integration:full
+        env:
+          SPECS: ${{ matrix.specs }}
+        # SPECS는 공백으로 나눈 spec 경로(classify.mjs). 일부러 따옴표 없이 펼친다.
+        run: |
+          # shellcheck disable=SC2086
+          npm run test:integration:full -- $SPECS
 
       - name: Upload integration failure artifacts
-        if: failure() && steps.changes.outputs.integration == 'true'
+        if: failure()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: integration-failure-${{ github.run_id }}
+          name: integration-failure-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
           if-no-files-found: ignore
           retention-days: 7
           path: |
             playwright-report/
             test-results/
             .artifacts/integration/
+
+  # DEV-234: 브랜치 보호·머지 큐의 필수 체크. 앞 job이 하나라도 실패·취소되면 실패, 건너뛴 것은 통과.
+  ci-ok:
+    needs: [changes, server, apps, admin-web, integration]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: All required jobs passed or were skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          LANE: ${{ needs.changes.outputs.lane }}
+        run: |
+          echo "lane=$LANE"
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e 'to_entries | map(.value.result) | any(. == "failure" or . == "cancelled")' > /dev/null; then
+            echo "::error::A CI job failed or was cancelled."
+            exit 1
+          fi
+          if [ "$(echo "$RESULTS" | jq -r '.changes.result')" != success ]; then
+            echo "::error::The changes job did not succeed."
+            exit 1
+          fi

@@ -15,8 +15,10 @@ from app.analytics.router import router as analytics_router
 from app.catalog.router import admin_router as catalog_admin_router
 from app.catalog.router import capacity_admin_router as catalog_capacity_admin_router
 from app.catalog.router import router as catalog_router
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
+from app.core.server_time import HEADER as SERVER_TIME_HEADER
+from app.core.server_time import ServerTimeMiddleware
 from app.farms.router import home_router
 from app.farms.router import router as farms_router
 from app.farms.share import router as farm_share_router
@@ -29,19 +31,26 @@ from app.source_analysis.publish import public_router as source_public_router
 from app.source_analysis.router import config_router as source_config_router
 from app.source_analysis.router import router as source_analysis_router
 
+
+# 두 앱(웹)과 API는 다른 주소다. 앱 주소(대표 + 보조, DEV-236)만 허용한다.
+def install_cors(target: FastAPI, settings: Settings) -> None:
+    target.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.app_origins(),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        # 다른 주소의 웹 앱이 읽을 수 있게 노출한다(DEV-229)
+        expose_headers=[SERVER_TIME_HEADER],
+    )
+
+
 app = FastAPI(title="Farmclub API")
 app.add_middleware(SourceRequestMiddleware)
+# 앱이 기한·날짜를 서버 시각으로 판단하게 모든 응답에 붙인다(DEV-229)
+app.add_middleware(ServerTimeMiddleware)
 install_error_handlers(app)
-
-# 두 앱(웹)과 API는 다른 주소다. 앱 주소만 허용한다.
-settings = get_settings()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[settings.consumer_app_url, settings.producer_app_url],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+install_cors(app, get_settings())
 
 
 @app.get("/health", tags=["health"])

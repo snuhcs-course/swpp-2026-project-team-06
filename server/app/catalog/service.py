@@ -26,6 +26,7 @@ from app.catalog.schemas import (
     DraftFields,
     MyProduct,
     MyProductCard,
+    MyStageView,
     ProductCard,
     ProductDetail,
     ProductInfo,
@@ -190,9 +191,13 @@ def card(db: Session, item: Loaded, farm_name: str, reserved_people: int) -> Pro
     cur = current_stage(item)
     nxt = next_stage(item)
     first = item.options[0].id if item.options else None
-    sold_out = cur is None or all(item.remaining(cur, o.id) == 0 for o in item.options)
+    state = sales_state(db, item)
+    # AC-07-3·R-27: 예약할 수 없는 상품(중지·한도 소진·기간 공백·종료)은 모두 sold_out이다.
+    # 다음 기간 날짜는 기다리면 열리는 경우(아직 시작 전·이번 기간 매진)에만 알려 준다.
+    sold_out = state.availability != "AVAILABLE"
+    waits_for_next = state.availability in ("NOT_OPEN", "PERIOD_SOLD_OUT")
     return ProductCard(
-        **sales_state(db, item).model_dump(),
+        **state.model_dump(),
         product_id=p.id,
         name=p.name,
         farm_id=p.farm_id,
@@ -204,7 +209,7 @@ def card(db: Session, item: Loaded, farm_name: str, reserved_people: int) -> Pro
         d_day=days_until(cur.ends_at) if cur else None,
         delivery_window=_delivery_window(p),
         sold_out=sold_out,
-        next_stage_starts_at=nxt.starts_at if sold_out and nxt else None,
+        next_stage_starts_at=nxt.starts_at if waits_for_next and nxt else None,
         reserved_count=reserved_people,
         expected_brix=p.expected_brix,
     )
@@ -229,6 +234,29 @@ def stage_views(item: Loaded) -> list[StageView]:
         )
         for s in item.stages
     ]
+
+
+def my_stage_views(db: Session, item: Loaded) -> list[MyStageView]:
+    """기간별 주문 수와 수확 시작 여부(DEV-231).
+
+    시작 여부는 저장 칸 없이 출하 준비 이후 주문이 있는지로 판단한다.
+    """
+    from app.orders import service as orders
+
+    counts = orders.stage_order_counts(db, item.product.id)
+    views = []
+    for view in stage_views(item):
+        by = counts.get(view.stage_id, {})
+        views.append(
+            MyStageView(
+                **view.model_dump(),
+                reserved_order_count=by.get("RESERVED", 0),
+                awaiting_order_count=by.get("AWAITING_DEPOSIT", 0),
+                preparing_order_count=by.get("PREPARING", 0),
+                harvest_started=any(by.get(st) for st in orders.HARVESTED),
+            )
+        )
+    return views
 
 
 def _reserved_people(db: Session, product_ids: list[str]) -> dict[str, int]:
@@ -313,6 +341,20 @@ def group_by_farm(cards: list[ProductCard]) -> dict[str, list[ProductCard]]:
     return grouped
 
 
+def published_varieties(db: Session, farm_ids: list[str]) -> dict[str, list[str]]:
+    """농가별 판매 중(PUBLISHED) 상품의 품종. 농가 검색용(FEAT-06), 카드에는 없다(DEV-217)."""
+    grouped: dict[str, list[str]] = defaultdict(list)
+    rows = db.execute(
+        select(Product.farm_id, Product.variety)
+        .where(Product.status == "PUBLISHED", Product.farm_id.in_(farm_ids))
+        .order_by(Product.id)
+    )
+    for farm_id, variety in rows:
+        if variety:
+            grouped[farm_id].append(variety)
+    return grouped
+
+
 # ---------------- 생산자: 상품 편집·단계·게시 요청 (FEAT-03·04·05) ----------------
 
 STAGE_PRESETS = [
@@ -375,7 +417,7 @@ def my_product(db: Session, item: Loaded) -> MyProduct:
         measured_brix=p.measured_brix,
         measured_brix_at=p.measured_brix_at,
         options=option_views(item),
-        stages=stage_views(item),
+        stages=my_stage_views(db, item),
         shipping_fee_type=p.shipping_fee_type,
         shipping_fee=p.shipping_fee,
         remote_area_fee=p.remote_area_fee,
