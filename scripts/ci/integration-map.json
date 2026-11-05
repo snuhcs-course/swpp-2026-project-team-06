@@ -6,7 +6,8 @@
     "core: CI 자체. 바뀌면 모든 job과 integration 전체를 돈다.",
     "jobs: job마다 그 job을 켜는 경로. 어느 묶음(docs·core·jobs)에도 안 걸리는 파일은 모르는 경로로 보고 모든 job·integration 전체를 돈다(안전한 쪽).",
     "integration.map: 위에서부터 첫 번째로 걸린 규칙이 이긴다. specs는 spec 파일 글롭, specsMatching은 spec 소스에서 찾을 정규식(새 spec이 저절로 들어가게).",
-    "integration.all → spec 전체, integration.none → integration 안 돎. 어디에도 안 걸리면 spec 전체."
+    "integration.all → spec 전체, integration.none → integration 안 돎. 어디에도 안 걸리면 spec 전체.",
+    "PROBE ONLY (DEV-234 docs-only lane check, never merged): this PR's CI files are treated as docs so the docs-only path runs for real."
   ],
   "docs": [
     "docs/**",
@@ -27,13 +28,24 @@
     "Makefile",
     "demo/**",
     "scripts/ci/ci_timings.py",
-    "scripts/split-tasks.py"
-  ],
-  "core": [
+    "scripts/split-tasks.py",
+    ".github/tasks/DEV-234.md",
+    ".github/workflows/ci-full.yml",
     ".github/workflows/ci.yml",
+    ".github/workflows/spec-check.yml",
+    "Makefile",
+    "playwright.config.ts",
+    "scripts/ci/ci_timings.py",
     "scripts/ci/classify.mjs",
-    "scripts/ci/integration-map.json"
+    "scripts/ci/integration-map.json",
+    "scripts/ci/quarantine.json",
+    "scripts/ci/spec-durations.json",
+    "scripts/ci/test-classify.mjs",
+    "scripts/e2e/helpers.ts",
+    "scripts/run-integration.mjs",
+    "scripts/test-spec12.mjs"
   ],
+  "core": [],
   "jobs": {
     "server": [
       "server/**",
