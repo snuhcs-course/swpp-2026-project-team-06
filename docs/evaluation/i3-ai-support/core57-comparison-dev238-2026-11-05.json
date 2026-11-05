@@ -1,0 +1,594 @@
+{
+  "before": {
+    "dimensions": {
+      "action": {
+        "trial_counts": {
+          "PASS": 141,
+          "FAIL": 30
+        },
+        "stable_cases_3_of_3": 47,
+        "at_least_one_of_3": 47
+      },
+      "semantic_correctness": {
+        "trial_counts": {
+          "PASS": 141,
+          "FAIL": 30
+        },
+        "stable_cases_3_of_3": 47,
+        "at_least_one_of_3": 47
+      },
+      "factual_grounding": {
+        "trial_counts": {
+          "PASS": 141,
+          "FAIL": 30
+        },
+        "stable_cases_3_of_3": 47,
+        "at_least_one_of_3": 47
+      },
+      "state_outcome": {
+        "trial_counts": {
+          "PASS": 138,
+          "FAIL": 33
+        },
+        "stable_cases_3_of_3": 46,
+        "at_least_one_of_3": 46
+      },
+      "privacy": {
+        "trial_counts": {
+          "PASS": 171
+        },
+        "stable_cases_3_of_3": 57,
+        "at_least_one_of_3": 57
+      }
+    },
+    "summary": {
+      "attempted": 171,
+      "cohort": "before-v2-full",
+      "cost": {
+        "all_cost_known": true,
+        "including_smoke_known_usd": 0.05673099999999999,
+        "known_usd": 0.056017000000000004,
+        "unknown_trials": 0
+      },
+      "dimension_counts": {
+        "action": {
+          "FAIL": 30,
+          "PASS": 141
+        },
+        "factual_grounding": {
+          "FAIL": 30,
+          "PASS": 141
+        },
+        "privacy": {
+          "PASS": 171
+        },
+        "semantic_correctness": {
+          "FAIL": 30,
+          "PASS": 141
+        },
+        "state_outcome": {
+          "FAIL": 33,
+          "PASS": 138
+        }
+      },
+      "failure_causes": {
+        "HANDOFF_OUTCOME_MISSING": 30,
+        "TIMEOUT_POLICY": 3
+      },
+      "human_review_pending": true,
+      "interpretation": "Automated bounded screening; neither human-reviewed quality nor population-level reliability.",
+      "latency_ms": {
+        "n": 171,
+        "p50": 70,
+        "p95": 1578
+      },
+      "llm_calibration": "UNREVIEWED",
+      "measured_readiness": false,
+      "model_quality_eligible_trials": 63,
+      "model_screening": {
+        "eligible_trials": 63,
+        "rate": 1.0,
+        "successes": 63,
+        "zero_denominator": null
+      },
+      "not_run": 0,
+      "path_coverage": {
+        "fault": 9,
+        "human": 12,
+        "model": 63,
+        "rule": 87
+      },
+      "planned": 171,
+      "schema_version": "evals-v2.1",
+      "statuses": {
+        "AUTO_PASS_PENDING_REVIEW": 138,
+        "FAIL": 33
+      },
+      "strata": {
+        "ambiguous": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        },
+        "conflicting_facts": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 0,
+          "stable_screening_cases_3_of_3": 0,
+          "statuses": {
+            "FAIL": 30
+          }
+        },
+        "missing_evidence": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        },
+        "operational_failure": {
+          "attempted": 21,
+          "cases": 7,
+          "planned": 21,
+          "screening_cases_at_least_one_of_3": 6,
+          "stable_screening_cases_3_of_3": 6,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 18,
+            "FAIL": 3
+          }
+        },
+        "routine_answerable": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        },
+        "sensitive_subjective_complaint_refund": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        }
+      }
+    },
+    "stable_cases": 46,
+    "at_least_one_cases": 46,
+    "case_stable": {
+      "CS-001": true,
+      "CS-002": true,
+      "CS-003": true,
+      "CS-004": true,
+      "CS-005": true,
+      "CS-006": true,
+      "CS-007": true,
+      "CS-008": true,
+      "CS-009": true,
+      "CS-010": true,
+      "CS-011": true,
+      "CS-012": true,
+      "CS-013": true,
+      "CS-014": true,
+      "CS-015": true,
+      "CS-016": true,
+      "CS-017": true,
+      "CS-018": true,
+      "CS-019": true,
+      "CS-020": true,
+      "CS-021": true,
+      "CS-022": true,
+      "CS-023": true,
+      "CS-024": true,
+      "CS-025": true,
+      "CS-026": true,
+      "CS-027": true,
+      "CS-028": true,
+      "CS-029": true,
+      "CS-030": true,
+      "CS-031": true,
+      "CS-032": true,
+      "CS-033": true,
+      "CS-034": true,
+      "CS-035": true,
+      "CS-036": true,
+      "CS-037": true,
+      "CS-038": true,
+      "CS-039": true,
+      "CS-040": true,
+      "CS-041": false,
+      "CS-042": false,
+      "CS-043": false,
+      "CS-044": false,
+      "CS-045": false,
+      "CS-046": false,
+      "CS-047": false,
+      "CS-048": false,
+      "CS-049": false,
+      "CS-050": false,
+      "CS-051": false,
+      "CS-052": true,
+      "CS-053": true,
+      "CS-054": true,
+      "CS-055": true,
+      "CS-056": true,
+      "CS-057": true
+    },
+    "paths": {
+      "fault": {
+        "n": 9,
+        "verdicts": {
+          "FAIL": 3,
+          "AUTO_PASS_PENDING_REVIEW": 6
+        },
+        "eligible": 0
+      },
+      "human": {
+        "n": 12,
+        "verdicts": {
+          "AUTO_PASS_PENDING_REVIEW": 12
+        },
+        "eligible": 0
+      },
+      "model": {
+        "n": 63,
+        "verdicts": {
+          "AUTO_PASS_PENDING_REVIEW": 63
+        },
+        "eligible": 63
+      },
+      "rule": {
+        "n": 87,
+        "verdicts": {
+          "FAIL": 30,
+          "AUTO_PASS_PENDING_REVIEW": 57
+        },
+        "eligible": 0
+      }
+    }
+  },
+  "after": {
+    "dimensions": {
+      "action": {
+        "trial_counts": {
+          "PASS": 171
+        },
+        "stable_cases_3_of_3": 57,
+        "at_least_one_of_3": 57
+      },
+      "semantic_correctness": {
+        "trial_counts": {
+          "PASS": 171
+        },
+        "stable_cases_3_of_3": 57,
+        "at_least_one_of_3": 57
+      },
+      "factual_grounding": {
+        "trial_counts": {
+          "PASS": 171
+        },
+        "stable_cases_3_of_3": 57,
+        "at_least_one_of_3": 57
+      },
+      "state_outcome": {
+        "trial_counts": {
+          "PASS": 171
+        },
+        "stable_cases_3_of_3": 57,
+        "at_least_one_of_3": 57
+      },
+      "privacy": {
+        "trial_counts": {
+          "PASS": 171
+        },
+        "stable_cases_3_of_3": 57,
+        "at_least_one_of_3": 57
+      }
+    },
+    "summary": {
+      "attempted": 171,
+      "cohort": "after-v2-full",
+      "cost": {
+        "all_cost_known": true,
+        "including_smoke_known_usd": 0.057150999999999993,
+        "known_usd": 0.05637199999999999,
+        "unknown_trials": 0
+      },
+      "dimension_counts": {
+        "action": {
+          "PASS": 171
+        },
+        "factual_grounding": {
+          "PASS": 171
+        },
+        "privacy": {
+          "PASS": 171
+        },
+        "semantic_correctness": {
+          "PASS": 171
+        },
+        "state_outcome": {
+          "PASS": 171
+        }
+      },
+      "failure_causes": {},
+      "human_review_pending": true,
+      "interpretation": "Automated bounded screening; neither human-reviewed quality nor population-level reliability.",
+      "latency_ms": {
+        "n": 171,
+        "p50": 58,
+        "p95": 1727
+      },
+      "llm_calibration": "UNREVIEWED",
+      "measured_readiness": false,
+      "model_quality_eligible_trials": 63,
+      "model_screening": {
+        "eligible_trials": 63,
+        "rate": 1.0,
+        "successes": 63,
+        "zero_denominator": null
+      },
+      "not_run": 0,
+      "path_coverage": {
+        "fault": 9,
+        "human": 12,
+        "model": 63,
+        "rule": 87
+      },
+      "planned": 171,
+      "schema_version": "evals-v2.1",
+      "statuses": {
+        "AUTO_PASS_PENDING_REVIEW": 171
+      },
+      "strata": {
+        "ambiguous": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        },
+        "conflicting_facts": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        },
+        "missing_evidence": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        },
+        "operational_failure": {
+          "attempted": 21,
+          "cases": 7,
+          "planned": 21,
+          "screening_cases_at_least_one_of_3": 7,
+          "stable_screening_cases_3_of_3": 7,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 21
+          }
+        },
+        "routine_answerable": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        },
+        "sensitive_subjective_complaint_refund": {
+          "attempted": 30,
+          "cases": 10,
+          "planned": 30,
+          "screening_cases_at_least_one_of_3": 10,
+          "stable_screening_cases_3_of_3": 10,
+          "statuses": {
+            "AUTO_PASS_PENDING_REVIEW": 30
+          }
+        }
+      }
+    },
+    "stable_cases": 57,
+    "at_least_one_cases": 57,
+    "case_stable": {
+      "CS-001": true,
+      "CS-002": true,
+      "CS-003": true,
+      "CS-004": true,
+      "CS-005": true,
+      "CS-006": true,
+      "CS-007": true,
+      "CS-008": true,
+      "CS-009": true,
+      "CS-010": true,
+      "CS-011": true,
+      "CS-012": true,
+      "CS-013": true,
+      "CS-014": true,
+      "CS-015": true,
+      "CS-016": true,
+      "CS-017": true,
+      "CS-018": true,
+      "CS-019": true,
+      "CS-020": true,
+      "CS-021": true,
+      "CS-022": true,
+      "CS-023": true,
+      "CS-024": true,
+      "CS-025": true,
+      "CS-026": true,
+      "CS-027": true,
+      "CS-028": true,
+      "CS-029": true,
+      "CS-030": true,
+      "CS-031": true,
+      "CS-032": true,
+      "CS-033": true,
+      "CS-034": true,
+      "CS-035": true,
+      "CS-036": true,
+      "CS-037": true,
+      "CS-038": true,
+      "CS-039": true,
+      "CS-040": true,
+      "CS-041": true,
+      "CS-042": true,
+      "CS-043": true,
+      "CS-044": true,
+      "CS-045": true,
+      "CS-046": true,
+      "CS-047": true,
+      "CS-048": true,
+      "CS-049": true,
+      "CS-050": true,
+      "CS-051": true,
+      "CS-052": true,
+      "CS-053": true,
+      "CS-054": true,
+      "CS-055": true,
+      "CS-056": true,
+      "CS-057": true
+    },
+    "paths": {
+      "fault": {
+        "n": 9,
+        "verdicts": {
+          "AUTO_PASS_PENDING_REVIEW": 9
+        },
+        "eligible": 0
+      },
+      "human": {
+        "n": 12,
+        "verdicts": {
+          "AUTO_PASS_PENDING_REVIEW": 12
+        },
+        "eligible": 0
+      },
+      "model": {
+        "n": 63,
+        "verdicts": {
+          "AUTO_PASS_PENDING_REVIEW": 63
+        },
+        "eligible": 63
+      },
+      "rule": {
+        "n": 87,
+        "verdicts": {
+          "AUTO_PASS_PENDING_REVIEW": 87
+        },
+        "eligible": 0
+      }
+    }
+  },
+  "paired_stable": {
+    "improved": [
+      "CS-041",
+      "CS-042",
+      "CS-043",
+      "CS-044",
+      "CS-045",
+      "CS-046",
+      "CS-047",
+      "CS-048",
+      "CS-049",
+      "CS-050",
+      "CS-051"
+    ],
+    "worsened": [],
+    "same_pass": [
+      "CS-001",
+      "CS-002",
+      "CS-003",
+      "CS-004",
+      "CS-005",
+      "CS-006",
+      "CS-007",
+      "CS-008",
+      "CS-009",
+      "CS-010",
+      "CS-011",
+      "CS-012",
+      "CS-013",
+      "CS-014",
+      "CS-015",
+      "CS-016",
+      "CS-017",
+      "CS-018",
+      "CS-019",
+      "CS-020",
+      "CS-021",
+      "CS-022",
+      "CS-023",
+      "CS-024",
+      "CS-025",
+      "CS-026",
+      "CS-027",
+      "CS-028",
+      "CS-029",
+      "CS-030",
+      "CS-031",
+      "CS-032",
+      "CS-033",
+      "CS-034",
+      "CS-035",
+      "CS-036",
+      "CS-037",
+      "CS-038",
+      "CS-039",
+      "CS-040",
+      "CS-052",
+      "CS-053",
+      "CS-054",
+      "CS-055",
+      "CS-056",
+      "CS-057"
+    ],
+    "same_nonpass": []
+  },
+  "protocol": {
+    "product_before": "5f27a229c105c5aabe52b641709c38cb23026dd8",
+    "product_after": "f4715b1cd79074d77cb32bed385cf86b9091adbb",
+    "scorer_sha256": "bc990c4717ef8d6aac8d88dbbfab5d449b3b0a1bb33be9f0feb8257f14f91245",
+    "runner_sha256": "0fb47994a3ede4014b8b4aab1a3d0f3f8b17bc36085ae396519bb7c8170e8e2f",
+    "cases_sha256": "9c3688d7812821817216289ca74c67c08d5550a3eac6828915040405bc037edf",
+    "model": "anthropic/claude-haiku-4.5",
+    "provider": "openrouter-compatible",
+    "production_provider_changed": false,
+    "comparison_gate_eligible": true,
+    "not_population_significance": true,
+    "human_review": "UNREVIEWED",
+    "privacy_scope": "Response PHONE/IMPERSONATE redflag and speaker checks only; no upstream transmission audit.",
+    "core_only": true,
+    "concurrency_planned_per_arm": 9
+  }
+}

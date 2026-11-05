@@ -1750,3 +1750,37 @@ quality. A separate local OpenRouter Messages compatibility smoke then succeeded
 Haiku 4.5, HTTP 200, one upstream request, a response ID and nonzero token usage. This
 changes only the test proxy route; production remains Anthropic. New paid quality cohorts
 are held pending the DEV-241 evaluation-v2 validity and grading gates.
+
+
+### DEV-238 frozen development comparison — 2026-11-05
+
+Frozen product before `5f27a22`, candidate `f4715b1`; evaluation-v2 scorer `bc990c4717ef8d6aac8d88dbbfab5d449b3b0a1bb33be9f0feb8257f14f91245`. Same runner, corpus, rubric, config and actual OpenRouter-compatible Haiku4.5; both preflight fixture audits57/57 and provider200/model/id/usage gates passed. Production remains Anthropic. Original60 cases unchanged: preplanned core57×3=171 per arm, concurrency3×3=9 per arm separate. No skipped/invalid core trials.
+
+| Automated bounded screening | Before | Candidate |
+| --- | ---: | ---: |
+| Overall stable3/3 cases (primary) |46/57|57/57|
+| Overall at least1/3 cases |46/57|57/57|
+| Overall passing trials |138/171|171/171|
+| Action stable3/3 / at least1/3 |47/57 /47/57|57/57 /57/57|
+| Bounded typed semantic/factual stable3/3 |47/57|57/57|
+| Persisted state stable3/3 |46/57|57/57|
+| Output redflag/speaker privacy stable3/3 |57/57|57/57|
+| Live-model eligible passing trials |63/63|63/63|
+| Rule passing trials |57/87|87/87|
+| Injected fault passing trials |6/9|9/9|
+| Human-only passing trials |12/12|12/12|
+| Latency p50 / p95 ms |70 /1578|58 /1727|
+| Full cohort plus its smoke USD |0.056731|0.057151|
+
+Paired stable cases:11 improve (public CS041–051),0 worsen,46 unchanged. Recovery is30 conflicting-fact rule trials and3 injected timeout state trials; this does not establish an improvement in the live model itself. Latency p95 increased. Dimension trial PASS/FAIL/UNREVIEWED and at-least-one counts are in `docs/evaluation/i3-ai-support/core57-comparison-dev238-2026-11-05.json`. Every automatic pass is `AUTO_PASS_PENDING_REVIEW`: bounded screening, not human validation, calibrated general correctness, or population reliability. Privacy only checks response redflags/speaker; model-transmission privacy is unverified.
+
+Independent AI diagnosis (not human review):6 public cases×run1×2 builds,12 responses, implementation/evaluator/old scores hidden; CS044 recovered from answering a shipping-fee question with unrelated shipment-date information to handoff. Other5 were unchanged. HUMAN_ONLY substantive/grounding was UNCERTAIN/N/A under that independent rubric, unlike the automatic pipeline. This tiny diagnostic is not accuracy calibration. Sanitized artifact: `docs/evaluation/i3-ai-support/independent-ai-review-dev238-2026-11-05.json`.
+
+Independent sealed chat (PR465 public aggregates only): action3/3 19→20/28, at-least-one20→21/28; routine-answerable action2→1/15 worsened. Transmission privacy was UNREVIEWED, so overall quality remains unconfirmed. Source development facts222→218/354 and critical107→102/154; fewer truncated candidates18→0 does not establish quality improvement. Source final holdout is INVALID_INCOMPLETE_COHORT; see PR465 public aggregate. These measurements provide narrow handling recovery evidence, not a product-ready claim.
+
+Post-freeze public manual counterexamples: numeric equality does not detect negation (`3500원이 아닙니다`), and the added empty-number guard can wrongly hand off FREE shipping with a5000 remote surcharge plus an agreeing free-shipping FAQ. The latter is a newly found regression; fixes/tests are tracked separately from frozen f471 results. No holdout reuse or mixing a later fix into this measured candidate.
+
+AI first review: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/464#issuecomment-6659040812 . Draft remains awaiting required human review; no merge/deployment.
+
+
+Separate public concurrency diagnostic (not part of171): before4/9 attempted,3 automatic passes,1 INVALID,5 NOT_RUN; after9/9 automatic passes. Baseline CS059run1 lacked an observed pre-release transition and had HUMAN_OUTCOME_MISMATCH, so the strict unexpected-INVALID rule stopped further calls. This incomplete diagnostic cannot supply a valid full paired9-trial improvement claim. One before setup attempt failed on64-character fixture IDs before provider calls; a shortened wrapper-only suffix enabled the preserved next attempt, while native runner/product/scorer remained fixed. Used wrapper bytes and SHA are preserved with raw artifacts. Worker completion at the one-second observation is not HTTP success/DB commit evidence. Public aggregate: `docs/evaluation/i3-ai-support/concurrency-diagnostic-dev238-2026-11-05.json`. Actual diagnostic cost beforeUSD0.005906,afterUSD0.012568; all known. DEV238 conservative accounted totalUSD1.377108 includes earlier source settled/unsettled plus direct/dev chat calls, and excludes independent owners' separate holdout ledgers.
