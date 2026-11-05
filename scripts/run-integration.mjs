@@ -193,12 +193,18 @@ async function main() {
     FARMCLUB_ADMIN_TOKEN: adminToken,
     FARMCLUB_INTEGRATION_ARTIFACTS: artifacts,
   };
-  await command(process.execPath, ["scripts/test-integration.mjs"], { env: testEnv });
-  await resetSeed(serverEnv);
-  // 뒤에 붙인 인자(spec 경로 등)는 Playwright에 넘긴다(DEV-84)
-  await command(path.join(root, "node_modules", ".bin", "playwright"), ["test", ...process.argv.slice(2)], {
-    env: testEnv,
-  });
+  // DEV-234: CI 샤드는 첫 샤드만 API 시나리오를 돈다(FARMCLUB_INTEGRATION_API=0이면 건너뜀)
+  if (process.env.FARMCLUB_INTEGRATION_API !== "0") {
+    await command(process.execPath, ["scripts/test-integration.mjs"], { env: testEnv });
+    await resetSeed(serverEnv);
+  }
+  // 뒤에 붙인 인자(spec 경로 등)는 Playwright에 넘긴다(DEV-84).
+  // 격리 목록(scripts/ci/quarantine.json)으로 고른 spec의 테스트가 다 빠져도 실패로 보지 않는다(DEV-234).
+  await command(
+    path.join(root, "node_modules", ".bin", "playwright"),
+    ["test", "--pass-with-no-tests", ...process.argv.slice(2)],
+    { env: testEnv },
+  );
 }
 
 try {
