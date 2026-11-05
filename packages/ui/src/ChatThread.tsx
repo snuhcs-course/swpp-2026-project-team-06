@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { Platform, ScrollView, TextInput, View } from "react-native";
 import { Button } from "./Button";
 import { ChatBubble } from "./ChatBubble";
 import { T } from "./Text";
@@ -8,6 +8,8 @@ import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
 import { daySeparator, time } from "./format";
 import { inBackground } from "./foreground";
+import { useKeyboardShown } from "./keyboard";
+import { safe } from "./web";
 
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
@@ -79,6 +81,11 @@ export function ChatThread({
     alive = useRef(true),
     lastRead = useRef("");
   const [reporting, setReporting] = useState<string | null>(null);
+  // 앱: 입력창 아래에 하단 내비 바(안전 영역)만큼 더 띄운다. 키보드가 뜨면 키보드가 내비 바를 덮으므로 뺀다.
+  // 웹은 지금 여백(20) 그대로(DEV-205)
+  const keyboardShown = useKeyboardShown(),
+    composerBottom =
+      Platform.OS === "web" || keyboardShown ? 20 : safe("bottom", 20);
   const callbacks = useRef({ send, read, upload, report });
   callbacks.current = { send, read, upload, report };
   useEffect(() => {
@@ -371,7 +378,7 @@ export function ChatThread({
       <View
         style={{
           padding: 12,
-          paddingBottom: 20,
+          paddingBottom: composerBottom,
           gap: 8,
           backgroundColor: "white",
           borderTopWidth: 1,
