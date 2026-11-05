@@ -8,6 +8,7 @@ import {
   allPages,
   orders,
   newIdempotencyKey,
+  serverNow,
   type Carrier,
   type ProducerOrder,
 } from "@farmclub/api";
@@ -572,7 +573,7 @@ export default function Ship() {
                 <T variant="sub" muted numberOfLines={1}>
                   {o.orderNo}
                   {awaiting
-                    ? o.depositDueAt && Date.parse(o.depositDueAt) <= Date.now()
+                    ? o.depositDueAt && Date.parse(o.depositDueAt) <= serverNow()
                       ? " · 기한 지남"
                       : ` · 기한 ${deadline(o.depositDueAt)}`
                     : ""}

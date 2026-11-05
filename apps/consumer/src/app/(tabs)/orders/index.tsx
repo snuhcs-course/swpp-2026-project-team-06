@@ -1,5 +1,5 @@
 // SCR-13 주문 내역 (FEAT-10) — design: scr-13
-import { allPages, orders, type Order } from "@farmclub/api";
+import { allPages, orders, serverNow, type Order } from "@farmclub/api";
 import {
   Button,
   EmptyState,
@@ -109,7 +109,7 @@ export default function OrderList() {
           weight="bold"
           muted={isClosed(o)}
         >
-          {listHeadline(o)}
+          {listHeadline(o, serverNow())}
         </T>
         {/* 상품 줄은 한 줄, 넘치면 상품명만 줄이고 옵션 × 수량은 끝까지(DEV-226).
             줄임은 화면에서만이라 화면 읽기는 전체 글자를 읽는다 */}

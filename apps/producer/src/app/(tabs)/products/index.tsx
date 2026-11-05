@@ -1,4 +1,4 @@
-import { allPages, catalog } from "@farmclub/api";
+import { allPages, catalog, serverNow } from "@farmclub/api";
 import {
   Button,
   EmptyState,
@@ -175,9 +175,9 @@ export default function Products() {
                   {product.name || "이름 없는 초안"}
                 </T>
                 {/* 이름 없는 초안끼리 가르는 마지막 저장 시각(DEV-226, HE-X5) */}
-                {product.status === "DRAFT" && draftSaved(product.updatedAt, { md, time }) ? (
+                {product.status === "DRAFT" && draftSaved(product.updatedAt, { md, time }, serverNow()) ? (
                   <T variant="caption" muted numberOfLines={1}>
-                    {draftSaved(product.updatedAt, { md, time })}
+                    {draftSaved(product.updatedAt, { md, time }, serverNow())}
                   </T>
                 ) : null}
                 {product.pendingCapacityRequest?.kind === "INCREASE" ? (
