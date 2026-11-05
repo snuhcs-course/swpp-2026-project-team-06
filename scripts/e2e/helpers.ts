@@ -28,10 +28,13 @@ export function monitor(page: Page, allowedErrors: RegExp[] = []) {
   page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
     if (message.type() === "error" && externalResourceFailure(message.text(), message.location().url)) {
-      test.info().annotations.push({
-        type: "warning",
-        description: `external resource failed (not counted): ${message.text()} ${message.location().url}`,
-      });
+      const description = `external resource failed (not counted): ${message.text()} ${message.location().url}`;
+      try {
+        test.info().annotations.push({ type: "warning", description });
+      } catch {
+        // 테스트가 끝난 뒤 들어온 콘솔 이벤트(test.info() 없음)
+        console.warn(description);
+      }
       return;
     }
     if (
