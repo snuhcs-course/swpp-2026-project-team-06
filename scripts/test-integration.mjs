@@ -503,6 +503,7 @@ await scenario("AC-10-6: producer fulfillment and consumer order visibility", as
   const changed = await request("POST", "/api/orders/producer/harvest-start", {
     token: token("u-kang"),
     body: { productId: state.productId },
+    idempotencyKey: key("harvest-start"),
   });
   assert.ok(changed.changed >= 1);
 
