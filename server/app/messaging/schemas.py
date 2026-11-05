@@ -184,6 +184,9 @@ class ChatPage(CamelModel):
     escalations: list[EscalationView] | None = None
     # 소비자 조회에만 채운다. 생산자 조회는 None(DEV-208)
     farm_reply: FarmReply | None = None
+    # 생산자 조회에만 채운다. 목록과 같은 가림 이름(김○○), 문의 방은 'farmclub'.
+    # 새로고침·직접 링크에도 머리 이름이 보이게 한다(DEV-232). 소비자 조회는 None
+    consumer_name: str | None = None
 
 
 class ChatSummary(CamelModel):
