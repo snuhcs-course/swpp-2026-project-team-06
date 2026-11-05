@@ -10,12 +10,18 @@ const ignoredConsoleErrors = [
   /Download the React DevTools/,
 ];
 
+// 두 앱 index.html이 받는 외부 글꼴(Pretendard, cdn.jsdelivr.net). CI에서 이 요청이 가끔 30초 끊겨
+// "Failed to load resource: net::ERR_TIMED_OUT"이 앱과 무관하게 콘솔 오류로 잡혔다(DEV-177, run 41962666285).
+// 이 주소에서 난 자원 로드 실패만 뺀다. 앱 자원·API·스크립트 오류는 그대로 실패다
+const externalFontCdn = /^https:\/\/cdn\.jsdelivr\.net\/npm\/pretendard@/;
+
 export function monitor(page: Page, allowedErrors: RegExp[] = []) {
   const failures: string[] = [];
   page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
     if (
       message.type() === "error" &&
+      !(/^Failed to load resource:/.test(message.text()) && externalFontCdn.test(message.location().url)) &&
       !ignoredConsoleErrors.some((pattern) => pattern.test(message.text())) &&
       !allowedErrors.some((pattern) => pattern.test(message.text()))
     ) {
