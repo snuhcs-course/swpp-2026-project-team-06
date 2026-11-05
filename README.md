@@ -279,6 +279,7 @@ Variables to add on the Railway service as features land, in merge order:
 | When | Variables |
 | -- | -- |
 | Kakao login (PR #121) | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and register `https://farmclub.kr/auth/kakao` as a redirect URI in the Kakao console |
+| Testing on the Vercel default addresses (DEV-236) | `CONSUMER_APP_ALT_URLS=https://farmclub-consumer.vercel.app`, `PRODUCER_APP_ALT_URLS=https://farmclub-producer.vercel.app`, and register `<address>/auth/kakao` for both as redirect URIs and both addresses as Web site domains in the Kakao console |
 | PortOne payments (PR #124) | `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, and register `https://api.farmclub.kr/api/payments/portone/webhook` as the PortOne webhook |
 | Before real users | `MOCK_LOGIN_ENABLED=false` (ADR 0009) |
 
@@ -443,9 +444,14 @@ republishing the previous one (`eas update:republish --channel production`). Fre
 
 `dev` and `staging` are reserved; no DNS records exist until they have a target.
 The Vercel default addresses `farmclub-consumer.vercel.app` and `farmclub-producer.vercel.app`
-permanently redirect (308, path and query kept) to `farmclub.kr` and `farm.farmclub.kr` through a
-host rule in each app's `vercel.json` (DEV-127). The API only allows the two official origins
-(CORS) and Kakao only returns to them, so the apps do not work on the `vercel.app` addresses.
+serve the same deployments and stay on their own address (DEV-236 removed the DEV-127 redirect).
+They are the addresses for testing the live apps in a browser: PostHog only runs on the official
+domains (DEV-125), so tests there do not touch the stats or the session-recording quota. A host
+rule in each app's `vercel.json` sends `X-Robots-Tag: noindex, nofollow` on the default address
+only, so search engines index just the official domains. The API accepts the default addresses
+through `CONSUMER_APP_ALT_URLS` and `PRODUCER_APP_ALT_URLS` on Railway (CORS and the Kakao return
+address); share links, the share page and links to the other app still use the official domains.
+Both addresses use the same production API and database.
 The consumer app's `vercel.json` proxies `/s/*` to `https://api.farmclub.kr/s/*`, so
 KakaoTalk reads the server's OG page under the consumer domain. All five records (`@`,
 `www`, `farm`, `api`, `admin`) are **proxied** through Cloudflare (orange cloud), so Vercel shows a

@@ -83,3 +83,18 @@ def test_AC_19_1_share_url_uses_public_domain_when_configured(client, login, mon
     response = client.get("/s/farms/f-kang")
     assert response.status_code == 200
     assert Metadata(response.text).meta["og:url"] == "https://farmclub.kr/s/farms/f-kang"
+
+
+def test_share_page_keeps_main_consumer_url_with_alt_urls(client, monkeypatch):
+    """DEV-236: 보조 주소를 넣어도 공유 페이지가 보내는 곳은 대표 주소(CONSUMER_APP_URL)다."""
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(
+        get_settings(), "consumer_app_alt_urls", "https://farmclub-consumer.vercel.app"
+    )
+    response = client.get("/s/farms/f-kang")
+    assert response.status_code == 200
+    assert Metadata(response.text).links == ["http://localhost:8081/farms/f-kang"]
+    assert "vercel.app" not in response.text
+    public = client.get("/api/farms/f-kang").json()
+    assert public["shareUrl"] == "http://testserver/s/farms/f-kang"
