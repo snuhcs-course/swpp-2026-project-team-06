@@ -20,7 +20,7 @@ async function startMock(dir) {
   child.stderr.on("data", (d) => (err += d));
   const base = await new Promise((resolve, reject) => {
     child.stdout.on("data", (d) => {
-      const m = /Shared Mock: (http:\/\/\S+)/.exec((out += d));
+      const m = /Shared Mock: (http:\/\/\S+)\r?\n/.exec((out += d)); // 줄 끝까지 와야 포트가 다 온 것
       if (m) resolve(m[1]);
     });
     child.once("close", (code, signal) =>
