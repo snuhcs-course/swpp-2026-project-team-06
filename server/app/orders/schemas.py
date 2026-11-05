@@ -137,6 +137,14 @@ class RefundIssueInput(CamelModel):
 
 class HarvestStartInput(CamelModel):
     product_id: str
+    # DEV-231: 예약 기간(단계) 하나만. 없으면 예전처럼 상품 전체
+    stage_id: str | None = None
+
+
+class HarvestStarted(CamelModel):
+    changed: int
+    stage_id: str | None
+    order_ids: list[str]
 
 
 class Changed(CamelModel):
@@ -159,6 +167,8 @@ class ProducerOrder(CamelModel):
     order_id: str
     order_no: str
     product_id: str
+    # DEV-231: 예약 기간 화면 수확 시작 시트가 그 기간 주문만 고른다
+    stage_id: str
     product_name: str
     option_label: str
     quantity: int
@@ -180,6 +190,18 @@ class ProducerOrder(CamelModel):
     address_detail: str
 
 
+class HarvestTarget(CamelModel):
+    """예약 완료 주문이 남은 예약 기간(DEV-231). closed는 예약 기간이 끝났는지(KST)."""
+
+    product_id: str
+    product_name: str
+    stage_id: str
+    stage_name: str
+    ends_at: date
+    count: int
+    closed: bool
+
+
 class DashboardTodo(CamelModel):
     open_questions: int
     to_ship: int
@@ -187,6 +209,9 @@ class DashboardTodo(CamelModel):
     awaiting_deposit: int
     refunds_to_settle: int
     has_account: bool
+    # DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 수, 수확을 시작할 수 있는 기간들
+    to_harvest: int = 0
+    harvest_targets: list[HarvestTarget] = []
 
 
 class DashboardProduct(SalesState):

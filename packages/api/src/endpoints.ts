@@ -271,9 +271,11 @@ export const orders = {
     request<A.Paged<A.ProducerOrder>>("GET", "/api/orders/producer", {
       query: q,
     }),
-  harvestStart: (productId: string) =>
-    request<{ changed: number }>("POST", "/api/orders/producer/harvest-start", {
-      body: { productId },
+  /** 수확 시작 = 출하 준비 시작(DEV-231). 그 기간의 예약 완료 주문만 옮긴다 */
+  harvestStart: (productId: string, stageId: string, key: string) =>
+    request<A.HarvestStarted>("POST", "/api/orders/producer/harvest-start", {
+      body: { productId, stageId },
+      idempotencyKey: key,
     }),
   updateTracking: (orderId: string, version: number, carrier: A.Carrier, trackingNumber: string | null, key: string) =>
     request<A.ProducerOrder>("PATCH", `/api/orders/${orderId}/tracking`, {

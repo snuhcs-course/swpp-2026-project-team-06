@@ -334,6 +334,32 @@ export type Stage = {
   options: Record<string, StageOptionValue>;
 };
 
+/** 생산자 예약 기간 화면용(DEV-231). 주문 수는 박스가 아니라 주문 건수 */
+export type MyStage = Stage & {
+  reservedOrderCount: number;
+  awaitingOrderCount: number;
+  preparingOrderCount: number;
+  /** 그 기간에 출하 준비 이후 주문이 하나라도 있으면 수확 시작함 */
+  harvestStarted: boolean;
+};
+
+/** 예약 완료 주문이 남은 예약 기간(DEV-231). closed = 예약 기간이 끝남(KST) */
+export type HarvestTarget = {
+  productId: string;
+  productName: string;
+  stageId: string;
+  stageName: string;
+  endsAt: ISODate;
+  count: number;
+  closed: boolean;
+};
+
+export type HarvestStarted = {
+  changed: number;
+  stageId: string | null;
+  orderIds: string[];
+};
+
 export type ProductDetail = ProductCard & {
   variety: string;
   description: string;
@@ -395,7 +421,9 @@ export type MyProduct = Omit<
   | "reservedCount"
   | "deliveryWindow"
   | "maxDelayUntil"
+  | "stages"
 > & {
+  stages: MyStage[];
   deliveryWindow: { start: ISODate; end: ISODate } | null;
   maxDelayUntil: ISODate | null;
   rejectReason: string | null;
@@ -573,6 +601,10 @@ export type Dashboard = {
     refundsToSettle: number;
     /** 입금 계좌 등록 여부 */
     hasAccount: boolean;
+    /** 예약 기간이 끝난 기간의 예약 완료 주문 수(DEV-231) */
+    toHarvest: number;
+    /** 예약 완료 주문이 남은 기간, 끝나는 날 순(DEV-231) */
+    harvestTargets: HarvestTarget[];
   };
   /** 판매 중 대표 상품 요약(예약한 사람 수·주문 수) */
   product:
@@ -612,6 +644,8 @@ export type ProducerOrder = Recipient & {
   orderId: string;
   orderNo: string;
   productId: string;
+  /** 예약 기간(DEV-231) */
+  stageId: string;
   productName: string;
   optionLabel: string;
   quantity: number;

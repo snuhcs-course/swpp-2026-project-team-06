@@ -133,23 +133,58 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   await producerPage.goto(`${producerUrl}/ship?status=RESERVED`);
   await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
   await expect(producerPage.getByText(totalText, { exact: true }).first()).toBeVisible();
-  await expect(
-    producerPage.getByRole("button", { name: "수확 시작" }),
-  ).toHaveCount(0);
+  // DEV-231 (AC-17-3·AC-17-11): 예약 탭은 조회만, 맨 위 줄이 예약 기간 카드로 데려간다
   const reserved = await request.get(
     `${apiUrl}/api/orders/producer?status=RESERVED&limit=50`,
     { headers },
   );
   const reservedOrder = (await reserved.json()).items.find(
-    (o: { orderId: string; orderNo: string }) => o.orderId === orderId,
+    (o: { orderId: string; orderNo: string; stageId: string }) => o.orderId === orderId,
   );
   expect(reservedOrder).toBeTruthy();
-  // Test-fixture setup only: v6 has no harvest UI and never auto-transitions reservations.
-  const prepared = await request.post(
-    `${apiUrl}/api/orders/producer/harvest-start`,
-    { headers, data: { productId: "p-house" } },
+  await expect(
+    producerPage.getByText(/「수확 시작」을 누르면 출하 준비로 옮겨져요/),
+  ).toBeVisible();
+  let harvestCalls = 0;
+  producerPage.on("request", (req) => {
+    if (req.method() === "POST" && req.url().endsWith("/harvest-start")) harvestCalls++;
+  });
+  await producerPage
+    .getByRole("button", { name: /하우스 감귤.*1단계 · \d+건 수확 시작하기/ })
+    .click();
+  await expect(producerPage).toHaveURL(/\/products\/p-house\/stages\?stage=/);
+  // 시드에 이미 출하 준비 주문이 있는 기간이면 '남은 예약 n건도 출하 준비로'(수확 시작함은 계산)
+  const harvestButton = producerPage.getByRole("button", {
+    name: /^(수확 시작 · 출하 준비 \d+건|남은 예약 \d+건도 출하 준비로)$/,
+  });
+  await expect(harvestButton).toBeVisible();
+  await harvestButton.click();
+  const harvestSheet = producerPage.getByRole("dialog");
+  await expect(
+    harvestSheet.getByText(/^(수확을 시작할까요\?|남은 예약 \d+건도 옮길까요\?)$/),
+  ).toBeVisible();
+  await expect(harvestSheet.getByText(/‘수확·포장 중’으로 보여요/)).toBeVisible();
+  await harvestSheet.getByRole("button", { name: "아니요", exact: true }).click();
+  expect(harvestCalls).toBe(0);
+  await harvestButton.click();
+  const harvested = producerPage.waitForResponse(response =>
+    response.url().endsWith("/harvest-start") && response.request().method() === "POST",
   );
-  expect(prepared.ok()).toBeTruthy();
+  await producerPage
+    .getByRole("dialog")
+    .getByRole("button", { name: /^수확 시작 · \d+건$/ })
+    .click();
+  const harvestBody = await (await harvested).json();
+  expect(harvestBody.orderIds).toContain(orderId);
+  await expect(producerPage.getByText(`${harvestBody.changed}건을 출하 준비로 옮겼어요`)).toBeVisible();
+  await expect(
+    producerPage.getByRole("button", { name: /수확 시작함 · 출하 준비 \d+건 보기/ }),
+  ).toBeVisible();
+  expect(harvestCalls).toBe(1);
+  await consumerPage.goto(`${consumerUrl}/orders/${orderId}`);
+  await expect(
+    consumerPage.getByRole("heading", { name: "수확·포장 중" }),
+  ).toBeVisible();
   await producerPage.goto(`${producerUrl}/ship?status=PREPARING`);
   await expect(producerPage.getByText("DEV25 구매자")).toBeVisible();
   await producerPage

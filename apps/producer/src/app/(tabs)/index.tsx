@@ -53,7 +53,7 @@ export default function Home() {
     {
       label: "예약 완료",
       count: data?.filter((o) => o.status === "RESERVED").length,
-      hint: "입금이 확인된 주문",
+      hint: "수확을 시작하면 출하 준비로",
       tab: "RESERVED",
     },
     {
@@ -70,6 +70,7 @@ export default function Home() {
     },
   ];
   const product = dash.data?.product;
+  const harvest = dash.data?.todo.harvestTargets?.filter((t) => t.closed);
   return (
     <Screen>
       <BrandHeader
@@ -91,6 +92,7 @@ export default function Home() {
           {dash.data &&
           (dash.data.todo.hasAccount === false ||
             dash.data.todo.awaitingDeposit ||
+            dash.data.todo.toHarvest ||
             dash.data.todo.refundsToSettle) ? (
             <View>
               {dash.data.todo.hasAccount === false ? (
@@ -105,6 +107,21 @@ export default function Home() {
                   label={`입금 확인할 주문 ${dash.data.todo.awaitingDeposit}건`}
                   sub="통장과 대조한 뒤 입금 확인을 눌러 주세요"
                   onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
+                />
+              ) : null}
+              {dash.data.todo.toHarvest && harvest?.length ? (
+                // DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 → 그 기간 카드
+                <ListRow
+                  label={`수확을 시작할 예약 ${dash.data.todo.toHarvest}건`}
+                  sub={`${harvest[0].productName} ${harvest[0].stageName}${
+                    harvest.length > 1 ? ` 외 ${harvest.length - 1}개 기간` : ""
+                  } · 예약 기간이 끝났어요`}
+                  onPress={() =>
+                    router.push(
+                      `/products/${harvest[0].productId}/stages?stage=${harvest[0].stageId}`,
+                    )
+                  }
+                  last={!dash.data.todo.refundsToSettle}
                 />
               ) : null}
               {dash.data.todo.refundsToSettle ? (
