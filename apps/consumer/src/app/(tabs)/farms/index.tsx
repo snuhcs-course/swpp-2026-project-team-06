@@ -283,6 +283,7 @@ function FeaturedPrice({
       current={product.data ? product.data.currentPrice : current}
       reference={product.data ? referencePrice(product.data) : null}
       soldOut={product.data?.soldOut}
+      availability={product.data?.availability}
     />
   );
 }

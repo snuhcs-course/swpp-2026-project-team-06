@@ -27,6 +27,7 @@ import {
   Scroll,
   Section,
   Sheet,
+  useSheetLeave,
   T,
   TestBand,
   md,
@@ -83,6 +84,8 @@ export default function Checkout() {
   const [memo, setMemo] = useState("");
   const [consents, setConsents] = useState(() => orderConsents(false));
   const [sheet, setSheet] = useState<null | "option" | "address">(null);
+  // 받는 곳 시트의 ‘새 주소 입력’은 시트를 바로 닫고 배송지 입력으로 간다(DEV-225)
+  const sheetLeave = useSheetLeave();
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   // 409 또는 입금 기한 만료 복귀(SCR-11 → changed=1). 입력값은 어떤 경우에도 지우지 않는다
@@ -101,15 +104,22 @@ export default function Checkout() {
     params: { productId: params.productId },
   };
 
-  // 로그인 안 했으면 로그인으로, 가입 온보딩이 남았으면 온보딩으로 (주문은 둘 다 필요, AC-01-12)
-  useEffect(() => {
-    const here = `/checkout/${params.productId}?optionId=${encodeURIComponent(optionId)}&quantity=${qty}`;
-    if (ready && !user)
-      router.replace({ pathname: "/login", params: { next: here } });
-    else if (ready && user?.needsOnboarding)
-      router.replace({ pathname: "/onboarding", params: { next: here } });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, user, params.productId, router]);
+  // 로그인 안 했으면 로그인으로, 가입 온보딩이 남았으면 온보딩으로 (주문은 둘 다 필요, AC-01-12).
+  // 화면이 보일 때(처음 열 때·돌아올 때)만 본다. 보는 중이나 스택 아래에서 로그아웃·토큰 만료로 user가 바뀌면
+  // 세션이 이동을 맡는다(로그아웃 → 홈, 401 → 로그인). 여기서도 바꾸면 끝난 주문서가 로그인 next로 남는다(DEV-222)
+  const userRef = useRef(user);
+  userRef.current = user;
+  useFocusEffect(
+    useCallback(() => {
+      if (!ready) return;
+      const u = userRef.current;
+      const here = `/checkout/${params.productId}?optionId=${encodeURIComponent(optionId)}&quantity=${qty}`;
+      if (!u) router.replace({ pathname: "/login", params: { next: here } });
+      else if (u.needsOnboarding)
+        router.replace({ pathname: "/onboarding", params: { next: here } });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ready, params.productId, router]),
+  );
 
   // 새 주소 입력에서 돌아오면 그 값을 쓴다. 아니면 기본 배송지
   useFocusEffect(
@@ -654,6 +664,7 @@ export default function Checkout() {
         visible={sheet === "address"}
         onClose={() => setSheet(null)}
         title="받는 곳"
+        instant={sheetLeave.instant}
       >
         {addresses.data?.map((a) => (
           <Pressable
@@ -690,10 +701,12 @@ export default function Checkout() {
         <Button
           label="새 주소 입력"
           variant="outline"
-          onPress={() => {
-            setSheet(null);
-            router.push(addressHref);
-          }}
+          onPress={() =>
+            sheetLeave.leave(
+              () => setSheet(null),
+              () => router.push(addressHref),
+            )
+          }
         />
       </Sheet>
     </Screen>

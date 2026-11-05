@@ -778,6 +778,8 @@ export type ChatPage = Paged<ChatMessage> & {
   orders: LinkedOrder[];
   escalations?: Escalation[];
   farmReply?: FarmReply | null;
+  /** 생산자 조회에만 채움: 목록과 같은 가림 이름(김○○), 문의 방은 'farmclub'. 소비자 조회는 null(DEV-232) */
+  consumerName?: string | null;
 };
 
 export type CapacityRequest = {

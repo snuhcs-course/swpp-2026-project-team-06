@@ -323,8 +323,12 @@ function page(ctx: Ctx, t: Thread) {
             )
             .map((e) => ({ ...e, thread: [] })),
           farmReply: null,
+          consumerName:
+            t.consumerId === SUPPORT_ID
+              ? "farmclub"
+              : publicName(d.users[t.consumerId]),
         }
-      : { farmReply: farmReply(d, t) }),
+      : { farmReply: farmReply(d, t), consumerName: null }),
   };
 }
 function validateSettings(raw: unknown): AiSettings {

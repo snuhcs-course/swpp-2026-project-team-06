@@ -129,3 +129,11 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - 판매 중지·계좌 없음의 ‘다시 확인하기’는 상품을 다시 읽어 열렸으면 안내를 지우되, 처음 보낸 값과 지금 값이 다르면 가격 안내로 바꾼다(`recheckedConflict`). 품절·물량·수량 안내는 옵션·수량을 바꾸면 사라진다.
 - 입금 기한이 지나 SCR-11에서 돌아온 경우(`changed=1`)는 `EXPIRED`로 ‘입금 기한이 지나 예약이 취소됐어요’ + ‘다시 예약하기’.
 - 보드 `docs/design/proposals/dev-216-checkout-stage-changed.html`, 테스트 `scripts/test-checkout-conflict.mjs`·`scripts/e2e/checkout-stage-changed.spec.ts`.
+
+## 로그인 필요 화면과 로그아웃 이동 (DEV-222, 2026-11-04)
+
+- 주문서(`checkout/[productId]/index.tsx`)의 로그인·온보딩 이동은 `useFocusEffect`로 화면이 보일 때만 하고, `user`는 의존성이 아니라 ref로 읽는다. 보는 중에 계정이 사라지면(로그아웃·401) 세션(`lib/session.tsx`)만 이동한다. expo-router `<Redirect>`(내 주문·채팅 탭)와 같은 규칙이다.
+- 입금 안내 → 완료 화면은 `canDismiss()`이면 `router.dismissAll()` 뒤 `replace`로 주문서·입금 안내를 루트 스택에서 걷어 낸다. 로그아웃(`logout`)은 그대로 `replace("/")`.
+- 이어서 할 행동(`resume`)은 관문 시트가 연 로그인(`from` 파라미터)만 쓴다. `from` 없는 로그인 화면은 열릴 때 `clearResume()`.
+- 온보딩(`onboarding/index.tsx`)도 `user` 변화에 반응해 로그인으로 보내지만, 온보딩 위에 쌓이는 화면은 약관·처리방침뿐이라 로그아웃이 일어나지 않아 그대로 둔다.
+- 테스트 `scripts/e2e/checkout-logout.spec.ts`.

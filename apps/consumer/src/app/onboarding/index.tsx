@@ -13,6 +13,7 @@ import {
   Screen,
   Scroll,
   Sheet,
+  useSheetLeave,
   T,
   tokens,
 } from "@farmclub/ui";
@@ -41,6 +42,8 @@ export default function OnboardingProfile() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState<(typeof SIGNUP_CONSENTS)[number] | null>(null);
+  // 동의 요지 시트의 ‘전문 보기’는 시트를 바로 닫고 약관 화면으로 간다(DEV-225)
+  const readingLeave = useSheetLeave();
   const [reconsent, setReconsent] = useState(false);
   // 카카오 새 사용자(계정 없음, 가입 토큰만). 동의해 가입하면 false가 된다
   const [pending, setPending] = useState(() => auth.pendingSignup());
@@ -287,15 +290,22 @@ export default function OnboardingProfile() {
           onPress={() => void submit()}
         />
       </BottomBar>
-      <Sheet visible={!!reading} onClose={() => setReading(null)} title={reading?.label}>
+      <Sheet
+        visible={!!reading}
+        onClose={() => setReading(null)}
+        title={reading?.label}
+        instant={readingLeave.instant}
+      >
         <T variant="body">{reading?.summary}</T>
         {reading?.fullText ? (
           <Pressable
             accessibilityRole="link"
             onPress={() => {
               const path = reading.fullText;
-              setReading(null);
-              if (path) router.push(path);
+              readingLeave.leave(
+                () => setReading(null),
+                () => path && router.push(path),
+              );
             }}
             style={{ minHeight: 48, justifyContent: "center", alignSelf: "flex-start" }}
           >
