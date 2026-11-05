@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import random
 import re
 import subprocess
@@ -34,9 +35,14 @@ from app.core.security import issue_token  # noqa: E402
 ROOT = fixtures.ROOT
 API = "http://localhost:8000"
 PROXY = "http://127.0.0.1:8787"
-BASELINE = "i3-b1-eb727b6"
+# First cohort (DEV-169) is i3-b1-eb727b6; a later cohort sets I3_BASELINE (e.g. i3-b2-<sha>, DEV-180)
+# and gets its own run log, traces and fresh consumers, so earlier results are never overwritten.
+FIRST_BASELINE = "i3-b1-eb727b6"
+BASELINE = os.environ.get("I3_BASELINE", FIRST_BASELINE)
+COHORT_SUFFIX = "" if BASELINE == FIRST_BASELINE else f"-{BASELINE}"
 SEED = 1542026
-RUN_LOG = ROOT / "docs" / "evaluation" / "i3-ai-support" / "run-log.csv"
+TEMPLATE_LOG = ROOT / "docs" / "evaluation" / "i3-ai-support" / "run-log.csv"
+RUN_LOG = TEMPLATE_LOG if not COHORT_SUFFIX else TEMPLATE_LOG.with_name(f"run-log-{BASELINE}.csv")
 TRACES = ROOT / ".artifacts" / "i3-ai-support" / BASELINE
 PROVIDER_MODE = {
     "available": "passthrough",
@@ -295,7 +301,8 @@ def main(selected: list[str]) -> None:
     TRACES.mkdir(parents=True, exist_ok=True)
     results = {}
     for i, (case, run) in enumerate(schedule, 1):
-        trace = run_trial(case, run, suffix="" if not selected else f"-adhoc{int(time.time())}")
+        suffix = COHORT_SUFFIX if not selected else f"{COHORT_SUFFIX}-adhoc{int(time.time())}"
+        trace = run_trial(case, run, suffix=suffix)
         # ad-hoc runs never overwrite the planned run's traces
         name = f"{case['id']}-r{run}{'-adhoc' if selected else ''}.json"
         (TRACES / name).write_text(
@@ -326,7 +333,8 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
             results[(trace["case"], trace["run"])] = (trace, path.name)
     commit = git("rev-parse", "HEAD")
     prompt_blob = git("rev-parse", "HEAD:server/app/ai/service.py")
-    with RUN_LOG.open(newline="", encoding="utf-8") as handle:
+    source = RUN_LOG if RUN_LOG.exists() else TEMPLATE_LOG  # a new cohort starts from the row layout
+    with source.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
         fields = list(rows[0].keys())
     for row in rows:
