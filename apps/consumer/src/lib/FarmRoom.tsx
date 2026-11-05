@@ -7,6 +7,8 @@ import {
 import {
   Button,
   ConversationHeader,
+  EmptyState,
+  HeaderBar,
   NewsRoom,
   ProductShelf,
   Screen,
@@ -17,7 +19,8 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession, useHideTabBar } from "./session";
-import { LoadError } from "./views";
+import { LoadError, isStatus } from "./views";
+import { goBackOr } from "./nav";
 
 /** Canonical farm URLs and the existing news URL share one room, not a redirect loop. */
 export default function FarmRoom() {
@@ -42,8 +45,10 @@ export default function FarmRoom() {
       alive.current = false;
     };
   }, []);
-  useHideTabBar();
   const farm = useAsync(() => farms.get(farmId), [farmId, user?.userId]);
+  // 없는 농가·승인 취소된 농가 링크(404) → 안내와 농가 목록(ia.md 5장, DEV-224 d1)
+  const notFound = !!farm.error && isStatus(farm.error, 404);
+  useHideTabBar(!notFound);
   const products = useAsync(
     () => productPrices(farm.data?.products ?? []),
     [farm.data?.products],
@@ -102,6 +107,7 @@ export default function FarmRoom() {
     }
   }, [user?.userId, resume, farm.data, farm.loading]);
   const join = () => requireLogin("follow", here, () => void follow(true));
+  if (notFound) return <FarmNotFound />;
   return (
     <Screen>
       <ConversationHeader
@@ -110,7 +116,7 @@ export default function FarmRoom() {
         photo={farm.data?.photo}
         subtitle="소식방"
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/")
+          goBackOr(router, "/")
         }
         onProfile={() => router.push(`/farms/${farmId}/info`)}
         right={
@@ -166,6 +172,29 @@ export default function FarmRoom() {
           }
         />
       ) : null}
+    </Screen>
+  );
+}
+
+/** 없는 농가 링크(SCR-03 404, 보드 `s-03-notfound`): 헤더는 뒤로만, 팔로우·‘소식방’ 자리값 없음. */
+function FarmNotFound() {
+  const router = useRouter();
+  return (
+    <Screen>
+      <HeaderBar onBack={() => goBackOr(router, "/")} />
+      <EmptyState
+        icon="home"
+        title="찾을 수 없는 농가예요"
+        body="링크가 바뀌었거나 지금은 활동하지 않는 농가예요."
+        action={
+          <Button
+            label="농가 둘러보기"
+            variant="outline"
+            onPress={() => router.replace("/farms")}
+            style={{ marginTop: 12, alignSelf: "center" }}
+          />
+        }
+      />
     </Screen>
   );
 }
