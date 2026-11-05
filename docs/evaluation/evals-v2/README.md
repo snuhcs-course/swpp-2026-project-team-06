@@ -68,3 +68,5 @@ The frozen manifest uses canonical parsed-JSON hashes for `cases_sha256`, `rubri
 `--timeout-ms` is the fault-response acceptance budget, fixed at 8000 for this grader version. It does not configure the product's provider deadline. The retained harness uses a 60-second HTTP client deadline, recorded separately in `config.runner_http_timeout_seconds`. Runtime settings outside this attestation are not independently certified. Nonfinite or nonpositive budget/reservation values fail before adapter setup or API calls.
 
 Saved chat comparisons require a passing `gate.json` bound to the manifest digest. Offline rescore validates the original gate, rechecks the saved fidelity/smoke under the new scorer, and copies original transcripts into a new output directory. Legacy ungated results remain historical records and cannot become a verified chat comparison by adding a summary alone.
+
+CI runs the offline contract suite in the existing changes job using Ubuntu’s built-in Python. It needs no database, model credentials or dependencies, and any failure blocks ci-ok. This step never invokes the live runner.
