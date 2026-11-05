@@ -52,6 +52,7 @@ export {
 export { ChatBubble, AiBadge } from "./ChatBubble";
 export { Placeholder } from "./Placeholder";
 export { safe, focusRing } from "./web";
+export { KeyboardRoot, useKeyboardShown } from "./keyboard";
 export {
   won,
   md,
