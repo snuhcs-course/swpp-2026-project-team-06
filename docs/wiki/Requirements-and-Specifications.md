@@ -242,6 +242,12 @@ Each feature below has a user story in Connextra format and its main acceptance 
 - **THEN** no public content changes until I save
 - **AND** my edits are kept after a cancel or failed save
 
+**AC-03-5: Expected Brix from sources (DEV-228)**
+- **GIVEN** the expected Brix field of a new product is empty and my sources (text, photo OCR or PDF) say "Brix about 11"
+- **WHEN** source analysis finishes
+- **THEN** the expected Brix field is prefilled with 11 by a server rule (no model decides it), and I can edit it
+- **AND** a range such as "11–12 Brix" fills the lower bound (11); different values ("12 this year, 13 last year") leave it empty; a value I already entered is never overwritten; weight, price, count and date numbers are ignored
+
 ### FEAT-03 extension: Private source-assisted product pages (AC-SRC)
 
 **As a** producer, **I want to** turn my existing documents, sales text and original photos into a private, editable product page, **so that** I can reuse evidence while retaining control over facts and publication.

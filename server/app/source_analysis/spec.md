@@ -271,3 +271,14 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6/10. 동작 계약은 [제품 spec](../../../docs
 | 2026-11-02 | store_candidates는 이전 동일 source/revision/sanitization/targets 후보의 evidence source/revision과 모든 page가 새 성공 쪽인지 검사. 근거 없는 legacy만 기존 item scope 조건 적용. confirmed/동일 ID 유지와 enqueue_extraction의 outdated NOT EXISTS 보존 | F1 전체 범위와 F2 PARTIAL 성공 범위의 불일치 해소 | AC-SRC-2/5 |
 
 DEV-193 교체 범위 보완: 전체 페이지를 읽는 OpenRouter OCR 항목은 근거 페이지 기준을 사용한다. 일반 텍스트 및 비-vision 항목은 같은 페이지에 서로 다른4000자 span 청크가 있으므로 후보의 모든 근거 span도 새 성공 scope 안에 있어야 교체한다. 같은 실행의 앞 청크 후보를 뒤 청크가 지우지 않는다.
+
+## DEV-228 예상 당도 미리 채우기 (2026-11-05)
+
+FEAT-03 AC-03-5 · M-11 · AC-SRC-3/11. 작업 기록은 `server/tasks/DEV-228.md`.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-05 | `refresh_runs`가 run을 SUCCEEDED·PARTIAL로 바꿀 때 `prefill_expected_brix`가 비어 있는 `basicInfo.expectedBrix`만 채운다. 원문은 현재 revision의 `Page.redacted_spans`(글·OCR·PDF)이고 원본 상품사진은 뺀다. 모델을 부르지 않는다 | 지금 새 상품 흐름에는 자료 속 당도를 기본 정보로 옮기는 길이 없었다(P7). 결정적 규칙이라 키 없이 검증 | AC-03-5 |
+| 2026-11-05 | 값은 `grounding.single_brix`: 하나로 정해질 때만, 범위는 하한, 값이 갈리면 비움. 이미 있는 값은 덮지 않는다 | 예상 칸 과장 방지·생산자 입력 우선 | AC-03-5, AC-SRC-11 |
+| 2026-11-05 | 상품별 자료는 그 상품에, 공통 자료는 상품이 하나일 때만 쓴다(`includes_target`과 같은 기준). 채우면 batch `version`·`reviewVersion`을 올린다 | 다른 상품 당도가 섞이지 않게; 기본 정보 변경과 같은 동시성 규칙 | AC-SRC-1/11 |
+

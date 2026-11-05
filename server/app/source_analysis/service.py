@@ -567,6 +567,62 @@ def refresh_runs(db, batch_id):
             run.status = "PARTIAL"
         else:
             run.status = "FAILED"
+        if run.status in ("SUCCEEDED", "PARTIAL"):
+            prefill_expected_brix(db, db.get(Batch, batch_id))
+
+
+def prefill_expected_brix(db, row):
+    """분석이 끝나면 비어 있는 예상 당도를 개인정보를 가린 자료 글에서 채운다(DEV-228, AC-03-5).
+
+    모델을 부르지 않고 grounding.single_brix 규칙만 쓴다. 이미 값이 있으면 덮어쓰지 않고,
+    자료의 당도 값이 갈리면 비워 둔다. 범위는 하한을 넣는다. 공통 자료는 상품이 하나일 때만
+    그 상품의 자료로 본다(refinement.includes_target과 같은 기준).
+    """
+    from app.ai.grounding import single_brix
+
+    blank = [t for t in row.targets if (t.get("basicInfo") or {}).get("expectedBrix") is None]
+    if not blank:
+        return
+    sources = [
+        (
+            source,
+            "\n".join(
+                span["text"] for page in pages_for(db, source) for span in page.redacted_spans
+            ),
+        )
+        for source in db.scalars(
+            select(Asset)
+            .where(
+                Asset.batch_id == row.id,
+                Asset.deleted.is_(False),
+                Asset.original_photo.is_(False),
+                Asset.status == "PREPARED",
+            )
+            .order_by(Asset.created_at, Asset.id)
+        )
+    ]
+    single_target = len(row.targets) == 1
+    updated = deepcopy(row.targets)
+    changed = False
+    for target in updated:
+        basic = target.get("basicInfo") or {"variety": "", "size": "", "expectedBrix": None}
+        if basic.get("expectedBrix") is not None:
+            continue
+        text = "\n".join(
+            body
+            for source, body in sources
+            if target["id"] in (source.target_ids or [])
+            or (single_target and (source.common or not source.target_ids))
+        )
+        value = single_brix(text)
+        if value is None or not 0 <= value <= 100:
+            continue
+        target["basicInfo"] = {**basic, "expectedBrix": value}
+        changed = True
+    if changed:
+        row.targets = updated
+        row.version += 1
+        row.review_version += 1
 
 
 def cancel(db, run):

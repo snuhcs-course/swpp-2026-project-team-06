@@ -22,14 +22,35 @@ _CONTACT_OR_ACCOUNT = re.compile(r"(?:연락처|전화|휴대폰|계좌|입금)\
 _DELIVERY_CONTEXT = re.compile(r"배송|도착|수령|받는|받을|출하")
 # 문장·구절 경계. 소수점(5.0키로)과 천 단위 쉼표(3,000)는 나누지 않는다.
 _CLAUSE_BREAK = re.compile(r"[\n!?;]|[.,](?!\d)")
-# 당도 숫자는 "당도 12", "Brix 12", "12브릭스" 형태만 본다.
-# 중량·금액·개수 단위가 붙은 숫자는 제외한다.
-_NOT_OTHER_UNIT = r"(?![\d.])(?!\s*(?:kg|키로|킬로|원|개|박스|과))"
-_BRIX_NEAR = (
+# 당도 숫자는 "당도 12", "Brix 12", "브릭스 12", "12브릭스"와 그 범위("11~12브릭스") 형태만 본다.
+# 중량·금액·개수·날짜 단위가 붙은 숫자는 제외한다(DEV-228).
+_NOT_OTHER_UNIT = r"(?![\d.])(?!\s*(?:kg|키로|킬로|원|개|박스|상자|과|년|월|일|%))"
+_BRIX_NUMBER = r"(?<![\d.])(\d+(?:\.\d+)?)"
+_BRIX_UNIT = r"(?:브릭스|brix)"
+# 단위가 숫자 뒤에 붙은 "12브릭스 내외, 3일" 같은 문장에서 뒤 숫자를 당도로 읽지 않는다.
+_BRIX_KEYWORD = r"(?:당도|(?<![\d.])(?<![\d.]\s)" + _BRIX_UNIT + r")"
+# 앞서 읽은 범위 자리를 막아 둔 표시. 키워드 뒤 간격이 이 자리를 넘지 않는다.
+_BRIX_USED = "\x00"
+_BRIX_GAP = r"[^\d\x00]{0,12}"
+_BRIX_DASH = r"\s*[~～\-–]\s*"
+_BRIX_HIGH = r"(\d+(?:\.\d+)?)"
+_BRIX_RANGES = (
     re.compile(
-        r"(?:당도|brix)[^\d]{0,12}(?<![\d.])(\d+(?:\.\d+)?)" + _NOT_OTHER_UNIT, re.IGNORECASE
+        _BRIX_KEYWORD + _BRIX_GAP + _BRIX_NUMBER + _BRIX_DASH + _BRIX_HIGH + _NOT_OTHER_UNIT,
+        re.IGNORECASE,
     ),
-    re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*(?:브릭스|brix)", re.IGNORECASE),
+    re.compile(
+        _BRIX_NUMBER + r"\s*" + _BRIX_UNIT + r"?" + _BRIX_DASH + _BRIX_HIGH + r"\s*" + _BRIX_UNIT,
+        re.IGNORECASE,
+    ),
+)
+# 범위로 읽히지 않은 "5-10kg"의 앞 숫자는 값 하나로도 읽지 않는다.
+_NOT_RANGE = r"(?!" + _BRIX_DASH + r"\d)"
+_BRIX_SINGLES = (
+    re.compile(
+        _BRIX_KEYWORD + _BRIX_GAP + _BRIX_NUMBER + _NOT_OTHER_UNIT + _NOT_RANGE, re.IGNORECASE
+    ),
+    re.compile(_BRIX_NUMBER + r"\s*" + _BRIX_UNIT, re.IGNORECASE),
 )
 _ISO_DATE = re.compile(r"(?P<year>20\d{2})[-./](?P<month>\d{1,2})[-./](?P<day>\d{1,2})")
 _KOREAN_DATE = re.compile(
@@ -195,11 +216,43 @@ def _supported_option(option: str, source: str, source_compact: str) -> bool:
     return _compact(option) in source_compact
 
 
+def brix_readings(text: str) -> list[tuple[float, float]]:
+    """원문의 당도 표기를 (하한, 상한)으로 읽는다. 값 하나는 하한과 상한이 같다(DEV-228).
+
+    날짜를 먼저 지우고, 범위("11~12브릭스", "당도 11-12")를 읽은 자리는 막아 둔 뒤
+    값 하나 표기("당도 11", "브릭스 11", "11브릭스")를 읽는다.
+    """
+    remaining = _without_dates(text)
+    readings: list[tuple[float, float]] = []
+
+    def take_range(match: re.Match) -> str:
+        low, high = sorted((float(match.group(1)), float(match.group(2))))
+        readings.append((low, high))
+        return _BRIX_USED * len(match.group())
+
+    for pattern in _BRIX_RANGES:
+        remaining = pattern.sub(take_range, remaining)
+    for pattern in _BRIX_SINGLES:
+        readings.extend(
+            (float(match.group(1)), float(match.group(1))) for match in pattern.finditer(remaining)
+        )
+    return readings
+
+
+def single_brix(text: str) -> float | None:
+    """원문 당도가 하나로 정해지면 그 값을, 범위면 하한을 돌려준다. 값이 갈리면 None(DEV-228)."""
+    lows = {low for low, _ in brix_readings(text)}
+    return lows.pop() if len(lows) == 1 else None
+
+
 def _supported_brix(source: str, value: float | None) -> float | None:
-    """당도는 원문의 당도·Brix 옆 숫자와 값이 같을 때만 남긴다(2는 12브릭스의 일부가 아니다)."""
+    """당도는 원문의 당도·Brix 옆 숫자와 값이 같을 때만 남긴다(2는 12브릭스의 일부가 아니다).
+
+    범위("11~12브릭스")는 양끝 값을 모두 근거로 본다(DEV-228).
+    """
     if value is None:
         return None
-    found = {float(match.group(1)) for pattern in _BRIX_NEAR for match in pattern.finditer(source)}
+    found = {number for reading in brix_readings(source) for number in reading}
     return value if float(value) in found else None
 
 
