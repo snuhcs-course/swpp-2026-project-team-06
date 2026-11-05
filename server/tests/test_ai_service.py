@@ -74,6 +74,29 @@ def test_P02_AC_03_1_brix_ignores_numbers_with_other_units_after_brix_word():
     assert grounding.ground_draft(source, DraftExtraction(expected_brix=13)).expected_brix == 13
 
 
+def test_AC_03_1_DEV_228_brix_range_and_unit_first_forms_are_grounded():
+    # 범위는 양끝 값 모두 근거로 본다. 단위가 앞에 오는 "브릭스 11"도 인정한다.
+    cases = {
+        "11~12브릭스 나왔어요": (11, 12),
+        "11-12 brix 선별": (11, 12),
+        "브릭스 11 나왔습니다": (11,),
+        "당도는 11 정도예요": (11,),
+    }
+    for source, values in cases.items():
+        for value in values:
+            draft = DraftExtraction(expected_brix=value)
+            assert grounding.ground_draft(source, draft).expected_brix == value, source
+
+
+def test_AC_03_1_DEV_228_brix_still_rejects_weight_count_and_date_numbers():
+    source = "브릭스 11, 5키로 3박스, 12월 3일 수확, 당도 높은 5-10kg"
+
+    for value in (5, 3, 10, 12):
+        draft = DraftExtraction(expected_brix=value)
+        assert grounding.ground_draft(source, draft).expected_brix is None, value
+    assert grounding.ground_draft(source, DraftExtraction(expected_brix=11)).expected_brix == 11
+
+
 def test_P02_AC_03_1_delivery_window_uses_only_delivery_clauses():
     source = "수확은 12월 1일에 하고, 배송은 12월 15일~20일이에요."
 
