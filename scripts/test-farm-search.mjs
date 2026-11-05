@@ -2,6 +2,7 @@
 // apps/consumer/src/lib/farmSearch.ts. 새 검색 실패의 재시도는 처음부터 받아 목록을 바꾸고, ‘더 보기’ 실패만 이어 붙인다.
 // 늦게 온 지난 검색 응답은 버리고, 페이지를 합칠 때 같은 농가(farmId)는 한 번만 남긴다.
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { test } from "node:test";
 import {
   MORE_FAILED,
@@ -198,4 +199,41 @@ test("AC-06-7 오류 문구: 검색어 있음/없음 × 연결 끊김/서버 오
   assert.equal(MORE_FAILED, "다음 농가를 불러오지 못했어요");
   // 머리줄: 검색어 없이 받는 중
   assert.equal(listHeader(run(listed, start(2, ""))), "농가 찾는 중");
+});
+
+// DEV-217 (AC-06-2): Mock `GET /api/farms` 검색은 서버 search_farms처럼 판매 중(PUBLISHED) 상품의 상품명·품종만 본다
+const require = createRequire(import.meta.url);
+const {
+  mockTransport,
+} = require("../.expo/mock-build/packages/api/src/mock/index.js");
+const {
+  db,
+  reset,
+  configureMockStorage,
+} = require("../.expo/mock-build/packages/api/src/mock/db.js");
+configureMockStorage({ read: () => null, write: () => {} });
+const searchFarms = async (q) => {
+  const r = await mockTransport({
+    method: "GET",
+    path: `/api/farms?q=${encodeURIComponent(q)}`,
+    headers: {},
+  });
+  assert.equal(r.status, 200, JSON.stringify(r));
+  return r.body.items.map((c) => c.farmId);
+};
+
+test("AC-06-2 판매 중 상품의 품종으로 농가를 찾는다(Mock)", async () => {
+  reset();
+  assert.deepEqual(await searchFarms("궁천조생"), ["f-kang", "f-hyodon"]);
+  assert.deepEqual(await searchFarms("온주"), ["f-halla"]);
+});
+
+test("AC-06-2 반려·승인 대기·초안·종료 상품의 품종으로는 찾지 않는다(Mock)", async () => {
+  reset();
+  for (const q of ["천혜향", "청견", "한라봉"])
+    assert.deepEqual(await searchFarms(q), [], q);
+  db().products["p-cheonggyeon"].status = "PUBLISHED";
+  db().products["p-noji"].status = "CLOSED";
+  assert.deepEqual(await searchFarms("청견"), ["f-kang"]);
+  assert.deepEqual(await searchFarms("온주"), []);
 });
