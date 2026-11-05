@@ -1,7 +1,7 @@
 import { Image, View } from "react-native";
 import { T } from "./Text";
 import { Icon } from "./Icon";
-import { md } from "./format";
+import { brixText, md } from "./format";
 import { IllustrationBackdrop } from "./IllustrationBackdrop";
 import { tokens } from "./tokens";
 
@@ -15,6 +15,8 @@ export function BrixReading({
   expected: number | null;
 }) {
   const hasMeasurement = measured !== null;
+  // DEV-227: 실측 → 예상 → 등록 전. 예상이 없어도 '-Brix' 같은 숫자 자리를 만들지 않는다.
+  const pending = brixText(expected);
   return (
     <View
       testID="brix-reading"
@@ -51,7 +53,7 @@ export function BrixReading({
         >
           {hasMeasurement
             ? "당도 실측"
-            : `당도 예상 ${expected ?? "-"}Brix`}
+            : pending.title}
         </T>
         {hasMeasurement ? (
           <T weight="bold" center color={tokens.color.onAccent} style={{ fontSize: 40, lineHeight: 48 }}>
@@ -69,7 +71,7 @@ export function BrixReading({
             ? measuredAt
               ? `${md(measuredAt)} 측정`
               : "측정일 미등록"
-            : "실측 당도가 등록되면 이곳에서 확인할 수 있어요"}
+            : pending.note}
         </T>
       </View>
     </View>

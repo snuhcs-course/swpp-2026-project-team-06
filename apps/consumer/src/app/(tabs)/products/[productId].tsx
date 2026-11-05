@@ -11,6 +11,7 @@ import {
   Screen,
   Scroll,
   Sheet,
+  useSheetLeave,
   Skeleton,
   T,
   useAsync,
@@ -37,6 +38,8 @@ export default function ProductPage() {
   const [qty, setQty] = useState(1);
   const toast = useToast();
   const [chatConfirm, setChatConfirm] = useState(false);
+  // 시트에서 주문서·채팅으로 갈 때 시트를 바로 닫고 이동한다(DEV-225)
+  const sheetLeave = useSheetLeave();
   const here = `/products/${productId}`;
 
   useEffect(() => {
@@ -165,16 +168,26 @@ export default function ProductPage() {
           setQty(q);
         }}
         onClose={() => setSheetOpen(false)}
-        onSubmit={() => {
-          setSheetOpen(false);
-          // 비로그인이면 여기서 관문 → 로그인 뒤 고른 옵션·수량 그대로 주문서(결정 25)
-          requireLogin("reserve", here, () => goCheckout(opt.optionId, qty), {
-            optionId: opt.optionId,
-            quantity: String(qty),
-          });
-        }}
+        instant={sheetLeave.instant}
+        onSubmit={() =>
+          sheetLeave.leave(
+            () => setSheetOpen(false),
+            // 비로그인이면 여기서 관문 → 로그인 뒤 고른 옵션·수량 그대로 주문서(결정 25)
+            () =>
+              requireLogin(
+                "reserve",
+                here,
+                () => goCheckout(opt.optionId, qty),
+                { optionId: opt.optionId, quantity: String(qty) },
+              ),
+          )
+        }
       />
-      <Sheet visible={chatConfirm} onClose={() => setChatConfirm(false)}>
+      <Sheet
+        visible={chatConfirm}
+        onClose={() => setChatConfirm(false)}
+        instant={sheetLeave.instant}
+      >
         <T variant="heading">팔로우하고 대화를 시작해요</T>
         <T variant="body">
           채팅은 팔로우한 농가와만 할 수 있어요. {p.farmName}을 팔로우하고
@@ -189,13 +202,16 @@ export default function ProductPage() {
           />
           <Button
             label="시작하기"
-            onPress={() => {
-              setChatConfirm(false);
-              router.push({
-                pathname: "/chats/[farmId]",
-                params: { farmId: p.farmId, start: "1", productId },
-              });
-            }}
+            onPress={() =>
+              sheetLeave.leave(
+                () => setChatConfirm(false),
+                () =>
+                  router.push({
+                    pathname: "/chats/[farmId]",
+                    params: { farmId: p.farmId, start: "1", productId },
+                  }),
+              )
+            }
             style={{ flex: 2 }}
           />
         </View>

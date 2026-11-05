@@ -197,6 +197,7 @@ export function OptionSheet({
   onClose,
   onSubmit,
   submitLabel = "주문서로",
+  instant,
 }: {
   visible: boolean;
   product: ProductDetail | null;
@@ -206,6 +207,8 @@ export function OptionSheet({
   onClose: () => void;
   onSubmit: () => void;
   submitLabel?: string;
+  /** 주문서로 가며 닫을 때 애니메이션 없이 닫는다(DEV-225, `useSheetLeave`) */
+  instant?: boolean;
 }) {
   if (!product) return null;
   const stage = product.stages.find(
@@ -224,7 +227,12 @@ export function OptionSheet({
     selected ? selected.quantity - selected.reservedCount : 0,
   );
   return (
-    <Sheet visible={visible} onClose={onClose} title="옵션과 수량">
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title="옵션과 수량"
+      instant={instant}
+    >
       <View>
         {product.options.map((o) => {
           const on = o.optionId === optionId;

@@ -67,10 +67,8 @@ test("DEV-207 AC-09-7/11-1: deposit-notice and refund copy follow who acts next"
   await expect(page.getByRole("button", { name: "농가에 물어보기", exact: true })).toBeVisible();
 
   await page.goto(`${consumerUrl}/orders?filter=pending`);
-  // 로컬 통합 서버는 FIXED_NOW(10/07)라 기기 시각으로는 기한이 지나 ‘늦어짐’으로 보일 수 있다. 어느 쪽이든 입금하라는 말은 없다
-  await expect(
-    page.getByText(/^입금 확인 (중 · 농가가 확인하고 있어요|늦어짐 · farmclub이 연락하고 있어요)$/).first(),
-  ).toBeVisible();
+  // 기한 판단은 서버 시각 기준이라(DEV-229) FIXED_NOW 서버에서도 방금 알린 주문은 ‘늦어짐’이 아니다
+  await expect(page.getByText("입금 확인 중 · 농가가 확인하고 있어요", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("입금 확인 중 · 입금해 주세요")).toHaveCount(0);
 
   // 농가 승인 → 소비자 취소 직후: 환불 대기(완료형 아님)

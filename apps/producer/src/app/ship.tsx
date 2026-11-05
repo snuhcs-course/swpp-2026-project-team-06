@@ -8,6 +8,7 @@ import {
   allPages,
   orders,
   newIdempotencyKey,
+  serverNow,
   type Carrier,
   type ProducerOrder,
 } from "@farmclub/api";
@@ -37,6 +38,7 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, errMsg } from "../lib/views";
+import { orderWho, orderWhoParts } from "../lib/orderWho";
 
 type Data = {
   awaiting: ProducerOrder[];
@@ -63,8 +65,32 @@ const REFUND_REASONS = [
   "소비자와 연락하고 있어요",
   "환불 대상이 아니에요",
 ];
-const who = (o: ProducerOrder) =>
-  `${o.recipientName} · ${o.optionLabel} × ${o.quantity}`;
+/** 시트·화면 읽기 라벨: "김민지 · 하우스 감귤 5kg × 1"(DEV-226) */
+const who = (o: ProducerOrder) => orderWho(o);
+/** 줄: 한 줄, 넘치면 상품명만 줄이고 이름·옵션 × 수량은 끝까지(DEV-226) */
+function WhoLine({ o }: { o: ProducerOrder }) {
+  const { head, name, tail } = orderWhoParts(o);
+  return (
+    <View style={{ flexDirection: "row", minWidth: 0 }}>
+      <T variant="body" weight="semibold" style={{ flexShrink: 0 }}>
+        {head}
+      </T>
+      {name ? (
+        <T
+          variant="body"
+          weight="semibold"
+          numberOfLines={1}
+          style={{ flexShrink: 1 }}
+        >
+          {name}
+        </T>
+      ) : null}
+      <T variant="body" weight="semibold" style={{ flexShrink: 0 }}>
+        {name ? ` ${tail}` : tail}
+      </T>
+    </View>
+  );
+}
 /** "CJ대한통운 6012-3456-7890" / "송장 없음" */
 const invoiceText = (
   carrier: Carrier | null | undefined,
@@ -547,14 +573,12 @@ export default function Ship() {
                 <T variant="sub" muted numberOfLines={1}>
                   {o.orderNo}
                   {awaiting
-                    ? o.depositDueAt && Date.parse(o.depositDueAt) <= Date.now()
+                    ? o.depositDueAt && Date.parse(o.depositDueAt) <= serverNow()
                       ? " · 기한 지남"
                       : ` · 기한 ${deadline(o.depositDueAt)}`
                     : ""}
                 </T>
-                <T variant="body" weight="semibold">
-                  {who(o)}
-                </T>
+                <WhoLine o={o} />
                 {!awaiting && !refunded ? <T variant="body">{won(o.totalAmount)}</T> : null}
                 {awaiting ? (
                   // 입금 전에는 배송지 대신 금액·입금자명(R-15, DEV-68)

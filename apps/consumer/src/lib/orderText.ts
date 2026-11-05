@@ -53,10 +53,11 @@ type RefundFields = Pick<
   "status" | "refundSettledAt" | "refundIssue" | "refundedAt" | "refundReason"
 >;
 
-/** 입금 대기 주문의 시점. before = 아직 알리지 않음(내 차례), reported = 알림(농가 차례), late = 알렸는데 기한까지 확인 안 됨 */
+/** 입금 대기 주문의 시점. before = 아직 알리지 않음(내 차례), reported = 알림(농가 차례), late = 알렸는데 기한까지 확인 안 됨.
+ *  now는 서버 시각(`serverNow()`)을 넘긴다. 기기 시계로 재면 서버 시각을 고정한 평가 환경에서 새 주문이 늦어 보인다(DEV-229, R-28) */
 export function depositPhase(
   o: DepositFields,
-  now = Date.now(),
+  now: number,
 ): "before" | "issue" | "reported" | "late" | null {
   if (o.status !== "AWAITING_DEPOSIT") return null;
   if (o.depositIssue) return "issue";
@@ -82,7 +83,8 @@ export const canCancel = (o: DepositFields & Pick<Order, "actions">) =>
 
 /** 상세·주문 완료 화면 제목(받는 시기 변경·기한 초과 취소는 화면이 먼저 고른다) */
 export function statusTitle(o: DepositFields & RefundFields): string {
-  const d = depositPhase(o);
+  // reported·late 모두 '입금 확인 중'이라 시각을 쓰지 않는다
+  const d = depositPhase(o, 0);
   if (d) return d === "reported" || d === "late" ? "입금 확인 중" : "입금 대기";
   const r = refundPhase(o);
   if (r === "settled") return "환불 완료";
@@ -93,7 +95,7 @@ export function statusTitle(o: DepositFields & RefundFields): string {
 /** SCR-13 목록 굵은 줄: 상태 · 다음 일 */
 export function listHeadline(
   o: DepositFields & RefundFields & Pick<Order, "actions">,
-  now = Date.now(),
+  now: number,
 ): string {
   if (o.actions.includes("respondDeliveryWindow"))
     return "받는 시기 변경 · 답해 주세요";
@@ -138,6 +140,23 @@ export function listSubline(
   return null;
 }
 
+/** SCR-13 목록 맨 아래 줄: 주문 번호 · 주문일(DEV-226, AC-10-8). 번호는 입금자명·생산자 줄과 같은 글자 */
+export const listRef = (
+  o: Pick<Order, "orderNo" | "createdAt">,
+  f: Pick<Fmt, "md">,
+) => `${o.orderNo} · ${f.md(o.createdAt)} 주문`;
+
+/** 입금 단계 줄은 부제가 입금 사건(DEV-207)이라 받는 시기를 따로 한 줄로 둔다(DEV-226).
+ *  다른 단계는 부제가 이미 받는 시기이고, 기간 변경 요청 중이면 부제가 새 기간이라 null */
+export function listWhen(
+  o: Pick<Order, "status" | "deliveryWindow" | "proposedDeliveryWindow">,
+  period: (start: string, end: string) => string,
+): string | null {
+  if (o.status !== "AWAITING_DEPOSIT" || o.proposedDeliveryWindow) return null;
+  const when = period(o.deliveryWindow.start, o.deliveryWindow.end);
+  return when ? `${when} 도착 예정` : null;
+}
+
 /** 끝난 주문만 흐린 글자로(아직 돈이 오갈 환불 대기는 진하게) */
 export const isClosed = (o: RefundFields) =>
   o.status === "CANCELED" || refundPhase(o) === "settled";
@@ -146,7 +165,7 @@ export const isClosed = (o: RefundFields) =>
 export function depositRefundSentence(
   o: DepositFields & RefundFields & Pick<Order, "totalAmount">,
   f: Fmt,
-  now = Date.now(),
+  now: number,
 ): string | null {
   switch (depositPhase(o, now)) {
     case "before":

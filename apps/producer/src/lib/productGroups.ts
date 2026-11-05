@@ -21,10 +21,31 @@ export function productStatus(product: MyProductCard): string {
   if (product.status === "REJECTED") return "수정 필요";
   const group = productGroup(product);
   if (group === "selling") {
-    if (product.availability === "NOT_OPEN")
-      return "예약 대기 · 판매 기간 확인";
+    // 이름은 소비자 화면과 같은 표(packages/ui format.ts AVAILABILITY_LABEL, ia.md 4장, DEV-227).
+    // 이 파일은 Mock 테스트가 node로 바로 읽어 UI 패키지를 import하지 않는다 — 같은지는 test-empty-values.mjs가 확인한다.
+    if (product.availability === "NOT_OPEN") return "예약 시작 전";
     if (product.availability === "TOTAL_SOLD_OUT") return "전체 물량 품절";
-    if (product.availability === "PERIOD_SOLD_OUT") return "현재 기간 품절";
+    if (product.availability === "PERIOD_SOLD_OUT") return "이번 기간 품절";
   }
   return productGroups.find((item) => item.value === group)!.label;
+}
+
+/** 서울 날짜 "2026-11-04" */
+const seoulDay = (t: number) =>
+  new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
+
+/** 작성 중 카드의 마지막 저장(DEV-226, HE-X5). 오늘·어제는 시각까지, 그 전은 날짜만. now는 서버 시각(`serverNow()`, DEV-229) */
+export function draftSaved(
+  updatedAt: string | null | undefined,
+  f: { md: (iso: string) => string; time: (iso: string) => string },
+  now: number,
+): string | null {
+  if (!updatedAt) return null;
+  const t = Date.parse(updatedAt);
+  if (Number.isNaN(t)) return null;
+  const recent =
+    seoulDay(t) === seoulDay(now) || seoulDay(t) === seoulDay(now - 86400000);
+  return recent
+    ? `${f.md(updatedAt)} ${f.time(updatedAt)} 저장`
+    : `${f.md(updatedAt)} 저장`;
 }

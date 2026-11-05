@@ -41,7 +41,7 @@
 - 소비자 GET /api/messaging/chats/{farmId}/messages → {thread,items,nextCursor,inquiries,orders}; inquiries는 해당 대화의 문의, orders는 연결 주문 요약이며 본인 소유 범위만 포함한다.
 - GET /api/messaging/producer/chats?needsReply=&cursor=&limit= → Paged<{threadId,consumerId,consumerName,lastMessage,lastAt,unreadCount,needsReply,aiMode}>. 승인된 자기 농가의 모든 기존 대화/전달 질문을 소비자별로 묶는다.
 - POST /api/messaging/producer/chats {consumerId,roomReplyId?} → Thread. 기존 대화 또는 자기 소식방에 답장한 현재 팔로워만 대상으로 허용하며 무작위 고객 검색은 제공하지 않는다.
-- GET /api/messaging/producer/chats/{consumerId}/messages → {thread,items,nextCursor,escalations,inquiries,orders}. items는 기존 ChatMessage + orderId?,inquiryId?,sourceRefs?,settingsVersion?.
+- GET /api/messaging/producer/chats/{consumerId}/messages → {thread,items,nextCursor,escalations,inquiries,orders,consumerName}. consumerName은 목록과 같은 가림 이름(문의 방은 'farmclub'), 소비자 조회에서는 null(DEV-232). items는 기존 ChatMessage + orderId?,inquiryId?,sourceRefs?,settingsVersion?.
 - POST 같은 messages 경로 {text,attachmentIds?,answerToEscalationIds?} → {message,thread}. 텍스트 <=1000자, 사진3장 이하, 본문/첨부 중 하나 필수. 성공 저장과 aiMode=HUMAN 전환을 같은 트랜잭션에서 처리한다. 사진은 해당 대화의 비공개 첨부 ID만 허용한다.
 - 답변 필요는 OPEN 전달 질문, OPEN 문제 문의 또는 마지막 직접 응대 대상 소비자 메시지가 생산자 답변보다 새로울 때 true. 읽는 것만으로 해결되지 않는다.
 - 직접 응대 대상 여부는 소비자 메시지 접수 당시 HUMAN/농가 AI OFF 상태로 저장한다. 이후 AUTO/ON 전환만으로 미답변 표시가 사라지지 않는다.

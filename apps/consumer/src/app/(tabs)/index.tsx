@@ -16,8 +16,10 @@ import {
   tokens,
   useAsync,
   useFeedCardWidth,
-  period,
-  dday,
+  closesText,
+  deliveryText,
+  joinMeta,
+  reservedText,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
@@ -148,7 +150,7 @@ export default function Home() {
                   {p.name}
                 </T>
                 <T variant="sub" muted>
-                  {period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착
+                  {deliveryText(p.deliveryWindow, null, true)}
                 </T>
                 <Price
                   current={p.currentPrice}
@@ -159,10 +161,9 @@ export default function Home() {
                       : undefined
                   }
                   soldOut={p.soldOut}
+                  availability={p.availability}
                 />
-                <T variant="caption" muted numberOfLines={1}>
-                  {p.reservedCount}명 예약 · 마감 {dday(p.dDay)}
-                </T>
+                <CardMeta reserved={p.reservedCount} dDay={p.dDay} />
               </Pressable>
             </View>
           ))}
@@ -173,4 +174,14 @@ export default function Home() {
       </Scroll>
     </Screen>
   );
+}
+
+/** 카드 메타 줄: 있는 조각만 잇고, 다 비면 줄도 없다(DEV-227, M-24). */
+function CardMeta({ reserved, dDay }: { reserved: number; dDay: number | null }) {
+  const meta = joinMeta(reservedText(reserved), closesText(dDay));
+  return meta ? (
+    <T variant="caption" muted numberOfLines={1}>
+      {meta}
+    </T>
+  ) : null;
 }
