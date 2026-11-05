@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { check, classify, globToRegExp, loadConfig, matches, shard } from "./classify.mjs";
+import { check, classify, globToRegExp, loadConfig, matches, shard, units } from "./classify.mjs";
 
 const config = loadConfig();
 const run = (lane, files) => classify({ lane, files, config });
@@ -140,16 +140,33 @@ test("quarantined spec files are left out of the matrix", () => {
   assert.deepEqual(r.quarantined, ["scripts/e2e/legal-pages.spec.ts"]);
 });
 
-test("shard: longest first onto the lightest shard, balanced within the longest file", () => {
+test("shard: longest first onto the lightest shard", () => {
   const durations = { a: 190, b: 60, c: 50, d: 40, e: 30, f: 20, g: 10 };
-  const m = shard(Object.keys(durations), durations, 3);
+  const items = Object.entries(durations).map(([name, seconds]) => ({ name, args: [name], seconds }));
+  const m = shard(items, 3);
   assert.equal(m.length, 2); // 400초 → 200초씩 2개
-  const loads = m.map((s) => s.seconds).sort((x, y) => x - y);
-  assert.deepEqual(loads, [200, 200]); // a+g, b+c+d+e+f
+  assert.deepEqual(m.map((s) => s.seconds).sort((x, y) => x - y), [200, 200]); // a+g, b+c+d+e+f
   assert.equal(m.filter((s) => s.api).length, 1);
-  const full = shard(config.specFiles, config.durations, 3);
+});
+
+test("split: a long spec becomes file@k/n units spread over shards", () => {
+  const file = "scripts/e2e/source-review-regressions.spec.ts";
+  const parts = config.split[file];
+  assert.ok(parts >= 2);
+  const u = units([file], config);
+  assert.deepEqual(u.map((c) => c.args[0]), Array.from({ length: parts }, (_, i) => `${file}@${i + 1}/${parts}`));
+  const r = run("pr", [file]);
+  assert.equal(r.matrix.length, Math.min(parts, 3));
+});
+
+test("full run: every spec lands in exactly one shard, shards stay balanced", () => {
+  const full = run("full", []).matrix;
+  assert.equal(full.length, 3);
+  const args = full.flatMap((s) => s.specs.split(" "));
+  const files = new Set(args.map((a) => a.replace(/@\d+\/\d+$/, "")));
+  assert.equal(files.size, config.specFiles.length);
+  assert.equal(new Set(args).size, args.length);
   const max = Math.max(...full.map((s) => s.seconds));
   const total = full.reduce((sum, s) => sum + s.seconds, 0);
   assert.ok(max <= total / 3 + 60, `max shard ${max}s of ${total}s`);
-  assert.equal(full.flatMap((s) => s.specs.split(" ")).length, config.specFiles.length);
 });

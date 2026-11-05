@@ -65,9 +65,11 @@ export function loadConfig(dir = root) {
     .sort()
     .map((f) => `scripts/e2e/${f}`);
   const sources = Object.fromEntries(specFiles.map((f) => [f, readFileSync(path.join(dir, f), "utf8")]));
+  const timing = read("scripts/ci/spec-durations.json");
   return {
     map: read("scripts/ci/integration-map.json"),
-    durations: read("scripts/ci/spec-durations.json").seconds ?? {},
+    durations: timing.seconds ?? {},
+    split: timing.split ?? {},
     quarantine: read("scripts/ci/quarantine.json"),
     specFiles,
     sources,
@@ -96,24 +98,46 @@ export function specsForFile(file, config) {
   return "all"; // 모르는 경로는 안전하게 전체
 }
 
-// 긴 것부터 가장 가벼운 샤드에 넣는다(LPT). 샤드 안은 이름 순.
-export function shard(specs, durations, maxShards) {
-  const seconds = (f) => durations[f] ?? DEFAULT_SECONDS;
-  const total = specs.reduce((sum, f) => sum + seconds(f), 0);
-  const count = Math.max(1, Math.min(maxShards, specs.length, Math.ceil(total / SECONDS_PER_SHARD)));
-  const shards = Array.from({ length: count }, () => ({ seconds: 0, specs: [] }));
-  for (const f of [...specs].sort((a, b) => seconds(b) - seconds(a) || a.localeCompare(b))) {
-    const target = shards.reduce((min, s) => (s.seconds < min.seconds ? s : min), shards[0]);
-    target.specs.push(f);
-    target.seconds += seconds(f);
+// spec → 샤드에 넣을 단위. split에 적힌 긴 파일은 `file@k/n` 단위 n개로 나눈다. 실제 test 목록은 샤드 안에서
+// scripts/run-integration.mjs가 `playwright test --list`로 읽어 k번째 몫을 `file:줄` 인자로 바꾼다(Playwright가 직접
+// 읽으므로 소스 정규식이 test를 놓치는 일이 없다). 나머지는 파일 하나가 단위.
+export function units(specs, config) {
+  const seconds = (f) => config.durations[f] ?? DEFAULT_SECONDS;
+  const out = [];
+  for (const f of specs) {
+    const parts = config.split?.[f] ?? 1;
+    if (parts < 2) {
+      out.push({ name: f, args: [f], seconds: seconds(f) });
+      continue;
+    }
+    for (let p = 1; p <= parts; p += 1) {
+      out.push({ name: `${f}@${p}/${parts}`, args: [`${f}@${p}/${parts}`], seconds: Math.round(seconds(f) / parts) });
+    }
   }
-  return shards.map((s, i) => ({
-    shard: i + 1,
-    of: count,
-    seconds: s.seconds,
-    api: i === 0, // API 시나리오(test-integration.mjs, 6초)는 첫 샤드만
-    specs: s.specs.sort().join(" "),
-  }));
+  return out;
+}
+
+// 긴 것부터 가장 가벼운 샤드에 넣는다(LPT). 샤드 안은 이름 순.
+export function shard(items, maxShards) {
+  const total = items.reduce((sum, u) => sum + u.seconds, 0);
+  const count = Math.max(1, Math.min(maxShards, items.length, Math.ceil(total / SECONDS_PER_SHARD)));
+  const shards = Array.from({ length: count }, () => ({ seconds: 0, units: [] }));
+  for (const u of [...items].sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name))) {
+    const target = shards.reduce((min, s) => (s.seconds < min.seconds ? s : min), shards[0]);
+    target.units.push(u);
+    target.seconds += u.seconds;
+  }
+  return shards.map((s, i) => {
+    const sorted = s.units.sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      shard: i + 1,
+      of: count,
+      seconds: s.seconds,
+      api: i === 0, // API 시나리오(test-integration.mjs, 6초)는 첫 샤드만
+      names: sorted.map((u) => u.name).join(" "),
+      specs: sorted.flatMap((u) => u.args).join(" "),
+    };
+  });
 }
 
 export function classify({ files, lane, config, maxShards = 3 }) {
@@ -133,7 +157,7 @@ export function classify({ files, lane, config, maxShards = 3 }) {
     result.specs = specs.filter((f) => !quarantined.has(f)).sort();
     result.quarantined = specs.filter((f) => quarantined.has(f)).sort();
     result.integration_reason = reason;
-    result.matrix = result.specs.length ? shard(result.specs, config.durations, maxShards) : [];
+    result.matrix = result.specs.length ? shard(units(result.specs, config), maxShards) : [];
     result.integration = result.matrix.length > 0;
     return result;
   };
@@ -185,6 +209,10 @@ export function check(config) {
       if (key === "tests" && !q.title) errors.push(`quarantine.tests: ${JSON.stringify(q)} needs title`);
     }
   }
+  for (const [f, parts] of Object.entries(config.split ?? {})) {
+    if (!config.specFiles.includes(f)) errors.push(`spec-durations split: ${f} does not exist`);
+    else if (!Number.isInteger(parts) || parts < 2) errors.push(`spec-durations split: ${f} must be an integer >= 2`);
+  }
   for (const rule of map.integration.map) {
     if (!rule.self && !rule.specs && !rule.specsMatching) errors.push(`integration.map rule ${JSON.stringify(rule.paths)} selects nothing`);
   }
@@ -201,7 +229,7 @@ function summary(r) {
     `- server: ${yes(r.jobs.server)} · apps: ${yes(r.jobs.apps)} · admin-web: ${yes(r.jobs.admin || r.jobs.deploy_scripts)}`,
     `- integration: ${r.integration ? `${r.specs.length}개 spec, 샤드 ${r.matrix.length}개` : "건너뜀"} — ${r.integration_reason}`,
   ];
-  for (const m of r.matrix) lines.push(`  - 샤드 ${m.shard}/${m.of} (~${m.seconds}초${m.api ? ", API 시나리오 포함" : ""}): ${m.specs.split(" ").map((f) => path.basename(f, ".spec.ts")).join(", ")}`);
+  for (const m of r.matrix) lines.push(`  - 샤드 ${m.shard}/${m.of} (~${m.seconds}초${m.api ? ", API 시나리오 포함" : ""}): ${m.names.split(" ").map((f) => path.basename(f).replace(".spec.ts", "")).join(", ")}`);
   if (r.quarantined?.length) lines.push(`- 격리(건너뜀): ${r.quarantined.join(", ")}`);
   return lines.join("\n") + "\n";
 }
