@@ -2,6 +2,7 @@
 
 import json
 import re
+from decimal import Decimal
 
 from app.ai import grounding
 from app.ai.schemas import AiAnswer, DraftExtraction, Evidence
@@ -247,6 +248,22 @@ def _handoff(reason: str) -> AiAnswer:
 # (DEV-180: "무료배송인가요?"에 받는 날짜로 답했다)
 _FEE_QUESTION = re.compile(r"배송비|택배비|배송료|무료\s*배송|유료\s*배송")
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_DENIED_FEE_AMOUNT = re.compile(
+    r"(\d[\d,]*(?:\.\d+)?)\s*(?:원)?\s*(?:이|가|은|는)?\s*(?:아니|아닙|아님|않)",
+    re.I,
+)
+_FREE_FEE = re.compile(
+    r"무료\s*배송(?:이에요|예요|입니다|합니다|해요|됩니다|이며|이고|[.!?]|$)"
+    r"|(?:배송비|배송료|택배비)(?:는|가|이)?\s*(?:없어요|없습니다|0\s*원)"
+)
+_PAID_FEE = re.compile(
+    r"유료\s*배송|(?:배송비|배송료|택배비)(?:는|가|이)?\s*(?:별도|발생|있어요|있습니다)"
+)
+_FEE_AMOUNT = re.compile(
+    r"(?:배송비|배송료|택배비|기본\s*운임|기본\s*요금|배송\s*요금)"
+    r"(?:은|는|이|가|의|:|\s)*(\d[\d,]*(?:\.\d+)?)\s*원"
+)
+_REMOTE_FEE = re.compile(r"도서|산간|제주|추가\s*(?:운임|배송비|배송료|택배비)")
 CONFLICT_REASON = "등록 정보가 서로 달라요"
 
 
@@ -261,13 +278,94 @@ def _numbers(text: str) -> set[str]:
     return found
 
 
-def _agree(a: str, b: str) -> bool:
+def _remote_context(text: str, position: int) -> bool:
+    return bool(_REMOTE_FEE.search(re.split(r"[.!?\n]", text[:position])[-1]))
+
+
+def _shipping_claim(text: str) -> tuple[str | None, set[str], set[str]]:
+    """Recognized fee type, regional surcharges and accounted numeric literals."""
+    kinds = set()
+    accounted = set()
+
+    def denied(match):
+        return bool(re.match(r"\s*(?:이|가|은|는)?\s*(?:아니|아닙|아님|않)", text[match.end() :]))
+
+    for pattern, kind in ((_FREE_FEE, "FREE"), (_PAID_FEE, "PAID")):
+        if any(
+            not _remote_context(text, m.start()) and not denied(m) for m in pattern.finditer(text)
+        ):
+            kinds.add(kind)
+    for match in _FEE_AMOUNT.finditer(text):
+        if not _remote_context(text, match.start()):
+            zero = Decimal(match[1].replace(",", "")) == 0
+            if not denied(match):
+                kinds.add("FREE" if zero else "PAID")
+                accounted.update(_numbers(match[1]))
+            elif zero:
+                kinds.add("PAID")
+    remote = set()
+    for match in re.finditer(r"(\d[\d,]*(?:\.\d+)?)\s*원", text):
+        if (
+            _remote_context(text, match.start())
+            and not denied(match)
+            and not re.match(r"\s*(?:이상|이하|초과|미만)", text[match.end() :])
+        ):
+            remote.update(_numbers(match[1]))
+    accounted.update(remote)
+    kind = next(iter(kinds)) if len(kinds) == 1 else "CONFLICT" if kinds else None
+    return kind, remote, accounted
+
+
+def _plain_fee_statement(text: str) -> bool:
+    """Only relax omitted amounts in a complete fee statement, not extra conditions."""
+    rest = _FEE_AMOUNT.sub("", _PAID_FEE.sub("", _FREE_FEE.sub("", text))).strip()
+    rest = re.sub(r"^기본\s*", "", rest)
+    return bool(re.fullmatch(r"(?:(?:입니다|이에요|예요|합니다|해요|됩니다)|[\s.!?])*", rest))
+
+
+def _agree(a: str, b: str, *, shipping: bool = False) -> bool:
     """두 근거 문구가 같은 사실을 말하는가.
 
+    배송비는 기본 무료/유료와 추가 운임을 나누며, 일치하는 유형의 세부 금액 생략은 충돌이 아니다.
+    배송비에서 명시적으로 부정한 금액은 다른 근거를 뒷받침하지 않는다.
     숫자(금액·날짜·당도)가 있으면 한쪽 숫자가 다른 쪽에 모두 들어 있을 때 같다고 본다
     (예: "11월 10~14일" ⊂ "2026-11-10 ~ 2026-11-14"). 숫자가 없으면 글자를 비교한다.
     """
     na, nb = _numbers(a), _numbers(b)
+    if shipping:
+        denied_a = {n for m in _DENIED_FEE_AMOUNT.finditer(a) for n in _numbers(m[1])}
+        denied_b = {n for m in _DENIED_FEE_AMOUNT.finditer(b) for n in _numbers(m[1])}
+        if na & denied_b or nb & denied_a:
+            return False
+        (kind_a, remote_a, known_a), (kind_b, remote_b, known_b) = (
+            _shipping_claim(a), _shipping_claim(b)
+        )
+        if "CONFLICT" in (kind_a, kind_b):
+            return False
+        if kind_a and kind_b:
+            if kind_a != kind_b:
+                return False
+            if remote_a and remote_b and remote_a != remote_b:
+                return False
+            # A missing surcharge or amount does not contradict an explicit matching fee type.
+            if kind_a == "FREE":
+                money_a = {
+                    n for m in re.finditer(r"(\d[\d,]*(?:\.\d+)?)\s*원", a) for n in _numbers(m[1])
+                }
+                money_b = {
+                    n for m in re.finditer(r"(\d[\d,]*(?:\.\d+)?)\s*원", b) for n in _numbers(m[1])
+                }
+                if (money_a - known_a - denied_a) or (money_b - known_b - denied_b):
+                    return False
+                if na and nb and (na <= nb or nb <= na):
+                    return True
+                if remote_a and not remote_b:
+                    return _plain_fee_statement(b)
+                if remote_b and not remote_a:
+                    return _plain_fee_statement(a)
+                return _plain_fee_statement(a) and _plain_fee_statement(b)
+            if bool(na) != bool(nb):
+                return _plain_fee_statement(a if not na else b)
     if na or nb:
         # A text-only assertion cannot corroborate a numeric fact (e.g. paid vs free shipping).
         return bool(na and nb) and (na <= nb or nb <= na)
@@ -316,7 +414,11 @@ def _rule_answer(question: str, ev: Evidence) -> AiAnswer | None:
         safe = not _UNSAFE_POLICY.search(policy)
         found.append((policy, "농가 예약 출하 원칙", ["farm:reservationShippingPolicy"], safe))
     texts = [text for text, *_ in found]
-    if any(not _agree(a, b) for i, a in enumerate(texts) for b in texts[i + 1 :]):
+    if any(
+        not _agree(a, b, shipping=bool(_FEE_QUESTION.search(q)))
+        for i, a in enumerate(texts)
+        for b in texts[i + 1 :]
+    ):
         return _handoff(CONFLICT_REASON)
     for text, reason, refs, safe in found:
         if safe:

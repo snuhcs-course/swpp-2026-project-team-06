@@ -1,5 +1,9 @@
 # Testing Documentation
 
+DEV-238 post-benchmark shipping regression: compare matching base fee types separately from regional surcharges; omitted detail is not conflicting evidence. Explicit fee contradictions and denied amounts still require handoff. Independent specification tests cover positive and negative cases. These repairs follow the frozen `f4715b1` measurements and are not measured by those existing benchmark numbers.
+
+The independently authored 23 cases produced 7 failures on `f4715b1` and all 23 passed after the repair; 6 earlier numeric-conflict cases also passed. The related AI, usage, messaging and display regression suite passed 150 tests on the repaired code. This is targeted regression evidence, not a new independent holdout or human quality calibration.
+
 **Team 6 — Farmclub | Iteration 2 | Revised 22 October 2026**
 
 ## Overview
