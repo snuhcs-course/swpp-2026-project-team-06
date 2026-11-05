@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { Icon, type IconName } from "./Icon";
+import { useKeyboardShown } from "./keyboard";
 import { leaveSheet, sheetAnimation } from "./sheetLeave";
 import { T } from "./Text";
 import { tokens } from "./tokens";
@@ -173,6 +174,8 @@ export type TabItem = {
 
 /** 고정 4탭: 전체 너비, 높이 72 + 안전 영역, 선택 아이콘/라벨 주황. */
 export function TabBar({ items }: { items: TabItem[] }) {
+  // Android 앱에서 키보드가 떠 있으면 숨긴다: 루트가 키보드만큼 올라가 탭 바가 입력칸을 가린다(DEV-205). 웹은 언제나 보인다
+  if (useKeyboardShown()) return null;
   return (
     <View pointerEvents="box-none" style={styles.tabWrap}>
       <View style={styles.tabBar} accessibilityRole="tablist">
@@ -242,6 +245,8 @@ export function BottomBar({
   children: ReactNode;
   aboveTabs?: boolean;
 }) {
+  // TabBar와 같은 이유로 Android 앱에서 키보드가 떠 있는 동안 숨긴다(DEV-205). 웹은 언제나 보인다
+  if (useKeyboardShown()) return null;
   return (
     <View
       style={[
