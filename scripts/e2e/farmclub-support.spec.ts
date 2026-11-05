@@ -34,8 +34,12 @@ test("AC-34-2 AC-34-3: the farmclub room carries a producer inquiry to the opera
   await page.screenshot({ path: testInfo.outputPath("farmclub-room.png") });
 
   const question = `정산은 언제 들어오나요? ${Date.now()}`;
-  await page.getByPlaceholder("메시지를 입력하세요").fill(question);
+  const composer = page.getByPlaceholder("메시지를 입력하세요");
+  await composer.fill(question);
   await page.getByRole("button", { name: "전송" }).click();
+  // 입력창(textarea)도 같은 글자를 가져 getByText에 바로 걸린다(DEV-192와 같은 원인). 전송이 끝나
+  // 입력창이 비워진 뒤에 말풍선을 봐야 서버에 저장된 뒤 운영자 문의함을 부른다(DEV-177)
+  await expect(composer).toHaveValue("");
   await expect(page.getByText(question).last()).toBeVisible();
 
   const inbox = await (await ops.get("/admin/support")).json();
