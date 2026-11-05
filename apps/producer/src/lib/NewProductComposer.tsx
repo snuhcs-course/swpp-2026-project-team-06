@@ -60,6 +60,7 @@ import {
   sourceNotices,
   states,
 } from "./SourceWorkspace";
+import { goBackOr } from "./nav";
 // 서버가 새 상품을 만들 때 이름은 비어 있거나 "새 상품"이다. 이때만 AI 값으로 채운다.
 const DEFAULT_NAMES = ["", "새 상품"];
 // 새 상품의 서버 기본 보관 문구(catalog.create_product). 이 값이면 AI 값으로 바꿔도 된다.
@@ -702,7 +703,7 @@ export function NewProductComposer() {
     form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name : "새 상품";
   const render = (basic: ReturnType<typeof useSourceBasicInfo>) => (
     <Screen>
-      <HeaderBar title={title} onBack={() => router.back()} />
+      <HeaderBar title={title} onBack={() => goBackOr(router, "/products")} />
       {batch && <Button label={buyerPreview ? "편집으로 돌아가기" : "구매자 화면 미리보기"} variant="outline"
         onPress={() => { setBuyerPreview(!buyerPreview); setSheetOpen(false); }} />}
       <Scroll bottom={batch ? 240 : 40}>

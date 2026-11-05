@@ -39,6 +39,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, errMsg } from "../lib/views";
 import { orderWho, orderWhoParts } from "../lib/orderWho";
+import { goBackOr } from "../lib/nav";
 
 type Data = {
   awaiting: ProducerOrder[];
@@ -163,7 +164,7 @@ export default function Ship() {
     void load();
   }, [load]);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/"));
+  const back = () => (goBackOr(router, "/"));
 
   if (!data) {
     return (

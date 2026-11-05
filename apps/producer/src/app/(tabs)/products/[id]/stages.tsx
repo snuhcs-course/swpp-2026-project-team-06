@@ -12,6 +12,7 @@ import { View } from "react-native";
 import { DateInput, NumField, addDays } from "../../../../lib/fields";
 import { useHideTabBar } from "../../../../lib/session";
 import { TODAY } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 type Row = Omit<StageInput, "options"> & {
   key: string;
   options: Record<string, { price: number | null; quantity: number | null }>;
@@ -83,7 +84,7 @@ export default function Periods() {
       if (pending.current?.body !== body)
         pending.current = { body, key: newIdempotencyKey() };
       await catalog.putStages(id, stages, p.version, pending.current.key);
-      router.back();
+      goBackOr(router, "/products");
     } catch (e) {
       setError(
         e instanceof ApiError && e.details.fields
@@ -98,7 +99,7 @@ export default function Periods() {
   }
   return (
     <Screen>
-      <HeaderBar title="예약 기간·가격" onBack={() => router.back()} />
+      <HeaderBar title="예약 기간·가격" onBack={() => goBackOr(router, "/products")} />
       <Scroll>
         <View style={{ padding: 20, gap: 20 }}>
           <View
@@ -134,7 +135,7 @@ export default function Periods() {
           {p && !p.options.length ? (
             <Button
               label="상품 편집에서 중량 옵션 먼저 추가"
-              onPress={() => router.back()}
+              onPress={() => goBackOr(router, "/products")}
             />
           ) : null}
           {p?.options.length

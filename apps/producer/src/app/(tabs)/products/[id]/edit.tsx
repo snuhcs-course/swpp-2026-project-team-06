@@ -49,6 +49,7 @@ import {
   errMsg,
   fieldErrors,
 } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 
 const STATUS: Record<ProductStatus, string> = {
   DRAFT: "초안",
@@ -204,7 +205,7 @@ export default function EditProduct() {
   if (!form || !p) {
     return (
       <Screen>
-        <HeaderBar title="상품 편집" onBack={() => router.back()} />
+        <HeaderBar title="상품 편집" onBack={() => goBackOr(router, "/products")} />
         {loadError ? (
           <LoadError error={loadError} onRetry={load} />
         ) : (
@@ -324,9 +325,7 @@ export default function EditProduct() {
   const back = () =>
     dirty
       ? setSheet("leave")
-      : router.canGoBack()
-        ? router.back()
-        : router.replace("/products");
+      : goBackOr(router, "/products");
   const closed = p.status === "CLOSED";
   // 받는 시기: 오늘 다음 날부터, 그리고 마지막 예약 기간가 끝난 다음 날부터(s-25-datesheet)
   const lastStageEnd = p.stages.reduce<string | null>(
@@ -771,9 +770,7 @@ export default function EditProduct() {
               sheetLeave.leave(
                 () => setSheet(null),
                 () =>
-                  router.canGoBack()
-                    ? router.back()
-                    : router.replace("/products"),
+                  goBackOr(router, "/products"),
               )
             }
           />
@@ -787,9 +784,7 @@ export default function EditProduct() {
                 () => setSheet(null),
                 () =>
                   void save(() =>
-                    router.canGoBack()
-                      ? router.back()
-                      : router.replace("/products"),
+                    goBackOr(router, "/products"),
                   ),
               )
             }

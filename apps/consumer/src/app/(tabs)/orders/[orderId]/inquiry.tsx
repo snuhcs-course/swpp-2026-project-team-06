@@ -22,10 +22,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
+import { useGoBack } from "../../../../lib/nav";
 export default function InquiryForm() {
   useHideTabBar();
   const { orderId } = useLocalSearchParams<{ orderId: string }>(),
     router = useRouter(),
+    back = useGoBack(),
     order = useAsync(() => orders.get(orderId), [orderId]);
   const [type, setType] = useState<Inquiry["type"]>("DAMAGE"),
     [text, setText] = useState(""),
@@ -61,7 +63,7 @@ export default function InquiryForm() {
   }
   return (
     <Screen>
-      <HeaderBar title="주문 문제 문의" onBack={() => router.back()} />
+      <HeaderBar title="주문 문제 문의" onBack={back} />
       <Scroll>
         <View style={{ padding: 20, gap: 24 }}>
           <View

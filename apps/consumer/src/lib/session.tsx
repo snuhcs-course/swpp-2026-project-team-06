@@ -273,13 +273,15 @@ export function useSession() {
 }
 
 /** 하단 고정 바에 주 행동이 있는 작업 화면은 탭 바를 숨긴다(docs/design 레이아웃 규칙) */
-export function useHideTabBar() {
+/** 이 화면에서 하단 탭 바를 숨긴다. hidden=false면 숨기지 않는다(예: 없는 농가 안내, DEV-224). */
+export function useHideTabBar(hidden = true) {
   const { setTabBarHidden } = useSession();
   useFocusEffect(
     useCallback(() => {
+      if (!hidden) return;
       setTabBarHidden(true);
       return () => setTabBarHidden(false);
-    }, [setTabBarHidden]),
+    }, [setTabBarHidden, hidden]),
   );
 }
 

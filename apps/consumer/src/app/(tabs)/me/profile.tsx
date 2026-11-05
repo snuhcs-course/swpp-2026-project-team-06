@@ -9,6 +9,7 @@ import { setFlash } from "../../../lib/flash";
 import { PHONE, formatPhone, realName } from "../../../lib/onboarding";
 import { useHideTabBar, useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
+import { goBackOr } from "../../../lib/nav";
 
 export default function Profile() {
   useHideTabBar();
@@ -20,7 +21,7 @@ export default function Profile() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const toast = useToast(120);
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/me"));
+  const back = () => (goBackOr(router, "/me"));
 
   useEffect(() => {
     if (!user) return;

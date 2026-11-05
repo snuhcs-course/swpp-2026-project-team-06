@@ -17,6 +17,7 @@ import { View } from "react-native";
 
 import { useHideTabBar, useSession } from "../../../../lib/session";
 import { errMsg, fieldErrors } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 
 type Field = "name" | "region" | "intro";
 const META: Record<
@@ -67,7 +68,7 @@ export default function EditFarmField() {
   }, [farm.data, field]);
 
   const back = () =>
-    router.canGoBack() ? router.back() : router.replace("/farm");
+    goBackOr(router, "/farm");
 
   async function save() {
     // 필수값이 비면 저장하지 않고 빈 칸 표시(AC-02-2)

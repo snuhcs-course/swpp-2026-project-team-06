@@ -14,19 +14,30 @@ import {
   T,
   useAsync,
 } from "@farmclub/ui";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+  type Href,
+} from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../lib/session";
+import { roomBackTarget } from "../../../lib/backTargets";
+import { goBackOr } from "../../../lib/nav";
 export default function Chat() {
   useHideTabBar();
   // productId: 상품 페이지에서 열었으면 그 상품을 AI 근거로 보낸다(DEV-97)
-  const { farmId, start, orderId, productId } = useLocalSearchParams<{
+  // from·fromOrder: 농가 정보·주문 상세에서 열었으면 뒤로가 그 화면(DEV-224 a1, roomBackTarget)
+  const params = useLocalSearchParams<{
       farmId: string;
       start?: string;
       orderId?: string;
       productId?: string;
+      from?: string;
+      fromOrder?: string;
     }>(),
+    { farmId, start, orderId, productId } = params,
     router = useRouter(),
     farm = useAsync(() => farms.get(farmId), [farmId]);
   const [active, setActive] = useState(false),
@@ -76,11 +87,12 @@ export default function Chat() {
         photo={farm.data?.photo}
         subtitle="1:1 채팅"
         onProfile={() => router.push(`/farms/${farmId}`)}
-        onBack={() =>
-          router.canGoBack()
-            ? router.back()
-            : router.replace("/chats?view=private")
-        }
+        onBack={() => {
+          // 상품·농가 정보·주문 상세에서 연 방은 연 화면으로(탭 기록에 기대지 않는다)
+          const target = roomBackTarget(params);
+          if (target) router.navigate(target as Href);
+          else goBackOr(router, "/chats?view=private");
+        }}
       />
       <View style={{ padding: 12 }}>
         <T variant="caption" muted>

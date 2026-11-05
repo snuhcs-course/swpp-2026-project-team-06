@@ -31,6 +31,7 @@ import {
   type FarmLoadMode,
 } from "../../../lib/farmSearch";
 import { LoadError } from "../../../lib/views";
+import { goBackOr } from "../../../lib/nav";
 
 export default function FarmList() {
   const router = useRouter();
@@ -93,7 +94,7 @@ export default function FarmList() {
     <Screen>
       <HeaderBar
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/")
+          goBackOr(router, "/")
         }
       />
       <Scroll bottom={tokens.height.tabBarClearance}>

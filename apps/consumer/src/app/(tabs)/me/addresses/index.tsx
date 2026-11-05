@@ -21,6 +21,7 @@ import { takeFlash } from "../../../../lib/flash";
 import { useHideTabBar } from "../../../../lib/session";
 import { useToast } from "../../../../lib/toast";
 import { LoadError } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 
 /** 저장 배송지 한도(서버 ADDRESS_LIMIT, 사용자 결정 10/18) */
 const ADDRESS_LIMIT = 50;
@@ -73,7 +74,7 @@ export default function Addresses() {
     <Screen>
       <HeaderBar
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/me")
+          goBackOr(router, "/me")
         }
       />
       <Scroll bottom={140}>

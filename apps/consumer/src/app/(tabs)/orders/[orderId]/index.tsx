@@ -49,6 +49,7 @@ import {
   isStatus,
   openExternal,
 } from "../../../../lib/views";
+import { goBackOr } from "../../../../lib/nav";
 
 const fmt = { md, deadline, time, won };
 
@@ -127,7 +128,7 @@ export default function OrderDetail() {
     <Screen>
       <HeaderBar
         onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/orders")
+          goBackOr(router, "/orders")
         }
       />
       {!o ? (
@@ -324,7 +325,7 @@ export default function OrderDetail() {
             <Button
               label="농가에 물어보기 ›"
               variant="text"
-              onPress={() => router.push(`/chats/${o.farmId}`)}
+              onPress={() => router.push(`/chats/${o.farmId}?from=order&fromOrder=${o.orderId}`)}
               style={{ marginHorizontal: 20, marginTop: 16 }}
             />
           )}
@@ -336,7 +337,7 @@ export default function OrderDetail() {
           o={o}
           busy={busy}
           onCancel={() => setCancelSheet(true)}
-          onAsk={() => router.push(`/chats/${o.farmId}`)}
+          onAsk={() => router.push(`/chats/${o.farmId}?from=order&fromOrder=${o.orderId}`)}
           act={act}
         />
       ) : null}
