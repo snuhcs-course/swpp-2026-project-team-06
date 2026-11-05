@@ -540,3 +540,35 @@ class FrozenRuntimeIdentity(unittest.TestCase):
         after["runner_sha256"] = "different-runner"
         with self.assertRaises(EvalGateError):
             comparison_gate(before, after)
+
+
+class TypedValueNegation(unittest.TestCase):
+    # Implementation-author regression cases supplied by independent reviewer.
+    def test_direct_brix_and_surcharge_denials_are_not_success(self):
+        for fact, body in [
+            ({"kind": "measured_brix", "value": 12}, "실측 당도는 12Brix가 아닙니다."),
+            (
+                {"kind": "free_shipping_surcharge", "value": 3000},
+                "무료배송이며 제주 추가 운임은 3000원이 아닙니다.",
+            ),
+        ]:
+            with self.subTest(fact=fact):
+                case = shipping_case()
+                case["rubric"] = {
+                    "version": "public",
+                    "facts": [fact],
+                    "required_refs": ["product:p"],
+                }
+                self.assertNotEqual(
+                    grade_trial(case, trace_for(body=body))["verdict"], "AUTO_PASS_PENDING_REVIEW"
+                )
+
+    def test_expected_value_with_unmeasured_qualifier_is_valid(self):
+        case = shipping_case()
+        case["rubric"] = {
+            "version": "public",
+            "facts": [{"kind": "expected_brix", "value": 12}],
+            "required_refs": ["product:p"],
+        }
+        result = grade_trial(case, trace_for(body="예상 당도는 12Brix이며 실측값은 아닙니다."))
+        self.assertEqual(result["verdict"], "AUTO_PASS_PENDING_REVIEW")

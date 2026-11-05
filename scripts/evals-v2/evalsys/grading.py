@@ -74,6 +74,22 @@ def _value_in(text, value):
     }
 
 
+def _value_negated(text, value):
+    """Recognize direct denial of this value, without denying a different qualifier."""
+    if value is None:
+        return False
+    return any(
+        _number(match.group()) == _number(value)
+        and re.match(
+            r"\s*(?:원|KRW|brix|브릭스|°b[xr])?\s*(?:은|는|이|가)?\s*"
+            r"(?:아니|아닙|아님|않|틀|not)",
+            text[match.end() :],
+            re.I,
+        )
+        for match in NUMBER.finditer(text)
+    )
+
+
 def _shipping_amount(text, value):
     if value is None:
         return False
@@ -108,13 +124,14 @@ def _fact(fact, text):
         )
     if kind == "shipping_fee":
         ok = _shipping_amount(text, value)
-        if re.search(r"\d[\d,.]*\s*(?:원|KRW)?.{0,6}(?:아니|아닙|아님|않|틀|not)", text, re.I):
+        if _value_negated(text, value):
             ok = False
     elif kind == "free_shipping_surcharge":
         ok = (
             bool(re.search(r"무료|배송비.{0,8}(?:0원|없)|free shipping", text, re.I))
             and bool(re.search(r"도서|산간|제주|지역|remote|추가", text, re.I))
             and _value_in(text, value)
+            and not _value_negated(text, value)
         )
         if re.search(r"무료.{0,5}(?:아니|않)|유료 배송", text):
             ok = False
@@ -126,6 +143,7 @@ def _fact(fact, text):
         )
         ok = (
             _value_in(text, value)
+            and not _value_negated(text, value)
             and bool(re.search(qualifier, text, re.I))
             and bool(re.search(r"브릭스|brix|당도|°b[xr]", text, re.I))
         )
