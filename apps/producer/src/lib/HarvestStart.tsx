@@ -148,7 +148,8 @@ export function HarvestSheet({
         if (!cancelled) setList(all.filter((o) => o.stageId === stage.stageId));
       })
       .catch(() => {
-        if (!cancelled) setList([]);
+        // 주문 줄을 못 읽어도 시트는 카드의 건수로 진행한다(서버가 실제로 옮긴 수를 토스트로 알린다)
+        if (!cancelled) setList(null);
       });
     return () => {
       cancelled = true;
