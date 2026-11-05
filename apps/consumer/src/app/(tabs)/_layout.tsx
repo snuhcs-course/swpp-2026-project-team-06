@@ -54,17 +54,24 @@ function openTabRoot(
   };
   if (!stack) return nav.navigate(route.name);
   const nested = route.state as
-    | { key?: string; index?: number; routes?: { name: string }[] }
+    | {
+        key?: string;
+        index?: number;
+        routes?: { name: string; params?: object }[];
+      }
     | undefined;
-  if (
-    nested?.key &&
-    ((nested.index ?? 0) > 0 || nested.routes?.[0]?.name !== "index")
-  )
+  // 첫 화면이 이미 바닥에 있으면 그 params(내 주문 filter·채팅 view)는 지킨다
+  const root = nested?.routes?.[0];
+  const keep = root?.name === "index" ? (root.params ?? {}) : {};
+  if (nested?.key && ((nested.index ?? 0) > 0 || root?.name !== "index"))
     nav.dispatch({
-      ...CommonActions.reset({ index: 0, routes: [{ name: "index" }] }),
+      ...CommonActions.reset({
+        index: 0,
+        routes: [{ name: "index", params: keep }],
+      }),
       target: nested.key,
     });
-  nav.navigate(route.name, { screen: "index", params: {} });
+  nav.navigate(route.name, { screen: "index", params: keep });
 }
 
 export default function TabsLayout() {
