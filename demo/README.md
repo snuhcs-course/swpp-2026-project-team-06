@@ -39,6 +39,12 @@ DEMO_DB=farmclub_demo ADMIN_WEB_PASSWORD=<로컬에서 정한 값> npm run demo 
 # 다른 터미널
 ADMIN_WEB_PASSWORD=<같은 값> FARMCLUB_ADMIN_URL=http://127.0.0.1:8090 node demo/record/story.mjs p1   # 구간마다
 ```
+- **영상에 로그인 장면을 넣지 않는다**(I3, DEV-181). 실제 로그인은 카카오이고 테스트 계정 화면은 시험용이다. 녹화 전에 한 번 미리 로그인하고, 같은 프로필로 찍으면 모든 구간이 로그인된 상태로 시작한다
+  ```sh
+  DEMO_PROFILE=demo/.raw/local-profile ADMIN_WEB_PASSWORD=<같은 값> node demo/record/prep-test-login.mjs
+  DEMO_HQ=1 DEMO_PROFILE=demo/.raw/local-profile ADMIN_WEB_PASSWORD=<같은 값> FARMCLUB_ADMIN_URL=http://127.0.0.1:8090 node demo/record/story.mjs p1   # 구간마다
+  ```
+  구간은 `p1 a1 p2 a2 c1 p3 c2 p4 c3 p5 c4` 순서로 데이터가 이어진다. 한 구간이 실패하면 `npm run demo`를 다시 띄워(시드 초기화) `p1`부터 찍는다. 끝나면 `demo/.raw/local-profile`(로그인 쿠키)을 지운다
 - `DEMO_DB`를 주면 개발용 `farmclub` DB를 지우지 않고 데모 DB만 시드를 다시 넣는다. 포트는 `DEMO_API_PORT`·`DEMO_CONSUMER_PORT`·`DEMO_PRODUCER_PORT`·`DEMO_ADMIN_PORT`
 - 결과는 `demo/.raw/story/<구간>.mp4`(git 밖). 구간 순서는 `story.mjs` 머리 주석. 이어 붙이기·앱별 자르기는 아직 ffmpeg로 손으로 한다(DEV-134)
 
