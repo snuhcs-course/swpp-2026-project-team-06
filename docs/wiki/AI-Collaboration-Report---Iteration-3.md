@@ -219,7 +219,7 @@ It also caught a mistake of its own. It noticed that the demo had been recorded 
 - **Misread test failures.** Locally, two tests failed because my `.env` contains an AI key, which CI does not have. The agent's first attempt to imitate CI produced 48 unrelated failures from how it ran the tests. It reported these as a setup effect without confirming on `main`. CI on the PR was the real check, and it passed.
 - **A silent skip in the demo script.** The recording script skipped the farm's deposit approval without failing, which would have shown "reservation complete" for an unapproved order. A later step failed, which exposed it. The script now stops when the approval does not happen.
 - **An invented number.** When closing DEV-180 in Linear, the agent estimated my hours as "Human ~2h" without asking. I treat that figure as unverified.
-- **Limits of the evaluation.** The 60 routine and conflicting-fact trials all used the rule path with no model call, so they test the guard logic, not model answer quality. Model answers were exercised mainly by the 60 missing-evidence and ambiguous trials. The fixtures are synthetic. Human sign-off on the b2 verdicts was still pending when this was written.
+- **Limits of the evaluation.** The 60 routine and conflicting-fact trials all used the rule path with no model call, so they test the guard logic, not model answer quality. Model answers were exercised mainly by the 60 missing-evidence and ambiguous trials. The fixtures are synthetic. I signed off the b2 verdicts on November 6 after reviewing the results and run log.
 
 ## 5. Human Decisions and Review
 
@@ -234,7 +234,7 @@ I did not measure human hours, active agent hours or total tokens for this work,
 
 A passing score has to say what was exercised. Separating rule-path answers from real model calls in the log made 180/180 interpretable. Without that split, a high score could hide that the model was barely involved.
 
-A fix is a claim too. My own conflict check passed its tests and still had a gap that another person's work exposed. In the next iteration I want each evaluation fix reviewed against cases written by someone other than its author, and the b2 verdicts signed off by a person before they are reported as final.
+A fix is a claim too. My own conflict check passed its tests and still had a gap that another person's work exposed. In the next iteration I want each evaluation fix reviewed against cases written by someone other than its author, and verdicts signed off by a person before they are reported as final, as I did for b2.
 
 ## Evidence and Session Review
 
