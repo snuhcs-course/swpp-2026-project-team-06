@@ -82,3 +82,82 @@ These examples show requests used to direct the work and review its results. Tim
 - **2026-11-05 21:18:11 · Codex · `01a1ab7c`:** Does AI chat have a holdout dataset? If not, please create a separate one.
 - **2026-11-06 16:13:28 · Codex · `01a1ab7c`:** Does the evaluation also inspect the internal execution process? Please explain the current problem.
 - **2026-11-06 16:14:05 · Codex · `01a1ab7c`:** Please analyze the root cause before making further improvements.
+
+---
+
+# AI Collaboration Report – Iteration 3 – Zahra Gholami
+
+Personal contribution · Draft for review, November 6, 2026.
+
+Period: October 28–November 6, 2026, Asia/Seoul, following the I3 project dates in Linear.
+
+**Records reviewed.** TODO(Zahra): Session Exporter run (version/commit, `--from 2026-10-28 --to 2026-11-06`), number of selected sessions and input records, dry-run and final re-scan result. The prompts below come from the Claude Code session `eed73422` (November 5–6); confirm their times against the export and add prompts from earlier I3 sessions.
+
+**Tools and models.** Claude Code with `claude-opus-5-5`. TODO(Zahra): add any other agent and model recorded in the export. Claude Haiku 4.5, which the product's AI support calls, is separate from these development agents and was the system under test, not a tool I used to write code.
+
+## 1. Where AI Was Used
+
+My I3 work was the AI customer-support evaluation and its fixes, plus the test setup and demo around it. I used a coding agent to build and run evaluation harnesses, implement fixes, merge and test branches, review PRs, and draft records. I set the scope, decided which results to trust, and approved what was merged.
+
+- **Test environment and baseline** ([#371](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/371), DEV-165) and **evaluator test accounts for the HE in native builds** ([#373](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/373), DEV-200).
+- **AI support evaluation, T09** ([#377](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/377), DEV-169): the frozen 60-question protocol (DEV-154) run three times per case. The first cohort scored **141/180** and failed 2 of 5 state and failure guards. It found three defects: a stale AI reply saved after the farm replied or switched mode, an 8.02 s timeout against an 8 s limit, and rule answers that ignored conflicting registered facts.
+- **Fixes, T22** ([#387](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/387), DEV-180): the re-run on the same corpus, harness, model and prompt scored **180/180** with guards **5/5**. The log records 72 real model calls (`claude-haiku-4-5-20251001`), 99 rule-path answers and 9 injected faults.
+- **PR responsibility rules** ([#382](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/382), SWPP-126): who does what in a PR, and human approval for high-risk paths.
+- **Iteration 3 demo** ([#466](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/466), DEV-181): the `iteration-3-demo` branch and README, and the recording script updated for I3 screens.
+
+## 2. How I Revised the Prompts and Scope
+
+I started sessions by asking the agent to check the repository and Linear and tell me what was left, instead of assuming. When it proposed an order, I asked for a recommendation and the reason, then decided.
+
+When a teammate's draft PR (#464) reused my unmerged fix, I asked which PR should merge first. The agent recommended merging mine first and pointed out a real gap that #464 had found in my conflict check. I asked it to add a conservative fix to my PR and to leave a comment on #464 instead of messaging the teammate directly.
+
+For the demo video, I first chose to re-record with the repository's script. After watching the result, I asked to remove every login scene, because the real sign-in is Kakao and the test-account screen is a testing tool. Later I handed the recording to a teammate and asked the agent to leave a step-by-step note instead.
+
+## 3. What AI Did Well
+
+The agent connected each failure to a cause I could check. For the stale reply, it showed that the consumer request held the conversation row lock during the whole model call, so the farm's reply waited behind it. For the conflict defect, it showed that the rule path returned the first matching fact without comparing it with the others.
+
+It kept checks tied to evidence. After my conservative fix, it ran all 60 corpus questions through the rule path before and after the change and confirmed that no outcome changed, so the 180/180 result still held. It wrote a regression test that failed without the fix and passed with it.
+
+It also caught a mistake of its own. It noticed that the demo had been recorded on code from before #387 merged, stopped the recording and recorded again on the right snapshot.
+
+## 4. Errors and Limitations
+
+- **A gap in the AI-written fix.** My conflict check treated evidence with numbers and evidence without numbers as agreeing (for example `배송비 3,500원` and `무료배송이에요`), because an empty set counts as contained in any other set. A teammate found it in #464. It was fixed in #387 with a regression test before merge.
+- **Misread test failures.** Locally, two tests failed because my `.env` contains an AI key, which CI does not have. The agent's first attempt to imitate CI produced 48 unrelated failures from how it ran the tests. It reported these as a setup effect without confirming on `main`. CI on the PR was the real check, and it passed.
+- **A silent skip in the demo script.** The recording script skipped the farm's deposit approval without failing, which would have shown "reservation complete" for an unapproved order. A later step failed, which exposed it. The script now stops when the approval does not happen.
+- **An invented number.** When closing DEV-180 in Linear, the agent estimated my hours as "Human ~2h" without asking. I treat that figure as unverified.
+- **Limits of the evaluation.** The 60 routine and conflicting-fact trials all used the rule path with no model call, so they test the guard logic, not model answer quality. Model answers were exercised mainly by the 60 missing-evidence and ambiguous trials. The fixtures are synthetic. Human sign-off on the b2 verdicts was still pending when this was written.
+
+## 5. Human Decisions and Review
+
+- I chose to merge #387 before the teammate's #464, and to keep its fix conservative: one-sided numbers are handed to the farm, at the cost of also handing over equivalent pairs such as `무료배송` and `배송비 0원`.
+- I checked the production timeout variable on Railway myself. The agent is not allowed to read production variables, so it only prepared the command. The variable was not set, so the new 7.5 s default applies.
+- #387 changes high-risk paths (`server/app/ai/**`, `server/app/core/config.py`). Under our SWPP-126 rule, my code review recorded in the PR description counts as the human review, and I put it in the merge queue myself.
+- The agent ran the review, tests and evaluation scripts. I did not run every test by hand.
+
+TODO(Zahra): human hours and agent hours. Do not add up session lengths; if they were not measured, say so.
+
+## 6. Lessons and Next Steps
+
+A passing score has to say what was exercised. Separating rule-path answers from real model calls in the log made 180/180 interpretable. Without that split, a high score could hide that the model was barely involved.
+
+A fix is a claim too. My own conflict check passed its tests and still had a gap that another person's work exposed. In the next iteration I want each evaluation fix reviewed against cases written by someone other than its author, and the b2 verdicts signed off by a person before they are reported as final.
+
+## Evidence and Session Review
+
+- [#377: T09 evaluation](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/377), results [`results.md`](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/evaluation/i3-ai-support/results.md)
+- [#387: T22 fixes](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/387), re-run [`results-i3-b2.md`](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/evaluation/i3-ai-support/results-i3-b2.md)
+- [#371](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/371), [#373](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/373), [#382](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/382), [#466](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/466), [`iteration-3-demo`](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/iteration-3-demo)
+- TODO(Zahra): Session Exporter result, privacy check and exclusions. Original logs, ZIPs, credentials and teammates' personal records are not included.
+
+## Representative Prompts
+
+Times are in Asia/Seoul. Session identifiers are shortened to eight characters. TODO(Zahra): confirm the times against the export and add prompts from earlier I3 sessions (T03, T09, SWPP-126).
+
+- **2026-11-05 · Claude · `eed73422`:** check the latest changes on the repo as well as my latest works and update me on what there is to do
+- **2026-11-05 · Claude · `eed73422`:** between 387 and 464 which one do you think should be merged first
+- **2026-11-05 · Claude · `eed73422`:** no need to tell jinu, just add a comment in their pr
+- **2026-11-05 · Claude · `eed73422`:** can you not check railway yourself
+- **2026-11-06 · Claude · `eed73422`:** there are problems with the video. don't show the log in everytime. actually the log in is through kakaotalk, so remove taht flow entirely, it is for testing.
+- **2026-11-06 · Claude · `eed73422`:** I need to do the reports the same way it was done for i2 and i1. i don't remember what reports there are exactly
