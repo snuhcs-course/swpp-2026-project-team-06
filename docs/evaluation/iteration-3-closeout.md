@@ -25,11 +25,11 @@
 
 ## Demonstration check record
 
-Read-only checks at 6 November 14:29:58 UTC / 23:29:58 KST found the root, consumer, producer and administrator HTML pages all HTTP 200. Each referenced MP4 returned HTTP 206 to a first-16-byte range, a valid MP4 isom header and the expected total file size. Public demo-i3 release sizes/digests match demo/videos.json. Declared durations are 315.93 s overall, 112.03 s consumer, 177.10 s producer and 26.80 s administrator. Subsequent browser playback checks are recorded in the final handoff audit. These checks read existing artifacts, do not reset a database, and do not create production orders or call paid providers.
+Read-only checks at 6 November 14:29:58 UTC / 23:29:58 KST found the root, consumer, producer and administrator HTML pages all HTTP 200. Each referenced MP4 returned HTTP 206 to a first-16-byte range, a valid MP4 isom header and the expected total file size. Public demo-i3 release sizes/digests match demo/videos.json. Declared durations are 315.93 s overall, 112.03 s consumer, 177.10 s producer and 26.80 s administrator. Browser Play controls then advanced all four videos without a media error (readyState 4). Observed positions were 14.03 s overall, 39.74 s consumer and 94.27 s producer; the administrator recording reached its 26.80 s end. This verifies playback, not complete viewing or a fresh functional evaluation. These checks read existing artifacts, do not reset a database, and do not create production orders or call paid providers.
 
 ## Final handoff checklist
 
-- [ ] Review the concrete documentation diff in PR #501 and record the human review result.
+- [ ] Review the complete documentation follow-up PR and record the human review result. PR #501 merged only the initial scope records; it does not publish these completed reports.
 - [ ] Merge the reviewed documentation PR and confirm public Wiki synchronization.
 - [ ] Open all six candidate files and compare their snapshot/audit record.
 - [ ] Review the demo branch README, videos and recorded-snapshot limitations.
@@ -37,3 +37,9 @@ Read-only checks at 6 November 14:29:58 UTC / 23:29:58 KST found the root, consu
 - [ ] Minsun submits the checked ZIP to eTL and retains its actual timestamp/receipt.
 
 No check above is prefilled as human completion. DEV-244, DEV-256, DEV-257, incomplete peer triage details, native backgrounding and I4 formative observation retain their documented scope and status.
+
+## Publication history and artifact audit
+
+PR #501 merged the eight initial scope records at `e0a2022` before the completed content was added. The complete source deliverables are therefore published from follow-up branch `minsunkim/dev-158-iteration-three-deliverables`, based on main `3e4524e`. PDF source revisions, exact native-sheet capture time, archive contents and hashes are retained in the final candidate handoff audit. Human review/main merge and Wiki synchronization must use this follow-up, rather than assuming the earlier scope-only merge contained the reports.
+
+The first PDF audit rendered all 101 pages across the four reports (33 Requirements, 13 Design, 53 Testing, two AI Collaboration). It found no clipped text, overlap, broken diagrams, malformed glyphs or off-page content; 233 source headings were reconciled. A final export pins evidence links to committed source and retains the same layout.
