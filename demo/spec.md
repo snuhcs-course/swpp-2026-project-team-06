@@ -8,7 +8,7 @@
 
 ## 구조
 - `site/` — 정적 데모 사이트. `index.html`(전체 흐름), `consumer/`, `producer/`, `admin/` 페이지, `vercel.json`(cleanUrls). 빌드 없음
-- `record/` — Playwright 녹화 스크립트. `lib.mjs`(커서·자막·ffmpeg 인코딩), `story.mjs`(구간별 전체 이야기), `consumer.mjs`·`producer.mjs`·`admin.mjs`(앱별), `prep-login.mjs`(운영 녹화용 브라우저 프로필 로그인)
+- `record/` — Playwright 녹화 스크립트. `lib.mjs`(커서·자막·ffmpeg 인코딩), `story.mjs`(구간별 전체 이야기), `consumer.mjs`·`producer.mjs`·`admin.mjs`(앱별), `prep-login.mjs`(운영 녹화용 브라우저 프로필 로그인), `prep-test-login.mjs`(로컬 녹화용 테스트 계정 미리 로그인, I3)
 - `README.md` — 사이트 구조, 녹화·배포 방법
 - `../scripts/demo.mjs` — 로컬 실서버 스택(시드 초기화 → FastAPI → 두 앱)을 한 번에 띄우는 실행기
 
@@ -23,3 +23,5 @@
 | 2026-10-23 | 영상은 git에 넣지 않고 GitHub Release(`demo-i2`) 첨부로 두고, 배포 때 `videos.mjs fetch`가 `videos.json`의 SHA-256으로 확인하며 `site/videos/`에 넣는다. 교체는 `upload`(같은 이름 `--clobber`) + `videos.json` 커밋 | R2는 비공개 버킷뿐이고 공개 버킷은 콘솔 작업이 필요. 사이트 주소(`/videos/*.mp4`)를 유지하고, 커밋된 해시로 바꿔치기를 막음 | — |
 | 2026-10-23 | `deploy-vercel.yml` `deploy-demo`: main CI 성공 뒤 `demo/site/`·`demo/videos.(json\|mjs)`·워크플로 변경 때만 배포, `/` 200·`/videos/story.mp4` 206 확인 | DEV-114 `deploy-admin`과 같은 구조, 새 비밀값 없음 | — |
 | 2026-10-23 | 녹화 브라우저는 `posthog.com` 요청을 모두 끊는다(`lib.mjs` `POSTHOG`) | 운영에서 찍어도 PostHog 지표·세션 녹화에 남지 않게. `*.vercel.app`은 DEV-127 리다이렉트·CORS·카카오 때문에 녹화에 못 씀 | — |
+| 2026-11-06 | 영상에 로그인 화면(카카오 안내·테스트 계정 선택)을 넣지 않는다. 로컬 녹화는 `prep-test-login.mjs`로 미리 로그인한 `DEMO_PROFILE`을 쓰고, `story.mjs`는 그 프로필이면 로그인 단계를 건너뛴다. 생산자 도움말 투어도 본 것으로 둔다 | 실제 로그인은 카카오이고 테스트 계정 화면은 시험용이라 데모에 보이면 안 됨(DEV-181) | — |
+| 2026-11-06 | I3 영상은 새 Release `demo-i3`. 출하가 앱에 생겨(DEV-231) 구간 p5·c4(수확 시작 → 출하 → 배송 중)를 넣었다. `demo-i2` Release는 그대로 둔다 | `iteration-2-demo` README가 그 파일을 가리킴 | — |

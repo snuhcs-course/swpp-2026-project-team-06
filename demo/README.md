@@ -8,7 +8,7 @@ https://demo.farmclub.kr (Vercel `farmclub-demo`)의 원본이다. 평가자에�
 | `site/videos/` | 영상 자리. **git에 없다**(`.gitignore`). 배포 때 `videos.mjs fetch`가 채운다 |
 | `videos.json` | 영상이 있는 GitHub Release 태그와 파일별 SHA-256·크기 |
 | `videos.mjs` | `fetch`(Release → `site/videos/`, SHA-256 확인) / `upload`(mp4 → Release, `videos.json` 갱신) |
-| `record/` | Playwright 녹화 스크립트. `story.mjs`가 지금 영상의 원본(구간 p1~p4·a1~a2·c1~c3), `lib.mjs`는 커서·자막·ffmpeg 인코딩. `consumer.mjs`·`producer.mjs`·`admin.mjs`는 I1 때 앱별 녹화(화면이 바뀌어 맞지 않을 수 있음) |
+| `record/` | Playwright 녹화 스크립트. `story.mjs`가 지금 영상(I3, `demo-i3`)의 원본(구간 `p1 a1 p2 a2 c1 p3 c2 p4 c3 p5 c4`), `prep-test-login.mjs`는 로컬 녹화 전 테스트 계정 미리 로그인(로그인 장면을 찍지 않음), `lib.mjs`는 커서·자막·ffmpeg 인코딩. `consumer.mjs`·`producer.mjs`·`admin.mjs`는 I1 때 앱별 녹화(화면이 바뀌어 맞지 않을 수 있음) |
 | `../scripts/demo.mjs` | `npm run demo`: 로컬 실서버 스택(시드 초기화 → FastAPI → 두 앱, `ADMIN_WEB_PASSWORD`가 있으면 관리자 페이지도) |
 
 ## 배포
@@ -21,7 +21,7 @@ main에 머지되면 `.github/workflows/deploy-vercel.yml`의 `deploy-demo` job�
 
 **영상을 다시 찍었을 때**
 1. 새 mp4를 한 폴더에 지금과 같은 이름(`story.mp4`, `consumer.mp4`, `producer.mp4`, `admin.mp4`)으로 둔다. 일부만 바꿔도 된다
-2. `node demo/videos.mjs upload <폴더>` — `demo-i2` Release의 같은 이름 파일을 교체하고 `videos.json`의 SHA-256을 바꾼다(`gh` 로그인 필요). 새 iteration은 태그를 붙인다: `node demo/videos.mjs upload <폴더> demo-i3`(새 태그는 영상 4개를 모두 올려야 한다)
+2. `node demo/videos.mjs upload <폴더>` — `videos.json`의 Release(지금 `demo-i3`)에서 같은 이름 파일을 교체하고 `videos.json`의 SHA-256을 바꾼다(`gh` 로그인 필요). 새 iteration은 태그를 붙인다: `node demo/videos.mjs upload <폴더> demo-i4`(새 태그는 영상 4개를 모두 올려야 한다)
 3. 영상 길이·단계가 바뀌었으면 `site/**/index.html`의 길이 표기(예: `4:55`)와 단계 목록을 손으로 고친다(자동화는 DEV-134)
 4. `demo/videos.json`(+ HTML) 커밋 → PR → 머지 → 배포
 
