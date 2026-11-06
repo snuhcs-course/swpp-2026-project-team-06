@@ -165,7 +165,4 @@ Times are in Asia/Seoul. Session identifiers are shortened to eight characters. 
 - **2026-11-03 23:49:43 · Codex · `01a1a1de`:** can you check to see if this is accurate and covers everything [about an AI support README draft]
 - **2026-11-03 23:54:49 · Codex · `01a1a1de`:** forget about it. can you edit the readme i sent and ONLY add the missing scope of the evaluation?
 - **2026-11-05 22:08:51 · Claude · `eed73422`:** check the latest changes on the repo as well as my latest works and update me on what there is to do
-- **2026-11-05 23:14:33 · Claude · `eed73422`:** between 387 and 464 which one do you think should be merged first
-- **2026-11-05 23:27:13 · Claude · `eed73422`:** no need to tell jinu, just add a comment in their pr
-- **2026-11-05 23:57:37 · Claude · `eed73422`:** can you not check railway yourself
 - **2026-11-06 15:41:56 · Claude · `eed73422`:** there are problems with the video. don't show the log in everytime. actually the log in is through kakaotalk, so remove taht flow entirely, it is for testing.
