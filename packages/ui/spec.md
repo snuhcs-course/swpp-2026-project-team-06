@@ -1,5 +1,13 @@
 # packages/ui spec
 
+## DEV-251 메시지 anchor 복원
+- 소비자 route가 방의 권한을 새로 확인한 뒤 `initialPage`와 선택 `viewState`(농가·실제 thread ID·metadata snapshot·save callback)를 전달한다. 이를 쓰지 않는 생산자/운영 문의 호출자는 기존 계약을 유지한다.
+- 복원은 locating → layout → restored로 진행하고, 실패/사용자 중단을 구별한다. 저장된 anchor와 가장 오래 불러온 ID까지 fresh cursor를 따라가며 순번 병합한다. 반복 cursor/중복만 반환하는 중간 페이지는 오류와 재시도로 끝낸다.
+- 실제 행 높이 + content padding/gap 20 + 이전 페이지 버튼 높이의 prefix sum으로 top을 계산한다. RN-web ResizeObserver의 오래된 y를 쓰지 않는다. signed offset으로 복원하고, 삭제된 anchor는 저장된 visible neighbor → 같은 허가된 window의 clamped offset 순으로 대체한다.
+- 역사 위치 복원이 끝나기 전 최신 자동 스크롤·읽음을 막는다. 사진/문구 높이 변화는 restore anchor를 유지하고 wheel/touch/drag/key/최신 이동이 이를 중단한다. RN-web의 같은 offset scroll-end tick은 새 사용자 제스처로 취급하지 않는다.
+- snapshot은 행 ID·geometry·loaded boundary·unseen 상태만 내보낸다. 메시지/URL/입력/첨부/전송 key는 store에 쓰지 않는다. 활성 세대와 방 identity가 바뀌면 늦은 요청을 버린다. 401/403/404는 보호된 메시지를 지우고 route에 알린다.
+- polling 성공은 미해결 전송의 오류/다시 보내기/멱등 key를 지우지 않는다. DEV-248 전송 문맥 분리와 DEV-205 앱 키보드 여백을 유지한다.
+
 ## DEV-248 대화 초기 페이지와 재시도
 ChatThread는 선택 initialPage로 권한 확인한 첫 페이지를 받고 sendScope(농가/주문/상품)를 멱등 본문 식별에 포함한다. 문맥 변경 때 이전 사진/요청 callback을 버린다. composerEnabled가 거짓이면 전송/사진을 막고, 401/403/404 조회 실패는 polling을 멈춰 onAccessDenied에 알린다. 전송 재시도와 조회 재시도를 구별한다. 미사용 호출자의 기본 계약과 DEV-205 키보드 여백을 유지한다.
 

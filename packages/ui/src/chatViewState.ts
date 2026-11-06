@@ -7,6 +7,8 @@ export type ChatViewSnapshot = {
   anchor: MessageAnchor | null;
   neighbors: MessageAnchor[];
   oldestLoadedMessageId: string | null;
+  newestLoadedMessageId?: string | null;
+  hasUnseenMessages?: boolean;
   nearBottom: boolean;
   scrollOffset: number;
   viewportHeight: number;
@@ -47,6 +49,8 @@ export function sanitizeChatView(value: unknown): ChatViewSnapshot | null {
     (s.anchor !== null && !anchor(s.anchor)) ||
     !Array.isArray(s.neighbors) || s.neighbors.length > 8 || !s.neighbors.every(anchor) ||
     (s.oldestLoadedMessageId !== null && !id(s.oldestLoadedMessageId)) ||
+    (s.newestLoadedMessageId !== undefined && s.newestLoadedMessageId !== null && !id(s.newestLoadedMessageId)) ||
+    (s.hasUnseenMessages !== undefined && typeof s.hasUnseenMessages !== "boolean") ||
     typeof s.nearBottom !== "boolean" || (!s.nearBottom && s.anchor === null) ||
     !nonnegative(s.scrollOffset) || !nonnegative(s.viewportHeight) ||
     !nonnegative(s.contentHeight) || !Number.isFinite(s.capturedAt) || s.capturedAt < 0
@@ -59,6 +63,8 @@ export function sanitizeChatView(value: unknown): ChatViewSnapshot | null {
     anchor: s.anchor ? copyAnchor(s.anchor) : null,
     neighbors: s.neighbors.map(copyAnchor),
     oldestLoadedMessageId: s.oldestLoadedMessageId,
+    newestLoadedMessageId: s.newestLoadedMessageId ?? null,
+    hasUnseenMessages: s.hasUnseenMessages ?? false,
     nearBottom: s.nearBottom, scrollOffset: s.scrollOffset,
     viewportHeight: s.viewportHeight, contentHeight: s.contentHeight,
     capturedAt: s.capturedAt,
@@ -69,6 +75,60 @@ export function anchorScrollTarget(
   messageTop: number, relativeOffset: number, contentHeight: number, viewportHeight: number,
 ): number {
   return Math.max(0, Math.min(messageTop - relativeOffset, Math.max(0, contentHeight - viewportHeight)));
+}
+
+export type ChatRowGeometry = { messageId: string; top: number; height: number };
+
+/** Row y from ResizeObserver may be stale when only a preceding photo changes size.
+ * Prefix sums depend on actual row heights, which do change in that case. */
+export function chatRowGeometry(
+  messageIds: readonly string[], heights: ReadonlyMap<string, number>,
+  olderHeight: number | null, hasOlder: boolean,
+): ChatRowGeometry[] {
+  if (hasOlder && olderHeight === null) return [];
+  let top = 20 + (hasOlder ? olderHeight! + 20 : 0);
+  const rows: ChatRowGeometry[] = [];
+  for (const messageId of messageIds) {
+    const height = heights.get(messageId);
+    // Nothing after an unmeasured row has a reliable prefix yet.
+    if (height === undefined || !Number.isFinite(height) || height < 0) break;
+    rows.push({ messageId, top, height });
+    top += height + 20;
+  }
+  return rows;
+}
+
+export function visibleChatAnchors(
+  rows: readonly ChatRowGeometry[], offset: number, viewportHeight: number,
+): MessageAnchor[] {
+  return rows.filter(row => row.top + row.height > offset && row.top < offset + viewportHeight)
+    .slice(0, 9).map(row => ({ messageId: row.messageId, relativeOffset: row.top - offset }));
+}
+
+/** The primary ID wins, then the nearest saved visible row. Offsets stay signed. */
+export function survivingChatAnchor(
+  snapshot: Pick<ChatViewSnapshot, "anchor" | "neighbors">,
+  messageIds: ReadonlySet<string>,
+): MessageAnchor | null {
+  return [snapshot.anchor, ...snapshot.neighbors]
+    .find((a): a is MessageAnchor => a !== null && messageIds.has(a.messageId)) ?? null;
+}
+
+/** Guard every cursor walk (restore, catch-up and prepend) against broken APIs. */
+export class ChatCursorTrail {
+  private cursors = new Set<string>();
+  private ids: Set<string>;
+  constructor(initialIds: readonly string[] = []) { this.ids = new Set(initialIds); }
+  accept(cursor: string, messageIds: readonly string[], nextCursor: string | null): void {
+    if (this.cursors.has(cursor) || nextCursor === cursor ||
+      (nextCursor !== null && this.cursors.has(nextCursor)))
+      throw new Error("이전 대화를 불러오지 못했어요. 다시 시도해 주세요.");
+    this.cursors.add(cursor);
+    const progress = messageIds.some(messageId => !this.ids.has(messageId));
+    if (!progress && nextCursor !== null)
+      throw new Error("이전 대화를 불러오지 못했어요. 다시 시도해 주세요.");
+    messageIds.forEach(messageId => this.ids.add(messageId));
+  }
 }
 
 /** A lease also invalidates callbacks from a previous visit to the same room. */
@@ -106,6 +166,11 @@ export class ChatViewStateStore {
       scope.generation === this.current?.generation;
   }
 
+  isCurrentLease(lease: ChatViewLease): boolean {
+    this.prune();
+    return this.isCurrent(lease.scope) && this.entries.get(lease.threadId)?.lease === lease;
+  }
+
   private prune(): void {
     for (const [key, entry] of this.entries)
       if (this.clock() - entry.usedAt >= this.ttl) this.entries.delete(key);
@@ -140,5 +205,11 @@ export class ChatViewStateStore {
 
   clearConversation(scope: ChatViewScope, threadId: string): void {
     if (this.isCurrent(scope)) this.entries.delete(threadId);
+  }
+
+  clearFarm(scope: ChatViewScope, farmId: string): void {
+    if (!this.isCurrent(scope)) return;
+    for (const [threadId, entry] of this.entries)
+      if (entry.lease.farmId === farmId) this.entries.delete(threadId);
   }
 }

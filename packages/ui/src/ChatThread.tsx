@@ -11,6 +11,11 @@ import { daySeparator, time } from "./format";
 import { inBackground } from "./foreground";
 import { useKeyboardShown } from "./keyboard";
 import { safe } from "./web";
+import {
+  anchorScrollTarget, chatRowGeometry, ChatCursorTrail, sanitizeChatView,
+  survivingChatAnchor, visibleChatAnchors,
+  type ChatViewSnapshot, type MessageAnchor,
+} from "./chatViewState";
 
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
@@ -30,6 +35,13 @@ type Message = {
 };
 type Page = { items: Message[]; nextCursor: string | null };
 type Props = {
+  /** Metadata is accepted only after the caller freshly authorized this exact room. */
+  viewState?: {
+    farmId: string;
+    threadId: string;
+    snapshot: ChatViewSnapshot | null;
+    onChange: (snapshot: ChatViewSnapshot) => void;
+  };
   initialPage?: Page;
   sendScope?: string;
   composerEnabled?: boolean;
@@ -52,6 +64,7 @@ type Props = {
   children?: ReactNode;
 };
 export function ChatThread({
+  viewState,
   initialPage,
   sendScope = "",
   composerEnabled = true,
@@ -70,6 +83,22 @@ export function ChatThread({
   forwardStatus,
   children,
 }: Props) {
+  const saved = useRef((() => {
+    const snapshot = sanitizeChatView(viewState?.snapshot);
+    return snapshot?.farmId === viewState?.farmId && snapshot?.threadId === viewState?.threadId
+      ? snapshot : null;
+  })());
+  const identity = useRef(viewState ? `${viewState.farmId}\0${viewState.threadId}` : null);
+  const currentIdentity = viewState ? `${viewState.farmId}\0${viewState.threadId}` : null;
+  const viewStateRef = useRef(viewState);
+  viewStateRef.current = viewState;
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const restore = useRef<{
+    phase: "none" | "locating" | "layout" | "restored" | "interrupted" | "failed";
+    anchor: MessageAnchor | null;
+    bottom: boolean;
+  }>({ phase: viewState ? "locating" : "none", anchor: null, bottom: saved.current?.nearBottom ?? true });
   const [messages, setMessages] = useState<Message[]>(() => mergeChatMessages([], initialPage?.items ?? [])),
     [cursor, setCursor] = useState<string | null>(initialPage?.nextCursor ?? null),
     [ready, setReady] = useState(Boolean(initialPage)),
@@ -79,7 +108,7 @@ export function ChatThread({
     [photos, setPhotos] = useState(false),
     [uploading, setUploading] = useState(false),
     [busy, setBusy] = useState(false),
-    [unseen, setUnseen] = useState(false),
+    [unseen, setUnseen] = useState(saved.current?.hasUnseenMessages ?? false),
     [older, setOlder] = useState(false),
     [retryCount, setRetryCount] = useState(0),
     [retrySend, setRetrySend] = useState(false);
@@ -90,7 +119,7 @@ export function ChatThread({
     terminal = useRef(false),
     context = useRef(sendScope),
     previousContext = useRef(sendScope),
-    near = useRef(true),
+    near = useRef(saved.current?.nearBottom ?? true),
     height = useRef(0),
     offset = useRef(0),
     preserve = useRef<{ height: number; offset: number } | null>(null),
@@ -98,6 +127,13 @@ export function ChatThread({
     lock = useRef(false),
     alive = useRef(true),
     lastRead = useRef("");
+  const messageRef = useRef(messages), cursorRef = useRef(cursor),
+    unseenRef = useRef(unseen), viewport = useRef(0),
+    rowHeights = useRef(new Map<string, number>()), olderHeight = useRef<number | null>(null),
+    anchorLock = useRef<MessageAnchor | null>(null),
+    expectedScroll = useRef<number | null>(null),
+    epoch = useRef(0), reading = useRef(""),
+    captureRef = useRef<() => void>(() => {});
   const [reporting, setReporting] = useState<string | null>(null);
   // 앱: 입력창 아래에 하단 내비 바(안전 영역)만큼 더 띄운다. 키보드가 뜨면 키보드가 내비 바를 덮으므로 뺀다.
   // 웹은 지금 여백(20) 그대로(DEV-205)
@@ -122,84 +158,251 @@ export function ChatThread({
     setRetrySend(false);
     setError(ids.length ? "문의할 주문이 바뀌었어요. 사진을 다시 첨부해 주세요." : "");
   }, [sendScope]);
+  function sameRoom() {
+    const v = viewStateRef.current;
+    return identity.current === (v ? `${v.farmId}\0${v.threadId}` : null);
+  }
+  function current(run: number) {
+    return alive.current && sameRoom() && epoch.current === run;
+  }
+  function updateUnseen(value: boolean) {
+    unseenRef.current = value;
+    setUnseen(value);
+  }
+  function updateCursor(value: string | null) {
+    cursorRef.current = value;
+    setCursor(value);
+  }
+  function commitMessages(items: Message[]) {
+    messageRef.current = items;
+    setMessages(items);
+  }
+  function geometry() {
+    return chatRowGeometry(messageRef.current.map(m => m.messageId), rowHeights.current,
+      olderHeight.current, cursorRef.current !== null);
+  }
+  function capture() {
+    const v = viewStateRef.current;
+    if (!alive.current || !v || !sameRoom() || terminal.current || !viewport.current || !height.current ||
+      expectedScroll.current !== null ||
+      ["locating", "layout", "failed"].includes(restore.current.phase)) return;
+    const anchors = visibleChatAnchors(geometry(), offset.current, viewport.current);
+    if (!near.current && !anchors.length) return;
+    v.onChange({
+      version: 1, farmId: v.farmId, threadId: v.threadId,
+      anchor: anchors[0] ?? null, neighbors: anchors.slice(1),
+      oldestLoadedMessageId: messageRef.current[0]?.messageId ?? null,
+      newestLoadedMessageId: messageRef.current.at(-1)?.messageId ?? null,
+      hasUnseenMessages: unseenRef.current,
+      nearBottom: near.current, scrollOffset: Math.max(0, offset.current),
+      viewportHeight: viewport.current, contentHeight: height.current, capturedAt: Date.now(),
+    });
+  }
+  captureRef.current = capture;
+  function handleError(e: unknown, restoring = false) {
+    if (!alive.current || !sameRoom()) return;
+    const denied = Boolean(e && typeof e === "object" && "status" in e &&
+      [401, 403, 404].includes(Number(e.status)));
+    // Background load failures must not replace an unresolved send's retry action/error.
+    if (!pending.current || denied) {
+      setError(e instanceof Error ? e.message : "대화를 불러오지 못했어요");
+      setRetrySend(false);
+    }
+    if (restoring) restore.current.phase = "failed";
+    if (denied) {
+      terminal.current = true;
+      restore.current.phase = "failed";
+      anchorLock.current = null;
+      expectedScroll.current = null;
+      commitMessages([]);
+      known.current.clear();
+      rowHeights.current.clear();
+      setReady(false);
+      callbacks.current.onAccessDenied?.(e);
+    }
+  }
+  async function markLatestRead() {
+    const last = messageRef.current.at(-1), run = epoch.current;
+    if (!last || !activeRef.current || inBackground() || terminal.current || !near.current ||
+      !current(run) || ["locating", "layout", "failed"].includes(restore.current.phase) ||
+      lastRead.current === last.messageId || reading.current === last.messageId) return;
+    reading.current = last.messageId;
+    try {
+      await callbacks.current.read(last.messageId);
+      if (current(run)) lastRead.current = last.messageId;
+    } catch (e) {
+      if (current(run)) handleError(e);
+    } finally {
+      if (reading.current === last.messageId) reading.current = "";
+    }
+  }
+  function completeRestore() {
+    if (restore.current.phase !== "layout") return;
+    restore.current.phase = "restored";
+    if (restore.current.bottom) {
+      anchorLock.current = null;
+      near.current = true;
+      updateUnseen(false);
+    }
+    capture();
+    void markLatestRead();
+  }
+  function positionAnchor() {
+    if (!alive.current || !viewStateRef.current || !sameRoom() || !activeRef.current || terminal.current ||
+      !viewport.current || !height.current ||
+      ["locating", "failed"].includes(restore.current.phase)) return;
+    const restoring = restore.current.phase === "layout";
+    let target: number;
+    if ((restoring && restore.current.bottom) || (!restoring && near.current && !anchorLock.current)) {
+      target = Math.max(0, height.current - viewport.current);
+    } else {
+      const anchor = restoring ? restore.current.anchor : anchorLock.current;
+      if (!restoring && !anchor) { capture(); return; }
+      if (anchor) {
+        const rows = geometry(), row = rows.find(r => r.messageId === anchor.messageId);
+        // Wait for actual row and content layouts; an old content height must not clamp a new prefix.
+        const last = rows.at(-1);
+        if (!row || rows.length !== messageRef.current.length || !last ||
+          height.current + 2 < last.top + last.height + 20) return;
+        target = anchorScrollTarget(row.top, anchor.relativeOffset, height.current, viewport.current);
+      } else {
+        // All saved visible IDs were deleted: retain the old offset within this freshly authorized window.
+        if (geometry().length !== messageRef.current.length) return;
+        target = anchorScrollTarget(saved.current?.scrollOffset ?? 0, 0, height.current, viewport.current);
+      }
+    }
+    if (Math.abs(offset.current - target) <= 1) {
+      expectedScroll.current = null;
+      if (restoring) completeRestore();
+      else capture();
+    } else {
+      expectedScroll.current = target;
+      scroll.current?.scrollTo({ y: target, animated: false });
+    }
+  }
+  function interruptRestore() {
+    if (!viewStateRef.current) return;
+    if (["locating", "layout", "failed"].includes(restore.current.phase))
+      restore.current.phase = "interrupted";
+    anchorLock.current = null;
+    expectedScroll.current = null;
+    capture();
+  }
+  function latest(animated = true) {
+    interruptRestore();
+    near.current = true;
+    updateUnseen(false);
+    scroll.current?.scrollToEnd({ animated });
+    void markLatestRead();
+  }
   useEffect(() => {
     alive.current = true;
     return () => {
+      captureRef.current();
       alive.current = false;
+      epoch.current++;
     };
   }, []);
   function merge(items: Message[], older = false) {
+    const isNew = items.some(m => !known.current.has(m.messageId));
     items.forEach(m => known.current.add(m.messageId));
-    setMessages(old => mergeChatMessages(old, items, older));
+    commitMessages(mergeChatMessages(messageRef.current, items, older));
+    if (isNew && !older && !near.current &&
+      !["locating", "layout", "failed"].includes(restore.current.phase)) updateUnseen(true);
   }
   useEffect(() => {
-    if (!active) return;
-    let canceled = false,
-      running = false;
+    if (!active || !sameRoom()) { captureRef.current(); setOlder(false); return; }
+    const run = ++epoch.current;
+    let canceled = false, running = false;
+    const valid = () => !canceled && current(run);
     async function refresh() {
-      if (running || inBackground() || terminal.current)
-        return;
+      if (running || inBackground() || terminal.current || !valid()) return;
       running = true;
+      const locating = viewStateRef.current && ["locating", "failed"].includes(restore.current.phase);
+      if (locating) restore.current.phase = "locating";
       try {
         const p = firstPage.current ?? await load();
+        if (!valid()) return;
         firstPage.current = undefined;
         const incoming = [...p.items];
         let next = p.nextCursor;
-        while (
-          known.current.size &&
-          next &&
-          !incoming.some((m) => known.current.has(m.messageId)) &&
-          !canceled
-        ) {
-          const q = await load(next);
-          incoming.unshift(...q.items);
-          next = q.nextCursor;
-        }
-        if (canceled) return;
-        merge(incoming);
-        if (!initialized.current) {
-          setCursor(p.nextCursor);
+        const trail = new ChatCursorTrail(incoming.map(m => m.messageId));
+        if (locating) {
+          merge(p.items);
+          updateCursor(next);
+          const windowIds = new Set(p.items.map(m => m.messageId));
+          const s = saved.current;
+          const found = () => !s || (
+            (!s.anchor || windowIds.has(s.anchor.messageId)) &&
+            (!s.oldestLoadedMessageId || windowIds.has(s.oldestLoadedMessageId))
+          );
+          while (!found() && next && valid() && restore.current.phase === "locating") {
+            const requested = next, q = await load(requested);
+            if (!valid() || restore.current.phase !== "locating") return;
+            trail.accept(requested, q.items.map(m => m.messageId), q.nextCursor);
+            q.items.forEach(m => windowIds.add(m.messageId));
+            incoming.unshift(...q.items);
+            merge(q.items, true);
+            next = q.nextCursor;
+            updateCursor(next);
+          }
+          if (!valid()) return;
+          if (restore.current.phase === "locating") {
+            // Only the freshly fetched window is authoritative (including legitimate deletions).
+            const fresh = mergeChatMessages([], incoming);
+            known.current = new Set(fresh.map(m => m.messageId));
+            commitMessages(fresh);
+            // Entirely deleted history has no anchor: save an empty latest-edge view.
+            if (!fresh.length) restore.current.bottom = true;
+            const anchor = s ? survivingChatAnchor(s, known.current) : null;
+            restore.current.anchor = anchor;
+            anchorLock.current = anchor;
+            restore.current.phase = "layout";
+            if (s && !s.nearBottom) updateUnseen(Boolean(s.hasUnseenMessages ||
+              (s.newestLoadedMessageId && p.items.at(-1)?.messageId !== s.newestLoadedMessageId)));
+          }
           initialized.current = true;
-        }
-        setReady(true);
-        setError("");
-        setRetrySend(false);
-        const last = p.items.at(-1);
-        if (near.current && last && lastRead.current !== last.messageId) {
-          await callbacks.current.read(last.messageId);
-          lastRead.current = last.messageId;
-        }
-      } catch (e) {
-        if (!canceled) {
-          setError(e instanceof Error ? e.message : "대화를 불러오지 못했어요");
-          setRetrySend(false);
-          if (
-            e &&
-            typeof e === "object" &&
-            "status" in e &&
-            [401, 403, 404].includes(Number(e.status))
-          ) {
-            setMessages([]);
-            known.current.clear();
-            setReady(false);
-            terminal.current = true;
-            callbacks.current.onAccessDenied?.(e);
+        } else {
+          while (known.current.size && next &&
+            !incoming.some(m => known.current.has(m.messageId)) && valid()) {
+            const requested = next, q = await load(requested);
+            if (!valid()) return;
+            trail.accept(requested, q.items.map(m => m.messageId), q.nextCursor);
+            incoming.unshift(...q.items);
+            next = q.nextCursor;
+          }
+          if (!valid()) return;
+          merge(incoming);
+          if (!initialized.current) {
+            updateCursor(p.nextCursor);
+            initialized.current = true;
           }
         }
-      } finally {
-        running = false;
-      }
+        setReady(true);
+        // A successful poll does not resolve a failed mutation or its idempotent retry.
+        if (!pending.current) {
+          setError("");
+          setRetrySend(false);
+        }
+        positionAnchor();
+        capture();
+        await markLatestRead();
+      } catch (e) {
+        if (valid()) handleError(e, Boolean(locating) && restore.current.phase !== "interrupted");
+      } finally { running = false; }
     }
     void refresh();
     const timer = setInterval(() => void refresh(), 2000);
     return () => {
+      captureRef.current();
       canceled = true;
+      epoch.current++;
       clearInterval(timer);
     };
-  }, [active, load, retryCount]);
+  }, [active, load, retryCount, currentIdentity]);
   async function submit() {
-    if (!ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length)) return;
-    const submittedScope = context.current;
+    if (!sameRoom() || !ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length)) return;
+    const submittedScope = context.current, run = epoch.current;
     lock.current = true;
     setBusy(true);
     const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids });
@@ -208,21 +411,21 @@ export function ChatThread({
     let committed = false;
     try {
       await callbacks.current.send(text.trim(), ids, pending.current.key);
-      if (!alive.current || submittedScope !== context.current) return;
+      if (!current(run) || submittedScope !== context.current) return;
       committed = true;
       setRetrySend(false);
       setText("");
       setIds([]);
       setPhotos(false);
       pending.current = null;
-      near.current = true;
+      latest(false);
       const p = await load();
-      if (alive.current && submittedScope === context.current) {
+      if (current(run) && submittedScope === context.current) {
         merge(p.items);
         setError("");
       }
     } catch (e) {
-      if (alive.current && submittedScope === context.current) {
+      if (current(run) && submittedScope === context.current) {
         setRetrySend(!committed);
         setError(
           e instanceof Error
@@ -238,21 +441,26 @@ export function ChatThread({
     }
   }
   async function previous() {
-    if (!cursor || older) return;
+    const requested = cursorRef.current, run = epoch.current;
+    if (!requested || older || !sameRoom() ||
+      ["locating", "layout", "failed"].includes(restore.current.phase)) return;
+    const anchor = visibleChatAnchors(geometry(), offset.current, viewport.current)[0];
     setOlder(true);
     try {
-      const p = await load(cursor);
-      if (!alive.current) return;
-      preserve.current = { height: height.current, offset: offset.current };
+      const p = await load(requested);
+      if (!current(run)) return;
+      new ChatCursorTrail([...known.current]).accept(requested, p.items.map(m => m.messageId), p.nextCursor);
+      if (viewStateRef.current && anchor) {
+        near.current = false;
+        anchorLock.current = anchor;
+      } else preserve.current = { height: height.current, offset: offset.current };
       merge(p.items, true);
-      setCursor(p.nextCursor);
+      updateCursor(p.nextCursor);
+      positionAnchor();
     } catch (e) {
-      setRetrySend(false);
-      setError(
-        e instanceof Error ? e.message : "이전 대화를 불러오지 못했어요",
-      );
+      if (current(run)) handleError(e);
     } finally {
-      if (alive.current) setOlder(false);
+      if (current(run)) setOlder(false);
     }
   }
   // 마지막 농가 답 이후 needsHuman인 내 질문 중 마지막 것 하나에만 상태 줄을 붙인다(DEV-208)
@@ -285,40 +493,79 @@ export function ChatThread({
       ) : null}
       <ScrollView
         ref={scroll}
-        style={{ flex: 1 }}
+        testID="chat-timeline"
+        style={[{ flex: 1 }, Platform.OS === "web" && viewState ? { overflowAnchor: "none" } as object : null]}
         contentContainerStyle={{ padding: 20, gap: 20 }}
         keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={100}
-        onScroll={(e) => {
+        scrollEventThrottle={16}
+        onLayout={e => {
+          viewport.current = e.nativeEvent.layout.height;
+          positionAnchor();
+          capture();
+        }}
+        onScrollBeginDrag={interruptRestore}
+        onTouchMove={interruptRestore}
+        {...(Platform.OS === "web" ? {
+          onWheel: interruptRestore,
+          onKeyDown: (event: { key: string }) => {
+            if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key))
+              interruptRestore();
+          },
+        } as object : {})}
+        onScroll={e => {
           const n = e.nativeEvent;
-          offset.current = n.contentOffset.y;
-          near.current =
-            n.contentSize.height -
-              n.layoutMeasurement.height -
-              n.contentOffset.y <
-            80;
-          if (near.current) setUnseen(false);
+          const previousOffset = offset.current;
+          offset.current = Math.max(0, n.contentOffset.y);
+          viewport.current = n.layoutMeasurement.height;
+          height.current = n.contentSize.height;
+          if (viewStateRef.current && restore.current.phase === "layout") {
+            positionAnchor();
+            return;
+          }
+          if (viewStateRef.current && expectedScroll.current !== null) {
+            if (Math.abs(offset.current - expectedScroll.current) <= 2) {
+              expectedScroll.current = null;
+              capture();
+            }
+            return;
+          }
+          // RN-web sends a second scroll-end tick for the same programmatic offset.
+          // It is not a new gesture and must not unlock delayed-layout correction.
+          if (anchorLock.current && Math.abs(previousOffset - offset.current) <= 2) {
+            positionAnchor();
+            return;
+          }
+          // Wheel/drag handlers interrupt before scrolling. This also handles a scrollbar/keyboard scroll.
+          anchorLock.current = null;
+          near.current = n.contentSize.height - n.layoutMeasurement.height - n.contentOffset.y < 80;
+          if (near.current) updateUnseen(false);
+          capture();
+          if (near.current) void markLatestRead();
         }}
         onContentSizeChange={(_, h) => {
-          if (preserve.current) {
+          const previousHeight = height.current;
+          height.current = h;
+          if (viewStateRef.current &&
+            (restore.current.phase === "layout" || anchorLock.current)) positionAnchor();
+          else if (viewStateRef.current && ["locating", "failed"].includes(restore.current.phase)) return;
+          else if (preserve.current) {
             scroll.current?.scrollTo({
               y: preserve.current.offset + h - preserve.current.height,
               animated: false,
             });
             preserve.current = null;
-          } else if (near.current)
-            scroll.current?.scrollToEnd({ animated: false });
-          else if (h > height.current) setUnseen(true);
-          height.current = h;
+          } else if (near.current) scroll.current?.scrollToEnd({ animated: false });
+          else if (!viewStateRef.current && h > previousHeight) updateUnseen(true);
+          capture();
         }}
       >
         {cursor ? (
-          <Button
-            label="이전 대화 보기"
-            variant="text"
-            loading={older}
-            onPress={previous}
-          />
+          <View onLayout={e => {
+            olderHeight.current = e.nativeEvent.layout.height;
+            positionAnchor();
+          }}>
+            <Button label="이전 대화 보기" variant="text" loading={older} onPress={previous} />
+          </View>
         ) : null}
         {!ready ? (
           <T muted>{error ? "대화를 불러오지 못했어요." : "대화 불러오는 중…"}</T>
@@ -326,7 +573,12 @@ export function ChatThread({
           <T muted>첫 이야기를 남겨 보세요.</T>
         ) : null}
         {messages.map((m, i) => (
-          <View key={m.messageId} style={{ gap: 14 }}>
+          <View key={m.messageId} testID={`chat-message-${m.messageId}`} style={{ gap: 14 }}
+            onLayout={e => {
+              rowHeights.current.set(m.messageId, e.nativeEvent.layout.height);
+              positionAnchor();
+              capture();
+            }}>
             {days[i] ? (
               <T variant="caption" muted center>
                 {days[i]}
@@ -376,26 +628,21 @@ export function ChatThread({
                   disabled={Boolean(m.reported) || reporting === m.messageId}
                   loading={reporting === m.messageId}
                   onPress={async () => {
+                    const run = epoch.current;
                     setReporting(m.messageId);
                     try {
                       await callbacks.current.report?.(m.messageId, makeKey());
-                      setMessages((old) =>
-                        old.map((item) =>
-                          item.messageId === m.messageId
-                            ? { ...item, reported: true }
-                            : item,
-                        ),
-                      );
+                      if (!current(run)) return;
+                      commitMessages(messageRef.current.map(item => item.messageId === m.messageId
+                        ? { ...item, reported: true } : item));
                       const p = await load();
+                      if (!current(run)) return;
                       merge(p.items);
                       setError("");
                     } catch (e) {
-                      setRetrySend(false);
-                      setError(
-                        e instanceof Error ? e.message : "신고하지 못했어요",
-                      );
+                      if (current(run)) handleError(e);
                     } finally {
-                      setReporting(null);
+                      if (current(run)) setReporting(null);
                     }
                   }}
                 />
@@ -414,9 +661,7 @@ export function ChatThread({
           label="새 메시지 보기 ↓"
           variant="outline"
           onPress={() => {
-            near.current = true;
-            setUnseen(false);
-            scroll.current?.scrollToEnd({ animated: true });
+            latest();
           }}
         />
       ) : null}
