@@ -85,6 +85,94 @@ These examples show requests used to direct the work and review its results. Tim
 
 ---
 
+# AI Collaboration Report – Iteration 3 – Hyun Park
+
+Personal contribution · November 6, 2026.
+
+Period: October 28–November 6, 2026, Asia/Seoul, following the I3 project dates in Linear.
+
+**Records reviewed.** I did not use the Session Exporter for this section. It is based on the "AI 사용" block in each of my PR bodies, the Linear issues, and the evaluation records in `docs/evaluation/`. The prompts quoted at the end are my own instructions from the Claude Code sessions. Original session logs are not published.
+
+**Tools and models.** Claude Code. I used Claude Fable for planning and coordination, and Claude Opus 5.5 subagents for code, documents and evaluation runs. The product's chat model under evaluation (`claude-haiku-4-5-20251001`) is separate from these development agents.
+
+## 1. Where AI Was Used
+
+Almost all of my I3 implementation and evaluation work was done by agents. From November 4 I split the work explicitly: the main session only plans, coordinates and reports, and every code, document or evaluation task goes to an Opus subagent with a written brief. I wrote or approved the Linear issue, the agent made the task file, branch and draft PR, implemented and tested, and I reviewed the diff and merged through the merge queue. Agents did not merge.
+
+I have 50 merged PRs in the period. 49 are I3 work (#265 only updated my I2 report section). Every one of the 49 records agent time in its "AI 사용" block, about 51 hours in total. 43 also record tokens, about 14M, so the token figure is a lower bound. These are the agents' own estimates written into the PR body, not measured active time. My own hours were not measured.
+
+The work fell into four groups:
+
+- **Consumer evaluation (I3-T04/T05/T08/T15).** Discovery journey rows ([#402](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/402), DEV-166), preorder and order-state rows ([#406](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/406), DEV-168), 90 AI answer trials with a trace review of every persisted answer ([#401](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/401), DEV-167), and my consumer heuristic inspection ([#459](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/459), DEV-175).
+- **Fixes from the HE and the evaluation runs.** DEV-207 to DEV-210 before the HE ([#393](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/393)–[#396](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/396)), the defects the journey runs found (DEV-214 [#411](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/411), DEV-215 [#410](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/410), DEV-216/218 [#412](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/412), variety search DEV-217 [#450](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/450)), the HE follow-ups DEV-222 to DEV-233 ([#431](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/431)–[#442](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/442)), Brix prefill DEV-228 ([#451](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/451)), and Android keyboard and help tour fixes DEV-205/206 ([#460](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/460), [#461](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/461)).
+- **How the team works in parallel.** Per-issue task files (DEV-219, [#414](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/414)), gated CI with a merge queue (DEV-234, [#444](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/444)), Mock tests on free ports (DEV-221, [#449](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/449)), the spec-check review fixes (DEV-196/197/199/211, [#365](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/365), [#367](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/367), [#375](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/375), [#398](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/398)) and the main CI repair (DEV-177, [#446](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/446)).
+- **Builds, deploy and demo.** EAS native builds (DEV-33, [#270](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/270)), deploy checks (DEV-139, [#374](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/374), [#381](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/381)), Vercel test addresses (DEV-236, [#453](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/453)), simpler sign-up (DEV-142, [#291](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/291)) and the demo record/publish commands (DEV-134, [#481](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/481)).
+
+## 2. How I Revised the Prompts and Scope
+
+In I3 I separated planning from execution. The planner writes a brief with the issue, the allowed paths, what is out of scope and how to verify; the executing agent sees only that brief. When a result came back, I read it against the brief, not against the agent's summary.
+
+For anything that changes a screen, I made the order explicit: design proposal board first, my approval, then development. DEV-217 is an example. The agent first wrote a proposal with options, I approved option A, and only then gave the instruction "server variety search, only varieties on sale in Mock, AC-06-2 test" ([#450](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/450)). I also asked for before/after screenshots in the PR and in Linear when that was possible and useful, and had that rule written into the agent instructions.
+
+Near the end of the iteration I cleaned up the backlog in one instruction: close what we had put on hold, do quickly what still had to be done, and mark as done what no longer had a reason to exist. The agent proposed which issue went where; I confirmed the list.
+
+## 3. What AI Did Well
+
+Running the evaluation protocol exactly as frozen. For the journey rows, the agent wrote a scripted run per row, recorded the build, database revision and fixed clock, and kept FAIL as FAIL. I3-DISC-03, I3-DISC-05 and I3-PRE-05 failed on their first planned run, each with a precise cause and file, and each became a fix issue (DEV-214, DEV-215, DEV-216). For DEV-167 it did not stop at the automatic score: it read every one of the 90 persisted answers and split the 30 conflicting-fact failures into three classes, six of them safety failures where the AI adopted a conflicting FAQ statement as a promise.
+
+Finding things outside the planned check without mixing them into the verdict. During I3-DISC-01 it noticed that a cultivar stored only in a product's `variety` was not searchable. That stayed outside the PASS verdict and became DEV-217.
+
+Infrastructure work with a measurable before state. For DEV-234 it first measured ten successful CI runs from November 4 and the integration log timestamps, then changed the pipeline ([#444](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/444)).
+
+## 4. Errors and Limitations
+
+**Wrong root cause copied from the issue (DEV-228).** The agent first explained the missing Brix value with the diagnosis in the issue body, that a regular expression threw the value away. The investigation for the proposal showed the real cause: the current flow had no path that carried the Brix value from the analysed source into the form. The PR body records this as an AI error ([#451](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/451)). I approved the fix only after the corrected cause.
+
+**A fact missed in the first plan (DEV-236).** When I asked for new legal-page rules, the first plan missed that the default Vercel addresses redirect to the official domains (that redirect came from DEV-127 in I2). The executing agent checked, found it, and stopped instead of working around it. I decided that a Vercel address should stay on its own host, and [#453](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/453) removed the redirect.
+
+**A file that hid the repository front page.** The DEV-234 PR added the CI guide as `.github/README.md`. GitHub shows that file on the repository front page instead of the root README. [#447](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/447) renamed it to `.github/CI.md` and updated every path that pointed to it.
+
+**A wrong deletion during Figma sync.** An agent syncing screens with Figma removed the "↪ 농가에 전달했어요" (forwarded to the farm) line, which is part of the chat design. I noticed and had it restored.
+
+**Agents stopping halfway.** Some agents stopped halfway because the disk was full (too many worktrees) or because of network errors, and the work had to be restarted from the task file. This is part of why I now remove worktrees after merge.
+
+**Parallel PRs colliding.** With several agents working at once, PRs kept conflicting on the shared `tasks.md` files, and merged PRs broke `main` CI together even when each was green alone ([#446](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/446), after DEV-229 and DEV-225). I approved splitting task notes into one file per issue (DEV-219, ADR 0014, [#414](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/414)) and moving merges to a merge queue (DEV-234, [#444](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/444)).
+
+**Spec text that was too loose (DEV-217).** The automatic spec-check review flagged that FEAT-06 did not say which varieties count. The agent added the rule (only varieties on sale, including paused products) to FEAT-06 flow 3, AC-06-2, `ia.md` and the wiki, and re-ran the tests after the spec commit ([#450](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/450)).
+
+**What is still not done.** The trace review in DEV-167 was done by an agent, and my human sign-off on those 90 verdicts is still pending. The journey rows still wait for the named reviewers. I3-DISC-03 and I3-PRE-05 have no recorded re-run after their fixes merged; only I3-DISC-05 was re-run (PASS on `0842d0b`).
+
+## 5. Human Decisions and Review
+
+I approved every design proposal before screen work started. The DEV-219 file layout (option A) was approved with the PM on November 4. I read the diffs and merged the PRs myself. In DEV-175 I reviewed the agent's 21 findings and confirmed their adoption and severity (2026-11-05).
+
+Some work stayed with people on purpose: the production database and Railway variables, the Kakao developer console, the Figma account and password, and the APK signing secrets. Agents never received those values.
+
+## 6. Lessons and Next Steps
+
+Splitting planning from execution helped most when the brief was strict about scope and verification. It did not protect against a wrong premise in the brief itself (DEV-228, DEV-236). The useful safeguard was an agent that is allowed to stop and report when what it finds disagrees with the brief.
+
+Most of the time lost in I3 came from parallel work, not from wrong code: conflicts, CI breaking only after merge, full disks. Per-issue task files and the merge queue fixed the conflicts, but they came late in the iteration.
+
+In I4 I want to sign off the DEV-167 review myself, re-run I3-DISC-03 and I3-PRE-05 on a fixed build, and start acceptance testing with real users so that the evaluation is not only agents checking agents.
+
+## Evidence and Session Review
+
+- Evaluation records: `docs/evaluation/i3-journeys/results/i3-b2-87792b7/`, `docs/evaluation/i3-ai-support/results.md` (DEV-167 section), `docs/evaluation/i3-t15-consumer-heuristics.md`.
+- PR bodies: the "AI 사용" block in each PR (agent time, tokens, AI errors), e.g. [#401](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/401), [#451](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/451), [#453](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/453).
+- Original logs, credentials and teammates' records are not included.
+
+## Representative Prompts
+
+My own instructions, in Korean, with an English translation. I did not record their exact times.
+
+- "지금부터 진행되는거 계획만 Fable로 하고 나머지 작업들은 opus 가 한다" (From now on, only planning is done with Fable; Opus does the rest of the work.)
+- "before after(screenshot or else)에 대해서 git pr, linear에 가능하고 효과적이면 추가하는걸로. agent에도 명시해줘" (Add before/after screenshots or similar to the PR and Linear when possible and useful. Write that into the agent instructions too.)
+- "뭐가 되었든 vercel주소는 vercel주소 안에서 이동하는게 맞아. 진행해" (Whatever the case, a Vercel address should stay within the Vercel address. Go ahead.)
+- "보류한 것은 닫고, 해야 하는 것은 빨리 진행하고, 이미 할 이유가 없는 것은 완료 처리" (Close what is on hold, do quickly what has to be done, and mark as done what no longer has a reason to be done.)
+
+---
+
 # AI Collaboration Report – Iteration 3 – Zahra Gholami
 
 Personal contribution · Draft for review, November 6, 2026.
