@@ -29,4 +29,6 @@
 | `dashboard_awaiting_count_down_by_1` | dashboard to-do `awaitingDeposit` 1 → 0; harvest target count 30 → 31 (observed, not asserted) | ✓ |
 | `consumer_producer_agree_item_amount_status` | After reload both roles show `p-house`, quantity 1, 29,000원, `RESERVED` | ✓ |
 
+Coverage note: the matrix row asks for the dashboard "to-do/count" update, asserted here as the `awaitingDeposit` to-do count. AC-14-1 is only partly verified: the total/reserved order metrics and the representative product's reserved kg were not asserted (spec-check SC-001, run 42211369650).
+
 **Verdict: PASS.** Trace: `.artifacts/i3-journeys/i3-b3-57d4843/I3-PRODORD-01.json`.

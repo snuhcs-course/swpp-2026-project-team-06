@@ -4,7 +4,7 @@ API-layer checks on the isolated local stack (docs/evaluation/i3-env/README.md).
 local DB first (fixture reset), then calls the same endpoints the producer/consumer apps and the admin
 page call, and reads the DB only to count rows (payments, manager events, decisions, allocations).
 
-    # API with the fault proxy (MANAGER-05 holds the AI call mid-generation)
+    # API behind the DEV-169 fault proxy (MANAGER-05 counts model calls; refunds never reach the model)
     python3 scripts/i3-ai-support/fault_proxy.py &
     cd server && ANTHROPIC_BASE_URL=http://127.0.0.1:8787 uv run uvicorn app.main:app --port 8173 &
     I3_API=http://localhost:8173 uv run python ../scripts/i3-journeys/order_manager.py [CASE ...]
