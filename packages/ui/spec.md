@@ -1,5 +1,10 @@
 # packages/ui spec
 
+## DEV-250 비공개 읽기 위치
+- chatViewState.ts는 React/API/인증 부작용 없는 geometry/ID 전용 계약과 bounded store를 제공한다. 메시지 본문·사진 URL·토큰은 보관하지 않는다.
+- 세션 generation과 대화별 lease로 늦은 callback을 무효화한다. 최대 20개, idle 30분, LRU. signed anchor offset은 부분 노출 메시지에 필요하다.
+- 실제 권한 확인과 화면 연결은 DEV-252, pagination/layout 복원은 DEV-251에서 수행한다(AC-12-9, N-05).
+
 > 구현하는 기능: 공용(두 앱의 모든 SCR) · 지키는 규칙: N-01, N-02
 > 레이블 원본: docs/spec/ia.md 4장 "레이블", 문구 원본: docs/spec/policy.md (여기에 다시 쓰지 않는다)
 

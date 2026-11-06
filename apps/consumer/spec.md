@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-250 읽기 위치 저장소
+chatViewState singleton은 메모리 geometry/ID만 가진다. consumer/user/session generation/thread ID로 격리하고 매 방문 lease를 새로 만든다. clear/eviction/재방문 뒤 이전 callback은 저장할 수 없다. 20개/idle 30분, 새 로그인·hard reload는 깨끗이 시작한다. 현재는 기반만 제공하며 인증·화면 연결은 DEV-252에서 적용한다.
+
 > 구현하는 기능: FEAT-01, FEAT-02, FEAT-06, FEAT-07, FEAT-08, FEAT-09, FEAT-10, FEAT-11, FEAT-12, FEAT-13, FEAT-15, FEAT-19(도착) · 지키는 규칙: R-03, R-05, R-06, R-17, R-20, R-21, R-23, M-02, M-04, M-08, M-14, N-01, N-02, N-05, N-06 (M-17은 I2)
 > 동작·규칙·인수 조건 원본: docs/spec/functional/ (여기에 다시 쓰지 않는다)
 > 화면·경로·레이블 원본: docs/spec/ia.md 2장·4장, 화면별 명세·API: docs/spec/screens.md 5장·7장, FEAT ↔ 폴더: docs/spec/tech-design/stack.md 4장
