@@ -45,6 +45,8 @@ if not any(host in DB_URL for host in ("@localhost", "@127.0.0.1")):
     sys.exit(f"refusing non-local DATABASE_URL: {DB_URL.split('@')[-1]}")
 
 API = os.environ.get("I3_API", "http://localhost:8173")
+if not API.startswith(("http://localhost", "http://127.0.0.1")):
+    sys.exit(f"refusing non-local API: {API}")
 PROXY = "http://127.0.0.1:8787"
 ROOT = SERVER.parent
 BASELINE = os.environ.get("I3_BASELINE", "i3-b3-57d4843")
