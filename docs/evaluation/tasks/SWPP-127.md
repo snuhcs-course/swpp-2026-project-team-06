@@ -14,6 +14,6 @@
 
 ### 작업
 - [x] Zahra 절 초안(근거: #371·#373·#377·#382·#387·#466, `docs/evaluation/i3-ai-support/results*.md`, 세션 `eed73422`)
-- [ ] Session Exporter 실행(10/28~11/6), 대표 프롬프트 확인·추가, 개인정보 확인
-- [ ] `TODO(Zahra)` 4곳 채우기(기록 검토, 도구·모델, 시간, 프롬프트 시각)
+- [x] Session Exporter 0.1.0 dry run(10/28~11/6): 6개 선택(Claude 4, Codex 2 중 1은 자동 리뷰), 2개 제외, 재검사 통과. 직접 입력 50개 중 10개 인용
+- [x] `TODO(Zahra)` 4곳 채움(도구: Claude Code `claude-opus-5-5`, Codex `gpt-6-luna`. 시간은 측정 안 함으로 기록)
 - [ ] Zahra 본인 문체·내용 검토

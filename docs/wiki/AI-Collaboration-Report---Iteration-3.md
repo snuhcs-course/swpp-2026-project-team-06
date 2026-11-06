@@ -91,9 +91,9 @@ Personal contribution · Draft for review, November 6, 2026.
 
 Period: October 28–November 6, 2026, Asia/Seoul, following the I3 project dates in Linear.
 
-**Records reviewed.** TODO(Zahra): Session Exporter run (version/commit, `--from 2026-10-28 --to 2026-11-06`), number of selected sessions and input records, dry-run and final re-scan result. The prompts below come from the Claude Code session `eed73422` (November 5–6); confirm their times against the export and add prompts from earlier I3 sessions.
+**Records reviewed.** I used the course Session Exporter 0.1.0 (commit `3251f6338e647fda5e7abb6f6108f6f176b5ae9f`) with `--tool both --from 2026-10-28 --to 2026-11-06 --timezone Asia/Seoul`. The dry run selected six sessions in this repository: four Claude Code sessions and two Codex sessions, one of which is an automatic review sub-session with no input from me. Two more Claude Code sessions were excluded because their working directory moved outside the repository. The final re-scan passed. From the selected sessions I read 50 input records I typed (44 Claude Code, 6 Codex), all from November 3–6. I have no agent sessions in this repository from October 28 to November 2. Tool responses, file-history backups and pasted teammate text are not quoted. The original logs are not published.
 
-**Tools and models.** Claude Code with `claude-opus-5-5`. TODO(Zahra): add any other agent and model recorded in the export. Claude Haiku 4.5, which the product's AI support calls, is separate from these development agents and was the system under test, not a tool I used to write code.
+**Tools and models.** The session metadata records Claude Code with `claude-opus-5-5` (four sessions) and Codex with `gpt-6-luna` (one session). Claude Haiku 4.5, which the product's AI support calls, is separate from these development agents and was the system under test, not a tool I used to write code.
 
 ## 1. Where AI Was Used
 
@@ -106,6 +106,10 @@ My I3 work was the AI customer-support evaluation and its fixes, plus the test s
 - **Iteration 3 demo** ([#466](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/466), DEV-181): the `iteration-3-demo` branch and README, and the recording script updated for I3 screens.
 
 ## 2. How I Revised the Prompts and Scope
+
+When the TA asked us to define which PR work goes to the agent and which to a person, I asked the agent what common practice is before writing rules. I limited mandatory human approval to a high-risk tier, which the team had agreed on. When its follow-up procedure for the spec-check comment became hard to follow, I said it was getting too complicated and asked how large companies handle it. I read the revised version before telling it to go ahead.
+
+When I asked Codex to check a README draft about AI support, I disagreed with its reading of the evidence-agreement check. Rather than argue the point, I narrowed the request to adding only the missing evaluation scope, then asked it to list the exact lines it had added.
 
 I started sessions by asking the agent to check the repository and Linear and tell me what was left, instead of assuming. When it proposed an order, I asked for a recommendation and the reason, then decided.
 
@@ -136,7 +140,7 @@ It also caught a mistake of its own. It noticed that the demo had been recorded 
 - #387 changes high-risk paths (`server/app/ai/**`, `server/app/core/config.py`). Under our SWPP-126 rule, my code review recorded in the PR description counts as the human review, and I put it in the merge queue myself.
 - The agent ran the review, tests and evaluation scripts. I did not run every test by hand.
 
-TODO(Zahra): human hours and agent hours. Do not add up session lengths; if they were not measured, say so.
+I did not measure human hours, active agent hours or total tokens for this work, so I do not report totals. Session length is not active work time, and parallel sessions overlap.
 
 ## 6. Lessons and Next Steps
 
@@ -149,15 +153,19 @@ A fix is a claim too. My own conflict check passed its tests and still had a gap
 - [#377: T09 evaluation](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/377), results [`results.md`](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/evaluation/i3-ai-support/results.md)
 - [#387: T22 fixes](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/387), re-run [`results-i3-b2.md`](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/evaluation/i3-ai-support/results-i3-b2.md)
 - [#371](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/371), [#373](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/373), [#382](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/382), [#466](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/466), [`iteration-3-demo`](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/iteration-3-demo)
-- TODO(Zahra): Session Exporter result, privacy check and exclusions. Original logs, ZIPs, credentials and teammates' personal records are not included.
+- [Course Session Exporter](https://github.com/snuhcs-course/session-exporter), commit `3251f6338e647fda5e7abb6f6108f6f176b5ae9f`: six sessions selected, two excluded (working directory outside the repository), final re-scan passed. The quoted prompts are my own input records. Original logs, credentials and teammates' personal records are not included.
 
 ## Representative Prompts
 
-Times are in Asia/Seoul. Session identifiers are shortened to eight characters. TODO(Zahra): confirm the times against the export and add prompts from earlier I3 sessions (T03, T09, SWPP-126).
+Times are in Asia/Seoul. Session identifiers are shortened to eight characters. Typos are kept as typed.
 
-- **2026-11-05 · Claude · `eed73422`:** check the latest changes on the repo as well as my latest works and update me on what there is to do
-- **2026-11-05 · Claude · `eed73422`:** between 387 and 464 which one do you think should be merged first
-- **2026-11-05 · Claude · `eed73422`:** no need to tell jinu, just add a comment in their pr
-- **2026-11-05 · Claude · `eed73422`:** can you not check railway yourself
-- **2026-11-06 · Claude · `eed73422`:** there are problems with the video. don't show the log in everytime. actually the log in is through kakaotalk, so remove taht flow entirely, it is for testing.
-- **2026-11-06 · Claude · `eed73422`:** I need to do the reports the same way it was done for i2 and i1. i don't remember what reports there are exactly
+- **2026-11-03 22:30:49 · Claude · `9d14a662`:** this is a feedback fromthe ta. [TA feedback: set clear criteria for which PR work goes to the agent and which to a person] what do you think? what is the common practice? how can we address this?
+- **2026-11-03 22:35:02 · Claude · `9d14a662`:** yes I talked with the team. go ahead. the human approval should be for the high risk tier especially
+- **2026-11-03 23:12:31 · Claude · `9d14a662`:** I don't udnerstand. I think it is getting overly complicated. how is this usually handled in big tech?
+- **2026-11-03 23:49:43 · Codex · `01a1a1de`:** can you check to see if this is accurate and covers everything [about an AI support README draft]
+- **2026-11-03 23:54:49 · Codex · `01a1a1de`:** forget about it. can you edit the readme i sent and ONLY add the missing scope of the evaluation?
+- **2026-11-05 22:08:51 · Claude · `eed73422`:** check the latest changes on the repo as well as my latest works and update me on what there is to do
+- **2026-11-05 23:14:33 · Claude · `eed73422`:** between 387 and 464 which one do you think should be merged first
+- **2026-11-05 23:27:13 · Claude · `eed73422`:** no need to tell jinu, just add a comment in their pr
+- **2026-11-05 23:57:37 · Claude · `eed73422`:** can you not check railway yourself
+- **2026-11-06 15:41:56 · Claude · `eed73422`:** there are problems with the video. don't show the log in everytime. actually the log in is through kakaotalk, so remove taht flow entirely, it is for testing.
