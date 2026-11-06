@@ -61,6 +61,8 @@ const table: {
 type RouteApp = "consumer" | "producer" | "any";
 const PRODUCER_ROUTES = [
   /^\/api\/auth\/producer-application$/,
+  // DEV-121 원산지 표시제도 안내 읽음(서버 Producer: 동의한 생산자, 승인 전도 됨)
+  /^\/api\/auth\/me\/notices$/,
   /^\/api\/farms\/me(\/|$)/,
   /^\/api\/products\/(mine|drafts|stage-presets)(\/|$)/,
   /^\/api\/orders\/producer(\/|$)/,
