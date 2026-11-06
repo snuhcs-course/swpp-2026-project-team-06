@@ -1,76 +1,84 @@
-# I3 AI 협업 보고서 — Jinwoo Jang 개인 분량
-Jinwoo Jang 개인 기여분 · 2026-11-06 검토 의견 반영
+# AI Collaboration Report – Iteration 3 – Jinwoo Jang
 
-기간 기준: Linear I3 프로젝트의 2026-10-28~2026-11-06, Asia/Seoul.
-자료 범위: 수업용 Session Exporter 0.1.0(@3251f6338e647fda5e7abb6f6108f6f176b5ae9f)을 사용했다. 사용자가 부분 추출을 허용해 I3 초반의 구조 이해 대화와 후반의 HE·AI 평가 대화, 총 2개 프로젝트 세션(Codex 1개, Claude Code 1개)을 선정했다. 사용자 역할 텍스트 기록 64건(58+6)을 입력 전용으로 분리한 뒤 공식 도구로 dry-run·로컬 ZIP 생성·최종 재검사를 통과했다. 이는 전체 I3·팀 전체·모든 모델 응답의 검토가 아니다.
+Personal contribution · Review feedback incorporated on November 6, 2026.
 
-전체 후보는75개였으나 원본 전체 응답의 최종 정규식 검사가 오래 걸려 중단했다. 처음 후보에 넣었던 별도 수업 실습 세션1개는 본 프로젝트 작업이 아니어서 제외했다. 도구 응답·첨부 이미지·파일 이력은 발췌본에서 제외했고, 자동 마스킹 외에 학번 형태를 추가로 가렸다. 검사를 통과한 범위는 입력 전용 발췌본이며 전체 원본 로그의 개인정보 검사 완료를 주장하지 않는다. 로컬 ZIP과 원본 로그는 공개하지 않는다.
+Period: October 28–November 6, 2026, Asia/Seoul, following the I3 project dates in Linear.
 
-확인한 도구·모델: Codex의 gpt-6.1-sol, Claude Code의 claude-opus-5-5(선정 세션 메타데이터 기준). 제품에서 호출한 Gemini는 개발 에이전트 모델과 구분한다.
+**Records reviewed.** I used the course Session Exporter 0.1.0 (commit `3251f6338e647fda5e7abb6f6108f6f176b5ae9f`). After choosing a partial export, I selected two project sessions: one Claude Code conversation about the architecture early in I3, and one Codex conversation about HE follow-up and AI evaluation later in I3. The input-only derivatives contain 64 user-role text records (58 + 6). The official tool completed a dry run, local ZIP export, and final re-scan of these derivatives. This is not a review of the entire iteration, every team member, or all model responses.
 
-## 1. AI를 어디에 사용했는가
-이번 이터레이션에서 나는 남은 휴리스틱 평가 의견의 수정, AI 채팅의 표시 오류 개선, AI 품질 평가 체계 보강, 상품 초안 생성의 사실 보존 개선에 AI 코딩 에이전트를 사용했다. AI에는 코드 조사·구현·회귀 검사·실측·문서 초안 작성을 맡겼다. 내가 맡은 역할은 작업 범위를 정하고, 평가 결과의 의미를 질문하며, 직접 확인할 산출물을 요구하고, 검토 후 반영 여부를 결정하는 것이었다.
+The initial discovery found 75 candidate sessions. I stopped the full-response export during its lengthy final regular-expression scan. A separate classroom-exercise session was excluded after checking that it was not project work. Tool responses, attached images, and file-history backups are excluded from the excerpts; student-ID patterns were additionally redacted. The successful privacy checks apply to the input-only excerpts, not the complete original histories. The local ZIP and original logs are not published.
 
-HE 후속에서는 첫 텍스트 입력을 마쳐도 포커스를 벗어나기 전까지 분석을 시작하지 못하는 문제와, 다음 버튼에서 멀리 떨어진 오류 안내를 수정했다(#458). 채팅에서는 질문과 AI 답변의 시각이 같을 때 화면 순서가 바뀌는 문제를 서버 저장 순번을 이용해 교정하고, 농가 전달의 내부 사유를 말풍선에 노출하지 않도록 했다(#463). 별도의 평가 도구는 실제 모델 호출 여부와 코드·데이터·실행 버전을 확인하고, 반복 실행과 최종 저장 상태를 구분해 보고하도록 했다(#465).
+**Tools and models.** The selected session metadata records Codex with `gpt-6.1-sol` and Claude Code with `claude-opus-5-5`. Gemini, which the product calls, is separate from these development agents.
 
-이후 초안 개선은 채팅과 분리해 진행했다. 동일한 추출 후보에서 작성되는 문장마다 숫자와 단위의 근거 ID를 빠짐없이 인용하고, 이미 인용된 후보에 남아 있는 안전한 사실도 보존하도록 지침을 바꿨다. 기존 금액·건강 주장·개인정보·근거 없는 숫자 검증은 완화하지 않았다. 이 변경은 #464의 검토 대상이며, 머지·배포가 끝난 작업으로 쓰지 않는다.
+## 1. Where AI Was Used
 
-## 2. 프롬프트와 작업 범위를 어떻게 바꿨는가
-처음의 요구는 남은 HE를 해결하고 AI 채팅과 초안의 개선을 숫자로 보여 달라는 것이었다. 진행하면서 나는 “개발셋으로 평가하고 있는지”, “채팅에도 홀드아웃이 있는지”, “내부 과정도 평가하는지”를 물었다. 결과가 좋다는 설명만으로는 어떤 능력이 개선됐는지 판단할 수 없었기 때문이다.
+During I3, I used coding agents to address remaining heuristic-evaluation feedback, fix chat display errors, strengthen the AI evaluation system, and improve factual preservation in product drafts. The agents investigated code, implemented changes, ran regression tests and measurements, and drafted documentation. My role was to set the scope, question what the results meant, request evidence I could inspect, and decide what to accept after review.
 
-평가 결과가 충분하지 않자 원인 분석을 먼저 요청했다. 분석에서 채팅의 과잉 전달과 초안의 인용 누락이 구분됐고, 나는 다음 개선 범위를 ‘초안만’으로 정했다. 수정할 대상을 좁혀 동일 조건에서 전후를 비교하도록 한 것이다. 공개 개발셋을 개선에 사용했다면 그 결과를 새로운 독립 검증이라고 부르지 않도록 했다.
+For HE follow-up, the agent fixed the analysis button remaining disabled until the first text input lost focus, and moved error feedback closer to the next-step controls ([#458](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/458)). For chat, it used the server's stored sequence to prevent a question and its AI reply from swapping positions when they shared a timestamp, and hid internal handoff reasons from message bubbles ([#463](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/463)). The evaluation tool checks actual model calls and code, data, and runtime versions, and reports repeated trials separately from persisted outcomes ([#465](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/465)).
 
-문서와 영상에도 같은 원칙을 적용했다. 영상은 단순히 화면이 보이는 것보다 사진을 넣고, 텍스트를 추출하고, 사람이 수정하고, 등록한 결과가 소비자에게 보이는 흐름을 요구했다. HE와 AI 사용 보고서는 한글 초안을 먼저 검수하고 나서 공유하도록 했다. 이 과정에서 AI의 조사·실행 권한과 사람의 검토·공개 결정을 구분했다.
+I later separated draft improvement from chat improvement. The draft instructions were changed to require every number and unit in a generated sentence to cite its supporting candidates, and to preserve safe facts even when their candidate had already been cited elsewhere. Existing checks for money, health claims, personal information, and unsupported numbers were retained. These changes are under review in [#464](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/464); they are not reported as merged or deployed.
 
-## 3. AI가 유용했던 점
-AI는 여러 계층의 원인을 함께 추적하는 데 도움이 됐다. 채팅 순서 문제는 서버에서 질문과 답이 같은 시각에 저장되고, 화면이 이를 무작위 메시지 ID로 다시 정렬하는 구조를 대조해 찾았다. 초안에서는 원문, 추출 후보, 인용 근거, 검증에서 거부된 문장, 최종 결과를 연결해 사실이 빠지는 위치를 조사했다.
+## 2. How I Revised the Prompts and Scope
 
-검사와 실행 기록을 함께 남긴 점도 유용했다. 새 오류 진단의 독립 테스트는 수정 전 54개 실패·14개 통과였고 수정 후 68개가 통과했다. 관련 회귀 묶음 812개도 통과했다. 이는 오류 진단과 기존 동작의 회귀 근거이지, AI 답변이 의미적으로 정확하다는 근거와 같지는 않다.
+The initial request was to resolve remaining HE issues and show numerical improvements in AI chat and draft generation. As work progressed, I asked whether the measurements used a development set, whether chat had a holdout set, and whether evaluation inspected the internal execution process. A claim that the results were better did not explain which capability had improved.
 
-초안 단계의 실측에서는 기존 47개 자료의 추출 후보를 동일하게 고정하고 양쪽을 각각 3회 실행했다. 기존 채점기 기준 사실 반영은 683/1062에서 699/1062로, 중요 사실 반영은 313/462에서 321/462로 증가했다. 금지 내용 탐지 건수는 6→5, 근거 없는 토큰은 2→2였다. 1062와 462는 각각 354개와 154개 사실을 세 번 평가한 분모이며 서로 다른 새 사실의 수가 아니다. 이 결과는 개발셋의 초안 단계에서 관측한 개선이고, 전체 사진 분석 성능·홀드아웃 통과·실서비스 정확도를 입증하지 않는다. 보고서 제출을 우선하라는 요청에 따라 성능 개선의 추가 분석과 후속 실측을 중단했다. 이미 생성된 전체 실행 로그는 보존했고, 여기서는 확인한 초안 단계 반복 비교만 보고한다. 추가 의미 검토에서는 원문의 개수 상한을 근사값으로 바꾸는 오류가 발견돼, 표면 점수 상승만으로 의미적 품질 비악화를 선언하지 않았다. 한정어 보존 검증을 후속 보강했지만 새 버전의 실측은 시작하지 않고 중단했으므로, 이 부분은 개선이 검증된 결과로 제시하지 않는다.
+When the evidence was insufficient, I asked for root-cause analysis first. That investigation separated unnecessary chat handoffs from missing draft citations. I then narrowed the next change to drafts only so that a smaller treatment could be compared under the same conditions. Results from a development set used for improvement should not be presented as fresh independent validation.
 
-## 4. 오류와 한계
-가장 중요한 한계는 실행 성공, 테스트 통과, 모델 품질을 쉽게 혼동할 수 있다는 점이었다. 초기 채팅 측정에는 provider 인증 오류 뒤의 안전한 fallback이 포함돼 있었다. 실제 모델이 성공적으로 응답한 평가와 구분하지 않으면 그 점수를 모델 품질로 오해할 수 있다. 이후 실제 모델명·응답 ID·usage·호출 경로를 확인하는 검사를 추가하고 기존 기록을 유효한 모델 품질 결과로 쓰지 않았다.
+I applied the same approach to documentation and recordings. I requested a visible sequence of uploading an image, extracting text, editing it manually, publishing it, and checking the consumer result. I also requested Korean drafts of the HE and AI collaboration reports for review before publication. This kept the agent's investigation and execution separate from the human decisions about acceptance and publication.
 
-공개 채팅 개발셋의 답변 가능 질문 30회가 모두 규칙 경로로 처리됐다는 사실도 확인됐다. 따라서 그 층의 높은 점수는 모델 생성 답변을 잘 검증한다는 의미가 아니었다. 독립 평가에서는 답할 수 있는 질문도 농가에 넘기는 문제가 남았다. 모델 호출 후 전달된 일부 사례는 원응답과 거부 코드가 보존되지 않아 원인을 소급 확정할 수 없었다.
+## 3. What AI Did Well
 
-초안도 단순한 점수 차이만으로 원인을 설명할 수 없었다. 기존 222→218/354의 하락에는 OCR·추출 단계의 실패가 포함돼 있었다. 다른 사례에서는 모델이 중량과 과수를 함께 쓰면서 중량 근거 ID를 인용하지 않아 문장이 거부됐다. 검사기를 제거하기보다 생성 단계의 인용 완전성을 고쳐야 할 문제였다. 또한 기존 채점기는 ‘발란스/밸런스’ 같은 표현 차이를 놓칠 수 있어, strict 점수를 완전한 의미 정확도로 해석하지 않았다.
+AI was useful for tracing a problem across multiple layers. The chat ordering investigation connected identical server timestamps with the UI's secondary sorting by random message ID. For drafts, the agent followed information from the source through extracted candidates, citations, rejected sentences, and the final output to locate where facts were lost.
 
-이 과정에서 평가를 시작한 뒤 실행기 연결 문제를 발견하는 비용도 들었다. 첫 초안 반복 실행은 기존 정답 파일의 연결 방식과 공통 실행기를 정리하기 전의 진단 기록으로 보존하고 비교에서 제외했다. 이 제외는 좋은 점수만 고르기 위한 것이 아니며, 해당 호출 비용과 결과도 남겼다.
+Keeping execution evidence alongside tests was also useful. The independent failure-diagnostic tests produced 54 failures and 14 passes on the old implementation, then 68 passes after the change. The related regression suite passed 812 tests. These results support the diagnostic change and regression checks; they do not establish the semantic accuracy of generated answers.
 
-## 5. 사람이 직접 판단하고 확인한 부분
-나는 작업 현황을 먼저 확인하도록 요구했고, 사용자 확인과 온보딩은 다음 이터레이션으로 미루고 이번에는 버그 수정과 AI 실측에 집중하도록 범위를 정했다. 벤치 수치의 출처, 개발셋과 홀드아웃, 반복 평가와 내부 과정의 의미도 계속 질문했다.
+For draft-stage measurements, the extracted candidates from the existing 47 materials were frozen and each arm was run three times. Under the unchanged scorer, fact hits increased from **683/1062 to 699/1062**, and critical-fact hits from **313/462 to 321/462**. Forbidden-content detector counts changed from **6 to 5**, while unsupported tokens remained **2 to 2**. The denominators repeat 354 facts and 154 critical facts three times; they are not counts of distinct new facts.
 
-#458·#463·#465의 diff를 직접 검토했다고 확인하고 머지를 승인했다. #464는 평가 결과가 충분하지 않은 상태에서 함께 머지하지 않고 보류했다. 이후 원인 분석을 보고 초안만 개선하도록 다시 범위를 좁혔다. 따라서 내가 모든 코드를 직접 작성하거나 모든 테스트를 손으로 수행했다고 쓰지는 않는다. 코드와 실측의 실행자는 AI이며, 범위·우선순위·검토·공개 결정은 사람의 책임으로 남겼다.
+This was an observed development-set improvement at the refinement stage, not proof of full image-analysis quality, holdout acceptance, or production accuracy. I subsequently asked to prioritize the reports and stop further performance work. Existing full-pipeline logs were preserved; this report presents only the checked refinement-stage comparison. Semantic review also found an upper count bound being rewritten as an approximate count. We therefore did not treat the higher surface score as proof that semantic quality had not regressed. A follow-up qualifier-preservation check was implemented, but paid evaluation of that version was not started before work stopped.
 
-이번 작업의 사람 시간, AI 활성 작업 시간과 토큰 총량은 정확히 계측한 값이 없으므로 임의로 산정하지 않는다. 세션의 시작·종료 차이를 실제 작업 시간으로 바꾸거나, 여러 에이전트·이어진 세션의 토큰을 중복 합산하지 않는다.
+## 4. Errors and Limitations
 
-## 6. 배운 점과 다음 행동
+The main risk was confusing successful execution, passing tests, and model quality. An early chat measurement included safe fallback responses after a provider authentication error. Without separating those from successful model responses, the score could be mistaken for model quality. The evaluation was strengthened to check the actual model, response ID, usage, and route, and the earlier record was not treated as valid model-quality evidence.
 
-이번 이터레이션을 통해 AI 에이전트를 평가할 때는 한 가지 방법에만 의존해서는 안 된다는 것을 알게 됐다. 회귀 테스트로 기존 기능을 확인하고, 같은 조건의 반복 실측으로 변동을 살피며, 내부 실행 기록과 실제 출력의 의미를 함께 검토해야 했다. 실제로 초안 점수는 올랐지만 개수의 상한을 근사값으로 바꾸는 문제는 숫자 지표만으로 드러나지 않았다. 코드 테스트, 정량 지표, 실패 원인 분석과 의미 검토는 서로 다른 문제를 찾아냈다.
+All 30 answerable-question trials in the public chat development set took the rule path. Their high score therefore did not establish that model-generated answers were being validated well. Independent evaluation still found unnecessary handoffs on answerable questions. Some post-model handoffs could not be fully diagnosed because the original model response and guard-specific rejection codes had not been retained.
 
-AI에게 단순히 ‘개선해’라고 요청하는 것만으로는 별로 도움이 되지 않는다는 점도 배웠다. 무엇이 잘못됐는지, 어떤 조건을 유지해야 하는지, 무엇이 나아지면 개선이라고 볼 것인지를 구체적으로 정해야 했다. 이번에는 원인을 먼저 분석하고 초안으로 범위를 좁힌 뒤 동일한 입력과 채점 기준으로 비교하면서, 이전보다 설명할 수 있는 결과를 얻기 시작했다. 다만 점수가 올랐다는 이유만으로 기능이 충분히 유용해졌다고 판단하지는 않으려 한다.
+The earlier draft decrease from **222 to 218/354** also could not be explained by the aggregate score alone: it included OCR and extraction failures. In another case, the model combined package weights with piece counts but omitted the weight candidates from its citations, causing the sentences to be rejected. The appropriate fix was more complete generated citations, rather than removing the validator. The strict scorer can also miss equivalent Korean wording or spelling variants, so its score was not presented as complete semantic accuracy.
 
-다음 이터레이션에서는 이러한 평가 방법에 실제 사용자 평가를 더해 의미 있는 기능을 만들어 보고자 한다. 사용자가 실제 과업을 수행하는 모습을 보면서 남은 HE 의견이 유효한 문제인지, 이미 수정한 부분이 사용자의 혼란과 오류를 줄였는지 확인할 계획이다. AI가 빠르게 구현한 기능을 그대로 늘리기보다, 사용자가 필요로 하는 기능과 효과가 있는 개선을 찾아가는 데 AI를 활용하고 싶다.
+Evaluation setup itself caused rework. The first refinement run preceded corrections to the gold-file connection and common runner. Its outputs and cost were retained as diagnostic evidence and excluded from the paired comparison. This exclusion was based on the execution protocol, not on selecting a favorable score.
 
-## 검수용 근거 목록
-- #458: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/458
-- #463: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/463
-- #465: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/465
-- #464(검토 중): https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/464
-- 원인 분석과 검증 기록: 위 #464의 작업 기록·평가 결과. 원본 로컬 로그는 공개하지 않는다.
-- 초안 반복 비교: 기존 개발셋·후보 스냅샷을 고정한 전후 각3회. 본문 수치는 해당 로컬 실측 집계와 대조했다.
-- 수업용 추출 도구: snuhcs-course/session-exporter @3251f6338e647fda5e7abb6f6108f6f176b5ae9f
-- 입력 발췌본의 익스트랙터 최종 재검사는 통과했다. 원본 로그·ZIP·시크릿·팀원의 개인 기록은 이 보고서에 포함하지 않는다. 선택 범위 밖의 작업은 PR·커밋·실측을 보조 근거로 사용했다.
+## 5. Human Decisions and Review
 
+I asked the agent to establish the current status before assigning more work. I deferred onboarding and post-change user testing to the next iteration, and focused this iteration on bugs and AI measurements. I also questioned the source of benchmark numbers and the meanings of development sets, holdouts, repeated trials, and internal-process evaluation.
 
-## 대표 프롬프트
+I confirmed that I had read the diffs for #458, #463, and #465 and approved their merges. I kept #464 on hold when its quality evidence was insufficient. After reviewing the root-cause findings, I narrowed the next improvement to drafts. I did not write every implementation line or manually execute every test. The agents performed implementation and measurements; scope, priorities, review, and publication decisions remained my responsibility.
 
-작업의 방향을 정하고 결과를 확인할 때 사용한 대표 프롬프트는 다음과 같다. 시각은 한국 시각이며 세션은 앞8자리만 표시한다.
+Human hours, active agent hours, and total tokens were not measured precisely for this work, so I do not invent totals. Session elapsed time is not treated as active work time, and token totals from overlapping agents or resumed sessions are not added without checking for duplication.
 
-- 2026-10-28 15:29:31 · claude · 세션 `5b2aa563`: AI 채팅과 편집 기능의 구조를 설명해 주세요.
-- 2026-10-28 15:35:45 · claude · 세션 `5b2aa563`: OCR 전처리가 필요한 이유를 설명해 주세요.
-- 2026-11-05 21:17:47 · codex · 세션 `01a1ab7c`: 현재 실측은 개발셋을 대상으로 진행하고 있는 건가요?
-- 2026-11-05 21:18:11 · codex · 세션 `01a1ab7c`: AI 채팅에도 홀드아웃 데이터가 있나요? 없다면 별도로 만들어 주세요.
-- 2026-11-06 16:13:28 · codex · 세션 `01a1ab7c`: 평가에서 내부 실행 과정도 확인하고 있나요? 현재 문제를 설명해 주세요.
-- 2026-11-06 16:14:05 · codex · 세션 `01a1ab7c`: 개선 작업에 앞서 원인부터 분석해 주세요.
+## 6. Lessons and Next Steps
+
+I learned that evaluating AI agents requires several methods together. Regression tests check existing behavior; repeated measurements under the same conditions expose variation; execution traces and semantic review help explain what the outputs actually mean. The draft score increased, but numerical metrics alone missed an upper bound becoming an approximation. Code tests, quantitative metrics, failure analysis, and semantic review each found different problems.
+
+I also learned that simply telling AI to “improve it” is not very helpful. I needed to specify what was wrong, what conditions must remain unchanged, and what observable result would count as an improvement. Investigating the cause, narrowing the scope to drafts, and comparing the same inputs with the same scorer produced results that were easier to explain. A higher score alone still does not tell me whether a feature has become useful enough.
+
+In the next iteration, I want to combine these evaluation methods with real user evaluation to build meaningful features. Observing users perform tasks should help establish whether the remaining HE feedback identifies real problems and whether the completed fixes reduce confusion and errors. Rather than simply expanding what AI can implement quickly, I want to use it to find features users need and changes that make a measurable difference to their experience.
+
+## Evidence and Session Review
+
+- [#458: HE follow-up](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/458)
+- [#463: chat ordering and handoff display](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/463)
+- [#465: evaluation system](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/465)
+- [#464: changes under review](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/464). Original local logs remain private.
+- The refinement comparison uses frozen development candidates and three trials per arm. The reported figures were checked against the local aggregates.
+- [Course Session Exporter](https://github.com/snuhcs-course/session-exporter), commit `3251f6338e647fda5e7abb6f6108f6f176b5ae9f`.
+- The input-only excerpts passed the exporter's final re-scan. Original logs, ZIPs, credentials, and teammates' personal records are not included. PRs, commits, and measurements provide supplementary evidence for work outside the selected sessions.
+
+## Representative Prompts
+
+These examples show requests used to direct the work and review its results. Times are in Asia/Seoul; session identifiers are shortened to eight characters.
+
+- **2026-10-28 15:29:31 · Claude · `5b2aa563`:** Please explain the architecture of AI chat and editing.
+- **2026-10-28 15:35:45 · Claude · `5b2aa563`:** Please explain why OCR preprocessing is necessary.
+- **2026-11-05 21:17:47 · Codex · `01a1ab7c`:** Are the current measurements being run on the development set?
+- **2026-11-05 21:18:11 · Codex · `01a1ab7c`:** Does AI chat have a holdout dataset? If not, please create a separate one.
+- **2026-11-06 16:13:28 · Codex · `01a1ab7c`:** Does the evaluation also inspect the internal execution process? Please explain the current problem.
+- **2026-11-06 16:14:05 · Codex · `01a1ab7c`:** Please analyze the root cause before making further improvements.
