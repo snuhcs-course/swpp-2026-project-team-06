@@ -205,7 +205,7 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   const selectedStage = new URL(page.url()).searchParams.get("stage");
   expect(selectedStage).toBeTruthy();
   await expect(page.locator(`[id="stage-${selectedStage}"]`)
-    .getByRole("button", { name: /수확 시작 · 출하 준비/ })).toBeVisible();
+    .getByRole("button", { name: /^(?:수확 시작 · 출하 준비 \d+건|남은 예약 \d+건도 출하 준비로)$/ })).toBeVisible();
   expect(harvestWrites).toEqual([]);
 });
 
