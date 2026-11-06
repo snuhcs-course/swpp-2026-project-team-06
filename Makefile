@@ -148,3 +148,5 @@ clean-worktrees: ## Remove merged .claude/worktrees/* (lists only; CONFIRM=1 rem
 .PHONY: test-evals-v2
 test-evals-v2: ## Offline evaluation-system gates, graders and negative/reference examples (DEV-241)
 	python3 -m unittest discover -s scripts/evals-v2/tests -v
+
+include make/*.mk
