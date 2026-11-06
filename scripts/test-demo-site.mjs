@@ -107,28 +107,36 @@ test("DEV-134 자막 점검: story.mjs cap() 인자를 구간별로 읽고 시�
 });
 
 test("DEV-134 demo:record 계획: local은 로컬 주소·관리자 비밀번호 확인, prod는 프로필과 --yes가 있어야 한다", () => {
-  const local = planRecord(["--target", "local", "p1", "c1"], { DEMO_API_PORT: "8134", DEMO_CONSUMER_PORT: "8234" });
+  // 실제 시나리오 대신 작은 고정 시나리오(mini: p1·a1·c1)로 본다. 시나리오에 구간이 늘어도(I3 p5·c4 등) 이 테스트는 그대로
+  const plan = (argv, env) => planRecord(argv, env, mini);
+  const local = plan(["--target", "local", "p1", "c1"], { DEMO_API_PORT: "8134", DEMO_CONSUMER_PORT: "8234" });
   assert.deepEqual(local.problems, []);
   assert.deepEqual(local.segments, ["p1", "c1"]);
   assert.equal(local.env.FARMCLUB_API_URL, "http://localhost:8134");
   assert.equal(local.env.FARMCLUB_CONSUMER_URL, "http://localhost:8234");
   assert.equal(local.env.FARMCLUB_PRODUCER_URL, "http://localhost:8082");
   assert.equal(local.env.DEMO_KAKAO, "0");
-  assert.deepEqual(planRecord([], {}).segments, scenario.order);
-  assert.match(planRecord(["a1"], {}).problems.join(), /ADMIN_WEB_PASSWORD/);
-  assert.deepEqual(planRecord(["a1"], { ADMIN_WEB_PASSWORD: "x" }).problems, []);
-  assert.match(planRecord(["p1"], { FARMCLUB_API_URL: "https://api.farmclub.kr" }).problems.join(), /로컬 주소가 아니에요/);
-  assert.match(planRecord(["--target", "staging"], {}).problems.join(), /local 또는 prod/);
-  assert.match(planRecord(["z9"], {}).problems.join(), /모르는 구간: z9/);
-  assert.match(planRecord(["p5"], {}).notes.join(), /시나리오 순서에 없는 구간: p5/);
+  assert.deepEqual(plan([], {}).segments, mini.order);
+  assert.match(plan(["a1"], {}).problems.join(), /ADMIN_WEB_PASSWORD/);
+  assert.deepEqual(plan(["a1"], { ADMIN_WEB_PASSWORD: "x" }).problems, []);
+  assert.match(plan(["p1"], { FARMCLUB_API_URL: "https://api.farmclub.kr" }).problems.join(), /로컬 주소가 아니에요/);
+  assert.match(plan(["--target", "staging"], {}).problems.join(), /local 또는 prod/);
+  assert.match(plan(["z9"], {}).problems.join(), /모르는 구간: z9/);
+  assert.match(plan(["p5"], {}).notes.join(), /시나리오 순서에 없는 구간: p5/);
+  assert.deepEqual(plan(["p1"], {}).notes, []);
+  // 실제 시나리오: 기본(구간 없음)은 order 전체이고, order에 있는 구간은 알림 없이 찍는다
+  const real = planRecord([], { ADMIN_WEB_PASSWORD: "x" });
+  assert.deepEqual(real.segments, scenario.order);
+  assert.deepEqual(real.problems, []);
+  assert.deepEqual(real.notes, []);
 
-  const prod = planRecord(["--target", "prod", "p1"], {});
+  const prod = plan(["--target", "prod", "p1"], {});
   assert.match(prod.problems.join("\n"), /DEMO_PROFILE[\s\S]*--yes/);
-  const ok = planRecord(["--target", "prod", "--yes", "p1"], { DEMO_PROFILE: "demo/.raw/prod-profile" });
+  const ok = plan(["--target", "prod", "--yes", "p1"], { DEMO_PROFILE: "demo/.raw/prod-profile" });
   assert.deepEqual(ok.problems, []);
   assert.equal(ok.env.DEMO_KAKAO, "1");
   assert.equal(ok.env.FARMCLUB_CONSUMER_URL, "https://farmclub.kr");
-  assert.equal(planRecord(["--target=prod", "--dry-run"], { DEMO_PROFILE: "p" }).problems.length, 0);
+  assert.equal(plan(["--target=prod", "--dry-run"], { DEMO_PROFILE: "p" }).problems.length, 0);
 });
 
 test("DEV-134 demo:publish 계획: 영상이 다 있고 길이가 manifest와 같아야 하며, 새 Release는 영상이 모두 있어야 한다", () => {
