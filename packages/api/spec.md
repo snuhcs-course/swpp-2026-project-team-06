@@ -1,5 +1,10 @@
 # packages/api spec
 
+## DEV-247 결제 주문 시작
+- startChat(farmId,key?,{orderId}?)는 선택 세 번째 인자로 문맥을 보낸다. 기존 1/2인자 호출은 같은 본문을 유지한다. 빈 문자열을 일반 시작으로 바꾸지 않는다.
+- Mock threadOrderContexts는 문의/메시지와 별도다. 기존 schema-9 state에 없는 선택 필드는 빈 연결로 읽고 명시적 POST에서만 추가한다. 기존 대화 데이터를 자동 초기화하지 않는다.
+- 시작과 cached replay 이전에 현재 결제·소유·농가를 확인하고 목록/읽음/사진도 같은 유효 연결 규칙을 쓴다. 일반 자동 팔로우와 문제 문의 HUMAN 전환은 기존 계약이다.
+
 > 구현하는 기능: 공용(두 앱의 서버 호출) · 지키는 규칙: N-05, N-06
 > API 원본: docs/spec/screens.md 7장(엔드포인트·오류 형식·페이지네이션·멱등 키), 구현 후에는 서버 코드에서 나온 OpenAPI 스키마(ADR 0007). 서버 계약: server/spec.md
 

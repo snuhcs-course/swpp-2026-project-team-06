@@ -214,6 +214,8 @@ export type DB = {
   aiSettings: Record<string, AiSettings>;
   aiHistory: { farmId: string; settings: AiSettings; createdAt: string }[];
   inquiries: Inquiry[];
+  /** Additive schema-9 field. Old saved DBs mean no explicit order entries. */
+  threadOrderContexts?: { threadId: string; orderId: string; createdAt: string }[];
   attachments: Record<
     string,
     Attachment & {
@@ -434,6 +436,7 @@ export function seed(): DB {
     aiSettings: {},
     aiHistory: [],
     inquiries: [],
+    threadOrderContexts: [],
     attachments: {},
     roomReplies: [],
     seq: 1000,
