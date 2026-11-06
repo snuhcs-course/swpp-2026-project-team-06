@@ -23,6 +23,14 @@ await page.goto(`${producerUrl}/login`);
 await page.getByRole("radio", { name: /신규 생산자/ }).first().click();
 await btn(/시작하기$/).click();
 await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 });
+// 첫 방문 도움말 투어(Tour.tsx `help-guide-seen`)를 본 것으로 둔다. 승인 직후 현황 화면에 투어가 뜨면 영상이 가려진다
+const ns = await page.evaluate(() => {
+  const key = Object.keys(localStorage).find((k) => k.startsWith("farmclub-producer") && k.includes(":"));
+  const prefix = key ? key.split(":")[0] : null;
+  if (prefix) localStorage.setItem(`${prefix}:help-guide-seen`, "1");
+  return prefix;
+});
+if (!ns) throw new Error("생산자 앱 저장소 이름을 찾지 못해 도움말 투어를 끌 수 없어요");
 
 // 관리자 페이지
 if (process.env.ADMIN_WEB_PASSWORD) {
