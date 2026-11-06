@@ -26,7 +26,7 @@
 | `confirm_200_reserved` | confirm-deposit **200**, status `RESERVED` | ✓ |
 | `one_payment_record` | `payments` rows for `o-4487725028`: 1 | ✓ |
 | `confirmation_time_and_actor_recorded` | `paid_at` 2026-10-07T01:00:00+00:00 (the fixed clock), `deposit_confirmed_by` `PRODUCER` | ✓ |
-| `dashboard_awaiting_count_down_by_1` | dashboard to-do `awaitingDeposit` 1 → 0; harvest target count 30 → 31 (the order joined the reserved stage) | ✓ |
+| `dashboard_awaiting_count_down_by_1` | dashboard to-do `awaitingDeposit` 1 → 0; harvest target count 30 → 31 (observed, not asserted) | ✓ |
 | `consumer_producer_agree_item_amount_status` | After reload both roles show `p-house`, quantity 1, 29,000원, `RESERVED` | ✓ |
 
 **Verdict: PASS.** Trace: `.artifacts/i3-journeys/i3-b3-57d4843/I3-PRODORD-01.json`.
