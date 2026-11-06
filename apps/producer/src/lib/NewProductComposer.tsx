@@ -4,6 +4,7 @@ import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 // 새 상품 한 화면 편집(DEV-184): 기본 정보 + 상세페이지를 한 스크롤에 두고,
 // 사진·자료는 아래에 붙은 AI 시트에서 넣는다. 비공개 저장과 명시적 적용은 그대로 나눈다.
 import { useSourceBasicInfo, type BasicInfoKey } from "./SourceBasicInfo";
+import { OriginFieldHint } from "./OriginFieldHint";
 import { SourceAttachments } from "./SourceAttachments";
 import {
   catalog,
@@ -1000,11 +1001,13 @@ export function NewProductComposer() {
                             <FillInput
                               label="원산지"
                               value={form.origin}
-                              placeholder="예: 제주 서귀포"
+                              placeholder="예: 서귀포시"
                               maxLength={30}
                               editable={!busy}
                               onChange={(v) => setField("origin", v)}
                             />
+                            {/* DEV-121: 원산지 표시 형식과 안내 화면 */}
+                            <OriginFieldHint />
                           </View>
                         ),
                         size: (

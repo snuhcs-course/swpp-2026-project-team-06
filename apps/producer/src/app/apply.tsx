@@ -11,6 +11,8 @@ import {
   Scroll,
   Sheet,
   T,
+  originNotice,
+  tokens,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -49,6 +51,8 @@ const POLICY: [string, string][] = [
     "고객 정보",
     "배송에 필요한 정보만 보고 배송 목적으로만 써요. 배송 완료 후에는 가려져요.",
   ],
+  // DEV-121: 원산지 표시제도(원산지표시법 제6조 ⑥). 전체 안내는 /origin-notice
+  originNotice.policy,
   [
     "직거래 유도 금지",
     "소식·채팅에 연락처·계좌를 적거나 farmclub에서 만난 소비자에게 직접 파는 것을 금지해요. 연락처는 자동으로 가려져요.",
@@ -253,6 +257,20 @@ export default function Apply() {
               {k}
             </T>
             <T variant="sub">{v}</T>
+            {k === originNotice.policy[0] ? (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => {
+                  setPolicy(false);
+                  router.push("/origin-notice");
+                }}
+                style={{ minHeight: 40, justifyContent: "center", alignSelf: "flex-start" }}
+              >
+                <T variant="sub" weight="semibold" color={tokens.color.accent}>
+                  원산지 표시제도 안내 ›
+                </T>
+              </Pressable>
+            ) : null}
           </View>
         ))}
         <Button
