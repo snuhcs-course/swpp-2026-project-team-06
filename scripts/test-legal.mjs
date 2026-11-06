@@ -118,9 +118,16 @@ test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async ()
   assert.ok(server, "server CONSENT_VERSION");
   assert.equal(mock, server);
   assert.equal(content.LEGAL_VERSION, server);
-  // 화면의 시행일과 버전이 같은 날짜다
+  // 버전은 동의 항목이 바뀐 시행일이다. 문구만 바뀐 변경(DEV-122)은 시행일만 늦추고 버전은 그대로 둔다.
+  // 버전 날짜는 처리방침 변경 기록에 있고, 처리방침 시행일보다 늦지 않다
   const [y, m, d] = server.split("-").map(Number);
-  assert.equal(content.privacyPolicy.effective, `${y}년 ${m}월 ${d}일`);
+  const html = pages.pageHtml(content.privacyPolicy);
+  assert.ok(html.includes(`${y}년 ${m}월 ${d}일 변경:`), "version date is a recorded change");
+  const toIso = (k) => k.replace(/(\d+)년 (\d+)월 (\d+)일/, (_, a, b, c) => `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`);
+  assert.ok(server <= toIso(content.privacyPolicy.effective), "version is not after the privacy effective date");
+  // 시행일이 버전보다 늦으면 마지막 변경 기록이 재동의하지 않는다고 적는다
+  if (toIso(content.privacyPolicy.effective) !== server)
+    assert.match(html, new RegExp(`${content.privacyPolicy.effective} 변경:[^<]*다시 동의를 받지 않습니다`));
 });
 
 test("DEV-150: privacy policy names the consumer farmclub support room and bumps the version", () => {
@@ -136,5 +143,36 @@ test("DEV-121: terms Art. 14 says the company gives the origin labeling notice, 
   // 시행 7일 전 고지(약관 제4조), 변경 기록에 재동의하지 않는 이유
   assert.equal(content.termsOfService.effective, "2026년 11월 13일");
   assert.match(html, /2026년 11월 13일 변경: 제14조에 회사가 판매자에게 원산지 표시제도를 안내한다는 문장을 더했습니다[^<]*다시 동의를 받지 않습니다/);
+  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+});
+
+test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basis is no longer legitimate interest", () => {
+  const html = pages.pageHtml(content.privacyPolicy);
+  // 이용 통계·세션 녹화의 근거는 정당한 이익(제15조 제1항 제6호)이 아니다
+  assert.doesNotMatch(html, /정당한 이익/);
+  assert.doesNotMatch(html, /제15조 제1항 제6호/);
+  assert.match(html, /이용 통계·세션 녹화는 [^<]*계약 이행\(제15조 제1항 제4호\)/);
+  // 국외 이전 근거는 제3호 가목(처리방침 공개)으로 조문까지 적는다(시행령 제31조 제1항 제2호)
+  assert.ok(html.includes("제28조의8 제1항 제3호 가목"));
+  // 제28조의8 제2항: 항목, 국가·시기·방법, 이전받는 자와 연락처, 목적·보유 기간, 거부 방법·효과
+  const row = html.match(/<tr><td>PostHog, Inc\. \(privacy@posthog\.com\)<\/td>(.*?)<\/tr>/s)?.[1];
+  assert.ok(row, "PostHog row in the transfer table");
+  assert.ok(row.includes("<td>미국</td>"));
+  for (const item of ["접속 IP 주소", "세션 녹화", "*로 가려", "서비스 내부 회원 ID", "이름·연락처·주소·메시지 본문은 보내지 않음"]) assert.ok(row.includes(item), item);
+  assert.ok(row.includes("공식 주소(farmclub.kr, farm.farmclub.kr)의 웹 화면에서만"));
+  assert.match(row, /1년/);
+  assert.match(row, /30일/);
+  assert.doesNotMatch(row, /보관 설정 기간/);
+  assert.ok(html.includes("이전 시기와 방법: 서비스를 이용할 때마다"));
+  assert.match(html, /PostHog로의 이전\(이용 통계·세션 녹화\)은 서비스 안에 따로 끄는 설정이 아직 없습니다/);
+  assert.ok(html.includes("막아도 서비스 이용에는 지장이 없습니다"));
+  // 처리위탁 표에도 PostHog가 있다(제26조 제2항)
+  assert.ok(html.includes("<td>PostHog, Inc.</td><td>이용 통계·세션 녹화 분석(웹)</td>"));
+  // 자동 수집 장치: 공식 주소에서만, 세션 녹화 포함, 쿠키 차단만으로 전송이 멈추지 않을 수 있음
+  assert.match(html, /공식 주소\(farmclub\.kr, farm\.farmclub\.kr\)의 웹 화면에서는 이용 통계 도구 PostHog/);
+  assert.ok(html.includes("쿠키·저장소를 막아도 PostHog 전송은 이어질 수 있으니"));
+  // 변경 기록과 시행일(시행 7일 전 고지, 제14조)
+  assert.ok(html.includes("2026년 11월 13일 변경: PostHog(미국)로의 국외 이전"));
+  assert.equal(content.privacyPolicy.effective, "2026년 11월 13일");
   assert.equal(content.LEGAL_VERSION, "2026-10-29");
 });
