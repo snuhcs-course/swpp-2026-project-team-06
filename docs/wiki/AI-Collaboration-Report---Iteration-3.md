@@ -170,3 +170,87 @@ My own instructions, in Korean, with an English translation. I did not record th
 - "before after(screenshot or else)에 대해서 git pr, linear에 가능하고 효과적이면 추가하는걸로. agent에도 명시해줘" (Add before/after screenshots or similar to the PR and Linear when possible and useful. Write that into the agent instructions too.)
 - "뭐가 되었든 vercel주소는 vercel주소 안에서 이동하는게 맞아. 진행해" (Whatever the case, a Vercel address should stay within the Vercel address. Go ahead.)
 - "보류한 것은 닫고, 해야 하는 것은 빨리 진행하고, 이미 할 이유가 없는 것은 완료 처리" (Close what is on hold, do quickly what has to be done, and mark as done what no longer has a reason to be done.)
+
+---
+
+# AI Collaboration Report – Iteration 3 – Zahra Gholami
+
+Personal contribution · Draft for review, November 6, 2026.
+
+Period: October 28–November 6, 2026, Asia/Seoul, following the I3 project dates in Linear.
+
+**Records reviewed.** I used the course Session Exporter 0.1.0 (commit `3251f6338e647fda5e7abb6f6108f6f176b5ae9f`) with `--tool both --from 2026-10-28 --to 2026-11-06 --timezone Asia/Seoul`. The dry run selected six sessions in this repository: four Claude Code sessions and two Codex sessions, one of which is an automatic review sub-session with no input from me. Two more Claude Code sessions were excluded because their working directory moved outside the repository. The final re-scan passed. From the selected sessions I read 50 input records I typed (44 Claude Code, 6 Codex), all from November 3–6. I have no agent sessions in this repository from October 28 to November 2. Tool responses, file-history backups and pasted teammate text are not quoted. The original logs are not published.
+
+**Tools and models.** The session metadata records Claude Code with `claude-opus-5-5` (four sessions) and Codex with `gpt-6-luna` (one session). Claude Haiku 4.5, which the product's AI support calls, is separate from these development agents and was the system under test, not a tool I used to write code.
+
+## 1. Where AI Was Used
+
+My I3 work was the AI customer-support evaluation and its fixes, plus the test setup and demo around it. I used a coding agent to build and run evaluation harnesses, implement fixes, merge and test branches, review PRs, and draft records. I set the scope, decided which results to trust, and approved what was merged.
+
+- **Test environment and baseline** ([#371](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/371), DEV-165) and **evaluator test accounts for the HE in native builds** ([#373](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/373), DEV-200).
+- **AI support evaluation, T09** ([#377](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/377), DEV-169): the frozen 60-question protocol (DEV-154) run three times per case. The first cohort scored **141/180** and failed 2 of 5 state and failure guards. It found three defects: a stale AI reply saved after the farm replied or switched mode, an 8.02 s timeout against an 8 s limit, and rule answers that ignored conflicting registered facts.
+- **Fixes, T22** ([#387](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/387), DEV-180): the re-run on the same corpus, harness, model and prompt scored **180/180** with guards **5/5**. The log records 72 real model calls (`claude-haiku-4-5-20251001`), 99 rule-path answers and 9 injected faults.
+- **PR responsibility rules** ([#382](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/382), SWPP-126): who does what in a PR, and human approval for high-risk paths.
+- **Iteration 3 demo** ([#466](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/466), DEV-181): the `iteration-3-demo` branch and README, and the recording script updated for I3 screens.
+
+## 2. How I Revised the Prompts and Scope
+
+When the TA asked us to define which PR work goes to the agent and which to a person, I asked the agent what common practice is before writing rules. I limited mandatory human approval to a high-risk tier, which the team had agreed on. When its follow-up procedure for the spec-check comment became hard to follow, I said it was getting too complicated and asked how large companies handle it. I read the revised version before telling it to go ahead.
+
+When I asked Codex to check a README draft about AI support, I disagreed with its reading of the evidence-agreement check. Rather than argue the point, I narrowed the request to adding only the missing evaluation scope, then asked it to list the exact lines it had added.
+
+I started sessions by asking the agent to check the repository and Linear and tell me what was left, instead of assuming. When it proposed an order, I asked for a recommendation and the reason, then decided.
+
+When a teammate's draft PR (#464) reused my unmerged fix, I asked which PR should merge first. The agent recommended merging mine first and pointed out a real gap that #464 had found in my conflict check. I asked it to add a conservative fix to my PR and to leave a comment on #464 instead of messaging the teammate directly.
+
+For the demo video, I first chose to re-record with the repository's script. After watching the result, I asked to remove every login scene, because the real sign-in is Kakao and the test-account screen is a testing tool. Later I handed the recording to a teammate and asked the agent to leave a step-by-step note instead.
+
+## 3. What AI Did Well
+
+The agent connected each failure to a cause I could check. For the stale reply, it showed that the consumer request held the conversation row lock during the whole model call, so the farm's reply waited behind it. For the conflict defect, it showed that the rule path returned the first matching fact without comparing it with the others.
+
+It kept checks tied to evidence. After my conservative fix, it ran all 60 corpus questions through the rule path before and after the change and confirmed that no outcome changed, so the 180/180 result still held. It wrote a regression test that failed without the fix and passed with it.
+
+It also caught a mistake of its own. It noticed that the demo had been recorded on code from before #387 merged, stopped the recording and recorded again on the right snapshot.
+
+## 4. Errors and Limitations
+
+- **A gap in the AI-written fix.** My conflict check treated evidence with numbers and evidence without numbers as agreeing (for example `배송비 3,500원` and `무료배송이에요`), because an empty set counts as contained in any other set. A teammate found it in #464. It was fixed in #387 with a regression test before merge.
+- **Misread test failures.** Locally, two tests failed because my `.env` contains an AI key, which CI does not have. The agent's first attempt to imitate CI produced 48 unrelated failures from how it ran the tests. It reported these as a setup effect without confirming on `main`. CI on the PR was the real check, and it passed.
+- **A silent skip in the demo script.** The recording script skipped the farm's deposit approval without failing, which would have shown "reservation complete" for an unapproved order. A later step failed, which exposed it. The script now stops when the approval does not happen.
+- **An invented number.** When closing DEV-180 in Linear, the agent estimated my hours as "Human ~2h" without asking. I treat that figure as unverified.
+- **Limits of the evaluation.** The 60 routine and conflicting-fact trials all used the rule path with no model call, so they test the guard logic, not model answer quality. Model answers were exercised mainly by the 60 missing-evidence and ambiguous trials. The fixtures are synthetic. Human sign-off on the b2 verdicts was still pending when this was written.
+
+## 5. Human Decisions and Review
+
+- I chose to merge #387 before the teammate's #464, and to keep its fix conservative: one-sided numbers are handed to the farm, at the cost of also handing over equivalent pairs such as `무료배송` and `배송비 0원`.
+- I checked the production timeout variable on Railway myself. The agent is not allowed to read production variables, so it only prepared the command. The variable was not set, so the new 7.5 s default applies.
+- #387 changes high-risk paths (`server/app/ai/**`, `server/app/core/config.py`). Under our SWPP-126 rule, my code review recorded in the PR description counts as the human review, and I put it in the merge queue myself.
+- The agent ran the review, tests and evaluation scripts. I did not run every test by hand.
+
+I did not measure human hours, active agent hours or total tokens for this work, so I do not report totals. Session length is not active work time, and parallel sessions overlap.
+
+## 6. Lessons and Next Steps
+
+A passing score has to say what was exercised. Separating rule-path answers from real model calls in the log made 180/180 interpretable. Without that split, a high score could hide that the model was barely involved.
+
+A fix is a claim too. My own conflict check passed its tests and still had a gap that another person's work exposed. In the next iteration I want each evaluation fix reviewed against cases written by someone other than its author, and the b2 verdicts signed off by a person before they are reported as final.
+
+## Evidence and Session Review
+
+- [#377: T09 evaluation](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/377), results [`results.md`](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/evaluation/i3-ai-support/results.md)
+- [#387: T22 fixes](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/387), re-run [`results-i3-b2.md`](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/evaluation/i3-ai-support/results-i3-b2.md)
+- [#371](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/371), [#373](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/373), [#382](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/382), [#466](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/466), [`iteration-3-demo`](https://github.com/snuhcs-course/swpp-2026-project-team-06/tree/iteration-3-demo)
+- [Course Session Exporter](https://github.com/snuhcs-course/session-exporter), commit `3251f6338e647fda5e7abb6f6108f6f176b5ae9f`: six sessions selected, two excluded (working directory outside the repository), final re-scan passed. The quoted prompts are my own input records. Original logs, credentials and teammates' personal records are not included.
+
+## Representative Prompts
+
+Times are in Asia/Seoul. Session identifiers are shortened to eight characters. Typos are kept as typed.
+
+- **2026-11-03 22:30:49 · Claude · `9d14a662`:** this is a feedback fromthe ta. [TA feedback: set clear criteria for which PR work goes to the agent and which to a person] what do you think? what is the common practice? how can we address this?
+- **2026-11-03 22:35:02 · Claude · `9d14a662`:** yes I talked with the team. go ahead. the human approval should be for the high risk tier especially
+- **2026-11-03 23:12:31 · Claude · `9d14a662`:** I don't udnerstand. I think it is getting overly complicated. how is this usually handled in big tech?
+- **2026-11-03 23:49:43 · Codex · `01a1a1de`:** can you check to see if this is accurate and covers everything [about an AI support README draft]
+- **2026-11-03 23:54:49 · Codex · `01a1a1de`:** forget about it. can you edit the readme i sent and ONLY add the missing scope of the evaluation?
+- **2026-11-05 22:08:51 · Claude · `eed73422`:** check the latest changes on the repo as well as my latest works and update me on what there is to do
+- **2026-11-06 15:41:56 · Claude · `eed73422`:** there are problems with the video. don't show the log in everytime. actually the log in is through kakaotalk, so remove taht flow entirely, it is for testing.
