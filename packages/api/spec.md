@@ -1,5 +1,9 @@
 # packages/api spec
 
+## DEV-252 세션 응답 격리
+- setToken 이벤트 serial/namespace/token을 요청 시작 때 붙잡고, 응답의 401/WRONG_APP·온보딩/동의 side effect는 같은 세션에만 적용한다. 동일 JWT로 다시 로그인해도 이전 응답은 새 세션을 지우지 않는다.
+- 비공개 사진 GET/multipart upload도 같은 auth 응답 처리를 쓴다. 권한 없는 사진/주문 404는 세션 로그아웃으로 바꾸지 않는다. 토큰·사진 URL은 읽기 위치 메타데이터에 저장하지 않는다.
+
 ## DEV-247 결제 주문 시작
 - startChat(farmId,key?,{orderId}?)는 선택 세 번째 인자로 문맥을 보낸다. 기존 1/2인자 호출은 같은 본문을 유지한다. 빈 문자열을 일반 시작으로 바꾸지 않는다.
 - Mock threadOrderContexts는 문의/메시지와 별도다. 기존 schema-9 state에 없는 선택 필드는 빈 연결로 읽고 명시적 POST에서만 추가한다. 기존 대화 데이터를 자동 초기화하지 않는다.

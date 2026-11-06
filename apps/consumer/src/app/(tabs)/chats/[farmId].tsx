@@ -4,6 +4,7 @@ import {
 } from "@farmclub/api";
 import {
   Button, ChatThread, ConversationHeader, Screen, Sheet, T, useAsync,
+  type ChatViewLease, type ChatViewSnapshot,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,8 +13,13 @@ import { useHideTabBar, useSession } from "../../../lib/session";
 import { roomBackTarget } from "../../../lib/backTargets";
 import { goBackOr } from "../../../lib/nav";
 import { chatEntry, chatRequest, initialOrderId } from "../../../lib/orderChat";
+import { chatViewState } from "../../../lib/chatViewState";
+import { matchesChatIdentity } from "../../../lib/chatSession";
 
-type Head = { page: ChatPage; epoch: number; owner: string };
+type Head = {
+  page: ChatPage; epoch: number; owner: string; entry: string;
+  lease: ChatViewLease; snapshot: ChatViewSnapshot | null;
+};
 export default function Chat() {
   useHideTabBar();
   const params = useLocalSearchParams<{
@@ -21,7 +27,7 @@ export default function Chat() {
     from?: string; fromOrder?: string; context?: string;
   }>();
   const { farmId, productId, requestedOrderId, shouldStart, generalOrderEntry } = chatEntry(params);
-  const router = useRouter(), { user } = useSession();
+  const router = useRouter(), { user, chatViewScope } = useSession();
   const farm = useAsync(() => farms.get(farmId), [farmId]);
   const [active, setActive] = useState(false);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
@@ -36,11 +42,13 @@ export default function Chat() {
   const startRequest = useRef<{ body: string; key: string } | null>(null);
   const currentUser = useRef(user?.userId);
   currentUser.current = user?.userId;
+  const entry = JSON.stringify({ farmId, requestedOrderId, productId, shouldStart });
+  const currentEntry = useRef(entry);
+  currentEntry.current = entry;
+  const currentHead = useRef(head);
+  currentHead.current = head;
   const token = getToken();
-  const authEpoch = useRef({ token, generation: 0 });
-  if (authEpoch.current.token !== token)
-    authEpoch.current = { token, generation: authEpoch.current.generation + 1 };
-  const authGeneration = authEpoch.current.generation;
+  const authGeneration = chatViewScope?.generation;
 
   useFocusEffect(useCallback(() => {
     focused.current = true;
@@ -53,15 +61,17 @@ export default function Chat() {
   }, []));
 
   useEffect(() => {
-    if (!active || !user) {
+    if (!active || !user || !chatViewScope || !chatViewState.isCurrent(chatViewScope)) {
       setHead(null);
       setPage(null);
       return;
     }
     let alive = true;
     const attempt = ++epoch.current, owner = user.userId, attemptToken = getToken();
+    const scope = chatViewScope;
     const valid = () => alive && focused.current && epoch.current === attempt &&
-      currentUser.current === owner && getToken() === attemptToken;
+      currentUser.current === owner && getToken() === attemptToken &&
+      currentEntry.current === entry && chatViewState.isCurrent(scope);
     const body = JSON.stringify({ owner, authGeneration, farmId, orderId: requestedOrderId });
     if (startRequest.current?.body !== body)
       startRequest.current = { body, key: newIdempotencyKey() };
@@ -75,15 +85,22 @@ export default function Chat() {
         if (!valid()) return;
         const fresh = await chatRequest(messaging.messages(farmId));
         if (!valid()) return;
+        if (!matchesChatIdentity(fresh.thread, owner, farmId))
+          throw new ApiError(403, { code: "FORBIDDEN", message: "대화의 계정과 농가를 확인할 수 없어요." });
         const selected = initialOrderId(requestedOrderId, fresh.orders);
         if (requestedOrderId !== undefined && selected === undefined)
           throw new Error("연결된 주문을 확인할 수 없어요. 주문 상세에서 다시 열어 주세요.");
+        // Never read/apply retained geometry until this fresh page has authorized the exact thread.
+        const visit = chatViewState.open(scope, farmId, fresh.thread.threadId);
+        if (!visit || !valid()) return;
         setSelectedOrderId(selected);
         setPage(fresh);
-        setHead({ page: fresh, epoch: attempt, owner });
+        setHead({ page: fresh, epoch: attempt, owner, entry, ...visit });
         setPhase("ready");
       } catch (e) {
         if (!valid()) return;
+        if (e instanceof ApiError && [401, 403, 404].includes(e.status))
+          chatViewState.clearFarm(scope, farmId);
         setHead(null); setPage(null);
         setError(e instanceof Error ? e.message : "대화를 열지 못했어요. 다시 시도해 주세요.");
         setPhase("error");
@@ -93,26 +110,67 @@ export default function Chat() {
       }
     })();
     return () => { alive = false; epoch.current++; };
-  }, [active, user?.userId, token, authGeneration, farmId, requestedOrderId, shouldStart, retry]);
+  }, [active, user?.userId, token, authGeneration, entry, farmId, requestedOrderId, shouldStart, retry]);
 
-  const load = useCallback(async (cursor?: string) => {
-    const attempt = epoch.current, attemptToken = getToken();
-    const fresh = await chatRequest(messaging.messages(farmId, { cursor }));
-    if (!focused.current || attempt !== epoch.current || attemptToken !== getToken())
+  const assertVisit = useCallback(() => {
+    if (!head || !focused.current || head.epoch !== epoch.current ||
+        currentHead.current?.lease !== head.lease || currentEntry.current !== head.entry ||
+        currentUser.current !== head.owner || !chatViewState.isCurrentLease(head.lease))
       throw new Error("대화가 바뀌었어요.");
+    return head;
+  }, [head]);
+  const denied = useCallback((e: unknown) => {
+    // An earlier visit's rejection must never clear a newer lease for the same room.
+    if (!head || !chatViewState.isCurrentLease(head.lease)) return;
+    chatViewState.clearConversation(head.lease.scope, head.lease.threadId);
+    if (currentHead.current?.lease !== head.lease) return;
+    setHead(null); setPage(null); setPhase("error");
+    setOrderSheet(false);
+    setError(e instanceof Error ? e.message : "대화를 볼 권한을 확인해 주세요.");
+  }, [head]);
+  const withVisit = useCallback(async <T,>(
+    request: () => Promise<T>, terminalFailure = false,
+  ): Promise<T> => {
+    assertVisit();
+    try {
+      const result = await request();
+      assertVisit();
+      return result;
+    } catch (e) {
+      if (terminalFailure && e instanceof ApiError && [401, 403, 404].includes(e.status)) denied(e);
+      throw e;
+    }
+  }, [assertVisit, denied]);
+  const load = useCallback(async (cursor?: string) => {
+    const visit = assertVisit();
+    const fresh = await withVisit(() => chatRequest(messaging.messages(farmId, { cursor })), true);
+    if (!matchesChatIdentity(fresh.thread, visit.owner, farmId) ||
+        fresh.thread.threadId !== visit.lease.threadId) {
+      const error = new Error("대화가 바뀌었어요. 다시 시도해 주세요.");
+      denied(error);
+      throw error;
+    }
     if (!cursor) setPage(fresh);
     return fresh;
-  }, [farmId]);
-  const denied = useCallback((e: unknown) => {
-    setHead(null); setPage(null); setPhase("error");
-    setError(e instanceof Error ? e.message : "대화를 볼 권한을 확인해 주세요.");
-  }, []);
+  }, [farmId, assertVisit, withVisit, denied]);
+  // Keep image loaders stable across polling/order-selection renders.
+  const loadPhoto = useCallback(async (id: string) => {
+    assertVisit();
+    const url = await privateImage(id);
+    try { assertVisit(); }
+    catch (e) {
+      if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+      throw e;
+    }
+    return url;
+  }, [assertVisit]);
 
   const selected = page?.orders.find(o => o.orderId === selectedOrderId);
   const needsSelection = Boolean(page?.orders.length && !selected);
   const lostOrder = selectedOrderId !== undefined && !selected;
   const ready = active && user && phase === "ready" && head?.owner === user.userId &&
-    head.epoch === epoch.current;
+    head.epoch === epoch.current && head.entry === entry && head.lease.farmId === farmId &&
+    chatViewState.isCurrentLease(head.lease);
   const replyMode = page?.farmReply?.mode ??
     (page?.thread.aiMode === "HUMAN" ? "FARM" : "AI");
   const replyTime = replyHoursLabel(page?.farmReply?.typicalReplyHours);
@@ -165,22 +223,28 @@ export default function Chat() {
       </View>
       {ready && head && page ? (
         <ChatThread
-          key={`${user!.userId}:${farmId}:${head.epoch}`}
+          key={`${head.lease.scope.generation}:${farmId}:${head.lease.threadId}:${head.epoch}`}
           active={active} initialPage={head.page} load={load}
+          viewState={{ farmId, threadId: head.lease.threadId, snapshot: head.snapshot,
+            // Blur/unmount capture is allowed; the lease rejects stale visits and auth generations.
+            onChange: snapshot => { chatViewState.save(head.lease, snapshot); } }}
           composerEnabled={!needsSelection && !lostOrder}
-          sendScope={sendScope} onBusyChange={setComposerBusy} onAccessDenied={denied}
-          read={id => messaging.read(farmId, id)} makeKey={newIdempotencyKey}
-          loadPhoto={privateImage}
-          upload={file => uploadAttachment(file, selected
-            ? { orderId: selected.orderId } : { threadId: page.thread.threadId })}
-          send={(text, ids, key) => messaging.send(
+          sendScope={sendScope} onBusyChange={busy => {
+            if (chatViewState.isCurrentLease(head.lease) && currentHead.current?.lease === head.lease)
+              setComposerBusy(busy);
+          }} onAccessDenied={denied}
+          read={id => withVisit(() => messaging.read(farmId, id), true)} makeKey={newIdempotencyKey}
+          loadPhoto={loadPhoto}
+          upload={file => withVisit(() => uploadAttachment(file, selected
+            ? { orderId: selected.orderId } : { threadId: page.thread.threadId }))}
+          send={(text, ids, key) => withVisit(() => messaging.send(
             farmId, text, ids, selected?.orderId, key, productId,
-          )}
-          report={(id, key) => messaging.reportAiAnswer(farmId, id, key)}
+          ))}
+          report={(id, key) => withVisit(() => messaging.reportAiAnswer(farmId, id, key))}
           forwardStatus={forwardStatus}
         />
       ) : phase === "loading" ? <T muted>대화를 여는 중…</T> : null}
-      <Sheet visible={orderSheet} onClose={() => setOrderSheet(false)}>
+      <Sheet visible={Boolean(ready && orderSheet)} onClose={() => setOrderSheet(false)}>
         <T variant="heading">문의할 주문 선택</T>
         <ScrollView style={{ maxHeight: 360 }}>
           <View style={{ gap: 8 }}>

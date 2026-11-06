@@ -1,5 +1,10 @@
 # apps/consumer spec
 
+## DEV-252 권한 확인 뒤 읽기 위치 복구
+SessionProvider는 auth 이벤트마다 메모리 scope를 동기 폐기한다. 같은 토큰 문자열로 다시 로그인해도 새 generation이고, 같은 세션 auth.me 성공은 기존 scope를 유지한다. event/request serial은 이전 세션·늦은 사용자 응답을 버린다. 일시적인 auth.me 실패는 UI만 숨기며 안전한 geometry는 재시도까지 유지한다.
+
+농가 route는 시작 → 새 권한 있는 head의 consumer/farm/thread 검증 → store.open → initialPage/viewState 순서를 지킨다. callback은 scope/lease/route epoch를 확인하고, blur capture는 focus가 없어도 현재 lease에 저장한다. terminal head 실패는 해당 farm만 지우고, 열린 방의 실패는 정확히 같은 lease만 지운다. 메시지·사진 URL·draft는 저장소에 넣지 않는다. 채팅 목록도 current scope가 유효할 때만 preview를 보인다. 읽기 위치 identity는 thread이고 composer의 선택 주문/product 문맥은 별도 sendScope다.
+
 ## DEV-248 주문 상세 → 대화
 orderChatTarget은 두 질문 버튼을 공유하고 paidAt로 결제 예외와 일반 대화를 구분한다. fromOrder는 뒤로 대상, orderId는 검증된 전송 문맥이다. route는 시작 → 권한 있는 첫 페이지 → composer 순서와 15초 network deadline을 책임진다. 세션/농가/문맥 변경은 이전 응답을 폐기한다. 여러 주문은 명시적으로 고르며 초기 실패와 전송 실패는 별도 재시도다.
 
