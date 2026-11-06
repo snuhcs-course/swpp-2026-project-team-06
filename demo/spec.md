@@ -9,6 +9,8 @@
 ## 구조
 - `site/` — 정적 데모 사이트. `index.html`(전체 흐름), `consumer/`, `producer/`, `admin/` 페이지, `vercel.json`(cleanUrls). 빌드 없음
 - `record/` — Playwright 녹화 스크립트. `lib.mjs`(커서·자막·ffmpeg 인코딩), `story.mjs`(구간별 전체 이야기), `consumer.mjs`·`producer.mjs`·`admin.mjs`(앱별), `prep-login.mjs`(운영 녹화용 브라우저 프로필 로그인)
+- `scenario.mjs` — 시나리오 원본(구간 순서, 전체 흐름 줄, 앱 페이지 단계·FEAT ID, 녹화 자막, 하단 문구). `manifest.json` — 영상 길이
+- `cmd/` — `npm run demo:record`·`demo:stitch`·`demo:site`·`demo:publish`(DEV-134)
 - `README.md` — 사이트 구조, 녹화·배포 방법
 - `../scripts/demo.mjs` — 로컬 실서버 스택(시드 초기화 → FastAPI → 두 앱)을 한 번에 띄우는 실행기
 
@@ -23,3 +25,6 @@
 | 2026-10-23 | 영상은 git에 넣지 않고 GitHub Release(`demo-i2`) 첨부로 두고, 배포 때 `videos.mjs fetch`가 `videos.json`의 SHA-256으로 확인하며 `site/videos/`에 넣는다. 교체는 `upload`(같은 이름 `--clobber`) + `videos.json` 커밋 | R2는 비공개 버킷뿐이고 공개 버킷은 콘솔 작업이 필요. 사이트 주소(`/videos/*.mp4`)를 유지하고, 커밋된 해시로 바꿔치기를 막음 | — |
 | 2026-10-23 | `deploy-vercel.yml` `deploy-demo`: main CI 성공 뒤 `demo/site/`·`demo/videos.(json\|mjs)`·워크플로 변경 때만 배포, `/` 200·`/videos/story.mp4` 206 확인 | DEV-114 `deploy-admin`과 같은 구조, 새 비밀값 없음 | — |
 | 2026-10-23 | 녹화 브라우저는 `posthog.com` 요청을 모두 끊는다(`lib.mjs` `POSTHOG`) | 운영에서 찍어도 PostHog 지표·세션 녹화에 남지 않게. `*.vercel.app`은 DEV-127 리다이렉트·CORS·카카오 때문에 녹화에 못 씀 | — |
+| 2026-11-06 | 시나리오는 `scenario.mjs` 한 곳: 구간마다 전체 흐름 한 줄(`story`)과 앱 페이지 단계(`steps`, 단계마다 녹화 자막 `captions`). `demo:site`는 이것과 `manifest.json`으로 `site/**`의 목록·길이·카드 길이·하단 문구만 다시 쓰고 나머지 HTML은 보존 | 같은 내용을 자막·HTML 두 곳에 손으로 쓰던 것을 없앰. 사이트 구조를 바꾸지 않아 배포 job 그대로 | — |
+| 2026-11-06 | 앱 영상은 같은 역할(p/a/c) 구간을 원본에서 이어 만들고(`demo:stitch`, 시스템 ffmpeg), 길이는 반올림 m:ss | 전체 영상을 자른 것과 같고 인코딩이 한 번. I2 영상도 이 방식(앱 영상 길이 합 = 전체) | — |
+| 2026-11-06 | `demo:publish`는 `videos.mjs upload`(GitHub Release)를 감싼다. 운영 녹화는 `--target prod --yes`로만, `make`에는 없음 | DEV-133 저장소 결정 유지, Makefile 규칙(운영 명령 없음) | — |
