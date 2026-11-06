@@ -49,3 +49,8 @@
 
 ## DEV-235/213 메시지 표시 계약
 기존 ThreadMessage.seq를 ChatMessage.sequence로 전달한다. 목록·전송·소비자·생산자 조회의 값은 동일하며 읽음/커서의 기존 순번을 그대로 쓴다. FORWARDED 메시지는 저장 시 source_summary를 비우고 과거 행도 응답에 이유를 노출하지 않는다. 일반 ANSWER 근거는 유지한다.
+
+## DEV-245 결제 주문 대화 문맥
+- ThreadOrderContext는 (thread_id,order_id) 복합 PK와 부모 삭제 시 연결만 정리하는 FK를 가진다(0026). 기존 문의는 backfill 없이 함께 조회한다.
+- order_context.py는 orders service를 통해 결제 이력·소유·농가를 매번 검사한다. 연결은 기록이며 영구 권한이 아니다. 읽기 helper는 쓰기/팔로우/문의 접수를 하지 않는다.
+- 빈 주문 대화의 재진입을 지원한다. 일반 시작과 문제 문의 접수는 별도 기존 동작을 유지한다(M-04, AC-33-2). 순차 배포는 스키마 → 서버 → 클라이언트, rollback 시 추가 테이블은 남길 수 있다.

@@ -37,6 +37,8 @@
 ### 1:1 식별과 엔드포인트
 
 - Thread는 (farmId,consumerId)당 하나. {threadId,farmId,consumerId,aiMode:AUTO|HUMAN,version,consumerLastReadMessageId,producerLastReadMessageId}.
+- DEV-245/246: POST /api/messaging/chats {farmId,orderId?}는 명시적 시작이다. orderId가 없으면 일반 자동 팔로우 규칙, 있으면 서버가 본인 결제 이력·해당 농가를 확인하고 팔로우 없이 대화를 만든다/재사용한다(autoFollowed=false). 결과 {farmId,autoFollowed}는 유지한다. 대화·주문 연결은 thread_order_contexts에 중복 없이 기록하며 메시지·문제 문의·전달 질문·AI 호출·모드/버전 변경은 만들지 않는다. GET은 대화를 만들지 않는다.
+- 명시적으로 연결한 결제 주문 또는 기존 문제 문의가 있는 대화는 매 요청에서 실제 소유·paidAt·농가를 재확인해 목록/빈 대화/읽음/사진 접근을 허용한다. 연결 행만으로 권한을 부여하지 않는다. 여러 주문을 한 대화에 연결할 수 있고 orders 요약은 검증된 연결 주문을 포함한다. 미팔로우 전송은 여전히 유효한 본인 orderId를 명시해야 한다. 현재 상태가 환불/취소여도 결제 이력이 있으면 문의할 수 있다.
 - Thread.version은 실제 AI 모드가 변경될 때 증가하며 메시지/읽음 갱신만으로는 증가하지 않는다. AUTO에서 자동 HUMAN 전환도 버전을 증가시킨다. 이미 HUMAN이면 유지한다.
 - 소비자 기존 /api/messaging/chats 경로 유지. 주문 문의가 있는 대화는 팔로우 해제 후에도 목록에 남는다.
 - 소비자 GET /api/messaging/chats/{farmId}/messages → {thread,items,nextCursor,inquiries,orders}; inquiries는 해당 대화의 문의, orders는 연결 주문 요약이며 본인 소유 범위만 포함한다.
