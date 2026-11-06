@@ -238,13 +238,12 @@ def _require_kakao() -> None:
 
 
 def _allowed_redirect(redirect_uri: str, app: str) -> bool:
-    """그 앱 주소의 /auth/kakao 만 허용한다(CORS 허용 목록과 같은 출처).
+    """그 앱 주소(대표 + 보조, DEV-236)의 /auth/kakao 만 허용한다(CORS 허용 목록과 같은 출처).
 
     다른 앱 주소로 받은 코드는 거절한다.
     """
-    settings = get_settings()
-    base = settings.consumer_app_url if app == "consumer" else settings.producer_app_url
-    return redirect_uri == f"{base.rstrip('/')}{KAKAO_REDIRECT_PATH}"
+    urls = get_settings().app_urls(app)
+    return redirect_uri in {f"{url}{KAKAO_REDIRECT_PATH}" for url in urls}
 
 
 # 이름이 없는 카카오 생산자 계정의 자리 이름(가입 신청 SCR-20에서 대표자 이름으로 바뀐다)

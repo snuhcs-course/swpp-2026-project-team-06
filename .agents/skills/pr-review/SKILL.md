@@ -63,5 +63,5 @@ description: PR diff를 관련 FEAT 인수 조건, 작업 폴더 spec.md의 구�
    - `spec-code-review`가 fail이면 머지는 막히지 않지만, 보고서(Checks → run → Summary)를 읽고 처리 결정을 PR 코멘트로 남긴 뒤에 머지한다(`.github/spec-check/README.md` 1.1절).
 4. 머지 뒤 main CI와 바뀐 경로의 배포 대상(Railway 서버, Vercel 앱, Vercel 관리자 페이지)을 확인한다. main CI가 깨지면 바로 고치거나 revert한다.
    - 배포는 Actions 실행 목록의 커밋 라벨이 아니라 배포 로그에 찍힌 커밋과 운영 응답(새 API·새 화면 문구)으로 확인한다. 라벨과 실제로 올린 커밋이 다를 수 있고, 바뀐 경로가 없다고 건너뛴 배포도 성공으로 보인다. 배포 로그 첫 줄의 `Comparing <base>..<head>`와 `Deploying`/`Skipping`으로 읽고, 이동 태그 `deploy/<대상>`이 머지 커밋을 가리키면 올라간 것이다(DEV-139).
-   - (권장) 운영 확인은 curl·API 요청으로 한다. 운영 화면을 브라우저로 열면 PostHog 운영 데이터에 기록이 섞인다.
+   - (권장) 운영 확인은 curl·API 요청이 먼저다. 화면을 브라우저로 봐야 하면 공식 도메인이 아니라 Vercel 기본 주소(`farmclub-consumer.vercel.app`, `farmclub-producer.vercel.app`)로 연다. PostHog는 공식 도메인에서만 켜져 통계·세션 녹화 한도가 지켜진다(DEV-125, DEV-236). 같은 운영 서버·DB라 데이터를 만드는 테스트는 운영 데이터에 남으니 가능하면 로컬 스택에서 한다.
 5. Linear 이슈 "결과"(산출물·시간·커밋·배운 점, 배포 확인)를 채운다.

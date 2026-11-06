@@ -1,3 +1,4 @@
+import { mergeChatMessages } from "./chatOrder";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, ScrollView, TextInput, View } from "react-native";
 import { Button } from "./Button";
@@ -14,6 +15,7 @@ import { safe } from "./web";
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
 type Message = {
+  sequence?: number;
   messageId: string;
   senderType: string;
   body: string;
@@ -94,19 +96,9 @@ export function ChatThread({
       alive.current = false;
     };
   }, []);
-  function merge(items: Message[]) {
-    setMessages((old) => {
-      const map = new Map(old.map((m) => [m.messageId, m]));
-      items.forEach((m) => {
-        map.set(m.messageId, m);
-        known.current.add(m.messageId);
-      });
-      return [...map.values()].sort(
-        (a, b) =>
-          a.createdAt.localeCompare(b.createdAt) ||
-          a.messageId.localeCompare(b.messageId),
-      );
-    });
+  function merge(items: Message[], older = false) {
+    items.forEach(m => known.current.add(m.messageId));
+    setMessages(old => mergeChatMessages(old, items, older));
   }
   useEffect(() => {
     if (!active) return;
@@ -127,7 +119,7 @@ export function ChatThread({
           !canceled
         ) {
           const q = await load(next);
-          incoming.push(...q.items);
+          incoming.unshift(...q.items);
           next = q.nextCursor;
         }
         if (canceled) return;
@@ -207,7 +199,7 @@ export function ChatThread({
       const p = await load(cursor);
       if (!alive.current) return;
       preserve.current = { height: height.current, offset: offset.current };
-      merge(p.items);
+      merge(p.items, true);
       setCursor(p.nextCursor);
     } catch (e) {
       setError(
@@ -309,7 +301,7 @@ export function ChatThread({
                         : undefined
               }
               time={time(m.createdAt)}
-              basis={m.sourceSummary ?? undefined}
+              basis={m.handoffStatus === "FORWARDED" ? undefined : m.sourceSummary ?? undefined}
               status={i === waiting ? forwardStatus : undefined}
               note={
                 m.inquiryId

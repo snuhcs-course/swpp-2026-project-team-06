@@ -305,6 +305,7 @@ def _support_message(
 def support_message_view(m: SupportMessage) -> ChatMessage:
     return ChatMessage(
         message_id=m.id,
+        sequence=m.seq,
         sender_type=m.sender_type,
         body=m.body,
         photos=[],
