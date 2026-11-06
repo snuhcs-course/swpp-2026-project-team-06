@@ -378,6 +378,10 @@ class Calls:
                 "costUsd": 0,
                 "costKnown": self.provider == "mock",
                 "latencyMs": 0,
+                "finishReason": None,
+                "responseStatus": None,
+                "exceptionType": None,
+                "httpStatus": None,
             }
             self.entries.append(entry)  # Reservation order, regardless of completion order.
         started = time.perf_counter()
@@ -388,6 +392,10 @@ class Calls:
             return response
         except extraction_ai.ExtractionError as exc:
             usage, request_id = exc.usage, exc.request_id
+            entry.update(extraction_ai.safe_failure_details(exc.details))
+            raise
+        except Exception as exc:
+            entry.update(extraction_ai.provider_failure_details(error=exc))
             raise
         finally:
             cost = usage.get("cost")
@@ -1205,6 +1213,7 @@ def main(argv=None):
                 "estimate": planned,
                 "goldFiles": list(map(str, gold_files)),
                 "sources": [r[1] for r in results],
+                "providerCalls": calls.entries,
                 **costs(calls.entries),
                 "abortCode": aborted,
             }

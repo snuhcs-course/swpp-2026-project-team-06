@@ -1788,3 +1788,8 @@ AI first review: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull
 
 
 Separate public concurrency diagnostic (not part of171): before4/9 attempted,3 automatic passes,1 INVALID,5 NOT_RUN; after9/9 automatic passes. Baseline CS059run1 lacked an observed pre-release transition and had HUMAN_OUTCOME_MISMATCH, so the strict unexpected-INVALID rule stopped further calls. This incomplete diagnostic cannot supply a valid full paired9-trial improvement claim. One before setup attempt failed on64-character fixture IDs before provider calls; a shortened wrapper-only suffix enabled the preserved next attempt, while native runner/product/scorer remained fixed. Used wrapper bytes and SHA are preserved with raw artifacts. Worker completion at the one-second observation is not HTTP success/DB commit evidence. Public aggregate: `docs/evaluation/i3-ai-support/concurrency-diagnostic-dev238-2026-11-05.json`. Actual diagnostic cost beforeUSD0.005906,afterUSD0.012568; all known. DEV238 conservative accounted totalUSD1.377108 includes earlier source settled/unsettled plus direct/dev chat calls, and excludes independent owners' separate holdout ledgers.
+
+
+### DEV-238 source-only improvement follow-up
+
+Refinement v9 emphasizes per-text numeric citation completeness and retention of safe factual clauses. Regression and paid comparisons retain the existing 47-source development corpus and frozen scorer. Refinement-only paired trials reuse identical extracted candidates; end-to-end measurements remain separate. No chat changes, consumed holdout reuse, inferred citation repair or relaxed safety checks are included. Results will record all attempts, errors and costs without selecting the best run.

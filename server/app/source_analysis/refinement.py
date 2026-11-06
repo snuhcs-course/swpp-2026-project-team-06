@@ -484,7 +484,9 @@ def process(item_id, token):
             try:
                 check_inputs(db, context)
             except RefineError as exc:
-                raise RefineError(str(exc), usage=usage, request_id=request_id) from exc
+                raise RefineError(
+                    str(exc), usage=usage, request_id=request_id, details=exc.details
+                ) from exc
             batch, _, _, item = context
             result = {"modules": modules, "excluded": diagnostics["excluded"]}
             fingerprint = hashlib.sha256(
