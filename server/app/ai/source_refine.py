@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v7-farm-common"
+PROMPT_VERSION = "source-refine-v9-complete-citations"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -136,6 +136,28 @@ original separator, endpoint units and numeric format within the polished clause
 supported production/harvest seasons and their routing; do not omit them to avoid numbers.
 If a candidate's number/unit differs from its quote, use only the exact supported quote
 expression or exclude the unsupported claim. Never treat the candidate's own value as proof.
+"""
+
+
+PROMPT += """
+
+CITATION COMPLETENESS BEFORE POLISHING:
+Write a short factual clause for each independently supported fact before combining clauses.
+Keep the original factual wording, labels and qualifiers; do not replace them with synonyms
+or shorten away details. Prefer separate texts over a compressed sentence that loses facts.
+Every numeric value in a text, including a package weight used as a label, MUST be present
+with its exact unit in the evidence quotes of that text's candidateIds. An ID cited by another
+text in the same module does not supply evidence for this text. Check each text separately.
+For example, if a package weight and its piece count are in distinct candidates, a text that
+mentions both must cite BOTH candidates. A specification mentioning several package weights
+must cite every corresponding weight candidate as well as the specification candidates.
+Combine only facts whose source evidence explicitly associates them with the SAME package
+and product. Never pair table cells by guesswork or combine different products' facts.
+If the relationship is not explicit, keep each supported clause separate without adding a
+weight label or a package association. Never invent a label just to make text read smoothly.
+Check that every safe clause survives in its correct module, even if its candidate ID has
+already been cited elsewhere. A cited ID alone does not mean all its facts were retained.
+Never restore excluded money, health claims, private data or other-product content.
 """
 
 
@@ -334,12 +356,20 @@ def refine(mode, model, target, candidates):
             )
             usage = result.usage.model_dump() if result.usage else {}
             if not result.choices or result.choices[0].finish_reason != "stop":
-                raise RefineError("INCOMPLETE_OR_REFUSED", usage=usage, request_id=result.id)
+                raise RefineError(
+                    "INCOMPLETE_OR_REFUSED",
+                    usage=usage,
+                    request_id=result.id,
+                    details=provider.provider_failure_details(result=result),
+                )
             try:
                 output = Refinement.model_validate_json(result.choices[0].message.content or "")
             except ValidationError as exc:
                 raise RefineError(
-                    "INVALID_MODEL_OUTPUT", usage=usage, request_id=result.id
+                    "INVALID_MODEL_OUTPUT",
+                    usage=usage,
+                    request_id=result.id,
+                    details=provider.provider_failure_details(result=result, error=exc),
                 ) from exc
             return RefineResponse(output, usage, result.id)
         result = client.responses.parse(
@@ -354,16 +384,27 @@ def refine(mode, model, target, candidates):
         usage = result.usage.model_dump() if result.usage else {}
         request_id = getattr(result, "_request_id", None) or result.id
         if result.status != "completed" or result.output_parsed is None:
-            raise RefineError("INCOMPLETE_OR_REFUSED", usage=usage, request_id=request_id)
+            raise RefineError(
+                "INCOMPLETE_OR_REFUSED",
+                usage=usage,
+                request_id=request_id,
+                details=provider.provider_failure_details(result=result),
+            )
         return RefineResponse(result.output_parsed, usage, request_id)
     except (APITimeoutError, APIConnectionError) as exc:
-        raise RefineError("REQUEST_UNCERTAIN") from exc
+        raise RefineError(
+            "REQUEST_UNCERTAIN", details=provider.provider_failure_details(error=exc)
+        ) from exc
     except APIStatusError as exc:
         if exc.status_code in {401, 403}:
-            raise RefineError("PROVIDER_AUTH") from exc
+            raise RefineError(
+                "PROVIDER_AUTH", details=provider.provider_failure_details(error=exc)
+            ) from exc
         code = "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED"
-        raise RefineError(code) from exc
+        raise RefineError(code, details=provider.provider_failure_details(error=exc)) from exc
     except ValidationError as exc:
-        raise RefineError("INVALID_MODEL_OUTPUT") from exc
+        raise RefineError(
+            "INVALID_MODEL_OUTPUT", details=provider.provider_failure_details(error=exc)
+        ) from exc
     finally:
         client.close()

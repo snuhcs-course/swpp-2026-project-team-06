@@ -378,6 +378,10 @@ class Calls:
                 "costUsd": 0,
                 "costKnown": self.provider == "mock",
                 "latencyMs": 0,
+                "finishReason": None,
+                "responseStatus": None,
+                "exceptionType": None,
+                "httpStatus": None,
             }
             self.entries.append(entry)  # Reservation order, regardless of completion order.
         started = time.perf_counter()
@@ -388,6 +392,10 @@ class Calls:
             return response
         except extraction_ai.ExtractionError as exc:
             usage, request_id = exc.usage, exc.request_id
+            entry.update(extraction_ai.safe_failure_details(exc.details))
+            raise
+        except Exception as exc:
+            entry.update(extraction_ai.provider_failure_details(error=exc))
             raise
         finally:
             cost = usage.get("cost")
@@ -424,10 +432,7 @@ def evidence_text(local_text, chunk, diagnostics):
     """Union local evidence with OCR from pages without failed extraction chunks."""
     failed_pages = {page for part in diagnostics.get("chunksFailed", []) for page in part["pages"]}
     transcript = "\n".join(
-        s["text"]
-        for p in chunk["pages"]
-        if p["number"] not in failed_pages
-        for s in p["spans"]
+        s["text"] for p in chunk["pages"] if p["number"] not in failed_pages for s in p["spans"]
     )
     return "\n;\n".join(dict.fromkeys(t for t in (local_text, transcript) if t))
 
@@ -552,49 +557,41 @@ def evaluate_source(row, provider, model, calls):
             return evidence["page"], position, text.find(evidence["quote"]), candidate["id"]
 
         selected.sort(key=source_order)
-        all_selected = selected
-        selected, limits = refinement.limit_candidates(selected)
+
+        def refine_call(index, safe, fn):
+            return calls(
+                "refine", model, {"prompt": refine_ai.PROMPT, "candidates": safe}, [target], [], fn
+            )
+
+        def evaluator_refine(mode, model, target, safe):
+            if provider == "mock":
+                return calls(
+                    "refine",
+                    model,
+                    {},
+                    [target],
+                    [],
+                    lambda: refine_ai.refine("mock", model, target, safe),
+                )
+            return refine_ai.refine(mode, model, target, safe)
+
+        stored, diagnostics, stage2_usage, _ = refinement.refine_candidates(
+            provider,
+            model,
+            target,
+            selected,
+            refine_call,
+            target_count=1,
+            refine_fn=evaluator_refine,
+        )
+        limits = {
+            k: diagnostics[k]
+            for k in ("candidatesAnalysed", "candidatesSkipped", "refinementBatches", "emptyReason")
+        }
         metric.update(limits)
-        mode = provider if selected else "mock"  # Same empty-input optimization as product.
-        if provider == "mock":
-            response = calls(
-                "refine",
-                model,
-                {},
-                [target],
-                [],
-                lambda: refine_ai.refine("mock", model, target, selected),
-            )
-        elif mode == "mock":
-            response = refine_ai.refine("mock", model, target, selected)
-        else:
-            safe = [
-                {
-                    **c,
-                    "value": scrub(c["value"]),
-                    "evidence": [{**e, "quote": scrub(e["quote"])} for e in c["evidence"]],
-                }
-                for c in selected
-            ]
-            response = calls(
-                "refine",
-                model,
-                {"prompt": refine_ai.PROMPT, "candidates": safe},
-                [target],
-                [],
-                lambda: refine_ai.refine(provider, model, target, safe),
-            )
-        stage2_usage = response.usage
-        stored, diagnostics = refinement.validate(
-            response.refinement, selected, target["id"], target_count=1
-        )
-        diagnostics["excluded"].extend(
-            {"candidateIds": [c["id"]], "reason": "unused"} for c in all_selected[len(selected) :]
-        )
         stage2_diagnostics = {
             **diagnostics,
-            **limits,
-            "emptyReason": limits["emptyReason"]
+            "emptyReason": diagnostics["emptyReason"]
             or refinement.empty_reason(candidates, target["id"], stored, target_count=1),
         }
         metric["stage2Ms"] = (time.perf_counter() - stage2) * 1000
@@ -625,6 +622,8 @@ def evaluate_source(row, provider, model, calls):
         metric["status"] = "FAILED"
         if isinstance(exc, extraction_ai.ExtractionError):
             ocr_diagnostics = exc.details.get("ocrDiagnostics", ocr_diagnostics)
+            if stage == "refine":
+                stage2_usage = exc.usage
         metric["errorCode"] = (
             source_error_code(exc, stage)
             if isinstance(exc, (extraction_ai.ExtractionError, PreparationError))
@@ -1214,6 +1213,7 @@ def main(argv=None):
                 "estimate": planned,
                 "goldFiles": list(map(str, gold_files)),
                 "sources": [r[1] for r in results],
+                "providerCalls": calls.entries,
                 **costs(calls.entries),
                 "abortCode": aborted,
             }

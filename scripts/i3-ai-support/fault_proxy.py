@@ -18,16 +18,33 @@ Local only: binds 127.0.0.1.
 from __future__ import annotations
 
 import json
+import os
+import sys
 import threading
 import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 UPSTREAM = "https://api.anthropic.com"
 FORWARD_HEADERS = ("x-api-key", "anthropic-version", "anthropic-beta", "content-type")
-STATE = {"mode": "passthrough", "requests": 0, "waiting": False, "last_model": None}
+STATE = {
+    "mode": "passthrough",
+    "requests": 0,
+    "waiting": False,
+    "last_model": None,
+    "upstream_requests": 0,
+    "upstream_status": None,
+    "usage": None,
+    "response_id": None,
+    "epoch": 0,
+}
+PROVIDER = os.environ.get("I3_AI_PROVIDER", "anthropic")
+PORT = int(os.environ.get("I3_PROXY_PORT", "8787"))
+if PROVIDER not in {"anthropic", "openrouter"}:
+    raise ValueError("Unsupported evaluation provider")
 RELEASE = threading.Event()
 LOCK = threading.Lock()
 
@@ -63,6 +80,14 @@ class Handler(BaseHTTPRequestHandler):
                 if "mode" in query:
                     STATE["mode"] = query["mode"][0]
                     RELEASE.clear()
+                    STATE.update(
+                        last_model=None,
+                        waiting=False,
+                        upstream_status=None,
+                        usage=None,
+                        response_id=None,
+                        epoch=STATE["epoch"] + 1,
+                    )
                 if "release" in query:
                     RELEASE.set()
             return self._json(200, dict(STATE))
@@ -76,6 +101,7 @@ class Handler(BaseHTTPRequestHandler):
         with LOCK:
             STATE["requests"] += 1
             mode = STATE["mode"]
+            epoch = STATE["epoch"]
         if mode == "drop":
             self.close_connection = True
             self.connection.shutdown(2)
@@ -86,16 +112,42 @@ class Handler(BaseHTTPRequestHandler):
         if mode == "malformed":
             return self._json(200, MALFORMED)
         if mode == "pause":
-            STATE["waiting"] = True
+            with LOCK:
+                if epoch == STATE["epoch"]:
+                    STATE["waiting"] = True
             RELEASE.wait(timeout=60)
-            STATE["waiting"] = False
-        self._forward(payload)
+            with LOCK:
+                if epoch == STATE["epoch"]:
+                    STATE["waiting"] = False
+        self._forward(payload, epoch)
 
-    def _forward(self, payload: bytes) -> None:
+    def _forward(self, payload: bytes, epoch: int) -> None:
+        with LOCK:
+            stale = epoch != STATE["epoch"]
+            if not stale:
+                STATE["upstream_requests"] += 1
+        if stale:
+            return self._json(409, {"error": {"type": "stale_evaluation_trial"}})
         headers = {k: v for k, v in self.headers.items() if k.lower() in FORWARD_HEADERS}
-        request = urllib.request.Request(
-            UPSTREAM + self.path, data=payload, headers=headers, method="POST"
-        )
+        url = UPSTREAM + self.path
+        if PROVIDER == "openrouter":
+            sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "server"))
+            from app.core.config import get_settings
+
+            request_body = json.loads(payload)
+            request_body["model"] = "anthropic/claude-haiku-4.5"
+            request_body["provider"] = {
+                "allow_fallbacks": False,
+                "max_price": {"prompt": 1, "completion": 5},
+            }
+            headers = {
+                "Authorization": "Bearer " + get_settings().openrouter_api_key,
+                "Content-Type": "application/json",
+                "X-OpenRouter-Metadata": "enabled",
+            }
+            url = "https://openrouter.ai/api/v1/messages"
+            payload = json.dumps(request_body).encode()
+        request = urllib.request.Request(url, data=payload, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 status, body, ctype = (
@@ -105,8 +157,17 @@ class Handler(BaseHTTPRequestHandler):
                 )
         except urllib.error.HTTPError as error:
             status, body, ctype = error.code, error.read(), error.headers.get("content-type")
-        try:  # record the model that actually answered (run-log actual_model_id)
-            STATE["last_model"] = json.loads(body).get("model") or STATE["last_model"]
+        try:
+            decoded = json.loads(body)
+            with LOCK:
+                if epoch == STATE["epoch"]:
+                    STATE.update(
+                        last_model=decoded.get("model"),
+                        upstream_status=status,
+                        usage=decoded.get("usage"),
+                        response_id=decoded.get("id"),
+                        provider=PROVIDER,
+                    )
         except ValueError:
             pass
         self.send_response(status)
@@ -117,6 +178,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", 8787), Handler)
-    print("fault proxy on http://127.0.0.1:8787", flush=True)
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    print(f"fault proxy on http://127.0.0.1:{PORT} provider={PROVIDER}", flush=True)
     server.serve_forever()

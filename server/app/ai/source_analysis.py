@@ -152,6 +152,53 @@ class ExtractionError(Exception):
         self.usage, self.request_id = usage or {}, request_id
 
 
+_FAILURE_ENUMS = {
+    "finishReason": {"stop", "length", "tool_calls", "content_filter", "function_call", "refusal"},
+    "responseStatus": {"completed", "incomplete", "failed", "cancelled", "queued", "in_progress"},
+    "exceptionType": {
+        "APITimeoutError",
+        "APIConnectionError",
+        "APIStatusError",
+        "AuthenticationError",
+        "PermissionDeniedError",
+        "RateLimitError",
+        "InternalServerError",
+        "BadRequestError",
+        "NotFoundError",
+        "UnprocessableEntityError",
+        "OtherError",
+    },
+}
+
+
+def safe_failure_details(details):
+    """Copy only bounded operational classifications, never free-form error data."""
+    details = details if isinstance(details, dict) else {}
+    result = {
+        key: value if isinstance(value := details.get(key), str) and value in allowed else None
+        for key, allowed in _FAILURE_ENUMS.items()
+    }
+    if details.get("exceptionType") is not None and result["exceptionType"] is None:
+        result["exceptionType"] = "OtherError"
+    status = details.get("httpStatus")
+    result["httpStatus"] = status if type(status) is int and 100 <= status <= 599 else None
+    return result
+
+
+def provider_failure_details(*, result=None, error=None):
+    details = {}
+    if result is not None:
+        choices = getattr(result, "choices", None)
+        if choices:
+            details["finishReason"] = getattr(choices[0], "finish_reason", None)
+        details["responseStatus"] = getattr(result, "status", None)
+    if error is not None:
+        name = type(error).__name__
+        details["exceptionType"] = name if name in _FAILURE_ENUMS["exceptionType"] else "OtherError"
+        details["httpStatus"] = getattr(error, "status_code", None)
+    return safe_failure_details(details)
+
+
 @dataclass
 class ExtractionResponse:
     extraction: Extraction
@@ -296,12 +343,20 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
             )
             usage = result.usage.model_dump() if result.usage else {}
             if not result.choices or result.choices[0].finish_reason != "stop":
-                raise ExtractionError("INCOMPLETE_OR_REFUSED", usage=usage, request_id=result.id)
+                raise ExtractionError(
+                    "INCOMPLETE_OR_REFUSED",
+                    usage=usage,
+                    request_id=result.id,
+                    details=provider_failure_details(result=result),
+                )
             try:
                 extraction = Extraction.model_validate_json(result.choices[0].message.content or "")
             except ValidationError as exc:
                 raise ExtractionError(
-                    "INVALID_MODEL_OUTPUT", usage=usage, request_id=result.id
+                    "INVALID_MODEL_OUTPUT",
+                    usage=usage,
+                    request_id=result.id,
+                    details=provider_failure_details(result=result, error=exc),
                 ) from exc
             return ExtractionResponse(extraction, usage, result.id)
         result = client.responses.parse(
@@ -314,25 +369,38 @@ def extract(mode, model, chunk, targets, images, *, prompt=PROMPT, mock_empty=Fa
             store=False,
         )
     except (APITimeoutError, APIConnectionError) as exc:
-        raise ExtractionError("REQUEST_UNCERTAIN") from exc
+        raise ExtractionError(
+            "REQUEST_UNCERTAIN", details=provider_failure_details(error=exc)
+        ) from exc
     except APIStatusError as exc:
         if exc.status_code in {401, 403}:
-            raise ExtractionError("PROVIDER_AUTH") from exc
+            raise ExtractionError(
+                "PROVIDER_AUTH", details=provider_failure_details(error=exc)
+            ) from exc
         if exc.status_code == 429:
             try:
                 delay = min(300, max(1, float(exc.response.headers.get("retry-after", "5"))))
             except ValueError:
                 delay = 5
-            raise ExtractionError("RATE_LIMITED", retry_after=delay) from exc
+            raise ExtractionError(
+                "RATE_LIMITED", retry_after=delay, details=provider_failure_details(error=exc)
+            ) from exc
         # Server-side errors may have processed a billable request.
         code = "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED"
-        raise ExtractionError(code) from exc
+        raise ExtractionError(code, details=provider_failure_details(error=exc)) from exc
     except ValidationError as exc:
-        raise ExtractionError("INVALID_MODEL_OUTPUT") from exc
+        raise ExtractionError(
+            "INVALID_MODEL_OUTPUT", details=provider_failure_details(error=exc)
+        ) from exc
     finally:
         client.close()
     usage = result.usage.model_dump() if result.usage else {}
     request_id = getattr(result, "_request_id", None) or result.id
     if result.status != "completed" or result.output_parsed is None:
-        raise ExtractionError("INCOMPLETE_OR_REFUSED", usage=usage, request_id=request_id)
+        raise ExtractionError(
+            "INCOMPLETE_OR_REFUSED",
+            usage=usage,
+            request_id=request_id,
+            details=provider_failure_details(result=result),
+        )
     return ExtractionResponse(result.output_parsed, usage, request_id)

@@ -1,0 +1,427 @@
+{
+  "protocol": "dev238-concurrency-diagnostic-v1",
+  "planned_per_arm": 9,
+  "core_included": false,
+  "interpretation": "1-second worker-finished observation does not attest HTTP success or DB commit. Model/transmission privacy unverified.",
+  "before_setup_failure": {
+    "attempted": 0,
+    "not_run": 9,
+    "cost_usd": 0,
+    "reason": "Fixture identifier exceeded64 characters before any provider request; shortened wrapper-only suffix, preserved original failed setup."
+  },
+  "arms": {
+    "before": {
+      "completion": {
+        "planned": 9,
+        "attempted": 4,
+        "not_run": 5,
+        "known_cost_usd": 0.005906,
+        "stop": "UNEXPECTED_INVALID_OR_UNKNOWN_COST",
+        "core_included": false,
+        "human_review": "UNREVIEWED"
+      },
+      "wrapper_sha256": "2baee742263bf3763f17897e1eef0dc3760857130d7dd3a83915c69619dd6c19",
+      "rows": [
+        {
+          "case": "CS-058",
+          "run": 1,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-058",
+          "run": 2,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-058",
+          "run": 3,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-059",
+          "run": 1,
+          "verdict": "INVALID",
+          "reasons": [
+            "HUMAN_OUTCOME_MISMATCH",
+            "TRANSITION_PREREQUISITE_UNVERIFIED",
+            "TRIAL_PREREQUISITE_BLOCKED"
+          ],
+          "dimensions": {
+            "action": "FAIL",
+            "semantic_correctness": "FAIL",
+            "factual_grounding": "FAIL",
+            "state_outcome": "FAIL",
+            "privacy": "PASS"
+          }
+        }
+      ],
+      "transition_observations": [
+        {
+          "case": "CS-058",
+          "run": 1,
+          "transition": [
+            {
+              "transition": "settings_off_on",
+              "elapsed_ms": 30
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-058",
+          "run": 2,
+          "transition": [
+            {
+              "transition": "settings_off_on",
+              "elapsed_ms": 39
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-058",
+          "run": 3,
+          "transition": [
+            {
+              "transition": "settings_off_on",
+              "elapsed_ms": 33
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-059",
+          "run": 1,
+          "transition": [
+            {
+              "transition_finished_before_release": false
+            },
+            {
+              "transition": "producer_reply",
+              "elapsed_ms": 2748
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        }
+      ]
+    },
+    "after": {
+      "completion": {
+        "planned": 9,
+        "attempted": 9,
+        "not_run": 0,
+        "known_cost_usd": 0.012568000000000003,
+        "stop": null,
+        "core_included": false,
+        "human_review": "UNREVIEWED"
+      },
+      "wrapper_sha256": "8505feceaf18e605292a0faa38d7bcba3d43e35fae803abe53b48d7da062f3e9",
+      "rows": [
+        {
+          "case": "CS-058",
+          "run": 1,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-058",
+          "run": 2,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-058",
+          "run": 3,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-059",
+          "run": 1,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-059",
+          "run": 2,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-059",
+          "run": 3,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-060",
+          "run": 1,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-060",
+          "run": 2,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        },
+        {
+          "case": "CS-060",
+          "run": 3,
+          "verdict": "AUTO_PASS_PENDING_REVIEW",
+          "reasons": [],
+          "dimensions": {
+            "action": "PASS",
+            "semantic_correctness": "PASS",
+            "factual_grounding": "PASS",
+            "state_outcome": "PASS",
+            "privacy": "PASS"
+          }
+        }
+      ],
+      "transition_observations": [
+        {
+          "case": "CS-058",
+          "run": 1,
+          "transition": [
+            {
+              "transition": "settings_off_on",
+              "elapsed_ms": 50
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-058",
+          "run": 2,
+          "transition": [
+            {
+              "transition": "settings_off_on",
+              "elapsed_ms": 37
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-058",
+          "run": 3,
+          "transition": [
+            {
+              "transition": "settings_off_on",
+              "elapsed_ms": 38
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-059",
+          "run": 1,
+          "transition": [
+            {
+              "transition": "producer_reply",
+              "elapsed_ms": 12
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-059",
+          "run": 2,
+          "transition": [
+            {
+              "transition": "producer_reply",
+              "elapsed_ms": 18
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-059",
+          "run": 3,
+          "transition": [
+            {
+              "transition": "producer_reply",
+              "elapsed_ms": 14
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-060",
+          "run": 1,
+          "transition": [
+            {
+              "transition": "human_auto_roundtrip",
+              "elapsed_ms": 61
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-060",
+          "run": 2,
+          "transition": [
+            {
+              "transition": "human_auto_roundtrip",
+              "elapsed_ms": 115
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        },
+        {
+          "case": "CS-060",
+          "run": 3,
+          "transition": [
+            {
+              "transition": "human_auto_roundtrip",
+              "elapsed_ms": 69
+            },
+            {
+              "transition_finished_before_release": true
+            }
+          ],
+          "transition_injected": true,
+          "needs_reply": true,
+          "ai_calls": 1
+        }
+      ]
+    }
+  }
+}

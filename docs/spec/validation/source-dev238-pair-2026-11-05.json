@@ -1,0 +1,317 @@
+{
+  "issue": "DEV-238",
+  "kind": "development-single-pair",
+  "date": "2026-11-05",
+  "qualityImproved": false,
+  "humanAuditComplete": false,
+  "independentHoldoutRun": false,
+  "configurationComparability": {
+    "sameInputs": true,
+    "sameScorer": true,
+    "sameStage1Prompt": true,
+    "sameStage2PromptText": true
+  },
+  "results": {
+    "before": {
+      "measurementVersion": "dev193-number-evidence-v1",
+      "provider": "openrouter",
+      "model": "google/gemini-3-flash-preview",
+      "stage1PromptSha256": "846fdf7327c985a23a87f0555fe877ad94e615a00ac0a2facd43a037c547d4de",
+      "stage2PromptVersion": "source-refine-v7-farm-common",
+      "stage2PromptSha256": "46d04bc84afe0df3ff29798e4b48947b0879beac1e26f580aeef5c26aef196d4",
+      "inputManifestSha256": "8eb59ff698c4f9b629fb7a893eace00b8af7b600207c81956f3719a2751b8513",
+      "counts": {
+        "text": {
+          "sources": 26,
+          "extractionCases": 22,
+          "contractCases": 4,
+          "factRecall": {
+            "hit": 67,
+            "total": 103,
+            "rate": 0.6504854368932039
+          },
+          "criticalFactRecall": {
+            "hit": 31,
+            "total": 46,
+            "rate": 0.6739130434782609
+          },
+          "misplacement": {
+            "hit": 8,
+            "total": 103,
+            "rate": 0.07766990291262135
+          },
+          "precisionProxy": {
+            "hit": 67,
+            "total": 72,
+            "rate": 0.9305555555555556
+          },
+          "forbiddenViolations": 1,
+          "unsupportedTokens": 1,
+          "failedRuns": 6
+        },
+        "image": {
+          "sources": 9,
+          "extractionCases": 9,
+          "contractCases": 0,
+          "factRecall": {
+            "hit": 41,
+            "total": 52,
+            "rate": 0.7884615384615384
+          },
+          "criticalFactRecall": {
+            "hit": 30,
+            "total": 35,
+            "rate": 0.8571428571428571
+          },
+          "misplacement": {
+            "hit": 10,
+            "total": 52,
+            "rate": 0.19230769230769232
+          },
+          "precisionProxy": {
+            "hit": 39,
+            "total": 39,
+            "rate": 1.0
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0,
+          "failedRuns": 0
+        },
+        "long_image": {
+          "sources": 4,
+          "extractionCases": 4,
+          "contractCases": 0,
+          "factRecall": {
+            "hit": 67,
+            "total": 92,
+            "rate": 0.7282608695652174
+          },
+          "criticalFactRecall": {
+            "hit": 21,
+            "total": 25,
+            "rate": 0.84
+          },
+          "misplacement": {
+            "hit": 8,
+            "total": 92,
+            "rate": 0.08695652173913043
+          },
+          "precisionProxy": {
+            "hit": 62,
+            "total": 68,
+            "rate": 0.9117647058823529
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0,
+          "failedRuns": 0
+        },
+        "pdf": {
+          "sources": 8,
+          "extractionCases": 8,
+          "contractCases": 0,
+          "factRecall": {
+            "hit": 47,
+            "total": 107,
+            "rate": 0.4392523364485981
+          },
+          "criticalFactRecall": {
+            "hit": 25,
+            "total": 48,
+            "rate": 0.5208333333333334
+          },
+          "misplacement": {
+            "hit": 10,
+            "total": 107,
+            "rate": 0.09345794392523364
+          },
+          "precisionProxy": {
+            "hit": 50,
+            "total": 67,
+            "rate": 0.746268656716418
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0,
+          "failedRuns": 1
+        }
+      },
+      "overall": {
+        "factRecall": {
+          "hit": 222,
+          "total": 354,
+          "rate": 0.6271186440677966
+        },
+        "criticalFactRecall": {
+          "hit": 107,
+          "total": 154,
+          "rate": 0.6948051948051948
+        },
+        "forbiddenViolations": 1,
+        "unsupportedTokens": 1
+      },
+      "candidatesSkipped": 18,
+      "settledUsd": 0.547032,
+      "unsettledReservedUsd": 0.041332,
+      "statusCounts": {
+        "EMPTY": 6,
+        "EVALUATED": 38,
+        "FAILED": 1,
+        "PARTIAL": 2
+      }
+    },
+    "after": {
+      "measurementVersion": "dev193-number-evidence-v1",
+      "provider": "openrouter",
+      "model": "google/gemini-3-flash-preview",
+      "stage1PromptSha256": "846fdf7327c985a23a87f0555fe877ad94e615a00ac0a2facd43a037c547d4de",
+      "stage2PromptVersion": "source-refine-v8-bounded-batches",
+      "stage2PromptSha256": "46d04bc84afe0df3ff29798e4b48947b0879beac1e26f580aeef5c26aef196d4",
+      "inputManifestSha256": "8eb59ff698c4f9b629fb7a893eace00b8af7b600207c81956f3719a2751b8513",
+      "counts": {
+        "text": {
+          "sources": 26,
+          "extractionCases": 22,
+          "contractCases": 4,
+          "factRecall": {
+            "hit": 64,
+            "total": 103,
+            "rate": 0.6213592233009708
+          },
+          "criticalFactRecall": {
+            "hit": 33,
+            "total": 46,
+            "rate": 0.717391304347826
+          },
+          "misplacement": {
+            "hit": 3,
+            "total": 103,
+            "rate": 0.02912621359223301
+          },
+          "precisionProxy": {
+            "hit": 62,
+            "total": 69,
+            "rate": 0.8985507246376812
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0,
+          "failedRuns": 6
+        },
+        "image": {
+          "sources": 9,
+          "extractionCases": 9,
+          "contractCases": 0,
+          "factRecall": {
+            "hit": 42,
+            "total": 52,
+            "rate": 0.8076923076923077
+          },
+          "criticalFactRecall": {
+            "hit": 30,
+            "total": 35,
+            "rate": 0.8571428571428571
+          },
+          "misplacement": {
+            "hit": 8,
+            "total": 52,
+            "rate": 0.15384615384615385
+          },
+          "precisionProxy": {
+            "hit": 40,
+            "total": 42,
+            "rate": 0.9523809523809523
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0,
+          "failedRuns": 0
+        },
+        "long_image": {
+          "sources": 4,
+          "extractionCases": 4,
+          "contractCases": 0,
+          "factRecall": {
+            "hit": 47,
+            "total": 92,
+            "rate": 0.5108695652173914
+          },
+          "criticalFactRecall": {
+            "hit": 11,
+            "total": 25,
+            "rate": 0.44
+          },
+          "misplacement": {
+            "hit": 1,
+            "total": 92,
+            "rate": 0.010869565217391304
+          },
+          "precisionProxy": {
+            "hit": 41,
+            "total": 48,
+            "rate": 0.8541666666666666
+          },
+          "forbiddenViolations": 0,
+          "unsupportedTokens": 0,
+          "failedRuns": 1
+        },
+        "pdf": {
+          "sources": 8,
+          "extractionCases": 8,
+          "contractCases": 0,
+          "factRecall": {
+            "hit": 65,
+            "total": 107,
+            "rate": 0.6074766355140186
+          },
+          "criticalFactRecall": {
+            "hit": 28,
+            "total": 48,
+            "rate": 0.5833333333333334
+          },
+          "misplacement": {
+            "hit": 15,
+            "total": 107,
+            "rate": 0.14018691588785046
+          },
+          "precisionProxy": {
+            "hit": 75,
+            "total": 96,
+            "rate": 0.78125
+          },
+          "forbiddenViolations": 3,
+          "unsupportedTokens": 0,
+          "failedRuns": 0
+        }
+      },
+      "overall": {
+        "factRecall": {
+          "hit": 218,
+          "total": 354,
+          "rate": 0.615819209039548
+        },
+        "criticalFactRecall": {
+          "hit": 102,
+          "total": 154,
+          "rate": 0.6623376623376623
+        },
+        "forbiddenViolations": 3,
+        "unsupportedTokens": 0
+      },
+      "candidatesSkipped": 0,
+      "settledUsd": 0.538427,
+      "unsettledReservedUsd": 0.115066,
+      "statusCounts": {
+        "EMPTY": 5,
+        "EVALUATED": 38,
+        "FAILED": 2,
+        "PARTIAL": 2
+      }
+    }
+  },
+  "limits": [
+    "One provider realization per input/build; changes are descriptive, not causal proof.",
+    "Development data includes retired holdout v1; not independent generalization evidence.",
+    "Precision is automatic support proxy, not semantic/human precision.",
+    "Neither run publishes a product or establishes applied-page safety.",
+    "Before process imported v7 before worktree edits; no reload. Candidate includes bounded batches, with mock-only accounting corrections subsequently covered by offline regressions.",
+    "After text/refusal and long-image uncertain-request failures remain in the denominator.",
+    "Skipped-candidate coverage improved, but overall fact and critical-fact recall declined and forbidden count increased."
+  ]
+}

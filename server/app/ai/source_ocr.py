@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from PIL import Image, ImageStat
 
-from app.ai.source_analysis import ExtractionError
+from app.ai.source_analysis import ExtractionError, provider_failure_details
 from app.core.config import SOURCE_OPENROUTER_PRICES, get_settings
 
 OCR_MODEL = "google/gemini-3-flash-preview"
@@ -120,7 +120,12 @@ def transcribe(encoded):
         )
         usage = result.usage.model_dump() if result.usage else {}
         if not result.choices or result.choices[0].finish_reason != "stop":
-            raise ExtractionError("INCOMPLETE_OCR", usage=usage, request_id=result.id)
+            raise ExtractionError(
+                "INCOMPLETE_OCR",
+                usage=usage,
+                request_id=result.id,
+                details=provider_failure_details(result=result),
+            )
         try:
             obj = json.loads(result.choices[0].message.content or "")
             if not isinstance(obj, dict) or set(obj) != {"lines"}:
@@ -133,16 +138,26 @@ def transcribe(encoded):
             ):
                 raise ValueError
         except (ValueError, TypeError) as exc:
-            raise ExtractionError("INVALID_OCR", usage=usage, request_id=result.id) from exc
+            raise ExtractionError(
+                "INVALID_OCR",
+                usage=usage,
+                request_id=result.id,
+                details=provider_failure_details(result=result, error=exc),
+            ) from exc
         return Transcription(lines, usage, result.id)
     except (APITimeoutError, APIConnectionError) as exc:
-        raise ExtractionError("REQUEST_UNCERTAIN") from exc
+        raise ExtractionError(
+            "REQUEST_UNCERTAIN", details=provider_failure_details(error=exc)
+        ) from exc
     except APIStatusError as exc:
         # No automatic retry: an earlier crop may already have incurred a charge.
         if exc.status_code in {401, 403}:
-            raise ExtractionError("PROVIDER_AUTH") from exc
+            raise ExtractionError(
+                "PROVIDER_AUTH", details=provider_failure_details(error=exc)
+            ) from exc
         raise ExtractionError(
-            "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED"
+            "REQUEST_UNCERTAIN" if exc.status_code >= 500 else "PROVIDER_REJECTED",
+            details=provider_failure_details(error=exc),
         ) from exc
     finally:
         client.close()

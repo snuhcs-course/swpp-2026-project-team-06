@@ -1,0 +1,333 @@
+{
+  "title": "공개 개발셋 독립 AI 샘플 진단",
+  "method": {
+    "corpus": "farmclub-dev238/docs/evaluation/i3-ai-support/questions.jsonl",
+    "eligible_cases": 57,
+    "exclusion": "runtime.change_during_generation present/truthy cases excluded",
+    "selection": "각 stratum에서 SHA256('independent-review-v1:'+id) 오름차순 첫 1개, run=1 고정",
+    "selected_cases": [
+      "CS-038",
+      "CS-044",
+      "CS-013",
+      "CS-055",
+      "CS-006",
+      "CS-027"
+    ],
+    "reviewed_responses": 12,
+    "blind_to": [
+      "product/evaluator implementation",
+      "existing score",
+      "trace grading booleans",
+      "trace action_observed/status/reasons"
+    ],
+    "allowed_inputs": [
+      "public corpus question/evidence/runtime/gold reference",
+      "raw HTTP response/json/message/reply",
+      "consumer_view/producer_view",
+      "needs_reply/escalations final state"
+    ],
+    "scope_limit": "단일 AI 검토자의 공개 소표본 진단이다. 인간 검토나 정확도 검증, 전체 개발셋 또는 비공개 세트 성능 추정이 아니다. 단계 before/after 명칭에는 블라인드하지 않음.",
+    "rubric": {
+      "action_correctness": "질문/입력/runtime/gold를 참고해 답변·전달·인간전용 처리와 최종 상태가 적절한지",
+      "substantive_correctness": "질문을 의미상 처리하며 핵심 내용이 맞고 근거 없는 결정을 하지 않는지; 답변 없는 HUMAN_ONLY는 UNCERTAIN",
+      "grounding": "실제 주장한 사실과 출처가 입력/최종 상태로 지지되는지; 관련성은 substantive로 분리; 답변 없음은 UNCERTAIN"
+    }
+  },
+  "results": [
+    {
+      "case_id": "CS-038",
+      "stratum": "ambiguous",
+      "run": 1,
+      "phase": "before",
+      "trace_file": "dev238-chat-v2-before-full/traces/trial-0016.json",
+      "http_status": 200,
+      "reply_body": "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "질문 대상/근거가 불충분해 사실을 추정하지 않고 전달했고, 최종 양측 view와 OPEN escalation 및 needs_reply=true가 일치한다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "확인되지 않은 사실을 답하지 않고 농가 전달 사실과 후속 응답 위치를 안내했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "상품 사실을 새로 주장하거나 출처를 꾸미지 않았다. 전달 주장은 최종 OPEN escalation과 양측 view로 뒷받침된다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-038",
+      "stratum": "ambiguous",
+      "run": 1,
+      "phase": "after",
+      "trace_file": "dev238-chat-v2-after-full/traces/trial-0016.json",
+      "http_status": 200,
+      "reply_body": "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "질문 대상/근거가 불충분해 사실을 추정하지 않고 전달했고, 최종 양측 view와 OPEN escalation 및 needs_reply=true가 일치한다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "확인되지 않은 사실을 답하지 않고 농가 전달 사실과 후속 응답 위치를 안내했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "상품 사실을 새로 주장하거나 출처를 꾸미지 않았다. 전달 주장은 최종 OPEN escalation과 양측 view로 뒷받침된다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-044",
+      "stratum": "conflicting_facts",
+      "run": 1,
+      "phase": "before",
+      "trace_file": "dev238-chat-v2-before-full/traces/trial-0021.json",
+      "http_status": 200,
+      "reply_body": "2026-11-10 ~ 2026-11-14에 받을 예정이에요.",
+      "action_correctness": {
+        "verdict": "FAIL",
+        "reason": "배송비 정보 FREE/0과 FAQ 3,000원이 충돌하는데 HANDOFF 없이 AI 답변으로 종결했다. 최종 escalation 없음, needs_reply=false."
+      },
+      "substantive_correctness": {
+        "verdict": "FAIL",
+        "reason": "무료배송 여부를 묻는 질문에 배송 예정일만 답해 핵심 질문을 처리하지 못했고 정보 충돌도 알리지 않았다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "발화한 날짜 2026-11-10~2026-11-14 자체는 입력 delivery_window 및 product 출처와 일치한다. 관련성 실패는 substantive 판정으로 분리했다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-044",
+      "stratum": "conflicting_facts",
+      "run": 1,
+      "phase": "after",
+      "trace_file": "dev238-chat-v2-after-full/traces/trial-0021.json",
+      "http_status": 200,
+      "reply_body": "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "배송비 근거 충돌에서 단정하지 않고 FORWARDED 답변, OPEN escalation, needs_reply=true로 농가 확인 경로를 만들었다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "확인되지 않은 사실을 답하지 않고 농가 전달 사실과 후속 응답 위치를 안내했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "상품 사실을 새로 주장하거나 출처를 꾸미지 않았다. 전달 주장은 최종 OPEN escalation과 양측 view로 뒷받침된다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-013",
+      "stratum": "missing_evidence",
+      "run": 1,
+      "phase": "before",
+      "trace_file": "dev238-chat-v2-before-full/traces/trial-0127.json",
+      "http_status": 200,
+      "reply_body": "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "박스 가로 치수 근거가 없어 치수를 만들지 않고 농가로 전달했다. 최종 OPEN escalation/needs_reply=true로 확인된다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "확인되지 않은 사실을 답하지 않고 농가 전달 사실과 후속 응답 위치를 안내했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "상품 사실을 새로 주장하거나 출처를 꾸미지 않았다. 전달 주장은 최종 OPEN escalation과 양측 view로 뒷받침된다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-013",
+      "stratum": "missing_evidence",
+      "run": 1,
+      "phase": "after",
+      "trace_file": "dev238-chat-v2-after-full/traces/trial-0127.json",
+      "http_status": 200,
+      "reply_body": "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "박스 가로 치수 근거가 없어 치수를 만들지 않고 농가로 전달했다. 최종 OPEN escalation/needs_reply=true로 확인된다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "확인되지 않은 사실을 답하지 않고 농가 전달 사실과 후속 응답 위치를 안내했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "상품 사실을 새로 주장하거나 출처를 꾸미지 않았다. 전달 주장은 최종 OPEN escalation과 양측 view로 뒷받침된다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-055",
+      "stratum": "operational_failure",
+      "run": 1,
+      "phase": "before",
+      "trace_file": "dev238-chat-v2-before-full/traces/trial-0052.json",
+      "http_status": 200,
+      "reply_body": null,
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "runtime.ai_enabled=false에서 reply=null이고 양측 최종 view에 소비자 메시지만 남으며 needsHuman=true, needs_reply=true로 인간 응답을 기다린다."
+      },
+      "substantive_correctness": {
+        "verdict": "UNCERTAIN",
+        "reason": "AI가 꺼져 실제 답변이 없으므로 답변 내용의 정확성을 판정할 대상이 없다. 이는 action 실패를 뜻하지 않는다."
+      },
+      "grounding": {
+        "verdict": "UNCERTAIN",
+        "reason": "생성된 답변이나 사실 인용이 없어 근거 일치성을 판정할 대상이 없다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-055",
+      "stratum": "operational_failure",
+      "run": 1,
+      "phase": "after",
+      "trace_file": "dev238-chat-v2-after-full/traces/trial-0052.json",
+      "http_status": 200,
+      "reply_body": null,
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "runtime.ai_enabled=false에서 reply=null이고 양측 최종 view에 소비자 메시지만 남으며 needsHuman=true, needs_reply=true로 인간 응답을 기다린다."
+      },
+      "substantive_correctness": {
+        "verdict": "UNCERTAIN",
+        "reason": "AI가 꺼져 실제 답변이 없으므로 답변 내용의 정확성을 판정할 대상이 없다. 이는 action 실패를 뜻하지 않는다."
+      },
+      "grounding": {
+        "verdict": "UNCERTAIN",
+        "reason": "생성된 답변이나 사실 인용이 없어 근거 일치성을 판정할 대상이 없다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-006",
+      "stratum": "routine_answerable",
+      "run": 1,
+      "phase": "before",
+      "trace_file": "dev238-chat-v2-before-full/traces/trial-0110.json",
+      "http_status": 200,
+      "reply_body": "먹기 전에 흐르는 물로 씻어 주세요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "등록 FAQ로 답할 수 있는 질문에 AI 답변을 제공했고 escalation 없이 needs_reply=false로 마쳤다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "먹기 전에 흐르는 물로 씻으라는 핵심 내용을 정확히 답했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "답변 문구가 입력 세척 FAQ와 일치하며 sourceRefs=[farm:faq]가 적절하다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-006",
+      "stratum": "routine_answerable",
+      "run": 1,
+      "phase": "after",
+      "trace_file": "dev238-chat-v2-after-full/traces/trial-0110.json",
+      "http_status": 200,
+      "reply_body": "먹기 전에 흐르는 물로 씻어 주세요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "등록 FAQ로 답할 수 있는 질문에 AI 답변을 제공했고 escalation 없이 needs_reply=false로 마쳤다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "먹기 전에 흐르는 물로 씻으라는 핵심 내용을 정확히 답했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "답변 문구가 입력 세척 FAQ와 일치하며 sourceRefs=[farm:faq]가 적절하다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-027",
+      "stratum": "sensitive_subjective_complaint_refund",
+      "run": 1,
+      "phase": "before",
+      "trace_file": "dev238-chat-v2-before-full/traces/trial-0108.json",
+      "http_status": 200,
+      "reply_body": "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "등록되지 않은 보상 결정을 AI가 약속하지 않고 농가 전달 및 OPEN escalation/needs_reply=true로 처리했다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "보상 가능 여부를 임의로 확정하지 않고 농가 확인이 필요한 문의를 전달했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "상품 사실을 새로 주장하거나 출처를 꾸미지 않았다. 전달 주장은 최종 OPEN escalation과 양측 view로 뒷받침된다."
+      },
+      "environment_blocked_observed": false
+    },
+    {
+      "case_id": "CS-027",
+      "stratum": "sensitive_subjective_complaint_refund",
+      "run": 1,
+      "phase": "after",
+      "trace_file": "dev238-chat-v2-after-full/traces/trial-0108.json",
+      "http_status": 200,
+      "reply_body": "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+      "action_correctness": {
+        "verdict": "PASS",
+        "reason": "등록되지 않은 보상 결정을 AI가 약속하지 않고 농가 전달 및 OPEN escalation/needs_reply=true로 처리했다."
+      },
+      "substantive_correctness": {
+        "verdict": "PASS",
+        "reason": "보상 가능 여부를 임의로 확정하지 않고 농가 확인이 필요한 문의를 전달했다."
+      },
+      "grounding": {
+        "verdict": "PASS",
+        "reason": "상품 사실을 새로 주장하거나 출처를 꾸미지 않았다. 전달 주장은 최종 OPEN escalation과 양측 view로 뒷받침된다."
+      },
+      "environment_blocked_observed": false
+    }
+  ],
+  "summary": {
+    "before": {
+      "action": {
+        "PASS": 5,
+        "FAIL": 1
+      },
+      "substantive": {
+        "PASS": 4,
+        "FAIL": 1,
+        "UNCERTAIN": 1
+      },
+      "grounding": {
+        "PASS": 5,
+        "UNCERTAIN": 1
+      }
+    },
+    "after": {
+      "action": {
+        "PASS": 6
+      },
+      "substantive": {
+        "PASS": 5,
+        "UNCERTAIN": 1
+      },
+      "grounding": {
+        "PASS": 5,
+        "UNCERTAIN": 1
+      }
+    },
+    "finding": "선정한 공개 6건의 run1에서 CS-044의 질문 무관 배송일 답변이 전달 처리로 바뀌었다. 나머지 5건은 처리·내용상 같은 결과다. 소표본 관찰이며 전반적 정확도 주장이 아니다."
+  }
+}

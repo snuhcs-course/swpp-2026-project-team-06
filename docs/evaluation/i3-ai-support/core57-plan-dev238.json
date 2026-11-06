@@ -1,0 +1,46 @@
+{
+  "issue": "DEV-238",
+  "protocolVersion": "dev238-core57-concurrency3-v1",
+  "originalCases": 60,
+  "originalTrials": 180,
+  "originalFileSha256": "c0bcef7f21f65484fe2d903cb26cb0e95041452ad70b19d5529563b788012ab8",
+  "originalFileUnchanged": true,
+  "coreCases": 57,
+  "coreTrialsPerBuild": 171,
+  "coreFileSha256": "9c3688d7812821817216289ca74c67c08d5550a3eac6828915040405bc037edf",
+  "split": "development",
+  "purpose": "regression",
+  "diagnosticCases": 3,
+  "diagnosticTrialsPerBuild": 9,
+  "diagnostics": [
+    {
+      "id": "CS-058",
+      "stratum": "operational_failure",
+      "transition": "settings_off_on",
+      "trials": 3,
+      "disposition": "Separate concurrency diagnostic; not in model-quality core. Original raw outcomes retained, HTTP-status/commit attestation remains limited."
+    },
+    {
+      "id": "CS-059",
+      "stratum": "operational_failure",
+      "transition": "producer_reply",
+      "trials": 3,
+      "disposition": "Separate concurrency diagnostic; not in model-quality core. Original raw outcomes retained, HTTP-status/commit attestation remains limited."
+    },
+    {
+      "id": "CS-060",
+      "stratum": "operational_failure",
+      "transition": "human_auto_roundtrip",
+      "trials": 3,
+      "disposition": "Separate concurrency diagnostic; not in model-quality core. Original raw outcomes retained, HTTP-status/commit attestation remains limited."
+    }
+  ],
+  "reason": "The native harness observes transition completion after a fixed one-second pause and does not capture HTTP-status/commit evidence. Completion timing is a product outcome and cannot unconditionally serve as validity evidence. Keep these cases as a separately planned concurrency diagnostic population rather than converting INVALID to FAIL or PASS.",
+  "rules": [
+    "Original cases and gold are unchanged.",
+    "No full paired claim over all60cases is made from core57.",
+    "The nine diagnostic trials remain planned and are reported separately, including invalid/not-run outcomes.",
+    "This plan is frozen before the new live before/after quality cohorts.",
+    "Paid preflight-only is allowed after evaluation-v2 freeze; full cohorts require main approval of gate artifacts."
+  ]
+}

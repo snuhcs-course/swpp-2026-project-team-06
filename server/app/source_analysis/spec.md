@@ -282,3 +282,12 @@ FEAT-03 AC-03-5 · M-11 · AC-SRC-3/11. 작업 기록은 `server/tasks/DEV-228.m
 | 2026-11-05 | 값은 `grounding.single_brix`: 하나로 정해질 때만, 범위는 하한, 값이 갈리면 비움. 이미 있는 값은 덮지 않는다 | 예상 칸 과장 방지·생산자 입력 우선 | AC-03-5, AC-SRC-11 |
 | 2026-11-05 | 상품별 자료는 그 상품에, 공통 자료는 상품이 하나일 때만 쓴다(`includes_target`과 같은 기준). 채우면 batch `version`·`reviewVersion`을 올린다 | 다른 상품 당도가 섞이지 않게; 기본 정보 변경과 같은 동시성 규칙 | AC-SRC-1/11 |
 
+
+
+### DEV-238 · bounded refinement batches
+공통 `refine_candidates`를 worker와 final_eval이 사용한다. 기존 요청 상한으로 source-order batches를 만들고 batch별 근거 검증 뒤 전체 field 한도로 다시 검증한다. 첫 예약 stage는 `refine`, 후속은 `refine-1` 등이며, 각 호출의 기존 fence/guard와 Spend 원장을 사용한다. 실패는 전체 target refinement 실패로 전파하고 사용량을 누적한다. 단계2 처리 버전 `source-refine-v8-bounded-batches`로 기존 prefix 결과를 재사용하지 않는다.
+
+
+## DEV-238 source draft preservation (2026-11-06)
+- Refinement v9 keeps short factual clauses in source wording and requires every number, including package labels, to be supported by that text's own citations. Separate package facts stay separate unless source evidence explicitly links them. No automatic inferred citation repair or safety relaxation.
+- Existing development gold/scorer and section rules remain fixed. Source-only paired diagnostics reuse one frozen extraction cohort; full-pipeline measurements remain separate.

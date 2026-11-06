@@ -146,7 +146,7 @@ def transition(kind: str, trial, log: list) -> None:
 def run_trial(case: dict, run: int, suffix: str = "") -> dict:
     runtime = case["runtime"]
     change = runtime.get("change_during_generation")
-    proxy(mode="pause" if change else PROVIDER_MODE[runtime["provider"]])
+    initial_stats = proxy(mode="pause" if change else PROVIDER_MODE[runtime["provider"]])
     trial = fixtures.prepare(case, run, suffix)
     started = datetime.now(UTC).isoformat(timespec="seconds")
     trace = {
@@ -232,6 +232,25 @@ def run_trial(case: dict, run: int, suffix: str = "") -> dict:
             blocker="no model call to pause (rule path); transition not injected during generation. Next: Zahra adds a pre-rule hook or reclassifies with DEV-154 owner",
         )
         return trace
+    stats = proxy()
+    trace["provider_result"] = {
+        k: stats.get(k)
+        for k in ("provider", "upstream_status", "usage", "response_id", "last_model")
+    }
+    trace["provider_result"]["request_delta"] = stats.get(
+        "upstream_requests", 0
+    ) - initial_stats.get("upstream_requests", 0)
+    trace["provider_result"]["cost_usd"] = (stats.get("usage") or {}).get("cost")
+    if (
+        runtime["provider"] == "available"
+        and stats.get("upstream_status", 0) is not None
+        and stats.get("upstream_status", 0) >= 400
+    ):
+        return {
+            **trace,
+            "status": "BLOCKED",
+            "blocker": "Live provider request failed; fallback is not model quality.",
+        }
     return {**trace, **score(case, trace)}
 
 
@@ -333,7 +352,9 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
             results[(trace["case"], trace["run"])] = (trace, path.name)
     commit = git("rev-parse", "HEAD")
     prompt_blob = git("rev-parse", "HEAD:server/app/ai/service.py")
-    source = RUN_LOG if RUN_LOG.exists() else TEMPLATE_LOG  # a new cohort starts from the row layout
+    source = (
+        RUN_LOG if RUN_LOG.exists() else TEMPLATE_LOG
+    )  # a new cohort starts from the row layout
     with source.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
         fields = list(rows[0].keys())
@@ -366,7 +387,9 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
             privacy_pass=flag("privacy_pass"),
             evidence_uri=f".artifacts/i3-ai-support/{BASELINE}/{name}",
             # a re-score keeps the recorded reviewer (agent/human sign-off); a fresh run starts as pending
-            reviewer=row["reviewer"] if rescore and row["reviewer"] else "auto (scripts/i3-ai-support/run.py); human review pending",
+            reviewer=row["reviewer"]
+            if rescore and row["reviewer"]
+            else "auto (scripts/i3-ai-support/run.py); human review pending",
             blocker_and_next_action=trace.get("blocker", ""),
         )
     with RUN_LOG.open("w", newline="", encoding="utf-8") as handle:

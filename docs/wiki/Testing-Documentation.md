@@ -1,5 +1,9 @@
 # Testing Documentation
 
+DEV-238 post-benchmark shipping regression: compare matching base fee types separately from regional surcharges; omitted detail is not conflicting evidence. Explicit fee contradictions and denied amounts still require handoff. Independent specification tests cover positive and negative cases. These repairs follow the frozen `f4715b1` measurements and are not measured by those existing benchmark numbers.
+
+The independently authored 23 cases produced 7 failures on `f4715b1` and all 23 passed after the repair; 6 earlier numeric-conflict cases also passed. The related AI, usage, messaging and display regression suite passed 150 tests on the repaired code. This is targeted regression evidence, not a new independent holdout or human quality calibration.
+
 **Team 6 — Farmclub | Iteration 2 | Revised 22 October 2026**
 
 ## Overview
@@ -1712,3 +1716,80 @@ The [document at `a262714`][prior] preserves the submitted AC catalogue, spec 1.
 [pr113]: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113
 [pr168]: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/168
 [wiki]: https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation
+
+
+## Iteration 3 — DEV-238 paired development measurements (5 November)
+
+The source-draft pair uses 47 development inputs (43 extraction and four contract cases),
+identical frozen input bytes, the same model/provider and prompt text, and the unchanged
+`dev193-number-evidence-v1` scorer. The candidate partitions refinement candidates into
+bounded requests instead of dropping the tail after one request. This is one stochastic
+realization per build, not a causal estimate or independent holdout result.
+
+| Source format | Fact matches before | Fact matches after | Critical matches before | Critical matches after |
+| --- | ---: | ---: | ---: | ---: |
+| Text | 67/103 | 64/103 | 31/46 | 33/46 |
+| Image | 41/52 | 42/52 | 30/35 | 30/35 |
+| Long image | 67/92 | 47/92 | 21/25 | 11/25 |
+| PDF | 47/107 | 65/107 | 25/48 | 28/48 |
+| Overall | 222/354 | 218/354 | 107/154 | 102/154 |
+
+The paired result does **not** establish overall quality improvement. Skipped refinement
+candidates fell from 18 to zero, but other extraction/provider failures and content misses
+remain in the denominator. Automatic forbidden-pattern hits increased from one to three;
+the three candidate hits refer to two source cases, including one refund/compensation
+policy sentence that remained accepted with a platform warning. Unsupported-token hits
+fell from one to zero. These detectors and precision proxies do not establish semantic
+precision, human audit completion, or safety of applied/public product pages.
+
+Source settled costs were $0.547032 before and $0.538427 after; unsettled reservations
+were $0.041332 and $0.115066 respectively and still consume the budget. Aggregates and
+configuration hashes are preserved in [the paired development record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/e2673e8/docs/spec/validation/source-dev238-pair-2026-11-05.json).
+No new source holdout was run in this task snapshot.
+
+The first chat run recorded 141/180 automatic outcome passes, but subsequent provider
+audit found no actual model IDs in any trace; the direct credential probe returned 401.
+It is retained explicitly as a **fallback/system regression cohort**, never live model
+quality. A separate local OpenRouter Messages compatibility smoke then succeeded with
+Haiku 4.5, HTTP 200, one upstream request, a response ID and nonzero token usage. This
+changes only the test proxy route; production remains Anthropic. New paid quality cohorts
+are held pending the DEV-241 evaluation-v2 validity and grading gates.
+
+
+### DEV-238 frozen development comparison — 2026-11-05
+
+Frozen product before `5f27a22`, candidate `f4715b1`; evaluation-v2 scorer `bc990c4717ef8d6aac8d88dbbfab5d449b3b0a1bb33be9f0feb8257f14f91245`. Same runner, corpus, rubric, config and actual OpenRouter-compatible Haiku4.5; both preflight fixture audits57/57 and provider200/model/id/usage gates passed. Production remains Anthropic. Original60 cases unchanged: preplanned core57×3=171 per arm, concurrency3×3=9 per arm separate. No skipped/invalid core trials.
+
+| Automated bounded screening | Before | Candidate |
+| --- | ---: | ---: |
+| Overall stable3/3 cases (primary) |46/57|57/57|
+| Overall at least1/3 cases |46/57|57/57|
+| Overall passing trials |138/171|171/171|
+| Action stable3/3 / at least1/3 |47/57 /47/57|57/57 /57/57|
+| Bounded typed semantic/factual stable3/3 |47/57|57/57|
+| Persisted state stable3/3 |46/57|57/57|
+| Output redflag/speaker privacy stable3/3 |57/57|57/57|
+| Live-model eligible passing trials |63/63|63/63|
+| Rule passing trials |57/87|87/87|
+| Injected fault passing trials |6/9|9/9|
+| Human-only passing trials |12/12|12/12|
+| Latency p50 / p95 ms |70 /1578|58 /1727|
+| Full cohort plus its smoke USD |0.056731|0.057151|
+
+Paired stable cases:11 improve (public CS041–051),0 worsen,46 unchanged. Recovery is30 conflicting-fact rule trials and3 injected timeout state trials; this does not establish an improvement in the live model itself. Latency p95 increased. Dimension trial PASS/FAIL/UNREVIEWED and at-least-one counts are in `docs/evaluation/i3-ai-support/core57-comparison-dev238-2026-11-05.json`. Every automatic pass is `AUTO_PASS_PENDING_REVIEW`: bounded screening, not human validation, calibrated general correctness, or population reliability. Privacy only checks response redflags/speaker; model-transmission privacy is unverified.
+
+Independent AI diagnosis (not human review):6 public cases×run1×2 builds,12 responses, implementation/evaluator/old scores hidden; CS044 recovered from answering a shipping-fee question with unrelated shipment-date information to handoff. Other5 were unchanged. HUMAN_ONLY substantive/grounding was UNCERTAIN/N/A under that independent rubric, unlike the automatic pipeline. This tiny diagnostic is not accuracy calibration. Sanitized artifact: `docs/evaluation/i3-ai-support/independent-ai-review-dev238-2026-11-05.json`.
+
+Independent sealed chat (PR465 public aggregates only): action3/3 19→20/28, at-least-one20→21/28; routine-answerable action2→1/15 worsened. Transmission privacy was UNREVIEWED, so overall quality remains unconfirmed. Source development facts222→218/354 and critical107→102/154; fewer truncated candidates18→0 does not establish quality improvement. Source final holdout is INVALID_INCOMPLETE_COHORT; see PR465 public aggregate. These measurements provide narrow handling recovery evidence, not a product-ready claim.
+
+Post-freeze public manual counterexamples: numeric equality does not detect negation (`3500원이 아닙니다`), and the added empty-number guard can wrongly hand off FREE shipping with a5000 remote surcharge plus an agreeing free-shipping FAQ. The latter is a newly found regression; fixes/tests are tracked separately from frozen f471 results. No holdout reuse or mixing a later fix into this measured candidate.
+
+AI first review: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/464#issuecomment-6659040812 . Draft remains awaiting required human review; no merge/deployment.
+
+
+Separate public concurrency diagnostic (not part of171): before4/9 attempted,3 automatic passes,1 INVALID,5 NOT_RUN; after9/9 automatic passes. Baseline CS059run1 lacked an observed pre-release transition and had HUMAN_OUTCOME_MISMATCH, so the strict unexpected-INVALID rule stopped further calls. This incomplete diagnostic cannot supply a valid full paired9-trial improvement claim. One before setup attempt failed on64-character fixture IDs before provider calls; a shortened wrapper-only suffix enabled the preserved next attempt, while native runner/product/scorer remained fixed. Used wrapper bytes and SHA are preserved with raw artifacts. Worker completion at the one-second observation is not HTTP success/DB commit evidence. Public aggregate: `docs/evaluation/i3-ai-support/concurrency-diagnostic-dev238-2026-11-05.json`. Actual diagnostic cost beforeUSD0.005906,afterUSD0.012568; all known. DEV238 conservative accounted totalUSD1.377108 includes earlier source settled/unsettled plus direct/dev chat calls, and excludes independent owners' separate holdout ledgers.
+
+
+### DEV-238 source-only improvement follow-up
+
+Refinement v9 emphasizes per-text numeric citation completeness and retention of safe factual clauses. Regression and paid comparisons retain the existing 47-source development corpus and frozen scorer. Refinement-only paired trials reuse identical extracted candidates; end-to-end measurements remain separate. No chat changes, consumed holdout reuse, inferred citation repair or relaxed safety checks are included. Results will record all attempts, errors and costs without selecting the best run.
