@@ -1,21 +1,21 @@
 {
-  "release": "demo-i2",
+  "release": "demo-i3",
   "files": {
     "admin.mp4": {
-      "sha256": "741492abaa7ac358ebb4ca8d8a5338f0294e7d692062a772d6fe676154fa9429",
-      "bytes": 830343
+      "sha256": "f929fbad3e936ee29e182d58f86eb7915fe8d476add71734297a80aa1314c962",
+      "bytes": 810695
     },
     "consumer.mp4": {
-      "sha256": "eacc604ce8653d2c356de6fa33a34a3562301c68a36e7bfbb826c43c7cf59399",
-      "bytes": 4344400
+      "sha256": "7f193795e741fd64e3aa1ee41c3ad9853493ebfdc3b159f5c62012a0ae39c818",
+      "bytes": 4069796
     },
     "producer.mp4": {
-      "sha256": "9912fa919077671e33f03a34530c96bd38e5382c51db56363222264d68046b73",
-      "bytes": 4875758
+      "sha256": "086f0b1dc9e6b105da856d63377b6088b36c7a45c34a33d4281ee7dbf1d2f416",
+      "bytes": 6990916
     },
     "story.mp4": {
-      "sha256": "b3451547d7ebb29dc540dee13e93c3fbf0db733580f995497bd57d8a5d1d9e0a",
-      "bytes": 10059649
+      "sha256": "0b8536d8702f8ac5fd9e43463d9a430dfbbf2039e5a940896201d994652b5355",
+      "bytes": 11869705
     }
   }
 }
