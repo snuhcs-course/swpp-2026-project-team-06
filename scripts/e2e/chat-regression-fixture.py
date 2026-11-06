@@ -9,8 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "server"))
 
-from app.core.clock import now
 from app.accounts.models import User  # noqa: F401 -- registers farms' user FK metadata
+from app.core.clock import now
 from app.core.db import get_sessionmaker
 from app.core.ids import new_id
 from app.farms import service as farms
@@ -68,7 +68,8 @@ def clear_room(db):
             )
         )
         assert all(
-            not m.body or m.body.startswith(("DEV248", "DEV249", "DEV253"))
+            not m.body
+            or m.body.startswith(("DEV248", "DEV249", "DEV253", "DEV153-C01-HISTORY-"))
             for m in rows
         ), "Unexpected conversation content; refusing cleanup"
         for model in (Escalation, OrderInquiry):
@@ -107,7 +108,9 @@ def state(db):
         "readId": current.consumer_last_read_message_id if current else None,
         "following": db.get(Follow, (consumer_id, farm_id)) is not None,
         "attachmentCount": db.scalar(
-            select(func.count()).select_from(PrivateAttachment).where(
+            select(func.count())
+            .select_from(PrivateAttachment)
+            .where(
                 or_(
                     PrivateAttachment.thread_id == current.id if current else False,
                     PrivateAttachment.order_id.in_(
@@ -172,7 +175,11 @@ with get_sessionmaker()() as db, db.begin():
             FarmAiSettings(farm_id=farm_id, enabled=False, version=1, updated_at=now())
         )
         db.flush()
-        result = {"originalSettings": original, "state": state(db)}
+        result = {
+            "originalSettings": original,
+            "originalFarmStatus": farms.get_farm(db, farm_id).approval_status,
+            "state": state(db),
+        }
     elif command == "finish":
         from datetime import datetime
 
@@ -185,13 +192,17 @@ with get_sessionmaker()() as db, db.begin():
         else:
             original["updated_at"] = datetime.fromisoformat(original["updated_at"])
             db.merge(FarmAiSettings(farm_id=farm_id, **original))
+        if payload.get("originalFarmStatus"):
+            farms.get_farm(db, farm_id).approval_status = payload["originalFarmStatus"]
         result = {"cleaned": True}
     elif command == "history":
         current = thread(db)
         assert current is not None
         count = int(payload["count"])
         prefix = payload.get("prefix", "DEV253-HISTORY")
-        assert 0 < count <= 200 and prefix.startswith("DEV253")
+        assert 0 < count <= 200 and (
+            prefix.startswith("DEV253") or prefix == "DEV153-C01-HISTORY"
+        )
         for index in range(1, count + 1):
             db.add(
                 ThreadMessage(
@@ -218,6 +229,36 @@ with get_sessionmaker()() as db, db.begin():
         )
         result = {"messageId": outcome.message.message_id}
     elif command == "inspect":
+        result = state(db)
+    elif command == "clear_history":
+        current = thread(db)
+        assert current is not None
+        messages = list(
+            db.scalars(
+                select(ThreadMessage).where(ThreadMessage.thread_id == current.id)
+            )
+        )
+        assert all(
+            m.body.startswith("DEV253") and not m.attachment_ids and not m.inquiry_id
+            for m in messages
+        )
+        db.execute(delete(ThreadMessage).where(ThreadMessage.thread_id == current.id))
+        current.consumer_last_read_message_id = None
+        current.producer_last_read_message_id = None
+        db.flush()
+        result = state(db)
+    elif command == "approval":
+        assert payload["status"] in {"APPROVED", "SUSPENDED"}
+        farms.get_farm(db, farm_id).approval_status = payload["status"]
+        result = {"status": payload["status"]}
+    elif command == "remove_message":
+        current = thread(db)
+        message = db.get(ThreadMessage, payload["messageId"])
+        assert current is not None and message is not None
+        assert message.thread_id == current.id and message.body.startswith("DEV253")
+        assert not message.attachment_ids and not message.inquiry_id
+        db.delete(message)
+        db.flush()
         result = state(db)
     elif command in {"image", "photo"}:
         output = BytesIO()

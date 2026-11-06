@@ -90,7 +90,7 @@ for (const width of [390, 360]) {
     });
 }
 
-test("AC-33-2 DEV-248: paid then refunded bottom-bar entry retains no-follow eligibility",
+test("AC-33-2 DEV-248: paid cancellation/refund-pending bottom-bar entry retains no-follow eligibility",
   async ({ page, request }) => {
     const order = await createOrder(request);
     const canceled = await request.post(`${apiUrl}/api/orders/${order.orderId}/cancel`, { headers: order.headers });

@@ -1712,3 +1712,9 @@ The [document at `a262714`][prior] preserves the submitted AC catalogue, spec 1.
 [pr113]: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/113
 [pr168]: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/168
 [wiki]: https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation
+
+## DEV-153 defect-fix regression records (2026-11-06)
+
+The paid-order entry and reading-position fixes are implemented together in [PR #482](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482). Detailed case-level records are maintained in [first paid-order chat](../evaluation/dev-242-order-chat-regression.md) and [reading-position restoration](../evaluation/dev-243-scroll-restoration.md). These preserve the original failing baseline, exact message-anchor measurements, real-stack API/browser checks, privacy and retry cases, and separate review/deployment gates.
+
+The first combined focused browser run passed 28 cases. Ten original A/B/A measurements had 0px drift (five at each of390×844 and360×844). Full server verification passed1,600/skip1, Mock245/skip1 and all five workspace typechecks. The final committed-source run, including the empty-history edge and affected existing specs, is recorded in those reports after execution. Local source/test results do not establish a deployed or native-device pass; parents remain open until the required review, merge and read-only deployment checks are recorded.
