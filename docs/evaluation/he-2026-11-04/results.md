@@ -48,7 +48,7 @@
 | 항목 | 값 |
 | --- | --- |
 | 시트 탭 / 내용 있는 탭 | 7 / 5 |
-| 평가된 칸(5명 × 11) | 55 |
+| 평가 양식 칸(5명 × 11) | 55 slots; 53 explicit ratings and 2 blank comment ratings (6 November source audit below) |
 | 심각도 1 이상 칸 | 19 (3점 2, 2점 9, 1점 8, 4점 0) |
 | 쪼갠 원시 문제(시트) | 27 (심각도 1 이상 칸에서 23, 0점이지만 제안이 있는 칸에서 4) |
 | 사전 점검 항목 | 38 (웹 30, APK 7, PWA 1) |
@@ -205,7 +205,7 @@
 
 전날 사전 점검에서 심각도 3 이상으로 본 C1·C2(주문 상태 문구 모순), C5(김민지–강씨네 방 AI 안내 없음), P2(정지 화면 자리표시자), P3(소식 확인 없이 발송)를 DEV-207~210으로 평가 당일 수업 전에 머지했다. 안내 README에도 AI 질문은 한라네 과수원 상품에서 해 보라고 적었다.
 
-평가자 5명 중 이 다섯 문제를 다시 적은 사람은 없다. 사전 점검 때는 모든 주문 흐름에서 보이던 문제(C1)라 고치지 않았다면 여러 명이 적었을 것으로 본다. 다만 평가자가 그 흐름까지 가지 않았을 가능성도 있어, 고친 효과와 구분할 수는 없다. 평가자가 심각도 3을 준 두 개(HE-02·HE-04) 중 HE-02는 사전 점검 C4와 같은 문제였고, HE-04는 사전 점검이 놓친 것이다(주문을 실제로 넣은 뒤 로그아웃해야 생김).
+평가자 5명 중 이 다섯 문제를 다시 적은 사람은 없다. 사전 점검 때는 모든 주문 흐름에서 보이던 문제(C1)라 고치지 않았다면 여러 명이 적었을 것으로 본다. 다만 평가자가 그 흐름까지 가지 않았을 가능성도 있어, 고친 효과와 구분할 수는 없다. 11/06 원본 PDF 대조 정정: 심각도 3인 원본 칸은 B-H4와 B-H6이다. HE-02·HE-04는 B-H4를 나눈 관심사이며, B-H6의 주문 식별 문제는 HE-03에 해당한다. HE-02는 사전 점검 C4와 겹치고, HE-04의 로그아웃 후 주문서 복귀는 사전 점검이 놓쳤다. 이를 독립적인 주요 문제 두 건의 재평가나 정량적인 개선 효과로 해석하지 않는다.
 
 ## 8. 다음 단계
 
@@ -230,3 +230,14 @@
 아직 이슈로 만들지 않은 신규 묶음(다음 후보, 대부분 문구라 보드 한 장에 모을 수 있음): HE-07(소비자 용어 설명), HE-13(판매페이지 칸 이름), HE-14(새 상품 vs 판매페이지 수정), HE-19(투어 가림·주문 관리 단계), HE-31(생산자 채팅 이름 가림·옛 연결 주문, `server/app/core/masking.py`를 건드리면 고위험), HE-32·33(새 상품 AI 버튼·오류 위치), HE-37~43(심각도 1). 감사 6번(입금 알린 주문의 API 취소)은 DEV-207 후속으로 따로 정한다.
 
 데이터 정리(6.2)는 운영 DB 작업이라 담당자가 실행한다.
+
+
+## 6 November source-export audit — DEV-156/159
+
+The user supplied the actual Team 6 peer-sheet PDF (14 pages; SHA-256 `7268b18a8a11af3ea0d05f819d2ba78d1bd6ed3b1b567ee4027ce27552d3ab06`). A–E map to pages 1–2, 3–4, 7–8, 9–10 and 11–12; pages 5–6 and 13–14 are blank template pairs. Its export timestamp is 6 November 12:15:43 UTC; the evaluation date/build are not printed in it. The 4 November class date/device/build information above comes from the historical team record.
+
+The complete [anonymized source transcription](peer-sheet-transcription.json) preserves all 55 slots and the class Example column as rubric, not findings. There are 50 heuristic slots and 5 comment slots: 53 explicit ratings and 2 blank ratings (A/B comments). The 19 nonzero heuristic cells remain 2 major/9 minor/8 cosmetic, with no severity 4. A source rating belongs to its entire heuristic cell; splitting B-H4's three concerns does not create three independently rated major defects. No new consensus severity was agreed in this audit.
+
+The [documentary remediation register](peer-sheet-remediation.json) retains 19 nonzero cells, five zero/unrated recommendations and 25 editorial follow-up groups. Those populations differ from the historical 27 split issues/43 merged groups above. In particular, A's page-2 additional comment asks for immediate display of an outgoing chat message; it is UNRATED and is tracked by the existing I4 DEV-239. It was absent from the earlier numbered peer summary and is now explicitly retained.
+
+The submitted XLSX candidate is a labeled reconstruction of this PDF; no editable Team 6 original was supplied. Original Korean observations, ratings/blank values and heuristic criteria remain separate from translated themes and implementation dispositions. DEV-222/224/226/230/231/213 have Done/merged documentary evidence; DEV-239/240 remain I4 Backlog. Generic E-H3/H5/H9 observations lack reproducible route/action details and are not automatically closed by similar fixes. DEV-213 removes internal handoff reasons, while the broader AI/human visual distinction remains a separate design concern. No post-fix peer rescore, human calibration, new app test or deployed verification is claimed. The English summary is in [Testing Documentation](../../wiki/Testing-Documentation.md#iteration-3--peer-heuristic-evaluation-and-closeout-6-november).
