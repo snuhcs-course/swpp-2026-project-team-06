@@ -170,3 +170,11 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 - 식별자 `kr.farmclub.producer`, 스킴 `farmclub-producer`, 복귀 주소 `https://farm.farmclub.kr/auth/kakao`(서버 값 그대로). 설정·흐름은 소비자 앱과 같다(`apps/consumer/spec.md` DEV-33 절). `lib/kakao.ts`(웹)는 state만 sessionStorage, `lib/kakao.native.ts`는 메모리. 복귀 화면은 농가 상태별 첫 화면으로 간다(DEV-108과 같음).
 - 사진·영상: 웹 `lib/pick.ts`(`<input type="file">`, 600px 축소), 앱 `lib/pick.native.ts`(`expo-image-picker`, quality 0.8, `{uri,name,type}` 업로드). 원본 자료 첨부 `lib/sourceFiles.native.ts`는 사진만(PDF·텍스트는 웹 전용).
 - `beforeunload` 경고(상세 편집·상품 페이지·원본 작업실)는 웹에서만 건다. 복사는 `expo-clipboard`.
+
+## DEV-237 HE source recovery
+SourceAttachments reports whether a new text card contains non-whitespace input separately from general unsaved edits. Composer/workspace start eligibility includes this signal and keeps the existing flush-before-start transaction order. Composer renders action errors beside the collapsed footer and inside the expanded sheet; initial load errors without a batch remain in the page. No API or persistence change.
+
+## 도움말 투어 앱 표시 (DEV-206, 2026-11-05)
+- `Tour.tsx`의 겹치기 레이어는 웹 `position: fixed`, 앱 `position: absolute`(앱 루트 기준). 앱에는 fixed가 없어 relative로 처리되면 본문을 민다.
+- 앱 카드 위치는 `useSafeAreaInsets` 위·아래 인셋 안쪽. 웹은 인셋 0.
+- 대상 위치 측정은 웹 DOM 전용이다. 앱은 대상 단계를 곧바로 가운데 카드 + '다음'으로 보여 주고, 단계 설명을 그대로 쓴다(`docs/spec/screens.md` "공통: 도움말" 앱 줄).

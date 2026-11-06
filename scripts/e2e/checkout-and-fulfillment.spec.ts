@@ -288,3 +288,30 @@ test("AC-10-6: failed inquiry send retains typed text and retries", async ({
   ).toBeVisible();
   assertClean();
 });
+
+test("AC-08-5 (DEV-147): address sheet marks the current recipient address as the checked radio", async ({
+  page,
+}) => {
+  const assertClean = monitor(page);
+  await loginConsumer(page);
+  await page.goto(`${consumerUrl}/products/p-house`);
+  await page.getByRole("button", { name: "예약하기" }).click();
+  await page.getByRole("button", { name: "주문서로" }).click();
+  // 시드 김민지: 기본 배송지 a-1(월드컵북로 12) + '회사' a-2(세종대로 110).
+  // 같은 파일의 앞 테스트가 새 주소를 기본으로 저장할 수 있어, 처음 기본값이 어느 줄인지는 가정하지 않는다
+  const other = page.getByRole("button", { name: "다른 배송지" });
+  await other.click();
+  const home = page.getByRole("radio").filter({ hasText: "월드컵북로 12" });
+  const office = page.getByRole("radio").filter({ hasText: "세종대로 110" });
+  // 처음 열면 채워진 기본 배송지 하나만 선택돼 있다(aria-checked, react-native-web은 accessibilityState를 무시)
+  await expect(page.getByRole("radio", { checked: true })).toHaveCount(1);
+  await expect(office).not.toBeChecked();
+  await office.click();
+  await expect(office).toBeHidden();
+  // 고른 주소로 바뀐 뒤 시트를 다시 열면 그 주소가 선택돼 있다
+  await other.click();
+  await expect(office).toBeChecked();
+  await expect(home).not.toBeChecked();
+  await expect(page.getByRole("radio", { checked: true })).toHaveCount(1);
+  assertClean();
+});

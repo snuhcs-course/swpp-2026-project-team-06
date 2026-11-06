@@ -102,6 +102,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 | 파일 이름은 `Legal.tsx`와 `legalContent.ts`. `legal.ts`는 macOS(대소문자 무시)에서 `Legal.tsx`와 충돌한다 | TS1149 |
 | (DEV-116) 푸터는 `<Scroll footer={<LegalFooter … />}>` 슬롯으로 둔다. footer가 있으면 내용 컨테이너를 `flexGrow: 1`로 늘리고 footer를 `marginTop: 'auto'` + 위 여백 section(40)으로 붙인다 | 내용 바로 뒤에 두면 짧은 화면(카카오 운영 로그인)에서 푸터가 화면 중간에 뜬다. flexGrow는 footer가 있을 때만 켜 다른 화면에 영향이 없다 |
 | (DEV-116) 고정 하단 바가 있는 로그인은 바 높이를 `onLayout`으로 재서 `Scroll bottom`으로 쓴다 | 바 높이가 상태(카카오 버튼만·테스트 계정 버튼·오류 문구)마다 달라 고정값이면 푸터와 바 사이가 빈다 |
+| (DEV-122) `LEGAL_VERSION`(동의 버전)과 `PRIVACY_EFFECTIVE`(시행일)를 따로 둔다. 동의를 받아 처리하는 항목이 바뀔 때만 버전을 올리고, 근거·고지 문구만 바뀌면 시행일과 변경 기록만 고친다. `test-legal.mjs`는 버전 날짜가 변경 기록에 있고 시행일보다 늦지 않은지, 시행일이 더 늦으면 마지막 변경 기록이 ‘다시 동의를 받지 않습니다’를 적는지 본다 | 버전을 올리면 생산자 앱 전체가 재동의 전까지 막힌다(#251/DEV-124). 법상 재동의는 동의 근거 항목이 바뀔 때만 필요하다(개인정보 보호법 제15조 제2항 후단, 제28조의8 제3항) |
 ## DEV-33 네이티브 분기 (ADR 0013)
 
 - 화면 숨김 판단은 `src/foreground.ts`의 `inBackground()`(`AppState`; 웹에서는 `document.visibilityState`를 비춘다). `ChatThread`·`NewsRoom`·`useLiveList`가 쓴다.
@@ -114,3 +115,8 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 
 ## DEV-235/213 채팅 표시
 모든 메시지에 sequence가 있으면 저장 순서로 정렬한다. 구 API 응답이 섞여 순번이 빠진 경우 전체를 시각순으로 정렬하고 동시각은 입력 순서를 유지한다. 무작위 messageId로 순서를 정하지 않는다. 전달 메시지는 내부 근거 요약을 표시하지 않는다.
+
+## Android 앱 키보드·하단 인셋 (DEV-205, 2026-11-05)
+- 두 앱 루트는 `KeyboardRoot`(`src/keyboard.tsx`)로 Stack을 감싼다. Android만 `KeyboardAvoidingView behavior="padding"`, 웹·iOS는 children 그대로(감싸는 View 없음). app.json `softwareKeyboardLayoutMode`는 쓰지 않는다: Android 15+ edge-to-edge에서 adjustResize가 창을 줄이지 않고, 네이티브 설정은 새 빌드가 필요하다.
+- Android에서 키보드가 떠 있는 동안 `TabBar`·`BottomBar`는 그리지 않는다(`useKeyboardShown`). 루트가 올라가면 absolute 하단 바가 키보드 위에 떠 입력칸을 가린다.
+- `ChatThread` 입력창 아래 여백은 앱에서만 하단 안전 영역을 더한다(키보드가 떠 있으면 뺀다). 웹은 20 그대로.

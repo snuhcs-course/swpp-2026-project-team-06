@@ -672,6 +672,10 @@ export default function Checkout() {
           <Pressable
             key={a.addressId}
             accessibilityRole="radio"
+            // DEV-147: 지금 받는 곳으로 고른 주소를 스크린리더에 알린다(웹은 aria-checked만 DOM에 옮김, DEV-141)
+            aria-checked={
+              !!recipient && "addressId" in recipient && recipient.addressId === a.addressId
+            }
             onPress={() => {
               setRecipient(a);
               setSaveAddress(false);
