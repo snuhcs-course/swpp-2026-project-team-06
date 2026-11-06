@@ -11,7 +11,7 @@ https://demo.farmclub.kr (Vercel `farmclub-demo`)의 원본이다. 평가자에�
 | `cmd/` | `npm run demo:record`·`demo:stitch`·`demo:site`·`demo:publish`(아래 "영상을 다시 찍었을 때"). 테스트는 `scripts/test-demo-*.mjs` |
 | `videos.json` | 영상이 있는 GitHub Release 태그와 파일별 SHA-256·크기 |
 | `videos.mjs` | `fetch`(Release → `site/videos/`, SHA-256 확인) / `upload`(mp4 → Release, `videos.json` 갱신) |
-| `record/` | Playwright 녹화 스크립트. `story.mjs`가 지금 영상의 원본(구간 p1~p4·a1~a2·c1~c3), `lib.mjs`는 커서·자막·ffmpeg 인코딩. `consumer.mjs`·`producer.mjs`·`admin.mjs`는 I1 때 앱별 녹화(화면이 바뀌어 맞지 않을 수 있음) |
+| `record/` | Playwright 녹화 스크립트. `story.mjs`가 지금 영상(I3, `demo-i3`)의 원본(구간 `p1 a1 p2 a2 c1 p3 c2 p4 c3 p5 c4`), `prep-test-login.mjs`는 로컬 녹화 전 테스트 계정 미리 로그인(로그인 장면을 찍지 않음), `lib.mjs`는 커서·자막·ffmpeg 인코딩. `consumer.mjs`·`producer.mjs`·`admin.mjs`는 I1 때 앱별 녹화(화면이 바뀌어 맞지 않을 수 있음) |
 | `../scripts/demo.mjs` | `npm run demo`: 로컬 실서버 스택(시드 초기화 → FastAPI → 두 앱, `ADMIN_WEB_PASSWORD`가 있으면 관리자 페이지도) |
 
 ## 배포
@@ -44,6 +44,12 @@ DEMO_DB=farmclub_demo ADMIN_WEB_PASSWORD=<로컬에서 정한 값> npm run demo 
 # 다른 터미널
 ADMIN_WEB_PASSWORD=<같은 값> npm run demo:record -- --target local          # 시나리오 순서 전체, 구간만: ... --target local p1 a1
 ```
+- **영상에 로그인 장면을 넣지 않는다**(I3, DEV-181). 실제 로그인은 카카오이고 테스트 계정 화면은 시험용이다. 녹화 전에 한 번 미리 로그인하고, 같은 프로필로 찍으면 모든 구간이 로그인된 상태로 시작한다
+  ```sh
+  DEMO_PROFILE=demo/.raw/local-profile ADMIN_WEB_PASSWORD=<같은 값> node demo/record/prep-test-login.mjs
+  DEMO_HQ=1 DEMO_PROFILE=demo/.raw/local-profile ADMIN_WEB_PASSWORD=<같은 값> FARMCLUB_ADMIN_URL=http://127.0.0.1:8090 node demo/record/story.mjs p1   # 구간마다
+  ```
+  구간은 `p1 a1 p2 a2 c1 p3 c2 p4 c3 p5 c4` 순서로 데이터가 이어진다. 한 구간이 실패하면 `npm run demo`를 다시 띄워(시드 초기화) `p1`부터 찍는다. 끝나면 `demo/.raw/local-profile`(로그인 쿠키)을 지운다
 - `DEMO_DB`를 주면 개발용 `farmclub` DB를 지우지 않고 데모 DB만 시드를 다시 넣는다. 포트는 `DEMO_API_PORT`·`DEMO_CONSUMER_PORT`·`DEMO_PRODUCER_PORT`·`DEMO_ADMIN_PORT`
 - `demo:record`는 주소를 `DEMO_*_PORT`(또는 `FARMCLUB_*_URL`)에서 정하고, 로컬 주소가 아니거나 관리자 구간에 `ADMIN_WEB_PASSWORD`가 없으면 멈춘다. 로컬 스택은 시드·테스트 계정·`FIXED_NOW`(2026-10-07)를 쓴다. p1부터 다시 찍을 때는 `npm run demo`를 다시 띄워 시드를 초기화한다
 - 결과는 `demo/.raw/story/<구간>.webm`(`DEMO_HQ=1`이면 `.mp4`, git 밖). 구간 순서는 `scenario.mjs`의 `order`. 실패하면 그 구간에서 멈추고 다시 시작할 명령을 보여 준다

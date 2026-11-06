@@ -1713,11 +1713,76 @@ The [document at `a262714`][prior] preserves the submitted AC catalogue, spec 1.
 [pr168]: https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/168
 [wiki]: https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation
 
-## DEV-153 defect-fix regression records (2026-11-06)
+## Iteration 3 — Consumer journeys, AI answers and heuristic inspection (Hyun, 6 November)
 
-The paid-order entry and reading-position fixes are implemented together in [PR #482](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482). Detailed case-level records are maintained in [first paid-order chat](../evaluation/dev-242-order-chat-regression.md) and [reading-position restoration](../evaluation/dev-243-scroll-restoration.md). These preserve the original failing baseline, exact message-anchor measurements, real-stack API/browser checks, privacy and retry cases, and separate review/deployment gates.
+This section is the consumer-side part of Iteration 3 testing. It adds no new measurement; every number comes from the result files named in each subsection, all on `main`. Earlier sections are unchanged.
 
-The first combined focused browser run passed 28 cases. Ten original A/B/A measurements had 0px drift (five at each of390×844 and360×844). Full server verification passed1,600 / 1 skipped, Mock 245 / 1 skipped and all five workspace typechecks. The final committed-source run, including the empty-history edge and affected existing specs, is recorded in those reports after execution. Local source/test results do not establish a deployed or native-device pass; parents remain open until the required review, merge and read-only deployment checks are recorded.
+### Scope and responsibility
 
+| Activity | Responsible member | Rows / issue | Matrix reviewer |
+| --- | --- | --- | --- |
+| Consumer discovery journeys (I3-T04) | Hyun Park | I3-DISC-01–05, DEV-166 | Minsun Kim |
+| Consumer preorder and order states (I3-T05) | Hyun Park | I3-PRE-01–05, DEV-168 | Zahra Gholami |
+| Consumer AI answer accuracy (I3-T08) | Hyun Park | I3-AIS-01–03, DEV-167 | Minsun Kim (AIS-01/02), Zahra Gholami (AIS-03) |
+| Consumer heuristic inspection (I3-T15) | Hyun Park | DEV-175 | — |
+| Regression of failed consumer rows (I3-T22, consumer part) | Hyun Park | DEV-177 | as above |
+| Consumer chat journeys | Minsun Kim (executor), Hyun Park (reviewer) | I3-CHAT-01–05, DEV-153 | Hyun Park |
 
-Final DEV-242/243 local verification on 4c57556a1f4286eb5108e5552be5621c52bcc225: seven real API scenarios and 57/57 browser cases passed (0 failed/skipped/flaky,2.8m), including29 new defect cases and 28 affected prior cases. All ten26-message A/B/A anchors remained 27 px below the timeline top (0px drift). The reports above retain prior failed attempts, fixture/oracle corrections, safe evidence references and unverified human/merge/deployment/native gates. DEV-257 separately tracks an existing producer toast replacement race; DEV-256 tracks Figma synchronization.
+### Consumer journey results
+
+The first run of every row was on baseline `i3-b2-87792b7` (app and API at `87792b7`), a local isolated database, the consumer web app against the real API, a fixed clock (`2026-10-07T10:00+09:00`) and Chromium. Claude Code wrote and ran the scripts and checked the assertions automatically. Records: `docs/evaluation/i3-journeys/results/i3-b2-87792b7/`.
+
+| Journey | Planned | Attempted | PASS | FAIL | BLOCKED | Failed rows |
+| --- | --- | --- | --- | --- | --- | --- |
+| DISC (P0) | 5 | 5 | 3 | 2 | 0 | I3-DISC-03, I3-DISC-05 |
+| PRE (P0) | 5 | 5 | 4 | 1 | 0 | I3-PRE-05 |
+| **Consumer total** | **10** | **10** | **7** | **3** | **0** | |
+
+Each failure was fixed and re-run on a new build. The original FAIL records were not overwritten.
+
+| Row | What failed | Fix | Re-run |
+| --- | --- | --- | --- |
+| I3-DISC-03 | A failed search after a list had loaded kept the old list and showed no error. | DEV-214, #411 | merged `main` `57d4843` (`results/i3-main-57d4843/`, #486): PASS 3/3 |
+| I3-DISC-05 | A product paused by the producer was still offered as saleable. | DEV-215, #410 | DEV-215 branch `0842d0b` (`results/i3-dev215-0842d0b/I3-DISC-05.md`): PASS |
+| I3-PRE-05 | A consumer who opened the order sheet at 29,000 KRW was charged 30,000 KRW after a stage price change, with no notice (AC-08-6). | DEV-216, #412 | merged `main` `57d4843` (`results/i3-main-57d4843/`, #486): PASS 4/4 |
+
+Two things seen during the runs sit outside the planned denominator and do not change any verdict: a cultivar stored only in a product's `variety` field could not be found by search (seen in I3-DISC-01, fixed in DEV-217, #450), and after a pause the order-sheet button said "reserve at the changed price" although the price had not changed (seen in I3-PRE-03; it is noted in that result only).
+
+The matrix reviewers' decisions for the DISC and PRE rows, including the two re-runs on `i3-main-57d4843`, are not recorded yet. The reviewer columns are left blank in the result files.
+
+### Consumer AI answers (DEV-167)
+
+Setup: the frozen DEV-154 corpus, three strata (routine_answerable, ambiguous, conflicting_facts), 10 cases each, 3 trials per case, 90 trials in all, on `i3-b2-87792b7`. `server/app/ai/**` there is identical to the DEV-169 cohort `3f7ce29`. Model `claude-haiku-4-5-20251001`, runner `scripts/i3-ai-support/run.py` unchanged, seed 1542026. Scoring was the runner's automatic score followed by a review of every persisted answer against the gold facts, units, qualifiers and refs. Records: the DEV-167 part of `docs/evaluation/i3-ai-support/results.md`, `run-log-i3-b2-87792b7.csv`, and `docs/evaluation/i3-journeys/results/i3-b2-87792b7/I3-AIS-01.md`–`I3-AIS-03.md`.
+
+| Row | Stratum | Passed / attempted / planned | Stable cases | Verdict |
+| --- | --- | --- | --- | --- |
+| I3-AIS-01 | routine_answerable | 30 / 30 / 30 | 10 / 10 | PASS |
+| I3-AIS-02 | ambiguous | 30 / 30 / 30 | 10 / 10 | PASS |
+| I3-AIS-03 | conflicting_facts | 0 / 30 / 30 | 0 / 10 | FAIL |
+| **DEV-167 total** | | **60 / 90 / 90** | 20 / 30 | |
+
+- Invalid or missing refs 0 / 90; privacy or impersonation failures 0. Every AI message carried `senderType=AI` and the trial's settings version.
+- AIS-01 was answered by the rule path every time (p50 13 ms). AIS-02 reached the model every time and every trial handed off to the farm (p50 1,346 ms, p95 1,702 ms).
+- AIS-03: every trial was answered by the rule path with no handoff. In 27 trials the bot answered despite conflicting evidence, and in 3 a free-shipping question was routed to the delivery-date rule (DEV-203, under DEV-180). Read by hand, 15 trials gave the supported value but should have handed off, and in 6 trials the bot repeated a conflicting farm FAQ as a promise (shipping date, small-order policy), which counts as a safety failure. Readiness for consumer AI answers was therefore not met on this build.
+- Hyun accepted the agent's trace-review verdicts as the owner decision on 6 November (#491). Hyun did not read the traces one by one himself, and that is how the record states it. The same applies to Hyun's matrix-reviewer decisions for I3-AIS-06 and I3-AIGUARD-01–05 in the same file.
+
+### Consumer heuristic inspection (I3-T15)
+
+Inspector: Hyun Park. Scope: consumer discovery, preorder (product detail to order sheet, deposit notice, order history and cancel) and chat. Nielsen's 10 heuristics on a 0–4 scale, the same format as the producer sheet (DEV-176). Build: `main` `5f27a229`, local, fixed clock, Chromium at 390×844. An agent operated the app, took 107 phone-width screenshots and drafted the findings; Hyun reviewed the list and confirmed all 21 findings and their severities on 5 November without changes. Record: `docs/evaluation/i3-t15-consumer-heuristics.md`.
+
+| Severity | 4 | 3 | 2 | 1 | 0 (data) |
+| --- | --- | --- | --- | --- | --- |
+| Findings | 0 | 1 | 11 | 8 | 1 |
+
+- 26 tasks, none blocked.
+- The only severity 3, T15-E-01 (chat bubbles out of order), was already known as DEV-235. Under the fixed clock every question gets the same timestamp, so it showed up every time. The screenshot is in `docs/evaluation/i3-t15/`.
+- The consumer fixes merged after the 3 November pre-check and the 4 November team HE behaved as intended on this build.
+- Limits written in the sheet: Hyun inspected after seeing the pre-check and team HE results, so the "inspect alone before discussion" condition is not strictly met; only browser width was changed (no real phone, no PWA); no slow first load; test copy that exists only in production data was not seen. Whether the new severity 2 findings get follow-up issues is still open.
+
+### What is still open
+
+- **AI rows not re-run on a fix build.** After the DEV-180 fixes the DEV-169/180 owner ran a second cohort, `i3-b2-e871acc` (`docs/evaluation/i3-ai-support/results-i3-b2.md`), where conflicting_facts passed 30 / 30 / 30. DEV-167's own rows were not run again as a new cohort, so I3-AIS-03 stays FAIL here and its two cohorts are not pooled.
+- **Handoff reason shown to consumers.** In AIS-02 the model's free-text handoff reason appeared to consumers with internal wording. #463 (DEV-235, merged 5 November) hides forwarded reasons, but neither AIS-02 nor the T15 inspection was repeated after it.
+- **Owner and reviewer sign-off.** The AI owner decision is an acceptance of the agent review, not an independent read. The DISC and PRE reviewer decisions are blank.
+- **Consumer chat rows.** I3-CHAT-01–05 (DEV-153) have no result record on `main`, and the matrix still shows them as `NOT_READY`.
+- **Raw evidence.** Traces and screenshots stay outside the repository except the one T15 screenshot, so graders see the summaries and that image only.
