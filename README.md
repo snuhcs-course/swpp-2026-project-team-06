@@ -9,16 +9,14 @@ Farmclub connects consumers with Jeju citrus farms through advance reservations,
 
 ## 1. Watch the demo
 
-> **Videos are being recorded** and will be linked here and on [demo.farmclub.kr](https://demo.farmclub.kr/). Until then, the [Iteration 2 videos](https://demo.farmclub.kr/) show the same main flow without the I3 changes.
+Silent walkthroughs recorded on the snapshot above, from local seed data with fictional people, farm, bank account and addresses, using the repository's own script (`demo/record/story.mjs`, section 5B). Files are attached to the [`demo-i3` release](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/demo-i3); the same videos with step lists will be on [demo.farmclub.kr](https://demo.farmclub.kr/).
 
-The I3 videos are silent walkthroughs recorded on the snapshot above, from local seed data with fictional people, farm, bank account and addresses, using the repository's own script (`demo/record/story.mjs`, section 5B), so they can be reproduced.
-
-| Recording | What it shows |
-| --- | --- |
-| **Overall flow** | Producer applies → operator approves → producer sets up farm, AI product draft, prices, supply → operator approves supply → consumer finds, follows and reserves → farm confirms the deposit → farm news, AI chat answer and hand-off, farm reply → **harvest start and shipping (new in I3)** |
-| **Consumer** | Search, follow, product detail, checkout, deposit instructions, reservation complete, news like, AI chat, farm reply, shipped order |
-| **Producer** | Application, farm profile and bank account, AI text draft, stage prices, supply request, deposit approval, news, answering a handed-off question, harvest start, invoice and shipping |
-| **Operator** | Producer approval and supply approval in the admin page |
+| Recording | Watch | Length | What it shows |
+| --- | --- | --- | --- |
+| **Overall flow** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/story.mp4) | 5:15 | Producer applies → operator approves → producer sets up farm, AI product draft, prices, supply → operator approves supply → consumer finds, follows and reserves → farm confirms the deposit → farm news, AI chat answer and hand-off, farm reply → **harvest start and shipping (new in I3)** |
+| **Consumer** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/consumer.mp4) | 1:52 | Search, follow, product detail, checkout, deposit instructions, reservation complete, news like, AI chat, farm reply, shipped order |
+| **Producer** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/producer.mp4) | 2:57 | Application, farm profile and bank account, AI text draft, stage prices, supply request, deposit approval, news, answering a handed-off question, harvest start, invoice and shipping |
+| **Operator** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/admin.mp4) | 0:26 | Producer approval and supply approval in the admin page |
 
 What is real and what is simulated:
 - **Simulated:** the videos start already signed in (real sign-in is Kakao; the test-account login used to record is a testing tool and is not shown); the bank transfer is a button ("입금을 마쳤어요") — no money moves; the clock is fixed to 2026-10-07 so the seeded reservation periods are open; the farm, people and account numbers are fictional.
