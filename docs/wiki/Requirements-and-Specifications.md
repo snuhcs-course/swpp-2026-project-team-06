@@ -950,6 +950,9 @@ Deposit approval now requires a confirmation sheet showing the existing permitte
 Analysis requires at least one source; an empty batch disables the start action with the same reason returned by the API. The buyer preview uses the shared ProductPageBody/BrixReading renderers, and progress has one visible instance.
 
 
+### HE source-input recovery (DEV-237)
+An unsaved first text with non-whitespace content enables analysis while the input remains focused. Both producer editors flush that text and basic information before reading the current batch version and requesting analysis. An empty batch with no pending text remains disabled. A failed text save preserves input and does not request analysis. In the new-product composer, collapsed-sheet save/next failures use the existing error panel beside the footer actions, once; the expanded sheet retains its existing error location. Error wording, refresh eligibility and publication validation are unchanged.
+
 ### DEV-179 demo-recording follow-up (owner, 2026-11-02)
 Both source editors share the composer's server `representativePhoto` field-reason mapping. In the workspace private-save/review/apply flow, a missing representative photo shows “대표 상품사진을 한 장 이상 올려 주세요.” beside the apply confirmation action. A new attempt or cancellation clears the prior error, and the apply reason is shown once inside the confirmation, not repeated in the page alert. Only input validation errors (400 with field reasons) hide server refresh; version or state conflicts (409), network failures and server errors keep it. Connection failures show Korean copy instead of the browser message. Before a new product has sale settings, its buyer preview hides the stock, deadline and shipping rows instead of showing "0 boxes left". Conflict pickers show one button per normalized value.
 

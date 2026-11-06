@@ -144,3 +144,7 @@ clean-worktrees: ## Remove merged .claude/worktrees/* (lists only; CONFIRM=1 rem
 		else echo "Would remove: $$dir [$$branch]"; fi; \
 	done; \
 	[ "$(CONFIRM)" = 1 ] || echo "To remove: make clean-worktrees CONFIRM=1"
+
+.PHONY: test-evals-v2
+test-evals-v2: ## Offline evaluation-system gates, graders and negative/reference examples (DEV-241)
+	python3 -m unittest discover -s scripts/evals-v2/tests -v

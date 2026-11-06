@@ -353,6 +353,21 @@ def test_AC_13_1_consistent_evidence_still_answered_by_rules(case):
     assert result is not None and result.action == "ANSWER", (case["id"], result)
 
 
+def test_AC_13_2_paid_fee_and_numberless_free_shipping_faq_is_handed_off():
+    """한쪽만 숫자가 있는 근거도 어긋남이다: 상품 정보 '배송비 3,500원' ↔ FAQ '무료배송이에요'."""
+    ev = Evidence(
+        product_id="p-1",
+        shipping_fee_type="PAID",
+        shipping_fee=3500,
+        faqs=[{"question": "배송비 얼마예요?", "answer": "무료배송이에요."}],
+    )
+
+    result = ai._rule_answer("배송비 얼마예요?", ev)
+
+    assert result is not None and result.action == "HANDOFF", result
+    assert result.reason == ai.CONFLICT_REASON
+
+
 def test_free_shipping_question_is_not_answered_with_delivery_dates():
     """CS-044: '무료배송인가요?'는 배송비 질문이다. 받는 날짜로 답하지 않는다."""
     ev = Evidence(

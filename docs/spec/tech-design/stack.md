@@ -120,7 +120,7 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 - 화면 이벤트는 앱에서, 결제·취소·구매 확정처럼 확정된 사실은 서버에서 보낸다.
 - 이벤트에 이름·연락처·주소·메시지 본문을 넣지 않는다(N-05). 사용자 구분은 내부 ID만 쓴다.
 - 이벤트 이름과 속성은 [트래킹 플랜](./README.md)을 따른다.
-- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71). 키가 있어도 접속 호스트가 운영 도메인(`farmclub.kr`·`farm.farmclub.kr`)이 아니면 켜지 않는다 — Vercel 기본 주소(`*.vercel.app`)·워킹 데모(`demo.farmclub.kr`)·localhost 접속은 지표에 넣지 않는다(DEV-125, 목록은 `EXPO_PUBLIC_POSTHOG_HOSTS`로 덮어씀).
+- 앱은 `packages/analytics`(posthog-js)로 보낸다. 빌드 때 `EXPO_PUBLIC_POSTHOG_KEY`가 비면 꺼진다(로컬·Mock·CI). 배포 빌드는 레포 변수 `APP_POSTHOG_KEY`·`APP_POSTHOG_HOST`로 넣는다(DEV-71). 키가 있어도 접속 호스트가 운영 도메인(`farmclub.kr`·`farm.farmclub.kr`)이 아니면 켜지 않는다 — Vercel 기본 주소(`*.vercel.app`)·워킹 데모(`demo.farmclub.kr`)·localhost 접속은 지표에 넣지 않는다(DEV-125, 목록은 `EXPO_PUBLIC_POSTHOG_HOSTS`로 덮어씀). 그래서 운영 화면 테스트·캡처는 Vercel 기본 주소에서 한다. 기본 주소는 공식 도메인으로 넘기지 않고(검색엔진에는 `X-Robots-Tag: noindex`), 서버가 `CONSUMER_APP_ALT_URLS`·`PRODUCER_APP_ALT_URLS`로 그 주소의 CORS·카카오 복귀를 받는다(DEV-236, ADR 0012 갱신).
 
 ## 6. 이번에 정한 값
 
@@ -157,3 +157,4 @@ demo/              워킹 데모 사이트(demo.farmclub.kr)·녹화 스크립�
 | 2026-10-23 | 0.6 | DEV-125: PostHog는 운영 도메인에서만 켠다(Vercel 기본 주소·데모·localhost 제외) |
 | 2026-10-23 | 0.7 | DEV-133: 워킹 데모 원본을 `demo/`로, main 머지 시 `farmclub-demo` 자동 배포, 영상은 GitHub Release |
 | 2026-10-23 | 0.8 | DEV-33: 소비자·생산자 앱을 EAS 네이티브 빌드로(ADR 0013). 2장 ‘앱 빌드’ 줄, 7장 남은 일 |
+| 2026-11-05 | 0.9 | DEV-236: Vercel 기본 주소를 공식 도메인으로 넘기지 않고(DEV-127 리다이렉트 제거, noindex 헤더) 서버 보조 주소로 CORS·카카오 복귀를 받는다. 운영 화면 테스트는 기본 주소에서(PostHog 꺼짐) |
