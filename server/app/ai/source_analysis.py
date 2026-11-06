@@ -178,6 +178,8 @@ def safe_failure_details(details):
         key: value if isinstance(value := details.get(key), str) and value in allowed else None
         for key, allowed in _FAILURE_ENUMS.items()
     }
+    if details.get("exceptionType") is not None and result["exceptionType"] is None:
+        result["exceptionType"] = "OtherError"
     status = details.get("httpStatus")
     result["httpStatus"] = status if type(status) is int and 100 <= status <= 599 else None
     return result
