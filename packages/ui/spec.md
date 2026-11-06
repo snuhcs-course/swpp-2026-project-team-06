@@ -114,3 +114,8 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 
 ## DEV-235/213 채팅 표시
 모든 메시지에 sequence가 있으면 저장 순서로 정렬한다. 구 API 응답이 섞여 순번이 빠진 경우 전체를 시각순으로 정렬하고 동시각은 입력 순서를 유지한다. 무작위 messageId로 순서를 정하지 않는다. 전달 메시지는 내부 근거 요약을 표시하지 않는다.
+
+## Android 앱 키보드·하단 인셋 (DEV-205, 2026-11-05)
+- 두 앱 루트는 `KeyboardRoot`(`src/keyboard.tsx`)로 Stack을 감싼다. Android만 `KeyboardAvoidingView behavior="padding"`, 웹·iOS는 children 그대로(감싸는 View 없음). app.json `softwareKeyboardLayoutMode`는 쓰지 않는다: Android 15+ edge-to-edge에서 adjustResize가 창을 줄이지 않고, 네이티브 설정은 새 빌드가 필요하다.
+- Android에서 키보드가 떠 있는 동안 `TabBar`·`BottomBar`는 그리지 않는다(`useKeyboardShown`). 루트가 올라가면 absolute 하단 바가 키보드 위에 떠 입력칸을 가린다.
+- `ChatThread` 입력창 아래 여백은 앱에서만 하단 안전 영역을 더한다(키보드가 떠 있으면 뺀다). 웹은 20 그대로.
