@@ -129,3 +129,12 @@ test("DEV-150: privacy policy names the consumer farmclub support room and bumps
   assert.match(html, /2026년 10월 29일 변경: 소비자도 앱 안에서 farmclub 운영팀에 문의할 수 있도록/);
   assert.equal(content.LEGAL_VERSION, "2026-10-29");
 });
+
+test("DEV-121: terms Art. 14 says the company gives the origin labeling notice, without bumping the consent version", () => {
+  const html = pages.pageHtml(content.termsOfService);
+  assert.match(html, /회사는 「농수산물의 원산지 표시 등에 관한 법률」 제6조제6항에 따라 판매자에게 원산지 표시제도를 생산자 앱 첫 화면에 게시하는 방법으로 안내합니다/);
+  // 시행 7일 전 고지(약관 제4조), 변경 기록에 재동의하지 않는 이유
+  assert.equal(content.termsOfService.effective, "2026년 11월 13일");
+  assert.match(html, /2026년 11월 13일 변경: 제14조에 회사가 판매자에게 원산지 표시제도를 안내한다는 문장을 더했습니다[^<]*다시 동의를 받지 않습니다/);
+  assert.equal(content.LEGAL_VERSION, "2026-10-29");
+});

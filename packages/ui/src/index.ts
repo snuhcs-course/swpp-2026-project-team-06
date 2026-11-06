@@ -104,6 +104,9 @@ export { LegalFooter, LegalDocument } from "./Legal";
 export { WithdrawSheet } from "./WithdrawSheet";
 export {
   LEGAL_VERSION,
+  ORIGIN_NOTICE_VERSION,
+  originNotice,
+  type OriginNoticeSection,
   business,
   businessLines,
   legalDocs,
