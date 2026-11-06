@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.accounts.models import NoticeRead, ShippingAddress, User, UserConsent
@@ -159,11 +160,15 @@ def read_notice(db: Session, user: User, data: NoticeReadInput) -> NoticeReadVie
         raise invalid({"version": "안내가 바뀌었어요. 새로 열어 다시 읽어 주세요"})
     row = _notice_row(db, user.id, data.kind, version)
     if row is None:
-        row = NoticeRead(
-            id=new_id("nr"), user_id=user.id, kind=data.kind, version=version, read_at=now()
-        )
-        db.add(row)
-        db.flush()
+        try:
+            # 두 기기에서 동시에 눌러도 한 줄만 남기고 먼저 남은 시각을 돌려준다
+            with db.begin_nested():
+                row = NoticeRead(
+                    id=new_id("nr"), user_id=user.id, kind=data.kind, version=version, read_at=now()
+                )
+                db.add(row)
+        except IntegrityError:
+            row = _notice_row(db, user.id, data.kind, version)
     return NoticeReadView(kind=data.kind, version=row.version, read_at=row.read_at)
 
 

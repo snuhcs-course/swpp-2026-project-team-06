@@ -81,3 +81,27 @@ def test_DEV_121_pending_producer_can_record(client, login):
         headers=headers,
     )
     assert response.status_code == 200, response.text
+
+
+def test_DEV_121_concurrent_read_keeps_one_row(client, login, monkeypatch):
+    # 다른 요청이 먼저 줄을 넣은 경우(첫 조회는 비었는데 넣을 때 unique 충돌).
+    # 500이 아니라 그 줄을 돌려준다
+    from app.accounts import service
+
+    headers = login("u-kang")
+    body = {"kind": "ORIGIN", "version": ORIGIN_NOTICE_VERSION}
+    first = client.post("/api/auth/me/notices", json=body, headers=headers).json()
+    real = service._notice_row
+    calls = {"n": 0}
+
+    def stale_first(*args):
+        calls["n"] += 1
+        return None if calls["n"] == 1 else real(*args)
+
+    monkeypatch.setattr(service, "_notice_row", stale_first)
+    again = client.post("/api/auth/me/notices", json=body, headers=headers)
+    assert again.status_code == 200, again.text
+    assert datetime.fromisoformat(again.json()["readAt"]) == datetime.fromisoformat(first["readAt"])
+    with get_sessionmaker()() as db:
+        count = db.scalar(select(func.count()).where(NoticeRead.user_id == "u-kang"))
+    assert count == 1
