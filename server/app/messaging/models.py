@@ -79,6 +79,20 @@ class Thread(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class ThreadOrderContext(Base):
+    """Explicit paid-order entry, without submitting an inquiry (M-04)."""
+
+    __tablename__ = "thread_order_contexts"
+
+    thread_id: Mapped[str] = mapped_column(
+        ForeignKey("threads.id", ondelete="CASCADE"), primary_key=True
+    )
+    order_id: Mapped[str] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class ThreadMessage(Base):
     """1:1 대화의 메시지. senderType은 CONSUMER · PRODUCER · AI(M-08).
 

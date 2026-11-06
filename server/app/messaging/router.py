@@ -161,14 +161,15 @@ def chats(db: Db, user: Consumer, limit: Limit, cursor: str | None = None):
 
 @router.post("/chats", response_model=StartChatResult)
 def start_chat(db: Db, user: OnboardedConsumer, body: StartChatInput, key: IdempotencyKey = None):
-    """채팅하기·질문하기. 팔로우하지 않았으면 자동 팔로우(AC-12-4)."""
+    """An explicit order uses the verified paid-order exception (M-04)."""
+    service.authorize_chat_start(db, user, body.farm_id, body.order_id)
     return run_idempotent(
         db,
         user.id,
         f"start:{body.farm_id}",
         key,
-        body,
-        lambda: service.start_chat(db, user, body.farm_id),
+        body.model_dump(by_alias=True, exclude_none=True),
+        lambda: service.start_chat(db, user, body.farm_id, body.order_id),
     )
 
 
@@ -197,6 +198,7 @@ def send_chat(
     db: Db, user: OnboardedConsumer, farm_id: str, body: SendInput, key: IdempotencyKey = None
 ):
     """질문 → AI 안내 또는 '농가에 전달'. HUMAN·AI OFF면 reply=null."""
+    service.authorize_chat_send(db, user, farm_id, body)
     alert: service.ManagerRefundAlert | None = None
 
     def send():

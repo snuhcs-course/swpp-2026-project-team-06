@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import and_, delete, false, func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -28,7 +29,9 @@ from app.messaging.models import (
     RoomReply,
     Thread,
     ThreadMessage,
+    ThreadOrderContext,
 )
+from app.messaging.order_context import eligible_order_ids, has_order_context, require_paid_order
 from app.messaging.schemas import (
     AttachmentView,
     ChatMessage,
@@ -374,9 +377,7 @@ def rooms(db: Session, user, cursor: str | None, limit: int) -> Paged[NewsRoomSu
     from app.farms import service as farms
 
     if user.role == "PRODUCER":
-        farm, _ = _room_access(
-            db, user, getattr(farms.get_farm_of_producer(db, user.id), "id", "")
-        )
+        farm, _ = _room_access(db, user, getattr(farms.get_farm_of_producer(db, user.id), "id", ""))
         found = [farm]
     else:
         found = [
@@ -508,11 +509,9 @@ def _set_mode(t: Thread, mode: str) -> None:
 
 
 def _has_inquiries(db: Session, thread_id: str) -> bool:
-    """결제 주문 문의가 있는 대화는 팔로우를 해제해도 이어진다(M-04)."""
-    return (
-        db.scalar(select(OrderInquiry.id).where(OrderInquiry.thread_id == thread_id).limit(1))
-        is not None
-    )
+    """Compatibility name: current explicit order context or legitimate inquiry."""
+    thread = db.get(Thread, thread_id)
+    return thread is not None and has_order_context(db, thread)
 
 
 def get_thread(db: Session, farm_id: str, consumer_id: str, lock: bool = False) -> Thread | None:
@@ -525,16 +524,22 @@ def get_thread(db: Session, farm_id: str, consumer_id: str, lock: bool = False) 
 def ensure_thread(db: Session, farm_id: str, consumer_id: str) -> Thread:
     thread = get_thread(db, farm_id, consumer_id)
     if thread is None:
-        thread = Thread(
-            id=new_id("thread"),
-            farm_id=farm_id,
-            consumer_id=consumer_id,
-            ai_mode="AUTO",
-            version=1,
-            created_at=now(),
+        # The unique pair arbitrates concurrent starts, including different keys.
+        statement = (
+            pg_insert(Thread)
+            .values(
+                id=new_id("thread"),
+                farm_id=farm_id,
+                consumer_id=consumer_id,
+                ai_mode="AUTO",
+                version=1,
+                created_at=now(),
+            )
+            .on_conflict_do_nothing(index_elements=["farm_id", "consumer_id"])
         )
-        db.add(thread)
-        db.flush()
+        db.execute(statement)
+        thread = get_thread(db, farm_id, consumer_id)
+        assert thread is not None
     return thread
 
 
@@ -629,6 +634,7 @@ def _linked_orders(db: Session, t: Thread, messages: list[ThreadMessage]) -> lis
     ids = sorted(
         {m.order_id for m in messages if m.order_id}
         | {i.order_id for i in _thread_inquiries(db, t.id)}
+        | set(eligible_order_ids(db, t))
     )
     return [
         LinkedOrder(**o) for o in orders.linked_order_summaries(db, t.consumer_id, t.farm_id, ids)
@@ -742,16 +748,33 @@ def consumer_chats(db: Session, consumer, cursor: str | None, limit: int) -> Pag
     return _offset_page(summaries, cursor, limit)
 
 
-def start_chat(db: Session, consumer, farm_id: str) -> StartChatResult:
-    """채팅하기(AC-12-4). 팔로우하지 않았으면 팔로우하고 대화를 연다."""
+def authorize_chat_start(db: Session, consumer, farm_id: str, order_id: str | None = None) -> None:
+    """Also run before an idempotent replay; GET never initializes a thread."""
     from app.farms import service as farms
 
     if farms.get_approved_farm(db, farm_id) is None:
         raise not_found("찾을 수 없는 농가예요.")
+    if order_id is not None:
+        require_paid_order(db, consumer.id, farm_id, order_id)
+
+
+def start_chat(db: Session, consumer, farm_id: str, order_id: str | None = None) -> StartChatResult:
+    """General starts follow; explicit paid-order starts record context only."""
+    from app.farms import service as farms
+
+    authorize_chat_start(db, consumer, farm_id, order_id)
+    ensure_thread(db, farm_id, consumer.id)
+    thread = get_thread(db, farm_id, consumer.id, lock=True)
+    if order_id is not None:
+        db.execute(
+            pg_insert(ThreadOrderContext)
+            .values(thread_id=thread.id, order_id=order_id, created_at=now())
+            .on_conflict_do_nothing(index_elements=["thread_id", "order_id"])
+        )
+        return StartChatResult(farm_id=farm_id, auto_followed=False)
     auto_followed = not farms.is_following(db, consumer.id, farm_id)
     if auto_followed:
         farms.set_follow(db, consumer.id, farm_id, True)
-    ensure_thread(db, farm_id, consumer.id)
     return StartChatResult(farm_id=farm_id, auto_followed=auto_followed)
 
 
@@ -838,9 +861,7 @@ def report_ai_answer(db: Session, consumer, farm_id: str, message_id: str) -> Es
     if message.sender_type != "AI" or message.handoff_status == "FORWARDED":
         raise invalid({"messageId": "신고할 수 있는 AI 답변이 아니에요"})
 
-    existing = db.scalar(
-        select(Escalation).where(Escalation.reported_message_id == message.id)
-    )
+    existing = db.scalar(select(Escalation).where(Escalation.reported_message_id == message.id))
     if existing:
         return _escalation_view(db, existing, thread, False)
 
@@ -879,9 +900,7 @@ def report_ai_answer(db: Session, consumer, farm_id: str, message_id: str) -> Es
     except IntegrityError:
         db.rollback()
         thread = _consumer_thread(db, consumer.id, farm_id)
-        existing = db.scalar(
-            select(Escalation).where(Escalation.reported_message_id == message_id)
-        )
+        existing = db.scalar(select(Escalation).where(Escalation.reported_message_id == message_id))
         if existing is None:
             raise
         return _escalation_view(db, existing, thread, False)
@@ -982,6 +1001,17 @@ def _evidence(
     )
 
 
+def authorize_chat_send(db: Session, consumer, farm_id: str, body: SendInput) -> None:
+    """Revalidate access even when a committed send is replayed."""
+    from app.farms import service as farms
+
+    _consumer_thread(db, consumer.id, farm_id)
+    if body.order_id is not None:
+        require_paid_order(db, consumer.id, farm_id, body.order_id)
+    elif not farms.is_following(db, consumer.id, farm_id):
+        raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
+
+
 def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> ConsumerSendOutcome:
     """소비자 질문(FEAT-12·13). 질문과 AI 답을 같은 트랜잭션에 저장한다(AC-13-6).
 
@@ -1028,6 +1058,11 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     # 저장 직전: 대화 행을 잠그고 최신 모드·버전·설정을 다시 읽는다(직접 답변·모드 변경과 직렬화)
     thread = _consumer_thread(db, consumer.id, farm_id, lock=True)
     latest = farms.ai_settings(db, farm_id, fresh=True)
+    if body.order_id:
+        # Do not commit with a stale order identity after an external AI call.
+        require_paid_order(db, consumer.id, farm_id, body.order_id, fresh=True)
+    elif not farms.is_following(db, consumer.id, farm_id):
+        raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
     unchanged = (thread.ai_mode, thread.version, latest.enabled, latest.version) == captured
     message = ThreadMessage(
         id=new_id("m"),

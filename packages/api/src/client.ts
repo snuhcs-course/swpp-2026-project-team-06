@@ -77,11 +77,13 @@ export function writeStore(name: string, value: string | null) {
 /* ---------------- token ---------------- */
 
 const listeners = new Set<() => void>();
+let authEventSerial = 0;
 export function getToken(): string | null {
   return readStore("token");
 }
 export function setToken(token: string | null) {
   writeStore("token", token);
+  authEventSerial++;
   listeners.forEach((l) => l());
 }
 /** 로그인 상태가 바뀔 때 알림 */
@@ -114,6 +116,26 @@ export function onConsentRequired(fn: () => void) {
   return () => {
     consentListeners.delete(fn);
   };
+}
+
+function authAttempt() {
+  return { serial: authEventSerial, namespace, token: getToken() };
+}
+function currentAuth(attempt: ReturnType<typeof authAttempt>) {
+  return attempt.serial === authEventSerial && attempt.namespace === namespace &&
+    attempt.token === getToken();
+}
+/** Old responses cannot sign out or redirect a newer login, including an equal JWT. */
+function handleAuthResponse(
+  status: number, body: unknown, attempt: ReturnType<typeof authAttempt>,
+) {
+  if (!currentAuth(attempt)) return;
+  const reason = (body as { details?: { reason?: string } } | null)?.details?.reason;
+  if (status === 401 || (status === 403 && reason === "WRONG_APP")) setToken(null);
+  else if (status === 403 && reason === "ONBOARDING_REQUIRED")
+    onboardingListeners.forEach(l => l());
+  else if (status === 403 && reason === "CONSENT_REQUIRED")
+    consentListeners.forEach(l => l());
 }
 
 /* ---------------- request ---------------- */
@@ -164,7 +186,7 @@ export async function request<T>(
     : "";
   const fullPath = q ? `${path}?${q}` : path;
   const headers: Record<string, string> = {};
-  const token = getToken();
+  const attempt = authAttempt(), token = attempt.token;
   if (token) headers.Authorization = `Bearer ${token}`;
   if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
   const transport = isMock && !sharedMockUrl ? mockTransport : httpTransport;
@@ -178,26 +200,7 @@ export async function request<T>(
       details: {},
     });
   }
-  if (res.status === 401) setToken(null);
-  // 다른 앱 계정의 토큰이면 지우고 그 앱의 로그인으로(screens.md 7.1)
-  if (
-    res.status === 403 &&
-    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
-      "WRONG_APP"
-  )
-    setToken(null);
-  if (
-    res.status === 403 &&
-    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
-      "ONBOARDING_REQUIRED"
-  )
-    onboardingListeners.forEach((l) => l());
-  if (
-    res.status === 403 &&
-    (res.body as { details?: { reason?: string } } | null)?.details?.reason ===
-      "CONSENT_REQUIRED"
-  )
-    consentListeners.forEach((l) => l());
+  handleAuthResponse(res.status, res.body, attempt);
   if (res.status >= 400) throw new ApiError(res.status, res.body);
   return res.body as T;
 }
@@ -259,8 +262,10 @@ export async function uploadAttachment(
   file: UploadFile,
   resource: { orderId?: string; threadId?: string },
 ): Promise<import("./types").Attachment> {
+  const attempt = authAttempt();
   if (isMock && !sharedMockUrl) {
     const dataUrl = await readDataUrl(file as Blob);
+    if (!currentAuth(attempt)) throw new ApiError(0, { message: "로그인 세션이 바뀌었어요." });
     return request("POST", "/api/messaging/attachments", {
       body: { ...resource, dataUrl },
     });
@@ -271,10 +276,11 @@ export async function uploadAttachment(
   if (resource.threadId) form.append("threadId", resource.threadId);
   const res = await fetch(`${apiUrl}/api/messaging/attachments`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    headers: { Authorization: `Bearer ${attempt.token ?? ""}` },
     body: form,
   });
-  const body = await res.json();
+  const body = await res.json().catch(() => ({}));
+  handleAuthResponse(res.status, body, attempt);
   if (!res.ok) throw new ApiError(res.status, body);
   return body;
 }
@@ -286,9 +292,14 @@ export async function privateImage(id: string): Promise<string> {
         `/api/messaging/attachments/${id}`,
       )
     ).dataUrl;
+  const attempt = authAttempt();
   const res = await fetch(`${apiUrl}/api/messaging/attachments/${id}`, {
-    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    headers: { Authorization: `Bearer ${attempt.token ?? ""}` },
   });
-  if (!res.ok) throw new ApiError(res.status, await res.json());
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    handleAuthResponse(res.status, body, attempt);
+    throw new ApiError(res.status, body);
+  }
   return blobUrl(await res.blob());
 }
