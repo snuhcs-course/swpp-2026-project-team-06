@@ -142,6 +142,7 @@ test("DEV-134 demo:publish 계획: 영상이 다 있고 길이가 manifest와 �
   assert.deepEqual(good.problems, []);
   assert.deepEqual(good.command.slice(0, 3), ["node", "demo/videos.mjs", "upload"]);
   assert.equal(good.command.at(-1), "demo-t2");
+  assert.match(planPublish({ dir: "/tmp/out", manifest, scenario: mini, current, exists: () => true, probeFn: (f) => ({ seconds: manifest.videos[f.split("/").at(-1)].seconds }), listMp4: () => ["story.mp4", "p1.mp4"] }).problems.join(), /manifest에 없는 mp4가 있어요.*p1\.mp4/);
   const partial = { iteration: "t1", videos: { "story.mp4": manifest.videos["story.mp4"] } };
   assert.match(planPublish({ dir: "/tmp/out", tag: "demo-t2", manifest: partial, scenario: mini, current, exists: () => true, probeFn: () => ({ seconds: 125.5 }) }).problems.join(), /새 Release demo-t2에는 영상이 모두/);
   assert.match(planPublish({ dir: "/tmp/out", manifest: null, scenario: mini, current }).problems.join(), /manifest\.json이 없어요/);

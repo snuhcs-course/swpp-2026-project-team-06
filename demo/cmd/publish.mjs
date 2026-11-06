@@ -5,14 +5,14 @@
 // 태그 기본값은 demo-<시나리오 iteration>(예: demo-i2). 지금 videos.json과 태그가 다르면 영상 4개가 다 있어야 한다(videos.mjs 규칙).
 // 올린 뒤: demo/videos.json·demo/manifest.json·demo/site 커밋 → PR 머지 → deploy-vercel.yml deploy-demo가 배포한다.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import { scenario as defaultScenario } from "../scenario.mjs";
 import { demoDir, isMain, parseArgs, probe, rawOut, readManifest, repoRoot, requireFfmpeg, runMain } from "./lib.mjs";
 
 /** 올릴 파일·태그와 문제 목록. probeFn(file) → { seconds } (테스트에서 바꿔 끼움) */
-export function planPublish({ dir, tag, manifest, scenario = defaultScenario, current, exists = existsSync, probeFn = probe }) {
+export function planPublish({ dir, tag, manifest, scenario = defaultScenario, current, exists = existsSync, probeFn = probe, listMp4 = (d) => (existsSync(d) ? readdirSync(d).filter((f) => f.endsWith(".mp4")) : []) }) {
   const problems = [];
   const release = tag ?? `demo-${scenario.iteration}`;
   if (!manifest) problems.push("demo/manifest.json이 없어요(npm run demo:stitch가 만든다)");
@@ -28,6 +28,9 @@ export function planPublish({ dir, tag, manifest, scenario = defaultScenario, cu
     const want = manifest.videos[name].seconds;
     if (Math.abs(got - want) > 0.5) problems.push(`${name}: 길이 ${got.toFixed(2)}s가 manifest ${want}s와 달라요(stitch 뒤 파일이 바뀜?)`);
   }
+  // videos.mjs upload는 폴더의 mp4를 모두 올리므로, manifest에 없는 mp4가 섞여 있으면 멈춘다
+  const extra = listMp4(dir).filter((f) => !names.includes(f));
+  if (extra.length) problems.push(`${path.relative(repoRoot, dir) || dir}에 manifest에 없는 mp4가 있어요(같이 올라가요): ${extra.join(", ")}`);
   if (current && release !== current.release) {
     const missing = Object.keys(current.files ?? {}).filter((n) => !names.includes(n));
     if (missing.length) problems.push(`새 Release ${release}에는 영상이 모두 있어야 해요. 빠짐: ${missing.join(", ")}`);
