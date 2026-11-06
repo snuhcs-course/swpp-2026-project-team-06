@@ -4,6 +4,7 @@ This is a new run on merged `main`. It does not replace the original FAIL in `..
 
 | Field | Value |
 | --- | --- |
+| Requirement IDs | matrix v1.0 row: AC-08-6, AC-09-7, AC-10-6. Current spec for the asserted behaviour: FEAT-08 E1, AC-08-8 (renewed confirmation, added by DEV-216), FEAT-09 AC-09-7 (overdue transfer). AC-08-6 (quantity cap) and AC-10-6 (producer order tabs) are not asserted by this row |
 | Matrix | v1.0, `matrix.csv` sha256 `0d2926115e75…`, protocol sha256 `c344abeda8b3…` (unchanged) |
 | Execution issue | DEV-177 (I3-T20 regression); fix DEV-216 (PR #412, `231faa9`) |
 | Executor / reviewer | Hyun with Claude Code (agent, scripted run) / Zahra Gholami — review pending |

@@ -4,6 +4,7 @@ This is a new run on merged `main`. It does not replace the original FAIL in `..
 
 | Field | Value |
 | --- | --- |
+| Requirement IDs | matrix v1.0 row: FEAT-06 AC-06-2. Current spec for the asserted behaviour: FEAT-06 E4, AC-06-7 (added by DEV-214 after the matrix freeze; AC-06-2 now covers variety search) |
 | Matrix | v1.0, `matrix.csv` sha256 `0d2926115e75…`, protocol sha256 `c344abeda8b3…` (unchanged) |
 | Execution issue | DEV-177 (I3-T20 regression); fix DEV-214 (PR #411, `cf8e972`) |
 | Executor / reviewer | Hyun with Claude Code (agent, scripted run and automatic assertion check) / Minsun Kim (matrix reviewer) — review pending |
