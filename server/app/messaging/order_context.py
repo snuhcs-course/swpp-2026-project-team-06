@@ -8,8 +8,13 @@ from app.messaging.models import OrderInquiry, Thread, ThreadOrderContext
 from app.orders import service as orders
 
 
-def require_paid_order(db: Session, consumer_id: str, farm_id: str, order_id: str):
+def require_paid_order(
+    db: Session, consumer_id: str, farm_id: str, order_id: str, *, fresh: bool = False
+):
     order = orders.get_paid_order_of(db, consumer_id, order_id)
+    if fresh and order is not None:
+        db.refresh(order)
+        order = orders.get_paid_order_of(db, consumer_id, order_id)
     if order is None or not orders.order_belongs_to_farm(db, order, farm_id):
         raise not_found("결제한 본인 주문만 문의할 수 있어요.")
     return order

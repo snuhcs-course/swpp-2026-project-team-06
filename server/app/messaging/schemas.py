@@ -218,6 +218,7 @@ class ProducerChatSummary(CamelModel):
 
 class StartChatInput(CamelModel):
     farm_id: str
+    order_id: str | None = None
 
 
 class StartChatResult(CamelModel):
