@@ -852,6 +852,7 @@ Key producer screens:
 - **Exceptions:** With no 1:1 chats the conversation steps are skipped. If a target cannot be found for 3 seconds the card is centred with Next. X or Esc ends the tour at any time.
 - **Auto-start:** It starts once automatically on an approved producer's first dashboard visit. Finishing or skipping records it in the app's localStorage.
 - **Server state:** The tour never presses a server-changing button. New product is only explained because opening it creates a draft product on a real server (SCR-24).
+- **Native app (DEV-206):** The app cannot measure target positions, so each step is a centred card with its description and Next, without the cut-out or arrow (tap steps also use Next). The card is drawn over the screen inside the status and navigation bars, and X ends the tour. The web behaves as above.
 
 | SCR-22 Dashboard | SCR-24 AI product draft | SCR-25 Product edit | SCR-29 Shipping |
 | --- | --- | --- | --- |

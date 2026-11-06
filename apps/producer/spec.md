@@ -173,3 +173,8 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 
 ## DEV-237 HE source recovery
 SourceAttachments reports whether a new text card contains non-whitespace input separately from general unsaved edits. Composer/workspace start eligibility includes this signal and keeps the existing flush-before-start transaction order. Composer renders action errors beside the collapsed footer and inside the expanded sheet; initial load errors without a batch remain in the page. No API or persistence change.
+
+## 도움말 투어 앱 표시 (DEV-206, 2026-11-05)
+- `Tour.tsx`의 겹치기 레이어는 웹 `position: fixed`, 앱 `position: absolute`(앱 루트 기준). 앱에는 fixed가 없어 relative로 처리되면 본문을 민다.
+- 앱 카드 위치는 `useSafeAreaInsets` 위·아래 인셋 안쪽. 웹은 인셋 0.
+- 대상 위치 측정은 웹 DOM 전용이다. 앱은 대상 단계를 곧바로 가운데 카드 + '다음'으로 보여 주고, 단계 설명을 그대로 쓴다(`docs/spec/screens.md` "공통: 도움말" 앱 줄).
