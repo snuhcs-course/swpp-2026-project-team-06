@@ -14,7 +14,7 @@ Minsun used agents for planning, reassignment, evaluation protocols, chat regres
 
 Zahra narrowed an AI support README review: “forget about it. can you edit the readme i sent and ONLY add the missing scope of the evaluation?” She then asked the agent to identify the exact lines added. This constrained the revision to supported evaluation scope and made the changes reviewable, while leaving the final decision with her.
 
-For testing she required: “Please carefully review everything stated in the linear task first, before going on with implementation. All requirements should be directly, correctly resolved”. She then requested full scenario execution and diagnosis before splitting fixes into tasks. These revisions made completion observable. Longer original-language inputs and separate translations are in the linked evidence; agent responses and private teammate text are excluded.
+For testing, Minsun required: “Please carefully review everything stated in the linear task first, before going on with implementation. All requirements should be directly, correctly resolved”. She then requested full scenario execution and diagnosis before splitting fixes into tasks. These revisions made completion observable. Longer original-language inputs and separate translations are in the linked evidence; agent responses and private teammate text are excluded.
 
 ## 3. What AI Did Well
 
