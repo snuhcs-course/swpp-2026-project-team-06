@@ -1,5 +1,8 @@
 # packages/ui spec
 
+## DEV-248 대화 초기 페이지와 재시도
+ChatThread는 선택 initialPage로 권한 확인한 첫 페이지를 받고 sendScope(농가/주문/상품)를 멱등 본문 식별에 포함한다. 문맥 변경 때 이전 사진/요청 callback을 버린다. composerEnabled가 거짓이면 전송/사진을 막고, 401/403/404 조회 실패는 polling을 멈춰 onAccessDenied에 알린다. 전송 재시도와 조회 재시도를 구별한다. 미사용 호출자의 기본 계약과 DEV-205 키보드 여백을 유지한다.
+
 ## DEV-250 비공개 읽기 위치
 - chatViewState.ts는 React/API/인증 부작용 없는 geometry/ID 전용 계약과 bounded store를 제공한다. 메시지 본문·사진 URL·토큰은 보관하지 않는다.
 - 세션 generation과 대화별 lease로 늦은 callback을 무효화한다. 최대 20개, idle 30분, LRU. signed anchor offset은 부분 노출 메시지에 필요하다.

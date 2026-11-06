@@ -30,6 +30,11 @@ type Message = {
 };
 type Page = { items: Message[]; nextCursor: string | null };
 type Props = {
+  initialPage?: Page;
+  sendScope?: string;
+  composerEnabled?: boolean;
+  onAccessDenied?: (error: unknown) => void;
+  onBusyChange?: (busy: boolean) => void;
   producer?: boolean;
   active: boolean;
   load: (cursor?: string) => Promise<Page>;
@@ -47,6 +52,11 @@ type Props = {
   children?: ReactNode;
 };
 export function ChatThread({
+  initialPage,
+  sendScope = "",
+  composerEnabled = true,
+  onAccessDenied,
+  onBusyChange,
   producer = false,
   active,
   load,
@@ -60,9 +70,9 @@ export function ChatThread({
   forwardStatus,
   children,
 }: Props) {
-  const [messages, setMessages] = useState<Message[]>([]),
-    [cursor, setCursor] = useState<string | null>(null),
-    [ready, setReady] = useState(false),
+  const [messages, setMessages] = useState<Message[]>(() => mergeChatMessages([], initialPage?.items ?? [])),
+    [cursor, setCursor] = useState<string | null>(initialPage?.nextCursor ?? null),
+    [ready, setReady] = useState(Boolean(initialPage)),
     [error, setError] = useState(""),
     [text, setText] = useState(""),
     [ids, setIds] = useState<string[]>([]),
@@ -70,10 +80,16 @@ export function ChatThread({
     [uploading, setUploading] = useState(false),
     [busy, setBusy] = useState(false),
     [unseen, setUnseen] = useState(false),
-    [older, setOlder] = useState(false);
+    [older, setOlder] = useState(false),
+    [retryCount, setRetryCount] = useState(0),
+    [retrySend, setRetrySend] = useState(false);
   const scroll = useRef<ScrollView>(null),
-    known = useRef(new Set<string>()),
-    initialized = useRef(false),
+    known = useRef(new Set<string>(initialPage?.items.map(m => m.messageId))),
+    initialized = useRef(Boolean(initialPage)),
+    firstPage = useRef(initialPage),
+    terminal = useRef(false),
+    context = useRef(sendScope),
+    previousContext = useRef(sendScope),
     near = useRef(true),
     height = useRef(0),
     offset = useRef(0),
@@ -88,8 +104,24 @@ export function ChatThread({
   const keyboardShown = useKeyboardShown(),
     composerBottom =
       Platform.OS === "web" || keyboardShown ? 20 : safe("bottom", 20);
-  const callbacks = useRef({ send, read, upload, report });
-  callbacks.current = { send, read, upload, report };
+  context.current = sendScope;
+  const callbacks = useRef({ send, read, upload, report, onAccessDenied, onBusyChange });
+  callbacks.current = { send, read, upload, report, onAccessDenied, onBusyChange };
+  useEffect(() => {
+    callbacks.current.onBusyChange?.(busy || uploading);
+  }, [busy, uploading]);
+  useEffect(() => {
+    if (previousContext.current === sendScope) return;
+    previousContext.current = sendScope;
+    pending.current = null;
+    lock.current = false;
+    setBusy(false);
+    setUploading(false);
+    setIds([]);
+    setPhotos(false);
+    setRetrySend(false);
+    setError(ids.length ? "문의할 주문이 바뀌었어요. 사진을 다시 첨부해 주세요." : "");
+  }, [sendScope]);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -105,12 +137,13 @@ export function ChatThread({
     let canceled = false,
       running = false;
     async function refresh() {
-      if (running || inBackground())
+      if (running || inBackground() || terminal.current)
         return;
       running = true;
       try {
-        const p = await load(),
-          incoming = [...p.items];
+        const p = firstPage.current ?? await load();
+        firstPage.current = undefined;
+        const incoming = [...p.items];
         let next = p.nextCursor;
         while (
           known.current.size &&
@@ -130,6 +163,7 @@ export function ChatThread({
         }
         setReady(true);
         setError("");
+        setRetrySend(false);
         const last = p.items.at(-1);
         if (near.current && last && lastRead.current !== last.messageId) {
           await callbacks.current.read(last.messageId);
@@ -138,6 +172,7 @@ export function ChatThread({
       } catch (e) {
         if (!canceled) {
           setError(e instanceof Error ? e.message : "대화를 불러오지 못했어요");
+          setRetrySend(false);
           if (
             e &&
             typeof e === "object" &&
@@ -147,6 +182,8 @@ export function ChatThread({
             setMessages([]);
             known.current.clear();
             setReady(false);
+            terminal.current = true;
+            callbacks.current.onAccessDenied?.(e);
           }
         }
       } finally {
@@ -159,37 +196,45 @@ export function ChatThread({
       canceled = true;
       clearInterval(timer);
     };
-  }, [active, load]);
+  }, [active, load, retryCount]);
   async function submit() {
-    if (lock.current || uploading || (!text.trim() && !ids.length)) return;
+    if (!ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length)) return;
+    const submittedScope = context.current;
     lock.current = true;
     setBusy(true);
-    const body = JSON.stringify({ text: text.trim(), ids });
+    const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids });
     if (pending.current?.body !== body)
       pending.current = { body, key: makeKey() };
+    let committed = false;
     try {
       await callbacks.current.send(text.trim(), ids, pending.current.key);
-      if (!alive.current) return;
+      if (!alive.current || submittedScope !== context.current) return;
+      committed = true;
+      setRetrySend(false);
       setText("");
       setIds([]);
       setPhotos(false);
       pending.current = null;
       near.current = true;
       const p = await load();
-      if (alive.current) {
+      if (alive.current && submittedScope === context.current) {
         merge(p.items);
         setError("");
       }
     } catch (e) {
-      if (alive.current)
+      if (alive.current && submittedScope === context.current) {
+        setRetrySend(!committed);
         setError(
           e instanceof Error
             ? e.message
             : "전송하지 못했어요. 다시 보내 주세요",
         );
+      }
     } finally {
-      lock.current = false;
-      if (alive.current) setBusy(false);
+      if (submittedScope === context.current) {
+        lock.current = false;
+        if (alive.current) setBusy(false);
+      }
     }
   }
   async function previous() {
@@ -202,6 +247,7 @@ export function ChatThread({
       merge(p.items, true);
       setCursor(p.nextCursor);
     } catch (e) {
+      setRetrySend(false);
       setError(
         e instanceof Error ? e.message : "이전 대화를 불러오지 못했어요",
       );
@@ -229,6 +275,12 @@ export function ChatThread({
           <T variant="sub" color={tokens.color.error}>
             {error}
           </T>
+          <Button label={retrySend ? "다시 보내기" : "다시 시도"} variant="text"
+            disabled={busy || uploading} onPress={() => {
+            if (retrySend) { void submit(); return; }
+            terminal.current = false;
+            setRetryCount(n => n + 1);
+          }} />
         </View>
       ) : null}
       <ScrollView
@@ -269,7 +321,7 @@ export function ChatThread({
           />
         ) : null}
         {!ready ? (
-          <T muted>대화 불러오는 중…</T>
+          <T muted>{error ? "대화를 불러오지 못했어요." : "대화 불러오는 중…"}</T>
         ) : messages.length === 0 ? (
           <T muted>첫 이야기를 남겨 보세요.</T>
         ) : null}
@@ -338,6 +390,7 @@ export function ChatThread({
                       merge(p.items);
                       setError("");
                     } catch (e) {
+                      setRetrySend(false);
                       setError(
                         e instanceof Error ? e.message : "신고하지 못했어요",
                       );
@@ -379,12 +432,16 @@ export function ChatThread({
       >
         {photos && upload ? (
           <PrivatePhotos
+            key={sendScope}
             ids={ids}
-            onChange={setIds}
-            upload={(f) => callbacks.current.upload!(f)}
+            onChange={(next) => { if (alive.current && context.current === sendScope) setIds(next); }}
+            upload={(f) => {
+              if (context.current !== sendScope) return Promise.reject(new Error("대화가 바뀌었어요."));
+              return callbacks.current.upload!(f);
+            }}
             load={loadPhoto}
-            disabled={busy}
-            onBusy={setUploading}
+            disabled={busy || !ready || !composerEnabled}
+            onBusy={(next) => { if (alive.current && context.current === sendScope) setUploading(next); }}
           />
         ) : null}
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
@@ -393,7 +450,7 @@ export function ChatThread({
               label={photos ? "−" : "＋"}
               variant="text"
               onPress={() => setPhotos(!photos)}
-              disabled={busy}
+              disabled={busy || !ready || !composerEnabled}
             />
           ) : null}
           <TextInput
@@ -401,7 +458,7 @@ export function ChatThread({
             placeholder={placeholder}
             value={text}
             onChangeText={setText}
-            editable={!busy}
+            editable={!busy && composerEnabled}
             multiline
             maxLength={1000}
             style={{
@@ -420,7 +477,7 @@ export function ChatThread({
             label="전송"
             onPress={submit}
             loading={busy}
-            disabled={!ready || uploading || (!text.trim() && !ids.length)}
+            disabled={!ready || !composerEnabled || uploading || (!text.trim() && !ids.length)}
           />
         </View>
       </View>

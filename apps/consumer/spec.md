@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-248 주문 상세 → 대화
+orderChatTarget은 두 질문 버튼을 공유하고 paidAt로 결제 예외와 일반 대화를 구분한다. fromOrder는 뒤로 대상, orderId는 검증된 전송 문맥이다. route는 시작 → 권한 있는 첫 페이지 → composer 순서와 15초 network deadline을 책임진다. 세션/농가/문맥 변경은 이전 응답을 폐기한다. 여러 주문은 명시적으로 고르며 초기 실패와 전송 실패는 별도 재시도다.
+
 ## DEV-250 읽기 위치 저장소
 chatViewState singleton은 메모리 geometry/ID만 가진다. consumer/user/session generation/thread ID로 격리하고 매 방문 lease를 새로 만든다. clear/eviction/재방문 뒤 이전 callback은 저장할 수 없다. 20개/idle 30분, 새 로그인·hard reload는 깨끗이 시작한다. 현재는 기반만 제공하며 인증·화면 연결은 DEV-252에서 적용한다.
 
