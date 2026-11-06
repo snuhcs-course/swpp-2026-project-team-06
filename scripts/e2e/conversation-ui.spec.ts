@@ -186,12 +186,27 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   await expect(input).not.toBeVisible();
   await page.getByRole("tab", { name: "소식방", exact: true }).click();
   await expect(input).toBeVisible();
+  const harvestWrites: string[] = [];
+  page.on("request", r => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/orders/producer/harvest-start")
+      harvestWrites.push(r.url());
+  });
   await page.goto(`${producerUrl}/ship?status=RESERVED`);
-  await expect(page.getByRole("button", { name: "수확 시작" })).toHaveCount(0);
+  // DEV-231 adds navigation to the stage card; no direct per-order transition here.
+  await expect(page.getByRole("button", { name: "수확 시작", exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /^예약 / })).toHaveAttribute(
     "aria-selected",
     "true",
   );
+  const harvestTarget = page.getByRole("button", { name: /건 수확 시작하기(?: |$)/ }).first();
+  await expect(harvestTarget).toBeVisible();
+  await harvestTarget.click();
+  await expect(page).toHaveURL(/\/products\/[^/]+\/stages\?stage=[^&]+$/);
+  const selectedStage = new URL(page.url()).searchParams.get("stage");
+  expect(selectedStage).toBeTruthy();
+  await expect(page.locator(`[id="stage-${selectedStage}"]`)
+    .getByRole("button", { name: /수확 시작 · 출하 준비/ })).toBeVisible();
+  expect(harvestWrites).toEqual([]);
 });
 
 test("AC-12-13: producer confirms follower count and preview before sending news", async ({
@@ -279,6 +294,11 @@ test("AC-12-14/16: producer deletes own news, or deletes and rewrites it", async
     .getByRole("button", { name: "삭제하고 다시 쓰기", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  // Verify each temporary notification separately; an existing global timer race
+  // can otherwise let the first toast's queued hide erase the second one.
+  const rewritten = page.getByText("소식을 삭제했어요 · 고쳐서 다시 보내 주세요", { exact: true });
+  await expect(rewritten).toBeVisible();
+  await expect(rewritten).toBeHidden({ timeout: 7000 });
   await expect(input).toHaveValue(typo);
   // 입력칸(textarea)에 돌아온 글은 빼고 말풍선만 센다
   const bubble = (text: string) => page.locator(`div[dir="auto"]:text-is("${text}")`);
