@@ -171,6 +171,9 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 - 사진·영상: 웹 `lib/pick.ts`(`<input type="file">`, 600px 축소), 앱 `lib/pick.native.ts`(`expo-image-picker`, quality 0.8, `{uri,name,type}` 업로드). 원본 자료 첨부 `lib/sourceFiles.native.ts`는 사진만(PDF·텍스트는 웹 전용).
 - `beforeunload` 경고(상세 편집·상품 페이지·원본 작업실)는 웹에서만 건다. 복사는 `expo-clipboard`.
 
+## DEV-237 HE source recovery
+SourceAttachments reports whether a new text card contains non-whitespace input separately from general unsaved edits. Composer/workspace start eligibility includes this signal and keeps the existing flush-before-start transaction order. Composer renders action errors beside the collapsed footer and inside the expanded sheet; initial load errors without a batch remain in the page. No API or persistence change.
+
 ## 도움말 투어 앱 표시 (DEV-206, 2026-11-05)
 - `Tour.tsx`의 겹치기 레이어는 웹 `position: fixed`, 앱 `position: absolute`(앱 루트 기준). 앱에는 fixed가 없어 relative로 처리되면 본문을 민다.
 - 앱 카드 위치는 `useSafeAreaInsets` 위·아래 인셋 안쪽. 웹은 인셋 0.

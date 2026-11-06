@@ -220,12 +220,11 @@ export function messagePage<T extends { messageId: string; createdAt: string }>(
   ctx: Ctx,
   resource: string,
   items: T[],
+  sequenceOrder = false,
 ) {
-  const all = [...items].sort(
-    (a, b) =>
-      b.createdAt.localeCompare(a.createdAt) ||
-      b.messageId.localeCompare(a.messageId),
-  );
+  const all = sequenceOrder
+    ? items.map((m, index) => ({ ...m, sequence: index + 1 })).reverse()
+    : [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.messageId.localeCompare(a.messageId));
   const scope = `${ctx.user?.userId ?? "public"}|${resource}|`;
   let offset = 0;
   if (ctx.query.cursor) {
@@ -295,7 +294,7 @@ function page(ctx: Ctx, t: Thread) {
         .filter(Boolean),
     ]);
   return {
-    ...messagePage(ctx, t.threadId, list(d, t)),
+    ...messagePage(ctx, t.threadId, list(d, t).map(m => ({ ...m, sourceSummary: m.handoffStatus === "FORWARDED" ? null : m.sourceSummary })), true),
     thread: t,
     inquiries: ins,
     orders: Object.values(d.orders)
@@ -533,6 +532,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       settings = ctx.db.aiSettings[t.farmId] ?? defaultSettings();
     const message = chatMessage({
       messageId: nextId("m"),
+      sequence: list(ctx.db, t).length + 1,
       senderType: producer ? "PRODUCER" : "CONSUMER",
       body: m.text,
       masked: m.masked,
@@ -574,11 +574,12 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       ) {
         reply = chatMessage({
           messageId: nextId("m"),
+          sequence: list(ctx.db, t).length + 1,
           senderType: "AI",
           body: a.answer ?? "농가에 전달했어요. 직접 답변을 기다려 주세요.",
           createdAt: nowIso(),
           handoffStatus: a.action === "HANDOFF" ? "FORWARDED" : null,
-          sourceSummary: a.reason,
+          sourceSummary: a.action === "HANDOFF" ? null : a.reason,
           sourceRefs: a.sourceRefs,
           settingsVersion: a.settingsVersion,
         });
@@ -633,7 +634,7 @@ register({
     );
   },
   "GET /api/messaging/support/messages": (ctx) => ({
-    items: supportRoom(ctx).messages,
+    items: supportRoom(ctx).messages.map((m, index) => ({ ...m, sequence: index + 1 })),
     nextCursor: null,
   }),
   "POST /api/messaging/support/messages": (ctx) => {
@@ -650,6 +651,7 @@ register({
         createdAt: nowIso(),
         masked,
       });
+      message.sequence = room.messages.length + 1;
       room.messages.push(message);
       return { message, reply: null };
     });

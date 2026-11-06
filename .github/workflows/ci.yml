@@ -116,6 +116,9 @@ jobs:
           echo "lane=$lane pr=${pr:-none} base=${base:-none} files=$(wc -l < "$RUNNER_TEMP/changed.txt")"
           sed 's/^/  /' "$RUNNER_TEMP/changed.txt" | head -200
 
+      - name: Check offline evaluation contracts
+        run: python3 -m unittest discover -s scripts/evals-v2/tests -v
+
       - name: Check the integration map
         run: |
           node --test scripts/ci/test-classify.mjs

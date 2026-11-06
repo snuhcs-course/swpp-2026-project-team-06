@@ -92,3 +92,6 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 
 - 저장소는 `src/storage.ts`(웹·Node: localStorage) / `src/storage.native.ts`(`expo-secure-store` 동기 API, 키의 `:`는 `.`로, 2KB 넘는 값은 메모리). `readStore`·`writeStore`·토큰 계약은 그대로다.
 - 업로드 함수(`uploadMedia`·`uploadAttachment`·`uploadSource`·`productWorkspace.uploadPhoto`)는 `UploadFile = Blob | {uri, name, type}`을 받는다(`appendFile`). 서버에서 받은 비공개 사진은 `blobUrl`(웹 blob URL / 네이티브 data URL)로 돌려준다. Mock(브라우저 저장)은 웹 전용이다.
+
+## DEV-235 메시지 순서
+ChatMessage.sequence는 서버 삽입 순서다. 기존 API와 앱의 순차 배포를 위해 클라이언트 타입은 선택 필드로 받는다. Mock 1:1·지원 대화는 저장 배열 순번을 반환하며 페이지 경계에서도 안정적이다. 소식방의 시각/ID 페이지 계약은 유지한다.
