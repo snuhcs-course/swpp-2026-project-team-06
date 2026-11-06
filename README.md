@@ -13,10 +13,10 @@ Silent walkthroughs recorded on the snapshot above, from local seed data with fi
 
 | Recording | Watch | Length | What it shows |
 | --- | --- | --- | --- |
-| **Overall flow** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/story.mp4) | 5:15 | Producer applies → operator approves → producer sets up farm, AI product draft, prices, supply → operator approves supply → consumer finds, follows and reserves → farm confirms the deposit → farm news, AI chat answer and hand-off, farm reply → **harvest start and shipping (new in I3)** |
+| **Overall flow** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/story.mp4) | 5:16 | Producer applies → operator approves → producer sets up farm, AI product draft, prices, supply → operator approves supply → consumer finds, follows and reserves → farm confirms the deposit → farm news, AI chat answer and hand-off, farm reply → **harvest start and shipping (new in I3)** |
 | **Consumer** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/consumer.mp4) | 1:52 | Search, follow, product detail, checkout, deposit instructions, reservation complete, news like, AI chat, farm reply, shipped order |
 | **Producer** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/producer.mp4) | 2:57 | Application, farm profile and bank account, AI text draft, stage prices, supply request, deposit approval, news, answering a handed-off question, harvest start, invoice and shipping |
-| **Operator** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/admin.mp4) | 0:26 | Producer approval and supply approval in the admin page |
+| **Operator** | [MP4](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/download/demo-i3/admin.mp4) | 0:27 | Producer approval and supply approval in the admin page |
 
 What is real and what is simulated:
 - **Simulated:** the videos start already signed in (real sign-in is Kakao; the test-account login used to record is a testing tool and is not shown); the bank transfer is a button ("입금을 마쳤어요") — no money moves; the clock is fixed to 2026-10-07 so the seeded reservation periods are open; the farm, people and account numbers are fictional.
