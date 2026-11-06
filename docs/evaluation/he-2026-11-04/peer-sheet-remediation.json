@@ -1,0 +1,787 @@
+{
+  "preparedAt": "2026-11-06",
+  "method": "Peer PDF transcription and documentary remediation mapping only; no new human HE, app test or consensus calibration.",
+  "counts": {
+    "filledEvaluators": 5,
+    "heuristicSlots": 50,
+    "commentSlots": 5,
+    "allSlots": 55,
+    "explicitRatings": 53,
+    "blankRatings": 2,
+    "nonzeroHeuristicCells": 19,
+    "heuristicSeverityCounts": {
+      "0": 31,
+      "1": 8,
+      "2": 9,
+      "3": 2
+    },
+    "allSlotSeverityCounts": {
+      "0": 34,
+      "1": 8,
+      "2": 9,
+      "3": 2
+    }
+  },
+  "ratedCells": [
+    {
+      "sourceId": "A-H2",
+      "page": 1,
+      "heuristic": "H2",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source A'!A4:F4",
+      "groups": [
+        "T01"
+      ]
+    },
+    {
+      "sourceId": "A-H4",
+      "page": 1,
+      "heuristic": "H4",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source A'!A6:F6",
+      "groups": [
+        "T02",
+        "T03"
+      ]
+    },
+    {
+      "sourceId": "A-H7",
+      "page": 1,
+      "heuristic": "H7",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source A'!A9:F9",
+      "groups": [
+        "T04"
+      ]
+    },
+    {
+      "sourceId": "A-H10",
+      "page": 2,
+      "heuristic": "H10",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source A'!A12:F12",
+      "groups": [
+        "T01",
+        "T25"
+      ]
+    },
+    {
+      "sourceId": "B-H3",
+      "page": 3,
+      "heuristic": "H3",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source B'!A5:F5",
+      "groups": [
+        "T05"
+      ]
+    },
+    {
+      "sourceId": "B-H4",
+      "page": 3,
+      "heuristic": "H4",
+      "severity": 3,
+      "severityBlank": false,
+      "sourceRange": "'Source B'!A6:F6",
+      "groups": [
+        "T06",
+        "T07",
+        "T08"
+      ]
+    },
+    {
+      "sourceId": "B-H6",
+      "page": 3,
+      "heuristic": "H6",
+      "severity": 3,
+      "severityBlank": false,
+      "sourceRange": "'Source B'!A8:F8",
+      "groups": [
+        "T09"
+      ]
+    },
+    {
+      "sourceId": "B-H7",
+      "page": 3,
+      "heuristic": "H7",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source B'!A9:F9",
+      "groups": [
+        "T10"
+      ]
+    },
+    {
+      "sourceId": "B-H8",
+      "page": 4,
+      "heuristic": "H8",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source B'!A10:F10",
+      "groups": [
+        "T07"
+      ]
+    },
+    {
+      "sourceId": "C-H1",
+      "page": 7,
+      "heuristic": "H1",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source C'!A3:F3",
+      "groups": [
+        "T11"
+      ]
+    },
+    {
+      "sourceId": "D-H1",
+      "page": 9,
+      "heuristic": "H1",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A3:F3",
+      "groups": [
+        "T12"
+      ]
+    },
+    {
+      "sourceId": "D-H3",
+      "page": 9,
+      "heuristic": "H3",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A5:F5",
+      "groups": [
+        "T13"
+      ]
+    },
+    {
+      "sourceId": "D-H5",
+      "page": 9,
+      "heuristic": "H5",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A7:F7",
+      "groups": [
+        "T15"
+      ]
+    },
+    {
+      "sourceId": "D-H6",
+      "page": 9,
+      "heuristic": "H6",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A8:F8",
+      "groups": [
+        "T16"
+      ]
+    },
+    {
+      "sourceId": "D-H8",
+      "page": 10,
+      "heuristic": "H8",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A10:F10",
+      "groups": [
+        "T12"
+      ]
+    },
+    {
+      "sourceId": "E-H1",
+      "page": 11,
+      "heuristic": "H1",
+      "severity": 1,
+      "severityBlank": false,
+      "sourceRange": "'Source E'!A3:F3",
+      "groups": [
+        "T18"
+      ]
+    },
+    {
+      "sourceId": "E-H3",
+      "page": 11,
+      "heuristic": "H3",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source E'!A5:F5",
+      "groups": [
+        "T17"
+      ]
+    },
+    {
+      "sourceId": "E-H5",
+      "page": 11,
+      "heuristic": "H5",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source E'!A7:F7",
+      "groups": [
+        "T19"
+      ]
+    },
+    {
+      "sourceId": "E-H9",
+      "page": 12,
+      "heuristic": "H9",
+      "severity": 2,
+      "severityBlank": false,
+      "sourceRange": "'Source E'!A11:F11",
+      "groups": [
+        "T20"
+      ]
+    }
+  ],
+  "zeroOrUnratedRecommendations": [
+    {
+      "sourceId": "A-H9",
+      "page": 2,
+      "heuristic": "H9",
+      "severity": 0,
+      "severityBlank": false,
+      "sourceRange": "'Source A'!A11:F11",
+      "groups": [
+        "T23"
+      ]
+    },
+    {
+      "sourceId": "A-Comments",
+      "page": 2,
+      "heuristic": "Comments",
+      "severity": null,
+      "severityBlank": true,
+      "sourceRange": "'Source A'!A13:F13",
+      "groups": [
+        "T22"
+      ]
+    },
+    {
+      "sourceId": "D-H4",
+      "page": 9,
+      "heuristic": "H4",
+      "severity": 0,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A6:F6",
+      "groups": [
+        "T14"
+      ]
+    },
+    {
+      "sourceId": "D-H10",
+      "page": 10,
+      "heuristic": "H10",
+      "severity": 0,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A12:F12",
+      "groups": [
+        "T21"
+      ]
+    },
+    {
+      "sourceId": "D-Comments",
+      "page": 10,
+      "heuristic": "Comments",
+      "severity": 0,
+      "severityBlank": false,
+      "sourceRange": "'Source D'!A13:F13",
+      "groups": [
+        "T24"
+      ]
+    }
+  ],
+  "editorialGroups": [
+    {
+      "id": "T01",
+      "sourceIds": [
+        "A-H2",
+        "A-H10"
+      ],
+      "theme": "Unfamiliar language and home sections",
+      "issues": [
+        "DEV-239"
+      ],
+      "status": "I4 Backlog",
+      "scope": "Terminology, seasonal recommendations, followed farms and reservation language require usability decisions. No complete closure established.",
+      "sourceRatings": [
+        {
+          "id": "A-H2",
+          "severity": 2
+        },
+        {
+          "id": "A-H10",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T02",
+      "sourceIds": [
+        "A-H4"
+      ],
+      "theme": "Conventional styling",
+      "issues": [],
+      "status": "Opinion recorded",
+      "scope": "A preference for a more polished visual style. No screen or specific defect is identified.",
+      "sourceRatings": [
+        {
+          "id": "A-H4",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T03",
+      "sourceIds": [
+        "A-H4"
+      ],
+      "theme": "Bulk order import and tracking entry",
+      "issues": [
+        "DEV-240"
+      ],
+      "status": "I4 Backlog",
+      "scope": "Excel import, bulk entry and bulk tracking numbers are additional capabilities awaiting a scope decision.",
+      "sourceRatings": [
+        {
+          "id": "A-H4",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T04",
+      "sourceIds": [
+        "A-H7"
+      ],
+      "theme": "Expert shortcuts",
+      "issues": [
+        "DEV-240"
+      ],
+      "status": "I4 product decision",
+      "scope": "Evaluator questions whether shortcuts are needed. Retain the original cosmetic rating without asserting a defect.",
+      "sourceRatings": [
+        {
+          "id": "A-H7",
+          "severity": 1
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T05",
+      "sourceIds": [
+        "B-H3"
+      ],
+      "theme": "Delete or leave chat",
+      "issues": [
+        "DEV-239"
+      ],
+      "status": "I4 Backlog",
+      "scope": "Decide intended retention and user control before implementation.",
+      "sourceRatings": [
+        {
+          "id": "B-H3",
+          "severity": 1
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T06",
+      "sourceIds": [
+        "B-H4"
+      ],
+      "theme": "Unexpected checkout after logout and login",
+      "issues": [
+        "DEV-222"
+      ],
+      "status": "Done; PR #432 merged",
+      "scope": "The verified fix clears stale checkout redirects and protects focus, stack and resume transitions.",
+      "sourceRatings": [
+        {
+          "id": "B-H4",
+          "severity": 3
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T07",
+      "sourceIds": [
+        "B-H4",
+        "B-H8"
+      ],
+      "theme": "Newsroom and private chat roles and visibility",
+      "issues": [
+        "DEV-239"
+      ],
+      "status": "I4 Backlog",
+      "scope": "Reply semantics, follower visibility and possible comment presentation need an approved design. No blanket closure from unfollow feedback.",
+      "sourceRatings": [
+        {
+          "id": "B-H4",
+          "severity": 3
+        },
+        {
+          "id": "B-H8",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T08",
+      "sourceIds": [
+        "B-H4"
+      ],
+      "theme": "Follow state and unfollow feedback",
+      "issues": [
+        "DEV-230"
+      ],
+      "status": "Done; PR #437 merged",
+      "scope": "Undo toast, dimmed replies and re-follow behavior address the tracked feedback defect. Permission filtering itself was intended.",
+      "sourceRatings": [
+        {
+          "id": "B-H4",
+          "severity": 3
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T09",
+      "sourceIds": [
+        "B-H6"
+      ],
+      "theme": "Indistinguishable pending-payment orders",
+      "issues": [
+        "DEV-226"
+      ],
+      "status": "Done; PR #433 merged",
+      "scope": "Consumer order number and date and producer product names distinguish rows.",
+      "sourceRatings": [
+        {
+          "id": "B-H6",
+          "severity": 3
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T10",
+      "sourceIds": [
+        "B-H7"
+      ],
+      "theme": "Block a noisy newsroom participant",
+      "issues": [
+        "DEV-240"
+      ],
+      "status": "I4 Backlog",
+      "scope": "Moderation scope is undecided. The sheet proposes a feature and supplies no reproduction of abuse.",
+      "sourceRatings": [
+        {
+          "id": "B-H7",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T11",
+      "sourceIds": [
+        "C-H1"
+      ],
+      "theme": "Visible product editor field labels",
+      "issues": [
+        "DEV-239"
+      ],
+      "status": "I4 Backlog",
+      "scope": "Check the current title and content fields and approve a design if the problem remains.",
+      "sourceRatings": [
+        {
+          "id": "C-H1",
+          "severity": 1
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T12",
+      "sourceIds": [
+        "D-H1",
+        "D-H8"
+      ],
+      "theme": "Order priority and overview filtering",
+      "issues": [
+        "DEV-226",
+        "DEV-239"
+      ],
+      "status": "Partial Done; remaining I4 Backlog",
+      "scope": "DEV-226 adds row identification only. Priority colors, sort, date filtering and recent overview history remain in DEV-239.",
+      "sourceRatings": [
+        {
+          "id": "D-H1",
+          "severity": 1
+        },
+        {
+          "id": "D-H8",
+          "severity": 1
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T13",
+      "sourceIds": [
+        "D-H3"
+      ],
+      "theme": "Chat Back target",
+      "issues": [
+        "DEV-224"
+      ],
+      "status": "Done; PR #442 merged",
+      "scope": "The fix defines entry-aware Back behavior and fallback routes. It does not require every entry to return to the chat list.",
+      "sourceRatings": [
+        {
+          "id": "D-H3",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T14",
+      "sourceIds": [
+        "D-H4"
+      ],
+      "theme": "Distinguish AI, handoff and human messages",
+      "issues": [
+        "DEV-213",
+        "DEV-239"
+      ],
+      "status": "Partial Done; redesign I4 Backlog",
+      "scope": "DEV-213 removes internal handoff reasons (PR #463 merged). Full visual differentiation remains DEV-239. Original peer rating is zero.",
+      "sourceRatings": [
+        {
+          "id": "D-H4",
+          "severity": 0
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T15",
+      "sourceIds": [
+        "D-H5"
+      ],
+      "theme": "New product versus edit selling page",
+      "issues": [
+        "DEV-239"
+      ],
+      "status": "I4 Backlog",
+      "scope": "Clarify how another sale of the same product should begin.",
+      "sourceRatings": [
+        {
+          "id": "D-H5",
+          "severity": 1
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T16",
+      "sourceIds": [
+        "D-H6"
+      ],
+      "theme": "Formal carrier and shipment information",
+      "issues": [],
+      "status": "Historical triage: already available",
+      "scope": "The existing consolidation says carrier information was already in in-transit order details. This audit did not rerun that UI and does not claim a new fix.",
+      "sourceRatings": [
+        {
+          "id": "D-H6",
+          "severity": 1
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T17",
+      "sourceIds": [
+        "E-H3"
+      ],
+      "theme": "Unspecified state transition bug",
+      "issues": [],
+      "status": "Needs reproduction context",
+      "scope": "The evaluator gives no route, action or state. Similarity to DEV-224 is tentative and cannot establish closure.",
+      "sourceRatings": [
+        {
+          "id": "E-H3",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T18",
+      "sourceIds": [
+        "E-H1"
+      ],
+      "theme": "Unclear element boundaries",
+      "issues": [],
+      "status": "Needs screen context",
+      "scope": "The report does not identify a screen or component. Retain as an observation without inventing a specific fix.",
+      "sourceRatings": [
+        {
+          "id": "E-H1",
+          "severity": 1
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T19",
+      "sourceIds": [
+        "E-H5"
+      ],
+      "theme": "Unspecified interaction bug",
+      "issues": [],
+      "status": "Needs reproduction context",
+      "scope": "No specific action, expected behavior or observed state is provided.",
+      "sourceRatings": [
+        {
+          "id": "E-H5",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T20",
+      "sourceIds": [
+        "E-H9"
+      ],
+      "theme": "Missing error messages for unspecified bugs",
+      "issues": [],
+      "status": "Needs reproduction context",
+      "scope": "Do not equate this with internal HE-33 or DEV-237 without evidence.",
+      "sourceRatings": [
+        {
+          "id": "E-H9",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T21",
+      "sourceIds": [
+        "D-H10"
+      ],
+      "theme": "Tutorial overlays obscure the app",
+      "issues": [
+        "DEV-239"
+      ],
+      "status": "I4 follow-up design",
+      "scope": "Retain original rating zero. DEV-239 tracks onboarding with DEV-206 follow-up design; no claim that all overlay concerns are resolved.",
+      "sourceRatings": [
+        {
+          "id": "D-H10",
+          "severity": 0
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T22",
+      "sourceIds": [
+        "A-Comments"
+      ],
+      "theme": "Show an outgoing chat message immediately",
+      "issues": [
+        "DEV-239"
+      ],
+      "status": "I4 Backlog",
+      "scope": "The additional comment is UNRATED. Preserve the blank severity and avoid substituting a later internal implementation rating.",
+      "sourceRatings": [
+        {
+          "id": "A-Comments",
+          "severity": null
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T23",
+      "sourceIds": [
+        "A-H9"
+      ],
+      "theme": "Validate financial paths",
+      "issues": [],
+      "status": "General validation recommendation",
+      "scope": "Evaluator explicitly encountered no error and rated zero. This is not a reported payment defect.",
+      "sourceRatings": [
+        {
+          "id": "A-H9",
+          "severity": 0
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T24",
+      "sourceIds": [
+        "D-Comments"
+      ],
+      "theme": "Competition from AI-enabled messengers",
+      "issues": [
+        "DEV-240"
+      ],
+      "status": "I4 product decision",
+      "scope": "A strategic concern, originally rated zero. It is not a reproducible app defect.",
+      "sourceRatings": [
+        {
+          "id": "D-Comments",
+          "severity": 0
+        }
+      ],
+      "calibratedSeverity": null
+    },
+    {
+      "id": "T25",
+      "sourceIds": [
+        "A-H10"
+      ],
+      "theme": "Producer reservation and shipment stages",
+      "issues": [
+        "DEV-231",
+        "DEV-239"
+      ],
+      "status": "Partial Done; broader language I4 Backlog",
+      "scope": "DEV-231 implements the harvest-start transition (PR #438 merged). This does not close every stage-label or onboarding concern.",
+      "sourceRatings": [
+        {
+          "id": "A-H10",
+          "severity": 2
+        }
+      ],
+      "calibratedSeverity": null
+    }
+  ],
+  "limitations": [
+    "No original editable Team 6 workbook was available. A Team 18 workbook was found but not used as evidence or template.",
+    "Source severity belongs to a heuristic cell, not every issue mentioned within it. B-H4 contains three concerns under one score of 3.",
+    "Two unfilled template page pairs are excluded. The class Example column is preserved as rubric and excluded from findings.",
+    "The supplied PDF does not state its evaluation date or tested commit. The 2026-11-04 class date and environment are historical repository records, not PDF metadata.",
+    "No new evaluator agreement, calibrated severity, participant frequency, impact or persistence measurement has been established. DEV-156 requires that human decision.",
+    "The internal 38 prechecks, 43 merged groups and 27 split peer issues in the historical consolidation use a different population and must not be presented as literal PDF row counts.",
+    "Actual issue state and merged PR status are documentary evidence. This audit did not establish current deployed behavior or rerun app tests."
+  ]
+}
