@@ -9,7 +9,7 @@
 
 ## 구조
 - `router.py` — prefix `/auth`(앱에서는 `/api/auth`). `GET /api/auth/test-accounts`, `POST /api/auth/test-login`, `GET /api/auth/me`, 생산자 신청 `POST`·`GET /api/auth/producer-application`, 배송지 `/api/auth/me/addresses`. 관리 API `/admin/producers/...`는 DEV-4. (I2) `POST /api/auth/kakao`.
-- `models.py` — 담당 엔티티: `User`, `UserConsent`, `ShippingAddress`
+- `models.py` — 담당 엔티티: `User`, `UserConsent`, `ShippingAddress`, `NoticeRead`(농가 법정 안내 읽음 기록, DEV-121)
 - `schemas.py` — 테스트 계정·로그인 응답, 내 정보, 가입 신청, 배송지 입출력
 - `service.py` — 테스트 계정 조회·로그인(플래그·`isTestAccount` 확인), 사용자 조회, JWT 발급, 가입 신청·승인, 배송지 저장. 카카오 토큰 교환·사용자 조회(httpx `_kakao_fetch`, 테스트에서 바꿔 끼움), `kakao_login`·`kakao_config`
 
@@ -37,3 +37,4 @@
 | 2026-10-18 | 카카오에서는 회원번호·이메일만 받는다(`KakaoProfile`, 이름·전화번호는 비즈 앱 심사 뒤 빈 칸에만 채움, 전화번호는 010-0000-0000 꼴로). 처음 계정은 `name=""`·`email` 저장. `needs_onboarding`: 소비자 카카오 계정이고 nickname·name·phone·필수 동의(TERMS·PRIVACY·AGE14) 중 하나라도 없으면 true(테스트 계정·생산자는 false). `PATCH /api/auth/me`(nickname 2~12, name 2~20, 휴대폰 형식), `GET`·`POST /api/auth/me/consents`(`UserConsent`, (user, kind)당 한 줄). 주문·팔로우·좋아요·채팅 시작·채팅 보내기는 `core/security.OnboardedConsumer`, 소식방 답장은 서비스에서 같은 검사 → 403 `ONBOARDING_REQUIRED`. 농가에 보이는 소비자 이름은 `public_name`(닉네임, 없으면 이름 앞 글자 + ○○). 배송지 `PATCH`·`DELETE`(남의 것 404, 기본 삭제 시 최근 것이 기본), 계정당 50개(409 `ADDRESS_LIMIT`), 주문의 ‘기본 배송지로 저장’은 50개면 건너뜀. 마이그레이션 0016 | FEAT-01 I2, 사용자 결정 10/18, DEV-32 | AC-01-8, AC-01-12~15 |
 | 2026-10-17 | 카카오 로그인은 `GET /api/auth/kakao/config`(사용 여부·클라이언트 ID·복귀 경로 `/auth/kakao`)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 복귀 주소는 CORS 허용 앱 주소의 `/auth/kakao`만 받는다. (카카오 식별자, 역할) 조합마다 계정 하나이며 처음이면 카카오계정 이메일(없으면 닉네임, 둘 다 없으면 ‘카카오 사용자’)을 이름으로 만든다(`isTestAccount=false`, 연락처 빈 값). 자리 이름이던 계정은 다음 로그인에서 실제 이름으로 바뀐다. REST API 키가 비면 404. 리프레시 토큰은 아직 없다(0009와 같은 7일 토큰) | FEAT-01 I2, ADR 0003·0010, DEV-32 | AC-01-8, AC-01-9, AC-01-10 |
 | 2026-10-23 | `needs_onboarding`은 닉네임·휴대폰·필수 동의만 본다(이름 제외, 위 10-18 행을 대신함). 이름은 가입 때 받지 않고 첫 주문서의 받는 사람으로 받으며 `name=""`로 남을 수 있다. 카카오에서는 이름을 받지 않고 전화번호만 받는다(DEV-78 심사 뒤 `phone_number`) | 가입 간소화(당근식), 사용자 결정 | AC-01-12 |
+| 2026-11-06 | 원산지 표시제도 안내 읽음(DEV-121, 원산지표시법 제6조 ⑥ 고지 증빙): `notice_reads`(사용자·종류·버전마다 한 줄, 처음 시각 유지, 탈퇴해도 남김), `POST /api/auth/me/notices`(`Producer` = 동의한 생산자, 승인 전도 됨, 지금 `ORIGIN_NOTICE_VERSION`만 받고 아니면 400), `UserView.origin_notice_read_at`(생산자만). `user_consents`에 넣지 않은 까닭: 동의가 아니라 읽음이고, (사용자, 종류) 한 줄이라 버전별 증빙이 남지 않는다. 마이그레이션 0026 | 원산지표시법 시행규칙 제4조의2 1호 | — |
