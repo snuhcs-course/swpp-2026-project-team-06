@@ -55,7 +55,10 @@ def test_AC_33_2_context_migration_preserves_existing_data():
             seed.seed(db)
         before = counts()
         migrate(("upgrade", "head"))
-        assert counts() == before
+        after = counts()
+        # 뒤 마이그레이션이 만든 새 테이블(0027 notice_reads, DEV-121)은 비어 있다
+        assert {table: after[table] for table in before} == before
+        assert all(after[table] == 0 for table in after.keys() - before.keys())
         foreign_keys = inspect(engine).get_foreign_keys("thread_order_contexts")
         assert len(foreign_keys) == 2
         assert all(fk["options"]["ondelete"] == "CASCADE" for fk in foreign_keys)
@@ -75,7 +78,10 @@ def test_AC_33_2_context_migration_preserves_existing_data():
         migrate(("downgrade", "0025"))
         assert counts() == before
         migrate(("upgrade", "head"))
-        assert counts() == before
+        after = counts()
+        # 뒤 마이그레이션이 만든 새 테이블(0027 notice_reads, DEV-121)은 비어 있다
+        assert {table: after[table] for table in before} == before
+        assert all(after[table] == 0 for table in after.keys() - before.keys())
         with engine.connect() as conn:
             assert (
                 conn.execute(text("SELECT count(*) FROM thread_order_contexts")).scalar_one() == 0
