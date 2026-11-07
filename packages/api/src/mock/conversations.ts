@@ -154,6 +154,17 @@ function list(d: DB, t: Thread) {
 function inquiries(d: DB, t: Thread) {
   return d.inquiries.filter((i) => i.threadId === t.threadId);
 }
+function eligibleOrderIds(d: DB, t: Thread): string[] {
+  const recorded = new Set([
+    ...inquiries(d, t).map(i => i.orderId),
+    ...(d.threadOrderContexts ?? []).filter(c => c.threadId === t.threadId).map(c => c.orderId),
+  ]);
+  return [...recorded].filter(id => {
+    const o = d.orders[id];
+    return o && o.paidAt && o.consumerId === t.consumerId &&
+      d.products[o.productId]?.farmId === t.farmId;
+  }).sort();
+}
 function paidOrder(ctx: Ctx, id: string): OrderRec {
   const u = ctx.me(),
     o = ctx.db.orders[id];
@@ -176,12 +187,18 @@ function access(ctx: Ctx, write = false): Thread {
   const t = ctx.db.threadMeta[key(f, c)];
   if (!t) notFound("대화를 먼저 시작해 주세요.");
   if (u.role === "CONSUMER" && !following(ctx.db, f, c)) {
-    if (!inquiries(ctx.db, t).length)
+    if (!eligibleOrderIds(ctx.db, t).length)
       fail(403, "FORBIDDEN", "팔로우한 농가와만 채팅할 수 있어요.");
     if (write) {
+      if (ctx.body.orderId == null)
+        fail(403, "FORBIDDEN", "팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.");
       const o = paidOrder(ctx, String(ctx.body.orderId ?? ""));
       if (ctx.db.products[o.productId]?.farmId !== f) notFound();
     }
+  }
+  if (write && u.role === "CONSUMER" && ctx.body.orderId != null) {
+    const o = paidOrder(ctx, String(ctx.body.orderId));
+    if (ctx.db.products[o.productId]?.farmId !== f) notFound();
   }
   return t;
 }
@@ -288,6 +305,7 @@ function page(ctx: Ctx, t: Thread) {
   const d = ctx.db,
     ins = inquiries(d, t),
     linked = new Set([
+      ...eligibleOrderIds(d, t),
       ...ins.map((i) => i.orderId),
       ...list(d, t)
         .map((m) => m.orderId)
@@ -612,7 +630,7 @@ register({
             t.consumerId === u.userId &&
             ctx.db.farms[t.farmId]?.status === "APPROVED" &&
             (following(ctx.db, t.farmId, u.userId) ||
-              inquiries(ctx.db, t).length),
+              eligibleOrderIds(ctx.db, t).length > 0),
         )
         .map((t): ChatSummary => {
           const f = ctx.db.farms[t.farmId],
@@ -671,7 +689,19 @@ register({
     const u = ctx.me(),
       f = String(ctx.body.farmId);
     approved(ctx, f);
+    const orderId = ctx.body.orderId == null ? undefined : String(ctx.body.orderId);
+    if (orderId !== undefined) {
+      const o = paidOrder(ctx, orderId);
+      if (ctx.db.products[o.productId]?.farmId !== f) notFound();
+    }
     return idempotent(ctx, `start:${f}`, () => {
+      const thread = ensureThread(ctx.db, f, u.userId);
+      if (orderId !== undefined) {
+        const contexts = ctx.db.threadOrderContexts ??= [];
+        if (!contexts.some(c => c.threadId === thread.threadId && c.orderId === orderId))
+          contexts.push({ threadId: thread.threadId, orderId, createdAt: nowIso() });
+        return { farmId: f, autoFollowed: false };
+      }
       const autoFollowed = !following(ctx.db, f, u.userId);
       if (autoFollowed) {
         ctx.db.follows.push({ farmId: f, userId: u.userId });
@@ -955,7 +985,7 @@ export function attachmentAccess(
   if (
     u.role === "CONSUMER" &&
     !following(ctx.db, t.farmId, u.userId) &&
-    !inquiries(ctx.db, t).length
+    !eligibleOrderIds(ctx.db, t).length
   )
     notFound();
 }

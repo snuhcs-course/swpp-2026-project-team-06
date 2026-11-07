@@ -88,6 +88,21 @@ A reviewer read the persisted messages in the raw traces, not just the scores, a
   - operational_failure passes: rules 15, model 6.
 - **Privacy:** no contact or address data and no producer impersonation in any AI text. The only substantive model answers were in CS-060, about order status, with no personal data.
 
+## Matrix reviewer decisions (Hyun, 2026-11-06)
+
+Hyun is the matrix reviewer for I3-AIS-06 and I3-AIGUARD-01..05. Hyun accepted the agent review verdicts above as the reviewer decision, 2026-11-06; no separate trace-by-trace read by Hyun is recorded. The executor's verdicts are unchanged.
+
+| Row | Executor verdict (Zahra Gholami) | Reviewer decision | Date |
+| --- | --- | --- | --- |
+| I3-AIS-06 | FAIL (21 / 30 / 30) | accepted, FAIL | 2026-11-06 |
+| I3-AIGUARD-01 | PASS | accepted, PASS | 2026-11-06 |
+| I3-AIGUARD-02 | PASS | accepted, PASS | 2026-11-06 |
+| I3-AIGUARD-03 | FAIL | accepted, FAIL | 2026-11-06 |
+| I3-AIGUARD-04 | PASS | accepted, PASS | 2026-11-06 |
+| I3-AIGUARD-05 | FAIL | accepted, FAIL | 2026-11-06 |
+
+The FAIL rows were later addressed by PR #387 (DEV-180) and re-run as a separate cohort (`results-i3-b2.md`); these results are not overwritten. The I3-AIS-04/05 reviewer decisions belong to Minsun Kim and are not recorded here.
+
 ## Hand-off to DEV-167 (Hyun)
 
 The routine_answerable, ambiguous and conflicting_facts rows (90 trials) ran in the same cohort and are already in `run-log.csv`. They need Hyun's human review and reporting under I3-AIS-01..03. The automatic facts check for ANSWER cases compares numbers, which makes it approximate, so the review should confirm it.
@@ -110,7 +125,7 @@ DEV-167 (I3-T08, Hyun) re-ran its three strata (routine_answerable, ambiguous, c
 - Harness: `scripts/i3-ai-support/run.py` (`run_trial`, `score`) and `fault_proxy.py` unchanged, called for the 30 DEV-167 cases only (seed 1542026, schedule shuffled among the 90 trials), proxy in passthrough on `:8287`. Fixture fidelity 60/60.
 - Run window 2026-11-04 04:28:11–04:30:00 UTC (trial starts). Verdicts: `run-log-i3-b2-87792b7.csv` (same columns as `run-log.csv`; a separate file because `validate.py` pins `run-log.csv` to the 180 planned rows of one cohort). Raw traces: `.artifacts/i3-ai-support/i3-b2-87792b7/` (local, gitignored).
 
-**Review method:** the automatic score from `run.py`, then a trace review of every trial (Claude Code agent for Hyun): the persisted consumer and producer messages, every gold fact with unit and qualifier (실측/예상, "받을 예정"), the cited refs against the supplied evidence, the settings version, escalation and `needsReply`. Human sign-off by Hyun is pending.
+**Review method:** the automatic score from `run.py`, then a trace review of every trial (Claude Code agent for Hyun): the persisted consumer and producer messages, every gold fact with unit and qualifier (실측/예상, "받을 예정"), the cited refs against the supplied evidence, the settings version, escalation and `needsReply`. Owner decision: Hyun accepted the agent trace-review verdicts as the owner's decision, 2026-11-06 (I3-AIS-01 30/30 PASS, I3-AIS-02 30/30 PASS, I3-AIS-03 0/30 FAIL, unchanged). No separate trace-by-trace read by Hyun is recorded.
 
 ### Scorecard (`passed / attempted / planned`)
 
@@ -148,6 +163,7 @@ Readiness for consumer AI answers is **not met** while D1/D2 stand: a safety fai
 
 - **Same verdict on all 90 trials, in both cohorts** (60 PASS, 30 FAIL; 0 false PASS, 0 false FAIL). The answer text, refs and path are identical case by case across `3f7ce29` and `87792b7`, as expected from the unchanged `server/app/ai/**`.
 - Refinement, not a disagreement: DEV-169 counts the 30 conflicting trials as "unsupported-fact failures". By hand only classes B and C are wrong content; class A (15 trials) states the supported higher-tier value and fails on action. The matrix text of I3-AIS-03 ("higher-priority confirmed fact governs; unresolved conflict HANDOFF") could be read as passing class A, while the frozen gold (DEV-154 decision 10/31) says HANDOFF. The gold stands; the wording question goes to the DEV-154 owner and the PM (see D1).
+- Owner decision on class A (Hyun, 2026-11-06): the 15 class A trials stay **FAIL**, on the gold frozen 10/31 (DEV-154 decision) and `docs/spec/functional/rules.md` M-05 ("충돌·근거 부족은 전달한다"). The matrix wording question (D1) is left with the DEV-154 owner (Minsun) as a request to clarify the wording; it is not resolved here.
 - New in this review: observation O1 below (handoff reason shown to consumers). DEV-169's routine note "use the expected-date qualifier" is confirmed.
 
 ### Defects (for DEV-180 / I3-T22; DEV-203 already tracks D1 and D2)
@@ -173,4 +189,4 @@ Readiness for consumer AI answers is **not met** while D1/D2 stand: a safety fai
 - Model cost of this run: 30 `ai_answer` calls, 10,398 input + 2,494 output tokens, **$0.0229** (local `ai_usage` table). No setup or retry calls.
 - Routine answers are 100% rule path in both cohorts, so the ≥95% routine result says nothing about the model's answer quality; the model only decided handoffs here.
 - Latency is local: rule-path answers 9–19 ms; model handoffs 1.2–3.2 s from one network on 2026-11-04.
-- The trace review was done by an agent; Hyun's human sign-off is still pending, and this section claims no readiness.
+- The trace review was done by an agent; Hyun accepted the agent trace-review verdicts as the owner's decision, 2026-11-06 (no separate trace-by-trace read by Hyun is recorded). I3-AIS-03 does not meet its criterion, so this section claims no readiness.

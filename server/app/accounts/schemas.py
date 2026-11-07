@@ -29,6 +29,12 @@ REQUIRED_PRODUCER_CONSENTS: tuple[ConsentKind, ...] = ("TERMS", "PRIVACY")
 # (DEV-113, policy.md 5장). 앱(packages/ui legalContent LEGAL_VERSION)·Mock(packages/api
 # mock/db.ts)과 같은 값이어야 한다(scripts/test-legal.mjs가 확인)
 CONSENT_VERSION = "2026-10-29"
+# 농가에게 알리는 법정 안내(DEV-121). 원산지 표시제도 안내
+# (원산지표시법 제6조 ⑥, 시행규칙 제4조의2 1호). 안내 본문(packages/ui legalContent
+# ORIGIN_NOTICE_VERSION)·Mock(packages/api mock/db.ts)과 같은 값이어야 한다.
+# 본문을 바꾸면 버전을 올려 다시 읽게 한다(동의 버전과 따로 움직인다)
+NoticeKind = Literal["ORIGIN"]
+ORIGIN_NOTICE_VERSION = "2026-10-22"
 
 
 class UserView(CamelModel):
@@ -46,6 +52,8 @@ class UserView(CamelModel):
     needs_onboarding: bool = False
     # 필수 동의가 없거나 지금 버전이 아니다(DEV-113). 소비자·생산자 모두. 테스트 계정은 항상 false
     consent_required: bool = False
+    # 원산지 표시제도 안내 지금 버전을 읽은 시각(DEV-121). 생산자만 채우고, 안 읽었으면 None
+    origin_notice_read_at: datetime | None = None
 
 
 class MeUpdateInput(CamelModel):
@@ -71,6 +79,17 @@ class ConsentView(CamelModel):
     version: str
     agreed: bool
     agreed_at: datetime
+
+
+class NoticeReadInput(CamelModel):
+    kind: NoticeKind
+    version: str = Field(min_length=1, max_length=32)
+
+
+class NoticeReadView(CamelModel):
+    kind: NoticeKind
+    version: str
+    read_at: datetime
 
 
 class TestLoginInput(CamelModel):

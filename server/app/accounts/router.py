@@ -18,6 +18,8 @@ from app.accounts.schemas import (
     KakaoSignupInput,
     LoginResult,
     MeUpdateInput,
+    NoticeReadInput,
+    NoticeReadView,
     ProducerApplication,
     ProducerApplicationInput,
     ProducerDecision,
@@ -93,6 +95,14 @@ def my_consents(db: Db, user: CurrentUser):
 def save_consents(db: Db, user: CurrentUser, body: ConsentsInput):
     """가입·재동의 기록(AC-01-14·17·18). 소비자·생산자 모두. 항목·버전·시각을 남긴다."""
     result = service.save_consents(db, user, body)
+    db.commit()
+    return result
+
+
+@router.post("/me/notices", response_model=NoticeReadView)
+def read_notice(db: Db, user: Producer, body: NoticeReadInput):
+    """농가가 원산지 표시제도 안내를 읽었다고 기록한다(DEV-121). 버전마다 처음 시각을 남긴다."""
+    result = service.read_notice(db, user, body)
     db.commit()
     return result
 

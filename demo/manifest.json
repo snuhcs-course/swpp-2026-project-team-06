@@ -1,0 +1,48 @@
+{
+  "iteration": "i3",
+  "size": "2560x1600",
+  "videos": {
+    "story.mp4": {
+      "seconds": 315.93,
+      "segments": [
+        "p1",
+        "a1",
+        "p2",
+        "a2",
+        "c1",
+        "p3",
+        "c2",
+        "p4",
+        "c3",
+        "p5",
+        "c4"
+      ]
+    },
+    "consumer.mp4": {
+      "seconds": 112.03,
+      "segments": [
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    "producer.mp4": {
+      "seconds": 177.1,
+      "segments": [
+        "p1",
+        "p2",
+        "p3",
+        "p4",
+        "p5"
+      ]
+    },
+    "admin.mp4": {
+      "seconds": 26.8,
+      "segments": [
+        "a1",
+        "a2"
+      ]
+    }
+  }
+}

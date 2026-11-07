@@ -1,4 +1,9 @@
 export { tokens } from "./tokens";
+export {
+  ChatViewStateStore, sanitizeChatView, anchorScrollTarget,
+  CHAT_VIEW_LIMIT, CHAT_VIEW_IDLE_TTL,
+  type ChatViewSnapshot, type ChatViewScope, type ChatViewLease, type MessageAnchor,
+} from "./chatViewState";
 export { BrandLogo } from "./BrandLogo";
 export {
   Price,
@@ -52,6 +57,7 @@ export {
 export { ChatBubble, AiBadge } from "./ChatBubble";
 export { Placeholder } from "./Placeholder";
 export { safe, focusRing } from "./web";
+export { KeyboardRoot, useKeyboardShown } from "./keyboard";
 export {
   won,
   md,
@@ -103,6 +109,9 @@ export { LegalFooter, LegalDocument } from "./Legal";
 export { WithdrawSheet } from "./WithdrawSheet";
 export {
   LEGAL_VERSION,
+  ORIGIN_NOTICE_VERSION,
+  originNotice,
+  type OriginNoticeSection,
   business,
   businessLines,
   legalDocs,

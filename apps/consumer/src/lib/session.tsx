@@ -9,7 +9,7 @@ import {
   type User,
 } from "@farmclub/api";
 import { useAnalytics } from "@farmclub/analytics";
-import { Button, Sheet, T, useSheetLeave } from "@farmclub/ui";
+import { Button, Sheet, T, useSheetLeave, type ChatViewScope } from "@farmclub/ui";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import {
   createContext,
@@ -21,6 +21,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { chatViewState } from "./chatViewState";
+import { ChatSessionController } from "./chatSession";
 
 configureApi({ namespace: "consumer" });
 
@@ -44,6 +46,8 @@ type Session = {
   user: User | null;
   ready: boolean;
   refresh: () => Promise<void>;
+  /** Verified consumer/auth generation. Private chat routes must also check its active lease. */
+  chatViewScope: ChatViewScope | null;
   /**
    * 로그인 필요 행동. 로그인돼 있으면 run을 바로 실행하고,
    * 아니면 관문 시트 → 로그인 → next 화면으로 돌아와 그 화면이 resume을 보고 행동을 잇는다.
@@ -79,6 +83,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const [chatViewScope, setChatViewScope] = useState<ChatViewScope | null>(null);
+  const chatSession = useRef<ChatSessionController | null>(null);
+  if (!chatSession.current) chatSession.current = new ChatSessionController(chatViewState);
   const [gate, setGate] = useState<Resume | null>(null);
   // 관문 시트의 ‘로그인’은 시트를 바로 닫고 로그인 화면으로 간다(DEV-225)
   const gateLeave = useSheetLeave();
@@ -92,9 +99,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const here = useRef(pathname);
   here.current = pathname;
 
+  const invalidateSession = useCallback(() => {
+    // Run before any awaited refresh/logout work; old UI callbacks lose authority now.
+    chatSession.current!.invalidate();
+    setChatViewScope(null);
+    userRef.current = null;
+    setUser(null);
+    setPendingRecipient(null);
+    setReady(false);
+  }, []);
+
   const refresh = useCallback(async () => {
     const token = getToken();
+    const controller = chatSession.current!;
+    const ticket = controller.beginRefresh(token);
     if (!token) {
+      setChatViewScope(null);
       setUser(null);
       setPendingRecipient(null);
       setReady(true);
@@ -102,17 +122,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     try {
       const u = await auth.me();
-      if (getToken() === token) setUser(u);
+      const scope = controller.authorize(ticket, getToken(), u.userId);
+      if (scope) {
+        setChatViewScope(scope);
+        setUser(u);
+      }
     } catch {
-      if (getToken() === token) setUser(null);
+      // A transient same-session failure hides private UI without erasing safe geometry.
+      if (controller.isCurrent(ticket, getToken())) setUser(null);
     } finally {
-      if (getToken() === token) setReady(true);
+      if (controller.isCurrent(ticket, getToken())) setReady(true);
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
-    return onAuthChange(() => {
+    const unsubscribe = onAuthChange(() => {
+      invalidateSession();
       // 401·403 WRONG_APP이면 클라이언트가 토큰을 지운다(screens.md 7.1) → 소비자 로그인(SCR-05)으로
       if (!getToken() && hadUser.current && here.current !== "/login") {
         hadUser.current = false;
@@ -123,7 +148,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       void refresh();
     });
-  }, [refresh, router]);
+    void refresh();
+    return () => {
+      unsubscribe();
+      chatSession.current!.invalidate();
+    };
+  }, [refresh, router, invalidateSession]);
 
   useEffect(() => {
     hadUser.current = !!user;
@@ -179,12 +209,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(
     (before?: () => void) => {
       hadUser.current = false;
+      invalidateSession();
       before?.();
       auth.logout();
       setResume(null);
       router.replace("/");
     },
-    [router],
+    [router, invalidateSession],
   );
 
   // 화면 전환 pageview, 로그인 identify(내부 userId만), 로그아웃 reset (DEV-71)
@@ -199,6 +230,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       refresh,
+      chatViewScope,
       requireLogin,
       resume: visibleResume,
       hasResume: !!resume,
@@ -214,6 +246,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       refresh,
+      chatViewScope,
       requireLogin,
       visibleResume,
       resume,

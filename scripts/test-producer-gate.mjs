@@ -53,7 +53,8 @@ test("DEV-113 AC-01-18: producers without current consent only reach /consent, w
   }
   // 동의를 마치면 /consent에 머물지 않는다
   assert.equal(homeFor(producer("APPROVED")).allowed("/consent"), false);
-  assert.deepEqual(PUBLIC_PATHS, ["/privacy", "/terms"]);
+  // DEV-121: 원산지 표시제도 안내도 상태와 상관없이 열린다(가입 신청 입점 정책에서 연다)
+  assert.deepEqual(PUBLIC_PATHS, ["/privacy", "/terms", "/origin-notice"]);
 });
 
 test("DEV-209 AC-34-9: rejected and suspended farms reach only their status screen and /support", () => {

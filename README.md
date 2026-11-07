@@ -4,8 +4,30 @@ SNU SWPP 2026 · Team 6 · Prepared 6 November 2026
 
 Farmclub connects consumers with Jeju citrus farms through advance reservations, farm updates and private conversations. This branch contains both apps, the API, the source-analysis worker and operator tools.
 
-- **Product snapshot:** [`efa684b`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/efa684b4d5ee2ce00f6a939c280bcbe1d420147d) on `main` (after the last I3 fix, DEV-180 / #387). This branch is that commit plus this README.
+- **Product snapshot:** [`efa684b`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/efa684b4d5ee2ce00f6a939c280bcbe1d420147d) on `main` (after the last I3 fix, DEV-180 / #387). Until 2026-11-07 this branch was that commit plus this README; see the post-deadline update below.
 - This README is specific to `iteration-3-demo`. The general project README is on `main`. Do not merge this branch into `main`.
+
+## Post-deadline update (2026-11-07)
+
+This branch was updated after the I3 deadline (2026-11-06 23:59 KST). On 2026-11-07 we merged `main` at [`b371c8b`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/b371c8b7b45d5435133f39f5c6beef341b294446) into it, so the code here is now newer than the snapshot above. What we submitted to eTL is still `efa684b`; check out that commit if you want to see the submitted state.
+
+Merged into `main` after `efa684b` but before the deadline (they were not on this branch at submission time):
+
+- #458 (DEV-237) producer: first text analysis and next-action error recovery fixed
+- #460 (DEV-205) Android: inputs stay above the keyboard and navigation bar
+- #461 (DEV-206) producer help tour shown as an overlay in the native app
+- #471 (DEV-147) checkout: the selected address radio exposes `aria-checked`
+- #482 (DEV-245) consumer: chat entry from a paid order and scroll position in private conversations fixed (migration `0026`)
+- #490 (DEV-122) privacy policy lists the PostHog overseas transfer items and basis
+- #466, #481, #498 (DEV-181, DEV-134) re-recorded I3 demo videos and the demo scenario/record/site commands
+- #470, #483, #484, #486, #487, #491, #493, #494, #500, #501, #502: evaluation records, AI collaboration report sections and the final I3 documentation (no app behavior change)
+
+Merged after the deadline:
+
+- #497 (DEV-121) producer: origin labeling notice ("원산지 표시제도 안내") on the dashboard with a read record, help text on the origin field, terms article 14 wording (migration `0027`; no re-consent)
+- #499 (DEV-134) demo record test fixed after the I3 segments landed (test only)
+
+New Android internal APKs built from `b371c8b` will be posted as the Release [`apk-internal-2026-11-07`](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/apk-internal-2026-11-07) (the link works once the release is published). The demo videos below were recorded on the deadline snapshot, so screens added afterwards, such as the origin notice, are not in them.
 
 ## 1. Watch the demo
 
@@ -88,7 +110,7 @@ for s in p1 a1 p2 a2 c1 p3 c2 p4 c3 p5 c4; do
 done
 ```
 
-Segments are written to `demo/.raw/story/<segment>.mp4`. If a segment fails, restart section A (fresh seed) and start again from `p1`. Details: [`demo/README.md`](demo/README.md).
+Since the post-deadline merge, `ADMIN_WEB_PASSWORD=<same-password> npm run demo:record -- --target local` runs the same segments in order (see `demo/README.md`). Segments are written to `demo/.raw/story/<segment>.mp4`. If a segment fails, restart section A (fresh seed) and start again from `p1`. Details: [`demo/README.md`](demo/README.md).
 
 ### C. Mock only (no database)
 

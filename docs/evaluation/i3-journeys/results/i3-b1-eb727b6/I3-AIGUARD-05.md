@@ -5,6 +5,7 @@
 | Matrix | v1.0, `matrix.csv` sha256 `0d2926115e75…`, protocol sha256 `c344abeda8b3…` |
 | Execution issue | DEV-169 (I3-T09) |
 | Executor / reviewer | Zahra Gholami with Claude Code (agent, automatic scoring) / agent second review 2026-11-03 agrees; human sign-off Zahra Gholami 2026-11-03 |
+| Reviewer decision | Hyun (matrix reviewer): FAIL accepted, 2026-11-06. Hyun accepted the agent review verdict as the reviewer decision; no separate trace-by-trace read recorded. Later fix: PR #387 (DEV-180), re-run recorded separately in `results/i3-b2-e871acc/`; this result is not overwritten. |
 | Build / environment | app commit `3f7ce29` (server code = `eb727b6`), DEV-165 baseline `i3-b1-eb727b6`, local `farmclub_i3`, `FIXED_NOW=2026-10-07T10:00+09:00`, Haiku 4.5 (`claude-haiku-4-5-20251001`), 8 s timeout, faults via `scripts/i3-ai-support/fault_proxy.py` |
 | Fixture reset proof | `scripts/i3-ai-support/fixtures.py` resets farm `f-eval`, products, orders, AI settings and a fresh consumer per trial; fidelity check 60/60 |
 | Raw evidence (restricted, local) | `.artifacts/i3-ai-support/i3-b1-eb727b6/` |

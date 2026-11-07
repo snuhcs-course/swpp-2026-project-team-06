@@ -33,6 +33,39 @@ EXCLUDED_SUFFIXES = (".lock", ".snap", ".min.js", ".min.css", ".map", ".png", ".
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"  # git's empty tree: demo fixtures diff as added files.
 PROMPT_VERSION = "dev81-v2"
 
+# DEV-253: constrain syntax at the provider; validate() still independently checks
+# evidence, line numbers, complete file coverage and report semantics afterward.
+REFERENCE_SCHEMA = {
+    "type": "object",
+    "properties": {"path": {"type": "string"}, "line": {"type": "integer"}, "quote": {"type": "string"}},
+    "required": ["path", "line", "quote"],
+    "additionalProperties": False,
+}
+REPORT_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": {"type": "string", "enum": ["PASS", "MISMATCH", "INCOMPLETE"]},
+        "summary": {"type": "string"},
+        "reviewed_files": {"type": "array", "items": {"type": "string"}},
+        "findings": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "requirement": REFERENCE_SCHEMA,
+                "code": REFERENCE_SCHEMA,
+                "explanation": {"type": "string"},
+                "suggestion": {"type": "string"},
+                "certainty": {"type": "string", "enum": ["supported", "needs clarification"]},
+            },
+            "required": ["id", "requirement", "code", "explanation", "suggestion", "certainty"],
+            "additionalProperties": False,
+        }},
+        "missing_context": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["status", "summary", "reviewed_files", "findings", "missing_context"],
+    "additionalProperties": False,
+}
+
 
 class Incomplete(Exception):
     """A grounded review could not finish."""
@@ -428,6 +461,7 @@ def model_review(context, prompt, api_key, model, opener=None, sleep=time.sleep)
     if not api_key or not model:
         raise Incomplete("Configure SPEC_CHECK_API_KEY and SPEC_CHECK_MODEL in the protected spec-check environment.")
     payload = json.dumps({"model": model, "max_tokens": MAX_OUTPUT_TOKENS, "system": prompt,
+                          "output_config": {"format": {"type": "json_schema", "schema": REPORT_OUTPUT_SCHEMA}},
                           "messages": [{"role": "user", "content": json.dumps(context, ensure_ascii=False)}]}).encode()
     if len(payload) > MAX_INPUT:
         raise Incomplete(f"Prompt plus complete context exceeds {LIMIT}; split the PR.")

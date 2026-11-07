@@ -242,6 +242,7 @@ export function SourceAttachments({
   refresh,
   onBusy,
   onDirty,
+  onPendingText,
   flushRef,
   beforeUpload,
 }: {
@@ -252,6 +253,7 @@ export function SourceAttachments({
   refresh: () => Promise<void>;
   onBusy: (v: boolean) => void;
   onDirty: (v: boolean) => void;
+  onPendingText?: (v: boolean) => void;
 }) {
   const drafts = useRef<Record<string, { source: SourceAsset; value: string }>>(
     {},
@@ -305,6 +307,12 @@ export function SourceAttachments({
   const skipTextBlur = useRef(false);
   const [editing, setEditing] = useState<TextDraft | null>(null);
   const [textError, setTextError] = useState("");
+  // A first unsaved text already supplies input: start will flush it before reading the batch version.
+  const pendingText = !!editing && !editing.source && !!editing.value.trim();
+  useEffect(() => {
+    onPendingText?.(pendingText);
+    return () => onPendingText?.(false);
+  }, [pendingText, onPendingText]);
   const [working, setWorking] = useState(false),
     [error, setError] = useState(""),
     [failed, setFailed] = useState<{ file: PickedFile; photo: boolean }[]>([]);

@@ -1,0 +1,594 @@
+<title>원산지 표시 안내 DEV-121</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 위에 결정(디자인 무브), 아래에 화면별 BEFORE | AFTER 390 프레임 한 줄씩, 끝에 상태표·문서 변경·질문.
+   휴대폰 프레임 안은 앱이 밝은 화면만 쓰므로(I1 color-scheme: light) 두 테마 모두 같은 앱 토큰을 쓴다. */
+:root {
+  /* 보드 바깥(테마 따라 바뀜) */
+  --bg: #EFEEEA;
+  --panel: #FFFFFF;
+  --ink: #111111;
+  --ink-2: #5E5D59;
+  --rule: #DAD9D4;
+  --mark: #C94F0C;
+  --mark-ink: #FFFFFF;
+  --bad: #B42318;
+  --bad-soft: #FBEAE8;
+  --good: #2F6B3A;
+  --good-soft: #E7F1E8;
+  /* 앱 토큰(docs/design/README.md UI 1.6, packages/ui/src/tokens.ts) — 테마와 무관 */
+  --app-bg: #FFFFFF;
+  --app-text: #111111;
+  --app-muted: #6B6B6B;
+  --app-surface: #F5F5F3;
+  --app-border: #E8E8E6;
+  --app-accent: #C94F0C;
+  --app-error: #B42318;
+  --app-bar: rgba(255,255,255,0.82);
+  --app-dim: rgba(0,0,0,0.04);
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+    --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+  --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px; font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 30px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 68ch; color: var(--ink-2); font-size: 17px; line-height: 25px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--rule); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+
+/* 디자인 무브 */
+.moves { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.moves li { background: var(--panel); border-radius: 16px; padding: 20px; display: grid; grid-template-columns: 32px 1fr; gap: 4px 12px; min-width: 0; }
+.num { width: 28px; height: 28px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 15px; display: grid; place-items: center; grid-row: span 2; }
+.moves h3 { align-self: center; }
+.moves p { color: var(--ink-2); grid-column: 2; }
+
+/* 화면 비교 */
+.cmp { display: flex; flex-direction: column; gap: 20px; }
+.pair { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.col { display: flex; flex-direction: column; gap: 12px; width: min(390px, 100%); }
+.tag { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 700; letter-spacing: 0.06em; }
+.tag i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.tag.before i { background: var(--bad); }
+.tag.after i { background: var(--good); }
+.notes { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 30px; }
+.note { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+.note .num { width: 24px; height: 24px; font-size: 13px; grid-row: auto; }
+.note.bad .dot { width: 24px; height: 24px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+
+/* 휴대폰 프레임 — 앱 토큰만 */
+.phone { width: 100%; background: var(--app-bg); color: var(--app-text); border-radius: 28px; border: 1px solid var(--rule); overflow: hidden; position: relative; display: flex; flex-direction: column; }
+.status { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 13px; font-weight: 600; }
+.hbar { height: 48px; display: flex; align-items: center; padding: 0 8px; }
+.back { width: 48px; height: 48px; display: grid; place-items: center; }
+.back svg { width: 24px; height: 24px; stroke: var(--app-text); stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ttl { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; white-space: pre-line; }
+.t-body { font-size: 17px; line-height: 25px; }
+.t-sub { font-size: 15px; line-height: 22px; }
+.t-cap { font-size: 13px; line-height: 18px; }
+.muted { color: var(--app-muted); }
+.b { font-weight: 700; }
+.sb { font-weight: 600; }
+.px { padding-left: 20px; padding-right: 20px; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.steps { display: flex; gap: 8px; margin-top: 16px; }
+.steps div { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.steps span { height: 4px; border-radius: 999px; background: var(--app-border); display: block; }
+.steps em { font-style: normal; font-size: 13px; line-height: 18px; color: var(--app-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rows { padding: 0 20px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 48px; padding: 12px 0; border-top: 1px solid var(--app-border); font-size: 17px; line-height: 25px; }
+.row.last { border-bottom: 1px solid var(--app-border); }
+.row .k { color: var(--app-muted); flex-shrink: 0; }
+.row .v { text-align: right; min-width: 0; display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.copy { font-size: 17px; font-weight: 600; color: var(--app-text); }
+.prod { display: flex; gap: 16px; align-items: center; padding: 0 20px; margin-top: 40px; }
+.thumb { width: 64px; height: 64px; border-radius: 16px; background: var(--app-surface); flex-shrink: 0; display: grid; place-items: center; }
+.thumb svg { width: 28px; height: 28px; stroke: var(--app-muted); fill: none; stroke-width: 1.75; }
+.btn-outline { margin: 0 20px; height: 52px; border-radius: 16px; border: 1px solid var(--app-text); display: grid; place-items: center; font-size: 17px; font-weight: 600; color: var(--app-text); }
+.btn-text { padding: 12px 20px; font-size: 17px; font-weight: 600; }
+.bbar { margin-top: auto; background: var(--app-bar); border-top: 1px solid var(--app-border); padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 12px; }
+.bbar .btn-outline { margin: 0; }
+.notice { margin-top: 8px; background: var(--app-surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.hl { outline: 2px dashed var(--bad); outline-offset: 3px; border-radius: 6px; }
+.hl-ok { outline: 2px dashed var(--good); outline-offset: 3px; border-radius: 6px; }
+.big { font-size: 34px; line-height: 42px; font-weight: 700; letter-spacing: -0.02em; }
+.tabs { display: flex; gap: 8px; padding: 20px; overflow: hidden; }
+.chip { height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--app-border); display: grid; place-items: center; font-size: 15px; white-space: nowrap; }
+.chip.on { background: var(--app-text); color: var(--app-bg); border-color: var(--app-text); font-weight: 600; }
+.card { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--app-border); }
+.card:first-child { border-top: 0; }
+.card .c { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tabbar { margin: 12px; height: 64px; border-radius: 999px; background: var(--app-bar); border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: var(--app-muted); }
+.tabbar .on { background: var(--app-surface); color: var(--app-text); font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+.when { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--app-muted); padding-top: 16px; border-top: 1px solid var(--app-border); }
+.px > .when:first-child { border-top: 0; padding-top: 0; }
+.same-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.same-note.ok { background: var(--good-soft); color: var(--good); }
+.ex { font-size: 11px; line-height: 16px; padding: 2px 8px; border-radius: 999px; border: 1px dashed var(--app-muted); color: var(--app-muted); font-weight: 600; }
+.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 132px; background: #111111; color: #FFFFFF; height: 48px; border-radius: 999px; padding: 0 20px; display: grid; place-items: center; font-size: 17px; white-space: nowrap; }
+
+/* 표 */
+.tblwrap { overflow-x: auto; background: var(--panel); border-radius: 16px; }
+table { border-collapse: collapse; width: 100%; min-width: 880px; font-size: 15px; line-height: 22px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--rule); }
+thead th { border-top: 0; font-size: 13px; line-height: 18px; color: var(--ink-2); letter-spacing: 0.04em; }
+td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; white-space: nowrap; }
+.same { color: var(--ink-2); }
+.chg { font-weight: 700; }
+.del { text-decoration: line-through; color: var(--ink-2); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.box { background: var(--panel); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box ul, .box ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.warn { border: 1px solid var(--bad); }
+</style>
+<style>
+/* DEV-231 추가: 생산자 프레임 부품(앱 토큰만). 생산자 버튼 높이 56, 시트는 흰 반투명 + 1:2 버튼 */
+.hbar .mid { flex: 1; text-align: center; font-size: 17px; font-weight: 700; margin-right: 48px; }
+.ptitle { padding: 8px 20px 0; }
+.seg { display: flex; gap: 0; margin: 16px 20px 0; background: var(--app-surface); border-radius: 12px; padding: 4px; overflow: hidden; }
+.seg span { flex: 0 0 auto; height: 44px; padding: 0 14px; display: grid; place-items: center; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--app-muted); white-space: nowrap; }
+.seg span.on { background: var(--app-bg); color: var(--app-text); box-shadow: 0 0 0 1px var(--app-border); }
+.olist { padding: 8px 20px 0; }
+.orow { display: flex; gap: 4px; padding: 16px 0; border-top: 1px solid var(--app-border); }
+.orow .c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.orow.endline { border-bottom: 1px solid var(--app-border); }
+.chk { width: 48px; padding-top: 0; flex-shrink: 0; }
+.chk i { width: 24px; height: 24px; border-radius: 8px; border: 1.5px solid var(--app-muted); display: block; }
+.chk i.on { background: var(--app-text); border-color: var(--app-text); }
+.guide { padding: 16px 20px 0; }
+.btn56 { height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.btn56.pri { background: var(--app-accent); color: #FFFFFF; }
+.btn56.sec { background: var(--app-surface); color: var(--app-text); }
+.btn56.out { border: 1px solid var(--app-text); color: var(--app-text); background: var(--app-bg); }
+.btn56.off { border: 1px solid var(--app-border); color: var(--app-muted); background: var(--app-bg); }
+.pbar { margin-top: auto; background: var(--app-bar); border-top: 1px solid var(--app-border); padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 10px; }
+.scard { margin: 0 20px; padding: 18px; border: 1px solid var(--app-border); border-radius: 22px; display: flex; flex-direction: column; gap: 14px; background: var(--app-bg); }
+.scard .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.opt { border-top: 1px solid var(--app-border); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.fields { display: flex; gap: 12px; }
+.fld { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fld label { font-size: 15px; font-weight: 700; }
+.fld div { height: 48px; border-radius: 8px; border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 16px; }
+.harv { border-top: 1px solid var(--app-text); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.harv .lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 12px 0; border-top: 1px solid var(--app-border); }
+.lrow .c { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lrow.last { border-bottom: 1px solid var(--app-border); }
+.chev { color: var(--app-muted); font-size: 22px; flex-shrink: 0; }
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.metric { background: var(--app-surface); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-height: 112px; }
+.metric .n { font-size: 34px; line-height: 42px; font-weight: 700; }
+.ptab { margin: 12px; height: 64px; border-radius: 999px; background: var(--app-bar); border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: var(--app-muted); }
+.ptab .on { background: var(--app-surface); color: var(--app-text); font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+.shade { position: absolute; inset: 0; background: rgba(0,0,0,.4); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.97); border-radius: 20px 20px 0 0; padding: 10px 20px 28px; display: flex; flex-direction: column; gap: 14px; color: var(--app-text); }
+.handle { width: 36px; height: 4px; border-radius: 2px; background: #D5D5D2; align-self: center; }
+.sheet h4 { font-size: 22px; line-height: 30px; margin: 0; letter-spacing: -0.01em; }
+.srow { display: flex; justify-content: space-between; gap: 12px; min-height: 52px; align-items: center; border-top: 1px solid var(--app-border); font-size: 17px; }
+.srow.endline { border-bottom: 1px solid var(--app-border); }
+.facts { display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 22px; }
+.facts li { list-style: none; display: grid; grid-template-columns: 16px 1fr; gap: 6px; }
+.facts li::before { content: "·"; font-weight: 700; color: var(--app-muted); }
+.facts { padding: 0; margin: 0; }
+.btns { display: flex; gap: 8px; }
+.btns .sec { flex: 1; }
+.btns .pri { flex: 2; }
+.mk { position: absolute; width: 24px; height: 24px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 13px; display: grid; place-items: center; z-index: 3; }
+.rel { position: relative; }
+.toast2 { position: absolute; left: 50%; transform: translateX(-50%); bottom: 110px; background: #111111; color: #FFFFFF; height: 48px; border-radius: 999px; padding: 0 20px; display: grid; place-items: center; font-size: 17px; white-space: nowrap; z-index: 4; }
+.cap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cap h3 { font-size: 15px; line-height: 22px; }
+.sub { color: var(--ink-2); font-size: 14px; line-height: 21px; }
+.bars4 { display: flex; gap: 6px; padding: 16px 20px 0; }
+.bars4 div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.bars4 span { height: 4px; border-radius: 999px; background: var(--app-border); display: block; }
+.bars4 span.on { background: var(--app-text); }
+.bars4 em { font-style: normal; font-size: 13px; color: var(--app-muted); white-space: nowrap; }
+.bars4 em.on { color: var(--app-text); font-weight: 600; }
+pre.code { margin: 0; background: var(--bg); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 13px; line-height: 19px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+.pairs-grid { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.back svg path { fill: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>
+/* DEV-121 추가: 안내 화면·상단 줄·입력칸 도움말 (앱 토큰만) */
+.nrow { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 0; border-top: 1px solid var(--app-border); }
+.nrow .c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nrow.last { border-bottom: 1px solid var(--app-border); }
+.dotnew { width: 8px; height: 8px; border-radius: 999px; background: var(--app-accent); flex-shrink: 0; }
+.sec { padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+.sec h5 { margin: 0; font-size: 17px; line-height: 25px; font-weight: 700; }
+.sec ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; line-height: 22px; }
+.exbox { background: var(--app-surface); border-radius: 12px; padding: 12px 14px; font-size: 15px; line-height: 22px; display: flex; flex-direction: column; gap: 4px; }
+.fine { padding: 0 20px; font-size: 13px; line-height: 18px; color: var(--app-muted); }
+.input { height: 48px; border-radius: 8px; border: 1px solid var(--app-border); display: flex; align-items: center; padding: 0 14px; font-size: 16px; }
+.input.ph { color: var(--app-muted); }
+.lnk { color: var(--app-accent); font-weight: 600; }
+.ck { width: 24px; height: 24px; border-radius: 8px; border: 1.5px solid var(--app-muted); flex-shrink: 0; }
+.ck.on { background: var(--app-text); border-color: var(--app-text); }
+.law { background: var(--panel); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.law blockquote { margin: 0; padding: 10px 14px; border-left: 3px solid var(--mark); background: var(--bg); border-radius: 0 8px 8px 0; font-size: 14px; line-height: 21px; }
+.law .src { font-size: 13px; line-height: 18px; color: var(--ink-2); }
+.pick { border: 2px solid var(--good); }
+.badge { display: inline-block; font-size: 12px; line-height: 18px; padding: 1px 8px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-weight: 700; }
+.imgf { width: 100%; border-radius: 28px; border: 1px solid var(--rule); display: block; }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">DEV-121 · GitHub #248 · 원산지표시법 제6조 ⑥ (2026.10.22 시행) · 디자인 제안 (2026-11-06 박현 승인: 안 A + B의 원산지 칸 도움말 + C의 입점 정책 한 줄)</span>
+    <h1>농가가 farmclub에 상품을 맡기면, 원산지 표시제도를 먼저 알려 준다</h1>
+    <p class="lede">2026년 10월 22일부터 통신판매중개자는 판매자(농가)에게 원산지 표시제도를 알려야 한다. 안 알리면 1회 100만 원부터 과태료가 붙는다. 지금 생산자 앱에는 이 안내가 어디에도 없다. 알릴 내용(무엇을·어떻게 표시하는지, 하면 안 되는 것, 어기면 받는 제재)은 시행령이, 알리는 방법(초기 화면·공지 상시 게시 + 확인 안내 / 별도 안내 화면 / 문자·메일 개별 안내 중 하나)은 시행규칙이 정한다. 아래는 안내를 둘 자리 세 가지다. 세 안 모두 같은 안내 본문(화면 0)을 쓴다. 왼쪽은 지금 main 생산자 앱(Mock)을 390px로 찍은 화면, 오른쪽은 제안이다. 농가 이름·숫자는 <span class="ex">예시</span>다.</p>
+    <div class="meta"><span>브랜치 <code>nemodleo/dev-121-origin-labeling-notice</code></span><span>작업 기록 <code>apps/producer/tasks/DEV-121.md</code></span><span>개발 PR 위험 등급(예상): 일반</span></div>
+  </header>
+
+  <section class="head">
+    <h2>법이 정한 것 (국가법령정보센터, 2026-11-06 확인)</h2>
+    <div class="two">
+      <div class="law">
+        <h3>법 제6조 ⑥ · ⑦ — 고지 의무</h3>
+        <blockquote>통신판매중개를 업으로 하는 자는 … 통신판매중개를 의뢰받은 때에는 통신판매중개를 의뢰한 자가 제1항 각 호 또는 제2항 각 호의 어느 하나에 해당하는 행위를 하지 아니하도록 그 자에게 대통령령으로 정하는 농수산물 원산지 표시제도에 관한 사항을 고지하여야 한다. &lt;신설 2026. 4. 21.&gt;</blockquote>
+        <p class="src">농수산물의 원산지 표시 등에 관한 법률 [법률 제21563호, 시행 2026. 10. 22.] 제6조 ⑥. ⑦항은 "고지의 방법"을 농식품부·해수부 공동 부령에 맡긴다. 과태료는 제18조 ① 제3호의3(1천만 원 이하).</p>
+      </div>
+      <div class="law">
+        <h3>시행령 제5조의2 — 알릴 내용</h3>
+        <blockquote>1. 법 제5조에 따른 원산지 표시 대상 농수산물이나 그 가공품의 범위 및 표시방법에 관한 사항<br>2. 법 제6조제1항 및 제2항에 따른 거짓 표시 등의 금지사항 및 위반 시 제재에 관한 사항<br>3. 그 밖에 … 농림축산식품부장관과 해양수산부장관이 공동으로 정하여 고시하는 사항</blockquote>
+        <p class="src">시행령 [대통령령 제36773호, 시행 2026. 10. 22.] 제5조의2. 3호 고시는 찾지 못했다(아직 없거나 못 찾음). 과태료 부과기준 별표 2 제2호 바목: 1차 100만 원 · 2차 200만 원 · 3차 이상 400만 원.</p>
+      </div>
+      <div class="law">
+        <h3>시행규칙 제4조의2 — 알리는 방법 (하나 고르면 됨)</h3>
+        <blockquote>1. … 사이버몰 내 정보처리시스템의 초기 화면 또는 공지사항 게시판에 상시 게시하고, 해당 게시물을 확인하도록 안내하는 방법<br>2. 통신판매중개 의뢰자가 인지할 수 있도록 사이버몰 내 별도의 안내화면을 제공하는 방법<br>3. 서면 또는 전자문서(전자우편, 문자메시지 등을 포함한다)를 통해 개별적으로 안내하는 방법</blockquote>
+        <p class="src">시행규칙 [농림축산식품부령 제797호·해양수산부령 제833호, 시행 2026. 10. 22.] 제4조의2. 이슈 본문은 1·2호만 적었는데 3호(개별 안내)도 있다.</p>
+      </div>
+      <div class="law">
+        <h3>안내 본문에 풀어 쓴 근거</h3>
+        <ul class="src" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+          <li>표시 의무: 법 제5조 ① (통신판매 포함 판매자는 원산지 표시)</li>
+          <li>국산 농산물 표시: 시행령 별표 1 1호가목1) "국산"·"국내산" 또는 시·도명·시·군·구명</li>
+          <li>온라인 표시 방법: 시행규칙 별표 3 2호가목1) 상품명·가격 옆·위·아래, 글자는 상품명·가격과 같거나 크게, 같은 색 / 3호가목 포장재(어려우면 스티커·전단지·영수증)</li>
+          <li>금지: 법 제6조 ① 1~3호 / 제재: 제14조(7년 이하 징역·1억 원 이하 벌금), 제6조의2(2년 2회 이상 시 판매금액 5배 이하 과징금), 제9조(시정명령·판매 금지·공표), 제18조 ①(미표시·표시방법 위반 1천만 원 이하 과태료)</li>
+          <li>보도자료: 농식품부 2026-10-21 「온라인몰 입점업체도 원산지 표시제도 제대로 안내받는다」</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>디자인 무브</h2>
+    <ol class="moves">
+      <li><span class="num">1</span><h3>본문은 하나, 세 단락으로</h3><p>시행령 제5조의2 1·2호를 그대로 단락으로 나눈다. 「무엇을 어떻게 표시해요」「이렇게 하면 안 돼요」「어기면 이렇게 돼요」. 감귤 농가 예(제주산·서귀포시)를 바로 붙인다. 안이 달라도 본문 화면은 같다.</p></li>
+      <li><span class="num">2</span><h3>법 이름은 끝에 한 번</h3><p>본문은 농가 말투로 쓰고, 조문 번호와 "법 조문을 쉽게 풀어 쓴 안내라 정확한 내용은 법령을 확인해 달라"는 한 줄은 맨 아래 작은 글씨로 둔다. 법률 자문처럼 단정하지 않는다.</p></li>
+      <li><span class="num">3</span><h3>확인 전엔 할 일, 확인 뒤엔 상시 줄</h3><p>규칙 1호의 '상시 게시 + 확인 안내'를 그대로 화면으로. 읽기 전에는 현황 할 일 목록 맨 위에 강조점이 붙은 줄, 읽은 뒤에는 현황 맨 아래 조용한 줄로 남는다. 새 부품 없이 기존 <code>ListRow</code>.</p></li>
+      <li><span class="num">4</span><h3>입력하는 자리에서 한 번 더</h3><p>상품 편집 '원산지' 칸 아래 한 줄 도움말 「예: 제주산, 서귀포시 · 표시 방법 보기」. 지금 자리표시자 '제주 서귀포'는 시·도명도 시·군·구명도 아닌 줄임이라 '서귀포시'로 바꾼다.</p></li>
+    </ol>
+  </section>
+
+  <!-- 화면 0. 안내 본문 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 0 · 새 화면 <code>/origin-notice</code> (세 안 공통)</span>
+      <h2>원산지 표시제도 안내</h2>
+      <p class="sub">스크롤 화면 하나. 위 '확인했어요' 버튼은 처음 열었을 때만 하단에 둔다(읽은 시각 기록). 다시 열면 버튼 없이 본문만.</p>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 위쪽</span>
+        <div class="phone" id="f-notice-1" style="min-height: 844px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">원산지 표시제도 안내</span></div>
+          <div class="px stack" style="padding-top:8px;gap:8px">
+            <span class="ttl">감귤을 올리기 전에
+읽어 주세요</span>
+            <p class="t-sub muted">farmclub은 통신판매중개자라서, 농가가 원산지를 바르게 표시하도록 법에서 정한 내용을 알려 드려요.</p>
+          </div>
+          <div style="height:24px"></div>
+          <div class="sec">
+            <h5>1. 무엇을, 어떻게 표시해요</h5>
+            <ul>
+              <li>감귤 같은 농산물을 온라인으로 팔 때도 원산지를 표시해야 해요.</li>
+              <li>국산 농산물은 '국산', '국내산' 또는 기른 곳의 시·도나 시·군·구 이름으로 적어요.</li>
+            </ul>
+            <div class="exbox"><span class="sb">이렇게 적으면 돼요</span><span>제주산 · 서귀포시 · 국내산</span></div>
+            <ul>
+              <li>farmclub 상품 정보의 '원산지' 칸에 적은 그대로 소비자 화면에 보여요.</li>
+              <li>보내는 상자에도 원산지를 표시해요. 상자에 적기 어려우면 스티커·전단지·영수증에 적어도 돼요.</li>
+            </ul>
+          </div>
+          <div style="height:24px"></div>
+          <div class="sec">
+            <h5>2. 이렇게 하면 안 돼요</h5>
+            <ul>
+              <li>원산지를 거짓으로 적거나, 헷갈리게 적기</li>
+              <li>붙어 있는 원산지 표시를 지우거나 바꾸기</li>
+              <li>다른 지역·다른 나라 귤을 섞어서 한 원산지로 팔기</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 아래쪽 (스크롤)</span>
+        <div class="phone" id="f-notice-2" style="min-height: 844px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">원산지 표시제도 안내</span></div>
+          <div style="height:8px"></div>
+          <div class="sec">
+            <h5>3. 어기면 이렇게 돼요</h5>
+            <ul>
+              <li>원산지를 표시하지 않거나 표시 방법을 어기면 1천만 원 이하의 과태료를 받을 수 있어요.</li>
+              <li>거짓으로 표시하면 7년 이하의 징역이나 1억 원 이하의 벌금을 받을 수 있어요. 2년 안에 두 번 이상이면 판매금액의 5배까지 과징금이 붙을 수 있어요.</li>
+              <li>표시를 고치라는 명령이나 판매 금지 처분을 받을 수 있고, 처분 사실이 공개될 수 있어요.</li>
+              <li>farmclub에서는 원산지를 거짓으로 적은 것이 확인되면 바로 판매 활동이 정지돼요(이용약관 제14조).</li>
+            </ul>
+          </div>
+          <div style="height:24px"></div>
+          <div class="sec">
+            <div class="exbox"><span class="sb">헷갈리면</span><span>국립농산물품질관리원이나 지역 시·군청 담당 부서에 물어보시거나, farmclub 문의로 남겨 주세요.</span></div>
+          </div>
+          <div style="height:24px"></div>
+          <p class="fine">이 안내는 「농수산물의 원산지 표시 등에 관한 법률」 제5조·제6조·제14조·제18조, 같은 법 시행령 제5조의2·별표 1, 시행규칙 별표 3을 쉽게 풀어 쓴 것이에요. 정확한 내용은 국가법령정보센터(law.go.kr)에서 확인해 주세요. 2026년 10월 22일 시행 법령 기준.</p>
+          <div class="pbar">
+            <div class="btn56 pri">확인했어요</div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note"><span class="num">1</span><p>제목은 해야 할 일(읽기)로, 법 이름은 맨 아래로. 시행령 1호(범위·표시방법) → 1단락, 2호(금지·제재) → 2·3단락.</p></div>
+        <div class="note"><span class="num">2</span><p>제재 문장은 모두 '~받을 수 있어요'로. 처분은 행정청 재량이라 단정하지 않는다.</p></div>
+        <div class="note"><span class="num">3</span><p>'확인했어요'는 동의가 아니라 읽음 기록. 누른 시각을 남겨 고지 증빙으로 쓴다(서버 기록 여부는 질문 1).</p></div>
+        <div class="note"><span class="num">4</span><p>본문 문자열은 약관처럼 <code>packages/ui/src/legalContent.ts</code>에 둔다. 법이 바뀌면 한 곳만 고친다.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 안 A -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">안 A · SCR-22 농가 현황 (초기 화면) <span class="badge">추천</span></span>
+      <h2>현황 할 일 맨 위 → 읽으면 현황 맨 아래 상시 줄</h2>
+      <p class="sub">시행규칙 1호 그대로: 초기 화면에 상시 게시 + 확인하도록 안내. 로그인한 모든 승인 농가가 다음에 앱을 열 때 바로 본다(10/22 전에 가입한 농가 포함).</p>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main</span>
+        <img class="imgf" src="DEV-121/before-home.png" alt="지금 농가 현황 화면">
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 읽기 전</span>
+        <div class="phone" id="f-a-home" style="min-height: 844px">
+          <div class="hbar" style="padding:0 20px;justify-content:space-between"><span class="t-body b" style="font-size:20px"><i style="display:inline-block;width:22px;height:22px;border-radius:999px;background:#F28C28;vertical-align:-4px;margin-right:10px"></i>농가 현황</span><span style="width:28px;height:28px;border:2px solid var(--app-text);border-radius:999px;display:grid;place-items:center;font-weight:700">?</span></div>
+          <div class="px stack" style="padding-top:24px;gap:12px">
+            <span class="t-sub muted">강씨네 귤밭 · 11월 6일</span>
+            <span class="t-body b" style="font-size:22px;line-height:30px">주문·배송 현황</span>
+            <div>
+              <div class="nrow hl-ok"><span class="dotnew"></span><div class="c"><span class="t-body sb">원산지 표시제도 안내를 읽어 주세요</span><span class="t-sub muted">10월 22일부터 farmclub이 꼭 알려 드려야 하는 내용이에요</span></div><span class="chev">›</span></div>
+              <div class="nrow last"><div class="c"><span class="t-body sb">환불 보낼 주문 1건</span><span class="t-sub muted">입금했던 계좌로 보낸 뒤 환불했다고 기록해요</span></div><span class="chev">›</span></div>
+            </div>
+            <div class="metrics">
+              <div class="metric"><span class="t-sub sb">전체 주문</span><span class="n">42</span><span class="t-cap muted">입금 대기 포함</span></div>
+              <div class="metric"><span class="t-sub sb">예약 완료</span><span class="n">30</span><span class="t-cap muted">수확을 시작하면 출하 준비로</span></div>
+              <div class="metric"><span class="t-sub sb">출하 준비</span><span class="n">7</span><span class="t-cap muted">택배사·송장 입력</span></div>
+              <div class="metric"><span class="t-sub sb">출하</span><span class="n">3</span><span class="t-cap muted">발송한 주문</span></div>
+            </div>
+          </div>
+          <div class="ptab" style="margin-top:auto"><span class="on">현황</span><span>상품</span><span>채팅</span><span>환경설정</span></div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 읽은 뒤 (스크롤 맨 아래)</span>
+        <div class="phone" id="f-a-home-read" style="min-height: 844px">
+          <div class="hbar" style="padding:0 20px;justify-content:space-between"><span class="t-body b" style="font-size:20px"><i style="display:inline-block;width:22px;height:22px;border-radius:999px;background:#F28C28;vertical-align:-4px;margin-right:10px"></i>농가 현황</span><span style="width:28px;height:28px;border:2px solid var(--app-text);border-radius:999px;display:grid;place-items:center;font-weight:700">?</span></div>
+          <div class="px stack" style="padding-top:16px;gap:12px">
+            <div class="metrics">
+              <div class="metric"><span class="t-sub sb">출하 준비</span><span class="n">7</span><span class="t-cap muted">택배사·송장 입력</span></div>
+              <div class="metric"><span class="t-sub sb">출하</span><span class="n">3</span><span class="t-cap muted">발송한 주문</span></div>
+            </div>
+            <div style="display:flex;gap:12px"><div class="btn56 sec" style="flex:1">주문 현황</div><div class="btn56 pri" style="flex:1">배송 현황</div></div>
+            <div style="background:var(--app-surface);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:16px">
+              <span class="sb">예약·출하 물량</span>
+              <div style="display:flex;gap:16px"><div style="flex:1"><div class="t-body b" style="font-size:22px">230kg</div><div class="t-sub muted">예약 중</div></div><div style="flex:1"><div class="t-body b" style="font-size:22px">20kg</div><div class="t-sub muted">출하 완료</div></div></div>
+            </div>
+            <span class="t-sub muted">하우스 감귤 5kg / 10kg</span>
+            <div style="height:8px"></div>
+            <div class="nrow last hl-ok"><div class="c"><span class="t-sub sb">원산지 표시제도 안내</span><span class="t-cap muted">11월 6일 확인함</span></div><span class="chev">›</span></div>
+          </div>
+          <div class="ptab" style="margin-top:auto"><span class="on">현황</span><span>상품</span><span>채팅</span><span>환경설정</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="two">
+      <div class="box"><h3>이렇게 동작</h3><ul>
+        <li>읽기 전: 할 일 목록 맨 위(입금 계좌 등록보다 위). 할 일이 없던 농가도 이 줄 하나는 보인다.</li>
+        <li>'확인했어요'를 누르면 할 일에서 빠지고, 현황 맨 아래 '원산지 표시제도 안내 · ○월 ○일 확인함'으로 항상 남는다(상시 게시).</li>
+        <li>안내 내용이 바뀌면(버전 올림) 다시 할 일로 올라온다. 약관 재동의와 같은 방식.</li>
+        <li>여기에 안 B의 '원산지' 칸 도움말 한 줄을 같이 넣는 것을 추천(비용 작음, 2호 '별도 안내화면'도 겹쳐 충족).</li>
+      </ul></div>
+      <div class="box"><h3>빈틈</h3><ul>
+        <li>승인 전(확인 중·반려) 농가는 현황을 못 본다. 상품을 맡기기 전이라 법 시점상 문제는 적지만, 가입 신청 입점 정책에 한 줄(안 C의 일부)을 같이 넣으면 메운다.</li>
+        <li>읽은 기록을 기기에만 두면 기기를 바꿀 때 다시 뜬다(문제는 아님). 증빙으로 쓰려면 서버에 남겨야 한다(질문 1).</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- 안 B -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">안 B · SCR-24·25 상품 만들기·상품 편집</span>
+      <h2>상품을 처음 만들 때 안내 화면 한 번 + 원산지 칸 도움말</h2>
+      <p class="sub">시행규칙 2호(별도 안내화면). 법이 말하는 '중개를 의뢰받은 때'와 시점이 가장 잘 맞는다. 원산지를 적는 바로 그 자리에서 본다.</p>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main 상품 편집 원산지 칸</span>
+        <img class="imgf" src="DEV-121/before-product-origin.png" alt="지금 상품 편집 원산지 칸">
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 원산지 칸</span>
+        <div class="phone" id="f-b-field" style="min-height: 844px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">상품 편집</span></div>
+          <div class="px stack" style="gap:8px;padding-top:16px">
+            <span class="t-sub b">설명</span>
+            <div class="input" style="height:120px"></div>
+            <div style="height:12px"></div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0"><span class="t-sub b">원산지</span><div class="input ph hl-ok">예: 서귀포시</div></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0"><span class="t-sub b">보관</span><div class="input">서늘하고 통풍되는 곳</div></div>
+            </div>
+            <span class="t-cap muted hl-ok">'국산'·'제주산'처럼 시·도, 시·군·구 이름으로 적어요. <span class="lnk">표시 방법 보기 ›</span></span>
+            <div style="height:20px"></div>
+            <span class="t-body b" style="font-size:22px">품질</span>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="t-sub b">예상 당도</span><div class="input" style="justify-content:flex-end;color:var(--app-muted)">Brix</div></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="t-sub b">실측 당도</span><div class="input" style="justify-content:space-between;color:var(--app-muted)"><span>재면 입력</span><span>Brix</span></div></div>
+            </div>
+          </div>
+          <div class="pbar" style="flex-direction:row"><div class="btn56 sec" style="flex:1">저장</div><div class="btn56 off" style="flex:2">공급 물량 신청</div></div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 첫 상품 만들 때 한 번</span>
+        <div class="phone rel" id="f-b-gate" style="min-height: 844px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">새 상품</span></div>
+          <div class="px stack" style="gap:8px;padding-top:8px"><span class="ttl">새 상품</span><span class="t-sub muted">쓰던 문구를 붙여넣으면 AI가 상품 정보를 채워요.</span></div>
+          <div class="shade"></div>
+          <div class="sheet">
+            <div class="handle"></div>
+            <h4>상품을 올리기 전에 원산지 표시 방법을 알려 드려요</h4>
+            <ul class="facts">
+              <li>국산 감귤은 '국산'·'제주산'·'서귀포시'처럼 적어요</li>
+              <li>보내는 상자에도 원산지를 표시해요</li>
+              <li>거짓으로 적으면 형사처벌·과태료를 받을 수 있고, farmclub 활동이 바로 정지돼요</li>
+            </ul>
+            <span class="t-sub lnk">전체 안내 읽기 ›</span>
+            <div class="btns"><div class="btn56 pri" style="flex:1">확인했어요</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="two">
+      <div class="box"><h3>이렇게 동작</h3><ul>
+        <li>'새 상품'을 처음 열 때 시트 한 번. '확인했어요' 뒤로는 안 뜬다. '전체 안내 읽기'는 화면 0.</li>
+        <li>원산지 칸 아래 도움말은 늘 보인다(만들기·편집 둘 다).</li>
+      </ul></div>
+      <div class="box warn"><h3>빈틈</h3><ul>
+        <li>이미 상품을 올린 농가는 새 상품을 만들 때까지 못 본다. 10/22 이전 입점 농가에 대한 고지가 비어 문자·메일 일괄 안내(3호)를 따로 해야 한다.</li>
+        <li>'상시 게시'가 아니어서 다시 찾으려면 원산지 칸 도움말을 거쳐야 한다.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- 안 C -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">안 C · SCR-20 가입 신청 + 환경설정</span>
+      <h2>입점 정책에 '원산지 표시' 항목 + 환경설정 '안내' 묶음</h2>
+      <p class="sub">공지사항 게시판 성격(1호의 '공지사항 게시판 상시 게시')을 환경설정에 두고, 처음 가입하는 농가는 입점 정책 동의 때 읽는다.</p>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main 입점 정책 시트</span>
+        <img class="imgf" src="DEV-121/before-apply-policy.png" alt="지금 입점 정책 시트">
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 입점 정책 시트 끝</span>
+        <div class="phone rel" id="f-c-policy" style="min-height: 844px">
+          <div class="hbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div><span class="mid">농가 등록 신청</span></div>
+          <div class="shade"></div>
+          <div class="sheet" style="top:90px">
+            <div class="handle"></div>
+            <h4>입점 정책</h4>
+            <div class="stack"><span class="t-sub b">정산</span><span class="t-sub">구매 확정되거나 배송 완료 8일 뒤 자동 확정되면 매입이 확정돼요. 한 주 동안 확정된 금액을 모아 주 1회 정산하고 거래명세서를 보내요.</span></div>
+            <div class="stack"><span class="t-sub b">고객 정보</span><span class="t-sub">배송에 필요한 정보만 보고 배송 목적으로만 써요. 배송 완료 후에는 가려져요.</span></div>
+            <div class="stack hl-ok"><span class="t-sub b">원산지 표시</span><span class="t-sub">감귤의 원산지를 '국산'·'제주산'·'서귀포시'처럼 상품 정보와 상자에 바르게 적어요. 거짓으로 적으면 법에 따라 처벌받을 수 있고 farmclub 활동이 바로 정지돼요. <span class="lnk">원산지 표시제도 안내 ›</span></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 환경설정</span>
+        <div class="phone" id="f-c-settings" style="min-height: 844px">
+          <div class="px stack" style="padding-top:24px;gap:4px"><span class="ttl">환경설정</span><span class="t-sub muted">농가 정보와 응대 방식을 관리해요</span></div>
+          <div class="px" style="padding-top:24px">
+            <span class="t-sub muted sb">농가 관리</span>
+            <div class="nrow"><div class="c"><span class="t-body">농가 프로필·공유 링크</span><span class="t-sub muted">사진과 소개를 고치고 단골에게 알려요</span></div><span class="chev">›</span></div>
+            <div class="nrow last"><div class="c"><span class="t-body">AI 응답 설정</span><span class="t-sub muted">자동 안내와 농가의 응대 원칙</span></div><span class="chev">›</span></div>
+            <div style="height:24px"></div>
+            <span class="t-sub muted sb">안내</span>
+            <div class="nrow last hl-ok"><div class="c"><span class="t-body">원산지 표시제도 안내</span><span class="t-sub muted">표시 방법과 지켜야 할 것</span></div><span class="chev">›</span></div>
+            <div style="height:24px"></div>
+            <span class="t-sub muted sb">계정</span>
+            <div class="nrow last"><div class="c"><span class="t-body">로그아웃</span></div></div>
+          </div>
+          <div class="ptab" style="margin-top:auto"><span>현황</span><span>상품</span><span>채팅</span><span class="on">환경설정</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="two">
+      <div class="box warn"><h3>빈틈</h3><ul>
+        <li>이미 승인된 농가는 가입 신청을 다시 하지 않아 입점 정책을 못 본다. 환경설정 줄은 '확인하도록 안내'가 없어 1호를 채우는지 애매하다. 기존 농가에는 문자·메일 개별 안내(3호)를 따로 해야 한다.</li>
+        <li>입점 정책 체크 하나에 묶이면 '읽음'이 아니라 '동의'로 보인다.</li>
+      </ul></div>
+      <div class="box"><h3>장점</h3><ul><li>새 농가는 상품을 맡기기 전(가입 때) 반드시 지나간다. 화면 추가가 가장 적다.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>비교</h2>
+    <div class="tblwrap"><table>
+      <thead><tr><th>안</th><th>시행규칙 방법</th><th>기존 승인 농가</th><th>새 농가</th><th>농가 부담</th><th>구현량(예상)</th></tr></thead>
+      <tbody>
+        <tr><td class="chg">A 현황 할 일 → 상시 줄 <span class="badge">추천</span></td><td>1호(초기 화면 상시 게시 + 확인 안내) 그대로</td><td>다음에 앱을 열면 바로 봄</td><td>승인 뒤 첫 현황에서 봄</td><td>한 번 읽고 '확인했어요' 1탭</td><td>안내 화면 1, 현황 줄 2, 읽음 기록. 약 2~3h (서버 기록 넣으면 +1.5h)</td></tr>
+        <tr><td>B 첫 상품 시트 + 칸 도움말</td><td>2호(별도 안내화면)</td><td class="chg">새 상품을 만들 때까지 못 봄 → 3호 일괄 문자 필요</td><td>첫 상품 때 봄 (시점 가장 정확)</td><td>상품 만들 때 시트 1번</td><td>시트 1, 도움말 1, 안내 화면 1. 약 2h</td></tr>
+        <tr><td>C 입점 정책 + 환경설정</td><td>1호 '공지 게시판'에 가깝지만 '확인 안내'가 약함</td><td class="chg">못 봄 → 3호 일괄 문자 필요</td><td>가입 신청 때 봄</td><td>거의 없음(정책 시트 한 항목)</td><td>정책 항목 1, 설정 줄 1, 안내 화면 1. 약 1.5h</td></tr>
+      </tbody>
+    </table></div>
+    <div class="box pick">
+      <h3>추천: A + B의 원산지 칸 도움말 + C의 입점 정책 한 줄</h3>
+      <p>A가 유일하게 시행규칙 1호를 문장 그대로 채우고, 10월 22일 전에 들어온 농가까지 따로 문자를 보내지 않고 덮는다. 원산지 칸 도움말(B 일부)은 입력하는 순간에 표시 방법을 보여 주는 값싼 보강이고, 입점 정책 한 줄(C 일부)은 승인 전 농가의 빈틈을 메운다. B의 첫 상품 시트와 C의 환경설정 줄은 A와 겹쳐 넣지 않는다(현황 상시 줄이 같은 역할).</p>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>약관 제14조 (판매자의 의무) 문구 제안</h2>
+    <div class="two">
+      <div class="box"><h3>지금 (main <code>legalContent.ts</code>)</h3><ul><li>판매자는 원산지 표시 등 관련 법령의 표시 의무를 지킵니다.</li></ul></div>
+      <div class="box"><h3>제안</h3><ul><li class="chg">판매자는 원산지 표시 등 관련 법령의 표시 의무를 지킵니다. 회사는 「농수산물의 원산지 표시 등에 관한 법률」 제6조제6항에 따라 판매자에게 원산지 표시제도를 생산자 앱 첫 화면에 게시하는 방법으로 안내합니다.</li></ul>
+      <p class="sub">약관이 바뀌면 재동의를 받는 구조(DEV-113)라 버전·시행일과 제14조(처리방침 아님) 변경 기록 한 줄이 함께 필요하다. 문구만 넣고 재동의를 받을지는 질문 3.</p></div>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>정할 것</h2>
+    <div class="two">
+      <div class="box"><ol>
+        <li>읽음 기록을 서버에 남길까? (추천: 남긴다. 단속 때 '고지했다'는 증빙. 계정에 <code>origin_notice_read_at</code>·버전 한 칸, 위험 등급은 서버 모델이 바뀌면 다시 본다.) 기기에만 두면 앱 코드만으로 끝난다.</li>
+        <li>안내 본문 문구를 박현·팀이 읽고 고칠 것이 있나? (과태료·벌칙 숫자는 조문에서 옮김. 법률 자문 아님)</li>
+        <li>약관 제14조 변경으로 판매자 재동의를 받을까, 시행일만 바꾸고 다음 개정 때 함께 받을까?</li>
+        <li>Figma v6는 View 권한뿐이라 이 보드와 PNG를 Figma 갱신 후속 이슈로 넘길지?</li>
+      </ol></div>
+      <div class="box warn"><h3>덧붙임 (별건 발견, 이번 범위 밖)</h3><ul>
+        <li>소비자 상품 화면(<code>packages/ui/src/ProductPage.tsx</code>)은 원산지를 접힌 '상품정보' 표 안에만 보여 준다. 시행규칙 별표 3 2호가목1)은 상품명·가격 옆·위·아래에 붙여서(또는 위치 표시를 붙여서), 상품명·가격 글자와 같거나 큰 크기로 표시하라고 한다. 법상 표시 의무자는 농가지만, 표시 자리를 만드는 건 farmclub 화면이라 따로 이슈로 보는 게 좋겠다.</li>
+      </ul></div>
+    </div>
+  </section>
+</div>

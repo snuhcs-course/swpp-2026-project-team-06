@@ -41,6 +41,7 @@ def test_AC_01_1_login_returns_token_and_user(client):
         "phone": "",
         "needsOnboarding": False,
         "consentRequired": False,
+        "originNoticeReadAt": None,
     }
 
 
