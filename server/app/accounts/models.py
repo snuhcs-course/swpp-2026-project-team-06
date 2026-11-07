@@ -64,3 +64,19 @@ class ShippingAddress(Base):
     address_detail: Mapped[str] = mapped_column(String(300), default="")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class NoticeRead(Base):
+    """농가가 법정 안내를 읽은 기록(DEV-121). 원산지표시법 제6조 ⑥ 고지의 증빙으로 남긴다.
+
+    안내 버전마다 한 줄. 같은 버전을 다시 읽어도 처음 시각을 지킨다. 탈퇴해도 지우지 않는다.
+    """
+
+    __tablename__ = "notice_reads"
+    __table_args__ = (UniqueConstraint("user_id", "kind", "version"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    version: Mapped[str] = mapped_column(String(32))
+    read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -20,6 +20,7 @@
 | SCR-20 | 가입 신청 | `/apply` | `src/app/apply.tsx` | FEAT-01 |
 | SCR-21 | 승인 대기 | `/pending` | `src/app/pending.tsx` | FEAT-01 |
 | SCR-22 | 현황(홈) | `/` | `src/app/(tabs)/index.tsx` | FEAT-14 |
+| SCR-22a | 원산지 표시제도 안내 | `/origin-notice` | `src/app/origin-notice.tsx` (원산지 칸 도움말 `src/lib/OriginFieldHint.tsx`) | 원산지표시법 제6조 ⑥, DEV-121 |
 | SCR-23 | 상품 목록 | `/products` | `src/app/(tabs)/products/index.tsx` | FEAT-04 |
 | SCR-24 | AI 상품 초안 | `/products/new` | `src/app/(tabs)/products/new.tsx` | FEAT-03 |
 | SCR-25 | 상품 편집 | `/products/:id/edit` | `src/app/(tabs)/products/[id]/edit.tsx` | FEAT-04 |

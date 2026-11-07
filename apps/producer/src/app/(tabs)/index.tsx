@@ -71,6 +71,10 @@ export default function Home() {
   ];
   const product = dash.data?.product;
   const harvest = dash.data?.todo.harvestTargets?.filter((t) => t.closed);
+  // DEV-121: 원산지 표시제도 안내(원산지표시법 제6조 ⑥, 시행규칙 제4조의2 1호 = 초기 화면 상시 게시 + 확인 안내).
+  // 지금 버전을 안 읽었으면 할 일 맨 위, 읽었으면 현황 맨 아래 상시 줄
+  const noticeUnread = !!user && !user.originNoticeReadAt;
+  const noticeReadAt = user?.originNoticeReadAt;
   return (
     <Screen>
       <BrandHeader
@@ -89,30 +93,47 @@ export default function Home() {
           </T>
           <T variant="heading">주문·배송 현황</T>
           {/* 할 일(DEV-68): 기존 환경설정과 같은 ListRow */}
-          {dash.data &&
+          {noticeUnread ||
+          (dash.data &&
           (dash.data.todo.hasAccount === false ||
             dash.data.todo.awaitingDeposit ||
             dash.data.todo.toHarvest ||
-            dash.data.todo.refundsToSettle) ? (
+            dash.data.todo.refundsToSettle)) ? (
             <View>
-              {dash.data.todo.hasAccount === false ? (
+              {noticeUnread ? (
+                <ListRow
+                  label="원산지 표시제도 안내를 읽어 주세요"
+                  sub="10월 22일부터 farmclub이 꼭 알려 드려야 하는 내용이에요"
+                  onPress={() => router.push("/origin-notice")}
+                  last={
+                    !dash.data ||
+                    !(
+                      dash.data.todo.hasAccount === false ||
+                      dash.data.todo.awaitingDeposit ||
+                      (dash.data.todo.toHarvest && harvest?.length) ||
+                      dash.data.todo.refundsToSettle
+                    )
+                  }
+                />
+              ) : null}
+              {dash.data?.todo.hasAccount === false ? (
                 <ListRow
                   label="입금 계좌를 등록해 주세요"
                   sub="소비자가 예약할 때 이 계좌로 직접 입금해요"
                   onPress={() => router.push("/farm/account")}
                 />
               ) : null}
-              {dash.data.todo.awaitingDeposit ? (
+              {dash.data?.todo.awaitingDeposit ? (
                 <ListRow
-                  label={`입금 확인할 주문 ${dash.data.todo.awaitingDeposit}건`}
+                  label={`입금 확인할 주문 ${dash.data?.todo.awaitingDeposit}건`}
                   sub="통장과 대조한 뒤 입금 확인을 눌러 주세요"
                   onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
                 />
               ) : null}
-              {dash.data.todo.toHarvest && harvest?.length ? (
+              {dash.data?.todo.toHarvest && harvest?.length ? (
                 // DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 → 그 기간 카드
                 <ListRow
-                  label={`수확을 시작할 예약 ${dash.data.todo.toHarvest}건`}
+                  label={`수확을 시작할 예약 ${dash.data?.todo.toHarvest}건`}
                   sub={`${harvest[0].productName} ${harvest[0].stageName}${
                     harvest.length > 1 ? ` 외 ${harvest.length - 1}개 기간` : ""
                   } · 예약 기간이 끝났어요`}
@@ -121,12 +142,12 @@ export default function Home() {
                       `/products/${harvest[0].productId}/stages?stage=${harvest[0].stageId}`,
                     )
                   }
-                  last={!dash.data.todo.refundsToSettle}
+                  last={!dash.data?.todo.refundsToSettle}
                 />
               ) : null}
-              {dash.data.todo.refundsToSettle ? (
+              {dash.data?.todo.refundsToSettle ? (
                 <ListRow
-                  label={`환불 보낼 주문 ${dash.data.todo.refundsToSettle}건`}
+                  label={`환불 보낼 주문 ${dash.data?.todo.refundsToSettle}건`}
                   sub="입금했던 계좌로 보낸 뒤 환불했다고 기록해요"
                   onPress={() => router.push("/ship?status=REFUNDED")}
                   last
@@ -226,6 +247,19 @@ export default function Home() {
             </>
           ) : !dash.loading ? (
             <T muted>판매 중인 상품이 없어요</T>
+          ) : null}
+          {noticeReadAt ? (
+            <View style={{ marginTop: tokens.space.md }}>
+              <ListRow
+                label="원산지 표시제도 안내"
+                sub={`${new Date(noticeReadAt).toLocaleDateString("ko-KR", {
+                  month: "long",
+                  day: "numeric",
+                })} 확인함`}
+                onPress={() => router.push("/origin-notice")}
+                last
+              />
+            </View>
           ) : null}
         </View>
       </Scroll>

@@ -80,6 +80,11 @@ export const auth = {
     request<A.Consent[]>("POST", "/api/auth/me/consents", {
       body: { consents },
     }),
+  /** 농가가 법정 안내를 읽었다고 기록(DEV-121). 버전마다 처음 시각을 남긴다 */
+  readNotice: (kind: A.NoticeKind, version: string) =>
+    request<A.NoticeRead>("POST", "/api/auth/me/notices", {
+      body: { kind, version },
+    }),
   apply: (input: A.ProducerApplicationInput) =>
     request<A.ProducerApplication>("POST", "/api/auth/producer-application", {
       body: input,

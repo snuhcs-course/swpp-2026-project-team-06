@@ -4,8 +4,9 @@ import type { User } from "@farmclub/api";
 /** 로그인 입구. 로그인된 사용자는 농가 상태와 상관없이 여기 머물지 않고 상태별 첫 화면으로 간다 */
 const LOGIN_ENTRY = ["/login", "/auth/kakao"];
 
-/** 약관·처리방침(DEV-113)은 로그인·동의·승인 상태와 상관없이 열린다. 관문이 보내지 않는다 */
-export const PUBLIC_PATHS = ["/privacy", "/terms"];
+/** 약관·처리방침(DEV-113)과 원산지 표시제도 안내(DEV-121, 가입 신청 입점 정책에서도 연다)는
+ * 로그인·동의·승인 상태와 상관없이 열린다. 관문이 보내지 않는다 */
+export const PUBLIC_PATHS = ["/privacy", "/terms", "/origin-notice"];
 
 /** 나머지 주소로 오면 home으로 보낸다 */
 export function homeFor(user: User | null): {
