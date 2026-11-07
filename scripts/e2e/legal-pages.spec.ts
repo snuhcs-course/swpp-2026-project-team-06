@@ -49,13 +49,14 @@ test("DEV-113 R-16: producer login shows the legal footer and the gate lets gues
   expect(errors).toEqual([]);
 });
 
-// DEV-116: 카카오가 켜진 운영 로그인은 내용이 짧다. 푸터가 화면 중간에 뜨지 않고 하단 바 바로 위에 붙는다
+// DEV-116: 카카오가 켜진 운영 로그인은 내용이 짧다. 푸터가 화면 중간에 뜨지 않고 화면 맨 아래에 붙는다.
+// DEV-283: 카카오 버튼은 두 앱 모두 설명 바로 아래 본문에 있고, 운영에는 하단 고정 바가 없다
 for (const [app, url] of [
   ["producer", producerUrl],
   ["consumer", consumerUrl],
 ] as const) {
   for (const width of [360, 390, 430]) {
-    test(`DEV-116 R-16: ${app} Kakao login keeps the legal footer at the bottom at ${width}px`, async ({ page }, info) => {
+    test(`DEV-116 DEV-283 R-16: ${app} Kakao login keeps the Kakao button in the body and the legal footer at the bottom at ${width}px`, async ({ page }, info) => {
       await skipHelpGuide(page);
       await page.setViewportSize({ width, height: 800 });
       await page.route("**/api/auth/kakao/config", (route) =>
@@ -71,12 +72,15 @@ for (const [app, url] of [
       await expect(page.getByText("테스트 서비스 · 이용약관 · 개인정보 처리방침", { exact: true })).toHaveCount(0);
 
       const box = await footer.boundingBox();
-      // 하단 고정 바(카카오 버튼 또는 안내 문구)의 위 끝
-      const bar = await page.getByTestId("login-bottom-bar").boundingBox();
+      const kakaoBox = await page.getByRole("button", { name: "카카오로 시작하기" }).boundingBox();
       expect(box).not.toBeNull();
-      expect(bar).not.toBeNull();
-      expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y + 1);
-      expect(bar!.y - (box!.y + box!.height)).toBeLessThan(24);
+      expect(kakaoBox).not.toBeNull();
+      // 운영(카카오만)에는 하단 고정 바가 없다
+      await expect(page.getByTestId("login-bottom-bar")).toHaveCount(0);
+      // 카카오 버튼은 본문 위쪽(푸터보다 위), 푸터는 화면 맨 아래(아래 여백 안전 영역 + 16 이내)
+      expect(kakaoBox!.y + kakaoBox!.height).toBeLessThan(box!.y);
+      expect(kakaoBox!.y).toBeLessThan(800 / 2);
+      expect(800 - (box!.y + box!.height)).toBeLessThan(24);
       await info.attach(`${app}-login-${width}`, { body: await page.screenshot(), contentType: "image/png" });
     });
   }
