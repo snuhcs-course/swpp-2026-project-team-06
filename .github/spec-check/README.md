@@ -26,6 +26,8 @@
 
 ### 1.1 결과가 fail일 때
 
+DEV-253(2026-11-06): 모델 요청은 [provider native JSON schema](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)를 사용해 report 구문을 제한한다. 기존 인용·줄 번호·변경 파일 coverage와 의미 검증은 별도로 그대로 실행한다. JSON parse 오류, 거절(refusal), 출력 잘림, unsupported schema/API 400은 오류로 남으며 fenced JSON 추출·응답 repair·모델 fallback으로 초록 결과를 만들지 않는다. 스키마 지원 오류는 모델/보호 환경 설정과 provider 지원을 확인하고 최신 head의 live 실행으로 재검증한다. 오류 보고서의 finding 0건은 review 완료 증거가 아니다.
+
 `spec-code-review`는 참고용 체크다. MISMATCH·INCOMPLETE로 fail이어도 머지를 막지 않는다. 대신 PR 작성자가 Checks → 해당 run → Summary(또는 report artifact)를 읽고 PR 코멘트에 처리 결정을 적는다:
 - MISMATCH: finding마다 고쳤는지, 스펙을 바꿨는지, 오탐인지(6장 양식).
 - INCOMPLETE: 원인(표 형식·경로·입력 한도, 또는 finding+문맥 부족)과 사람 리뷰어가 대신 확인할 것. finding 0건에 UNVERIFIED만 남으면 NO_FINDINGS(초록)이라 코멘트 의무가 없다.

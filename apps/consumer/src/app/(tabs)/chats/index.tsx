@@ -22,11 +22,13 @@ import {
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { useSession } from "../../../lib/session";
+import { chatViewState } from "../../../lib/chatViewState";
 
 export default function Chats() {
   const router = useRouter(),
     { view } = useLocalSearchParams<{ view?: string }>();
-  const { user, ready } = useSession();
+  const { user, ready, chatViewScope } = useSession();
+  const authorized = Boolean(user && chatViewScope && chatViewState.isCurrent(chatViewScope));
   const [active, setActive] = useState(false);
   const tab = view === "private" ? "private" : "news";
   useFocusEffect(
@@ -47,13 +49,13 @@ export default function Chats() {
   );
   const rooms = useLiveList(
     loadRooms,
-    user?.userId ?? "",
-    active && !!user && tab === "news",
+    authorized ? `${user!.userId}:${chatViewScope!.generation}` : "",
+    active && authorized && tab === "news",
   );
   const chats = useLiveList(
     loadChats,
-    user?.userId ?? "",
-    active && !!user && tab === "private",
+    authorized ? `${user!.userId}:${chatViewScope!.generation}` : "",
+    active && authorized && tab === "private",
   );
   if (ready && !user)
     return (
@@ -68,7 +70,7 @@ export default function Chats() {
         value={tab}
         onChange={(value) => router.setParams({ view: value })}
       />
-      {(["news", "private"] as const).map((kind) => {
+      {authorized && (["news", "private"] as const).map((kind) => {
         const list = kind === "news" ? rooms : chats;
         // 1:1에는 farmclub 문의 대화방(DEV-150)이 늘 있어서, 농가 대화가 없을 때 빈 안내를 함께 보인다
         const empty =

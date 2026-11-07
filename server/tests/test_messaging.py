@@ -738,6 +738,9 @@ def test_M_07_commit_failure_emits_no_alert(monkeypatch, caplog):
 
     monkeypatch.setattr(service, "consumer_send", lambda *args: outcome)
 
+    # This isolated alert test supplies a fake DB; access is covered by API tests.
+    monkeypatch.setattr(service, "authorize_chat_send", lambda *args: None)
+
     def commit_failure(*args):
         run = args[-1]
         run()
@@ -769,6 +772,8 @@ def test_M_07_idempotency_integrity_error_loser_emits_no_alert(monkeypatch, capl
     )
 
     monkeypatch.setattr(service, "consumer_send", lambda *args: outcome)
+
+    monkeypatch.setattr(service, "authorize_chat_send", lambda *args: None)
 
     def integrity_error_recovery(*args):
         run = args[-1]

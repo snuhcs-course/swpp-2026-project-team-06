@@ -37,6 +37,8 @@
 ### 1:1 식별과 엔드포인트
 
 - Thread는 (farmId,consumerId)당 하나. {threadId,farmId,consumerId,aiMode:AUTO|HUMAN,version,consumerLastReadMessageId,producerLastReadMessageId}.
+- DEV-245/246: POST /api/messaging/chats {farmId,orderId?}는 명시적 시작이다. orderId가 없으면 일반 자동 팔로우 규칙, 있으면 서버가 본인 결제 이력·해당 농가를 확인하고 팔로우 없이 대화를 만든다/재사용한다(autoFollowed=false). 결과 {farmId,autoFollowed}는 유지한다. 대화·주문 연결은 thread_order_contexts에 중복 없이 기록하며 메시지·문제 문의·전달 질문·AI 호출·모드/버전 변경은 만들지 않는다. GET은 대화를 만들지 않는다.
+- 명시적으로 연결한 결제 주문 또는 기존 문제 문의가 있는 대화는 매 요청에서 실제 소유·paidAt·농가를 재확인해 목록/빈 대화/읽음/사진 접근을 허용한다. 연결 행만으로 권한을 부여하지 않는다. 여러 주문을 한 대화에 연결할 수 있고 orders 요약은 검증된 연결 주문을 포함한다. 미팔로우 전송은 여전히 유효한 본인 orderId를 명시해야 한다. 현재 상태가 환불/취소여도 결제 이력이 있으면 문의할 수 있다.
 - Thread.version은 실제 AI 모드가 변경될 때 증가하며 메시지/읽음 갱신만으로는 증가하지 않는다. AUTO에서 자동 HUMAN 전환도 버전을 증가시킨다. 이미 HUMAN이면 유지한다.
 - 소비자 기존 /api/messaging/chats 경로 유지. 주문 문의가 있는 대화는 팔로우 해제 후에도 목록에 남는다.
 - 소비자 GET /api/messaging/chats/{farmId}/messages → {thread,items,nextCursor,inquiries,orders}; inquiries는 해당 대화의 문의, orders는 연결 주문 요약이며 본인 소유 범위만 포함한다.
@@ -53,7 +55,7 @@
 - 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. 소비자 messages 조회는 farmReply {mode:AI|FARM, typicalReplyHours:int|null}를 함께 준다. mode는 방 AUTO·농가 AI ON일 때만 AI. typicalReplyHours는 최근 30일 농가 답 대기시간 중앙값을 1·2·3·6·12·24·48·72시간으로 올림하고 5건 미만·72시간 초과는 null, 농가별 10분 캐시. 생산자 조회는 farmReply=null(DEV-208). AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
 - AI 작업 시작 시 Thread.version과 AiSettings.version을 캡처한다. 저장 직전 현재 ON/AUTO 여부와 두 버전이 모두 같은지 같은 트랜잭션에서 검사한다. HUMAN→AUTO 또는 OFF→ON 왕복에도 이전 작업의 답은 저장하지 않는다. 폐기된 질문에 생산자 답변이 아직 없으면 직접 응대 대상으로 남기며 자동 재실행하지 않는다.
 - 기존 questions 조회/answer 계약은 유지하고 같은 Thread·Escalation을 사용한다. 기존 answer도 HUMAN 전환 규칙을 적용한다. 새 화면은 producer/chats를 사용한다.
-- 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수이며 임의 다른 주문의 문맥을 첨부할 수 없다.
+- 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수(누락하면 403 FORBIDDEN)이며 임의 다른 주문의 문맥을 첨부할 수 없다(타인/미결제/다른 농가/없는 주문은 404).
 - 소식방·1:1 모두 활성 화면에서 2초 polling, 숨김/비활성 중단. cursor 이전 페이지/새 페이지 합치기는 ID 기준으로 중복 제거. 과거 읽는 위치를 유지하고 새 메시지 이동 버튼 제공. 최신 페이지부터 기존 마지막 메시지 ID와 만날 때까지 cursor 페이지를 이어 읽어 polling 사이 limit보다 많은 메시지가 와도 빠뜨리지 않는다.
 
 ## 5. AI 응답 설정 (SCR-31, FEAT-32)

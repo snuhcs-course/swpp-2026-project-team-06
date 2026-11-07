@@ -116,14 +116,18 @@ test("DEV-134 demo:record 계획: local은 로컬 주소·관리자 비밀번호
   assert.equal(local.env.FARMCLUB_CONSUMER_URL, "http://localhost:8234");
   assert.equal(local.env.FARMCLUB_PRODUCER_URL, "http://localhost:8082");
   assert.equal(local.env.DEMO_KAKAO, "0");
-  assert.deepEqual(plan([], {}).segments, mini.order);
-  assert.match(plan(["a1"], {}).problems.join(), /ADMIN_WEB_PASSWORD/);
-  assert.deepEqual(plan(["a1"], { ADMIN_WEB_PASSWORD: "x" }).problems, []);
-  assert.match(plan(["p1"], { FARMCLUB_API_URL: "https://api.farmclub.kr" }).problems.join(), /로컬 주소가 아니에요/);
-  assert.match(plan(["--target", "staging"], {}).problems.join(), /local 또는 prod/);
-  assert.match(plan(["z9"], {}).problems.join(), /모르는 구간: z9/);
-  assert.match(plan(["p5"], {}).notes.join(), /시나리오 순서에 없는 구간: p5/);
-  assert.deepEqual(plan(["p1"], {}).notes, []);
+  assert.deepEqual(planRecord([], {}).segments, scenario.order);
+  assert.match(planRecord(["a1"], {}).problems.join(), /ADMIN_WEB_PASSWORD/);
+  assert.deepEqual(planRecord(["a1"], { ADMIN_WEB_PASSWORD: "x" }).problems, []);
+  assert.match(planRecord(["p1"], { FARMCLUB_API_URL: "https://api.farmclub.kr" }).problems.join(), /로컬 주소가 아니에요/);
+  assert.match(planRecord(["--target", "staging"], {}).problems.join(), /local 또는 prod/);
+  assert.match(planRecord(["z9"], {}).problems.join(), /모르는 구간: z9/);
+  // 빠진 구간 경고는 고정 시나리오로 검증한다. 현재 I3에는 p5·c4가 포함된다(DEV-181).
+  const extra = planRecord(["p5"], {}, mini);
+  assert.deepEqual(extra.problems, []);
+  assert.deepEqual(extra.segments, ["p5"]);
+  assert.deepEqual(extra.notes, ["시나리오 순서에 없는 구간: p5 (stitch는 order만 이어요)"]);
+  assert.deepEqual(planRecord(["p1"], {}, mini).notes, []);
   // 실제 시나리오: 기본(구간 없음)은 order 전체이고, order에 있는 구간은 알림 없이 찍는다
   const real = planRecord([], { ADMIN_WEB_PASSWORD: "x" });
   assert.deepEqual(real.segments, scenario.order);
@@ -137,6 +141,19 @@ test("DEV-134 demo:record 계획: local은 로컬 주소·관리자 비밀번호
   assert.equal(ok.env.DEMO_KAKAO, "1");
   assert.equal(ok.env.FARMCLUB_CONSUMER_URL, "https://farmclub.kr");
   assert.equal(plan(["--target=prod", "--dry-run"], { DEMO_PROFILE: "p" }).problems.length, 0);
+});
+
+test("DEV-134/181 demo:record 계획: I3 수확·배송 구간 p5·c4는 현재 순서에 포함돼 경고 없이 녹화한다", () => {
+  assert(scenario.order.includes("p5"));
+  assert(scenario.order.includes("c4"));
+  const selected = planRecord(["p5", "c4"], {}, scenario);
+  assert.deepEqual(selected.problems, []);
+  assert.deepEqual(selected.segments, ["p5", "c4"]);
+  assert.deepEqual(selected.notes, []);
+  const all = planRecord([], { ADMIN_WEB_PASSWORD: "x" }, scenario);
+  assert.deepEqual(all.problems, []);
+  assert.deepEqual(all.segments, scenario.order);
+  assert.deepEqual(all.notes, []);
 });
 
 test("DEV-134 demo:publish 계획: 영상이 다 있고 길이가 manifest와 같아야 하며, 새 Release는 영상이 모두 있어야 한다", () => {
