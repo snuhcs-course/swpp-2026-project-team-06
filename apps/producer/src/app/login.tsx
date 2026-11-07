@@ -47,19 +47,31 @@ const NEW_PRODUCER = "u-new";
 // 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 브라우저(기기)에서 기억한다.
 // 로그아웃하거나 관문을 거쳐 맨 /login으로 와도, 홈 화면에 추가한 PWA가 start_url(/)로 새 창을 열어도
 // 테스트 계정 목록이 남는다(11/03 PWA 점검: sessionStorage만으로는 홈 아이콘에서 카카오 버튼만 보였다).
+// 표시는 테스트 계정 목록을 실제로 받은 뒤에만 남기고, 테스트 로그인이 꺼졌으면 지운다(DEV-283).
 const EVALUATOR_KEY = "farmclub:evaluator";
 function evaluatorMode(param?: string) {
   // 앱 평가용 빌드(DEV-200)는 주소 없이도 목록을 보인다
   if (evaluatorBuild) return true;
+  if (param === "1") return true;
   try {
-    if (param === "1") globalThis.localStorage?.setItem(EVALUATOR_KEY, "1");
     return (
-      param === "1" ||
       globalThis.localStorage?.getItem(EVALUATOR_KEY) === "1" ||
       globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1"
     );
   } catch {
-    return param === "1";
+    return false;
+  }
+}
+function rememberEvaluator(on: boolean) {
+  try {
+    if (on) {
+      globalThis.localStorage?.setItem(EVALUATOR_KEY, "1");
+    } else {
+      globalThis.localStorage?.removeItem(EVALUATOR_KEY);
+      globalThis.sessionStorage?.removeItem(EVALUATOR_KEY);
+    }
+  } catch {
+    // 저장소를 못 쓰는 브라우저는 주소(?evaluator=1)로만 평가 모드가 된다
   }
 }
 
@@ -88,14 +100,25 @@ export default function Login() {
   const kakao = useAsync(() => auth.kakaoConfig(), []);
   const kakaoOn = !!kakao.data?.enabled;
   // 평가용 주소(?evaluator=1, DEV-198)는 카카오가 켜진 운영에서도 테스트 계정 목록을 함께 둔다
+  const wantsEvaluator = evaluatorMode(evaluator);
+  const evaluatorOnly = kakaoOn && !isMock && wantsEvaluator;
+  // 평가 표시만으로 목록을 여는데 서버 테스트 로그인이 꺼졌거나(404) 생산자 계정이 없으면 낡은 표시다.
+  // 표시를 지우고 운영 화면(카카오만)을 보인다(DEV-283)
+  const staleEvaluator =
+    evaluatorOnly && (isStatus(error, 404) || data?.length === 0);
+  useEffect(() => {
+    if (!evaluatorOnly || evaluatorBuild) return;
+    if (staleEvaluator) rememberEvaluator(false);
+    else if (evaluator === "1" && data?.length) rememberEvaluator(true);
+  }, [evaluatorOnly, staleEvaluator, evaluator, data]);
   const showTest = kakao.error
     ? true
     : kakao.data
-      ? !kakaoOn || isMock || evaluatorMode(evaluator)
+      ? !kakaoOn || isMock || (wantsEvaluator && !staleEvaluator)
       : false;
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // 고정 하단 바 높이만큼 스크롤 아래를 비워 푸터가 바 바로 위에 온다(상태마다 바 높이가 다르다)
+  // 고정 하단 바('○○으로 시작하기')는 테스트 계정 목록이 있을 때만 둔다. 그 높이만큼 스크롤 아래를 비운다
   const [barHeight, setBarHeight] = useState(170);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -176,7 +199,10 @@ export default function Login() {
 
   return (
     <Screen>
-      <Scroll bottom={barHeight} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
+      <Scroll
+        bottom={showTest ? barHeight : safe("bottom", 16)}
+        footer={<LegalFooter onOpen={(path) => router.push(path)} />}
+      >
         <View style={{ paddingHorizontal: 20, paddingTop: 64, gap: 24 }}>
           <View
             style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
@@ -198,17 +224,22 @@ export default function Login() {
           </View>
           {kakaoOn && !isMock ? (
             <T variant="body" muted>
-              처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요. 카카오에서는
-              이메일만 받고, 대표자 이름·연락처는 가입 신청에서 입력해요.
+              처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요.
             </T>
           ) : null}
         </View>
-        {kakaoOn && showTest ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 8 }}>
+        {/* 카카오 버튼은 두 앱 모두 설명 바로 아래 본문에 둔다(소비자 SCR-05와 같음, DEV-283) */}
+        {kakaoOn ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
             {kakaoButton}
-            {isMock ? (
-              <T variant="caption" muted center>
-                Mock: 카카오로 시작하면 농가 없는 새 생산자로 들어가요
+            <T variant="caption" muted center>
+              {isMock
+                ? "Mock: 카카오로 시작하면 농가 없는 새 생산자로 들어가요"
+                : "카카오에서는 이메일만 받아요. 대표자 이름·연락처는 가입 신청에서 입력해요."}
+            </T>
+            {failed && !showTest ? (
+              <T variant="sub" color={tokens.color.error} center>
+                {failed}
               </T>
             ) : null}
           </View>
@@ -241,6 +272,9 @@ export default function Login() {
           )
         ) : (
           <View style={{ paddingHorizontal: 20, paddingTop: 32 }}>
+            <T variant="sub" muted style={{ paddingBottom: 8 }}>
+              생산자 테스트 계정을 골라 주세요
+            </T>
             {!data
               ? [0, 1, 2].map((i) => (
                   <Skeleton
@@ -280,7 +314,7 @@ export default function Login() {
                   </Pressable>
                 ))}
             <T variant="sub" muted style={{ marginTop: 16 }}>
-              생산자 테스트 계정만 보여요. 소비자 계정과는 따로예요.
+              소비자는 소비자 앱에서 따로 로그인해요.
             </T>
             {/* I1은 시드의 신규 생산자(농가 없음) 계정으로 로그인해 가입 신청(SCR-19 버튼 동작). 관문이 /apply로 보낸다 */}
             <Pressable
@@ -306,27 +340,30 @@ export default function Login() {
           </View>
         )}
       </Scroll>
-      <View
-        testID="login-bottom-bar"
-        onLayout={(e) => setBarHeight(Math.ceil(e.nativeEvent.layout.height))}
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: safe("bottom", 16),
-          gap: 12,
-          backgroundColor: "#FFFFFF",
-        }}
-      >
-        {failed ? (
-          <T variant="sub" color={tokens.color.error} center>
-            {failed}
-          </T>
-        ) : null}
-        {showTest ? (
+      {/* 운영(카카오만)에는 고정 바가 없고 푸터가 화면 맨 아래에 온다(DEV-283) */}
+      {showTest ? (
+        <View
+          testID="login-bottom-bar"
+          onLayout={(e) =>
+            setBarHeight(Math.ceil(e.nativeEvent.layout.height))
+          }
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: safe("bottom", 16),
+            gap: 12,
+            backgroundColor: "#FFFFFF",
+          }}
+        >
+          {failed ? (
+            <T variant="sub" color={tokens.color.error} center>
+              {failed}
+            </T>
+          ) : null}
           <Button
             label={account ? `${ro(account.name)} 시작하기` : "시작하기"}
             size="producer"
@@ -334,10 +371,8 @@ export default function Login() {
             loading={busy}
             onPress={() => void login()}
           />
-        ) : kakaoOn ? (
-          kakaoButton
-        ) : null}
-      </View>
+        </View>
+      ) : null}
     </Screen>
   );
 }
