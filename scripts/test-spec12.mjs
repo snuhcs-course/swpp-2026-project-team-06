@@ -410,14 +410,14 @@ test("spec 1.2: sales, immediate pricing and immutable paid orders, chat access,
       (t) => t.farmId === "f-kang",
     ),
   );
-  assert.equal(
-    (
-      await api("POST", "/api/messaging/chats/f-kang/messages", a, {
-        text: "추가 문의",
-      })
-    ).status,
-    404,
-  );
+  const beforeMissingContext = await ok("GET", "/api/messaging/chats/f-kang/messages", a);
+  const missingContext = await api("POST", "/api/messaging/chats/f-kang/messages", a, {
+    text: "추가 문의",
+  });
+  assert.equal(missingContext.status, 403); // real API permission contract (M-04)
+  assert.equal(missingContext.body.code, "FORBIDDEN");
+  const afterMissingContext = await ok("GET", "/api/messaging/chats/f-kang/messages", a);
+  assert.deepEqual(afterMissingContext.items, beforeMissingContext.items);
   await ok("POST", "/api/messaging/chats/f-kang/messages", a, {
     text: "추가 문의",
     orderId: own.orderId,

@@ -1,8 +1,8 @@
 # Requirements and Specifications
 
-Team 6 | Farmclub | Iteration 2 | 22 October 2026
+Team 6 | Farmclub | Iteration 3 | 6 November 2026
 
-Implementation reference: [`691949e985080f372a45d54fa950191e88adb8ce`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/691949e985080f372a45d54fa950191e88adb8ce). This revision preserves existing feature/criterion identifiers and distinguishes required behavior from verified readiness.
+Implementation reference: [`28feb94ac47b259b6a6299e9fd742b75e756a33d`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/28feb94ac47b259b6a6299e9fd742b75e756a33d), the main snapshot used for this I3 closeout. This revision preserves existing feature/criterion identifiers, the original team material and dated owner notes. It reconciles the current source contracts without changing frozen evaluation criteria. Required behavior, local verification, recorded demonstrations, deployment observations and human acceptance remain separate.
 
 ## Table of Contents
 
@@ -30,10 +30,11 @@ Implementation reference: [`691949e985080f372a45d54fa950191e88adb8ce`](https://g
 | 2.0 | 2026-10-22 | Team 6 | I2 scope and implementation alignment: Kakao onboarding, private source workspace, operator/support workflows, deposit exceptions, current UI journeys and explicit outstanding NFR validation |
 | 2.1 | 2026-11-04 | Team 6 | DEV-233: screen summaries synced with the implemented screens (product sales page and sales settings routes, farm detail editor, news send confirmation and delete, late deposit notice, wrong-answer button) |
 | 2.2 | 2026-11-05 | Team 6 | DEV-224: bottom tabs always open their first screen, Back has a parent screen when there is no previous one, 1:1 chats return to the screen that opened them, not-found farm screen |
+| 3.0 | 2026-11-06 | Minsun Kim; existing Team 6 and owner contributions retained | DEV-158: I3 scope and status, paid-order entry and private reading-position criteria, current room permissions, source-workflow limits, and separate reproducible demo/evaluation references |
 
 ## 1. Project Abstract
 
-Farmclub connects consumers with small Jeju citrus farms through advance reservations, growing updates, and private communication. Consumers compare varieties, sweetness information, options, reservation prices, and expected delivery windows before ordering. Producers manage farm profiles, product descriptions, supply, prices, orders, and conversations through a separate mobile web application. During Iteration 2, the project extends its prototype with Kakao onboarding, an operator interface, private source analysis, media storage, and direct bank transfer workflows. Consumers transfer funds to the farm, while producers verify deposits and record refund settlement; Farmclub does not receive or hold payment funds. AI assists with drafting and routine factual questions, but producers retain responsibility for commercial information, uncertain answers, and publication. Existing documents can inform private product drafts, with evidence, editable modules, photo selection, and explicit application to product pages. Operators approve farms and capacity, support producers, and manage controlled visibility. Separate account permissions, recorded consent, transaction snapshots, and retry protection support understandable and consistent interactions. The intended customers include buyers who prioritize trustworthy citrus quality and farmers already selling through messaging channels. Implementation progress is assessed separately from operational readiness: deployment, automated regression, internal observations, and unresolved limitations inform validation and release decisions without substituting for farmer acceptance.
+Farmclub connects consumers with small Jeju citrus farms through advance reservations, growing updates, and private communication. Consumers compare varieties, sweetness information, options, reservation prices, and expected delivery windows before ordering. Producers manage farm profiles, product descriptions, supply, prices, orders, and conversations through a separate application with web and native build paths. By Iteration 3, the project combines Kakao onboarding, an operator interface, private source analysis, media storage, direct bank transfer workflows, and producer-controlled harvest and shipment. Consumers transfer funds to the farm, while producers verify deposits and record refund settlement; Farmclub does not receive or hold payment funds. AI assists with drafting and routine factual questions, but producers retain responsibility for commercial information, uncertain answers, and publication. Existing documents can inform private product drafts, with evidence, editable modules, photo selection, and explicit application to product pages. Operators approve farms and capacity, support producers, and manage controlled visibility. Separate account permissions, recorded consent, transaction snapshots, and retry protection support understandable and consistent interactions. The intended customers include buyers who prioritize trustworthy citrus quality and farmers already selling through messaging channels. Implementation progress is assessed separately from operational readiness: deployment, automated regression, internal observations, and unresolved limitations inform validation and release decisions without substituting for farmer acceptance.
 
 ## 2. Customers
 
@@ -83,6 +84,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 
 - **I1 baseline retained:** discovery/following, separate accounts, farm/product setup, capacity approval, reservation/order history, fulfillment APIs, news/private chat, AI settings and order inquiries. The I1 simulated-payment path remains a local Mock facility, not the deployed I2 payment policy.
 - **I2 implemented extension:** Kakao sign-in and onboarding, direct farm bank transfer with producer confirmation, operator browser tools, wrong-answer reporting, private document/photo-assisted product workspaces with explicit apply, public media/share previews, conversation UI 1.6, producer help and farmclub support, deployed API/source worker and optional client analytics.
+- **I3 implemented refinement:** clearer order/deposit and server-clock states, source-aware Back navigation, retained news replies after unfollowing, news confirmation/deletion, harvest by sale period, sequence-ordered private messages, race-safe AI handoff, authorized paid-order conversation entry, and same-session private reading-position restoration. Source-assisted editing adds extraction/refinement, partial-page recovery, conflict choices and explicit publication review. These describe implemented scope; the evidence and remaining gates are in section 8.
 - **Later / incomplete:** automatic bank matching, courier integration, external notifications, scheduled completion/refunds, natural-language shipping and independent farmer acceptance of AI extraction. Start harvest works per sale period only; there is no per-order move or automatic transition (DEV-231). Implementation availability does not establish that every deployed path has passed; see section 8 and Testing Documentation.
 
 ### 4.2 Transaction rules
@@ -103,7 +105,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 
 ### 4.3 Communication and AI
 
-- News rooms and private 1:1 chat are separate. Consumers never talk to each other (M-01-04). Reading a public room never follows the farm automatically; explicitly starting a 1:1 inquiry does follow an eligible farm. An existing order-problem inquiry remains accessible after unfollowing.
+- News rooms and private 1:1 chat are separate. Consumers never talk to each other (M-01-04). Reading a public room never follows the farm automatically; explicitly starting a general 1:1 inquiry follows an eligible farm. Starting with an owned paid-order context does not follow the farm. A valid paid-order conversation or existing order-problem inquiry remains accessible after unfollowing; every request rechecks current ownership and payment history.
 - A consumer sees only their own replies; the farm owner sees every reply to their farm (M-02, M-19).
 - Phone numbers and other contact details are masked; inquiry photos are visible only to the people in that conversation (M-16, M-21).
 - AI answers automatically only when the farm has turned AI on for that chat. Once the producer replies, the chat is handled by the producer, and AI answers again only if the producer turns it back on (M-05, M-09, M-20).
@@ -114,7 +116,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 
 ## 5. Functional Requirements
 
-Each feature below has a user story in Connextra format and its main acceptance criteria in Given-When-Then form. The AC numbers match our [functional specification](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/functional/README.md), which has the full list. We will select and freeze at least five user stories and their acceptance criteria for user acceptance testing by the end of Iteration 3; after that freeze, those selected stories/criteria will not be changed. I2 implementation progress is not that acceptance-test completion.
+Each feature below has a user story in Connextra format and its main acceptance criteria in Given-When-Then form. The AC numbers match our [functional specification](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/functional/README.md), which has the full list. The selected user-acceptance stories, frozen criteria and execution status are recorded in [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation). This requirements synchronization does not rewrite a frozen oracle or establish user-acceptance completion. Historical I2 observations and I3 internal/automated evaluations retain their separate dates and denominators.
 
 | Journey | Features | Main screens |
 | --- | --- | --- |
@@ -520,6 +522,20 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **THEN** I only see what my new role allows
 - **AND** posts I can no longer see disappear right away
 
+**AC-12-8: Polling and older history preserve the conversation**
+- **GIVEN** I am reading an authorized private conversation
+- **WHEN** polling, an older page or a delayed photo changes the loaded content
+- **THEN** messages are merged without duplicate IDs or gaps, in the saved insertion-sequence order
+- **AND** reading history does not jump to the latest message; new arrivals expose the new-message control
+
+**AC-12-9: Return to the same private reading position**
+- **GIVEN** I am in the same consumer session and reading older messages in farm A
+- **WHEN** I go through the private list to farm B and then return to A
+- **THEN** freshly authorized history restores the visible message, its signed offset and the loaded history boundary, with at most 8 CSS px drift at the same viewport
+- **AND** history restoration does not mark unseen messages read; intentional scrolling or choosing the latest-message control ends correction of the old anchor
+
+The detailed missing-anchor, empty-history, failure and session-invalidation rules are retained in the dated DEV-250–253 reading-position summary in section 8. Desktop-browser verification does not establish native-device behavior.
+
 **Send confirmation and delete (DEV-210, rule M-23).** Sending from the producer's room input first opens a sheet with the follower count and a preview of what consumers will see. Producers can delete their own news at any time; there is no edit (delete and send again instead). Deleted news leaves every consumer view (news room, chat list preview, news list, public farm room) while consumer replies stay. The server keeps the row as a soft delete with no retention limit, for operator recovery only. If news notifications are added later, they must not include the post body.
 
 **AC-12-13: Confirm before sending news**
@@ -727,9 +743,19 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **THEN** the producer handles the chat, not AI
 - **AND** resolving it does not change payment or refund status
 
-### FEAT-34: Producer support through farmclub
+**Paid-order chat entry (DEV-245–249).**
+
+Order-detail entry initializes the authorized conversation before loading its first page and enabling sends/photos. Legacy order links retain their Back target. Unconfirmed orders use the general follow-chat path with a notice, without claiming the paid-order exception. The selected paid order is visible; one linked order is selected automatically, several require an explicit choice. Changing context retains text and removes photos belonging to the prior context. Initial network waits are bounded at 15 seconds. Start and send retries reuse a key for the same complete request; a failed post-send refresh is retried as a read, not as a second send.
+
+When an unfollowed sender omits the required order context, the API and Mock return 403 FORBIDDEN. A nonexistent, unpaid, foreign-consumer or wrong-farm order returns 404. Rejected sends persist no message.
+
+The explicit chat-start request accepts an optional orderId. General starts retain automatic following. An owned order with payment history for the selected farm starts or reuses the consumer's private conversation without following. A separate thread–order association records the entry before the first message; it does not submit a problem inquiry, create a message, call AI, or change conversation mode. Every use revalidates the order owner, payment history, and farm. Valid empty conversations remain accessible through the private list, history and participant-controlled photos. Unfollowed sends still require an explicit valid orderId. A refund or cancellation does not erase payment history. GET requests remain read-only. See contracts-1.2, M-04 and AC-33-2. Implementation and executed verification are recorded separately in the linked task records.
+
+### FEAT-34: Consumer and producer support through farmclub
 
 **As a** producer, **I want to** ask the Farmclub team for help inside the app, **so that** I can resolve operational questions without confusing them with consumer conversations.
+
+**As a** consumer, **I want to** contact the Farmclub team in my own support room, **so that** an operator can handle a platform question separately from my farm conversations.
 
 | Criterion | Given | When | Then |
 | --- | --- | --- | --- |
@@ -738,6 +764,9 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 | AC-34-3 | I have sent a support inquiry | An operator opens it and replies, including a retry with the same key | Inbox marks it read, one operator reply reaches my room, and duplicate replies are prevented |
 | AC-34-4 | A consumer or non-operator requests support data | They browse the app, user list or inbox API | The room is absent from consumer views, the non-login support identity is omitted from ordinary user search, and inbox access is denied |
 | AC-34-5 | I start the producer help tour | The tour reaches support guidance | It opens the farmclub room when available; if unavailable it offers Next and skips those steps |
+| AC-34-6 | I am a newly registered consumer, or an existing non-withdrawn consumer during migration | My account is provisioned | Exactly one consumer farmclub room and welcome message exist; a producer signup does not create this consumer room |
+| AC-34-7 | I have completed consumer onboarding and current consent | I send a support message or receive an operator reply | My farmclub room is ordered by recent activity with unread counts; contact details are masked, the operator inbox identifies a consumer case, and the room has no AI or photo attachment |
+| AC-34-8 | A support room belongs to a consumer | Another consumer or producer requests it, or its owner withdraws | Only its consumer and operators may read/mark it read; withdrawal removes the consumer’s own support text |
 | AC-34-9 | My farm is suspended or my application was rejected | I tap "Contact the farmclub team" on the suspension notice or the rejected SCR-21 screen | `/support` opens my own farmclub room (created on first open with a status-specific operator message); I can send text and photos and mark replies read, while every other producer API and screen stays closed. Pending producers and consumers get 403 (DEV-209) |
 
 Support history remains available to operators for hidden/suspended/rejected farms, and since DEV-209 suspended and rejected producers can still write to the team. The suspension notice also shows the business email when the build variable `EXPO_PUBLIC_BUSINESS_EMAIL` is set. Multi-operator assignment, notifications and operator photo viewing are outside I2; the inbox shows attachment counts only. Source: [FEAT-34](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/functional/FEAT-34-farmclub-support.md).
@@ -835,7 +864,7 @@ Key consumer screens:
 | **SCR-13 My Orders** | Orders grouped into Confirmed / Unconfirmed / Canceled-Refunded with counts. Each card reads "status · next step", e.g. "Awaiting deposit · please transfer", "Checking your deposit · the farm is checking", "Refund pending · the farm will send it" (DEV-207), and ends with "order number · ordered on" so repeated orders can be told apart; cards waiting for a deposit also show the delivery window (DEV-226) | Switch tabs, tap an order | Order → SCR-14 | No orders: "You haven't reserved anything yet" and Home. Empty tab: "No {tab} orders" |
 | **SCR-14 Order detail** | Status steps, delivery window, tracking, available actions; while awaiting a deposit: the account card, deadline and "I made the deposit"; after "I made the deposit" the title is "Checking your deposit", the deadline and Cancel disappear, the time of the notice and "Ask the farm" appear (DEV-207); refunded: "Refund pending" (the farm sends it back within 3 business days), "Refund delayed" if the farm has not approved it, and "Refund complete" only after the farm records the transfer (DEV-207); expired: "canceled because the deposit deadline passed"; reported but still unconfirmed at the deadline: the title stays "Checking your deposit" and the body says farmclub is contacting the farm and the order will not be canceled (DEV-233) | Cancel (confirm sheet; no refund before the deposit), Confirm receipt, accept the new window or take a refund, copy or track the number, report a problem | Report a problem → SCR-32 | No Cancel after shipping. Someone else's order → SCR-13. Status already changed: refreshes to the latest state |
 | **SCR-15 / SCR-18 Chat** | News Rooms (farms you follow) and 1:1 chats in one tab. The 1:1 list also has the consumer's own "farmclub" support room (DEV-150): created at sign-up with a welcome message, sorted by recent activity, answered by the farmclub team from the admin Inbox (no AI, text only, contact details masked) | Switch views, open a room or chat | Room → news room; chat → SCR-16 | No chats: "Ask a farm anything" with a link to farms. Other buyers' replies never appear |
-| **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers (each answer that was not forwarded has a "This is wrong" report button, AC-13-5) or "Sent to the farm". Messages are grouped under a date line in Korean time ("2026년 10월 7일", same as News Rooms) | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | Explicit chat entry starts the thread and follows the eligible farm; inaccessible farms/roles are refused. After unfollowing, ordinary threads are hidden unless an order inquiry preserves access. Send fails: text and photos are kept for retry. AI fails or times out: question goes to the producer |
+| **SCR-16 1:1 chat** | Private questions to one farm; labeled AI answers (each answer that was not forwarded has a "This is wrong" report button, AC-13-5) or "Sent to the farm". Messages are grouped under a date line in Korean time ("2026년 10월 7일", same as News Rooms) | Type up to 1,000 characters, attach up to 3 photos, Send | Farm header → SCR-03 | General explicit entry starts the thread and follows the eligible farm; a valid paid-order start records context without following. Inaccessible farms/roles are refused. After unfollowing, valid linked paid-order or formal-inquiry context preserves access, with an explicit eligible order required for sending. Return within the same session restores authorized history and the reading position; new history messages do not force latest scrolling. Send fails: text and photos are kept for the same context’s retry. AI fails or times out: question goes to the producer |
 | **SCR-17 Me** | Nickname, followed farms, edit profile, address book (up to 50, edit and delete), "Start as a farm", log out | Tap a farm, edit profile, manage addresses, log out | Farm → SCR-03; profile → `/me/profile`; addresses → address book; log out → SCR-01; screens left in the stack no longer turn into a login, so logging in again never reopens an earlier checkout (DEV-222) | Unfinished sign-up shows "Finish signing up". Starting a farm explains that the producer app needs its own account. 50 addresses: adding is off until one is deleted |
 | **SCR-32 Order problem** | Report damage, quality, taste or other with up to 3 private photos | Pick a type, describe it, attach photos, Send | Success → SCR-16 with the order attached | Not your order or not paid: cannot be sent. Upload or send fails: input is kept, and a retry never files it twice |
 
@@ -909,7 +938,7 @@ Rules that apply on every screen:
 | `/capacity`: initial/increase request, approve/reject | Updated approved limit and request state | Version/validation conflict refreshes; UI/proxy failure is not approval |
 | `/farms`: preview controlled hide/restore | Test farm becomes absent/present on public discovery | Refuse hiding where protected non-test orders exist; hiding is distinct from pause or deletion |
 | `/users` and user detail: search, tester marker, order lookup | Limited user and recent-order support data | Phone masked in search; recipient delivery fields excluded from support lookup |
-| `/inbox`: select producer inquiry, reply | Read position and one operator message update | Operator only; photo count shown without photo viewing; no AI answer or order-state mutation |
+| `/inbox`: select producer or consumer inquiry, reply | Read position and one operator message update | Operator only; producer photo count shown without photo viewing; consumer support is text only; no AI answer or order-state mutation |
 | `/ai-cost`: view AI cost by feature | Per-feature and overall totals (this month, last 7 days, all time) for spec-code-review, product draft, detail draft, AI answer and source analysis; filterable call list | Read-only; amounts are estimates from public per-token prices (source analysis uses the provider-reported cost), unpriced calls are counted separately; spec-check runs are reported by CI with a dedicated token |
 
 ### 7.7 Room permissions
@@ -917,7 +946,8 @@ Rules that apply on every screen:
 | Viewer | Public news | Follower news | Private replies | Can do |
 | --- | --- | --- | --- | --- |
 | Anonymous | Read | Hidden | Hidden | Log in first |
-| Consumer, not following | Read | Hidden | Hidden | Like public news; follow to reply |
+| Consumer, not following, with no own reply history | Read | Hidden | Hidden | Like public news; follow to reply |
+| Former follower with own reply history (DEV-230) | Read | Hidden | Own retained replies, dimmed | Read history; follow again to unlock replies; farm is absent from the followed news-room list |
 | Consumer, following | Read | Read | Own only | Reply; like news they can see |
 | Owning approved producer | Read | Read | All replies in their room | Post news; open a private chat |
 | Other producer | No access | No access | No access | None |
@@ -926,15 +956,28 @@ Reading a room never follows the farm automatically.
 
 ## 8. Implementation Status and References
 
-| Area | I2 progress | Remaining boundary |
+| Area | Implemented through the I3 reference | Remaining boundary |
 | --- | --- | --- |
-| Accounts and communication | Kakao onboarding/state return, wrong-answer reports, farmclub support and producer help tour | Live account behavior needs environment-specific validation; external notifications are not implemented |
+| Accounts and communication | Kakao onboarding/state return, wrong-answer reports, farmclub support/help tour; order-aware private entry, sequence ordering and same-session reading restoration | Live account behavior needs environment-specific validation; external notifications are not implemented |
 | Commerce | Farm account registration, deposit instructions/report/confirmation, expiry exceptions, refund settlement and retry protection | No automatic bank matching, payment custody or integrated escrow; RESERVED → PREPARING only through per-period Start harvest |
 | Producer pages | Private source worker/editor, direct module editing, photos, explicit apply and manual/legacy fallback | Numeric OCR, omissions/conflicts and actual farmer acceptance require review; deployment does not establish general AI accuracy |
 | Operator | Producer/capacity tools, controlled farm visibility, privacy-limited user lookup and support inbox | Shared admin identity; no full multi-operator case management or inbox image rendering |
 | Deployment/media | Vercel clients/admin, Railway API/worker, R2 media/private sources, approved-farm Open Graph sharing, optional PostHog client instrumentation | Sentry/Langfuse and server analytics events are not wired; performance/uptime targets are not yet established |
 
-The [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation) preserves the final 77-case internal workbook and separately dated automated regressions. Later implementation commits do not retroactively change the workbook's deployed failures, blockers or not-ready results. The four role-based recordings and reproducible setup belong in the `iteration-2-demo` branch README. The recordings use controlled demonstration data and do not prove an actual bank transfer or a complete shipping workflow.
+The [Testing Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-06/wiki/Testing-Documentation) retains the I2 77-case internal workbook, other owners' evaluations, the original I3 consumer-chat baseline and separately dated fix/CI evidence. Later commits do not rewrite earlier deployed failures or blockers. PR [#482](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482) was squash-merged as `86e5410` on 6 November; its required local regression evidence is 57 browser cases and seven real-API scenarios. Those results concern the two scoped fixes, not every app requirement, a human approval record or a native-device pass. The dated implementation reports below retain their pre-merge gate descriptions; the later Testing Documentation merge/CI chronology supplies the subsequent state.
+
+| I3 finding / decision | Disposition and evidence boundary |
+| --- | --- |
+| First paid-order conversation unavailable after unfollowing (DEV-242) | Explicit authorized order association, entry initialization and context-scoped sends implemented in DEV-245–249; local closure is recorded in the order-chat report below |
+| Reading position lost on farm A → B → A (DEV-243) | Metadata-only session store, measured anchor restoration and race guards implemented in DEV-250–253; local closure is recorded in the reading-position report below |
+| Original ordering-oracle discrepancy (DEV-244) | Separate decision; preserve insertion sequence and KST grouping without changing the frozen evaluation expectation to manufacture a pass |
+| Visual synchronization and producer notification replacement race | Follow-ups DEV-256 and DEV-257; the two chat fixes do not claim to resolve them |
+| AI source quality and independent acceptance | Development improvements, historical holdout failures and the current v2 lock are distinct evidence; review omissions, qualifiers and numeric OCR before applying output. A lock or refinement-only score is not full-pipeline acceptance |
+| Native and production mutation scenarios | Shared implementation and browser tests do not establish physical-device background/keyboard behavior or an authenticated production mutation result |
+
+**I3 demonstration.** The [iteration-3-demo README](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/iteration-3-demo/README.md) provides the runnable snapshot, environment, I3 progress and four [demo-i3 recordings](https://github.com/snuhcs-course/swpp-2026-project-team-06/releases/tag/demo-i3), also presented at [demo.farmclub.kr](https://demo.farmclub.kr/). The recorded product snapshot is `efa684b4`, before the later PR #482 chat fixes. The overall recording includes harvest and shipment; the role recordings and story are complementary views of the same controlled scenario. Local deposit-report/confirmation and transfer labels are simulations: no money moves, no bank reconciliation or courier delivery is demonstrated. The I2 branch and recordings remain historical artifacts.
+
+I3 primary evidence: [authorized order-chat regression](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/evaluation/dev-242-order-chat-regression.md), [reading-position regression](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/evaluation/dev-243-scroll-restoration.md), [DEV-253 task and retained verification history](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/evaluation/tasks/DEV-253.md), [source evaluation with historical denominators](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/spec/validation/source-final-eval-i3-2026-11-01.md), and [independent source holdout v2 protocol](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/spec/validation/source-final-holdout-i3-v2.md). No new app or model-quality evaluation was run for this document revision.
 
 **I2 producer recovery:** empty AI strings/option arrays require review; manual creation excludes concurrent generation/retry; failed calls preserve text; missing origin/storage blocks initial supply submission. Failed browser sharing copies the server URL, while user cancellation is silent. Shipping saves carrier/tracking before a refresh retry and does not undo a successful shipment.
 
@@ -963,3 +1006,10 @@ Retry consent keeps the existing uncertainty wording when any current-run item h
 
 ### Chat insertion order and handoff summaries (DEV-235, DEV-213)
 Messages expose the existing persisted insertion sequence. Clients use that order even when question and AI reply timestamps match; pagination and read cursors retain their existing semantics. During a rolling API update, a missing sequence anywhere in a loaded set uses stable timestamp order for the entire set. Random message IDs do not reorder equal-time messages. Mock private/support chats preserve insertion order too. Forwarded notices have no model-reason source summary, including older saved notices; evidence summaries for normal answers remain.
+
+
+### Private farm-chat reading positions (DEV-250–253)
+
+After a freshly authorized head page verifies the consumer, farm and server thread, same-session farm A → private list → B → list → A restores the first visible message and its signed viewport offset, together with the loaded history boundary. Older pages are reloaded and merged by saved message sequence. Historical restores suppress initial latest scrolling and read advancement; same-viewport anchor drift must be at most 8 CSS px. Delayed photos, text reflow and prepends retain the anchor until intentional wheel/drag/scroll-key movement or the explicit latest action. New messages remain unread while the reader stays in history and expose the existing new-message control.
+
+A removed anchor falls back to a saved surviving neighbor, then to clamped geometry in freshly authorized history. Transient failures expose retry; terminal authorization failure removes protected conversation state. Only IDs and geometry live in memory, bounded to 20 rooms and 30 idle minutes. Consumer/user/auth generation/thread/visit leases reject old callbacks. Logout, token loss/401, WRONG_APP and every new login clear the store synchronously, including equal-token relogin. Ordinary same-session auth.me refresh preserves it; a hard reload starts cleanly. Selected-order changes retain the thread reading identity while the composer keeps DEV-248's order/photo isolation. Browser regression results and deployment/native limitations are recorded separately under docs/evaluation.

@@ -348,9 +348,13 @@ export const messaging = {
     request<A.Paged<A.ChatSummary>>("GET", "/api/messaging/chats", {
       query: q,
     }),
-  startChat: (farmId: string, idempotencyKey: string = newIdempotencyKey()) =>
+  startChat: (
+    farmId: string,
+    idempotencyKey: string = newIdempotencyKey(),
+    options?: { orderId?: string },
+  ) =>
     request<A.StartChatResult>("POST", "/api/messaging/chats", {
-      body: { farmId },
+      body: options?.orderId === undefined ? { farmId } : { farmId, orderId: options.orderId },
       idempotencyKey,
     }),
   messages: (farmId: string, q: A.PageQuery = {}) =>

@@ -27,7 +27,7 @@ import {
   useAsync,
   won,
 } from "@farmclub/ui";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
@@ -50,6 +50,7 @@ import {
   openExternal,
 } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
+import { orderChatTarget } from "../../../../lib/orderChat";
 
 const fmt = { md, deadline, time, won };
 
@@ -325,7 +326,7 @@ export default function OrderDetail() {
             <Button
               label="농가에 물어보기 ›"
               variant="text"
-              onPress={() => router.push(`/chats/${o.farmId}?from=order&fromOrder=${o.orderId}`)}
+              onPress={() => router.push(orderChatTarget(o.farmId, o.orderId, Boolean(o.paidAt)) as Href)}
               style={{ marginHorizontal: 20, marginTop: 16 }}
             />
           )}
@@ -337,7 +338,7 @@ export default function OrderDetail() {
           o={o}
           busy={busy}
           onCancel={() => setCancelSheet(true)}
-          onAsk={() => router.push(`/chats/${o.farmId}?from=order&fromOrder=${o.orderId}`)}
+          onAsk={() => router.push(orderChatTarget(o.farmId, o.orderId, Boolean(o.paidAt)) as Href)}
           act={act}
         />
       ) : null}

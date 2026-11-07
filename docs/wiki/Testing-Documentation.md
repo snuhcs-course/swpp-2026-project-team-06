@@ -1,6 +1,6 @@
 # Testing Documentation
 
-**Team 6 — Farmclub | Iteration 2 | Revised 22 October 2026**
+**Team 6 — Farmclub | Iteration 2 record with Iteration 3 supplements | Revised 6 November 2026**
 
 ## Overview
 
@@ -9,6 +9,9 @@ The final internal workbook contains **77 cases: 66 PASS, 6 FAIL, 3 BLOCKED, and
 This report uses `SWPP_Internal_Testing_1_Final.xlsx` as the sole authority for these 77 outcomes. Prepared on 17 October, it records observations through **19 October 2026, 17:28 KST**. Separately verified GitHub logs supply historical automated-run evidence. A supplementary local execution on **22 October 2026**, explicitly requested for coverage measurement, uses product commit `691949e985080f372a45d54fa950191e88adb8ce`. Neither evidence set changes the workbook FAIL/BLOCKED states. Section 3.6 reports the new execution separately.
 
 **Coverage evidence added:** the 22 October supplementary plan and the separate producer-owner targets committed on 23 October are retained; actual per-component reports and genuine report screenshots now appear below. Server statement/branch coverage is **90.90% / 75.47%**. Some component targets remain unmet, including consumer lines and admin JavaScript. Historical environment/attachment gaps and deployed retests remain open; measurements are not release approval (Section 7).
+
+
+**Iteration 3 chat follow-up (6 November):** the [consumer chat evaluation and defect-regression supplement](#iteration-3--consumer-chat-evaluation-and-defect-regression-minsun-6-november) records the original **2 PASS / 2 FAIL / 1 BLOCKED** five-row evaluation, the separate first-paid-order reproduction, the nine-task fix plan, every retained implementation test attempt, and the final 7-API/57-browser regression plus later CI correction. These dated functional results do not alter the 77-case workbook or the older coverage measurements. Human review, genuine native backgrounding and deployment limits remain explicit.
 
 ## Contents
 
@@ -21,6 +24,9 @@ This report uses `SWPP_Internal_Testing_1_Final.xlsx` as the sole authority for 
 7. [Guideline Compliance](#7-guideline-compliance-and-submission-readiness)
 8. [Complete Case Register](#appendix-a--complete-internal-test-register)
 9. [Prior Plans and Revisions](#appendix-b--prior-plans-and-revision-history)
+10. [Iteration 3 — Consumer journeys, AI and heuristic inspection (Hyun)](#iteration-3--consumer-journeys-ai-answers-and-heuristic-inspection-hyun-6-november)
+11. [Iteration 3 — Consumer chat evaluation and defect regression (Minsun)](#iteration-3--consumer-chat-evaluation-and-defect-regression-minsun-6-november)
+12. [Iteration 3 — Peer heuristic evaluation and closeout](#iteration-3--peer-heuristic-evaluation-and-closeout-6-november)
 
 ## 1. Test Responsibility and Schedule
 
@@ -359,17 +365,43 @@ npm run coverage:producer-ui   # generates the report once and then clears the c
 
 ### Plan
 
-To be completed in Iteration 3: commit at least 30 frozen input/expected-behavior cases, label/rating provenance, an evaluation design discussed with the TA where ground truth is difficult, and per-case schema/rubric/tolerance/human assertions. Exact string matching cannot be the sole criterion. Commit thresholds before evaluation; record model/version, prompt, decoding settings, and command. Add cases without removing/editing submitted cases.
+**Original I2 commitment (retained):** commit at least 30 frozen input/expected-behavior cases, label/rating provenance, an evaluation design discussed with the TA where ground truth is difficult, and per-case schema/rubric/tolerance/human assertions. Exact string matching cannot be the sole criterion. Commit thresholds before evaluation; record model/version, prompt, decoding settings, and command. Add cases without removing/editing submitted cases.
+
+**I3 plan and execution references, 6 November.** DEV-154 committed the [60-case synthetic question set](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/i3-ai-support/questions.jsonl), [rubric/protocol](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/i3-ai-support/protocol.md) and [digest/runtime manifest](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/i3-ai-support/run-manifest.json) at `f08134d` on 31 October, before the 3 November cohort. Six strata contain ten cases each; three trials per case yield 180 observations, not 180 distinct questions. The protocol separately judges action, all required facts/units/qualifiers, source references, persisted state, and privacy/safety. Required handoff/human-only cases target 100%, answer trials target at least 95%, and safety-critical unsupported claims/privacy leaks target zero; the original protocol's pending DEV-152 alignment and required human readiness decision remain explicit. These targets were not reset to match the outcome.
+
+The [runner and reproduction instructions](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/scripts/i3-ai-support/README.md) and each cohort's manifest/log record model, code/prompt versions, seeded order, environment, settings and command. Controlled provider faults and synchronized state changes are separate from genuine model calls. Numeric checks are supplemented by review of persisted answers against the gold facts, qualifiers and references; the owner/reviewer provenance and limits are stated in the cohort reports. Producer source-analysis methods and results are summarized below with their own data, scorer and holdout boundaries. Repository/agent regression tests and the CI specification checker do not measure product AI accuracy.
 
 ### Results
 
-Formal I3 metrics are not yet due. I2 samples P-10–P-13/A-07–A-12 remain below; they do not establish independent AI accuracy or predeclared thresholds. I3 results must compare each metric with its threshold, give date/commit, analyze failures, and disclose settings changes.
+The original I2 samples P-10–P-13/A-07–A-12 remain below as historical functional observations. They do not establish independent AI accuracy. I3 now has the following separately reported cohorts:
+
+| Cohort / evidence | Observed result against the original criteria | Interpretation |
+| --- | --- | --- |
+| [DEV-169 original support cohort](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/i3-ai-support/results.md), 3 November, application `3f7ce29`, `claude-haiku-4-5-20251001` | 141 / 180 trials passed; 47 / 60 stable cases. Conflicting facts 0/30; operational failure 21/30; other four strata 30/30 each. Stale results persisted in six transition trials and timeout handoff took 8,019–8,025 ms. | Readiness not met. Only 72 trials called the live model; rule/fault paths remain separately counted. Three defects were retained, assigned and corrected; no original verdict is rewritten. |
+| [DEV-180 support retest](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/i3-ai-support/results-i3-b2.md), `i3-b2-e871acc` | 180 / 180 trials passed and all five integration guards passed; timeout handoff 7,517 ms, no stale reply in the tested transitions. | Separate repair cohort on the same frozen synthetic set, with trace-review and provider/path limits in the report. This does not establish unseen-question performance or erase the earlier FAILs. |
+| [DEV-167 consumer-answer inspection](#consumer-ai-answers-dev-167), `i3-b2-87792b7` | 60 / 90 trials passed; conflicting-facts 0/30 and six unsafe contradictory promises retained. | DEV-167's own rows were not rerun on a new fixed cohort. Its owner inspection and matrix decision remain distinct from DEV-180's retest. |
+| [Producer source extraction, DEV-170/182](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/spec/validation/source-final-eval-i3-2026-11-01.md), 1–2 November | Development r4: 72/87 facts, 35/42 critical facts. First v1.1 holdout: 59/261 facts; T23 rerun: 74/261 facts, 32/109 critical, two forbidden detections, zero unsupported tokens; $0.190412 across 93 calls. | Recall uses normalized mustContain matching and precision is a support proxy; human semantic/evidence audit remains incomplete, so the guideline's broader AI-quality criterion is not fully satisfied. Original failures and contamination caveats remain. The 12-source v1.1 corpus was retired into development after reuse; neither rerun nor a selected demo establishes independent acceptance. The public report supplies per-format, settings and command details. |
+| [Producer refinement comparison](AI-Collaboration-Report---Iteration-3---Evidence#3-what-ai-did-well), fixed candidates from 47 development materials | Three trials per arm: facts 683→699/1062; critical facts 313→321/462; forbidden detections 6→5; unsupported tokens 2→2. | Repeated 354/154 facts, refinement stage only. Semantic review found an upper bound rewritten as an approximation; the later qualifier fix was not paid-evaluated. This is not a clean holdout or full-pipeline quality pass. |
+| [Independent source holdout v2](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/docs/spec/validation/source-final-holdout-i3-v2.md) and public hash lock | Protocol/data definition: 12 sources, 72 sentences, 134 facts, 33 critical facts; 44 disputed items excluded before scoring. | A frozen protocol/hash manifest is preparation. It is not a measured performance result; private holdout contents remain isolated from tuning. |
+
+Sample sizes, unchanged/changed settings, latency, failure causes and reviewer decisions are linked at the owning result. New coverage percentages, unseen-data accuracy and a completed formative user study are not inferred. The later source/draft results and peer/internal heuristic methods are linked in the I3 supplements; they retain their own denominators.
 
 ## 5. Acceptance Testing (Plan in Iteration 3; Results in Iteration 4)
 
 ### Plan
 
-To be completed in Iteration 3: at least five stories, observable acceptance criteria, tester procedures, and a story freeze after I3. The [previous AC catalogue][prior] is preserved as a development plan, not completed UAT. Appendix B explains I2 revisions.
+**Original I2 commitment (retained):** at least five stories, observable acceptance criteria, tester procedures, and a story freeze after I3. The [previous AC catalogue][prior] remains a development plan; Appendix B explains I2 revisions.
+
+**Frozen I3 UAT plan v1, 6 November 2026.** The six stories below translate the selected I3 journeys into the I4 acceptance-test plan. The accountable coordinator is Minsun Kim; the relevant feature owner supplies the isolated candidate environment and a reviewer records observations. Use synthetic accounts/data, the candidate's exact code/schema/model versions and the existing evaluation fixtures. Capture task completion, errors, assistance, expected/actual states and safe evidence. The stories and criteria are retained after I3; later clarifications must be dated addenda, not silent edits. This is a prospective UAT plan, not six newly executed tests or a claim of participant recruitment.
+
+| Frozen story | Observable acceptance criteria | Tester procedure and evidence |
+| --- | --- | --- |
+| UAT-I3-01 — As a consumer, find a farm/product and follow the farm to keep its updates. | The intended farm/product can be found; follow state remains correct after navigation/reload; its news appears in the expected room/feed. Paused/unavailable products are not presented as purchasable. A failed list request exposes recovery without duplicating rows. | With the seeded consumer, search/browse, open farm and product, follow, reload and inspect news. Repeat with a paused product and one controlled list failure; record visible state and saved follow/result IDs. FEAT-06/07. |
+| UAT-I3-02 — As a consumer, reserve the intended option/quantity with an understood total and deposit state. | Item, option, quantity, address, fee, required consents and total match the saved order; invalid/insufficient stock is refused clearly. A changed price requires explicit reconfirmation. Retrying a committed request creates one order. Deposit claims stay pending until authorized confirmation; no actual funds move. | Open product/order sheet, test a quantity boundary and missing consent, change the allowed stage price in the isolated fixture, reconfirm and submit; simulate lost response and retry, then inspect order history and producer view. FEAT-08/09/10. |
+| UAT-I3-03 — As a consumer, contact the correct farm about a paid order and obtain an appropriate AI/human response. | A first eligible paid order opens an authorized composer with explicit order context and no unwanted follow/inquiry. The question/photo persists once; a supported answer follows the frozen facts and sensitive/unsupported content is forwarded. Producer replies appear only in the intended private thread. The same historical message remains within 8 CSS px after the specified farm round trip. | Create the guarded unfollowed first-order fixture, enter chat, send text/photo with one retry, then explicitly enable AI with the frozen model/evidence settings before testing supported and handoff questions, reply as its producer, switch farms and back, measure the saved message and attempt cross-consumer access. FEAT-12/13/33; DEV-249/253. |
+| UAT-I3-04 — As a producer, turn source material into a reviewed private draft and explicitly apply it. | Supported text/image/PDF inputs complete or expose a recoverable error. Facts, units, qualifiers and evidence can be reviewed; unsupported/uncertain critical facts are not silently published. Manual edits survive save/reopen/reanalysis. Public content changes only on explicit application and matches the approved result. | Use frozen source samples for each format, inspect evidence and omissions, edit/remove a field, save/reopen, retry analysis and explicitly apply; compare the consumer page. Record factual corrections and assistance separately from model-quality scores. FEAT-03/AC-SRC. |
+| UAT-I3-05 — As a producer, manage the correct order and understand its cross-role state. | Order identity, product, amount and status agree across both apps; only authorized/allowed deposit or shipment transitions are available. Duplicate confirmation is safe and invalid transitions do not alter stock/payment state. | Locate the synthetic order from UAT-I3-02, compare both views, perform the allowed confirmation and replay it; attempt an invalid transition and inspect state/history. Record simulated confirmation explicitly. FEAT-17. |
+| UAT-I3-06 — As a manager, control producer access and inspect an auditable exception. | Unauthorized roles are refused without mutation; approval/rejection carries a recorded reason/history; subsequent producer access matches the decision. A controlled AI refund/compensation handoff creates exactly one related exception under idempotent replay. | Use an isolated pending applicant and manager, try unauthorized access, record a decision and re-login as the producer. Trigger the frozen exception fixture and replay the message; inspect one linked history/event and role isolation. Manager/FEAT-13/33 rules. |
 
 ### Results
 
@@ -1689,6 +1721,7 @@ The [document at `a262714`][prior] preserves the submitted AC catalogue, spec 1.
 | Historical I1/DEV-44/50/51/model-development counts | Linked history outside current register | Avoid mixing dates/environments/experiments/overlapping counts. |
 | No recorded historical numerical coverage plan/report | 22 October plan before supplementary measurement; unchanged suites and genuine reports | Fill missing I2 evidence without backdating targets, overwriting workbook outcomes or hiding target misses. |
 | 20 October SWPP-118 live-server retest removed in the 22 October rewrite | Restored as a separate follow-up after Section 3.4; workbook statuses and totals unchanged; A-04/A-17 follow-up lines corrected | Keep the later live-server evidence visible without mixing it into the 19 October counts (SWPP-123). |
+| DEV-153 local chat evaluation, nine implementation tasks and CI corrections not yet consolidated here | Added dated Minsun I3 Plan/Results, assertion and run registers, exact revisions and remaining limits | Preserve original five-row failures/blocker, 77-case workbook and other owners' cohorts; separate fixed-source regression, CI, model review and deployment evidence. |
 
 ### Source references
 
@@ -1785,4 +1818,668 @@ Inspector: Hyun Park. Scope: consumer discovery, preorder (product detail to ord
 - **Handoff reason shown to consumers.** In AIS-02 the model's free-text handoff reason appeared to consumers with internal wording. #463 (DEV-235, merged 5 November) hides forwarded reasons, but neither AIS-02 nor the T15 inspection was repeated after it.
 - **Owner and reviewer sign-off.** The AI owner decision is an acceptance of the agent review, not an independent read. The DISC and PRE reviewer decisions are blank.
 - **Consumer chat rows.** I3-CHAT-01–05 (DEV-153) have no result record on `main`, and the matrix still shows them as `NOT_READY`.
+  - **6 November follow-up:** this was the publication state of the earlier section. The dated [Minsun supplement](#iteration-3--consumer-chat-evaluation-and-defect-regression-minsun-6-november) below consolidates the sanitized current-build evaluation and the fix/CI evidence from PR #482 in a separate documentation follow-up. The original matrix has not been relabeled and human matrix review remains pending; this supplement's branch publication does not establish its main merge or deployed verification.
 - **Raw evidence.** Traces and screenshots stay outside the repository except the one T15 screenshot, so graders see the summaries and that image only.
+
+## Iteration 3 — Consumer chat evaluation and defect regression (Minsun, 6 November)
+
+This dated supplement consolidates the work performed for [DEV-153](https://linear.app/sswp6/issue/DEV-153), the two confirmed application defects [DEV-242](https://linear.app/sswp6/issue/DEV-242) and [DEV-243](https://linear.app/sswp6/issue/DEV-243), their nine implementation tasks, and the later CI corrections in [PR #482](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482). It was compiled from the original local evaluation report, retained run summaries and logs, committed task/test records, and inspected GitHub check reports. No new application tests were run to prepare this documentation.
+
+**Result at a glance.** The original five current-build chat rows remain **2 PASS / 2 FAIL / 1 BLOCKED**, with **64 passed / 2 failed / 1 blocked assertion**. A separate first-paid-order reproduction failed outside that denominator. The two confirmed application defects were subsequently fixed and verified by **7 API scenarios + 57 browser cases** on `4c57556`; the ten original reading-position measurements each had **0 CSS px drift**. Later CI corrections passed all app/server/integration jobs and `ci-ok` at `8b82e7f`. The live specification report was **NO_FINDINGS**, not a full PASS. None of these later results rewrites the original five rows, the 77-case I2 workbook, the other owners' cohorts, or the earlier coverage measurements.
+
+### Plan — scope, responsibility and accounting
+
+| Activity | Responsible member / executor | Required evidence and review |
+| --- | --- | --- |
+| I3-T06: first-time/existing chat, ordering/KST midnight, two-consumer privacy, retries and pause/resume | Minsun Kim; Codex operated the isolated app and API and inspected the evidence | I3-CHAT-01–05 from DEV-152 v1.0; matrix reviewer Hyun remains pending |
+| Historical I2 F-04/F-05/F-06 reconciliation | Minsun Kim; agent-assisted reproduction and comparison | Keep current-build reproduction, non-reproduction and scoped verification distinct from the old I2 outcomes |
+| First-paid-order defect | Minsun Kim; DEV-245–249 | Contract/model/migration → atomic authorization → client/Mock → entry/retry/context UI → real-stack closure |
+| Reading-position defect | Minsun Kim; DEV-250–253 | Bounded metadata store → shared restoration engine → authorized session/route integration → measured real-stack closure |
+| CI failures after the subsequent main merge | Minsun Kim; DEV-253 follow-up | Exact failing head/job, cause, correction, local rerun and fresh-head GitHub result |
+| Publication and release | Human reviewer and maintainer | AI review is recorded separately; human approval, merge, deployment and genuine native execution are not inferred |
+
+The original DEV-153 requirement was to test the current build, retain correct farm/thread identity, verify no lost/duplicate/reordered messages, exercise attachment/error recovery and two-consumer privacy, and report unavailable prerequisites as BLOCKED with evidence. The five planned cases are **normal, boundary, privacy/error, retry and state-change** rows, all P0. Supporting unit/API tests, assertions within one row, diagnostic repeats, parameterized browser cases, whole-suite runs and CI job statuses have different denominators. Repeated passes below are not added into a single unique-test total or interpreted as code/requirements coverage.
+
+### Results — dates, environments and revision boundaries
+
+All run IDs and times in this supplement use UTC unless explicitly marked KST. The injected application clock was `2026-10-07T10:00:00+09:00`; it is fixture time, not the execution date. All orders, messages, roles and assets used here were synthetic, isolated local fixtures. Deposit confirmation exercised local order state; no real payment, shipping or production mutation is claimed.
+
+| Evidence set | Revision / environment | Interpretation |
+| --- | --- | --- |
+| Initial assessment and supporting checks, 6 November | Current-main `2693916ba956c771a61c3b07e479a8a47693c45e`; initial services unavailable, then native PostgreSQL 16.15 on loopback port 55453; `farmclub_dev153` and `_test`; schema `0025`; Python 3.12.14, Node 24.19.0; Chromium build 1248; real API and both web apps | Product source remained unchanged during evaluation. A missing local runtime was an environment blocker, not five application failures. |
+| Broad baseline rows, approximately 07:34–07:38 UTC | Same `2693916`; synthetic seed, farm AI OFF where specified, 390×844 browser; America/Los_Angeles device timezone for the KST date-boundary case | Current-build web/API observations; not the original `eb727b6` environment or deployed certification. The baseline records build 1248 without a separate full-version measurement; the later installer explicitly identifies Chromium 156.0.8078.4/build 1248. |
+| Native-background follow-up, 07:46:06–08:04:20 UTC | Ordinary Chrome/native app control, without JavaScript visibility overrides | Interrupted before a measured UI action or newly sent message; no native PASS. |
+| Nine-task implementation checkpoints | Branch from main `57d4843`; separate native PostgreSQL 16.15 on port 55455, `farmclub_dev245` and `_test`, UTC database timezone, additive migration `0026` | Preserved the earlier evaluation database. No production data or account credentials were used in regression writes. |
+| Final committed affected regression | `4c57556a1f4286eb5108e5552be5621c52bcc225`, with main `5a10cbf` integrated; Node 24.22.1, npm 11.6.2, Playwright 1.64.0, Chromium 156.0.8078.4; 360×844 and 390×844 original-anchor cases | 7 API scenarios + 57 browser tests; the exact local functional counts below belong to this revision. |
+| Evidence publication | `6681058c6860ab2cda3e4f14babcce99f767284c` | Only evidence/task/wiki documentation changed after `4c57556` at this boundary. |
+| Later main merge and CI failure | `0e22e272d419ed840de58af150c6240f6c36b0f4` | The merge added DEV-181 demo changes and other main work, including legal-content tests. It is not wholly documentation-only relative to `4c57556`. |
+| Corrected CI head, verified 13:16 UTC | `8b82e7f363694542596ba4c4acba15b7be4fcdd0`; commits `009ec2a` and `8b82e7f` | Fresh CI and live review evidence below. Chat implementation files remained unchanged, but the checker/test changes are real source changes. Do not label this entire interval evidence-only or retarget the local 57-case result to this SHA. |
+
+The dedicated implementation database was stopped after verification. The integration runner stopped the API and web services it started. The earlier evaluation instance/data were preserved. Subsequent documentation publication is a new revision; the tested revisions above remain pinned.
+
+### Plan — original frozen oracle
+
+The original required baseline was **`i3-b1-eb727b6`**, product SHA `eb727b6d5808c1a3b209f851db4d5f8e18f0b0f2`, schema `0024`. Execution explicitly moved to **current main `2693916ba956c771a61c3b07e479a8a47693c45e`**, schema `0025`; it did not claim to rerun the older baseline. Product source was unchanged, with a clean checkout before and after the evaluation.
+
+The frozen [matrix](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/2693916ba956c771a61c3b07e479a8a47693c45e/docs/evaluation/i3-journeys/matrix.csv) and [protocol](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/2693916ba956c771a61c3b07e479a8a47693c45e/docs/evaluation/i3-journeys/protocol.md) retain SHA-256 digests `0d2926115e750299d780a617fc635ecc2f0943d61757b899b997395999eaa169` and `c344abeda8b34aa99f26c64848647479d1ef4c2e055b558eb9783ec93361c839`, respectively. The execution plan recorded the newer product/database baseline without silently changing the frozen ordering expectation.
+
+### Results — initial blockers, recovery and supporting checks
+
+| Stage / date | Observed state | Interpretation / next action |
+| --- | --- | --- |
+| Initial review, 6 November | `localhost:8000/health`, `:8081` and `:8082` refused connections; `docker` was unavailable. No app/API/fixture/browser row had run. All five rows were BLOCKED; no app FAIL was asserted. | This was an incomplete local setup, not evidence of five broken app scenarios. DEV-165's earlier 12/12 environment smoke checks were attributed supporting evidence, not DEV-153 executions. |
+| Local runtime recovery, 6 November | Native PostgreSQL 16.15 was available. An isolated cluster/database, locked dependencies, schema `0025`, synthetic seed, real API and both web apps were prepared. A sandboxed `initdb` shared-memory failure was resolved by authorized local initialization. | Missing Docker no longer blocked execution. The five broad rows were then NOT_READY until actually run. |
+| First focused browser launch | Chromium was missing; the browser could not launch before any app assertion. | Browser installation repaired this setup failure; the two focused browser checks subsequently passed. |
+| Supporting-check record, `2026-11-06T07:02:04.636775+00:00` | **107 supporting tests passed**, zero failed, on `2693916`. | These are supporting suites, not 107 broad scenarios and not replacements for I3-CHAT-01–05. |
+| Broad evaluation, `07:35:19.535Z–07:36:56.346Z`, 6 November | Selected corrected records yielded **2 PASS, 2 FAIL and 1 BLOCKED** across five attempted rows. | Preserve the two frozen-row failures and genuine-tab limitation. F-04 was additionally reproduced outside this denominator. |
+| Consolidation, `2026-11-06T08:18:59.367297+00:00` | Local HTML, detailed Markdown and `evaluation.json` summarized the corrected records and retained rejected harness observations. | Documentation of the measured state; no product fix, merge, deployment certification or human review was performed in this baseline stage. |
+
+| Supporting command / scope | Actual result | Evidence boundary |
+| --- | --- | --- |
+| `python -m pytest tests/test_messaging.py tests/test_chat_display.py -q` in `server/` | **75 passed**, 5.17 s | Existing chat/privacy/idempotency/display API tests. |
+| `python -m pytest tests/test_settings_inquiries.py -q` in `server/` | **19 passed**, 1.99 s | Existing order-inquiry/private-attachment API tests. |
+| `node node_modules/typescript/bin/tsc -p scripts/mock-tsconfig.json`, then `node --test scripts/test-chat-dates.mjs scripts/test-chat-order.mjs` | **11 passed**, approximately 2.99 s | Date/order and Mock checks. Compilation is setup, not another test count. |
+| `node scripts/run-integration.mjs scripts/e2e/chat-message-order.spec.ts` with the isolated real API | **2 passed**, 12.5 s | Existing consumer/producer equal-time question/reply reload and forwarded-status checks. |
+| **Supporting total** | **107 passed, 0 failed** | Separate from the five broad rows, 67 selected assertions and F-04's five diagnostic assertions. |
+
+### Execution environment and evidence boundaries
+
+| Field | Baseline execution record |
+| --- | --- |
+| Product revision | App/API source `2693916ba956c771a61c3b07e479a8a47693c45e`; no product-source changes. |
+| Database | Native PostgreSQL **16.15**, isolated loopback port **55453**, `farmclub_dev153`; pytest used `farmclub_dev153_test`; Alembic **0025**. |
+| Application endpoints | Real local API `http://localhost:8000`; consumer `http://localhost:8081`; producer `http://localhost:8082`. |
+| Execution date / fixed business clock | Actual execution **6 November 2026 UTC**; fixed application clock **`2026-10-07T10:00:00+09:00`**. These are different dates for different purposes. |
+| Runtime / browser | Node **24.19.0**, Python **3.12.14**, Playwright **Chromium build 1248**, desktop headless at **390×844**. Build 1248 is not a Chromium version number. Device timezone **America/Los_Angeles** tested KST independence. |
+| Fixtures / providers | Fresh canonical synthetic seed before each case, plus case-specific fixtures; two synthetic consumers and distinct farm conversations. Farm AI OFF during broad scenarios; source worker disabled/not applicable; no paid model calls. |
+| Isolation | No production writes, real payment transfer, real customer data, native Android/iOS execution or production-deployment certification. |
+| Review | Agent execution for Minsun Kim; Hyun Park's matrix review/sign-off was pending. |
+
+**Evidence identity.** The local report is `outputs/dev153-chat-evaluation/index.html` (basename `index.html`), SHA-256 **`5ebf50b6de852dc99e3d384c3fb4c562c77a49c9b66866f45b2a02529ecd6fa4`**. It is a retained local artifact, not a public GitHub URL. Companion `evaluation.json` has SHA-256 `14ef5de85cb3de861a118e54f3dd24bfab6fba856806d34580ae90202306e2d4`; `DEV-153-results.md`, `e7d7c7765e642efe29b3cbaf6aff9d98c4b99a723fcb5789dc532927035cd003`; `supporting-checks.json`, `4c656a460ea09ae1025dcfdc324d7dc3f77af0346a5422e0b333cc858ff23147`. Paths below are evidence references within that retained local package, not claims that the files are published on GitHub. Raw traces/auth headers, private-photo bytes/URLs and order-recipient values are not reproduced here.
+
+### Five-row summary and assertion accounting
+
+| Frozen row | Planned / attempted | Baseline verdict | PASS assertions | FAIL assertions | BLOCKED assertions | Disposition |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| I3-CHAT-01 — first-time entry and farm switching | 1 / 1 | **FAIL** | 10 | 1 | 0 | Correct conversation/selection/order, lost scroll position; DEV-243. |
+| I3-CHAT-02 — midnight ordering, paging and polling | 1 / 1 | **FAIL** | 10 | 1 | 0 | Saved causal order correct; exact frozen timestamp/ID oracle differs; DEV-244. |
+| I3-CHAT-03 — two-consumer privacy and private photos | 1 / 1 | **PASS** | 23 | 0 | 0 | No tested cross-consumer content/ID/photo access. |
+| I3-CHAT-04 — send, upload and fetch recovery | 1 / 1 | **PASS** | 13 | 0 | 0 | Same-key recovery preserves one message/photo/thread. |
+| I3-CHAT-05 — pause, resume and unseen replies | 1 / 1 | **BLOCKED** for genuine tab backgrounding | 8 | 0 | 1 | Controlled lifecycle checks passed; genuine tab transition unverified. |
+| **Frozen total** | **5 / 5** | **2 PASS / 2 FAIL / 1 BLOCKED** | **64** | **2** | **1** | **67 assertions**, including the explicit unverified native-background assertion. |
+
+Attempted includes CHAT-05's partial execution; it does not mean all five rows completed every required assertion. F-04 has a separate **3 PASS / 2 FAIL** diagnostic assertion set. Repeated diagnostic runs and the 107 supporting tests are not added to these totals or the original 77-case workbook.
+
+#### I3-CHAT-01 — First-time entry and farm switching
+
+**Record:** **FAIL**; P0 normal/round-trip case; 10 PASS / 1 FAIL; [DEV-153](https://linear.app/sswp6/issue/DEV-153); follow-up [DEV-243](https://linear.app/sswp6/issue/DEV-243).
+
+**Execution:** Run `20261106T073648766Z`, **2026-11-06 `07:36:50.247Z–07:36:56.346Z`**, on the isolated baseline above.
+
+**Procedure:** Start without a Farm A follow/thread; enter from a product, accept the follow notice, send, add 25 history messages to the first sent message, read history, switch through the private list to an existing Farm B chat, then return to A.
+
+**PASS criterion:** One correct A conversation, one follow, distinct unchanged B history, correct A selection/message order and anchor drift at most **8 CSS px** on return.
+
+**Actual result:** Entry and identity/order checks passed. The anchor `DEV153-C01-HISTORY-12` moved from **+27 px** to **−562 px**, a **−589 px drift**, despite the correct thread. Before navigation, `scrollTop=1220`, `scrollHeight=2440`. A separate diagnostic run reproduced the same drift.
+
+| Assertion | Expected / observed | Status |
+| --- | --- | --- |
+| 01.1 New consumer has no A thread | Zero existing A threads. | PASS |
+| 01.2 Auto-follow notice shown | Notice visible before starting. | PASS |
+| 01.3 Product opens Farm A route | `/chats/f-halla`. | PASS |
+| 01.4 A followed and correct thread | Following true; consumer and farm identities correct. | PASS |
+| 01.5 First A send without AI | HTTP 200; no AI reply. | PASS |
+| 01.6 Existing B opens correct route | `/chats/f-kang`. | PASS |
+| 01.7 B thread stays distinct and unchanged | Existing B thread/history unchanged; different from A. | PASS |
+| 01.8 Return selects A | Returns to A's route. | PASS |
+| 01.9 Same A thread after return | Original A thread identity retained. | PASS |
+| 01.10 Displayed A messages match API order | Latest 20 displayed history markers match the API. | PASS |
+| 01.11 A reading anchor restored | Required absolute drift ≤8 px; actual **−589 px**. | **FAIL** |
+
+**Evidence:** `results/i3-chat-b2-2693916/I3-CHAT-01.md`; `runs/20261106T073648766Z/I3-CHAT-01.json`; repeated `runs/20261106T073804620Z/I3-CHAT-01.json`. Manifest digests identify the exact plan/harness/fixture. Restricted traces and synthetic screenshots remain local.
+
+**Dependency/follow-up:** DEV-243; later fix/retest evidence must name its own SHA. Hyun's review was pending.
+
+#### I3-CHAT-02 — Midnight ordering, paging and polling
+
+**Record:** **FAIL** under the unchanged frozen oracle; P0 boundary; 10 PASS / 1 FAIL; follow-up [DEV-244](https://linear.app/sswp6/issue/DEV-244).
+
+**Execution:** Run `20261106T073442796Z`, **2026-11-06 `07:35:19.535Z–07:35:26.734Z`**.
+
+**Procedure:** Seed five baseline plus 75 boundary messages, including equal/near-equal timestamps across KST midnight and lexical IDs deliberately different from insertion order. Hold an older-page response while three producer replies arrive, then merge all pages/polls and compare consumer/producer views.
+
+**PASS criterion:** More than 50 messages; complete unique IDs; exact frozen `(createdAt, id)` order; correct KST labels; no cursor/poll gaps, duplicates or scroll jump; both roles agree.
+
+**Actual result:** **83 unique messages** survived, both roles matched saved sequence, and the measured older-page anchor drift was **0 px**. Exact KST labels were `2026년 10월 6일` and `2026년 10월 7일` despite the US device timezone. The frozen lexical tie-order assertion failed because the implementation used DEV-235's persisted insertion sequence. No reversed question/reply, duplicate or gap was observed in this scope.
+
+| Assertion | Expected / observed | Status |
+| --- | --- | --- |
+| 02.1 Boundary fixture exceeds 50 messages | 80 before concurrent replies. | PASS |
+| 02.2 Older-page/poll merge retains anchor | Absolute drift ≤8 px; actual **0 px**. | PASS |
+| 02.3 All seeded and concurrent IDs survive | All **83** expected IDs found. | PASS |
+| 02.4 No duplicate IDs across API pages | **83** unique IDs. | PASS |
+| 02.5 DOM matches exact API set/sequence | All 83 rendered in saved API order. | PASS |
+| 02.6 Poll catches producer replies | All three concurrent producer replies present. | PASS |
+| 02.7 Frozen `createdAt+id` order | Lexical tie order differs from saved insertion sequence. | **FAIL** |
+| 02.8 Saved sequence strictly increases | All 83 messages follow increasing saved sequence. | PASS |
+| 02.9 Consumer KST midnight labels | Exact Oct 6 / Oct 7 Korean date labels in America/Los_Angeles. | PASS |
+| 02.10 Producer sees complete same order | Same complete 83-message order. | PASS |
+| 02.11 Producer KST labels agree | Same two date labels as consumer. | PASS |
+
+**Evidence:** `results/i3-chat-b2-2693916/I3-CHAT-02.md`; `runs/20261106T073442796Z/I3-CHAT-02.json`; pinned matrix/protocol above.
+
+**Dependency/follow-up:** DEV-244 requires an explicit product/oracle reconciliation. Do not reorder saved messages lexically to make the old oracle pass. Historical F-05's reversed replies were not reproduced; F-06's date difference was not reproduced at this tested boundary. This is not a claim that every ordering/date edge case or production build is correct.
+
+#### I3-CHAT-03 — Two-consumer privacy and private photos
+
+**Record:** **PASS**; P0 privacy/error case; 23 PASS / 0 FAIL.
+
+**Execution:** Run `20261106T073442796Z`, **2026-11-06 `07:35:26.734Z–07:35:31.759Z`**.
+
+**Procedure:** Consumer A creates a synthetic private message/photo. Consumer B probes A's conversation through path/query/role/cursor/preview/photo and reuse attempts while retaining B's own conversation. Compare authorized owner/farm-producer access and a different approved producer's denial.
+
+**PASS criterion:** No tested A text, exact message/attachment identifiers or photo bytes leak to B or the other farm; authorized participants can read; B's own chat remains functional; private responses are not publicly cached.
+
+**Actual result:** All 23 assertions passed. No private message/photo/recipient values are reproduced in this summary.
+
+| Assertion | Expected / observed | Status |
+| --- | --- | --- |
+| 03.1 A uploads synthetic private photo | HTTP 200. | PASS |
+| 03.2 A saves private message | HTTP 200. | PASS |
+| 03.3 Privacy cursor fixture exists | A's cursor available for the negative probe. | PASS |
+| 03.4 B opens its own same-farm thread | HTTP 200. | PASS |
+| 03.5 B's own response excludes A content/IDs | No tested A text/message/attachment identifiers. | PASS |
+| 03.6 A thread ID substituted into farm path | HTTP 404. | PASS |
+| 03.7 Substituted-path response excludes A content/IDs | No tested A identifiers or text. | PASS |
+| 03.8 A thread/consumer query injection | HTTP 200 for B's own scoped conversation. | PASS |
+| 03.9 Injected-query response excludes A content/IDs | No tested A identifiers or text. | PASS |
+| 03.10 B calls A producer route | HTTP 403. | PASS |
+| 03.11 Producer-route rejection excludes A content/IDs | No tested A identifiers or text. | PASS |
+| 03.12 B uses A's cursor | HTTP 400. | PASS |
+| 03.13 Cursor rejection excludes A content/IDs | No tested A identifiers or text. | PASS |
+| 03.14 B retrieves its previews | HTTP 200. | PASS |
+| 03.15 B previews exclude A content/IDs | No tested A identifiers or text. | PASS |
+| 03.16 Owner and authorized farm producer read photo | Both HTTP 200; identical bytes. | PASS |
+| 03.17 B cannot retrieve A photo bytes | HTTP 404; JSON error, no image bytes. | PASS |
+| 03.18 Other approved producer cannot retrieve photo | HTTP 404. | PASS |
+| 03.19 Authorized photo cache policy | `Cache-Control: private, no-store`. | PASS |
+| 03.20 B cannot reuse A attachment ID | HTTP 404. | PASS |
+| 03.21 B's own chat remains available | Own send/read path remains usable. | PASS |
+| 03.22 B UI excludes A private text/photo | No tested secret marker; zero private photos. | PASS |
+| 03.23 Access-log spot check excludes tested message body | Synthetic marker absent. | PASS |
+
+**Evidence:** `results/i3-chat-b2-2693916/I3-CHAT-03.md`; `runs/20261106T073442796Z/I3-CHAT-03.json`. Authorized bytes were compared within the isolated run; they are not attached here.
+
+**Dependency/follow-up:** Review pending. The single access-log marker check is scoped evidence, not certification of every log, analytics event or untested access surface.
+
+#### I3-CHAT-04 — Send, upload and fetch recovery
+
+**Record:** **PASS**; P0 recovery/idempotency; 13 PASS / 0 FAIL.
+
+**Execution:** Run `20261106T073442796Z`, **2026-11-06 `07:35:31.760Z–07:35:40.657Z`**.
+
+**Procedure:** Inject an upload 503, retry successfully, commit a message but drop its response, retry the identical request, inject one message-fetch 503, then reload/back/logout/relogin and compare producer history.
+
+**PASS criterion:** Visible recoverable errors; draft/photo retained before retry; exact same idempotency key/body on resend; one stored message ID and one displayed bubble; no missing/reordered history; both roles retain the same thread/photo.
+
+**Actual result:** All 13 assertions passed. A failed upload and lost committed response retained the draft. The resend reused the same key/body/attachment IDs without creating another message. Automatic successful fetch cleared the visible error and retained history.
+
+| Assertion | Expected / observed | Status |
+| --- | --- | --- |
+| 04.1 Upload error visible, draft retained | Injected 503 shown; draft unchanged. | PASS |
+| 04.2 Response lost after commit retains input/photo | Draft plus one attachment retained. | PASS |
+| 04.3 Resend reuses identical key/body | Same key, text and attachment IDs; values withheld here. | PASS |
+| 04.4 One saved ID matches committed response | One stored message ID, identical to first committed result. | PASS |
+| 04.5 One bubble after retry | Exactly one displayed bubble. | PASS |
+| 04.6 Fetch failure retains visible message | Already displayed message remains. | PASS |
+| 04.7 Next automatic fetch recovers | Error clears after successful fetch. | PASS |
+| 04.8 Reload retains one bubble | Exactly one. | PASS |
+| 04.9 Back/reopen retains one bubble | Exactly one. | PASS |
+| 04.10 Logout/relogin retains same message/photo | One message, one photo. | PASS |
+| 04.11 Complete message-ID order survives transitions | Same complete six-message order. | PASS |
+| 04.12 Relogin DOM matches API order | All six message bodies in API order. | PASS |
+| 04.13 Producer sees same thread/one same message ID | Thread and committed message agree. | PASS |
+
+**Evidence:** `results/i3-chat-b2-2693916/I3-CHAT-04.md`; `runs/20261106T073442796Z/I3-CHAT-04.json`. Faults were deliberate local interception, not claims of a naturally occurring production outage.
+
+**Dependency/follow-up:** Matrix review pending. This recovery PASS does not settle F-04's separate first-order entry failure or CHAT-01's lost reading position.
+
+#### I3-CHAT-05 — Pause, resume and unseen replies
+
+**Record:** **BLOCKED for genuine tab backgrounding**; P0 lifecycle case; **8 controlled checks PASS / 0 FAIL / 1 BLOCKED**.
+
+**Execution:** Controlled run `20261106T073442796Z`, **2026-11-06 `07:35:40.657Z–07:36:00.559Z`**. Separate genuine-browser attempt `native-20261106T074606097Z`, **`07:46:06.886Z–08:04:20.132Z`**.
+
+**Procedure:** Observe active polling, supply controlled hidden/visible browser signals to the actual React Native AppState handler, keep the screen controlled-hidden while the producer sends 55 replies, restore visibility, and compare all IDs/mode/other-farm isolation. Separately attempt an ordinary Chrome tab switch without visibility overrides.
+
+**PASS criterion:** Active polling resumes; inactive polling stops; every unseen message arrives once in order; HUMAN persists; other farm is isolated. The strict frozen case additionally requires a genuine browser-tab/background transition.
+
+**Actual result:** Controlled `document.hidden`/`visibilityState` accessors plus `visibilitychange` exercised the actual lifecycle code. Polling was approximately **2 seconds** when active and **zero during a measured 4.5-second controlled hidden interval**. All **55** unseen replies arrived; total messages rose from **5 to 60**, all unique, in order; HUMAN persisted. OS minimization/CDP freeze did not establish reliable inactivity in the tool browser. The ordinary Chrome follow-up was interrupted before UI measurement: **zero recorded steps and zero new messages**, so no native assertion passed. Services stopped at the recorded `08:04:20.132Z` end time.
+
+| Assertion | Expected / observed | Status |
+| --- | --- | --- |
+| 05.1 Active polling occurs at approximately 2 seconds | At least two requests in 4.5 s; observed active cadence. | PASS |
+| 05.2 Controlled hidden visibility stops polling | Zero message polls during 4.5 s hidden observation. | PASS |
+| 05.3 Controlled visible restoration resumes polling | Requests resume. | PASS |
+| 05.4 Controlled hidden pause stays inactive while replies are sent | Zero message polls during that pause. | PASS |
+| 05.5 Resume catches unseen messages beyond one page | All 55 producer replies present in order. | PASS |
+| 05.6 No missing/duplicate saved IDs | 5 before, 55 new, 60 after, 60 unique. | PASS |
+| 05.7 Producer replies preserve HUMAN mode | HUMAN before/after. | PASS |
+| 05.8 Replies absent from other farm | No tested reply in other farm thread. | PASS |
+| 05.9 Genuine browser-tab background stops/resumes polling | Follow-up interrupted before measurement; no override-free result. | **BLOCKED** |
+
+**Evidence:** `results/i3-chat-b2-2693916/I3-CHAT-05.md`; `runs/20261106T073442796Z/I3-CHAT-05.json`; `runs/native-20261106T074606097Z/plan.json` and `result.json`.
+
+**Dependency/follow-up:** Executor / matrix reviewer Hyun Park: repeat the actual hidden-tab transition in an interactive browser/device that faithfully exposes hidden visibility. The raw controlled-run summary called its eight checks PASS; the consolidated report correctly kept the full frozen row BLOCKED for the missing genuine transition. No physical device, Android/iOS lifecycle or production background behavior is certified.
+
+### Additional historical reproduction — F-04, outside the five rows
+
+**Record:** **FAIL**; historical P1 first-order chat; five diagnostic assertions, **3 PASS / 2 FAIL**; [DEV-242](https://linear.app/sswp6/issue/DEV-242).
+
+**Execution:** Diagnostic run `20261106T073804620Z`, **2026-11-06 `07:38:11.781Z–07:38:16.734Z`**; isolated owned paid synthetic order with no farm follow/thread.
+
+**Procedure:** Open the order's “Ask the farm” entry, type a draft and attempt to send. Compare the same farm's product-entry notice/start alternative.
+
+**PASS criterion:** The correct authorized conversation initializes, its messages load successfully and the first order-context message can be sent, without requiring a product-path workaround.
+
+**Actual result:** Order entry opened `/chats/f-halla?from=order&fromOrder=o-11`. Message GET returned **404**, “대화를 먼저 시작해 주세요.”; the timeline stayed “대화 불러오는 중…”. A textbox existed and accepted a draft, but **Send remained disabled**. The same farm's product-entry start created a usable conversation and sent successfully (HTTP 200).
+
+| Diagnostic assertion | Expected / observed | Status |
+| --- | --- | --- |
+| F04.1 No pre-existing Halla conversation | No thread before order entry. | PASS |
+| F04.2 Composer textbox exists | Textbox visible and accepts text. This does **not** mean Send is ready. | PASS |
+| F04.3 First order entry loads valid conversation | Expected 200; actual **404**. | **FAIL** |
+| F04.4 First-order message can be submitted | Expected enabled Send; actual **disabled** with draft present. | **FAIL** |
+| F04.5 Same-farm product-entry alternative works | Starts usable conversation; message POST **200**. | PASS |
+
+**Evidence:** `runs/20261106T073804620Z/F04.json`; earlier corrected reproduction `runs/20261106T073442796Z/F04.json` also failed its load/send assertions. No private order-recipient details are copied.
+
+**Dependency/follow-up:** DEV-242; the later nine-task implementation plan and final retests are separate evidence. F-04 is not a sixth frozen row and its five assertions are not part of the 67-row-assertion total. Historical descriptions of F-04/F-05/F-06 derive from the accessible I2 Testing Documentation; the original `PM_Test_Report.html` was unavailable. F-05 reversed replies were not reproduced in the focused equal-time and 83-message checks; F-06 dates were correct at the tested KST midnight. DEV-244's lexical tie-order discrepancy remains separately identified.
+
+### Preflight, rejected harness observations and diagnostic-run ledger
+
+All entries below used product SHA `2693916ba956c771a61c3b07e479a8a47693c45e`. They are not additional planned rows, new unique test totals or replacements for the selected failures. In particular, raw harness FAIL/PASS labels below are retained for diagnosis and are **not consolidated product verdicts**.
+
+| Run / UTC window, 6 November | Raw result / diagnostic observations | Disposition |
+| --- | --- | --- |
+| `20261106T073003026Z`, `07:30:03.028Z–07:30:05.266Z` | All five chat rows and F-04 reported HARNESS_ERROR, **0 PASS / 0 FAIL assertions each**: fixture import `ModuleNotFoundError: app`. | Preflight failed before app assertions; excluded from app verdicts. Correct the fixture Python import path. |
+| `20261106T073024944Z`, started `07:30:24.944Z`; manifest has no completed end time | Raw CHAT-01 **4/1**, CHAT-02 **8/2**, CHAT-03 **21/2**, CHAT-04 **11/0**, CHAT-05 **7/1** PASS/FAIL assertion counts. Notice checked before paint; wrong news/private selection; anchor captured before button auto-scroll; substring `m-1` matched `m-10`; ineffective freeze. F-04 screenshot/404 occurred before a harness promise interruption. | Invalidated affected harness observations; retained evidence. CHAT-04's preliminary PASS is supporting only, superseded by the complete 13-check record; no extra denominator. |
+| `20261106T073442796Z`, `07:34:42.798Z–07:36:04.886Z` | Raw CHAT-01 HARNESS_ERROR after **5/0** (hidden-row selector); CHAT-02 **10/1**, CHAT-03 **23/0**, CHAT-04 **13/0**, CHAT-05 **8/0**; F-04 **2/2**. | Corrected selected evidence for CHAT-02–05. CHAT-01's selector failure is not a product defect. CHAT-05's raw controlled PASS is qualified BLOCKED in the consolidated report. F-04 remains outside five-row counts. |
+| `20261106T073648766Z`, `07:36:48.768Z–07:36:56.368Z` | First complete CHAT-01: **10/1**, anchor **−589 px**. | Selected baseline CHAT-01 failure. |
+| `20261106T073804620Z`, `07:38:04.622Z–07:38:16.752Z` | CHAT-01 **10/1**, same **−589 px** drift; F-04 **3/2**, including successful product-entry comparison. | Diagnostic confirmations outside the frozen denominator; do not replace the first complete failure or increase planned counts. |
+| `native-20261106T074606097Z`, `07:46:06.886Z–08:04:20.132Z` | Ordinary Chrome/CUA tab-switch plan; **0 recorded steps / 0 new messages**. | Interrupted before UI measurement; genuine background assertion stays BLOCKED. |
+
+Selected run manifests record the exact harness/fixture/plan versions. CHAT-02–05 run `20261106T073442796Z` has plan SHA-256 `16eae3d20a3469858e5027126e67f7a82bd10c25fd7256ea64579de44987ed72`, harness `0570369447e8a2fee55ba052de7f7d5a5ff02461fb19e8d4440644eb3fb7f2be`, fixture `71d6be570ec1f381feca361cd4b4b705f92fafa0281d9543f4216a8cc1b02031`. Selected CHAT-01 run `20261106T073648766Z` uses the same plan/fixture digests and harness `ea4127fd3d51ca4eed7edb282fcdfc01a73d21408b4c28afcb74ca0510dbf0f5`. Diagnostic run `20261106T073804620Z` uses that same plan/fixture and harness `a59bf0033e6eca1d0e7611b405bfc7069ea635d48d580b223ea13e26ad0042d8`.
+
+**Open boundary:** The baseline identifies two reproducible app defects and one separate ordering-oracle discrepancy. Human matrix sign-off and genuine tab-background measurement were pending. Later successful fix tests must be recorded against their own revisions; they do not retroactively make CHAT-01, CHAT-02 or F-04 PASS on `2693916`.
+
+### Plan — two defects and nine implementation tasks
+
+The implementation addresses the two observed DEV-153 defects: first paid-order chat entry without an existing follow/thread (DEV-242), and loss of a private conversation's historical reading position after navigation (DEV-243). The plan was split into nine implementation and closure tasks. The saved task records were prepared before source changes and updated during execution. The original defect observations and the DEV-244 ordering-oracle question remain separate evidence sets.
+
+| Task / dependency | Implementation and verification boundary | Checkpoint evidence |
+| --- | --- | --- |
+| [DEV-245](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/server/tasks/DEV-245.md) | Persist a unique thread/order association; validate ownership, farm approval and paid eligibility from current order data. Preserve legacy inquiry access without a data backfill. | Targeted server group: 10 passed, task-reported. Full server after isolated DB timezone correction: 1,585 passed / 1 skipped; Alembic no drift. |
+| [DEV-246](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/server/tasks/DEV-246.md), after DEV-245 | Authorize before idempotent replay; atomically create/reuse one thread and context; revalidate start/send/read access, including revocation and concurrent general/order starts. Paid entry must not auto-follow or create a fake inquiry/AI/mode transition. | API/permission/concurrency group: 114 passed. Full server: 1,600 passed / 1 skipped; Alembic no drift. |
+| [DEV-247](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/packages/api/tasks/DEV-247.md), after DEV-246 | Carry optional order context through the shared client and enforce matching Mock authorization, list/history, private-resource, reset and replay behavior. Preserve general-start compatibility. | New client/Mock contract group: 11 passed, task-reported; full Mock: 198 passed / 1 skipped; five workspace type checks. |
+| [DEV-248](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/apps/consumer/tasks/DEV-248.md), after DEV-247 | Bootstrap both order-detail entry controls before reading; retain correct Back targets; handle retry and legacy URLs; require explicit selection where multiple paid contexts exist; isolate draft/photo send context. | Entry helper group: 6 passed, task-reported; full Mock: 204 passed / 1 skipped; five workspace type checks; real-stack entry: 9/9 passed after launch, locator and fixture corrections. |
+| [DEV-249](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-249.md), after DEV-248 | Verify whole first-order journeys, re-entry/relogin, deliberate order selection, text/photo response-loss retry, cross-user/cursor/attachment denial and delayed old-route responses. | Five closure cases passed in both the 28-case integrated run and final 57-case run. Discovery/static checks are listed separately below. |
+| [DEV-250](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/packages/ui/tasks/DEV-250.md), independent of the order-entry chain | Store bounded in-memory identity/geometry metadata with session generation and visit leases; never persist message bodies, private image URLs or tokens. | Initial metadata group: 13 passed, task-reported; full Mock: 187 passed / 1 skipped; five workspace type checks. |
+| [DEV-251](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/packages/ui/tasks/DEV-251.md), after DEV-250 and DEV-248 releases the shared component | Restore exact message anchors and the saved history window through pagination and delayed layout; suppress premature reads; allow actual user interruption; handle removed anchors, empty history and cursor retry/non-progress. | Expanded state/geometry group: 24 passed, task-reported. Real browser coverage includes both widths, 120-message history, delayed private photo, reads/unseen, fallback/retry and empty-history S08. |
+| [DEV-252](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/apps/consumer/tasks/DEV-252.md), after DEV-251 and the DEV-248 route checkpoint | Obtain fresh authorization before applying metadata; isolate account/session/visit responses; clear protected content on terminal denial; invalidate equal-token new logins; guard direct private image/upload auth paths. | Initial session controller: 12 passed; final focused auth/session group: 30 passed (17 client + 13 session), task-reported. Six real-browser response-race/auth/gesture cases passed, plus same-runtime relogin/account-switch and farm-revocation checks. |
+| [DEV-253](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-253.md), after integrated implementation | Measure the original anchor precisely, exercise missing/error/session boundaries, rerun affected prior regressions and publish actual fixed-source evidence. | First integrated run: 28/28 passed; final expanded run: 57/57 browser cases plus seven real API scenario groups. Review, merge and deployment remain separate gates. |
+
+The checkpoint environment is recorded in the revision table above. Exact working-tree revisions are not retrospectively inferred from later commits.
+
+### Results — revision and denominator rules
+
+The canonical local execution is **`4c57556a1f4286eb5108e5552be5621c52bcc225`: seven real API scenario groups and 57 browser cases passed**, with 0 failed, skipped or flaky browser cases, in 2.8 minutes. The 57 comprise **14 new paid-order cases, nine restoration cases, six session/isolation cases and 28 affected prior regressions**. Each of the two baseline-geometry viewport cases contains five A/B/A round trips: ten measurements returned from +27 px to +27 px, all drift 0. Those ten measurements are not ten additional test cases.
+
+Supporting gates are reported at the revision where executed. The last full server run passed 1,600 / 1 skipped with no Alembic drift; server source was unchanged by the final E2E-only fixture corrections. The final original Mock and five-workspace type checks ran at `ed520660`, before the final browser corrections. Focused unit groups are subsets of the full Mock suite and are not added to its total. Discovery, type checks, lint, exports, migration checks and automated review are separate gates, not app behavior passes.
+
+`4c57556` → `6681058` contains evidence/task documentation updates only. This statement must **not** be extended to corrected CI head `8b82e7f363694542596ba4c4acba15b7be4fcdd0`: the later `0e22e27` main merge also introduced accepted demo/legal/journey changes, followed by demo-test and spec-checker corrections. The chat implementation paths remain unchanged, but local 57-case evidence belongs to `4c57556`; exact-head CI belongs to `8b82e7f`.
+
+### Results — retained attempt ledger
+
+The audit found **43 retained non-database `.log` files**, all listed below. Log modification times are not presented as execution start times. A working-tree SHA or exact selected command is left unknown when it was not saved. Successive runs are attempts of overlapping suites, not independent coverage totals.
+
+| Stage / retained log | Executed gate and actual result | Classification, correction and later proof |
+| --- | --- | --- |
+| `step-245-server.log` | `make test-server`: 1,583 passed / 2 failed / 1 skipped, 117.64 s. | **Environment failure.** The newly initialized native DB used Asia/Seoul; two existing account timestamp assertions failed. Set only the isolated DB timezone to UTC; no account product/test changes. |
+| `step-245-server-utc.log` | Same full server gate: 1,585 passed / 1 skipped, 116.77 s; Alembic no new upgrade operations. | Corrected environment passed. |
+| `step-250-typecheck.log` | `npm run typecheck`: five workspace checks reported passed. | Initial metadata-store checkpoint; not a runtime test count. |
+| `step-250-mock.log` | `npm run test:mock`: 187 passed / 0 failed / 1 skipped, 188 total. | Initial metadata-store full-suite pass. |
+| `step-246-targeted.log` | Selected server API/permission/concurrency group: 114 passed, 6.93 s. | Exact test-selection arguments and working-tree SHA not retained; do not reconstruct them. |
+| `step-246-server.log` | `make test-server`: 1,600 passed / 1 skipped, 116.18 s; Alembic no drift. | Atomic paid-context and authorization implementation passed. |
+| `step-247-mock.log` | Full Mock: 189 passed / 9 failed / 1 skipped, 199 total. | **Mixed environment/test setup/oracle errors:** four loopback listener `EPERM` failures; four new public-client tests missing Node browser-storage auth shim; one old Mock 404 assertion where accepted server contract is 403 without order context. |
+| `step-247-typecheck.log` | Five workspace type checks reported passed. | Before final Mock test-harness correction. |
+| `step-247-mock-permitted.log` | Full Mock with loopback allowed: 193 passed / 5 failed / 1 skipped, 199 total. | Listener failures resolved; four auth-shim and one 403/404 oracle failures remained. |
+| `step-247-typecheck-final.log` | Five workspace type checks reported passed. | Corrected checkpoint. |
+| `step-247-mock-final.log` | Full Mock: 198 passed / 0 failed / 1 skipped, 199 total. | Added test-only storage shim; strengthened existing assertion to 403/FORBIDDEN/no write. Permission checks were retained. |
+| `step-248-typecheck.log` | Five workspace type checks reported passed. | Entry implementation checkpoint. |
+| `step-248-browser.log` | Then-five-case entry suite: 5 failed at browser launch; **0 app journeys executed**. | **Environment failure:** pinned headless Chromium build 1248 absent. This is not evidence of five app defects, or nine failed cases. |
+| `step-248-mock.log` | Full Mock: 204 passed / 0 failed / 1 skipped, 205 total. | Includes six entry helper unit cases. |
+| `browser-install.log` | Task-local Chromium 156.0.8078.4/build 1248, headless shell and FFmpeg 1013 installed. | Environment setup only, not a passed app test. |
+| `step-248-browser-ready.log` | Nine cases planned; first 390 px locator failed; process interrupted without suite summary. | **Locator error/incomplete attempt:** actual accessible label includes ` ›`. At least one failure is known; complete pass/fail totals are unknown. Corrected visible-control name matcher. |
+| `step-248-browser-v2.log` | Entry: 3 passed / 6 failed, nine total, 12.0 s. | **Fixture error:** six later cases failed guarded fixture initialization with SQLAlchemy missing model registration before app assertions. Explicit model imports corrected the standalone fixture. |
+| `step-248-browser-v3.log` | Entry: 9 passed / 0 failed, 25.3 s. | First complete entry-suite pass after environment/fixture corrections. |
+| `step-253-discovery.log` | Ten tests discovered in two files. | Initial five restoration instances + five closure cases; **discovery only**. |
+| `integrated-mock-v1.log` | Full Mock: 224 passed / 4 failed / 1 skipped, 229 total. | **Environment failure:** four temporary local HTTP listeners denied by sandbox. |
+| `integrated-typecheck-v1.log` | Five workspace type checks reported passed. | Integrated checkpoint. |
+| `integrated-mock-v2.log` | Full Mock: 228 passed / 0 failed / 1 skipped, 229 total. | Permitted-loopback rerun passed. |
+| `integrated-lint.log` | `make lint`: environment exit 2 before checks. | **Environment failure:** uv cache/lock permissions outside writable area. Moved cache use to permitted task-local location. |
+| `integrated-lint-v2.log` | `make lint`: Ruff “All checks passed!” | Environment-corrected lint pass. |
+| `integrated-server-final.log` | Full server: 1,600 passed / 1 skipped, 122.65 s; Alembic no drift. | Last full local server run; one skip reason is not printed and remains unreported. |
+| `step-253-browser-v1.log` | Restoration: 5 passed / 3 failed, eight total, 1.2 min. | **Pagination test-oracle errors:** S02/S04/S06 assumed 50-item pages but real API default is 20. Bounded exact-ID loading corrected the tests; removed-anchor fixture also targets the actual first visible anchor. No pagination product change. |
+| `integrated-typecheck-v2.log` | Five workspace type checks reported passed. | After final auth/client integration. |
+| `integrated-mock-v3.log` | Full Mock: 245 passed / 0 failed / 1 skipped, 246 total. | Includes 17 additional direct-client auth tests. |
+| `integrated-browser-v1.log` | 28 browser cases passed, 1.9 min: 14 order + eight restoration + six session. | First combined browser pass. No seven-API scenario output in this log; do not claim API7 here. Empty-history S08 was added afterwards. |
+| `final-mock-ed520660.log` | At `ed520660`: 245 passed / 0 failed / 1 skipped, 246 total. | Final original chat-fix Mock gate before E2E-only corrections. |
+| `final-types-ed520660.log` | At `ed520660`: five workspace type checks reported passed. | Original chat implementation type gate. |
+| `final-real-stack-ed520660.log` | At `ed520660`: seven API groups passed; browser 54 passed / 3 failed, 57 total, 3.2 min. All 29 new defect cases passed. | Three prior-case failures: mismatched farm/order legacy fixture; harvest-navigation substring oracle; observed existing toast replacement race. Corrections below retain authorization/network/state assertions. |
+| `final-lint.log` | Ruff “All checks passed!” | Final lint gate. |
+| `final-real-stack-v2.log` | At `5ff8ba9`: seven API groups passed; browser 56 passed / 1 failed, 57 total, 3.1 min. | **Test-oracle error:** new harvest navigation assertion omitted valid already-started label. Added the accepted variant without permitting direct mutation. |
+| `final-e2e-types.log` | Standalone E2E type check failed with TS5107. | **Check invocation error:** deprecated `moduleResolution=node10` under TypeScript 6; switched to ESNext/bundler resolution. Exact initial CLI not retained. |
+| `final-real-stack-4c57556.log` | At `4c57556`: seven API groups and 57 browser cases passed; 0 failed/skipped/flaky browser cases, 2.8 min. | **Canonical final local result.** |
+| `final-e2e-types-v2.log` | No-emit ESNext/bundler E2E check reported exit 0 in task/evaluation record. | Saved log is empty, which alone cannot prove exit status; report as task-record-supported success. Exact complete CLI not retained. |
+| `ci-fix-types.log` | On `0e22e27` plus test fix: five workspace type checks reported passed. | Later merged-head compatibility verification; separate from original `4c57556` run. |
+| `ci-fix-mock.log` | Full Mock: 243 passed / 4 failed / 1 skipped, 248 total. | **Environment failure:** four local listener `EPERM` failures; no source changes before rerun. |
+| `ci-fix-mock-loopback.log` | Full Mock with loopback: 247 passed / 0 failed / 1 skipped, 248 total, 38.9 s. | Later merged-head full Mock pass. Optional DEV-134 stitch skipped explicitly because FFmpeg was unavailable in this command environment. |
+| `ci-fix-consumer-export.log` | Consumer Expo web export succeeded to `dist`. | Build/export gate, not browser behavior coverage. Exact original CLI not printed. |
+| `ci-fix-checker-contracts.log` | 60 checker contract tests passed, 6.052 s. | Printed SKIPPED/INCOMPLETE and usage-warning fixture outputs are intentional unit-test fixtures, not a failed live review. |
+| `ci-fix-producer-export.log` | Producer Expo web export succeeded to `dist`. | Build/export gate, not browser behavior coverage. Exact original CLI not printed. |
+
+### Results — focused checks and attempts without standalone retained logs
+
+The task records below are the primary retained evidence for these checks. They supplement the ledger without being added to the full-suite denominator.
+
+| Recorded check / attempt | Actual result and evidence limit |
+| --- | --- |
+| DEV-245 focused server selection | 10 passed ([task record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/server/tasks/DEV-245.md)); exact selected command, output log and working-tree SHA not saved. |
+| DEV-250 `node --test scripts/test-chat-view-state.mjs` | Initial 13 passed ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/packages/ui/tasks/DEV-250.md)). An intermediate 23/23 helper result was reported in the agent conversation; final expanded 24/24 is retained in [DEV-251](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/packages/ui/tasks/DEV-251.md). These are stages of the same suite. |
+| DEV-247 new public-client/Mock contract | 11 passed ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/packages/api/tasks/DEV-247.md)); included in full Mock 198. |
+| DEV-248 entry helper suite | Six passed ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/apps/consumer/tasks/DEV-248.md)); included in full Mock 204. |
+| DEV-249 closure discovery | `npm run test:e2e -- scripts/e2e/order-chat-closure.spec.ts --list`: first four, then five cases discovered after C05; no execution ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-249.md)). |
+| DEV-249 standalone E2E types | First direct invocation omitted Node type selection and failed on Node names. Repeated with `--types node`: exit 0; no dependency/product change ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-249.md)). |
+| DEV-249 whitespace check | `git diff --check -- docs/evaluation/tasks/DEV-249.md`: exit 0; static check only ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-249.md)). |
+| DEV-252 initial session controller | First Node run failed on unsupported TypeScript parameter-property syntax in strip-only mode; explicit field initialization corrected it. Repeated `node --test scripts/test-chat-session.mjs`: 12 passed / 0 failed; consumer type check exit 0 ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/apps/consumer/tasks/DEV-252.md)). Initial failure total not retained. |
+| DEV-252 client-auth expansion | Initial `npx` call unavailable; an attempt against old compiled client reproduced eight existing auth failures, but complete totals were not saved. Direct local TypeScript compile exited 0; `node --test scripts/test-chat-client-auth.mjs scripts/test-chat-session.mjs`: 30 passed / 0 failed (17 client + 13 session); consumer type check exit 0 ([record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/packages/api/tasks/DEV-252.md)). Do not label old-artifact output as a failure of newly compiled source. |
+| DEV-253 session-isolation author checks | Six cases discovered with `--list`, repeated after correcting the 20-message assumption; standalone NodeNext/Node-types check exited 0. Conversation evidence only; no separate log. Browser execution was performed centrally, not by the author. |
+| Final integration-map check | `node scripts/ci/classify.mjs --check` reported passed in final task/evaluation records; no separate retained output log. |
+| Later DEV-134 compatibility fix | At merged `0e22e27`, GitHub apps job `127901012766` had 245 passed / 1 failed / 1 skipped: old warning test assumed live `p5` absent, but accepted DEV-181 adds `p5/c4`. A fixed `mini` fixture retains exact warning validation; a separate live-I3 check verifies p5/c4 accepted without warning. `node --test scripts/test-demo-site.mjs`: nine passed / 0 failed / 0 skipped, recorded in [DEV-253](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-253.md). Product/demo source was unchanged by this test correction. |
+
+The complete saved DEV-249 standalone command was:
+
+```sh
+node node_modules/typescript/bin/tsc --noEmit --ignoreConfig --target ES2022 --module NodeNext --moduleResolution NodeNext --esModuleInterop --skipLibCheck --types node scripts/e2e/chat-regression.ts scripts/e2e/order-chat-closure.spec.ts
+```
+
+### Failure investigation and retained assertions
+
+| Finding | Diagnosis / action | Evidence of resolution or remaining limitation |
+| --- | --- | --- |
+| Polling cleared a failed-send retry; repeated same-offset scroll acknowledgement released restoration lock. | Read-only review found real implementation races. Preserve pending-send error across successful/transient polls and ignore duplicate same-offset acknowledgement. | Updated DEV-251 implementation; C03 waits for two successful polls before retry; final integrated cases passed. |
+| Direct private photo/upload calls did not consistently invalidate auth state or reject old-session completions. | Added client auth notification/serial guards and session-scoped response handling. | Focused 30-case auth/session suite and real 401/WRONG_APP/race cases passed. |
+| All previously saved history was legitimately removed. | Found after the 28-case pass; use bottom behavior for a fresh empty head rather than applying stale historical metadata. | Added empty-history S08; passed in all expanded 57-case attempts, including final committed run. |
+| DEV-224 legacy fixture used `/chats/f-kang?fromOrder=o-11` although the order belongs to Halla. | Correct authorization returned 404. Use Halla in the fixture and require ready composer before the same order Back assertion. | Final wider run passed; 404 denial behavior and console monitor were retained. |
+| Harvest test used a substring absence assertion. | Required DEV-231 stage navigation contains the same words; it is distinct from a direct harvest mutation. Assert exact forbidden mutation-control absence, visible valid stage navigation, and no mutation POST. | Accepted both original/already-started labels; final wider run passed. |
+| First news toast hide timer cleared the second deletion notification. | Trace established an existing producer notification replacement race; product source was unchanged. Isolate the independent second action by observing the first toast appear and disappear before deleting. | Exact second toast, DELETE and bubble assertions retained. **Underlying product race remains DEV-257; no fix is claimed.** |
+
+### Results — complete final API and browser register
+
+**Record:** PASS for the executed affected regression at `4c57556a1f4286eb5108e5552be5621c52bcc225`: **7/7 real API scenarios and 57/57 browser cases**, 0 failed, 0 skipped and 0 flaky browser cases; one browser worker, 2.8 minutes. This is a later fix run, not a replacement execution of all five original DEV-152 rows. In particular, it does not close DEV-244's frozen ordering decision or the genuine-background part of I3-CHAT-05.
+
+**Execution:** Isolated real API/PostgreSQL plus consumer and producer web apps. Private-photo requests and authorization denials use controlled synthetic fixtures; lost responses are injected after the actual API commit where stated. External AI keys were unset for this final regression. The 57 cases consist of **29 new defect cases** (9 entry, 5 order closure, 9 restoration and 6 session/race) and **28 affected existing cases**. The two S01 viewport cases contain ten round trips; those ten measurements are not ten additional browser cases.
+
+**Procedure and PASS criterion:** Run the actual route, API, paging, layout, send/retry, privacy and navigation assertions in the pinned scripts. All listed expectations must hold. Each table entry below is an executed parameterized case from the final log, not just Playwright discovery. The final API group names and browser titles are retained so every case in the reported 7 + 57 run can be traced to source.
+
+#### Real API scenarios — all seven passed
+
+| No. | Executed scenario | Source |
+| --- | --- | --- |
+| 1 | AC-01-3/6: health, account separation, wrong-app access, and producer gates | [API runner](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/test-integration.mjs) |
+| 2 | AC-03-4/04-8/07-5: product detail, capacity request, and approval | [API runner](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/test-integration.mjs) |
+| 3 | AC-05-6/09-6: payment, exact release, pause, and paid snapshots | [API runner](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/test-integration.mjs) |
+| 4 | AC-10-6: producer fulfillment and consumer order visibility | [API runner](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/test-integration.mjs) |
+| 5 | AC-12-10/15-6: news privacy, reactions, and private replies | [API runner](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/test-integration.mjs) |
+| 6 | AC-13-1/2: chat auto-follow, factual AI, and sensitive handoff | [API runner](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/test-integration.mjs) |
+| 7 | AC-02-4: farm detail draft remains private until explicit save | [API runner](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/test-integration.mjs) |
+
+#### Browser cases — all 57 passed
+
+| Run entry | Executed title / expected behavior | Pinned test source |
+| --- | --- | --- |
+| 1 | DEV-224 HE-01: a room opened from a product goes back to it, and the chat tab opens the list | [back-rules.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/back-rules.spec.ts#L25) |
+| 2 | DEV-224 a1: rooms opened from farm info and order detail go back there | [back-rules.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/back-rules.spec.ts#L44) |
+| 3 | DEV-224 HE-X3: after order done → home, the orders tab opens the order list | [back-rules.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/back-rules.spec.ts#L61) |
+| 4 | DEV-224 c1: consumer screens opened directly go back to their parent | [back-rules.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/back-rules.spec.ts#L83) |
+| 5 | DEV-224 c1: producer product sub-screens opened directly go back to the product list | [back-rules.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/back-rules.spec.ts#L105) |
+| 6 | DEV-224 d1: a link to a farm that does not exist shows the not-found screen | [back-rules.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/back-rules.spec.ts#L120) |
+| 7 | AC-12-1 DEV-235: equal-time question and rule answer keep DOM order after reload and in producer view | [chat-message-order.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-message-order.spec.ts#L73) |
+| 8 | AC-13-2/4 DEV-213: handoff shows forwarded notice without a new basis, ordinary answers keep evidence | [chat-message-order.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-message-order.spec.ts#L93) |
+| 9 | AC-12-1/8/9 DEV-253 R01: delayed older response from the previous A visit cannot affect B or a new A visit | [chat-session-isolation.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-session-isolation.spec.ts#L85) |
+| 10 | AC-12-1/8/9 DEV-253 R02 older restore 401 expiry: injected auth rejection clears protected UI and same-SPA relogin starts clean | [chat-session-isolation.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-session-isolation.spec.ts#L136) |
+| 11 | AC-12-1/8/9 DEV-253 R02 older restore 403 WRONG_APP: injected auth rejection clears protected UI and same-SPA relogin starts clean | [chat-session-isolation.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-session-isolation.spec.ts#L136) |
+| 12 | AC-12-1/8/9 DEV-253 R02 private photo 401 expiry: injected auth rejection clears protected UI and same-SPA relogin starts clean | [chat-session-isolation.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-session-isolation.spec.ts#L136) |
+| 13 | AC-12-1/8/9 DEV-253 R02 private photo 403 WRONG_APP: injected auth rejection clears protected UI and same-SPA relogin starts clean | [chat-session-isolation.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-session-isolation.spec.ts#L136) |
+| 14 | AC-12-8/9 DEV-253 R03: real wheel input interrupts an older-window restore and the late response does not snap back | [chat-session-isolation.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-session-isolation.spec.ts#L180) |
+| 15 | AC-12-8/9 DEV-253 S01 390px: original 26-message A/B/A anchor drift stays within 8px for five trips | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L86) |
+| 16 | AC-12-8/9 DEV-253 S01 360px: original 26-message A/B/A anchor drift stays within 8px for five trips | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L86) |
+| 17 | AC-12-8/9 DEV-253 S02: 120-message window restores older anchor, preserves sequence and continues paging | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L113) |
+| 18 | AC-12-8/9 DEV-253 S03: delayed photo and incoming messages preserve history until explicit latest/read | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L135) |
+| 19 | AC-12-8/9 DEV-253 S04: missing saved anchor uses surviving neighbor and transient restore load retries | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L174) |
+| 20 | AC-12-8/9 DEV-253 S05: same-user relogin and second user discard snapshots without page reload | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L216) |
+| 21 | AC-12-8/9 DEV-253 S06: cursor nonprogress is visible and recoverable without losing loaded history | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L237) |
+| 22 | AC-12-8/9 DEV-253 S07: farm approval loss clears protected history and discarded position cannot return | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L263) |
+| 23 | AC-12-8/9 DEV-253 S08: deleted historical window becomes a valid empty bottom position | [chat-view-restoration.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/chat-view-restoration.spec.ts#L277) |
+| 24 | AC-34-7: a consumer asks the farmclub team from the 1:1 list and sees the reply | [consumer-support.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/consumer-support.spec.ts#L17) |
+| 25 | AC-06-6/07-6/12-12 N-02: carousels, direct room, shelf and fixed purchase at 360px | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L12) |
+| 26 | AC-06-6/07-6/12-12 N-02: carousels, direct room, shelf and fixed purchase at 390px | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L12) |
+| 27 | AC-06-6/07-6/12-12 N-02: carousels, direct room, shelf and fixed purchase at 430px | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L12) |
+| 28 | AC-12-12: consumer sends in the same room and folding preserves draft | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L85) |
+| 29 | FEAT-13 AC-13-5: consumer reports an AI answer and both sides see the server marker | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L104) |
+| 30 | AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collapsed room | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L140) |
+| 31 | AC-12-13: producer confirms follower count and preview before sending news | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L212) |
+| 32 | AC-12-14/16: producer deletes own news, or deletes and rewrites it | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L257) |
+| 33 | AC-12-14: an open consumer room drops news the farm deleted | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L327) |
+| 34 | AC-07-6 N-02: long farm names and full-ratio story image retain fixed controls | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L357) |
+| 35 | DEV-208 AC-13-9: direct-mode room shows who answers and a forwarded status under the question | [conversation-ui.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/conversation-ui.spec.ts#L406) |
+| 36 | AC-34-2 AC-34-3: the farmclub room carries a producer inquiry to the operator and back | [farmclub-support.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/farmclub-support.spec.ts#L17) |
+| 37 | AC-34-4: consumers never see a producer's farmclub room | [farmclub-support.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/farmclub-support.spec.ts#L59) |
+| 38 | AC-33-2 DEV-249 C01: paid chat survives back, private-list re-entry, reload and relogin without follow | [order-chat-closure.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-closure.spec.ts#L18) |
+| 39 | AC-33-2 DEV-249 C02: private-list re-entry with two paid contexts requires explicit selection at 360px | [order-chat-closure.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-closure.spec.ts#L65) |
+| 40 | AC-33-2/4 DEV-249 C03: lost text-and-photo send response retains one attachment and retries the exact body once | [order-chat-closure.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-closure.spec.ts#L105) |
+| 41 | AC-12-1/AC-33-2 DEV-249 C04: two-consumer API/cursor/photo and other-farm producer denials leave state unchanged | [order-chat-closure.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-closure.spec.ts#L161) |
+| 42 | AC-33-2 DEV-249 C05: a delayed first-order page cannot overwrite the next order after visible back/list navigation | [order-chat-closure.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-closure.spec.ts#L242) |
+| 43 | AC-33-2 DEV-248: first paid-order inline entry initializes and sends without following at 390px | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L54) |
+| 44 | AC-33-2 DEV-248: first paid-order inline entry initializes and sends without following at 360px | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L54) |
+| 45 | AC-33-2 DEV-248: paid cancellation/refund-pending bottom-bar entry retains no-follow eligibility | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L93) |
+| 46 | M-04 DEV-248: unpaid deposit-reported entry uses general follow chat | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L107) |
+| 47 | AC-33-2 DEV-248: lost start/send responses retry the same keys and persist once | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L126) |
+| 48 | AC-33-2 DEV-248: legacy order link initializes the same authorized context | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L174) |
+| 49 | AC-33-4 DEV-248: first order photo-only message binds to the selected order | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L187) |
+| 50 | AC-33-2 DEV-248: multiple order selection retains text and clears prior-order photos | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L212) |
+| 51 | AC-12-1 DEV-248: a foreign order fails visibly without polling or creating a conversation | [order-chat-entry.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/order-chat-entry.spec.ts#L246) |
+| 52 | AC-03/04/05: producer draft and sales controls are wired to the real server | [producer-and-privacy.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/producer-and-privacy.spec.ts#L5) |
+| 53 | AC-12/15: public room does not auto-follow and private state clears with session | [producer-and-privacy.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/producer-and-privacy.spec.ts#L35) |
+| 54 | AC-02-4: farm storytelling editor loads without publishing a draft | [producer-and-privacy.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/producer-and-privacy.spec.ts#L58) |
+| 55 | DEV-232: producer 1:1 header keeps the masked consumer name on direct link and reload | [producer-chat-header.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/producer-chat-header.spec.ts#L5) |
+| 56 | DEV-209 AC-34-9: suspended farm contacts the farmclub team from the suspension screen | [producer-support-contact.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/producer-support-contact.spec.ts#L6) |
+| 57 | DEV-209 AC-34-9: rejected farm keeps reapply as the main action and can ask the team | [producer-support-contact.spec.ts](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/4c57556a1f4286eb5108e5552be5621c52bcc225/scripts/e2e/producer-support-contact.spec.ts#L33) |
+
+#### Reading-position measurements — exact original reproduction
+
+**Procedure:** Create the documented 26-message Halla history with AI OFF, finish the initial bottom scroll, place `DEV153-C01-HISTORY-12` at the recorded offset, navigate through the visible private-chat list to Kang and return to Halla. Measure the same exact message ID against the same timeline rectangle. Repeat five times at each viewport. **PASS criterion:** absolute drift ≤8 CSS px on every trip. Baseline `2693916` was +27→−562 px, drift −589 px; final values are below. Positive offsets are below the timeline top.
+
+| Viewport | Trip | Exact synthetic message ID | Before (CSS px) | After (CSS px) | Drift | Result |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| 390×844 | 1 | `m-19122ec16c` | +27 | +27 | 0 | PASS |
+| 390×844 | 2 | `m-19122ec16c` | +27 | +27 | 0 | PASS |
+| 390×844 | 3 | `m-19122ec16c` | +27 | +27 | 0 | PASS |
+| 390×844 | 4 | `m-19122ec16c` | +27 | +27 | 0 | PASS |
+| 390×844 | 5 | `m-19122ec16c` | +27 | +27 | 0 | PASS |
+| 360×844 | 1 | `m-0e891f2bad` | +27 | +27 | 0 | PASS |
+| 360×844 | 2 | `m-0e891f2bad` | +27 | +27 | 0 | PASS |
+| 360×844 | 3 | `m-0e891f2bad` | +27 | +27 | 0 | PASS |
+| 360×844 | 4 | `m-0e891f2bad` | +27 | +27 | 0 | PASS |
+| 360×844 | 5 | `m-0e891f2bad` | +27 | +27 | 0 | PASS |
+
+The 120-message case separately restored a window older than the newest API page, retained every message ID in saved sequence and continued pagination. Delayed private-photo layout and incoming messages did not move a historical reader to latest or advance unseen read state prematurely. Choosing latest resumed normal read progression. Missing anchors, removed history, non-progress cursors, failed loads, intentional wheel input, late route responses, equal-token relogin, second-user sessions and authorization loss were exercised by the individual cases above. None of these desktop browser observations establishes native Android/iOS background behavior.
+
+### Results — CI failures, corrections and automated specification review
+
+#### Scope and provenance
+
+Minsun Kim coordinated the CI follow-up for [PR #482](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482). The records below distinguish application checks, offline checker tests and the live specification review. They supplement the dated DEV-242/DEV-243 local regression; they do not change the original workbook, frozen chat-matrix verdicts or earlier coverage denominators. Repeated executions are not added together as unique test cases.
+
+The final CI snapshot was verified at **6 November 2026, 13:16 UTC (22:16 KST)** against head **`8b82e7f363694542596ba4c4acba15b7be4fcdd0`**. The application/test correction and the checker correction are separate commits, `009ec2a` and `8b82e7f`.
+
+#### Results and failure chronology
+
+| Stage / reviewed head | Application CI | Automated specification review | Interpretation and action |
+| --- | --- | --- | --- |
+| Initial handoff, `6681058c6860ab2cda3e4f14babcce99f767284c` | [Run 42216984982](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42216984982): apps, server, all three integration jobs and aggregate `ci-ok` succeeded. Admin web was skipped by the existing filter. | [Run 42216989016](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42216989016): **INCOMPLETE**, “Model response is not valid review JSON,” **57.6 s**, zero findings and no reviewed files. Its report was downloaded and read. | Application checks succeeded; the model check did not produce a valid review. Zero findings in this error report meant neither a product mismatch nor a review pass. |
+| Main merged again, `0e22e272d419ed840de58af150c6240f6c36b0f4` | [Run 42220461895](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42220461895): apps failed during the Mock suite, **245 PASS / 1 FAIL / 1 SKIP**. The old test expected `p5` to be absent from the live scenario order, although accepted DEV-181 had added `p5` and `c4` to I3. | [Run 42220461971](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42220461971), artifact `13504015454`: the same invalid-review-JSON error, **INCOMPLETE**, **34.58 s**, no findings or reviewed files, model `claude-sonnet-5-5`. | Two different failures required correction: a stale test fixture and the review response format. Neither justified changing application permissions or weakening a check. |
+| Corrections, `009ec2a` then `8b82e7f` | The demo warning uses a fixed scenario, with a separate test for accepted live I3 segments. Local correction checks are below. | The request now uses native JSON schema output; independent evidence and semantic validation remain unchanged. | Independent Codex review found no must/should findings in the correction diffs. This was AI review, not human approval. |
+| Fresh exact-head verification, `8b82e7f363694542596ba4c4acba15b7be4fcdd0` | [Run 42222913473](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473): apps, server, all three integration jobs and `ci-ok` succeeded. | [Run 42222913479](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913479): specification job succeeded with **NO_FINDINGS**, not PASS. Checker contracts, eligibility and Figma-line checks also succeeded. | Both reported CI failures were resolved at this head. Configured skipped jobs and the live review's limited context remain explicit below. |
+
+Between the first two stages, the connected direct-rerun action returned **403, “Resource not accessible by integration.”** A PR-description edit did not yield an observable fresh run at that point, and the background GitHub browser was signed out. No authenticated browser rerun or successful retry is claimed for those attempts. The later commit-triggered runs above are separate, completed evidence; the earlier access failure was not an app defect.
+
+#### What changed and what was retained
+
+- **Demo test compatibility (`009ec2a`).** The [warning assertion](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/009ec2a3702265aaca2716ae812d55cdb2f3e2ae/scripts/test-demo-site.mjs#L123) still requires the exact absent-order warning, now against the fixed `mini` fixture. A [separate acceptance test](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/009ec2a3702265aaca2716ae812d55cdb2f3e2ae/scripts/test-demo-site.mjs#L138) requires live I3 `p5`/`c4` and default-order recording to have no warning. Unknown-role, local-URL, administrator-credential, production-profile and confirmation safeguards were retained. No demo planner or product behavior changed.
+- **Review response format (`8b82e7f`).** The [request](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/.github/spec-check/check.py#L460) uses `output_config.format` with `type: "json_schema"`, following the [provider contract](https://platform.claude.com/docs/en/build-with-claude/structured-outputs). The [schema](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/.github/spec-check/check.py#L38) requires exactly `status`, `summary`, `reviewed_files`, `findings` and `missing_context`; nested findings and path/line/quote references also reject additional properties. Model statuses remain PASS, MISMATCH or INCOMPLETE. Unsupported numeric/string constraints were not added.
+- **Independent checks remain authoritative.** The existing [validator](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/.github/spec-check/check.py#L517) still checks cited paths, original/new-side line numbers, exact quotations, file coverage, finding IDs and report semantics. Native schema output does not establish evidence correctness. The model, endpoint, prompt, workflow, permissions, 1 MiB input limit, 16,000-token output budget, 90-second request timeout and one transient retry were unchanged. Malformed/fenced JSON, refusal, truncation and unsupported-schema HTTP 400 remain errors; no JSON repair, model fallback or manual success override was introduced.
+
+#### Local correction checks and environment attempts
+
+| Check / attempt | Recorded result | Evidence and limit |
+| --- | --- | --- |
+| Targeted demo tests, `node --test scripts/test-demo-site.mjs` | **9 PASS / 0 FAIL / 0 SKIP** | Pure planner/site tests. This does not establish recording, publication or deployment. |
+| First full Mock attempt in the restricted environment | **243 PASS / 4 FAIL / 1 SKIP**, 248 total | All four failures were temporary fixture subprocesses unable to listen on `127.0.0.1` (`EPERM`), rather than failed app assertions. Retained local log: `ci-fix-mock.log`. |
+| Authorized local-loopback rerun, `npm run test:mock` | **247 PASS / 0 FAIL / 1 SKIP**, 248 total; **38.9 s** | No source change occurred between these two attempts. Retained local log: `ci-fix-mock-loopback.log`. The skipped test is not counted as a pass. |
+| `npm run typecheck` | All **five workspaces** succeeded | Consumer, producer, analytics, API and shared UI. Static checking is not five runtime cases. Retained local log: `ci-fix-types.log`. |
+| Consumer and producer Expo web exports | Both completed with `Exported: dist` | An initial command could not find the task-local `npx` launcher. The chat records the subsequent `npm exec` invocation; the retained export logs contain successful build output but not the command invocation. This was a launcher/setup retry, not a failed application journey. Logs: `ci-fix-consumer-export.log`, `ci-fix-producer-export.log`. |
+| `python3 -m unittest discover -s .github/spec-check -p 'test_*.py' -v` | **60 PASS / 0 FAIL**, **6.052 s** | Offline checker/Figma contracts, including strict request shape and malformed/fenced/refused/truncated/HTTP-400 error cases. Simulated provider responses are not live model evidence. Log: `ci-fix-checker-contracts.log`. |
+| PR source-mapping and whitespace checks | Succeeded | Supporting static checks, not additional functional test counts. |
+
+These later Mock counts supersede neither the earlier **245 PASS / 1 SKIP** local result at the product-regression revision nor the historical workbook counts. The correction added a test and incorporated a newer main; the runs have different denominators. No new component code-coverage measurement was collected in this CI correction. Earlier coverage targets and measured percentages remain unchanged.
+
+#### Final GitHub job status at the captured head
+
+| Job | Status | Exact evidence |
+| --- | --- | --- |
+| apps | SUCCESS | [42222913473 / 127909162895](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127909162895) |
+| server | SUCCESS | [42222913473 / 127909163048](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127909163048) |
+| integration 1/3 | SUCCESS | [42222913473 / 127909163146](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127909163146) |
+| integration 2/3 | SUCCESS | [42222913473 / 127909163183](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127909163183) |
+| integration 3/3 | SUCCESS | [42222913473 / 127909163099](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127909163099) |
+| `ci-ok` aggregate | SUCCESS | [42222913473 / 127912896590](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127912896590) |
+| changes | SUCCESS | [42222913473 / 127909088294](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127909088294) |
+| checker-tests | SUCCESS | [42222913479 / 127909146808](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913479/job/127909146808) |
+| eligibility | SUCCESS | [42222913479 / 127909146650](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913479/job/127909146650) |
+| figma-line | SUCCESS | [42222913479 / 127909146469](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913479/job/127909146469) |
+| spec-code-review | SUCCESS; report **NO_FINDINGS** | [42222913479 / 127909254420](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913479/job/127909254420) |
+| admin-web | **SKIPPED** by existing configuration | [42222913473 / 127909165582](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913473/job/127909165582) |
+| Optional live model demo fixtures | **SKIPPED** by existing configuration | [42222913479 / 127909256233](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/42222913479/job/127909256233) |
+
+A successful aggregate or metadata job is not an additional test case. The two skipped jobs were not executed passes. These GitHub job statuses also do not independently reproduce the earlier local 57-browser/7-API counts or a coverage percentage.
+
+#### Live review result and remaining limits
+
+The downloaded live report for head `8b82e7f363694542596ba4c4acba15b7be4fcdd0` recorded **NO_FINDINGS, zero findings, 71 reviewed files and 37.41 seconds elapsed**, using `claude-sonnet-5-5`. Its checker execution/test-merge SHA was **`0cdd5f09e9c1bf0c14e4a8f4e399afffa9ee6028`**, distinct from the reviewed PR head. NO_FINDINGS means no supported mismatch was retained within the supplied context; it is **not a full PASS**. Six UNVERIFIED context notes remained:
+
+1. Paid-order eligibility helpers and refunded-history behavior.
+2. Existing attachment, list, history and read authorization gates.
+3. Account-deletion compatibility.
+4. The actual concurrency test filename versus a planned allowed filename.
+5. Partial specification/Wiki excerpts.
+6. Independently reproducing the earlier local execution counts.
+
+Source references addressing these notes are retained in the CI correction review; they are review aids, not new execution claims. The checker is separate from the product AI accuracy cohorts and does not add to their trial counts or replace the matrix reviewer's decision.
+
+At the captured verification point, independent AI review had no outstanding must/should findings, while **human approval, main merge and deployment verification remained pending**. No native-device execution or Figma synchronization was established by these CI jobs. Raw traces, provider output and credentials are not reproduced here. Later approval, merge or deployment must be documented with its own dated evidence rather than inferred from this green CI snapshot.
+
+**Subsequent repository event — 6 November 2026:** [PR #482](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482) was squash-merged as [86e5410](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/86e541097314a78ffd636cbbb4500abfcaeef41a), whose merge commit is dated **13:16:24 UTC (22:16:24 KST)**. This was confirmed separately from the earlier CI snapshot by the PR's merged state and the fetched main commit. The documentation consolidation is a separate follow-up based on that main revision. Merge does not establish matrix-reviewer sign-off, a deployed revision, authenticated deployed regression, native-device results or successful publication of this follow-up to the public Wiki; those were not verified in this documentation audit.
+
+### Reproducible procedure and evidence references
+
+The following are the recorded repository entry points and final affected-suite command. First use the pinned revision and install its locked dependencies. Point DATABASE_URL at a disposable branch-specific local database; the integration runner resets synthetic data. The native PostgreSQL runs set FARMCLUB_INTEGRATION_SKIP_DOCKER=1 only because a dedicated local instance already existed. Keep APP_ENV=local, the injected clock, SOURCE_ANALYSIS_ENABLED=false and task-local browser installation as recorded. Do not supply a production database or reuse production credentials. Values for tokens/passwords and private upload bytes are deliberately omitted.
+
+~~~sh
+# Supporting server and client gates; use the prepared isolated local database.
+make test-server
+npm run test:mock
+npm run typecheck
+
+# Exact final affected integration scope; includes the seven real API scenarios.
+node scripts/run-integration.mjs scripts/e2e/order-chat-entry.spec.ts scripts/e2e/order-chat-closure.spec.ts scripts/e2e/chat-view-restoration.spec.ts scripts/e2e/chat-session-isolation.spec.ts scripts/e2e/chat-message-order.spec.ts scripts/e2e/conversation-ui.spec.ts scripts/e2e/back-rules.spec.ts scripts/e2e/producer-chat-header.spec.ts scripts/e2e/producer-and-privacy.spec.ts scripts/e2e/consumer-support.spec.ts scripts/e2e/farmclub-support.spec.ts scripts/e2e/producer-support-contact.spec.ts
+
+# CI correction contracts; these use simulated provider responses, not a live review.
+node --test scripts/test-demo-site.mjs
+python3 -m unittest discover -s .github/spec-check -p 'test_*.py' -v
+~~~
+
+The final integration command used the existing runner, not a replacement mini-app or a direct database write in place of a UI action. Its dedicated fixture accepts only guarded synthetic chat data; real checkout/admin APIs establish eligible orders. The earlier baseline harness was a separate local evaluation tool; the original run IDs, hashes and sanitized assertion register above preserve its provenance. Listing or compiling tests is not equivalent to executing them.
+
+| Evidence | What it establishes / limitation |
+| --- | --- |
+| [DEV-242 regression report](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/dev-242-order-chat-regression.md) | Owned paid-order entry, no unwanted follow/inquiry, order/photo binding, retries, privacy and staged results. |
+| [DEV-243 regression report](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/dev-243-scroll-restoration.md) | Original −589 px baseline, fixed measurements, long history, layout/read/session cases and limits. |
+| [DEV-249 execution record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-249.md) | Real-order closure fixture and executed validation; human/deployment gates remain separate. |
+| [DEV-253 execution record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/docs/evaluation/tasks/DEV-253.md) | Browser iterations, corrected fixtures/oracles, original run counts and separate toast follow-up. |
+| [CI checker correction record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/8b82e7f363694542596ba4c4acba15b7be4fcdd0/.github/spec-check/tasks/DEV-253.md) | Native JSON transport decision and offline contracts; the genuine live report has its own run link. |
+| [Initial AI review](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482#issuecomment-6684643601) and [CI correction review](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/482#issuecomment-6685591361) | AI review and source references; neither is human approval. |
+| Original local HTML/JSON, retained summaries and named checkpoint logs | Audited to compile this supplement. Only sanitized narrative/counts/IDs are published here. A local file path is not represented as a publicly accessible GitHub artifact. |
+
+### Analysis, readiness and work still open
+
+1. **Confirmed application defects:** first paid-order initialization (DEV-242) and round-trip reading position (DEV-243) are implemented and locally verified. The exact corrected code/test and CI revisions are stated above. Do not use current CI success to rewrite the historical I2 workbook's I-09 FAIL or the original I3-CHAT-01 FAIL.
+2. **Original broad-row outcomes:** I3-CHAT-02 retains its frozen timestamp/ID ordering FAIL pending the explicit DEV-244 oracle/contract decision. The correctly saved sequence and KST labels passed in their tested samples. I3-CHAT-05 retains BLOCKED for genuine backgrounding; controlled visibility checks and an interrupted native attempt do not resolve it.
+3. **Review:** the matrix reviewer Hyun has not signed off on these chat records. Independent AI reviews and the live NO_FINDINGS report do not establish human approval. At the documentation audit DEV-153 and DEV-245 were In Progress and DEV-246–253 were In Review; no Done or release approval is inferred from a test log.
+4. **Deployment/native scope:** PR #482's main merge is confirmed by the dated repository event above; human/matrix approval and read-only confirmation of the deployed server/client revisions were not verified here. No authenticated deployed regression, physical Android/iOS, PWA installation, OS background/resume, real transfer or shipping pass is asserted. This documentation follow-up still requires its own review and main merge before Wiki synchronization; a branch document is not proof that the live app or public Wiki has been released.
+5. **Separate follow-ups:** [DEV-256](https://linear.app/sswp6/issue/DEV-256) tracks Figma synchronization; [DEV-257](https://linear.app/sswp6/issue/DEV-257) tracks the pre-existing producer global-toast replacement race. The two independent toast assertions were made deterministic without claiming that race fixed. The concurrency regression is in test_order_chat_context.py; the alternative planned filename is not a missing executed suite. No new dedicated ThreadOrderContext-withdrawal scenario or dedicated refunded browser journey is claimed; the source/schema and existing suite evidence have the limits described in the CI review.
+6. **Coverage and data:** these counts are functional execution evidence, not newly measured code-coverage percentages or an exhaustive security certification. Historical component coverage percentages remain unchanged. Raw browser traces, request headers, private photo bytes and recipient/contact data stay local/restricted; an access-log spot check only covers the tested synthetic marker. Supporting tests, repeated runs, assertions, CI checks and model review files must not be summed into one pass rate.
+
+The results support review of the two fixes. They do not constitute whole-product readiness or release approval.
+
+
+## Iteration 3 — Peer heuristic evaluation and closeout (6 November)
+
+### Plan — source, method and responsibility
+
+Minsun Kim coordinates DEV-156/159/161 and checks the supplied class sheet against the remediation records. The authoritative peer source is **Week 10. HE Sheet - Team 6 - Google Drive.pdf**, 14 pages, SHA-256 `7268b18a8a11af3ea0d05f819d2ba78d1bd6ed3b1b567ee4027ce27552d3ab06`. Its PDF export is dated 6 November, 12:15:43 UTC. The historical team record dates the classroom evaluation to **4 November** on Android Chrome PWA and laptop browsers with shared synthetic evaluator accounts; the PDF itself does not state the tested commit or evaluation date. Do not infer them from its export timestamp. The [historical session and reproduction record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/he-2026-11-04/results.md) retains those environment limits.
+
+Five completed evaluator sheets use Nielsen's ten heuristics plus one additional-comment slot each. Evaluators are anonymized A–E: PDF pages 1–2, 3–4, 7–8, 9–10 and 11–12. Two blank template pairs (5–6 and 13–14) are excluded. The class Example column is rubric, not a reported defect. Ratings belong to an entire heuristic cell; the original 0/1/2/3 values and blank comments are preserved. The wider 0–4 triage scale is retained, with no peer severity 4 recorded. Consolidation considers user impact and existing repair evidence; it does not invent new evaluator agreement or a calibrated score.
+
+### Results — counts and major findings
+
+| Population | Actual count / meaning |
+| --- | --- |
+| Completed evaluator sheets | 5; two other template sheets unfilled |
+| Heuristic / additional-comment slots | 50 / 5, total 55 |
+| Explicit / blank ratings | 53 / 2; A/B additional-comment ratings are blank, not zero |
+| Nonzero heuristic cells | 19: **2 severity 3, 9 severity 2, 8 severity 1, 0 severity 4** |
+| Zero-rated heuristic cells | 31; three additional comments also explicitly rated zero |
+| Documentary follow-up | 25 editorial groups from overlapping text, including five zero/unrated recommendations; not 25 newly calibrated peer issues |
+
+**Highest-priority findings.** B-H4 (PDF p.3, severity 3) combines three concerns: unexpected checkout after logout/login, newsroom versus private-chat roles, and follow-state feedback. Its shared score is not three separate major ratings. B-H6 (p.3, severity 3) reports that pending-payment orders cannot be distinguished. The recorded fixes address stale checkout navigation (DEV-222, merged #432), order identifiers/date/product information (DEV-226, merged #433), and unfollow feedback (DEV-230, merged #437). Broader newsroom semantics remain in DEV-239; these code/issue records are not a new peer acceptance test.
+
+| Area for improvement | Original source cells / severity | Recorded disposition and limit |
+| --- | --- | --- |
+| Clear terminology, home sections and first-use guidance | A-H2 (2), A-H10 (2) | DEV-231 partially addresses A-H10 through the harvest-start transition (#438). Broader labels and first-use guidance remain DEV-239, I4 Backlog; test seasonal/followed farms, reservation and shipment terminology before redesign. |
+| Room roles, visibility and user control | B-H3 (1), B-H4 (3), B-H7 (2), B-H8 (2) | DEV-230 addresses the tracked feedback defect. Room/comment semantics and deletion policy remain DEV-239; moderation remains DEV-240. |
+| Order recognition, priority and filtering | B-H6 (3), D-H1 (1), D-H8 (1) | DEV-226 adds identification. Priority styling, sort/date filters and overview scope remain DEV-239; do not claim the entire theme fixed. |
+| Navigation and recovery | D-H3 (2); E-H3/H5/H9 (2 each) | DEV-224 defines entry-aware Back/fallback behavior (#442). E's generic state/interaction/error observations lack route and reproduction detail, so are not automatically closed. |
+| Producer editing, repeated sales and shipment context | C-H1 (1), D-H5 (1), D-H6 (1) | Field-label/new-versus-edit and broader stage terminology remain DEV-239. The historical triage reports carrier details already available; no new UI verification is claimed here. |
+| Visual boundaries, styling and repeated/bulk actions | A-H4 (2), A-H7 (1), E-H1 (1) | Preserve style preference and missing screen context. Bulk import/tracking/shortcuts require DEV-240's product-scope decision. |
+
+**Zero and unrated recommendations are retained.** D-H4 (0) asks to distinguish AI answers, handoffs and human messages visually; DEV-213 removes internal handoff reasons, while full visual redesign remains DEV-239. D-H10 (0) suggests less-obscuring tutorial overlays. A's p.2 additional comment requests immediate local display of outgoing chat messages: its severity is **blank**, and the existing DEV-239 tracks it. A-H9 (0) recommends validating financial paths without reporting an encountered error. D's zero-rated additional comment raises product competition; it is not an app defect. None is silently promoted to a rated failure.
+
+### Results — evidence, reconciliation and limitations
+
+- The complete [55-slot source transcription](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/he-2026-11-04/peer-sheet-transcription.json) and [source-to-remediation register](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/he-2026-11-04/peer-sheet-remediation.json) preserve page/heuristic-row provenance, original Korean observations, all numeric/blank ratings and documentary dispositions. The XLSX candidate reproduces the six class columns for A–E and keeps the remediation register separate. It is explicitly a **PDF reconstruction**, since no editable Team 6 workbook was supplied.
+- This five-person peer inspection is separate from the team's **38 prechecks / historical 43 merged groups**, Hyun's **21-finding consumer inspection**, and functional/regression suites. They are not pooled into one issue count, severity average or pass rate. Generic peer reports are not assigned a specific fixed defect without evidence.
+- No repeat peer inspection or human severity-calibration meeting was conducted during consolidation. Live issue/merge states establish documentary progress; they do not prove the deployed build, frequency/persistence or post-fix usability. DEV-156's remaining human calibration/triage decision stays visible.
+- Formative consumer/producer observation (DEV-157) is deferred to I4 Backlog. No recruited 5–8-person study, interview, A/B result, task-success rate or measured time saving is claimed. The six frozen UAT stories in Section 5 are the I4 plan, not execution results.
+- The [closeout record](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/77c6e23efbce5dc52000d732ba1cdf62aa5760be/docs/evaluation/iteration-3-closeout.md) links the requirement/design changes, daily development logs reconstructed from 22 October onward, demo checks and final submission/schedule snapshot. Human review, Wiki publication, second-person package review and an eTL receipt require their own evidence.

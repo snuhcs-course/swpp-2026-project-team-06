@@ -1,4 +1,9 @@
 export { tokens } from "./tokens";
+export {
+  ChatViewStateStore, sanitizeChatView, anchorScrollTarget,
+  CHAT_VIEW_LIMIT, CHAT_VIEW_IDLE_TTL,
+  type ChatViewSnapshot, type ChatViewScope, type ChatViewLease, type MessageAnchor,
+} from "./chatViewState";
 export { BrandLogo } from "./BrandLogo";
 export {
   Price,
