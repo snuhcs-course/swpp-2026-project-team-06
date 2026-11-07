@@ -4,7 +4,7 @@ SNU SWPP 2026 · Team 6 · Prepared 6 November 2026
 
 Farmclub connects consumers with Jeju citrus farms through advance reservations, farm updates and private conversations. This branch contains both apps, the API, the source-analysis worker and operator tools.
 
-- **Product snapshot:** [`efa684b`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/efa684b4d5ee2ce00f6a939c280bcbe1d420147d) on `main` (after the last I3 fix, DEV-180 / #387). This branch is that commit plus this README.
+- **Product snapshot:** [`efa684b`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/efa684b4d5ee2ce00f6a939c280bcbe1d420147d) on `main` (after the last I3 fix, DEV-180 / #387). Until 2026-11-07 this branch was that commit plus this README; see the post-deadline update below.
 - This README is specific to `iteration-3-demo`. The general project README is on `main`. Do not merge this branch into `main`.
 
 ## Post-deadline update (2026-11-07)
