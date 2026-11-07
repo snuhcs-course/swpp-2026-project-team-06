@@ -50,6 +50,7 @@ import {
   fieldErrors,
 } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
+import { OriginFieldHint } from "../../../../lib/OriginFieldHint";
 
 const STATUS: Record<ProductStatus, string> = {
   DRAFT: "초안",
@@ -504,6 +505,7 @@ export default function EditProduct() {
               label="원산지"
               error={err("origin")}
               value={form.origin}
+              placeholder="예: 서귀포시"
               onChangeText={(v) => set("origin", v)}
               style={{ flex: 1 }}
               maxLength={30}
@@ -517,6 +519,8 @@ export default function EditProduct() {
               maxLength={30}
             />
           </View>
+          {/* DEV-121: 원산지 표시 형식과 안내 화면 */}
+          <OriginFieldHint />
         </Sec>
 
         <Sec title="품질">

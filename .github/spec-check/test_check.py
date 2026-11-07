@@ -145,6 +145,95 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(usage["input_tokens"], 100)
         self.assertEqual(client.calls, 1)
 
+    def test_DEV_253_request_uses_strict_native_json_schema(self):
+        seen = {}
+
+        class Capture(Client):
+            def open(self, req, timeout):
+                seen.update(json.loads(req.data))
+                return super().open(req, timeout)
+
+        data, _ = check.model_review(context(), "fixed prompt", "key", "approved-model", Capture([envelope()]))
+        self.assertEqual(data, result())
+        self.assertEqual(seen["model"], "approved-model")
+        self.assertEqual(seen["system"], "fixed prompt")
+        self.assertEqual(seen["messages"], [{"role": "user", "content": json.dumps(context(), ensure_ascii=False)}])
+        self.assertEqual(set(seen["output_config"]), {"format"})
+        output = seen["output_config"]["format"]
+        self.assertEqual(set(output), {"type", "schema"})
+        self.assertEqual(output["type"], "json_schema")
+        schema = output["schema"]
+        self.assertEqual(set(schema["properties"]),
+                         {"status", "summary", "reviewed_files", "findings", "missing_context"})
+        self.assertEqual(schema["properties"]["status"]["enum"], ["PASS", "MISMATCH", "INCOMPLETE"])
+        self.assertEqual(schema["properties"]["summary"], {"type": "string"})
+        for field in ("reviewed_files", "missing_context"):
+            self.assertEqual(schema["properties"][field], {"type": "array", "items": {"type": "string"}})
+        finding = schema["properties"]["findings"]["items"]
+        self.assertEqual(set(finding["properties"]),
+                         {"id", "requirement", "code", "explanation", "suggestion", "certainty"})
+        self.assertEqual(finding["properties"]["certainty"]["enum"], ["supported", "needs clarification"])
+        for field in ("requirement", "code"):
+            self.assertEqual(finding["properties"][field]["properties"], {
+                "path": {"type": "string"}, "line": {"type": "integer"}, "quote": {"type": "string"}})
+
+        def strict_objects(node):
+            if isinstance(node, dict):
+                self.assertFalse(set(node) & {"minimum", "maximum", "minLength", "maxLength"})
+                if node.get("type") == "object":
+                    self.assertIs(node["additionalProperties"], False)
+                    self.assertEqual(set(node["required"]), set(node["properties"]))
+                for value in node.values():
+                    strict_objects(value)
+            elif isinstance(node, list):
+                for value in node:
+                    strict_objects(value)
+
+        strict_objects(schema)
+
+    def test_DEV_253_structured_output_does_not_bypass_evidence_or_semantic_validation(self):
+        for mutation in ("unknown_path", "partial_coverage", "invalid_status", "unresolved_pass"):
+            candidate = result()
+            if mutation == "unknown_path":
+                candidate["reviewed_files"].append("unseen.py")
+            elif mutation == "partial_coverage":
+                candidate["reviewed_files"] = ["spec.md"]
+            elif mutation == "invalid_status":
+                candidate["status"] = "SUCCESS"
+            else:
+                candidate["missing_context"] = ["UNVERIFIED: absent code"]
+            data, _ = check.model_review(context(), "prompt", "key", "model", Client([envelope(candidate)]))
+            with self.subTest(mutation=mutation), self.assertRaises(check.Incomplete):
+                check.validate(data, context())
+        candidate = result("MISMATCH")
+        candidate["findings"][0]["code"]["quote"] = "invented evidence"
+        data, _ = check.model_review(context(), "prompt", "key", "model", Client([envelope(candidate)]))
+        validated = check.validate(data, context())
+        self.assertEqual((validated["status"], validated["findings"]), ("INCOMPLETE", []))
+        self.assertIn("quote/line not in supplied", validated["summary"])
+
+    def test_DEV_253_malformed_fenced_refused_or_truncated_json_stays_error_without_fallback(self):
+        for candidate in (
+            {**envelope(), "content": [{"type": "text", "text": "not JSON"}]},
+            {**envelope(), "content": [{"type": "text", "text": "```json\n" + json.dumps(result()) + "\n```"}]},
+            {**envelope(), "stop_reason": "max_tokens"},
+            {**envelope(), "stop_reason": "refusal"},
+            {**envelope(), "content": [{"type": "refusal", "refusal": "private provider response"}]},
+        ):
+            client = Client([candidate, envelope()])
+            with self.subTest(stop=candidate.get("stop_reason")), self.assertRaises(check.Incomplete) as caught:
+                check.model_review(context(), "prompt", "key", "model", client)
+            self.assertEqual(client.calls, 1)
+            self.assertNotIn("private provider response", str(caught.exception))
+
+    def test_DEV_253_unsupported_schema_http_400_fails_closed_without_retry_or_fallback(self):
+        failure = error.HTTPError("https://api.anthropic.com", 400, "private provider body", {}, None)
+        client = Client([failure, envelope()])
+        with self.assertRaisesRegex(check.Incomplete, "HTTP 400; response body withheld") as caught:
+            check.model_review(context(), "prompt", "key", "approved-model", client, sleep=lambda _: None)
+        self.assertEqual(client.calls, 1)
+        self.assertNotIn("private provider body", str(caught.exception))
+
     def test_truncated_and_invalid_provider_output(self):
         for data in ([1], {**envelope(), "stop_reason": "max_tokens"},
                      {**envelope(), "content": [{"type": "tool_use"}]},

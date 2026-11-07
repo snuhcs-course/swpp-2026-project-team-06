@@ -50,7 +50,9 @@ test("DEV-224 a1: rooms opened from farm info and order detail go back there", a
   await back(page);
   await expect(page).toHaveURL(/\/farms\/f-kang\/info$/);
   // 주문 상세에서 연 방(주소로 열어 탭 기록이 없어도 그 주문으로)
-  await page.goto(`${consumerUrl}/chats/f-kang?from=order&fromOrder=o-11`);
+  // o-11 is Minji's paid f-halla order. The legacy route now validates this pair.
+  await page.goto(`${consumerUrl}/chats/f-halla?from=order&fromOrder=o-11`);
+  await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
   await back(page);
   await expect(page).toHaveURL(/\/orders\/o-11$/);
   assertClean();

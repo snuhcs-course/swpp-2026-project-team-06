@@ -4,7 +4,7 @@
 | --- | --- |
 | Matrix | v1.0, `matrix.csv` sha256 `0d2926115e75…`, protocol sha256 `c344abeda8b3…` (both unchanged) |
 | Execution issue | DEV-167 (I3-T08) |
-| Executor / reviewer | Hyun with Claude Code (agent: re-run, automatic score, then trace-by-trace review of every persisted answer) / human sign-off pending (Hyun); matrix reviewer: Minsun Kim |
+| Executor / reviewer | Hyun with Claude Code (agent: re-run, automatic score, then trace-by-trace review of every persisted answer) / owner decision: Hyun accepted the agent trace-review verdicts as the owner's decision, 2026-11-06 (no separate trace-by-trace read recorded); matrix reviewer: Minsun Kim |
 | Build / environment | app commit `87792b7` (baseline `i3-b2-87792b7`; `server/app/ai/**` identical to DEV-169 cohort `3f7ce29`: prompt blob `192f5b1`, grounding blob `a957534`, config blob `3e811d9`; `server/app/messaging/**` differs by DEV-208/209/210), local `farmclub_i3_ais`, API `:8200`, `APP_ENV=local`, `MOCK_LOGIN_ENABLED=true`, `FIXED_NOW=2026-10-07T10:00+09:00`, Haiku 4.5 (`claude-haiku-4-5-20251001`), 8 s timeout. Separate cohort from DEV-169 (`3f7ce29`); never pooled. |
 | Runner | `scripts/i3-ai-support/run.py` unchanged (`run_trial` + `score`), called for the 30 DEV-167 cases only, schedule shuffled with seed 1542026; proxy `fault_proxy.py` unchanged in passthrough on `:8287` |
 | Fixture reset proof | `scripts/i3-ai-support/fixtures.py` resets farm `f-eval`, products, orders, AI settings and a fresh consumer per trial; fidelity check 60/60 before the run. Each reply carries that trial's own saved settings version (62…151, +1 per trial in run order; DB `farm_ai_settings.version` = 151 after the last trial) |

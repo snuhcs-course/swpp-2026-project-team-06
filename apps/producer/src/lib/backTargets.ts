@@ -12,7 +12,7 @@ const RULES: [RegExp, string][] = [
   [/^\/farm\/.+$/, "/farm"],
   [/^\/farm$/, "/settings"],
   [/^\/ship$/, "/"],
-  [/^\/(privacy|terms)$/, "/"],
+  [/^\/(privacy|terms|origin-notice)$/, "/"],
 ];
 
 /** 앱 안 이전 화면이 없을 때 헤더 뒤로가 여는 화면. 표에 없으면 그 탭의 첫 화면, 아니면 현황. */

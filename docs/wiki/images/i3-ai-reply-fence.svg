@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="400" viewBox="0 0 960 400">
+<defs><style>text{font-family:Arial,sans-serif;fill:#243c31}.head{font-size:21px;font-weight:700}.name{font-size:16px;font-weight:700}.body{font-size:13px}.box{fill:#eff5ee;stroke:#78977e;stroke-width:1.6}.warning{fill:#fff2dd;stroke:#c28d4e;stroke-width:1.6}.line{fill:none;stroke:#647e6a;stroke-width:1.8}</style><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#647e6a"/></marker></defs>
+<rect width="960" height="400" rx="12" fill="white"/><text x="24" y="34" class="head">AI reply commit: recheck authority after the provider returns</text>
+<rect x="24" y="65" width="280" height="96" rx="9" class="box"/><text x="42" y="94" class="name">1. Capture the request state</text><text x="42" y="120" class="body">Authorization, mode and versions</text><text x="42" y="142" class="body">No thread lock across the model call</text>
+<rect x="340" y="65" width="260" height="96" rx="9" class="box"/><text x="358" y="94" class="name">2. Request and validate</text><text x="358" y="120" class="body">Selected safe evidence and question</text><text x="358" y="142" class="body">Answer, handoff or provider failure</text>
+<rect x="636" y="65" width="300" height="96" rx="9" class="warning"/><text x="654" y="94" class="name">3. Lock, refresh and compare</text><text x="654" y="120" class="body">Current owner / order / farm eligibility</text><text x="654" y="142" class="body">Current mode and both captured versions</text>
+<path d="M304 113 H340" class="line" marker-end="url(#a)"/><path d="M600 113 H636" class="line" marker-end="url(#a)"/>
+<rect x="24" y="235" width="435" height="85" rx="9" class="box"/><text x="42" y="265" class="name">Unchanged and authorized</text><text x="42" y="291" class="body">Persist the question and permitted AI reply atomically.</text>
+<rect x="495" y="235" width="441" height="85" rx="9" class="warning"/><text x="513" y="265" class="name">Takeover, changed state or lost access</text><text x="513" y="291" class="body">Discard stale AI; retain eligible human work or reject access.</text>
+<path d="M786 161 V201 H241 V235" class="line" marker-end="url(#a)"/><path d="M786 201 V235" class="line" marker-end="url(#a)"/>
+<text x="24" y="364" class="body">A provider response never grants permission to save. A HUMAN → AUTO round trip still invalidates the earlier result.</text>
+</svg>

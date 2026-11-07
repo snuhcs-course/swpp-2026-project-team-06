@@ -4,6 +4,7 @@ import { readStore, writeStore } from "../client";
 import type {
   AiSettings,
   Consent,
+  NoticeRead,
   CapacityRequest,
   Thread,
   Inquiry,
@@ -45,7 +46,11 @@ export type UserRec = {
   consents?: Consent[];
   /** 탈퇴한 회원(DEV-94). 개인정보는 지웠고 로그인할 수 없다 */
   deleted?: boolean;
+  /** 법정 안내를 읽은 기록(DEV-121). 버전마다 처음 시각 */
+  noticeReads?: NoticeRead[];
 };
+/** 원산지 표시제도 안내 버전(서버 accounts.schemas.ORIGIN_NOTICE_VERSION, ui legalContent와 같은 값, DEV-121) */
+export const ORIGIN_NOTICE_VERSION = "2026-10-22";
 const REQUIRED_CONSENTS = ["TERMS", "PRIVACY", "AGE14"] as const;
 const REQUIRED_PRODUCER_CONSENTS = ["TERMS", "PRIVACY"] as const;
 /** 지금 시행 중인 약관·처리방침 버전(서버 accounts.schemas.CONSENT_VERSION과 같은 값, DEV-113) */
@@ -214,6 +219,8 @@ export type DB = {
   aiSettings: Record<string, AiSettings>;
   aiHistory: { farmId: string; settings: AiSettings; createdAt: string }[];
   inquiries: Inquiry[];
+  /** Additive schema-9 field. Old saved DBs mean no explicit order entries. */
+  threadOrderContexts?: { threadId: string; orderId: string; createdAt: string }[];
   attachments: Record<
     string,
     Attachment & {
@@ -434,6 +441,7 @@ export function seed(): DB {
     aiSettings: {},
     aiHistory: [],
     inquiries: [],
+    threadOrderContexts: [],
     attachments: {},
     roomReplies: [],
     seq: 1000,

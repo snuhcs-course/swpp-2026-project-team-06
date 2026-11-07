@@ -5,11 +5,13 @@ from dataclasses import dataclass
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.accounts.models import ShippingAddress, User, UserConsent
+from app.accounts.models import NoticeRead, ShippingAddress, User, UserConsent
 from app.accounts.schemas import (
     CONSENT_VERSION,
+    ORIGIN_NOTICE_VERSION,
     REQUIRED_CONSENTS,
     REQUIRED_PRODUCER_CONSENTS,
     Address,
@@ -22,6 +24,8 @@ from app.accounts.schemas import (
     KakaoSignupInput,
     LoginResult,
     MeUpdateInput,
+    NoticeReadInput,
+    NoticeReadView,
     ProducerApplication,
     ProducerApplicationInput,
     ProducerDecision,
@@ -123,7 +127,49 @@ def user_view(db: Session, user: User) -> UserView:
         phone=user.phone,
         needs_onboarding=needs_onboarding(db, user),
         consent_required=consent_required(db, user),
+        origin_notice_read_at=origin_notice_read_at(db, user),
     )
+
+
+def _notice_row(db: Session, user_id: str, kind: str, version: str) -> NoticeRead | None:
+    return db.scalar(
+        select(NoticeRead).where(
+            NoticeRead.user_id == user_id, NoticeRead.kind == kind, NoticeRead.version == version
+        )
+    )
+
+
+def origin_notice_read_at(db: Session, user: User):
+    """원산지 표시제도 안내 지금 버전을 읽은 시각(DEV-121). 생산자만, 안 읽었으면 None."""
+    if user.role != "PRODUCER":
+        return None
+    row = _notice_row(db, user.id, "ORIGIN", ORIGIN_NOTICE_VERSION)
+    return row.read_at if row else None
+
+
+def read_notice(db: Session, user: User, data: NoticeReadInput) -> NoticeReadView:
+    """농가가 법정 안내를 읽었다고 기록한다(DEV-121, 원산지표시법 제6조 ⑥ 고지 증빙).
+
+    지금 버전만 받는다(옛 화면이 옛 버전을 보내면 400).
+    같은 버전을 다시 보내면 처음 시각을 돌려준다.
+    """
+    if user.role != "PRODUCER":
+        raise forbidden("농가 계정만 기록할 수 있어요.")
+    version = data.version.strip()
+    if version != ORIGIN_NOTICE_VERSION:
+        raise invalid({"version": "안내가 바뀌었어요. 새로 열어 다시 읽어 주세요"})
+    row = _notice_row(db, user.id, data.kind, version)
+    if row is None:
+        try:
+            # 두 기기에서 동시에 눌러도 한 줄만 남기고 먼저 남은 시각을 돌려준다
+            with db.begin_nested():
+                row = NoticeRead(
+                    id=new_id("nr"), user_id=user.id, kind=data.kind, version=version, read_at=now()
+                )
+                db.add(row)
+        except IntegrityError:
+            row = _notice_row(db, user.id, data.kind, version)
+    return NoticeReadView(kind=data.kind, version=row.version, read_at=row.read_at)
 
 
 def update_me(db: Session, user: User, data: MeUpdateInput) -> UserView:

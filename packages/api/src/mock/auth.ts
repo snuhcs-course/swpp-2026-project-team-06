@@ -4,12 +4,14 @@ import type {
   App,
   Consent,
   ConsentKind,
+  NoticeRead,
   ProducerApplication,
   TestAccount,
   User,
 } from "../types";
 import {
   CONSENT_VERSION,
+  ORIGIN_NOTICE_VERSION,
   consentRequired,
   ensureConsumerSupport,
   needsOnboarding,
@@ -71,6 +73,11 @@ export function userView(d: DB, u: UserRec): User {
     phone: u.phone ?? "",
     needsOnboarding: needsOnboarding(u),
     consentRequired: consentRequired(u),
+    originNoticeReadAt:
+      u.role === "PRODUCER"
+        ? (u.noticeReads?.find((r) => r.kind === "ORIGIN" && r.version === ORIGIN_NOTICE_VERSION)
+            ?.readAt ?? null)
+        : null,
   };
 }
 
@@ -318,6 +325,24 @@ register({
       else rows.push(next);
     }
     return [...rows].sort((a, b) => a.kind.localeCompare(b.kind));
+  },
+
+  // DEV-121: 서버 accounts.service.read_notice와 같은 규칙(생산자만, 지금 버전만, 처음 시각 유지)
+  "POST /api/auth/me/notices": (ctx) => {
+    const u = ctx.me();
+    if (u.role !== "PRODUCER") fail(403, "FORBIDDEN", "농가 계정만 기록할 수 있어요.");
+    const b = ctx.body as { kind?: string; version?: string };
+    if (b.kind !== "ORIGIN") invalid({ kind: "안내 종류를 확인해 주세요" });
+    const version = String(b.version ?? "").trim();
+    if (version !== ORIGIN_NOTICE_VERSION)
+      invalid({ version: "안내가 바뀌었어요. 새로 열어 다시 읽어 주세요" });
+    const rows = (u.noticeReads ??= []);
+    let row = rows.find((r) => r.kind === "ORIGIN" && r.version === version);
+    if (!row) {
+      row = { kind: "ORIGIN", version, readAt: nowIso() } satisfies NoticeRead;
+      rows.push(row);
+    }
+    return { ...row };
   },
 
   "POST /api/auth/producer-application": (ctx) => {

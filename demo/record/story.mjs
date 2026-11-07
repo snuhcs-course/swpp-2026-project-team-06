@@ -1,6 +1,6 @@
 // farmclub 전체 이야기 데모(한 농가·한 소비자). 구간마다 따로 녹화하고 나중에 이어 붙인다.
 //   node demo/record/story.mjs <구간>   → demo/.raw/story/<구간>.webm
-// 구간 순서: p1 a1 p2 a2 c1 p3 c2 p4 c3 (출하는 앱에 '예약 → 출하 준비' 화면이 없어 뺌, FEAT-17 AC-17-3)
+// 구간 순서: p1 a1 p2 a2 c1 p3 c2 p4 c3 p5 c4 (I3: 수확 시작 → 출하 준비 화면이 생겨(DEV-231) 출하 p5·c4를 넣음)
 //   p = 생산자 앱, a = 관리자 페이지, c = 소비자 앱
 // 로컬: 테스트 계정 로그인. 운영: DEMO_KAKAO=1 + DEMO_PROFILE(카카오·관리자 로그인을 미리 해 둔 브라우저 프로필)
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -9,6 +9,8 @@ import { apiUrl, consumerUrl, producerUrl, startRecording } from "./lib.mjs";
 
 const adminUrl = process.env.FARMCLUB_ADMIN_URL ?? "http://127.0.0.1:8090";
 const KAKAO = process.env.DEMO_KAKAO === "1";
+// 로컬: prep-test-login.mjs로 미리 로그인한 프로필이면 로그인 장면을 찍지 않는다(테스트 계정 화면은 시험용, DEV-181)
+const PRELOGIN = !KAKAO && !!process.env.DEMO_PROFILE;
 const STATE = "demo/.raw/story/state.json";
 mkdirSync("demo/.raw/story", { recursive: true });
 const state = existsSync(STATE) ? JSON.parse(readFileSync(STATE, "utf8")) : {};
@@ -27,9 +29,12 @@ const r = await startRecording(`story-${seg}`, `farmclub ${LABEL}`, capPos);
 const { page, cap, go, tap, type, scroll, wait } = r;
 await page.context().grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
 const btn = (name, opts = {}) => page.getByRole("button", { name, ...opts });
+// 채팅 입력칸(ChatThread). 폴링으로 화면이 다시 그려져도 대상이 바뀌지 않게 보이는 칸 하나를 고른다(DEV-181)
+const chatInput = () => page.getByRole("textbox", { name: "메시지" }).filter({ visible: true }).last();
 
 /** 로그인: 운영은 카카오(프로필에 카카오 세션이 있어 동의만 거침), 로컬은 테스트 계정 */
 async function loginProducer(testName) {
+  if (PRELOGIN) return;
   await go(`${producerUrl}/login`);
   if (!new URL(page.url()).pathname.startsWith("/login")) return; // 이미 로그인됨
   if (KAKAO) {
@@ -44,6 +49,10 @@ async function loginProducer(testName) {
   }
 }
 async function loginConsumer(next) {
+  if (PRELOGIN) {
+    await go(`${consumerUrl}${next}`);
+    return;
+  }
   await go(`${consumerUrl}/login?next=${encodeURIComponent(next)}`);
   if (!new URL(page.url()).pathname.startsWith("/login")) return; // 이미 로그인됨
   if (KAKAO) {
@@ -94,10 +103,13 @@ const segments = {
   // 1. 생산자: 카카오로 시작해 농가 가입 신청
   async p1() {
     // 가입 장면을 찍으려면 이전 촬영의 생산자 로그인이 없어야 한다(카카오 계정 로그인은 프로필에 남겨 둔다)
-    await page.goto(`${producerUrl}/login`);
-    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-    await cap("카카오로 시작하기", "농가는 카카오 계정으로 시작해요.\n처음이면 농가 없는 생산자 계정이 생기고\n가입 신청 화면으로 가요.", "FEAT-01 · SCR-19");
-    await loginProducer("강영호|신규 생산자");
+    if (PRELOGIN) await go(producerUrl); // 카카오로 처음 들어온 농가 없는 생산자 → 가입 신청 화면
+    else {
+      await page.goto(`${producerUrl}/login`);
+      await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+      await cap("카카오로 시작하기", "농가는 카카오 계정으로 시작해요.\n처음이면 농가 없는 생산자 계정이 생기고\n가입 신청 화면으로 가요.", "FEAT-01 · SCR-19");
+      await loginProducer("강영호|신규 생산자");
+    }
     await cap("농가 가입 신청", "대표자·농가 이름·지역·작물·연락처를 적고\n입점 정책에 동의해 신청해요.", "FEAT-01 · SCR-20");
     for (const [label, v] of [["대표자 이름", FARM.owner], ["농가 이름", FARM.name], ["지역", FARM.region], ["주로 키우는 것", FARM.crops], ["연락처", FARM.phone]]) await type(page.getByLabel(label), v, { after: 200 });
     await tap(page.getByLabel("입점 정책에 동의해요"));
@@ -118,6 +130,7 @@ const segments = {
   async p2() {
     await cap("승인된 농가 · 현황", "승인되면 바로 현황으로 들어와요.\n먼저 소비자가 입금할 계좌를 등록하라고 알려 줘요.", "FEAT-14 · SCR-22");
     await loginProducer("강영호|신규 생산자");
+    if (PRELOGIN) await go(producerUrl);
     await wait(1800);
     await cap("농가 프로필 · 입금 계좌", "농가 소개와 입금 계좌를 정해요.\n계좌가 없으면 상품 승인을 요청할 수 없어요.", "FEAT-02 · FEAT-09");
     await go(`${producerUrl}/farm`);
@@ -221,8 +234,10 @@ const segments = {
   },
   // 5. 소비자: 로그인 → 농가 링크·검색으로 찾기 → 팔로우 → 상품 상세 → 예약 → 입금 안내
   async c1() {
-    await cap("소비자 · 카카오 로그인", "예약·팔로우·채팅을 할 때 카카오로 로그인해요.\n처음이면 닉네임·이름·연락처와 필수 동의를 받아요.", "FEAT-01");
-    await loginConsumer("/");
+    if (!PRELOGIN) {
+      await cap("소비자 · 카카오 로그인", "예약·팔로우·채팅을 할 때 카카오로 로그인해요.\n처음이면 닉네임·이름·연락처와 필수 동의를 받아요.", "FEAT-01");
+      await loginConsumer("/");
+    }
     await cap("농가·상품 검색", "농가 이름·품종·지역으로 찾아요.\n방금 판매를 시작한 농가가 바로 나와요.", "FEAT-06");
     await go(consumerUrl);
     await tap(btn("농가·상품 검색"), { after: 1000 });
@@ -271,8 +286,9 @@ const segments = {
     await go(`${producerUrl}/ship?status=AWAITING_DEPOSIT`);
     await wait(1200);
     await tap(btn(/입금 승인$/).first(), { after: 1200 });
-    const okDeposit = btn(/^확인$|^입금 승인$|승인하기/).last();
-    if (await okDeposit.isVisible().catch(() => false)) await tap(okDeposit, { after: 1800 });
+    // 확인 시트(DEV-68): '확인 · 입금 승인'. 못 누르면 예약 완료 장면이 거짓이 되므로 실패로 멈춘다
+    await tap(btn(/^확인 · 입금 승인$/).last(), { after: 2200 });
+    await page.getByText(/^입금 대기 0$/).first().waitFor({ timeout: 10000 });
     await cap("소식 올리기", "밭 소식을 팔로워 모두에게 올려요.", "FEAT-12 · FEAT-15");
     await go(`${producerUrl}/broadcast/new`);
     await type(page.getByLabel("소식 내용"), "이번 주 착색 시작했어요! 12월 초에 수확해서 바로 보내 드릴게요.");
@@ -292,9 +308,9 @@ const segments = {
     await cap("1:1 채팅 · AI 응답", "받는 시기처럼 등록된 정보는 AI가 바로 답하고,\n농가 판단이 필요한 질문은 농가에 넘겨요.", "FEAT-13");
     await go(`${consumerUrl}/products/${state.productId}`);
     await tap(btn("1:1 채팅").last(), { after: 2000 });
-    await type(page.getByRole("textbox").last(), "배송은 언제예요?");
+    await type(chatInput(), "배송은 언제예요?");
     await tap(page.getByRole("button", { name: /전송|보내기/ }).last(), { after: 4500 });
-    await type(page.getByRole("textbox").last(), "농약은 얼마나 치세요?");
+    await type(chatInput(), "농약은 얼마나 치세요?");
     await tap(page.getByRole("button", { name: /전송|보내기/ }).last(), { after: 4500 });
     await wait(1500);
   },
@@ -307,7 +323,7 @@ const segments = {
     const need = page.getByRole("tab", { name: /답변 필요/ }).or(btn(/답변 필요/)).first();
     if (await need.isVisible().catch(() => false)) await tap(need, { after: 900 });
     await tap(page.getByRole("button", { name: /농가에 전달했어요|농약/ }).first(), { after: 1500 });
-    await type(page.getByRole("textbox").last(), "저농약으로 키워요. 수확 한 달 전부터는 치지 않아요.");
+    await type(chatInput(), "저농약으로 키워요. 수확 한 달 전부터는 치지 않아요.");
     await tap(btn(/전송|보내기/).last(), { after: 2000 });
   },
   // 9. 소비자: 농가 답 확인
@@ -317,15 +333,19 @@ const segments = {
     if (!page.url().includes(`/products/${state.productId}`)) await go(`${consumerUrl}/products/${state.productId}`);
     await tap(btn("1:1 채팅").last(), { after: 3000 });
     await scroll(800);
-    await wait(1500);
-    await cap("끝", "카카오로 시작한 농가가 승인을 받아 상품을 올리고,\n운영자가 공급 물량을 승인하자 소비자가 찾아\n예약·입금하고, 농가와 소통하는 한 흐름이에요.");
-    await wait(2500);
+    await wait(2500); // 끝 장면은 출하 뒤 c4에 있다(I3)
   },
   // 10. 생산자: 출하
   async p5() {
-    await cap("출하 처리", "택배를 보낸 뒤 그 주문을 골라 택배사·송장 번호를\n넣고 출하로 바꿔요.", "FEAT-17 · SCR-29");
     await loginProducer("강영호|신규 생산자");
-    await go(`${producerUrl}/ship`);
+    // I3(DEV-231): 예약 기간 카드의 '수확 시작'으로 예약 완료 주문을 출하 준비로 옮긴다
+    await cap("수확 시작", "수확할 때 예약 기간에서 '수확 시작'을 누르면\n그 기간의 예약 주문이 출하 준비로 옮겨져요.", "FEAT-17 · DEV-231");
+    await go(`${producerUrl}/products/${state.productId}/stages`);
+    await wait(1200);
+    await tap(btn(/^수확 시작 · 출하 준비 \d+건$/).first(), { after: 1200 });
+    await tap(btn(/^수확 시작 · \d+건$/).last(), { after: 2200 });
+    await cap("출하 처리", "택배를 보낸 뒤 그 주문을 골라 택배사·송장 번호를\n넣고 출하로 바꿔요.", "FEAT-17 · SCR-29");
+    await go(`${producerUrl}/ship?status=PREPARING`);
     await wait(1200);
     await tap(page.getByRole("button").filter({ hasText: "데모 고객" }).first(), { after: 1000 });
     await tap(page.getByText("CJ대한통운", { exact: true }).last(), { after: 400 });

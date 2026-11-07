@@ -105,7 +105,13 @@ export type User = {
   needsOnboarding?: boolean;
   /** 지금 버전의 필수 동의(약관·개인정보, 소비자는 만 14세 포함)가 빠졌는가(DEV-113). 테스트 계정은 false */
   consentRequired?: boolean;
+  /** 원산지 표시제도 안내 지금 버전을 읽은 시각(DEV-121). 생산자만, 안 읽었으면 null */
+  originNoticeReadAt?: ISODate | null;
 };
+
+/** 농가에게 알리는 법정 안내(DEV-121). ORIGIN = 원산지 표시제도(원산지표시법 제6조 ⑥) */
+export type NoticeKind = "ORIGIN";
+export type NoticeRead = { kind: NoticeKind; version: string; readAt: ISODate };
 
 /** 내 정보 고치기(온보딩 1장·SCR-17). 보낸 필드만 바꾼다 */
 export type MeUpdateInput = {
