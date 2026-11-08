@@ -1,0 +1,326 @@
+<title>로그인 카카오 위치 DEV-283</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 위에 결정(디자인 무브), 아래에 화면별 BEFORE | AFTER 390 프레임 한 줄씩, 끝에 상태표·문서 변경·질문.
+   휴대폰 프레임 안은 앱이 밝은 화면만 쓰므로(I1 color-scheme: light) 두 테마 모두 같은 앱 토큰을 쓴다. */
+:root {
+  /* 보드 바깥(테마 따라 바뀜) */
+  --bg: #EFEEEA;
+  --panel: #FFFFFF;
+  --ink: #111111;
+  --ink-2: #5E5D59;
+  --rule: #DAD9D4;
+  --mark: #C94F0C;
+  --mark-ink: #FFFFFF;
+  --bad: #B42318;
+  --bad-soft: #FBEAE8;
+  --good: #2F6B3A;
+  --good-soft: #E7F1E8;
+  /* 앱 토큰(docs/design/README.md UI 1.6, packages/ui/src/tokens.ts) — 테마와 무관 */
+  --app-bg: #FFFFFF;
+  --app-text: #111111;
+  --app-muted: #6B6B6B;
+  --app-surface: #F5F5F3;
+  --app-border: #E8E8E6;
+  --app-accent: #C94F0C;
+  --app-error: #B42318;
+  --app-bar: rgba(255,255,255,0.82);
+  --app-dim: rgba(0,0,0,0.04);
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+    --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+  --mark: #E2733A; --mark-ink: #1A0E07; --bad: #F08A7E; --bad-soft: #3A1F1C; --good: #8CC79A; --good-soft: #1D2E21;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px; font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 30px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 68ch; color: var(--ink-2); font-size: 17px; line-height: 25px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--rule); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+
+/* 디자인 무브 */
+.moves { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.moves li { background: var(--panel); border-radius: 16px; padding: 20px; display: grid; grid-template-columns: 32px 1fr; gap: 4px 12px; min-width: 0; }
+.num { width: 28px; height: 28px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 15px; display: grid; place-items: center; grid-row: span 2; }
+.moves h3 { align-self: center; }
+.moves p { color: var(--ink-2); grid-column: 2; }
+
+/* 화면 비교 */
+.cmp { display: flex; flex-direction: column; gap: 20px; }
+.pair { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.col { display: flex; flex-direction: column; gap: 12px; width: min(390px, 100%); }
+.tag { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 700; letter-spacing: 0.06em; }
+.tag i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.tag.before i { background: var(--bad); }
+.tag.after i { background: var(--good); }
+.notes { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 30px; }
+.note { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+.note .num { width: 24px; height: 24px; font-size: 13px; grid-row: auto; }
+.note.bad .dot { width: 24px; height: 24px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+
+/* 휴대폰 프레임 — 앱 토큰만 */
+.phone { width: 100%; background: var(--app-bg); color: var(--app-text); border-radius: 28px; border: 1px solid var(--rule); overflow: hidden; position: relative; display: flex; flex-direction: column; }
+.status { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 13px; font-weight: 600; }
+.hbar { height: 48px; display: flex; align-items: center; padding: 0 8px; }
+.back { width: 48px; height: 48px; display: grid; place-items: center; }
+.back svg { width: 24px; height: 24px; stroke: var(--app-text); stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ttl { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; white-space: pre-line; }
+.t-body { font-size: 17px; line-height: 25px; }
+.t-sub { font-size: 15px; line-height: 22px; }
+.t-cap { font-size: 13px; line-height: 18px; }
+.muted { color: var(--app-muted); }
+.b { font-weight: 700; }
+.sb { font-weight: 600; }
+.px { padding-left: 20px; padding-right: 20px; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.steps { display: flex; gap: 8px; margin-top: 16px; }
+.steps div { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.steps span { height: 4px; border-radius: 999px; background: var(--app-border); display: block; }
+.steps em { font-style: normal; font-size: 13px; line-height: 18px; color: var(--app-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rows { padding: 0 20px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 48px; padding: 12px 0; border-top: 1px solid var(--app-border); font-size: 17px; line-height: 25px; }
+.row.last { border-bottom: 1px solid var(--app-border); }
+.row .k { color: var(--app-muted); flex-shrink: 0; }
+.row .v { text-align: right; min-width: 0; display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.copy { font-size: 17px; font-weight: 600; color: var(--app-text); }
+.prod { display: flex; gap: 16px; align-items: center; padding: 0 20px; margin-top: 40px; }
+.thumb { width: 64px; height: 64px; border-radius: 16px; background: var(--app-surface); flex-shrink: 0; display: grid; place-items: center; }
+.thumb svg { width: 28px; height: 28px; stroke: var(--app-muted); fill: none; stroke-width: 1.75; }
+.btn-outline { margin: 0 20px; height: 52px; border-radius: 16px; border: 1px solid var(--app-text); display: grid; place-items: center; font-size: 17px; font-weight: 600; color: var(--app-text); }
+.btn-text { padding: 12px 20px; font-size: 17px; font-weight: 600; }
+.bbar { margin-top: auto; background: var(--app-bar); border-top: 1px solid var(--app-border); padding: 12px 20px 28px; display: flex; flex-direction: column; gap: 12px; }
+.bbar .btn-outline { margin: 0; }
+.notice { margin-top: 8px; background: var(--app-surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.hl { outline: 2px dashed var(--bad); outline-offset: 3px; border-radius: 6px; }
+.hl-ok { outline: 2px dashed var(--good); outline-offset: 3px; border-radius: 6px; }
+.big { font-size: 34px; line-height: 42px; font-weight: 700; letter-spacing: -0.02em; }
+.tabs { display: flex; gap: 8px; padding: 20px; overflow: hidden; }
+.chip { height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--app-border); display: grid; place-items: center; font-size: 15px; white-space: nowrap; }
+.chip.on { background: var(--app-text); color: var(--app-bg); border-color: var(--app-text); font-weight: 600; }
+.card { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--app-border); }
+.card:first-child { border-top: 0; }
+.card .c { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tabbar { margin: 12px; height: 64px; border-radius: 999px; background: var(--app-bar); border: 1px solid var(--app-border); display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: var(--app-muted); }
+.tabbar .on { background: var(--app-surface); color: var(--app-text); font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+.when { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--app-muted); padding-top: 16px; border-top: 1px solid var(--app-border); }
+.px > .when:first-child { border-top: 0; padding-top: 0; }
+.same-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.same-note.ok { background: var(--good-soft); color: var(--good); }
+.ex { font-size: 11px; line-height: 16px; padding: 2px 8px; border-radius: 999px; border: 1px dashed var(--app-muted); color: var(--app-muted); font-weight: 600; }
+.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 132px; background: #111111; color: #FFFFFF; height: 48px; border-radius: 999px; padding: 0 20px; display: grid; place-items: center; font-size: 17px; white-space: nowrap; }
+
+/* 표 */
+.tblwrap { overflow-x: auto; background: var(--panel); border-radius: 16px; }
+table { border-collapse: collapse; width: 100%; min-width: 880px; font-size: 15px; line-height: 22px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--rule); }
+thead th { border-top: 0; font-size: 13px; line-height: 18px; color: var(--ink-2); letter-spacing: 0.04em; }
+td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; white-space: nowrap; }
+.same { color: var(--ink-2); }
+.chg { font-weight: 700; }
+.del { text-decoration: line-through; color: var(--ink-2); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.box { background: var(--panel); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box ul, .box ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.warn { border: 1px solid var(--bad); }
+</style>
+<style>
+.imgf { width: 100%; border-radius: 28px; border: 1px solid var(--rule); display: block; }
+.badge { display: inline-block; font-size: 12px; line-height: 18px; padding: 1px 8px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-weight: 700; }
+.badge.no { background: var(--bad-soft); color: var(--bad); }
+.cap { font-size: 13px; line-height: 18px; color: var(--ink-2); }
+.pair .col { width: min(330px, 100%); }
+td .ok { color: var(--good); font-weight: 700; }
+td .no { color: var(--bad); font-weight: 700; }
+</style>
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">DEV-283 · SCR-19 생산자 로그인 · SCR-05 소비자 로그인 · 디자인 제안 (박현 결정 B "둘 다 본문 안", 2026-11-08 승인: 추천대로 + 소비자 선택안 채택, ⑤ 생산자 동의 안내는 넣지 않음)</span>
+    <h1>카카오로 시작하기는 두 앱 모두 설명 바로 아래에 둔다</h1>
+    <p class="lede">운영(카카오만 켜짐)에서 생산자 로그인은 '카카오로 시작하기'가 화면 맨 아래 고정 바에 있어 제목·설명 아래가 화면 절반 넘게 비어 있다. 소비자 로그인은 설명 바로 아래 본문에 버튼이 있다. 같은 행동이 두 앱에서 다른 자리에 있다. B안은 생산자도 소비자처럼 본문 안에 둔다. 왼쪽은 main 코드를 로컬에서 띄운 캡처, 오른쪽은 같은 화면의 요소만 옮긴 시안이다.</p>
+    <div class="meta"><span>브랜치 <code>nemodleo/dev-283-login-kakao-button-body</code></span><span>대상 <code>apps/producer/src/app/login.tsx</code> · <code>apps/consumer/src/app/login.tsx</code></span><span>캡처: 로컬 Expo 웹(생산자 :8183, 소비자 :8283), 390×844, API 응답(카카오 켜짐·테스트 계정 목록)은 Playwright로 대신 줌</span><span>개발 PR 위험 등급: 일반</span></div>
+  </header>
+
+  <section class="head">
+    <h2>디자인 무브</h2>
+    <ol class="moves">
+      <li><span class="num">1</span><h3>버튼은 설명 바로 아래, 32 띄워서</h3><p>생산자도 소비자처럼 설명 → 32 → 카카오 버튼. 평가 모드(테스트 계정 목록)에서 생산자는 이미 본문에 있었으니 위 간격만 24 → 32로 소비자와 맞춘다. 버튼 높이는 앱 토큰대로 생산자 56, 소비자 52 그대로.</p></li>
+      <li><span class="num">2</span><h3>개인정보 안내는 버튼 밑 작은 글로</h3><p>소비자는 버튼 아래 13 보조 글 「카카오에서는 이메일만 받아요…」를 둔다. 생산자는 같은 말이 설명 문단 안에 섞여 있었다. 설명은 「처음이면 카카오로 시작한 뒤 농가 가입 신청을 해요.」 한 문장으로 줄이고, 개인정보 말은 버튼 아래 13으로 옮긴다: 「카카오에서는 이메일만 받아요. 대표자 이름·연락처는 가입 신청에서 입력해요.」</p></li>
+      <li><span class="num">3</span><h3>운영에서는 고정 바를 없앤다</h3><p>카카오만 있을 때 생산자 하단 바는 버튼이 빠지면 빈 바가 된다. 오류 문구가 없으면 바를 그리지 않고, 사업자 정보 푸터가 화면 맨 아래(지금 <code>Scroll</code>의 <code>marginTop: auto</code>)로 내려간다. 오류가 나면 오류 한 줄만 버튼 바로 아래에 보인다(바 대신 본문).</p></li>
+      <li><span class="num">4</span><h3>평가 모드: 카카오 → 목록 → '시작하기'는 하단 그대로</h3><p>평가 모드의 주 행동은 고른 계정으로 들어가는 '○○으로 시작하기'라 하단 고정 바에 남긴다(강조색 버튼은 화면 아래 규칙). 목록 위에 소비자와 같은 이름표 「생산자 테스트 계정을 골라 주세요」, 아래 안내는 소비자와 짝을 맞춰 「소비자는 소비자 앱에서 따로 로그인해요.」</p></li>
+      <li><span class="num">5</span><h3>'처음이세요? 농가로 가입 신청 ›'은 목록 바로 아래 그대로</h3><p>이 줄은 시드의 '새 생산자' 테스트 계정으로 들어가는 평가용 지름길이라 평가 모드에만 있고, 운영(카카오만)에는 없다(운영에서는 카카오가 곧 가입이고 설명 문장이 그걸 말한다). 위치는 목록·안내 바로 아래, 푸터 위. 자리를 옮기지 않는다.</p></li>
+      <li><span class="num">6</span><h3>소비자는 버튼 위치 그대로, 운영의 고정 바만 선택 정리</h3><p>소비자 SCR-05는 버튼·간격이 이미 B안이다. 다만 운영에서 하단 고정 바에 글 한 줄(「이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요 · 테스트 서비스」)만 떠 있다. 두 앱 모두 '운영에는 고정 바 없음'으로 맞추려면 이 말을 버튼 아래 글에 합친다(아래 화면 C, 선택). '테스트 서비스'는 푸터에 이미 있다.</p></li>
+    </ol>
+  </section>
+
+  <!-- A. 생산자 운영 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 A · SCR-19 생산자 로그인 · 운영(카카오만 켜짐)</span>
+      <h2>카카오가 바닥에서 설명 아래로 올라온다</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · main</span>
+        <img class="imgf" src="DEV-283/before-producer-kakao.png" alt="지금 생산자 로그인, 카카오 버튼이 맨 아래 고정 바">
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 제안</span>
+        <img class="imgf" src="DEV-283/after-producer-kakao.png" alt="제안 생산자 로그인, 카카오 버튼이 설명 바로 아래">
+      </div>
+      <div class="notes">
+        <div class="note bad"><span class="dot">!</span><p>BEFORE: 설명과 버튼 사이가 약 520 비고, 버튼이 사업자 정보 푸터 <b>아래</b>에 있어 법정 고지가 버튼 위로 끼어든다. 소비자 앱과 자리가 다르다.</p></div>
+        <div class="note"><span class="num">1</span><p>설명 → 32 → 버튼(56, 노랑 #FEE500, 모서리 12) → 12 → 보조 글 13 가운데.</p></div>
+        <div class="note"><span class="num">2</span><p>설명은 한 문장, 개인정보 안내는 버튼 아래로. 문구 내용은 그대로(screens.md SCR-19 문장만 나눔).</p></div>
+        <div class="note"><span class="num">3</span><p>하단 고정 바 없음. 푸터는 화면 맨 아래(스크롤 끝). <code>Scroll bottom</code>은 기기 안전 영역 + 16.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B. 생산자 평가 모드 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 B · SCR-19 생산자 로그인 · 평가 모드(<code>?evaluator=1</code>, 평가용 빌드, Mock도 같은 배치)</span>
+      <h2>카카오와 목록은 본문, '시작하기'만 하단</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · 첫 화면</span>
+        <img class="imgf" src="DEV-283/before-producer-evaluator.png" alt="지금 평가 모드 첫 화면">
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 첫 화면</span>
+        <img class="imgf" src="DEV-283/after-producer-evaluator.png" alt="제안 평가 모드 첫 화면">
+      </div>
+      <div class="notes">
+        <div class="note"><span class="num">1</span><p>버튼 위 간격 24 → 32(소비자와 같음).</p></div>
+        <div class="note"><span class="num">2</span><p>버튼 아래 개인정보 안내 13. 지금은 Mock에서만 'Mock: …' 글이 있었는데, Mock은 그 글을 그대로 두고 운영·평가 모드는 개인정보 안내를 둔다(소비자와 같은 규칙).</p></div>
+        <div class="note"><span class="num">4</span><p>목록 위 이름표 「생산자 테스트 계정을 골라 주세요」(15 보조, 소비자 SCR-05와 같은 부품).</p></div>
+      </div>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · 끝까지 스크롤</span>
+        <img class="imgf" src="DEV-283/before-producer-evaluator-bottom.png" alt="지금 평가 모드 스크롤 끝">
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 끝까지 스크롤</span>
+        <img class="imgf" src="DEV-283/after-producer-evaluator-bottom.png" alt="제안 평가 모드 스크롤 끝">
+      </div>
+      <div class="notes">
+        <div class="note"><span class="num">4</span><p>목록 아래 안내를 「소비자는 소비자 앱에서 따로 로그인해요.」로(소비자 쪽 「농가는 생산자 앱에서 따로 로그인해요.」와 짝).</p></div>
+        <div class="note"><span class="num">5</span><p>'처음이세요? 농가로 가입 신청 ›'은 그 아래, 푸터 위 그대로. 하단 바 '○○으로 시작하기'(56, 강조색)도 그대로.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- C. 소비자 -->
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">화면 C · SCR-05 소비자 로그인</span>
+      <h2>버튼 위치는 그대로, 운영의 글만 있는 고정 바는 선택 정리</h2>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>BEFORE · 운영</span>
+        <img class="imgf" src="DEV-283/before-consumer-kakao.png" alt="지금 소비자 로그인 운영">
+      </div>
+      <div class="col">
+        <span class="tag after"><i></i>AFTER · 운영 (선택안)</span>
+        <img class="imgf" src="DEV-283/after-consumer-kakao-option.png" alt="제안 소비자 로그인 운영, 하단 글을 버튼 아래로 합침">
+      </div>
+      <div class="notes">
+        <div class="note"><span class="num">6</span><p>그대로: 닫기, 제목 28/36, 설명, 버튼(52) 위 32, 버튼 아래 13 안내.</p></div>
+        <div class="note"><span class="num">6</span><p>선택: 하단 바의 동의 안내를 버튼 아래 글에 합친다 → 「카카오에서는 이메일만 받아요. 닉네임·연락처·배송지와 약관 동의는 처음 한 번만 받아요.」 그러면 운영에서는 두 앱 모두 고정 바가 없다. 안 하면 소비자는 지금 그대로.</p></div>
+        <div class="note"><span class="num">4</span><p>평가 모드(아래 두 장)는 바꾸지 않는다. 생산자 쪽을 이 모양에 맞춘다.</p></div>
+      </div>
+    </div>
+    <div class="pair">
+      <div class="col">
+        <span class="tag before"><i></i>평가 모드 · 그대로</span>
+        <img class="imgf" src="DEV-283/before-consumer-evaluator.png" alt="소비자 평가 모드 첫 화면">
+      </div>
+      <div class="col">
+        <span class="tag before"><i></i>평가 모드 스크롤 끝 · 그대로</span>
+        <img class="imgf" src="DEV-283/before-consumer-evaluator-bottom.png" alt="소비자 평가 모드 스크롤 끝">
+      </div>
+    </div>
+  </section>
+
+  <section class="cmp">
+    <div class="head">
+      <span class="eyebrow">구현 (2026-11-08, 로컬 실서버 :8381/:8382, 카카오 설정만 켜진 응답으로)</span>
+      <h2>AFTER · 구현 화면</h2>
+      <p class="sub">마지막 장은 테스트 로그인이 꺼진 운영(404)에서 기기에 평가 표시가 남아 있을 때다. 표시를 지우고 카카오만 보인다(전에는 '지금은 로그인할 수 없어요').</p>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag after"><i></i>생산자 · 운영</span><img class="imgf" src="DEV-283/after-impl-producer-kakao.png" alt="구현 생산자 운영"></div>
+      <div class="col"><span class="tag after"><i></i>생산자 · 평가 모드</span><img class="imgf" src="DEV-283/after-impl-producer-evaluator.png" alt="구현 생산자 평가 모드"></div>
+      <div class="col"><span class="tag after"><i></i>생산자 · 평가 모드 스크롤 끝</span><img class="imgf" src="DEV-283/after-impl-producer-evaluator-bottom.png" alt="구현 생산자 평가 모드 끝"></div>
+      <div class="col"><span class="tag after"><i></i>소비자 · 운영</span><img class="imgf" src="DEV-283/after-impl-consumer-kakao.png" alt="구현 소비자 운영"></div>
+      <div class="col"><span class="tag after"><i></i>소비자 · 평가 모드</span><img class="imgf" src="DEV-283/after-impl-consumer-evaluator.png" alt="구현 소비자 평가 모드"></div>
+      <div class="col"><span class="tag after"><i></i>생산자 · 테스트 로그인 꺼짐 + 남은 평가 표시</span><img class="imgf" src="DEV-283/after-impl-producer-stale-mark.png" alt="구현 남은 평가 표시 정리"></div>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>상태별 배치 (생산자 SCR-19)</h2>
+    <div class="tblwrap"><table>
+      <thead><tr><th>상태</th><th>본문 (위에서 아래)</th><th>하단 고정 바</th><th>푸터</th></tr></thead>
+      <tbody>
+        <tr><td>운영 · 카카오만</td><td class="chg">제목+로고 · 설명 한 문장 · 카카오 버튼 · 개인정보 안내 13</td><td class="chg">없음 (오류는 버튼 아래 본문)</td><td>화면 맨 아래</td></tr>
+        <tr><td>평가 모드 (<code>?evaluator=1</code>·평가용 빌드)</td><td>제목+로고 · 설명 · 카카오 버튼 · <span class="chg">개인정보 안내</span> · <span class="chg">이름표</span> · 계정 목록 · <span class="chg">「소비자는 소비자 앱에서…」</span> · '처음이세요?…'</td><td class="same">'○○으로 시작하기' (+오류)</td><td>목록 아래, 바 위</td></tr>
+        <tr><td>Mock (<code>npm run dev</code>)</td><td>평가 모드와 같음. 버튼 아래 글은 「Mock: 카카오로 시작하면 농가 없는 새 생산자로 들어가요」 그대로, 설명 문단 없음(지금과 같음)</td><td class="same">'○○으로 시작하기'</td><td>목록 아래, 바 위</td></tr>
+        <tr><td>카카오 꺼짐 (CI·Mock 플래그만)</td><td class="same">제목 · 계정 목록 · 안내 · '처음이세요?…' (카카오 버튼 없음)</td><td class="same">'○○으로 시작하기'</td><td class="same">그대로</td></tr>
+        <tr><td>설정 불러오는 중</td><td class="same">제목만 (지금과 같음)</td><td class="chg">없음</td><td>화면 맨 아래</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="head">
+    <h2>문서 변경 (개발 PR에서 함께)</h2>
+    <div class="tblwrap"><table>
+      <thead><tr><th>문서</th><th>고칠 곳</th></tr></thead>
+      <tbody>
+        <tr><td class="code">docs/spec/screens.md</td><td>SCR-19: 카카오 버튼은 설명 바로 아래 본문, 운영에서 하단 바 없음, 버튼 아래 개인정보 안내, 평가 모드 이름표·안내 문구. SCR-05: (선택안을 고르면) 하단 바 문구를 버튼 아래로.</td></tr>
+        <tr><td class="code">docs/wiki/</td><td>로그인 화면 영문 요약에 위치 한 줄(있으면)</td></tr>
+        <tr><td>Figma v6</td><td>생산자 로그인 프레임(운영·평가) 버튼 위치, 소비자 로그인(선택안일 때). 못 하면 PR <code>Figma:</code> 줄에 후속 이슈</td></tr>
+        <tr><td class="code">e2e / scripts/test-*.mjs</td><td><code>login-bottom-bar</code> 안에서 카카오 버튼을 찾는 테스트가 있으면 본문 기준으로 바꾼다(지우지 않음)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="head">
+    <h2>박현 확인 질문</h2>
+    <div class="box warn">
+      <ol>
+        <li><b>① 소비자 선택안</b>: 운영에서 소비자 하단 바(글 한 줄)를 없애고 버튼 아래 글에 합칠까? (제안: 합친다. 안 하면 소비자는 아무것도 안 바뀜)</li>
+        <li><b>② 생산자 문구 나누기</b>: 설명 문단의 개인정보 문장을 버튼 아래 13으로 옮기는 것(문구 내용은 같음) 괜찮은지.</li>
+        <li><b>③ 평가 모드 안내 문구</b>: 「생산자 테스트 계정만 보여요. 소비자 계정과는 따로예요.」 → 이름표 「생산자 테스트 계정을 골라 주세요」 + 「소비자는 소비자 앱에서 따로 로그인해요.」로 소비자와 짝 맞추기.</li>
+        <li><b>④ '처음이세요? 농가로 가입 신청 ›'</b>: 평가 모드 전용으로 목록 아래 그대로 둔다(제안). 목록의 '새 생산자'와 겹치니 지울지?</li>
+        <li><b>⑤ 생산자 동의 안내</b>: 소비자는 「약관 동의는 처음 가입할 때 받아요」가 있고 생산자는 없다(생산자도 로그인 뒤 <code>/consent</code>). 생산자 버튼 아래에도 넣을지? (제안: 이번엔 안 넣음)</li>
+      </ol>
+    </div>
+  </section>
+</div>
