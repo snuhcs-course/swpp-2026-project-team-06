@@ -55,6 +55,8 @@ export function NumField({
   error,
   placeholder,
   hideLabel,
+  highlight = false,
+  disabled = false,
 }: {
   label: string;
   value: number | null;
@@ -63,6 +65,8 @@ export function NumField({
   error?: boolean;
   placeholder?: string;
   hideLabel?: boolean;
+  highlight?: boolean;
+  disabled?: boolean;
 }) {
   const text = value == null ? "" : value.toLocaleString("ko-KR");
   return (
@@ -77,14 +81,15 @@ export function NumField({
           height: 48,
           borderRadius: tokens.radius.sm,
           borderWidth: error ? 1.5 : 1,
-          borderColor: error ? tokens.color.error : tokens.color.border,
-          backgroundColor: tokens.color.background,
+          borderColor: error ? tokens.color.error : highlight ? "#E9B980" : tokens.color.border,
+          backgroundColor: highlight ? "#FFF7EB" : tokens.color.background,
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 12,
         }}
       >
         <TextInput
+          editable={!disabled}
           accessibilityLabel={label}
           value={text}
           inputMode="numeric"

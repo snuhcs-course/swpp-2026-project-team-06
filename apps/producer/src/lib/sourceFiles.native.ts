@@ -5,12 +5,12 @@ import * as ImagePicker from "expo-image-picker";
 
 export type PickedFile = File | (NativeFile & { size: number });
 
-export async function chooseSourceFiles(_images = false): Promise<PickedFile[]> {
+export async function chooseSourceFiles(_images = false, multiple = true): Promise<PickedFile[]> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) return [];
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
-    allowsMultipleSelection: true,
+    allowsMultipleSelection: multiple,
     quality: 0.8,
   });
   if (res.canceled) return [];

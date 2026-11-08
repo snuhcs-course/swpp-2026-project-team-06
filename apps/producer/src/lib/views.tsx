@@ -136,6 +136,8 @@ export function FieldButton({
   right,
   onPress,
   hideLabel,
+  highlight = false,
+  disabled = false,
 }: {
   label: string;
   value: string;
@@ -144,6 +146,8 @@ export function FieldButton({
   right?: string;
   onPress: () => void;
   hideLabel?: boolean;
+  highlight?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <View style={{ gap: 8 }}>
@@ -155,18 +159,19 @@ export function FieldButton({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value || "비어 있음"}`}
+        disabled={disabled}
         onPress={onPress}
         style={{
           height: 48,
           borderRadius: tokens.radius.sm,
           borderWidth: error ? 1.5 : 1,
-          borderColor: error ? tokens.color.error : tokens.color.border,
+          borderColor: error ? tokens.color.error : highlight ? "#E9B980" : tokens.color.border,
           paddingHorizontal: 16,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
-          backgroundColor: tokens.color.background,
+          backgroundColor: highlight ? "#FFF7EB" : tokens.color.background,
         }}
       >
         <T

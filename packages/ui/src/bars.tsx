@@ -36,11 +36,12 @@ type BarProps = {
   /** 닫기(X) 아이콘으로 */
   close?: boolean;
   right?: ReactNode;
+  rightWidth?: number;
   border?: boolean;
 };
 
 /** 할 일 화면 머리: 48 높이 바(뒤로 + 가운데 제목 17 굵게) */
-export function HeaderBar({ title, onBack, close, right, border }: BarProps) {
+export function HeaderBar({ title, onBack, close, right, rightWidth = 48, border }: BarProps) {
   return (
     <View
       style={[
@@ -69,7 +70,7 @@ export function HeaderBar({ title, onBack, close, right, border }: BarProps) {
       >
         {title ?? ""}
       </T>
-      <View style={styles.side}>{right}</View>
+      <View style={[styles.side, { width: rightWidth }]}>{right}</View>
     </View>
   );
 }
@@ -396,6 +397,7 @@ export function Sheet({
  * 손잡이·peek을 누르면 children이 펼쳐진다. 펼친 동안만 뒤 화면을 어둡게 가린다.
  */
 export function PeekSheet({
+  hideClosedPeek = false,
   open,
   onOpenChange,
   peek,
@@ -403,6 +405,7 @@ export function PeekSheet({
   label,
   children,
 }: {
+  hideClosedPeek?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   peek: ReactNode;
@@ -426,10 +429,10 @@ export function PeekSheet({
       ) : null}
       <View
         testID="peek-sheet"
-        style={[styles.peekSheet, sheetGlass]}
+        style={[styles.peekSheet, sheetGlass, hideClosedPeek && !open ? { borderTopLeftRadius: 0, borderTopRightRadius: 0, backgroundColor: tokens.color.background, shadowOpacity: 0 } : undefined]}
         accessibilityViewIsModal={open}
       >
-        <Pressable
+        {open || !hideClosedPeek ? <Pressable
           accessibilityRole="button"
           accessibilityLabel={open ? `${label} 접기` : `${label} 펼치기`}
           aria-expanded={open}
@@ -441,7 +444,7 @@ export function PeekSheet({
         >
           <View style={styles.handle} />
           {peek}
-        </Pressable>
+        </Pressable> : null}
         {/* 접혀도 내용은 마운트해 둔다(업로드·입력 중인 상태 보존). 화면에서만 숨긴다. */}
         <ScrollView
           style={[{ maxHeight: 520 }, !open && { display: "none" }]}

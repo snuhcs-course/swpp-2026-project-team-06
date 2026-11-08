@@ -1,4 +1,4 @@
-import { RoomMedia } from "@farmclub/ui";
+import { BrandLogo, RoomMedia } from "@farmclub/ui";
 // 소비자 앱 화면에서 여러 번 쓰는 조각
 import { ApiError, type NewsItem, type ProductDetail } from "@farmclub/api";
 import {
@@ -482,27 +482,7 @@ export function openExternal(url: string) {
   void Linking.openURL(url);
 }
 
-/** 워드마크: farmclub 700 · 자간 -0.03em · 강조색 점 */
+/** Shared approved wordmark. */
 export function Wordmark() {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-      <T
-        variant="body"
-        weight="bold"
-        style={{ fontSize: 20, lineHeight: 22, letterSpacing: -0.6 }}
-      >
-        farmclub
-      </T>
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 999,
-          backgroundColor: tokens.color.accent,
-          marginLeft: 4,
-          marginBottom: 4,
-        }}
-      />
-    </View>
-  );
+  return <BrandLogo variant="wordmark" width={130} />;
 }

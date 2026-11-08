@@ -196,7 +196,7 @@ test("AC-SRC-1: New Product opens uploads linked to a new private product", asyn
   await expect(page).toHaveURL(/composer=1/);
   await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
   await page
-    .getByRole("button", { name: "사진·자료 접기", exact: true })
+    .getByRole("button", { name: "AI 시트 닫기", exact: true })
     .last()
     .click();
   await page
@@ -296,7 +296,7 @@ for (const width of [360, 390, 430]) {
       await expect(page.getByText("업로드 실패", { exact: true })).toHaveCount(0);
       await page.reload();
       // DEV-179: the variety input lives in the AI sheet, collapsed once a source exists.
-      await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
       await expect(variety).toHaveValue("손입력 온주밀감");
       await expect(page.getByTestId("source-material-box").getByTestId("attachment-tile")).toHaveCount(1);
       if (kind === "text") await expect(page.getByTestId("source-material-box")).toContainText("생산자가 직접 쓴 보관 안내");
@@ -341,7 +341,7 @@ test("AC-SRC-5/11: failed basic-info save retains manual input and file for one 
   await expect(page.getByRole("button", { name: "다시 업로드", exact: true })).toHaveCount(0);
   await page.reload();
   // DEV-179: the variety input lives in the AI sheet, collapsed once a source exists.
-  await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   await expect(variety).toHaveValue("직접 입력한 품종");
   await expect(page.getByTestId("source-material-box").getByTestId("attachment-tile")).toHaveCount(1);
   expect(uploads).toBe(1);

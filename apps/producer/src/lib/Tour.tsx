@@ -641,11 +641,10 @@ export function HelpButton({ autoOpen = false }: { autoOpen?: boolean }) {
     if (readStore(HELP_GUIDE_SEEN) === null) start();
   }, [autoOpen, approved, active, start]);
   return (
-    <IconButton
-      icon="question"
-      label="도움말"
-      testID="help-button"
-      onPress={start}
-    />
+    <Pressable accessibilityRole="button" accessibilityLabel="도움말" testID="help-button" onPress={start}
+      style={{ minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 2 }}>
+      <Icon name="question" size={24} />
+      <T style={{ fontSize: 11, lineHeight: 14 }}>가이드</T>
+    </Pressable>
   );
 }

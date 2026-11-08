@@ -10,7 +10,7 @@ body { margin: 0; background: var(--surface); color: var(--text);
   font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   font-size: 14px; line-height: 1.5; }
 .brand { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: var(--text); text-decoration: none; }
-.brand i { display: inline-block; width: 6px; height: 6px; border-radius: 99px; background: var(--accent); margin-left: 2px; }
+.brand img { display: block; object-fit: contain; }
 .tag { font-size: 13px; color: var(--muted); }
 h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
 h2 { font-size: 16px; margin: 0; letter-spacing: -0.01em; }

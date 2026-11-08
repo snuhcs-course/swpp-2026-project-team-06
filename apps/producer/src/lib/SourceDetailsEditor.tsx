@@ -99,10 +99,12 @@ export function SourceDetailsEditor({
   showStoryTextHints = false,
   displayName,
   preview = false,
+  locked = false,
 }: {
   /** 새 상품 채우기: 상세 맨 위 제목을 입력 중인 상품명으로 바로 보여 준다(저장 때 같은 값으로 맞춤). */
   displayName?: string;
   preview?: boolean;
+  locked?: boolean;
   emptyHint?: boolean;
   showStoryTextHints?: boolean;
   batch: SourceBatch;
@@ -297,7 +299,7 @@ export function SourceDetailsEditor({
             setHidden((old) => ({ ...old, [target.id]: ids }));
             setDirty(true);
           }}
-          busy={busy}
+          busy={busy || locked}
           onUploading={(v) => {
             setUploading(v);
             onBusy(v);
@@ -461,6 +463,7 @@ export function SourceDetailsEditor({
                     </T>
                     {e.status === "conflict" && e.field.value ? (
                       <Button
+                        disabled={busy || locked}
                         label={e.field.value}
                         variant="outline"
                         onPress={() => change({ ...e.field, state: "CONFIRMED" })}
@@ -479,6 +482,7 @@ export function SourceDetailsEditor({
                       e.status === "conflict" ? e.field.value : "",
                     ).map((c) => (
                         <Button
+                          disabled={busy || locked}
                           key={c.id}
                           label={c.value}
                           variant="outline"

@@ -128,7 +128,7 @@ for (const width of [360, 390, 430]) {
       await expect(page.getByText(
         "일부 내용을 반영하지 못했어요. 원문을 확인해 주세요.",
       )).toBeVisible();
-      await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeVisible();
     }
     await page
       .getByRole("button", { name: "상세페이지 편집", exact: true })
@@ -162,10 +162,10 @@ for (const width of [360, 390, 430]) {
       page.getByRole("switch", { name: "상품 소개 표시", exact: true }),
     ).toBeChecked();
     await expect(
-      page.getByLabel("한눈에 보기 내용", { exact: true }),
+      page.getByLabel("상품 소개 보충 내용", { exact: true }),
     ).toHaveValue("제주산 감귤입니다.");
     await page
-      .getByLabel("한눈에 보기 내용", { exact: true })
+      .getByLabel("상품 소개 보충 내용", { exact: true })
       .fill("제주산 감귤입니다. 수정 중");
     await page.getByRole("button", { name: "자료", exact: true }).click();
     await expect(
@@ -176,7 +176,7 @@ for (const width of [360, 390, 430]) {
       page.getByText("저장하지 않은 내용을 닫을까요?", { exact: true }),
     ).toHaveCount(0);
     await page
-      .getByLabel("한눈에 보기 내용", { exact: true })
+      .getByLabel("상품 소개 보충 내용", { exact: true })
       .fill("제주산 감귤입니다.");
     await expect(
       page.getByRole("button", {
@@ -192,7 +192,7 @@ for (const width of [360, 390, 430]) {
       await visibility.press("Space");
       await expect(visibility).not.toBeChecked();
       await expect(
-        page.getByLabel("한눈에 보기 내용", { exact: true }),
+        page.getByLabel("상품 소개 보충 내용", { exact: true }),
       ).toHaveCount(0);
       await visibility.press("Enter");
       await expect(visibility).toBeChecked();
@@ -241,20 +241,20 @@ for (const width of [360, 390, 430]) {
     ).toBeChecked();
     if (width === 360) {
       await page.getByRole("button", { name: "자료", exact: true }).click();
-      // DEV-179: retry stays disabled until the cost notice is acknowledged.
-      await page.getByRole("checkbox", { name: /비용이 다시/ }).check();
-      await page.getByRole("button", { name: "미완료 항목 재시도", exact: true }).click();
+      // DEV-287: retry is available without a cost-confirmation step.
+      await expect(page.getByRole("checkbox", { name: /비용이 다시/ })).toHaveCount(0);
+      await page.getByRole("button", { name: "재시도", exact: true }).click();
       work();
       await expect(page.getByText("분석이 완료됐어요")).toBeVisible();
       await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
-      await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("제주산 감귤입니다.");
+      await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("제주산 감귤입니다.");
       await expect(page.getByRole("switch", { name: "보관 방법 표시", exact: true })).toBeChecked();
       // Retrying changes the source version; confirm the preserved editor before publishing.
       await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
       await expect(page.getByText("비공개 초안을 저장했어요. 상품에는 아직 적용되지 않았어요.")).toBeVisible();
     }
     await page
-      .getByRole("button", { name: "구매자 화면 미리보기", exact: true })
+      .getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ })
       .first()
       .click();
     await expect(page.getByText("제주산 감귤입니다.").last()).toBeVisible();
@@ -272,7 +272,7 @@ for (const width of [360, 390, 430]) {
     await expect(
       page.getByTestId("source-heading-icon-storage").last(),
     ).toBeVisible();
-    await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+    await page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ }).click();
     await expect(page.getByRole("button", { name: "공개 전 검토", exact: true })).toBeVisible();
     await page
       .getByRole("button", { name: "상품 상세에 적용 검토", exact: true })

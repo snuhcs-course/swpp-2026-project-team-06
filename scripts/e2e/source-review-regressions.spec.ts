@@ -60,7 +60,7 @@ for (const composer of [false, true]) {
     await serveReview(page, fixture);
     const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
     const openRunPanel = async () => {
-      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     };
     await page.goto(url);
     await openRunPanel();
@@ -75,6 +75,15 @@ for (const composer of [false, true]) {
     await expect(page.getByText(/자료를 처리하지 못했어요/)).toHaveCount(0);
     fixture.run.status = "PARTIAL";
     fixture.run.items[0].status = "FAILED";
+    if (composer) {
+      await page.reload();
+      await openRunPanel();
+      await expect(page.getByText("일부 내용을 채우지 못했어요. 다시 시도해 주세요. · 테스트 결과", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+      await expect(page.getByText(/\.(?:pdf|txt): /)).toHaveCount(0);
+      clean();
+      return;
+    }
     const messages = {
       SOURCE_CHANGED: "자료가 바뀌어 문구 정리를 사용하지 않았어요. 다시 분석해 주세요.",
       PRIVACY_CHANGED: "가림 내용이 바뀌어 문구 정리를 사용하지 않았어요. 확인 후 다시 분석해 주세요.",
@@ -122,13 +131,13 @@ test("DEV-186 AC-SRC-3/11: candidate buttons hide money and health, retain produ
     fixture.review.editorFields[0].status = status;
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}`);
     await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
-    await page.getByLabel("한눈에 보기 내용", { exact: true }).click();
+    await page.getByLabel("상품 소개 보충 내용", { exact: true }).click();
     await expect(page.getByText("내용 확인 필요 · 사용할 문구를 선택하거나 직접 수정해 주세요.", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "32,000원", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "면 역 력 증진", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "서늘한 곳에 보관", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "고객센터 평일 운영", exact: true }).click();
-    await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("고객센터 평일 운영");
+    await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("고객센터 평일 운영");
     // Reload resets the dirty editor without going through a navigation guard.
     await page.reload();
   }
@@ -144,9 +153,10 @@ test("DEV-186 AC-SRC-3/11: composer hints apply to story inputs only", async ({ 
   const value = "피로회복 32,000원 고객센터";
   const hints = ["금액은 다음 단계(판매·가격)에서 직접 채워 주세요", "건강 효능 문구는 넣을 수 없어요",
     "팜클럽 공통 정책과 겹치는 문구인지 확인해 주세요"];
-  for (const label of ["상품명", "과일 품종명", "사이즈", "예상 당도 (°Bx)", "원산지", "보관"]) {
+  await page.getByText("상품정보", { exact: true }).click();
+  for (const label of ["상품명", "과일 품종명", "사이즈", "측정 당도 (°Bx)", "원산지", "보관"]) {
     if (label === "과일 품종명")
-      await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     const input = page.getByLabel(label, { exact: true });
     const original = await input.inputValue();
     for (const text of ["32,000원", "피로회복", "고객센터"]) {
@@ -156,9 +166,9 @@ test("DEV-186 AC-SRC-3/11: composer hints apply to story inputs only", async ({ 
     }
     await input.fill(original);
     if (label === "과일 품종명")
-      await page.getByRole("button", { name: "사진·자료 접기", exact: true }).last().click();
+      await page.getByRole("button", { name: "AI 시트 닫기", exact: true }).last().click();
   }
-  await page.getByLabel("한눈에 보기 내용", { exact: true }).fill(value);
+  await page.getByLabel("상품 소개 보충 내용", { exact: true }).fill(value);
   for (const hint of hints) await expect(page.getByText(hint, { exact: true })).toBeVisible();
   clean();
 });
@@ -215,7 +225,7 @@ test("DEV-186 AC-SRC-1/2/11: multi-product exclusions queue one named modal", as
   expect(await page.evaluate(() => localStorage.getItem(
     "farmclub-producer:excluded-seen:u-kang:review-queue:second"))).toBe("version-second");
   // Parent input edits recreate the products array; an unchanged result stays acknowledged.
-  const summary = page.getByLabel("한눈에 보기 내용", { exact: true }).first();
+  const summary = page.getByLabel("상품 소개 보충 내용", { exact: true }).first();
   await summary.fill("화면을 다시 그려도 확인한 제외 결과는 열리지 않아요");
   await expect(summary).toHaveValue("화면을 다시 그려도 확인한 제외 결과는 열리지 않아요");
   await expect(modal).toHaveCount(0);
@@ -246,7 +256,7 @@ test("DEV-186 AC-SRC-11: existing product canvas has no next-step story hints", 
       snapshot, publishedSnapshot: snapshot },
   }));
   await page.goto(`${producerUrl}/products/p-house/detail`);
-  const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+  const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
   await expect(summary).toHaveValue("기존 상품 설명");
   await summary.fill("피로회복 32,000원 고객센터");
   await expect(summary).toHaveValue("피로회복 32,000원 고객센터");
@@ -266,7 +276,7 @@ for (const composer of [false, true]) {
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
     // 기존 작업 화면은 편집 탭을 열어야 상세 편집기가 보인다.
     if (!composer) await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
-    const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+    const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
     await expect(summary).toHaveValue("제주에서 자란 감귤");
     await summary.fill("직접 고친 설명");
     await expect(summary).toHaveValue("직접 고친 설명");
@@ -276,7 +286,7 @@ for (const composer of [false, true]) {
       // FillInput retains the page layout: the product heading input has no extra wrapper.
       const title = page.getByLabel("상품명", { exact: true });
       await expect(title).toBeVisible();
-      await expect(title.locator("..")).toHaveCSS("gap", "4px");
+      await expect(title).toHaveCSS("background-color", "rgb(255, 247, 235)");
     }
     clean();
   });
@@ -293,7 +303,12 @@ for (const composer of [false, true]) {
       ...{ pagesAnalysed: 20, pagesSkipped: 5 } };
     await serveReview(page, fixture);
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
-    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+    if (composer) {
+      // DEV-287: composer shows a concise status instead of internal file/chunk diagnostics.
+      await expect(page.getByText(/\.(?:pdf|txt): /)).toHaveCount(0);
+      return;
+    }
     await expect(page.getByText("합성25쪽.pdf: 앞 20쪽만 분석했어요. 나머지 5쪽은 필요하면 나눠서 올려 주세요.", { exact: true })).toBeVisible();
     await expect(page.getByText(/자료를 처리하지 못했어요/)).toHaveCount(0);
   });
@@ -315,7 +330,12 @@ for (const composer of [false, true]) {
     await serveReview(page, fixture);
     const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
     await page.goto(url);
-    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+    if (composer) {
+      // DEV-287: composer shows a concise status instead of internal file/chunk diagnostics.
+      await expect(page.getByText(/\.(?:pdf|txt): /)).toHaveCount(0);
+      return;
+    }
     await expect(page.getByText(/추출할 내용을 찾지 못했어요/)).toHaveCount(0);
     // Keep the zero-candidate REFINE item, as returned by the real pipeline.
     const extracts = fixture.run.items.slice(0, 3);
@@ -331,7 +351,7 @@ for (const composer of [false, true]) {
         refine,
       ];
       await page.reload();
-      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
       await expect(page.getByText(`긴합성자료.txt: ${message}`, { exact: true })).toHaveCount(1);
       await expect(page.getByText(/추출할 내용을 찾지 못했어요|분석할 텍스트가 없어요/)).toHaveCount(1);
       await expect(page.getByText(message, { exact: true })).toHaveCount(0);
@@ -349,9 +369,15 @@ for (const composer of [false, true]) {
     const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
     const open = async () => {
       await page.goto(url);
-      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     };
     await open();
+    if (composer) {
+      // DEV-287: composer shows a concise status instead of internal file/chunk diagnostics.
+      await expect(page.getByText(/\.(?:pdf|txt): /)).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+      return;
+    }
     await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요. 원문을 확인해 주세요.", { exact: true })).toBeVisible();
     await expect(page.getByText("원문자료.txt: 근거를 확인하지 못한 후보 1개는 제외했어요. 원문을 확인해 주세요.", { exact: true })).toHaveCount(1);
     await expect(page.getByText(/근거를 확인하지 못한/)).toHaveCount(1);
@@ -388,26 +414,32 @@ for (const composer of [false, true]) {
     const url = `${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`;
     const open = async () => {
       await page.goto(url);
-      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     };
-    const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
+    const retry = page.getByRole("button", { name: "재시도", exact: true });
     const consent = (uncertain = false) => page.getByRole("checkbox", {
       name: uncertain ? uncertainRetryCost : retryCost, exact: true,
     });
     await open();
-    await expect(consent(true)).toBeVisible();
+    if (composer) {
+      // DEV-287: composer shows a concise status instead of internal file/chunk diagnostics.
+      await expect(page.getByText(/\.(?:pdf|txt): /)).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+      clean();
+      return;
+    }
+    await expect(consent(true)).toHaveCount(0);
     const note = page.getByText("합성부분자료.pdf: 2쪽을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
     await expect(note).toBeVisible();
     await expect(note).toHaveCount(1);
     await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "미완료 항목 재시도", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
     // Known per-page errors show the same single note; skipped empty pages are quiet.
     fixture.run.items[0] = { ...extract, error: "OCR_PAGES_FAILED" };
     await open();
     await expect(note).toHaveCount(1);
-    await expect(consent()).not.toBeChecked();
-    await expect(retry).toBeDisabled();
-    await consent().check();
+    await expect(consent()).toHaveCount(0);
+    await expect(retry).toBeEnabled();
     await expect(retry).toBeEnabled();
     // A failed extraction chunk does not label a successfully transcribed page as unread.
     const chunkNote = page.getByText("합성부분자료.pdf: 일부 내용을 읽지 못했어요. 다시 분석해 보세요.", { exact: true });
@@ -418,11 +450,10 @@ for (const composer of [false, true]) {
       await expect(chunkNote).toHaveCount(1);
       await expect(note).toHaveCount(0);
       await expect(page.getByText(/쪽을 읽지 못했어요|분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
-      await expect(consent(error === "REQUEST_UNCERTAIN")).not.toBeChecked();
-      await expect(retry).toBeDisabled();
+      await expect(consent(error === "REQUEST_UNCERTAIN")).toHaveCount(0);
+      await expect(retry).toBeEnabled();
       if (error !== "REQUEST_UNCERTAIN") {
-        await consent().check();
-        await expect(retry).toBeEnabled();
+            await expect(retry).toBeEnabled();
       }
     }
     // Mixed failures show both notes exactly once, with the actual OCR page count.
@@ -433,9 +464,8 @@ for (const composer of [false, true]) {
     await expect(chunkNote).toBeVisible();
     await expect(chunkNote).toHaveCount(1);
     await expect(page.getByText(/분석 요청의 완료 여부를 확인하지 못했어요|추출할 내용을 찾지 못했어요|자료를 처리하지 못했어요/)).toHaveCount(0);
-    await expect(consent()).not.toBeChecked();
-    await expect(retry).toBeDisabled();
-    await consent().check();
+    await expect(consent()).toHaveCount(0);
+    await expect(retry).toBeEnabled();
     await expect(retry).toBeEnabled();
     fixture.run.status = "SUCCEEDED";
     fixture.run.items[0] = { ...extract, status: "SUCCEEDED", error: null,
@@ -538,7 +568,7 @@ for (const composer of [false, true]) {
     await openContractReview(page, fixture, composer);
     const payload = await (await returned).json();
     expect(payload.candidates[0].evidence).toEqual([evidence]);
-    await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("제주에서 자란 감귤");
+    await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("제주에서 자란 감귤");
     await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
     await expect(page.getByTestId("ai-filled-badge")).toHaveCount(0);
     clean();
@@ -584,13 +614,13 @@ for (const composer of [false, true]) {
       return route.fulfill({ response, json: { ...(await response.json()), stages: [] } });
     });
     await openContractReview(page, fixture, composer);
-    const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+    const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
     const unsaved = "구매자가 보게 될 직접 수정한 제주 감귤 설명";
     await summary.fill(unsaved);
     const url = page.url();
-    await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+    await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
     await expect(page).toHaveURL(url);
-    await expect(page.getByRole("button", { name: "편집으로 돌아가기", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ })).toBeVisible();
     await expect(page.getByText(unsaved, { exact: true })).toBeVisible();
     await expect(summary).toHaveCount(0);
     await expect(page.getByRole("button", { name: "원문 보기", exact: true })).toHaveCount(0);
@@ -602,7 +632,7 @@ for (const composer of [false, true]) {
       await expect(page.getByText(/박스 남음/)).toHaveCount(0);
       await expect(page.getByText(/도서산간 추가/)).toHaveCount(0);
     }
-    await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+    await page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ }).click();
     await expect(page).toHaveURL(url);
     await expect(summary).toHaveValue(unsaved);
     clean();
@@ -614,7 +644,7 @@ for (const composer of [false, true]) {
     const fixture = contractFixture();
     await serveContractReview(page, fixture);
     await openContractReview(page, fixture, true);
-    await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+    await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
     await expect(page.getByText(/박스 남음/)).toBeVisible();
     clean();
   });
@@ -637,12 +667,12 @@ for (const composer of [false, true]) {
     ];
     await serveContractReview(page, fixture);
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
-    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     await expect(page.getByTestId("source-run-progress")).toHaveCount(1);
     if (composer) {
       const detail = page.getByTestId("product-detail-page");
       await expect(detail.getByLabel("불러오는 중", { exact: true })).toHaveCount(0);
-      await page.getByRole("button", { name: "사진·자료 접기", exact: true }).last().click();
+      await page.getByRole("button", { name: "AI 시트 닫기", exact: true }).last().click();
       await expect(detail.getByTestId("source-run-progress")).toBeVisible();
       await expect(page.getByTestId("source-run-progress")).toHaveCount(1);
       await expect(detail.getByLabel("불러오는 중", { exact: true })).toHaveCount(0);
@@ -662,7 +692,7 @@ for (const composer of [false, true]) {
     clean();
   });
 
-  test(`DEV-179 AC-SRC-5/8: ${screen} shows actual failed pages and requires retry cost acknowledgement`, async ({ page }) => {
+  test(`DEV-179 AC-SRC-5/8: ${screen} shows actual failed pages and retries without a cost acknowledgement`, async ({ page }) => {
     const clean = monitor(page);
     await loginProducer(page, "강영수");
     const fixture = contractFixture();
@@ -673,19 +703,24 @@ for (const composer of [false, true]) {
       error: "OCR_PAGES_FAILED", pagesFailed: 2, chunksFailed: 1, ocrFailedPageNumbers: [2, 5], chunkFailedPageNumbers: [7] };
     await serveContractReview(page, fixture);
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
-    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+    if (composer) {
+      // DEV-287: composer shows a concise status instead of internal file/chunk diagnostics.
+      await expect(page.getByText(/\.(?:pdf|txt): /)).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "재시도", exact: true })).toBeEnabled();
+      clean();
+      return;
+    }
     await expect(page.getByText("부분 실패.pdf: 2쪽을 읽지 못했어요. 확인할 쪽: 2, 5쪽. 다시 분석해 보세요.", { exact: true })).toBeVisible();
     await expect(page.getByText("부분 실패.pdf: 일부 내용을 읽지 못했어요. 확인할 쪽: 7쪽. 다시 분석해 보세요.", { exact: true })).toBeVisible();
-    const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
+    const retry = page.getByRole("button", { name: "재시도", exact: true });
     const consent = page.getByRole("checkbox", {
       name: retryCost, exact: true,
     });
-    await expect(consent).not.toBeChecked();
-    await expect(retry).toBeDisabled();
-    await consent.check();
+    await expect(consent).toHaveCount(0);
     await expect(retry).toBeEnabled();
-    await consent.uncheck();
-    await expect(retry).toBeDisabled();
+    await expect(retry).toBeEnabled();
+    await expect(retry).toBeEnabled();
     clean();
   });
 }
@@ -699,7 +734,7 @@ test("DEV-179 AC-SRC-1/5: composer variety lives above the AI sheet footer and d
   const variety = page.getByLabel("과일 품종명", { exact: true });
   await expect(variety).toBeHidden();
   await expect(page.getByTestId("product-photo-box").getByTestId("attachment-tile")).toHaveCount(0);
-  await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   await expect(variety).toBeVisible();
   const start = page.getByRole("button", { name: /^AI로 (?:다시 )?채우기$/ });
   await expect(start).toBeEnabled();
@@ -718,7 +753,7 @@ test("DEV-179 AC-SRC-1/5: composer variety lives above the AI sheet footer and d
   await variety.fill("온주밀감");
   await variety.blur();
   await expect(start).toBeEnabled();
-  await page.getByRole("button", { name: "사진·자료 접기", exact: true }).last().click();
+  await page.getByRole("button", { name: "AI 시트 닫기", exact: true }).last().click();
   await expect(variety).toBeHidden();
 });
 
@@ -742,19 +777,19 @@ test("DEV-179 AC-SRC-4/5: composer clears start failure immediately on retry and
     return route.fulfill({ status: 202, json: fixture.run });
   });
   await openContractReview(page, fixture, true);
-  await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   const start = page.getByRole("button", { name: /^AI로 (?:다시 )?채우기$/ });
   await start.click();
   const error = page.getByText("분석 시작 연결 실패 검증", { exact: true });
   await expect(error).toBeVisible();
-  await expect(page.getByRole("button", { name: "사진·자료 접기", exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true }).last()).toBeVisible();
   await start.click();
   await retryInFlight;
   // Hold the successful response: clearing the old error cannot depend on it.
   await expect(error).toHaveCount(0);
   release();
-  await expect(page.getByRole("button", { name: "사진·자료 펼치기", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "사진·자료 접기", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "AI 시트 열기", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true })).toHaveCount(0);
   expect(attempts).toBe(2);
 });
 
@@ -833,10 +868,10 @@ test("DEV-179 AC-SRC-11: unavailable localStorage retains exclusion acknowledgem
   const modal = page.getByTestId("excluded-modal");
   await expect(modal).toBeVisible();
   await modal.getByRole("button", { name: "확인", exact: true }).click();
-  const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+  const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
   await summary.fill("저장소가 막혀도 확인한 안내는 반복하지 않아요");
-  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
-  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+  await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
+  await page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ }).click();
   await expect(summary).toHaveValue("저장소가 막혀도 확인한 안내는 반복하지 않아요");
   await expect(modal).toHaveCount(0);
   await page.getByTestId("excluded-chip").click();
@@ -878,8 +913,8 @@ test("DEV-179 AC-SRC-11: empty composer buyer preview omits detail placeholders 
   fixture.run.total = 0;
   await serveContractReview(page, fixture);
   await openContractReview(page, fixture, true);
-  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
-  await expect(page.getByRole("button", { name: "편집으로 돌아가기", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
+  await expect(page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ })).toBeVisible();
   await expect(page.getByText(/사진\s*[·/]\s*자료 넣기/)).toHaveCount(0);
   await expect(page.getByRole("button", {
     name: /비공개 저장|상품 상세에 적용 검토|다음: 판매·가격|사진·자료 펼치기|자료 파일 추가|텍스트 추가|사진 추가|AI로 (?:다시 )?채우기/,
@@ -907,17 +942,17 @@ test("DEV-179 AC-SRC-11: workspace preview omits an excluded hero field while ke
   await expect.poll(inputValues).toContain("구매자에게 숨길 상품 소개");
   await expect(page.getByRole("switch", { name: "상품 소개 표시", exact: true })).toBeChecked();
   const url = page.url();
-  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
   await expect(page).toHaveURL(url);
   await expect(page.getByText("구매자에게 남길 감귤 이름", { exact: true })).toBeVisible();
   await expect(page.getByText("구매자에게 숨길 상품 소개", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("switch")).toHaveCount(0);
-  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+  await page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ }).click();
   await expect.poll(inputValues).toContain("구매자에게 남길 감귤 이름");
   await expect.poll(inputValues).toContain("구매자에게 숨길 상품 소개");
   // A second preview also excludes the description; the first preview cannot
   // silently reset the field's EXCLUDED state when returning to editing.
-  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
   await expect(page.getByText("구매자에게 남길 감귤 이름", { exact: true })).toBeVisible();
   await expect(page.getByText("구매자에게 숨길 상품 소개", { exact: true })).toHaveCount(0);
   clean();
@@ -932,14 +967,15 @@ test("DEV-179 AC-SRC-11: composer preview preserves excluded summary and retains
   fixture.review.editorFields[1].field.state = "CONFIRMED";
   await serveContractReview(page, fixture);
   await openContractReview(page, fixture, true);
-  const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+  await page.getByRole("button", { name: "상품 소개 추가", exact: true }).click();
+  const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
   await expect(summary).toHaveValue("편집기에만 남길 제외한 한눈에 보기");
-  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
   await expect(page.getByText("편집기에만 남길 제외한 한눈에 보기", { exact: true })).toHaveCount(0);
   await expect(page.getByText("달콤한 과즙", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
+  await page.getByRole("button", { name: /^(편집으로 돌아가기|편집하기)$/ }).click();
   await expect(summary).toHaveValue("편집기에만 남길 제외한 한눈에 보기");
-  await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
+  await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
   await expect(page.getByText("편집기에만 남길 제외한 한눈에 보기", { exact: true })).toHaveCount(0);
   await expect(page.getByText("달콤한 과즙", { exact: true })).toBeVisible();
   clean();
@@ -955,7 +991,7 @@ for (const composer of [false, true]) {
     fixture.run.items = [];
     await serveContractReview(page, fixture);
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
-    if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+    if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     const start = page.getByRole("button", { name: composer ? /^AI로 (?:다시 )?채우기$/ : "자료 준비·분석 시작" });
     await expect(start).toBeVisible();
     await expect(start).toBeDisabled();
@@ -1168,15 +1204,15 @@ for (const composer of [false, true]) {
       return route.abort("failed");
     });
     await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
-    const refresh = page.getByRole("button", { name: "서버 상태 다시 확인", exact: true });
+    const refresh = page.getByRole("button", { name: composer ? "다시 확인" : "서버 상태 다시 확인", exact: true });
     await expect(refresh).toBeVisible();
     await refresh.click();
     await expect(refresh).toHaveCount(0);
     if (!composer) await page.getByRole("button", { name: "상세페이지 편집", exact: true }).click();
-    await expect(page.getByLabel("한눈에 보기 내용", { exact: true })).toHaveValue("제주에서 자란 감귤");
+    await expect(page.getByLabel("상품 소개 보충 내용", { exact: true })).toHaveValue("제주에서 자란 감귤");
   });
 
-  test(`DEV-179 AC-SRC-5/8: ${screen} chooses retry cost copy for definite and mixed uncertain failures and resets consent`, async ({ page }) => {
+  test(`DEV-179 AC-SRC-5/8: ${screen} retries definite and uncertain failures without consent and guards repeated clicks`, async ({ page }) => {
     const clean = monitor(page);
     await loginProducer(page, "강영수");
     const fixture = contractFixture();
@@ -1194,20 +1230,17 @@ for (const composer of [false, true]) {
       fixture.run.items = [{ ...item, error: error === "mixed" ? "OCR_PAGES_FAILED" : error }];
       if (error === "mixed") fixture.run.items.push({ ...item, id: "uncertain-chunk", error: "REQUEST_UNCERTAIN" });
       await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}${composer ? "&composer=1" : ""}`);
-      if (composer) await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      if (composer) await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
       const uncertain = error === "REQUEST_UNCERTAIN" || error === "mixed";
       const consent = page.getByRole("checkbox", { name: uncertain ? uncertainRetryCost : retryCost, exact: true });
       await expect(page.getByRole("checkbox", { name: uncertain ? retryCost : uncertainRetryCost, exact: true })).toHaveCount(0);
-      const retry = page.getByRole("button", { name: "미완료 항목 재시도", exact: true });
-      await expect(consent).not.toBeChecked();
-      await expect(retry).toBeDisabled();
-      await consent.check();
+      const retry = page.getByRole("button", { name: "재시도", exact: true });
+      await expect(consent).toHaveCount(0);
       await expect(retry).toBeEnabled();
-      await consent.uncheck();
-      await expect(retry).toBeDisabled();
-      await consent.check();
-      await retry.click();
-      await expect(consent).not.toBeChecked();
+        await expect(retry).toBeEnabled();
+        await expect(retry).toBeEnabled();
+        await retry.click();
+      await expect(consent).toHaveCount(0);
       await expect(retry).toBeDisabled();
     }
     expect(retries).toBe(4);

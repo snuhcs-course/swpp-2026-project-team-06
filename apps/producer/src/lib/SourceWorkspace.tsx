@@ -1,4 +1,5 @@
-import { sourceActionError, retryCostLabel, type SourceActionError } from "./sourceFeedback";
+import { useRetryGate } from "./useRetryGate";
+import { sourceActionError, type SourceActionError } from "./sourceFeedback";
 import { SourceRunProgress } from "./SourceRunProgress";
 import { AI_POLICY_NOTE, SourceExclusions } from "./SourceExclusions";
 import { SourceBasicInfo } from "./SourceBasicInfo";
@@ -276,10 +277,10 @@ export function SourceWorkspace() {
     [editing, setEditing] = useState(false);
   const [startError, setStartError] = useState("");
   const [visual] = useState<Record<string, number[]>>({});
-  const [ack, setAck] = useState(false),
-    [buyerPreview, setBuyerPreview] = useState(false),
+  const retryGate = useRetryGate();
+  const [buyerPreview, setBuyerPreview] = useState(false),
     [applyTarget, setApplyTarget] = useState<Record<string, string>>({});
-  useEffect(() => setAck(false), [runs[0]?.id]);
+
   const [confirmation, setConfirmation] = useState<{
     draft: SourceDraft;
     productId: string;
@@ -650,7 +651,6 @@ export function SourceWorkspace() {
                           pages,
                         );
                         pending.current.clear();
-                        setAck(false);
                         await load();
                       }, true)
                     }
@@ -717,22 +717,13 @@ export function SourceWorkspace() {
                         ["FAILED", "PARTIAL"].includes(i.status),
                       ) ? (
                         <>
-                          <Choice
-                            label={retryCostLabel(r)}
-                            selected={ack}
-                            disabled={busy}
-                            onPress={() => setAck(!ack)}
-                          />
                           <Button
-                            label={
-                              r.items.some((i) => i.status === "PARTIAL")
-                                ? "미완료 항목 재시도"
-                                : "실패한 항목 재시도"
-                            }
+                            label="재시도"
                             variant="outline"
-                            disabled={busy || !ack}
+                            disabled={busy || !!activeRun || retryGate.cooling}
                             onPress={() =>
                               mutate(async () => {
+                                if (!retryGate.enter()) return;
                                 const ids = r.items
                                   .filter((i) =>
                                     ["FAILED", "PARTIAL"].includes(i.status),
@@ -742,11 +733,10 @@ export function SourceWorkspace() {
                                   batch.id,
                                   r.id,
                                   ids,
-                                  ack,
-                                  keyFor("retry", [r.id, ids, ack]),
+                                  true,
+                                  keyFor("retry", [r.id, ids]),
                                 );
                                 pending.current.clear();
-                                setAck(false);
                                 await load();
                               })
                             }

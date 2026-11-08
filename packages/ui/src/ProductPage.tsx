@@ -70,6 +70,8 @@ export type ProductPageData = {
 export type ProductPageSlots = {
   photo?: ReactNode;
   name?: ReactNode;
+  /** Producer editor control for the origin directly below the name. */
+  origin?: ReactNode;
   /** 상품명 바로 아래(품종 등) */
   subName?: ReactNode;
   /** 받는 시기·가격·남은 박스·배송비 줄 전체 */
@@ -151,13 +153,13 @@ export function ProductPageBody({
               {p.name}
             </T>
           )}
-          {p.info.origin.trim() ? (
+          {slots?.origin ?? (p.info.origin.trim() ? (
             <View testID="product-origin">
               <T variant="title" weight="regular">
                 원산지 {p.info.origin.trim()}
               </T>
             </View>
-          ) : null}
+          ) : null)}
         </View>
         {slots?.subName ?? null}
         {slots?.sale ?? (

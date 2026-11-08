@@ -1,3 +1,5 @@
+import { FieldFeedback, FieldFeedbackContext } from "../../../../lib/FieldFeedback";
+import { EditorActions } from "../../../../lib/EditorActions";
 // 새 상품 둘째 장: 판매·가격 → 미리보기 → 판매 시작 요청(DEV-184, FEAT-04/05, R-18·21·25).
 // 기존 상품 관리는 SCR-25 edit / SCR-26 stages / sales 화면을 그대로 쓴다.
 import {
@@ -92,6 +94,8 @@ export default function Sell() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [preview, setPreview] = useState(false);
+  const [invalidFields, setInvalidFields] = useState<Record<string, string>>({});
+  const actionLock = useRef(false);
   const keys = useRef(new Map<string, string>());
   const keyFor = (scope: string, body: unknown) => {
     const k = scope + JSON.stringify(body);
@@ -162,7 +166,7 @@ export default function Sell() {
   if (!p || !form || !farm)
     return (
       <Screen>
-        <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} />
+        <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} right={<EditorActions preview={false} onPreview={() => setPreview(true)} />} />
         {loadError ? (
           <LoadError error={loadError} onRetry={load} />
         ) : (
@@ -171,8 +175,7 @@ export default function Sell() {
       </Screen>
     );
 
-  const set = <K extends keyof Form>(k: K, v: Form[K]) =>
-    setForm((f) => (f ? { ...f, [k]: v } : f));
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => { setInvalidFields({}); setError(""); setForm((f) => (f ? { ...f, [k]: v } : f)); };
   const toggleWeight = (w: number) =>
     set(
       "options",
@@ -183,6 +186,9 @@ export default function Sell() {
   const cell = (r: Row, optionId: string): Cell =>
     r.options[optionId] ?? { price: null, quantity: null };
   const setCell = (i: number, optionId: string, patch: Partial<Cell>) =>
+    {
+    setInvalidFields({});
+    setError("");
     setRows((rs) =>
       rs.map((r, j) =>
         j === i
@@ -196,6 +202,7 @@ export default function Sell() {
           : r,
       ),
     );
+  };
   const editable = p.status === "DRAFT" || p.status === "REJECTED";
   // 서버 has_deposit_account와 같이 세 칸이 모두 있어야 한다.
   const hasAccount = !!(
@@ -206,16 +213,17 @@ export default function Sell() {
 
   /** 화면 값 검사. 서버도 같은 규칙(R-18 기간·가격, AC-04-1 필수 칸)을 다시 검사한다. */
   function check() {
-    if (!form!.options.length) return "중량 옵션을 하나 이상 골라 주세요.";
-    if (!form!.deliveryWindow) return "받는 시기를 정해 주세요.";
-    if (!form!.maxDelayUntil) return "전액 환불 날짜를 정해 주세요.";
+    const bad = (key: string, message: string) => { setPreview(false); setInvalidFields({ [key]: message }); return message; };
+    if (!form!.options.length) return bad("options", "중량 옵션을 하나 이상 골라 주세요.");
+    if (!form!.deliveryWindow) return bad("delivery", "받는 시기를 정해 주세요.");
+    if (!form!.maxDelayUntil) return bad("delivery", "전액 환불 날짜를 정해 주세요.");
     if (form!.maxDelayUntil <= form!.deliveryWindow.end)
-      return "전액 환불 날짜는 받는 시기가 끝난 다음 날 이후여야 해요.";
+      return bad("delivery", "전액 환불 날짜는 받는 시기가 끝난 다음 날 이후여야 해요.");
     for (const r of rows)
       for (const o of form!.options) {
         const c = cell(r, o.optionId);
         if (!c.price || c.quantity == null)
-          return `${o.label}의 가격과 박스 수를 모두 적어 주세요.`;
+          return bad("prices", `${o.label}의 가격과 박스 수를 모두 적어 주세요.`);
       }
     for (const o of form!.options)
       for (let i = 1; i < rows.length; i++)
@@ -223,17 +231,17 @@ export default function Sell() {
           cell(rows[i], o.optionId).price! <=
           cell(rows[i - 1], o.optionId).price!
         )
-          return `${o.label}: 뒤 기간 가격이 앞 기간보다 비싸야 해요(얼리버드).`;
+          return bad("prices", `${o.label}: 뒤 기간 가격이 앞 기간보다 비싸야 해요(얼리버드).`);
     if (rows.some((r) => r.startsAt > r.endsAt))
-      return "예약 기간의 시작일이 끝일보다 늦어요. 기간을 지우거나 받는 시기를 늦춰 주세요.";
+      return bad("delivery", "예약 기간의 시작일이 끝일보다 늦어요. 기간을 지우거나 받는 시기를 늦춰 주세요.");
     if (rows.at(-1)!.endsAt >= form!.deliveryWindow.start)
-      return "예약 기간은 받는 시기 전날까지 끝나야 해요.";
+      return bad("delivery", "예약 기간은 받는 시기 전날까지 끝나야 해요.");
     if (form!.shippingFeeType === "SEPARATE" && !form!.shippingFee)
-      return "배송비를 따로 받으면 금액을 적어 주세요.";
+      return bad("shipping", "배송비를 따로 받으면 금액을 적어 주세요.");
     if (!form!.maxQuantityPerOrder || form!.maxQuantityPerOrder < 1)
-      return "한 주문 최대 박스 수를 적어 주세요.";
+      return bad("quantity", "한 주문 최대 박스 수를 적어 주세요.");
     if (!form!.requestedKg || form!.requestedKg <= 0)
-      return "판매할 총 물량(kg)을 적어 주세요.";
+      return bad("quantity", "판매할 총 물량(kg)을 적어 주세요.");
     return "";
   }
 
@@ -244,6 +252,9 @@ export default function Sell() {
       );
     // 서버 메시지(예: '빠진 칸이 있어요: 품종, …')를 먼저, 칸별 사유는 이름과 함께 붙인다.
     if (e instanceof ApiError) {
+      const aliases: Record<string, string> = { options: "options", deliveryWindow: "delivery", maxDelayUntil: "delivery", shippingFee: "shipping", remoteAreaFee: "shipping", maxQuantityPerOrder: "quantity", requestedTotalGrams: "quantity", stages: "prices" };
+      const invalid = Object.entries(e.details.fields ?? {}).find(([key]) => aliases[key]);
+      if (invalid) { setPreview(false); setInvalidFields({ [aliases[invalid[0]]]: invalid[1] }); }
       const fields = Object.entries(e.details.fields ?? {}).map(
         ([k, v]) => `${k}: ${v}`,
       );
@@ -304,72 +315,16 @@ export default function Sell() {
   }
 
   const run = (fn: () => Promise<void>) => {
-    if (busy) return;
+    if (actionLock.current) return;
+    actionLock.current = true;
     setBusy(true);
     setError("");
     void fn()
       .catch(failure)
-      .finally(() => setBusy(false));
+      .finally(() => { actionLock.current = false; setBusy(false); });
   };
 
   const requestedGrams = Math.round((form.requestedKg ?? 0) * 1000);
-
-  if (preview)
-    return (
-      <Screen>
-        <HeaderBar
-          title="구매자 화면 미리보기"
-          onBack={() => setPreview(false)}
-        />
-        <Scroll bottom={180}>
-          <View
-            testID="buyer-preview"
-            style={{ backgroundColor: tokens.color.background }}
-          >
-            <BuyerPreview
-              product={p}
-              farm={farm}
-              requestedGrams={requestedGrams}
-            />
-          </View>
-        </Scroll>
-        <BottomBar
-          summary={
-            error ||
-            "판매 시작을 요청하면 운영자가 확인한 뒤 공개돼요. 그 전에는 구매자에게 보이지 않아요."
-          }
-        >
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button
-              label="더 고치기"
-              variant="secondary"
-              size="producer"
-              disabled={busy}
-              onPress={() => setPreview(false)}
-              style={{ flex: 1 }}
-            />
-            <Button
-              label="판매 시작 요청"
-              size="producer"
-              loading={busy}
-              onPress={() =>
-                run(async () => {
-                  await catalog.requestCapacity(
-                    id,
-                    requestedGrams,
-                    p.version,
-                    keyFor("request", [requestedGrams, p.version]),
-                  );
-                  toast("판매 시작을 요청했어요. 운영자가 확인하면 공개돼요.");
-                  router.dismissTo("/products");
-                })
-              }
-              style={{ flex: 2 }}
-            />
-          </View>
-        </BottomBar>
-      </Screen>
-    );
 
   // 기간이 하나면 받는 시기에 맞춰 끝을 당기므로 첫날 다음 날부터 고를 수 있다. 여럿이면 마지막 기간 뒤부터.
   const deliveryMin = [
@@ -378,11 +333,8 @@ export default function Sell() {
   ]
     .sort()
     .pop()!;
-  return (
-    <Screen>
-      <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} />
-      <Scroll bottom={160}>
-        <View style={{ padding: tokens.space.gutter, gap: 32 }}>
+  const salesEditor = (
+        <View style={{ gap: 24 }}>
           {!editable ? (
             <Notice
               title={
@@ -406,13 +358,9 @@ export default function Sell() {
               />
             </View>
           ) : null}
-          {error ? (
-            <View accessibilityRole="alert">
-              <T color={tokens.color.error}>{error}</T>
-            </View>
-          ) : null}
 
-          <Sec title="중량 옵션">
+
+          <FieldFeedback field="options"><Sec title="중량 옵션">
             <View style={{ flexDirection: "row", gap: 12 }}>
               {WEIGHTS.map((w) => (
                 <Checkbox
@@ -423,10 +371,10 @@ export default function Sell() {
                 />
               ))}
             </View>
-          </Sec>
+          </Sec></FieldFeedback>
 
-          <Sec title="받는 시기">
-            <FieldButton
+          <FieldFeedback field="delivery"><Sec title="받는 시기">
+            <FieldButton highlight={editable} disabled={!editable || busy}
               label="받는 시기"
               value={
                 form.deliveryWindow
@@ -436,15 +384,15 @@ export default function Sell() {
               placeholder="날짜를 골라 주세요"
               onPress={() => editable && setSheet("delivery")}
             />
-            <FieldButton
+            <FieldButton highlight={editable} disabled={!editable || busy}
               label="이 날까지 못 보내면 전액 환불"
               value={md(form.maxDelayUntil)}
               placeholder="날짜를 골라 주세요"
               onPress={() => editable && setSheet("maxDelay")}
             />
-          </Sec>
+          </Sec></FieldFeedback>
 
-          <Sec title="가격">
+          <FieldFeedback field="prices"><Sec title="가격">
             <T variant="sub" muted>
               옵션마다 가격과 이번 기간에 팔 박스 수를 적어 주세요. 얼리버드
               기간을 더하면 앞 기간을 더 싸게 받을 수 있어요.
@@ -490,7 +438,7 @@ export default function Sell() {
                       key={o.optionId}
                       style={{ flexDirection: "row", gap: 12 }}
                     >
-                      <NumField
+                      <NumField highlight={editable} disabled={!editable || busy}
                         label={`${o.label} 가격`}
                         value={cell(r, o.optionId).price}
                         unit="원"
@@ -498,7 +446,7 @@ export default function Sell() {
                           editable && setCell(i, o.optionId, { price })
                         }
                       />
-                      <NumField
+                      <NumField highlight={editable} disabled={!editable || busy}
                         label={`${o.label} 박스 수`}
                         value={cell(r, o.optionId).quantity}
                         unit="박스"
@@ -540,9 +488,9 @@ export default function Sell() {
                 }
               />
             ) : null}
-          </Sec>
+          </Sec></FieldFeedback>
 
-          <Sec title="배송비">
+          <FieldFeedback field="shipping"><Sec title="배송비">
             <Segmented
               options={[
                 { value: "FREE", label: "무료" },
@@ -552,30 +500,30 @@ export default function Sell() {
               onChange={(v) => editable && set("shippingFeeType", v)}
             />
             {form.shippingFeeType === "SEPARATE" ? (
-              <NumField
+              <NumField highlight={editable} disabled={!editable || busy}
                 label="배송비"
                 value={form.shippingFee}
                 onChange={(v) => editable && set("shippingFee", v)}
                 unit="원"
               />
             ) : null}
-            <NumField
+            <NumField highlight={editable} disabled={!editable || busy}
               label="도서산간 추가 운임"
               value={form.remoteAreaFee}
               onChange={(v) => editable && set("remoteAreaFee", v)}
               unit="원"
             />
-          </Sec>
+          </Sec></FieldFeedback>
 
-          <Sec title="물량">
+          <FieldFeedback field="quantity"><Sec title="물량">
             <View style={{ flexDirection: "row", gap: 12 }}>
-              <NumField
+              <NumField highlight={editable} disabled={!editable || busy}
                 label="판매할 총 물량"
                 value={form.requestedKg}
                 onChange={(v) => editable && set("requestedKg", v)}
                 unit="kg"
               />
-              <NumField
+              <NumField highlight={editable} disabled={!editable || busy}
                 label="한 주문 최대"
                 value={form.maxQuantityPerOrder}
                 onChange={(v) => editable && set("maxQuantityPerOrder", v)}
@@ -586,35 +534,44 @@ export default function Sell() {
               총 물량은 &apos;판매 시작 요청&apos; 때 함께 보내요(저장만 하면
               남지 않아요). 운영자가 확인한 물량만큼 판매돼요.
             </T>
-          </Sec>
+          </Sec></FieldFeedback>
+        </View>
+  );
+  const salesReadOnly = (<View style={{ gap: 12 }}>
+                <T>{form.deliveryWindow ? `${form.deliveryWindow.start} ~ ${form.deliveryWindow.end} 도착 예정` : "받는 시기 미입력"}</T>
+                {!form.options.length ? <T>중량 옵션 미입력</T> : null}
+                {rows.map((r, index) => <View key={r.key} style={{ gap: 8 }}>
+                  <T weight="semibold">{rows.length > 1 ? `${index + 1}번째 예약 기간 · ` : ""}{r.startsAt} ~ {r.endsAt}</T>
+                  {form.options.map(o => {
+                    const c = cell(r, o.optionId);
+                    return <View key={o.optionId} style={{ gap: 4 }}><T>{o.label}</T>
+                      <T variant="title">{c.price == null ? "가격 미입력" : `${c.price.toLocaleString("ko-KR")}원`}</T>
+                      <T variant="caption" muted>{c.quantity == null ? "박스 수 미입력" : `${c.quantity}박스`}</T></View>;
+                  })}
+                </View>)}
+                <T>{form.shippingFeeType === "FREE" ? "무료배송" : form.shippingFee == null ? "배송비 미입력" : `배송비 ${form.shippingFee.toLocaleString("ko-KR")}원`}</T>
+                <T>{form.remoteAreaFee == null ? "도서산간 추가 운임 미입력" : `도서산간 추가 운임 ${form.remoteAreaFee.toLocaleString("ko-KR")}원`}</T>
+                <T>{form.maxDelayUntil ? `${form.maxDelayUntil}까지 출하하지 못하면 전액 환불` : "전액 환불 날짜 미입력"}</T>
+                <T variant="caption" muted>{form.requestedKg == null ? "판매할 총 물량 미입력" : `판매할 총 물량 ${form.requestedKg}kg`}</T>
+              </View>);
+  return (
+    <FieldFeedbackContext.Provider value={{ fields: invalidFields, clear: () => {} }}><Screen>
+      <HeaderBar title="판매·가격" onBack={() => goBackOr(router, "/products")} right={<EditorActions preview={preview} onPreview={() => setPreview(!preview)} />} />
+      <Scroll bottom={160}>
+        <View testID={preview ? "buyer-preview" : "sales-editor"}>
+          <BuyerPreview product={p} farm={farm} requestedGrams={requestedGrams} salesPreview={preview ? salesReadOnly : salesEditor} />
         </View>
       </Scroll>
-      <BottomBar>
+      <BottomBar summary={error ? <View accessibilityRole="alert"><T variant="caption" color={tokens.color.error}>{error}</T></View> : undefined}>
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button
-            label="저장"
-            variant="secondary"
-            size="producer"
-            disabled={busy || !editable}
-            onPress={() =>
-              run(async () => {
-                if (await save()) toast("저장했어요");
-              })
-            }
-            style={{ flex: 1 }}
-          />
-          <Button
-            label="미리보기"
-            size="producer"
-            loading={busy}
-            disabled={!editable}
-            onPress={() =>
-              run(async () => {
-                if (await save()) setPreview(true);
-              })
-            }
-            style={{ flex: 2 }}
-          />
+          <Button label="저장" variant="secondary" size="producer" disabled={busy || !editable} style={{ flex: 1 }} onPress={() => run(async () => { if (await save()) toast("저장했어요"); })} />
+          <Button label="판매 시작 요청" size="producer" disabled={busy || !editable} loading={busy} style={{ flex: 2 }} onPress={() => run(async () => {
+            const fresh = await save();
+            if (!fresh) return;
+            await catalog.requestCapacity(id, requestedGrams, fresh.version, keyFor("request", [requestedGrams, fresh.version]));
+            toast("판매 시작을 요청했어요. 운영자가 확인하면 공개돼요.");
+            router.dismissTo("/products");
+          })} />
         </View>
       </BottomBar>
 
@@ -652,6 +609,6 @@ export default function Sell() {
           setSheet(null);
         }}
       />
-    </Screen>
+    </Screen></FieldFeedbackContext.Provider>
   );
 }
