@@ -263,6 +263,7 @@ export function NewProductComposer() {
     [form, setForm] = useState<ProductForm | null>(null);
   // 생산자가 손댄 칸은 AI가 다시 채우지 않는다.
   const touched = useRef(new Set<keyof ProductForm>());
+  const brixEdited = useRef(false);
   const activeRun = runs.find((r) => ACTIVE.includes(r.status));
   const working = !!activeRun && activeRun.status !== "PRIVACY_REVIEW";
   const allowLeave = useRef(false);
@@ -279,6 +280,13 @@ export function NewProductComposer() {
     !!product &&
     JSON.stringify(form) !== JSON.stringify(toForm(product));
   const dirty = attachDirty || editorDirty || basicDirty || productDirty;
+  // An untouched legacy basic-info value must not replace a registered measurement.
+  const displayBrix = (input: string) => {
+    const value = input.trim() ? Number(input) : null;
+    return !brixEdited.current && product?.measuredBrix != null && value === product.expectedBrix
+      ? String(product.measuredBrix)
+      : input;
+  };
   useEffect(
     () =>
       navigation.addListener("beforeRemove", (event) => {
@@ -428,7 +436,7 @@ export function NewProductComposer() {
       });
     }, [reloadProduct]),
   );
-  // 빈 새 상품이면 처음부터 시트를 올려 사진·자료를 넣게 한다.
+  // 활성 분석이 끝날 때까지 배치와 실행 상태를 함께 갱신한다.
   useEffect(() => {
     if (!batchId || !runs.some((r) => ACTIVE.includes(r.status))) return;
     const timer = setInterval(() => {
@@ -513,7 +521,10 @@ export function NewProductComposer() {
       body.options = form.options;
     if (variety && variety !== product.variety) body.variety = variety;
     if (brix !== product.expectedBrix) body.expectedBrix = brix;
-    if (brix !== product.measuredBrix) body.measuredBrix = brix;
+    if (
+      (brixEdited.current || brix !== product.expectedBrix || product.measuredBrix == null) &&
+      brix !== product.measuredBrix
+    ) body.measuredBrix = brix;
     if (Object.keys(body).length === 1) return;
     const saved = await catalog.update(
       productId,
@@ -776,11 +787,12 @@ export function NewProductComposer() {
           </View>
         ) : (
           (() => {
-              const values = basic.inputs[target.id] ?? {
+              const inputs = basic.inputs[target.id] ?? {
                 variety: "",
                 size: "",
                 brix: "",
               };
+              const values = { ...inputs, brix: displayBrix(inputs.brix) };
               const locked = busy || !!activeRun || editorDirty;
               const basicField = (
                 key: BasicInfoKey,
@@ -795,7 +807,10 @@ export function NewProductComposer() {
                   maxLength={maxLength}
                   editable={!locked}
                   numeric={key === "brix"}
-                  onChange={(v) => basic.change(target.id, key, v)}
+                  onChange={(v) => {
+                    if (key === "brix") brixEdited.current = true;
+                    basic.change(target.id, key, v);
+                  }}
                   onBlur={basic.blur}
                 />
               );
@@ -1131,7 +1146,14 @@ export function NewProductComposer() {
                   (batch.sources.length === 0 && !pendingText) ||
                   runs.some((r) => ACTIVE.includes(r.status))
                 }
-                onPress={start}
+                onPress={() => {
+                  if (target) {
+                    const input = basic.inputs[target.id]?.brix ?? "";
+                    const canonical = displayBrix(input);
+                    if (canonical !== input) basic.change(target.id, "brix", canonical);
+                  }
+                  start();
+                }}
               />
               </View>
             ) : (

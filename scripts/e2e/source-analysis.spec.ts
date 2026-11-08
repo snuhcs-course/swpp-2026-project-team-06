@@ -278,9 +278,13 @@ for (const width of [360, 390, 430]) {
       .getByRole("button", { name: "상품 상세에 적용 검토", exact: true })
       .first()
       .click();
+    const applied = page.waitForResponse(response =>
+      response.request().method() === "POST" && /\/drafts\/[^/]+\/apply$/.test(new URL(response.url()).pathname));
     await page
       .getByRole("button", { name: "확인 · 상품 상세 적용", exact: true })
       .click();
+    const appliedResponse = await applied;
+    expect(appliedResponse.ok(), await appliedResponse.text()).toBeTruthy();
     await expect(page.getByText("상품 상세에 적용했어요.")).toBeVisible();
     const product = await (
       await page.request.get(`${apiUrl}/api/products/p-house`)

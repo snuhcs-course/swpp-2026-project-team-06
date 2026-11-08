@@ -75,7 +75,7 @@ test("P02 AC-03-1: empty extraction strings and option arrays remain missing", a
   await page.getByLabel("카톡·밴드에 쓰던 문구").fill("감귤");
   await expect(page.getByLabel("카톡·밴드에 쓰던 문구")).toHaveValue("감귤");
   await page.getByRole("button", { name: "초안 만들기" }).click();
-  for (const field of ["품종", "중량 옵션", "예상 당도", "등급", "받는 시기", "설명"]) {
+  for (const field of ["품종", "중량 옵션", "측정 당도", "등급", "받는 시기", "설명"]) {
     await expect(page.getByText(`확인 필요 · ${field}`, { exact: true })).toBeVisible();
   }
 });

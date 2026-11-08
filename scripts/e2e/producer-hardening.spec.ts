@@ -212,3 +212,46 @@ test("AC-SRC-11: introduction can be removed and two empty additions retain inde
   await expect(page.getByRole("button", { name: "품질 확인 추가", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "농가 이야기 추가", exact: true })).toHaveCount(0);
 });
+
+test("AC-SRC-11: existing measured Brix wins over old expected value, while an explicit change to that value saves", async ({ page }) => {
+  const editorUrl = await freshEditor(page);
+  const batchId = new URL(editorUrl).searchParams.get("batchId")!;
+  const token = await apiLogin(page.request, "u-kang", "producer");
+  const headers = { Authorization: `Bearer ${token}` };
+  const batchResponse = await page.request.get(`${apiUrl}/api/source-analysis/batches/${batchId}`, { headers });
+  expect(batchResponse.ok()).toBeTruthy();
+  const batch = await batchResponse.json();
+  const target = batch.targets[0];
+  const productId = target.productId;
+  expect(productId).toBeTruthy();
+  const readProduct = async () => {
+    const response = await page.request.get(`${apiUrl}/api/products/mine/${productId}`, { headers });
+    expect(response.ok()).toBeTruthy();
+    return response.json();
+  };
+  const product = await readProduct();
+  const seeded = await page.request.patch(`${apiUrl}/api/products/${productId}`, {
+    headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+    data: { version: product.version, name: "실측 우선 감귤", variety: "온주밀감", measuredBrix: 11.8, expectedBrix: 12 },
+  });
+  expect(seeded.ok(), await seeded.text()).toBeTruthy();
+  const oldBasicInfo = await page.request.put(`${apiUrl}/api/source-analysis/batches/${batchId}/basic-info`, {
+    headers,
+    data: { version: batch.version, targets: [{ targetId: target.id,
+      basicInfo: { variety: "온주밀감", size: "", expectedBrix: 12 } }] },
+  });
+  expect(oldBasicInfo.ok(), await oldBasicInfo.text()).toBeTruthy();
+  expect((await readProduct()).measuredBrix).toBe(11.8);
+  await page.goto(editorUrl);
+  const brix = page.getByLabel("측정 당도 (°Bx)", { exact: true });
+  await expect(brix).toHaveValue("11.8");
+  await page.getByLabel("상품명", { exact: true }).fill("상품명만 바꾼 실측 감귤");
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+  await expect.poll(async () => (await readProduct()).name).toBe("상품명만 바꾼 실측 감귤");
+  expect((await readProduct()).measuredBrix).toBe(11.8);
+  await page.reload();
+  await expect(brix).toHaveValue("11.8");
+  await brix.fill("12");
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+  await expect.poll(async () => (await readProduct()).measuredBrix).toBe(12);
+});

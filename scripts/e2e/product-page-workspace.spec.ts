@@ -153,9 +153,14 @@ with get_sessionmaker()() as db:
       "placeholder",
       "내용을 입력해주세요",
     );
-    await expect(
-      section.getByRole("button", { name: "규격 제외", exact: true }),
-    ).toHaveCount(0);
+    // DEV-287: an added section remains enabled when its content is cleared.
+    // Only the explicit exclude action removes it; refilling still restores it.
+    const removeSpecification = section.getByRole("button", { name: "규격 제외", exact: true });
+    await expect(removeSpecification).toBeEnabled();
+    await removeSpecification.click();
+    await expect(removeSpecification).toHaveCount(0);
+    await expect(page.getByLabel("규격 내용", { exact: true })).toHaveValue("");
+    await expect(page.getByTestId("canvas-content-specification")).toHaveCSS("opacity", "0.45");
     await page
       .getByLabel("맛과 향 내용", { exact: true })
       .fill("달고 상큼해요");
