@@ -32,19 +32,31 @@ const consumerOnly = (list: TestAccount[] | null) =>
 // 평가용 주소(?evaluator=1, DEV-198)로 한 번 들어오면 이 브라우저(기기)에서 기억한다.
 // 로그아웃하거나 관문을 거쳐 맨 /login으로 와도, 홈 화면에 추가한 PWA가 start_url(/)로 새 창을 열어도
 // 테스트 계정 목록이 남는다(11/03 PWA 점검: sessionStorage만으로는 홈 아이콘에서 카카오 버튼만 보였다).
+// 표시는 테스트 계정 목록을 실제로 받은 뒤에만 남기고, 테스트 로그인이 꺼졌으면 지운다(DEV-283).
 const EVALUATOR_KEY = "farmclub:evaluator";
 function evaluatorMode(param?: string) {
   // 앱 평가용 빌드(DEV-200)는 주소 없이도 목록을 보인다
   if (evaluatorBuild) return true;
+  if (param === "1") return true;
   try {
-    if (param === "1") globalThis.localStorage?.setItem(EVALUATOR_KEY, "1");
     return (
-      param === "1" ||
       globalThis.localStorage?.getItem(EVALUATOR_KEY) === "1" ||
       globalThis.sessionStorage?.getItem(EVALUATOR_KEY) === "1"
     );
   } catch {
-    return param === "1";
+    return false;
+  }
+}
+function rememberEvaluator(on: boolean) {
+  try {
+    if (on) {
+      globalThis.localStorage?.setItem(EVALUATOR_KEY, "1");
+    } else {
+      globalThis.localStorage?.removeItem(EVALUATOR_KEY);
+      globalThis.sessionStorage?.removeItem(EVALUATOR_KEY);
+    }
+  } catch {
+    // 저장소를 못 쓰는 브라우저는 주소(?evaluator=1)로만 평가 모드가 된다
   }
 }
 
@@ -69,16 +81,28 @@ export default function Login() {
   const data = consumerOnly(all);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // 고정 하단 바 높이만큼 스크롤 아래를 비워 푸터가 바 바로 위에 온다(상태마다 바 높이가 다르다)
+  // 고정 하단 바는 테스트 계정 목록이 있을 때만 둔다. 그 높이만큼 스크롤 아래를 비운다(DEV-283)
   const [barHeight, setBarHeight] = useState(170);
   const [failed, setFailed] = useState<string | null>(null);
   // 카카오가 켜져 있으면 카카오 로그인만 둔다(사용자 결정 10/17). 꺼져 있으면(CI·Mock 플래그만) 테스트 계정 목록을 보여 준다.
   // Mock 모드는 시드 데이터 시연에 계정이 필요해 카카오 버튼과 목록을 함께 둔다(생산자 SCR-19와 같음, DEV-136)
   // 평가용 주소(?evaluator=1, DEV-198)는 카카오가 켜진 운영에서도 테스트 계정 목록을 함께 둔다
+  const kakaoOn = !!kakao.data?.enabled;
+  const wantsEvaluator = evaluatorMode(evaluator);
+  const evaluatorOnly = kakaoOn && !isMock && wantsEvaluator;
+  // 평가 표시만으로 목록을 여는데 서버 테스트 로그인이 꺼졌거나(404) 소비자 계정이 없으면 낡은 표시다.
+  // 표시를 지우고 운영 화면(카카오만)을 보인다(DEV-283)
+  const staleEvaluator =
+    evaluatorOnly && (isStatus(error, 404) || data?.length === 0);
+  useEffect(() => {
+    if (!evaluatorOnly || evaluatorBuild) return;
+    if (staleEvaluator) rememberEvaluator(false);
+    else if (evaluator === "1" && data?.length) rememberEvaluator(true);
+  }, [evaluatorOnly, staleEvaluator, evaluator, data]);
   const showTest = kakao.error
     ? true
     : kakao.data
-      ? !kakao.data.enabled || isMock || evaluatorMode(evaluator)
+      ? !kakaoOn || isMock || (wantsEvaluator && !staleEvaluator)
       : false;
 
   useEffect(() => {
@@ -154,7 +178,10 @@ export default function Login() {
           else router.replace("/");
         }}
       />
-      <Scroll bottom={barHeight} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
+      <Scroll
+        bottom={showTest ? barHeight : safe("bottom", 16)}
+        footer={<LegalFooter onOpen={(path) => router.push(path)} />}
+      >
         <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 8 }}>
           <T variant="title" accessibilityRole="header">
             {"로그인하고\n계속해요"}
@@ -174,7 +201,7 @@ export default function Login() {
             />
           ) : null}
         </View>
-        {kakao.data?.enabled ? (
+        {kakaoOn ? (
           <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
             <Pressable
               accessibilityRole="button"
@@ -197,8 +224,13 @@ export default function Login() {
             <T variant="caption" muted center>
               {isMock
                 ? "Mock: 카카오로 시작하면 처음 가입하는 새 소비자로 들어가요"
-                : "카카오에서는 이메일만 받아요. 닉네임·연락처·배송지는 처음 한 번만 입력해요."}
+                : "카카오에서는 이메일만 받아요. 닉네임·연락처·배송지와 약관 동의는 처음 한 번만 받아요."}
             </T>
+            {failed && !showTest ? (
+              <T variant="sub" color={tokens.color.error} center>
+                {failed}
+              </T>
+            ) : null}
           </View>
         ) : null}
         {!showTest ? null : error ? (
@@ -270,40 +302,43 @@ export default function Login() {
           </View>
         )}
       </Scroll>
-      <View
-        testID="login-bottom-bar"
-        onLayout={(e) => setBarHeight(Math.ceil(e.nativeEvent.layout.height))}
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: safe("bottom", 28),
-          gap: 12,
-          backgroundColor: "#FFFFFF",
-        }}
-      >
-        {failed ? (
-          <T variant="sub" color={tokens.color.error} center>
-            {failed}
+      {/* 운영(카카오만)에는 고정 바가 없고 동의 안내는 카카오 버튼 아래 글에 합쳤다(DEV-283) */}
+      {showTest ? (
+        <View
+          testID="login-bottom-bar"
+          onLayout={(e) =>
+            setBarHeight(Math.ceil(e.nativeEvent.layout.height))
+          }
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: safe("bottom", 28),
+            gap: 12,
+            backgroundColor: "#FFFFFF",
+          }}
+        >
+          {failed ? (
+            <T variant="sub" color={tokens.color.error} center>
+              {failed}
+            </T>
+          ) : null}
+          <T variant="caption" muted center>
+            {kakaoOn
+              ? "이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요 · 테스트 서비스"
+              : "로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트 서비스"}
           </T>
-        ) : null}
-        <T variant="caption" muted center>
-          {kakao.data?.enabled
-            ? "이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요 · 테스트 서비스"
-            : "로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트 서비스"}
-        </T>
-        {showTest ? (
           <Button
             label={account ? `${ro(account.name)} 로그인` : "로그인"}
             disabled={!account}
             loading={busy}
             onPress={login}
           />
-        ) : null}
-      </View>
+        </View>
+      ) : null}
     </Screen>
   );
 }
