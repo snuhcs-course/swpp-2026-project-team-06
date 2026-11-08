@@ -143,11 +143,22 @@ export function ProductPageBody({
             </T>
           </Pressable>
         ) : null}
-        {slots?.name ?? (
-          <T variant="title" accessibilityRole="header">
-            {p.name}
-          </T>
-        )}
+        {/* 원산지는 상품명 바로 아래, 상품명과 같은 크기·색(원산지표시법 시행규칙 별표 3 2호가목1), DEV-258).
+            품절·판매 중지에도 같은 자리. 값은 농가가 쓴 그대로, 비어 있으면 줄을 숨긴다(게시 요청에서 막음) */}
+        <View style={{ gap: 4 }}>
+          {slots?.name ?? (
+            <T variant="title" accessibilityRole="header">
+              {p.name}
+            </T>
+          )}
+          {p.info.origin.trim() ? (
+            <View testID="product-origin">
+              <T variant="title" weight="regular">
+                원산지 {p.info.origin.trim()}
+              </T>
+            </View>
+          ) : null}
+        </View>
         {slots?.subName ?? null}
         {slots?.sale ?? (
           <SaleRows
