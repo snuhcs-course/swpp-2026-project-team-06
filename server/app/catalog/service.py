@@ -382,7 +382,8 @@ def missing_fields(item: Loaded) -> list[str]:
         missing.append("상품명")
     if not p.variety.strip():
         missing.append("품종")
-    if not (p.info or {}).get("origin"):
+    # 공백만 있는 원산지도 비어 있다(상품 상세 원산지 줄, DEV-258)
+    if not str((p.info or {}).get("origin") or "").strip():
         missing.append("원산지")
     if not (p.info or {}).get("storage"):
         missing.append("보관 방법")
