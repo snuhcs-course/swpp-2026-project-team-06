@@ -50,7 +50,7 @@ export default function Chats() {
   const firstConsumer = chats.data?.find((c) => !c.isSupport)?.threadId;
   return (
     <Screen style={{ paddingBottom: safe("bottom", tokens.height.tabBar) }}>
-      <BrandHeader title="채팅" right={<HelpButton />} />
+      <BrandHeader logo="icon" title="채팅" right={<HelpButton />} />
       <ChatChoices
         value={tab}
         onChange={(value) => router.setParams({ view: value })}

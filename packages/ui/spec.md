@@ -106,7 +106,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 
 원본 PNG 4종은 `assets/brand/`에 보존하며 실제 렌더링은 `BrandLogo`의 wordmark/icon/full 세 형태를 사용한다. 소비자 홈은 글자형, 생산자 현황은 아이콘형(36×40, 좌우 12, 제목 간격 12), 생산자 로그인은 상단 글자형 없이 안내 제목 오른쪽 조합형이다. 로그인 제목은 사용자 승인 예외 30/32px semibold, 조합형은 172×129px와 x=-16/y=-10px의 광학 정렬을 쓴다. 320px 등 더 좁은 화면에서는 로고를 비율대로 축소해 제목 공간을 확보한다. 원본을 자르거나 변형하지 않는다.
 
-`BrandHeader.logo`는 홈에서 wordmark/icon을 명시한다. 다른 화면의 기존 아이콘·제목은 유지한다. 카카오/테스트 로그인 선택·계정 상태·버튼·라우팅 계약은 변경하지 않는다. 승인된 정적 검토 페이지는 `docs/design/brand-review/`에 보존한다.
+`BrandHeader.logo`는 홈에서 wordmark/icon을 명시한다. DEV-287부터 다른 헤더와 사진 빈 상태도 승인된 로고를 사용한다. 흑백은 두 줄 조합형의 grayscale(1) 파생 PNG로 표시한다. 카카오/테스트 로그인 선택·계정 상태·버튼·라우팅 계약은 변경하지 않는다. 승인된 정적 검토 페이지는 `docs/design/brand-review/`에 보존한다.
 
 ## DEV-113 약관·처리방침·사업자 정보 (2026-10-22)
 

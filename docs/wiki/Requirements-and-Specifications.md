@@ -2,6 +2,10 @@
 
 Team 6 | Farmclub | Iteration 3 | 6 November 2026
 
+### I4 local editor follow-up — 8 November 2026 (DEV-287)
+
+The producer composer keeps editable fields visually distinct after filling. The origin directly below the product name is editable and shares its value with the product-information row. The buyer-preview toggle remains usable while the AI material sheet is open and preserves unsaved fields. AI analysis accepts text or document material without a representative product photo; a photo is still required before public application. Header page/pencil controls toggle preview without saving, including incomplete sales settings; missing values remain explicitly missing. The composer-only AI control opens a sheet that starts closed and preserves its contents. Submission still validates and saves before requesting approval. The author reviewed the PR diff; release follows required CI and merge-queue checks.
+
 Implementation reference: [`28feb94ac47b259b6a6299e9fd742b75e756a33d`](https://github.com/snuhcs-course/swpp-2026-project-team-06/commit/28feb94ac47b259b6a6299e9fd742b75e756a33d), the main snapshot used for this I3 closeout. This revision preserves existing feature/criterion identifiers, the original team material and dated owner notes. It reconciles the current source contracts without changing frozen evaluation criteria. Required behavior, local verification, recorded demonstrations, deployment observations and human acceptance remain separate.
 
 ## Table of Contents
@@ -1013,3 +1017,25 @@ Messages expose the existing persisted insertion sequence. Clients use that orde
 After a freshly authorized head page verifies the consumer, farm and server thread, same-session farm A → private list → B → list → A restores the first visible message and its signed viewport offset, together with the loaded history boundary. Older pages are reloaded and merged by saved message sequence. Historical restores suppress initial latest scrolling and read advancement; same-viewport anchor drift must be at most 8 CSS px. Delayed photos, text reflow and prepends retain the anchor until intentional wheel/drag/scroll-key movement or the explicit latest action. New messages remain unread while the reader stays in history and expose the existing new-message control.
 
 A removed anchor falls back to a saved surviving neighbor, then to clamped geometry in freshly authorized history. Transient failures expose retry; terminal authorization failure removes protected conversation state. Only IDs and geometry live in memory, bounded to 20 rooms and 30 idle minutes. Consumer/user/auth generation/thread/visit leases reject old callbacks. Logout, token loss/401, WRONG_APP and every new login clear the store synchronously, including equal-token relogin. Ordinary same-session auth.me refresh preserves it; a hard reload starts cleanly. Selected-order changes retain the thread reading identity while the composer keeps DEV-248's order/photo isolation. Browser regression results and deployment/native limitations are recorded separately under docs/evaluation.
+
+DEV-287: The producer edits content inline in the final buyer layout. Only the selected field displays editing controls; page/pencil icons switch between buyer view and editing. Chat list headers use the brand logo.
+
+DEV-287: Editable fields and photos retain warm orange highlights before selection; buyer view has no editing highlights.
+
+DEV-287: The add-content tray uses existing section artwork, the module title, and a trailing plus. Intro and summary use the page icon; add actions remain unchanged.
+
+DEV-287: Summary is part of the introduction, with no separate add control or divider; original fields and evidence are retained. Cover add/change opens a single-image picker without opening AI or starting analysis.
+
+DEV-287: Adding a section enables it independently of focus. Multiple empty editor sections stay added; empty content remains omitted from buyer view.
+
+DEV-287: Validation uses a compact footer message and scrolls to the invalid editor region, pulsing red three times before keeping a static border. Reduced-motion users receive a static border. The closed AI sheet uses a flat action footer.
+
+DEV-287: AI retry uses a single action without a cost-confirmation checkbox. A three-second local click gate supplements existing server active-run and idempotency guards.
+
+DEV-287: Header actions always display captions below their icons: 미리보기 (편집하기 in buyer view) and AI 초안.
+
+DEV-287: Sales settings are edited inline within the product page using highlighted controls and a preview/edit toggle. Expected Brix entry is available in the composer. Next requires a prepared representative photo, while draft save permits none. A manual draft transfers photos without requiring AI analysis.
+
+DEV-287: Brix entry and display use one 측정 당도 field. Existing measured values take precedence over legacy expected values. Edits and clearing synchronize both existing API fields; no schema migration is required.
+
+DEV-287: Composer and AI draft variety controls share the same state. In-app back navigation saves edits before showing the saved toast and leaving; failure retains the current editor and inputs.

@@ -40,10 +40,11 @@ for (const width of [360, 390, 430]) {
     await loginProducer(page, "강영수");
     await page.goto(`${producerUrl}/products`);
     await page.getByRole("button", { name: "새 상품", exact: true }).click();
-    // 중간 화면 없이 편집 화면 + 펼쳐진 시트
+    // The editor opens directly; AI is explicitly opened from its captioned control.
     await expect(page).toHaveURL(/composer=1/);
     await expect(page.getByTestId("product-basic-info")).toBeVisible();
     await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
+    await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "상품사진 추가", exact: true }),
     ).toBeVisible();
@@ -80,15 +81,15 @@ for (const width of [360, 390, 430]) {
       page.getByRole("button", { name: "텍스트 내용 수정", exact: true }),
     ).toBeVisible();
     // 품종은 기본 정보 칸에서 한 번만 입력
-    await page.getByRole("button", { name: "사진·자료 접기" }).first().click();
+    await page.getByRole("button", { name: "AI 시트 닫기" }).first().click();
     // 손가락·마우스로 접은 뒤에는 포커스 테두리가 남지 않는다(키보드 포커스만 표시)
     await expect(
-      page.getByRole("button", { name: "사진·자료 펼치기" }),
+      page.getByRole("button", { name: "AI 시트 열기" }),
     ).toHaveCSS("outline-style", "none");
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/dev184-0-collapsed.png` });
     await page.getByLabel("원산지", { exact: true }).fill("제주 서귀포");
-    await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await page.getByRole("button", { name: "AI 시트 열기" }).click();
     await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
     await page.getByLabel("과일 품종명", { exact: true }).blur();
     await expect(page.getByText("상품사진 1장 · 자료 1개")).toBeVisible();
@@ -166,6 +167,7 @@ for (const width of [360, 390, 430]) {
     await expect(page.getByLabel("상품명", { exact: true })).toHaveValue(
       "테스트 감귤",
     );
+    await page.getByText("상품정보", { exact: true }).click();
     await expect(page.getByLabel("보관", { exact: true })).toHaveValue(
       "서늘한 곳에 보관해 주세요.",
     );
@@ -176,7 +178,7 @@ for (const width of [360, 390, 430]) {
         .getByRole("textbox", { name: /가격/ }),
     ).toHaveCount(0);
     // 저장하지 않은 상세 수정은 AI로 다시 채워도 남는다(AC-SRC-11)
-    const summary = page.getByLabel("한눈에 보기 내용", { exact: true });
+    const summary = page.getByLabel("상품 소개 보충 내용", { exact: true });
     if (width === 390) {
       await summary.fill("면역력 증진 32,000원");
       await expect(page.getByText("금액은 다음 단계(판매·가격)에서 직접 채워 주세요", { exact: true })).toBeVisible();
@@ -184,7 +186,7 @@ for (const width of [360, 390, 430]) {
     }
     await summary.fill("농부가 직접 고친 한 줄 소개");
     await summary.blur();
-    await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await page.getByRole("button", { name: "AI 시트 열기" }).click();
     await page
       .getByRole("button", { name: "AI로 다시 채우기", exact: true })
       .click();
@@ -248,7 +250,7 @@ for (const width of [360, 390, 430]) {
       await page.getByLabel("5kg 박스 수", { exact: true }).fill("40");
       await page.getByLabel("판매할 총 물량", { exact: true }).fill("300");
       await page.getByLabel("한 주문 최대", { exact: true }).fill("3");
-      await page.getByRole("button", { name: "미리보기", exact: true }).click();
+      await page.getByRole("button", { name: "구매자 화면 보기", exact: true }).click();
       const preview = page.getByTestId("buyer-preview");
       await expect(preview).toBeVisible();
       await expect(preview.getByTestId("excluded-chip")).toHaveCount(0);

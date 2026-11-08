@@ -116,8 +116,8 @@ export function unavailableLabel(availability?: string | null) {
 export function brixText(expected: number | null | undefined) {
   return expected != null && Number.isFinite(expected)
     ? {
-        title: `당도 예상 ${expected}Brix`,
-        note: "실측 당도가 등록되면 이곳에서 확인할 수 있어요",
+        title: `측정 당도 ${expected}Brix`,
+        note: "농가가 등록한 당도예요",
       }
     : {
         title: "당도 등록 전",

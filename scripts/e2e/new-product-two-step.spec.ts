@@ -35,18 +35,18 @@ for (const width of [360, 390, 430]) {
     await expect(page).toHaveURL(/composer=1/);
 
     // ① 빈 칸은 점선 네모(채우라는 표시), 가격 칸은 없다
-    await page.getByRole("button", { name: "사진·자료 접기" }).first().click();
+    await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true })).toHaveCount(0);
     await expect(page.getByTestId("hero-placeholder")).toBeVisible();
     await expect(page.getByLabel("상품명", { exact: true })).toHaveCSS(
       "border-top-style",
-      "dashed",
+      "solid",
     );
-    await expect(page.getByText(/받는 시기·가격·배송비는 다음 단계/)).toBeVisible();
+    await expect(page.getByTestId("product-basic-info").getByRole("textbox", { name: /가격/ })).toHaveCount(0);
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/v2-1-empty.png` });
 
     await page.getByLabel("원산지", { exact: true }).fill("제주 서귀포");
-    await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await page.getByRole("button", { name: "AI 시트 열기" }).click();
     await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
     await page.getByLabel("과일 품종명", { exact: true }).blur();
     const chooser = page.waitForEvent("filechooser");
@@ -117,17 +117,18 @@ for (const width of [360, 390, 430]) {
     const oldCover = await cover();
     await page.goBack();
     await expect(page).toHaveURL(/composer=1/);
-    await page.getByRole("button", { name: "사진·자료 펼치기" }).click();
+    await page.getByRole("button", { name: "AI 시트 열기" }).click();
     const more = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "상품사진 추가", exact: true }).click();
     await (await more).setFiles("apps/consumer/public/photos/branch.jpg");
     const tiles = page.getByTestId("product-photo-box").getByTestId("attachment-tile");
     await expect(tiles).toHaveCount(2);
+    work();
     await tiles.last().getByRole("button", { name: "대표로 지정", exact: true }).click();
     await expect(
       tiles.last().getByRole("button", { name: "대표사진", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "사진·자료 접기" }).first().click();
+    await page.getByRole("button", { name: "AI 시트 닫기" }).first().click();
     await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
     await expect(page).toHaveURL(/\/products\/[^/]+\/sell/);
     expect(await cover()).not.toBe(oldCover);
@@ -157,12 +158,12 @@ for (const width of [360, 390, 430]) {
     await sell.getByLabel("5kg 박스 수", { exact: true }).first().fill("10");
     await sell.getByLabel("판매할 총 물량", { exact: true }).fill("300");
     await sell.getByLabel("한 주문 최대", { exact: true }).fill("3");
-    await sell.getByRole("button", { name: "미리보기", exact: true }).click();
+    await sell.getByRole("button", { name: "저장", exact: true }).click();
     await expect(sell.getByText(/뒤 기간 가격이 앞 기간보다 비싸야/)).toBeVisible();
     await sell.getByLabel("5kg 가격", { exact: true }).first().fill("29000");
     if (shots && width === 390)
       await page.screenshot({ path: `${shots}/v2-3-sell.png` });
-    await sell.getByRole("button", { name: "미리보기", exact: true }).click();
+    await sell.getByRole("button", { name: "구매자 화면 보기", exact: true }).click();
 
     // 미리보기: 점선 칸 없이 구매자 화면, 가격 표시
     const preview = page.getByTestId("buyer-preview");

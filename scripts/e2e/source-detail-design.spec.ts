@@ -190,7 +190,7 @@ for (const width of [360, 390, 430]) {
   });
 }
 
-test("AC-07-2: generated meter accompanies only real Brix readings", async ({
+test("AC-07-2: registered Brix uses one presentation for current and legacy values", async ({
   page,
 }) => {
   const clean = monitor(page);
@@ -218,10 +218,10 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
     await expect(
       card.getByText("13.5 Brix", { exact: true }),
     ).toBeVisible();
-    await expect(card.getByText("당도 실측", { exact: true })).toBeVisible();
+    await expect(card.getByText("측정 당도", { exact: true })).toBeVisible();
     await expect(card.getByText("13.5 Brix", { exact: true })).toHaveCSS("font-size", "40px");
     await expect(card.getByText("13.5 Brix", { exact: true })).toHaveCSS("font-weight", "700");
-    await expect(card.getByText(/측정$/)).toBeVisible();
+    await expect(card.getByText(/등록$/)).toBeVisible();
     const image = card.getByTestId("brix-meter-illustration");
     await expect(image).toBeVisible();
     const imageBox = await image.boundingBox();
@@ -256,17 +256,17 @@ test("AC-07-2: generated meter accompanies only real Brix readings", async ({
       .getByTestId("brix-reading")
       .getByText("0 Brix", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("측정일 미등록", { exact: true })).toBeVisible();
+  await expect(page.getByText("농가가 등록한 당도예요", { exact: true })).toBeVisible();
   await expect(page.getByTestId("brix-meter-illustration")).toBeVisible();
   reading = { measuredBrix: null, measuredBrixAt: null, expectedBrix: 12 };
   await page.reload();
   await expect(
     page
       .getByTestId("brix-reading")
-      .getByText("당도 예상 12Brix", { exact: true }),
+      .getByText("12 Brix", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByTestId("brix-meter-illustration")).toHaveCount(0);
-  await expect(page.getByTestId("brix-reading").getByTestId("illustration-backdrop")).toHaveCount(0);
+  await expect(page.getByTestId("brix-meter-illustration")).toBeVisible();
+  await expect(page.getByTestId("brix-reading").getByTestId("illustration-backdrop")).toBeVisible();
   await expect(page.getByTestId("brix-reading")).toHaveCSS(
     "background-color",
     "rgba(0, 0, 0, 0)",

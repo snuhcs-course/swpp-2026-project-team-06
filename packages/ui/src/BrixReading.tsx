@@ -14,9 +14,10 @@ export function BrixReading({
   measuredAt: string | null;
   expected: number | null;
 }) {
-  const hasMeasurement = measured !== null;
+  const value = measured ?? expected;
+  const hasMeasurement = value !== null;
   // DEV-227: 실측 → 예상 → 등록 전. 예상이 없어도 '-Brix' 같은 숫자 자리를 만들지 않는다.
-  const pending = brixText(expected);
+  const pending = brixText(value);
   return (
     <View
       testID="brix-reading"
@@ -52,12 +53,12 @@ export function BrixReading({
           color={hasMeasurement ? tokens.color.onAccent : undefined}
         >
           {hasMeasurement
-            ? "당도 실측"
+            ? "측정 당도"
             : pending.title}
         </T>
         {hasMeasurement ? (
           <T weight="bold" center color={tokens.color.onAccent} style={{ fontSize: 40, lineHeight: 48 }}>
-            {`${measured} Brix`}
+            {`${value} Brix`}
           </T>
         ) : null}
         <T
@@ -69,8 +70,8 @@ export function BrixReading({
         >
           {hasMeasurement
             ? measuredAt
-              ? `${md(measuredAt)} 측정`
-              : "측정일 미등록"
+              ? `${md(measuredAt)} 등록`
+              : "농가가 등록한 당도예요"
             : pending.note}
         </T>
       </View>

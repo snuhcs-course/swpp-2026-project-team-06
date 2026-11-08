@@ -65,7 +65,7 @@ export default function Chats() {
     );
   return (
     <Screen>
-      <BrandHeader title="채팅" />
+      <BrandHeader logo="icon" title="채팅" />
       <ChatChoices
         value={tab}
         onChange={(value) => router.setParams({ view: value })}

@@ -11,7 +11,7 @@ import { IllustrationBackdrop } from "./IllustrationBackdrop";
 import { tokens } from "./tokens";
 export const SOURCE_MODULES = [
   ["hero", "상품 소개"],
-  ["summary", "한눈에 보기"],
+  ["summary", "상품 소개 보충"],
   ["composition", "상품 구성"],
   ["pieceCount", "수량 안내"],
   ["taste", "맛과 향"],
@@ -99,6 +99,10 @@ const groups = [
     icon: require("../assets/source/headings/updates.png"),
   },
 ];
+/** Reuse the story heading artwork for module selection controls. */
+export function sourceModuleIcon(moduleId: string): ImageSourcePropType | undefined {
+  return groups.find(group => group.modules.includes(moduleId))?.icon;
+}
 const bodyStyle: TextStyle = { fontSize: 17, lineHeight: 28, color: "#242424" };
 const heroTextStyle = (fieldKey: string): TextStyle => ({
   ...(fieldKey === "name"
@@ -205,7 +209,7 @@ function ModuleBody({
             fontSize: 18,
             lineHeight: 26,
             color: "#555",
-            ...(editing ? { paddingRight: 44, paddingVertical: 9 } : {}),
+
           }}
         >
           {subheading}
@@ -282,6 +286,15 @@ export function ModuleStory({
   if (!filled.length) return null;
   const hero = filled.find((module) => module.id === "hero");
   const summary = filled.find((module) => module.id === "summary");
+  const heroBody = hero ? <>
+    {editing ? editing.photos(hero, hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)) : hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)}
+    <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
+      {hero.texts.map((text, i) => text.value.trim() || editing ? <View key={`${text.fieldKey}-${i}`}>
+        {editing ? editing.text(hero, i, heroTextStyle(text.fieldKey)) : <T center accessibilityRole={text.fieldKey === "name" ? "header" : "text"} style={heroTextStyle(text.fieldKey)}>{text.value}</T>}
+      </View> : null)}
+      {hero.illustrationId && illustrations[hero.illustrationId] ? <Illustration id={hero.illustrationId} inset={24} /> : null}
+    </View>
+  </> : null;
   return (
     <View
       testID="source-detail"
@@ -292,90 +305,15 @@ export function ModuleStory({
           testID="source-cover"
           style={{ paddingTop: 12, paddingBottom: 18 }}
         >
-          {hero && editing ? (
-            <View
-              style={{
-                paddingHorizontal: 24,
-              }}
-            >
-              <View
-                style={{ paddingHorizontal: 44, opacity: introDim ? 0.35 : 1 }}
-              >
-                {introHidden ? (
-                  <T style={heroTextStyle("name")}>
-                    {hero.texts.find((t) => t.fieldKey === "name")?.value ||
-                      "상품 소개"}
-                  </T>
-                ) : (
-                  editing.text(
-                    hero,
-                    hero.texts.findIndex((t) => t.fieldKey === "name"),
-                    heroTextStyle("name"),
-                  )
-                )}
-              </View>
-              <View style={{ position: "absolute", right: 24, top: 0 }}>
-                {editing.sectionControl("intro", "상품 소개")}
-              </View>
-            </View>
-          ) : null}
+          {editing ? <View style={{ position: "absolute", right: 24, top: 0, zIndex: 1 }}>{editing.sectionControl("intro", "상품 소개")}</View> : null}
           {!introHidden ? (
             <>
-              {hero && editing
-                ? editing.wrap(
-                    hero,
-                    <View style={{ gap: 16 }}>
-                      {hero.texts.map((t, i) =>
-                        t.fieldKey === "name" ? null : (
-                          <View key={i}>
-                            {editing.text(hero, i, heroTextStyle(t.fieldKey))}
-                          </View>
-                        ),
-                      )}
-                      {editing.photos(
-                        hero,
-                        hero.photos.map((p, i) => (
-                          <SourcePhoto
-                            key={i}
-                            uri={mediaUrl(p.uri)}
-                            alt={p.alt}
-                          />
-                        )),
-                      )}
-                    </View>,
-                  )
-                : hero?.photos.map((photo, i) => (
-                    <SourcePhoto
-                      key={i}
-                      uri={mediaUrl(photo.uri)}
-                      alt={photo.alt}
-                    />
-                  ))}
-              <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
-                {!editing &&
-                  hero?.texts
-                    .filter((text) => editing || text.value.trim())
-                    .map((text, i) => (
-                      <T
-                        key={`${text.fieldKey}-${i}`}
-                        center
-                        accessibilityRole={
-                          text.fieldKey === "name" ? "header" : "text"
-                        }
-                        style={heroTextStyle(text.fieldKey)}
-                      >
-                        {text.value}
-                      </T>
-                    ))}
-                {hero?.illustrationId && illustrations[hero.illustrationId] ? (
-                  <Illustration id={hero.illustrationId} inset={24} />
-                ) : null}
+              {hero ? (editing ? editing.wrap(hero, heroBody) : heroBody) : null}
+              <View style={{ paddingHorizontal: 24, paddingTop: hero ? 16 : 24, gap: 16 }}>
                 {summary ? (
                   <View
                     style={{
-                      borderTopWidth: 1,
-                      borderColor: "#bdbdbd",
-                      paddingTop: 20,
+                      gap: 16,
                     }}
                   >
                     <ModuleBody

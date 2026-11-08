@@ -25,7 +25,7 @@ const LABEL: Record<keyof DraftFields, string> = {
   name: "상품명",
   variety: "품종",
   options: "중량 옵션",
-  expectedBrix: "예상 당도",
+  expectedBrix: "측정 당도",
   grade: "등급",
   deliveryWindow: "받는 시기",
   description: "설명",

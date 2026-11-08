@@ -12,7 +12,7 @@ const PORT = Number(process.env.PORT || 8090);
 const root = new URL("./", import.meta.url);
 const functions = { "/api/page": page, "/api/proxy": proxy, "/api/login": login, "/api/logout": logout };
 const rewrites = JSON.parse(readFileSync(new URL("vercel.json", root))).rewrites;
-const types = { ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
+const types = { ".png": "image/png", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
 createServer(async (req, res) => {
   const url = new URL(req.url, "http://local");
@@ -27,7 +27,7 @@ createServer(async (req, res) => {
     return functions[dest.pathname](req, res);
   }
   if (functions[url.pathname]) return functions[url.pathname](req, res);
-  const asset = url.pathname.match(/^\/assets\/([a-z-]+(\.css|\.js))$/);
+  const asset = url.pathname.match(/^\/assets\/([a-z-]+(\.css|\.js|\.png))$/);
   if (asset) {
     res.setHeader("Content-Type", types[asset[2]]);
     res.end(readFileSync(new URL("assets/" + asset[1], root)));

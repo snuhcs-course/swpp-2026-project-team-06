@@ -287,7 +287,7 @@ def test_AC_SRC_11_basic_info_defaults_and_manual_precedence(client, login):
     body = body_for(client, h, batch)
     fields = {f["fieldKey"]: f for f in body["fields"]}
     assert fields["specification"]["value"] == "품종: 온주밀감\n사이즈: 중과"
-    assert fields["qualityEvidence"]["value"] == "예상 당도: 12.5 °Bx"
+    assert fields["qualityEvidence"]["value"] == "측정 당도: 12.5 °Bx"
     assert fields["qualityEvidence"]["candidateIds"] == []
     body["targets"][0]["enabledModuleIds"] += ["specification", "qualityEvidence"]
     response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)
@@ -314,7 +314,7 @@ def test_AC_SRC_11_basic_info_defaults_and_manual_precedence(client, login):
     body = body_for(client, h, batch)
     fields = {f["fieldKey"]: f for f in body["fields"]}
     assert fields["specification"]["value"] == "품종: 천혜향\n사이즈: 대과"
-    assert fields["qualityEvidence"]["value"] == "예상 당도: 13.2 °Bx"
+    assert fields["qualityEvidence"]["value"] == "측정 당도: 13.2 °Bx"
     for name, value in [("specification", "직접 수정한 규격"), ("qualityEvidence", "")]:
         fields[name].update(value=value, state="CONFIRMED", provenance="PRODUCER", candidateIds=[])
     response = client.put(f"{PREFIX}/{batch['id']}/editor", headers=key(h), json=body)

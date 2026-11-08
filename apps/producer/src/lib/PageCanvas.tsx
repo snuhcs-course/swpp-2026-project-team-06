@@ -1,16 +1,18 @@
+import { FieldFeedback, FieldFeedbackContext } from "./FieldFeedback";
 import { StoryTextHint } from "./SourceExclusions";
 import {
   ModuleStory,
   Photo,
   SOURCE_MODULES,
+  sourceModuleIcon,
   Button,
   Icon,
   T,
   StoryImage,
   tokens,
 } from "@farmclub/ui";
-import { Children, useState, type ReactNode } from "react";
-import { Pressable, TextInput, View, type TextStyle } from "react-native";
+import { Children, useContext, useState, type ReactNode } from "react";
+import { Image, Pressable, TextInput, View, type TextStyle } from "react-native";
 import { SectionSwitch } from "./SectionSwitch";
 export type CanvasModule = {
   id: string;
@@ -56,11 +58,13 @@ export function PageCanvas({
   onUploading?: (v: boolean) => void;
   blocked?: string[];
 }) {
+  const validation = useContext(FieldFeedbackContext);
   const [selected, setSelected] = useState<string | null>(null),
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
     [moving, setMoving] = useState<{ id: string; index: number } | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [heights, setHeights] = useState<Record<string, number>>({});
   const title = (id: string) =>
     SOURCE_MODULES.find(([key]) => key === id)?.[1] ?? id;
@@ -87,6 +91,7 @@ export function PageCanvas({
     setMoving(null);
     const next = structuredClone(displayModules);
     fn(next.find((m) => m.id === id)!);
+    validation.clear(id);
     onChange(next);
   };
   const filled = (m: CanvasModule) =>
@@ -160,8 +165,8 @@ export function PageCanvas({
       m: Omit<CanvasModule, "enabled">,
       index: number,
       style: TextStyle,
-    ) => (
-      <View>
+    ) => emptyHint && m.texts[index].fieldKey === "name" && !m.texts[index].value.trim() ? null : (
+      <View style={{ gap: 5 }}>
         <TextInput
           accessibilityLabel={`${m.texts[index].fieldKey === "name" ? "상품 이름" : title(m.id)} 내용`}
           multiline
@@ -214,8 +219,23 @@ export function PageCanvas({
                     selected === m.id ? tokens.color.border : "transparent",
                   borderRadius: 4,
                 }),
+            ...(emptyHint && m.texts[index].fieldKey !== "name"
+              ? {
+                  backgroundColor: busy || uploading
+                    ? tokens.color.surface
+                    : focusedField === `${m.id}:${index}` ? "#FFF0DC" : "#FFF7EB",
+                  borderColor: focusedField === `${m.id}:${index}` ? tokens.color.accent : "#E9B980",
+                  borderStyle: "solid" as const,
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                }
+              : {}),
           }}
-          onFocus={() => activate(m.id)}
+          onFocus={() => {
+            setFocusedField(`${m.id}:${index}`);
+            activate(m.id);
+          }}
+          onBlur={() => setFocusedField(null)}
           onChangeText={(value) =>
             update(m.id, (n) => {
               n.texts[index].value = value;
@@ -223,22 +243,25 @@ export function PageCanvas({
             })
           }
         />
-        {showStoryTextHints ? <StoryTextHint value={m.texts[index].value} /> : null}
+        {showStoryTextHints && selected === m.id ? <StoryTextHint value={m.texts[index].value} /> : null}
       </View>
     ),
-    photos: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => (
+    photos: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => emptyHint && selected !== m.id && !m.photos.length ? null : emptyHint && selected !== m.id && m.photos.length ? (
+      <Pressable accessibilityRole="button" accessibilityLabel={`${title(m.id)} 사진 편집`} style={{ borderWidth: 2, borderColor: "#E9B980", backgroundColor: "#FFF7EB" }} disabled={busy || uploading} onPress={() => activate(m.id)}>{content}</Pressable>
+    ) : (
       <View style={{ gap: 8 }}>
         {Children.toArray(content).map((photo, i) => (
           <View key={i}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${title(m.id)} 사진 ${i + 1} 편집`}
+              style={emptyHint ? { borderWidth: 2, borderColor: "#E9B980", backgroundColor: "#FFF7EB" } : undefined}
               disabled={busy || uploading}
               onPress={() => activate(m.id)}
             >
               {photo}
             </Pressable>
-            {onRepresentativeChange && (
+            {onRepresentativeChange && (!emptyHint || selected === m.id) && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={
@@ -279,7 +302,7 @@ export function PageCanvas({
               )}
           </View>
         ))}
-        {!emptyHint || selected === m.id || !m.photos.length ? (
+        {!emptyHint || selected === m.id ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${title(m.id)} 사진 추가`}
@@ -440,11 +463,11 @@ export function PageCanvas({
     wrap: (m: Omit<CanvasModule, "enabled">, content: ReactNode) => {
       const isActive = active(m.id);
       return (
-        <View
+        <FieldFeedback field={m.id}><View
           testID={`canvas-section-${m.id}`}
-          style={{ gap: 8, marginHorizontal: m.id === "hero" ? 24 : 0 }}
+          style={{ gap: selected === m.id ? 8 : 0 }}
         >
-          {isActive &&
+          {displayModules.find(module => module.id === m.id)?.enabled &&
             (!emptyHint || selected === m.id) &&
             removeButton(`${title(m.id)} 제외`, () => {
               update(m.id, (n) => {
@@ -488,7 +511,7 @@ export function PageCanvas({
               {details?.(m.id)}
             </View>
           ) : null}
-        </View>
+        </View></FieldFeedback>
       );
     },
   };
@@ -518,10 +541,40 @@ export function PageCanvas({
         />
       ) : null}
       <ModuleStory
-        content={{ modules: displayModules }}
+        content={{ modules: emptyHint ? displayModules.filter(m => (m.enabled && !blocked.includes(m.id)) || selected === m.id || (m.id === "summary" && selected === "hero") || blocked.includes(m.id)) : displayModules }}
         mediaUrl={media}
         editing={editing}
       />
+      {emptyHint ? <View style={{ padding: 20, gap: 8 }}>
+        <T variant="caption" muted>내용 추가</T>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {displayModules.filter(m => m.id !== "summary" && selected !== m.id && (m.id !== "hero" || !displayModules.some(x => x.id === "summary" && x.enabled && filled(x))) && !m.enabled).map(m => {
+            const artwork = sourceModuleIcon(m.id);
+            return <Pressable
+              key={m.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${title(m.id)} 추가`}
+              disabled={busy || uploading}
+              onPress={() => {
+                setSelected(m.id);
+                if (!blocked.includes(m.id)) update(m.id, n => { n.enabled = true; });
+              }}
+              style={({ pressed }) => ({
+                flexDirection: "row", alignItems: "center", gap: 8,
+                minHeight: 48, paddingHorizontal: 10,
+                borderWidth: 1, borderColor: tokens.color.border,
+                borderRadius: tokens.radius.md,
+                backgroundColor: tokens.color.background,
+                opacity: busy || uploading ? 0.45 : pressed ? 0.7 : 1,
+              })}
+            >
+              {artwork ? <Image source={artwork} accessible={false} aria-hidden resizeMode="contain" style={{ width: 24, height: 24 }} /> : <Icon name="page" size={24} />}
+              <T variant="caption">{title(m.id)}</T>
+              <Icon name="plus" size={18} />
+            </Pressable>;
+          })}
+        </View>
+      </View> : null}
     </View>
   );
 }

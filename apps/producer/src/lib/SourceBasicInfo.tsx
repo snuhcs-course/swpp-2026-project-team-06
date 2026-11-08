@@ -27,7 +27,7 @@ const encode = (input: Record<string, Input>) =>
   Object.entries(input).map(([targetId, b]) => {
     const brix = b.brix.trim();
     if (brix && (!/^\d+(\.\d+)?$/.test(brix) || Number(brix) > 100))
-      throw new Error("예상 당도는 0~100 사이 숫자로 입력해 주세요.");
+      throw new Error("측정 당도는 0~100 사이 숫자로 입력해 주세요.");
     return {
       targetId,
       basicInfo: {
@@ -49,7 +49,7 @@ type Options = {
 export type BasicInfoKey = keyof Input;
 
 /**
- * 기본 정보(품종·사이즈·예상 당도) 입력 상태와 blur 저장(DEV-92 저장 완료 대기 포함).
+ * 기본 정보(품종·사이즈·측정 당도) 입력 상태와 blur 저장(DEV-92 저장 완료 대기 포함).
  * 새 상품 채우기 화면(DEV-184)은 이 훅으로 입력칸을 페이지 곳곳에 둔다.
  */
 export function useSourceBasicInfo({
@@ -186,7 +186,7 @@ export function SourceBasicInfo({
     >
       <T>기본 정보</T>
       <T variant="caption" muted>
-        품종명은 꼭 입력해 주세요. 사이즈와 예상 당도는 아는 경우만 적어 주세요.
+        품종명은 꼭 입력해 주세요. 사이즈와 측정 당도는 아는 경우만 적어 주세요.
       </T>
       {batch.targets.map((target) => (
         <View key={target.id} style={{ gap: 12 }}>
@@ -198,7 +198,7 @@ export function SourceBasicInfo({
               [
                 ["variety", "과일 품종명", "예: 온주밀감", 100],
                 ["size", "사이즈", "예: 중과, 지름 6~7cm", 200],
-                ["brix", "예상 당도 (°Bx)", "예: 12.5", 8],
+                ["brix", "측정 당도 (°Bx)", "예: 12.5", 8],
               ] as const
             ).map(([key, label, placeholder, maxLength]) => (
               <View

@@ -1,4 +1,4 @@
-import { ApiError, type SourceRun } from "@farmclub/api";
+import { ApiError } from "@farmclub/api";
 
 export type SourceActionError = { message: string; canRefresh: boolean };
 
@@ -20,10 +20,4 @@ export function sourceActionError(error: unknown): SourceActionError {
   if (error instanceof Error && error.message)
     return { message: error.message, canRefresh: false };
   return { message: "처리하지 못했어요. 다시 시도해 주세요.", canRefresh: true };
-}
-
-export function retryCostLabel(run: SourceRun): string {
-  return run.items.some((item) => item.error === "REQUEST_UNCERTAIN")
-    ? "결과가 불명확한 요청을 재시도하면 비용이 다시 발생할 수 있음을 확인했어요"
-    : "다시 분석하면 비용이 다시 들 수 있어요. 확인했어요.";
 }

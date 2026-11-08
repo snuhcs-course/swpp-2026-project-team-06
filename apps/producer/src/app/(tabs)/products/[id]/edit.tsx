@@ -91,8 +91,8 @@ const toForm = (p: MyProduct): Form => ({
   description: p.description,
   origin: p.info.origin,
   storage: p.info.storage,
-  expectedBrix: p.expectedBrix,
-  measuredBrix: p.measuredBrix,
+  expectedBrix: p.measuredBrix ?? p.expectedBrix,
+  measuredBrix: p.measuredBrix ?? p.expectedBrix,
   grade: p.grade,
   options: p.options,
   deliveryWindow: p.deliveryWindow,
@@ -526,17 +526,11 @@ export default function EditProduct() {
         <Sec title="품질">
           <View style={{ flexDirection: "row", gap: 12 }}>
             <NumField
-              label="예상 당도"
-              value={form.expectedBrix}
-              onChange={(v) => set("expectedBrix", v)}
-              unit="Brix"
-            />
-            <NumField
-              label="실측 당도"
+              label="측정 당도"
               value={form.measuredBrix}
-              onChange={(v) => set("measuredBrix", v)}
+              onChange={(v) => { setForm(f => f ? { ...f, expectedBrix: v, measuredBrix: v } : f); }}
               unit="Brix"
-              placeholder="재면 입력"
+              placeholder="예: 12.5"
             />
           </View>
           <View style={{ gap: 8 }}>

@@ -18,10 +18,10 @@ import { productStatus } from "../apps/producer/src/lib/productGroups.ts";
 
 const noDanglingLabel = (s) => assert.ok(!/(마감|배송비)\s*$/.test(s), `라벨만 남음: "${s}"`);
 
-test("AC-07-2: brix shows expected value, or '당도 등록 전' with no placeholder number", () => {
+test("AC-07-2: brix shows registered value, or '당도 등록 전' with no placeholder number", () => {
   assert.deepEqual(brixText(12), {
-    title: "당도 예상 12Brix",
-    note: "실측 당도가 등록되면 이곳에서 확인할 수 있어요",
+    title: "측정 당도 12Brix",
+    note: "농가가 등록한 당도예요",
   });
   for (const empty of [null, undefined, Number.NaN]) {
     const t = brixText(empty);
@@ -29,7 +29,7 @@ test("AC-07-2: brix shows expected value, or '당도 등록 전' with no placeho
     assert.equal(t.note, "궁금하면 1:1 채팅으로 농가에 물어보세요");
     assert.ok(!t.title.includes("Brix"));
   }
-  assert.equal(brixText(0).title, "당도 예상 0Brix"); // 0은 값이다(입력 검증은 FEAT-04)
+  assert.equal(brixText(0).title, "측정 당도 0Brix"); // 0은 값이다(입력 검증은 FEAT-04)
 });
 
 test("DEV-227 SCR-01: card meta drops empty pieces and never says 0명", () => {

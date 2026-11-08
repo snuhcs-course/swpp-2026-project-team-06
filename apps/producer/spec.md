@@ -164,7 +164,7 @@ FEAT-04/07/08/09/17 · AC-SRC-2/3/5/9/11 · AC-09-8. 제품 계약은 source-edi
 
 - DEV-179 최종 리뷰 보완: Composer의 BasicInfo 래퍼는 batch 로딩 전후 유지하고 key는 URL batchId를 사용한다. 공용 기본 정보 훅은 null batch에서 빈 입력/저장 없음으로 시작해 로드 후 입력을 동기화한다. 로드로 Screen 하위 트리를 remount하지 않는다(AC-SRC-11).
 
-- DEV-179 데모 후속: `sourceFeedback.ts`가 Composer의 representativePhoto 사유 매핑과 재조회 가능 여부(입력 검증 400만 숨김, 409·네트워크·서버 오류는 유지)를 공용으로 처리한다. Workspace 적용 거절 사유는 별도 applyError로 적용 확인 패널에만 한 번 표시한다. `retryCostLabel`은 run에 REQUEST_UNCERTAIN이 있으면 기존 문구, 없으면 일반 비용 확인 문구를 반환하며 ack gate/초기화는 변경하지 않는다. 분석 중 상세 영역은 실제 진행 패널만 사용하고 중복 Skeleton은 두지 않는다(최초 상품 로딩 Skeleton은 유지).
+- DEV-179 데모 후속: `sourceFeedback.ts`가 Composer의 representativePhoto 사유 매핑과 재조회 가능 여부(입력 검증 400만 숨김, 409·네트워크·서버 오류는 유지)를 공용으로 처리한다. Workspace 적용 거절 사유는 별도 applyError로 적용 확인 패널에만 한 번 표시한다. DEV-287부터 재시도 확인 UI는 단일 버튼으로 대체한다. 분석 중 상세 영역은 실제 진행 패널만 사용하고 중복 Skeleton은 두지 않는다(최초 상품 로딩 Skeleton은 유지).
 
 ## DEV-33 EAS 네이티브 빌드 (ADR 0013)
 
@@ -179,3 +179,5 @@ SourceAttachments reports whether a new text card contains non-whitespace input 
 - `Tour.tsx`의 겹치기 레이어는 웹 `position: fixed`, 앱 `position: absolute`(앱 루트 기준). 앱에는 fixed가 없어 relative로 처리되면 본문을 민다.
 - 앱 카드 위치는 `useSafeAreaInsets` 위·아래 인셋 안쪽. 웹은 인셋 0.
 - 대상 위치 측정은 웹 DOM 전용이다. 앱은 대상 단계를 곧바로 가운데 카드 + '다음'으로 보여 주고, 단계 설명을 그대로 쓴다(`docs/spec/screens.md` "공통: 도움말" 앱 줄).
+
+DEV-287: 상품 편집은 최종 구매자 배치에서 제자리 수정하며, 입력 영역은 항상 주황색 면/테두리로 표시한다. 미리보기·AI 초안·가이드 아이콘에 문구를 표시한다. summary 저장 필드는 상품 소개에 묶어 표시하고 별도 추가 버튼을 두지 않는다. 대표사진 버튼은 사진 선택기를 열고 준비된 사진 없이는 다음으로 이동하지 않는다. 분석하지 않은 사진도 수동 초안을 반영한다. 측정 당도 한 칸으로 입력하고 기존 두 API 값은 수정/삭제 시 동기화한다. 품종은 AI 초안과 같은 상태를 쓴다. 앱 내 뒤로 가기는 저장 성공 후 토스트와 함께 이동하고 실패하면 입력을 유지한다. 재시도 비용 체크박스는 제거하고 3초 클릭 제한과 서버 실행/멱등성 보호를 유지한다.

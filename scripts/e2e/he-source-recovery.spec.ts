@@ -1,5 +1,15 @@
 import { test, expect } from "./fixtures";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { loginProducer, producerUrl } from "./helpers";
+
+function prepareSources() {
+  const cwd = path.resolve("server");
+  execFileSync(path.join(cwd, ".venv/bin/python"), [
+    "-c",
+    "from app.source_analysis.worker import run_once\nfor _ in range(100):\n if not run_once(): break",
+  ], { cwd, env: process.env, timeout: 120000, stdio: "pipe" });
+}
 
 async function composer(page: import("./fixtures").Page) {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -7,10 +17,12 @@ async function composer(page: import("./fixtures").Page) {
   await page.goto(`${producerUrl}/products`);
   await page.getByRole("button", { name: "새 상품", exact: true }).click();
   await expect(page).toHaveURL(/composer=1/);
+  await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true })).toHaveCount(0);
 }
 
 test("AC-03-1 HE-32: first text can start analysis without leaving the input", async ({ page }) => {
   await composer(page);
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   const start = page.getByRole("button", { name: "AI로 채우기", exact: true });
   await expect(start).toBeDisabled();
   await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
@@ -29,8 +41,22 @@ test("AC-03-1 HE-32: first text can start analysis without leaving the input", a
 });
 
 test("AC-SRC-11 HE-33: a failed next action stays visible beside its button", async ({ page }) => {
+  test.setTimeout(150000);
   await composer(page);
-  await page.getByRole("button", { name: "사진·자료 접기" }).first().click();
+  await page.getByLabel("상품명", { exact: true }).fill("다음 단계 복구 감귤");
+  await page.getByLabel("품종명", { exact: true }).fill("온주밀감");
+  const chooser = page.waitForEvent("filechooser");
+  const uploaded = page.waitForResponse(response =>
+    response.request().method() === "POST" && /\/sources$/.test(new URL(response.url()).pathname));
+  await page.getByTestId("hero-placeholder").click();
+  await (await chooser).setFiles("apps/consumer/public/photos/tangerine-box.jpg");
+  expect((await uploaded).ok()).toBeTruthy();
+  // Upload preparation is a real worker operation, independent of AI analysis.
+  prepareSources();
+  await page.reload();
+  await expect(page.getByTestId("hero-photo")).toBeVisible();
+  await page.getByLabel("상품명", { exact: true }).fill("다음 단계 복구 감귤");
+  await page.getByLabel("품종명", { exact: true }).fill("온주밀감");
   await page.route("**/api/source-analysis/batches/*/drafts", async route => {
     if (route.request().method() === "GET") await route.fulfill({ status: 503, json: { code: "UNAVAILABLE", message: "다음 단계 연결 실패 검증" } });
     else await route.continue();
@@ -50,6 +76,7 @@ test("AC-SRC-11 HE-33: a failed next action stays visible beside its button", as
 
 test("AC-SRC-11 HE-32: failed first-text save preserves input and sends no analysis", async ({ page }) => {
   await composer(page);
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   await page.getByLabel("과일 품종명", { exact: true }).fill("온주밀감");
   await page.getByLabel("과일 품종명", { exact: true }).blur();
   await page.getByRole("button", { name: "텍스트 추가", exact: true }).click();
@@ -65,7 +92,7 @@ test("AC-SRC-11 HE-32: failed first-text save preserves input and sends no analy
     else await route.continue();
   });
   await page.getByRole("button", { name: "AI로 채우기", exact: true }).click();
-  await expect(page.getByText(/텍스트를 저장하지 못했어요/)).toBeVisible();
+  await expect(page.getByText(/텍스트 저장 실패 검증/).last()).toBeVisible();
   await expect(input).toHaveValue(body);
   expect(analysisCalls).toBe(0);
   await page.unroute("**/api/source-analysis/batches/*/sources");

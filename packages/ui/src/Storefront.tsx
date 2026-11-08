@@ -320,7 +320,7 @@ export function BrandHeader({
           {logo === "icon" ? (
             <BrandLogo variant="icon" decorative />
           ) : (
-            <Icon name="citrus" color={tokens.color.accent} />
+            <BrandLogo variant="icon" decorative />
           )}
           <T weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
             {title}

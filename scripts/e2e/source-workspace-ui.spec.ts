@@ -185,6 +185,7 @@ test("AC-SRC-1: New Product opens uploads linked to a new private product", asyn
   await page.goto(`${producerUrl}/products`);
   await page.getByRole("button", { name: "새 상품", exact: true }).click();
   await expect(page).toHaveURL(/source-analysis\?batchId=/);
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "자료 파일 추가", exact: true }),
   ).toBeVisible();
@@ -196,14 +197,16 @@ test("AC-SRC-1: New Product opens uploads linked to a new private product", asyn
   await expect(page).toHaveURL(/composer=1/);
   await expect(page.getByLabel("상품명", { exact: true })).toHaveValue("");
   await page
-    .getByRole("button", { name: "사진·자료 접기", exact: true })
+    .getByRole("button", { name: "AI 시트 닫기", exact: true })
     .last()
     .click();
   await page
     .getByRole("button", { name: "다음: 판매·가격", exact: true })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/products/${productId}/sell$`));
-  await expect(page.getByRole("heading", { name: "중량 옵션" })).toBeVisible();
+  await expect(page).toHaveURL(/composer=1/);
+  await expect(page.getByTestId("invalid-field-representativePhoto")).toBeVisible();
+  expect(creates).toBe(1);
+  expect(productId).toBeTruthy();
 });
 
 test("AC-SRC-1: workspace retry reuses the new product and idempotency key", async ({
@@ -239,6 +242,7 @@ test("AC-SRC-1: workspace retry reuses the new product and idempotency key", asy
   await page
     .getByRole("button", { name: "자료 작업 다시 열기", exact: true })
     .click();
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "자료 파일 추가", exact: true }),
   ).toBeVisible();
@@ -256,6 +260,7 @@ for (const width of [360, 390, 430]) {
       const clean = monitor(page);
       await loginProducer(page, "강영수");
       await page.goto(`${producerUrl}/products/new`);
+      await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
       const variety = page.getByLabel("과일 품종명", { exact: true });
       await expect(variety).toBeVisible();
       let release!: () => void;
@@ -296,7 +301,7 @@ for (const width of [360, 390, 430]) {
       await expect(page.getByText("업로드 실패", { exact: true })).toHaveCount(0);
       await page.reload();
       // DEV-179: the variety input lives in the AI sheet, collapsed once a source exists.
-      await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+      await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
       await expect(variety).toHaveValue("손입력 온주밀감");
       await expect(page.getByTestId("source-material-box").getByTestId("attachment-tile")).toHaveCount(1);
       if (kind === "text") await expect(page.getByTestId("source-material-box")).toContainText("생산자가 직접 쓴 보관 안내");
@@ -310,6 +315,7 @@ test("AC-SRC-5/11: failed basic-info save retains manual input and file for one 
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true", "Requires enabled local source API");
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/new`);
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   const variety = page.getByLabel("과일 품종명", { exact: true });
   await expect(variety).toBeVisible();
   let release!: () => void;
@@ -341,7 +347,7 @@ test("AC-SRC-5/11: failed basic-info save retains manual input and file for one 
   await expect(page.getByRole("button", { name: "다시 업로드", exact: true })).toHaveCount(0);
   await page.reload();
   // DEV-179: the variety input lives in the AI sheet, collapsed once a source exists.
-  await page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
+  await page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
   await expect(variety).toHaveValue("직접 입력한 품종");
   await expect(page.getByTestId("source-material-box").getByTestId("attachment-tile")).toHaveCount(1);
   expect(uploads).toBe(1);

@@ -11,6 +11,11 @@ const variants = {
     width: 36,
     height: 40,
   },
+  monochrome: {
+    source: require("../assets/brand/logo-grayscale.png"),
+    width: 172,
+    height: 129,
+  },
   full: {
     source: require("../assets/brand/logo-paper-glow-clean.png"),
     width: 172,

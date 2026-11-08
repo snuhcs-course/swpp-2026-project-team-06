@@ -5,8 +5,10 @@ import { tokens } from "./tokens";
 export type IconName =
   | "star"
   | "starFill"
+  | "sparkles"
   | "eye"
   | "eyeOff"
+  | "page"
   | "pencil"
   | "back"
   | "close"
@@ -36,7 +38,6 @@ export type IconName =
   | "alert"
   | "external"
   | "forward"
-  | "citrus"
   | "truck"
   | "settings";
 
@@ -72,6 +73,7 @@ export function Icon({
           fill={name === "starFill" ? color : "none"}
         />
       )}
+      {name === "sparkles" && <Path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3z" {...p} />}
       {(name === "eye" || name === "eyeOff") && (
         <>
           <Path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" {...p} />
@@ -79,6 +81,7 @@ export function Icon({
           {name === "eyeOff" && <Path d="M3 3l18 18" {...p} />}
         </>
       )}
+      {name === "page" && <><Path d="M14 3H5v18h14V8l-5-5Z M14 3v5h5 M8 12h8 M8 16h6" {...p} /></>}
       {name === "pencil" && (
         <Path d="M14 5l5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14z" {...p} />
       )}
@@ -214,15 +217,6 @@ export function Icon({
       )}
       {name === "external" && <Path d="M7 17L17 7M9 7h8v8" {...p} />}
       {name === "forward" && <Path d="M4 12h12M12 6l6 6-6 6" {...p} />}
-      {name === "citrus" && (
-        <>
-          <Circle cx="12" cy="13.5" r="7" {...p} />
-          <Path
-            d="M12 6.5c0-1.7 1.3-3 3-3M12 6.5c-1-1.6-2.8-2.1-4.2-1.4"
-            {...p}
-          />
-        </>
-      )}
       {name === "truck" && (
         <>
           <Path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" {...p} />

@@ -4,11 +4,11 @@ import type { NativeFile } from "@farmclub/api";
 /** 웹은 File, 앱은 사진 보관함에서 고른 {uri, name, type, size} */
 export type PickedFile = File | (NativeFile & { size: number });
 
-export function chooseSourceFiles(images = false): Promise<PickedFile[]> {
+export function chooseSourceFiles(images = false, multiple = true): Promise<PickedFile[]> {
   return new Promise((resolve) => {
     const el = document.createElement("input");
     el.type = "file";
-    el.multiple = true;
+    el.multiple = multiple;
     el.accept = images
       ? ".jpg,.jpeg,.png,.webp,.heic"
       : ".jpg,.jpeg,.png,.webp,.heic,.pdf,.txt";

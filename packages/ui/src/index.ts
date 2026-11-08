@@ -122,3 +122,5 @@ export {
 } from "./legalContent";
 export { inBackground } from "./foreground";
 export { pickPhoto, type PickedPhoto } from "./pickPhoto";
+
+export { sourceModuleIcon } from "./ModuleStory";

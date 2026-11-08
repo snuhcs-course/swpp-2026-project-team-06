@@ -109,7 +109,7 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
     page.getByText("추가 원본 사진 요청", { exact: true }),
   ).toHaveCount(0);
   await page
-    .getByLabel("한눈에 보기 내용", { exact: true })
+    .getByLabel("상품 소개 보충 내용", { exact: true })
     .fill("직접 수정한 내용은 실패해도 남아요.");
   const keys: string[] = [];
   await page.route(`**/batches/${batch.id}/editor`, async (route) => {
@@ -126,7 +126,7 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
     page.getByText("저장 연결 실패 검증", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("한눈에 보기 내용", { exact: true }),
+    page.getByLabel("상품 소개 보충 내용", { exact: true }),
   ).toHaveValue("직접 수정한 내용은 실패해도 남아요.");
   await page.getByRole("button", { name: "비공개 저장", exact: true }).click();
   await expect(
@@ -141,7 +141,7 @@ test("AC-SRC-11: failed atomic save preserves input and retries the same payload
     .getByRole("button", { name: "상세페이지 편집", exact: true })
     .click();
   await expect(
-    page.getByLabel("한눈에 보기 내용", { exact: true }),
+    page.getByLabel("상품 소개 보충 내용", { exact: true }),
   ).toHaveValue("직접 수정한 내용은 실패해도 남아요.");
 });
 
@@ -374,7 +374,7 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
   );
   const variety = page.getByLabel("과일 품종명", { exact: true });
   const size = page.getByLabel("사이즈", { exact: true });
-  const brix = page.getByLabel("예상 당도 (°Bx)", { exact: true });
+  const brix = page.getByLabel("측정 당도 (°Bx)", { exact: true });
   const start = page.getByRole("button", {
     name: "자료 준비·분석 시작",
     exact: true,
@@ -463,7 +463,7 @@ test("AC-SRC-11: basic information saves, validates, survives failures and fills
     "품종: 온주밀감\n사이즈: 중과, 지름 6~7cm",
   );
   await expect(page.getByLabel("품질 확인 내용", { exact: true })).toHaveValue(
-    "예상 당도: 13.2 °Bx",
+    "측정 당도: 13.2 °Bx",
   );
 });
 
@@ -482,8 +482,9 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
     exact: true,
   });
   const openSheet = () =>
-    page.getByRole("button", { name: "사진·자료 펼치기", exact: true }).click();
-  await expect(page.getByRole("button", { name: "사진·자료 접기", exact: true })).toBeVisible();
+    page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
+  await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true })).toHaveCount(0);
+  await openSheet();
   await expect(start).toBeDisabled();
   await expect(page.getByText("자료를 먼저 넣어 주세요.", { exact: true })).toBeVisible();
   await expect(page.getByLabel("과일 품종명")).toHaveAttribute(
@@ -583,7 +584,7 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   // Analysis works without a photo; applying the resulting page still requires one.
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
   // The same error is also rendered (hidden) inside the collapsed sheet; the visible copy is the page alert.
-  await expect(page.getByRole("alert").getByText("대표 상품사진을 한 장 이상 올려 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert").getByText("대표사진을 한 장 올려 주세요.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toHaveCount(0);
   await openSheet();
   await expect(page).toHaveURL(/\/products\/source-analysis/);

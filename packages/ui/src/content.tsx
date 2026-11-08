@@ -10,6 +10,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { BrandLogo } from "./BrandLogo";
 import { Icon, type IconName } from "./Icon";
 import { T } from "./Text";
 import { tokens } from "./tokens";
@@ -186,11 +187,7 @@ export function Photo({
           </T>
         ) : (
           <View accessibilityLabel={alt ? `${alt} 사진 없음` : "사진 없음"}>
-            <Icon
-              name={kind === "farm" ? "home" : "citrus"}
-              size={ph}
-              color={tokens.color.textMuted}
-            />
+            {kind === "farm" ? <Icon name="home" size={ph} color={tokens.color.textMuted} /> : <BrandLogo variant="monochrome" width={Math.min(80, height * 0.65)} decorative />}
           </View>
         )
       ) : null}

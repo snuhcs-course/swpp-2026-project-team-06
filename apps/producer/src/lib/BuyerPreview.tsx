@@ -9,7 +9,7 @@ import {
   type ProductDetail,
 } from "@farmclub/api";
 import { ProductPageBody, type ProductPageData } from "@farmclub/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { daysBetween } from "./fields";
 import { TODAY } from "./views";
@@ -47,10 +47,12 @@ export function BuyerPreview({
   product,
   farm,
   requestedGrams,
+  salesPreview,
 }: {
   product: MyProduct;
   farm: MyFarm;
   requestedGrams: number;
+  salesPreview?: ReactNode;
 }) {
   // 승인 전 사진은 공개 주소로 열리지 않아 인증 blob으로 불러온다(ProductPageEditor와 같은 방식).
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -102,6 +104,7 @@ export function BuyerPreview({
           optionId,
         )
       }
+      slots={salesPreview === undefined ? undefined : { sale: salesPreview }}
       mediaUrl={media}
     />
   );

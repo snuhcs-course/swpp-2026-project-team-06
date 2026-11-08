@@ -17,7 +17,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString("ko-KR", { timeZone: "A
 function renderNav() {
   const here = location.pathname.replace(/\/+$/, "");
   $("#side").innerHTML = `
-    <div class="head"><a class="brand" href="/">farmclub<i></i></a><span class="tag">관리자</span></div>
+    <div class="head"><a class="brand" href="/"><img src="/assets/brand-logo.png" alt="Farmclub" width="96" height="72"></a><span class="tag">관리자</span></div>
     <nav aria-label="관리 메뉴">${NAV.map((n) =>
       `<a href="${n.href}"${n.href === here ? ' aria-current="page"' : ""}>${esc(n.label)}</a>`).join("")}</nav>
     <div class="foot">
