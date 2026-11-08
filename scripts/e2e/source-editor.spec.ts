@@ -483,7 +483,8 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   });
   const openSheet = () =>
     page.getByRole("button", { name: "AI 시트 열기", exact: true }).click();
-  await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "AI 시트 닫기", exact: true })).toHaveCount(0);
+  await openSheet();
   await expect(start).toBeDisabled();
   await expect(page.getByText("자료를 먼저 넣어 주세요.", { exact: true })).toBeVisible();
   await expect(page.getByLabel("과일 품종명")).toHaveAttribute(
@@ -583,7 +584,7 @@ test("AC-SRC-11: text edits stay inside cards and representative selection survi
   // Analysis works without a photo; applying the resulting page still requires one.
   await page.getByRole("button", { name: "다음: 판매·가격", exact: true }).click();
   // The same error is also rendered (hidden) inside the collapsed sheet; the visible copy is the page alert.
-  await expect(page.getByRole("alert").getByText("대표 상품사진을 한 장 이상 올려 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert").getByText("대표사진을 한 장 올려 주세요.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "서버 상태 다시 확인", exact: true })).toHaveCount(0);
   await openSheet();
   await expect(page).toHaveURL(/\/products\/source-analysis/);

@@ -96,7 +96,7 @@ def suggestions(review, photos=None):
         basic_values = {
             "specification": specification,
             "qualityEvidence": (
-                f"예상 당도: {basic['expectedBrix']:g} °Bx"
+                f"측정 당도: {basic['expectedBrix']:g} °Bx"
                 if basic.get("expectedBrix") is not None
                 else ""
             ),
