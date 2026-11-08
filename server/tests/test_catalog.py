@@ -531,3 +531,46 @@ def test_reserved_stage_quantity_cannot_drop_below_reserved(client, login):
 
     assert response.status_code == 400
     assert "stages.0.opt-5.quantity" in response.json()["details"]["fields"]
+
+
+def test_AC_04_8_DEV_258_blank_origin_blocks_first_sales_request(client, login):
+    """상품 상세 원산지 줄(시행규칙 별표 3)의 전제: 공백만 있는 원산지도 판매 요청을 막는다."""
+    headers = login("u-kang")
+    pid = _new_product(client, headers)
+    product = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    stages = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={**STAGES, "version": product["version"]},
+    )
+    assert stages.status_code == 200, stages.text
+    blank = client.patch(
+        f"/api/products/{pid}",
+        headers=headers | key(),
+        json={"version": stages.json()["version"], "info": {"origin": "   "}},
+    )
+    assert blank.status_code == 200, blank.text
+    assert "원산지" in blank.json()["missingFields"]
+
+    response = client.post(
+        f"/api/products/{pid}/capacity-requests",
+        headers=headers | key(),
+        json={"requestedTotalGrams": 100_000, "version": blank.json()["version"]},
+    )
+    assert response.status_code == 400, response.text
+    assert "원산지" in response.json()["details"]["fields"]
+    assert client.get(f"/api/products/mine/{pid}", headers=headers).json()["status"] == "DRAFT"
+
+
+def test_DEV_258_published_product_keeps_origin(client, login):
+    headers = login("u-kang")
+    before = client.get("/api/products/mine/p-house", headers=headers).json()
+    assert before["status"] == "PUBLISHED"
+    response = client.patch(
+        "/api/products/p-house",
+        headers=headers | key(),
+        json={"version": before["version"], "info": {"origin": " "}},
+    )
+    assert response.status_code == 400, response.text
+    assert "원산지" in response.json()["details"]["fields"]
+    assert client.get("/api/products/p-house").json()["info"]["origin"] == "제주 서귀포"
