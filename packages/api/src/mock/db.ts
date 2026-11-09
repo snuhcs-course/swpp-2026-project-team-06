@@ -193,6 +193,10 @@ export type EscalationRec = {
   answer: string | null;
   questionMessageId?: string;
   reportedMessageId?: string | null;
+  /** 확인 요청을 닫은 방법·사람·시각(DEV-296, 서버 escalations.resolution·resolved_by·answered_at) */
+  resolution?: "CONFIRMED" | "CORRECTED" | null;
+  resolvedBy?: string | null;
+  answeredAt?: string | null;
 };
 
 export type DB = {

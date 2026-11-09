@@ -1,4 +1,4 @@
-import { needsReply } from "./conversations";
+import { aiCheckRequests, needsReply } from "./conversations";
 import { assertSale, releaseQuantity, salesState } from "./sales";
 // /api/orders Mock (FEAT-08 주문서, 09 무통장 입금(DEV-68), 10 주문 내역, 11 취소, 14 현황, 17 출하)
 import type {
@@ -352,9 +352,13 @@ register({
     const main = live[0];
     return {
       todo: {
+        // '답하지 않은 문의'는 확인 요청만 열린 대화를 빼고, 확인 요청은 따로 센다(DEV-296)
         openQuestions: Object.values(ctx.db.threadMeta).filter(
-          (t) => t.farmId === u.farmId && needsReply(ctx.db, t),
+          (t) => t.farmId === u.farmId && needsReply(ctx.db, t, false),
         ).length,
+        aiCheckRequests: Object.values(ctx.db.threadMeta)
+          .filter((t) => t.farmId === u.farmId)
+          .reduce((n, t) => n + aiCheckRequests(ctx.db, t), 0),
         toShip: farmOrders.filter((o) => o.status === "PREPARING").length,
         pendingProducts: products.filter((p) => p.status === "PENDING_APPROVAL")
           .length,

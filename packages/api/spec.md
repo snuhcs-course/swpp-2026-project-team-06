@@ -104,3 +104,6 @@ AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor �
 
 ## DEV-235 메시지 순서
 ChatMessage.sequence는 서버 삽입 순서다. 기존 API와 앱의 순차 배포를 위해 클라이언트 타입은 선택 필드로 받는다. Mock 1:1·지원 대화는 저장 배열 순번을 반환하며 페이지 경계에서도 안정적이다. 소식방의 시각/ID 페이지 계약은 유지한다.
+
+## DEV-296 AI 답변 확인 요청 깃발
+`ChatMessage.checkState`, `ProducerChatSummary.aiCheckRequests`, `Dashboard.todo.aiCheckRequests`, `Escalation.resolution`은 선택 필드다(옛 서버와 순차 배포). `messaging.confirmAiAnswer`. Mock은 서버와 같은 규칙(`mock/conversations.ts`의 `checkState`·`withCheckState`·`closeByReply`·`aiCheckRequests`, 질문함 답의 AI 답변 자동 인용, 현황 `openQuestions`는 `needsReply(…, false)`). 테스트 `scripts/test-ai-answer-flag.mjs`.
