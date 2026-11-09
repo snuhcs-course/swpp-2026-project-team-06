@@ -623,7 +623,7 @@ export default function Checkout() {
                   <View style={{ flex: 1 }}>
                     <Checkbox
                       checked={consents[c.key]}
-                      label={`${c.title} (필수)`}
+                      label={c.title}
                       onPress={() =>
                         setConsents((s) => ({ ...s, [c.key]: !s[c.key] }))
                       }
