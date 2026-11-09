@@ -9,9 +9,12 @@ import { tokens } from "./tokens";
 export function PrivatePhoto({
   id,
   load,
+  onLongPress,
 }: {
   id: string;
   load: (id: string) => Promise<string>;
+  /** 사진을 길게 눌렀을 때(메시지 메뉴). 겹친 누르는 칸이 터치를 가져가므로 넘겨 받는다 */
+  onLongPress?: () => void;
 }) {
   const [uri, setUri] = useState<string | null>(null),
     [error, setError] = useState(false);
@@ -33,7 +36,7 @@ export function PrivatePhoto({
     };
   }, [id, load]);
   return uri ? (
-    <ViewablePhoto uri={uri}>
+    <ViewablePhoto uri={uri} onLongPress={onLongPress}>
       <Image
         source={{ uri }}
         accessibilityLabel="비공개 문의 사진"
@@ -51,7 +54,16 @@ export function PrivatePhoto({
  * 사진을 누르면 전체 화면으로 본다(DEV-295). 누르는 칸은 사진 위에 겹친 형제라 사진의 img 역할·이름은 그대로 남는다
  * (버튼 안에 넣으면 보조기술에서 사진이 사라진다). 새 의존성 없이 RN Modal + Image.
  */
-export function ViewablePhoto({ uri, children }: { uri: string; children: ReactNode }) {
+export function ViewablePhoto({
+  uri,
+  children,
+  onLongPress,
+}: {
+  uri: string;
+  children: ReactNode;
+  /** 앱에서 사진을 길게 누르면 바깥 메시지 메뉴를 연다(안쪽 칸이 터치를 가져가므로) */
+  onLongPress?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <View>
@@ -60,6 +72,8 @@ export function ViewablePhoto({ uri, children }: { uri: string; children: ReactN
         accessibilityRole="button"
         accessibilityLabel="사진 크게 보기"
         onPress={() => setOpen(true)}
+        onLongPress={onLongPress}
+        delayLongPress={500}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
       />
       <PhotoViewer uri={open ? uri : null} onClose={() => setOpen(false)} />

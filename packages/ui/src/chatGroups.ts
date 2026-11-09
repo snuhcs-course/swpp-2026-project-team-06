@@ -15,3 +15,18 @@ export function chatGroups(keys: GroupKey[]): { first: boolean; last: boolean }[
     last: !same(k, keys[i + 1]),
   }));
 }
+
+/**
+ * 상대가 마지막으로 읽은 메시지(readId)까지의 내 마지막 말풍선 위치. '읽음'은 이 하나에만 붙인다(DEV-295).
+ * readId가 불러온 범위에 없으면(더 오래된 메시지거나 아직 안 읽음) -1.
+ */
+export function lastReadMine(
+  messages: { messageId: string; senderType: string }[],
+  readId: string | null | undefined,
+  mineType: string,
+): number {
+  if (!readId) return -1;
+  for (let i = messages.findIndex((m) => m.messageId === readId); i >= 0; i--)
+    if (messages[i].senderType === mineType) return i;
+  return -1;
+}

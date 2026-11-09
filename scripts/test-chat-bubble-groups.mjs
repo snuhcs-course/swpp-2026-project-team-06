@@ -40,3 +40,25 @@ test("DEV-295 solo bubbles never join neighbours", () => {
 test("DEV-295 empty input has no groups", () => {
   assert.deepEqual(chatGroups([]), []);
 });
+
+// DEV-295: '읽음'은 상대가 읽은 위치까지의 내 마지막 말풍선 하나에만 붙는다(대화 조회의 상대 읽음 위치를 그대로 쓴다).
+import { lastReadMine } from "../packages/ui/src/chatGroups.ts";
+const msgs = [
+  { messageId: "a", senderType: "CONSUMER" },
+  { messageId: "b", senderType: "AI" },
+  { messageId: "c", senderType: "CONSUMER" },
+  { messageId: "d", senderType: "PRODUCER" },
+  { messageId: "e", senderType: "CONSUMER" },
+];
+
+test("DEV-295 read mark sits on my last bubble at or before the peer's read position", () => {
+  assert.equal(lastReadMine(msgs, "d", "CONSUMER"), 2);
+  assert.equal(lastReadMine(msgs, "e", "CONSUMER"), 4);
+  assert.equal(lastReadMine(msgs, "b", "CONSUMER"), 0);
+});
+
+test("DEV-295 no read mark without a loaded read position or my earlier bubble", () => {
+  assert.equal(lastReadMine(msgs, null, "CONSUMER"), -1);
+  assert.equal(lastReadMine(msgs, "older-not-loaded", "CONSUMER"), -1);
+  assert.equal(lastReadMine(msgs, "a", "PRODUCER"), -1);
+});

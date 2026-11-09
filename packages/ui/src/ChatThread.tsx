@@ -11,7 +11,7 @@ import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
 import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
 import { chatDay, daySeparator, seoulDay, time } from "./format";
-import { chatGroups } from "./chatGroups";
+import { chatGroups, lastReadMine } from "./chatGroups";
 import { ProfileAvatar } from "./Messenger";
 import { Composer, copyToClipboard, FloatingPill } from "./composer";
 import { inBackground } from "./foreground";
@@ -520,9 +520,7 @@ export function ChatThread({
     solo: i === waiting || !!m.inquiryId || !!m.orderId || showReport(m) || !!m.reported,
   })));
   // 상대가 읽은 위치까지의 내 마지막 말풍선에만 '읽음'(서버의 상대 읽음 위치, DEV-295)
-  const readAt = peerReadMessageId ? messages.findIndex(m => m.messageId === peerReadMessageId) : -1;
-  let readMine = -1;
-  for (let i = readAt; i >= 0; i--) if (messages[i].senderType === mineType) { readMine = i; break; }
+  const readMine = lastReadMine(messages, peerReadMessageId, mineType);
   const peerAvatar = peer ? peer.avatar ?? <ProfileAvatar uri={peer.photo} name={peer.name} size={BUBBLE_AVATAR} /> : undefined;
   // 답장 없는 방(문의 대화방)도 글이 있으면 복사 메뉴는 연다(DEV-295)
   const hasMenu = (m: Message) => replies || !!m.body;
@@ -623,6 +621,8 @@ export function ChatThread({
             olderHeight.current = e.nativeEvent.layout.height;
             positionAnchor();
           }}>
+            {/* 앞 대화가 남아 있어도 시스템 문구는 맨 위에 둔다. 이 칸 높이로 재므로 행 위치 계산이 그대로 맞는다 */}
+            {systemLine ? <SystemLine text={systemLine} testID="chat-system-line" /> : null}
             <Button label="이전 대화 보기" variant="text" loading={older} onPress={previous} />
           </View>
         ) : null}
@@ -657,7 +657,7 @@ export function ChatThread({
                   e.preventDefault(); if (busy) return;
                   setMenuPoint({x: e.clientX, y: e.clientY}); setMenuMessage(m);
                 },
-                tabIndex: 0,
+                tabIndex: hasMenu(m) ? 0 : -1,
                 onKeyDown: (e: {key: string; shiftKey: boolean; preventDefault: () => void}) => {
                   if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) { e.preventDefault(); menuFor(m); }
                 },
@@ -726,7 +726,7 @@ export function ChatThread({
               ) : undefined}
             >
               {m.attachmentIds?.map((id) => (
-                <PrivatePhoto key={id} id={id} load={loadPhoto} />
+                <PrivatePhoto key={id} id={id} load={loadPhoto} onLongPress={busy ? undefined : () => menuFor(m)} />
               ))}
             </ChatBubble>
             </Pressable>
