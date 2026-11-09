@@ -39,7 +39,8 @@ import { View } from "react-native";
 import { BuyerPreview } from "../../../../lib/BuyerPreview";
 import { DateSheet, NumField, addDays } from "../../../../lib/fields";
 import { useHideTabBar, useSession } from "../../../../lib/session";
-import { FieldButton, LoadError, TODAY } from "../../../../lib/views";
+import { seoulToday } from "../../../../lib/HarvestStart";
+import { FieldButton, LoadError } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
 
 const WEIGHTS = [3, 5, 10];
@@ -140,8 +141,8 @@ export default function Sell() {
           : [
               {
                 key: newIdempotencyKey(),
-                startsAt: TODAY,
-                endsAt: lastStageDay(r.deliveryWindow?.start, TODAY),
+                startsAt: seoulToday(),
+                endsAt: lastStageDay(r.deliveryWindow?.start, seoulToday()),
                 options: {},
               },
             ],
@@ -329,7 +330,7 @@ export default function Sell() {
 
   // 기간이 하나면 받는 시기에 맞춰 끝을 당기므로 첫날 다음 날부터 고를 수 있다. 여럿이면 마지막 기간 뒤부터.
   const deliveryMin = [
-    addDays(TODAY, 1),
+    addDays(seoulToday(), 1),
     addDays(rows.length === 1 ? rows[0].startsAt : rows.at(-1)!.endsAt, 1),
   ]
     .sort()
@@ -598,7 +599,7 @@ export default function Sell() {
         min={
           form.deliveryWindow?.end
             ? addDays(form.deliveryWindow.end, 1)
-            : addDays(TODAY, 1)
+            : addDays(seoulToday(), 1)
         }
         onClose={() => setSheet(null)}
         onSave={(d) => {

@@ -18,6 +18,7 @@ import {
   BottomBar,
   Button,
   Checkbox,
+  defaultOptionId,
   HeaderBar,
   Icon,
   Input,
@@ -43,6 +44,7 @@ import {
   availabilityConflict,
   clearsOnSelection,
   conflictView,
+  mismatchStep,
   recheckedConflict,
   seenValues,
   type CheckoutConflict,
@@ -98,6 +100,10 @@ export default function Checkout() {
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
   // 입금 안내(물량 선점)도 멱등 키로 한 번만(AC-09-3)
   const [depositKey, setDepositKey] = useState(newIdempotencyKey);
+  // 이 주문서로 만든 입금 대기 주문(DEV-291). 입금 안내에서 뒤로 와 내용을 바꿔 내면 새 주문을 만들지 않고 이 주문을 알린다
+  type Placed = { orderId: string; optionId: string; quantity: number };
+  const placedRef = useRef<Placed | null>(null);
+  const [placed, setPlaced] = useState<Placed | null>(null);
   const [saveAddress, setSaveAddress] = useState(false);
   const toast = useToast();
   const addressHref = {
@@ -147,7 +153,7 @@ export default function Checkout() {
     if (startedId) track("checkout_started", { productId: startedId });
   }, [startedId]);
   useEffect(() => {
-    if (p && !optionId) setOptionId(p.options[0].optionId);
+    if (p && !optionId) setOptionId(defaultOptionId(p));
   }, [p, optionId]);
 
   const stage = p?.stages.find((s) => s.stageId === p.currentStageId);
@@ -243,6 +249,7 @@ export default function Checkout() {
     if (!p || !opt || !recipient) return;
     setBusy(true);
     setErrors({});
+    setPlaced(null);
     // 주문서가 지금 보여 준 기간·단가·중량. 서버가 지금 값과 비교한다(AC-08-8)
     const seen = seenValues(p, opt.optionId);
     sentRef.current = seen;
@@ -274,6 +281,7 @@ export default function Checkout() {
       );
       // DEV-68: 주문을 만든 뒤 바로 입금 안내를 받는다(물량 선점, 입금 대기)
       await orders.deposit(o.orderId, depositKey);
+      placedRef.current = { orderId: o.orderId, optionId: opt.optionId, quantity: qty };
       // 구매 퍼널 3단계: 주문서 제출 → 입금 안내(DEV-71). 받는 사람·주소는 보내지 않는다
       track("checkout_submitted", {
         productId: p.productId,
@@ -292,13 +300,22 @@ export default function Checkout() {
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         const reason = String(e.details.reason ?? "");
+        const step =
+          reason === "IDEMPOTENCY_MISMATCH"
+            ? mismatchStep(placedRef.current?.orderId ?? null, retried)
+            : null;
+        if (step === "showPlaced") {
+          // 이미 만든 주문이 있다: 키를 그대로 두어 다시 눌러도 두 번째 주문이 생기지 않게 한다
+          setPlaced(placedRef.current);
+          return;
+        }
         // 409도 멱등 결과로 저장되므로 키를 둘 다 새로 만든다
         const nextOrderKey = newIdempotencyKey();
         setIdemKey(nextOrderKey);
         setDepositKey(newIdempotencyKey());
-        if (reason === "IDEMPOTENCY_MISMATCH") {
-          // 같은 키에 다른 본문(앱 버그): 새 키로 한 번만 다시 보낸다
-          if (retried) setErrors({ _: "잠시 뒤 다시 시도해 주세요." });
+        if (step) {
+          // 같은 키에 다른 본문(앱 버그)이고 만든 주문이 없다: 새 키로 한 번만 다시 보낸다
+          if (step === "fail") setErrors({ _: "잠시 뒤 다시 시도해 주세요." });
           else setRetryKey(nextOrderKey);
         } else {
           // 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 안내는 reason으로 고른다
@@ -613,6 +630,32 @@ export default function Checkout() {
           <T variant="sub" color={tokens.color.error} style={{ margin: 20 }}>
             {errors._}
           </T>
+        ) : null}
+        {placed ? (
+          <Notice
+            style={{ margin: 20 }}
+            title="이 주문서로 만든 예약이 입금을 기다리고 있어요"
+            body="옵션·수량이나 받는 곳을 바꾸려면 주문 내역에서 그 예약을 취소한 뒤 다시 예약해 주세요. 새 예약을 또 만들지 않았어요."
+            action={
+              <View style={{ alignItems: "flex-start" }}>
+                <Button
+                  label="입금 안내 보기"
+                  variant="text"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/checkout/[productId]/pay",
+                      params: {
+                        productId: params.productId,
+                        orderId: placed.orderId,
+                        optionId: placed.optionId,
+                        quantity: String(placed.quantity),
+                      },
+                    })
+                  }
+                />
+              </View>
+            }
+          />
         ) : null}
       </Scroll>
 
