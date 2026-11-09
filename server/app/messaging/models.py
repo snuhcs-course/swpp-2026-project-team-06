@@ -71,6 +71,7 @@ class Thread(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), index=True)
     consumer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    human_reply_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # AUTO · HUMAN
     ai_mode: Mapped[str] = mapped_column(String(8), default="AUTO")
     version: Mapped[int] = mapped_column(Integer, default=1)
@@ -102,6 +103,8 @@ class ThreadMessage(Base):
     __tablename__ = "thread_messages"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reply_to_message_id: Mapped[str | None] = mapped_column(ForeignKey("thread_messages.id"))
+    reply_to: Mapped[dict | None] = mapped_column(JSON)
     # 같은 시각에 저장된 질문과 AI 답의 순서를 지키는 일련번호
     seq: Mapped[int] = mapped_column(BigInteger, Identity(), unique=True)
     thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), index=True)

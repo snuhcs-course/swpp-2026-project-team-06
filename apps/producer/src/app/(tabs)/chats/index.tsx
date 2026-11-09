@@ -19,6 +19,7 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
+import { GlobalAiButton } from "../../../lib/GlobalAiButton";
 import OwnNewsRoom from "../../../lib/OwnNewsRoom";
 
 export default function Chats() {
@@ -65,6 +66,7 @@ export default function Chats() {
         <OwnNewsRoom active={active && tab === "news"} />
       </View>
       <View style={{ flex: 1, display: tab === "private" ? "flex" : "none" }}>
+        <GlobalAiButton />
         <Scroll bottom={20}>
           {chats.error ? (
             <View style={{ padding: 20 }}>

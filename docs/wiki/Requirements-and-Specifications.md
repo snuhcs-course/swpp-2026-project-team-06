@@ -1039,3 +1039,6 @@ DEV-287: Sales settings are edited inline within the product page using highligh
 DEV-287: Brix entry and display use one 측정 당도 field. Existing measured values take precedence over legacy expected values. Edits and clearing synchronize both existing API fields; no schema migration is required.
 
 DEV-287: Composer and AI draft variety controls share the same state. In-app back navigation saves edits before showing the saved toast and leaving; failure retains the current editor and inputs.
+
+### DEV-289 chat interaction contract
+Both participants can quote a message in the same private thread. Failed sends retain text, attachments and quote. A producer quote resolves only matching open escalations; order inquiries keep their separate completion action. One farm-wide AI toggle replaces room controls. Successful producer sends pause that room for ten minutes from the last send, extended by further sends, using server timestamps. Idempotent retries do not extend deadlines. Global OFF overrides expiry; resumption applies to new questions only and preserves sensitive-topic handoff. Legacy HUMAN states migrate using the latest producer timestamp. Explicit answer-confirmation buttons and broadcast/private composer wording replace ambiguous controls without visual redesign.

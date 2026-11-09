@@ -80,6 +80,8 @@ class TextInput(CamelModel):
 
 
 class ChatMessage(CamelModel):
+    reply_to: dict | None = None
+    reply_to_message_id: str | None = None
     sequence: int
     message_id: str
     sender_type: SenderType
@@ -99,6 +101,8 @@ class ChatMessage(CamelModel):
 
 
 class ThreadView(CamelModel):
+    human_reply_until: datetime | None = None
+    server_now: datetime | None = None
     thread_id: str
     farm_id: str
     consumer_id: str
@@ -232,6 +236,7 @@ class ProducerStartInput(CamelModel):
 
 
 class SendInput(CamelModel):
+    reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
     order_id: str | None = None
@@ -245,6 +250,7 @@ class SendResult(CamelModel):
 
 
 class ProducerSendInput(CamelModel):
+    reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
     answer_to_escalation_ids: list[str] = Field(default_factory=list)

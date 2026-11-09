@@ -124,17 +124,17 @@ test("FEAT-13 AC-13-5: consumer reports an AI answer and both sides see the serv
   await page.getByRole("textbox", { name: "메시지" }).fill(prompt);
   await page.getByRole("button", { name: "전송", exact: true }).click();
   await expect(page.getByText(prompt, { exact: true })).toBeVisible();
-  const reportButton = page.getByRole("button", { name: "틀렸어요", exact: true });
+  const reportButton = page.getByRole("button", { name: "답변 확인 요청", exact: true });
   await expect(reportButton).toBeVisible({ timeout: 15_000 });
   await reportButton.click();
-  await expect(page.getByRole("button", { name: "신고했어요", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 요청됨", exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: "신고했어요", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 요청됨", exact: true })).toBeVisible();
 
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/chats/u-seojun`);
   await expect(page.getByText("소비자가 신고한 답변", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(/소비자가 AI 답변을 신고했어요/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "답장", exact: true }).first()).toBeVisible();
 });
 
 test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collapsed room", async ({

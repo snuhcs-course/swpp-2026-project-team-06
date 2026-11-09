@@ -189,6 +189,7 @@ export type EscalationRec = {
   createdAt: string;
   status: "OPEN" | "ANSWERED";
   answer: string | null;
+  questionMessageId?: string;
   reportedMessageId?: string | null;
 };
 

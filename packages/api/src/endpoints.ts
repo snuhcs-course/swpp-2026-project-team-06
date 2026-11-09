@@ -378,11 +378,12 @@ export const messaging = {
     orderId?: string,
     idempotencyKey: string = newIdempotencyKey(),
     productId?: string,
+    replyToMessageId?: string,
   ) =>
     request<A.SendMessageResult>(
       "POST",
       `/api/messaging/chats/${farmId}/messages`,
-      { body: { text, attachmentIds, orderId, productId }, idempotencyKey },
+      { body: { text, attachmentIds, orderId, productId, replyToMessageId }, idempotencyKey },
     ),
   read: (farmId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/chats/${farmId}/read`, {
@@ -447,11 +448,12 @@ export const messaging = {
     attachmentIds: string[] = [],
     answerToEscalationIds: string[] = [],
     idempotencyKey: string = newIdempotencyKey(),
+    replyToMessageId?: string,
   ) =>
     request<{ message: A.ChatMessage; thread: A.Thread }>(
       "POST",
       `/api/messaging/producer/chats/${consumerId}/messages`,
-      { body: { text, attachmentIds, answerToEscalationIds }, idempotencyKey },
+      { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId }, idempotencyKey },
     ),
   producerRead: (consumerId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/producer/chats/${consumerId}/read`, {

@@ -8,6 +8,7 @@ import { tokens } from "./tokens";
 type Props = {
   /** farm = 농가(면 색, 왼쪽) · me = 나(옅은 주황, 오른쪽) · ai = AI 안내(테두리 + 배지, 왼쪽) */
   kind: "farm" | "me" | "ai";
+  quote?: {senderType: string; body: string};
   text: string;
   /** 보낸 시각 */
   time?: string;
@@ -25,6 +26,7 @@ type Props = {
 /** 채팅 말풍선: 17/25 · 안쪽 12/16 · 최대 폭 272 · 꼬리 쪽 모서리 4 */
 export function ChatBubble({
   kind,
+  quote,
   text,
   time,
   sender,
@@ -50,6 +52,7 @@ export function ChatBubble({
           {[sender, time].filter(Boolean).join(" · ")}
         </T>
       ) : null}
+      {quote ? <View style={{ borderLeftWidth: 3, borderLeftColor: tokens.color.accent, padding: 8, maxWidth: 272 }}><T variant="caption" muted>{quote.senderType === "PRODUCER" ? "농가" : quote.senderType === "AI" ? "AI 안내" : "소비자"}에게 답장</T><T numberOfLines={2}>{quote.body || "사진"}</T></View> : null}
       {text || basis ? (
         <View
           style={{

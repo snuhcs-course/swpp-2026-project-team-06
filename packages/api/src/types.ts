@@ -704,6 +704,8 @@ export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
 export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
+  replyToMessageId?: string | null;
+  replyTo?: {messageId: string; senderType: string; body: string; attachmentCount: number} | null;
   /** Server insertion order. Optional while an older API is deployed. */
   sequence?: number;
   messageId: string;
@@ -748,6 +750,8 @@ export type Escalation = {
 };
 
 export type Thread = {
+  humanReplyUntil?: string | null;
+  serverNow?: string | null;
   threadId: string;
   farmId: string;
   consumerId: string;

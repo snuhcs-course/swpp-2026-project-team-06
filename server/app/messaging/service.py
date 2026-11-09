@@ -452,12 +452,40 @@ def send_room(db: Session, user, farm_id: str, text: str) -> NewsRoomMessage:
 # ---------------- 1:1 대화 (contracts-1.2 4장) ----------------
 
 
+def _effective_mode(t: Thread) -> str:
+    if t.human_reply_until is not None:
+        return "HUMAN" if now() < t.human_reply_until else "AUTO"
+    return t.ai_mode
+
+
+def _reply_target(db: Session, thread: Thread, message_id: str | None):
+    if message_id is None:
+        return None
+    target = db.get(ThreadMessage, message_id)
+    if target is None or target.thread_id != thread.id:
+        raise not_found("같은 대화의 메시지에만 답장할 수 있어요.")
+    return target
+
+
+def _quote(target):
+    if target is None:
+        return None
+    return {
+        "messageId": target.id,
+        "senderType": target.sender_type,
+        "body": target.body,
+        "attachmentCount": len(target.attachment_ids or []),
+    }
+
+
 def _thread_view(t: Thread) -> ThreadView:
     return ThreadView(
         thread_id=t.id,
         farm_id=t.farm_id,
         consumer_id=t.consumer_id,
-        ai_mode=t.ai_mode,
+        ai_mode=_effective_mode(t),
+        human_reply_until=t.human_reply_until,
+        server_now=now(),
         version=t.version,
         consumer_last_read_message_id=t.consumer_last_read_message_id,
         producer_last_read_message_id=t.producer_last_read_message_id,
@@ -466,6 +494,8 @@ def _thread_view(t: Thread) -> ThreadView:
 
 def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
     return ChatMessage(
+        reply_to_message_id=m.reply_to_message_id,
+        reply_to=m.reply_to,
         message_id=m.id,
         sequence=m.seq,
         sender_type=m.sender_type,
@@ -503,7 +533,8 @@ def _message_views(db: Session, rows: list[ThreadMessage]) -> list[ChatMessage]:
 
 def _set_mode(t: Thread, mode: str) -> None:
     """실제로 바뀔 때만 version을 올린다."""
-    if t.ai_mode != mode:
+    if t.ai_mode != mode or t.human_reply_until is not None:
+        t.human_reply_until = None
         t.ai_mode = mode
         t.version += 1
 
@@ -832,7 +863,7 @@ def typical_reply_hours(db: Session, farm_id: str) -> int | None:
 def farm_reply(db: Session, thread: Thread) -> FarmReply:
     from app.farms import service as farms
 
-    auto = thread.ai_mode == "AUTO" and farms.ai_settings(db, thread.farm_id).enabled
+    auto = _effective_mode(thread) == "AUTO" and farms.ai_settings(db, thread.farm_id).enabled
     return FarmReply(
         mode="AI" if auto else "FARM",
         typical_reply_hours=typical_reply_hours(db, thread.farm_id),
@@ -1046,12 +1077,13 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         if item is None or item.product.farm_id != farm_id or item.product.status != "PUBLISHED":
             raise not_found("찾을 수 없는 상품이에요.")
     attachments = bind_attachments(db, consumer.id, body.attachment_ids, thread, body.order_id)
+    reply_target = _reply_target(db, thread, body.reply_to_message_id)
     settings = farms.ai_settings(db, farm_id)
-    captured = (thread.ai_mode, thread.version, settings.enabled, settings.version)
+    captured = (_effective_mode(thread), thread.version, settings.enabled, settings.version)
     masked_text, was_masked = mask(text)
     created = now()
     answer = None
-    if thread.ai_mode == "AUTO" and settings.enabled and text:
+    if _effective_mode(thread) == "AUTO" and settings.enabled and text:
         answer = ai.answer_question(
             text, _evidence(db, farm_id, body.order_id, settings, body.product_id)
         )
@@ -1063,8 +1095,15 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         require_paid_order(db, consumer.id, farm_id, body.order_id, fresh=True)
     elif not farms.is_following(db, consumer.id, farm_id):
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
-    unchanged = (thread.ai_mode, thread.version, latest.enabled, latest.version) == captured
+    unchanged = (
+        _effective_mode(thread),
+        thread.version,
+        latest.enabled,
+        latest.version,
+    ) == captured
     message = ThreadMessage(
+        reply_to_message_id=body.reply_to_message_id,
+        reply_to=_quote(reply_target),
         id=new_id("m"),
         thread_id=thread.id,
         sender_type="CONSUMER",
@@ -1181,7 +1220,7 @@ def producer_chats(
                 last_at=last.created_at if last else None,
                 unread_count=_unread(db, t, producer=True),
                 needs_reply=flagged,
-                ai_mode=t.ai_mode,
+                ai_mode=_effective_mode(t),
                 is_support=is_support(t),
             )
         )
@@ -1221,21 +1260,41 @@ def _producer_reply(
     escalation_ids: list[str],
     attachment_ids: list[str] | None = None,
     uploader_id: str | None = None,
+    reply_to_message_id: str | None = None,
 ) -> ThreadMessage:
     """생산자 답변. 저장과 HUMAN 전환을 같은 트랜잭션에서 한다(M-09)."""
     text = text.strip()
     attachment_ids = attachment_ids or []
     if (not text and not attachment_ids) or len(text) > 1000:
         raise invalid({"text": "본문 또는 사진을 넣고 글은 1,000자 이내로 적어 주세요"})
-    escalations = []
+    target = _reply_target(db, thread, reply_to_message_id)
+    escalations = (
+        list(
+            db.scalars(
+                select(Escalation).where(
+                    Escalation.thread_id == thread.id,
+                    Escalation.status == "OPEN",
+                    or_(
+                        Escalation.thread_message_id == reply_to_message_id,
+                        Escalation.reported_message_id == reply_to_message_id,
+                    ),
+                )
+            )
+        )
+        if target
+        else []
+    )
     for eid in escalation_ids:
         e = db.get(Escalation, eid)
         if e is None or e.thread_id != thread.id:
             raise not_found("찾을 수 없는 질문이에요.")
-        escalations.append(e)
+        if e.status == "OPEN":
+            escalations.append(e)
     attachments = bind_attachments(db, uploader_id or "", attachment_ids, thread, None)
     masked_text, was_masked = mask(text)
     message = ThreadMessage(
+        reply_to_message_id=reply_to_message_id,
+        reply_to=_quote(target),
         id=new_id("m"),
         thread_id=thread.id,
         sender_type="PRODUCER",
@@ -1248,7 +1307,9 @@ def _producer_reply(
         created_at=now(),
     )
     db.add(message)
-    _set_mode(thread, "HUMAN")
+    thread.human_reply_until = message.created_at + timedelta(minutes=10)
+    thread.ai_mode = "HUMAN"
+    thread.version += 1
     for e in escalations:
         e.status, e.answer, e.answered_at = "ANSWERED", masked_text, message.created_at
     db.flush()
@@ -1266,6 +1327,7 @@ def producer_send(
         body.answer_to_escalation_ids,
         body.attachment_ids,
         farm.producer_id,
+        body.reply_to_message_id,
     )
     return ProducerSendResult(message=_message_view(message), thread=_thread_view(thread))
 
@@ -1281,7 +1343,9 @@ def set_ai_mode(db: Session, farm, consumer_id: str, mode: str, version: int) ->
         raise conflict(
             "STALE_VERSION", "최신 대화 상태를 다시 불러와 주세요.", version=thread.version
         )
-    _set_mode(thread, mode)
+    thread.human_reply_until = now() + timedelta(minutes=10) if mode == "HUMAN" else None
+    thread.version += 1
+    thread.ai_mode = mode
     db.flush()
     return _thread_view(thread)
 

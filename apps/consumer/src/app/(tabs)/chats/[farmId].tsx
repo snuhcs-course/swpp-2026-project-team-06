@@ -237,8 +237,9 @@ export default function Chat() {
           loadPhoto={loadPhoto}
           upload={file => withVisit(() => uploadAttachment(file, selected
             ? { orderId: selected.orderId } : { threadId: page.thread.threadId }))}
-          send={(text, ids, key) => withVisit(() => messaging.send(
-            farmId, text, ids, selected?.orderId, key, productId,
+          replies
+          send={(text, ids, key, replyToMessageId) => withVisit(() => messaging.send(
+            farmId, text, ids, selected?.orderId, key, productId, replyToMessageId,
           ))}
           report={(id, key) => withVisit(() => messaging.reportAiAnswer(farmId, id, key))}
           forwardStatus={forwardStatus}

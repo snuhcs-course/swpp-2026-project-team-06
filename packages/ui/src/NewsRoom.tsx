@@ -562,6 +562,7 @@ export function NewsRoom({
           }}
         />
       ) : null}
+      {canReply ? <T variant="caption" muted center>{producer ? "소식방 · 모든 팔로워에게 보내요" : "소식방 · 내 답장은 농가에만 보여요"}</T> : null}
       {canReply ? (
         <View
           style={{

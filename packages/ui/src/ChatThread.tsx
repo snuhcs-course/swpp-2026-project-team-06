@@ -20,6 +20,7 @@ import {
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
 type Message = {
+  replyTo?: {messageId: string; senderType: string; body: string; attachmentCount: number} | null;
   sequence?: number;
   messageId: string;
   senderType: string;
@@ -47,10 +48,11 @@ type Props = {
   composerEnabled?: boolean;
   onAccessDenied?: (error: unknown) => void;
   onBusyChange?: (busy: boolean) => void;
+  replies?: boolean;
   producer?: boolean;
   active: boolean;
   load: (cursor?: string) => Promise<Page>;
-  send: (text: string, ids: string[], key: string) => Promise<unknown>;
+  send: (text: string, ids: string[], key: string, replyToMessageId?: string) => Promise<unknown>;
   report?: (messageId: string, key: string) => Promise<unknown>;
   read: (id: string) => Promise<unknown>;
   makeKey: () => string;
@@ -70,6 +72,7 @@ export function ChatThread({
   composerEnabled = true,
   onAccessDenied,
   onBusyChange,
+  replies = false,
   producer = false,
   active,
   load,
@@ -134,6 +137,7 @@ export function ChatThread({
     expectedScroll = useRef<number | null>(null),
     epoch = useRef(0), reading = useRef(""),
     captureRef = useRef<() => void>(() => {});
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [reporting, setReporting] = useState<string | null>(null);
   // 앱: 입력창 아래에 하단 내비 바(안전 영역)만큼 더 띄운다. 키보드가 뜨면 키보드가 내비 바를 덮으므로 뺀다.
   // 웹은 지금 여백(20) 그대로(DEV-205)
@@ -149,6 +153,7 @@ export function ChatThread({
   useEffect(() => {
     if (previousContext.current === sendScope) return;
     previousContext.current = sendScope;
+    setReplyTo(null);
     pending.current = null;
     lock.current = false;
     setBusy(false);
@@ -405,15 +410,16 @@ export function ChatThread({
     const submittedScope = context.current, run = epoch.current;
     lock.current = true;
     setBusy(true);
-    const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids });
+    const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids, replyTo: replyTo?.messageId });
     if (pending.current?.body !== body)
       pending.current = { body, key: makeKey() };
     let committed = false;
     try {
-      await callbacks.current.send(text.trim(), ids, pending.current.key);
+      await callbacks.current.send(text.trim(), ids, pending.current.key, replyTo?.messageId);
       if (!current(run) || submittedScope !== context.current) return;
       committed = true;
       setRetrySend(false);
+      setReplyTo(null);
       setText("");
       setIds([]);
       setPhotos(false);
@@ -592,6 +598,7 @@ export function ChatThread({
                     ? "ai"
                     : "farm"
               }
+              quote={m.replyTo ?? undefined}
               text={m.body}
               sender={
                 m.senderType === (producer ? "PRODUCER" : "CONSUMER")
@@ -615,6 +622,7 @@ export function ChatThread({
                     : undefined
               }
             >
+              {replies ? <Button label="답장" variant="outline" disabled={busy} onPress={() => setReplyTo(m)} /> : null}
               {m.attachmentIds?.map((id) => (
                 <PrivatePhoto key={id} id={id} load={loadPhoto} />
               ))}
@@ -623,8 +631,8 @@ export function ChatThread({
               m.handoffStatus !== "FORWARDED" &&
               report ? (
                 <Button
-                  label={m.reported ? "신고했어요" : "틀렸어요"}
-                  variant="text"
+                  label={m.reported ? "확인 요청됨" : "답변 확인 요청"}
+                  variant="outline"
                   disabled={Boolean(m.reported) || reporting === m.messageId}
                   loading={reporting === m.messageId}
                   onPress={async () => {
@@ -675,6 +683,7 @@ export function ChatThread({
           borderTopColor: tokens.color.border,
         }}
       >
+        {replyTo ? <View style={{ padding: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent }}><T variant="caption" muted>선택한 메시지에 답장</T><T numberOfLines={2}>{replyTo.body || "사진"}</T><Button label="답장 취소" variant="text" disabled={busy} onPress={() => setReplyTo(null)} /></View> : null}
         {photos && upload ? (
           <PrivatePhotos
             key={sendScope}
@@ -739,9 +748,6 @@ export function waitingIndex(
     if (m.senderType === "CONSUMER" && m.needsHuman) found = i;
   });
   if (found < 0) return -1;
-  const asked = messages[found].createdAt;
-  // 같은 시각이면 정렬 순서가 정해지지 않으므로 시각으로 비교한다
-  return messages.some((m) => m.senderType === "PRODUCER" && m.createdAt >= asked)
-    ? -1
-    : found;
+  // The timeline is ordered by persisted sequence, including equal timestamps.
+  return messages.slice(found + 1).some(m => m.senderType === "PRODUCER") ? -1 : found;
 }
