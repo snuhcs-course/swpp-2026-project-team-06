@@ -40,8 +40,16 @@ export function shortProductName(name: string, optionLabel: string) {
     : trimmed;
 }
 
+/** 배송 현황 줄의 상품 줄 조각. 줄에서는 상품명만 줄이고 ‘옵션 × 수량’은 끝까지 보인다(AC-17-10) */
+export function orderItemParts(o: Omit<WhoFields, "recipientName">) {
+  return {
+    name: shortProductName(o.productName ?? "", o.optionLabel),
+    tail: `${o.optionLabel} × ${o.quantity}`,
+  };
+}
+
 /** 배송 현황 줄의 상품 줄: "하우스 감귤 5kg × 2"(상품명 속 옵션 목록은 빼고) */
 export function orderItem(o: Omit<WhoFields, "recipientName">) {
-  const name = shortProductName(o.productName ?? "", o.optionLabel);
-  return `${name ? `${name} ` : ""}${o.optionLabel} × ${o.quantity}`;
+  const { name, tail } = orderItemParts(o);
+  return `${name ? `${name} ` : ""}${tail}`;
 }

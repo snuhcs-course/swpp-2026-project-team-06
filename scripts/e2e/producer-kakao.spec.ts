@@ -40,7 +40,7 @@ const home = (path: string) =>
   new RegExp(`${producerUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}${path === "/" ? "/?" : path}$`);
 
 for (const [account, userId, path, heading] of [
-  ["승인", "u-kang", "/", "할 일"],
+  ["승인", "u-kang", "/", "배송 현황 ›"],
   ["확인 중", "u-misook", "/pending", "확인 중이에요"],
   ["농가 없음", "u-new", "/apply", "농가 등록 신청"],
 ] as const) {

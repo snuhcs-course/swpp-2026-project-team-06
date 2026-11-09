@@ -2,7 +2,7 @@
 // apps/producer/src/lib/orderWho.ts, productGroups.ts draftSaved. 순수 함수만 본다(화면은 order-row-identity.spec.ts).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { orderItem, orderWho, orderWhoParts, shortProductName } from "../apps/producer/src/lib/orderWho.ts";
+import { orderItem, orderItemParts, orderWho, orderWhoParts, shortProductName } from "../apps/producer/src/lib/orderWho.ts";
 import { draftSaved } from "../apps/producer/src/lib/productGroups.ts";
 import { md, time } from "../packages/ui/src/format.ts";
 
@@ -40,6 +40,9 @@ test("AC-17-10 DEV-294: the item line drops an option list from the product name
   assert.equal(shortProductName("5kg", "5kg"), "5kg");
   assert.equal(orderItem({ productName: "", optionLabel: "5kg", quantity: 1 }), "5kg × 1");
   assert.equal(orderItem({ productName: "한라봉", optionLabel: "3kg", quantity: 1 }), "한라봉 3kg × 1");
+  // 줄에서는 상품명 조각만 줄인다. ‘옵션 × 수량’은 따로 끝까지 보인다
+  const long = orderItemParts({ productName: "서귀포 타이벡 노지 감귤 고당도 선별 5kg / 10kg", optionLabel: "10kg", quantity: 3 });
+  assert.deepEqual(long, { name: "서귀포 타이벡 노지 감귤 고당도 선별", tail: "10kg × 3" });
 });
 
 const NOW = Date.parse("2026-11-04T06:00:00Z"); // 11월 4일 15:00 KST

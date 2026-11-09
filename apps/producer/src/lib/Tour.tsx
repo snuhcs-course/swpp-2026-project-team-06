@@ -1,6 +1,6 @@
 // DEV-109: 탭 화면 오른쪽 위 도움말(?) 버튼과 직접 눌러 보는 사용 안내(스포트라이트 투어).
 // 화면을 어둡게 덮고 눌러야 할 곳만 뚫어 밝게 보여 준다. 생산자가 실제로 눌러 화면이 바뀌면 다음 단계로 간다.
-// 대상은 testID(웹에서 data-testid)로 찾는다. 현황(SCR-22)에서 승인된 생산자에게 처음 한 번 자동으로 시작한다.
+// 대상은 testID(웹에서 data-testid)로 찾는다. 헤더의 ‘가이드’ 버튼으로만 시작한다(DEV-294).
 import { Button, Icon, IconButton, T, tokens } from "@farmclub/ui";
 import { useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import {

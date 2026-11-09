@@ -40,7 +40,7 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, ORDER_STATUS, errMsg } from "../lib/views";
-import { orderItem, orderWho } from "../lib/orderWho";
+import { orderItemParts, orderWho } from "../lib/orderWho";
 import { goBackOr } from "../lib/nav";
 
 type Data = {
@@ -629,6 +629,7 @@ export default function Ship() {
             const refunded = o.status === "REFUNDED";
             const canceled = o.status === "CANCELED";
             const checkable = tab === "PREPARING";
+            const item = orderItemParts(o);
             // 출하 준비 줄의 송장은 그 탭의 고르기·출하 바와 묶여 있어, 전체 탭에서는 그 탭으로 옮긴 뒤 연다(DEV-291)
             const editInvoice = () => {
               if (o.status === "PREPARING" && tab !== "PREPARING") setTab("PREPARING");
@@ -640,7 +641,9 @@ export default function Ship() {
             const info = (
               <View style={{ flex: 1, minWidth: 0, gap: 2, opacity: canceled ? 0.5 : 1 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space.sm }}>
-                  {tab === "all" ? <StatusChip status={o.status} /> : null}
+                  {tab === "all" ? (
+                    <StatusChip status={o.status} settled={!!o.refundSettledAt} />
+                  ) : null}
                   <T weight="semibold" numberOfLines={1} masked style={{ flexShrink: 1 }}>
                     {o.recipientName}
                   </T>
@@ -659,9 +662,15 @@ export default function Ship() {
                   </T>
                 </View>
                 <View style={{ flexDirection: "row", alignItems: "baseline", gap: tokens.space.sm }}>
-                  <T numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
-                    {orderItem(o)}
-                  </T>
+                  {/* 길면 상품명만 줄이고 ‘옵션 × 수량’은 끝까지(AC-17-10) */}
+                  <View style={{ flex: 1, minWidth: 0, flexDirection: "row" }}>
+                    {item.name ? (
+                      <T numberOfLines={1} style={{ flexShrink: 1 }}>
+                        {item.name}{" "}
+                      </T>
+                    ) : null}
+                    <T style={{ flexShrink: 0 }}>{item.tail}</T>
+                  </View>
                   <T weight="semibold" style={{ flexShrink: 0 }}>
                     {won(o.totalAmount)}
                   </T>
@@ -1061,8 +1070,9 @@ function SmallButton({
 
 // 전체 탭 상태 칩(Figma PR542 ⑤): 손이 가야 하는 상태만 강조색
 const ACTION_STATUS = new Set<OrderStatus>(["AWAITING_DEPOSIT", "PREPARING", "REFUNDED"]);
-function StatusChip({ status }: { status: OrderStatus }) {
-  const strong = ACTION_STATUS.has(status);
+function StatusChip({ status, settled }: { status: OrderStatus; settled: boolean }) {
+  // 환불은 송금을 마치면 더 할 일이 없다
+  const strong = ACTION_STATUS.has(status) && !(status === "REFUNDED" && settled);
   return (
     <View
       style={{

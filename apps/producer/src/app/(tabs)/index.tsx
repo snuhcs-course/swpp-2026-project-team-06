@@ -105,7 +105,7 @@ function SectionHead({
         <Pressable
           accessibilityRole="link"
           onPress={onLink}
-          hitSlop={12}
+          hitSlop={14}
         >
           <T variant="sub" muted>
             {link} ›
