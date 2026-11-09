@@ -109,6 +109,7 @@ export function newsItem(d: DB, n: NewsRec, userId: string | null): NewsItem {
     (r) => r.broadcastId === n.broadcastId,
   ).length;
   return {
+    replyTo: n.replyTo ?? null,
     broadcastId: n.broadcastId,
     farmId: n.farmId,
     farmName: f?.name ?? "",
@@ -296,6 +297,11 @@ export function mask(text: string): { text: string; masked: boolean } {
     return m.replace(/\d/g, "●");
   });
   return { text: out, masked };
+}
+
+/** Anonymous public reply snapshots: phone/account masking plus email redaction. */
+export function maskBroadcastReply(text: string): string {
+  return mask(text).text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 }
 
 export function chatMessage(

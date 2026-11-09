@@ -1049,3 +1049,7 @@ DEV-289 compact controls: reply icons sit beside bubbles, cancellation uses a cl
 
 ### DEV-289 context actions and text edits
 The AI icon is captioned AI 답변 ON/OFF. Reply and edit actions live in right-click or mobile long-press menus. Both private-chat participants and newsroom authors can edit their own text; edited bubbles show italic 수정됨 below the content. Photos, original creation time, visibility, reactions, read pointers and human-response deadline are retained. Edits do not resend or rerun AI. Own-author access, onboarding/consent, optimistic editVersion and idempotency are enforced. Quoted snapshots retain the original quoted text. Polling and saved responses never regress a newer edit; permission changes close edit/menu UI and discard stale responses.
+
+Producer quote replies in news rooms are sent to all followers after audience/quote confirmation. Consumer originals remain private; only an anonymous, contact-masked text snapshot is included in the producer broadcast. Source authors, IDs and media are not exposed. Quotes remain fixed after source edits. A separate “1:1 채팅” context action opens the private conversation. Quote broadcasts do not trigger private chat AI or its human-response timer.
+
+Quoted broadcast text and answers mask phone/account numbers and email addresses.

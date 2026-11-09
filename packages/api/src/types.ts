@@ -240,6 +240,7 @@ export type ProductCard = SalesState & {
 };
 
 export type NewsItem = {
+  replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null;
   editVersion?: number;
   broadcastId: string;
@@ -255,6 +256,7 @@ export type NewsItem = {
 };
 
 export type NewsRoomMessage = {
+  replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null;
   editVersion?: number;
   messageId: string;

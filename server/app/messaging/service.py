@@ -103,6 +103,7 @@ def _news_items(db: Session, rows: list[Broadcast], user_id: str | None) -> list
         )
     return [
         NewsItem(
+            reply_to=b.reply_to,
             edited_at=b.edited_at,
             edit_version=b.edit_version,
             broadcast_id=b.id,
@@ -317,6 +318,7 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     videos=[*r.videos, *(p for p in r.photos if _VIDEO.search(p))],
                     created_at=r.created_at,
                     broadcast_id=r.id,
+                    reply_to=r.reply_to,
                     reaction_count=r.reaction_count,
                     my_reaction=r.id in mine,
                     visibility=r.visibility,
@@ -421,7 +423,21 @@ def room_page(db: Session, user, farm_id: str, cursor: str | None, limit: int) -
     )
 
 
-def send_room(db: Session, user, farm_id: str, text: str) -> NewsRoomMessage:
+def _broadcast_reply_text(value: str) -> str:
+    # Private source text may contain email addresses even after contact masking.
+    return re.sub(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[이메일 가림]", mask(value)[0], flags=re.I
+    )
+
+
+def send_room(
+    db: Session,
+    user,
+    farm_id: str,
+    text: str,
+    reply_to_message_id: str | None = None,
+    reply_to_version: int | None = None,
+) -> NewsRoomMessage:
     """생산자는 팔로워 전용 방송, 소비자는 본인과 농가만 보는 텍스트 답장. AI는 답하지 않는다."""
     from app.accounts import service as accounts
 
@@ -435,8 +451,26 @@ def send_room(db: Session, user, farm_id: str, text: str) -> NewsRoomMessage:
     if not text or len(text) > limit:
         raise invalid({"text": f"1~{limit:,}자로 적어 주세요."})
     body, _ = mask(text)
+    quote = None
+    if reply_to_message_id is not None:
+        if user.role != "PRODUCER":
+            raise forbidden("농가만 소식방 인용 답장을 보낼 수 있어요.")
+        target = db.scalar(
+            select(RoomReply)
+            .where(RoomReply.id == reply_to_message_id, RoomReply.farm_id == farm.id)
+            .with_for_update()
+        )
+        if target is None:
+            raise not_found("이 소식방의 소비자 글에만 답장할 수 있어요.")
+        if reply_to_version is not None and reply_to_version != target.edit_version:
+            raise conflict(
+                "STALE_VERSION", "원문이 수정됐어요. 답장을 취소하고 다시 선택해 주세요."
+            )
+        quote = {"senderType": "CONSUMER", "body": _broadcast_reply_text(target.body)}
+        body = _broadcast_reply_text(text)
     if user.role == "PRODUCER":
         row = Broadcast(
+            reply_to=quote,
             id=new_id("n"),
             farm_id=farm.id,
             body=body,
@@ -1645,6 +1679,8 @@ def _edit_text(row, body, limit: int):
     if (not value and not has_media) or len(value) > limit:
         raise invalid({"text": f"본문을 {limit}자 이내로 적어 주세요."})
     value, was_masked = mask(value)
+    if isinstance(row, Broadcast) and row.reply_to is not None:
+        value = _broadcast_reply_text(value)
     if value != row.body:
         row.body = value
         if isinstance(row, ThreadMessage):

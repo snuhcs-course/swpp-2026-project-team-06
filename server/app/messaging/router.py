@@ -42,6 +42,7 @@ from app.messaging.schemas import (
     ProducerStartInput,
     ReactionState,
     ReadInput,
+    RoomSendInput,
     SendInput,
     SendResult,
     StartChatInput,
@@ -142,14 +143,18 @@ def room_messages(
 
 
 @router.post("/rooms/{farm_id}/messages", response_model=NewsRoomMessage)
-def send_room(db: Db, user: CurrentUser, farm_id: str, body: TextInput, key: IdempotencyKey = None):
+def send_room(
+    db: Db, user: CurrentUser, farm_id: str, body: RoomSendInput, key: IdempotencyKey = None
+):
     return run_idempotent(
         db,
         user.id,
         f"room:{farm_id}",
         key,
         body,
-        lambda: service.send_room(db, user, farm_id, body.text),
+        lambda: service.send_room(
+            db, user, farm_id, body.text, body.reply_to_message_id, body.reply_to_version
+        ),
     )
 
 

@@ -13,6 +13,7 @@ SenderType = Literal["CONSUMER", "PRODUCER", "AI", "OPERATOR"]
 
 
 class NewsItem(CamelModel):
+    reply_to: dict | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
     broadcast_id: str
@@ -55,6 +56,7 @@ class NewsRoomSummary(CamelModel):
 
 
 class NewsRoomMessage(CamelModel):
+    reply_to: dict | None = None
     edited_at: datetime | None = None
     edit_version: int = 0
     message_id: str
@@ -77,6 +79,12 @@ class NewsRoomPage(CamelModel):
     room: NewsRoomSummary
     items: list[NewsRoomMessage]
     next_cursor: str | None
+
+
+class RoomSendInput(CamelModel):
+    text: str = ""
+    reply_to_message_id: str | None = None
+    reply_to_version: int | None = Field(default=None, ge=0)
 
 
 class TextInput(CamelModel):

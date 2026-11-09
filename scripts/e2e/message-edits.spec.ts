@@ -112,7 +112,7 @@ for (const producer of [false, true]) {
     await expect(page.getByRole("menuitem", { name: "수정", exact: true })).toHaveCount(0);
     if (!producer) {
       // A farmer answers a consumer newsroom reply through the existing private-chat entry.
-      await expect(page.getByRole("menuitem", { name: "1:1 답장", exact: true })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "1:1 채팅", exact: true })).toBeVisible();
     } else {
       // Consumers answer broadcasts using the existing room composer, not private-chat quote actions.
       await expect(page.getByRole("menu", { name: "메시지 메뉴", exact: true })).toHaveCount(0);

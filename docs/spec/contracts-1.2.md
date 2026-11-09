@@ -137,3 +137,8 @@ DEV-289 이관: 기존 OPEN 주문 문제 문의와 운영팀 방의 직접응�
 - PATCH /api/messaging/messages/{messageId}, PATCH /api/messaging/rooms/{farmId}/messages/{messageId}: {text, version}, Idempotency-Key 필요. 응답은 기존 메시지 DTO에 editedAt와 editVersion(초기0)을 포함한다. 본인 글만, 기존 온보딩·동의·농가 승인·방 접근 검사를 유지한다.
 - 본문 한도: 1:1·소비자 소식방 답장1000자, 농가 소식2000자. 첨부가 없으면 공백만은 불가하고 연락처 가림을 유지한다. 같은 저장 본문은 버전/수정시각을 올리지 않는다.
 - 1:1 수정은 기존 대기 종료시각을 연장하지 않지만 진행 중 AI가 이전 질문으로 응답하지 않도록 Thread.version을 갱신한다.
+
+### 소식방 인용 방송 (DEV-289)
+`POST /api/messaging/rooms/{farmId}/messages`는 선택적 `replyToMessageId`를 받는다. 소유 생산자가 같은 농가 소비자 답장을 지정하면 마스킹한 익명 텍스트를 `replyTo: {senderType: "CONSUMER", body}`로 고정 저장한 FOLLOWERS 방송을 만든다. 소비자 지정은403, 없는/다른 농가/방송 target은404. 새 방송만 인용 스냅샷을 노출하고 원문 조회 권한은 바뀌지 않는다.
+
+인용 작성 UI는 원문의 editVersion을 replyToVersion으로 함께 보내며, 발송 시 원문이 수정되었으면409로 거부하여 재선택을 안내한다. 확인 미리보기의 이메일도 가린다.

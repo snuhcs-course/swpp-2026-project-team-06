@@ -136,6 +136,7 @@ export type ProductRec = {
   updatedAt: string;
 };
 export type NewsRec = {
+  replyTo?: {senderType: string; body: string} | null;
   editedAt?: string | null; editVersion?: number;
   broadcastId: string;
   farmId: string;

@@ -238,7 +238,7 @@ test("AC-12-13: producer confirms follower count and preview before sending news
   await expect(sheet.getByText(/^팔로워 \d+명에게 보낼까요\?$/)).toBeVisible();
   await expect(sheet.getByText(message, { exact: true })).toBeVisible();
   await expect(
-    page.getByText("보낸 소식은 지울 수 있지만 고칠 수는 없어요.", {
+    page.getByText("보낸 소식의 본문은 수정하거나 삭제할 수 있어요.", {
       exact: true,
     }),
   ).toBeVisible();

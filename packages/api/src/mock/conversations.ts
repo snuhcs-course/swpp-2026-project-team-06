@@ -17,7 +17,7 @@ import {
   type DB,
   type OrderRec,
 } from "./db";
-import { chatMessage, mask } from "./derive";
+import { chatMessage, mask, maskBroadcastReply } from "./derive";
 import {
   conflict,
   fail,
@@ -632,12 +632,13 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     return { message, reply };
   });
 }
-export function editMessageText(ctx: Ctx, row: {body: string; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number) {
+export function editMessageText(ctx: Ctx, row: {body: string; replyTo?: {body: string} | null; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number, redactEmail = false) {
   if (typeof ctx.body.text !== "string" || !Number.isInteger(ctx.body.version) || Number(ctx.body.version) < 0) invalid({text: "본문과 버전을 확인해 주세요."});
   if ((row.editVersion ?? 0) !== ctx.body.version) conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.");
   const text = String(ctx.body.text).trim();
   if ((!text && !row.photos?.length && !row.videos?.length && !row.attachmentIds?.length) || text.length > limit) invalid({text: `본문을 ${limit}자 이내로 적어 주세요.`});
-  const {text: value, masked} = mask(text);
+  const {text: filtered, masked} = mask(text);
+  const value = redactEmail ? maskBroadcastReply(filtered) : filtered;
   if (value !== row.body) { if ("masked" in row) row.masked = masked; row.body = value; row.editedAt = nowIso(); row.editVersion = (row.editVersion ?? 0) + 1; }
 }
 register({

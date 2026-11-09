@@ -310,11 +310,11 @@ export const messaging = {
     request<A.NewsRoomPage>("GET", `/api/messaging/rooms/${farmId}/messages`, {
       query: q,
     }),
-  sendRoom: (farmId: string, text: string, idempotencyKey: string) =>
+  sendRoom: (farmId: string, text: string, idempotencyKey: string, replyToMessageId?: string, replyToVersion?: number) =>
     request<A.NewsRoomMessage>(
       "POST",
       `/api/messaging/rooms/${farmId}/messages`,
-      { body: { text }, idempotencyKey },
+      { body: { text, replyToMessageId, replyToVersion }, idempotencyKey },
     ),
   news: (q: A.PageQuery = {}) =>
     request<A.Paged<A.NewsItem>>("GET", "/api/messaging/news", { query: q }),

@@ -26,6 +26,8 @@ class Broadcast(Base):
 
     __tablename__ = "broadcasts"
 
+    reply_to: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     edit_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
