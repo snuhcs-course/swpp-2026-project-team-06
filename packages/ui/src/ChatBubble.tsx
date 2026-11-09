@@ -38,6 +38,10 @@ type Props = {
   side?: ReactNode;
   /** 말풍선 줄 아래(예: '답변 확인 요청' 글자 버튼) */
   footer?: ReactNode;
+  /** AI 답변 확인 요청 깃발(DEV-296): flagged = 빨간 테두리(확인 전), struck = 흐리게 + 취소선(농가가 바로잡음) */
+  check?: "flagged" | "struck";
+  /** 'AI 안내' 라벨 옆 작은 칩(예: '확인 요청', '농가가 바로잡았어요') */
+  labelSide?: ReactNode;
   /** 말풍선 아래 사진·영상. 시각은 이 묶음의 맨 아래 옆에 붙는다 */
   children?: ReactNode;
 };
@@ -59,6 +63,8 @@ export function ChatBubble({
   status,
   side,
   footer,
+  check,
+  labelSide,
   children,
 }: Props) {
   const mine = kind === "me";
@@ -102,7 +108,14 @@ export function ChatBubble({
         }}
       >
         {first && kind === "ai" ? (
-          <AiBadge />
+          labelSide ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <AiBadge />
+              {labelSide}
+            </View>
+          ) : (
+            <AiBadge />
+          )
         ) : first && sender && !mine ? (
           <T variant="caption" weight="semibold" numberOfLines={1}>
             {sender}
@@ -138,8 +151,8 @@ export function ChatBubble({
                       : { borderTopLeftRadius: tokens.radius.bubbleTail }
                     : null),
                   backgroundColor: mine ? MINE_BG : tokens.color.background,
-                  borderWidth: kind === "ai" ? 1 : 0,
-                  borderColor: tokens.color.border,
+                  borderWidth: kind === "ai" ? (check === "flagged" ? 1.5 : 1) : 0,
+                  borderColor: check === "flagged" ? tokens.color.error : tokens.color.border,
                 }}
               >
                 {quote ? (
@@ -161,8 +174,16 @@ export function ChatBubble({
                     </T>
                   </View>
                 ) : null}
-                {text ? <T variant="chat">{text}</T> : null}
-                {basis ? (
+                {text ? (
+                  <T
+                    variant="chat"
+                    color={check === "struck" ? tokens.color.textMuted : undefined}
+                    style={check === "struck" ? { textDecorationLine: "line-through" } : undefined}
+                  >
+                    {text}
+                  </T>
+                ) : null}
+                {basis && check !== "struck" ? (
                   <T variant="caption" muted style={{ marginTop: 4 }}>
                     근거: {basis}
                   </T>

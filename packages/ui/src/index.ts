@@ -55,6 +55,8 @@ export {
   type StageCell,
 } from "./content";
 export { ChatBubble, AiBadge, DayPill, SystemLine } from "./ChatBubble";
+export { AiCheckCard, AiCheckChip, AI_CHECK_COLOR } from "./AiCheckCard";
+export { aiCheckBanner, aiCheckFollowUp, aiCheckLabel, aiCheckState, correctionQuoteLabel } from "./aiCheck";
 export { Placeholder } from "./Placeholder";
 export { safe, focusRing } from "./web";
 export { KeyboardRoot, useKeyboardShown } from "./keyboard";

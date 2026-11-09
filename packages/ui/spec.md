@@ -170,3 +170,11 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `composer.tsx`: 1:1·소식방 공용 입력줄(40/40/40, 터치 48), 떠 있는 알약, 도구 칩, `copyToClipboard`(앱이 넘긴 expo-clipboard 도우미 우선, 없으면 웹 클립보드). ui 패키지에 의존성을 더하지 않는다.
 - 사진 전체 화면은 `ViewablePhoto`/`PhotoViewer`(RN Modal). 누르는 칸을 사진 위 형제로 겹쳐 사진의 img 역할을 보조기술에 남긴다.
 - `KeyboardRoot`·`useKeyboardShown`은 iOS·Android 공통(iOS는 will 이벤트). 웹은 그대로.
+
+## DEV-296 AI 답변 확인 요청 깃발
+
+화면 기준은 `docs/spec/conversation-ui-1.6.md` ‘AI 답변 확인 요청 깃발’.
+- 상태·문구 계산은 순수 함수 `aiCheck.ts`(`aiCheckState`: `checkState`가 없는 옛 서버는 `reported`면 REQUESTED, `aiCheckLabel`, 확인 카드 인용 `aiCheckFollowUp`, 인용 머리글 `correctionQuoteLabel`, 목록 띠 `aiCheckBanner`). 테스트 `scripts/test-ai-check.mjs`.
+- 칩·확인 카드는 `AiCheckCard.tsx`(`AiCheckChip`, `AiCheckCard`, 색 `AI_CHECK_COLOR`: 요청 = `error` 글자 + #FEF3F2 면, 확인·바로잡음 = #1B7F3B + #ECF7EF). 파일 이름을 `aiCheck.ts`와 다르게 둔 것은 대소문자를 가리지 않는 파일 시스템 때문이다.
+- `ChatBubble`의 `check`(flagged = 빨간 테두리 1.5, struck = 회색 글자 + 취소선·근거 숨김)와 `labelSide`(‘AI 안내’ 옆 칩). `ChatThread`는 `confirmCheck`가 있으면(생산자) 깃발 답변 행 아래 확인 카드를 두고, 바로잡기는 기존 답장 인용(`replyTo`)을 쓴다. 깃발 답변은 묶음에서 빼서 라벨이 늘 보인다.
+- `ConversationRow`의 `tag`/`tagLabel`(이름 옆 칩, 접근성 이름에 덧붙임). `Icon`에 `flag`.

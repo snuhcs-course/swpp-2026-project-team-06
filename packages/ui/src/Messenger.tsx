@@ -63,8 +63,14 @@ export function ConversationRow({
   testID,
   avatar,
   media,
+  tag,
+  tagLabel,
 }: {
   name: string;
+  /** 이름 옆 작은 태그(예: 'AI 답변 확인' 깃발 칩, DEV-296) */
+  tag?: ReactNode;
+  /** 태그의 접근성 글자(줄 이름에 덧붙인다) */
+  tagLabel?: string;
   photo?: string | null;
   /** 사진 대신 보일 그림(예: farmclub 문의 대화방의 로고, DEV-111) */
   avatar?: ReactNode;
@@ -80,7 +86,7 @@ export function ConversationRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${[media, preview].filter(Boolean).join(" ")}${unread ? `, 안 읽음 ${unread}` : ""}`}
+      accessibilityLabel={`${name}${tagLabel ? `, ${tagLabel}` : ""}, ${[media, preview].filter(Boolean).join(" ")}${unread ? `, 안 읽음 ${unread}` : ""}`}
       onPress={onPress}
       testID={testID}
       style={({ pressed, ...state }) => [
@@ -102,10 +108,11 @@ export function ConversationRow({
           <T
             weight={unread ? "bold" : "semibold"}
             numberOfLines={1}
-            style={{ flex: 1, minWidth: 0 }}
+            style={tag ? { flexShrink: 1, minWidth: 0 } : { flex: 1, minWidth: 0 }}
           >
             {name}
           </T>
+          {tag ? <View style={{ flex: 1, minWidth: 0, alignItems: "flex-start" }}>{tag}</View> : null}
           <T variant="caption" muted style={{ flexShrink: 0 }}>
             {messageTime(at)}
           </T>

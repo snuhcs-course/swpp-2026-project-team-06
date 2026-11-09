@@ -13,6 +13,8 @@ import { tokens } from "./tokens";
 import { chatDay, daySeparator, seoulDay, time } from "./format";
 import { chatGroups, lastReadMine } from "./chatGroups";
 import { ProfileAvatar } from "./Messenger";
+import { AiCheckCard, AiCheckChip } from "./AiCheckCard";
+import { aiCheckFollowUp, aiCheckLabel, aiCheckState, correctionQuoteLabel, type AiCheckState } from "./aiCheck";
 import { Composer, copyToClipboard, FloatingPill } from "./composer";
 import { inBackground } from "./foreground";
 import { useKeyboardShown } from "./keyboard";
@@ -38,6 +40,8 @@ type Message = {
   inquiryId?: string;
   orderId?: string;
   reported?: boolean;
+  /** AI 답변 확인 요청 깃발(DEV-296) */
+  checkState?: AiCheckState | null;
   handoffStatus?: string | null;
   needsHuman?: boolean;
 };
@@ -62,6 +66,8 @@ type Props = {
   load: (cursor?: string) => Promise<Page>;
   send: (text: string, ids: string[], key: string, replyToMessageId?: string) => Promise<unknown>;
   report?: (messageId: string, key: string) => Promise<unknown>;
+  /** 생산자: 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 주면 깃발 답변 아래 확인 카드를 그린다 */
+  confirmCheck?: (messageId: string, key: string) => Promise<unknown>;
   read: (id: string) => Promise<unknown>;
   makeKey: () => string;
   loadPhoto: (id: string) => Promise<string>;
@@ -95,6 +101,7 @@ export function ChatThread({
   load,
   send,
   report,
+  confirmCheck,
   read,
   makeKey,
   loadPhoto,
@@ -517,7 +524,7 @@ export function ChatThread({
     sender: m.senderType,
     day: seoulDay(m.createdAt),
     minute: time(m.createdAt),
-    solo: i === waiting || !!m.inquiryId || !!m.orderId || showReport(m) || !!m.reported,
+    solo: i === waiting || !!m.inquiryId || !!m.orderId || showReport(m) || !!aiCheckState(m),
   })));
   // 상대가 읽은 위치까지의 내 마지막 말풍선에만 '읽음'(서버의 상대 읽음 위치, DEV-295)
   const readMine = lastReadMine(messages, peerReadMessageId, mineType);
@@ -638,6 +645,11 @@ export function ChatThread({
           const { first, last } = groups[i];
           // 시스템 줄은 첫 행 안에 둬서 행 위치 계산(보기 상태 복원)이 그대로 맞는다
           const top = i === 0 && !cursor && systemLine;
+          // 확인 요청 깃발(DEV-296). 소비자: 요청함·확인함은 말풍선 아래, 바로잡음은 라벨 옆. 생산자: 라벨 옆 칩 + 확인 카드
+          const check = m.senderType === "AI" ? aiCheckState(m) : null;
+          const checkLabel = aiCheckLabel(check, producer);
+          const checkChip = checkLabel ? <AiCheckChip label={checkLabel} testID={`ai-check-${m.messageId}`} /> : null;
+          const chipBeside = producer || check === "CORRECTED";
           return (
           <View key={m.messageId} testID={`chat-message-${m.messageId}`}
             style={{ paddingTop: i === 0 ? 0 : days[i] || first ? 16 : 4, gap: 8 }}
@@ -667,7 +679,10 @@ export function ChatThread({
               first={first || !!days[i]}
               last={last}
               quote={m.replyTo ?? undefined}
-              quoteLabel={m.replyTo ? `${m.replyTo.senderType === mineType ? "나" : senderName(m.replyTo.senderType, peer?.name)}에게 답장` : undefined}
+              quoteLabel={m.replyTo ? correctionQuoteLabel(m.replyTo, messages) ??
+                `${m.replyTo.senderType === mineType ? "나" : senderName(m.replyTo.senderType, peer?.name)}에게 답장` : undefined}
+              check={check === "REQUESTED" ? "flagged" : check === "CORRECTED" ? "struck" : undefined}
+              labelSide={chipBeside ? checkChip ?? undefined : undefined}
               edited={!!m.editedAt}
               text={m.body}
               avatar={kind === "farm" ? peerAvatar : undefined}
@@ -685,13 +700,19 @@ export function ChatThread({
                     ? "주문에 연결된 대화"
                     : undefined
               }
-              footer={showReport(m) ? (
-                // 말풍선 아래 글자 버튼(DEV-295). 신고 흐름·문구는 그대로이고 깃발 모양은 DEV-296
+              footer={checkChip && !chipBeside ? (
+                // 소비자: 요청함은 빨간 깃발 + '농가가 확인하면 알려 드려요', 확인함은 초록 칩(Figma 10:116)
+                <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
+                  {checkChip}
+                  {checkLabel?.note ? <T variant="caption" muted>{checkLabel.note}</T> : null}
+                </View>
+              ) : showReport(m) && !check && !m.reported ? (
+                // 말풍선 아래 글자 버튼(DEV-295). 누르면 위 깃발로 바뀐다(DEV-296)
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={m.reported ? "확인 요청됨" : "답변 확인 요청"}
-                  accessibilityState={{ disabled: Boolean(m.reported) || reporting === m.messageId }}
-                  disabled={Boolean(m.reported) || reporting === m.messageId}
+                  accessibilityLabel="답변 확인 요청"
+                  accessibilityState={{ disabled: reporting === m.messageId }}
+                  disabled={reporting === m.messageId}
                   hitSlop={8}
                   onPress={async () => {
                     const run = epoch.current;
@@ -700,7 +721,7 @@ export function ChatThread({
                       await callbacks.current.report?.(m.messageId, makeKey());
                       if (!current(run)) return;
                       commitMessages(messageRef.current.map(item => item.messageId === m.messageId
-                        ? { ...item, reported: true } : item));
+                        ? { ...item, reported: true, checkState: item.checkState ?? "REQUESTED" } : item));
                       const p = await load();
                       if (!current(run)) return;
                       merge(p.items);
@@ -714,15 +735,11 @@ export function ChatThread({
                   style={{ minHeight: 32, flexDirection: "row", alignItems: "center", gap: 2 }}
                 >
                   {reporting === m.messageId ? <ActivityIndicator size="small" color={tokens.color.accent} /> : null}
-                  <T variant="caption" weight="semibold" color={m.reported ? tokens.color.textMuted : tokens.color.accent}>
-                    {m.reported ? "확인 요청됨" : "답변 확인 요청"}
+                  <T variant="caption" weight="semibold" color={tokens.color.accent}>
+                    답변 확인 요청
                   </T>
-                  {m.reported ? null : <Icon name="chevron" size={14} strokeWidth={2.5} color={tokens.color.accent} />}
+                  <Icon name="chevron" size={14} strokeWidth={2.5} color={tokens.color.accent} />
                 </Pressable>
-              ) : m.reported ? (
-                <T variant="caption" muted>
-                  소비자가 신고한 답변
-                </T>
               ) : undefined}
             >
               {m.attachmentIds?.map((id) => (
@@ -730,6 +747,37 @@ export function ChatThread({
               ))}
             </ChatBubble>
             </Pressable>
+            {/* 카드는 서버가 checkState를 줄 때만(옛 서버는 confirm 엔드포인트가 없다) */}
+            {producer && m.checkState === "REQUESTED" && confirmCheck ? (
+              <AiCheckCard
+                name={peer?.name}
+                followUp={aiCheckFollowUp(messages, i)}
+                disabled={busy}
+                onCorrect={() => setReplyTo(m)}
+                onConfirm={async () => {
+                  const run = epoch.current;
+                  try {
+                    await confirmCheck(m.messageId, makeKey());
+                    if (!current(run)) return;
+                    commitMessages(messageRef.current.map(item => item.messageId === m.messageId
+                      ? { ...item, checkState: "CONFIRMED" } : item));
+                    if (replyTo?.messageId === m.messageId) setReplyTo(null);
+                    setError("");
+                    // 확인은 저장됐다. 새로고침 실패는 2초 폴링이 다시 맞추므로 오류로 띄우지 않는다
+                    void load().then(p => { if (current(run)) merge(p.items); }, () => undefined);
+                  } catch (e) {
+                    if (!current(run)) return;
+                    // 409: 다른 기기에서 이미 바로잡았다. 오류 대신 최신 상태로 바꾼다
+                    if (e && typeof e === "object" && "details" in e &&
+                      (e.details as { reason?: string } | undefined)?.reason === "ALREADY_CORRECTED") {
+                      try { const p = await load(); if (current(run)) merge(p.items); return; }
+                      catch (again) { if (current(run)) handleError(again); return; }
+                    }
+                    handleError(e);
+                  }
+                }}
+              />
+            ) : null}
           </View>
           );
         })}
@@ -783,7 +831,7 @@ export function ChatThread({
           above={<>
             {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}
             {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
-              <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>선택한 메시지에 답장</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
+              <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>{producer && replyTo.senderType === "AI" && aiCheckState(replyTo) === "REQUESTED" ? "AI 안내를 바로잡아요" : "선택한 메시지에 답장"}</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
               <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
                 style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
             </View> : null}
