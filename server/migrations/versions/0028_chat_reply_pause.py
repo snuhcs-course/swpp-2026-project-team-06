@@ -17,8 +17,12 @@ def upgrade():
     op.add_column("thread_messages", sa.Column("reply_to", sa.JSON()))
     op.execute("""UPDATE threads t SET human_reply_until =
       (SELECT max(m.created_at) + interval '10 minutes' FROM thread_messages m
-       WHERE m.thread_id=t.id AND m.sender_type='PRODUCER'), ai_mode='AUTO'
-      WHERE t.ai_mode='HUMAN' AND t.consumer_id <> 'u-farmclub'""")
+       WHERE m.thread_id=t.id AND m.sender_type='PRODUCER'),
+      ai_mode=CASE WHEN EXISTS (SELECT 1 FROM thread_messages m
+        WHERE m.thread_id=t.id AND m.sender_type='PRODUCER') THEN 'HUMAN' ELSE 'AUTO' END
+      WHERE t.ai_mode='HUMAN' AND t.consumer_id <> 'u-farmclub'
+      AND NOT EXISTS (SELECT 1 FROM order_inquiries i
+        WHERE i.thread_id=t.id AND i.status='OPEN')""")
 
 
 def downgrade():

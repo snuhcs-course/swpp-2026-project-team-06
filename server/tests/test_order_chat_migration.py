@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core import seed
 from app.core.clock import now
-from app.messaging.models import Thread, ThreadOrderContext
+from app.messaging.models import OrderInquiry, Thread, ThreadMessage, ThreadOrderContext
 
 
 def test_AC_33_2_context_migration_preserves_existing_data():
@@ -50,12 +50,48 @@ def test_AC_33_2_context_migration_preserves_existing_data():
     try:
         migrate(("upgrade", "head"))
         assert "thread_order_contexts" in inspect(engine).get_table_names()
-        migrate(("downgrade", "0025"))
+        # Seed with the current ORM before rolling back to the legacy schema.
         with Session(engine) as db, db.begin():
             seed.seed(db)
+            protected = db.scalar(
+                select(Thread).where(Thread.farm_id == "f-kang", Thread.consumer_id == "u-seojun")
+            )
+            protected.ai_mode = "HUMAN"
+            protected.human_reply_until = None
+            question = db.scalar(
+                select(ThreadMessage)
+                .where(
+                    ThreadMessage.thread_id == protected.id, ThreadMessage.sender_type == "CONSUMER"
+                )
+                .order_by(ThreadMessage.created_at, ThreadMessage.seq)
+            )
+            assert question is not None
+            question.order_id = "o-38"
+            question.inquiry_id = "migration-open-order-inquiry"
+            db.add(
+                OrderInquiry(
+                    id="migration-open-order-inquiry",
+                    order_id="o-38",
+                    thread_id=protected.id,
+                    message_id=question.id,
+                    type="DAMAGE",
+                    text="주문 문제는 농가의 직접 응대를 유지해야 합니다",
+                    attachment_ids=[],
+                    status="OPEN",
+                    version=1,
+                    created_at=now(),
+                )
+            )
+            protected_id = protected.id
+        migrate(("downgrade", "0025"))
         before = counts()
         migrate(("upgrade", "head"))
         after = counts()
+        with Session(engine) as db:
+            protected = db.get(Thread, protected_id)
+            assert protected.ai_mode == "HUMAN"
+            assert protected.human_reply_until is None
+            assert db.get(OrderInquiry, "migration-open-order-inquiry").status == "OPEN"
         # 뒤 마이그레이션이 만든 새 테이블(0027 notice_reads, DEV-121)은 비어 있다
         assert {table: after[table] for table in before} == before
         assert all(after[table] == 0 for table in after.keys() - before.keys())

@@ -1042,3 +1042,5 @@ DEV-287: Composer and AI draft variety controls share the same state. In-app bac
 
 ### DEV-289 chat interaction contract
 Both participants can quote a message in the same private thread. Failed sends retain text, attachments and quote. A producer quote resolves only matching open escalations; order inquiries keep their separate completion action. One farm-wide AI toggle replaces room controls. Successful producer sends pause that room for ten minutes from the last send, extended by further sends, using server timestamps. Idempotent retries do not extend deadlines. Global OFF overrides expiry; resumption applies to new questions only and preserves sensitive-topic handoff. Legacy HUMAN states migrate using the latest producer timestamp. Explicit answer-confirmation buttons and broadcast/private composer wording replace ambiguous controls without visual redesign.
+
+DEV-289 migration preserves permanent direct handling for legacy rooms with open order inquiries and farmclub support. Other legacy HUMAN rooms get the remaining ten-minute window from their latest producer message; deadlines are evaluated by server time.
