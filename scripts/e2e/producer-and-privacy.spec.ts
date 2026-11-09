@@ -34,7 +34,7 @@ test("AC-03/04/05: producer draft and sales controls are wired to the real serve
 
 // DEV-300: 판매 현황은 중량 옵션마다 '예약+출하 N박스 / 판매 M박스'(모든 기간 합). 옵션끼리 더하지 않는다.
 // 앞 spec이 주문을 만들 수 있어 기대값은 서버 값(기간·옵션별 reservedCount·quantity)을 더해 만든다.
-test("AC-14-3 DEV-300: dashboard, product card and sales settings show sold boxes per weight option", async ({ page, request }) => {
+test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings show sold boxes per weight option", async ({ page, request }) => {
   const assertClean = monitor(page);
   const asProducer = { Authorization: `Bearer ${await apiLogin(request, "u-kang", "producer")}` };
   const dash = await (await request.get(`${apiUrl}/api/orders/producer/dashboard`, { headers: asProducer })).json();
@@ -81,6 +81,47 @@ test("AC-14-3 DEV-300: dashboard, product card and sales settings show sold boxe
     await expect(page.getByLabel(`${r.label} 예약·출하 ${n(r.sold)}박스, 판매 ${n(r.quantity)}박스`, { exact: true })).toBeVisible();
   // 판매 한도는 계속 kg
   await expect(page.getByText("현재 판매 한도 (kg)")).toBeVisible();
+
+  // AC-14-1 중 대표 상품 물량 부분(DEV-300): 새 주문의 입금을 확인한 뒤 다시 열면 그 옵션의 박스만 하나 늘고
+  // 다른 옵션은 그대로, 총 kg은 5kg 는다. 박스는 입금 안내 때 잡히므로 확인 뒤에도 +1이다(AC-14-1의 입금 대기 할 일·주문 지표 갱신은 이 테스트에서 보지 않는다)
+  const run = Date.now();
+  const asConsumer = { Authorization: `Bearer ${await apiLogin(request, "u-minji", "consumer")}` };
+  const created = await request.post(`${apiUrl}/api/orders`, {
+    headers: { ...asConsumer, "Idempotency-Key": `dev300-order-${run}` },
+    data: {
+      productId: "p-house",
+      optionId: "opt-5",
+      quantity: 1,
+      recipientName: "DEV300 구매자",
+      recipientPhone: "010-1234-5678",
+      postalCode: "63584",
+      address: "제주특별자치도 서귀포시 통합로 1",
+      addressDetail: "101호",
+      consents: { deliveryWindow: true, delayRefund: true, shortage: true, cancelPolicy: true, thirdParty: true },
+      consentVersion: "dev300",
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { orderId } = await created.json();
+  for (const step of ["deposit", "deposit-reported"])
+    expect(
+      (await request.post(`${apiUrl}/api/orders/${orderId}/${step}`, {
+        headers: { ...asConsumer, "Idempotency-Key": `dev300-${step}-${run}` },
+        data: {},
+      })).ok(),
+    ).toBeTruthy();
+  expect((await request.post(`${apiUrl}/api/orders/${orderId}/confirm-deposit`, { headers: asProducer })).ok()).toBeTruthy();
+  const [five, ten] = rows as { label: string; sold: number; quantity: number }[];
+  await page.goto(`${producerUrl}/products/p-house/sales`);
+  await expect(page.getByLabel(`5kg 예약·출하 ${n(five.sold + 1)}박스, 판매 ${n(five.quantity)}박스`, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(`10kg 예약·출하 ${n(ten.sold)}박스, 판매 ${n(ten.quantity)}박스`, { exact: true })).toBeVisible();
+  if (dash.product.productId === "p-house") {
+    await page.goto(producerUrl);
+    const home5 = home.get("opt-5")!;
+    await expect(amount).toHaveAccessibleName(new RegExp(escape(`5kg 예약·출하 ${n(home5.sold + 1)}박스, 판매 ${n(home5.quantity)}박스`)));
+    const used = (dash.product.reservedGrams + dash.product.shippedGrams) / 1000 + 5;
+    await expect(amount.getByText(`총 ${n(used)} / ${n(dash.product.salesLimitGrams / 1000)}kg`, { exact: true })).toBeVisible();
+  }
   assertClean();
 });
 
