@@ -133,13 +133,13 @@ test("P04 AC-19-1: sharing failure copies the live link; cancellation does not c
 test("P07 AC-17-2/5: shipment persists carrier and tracking before a failed refresh can be retried", async ({ page, request }) => {
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/ship?status=PREPARING`);
-  await page.getByRole("button", { name: /FC-1006-0040.*택배사·송장 번호 넣기/ }).click();
+  await page.getByRole("button", { name: /FC-1006-0040.*송장 입력/ }).click();
   await page.getByLabel("송장 번호", { exact: true }).fill("I2-0040");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByText("택배사를 골라 주세요", { exact: true })).toBeVisible();
   await page.getByRole("radio", { name: "CJ대한통운" }).click();
   await page.getByRole("button", { name: "저장", exact: true }).click();
-  await page.getByRole("button", { name: "1건 출하로 바꾸기" }).click();
+  await page.getByRole("button", { name: "1건 출하 처리" }).click();
   const token = await apiLogin(request, "u-kang", "producer");
   const headers = { Authorization: `Bearer ${token}` };
   const read = async () => (await (await request.get(`${apiUrl}/api/orders/producer?limit=50`, { headers })).json()).items.find((o: { orderId: string }) => o.orderId === "o-40");
@@ -156,7 +156,7 @@ test("P07 AC-17-2/5: shipment persists carrier and tracking before a failed refr
     failRefresh = false;
     await route.fulfill({ status: 503, json: { code: "TEMPORARY", message: "목록 새로고침 실패", details: {} } });
   });
-  await page.getByRole("button", { name: "1건 출하로 바꾸기" }).last().click();
+  await page.getByRole("button", { name: "1건 출하 처리" }).last().click();
   await expect(page.getByText("불러오지 못했어요", { exact: true })).toBeVisible();
   expect(await read()).toMatchObject({ status: "SHIPPED", carrier: "CJ", trackingNumber: "I2-0040" });
   await page.getByRole("button", { name: "다시 시도", exact: true }).click();

@@ -42,7 +42,7 @@ SUCCEEDED REFINE의 일부 문구 거절은 diagnostics/refinement.excluded에�
 - 모델의 reason: `price | period | platform | health | pii | other_product | unsupported | duplicate`. 현재 대상 후보는 정리 문구에서 인용하거나 excluded에 포함해야 한다. 일부만 줄인 후보는 둘 다 가능하다.
 - 서버는 미사용 후보를 `unused`로 채우고 검증 거절 문구의 후보도 금액→price, 효능→health, 개인정보→pii, 근거/형식→unsupported 사유로 기록한다. 플랫폼·기간 warning은 제외 사유를 강제로 만들지 않는다. 후보당 한 사유를 저장하고 검증 거절이 모델 사유보다 우선한다. 원문 후보는 변형하지 않는다.
 - REFINE Item JSON에 modules/excluded/refinementVersion을 저장한다. 검토 API `refinementResults[targetId]`는 `{excluded:[{candidateId,value,reason}], refinementVersion}`을 제공한다. version은 정리 결과(모듈·인용·제외 목록)의 SHA-256이며 일반 reviewVersion/조회/저장/같은 결과 재분석으로 바뀌지 않는다. 현재 결과가 없으면 빈 목록/null이다.
-- SCR-24 AI 시트 업로드 위: “가격·배송비·받는 시기는 AI가 채우지 않아요. 다음 단계(판매·가격)에서 직접 채워 주세요. 배송 방법(택배사·포장)은 상세에 남겨요. 건강 효능 문구는 넣을 수 없어요.”
+- SCR-24 AI 시트 업로드 위: “가격·배송비·받는 시기는 다음 단계에서 직접 입력해요”(DEV-294에서 한 문장으로 줄임. 건강 효능 금지는 story 입력 아래 힌트가 맡는다)
 - DEV-188: AI 채움 뒤 제외가 있으면 “이 정보들은 상세 페이지에 못 넣어서 빼 뒀어요 🙂” 모달을 결과별 한 번 표시한다. 부제는 “AI가 자료에서 찾았지만 팜클럽 상세에는 맞지 않는 내용이에요.”를 작은 muted 글씨로 표시한다. 여러 상품이면 제목 앞에 “<상품명> · ”를 붙인다.
 - 원문 내용 추측 없이 reason별로 묶는다. 각 그룹은 이모지 pill 아래 보통 굵기의 친근한 설명을 두며, 네 주요 사유는 기존 accent 토큰의 연한 주황 배경·주황 글씨, 나머지는 surface/textMuted 중립 pill이다. platform 정책 상세는 설명 아래 작은 muted 줄로 분리한다(R-07, R-11, M-04).
 

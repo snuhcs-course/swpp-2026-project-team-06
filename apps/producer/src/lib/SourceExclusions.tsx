@@ -11,8 +11,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSession } from "./session";
 import { groupSourceExclusions, sourceExclusionReasons } from "./sourceExclusionReasons";
 
-export const AI_POLICY_NOTE =
-  "가격·배송비·받는 시기는 AI가 채우지 않아요. 다음 단계(판매·가격)에서 직접 채워 주세요. 배송 방법(택배사·포장)은 상세에 남겨요. 건강 효능 문구는 넣을 수 없어요.";
+export const AI_POLICY_NOTE = "가격·배송비·받는 시기는 다음 단계에서 직접 입력해요";
 
 export function StoryTextHint({ value }: { value: string }) {
   return (

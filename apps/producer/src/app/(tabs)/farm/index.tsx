@@ -142,7 +142,7 @@ export default function Farm() {
             width="90%"
             height={240}
             radius={16}
-            style={{ margin: 20 }}
+            style={{ margin: tokens.space.gutter }}
           />
         ) : null}
         {data ? (
@@ -150,16 +150,13 @@ export default function Farm() {
             {link ? (
               <View
                 style={{
-                  paddingHorizontal: 20,
+                  paddingHorizontal: tokens.space.gutter,
                   paddingTop: tokens.space.md,
                   gap: 8,
                 }}
               >
                 <T variant="heading">농가 링크</T>
                 <T variant="body">{link.replace(/^https?:\/\//, "")}</T>
-                <T variant="sub" muted>
-                  단골에게 보내면 농가 페이지로 바로 와요
-                </T>
                 <View style={{ flexDirection: "row", gap: 20 }}>
                   <Button label="복사" variant="text" onPress={copy} />
                   <Button label="보내기" variant="text" onPress={share} />
@@ -168,7 +165,7 @@ export default function Farm() {
             ) : null}
             <View
               style={{
-                paddingHorizontal: 20,
+                paddingHorizontal: tokens.space.gutter,
                 paddingTop: tokens.space.md,
                 gap: 12,
               }}
@@ -176,7 +173,7 @@ export default function Farm() {
               <T variant="heading">프로필</T>
               <View
                 style={{
-                  height: 240,
+                  height: 180,
                   borderRadius: tokens.radius.md,
                   overflow: "hidden",
                   backgroundColor: tokens.color.surface,
@@ -185,7 +182,7 @@ export default function Farm() {
                 <Photo
                   uri={data.photo}
                   width="100%"
-                  height={240}
+                  height={180}
                   radius={0}
                   alt="대표 사진"
                 />
@@ -224,9 +221,6 @@ export default function Farm() {
                   {photoError}
                 </T>
               ) : null}
-              <T variant="caption" muted>
-                소비자 앱 농가 페이지 위쪽에 이렇게 보여요
-              </T>
               <View>
                 <Row
                   label="농가 이름"
@@ -258,22 +252,22 @@ export default function Farm() {
                   />
                 </View>
               </View>
-              <T variant="caption" muted>
-                소비자가 예약할 때 입금 계좌로 직접 입금해요. 계좌가 없으면 상품
-                승인을 요청할 수 없어요.
-              </T>
+              {!data.accountNumber ? (
+                <T variant="sub" color={tokens.color.error}>
+                  입금 계좌가 있어야 판매 승인을 요청할 수 있어요
+                </T>
+              ) : null}
               <Button
                 label="농가 상세 페이지 편집"
                 variant="outline"
                 onPress={() => router.push("/farm/detail")}
               />
               <Button
-                label="소비자 앱에서 내 농가 보기 ›"
-                variant="text"
+                label="소비자 앱에서 내 농가 보기"
+                variant="outline"
                 onPress={() =>
                   void Linking.openURL(`${CONSUMER_URL}/farms/${data.farmId}`)
                 }
-                style={{ alignSelf: "flex-start" }}
               />
             </View>
           </>

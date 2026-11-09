@@ -1,7 +1,6 @@
 // DEV-109: 탭 화면 오른쪽 위 도움말(?) 버튼과 직접 눌러 보는 사용 안내(스포트라이트 투어).
 // 화면을 어둡게 덮고 눌러야 할 곳만 뚫어 밝게 보여 준다. 생산자가 실제로 눌러 화면이 바뀌면 다음 단계로 간다.
-// 대상은 testID(웹에서 data-testid)로 찾는다. 현황(SCR-22)에서 승인된 생산자에게 처음 한 번 자동으로 시작한다.
-import { readStore, writeStore } from "@farmclub/api";
+// 대상은 testID(웹에서 data-testid)로 찾는다. 헤더의 ‘가이드’ 버튼으로만 시작한다(DEV-294).
 import { Button, Icon, IconButton, T, tokens } from "@farmclub/ui";
 import { useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import {
@@ -25,9 +24,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import { useSession } from "./session";
 
-const HELP_GUIDE_SEEN = "help-guide-seen";
 /** 대상을 이만큼 못 찾으면 가운데 카드에 다음 버튼을 띄워 갇히지 않게 한다 */
 const MISSING_MS = 3000;
 const PAD = 6;
@@ -55,7 +52,7 @@ type Step = {
 const STEPS: Step[] = [
   {
     title: "farmclub에 오신 걸 환영해요!",
-    body: "처음이라 어디부터 봐야 할지 막막하시죠? 자주 쓰는 기능을 저와 함께 하나씩 눌러 볼게요. 밝게 빛나는 곳만 따라오시면 금방 끝나요.",
+    body: "밝게 빛나는 곳을 따라 자주 쓰는 기능을 눌러 봐요.",
   },
   {
     title: "먼저 상품 탭으로 가 볼까요?",
@@ -102,7 +99,7 @@ const STEPS: Step[] = [
   },
   {
     title: "궁금한 건 여기에 물어보세요",
-    body: "앱 사용법, 정산, 상품 등록처럼 모르는 게 생기면 아래 입력창에 적어 보내 주세요. farmclub 운영팀이 확인하고 답해 드려요. 이 방은 AI가 아니라 사람이 답해요.",
+    body: "모르는 게 생기면 여기에 적어 보내요. 운영팀 사람이 답해요.",
     target: ["support-intro"],
   },
   {
@@ -113,7 +110,7 @@ const STEPS: Step[] = [
   },
   {
     title: "거의 다 왔어요!",
-    body: "아래 '환경설정'을 눌러 보세요.",
+    body: "아래 '설정'을 눌러 보세요.",
     target: ["tab-settings"],
     until: (r) => r.path === "/settings",
   },
@@ -125,12 +122,13 @@ const STEPS: Step[] = [
   },
   {
     title: "AI에게 우리 농가를 알려 주세요",
-    body: "여기서 AI 자동 응답을 켜고 끌 수 있어요. 손님 대화방마다 '직접 응대로 전환'으로 바꿀 수도 있어요. 아래로 내리면 배송 안내 원칙이나 자주 묻는 질문과 답을 적어 둘 수 있는데, 많이 적어 둘수록 AI가 더 정확하게 답해 드려요. 바꾼 뒤에는 꼭 '설정 저장'을 눌러 주세요.",
+    body: "배송 원칙과 자주 묻는 질문을 적어 둘수록 AI가 정확하게 답해요.",
     target: ["ai-enabled"],
   },
   {
     title: "다시 보고 싶으면 이 버튼을 누르세요!",
-    body: "안내는 여기까지예요. 수고 많으셨어요! 나중에 헷갈리면 화면 오른쪽 위 이 [?] 버튼을 눌러 보세요. 언제든 이 안내를 처음부터 다시 볼 수 있어요. 그래도 모르는 게 있으면 채팅의 farmclub 대화방에 편하게 물어봐 주세요.",
+    // AC-34-5: 마지막 단계는 farmclub 대화방으로 물어보라고 안내한다
+    body: "다시 보려면 [?]를 눌러요. 모르는 건 farmclub 대화방에 물어봐요.",
     target: ["help-button"],
     enter: (r, router) => {
       if (r.path !== "/") router.navigate("/");
@@ -208,18 +206,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
     router.navigate("/");
     setIndex(0);
   }, [router]);
-  const stop = useCallback(() => {
-    writeStore(HELP_GUIDE_SEEN, "1");
-    setIndex(null);
-  }, []);
+  const stop = useCallback(() => setIndex(null), []);
   const next = useCallback(
     (to?: number) =>
       setIndex((i) => {
         if (i === null) return null;
         const n = to ?? i + 1;
-        if (n < STEPS.length) return n;
-        writeStore(HELP_GUIDE_SEEN, "1");
-        return null;
+        return n < STEPS.length ? n : null;
       }),
     [],
   );
@@ -629,22 +622,14 @@ function Arrow({
   );
 }
 
-/** 탭 화면 헤더 오른쪽에 둔다. autoOpen이면 승인된 생산자가 아직 안내를 본 적 없을 때 바로 시작한다 */
-export function HelpButton({ autoOpen = false }: { autoOpen?: boolean }) {
-  const { start, active } = useTour();
-  const { user } = useSession();
-  const approved = user?.farmStatus === "APPROVED";
-  const asked = useRef(false);
-  useEffect(() => {
-    if (asked.current || !autoOpen || !approved || active) return;
-    asked.current = true;
-    if (readStore(HELP_GUIDE_SEEN) === null) start();
-  }, [autoOpen, approved, active, start]);
+/** 탭 화면 헤더 오른쪽에 둔다. 안내는 이 버튼으로만 시작한다(DEV-294: 첫 진입 자동 시작 제거) */
+export function HelpButton() {
+  const { start } = useTour();
   return (
     <Pressable accessibilityRole="button" accessibilityLabel="도움말" testID="help-button" onPress={start}
-      style={{ minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 2 }}>
-      <Icon name="question" size={24} />
-      <T style={{ fontSize: 11, lineHeight: 14 }}>가이드</T>
+      style={{ minWidth: 48, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>
+      <Icon name="question" size={20} color={tokens.color.textMuted} />
+      <T variant="sub" muted>가이드</T>
     </Pressable>
   );
 }
