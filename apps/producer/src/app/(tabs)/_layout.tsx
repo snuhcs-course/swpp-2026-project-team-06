@@ -7,12 +7,12 @@ import { ActivityIndicator } from "react-native";
 
 import { useSession } from "../../lib/session";
 
-// 생산자 하단 탭 4개: 현황 · 상품 · 채팅 · 환경설정 (screens.md 결정 2). 채팅에 안 읽은 메시지 배지.
+// 생산자 하단 탭 4개: 현황 · 상품 · 채팅 · 설정 (screens.md 결정 2, DEV-294에서 '환경설정' → '설정'). 채팅에 안 읽은 메시지 배지.
 const TABS: { name: string; label: string; icon: IconName }[] = [
   { name: "index", label: "현황", icon: "chart" },
   { name: "products", label: "상품", icon: "box" },
   { name: "chats", label: "채팅", icon: "chat" },
-  { name: "settings", label: "환경설정", icon: "settings" },
+  { name: "settings", label: "설정", icon: "settings" },
 ];
 
 // 하위 스택이 있는 탭(상품·채팅)
