@@ -19,7 +19,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { GlobalAiButton, HumanReplyStatus } from "../../../lib/GlobalAiButton";
 import { View } from "react-native";
-import { ORDER_STATUS, copyText } from "../../../lib/views";
+import { ORDER_STATUS, copyText, errMsg } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
 export default function Chat() {
   useHideTabBar();
@@ -98,18 +98,17 @@ export default function Chat() {
           : consumerName ? { name: consumerName } : undefined}
         peerReadMessageId={support ? undefined : page?.thread.consumerLastReadMessageId}
         copy={copyText}
-        send={async (text, ids, key, replyToMessageId) => {
-          const r = await messaging.producerSend(
+        // 보낸 뒤 다시 불러오기는 ChatThread가 한다. 여기서 기다리면 재조회 실패가 전송 실패('다시 보내기')로 보인다(DEV-291)
+        send={(text, ids, key, replyToMessageId) =>
+          messaging.producerSend(
             consumerId,
             text,
             ids,
             [],
             key,
             replyToMessageId,
-          );
-          await load();
-          return r;
-        }}
+          )
+        }
       >
         {page?.orders.length ? (
           <View
@@ -151,6 +150,7 @@ export default function Chat() {
               variant="outline"
               onPress={async () => {
                 try {
+                  setError("");
                   await messaging.inquiryStatus(
                     i.inquiryId,
                     i.status === "OPEN" ? "RESOLVED" : "OPEN",
@@ -158,7 +158,7 @@ export default function Chat() {
                   );
                   await load();
                 } catch (e) {
-                  setError(String(e));
+                  setError(errMsg(e, "문의 상태를 바꾸지 못했어요. 다시 눌러 주세요."));
                 }
               }}
             />

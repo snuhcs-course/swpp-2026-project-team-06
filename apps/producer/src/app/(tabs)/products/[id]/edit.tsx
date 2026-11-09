@@ -45,11 +45,11 @@ import { useHideTabBar, useSession } from "../../../../lib/session";
 import {
   FieldButton,
   LoadError,
-  TODAY,
   errMsg,
   fieldErrors,
 } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
+import { seoulToday } from "../../../../lib/HarvestStart";
 import { OriginFieldHint } from "../../../../lib/OriginFieldHint";
 
 const STATUS: Record<ProductStatus, string> = {
@@ -328,13 +328,13 @@ export default function EditProduct() {
       ? setSheet("leave")
       : goBackOr(router, "/products");
   const closed = p.status === "CLOSED";
-  // 받는 시기: 오늘 다음 날부터, 그리고 마지막 예약 기간가 끝난 다음 날부터(s-25-datesheet)
+  // 받는 시기: 오늘 다음 날부터, 그리고 마지막 예약 기간이 끝난 다음 날부터(s-25-datesheet)
   const lastStageEnd = p.stages.reduce<string | null>(
     (m, s) => (!m || s.endsAt > m ? s.endsAt : m),
     null,
   );
   const deliveryMin = [
-    addDays(TODAY, 1),
+    addDays(seoulToday(), 1),
     lastStageEnd ? addDays(lastStageEnd.slice(0, 10), 1) : "",
   ]
     .sort()
@@ -726,7 +726,7 @@ export default function EditProduct() {
         start={form.deliveryWindow?.start ?? null}
         end={form.deliveryWindow?.end ?? null}
         min={deliveryMin}
-        note="지난 날짜와 오늘은 고를 수 없어요. 받는 시기는 마지막 예약 기간가 끝난 다음 날부터예요."
+        note="지난 날짜와 오늘은 고를 수 없어요. 받는 시기는 마지막 예약 기간이 끝난 다음 날부터예요."
         onClose={() => setSheet(null)}
         onSave={(start, end) => {
           set("deliveryWindow", { start, end });
@@ -741,7 +741,7 @@ export default function EditProduct() {
         min={
           form.deliveryWindow?.end
             ? addDays(form.deliveryWindow.end, 1)
-            : addDays(TODAY, 1)
+            : addDays(seoulToday(), 1)
         }
         onClose={() => setSheet(null)}
         onSave={(d) => {

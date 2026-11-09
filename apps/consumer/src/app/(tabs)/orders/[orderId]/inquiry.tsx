@@ -23,6 +23,7 @@ import { useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
 import { useGoBack } from "../../../../lib/nav";
+import { errMsg } from "../../../../lib/views";
 export default function InquiryForm() {
   useHideTabBar();
   const { orderId } = useLocalSearchParams<{ orderId: string }>(),
@@ -56,7 +57,7 @@ export default function InquiryForm() {
         params: { farmId: order.data.farmId, orderId },
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "접수하지 못했어요");
+      setError(errMsg(e, "접수하지 못했어요. 다시 보내 주세요."));
     } finally {
       setBusy(false);
     }
@@ -115,7 +116,7 @@ export default function InquiryForm() {
             환불·보상은 별도 확인이 필요해요.
           </T>
           {error || order.error ? (
-            <T color={tokens.color.error}>{error || String(order.error)}</T>
+            <T color={tokens.color.error}>{error || errMsg(order.error, "주문을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.")}</T>
           ) : null}
           <Button
             label="농가에 문의 보내기"

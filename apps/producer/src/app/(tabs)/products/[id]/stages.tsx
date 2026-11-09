@@ -13,7 +13,7 @@ import { Platform, View } from "react-native";
 import { HarvestRow, HarvestSheet } from "../../../../lib/HarvestStart";
 import { DateInput, NumField, addDays } from "../../../../lib/fields";
 import { useHideTabBar, useSession } from "../../../../lib/session";
-import { TODAY } from "../../../../lib/views";
+import { seoulToday } from "../../../../lib/HarvestStart";
 import { goBackOr } from "../../../../lib/nav";
 type Row = Omit<StageInput, "options"> & {
   key: string;
@@ -44,7 +44,7 @@ export default function Periods() {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     pending = useRef<{ body: string; key: string } | null>(null);
-  function blank(p: MyProduct, start = TODAY): Row {
+  function blank(p: MyProduct, start = seoulToday()): Row {
     return {
       key: newIdempotencyKey(),
       startsAt: start,
@@ -307,7 +307,7 @@ export default function Periods() {
                 onPress={() =>
                   setRows((rs) => [
                     ...rs,
-                    blank(p, addDays(rs.at(-1)?.endsAt ?? TODAY, 1)),
+                    blank(p, addDays(rs.at(-1)?.endsAt ?? seoulToday(), 1)),
                   ])
                 }
               />

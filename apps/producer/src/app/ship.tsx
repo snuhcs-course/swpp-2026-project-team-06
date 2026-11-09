@@ -39,7 +39,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { isConnectionError, useSession } from "../lib/session";
-import { LoadError, errMsg } from "../lib/views";
+import { LoadError, ORDER_STATUS, errMsg } from "../lib/views";
 import { orderWho, orderWhoParts } from "../lib/orderWho";
 import { goBackOr } from "../lib/nav";
 
@@ -600,6 +600,8 @@ export default function Ship() {
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                 <T variant="sub" muted numberOfLines={1}>
                   {o.orderNo}
+                  {/* '전체' 탭은 여러 상태가 섞여 줄마다 상태를 붙인다(DEV-291) */}
+                  {tab === "all" ? ` · ${ORDER_STATUS[o.status]}` : ""}
                   {awaiting
                     ? o.depositDueAt && Date.parse(o.depositDueAt) <= serverNow()
                       ? " · 기한 지남"
@@ -686,6 +688,12 @@ export default function Ship() {
                         : invoiceText(inv?.carrier, inv?.no)}
                   </T>
                 )}
+                {tab === "all" && o.status === "PREPARING" ? (
+                  // 송장은 출하 준비 탭의 고르기·출하 바와 묶여 있어, 그 탭으로 옮긴 뒤 시트를 연다(DEV-291)
+                  <Button label="송장 넣기" variant="outline" size="producer" disabled={busy}
+                    accessibilityLabel={`${o.orderNo} 송장 넣기`}
+                    onPress={() => { setTab("PREPARING"); openInvoice(o); }} />
+                ) : null}
                 {o.status === "SHIPPED" ? (
                   <Button label="송장 수정" variant="outline" size="producer" disabled={busy}
                     accessibilityLabel={`${o.orderNo} 송장 수정`} onPress={() => openInvoice(o)} />

@@ -6,8 +6,6 @@ import type { ReactNode } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Pressable, View } from "react-native";
 
-export const TODAY = "2026-10-07";
-
 export const ORDER_STATUS: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "입금 안내 전",
   AWAITING_DEPOSIT: "입금 대기",
