@@ -106,3 +106,35 @@ clockTest("only resolving all OPEN inquiries allows the next producer reply to s
   assert.equal(expired.farmReply.mode, "AI");
   assert.equal((await consumerSend(consumer)).reply.senderType, "AI");
 });
+
+for (const endpoint of [
+  "/api/messaging/producer/chats/u-farmclub/messages",
+  "/api/messaging/producer/support/messages",
+]) {
+  clockTest(`support stays untimed HUMAN after producer reply: ${endpoint}`, async () => {
+    const { producer } = await prepare();
+    const before = await ok("GET", endpoint, producer);
+    assert.equal(before.thread.aiMode, "HUMAN");
+    assert.equal(before.thread.humanReplyUntil ?? null, null);
+    const body = { text: "정산 안내를 확인하고 싶어요" };
+    const key = `support-retry-${++serial}`;
+    const sent = await ok("POST", endpoint, producer, body, key);
+    assert.equal(sent.message.senderType, "PRODUCER");
+    assert.equal(sent.thread.aiMode, "HUMAN");
+    assert.equal(sent.thread.humanReplyUntil, null);
+    at(11);
+    const retry = await ok("POST", endpoint, producer, body, key);
+    assert.equal(retry.message.messageId, sent.message.messageId);
+    for (const route of [
+      "/api/messaging/producer/chats/u-farmclub/messages",
+      "/api/messaging/producer/support/messages",
+    ]) {
+      const page = await ok("GET", route, producer);
+      assert.equal(page.thread.threadId, before.thread.threadId);
+      assert.equal(page.thread.aiMode, "HUMAN");
+      assert.equal(page.thread.humanReplyUntil, null);
+      assert.equal(page.items.filter(m => m.messageId === sent.message.messageId).length, 1);
+      assert(page.items.every(m => m.senderType !== "AI"));
+    }
+  });
+}

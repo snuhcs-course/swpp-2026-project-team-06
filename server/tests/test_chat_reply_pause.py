@@ -394,3 +394,37 @@ def test_last_open_inquiry_resolution_allows_next_producer_reply_to_start_normal
         _ok(_send(client, consumer, "소량 주문 되나요?", orderId="o-38"))["reply"]["senderType"]
         == "AI"
     )
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/api/messaging/producer/chats/u-farmclub/messages",
+        "/api/messaging/producer/support/messages",
+    ],
+)
+def test_support_reply_remains_untimed_human_through_both_public_routes(
+    client, login, at, endpoint
+):
+    producer = login("u-kang")
+    key, body = _key(), {"text": "정산 안내를 확인하고 싶어요"}
+    before = _ok(client.get(endpoint, headers=producer))
+    assert before["thread"]["aiMode"] == "HUMAN"
+    assert before["thread"]["humanReplyUntil"] is None
+    sent = _ok(client.post(endpoint, headers=producer | key, json=body))
+    assert sent["message"]["senderType"] == "PRODUCER"
+    assert sent["thread"]["aiMode"] == "HUMAN"
+    assert sent["thread"]["humanReplyUntil"] is None
+    at(minutes=11)
+    retry = _ok(client.post(endpoint, headers=producer | key, json=body))
+    assert retry["message"]["messageId"] == sent["message"]["messageId"]
+    for route in (
+        "/api/messaging/producer/chats/u-farmclub/messages",
+        "/api/messaging/producer/support/messages",
+    ):
+        page = _ok(client.get(route, headers=producer))
+        assert page["thread"]["threadId"] == before["thread"]["threadId"]
+        assert page["thread"]["aiMode"] == "HUMAN"
+        assert page["thread"]["humanReplyUntil"] is None
+        assert sum(m["messageId"] == sent["message"]["messageId"] for m in page["items"]) == 1
+        assert all(m["senderType"] != "AI" for m in page["items"])

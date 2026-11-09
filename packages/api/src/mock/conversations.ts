@@ -572,7 +572,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     list(ctx.db, t).push(message);
     if (producer) {
       const inquiryOpen = ctx.db.inquiries.some(i => i.threadId === t.threadId && i.status === "OPEN");
-      t.humanReplyUntil = inquiryOpen ? null : new Date(Date.parse(nowIso()) + 600000).toISOString();
+      t.humanReplyUntil = inquiryOpen || t.consumerId === SUPPORT_ID ? null : new Date(Date.parse(nowIso()) + 600000).toISOString();
       t.version++;
       mode(t, "HUMAN");
       ctx.db.escalations
