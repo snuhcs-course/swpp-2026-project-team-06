@@ -1,6 +1,6 @@
 import { editMessageText, messagePage } from "./conversations";
-import type { NewsRoomMessage, NewsRoomSummary } from "../types";
-import { nextId, nowIso } from "./db";
+import type { FanReply, NewsRoomMessage, NewsRoomSummary } from "../types";
+import { nextId, nowIso, type DB, type RoomReplyRec } from "./db";
 import { mask, maskBroadcastReply, newsItem } from "./derive";
 import {
   fail,
@@ -44,9 +44,38 @@ function authorize(ctx: Ctx, farmId: string) {
   return { ...a, user: ctx.me() };
 }
 
+const byTime = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) =>
+  a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+
+/** 보낸 순간 그 농가의 가장 최근 지우지 않은 소식(DEV-297). 인용 소식도 소식이다 */
+function latestBroadcast(db: DB, farmId: string) {
+  return db.news
+    .filter((n) => n.farmId === farmId)
+    .map((n) => ({ createdAt: n.createdAt, id: n.broadcastId }))
+    .sort(byTime)
+    .at(-1)?.id ?? null;
+}
+
+/** 읽음 위치가 이 소식 (작성 시각, id) 이상인 소비자 수(DEV-297). 한 사람은 위치가 하나라 1회 */
+function readCount(db: DB, farmId: string, n: { createdAt: string; broadcastId: string }) {
+  return (db.roomReads ?? []).filter(
+    (r) =>
+      r.farmId === farmId &&
+      byTime({ createdAt: r.at, id: r.broadcastId }, { createdAt: n.createdAt, id: n.broadcastId }) >= 0,
+  ).length;
+}
+
+/** 응답 모양만 남긴다. 연결 소식·생산자 읽음은 서버 전용 칸 */
+function publicReply(m: RoomReplyRec): NewsRoomMessage {
+  const { answersBroadcastId: _answers, producerReadAt: _read, ...rest } = m;
+  return rest;
+}
+
 // Filter before pagination AND summaries. Another consumer's replies never leave the server.
 function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
   const { user, farm, canReply } = access(ctx, farmId);
+  // 읽음·답장 수는 소유 생산자에게만(DEV-297). access가 남의 농가 생산자를 이미 막았다
+  const owner = user?.role === "PRODUCER" && canReply;
   const broadcasts: NewsRoomMessage[] = ctx.db.news
     .filter(
       (n) => n.farmId === farmId && (canReply || n.visibility === "PUBLIC"),
@@ -71,6 +100,10 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
         reactionCount: reaction.reactionCount,
         myReaction: reaction.myReaction,
         visibility: n.visibility,
+        readCount: owner ? readCount(ctx.db, farmId, n) : null,
+        replyCount: owner
+          ? ctx.db.roomReplies.filter((r) => r.answersBroadcastId === n.broadcastId).length
+          : null,
       };
     });
   const replies = ctx.db.roomReplies.filter(
@@ -83,7 +116,9 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
   return [
     ...broadcasts,
     ...replies.map((m) => ({
-      ...m,
+      ...publicReply(m),
+      readCount: null,
+      replyCount: null,
       // 농가에는 닉네임(없으면 가린 이름, R-15), 본인에게는 자기 이름
       senderName:
         user?.role === "PRODUCER"
@@ -177,6 +212,8 @@ register({
         if (ctx.body.replyToVersion != null && ctx.body.replyToVersion !== (target.editVersion ?? 0)) conflict("STALE_VERSION", "원문이 수정됐어요. 답장을 취소하고 다시 선택해 주세요.");
         replyTo = {senderType: "CONSUMER", body: maskBroadcastReply(target.body)};
         body = maskBroadcastReply(text);
+        // 모두에게 답했으면 생산자가 읽은 답장이다(DEV-297)
+        target.producerReadAt ??= nowIso();
       }
       if (user?.role === "PRODUCER") {
         const n = {
@@ -189,11 +226,13 @@ register({
           createdAt: nowIso(),
           visibility: "FOLLOWERS" as const,
           baseReactions: 0,
+          quotedReplyId: replyTo ? String(ctx.body.replyToMessageId) : null,
         };
         ctx.db.news.push(n);
         return visible(ctx, farmId).find((m) => m.messageId === n.broadcastId)!;
       }
-      const message: NewsRoomMessage = {
+      const answersBroadcastId = latestBroadcast(ctx.db, farmId);
+      const message: RoomReplyRec = {
         messageId: nextId("reply"),
         farmId,
         body,
@@ -207,9 +246,99 @@ register({
         reactionCount: 0,
         myReaction: false,
         visibility: null,
+        answersBroadcastId,
+        producerReadAt: null,
       };
       ctx.db.roomReplies.push(message);
-      return message;
+      return visible(ctx, farmId).find((m) => m.messageId === message.messageId)!;
     });
   },
+  // 팔로워가 소식방에서 이 소식이 보이는 위치까지 읽었다(DEV-297). 위치는 앞으로만 간다
+  "PUT /api/messaging/rooms/:farmId/read": (ctx) => {
+    const user = ctx.me();
+    if (user.role !== "CONSUMER") fail(403, "FORBIDDEN", "소비자만 쓸 수 있어요.");
+    const farmId = ctx.params.farmId;
+    const { canReply } = access(ctx, farmId);
+    if (!canReply) fail(403, "FORBIDDEN", "팔로우한 농가의 소식방만 읽음이 남아요.");
+    const n = ctx.db.news.find(
+      (x) => x.broadcastId === ctx.body.lastReadMessageId && x.farmId === farmId,
+    );
+    if (!n) notFound("이 소식방의 소식이 아니에요.");
+    const reads = (ctx.db.roomReads ??= []);
+    const row = reads.find((r) => r.farmId === farmId && r.consumerId === user.userId);
+    const next = { createdAt: n.createdAt, id: n.broadcastId };
+    if (!row) reads.push({ farmId, consumerId: user.userId, broadcastId: n.broadcastId, at: n.createdAt });
+    else if (byTime({ createdAt: row.at, id: row.broadcastId }, next) < 0)
+      Object.assign(row, { broadcastId: n.broadcastId, at: n.createdAt });
+    return null;
+  },
+  // 팬 답장 시트: 소식 하나에 연결된 소비자 답장(DEV-297). 자기 농가 생산자만, 오래된 순
+  "GET /api/messaging/rooms/:farmId/broadcasts/:broadcastId/replies": (ctx) => {
+    const { n, farmId } = ownBroadcast(ctx);
+    const linked = ctx.db.roomReplies
+      .filter((r) => r.answersBroadcastId === n.broadcastId)
+      .sort((a, b) => byTime({ createdAt: a.createdAt, id: a.messageId }, { createdAt: b.createdAt, id: b.messageId }));
+    const unreadOnly = ctx.query.filter === "unread";
+    if (ctx.query.filter && !["all", "unread"].includes(ctx.query.filter))
+      invalid({ filter: "all 또는 unread만 쓸 수 있어요." });
+    const paidFarm = (orderProduct: string) => ctx.db.products[orderProduct]?.farmId === farmId;
+    const reserved = (consumerId: string) =>
+      Object.values(ctx.db.orders).some(
+        (o) => o.consumerId === consumerId && !!o.paidAt && PAID.has(o.status) && paidFarm(o.productId),
+      );
+    const quoted = new Set(ctx.db.news.map((x) => x.quotedReplyId).filter(Boolean));
+    const rows: FanReply[] = linked
+      .filter((r) => !unreadOnly || !r.producerReadAt)
+      .map((r) => ({
+        messageId: r.messageId,
+        consumerId: r.senderId,
+        senderName: ctx.db.users[r.senderId]
+          ? publicName(ctx.db.users[r.senderId])
+          : `${r.senderName.slice(0, 1)}○○`,
+        body: r.body,
+        createdAt: r.createdAt,
+        editVersion: r.editVersion ?? 0,
+        unread: !r.producerReadAt,
+        reservedCustomer: reserved(r.senderId),
+        quoted: quoted.has(r.messageId),
+      }));
+    return {
+      broadcast: {
+        broadcastId: n.broadcastId,
+        body: n.body,
+        mediaCount: n.photos.length,
+        createdAt: n.createdAt,
+      },
+      total: linked.length,
+      unreadCount: linked.filter((r) => !r.producerReadAt).length,
+      lastReplyId: linked.at(-1)?.messageId ?? null,
+      ...paginate(rows, ctx.query),
+    };
+  },
+  // 시트에서 본 답장(그 소식의 lastReadMessageId까지)을 생산자 읽음으로(DEV-297)
+  "PUT /api/messaging/rooms/:farmId/broadcasts/:broadcastId/replies/read": (ctx) => {
+    const { n } = ownBroadcast(ctx);
+    const linked = ctx.db.roomReplies.filter((r) => r.answersBroadcastId === n.broadcastId);
+    const last = linked.find((r) => r.messageId === ctx.body.lastReadMessageId);
+    if (!last) notFound("이 소식의 답장이 아니에요.");
+    const stamp = nowIso();
+    for (const r of linked)
+      if (!r.producerReadAt && byTime({ createdAt: r.createdAt, id: r.messageId }, { createdAt: last.createdAt, id: last.messageId }) <= 0)
+        r.producerReadAt = stamp;
+    return { unreadCount: linked.filter((r) => !r.producerReadAt).length };
+  },
 });
+
+const PAID = new Set(["RESERVED", "PREPARING", "SHIPPED", "DELIVERED", "COMPLETED"]);
+
+function ownBroadcast(ctx: Ctx) {
+  const user = ctx.me();
+  if (user.role !== "PRODUCER") fail(403, "FORBIDDEN", "농가만 쓸 수 있어요.");
+  if (!user.farmId || ctx.db.farms[user.farmId]?.status !== "APPROVED")
+    fail(403, "FORBIDDEN", "승인된 농가만 쓸 수 있어요.");
+  const farmId = ctx.params.farmId;
+  if (user.farmId !== farmId) notFound("내 농가의 소식방만 볼 수 있어요.");
+  const n = ctx.db.news.find((x) => x.broadcastId === ctx.params.broadcastId && x.farmId === farmId);
+  if (!n) notFound("찾을 수 없는 소식이에요.");
+  return { n, farmId };
+}
