@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -80,16 +81,43 @@ type Props = {
 const statusOf = (e: unknown) =>
   e && typeof e === "object" && "status" in e ? Number(e.status) : 0;
 export function RoomMedia({ uri }: { uri: string }) {
-  return /^data:video|\.(mp4|webm)$/.test(uri) && Platform.OS === "web" ? (
-    createElement("video", {
+  const video = /^data:video|\.(mp4|webm)$/.test(uri);
+  if (video && Platform.OS === "web")
+    return createElement("video", {
       src: uri,
       controls: true,
       preload: "metadata",
       style: { width: 250, borderRadius: 12 },
-    })
-  ) : (
-    <Photo uri={uri} width={272} height={236} alt="소식 사진" />
-  );
+    });
+  if (video) {
+    // 앱(iOS·Android)에는 영상 재생 라이브러리가 없어 사진으로 그리면 깨진다. 포스터를 누르면 기기 플레이어로 연다(DEV-291)
+    const openable = /^https?:/.test(uri);
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="소식 영상 보기"
+        disabled={!openable}
+        onPress={() => void Linking.openURL(uri).catch(() => undefined)}
+        style={{
+          width: 250,
+          height: 180,
+          borderRadius: 12,
+          backgroundColor: tokens.color.text,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
+        <T variant="heading" color="#FFFFFF">
+          ▶
+        </T>
+        <T variant="sub" color="#FFFFFF">
+          {openable ? "눌러서 영상 보기" : "영상은 웹에서 볼 수 있어요"}
+        </T>
+      </Pressable>
+    );
+  }
+  return <Photo uri={uri} width={272} height={236} alt="소식 사진" />;
 }
 export function NewsRoom({
   edit,
