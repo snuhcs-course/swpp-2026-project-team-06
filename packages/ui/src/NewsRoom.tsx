@@ -7,25 +7,30 @@ import {
   type ReactNode,
 } from "react";
 import {
-  ActivityIndicator,
   Linking,
   Platform,
   Pressable,
   ScrollView,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { MessageMenu, type MenuPoint } from "./MessageMenu";
 import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { T } from "./Text";
 import { Photo } from "./content";
-import { ChatBubble } from "./ChatBubble";
+import { BUBBLE_AVATAR, ChatBubble, DayPill, SystemLine } from "./ChatBubble";
 import { Sheet } from "./bars";
 import { tokens } from "./tokens";
 import { safe } from "./web";
 import { inBackground } from "./foreground";
-import { daySeparator, time } from "./format";
+import { chatDay, seoulDay, time, won } from "./format";
+import { chatGroups } from "./chatGroups";
+import { ProfileAvatar } from "./Messenger";
+import { Composer, copyToClipboard, FloatingPill, ToolChip } from "./composer";
+import { ViewablePhoto } from "./PrivatePhotos";
+import { Price, type ShelfProduct } from "./Storefront";
 
 const quotePreview = (body: string) => body.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
@@ -49,7 +54,7 @@ type Message = {
 type Page = {
   items: Message[];
   nextCursor: string | null;
-  room: { farmName: string; canReply: boolean };
+  room: { farmName: string; canReply: boolean; farmPhoto?: string | null };
 };
 type Props = {
   edit?: (id: string, text: string, version: number, key: string) => Promise<Message>;
@@ -77,7 +82,10 @@ type Props = {
   onRefollow?: () => void;
   /** 소비자: 팔로우를 끊었지만 본인 답장이 남은 방인지 알린다(헤더 버튼 모양, DEV-230) */
   onLapsedChange?: (lapsed: boolean) => void;
+  /** 길게 누르기 메뉴의 '복사'. 앱은 expo-clipboard 도우미를 넘긴다. 없으면 웹 클립보드만(DEV-295) */
+  copy?: (text: string) => Promise<unknown>;
 };
+const VIDEO = /^data:video|\.(mp4|webm)$/;
 const statusOf = (e: unknown) =>
   e && typeof e === "object" && "status" in e ? Number(e.status) : 0;
 export function RoomMedia({ uri }: { uri: string }) {
@@ -91,29 +99,56 @@ export function RoomMedia({ uri }: { uri: string }) {
     });
   if (video) {
     // 앱(iOS·Android)에는 영상 재생 라이브러리가 없어 사진으로 그리면 깨진다. 포스터를 누르면 기기 플레이어로 연다(DEV-291)
+    // 포스터 모양은 Figma 11:133 ④: 세로 230×300, 가운데 흰 원 재생 버튼(DEV-295). API에 첫 장면·길이가 없어
+    // 어두운 면 위 재생 버튼만 그린다(첫 장면·길이 표시는 서버가 주면 후속, expo-video 바로 재생도 후속)
     const openable = /^https?:/.test(uri);
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="소식 영상 보기"
+        accessibilityLabel={openable ? "소식 영상 보기" : "소식 영상, 웹에서 볼 수 있어요"}
         disabled={!openable}
         onPress={() => void Linking.openURL(uri).catch(() => undefined)}
         style={{
-          width: 250,
-          height: 180,
-          borderRadius: 12,
+          width: 230,
+          height: 300,
+          borderRadius: tokens.radius.md,
           backgroundColor: tokens.color.text,
           alignItems: "center",
           justifyContent: "center",
-          gap: 8,
+          overflow: "hidden",
         }}
       >
-        <T variant="heading" color="#FFFFFF">
-          ▶
-        </T>
-        <T variant="sub" color="#FFFFFF">
-          {openable ? "눌러서 영상 보기" : "영상은 웹에서 볼 수 있어요"}
-        </T>
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: openable ? "#FFFFFF" : "rgba(255,255,255,0.5)",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingLeft: 4,
+          }}
+        >
+          <T variant="heading" color={tokens.color.text}>
+            ▶
+          </T>
+        </View>
+        {openable ? null : (
+          <View
+            style={{
+              position: "absolute",
+              bottom: 12,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: tokens.radius.sm,
+              backgroundColor: "rgba(0,0,0,0.6)",
+            }}
+          >
+            <T variant="caption" color="#FFFFFF">
+              웹에서 볼 수 있어요
+            </T>
+          </View>
+        )}
       </Pressable>
     );
   }
@@ -137,6 +172,7 @@ export function NewsRoom({
   notify,
   onRefollow,
   onLapsedChange,
+  copy,
 }: Props) {
   const [canReply, setCanReply] = useState(producer);
   const access = useRef<boolean | null>(null);
@@ -151,6 +187,7 @@ export function NewsRoom({
   const [older, setOlder] = useState(false);
   const [unseen, setUnseen] = useState(false);
   const [farmName, setFarmName] = useState("");
+  const [farmPhoto, setFarmPhoto] = useState<string | null>(null);
   // 생산자 1:N 전송 확인(AC-12-13)과 내 소식 삭제(AC-12-14·16) 시트
   const [confirming, setConfirming] = useState(false);
   const [sheetError, setSheetError] = useState("");
@@ -160,6 +197,12 @@ export function NewsRoom({
   const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
   const [target, setTarget] = useState<Message | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
   const input = useRef<TextInput>(null);
   const scroll = useRef<ScrollView>(null);
   const nearBottom = useRef(true),
@@ -255,6 +298,7 @@ export function NewsRoom({
         }
         if (cancelled) return;
         setFarmName(page.room.farmName);
+        setFarmPhoto(page.room.farmPhoto ?? null);
         reconcile(incoming, next === null);
         merge(incoming);
         if (!initialized.current) {
@@ -420,6 +464,22 @@ export function NewsRoom({
   }, [lapsed, ready]);
   const followers =
     recipientCount != null ? `팔로워 ${recipientCount}명` : "팔로워";
+  // 메뉴(복사·수정·삭제·답장·1:1 채팅) 중 하나라도 있으면 길게 누르기·우클릭을 연다(DEV-295: 글이 있으면 복사는 늘 있다)
+  const hasMenu = (m: Message) =>
+    !!m.body || !!(edit && m.senderId === userId) ||
+    (producer && ((!!remove && !!m.broadcastId) || (!!onPrivateReply && m.senderRole === "CONSUMER")));
+  // 같은 사람·같은 날·같은 분이면 한 묶음(DEV-295). 아바타·이름은 첫 말풍선, 시각은 마지막 말풍선 옆
+  const groups = chatGroups(messages.map((m) => ({
+    sender: m.senderId, day: seoulDay(m.createdAt), minute: time(m.createdAt),
+  })));
+  // 소식 사진은 정사각형 최대 232(Figma 7:78). 좁은 화면에서는 아바타·시각 칸을 빼고 남는 폭에 맞춘다
+  const { width: windowWidth } = useWindowDimensions();
+  const roomWidth = Math.min(windowWidth, tokens.maxWidth);
+  const photoWidth = (mine: boolean) =>
+    Math.max(160, Math.min(232, roomWidth - tokens.space.gutter * 2 - (mine ? 0 : BUBBLE_AVATAR + tokens.space.sm) - 64));
+  const days = messages.map((m, i) =>
+    i === 0 || seoulDay(messages[i - 1].createdAt) !== seoulDay(m.createdAt) ? chatDay(m.createdAt) : null,
+  );
   const openMenu = (m: Message) => {
     setSheetError("");
     setTarget(m);
@@ -462,10 +522,11 @@ export function NewsRoom({
           <T color={tokens.color.error}>{error || loadError}</T>
         </View>
       ) : null}
+      <View style={{ flex: 1, minHeight: 0 }}>
       <ScrollView
         ref={scroll}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, gap: 20 }}
+        contentContainerStyle={{ paddingVertical: 20, paddingHorizontal: tokens.space.gutter }}
         onScroll={(event) => {
           const n = event.nativeEvent;
           offset.current = n.contentOffset.y;
@@ -491,9 +552,9 @@ export function NewsRoom({
         }}
       >
         {producer ? (
-          <T variant="caption" muted center style={{ padding: 12 }}>
-            보내는 소식은 모든 팔로워에게 보여요
-          </T>
+          <View style={{ paddingBottom: 12 }}>
+            <SystemLine text="보내는 소식은 모든 팔로워에게 보여요" />
+          </View>
         ) : null}
         {cursor ? (
           <Button
@@ -506,22 +567,23 @@ export function NewsRoom({
         {!ready ? (
           <T muted>소식 불러오는 중…</T>
         ) : messages.length === 0 ? (
-          <T muted>아직 소식이 없어요.</T>
+          <T muted center>아직 소식이 없어요.</T>
         ) : null}
-        {messages.map((m, i) => (
-          <View key={m.messageId} style={{ gap: 8 }}>
-            {/* 날짜 구분은 기기 시간대가 아니라 한국 날짜로 묶는다(ChatThread와 같음, DEV-223·DEV-291) */}
-            {daySeparator(m.createdAt, messages[i - 1]?.createdAt) ? (
-              <T variant="caption" muted center style={{ marginVertical: 12 }}>
-                {daySeparator(m.createdAt, messages[i - 1]?.createdAt)}
-              </T>
-            ) : null}
+        {messages.map((m, i) => {
+          const mine = m.senderId === userId;
+          const { first, last } = groups[i];
+          const day = days[i];
+          const dimmed = lapsed && mine;
+          return (
+          <View key={m.messageId} style={{ paddingTop: i === 0 ? 0 : day || first ? 16 : 4, gap: 8 }}>
+            {/* 날짜 구분은 기기 시간대가 아니라 한국 날짜로 묶는다(ChatThread와 같음, DEV-223). DEV-291. '10월 7일 수요일' 알약(DEV-295) */}
+            {day ? <DayPill label={day} /> : null}
             <Pressable
               accessible={false}
-              disabled={!((edit && m.senderId === userId) || (producer && ((remove && m.broadcastId) || (onPrivateReply && m.senderRole === "CONSUMER"))))}
+              disabled={!hasMenu(m)}
               delayLongPress={500}
               onLongPress={() => { setMenuPoint(null); setMenuTarget(m); }}
-              {...(Platform.OS === "web" && ((edit && m.senderId === userId) || (producer && ((remove && m.broadcastId) || (onPrivateReply && m.senderRole === "CONSUMER")))) ? {
+              {...(Platform.OS === "web" && hasMenu(m) ? {
                 onContextMenu: (e: {preventDefault: () => void; clientX: number; clientY: number}) => {
                   e.preventDefault(); setMenuPoint({x: e.clientX, y: e.clientY}); setMenuTarget(m);
                 },
@@ -531,57 +593,81 @@ export function NewsRoom({
                 },
               } as object : {})}
               // 팔로우를 끊은 방의 내 답장은 흐리게 남긴다(DEV-230)
-              style={
-                lapsed && m.senderId === userId ? { opacity: 0.45 } : undefined
-              }
-              testID={
-                lapsed && m.senderId === userId ? "room-dimmed-reply" : undefined
-              }
+              style={dimmed ? { opacity: 0.45 } : undefined}
+              testID={dimmed ? "room-dimmed-reply" : undefined}
             >
             <ChatBubble
-              kind={m.senderId === userId ? "me" : "farm"}
+              kind={mine ? "me" : "farm"}
+              first={first || !!day}
+              last={last}
               quote={m.replyTo ?? undefined}
+              quoteLabel={m.replyTo ? (m.replyTo.senderType === "CONSUMER"
+                ? producer ? "팔로워의 답장 · 이름은 가려져요" : "팔로워의 답장"
+                : "농가에게 답장") : undefined}
               edited={!!m.editedAt}
               text={m.body}
-              sender={m.senderId === userId ? undefined : m.senderName}
+              avatar={mine ? undefined : m.senderRole === "PRODUCER"
+                ? <ProfileAvatar uri={farmPhoto} name={m.senderName || farmName} size={BUBBLE_AVATAR} />
+                : <ProfileAvatar name={m.senderName} size={BUBBLE_AVATAR} />}
+              sender={mine ? undefined : m.senderName}
               time={time(m.createdAt)}
+              side={
+                m.broadcastId && !producer ? (
+                  // 좋아요는 반응 그대로(FEAT-15). 소비자에게는 숫자 없이 말풍선 옆 작은 하트만(DEV-295)
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={m.myReaction ? "좋아요 취소" : "좋아요"}
+                    aria-pressed={m.myReaction}
+                    onPress={() => void like(m)}
+                    hitSlop={14}
+                    style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Icon
+                      name={m.myReaction ? "heartFill" : "heart"}
+                      size={18}
+                      color={m.myReaction ? tokens.color.accent : tokens.color.textMuted}
+                    />
+                  </Pressable>
+                ) : mine && !producer ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                    <Icon name="lock" size={12} color={tokens.color.textMuted} />
+                    <T variant="caption" muted>농가만 봐요</T>
+                  </View>
+                ) : undefined
+              }
+              footer={
+                m.broadcastId && producer ? (
+                  // 생산자 반응 줄은 내 소식 바로 아래 오른쪽 한 줄(Figma 7:90). 숫자는 농가만 본다
+                  <View
+                    accessible
+                    accessibilityLabel={`좋아요 ${m.reactionCount}`}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 2, alignSelf: "flex-end" }}
+                  >
+                    <Icon name="heartFill" size={14} color={tokens.color.textMuted} />
+                    <T variant="caption" muted>{m.reactionCount}</T>
+                  </View>
+                ) : undefined
+              }
             >
-              {[...m.photos, ...m.videos].map((uri) => (
-                <RoomMedia key={uri} uri={uri} />
-              ))}
+              {[...m.photos, ...m.videos].map((uri) =>
+                VIDEO.test(uri) ? (
+                  <RoomMedia key={uri} uri={uri} />
+                ) : (
+                  <ViewablePhoto key={uri} uri={uri}
+                    onLongPress={hasMenu(m) ? () => { setMenuPoint(null); setMenuTarget(m); } : undefined}>
+                    <Photo uri={uri} width={photoWidth(mine)} height={photoWidth(mine)} alt="소식 사진" />
+                  </ViewablePhoto>
+                ),
+              )}
             </ChatBubble>
             </Pressable>
-            {m.broadcastId && producer ? (
-              <View
-                style={{
-                  alignSelf: "flex-end",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <T variant="caption" muted>
-                  ♡ 좋아요 {m.reactionCount}
-                </T>
-
-              </View>
-            ) : m.broadcastId ? (
-              <Button
-                label={`${m.myReaction ? "♥" : "♡"} 좋아요 ${m.reactionCount}`}
-                variant="text"
-                onPress={() => void like(m)}
-                style={{
-                  alignSelf: m.senderId === userId ? "flex-end" : "flex-start",
-                }}
-              />
-            ) : null}
           </View>
-        ))}
+          );
+        })}
       </ScrollView>
       {unseen ? (
-        <Button
+        <FloatingPill
           label="새 소식 ↓"
-          variant="secondary"
           onPress={() => {
             nearBottom.current = true;
             setUnseen(false);
@@ -589,86 +675,55 @@ export function NewsRoom({
           }}
         />
       ) : null}
-      {canReply ? <T variant="caption" muted center>{producer ? "소식방 · 모든 팔로워에게 보내요" : "소식방 · 내 글은 농가만 봐요. 농가가 답장하면 익명으로 인용돼요"}</T> : null}
+      </View>
       {canReply ? (
         <View
           style={{
-            padding: 12,
-            paddingBottom: producer ? 12 : safe("bottom", 12),
+            paddingTop: tokens.space.sm,
+            paddingHorizontal: tokens.space.md,
+            paddingBottom: producer ? tokens.space.sm : safe("bottom", tokens.space.sm),
             backgroundColor: tokens.color.background,
             borderTopWidth: 1,
             borderColor: tokens.color.border,
-            gap: 8,
           }}
         >
-          {replyTarget ? <View style={{flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12}}>
-            <View style={{flex: 1}}><T variant="caption" muted>소비자에게 답장 · 모든 팔로워에게 보여요</T><T numberOfLines={2}>{quotePreview(replyTarget.body)}</T></View>
-            <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTarget(null)} style={{width: 44, height: 44, alignItems: "center", justifyContent: "center"}}><T>×</T></Pressable>
-          </View> : null}
-          <View
-            style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}
-          >
-            {onAttach ? (
-              <Button
-                label="＋"
-                accessibilityLabel="사진·영상 소식 첨부"
-                variant="text"
-                onPress={onAttach}
-                disabled={!ready || busy}
-              />
-            ) : null}
-            <TextInput
-              ref={input}
-              accessibilityLabel={
-                producer ? "모두에게 보낼 소식" : "농가에 답장"
-              }
-              value={body}
-              onChangeText={setBody}
-              editable={ready && !busy}
-              multiline
-              maxLength={producer ? 2000 : 1000}
-              placeholder={
-                producer
-                  ? recipientCount != null
-                    ? `팔로워 ${recipientCount}명에게 소식 보내기`
-                    : "모든 팔로워에게 소식 보내기"
+          <Composer
+            inputRef={input}
+            value={body}
+            onChangeText={setBody}
+            accessibilityLabel={producer ? "모두에게 보낼 소식" : "농가에 답장"}
+            placeholder={
+              producer
+                ? recipientCount != null
+                  ? `팔로워 ${recipientCount}명에게 보내기`
+                  : "모든 팔로워에게 보내기"
+                : farmName
+                  ? `${farmName}에 답장`
                   : "농가에 답장하기"
-              }
-              style={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: 48,
-                maxHeight: 130,
-                padding: 12,
-                borderRadius: 24,
-                backgroundColor: tokens.color.surface,
-                fontSize: 16,
-                fontFamily: tokens.fontFamily,
-              }}
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="전송"
-              aria-busy={busy}
-              onPress={submit}
-              disabled={!ready || !body.trim() || busy}
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: tokens.color.accent,
-                opacity: !ready || !body.trim() || busy ? 0.35 : 1,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {busy ? (
-                <ActivityIndicator color={tokens.color.onAccent} />
-              ) : (
-                <Icon name="send" color={tokens.color.onAccent} />
-              )}
-            </Pressable>
-          </View>
+            }
+            editable={ready && !busy}
+            maxLength={producer ? 2000 : 1000}
+            onSend={submit}
+            canSend={ready && !!body.trim()}
+            busy={busy}
+            above={<>
+              {copied ? <T variant="caption" muted center>메시지를 복사했어요</T> : null}
+              {replyTarget ? <View style={{flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent}}>
+                <View style={{flex: 1}}><T variant="caption" muted>소비자에게 답장 · 모든 팔로워에게 보여요</T><T numberOfLines={2}>{quotePreview(replyTarget.body)}</T></View>
+                <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTarget(null)} style={{width: 44, height: 44, alignItems: "center", justifyContent: "center"}}><Icon name="close" size={18} /></Pressable>
+              </View> : null}
+              {onAttach ? (
+                // '+' 글자 대신 도구 칩(Figma 7:90). '이름 넣기'는 서버가 필요해 후속(DEV-297)
+                <ToolChip
+                  icon="photo"
+                  label="사진·영상"
+                  accessibilityLabel="사진·영상 소식 첨부"
+                  onPress={onAttach}
+                  disabled={!ready || busy}
+                />
+              ) : null}
+            </>}
+          />
         </View>
       ) : lapsed ? (
         // 예전 팔로워는 강조색 버튼 대신 잠긴 입력칸(DEV-230). 다시 팔로우는 띠·헤더에서
@@ -710,6 +765,10 @@ export function NewsRoom({
       )}
       <MessageMenu visible={!!menuTarget && !busy} point={menuPoint} onClose={() => setMenuTarget(null)}
         actions={[
+          ...(menuTarget?.body ? [{label: "복사", onPress: () => {
+            const text = menuTarget.body;
+            void copyToClipboard(text, copy).then(ok => { if (ok && alive.current) setCopied(true); });
+          }}] : []),
           ...(menuTarget && edit && menuTarget.senderId === userId ? [{label: "수정", onPress: () => setEditTarget(menuTarget)}] : []),
           ...(menuTarget?.broadcastId && remove && producer ? [{label: "삭제·다시 쓰기", onPress: () => { if (menuTarget) openMenu(menuTarget); }}] : []),
           ...(menuTarget?.senderRole === "CONSUMER" && producer ? [{label: "답장", onPress: () => { setReplyTarget(menuTarget); setTimeout(() => input.current?.focus(), 0); }}] : []),
@@ -876,6 +935,118 @@ function NewsPreview({
         </T>
       </View>
       <T variant="sub">{body}</T>
+    </View>
+  );
+}
+
+/**
+ * 소식방 판매 품목 한 줄(DEV-295, Figma 7:78·7:90). 기본은 접혀서 ‘판매 중 N개 · 요약’ 한 줄만 보이고,
+ * 줄을 누르면 상품 카드 가로 목록이 펼쳐진다. 접기/펼치기는 이 컴포넌트 안 상태라 대화를 다시 그리지 않는다(AC-12-12).
+ * summary가 없으면 가장 싼 예약 가능 상품 ‘이름 가격~’을 보인다(생산자는 ‘팔로워 N명’을 넘긴다).
+ */
+export function RoomShelf({
+  products,
+  summary,
+  defaultExpanded = false,
+  onProduct,
+}: {
+  products: ShelfProduct[];
+  summary?: string;
+  defaultExpanded?: boolean;
+  onProduct: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const open = products.filter((p) => !p.soldOut && p.currentPrice != null);
+  const cheapest = [...open].sort((a, b) => (a.currentPrice ?? 0) - (b.currentPrice ?? 0))[0];
+  const head = open.length
+    ? `판매 중 ${open.length}개`
+    : products.length
+      ? `판매 품목 ${products.length}개`
+      : "판매 중인 상품이 없어요";
+  const rest = summary ?? (cheapest ? `${cheapest.name} ${won(cheapest.currentPrice)}~` : "");
+  const thumb = (cheapest ?? products[0])?.photo;
+  return (
+    <View
+      style={{
+        backgroundColor: tokens.color.surface,
+        flexShrink: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: tokens.color.border,
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="판매 품목"
+        aria-expanded={expanded}
+        onPress={() => setExpanded(!expanded)}
+        style={{
+          height: tokens.touchTarget.min,
+          paddingHorizontal: tokens.space.gutter,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: tokens.space.sm,
+        }}
+      >
+        {products.length ? (
+          <Photo uri={thumb} width={32} height={32} radius={6} alt="" kind="product" />
+        ) : null}
+        <T variant="sub" numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
+          <T variant="sub" weight="bold">{head}</T>
+          {rest ? <T variant="sub" muted>{` · ${rest}`}</T> : null}
+        </T>
+        <View style={{ transform: [{ rotate: expanded ? "180deg" : "0deg" }] }}>
+          <Icon name="chevronDown" size={20} />
+        </View>
+      </Pressable>
+      {expanded ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: tokens.space.gutter,
+            paddingBottom: 12,
+            gap: tokens.space.sm,
+          }}
+        >
+          {products.length ? (
+            products.map((p) => (
+              <Pressable
+                key={p.productId}
+                accessibilityRole="link"
+                accessibilityLabel={`${p.name} 상품 상세`}
+                onPress={() => onProduct(p.productId)}
+                style={{
+                  width: 240,
+                  padding: 12,
+                  borderRadius: tokens.radius.md,
+                  backgroundColor: tokens.color.background,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <Photo uri={p.photo} width={48} height={48} alt={p.name} kind="product" />
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <T variant="sub" weight="semibold" numberOfLines={1}>
+                    {p.name}
+                  </T>
+                  <Price
+                    current={p.currentPrice}
+                    reference={p.referencePrice}
+                    soldOut={p.soldOut}
+                    availability={p.availability}
+                    compact
+                  />
+                </View>
+              </Pressable>
+            ))
+          ) : (
+            <T muted style={{ padding: 12 }}>
+              판매 중인 상품이 없어요
+            </T>
+          )}
+        </ScrollView>
+      ) : null}
     </View>
   );
 }

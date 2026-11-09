@@ -54,7 +54,7 @@ export {
   type ProductRowProps,
   type StageCell,
 } from "./content";
-export { ChatBubble, AiBadge } from "./ChatBubble";
+export { ChatBubble, AiBadge, DayPill, SystemLine } from "./ChatBubble";
 export { Placeholder } from "./Placeholder";
 export { safe, focusRing } from "./web";
 export { KeyboardRoot, useKeyboardShown } from "./keyboard";
@@ -64,6 +64,7 @@ export {
   mdw,
   period,
   time,
+  chatDay,
   relative,
   dday,
   maskName,
@@ -84,15 +85,16 @@ export {
 } from "./format";
 export { useAsync, type AsyncState } from "./useAsync";
 
-export { NewsRoom, RoomMedia } from "./NewsRoom";
+export { NewsRoom, RoomMedia, RoomShelf } from "./NewsRoom";
 
 export { ChatThread } from "./ChatThread";
-export { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
+export { PrivatePhoto, PrivatePhotos, PhotoViewer, ViewablePhoto } from "./PrivatePhotos";
 
 export {
   ProfileAvatar,
   ConversationRow,
   ConversationHeader,
+  ChatTabs,
   messageTime,
 } from "./Messenger";
 export { SupportAvatar } from "./SupportAvatar";

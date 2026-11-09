@@ -34,7 +34,7 @@ test("AC-34-2 AC-34-3: the farmclub room carries a producer inquiry to the opera
   await page.screenshot({ path: testInfo.outputPath("farmclub-room.png") });
 
   const question = `정산은 언제 들어오나요? ${Date.now()}`;
-  const composer = page.getByPlaceholder("메시지를 입력하세요");
+  const composer = page.getByPlaceholder("메시지 입력");
   await composer.fill(question);
   await page.getByRole("button", { name: "전송" }).click();
   // 입력창(textarea)도 같은 글자를 가져 getByText에 바로 걸린다(DEV-192와 같은 원인). 전송이 끝나

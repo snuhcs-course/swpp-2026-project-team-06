@@ -82,7 +82,7 @@ export async function openPrivateListChat(page: Page) {
 }
 
 export async function attachChatPhoto(page: Page) {
-  await page.getByRole("button", { name: "＋", exact: true }).click();
+  await page.getByRole("button", { name: "사진 첨부", exact: true }).click();
   const uploaded = page.waitForResponse(r => r.request().method() === "POST" &&
     new URL(r.url()).pathname === "/api/messaging/attachments");
   const image = chatFixture<{ base64: string }>("image");

@@ -9,19 +9,21 @@ import {
   ConversationHeader,
   EmptyState,
   HeaderBar,
-  FollowButton,
+  Icon,
   NewsRoom,
-  ProductShelf,
+  RoomShelf,
   Screen,
   T,
+  focusRing,
   useAsync,
   tokens,
 } from "@farmclub/ui";
+import { Pressable } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession, useHideTabBar } from "./session";
 import { useToast } from "./toast";
-import { LoadError, isStatus } from "./views";
+import { LoadError, copyText, isStatus } from "./views";
 import { goBackOr } from "./nav";
 
 /** Canonical farm URLs and the existing news URL share one room, not a redirect loop. */
@@ -126,20 +128,19 @@ export default function FarmRoom() {
   return (
     <Screen>
       <ConversationHeader
-        height={96}
         name={farm.data?.name ?? "소식방"}
         photo={farm.data?.photo}
-        subtitle="소식방"
+        // 부제 '소식방' → '팔로워 N명'(DEV-295, Figma 7:78). 불러오기 전에는 비운다(M-11)
+        subtitle={farm.data ? `팔로워 ${farm.data.followerCount}명` : undefined}
         onBack={() =>
           goBackOr(router, "/")
         }
         onProfile={() => router.push(`/farms/${farmId}/info`)}
         right={
-          <FollowButton
+          <FollowChip
             following={!!farm.data?.isFollowing}
             quiet={lapsed && !farm.data?.isFollowing}
             loading={busy || !farm.data}
-            style={{ flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: 104, paddingHorizontal: 8 }}
             onPress={() =>
               requireLogin(
                 "follow",
@@ -158,7 +159,8 @@ export default function FarmRoom() {
           {error}
         </T>
       ) : null}
-      <ProductShelf
+      {/* 판매 품목은 한 줄로 접힌 채 시작한다(DEV-295, Figma 7:78 · PM 승인) */}
+      <RoomShelf
         key={farmId}
         products={products.data ?? farm.data?.products ?? []}
         onProduct={(id) => router.push(`/products/${id}`)}
@@ -177,6 +179,7 @@ export default function FarmRoom() {
           }
           onRefollow={join}
           onLapsedChange={setLapsed}
+          copy={copyText}
           onLogin={() =>
             router.push({ pathname: "/login", params: { next: here } })
           }
@@ -191,6 +194,62 @@ export default function FarmRoom() {
       ) : null}
       {toast.node}
     </Screen>
+  );
+}
+
+/**
+ * 머리의 작은 팔로우 칩(DEV-295, Figma 7:78: 높이 32 + 터치 48). 접근성 이름·끊기 동작은 FollowButton(D-01)과 같다.
+ * 팔로잉은 면색 + 체크, 팔로우 전은 강조색, 팔로우를 끊은 예전 팔로워는 검정 테두리(DEV-230).
+ */
+function FollowChip({
+  following,
+  quiet,
+  loading,
+  onPress,
+}: {
+  following: boolean;
+  quiet: boolean;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      aria-pressed={following}
+      aria-busy={loading}
+      accessibilityLabel={following ? "팔로잉, 누르면 팔로우를 끊어요" : "팔로우"}
+      disabled={loading}
+      onPress={onPress}
+      hitSlop={8}
+      style={({ pressed, ...state }) => [
+        {
+          height: 32,
+          paddingHorizontal: 12,
+          marginRight: 8,
+          borderRadius: tokens.radius.full,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 4,
+          flexShrink: 0,
+          opacity: pressed ? 0.7 : 1,
+        },
+        following
+          ? { backgroundColor: tokens.color.surface }
+          : quiet
+            ? { borderWidth: 1, borderColor: tokens.color.text }
+            : { backgroundColor: tokens.color.accent },
+        (state as { focused?: boolean }).focused && focusRing,
+      ]}
+    >
+      {following ? <Icon name="check" size={16} color={tokens.color.text} /> : null}
+      <T
+        variant="caption"
+        weight="semibold"
+        color={following || quiet ? tokens.color.text : tokens.color.onAccent}
+      >
+        {following ? "팔로잉" : "팔로우"}
+      </T>
+    </Pressable>
   );
 }
 

@@ -55,3 +55,26 @@ test("DEV-223 ChatThread uses daySeparator instead of the UTC slice", () => {
   );
   assert.doesNotMatch(src, /createdAt\.slice\(0, 10\)/);
 });
+
+// DEV-295 (Figma 1:38): 날짜 알약 글자는 '10월 7일 화요일'. 묶는 기준(한국 날짜)은 DEV-223 그대로다.
+import { chatDay } from "../packages/ui/src/format.ts";
+
+test("DEV-295 chatDay labels the KST date with the weekday, no year in the current year", () => {
+  const now = "2026-11-09T03:00:00Z";
+  // 10/6 23:30 UTC = 10/7 08:30 KST(수요일)
+  assert.equal(chatDay("2026-10-06T23:30:00Z", now), "10월 7일 수요일");
+  assert.equal(chatDay("2026-10-06T13:00:00Z", now), "10월 6일 화요일");
+  assert.equal(chatDay("2026-10-07T15:10:00Z", now), "10월 8일 목요일");
+});
+
+test("DEV-295 chatDay keeps the year for other years, judged in KST", () => {
+  assert.equal(chatDay("2025-12-30T03:00:00Z", "2026-01-02T03:00:00Z"), "2025년 12월 30일 화요일");
+  // 2026-12-31 15:00 UTC is already 2027-01-01 in KST
+  assert.equal(chatDay("2026-12-31T15:00:00Z", "2027-01-01T03:00:00Z"), "1월 1일 금요일");
+});
+
+test("DEV-295 NewsRoom groups days by KST date too", () => {
+  const src = readFileSync(new URL("../packages/ui/src/NewsRoom.tsx", import.meta.url), "utf8");
+  assert.match(src, /seoulDay\(messages\[i - 1\]\.createdAt\) !== seoulDay\(m\.createdAt\)/);
+  assert.doesNotMatch(src, /toLocaleDateString/);
+});

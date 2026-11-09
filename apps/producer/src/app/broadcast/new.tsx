@@ -104,7 +104,7 @@ export default function NewBroadcast() {
     <Screen>
       <HeaderBar title="소식 올리기" close onBack={close} />
       <Scroll bottom={170}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 20 }}>
           <TextInput
             accessibilityLabel="소식 내용"
             value={body}
@@ -114,7 +114,7 @@ export default function NewBroadcast() {
             placeholder="밭 소식이나 수확 이야기를 적어 주세요"
             placeholderTextColor={tokens.color.textMuted}
             style={{
-              height: 160,
+              height: 120,
               borderWidth: 1,
               borderColor: tokens.color.border,
               borderRadius: tokens.radius.md,
@@ -129,7 +129,7 @@ export default function NewBroadcast() {
         </View>
         <View
           style={{
-            paddingHorizontal: 20,
+            paddingHorizontal: tokens.space.gutter,
             paddingTop: 16,
             flexDirection: "row",
             flexWrap: "wrap",
@@ -221,7 +221,7 @@ export default function NewBroadcast() {
         {reasons.length ? (
           <View
             accessibilityRole="alert"
-            style={{ marginHorizontal: 20, marginTop: 16, gap: 12 }}
+            style={{ marginHorizontal: tokens.space.gutter, marginTop: 16, gap: 12 }}
           >
             <T variant="sub" weight="semibold">
               글은 그대로 있어요.{" "}
@@ -250,7 +250,7 @@ export default function NewBroadcast() {
             />
           </View>
         ) : null}
-        <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 32, gap: 12 }}>
           <T variant="sub" weight="semibold">
             누가 보나요
           </T>
@@ -268,7 +268,7 @@ export default function NewBroadcast() {
               : "팔로워만 채팅의 소식방에서 볼 수 있어요."}
           </T>
         </View>
-        <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 32, gap: 12 }}>
           <T variant="sub" muted weight="semibold">
             소비자 앱에서 이렇게 보여요
           </T>
@@ -308,7 +308,7 @@ export default function NewBroadcast() {
           <Notice
             title={failed}
             tone="error"
-            style={{ marginHorizontal: 20, marginTop: 16 }}
+            style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
           />
         ) : null}
       </Scroll>

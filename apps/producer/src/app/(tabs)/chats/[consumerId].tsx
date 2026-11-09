@@ -19,7 +19,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { GlobalAiButton, HumanReplyStatus } from "../../../lib/GlobalAiButton";
 import { View } from "react-native";
-import { ORDER_STATUS, errMsg } from "../../../lib/views";
+import { ORDER_STATUS, copyText, errMsg } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
 export default function Chat() {
   useHideTabBar();
@@ -92,6 +92,12 @@ export default function Chat() {
         read={(id) => messaging.producerRead(consumerId, id)}
         loadPhoto={privateImage}
         upload={(f) => uploadAttachment(f, { threadId: page?.thread.threadId })}
+        // 상대 이름은 서버가 준 가림 이름(DEV-232). 사진은 없어 첫 글자 아바타(DEV-295)
+        peer={support
+          ? { name: "farmclub", avatar: <SupportAvatar size={36} /> }
+          : consumerName ? { name: consumerName } : undefined}
+        peerReadMessageId={support ? undefined : page?.thread.consumerLastReadMessageId}
+        copy={copyText}
         // 보낸 뒤 다시 불러오기는 ChatThread가 한다. 여기서 기다리면 재조회 실패가 전송 실패('다시 보내기')로 보인다(DEV-291)
         send={(text, ids, key, replyToMessageId) =>
           messaging.producerSend(

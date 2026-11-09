@@ -146,3 +146,13 @@ DEV-289 사용자 후속: 답장은 말풍선 옆 20px 인용 답장 아이콘(4
 DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, 메시지 답장·수정은 우클릭/길게 누르기 메뉴로만 제공. 본인 메시지 텍스트 수정, 하단 이탤릭 수정됨. Modal 키보드·외부 클릭은 web.ts 플랫폼 도우미로 처리한다.
 
 소식방 생산자 메뉴 답장은 익명 인용 방송 composer를 열고, 1:1 채팅은 별도 private route를 연다. 인용 대상+본문이 같은 실패 재시도는 같은 idempotency key를 쓴다. 전송 확인에서 인용과 전체 팔로워 범위를 함께 보여주며 취소 시 발송하지 않는다.
+
+## DEV-295 버블 채팅 구현 결정
+
+화면 기준은 `docs/spec/conversation-ui-1.6.md` ‘버블 채팅 모양’. 숫자는 토큰을 쓰고, 새 고정값은 Figma의 아바타 36·입력줄 40뿐이다.
+- 채팅 목록 탭은 `Messenger.tsx`의 `ChatTabs`(밑줄 탭 + 건수, 접근성 이름은 탭 이름만). `Storefront.tsx`의 `ChatChoices`·`ProductShelf`는 다른 화면이 쓸 수 있어 지우지 않고, 채팅·소식방은 `ChatTabs`·`NewsRoom.tsx`의 `RoomShelf`(한 줄 접힘, local state)를 쓴다.
+- 묶음 계산은 순수 함수 `chatGroups.ts`(같은 보낸 사람·한국 날짜·분). `ChatBubble`은 `first`/`last`/`avatar`/`side`/`footer`로 아바타·이름·시각·읽음·하트·확인 요청을 그린다.
+- 1:1 행은 위 간격(4/16)을 자기 높이에 담고 `chatRowGeometry(..., gap = 0)`로 보기 상태 복원 계산을 맞춘다. 시스템 문구도 첫 행 안에 둔다.
+- `composer.tsx`: 1:1·소식방 공용 입력줄(40/40/40, 터치 48), 떠 있는 알약, 도구 칩, `copyToClipboard`(앱이 넘긴 expo-clipboard 도우미 우선, 없으면 웹 클립보드). ui 패키지에 의존성을 더하지 않는다.
+- 사진 전체 화면은 `ViewablePhoto`/`PhotoViewer`(RN Modal). 누르는 칸을 사진 위 형제로 겹쳐 사진의 img 역할을 보조기술에 남긴다.
+- `KeyboardRoot`·`useKeyboardShown`은 iOS·Android 공통(iOS는 will 이벤트). 웹은 그대로.

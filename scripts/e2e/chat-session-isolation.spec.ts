@@ -137,6 +137,10 @@ for (const resource of ["older restore", "private photo"] as const) {
       async ({ page, request }) => {
         test.setTimeout(120_000);
         const { state, anchor } = await setup(page, request, resource === "older restore" ? 120 : 26);
+        // DEV-295: grouped bubbles are shorter, so the latest edge of 26 messages can land the anchor near -10 by chance.
+        // Save the photo variant well away from the latest edge so "not restored" stays a real check.
+        const saved = resource === "private photo" ? 120 : -10;
+        if (resource === "private photo") await position(page, anchor.id, saved);
         await openList(page);
         const photo = resource === "private photo"
           ? chatFixture<{ attachmentId: string }>("photo", { messageId: state.messages[8].id }) : null;
@@ -167,7 +171,7 @@ for (const resource of ["older restore", "private photo"] as const) {
           await expect(row(page, anchor.id)).toHaveCount(0);
           expect((await messageIds(page)).length).toBe(HEAD_PAGE_SIZE);
         } else {
-          expect(Math.abs(await relativeOffset(page, anchor.id) + 10)).toBeGreaterThan(8);
+          expect(Math.abs(await relativeOffset(page, anchor.id) - saved)).toBeGreaterThan(8);
         }
         const persistent = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
         expect(persistent).not.toContain(anchor.body);

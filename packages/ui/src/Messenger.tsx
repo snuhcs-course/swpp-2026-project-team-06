@@ -3,8 +3,10 @@ import { Image, Pressable, View } from "react-native";
 import { useState } from "react";
 import { T } from "./Text";
 import { Badge, IconButton } from "./bars";
+import { Icon } from "./Icon";
 import { tokens } from "./tokens";
 import { focusRing } from "./web";
+import { relative, seoulDay } from "./format";
 
 export function ProfileAvatar({
   uri,
@@ -44,14 +46,11 @@ export function ProfileAvatar({
     </View>
   );
 }
-export function messageTime(value?: string | null) {
+/** 목록 시각: 오늘이면 "오전 8:30", 어제면 "어제", 그 밖에는 "10월 2일"(한국 날짜, DEV-223·DEV-295) */
+export function messageTime(value?: string | null, now: Date = new Date()) {
   if (!value) return "";
-  const date = new Date(value),
-    now = new Date();
-  if (!Number.isFinite(date.getTime())) return "";
-  return date.toDateString() === now.toDateString()
-    ? date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })
-    : date.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" });
+  if (!Number.isFinite(new Date(value).getTime())) return "";
+  return relative(value, seoulDay(now.toISOString()));
 }
 export function ConversationRow({
   name,
@@ -63,11 +62,14 @@ export function ConversationRow({
   onPress,
   testID,
   avatar,
+  media,
 }: {
   name: string;
   photo?: string | null;
   /** 사진 대신 보일 그림(예: farmclub 문의 대화방의 로고, DEV-111) */
   avatar?: ReactNode;
+  /** 마지막 메시지가 사진·영상이면 미리보기 앞 사진 표시 글자(예: '사진'). DEV-295 */
+  media?: string;
   preview: string;
   at?: string | null;
   unread?: number;
@@ -78,7 +80,7 @@ export function ConversationRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${preview}${unread ? `, 안 읽음 ${unread}` : ""}`}
+      accessibilityLabel={`${name}, ${[media, preview].filter(Boolean).join(" ")}${unread ? `, 안 읽음 ${unread}` : ""}`}
       onPress={onPress}
       testID={testID}
       style={({ pressed, ...state }) => [
@@ -86,15 +88,16 @@ export function ConversationRow({
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
-          paddingVertical: 20,
-          paddingHorizontal: 20,
+          minHeight: 72,
+          paddingVertical: 12,
+          paddingHorizontal: tokens.space.gutter,
           backgroundColor: pressed ? tokens.color.surface : "transparent",
         },
         (state as { focused?: boolean }).focused && focusRing,
       ]}
     >
       {avatar ?? <ProfileAvatar uri={photo} name={name} />}
-      <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <T
             weight={unread ? "bold" : "semibold"}
@@ -108,9 +111,17 @@ export function ConversationRow({
           </T>
         </View>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          {media ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 2, flexShrink: 0 }}>
+              <Icon name="photo" size={16} color={tokens.color.textMuted} />
+              <T variant="sub" muted>
+                {media}
+              </T>
+            </View>
+          ) : null}
           <T
             variant="sub"
-            muted
+            muted={!unread}
             numberOfLines={1}
             style={{ flex: 1, minWidth: 0 }}
           >
@@ -134,13 +145,14 @@ export function ConversationHeader({
   onBack,
   onProfile,
   right,
-  height = 76,
+  height = tokens.height.header,
   avatar,
 }: {
   name: string;
   photo?: string | null;
   avatar?: ReactNode;
-  subtitle: string;
+  /** 이름 아래 한 줄(예: '팔로워 128명'). 없으면 이름만 */
+  subtitle?: string;
   onBack: () => void;
   onProfile?: () => void;
   right?: ReactNode;
@@ -149,13 +161,15 @@ export function ConversationHeader({
   const profile = (
     <>
       {avatar ?? <ProfileAvatar name={name} uri={photo} size={40} />}
-      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <T weight="semibold" numberOfLines={1}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <T weight="bold" numberOfLines={1}>
           {name}
         </T>
-        <T variant="caption" muted>
-          {subtitle}
-        </T>
+        {subtitle ? (
+          <T variant="caption" muted numberOfLines={1}>
+            {subtitle}
+          </T>
+        ) : null}
       </View>
     </>
   );
@@ -189,7 +203,7 @@ export function ConversationHeader({
             minHeight: 48,
             flexDirection: "row",
             alignItems: "center",
-            gap: 12,
+            gap: 10,
           }}
         >
           {profile}
@@ -208,6 +222,71 @@ export function ConversationHeader({
         </View>
       )}
       {right}
+    </View>
+  );
+}
+
+/**
+ * 채팅 목록 머리의 밑줄 탭(DEV-295, Figma 7:75·7:90). 큰 알약 버튼 대신 왼쪽 정렬 글자 탭 + 건수.
+ * 건수가 없거나 0이면 숫자를 그리지 않는다. 접근성 이름은 탭 이름만(건수는 각 행이 읽는다).
+ */
+export function ChatTabs<K extends string>({
+  value,
+  onChange,
+  tabs,
+}: {
+  value: K;
+  onChange: (value: K) => void;
+  tabs: { key: K; label: string; count?: number; testID?: string }[];
+}) {
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={{
+        flexDirection: "row",
+        gap: tokens.space.lg,
+        paddingHorizontal: tokens.space.gutter,
+        borderBottomWidth: 1,
+        borderBottomColor: tokens.color.border,
+      }}
+    >
+      {tabs.map((tab) => {
+        const selected = tab.key === value;
+        return (
+          <Pressable
+            key={tab.key}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            aria-selected={selected}
+            onPress={() => onChange(tab.key)}
+            testID={tab.testID}
+            style={({ ...state }) => [
+              {
+                height: tokens.touchTarget.min,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                borderBottomWidth: 2,
+                borderBottomColor: selected ? tokens.color.text : "transparent",
+                marginBottom: -1,
+              },
+              (state as { focused?: boolean }).focused && focusRing,
+            ]}
+          >
+            <T weight={selected ? "bold" : "regular"} muted={!selected} numberOfLines={1}>
+              {tab.label}
+            </T>
+            {tab.count ? (
+              <T
+                weight="bold"
+                color={selected ? tokens.color.accent : tokens.color.textMuted}
+              >
+                {tab.count > 99 ? "99+" : tab.count}
+              </T>
+            ) : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

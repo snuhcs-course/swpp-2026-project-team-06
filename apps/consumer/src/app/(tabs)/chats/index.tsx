@@ -4,7 +4,7 @@ import {
   ConversationRow,
   EmptyState,
   BrandHeader,
-  ChatChoices,
+  ChatTabs,
   Screen,
   Scroll,
   Skeleton,
@@ -52,11 +52,14 @@ export default function Chats() {
     authorized ? `${user!.userId}:${chatViewScope!.generation}` : "",
     active && authorized && tab === "news",
   );
+  // 1:1 탭 안 읽음 수를 소식방 탭에서도 보이려고 1:1 목록은 늘 읽는다. 소식방 탭에서는 10초마다만(DEV-295)
   const chats = useLiveList(
     loadChats,
     authorized ? `${user!.userId}:${chatViewScope!.generation}` : "",
-    active && authorized && tab === "private",
+    active && authorized,
+    tab === "private" ? 2000 : 10000,
   );
+  const unread = chats.data?.reduce((n, c) => n + c.unreadCount, 0) ?? 0;
   if (ready && !user)
     return (
       <Redirect
@@ -66,9 +69,14 @@ export default function Chats() {
   return (
     <Screen>
       <BrandHeader logo="icon" title="채팅" />
-      <ChatChoices
+      {/* 밑줄 탭 + 건수(DEV-295, Figma 7:75). 소식방 안 읽음 수는 API에 없어 숫자를 두지 않는다(DEV-297) */}
+      <ChatTabs
         value={tab}
         onChange={(value) => router.setParams({ view: value })}
+        tabs={[
+          { key: "news", label: "소식방", testID: "chat-choice-news" },
+          { key: "private", label: "1:1 채팅", count: unread, testID: "chat-choice-private" },
+        ]}
       />
       {authorized && (["news", "private"] as const).map((kind) => {
         const list = kind === "news" ? rooms : chats;
@@ -106,7 +114,9 @@ export default function Chats() {
                       key={room.farmId}
                       name={room.farmName}
                       photo={room.farmPhoto}
-                      preview={room.lastMessage ?? "아직 소식이 없어요"}
+                      // 사진·영상만 있는 소식은 서버가 '사진·영상 소식'으로 준다 → 사진 표시로 바꾼다(DEV-295)
+                      media={room.lastMessage === "사진·영상 소식" ? "사진·영상" : undefined}
+                      preview={room.lastMessage === "사진·영상 소식" ? "" : room.lastMessage ?? "아직 소식이 없어요"}
                       at={room.lastAt}
                       onPress={() =>
                         router.push(`/news/${room.farmId}?from=chats`)
@@ -125,7 +135,9 @@ export default function Chats() {
                       }
                       name={chat.farmName}
                       photo={chat.farmPhoto}
-                      preview={`${chat.lastSenderType === "CONSUMER" ? "나: " : ""}${chat.lastMessage}`}
+                      // 사진만 보낸 메시지는 본문이 비어 있다 → 사진 표시(DEV-295)
+                      media={chat.lastMessage ? undefined : `${chat.lastSenderType === "CONSUMER" ? "나: " : ""}사진`}
+                      preview={chat.lastMessage ? `${chat.lastSenderType === "CONSUMER" ? "나: " : ""}${chat.lastMessage}` : ""}
                       at={chat.lastAt}
                       unread={chat.unreadCount}
                       onPress={() =>

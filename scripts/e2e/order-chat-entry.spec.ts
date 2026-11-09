@@ -191,7 +191,7 @@ test("AC-33-4 DEV-248: first order photo-only message binds to the selected orde
     await page.goto(`${consumerUrl}/orders/${order.orderId}`);
     await page.getByRole("button", { name: /^농가에 물어보기(?: ›)?$/ }).click();
     await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeEditable();
-    await page.getByRole("button", { name: "＋", exact: true }).click();
+    await page.getByRole("button", { name: "사진 첨부", exact: true }).click();
     await page.locator('input[type="file"]').setInputFiles({
       name: "dev248.png", mimeType: "image/png",
       buffer: Buffer.from(fixture("image").base64, "base64"),
@@ -221,7 +221,7 @@ test("AC-33-2 DEV-248: multiple order selection retains text and clears prior-or
     }
     const composer = page.getByRole("textbox", { name: "메시지", exact: true });
     await composer.fill("DEV248 changed order draft");
-    await page.getByRole("button", { name: "＋", exact: true }).click();
+    await page.getByRole("button", { name: "사진 첨부", exact: true }).click();
     await page.locator('input[type="file"]').setInputFiles({
       name: "dev248.png", mimeType: "image/png",
       buffer: Buffer.from(fixture("image").base64, "base64"),
