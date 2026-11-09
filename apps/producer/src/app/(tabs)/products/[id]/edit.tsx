@@ -45,11 +45,11 @@ import { useHideTabBar, useSession } from "../../../../lib/session";
 import {
   FieldButton,
   LoadError,
-  TODAY,
   errMsg,
   fieldErrors,
 } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
+import { seoulToday } from "../../../../lib/HarvestStart";
 import { OriginFieldHint } from "../../../../lib/OriginFieldHint";
 
 const STATUS: Record<ProductStatus, string> = {
@@ -334,7 +334,7 @@ export default function EditProduct() {
     null,
   );
   const deliveryMin = [
-    addDays(TODAY, 1),
+    addDays(seoulToday(), 1),
     lastStageEnd ? addDays(lastStageEnd.slice(0, 10), 1) : "",
   ]
     .sort()
@@ -741,7 +741,7 @@ export default function EditProduct() {
         min={
           form.deliveryWindow?.end
             ? addDays(form.deliveryWindow.end, 1)
-            : addDays(TODAY, 1)
+            : addDays(seoulToday(), 1)
         }
         onClose={() => setSheet(null)}
         onSave={(d) => {
