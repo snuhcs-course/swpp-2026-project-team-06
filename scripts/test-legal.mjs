@@ -160,8 +160,11 @@ test("DEV-122: PostHog transfer lists every item of Article 28-8(2) and the basi
   assert.ok(row.includes("<td>미국</td>"));
   for (const item of ["접속 IP 주소", "세션 녹화", "*로 가려", "서비스 내부 회원 ID", "이름·연락처·주소·메시지 본문은 보내지 않음"]) assert.ok(row.includes(item), item);
   assert.ok(row.includes("공식 주소(farmclub.kr, farm.farmclub.kr)의 웹 화면에서만"));
-  assert.match(row, /1년/);
+  // DEV-299: 보관 기간은 PostHog 실제 설정(이벤트 최대 7년, 녹화 30일). 무료 요금제 1년이 아니다
+  assert.ok(row.includes("PostHog의 보관 기준에 따라 이용 기록은 수집한 날부터 최대 7년"));
   assert.match(row, /30일/);
+  assert.doesNotMatch(row, /1년/);
+  assert.doesNotMatch(row, /무료 요금제/);
   assert.doesNotMatch(row, /보관 설정 기간/);
   assert.ok(html.includes("이전 시기와 방법: 서비스를 이용할 때마다"));
   assert.match(html, /PostHog로의 이전\(이용 통계·세션 녹화\)은 서비스 안에 따로 끄는 설정이 아직 없습니다/);
