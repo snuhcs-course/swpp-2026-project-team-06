@@ -69,4 +69,4 @@
 - 소비자 답장은 `send_room`에서 그 순간 가장 최근 지우지 않은 방송을 `room_replies.broadcast_id`에 저장하고 바꾸지 않는다. 소비자 답장에는 인용이 없고 DEV-289 `reply_to`는 반대 방향 익명 스냅샷이라 명시 대상이 없다. 응답 `broadcastId`(답장은 null)로는 내보내지 않는다.
 - 안 읽음은 `room_replies.producer_read_at`이 없는 답장(시트에서 확인 전). 시트 읽음 처리·생산자 인용이 채운다. 0031은 기존 답장을 그때 지우지 않았던 가장 최근 방송에 연결하고 읽음으로 채운다.
 - 인용 방송은 원문 답장 id를 `broadcasts.quoted_reply_id`(서버 전용)에 둔다. `room_replies.broadcast_id`와 FK 고리가 생기지 않게 FK 없이 둔다(`seed.clear`·삭제 순서).
-- 예약 고객은 orders service `paid_customer_ids`(결제 확인 + RESERVED~COMPLETED)로만 판단한다.
+- 예약 고객은 orders service `paid_customer_ids`(결제 확인 + RESERVED~COMPLETED)로 판단하고, 탈퇴한 회원(`deleted_at`)은 빼고 보인다.
