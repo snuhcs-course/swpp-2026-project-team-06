@@ -115,7 +115,10 @@ for (const producer of [false, true]) {
       await expect(page.getByRole("menuitem", { name: "1:1 채팅", exact: true })).toBeVisible();
     } else {
       // Consumers answer broadcasts using the existing room composer, not private-chat quote actions.
-      await expect(page.getByRole("menu", { name: "메시지 메뉴", exact: true })).toHaveCount(0);
+      // DEV-295: the menu now opens with Copy only (no reply, private chat or edit).
+      const menu = page.getByRole("menu", { name: "메시지 메뉴", exact: true });
+      await expect(menu.getByRole("menuitem")).toHaveText(["복사"]);
+      await expect(page.getByRole("menuitem", { name: /^(답장|1:1 채팅|수정)$/ })).toHaveCount(0);
     }
     await page.keyboard.press("Escape");
   });
