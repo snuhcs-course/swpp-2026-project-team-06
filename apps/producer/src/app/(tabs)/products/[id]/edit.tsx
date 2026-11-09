@@ -328,7 +328,7 @@ export default function EditProduct() {
       ? setSheet("leave")
       : goBackOr(router, "/products");
   const closed = p.status === "CLOSED";
-  // 받는 시기: 오늘 다음 날부터, 그리고 마지막 예약 기간가 끝난 다음 날부터(s-25-datesheet)
+  // 받는 시기: 오늘 다음 날부터, 그리고 마지막 예약 기간이 끝난 다음 날부터(s-25-datesheet)
   const lastStageEnd = p.stages.reduce<string | null>(
     (m, s) => (!m || s.endsAt > m ? s.endsAt : m),
     null,
@@ -726,7 +726,7 @@ export default function EditProduct() {
         start={form.deliveryWindow?.start ?? null}
         end={form.deliveryWindow?.end ?? null}
         min={deliveryMin}
-        note="지난 날짜와 오늘은 고를 수 없어요. 받는 시기는 마지막 예약 기간가 끝난 다음 날부터예요."
+        note="지난 날짜와 오늘은 고를 수 없어요. 받는 시기는 마지막 예약 기간이 끝난 다음 날부터예요."
         onClose={() => setSheet(null)}
         onSave={(start, end) => {
           set("deliveryWindow", { start, end });
