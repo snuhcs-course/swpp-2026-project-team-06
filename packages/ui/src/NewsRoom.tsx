@@ -24,7 +24,7 @@ import { Sheet } from "./bars";
 import { tokens } from "./tokens";
 import { safe } from "./web";
 import { inBackground } from "./foreground";
-import { time } from "./format";
+import { daySeparator, time } from "./format";
 
 const quotePreview = (body: string) => body.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
@@ -482,17 +482,10 @@ export function NewsRoom({
         ) : null}
         {messages.map((m, i) => (
           <View key={m.messageId} style={{ gap: 8 }}>
-            {i === 0 ||
-            new Date(m.createdAt).toLocaleDateString("ko-KR") !==
-              new Date(messages[i - 1].createdAt).toLocaleDateString(
-                "ko-KR",
-              ) ? (
+            {/* 날짜 구분은 기기 시간대가 아니라 한국 날짜로 묶는다(ChatThread와 같음, DEV-223·DEV-291) */}
+            {daySeparator(m.createdAt, messages[i - 1]?.createdAt) ? (
               <T variant="caption" muted center style={{ marginVertical: 12 }}>
-                {new Date(m.createdAt).toLocaleDateString("ko-KR", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {daySeparator(m.createdAt, messages[i - 1]?.createdAt)}
               </T>
             ) : null}
             <Pressable
