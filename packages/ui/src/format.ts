@@ -42,6 +42,13 @@ export function daySeparator(iso: string, prev?: string) {
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
+/** 채팅 날짜 알약 "10월 7일 화요일"(한국 날짜). 올해가 아니면 "2025년 10월 7일 화요일"(DEV-295, Figma 1:38) */
+export function chatDay(iso: string, now: string = new Date().toISOString()) {
+  const d = toSeoul(iso);
+  const label = `${d.month}월 ${d.day}일 ${WEEK[d.weekday]}요일`;
+  return d.year === toSeoul(now).year ? label : `${d.year}년 ${label}`;
+}
+
 /** "10월 7일 (화)" */
 export function mdw(iso: string) {
   const d = toSeoul(iso);

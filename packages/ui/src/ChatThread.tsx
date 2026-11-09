@@ -2,15 +2,18 @@ import { MessageEditSheet } from "./MessageEditSheet";
 import { MessageMenu, type MenuPoint } from "./MessageMenu";
 import { mergeChatMessages } from "./chatOrder";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { Icon } from "./Icon";
 import { Button } from "./Button";
-import { ChatBubble } from "./ChatBubble";
+import { BUBBLE_AVATAR, ChatBubble, DayPill, SystemLine } from "./ChatBubble";
 import { T } from "./Text";
 import { PrivatePhoto, PrivatePhotos } from "./PrivatePhotos";
 import type { PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
-import { daySeparator, time } from "./format";
+import { chatDay, daySeparator, seoulDay, time } from "./format";
+import { chatGroups } from "./chatGroups";
+import { ProfileAvatar } from "./Messenger";
+import { Composer, copyToClipboard, FloatingPill } from "./composer";
 import { inBackground } from "./foreground";
 import { useKeyboardShown } from "./keyboard";
 import { safe } from "./web";
@@ -64,10 +67,18 @@ type Props = {
   loadPhoto: (id: string) => Promise<string>;
   /** 웹은 File, 앱은 사진 보관함에서 고른 {uri, name, type}(DEV-33). 없으면 사진 첨부(＋)를 숨긴다(예: 소비자 farmclub 문의 대화방, DEV-150) */
   upload?: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
-  /** 입력칸 안내 문구. 기본은 '메시지를 입력하세요'(생산자 farmclub 방은 '운영팀에 문의 남기기', DEV-209) */
+  /** 입력칸 안내 문구. 기본은 '메시지 입력'(Figma 1:38)(생산자 farmclub 방은 '운영팀에 문의 남기기', DEV-209) */
   placeholder?: string;
   /** 소비자 화면: 농가 답을 기다리는 마지막 질문 아래 상태 줄 문구(DEV-208). 없으면 그리지 않는다 */
   forwardStatus?: string;
+  /** 상대(소비자 화면은 농가, 생산자 화면은 소비자·farmclub). 주면 상대 말풍선에 아바타와 실제 이름을 붙인다(DEV-295) */
+  peer?: { name: string; photo?: string | null; avatar?: ReactNode };
+  /** 대화 맨 위 가운데 시스템 문구 한 줄(예: 'AI 안내가 꺼져 있어요 · 농가가 직접 답해요', DEV-295) */
+  systemLine?: string;
+  /** 상대가 마지막으로 읽은 메시지(thread.producerLastReadMessageId 등). 내 마지막 읽힌 말풍선 옆에 '읽음' */
+  peerReadMessageId?: string | null;
+  /** 길게 누르기 메뉴의 '복사'. 앱은 expo-clipboard 도우미를 넘긴다. 없으면 웹 클립보드만 */
+  copy?: (text: string) => Promise<unknown>;
   children?: ReactNode;
 };
 export function ChatThread({
@@ -88,8 +99,12 @@ export function ChatThread({
   makeKey,
   loadPhoto,
   upload,
-  placeholder = "메시지를 입력하세요",
+  placeholder = "메시지 입력",
   forwardStatus,
+  peer,
+  systemLine,
+  peerReadMessageId,
+  copy,
   children,
 }: Props) {
   const saved = useRef((() => {
@@ -149,6 +164,12 @@ export function ChatThread({
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   useEffect(() => { if (!active) { setMenuMessage(null); setEditTarget(null); } }, [active]);
   const [reporting, setReporting] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
   // 앱: 입력창 아래에 하단 내비 바(안전 영역)만큼 더 띄운다. 키보드가 뜨면 키보드가 내비 바를 덮으므로 뺀다.
   // 웹은 지금 여백(20) 그대로(DEV-205)
   const keyboardShown = useKeyboardShown(),
@@ -195,8 +216,9 @@ export function ChatThread({
     setMessages(items);
   }
   function geometry() {
+    // 행마다 위 간격을 자기 높이에 담는다(묶음 4 · 묶음 사이 16, DEV-295)
     return chatRowGeometry(messageRef.current.map(m => m.messageId), rowHeights.current,
-      olderHeight.current, cursorRef.current !== null);
+      olderHeight.current, cursorRef.current !== null, 0);
   }
   function capture() {
     const v = viewStateRef.current;
@@ -483,10 +505,28 @@ export function ChatThread({
   }
   // 마지막 농가 답 이후 needsHuman인 내 질문 중 마지막 것 하나에만 상태 줄을 붙인다(DEV-208)
   const waiting = producer || !forwardStatus ? -1 : waitingIndex(messages);
-  // 날짜 구분은 한국 날짜로 묶는다(UTC 날짜로 묶으면 오전 9시 전 메시지가 전날로 간다, DEV-223)
+  const mineType = producer ? "PRODUCER" : "CONSUMER";
+  // 날짜 구분은 한국 날짜로 묶는다(UTC 날짜로 묶으면 오전 9시 전 메시지가 전날로 간다, DEV-223). 글자는 '10월 7일 화요일' 알약(DEV-295)
   const days = messages.map((m, i) =>
-    daySeparator(m.createdAt, messages[i - 1]?.createdAt),
+    daySeparator(m.createdAt, messages[i - 1]?.createdAt) ? chatDay(m.createdAt) : null,
   );
+  const showReport = (m: Message) =>
+    !producer && m.senderType === "AI" && m.handoffStatus !== "FORWARDED" && !!report;
+  // 같은 사람·같은 날·같은 분이면 한 묶음(DEV-295). 상태 줄·보조 줄·확인 요청이 붙은 말풍선은 따로 둔다
+  const groups = chatGroups(messages.map((m, i) => ({
+    sender: m.senderType,
+    day: seoulDay(m.createdAt),
+    minute: time(m.createdAt),
+    solo: i === waiting || !!m.inquiryId || !!m.orderId || showReport(m) || !!m.reported,
+  })));
+  // 상대가 읽은 위치까지의 내 마지막 말풍선에만 '읽음'(서버의 상대 읽음 위치, DEV-295)
+  const readAt = peerReadMessageId ? messages.findIndex(m => m.messageId === peerReadMessageId) : -1;
+  let readMine = -1;
+  for (let i = readAt; i >= 0; i--) if (messages[i].senderType === mineType) { readMine = i; break; }
+  const peerAvatar = peer ? peer.avatar ?? <ProfileAvatar uri={peer.photo} name={peer.name} size={BUBBLE_AVATAR} /> : undefined;
+  // 답장 없는 방(문의 대화방)도 글이 있으면 복사 메뉴는 연다(DEV-295)
+  const hasMenu = (m: Message) => replies || !!m.body;
+  const menuFor = (m: Message) => { if (!hasMenu(m)) return; setMenuPoint(null); setMenuMessage(m); };
   return (
     // 메시지 본문·보낸 사람은 세션 녹화에서 가린다(N-05, DEV-71). react-native-web이 data-ph-private로 내보낸다
     <View
@@ -509,11 +549,12 @@ export function ChatThread({
           }} />
         </View>
       ) : null}
+      <View style={{ flex: 1, minHeight: 0 }}>
       <ScrollView
         ref={scroll}
         testID="chat-timeline"
         style={[{ flex: 1 }, Platform.OS === "web" && viewState ? { overflowAnchor: "none" } as object : null]}
-        contentContainerStyle={{ padding: 20, gap: 20 }}
+        contentContainerStyle={{ paddingVertical: 20, paddingHorizontal: tokens.space.gutter }}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         onLayout={e => {
@@ -585,58 +626,56 @@ export function ChatThread({
             <Button label="이전 대화 보기" variant="text" loading={older} onPress={previous} />
           </View>
         ) : null}
+        {systemLine && (!cursor && messages.length === 0) ? <SystemLine text={systemLine} testID="chat-system-line" /> : null}
         {!ready ? (
           <T muted>{error ? "대화를 불러오지 못했어요." : "대화 불러오는 중…"}</T>
         ) : messages.length === 0 ? (
-          <T muted>첫 이야기를 남겨 보세요.</T>
+          <T muted center style={{ marginTop: 16 }}>첫 이야기를 남겨 보세요.</T>
         ) : null}
-        {messages.map((m, i) => (
-          <View key={m.messageId} testID={`chat-message-${m.messageId}`} style={{ gap: 14 }}
+        {messages.map((m, i) => {
+          const mine = m.senderType === mineType;
+          const kind = mine ? "me" : m.senderType === "AI" ? "ai" : "farm";
+          const { first, last } = groups[i];
+          // 시스템 줄은 첫 행 안에 둬서 행 위치 계산(보기 상태 복원)이 그대로 맞는다
+          const top = i === 0 && !cursor && systemLine;
+          return (
+          <View key={m.messageId} testID={`chat-message-${m.messageId}`}
+            style={{ paddingTop: i === 0 ? 0 : days[i] || first ? 16 : 4, gap: 8 }}
             onLayout={e => {
               rowHeights.current.set(m.messageId, e.nativeEvent.layout.height);
               positionAnchor();
               capture();
             }}>
-            {days[i] ? (
-              <T variant="caption" muted center>
-                {days[i]}
-              </T>
-            ) : null}
-            <Pressable accessible={false} disabled={!replies || busy} delayLongPress={500}
-              onLongPress={() => { setMenuPoint(null); setMenuMessage(m); }}
-              {...(Platform.OS === "web" && replies ? {
+            {top ? <SystemLine text={systemLine} testID="chat-system-line" /> : null}
+            {days[i] ? <DayPill label={days[i]!} /> : null}
+            {/* 길게 누르기(앱 500ms)·우클릭(웹)·ContextMenu 키로 메뉴. 답장 없는 방도 복사는 열린다(DEV-295) */}
+            <Pressable accessible={false} disabled={busy} delayLongPress={500}
+              onLongPress={() => menuFor(m)}
+              {...(Platform.OS === "web" ? {
                 onContextMenu: (e: {preventDefault: () => void; clientX: number; clientY: number}) => {
+                  if (!hasMenu(m)) return;
                   e.preventDefault(); if (busy) return;
                   setMenuPoint({x: e.clientX, y: e.clientY}); setMenuMessage(m);
                 },
                 tabIndex: 0,
                 onKeyDown: (e: {key: string; shiftKey: boolean; preventDefault: () => void}) => {
-                  if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) { e.preventDefault(); setMenuPoint(null); setMenuMessage(m); }
+                  if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) { e.preventDefault(); menuFor(m); }
                 },
               } as object : {})}>
             <ChatBubble
-              kind={
-                m.senderType === (producer ? "PRODUCER" : "CONSUMER")
-                  ? "me"
-                  : m.senderType === "AI"
-                    ? "ai"
-                    : "farm"
-              }
+              kind={kind}
+              first={first || !!days[i]}
+              last={last}
               quote={m.replyTo ?? undefined}
+              quoteLabel={m.replyTo ? `${m.replyTo.senderType === mineType ? "나" : senderName(m.replyTo.senderType, peer?.name)}에게 답장` : undefined}
               edited={!!m.editedAt}
               text={m.body}
-              sender={
-                m.senderType === (producer ? "PRODUCER" : "CONSUMER")
-                  ? undefined
-                  : m.senderType === "PRODUCER"
-                    ? "농가"
-                    : m.senderType === "CONSUMER"
-                      ? "소비자"
-                      : m.senderType === "OPERATOR"
-                        ? "farmclub"
-                        : undefined
-              }
+              avatar={kind === "farm" ? peerAvatar : undefined}
+              sender={mine ? undefined : senderName(m.senderType, peer?.name)}
               time={time(m.createdAt)}
+              side={mine && i === readMine ? (
+                <T variant="caption" color={tokens.color.accent}>읽음</T>
+              ) : undefined}
               basis={m.handoffStatus === "FORWARDED" ? undefined : m.sourceSummary ?? undefined}
               status={i === waiting ? forwardStatus : undefined}
               note={
@@ -646,19 +685,14 @@ export function ChatThread({
                     ? "주문에 연결된 대화"
                     : undefined
               }
-            >
-              {m.attachmentIds?.map((id) => (
-                <PrivatePhoto key={id} id={id} load={loadPhoto} />
-              ))}
-              {!producer &&
-              m.senderType === "AI" &&
-              m.handoffStatus !== "FORWARDED" &&
-              report ? (
-                <Button
-                  label={m.reported ? "확인 요청됨" : "답변 확인 요청"}
-                  variant="outline"
+              footer={showReport(m) ? (
+                // 말풍선 아래 글자 버튼(DEV-295). 신고 흐름·문구는 그대로이고 깃발 모양은 DEV-296
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={m.reported ? "확인 요청됨" : "답변 확인 요청"}
+                  accessibilityState={{ disabled: Boolean(m.reported) || reporting === m.messageId }}
                   disabled={Boolean(m.reported) || reporting === m.messageId}
-                  loading={reporting === m.messageId}
+                  hitSlop={8}
                   onPress={async () => {
                     const run = epoch.current;
                     setReporting(m.messageId);
@@ -677,21 +711,40 @@ export function ChatThread({
                       if (current(run)) setReporting(null);
                     }
                   }}
-                />
+                  style={{ minHeight: 32, flexDirection: "row", alignItems: "center", gap: 2 }}
+                >
+                  {reporting === m.messageId ? <ActivityIndicator size="small" color={tokens.color.accent} /> : null}
+                  <T variant="caption" weight="semibold" color={m.reported ? tokens.color.textMuted : tokens.color.accent}>
+                    {m.reported ? "확인 요청됨" : "답변 확인 요청"}
+                  </T>
+                  {m.reported ? null : <Icon name="chevron" size={14} strokeWidth={2.5} color={tokens.color.accent} />}
+                </Pressable>
               ) : m.reported ? (
                 <T variant="caption" muted>
                   소비자가 신고한 답변
                 </T>
-              ) : null}
+              ) : undefined}
+            >
+              {m.attachmentIds?.map((id) => (
+                <PrivatePhoto key={id} id={id} load={loadPhoto} />
+              ))}
             </ChatBubble>
             </Pressable>
           </View>
-        ))}
-        {children}
+          );
+        })}
+        {children ? <View style={{ marginTop: 20 }}>{children}</View> : null}
       </ScrollView>
+      {unseen ? <FloatingPill label="새 메시지 보기 ↓" onPress={() => latest()} /> : null}
+      </View>
       <MessageMenu visible={!!menuMessage && !busy} point={menuPoint} onClose={() => setMenuMessage(null)}
-        actions={[{ label: "답장", onPress: () => { if (menuMessage) setReplyTo(menuMessage); } },
-          ...(edit && menuMessage?.senderType === (producer ? "PRODUCER" : "CONSUMER") ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
+        actions={[
+          ...(replies ? [{ label: "답장", onPress: () => { if (menuMessage) setReplyTo(menuMessage); } }] : []),
+          ...(menuMessage?.body ? [{ label: "복사", onPress: () => {
+            const body = menuMessage.body;
+            void copyToClipboard(body, copy).then(ok => { if (ok && alive.current) setCopied(true); });
+          } }] : []),
+          ...(edit && menuMessage?.senderType === mineType ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
       {editTarget && edit ? <MessageEditSheet key={editTarget.messageId} body={editTarget.body} limit={1000} makeKey={makeKey}
         onClose={() => setEditTarget(null)} onSave={async (text, key) => {
           const run = epoch.current;
@@ -700,83 +753,66 @@ export function ChatThread({
           commitMessages(mergeChatMessages(messageRef.current, [saved]));
           setEditTarget(null);
         }} /> : null}
-      {unseen ? (
-        <Button
-          label="새 메시지 보기 ↓"
-          variant="outline"
-          onPress={() => {
-            latest();
-          }}
-        />
-      ) : null}
       <View
         style={{
-          padding: 12,
+          paddingTop: tokens.space.sm,
+          paddingHorizontal: tokens.space.md,
           paddingBottom: composerBottom,
-          gap: 8,
-          backgroundColor: "white",
+          backgroundColor: tokens.color.background,
           borderTopWidth: 1,
           borderTopColor: tokens.color.border,
         }}
       >
-        {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
-          <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>선택한 메시지에 답장</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
-            style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
-        </View> : null}
-        {photos && upload ? (
-          <PrivatePhotos
-            key={sendScope}
-            ids={ids}
-            onChange={(next) => { if (alive.current && context.current === sendScope) setIds(next); }}
-            upload={(f) => {
-              if (context.current !== sendScope) return Promise.reject(new Error("대화가 바뀌었어요."));
-              return callbacks.current.upload!(f);
-            }}
-            load={loadPhoto}
-            disabled={busy || !ready || !composerEnabled}
-            onBusy={(next) => { if (alive.current && context.current === sendScope) setUploading(next); }}
-          />
-        ) : null}
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-          {upload ? (
-            <Button
-              label={photos ? "−" : "＋"}
-              variant="text"
-              onPress={() => setPhotos(!photos)}
-              disabled={busy || !ready || !composerEnabled}
-            />
-          ) : null}
-          <TextInput
-            accessibilityLabel="메시지"
-            placeholder={placeholder}
-            value={text}
-            onChangeText={setText}
-            editable={!busy && composerEnabled}
-            multiline
-            maxLength={1000}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              minHeight: 48,
-              maxHeight: 112,
-              padding: 12,
-              borderRadius: 20,
-              backgroundColor: tokens.color.surface,
-              fontSize: 16,
-              fontFamily: tokens.fontFamily,
-            }}
-          />
-          <Button
-            label="전송"
-            onPress={submit}
-            loading={busy}
-            disabled={!ready || !composerEnabled || uploading || (!text.trim() && !ids.length)}
-          />
-        </View>
+        <Composer
+          value={text}
+          onChangeText={setText}
+          placeholder={placeholder}
+          accessibilityLabel="메시지"
+          editable={!busy && composerEnabled}
+          maxLength={1000}
+          onSend={() => void submit()}
+          canSend={ready && composerEnabled && !uploading && (!!text.trim() || ids.length > 0)}
+          busy={busy}
+          tool={upload ? {
+            icon: photos ? "close" : "plus",
+            label: photos ? "사진 첨부 닫기" : "사진 첨부",
+            expanded: photos,
+            onPress: () => setPhotos(!photos),
+            disabled: busy || !ready || !composerEnabled,
+          } : undefined}
+          above={<>
+            {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}
+            {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
+              <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>선택한 메시지에 답장</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
+              <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
+                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
+            </View> : null}
+            {photos && upload ? (
+              <PrivatePhotos
+                key={sendScope}
+                ids={ids}
+                onChange={(next) => { if (alive.current && context.current === sendScope) setIds(next); }}
+                upload={(f) => {
+                  if (context.current !== sendScope) return Promise.reject(new Error("대화가 바뀌었어요."));
+                  return callbacks.current.upload!(f);
+                }}
+                load={loadPhoto}
+                disabled={busy || !ready || !composerEnabled}
+                onBusy={(next) => { if (alive.current && context.current === sendScope) setUploading(next); }}
+              />
+            ) : null}
+          </>}
+        />
       </View>
     </View>
   );
+}
+
+/** 상대 말풍선 위 이름: 실제 이름이 있으면 그것, 없으면 역할 이름(DEV-295) */
+function senderName(type: string, peerName?: string) {
+  if (type === "AI") return "AI 안내";
+  if (type === "OPERATOR") return "farmclub";
+  return peerName ?? (type === "PRODUCER" ? "농가" : "소비자");
 }
 
 /** 농가 답을 기다리는 마지막 needsHuman 소비자 메시지의 위치. 그 뒤(같은 시각 포함)에 농가 답이 있으면 -1 */

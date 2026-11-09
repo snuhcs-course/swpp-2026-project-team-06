@@ -1,6 +1,8 @@
-import { createElement, useEffect, useState } from "react";
-import { Image, Platform, View } from "react-native";
+import { createElement, useEffect, useState, type ReactNode } from "react";
+import { Image, Modal, Platform, Pressable, View } from "react-native";
 import { Button } from "./Button";
+import { Icon } from "./Icon";
+import { safe } from "./web";
 import { T } from "./Text";
 import { pickPhoto, type PickedPhoto } from "./pickPhoto";
 import { tokens } from "./tokens";
@@ -31,18 +33,85 @@ export function PrivatePhoto({
     };
   }, [id, load]);
   return uri ? (
-    <Image
-      source={{ uri }}
-      accessibilityLabel="비공개 문의 사진"
-      style={{ width: 220, height: 160, borderRadius: 14 }}
-      resizeMode="cover"
-    />
+    <ViewablePhoto uri={uri}>
+      <Image
+        source={{ uri }}
+        accessibilityLabel="비공개 문의 사진"
+        style={{ width: 220, height: 160, borderRadius: 14 }}
+        resizeMode="cover"
+      />
+    </ViewablePhoto>
   ) : (
     <T variant="caption" muted>
       {error ? "사진을 불러올 수 없어요" : "사진 불러오는 중…"}
     </T>
   );
 }
+/**
+ * 사진을 누르면 전체 화면으로 본다(DEV-295). 누르는 칸은 사진 위에 겹친 형제라 사진의 img 역할·이름은 그대로 남는다
+ * (버튼 안에 넣으면 보조기술에서 사진이 사라진다). 새 의존성 없이 RN Modal + Image.
+ */
+export function ViewablePhoto({ uri, children }: { uri: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View>
+      {children}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="사진 크게 보기"
+        onPress={() => setOpen(true)}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <PhotoViewer uri={open ? uri : null} onClose={() => setOpen(false)} />
+    </View>
+  );
+}
+
+/** 전체 화면 사진 보기. 바깥·닫기·뒤로(Android)·Escape(웹)로 닫는다 */
+export function PhotoViewer({ uri, onClose }: { uri: string | null; onClose: () => void }) {
+  return (
+    <Modal visible={!!uri} transparent animationType="fade" onRequestClose={onClose}>
+      <View
+        accessibilityViewIsModal
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center" }}
+        {...(Platform.OS === "web"
+          ? ({ onKeyDown: (e: { key: string }) => { if (e.key === "Escape") onClose(); } } as object)
+          : {})}
+      >
+        <Pressable
+          accessibilityLabel="사진 닫기"
+          onPress={onClose}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        {uri ? (
+          <Image
+            source={{ uri }}
+            accessibilityLabel="크게 본 사진"
+            resizeMode="contain"
+            style={{ width: "100%", height: "80%" }}
+          />
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="닫기"
+          onPress={onClose}
+          style={{
+            position: "absolute",
+            top: safe("top", 8),
+            right: 8,
+            width: 48,
+            height: 48,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="close" color="#FFFFFF" />
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
 export function PrivatePhotos({
   ids,
   onChange,

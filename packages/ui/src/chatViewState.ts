@@ -84,16 +84,18 @@ export type ChatRowGeometry = { messageId: string; top: number; height: number }
 export function chatRowGeometry(
   messageIds: readonly string[], heights: ReadonlyMap<string, number>,
   olderHeight: number | null, hasOlder: boolean,
+  /** Space between rows outside their measured height (DEV-295 rows carry their own spacing: 0). */
+  gap = 20,
 ): ChatRowGeometry[] {
   if (hasOlder && olderHeight === null) return [];
-  let top = 20 + (hasOlder ? olderHeight! + 20 : 0);
+  let top = 20 + (hasOlder ? olderHeight! + gap : 0);
   const rows: ChatRowGeometry[] = [];
   for (const messageId of messageIds) {
     const height = heights.get(messageId);
     // Nothing after an unmeasured row has a reliable prefix yet.
     if (height === undefined || !Number.isFinite(height) || height < 0) break;
     rows.push({ messageId, top, height });
-    top += height + 20;
+    top += height + gap;
   }
   return rows;
 }
