@@ -99,29 +99,56 @@ export function RoomMedia({ uri }: { uri: string }) {
     });
   if (video) {
     // 앱(iOS·Android)에는 영상 재생 라이브러리가 없어 사진으로 그리면 깨진다. 포스터를 누르면 기기 플레이어로 연다(DEV-291)
+    // 포스터 모양은 Figma 11:133 ④: 세로 230×300, 가운데 흰 원 재생 버튼(DEV-295). API에 첫 장면·길이가 없어
+    // 어두운 면 위 재생 버튼만 그린다(첫 장면·길이 표시는 서버가 주면 후속, expo-video 바로 재생도 후속)
     const openable = /^https?:/.test(uri);
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="소식 영상 보기"
+        accessibilityLabel={openable ? "소식 영상 보기" : "소식 영상, 웹에서 볼 수 있어요"}
         disabled={!openable}
         onPress={() => void Linking.openURL(uri).catch(() => undefined)}
         style={{
-          width: 250,
-          height: 180,
-          borderRadius: 12,
+          width: 230,
+          height: 300,
+          borderRadius: tokens.radius.md,
           backgroundColor: tokens.color.text,
           alignItems: "center",
           justifyContent: "center",
-          gap: 8,
+          overflow: "hidden",
         }}
       >
-        <T variant="heading" color="#FFFFFF">
-          ▶
-        </T>
-        <T variant="sub" color="#FFFFFF">
-          {openable ? "눌러서 영상 보기" : "영상은 웹에서 볼 수 있어요"}
-        </T>
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: openable ? "#FFFFFF" : "rgba(255,255,255,0.5)",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingLeft: 4,
+          }}
+        >
+          <T variant="heading" color={tokens.color.text}>
+            ▶
+          </T>
+        </View>
+        {openable ? null : (
+          <View
+            style={{
+              position: "absolute",
+              bottom: 12,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: tokens.radius.sm,
+              backgroundColor: "rgba(0,0,0,0.6)",
+            }}
+          >
+            <T variant="caption" color="#FFFFFF">
+              웹에서 볼 수 있어요
+            </T>
+          </View>
+        )}
       </Pressable>
     );
   }
@@ -626,7 +653,8 @@ export function NewsRoom({
                 VIDEO.test(uri) ? (
                   <RoomMedia key={uri} uri={uri} />
                 ) : (
-                  <ViewablePhoto key={uri} uri={uri}>
+                  <ViewablePhoto key={uri} uri={uri}
+                    onLongPress={hasMenu(m) ? () => { setMenuPoint(null); setMenuTarget(m); } : undefined}>
                     <Photo uri={uri} width={photoWidth(mine)} height={photoWidth(mine)} alt="소식 사진" />
                   </ViewablePhoto>
                 ),
