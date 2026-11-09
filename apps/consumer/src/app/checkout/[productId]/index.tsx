@@ -18,6 +18,7 @@ import {
   BottomBar,
   Button,
   Checkbox,
+  defaultOptionId,
   HeaderBar,
   Icon,
   Input,
@@ -147,7 +148,7 @@ export default function Checkout() {
     if (startedId) track("checkout_started", { productId: startedId });
   }, [startedId]);
   useEffect(() => {
-    if (p && !optionId) setOptionId(p.options[0].optionId);
+    if (p && !optionId) setOptionId(defaultOptionId(p));
   }, [p, optionId]);
 
   const stage = p?.stages.find((s) => s.stageId === p.currentStageId);
