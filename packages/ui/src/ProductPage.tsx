@@ -516,8 +516,13 @@ function SaleRows({
         >
           {p.options.map((o, i) => {
             const value = cur?.options[o.optionId];
-            // 옵션 줄마다 따로(PM 11/09 결정). 옵션끼리 남은 물량을 나눠 써서 더하지 않는다(DEV-293)
-            const left = optionLeft(p, o.optionId);
+            // 옵션 줄마다 따로(PM 11/09 결정). 옵션끼리 남은 물량을 나눠 써서 더하지 않는다(DEV-293).
+            // 지금 기간이 없으면(생산자 미리보기·기간 사이) 첫 기간 물량으로 보인다. 소비자 화면은 이때 soldOut이라 이 줄이 없다
+            const left = cur
+              ? optionLeft(p, o.optionId)
+              : p.stages[0]
+                ? optionLeft({ ...p, currentStageId: p.stages[0].stageId }, o.optionId)
+                : 0;
             return (
               <View
                 key={o.optionId}
@@ -537,9 +542,12 @@ function SaleRows({
                   <T weight="semibold" numberOfLines={1}>
                     {o.label}
                   </T>
-                  <T variant="sub" muted numberOfLines={1}>
-                    {left > 0 ? `${left}박스 남음` : "품절"}
-                  </T>
+                  {/* 다 팔린 옵션은 오른쪽 가격 자리에 이유(‘이번 기간 품절’ 등)가 나오므로 남은 박스 줄은 뺀다 */}
+                  {left > 0 ? (
+                    <T variant="sub" muted numberOfLines={1}>
+                      {left}박스 남음
+                    </T>
+                  ) : null}
                 </View>
                 <Price
                   align="right"
