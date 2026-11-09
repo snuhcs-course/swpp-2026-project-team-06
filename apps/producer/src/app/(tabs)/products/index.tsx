@@ -53,7 +53,6 @@ export default function Products() {
     <Screen>
       <LargeTitle
         title="상품"
-        subtitle="예약 현황을 보고 판매를 관리해요"
         right={<HelpButton />}
       />
       <View style={{ paddingVertical: tokens.space.md }}>

@@ -203,7 +203,7 @@ export default function Login() {
         bottom={showTest ? barHeight : safe("bottom", 16)}
         footer={<LegalFooter onOpen={(path) => router.push(path)} />}
       >
-        <View style={{ paddingHorizontal: 20, paddingTop: 64, gap: 24 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 64, gap: 24 }}>
           <View
             style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
           >
@@ -211,16 +211,11 @@ export default function Login() {
               variant="title"
               weight="semibold"
               accessibilityRole="header"
-              style={{ flex: 1, minWidth: 0, fontSize: 30, lineHeight: 32 }}
+              style={{ flex: 1, minWidth: 0 }}
             >
               {showTest ? "계정을 골라\n시작하세요" : "농가로\n시작하세요"}
             </T>
-            <BrandLogo
-              variant="full"
-              width={logoWidth}
-              // Align the FARM/CLUB lettering, which sits below the PNG center.
-              style={{ transform: [{ translateX: -16 }, { translateY: -10 }] }}
-            />
+            <BrandLogo variant="full" width={logoWidth} />
           </View>
           {kakaoOn && !isMock ? (
             <T variant="body" muted>
@@ -230,13 +225,13 @@ export default function Login() {
         </View>
         {/* 카카오 버튼은 두 앱 모두 설명 바로 아래 본문에 둔다(소비자 SCR-05와 같음, DEV-283) */}
         {kakaoOn ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 32, gap: 12 }}>
             {kakaoButton}
-            <T variant="caption" muted center>
-              {isMock
-                ? "Mock: 카카오로 시작하면 농가 없는 새 생산자로 들어가요"
-                : "카카오에서는 이메일만 받아요. 대표자 이름·연락처는 가입 신청에서 입력해요."}
-            </T>
+            {isMock ? (
+              <T variant="caption" muted>
+                Mock: 카카오로 시작하면 농가 없는 새 생산자로 들어가요
+              </T>
+            ) : null}
             {failed && !showTest ? (
               <T variant="sub" color={tokens.color.error} center>
                 {failed}
@@ -271,7 +266,7 @@ export default function Login() {
             />
           )
         ) : (
-          <View style={{ paddingHorizontal: 20, paddingTop: 32 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 32 }}>
             <T variant="sub" muted style={{ paddingBottom: 8 }}>
               생산자 테스트 계정을 골라 주세요
             </T>
@@ -295,7 +290,7 @@ export default function Login() {
                       flexDirection: "row",
                       alignItems: "center",
                       gap: 16,
-                      minHeight: 72,
+                      minHeight: 64,
                       borderTopWidth: 1,
                       borderTopColor: tokens.color.border,
                       borderBottomWidth: i === data.length - 1 ? 1 : 0,
@@ -313,9 +308,6 @@ export default function Login() {
                     </View>
                   </Pressable>
                 ))}
-            <T variant="sub" muted style={{ marginTop: 16 }}>
-              소비자는 소비자 앱에서 따로 로그인해요.
-            </T>
             {/* I1은 시드의 신규 생산자(농가 없음) 계정으로 로그인해 가입 신청(SCR-19 버튼 동작). 관문이 /apply로 보낸다 */}
             <Pressable
               accessibilityRole="link"
@@ -330,7 +322,7 @@ export default function Login() {
                 minHeight: 48,
                 justifyContent: "center",
                 alignSelf: "flex-start",
-                marginTop: 8,
+                marginTop: 16,
               }}
             >
               <T variant="body" weight="semibold">
@@ -352,7 +344,7 @@ export default function Login() {
             left: 0,
             right: 0,
             bottom: 0,
-            paddingHorizontal: 20,
+            paddingHorizontal: tokens.space.gutter,
             paddingTop: 12,
             paddingBottom: safe("bottom", 16),
             gap: 12,

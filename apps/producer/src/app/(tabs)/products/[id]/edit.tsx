@@ -390,7 +390,7 @@ export default function EditProduct() {
         {p.status === "PUBLISHED" ? (
           <Notice
             title="판매 중 상품이에요"
-            body="저장한 가격은 새 예약부터 적용돼요. 공급 물량을 늘릴 때만 추가 승인이 필요해요. 기존 주문의 옵션·중량은 변경할 수 없고, 받는 시기 변경은 소비자 동의가 필요해요."
+            body="저장한 가격은 새 예약부터 적용돼요"
             style={{ marginHorizontal: 20, marginTop: 20 }}
           />
         ) : null}
@@ -430,19 +430,29 @@ export default function EditProduct() {
                       form.photos.filter((_, j) => j !== i),
                     )
                   }
+                  // 보이는 원은 32, 누르는 영역은 48(N-02)
                   style={{
                     position: "absolute",
-                    top: 6,
-                    right: 6,
-                    width: 32,
-                    height: 32,
-                    borderRadius: 999,
-                    backgroundColor: tokens.color.photoButton,
+                    top: 0,
+                    right: 0,
+                    width: tokens.touchTarget.min,
+                    height: tokens.touchTarget.min,
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Icon name="close" size={18} color="#FFFFFF" />
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: tokens.radius.full,
+                      backgroundColor: tokens.color.photoButton,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon name="close" size={18} color="#FFFFFF" />
+                  </View>
                 </Pressable>
               </View>
             ))}

@@ -860,7 +860,7 @@ export function SourceWorkspace() {
                     })}
                   {confirmation ? (
                     <View testID="source-apply-confirmation" style={panel}>
-                      <T variant="title">{confirmation.name}에 적용할까요?</T>
+                      <T variant="heading">{confirmation.name}에 적용할까요?</T>
                       <T>
                         현재 모듈 상세를 이 초안으로 교체해요. 판매 중인
                         상품이면 구매자에게 바로 보여요. 가격과 재고는 바뀌지
@@ -955,7 +955,7 @@ export function SourceWorkspace() {
       ) : null}
 
       <Sheet visible={!!leaving} onClose={() => setLeaving(null)}>
-        <T variant="title">저장하지 않은 내용을 닫을까요?</T>
+        <T variant="heading">저장하지 않은 내용을 닫을까요?</T>
         <T>저장한 비공개 초안은 그대로 남아요.</T>
         <Button label="계속 편집" onPress={() => setLeaving(null)} />
         <Button
