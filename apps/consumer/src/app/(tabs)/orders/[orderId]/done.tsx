@@ -83,7 +83,9 @@ export default function Done() {
     ? "입금 대기"
     : o.status === "CANCELED" && o.cancelReason === "입금 기한 초과"
       ? "입금 기한이 지나 취소됐어요"
-      : statusTitle(o);
+      : awaiting || ended
+        ? statusTitle(o)
+        : "예약 완료";
   const sentence = !o
     ? "주문을 접수했어요."
     : awaiting
