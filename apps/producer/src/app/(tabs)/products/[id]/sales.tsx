@@ -231,6 +231,8 @@ export default function Sales() {
                       <View
                         key={row.optionId}
                         accessible
+                        // 웹은 role 없는 div의 aria-label을 읽지 않아 group으로 묶는다
+                        role="group"
                         accessibilityLabel={optionBoxesLabel(row)}
                         style={{
                           flexDirection: "row",
