@@ -100,7 +100,9 @@ test("DEV-142 AC-01-12: sign-up asks only nickname and phone; name and address c
   await page.getByLabel("주소", { exact: true }).fill("서울 강남구 테헤란로 1");
   await page.getByRole("button", { name: "이 주소로 받기" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house$/);
-  await expect(page.getByText("06236 · 기본 배송지로 저장")).toBeVisible();
+  // DEV-293: 우편번호는 주소 뒤 괄호, 저장 여부는 이름 옆 태그
+  await expect(page.getByText(/서울 강남구 테헤란로 1 \(06236\)/)).toBeVisible();
+  await expect(page.getByText("기본으로 저장", { exact: true })).toBeVisible();
 
   // 예전 2/2 주소는 가입 화면으로 보낸다(가입을 마쳤으면 다음 화면으로)
   await page.goto(`${consumerUrl}/onboarding/address`);

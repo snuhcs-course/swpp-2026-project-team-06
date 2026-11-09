@@ -72,8 +72,8 @@ test("DEV-226 AC-10-8/AC-17-10: repeated orders are told apart by number, date a
   for (const [i, row] of rows.entries()) {
     await expect(row).toHaveCount(1);
     await expect(row.getByText(new RegExp(`^${placed[i].orderNo} · \\d+월 \\d+일 주문$`))).toBeVisible();
-    await expect(row.getByText(/^\d+월 \d+일~(\d+월 )?\d+일 도착 예정$/)).toBeVisible();
-    await expect(row.getByText(/입금 알림 · /)).toBeVisible();
+    // DEV-293: 받는 시기와 입금 사건이 한 줄(‘11월 10일~20일 도착 예정 · 10월 7일 입금 알림 · 29,000원’)
+    await expect(row.getByText(/^\d+월 \d+일~(\d+월 )?\d+일 도착 예정 · \d+월 \d+일 입금 알림 · /)).toBeVisible();
   }
   expect(await rows[0].innerText()).not.toBe(await rows[1].innerText());
   consumerClean();

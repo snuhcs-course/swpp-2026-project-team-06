@@ -97,7 +97,7 @@ for (const width of [360, 390, 430]) {
     for (const edge of ["top", "bottom"]) {
       await expect(sizePanel.getByTestId(`illustration-fade-${edge}`)).toHaveCount(0);
     }
-    expect((await sizePanel.getByText(sizeLabel, { exact: true }).boundingBox())!.height).toBeCloseTo(48, 0);
+    expect((await sizePanel.getByText(sizeLabel, { exact: true }).boundingBox())!.height).toBeCloseTo(36, 0); // DEV-293: 28/36
     const handBox = await sizePanel.getByRole("img", { name: "설명용 감귤 크기 일러스트" }).boundingBox();
     expect(handBox).not.toBeNull();
     expect(handBox!.height).toBeCloseTo(handBox!.width, 0);
