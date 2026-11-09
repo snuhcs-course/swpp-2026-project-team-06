@@ -94,7 +94,7 @@ export default function Done() {
           ? (depositRefundSentence(o, { md, deadline, time, won }, serverNow()) ?? "")
           : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`;
   const copy = async (text: string, what: string) =>
-    (await copyText(text)) && toast.show(`${what}를 복사했어요`);
+    (await copyText(text)) && toast.show(`${eulReul(what)} 복사했어요`);
   return (
     <Screen>
       <Scroll bottom={60}>

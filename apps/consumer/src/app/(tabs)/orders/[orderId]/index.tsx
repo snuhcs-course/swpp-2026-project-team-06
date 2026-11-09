@@ -25,6 +25,7 @@ import {
   time,
   tokens,
   useAsync,
+  eulReul,
   won,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -103,7 +104,7 @@ export default function OrderDetail() {
   const changing = o?.actions.includes("respondDeliveryWindow");
   const awaiting = o?.status === "AWAITING_DEPOSIT";
   const copy = async (text: string, what: string) =>
-    (await copyText(text)) && toast.show(`${what}를 복사했어요`);
+    (await copyText(text)) && toast.show(`${eulReul(what)} 복사했어요`);
   const title = !o
     ? ""
     : changing
