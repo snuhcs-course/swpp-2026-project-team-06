@@ -182,3 +182,10 @@ export function ro(word: string) {
   const jong = (c - 0xac00) % 28;
   return jong === 0 || jong === 8 ? `${word}로` : `${word}으로`;
 }
+
+/** 받침에 따라 "을/를"(예: 입금자명을, 계좌번호를). 한글로 끝나지 않으면 "을" */
+export function eulReul(word: string) {
+  const c = word.trim().charCodeAt(word.trim().length - 1);
+  if (c < 0xac00 || c > 0xd7a3) return `${word}을`;
+  return (c - 0xac00) % 28 ? `${word}을` : `${word}를`;
+}

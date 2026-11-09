@@ -68,6 +68,7 @@ export {
   dday,
   maskName,
   ro,
+  eulReul,
   deadline,
   joinMeta,
   reservedText,
