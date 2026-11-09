@@ -1,5 +1,6 @@
 // SCR-22 / FEAT-14: order and shipping management only.
 // DEV-294: 머리 1단(현황 + 농가·날짜), 할 일 한 줄 목록, 주문 4칸 카드, 예약·출하 물량 줄(Figma 검토본 1:62)
+// DEV-300: 물량은 중량 옵션마다 '예약+출하 N박스 / 판매 M박스'(모든 기간 합), 상품 kg 합계는 보조 글자
 import { allPages, catalog, farms, orders } from "@farmclub/api";
 import {
   BrandLogo,
@@ -17,6 +18,12 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
+import {
+  optionBoxesFromDashboard,
+  optionBoxesLabel,
+  optionBoxesRatio,
+  optionBoxesText,
+} from "../../lib/optionBoxes";
 import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
 import { LoadError } from "../../lib/views";
@@ -76,6 +83,28 @@ function TodoRow({
       {right}
       <Icon name="chevron" size={20} color={tokens.color.textMuted} />
     </Pressable>
+  );
+}
+
+/** 진행 막대(accent). ratio 0~1 */
+function Bar({ ratio, height }: { ratio: number; height: number }) {
+  return (
+    <View
+      style={{
+        height,
+        borderRadius: tokens.radius.full,
+        backgroundColor: tokens.color.border,
+        overflow: "hidden",
+      }}
+    >
+      <View
+        style={{
+          width: `${ratio * 100}%`,
+          height: "100%",
+          backgroundColor: tokens.color.accent,
+        }}
+      />
+    </View>
   );
 }
 
@@ -231,6 +260,11 @@ export default function Home() {
       ? Math.min(1, usedGrams / product.salesLimitGrams)
       : 0;
   const kg = (g: number) => (g / 1000).toLocaleString("ko-KR");
+  // DEV-300: 옵션마다 따로(합치지 않음). 기간이 없으면 빈 목록 → 예전 kg 막대 줄
+  const boxes = optionBoxesFromDashboard(dash.data?.stages ?? []);
+  const totalKg = product
+    ? `${kg(usedGrams)} / ${kg(product.salesLimitGrams)}kg`
+    : "";
   return (
     <Screen>
       {/* 머리: 기존 아이콘형 로고(DEV-85) + 왼쪽 제목 '현황' + 가이드, 아래 농가명·날짜 한 줄(DEV-294, PM 11/09) */}
@@ -341,11 +375,15 @@ export default function Home() {
               />
               <Pressable
                 accessibilityRole="link"
-                accessibilityLabel={`${product.productName} 예약·출하 ${kg(usedGrams)}kg, 판매 한도 ${kg(product.salesLimitGrams)}kg`}
+                accessibilityLabel={
+                  boxes.length
+                    ? `${product.productName} ${boxes.map(optionBoxesLabel).join(", ")}. 총 ${kg(usedGrams)}kg, 판매 한도 ${kg(product.salesLimitGrams)}kg`
+                    : `${product.productName} 예약·출하 ${kg(usedGrams)}kg, 판매 한도 ${kg(product.salesLimitGrams)}kg`
+                }
                 onPress={() => router.push(`/products/${product.productId}/sales`)}
                 style={{
                   flexDirection: "row",
-                  alignItems: "center",
+                  alignItems: boxes.length ? "flex-start" : "center",
                   gap: tokens.space.md,
                 }}
               >
@@ -368,28 +406,51 @@ export default function Home() {
                     <T weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
                       {product.productName}
                     </T>
-                    <T variant="sub" muted>
-                      {kg(usedGrams)} / {kg(product.salesLimitGrams)}kg
+                    <T variant={boxes.length ? "caption" : "sub"} muted>
+                      {boxes.length ? `총 ${totalKg}` : totalKg}
                     </T>
                   </View>
-                  <View
-                    accessibilityRole="progressbar"
-                    accessibilityValue={{ min: 0, max: 100, now: Math.round(ratio * 100) }}
-                    style={{
-                      height: 6,
-                      borderRadius: tokens.radius.full,
-                      backgroundColor: tokens.color.border,
-                      overflow: "hidden",
-                    }}
-                  >
+                  {boxes.length ? (
+                    boxes.map((row) => (
+                      <View
+                        key={row.optionId}
+                        style={{ gap: tokens.space.xs }}
+                      >
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "baseline",
+                            gap: tokens.space.sm,
+                          }}
+                        >
+                          <T variant="sub" numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
+                            {row.label}
+                          </T>
+                          <T variant="sub" weight="semibold">
+                            {optionBoxesText(row)}
+                          </T>
+                        </View>
+                        <View
+                          accessibilityRole="progressbar"
+                          accessibilityLabel={`${row.label} 판매 박스 대비 예약·출하`}
+                          accessibilityValue={{
+                            min: 0,
+                            max: 100,
+                            now: Math.round(optionBoxesRatio(row) * 100),
+                          }}
+                        >
+                          <Bar ratio={optionBoxesRatio(row)} height={4} />
+                        </View>
+                      </View>
+                    ))
+                  ) : (
                     <View
-                      style={{
-                        width: `${ratio * 100}%`,
-                        height: "100%",
-                        backgroundColor: tokens.color.accent,
-                      }}
-                    />
-                  </View>
+                      accessibilityRole="progressbar"
+                      accessibilityValue={{ min: 0, max: 100, now: Math.round(ratio * 100) }}
+                    >
+                      <Bar ratio={ratio} height={6} />
+                    </View>
+                  )}
                 </View>
               </Pressable>
             </View>

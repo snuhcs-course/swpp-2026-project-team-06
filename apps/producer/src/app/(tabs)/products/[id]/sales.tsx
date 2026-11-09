@@ -22,6 +22,11 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
 import { goBackOr } from "../../../../lib/nav";
+import {
+  optionBoxesFromProduct,
+  optionBoxesLabel,
+  optionBoxesText,
+} from "../../../../lib/optionBoxes";
 const kg = (g: number) =>
   `${(g / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg`;
 function grams(text: string) {
@@ -198,6 +203,50 @@ export default function Sales() {
                       ? "승인된 물량 안에서 자유롭게 판매해요"
                       : "공급 물량을 확인한 뒤 예약을 시작해요"}
                 </T>
+                {/* DEV-300: 옵션마다 예약+출하 / 판매 박스(모든 기간 합). 옵션끼리 더하지 않는다 */}
+                {p.options.length ? (
+                  <View
+                    style={{
+                      gap: 8,
+                      paddingBottom: 16,
+                      borderBottomWidth: 1,
+                      borderBottomColor: tokens.color.border,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <T variant="caption" muted>
+                        옵션
+                      </T>
+                      <T variant="caption" muted>
+                        예약+출하 / 판매
+                      </T>
+                    </View>
+                    {optionBoxesFromProduct(p.options, p.stages).map((row) => (
+                      <View
+                        key={row.optionId}
+                        accessible
+                        accessibilityLabel={optionBoxesLabel(row)}
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          gap: 12,
+                        }}
+                      >
+                        <T numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
+                          {row.label}
+                        </T>
+                        <T weight="semibold">{optionBoxesText(row)}</T>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
                 <View style={{ gap: 12 }}>
                   {[
                     ["승인 물량", p.approvedSupplyGrams],

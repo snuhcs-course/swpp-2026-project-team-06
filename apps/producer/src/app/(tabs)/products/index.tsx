@@ -1,4 +1,10 @@
-import { allPages, catalog, serverNow } from "@farmclub/api";
+import {
+  allPages,
+  catalog,
+  serverNow,
+  type MyProduct,
+  type MyProductCard,
+} from "@farmclub/api";
 import {
   Button,
   EmptyState,
@@ -12,11 +18,13 @@ import {
   md,
   time,
   tokens,
+  useAsync,
   useLiveList,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { optionBoxesFromProduct, optionBoxesLine } from "../../../lib/optionBoxes";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import {
@@ -25,6 +33,44 @@ import {
   productStatus,
   draftSaved,
 } from "../../../lib/productGroups";
+/**
+ * DEV-300: 카드 물량 줄 = 옵션마다 '5kg 24박스 · 10kg 18박스'(예약+출하, 모든 기간 합).
+ * 목록 카드에는 옵션별 값이 없어 상품 상세를 한 번 읽는다. 목록은 8초마다 다시 읽지만
+ * 상세는 그 상품의 예약·출하 g·version이 바뀔 때만 다시 읽는다. 읽기 전·실패면 예전 kg 줄.
+ */
+function SalesLine({ product }: { product: MyProductCard }) {
+  const detail = useAsync(
+    () => catalog.myProduct(product.productId),
+    [
+      product.productId,
+      product.reservedGrams,
+      product.shippedGrams,
+      product.version,
+    ],
+  );
+  // 다시 읽는 동안 이전 줄을 유지해 kg 줄로 깜박이지 않게 한다
+  const [last, setLast] = useState<MyProduct | null>(null);
+  useEffect(() => {
+    if (detail.data) setLast(detail.data);
+  }, [detail.data]);
+  // 다시 읽다 실패하면 옛 박스 줄 대신 kg 줄(아래 kg 줄과 같은 시점 값)
+  const p = detail.error ? null : (detail.data ?? last);
+  const line =
+    p && p.options.length
+      ? optionBoxesLine(optionBoxesFromProduct(p.options, p.stages))
+      : "";
+  return line ? (
+    <T variant="sub" numberOfLines={1}>
+      {line}
+    </T>
+  ) : (
+    <T variant="sub">
+      예약 중 {product.reservedGrams / 1000}kg · 출하{" "}
+      {product.shippedGrams / 1000}kg
+    </T>
+  );
+}
+
 export default function Products() {
   const router = useRouter(),
     { filter } = useLocalSearchParams<{ filter?: string }>(),
@@ -199,10 +245,7 @@ export default function Products() {
                 gap: 4,
               }}
             >
-              <T variant="sub">
-                예약 중 {product.reservedGrams / 1000}kg · 출하{" "}
-                {product.shippedGrams / 1000}kg
-              </T>
+              <SalesLine product={product} />
               <T variant="caption" muted>
                 승인 {product.approvedSupplyGrams / 1000}kg · 추가 예약 가능{" "}
                 {product.remainingGrams / 1000}kg
