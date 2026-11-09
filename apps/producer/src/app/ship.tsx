@@ -666,10 +666,13 @@ export default function Ship() {
                   <View style={{ flex: 1, minWidth: 0, flexDirection: "row" }}>
                     {item.name ? (
                       <T numberOfLines={1} style={{ flexShrink: 1 }}>
-                        {item.name}{" "}
+                        {item.name}
                       </T>
                     ) : null}
-                    <T style={{ flexShrink: 0 }}>{item.tail}</T>
+                    {/* 줄인 조각 끝 공백은 웹에서 사라져 띄어쓰기를 옵션 쪽에 둔다 */}
+                    <T style={{ flexShrink: 0 }}>
+                      {item.name ? ` ${item.tail}` : item.tail}
+                    </T>
                   </View>
                   <T weight="semibold" style={{ flexShrink: 0 }}>
                     {won(o.totalAmount)}
