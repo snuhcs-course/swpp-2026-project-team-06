@@ -127,7 +127,8 @@ const STEPS: Step[] = [
   },
   {
     title: "다시 보고 싶으면 이 버튼을 누르세요!",
-    body: "다시 보려면 [?]를 눌러요.",
+    // AC-34-5: 마지막 단계는 farmclub 대화방으로 물어보라고 안내한다
+    body: "다시 보려면 [?]를 눌러요. 모르는 건 farmclub 대화방에 물어봐요.",
     target: ["help-button"],
     enter: (r, router) => {
       if (r.path !== "/") router.navigate("/");

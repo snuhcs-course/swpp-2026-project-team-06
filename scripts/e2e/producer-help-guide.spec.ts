@@ -76,6 +76,8 @@ test("DEV-109 DEV-294: the tour waits for the guide button and walks the real ap
   const card = await atStep(page, 13, "다시 보고 싶으면 이 버튼을 누르세요!");
   await expect(page).toHaveURL(home);
   await expect(card.getByText("다시 보려면", { exact: false })).toBeVisible();
+  // AC-34-5: 마지막 단계는 farmclub 대화방으로 물어보라고 안내한다
+  await expect(card.getByText("모르는 건 farmclub 대화방에 물어봐요.", { exact: false })).toBeVisible();
   // 본문 속 ? 자리에 실제 도움말 아이콘이 들어간다
   await expect(card.getByRole("img", { name: "도움말" })).toBeVisible();
   await expect(card.getByText("[?]", { exact: false })).toHaveCount(0);
