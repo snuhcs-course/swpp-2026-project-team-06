@@ -75,7 +75,7 @@ export default function Chat() {
         </View>
       ) : (
         <View style={{ padding: 12, gap: 8 }}>
-          <GlobalAiButton until={page?.thread.humanReplyUntil} serverNow={page?.thread.serverNow} />
+          {page ? <GlobalAiButton until={page.thread.humanReplyUntil} serverNow={page.thread.serverNow} /> : null}
           {error ? <T color={tokens.color.error}>{error}</T> : null}
         </View>
       )}

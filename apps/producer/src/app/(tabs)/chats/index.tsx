@@ -66,7 +66,7 @@ export default function Chats() {
         <OwnNewsRoom active={active && tab === "news"} />
       </View>
       <View style={{ flex: 1, display: tab === "private" ? "flex" : "none" }}>
-        <GlobalAiButton />
+        {tab === "private" && user ? <GlobalAiButton /> : null}
         <Scroll bottom={20}>
           {chats.error ? (
             <View style={{ padding: 20 }}>
