@@ -913,7 +913,7 @@ export function NewProductComposer() {
                           )}
                         </FieldFeedback>
                       ),
-                      name: buyerPreview ? <T variant="title">{form.name}</T> : (
+                      name: buyerPreview ? <T variant="heading">{form.name}</T> : (
                         <View style={{ gap: 4 }}>
                           <FillInput
                             label="상품명"
@@ -1281,7 +1281,7 @@ export function NewProductComposer() {
       ) : null}
 
       <Sheet visible={!!confirmation} onClose={() => setConfirmation(null)}>
-        <T variant="title">상품에 반영할까요?</T>
+        <T variant="heading">상품에 반영할까요?</T>
         <T>
           {confirmation?.status === "PUBLISHED"
             ? "판매 중인 상품이라 상세페이지와 사진이 구매자에게 바로 보여요. 가격과 재고는 바뀌지 않아요."

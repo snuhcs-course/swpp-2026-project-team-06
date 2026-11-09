@@ -247,10 +247,11 @@ export default function Sell() {
   }
 
   function failure(e: unknown) {
-    if (e instanceof ApiError && e.details.reason === "NO_FARM_ACCOUNT")
-      return setError(
-        "입금 계좌가 있어야 판매를 시작할 수 있어요. 환경설정 › 농가 프로필 › 입금 계좌에서 등록해 주세요. 입력한 내용은 저장돼 있어요.",
-      );
+    if (e instanceof ApiError && e.details.reason === "NO_FARM_ACCOUNT") {
+      // 계좌 안내 줄('입금 계좌 등록' 버튼)이 보이도록 농가 정보를 다시 읽는다
+      void farms.mine().then(setFarm).catch(() => {});
+      return setError("입금 계좌를 먼저 등록해 주세요");
+    }
     // 서버 메시지(예: '빠진 칸이 있어요: 품종, …')를 먼저, 칸별 사유는 이름과 함께 붙인다.
     if (e instanceof ApiError) {
       const aliases: Record<string, string> = { options: "options", deliveryWindow: "delivery", maxDelayUntil: "delivery", shippingFee: "shipping", remoteAreaFee: "shipping", maxQuantityPerOrder: "quantity", requestedTotalGrams: "quantity", stages: "prices" };
@@ -347,11 +348,7 @@ export default function Sell() {
           ) : null}
           {!hasAccount ? (
             <View style={{ gap: 8 }}>
-              <Notice
-                title="입금 계좌가 없어요"
-                body="판매를 시작하려면 입금 계좌를 먼저 등록해 주세요. 지금 입력한 내용은 저장할 수 있어요."
-                tone="error"
-              />
+              <Notice title="입금 계좌를 먼저 등록해 주세요" tone="error" />
               <Button
                 label="입금 계좌 등록"
                 variant="outline"
@@ -546,7 +543,7 @@ export default function Sell() {
                   {form.options.map(o => {
                     const c = cell(r, o.optionId);
                     return <View key={o.optionId} style={{ gap: 4 }}><T>{o.label}</T>
-                      <T variant="title">{c.price == null ? "가격 미입력" : `${c.price.toLocaleString("ko-KR")}원`}</T>
+                      <T variant="heading">{c.price == null ? "가격 미입력" : `${c.price.toLocaleString("ko-KR")}원`}</T>
                       <T variant="caption" muted>{c.quantity == null ? "박스 수 미입력" : `${c.quantity}박스`}</T></View>;
                   })}
                 </View>)}

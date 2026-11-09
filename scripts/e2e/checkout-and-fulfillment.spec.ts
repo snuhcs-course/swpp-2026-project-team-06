@@ -114,7 +114,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   await expect(depositSheet.getByText(/5kg × 1/)).toBeVisible();
   await expect(depositSheet.getByText(totalText, { exact: true })).toBeVisible();
   expect(depositApprovals).toBe(0);
-  await depositSheet.getByRole("button", { name: "아니요", exact: true }).click();
+  await depositSheet.getByRole("button", { name: "닫기", exact: true }).click();
   expect(depositApprovals).toBe(0);
   await expect(producerPage.getByText("DEV25 구매자").first()).toBeVisible();
   await approveButton.click();
@@ -141,7 +141,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   );
   expect(reservedOrder).toBeTruthy();
   await expect(
-    producerPage.getByText(/「수확 시작」을 누르면 출하 준비로 옮겨져요/),
+    producerPage.getByText("예약 기간에서 수확을 시작하면 출하 준비로 옮겨져요", { exact: true }),
   ).toBeVisible();
   let harvestCalls = 0;
   producerPage.on("request", (req) => {
@@ -186,16 +186,16 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   await producerPage.goto(`${producerUrl}/ship?status=PREPARING`);
   await expect(producerPage.getByText("DEV25 구매자")).toBeVisible();
   await producerPage
-    .getByRole("button", { name: /DEV25 구매자.*택배사·송장 번호 넣기/ })
+    .getByRole("button", { name: /DEV25 구매자.*송장 입력/ })
     .click();
   await producerPage.getByRole("radio", { name: "CJ대한통운" }).click();
   await producerPage
     .getByRole("textbox", { name: "송장 번호", exact: true })
     .fill("DEV25-1234");
   await producerPage.getByRole("button", { name: "저장", exact: true }).click();
-  await producerPage.getByRole("button", { name: "1건 출하로 바꾸기" }).click();
+  await producerPage.getByRole("button", { name: "1건 출하 처리" }).click();
   await producerPage
-    .getByRole("button", { name: "1건 출하로 바꾸기" })
+    .getByRole("button", { name: "1건 출하 처리" })
     .last()
     .click();
   await expect(producerPage.getByRole("tab", { name: /출하 4/ })).toBeVisible();

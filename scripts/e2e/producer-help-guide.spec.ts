@@ -18,7 +18,7 @@ async function next(page: Page, name: RegExp = /^(다음|시작하기|알겠어�
 // 스택에 같은 화면이 두 번 쌓일 수 있어 보이는 요소만 누른다
 const visible = (page: Page, id: string) => page.locator(`[data-testid="${id}"]:visible`).last();
 
-test("DEV-109: first dashboard visit starts the spotlight tour and walks the real app flow", async ({ page }, testInfo) => {
+test("DEV-109 DEV-294: the tour waits for the guide button and walks the real app flow", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const assertClean = monitor(page);
   // 투어는 새 상품(작성 중 상품)을 만들지 않는다
@@ -27,6 +27,11 @@ test("DEV-109: first dashboard visit starts the spotlight tour and walks the rea
     if (r.method() === "POST" && r.url().includes("/product-workspaces")) workspaceOpens.push(r.url());
   });
   await loginProducer(page, "강영수", { helpGuide: true });
+  // DEV-294: 처음 들어와도 저절로 시작하지 않는다. '가이드'(도움말) 버튼으로만 시작한다
+  await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
+  await page.waitForTimeout(800);
+  await expect(page.getByTestId("tour-card")).toHaveCount(0);
+  await page.getByRole("button", { name: "도움말" }).click();
 
   await atStep(page, 1, "farmclub에 오신 걸 환영해요!");
   await next(page);
@@ -70,7 +75,9 @@ test("DEV-109: first dashboard visit starts the spotlight tour and walks the rea
 
   const card = await atStep(page, 13, "다시 보고 싶으면 이 버튼을 누르세요!");
   await expect(page).toHaveURL(home);
-  await expect(card.getByText("모르는 게 있으면 채팅의 farmclub 대화방에 편하게 물어봐 주세요.", { exact: false })).toBeVisible();
+  await expect(card.getByText("다시 보려면", { exact: false })).toBeVisible();
+  // AC-34-5: 마지막 단계는 farmclub 대화방으로 물어보라고 안내한다
+  await expect(card.getByText("모르는 건 farmclub 대화방에 물어봐요.", { exact: false })).toBeVisible();
   // 본문 속 ? 자리에 실제 도움말 아이콘이 들어간다
   await expect(card.getByRole("img", { name: "도움말" })).toBeVisible();
   await expect(card.getByText("[?]", { exact: false })).toHaveCount(0);
@@ -79,22 +86,23 @@ test("DEV-109: first dashboard visit starts the spotlight tour and walks the rea
   await expect(page.getByTestId("tour-card")).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByText("농가 현황", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "도움말" })).toBeVisible();
   await expect(page.getByTestId("tour-card")).toHaveCount(0);
   expect(workspaceOpens).toEqual([]);
   assertClean();
 });
 
-test("DEV-109: skipping ends the tour for good and the help button restarts it from home", async ({ page }) => {
+test("DEV-109: skipping ends the tour and the help button restarts it from home", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const assertClean = monitor(page);
   await loginProducer(page, "강영수", { helpGuide: true });
+  await page.getByRole("button", { name: "도움말" }).click();
   await atStep(page, 1, "farmclub에 오신 걸 환영해요!");
   await page.getByRole("button", { name: "안내 건너뛰기" }).click();
   await expect(page.getByTestId("tour-card")).toHaveCount(0);
   await page.reload();
-  await expect(page.getByText("농가 현황", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
   await expect(page.getByTestId("tour-card")).toHaveCount(0);
 
   for (const path of ["/products", "/chats", "/settings"]) {

@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures";
 import { consumerUrl, producerUrl, skipHelpGuide } from "./helpers";
+import { tokens } from "../../packages/ui/src/tokens";
 
 for (const width of [360, 390]) {
   test(`DEV-85 AC-06-6 AC-01-6 AC-14-4: approved logos preserve search and producer login at ${width}px`, async ({ page }, testInfo) => {
@@ -27,9 +28,10 @@ for (const width of [360, 390]) {
     await expect.poll(() => full.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
     await expect(page.getByTestId("brand-logo-wordmark")).toHaveCount(0);
     const heading = page.getByRole("heading", { name: /계정을 골라\s*시작하세요/ });
-    await expect(heading).toHaveCSS("font-size", "30px");
-    await expect(heading).toHaveCSS("line-height", "32px");
-    expect((await heading.boundingBox())!.height).toBe(64);
+    // DEV-294: 로그인 제목은 글자 크기를 덮어쓰지 않고 title 토큰 두 줄
+    await expect(heading).toHaveCSS("font-size", `${tokens.fontSize.title}px`);
+    await expect(heading).toHaveCSS("line-height", `${tokens.lineHeight.title}px`);
+    expect((await heading.boundingBox())!.height).toBe(tokens.lineHeight.title * 2);
     await expect(full).toHaveCSS("width", "172px");
     await expect(full).toHaveCSS("height", "129px");
     const cta = page.getByRole("button", { name: /강영수로 시작하기/ });
@@ -39,10 +41,11 @@ for (const width of [360, 390]) {
     await page.getByRole("radio", { name: /강영수/ }).click();
     await cta.click();
     await expect(page).not.toHaveURL(/\/login/);
+    // DEV-294: 현황 머리는 기존 아이콘형 로고 + 왼쪽 제목 '현황'(PM 11/09 결정으로 로고 유지)
     const symbol = page.getByTestId("brand-logo-icon");
     await expect(symbol).toBeVisible();
     await expect.poll(() => symbol.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
-    await expect(page.getByText("농가 현황", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /전체 주문 \d+건/ })).toBeVisible();
     await expect(symbol).toHaveCSS("width", "36px");
     await expect(symbol).toHaveCSS("height", "40px");

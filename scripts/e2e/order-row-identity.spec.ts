@@ -99,15 +99,17 @@ test("DEV-226 AC-10-8/AC-17-10: repeated orders are told apart by number, date a
   for (const o of placed) {
     await expect(producerPage.getByText(o.orderNo, { exact: true }).first()).toBeVisible();
   }
-  // 줄은 조각 세 개(이름 · / 상품명 / 옵션 × 수량)라 상품명 조각으로 센다. 우리 주문 두 줄 모두 보여야 한다
-  await expect(producerPage.getByText(productName, { exact: true }).first()).toBeVisible();
-  const nameCount = await producerPage.getByText(productName, { exact: true }).count();
-  expect(nameCount).toBeGreaterThanOrEqual(2);
+  // DEV-294: 줄은 이름 / 상품 줄(상품명 옵션 × 수량, 상품명 끝 옵션 목록은 뗌)이다. 우리 주문 두 줄 모두 상품 줄이 보여야 한다
+  const item = `${productName.replace(/\s+[\d.]+\s*kg(?:\s*\/\s*[\d.]+\s*kg)*$/, "")} 5kg × 1`;
+  for (const o of placed) {
+    const row = producerPage.getByText(o.orderNo, { exact: true }).first().locator("xpath=../..");
+    await expect(row.getByText(item, { exact: true })).toBeVisible();
+  }
   await producerPage.getByRole("button", { name: `${placed[1].orderNo} 입금 승인`, exact: true }).click();
   const sheet = producerPage.getByRole("dialog");
   await expect(sheet.getByText("입금을 승인할까요?", { exact: true })).toBeVisible();
   await expect(sheet.getByText(who, { exact: true })).toBeVisible();
-  await sheet.getByRole("button", { name: "아니요", exact: true }).click();
+  await sheet.getByRole("button", { name: "닫기", exact: true }).click();
   producerClean();
 });
 

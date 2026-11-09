@@ -38,8 +38,7 @@ export default function Settings() {
     <Screen>
       <Scroll bottom={tokens.height.tabBarClearance} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
         <LargeTitle
-          title="환경설정"
-          subtitle="농가 정보와 응대 방식을 관리해요"
+          title="설정"
           right={<HelpButton />}
         />
         {farm.error ? (

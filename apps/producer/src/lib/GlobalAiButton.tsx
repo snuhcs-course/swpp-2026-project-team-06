@@ -40,22 +40,23 @@ export function GlobalAiButton({ onEnabledChange }: { onEnabledChange?: (enabled
       if (alive.current) setBusy(false);
     }
   }
-  return <View style={{ alignItems: "center", minWidth: 76 }}>
+  // 누르는 칸 48×48(N-02). 'AI 답변 ON/OFF' 글자는 칸보다 조금 넓어도 잘리지 않게 가운데로 넘친다(DEV-294)
+  return <View style={{ alignItems: "center", minWidth: tokens.touchTarget.min }}>
     <Pressable accessibilityRole="button"
       accessibilityLabel={settings ? `전체 AI 응대 ${settings.enabled ? "ON" : "OFF"}` : "AI 설정 불러오는 중"}
       accessibilityHint="농가의 전체 1:1 채팅 AI 응대를 켜거나 꺼요"
       accessibilityState={{ disabled: !settings || busy, selected: !!settings?.enabled }}
       disabled={!settings || busy} onPress={toggle}
-      style={({ pressed }) => ({ width: 76, height: 52, alignItems: "center", justifyContent: "center", borderRadius: 22,
-        backgroundColor: pressed ? tokens.color.surface : "transparent" })}>
-      <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: settings?.enabled ? "#FFF2E9" : "transparent" }}>
+      style={({ pressed }) => ({ width: tokens.touchTarget.min, height: tokens.touchTarget.min, alignItems: "center", justifyContent: "center", borderRadius: tokens.radius.sm,
+        overflow: "visible", backgroundColor: pressed ? tokens.color.surface : "transparent" })}>
+      <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: settings?.enabled ? "#FFF2E9" : "transparent" }}>
       {busy || !settings ? <ActivityIndicator size="small" color={tokens.color.accent} /> : <>
-        <Icon name="sparkles" size={24} color={settings.enabled ? tokens.color.accent : tokens.color.textMuted} />
-        {!settings.enabled ? <View style={{ position: "absolute", width: 26, borderTopWidth: 2, borderColor: tokens.color.textMuted, transform: [{ rotate: "-45deg" }] }} /> : null}
-        <View style={{ position: "absolute", right: 6, bottom: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: settings.enabled ? tokens.color.accent : tokens.color.textMuted }} />
+        <Icon name="sparkles" size={20} color={settings.enabled ? tokens.color.accent : tokens.color.textMuted} />
+        {!settings.enabled ? <View style={{ position: "absolute", width: 22, borderTopWidth: 2, borderColor: tokens.color.textMuted, transform: [{ rotate: "-45deg" }] }} /> : null}
+        <View style={{ position: "absolute", right: 4, bottom: 4, width: 6, height: 6, borderRadius: 3, backgroundColor: settings.enabled ? tokens.color.accent : tokens.color.textMuted }} />
       </>}
       </View>
-      <T variant="caption" style={{ fontSize: 11, lineHeight: 14 }}>AI 답변 {settings ? (settings.enabled ? "ON" : "OFF") : "…"}</T>
+      <T variant="caption" numberOfLines={1} style={{ fontSize: 11, lineHeight: 14, minWidth: 60, textAlign: "center" }}>AI 답변 {settings ? (settings.enabled ? "ON" : "OFF") : "…"}</T>
     </Pressable>
     {error ? <T variant="caption">{error}</T> : null}
   </View>;

@@ -2,7 +2,7 @@
 // apps/producer/src/lib/orderWho.ts, productGroups.ts draftSaved. 순수 함수만 본다(화면은 order-row-identity.spec.ts).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { orderWho, orderWhoParts } from "../apps/producer/src/lib/orderWho.ts";
+import { orderItem, orderItemParts, orderWho, orderWhoParts, shortProductName } from "../apps/producer/src/lib/orderWho.ts";
 import { draftSaved } from "../apps/producer/src/lib/productGroups.ts";
 import { md, time } from "../packages/ui/src/format.ts";
 
@@ -26,6 +26,23 @@ test("AC-17-10: only the product name may be shortened; name and option × quant
 
 test("AC-17-10: a missing product name falls back to the old line without a double space", () => {
   assert.equal(orderWho({ ...house, productName: "" }), "김민지 · 5kg × 1");
+});
+
+test("AC-17-10 DEV-294: the item line drops an option list from the product name only when it repeats the option", () => {
+  const listed = { productName: "하우스 감귤 5kg / 10kg", optionLabel: "5kg", quantity: 2 };
+  assert.equal(orderItem(listed), "하우스 감귤 5kg × 2");
+  assert.equal(orderItem({ ...listed, optionLabel: "10kg", quantity: 1 }), "하우스 감귤 10kg × 1");
+  // 상품끼리는 계속 갈린다
+  assert.notEqual(orderItem(listed), orderItem({ ...listed, productName: "노지 감귤 5kg / 10kg" }));
+  // 옵션이 이름 속 목록에 없으면 이름을 그대로 둔다
+  assert.equal(shortProductName("하우스 감귤 3kg", "5kg"), "하우스 감귤 3kg");
+  // 이름이 옵션뿐이면 지우지 않는다
+  assert.equal(shortProductName("5kg", "5kg"), "5kg");
+  assert.equal(orderItem({ productName: "", optionLabel: "5kg", quantity: 1 }), "5kg × 1");
+  assert.equal(orderItem({ productName: "한라봉", optionLabel: "3kg", quantity: 1 }), "한라봉 3kg × 1");
+  // 줄에서는 상품명 조각만 줄인다. ‘옵션 × 수량’은 따로 끝까지 보인다
+  const long = orderItemParts({ productName: "서귀포 타이벡 노지 감귤 고당도 선별 5kg / 10kg", optionLabel: "10kg", quantity: 3 });
+  assert.deepEqual(long, { name: "서귀포 타이벡 노지 감귤 고당도 선별", tail: "10kg × 3" });
 });
 
 const NOW = Date.parse("2026-11-04T06:00:00Z"); // 11월 4일 15:00 KST

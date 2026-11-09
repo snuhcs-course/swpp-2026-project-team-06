@@ -1,9 +1,11 @@
 // SCR-22 / FEAT-14: order and shipping management only.
-import { allPages, farms, orders } from "@farmclub/api";
+// DEV-294: 머리 1단(현황 + 농가·날짜), 할 일 한 줄 목록, 주문 4칸 카드, 예약·출하 물량 줄(Figma 검토본 1:62)
+import { allPages, catalog, farms, orders } from "@farmclub/api";
 import {
-  BrandHeader,
+  BrandLogo,
   Button,
-  ListRow,
+  Icon,
+  Photo,
   Screen,
   Scroll,
   Skeleton,
@@ -13,11 +15,106 @@ import {
   useLiveList,
 } from "@farmclub/ui";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { HelpButton } from "../../lib/Tour";
 import { useSession } from "../../lib/session";
 import { LoadError } from "../../lib/views";
+
+/** 할 일 한 줄: 왼쪽 이름, 오른쪽 건수(강조)나 태그, chevron. 높이 56 */
+function TodoRow({
+  label,
+  count,
+  tag,
+  right,
+  onPress,
+}: {
+  label: string;
+  count?: number;
+  tag?: string;
+  right?: ReactNode;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={[label, count != null ? `${count}건` : tag]
+        .filter(Boolean)
+        .join(" ")}
+      onPress={onPress}
+      style={{
+        minHeight: tokens.height.listRowProducer,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: tokens.space.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: tokens.color.border,
+      }}
+    >
+      <T numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
+        {label}
+      </T>
+      {count != null ? (
+        <T weight="bold" color={tokens.color.accent}>
+          {count.toLocaleString("ko-KR")}건
+        </T>
+      ) : null}
+      {tag ? (
+        <View
+          style={{
+            paddingHorizontal: tokens.space.sm,
+            paddingVertical: 2,
+            borderRadius: 6,
+            backgroundColor: "#FDECE2",
+          }}
+        >
+          <T variant="caption" weight="semibold" color={tokens.color.accent}>
+            {tag}
+          </T>
+        </View>
+      ) : null}
+      {right}
+      <Icon name="chevron" size={20} color={tokens.color.textMuted} />
+    </Pressable>
+  );
+}
+
+/** 섹션 제목 + 오른쪽 링크(베이스라인 정렬) */
+function SectionHead({
+  title,
+  link,
+  onLink,
+}: {
+  title: string;
+  link?: string;
+  onLink?: () => void;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        gap: tokens.space.sm,
+      }}
+    >
+      <T variant="heading" accessibilityRole="header">
+        {title}
+      </T>
+      {link && onLink ? (
+        <Pressable
+          accessibilityRole="link"
+          onPress={onLink}
+          hitSlop={14}
+        >
+          <T variant="sub" muted>
+            {link} ›
+          </T>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
@@ -25,6 +122,10 @@ export default function Home() {
   const [active, setActive] = useState(false);
   const dash = useAsync(() => orders.dashboard(), [user?.userId]);
   const farm = useAsync(() => farms.mine(), [user?.userId]);
+  const mine = useAsync(
+    () => allPages((cursor) => catalog.mine({ limit: 50, cursor })),
+    [user?.userId],
+  );
   const load = useCallback(
     (cancelled: () => boolean) =>
       allPages(
@@ -43,223 +144,272 @@ export default function Home() {
     }, [dash.reload, farm.reload]),
   );
   const data = list.data;
+  const count = (status?: string) =>
+    data ? data.filter((o) => !status || o.status === status).length : 0;
   const metrics = [
-    {
-      label: "전체 주문",
-      count: data?.length,
-      hint: "입금 대기 포함",
-      tab: "all",
-    },
-    {
-      label: "예약 완료",
-      count: data?.filter((o) => o.status === "RESERVED").length,
-      hint: "수확을 시작하면 출하 준비로",
-      tab: "RESERVED",
-    },
-    {
-      label: "출하 준비",
-      count: data?.filter((o) => o.status === "PREPARING").length,
-      hint: "택배사·송장 입력",
-      tab: "PREPARING",
-    },
-    {
-      label: "출하",
-      count: data?.filter((o) => o.status === "SHIPPED").length,
-      hint: "발송한 주문",
-      tab: "SHIPPED",
-    },
+    { label: "전체", count: count(), tab: "all" },
+    { label: "예약", count: count("RESERVED"), tab: "RESERVED" },
+    // 지금 손이 가야 하는 칸만 강조한다
+    { label: "출하 준비", count: count("PREPARING"), tab: "PREPARING", accent: true },
+    { label: "출하", count: count("SHIPPED"), tab: "SHIPPED" },
   ];
+  const todo = dash.data?.todo;
   const product = dash.data?.product;
-  const harvest = dash.data?.todo.harvestTargets?.filter((t) => t.closed);
+  const photo = product
+    ? mine.data?.find((p) => p.productId === product.productId)?.photo
+    : null;
+  const harvest = todo?.harvestTargets?.filter((t) => t.closed);
   // DEV-121: 원산지 표시제도 안내(원산지표시법 제6조 ⑥, 시행규칙 제4조의2 1호 = 초기 화면 상시 게시 + 확인 안내).
   // 지금 버전을 안 읽었으면 할 일 맨 위, 읽었으면 현황 맨 아래 상시 줄
   const noticeUnread = !!user && !user.originNoticeReadAt;
   const noticeReadAt = user?.originNoticeReadAt;
+  const rows: ReactNode[] = [];
+  if (noticeUnread)
+    rows.push(
+      <TodoRow
+        key="origin"
+        label="원산지 표시제도 안내 읽기"
+        tag="필수"
+        onPress={() => router.push("/origin-notice")}
+      />,
+    );
+  if (todo?.hasAccount === false)
+    rows.push(
+      <TodoRow
+        key="account"
+        label="입금 계좌 등록"
+        tag="필수"
+        onPress={() => router.push("/farm/account")}
+      />,
+    );
+  if (todo?.awaitingDeposit)
+    rows.push(
+      <TodoRow
+        key="deposit"
+        label="입금 확인할 주문"
+        count={todo.awaitingDeposit}
+        onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
+      />,
+    );
+  if (todo?.toHarvest && harvest?.length)
+    // DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 → 그 기간 카드
+    rows.push(
+      <TodoRow
+        key="harvest"
+        label="수확을 시작할 예약"
+        count={todo.toHarvest}
+        onPress={() =>
+          router.push(
+            `/products/${harvest[0].productId}/stages?stage=${harvest[0].stageId}`,
+          )
+        }
+      />,
+    );
+  if (todo?.refundsToSettle)
+    rows.push(
+      <TodoRow
+        key="refund"
+        label="환불 보낼 주문"
+        count={todo.refundsToSettle}
+        onPress={() => router.push("/ship?status=REFUNDED")}
+      />,
+    );
+  if (todo?.openQuestions)
+    rows.push(
+      <TodoRow
+        key="questions"
+        label="답하지 않은 문의"
+        count={todo.openQuestions}
+        onPress={() =>
+          router.push({ pathname: "/chats", params: { view: "private" } })
+        }
+      />,
+    );
+  const usedGrams = product ? product.reservedGrams + product.shippedGrams : 0;
+  const ratio =
+    product && product.salesLimitGrams > 0
+      ? Math.min(1, usedGrams / product.salesLimitGrams)
+      : 0;
+  const kg = (g: number) => (g / 1000).toLocaleString("ko-KR");
   return (
     <Screen>
-      <BrandHeader
-        title="농가 현황"
-        logo="icon"
-        right={<HelpButton autoOpen />}
-      />
-      <Scroll bottom={tokens.height.tabBarClearance}>
-        <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
-          <T variant="sub" muted>
-            {farm.data?.name ?? "우리 농가"} ·{" "}
-            {new Date().toLocaleDateString("ko-KR", {
-              month: "long",
-              day: "numeric",
-            })}
+      {/* 머리: 기존 아이콘형 로고(DEV-85) + 왼쪽 제목 '현황' + 가이드, 아래 농가명·날짜 한 줄(DEV-294, PM 11/09) */}
+      <View
+        style={{
+          paddingHorizontal: tokens.space.gutter,
+          paddingTop: tokens.space.md,
+          gap: tokens.space.xs,
+        }}
+      >
+        <View
+          style={{
+            minHeight: 56,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <BrandLogo variant="icon" decorative />
+          <T variant="title" accessibilityRole="header" style={{ flex: 1 }}>
+            현황
           </T>
-          <T variant="heading">주문·배송 현황</T>
-          {/* 할 일(DEV-68): 기존 환경설정과 같은 ListRow */}
-          {noticeUnread ||
-          (dash.data &&
-          (dash.data.todo.hasAccount === false ||
-            dash.data.todo.awaitingDeposit ||
-            dash.data.todo.toHarvest ||
-            dash.data.todo.refundsToSettle)) ? (
+          <HelpButton />
+        </View>
+        <T variant="sub" muted>
+          {farm.data?.name ?? "우리 농가"} ·{" "}
+          {new Date().toLocaleDateString("ko-KR", {
+            month: "long",
+            day: "numeric",
+            weekday: "short",
+          })}
+        </T>
+      </View>
+      <Scroll bottom={tokens.height.tabBarClearance}>
+        <View
+          style={{
+            paddingHorizontal: tokens.space.gutter,
+            paddingTop: tokens.space.lg,
+            gap: tokens.space.xl,
+          }}
+        >
+          {rows.length ? (
             <View>
-              {noticeUnread ? (
-                <ListRow
-                  label="원산지 표시제도 안내를 읽어 주세요"
-                  sub="10월 22일부터 farmclub이 꼭 알려 드려야 하는 내용이에요"
-                  onPress={() => router.push("/origin-notice")}
-                  last={
-                    !dash.data ||
-                    !(
-                      dash.data.todo.hasAccount === false ||
-                      dash.data.todo.awaitingDeposit ||
-                      (dash.data.todo.toHarvest && harvest?.length) ||
-                      dash.data.todo.refundsToSettle
-                    )
-                  }
-                />
-              ) : null}
-              {dash.data?.todo.hasAccount === false ? (
-                <ListRow
-                  label="입금 계좌를 등록해 주세요"
-                  sub="소비자가 예약할 때 이 계좌로 직접 입금해요"
-                  onPress={() => router.push("/farm/account")}
-                />
-              ) : null}
-              {dash.data?.todo.awaitingDeposit ? (
-                <ListRow
-                  label={`입금 확인할 주문 ${dash.data?.todo.awaitingDeposit}건`}
-                  sub="통장과 대조한 뒤 입금 확인을 눌러 주세요"
-                  onPress={() => router.push("/ship?status=AWAITING_DEPOSIT")}
-                />
-              ) : null}
-              {dash.data?.todo.toHarvest && harvest?.length ? (
-                // DEV-231: 예약 기간이 끝난 기간의 예약 완료 주문 → 그 기간 카드
-                <ListRow
-                  label={`수확을 시작할 예약 ${dash.data?.todo.toHarvest}건`}
-                  sub={`${harvest[0].productName} ${harvest[0].stageName}${
-                    harvest.length > 1 ? ` 외 ${harvest.length - 1}개 기간` : ""
-                  } · 예약 기간이 끝났어요`}
-                  onPress={() =>
-                    router.push(
-                      `/products/${harvest[0].productId}/stages?stage=${harvest[0].stageId}`,
-                    )
-                  }
-                  last={!dash.data?.todo.refundsToSettle}
-                />
-              ) : null}
-              {dash.data?.todo.refundsToSettle ? (
-                <ListRow
-                  label={`환불 보낼 주문 ${dash.data?.todo.refundsToSettle}건`}
-                  sub="입금했던 계좌로 보낸 뒤 환불했다고 기록해요"
-                  onPress={() => router.push("/ship?status=REFUNDED")}
-                  last
-                />
-              ) : null}
+              <SectionHead title="할 일" />
+              {rows}
             </View>
           ) : null}
-          {list.error ? (
-            <>
-              <T color={tokens.color.error}>{list.error}</T>
-              <Button label="다시 시도" onPress={list.retry} />
-            </>
-          ) : null}
-          {list.loading && !data ? (
-            <Skeleton width="100%" height={284} />
-          ) : (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
-              {metrics.map((m) => (
-                <Pressable
-                  key={m.label}
-                  accessibilityRole="link"
-                  accessibilityLabel={`${m.label} ${m.count ?? 0}건`}
-                  onPress={() => router.push(`/ship?status=${m.tab}`)}
-                  style={{
-                    width: "47%",
-                    flexGrow: 1,
-                    minWidth: 0,
-                    minHeight: 132,
-                    padding: 16,
-                    gap: 8,
-                    borderRadius: 16,
-                    backgroundColor: tokens.color.surface,
-                  }}
-                >
-                  <T variant="sub" weight="semibold">
-                    {m.label}
-                  </T>
-                  <T variant="display" numberOfLines={1}>
-                    {(m.count ?? 0).toLocaleString("ko-KR")}
-                  </T>
-                  <T variant="caption" muted>
-                    {m.hint}
-                  </T>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <Button
-              label="주문 현황"
-              variant="secondary"
-              style={{ flex: 1 }}
-              onPress={() => router.push("/ship?status=all")}
-            />
-            <Button
-              label="배송 현황"
-              style={{ flex: 1 }}
-              onPress={() => router.push("/ship?status=PREPARING")}
-            />
-          </View>
           {dash.error ? (
             <LoadError error={dash.error} onRetry={dash.reload} />
           ) : null}
-          {product ? (
-            <>
+          <View style={{ gap: tokens.space.md }}>
+            <SectionHead
+              title="주문"
+              link="배송 현황"
+              onLink={() => router.push("/ship?status=PREPARING")}
+            />
+            {list.error ? (
+              <View style={{ gap: tokens.space.sm }}>
+                <T color={tokens.color.error}>{list.error}</T>
+                <Button label="다시 시도" variant="secondary" onPress={list.retry} />
+              </View>
+            ) : list.loading && !data ? (
+              <Skeleton width="100%" height={80} />
+            ) : (
               <View
                 style={{
-                  padding: 16,
-                  gap: 16,
-                  borderRadius: 16,
+                  flexDirection: "row",
+                  paddingVertical: tokens.space.md,
+                  borderRadius: tokens.radius.md,
                   backgroundColor: tokens.color.surface,
                 }}
               >
-                <T weight="semibold">예약·출하 물량</T>
-                <View style={{ flexDirection: "row", gap: 16 }}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <T variant="heading" numberOfLines={1}>
-                      {(product.reservedGrams / 1000).toLocaleString()}kg
+                {metrics.map((m) => (
+                  <Pressable
+                    key={m.label}
+                    accessibilityRole="link"
+                    accessibilityLabel={`${m.label} 주문 ${m.count}건`}
+                    onPress={() => router.push(`/ship?status=${m.tab}`)}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      minHeight: tokens.touchTarget.min,
+                      alignItems: "center",
+                      gap: tokens.space.xs,
+                    }}
+                  >
+                    <T variant="sub" muted numberOfLines={1}>
+                      {m.label}
+                    </T>
+                    <T
+                      variant="heading"
+                      numberOfLines={1}
+                      color={m.accent ? tokens.color.accent : undefined}
+                    >
+                      {m.count.toLocaleString("ko-KR")}
+                    </T>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+          {product ? (
+            <View style={{ gap: tokens.space.md }}>
+              <SectionHead
+                title="예약·출하 물량"
+                link="상품"
+                onLink={() => router.push("/products")}
+              />
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={`${product.productName} 예약·출하 ${kg(usedGrams)}kg, 판매 한도 ${kg(product.salesLimitGrams)}kg`}
+                onPress={() => router.push(`/products/${product.productId}/sales`)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: tokens.space.md,
+                }}
+              >
+                <Photo
+                  uri={photo}
+                  width={48}
+                  height={48}
+                  radius={tokens.radius.sm}
+                  kind="product"
+                  alt={product.productName}
+                />
+                <View style={{ flex: 1, minWidth: 0, gap: tokens.space.sm }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "baseline",
+                      gap: tokens.space.sm,
+                    }}
+                  >
+                    <T weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+                      {product.productName}
                     </T>
                     <T variant="sub" muted>
-                      예약 중
+                      {kg(usedGrams)} / {kg(product.salesLimitGrams)}kg
                     </T>
                   </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <T variant="heading" numberOfLines={1}>
-                      {(product.shippedGrams / 1000).toLocaleString()}kg
-                    </T>
-                    <T variant="sub" muted>
-                      출하 완료
-                    </T>
+                  <View
+                    accessibilityRole="progressbar"
+                    accessibilityValue={{ min: 0, max: 100, now: Math.round(ratio * 100) }}
+                    style={{
+                      height: 6,
+                      borderRadius: tokens.radius.full,
+                      backgroundColor: tokens.color.border,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${ratio * 100}%`,
+                        height: "100%",
+                        backgroundColor: tokens.color.accent,
+                      }}
+                    />
                   </View>
                 </View>
-              </View>
-              <T variant="sub" muted>
-                {product.productName}
-              </T>
-            </>
-          ) : !dash.loading ? (
+              </Pressable>
+            </View>
+          ) : !dash.loading && !dash.error ? (
             <T muted>판매 중인 상품이 없어요</T>
           ) : null}
           {noticeReadAt ? (
-            <View style={{ marginTop: tokens.space.md }}>
-              <ListRow
-                label="원산지 표시제도 안내"
-                sub={`${new Date(noticeReadAt).toLocaleDateString("ko-KR", {
-                  month: "long",
-                  day: "numeric",
-                })} 확인함`}
-                onPress={() => router.push("/origin-notice")}
-                last
-              />
-            </View>
+            <TodoRow
+              label="원산지 표시제도 안내"
+              right={
+                <T variant="sub" muted>
+                  {new Date(noticeReadAt).toLocaleDateString("ko-KR", {
+                    month: "long",
+                    day: "numeric",
+                  })}{" "}
+                  확인함
+                </T>
+              }
+              onPress={() => router.push("/origin-notice")}
+            />
           ) : null}
         </View>
       </Scroll>

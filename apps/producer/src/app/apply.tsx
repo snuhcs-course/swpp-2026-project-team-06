@@ -140,20 +140,14 @@ export default function Apply() {
         }
       />
       <Scroll bottom={140}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-          <T variant="sub" muted>
-            신청하면 생산자 계정이 함께 만들어져요. 소비자 계정과는 따로예요.
-            다섯 가지를 적어 주세요.
-          </T>
-        </View>
         {failed ? (
           <Notice
             title={failed}
             tone="error"
-            style={{ marginHorizontal: 20, marginTop: 20 }}
+            style={{ marginHorizontal: tokens.space.gutter, marginTop: 20 }}
           />
         ) : null}
-        <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 24 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 24, gap: 24 }}>
           <Input
             label="대표자 이름"
             value={form.ownerName}

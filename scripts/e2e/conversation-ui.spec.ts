@@ -144,14 +144,16 @@ test("FEAT-13 AC-13-5: consumer reports an AI answer and both sides see the serv
   await page.keyboard.press("Escape");
 });
 
-test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collapsed room", async ({
+test("AC-14-3/14-4/17-6/12-12: dashboard keeps chat to one unanswered count, chat opens own collapsed room", async ({
   page,
 }, info) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
-  await expect(page.getByText("주문·배송 현황", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
   await expect(page.getByText("답변할 대화", { exact: false })).toHaveCount(0);
+  // DEV-294: 채팅 관련은 할 일 '답하지 않은 문의 n건' 한 줄뿐이다(있을 때만)
+  expect(await page.getByRole("button", { name: /^답하지 않은 문의 \d+건$/ }).count()).toBeLessThanOrEqual(1);
   await expect(
     page.getByRole("button", { name: "수확 시작", exact: true }),
   ).toHaveCount(0);
@@ -185,7 +187,7 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   await expect(shelf).toHaveAttribute("aria-expanded", "false");
   const a = await input.boundingBox(),
     b = await page
-      .getByRole("tab", { name: "환경설정", exact: true })
+      .getByRole("tab", { name: "설정", exact: true })
       .boundingBox();
   expect(a!.y + a!.height).toBeLessThanOrEqual(b!.y);
   await page.screenshot({ path: info.outputPath("producer-room.png") });

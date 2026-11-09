@@ -141,7 +141,7 @@ farmclub은 농가와 소비자를 잇는 **통신판매중개자**다(2026-10-1
 
 I1은 법인 설립 전이라 사업자 정보 자리에 ‘테스트 서비스’를 표시하고, 설립·신고 후 채운다.
 
-사업자 정보 값은 레포에 쓰지 않는다(GitHub 공개 동기화). 빌드 때 `EXPO_PUBLIC_BUSINESS_*`·`EXPO_PUBLIC_PRIVACY_OFFICER`로 넣고(배포는 GitHub Actions 변수 `BUSINESS_*`·`PRIVACY_OFFICER`), 값이 있는 항목만 하단에 보인다. 하나도 없으면 ‘테스트 서비스’만 보인다(DEV-113). 하단 위치는 지금 두 앱의 첫 화면(소비자 홈, 생산자 로그인)과 로그인·내 정보·환경설정이다.
+사업자 정보 값은 레포에 쓰지 않는다(GitHub 공개 동기화). 빌드 때 `EXPO_PUBLIC_BUSINESS_*`·`EXPO_PUBLIC_PRIVACY_OFFICER`로 넣고(배포는 GitHub Actions 변수 `BUSINESS_*`·`PRIVACY_OFFICER`), 값이 있는 항목만 하단에 보인다. 하나도 없으면 ‘테스트 서비스’만 보인다(DEV-113). 하단 위치는 지금 두 앱의 첫 화면(소비자 홈, 생산자 로그인)과 로그인·내 정보·설정이다.
 
 ## 7. 열린 질문
 
