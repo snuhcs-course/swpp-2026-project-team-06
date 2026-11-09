@@ -103,6 +103,8 @@ def _news_items(db: Session, rows: list[Broadcast], user_id: str | None) -> list
         )
     return [
         NewsItem(
+            edited_at=b.edited_at,
+            edit_version=b.edit_version,
             broadcast_id=b.id,
             farm_id=b.farm_id,
             farm_name=found[b.farm_id].name,
@@ -303,6 +305,8 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
         if isinstance(r, Broadcast):
             result.append(
                 NewsRoomMessage(
+                    edited_at=r.edited_at,
+                    edit_version=r.edit_version,
                     message_id=r.id,
                     farm_id=farm.id,
                     sender_id=farm.producer_id,
@@ -322,6 +326,8 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
             sender = names.get(r.consumer_id)
             result.append(
                 NewsRoomMessage(
+                    edited_at=r.edited_at,
+                    edit_version=r.edit_version,
                     message_id=r.id,
                     farm_id=farm.id,
                     sender_id=r.consumer_id,
@@ -494,6 +500,8 @@ def _thread_view(t: Thread) -> ThreadView:
 
 def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
     return ChatMessage(
+        edited_at=m.edited_at,
+        edit_version=m.edit_version,
         reply_to_message_id=m.reply_to_message_id,
         reply_to=m.reply_to,
         message_id=m.id,
@@ -1614,3 +1622,87 @@ def set_inquiry_status(
         inquiry.resolved_at = now() if status == "RESOLVED" else None
     db.flush()
     return inquiry_view(db, inquiry)
+
+
+def _require_message_editor(db: Session, user) -> None:
+    from app.accounts import service as accounts
+
+    if user.role == "CONSUMER" and accounts.needs_onboarding(db, user):
+        raise forbidden("가입을 마치면 쓸 수 있어요.", reason="ONBOARDING_REQUIRED")
+    if user.role == "PRODUCER" and accounts.consent_required(db, user):
+        raise forbidden("약관에 동의하면 쓸 수 있어요.", reason="CONSENT_REQUIRED")
+
+
+def _edit_text(row, body, limit: int):
+    if row.edit_version != body.version:
+        raise conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.")
+    value = body.text.strip()
+    has_media = bool(
+        getattr(row, "photos", [])
+        or getattr(row, "videos", [])
+        or getattr(row, "attachment_ids", [])
+    )
+    if (not value and not has_media) or len(value) > limit:
+        raise invalid({"text": f"본문을 {limit}자 이내로 적어 주세요."})
+    value, was_masked = mask(value)
+    if value != row.body:
+        row.body = value
+        if isinstance(row, ThreadMessage):
+            row.masked = was_masked
+        row.edited_at = now()
+        row.edit_version += 1
+
+
+def edit_chat_message(db: Session, user, message_id: str, body) -> ChatMessage:
+    _require_message_editor(db, user)
+    message = db.get(ThreadMessage, message_id)
+    if message is None:
+        raise not_found("메시지를 찾을 수 없어요.")
+    thread = db.scalar(select(Thread).where(Thread.id == message.thread_id).with_for_update())
+    if user.role == "CONSUMER":
+        if thread.consumer_id != user.id or message.sender_type != "CONSUMER":
+            raise not_found("본인이 보낸 메시지만 수정할 수 있어요.")
+        _consumer_thread(db, user.id, thread.farm_id)
+    elif user.role == "PRODUCER":
+        from app.farms import service as farms
+
+        farm = farms.get_farm_of_producer(db, user.id)
+        if (
+            farm is None
+            or farm.approval_status != "APPROVED"
+            or farm.id != thread.farm_id
+            or message.sender_type != "PRODUCER"
+        ):
+            raise not_found("본인이 보낸 메시지만 수정할 수 있어요.")
+    else:
+        raise not_found("수정할 수 없는 메시지예요.")
+    db.refresh(message, with_for_update=True)
+    previous = message.edit_version
+    _edit_text(message, body, 1000)
+    if previous != message.edit_version:
+        thread.version += 1  # invalidate an AI answer generated from stale question text
+    db.flush()
+    return _message_view(message)
+
+
+def edit_room_message(db: Session, user, farm_id: str, message_id: str, body) -> NewsRoomMessage:
+    _require_message_editor(db, user)
+    farm, _ = _room_access(db, user, farm_id)
+    if user.role == "PRODUCER":
+        row = db.scalar(select(Broadcast).where(Broadcast.id == message_id).with_for_update())
+        if (
+            row is None
+            or row.farm_id != farm.id
+            or farm.producer_id != user.id
+            or row.deleted_at is not None
+        ):
+            raise not_found("본인이 보낸 소식만 수정할 수 있어요.")
+    elif user.role == "CONSUMER":
+        row = db.scalar(select(RoomReply).where(RoomReply.id == message_id).with_for_update())
+        if row is None or row.farm_id != farm.id or row.consumer_id != user.id:
+            raise not_found("본인이 보낸 답장만 수정할 수 있어요.")
+    else:
+        raise not_found("수정할 수 없는 메시지예요.")
+    _edit_text(row, body, 2000 if user.role == "PRODUCER" else 1000)
+    db.flush()
+    return _room_messages(db, user, farm, [row])[0]

@@ -132,3 +132,8 @@ ChatMessage.sequence는 기존 서버 메시지 삽입 순번이다. 같은 crea
 - 생산자 인용 답변은 해당 메시지와 연결된 OPEN 질문만 처리한다. ANSWERED의 기존 답은 덮어쓰지 않는다. 소비자 답장 및 일반 발송은 주문 문의 완료를 변경하지 않는다.
 
 DEV-289 이관: 기존 OPEN 주문 문제 문의와 운영팀 방의 직접응대는 보존한다. 나머지 기존 HUMAN 방은 마지막 생산자 발송+10분으로 이관한다. 배포 중 구 서버가 남아도 직접응대 보호를 잃지 않도록 저장 모드는 보존하고 새 서버가 기한을 평가한다.
+
+## DEV-289 메시지 수정 API
+- PATCH /api/messaging/messages/{messageId}, PATCH /api/messaging/rooms/{farmId}/messages/{messageId}: {text, version}, Idempotency-Key 필요. 응답은 기존 메시지 DTO에 editedAt와 editVersion(초기0)을 포함한다. 본인 글만, 기존 온보딩·동의·농가 승인·방 접근 검사를 유지한다.
+- 본문 한도: 1:1·소비자 소식방 답장1000자, 농가 소식2000자. 첨부가 없으면 공백만은 불가하고 연락처 가림을 유지한다. 같은 저장 본문은 버전/수정시각을 올리지 않는다.
+- 1:1 수정은 기존 대기 종료시각을 연장하지 않지만 진행 중 AI가 이전 질문으로 응답하지 않도록 Thread.version을 갱신한다.

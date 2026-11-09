@@ -214,12 +214,13 @@ export async function dispatch(req: {
       });
     }
     if (m.app !== "any") ctx.me();
-    if (user && m.gated && needsOnboarding(user))
+    const editsMessage = req.method === "PATCH" && /^\/api\/messaging\/(messages\/[^/]+|rooms\/[^/]+\/messages\/[^/]+)$/.test(pathname);
+    if (user && (m.gated || editsMessage) && needsOnboarding(user))
       fail(403, "FORBIDDEN", "가입을 마치면 쓸 수 있어요.", {
         reason: "ONBOARDING_REQUIRED",
       });
     // 생산자는 지금 버전 약관·개인정보에 동의해야 생산자 API를 쓴다(서버 require_consented_producer, DEV-113)
-    if (user && m.app === "producer" && consentRequired(user))
+    if (user && (m.app === "producer" || (editsMessage && user.role === "PRODUCER")) && consentRequired(user))
       fail(403, "FORBIDDEN", "약관에 동의하면 쓸 수 있어요.", {
         reason: "CONSENT_REQUIRED",
       });

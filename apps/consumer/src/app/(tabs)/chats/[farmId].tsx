@@ -237,6 +237,7 @@ export default function Chat() {
           loadPhoto={loadPhoto}
           upload={file => withVisit(() => uploadAttachment(file, selected
             ? { orderId: selected.orderId } : { threadId: page.thread.threadId }))}
+          edit={(id, text, version, key) => withVisit(() => messaging.editChatMessage(id, text, version, key))}
           replies
           send={(text, ids, key, replyToMessageId) => withVisit(() => messaging.send(
             farmId, text, ids, selected?.orderId, key, productId, replyToMessageId,

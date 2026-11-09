@@ -40,19 +40,22 @@ export function GlobalAiButton({ onEnabledChange }: { onEnabledChange?: (enabled
       if (alive.current) setBusy(false);
     }
   }
-  return <View style={{ alignItems: "flex-end" }}>
+  return <View style={{ alignItems: "center", minWidth: 76 }}>
     <Pressable accessibilityRole="button"
       accessibilityLabel={settings ? `전체 AI 응대 ${settings.enabled ? "ON" : "OFF"}` : "AI 설정 불러오는 중"}
       accessibilityHint="농가의 전체 1:1 채팅 AI 응대를 켜거나 꺼요"
       accessibilityState={{ disabled: !settings || busy, selected: !!settings?.enabled }}
       disabled={!settings || busy} onPress={toggle}
-      style={({ pressed }) => ({ width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22,
-        backgroundColor: settings?.enabled ? "#FFF2E9" : pressed ? tokens.color.surface : "transparent" })}>
+      style={({ pressed }) => ({ width: 76, height: 52, alignItems: "center", justifyContent: "center", borderRadius: 22,
+        backgroundColor: pressed ? tokens.color.surface : "transparent" })}>
+      <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: settings?.enabled ? "#FFF2E9" : "transparent" }}>
       {busy || !settings ? <ActivityIndicator size="small" color={tokens.color.accent} /> : <>
         <Icon name="sparkles" size={24} color={settings.enabled ? tokens.color.accent : tokens.color.textMuted} />
         {!settings.enabled ? <View style={{ position: "absolute", width: 26, borderTopWidth: 2, borderColor: tokens.color.textMuted, transform: [{ rotate: "-45deg" }] }} /> : null}
         <View style={{ position: "absolute", right: 6, bottom: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: settings.enabled ? tokens.color.accent : tokens.color.textMuted }} />
       </>}
+      </View>
+      <T variant="caption" style={{ fontSize: 11, lineHeight: 14 }}>AI 답변 {settings ? (settings.enabled ? "ON" : "OFF") : "…"}</T>
     </Pressable>
     {error ? <T variant="caption">{error}</T> : null}
   </View>;

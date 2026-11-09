@@ -240,6 +240,8 @@ export type ProductCard = SalesState & {
 };
 
 export type NewsItem = {
+  editedAt?: string | null;
+  editVersion?: number;
   broadcastId: string;
   farmId: string;
   farmName: string;
@@ -253,6 +255,8 @@ export type NewsItem = {
 };
 
 export type NewsRoomMessage = {
+  editedAt?: string | null;
+  editVersion?: number;
   messageId: string;
   farmId: string;
   senderId: string;
@@ -704,6 +708,8 @@ export type SenderType = "CONSUMER" | "PRODUCER" | "AI" | "OPERATOR";
 export const SUPPORT_ID = "u-farmclub";
 
 export type ChatMessage = {
+  editedAt?: string | null;
+  editVersion?: number;
   replyToMessageId?: string | null;
   replyTo?: {messageId: string; senderType: string; body: string; attachmentCount: number} | null;
   /** Server insertion order. Optional while an older API is deployed. */

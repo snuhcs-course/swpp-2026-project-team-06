@@ -1,4 +1,4 @@
-import { messagePage } from "./conversations";
+import { editMessageText, messagePage } from "./conversations";
 import type { NewsRoomMessage, NewsRoomSummary } from "../types";
 import { nextId, nowIso } from "./db";
 import { mask, newsItem } from "./derive";
@@ -53,6 +53,7 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
     .map((n) => {
       const reaction = newsItem(ctx.db, n, user?.userId ?? null);
       return {
+        editedAt: n.editedAt ?? null, editVersion: n.editVersion ?? 0,
         messageId: n.broadcastId,
         farmId,
         senderId: farm.ownerId,
@@ -110,6 +111,18 @@ function summary(ctx: Ctx, farmId: string): NewsRoomSummary {
 }
 
 register({
+  "PATCH /api/messaging/rooms/:farmId/messages/:messageId": (ctx) => {
+    const user = ctx.me();
+    access(ctx, ctx.params.farmId);
+    const row = user.role === "PRODUCER"
+      ? ctx.db.news.find(n => n.broadcastId === ctx.params.messageId && n.farmId === ctx.params.farmId && user.farmId === n.farmId)
+      : ctx.db.roomReplies.find(m => m.messageId === ctx.params.messageId && m.farmId === ctx.params.farmId && m.senderId === user.userId);
+    if (!row) notFound("본인이 보낸 메시지만 수정할 수 있어요.");
+    return idempotent(ctx, `edit-room:${ctx.params.farmId}:${ctx.params.messageId}`, () => {
+      editMessageText(ctx, row, user.role === "PRODUCER" ? 2000 : 1000);
+      return visible(ctx, ctx.params.farmId).find(m => m.messageId === ctx.params.messageId)!;
+    });
+  },
   "GET /api/messaging/rooms": (ctx) => {
     const user = ctx.me();
     if (

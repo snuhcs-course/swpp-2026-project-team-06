@@ -632,7 +632,30 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     return { message, reply };
   });
 }
+export function editMessageText(ctx: Ctx, row: {body: string; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number) {
+  if (typeof ctx.body.text !== "string" || !Number.isInteger(ctx.body.version) || Number(ctx.body.version) < 0) invalid({text: "본문과 버전을 확인해 주세요."});
+  if ((row.editVersion ?? 0) !== ctx.body.version) conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.");
+  const text = String(ctx.body.text).trim();
+  if ((!text && !row.photos?.length && !row.videos?.length && !row.attachmentIds?.length) || text.length > limit) invalid({text: `본문을 ${limit}자 이내로 적어 주세요.`});
+  const {text: value, masked} = mask(text);
+  if (value !== row.body) { if ("masked" in row) row.masked = masked; row.body = value; row.editedAt = nowIso(); row.editVersion = (row.editVersion ?? 0) + 1; }
+}
 register({
+  "PATCH /api/messaging/messages/:messageId": (ctx) => {
+    const user = ctx.me();
+    const t = Object.values(ctx.db.threadMeta).find(thread => list(ctx.db, thread).some(m => m.messageId === ctx.params.messageId));
+    if (!t || t.consumerId === SUPPORT_ID) notFound();
+    if ((user.role === "PRODUCER" ? user.farmId !== t.farmId : user.userId !== t.consumerId)) notFound();
+    access({...ctx, params: {...ctx.params, farmId: t.farmId, consumerId: t.consumerId}});
+    const message = list(ctx.db, t).find(m => m.messageId === ctx.params.messageId)!;
+    if (message.senderType !== user.role) notFound("본인이 보낸 메시지만 수정할 수 있어요.");
+    return idempotent(ctx, `edit-chat:${message.messageId}`, () => {
+      const old = message.editVersion ?? 0;
+      editMessageText(ctx, message, 1000);
+      if (old !== (message.editVersion ?? 0)) t.version++;
+      return {...message, editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
+    });
+  },
   "GET /api/messaging/chats": (ctx) => {
     const u = ctx.me();
     return paginate(

@@ -455,6 +455,10 @@ export const messaging = {
       `/api/messaging/producer/chats/${consumerId}/messages`,
       { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId }, idempotencyKey },
     ),
+  editChatMessage: (id: string, text: string, version: number, key: string) =>
+    request<A.ChatMessage>("PATCH", `/api/messaging/messages/${id}`, { body: {text, version}, idempotencyKey: key }),
+  editRoomMessage: (farmId: string, id: string, text: string, version: number, key: string) =>
+    request<A.NewsRoomMessage>("PATCH", `/api/messaging/rooms/${farmId}/messages/${id}`, {body: {text, version}, idempotencyKey: key}),
   producerRead: (consumerId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/producer/chats/${consumerId}/read`, {
       body: { lastReadMessageId },

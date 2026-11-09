@@ -16,7 +16,7 @@ test("DEV-289: consumer and producer quote, cancel, send, and reload replies", a
   const consumerToken = await apiLogin(request, "u-minji", "consumer");
   const producerAuth = { Authorization: `Bearer ${producerToken}` };
   const consumerAuth = { Authorization: `Bearer ${consumerToken}` };
-  const stamp = `${Date.now()}-${Math.random()}`;
+  const stamp = crypto.randomUUID().replace(/[0-9]/g, d => String.fromCharCode(97 + Number(d)));
   const originalText = `인용할 농가 안내 ${stamp}`;
   const consumerText = `소비자 인용 답변 ${stamp}`;
   const producerText = `농가 인용 답변 ${stamp}`;
@@ -30,12 +30,27 @@ test("DEV-289: consumer and producer quote, cancel, send, and reload replies", a
   await loginConsumer(page, "김민지");
   await page.goto(`${consumerUrl}/chats/f-kang`);
   await expect(page.getByText(originalText, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "답장", exact: true }).last().click();
+  await expect(page.getByRole("button", { name: "답장", exact: true })).toHaveCount(0);
+  const originalRow = page.getByTestId(`chat-message-${original.messageId}`);
+  const replyAction = page.getByRole("menuitem", { name: "답장", exact: true });
+  await originalRow.click({ button: "right" });
+  await expect(replyAction).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(replyAction).toHaveCount(0);
+  await originalRow.click({ button: "right" });
+  await expect(replyAction).toBeVisible();
+  const outsideBox = await page.getByRole("textbox", { name: "메시지", exact: true }).boundingBox();
+  expect(outsideBox).not.toBeNull();
+  await page.mouse.click(outsideBox!.x + outsideBox!.width / 2, outsideBox!.y + outsideBox!.height / 2);
+  await expect(replyAction).toHaveCount(0);
+  await originalRow.click({ button: "right" });
+  await replyAction.click();
   await expect(page.getByText("선택한 메시지에 답장", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "답장 취소", exact: true }).click();
   await expect(page.getByText("선택한 메시지에 답장", { exact: true })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "답장", exact: true }).last().click();
+  await originalRow.click({ button: "right" });
+  await replyAction.click();
   await page.getByRole("textbox", { name: "메시지", exact: true }).fill(consumerText);
   await page.getByRole("button", { name: "전송", exact: true }).click();
   await expect(page.getByText(consumerText, { exact: true })).toBeVisible();
@@ -51,11 +66,15 @@ test("DEV-289: consumer and producer quote, cancel, send, and reload replies", a
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/chats/u-minji`);
   await expect(page.getByText(consumerText, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "답장", exact: true }).last().click();
+  await expect(page.getByRole("button", { name: "답장", exact: true })).toHaveCount(0);
+  const consumerRow = page.getByTestId(`chat-message-${consumerReply.messageId}`);
+  await consumerRow.click({ button: "right" });
+  await replyAction.click();
   await expect(page.getByText("선택한 메시지에 답장", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "답장 취소", exact: true }).click();
   await expect(page.getByText("선택한 메시지에 답장", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "답장", exact: true }).last().click();
+  await consumerRow.click({ button: "right" });
+  await replyAction.click();
   await page.getByRole("textbox", { name: "메시지", exact: true }).fill(producerText);
   await page.getByRole("button", { name: "전송", exact: true }).click();
   await expect(page.getByText(producerText, { exact: true })).toBeVisible();
@@ -89,14 +108,18 @@ test("DEV-289: private producer room toggles farm-wide AI and shows pause immedi
   const on = page.getByRole("button", { name: "전체 AI 응대 ON", exact: true });
   const off = page.getByRole("button", { name: "전체 AI 응대 OFF", exact: true });
   await expect(on).toBeVisible();
+  await expect(page.getByText("AI 답변 ON", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^(?:직접 응대|AI 자동 응대|AI 응대 재개)$/ })).toHaveCount(0);
   await on.click();
   await expect(off).toBeVisible();
+  await expect(page.getByText("AI 답변 OFF", { exact: true })).toBeVisible();
   expect((await (await request.get(`${apiUrl}/api/farms/me/ai-settings`, { headers: auth })).json()).enabled).toBe(false);
   await page.goto(`${producerUrl}/chats/u-seojun`);
   await expect(off).toBeVisible();
+  await expect(page.getByText("AI 답변 OFF", { exact: true })).toBeVisible();
   await off.click();
   await expect(on).toBeVisible();
+  await expect(page.getByText("AI 답변 ON", { exact: true })).toBeVisible();
   expect((await (await request.get(`${apiUrl}/api/farms/me/ai-settings`, { headers: auth })).json()).enabled).toBe(true);
 
   const text = `농가가 직접 보내는 답변 ${Date.now()}`;
@@ -105,4 +128,55 @@ test("DEV-289: private producer room toggles farm-wide AI and shows pause immedi
   await expect(page.getByText(text, { exact: true })).toBeVisible();
   await expect(page.getByText(/직접 응대 중 · AI 재개까지 \d{2}:\d{2}/)).toBeVisible();
   assertClean();
+});
+
+
+test("DEV-289: mobile long press opens the reply menu without visible message actions", async ({ browser, browserName, request }) => {
+  test.skip(browserName !== "chromium", "Touch input uses Chromium CDP");
+  test.setTimeout(120_000);
+  const token = await apiLogin(request, "u-kang", "producer");
+  const stamp = crypto.randomUUID().replace(/[0-9]/g, d => String.fromCharCode(97 + Number(d)));
+  const originalText = `길게 눌러 답장할 안내 ${stamp}`;
+  const seeded = await request.post(`${apiUrl}/api/messaging/producer/chats/u-minji/messages`, {
+    headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `long-press-${stamp}` },
+    data: { text: originalText },
+  });
+  expect(seeded.ok()).toBeTruthy();
+  const original = (await seeded.json()).message;
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    const assertClean = monitor(page);
+    await loginConsumer(page, "김민지");
+    await page.goto(`${consumerUrl}/chats/f-kang`);
+    const row = page.getByTestId(`chat-message-${original.messageId}`);
+    await expect(row).toBeVisible();
+    await expect(page.getByRole("button", { name: "답장", exact: true })).toHaveCount(0);
+    await row.scrollIntoViewIfNeeded();
+    const box = await row.boundingBox();
+    expect(box).not.toBeNull();
+    const touch = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+    const cdp = await context.newCDPSession(page);
+    const action = page.getByRole("menuitem", { name: "답장", exact: true });
+    // A normal tap does not activate the long-press menu.
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touch] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(action).toHaveCount(0);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touch] });
+    await page.waitForTimeout(650);
+    await expect(action).toBeVisible();
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await action.click();
+    await expect(page.getByText("선택한 메시지에 답장", { exact: true })).toBeVisible();
+    await expect(page.getByText(originalText, { exact: true })).toHaveCount(2);
+    await page.getByRole("button", { name: "답장 취소", exact: true }).click();
+    await expect(page.getByText("선택한 메시지에 답장", { exact: true })).toHaveCount(0);
+    assertClean();
+  } finally {
+    await context.close();
+  }
 });

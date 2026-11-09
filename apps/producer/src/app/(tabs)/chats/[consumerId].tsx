@@ -84,6 +84,7 @@ export default function Chat() {
       <ChatThread
         key={consumerId}
         producer
+        edit={!support ? (id, text, version, key) => messaging.editChatMessage(id, text, version, key) : undefined}
         replies={!support}
         active={active}
         load={load}

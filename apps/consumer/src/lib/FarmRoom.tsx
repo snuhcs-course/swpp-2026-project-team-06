@@ -170,6 +170,7 @@ export default function FarmRoom() {
           active={active}
           load={load}
           makeKey={newIdempotencyKey}
+          edit={(id, text, version, key) => messaging.editRoomMessage(farmId, id, text, version, key)}
           send={(body, key) => messaging.sendRoom(farmId, body, key)}
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)

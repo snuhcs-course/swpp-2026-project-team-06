@@ -13,6 +13,8 @@ SenderType = Literal["CONSUMER", "PRODUCER", "AI", "OPERATOR"]
 
 
 class NewsItem(CamelModel):
+    edited_at: datetime | None = None
+    edit_version: int = 0
     broadcast_id: str
     farm_id: str
     farm_name: str
@@ -53,6 +55,8 @@ class NewsRoomSummary(CamelModel):
 
 
 class NewsRoomMessage(CamelModel):
+    edited_at: datetime | None = None
+    edit_version: int = 0
     message_id: str
     farm_id: str
     sender_id: str
@@ -80,6 +84,8 @@ class TextInput(CamelModel):
 
 
 class ChatMessage(CamelModel):
+    edited_at: datetime | None = None
+    edit_version: int = 0
     reply_to: dict | None = None
     reply_to_message_id: str | None = None
     sequence: int
@@ -290,3 +296,8 @@ class SupportPage(CamelModel):
 
 class SupportSendInput(CamelModel):
     text: str
+
+
+class MessageEditInput(CamelModel):
+    text: str
+    version: int = Field(ge=0)

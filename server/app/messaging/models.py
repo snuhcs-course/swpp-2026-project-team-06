@@ -26,6 +26,8 @@ class Broadcast(Base):
 
     __tablename__ = "broadcasts"
 
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    edit_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), index=True)
     body: Mapped[str] = mapped_column(Text, default="")
@@ -55,6 +57,8 @@ class RoomReply(Base):
 
     __tablename__ = "room_replies"
 
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    edit_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), index=True)
     consumer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
@@ -102,6 +106,8 @@ class ThreadMessage(Base):
 
     __tablename__ = "thread_messages"
 
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    edit_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     reply_to_message_id: Mapped[str | None] = mapped_column(ForeignKey("thread_messages.id"))
     reply_to: Mapped[dict | None] = mapped_column(JSON)

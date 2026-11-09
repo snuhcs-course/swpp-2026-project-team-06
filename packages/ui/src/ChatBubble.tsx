@@ -9,6 +9,7 @@ type Props = {
   /** farm = 농가(면 색, 왼쪽) · me = 나(옅은 주황, 오른쪽) · ai = AI 안내(테두리 + 배지, 왼쪽) */
   kind: "farm" | "me" | "ai";
   quote?: {senderType: string; body: string};
+  edited?: boolean;
   text: string;
   /** 보낸 시각 */
   time?: string;
@@ -27,6 +28,7 @@ type Props = {
 export function ChatBubble({
   kind,
   quote,
+  edited,
   text,
   time,
   sender,
@@ -82,6 +84,7 @@ export function ChatBubble({
         </View>
       ) : null}
       {children}
+      {edited ? <T variant="caption" muted style={{ fontStyle: "italic" }}>수정됨</T> : null}
       {mine && time ? (
         <T variant="caption" muted>
           {time}

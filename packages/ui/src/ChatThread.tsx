@@ -1,3 +1,5 @@
+import { MessageEditSheet } from "./MessageEditSheet";
+import { MessageMenu, type MenuPoint } from "./MessageMenu";
 import { mergeChatMessages } from "./chatOrder";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
@@ -21,6 +23,7 @@ import {
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
 type Message = {
+  editedAt?: string | null; editVersion?: number;
   replyTo?: {messageId: string; senderType: string; body: string; attachmentCount: number} | null;
   sequence?: number;
   messageId: string;
@@ -49,6 +52,7 @@ type Props = {
   composerEnabled?: boolean;
   onAccessDenied?: (error: unknown) => void;
   onBusyChange?: (busy: boolean) => void;
+  edit?: (id: string, text: string, version: number, key: string) => Promise<Message>;
   replies?: boolean;
   producer?: boolean;
   active: boolean;
@@ -73,6 +77,7 @@ export function ChatThread({
   composerEnabled = true,
   onAccessDenied,
   onBusyChange,
+  edit,
   replies = false,
   producer = false,
   active,
@@ -138,7 +143,11 @@ export function ChatThread({
     expectedScroll = useRef<number | null>(null),
     epoch = useRef(0), reading = useRef(""),
     captureRef = useRef<() => void>(() => {});
+  const [editTarget, setEditTarget] = useState<Message | null>(null);
+  const [menuMessage, setMenuMessage] = useState<Message | null>(null);
+  const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  useEffect(() => { if (!active) { setMenuMessage(null); setEditTarget(null); } }, [active]);
   const [reporting, setReporting] = useState<string | null>(null);
   // 앱: 입력창 아래에 하단 내비 바(안전 영역)만큼 더 띄운다. 키보드가 뜨면 키보드가 내비 바를 덮으므로 뺀다.
   // 웹은 지금 여백(20) 그대로(DEV-205)
@@ -155,6 +164,8 @@ export function ChatThread({
     if (previousContext.current === sendScope) return;
     previousContext.current = sendScope;
     setReplyTo(null);
+    setMenuMessage(null);
+    setEditTarget(null);
     pending.current = null;
     lock.current = false;
     setBusy(false);
@@ -591,8 +602,18 @@ export function ChatThread({
                 {days[i]}
               </T>
             ) : null}
-            <View style={{ flexDirection: m.senderType === (producer ? "PRODUCER" : "CONSUMER") ? "row-reverse" : "row", alignItems: "flex-end", gap: 4 }}>
-            <View style={{ minWidth: 0, flexShrink: 1 }}>
+            <Pressable accessible={false} disabled={!replies || busy} delayLongPress={500}
+              onLongPress={() => { setMenuPoint(null); setMenuMessage(m); }}
+              {...(Platform.OS === "web" && replies ? {
+                onContextMenu: (e: {preventDefault: () => void; clientX: number; clientY: number}) => {
+                  e.preventDefault(); if (busy) return;
+                  setMenuPoint({x: e.clientX, y: e.clientY}); setMenuMessage(m);
+                },
+                tabIndex: 0,
+                onKeyDown: (e: {key: string; shiftKey: boolean; preventDefault: () => void}) => {
+                  if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) { e.preventDefault(); setMenuPoint(null); setMenuMessage(m); }
+                },
+              } as object : {})}>
             <ChatBubble
               kind={
                 m.senderType === (producer ? "PRODUCER" : "CONSUMER")
@@ -602,6 +623,7 @@ export function ChatThread({
                     : "farm"
               }
               quote={m.replyTo ?? undefined}
+              edited={!!m.editedAt}
               text={m.body}
               sender={
                 m.senderType === (producer ? "PRODUCER" : "CONSUMER")
@@ -662,16 +684,22 @@ export function ChatThread({
                 </T>
               ) : null}
             </ChatBubble>
-            </View>
-            {replies ? <Pressable accessibilityRole="button" accessibilityLabel="답장"
-              accessibilityHint="이 메시지를 인용해 답장하기" disabled={busy}
-              style={({ pressed }) => ({ width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, opacity: busy ? 0.4 : 1, backgroundColor: pressed ? tokens.color.surface : "transparent" })}
-              onPress={() => setReplyTo(m)}><Icon name="reply" size={20} color={tokens.color.textMuted} /></Pressable> : null}
-            </View>
+            </Pressable>
           </View>
         ))}
         {children}
       </ScrollView>
+      <MessageMenu visible={!!menuMessage && !busy} point={menuPoint} onClose={() => setMenuMessage(null)}
+        actions={[{ label: "답장", onPress: () => { if (menuMessage) setReplyTo(menuMessage); } },
+          ...(edit && menuMessage?.senderType === (producer ? "PRODUCER" : "CONSUMER") ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
+      {editTarget && edit ? <MessageEditSheet key={editTarget.messageId} body={editTarget.body} limit={1000} makeKey={makeKey}
+        onClose={() => setEditTarget(null)} onSave={async (text, key) => {
+          const run = epoch.current;
+          const saved = await edit(editTarget.messageId, text, editTarget.editVersion ?? 0, key);
+          if (!current(run)) return;
+          commitMessages(mergeChatMessages(messageRef.current, [saved]));
+          setEditTarget(null);
+        }} /> : null}
       {unseen ? (
         <Button
           label="새 메시지 보기 ↓"
