@@ -30,6 +30,7 @@ This document describes the main snapshot [`28feb94ac47b259b6a6299e9fd742b75e756
 | 2.0 | 2026-10-22 | Team 6 | I2 implementation snapshot: deployed clients/API/worker, Kakao onboarding, operator UI, private source workspace, media boundaries, bank-transfer lifecycle, schema 0019 and current diagrams |
 | 2.1 | 2026-10-23 | Team 6 | DEV-33: consumer and producer apps move to EAS native builds (ADR 0013); platform split of web-only code, Kakao return through the app scheme |
 | 3.0 | 2026-11-06 | Minsun Kim; existing Team 6 and owner contributions retained | DEV-158: schema 0026, paid-order conversation association, session/anchor lifecycle, AI save-time race checks, two-stage source pipeline and reproducible I3 demo boundary |
+| 3.1 | 2026-11-09 | Team 6 | DEV-293: shared UI tokens and headers follow the DEV-292 audit baseline; consumer home, product detail, checkout, orders, me and login simplified (per-option boxes left, hidden tab bar on purchase screens) |
 
 
 ## 1. System Architecture
@@ -97,7 +98,7 @@ Expo Router route modules render components from `src/`. They call typed endpoin
 | Route screens + `useAsync` | Load data, retain displayed state during reload, expose retry and permission redirects |
 | `useLiveList` / room screens | Poll active rooms, merge by ID and persisted insertion sequence, stop hidden-room polling and retain composer text when folding the shelf |
 | Consumer private-chat route + shared `ChatThread` | Initialize and freshly authorize the exact thread before rendering/sending; apply session-scoped reading metadata; isolate selected-order attachments, retries and stale async completions |
-| `Storefront` / shared UI | Independent news/product carousels, farm rooms, fixed product purchase controls, brand assets and detail blocks |
+| `Storefront` / shared UI | News carousel and two-column product grid, farm rooms, fixed product purchase controls, brand assets and detail blocks. Shared tokens follow the DEV-292 baseline (Daangn SEED sizes): 16 gutter, body 16 / secondary 14 / meta 12, section 18, tab-screen title 22, 52 buttons, 32 chips with a 48 hit area, 56 headers (tab roots left-aligned 22, sub-screens Back + left-aligned 18) |
 | Source-analysis screen/editor | Save basic information before upload, separate source files from product photos, observe the latest run, edit shared detail-renderer modules, save privately and explicitly apply |
 | Product page workspace | Initialize from a product snapshot; protect direct edits, representative photo and section/item visibility through versioned saves |
 | Producer help tour | First-visit walkthrough; help-button restart; skip unavailable support-room steps instead of blocking navigation |
