@@ -14,6 +14,7 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../lib/session";
 import { goBackOr } from "../../../lib/nav";
+import { copyText } from "../../../lib/views";
 
 export default function SupportChat() {
   useHideTabBar();
@@ -58,6 +59,8 @@ export default function SupportChat() {
         makeKey={newIdempotencyKey}
         loadPhoto={privateImage}
         send={(text, _ids, key) => messaging.supportSend(text, key)}
+        peer={{ name: "farmclub", avatar: <SupportAvatar size={36} /> }}
+        copy={copyText}
       />
     </Screen>
   );

@@ -15,6 +15,7 @@ import { goBackOr } from "../../../lib/nav";
 import { chatEntry, chatRequest, initialOrderId } from "../../../lib/orderChat";
 import { chatViewState } from "../../../lib/chatViewState";
 import { matchesChatIdentity } from "../../../lib/chatSession";
+import { copyText } from "../../../lib/views";
 
 type Head = {
   page: ChatPage; epoch: number; owner: string; entry: string;
@@ -176,28 +177,31 @@ export default function Chat() {
   const replyTime = replyHoursLabel(page?.farmReply?.typicalReplyHours);
   const forwardStatus = `농가에 전달했어요 · ${replyTime ? `보통 ${replyTime} 안에 답해요` : "답이 오면 여기에 보여요"}`;
   const sendScope = JSON.stringify({ farmId, orderId: selected?.orderId, productId });
+  const farmName = farm.data?.farmId === farmId ? farm.data.name : "농가";
+  const farmPhoto = farm.data?.farmId === farmId ? farm.data.photo : undefined;
+  // 위 안내 띠 2줄 → 대화 맨 위 가운데 시스템 문구 1줄(DEV-295, Figma 1:38). 개발 용어(Mock)는 Mock 환경에서만
+  const systemLine = [
+    replyMode === "FARM" ? "AI 안내가 꺼져 있어요 · 농가가 직접 답해요" : "AI가 등록된 정보로 먼저 안내해요 · 확인이 필요하면 농가에 전달해요",
+    replyMode === "FARM" && replyTime ? `보통 ${replyTime} 안에 답해요` : "",
+    isMock ? "Mock AI" : "",
+  ].filter(Boolean).join(" · ");
   return (
     <Screen>
       <ConversationHeader
-        name={farm.data?.farmId === farmId ? farm.data.name : "농가"}
-        photo={farm.data?.farmId === farmId ? farm.data.photo : undefined} subtitle="1:1 채팅"
+        name={farmName}
+        photo={farmPhoto}
         onProfile={() => router.push(`/farms/${farmId}` as Href)}
+        right={<Button label="농가 보기" variant="text" onPress={() => router.push(`/farms/${farmId}` as Href)} />}
         onBack={() => {
           const target = roomBackTarget(params);
           if (target) router.navigate(target as Href);
           else goBackOr(router, "/chats?view=private");
         }}
       />
-      <View style={{ padding: 12, gap: 8 }}>
-        {generalOrderEntry ? <T variant="caption" muted>
+      <View style={{ paddingHorizontal: 12, gap: 8 }}>
+        {generalOrderEntry ? <T variant="caption" muted style={{ paddingTop: 8 }}>
           결제 확인 전에는 일반 대화로 물어봐요. 팔로우하지 않았다면 팔로우하고 대화를 시작해요.
         </T> : null}
-        <T variant="caption" muted>
-          {replyMode === "FARM"
-            ? `AI 안내 없이 농가가 직접 답해요 · ${replyTime ? `보통 ${replyTime} 안에` : "답이 오면 여기에 보여요"}`
-            : "등록된 정보는 AI가 안내하고, 확인이 필요한 질문은 농가에 전달해요."}
-          {isMock ? " · Mock AI 안내" : ""}
-        </T>
         {ready && page && page.orders.length > 0 ? (
           <View style={{ gap: 4 }}>
             <T variant="caption" numberOfLines={2}>
@@ -244,6 +248,10 @@ export default function Chat() {
           ))}
           report={(id, key) => withVisit(() => messaging.reportAiAnswer(farmId, id, key))}
           forwardStatus={forwardStatus}
+          systemLine={systemLine}
+          peer={{ name: farmName, photo: farmPhoto }}
+          peerReadMessageId={page.thread.producerLastReadMessageId}
+          copy={copyText}
         />
       ) : phase === "loading" ? <T muted>대화를 여는 중…</T> : null}
       <Sheet visible={Boolean(ready && orderSheet)} onClose={() => setOrderSheet(false)}>

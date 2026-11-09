@@ -160,3 +160,13 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `Price`는 검정 굵게(강조색은 CTA 하나만). `inline`(가격 옆 취소선, 홈 카드), `align="right"`(옵션 줄).
 - `ProductPageBody`: 사진 300(`PRODUCT_PHOTO_HEIGHT`, 여러 장이면 넘겨 보기 1/N), `onBack`·`onShare`가 있으면 사진 위 원형 버튼, 판매자 줄(아바타·지역), 상품명·원산지 22+22, 받는 시기 줄(배송비·마감 보조), 옵션 줄마다 남은 박스(합치지 않음), 취소 규정 한 줄 + 펼치기. 남은 박스는 PR #542(DEV-291)의 `optionLeft`와 같은 식을 안에서 계산한다(머지 뒤 `optionLeft`로 바꾼다).
 - `ModuleStory`·`DetailStory`: 본문 16, 섹션 제목 22, 히어로 이름 28, 일러스트 숫자 28·여백 32, 좌우 16.
+
+## DEV-295 버블 채팅 구현 결정
+
+화면 기준은 `docs/spec/conversation-ui-1.6.md` ‘버블 채팅 모양’. 숫자는 토큰을 쓰고, 새 고정값은 Figma의 아바타 36·입력줄 40뿐이다.
+- 채팅 목록 탭은 `Messenger.tsx`의 `ChatTabs`(밑줄 탭 + 건수, 접근성 이름은 탭 이름만). `Storefront.tsx`의 `ChatChoices`·`ProductShelf`는 다른 화면이 쓸 수 있어 지우지 않고, 채팅·소식방은 `ChatTabs`·`NewsRoom.tsx`의 `RoomShelf`(한 줄 접힘, local state)를 쓴다.
+- 묶음 계산은 순수 함수 `chatGroups.ts`(같은 보낸 사람·한국 날짜·분). `ChatBubble`은 `first`/`last`/`avatar`/`side`/`footer`로 아바타·이름·시각·읽음·하트·확인 요청을 그린다.
+- 1:1 행은 위 간격(4/16)을 자기 높이에 담고 `chatRowGeometry(..., gap = 0)`로 보기 상태 복원 계산을 맞춘다. 시스템 문구도 첫 행 안에 둔다.
+- `composer.tsx`: 1:1·소식방 공용 입력줄(40/40/40, 터치 48), 떠 있는 알약, 도구 칩, `copyToClipboard`(앱이 넘긴 expo-clipboard 도우미 우선, 없으면 웹 클립보드). ui 패키지에 의존성을 더하지 않는다.
+- 사진 전체 화면은 `ViewablePhoto`/`PhotoViewer`(RN Modal). 누르는 칸을 사진 위 형제로 겹쳐 사진의 img 역할을 보조기술에 남긴다.
+- `KeyboardRoot`·`useKeyboardShown`은 iOS·Android 공통(iOS는 will 이벤트). 웹은 그대로.

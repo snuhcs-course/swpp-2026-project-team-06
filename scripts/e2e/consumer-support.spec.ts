@@ -30,11 +30,11 @@ test("AC-34-7: a consumer asks the farmclub team from the 1:1 list and sees the 
   // 뒤에 남은 목록 화면의 미리보기와 겹치지 않게 방 안(마지막) 요소를 본다
   await expect(page.getByText(/가입을 환영해요/).last()).toBeVisible();
   // 사진 첨부는 받지 않는다
-  await expect(page.getByRole("button", { name: "＋" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "사진 첨부" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("consumer-support-room.png") });
 
   const question = `입금 확인은 언제 되나요? ${Date.now().toString(36)}`;
-  const composer = page.getByPlaceholder("메시지를 입력하세요");
+  const composer = page.getByPlaceholder("메시지 입력");
   await composer.fill(question);
   await page.getByRole("button", { name: "전송" }).click();
   // 입력창(textarea)도 같은 글자를 가져 getByText에 걸린다. 전송이 끝나 입력창이 비워진 뒤에
