@@ -21,6 +21,7 @@ import {
   deliveryText,
   joinMeta,
   md,
+  optionLeft,
   shippingText,
   unavailableLabel,
   won,
@@ -454,25 +455,6 @@ function lastReservationEnd(p: ProductPageData) {
 }
 const joinSentences = (...parts: (string | null)[]) =>
   parts.filter(Boolean).join(" ");
-/** 지금 기간에 그 옵션을 몇 박스 더 예약할 수 있나: 전체 남은 물량(g)과 기간 물량 중 작은 쪽(DEV-293, 옵션 줄마다 따로).
- *  옵션을 합치지 않는다: 남은 물량을 옵션끼리 나눠 쓰므로 더하면 두 번 센다. */
-function optionRemaining(
-  p: ProductPageData,
-  cur: ProductPageData["stages"][number] | null,
-  o: ProductPageData["options"][number],
-) {
-  const alloc = cur?.options[o.optionId];
-  const grams = Math.round(o.weightKg * 1000);
-  if (!alloc || grams <= 0) return 0;
-  return Math.max(
-    0,
-    Math.min(
-      Math.floor(p.remainingGrams / grams),
-      alloc.quantity - alloc.reservedCount,
-    ),
-  );
-}
-
 function SaleRows({
   p,
   cur,
@@ -534,7 +516,8 @@ function SaleRows({
         >
           {p.options.map((o, i) => {
             const value = cur?.options[o.optionId];
-            const left = optionRemaining(p, cur, o);
+            // 옵션 줄마다 따로(PM 11/09 결정). 옵션끼리 남은 물량을 나눠 써서 더하지 않는다(DEV-293)
+            const left = optionLeft(p, o.optionId);
             return (
               <View
                 key={o.optionId}

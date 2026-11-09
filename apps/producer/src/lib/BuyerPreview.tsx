@@ -12,7 +12,7 @@ import { ProductPageBody, type ProductPageData } from "@farmclub/ui";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { daysBetween } from "./fields";
-import { TODAY } from "./views";
+import { seoulToday } from "./HarvestStart";
 
 const PRIVATE = "/api/source-media/";
 
@@ -37,7 +37,7 @@ export function toPageData(
     nextStageStartsAt: null,
     currentStageId: first?.stageId ?? null,
     remainingGrams: requestedGrams,
-    dDay: first ? daysBetween(TODAY, first.endsAt) : null,
+    dDay: first ? daysBetween(seoulToday(), first.endsAt) : null,
     // MyProduct에는 농가 한마디가 없다(API 변경은 범위 밖). 새 상품은 기본값이 빈 값이라 구매자 화면과 같다.
     farmerNote: "",
   };

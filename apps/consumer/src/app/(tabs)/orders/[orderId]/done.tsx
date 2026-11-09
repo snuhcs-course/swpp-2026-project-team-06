@@ -1,6 +1,6 @@
 // SCR-12 주문 접수·입금 확인 중 (FEAT-09 개정 DEV-68, 06) — design: scr-12, s-12-detailfail
 // 입금 대기면 「입금 대기」(알린 뒤 「입금 확인 중」, DEV-207)와 계좌·입금자명·기한을, 확인된 뒤에 열면 「예약 완료」를 보여 준다.
-import { farms, orders } from "@farmclub/api";
+import { farms, orders, serverNow } from "@farmclub/api";
 import {
   Button,
   FollowButton,
@@ -8,7 +8,11 @@ import {
   Screen,
   Scroll,
   T,
+  deadline,
+  eulReul,
+  md,
   period,
+  time,
   tokens,
   useAsync,
   won,
@@ -18,7 +22,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
 
 import { DepositCard } from "../../../../lib/DepositCard";
-import { statusTitle } from "../../../../lib/orderText";
+import { depositRefundSentence, statusTitle } from "../../../../lib/orderText";
 import { useHideTabBar } from "../../../../lib/session";
 import { useToast } from "../../../../lib/toast";
 import { Avatar, copyText } from "../../../../lib/views";
@@ -69,8 +73,31 @@ export default function Done() {
   const toggleFollow = () => setFollow(!following);
 
   const awaiting = !o || o.status === "AWAITING_DEPOSIT";
+  // 기한이 지나 취소됐거나 환불된 주문을 다시 열면 '예약 완료'가 아니라 그 상태를 보인다(DEV-291, SCR-14와 같은 문구)
+  const ended =
+    !!o &&
+    (o.status === "CANCELED" ||
+      o.status === "REFUNDED" ||
+      o.status === "PARTIALLY_REFUNDED");
+  const title = !o
+    ? "입금 대기"
+    : o.status === "CANCELED" && o.cancelReason === "입금 기한 초과"
+      ? "입금 기한이 지나 취소됐어요"
+      : awaiting || ended
+        ? statusTitle(o)
+        : "예약 완료";
+  const sentence = !o
+    ? "주문을 접수했어요."
+    : awaiting
+      ? `농가가 입금을 확인하면 예약 완료로 바뀌어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
+      : o.status === "CANCELED"
+        ? // 다시 예약은 문장 대신 아래 ‘다시 예약하기’ 버튼(DEV-293, Figma 11:133 ③)
+          "물량은 다른 분께 돌아갔어요"
+        : ended
+          ? (depositRefundSentence(o, { md, deadline, time, won }, serverNow()) ?? "")
+          : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`;
   const copy = async (text: string, what: string) =>
-    (await copyText(text)) && toast.show(`${what}를 복사했어요`);
+    (await copyText(text)) && toast.show(`${eulReul(what)} 복사했어요`);
   return (
     <Screen>
       <Scroll bottom={60}>
@@ -86,27 +113,21 @@ export default function Done() {
               width: 48,
               height: 48,
               borderRadius: 999,
-              backgroundColor: tokens.color.text,
+              backgroundColor: ended ? tokens.color.surface : tokens.color.text,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Icon name="check" size={24} color="#FFFFFF" />
+            <Icon name={ended ? "close" : "check"} size={24} color={ended ? tokens.color.textMuted : "#FFFFFF"} />
           </View>
           <T
             variant="title"
             style={{ marginTop: 8 }}
             accessibilityRole="header"
           >
-            {o && awaiting ? statusTitle(o) : awaiting ? "입금 대기" : "예약 완료"}
+            {title}
           </T>
-          <T variant="body">
-            {o
-              ? awaiting
-                ? `농가가 입금을 확인하면 예약 완료로 바뀌어요. ${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
-                : `${period(o.deliveryWindow.start, o.deliveryWindow.end)} 사이에 받아요.`
-              : "주문을 접수했어요."}
-          </T>
+          {sentence ? <T variant="body">{sentence}</T> : null}
         </View>
 
         {o && awaiting ? (
@@ -129,7 +150,7 @@ export default function Done() {
             {!awaiting ? <KV k="합계" v={won(o.totalAmount)} bold /> : null}
             <KV
               k="배송지"
-              v={`${o.recipientName} · ${o.address}`}
+              v={`${o.recipientName} · ${o.address}${o.addressDetail ? `, ${o.addressDetail}` : ""}`}
               last
               masked
             />
@@ -183,10 +204,10 @@ export default function Done() {
               />
               <View style={{ flex: 1 }}>
                 <T variant="body" weight="semibold">
-                  {farm.data.name}을 팔로우할까요?
+                  {eulReul(farm.data.name)} 팔로우할까요?
                 </T>
                 <T variant="sub" muted>
-                  귤이 자라는 소식을 받아 볼 수 있어요
+                  농가 소식을 받아 볼 수 있어요
                 </T>
               </View>
             </View>
@@ -205,12 +226,37 @@ export default function Done() {
 
         {/* 주문 상세로 바로 가는 버튼(DEV-293) */}
         {o ? (
-          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 16 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 8,
+              paddingHorizontal: tokens.space.gutter,
+              paddingTop: 16,
+            }}
+          >
             <Button
-              label="주문 상세 보기"
+              label={o.status === "CANCELED" ? "주문 상세" : "주문 상세 보기"}
               variant="secondary"
               onPress={() => router.replace(`/orders/${o.orderId}`)}
+              style={{ flex: 1 }}
             />
+            {/* 취소된 주문은 같은 옵션·수량으로 바로 다시 예약(감사 23번 재구매 버튼, DEV-293) */}
+            {o.status === "CANCELED" ? (
+              <Button
+                label="다시 예약하기"
+                onPress={() =>
+                  router.push({
+                    pathname: "/checkout/[productId]",
+                    params: {
+                      productId: o.productId,
+                      optionId: o.optionId,
+                      quantity: String(o.quantity),
+                    },
+                  })
+                }
+                style={{ flex: 1 }}
+              />
+            ) : null}
           </View>
         ) : null}
         <View

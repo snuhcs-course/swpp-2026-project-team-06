@@ -25,6 +25,7 @@ import {
   time,
   tokens,
   useAsync,
+  eulReul,
   won,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -65,6 +66,8 @@ export default function OrderDetail() {
     setData,
   } = useAsync(() => orders.get(orderId), [orderId]);
   const [cancelSheet, setCancelSheet] = useState(false);
+  // 받는 시기 변경에 '전액 환불'로 답하기 전 확인(DEV-291). 되돌릴 수 없어 취소와 같은 시트를 거친다
+  const [refundSheet, setRefundSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const toast = useToast(180);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -101,7 +104,7 @@ export default function OrderDetail() {
   const changing = o?.actions.includes("respondDeliveryWindow");
   const awaiting = o?.status === "AWAITING_DEPOSIT";
   const copy = async (text: string, what: string) =>
-    (await copyText(text)) && toast.show(`${what}를 복사했어요`);
+    (await copyText(text)) && toast.show(`${eulReul(what)} 복사했어요`);
   const title = !o
     ? ""
     : changing
@@ -345,6 +348,7 @@ export default function OrderDetail() {
           o={o}
           busy={busy}
           onCancel={() => setCancelSheet(true)}
+          onRefund={() => setRefundSheet(true)}
           onAsk={() => router.push(orderChatTarget(o.farmId, o.orderId, Boolean(o.paidAt)) as Href)}
           act={act}
         />
@@ -387,6 +391,33 @@ export default function OrderDetail() {
           />
         </View>
       </Sheet>
+      <Sheet visible={refundSheet} onClose={() => setRefundSheet(false)}>
+        <T variant="heading">전액 환불받을까요?</T>
+        {/* DEV-293(Figma 11:133 ①): 본문 한 줄 + 보조 한 줄, 왼쪽 ‘닫기’ */}
+        <T variant="body">
+          {won(o?.totalAmount)}을 수수료 없이 전부 돌려받아요. 예약은 취소돼요.
+        </T>
+        <T variant="sub" muted>
+          농가가 3영업일 안에 입금했던 계좌로 보내요.
+        </T>
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+          <Button
+            label="닫기"
+            variant="secondary"
+            onPress={() => setRefundSheet(false)}
+            style={{ flex: 1 }}
+          />
+          <Button
+            label="전액 환불받기"
+            loading={busy}
+            onPress={() => {
+              setRefundSheet(false);
+              void act(() => orders.respondDeliveryWindow(orderId, "refund"));
+            }}
+            style={{ flex: 2 }}
+          />
+        </View>
+      </Sheet>
       {toast.node}
     </Screen>
   );
@@ -401,12 +432,14 @@ function Bar({
   o,
   busy,
   onCancel,
+  onRefund,
   onAsk,
   act,
 }: {
   o: Order;
   busy: boolean;
   onCancel: () => void;
+  onRefund: () => void;
   onAsk: () => void;
   act: (fn: () => Promise<Order>) => Promise<void>;
 }) {
@@ -418,9 +451,7 @@ function Bar({
             label="전액 환불"
             variant="secondary"
             disabled={busy}
-            onPress={() =>
-              act(() => orders.respondDeliveryWindow(o.orderId, "refund"))
-            }
+            onPress={onRefund}
             style={{ flex: 1 }}
           />
           <Button

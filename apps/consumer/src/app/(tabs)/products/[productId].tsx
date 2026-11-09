@@ -5,6 +5,7 @@ import { catalog, farms, referencePrice } from "@farmclub/api";
 import {
   BottomBar,
   Button,
+  defaultOptionId,
   EmptyState,
   HeaderBar,
   PRODUCT_PHOTO_HEIGHT,
@@ -78,7 +79,8 @@ export default function ProductPage() {
   const here = `/products/${productId}`;
 
   useEffect(() => {
-    if (p && !optionId) setOptionId(p.options[0]?.optionId ?? "");
+    // 첫 옵션이 품절이면 살 수 있는 옵션을 먼저 고른다(DEV-291)
+    if (p && !optionId) setOptionId(defaultOptionId(p));
   }, [p, optionId]);
 
   // 구매 퍼널 1단계(트래킹 플랜 product_viewed, DEV-71)
@@ -116,7 +118,7 @@ export default function ProductPage() {
     if (!user || !resume || resume.next !== here || !p) return;
     clearResume();
     if (resume.action === "reserve") {
-      const o = resume.data?.optionId ?? p.options[0].optionId;
+      const o = resume.data?.optionId ?? defaultOptionId(p);
       const q = Number(resume.data?.quantity ?? 1) || 1;
       setOptionId(o);
       setQty(q);
