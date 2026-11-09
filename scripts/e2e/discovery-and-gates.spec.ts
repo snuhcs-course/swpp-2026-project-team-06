@@ -16,9 +16,10 @@ test("AC-06/07/15: anonymous discovery, public news, and login return", async ({
   await expect(
     page.getByRole("button", { name: "강씨네 귤밭 농가 보기" }),
   ).toBeVisible();
+  // DEV-295: 판매 품목은 한 줄로 접힌 채 시작한다(Figma 7:78)
   await expect(page.getByRole("button", { name: "판매 품목" })).toHaveAttribute(
     "aria-expanded",
-    "true",
+    "false",
   );
 
   await page.goto(`${consumerUrl}/products/p-house`);

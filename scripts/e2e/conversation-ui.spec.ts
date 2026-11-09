@@ -38,11 +38,20 @@ for (const width of [360, 390, 430]) {
       .getByRole("link", { name: "강씨네 귤밭 소식방에서 이어 보기" })
       .click();
     await expect(page).toHaveURL(/\/farms\/f-kang$/);
+    // DEV-295: 판매 품목은 소비자도 한 줄로 접힌 채 시작한다(Figma 7:78)
     const shelf = page.getByRole("button", { name: "판매 품목", exact: true });
-    await expect(shelf).toHaveAttribute("aria-expanded", "true");
+    await expect(shelf).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세" }),
+    ).toHaveCount(0);
     await expect(
       page.getByText("내 답장은 농가에서만 보여요", { exact: false }),
     ).toHaveCount(0);
+    await shelf.click();
+    await expect(shelf).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세" }),
+    ).toBeVisible();
     await shelf.click();
     await expect(shelf).toHaveAttribute("aria-expanded", "false");
     await expect(
@@ -163,7 +172,7 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   const shelf = page.getByRole("button", { name: "판매 품목", exact: true });
   await expect(shelf).toHaveAttribute("aria-expanded", "false");
   await expect(
-    page.getByRole("tab", { name: "소식방", exact: true }),
+    page.getByRole("tab", { name: "내 소식방", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(
     page.getByRole("tab", { name: /전체 대화|답변 필요/ }),
@@ -186,7 +195,7 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   await page.screenshot({ path: info.outputPath("producer-room.png") });
   await page.getByRole("tab", { name: "1:1 채팅", exact: true }).click();
   await expect(input).not.toBeVisible();
-  await page.getByRole("tab", { name: "소식방", exact: true }).click();
+  await page.getByRole("tab", { name: "내 소식방", exact: true }).click();
   await expect(input).toBeVisible();
   const harvestWrites: string[] = [];
   page.on("request", r => {
@@ -224,7 +233,7 @@ test("AC-12-13: producer confirms follower count and preview before sending news
   });
   await expect(input).toHaveAttribute(
     "placeholder",
-    /^팔로워 \d+명에게 소식 보내기$/,
+    /^팔로워 \d+명에게 보내기$/,
   );
   const posts: string[] = [];
   page.on("request", (r) => {
@@ -408,7 +417,8 @@ test("DEV-208 AC-13-9: direct-mode room shows who answers and a forwarded status
   // 시드 김민지–강씨네 방은 농가가 답한 대화라 HUMAN이다. 강씨네는 최근 답이 5건 미만이라 숫자 없는 문구가 나온다.
   await loginConsumer(page, "김민지");
   await page.goto(`${consumerUrl}/chats/f-kang`);
-  await expect(page.getByText("AI 안내 없이 농가가 직접 답해요 · 답이 오면 여기에 보여요")).toBeVisible();
+  // DEV-295: 위 안내 띠 대신 대화 맨 위 시스템 문구 한 줄(Figma 1:38)
+  await expect(page.getByTestId("chat-system-line")).toHaveText("AI 안내가 꺼져 있어요 · 농가가 직접 답해요");
   const question = `DEV-208 당도는 얼마예요? ${Date.now()}`;
   await page.getByRole("textbox", { name: "메시지" }).fill(question);
   await page.getByRole("button", { name: "전송", exact: true }).click();
