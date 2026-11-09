@@ -458,6 +458,9 @@ export function Forbidden() {
 
 export const isStatus = (e: unknown, status: number) =>
   e instanceof ApiError && e.status === status;
+/** 화면에 보일 오류 문구: 서버가 준 안내(ApiError.message), 그 밖(연결 끊김 등)은 fallback. String(e)의 'Error: …'를 보이지 않는다 */
+export const errMsg = (e: unknown, fallback = "잠시 뒤 다시 시도해 주세요.") =>
+  e instanceof ApiError ? e.message : fallback;
 
 /** 클립보드 복사. 웹·앱 모두 expo-clipboard(DEV-33) */
 export async function copyText(text: string) {
