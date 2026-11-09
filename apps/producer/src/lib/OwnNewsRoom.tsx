@@ -4,10 +4,11 @@ import {
   newIdempotencyKey,
   productPrices,
 } from "@farmclub/api";
-import { Button, NewsRoom, ProductShelf, T, useAsync } from "@farmclub/ui";
+import { Button, NewsRoom, RoomShelf, T, useAsync } from "@farmclub/ui";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect } from "react";
 import { useSession } from "./session";
+import { copyText } from "./views";
 
 export default function OwnNewsRoom({ active }: { active: boolean }) {
   const { user, toast } = useSession();
@@ -27,10 +28,11 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
   );
   return (
     <>
-      <ProductShelf
+      {/* 한 줄 ‘판매 중 N개 · 팔로워 N명’, 기본 접힘(DEV-295, Figma 7:90) */}
+      <RoomShelf
         key={farmId}
-        defaultExpanded={false}
         products={products.data ?? farm.data?.products ?? []}
+        summary={farm.data ? `팔로워 ${farm.data.followerCount}명` : undefined}
         onProduct={(id) => router.push(`/products/${id}/edit`)}
       />
       {farm.error ? (
@@ -56,6 +58,7 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
           send={(text, key, replyId, replyVersion) => messaging.sendRoom(farmId, text, key, replyId, replyVersion)}
           recipientCount={farm.data?.followerCount ?? null}
           remove={(id) => messaging.deleteNews(id)}
+          copy={copyText}
           notify={toast}
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)

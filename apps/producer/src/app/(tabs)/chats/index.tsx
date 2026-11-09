@@ -2,7 +2,7 @@ import { allPages, messaging } from "@farmclub/api";
 import {
   BrandHeader,
   Button,
-  ChatChoices,
+  ChatTabs,
   ConversationRow,
   EmptyState,
   Screen,
@@ -42,19 +42,27 @@ export default function Chats() {
       ),
     [],
   );
+  // ‘1:1 채팅 N’ 건수를 소식방 탭에서도 보이려고 1:1 목록은 늘 읽는다. 소식방 탭에서는 10초마다만(DEV-295)
   const chats = useLiveList(
     load,
     user?.userId ?? "",
-    active && !!user && tab === "private",
+    active && !!user,
+    tab === "private" ? 2000 : 10000,
   );
+  const unread = chats.data?.reduce((n, c) => n + c.unreadCount, 0) ?? 0;
   // farmclub 문의 대화방(DEV-111)을 뺀 첫 소비자 대화
   const firstConsumer = chats.data?.find((c) => !c.isSupport)?.threadId;
   return (
     <Screen style={{ paddingBottom: safe("bottom", tokens.height.tabBar) }}>
       <BrandHeader logo="icon" title="채팅" right={<View style={{ flexDirection: "row", alignItems: "center" }}>{tab === "private" && user ? <GlobalAiButton /> : null}<HelpButton /></View>} />
-      <ChatChoices
+      {/* 밑줄 탭 + 건수(DEV-295, Figma 7:90) */}
+      <ChatTabs
         value={tab}
         onChange={(value) => router.setParams({ view: value })}
+        tabs={[
+          { key: "news", label: "내 소식방", testID: "chat-choice-news" },
+          { key: "private", label: "1:1 채팅", count: unread, testID: "chat-choice-private" },
+        ]}
       />
       <View
         style={{
@@ -93,7 +101,9 @@ export default function Chats() {
                   : undefined
               }
               name={chat.consumerName}
-              preview={chat.lastMessage || "대화를 시작해 보세요"}
+              // 사진만 보낸 메시지는 본문이 비어 있다 → 사진 표시(DEV-295). ‘나:’는 마지막 보낸 사람이 API에 없어 후속(DEV-297)
+              media={chat.lastMessage === "" ? "사진" : undefined}
+              preview={chat.lastMessage || (chat.lastMessage === "" ? "" : "대화를 시작해 보세요")}
               at={chat.lastAt}
               unread={chat.unreadCount}
               onPress={() =>
@@ -110,7 +120,7 @@ export default function Chats() {
           {chats.data && !firstConsumer ? (
             <EmptyState
               icon="chat"
-              title="아직 손님과 나눈 1:1 대화가 없어요"
+              title="아직 소비자와 나눈 1:1 대화가 없어요"
               body="소비자의 질문과 주문 문의가 이곳에 모여요."
             />
           ) : null}
