@@ -182,16 +182,9 @@ export default function Login() {
         bottom={showTest ? barHeight : safe("bottom", 16)}
         footer={<LegalFooter onOpen={(path) => router.push(path)} />}
       >
-        <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 8 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 8, gap: 8 }}>
           <T variant="title" accessibilityRole="header">
             {"로그인하고\n계속해요"}
-          </T>
-          <T variant="body" muted>
-            예약·팔로우·채팅은 로그인이 필요해요. 끝나면 보던{" "}
-            {next?.startsWith("/products") || next?.startsWith("/checkout")
-              ? "상품"
-              : "화면"}
-            으로 돌아가요.
           </T>
           {reason === "signedout" ? (
             <Notice
@@ -202,7 +195,7 @@ export default function Login() {
           ) : null}
         </View>
         {kakaoOn ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 12 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.lg, gap: 12 }}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="카카오로 시작하기"
@@ -221,13 +214,14 @@ export default function Login() {
                 카카오로 시작하기
               </T>
             </Pressable>
-            <T variant="caption" muted center>
+            {/* 개발 용어(Mock)는 isMock일 때만. 운영 문구는 약관 동의 안내 한 줄(DEV-283) */}
+            <T variant="caption" muted>
               {isMock
                 ? "Mock: 카카오로 시작하면 처음 가입하는 새 소비자로 들어가요"
-                : "카카오에서는 이메일만 받아요. 닉네임·연락처·배송지와 약관 동의는 처음 한 번만 받아요."}
+                : "약관 동의와 연락처는 처음 가입할 때 한 번만 받아요"}
             </T>
             {failed && !showTest ? (
-              <T variant="sub" color={tokens.color.error} center>
+              <T variant="sub" color={tokens.color.error}>
                 {failed}
               </T>
             ) : null}
@@ -255,7 +249,7 @@ export default function Login() {
             />
           )
         ) : (
-          <View style={{ paddingHorizontal: 20, paddingTop: 32 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.lg }}>
             <T variant="sub" muted style={{ paddingBottom: 8 }}>
               소비자 테스트 계정을 골라 주세요
             </T>
@@ -314,7 +308,7 @@ export default function Login() {
             left: 0,
             right: 0,
             bottom: 0,
-            paddingHorizontal: 20,
+            paddingHorizontal: tokens.space.gutter,
             paddingTop: 12,
             paddingBottom: safe("bottom", 28),
             gap: 12,
@@ -322,11 +316,11 @@ export default function Login() {
           }}
         >
           {failed ? (
-            <T variant="sub" color={tokens.color.error} center>
+            <T variant="sub" color={tokens.color.error}>
               {failed}
             </T>
           ) : null}
-          <T variant="caption" muted center>
+          <T variant="caption" muted>
             {kakaoOn
               ? "이용약관·개인정보 처리방침 동의는 처음 가입할 때 받아요 · 테스트 서비스"
               : "로그인하면 이용약관과 개인정보 처리방침에 동의하게 돼요 · 테스트 서비스"}

@@ -52,7 +52,7 @@ export default function FarmInfo() {
           <LoadError error={farm.error} onRetry={farm.reload} />
         ) : null}
         {farm.data ? (
-          <View style={{ padding: 20, gap: 24 }}>
+          <View style={{ padding: tokens.space.gutter, gap: 24 }}>
             <ProfileAvatar
               name={farm.data.name}
               uri={farm.data.photo}

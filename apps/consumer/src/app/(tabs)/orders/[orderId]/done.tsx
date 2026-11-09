@@ -74,22 +74,28 @@ export default function Done() {
   return (
     <Screen>
       <Scroll bottom={60}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 64, gap: 8 }}>
+        <View
+          style={{
+            paddingHorizontal: tokens.space.gutter,
+            paddingTop: tokens.space.lg,
+            gap: 8,
+          }}
+        >
           <View
             style={{
-              width: 56,
-              height: 56,
+              width: 48,
+              height: 48,
               borderRadius: 999,
               backgroundColor: tokens.color.text,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Icon name="check" size={28} color="#FFFFFF" />
+            <Icon name="check" size={24} color="#FFFFFF" />
           </View>
           <T
             variant="title"
-            style={{ marginTop: 16 }}
+            style={{ marginTop: 8 }}
             accessibilityRole="header"
           >
             {o && awaiting ? statusTitle(o) : awaiting ? "입금 대기" : "예약 완료"}
@@ -108,7 +114,12 @@ export default function Done() {
         ) : null}
 
         {o ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: awaiting ? 0 : 32 }}>
+          <View
+            style={{
+              paddingHorizontal: tokens.space.gutter,
+              paddingTop: awaiting ? 0 : tokens.space.lg,
+            }}
+          >
             {/* 입금 대기면 주문 번호(=입금자명)·합계(=입금액)는 위 입금 정보와 겹치므로 상품·배송지만 */}
             {!awaiting ? <KV k="주문 번호" v={o.orderNo} /> : null}
             <KV
@@ -127,9 +138,9 @@ export default function Done() {
           // 결제는 끝났고 상세 조회만 실패 → 완료 화면 유지, 다시 시도
           <View
             style={{
-              margin: 20,
-              marginTop: 32,
-              padding: 24,
+              margin: tokens.space.gutter,
+              marginTop: tokens.space.lg,
+              padding: tokens.space.md,
               borderRadius: 16,
               backgroundColor: tokens.color.surface,
               alignItems: "center",
@@ -140,7 +151,7 @@ export default function Done() {
               주문 내용을 불러오지 못했어요
             </T>
             <T variant="sub" muted center>
-              잠시 뒤 다시 시도해 주세요. 주문 내역에서도 볼 수 있어요.
+              주문 내역에서도 볼 수 있어요.
             </T>
             <Button
               label="다시 시도"
@@ -154,9 +165,9 @@ export default function Done() {
         {farm.data && showFollow ? (
           <View
             style={{
-              margin: 20,
-              marginTop: 40,
-              padding: 20,
+              margin: tokens.space.gutter,
+              marginTop: tokens.space.xl,
+              padding: tokens.space.md,
               borderRadius: 16,
               backgroundColor: tokens.color.surface,
               gap: 16,
@@ -192,11 +203,21 @@ export default function Done() {
           </View>
         ) : null}
 
+        {/* 주문 상세로 바로 가는 버튼(DEV-293) */}
+        {o ? (
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 16 }}>
+            <Button
+              label="주문 상세 보기"
+              variant="secondary"
+              onPress={() => router.replace(`/orders/${o.orderId}`)}
+            />
+          </View>
+        ) : null}
         <View
           style={{
             flexDirection: "row",
-            paddingHorizontal: 20,
-            paddingTop: 16,
+            paddingHorizontal: tokens.space.gutter,
+            paddingTop: 8,
           }}
         >
           <Button

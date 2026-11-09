@@ -61,7 +61,7 @@ export function Avatar({
   );
 }
 
-/** 소식 사진 7:4(D-09). 좌우 여백 20을 뺀 폭 기준 */
+/** 소식 사진 7:4(D-09). 좌우 여백(gutter)을 뺀 폭 기준 */
 export function useNewsPhotoHeight() {
   const { width } = useWindowDimensions();
   const w = Math.min(width, tokens.maxWidth) - tokens.space.gutter * 2;
@@ -261,28 +261,33 @@ export function OptionSheet({
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "space-between",
-                minHeight: 60,
+                gap: 12,
+                minHeight: tokens.height.rowTwoLine,
                 borderTopWidth: 1,
                 borderTopColor: tokens.color.border,
               }}
             >
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
-              >
-                <View style={{ width: 24 }}>
-                  {on ? <Icon name="check" /> : null}
-                </View>
+              <View style={{ width: 24, alignItems: "center" }}>
+                {on ? <Icon name="check" /> : null}
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <T
                   variant="body"
                   weight={on ? "semibold" : "regular"}
                   muted={left <= 0}
+                  numberOfLines={1}
                 >
                   {o.label}
+                  {o.note ? (
+                    <T variant="sub" muted>
+                      {"  "}
+                      {o.note}
+                    </T>
+                  ) : null}
                 </T>
-                {o.note ? (
-                  <T variant="sub" muted>
-                    {o.note}
+                {left > 0 ? (
+                  <T variant="sub" muted numberOfLines={1}>
+                    {left}박스 남음
                   </T>
                 ) : null}
               </View>
@@ -290,6 +295,7 @@ export function OptionSheet({
                 variant="body"
                 weight={on ? "bold" : "regular"}
                 muted={left <= 0}
+                style={{ textAlign: "right" }}
               >
                 {left <= 0 ? "품절" : won(p?.price)}
               </T>
@@ -437,7 +443,7 @@ export function Forbidden() {
           router.canGoBack() ? router.back() : router.replace("/")
         }
       />
-      <View style={{ paddingTop: 64 }}>
+      <View>
         <EmptyState
           icon="lock"
           title="볼 수 없는 화면이에요"

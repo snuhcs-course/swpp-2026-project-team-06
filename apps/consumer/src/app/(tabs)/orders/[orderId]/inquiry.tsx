@@ -65,10 +65,10 @@ export default function InquiryForm() {
     <Screen>
       <HeaderBar title="주문 문제 문의" onBack={back} />
       <Scroll>
-        <View style={{ padding: 20, gap: 24 }}>
+        <View style={{ padding: tokens.space.gutter, gap: 24 }}>
           <View
             style={{
-              padding: 20,
+              padding: tokens.space.gutter,
               borderRadius: 20,
               backgroundColor: "#F3F0E8",
               gap: 8,

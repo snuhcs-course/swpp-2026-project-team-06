@@ -15,7 +15,7 @@ export function DepositCard({
 }) {
   const a = o.depositAccount;
   return (
-    <View style={[{ paddingHorizontal: 20 }, style]}>
+    <View style={[{ paddingHorizontal: tokens.space.gutter }, style]}>
       {/* 강조는 입금액·계좌번호·입금자명 셋(박현 10/18). 복사는 은행 앱에 붙여 넣을 두 값만 */}
       <Row k="입금액" v={won(o.totalAmount)} bold />
       <Row k="계좌번호">
@@ -84,8 +84,8 @@ function Row({
         justifyContent: "space-between",
         alignItems: "center",
         gap: 16,
-        minHeight: 48,
-        paddingVertical: 12,
+        minHeight: tokens.height.row,
+        paddingVertical: 8,
         borderTopWidth: 1,
         borderTopColor: tokens.color.border,
         borderBottomWidth: last ? 1 : 0,

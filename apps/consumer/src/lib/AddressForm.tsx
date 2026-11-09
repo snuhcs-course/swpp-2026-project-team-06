@@ -140,7 +140,7 @@ export function AddressForm({
     <Screen>
       <HeaderBar title={title} close={!back} onBack={onClose} />
       <Scroll bottom={140}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 20 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 16, gap: 20 }}>
           {intro}
           <Input
             label="받는 사람"

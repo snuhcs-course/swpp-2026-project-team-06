@@ -7,6 +7,7 @@ import {
   Button,
   EmptyState,
   HeaderBar,
+  PRODUCT_PHOTO_HEIGHT,
   ProductPageBody,
   Screen,
   Scroll,
@@ -14,18 +15,51 @@ import {
   useSheetLeave,
   Skeleton,
   T,
+  tokens,
   useAsync,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Platform, Share, View } from "react-native";
 
-import { useSession } from "../../../lib/session";
+import { useHideTabBar, useSession } from "../../../lib/session";
 import { useToast } from "../../../lib/toast";
-import { LoadError, OptionSheet, isStatus } from "../../../lib/views";
+import { LoadError, OptionSheet, copyText, isStatus } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
 
+declare const process: { env: { EXPO_PUBLIC_CONSUMER_URL?: string } };
+
+/** 상품 공유(결정 26): 웹은 공유 시트, 없으면 주소 복사. 앱은 OS 공유 시트 */
+async function shareProduct(
+  name: string,
+  path: string,
+  onCopied: () => void,
+): Promise<void> {
+  const base =
+    Platform.OS === "web" && typeof location !== "undefined"
+      ? location.origin
+      : (process.env.EXPO_PUBLIC_CONSUMER_URL || "https://farmclub.kr").replace(/\/+$/, "");
+  const url = `${base}${path}`;
+  if (Platform.OS !== "web") {
+    await Share.share({ message: `${name} ${url}`, url });
+    return;
+  }
+  const nav = (globalThis as { navigator?: { share?: (d: object) => Promise<void> } }).navigator;
+  if (nav?.share) {
+    try {
+      await nav.share({ title: name, url });
+      return;
+    } catch {
+      // 사용자가 닫았거나 막혔다: 복사로 넘어가지 않는다
+      return;
+    }
+  }
+  if (await copyText(url)) onCopied();
+}
+
 export default function ProductPage() {
+  // 구매 화면은 하단 탭 바를 숨기고 CTA만 둔다(DEV-293)
+  useHideTabBar();
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const router = useRouter();
   const { user, requireLogin, resume, clearResume } = useSession();
@@ -104,10 +138,10 @@ export default function ProductPage() {
           </>
         ) : (
           <View>
-            <Skeleton width="100%" height={390} radius={0} />
-            <View style={{ padding: 20, gap: 12 }}>
+            <Skeleton width="100%" height={PRODUCT_PHOTO_HEIGHT} radius={0} />
+            <View style={{ padding: tokens.space.gutter, gap: 12 }}>
               <Skeleton width="60%" height={22} />
-              <Skeleton width="40%" height={34} />
+              <Skeleton width="40%" height={22} />
             </View>
           </View>
         )}
@@ -123,25 +157,26 @@ export default function ProductPage() {
 
   return (
     <Screen>
-      <HeaderBar
-        title="상품 상세"
-        onBack={() =>
-          goBackOr(router, `/farms/${p.farmId}`)
-        }
-      />
-      <Scroll bottom={180}>
+      {/* 머리 없이 사진이 곧 머리: 사진 위 뒤로·공유(결정 26, DEV-293) */}
+      <Scroll bottom={120}>
         <ProductPageBody
           p={p}
           reference={(o) => referencePrice(p, o)}
           mediaUrl={(uri) => (uri.startsWith("/") ? apiUrl + uri : uri)}
           onFarmPress={() => router.push(`/farms/${p.farmId}`)}
+          onBack={() => goBackOr(router, `/farms/${p.farmId}`)}
+          onShare={() =>
+            void shareProduct(p.name, here, () =>
+              toast.show("링크를 복사했어요"),
+            )
+          }
         />
       </Scroll>
 
-      <BottomBar aboveTabs>
+      <BottomBar>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Button
-            label="1:1 채팅"
+            label="채팅"
             variant="secondary"
             onPress={() =>
               requireLogin("chat", here, () => void chatNow(p.farmId))
@@ -188,13 +223,10 @@ export default function ProductPage() {
         instant={sheetLeave.instant}
       >
         <T variant="heading">팔로우하고 대화를 시작해요</T>
-        <T variant="body">
-          채팅은 팔로우한 농가와만 할 수 있어요. {p.farmName}을 팔로우하고
-          대화를 시작할까요?
-        </T>
+        <T variant="body">채팅은 팔로우한 농가와만 할 수 있어요.</T>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <Button
-            label="아니요"
+            label="닫기"
             variant="secondary"
             onPress={() => setChatConfirm(false)}
             style={{ flex: 1 }}
@@ -232,7 +264,7 @@ function Ended() {
       <EmptyState
         icon="box"
         title="판매 중이 아닌 상품이에요"
-        body="판매가 끝났거나 아직 승인 전인 상품이에요. 농가의 다른 상품을 볼 수 있어요."
+        body="판매가 끝났거나 아직 승인 전이에요."
         action={
           <Button
             label={router.canGoBack() ? "농가 페이지로" : "농가 둘러보기"}
