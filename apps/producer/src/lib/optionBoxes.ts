@@ -35,7 +35,10 @@ export function optionBoxesFromProduct(
   });
 }
 
-/** 현황(`Dashboard.stages`): 기간을 앞에서부터 읽으며 처음 나온 옵션 순서(서버가 상품 옵션 순서로 준다) */
+/**
+ * 현황(`Dashboard.stages`): 기간을 앞에서부터 읽으며 처음 나온 옵션 순서. 서버는 한 기간 안에서는 상품 옵션 순서로 주지만
+ * 값이 없는 옵션은 빼므로, 앞 기간에 없던 옵션은 뒤로 갈 수 있다(대시보드에 옵션 목록이 없어 맞출 수 없음, 후속)
+ */
 export function optionBoxesFromDashboard(
   stages: readonly {
     options: readonly {
