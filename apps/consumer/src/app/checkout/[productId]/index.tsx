@@ -47,6 +47,7 @@ import {
   conflictView,
   mismatchStep,
   recheckedConflict,
+  reserveDisabledHint,
   seenValues,
   type CheckoutConflict,
 } from "../../../lib/checkoutConflict";
@@ -200,6 +201,9 @@ export default function Checkout() {
   const canPay =
     leaving ||
     (!!recipient && allAgreed && !!p && (view ? view.primary.enabled : true));
+
+  // 예약 버튼이 꺼진 이유: 화면 읽기에만 알린다(눈에 보이는 문구·토스트 없음, DEV-293 PM 결정)
+  const disabledHint = reserveDisabledHint(!!recipient, agreed, consentTotal);
 
   const consentText = useMemo(() => {
     if (!p) return null;
@@ -766,6 +770,7 @@ export default function Checkout() {
                   : `${won(total)} 예약하기`
             }
             disabled={!canPay}
+            accessibilityHint={canPay ? undefined : disabledHint}
             loading={busy}
             onPress={() => void submit()}
           />

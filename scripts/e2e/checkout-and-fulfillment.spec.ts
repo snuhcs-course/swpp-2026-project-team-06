@@ -48,6 +48,8 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   for (const title of ["받는 시기", "지연 시 환불", "흉작·수량 부족", "취소·반품 조건"])
     await consumerPage.getByRole("checkbox", { name: `${title} (필수)`, exact: true }).click();
   await expect(reserve).toBeDisabled();
+  // 꺼진 이유는 화면 읽기에만(aria-describedby, DEV-293)
+  await expect(reserve).toHaveAccessibleDescription("필수 동의 5개 중 4개 했어요");
   await expect(consumerPage.getByRole("checkbox", { name: "모두 동의해요" })).not.toBeChecked();
   // DEV-141 뒤로는 aria-checked도 나오므로 toBeChecked로 체크 상태까지 확인한다
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
