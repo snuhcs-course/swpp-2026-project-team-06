@@ -42,13 +42,14 @@
 - Thread.version은 AI 모드 또는 직접 응대 종료시각이 바뀔 때 증가한다. 생산자 성공 발송마다 humanReplyUntil을 발송+10분으로 갱신하고 버전을 증가시킨다. 읽음과 멱등 재시도는 갱신하지 않는다(DEV-289).
 - 소비자 기존 /api/messaging/chats 경로 유지. 주문 문의가 있는 대화는 팔로우 해제 후에도 목록에 남는다.
 - 소비자 GET /api/messaging/chats/{farmId}/messages → {thread,items,nextCursor,inquiries,orders}; inquiries는 해당 대화의 문의, orders는 연결 주문 요약이며 본인 소유 범위만 포함한다.
-- GET /api/messaging/producer/chats?needsReply=&cursor=&limit= → Paged<{threadId,consumerId,consumerName,lastMessage,lastAt,unreadCount,needsReply,aiMode}>. 승인된 자기 농가의 모든 기존 대화/전달 질문을 소비자별로 묶는다.
+- GET /api/messaging/producer/chats?needsReply=&cursor=&limit= → Paged<{threadId,consumerId,consumerName,lastMessage,lastAt,unreadCount,needsReply,aiCheckRequests,aiMode}>. 승인된 자기 농가의 모든 기존 대화/전달 질문을 소비자별로 묶는다. aiCheckRequests는 그 대화의 열린 AI 답변 확인 요청 수(DEV-296).
 - POST /api/messaging/producer/chats {consumerId,roomReplyId?} → Thread. 기존 대화 또는 자기 소식방에 답장한 현재 팔로워만 대상으로 허용하며 무작위 고객 검색은 제공하지 않는다.
-- GET /api/messaging/producer/chats/{consumerId}/messages → {thread,items,nextCursor,escalations,inquiries,orders,consumerName}. consumerName은 목록과 같은 가림 이름(문의 방은 'farmclub'), 소비자 조회에서는 null(DEV-232). items는 기존 ChatMessage + orderId?,inquiryId?,sourceRefs?,settingsVersion?.
+- GET /api/messaging/producer/chats/{consumerId}/messages → {thread,items,nextCursor,escalations,inquiries,orders,consumerName}. consumerName은 목록과 같은 가림 이름(문의 방은 'farmclub'), 소비자 조회에서는 null(DEV-232). items는 기존 ChatMessage + orderId?,inquiryId?,sourceRefs?,settingsVersion?. AI 메시지에는 양쪽 조회 모두 reported와 checkState(REQUESTED·CONFIRMED·CORRECTED·null, DEV-296)가 있다. resolution 없이 닫힌 옛 요청은 reported=true, checkState=null. confirm은 Idempotency-Key를 받지만 저장하지 않는다(결과가 상태로 정해짐).
+- POST /api/messaging/producer/chats/{consumerId}/messages/{messageId}/confirm → ChatMessage(DEV-296 '답이 맞아요'). 열린 확인 요청을 답장 없이 닫는다(escalation status=ANSWERED, resolution=CONFIRMED, resolved_by, answered_at). 메시지·AI 모드·Thread.version은 바꾸지 않는다. 이미 CONFIRMED면 같은 결과 200, 확인 요청이 없거나 다른 농가 대화면 404, 이미 바로잡았으면 409 CONFLICT(details.reason=ALREADY_CORRECTED).
 - POST 같은 messages 경로 {text,attachmentIds?,answerToEscalationIds?} → {message,thread}. 텍스트 <=1000자, 사진3장 이하, 본문/첨부 중 하나 필수. 성공 저장과 aiMode=HUMAN 전환을 같은 트랜잭션에서 처리한다. 사진은 해당 대화의 비공개 첨부 ID만 허용한다.
 - 답변 필요는 OPEN 전달 질문, OPEN 문제 문의 또는 마지막 직접 응대 대상 소비자 메시지가 생산자 답변보다 새로울 때 true. 읽는 것만으로 해결되지 않는다.
 - 직접 응대 대상 여부는 소비자 메시지 접수 당시 HUMAN/농가 AI OFF 상태로 저장한다. 이후 AUTO/ON 전환만으로 미답변 표시가 사라지지 않는다.
-- 답변과 함께 지정한 자기 대화의 escalation만 ANSWERED 처리한다. 다른 질문을 일괄 해결하지 않는다.
+- 답변과 함께 지정한 자기 대화의 escalation만 ANSWERED 처리한다. 다른 질문을 일괄 해결하지 않는다. 확인 요청(reported_message_id)은 그 AI 답변을 인용한 답장이나 지정(answerToEscalationIds·질문함 답)으로만 닫히고(소비자 질문 인용으로는 닫히지 않음) resolution=CORRECTED이며, 인용 대상 없이 확인 요청 하나만 닫으면 그 AI 답변을 인용(replyToMessageId)해 저장한다. 다른 메시지를 인용하거나 여러 요청을 한 번에 닫으면 인용 없이 CORRECTED다(DEV-296). 현황 openQuestions는 확인 요청만 열린 대화를 빼고 세며, 확인 요청 수는 todo.aiCheckRequests로 따로 준다.
 - PUT /api/messaging/producer/chats/{consumerId}/ai-mode {mode:AUTO|HUMAN,version} → Thread. AUTO 전환은 이후 메시지부터 적용하고 과거 질문을 자동 재처리하지 않는다.
 - PUT /api/messaging/chats/{farmId}/read 및 /api/messaging/producer/chats/{consumerId}/read {lastReadMessageId} → {unreadCount}. 해당 방에 보이는 메시지만 허용하고 읽음 위치는 뒤로 이동하지 않는다.
 - 1.1의 사진 URL 입력은 이 기능 구현 시 비공개 attachmentIds로 교체하며 프론트 클라이언트·Mock·서버를 함께 맞춘다. 임의 외부 사진 URL을 private attachment로 간주하지 않는다.
