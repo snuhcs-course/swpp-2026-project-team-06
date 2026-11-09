@@ -529,7 +529,13 @@ export default function Checkout() {
           {/* 배송 메모: 선택 목록 + 직접 입력(DEV-293) */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={memo ? `배송 메모 ${memo}, 바꾸기` : "배송 메모 고르기"}
+            accessibilityLabel={
+              memoTyping
+                ? "배송 메모 직접 입력, 바꾸기"
+                : memo
+                  ? `배송 메모 ${memo}, 바꾸기`
+                  : "배송 메모 (선택) 고르기"
+            }
             onPress={() => setSheet("memo")}
             style={{
               minHeight: tokens.height.input,
@@ -623,10 +629,6 @@ export default function Checkout() {
                 </View>
               ) : null}
             </View>
-            {/* 입금 안내(policy 2장, DEV-68) 한 줄 */}
-            <T variant="caption" muted>
-              농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면 자동 취소돼요.
-            </T>
           </Section>
         )}
 
@@ -649,7 +651,7 @@ export default function Checkout() {
                   <View style={{ flex: 1 }}>
                     <Checkbox
                       checked={consents[c.key]}
-                      label={c.title}
+                      label={`${c.title} (필수)`}
                       onPress={() =>
                         setConsents((s) => ({ ...s, [c.key]: !s[c.key] }))
                       }
@@ -693,6 +695,10 @@ export default function Checkout() {
               {errors.consents}
             </T>
           ) : null}
+          {/* 입금 안내(policy 2장, DEV-68)는 금액을 숨기는 충돌 화면에서도 보이게 여기 둔다 */}
+          <T variant="caption" muted>
+            농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면 자동 취소돼요.
+          </T>
           {/* 통신판매중개자 고지(전자상거래법 20조) 한 줄 */}
           <T variant="caption" muted>
             farmclub은 통신판매중개자이고, 상품·배송·환불 책임은 판매자{" "}

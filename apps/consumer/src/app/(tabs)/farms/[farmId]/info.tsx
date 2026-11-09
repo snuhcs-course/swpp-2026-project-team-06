@@ -95,7 +95,7 @@ export default function FarmInfo() {
           }}
         />
         <Button
-          label="아니요"
+          label="닫기"
           variant="secondary"
           onPress={() => setConfirm(false)}
         />

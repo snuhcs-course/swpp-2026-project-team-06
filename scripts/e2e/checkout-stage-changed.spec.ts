@@ -66,7 +66,7 @@ async function openFilledCheckout(page: Page) {
   await page.getByLabel("상세 주소").fill("302호");
   await page.getByRole("button", { name: "이 주소로 받기" }).click();
   // DEV-293: 배송 메모는 선택 목록 + 직접 입력
-  await page.getByRole("button", { name: "배송 메모 고르기" }).click();
+  await page.getByRole("button", { name: "배송 메모 (선택) 고르기" }).click();
   await page.getByRole("radio", { name: "직접 입력" }).click();
   await page.getByLabel("배송 메모", { exact: true }).fill("문 앞에 두어 주세요");
   await page.getByRole("checkbox", { name: "모두 동의해요" }).click();

@@ -166,9 +166,14 @@ export default function OrderDetail() {
               />
             ) : null}
             {o.status === "SHIPPED" ? (
-              <T variant="sub" muted>
-                신선식품이라 보낸 뒤에는 단순 변심으로 반품할 수 없어요.
-              </T>
+              <>
+                <T variant="sub" muted>
+                  신선식품이라 보낸 뒤에는 단순 변심으로 반품할 수 없어요.
+                </T>
+                <T variant="sub" muted>
+                  받은 상품에 문제가 있으면 받은 뒤 24시간 안에 알려 주세요.
+                </T>
+              </>
             ) : null}
             {changing ? (
               <T variant="sub" muted>
@@ -369,7 +374,7 @@ export default function OrderDetail() {
               {won(o?.totalAmount)}을 수수료 없이 전부 돌려받아요.
             </T>
             <T variant="sub" muted>
-              농가가 3영업일 안에 입금했던 계좌로 보내요.
+              입금하신 계좌로 농가가 3영업일 안에 보내요.
             </T>
           </>
         )}
@@ -398,7 +403,7 @@ export default function OrderDetail() {
           {won(o?.totalAmount)}을 수수료 없이 전부 돌려받아요. 예약은 취소돼요.
         </T>
         <T variant="sub" muted>
-          농가가 3영업일 안에 입금했던 계좌로 보내요.
+          입금하신 계좌로 농가가 3영업일 안에 보내요.
         </T>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <Button

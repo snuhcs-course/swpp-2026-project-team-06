@@ -42,7 +42,12 @@ async function shareProduct(
       : (process.env.EXPO_PUBLIC_CONSUMER_URL || "https://farmclub.kr").replace(/\/+$/, "");
   const url = `${base}${path}`;
   if (Platform.OS !== "web") {
-    await Share.share({ message: `${name} ${url}`, url });
+    try {
+      await Share.share({ message: `${name} ${url}`, url });
+    } catch {
+      // OS 공유 시트를 못 열면 링크 복사로
+      if (await copyText(url)) onCopied();
+    }
     return;
   }
   const nav = (globalThis as { navigator?: { share?: (d: object) => Promise<void> } }).navigator;
@@ -50,9 +55,9 @@ async function shareProduct(
     try {
       await nav.share({ title: name, url });
       return;
-    } catch {
-      // 사용자가 닫았거나 막혔다: 복사로 넘어가지 않는다
-      return;
+    } catch (e) {
+      // 사용자가 닫았으면(AbortError) 끝, 그 밖의 실패는 복사로 넘어간다
+      if ((e as { name?: string })?.name === "AbortError") return;
     }
   }
   if (await copyText(url)) onCopied();

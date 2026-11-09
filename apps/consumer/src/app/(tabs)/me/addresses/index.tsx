@@ -192,7 +192,7 @@ export default function Addresses() {
         </T>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <Button
-            label="아니요"
+            label="닫기"
             variant="secondary"
             onPress={() => setTarget(null)}
             style={{ flex: 1 }}

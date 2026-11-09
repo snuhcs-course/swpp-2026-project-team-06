@@ -46,9 +46,9 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   // DEV-293: CTA 위 개수 문구는 없앴고 버튼에 금액이 들어간다(‘N원 예약하기’)
   const reserve = consumerPage.getByRole("button", { name: /^[\d,]+원 예약하기$/ });
   for (const title of ["받는 시기", "지연 시 환불", "흉작·수량 부족", "취소·반품 조건"])
-    await consumerPage.getByRole("checkbox", { name: title, exact: true }).click();
+    await consumerPage.getByRole("checkbox", { name: `${title} (필수)`, exact: true }).click();
   await expect(reserve).toBeDisabled();
-  await expect(consumerPage.getByText(/개 중 \d+개 동의했어요/)).toHaveCount(0);
+  await expect(consumerPage.getByRole("checkbox", { name: "모두 동의해요" })).not.toBeChecked();
   // DEV-141 뒤로는 aria-checked도 나오므로 toBeChecked로 체크 상태까지 확인한다
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
   // DEV-141: 동의 체크 상태가 aria-checked로 DOM에 나온다(react-native-web은 accessibilityState를 무시)
