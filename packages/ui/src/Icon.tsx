@@ -37,6 +37,7 @@ export type IconName =
   | "offline"
   | "alert"
   | "external"
+  | "reply"
   | "forward"
   | "truck"
   | "settings";
@@ -216,6 +217,7 @@ export function Icon({
         </>
       )}
       {name === "external" && <Path d="M7 17L17 7M9 7h8v8" {...p} />}
+      {name === "reply" && <Path d="m9 5-6 6 6 6M3 11h10a7 7 0 0 1 7 7v1" {...p} />}
       {name === "forward" && <Path d="M4 12h12M12 6l6 6-6 6" {...p} />}
       {name === "truck" && (
         <>

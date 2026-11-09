@@ -17,7 +17,7 @@ import {
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { GlobalAiButton } from "../../../lib/GlobalAiButton";
+import { GlobalAiButton, HumanReplyStatus } from "../../../lib/GlobalAiButton";
 import { View } from "react-native";
 import { ORDER_STATUS } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
@@ -49,12 +49,14 @@ export default function Chat() {
   );
   // 머리 이름은 대화 응답의 가림 이름(서버 값 그대로). 첫 응답 전에는 목록에서 넘긴 param(DEV-232)
   const consumerName = page?.consumerName ?? name;
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
   return (
     <Screen>
       <ConversationHeader
         name={support ? "farmclub" : (consumerName ?? "소비자")}
         subtitle={support ? "운영팀 문의" : "1:1 채팅"}
         avatar={support ? <SupportAvatar size={40} /> : undefined}
+        right={!support && page ? <GlobalAiButton onEnabledChange={setAiEnabled} /> : undefined}
         onBack={() => router.navigate("/chats?view=private")}
       />
       {support ? (
@@ -74,10 +76,10 @@ export default function Chat() {
           </T>
         </View>
       ) : (
-        <View style={{ padding: 12, gap: 8 }}>
-          {page ? <GlobalAiButton until={page.thread.humanReplyUntil} serverNow={page.thread.serverNow} /> : null}
+        <>
+          {page ? <HumanReplyStatus enabled={aiEnabled} until={page.thread.humanReplyUntil} serverNow={page.thread.serverNow} /> : null}
           {error ? <T color={tokens.color.error}>{error}</T> : null}
-        </View>
+        </>
       )}
       <ChatThread
         key={consumerId}

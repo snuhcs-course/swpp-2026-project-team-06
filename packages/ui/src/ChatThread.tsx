@@ -1,6 +1,7 @@
 import { mergeChatMessages } from "./chatOrder";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Platform, ScrollView, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { ChatBubble } from "./ChatBubble";
 import { T } from "./Text";
@@ -590,6 +591,8 @@ export function ChatThread({
                 {days[i]}
               </T>
             ) : null}
+            <View style={{ flexDirection: m.senderType === (producer ? "PRODUCER" : "CONSUMER") ? "row-reverse" : "row", alignItems: "flex-end", gap: 4 }}>
+            <View style={{ minWidth: 0, flexShrink: 1 }}>
             <ChatBubble
               kind={
                 m.senderType === (producer ? "PRODUCER" : "CONSUMER")
@@ -622,7 +625,6 @@ export function ChatThread({
                     : undefined
               }
             >
-              {replies ? <Button label="답장" variant="outline" disabled={busy} onPress={() => setReplyTo(m)} /> : null}
               {m.attachmentIds?.map((id) => (
                 <PrivatePhoto key={id} id={id} load={loadPhoto} />
               ))}
@@ -660,6 +662,12 @@ export function ChatThread({
                 </T>
               ) : null}
             </ChatBubble>
+            </View>
+            {replies ? <Pressable accessibilityRole="button" accessibilityLabel="답장"
+              accessibilityHint="이 메시지를 인용해 답장하기" disabled={busy}
+              style={({ pressed }) => ({ width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, opacity: busy ? 0.4 : 1, backgroundColor: pressed ? tokens.color.surface : "transparent" })}
+              onPress={() => setReplyTo(m)}><Icon name="reply" size={20} color={tokens.color.textMuted} /></Pressable> : null}
+            </View>
           </View>
         ))}
         {children}
@@ -683,7 +691,11 @@ export function ChatThread({
           borderTopColor: tokens.color.border,
         }}
       >
-        {replyTo ? <View style={{ padding: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent }}><T variant="caption" muted>선택한 메시지에 답장</T><T numberOfLines={2}>{replyTo.body || "사진"}</T><Button label="답장 취소" variant="text" disabled={busy} onPress={() => setReplyTo(null)} /></View> : null}
+        {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
+          <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>선택한 메시지에 답장</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
+          <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
+            style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
+        </View> : null}
         {photos && upload ? (
           <PrivatePhotos
             key={sendScope}

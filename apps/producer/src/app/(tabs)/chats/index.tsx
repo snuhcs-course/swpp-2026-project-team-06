@@ -51,7 +51,7 @@ export default function Chats() {
   const firstConsumer = chats.data?.find((c) => !c.isSupport)?.threadId;
   return (
     <Screen style={{ paddingBottom: safe("bottom", tokens.height.tabBar) }}>
-      <BrandHeader logo="icon" title="채팅" right={<HelpButton />} />
+      <BrandHeader logo="icon" title="채팅" right={<View style={{ flexDirection: "row", alignItems: "center" }}>{tab === "private" && user ? <GlobalAiButton /> : null}<HelpButton /></View>} />
       <ChatChoices
         value={tab}
         onChange={(value) => router.setParams({ view: value })}
@@ -66,7 +66,6 @@ export default function Chats() {
         <OwnNewsRoom active={active && tab === "news"} />
       </View>
       <View style={{ flex: 1, display: tab === "private" ? "flex" : "none" }}>
-        {tab === "private" && user ? <GlobalAiButton /> : null}
         <Scroll bottom={20}>
           {chats.error ? (
             <View style={{ padding: 20 }}>
