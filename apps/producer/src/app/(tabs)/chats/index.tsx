@@ -19,7 +19,7 @@ import {
   Icon,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
@@ -61,6 +61,14 @@ export default function Chats() {
   const banner = aiCheckBanner(checkCount);
   const onlyChecks = checks === "1" && checkCount > 0;
   const rows = onlyChecks ? chats.data?.filter((c) => (c.aiCheckRequests ?? 0) > 0) : chats.data;
+  // 거른 채 마지막 확인 요청을 처리하면(건수가 있다가 0이 되면) 주소의 checks를 지워, 새 요청이 와도
+  // 저절로 다시 걸러지지 않게 한다. 홈에서 막 들어와 예전 목록이 0인 순간에는 지우지 않는다
+  const lastCount = useRef(checkCount);
+  useEffect(() => {
+    if (!chats.data) return;
+    if (checks === "1" && lastCount.current > 0 && checkCount === 0) router.setParams({ checks: "" });
+    lastCount.current = checkCount;
+  }, [checks, checkCount, chats.data, router]);
   return (
     <Screen style={{ paddingBottom: safe("bottom", tokens.height.tabBar) }}>
       <BrandHeader logo="icon" title="채팅" right={<View style={{ flexDirection: "row", alignItems: "center" }}>{tab === "private" && user ? <GlobalAiButton /> : null}<HelpButton /></View>} />

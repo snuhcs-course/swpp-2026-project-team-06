@@ -45,14 +45,24 @@ export function aiCheckFollowUp(
   return null;
 }
 
-/** 인용 블록 머리글: 바로잡은 AI 답변을 인용했으면 'AI 안내를 바로잡아요'(Figma 10:289) */
+type Quoting = { messageId: string; senderType?: string; replyTo?: { messageId: string } | null } & Checkable;
+
+/** 인용 블록 머리글: 바로잡은 AI 답변을 인용한 첫 농가 답장이면 'AI 안내를 바로잡아요'(Figma 10:289).
+ * index는 이 답장의 위치. 같은 AI 답변을 다시 인용한 뒤 답장은 일반 머리글 */
 export function correctionQuoteLabel(
   replyTo: { messageId: string; senderType: string } | null | undefined,
-  messages: ({ messageId: string } & Checkable)[],
+  messages: Quoting[],
+  index: number,
 ): string | null {
   if (!replyTo || replyTo.senderType !== "AI") return null;
+  // 바로잡기는 농가 답장만이다(소비자가 같은 AI 답변을 인용한 말에는 붙이지 않는다)
+  if (messages[index]?.senderType !== "PRODUCER") return null;
   const quoted = messages.find((m) => m.messageId === replyTo.messageId);
-  return quoted && aiCheckState(quoted) === "CORRECTED" ? "AI 안내를 바로잡아요" : null;
+  if (!quoted || aiCheckState(quoted) !== "CORRECTED") return null;
+  const earlier = messages.slice(0, index).some(
+    (m) => m.senderType === "PRODUCER" && m.replyTo?.messageId === replyTo.messageId,
+  );
+  return earlier ? null : "AI 안내를 바로잡아요";
 }
 
 /** 생산자 1:1 목록 맨 위 띠(Figma 10:158). 0이면 띠를 그리지 않는다 */

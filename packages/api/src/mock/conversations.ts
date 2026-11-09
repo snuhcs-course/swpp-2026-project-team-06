@@ -620,6 +620,11 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       t.version++;
       mode(t, "HUMAN");
       closing.forEach((e) => closeByReply(e, m.text, ctx.me().userId));
+      // '답이 맞아요' 뒤에 그 AI 답변을 인용해 바로잡으면 바로잡기로 바꾼다(서버와 같음)
+      const confirmed = target?.senderType === "AI"
+        ? ctx.db.escalations.find((e) => e.reportedMessageId === target!.messageId && e.resolution === "CONFIRMED")
+        : undefined;
+      if (confirmed) closeByReply(confirmed, m.text, ctx.me().userId);
       return { message, thread: t };
     }
     let reply: ChatMessage | null = null;

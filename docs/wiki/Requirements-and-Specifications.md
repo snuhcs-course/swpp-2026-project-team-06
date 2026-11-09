@@ -600,7 +600,7 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **GIVEN** a check request is open
 - **WHEN** the producer replies quoting that AI answer, or answers the request from the question list
 - **THEN** the request closes as `CORRECTED`; the consumer sees the AI answer dimmed and struck through with a green "the farm corrected this" chip, and the farm's reply quotes the AI answer under "Correcting the AI answer"
-- **AND** a reply without a quote that closes exactly one request is stored quoting that AI answer; a plain reply, or one quoting the consumer's question, does not close the request
+- **AND** a reply quoting the AI answer after "The answer is right" turns it into `CORRECTED`; a reply without a quote that closes exactly one request is stored quoting that AI answer; a plain reply, or one quoting the consumer's question, does not close the request
 
 **AC-13-8: Taste, quality and damage**
 - **GIVEN** a measured value is on record

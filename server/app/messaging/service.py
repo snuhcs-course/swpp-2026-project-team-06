@@ -1392,6 +1392,17 @@ def _producer_reply(
         e.resolved_by = actor_id
         if e.reported_message_id:
             e.resolution = "CORRECTED"
+    if target is not None and target.sender_type == "AI":
+        # '답이 맞아요' 뒤에 마음을 바꿔 그 AI 답변을 인용해 바로잡으면 바로잡기로 바꾼다
+        confirmed = db.scalar(
+            select(Escalation).where(
+                Escalation.reported_message_id == target.id,
+                Escalation.resolution == "CONFIRMED",
+            )
+        )
+        if confirmed is not None:
+            confirmed.resolution, confirmed.resolved_by = "CORRECTED", actor_id
+            confirmed.answer, confirmed.answered_at = masked_text, message.created_at
     db.flush()
     return message
 

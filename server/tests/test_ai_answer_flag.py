@@ -254,3 +254,20 @@ def test_AC_13_11_request_closed_before_0031_shows_no_flag(client, login):
     late = _confirm(client, producer, answer_id)
     assert late.status_code == 409
     assert late.json()["details"]["reason"] == "ALREADY_CORRECTED"
+
+
+def test_AC_13_13_correcting_after_confirm_turns_the_flag_into_corrected(client, login):
+    consumer, producer, answer_id, report = _requested(client, login)
+    assert _confirm(client, producer, answer_id).status_code == 200
+
+    replied = client.post(
+        f"{CHATS}/u-seojun/messages",
+        headers=producer | key(),
+        json={"text": "다시 보니 5kg부터예요.", "replyToMessageId": answer_id},
+    )
+
+    assert replied.status_code == 200, replied.text
+    assert _state(_consumer_page(client, consumer), answer_id) == "CORRECTED"
+    with get_sessionmaker()() as session:
+        e = session.get(Escalation, report["escalationId"])
+        assert (e.resolution, e.resolved_by) == ("CORRECTED", "u-kang")

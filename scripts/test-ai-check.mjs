@@ -58,14 +58,27 @@ test("DEV-296 farm reply quoting a corrected AI answer is labeled 'AI 안내를 
     { messageId: "m-ai", checkState: "CORRECTED" },
     { messageId: "m-ai2", checkState: "CONFIRMED" },
     { messageId: "m-ai3" },
+    { messageId: "m-reply", senderType: "PRODUCER" },
   ];
-  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "AI" }, messages), "AI 안내를 바로잡아요");
-  assert.equal(correctionQuoteLabel({ messageId: "m-ai2", senderType: "AI" }, messages), null);
-  assert.equal(correctionQuoteLabel({ messageId: "m-ai3", senderType: "AI" }, messages), null);
-  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "CONSUMER" }, messages), null);
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "AI" }, messages, 3), "AI 안내를 바로잡아요");
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai2", senderType: "AI" }, messages, 3), null);
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai3", senderType: "AI" }, messages, 3), null);
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "CONSUMER" }, messages, 3), null);
   // 인용한 AI 답변이 아직 안 불러와졌으면 일반 머리글
-  assert.equal(correctionQuoteLabel({ messageId: "m-old", senderType: "AI" }, messages), null);
-  assert.equal(correctionQuoteLabel(null, messages), null);
+  assert.equal(correctionQuoteLabel({ messageId: "m-old", senderType: "AI" }, messages, 3), null);
+  assert.equal(correctionQuoteLabel(null, messages, 3), null);
+  // 같은 AI 답변을 다시 인용한 뒤 농가 답장은 일반 머리글
+  const thread = [
+    { messageId: "m-ai", senderType: "AI", checkState: "CORRECTED" },
+    { messageId: "m-r1", senderType: "PRODUCER", replyTo: { messageId: "m-ai" } },
+    { messageId: "m-r2", senderType: "PRODUCER", replyTo: { messageId: "m-ai" } },
+  ];
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "AI" }, thread, 1), "AI 안내를 바로잡아요");
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "AI" }, thread, 2), null);
+  // 소비자가 같은 AI 답변을 인용한 말에는 붙이지 않는다
+  const consumerQuote = [thread[0], { messageId: "m-c", senderType: "CONSUMER", replyTo: { messageId: "m-ai" } }, thread[1]];
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "AI" }, consumerQuote, 1), null);
+  assert.equal(correctionQuoteLabel({ messageId: "m-ai", senderType: "AI" }, consumerQuote, 2), "AI 안내를 바로잡아요");
 });
 
 test("DEV-296 producer list banner counts open AI answer checks", () => {

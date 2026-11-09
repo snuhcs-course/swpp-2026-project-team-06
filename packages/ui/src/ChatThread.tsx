@@ -679,7 +679,7 @@ export function ChatThread({
               first={first || !!days[i]}
               last={last}
               quote={m.replyTo ?? undefined}
-              quoteLabel={m.replyTo ? correctionQuoteLabel(m.replyTo, messages) ??
+              quoteLabel={m.replyTo ? correctionQuoteLabel(m.replyTo, messages, i) ??
                 `${m.replyTo.senderType === mineType ? "나" : senderName(m.replyTo.senderType, peer?.name)}에게 답장` : undefined}
               check={check === "REQUESTED" ? "flagged" : check === "CORRECTED" ? "struck" : undefined}
               labelSide={chipBeside ? checkChip ?? undefined : undefined}
@@ -831,7 +831,7 @@ export function ChatThread({
           above={<>
             {copied ? <T variant="caption" muted center accessibilityRole="text">메시지를 복사했어요</T> : null}
             {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
-              <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>{producer && replyTo.senderType === "AI" && aiCheckState(replyTo) === "REQUESTED" ? "AI 안내를 바로잡아요" : "선택한 메시지에 답장"}</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
+              <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>{producer && replyTo.senderType === "AI" && ["REQUESTED", "CONFIRMED"].includes(aiCheckState(replyTo) ?? "") ? "AI 안내를 바로잡아요" : "선택한 메시지에 답장"}</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
               <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
                 style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
             </View> : null}

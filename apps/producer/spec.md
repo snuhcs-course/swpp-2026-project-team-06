@@ -197,7 +197,7 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 
 ## DEV-296 AI 답변 확인 요청 깃발
 - 현황 할 일 ‘AI 답변 확인 요청 n건’은 대시보드 `todo.aiCheckRequests` → `/chats?view=private&checks=1`. ‘필수’ 줄 아래, ‘답하지 않은 문의’ 바로 위.
-- 1:1 목록(`(tabs)/chats/index.tsx`): 요약 `aiCheckRequests` 합이 있으면 맨 위 띠(`aiCheckBanner`), 누르면 `checks=1` 파라미터로 확인 요청 대화만. 줄 태그는 `ConversationRow` `tag`.
+- 1:1 목록(`(tabs)/chats/index.tsx`): 요약 `aiCheckRequests` 합이 있으면 맨 위 띠(`aiCheckBanner`), 누르면 `checks=1` 파라미터로 확인 요청 대화만. 줄 태그는 `ConversationRow` `tag`. 거른 채 확인 요청이 0이 되면(있다가 없어지면) `checks`를 지워 새 요청이 와도 저절로 다시 걸러지지 않는다.
 - 대화방(`[consumerId].tsx`)은 `ChatThread` `confirmCheck`로 `messaging.confirmAiAnswer`를 넘긴다(farmclub 문의 방 제외).
 - 채팅 탭 배지(`(tabs)/_layout.tsx`)는 안 읽음 + 확인 요청 수.
 

@@ -113,3 +113,10 @@ test("AC-13-13: Mock reply quoting the consumer question does not close the chec
   assert.equal(state(await ok("GET", "/api/messaging/chats/f-kang/messages", consumer), answerId), "REQUESTED");
   assert.equal((await row(producer)).aiCheckRequests, 1);
 });
+
+test("AC-13-13: Mock correcting after confirm turns the flag into CORRECTED", async () => {
+  const { consumer, producer, answerId } = await requested();
+  await ok("POST", `${CHATS}/u-minji/messages/${answerId}/confirm`, producer);
+  await ok("POST", `${CHATS}/u-minji/messages`, producer, { text: "다시 보니 5kg부터예요.", replyToMessageId: answerId });
+  assert.equal(state(await ok("GET", "/api/messaging/chats/f-kang/messages", consumer), answerId), "CORRECTED");
+});
