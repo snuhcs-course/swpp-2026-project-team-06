@@ -141,14 +141,18 @@ test("FEAT-13 AC-13-5: consumer reports an AI answer and both sides see the serv
   const reportButton = page.getByRole("button", { name: "답변 확인 요청", exact: true });
   await expect(reportButton).toBeVisible({ timeout: 15_000 });
   await reportButton.click();
-  await expect(page.getByRole("button", { name: "확인 요청됨", exact: true })).toBeVisible();
+  // DEV-296: 누르면 버튼 대신 빨간 깃발 '농가에 확인 요청함'이 붙는다
+  await expect(page.getByText("농가에 확인 요청함", { exact: true })).toBeVisible();
+  await expect(reportButton).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("button", { name: "확인 요청됨", exact: true })).toBeVisible();
+  await expect(page.getByText("농가에 확인 요청함", { exact: true })).toBeVisible();
 
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/chats/u-seojun`);
-  await expect(page.getByText("소비자가 신고한 답변", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await page.getByText("소비자가 신고한 답변", { exact: true }).click({ button: "right" });
+  // DEV-296: 생산자 용어도 '확인 요청'(옛 '소비자가 신고한 답변'은 없다)
+  await expect(page.getByText("확인 요청", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("소비자가 신고한 답변", { exact: true })).toHaveCount(0);
+  await page.getByText("확인 요청", { exact: true }).click({ button: "right" });
   await expect(page.getByRole("menuitem", { name: "답장", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
 });
