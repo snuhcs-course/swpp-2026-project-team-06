@@ -23,7 +23,7 @@ export default function Suspended() {
   return (
     <Screen>
       <Scroll bottom={160}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 72, gap: 12 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.lg, gap: 12 }}>
           <T variant="sub" muted>
             {farm.data?.name ?? ""}
           </T>
@@ -38,7 +38,7 @@ export default function Suspended() {
           <View
             testID="suspend-reason"
             style={{
-              marginHorizontal: 20,
+              marginHorizontal: tokens.space.gutter,
               marginTop: 32,
               padding: 16,
               paddingVertical: 20,
@@ -53,7 +53,7 @@ export default function Suspended() {
             <T variant="body">{user.suspendReason}</T>
           </View>
         ) : null}
-        <View style={{ marginHorizontal: 20, marginTop: 24, gap: 8 }}>
+        <View style={{ marginHorizontal: tokens.space.gutter, marginTop: 24, gap: 8 }}>
           <T variant="sub" muted>
             사유가 사실과 다르거나 궁금한 점이 있으면 운영팀에 문의해 주세요.
             정지된 동안에도 farmclub 대화방은 열려 있어요.

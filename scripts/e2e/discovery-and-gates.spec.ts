@@ -65,7 +65,7 @@ test("AC-01-3: producer account gates use separate sessions", async ({
   await expect(approvedPage).toHaveURL(
     new RegExp(`${producerUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?$`),
   );
-  await expect(approvedPage.getByText("주문·배송 현황")).toBeVisible();
+  await expect(approvedPage.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
   assertApprovedClean();
   await approved.close();
 });

@@ -41,7 +41,7 @@ function Step({
         flexDirection: "row",
         gap: 16,
         alignItems: "center",
-        minHeight: 72,
+        minHeight: tokens.height.listRowProducer,
         borderTopWidth: first ? 0 : 1,
         borderBottomWidth: last ? 1 : 0,
         borderColor: tokens.color.border,
@@ -156,12 +156,12 @@ export default function Pending() {
           <Skeleton
             width="80%"
             height={120}
-            style={{ margin: 20, marginTop: 72 }}
+            style={{ margin: tokens.space.gutter, marginTop: tokens.space.lg }}
           />
         ) : null}
         {a ? (
           <>
-            <View style={{ paddingHorizontal: 20, paddingTop: 72, gap: 12 }}>
+            <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: tokens.space.lg, gap: 12 }}>
               <T variant="sub" muted>
                 {a.farmName} · {md(a.submittedAt)} 신청
               </T>
@@ -178,7 +178,7 @@ export default function Pending() {
               <View
                 testID="reject-reason"
                 style={{
-                  marginHorizontal: 20,
+                  marginHorizontal: tokens.space.gutter,
                   marginTop: 32,
                   padding: 16,
                   paddingVertical: 20,
@@ -193,7 +193,7 @@ export default function Pending() {
                 <T variant="body">{a.rejectReason ?? ""}</T>
               </View>
             ) : (
-              <View style={{ paddingHorizontal: 20, paddingTop: 40 }}>
+              <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 40 }}>
                 <Step
                   n={1}
                   title="신청 완료"
@@ -219,7 +219,7 @@ export default function Pending() {
             {app.error ? (
               <View
                 style={{
-                  marginHorizontal: 20,
+                  marginHorizontal: tokens.space.gutter,
                   marginTop: 16,
                   flexDirection: "row",
                   alignItems: "center",
@@ -240,20 +240,11 @@ export default function Pending() {
               <T
                 variant="sub"
                 muted
-                style={{ marginHorizontal: 20, marginTop: 16 }}
+                style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
               >
                 사유가 잘 이해되지 않으면 운영팀에 물어보세요.
               </T>
-            ) : (
-              <T
-                variant="sub"
-                muted
-                style={{ marginHorizontal: 20, marginTop: 24 }}
-              >
-                이 화면에 들어올 때마다 확인 결과를 새로 불러와요. 아래로 당겨도
-                다시 확인해요.
-              </T>
-            )}
+            ) : null}
 
           </>
         ) : null}
