@@ -50,6 +50,8 @@ export const tokens = {
     glass: "rgba(255,255,255,0.82)",
     sheet: "rgba(255,255,255,0.94)",
     photoButton: "rgba(0,0,0,0.32)",
+    /** 상품 사진 위 뒤로·공유 원과 1/N 표시(어두운 사진에서도 보이게, DEV-293 PM 결정) */
+    photoOverlay: "rgba(0,0,0,0.45)",
     // 이전 이름(뼈대 코드 호환)
     primary: "#C94F0C",
     onPrimary: "#FFFFFF",

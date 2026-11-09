@@ -152,6 +152,8 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `HeaderBar`는 하위 화면 머리: 높이 56, ‹ + 왼쪽 18 굵은 제목. 가운데 제목은 없앴다. 뒤로가 없으면 제목이 시작선 16에서 시작한다.
 - `LargeTitle`은 탭 첫 화면 머리: 높이 56, 왼쪽 22 굵은 제목. 예전 위 여백 56은 없앴다. `subtitle`은 생산자 화면(DEV-294)이 아직 넘겨서 남겼고 새 화면은 쓰지 않는다.
 - `BrandHeader`는 높이 56, 왼쪽 16·오른쪽 아이콘 버튼 기준 16. 로고는 `BrandLogo` 애셋 그대로. 제목형은 22 굵게.
+- `Button`의 `accessibilityHint`는 화면 읽기 전용 설명: 앱은 RN `accessibilityHint`, 웹은 눈에 안 보이는 글 + `aria-describedby`(react-native-web가 `accessibilityHint`를 내보내지 않아서).
+- `tokens.color.photoOverlay`(검정 45%)는 상품 사진 위 원 버튼·1/N 표시 전용. `photoButton`(32%)은 생산자 사진 위 버튼이 계속 쓴다.
 - `Button`은 두 앱 모두 52(`buttonProducer`는 예전 이름, 값 52). `compact`는 칩 32 + hitSlop 8.
 - `Section divided`는 면색 8 띠 + 위 여백 24(주문서처럼 섹션이 이어지는 화면). 섹션 제목과 오른쪽 링크는 세로 가운데.
 - `EmptyState`는 위 여백 24, 아이콘 32, 좌우 16. `big` prop은 지웠다(쓰는 곳 없음).

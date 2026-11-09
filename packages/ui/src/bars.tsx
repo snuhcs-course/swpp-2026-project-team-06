@@ -122,7 +122,7 @@ export function IconButton({
   label: string;
   onPress?: () => void;
   testID?: string;
-  /** 사진 위 버튼: 검정 32% 원형 40 + 흰 아이콘 */
+  /** 사진 위 버튼: 검정 45% 원형 40 + 흰 아이콘(`tokens.color.photoOverlay`) */
   onPhoto?: boolean;
   size?: number;
 }) {
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 999,
-    backgroundColor: tokens.color.photoButton,
+    backgroundColor: tokens.color.photoOverlay,
     alignItems: "center",
     justifyContent: "center",
   },

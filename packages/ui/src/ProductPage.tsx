@@ -322,7 +322,7 @@ function Gallery({ photos, alt }: { photos: (string | null)[]; alt: string }) {
           paddingHorizontal: 8,
           height: 24,
           borderRadius: tokens.radius.full,
-          backgroundColor: tokens.color.photoButton,
+          backgroundColor: tokens.color.photoOverlay,
           justifyContent: "center",
         }}
       >
