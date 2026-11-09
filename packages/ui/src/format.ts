@@ -189,3 +189,39 @@ export function eulReul(word: string) {
   if (c < 0xac00 || c > 0xd7a3) return `${word}을`;
   return (c - 0xac00) % 28 ? `${word}을` : `${word}를`;
 }
+
+/** 남은 수량 계산에 필요한 상품 값만(상품 상세 ProductPageData·소비자 ProductDetail이 그대로 들어맞는다) */
+type StockProduct = {
+  remainingGrams: number;
+  currentStageId: string | null;
+  options: { optionId: string; weightKg: number }[];
+  stages: {
+    stageId: string;
+    options: Record<string, { quantity: number; reservedCount: number } | undefined>;
+  }[];
+};
+
+/** 지금 기간에 그 옵션을 몇 박스 더 예약할 수 있나: 전체 남은 물량(g)과 기간 물량 중 작은 쪽. 지금 기간이 없으면 0 */
+export function optionLeft(p: StockProduct, optionId: string): number {
+  const stage = p.stages.find((s) => s.stageId === p.currentStageId);
+  const option = p.options.find((o) => o.optionId === optionId);
+  const alloc = stage?.options[optionId];
+  if (!option || !alloc) return 0;
+  const grams = Math.round(option.weightKg * 1000);
+  return Math.max(
+    0,
+    Math.min(
+      grams > 0 ? Math.floor(p.remainingGrams / grams) : 0,
+      alloc.quantity - alloc.reservedCount,
+    ),
+  );
+}
+
+/** 처음 고를 옵션: 지금 살 수 있는 첫 옵션, 모두 품절이면 첫 옵션(DEV-291). 옵션이 없으면 "" */
+export function defaultOptionId(p: StockProduct): string {
+  return (
+    p.options.find((o) => optionLeft(p, o.optionId) > 0)?.optionId ??
+    p.options[0]?.optionId ??
+    ""
+  );
+}
