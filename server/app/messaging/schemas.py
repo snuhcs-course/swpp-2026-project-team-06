@@ -73,11 +73,50 @@ class NewsRoomMessage(CamelModel):
     my_reaction: bool
     # 방송의 공개 범위(M-14). 소비자 답장은 None. 생산자 삭제 시트 안내에 쓴다(DEV-210)
     visibility: Literal["PUBLIC", "FOLLOWERS"] | None = None
+    # 소유 생산자의 방송에만 숫자(DEV-297). 소비자·비로그인과 답장 행은 None
+    read_count: int | None = None
+    reply_count: int | None = None
 
 
 class NewsRoomPage(CamelModel):
     room: NewsRoomSummary
     items: list[NewsRoomMessage]
+    next_cursor: str | None
+
+
+class FanReplyBroadcast(CamelModel):
+    """팬 답장 시트 머리의 소식 인용(DEV-297)."""
+
+    broadcast_id: str
+    body: str
+    media_count: int
+    created_at: datetime
+
+
+class FanReply(CamelModel):
+    """소식 하나에 연결된 소비자 답장 한 줄(DEV-297). 이름은 생산자 방과 같은 가린 이름."""
+
+    message_id: str
+    consumer_id: str
+    sender_name: str
+    body: str
+    created_at: datetime
+    edit_version: int
+    # 생산자가 아직 읽지 않음
+    unread: bool
+    # 그 농가에 결제된 주문이 있는 소비자
+    reserved_customer: bool
+    # 이 답장을 인용한 소식(모두에게 답장)이 있음
+    quoted: bool
+
+
+class FanReplyPage(CamelModel):
+    broadcast: FanReplyBroadcast
+    total: int
+    unread_count: int
+    # 이 소식의 가장 최근 답장(필터·페이지와 무관). 시트를 닫을 때 여기까지 읽음 처리
+    last_reply_id: str | None
+    items: list[FanReply]
     next_cursor: str | None
 
 
