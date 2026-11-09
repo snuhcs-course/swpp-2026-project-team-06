@@ -322,6 +322,9 @@ export function ChatChoices({
   );
 }
 
+/** 워드마크 애셋(logo 기본 174×56) 안 왼쪽 투명 여백. 실측: 2172×724 원본의 글자 시작 x=68, contain 가운데 정렬 3px → 약 8px */
+const WORDMARK_INSET = 8;
+
 /** 탭 첫 화면 로고 머리: 높이 56, 왼쪽 시작선 16(로고는 기존 애셋 그대로). 제목은 탭 화면 제목 22 굵게(DEV-293) */
 export function BrandHeader({
   title,
@@ -346,7 +349,9 @@ export function BrandHeader({
       }}
     >
       {logo === "wordmark" ? (
-        <View style={{ flex: 1 }}>
+        // 워드마크 애셋은 왼쪽에 투명 여백이 있다(174×56 contain에서 약 8px). 애셋·크기는 그대로 두고
+        // 보이는 글자가 섹션 제목과 같은 시작선 16에 오게 그만큼 당긴다(DEV-293)
+        <View style={{ flex: 1, marginLeft: -WORDMARK_INSET }}>
           <BrandLogo variant="wordmark" />
         </View>
       ) : (
