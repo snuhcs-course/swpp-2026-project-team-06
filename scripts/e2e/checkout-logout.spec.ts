@@ -22,7 +22,7 @@ async function fillCheckout(page: Page) {
   await openCheckoutFromProduct(page);
   await expect(page).toHaveURL(/\/checkout\/p-house/);
   const add = page.getByRole("button", { name: "받는 사람과 주소 입력" });
-  const other = page.getByRole("button", { name: "다른 배송지" });
+  const other = page.getByRole("button", { name: "받는 곳 변경" });
   await expect(add.or(other)).toBeVisible();
   if (await add.isVisible()) {
     await add.click();
@@ -58,7 +58,7 @@ test("SCR-17: order → logout → home, and logging in again does not reopen th
   // 스택에 남은 화면이 늦게 로그인으로 바꾸지 않는다(예전엔 /login?next=/checkout/...)
   await page.waitForTimeout(1500);
   await expect(page).toHaveURL(`${consumerUrl}/`);
-  await expect(page.getByText("오늘, 농가에서")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "농가 소식" })).toBeVisible();
 
   await tab(page, "내 정보");
   await page.getByRole("button", { name: "로그인", exact: true }).click();

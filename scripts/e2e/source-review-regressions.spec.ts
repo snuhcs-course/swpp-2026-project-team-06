@@ -645,7 +645,8 @@ for (const composer of [false, true]) {
     await serveContractReview(page, fixture);
     await openContractReview(page, fixture, true);
     await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
-    await expect(page.getByText(/박스 남음/)).toBeVisible();
+    // DEV-293: 남은 박스는 옵션 줄마다
+    await expect(page.getByText(/박스 남음/).first()).toBeVisible();
     clean();
   });
 

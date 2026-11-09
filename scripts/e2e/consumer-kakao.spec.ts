@@ -44,13 +44,13 @@ test("AC-01-13: Kakao return goes back to the saved screen and a reload does not
   );
   await page.goto(`${consumerUrl}/auth/kakao?code=e2e-code&state=${STATE}`);
   await expect(page).toHaveURL(atHome);
-  await expect(page.getByText("오늘, 농가에서")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "농가 소식" })).toBeVisible();
 
   // 복귀 화면에서 새로고침한 것처럼 같은 주소를 다시 연다(state는 이미 쓰였다)
   await page.goto(`${consumerUrl}/auth/kakao?code=e2e-code&state=${STATE}`);
   await expect(page).toHaveURL(atHome);
   await expect(page.getByText("로그인 요청이 만료됐어요")).toHaveCount(0);
-  await expect(page.getByText("오늘, 농가에서")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "농가 소식" })).toBeVisible();
   assertClean();
 });
 

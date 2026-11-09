@@ -26,10 +26,15 @@ test("DEV-224 HE-01: a room opened from a product goes back to it, and the chat 
   const assertClean = monitor(page);
   await loginConsumer(page);
   await page.goto(`${consumerUrl}/products/p-house`);
-  await page.getByRole("button", { name: "1:1 채팅" }).click();
+  await page.getByRole("button", { name: "채팅", exact: true }).click();
   await expect(page).toHaveURL(/\/chats\/f-kang\?.*productId=p-house/);
   await back(page);
   await expect(page).toHaveURL(/\/products\/p-house$/);
+  // DEV-293: 상품 상세는 구매 화면이라 탭 바가 없다. 판매자 줄 → 농가 정보(발견 탭, 탭 바 있음)에서 채팅 탭을 누른다
+  await page.getByRole("link", { name: /^강씨네 귤밭/ }).click();
+  await expect(page).toHaveURL(/\/farms\/f-kang$/);
+  await page.getByRole("button", { name: "강씨네 귤밭 농가 보기" }).click();
+  await expect(page).toHaveURL(/\/farms\/f-kang\/info$/);
   await tab(page, "채팅");
   await expect(page).toHaveURL(/\/chats$/);
   // 채팅 탭 안에서 연 방의 뒤로는 목록

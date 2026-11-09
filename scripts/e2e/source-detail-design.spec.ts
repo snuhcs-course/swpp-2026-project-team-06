@@ -87,9 +87,10 @@ for (const width of [360, 390, 430]) {
       "rgb(255, 255, 255)",
     );
     const sizePanel = detail.getByTestId("source-size-panel");
-    await expect(sizePanel).toHaveCSS("padding-top", "64px");
+    // DEV-293 기준표: 일러스트 여백 64 → 32, 숫자 40 → 28
+    await expect(sizePanel).toHaveCSS("padding-top", "32px");
     const sizeLabel = ({360: "소과", 390: "중과", 430: "대과"} as Record<number, string>)[width];
-    await expect(sizePanel.getByText(sizeLabel, { exact: true })).toHaveCSS("font-size", "40px");
+    await expect(sizePanel.getByText(sizeLabel, { exact: true })).toHaveCSS("font-size", "28px");
     await expect(sizePanel.getByText(/기준 손 길이 18cm/)).toHaveCSS("font-size", "13px");
     await expect(sizePanel.getByText(sizeLabel, { exact: true })).toHaveCSS("font-weight", "700");
     await expect(sizePanel.getByText(/비교용 가정/)).toBeVisible();

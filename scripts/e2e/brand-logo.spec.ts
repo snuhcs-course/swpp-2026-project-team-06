@@ -12,7 +12,7 @@ for (const width of [360, 390]) {
     const wordmark = page.getByTestId("brand-logo-wordmark");
     await expect(wordmark).toBeVisible();
     await expect.poll(() => wordmark.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
-    await expect(page.getByText("소식방에서 이어 보기 →").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /소식방에서 이어 보기$/ }).first()).toBeVisible();
     const search = page.getByRole("button", { name: "농가·상품 검색" });
     const wordmarkBox = await wordmark.boundingBox();
     const searchBox = await search.boundingBox();
