@@ -112,6 +112,9 @@ class ChatMessage(CamelModel):
     handoff_status: Literal["FORWARDED"] | None
     masked: bool
     reported: bool = False
+    # 소비자 확인 요청 깃발(DEV-296). REQUESTED = 농가 확인 전, CONFIRMED = 농가가 '답이 맞아요',
+    # CORRECTED = 농가가 이 답변을 인용해 바로잡음. 확인 요청이 없는 메시지는 null
+    check_state: Literal["REQUESTED", "CONFIRMED", "CORRECTED"] | None = None
 
 
 class ThreadView(CamelModel):
@@ -145,6 +148,8 @@ class EscalationView(CamelModel):
     status: Literal["OPEN", "ANSWERED"]
     answer: str | None
     reported_message_id: str | None = None
+    # 확인 요청을 닫은 방법(DEV-296). 열려 있거나 전달 질문이면 null
+    resolution: Literal["CONFIRMED", "CORRECTED"] | None = None
     thread: list[ChatMessage]
 
 
@@ -229,6 +234,8 @@ class ProducerChatSummary(CamelModel):
     last_at: datetime | None
     unread_count: int
     needs_reply: bool
+    # 이 대화의 열린 AI 답변 확인 요청 수(DEV-296). needsReply와 따로 센다
+    ai_check_requests: int = 0
     ai_mode: Literal["AUTO", "HUMAN"]
     # farmclub 문의 대화방(DEV-111). 다른 대화와 같이 최근 순으로 섞이고, 로고로 구분한다
     is_support: bool = False

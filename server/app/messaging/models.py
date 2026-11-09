@@ -151,6 +151,13 @@ class Escalation(Base):
     answer: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 확인 요청(reported_message_id)을 닫은 방법(DEV-296). CONFIRMED = 농가가 '답이 맞아요',
+    # CORRECTED = 농가가 그 AI 답변을 인용해 바로잡음. 전달 질문·옛 행은 null
+    resolution: Mapped[str | None] = mapped_column(String(16))
+    # 닫은 사람(농가 주인). answered_at이 닫은 시각
+    resolved_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", name="fk_escalations_resolved_by_users")
+    )
 
 
 class PrivateAttachment(Base):
