@@ -245,7 +245,7 @@ export function ProductPageBody({
           onPress={() => toggle("cancel")}
           last
         >
-          <T variant="sub">예약할 때 전액을 한 번에 결제해요.</T>
+          <T variant="sub">예약할 때 전액을 한 번에 입금해요.</T>
           <T variant="sub">
             보내기 전에는 언제든 취소할 수 있고 전액 환불돼요. 수수료는 없어요.
           </T>
