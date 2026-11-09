@@ -88,9 +88,9 @@ export function FanReplySheet({
         if (id !== run.current) return;
         setPage(first);
         setItems(rows);
-        const through = readThrough(rows, first.lastReplyId, cursor === null);
+        const through = readThrough(rows);
         // 읽음 처리 실패는 알리지 않는다. 다음에 열 때 다시 처리한다
-        if (through && first.unreadCount > 0) void markRead?.(broadcastId, through)?.catch(() => undefined);
+        if (through && rows.some((r) => r.unread)) void markRead?.(broadcastId, through)?.catch(() => undefined);
       } catch (e) {
         if (id === run.current)
           setError(e instanceof Error ? e.message : "답장을 불러오지 못했어요");

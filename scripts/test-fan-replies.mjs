@@ -44,7 +44,7 @@ test("AC-15-11 sheet subtitle quotes the broadcast start and its Seoul date", ()
   );
 });
 
-test("AC-15-11 unread chip filters the snapshot and read-through stops at what was loaded", () => {
+test("AC-15-11 unread chip filters the snapshot and read-through stops at the last loaded reply", () => {
   const items = [
     { messageId: "a", unread: false },
     { messageId: "b", unread: true },
@@ -52,8 +52,6 @@ test("AC-15-11 unread chip filters the snapshot and read-through stops at what w
   ];
   assert.deepEqual(visibleReplies(items, "all"), items);
   assert.deepEqual(visibleReplies(items, "unread").map((r) => r.messageId), ["b", "c"]);
-  assert.equal(readThrough(items, "d", true), "d");
-  assert.equal(readThrough(items, "d", false), "c");
-  assert.equal(readThrough([], null, true), null);
-  assert.equal(readThrough([], "d", false), null);
+  assert.equal(readThrough(items), "c");
+  assert.equal(readThrough([]), null);
 });

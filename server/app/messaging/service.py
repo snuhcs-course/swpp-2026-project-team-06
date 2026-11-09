@@ -656,6 +656,8 @@ def fan_replies(
         if rows
         else set()
     )
+    # 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객으로 표시하지 않는다
+    withdrawn = {cid for cid, u in names.items() if u.deleted_at is not None}
     return FanReplyPage(
         broadcast=FanReplyBroadcast(
             broadcast_id=b.id,
@@ -675,7 +677,7 @@ def fan_replies(
                 created_at=r.created_at,
                 edit_version=r.edit_version,
                 unread=r.producer_read_at is None,
-                reserved_customer=r.consumer_id in reserved,
+                reserved_customer=r.consumer_id in reserved and r.consumer_id not in withdrawn,
                 quoted=r.id in quoted,
             )
             for r in rows

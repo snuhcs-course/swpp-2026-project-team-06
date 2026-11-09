@@ -50,12 +50,8 @@ export function visibleReplies<T extends { unread: boolean }>(items: T[], filter
   return filter === "unread" ? items.filter((r) => r.unread) : items;
 }
 
-/** 시트를 열고 읽음 처리할 마지막 답장. 끝까지 다 불러왔으면 서버의 lastReplyId, 아니면 불러온 마지막 답장까지 */
-export function readThrough(
-  items: { messageId: string }[],
-  lastReplyId: string | null,
-  complete: boolean,
-) {
-  if (complete) return lastReplyId;
+/** 시트를 열고 읽음 처리할 마지막 답장 = 화면에 불러온 마지막 답장(오래된 순).
+ * 여러 쪽을 불러오는 사이 온 답장도 화면에 보였으면 함께 읽음, 상한에 걸려 못 불러온 답장은 안 읽음으로 남는다 */
+export function readThrough(items: { messageId: string }[]) {
   return items.at(-1)?.messageId ?? null;
 }

@@ -435,9 +435,13 @@ export function NewsRoom({
       if (lastMarked.current === latest) lastMarked.current = null;
     });
   }
+  // 계정·연결이 바뀌면 같은 소식이라도 새 사용자로 다시 남긴다
+  useEffect(() => {
+    lastMarked.current = null;
+  }, [userId, markRead]);
   useEffect(() => {
     if (ready) markSeen();
-  }, [messages, ready, canReply, active]);
+  }, [messages, ready, canReply, active, userId, markRead]);
   async function like(message: Message) {
     if (!userId) {
       onLogin?.();
@@ -743,7 +747,7 @@ export function NewsRoom({
                 <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTarget(null)} style={{width: 44, height: 44, alignItems: "center", justifyContent: "center"}}><Icon name="close" size={18} /></Pressable>
               </View> : null}
               {onAttach ? (
-                // '+' 글자 대신 도구 칩(Figma 7:90). '이름 넣기'(`{이름}` 치환)는 PM 결정으로 없앴다(DEV-297, 11/10)
+                // '+' 글자 대신 도구 칩(Figma 7:90)
                 <ToolChip
                   icon="photo"
                   label="사진·영상"

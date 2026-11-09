@@ -40,6 +40,8 @@ const MOCK_KAKAO_EMAIL = { consumer: "kakao.user@example.com", producer: "kakao.
 /** 농가에 보이는 소비자 이름(R-15): 닉네임, 없으면 이름 앞 글자 + ○○ */
 export function publicName(u: UserRec | undefined | null): string {
   if (!u) return "고○○";
+  // 탈퇴한 회원은 서버 public_name처럼 어디서나 ‘탈퇴한 회원’(DEV-297에서 맞춤)
+  if (u.deleted) return WITHDRAWN_NAME;
   if (u.nickname) return u.nickname;
   return `${(u.name || "고").slice(0, 1)}○○`;
 }

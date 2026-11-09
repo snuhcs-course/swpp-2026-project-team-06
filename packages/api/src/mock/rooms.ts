@@ -44,6 +44,7 @@ function authorize(ctx: Ctx, farmId: string) {
   return { ...a, user: ctx.me() };
 }
 
+// 같은 시각이면 id 문자열로 비교한다(서버 (created_at, id)·방 목록 messagePage·화면 merge와 같은 순서)
 const byTime = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) =>
   a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
 
@@ -289,17 +290,18 @@ register({
     const quoted = new Set(ctx.db.news.map((x) => x.quotedReplyId).filter(Boolean));
     const rows: FanReply[] = linked
       .filter((r) => !unreadOnly || !r.producerReadAt)
-      .map((r) => ({
+      .map((r) => ({ r, u: ctx.db.users[r.senderId] }))
+      .map(({ r, u }) => ({
         messageId: r.messageId,
         consumerId: r.senderId,
-        senderName: ctx.db.users[r.senderId]
-          ? publicName(ctx.db.users[r.senderId])
-          : `${r.senderName.slice(0, 1)}○○`,
+        // 탈퇴한 소비자(Mock 탈퇴는 tomb 사용자 deleted)는 publicName이 ‘탈퇴한 회원’을 준다(서버 public_name과 같음)
+        senderName: u ? publicName(u) : `${r.senderName.slice(0, 1)}○○`,
         body: r.body,
         createdAt: r.createdAt,
         editVersion: r.editVersion ?? 0,
         unread: !r.producerReadAt,
-        reservedCustomer: reserved(r.senderId),
+        // 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객이 아니다(서버와 같음)
+        reservedCustomer: !u?.deleted && reserved(r.senderId),
         quoted: quoted.has(r.messageId),
       }));
     return {

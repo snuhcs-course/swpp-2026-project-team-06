@@ -192,6 +192,23 @@ def test_AC_15_11_fan_replies_list_unread_filter_reserved_tag_and_quoted(client,
     assert first["consumerId"] == "u-minji" and first["reservedCustomer"] is True
     assert second["consumerId"] == "u-seojun" and second["reservedCustomer"] is False
     assert first["senderName"] and "민지" not in first["senderName"][1:]
+    # 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객이 아니고 이름은 '탈퇴한 회원'
+    # (실제 탈퇴는 열린 주문이 있으면 막히므로 끝난 주문만 남긴 상태를 만든다)
+    from app.accounts.models import User
+    from app.core.clock import now
+
+    with _db() as session, session.begin():
+        session.execute(
+            update(Order).where(Order.consumer_id == "u-minji").values(status="COMPLETED")
+        )
+        session.execute(update(User).where(User.id == "u-minji").values(deleted_at=now()))
+    try:
+        gone = _ok(_replies(client, producer, "n-1"))["items"][0]
+        assert gone["senderName"] == "탈퇴한 회원" and gone["reservedCustomer"] is False
+    finally:
+        with _db() as session, session.begin():
+            session.execute(update(User).where(User.id == "u-minji").values(deleted_at=None))
+    assert _ok(_replies(client, producer, "n-1"))["items"][0]["reservedCustomer"] is True
     assert all(r["unread"] and not r["quoted"] for r in page["items"])
 
     # 모두에게 답장(익명 인용)하면 그 답장은 '모두에게 답장함'이고 읽음이다
