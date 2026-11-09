@@ -2,9 +2,9 @@
 // DEV-294: 머리 1단(현황 + 농가·날짜), 할 일 한 줄 목록, 주문 4칸 카드, 예약·출하 물량 줄(Figma 검토본 1:62)
 import { allPages, catalog, farms, orders } from "@farmclub/api";
 import {
+  BrandLogo,
   Button,
   Icon,
-  LargeTitle,
   Photo,
   Screen,
   Scroll,
@@ -233,14 +233,37 @@ export default function Home() {
   const kg = (g: number) => (g / 1000).toLocaleString("ko-KR");
   return (
     <Screen>
-      <LargeTitle
-        title="현황"
-        subtitle={`${farm.data?.name ?? "우리 농가"} · ${new Date().toLocaleDateString(
-          "ko-KR",
-          { month: "long", day: "numeric", weekday: "short" },
-        )}`}
-        right={<HelpButton />}
-      />
+      {/* 머리: 기존 아이콘형 로고(DEV-85) + 왼쪽 제목 '현황' + 가이드, 아래 농가명·날짜 한 줄(DEV-294, PM 11/09) */}
+      <View
+        style={{
+          paddingHorizontal: tokens.space.gutter,
+          paddingTop: tokens.space.md,
+          gap: tokens.space.xs,
+        }}
+      >
+        <View
+          style={{
+            minHeight: 56,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <BrandLogo variant="icon" decorative />
+          <T variant="title" accessibilityRole="header" style={{ flex: 1 }}>
+            현황
+          </T>
+          <HelpButton />
+        </View>
+        <T variant="sub" muted>
+          {farm.data?.name ?? "우리 농가"} ·{" "}
+          {new Date().toLocaleDateString("ko-KR", {
+            month: "long",
+            day: "numeric",
+            weekday: "short",
+          })}
+        </T>
+      </View>
       <Scroll bottom={tokens.height.tabBarClearance}>
         <View
           style={{

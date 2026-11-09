@@ -190,7 +190,7 @@ DEV-287: 상품 편집은 최종 구매자 배치에서 제자리 수정하며, 
 
 Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 고쳤다. 동작·API 계약은 바꾸지 않았다. 화면 서술은 screens.md SCR-22·29·도움말 절.
 - 크기는 `tokens.*`(gutter·listRowProducer·touchTarget·heading 등)로 쓴다. 토큰에 아직 없는 기준표 값(작은 버튼 32, 썸네일 48, 진행 막대 6, accent 옅은 배경 `#FDECE2`)만 숫자로 둔다. 작은 버튼·칩은 hitSlop으로 누르는 영역 48.
-- 현황(`(tabs)/index.tsx`): `LargeTitle`(제목 ‘현황’, 부제 ‘농가명 · 날짜’, 오른쪽 `HelpButton`). 할 일 줄은 화면 안 `TodoRow`(56, 오른쪽 accent 건수·‘필수’ 태그·chevron). ‘답하지 않은 문의’는 대시보드 `todo.openQuestions` → `/chats?view=private`. 물량 줄은 kg(옵션별 박스 무게가 달라 박스 합산은 공유 물량을 두 번 센다, DEV-292 결정), 썸네일은 `catalog.mine`의 대표 사진.
+- 현황(`(tabs)/index.tsx`): 화면 안 머리(기존 `BrandLogo` 아이콘형 + 제목 ‘현황’(title) + `HelpButton`, 높이 56·세로 가운데, 아래 ‘농가명 · 날짜’). 로고는 PM 11/09 결정으로 유지한다. 할 일 줄은 화면 안 `TodoRow`(56, 오른쪽 accent 건수·‘필수’ 태그·chevron). ‘답하지 않은 문의’는 대시보드 `todo.openQuestions` → `/chats?view=private`. 물량 줄은 kg(옵션별 박스 무게가 달라 박스 합산은 공유 물량을 두 번 센다, DEV-292 결정), 썸네일은 `catalog.mine`의 대표 사진.
 - 배송 현황(`ship.tsx`): 공용 `Segmented` 대신 화면 안 밑줄 탭(ScrollView). 상품 줄은 `lib/orderWho.ts` `orderItem`이 상품명 끝 옵션 목록 중 이 주문 옵션이 든 목록만 뗀다(`scripts/test-producer-order-rows.mjs`). 시트·읽기 라벨은 `orderWho` 전체 글자 그대로(AC-17-10). 전체 탭 상태 칩은 `ORDER_STATUS`.
 - 투어(`lib/Tour.tsx`): `HelpButton`은 props 없이 버튼으로만 시작한다. 본 적 있음 기록(`help-guide-seen`)은 더 쓰지 않는다. 마지막 단계는 AC-34-5 때문에 farmclub 대화방 안내 한 문장을 남긴다.
 - Mock 전용 문구는 `isMock`일 때만 보인다(로그인 카카오 설명 등).

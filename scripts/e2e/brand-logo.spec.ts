@@ -41,9 +41,14 @@ for (const width of [360, 390]) {
     await page.getByRole("radio", { name: /강영수/ }).click();
     await cta.click();
     await expect(page).not.toHaveURL(/\/login/);
-    // DEV-294: 현황은 다른 탭 첫 화면처럼 '현황' 제목 머리(Figma 검토본 1:62)라 로고 줄이 없다
+    // DEV-294: 현황 머리는 기존 아이콘형 로고 + 왼쪽 제목 '현황'(PM 11/09 결정으로 로고 유지)
+    const symbol = page.getByTestId("brand-logo-icon");
+    await expect(symbol).toBeVisible();
+    await expect.poll(() => symbol.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
     await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /전체 주문 \d+건/ })).toBeVisible();
+    await expect(symbol).toHaveCSS("width", "36px");
+    await expect(symbol).toHaveCSS("height", "40px");
     await page.screenshot({ path: testInfo.outputPath("producer-dashboard.png") });
     expect(errors).toEqual([]);
   });
