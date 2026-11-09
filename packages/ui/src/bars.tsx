@@ -40,12 +40,13 @@ type BarProps = {
   border?: boolean;
 };
 
-/** 할 일 화면 머리: 48 높이 바(뒤로 + 가운데 제목 17 굵게) */
+/** 하위 화면 머리: 높이 56, ‹ + 왼쪽 18 굵은 제목(가운데 제목은 쓰지 않는다, DEV-293). 뒤로가 없으면 제목이 왼쪽 시작선 16에서 시작한다 */
 export function HeaderBar({ title, onBack, close, right, rightWidth = 48, border }: BarProps) {
   return (
     <View
       style={[
         styles.bar,
+        !onBack && { paddingLeft: tokens.space.gutter },
         border && {
           borderBottomWidth: 1,
           borderBottomColor: tokens.color.border,
@@ -58,13 +59,10 @@ export function HeaderBar({ title, onBack, close, right, rightWidth = 48, border
           label={close ? "닫기" : "뒤로"}
           onPress={onBack}
         />
-      ) : (
-        <View style={styles.side} />
-      )}
+      ) : null}
       <T
-        variant="body"
-        weight="semibold"
-        center
+        variant="heading"
+        accessibilityRole={title ? "header" : undefined}
         style={{ flex: 1 }}
         numberOfLines={1}
       >
@@ -75,7 +73,7 @@ export function HeaderBar({ title, onBack, close, right, rightWidth = 48, border
   );
 }
 
-/** 탭 첫 화면 머리: 왼쪽 정렬 큰 제목 34 */
+/** 탭 첫 화면 머리: 높이 56, 왼쪽 22 굵은 제목(DEV-293). subtitle은 예전 호출부 호환용이고 새 화면은 넘기지 않는다(부제 삭제) */
 export function LargeTitle({
   title,
   subtitle,
@@ -88,32 +86,23 @@ export function LargeTitle({
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const heading = (
-    <T
-      variant="title"
-      accessibilityRole="header"
-      style={right ? { flex: 1 } : undefined}
-    >
-      {title}
-    </T>
-  );
   return (
-    <View
-      style={[
-        { paddingHorizontal: tokens.space.gutter, paddingTop: 56, gap: 8 },
-        style,
-      ]}
-    >
-      {right ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          {heading}
-          {right}
-        </View>
-      ) : (
-        heading
-      )}
+    <View style={[{ paddingHorizontal: tokens.space.gutter }, style]}>
+      <View
+        style={{
+          minHeight: tokens.height.header,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <T variant="title" accessibilityRole="header" style={{ flex: 1 }}>
+          {title}
+        </T>
+        {right}
+      </View>
       {subtitle ? (
-        <T variant="sub" muted>
+        <T variant="sub" muted style={{ paddingBottom: 8 }}>
           {subtitle}
         </T>
       ) : null}
@@ -287,7 +276,7 @@ export function BottomBar({
   );
 }
 
-/** 떠 있는 작성 버튼("+ 소식", "+ 새 상품"). 탭 바 위 오른쪽. */
+/** 떠 있는 작성 버튼("+ 소식", "+ 새 상품"). 탭 바 위 오른쪽 16, 높이 52. */
 export function Fab({
   label,
   onPress,
@@ -340,7 +329,7 @@ export function useSheetLeave() {
   return { instant, leave };
 }
 
-/** 아래에서 올라오는 시트. 뒤 화면 위에 검정 40%. 제목 22. */
+/** 아래에서 올라오는 시트. 뒤 화면 위에 검정 40%. 제목 18(heading). */
 export function Sheet({
   visible,
   onClose,
@@ -484,7 +473,9 @@ const styles = StyleSheet.create({
     height: tokens.height.header,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
+    gap: 4,
+    // 뒤로 아이콘(48 칸 가운데 24)이 왼쪽 시작선 16에 오게 4
+    paddingHorizontal: 4,
     backgroundColor: tokens.color.background,
   },
   side: { width: 48, alignItems: "flex-end" },
@@ -561,8 +552,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 16,
     bottom: safe("bottom", 88),
-    height: 56,
-    paddingHorizontal: 24,
+    height: tokens.height.button,
+    paddingHorizontal: 20,
     borderRadius: 999,
     flexDirection: "row",
     alignItems: "center",

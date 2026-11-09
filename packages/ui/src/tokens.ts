@@ -1,35 +1,35 @@
-// 디자인 토큰: Figma v6 / docs/spec/conversation-ui-1.6.md.
-// N-02: 본문 17px, 메타 13px, 터치 48px 이상.
+// 디자인 토큰: Figma 검토본 '기준표'(DEV-292, 당근 SEED 수치) / docs/spec/conversation-ui-1.6.md.
+// N-02: 본문 16 이상, 터치 48 이상. 메타 12.
 export const tokens = {
   fontFamily:
     '"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
   fontSize: {
-    /** 생산자 현황 주문 숫자 */
-    display: 40,
-    /** 큰 제목 */
-    title: 28,
-    /** 섹션 제목·상품명·시트 제목 */
-    heading: 22,
-    /** 본문 */
-    body: 17,
+    /** 숫자 강조(생산자 현황 주문 숫자 등) */
+    display: 22,
+    /** 탭 첫 화면 제목·상품명·원산지·주문 상태 제목 */
+    title: 22,
+    /** 섹션 제목·하위 화면 머리 제목·시트 제목 */
+    heading: 18,
+    /** 본문 (N-02 최소 16) */
+    body: 16,
     /** 입력칸·긴 글 입력 (16 밑 금지: 아이폰 자동 확대) */
     input: 16,
     /** 보조 글자 */
-    sub: 15,
+    sub: 14,
     /** 채팅 말풍선 */
-    chat: 17,
-    /** 메타: 날짜·칩·탭·시각. 본문은 17, 입력은 16 이상. */
-    caption: 13,
+    chat: 16,
+    /** 메타: 날짜·칩·탭·시각 */
+    caption: 12,
   },
   lineHeight: {
-    display: 48,
-    title: 36,
-    heading: 30,
-    body: 25,
-    input: 26,
-    sub: 22,
-    chat: 25,
-    caption: 18,
+    display: 30,
+    title: 30,
+    heading: 26,
+    body: 24,
+    input: 24,
+    sub: 20,
+    chat: 23,
+    caption: 16,
   },
   fontWeight: {
     regular: "400",
@@ -68,14 +68,24 @@ export const tokens = {
     xl: 32,
     /** 섹션 사이 */
     section: 40,
-    /** 좌우 여백 */
-    gutter: 20,
+    /** 좌우 여백(왼쪽 시작선) */
+    gutter: 16,
   },
   height: {
+    /** 주요 버튼(두 앱 공통) */
     button: 52,
-    buttonProducer: 56,
+    /** 예전 생산자 버튼 이름. 기준표에서 52 하나로 통일 */
+    buttonProducer: 52,
+    /** 보조 버튼 */
+    buttonSecondary: 48,
+    /** 칩·작은 버튼(터치 48은 hitSlop으로) */
+    chip: 32,
     input: 48,
-    header: 64,
+    /** 머리(탭 첫 화면·하위 화면 모두) */
+    header: 56,
+    /** 목록 행: 한 줄 56 · 두 줄 72 */
+    row: 56,
+    rowTwoLine: 72,
     tabBar: 72,
     listRowProducer: 56,
     /** 고정 탭 바가 내용을 가리지 않게 두는 아래 여백 */

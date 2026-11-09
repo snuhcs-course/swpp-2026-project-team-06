@@ -31,9 +31,9 @@ type Props = {
 const MASKED = { dataSet: { phPrivate: "1" } } as object;
 
 const letterSpacing: Partial<Record<TextVariant, number>> = {
-  display: -0.96,
-  title: -0.68,
-  heading: -0.22,
+  display: -0.33,
+  title: -0.33,
+  heading: -0.18,
 };
 
 const defaultWeight: Partial<Record<TextVariant, Props["weight"]>> = {
@@ -42,7 +42,7 @@ const defaultWeight: Partial<Record<TextVariant, Props["weight"]>> = {
   heading: "bold",
 };
 
-/** 글자 단계 34/22/17/15/13 + 입력 16·채팅 15·할 일 숫자 48. 숫자는 tabular-nums. */
+/** 글자 단계(기준표, DEV-293) 22/18/16/14/12 + 입력·채팅 16·숫자 강조 22. 숫자는 tabular-nums. */
 export function T({
   variant = "body",
   weight,

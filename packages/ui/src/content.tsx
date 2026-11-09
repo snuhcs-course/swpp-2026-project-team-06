@@ -74,27 +74,35 @@ export function Scroll({
   );
 }
 
-/** bleed: 가로 스크롤처럼 내용은 화면 끝까지, 제목만 좌우 여백 20 */
+/** bleed: 가로 스크롤처럼 내용은 화면 끝까지, 제목만 좌우 여백 16. 제목 18 굵게, 오른쪽 링크는 제목과 세로 가운데.
+ *  divided: 위에 면색 8 띠로 섹션을 나누고 위 여백 24(주문서처럼 섹션이 이어지는 화면, DEV-293) */
 export function Section({
   title,
   right,
   children,
   style,
   bleed,
+  divided,
 }: {
   title?: string;
   right?: ReactNode;
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   bleed?: boolean;
+  divided?: boolean;
 }) {
   return (
     <View
       style={[
         {
           paddingHorizontal: bleed ? 0 : tokens.space.gutter,
-          paddingTop: tokens.space.section,
+          paddingTop: divided ? tokens.space.lg : tokens.space.section,
           gap: 12,
+        },
+        divided && {
+          marginTop: tokens.space.lg,
+          borderTopWidth: tokens.space.sm,
+          borderTopColor: tokens.color.surface,
         },
         style,
       ]}
@@ -103,8 +111,9 @@ export function Section({
         <View
           style={{
             flexDirection: "row",
-            alignItems: "baseline",
+            alignItems: "center",
             justifyContent: "space-between",
+            minHeight: right ? tokens.touchTarget.min : undefined,
             paddingHorizontal: bleed ? tokens.space.gutter : 0,
           }}
         >
@@ -233,7 +242,7 @@ export type ProductRowProps = {
   first?: boolean;
 };
 
-/** 상품 행: 사진 104 정사각(모서리 16), 상품명 17 최대 2줄, 보조 15, 가격 17 굵게 + 칩, 예약 수 13 */
+/** 상품 행: 사진 104 정사각(모서리 16), 상품명 16 최대 2줄, 보조 14, 가격 16 굵게 + 칩, 예약 수 12 */
 export function ProductRow({
   photo,
   name,
@@ -428,7 +437,7 @@ export function Checkbox({
       style={{
         flexDirection: "row",
         gap: 12,
-        alignItems: "flex-start",
+        alignItems: "center",
         minHeight: 48,
       }}
     >
@@ -516,25 +525,23 @@ export function EmptyState({
   title,
   body,
   action,
-  big,
 }: {
   icon?: IconName;
   title: string;
   body?: string;
   action?: ReactNode;
-  big?: boolean;
 }) {
   return (
     <View
       style={{
-        paddingTop: 56,
-        paddingHorizontal: 32,
+        paddingTop: tokens.space.lg,
+        paddingHorizontal: tokens.space.gutter,
         alignItems: "center",
         gap: 8,
       }}
     >
       {icon ? (
-        <Icon name={icon} size={40} color={tokens.color.textMuted} />
+        <Icon name={icon} size={32} color={tokens.color.textMuted} />
       ) : null}
       <T variant="body" weight="semibold" center>
         {title}
@@ -545,7 +552,6 @@ export function EmptyState({
         </T>
       ) : null}
       {action}
-      {big ? null : null}
     </View>
   );
 }
@@ -577,7 +583,7 @@ export function Skeleton({
   );
 }
 
-/** 짧은 알림: 검정 알약 48, 글자 17, 2초(D-19). tone="error"는 공통 오류 ‘연결이 불안정해요’ + 다시 시도(4초).
+/** 짧은 알림: 검정 알약 48, 글자 16, 2초(D-19). tone="error"는 공통 오류 ‘연결이 불안정해요’ + 다시 시도(4초).
  * action이 있는 성공 토스트(예: ‘팔로우를 끊었어요 · 되돌리기’, DEV-230)도 누를 시간을 주려고 4초 */
 export function Toast({
   message,
@@ -747,18 +753,19 @@ export function Notice({
   );
 }
 
-/** 테스트 서비스 띠 */
+/** 테스트 서비스 띠: 12 한 줄(DEV-293) */
 export function TestBand({ text }: { text: string }) {
   return (
     <View
       style={{
-        minHeight: 48,
+        minHeight: 32,
+        paddingVertical: 8,
         justifyContent: "center",
         paddingHorizontal: tokens.space.gutter,
         backgroundColor: tokens.color.surface,
       }}
     >
-      <T variant="sub">{text}</T>
+      <T variant="caption">{text}</T>
     </View>
   );
 }
@@ -795,7 +802,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    minHeight: 56,
+    minHeight: tokens.height.row,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: tokens.color.border,
