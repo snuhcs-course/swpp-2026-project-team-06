@@ -90,6 +90,8 @@ export default function Chat() {
         load={load}
         makeKey={newIdempotencyKey}
         read={(id) => messaging.producerRead(consumerId, id)}
+        // 확인 요청된 AI 답변 아래 확인 카드 '답이 맞아요'(DEV-296). 바로잡기는 AI 답변을 인용한 답장
+        confirmCheck={support ? undefined : (id, key) => messaging.confirmAiAnswer(consumerId, id, key)}
         loadPhoto={privateImage}
         upload={(f) => uploadAttachment(f, { threadId: page?.thread.threadId })}
         // 상대 이름은 서버가 준 가림 이름(DEV-232). 사진은 없어 첫 글자 아바타(DEV-295)

@@ -214,6 +214,18 @@ export default function Home() {
         onPress={() => router.push("/ship?status=REFUNDED")}
       />,
     );
+  // DEV-296: 소비자가 확인을 요청한 AI 답변. '답하지 않은 문의'와 따로 센다(Figma 1:62). 누르면 확인 요청 대화만
+  if (todo?.aiCheckRequests)
+    rows.push(
+      <TodoRow
+        key="ai-checks"
+        label="AI 답변 확인 요청"
+        count={todo.aiCheckRequests}
+        onPress={() =>
+          router.push({ pathname: "/chats", params: { view: "private", checks: "1" } })
+        }
+      />,
+    );
   if (todo?.openQuestions)
     rows.push(
       <TodoRow

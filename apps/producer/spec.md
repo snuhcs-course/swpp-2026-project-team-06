@@ -194,3 +194,10 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 배송 현황(`ship.tsx`): 공용 `Segmented` 대신 화면 안 밑줄 탭(ScrollView). 상품 줄은 `lib/orderWho.ts` `orderItem`이 상품명 끝 옵션 목록 중 이 주문 옵션이 든 목록만 뗀다(`scripts/test-producer-order-rows.mjs`). 시트·읽기 라벨은 `orderWho` 전체 글자 그대로(AC-17-10). 전체 탭 상태 칩은 `ORDER_STATUS`.
 - 투어(`lib/Tour.tsx`): `HelpButton`은 props 없이 버튼으로만 시작한다. 본 적 있음 기록(`help-guide-seen`)은 더 쓰지 않는다. 마지막 단계는 AC-34-5 때문에 farmclub 대화방 안내 한 문장을 남긴다.
 - Mock 전용 문구는 `isMock`일 때만 보인다(로그인 카카오 설명 등).
+
+## DEV-296 AI 답변 확인 요청 깃발
+- 현황 할 일 ‘AI 답변 확인 요청 n건’은 대시보드 `todo.aiCheckRequests` → `/chats?view=private&checks=1`. ‘필수’ 줄 아래, ‘답하지 않은 문의’ 바로 위.
+- 1:1 목록(`(tabs)/chats/index.tsx`): 요약 `aiCheckRequests` 합이 있으면 맨 위 띠(`aiCheckBanner`), 누르면 `checks=1` 파라미터로 확인 요청 대화만. 줄 태그는 `ConversationRow` `tag`.
+- 대화방(`[consumerId].tsx`)은 `ChatThread` `confirmCheck`로 `messaging.confirmAiAnswer`를 넘긴다(farmclub 문의 방 제외).
+- 채팅 탭 배지(`(tabs)/_layout.tsx`)는 안 읽음 + 확인 요청 수.
+

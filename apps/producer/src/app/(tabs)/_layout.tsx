@@ -7,7 +7,7 @@ import { ActivityIndicator } from "react-native";
 
 import { useSession } from "../../lib/session";
 
-// 생산자 하단 탭 4개: 현황 · 상품 · 채팅 · 설정 (screens.md 결정 2, DEV-294에서 '환경설정' → '설정'). 채팅에 안 읽은 메시지 배지.
+// 생산자 하단 탭 4개: 현황 · 상품 · 채팅 · 설정 (screens.md 결정 2, DEV-294에서 '환경설정' → '설정'). 채팅에 안 읽은 메시지 + AI 답변 확인 요청(DEV-296) 배지.
 const TABS: { name: string; label: string; icon: IconName }[] = [
   { name: "index", label: "현황", icon: "chart" },
   { name: "products", label: "상품", icon: "box" },
@@ -67,7 +67,13 @@ export default function TabsLayout() {
         .then(
           (r) =>
             alive &&
-            setOpen(r.reduce((sum, item) => sum + item.unreadCount, 0)),
+            // 안 읽은 메시지 + 열린 AI 답변 확인 요청(DEV-296)
+            setOpen(
+              r.reduce(
+                (sum, item) => sum + item.unreadCount + (item.aiCheckRequests ?? 0),
+                0,
+              ),
+            ),
         )
         .catch(() => undefined);
     void load();
