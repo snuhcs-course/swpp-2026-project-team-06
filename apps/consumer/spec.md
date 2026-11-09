@@ -153,3 +153,12 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - `useToast().act(message, label, onPress)`: 행동 버튼 토스트. 소식방(`lib/FarmRoom.tsx`)과 주문 완료(`orders/[orderId]/done.tsx`) 모두 해제 성공 뒤 ‘팔로우를 끊었어요 · 되돌리기’, 되돌리기는 다시 팔로우.
 - `FarmRoom`은 `FollowButton`(체크 + 팔로잉)을 쓰고 `NewsRoom`의 `onLapsedChange`로 헤더를 테두리 버튼으로 낮춘다. 띠의 ‘다시 팔로우’는 `join`(관문 포함)과 같다.
 - 채팅 소식방 목록은 바꾸지 않았다(서버 `rooms()`가 팔로우한 농가만). 테스트 `scripts/e2e/unfollow-feedback.spec.ts`.
+
+## 소비자 화면 개편 (DEV-293, 2026-11-09)
+- 탭 첫 화면(내 주문·내 정보)은 `LargeTitle`, 하위 화면은 `HeaderBar` 제목(주문서·입금 안내·주문 상세). 상품 상세는 머리 없이 사진 위 뒤로·공유.
+- 상품 상세·주문서처럼 하단 CTA가 있는 구매 화면은 `useHideTabBar()`로 탭 바를 숨긴다. 상품 상세 하단 바는 `aboveTabs` 없이 ‘채팅’·‘예약하기’.
+- 공유: 웹은 `navigator.share`, 없으면 `copyText`로 링크 복사 + 토스트. 앱은 RN `Share`. 링크 주소는 웹이면 접속한 origin, 앱이면 `EXPO_PUBLIC_CONSUMER_URL`(없으면 https://farmclub.kr).
+- 홈 제철 상품은 2열 그리드(`ProductCard`), 소식은 `FeedCarousel` 가로.
+- 주문서: 배송 메모는 선택 목록 시트(`MEMO_PRESETS` + 직접 입력 + 선택 안 함), 동의 본문은 ‘보기’로 펼침(체크박스 접근 이름은 보이는 글자와 같은 ‘동의 제목 (필수)’), 버튼 이름 ‘N원 예약하기’(충돌 안내가 다른 이름을 주면 그 이름), 금액 줄은 ‘상품 금액’·‘배송비’(FREE면 0원, SEPARATE·0이면 ‘배송비 확정 전’)·‘총 입금액’.
+- 주문 상세: 버튼 없는 하단 바는 두지 않는다. 배송 중 반품 안내는 본문 한 줄.
+- 개발 용어(Mock)는 `isMock`일 때만(로그인 캡션, 데모 데이터 초기화).

@@ -31,7 +31,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   if ((await loadedAddresses.json()).length === 0) {
     await consumerPage.getByRole("button", { name: "받는 사람과 주소 입력" }).click();
   } else {
-    await consumerPage.getByRole("button", { name: "다른 배송지" }).click();
+    await consumerPage.getByRole("button", { name: "받는 곳 변경" }).click();
     await consumerPage.getByRole("button", { name: "새 주소 입력" }).click();
   }
   await consumerPage.getByLabel("받는 사람").fill("DEV25 구매자");
@@ -42,17 +42,17 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
     .fill("제주특별자치도 서귀포시 통합로 25");
   await consumerPage.getByLabel("상세 주소").fill("통합동 101호");
   await consumerPage.getByRole("button", { name: "이 주소로 받기" }).click();
-  // AC-08-1 (DEV-138): 일부만 동의하면 개수(ORDER_CONSENT_KEYS 5개)를 보이고 예약할 수 없다. 모두 동의하면 켜진다
-  const reserve = consumerPage.getByRole("button", { name: "예약하기" });
+  // AC-08-1 (DEV-138): 동의 5개(ORDER_CONSENT_KEYS) 중 하나라도 빠지면 예약할 수 없다. 모두 동의하면 켜진다.
+  // DEV-293: CTA 위 개수 문구는 없앴고 버튼에 금액이 들어간다(‘N원 예약하기’)
+  const reserve = consumerPage.getByRole("button", { name: /^[\d,]+원 예약하기$/ });
   for (const title of ["받는 시기", "지연 시 환불", "흉작·수량 부족", "취소·반품 조건"])
-    await consumerPage.getByRole("checkbox", { name: title, exact: true }).click();
-  await expect(
-    consumerPage.getByText("5개 중 4개 동의했어요. 모두 동의하면 예약할 수 있어요."),
-  ).toBeVisible();
+    await consumerPage.getByRole("checkbox", { name: `${title} (필수)`, exact: true }).click();
   await expect(reserve).toBeDisabled();
-  // 개수 문구가 사라지는지 보고, DEV-141 뒤로는 aria-checked도 나오므로 toBeChecked로 체크 상태까지 확인한다
+  // 꺼진 이유는 화면 읽기에만(aria-describedby, DEV-293)
+  await expect(reserve).toHaveAccessibleDescription("필수 동의 5개 중 4개 했어요");
+  await expect(consumerPage.getByRole("checkbox", { name: "모두 동의해요" })).not.toBeChecked();
+  // DEV-141 뒤로는 aria-checked도 나오므로 toBeChecked로 체크 상태까지 확인한다
   await consumerPage.getByRole("checkbox", { name: "모두 동의해요" }).click();
-  await expect(consumerPage.getByText(/개 중 \d+개 동의했어요/)).toHaveCount(0);
   // DEV-141: 동의 체크 상태가 aria-checked로 DOM에 나온다(react-native-web은 accessibilityState를 무시)
   await expect(
     consumerPage.getByRole("checkbox", { name: "모두 동의해요" }),
@@ -299,7 +299,7 @@ test("AC-08-5 (DEV-147): address sheet marks the current recipient address as th
   await page.getByRole("button", { name: "주문서로" }).click();
   // 시드 김민지: 기본 배송지 a-1(월드컵북로 12) + '회사' a-2(세종대로 110).
   // 같은 파일의 앞 테스트가 새 주소를 기본으로 저장할 수 있어, 처음 기본값이 어느 줄인지는 가정하지 않는다
-  const other = page.getByRole("button", { name: "다른 배송지" });
+  const other = page.getByRole("button", { name: "받는 곳 변경" });
   await other.click();
   const home = page.getByRole("radio").filter({ hasText: "월드컵북로 12" });
   const office = page.getByRole("radio").filter({ hasText: "세종대로 110" });

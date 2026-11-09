@@ -7,7 +7,7 @@ test("AC-06/07/15: anonymous discovery, public news, and login return", async ({
 }) => {
   const assertClean = monitor(page);
   await page.goto(consumerUrl);
-  await expect(page.getByText("오늘, 농가에서")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "농가 소식" })).toBeVisible();
 
   await page
     .getByRole("link", { name: "강씨네 귤밭 소식방에서 이어 보기" })
@@ -78,7 +78,7 @@ test("N-02: core discovery remains usable at supported widths", async ({
   for (const width of [360, 390, 430, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(consumerUrl);
-    await expect(page.getByText("오늘, 농가에서")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "농가 소식" })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "농가·상품 검색" }),
     ).toBeVisible();

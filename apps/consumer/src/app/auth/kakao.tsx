@@ -185,7 +185,7 @@ export default function KakaoCallback() {
             alignItems: "center",
             justifyContent: "center",
             gap: 16,
-            paddingHorizontal: 20,
+            paddingHorizontal: tokens.space.gutter,
           }}
         >
           <ActivityIndicator size="large" color={tokens.color.textMuted} />

@@ -9,6 +9,7 @@ import {
   Scroll,
   Skeleton,
   T,
+  joinMeta,
   md,
   period,
   tokens,
@@ -90,7 +91,8 @@ export default function OrderList() {
       onPress={() => router.push(`/orders/${o.orderId}`)}
       style={{
         flexDirection: "row",
-        gap: 16,
+        alignItems: "center",
+        gap: 12,
         paddingVertical: 16,
         borderTopWidth: i === 0 ? 0 : 1,
         borderTopColor: tokens.color.border,
@@ -103,7 +105,7 @@ export default function OrderList() {
         alt={o.productName}
         kind="product"
       />
-      <View style={{ flex: 1, gap: 4 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <T
           variant="body"
           weight="bold"
@@ -121,13 +123,9 @@ export default function OrderList() {
             {` ${o.optionLabel} × ${o.quantity}`}
           </T>
         </View>
-        {listWhen(o, period) ? (
-          <T variant="sub" muted>
-            {listWhen(o, period)}
-          </T>
-        ) : null}
+        {/* 받는 시기와 입금·환불 사건을 한 줄로(DEV-293, 행 5줄 → 4줄) */}
         <T variant="sub" muted>
-          {subline(o)}
+          {joinMeta(listWhen(o, period), subline(o))}
         </T>
         <T variant="caption" muted numberOfLines={1}>
           {listRef(o, fmt)}
@@ -138,15 +136,17 @@ export default function OrderList() {
 
   return (
     <Screen>
-      <LargeTitle
-        title="내 주문"
-        subtitle="예약부터 받는 날까지, 한눈에 확인해요"
-      />
-      <View style={{ paddingVertical: 20 }}>
+      <LargeTitle title="내 주문" />
+      <View style={{ paddingBottom: 12 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+          contentContainerStyle={{
+            paddingHorizontal: tokens.space.gutter,
+            gap: 8,
+            // 칩 32 + 위아래 hitSlop 8 = 터치 48
+            paddingVertical: 8,
+          }}
         >
           {orderGroups.map((group) => (
             <Pressable
@@ -154,10 +154,11 @@ export default function OrderList() {
               accessibilityRole="tab"
               aria-selected={selected === group.value}
               onPress={() => router.setParams({ filter: group.value })}
+              hitSlop={{ top: 8, bottom: 8 }}
               style={{
-                minHeight: 48,
-                paddingHorizontal: 16,
-                borderRadius: 24,
+                height: tokens.height.chip,
+                paddingHorizontal: 12,
+                borderRadius: tokens.radius.full,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 8,
@@ -188,13 +189,17 @@ export default function OrderList() {
       </View>
       <Scroll bottom={tokens.height.tabBarClearance}>
         {list.error ? (
-          <View style={{ padding: 20 }}>
+          <View style={{ padding: tokens.space.gutter }}>
             <T color={tokens.color.error}>{list.error}</T>
             <Button label="다시 시도" variant="text" onPress={list.retry} />
           </View>
         ) : null}
         {list.loading ? (
-          <Skeleton width="90%" height={88} style={{ margin: 20 }} />
+          <Skeleton
+            width="90%"
+            height={88}
+            style={{ margin: tokens.space.gutter }}
+          />
         ) : null}
         {items?.length === 0 ? (
           <EmptyState
@@ -216,7 +221,9 @@ export default function OrderList() {
             }
           />
         ) : null}
-        <View style={{ paddingHorizontal: 20 }}>{items?.map(row)}</View>
+        <View style={{ paddingHorizontal: tokens.space.gutter }}>
+          {items?.map(row)}
+        </View>
       </Scroll>
     </Screen>
   );

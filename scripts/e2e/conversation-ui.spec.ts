@@ -17,10 +17,16 @@ for (const width of [360, 390, 430]) {
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(consumerUrl);
     const news = page.getByLabel("농가 소식 가로 목록");
-    const products = page.getByLabel("상품 가로 목록");
+    // DEV-293: 제철 상품은 가로 캐러셀 대신 2열 그리드. 소식만 가로로 넘긴다
+    const products = page.getByLabel("제철 상품 목록");
     await expect(news).toBeVisible();
     await expect(products).toBeAttached();
-    for (const carousel of [news, products]) {
+    expect(await products.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBeTruthy();
+    const cards = products.getByRole("link");
+    const [first, second] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
+    expect(Math.abs(first!.y - second!.y)).toBeLessThan(2);
+    expect(second!.x).toBeGreaterThan(first!.x + first!.width);
+    for (const carousel of [news]) {
       await expect
         .poll(() => carousel.evaluate((el) => el.scrollWidth > el.clientWidth))
         .toBeTruthy();
@@ -66,12 +72,11 @@ for (const width of [360, 390, 430]) {
       page.getByRole("heading", { name: "하우스 감귤 5kg / 10kg" }),
     ).toBeVisible();
     const buy = page.getByRole("button", { name: "예약하기", exact: true });
-    const tab = page.getByRole("tab", { name: "발견", exact: true });
-    await expect(buy).toBeVisible();
-    await expect(tab).toBeVisible();
-    const a = await buy.boundingBox(),
-      b = await tab.boundingBox();
-    expect(a!.y + a!.height).toBeLessThanOrEqual(b!.y);
+    // DEV-293: 구매 화면은 탭 바를 숨기고 CTA만 화면 아래에 고정
+    await expect(buy).toBeInViewport();
+    await expect(page.getByRole("tab", { name: "발견", exact: true })).toHaveCount(0);
+    const a = await buy.boundingBox();
+    expect(a!.y + a!.height).toBeLessThanOrEqual(844);
     for (const price of ["36,000원", "29,000원", "68,000원", "55,000원"]) {
       const node = page.getByText(price, { exact: true }).first();
       await expect(node).toBeVisible();
@@ -402,8 +407,8 @@ test("AC-07-6 N-02: long farm names and full-ratio story image retain fixed cont
   await story.scrollIntoViewIfNeeded();
   const buy = page.getByRole("button", { name: "예약하기", exact: true });
   await expect(buy).toBeInViewport();
-  const bottom = page.getByRole("tab", { name: "발견", exact: true });
-  await expect(bottom).toBeInViewport();
+  // DEV-293: 구매 화면은 탭 바 없이 CTA만
+  await expect(page.getByRole("tab", { name: "발견", exact: true })).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

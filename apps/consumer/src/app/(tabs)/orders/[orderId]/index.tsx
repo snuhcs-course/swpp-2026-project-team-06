@@ -130,32 +130,25 @@ export default function OrderDetail() {
 
   return (
     <Screen>
-      <HeaderBar
-        onBack={() =>
-          goBackOr(router, "/orders")
-        }
-      />
+      <HeaderBar title="주문 상세" onBack={() => goBackOr(router, "/orders")} />
       {!o ? (
         error ? (
           <LoadError error={error} onRetry={reload} />
         ) : (
-          <View style={{ padding: 20, gap: 12 }}>
-            <Skeleton width="50%" height={34} />
-            <Skeleton width="80%" height={17} />
+          <View style={{ padding: tokens.space.gutter, gap: 12 }}>
+            <Skeleton width="50%" height={22} />
+            <Skeleton width="80%" height={16} />
           </View>
         )
       ) : (
         <Scroll bottom={170}>
-          {o.paidAt ? (
-            <View style={{ padding: 20 }}>
-              <Button
-                label="상품 문제 문의 · 사진 첨부"
-                variant="outline"
-                onPress={() => router.push(`/orders/${o.orderId}/inquiry`)}
-              />
-            </View>
-          ) : null}
-          <View style={{ paddingHorizontal: 20, gap: 8 }}>
+          <View
+            style={{
+              paddingHorizontal: tokens.space.gutter,
+              paddingTop: 8,
+              gap: 8,
+            }}
+          >
             <T variant="sub" muted>
               {o.orderNo} · {md(o.createdAt)} 예약
             </T>
@@ -163,6 +156,25 @@ export default function OrderDetail() {
               {title}
             </T>
             <T variant="body">{sentence}</T>
+            {/* 상품 문제 문의는 주문 번호·제목 아래(DEV-293) */}
+            {o.paidAt ? (
+              <Button
+                label="상품 문제 문의 · 사진 첨부"
+                variant="outline"
+                onPress={() => router.push(`/orders/${o.orderId}/inquiry`)}
+                style={{ marginTop: 8, minHeight: tokens.height.buttonSecondary }}
+              />
+            ) : null}
+            {o.status === "SHIPPED" ? (
+              <>
+                <T variant="sub" muted>
+                  신선식품이라 보낸 뒤에는 단순 변심으로 반품할 수 없어요.
+                </T>
+                <T variant="sub" muted>
+                  받은 상품에 문제가 있으면 받은 뒤 24시간 안에 알려 주세요.
+                </T>
+              </>
+            ) : null}
             {changing ? (
               <T variant="sub" muted>
                 이전 {period(o.deliveryWindow.start, o.deliveryWindow.end)}
@@ -236,7 +248,7 @@ export default function OrderDetail() {
             <T
               variant="sub"
               color={tokens.color.error}
-              style={{ marginHorizontal: 20, marginTop: 16 }}
+              style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
             >
               {actionError}
             </T>
@@ -256,7 +268,7 @@ export default function OrderDetail() {
                       "농가에 입금했다고 알렸어요",
                     )
                   }
-                  style={{ marginHorizontal: 20, marginTop: 12 }}
+                  style={{ marginHorizontal: tokens.space.gutter, marginTop: 12 }}
                 />
               ) : null}
             </>
@@ -266,10 +278,10 @@ export default function OrderDetail() {
             accessibilityRole="link"
             onPress={() => router.push(`/products/${o.productId}`)}
             style={{
-              marginHorizontal: 20,
-              marginTop: 40,
+              marginHorizontal: tokens.space.gutter,
+              marginTop: tokens.space.xl,
               flexDirection: "row",
-              gap: 16,
+              gap: 12,
               alignItems: "center",
             }}
           >
@@ -291,7 +303,7 @@ export default function OrderDetail() {
             <Icon name="chevron" color={tokens.color.textMuted} />
           </Pressable>
 
-          <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 24 }}>
             {o.status === "SHIPPED" && o.carrier ? (
               <Tracking
                 o={o}
@@ -330,7 +342,7 @@ export default function OrderDetail() {
               label="농가에 물어보기 ›"
               variant="text"
               onPress={() => router.push(orderChatTarget(o.farmId, o.orderId, Boolean(o.paidAt)) as Href)}
-              style={{ marginHorizontal: 20, marginTop: 16 }}
+              style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
             />
           )}
         </Scroll>
@@ -359,17 +371,16 @@ export default function OrderDetail() {
         ) : (
           <>
             <T variant="body">
-              보내기 전이라 {won(o?.totalAmount)} 전액 환불돼요. 수수료는 없어요.
+              {won(o?.totalAmount)}을 수수료 없이 전부 돌려받아요.
             </T>
             <T variant="sub" muted>
-              환불은 농가가 입금했던 계좌로 직접 보내요. 3영업일 안에 보내고,
-              보내면 여기에서 환불 완료로 바뀌어요.
+              입금하신 계좌로 농가가 3영업일 안에 보내요.
             </T>
           </>
         )}
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <Button
-            label="아니요"
+            label="닫기"
             variant="secondary"
             onPress={() => setCancelSheet(false)}
             style={{ flex: 1 }}
@@ -387,16 +398,16 @@ export default function OrderDetail() {
       </Sheet>
       <Sheet visible={refundSheet} onClose={() => setRefundSheet(false)}>
         <T variant="heading">전액 환불받을까요?</T>
+        {/* DEV-293(Figma 11:133 ①): 본문 한 줄 + 보조 한 줄, 왼쪽 ‘닫기’ */}
         <T variant="body">
-          예약이 취소되고 {won(o?.totalAmount)} 전액 환불돼요. 수수료는 없어요.
+          {won(o?.totalAmount)}을 수수료 없이 전부 돌려받아요. 예약은 취소돼요.
         </T>
         <T variant="sub" muted>
-          환불은 농가가 입금했던 계좌로 직접 보내요. 3영업일 안에 보내고,
-          보내면 여기에서 환불 완료로 바뀌어요.
+          입금하신 계좌로 농가가 3영업일 안에 보내요.
         </T>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <Button
-            label="아니요"
+            label="닫기"
             variant="secondary"
             onPress={() => setRefundSheet(false)}
             style={{ flex: 1 }}
@@ -484,12 +495,7 @@ function Bar({
   if (o.actions.includes("confirm"))
     return (
       <BottomBar
-        summary={
-          <T variant="sub" style={{ flex: 1 }}>
-            잘 받으셨다면 구매 확정을 눌러주세요. 배송 완료 후 8일이 지나면
-            자동으로 확정돼요.
-          </T>
-        }
+        summary="배송 완료 8일 뒤 자동으로 확정돼요"
       >
         <Button
           label="구매 확정"
@@ -498,18 +504,7 @@ function Bar({
         />
       </BottomBar>
     );
-  if (o.status === "SHIPPED")
-    return (
-      <BottomBar summary="신선식품이라 보낸 뒤에는 단순 변심으로 취소·반품할 수 없어요. 받은 상품에 문제가 있으면 받은 뒤 24시간 안에 사진과 함께 알려주세요.">
-        <View />
-      </BottomBar>
-    );
-  if (o.status === "REFUNDED")
-    return (
-      <BottomBar summary={bottomSummary(o, fmt) ?? ""}>
-        <View />
-      </BottomBar>
-    );
+  // 버튼 없는 하단 바는 두지 않는다(DEV-293). 배송 중 안내는 본문 한 줄, 환불 완료는 본문 문장이 같은 말
   return null;
 }
 

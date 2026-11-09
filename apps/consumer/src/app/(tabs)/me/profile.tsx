@@ -63,7 +63,7 @@ export default function Profile() {
     <Screen>
       <HeaderBar title="내 정보 고치기" onBack={back} />
       <Scroll bottom={140}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 20 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 16, gap: 20 }}>
           <Input
             label="닉네임"
             value={nickname}

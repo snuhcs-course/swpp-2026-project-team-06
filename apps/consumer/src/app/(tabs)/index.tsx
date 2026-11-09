@@ -15,14 +15,11 @@ import {
   T,
   tokens,
   useAsync,
-  useFeedCardWidth,
   closesText,
-  deliveryText,
-  joinMeta,
   reservedText,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
-import { Pressable, View } from "react-native";
+import { Pressable, View, useWindowDimensions } from "react-native";
 import { useSession } from "../../lib/session";
 
 export default function Home() {
@@ -43,7 +40,12 @@ export default function Home() {
     () => productPrices(home.data?.recommended ?? []),
     [home.data],
   );
-  const width = useFeedCardWidth();
+  const { width: windowWidth } = useWindowDimensions();
+  // 2열 그리드: 좌우 여백 16, 사이 12(DEV-293)
+  const cardWidth = Math.floor(
+    (Math.min(windowWidth, tokens.maxWidth) - tokens.space.gutter * 2 - 12) / 2,
+  );
+  const gutter = tokens.space.gutter;
   return (
     <Screen>
       <BrandHeader
@@ -58,26 +60,13 @@ export default function Home() {
         }
       />
       <Scroll bottom={tokens.height.tabBarClearance} footer={<LegalFooter onOpen={(path) => router.push(path)} />}>
-        <View style={{ padding: 20, gap: 20 }}>
-          <T variant="title">오늘, 농가에서</T>
-          <T muted>농가의 일상과 제철을 함께 만나보세요.</T>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <T variant="heading">농가에서 온 소식</T>
-            <Button
-              label="모두 보기"
-              variant="text"
-              onPress={() => router.push("/chats?view=news")}
-            />
-          </View>
-        </View>
+        <SectionHead
+          title="농가 소식"
+          link="전체"
+          onLink={() => router.push("/chats?view=news")}
+        />
         {home.error || news.error ? (
-          <View style={{ padding: 20, gap: 8 }}>
+          <View style={{ paddingHorizontal: gutter, gap: 8 }}>
             <T muted>소식을 불러오지 못했어요</T>
             <Button
               label="다시 시도"
@@ -90,7 +79,12 @@ export default function Home() {
           </View>
         ) : null}
         {home.loading || news.loading ? (
-          <Skeleton width={320} height={390} style={{ marginHorizontal: 20 }} />
+          <Skeleton
+            width={260}
+            height={230}
+            radius={tokens.radius.md}
+            style={{ marginHorizontal: gutter }}
+          />
         ) : (
           <FeedCarousel label="농가 소식 가로 목록">
             {news.data?.length ? (
@@ -106,82 +100,166 @@ export default function Home() {
             )}
           </FeedCarousel>
         )}
+        <SectionHead title="제철 상품" />
         <View
+          accessibilityLabel="제철 상품 목록"
           style={{
-            marginTop: 24,
-            padding: 20,
-            borderTopWidth: 1,
-            borderColor: tokens.color.border,
+            paddingHorizontal: gutter,
+            flexDirection: "row",
+            flexWrap: "wrap",
+            columnGap: 12,
+            rowGap: 24,
           }}
         >
-          <T variant="heading">농가의 제철 상품</T>
+          {home.loading
+            ? [0, 1].map((i) => (
+                <Skeleton
+                  key={i}
+                  width={cardWidth}
+                  height={cardWidth + 96}
+                  radius={tokens.radius.md}
+                />
+              ))
+            : (products.data ?? home.data?.recommended ?? []).map((p) => (
+                <ProductCard
+                  key={p.productId}
+                  width={cardWidth}
+                  product={p}
+                  onPress={() => router.push(`/products/${p.productId}`)}
+                />
+              ))}
         </View>
-        <FeedCarousel label="상품 가로 목록">
-          {(products.data ?? home.data?.recommended ?? []).map((p) => (
-            <View key={p.productId} style={{ width, gap: 12 }}>
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel={`${p.name} 상품 상세`}
-                onPress={() => router.push(`/products/${p.productId}`)}
-              >
-                <Photo
-                  uri={p.photo}
-                  width={width}
-                  height={200}
-                  alt={p.name}
-                  kind="product"
-                />
-              </Pressable>
-              <Pressable
-                accessibilityRole="link"
-                onPress={() => router.push(`/farms/${p.farmId}`)}
-                style={{ minHeight: 48, justifyContent: "center" }}
-              >
-                <T variant="sub" weight="semibold" muted numberOfLines={1}>
-                  {p.farmName} ›
-                </T>
-              </Pressable>
-              <Pressable
-                accessibilityRole="link"
-                onPress={() => router.push(`/products/${p.productId}`)}
-                style={{ gap: 12 }}
-              >
-                <T variant="heading" numberOfLines={2}>
-                  {p.name}
-                </T>
-                <T variant="sub" muted>
-                  {deliveryText(p.deliveryWindow, null, true)}
-                </T>
-                <Price
-                  current={p.currentPrice}
-                  reference={
-                    "referencePrice" in p &&
-                    typeof p.referencePrice === "number"
-                      ? p.referencePrice
-                      : undefined
-                  }
-                  soldOut={p.soldOut}
-                  availability={p.availability}
-                />
-                <CardMeta reserved={p.reservedCount} dDay={p.dDay} />
-              </Pressable>
-            </View>
-          ))}
-          {home.data?.recommended.length === 0 ? (
-            <T muted>현재 예약 가능한 상품이 없어요</T>
-          ) : null}
-        </FeedCarousel>
+        {home.data?.recommended.length === 0 ? (
+          <T muted style={{ paddingHorizontal: gutter }}>
+            현재 예약 가능한 상품이 없어요
+          </T>
+        ) : null}
       </Scroll>
     </Screen>
   );
 }
 
-/** 카드 메타 줄: 있는 조각만 잇고, 다 비면 줄도 없다(DEV-227, M-24). */
+/** 섹션 제목 18 굵게 + 오른쪽 '전체'(14 보조색), 베이스라인 맞춤 */
+function SectionHead({
+  title,
+  link,
+  onLink,
+}: {
+  title: string;
+  link?: string;
+  onLink?: () => void;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        minHeight: tokens.touchTarget.min,
+        paddingLeft: tokens.space.gutter,
+        paddingRight: link ? 4 : tokens.space.gutter,
+        paddingTop: tokens.space.lg,
+        paddingBottom: 4,
+      }}
+    >
+      <T variant="heading" accessibilityRole="header">
+        {title}
+      </T>
+      {link && onLink ? (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`${title} ${link}`}
+          onPress={onLink}
+          style={{
+            minHeight: tokens.touchTarget.min,
+            minWidth: tokens.touchTarget.min,
+            paddingHorizontal: 12,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <T variant="sub" muted>
+            {link}
+          </T>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+type HomeProduct = {
+  productId: string;
+  farmName: string;
+  name: string;
+  photo: string | null;
+  currentPrice: number | null;
+  referencePrice?: number | null;
+  soldOut: boolean;
+  availability?: string;
+  reservedCount: number;
+  dDay: number | null;
+};
+
+/** 2열 상품 카드: 사진 정사각 → 농가(14 보조) → 상품명 16 semibold → 가격 16 굵게 + 취소선 → 마감 D-day(DEV-293) */
+function ProductCard({
+  width,
+  product: p,
+  onPress,
+}: {
+  width: number;
+  product: HomeProduct;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`${p.name} 상품 상세`}
+      onPress={onPress}
+      style={{ width, gap: 4 }}
+    >
+      <Photo
+        uri={p.photo}
+        width={width}
+        height={width}
+        alt={p.name}
+        kind="product"
+        style={{ marginBottom: 8 }}
+      />
+      <T variant="sub" muted numberOfLines={1}>
+        {p.farmName}
+      </T>
+      <T weight="semibold" numberOfLines={2}>
+        {p.name}
+      </T>
+      <Price
+        compact
+        inline
+        current={p.currentPrice}
+        reference={
+          typeof p.referencePrice === "number" ? p.referencePrice : undefined
+        }
+        soldOut={p.soldOut}
+        availability={p.availability}
+      />
+      <CardMeta reserved={p.reservedCount} dDay={p.dDay} />
+    </Pressable>
+  );
+}
+
+/** 카드 메타 줄: 있는 조각만 잇고, 다 비면 줄도 없다(DEV-227, M-24). 마감은 강조색 12, 예약 수는 보조색 */
 function CardMeta({ reserved, dDay }: { reserved: number; dDay: number | null }) {
-  const meta = joinMeta(reservedText(reserved), closesText(dDay));
-  return meta ? (
+  const closes = closesText(dDay);
+  const count = reservedText(reserved);
+  if (!closes && !count) return null;
+  return (
     <T variant="caption" muted numberOfLines={1}>
-      {meta}
+      {closes ? (
+        <T variant="caption" weight="semibold" color={tokens.color.accent}>
+          {closes}
+        </T>
+      ) : null}
+      {closes && count ? " · " : ""}
+      {count}
     </T>
-  ) : null;
+  );
 }

@@ -106,6 +106,7 @@ export { ModuleStory, SOURCE_MODULES } from "./ModuleStory";
 
 export { BrixReading } from "./BrixReading";
 export {
+  PRODUCT_PHOTO_HEIGHT,
   ProductPageBody,
   type ProductPageData,
   type ProductPageSlots,

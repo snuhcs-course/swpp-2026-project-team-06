@@ -362,3 +362,16 @@ export function mismatchStep(
   if (placedOrderId) return "showPlaced";
   return retried ? "fail" : "retry";
 }
+
+/** 예약 버튼이 꺼진 이유(화면 읽기용). 받는 곳·필수 동의가 다 되면 undefined. 충돌 안내로 꺼진 경우는 안내 상자가 이유를 말한다 */
+export function reserveDisabledHint(
+  hasRecipient: boolean,
+  agreed: number,
+  total: number,
+): string | undefined {
+  const parts = [
+    hasRecipient ? null : "받는 곳을 먼저 정해 주세요",
+    agreed < total ? `필수 동의 ${total}개 중 ${agreed}개 했어요` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(". ") : undefined;
+}

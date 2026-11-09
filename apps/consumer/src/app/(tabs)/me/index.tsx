@@ -88,7 +88,7 @@ export default function Me() {
         <LargeTitle title="내 정보" />
         <View
           style={{
-            paddingHorizontal: 20,
+            paddingHorizontal: tokens.space.gutter,
             paddingTop: 8,
             flexDirection: "row",
             alignItems: "baseline",
@@ -104,7 +104,7 @@ export default function Me() {
           </T>
         </View>
         {!user.isTestAccount ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 4 }}>
             <T variant="sub" muted masked>
               {[user.nickname ? user.name : null, user.phone, user.email]
                 .filter(Boolean)
@@ -113,11 +113,8 @@ export default function Me() {
           </View>
         ) : null}
         {user.needsOnboarding ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-            <Notice
-              title="가입을 마쳐 주세요"
-              body="닉네임·연락처와 약관 동의가 있어야 예약·팔로우·채팅을 할 수 있어요."
-            />
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 16 }}>
+            <Notice title="가입을 마쳐 주세요" />
             <Button
               label="가입 마치기"
               variant="outline"
@@ -153,7 +150,7 @@ export default function Me() {
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 12,
-                    minHeight: 60,
+                    minHeight: tokens.height.rowTwoLine,
                     borderTopWidth: 1,
                     borderTopColor: tokens.color.border,
                     borderBottomWidth: i === arr.length - 1 ? 1 : 0,
@@ -206,32 +203,29 @@ export default function Me() {
                 label="회원 탈퇴"
                 chevron={false}
                 onPress={() => setWithdrawing(true)}
-                last
+                last={!isMock}
               />
             )}
+            {/* 데모 초기화는 Mock에서만, 다른 설정과 같은 왼쪽 목록 행(DEV-293) */}
+            {isMock ? (
+              <ListRow
+                label="데모 데이터 초기화"
+                chevron={false}
+                onPress={() => setConfirmReset(true)}
+                last
+              />
+            ) : null}
           </View>
         </Section>
-
-        {isMock ? (
-          <View style={{ alignItems: "center", paddingTop: 32 }}>
-            <Button
-              label="데모 데이터 초기화"
-              variant="text"
-              onPress={() => setConfirmReset(true)}
-              style={{ alignSelf: "center" }}
-            />
-          </View>
-        ) : null}
       </Scroll>
       <Sheet visible={confirmReset} onClose={() => setConfirmReset(false)}>
         <T variant="heading">데모 데이터를 처음으로 돌릴까요?</T>
         <T variant="body">
-          공유 Mock에서는 양쪽 앱의 주문·팔로우·소식·채팅이 모두 초기화되고
-          로그아웃돼요.
+          양쪽 앱의 주문·팔로우·소식·채팅이 모두 지워지고 로그아웃돼요.
         </T>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <Button
-            label="아니요"
+            label="닫기"
             variant="secondary"
             onPress={() => setConfirmReset(false)}
             style={{ flex: 1 }}
@@ -262,11 +256,7 @@ export default function Me() {
       <Sheet visible={producerSheet} onClose={() => setProducerSheet(false)}>
         <T variant="heading">생산자 앱은 따로 가입해요</T>
         <T variant="body">
-          소비자 계정으로는 농가를 열 수 없어요. 생산자 앱에서 농가로 가입
-          신청을 하면 생산자 계정이 따로 만들어져요.
-        </T>
-        <T variant="sub" muted>
-          지금 계정의 주문·팔로우·채팅은 그대로 소비자 앱에 남아요.
+          생산자 앱에서 가입하면 생산자 계정이 따로 만들어져요.
         </T>
         <Button
           label="생산자 앱에서 가입하기"

@@ -32,6 +32,7 @@ import {
   T,
   TestBand,
   md,
+  period,
   tokens,
   useAsync,
   won,
@@ -46,6 +47,7 @@ import {
   conflictView,
   mismatchStep,
   recheckedConflict,
+  reserveDisabledHint,
   seenValues,
   type CheckoutConflict,
 } from "../../../lib/checkoutConflict";
@@ -62,6 +64,13 @@ const isRemote = (postal: string, address: string) =>
   /^(63|40[0-2]|23[01])/.test(postal) || /(울릉|옹진|도서)/.test(address);
 /** policy.md 2장 날짜 표기: "11월 10일~11월 20일" */
 const fullPeriod = (a: string, b: string) => `${md(a)}~${md(b)}`;
+/** 배송 메모 고르기(쿠팡식 선택 목록 + 직접 입력, DEV-293) */
+const MEMO_PRESETS = [
+  "문 앞에 놓아 주세요",
+  "경비실에 맡겨 주세요",
+  "택배함에 넣어 주세요",
+  "배송 전에 연락 주세요",
+] as const;
 
 export default function Checkout() {
   const params = useLocalSearchParams<{
@@ -86,7 +95,13 @@ export default function Checkout() {
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const [memo, setMemo] = useState("");
   const [consents, setConsents] = useState(() => orderConsents(false));
-  const [sheet, setSheet] = useState<null | "option" | "address">(null);
+  const [sheet, setSheet] = useState<null | "option" | "address" | "memo">(
+    null,
+  );
+  // 배송 메모를 직접 쓰는 중인지(목록에 없는 글이면 직접 입력칸을 보인다)
+  const [memoTyping, setMemoTyping] = useState(false);
+  // 동의 항목 본문은 ‘보기’를 눌렀을 때만 펼친다(DEV-293)
+  const [openConsent, setOpenConsent] = useState<OrderConsentKey | null>(null);
   // 받는 곳 시트의 ‘새 주소 입력’은 시트를 바로 닫고 배송지 입력으로 간다(DEV-225)
   const sheetLeave = useSheetLeave();
   const [busy, setBusy] = useState(false);
@@ -186,6 +201,9 @@ export default function Checkout() {
   const canPay =
     leaving ||
     (!!recipient && allAgreed && !!p && (view ? view.primary.enabled : true));
+
+  // 예약 버튼이 꺼진 이유: 화면 읽기에만 알린다(눈에 보이는 문구·토스트 없음, DEV-293 PM 결정)
+  const disabledHint = reserveDisabledHint(!!recipient, agreed, consentTotal);
 
   const consentText = useMemo(() => {
     if (!p) return null;
@@ -370,11 +388,11 @@ export default function Checkout() {
           goBackOr(router, `/products/${params.productId}`)
         }
       />
-      <TestBand text="테스트 서비스예요. 실제 입금·배송은 일어나지 않아요." />
+      <TestBand text="테스트 서비스예요 · 실제 입금·배송은 없어요" />
       <Scroll bottom={170}>
         {view ? (
           <Notice
-            style={{ margin: 20, marginBottom: 0 }}
+            style={{ margin: tokens.space.gutter, marginBottom: 0 }}
             title={view.title}
             body={view.body}
             action={
@@ -395,13 +413,22 @@ export default function Checkout() {
           />
         ) : null}
 
+        {/* 이 주문서로 만든 입금 대기 예약이 있을 때(DEV-291). 제목 + 한 문장, 이동은 하단 버튼(DEV-293, Figma 11:133 ②) */}
+        {placed ? (
+          <Notice
+            style={{ margin: tokens.space.gutter, marginBottom: 0 }}
+            title="입금을 기다리는 예약이 있어요"
+            body="옵션·수량을 바꾸려면 그 예약을 취소하고 다시 예약해 주세요."
+          />
+        ) : null}
+
         {p && opt ? (
           <View
             style={{
-              paddingHorizontal: 20,
-              paddingTop: 24,
+              paddingHorizontal: tokens.space.gutter,
+              paddingTop: tokens.space.lg,
               flexDirection: "row",
-              gap: 16,
+              gap: 12,
               alignItems: "center",
             }}
           >
@@ -413,56 +440,62 @@ export default function Checkout() {
               alt={p.name}
               kind="product"
             />
-            <View style={{ flex: 1 }}>
-              <T variant="body" weight="semibold">
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T variant="body" weight="semibold" numberOfLines={1}>
                 {p.name.split(" / ")[0].replace(/\s\d+kg$/, "")} {opt.label} ×{" "}
                 {qty}
               </T>
-              <T variant="sub" muted>
+              <T variant="sub" muted numberOfLines={1}>
                 {p.farmName} ·{" "}
                 {!stage
                   ? "지금은 예약 기간이 아니에요"
                   : shown?.reason === "SOLD_OUT"
                     ? "품절"
-                    : `${`${md(stage.startsAt)} ~ ${md(stage.endsAt)}`} ${won(unit)}`}
+                    : `${period(p.deliveryWindow.start, p.deliveryWindow.end)} 도착`}
               </T>
             </View>
-            <Button
+            <LinkButton
               label="변경"
-              variant="text"
+              accessibilityLabel="옵션·수량 변경"
               onPress={() => setSheet("option")}
             />
           </View>
         ) : null}
 
         <Section
+          divided
           title="받는 곳"
           right={
             recipient ? (
-              <Button
-                label="다른 배송지"
-                variant="text"
+              <LinkButton
+                label="변경"
+                accessibilityLabel="받는 곳 변경"
                 onPress={() => setSheet("address")}
               />
             ) : undefined
           }
         >
           {recipient ? (
-            <View style={{ gap: 4 }}>
-              <T variant="body" weight="semibold" masked>
-                {recipient.recipientName} · {recipient.recipientPhone}
+            <View style={{ gap: 2 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <T variant="body" weight="semibold" masked>
+                  {recipient.recipientName}
+                </T>
+                {"isDefault" in recipient && (recipient as Address).isDefault ? (
+                  <Tag label="기본" />
+                ) : saveAddress ? (
+                  <Tag label="기본으로 저장" />
+                ) : null}
+              </View>
+              <T variant="body" masked>
+                {recipient.recipientPhone}
               </T>
               <T variant="body" masked>
                 {recipient.address}
-                {recipient.addressDetail ? `, ${recipient.addressDetail}` : ""}
-              </T>
-              <T variant="sub" muted masked>
-                {recipient.postalCode}
-                {"isDefault" in recipient && (recipient as Address).isDefault
-                  ? " · 기본 배송지"
-                  : saveAddress
-                    ? " · 기본 배송지로 저장"
-                    : ""}
+                {recipient.addressDetail ? `, ${recipient.addressDetail}` : ""}{" "}
+                ({recipient.postalCode})
               </T>
               {remoteFee ? (
                 <T variant="sub" weight="semibold" style={{ marginTop: 4 }}>
@@ -497,22 +530,68 @@ export default function Checkout() {
               {errors.address ?? errors.recipientPhone ?? errors.recipientName}
             </T>
           ) : null}
-          <Input
-            label="배송 메모"
-            optional
-            value={memo}
-            onChangeText={setMemo}
-            placeholder="예: 문 앞에 두고 벨 눌러 주세요"
-            maxLength={100}
-            error={errors.deliveryNote}
-          />
+          {/* 배송 메모: 선택 목록 + 직접 입력(DEV-293) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              memoTyping
+                ? "배송 메모 직접 입력, 바꾸기"
+                : memo
+                  ? `배송 메모 ${memo}, 바꾸기`
+                  : "배송 메모 (선택) 고르기"
+            }
+            onPress={() => setSheet("memo")}
+            style={{
+              minHeight: tokens.height.input,
+              paddingHorizontal: tokens.space.md,
+              borderRadius: tokens.radius.sm,
+              borderWidth: 1,
+              borderColor: tokens.color.border,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <T
+              variant="body"
+              muted={!memo || memoTyping}
+              numberOfLines={1}
+              style={{ flex: 1 }}
+              masked={!!memo}
+            >
+              {memoTyping ? "직접 입력" : memo || "배송 메모 (선택)"}
+            </T>
+            <Icon name="chevron" size={20} color={tokens.color.textMuted} />
+          </Pressable>
+          {memoTyping ? (
+            <Input
+              label="배송 메모"
+              optional
+              value={memo}
+              onChangeText={setMemo}
+              placeholder="예: 공동현관 비밀번호는 농가 채팅으로 알려 드릴게요"
+              maxLength={100}
+              error={errors.deliveryNote}
+            />
+          ) : errors.deliveryNote ? (
+            <T variant="sub" color={tokens.color.error}>
+              {errors.deliveryNote}
+            </T>
+          ) : null}
         </Section>
 
         {view?.hideAmount ? null : (
-          <Section title="금액">
+          <Section divided title="입금 금액">
             <View style={{ gap: 8 }}>
-              <Line k={`상품 ${won(unit)} × ${qty}`} v={won(unit * qty)} />
-              <Line k="배송비" v={shipping ? won(shipping) : "무료"} />
+              <Line k="상품 금액" v={won(unit * qty)} />
+              <Line
+                k="배송비"
+                v={
+                  p?.shippingFeeType === "SEPARATE" && !shipping
+                    ? "배송비 확정 전"
+                    : won(shipping)
+                }
+              />
               {remoteFee ? (
                 <Line k="도서산간 추가 운임" v={won(remoteFee)} />
               ) : null}
@@ -520,17 +599,19 @@ export default function Checkout() {
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  alignItems: "baseline",
+                  alignItems: "center",
                   paddingTop: 12,
                   marginTop: 4,
                   borderTopWidth: 1,
                   borderTopColor: tokens.color.border,
                 }}
               >
-                <T variant="body" weight="semibold">
-                  합계
+                <T variant="body" weight="bold">
+                  총 입금액
                 </T>
-                <T variant="heading">{won(total)}</T>
+                <T variant="title" color={tokens.color.accent}>
+                  {won(total)}
+                </T>
               </View>
               {view?.firstTotal != null && view.firstTotal !== total ? (
                 <View
@@ -552,13 +633,10 @@ export default function Checkout() {
                 </View>
               ) : null}
             </View>
-            <T variant="sub" muted>
-              예약한 때의 가격으로 확정돼요. 나중에 가격이 바뀌어도 그대로예요.
-            </T>
           </Section>
         )}
 
-        <Section title="예약 전 확인">
+        <Section divided title="예약 전 확인">
           <Checkbox
             checked={allAgreed}
             label="모두 동의해요"
@@ -569,29 +647,50 @@ export default function Checkout() {
             </T>
           </Checkbox>
           <View>
-            {consentText?.map((c, i) => (
-              <View
-                key={c.key}
-                style={{
-                  paddingVertical: 16,
-                  borderTopWidth: 1,
-                  borderTopColor: tokens.color.border,
-                  borderBottomWidth: i === consentText.length - 1 ? 1 : 0,
-                  borderBottomColor: tokens.color.border,
-                }}
-              >
-                <Checkbox
-                  checked={consents[c.key]}
-                  label={c.title}
-                  onPress={() =>
-                    setConsents((s) => ({ ...s, [c.key]: !s[c.key] }))
-                  }
+            {consentText?.map((c) => (
+              <View key={c.key}>
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
                 >
-                  <T variant="sub" weight="semibold">
-                    {c.title}
+                  <View style={{ flex: 1 }}>
+                    <Checkbox
+                      checked={consents[c.key]}
+                      label={`${c.title} (필수)`}
+                      onPress={() =>
+                        setConsents((s) => ({ ...s, [c.key]: !s[c.key] }))
+                      }
+                    >
+                      <T variant="sub">{c.title} (필수)</T>
+                    </Checkbox>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${c.title} 보기`}
+                    aria-expanded={openConsent === c.key}
+                    onPress={() =>
+                      setOpenConsent((k) => (k === c.key ? null : c.key))
+                    }
+                    style={{
+                      minHeight: tokens.touchTarget.min,
+                      minWidth: tokens.touchTarget.min,
+                      alignItems: "flex-end",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <T variant="sub" muted>
+                      {openConsent === c.key ? "접기" : "보기"}
+                    </T>
+                  </Pressable>
+                </View>
+                {openConsent === c.key ? (
+                  <T
+                    variant="sub"
+                    muted
+                    style={{ paddingLeft: 36, paddingBottom: 12 }}
+                  >
+                    {c.body}
                   </T>
-                  <T variant="sub">{c.body}</T>
-                </Checkbox>
+                ) : null}
               </View>
             ))}
           </View>
@@ -600,11 +699,14 @@ export default function Checkout() {
               {errors.consents}
             </T>
           ) : null}
-          {/* 통신판매중개자 고지·입금 안내(policy 2장, DEV-68) */}
-          <T variant="sub" muted>
-            예약하면 농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면
-            예약이 자동으로 취소돼요. farmclub은 통신판매중개자이고,
-            상품·배송·환불의 책임은 판매자인 {p?.farmName ?? "농가"}에 있어요.
+          {/* 입금 안내(policy 2장, DEV-68)는 금액을 숨기는 충돌 화면에서도 보이게 여기 둔다 */}
+          <T variant="caption" muted>
+            농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면 자동 취소돼요.
+          </T>
+          {/* 통신판매중개자 고지(전자상거래법 20조) 한 줄 */}
+          <T variant="caption" muted>
+            farmclub은 통신판매중개자이고, 상품·배송·환불 책임은 판매자{" "}
+            {p?.farmName ?? "농가"}에 있어요.
           </T>
           <View style={{ flexDirection: "row", gap: 16 }}>
             {(
@@ -627,66 +729,52 @@ export default function Checkout() {
           </View>
         </Section>
         {errors._ ? (
-          <T variant="sub" color={tokens.color.error} style={{ margin: 20 }}>
+          <T variant="sub" color={tokens.color.error} style={{ margin: tokens.space.gutter }}>
             {errors._}
           </T>
         ) : null}
-        {placed ? (
-          <Notice
-            style={{ margin: 20 }}
-            title="이 주문서로 만든 예약이 입금을 기다리고 있어요"
-            body="옵션·수량이나 받는 곳을 바꾸려면 주문 내역에서 그 예약을 취소한 뒤 다시 예약해 주세요. 새 예약을 또 만들지 않았어요."
-            action={
-              <View style={{ alignItems: "flex-start" }}>
-                <Button
-                  label="입금 안내 보기"
-                  variant="text"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/checkout/[productId]/pay",
-                      params: {
-                        productId: params.productId,
-                        orderId: placed.orderId,
-                        optionId: placed.optionId,
-                        quantity: String(placed.quantity),
-                      },
-                    })
-                  }
-                />
-              </View>
-            }
-          />
-        ) : null}
       </Scroll>
 
+      {/* CTA 위 설명 문단 없이 금액이 들어간 버튼 하나(DEV-293). 충돌 안내가 있을 때만 한 줄 */}
       <BottomBar
         summary={
           view?.summary ? (
             <T variant="sub" style={{ flex: 1 }}>
               {view.summary}
             </T>
-          ) : !recipient ? (
-            <T variant="sub" style={{ flex: 1 }}>
-              받는 곳을 입력하면 예약할 수 있어요
-            </T>
-          ) : !allAgreed ? (
-            <T variant="sub" style={{ flex: 1 }}>
-              {consentTotal}개 중 {agreed}개 동의했어요. 모두 동의하면 예약할 수 있어요.
-            </T>
-          ) : (
-            `${opt?.label ?? ""} × ${qty} · ${remoteFee ? `도서산간 ${won(remoteFee)}` : shipping ? `배송비 ${won(shipping)}` : "무료배송"}`
-          )
-        }
-        summaryRight={
-          recipient && allAgreed && !view?.hideAmount ? won(total) : undefined
+          ) : undefined
         }
       >
-        <Button
-          label={view?.primary.label ?? "예약하기"}
-          disabled={!canPay}
-          loading={busy}
-          onPress={() => void submit()}
-        />
+        {placed ? (
+          <Button
+            label="입금 안내 보기"
+            onPress={() =>
+              router.push({
+                pathname: "/checkout/[productId]/pay",
+                params: {
+                  productId: params.productId,
+                  orderId: placed.orderId,
+                  optionId: placed.optionId,
+                  quantity: String(placed.quantity),
+                },
+              })
+            }
+          />
+        ) : (
+          <Button
+            label={
+              view && view.primary.label !== "예약하기"
+                ? view.primary.label
+                : view?.hideAmount || !p
+                  ? "예약하기"
+                  : `${won(total)} 예약하기`
+            }
+            disabled={!canPay}
+            accessibilityHint={canPay ? undefined : disabledHint}
+            loading={busy}
+            onPress={() => void submit()}
+          />
+        )}
       </BottomBar>
 
       <OptionSheet
@@ -758,17 +846,117 @@ export default function Checkout() {
           }
         />
       </Sheet>
+      <Sheet
+        visible={sheet === "memo"}
+        onClose={() => setSheet(null)}
+        title="배송 메모"
+      >
+        <View>
+          {[...MEMO_PRESETS, "직접 입력", "선택 안 함"].map((m) => {
+            const on =
+              m === "직접 입력"
+                ? memoTyping
+                : m === "선택 안 함"
+                  ? !memo && !memoTyping
+                  : !memoTyping && memo === m;
+            return (
+              <Pressable
+                key={m}
+                accessibilityRole="radio"
+                aria-checked={on}
+                onPress={() => {
+                  if (m === "직접 입력") {
+                    setMemoTyping(true);
+                    if ((MEMO_PRESETS as readonly string[]).includes(memo))
+                      setMemo("");
+                  } else {
+                    setMemoTyping(false);
+                    setMemo(m === "선택 안 함" ? "" : m);
+                  }
+                  setSheet(null);
+                }}
+                style={{
+                  minHeight: tokens.height.row,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: tokens.color.border,
+                }}
+              >
+                <View style={{ width: 24, alignItems: "center" }}>
+                  {on ? <Icon name="check" /> : null}
+                </View>
+                <T variant="body" weight={on ? "semibold" : "regular"}>
+                  {m}
+                </T>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Sheet>
     </Screen>
   );
 }
 
+/** 금액 줄: 이름 왼쪽, 금액 오른쪽 정렬(tabular-nums) */
 function Line({ k, v }: { k: string; v: string }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
       <T variant="body" muted>
         {k}
       </T>
-      <T variant="body">{v}</T>
+      <T variant="body" style={{ textAlign: "right" }}>
+        {v}
+      </T>
+    </View>
+  );
+}
+
+/** 강조색 글자 링크(‘변경’). 터치 48 */
+function LinkButton({
+  label,
+  accessibilityLabel,
+  onPress,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={{
+        minHeight: tokens.touchTarget.min,
+        minWidth: tokens.touchTarget.min,
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <T variant="sub" weight="semibold" color={tokens.color.accent}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+
+/** 작은 면색 태그(‘기본’) */
+function Tag({ label }: { label: string }) {
+  return (
+    <View
+      style={{
+        paddingHorizontal: 6,
+        height: 20,
+        borderRadius: 4,
+        backgroundColor: tokens.color.surface,
+        justifyContent: "center",
+      }}
+    >
+      <T variant="caption" muted>
+        {label}
+      </T>
     </View>
   );
 }

@@ -103,14 +103,15 @@ const groups = [
 export function sourceModuleIcon(moduleId: string): ImageSourcePropType | undefined {
   return groups.find(group => group.modules.includes(moduleId))?.icon;
 }
-const bodyStyle: TextStyle = { fontSize: 17, lineHeight: 28, color: "#242424" };
+// 본문 16(기준표, DEV-293). 모듈마다 18·19·20으로 키우던 것은 16 하나로
+const bodyStyle: TextStyle = { fontSize: 16, lineHeight: 26, color: "#242424" };
 const heroTextStyle = (fieldKey: string): TextStyle => ({
   ...(fieldKey === "name"
     ? {
-        fontSize: 38,
-        lineHeight: 46,
+        fontSize: 28,
+        lineHeight: 36,
         fontWeight: "600" as const,
-        letterSpacing: -1.8,
+        letterSpacing: -0.6,
         color: "#484848",
       }
     : bodyStyle),
@@ -121,7 +122,7 @@ const hasContent = (module: StoryModule) =>
   module.photos.length > 0 ||
   !!(module.illustrationId && illustrations[module.illustrationId]);
 
-function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
+function Illustration({ id, inset = 16 }: { id: string; inset?: number }) {
   return (
     <View
       testID="source-size-panel"
@@ -129,8 +130,8 @@ function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
         gap: 8,
         marginTop: 16,
         marginHorizontal: -inset,
-        paddingHorizontal: 24,
-        paddingVertical: 64,
+        paddingHorizontal: 16,
+        paddingVertical: 32,
         overflow: "hidden",
       }}
     >
@@ -149,8 +150,8 @@ function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
             weight="bold"
             center
             style={{
-              fontSize: 40,
-              lineHeight: 48,
+              fontSize: 28,
+              lineHeight: 36,
               color: tokens.color.onAccent,
             }}
           >
@@ -178,7 +179,7 @@ function Illustration({ id, inset = 22 }: { id: string; inset?: number }) {
 function ModuleBody({
   module,
   mediaUrl,
-  inset = 22,
+  inset = 16,
   editing,
 }: {
   editing?: StoryEditing;
@@ -222,14 +223,8 @@ function ModuleBody({
             <View key={`${text.fieldKey}-${i}`}>
               {editing.text(module, i, {
                 ...bodyStyle,
-                ...(module.id === "taste"
-                  ? { fontSize: 19, lineHeight: 31 }
-                  : {}),
-                ...(module.id === "farmStory"
-                  ? { fontSize: 20, lineHeight: 32 }
-                  : {}),
                 ...(module.id === "composition"
-                  ? { fontSize: 20, lineHeight: 32, fontWeight: "600" as const }
+                  ? { fontWeight: "600" as const }
                   : {}),
               })}
             </View>
@@ -238,13 +233,7 @@ function ModuleBody({
               key={`${text.fieldKey}-${i}`}
               style={[
                 bodyStyle,
-                module.id === "composition" && {
-                  fontSize: 20,
-                  lineHeight: 32,
-                  fontWeight: "600",
-                },
-                module.id === "taste" && { fontSize: 19, lineHeight: 31 },
-                module.id === "farmStory" && { fontSize: 20, lineHeight: 32 },
+                module.id === "composition" && { fontWeight: "600" },
               ]}
             >
               {text.value}
@@ -288,11 +277,11 @@ export function ModuleStory({
   const summary = filled.find((module) => module.id === "summary");
   const heroBody = hero ? <>
     {editing ? editing.photos(hero, hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)) : hero.photos.map((photo, i) => <SourcePhoto key={i} uri={mediaUrl(photo.uri)} alt={photo.alt} />)}
-    <View style={{ paddingHorizontal: 24, paddingTop: 24, gap: 16 }}>
+    <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 24, gap: 16 }}>
       {hero.texts.map((text, i) => text.value.trim() || editing ? <View key={`${text.fieldKey}-${i}`}>
         {editing ? editing.text(hero, i, heroTextStyle(text.fieldKey)) : <T center accessibilityRole={text.fieldKey === "name" ? "header" : "text"} style={heroTextStyle(text.fieldKey)}>{text.value}</T>}
       </View> : null)}
-      {hero.illustrationId && illustrations[hero.illustrationId] ? <Illustration id={hero.illustrationId} inset={24} /> : null}
+      {hero.illustrationId && illustrations[hero.illustrationId] ? <Illustration id={hero.illustrationId} inset={tokens.space.gutter} /> : null}
     </View>
   </> : null;
   return (
@@ -305,11 +294,11 @@ export function ModuleStory({
           testID="source-cover"
           style={{ paddingTop: 12, paddingBottom: 18 }}
         >
-          {editing ? <View style={{ position: "absolute", right: 24, top: 0, zIndex: 1 }}>{editing.sectionControl("intro", "상품 소개")}</View> : null}
+          {editing ? <View style={{ position: "absolute", right: tokens.space.gutter, top: 0, zIndex: 1 }}>{editing.sectionControl("intro", "상품 소개")}</View> : null}
           {!introHidden ? (
             <>
               {hero ? (editing ? editing.wrap(hero, heroBody) : heroBody) : null}
-              <View style={{ paddingHorizontal: 24, paddingTop: hero ? 16 : 24, gap: 16 }}>
+              <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: hero ? 16 : 24, gap: 16 }}>
                 {summary ? (
                   <View
                     style={{
@@ -319,7 +308,7 @@ export function ModuleStory({
                     <ModuleBody
                       module={summary}
                       mediaUrl={mediaUrl}
-                      inset={24}
+                      inset={tokens.space.gutter}
                       editing={editing}
                     />
                   </View>
@@ -341,7 +330,7 @@ export function ModuleStory({
           <View
             key={group.id}
             testID={`source-section-${group.id}`}
-            style={{ paddingHorizontal: 22, paddingVertical: 28, gap: 22 }}
+            style={{ paddingHorizontal: tokens.space.gutter, paddingVertical: 20, gap: 16 }}
           >
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
@@ -364,11 +353,11 @@ export function ModuleStory({
                 accessibilityRole="header"
                 style={{
                   opacity: dim ? 0.35 : 1,
-                  fontSize: 26,
-                  lineHeight: 35,
+                  fontSize: 22,
+                  lineHeight: 30,
                   fontWeight: "600",
                   color: "#555",
-                  letterSpacing: -0.8,
+                  letterSpacing: -0.4,
                   flexShrink: 1,
                 }}
               >

@@ -80,12 +80,12 @@ export default function Addresses() {
       <Scroll bottom={140}>
         <T
           variant="title"
-          style={{ paddingHorizontal: 20 }}
+          style={{ paddingHorizontal: tokens.space.gutter }}
           accessibilityRole="header"
         >
           배송지
         </T>
-        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 20 }}>
           {list.error && !list.data ? (
             <LoadError error={list.error} onRetry={list.reload} />
           ) : null}
@@ -192,7 +192,7 @@ export default function Addresses() {
         </T>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <Button
-            label="아니요"
+            label="닫기"
             variant="secondary"
             onPress={() => setTarget(null)}
             style={{ flex: 1 }}

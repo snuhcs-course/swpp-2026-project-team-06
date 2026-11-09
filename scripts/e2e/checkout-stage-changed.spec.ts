@@ -56,7 +56,7 @@ async function openFilledCheckout(page: Page) {
   if ((await (await addresses).json()).length === 0) {
     await page.getByRole("button", { name: "받는 사람과 주소 입력" }).click();
   } else {
-    await page.getByRole("button", { name: "다른 배송지" }).click();
+    await page.getByRole("button", { name: "받는 곳 변경" }).click();
     await page.getByRole("button", { name: "새 주소 입력" }).click();
   }
   await page.getByLabel("받는 사람").fill("DEV216 구매자");
@@ -65,7 +65,10 @@ async function openFilledCheckout(page: Page) {
   await page.getByRole("textbox", { name: "주소", exact: true }).fill("서울 마포구 월드컵북로 12");
   await page.getByLabel("상세 주소").fill("302호");
   await page.getByRole("button", { name: "이 주소로 받기" }).click();
-  await page.getByLabel("배송 메모").fill("문 앞에 두어 주세요");
+  // DEV-293: 배송 메모는 선택 목록 + 직접 입력
+  await page.getByRole("button", { name: "배송 메모 (선택) 고르기" }).click();
+  await page.getByRole("radio", { name: "직접 입력" }).click();
+  await page.getByLabel("배송 메모", { exact: true }).fill("문 앞에 두어 주세요");
   await page.getByRole("checkbox", { name: "모두 동의해요" }).click();
   await expect(page.getByText("29,000원").first()).toBeVisible();
 }
@@ -87,7 +90,7 @@ test("AC-08-8: price changed while the checkout is open → notice, no order, re
   const created = page.waitForResponse(
     (r) => r.url() === `${apiUrl}/api/orders` && r.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "예약하기", exact: true }).click();
+  await page.getByRole("button", { name: /^[\d,]+원 예약하기$/ }).click();
   const first = await created;
   expect(first.status()).toBe(409);
   expect(first.request().postDataJSON()).toMatchObject({
@@ -99,7 +102,7 @@ test("AC-08-8: price changed while the checkout is open → notice, no order, re
   await expect(page.getByText(/5kg 한 상자 29,000원 → 30,000원/)).toBeVisible();
   await expect(page.getByText("처음 본 합계")).toBeVisible();
   // 입력값은 그대로(AC-08-8)
-  await expect(page.getByLabel("배송 메모")).toHaveValue("문 앞에 두어 주세요");
+  await expect(page.getByLabel("배송 메모", { exact: true })).toHaveValue("문 앞에 두어 주세요");
   await expect(page.getByRole("checkbox", { name: "모두 동의해요" })).toBeChecked();
 
   await page.getByRole("button", { name: "바뀐 금액으로 예약하기" }).click();
@@ -120,9 +123,9 @@ test("AC-08-9: sales paused while the checkout is open → disabled button, '다
   await openFilledCheckout(page);
   await setPaused(request, true);
 
-  await page.getByRole("button", { name: "예약하기", exact: true }).click();
+  await page.getByRole("button", { name: /^[\d,]+원 예약하기$/ }).click();
   await expect(page.getByText("농가가 잠시 예약을 쉬고 있어요")).toBeVisible();
-  await expect(page.getByRole("button", { name: "예약하기", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^[\d,]+원 예약하기$/ })).toBeDisabled();
   await expect(page.getByText("바뀐 금액으로 예약하기")).toHaveCount(0);
   await expect(page.getByText("지금은 예약할 수 없어요")).toBeVisible();
 
@@ -130,6 +133,6 @@ test("AC-08-9: sales paused while the checkout is open → disabled button, '다
   await setPaused(request, false);
   await page.getByRole("button", { name: "다시 확인하기" }).click();
   await expect(page.getByText("농가가 잠시 예약을 쉬고 있어요")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "예약하기", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /^[\d,]+원 예약하기$/ })).toBeEnabled();
   assertClean();
 });

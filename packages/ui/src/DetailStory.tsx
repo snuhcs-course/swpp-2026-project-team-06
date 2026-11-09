@@ -26,7 +26,7 @@ export function StoryImage({ uri, alt }: { uri: string; alt: string }) {
     };
   }, [uri]);
   return failed ? (
-    <View style={{ padding: 32, backgroundColor: tokens.color.surface }}>
+    <View style={{ padding: tokens.space.gutter, backgroundColor: tokens.color.surface }}>
       <T muted center>
         {alt || "상세 사진"} · 사진을 불러오지 못했어요
       </T>
@@ -60,7 +60,7 @@ export function DetailStory({
     <View style={{ paddingTop: 32, paddingBottom: 24, gap: 28 }}>
       <View
         style={{
-          marginHorizontal: 20,
+          marginHorizontal: tokens.space.gutter,
           borderTopWidth: 1,
           borderColor: tokens.color.border,
           paddingTop: 28,
@@ -76,19 +76,15 @@ export function DetailStory({
         ) : (
           <View
             key={b.id}
-            style={{ paddingHorizontal: 24, gap: 14, paddingVertical: 10 }}
+            style={{ paddingHorizontal: tokens.space.gutter, gap: 12, paddingVertical: 8 }}
           >
             {b.title ? (
-              <T
-                variant="title"
-                accessibilityRole="header"
-                style={{ lineHeight: 34 }}
-              >
+              <T variant="title" accessibilityRole="header">
                 {b.title}
               </T>
             ) : null}
             {b.body ? (
-              <T variant="body" style={{ lineHeight: 28 }}>
+              <T variant="body" style={{ lineHeight: 26 }}>
                 {b.body}
               </T>
             ) : null}

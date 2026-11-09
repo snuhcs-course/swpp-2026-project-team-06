@@ -153,7 +153,7 @@ export default function OnboardingProfile() {
     <Screen>
       <HeaderBar close onBack={close} />
       <Scroll bottom={150}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 8 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 4, gap: 8 }}>
           <T variant="title" accessibilityRole="header">
             {signup
               ? "약관에 동의하고\n가입해요"
@@ -190,7 +190,7 @@ export default function OnboardingProfile() {
         </View>
 
         {!showProfile ? null : (
-          <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 20 }}>
+          <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 24, gap: 20 }}>
             <Input
               label="닉네임"
               value={nickname}
@@ -212,7 +212,7 @@ export default function OnboardingProfile() {
           </View>
         )}
 
-        <View style={{ paddingHorizontal: 20, paddingTop: 28 }}>
+        <View style={{ paddingHorizontal: tokens.space.gutter, paddingTop: 28 }}>
           {!showConsents ? null : (
             <>
               <Checkbox

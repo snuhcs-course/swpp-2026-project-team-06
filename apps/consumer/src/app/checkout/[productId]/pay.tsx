@@ -11,6 +11,7 @@ import {
   Scroll,
   T,
   TestBand,
+  tokens,
   useAsync,
   eulReul,
   won,
@@ -90,12 +91,18 @@ export default function DepositGuide() {
   return (
     <Screen>
       <HeaderBar title="입금 안내" onBack={back} />
-      <TestBand text="테스트 서비스예요. 실제 돈은 나가지 않아요." />
+      <TestBand text="테스트 서비스예요 · 실제 돈은 나가지 않아요" />
       {error && !o ? (
         <LoadError error={error} onRetry={reload} />
       ) : (
-        <Scroll bottom={190}>
-          <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 4 }}>
+        <Scroll bottom={170}>
+          <View
+            style={{
+              paddingHorizontal: tokens.space.gutter,
+              paddingTop: tokens.space.lg,
+              gap: 4,
+            }}
+          >
             <T variant="sub" muted>
               입금할 금액
             </T>
@@ -113,13 +120,18 @@ export default function DepositGuide() {
               <T
                 variant="caption"
                 muted
-                style={{ marginHorizontal: 20, marginTop: 8 }}
+                style={{ marginHorizontal: tokens.space.gutter, marginTop: 8 }}
               >
-                입금자명을 주문 번호로 적어야 농가가 주문을 찾아요. 기한이
-                지나면 예약이 자동으로 취소돼요.
+                입금자명: 주문 번호
               </T>
 
-              <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 4 }}>
+              <View
+                style={{
+                  paddingHorizontal: tokens.space.gutter,
+                  paddingTop: tokens.space.xl,
+                  gap: 4,
+                }}
+              >
                 <T variant="heading">판매자</T>
                 <T variant="body">
                   {o.sellerInfo?.farmName ?? o.farmName}
@@ -147,7 +159,7 @@ export default function DepositGuide() {
           ) : null}
         </Scroll>
       )}
-      <BottomBar summary="입금한 뒤에도 주문 상세에서 계좌를 다시 볼 수 있어요.">
+      <BottomBar>
         <Button
           label="입금을 마쳤어요"
           disabled={!o}

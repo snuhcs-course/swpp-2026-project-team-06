@@ -264,3 +264,11 @@ test("recheck after a pause: same values clear the notice, a changed price switc
   assert.equal(cc.clearsOnSelection({ reason: "SOLD_OUT", details: {} }), true);
   assert.equal(cc.clearsOnSelection({ reason: "STAGE_CHANGED", details: {} }), false);
 });
+
+// DEV-293: 예약 버튼이 꺼진 이유는 화면 읽기에만(accessibilityHint / aria-describedby)
+test("DEV-293 AC-08-1: disabled reserve button explains the missing address and consent count to screen readers", () => {
+  assert.equal(cc.reserveDisabledHint(true, 5, 5), undefined);
+  assert.equal(cc.reserveDisabledHint(false, 5, 5), "받는 곳을 먼저 정해 주세요");
+  assert.equal(cc.reserveDisabledHint(true, 3, 5), "필수 동의 5개 중 3개 했어요");
+  assert.equal(cc.reserveDisabledHint(false, 0, 5), "받는 곳을 먼저 정해 주세요. 필수 동의 5개 중 0개 했어요");
+});

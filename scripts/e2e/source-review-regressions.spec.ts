@@ -645,7 +645,9 @@ for (const composer of [false, true]) {
     await serveContractReview(page, fixture);
     await openContractReview(page, fixture, true);
     await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
-    await expect(page.getByText(/박스 남음/)).toBeVisible();
+    // DEV-293: 판매 설정이 있으면 받는 시기 줄과 옵션 줄(남은 박스·가격)이 보인다. 물량이 0인 옵션은 가격 자리에 품절 이유
+    await expect(page.getByTestId("product-option-row").first()).toBeVisible();
+    await expect(page.getByText(/도착 (예정|예상)|받는 시기 확정 전/).first()).toBeVisible();
     clean();
   });
 

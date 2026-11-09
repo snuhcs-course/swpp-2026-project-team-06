@@ -31,12 +31,12 @@ test("DEV-225 FEAT-08: option sheet and address sheet are gone once checkout and
   let resume = await freezeAnimations(page);
   await page.getByRole("button", { name: "주문서로" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house/);
-  await expect(page.getByText("다른 배송지")).toBeVisible();
+  await expect(page.getByRole("button", { name: "받는 곳 변경" })).toBeVisible();
   await expect(optionSheet).toHaveCount(0);
   await resume();
 
   // 주문서 받는 곳 시트 → ‘새 주소 입력’ → 배송지 입력
-  await page.getByRole("button", { name: "다른 배송지" }).click();
+  await page.getByRole("button", { name: "받는 곳 변경" }).click();
   const addressSheet = page.getByRole("button", { name: "새 주소 입력" });
   await expect(addressSheet).toBeVisible();
   resume = await freezeAnimations(page);
