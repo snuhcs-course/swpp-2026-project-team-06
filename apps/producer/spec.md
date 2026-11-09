@@ -9,7 +9,7 @@
 
 ## 구조
 - `src/app/` — Expo Router 라우트. 파일 하나가 화면 하나다.
-- 하단 탭 4개(ia.md 4장): 현황(SCR-22) · 상품(SCR-23) · 채팅(SCR-28) · 환경설정(SCR-33). `src/app/(tabs)/_layout.tsx`
+- 하단 탭 4개(ia.md 4장): 현황(SCR-22) · 상품(SCR-23) · 채팅(SCR-28) · 설정(SCR-33, DEV-294에서 ‘환경설정’ → ‘설정’). `src/app/(tabs)/_layout.tsx`
 - 탭 밖 화면은 루트 Stack에 둔다: 로그인, 가입 신청, 승인 대기, 정지 안내, 소식 올리기, 출하 처리.
 - 승인 전 생산자는 SCR-21(승인 대기)만, 정지된 생산자는 정지 안내만, 농가 없는 생산자 계정은 SCR-20만 열린다(ia.md 6장, AC-01-3). 탭 그룹 진입 시 막는 처리는 DEV-3, 서버 검사는 DEV-4(N-06).
 
@@ -32,7 +32,7 @@
 | SCR-30 | 농가 프로필·링크 | `/farm` | `src/app/(tabs)/farm/index.tsx` | FEAT-02, 19 |
 | SCR-30 하위 | 프로필 항목 고치기 | `/farm/edit/:field` | `src/app/(tabs)/farm/edit/[field].tsx` | FEAT-02 |
 
-| SCR-33 | 환경설정 | `/settings` | `src/app/(tabs)/settings.tsx` | FEAT-02, 13 |
+| SCR-33 | 설정 | `/settings` | `src/app/(tabs)/settings.tsx` | FEAT-02, 13 |
 | SCR-28 하위 | 농가 소식방 | `/news/:farmId` | `src/app/news/[farmId].tsx` | FEAT-12 |
 
 ## 계약
@@ -40,8 +40,8 @@
 - 서버 주소는 `EXPO_PUBLIC_API_URL`(packages/api spec).
 - 환경설정 → 농가 프로필에서 복사하는 링크는 서버의 `/s/farms/<id>`다(ADR 0006). 소비자 앱 주소를 직접 복사하지 않는다.
 - I1 로그인은 생산자 테스트 계정 선택(`GET /api/auth/test-accounts?app=producer`, `POST /api/auth/test-login`의 `app: producer`, ADR 0009·0010). 시드 생산자는 승인·확인 중·반려·정지·농가 없음 5명(tech-design 시드 데이터). 소비자 계정은 이 앱에 로그인하지 않고, 403 `WRONG_APP`이면 토큰을 지우고 로그인으로. 가입 신청(SCR-20)이 생산자 계정 만들기를 겸한다. 카카오 리다이렉트 `/auth/kakao`는 I2.
-- 출하 처리(SCR-29)는 주문을 여러 건 골라 ‘n건 출하로 바꾸기’ → 주문마다 `POST /api/orders/{orderId}/ship`(`carrier`, `trackingNumber`)을 반복한다(새 일괄 API 없음). 생산자는 배송 완료로 바꾸지 못한다(R-19). 자연어 입력은 I2.
-- 화면 모양·크기·문구는 Figma v6/UI 1.6이 기준이다(주요 버튼 56, 현황 숫자 40, 목록 줄 최소 56).
+- 출하 처리(SCR-29)는 주문을 여러 건 골라 ‘n건 선택 · 출하 처리’(DEV-294) → 주문마다 `POST /api/orders/{orderId}/ship`(`carrier`, `trackingNumber`)을 반복한다(새 일괄 API 없음). 생산자는 배송 완료로 바꾸지 못한다(R-19). 자연어 입력은 I2.
+- 화면 모양·크기·문구는 Figma v6/UI 1.6이 기준이다(목록 줄 최소 56). DEV-294부터 현황·배송 현황과 생산자 문구는 Figma 검토본 `TEN0IqovZJenoRqSIma3wL`(기준표, 1:62, 1:74, 11:133)을 따르고, 크기는 숫자 대신 `tokens.*`를 써서 토큰 개편(DEV-293)을 따라간다.
 - 쓰는 API는 screens.md 7.2.
 
 ## 구현 결정 이력 (현재 화면은 DEV-51 절 우선)
@@ -185,3 +185,12 @@ DEV-287: 상품 편집은 최종 구매자 배치에서 제자리 수정하며, 
 
 ### DEV-289
 인용 답장과 서버 기준 10분 직접 응대 계약은 FEAT-12·13 DEV-289 절을 따른다. 전체 AI 설정의 다른 정책 필드는 보존하고 폴링은 설정 버전을 역행시키지 않는다. 주문 문의 접수의 별도 직접 응대는 일반 타이머와 구분한다.
+
+## DEV-294 생산자 화면 개편 (2026-11-09)
+
+Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 고쳤다. 동작·API 계약은 바꾸지 않았다. 화면 서술은 screens.md SCR-22·29·도움말 절.
+- 크기는 `tokens.*`(gutter·listRowProducer·touchTarget·heading 등)로 쓴다. 토큰에 아직 없는 기준표 값(작은 버튼 32, 썸네일 48, 진행 막대 6, accent 옅은 배경 `#FDECE2`)만 숫자로 둔다. 작은 버튼·칩은 hitSlop으로 누르는 영역 48.
+- 현황(`(tabs)/index.tsx`): `LargeTitle`(제목 ‘현황’, 부제 ‘농가명 · 날짜’, 오른쪽 `HelpButton`). 할 일 줄은 화면 안 `TodoRow`(56, 오른쪽 accent 건수·‘필수’ 태그·chevron). ‘답하지 않은 문의’는 대시보드 `todo.openQuestions` → `/chats?view=private`. 물량 줄은 kg(옵션별 박스 무게가 달라 박스 합산은 공유 물량을 두 번 센다, DEV-292 결정), 썸네일은 `catalog.mine`의 대표 사진.
+- 배송 현황(`ship.tsx`): 공용 `Segmented` 대신 화면 안 밑줄 탭(ScrollView). 상품 줄은 `lib/orderWho.ts` `orderItem`이 상품명 끝 옵션 목록 중 이 주문 옵션이 든 목록만 뗀다(`scripts/test-producer-order-rows.mjs`). 시트·읽기 라벨은 `orderWho` 전체 글자 그대로(AC-17-10). 전체 탭 상태 칩은 `ORDER_STATUS`.
+- 투어(`lib/Tour.tsx`): `HelpButton`은 props 없이 버튼으로만 시작한다. 본 적 있음 기록(`help-guide-seen`)은 더 쓰지 않는다. 마지막 단계는 AC-34-5 때문에 farmclub 대화방 안내 한 문장을 남긴다.
+- Mock 전용 문구는 `isMock`일 때만 보인다(로그인 카카오 설명 등).
