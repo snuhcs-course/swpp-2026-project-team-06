@@ -33,3 +33,20 @@ export const focusRing = (isWeb
       outlineOffset: 2,
     }
   : {}) as unknown as ViewStyle;
+
+export function onMenuEscape(onClose: () => void): () => void {
+  if (!isWeb || typeof document === "undefined") return () => {};
+  const listener = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } };
+  document.addEventListener("keydown", listener, true);
+  return () => document.removeEventListener("keydown", listener, true);
+}
+
+export function onMenuOutsidePress(node: {current: unknown}, onClose: () => void): () => void {
+  if (!isWeb || typeof document === "undefined") return () => {};
+  const listener = (e: PointerEvent) => {
+    const element = node.current as HTMLElement | null;
+    if (element && !element.contains(e.target as Node)) onClose();
+  };
+  document.addEventListener("pointerdown", listener, true);
+  return () => document.removeEventListener("pointerdown", listener, true);
+}

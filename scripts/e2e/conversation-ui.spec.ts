@@ -124,17 +124,19 @@ test("FEAT-13 AC-13-5: consumer reports an AI answer and both sides see the serv
   await page.getByRole("textbox", { name: "메시지" }).fill(prompt);
   await page.getByRole("button", { name: "전송", exact: true }).click();
   await expect(page.getByText(prompt, { exact: true })).toBeVisible();
-  const reportButton = page.getByRole("button", { name: "틀렸어요", exact: true });
+  const reportButton = page.getByRole("button", { name: "답변 확인 요청", exact: true });
   await expect(reportButton).toBeVisible({ timeout: 15_000 });
   await reportButton.click();
-  await expect(page.getByRole("button", { name: "신고했어요", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 요청됨", exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: "신고했어요", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 요청됨", exact: true })).toBeVisible();
 
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/chats/u-seojun`);
   await expect(page.getByText("소비자가 신고한 답변", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(/소비자가 AI 답변을 신고했어요/)).toBeVisible();
+  await page.getByText("소비자가 신고한 답변", { exact: true }).click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "답장", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
 });
 
 test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collapsed room", async ({
@@ -236,7 +238,7 @@ test("AC-12-13: producer confirms follower count and preview before sending news
   await expect(sheet.getByText(/^팔로워 \d+명에게 보낼까요\?$/)).toBeVisible();
   await expect(sheet.getByText(message, { exact: true })).toBeVisible();
   await expect(
-    page.getByText("보낸 소식은 지울 수 있지만 고칠 수는 없어요.", {
+    page.getByText("보낸 소식의 본문은 수정하거나 삭제할 수 있어요.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -279,14 +281,10 @@ test("AC-12-14/16: producer deletes own news, or deletes and rewrites it", async
     name: "모두에게 보낼 소식",
     exact: true,
   });
-  // 통합 환경은 시각이 고정돼 같은 시각 소식끼리 순서가 정해지지 않으므로 그 말풍선의 ⋯를 찾는다
-  const menuOf = (text: string) =>
-    page
-      .locator("div")
-      .filter({ has: page.getByText(text, { exact: true }) })
-      .filter({ has: page.getByRole("button", { name: "소식 메뉴", exact: true }) })
-      .last()
-      .getByRole("button", { name: "소식 메뉴", exact: true });
+  const menuOf = (text: string) => ({ click: async () => {
+    await page.getByText(text, { exact: true }).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "삭제·다시 쓰기", exact: true }).click();
+  }});
   await expect(page.getByText(typo, { exact: true })).toBeVisible();
   await menuOf(typo).click();
   await expect(page.getByText("이 소식을 삭제할까요?", { exact: true })).toBeVisible();

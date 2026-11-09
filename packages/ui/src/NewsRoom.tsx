@@ -1,3 +1,4 @@
+import { MessageEditSheet } from "./MessageEditSheet";
 import {
   createElement,
   useEffect,
@@ -13,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { MessageMenu, type MenuPoint } from "./MessageMenu";
 import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { T } from "./Text";
@@ -24,9 +26,12 @@ import { safe } from "./web";
 import { inBackground } from "./foreground";
 import { time } from "./format";
 
+const quotePreview = (body: string) => body.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
 type Message = {
+  replyTo?: {senderType: string; body: string} | null;
+  editedAt?: string | null; editVersion?: number;
   messageId: string;
   senderId: string;
   senderName: string;
@@ -46,6 +51,7 @@ type Page = {
   room: { farmName: string; canReply: boolean };
 };
 type Props = {
+  edit?: (id: string, text: string, version: number, key: string) => Promise<Message>;
   userId: string;
   joinAction?: ReactNode;
   onLogin?: () => void;
@@ -54,7 +60,7 @@ type Props = {
   onAttach?: () => void;
   onPrivateReply?: (consumerId: string, replyId: string) => void;
   load: (cursor?: string) => Promise<Page>;
-  send: (body: string, key: string) => Promise<Message>;
+  send: (body: string, key: string, replyToMessageId?: string, replyToVersion?: number) => Promise<Message>;
   makeKey: () => string;
   react: (
     id: string,
@@ -86,6 +92,7 @@ export function RoomMedia({ uri }: { uri: string }) {
   );
 }
 export function NewsRoom({
+  edit,
   userId,
   producer = false,
   active,
@@ -119,6 +126,10 @@ export function NewsRoom({
   // 생산자 1:N 전송 확인(AC-12-13)과 내 소식 삭제(AC-12-14·16) 시트
   const [confirming, setConfirming] = useState(false);
   const [sheetError, setSheetError] = useState("");
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  const [editTarget, setEditTarget] = useState<Message | null>(null);
+  const [menuTarget, setMenuTarget] = useState<Message | null>(null);
+  const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
   const [target, setTarget] = useState<Message | null>(null);
   const [removing, setRemoving] = useState(false);
   const input = useRef<TextInput>(null);
@@ -127,7 +138,7 @@ export function NewsRoom({
     height = useRef(0),
     offset = useRef(0);
   const preserve = useRef<{ height: number; offset: number } | null>(null);
-  const pending = useRef<{ body: string; key: string } | null>(null);
+  const pending = useRef<{ body: string; replyId?: string; replyVersion?: number; key: string } | null>(null);
   const sending = useRef(false);
   const alive = useRef(true);
   const initialized = useRef(false);
@@ -139,6 +150,7 @@ export function NewsRoom({
       alive.current = false;
     };
   }, []);
+  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); } }, [active]);
   /** 새로고침 응답이 덮는 범위(가장 오래된 항목 이후, complete면 전부)에서 응답에 없는 방송은 지워진 것이다(M-23).
    * 답장은 지우지 않는다. 내가 막 보내 아직 응답에 나온 적 없는 소식(fresh)은 늦게 온 응답이 지우지 않게 남긴다 */
   const reconcile = (items: Message[], complete: boolean) => {
@@ -168,7 +180,8 @@ export function NewsRoom({
     setMessages((previous) => {
       const map = new Map(previous.map((m) => [m.messageId, m]));
       for (const m of items) {
-        map.set(m.messageId, m);
+        const prior = map.get(m.messageId);
+        if (!prior || (m.editVersion ?? 0) >= (prior.editVersion ?? 0)) map.set(m.messageId, m);
         known.current.add(m.messageId);
       }
       return [...map.values()].sort(
@@ -190,6 +203,7 @@ export function NewsRoom({
         if (cancelled) return;
         if (access.current !== page.room.canReply) {
           accessEpoch.current++;
+          setEditTarget(null); setMenuTarget(null); setReplyTarget(null);
           access.current = page.room.canReply;
           setCanReply(page.room.canReply);
           setMessages([]);
@@ -233,6 +247,7 @@ export function NewsRoom({
             [401, 403, 404].includes(Number(e.status))
           ) {
             accessEpoch.current++;
+            setEditTarget(null); setMenuTarget(null); setReplyTarget(null);
             access.current = null;
             setCanReply(false);
             setMessages([]);
@@ -285,15 +300,17 @@ export function NewsRoom({
     sending.current = true;
     setBusy(true);
     setError("");
-    if (pending.current?.body !== text)
-      pending.current = { body: text, key: makeKey() };
+    const replyVersion = replyTarget ? replyTarget.editVersion ?? 0 : undefined;
+    if (pending.current?.body !== text || pending.current?.replyId !== replyTarget?.messageId || pending.current?.replyVersion !== replyVersion)
+      pending.current = { body: text, replyId: replyTarget?.messageId, replyVersion, key: makeKey() };
     try {
-      const message = await send(text, pending.current.key);
+      const message = await send(text, pending.current.key, pending.current.replyId, pending.current.replyVersion);
       if (!alive.current || epoch !== accessEpoch.current) return;
       nearBottom.current = true;
       if (message.broadcastId) fresh.current.add(message.messageId);
       merge([message]);
       setBody("");
+      setReplyTarget(null);
       pending.current = null;
       if (producer) {
         setConfirming(false);
@@ -480,8 +497,18 @@ export function NewsRoom({
             ) : null}
             <Pressable
               accessible={false}
-              disabled={!(producer && remove && m.broadcastId)}
-              onLongPress={() => openMenu(m)}
+              disabled={!((edit && m.senderId === userId) || (producer && ((remove && m.broadcastId) || (onPrivateReply && m.senderRole === "CONSUMER"))))}
+              delayLongPress={500}
+              onLongPress={() => { setMenuPoint(null); setMenuTarget(m); }}
+              {...(Platform.OS === "web" && ((edit && m.senderId === userId) || (producer && ((remove && m.broadcastId) || (onPrivateReply && m.senderRole === "CONSUMER")))) ? {
+                onContextMenu: (e: {preventDefault: () => void; clientX: number; clientY: number}) => {
+                  e.preventDefault(); setMenuPoint({x: e.clientX, y: e.clientY}); setMenuTarget(m);
+                },
+                tabIndex: 0,
+                onKeyDown: (e: {key: string; shiftKey: boolean; preventDefault: () => void}) => {
+                  if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) { e.preventDefault(); setMenuPoint(null); setMenuTarget(m); }
+                },
+              } as object : {})}
               // 팔로우를 끊은 방의 내 답장은 흐리게 남긴다(DEV-230)
               style={
                 lapsed && m.senderId === userId ? { opacity: 0.45 } : undefined
@@ -492,6 +519,8 @@ export function NewsRoom({
             >
             <ChatBubble
               kind={m.senderId === userId ? "me" : "farm"}
+              quote={m.replyTo ?? undefined}
+              edited={!!m.editedAt}
               text={m.body}
               sender={m.senderId === userId ? undefined : m.senderName}
               time={time(m.createdAt)}
@@ -501,13 +530,6 @@ export function NewsRoom({
               ))}
             </ChatBubble>
             </Pressable>
-            {producer && m.senderRole === "CONSUMER" && onPrivateReply ? (
-              <Button
-                label={`${m.senderName}에게 1:1 답장`}
-                variant="text"
-                onPress={() => onPrivateReply(m.senderId, m.messageId)}
-              />
-            ) : null}
             {m.broadcastId && producer ? (
               <View
                 style={{
@@ -520,23 +542,7 @@ export function NewsRoom({
                 <T variant="caption" muted>
                   ♡ 좋아요 {m.reactionCount}
                 </T>
-                {remove ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="소식 메뉴"
-                    onPress={() => openMenu(m)}
-                    style={{
-                      width: 48,
-                      height: 48,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <T variant="sub" muted weight="bold">
-                      ⋯
-                    </T>
-                  </Pressable>
-                ) : null}
+
               </View>
             ) : m.broadcastId ? (
               <Button
@@ -562,6 +568,7 @@ export function NewsRoom({
           }}
         />
       ) : null}
+      {canReply ? <T variant="caption" muted center>{producer ? "소식방 · 모든 팔로워에게 보내요" : "소식방 · 내 글은 농가만 봐요. 농가가 답장하면 익명으로 인용돼요"}</T> : null}
       {canReply ? (
         <View
           style={{
@@ -573,6 +580,10 @@ export function NewsRoom({
             gap: 8,
           }}
         >
+          {replyTarget ? <View style={{flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12}}>
+            <View style={{flex: 1}}><T variant="caption" muted>소비자에게 답장 · 모든 팔로워에게 보여요</T><T numberOfLines={2}>{quotePreview(replyTarget.body)}</T></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTarget(null)} style={{width: 44, height: 44, alignItems: "center", justifyContent: "center"}}><T>×</T></Pressable>
+          </View> : null}
           <View
             style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}
           >
@@ -676,6 +687,20 @@ export function NewsRoom({
           {joinAction}
         </View>
       )}
+      <MessageMenu visible={!!menuTarget && !busy} point={menuPoint} onClose={() => setMenuTarget(null)}
+        actions={[
+          ...(menuTarget && edit && menuTarget.senderId === userId ? [{label: "수정", onPress: () => setEditTarget(menuTarget)}] : []),
+          ...(menuTarget?.broadcastId && remove && producer ? [{label: "삭제·다시 쓰기", onPress: () => { if (menuTarget) openMenu(menuTarget); }}] : []),
+          ...(menuTarget?.senderRole === "CONSUMER" && producer ? [{label: "답장", onPress: () => { setReplyTarget(menuTarget); setTimeout(() => input.current?.focus(), 0); }}] : []),
+          ...(menuTarget?.senderRole === "CONSUMER" && producer && onPrivateReply ? [{label: "1:1 채팅", onPress: () => { if (menuTarget) onPrivateReply(menuTarget.senderId, menuTarget.messageId); }}] : []),
+        ]} />
+      {editTarget && edit ? <MessageEditSheet key={editTarget.messageId} body={editTarget.body} limit={producer ? 2000 : 1000}
+        makeKey={makeKey} onClose={() => setEditTarget(null)} onSave={async (text, key) => {
+          const epoch = accessEpoch.current;
+          const saved = await edit(editTarget.messageId, text, editTarget.editVersion ?? 0, key);
+          if (!alive.current || epoch !== accessEpoch.current) return;
+          merge([saved]); setEditTarget(null);
+        }} /> : null}
       {producer ? (
         <Sheet
           visible={confirming}
@@ -688,6 +713,7 @@ export function NewsRoom({
               ? "아직 팔로워가 없어요. 그래도 보낼까요?"
               : `${followers}에게 보낼까요?`}
           </T>
+          {replyTarget ? <View style={{borderLeftWidth: 3, borderLeftColor: tokens.color.accent, padding: 8}}><T variant="caption" muted>익명 소비자 글 인용 · 모든 팔로워에게 보여요</T><T>{quotePreview(replyTarget.body)}</T></View> : null}
           <NewsPreview
             head={farmName}
             meta="팔로워만 · 소비자에게 이렇게 보여요"
@@ -697,7 +723,7 @@ export function NewsRoom({
             {recipientCount === 0
               ? "새로 팔로우하는 분이 이 소식을 보게 돼요. "
               : ""}
-            보낸 소식은 지울 수 있지만 고칠 수는 없어요.
+            보낸 소식의 본문은 수정하거나 삭제할 수 있어요.
           </T>
           {sheetError ? (
             <View accessibilityRole="alert">

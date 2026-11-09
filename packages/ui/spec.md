@@ -136,3 +136,13 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 - 두 앱 루트는 `KeyboardRoot`(`src/keyboard.tsx`)로 Stack을 감싼다. Android만 `KeyboardAvoidingView behavior="padding"`, 웹·iOS는 children 그대로(감싸는 View 없음). app.json `softwareKeyboardLayoutMode`는 쓰지 않는다: Android 15+ edge-to-edge에서 adjustResize가 창을 줄이지 않고, 네이티브 설정은 새 빌드가 필요하다.
 - Android에서 키보드가 떠 있는 동안 `TabBar`·`BottomBar`는 그리지 않는다(`useKeyboardShown`). 루트가 올라가면 absolute 하단 바가 키보드 위에 떠 입력칸을 가린다.
 - `ChatThread` 입력창 아래 여백은 앱에서만 하단 안전 영역을 더한다(키보드가 떠 있으면 뺀다). 웹은 20 그대로.
+
+
+### DEV-289
+인용 답장과 서버 기준 10분 직접 응대 계약은 FEAT-12·13 DEV-289 절을 따른다. 전체 AI 설정의 다른 정책 필드는 보존하고 폴링은 설정 버전을 역행시키지 않는다. 주문 문의 접수의 별도 직접 응대는 일반 타이머와 구분한다.
+
+DEV-289 사용자 후속: 답장은 말풍선 옆 20px 인용 답장 아이콘(44px 터치 영역), 답장 취소는 × 아이콘으로 표시한다. 전체 AI 전환은 생산자 채팅 헤더의 24px 반짝이 아이콘으로 옮기고 ON은 주황색·상태점, OFF는 회색·사선으로 구분한다. 접근성 이름·동작은 유지한다. 대기 상태는 활성화된 경우에만 별도 짧은 문구로 표시한다.
+
+DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, 메시지 답장·수정은 우클릭/길게 누르기 메뉴로만 제공. 본인 메시지 텍스트 수정, 하단 이탤릭 수정됨. Modal 키보드·외부 클릭은 web.ts 플랫폼 도우미로 처리한다.
+
+소식방 생산자 메뉴 답장은 익명 인용 방송 composer를 열고, 1:1 채팅은 별도 private route를 연다. 인용 대상+본문이 같은 실패 재시도는 같은 idempotency key를 쓴다. 전송 확인에서 인용과 전체 팔로워 범위를 함께 보여주며 취소 시 발송하지 않는다.

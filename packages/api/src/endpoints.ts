@@ -310,11 +310,11 @@ export const messaging = {
     request<A.NewsRoomPage>("GET", `/api/messaging/rooms/${farmId}/messages`, {
       query: q,
     }),
-  sendRoom: (farmId: string, text: string, idempotencyKey: string) =>
+  sendRoom: (farmId: string, text: string, idempotencyKey: string, replyToMessageId?: string, replyToVersion?: number) =>
     request<A.NewsRoomMessage>(
       "POST",
       `/api/messaging/rooms/${farmId}/messages`,
-      { body: { text }, idempotencyKey },
+      { body: { text, replyToMessageId, replyToVersion }, idempotencyKey },
     ),
   news: (q: A.PageQuery = {}) =>
     request<A.Paged<A.NewsItem>>("GET", "/api/messaging/news", { query: q }),
@@ -378,11 +378,12 @@ export const messaging = {
     orderId?: string,
     idempotencyKey: string = newIdempotencyKey(),
     productId?: string,
+    replyToMessageId?: string,
   ) =>
     request<A.SendMessageResult>(
       "POST",
       `/api/messaging/chats/${farmId}/messages`,
-      { body: { text, attachmentIds, orderId, productId }, idempotencyKey },
+      { body: { text, attachmentIds, orderId, productId, replyToMessageId }, idempotencyKey },
     ),
   read: (farmId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/chats/${farmId}/read`, {
@@ -447,12 +448,17 @@ export const messaging = {
     attachmentIds: string[] = [],
     answerToEscalationIds: string[] = [],
     idempotencyKey: string = newIdempotencyKey(),
+    replyToMessageId?: string,
   ) =>
     request<{ message: A.ChatMessage; thread: A.Thread }>(
       "POST",
       `/api/messaging/producer/chats/${consumerId}/messages`,
-      { body: { text, attachmentIds, answerToEscalationIds }, idempotencyKey },
+      { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId }, idempotencyKey },
     ),
+  editChatMessage: (id: string, text: string, version: number, key: string) =>
+    request<A.ChatMessage>("PATCH", `/api/messaging/messages/${id}`, { body: {text, version}, idempotencyKey: key }),
+  editRoomMessage: (farmId: string, id: string, text: string, version: number, key: string) =>
+    request<A.NewsRoomMessage>("PATCH", `/api/messaging/rooms/${farmId}/messages/${id}`, {body: {text, version}, idempotencyKey: key}),
   producerRead: (consumerId: string, lastReadMessageId: string) =>
     request("PUT", `/api/messaging/producer/chats/${consumerId}/read`, {
       body: { lastReadMessageId },

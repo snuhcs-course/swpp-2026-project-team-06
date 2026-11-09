@@ -23,11 +23,13 @@ from app.messaging import service, support
 from app.messaging.schemas import (
     AiModeInput,
     AttachmentView,
+    ChatMessage,
     ChatPage,
     ChatSummary,
     EscalationView,
     InquiryStatusInput,
     InquiryView,
+    MessageEditInput,
     NewsInput,
     NewsItem,
     NewsPosted,
@@ -40,6 +42,7 @@ from app.messaging.schemas import (
     ProducerStartInput,
     ReactionState,
     ReadInput,
+    RoomSendInput,
     SendInput,
     SendResult,
     StartChatInput,
@@ -140,14 +143,18 @@ def room_messages(
 
 
 @router.post("/rooms/{farm_id}/messages", response_model=NewsRoomMessage)
-def send_room(db: Db, user: CurrentUser, farm_id: str, body: TextInput, key: IdempotencyKey = None):
+def send_room(
+    db: Db, user: CurrentUser, farm_id: str, body: RoomSendInput, key: IdempotencyKey = None
+):
     return run_idempotent(
         db,
         user.id,
         f"room:{farm_id}",
         key,
         body,
-        lambda: service.send_room(db, user, farm_id, body.text),
+        lambda: service.send_room(
+            db, user, farm_id, body.text, body.reply_to_message_id, body.reply_to_version
+        ),
     )
 
 
@@ -460,4 +467,37 @@ def inquiry_status(
         key,
         body,
         lambda: service.set_inquiry_status(db, farm, inquiry_id, body.status, body.version),
+    )
+
+
+@router.patch("/messages/{message_id}", response_model=ChatMessage)
+def edit_chat_message(
+    db: Db, user: CurrentUser, message_id: str, body: MessageEditInput, key: IdempotencyKey = None
+):
+    return run_idempotent(
+        db,
+        user.id,
+        f"edit-chat:{message_id}",
+        key,
+        body,
+        lambda: service.edit_chat_message(db, user, message_id, body),
+    )
+
+
+@router.patch("/rooms/{farm_id}/messages/{message_id}", response_model=NewsRoomMessage)
+def edit_room_message(
+    db: Db,
+    user: CurrentUser,
+    farm_id: str,
+    message_id: str,
+    body: MessageEditInput,
+    key: IdempotencyKey = None,
+):
+    return run_idempotent(
+        db,
+        user.id,
+        f"edit-room:{farm_id}:{message_id}",
+        key,
+        body,
+        lambda: service.edit_room_message(db, user, farm_id, message_id, body),
     )

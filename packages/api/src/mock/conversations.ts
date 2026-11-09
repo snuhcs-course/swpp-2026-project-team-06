@@ -17,7 +17,7 @@ import {
   type DB,
   type OrderRec,
 } from "./db";
-import { chatMessage, mask } from "./derive";
+import { chatMessage, mask, maskBroadcastReply } from "./derive";
 import {
   conflict,
   fail,
@@ -294,10 +294,13 @@ export function typicalReplyHours(d: DB, farmId: string, now = Date.now()) {
     mid = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
   return REPLY_BUCKETS.find((b) => mid <= b) ?? null;
 }
+function effectiveMode(t: Thread) {
+  return t.humanReplyUntil ? (Date.parse(nowIso()) < Date.parse(t.humanReplyUntil) ? "HUMAN" : "AUTO") : t.aiMode;
+}
 function farmReply(d: DB, t: Thread) {
   const settings = d.aiSettings[t.farmId] ?? defaultSettings();
   return {
-    mode: t.aiMode === "AUTO" && settings.enabled ? ("AI" as const) : ("FARM" as const),
+    mode: effectiveMode(t) === "AUTO" && settings.enabled ? ("AI" as const) : ("FARM" as const),
     typicalReplyHours: typicalReplyHours(d, t.farmId),
   };
 }
@@ -313,7 +316,7 @@ function page(ctx: Ctx, t: Thread) {
     ]);
   return {
     ...messagePage(ctx, t.threadId, list(d, t).map(m => ({ ...m, sourceSummary: m.handoffStatus === "FORWARDED" ? null : m.sourceSummary })), true),
-    thread: t,
+    thread: {...t, aiMode: effectiveMode(t), serverNow: nowIso()},
     inquiries: ins,
     orders: Object.values(d.orders)
       .filter(
@@ -527,6 +530,9 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       const p = ctx.db.products[productId];
       if (p?.farmId !== t.farmId || p.status !== "PUBLISHED") notFound();
     }
+    const replyId = ctx.body.replyToMessageId as string | undefined;
+    const target = replyId ? list(ctx.db, t).find(m => m.messageId === replyId) : undefined;
+    if (replyId && !target) notFound();
     const aa = attachments(ctx, t, orderId);
     if ((!text && !aa.length) || text.length > 1000)
       invalid({
@@ -549,6 +555,9 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     const m = mask(text),
       settings = ctx.db.aiSettings[t.farmId] ?? defaultSettings();
     const message = chatMessage({
+      replyToMessageId: replyId ?? null,
+      replyTo: target ? {messageId: target.messageId, senderType: target.senderType,
+        body: target.body, attachmentCount: target.attachmentIds?.length ?? 0} : null,
       messageId: nextId("m"),
       sequence: list(ctx.db, t).length + 1,
       senderType: producer ? "PRODUCER" : "CONSUMER",
@@ -557,14 +566,17 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       createdAt: nowIso(),
       attachmentIds: aa.map((a) => a.attachmentId),
       orderId,
-      needsHuman: !producer && (t.aiMode === "HUMAN" || !settings.enabled),
+      needsHuman: !producer && (effectiveMode(t) === "HUMAN" || !settings.enabled),
     });
     bind(ctx, aa);
     list(ctx.db, t).push(message);
     if (producer) {
+      const inquiryOpen = ctx.db.inquiries.some(i => i.threadId === t.threadId && i.status === "OPEN");
+      t.humanReplyUntil = inquiryOpen || t.consumerId === SUPPORT_ID ? null : new Date(Date.parse(nowIso()) + 600000).toISOString();
+      t.version++;
       mode(t, "HUMAN");
       ctx.db.escalations
-        .filter((e) => es.includes(e.escalationId))
+        .filter((e) => e.status === "OPEN" && (es.includes(e.escalationId) || (replyId && e.farmId === t.farmId && e.consumerId === t.consumerId && (e.questionMessageId === replyId || e.reportedMessageId === replyId))))
         .forEach((e) => {
           e.status = "ANSWERED";
           e.answer = m.text;
@@ -575,7 +587,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     // Deterministic Mock: no async/model call. Versions are checked in the same synchronous transaction.
     const tv = t.version,
       sv = settings.version;
-    if (t.aiMode === "AUTO" && settings.enabled) {
+    if (effectiveMode(t) === "AUTO" && settings.enabled) {
       const a = preview(
         ctx.db,
         t.farmId,
@@ -609,6 +621,7 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
             consumerId: t.consumerId,
             consumerName: publicName(ctx.me()),
             context: orderId ?? null,
+            questionMessageId: message.messageId,
             question: m.text,
             reason: a.reason,
             createdAt: nowIso(),
@@ -620,7 +633,31 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     return { message, reply };
   });
 }
+export function editMessageText(ctx: Ctx, row: {body: string; replyTo?: {body: string} | null; masked?: boolean; editedAt?: string | null; editVersion?: number; photos?: string[]; videos?: string[]; attachmentIds?: string[]}, limit: number, redactEmail = false) {
+  if (typeof ctx.body.text !== "string" || !Number.isInteger(ctx.body.version) || Number(ctx.body.version) < 0) invalid({text: "본문과 버전을 확인해 주세요."});
+  if ((row.editVersion ?? 0) !== ctx.body.version) conflict("STALE_VERSION", "다른 곳에서 수정됐어요. 닫고 다시 열어 주세요.");
+  const text = String(ctx.body.text).trim();
+  if ((!text && !row.photos?.length && !row.videos?.length && !row.attachmentIds?.length) || text.length > limit) invalid({text: `본문을 ${limit}자 이내로 적어 주세요.`});
+  const {text: filtered, masked} = mask(text);
+  const value = redactEmail ? maskBroadcastReply(filtered) : filtered;
+  if (value !== row.body) { if ("masked" in row) row.masked = masked; row.body = value; row.editedAt = nowIso(); row.editVersion = (row.editVersion ?? 0) + 1; }
+}
 register({
+  "PATCH /api/messaging/messages/:messageId": (ctx) => {
+    const user = ctx.me();
+    const t = Object.values(ctx.db.threadMeta).find(thread => list(ctx.db, thread).some(m => m.messageId === ctx.params.messageId));
+    if (!t || t.consumerId === SUPPORT_ID) notFound();
+    if ((user.role === "PRODUCER" ? user.farmId !== t.farmId : user.userId !== t.consumerId)) notFound();
+    access({...ctx, params: {...ctx.params, farmId: t.farmId, consumerId: t.consumerId}});
+    const message = list(ctx.db, t).find(m => m.messageId === ctx.params.messageId)!;
+    if (message.senderType !== user.role) notFound("본인이 보낸 메시지만 수정할 수 있어요.");
+    return idempotent(ctx, `edit-chat:${message.messageId}`, () => {
+      const old = message.editVersion ?? 0;
+      editMessageText(ctx, message, 1000);
+      if (old !== (message.editVersion ?? 0)) t.version++;
+      return {...message, editedAt: message.editedAt ?? null, editVersion: message.editVersion ?? 0};
+    });
+  },
   "GET /api/messaging/chats": (ctx) => {
     const u = ctx.me();
     return paginate(
@@ -738,6 +775,7 @@ register({
       consumerId: t.consumerId,
       consumerName: publicName(ctx.db.users[t.consumerId]),
       context: question.orderId ?? null,
+      questionMessageId: question.messageId,
       question: question.body,
       reason: "WRONG_ANSWER",
       createdAt: nowIso(),
@@ -781,7 +819,7 @@ register({
           lastAt: m?.createdAt ?? "",
           unreadCount: unread(ctx.db, t, true),
           needsReply: needsReply(ctx.db, t),
-          aiMode: t.aiMode,
+          aiMode: effectiveMode(t),
           isSupport: t.consumerId === SUPPORT_ID,
         };
       })
@@ -821,6 +859,8 @@ register({
         conflict("STALE_VERSION", "최신 대화 상태를 다시 불러와 주세요.");
       if (ctx.body.mode !== "AUTO" && ctx.body.mode !== "HUMAN")
         invalid({ mode: "응대 모드를 골라 주세요" });
+      t.humanReplyUntil = ctx.body.mode === "HUMAN" ? new Date(Date.parse(nowIso()) + 600000).toISOString() : null;
+      t.version++;
       mode(t, ctx.body.mode);
       return t;
     });
@@ -907,6 +947,8 @@ register({
       ctx.db.inquiries.push(i);
       bind(ctx, aa);
       list(ctx.db, t).push(message);
+      t.humanReplyUntil = null;
+      t.version++;
       mode(t, "HUMAN");
       return { inquiry: i, message, threadId: t.threadId };
     });

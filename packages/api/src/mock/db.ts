@@ -136,6 +136,8 @@ export type ProductRec = {
   updatedAt: string;
 };
 export type NewsRec = {
+  replyTo?: {senderType: string; body: string} | null;
+  editedAt?: string | null; editVersion?: number;
   broadcastId: string;
   farmId: string;
   createdAt: string;
@@ -189,6 +191,7 @@ export type EscalationRec = {
   createdAt: string;
   status: "OPEN" | "ANSWERED";
   answer: string | null;
+  questionMessageId?: string;
   reportedMessageId?: string | null;
 };
 

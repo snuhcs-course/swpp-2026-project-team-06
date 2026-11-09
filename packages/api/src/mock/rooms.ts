@@ -1,9 +1,10 @@
-import { messagePage } from "./conversations";
+import { editMessageText, messagePage } from "./conversations";
 import type { NewsRoomMessage, NewsRoomSummary } from "../types";
 import { nextId, nowIso } from "./db";
-import { mask, newsItem } from "./derive";
+import { mask, maskBroadcastReply, newsItem } from "./derive";
 import {
   fail,
+  conflict,
   idempotent,
   invalid,
   notFound,
@@ -53,6 +54,8 @@ function visible(ctx: Ctx, farmId: string): NewsRoomMessage[] {
     .map((n) => {
       const reaction = newsItem(ctx.db, n, user?.userId ?? null);
       return {
+        replyTo: n.replyTo ?? null,
+        editedAt: n.editedAt ?? null, editVersion: n.editVersion ?? 0,
         messageId: n.broadcastId,
         farmId,
         senderId: farm.ownerId,
@@ -110,6 +113,18 @@ function summary(ctx: Ctx, farmId: string): NewsRoomSummary {
 }
 
 register({
+  "PATCH /api/messaging/rooms/:farmId/messages/:messageId": (ctx) => {
+    const user = ctx.me();
+    access(ctx, ctx.params.farmId);
+    const row = user.role === "PRODUCER"
+      ? ctx.db.news.find(n => n.broadcastId === ctx.params.messageId && n.farmId === ctx.params.farmId && user.farmId === n.farmId)
+      : ctx.db.roomReplies.find(m => m.messageId === ctx.params.messageId && m.farmId === ctx.params.farmId && m.senderId === user.userId);
+    if (!row) notFound("본인이 보낸 메시지만 수정할 수 있어요.");
+    return idempotent(ctx, `edit-room:${ctx.params.farmId}:${ctx.params.messageId}`, () => {
+      editMessageText(ctx, row, user.role === "PRODUCER" ? 2000 : 1000, user.role === "PRODUCER" && !!row.replyTo);
+      return visible(ctx, ctx.params.farmId).find(m => m.messageId === ctx.params.messageId)!;
+    });
+  },
   "GET /api/messaging/rooms": (ctx) => {
     const user = ctx.me();
     if (
@@ -150,10 +165,22 @@ register({
     const max = user?.role === "PRODUCER" ? 2000 : 1000;
     if (!text || text.length > max)
       invalid({ text: `1~${max}자로 적어 주세요.` });
+    if (ctx.body.replyToVersion != null && (!Number.isInteger(ctx.body.replyToVersion) || Number(ctx.body.replyToVersion) < 0)) invalid({replyToVersion: "원문 버전을 확인해 주세요."});
+    if (ctx.body.replyToMessageId != null && typeof ctx.body.replyToMessageId !== "string") invalid({replyToMessageId: "원문을 확인해 주세요."});
     return idempotent(ctx, `room:${farmId}`, () => {
-      const body = mask(text).text;
+      let body = mask(text).text;
+      let replyTo = null;
+      if (ctx.body.replyToMessageId != null) {
+        if (user?.role !== "PRODUCER") fail(403, "FORBIDDEN", "농가만 소식방 인용 답장을 보낼 수 있어요.");
+        const target = ctx.db.roomReplies.find(m => m.messageId === ctx.body.replyToMessageId && m.farmId === farmId);
+        if (!target) notFound("이 소식방의 소비자 글에만 답장할 수 있어요.");
+        if (ctx.body.replyToVersion != null && ctx.body.replyToVersion !== (target.editVersion ?? 0)) conflict("STALE_VERSION", "원문이 수정됐어요. 답장을 취소하고 다시 선택해 주세요.");
+        replyTo = {senderType: "CONSUMER", body: maskBroadcastReply(target.body)};
+        body = maskBroadcastReply(text);
+      }
       if (user?.role === "PRODUCER") {
         const n = {
+          replyTo,
           broadcastId: nextId("n"),
           farmId,
           body,

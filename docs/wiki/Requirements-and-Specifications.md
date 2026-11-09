@@ -1039,3 +1039,19 @@ DEV-287: Sales settings are edited inline within the product page using highligh
 DEV-287: Brix entry and display use one 측정 당도 field. Existing measured values take precedence over legacy expected values. Edits and clearing synchronize both existing API fields; no schema migration is required.
 
 DEV-287: Composer and AI draft variety controls share the same state. In-app back navigation saves edits before showing the saved toast and leaving; failure retains the current editor and inputs.
+
+### DEV-289 chat interaction contract
+Both participants can quote a message in the same private thread. Failed sends retain text, attachments and quote. A producer quote resolves only matching open escalations; order inquiries keep their separate completion action. One farm-wide AI toggle replaces room controls. Successful producer sends pause that room for ten minutes from the last send, extended by further sends, using server timestamps. Idempotent retries do not extend deadlines. Global OFF overrides expiry; resumption applies to new questions only and preserves sensitive-topic handoff. Legacy HUMAN states migrate using the latest producer timestamp. Explicit answer-confirmation buttons and broadcast/private composer wording replace ambiguous controls without visual redesign.
+
+DEV-289 migration preserves permanent direct handling for legacy rooms with open order inquiries and farmclub support. Other legacy HUMAN rooms get the remaining ten-minute window from their latest producer message; deadlines are evaluated by server time.
+
+DEV-289 compact controls: reply icons sit beside bubbles, cancellation uses a close icon, and the producer header contains one farm-wide AI icon with enabled/disabled visual states. Touch targets remain44px and accessible button names remain explicit. Timer text appears only while global AI is enabled.
+
+### DEV-289 context actions and text edits
+The AI icon is captioned AI 답변 ON/OFF. Reply and edit actions live in right-click or mobile long-press menus. Both private-chat participants and newsroom authors can edit their own text; edited bubbles show italic 수정됨 below the content. Photos, original creation time, visibility, reactions, read pointers and human-response deadline are retained. Edits do not resend or rerun AI. Own-author access, onboarding/consent, optimistic editVersion and idempotency are enforced. Quoted snapshots retain the original quoted text. Polling and saved responses never regress a newer edit; permission changes close edit/menu UI and discard stale responses.
+
+Producer quote replies in news rooms are sent to all followers after audience/quote confirmation. Consumer originals remain private; only an anonymous, contact-masked text snapshot is included in the producer broadcast. Source authors, IDs and media are not exposed. Quotes remain fixed after source edits. A separate “1:1 채팅” context action opens the private conversation. Quote broadcasts do not trigger private chat AI or its human-response timer.
+
+Quoted broadcast text and answers mask phone/account numbers and email addresses.
+
+An OPEN order inquiry retains its separate HUMAN handoff with no timer after producer replies. Ordinary ten-minute pauses apply again to producer sends after all inquiries are resolved. News deletion and delete-and-rewrite are chosen in the confirmation sheet opened from the context menu.

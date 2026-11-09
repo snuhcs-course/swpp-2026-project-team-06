@@ -13,6 +13,9 @@ SenderType = Literal["CONSUMER", "PRODUCER", "AI", "OPERATOR"]
 
 
 class NewsItem(CamelModel):
+    reply_to: dict | None = None
+    edited_at: datetime | None = None
+    edit_version: int = 0
     broadcast_id: str
     farm_id: str
     farm_name: str
@@ -53,6 +56,9 @@ class NewsRoomSummary(CamelModel):
 
 
 class NewsRoomMessage(CamelModel):
+    reply_to: dict | None = None
+    edited_at: datetime | None = None
+    edit_version: int = 0
     message_id: str
     farm_id: str
     sender_id: str
@@ -75,11 +81,21 @@ class NewsRoomPage(CamelModel):
     next_cursor: str | None
 
 
+class RoomSendInput(CamelModel):
+    text: str = ""
+    reply_to_message_id: str | None = None
+    reply_to_version: int | None = Field(default=None, ge=0)
+
+
 class TextInput(CamelModel):
     text: str = ""
 
 
 class ChatMessage(CamelModel):
+    edited_at: datetime | None = None
+    edit_version: int = 0
+    reply_to: dict | None = None
+    reply_to_message_id: str | None = None
     sequence: int
     message_id: str
     sender_type: SenderType
@@ -99,6 +115,8 @@ class ChatMessage(CamelModel):
 
 
 class ThreadView(CamelModel):
+    human_reply_until: datetime | None = None
+    server_now: datetime | None = None
     thread_id: str
     farm_id: str
     consumer_id: str
@@ -232,6 +250,7 @@ class ProducerStartInput(CamelModel):
 
 
 class SendInput(CamelModel):
+    reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
     order_id: str | None = None
@@ -245,6 +264,7 @@ class SendResult(CamelModel):
 
 
 class ProducerSendInput(CamelModel):
+    reply_to_message_id: str | None = None
     text: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
     answer_to_escalation_ids: list[str] = Field(default_factory=list)
@@ -284,3 +304,8 @@ class SupportPage(CamelModel):
 
 class SupportSendInput(CamelModel):
     text: str
+
+
+class MessageEditInput(CamelModel):
+    text: str
+    version: int = Field(ge=0)

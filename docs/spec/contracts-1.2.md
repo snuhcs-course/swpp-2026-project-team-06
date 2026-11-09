@@ -39,7 +39,7 @@
 - Thread는 (farmId,consumerId)당 하나. {threadId,farmId,consumerId,aiMode:AUTO|HUMAN,version,consumerLastReadMessageId,producerLastReadMessageId}.
 - DEV-245/246: POST /api/messaging/chats {farmId,orderId?}는 명시적 시작이다. orderId가 없으면 일반 자동 팔로우 규칙, 있으면 서버가 본인 결제 이력·해당 농가를 확인하고 팔로우 없이 대화를 만든다/재사용한다(autoFollowed=false). 결과 {farmId,autoFollowed}는 유지한다. 대화·주문 연결은 thread_order_contexts에 중복 없이 기록하며 메시지·문제 문의·전달 질문·AI 호출·모드/버전 변경은 만들지 않는다. GET은 대화를 만들지 않는다.
 - 명시적으로 연결한 결제 주문 또는 기존 문제 문의가 있는 대화는 매 요청에서 실제 소유·paidAt·농가를 재확인해 목록/빈 대화/읽음/사진 접근을 허용한다. 연결 행만으로 권한을 부여하지 않는다. 여러 주문을 한 대화에 연결할 수 있고 orders 요약은 검증된 연결 주문을 포함한다. 미팔로우 전송은 여전히 유효한 본인 orderId를 명시해야 한다. 현재 상태가 환불/취소여도 결제 이력이 있으면 문의할 수 있다.
-- Thread.version은 실제 AI 모드가 변경될 때 증가하며 메시지/읽음 갱신만으로는 증가하지 않는다. AUTO에서 자동 HUMAN 전환도 버전을 증가시킨다. 이미 HUMAN이면 유지한다.
+- Thread.version은 AI 모드 또는 직접 응대 종료시각이 바뀔 때 증가한다. 생산자 성공 발송마다 humanReplyUntil을 발송+10분으로 갱신하고 버전을 증가시킨다. 읽음과 멱등 재시도는 갱신하지 않는다(DEV-289).
 - 소비자 기존 /api/messaging/chats 경로 유지. 주문 문의가 있는 대화는 팔로우 해제 후에도 목록에 남는다.
 - 소비자 GET /api/messaging/chats/{farmId}/messages → {thread,items,nextCursor,inquiries,orders}; inquiries는 해당 대화의 문의, orders는 연결 주문 요약이며 본인 소유 범위만 포함한다.
 - GET /api/messaging/producer/chats?needsReply=&cursor=&limit= → Paged<{threadId,consumerId,consumerName,lastMessage,lastAt,unreadCount,needsReply,aiMode}>. 승인된 자기 농가의 모든 기존 대화/전달 질문을 소비자별로 묶는다.
@@ -124,3 +124,21 @@
 
 ## DEV-235 1:1 메시지 저장 순서
 ChatMessage.sequence는 기존 서버 메시지 삽입 순번이다. 같은 createdAt이어도 질문→AI 답→농가 답의 저장 순서를 유지하며 페이지/다시 불러오기/전송 응답에서 같은 메시지의 순번은 같다. 기존 커서·읽음 기준은 바꾸지 않는다. 구 API 응답과 순차 배포되는 클라이언트는 순번이 모두 있을 때 그 순서, 없거나 섞이면 시각순·동시각 서버 제공 순서를 유지한다.
+
+## DEV-289 인용 답장·일시 직접 응대
+- 양쪽 메시지 전송에 선택적 replyToMessageId를 받는다. 저장 전 같은 Thread 메시지인지 검증하고 서버의 가린 본문·발신자·첨부 개수에서 replyTo 인용을 만든다. 조회·전송 메시지는 replyToMessageId와 replyTo를 포함한다.
+- Thread에 humanReplyUntil, serverNow를 추가한다. 일반 생산자 발송은 마지막 발송+10분까지 HUMAN, 이후 AUTO로 평가한다. 설정 전체OFF는 항상 우선한다. 주문 문제 접수는 타이머와 별도 직접응대로 전환한다. 과거 질문 자동재처리는 하지 않는다.
+- 기존 ai-mode 엔드포인트는 유지하되 HUMAN은10분 대기를 만들고 AUTO는 대기를 해제한다. 새 UI에는 농가전체AI 설정 버튼만 제공한다.
+- 생산자 인용 답변은 해당 메시지와 연결된 OPEN 질문만 처리한다. ANSWERED의 기존 답은 덮어쓰지 않는다. 소비자 답장 및 일반 발송은 주문 문의 완료를 변경하지 않는다.
+
+DEV-289 이관: 기존 OPEN 주문 문제 문의와 운영팀 방의 직접응대는 보존한다. 나머지 기존 HUMAN 방은 마지막 생산자 발송+10분으로 이관한다. 배포 중 구 서버가 남아도 직접응대 보호를 잃지 않도록 저장 모드는 보존하고 새 서버가 기한을 평가한다.
+
+## DEV-289 메시지 수정 API
+- PATCH /api/messaging/messages/{messageId}, PATCH /api/messaging/rooms/{farmId}/messages/{messageId}: {text, version}, Idempotency-Key 필요. 응답은 기존 메시지 DTO에 editedAt와 editVersion(초기0)을 포함한다. 본인 글만, 기존 온보딩·동의·농가 승인·방 접근 검사를 유지한다.
+- 본문 한도: 1:1·소비자 소식방 답장1000자, 농가 소식2000자. 첨부가 없으면 공백만은 불가하고 연락처 가림을 유지한다. 같은 저장 본문은 버전/수정시각을 올리지 않는다.
+- 1:1 수정은 기존 대기 종료시각을 연장하지 않지만 진행 중 AI가 이전 질문으로 응답하지 않도록 Thread.version을 갱신한다.
+
+### 소식방 인용 방송 (DEV-289)
+`POST /api/messaging/rooms/{farmId}/messages`는 선택적 `replyToMessageId`를 받는다. 소유 생산자가 같은 농가 소비자 답장을 지정하면 마스킹한 익명 텍스트를 `replyTo: {senderType: "CONSUMER", body}`로 고정 저장한 FOLLOWERS 방송을 만든다. 소비자 지정은403, 없는/다른 농가/방송 target은404. 새 방송만 인용 스냅샷을 노출하고 원문 조회 권한은 바뀌지 않는다.
+
+인용 작성 UI는 원문의 editVersion을 replyToVersion으로 함께 보내며, 발송 시 원문이 수정되었으면409로 거부하여 재선택을 안내한다. 확인 미리보기의 이메일도 가린다.

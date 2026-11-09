@@ -1,6 +1,9 @@
+import { MessageEditSheet } from "./MessageEditSheet";
+import { MessageMenu, type MenuPoint } from "./MessageMenu";
 import { mergeChatMessages } from "./chatOrder";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Platform, ScrollView, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { ChatBubble } from "./ChatBubble";
 import { T } from "./Text";
@@ -20,6 +23,8 @@ import {
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
 
 type Message = {
+  editedAt?: string | null; editVersion?: number;
+  replyTo?: {messageId: string; senderType: string; body: string; attachmentCount: number} | null;
   sequence?: number;
   messageId: string;
   senderType: string;
@@ -47,10 +52,12 @@ type Props = {
   composerEnabled?: boolean;
   onAccessDenied?: (error: unknown) => void;
   onBusyChange?: (busy: boolean) => void;
+  edit?: (id: string, text: string, version: number, key: string) => Promise<Message>;
+  replies?: boolean;
   producer?: boolean;
   active: boolean;
   load: (cursor?: string) => Promise<Page>;
-  send: (text: string, ids: string[], key: string) => Promise<unknown>;
+  send: (text: string, ids: string[], key: string, replyToMessageId?: string) => Promise<unknown>;
   report?: (messageId: string, key: string) => Promise<unknown>;
   read: (id: string) => Promise<unknown>;
   makeKey: () => string;
@@ -70,6 +77,8 @@ export function ChatThread({
   composerEnabled = true,
   onAccessDenied,
   onBusyChange,
+  edit,
+  replies = false,
   producer = false,
   active,
   load,
@@ -134,6 +143,11 @@ export function ChatThread({
     expectedScroll = useRef<number | null>(null),
     epoch = useRef(0), reading = useRef(""),
     captureRef = useRef<() => void>(() => {});
+  const [editTarget, setEditTarget] = useState<Message | null>(null);
+  const [menuMessage, setMenuMessage] = useState<Message | null>(null);
+  const [menuPoint, setMenuPoint] = useState<MenuPoint | null>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  useEffect(() => { if (!active) { setMenuMessage(null); setEditTarget(null); } }, [active]);
   const [reporting, setReporting] = useState<string | null>(null);
   // 앱: 입력창 아래에 하단 내비 바(안전 영역)만큼 더 띄운다. 키보드가 뜨면 키보드가 내비 바를 덮으므로 뺀다.
   // 웹은 지금 여백(20) 그대로(DEV-205)
@@ -149,6 +163,9 @@ export function ChatThread({
   useEffect(() => {
     if (previousContext.current === sendScope) return;
     previousContext.current = sendScope;
+    setReplyTo(null);
+    setMenuMessage(null);
+    setEditTarget(null);
     pending.current = null;
     lock.current = false;
     setBusy(false);
@@ -405,15 +422,16 @@ export function ChatThread({
     const submittedScope = context.current, run = epoch.current;
     lock.current = true;
     setBusy(true);
-    const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids });
+    const body = JSON.stringify({ scope: submittedScope, text: text.trim(), ids, replyTo: replyTo?.messageId });
     if (pending.current?.body !== body)
       pending.current = { body, key: makeKey() };
     let committed = false;
     try {
-      await callbacks.current.send(text.trim(), ids, pending.current.key);
+      await callbacks.current.send(text.trim(), ids, pending.current.key, replyTo?.messageId);
       if (!current(run) || submittedScope !== context.current) return;
       committed = true;
       setRetrySend(false);
+      setReplyTo(null);
       setText("");
       setIds([]);
       setPhotos(false);
@@ -584,6 +602,18 @@ export function ChatThread({
                 {days[i]}
               </T>
             ) : null}
+            <Pressable accessible={false} disabled={!replies || busy} delayLongPress={500}
+              onLongPress={() => { setMenuPoint(null); setMenuMessage(m); }}
+              {...(Platform.OS === "web" && replies ? {
+                onContextMenu: (e: {preventDefault: () => void; clientX: number; clientY: number}) => {
+                  e.preventDefault(); if (busy) return;
+                  setMenuPoint({x: e.clientX, y: e.clientY}); setMenuMessage(m);
+                },
+                tabIndex: 0,
+                onKeyDown: (e: {key: string; shiftKey: boolean; preventDefault: () => void}) => {
+                  if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) { e.preventDefault(); setMenuPoint(null); setMenuMessage(m); }
+                },
+              } as object : {})}>
             <ChatBubble
               kind={
                 m.senderType === (producer ? "PRODUCER" : "CONSUMER")
@@ -592,6 +622,8 @@ export function ChatThread({
                     ? "ai"
                     : "farm"
               }
+              quote={m.replyTo ?? undefined}
+              edited={!!m.editedAt}
               text={m.body}
               sender={
                 m.senderType === (producer ? "PRODUCER" : "CONSUMER")
@@ -623,8 +655,8 @@ export function ChatThread({
               m.handoffStatus !== "FORWARDED" &&
               report ? (
                 <Button
-                  label={m.reported ? "신고했어요" : "틀렸어요"}
-                  variant="text"
+                  label={m.reported ? "확인 요청됨" : "답변 확인 요청"}
+                  variant="outline"
                   disabled={Boolean(m.reported) || reporting === m.messageId}
                   loading={reporting === m.messageId}
                   onPress={async () => {
@@ -652,10 +684,22 @@ export function ChatThread({
                 </T>
               ) : null}
             </ChatBubble>
+            </Pressable>
           </View>
         ))}
         {children}
       </ScrollView>
+      <MessageMenu visible={!!menuMessage && !busy} point={menuPoint} onClose={() => setMenuMessage(null)}
+        actions={[{ label: "답장", onPress: () => { if (menuMessage) setReplyTo(menuMessage); } },
+          ...(edit && menuMessage?.senderType === (producer ? "PRODUCER" : "CONSUMER") ? [{label: "수정", onPress: () => setEditTarget(menuMessage)}] : [])]} />
+      {editTarget && edit ? <MessageEditSheet key={editTarget.messageId} body={editTarget.body} limit={1000} makeKey={makeKey}
+        onClose={() => setEditTarget(null)} onSave={async (text, key) => {
+          const run = epoch.current;
+          const saved = await edit(editTarget.messageId, text, editTarget.editVersion ?? 0, key);
+          if (!current(run)) return;
+          commitMessages(mergeChatMessages(messageRef.current, [saved]));
+          setEditTarget(null);
+        }} /> : null}
       {unseen ? (
         <Button
           label="새 메시지 보기 ↓"
@@ -675,6 +719,11 @@ export function ChatThread({
           borderTopColor: tokens.color.border,
         }}
       >
+        {replyTo ? <View style={{ paddingLeft: 8, borderLeftWidth: 3, borderLeftColor: tokens.color.accent, flexDirection: "row", alignItems: "center" }}>
+          <View style={{ flex: 1, minWidth: 0 }}><T variant="caption" muted>선택한 메시지에 답장</T><T numberOfLines={2}>{replyTo.body || "사진"}</T></View>
+          <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTo(null)}
+            style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Icon name="close" size={18} /></Pressable>
+        </View> : null}
         {photos && upload ? (
           <PrivatePhotos
             key={sendScope}
@@ -739,9 +788,6 @@ export function waitingIndex(
     if (m.senderType === "CONSUMER" && m.needsHuman) found = i;
   });
   if (found < 0) return -1;
-  const asked = messages[found].createdAt;
-  // 같은 시각이면 정렬 순서가 정해지지 않으므로 시각으로 비교한다
-  return messages.some((m) => m.senderType === "PRODUCER" && m.createdAt >= asked)
-    ? -1
-    : found;
+  // The timeline is ordered by persisted sequence, including equal timestamps.
+  return messages.slice(found + 1).some(m => m.senderType === "PRODUCER") ? -1 : found;
 }

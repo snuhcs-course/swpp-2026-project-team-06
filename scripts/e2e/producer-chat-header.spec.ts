@@ -8,7 +8,7 @@ test("DEV-232: producer 1:1 header keeps the masked consumer name on direct link
 
   await page.goto(`${producerUrl}/chats/u-minji`);
   // 대화가 그려진 뒤(응대 바 버튼)를 기준으로 본다
-  await expect(page.getByRole("button", { name: /직접 응대로 전환|AI 응답 재개/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /전체 AI 응대 ON|전체 AI 응대 OFF/ })).toBeVisible();
   const shot = process.env.DEV232_SHOT;
   if (shot) await page.screenshot({ path: shot });
   await expect(header.getByText("김○○", { exact: true })).toBeVisible();

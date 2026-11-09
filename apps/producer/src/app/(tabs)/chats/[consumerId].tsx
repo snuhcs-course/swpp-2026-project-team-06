@@ -3,14 +3,12 @@ import {
   newIdempotencyKey,
   privateImage,
   uploadAttachment,
-  isMock,
   SUPPORT_ID,
   type ChatPage,
 } from "@farmclub/api";
 import {
   Button,
   ChatThread,
-  Checkbox,
   ConversationHeader,
   Screen,
   T,
@@ -19,6 +17,7 @@ import {
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
+import { GlobalAiButton, HumanReplyStatus } from "../../../lib/GlobalAiButton";
 import { View } from "react-native";
 import { ORDER_STATUS } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
@@ -33,9 +32,7 @@ export default function Chat() {
   const support = consumerId === SUPPORT_ID;
   const [page, setPage] = useState<ChatPage | null>(null),
     [active, setActive] = useState(false),
-    [selected, setSelected] = useState<string[]>([]),
-    [error, setError] = useState(""),
-    [changing, setChanging] = useState(false);
+    [error, setError] = useState("");
   useFocusEffect(
     useCallback(() => {
       setActive(true);
@@ -52,29 +49,14 @@ export default function Chat() {
   );
   // 머리 이름은 대화 응답의 가림 이름(서버 값 그대로). 첫 응답 전에는 목록에서 넘긴 param(DEV-232)
   const consumerName = page?.consumerName ?? name;
-  async function toggle() {
-    if (!page || changing) return;
-    setChanging(true);
-    try {
-      await messaging.aiMode(
-        consumerId,
-        page.thread.aiMode === "AUTO" ? "HUMAN" : "AUTO",
-        page.thread.version,
-      );
-      await load();
-      setError("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "변경하지 못했어요");
-    } finally {
-      setChanging(false);
-    }
-  }
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
   return (
     <Screen>
       <ConversationHeader
         name={support ? "farmclub" : (consumerName ?? "소비자")}
         subtitle={support ? "운영팀 문의" : "1:1 채팅"}
         avatar={support ? <SupportAvatar size={40} /> : undefined}
+        right={!support && page ? <GlobalAiButton onEnabledChange={setAiEnabled} /> : undefined}
         onBack={() => router.navigate("/chats?view=private")}
       />
       {support ? (
@@ -94,77 +76,32 @@ export default function Chat() {
           </T>
         </View>
       ) : (
-        <View
-          style={{
-            padding: 12,
-            gap: 4,
-            borderBottomWidth: 1,
-            borderBottomColor: tokens.color.border,
-          }}
-        >
-          <View
-            testID="ai-mode"
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <T weight="semibold">
-              {page?.thread.aiMode === "HUMAN"
-                ? "농가 직접 응대"
-                : "AI 자동 안내"}
-            </T>
-            <Button
-              label={
-                page?.thread.aiMode === "HUMAN"
-                  ? "AI 응답 재개"
-                  : "직접 응대로 전환"
-              }
-              variant="text"
-              loading={changing}
-              onPress={toggle}
-            />
-          </View>
-          <T variant="caption" muted>
-            답변을 보내면 직접 응대로 전환돼요. 농가 AI가 꺼져 있으면 자동
-            안내도 쉬어요.{isMock ? " · Mock 안내" : ""}
-          </T>
-          <Button
-            label="농가 AI 설정"
-            variant="text"
-            onPress={() =>
-              router.push({
-                pathname: "/farm/ai-settings",
-                params: {
-                  consumerId,
-                  ...(consumerName ? { name: consumerName } : {}),
-                },
-              })
-            }
-          />
+        <>
+          {page ? <HumanReplyStatus enabled={aiEnabled} until={page.thread.humanReplyUntil} serverNow={page.thread.serverNow} /> : null}
           {error ? <T color={tokens.color.error}>{error}</T> : null}
-        </View>
+        </>
       )}
       <ChatThread
         key={consumerId}
         producer
+        edit={!support ? (id, text, version, key) => messaging.editChatMessage(id, text, version, key) : undefined}
+        replies={!support}
         active={active}
         load={load}
         makeKey={newIdempotencyKey}
         read={(id) => messaging.producerRead(consumerId, id)}
         loadPhoto={privateImage}
         upload={(f) => uploadAttachment(f, { threadId: page?.thread.threadId })}
-        send={async (text, ids, key) => {
+        send={async (text, ids, key, replyToMessageId) => {
           const r = await messaging.producerSend(
             consumerId,
             text,
             ids,
-            selected,
+            [],
             key,
+            replyToMessageId,
           );
-          setSelected([]);
+          await load();
           return r;
         }}
       >
@@ -186,22 +123,6 @@ export default function Chat() {
             ))}
           </View>
         ) : null}
-        {page?.escalations
-          ?.filter((e) => e.status === "OPEN")
-          .map((e) => (
-            <Checkbox
-              key={e.escalationId}
-              checked={selected.includes(e.escalationId)}
-              onPress={() =>
-                setSelected((ids) =>
-                  !ids.includes(e.escalationId)
-                    ? [...ids, e.escalationId]
-                    : ids.filter((id) => id !== e.escalationId),
-                )
-              }
-              label={`${e.reason === "WRONG_ANSWER" ? "소비자가 AI 답변을 신고했어요 · " : ""}이 답변으로 해결: ${e.question}`}
-            />
-          ))}
         {page?.inquiries.map((i) => (
           <View
             key={i.inquiryId}
