@@ -1349,7 +1349,12 @@ def _producer_reply(
         created_at=now(),
     )
     db.add(message)
-    thread.human_reply_until = message.created_at + timedelta(minutes=10)
+    open_inquiry = db.scalar(
+        select(OrderInquiry.id)
+        .where(OrderInquiry.thread_id == thread.id, OrderInquiry.status == "OPEN")
+        .limit(1)
+    )
+    thread.human_reply_until = None if open_inquiry else message.created_at + timedelta(minutes=10)
     thread.ai_mode = "HUMAN"
     thread.version += 1
     for e in escalations:

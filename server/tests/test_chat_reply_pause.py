@@ -313,3 +313,84 @@ def test_already_answered_question_preserves_first_answer_and_timestamp(
     assert reloaded_messages[first_answer_id] == saved_messages[first_answer_id]
     assert set(reloaded_messages) == set(saved_messages) | {later["message"]["messageId"]}
     assert reloaded_messages[later["message"]["messageId"]]["body"] == later["message"]["body"]
+
+
+def _open_order_inquiry(client, consumer, text, kind="DAMAGE"):
+    result = _ok(
+        client.post(
+            "/api/orders/o-38/inquiries",
+            headers=consumer | _key(),
+            json={"type": kind, "text": text},
+        )
+    )
+    assert result["inquiry"]["status"] == "OPEN"
+    return result["inquiry"]
+
+
+def _resolve_order_inquiry(client, producer, inquiry):
+    return _ok(
+        client.put(
+            f"/api/messaging/producer/inquiries/{inquiry['inquiryId']}/status",
+            headers=producer | _key(),
+            json={"status": "RESOLVED", "version": inquiry["version"]},
+        )
+    )
+
+
+def test_producer_reply_to_open_order_inquiry_keeps_indefinite_human_mode_and_retry(
+    client, login, at
+):
+    consumer, producer = login("u-seojun"), login("u-kang")
+    _settings(client, producer, enabled=True, smallOrderPolicy="1kg부터 주문할 수 있어요.")
+    _open_order_inquiry(client, consumer, "상자가 찌그러졌어요")
+    key = _key()
+    first = _ok(_send(client, producer, "배송 상태를 확인하고 있어요", producer=True, key=key))
+    assert first["thread"]["aiMode"] == "HUMAN"
+    assert first["thread"]["humanReplyUntil"] is None
+
+    at(minutes=11)
+    retry = _ok(_send(client, producer, "배송 상태를 확인하고 있어요", producer=True, key=key))
+    assert retry == first
+    page = _page(client, consumer)
+    assert page["thread"]["aiMode"] == "HUMAN"
+    assert page["thread"]["humanReplyUntil"] is None
+    assert page["farmReply"]["mode"] == "FARM"
+    assert sum(m["messageId"] == first["message"]["messageId"] for m in page["items"]) == 1
+    sent = _ok(_send(client, consumer, "소량 주문 되나요?", orderId="o-38"))
+    assert sent["reply"] is None
+    assert _page(client, consumer)["farmReply"]["mode"] == "FARM"
+
+
+def test_last_open_inquiry_resolution_allows_next_producer_reply_to_start_normal_pause(
+    client, login, at
+):
+    consumer, producer = login("u-seojun"), login("u-kang")
+    _settings(client, producer, enabled=True, smallOrderPolicy="1kg부터 주문할 수 있어요.")
+    first = _open_order_inquiry(client, consumer, "상자가 찌그러졌어요")
+    second = _open_order_inquiry(client, consumer, "내용물도 확인 부탁드려요", "OTHER")
+    _ok(_send(client, producer, "두 문의를 확인합니다", producer=True))
+    _resolve_order_inquiry(client, producer, first)
+    at(minutes=11)
+    assert _ok(_send(client, consumer, "소량 주문 되나요?", orderId="o-38"))["reply"] is None
+    partial = _ok(_send(client, producer, "남은 문의도 확인 중입니다", producer=True))
+    assert partial["thread"]["aiMode"] == "HUMAN"
+    assert partial["thread"]["humanReplyUntil"] is None
+    at(minutes=22)
+    assert _page(client, consumer)["farmReply"]["mode"] == "FARM"
+    _resolve_order_inquiry(client, producer, second)
+
+    # Resolution need not change mode immediately. A new ordinary producer
+    # reply must restore the timed pause once no OPEN inquiry remains.
+    ordinary = _ok(_send(client, producer, "문의 처리가 끝났습니다", producer=True))
+    assert ordinary["thread"]["aiMode"] == "HUMAN"
+    assert _time(ordinary["thread"]["humanReplyUntil"]) == BASE + timedelta(minutes=32)
+    at(minutes=31, seconds=59)
+    assert _ok(_send(client, consumer, "소량 주문 되나요?", orderId="o-38"))["reply"] is None
+    at(minutes=32)
+    page = _page(client, consumer)
+    assert page["thread"]["aiMode"] == "AUTO"
+    assert page["farmReply"]["mode"] == "AI"
+    assert (
+        _ok(_send(client, consumer, "소량 주문 되나요?", orderId="o-38"))["reply"]["senderType"]
+        == "AI"
+    )

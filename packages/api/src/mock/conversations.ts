@@ -571,7 +571,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
     bind(ctx, aa);
     list(ctx.db, t).push(message);
     if (producer) {
-      t.humanReplyUntil = new Date(Date.parse(nowIso()) + 600000).toISOString();
+      const inquiryOpen = ctx.db.inquiries.some(i => i.threadId === t.threadId && i.status === "OPEN");
+      t.humanReplyUntil = inquiryOpen ? null : new Date(Date.parse(nowIso()) + 600000).toISOString();
       t.version++;
       mode(t, "HUMAN");
       ctx.db.escalations

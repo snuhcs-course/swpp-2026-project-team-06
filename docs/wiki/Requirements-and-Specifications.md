@@ -1053,3 +1053,5 @@ The AI icon is captioned AI 답변 ON/OFF. Reply and edit actions live in right-
 Producer quote replies in news rooms are sent to all followers after audience/quote confirmation. Consumer originals remain private; only an anonymous, contact-masked text snapshot is included in the producer broadcast. Source authors, IDs and media are not exposed. Quotes remain fixed after source edits. A separate “1:1 채팅” context action opens the private conversation. Quote broadcasts do not trigger private chat AI or its human-response timer.
 
 Quoted broadcast text and answers mask phone/account numbers and email addresses.
+
+An OPEN order inquiry retains its separate HUMAN handoff with no timer after producer replies. Ordinary ten-minute pauses apply again to producer sends after all inquiries are resolved. News deletion and delete-and-rewrite are chosen in the confirmation sheet opened from the context menu.
