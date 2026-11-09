@@ -114,7 +114,7 @@ class FanReplyPage(CamelModel):
     broadcast: FanReplyBroadcast
     total: int
     unread_count: int
-    # 이 소식의 가장 최근 답장(필터·페이지와 무관). 시트를 닫을 때 여기까지 읽음 처리
+    # 이 소식의 가장 최근 답장(필터·페이지와 무관). 시트가 끝까지 불러오면 여기까지 읽음 처리
     last_reply_id: str | None
     items: list[FanReply]
     next_cursor: str | None

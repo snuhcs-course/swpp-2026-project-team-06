@@ -463,7 +463,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-12/13/33/34, AC-12-7/9/10/11/12, AC-34-2, M-19, M-22. 채팅 탭.
 - **화면**: 소식방 / 1:1 채팅만. 최초 소식방은 자신의 대화 본문이 바로 열린다. 중간 농가 목록·전체/답변 필요 필터·목록 AI/직접 응대 상태 없음.
-- **고정**: 밑줄 탭 ‘내 소식방 / 1:1 채팅 N’, 판매 품목 한 줄(기본 접힘 ‘판매 중 N개 · 팔로워 N명’), ‘사진·영상’ 도구 칩 + 입력창(탭 위), 4개 탭. 내 소식 아래 오른쪽 한 줄 ‘♥ N’(DEV-295). 본문 첫 시스템 문구 ‘보내는 소식은 모든 팔로워에게 보여요’는 대화와 함께 스크롤한다.
+- **고정**: 밑줄 탭 ‘내 소식방 / 1:1 채팅 N’, 판매 품목 한 줄(기본 접힘 ‘판매 중 N개 · 팔로워 N명’), ‘사진·영상’ 도구 칩 + 입력창(탭 위), 4개 탭. 내 소식 아래 오른쪽 한 줄 ‘읽음 N · ♥ N · 답장 N ›’(DEV-295·DEV-297). ‘답장 N ›’(답장이 있을 때만) → 팬 답장 시트: 제목 ‘답장 N’, 소식 인용 · 날짜, 칩 ‘전체 N / 안 읽음 N’, 줄마다 첫 글자 아바타·가린 이름·‘예약 고객’·안 읽음 점·시각·본문·‘모두에게 답장’(이미 인용했으면 ‘모두에게 답장함 ✓’)·‘1:1 채팅’. 열면 그 답장들을 읽음 처리(FEAT-15 AC-15-11). 본문 첫 시스템 문구 ‘보내는 소식은 모든 팔로워에게 보여요’는 대화와 함께 스크롤한다.
 - **보내기 확인·삭제 (DEV-210, M-23, AC-12-13~16)**: 입력 안내는 ‘팔로워 N명에게 보내기’(수를 모르면 ‘모든 팔로워에게 보내기’, DEV-295). 전송을 누르면 시트 ‘팔로워 N명에게 보낼까요?’(팔로워 0명이면 ‘아직 팔로워가 없어요. 그래도 보낼까요?’), 소비자에게 보일 미리보기, ‘보낸 소식은 지울 수 있지만 고칠 수는 없어요.’, ‘아니요’(요청 없이 글 유지) · ‘확인 · 보내기’(한 번만). 본인 방송 좋아요 줄 끝 ⋯(길게 누르기도 같음) → ‘이 소식을 삭제할까요?’, 공개 소식은 ‘팔로워 N명의 소식방과 농가 공개 소식방에서 사라져요.’, 팔로워 전용은 ‘…소식방과 채팅 목록에서 사라져요.’, ‘받은 답장은 지워지지 않아요. 삭제한 소식은 되돌릴 수 없어요.’, ‘삭제하고 다시 쓰기’(글 소식만, 본문이 입력칸으로 돌아옴) · ‘아니요’ · ‘삭제’. `DELETE /api/messaging/news/{broadcastId}`의 404는 이미 지운 것으로 보고 성공 처리한다. 토스트 ‘소식을 삭제했어요’(다시 쓰기면 ‘… · 고쳐서 다시 보내 주세요’). 소비자 소식방·채팅 목록 미리보기에서는 원 소식이 빠지고 답장은 남는다(FEAT-12 DEV-210 절, [제안 보드](/docs/design/proposals/dev-210-news-confirm-delete.html), DEV-233에서 옮김).
 - **동작**: 본인 roomMessages/sendRoom, 기존 소비자 답장에서 명시적 1:1 시작, 첨부 → SCR-27 → 같은 탭. /news/:farmId 기존 링크는 자기 방이면 이 탭으로 복귀한다.
 - **상태**: 접기/전송은 입력·접힘 선택을 유지. 빈 대화·로딩·실패 재시도, 권한/비활성 polling 중단은 유지.
@@ -714,7 +714,10 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | --- | --- | --- |
 | PUT /api/products/{productId}/sales-settings | 승인 생산자·본인 상품 | SCR-25 · Must |
 | GET /api/messaging/rooms | 소비자/승인 생산자, 각각 허용 방 | SCR-18·28 · Should |
-| GET/POST /api/messaging/rooms/{farmId}/messages | 팔로워 또는 해당 생산자 | SCR-18·28 · Should |
+| GET/POST /api/messaging/rooms/{farmId}/messages | 팔로워 또는 해당 생산자. 생산자 응답의 방송에만 `readCount`·`replyCount`(DEV-297) | SCR-18·28 · Should |
+| PUT /api/messaging/rooms/{farmId}/read | 팔로워(소비자). `lastReadMessageId` = 그 농가의 지우지 않은 소식, 위치는 앞으로만, 204(DEV-297) | SCR-03·18 · Should |
+| GET /api/messaging/rooms/{farmId}/broadcasts/{broadcastId}/replies | 해당 생산자. `filter`(all·unread), `cursor`, `limit` → `broadcast`·`total`·`unreadCount`·`lastReplyId`·`items`(DEV-297) | SCR-28 · Should |
+| PUT /api/messaging/rooms/{farmId}/broadcasts/{broadcastId}/replies/read | 해당 생산자. `lastReadMessageId`까지 읽음 → `unreadCount`(DEV-297) | SCR-28 · Should |
 | GET/POST /api/messaging/producer/chats | 해당 생산자. 목록에 farmclub 문의 대화방(`isSupport: true`, `consumerId = u-farmclub`)이 최근 순으로 함께 온다(FEAT-34) | SCR-28 · Should |
 | GET/POST /api/messaging/producer/chats/{consumerId}/messages | 해당 생산자. GET의 AI 답변 행에는 서버가 계산한 신고 여부 `reported` | SCR-28 · Should |
 | PUT /api/messaging/producer/chats/{consumerId}/ai-mode | 해당 생산자. farmclub 문의 대화방은 400(AI를 쓰지 않음, M-22) | SCR-28 · Should |
