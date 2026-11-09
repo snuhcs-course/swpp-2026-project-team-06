@@ -26,6 +26,16 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
     (cursor?: string) => messaging.roomMessages(farmId, { limit: 50, cursor }),
     [farmId],
   );
+  const fanReplies = useCallback(
+    (broadcastId: string, cursor?: string) =>
+      messaging.fanReplies(farmId, broadcastId, { limit: 50, cursor }),
+    [farmId],
+  );
+  const readFanReplies = useCallback(
+    (broadcastId: string, lastReadMessageId: string) =>
+      messaging.readFanReplies(farmId, broadcastId, lastReadMessageId),
+    [farmId],
+  );
   return (
     <>
       {/* 한 줄 ‘판매 중 N개 · 팔로워 N명’, 기본 접힘(DEV-295, Figma 7:90) */}
@@ -63,6 +73,9 @@ export default function OwnNewsRoom({ active }: { active: boolean }) {
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)
           }
+          // 소식별 ‘답장 N ›’ 팬 답장 시트(DEV-297, Figma 7:93)
+          fanReplies={fanReplies}
+          readFanReplies={readFanReplies}
           onPrivateReply={async (consumerId, replyId) => {
             try {
               await messaging.producerStart(consumerId, replyId);

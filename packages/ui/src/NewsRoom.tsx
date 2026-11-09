@@ -31,6 +31,8 @@ import { ProfileAvatar } from "./Messenger";
 import { Composer, copyToClipboard, FloatingPill, ToolChip } from "./composer";
 import { ViewablePhoto } from "./PrivatePhotos";
 import { Price, type ShelfProduct } from "./Storefront";
+import { FanReplySheet, type FanReplyPageData, type FanReplyRow } from "./FanReplySheet";
+import { broadcastStats } from "./fanReplies";
 
 const quotePreview = (body: string) => body.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일 가림]");
 const PRIVATE_AREA = { dataSet: { phPrivate: "1" } } as object;
@@ -50,6 +52,9 @@ type Message = {
   reactionCount: number;
   myReaction: boolean;
   visibility?: "PUBLIC" | "FOLLOWERS" | null;
+  /** 소유 생산자의 방송에만(DEV-297) */
+  readCount?: number | null;
+  replyCount?: number | null;
 };
 type Page = {
   items: Message[];
@@ -84,6 +89,12 @@ type Props = {
   onLapsedChange?: (lapsed: boolean) => void;
   /** 길게 누르기 메뉴의 '복사'. 앱은 expo-clipboard 도우미를 넘긴다. 없으면 웹 클립보드만(DEV-295) */
   copy?: (text: string) => Promise<unknown>;
+  /** 소비자(팔로워): 이 소식이 보이는 위치까지 읽었다(DEV-297). 맨 아래에서 가장 최근 소식으로 부른다 */
+  markRead?: (broadcastId: string) => Promise<unknown>;
+  /** 생산자: 소식 하나의 팬 답장(‘답장 N ›’ 시트, DEV-297) */
+  fanReplies?: (broadcastId: string, cursor?: string) => Promise<FanReplyPageData>;
+  /** 생산자: 시트에서 본 답장을 읽음으로(DEV-297) */
+  readFanReplies?: (broadcastId: string, lastReadMessageId: string) => Promise<unknown>;
 };
 const VIDEO = /^data:video|\.(mp4|webm)$/;
 const statusOf = (e: unknown) =>
@@ -173,6 +184,9 @@ export function NewsRoom({
   onRefollow,
   onLapsedChange,
   copy,
+  markRead,
+  fanReplies,
+  readFanReplies,
 }: Props) {
   const [canReply, setCanReply] = useState(producer);
   const access = useRef<boolean | null>(null);
@@ -198,6 +212,10 @@ export function NewsRoom({
   const [target, setTarget] = useState<Message | null>(null);
   const [removing, setRemoving] = useState(false);
   const [copied, setCopied] = useState(false);
+  // 팬 답장 시트가 열린 소식(DEV-297)
+  const [replySheet, setReplySheet] = useState<string | null>(null);
+  // 마지막으로 읽음을 남긴 소식. 같은 소식으로 다시 부르지 않는다
+  const lastMarked = useRef<string | null>(null);
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 1500);
@@ -221,7 +239,7 @@ export function NewsRoom({
       alive.current = false;
     };
   }, []);
-  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); } }, [active]);
+  useEffect(() => { if (!active) { accessEpoch.current++; setEditTarget(null); setMenuTarget(null); setReplyTarget(null); setReplySheet(null); } }, [active]);
   /** 새로고침 응답이 덮는 범위(가장 오래된 항목 이후, complete면 전부)에서 응답에 없는 방송은 지워진 것이다(M-23).
    * 답장은 지우지 않는다. 내가 막 보내 아직 응답에 나온 적 없는 소식(fresh)은 늦게 온 응답이 지우지 않게 남긴다 */
   const reconcile = (items: Message[], complete: boolean) => {
@@ -406,6 +424,20 @@ export function NewsRoom({
       if (alive.current) setBusy(false);
     }
   }
+  /** 팔로워가 맨 아래(가장 최근 소식이 보이는 위치)에 있으면 그 소식까지 읽음을 남긴다(DEV-297, AC-15-9).
+   * 팔로우를 끊은 방·비로그인·생산자는 부르지 않는다. 실패는 알리지 않고 다음 기회에 다시 보낸다 */
+  function markSeen() {
+    if (producer || !canReply || !markRead || !userId || !active || !nearBottom.current) return;
+    const latest = [...messages].reverse().find((m) => m.broadcastId)?.broadcastId;
+    if (!latest || latest === lastMarked.current) return;
+    lastMarked.current = latest;
+    void markRead(latest).catch(() => {
+      if (lastMarked.current === latest) lastMarked.current = null;
+    });
+  }
+  useEffect(() => {
+    if (ready) markSeen();
+  }, [messages, ready, canReply, active]);
   async function like(message: Message) {
     if (!userId) {
       onLogin?.();
@@ -535,7 +567,10 @@ export function NewsRoom({
               n.layoutMeasurement.height -
               n.contentOffset.y <
             80;
-          if (nearBottom.current) setUnseen(false);
+          if (nearBottom.current) {
+            setUnseen(false);
+            markSeen();
+          }
         }}
         scrollEventThrottle={100}
         onContentSizeChange={(_, h) => {
@@ -637,15 +672,10 @@ export function NewsRoom({
               }
               footer={
                 m.broadcastId && producer ? (
-                  // 생산자 반응 줄은 내 소식 바로 아래 오른쪽 한 줄(Figma 7:90). 숫자는 농가만 본다
-                  <View
-                    accessible
-                    accessibilityLabel={`좋아요 ${m.reactionCount}`}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 2, alignSelf: "flex-end" }}
-                  >
-                    <Icon name="heartFill" size={14} color={tokens.color.textMuted} />
-                    <T variant="caption" muted>{m.reactionCount}</T>
-                  </View>
+                  <BroadcastStats
+                    message={m}
+                    onReplies={fanReplies ? () => setReplySheet(m.broadcastId) : undefined}
+                  />
                 ) : undefined
               }
             >
@@ -713,7 +743,7 @@ export function NewsRoom({
                 <Pressable accessibilityRole="button" accessibilityLabel="답장 취소" disabled={busy} onPress={() => setReplyTarget(null)} style={{width: 44, height: 44, alignItems: "center", justifyContent: "center"}}><Icon name="close" size={18} /></Pressable>
               </View> : null}
               {onAttach ? (
-                // '+' 글자 대신 도구 칩(Figma 7:90). '이름 넣기'는 서버가 필요해 후속(DEV-297)
+                // '+' 글자 대신 도구 칩(Figma 7:90). '이름 넣기'(`{이름}` 치환)는 PM 결정으로 없앴다(DEV-297, 11/10)
                 <ToolChip
                   icon="photo"
                   label="사진·영상"
@@ -774,6 +804,38 @@ export function NewsRoom({
           ...(menuTarget?.senderRole === "CONSUMER" && producer ? [{label: "답장", onPress: () => { setReplyTarget(menuTarget); setTimeout(() => input.current?.focus(), 0); }}] : []),
           ...(menuTarget?.senderRole === "CONSUMER" && producer && onPrivateReply ? [{label: "1:1 채팅", onPress: () => { if (menuTarget) onPrivateReply(menuTarget.senderId, menuTarget.messageId); }}] : []),
         ]} />
+      {producer && fanReplies ? (
+        <FanReplySheet
+          broadcastId={replySheet}
+          load={fanReplies}
+          markRead={readFanReplies}
+          onClose={() => setReplySheet(null)}
+          onQuote={(r: FanReplyRow) => {
+            // 시트에서 고른 답장을 길게 누르기 ‘답장’과 같은 익명 인용 흐름(DEV-289)으로 넘긴다
+            setReplySheet(null);
+            setReplyTarget({
+              messageId: r.messageId,
+              senderId: r.consumerId,
+              senderName: r.senderName,
+              senderRole: "CONSUMER",
+              body: r.body,
+              editVersion: r.editVersion,
+              photos: [],
+              videos: [],
+              createdAt: r.createdAt,
+              broadcastId: null,
+              reactionCount: 0,
+              myReaction: false,
+              visibility: null,
+            });
+            setTimeout(() => input.current?.focus(), 0);
+          }}
+          onPrivate={onPrivateReply ? (consumerId, replyId) => {
+            setReplySheet(null);
+            onPrivateReply(consumerId, replyId);
+          } : undefined}
+        />
+      ) : null}
       {editTarget && edit ? <MessageEditSheet key={editTarget.messageId} body={editTarget.body} limit={producer ? 2000 : 1000}
         makeKey={makeKey} onClose={() => setEditTarget(null)} onSave={async (text, key) => {
           const epoch = accessEpoch.current;
@@ -901,6 +963,52 @@ export function NewsRoom({
             />
           </View>
         </Sheet>
+      ) : null}
+    </View>
+  );
+}
+
+/** 내 소식 바로 아래 오른쪽 한 줄 ‘읽음 N · ♥ N · 답장 N ›’(DEV-297, Figma 7:90). 숫자는 농가만 본다.
+ * ‘답장 N ›’은 답장이 있을 때만이고 누르면 팬 답장 시트를 연다 */
+function BroadcastStats({ message, onReplies }: { message: Message; onReplies?: () => void }) {
+  const stats = broadcastStats(message);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-end" }}>
+      <View
+        accessible
+        accessibilityLabel={stats.replies && onReplies ? stats.countsLabel : stats.label}
+        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+      >
+        {stats.read ? (
+          <>
+            <T variant="caption" muted>{stats.read}</T>
+            <T variant="caption" muted>·</T>
+          </>
+        ) : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+          <Icon name="heartFill" size={14} color={tokens.color.textMuted} />
+          <T variant="caption" muted>{stats.likes}</T>
+        </View>
+        {stats.replies && !onReplies ? (
+          <>
+            <T variant="caption" muted>·</T>
+            <T variant="caption" muted>{stats.replies}</T>
+          </>
+        ) : null}
+      </View>
+      {stats.replies && onReplies ? (
+        <>
+          <T variant="caption" muted>·</T>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${stats.replies} 모아 보기`}
+            onPress={onReplies}
+            // caption 16 + 위아래 16 = 터치 48
+            hitSlop={{ top: 16, bottom: 16, left: 8, right: 8 }}
+          >
+            <T variant="caption" weight="semibold" color={tokens.color.accent}>{`${stats.replies} ›`}</T>
+          </Pressable>
+        </>
       ) : null}
     </View>
   );

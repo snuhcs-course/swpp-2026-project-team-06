@@ -79,6 +79,10 @@ export default function FarmRoom() {
     (cursor?: string) => messaging.roomMessages(farmId, { limit: 50, cursor }),
     [farmId, user?.userId],
   );
+  const markRead = useCallback(
+    (broadcastId: string) => messaging.readRoom(farmId, broadcastId),
+    [farmId],
+  );
   async function follow(target: boolean) {
     if (busy) return;
     const requestIdentity = identity;
@@ -177,6 +181,8 @@ export default function FarmRoom() {
           react={(id, liked) =>
             liked ? messaging.unreact(id) : messaging.react(id)
           }
+          // 팔로워가 맨 아래에서 본 가장 최근 소식까지 읽음을 남긴다(DEV-297, 화면 변화 없음)
+          markRead={markRead}
           onRefollow={join}
           onLapsedChange={setLapsed}
           copy={copyText}
