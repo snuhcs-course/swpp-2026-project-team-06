@@ -145,7 +145,7 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
-  await expect(page.getByText("주문·배송 현황", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "현황", exact: true })).toBeVisible();
   await expect(page.getByText("답변할 대화", { exact: false })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "수확 시작", exact: true }),
@@ -180,7 +180,7 @@ test("AC-14-4/17-6/12-12: dashboard has only fulfillment, chat opens own collaps
   await expect(shelf).toHaveAttribute("aria-expanded", "false");
   const a = await input.boundingBox(),
     b = await page
-      .getByRole("tab", { name: "환경설정", exact: true })
+      .getByRole("tab", { name: "설정", exact: true })
       .boundingBox();
   expect(a!.y + a!.height).toBeLessThanOrEqual(b!.y);
   await page.screenshot({ path: info.outputPath("producer-room.png") });

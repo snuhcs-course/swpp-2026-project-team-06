@@ -8,7 +8,7 @@ const shot = (name: string) => process.env.DEV121_SHOTS && `${process.env.DEV121
 
 test("DEV-121 AC-14-6: unread producer reads the origin notice from the home todo, then it stays as a row", async ({ page, request }) => {
   await loginProducer(page, "강영수");
-  const todo = page.getByText("원산지 표시제도 안내를 읽어 주세요", { exact: true });
+  const todo = page.getByText("원산지 표시제도 안내 읽기", { exact: true });
   await expect(todo).toBeVisible();
   if (shot("after-impl-home-unread")) await page.screenshot({ path: shot("after-impl-home-unread")! });
 
@@ -22,7 +22,7 @@ test("DEV-121 AC-14-6: unread producer reads the origin notice from the home tod
 
   await page.getByRole("button", { name: "확인했어요" }).click();
   await expect(page).not.toHaveURL(/\/origin-notice$/);
-  await expect(page.getByText("원산지 표시제도 안내를 읽어 주세요", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("원산지 표시제도 안내 읽기", { exact: true })).toHaveCount(0);
   const row = page.getByText("원산지 표시제도 안내", { exact: true });
   await expect(row).toBeVisible();
   await expect(page.getByText(/월 \d+일 확인함$/).first()).toBeVisible();

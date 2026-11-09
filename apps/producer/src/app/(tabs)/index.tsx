@@ -382,7 +382,7 @@ export default function Home() {
                     month: "long",
                     day: "numeric",
                   })}{" "}
-                  확인
+                  확인함
                 </T>
               }
               onPress={() => router.push("/origin-notice")}

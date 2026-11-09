@@ -121,7 +121,8 @@ test("AC_01_1 DEV-283 producer evaluator list has the same labels as the consume
   const kakao = page.getByRole("button", { name: "카카오로 시작하기" });
   await expect(kakao).toBeVisible();
   await expect(page.getByText("생산자 테스트 계정을 골라 주세요")).toBeVisible();
-  await expect(page.getByText("소비자는 소비자 앱에서 따로 로그인해요.")).toBeAttached();
+  // DEV-294: 소비자 안내 문장은 지웠다
+  await expect(page.getByText("소비자는 소비자 앱에서 따로 로그인해요.")).toHaveCount(0);
   await expect(page.getByText("처음이세요? 농가로 가입 신청 ›")).toBeAttached();
   // 카카오 버튼은 목록보다 위 본문에, '○○으로 시작하기'는 하단 고정 바에 있다
   const bar = page.getByTestId("login-bottom-bar");
