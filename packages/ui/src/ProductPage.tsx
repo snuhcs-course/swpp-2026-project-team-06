@@ -11,10 +11,12 @@ import { Price } from "./Storefront";
 import { T } from "./Text";
 import {
   closesText,
+  defaultOptionId,
   DELIVERY_PENDING_NOTE,
   deliveryText,
   joinMeta,
   md,
+  optionLeft,
   shippingText,
   unavailableLabel,
   won,
@@ -101,17 +103,8 @@ export function ProductPageBody({
   const toggle = (k: NonNullable<typeof open>) =>
     setOpen((o) => (o === k ? null : k));
   const cur = p.stages.find((s) => s.stageId === p.currentStageId) ?? null;
-  const firstOpt = p.options[0]?.optionId;
-  const left =
-    cur && firstOpt
-      ? Math.min(
-          Math.floor(
-            p.remainingGrams / Math.round(p.options[0].weightKg * 1000),
-          ),
-          (cur.options[firstOpt]?.quantity ?? 0) -
-            (cur.options[firstOpt]?.reservedCount ?? 0),
-        )
-      : 0;
+  // '남은 박스'는 옵션 시트가 처음 고르는 옵션(살 수 있는 첫 옵션) 기준. 첫 옵션만 품절이면 '0박스 남음'이 되던 문제(DEV-291)
+  const left = cur ? optionLeft(p, defaultOptionId(p)) : 0;
   const fee = shippingText(p.shippingFeeType, p.shippingFee);
   const infoOpen = slots?.infoOpen || open === "info";
   return (
@@ -245,7 +238,7 @@ export function ProductPageBody({
           onPress={() => toggle("cancel")}
           last
         >
-          <T variant="sub">예약할 때 전액을 한 번에 결제해요.</T>
+          <T variant="sub">예약할 때 전액을 한 번에 입금해요.</T>
           <T variant="sub">
             보내기 전에는 언제든 취소할 수 있고 전액 환불돼요. 수수료는 없어요.
           </T>
