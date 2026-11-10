@@ -158,6 +158,8 @@ class MyProduct(SalesState):
     measured_brix_at: datetime | None
     options: list[ProductOptionView]
     stages: list[MyStageView]
+    # 지금 판매 기간(DEV-300). 판매 설정 옵션 표 가격이 목록 카드와 같은 기간을 쓰게 서버가 고른다
+    current_stage_id: str | None
     shipping_fee_type: ShippingFeeType
     shipping_fee: int
     remote_area_fee: int
@@ -172,6 +174,20 @@ class MyProduct(SalesState):
     reserved_count: int
 
 
+class MyProductCardOption(CamelModel):
+    """상품 목록 카드의 중량 옵션 한 줄(DEV-300).
+
+    박스는 모든 기간 합, 가격은 지금 판매 기간의 박스당 가격(없으면 None).
+    """
+
+    option_id: str
+    label: str
+    weight_kg: float
+    reserved: int
+    quantity: int
+    price: int | None
+
+
 class MyProductCard(SalesState):
     product_id: str
     name: str
@@ -182,6 +198,7 @@ class MyProductCard(SalesState):
     reserved_count: int
     current_stage_label: str | None
     updated_at: datetime
+    options: list[MyProductCardOption]
 
 
 class ProductOptionInput(CamelModel):
