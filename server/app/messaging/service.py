@@ -1321,7 +1321,8 @@ def _producer_reply(
 
     열린 AI 답변 확인 요청(DEV-296)을 닫는 답장은 바로잡기(CORRECTED)다. 인용 대상 없이
     확인 요청 하나만 닫으면 그 AI 답변을 인용해 저장해서 소비자가 무엇을 바로잡았는지 본다.
-    '답이 맞아요'(CONFIRMED)로 이미 닫힌 AI 답변을 인용한 답장은 평범한 답장이라 결과를 바꾸지 않는다.
+    '답이 맞아요'(CONFIRMED)로 이미 닫힌 AI 답변을 인용한 답장은 평범한 답장이라
+    결과를 바꾸지 않는다.
     """
     text = text.strip()
     attachment_ids = attachment_ids or []
