@@ -3,7 +3,7 @@
 - 이슈: [SWPP-130](https://linear.app/sswp6/issue/SWPP-130)
 - 브랜치: `jangjinuite/swpp-130-ask-human-time`
 - 기능·인수 조건: infra(팀 작업 규칙). 제품 동작 변경 없음.
-- 상태: 진행 중
+- 상태: 완료
 
 ### 목표
 에이전트가 마무리한 PR·Linear에 "Agent 시간·Tokens 미계측"만 남고 Human 시간이 빠지는 문제를 막는다. Agent 시간은 에이전트가 재서 적고, Tokens는 하네스가 준 값만 적고, Human 시간은 마무리 전에 작성자에게 묻는다.
@@ -31,7 +31,7 @@
 - [x] PR 템플릿 'AI 사용' 줄
 
 ### 완료 조건
-- [ ] 사람 리뷰(고위험: AGENTS.md·.agents/skills/**)
+- [x] 사람 리뷰(고위험: AGENTS.md·.agents/skills/**)
 - [ ] main 머지
 
 ### 기록
