@@ -26,6 +26,7 @@ from app.messaging.models import (
     OrderInquiry,
     PrivateAttachment,
     Reaction,
+    RoomRead,
     RoomReply,
     Thread,
     ThreadMessage,
@@ -38,6 +39,9 @@ from app.messaging.schemas import (
     ChatPage,
     ChatSummary,
     EscalationView,
+    FanReply,
+    FanReplyBroadcast,
+    FanReplyPage,
     FarmReply,
     InquiryCreated,
     InquiryInput,
@@ -287,6 +291,39 @@ def _room_rows(db: Session, user, farm, can_reply: bool, cursor: list | None, li
     return rows[: limit + 1]
 
 
+def _broadcast_counts(
+    db: Session, broadcast_ids: list[str]
+) -> tuple[dict[str, int], dict[str, int]]:
+    """소식별 읽음 수와 연결된 답장 수(DEV-297).
+
+    읽음 수는 그 농가 소비자의 읽음 위치 중 (작성 시각, id)가 그 소식 이상인 수다.
+    한 사람은 위치가 하나라 같은 소식을 여러 번 열어도 1회로 센다.
+    """
+    reached = or_(
+        RoomRead.last_read_at > Broadcast.created_at,
+        and_(
+            RoomRead.last_read_at == Broadcast.created_at,
+            RoomRead.last_read_broadcast_id >= Broadcast.id,
+        ),
+    )
+    reads = dict(
+        db.execute(
+            select(Broadcast.id, func.count(RoomRead.consumer_id))
+            .join(RoomRead, and_(RoomRead.farm_id == Broadcast.farm_id, reached))
+            .where(Broadcast.id.in_(broadcast_ids))
+            .group_by(Broadcast.id)
+        ).all()
+    )
+    replies = dict(
+        db.execute(
+            select(RoomReply.broadcast_id, func.count(RoomReply.id))
+            .where(RoomReply.broadcast_id.in_(broadcast_ids))
+            .group_by(RoomReply.broadcast_id)
+        ).all()
+    )
+    return reads, replies
+
+
 def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]:
     from app.accounts import service as accounts
 
@@ -301,6 +338,9 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                 )
             )
         )
+    # 읽음·답장 수는 소유 생산자에게만(DEV-297). _room_access가 남의 농가 생산자를 이미 막았다
+    owner = user is not None and user.role == "PRODUCER"
+    reads, replies = _broadcast_counts(db, broadcast_ids) if owner and broadcast_ids else ({}, {})
     result = []
     for r in rows:
         if isinstance(r, Broadcast):
@@ -322,6 +362,8 @@ def _room_messages(db: Session, user, farm, rows: list) -> list[NewsRoomMessage]
                     reaction_count=r.reaction_count,
                     my_reaction=r.id in mine,
                     visibility=r.visibility,
+                    read_count=reads.get(r.id, 0) if owner else None,
+                    reply_count=replies.get(r.id, 0) if owner else None,
                 )
             )
         else:
@@ -468,9 +510,13 @@ def send_room(
             )
         quote = {"senderType": "CONSUMER", "body": _broadcast_reply_text(target.body)}
         body = _broadcast_reply_text(text)
+        # 모두에게 답했으면 생산자가 읽은 답장이다(DEV-297 팬 답장 '안 읽음')
+        if target.producer_read_at is None:
+            target.producer_read_at = now()
     if user.role == "PRODUCER":
         row = Broadcast(
             reply_to=quote,
+            quoted_reply_id=reply_to_message_id if quote is not None else None,
             id=new_id("n"),
             farm_id=farm.id,
             body=body,
@@ -481,12 +527,191 @@ def send_room(
             created_at=now(),
         )
     else:
+        # 답한 소식 = 보낸 순간 그 농가의 가장 최근 지우지 않은 소식(DEV-297).
+        # 소비자 답장에는 인용이 없어(DEV-289 인용은 생산자 → 소비자 방향)
+        # 채팅에서 바로 위 농가 말풍선을 대상으로 본다
+        latest = db.scalar(
+            select(Broadcast.id)
+            .where(Broadcast.farm_id == farm.id, _LIVE)
+            .order_by(Broadcast.created_at.desc(), Broadcast.id.desc())
+            .limit(1)
+        )
         row = RoomReply(
-            id=new_id("reply"), farm_id=farm.id, consumer_id=user.id, body=body, created_at=now()
+            id=new_id("reply"),
+            farm_id=farm.id,
+            consumer_id=user.id,
+            body=body,
+            created_at=now(),
+            broadcast_id=latest,
         )
     db.add(row)
     db.flush()
     return _room_messages(db, user, farm, [row])[0]
+
+
+def read_room(db: Session, consumer, farm_id: str, broadcast_id: str) -> None:
+    """팔로워가 소식방에서 이 소식이 보이는 위치까지 읽었다(DEV-297). 위치는 앞으로만 간다."""
+    farm, following = _room_access(db, consumer, farm_id)
+    # 생산자는 _room_access에서 (자기 농가, True)라 역할도 함께 본다
+    if consumer.role != "CONSUMER" or not following:
+        raise forbidden("팔로우한 농가의 소식방만 읽음이 남아요.")
+    b = db.scalar(
+        select(Broadcast).where(Broadcast.id == broadcast_id, Broadcast.farm_id == farm.id, _LIVE)
+    )
+    if b is None:
+        raise not_found("이 소식방의 소식이 아니에요.")
+    stamp = now()
+    statement = pg_insert(RoomRead).values(
+        farm_id=farm.id,
+        consumer_id=consumer.id,
+        last_read_broadcast_id=b.id,
+        last_read_at=b.created_at,
+        updated_at=stamp,
+    )
+    newer = statement.excluded
+    db.execute(
+        statement.on_conflict_do_update(
+            index_elements=[RoomRead.farm_id, RoomRead.consumer_id],
+            set_={
+                "last_read_broadcast_id": newer.last_read_broadcast_id,
+                "last_read_at": newer.last_read_at,
+                "updated_at": newer.updated_at,
+            },
+            where=or_(
+                RoomRead.last_read_at < newer.last_read_at,
+                and_(
+                    RoomRead.last_read_at == newer.last_read_at,
+                    RoomRead.last_read_broadcast_id < newer.last_read_broadcast_id,
+                ),
+            ),
+        )
+    )
+
+
+def _own_broadcast(db: Session, farm, farm_id: str, broadcast_id: str) -> Broadcast:
+    if farm.id != farm_id:
+        raise not_found("내 농가의 소식방만 볼 수 있어요.")
+    b = db.scalar(
+        select(Broadcast).where(Broadcast.id == broadcast_id, Broadcast.farm_id == farm.id, _LIVE)
+    )
+    if b is None:
+        raise not_found("찾을 수 없는 소식이에요.")
+    return b
+
+
+def fan_replies(
+    db: Session,
+    user,
+    farm,
+    farm_id: str,
+    broadcast_id: str,
+    unread_only: bool,
+    cursor: str | None,
+    limit: int,
+) -> FanReplyPage:
+    """소식 하나에 연결된 소비자 답장(DEV-297). 오래된 순, 생산자·소식·필터에 묶인 cursor."""
+    from app.accounts import service as accounts
+    from app.orders import service as orders
+
+    b = _own_broadcast(db, farm, farm_id, broadcast_id)
+    of_broadcast = RoomReply.broadcast_id == b.id
+    unread = RoomReply.producer_read_at.is_(None)
+    total = db.scalar(select(func.count(RoomReply.id)).where(of_broadcast)) or 0
+    unread_count = db.scalar(select(func.count(RoomReply.id)).where(of_broadcast, unread)) or 0
+    last_reply_id = db.scalar(
+        select(RoomReply.id)
+        .where(of_broadcast)
+        .order_by(RoomReply.created_at.desc(), RoomReply.id.desc())
+        .limit(1)
+    )
+    scope = f"{user.id}|replies:{b.id}|{'unread' if unread_only else 'all'}"
+    after = _scoped_cursor(scope, cursor)
+    query = select(RoomReply).where(of_broadcast)
+    if unread_only:
+        query = query.where(unread)
+    if after:
+        try:
+            at, rid = datetime.fromisoformat(after[0]), str(after[1])
+        except (TypeError, ValueError) as exc:
+            raise invalid({"cursor": "잘못된 cursor예요"}) from exc
+        query = query.where(
+            or_(RoomReply.created_at > at, and_(RoomReply.created_at == at, RoomReply.id > rid))
+        )
+    rows = list(db.scalars(query.order_by(RoomReply.created_at, RoomReply.id).limit(limit + 1)))
+    next_cursor = None
+    if len(rows) > limit:
+        rows = rows[:limit]
+        next_cursor = encode_cursor([scope, rows[-1].created_at.isoformat(), rows[-1].id])
+    consumer_ids = list({r.consumer_id for r in rows})
+    names = accounts.get_users(db, consumer_ids)
+    reserved = orders.paid_customer_ids(db, farm.id, consumer_ids)
+    quoted = (
+        set(
+            db.scalars(
+                select(Broadcast.quoted_reply_id).where(
+                    Broadcast.quoted_reply_id.in_([r.id for r in rows]), _LIVE
+                )
+            )
+        )
+        if rows
+        else set()
+    )
+    # 탈퇴한 회원은 끝난 주문이 남아 있어도 예약 고객으로 표시하지 않는다
+    withdrawn = {cid for cid, u in names.items() if u.deleted_at is not None}
+    return FanReplyPage(
+        broadcast=FanReplyBroadcast(
+            broadcast_id=b.id,
+            body=b.body,
+            media_count=len(b.photos or []) + len(b.videos or []),
+            created_at=b.created_at,
+        ),
+        total=total,
+        unread_count=unread_count,
+        last_reply_id=last_reply_id,
+        items=[
+            FanReply(
+                message_id=r.id,
+                consumer_id=r.consumer_id,
+                sender_name=accounts.public_name(names.get(r.consumer_id)),
+                body=r.body,
+                created_at=r.created_at,
+                edit_version=r.edit_version,
+                unread=r.producer_read_at is None,
+                reserved_customer=r.consumer_id in reserved and r.consumer_id not in withdrawn,
+                quoted=r.id in quoted,
+            )
+            for r in rows
+        ],
+        next_cursor=next_cursor,
+    )
+
+
+def read_fan_replies(
+    db: Session, farm, farm_id: str, broadcast_id: str, message_id: str
+) -> UnreadState:
+    """시트에서 본 답장(그 소식의 message_id까지)을 생산자 읽음으로 바꾼다(DEV-297)."""
+    b = _own_broadcast(db, farm, farm_id, broadcast_id)
+    last = db.scalar(
+        select(RoomReply).where(RoomReply.id == message_id, RoomReply.broadcast_id == b.id)
+    )
+    if last is None:
+        raise not_found("이 소식의 답장이 아니에요.")
+    of_broadcast = RoomReply.broadcast_id == b.id
+    unread = RoomReply.producer_read_at.is_(None)
+    db.execute(
+        RoomReply.__table__.update()
+        .where(
+            of_broadcast,
+            unread,
+            or_(
+                RoomReply.created_at < last.created_at,
+                and_(RoomReply.created_at == last.created_at, RoomReply.id <= last.id),
+            ),
+        )
+        .values(producer_read_at=now())
+    )
+    left = db.scalar(select(func.count(RoomReply.id)).where(of_broadcast, unread)) or 0
+    return UnreadState(unread_count=left)
 
 
 # ---------------- 1:1 대화 (contracts-1.2 4장) ----------------

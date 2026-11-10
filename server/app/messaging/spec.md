@@ -9,7 +9,7 @@
 
 ## 구조
 - `router.py` — prefix `/messaging`(앱에서는 `/api/messaging`). 소식 `/news`, 농가별 공개 소식 `/farms/{farmId}/news`, 좋아요 `/news/{broadcastId}/reaction`, 채팅 `/chats`, 질문함 `/questions`. 관리 API `/admin/messages/...`는 기능 이슈에서 추가.
-- `models.py` — 담당 엔티티: `Broadcast`, `Reaction`, `Thread`, `ThreadMessage`, `Escalation`
+- `models.py` — 담당 엔티티: `Broadcast`, `Reaction`, `RoomReply`, `RoomRead`(소식방 읽음 위치, DEV-297), `Thread`, `ThreadMessage`, `Escalation`
 - `schemas.py` — 소식·좋아요·채팅·질문함 입출력
 - `service.py` — 소식 올리기, 팔로우한 농가의 소식 목록, 좋아요 켬·끔, 채팅 시작(자동 팔로우), 질문 → AI 응답 시도 → 전달, 연락처 가림(M-16)
 
@@ -61,3 +61,12 @@
 
 - 본인 메시지 본문 수정은 `PATCH /messages/{messageId}`와 `PATCH /rooms/{farmId}/messages/{messageId}`로 제공한다. 마이그레이션0029는 `edited_at`·`edit_version`을 추가한다. 버전 충돌 및 멱등 재시도를 검증하고, 미디어·원래 시각·인용·AI 대기 상태는 유지한다. 수정은 Thread.version을 올려 이전 질문에 대한 진행 중 AI 응답을 무효화한다.
 - 소식방 소비자 원문은 비공개를 유지한다. 생산자가 같은 농가 글에 답장하면 익명 인용 스냅샷을 FOLLOWERS Broadcast의 `reply_to`에 저장한다(0030). 전화·계좌·이메일 가림, 선택 원문 버전409 검증과 별도1:1 이동은 FEAT-12를 따른다.
+
+### DEV-297 소식별 읽음 수·팬 답장
+동작·권한은 FEAT-15 DEV-297 절(AC-15-9~11), API는 contracts-1.2 소식방 절. 구현 결정은 `tasks/DEV-297.md`.
+
+- 읽음은 `room_reads`(농가·소비자당 하나)의 위치 하나다. `read_room`이 PostgreSQL upsert(`ON CONFLICT DO UPDATE WHERE 더 뒤`)로 앞으로만 옮긴다. 읽음 수는 `_broadcast_counts`가 위치의 (작성 시각, id) ≥ 방송인 행을 방송별로 센다(소유 생산자 응답에만).
+- 소비자 답장은 `send_room`에서 그 순간 가장 최근 지우지 않은 방송을 `room_replies.broadcast_id`에 저장하고 바꾸지 않는다. 소비자 답장에는 인용이 없고 DEV-289 `reply_to`는 반대 방향 익명 스냅샷이라 명시 대상이 없다. 응답 `broadcastId`(답장은 null)로는 내보내지 않는다.
+- 안 읽음은 `room_replies.producer_read_at`이 없는 답장(시트에서 확인 전). 시트 읽음 처리·생산자 인용이 채운다. 0031은 기존 답장을 그때 지우지 않았던 가장 최근 방송에 연결하고 읽음으로 채운다.
+- 인용 방송은 원문 답장 id를 `broadcasts.quoted_reply_id`(서버 전용)에 둔다. `room_replies.broadcast_id`와 FK 고리가 생기지 않게 FK 없이 둔다(`seed.clear`·삭제 순서).
+- 예약 고객은 orders service `paid_customer_ids`(결제 확인 + RESERVED~COMPLETED)로 판단하고, 탈퇴한 회원(`deleted_at`)은 빼고 보인다.
