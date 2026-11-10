@@ -45,7 +45,7 @@
 
 기존 envelope와 페이지 cursor를 유지한다. 아래 mutation에는 Idempotency-Key가 필요하다. 생산자는 승인된 자기 농가의 상품만 조회/수정하며 타 농가 자원은 404, 운영자 mutation은 ADMIN만 허용한다. 화면에 생산자용 승인 버튼을 넣지 않는다.
 
-- MyProductCard/Detail: 중량 집계, pendingCapacityRequest(없으면 null), 최신 반려 사유 추가. 판매 상세 GET에도 같은 판매 중량을 제공한다.
+- MyProductCard/Detail: 중량 집계, pendingCapacityRequest(없으면 null), 최신 반려 사유 추가. 판매 상세 GET에도 같은 판매 중량을 제공한다. MyProductCard에는 `options: [{optionId,label,weightKg,reserved,quantity,price}]`(DEV-300): 상품 옵션 순서, reserved·quantity는 모든 기간의 예약+출하·판매 박스 합, price는 지금 판매 기간(currentStageLabel 기간)의 박스당 가격이고 그 기간이 없거나 옵션 값이 없으면 null. MyProduct(상품 상세 GET)에도 같은 지금 판매 기간 `currentStageId`(없으면 null)를 준다.
 - CapacityRequest = {requestId,productId,kind:INITIAL|INCREASE,requestedTotalGrams,status:PENDING|APPROVED|REJECTED|WITHDRAWN,reason,createdAt,decidedAt,version}. reason은 반려 사유(그 외 null). version은 신청 자체의 버전이다.
 - POST /api/products/{productId}/capacity-requests: {requestedTotalGrams,version}; version은 상품 버전. 신청을 생성하고 상품 버전을 올리며 요청을 반환한다.
 - GET /api/products/{productId}/capacity-requests?cursor=&limit=: 소유 생산자 또는 ADMIN의 신청 이력(Paged<CapacityRequest>), 최신순.
@@ -61,7 +61,7 @@
 ## 5. 화면
 
 - 상품 필터: 판매 중 → 심사 중 → 작성 중 → 판매 중지 → 판매 종료. 심사 중은 최초 물량 심사만. 증액 심사는 기존 그룹에 '물량 추가 심사 중' 배지.
-- 판매 설정: 맨 위 옵션별 예약+출하 / 판매 박스 표(모든 기간 합, DEV-300), 승인 물량/현재 판매 한도/예약 중/출하 완료/추가 예약 가능(kg), 주문당 상한(박스), 중지/재개, 공급 신청·이력. 상품 목록 카드도 옵션별 예약+출하 박스를 보인다(DEV-300). 한도·승인·신청은 계속 kg다.
+- 판매 설정: 맨 위 옵션별 박스당 가격(지금 판매 기간) · 예약+출하 / 판매 박스 표(박스는 모든 기간 합, DEV-300), 그 아래 보조 글자로 승인 물량/현재 판매 한도/예약 중/출하 완료/추가 예약 가능(kg), 주문당 상한(박스), 중지/재개, 공급 신청·이력. 상품 목록 카드도 옵션별 박스당 가격·예약+출하 / 판매 박스를 보이고 kg 줄은 메타 회색 보조다(DEV-300, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조). 한도·승인·신청은 계속 kg다.
 - 최초는 '공급 물량 승인 요청', 이후 '물량 추가 신청'. 신청 전 기존 승인량·추가량·신청 후 총량을 표시한다. 대기 중 철회, 반려 시 사유와 재신청을 제공한다.
 - 신규 상품은 판매 한도 입력 대신 공급 신청 kg을 입력한다. 최초 신청 시 필수 항목·기간 검증. 상품·기간 편집에 '승인 전 가격 유지' 문구를 없앤다.
 - 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다.
