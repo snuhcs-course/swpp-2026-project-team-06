@@ -87,7 +87,6 @@ class UserProduct(CamelModel):
     approved_supply_grams: int
     sales_limit_grams: int
     remaining_grams: int
-    sales_paused: bool
     current_stage_label: str | None
     options: list[MyProductCardOption]
     updated_at: datetime
@@ -227,7 +226,6 @@ def _products(db: Session, farm_id: str) -> list[UserProduct]:
                 approved_supply_grams=p.approved_supply_grams,
                 sales_limit_grams=p.sales_limit_grams,
                 remaining_grams=state.remaining_grams,
-                sales_paused=p.sales_paused,
                 current_stage_label=f"{cur.starts_at} ~ {cur.ends_at}" if cur else None,
                 options=catalog.card_options(item, cur),
                 updated_at=p.updated_at,

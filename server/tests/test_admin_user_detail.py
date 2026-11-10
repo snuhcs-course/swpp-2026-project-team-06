@@ -152,6 +152,9 @@ def test_DEV_303_producer_sees_every_product_status_with_options(client, admin_h
     mine = client.get("/api/products/mine", headers=login("u-kang")).json()["items"]
     card = next(c for c in mine if c["productId"] == "p-house")
     assert card["options"] == house["options"]
+    assert card["currentStageLabel"] == house["currentStageLabel"]
+    # 순서도 생산자 앱 상품 목록과 같다
+    assert [c["productId"] for c in mine] == [p["productId"] for p in detail["products"]]
 
 
 def test_DEV_303_drafts_listed_separately_without_other_farms(client, admin_headers):
@@ -171,7 +174,18 @@ def test_DEV_303_drafts_listed_separately_without_other_farms(client, admin_head
                     id="d-kang-failed",
                     farm_id="f-kang",
                     input_text="?",
-                    output={},
+                    output={
+                        k: None
+                        for k in (
+                            "name",
+                            "variety",
+                            "options",
+                            "expectedBrix",
+                            "grade",
+                            "deliveryWindow",
+                            "description",
+                        )
+                    },
                     missing_fields=[
                         "name",
                         "variety",
