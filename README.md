@@ -251,8 +251,11 @@ users' support threads), follows, idempotency records and consumer accounts go. 
    dry run and review the printed kept users/farms/products and per-table counts with the PM:
 
    ```bash
-   railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId>
+   railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId> --expect-farm <farmId> --expect-farm <farmId>
    ```
+
+   Pass the farm ids that must stay (written down before the run) as `--expect-farm`; the dry run then
+   refuses if a `--keep` id is wrong.
 
    The output ends with "지워질 농가" (farms that will be deleted), "남을 농가" (farms that will stay,
    with names) and one commit command line. Write down the farm ids that must stay before the run and
