@@ -976,7 +976,7 @@ Rules that apply on every screen:
 | `/producers`: pending farm, review, approve/reject confirmation | Decision refreshes status; approval provisions support room | Role/session failure blocks action; failed response remains retryable |
 | `/capacity`: initial/increase request, approve/reject | Updated approved limit and request state | Version/validation conflict refreshes; UI/proxy failure is not approval |
 | `/farms`: preview controlled hide/restore | Test farm becomes absent/present on public discovery | Refuse hiding where protected non-test orders exist; hiding is distinct from pause or deletion |
-| `/users` and user detail: search, tester marker, order lookup | Limited user and recent-order support data | Phone masked in search; recipient delivery fields excluded from support lookup |
+| `/users` and user detail: search, tester marker, order lookup, producer products (all statuses, including drafts and AI drafts; read-only, DEV-303) | Limited user and recent-order support data | Phone masked in search; recipient delivery fields excluded from support lookup |
 | `/inbox`: select producer or consumer inquiry, reply | Read position and one operator message update | Operator only; producer photo count shown without photo viewing; consumer support is text only; no AI answer or order-state mutation |
 | `/ai-cost`: view AI cost by feature | Per-feature and overall totals (this month, last 7 days, all time) for spec-code-review, product draft, detail draft, AI answer and source analysis; filterable call list | Read-only; amounts are estimates from public per-token prices (source analysis uses the provider-reported cost), unpriced calls are counted separately; spec-check runs are reported by CI with a dedicated token |
 
