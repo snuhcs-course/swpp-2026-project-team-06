@@ -76,13 +76,13 @@ PRD에서 옮겨 온 데이터 모델과 주문 상태 초안이다. 기술 스�
 | 앱 | 계정 | 농가 | 상태 | 데이터 |
 | --- | --- | --- | --- | --- |
 | 소비자 | UAT 소비자 1~3 (`u-uat-c1..c3`) | — | — | 닉네임 `UAT소비자N`, 가짜 연락처, 기본 배송지 1개, farmclub 문의방 |
-| 생산자 | UAT 생산자 1 (`u-uat-p1`) | UAT 농가 1 (`f-uat-1`) | APPROVED | 판매 중 상품 2개(하우스 감귤 5kg/10kg, 레드향 3kg), 입금 계좌, farmclub 문의방 |
-| 생산자 | UAT 생산자 2 (`u-uat-p2`) | UAT 농가 2 (`f-uat-2`) | APPROVED | 판매 중 상품 1개(노지 감귤 5kg/10kg), 입금 계좌, farmclub 문의방 |
+| 생산자 | UAT 생산자 1 (`u-uat-p1`) | UAT 농가 1 (`f-uat-1`) | 승인 → 테스트 농가 숨김(SUSPENDED) | 판매 중 상품 2개(하우스 감귤 5kg/10kg, 레드향 3kg), 입금 계좌, farmclub 문의방 |
+| 생산자 | UAT 생산자 2 (`u-uat-p2`) | UAT 농가 2 (`f-uat-2`) | 승인 → 테스트 농가 숨김(SUSPENDED) | 판매 중 상품 1개(노지 감귤 5kg/10kg), 입금 계좌, farmclub 문의방 |
 | 생산자 | UAT 생산자 3 (`u-uat-p3`) | UAT 농가 3 (`f-uat-3`) | PENDING(확인 중) | — |
 
 - 모두 `isTestAccount = true`이고 테스트 로그인 목록에 오른다. `MOCK_LOGIN_ENABLED`가 꺼져 있으면 아무도 들어오지 못한다(ADR 0009). 켜고 끄는 순서와 정리는 루트 `README.md` 'Server on Railway'.
 - 상품 기간은 실행한 날(앱 기준일 `today()`, KST)부터 1단계 14일 → 2단계 21일로 이어지고, 받는 시기는 실행일 + 40~50일, 최대 지연 기한은 + 60일이다. 기간 물량 합은 승인 물량(1,000kg·200kg·800kg)보다 작다.
-- 승인 농가 2곳과 상품은 `--commit` 순간부터 정리할 때까지 공개 목록에 보인다(테스트 로그인이 꺼져 있어도). UAT 전후로 숨기려면 `app.admin.retire_test_farm`(DEV-93)으로 숨기고 `--restore`로 다시 연다.
+- 승인 농가 2곳은 넣자마자 '테스트 농가 숨김'(DEV-93, `retire_test_farm.retire_in`, 감사 이벤트 `test_farm_retired`)으로 둔다(PM 결정 11/10). 공개 목록·상세에 없고, UAT 생산자는 숨김 사유가 적힌 정지 안내를 본다. UAT를 시작할 때 관리자 웹 '다시 공개'나 `retire_test_farm --restore --commit`으로 열고, 끝나면 다시 숨긴다.
 - 주문·메시지는 넣지 않는다(문의방 환영 메시지만). 이름·연락처·주소는 실제 사람처럼 보이지 않는 가짜 값이다.
 
 ## 데이터 불변 조건
