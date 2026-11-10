@@ -9,6 +9,9 @@ import pytest
 from sqlalchemy import func, select
 
 from app.accounts.models import ShippingAddress, User
+from app.admin import retire_test_farm
+from app.admin.models import ManagerEvent
+from app.admin.retire_test_farm import RETIRE_REASON, is_retired
 from app.catalog.models import Product, ProductOption, Stage, StageAllocation, StagePrice
 from app.core import config, seed_uat
 from app.core.db import Base, get_sessionmaker
@@ -45,6 +48,8 @@ def test_DEV_305_dry_run_inserts_nothing(capsys):
     assert "미리보기라 넣지 않았어요" in out
     assert "u-uat-c1 UAT 소비자 1" in out
     assert "p-uat-1a" in out and "f-uat-3 UAT 농가 3 제주 남원 PENDING" in out
+    assert "f-uat-1 UAT 농가 1 제주 서귀포 APPROVED → 테스트 농가 숨김(SUSPENDED)" in out
+    assert "--restore --commit" in out
     # 시드에 운영팀 계정(u-farmclub)이 이미 있으니 새로 만든다는 줄이 없다
     assert "u-farmclub" not in out
 
@@ -71,11 +76,23 @@ def test_DEV_305_commit_inserts_uat_accounts_farms_and_products(capsys):
         assert all(users[c].nickname and users[c].phone for c in CONSUMERS)
 
         farms = {f.id: f for f in db.scalars(select(Farm).where(Farm.id.like("f-uat-%")))}
+        # 승인 농가는 '테스트 농가 숨김'(DEV-93)으로 넣는다(PM 결정 11/10)
         assert {f: farms[f].approval_status for f in farms} == {
-            "f-uat-1": "APPROVED",
-            "f-uat-2": "APPROVED",
+            "f-uat-1": "SUSPENDED",
+            "f-uat-2": "SUSPENDED",
             "f-uat-3": "PENDING",
         }
+        assert all(is_retired(farms[f]) for f in ("f-uat-1", "f-uat-2"))
+        assert farms["f-uat-3"].suspend_reason is None
+        events = list(
+            db.scalars(
+                select(ManagerEvent).where(ManagerEvent.target_id.in_(["f-uat-1", "f-uat-2"]))
+            )
+        )
+        assert sorted((e.target_id, e.event_type) for e in events) == [
+            ("f-uat-1", "test_farm_retired"),
+            ("f-uat-2", "test_farm_retired"),
+        ]
         assert [farms[f].producer_id for f in sorted(farms)] == PRODUCERS
         assert all(farms[f].name.startswith("UAT 농가") for f in farms)
         # 승인 농가는 입금 계좌가 있어야 주문 안내가 된다
@@ -198,8 +215,8 @@ def test_DEV_305_test_accounts_list_uat_only_when_seeded_and_mock_login_on(clien
     assert {a["role"] for a in consumer} == {"CONSUMER"}
     uat = [a for a in producer if a["userId"].startswith("u-uat-")]
     assert [(a["userId"], a["farmName"], a["farmStatus"]) for a in uat] == [
-        ("u-uat-p1", "UAT 농가 1", "APPROVED"),
-        ("u-uat-p2", "UAT 농가 2", "APPROVED"),
+        ("u-uat-p1", "UAT 농가 1", "SUSPENDED"),
+        ("u-uat-p2", "UAT 농가 2", "SUSPENDED"),
         ("u-uat-p3", "UAT 농가 3", "PENDING"),
     ]
     assert {a["role"] for a in producer} == {"PRODUCER"}
@@ -225,17 +242,32 @@ def test_DEV_305_uat_login_keeps_apps_apart_and_skips_onboarding(client, login):
     me = client.get("/api/auth/me", headers=headers).json()
     assert me["needsOnboarding"] is False and me["consentRequired"] is False
     assert me["nickname"] == "UAT소비자1"
+    addresses = client.get("/api/auth/me/addresses", headers=headers).json()
+    assert [a["isDefault"] for a in addresses] == [True]
+
+    # 숨김 상태로 넣었으니 공개 목록·상세에 없다
+    farm_ids = {f["farmId"] for f in client.get("/api/farms").json()["items"]}
+    assert not farm_ids & {"f-uat-1", "f-uat-2", "f-uat-3"}
+    assert client.get("/api/products/p-uat-1a", headers=headers).status_code == 404
+    # 숨김 상태의 UAT 생산자는 정지 안내(숨김 사유)를 본다
+    hidden = client.get("/api/auth/me", headers=login("u-uat-p1", "producer")).json()
+    assert (hidden["farmId"], hidden["farmStatus"]) == ("f-uat-1", "SUSPENDED")
+    assert hidden["suspendReason"] == RETIRE_REASON
+    assert hidden["consentRequired"] is False
+
+    # UAT 시작: 다시 공개(관리자 웹 '다시 공개'와 같은 restore_in)
+    for farm_id in ("f-uat-1", "f-uat-2"):
+        retire_test_farm.restore(farm_id, commit=True)
+    farm_ids = {f["farmId"] for f in client.get("/api/farms").json()["items"]}
+    assert {"f-uat-1", "f-uat-2"} <= farm_ids and "f-uat-3" not in farm_ids
     # 온보딩·동의 관문이 있는 쓰기도 바로 된다
     assert client.put("/api/farms/f-uat-1/follow", headers=headers).status_code == 200
     product = client.get("/api/products/p-uat-1a", headers=headers)
     assert product.status_code == 200, product.text
     assert product.json()["currentStageId"] == "st-uat-1a-1"
-    addresses = client.get("/api/auth/me/addresses", headers=headers).json()
-    assert [a["isDefault"] for a in addresses] == [True]
 
     producer = client.get("/api/auth/me", headers=login("u-uat-p1", "producer")).json()
     assert (producer["farmId"], producer["farmStatus"]) == ("f-uat-1", "APPROVED")
-    assert producer["consentRequired"] is False
     mine = client.get("/api/products/mine", headers=login("u-uat-p1", "producer"))
     assert mine.status_code == 200, mine.text
     assert {p["productId"] for p in mine.json()["items"]} == {"p-uat-1a", "p-uat-1b"}

@@ -4,6 +4,10 @@
 기본은 미리보기다. 한 트랜잭션에서 넣어 제약을 확인하고 넣을 목록을 보여 준 뒤 롤백한다.
 --commit을 붙여야 남긴다. 표지 계정 u-uat-c1(또는 UAT ID 하나라도)이 이미 있으면 거부한다.
 
+승인 농가 2곳은 넣은 뒤 바로 '테스트 농가 숨김'(retire_test_farm.retire_in, 감사 이벤트 남음)으로
+둔다(PM 결정 11/10). UAT를 시작할 때 관리자 웹 '다시 공개'나
+retire_test_farm --restore --commit으로 연다.
+
 넣는 것: UAT 소비자 3명(닉네임·연락처·기본 배송지), UAT 생산자 3명(승인 농가 2곳 — 판매 중 상품과
 옵션·기간·가격·물량·승인 물량 / 확인 중 농가 1곳). 모두 is_test_account=True라 테스트 로그인
 목록(TEST_ACCOUNTS)에 오르지만, MOCK_LOGIN_ENABLED가 꺼져 있으면 아무도 들어오지 못한다.
@@ -25,6 +29,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.accounts.models import User
+from app.admin.retire_test_farm import retire_in
 from app.catalog.models import Product
 from app.core.clock import now, today
 from app.core.db import get_sessionmaker
@@ -209,6 +214,8 @@ class Summary:
     farms: list[str] = field(default_factory=list)
     products: list[str] = field(default_factory=list)
     support_threads: int = 0
+    # 넣은 뒤 '테스트 농가 숨김'으로 둔 승인 농가
+    hidden: list[str] = field(default_factory=list)
     # 문의 상대 운영팀 계정(u-farmclub)이 없어서 새로 만들었는가
     created_support_user: bool = False
 
@@ -258,7 +265,8 @@ def seed_uat_in(session: Session) -> Summary:
     for f in farms:
         session.add(Farm(**f))
         summary.users.append(f"{f['producer_id']} (생산자) → {f['id']} {f['name']}")
-        summary.farms.append(f"{f['id']} {f['name']} {f['region']} {f['approval_status']}")
+        hidden = " → 테스트 농가 숨김(SUSPENDED)" if f["approval_status"] == "APPROVED" else ""
+        summary.farms.append(f"{f['id']} {f['name']} {f['region']} {f['approval_status']}{hidden}")
     session.flush()
 
     # seed_product는 upsert다. 경합해도 위 사용자·농가 insert가 먼저 PK 충돌로 실패한다
@@ -283,6 +291,13 @@ def seed_uat_in(session: Session) -> Summary:
         if f["approval_status"] == "APPROVED":
             ensure_support_thread(session, f["id"])
             summary.support_threads += 1
+    session.flush()
+    # 승인 농가는 '테스트 농가 숨김'(DEV-93) 상태로 둔다(PM 결정 11/10). 같은 로직으로 숨겨
+    # 감사 이벤트가 남고, UAT를 시작할 때 관리자 웹 '다시 공개'나 retire_test_farm --restore로 연다
+    for f in farms:
+        if f["approval_status"] == "APPROVED":
+            retire_in(session, f["id"], commit=True)
+            summary.hidden.append(f["id"])
     for uid, *_ in CONSUMERS:
         ensure_consumer_support(session, uid)
         summary.support_threads += 1
@@ -332,6 +347,13 @@ def main(argv: list[str]) -> None:
     for line in summary.products:
         print(f"  {line}")
     print(f"배송지 {len(ADDRESSES)}개, farmclub 문의방 {summary.support_threads}개")
+    if summary.hidden:
+        print(
+            f"승인 농가 {', '.join(summary.hidden)}는 '테스트 농가 숨김'으로 넣어 "
+            "공개 목록에 없어요. "
+            "UAT를 시작할 때 관리자 웹 '다시 공개' 또는 "
+            "python -m app.admin.retire_test_farm <농가 ID> --restore --commit으로 여세요."
+        )
     if summary.created_support_user:
         print(f"문의 상대 운영팀 계정 {SUPPORT_USER_ID}가 없어서 함께 만들어요.")
     if commit:
