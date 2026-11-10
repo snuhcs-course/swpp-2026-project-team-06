@@ -6,7 +6,7 @@
 - 상태: 진행 중
 
 ### 목표
-에이전트가 마무리한 PR·Linear에 "Agent 시간·Tokens 미계측"만 남고 Human 시간이 빠지는 문제를 막는다. Agent 시간·Tokens는 에이전트가 재서 적고, Human 시간은 마무리 전에 작성자에게 묻는다.
+에이전트가 마무리한 PR·Linear에 "Agent 시간·Tokens 미계측"만 남고 Human 시간이 빠지는 문제를 막는다. Agent 시간은 에이전트가 재서 적고, Tokens는 하네스가 준 값만 적고, Human 시간은 마무리 전에 작성자에게 묻는다.
 
 ### 범위 (수정 허용 경로)
 - `AGENTS.md`
@@ -42,3 +42,4 @@
 - 11/10 scan-before-commit 3회차: CRITICAL·WARNING 0, INFO 5. 반영: 비슷한 빈 값 문구('계측 미제공')도 금지, 템플릿 Agent·Tokens 자리표시, 절 순서(작업 → 완료 조건). 반영 안 함: 어림값 표기('약')는 PM 결정으로 표기하지 않음. Tokens 어림은 PM 결정으로 없앰(빈칸).
 - 11/10 scan-before-commit 4회차: CRITICAL·WARNING 0, INFO 3. 반영: AGENTS.md Agent 시간 문장을 한곳으로 모으고 '숫자로 적는다'. 반영 안 함: 템플릿 줄 파싱 없음 확인(조치 불필요), 0.5시간 올림 규칙은 PM이 정한 적 없어 넣지 않음.
 - 11/10 PM 결정으로 Agent 시간에 '약' 표기를 넣음(3회차에서 반영 안 한 INFO를 뒤집음).
+- 11/10 scan-before-merge: CRITICAL·WARNING 0, INFO 3 반영(목표 문장 Tokens 표현, Human은 받은 값 그대로 `Human 1h` 형식, Agent 시간 측정 출처 문장 정리). 반올림 규칙은 PM이 정하지 않아 넣지 않음.
