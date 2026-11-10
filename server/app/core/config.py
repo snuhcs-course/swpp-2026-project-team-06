@@ -3,7 +3,7 @@
 from functools import lru_cache
 from urllib.parse import urlsplit
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # local에서만 쓰는 JWT 비밀값. local이 아니면 JWT_SECRET이 반드시 있어야 한다(이슈 #5).
@@ -128,6 +128,13 @@ class Settings(BaseSettings):
     # 홈 (FEAT-06). 시즌 히어로는 설정 값, 운영자 관리는 I2.
     home_recommend_limit: int = 6
     home_hero_product_id: str = "p-house"
+
+    # 관리자 활동 로그의 PostHog 이벤트(DEV-307). 읽기 전용 개인 API 키와 프로젝트 ID가 모두 있을
+    # 때만 조회한다. 키는 로그·응답에 남기지 않는다. 호스트는 조회 API 주소(앱 수집 주소
+    # us.i.posthog.com을 넣어도 us.posthog.com으로 바꿔 쓴다).
+    posthog_personal_api_key: SecretStr = SecretStr("")
+    posthog_project_id: str = ""
+    posthog_host: str = "https://us.posthog.com"
 
     # 무통장 입금 기한(시간). 입금 안내 시각부터 세고, 지나면 자동 취소·물량 해제(R-28).
     deposit_deadline_hours: int = 24

@@ -16,6 +16,7 @@ from app.accounts.schemas import (
     REQUIRED_PRODUCER_CONSENTS,
     Address,
     AddressInput,
+    AdminProducerApplication,
     ConsentsInput,
     ConsentView,
     KakaoConfig,
@@ -49,6 +50,43 @@ TEST_ACCOUNTS = {
     "producer": ["u-kang", "u-misook", "u-new", "u-soonja", "u-taeho"],
 }
 APP_ROLE = {"consumer": "CONSUMER", "producer": "PRODUCER"}
+
+
+# ---------------- 계정 종류 (DEV-307, FEAT-23 AC-23-12) ----------------
+
+# 관리자 목록의 계정 필터. 테스트 = 시드 테스트 계정(is_test_account) 또는
+# 운영 검증 계정(ops_tester).
+# 탈퇴한 계정은 실사용자로 세고 withdrawn으로만 표시한다.
+
+
+def test_account_clause():
+    return User.is_test_account.is_(True) | User.ops_tester.is_(True)
+
+
+def kind_clause(kind: str):
+    """SQL where 조건. all이면 None."""
+    if kind == "test":
+        return test_account_clause()
+    if kind == "real":
+        return ~test_account_clause()
+    return None
+
+
+def account_kind(user: User) -> str:
+    if user.is_test_account:
+        return "SEED_TEST"
+    if user.ops_tester:
+        return "OPS_TESTER"
+    return "REAL"
+
+
+def kind_matches(user: User, kind: str) -> bool:
+    return kind_label_matches(account_kind(user), kind)
+
+
+def kind_label_matches(label: str, kind: str) -> bool:
+    """account_kind 값(REAL·SEED_TEST·OPS_TESTER)이 필터(real·test·all)에 드는지."""
+    return kind == "all" or (label == "REAL") == (kind == "real")
 
 
 def get_user(db: Session, user_id: str) -> User | None:
@@ -477,13 +515,24 @@ def producer_application(db: Session, user: User) -> ProducerApplication:
     return _application_view(user, farm)
 
 
-def list_producer_applications(db: Session, status: str | None) -> list[ProducerApplication]:
-    """운영자 가입 신청 목록(DEV-82). 대표자 이름은 생산자 계정 이름."""
+def list_producer_applications(
+    db: Session, status: str | None, kind: str = "all"
+) -> list[AdminProducerApplication]:
+    """운영자 가입 신청 목록(DEV-82). 대표자 이름은 생산자 계정 이름. kind는 계정 필터(DEV-307)."""
     from app.farms import service as farms
 
     rows = farms.list_applications(db, status)
     users = get_users(db, [f.producer_id for f in rows])
-    return [_application_view(users[f.producer_id], f) for f in rows if f.producer_id in users]
+    return [
+        AdminProducerApplication(
+            **_application_view(users[f.producer_id], f).model_dump(),
+            producer_id=f.producer_id,
+            account_kind=account_kind(users[f.producer_id]),
+            withdrawn=users[f.producer_id].deleted_at is not None,
+        )
+        for f in rows
+        if f.producer_id in users and kind_matches(users[f.producer_id], kind)
+    ]
 
 
 def submit_producer_application(

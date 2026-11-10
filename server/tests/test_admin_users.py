@@ -75,7 +75,7 @@ def test_DEV_107_admin_only(client, login):
 
 def test_DEV_107_list_hides_admin_and_shows_signup_and_last4(client, admin_headers):
     add_kakao_consumer()
-    page = client.get("/admin/users", headers=admin_headers).json()
+    page = client.get("/admin/users?kind=all", headers=admin_headers).json()
     by_id = {u["userId"]: u for u in page["items"]}
     assert "u-admin" not in by_id
     assert page["total"] >= len(page["items"])
@@ -93,6 +93,7 @@ def test_DEV_107_search_and_filters(client, admin_headers):
     add_kakao_consumer()
 
     def ids(**params):
+        params.setdefault("kind", "all")  # DEV-307: 기본은 실사용자만
         page = client.get("/admin/users", headers=admin_headers, params=params).json()
         return {u["userId"] for u in page["items"]}
 

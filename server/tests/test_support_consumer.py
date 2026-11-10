@@ -103,7 +103,7 @@ def test_AC_34_7_consumer_inquiry_reaches_inbox_and_reply_returns(client, login,
     assert sent.json()["reply"] is None  # AI는 답하지 않는다
     assert [m.sender_type for m in room_messages("u-minji")] == ["OPERATOR", "CONSUMER"]
 
-    inbox = client.get("/admin/support", headers=admin_headers).json()
+    inbox = client.get("/admin/support?kind=all", headers=admin_headers).json()
     row = inbox[0]
     assert (row["kind"], row["targetId"], row["waiting"], row["unreadCount"]) == (
         "CONSUMER",
@@ -146,7 +146,7 @@ def test_AC_34_7_consumer_inquiry_reaches_inbox_and_reply_returns(client, login,
     assert read.json() == {"unreadCount": 0}
     minji = next(
         r
-        for r in client.get("/admin/support", headers=admin_headers).json()
+        for r in client.get("/admin/support?kind=all", headers=admin_headers).json()
         if r["targetId"] == "u-minji"
     )
     assert minji["waiting"] is False
@@ -195,13 +195,13 @@ def test_AC_34_8_withdrawal_erases_consumer_inquiries(client, monkeypatch):
 
 
 def test_AC_34_7_inbox_lists_only_consumers_who_asked(client, login, admin_headers):
-    inbox = client.get("/admin/support", headers=admin_headers).json()
+    inbox = client.get("/admin/support?kind=all", headers=admin_headers).json()
     # 가입 때 모두 방을 받지만, 문의하기 전에는 문의함에 나오지 않는다
     assert not any(r["kind"] == "CONSUMER" for r in inbox)
     client.post(f"{ROOM}/messages", headers=login("u-seojun") | key(), json={"text": "배송 문의"})
     consumers = [
         r["targetId"]
-        for r in client.get("/admin/support", headers=admin_headers).json()
+        for r in client.get("/admin/support?kind=all", headers=admin_headers).json()
         if r["kind"] == "CONSUMER"
     ]
     assert consumers == ["u-seojun"]
@@ -240,7 +240,7 @@ def test_AC_34_8_withdrawn_member_room_is_not_waiting_and_rejects_replies(
     assert client.post("/api/auth/me/withdraw", headers=headers).status_code == 204
     row = next(
         r
-        for r in client.get("/admin/support", headers=admin_headers).json()
+        for r in client.get("/admin/support?kind=all", headers=admin_headers).json()
         if r["targetId"] == user["userId"]
     )
     assert (row["name"], row["waiting"]) == ("탈퇴한 회원", False)

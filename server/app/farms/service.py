@@ -143,7 +143,11 @@ def decision_history(db: Session, farm_id: str):
         raise not_found("신청 농가를 찾을 수 없어요.")
     rows = db.scalars(
         select(ProducerDecisionHistory)
-        .where(ProducerDecisionHistory.farm_id == farm_id)
+        .where(
+            ProducerDecisionHistory.farm_id == farm_id,
+            # 정지·풀기·되돌리기(DEV-307)는 GET /admin/farms/{id}/history에서 본다
+            ProducerDecisionHistory.decision.in_(("APPROVED", "REJECTED")),
+        )
         .order_by(ProducerDecisionHistory.decided_at.desc(), ProducerDecisionHistory.id.desc())
     )
     return [
@@ -158,6 +162,12 @@ def decision_history(db: Session, farm_id: str):
         )
         for row in rows
     ]
+
+
+def get_farm_shared(db: Session, farm_id: str) -> Farm | None:
+    """농가 행을 공유 잠금(FOR SHARE)으로 읽는다. 운영자 정지(DEV-307)의 FOR UPDATE를 기다린다."""
+    query = select(Farm).where(Farm.id == farm_id).with_for_update(read=True)
+    return db.scalar(query.execution_options(populate_existing=True))
 
 
 def get_approved_farm(db: Session, farm_id: str) -> Farm | None:
