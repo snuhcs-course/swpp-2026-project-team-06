@@ -4,6 +4,8 @@ import uuid
 
 from sqlalchemy import delete
 
+from app.catalog.models import ProductDraft
+from app.core.clock import now
 from app.core.db import get_sessionmaker
 from app.orders.models import Order, Payment
 
@@ -104,3 +106,132 @@ def test_DEV_106_producer_shows_farm_not_orders(client, admin_headers):
         "approvalStatus": "APPROVED",
     }
     assert detail["orders"] == []
+
+
+def test_DEV_303_producer_sees_every_product_status_with_options(client, admin_headers, login):
+    detail = client.get("/admin/users/u-kang", headers=admin_headers).json()
+    products = {p["productId"]: p for p in detail["products"]}
+    # 강씨네 귤밭 상품만, 저장 상태 다섯 가지 모두(공개 API는 판매 중만 보여 준다)
+    assert set(products) == {
+        "p-house",
+        "p-redhyang",
+        "p-cheonhye",
+        "p-cheonggyeon",
+        "p-hallabong",
+        "p-josaeng",
+    }
+    assert {p["status"] for p in products.values()} == {
+        "DRAFT",
+        "PENDING_APPROVAL",
+        "REJECTED",
+        "PUBLISHED",
+        "CLOSED",
+    }
+    # 생산자 앱 목록과 같은 순서: 반려 → 승인 대기 → 판매 → 작성 중 → 종료
+    order = [p["status"] for p in detail["products"]]
+    assert order == sorted(
+        order,
+        key=["REJECTED", "PENDING_APPROVAL", "PUBLISHED", "DRAFT", "CLOSED"].index,
+    )
+    assert products["p-cheonhye"]["rejectReason"] == "받는 시기가 비어 있어요"
+    assert products["p-hallabong"]["options"][0]["price"] is None
+    assert products["p-josaeng"]["availability"] == "ENDED"
+    assert products["p-redhyang"]["availability"] == "PERIOD_SOLD_OUT"  # 시드: 물량 0
+
+    house = products["p-house"]
+    assert house["approvedSupplyGrams"] == 2_400_000 and house["salesLimitGrams"] > 0
+    assert house["availability"] == "AVAILABLE" and house["updatedAt"]
+    # 옵션 줄은 DEV-300 카드와 같다: 지금 기간 가격, 모든 기간 예약·물량 박스 합
+    opt5 = next(o for o in house["options"] if o["optionId"] == "opt-5")
+    assert (opt5["weightKg"], opt5["price"], opt5["reserved"], opt5["quantity"]) == (
+        5,
+        29000,
+        38,
+        180,
+    )
+    mine = client.get("/api/products/mine", headers=login("u-kang")).json()["items"]
+    card = next(c for c in mine if c["productId"] == "p-house")
+    assert card["options"] == house["options"]
+    assert card["currentStageLabel"] == house["currentStageLabel"]
+    # 순서도 생산자 앱 상품 목록과 같다
+    assert [c["productId"] for c in mine] == [p["productId"] for p in detail["products"]]
+
+
+def test_DEV_303_drafts_listed_separately_without_other_farms(client, admin_headers):
+    with get_sessionmaker()() as session, session.begin():
+        session.add_all(
+            [
+                ProductDraft(
+                    id="d-kang-1",
+                    farm_id="f-kang",
+                    input_text="한라봉 5kg 팔아요 010-0000-0000",
+                    output={"name": "한라봉", "variety": "한라봉", "options": ["5kg"]},
+                    missing_fields=["expectedBrix", "deliveryWindow"],
+                    failed=False,
+                    created_at=now(),
+                ),
+                ProductDraft(
+                    id="d-kang-failed",
+                    farm_id="f-kang",
+                    input_text="?",
+                    output={
+                        k: None
+                        for k in (
+                            "name",
+                            "variety",
+                            "options",
+                            "expectedBrix",
+                            "grade",
+                            "deliveryWindow",
+                            "description",
+                        )
+                    },
+                    missing_fields=[
+                        "name",
+                        "variety",
+                        "options",
+                        "expectedBrix",
+                        "grade",
+                        "deliveryWindow",
+                        "description",
+                    ],
+                    failed=True,
+                    created_at=now(),
+                ),
+                ProductDraft(
+                    id="d-halla-1",
+                    farm_id="f-halla",
+                    input_text="노지 감귤",
+                    output={"name": "노지 감귤"},
+                    missing_fields=[],
+                    failed=False,
+                    created_at=now(),
+                ),
+            ]
+        )
+    response = client.get("/admin/users/u-kang", headers=admin_headers)
+    detail = response.json()
+    drafts = {d["draftId"]: d for d in detail["drafts"]}
+    assert set(drafts) == {"d-kang-1", "d-kang-failed"}
+    assert drafts["d-kang-1"] | {"createdAt": None} == {
+        "draftId": "d-kang-1",
+        "name": "한라봉",
+        "variety": "한라봉",
+        "options": ["5kg"],
+        "missingFields": ["expectedBrix", "deliveryWindow"],
+        "failed": False,
+        "createdAt": None,
+    }
+    assert drafts["d-kang-failed"]["failed"] is True and drafts["d-kang-failed"]["name"] is None
+    # 농가가 붙여넣은 원문은 내려 주지 않는다
+    assert "inputText" not in response.text and "010-0000-0000" not in response.text
+    # 다른 농가 상품·초안은 섞이지 않는다
+    assert "p-noji" not in {p["productId"] for p in detail["products"]}
+    halla = client.get("/admin/users/u-halla", headers=admin_headers).json()
+    assert [d["draftId"] for d in halla["drafts"]] == ["d-halla-1"]
+    assert {p["productId"] for p in halla["products"]} == {"p-noji"}
+
+
+def test_DEV_303_consumer_has_no_products(client, admin_headers):
+    detail = client.get("/admin/users/u-g4", headers=admin_headers).json()
+    assert detail["products"] == [] and detail["drafts"] == []

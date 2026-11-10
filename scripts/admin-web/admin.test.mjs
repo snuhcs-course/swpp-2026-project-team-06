@@ -219,6 +219,23 @@ test("사용자 상세 화면은 로그인해야 열리고 /users/<id>로 돌아
   assert.match(ok.body, /사용자/);
 });
 
+test("사용자 상세는 농가 상품·AI 초안을 읽기만 하고 목록 링크는 생산자면 상세(상품·주문) (DEV-303)", async () => {
+  const cookie = await signIn();
+  const detail = await call(page, { url: "/api/page?name=user&id=u-kang", headers: { cookie } });
+  assert.equal(detail.status, 200);
+  assert.match(detail.body, /박스 \/ \$\{o\.quantity\}박스/); // 5kg 29,000원 · 38박스 / 180박스
+  assert.match(detail.body, /작성 중 · AI 초안/);
+  const list = await call(page, { url: "/api/page?name=users", headers: { cookie } });
+  assert.match(list.body, /상세\(상품·주문\)/);
+  // 상품은 사용자 상세 응답에 들어 있어 새 중계 경로가 없다(읽기 전용)
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  assert.equal((await go("/admin/users/u-kang")).status, 502); // 허용 → 실서버 호출까지 감
+  for (const [path, method] of [["/admin/users/u-kang/products", "GET"], ["/admin/products/p-house", "GET"], ["/admin/products/p-house/approve", "POST"]]) {
+    assert.equal((await go(path, method)).status, 400, path);
+  }
+});
+
 test("중계는 문의함 목록·대화 보기·답장·읽음만 넘긴다 (DEV-111)", async () => {
   const cookie = await signIn();
   const go = (path, method = "GET") =>
