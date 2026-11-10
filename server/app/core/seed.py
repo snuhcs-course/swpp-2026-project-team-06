@@ -866,19 +866,26 @@ def clear(session: Session) -> None:
         session.execute(delete(table))
 
 
-def seed_product(session: Session, product_id: str) -> Product:
+def seed_product(
+    session: Session,
+    product_id: str,
+    *,
+    products: list[tuple] = PRODUCTS,
+    capacity: dict[str, int] = CAPACITY,
+) -> Product:
     """Insert or restore one seed product, including omitted defaults and NULLs.
 
     Upsert keeps the product identity (and existing order FKs). PostgreSQL's
     excluded row includes the same SQLAlchemy defaults as a fresh seed insert.
     The caller owns the transaction and any non-seed source rows/files.
+    `products`·`capacity`는 같은 꼴의 다른 목록(UAT 데이터, DEV-305)을 넣을 때 바꾼다.
     """
-    fields = next(fields for fields, _, _ in PRODUCTS if fields["id"] == product_id)
+    fields = next(fields for fields, _, _ in products if fields["id"] == product_id)
     if fields.get("status") in ("PUBLISHED", "CLOSED"):
         fields = {
             **fields,
-            "approved_supply_grams": CAPACITY[product_id],
-            "sales_limit_grams": CAPACITY[product_id],
+            "approved_supply_grams": capacity[product_id],
+            "sales_limit_grams": capacity[product_id],
         }
     statement = insert(Product).values(
         **{"info": KANG_INFO, "updated_at": at("2026-10-06"), **fields}
@@ -892,6 +899,49 @@ def seed_product(session: Session, product_id: str) -> Product:
         },
     ).returning(Product)
     return session.scalars(statement.execution_options(populate_existing=True)).one()
+
+
+def seed_options_and_stages(
+    session: Session, product_id: str, options: list[tuple], stages: list[tuple]
+) -> dict[tuple[str, str], int]:
+    """상품 하나의 옵션·기간·기간별 가격·물량을 넣는다. PRODUCTS의 (옵션, 단계) 꼴을 받는다.
+
+    시드와 UAT 데이터(DEV-305)가 함께 쓴다. (상품 ID, 옵션 ID) → 박스 무게(g)를 돌려준다.
+    """
+    weights: dict[tuple[str, str], int] = {}
+    for i, (oid, label, kg, note) in enumerate(options):
+        weights[(product_id, oid)] = round(kg * 1000)
+        session.add(
+            ProductOption(
+                product_id=product_id, id=oid, label=label, weight_kg=kg, note=note, sort_order=i
+            )
+        )
+    session.flush()
+    for seq, (name, start, end, values) in enumerate(stages, start=1):
+        sid = _stage_id(product_id, seq)
+        session.add(
+            Stage(
+                id=sid,
+                product_id=product_id,
+                seq=seq,
+                name=name,
+                starts_at=d(start),
+                ends_at=d(end),
+            )
+        )
+        session.flush()
+        for oid, (price, qty, reserved) in values.items():
+            session.add(StagePrice(stage_id=sid, option_id=oid, product_id=product_id, price=price))
+            session.add(
+                StageAllocation(
+                    stage_id=sid,
+                    option_id=oid,
+                    product_id=product_id,
+                    quantity=qty,
+                    reserved_count=reserved,
+                )
+            )
+    return weights
 
 
 def seed(session: Session) -> None:
@@ -913,33 +963,7 @@ def seed(session: Session) -> None:
         product_id = fields["id"]
         p = seed_product(session, product_id)
         products[p.id] = p
-        for i, (oid, label, kg, note) in enumerate(options):
-            weights[(p.id, oid)] = round(kg * 1000)
-            session.add(
-                ProductOption(
-                    product_id=p.id, id=oid, label=label, weight_kg=kg, note=note, sort_order=i
-                )
-            )
-        session.flush()
-        for seq, (name, start, end, values) in enumerate(stages, start=1):
-            sid = _stage_id(p.id, seq)
-            session.add(
-                Stage(
-                    id=sid, product_id=p.id, seq=seq, name=name, starts_at=d(start), ends_at=d(end)
-                )
-            )
-            session.flush()
-            for oid, (price, qty, reserved) in values.items():
-                session.add(StagePrice(stage_id=sid, option_id=oid, product_id=p.id, price=price))
-                session.add(
-                    StageAllocation(
-                        stage_id=sid,
-                        option_id=oid,
-                        product_id=p.id,
-                        quantity=qty,
-                        reserved_count=reserved,
-                    )
-                )
+        weights |= seed_options_and_stages(session, p.id, options, stages)
     session.flush()
     session.add(
         CapacityRequest(
@@ -1110,7 +1134,13 @@ def seed(session: Session) -> None:
                 created_at=at(*when),
             )
         )
-    for aid, uid, label, name, phone, postal, address, detail, default in ADDRESSES:
+    seed_addresses(session, ADDRESSES, created)
+    session.flush()
+
+
+def seed_addresses(session: Session, rows: list[tuple], created: datetime) -> None:
+    """ADDRESSES 꼴의 저장 배송지를 넣는다. 시드와 UAT 데이터(DEV-305)가 함께 쓴다."""
+    for aid, uid, label, name, phone, postal, address, detail, default in rows:
         session.add(
             ShippingAddress(
                 id=aid,
@@ -1125,7 +1155,6 @@ def seed(session: Session) -> None:
                 created_at=created,
             )
         )
-    session.flush()
 
 
 def main(argv: list[str]) -> None:
