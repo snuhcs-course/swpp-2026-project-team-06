@@ -131,7 +131,7 @@ MOCK_LOGIN_ENABLED=true uv run uvicorn app.main:app --reload
 
 - Health check: http://localhost:8000/health returns `{"status": "ok"}`
 - API docs (Swagger UI): http://localhost:8000/docs. This is the API reference for the apps.
-- Test login (I1): `MOCK_LOGIN_ENABLED=true` turns on `GET /api/auth/test-accounts` and `POST /api/auth/test-login`. It is off by default and must stay off in production.
+- Test login (I1): `MOCK_LOGIN_ENABLED=true` turns on `GET /api/auth/test-accounts` and `POST /api/auth/test-login`. It is off by default; in production turn it on only for UAT or evaluation windows (see UAT accounts under Server on Railway).
 - Demo date: set `FIXED_NOW=2026-10-07T10:00:00+09:00` so stages and D-days match the seed.
 - Operator token for the `/admin` API: `uv run python -m app.accounts.admin_token`, then paste it into **Authorize** in Swagger UI.
 - Outside `APP_ENV=local`, the server refuses to start without `JWT_SECRET`.

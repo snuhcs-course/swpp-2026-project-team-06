@@ -316,7 +316,8 @@ def main(argv: list[str]) -> None:
     except IntegrityError as exc:
         # 보통 확인과 넣기 사이에 다른 실행이 먼저 넣은 경우. 롤백됐고 원인을 함께 보인다
         sys.exit(
-            "넣지 않았어요: 제약을 어겼어요(다른 실행이 먼저 넣었는지 확인하세요). "
+            "넣지 않았어요: 제약을 어겼어요"
+            "(다른 실행이 먼저 넣었거나 UAT 행이 일부 남았는지 확인하세요). "
             f"{type(exc.orig).__name__}: {exc.orig}"
         )
     print(f"기준일(KST) {summary.base}")
