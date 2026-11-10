@@ -1319,8 +1319,9 @@ def _producer_reply(
 ) -> ThreadMessage:
     """생산자 답변. 저장과 HUMAN 전환을 같은 트랜잭션에서 한다(M-09).
 
-    AI 답변 확인 요청(DEV-296)을 닫는 답장은 바로잡기(CORRECTED)다. 인용 대상 없이
+    열린 AI 답변 확인 요청(DEV-296)을 닫는 답장은 바로잡기(CORRECTED)다. 인용 대상 없이
     확인 요청 하나만 닫으면 그 AI 답변을 인용해 저장해서 소비자가 무엇을 바로잡았는지 본다.
+    '답이 맞아요'(CONFIRMED)로 이미 닫힌 AI 답변을 인용한 답장은 평범한 답장이라 결과를 바꾸지 않는다.
     """
     text = text.strip()
     attachment_ids = attachment_ids or []
@@ -1392,17 +1393,6 @@ def _producer_reply(
         e.resolved_by = actor_id
         if e.reported_message_id:
             e.resolution = "CORRECTED"
-    if target is not None and target.sender_type == "AI":
-        # '답이 맞아요' 뒤에 마음을 바꿔 그 AI 답변을 인용해 바로잡으면 바로잡기로 바꾼다
-        confirmed = db.scalar(
-            select(Escalation).where(
-                Escalation.reported_message_id == target.id,
-                Escalation.resolution == "CONFIRMED",
-            )
-        )
-        if confirmed is not None:
-            confirmed.resolution, confirmed.resolved_by = "CORRECTED", actor_id
-            confirmed.answer, confirmed.answered_at = masked_text, message.created_at
     db.flush()
     return message
 

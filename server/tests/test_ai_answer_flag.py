@@ -256,18 +256,28 @@ def test_AC_13_11_request_closed_before_0031_shows_no_flag(client, login):
     assert late.json()["details"]["reason"] == "ALREADY_CORRECTED"
 
 
-def test_AC_13_13_correcting_after_confirm_turns_the_flag_into_corrected(client, login):
+def test_AC_13_12_quoting_after_confirm_is_a_plain_reply_and_keeps_confirmed(client, login):
     consumer, producer, answer_id, report = _requested(client, login)
     assert _confirm(client, producer, answer_id).status_code == 200
+    with get_sessionmaker()() as session:
+        confirmed_at = session.get(Escalation, report["escalationId"]).answered_at
 
     replied = client.post(
         f"{CHATS}/u-seojun/messages",
         headers=producer | key(),
-        json={"text": "다시 보니 5kg부터예요.", "replyToMessageId": answer_id},
+        json={"text": "네, 3kg부터 보내 드려요.", "replyToMessageId": answer_id},
     )
 
+    # 인용은 그대로 저장되지만 '답이 맞아요' 결과는 바뀌지 않는다(11/10 PM 결정)
     assert replied.status_code == 200, replied.text
-    assert _state(_consumer_page(client, consumer), answer_id) == "CORRECTED"
+    assert replied.json()["message"]["replyToMessageId"] == answer_id
+    assert _state(_consumer_page(client, consumer), answer_id) == "CONFIRMED"
+    assert _state(_producer_page(client, producer), answer_id) == "CONFIRMED"
     with get_sessionmaker()() as session:
         e = session.get(Escalation, report["escalationId"])
-        assert (e.resolution, e.resolved_by) == ("CORRECTED", "u-kang")
+        assert (e.status, e.resolution, e.resolved_by) == ("ANSWERED", "CONFIRMED", "u-kang")
+        assert e.answer is None and e.answered_at == confirmed_at
+    assert _summary(client, producer)["aiCheckRequests"] == 0
+    # 다시 '답이 맞아요'를 눌러도 409가 아니라 그대로 확인함이다
+    again = _confirm(client, producer, answer_id)
+    assert again.status_code == 200 and again.json()["checkState"] == "CONFIRMED"

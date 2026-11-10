@@ -594,13 +594,13 @@ The detailed missing-anchor, empty-history, failure and session-invalidation rul
 - **GIVEN** a check request is open
 - **WHEN** the producer taps "The answer is right"
 - **THEN** the request closes without a reply (who and when are recorded; AI mode, thread version and messages are unchanged), `checkState` becomes `CONFIRMED`, and the consumer sees "the farm confirmed the answer"
-- **AND** tapping again returns the same result; another farm or an answer without a request gets 404, an already corrected answer gets 409 `ALREADY_CORRECTED`
+- **AND** tapping again returns the same result; a later producer reply quoting that AI answer is an ordinary reply and it stays `CONFIRMED`; another farm or an answer without a request gets 404, an already corrected answer gets 409 `ALREADY_CORRECTED`
 
 **AC-13-13 (DEV-296): Correct it**
 - **GIVEN** a check request is open
 - **WHEN** the producer replies quoting that AI answer, or answers the request from the question list
 - **THEN** the request closes as `CORRECTED`; the consumer sees the AI answer dimmed and struck through with a green "the farm corrected this" chip, and the farm's reply quotes the AI answer under "Correcting the AI answer"
-- **AND** a reply quoting the AI answer after "The answer is right" turns it into `CORRECTED`; a reply without a quote that closes exactly one request is stored quoting that AI answer; a plain reply, or one quoting the consumer's question, does not close the request
+- **AND** a reply without a quote that closes exactly one request is stored quoting that AI answer; a plain reply, or one quoting the consumer's question, does not close the request
 
 **AC-13-8: Taste, quality and damage**
 - **GIVEN** a measured value is on record

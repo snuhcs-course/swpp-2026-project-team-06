@@ -619,12 +619,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       t.humanReplyUntil = inquiryOpen || t.consumerId === SUPPORT_ID ? null : new Date(Date.parse(nowIso()) + 600000).toISOString();
       t.version++;
       mode(t, "HUMAN");
+      // 열린 요청만 닫는다. '답이 맞아요'로 닫힌 AI 답변을 인용한 답장은 평범한 답장(서버와 같음)
       closing.forEach((e) => closeByReply(e, m.text, ctx.me().userId));
-      // '답이 맞아요' 뒤에 그 AI 답변을 인용해 바로잡으면 바로잡기로 바꾼다(서버와 같음)
-      const confirmed = target?.senderType === "AI"
-        ? ctx.db.escalations.find((e) => e.reportedMessageId === target!.messageId && e.resolution === "CONFIRMED")
-        : undefined;
-      if (confirmed) closeByReply(confirmed, m.text, ctx.me().userId);
       return { message, thread: t };
     }
     let reply: ChatMessage | null = null;

@@ -1,5 +1,5 @@
 // DEV-296 (FEAT-13 AC-13-11·12·13): Mock도 서버처럼 AI 답변 확인 요청 깃발을 계산한다.
-// 요청 → checkState REQUESTED·건수, '답이 맞아요' → CONFIRMED(답장 없음·멱등), 인용 답장 → CORRECTED.
+// 요청 → checkState REQUESTED·건수, '답이 맞아요' → CONFIRMED(답장 없음·멱등, 뒤 인용 답장에도 그대로), 열린 요청의 인용 답장 → CORRECTED.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
@@ -114,9 +114,18 @@ test("AC-13-13: Mock reply quoting the consumer question does not close the chec
   assert.equal((await row(producer)).aiCheckRequests, 1);
 });
 
-test("AC-13-13: Mock correcting after confirm turns the flag into CORRECTED", async () => {
-  const { consumer, producer, answerId } = await requested();
+test("AC-13-12: Mock reply quoting a confirmed AI answer is a plain reply and keeps CONFIRMED", async () => {
+  const { consumer, producer, answerId, report } = await requested();
   await ok("POST", `${CHATS}/u-minji/messages/${answerId}/confirm`, producer);
-  await ok("POST", `${CHATS}/u-minji/messages`, producer, { text: "다시 보니 5kg부터예요.", replyToMessageId: answerId });
-  assert.equal(state(await ok("GET", "/api/messaging/chats/f-kang/messages", consumer), answerId), "CORRECTED");
+  const stored = db().escalations.find((e) => e.escalationId === report.escalationId);
+  const confirmedAt = stored.answeredAt;
+  const sent = await ok("POST", `${CHATS}/u-minji/messages`, producer, { text: "네, 3kg부터 보내 드려요.", replyToMessageId: answerId });
+  assert.equal(sent.message.replyToMessageId, answerId);
+  assert.equal(state(await ok("GET", "/api/messaging/chats/f-kang/messages", consumer), answerId), "CONFIRMED");
+  assert.equal(stored.status, "ANSWERED");
+  assert.equal(stored.resolution, "CONFIRMED");
+  assert.equal(stored.answer, null);
+  assert.equal(stored.answeredAt, confirmedAt);
+  assert.equal((await row(producer)).aiCheckRequests, 0);
+  assert.equal((await ok("POST", `${CHATS}/u-minji/messages/${answerId}/confirm`, producer)).checkState, "CONFIRMED");
 });

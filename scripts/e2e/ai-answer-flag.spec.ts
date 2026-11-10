@@ -1,5 +1,5 @@
 // DEV-296 (FEAT-13 AC-13-11·12·13, Figma 10:116·10:158·10:238·10:289·1:62): AI 답변 확인 요청 깃발 흐름.
-// 소비자 요청 → 생산자 현황·1:1 목록·대화방에 뜸 → '답이 맞아요' / '바로잡기' → 소비자 화면에 결과.
+// 소비자 요청 → 생산자 현황·1:1 목록·대화방에 뜸 → '답이 맞아요'(뒤 인용 답장에도 그대로) / '바로잡기' → 소비자 화면에 결과.
 import { expect, test } from "./fixtures";
 import { apiLogin, apiUrl, consumerUrl, loginConsumer, loginProducer, producerUrl } from "./helpers";
 
@@ -96,9 +96,34 @@ test("FEAT-13 AC-13-11/12/13: flagged AI answer reaches the producer, who confir
   await expect(card).toHaveCount(0);
   await expect(page.getByText("답이 맞다고 확인함", { exact: true }).last()).toBeVisible();
 
-  // 5) 소비자: '농가가 답이 맞다고 확인했어요'(앱마다 주소가 달라 로그인이 남아 있다)
+  // 4-1) 확인한 AI 답변을 인용한 답장은 평범한 답장이다(11/10 PM 결정): 일반 머리글, 확인함 그대로
+  const confirmedId = (
+    await (
+      await request.get(`${apiUrl}/api/messaging/producer/chats/u-seojun/messages?limit=50`, { headers: auth })
+    ).json()
+  ).items.filter((m: { checkState?: string }) => m.checkState === "CONFIRMED").at(-1).messageId as string;
+  // 앞선 실행이 남긴 바로잡기 답장 머리글은 셀 수에서 뺀다(같은 DB 재실행)
+  const correctionHeaders = page.getByText("AI 안내를 바로잡아요", { exact: true });
+  const earlierHeaders = await correctionHeaders.count();
+  await page.getByTestId(`chat-message-${confirmedId}`).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "답장", exact: true }).click();
+  await expect(page.getByText("선택한 메시지에 답장", { exact: true })).toBeVisible();
+  await expect(correctionHeaders).toHaveCount(earlierHeaders);
+  const plainReply = `네, 1kg부터 보내 드려요 ${Date.now() % 1000}`;
+  await page.getByRole("textbox", { name: "메시지" }).fill(plainReply);
+  await page.getByRole("button", { name: "전송", exact: true }).click();
+  await expect(page.getByText(plainReply, { exact: true })).toBeVisible();
+  await expect(correctionHeaders).toHaveCount(earlierHeaders);
+  await expect(page.getByTestId(`ai-check-${confirmedId}`)).toHaveText("답이 맞다고 확인함");
+  await page.reload();
+  await expect(page.getByTestId(`ai-check-${confirmedId}`)).toHaveText("답이 맞다고 확인함", { timeout: 15_000 });
+  await page.screenshot({ path: info.outputPath("producer-quoted-confirmed.png") });
+
+  // 5) 소비자: '농가가 답이 맞다고 확인했어요'(앱마다 주소가 달라 로그인이 남아 있다). 인용 답장 뒤에도 그대로
   await page.goto(`${consumerUrl}/chats/f-kang`);
-  await expect(page.getByText("농가가 답이 맞다고 확인했어요", { exact: true }).last()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(plainReply, { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId(`ai-check-${confirmedId}`)).toHaveText("농가가 답이 맞다고 확인했어요");
+  await page.screenshot({ path: info.outputPath("consumer-quoted-confirmed.png") });
 
   // 6) 다른 AI 답변을 요청하고, 농가가 '바로잡기'로 AI 답변을 인용해 답한다
   await toAuto();
