@@ -1,4 +1,4 @@
-import { ensureThread } from "./conversations";
+import { closeByReply, ensureThread, withCheckState } from "./conversations";
 // /api/messaging Mock (FEAT-12 소식·채팅, 13 AI 안내·질문함, 15 좋아요)
 import type { ChatSummary, Escalation, NewsInput } from "../types";
 import {
@@ -30,7 +30,13 @@ function visibleNews(d: DB, uid: string | null) {
 }
 
 function escalationView(d: DB, e: EscalationRec): Escalation {
-  return { ...e, thread: d.threads[key(e.farmId, e.consumerId)] ?? [] };
+  // 닫은 사람·시각은 서버 EscalationView에 없는 내부 기록이라 응답에서 뺀다(DEV-296)
+  const { resolvedBy: _by, answeredAt: _at, ...rest } = e;
+  return {
+    ...rest,
+    resolution: e.status === "ANSWERED" ? (e.resolution ?? null) : null,
+    thread: (d.threads[key(e.farmId, e.consumerId)] ?? []).map((m) => withCheckState(d, m)),
+  };
 }
 
 register({
@@ -169,6 +175,10 @@ register({
     if (!text) invalid({ text: "답을 적어 주세요" });
     const m = mask(text);
     const k = key(e.farmId, e.consumerId);
+    // 확인 요청에 답하면 그 AI 답변을 인용한 바로잡기다(DEV-296, 서버와 같음)
+    const quoted = e.status === "OPEN" && e.reportedMessageId
+      ? (ctx.db.threads[k] ?? []).find((x) => x.messageId === e.reportedMessageId)
+      : undefined;
     (ctx.db.threads[k] ??= []).push(
       chatMessage({
         messageId: nextId("m"),
@@ -176,6 +186,11 @@ register({
         body: m.text,
         masked: m.masked,
         createdAt: nowIso(),
+        replyToMessageId: quoted?.messageId ?? null,
+        replyTo: quoted
+          ? { messageId: quoted.messageId, senderType: quoted.senderType, body: quoted.body,
+              attachmentCount: quoted.attachmentIds?.length ?? 0 }
+          : null,
       }),
     );
     const meta = ensureThread(ctx.db, e.farmId, e.consumerId);
@@ -183,8 +198,7 @@ register({
       meta.aiMode = "HUMAN";
       meta.version++;
     }
-    e.status = "ANSWERED";
-    e.answer = m.text;
+    if (e.status === "OPEN") closeByReply(e, m.text, u.userId);
     return escalationView(ctx.db, e);
   },
 });

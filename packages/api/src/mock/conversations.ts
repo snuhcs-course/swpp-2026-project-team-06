@@ -1,4 +1,5 @@
 import type {
+  AiCheckState,
   AiPreview,
   AiSettings,
   ChatMessage,
@@ -15,6 +16,7 @@ import {
   SUPPORT_WELCOME,
   SUSPENDED_FIRST,
   type DB,
+  type EscalationRec,
   type OrderRec,
 } from "./db";
 import { chatMessage, mask, maskBroadcastReply } from "./derive";
@@ -214,7 +216,38 @@ function unread(d: DB, t: Thread, producer: boolean) {
         : x.senderType !== "CONSUMER",
     ).length;
 }
-export function needsReply(d: DB, t: Thread) {
+/** 확인 요청 깃발 상태(DEV-296, 서버 _check_state와 같음) */
+export function checkState(e: EscalationRec): AiCheckState | null {
+  if (e.status === "OPEN") return "REQUESTED";
+  // resolution 없는 옛 닫힌 요청은 깃발 없음(서버와 같음)
+  return e.resolution ?? null;
+}
+/** 이 대화의 열린 AI 답변 확인 요청 수(DEV-296) */
+export function aiCheckRequests(d: DB, t: Thread) {
+  return d.escalations.filter(
+    (e) =>
+      e.farmId === t.farmId &&
+      e.consumerId === t.consumerId &&
+      e.status === "OPEN" &&
+      !!e.reportedMessageId,
+  ).length;
+}
+/** 메시지 응답의 reported·checkState(DEV-296). 저장된 메시지는 바꾸지 않는다 */
+export function withCheckState(d: DB, m: ChatMessage): ChatMessage {
+  if (m.senderType !== "AI") return { ...m, checkState: null };
+  const e = d.escalations.find((x) => x.reportedMessageId === m.messageId);
+  return e ? { ...m, reported: true, checkState: checkState(e) } : { ...m, checkState: null };
+}
+/** 농가 답장으로 닫는 요청(DEV-296): 확인 요청이면 바로잡기(CORRECTED) */
+export function closeByReply(e: EscalationRec, answer: string, by: string) {
+  e.status = "ANSWERED";
+  e.answer = answer;
+  e.answeredAt = nowIso();
+  e.resolvedBy = by;
+  if (e.reportedMessageId) e.resolution = "CORRECTED";
+}
+/** needsReply: 1:1 목록 필터. checks=false면 확인 요청만 열린 대화는 뺀다(현황 '답하지 않은 문의', DEV-296) */
+export function needsReply(d: DB, t: Thread, checks = true) {
   const m = list(d, t);
   const lastProducer = m.reduce(
     (n, x, i) => (x.senderType === "PRODUCER" ? i : n),
@@ -228,7 +261,8 @@ export function needsReply(d: DB, t: Thread) {
       (e) =>
         e.farmId === t.farmId &&
         e.consumerId === t.consumerId &&
-        e.status === "OPEN",
+        e.status === "OPEN" &&
+        (checks || !e.reportedMessageId),
     ) ||
     inquiries(d, t).some((i) => i.status === "OPEN")
   );
@@ -315,7 +349,7 @@ function page(ctx: Ctx, t: Thread) {
         .filter(Boolean),
     ]);
   return {
-    ...messagePage(ctx, t.threadId, list(d, t).map(m => ({ ...m, sourceSummary: m.handoffStatus === "FORWARDED" ? null : m.sourceSummary })), true),
+    ...messagePage(ctx, t.threadId, list(d, t).map(m => withCheckState(d, { ...m, sourceSummary: m.handoffStatus === "FORWARDED" ? null : m.sourceSummary })), true),
     thread: {...t, aiMode: effectiveMode(t), serverNow: nowIso()},
     inquiries: ins,
     orders: Object.values(d.orders)
@@ -530,8 +564,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       const p = ctx.db.products[productId];
       if (p?.farmId !== t.farmId || p.status !== "PUBLISHED") notFound();
     }
-    const replyId = ctx.body.replyToMessageId as string | undefined;
-    const target = replyId ? list(ctx.db, t).find(m => m.messageId === replyId) : undefined;
+    let replyId = ctx.body.replyToMessageId as string | undefined;
+    let target = replyId ? list(ctx.db, t).find(m => m.messageId === replyId) : undefined;
     if (replyId && !target) notFound();
     const aa = attachments(ctx, t, orderId);
     if ((!text && !aa.length) || text.length > 1000)
@@ -552,6 +586,16 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       )
     )
       notFound();
+    // 농가 답장이 닫는 요청. 인용 없이 확인 요청 하나만 닫으면 그 AI 답변을 인용한다(DEV-296, 서버와 같음)
+    const closing = producer
+      ? ctx.db.escalations.filter((e) => e.status === "OPEN" && e.farmId === t.farmId && e.consumerId === t.consumerId &&
+          (es.includes(e.escalationId) || (!!replyId && ((!e.reportedMessageId && e.questionMessageId === replyId) || e.reportedMessageId === replyId))))
+      : [];
+    const corrected = closing.filter((e) => e.reportedMessageId);
+    if (!target && corrected.length === 1) {
+      replyId = corrected[0].reportedMessageId!;
+      target = list(ctx.db, t).find(m => m.messageId === replyId);
+    }
     const m = mask(text),
       settings = ctx.db.aiSettings[t.farmId] ?? defaultSettings();
     const message = chatMessage({
@@ -575,12 +619,8 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
       t.humanReplyUntil = inquiryOpen || t.consumerId === SUPPORT_ID ? null : new Date(Date.parse(nowIso()) + 600000).toISOString();
       t.version++;
       mode(t, "HUMAN");
-      ctx.db.escalations
-        .filter((e) => e.status === "OPEN" && (es.includes(e.escalationId) || (replyId && e.farmId === t.farmId && e.consumerId === t.consumerId && (e.questionMessageId === replyId || e.reportedMessageId === replyId))))
-        .forEach((e) => {
-          e.status = "ANSWERED";
-          e.answer = m.text;
-        });
+      // 열린 요청만 닫는다. '답이 맞아요'로 닫힌 AI 답변을 인용한 답장은 평범한 답장(서버와 같음)
+      closing.forEach((e) => closeByReply(e, m.text, ctx.me().userId));
       return { message, thread: t };
     }
     let reply: ChatMessage | null = null;
@@ -606,7 +646,9 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
           messageId: nextId("m"),
           sequence: list(ctx.db, t).length + 1,
           senderType: "AI",
-          body: a.answer ?? "농가에 전달했어요. 직접 답변을 기다려 주세요.",
+          body:
+            a.answer ??
+            "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.",
           createdAt: nowIso(),
           handoffStatus: a.action === "HANDOFF" ? "FORWARDED" : null,
           sourceSummary: a.action === "HANDOFF" ? null : a.reason,
@@ -819,6 +861,7 @@ register({
           lastAt: m?.createdAt ?? "",
           unreadCount: unread(ctx.db, t, true),
           needsReply: needsReply(ctx.db, t),
+          aiCheckRequests: aiCheckRequests(ctx.db, t),
           aiMode: effectiveMode(t),
           isSupport: t.consumerId === SUPPORT_ID,
         };
@@ -826,6 +869,23 @@ register({
       .filter((t) => ctx.query.needsReply !== "true" || t.needsReply)
       .sort((a, b) => b.lastAt.localeCompare(a.lastAt));
     return paginate(rows, ctx.query);
+  },
+  // 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 답장 없이 닫고, 다시 눌러도 같은 결과
+  "POST /api/messaging/producer/chats/:consumerId/messages/:messageId/confirm": (ctx) => {
+    const f = ctx.me().farmId!,
+      t = ctx.db.threadMeta[key(f, ctx.params.consumerId)];
+    if (!t) notFound("찾을 수 없는 대화예요.");
+    const target = list(ctx.db, t).find((m) => m.messageId === ctx.params.messageId);
+    const e = target && ctx.db.escalations.find((x) => x.reportedMessageId === target.messageId);
+    if (!target || !e) notFound("확인 요청이 없는 답변이에요.");
+    if (e.status === "OPEN") {
+      e.status = "ANSWERED";
+      e.resolution = "CONFIRMED";
+      e.resolvedBy = ctx.me().userId;
+      e.answeredAt = nowIso();
+    } else if (e.resolution !== "CONFIRMED")
+      conflict("ALREADY_CORRECTED", "이미 농가가 답한 답변이에요.");
+    return withCheckState(ctx.db, target);
   },
   "POST /api/messaging/producer/chats": (ctx) => {
     const f = ctx.me().farmId!,

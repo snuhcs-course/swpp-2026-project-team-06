@@ -409,6 +409,26 @@ def producer_send(
     )
 
 
+@router.post(
+    "/producer/chats/{consumer_id}/messages/{message_id}/confirm", response_model=ChatMessage
+)
+def confirm_ai_answer(
+    db: Db,
+    producer: ApprovedProducer,
+    consumer_id: str,
+    message_id: str,
+    key: IdempotencyKey = None,
+):
+    """소비자가 확인을 요청한 AI 답변에 '답이 맞아요'(DEV-296). 답장 없이 요청을 닫는다.
+
+    한 답변에 확인 요청은 하나라 다시 눌러도 같은 결과다(키는 다른 POST와 맞춰 받기만 한다).
+    """
+    _, farm = producer
+    result = service.confirm_ai_answer(db, farm, consumer_id, message_id)
+    db.commit()
+    return result
+
+
 @router.put("/producer/chats/{consumer_id}/ai-mode", response_model=ThreadView)
 def ai_mode(
     db: Db,

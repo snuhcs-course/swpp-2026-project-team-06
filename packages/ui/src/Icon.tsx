@@ -39,7 +39,9 @@ export type IconName =
   | "external"
   | "forward"
   | "truck"
-  | "settings";
+  | "settings"
+  /** AI 답변 확인 요청 깃발(DEV-296) */
+  | "flag";
 
 type Props = {
   name: IconName;
@@ -109,6 +111,7 @@ export function Icon({
       {name === "chevron" && <Path d="M9 6l6 6-6 6" {...p} />}
       {name === "chevronDown" && <Path d="M6 9l6 6 6-6" {...p} />}
       {name === "check" && <Path d="M5 12l4 4L19 6" {...p} />}
+      {name === "flag" && <Path d="M6 21V4M6 4h11l-2 4 2 4H6" {...p} fill={color} />}
       {name === "plus" && <Path d="M12 5v14M5 12h14" {...p} />}
       {name === "search" && (
         <>

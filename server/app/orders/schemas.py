@@ -203,7 +203,10 @@ class HarvestTarget(CamelModel):
 
 
 class DashboardTodo(CamelModel):
+    # '답하지 않은 문의': AI 답변 확인 요청만 열린 대화는 빼고 센다(DEV-296)
     open_questions: int
+    # 'AI 답변 확인 요청': 농가 전체의 열린 확인 요청 수(DEV-296)
+    ai_check_requests: int = 0
     to_ship: int
     pending_products: int
     awaiting_deposit: int

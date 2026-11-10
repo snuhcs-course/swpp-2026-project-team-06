@@ -478,6 +478,17 @@ export const messaging = {
       `/api/messaging/producer/chats/${consumerId}/messages`,
       { body: { text, attachmentIds, answerToEscalationIds, replyToMessageId }, idempotencyKey },
     ),
+  /** 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 다시 눌러도 같은 결과 */
+  confirmAiAnswer: (
+    consumerId: string,
+    messageId: string,
+    idempotencyKey: string = newIdempotencyKey(),
+  ) =>
+    request<A.ChatMessage>(
+      "POST",
+      `/api/messaging/producer/chats/${consumerId}/messages/${messageId}/confirm`,
+      { idempotencyKey },
+    ),
   editChatMessage: (id: string, text: string, version: number, key: string) =>
     request<A.ChatMessage>("PATCH", `/api/messaging/messages/${id}`, { body: {text, version}, idempotencyKey: key }),
   editRoomMessage: (farmId: string, id: string, text: string, version: number, key: string) =>

@@ -31,7 +31,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 | 2 | 소비자 하단 탭: 발견 · 내 주문 · 채팅 · 내 정보 (1.3에서 갱신) | P21 |
 | 3 | 첫 화면은 홈·발견(시즌 히어로, 추천 상품, 소식 미리보기). 1.1에서 소식 미리보기 → 농가 둘러보기(결정 23) | P21 |
 | 4 | 출하 처리는 주문별 상태 변경 + 송장 번호 입력. AI가 주문을 찾는 기능은 I2 | P21 |
-| 5 | AI 답변은 ‘AI 안내’ 표시 + 어려우면 농가에 전달. ‘틀렸어요’(M-17)는 I2. AI에 개인정보를 보내지 않는다(M-18). → I2에서 구현됨: 지금 기준은 SCR-16 본문(전달되지 않은 AI 안내마다 ‘틀렸어요’, AC-13-5, DEV-167 평가로 확인, DEV-233) | P21 |
+| 5 | AI 답변은 ‘AI 안내’ 표시 + 어려우면 농가에 전달. ‘틀렸어요’(M-17)는 I2. AI에 개인정보를 보내지 않는다(M-18). → I2에서 구현됨: 지금 기준은 SCR-16 본문(전달되지 않은 AI 안내마다 ‘답변 확인 요청’, AC-13-5, DEV-167 평가로 확인, DEV-233. 깃발·농가 확인·바로잡기는 DEV-296, AC-13-11~13) | P21 |
 | 6 | 소식에 반응(좋아요) 버튼과 반응 수 | P21 |
 | 7 | 이 문서의 형식: 화면별 5항목 + API 표, 공통 오류 형식, cursor 페이지네이션, 멱등 키, 입력값 보존 | P21 |
 | 8 | 예약 기간별 가격(이른 예약일수록 저렴). 번호 단계/고정 프리셋 대신 날짜 구간을 추가·편집한다 | 1.2 |
@@ -264,13 +264,13 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 - **주문 진입 복구(DEV-248)**: 결제 이력 주문 상세의 두 질문 버튼은 start=1과 orderId 및 원래 fromOrder를 보낸다. 구형 from=order&fromOrder도 결제 주문 시작으로 복구한다. 결제 확인 전 주문은 context=general로 일반 팔로우 안내/시작을 이용하며 주문 예외를 부여하지 않는다. 원래 주문으로의 뒤로 대상은 바뀌지 않는다.
 - 시작 성공 뒤 권한 있는 첫 페이지를 확인한 후 보내기·사진을 연다. 초기 연결은 15초 이내 응답이 없으면 다시 시도를 제공한다(같은 본문/키). 명시적 연결 주문 1개는 자동 선택, 여러 개는 주문 선택 시트에서 고른다. 표시된 주문 문맥으로만 전송/사진을 연결한다. 문맥을 바꾸면 글은 유지하고 사진은 다시 첨부한다. 보내기 실패는 같은 내용/키로 다시 보내기, 성공 뒤 새로 불러오기 실패는 대화 다시 읽기다.
 
-- **관련**: FEAT-12(AC-12-1·2·4·5), FEAT-13(AC-13-1~5) · 규칙: M-02, M-04~M-09, M-15~M-18, N-04 · 우선순위: Should
+- **관련**: FEAT-12(AC-12-1·2·4·5), FEAT-13(AC-13-1~5·11~13) · 규칙: M-02, M-04~M-09, M-15~M-18, N-04 · 우선순위: Should
 - **목적**: 농가에 질문한다. 농가 AI ON·방 AUTO에서만 AI가 답하며 HUMAN/OFF이면 직접 답변 대기. 이때 대화 맨 위 가운데 시스템 문구 한 줄은 ‘AI 안내가 꺼져 있어요 · 농가가 직접 답해요’(숫자가 있으면 ‘ · 보통 N시간 안에 답해요’를 붙임)(DEV-208, DEV-295에서 띠 → 시스템 문구). 결제 주문 문의는 팔로우 예외를 적용한다. 활성 화면 2초 갱신·읽음 처리는 계약 4장을 따른다.
-- **화면 요소·데이터**: 농가 헤더(부제 없음, 오른쪽 ‘농가 보기’ → SCR-03), 시간순 타임라인(한국 날짜가 바뀌는 자리마다 가운데 날짜 알약 ‘10월 7일 수요일’(소식방과 같은 형식, DEV-223·DEV-295), 내 질문(상대가 읽었으면 마지막 읽힌 말풍선 옆 ‘읽음’), 회색 ‘AI 안내’ 라벨·얇은 테두리 답과 근거 요약, 그 아래 글자 버튼 ‘답변 확인 요청’, 농가 답(묶음 첫 말풍선에만 농가 아바타·농가명, 시각은 묶음 마지막 옆), ‘농가에 전달했어요’ 상태, 농가 답을 기다리는 마지막 내 질문 아래 ‘농가에 전달했어요 · 보통 N시간 안에 답해요’ 상태 줄(`needsHuman`, 뒤에 농가 답이 오면 숨김, DEV-208)), 입력줄(사진 첨부 아이콘 40 · 입력칸 40 · 보내기 40, 사진 최대 3장). 사진을 누르면 전체 화면. 길게 누르기·우클릭 메뉴에 ‘복사’. 처음이면 ‘팔로우하고 대화를 시작해요’ 한 줄.
+- **화면 요소·데이터**: 농가 헤더(부제 없음, 오른쪽 ‘농가 보기’ → SCR-03), 시간순 타임라인(한국 날짜가 바뀌는 자리마다 가운데 날짜 알약 ‘10월 7일 수요일’(소식방과 같은 형식, DEV-223·DEV-295), 내 질문(상대가 읽었으면 마지막 읽힌 말풍선 옆 ‘읽음’), 회색 ‘AI 안내’ 라벨·얇은 테두리 답과 근거 요약, 그 아래 글자 버튼 ‘답변 확인 요청’(누르면 확인 요청 깃발, 아래 버튼 동작), 농가 답(묶음 첫 말풍선에만 농가 아바타·농가명, 시각은 묶음 마지막 옆), AI 전달 안내 ‘AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. …’(근거 요약 없음), 농가 답을 기다리는 마지막 내 질문 아래 ‘농가에 전달했어요 · 보통 N시간 안에 답해요’ 상태 줄(`needsHuman`, 뒤에 농가 답이 오면 숨김, DEV-208)), 입력줄(사진 첨부 아이콘 40 · 입력칸 40 · 보내기 40, 사진 최대 3장). 사진을 누르면 전체 화면. 길게 누르기·우클릭 메뉴에 ‘복사’. 처음이면 ‘팔로우하고 대화를 시작해요’ 한 줄.
 - **입력**: `text`(1,000자 이하), `attachmentIds`(최대 3개), 주문 문맥 `orderId`. 본문·사진 중 하나 필수. 업로드는 비공개 첨부 API.
-- **출력**: 들어오면 `GET /api/messaging/chats/{farmId}/messages?cursor=`(대화는 농가·소비자당 1개라 `farmId`로 찾는다). AI 메시지에는 서버가 신고 여부 `reported`를 포함한다. 보내기 `POST /api/messaging/chats/{farmId}/messages` → 저장된 질문(연락처 가림)과 AI 안내 또는 전달 상태(`handoffStatus`). 직접 응대/AI OFF에서는 `reply=null`. 조회 응답의 `farmReply {mode, typicalReplyHours}`로 상단 문구와 예상 답 시간을 정한다(AC-13-9·13-10). 자동 팔로우는 여기서 하지 않고 SCR-03·04·18의 채팅하기·질문하기가 `POST /api/messaging/chats`로 한다.
+- **출력**: 들어오면 `GET /api/messaging/chats/{farmId}/messages?cursor=`(대화는 농가·소비자당 1개라 `farmId`로 찾는다). AI 메시지에는 서버가 확인 요청 여부 `reported`와 깃발 상태 `checkState`(REQUESTED·CONFIRMED·CORRECTED·null, DEV-296)를 포함한다. 보내기 `POST /api/messaging/chats/{farmId}/messages` → 저장된 질문(연락처 가림)과 AI 안내 또는 전달 상태(`handoffStatus`). 직접 응대/AI OFF에서는 `reply=null`. 조회 응답의 `farmReply {mode, typicalReplyHours}`로 상단 문구와 예상 답 시간을 정한다(AC-13-9·13-10). 자동 팔로우는 여기서 하지 않고 SCR-03·04·18의 채팅하기·질문하기가 `POST /api/messaging/chats`로 한다.
 - **뒤로 (DEV-224)**: 상품 상세(SCR-04)·짧은 농가 정보·주문 상세(SCR-14)에서 열었으면 그 화면(방 주소의 `productId`·`from=info`·`from=order&fromOrder=`로 안다, 새로고침해도 같다). 채팅 목록에서 열었거나 주소로 열었으면 1:1 목록.
-- **버튼 동작**: 보내기 → 1회, 처리 중 잠금. AI 안내는 등록된 정보로만 답하고, 근거가 없거나 전달 주제면 ‘농가에 전달했어요’(M-06·M-07). 소비자는 전달되지 않은 AI 답변마다 ‘틀렸어요’를 눌러 신고할 수 있다. `POST /api/messaging/chats/{farmId}/messages/{messageId}/report`는 기존 질문함 흐름으로 오답 Escalation을 만들고, 중복 신고는 기존 신고를 반환한다. 위로 → 이전 cursor.
+- **버튼 동작**: 보내기 → 1회, 처리 중 잠금. AI 안내는 등록된 정보로만 답하고, 근거가 없거나 전달 주제면 AI 안내 ‘AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.’(M-06·M-07, policy.md). 소비자는 전달되지 않은 AI 답변마다 ‘답변 확인 요청’을 누를 수 있다. `POST /api/messaging/chats/{farmId}/messages/{messageId}/report`는 기존 질문함 흐름으로 확인 요청 Escalation(`WRONG_ANSWER`)을 만들고, 중복 요청은 기존 요청을 반환한다. 누른 뒤(DEV-296, Figma 10:116·10:289): 요청 중이면 그 AI 말풍선 빨간 테두리 + 아래 빨간 칩 ‘농가에 확인 요청함’ + ‘농가가 확인하면 알려 드려요’, 농가가 답이 맞다고 하면 초록 칩 ‘농가가 답이 맞다고 확인했어요’, 바로잡으면 그 말풍선은 회색 글자 + 취소선과 ‘AI 안내’ 옆 초록 칩 ‘농가가 바로잡았어요’, 농가 답장은 ‘AI 안내를 바로잡아요’ 인용 블록. 2초 갱신으로 바뀐다. 위로 → 이전 cursor.
 - **빈 상태·오류**: 아직 질문이 없으면 ‘궁금한 점을 물어보세요’. 본인 결제 주문 문의 예외 없이 팔로우하지 않은 농가의 채팅 주소로 바로 들어오면(403) 그 농가 SCR-03으로 보낸다(IA 5장 예외 경로). 보내기 실패 → 입력창에 글·사진 유지, 다시 보내기. AI 실패·시간 초과 → 전달로 처리(N-04). 불러오기 실패 → 이미 보인 것을 유지하고 다시 시도.
 
 #### SCR-16 하위: farmclub 문의 대화방 `/chats/support`
@@ -370,12 +370,12 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 - **관련**: FEAT-14, AC-14-1/2/3/4/5, R-15. 현황 탭. 디자인: Figma 검토본 `TEN0IqovZJenoRqSIma3wL` 1:62(DEV-294).
 - **화면**: 머리 1단(기존 아이콘형 로고 36×40 + 왼쪽 제목 ‘현황’, 세로 가운데, 오른쪽 ‘가이드’. 로고는 유지, PM 11/09)과 그 아래 한 줄 ‘농가명 · ○월 ○일 (요일)’. 섹션 세 개:
-  - **할 일**(있을 때만): 한 줄 56 목록. 왼쪽 이름, 오른쪽 accent 굵은 건수 ‘n건’이나 ‘필수’ 태그, 끝에 chevron. 부제는 없다. 줄: ‘원산지 표시제도 안내 읽기’(필수, 지금 버전 안내를 안 읽었을 때, DEV-121) / ‘입금 계좌 등록’(필수, `hasAccount` false) / ‘입금 확인할 주문’(`awaitingDeposit`) / ‘수확을 시작할 예약’(`toHarvest`, DEV-231) / ‘환불 보낼 주문’(`refundsToSettle`) / ‘답하지 않은 문의’(`openQuestions`, DEV-294). ‘AI 답변 확인 요청’ 줄은 DEV-296.
+  - **할 일**(있을 때만): 한 줄 56 목록. 왼쪽 이름, 오른쪽 accent 굵은 건수 ‘n건’이나 ‘필수’ 태그, 끝에 chevron. 부제는 없다. 줄: ‘원산지 표시제도 안내 읽기’(필수, 지금 버전 안내를 안 읽었을 때, DEV-121) / ‘입금 계좌 등록’(필수, `hasAccount` false) / ‘입금 확인할 주문’(`awaitingDeposit`) / ‘수확을 시작할 예약’(`toHarvest`, DEV-231) / ‘환불 보낼 주문’(`refundsToSettle`) / ‘AI 답변 확인 요청’(`aiCheckRequests`, DEV-296, Figma 1:62는 맨 위지만 ‘필수’ 줄 아래) / ‘답하지 않은 문의’(`openQuestions`, DEV-294. 확인 요청만 열린 대화는 세지 않음).
   - **주문**(오른쪽 링크 ‘배송 현황 ›’): 회색 카드 하나에 4칸 한 줄(전체/예약/출하 준비/출하). 칸마다 위 작은 이름, 아래 숫자(heading). 지금 손이 가야 하는 출하 준비 숫자만 accent. 카드 설명 글과 ‘주문 현황’·‘배송 현황’ 버튼은 없다.
-  - **예약·출하 물량**(오른쪽 링크 ‘상품 ›’, 판매 중 대표 상품이 있을 때): 썸네일 48, 상품명, 오른쪽 작은 보조 글자 ‘총 (예약+출하) / 판매 한도kg’. 그 아래 중량 옵션마다 한 줄 ‘5kg  32,000원   24박스 / 72박스’: 왼쪽 옵션 이름과 지금 판매 기간의 박스당 가격(대시보드 `stages[]`에서 `current` 기간의 `price`, 그 기간에 옵션 값이 없으면 가격을 비움), 오른쪽 ‘예약+출하 N박스 / 판매 M박스’(모든 기간 합), 아래 얇은 진행 막대(accent). 옵션 줄은 보조(14) 크기이고 가격·박스는 semibold다. 옵션은 따로 보이고 서로 더하지 않는다. DEV-292 결정(옵션 박스를 합치면 공유 물량을 두 번 센다)으로 kg 합계만 보였으나, 농가 피드백(11/10, “키로별로 몇 박스”)에 따라 옵션별 박스로 바꾸고, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조(‘총 …kg’은 메타 12 회색, 판매 한도가 kg 기준이라 남김, DEV-300). 박스 수는 예약 중과 출하 완료를 합친 한 숫자다(입금 대기 포함, kg ‘예약 중’과 같은 기준. 옵션별로 나누려면 서버 집계 필요, 후속). 대시보드에 기간·옵션 값이 없으면 예전처럼 kg 한 줄과 막대.
+  - **예약·출하 물량**(오른쪽 링크 ‘상품 ›’, 판매 중 대표 상품이 있을 때): 썸네일 48, 상품명, 오른쪽 작은 보조 글자 ‘총 (예약+출하)kg / (판매 한도)kg’(예: ‘총 250kg / 2,400kg’, 두 숫자 모두 kg 단위 — 왼쪽이 박스로 읽히지 않게, DEV-296 11/10). 그 아래 중량 옵션마다 한 줄 ‘5kg  32,000원   24박스 / 72박스’: 왼쪽 옵션 이름과 지금 판매 기간의 박스당 가격(대시보드 `stages[]`에서 `current` 기간의 `price`, 그 기간에 옵션 값이 없으면 가격을 비움), 오른쪽 ‘예약+출하 N박스 / 판매 M박스’(모든 기간 합), 아래 얇은 진행 막대(accent). 옵션 줄은 보조(14) 크기이고 가격·박스는 semibold다. 옵션은 따로 보이고 서로 더하지 않는다. DEV-292 결정(옵션 박스를 합치면 공유 물량을 두 번 센다)으로 kg 합계만 보였으나, 농가 피드백(11/10, “키로별로 몇 박스”)에 따라 옵션별 박스로 바꾸고, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조(‘총 …kg’은 메타 12 회색, 판매 한도가 kg 기준이라 남김, DEV-300). 박스 수는 예약 중과 출하 완료를 합친 한 숫자다(입금 대기 포함, kg ‘예약 중’과 같은 기준. 옵션별로 나누려면 서버 집계 필요, 후속). 대시보드에 기간·옵션 값이 없으면 예전처럼 kg 한 줄과 막대(글자는 ‘250kg / 2,400kg’처럼 두 숫자 모두 kg).
   - 안내를 읽었으면 맨 아래 상시 줄 ‘원산지 표시제도 안내 · ○월 ○일 확인함’(DEV-121, 원산지표시법 시행규칙 제4조의2 1호 = 초기 화면 상시 게시 + 확인 안내). 채팅 정보·소식 작성 진입 없음.
-- **조회**: producer orders 전체 cursor의 실제 건수(전체 판매 기간). dashboard의 `todo.awaitingDeposit`·`refundsToSettle`·`hasAccount`·`toHarvest`·`harvestTargets`·`openQuestions`, 대표 상품 g(예약·출하·판매 한도)와 `stages[].options[]`(옵션별 `reserved`·`quantity`, `current` 기간의 `price`, DEV-300), 썸네일은 `GET /api/products/mine`의 대표 사진. 숫자는 한 줄.
-- **동작**: 원산지 안내 줄(할 일·상시) → `/origin-notice`. 계좌 → `/farm/account`, 입금 확인 → SCR-29 `?status=AWAITING_DEPOSIT`, 환불 → `?status=REFUNDED`, 수확 → SCR-26 `?stage=<가장 먼저 끝난 기간>`, 답하지 않은 문의 → SCR-28 1:1 목록(`/chats?view=private`). 4칸은 SCR-29 해당 탭(전체·예약은 조회, 출하 준비·출하는 관리), ‘배송 현황 ›’ → 출하 준비 탭, 물량 줄 → 판매 설정(`/products/:id/sales`), ‘상품 ›’ → SCR-23. 예약 조회는 상태를 바꾸지 않는다.
+- **조회**: producer orders 전체 cursor의 실제 건수(전체 판매 기간). dashboard의 `todo.awaitingDeposit`·`refundsToSettle`·`hasAccount`·`toHarvest`·`harvestTargets`·`aiCheckRequests`·`openQuestions`, 대표 상품 g(예약·출하·판매 한도)와 `stages[].options[]`(옵션별 `reserved`·`quantity`, `current` 기간의 `price`, DEV-300), 썸네일은 `GET /api/products/mine`의 대표 사진. 숫자는 한 줄.
+- **동작**: 원산지 안내 줄(할 일·상시) → `/origin-notice`. 계좌 → `/farm/account`, 입금 확인 → SCR-29 `?status=AWAITING_DEPOSIT`, 환불 → `?status=REFUNDED`, 수확 → SCR-26 `?stage=<가장 먼저 끝난 기간>`, AI 답변 확인 요청 → SCR-28 1:1 목록의 확인 요청 대화만(`/chats?view=private&checks=1`), 답하지 않은 문의 → SCR-28 1:1 목록(`/chats?view=private`). 4칸은 SCR-29 해당 탭(전체·예약은 조회, 출하 준비·출하는 관리), ‘배송 현황 ›’ → 출하 준비 탭, 물량 줄 → 판매 설정(`/products/:id/sales`), ‘상품 ›’ → SCR-23. 예약 조회는 상태를 바꾸지 않는다.
 - **상태**: 0건·상품 없음(‘판매 중인 상품이 없어요’)·로딩·오류 재시도. 배송 개인정보는 대시보드에 표시하지 않는다.
 
 ### SCR-22a 원산지 표시제도 안내 `/origin-notice` (DEV-121)
@@ -461,19 +461,20 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 
 ### SCR-28 농가 채팅 `/chats`
 
-- **관련**: FEAT-12/13/33/34, AC-12-7/9/10/11/12, AC-34-2, M-19, M-22. 채팅 탭.
+- **관련**: FEAT-12/13/33/34, AC-12-7/9/10/11/12, AC-13-11/12/13, AC-34-2, M-17, M-19, M-22. 채팅 탭.
 - **화면**: 소식방 / 1:1 채팅만. 최초 소식방은 자신의 대화 본문이 바로 열린다. 중간 농가 목록·전체/답변 필요 필터·목록 AI/직접 응대 상태 없음.
 - **고정**: 밑줄 탭 ‘내 소식방 / 1:1 채팅 N’, 판매 품목 한 줄(기본 접힘 ‘판매 중 N개 · 팔로워 N명’), ‘사진·영상’ 도구 칩 + 입력창(탭 위), 4개 탭. 내 소식 아래 오른쪽 한 줄 ‘읽음 N · ♥ N · 답장 N ›’(DEV-295·DEV-297). ‘답장 N ›’(답장이 있을 때만) → 팬 답장 시트: 제목 ‘답장 N’, 소식 인용 · 날짜, 칩 ‘전체 N / 안 읽음 N’, 줄마다 첫 글자 아바타·가린 이름·‘예약 고객’·안 읽음 점·시각·본문·‘모두에게 답장’(이미 인용했으면 ‘모두에게 답장함 ✓’)·‘1:1 채팅’. 열면 그 답장들을 읽음 처리(FEAT-15 AC-15-11). 본문 첫 시스템 문구 ‘보내는 소식은 모든 팔로워에게 보여요’는 대화와 함께 스크롤한다.
 - **보내기 확인·삭제 (DEV-210, M-23, AC-12-13~16)**: 입력 안내는 ‘팔로워 N명에게 보내기’(수를 모르면 ‘모든 팔로워에게 보내기’, DEV-295). 전송을 누르면 시트 ‘팔로워 N명에게 보낼까요?’(팔로워 0명이면 ‘아직 팔로워가 없어요. 그래도 보낼까요?’), 소비자에게 보일 미리보기, ‘보낸 소식은 지울 수 있지만 고칠 수는 없어요.’, ‘아니요’(요청 없이 글 유지) · ‘확인 · 보내기’(한 번만). 본인 방송 좋아요 줄 끝 ⋯(길게 누르기도 같음) → ‘이 소식을 삭제할까요?’, 공개 소식은 ‘팔로워 N명의 소식방과 농가 공개 소식방에서 사라져요.’, 팔로워 전용은 ‘…소식방과 채팅 목록에서 사라져요.’, ‘받은 답장은 지워지지 않아요. 삭제한 소식은 되돌릴 수 없어요.’, ‘삭제하고 다시 쓰기’(글 소식만, 본문이 입력칸으로 돌아옴) · ‘아니요’ · ‘삭제’. `DELETE /api/messaging/news/{broadcastId}`의 404는 이미 지운 것으로 보고 성공 처리한다. 토스트 ‘소식을 삭제했어요’(다시 쓰기면 ‘… · 고쳐서 다시 보내 주세요’). 소비자 소식방·채팅 목록 미리보기에서는 원 소식이 빠지고 답장은 남는다(FEAT-12 DEV-210 절, [제안 보드](/docs/design/proposals/dev-210-news-confirm-delete.html), DEV-233에서 옮김).
 - **동작**: 본인 roomMessages/sendRoom, 기존 소비자 답장에서 명시적 1:1 시작, 첨부 → SCR-27 → 같은 탭. /news/:farmId 기존 링크는 자기 방이면 이 탭으로 복귀한다.
 - **상태**: 접기/전송은 입력·접힘 선택을 유지. 빈 대화·로딩·실패 재시도, 권한/비활성 polling 중단은 유지.
 
+- **AI 답변 확인 요청(DEV-296, Figma 10:158)**: 열린 확인 요청이 있으면 1:1 목록 맨 위 빨간 띠 ‘확인해 달라는 AI 답변 N개 · 먼저 보기’(대화 요약 `aiCheckRequests` 합). 누르면 확인 요청 대화만(`?checks=1`, 오른쪽 글자 ‘모두 보기’로 다시 전체). 그 줄 이름 옆 빨간 칩 ‘AI 답변 확인’. 하단 채팅 탭 배지는 안 읽음 + 확인 요청 수.
 - **farmclub 문의 대화방(DEV-111)**: 1:1 채팅 목록에 'farmclub'(로고, ‘farmclub 운영팀 · 궁금한 점을 물어보세요’)이 보인다. 고정하지 않고 다른 대화처럼 최근 메시지 순이다. 소비자 대화가 없을 때의 빈 상태 문구는 ‘아직 소비자와 나눈 1:1 대화가 없어요’다(DEV-295, ‘손님’/‘소비자’ 혼용 정리).
 
 #### SCR-28 하위: 1:1 채팅 `/chats/:consumerId`
 - 머리: 소비자 가림 이름(‘김○○’, R-15)과 부제 ‘1:1 채팅’. 이름은 대화 조회 응답의 `consumerName`(목록과 같은 값)에서 읽어 새로고침·링크로 바로 열어도 같다. 응답 전에는 목록에서 넘긴 이름을 쓴다(DEV-232).
 - farmclub 문의 대화방(`consumerId = u-farmclub`, AC-34-2): 제목 'farmclub', 부제 ‘운영팀 문의’. AI 응대 바·농가 AI 설정 링크 대신 ‘farmclub 운영팀에 물어보세요’ 안내(사람이 답하고 AI가 답하지 않음)를 보인다. 운영팀 말풍선 이름은 'farmclub'이다. 입력·첨부는 일반 1:1과 같다.
-- 대화 내부 AI 표시/근거·HUMAN 전환·AI 다시 켜기·주문 문의 해결/재열기는 기존 계약 유지. `WRONG_ANSWER` escalation은 코드 대신 “소비자가 AI 답변을 신고했어요” 한국어 레이블로 표시한다. 읽는 것만으로 해결하지 않는다. 실패 시 입력 유지.
+- 대화 내부 AI 표시/근거·HUMAN 전환·AI 다시 켜기·주문 문의 해결/재열기는 기존 계약 유지. `WRONG_ANSWER` escalation(소비자의 AI 답변 확인 요청)은 코드 대신 ‘AI 안내’ 옆 빨간 칩 ‘확인 요청’과 그 말풍선 빨간 테두리로 표시하고, 바로 아래 확인 카드(Figma 10:238)를 둔다: ‘김○○님이 이 답변 확인을 요청했어요’, 소비자가 그 답변 뒤에 덧붙인 첫 말 인용, [답이 맞아요](`POST /api/messaging/producer/chats/{consumerId}/messages/{messageId}/confirm`, 답장 없이 닫음) / [바로잡기](입력칸에 ‘AI 안내를 바로잡아요’ 인용, 보내면 그 AI 답변을 인용한 답장으로 닫음). 닫힌 뒤 칩은 ‘답이 맞다고 확인함’·‘바로잡음’. 읽는 것만으로 해결하지 않는다. 실패 시 입력 유지(DEV-296, AC-13-11~13).
 
 ### SCR-29 주문·출하 처리 `/ship`
 
@@ -647,7 +648,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `POST /api/orders/{orderId}/cancel` | 소비자(본인) | SCR-14 | — | 입금 대기면 `CANCELED`(환불 없음, 물량 복구). 예약 완료·출하 준비면 `REFUNDED`, 환불 기록. 출하 후면 409 | FEAT-11, 09 | Should |
 | `POST /api/orders/{orderId}/confirm` | 소비자(본인) | SCR-14 | — | `COMPLETED`, 구매 확정일 | FEAT-10 | Should |
 | `POST /api/orders/{orderId}/delivery-window-response` | 소비자(본인) | SCR-14 | `choice`(`accept`·`refund`) | 바뀐 주문 | FEAT-10 | Should |
-| `GET /api/orders/producer/dashboard` | 생산자 | SCR-22 | — | 할 일 수(`awaitingDeposit`·`refundsToSettle`·`hasAccount` 포함), 상품별 `reservedCount`·주문 수, 단계·옵션별 예약 수량과 남은 물량, 최근 주문(이름 앞 글자) | FEAT-14 | Must |
+| `GET /api/orders/producer/dashboard` | 생산자 | SCR-22 | — | 할 일 수(`awaitingDeposit`·`refundsToSettle`·`hasAccount`·`openQuestions`, AI 답변 확인 요청 수 `aiCheckRequests`(DEV-296) 포함), 상품별 `reservedCount`·주문 수, 단계·옵션별 예약 수량과 남은 물량, 최근 주문(이름 앞 글자) | FEAT-14 | Must |
 | `GET /api/orders/producer` | 생산자 | SCR-29 | `status`, `productId`, `cursor`, `limit` | 내 농가 주문(입금 대기 포함, 배송 완료 전·입금 후만 배송 정보), `carrier`·`trackingNumber`, `totalAmount`·`depositDueAt`·`depositReportedAt`·`refundSettledAt` | FEAT-14, 17 | Should |
 | `POST /api/orders/producer/harvest-start` | 생산자(자기 농가) | SCR-26 | `productId`, `stageId`(없으면 상품 전체), `Idempotency-Key` 필수 | `{changed, stageId, orderIds}`. 그 기간의 `RESERVED`만 `PREPARING`. 키 없음 400, 다른 농가·없는 기간 404, 옮길 주문 없으면 200 `changed: 0`. 감사 `orders.harvest_started` | FEAT-17 AC-17-11·12 | Should |
 | `POST /api/orders/{orderId}/ship` | 생산자(자기 농가) | SCR-29 | `carrier`(선택, 택배사 코드 7.1), `trackingNumber`(선택, 50자 이하). 여러 건은 주문마다 호출 | `SHIPPED`, 출하일, 택배사·송장. 출하 준비가 아니면 409 `INVALID_TRANSITION` | FEAT-17 | Should |
@@ -665,11 +666,12 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /api/messaging/chats` | 소비자 | SCR-15 | `cursor`, `limit` | 팔로우 중이거나 본인 결제 주문 문의가 있는 농가와의 1:1 목록, 그리고 자기 farmclub 문의 대화방 한 줄(`isSupport: true`, `farmId = u-farmclub`, 최근 순) | FEAT-12, 34 | Should |
 | `GET·POST /api/messaging/support/messages`, `PUT /api/messaging/support/read` | 소비자 본인(보내기는 온보딩·지금 버전 동의를 마친 소비자) | SCR-16 하위 | POST `text`(1~1,000자, `Idempotency-Key`), PUT `lastReadMessageId` | farmclub 문의 대화방 메시지(`CONSUMER`·`OPERATOR`), 보낸 문의(연락처 가림, `reply` null), 안 읽은 수(DEV-150) | FEAT-34 | Should |
 | `POST /api/messaging/chats` | 소비자 | SCR-03, 04, 12, 18(채팅하기·질문하기) | `farmId` | `farmId`, 자동 팔로우 여부. 팔로우하지 않았으면 팔로우하고, 기존 대화면 그대로 | FEAT-12 | Should |
-| `GET /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`). AI 답변 행에는 서버가 계산한 신고 여부 `reported` | FEAT-12, 13 | Should |
+| `GET /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `cursor`, `limit` | 메시지(`senderType`: `CONSUMER`·`PRODUCER`·`AI`, 본문, 시각, 근거 요약, `handoffStatus`). AI 답변 행에는 서버가 계산한 확인 요청 여부 `reported`와 깃발 상태 `checkState`(DEV-296) | FEAT-12, 13 | Should |
 | `POST /api/messaging/chats/{farmId}/messages` | 소비자(팔로우 또는 본인 결제 주문 문의) | SCR-16 | `text`, `attachmentIds`, `orderId?`, `productId?`(SCR-04에서 연 채팅의 상품. 그 농가의 판매 중 상품이 아니면 404. AI 근거로만 쓰고 저장하지 않으며 `orderId`가 있으면 주문이 우선, DEV-97) | `{message,reply}`; 직접 응대/OFF는 reply=null, 계약 4장 | FEAT-12, 13 | Should |
-| `POST /api/messaging/chats/{farmId}/messages/{messageId}/report` | 해당 대화의 소비자 | SCR-16, 28 | 선택 `Idempotency-Key` | 신고한 AI 답변을 가리키는 열린 `WRONG_ANSWER` 질문. 같은 답변을 다시 신고하면 기존 결과를 200으로 돌려준다 | FEAT-13 AC-13-5, M-17 | Should |
+| `POST /api/messaging/chats/{farmId}/messages/{messageId}/report` | 해당 대화의 소비자 | SCR-16, 28 | 선택 `Idempotency-Key` | 확인을 요청한 AI 답변을 가리키는 열린 `WRONG_ANSWER` 질문. 같은 답변을 다시 요청하면 기존 결과를 200으로 돌려준다 | FEAT-13 AC-13-5, M-17 | Should |
+| `POST /api/messaging/producer/chats/{consumerId}/messages/{messageId}/confirm` | 그 농가 주인(승인 농가) | SCR-28 하위 | 선택 `Idempotency-Key` | ‘답이 맞아요’(DEV-296): 확인 요청을 답장 없이 닫고(`resolution=CONFIRMED`, 닫은 사람·시각 기록) 그 AI 메시지(`checkState=CONFIRMED`)를 돌려준다. 다시 눌러도 200 같은 결과. 확인 요청이 없거나 다른 농가 대화면 404, 이미 바로잡았으면 409 `ALREADY_CORRECTED` | FEAT-13 AC-13-12, M-17 | Should |
 | `GET /api/messaging/questions` | 생산자 | SCR-28(하위 화면 포함) | `status`(`OPEN`·`ANSWERED`), `cursor`, `limit` | 전달된 질문(이름 앞 글자, 관련 예약, 넘긴 이유)과 그 소비자 채팅(`thread`) | FEAT-13 | Should |
-| `POST /api/messaging/questions/{escalationId}/answer` | 생산자 | SCR-28 하위 | `text` | 답(그 소비자 채팅에만), 질문 상태 `ANSWERED` | FEAT-13 | Should |
+| `POST /api/messaging/questions/{escalationId}/answer` | 생산자 | SCR-28 하위 | `text` | 답(그 소비자 채팅에만), 질문 상태 `ANSWERED`. 확인 요청에 답하면 바로잡기(`resolution=CORRECTED`)이고 그 AI 답변을 인용해 저장한다(DEV-296) | FEAT-13 | Should |
 
 **운영자** (`/admin`, Swagger UI, ADR 0008)
 
@@ -718,8 +720,9 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | PUT /api/messaging/rooms/{farmId}/read | 팔로워(소비자). `lastReadMessageId` = 그 농가의 지우지 않은 소식, 위치는 앞으로만, 204(DEV-297) | SCR-03·18 · Should |
 | GET /api/messaging/rooms/{farmId}/broadcasts/{broadcastId}/replies | 해당 생산자. `filter`(all·unread), `cursor`, `limit` → `broadcast`·`total`·`unreadCount`·`lastReplyId`·`items`(DEV-297) | SCR-28 · Should |
 | PUT /api/messaging/rooms/{farmId}/broadcasts/{broadcastId}/replies/read | 해당 생산자. `lastReadMessageId`까지 읽음 → `unreadCount`(DEV-297) | SCR-28 · Should |
-| GET/POST /api/messaging/producer/chats | 해당 생산자. 목록에 farmclub 문의 대화방(`isSupport: true`, `consumerId = u-farmclub`)이 최근 순으로 함께 온다(FEAT-34) | SCR-28 · Should |
-| GET/POST /api/messaging/producer/chats/{consumerId}/messages | 해당 생산자. GET의 AI 답변 행에는 서버가 계산한 신고 여부 `reported` | SCR-28 · Should |
+| GET/POST /api/messaging/producer/chats | 해당 생산자. 목록에 farmclub 문의 대화방(`isSupport: true`, `consumerId = u-farmclub`)이 최근 순으로 함께 온다(FEAT-34). 줄마다 열린 AI 답변 확인 요청 수 `aiCheckRequests`(DEV-296) | SCR-28 · Should |
+| GET/POST /api/messaging/producer/chats/{consumerId}/messages | 해당 생산자. GET의 AI 답변 행에는 서버가 계산한 확인 요청 여부 `reported`와 `checkState`(DEV-296). POST가 확인 요청된 AI 답변을 인용(`replyToMessageId`)하면 그 요청을 바로잡기로 닫는다 | SCR-28 · Should |
+| POST /api/messaging/producer/chats/{consumerId}/messages/{messageId}/confirm | 그 농가 주인. ‘답이 맞아요’(DEV-296) | SCR-28 · Should |
 | PUT /api/messaging/producer/chats/{consumerId}/ai-mode | 해당 생산자. farmclub 문의 대화방은 400(AI를 쓰지 않음, M-22) | SCR-28 · Should |
 | PUT /api/messaging/producer/chats/{consumerId}/read | 해당 생산자 | SCR-28 · Should |
 | PUT /api/messaging/chats/{farmId}/read | 본인 소비자 | SCR-16 · Should |
@@ -748,6 +751,9 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 날짜 | 버전 | 내용 |
 | --- | --- | --- |
+| 2026-11-10 | (1.7.6 뒤) | DEV-296: AI 답변 확인 요청 깃발. SCR-16 요청함·확인함·바로잡음 표시, SCR-28 목록 띠·줄 태그·탭 배지, 대화방 확인 카드([답이 맞아요]/[바로잡기]), SCR-22 할 일 ‘AI 답변 확인 요청’, 새 엔드포인트 `.../confirm`, `checkState`·`aiCheckRequests` |
+| 2026-11-10 | (1.7.6 뒤) | DEV-296: SCR-22 대표 상품 줄 총 kg 글자를 ‘총 250kg / 2,400kg’으로(두 숫자 모두 kg, PM 11/10) |
+| 2026-11-10 | (1.7.6 뒤) | DEV-296: SCR-16 AI 전달 안내 문구를 ‘AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.’로(11/10 PM). 직접 응대 상태 줄 ‘농가에 전달했어요 · …’는 그대로. 이미 저장된 메시지는 옛 문구 |
 | 2026-11-10 | (1.7.6 뒤) | DEV-300: 농가 피드백(11/10)으로 생산자 판매 현황을 중량 옵션별 박스로. SCR-22 물량 줄 아래 옵션마다 ‘5kg  32,000원   N박스 / M박스’와 막대, kg 합계는 보조 글자. SCR-23 카드 옵션 줄(가격·박스, 목록 API `options`로, 카드별 상세 읽기 없음), kg 줄은 메타 회색. 물량·판매 설정 맨 위 옵션 표에 가격 열, kg 항목은 아래 보조(14). 박스는 예약+출하 한 숫자, 가격은 지금 판매 기간의 박스당 가격. 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조 |
 | 2026-11-09 | 1.7.6 | DEV-293(DEV-292 1번): 3장 크기를 기준표로(본문 16·보조 14·메타 12·섹션 18·화면 제목 22·숫자 강조 22, 버튼 52/48, 칩 32, 행 56/72, 좌우 16), 머리·문구·정렬 규칙 추가. SCR-01 큰 제목·부제 삭제, ‘농가 소식’·‘전체’·‘제철 상품’ 2열. SCR-04 머리 없이 사진 300 위 뒤로·공유, 판매자 줄, 상품명·원산지 22+22, 옵션 줄마다 남은 박스(PM 결정), 취소 규정 한 줄, 탭 바 숨김·‘채팅’. SCR-05 설명 문단 삭제. SCR-10 섹션 띠, 배송 메모 선택 목록, ‘상품 금액’·‘0원’·‘총 입금액’, 동의 제목 + ‘보기’, 버튼 ‘N원 예약하기’, CTA 위 문구 삭제. SCR-11 ‘입금자명: 주문 번호’. SCR-12 히어로 여백·‘주문 상세 보기’. SCR-13 부제 삭제·카드 4줄·칩 32. SCR-14 머리 ‘주문 상세’, 문의 버튼 위치, 버튼 없는 하단 바 삭제. SCR-17 안내 본문·시트 한 문장, 데모 초기화 목록 행 |
 | 2026-11-09 | (1.7.5 뒤) | DEV-294: 생산자 화면 개편(Figma 검토본). SCR-22 머리 1단·할 일 한 줄 목록(‘답하지 않은 문의’ 추가)·주문 4칸 카드·물량 막대, SCR-29 밑줄 탭·한 줄 안내·전체 선택·‘송장 입력’·‘n건 선택 · 출하 처리’·전체 탭 상태 칩·사유 세로 목록, 도움말 자동 시작 제거(‘가이드’ 버튼만)·말풍선 한두 문장, 네 번째 탭 ‘환경설정’ → ‘설정’, SCR-19·20·21·30·33 문구 줄이기 |

@@ -931,6 +931,7 @@ def dashboard(db: Session, farm) -> Dashboard:
     return Dashboard(
         todo=DashboardTodo(
             open_questions=messaging.open_question_count(db, farm.id),
+            ai_check_requests=messaging.ai_check_request_count(db, farm.id),
             to_ship=sum(1 for o in farm_orders if o.status == "PREPARING"),
             pending_products=sum(1 for p in products if p.product.status == "PENDING_APPROVAL"),
             awaiting_deposit=sum(1 for o in farm_orders if o.status == "AWAITING_DEPOSIT"),

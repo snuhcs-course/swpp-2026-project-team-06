@@ -210,6 +210,10 @@ export type EscalationRec = {
   answer: string | null;
   questionMessageId?: string;
   reportedMessageId?: string | null;
+  /** 확인 요청을 닫은 방법·사람·시각(DEV-296, 서버 escalations.resolution·resolved_by·answered_at) */
+  resolution?: "CONFIRMED" | "CORRECTED" | null;
+  resolvedBy?: string | null;
+  answeredAt?: string | null;
 };
 
 export type DB = {
@@ -907,7 +911,7 @@ export function seed(): DB {
         msg(
           "m-4",
           "AI",
-          "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+          "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.",
           at("2026-10-06", "15:15"),
           { handoffStatus: "FORWARDED" },
         ),
@@ -948,7 +952,7 @@ export function seed(): DB {
         msg(
           "m-10",
           "AI",
-          "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+          "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.",
           at("2026-10-06", "10:02"),
           { handoffStatus: "FORWARDED" },
         ),
@@ -963,7 +967,7 @@ export function seed(): DB {
         msg(
           "m-12",
           "AI",
-          "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+          "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.",
           at("2026-10-05", "16:40"),
           { handoffStatus: "FORWARDED" },
         ),

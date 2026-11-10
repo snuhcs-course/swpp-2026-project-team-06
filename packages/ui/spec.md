@@ -171,6 +171,14 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - 사진 전체 화면은 `ViewablePhoto`/`PhotoViewer`(RN Modal). 누르는 칸을 사진 위 형제로 겹쳐 사진의 img 역할을 보조기술에 남긴다.
 - `KeyboardRoot`·`useKeyboardShown`은 iOS·Android 공통(iOS는 will 이벤트). 웹은 그대로.
 
+## DEV-296 AI 답변 확인 요청 깃발
+
+화면 기준은 `docs/spec/conversation-ui-1.6.md` ‘AI 답변 확인 요청 깃발’.
+- 상태·문구 계산은 순수 함수 `aiCheck.ts`(`aiCheckState`: `checkState`가 없는 옛 서버는 `reported`면 REQUESTED, `aiCheckLabel`, 확인 카드 인용 `aiCheckFollowUp`, 인용 머리글 `correctionQuoteLabel`, 목록 띠 `aiCheckBanner`). 테스트 `scripts/test-ai-check.mjs`.
+- 칩·확인 카드는 `AiCheckCard.tsx`(`AiCheckChip`, `AiCheckCard`, 색 `AI_CHECK_COLOR`: 요청 = `error` 글자 + #FEF3F2 면, 확인·바로잡음 = #1B7F3B + #ECF7EF). 파일 이름을 `aiCheck.ts`와 다르게 둔 것은 대소문자를 가리지 않는 파일 시스템 때문이다.
+- `ChatBubble`의 `check`(flagged = 빨간 테두리 1.5, struck = 회색 글자 + 취소선·근거 숨김)와 `labelSide`(‘AI 안내’ 옆 칩). `ChatThread`는 `confirmCheck`가 있으면(생산자) 깃발 답변 행 아래 확인 카드를 두고, 바로잡기는 기존 답장 인용(`replyTo`)을 쓴다. 입력칸 머리글은 확인 요청 중(REQUESTED)인 AI 답변을 인용할 때만 ‘AI 안내를 바로잡아요’(보내면 바로잡기). 상태는 불러온 목록의 최신 값으로 본다(다른 기기에서 ‘답이 맞아요’를 누르면 폴링 뒤 일반 머리글). ‘답이 맞아요’로 닫힌 답변을 인용하면 ‘선택한 메시지에 답장’(평범한 답장). 말풍선 인용 머리글 ‘AI 안내를 바로잡아요’는 불러온 목록에서 그 AI 답변을 인용한 첫 농가 답장에만(`correctionQuoteLabel(replyTo, messages, index)`). 깃발 답변은 묶음에서 빼서 라벨이 늘 보인다.
+- `ConversationRow`의 `tag`/`tagLabel`(이름 옆 칩, 접근성 이름에 덧붙임). `Icon`에 `flag`.
+
 ## 소식별 읽음 수·팬 답장 시트 (DEV-297, 2026-11-10)
 - `NewsRoom` 생산자 반응 줄은 `BroadcastStats`(‘읽음 N · ♥ N · 답장 N ›’, 문구 계산은 순수 함수 `fanReplies.ts`의 `broadcastStats`). ‘답장 N ›’은 `fanReplies` prop이 있을 때만 버튼이 되고 `FanReplySheet`를 연다.
 - `FanReplySheet`는 API 주입형(`load`·`markRead`)이다. 열면 끝까지(최대 10쪽) 불러오고 `readThrough`까지 곧바로 읽음 처리한다. 점·칩은 처음 받은 목록을 쓰고 ‘안 읽음’은 `visibleReplies`로 거른다. ‘모두에게 답장’은 길게 누르기 ‘답장’과 같은 `replyTarget`(DEV-289 인용)으로, ‘1:1 채팅’은 `onPrivateReply`로 넘긴다.

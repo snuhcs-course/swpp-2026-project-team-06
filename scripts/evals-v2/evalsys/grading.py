@@ -368,7 +368,7 @@ def grade_trial(case, trace, manifest=None):
             not reply
             if case["gold_action"] == "HUMAN_ONLY"
             else bool(reply)
-            and bool(re.search(r"전달|넘겨|forward", text, re.I))
+            and bool(re.search(r"전달|넘겨|답변을 요청|forward", text, re.I))
             and not PROMISE.search(text)
             and not NUMBER.search(text)
         )

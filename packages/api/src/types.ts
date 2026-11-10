@@ -38,7 +38,9 @@ export type ConflictReason =
   | "NO_FARM_ACCOUNT"
   | "NOT_RESUMABLE"
   /** 저장 배송지가 계정당 50개를 넘음(details.limit) */
-  | "ADDRESS_LIMIT";
+  | "ADDRESS_LIMIT"
+  /** 이미 바로잡은 AI 답변에 '답이 맞아요'(DEV-296) */
+  | "ALREADY_CORRECTED";
 /**
  * 403 FORBIDDEN의 details.reason. 다른 앱 계정의 토큰이면 WRONG_APP(ADR 0010).
  * 첫 가입 온보딩 전에 주문·팔로우·채팅을 부르면 ONBOARDING_REQUIRED(FEAT-01 I2)
@@ -642,7 +644,10 @@ export type Order = Recipient & {
 
 export type Dashboard = {
   todo: {
+    /** '답하지 않은 문의': AI 답변 확인 요청만 열린 대화는 빼고 센다(DEV-296) */
     openQuestions: number;
+    /** 'AI 답변 확인 요청': 농가 전체의 열린 확인 요청 수(DEV-296). 옛 서버는 없음 */
+    aiCheckRequests?: number;
     toShip: number;
     pendingProducts: number;
     /** 입금 확인할 주문 수(DEV-68) */
@@ -771,7 +776,11 @@ export type ChatMessage = {
   /** 연락처 가림이 적용됐는지 */
   masked: boolean;
   reported?: boolean;
+  /** 소비자 확인 요청 깃발(DEV-296). 요청 없음은 null */
+  checkState?: AiCheckState | null;
 };
+/** REQUESTED = 농가 확인 전 · CONFIRMED = 농가가 '답이 맞아요' · CORRECTED = 농가가 인용 답장으로 바로잡음 */
+export type AiCheckState = "REQUESTED" | "CONFIRMED" | "CORRECTED";
 
 export type StartChatResult = { farmId: string; autoFollowed: boolean };
 export type SendMessageResult = {
@@ -791,6 +800,8 @@ export type Escalation = {
   status: "OPEN" | "ANSWERED";
   answer: string | null;
   reportedMessageId?: string | null;
+  /** 확인 요청을 닫은 방법(DEV-296). 열려 있거나 전달 질문이면 null */
+  resolution?: "CONFIRMED" | "CORRECTED" | null;
   /** 그 소비자와의 채팅 전체(AI 안내 포함). screens.md SCR-28 "전달된 질문과 그 채팅" */
   thread: ChatMessage[];
 };
@@ -814,6 +825,8 @@ export type ProducerChatSummary = {
   lastAt: string;
   unreadCount: number;
   needsReply: boolean;
+  /** 이 대화의 열린 AI 답변 확인 요청 수(DEV-296). 옛 서버는 없음 */
+  aiCheckRequests?: number;
   aiMode: Thread["aiMode"];
   /** farmclub 문의 대화방. 다른 대화와 같이 최근 순이고 로고로 구분한다 */
   isSupport?: boolean;

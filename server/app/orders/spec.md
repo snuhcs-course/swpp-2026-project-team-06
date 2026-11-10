@@ -52,3 +52,4 @@
 
 | 2026-11-02 | SHIPPED 정정은 PATCH orders/:id/tracking + tracking_version(0024) + run_idempotent. 행 잠금·농가 소유권·상태·버전 검사를 적용한다. 실제 변경은 기존 ManagerEvent(order.tracking_updated)의 request_summary.previous/result와 actor_id/created_at에 같은 트랜잭션으로 기록한다. | 기존 운영자 감사 조회를 재사용하고 양쪽 주문 응답에 이력을 넣지 않는다. 소비자 조회는 Order의 최신 필드를 사용한다. | AC-17-9, R-19 |
 | 2026-11-05 | 수확 시작은 기존 `harvest-start`에 `stageId`(없으면 상품 전체)·`Idempotency-Key`(필수, `run_idempotent` scope `orders.harvest_start`)를 더해 기간 단위로 옮기고, 옮긴 주문이 있을 때만 `ManagerEvent(orders.harvest_started)` 한 행. '수확 시작함'은 저장 칸 없이 출하 준비 이후 주문 유무로 계산(마이그레이션 없음) | PM 결정 B(DEV-231). 재시도 중복 없음, 모델 변경 없이 감사 | AC-17-11·12, AC-14-5 |
+| 2026-11-10 | 현황 `todo.aiCheckRequests`(DEV-296)는 messaging `ai_check_request_count`(농가의 열린 AI 답변 확인 요청 수). `openQuestions`는 확인 요청만 열린 대화를 빼고 센다 | 할 일 ‘AI 답변 확인 요청’과 ‘답하지 않은 문의’를 따로 세기(Figma 1:62) | AC-14-3 |

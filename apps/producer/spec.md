@@ -195,12 +195,18 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 투어(`lib/Tour.tsx`): `HelpButton`은 props 없이 버튼으로만 시작한다. 본 적 있음 기록(`help-guide-seen`)은 더 쓰지 않는다. 마지막 단계는 AC-34-5 때문에 farmclub 대화방 안내 한 문장을 남긴다.
 - Mock 전용 문구는 `isMock`일 때만 보인다(로그인 카카오 설명 등).
 
+## DEV-296 AI 답변 확인 요청 깃발
+- 현황 할 일 ‘AI 답변 확인 요청 n건’은 대시보드 `todo.aiCheckRequests` → `/chats?view=private&checks=1`. ‘필수’ 줄 아래, ‘답하지 않은 문의’ 바로 위.
+- 1:1 목록(`(tabs)/chats/index.tsx`): 요약 `aiCheckRequests` 합이 있으면 맨 위 띠(`aiCheckBanner`), 누르면 `checks=1` 파라미터로 확인 요청 대화만. 줄 태그는 `ConversationRow` `tag`. 거른 채 확인 요청이 0이 되면(있다가 없어지면) `checks`를 지워 새 요청이 와도 저절로 다시 걸러지지 않는다.
+- 대화방(`[consumerId].tsx`)은 `ChatThread` `confirmCheck`로 `messaging.confirmAiAnswer`를 넘긴다(farmclub 문의 방 제외).
+- 채팅 탭 배지(`(tabs)/_layout.tsx`)는 안 읽음 + 확인 요청 수.
+
 ## DEV-300 옵션별 가격·박스 판매 현황 (2026-11-10)
 
 농가 피드백(11/10)으로 현황·상품 목록·물량·판매 설정의 판매량을 중량 옵션마다 박스로 보이고, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조다. 옵션 줄은 `lib/OptionBoxRow.tsx` 하나(‘5kg  32,000원   24박스 / 72박스’)를 세 화면이 같이 쓴다. 화면 서술은 screens.md SCR-22·23·물량·판매 설정, AC-14-3.
 - 계산은 `lib/optionBoxes.ts` 순수 함수(`scripts/test-producer-option-boxes.mjs`). 옵션마다 모든 기간의 `reservedCount`(대시보드는 `reserved`)와 `quantity`를 더한다. 옵션끼리는 더하지 않는다(공유 물량 이중 계산, DEV-292). 박스 수는 예약+출하 한 숫자(출하해도 줄지 않는 값)라 예약 중/출하 완료로 나누지 않는다. 가격은 지금 판매 기간의 박스당 가격이고 없으면 null(줄에서 비움).
 - 출처별 함수: 상품 화면 `optionBoxesFromProduct(options, stages, p.currentStageId)`(서버가 고른 지금 판매 기간. 브라우저 Mock은 `X-Server-Time`이 없어 기기 날짜를 쓰면 Mock 기준일과 어긋나므로 앱에서 날짜로 고르지 않는다), 목록 카드 `optionBoxesFromCard(card.options)`(서버가 합·가격을 계산), 현황 `optionBoxesFromDashboard(stages)`(`current` 기간의 `price`, 서버 orders 변경 없음).
 - 순서: 상품 화면·카드는 상품 옵션 순서(값 없는 옵션은 0박스), 현황은 대시보드 기간을 앞에서부터 읽어 처음 나온 순서(서버가 값 없는 옵션은 빼고 준다).
-- 현황: 상품 줄 오른쪽 kg은 caption(12) 회색 ‘총 … kg’, 옵션 줄(sub 14, 가격·박스 semibold)마다 4px 막대. 대시보드 `stages`가 비면 예전 kg 줄과 6px 막대.
+- 현황: 상품 줄 오른쪽 kg은 caption(12) 회색 ‘총 Nkg / Mkg’(두 숫자 모두 단위, 11/10 DEV-296), 옵션 줄(sub 14, 가격·박스 semibold)마다 4px 막대. 대시보드 `stages`가 비면 예전 kg 줄과 6px 막대.
 - 상품 목록: `GET /api/products/mine` 카드의 `options`를 바로 쓴다(카드마다 상세를 읽던 N+1 제거). 옵션이 없으면 예전 kg 줄. ‘승인 · 추가 예약 가능 kg’ 줄은 caption(12) 회색 보조.
 - 물량·판매 설정: 요약 상자 안 옵션 표(body 16, ‘옵션 · 박스당 가격’ / ‘예약+출하 / 판매’, 줄마다 role group 읽기 라벨) 아래 kg 항목을 sub(14) 보조로. kg 항목은 판매 한도 입력과 짝이라 유지.

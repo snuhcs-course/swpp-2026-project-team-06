@@ -277,6 +277,17 @@ class MeasurementContract(unittest.TestCase):
                 changed[key] = value
                 self.assert_not_pass(grade_trial(case, changed))
 
+    def test_handoff_accepts_product_notice_before_and_after_wording_change(self):
+        # 11/10 PM 문구 변경: 새 안내에는 '전달'이 없다. 저장된 옛 결과도 같은 판정이어야 한다
+        for body in (
+            "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+            "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.",
+        ):
+            with self.subTest(body=body):
+                case, trace = self.handoff_fixture()
+                set_reply_body(trace, body)
+                self.assertEqual(grade_trial(case, trace)["verdict"], "AUTO_PASS_PENDING_REVIEW")
+
     def test_substantive_answer_cannot_disguise_itself_as_handoff(self):
         case, trace = self.handoff_fixture()
         set_reply_body(trace, "배송비는 3500원입니다.")

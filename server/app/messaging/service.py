@@ -65,7 +65,10 @@ from app.messaging.schemas import (
 )
 
 _VIDEO = re.compile(r"^data:video|\.(mp4|webm|mov)$", re.IGNORECASE)
-FORWARDED_TEXT = "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요."
+# AI가 답하지 않고 농가에 넘길 때 저장하는 AI 메시지(M-06, 11/10 PM 문구 변경)
+FORWARDED_TEXT = (
+    "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요."
+)
 ATTACHMENT_TTL = timedelta(hours=24)
 _REFUND_OR_COMPENSATION = re.compile(r"환불|보상|돈\s*돌려|refund|compensat", re.IGNORECASE)
 
@@ -757,7 +760,9 @@ def _thread_view(t: Thread) -> ThreadView:
     )
 
 
-def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
+def _message_view(
+    m: ThreadMessage, reported: bool = False, check_state: str | None = None
+) -> ChatMessage:
     return ChatMessage(
         edited_at=m.edited_at,
         edit_version=m.edit_version,
@@ -779,23 +784,29 @@ def _message_view(m: ThreadMessage, reported: bool = False) -> ChatMessage:
         handoff_status=m.handoff_status,
         masked=m.masked,
         reported=reported,
+        check_state=check_state,
     )
+
+
+def _check_state(e: Escalation) -> str | None:
+    """확인 요청 깃발 상태(DEV-296). 0032 전에 닫힌 옛 행(resolution 없음)은 어떻게 닫혔는지
+    모르므로 깃발을 붙이지 않는다(reported는 그대로 true)."""
+    if e.status == "OPEN":
+        return "REQUESTED"
+    return e.resolution if e.resolution in ("CONFIRMED", "CORRECTED") else None
 
 
 def _message_views(db: Session, rows: list[ThreadMessage]) -> list[ChatMessage]:
     ids = [m.id for m in rows if m.sender_type == "AI"]
-    reported = (
-        set(
-            db.scalars(
-                select(Escalation.reported_message_id).where(
-                    Escalation.reported_message_id.in_(ids)
-                )
-            )
-        )
+    states = (
+        {
+            e.reported_message_id: _check_state(e)
+            for e in db.scalars(select(Escalation).where(Escalation.reported_message_id.in_(ids)))
+        }
         if ids
-        else set()
+        else {}
     )
-    return [_message_view(m, m.id in reported) for m in rows]
+    return [_message_view(m, m.id in states, states.get(m.id)) for m in rows]
 
 
 def _set_mode(t: Thread, mode: str) -> None:
@@ -891,13 +902,15 @@ def _unread(db: Session, t: Thread, producer: bool) -> int:
     return db.scalar(query) or 0
 
 
-def _needs_reply(db: Session, t: Thread) -> bool:
-    """OPEN 전달 질문, 또는 마지막 농가 답 뒤에 직접 응대 대상 소비자 메시지가 있으면 true."""
-    open_escalation = db.scalar(
-        select(Escalation.id)
-        .where(Escalation.thread_id == t.id, Escalation.status == "OPEN")
-        .limit(1)
-    )
+def _needs_reply(db: Session, t: Thread, checks: bool = True) -> bool:
+    """OPEN 전달 질문, 또는 마지막 농가 답 뒤에 직접 응대 대상 소비자 메시지가 있으면 true.
+
+    checks=False면 AI 답변 확인 요청(DEV-296)만 열린 대화는 빼고 본다(현황 '답하지 않은 문의').
+    """
+    query = select(Escalation.id).where(Escalation.thread_id == t.id, Escalation.status == "OPEN")
+    if not checks:
+        query = query.where(Escalation.reported_message_id.is_(None))
+    open_escalation = db.scalar(query.limit(1))
     open_inquiry = db.scalar(
         select(OrderInquiry.id)
         .where(OrderInquiry.thread_id == t.id, OrderInquiry.status == "OPEN")
@@ -954,6 +967,7 @@ def _escalation_view(db: Session, e: Escalation, t: Thread, with_thread: bool) -
         status=e.status,
         answer=e.answer,
         reported_message_id=e.reported_message_id,
+        resolution=e.resolution if e.status == "ANSWERED" else None,
         thread=_message_views(db, _messages(db, t.id)) if with_thread else [],
     )
 
@@ -1487,6 +1501,7 @@ def producer_chats(
                 last_at=last.created_at if last else None,
                 unread_count=_unread(db, t, producer=True),
                 needs_reply=flagged,
+                ai_check_requests=_ai_check_count(db, t.id),
                 ai_mode=_effective_mode(t),
                 is_support=is_support(t),
             )
@@ -1528,8 +1543,15 @@ def _producer_reply(
     attachment_ids: list[str] | None = None,
     uploader_id: str | None = None,
     reply_to_message_id: str | None = None,
+    actor_id: str | None = None,
 ) -> ThreadMessage:
-    """생산자 답변. 저장과 HUMAN 전환을 같은 트랜잭션에서 한다(M-09)."""
+    """생산자 답변. 저장과 HUMAN 전환을 같은 트랜잭션에서 한다(M-09).
+
+    열린 AI 답변 확인 요청(DEV-296)을 닫는 답장은 바로잡기(CORRECTED)다. 인용 대상 없이
+    확인 요청 하나만 닫으면 그 AI 답변을 인용해 저장해서 소비자가 무엇을 바로잡았는지 본다.
+    '답이 맞아요'(CONFIRMED)로 이미 닫힌 AI 답변을 인용한 답장은 평범한 답장이라
+    결과를 바꾸지 않는다.
+    """
     text = text.strip()
     attachment_ids = attachment_ids or []
     if (not text and not attachment_ids) or len(text) > 1000:
@@ -1542,7 +1564,12 @@ def _producer_reply(
                     Escalation.thread_id == thread.id,
                     Escalation.status == "OPEN",
                     or_(
-                        Escalation.thread_message_id == reply_to_message_id,
+                        # 전달 질문은 그 소비자 질문을 인용하면 닫힌다. 확인 요청은 AI 답변을
+                        # 인용해야만 닫힌다(바로잡기 = AI 답변 인용 답장, DEV-296)
+                        and_(
+                            Escalation.thread_message_id == reply_to_message_id,
+                            Escalation.reported_message_id.is_(None),
+                        ),
                         Escalation.reported_message_id == reply_to_message_id,
                     ),
                 )
@@ -1555,8 +1582,12 @@ def _producer_reply(
         e = db.get(Escalation, eid)
         if e is None or e.thread_id != thread.id:
             raise not_found("찾을 수 없는 질문이에요.")
-        if e.status == "OPEN":
+        if e.status == "OPEN" and e not in escalations:
             escalations.append(e)
+    corrected = [e.reported_message_id for e in escalations if e.reported_message_id]
+    if target is None and len(corrected) == 1:
+        target = db.get(ThreadMessage, corrected[0])
+        reply_to_message_id = target.id
     attachments = bind_attachments(db, uploader_id or "", attachment_ids, thread, None)
     masked_text, was_masked = mask(text)
     message = ThreadMessage(
@@ -1588,6 +1619,9 @@ def _producer_reply(
     thread.version += 1
     for e in escalations:
         e.status, e.answer, e.answered_at = "ANSWERED", masked_text, message.created_at
+        e.resolved_by = actor_id
+        if e.reported_message_id:
+            e.resolution = "CORRECTED"
     db.flush()
     return message
 
@@ -1604,6 +1638,7 @@ def producer_send(
         body.attachment_ids,
         farm.producer_id,
         body.reply_to_message_id,
+        actor_id=farm.producer_id,
     )
     return ProducerSendResult(message=_message_view(message), thread=_thread_view(thread))
 
@@ -1652,14 +1687,79 @@ def answer_question(db: Session, farm, escalation_id: str, text: str) -> Escalat
     if e is None or thread is None or thread.farm_id != farm.id:
         raise not_found("찾을 수 없는 질문이에요.")
     thread = _producer_thread(db, farm, thread.consumer_id, lock=True)
-    _producer_reply(db, thread, text, [e.id])
+    _producer_reply(db, thread, text, [e.id], actor_id=farm.producer_id)
     return _escalation_view(db, e, thread, True)
 
 
+def confirm_ai_answer(db: Session, farm, consumer_id: str, message_id: str) -> ChatMessage:
+    """농가가 확인 요청된 AI 답변에 '답이 맞아요'(DEV-296). 답장 없이 요청을 닫는다.
+
+    멱등: 이미 확인했으면 그대로 돌려준다. 새 메시지·AI 모드·읽음 위치는 바꾸지 않는다.
+    """
+    thread = _producer_thread(db, farm, consumer_id, lock=True)
+    message = db.scalar(
+        select(ThreadMessage).where(
+            ThreadMessage.id == message_id, ThreadMessage.thread_id == thread.id
+        )
+    )
+    e = (
+        db.scalar(select(Escalation).where(Escalation.reported_message_id == message.id))
+        if message is not None
+        else None
+    )
+    if message is None or e is None:
+        raise not_found("확인 요청이 없는 답변이에요.")
+    if e.status == "OPEN":
+        e.status, e.resolution, e.resolved_by, e.answered_at = (
+            "ANSWERED",
+            "CONFIRMED",
+            farm.producer_id,
+            now(),
+        )
+        db.flush()
+    elif e.resolution != "CONFIRMED":
+        # 바로잡았거나(CORRECTED) 0032 전에 농가 답장으로 닫힌 옛 요청
+        raise conflict("ALREADY_CORRECTED", "이미 농가가 답한 답변이에요.")
+    return _message_view(message, True, _check_state(e))
+
+
+def _ai_check_count(db: Session, thread_id: str) -> int:
+    return (
+        db.scalar(
+            select(func.count()).where(
+                Escalation.thread_id == thread_id,
+                Escalation.status == "OPEN",
+                Escalation.reported_message_id.is_not(None),
+            )
+        )
+        or 0
+    )
+
+
 def open_question_count(db: Session, farm_id: str) -> int:
-    """현황의 답할 질문 수(FEAT-14): 답변이 필요한 대화 수."""
+    """현황의 '답하지 않은 문의' 수(FEAT-14): 답변이 필요한 대화 수.
+
+    AI 답변 확인 요청만 열린 대화는 ai_check_request_count로 따로 센다(DEV-296).
+    """
     threads = db.scalars(select(Thread).where(Thread.farm_id == farm_id))
-    return sum(1 for t in threads if _needs_reply(db, t))
+    return sum(1 for t in threads if _needs_reply(db, t, checks=False))
+
+
+def ai_check_request_count(db: Session, farm_id: str) -> int:
+    """현황의 'AI 답변 확인 요청' 수(DEV-296): 농가 전체의 열린 확인 요청 수."""
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(Escalation)
+            .join(Thread, Thread.id == Escalation.thread_id)
+            .where(
+                Thread.farm_id == farm_id,
+                Escalation.status == "OPEN",
+                Escalation.reported_message_id.is_not(None),
+            )
+        )
+        or 0
+    )
 
 
 # ---------------- 비공개 사진 (contracts-1.2 6장) ----------------

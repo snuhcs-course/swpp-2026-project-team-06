@@ -632,6 +632,8 @@ def test_AC_14_1_dashboard_counts(client, login):
 
     assert body["todo"] == {
         "openQuestions": 3,
+        # DEV-296: 시드에는 AI 답변 확인 요청이 없다
+        "aiCheckRequests": 0,
         "toShip": 7,
         "pendingProducts": 1,
         "awaitingDeposit": 0,
