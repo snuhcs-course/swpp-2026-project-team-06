@@ -247,7 +247,8 @@ users' support threads), follows, idempotency records and consumer accounts go. 
 1. Take a manual Railway Postgres backup snapshot and wait until it finishes.
 2. Look up the producer user ids (read-only) in the Railway Postgres query tab:
    `select u.id, u.role, u.deleted_at, f.id, f.name from users u join farms f on f.producer_id = u.id where f.id in ('<farmId>', '<farmId>');`
-3. At a low-traffic time (the command locks every table against writes while it runs, dry run included),
+3. At a low-traffic time (the command locks every table against writes until it finishes, dry run included;
+   app writes wait that long, so press Ctrl-C if a dry run runs past a minute and retry later),
    dry run, review the printed kept users/farms/products and per-table counts with the PM, then commit:
 
 ```bash

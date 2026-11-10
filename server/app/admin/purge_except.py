@@ -252,6 +252,7 @@ def _keep_events(session: Session, keep: Keep, stages: set[str]) -> set[str]:
             "product": keep.products,
             "stage": stages,
             "thread": keep.threads,
+            # system 대상 이벤트는 이 명령 것뿐이다. 새 system 이벤트를 만들면 여기에 더한다
             "system": {"purge_except"},
         }.get(target_type, set())
         if target_id in targets:
