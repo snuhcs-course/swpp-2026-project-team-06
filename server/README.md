@@ -74,3 +74,24 @@ Operational success does not certify extraction completeness or farmer acceptanc
 Producers still review numbers and conflicts. DEV-92 waits for basic-info blur saving before new file/text upload and preserves
 manual input. If basic-info saving fails, upload is blocked and the retained file
 can be retried explicitly after correcting the input or connection.
+
+## Operator API variables (DEV-307)
+
+The admin activity log (`GET /admin/users/{userId}/activity`) can include the
+person's recent PostHog events. It is optional and off by default. A human sets these
+Railway variables on `farmclub-api` (agents never set production variables):
+
+- `POSTHOG_PERSONAL_API_KEY` — a read-only PostHog personal API key (scope
+  `query:read`). Never commit it; the server never logs or returns it.
+- `POSTHOG_PROJECT_ID` — the numeric PostHog project ID.
+- `POSTHOG_HOST` (optional) — the PostHog app/API host, default
+  `https://us.posthog.com`. The ingestion hosts `https://us.i.posthog.com` and
+  `https://eu.i.posthog.com` are also accepted and mapped to the API host.
+
+With either of the first two missing the activity log reports `posthog.status =
+"disabled"`. If PostHog fails or takes over 5 s it reports `"unavailable"`; the page
+still loads. Check after setting: call the activity endpoint for an operator-known user
+through the admin proxy and confirm `posthog.status` is `"ok"`.
+
+Deploy order: deploy the API before the admin web (`scripts/admin-web`), because the
+current admin pages now send `kind=all`, which older servers reject on `/admin/users`.
