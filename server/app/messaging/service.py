@@ -61,7 +61,10 @@ from app.messaging.schemas import (
 )
 
 _VIDEO = re.compile(r"^data:video|\.(mp4|webm|mov)$", re.IGNORECASE)
-FORWARDED_TEXT = "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요."
+# AI가 답하지 않고 농가에 넘길 때 저장하는 AI 메시지(M-06, 11/10 PM 문구 변경)
+FORWARDED_TEXT = (
+    "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요."
+)
 ATTACHMENT_TTL = timedelta(hours=24)
 _REFUND_OR_COMPENSATION = re.compile(r"환불|보상|돈\s*돌려|refund|compensat", re.IGNORECASE)
 

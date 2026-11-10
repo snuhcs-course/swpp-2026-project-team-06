@@ -31,6 +31,7 @@ from app.messaging.models import (
     Thread,
     ThreadMessage,
 )
+from app.messaging.service import FORWARDED_TEXT
 from app.orders.models import Order, Payment, Refund
 from app.source_analysis import models as _source_models  # noqa: F401
 
@@ -503,7 +504,7 @@ THREADS = {
         (
             "m-4",
             "AI",
-            "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+            FORWARDED_TEXT,
             ("2026-10-06", "15:15"),
             {
                 "handoff_status": "FORWARDED",
@@ -536,7 +537,7 @@ THREADS = {
         (
             "m-10",
             "AI",
-            "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+            FORWARDED_TEXT,
             ("2026-10-06", "10:02"),
             {
                 "handoff_status": "FORWARDED",
@@ -549,7 +550,7 @@ THREADS = {
         (
             "m-12",
             "AI",
-            "농가에 전달했어요. 농가가 답하면 여기서 볼 수 있어요.",
+            FORWARDED_TEXT,
             ("2026-10-05", "16:40"),
             {"handoff_status": "FORWARDED", "source_summary": "가격 흥정은 AI가 답하지 않아요"},
         ),

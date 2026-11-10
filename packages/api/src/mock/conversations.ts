@@ -646,7 +646,9 @@ function send(ctx: Ctx, t: Thread, producer: boolean) {
           messageId: nextId("m"),
           sequence: list(ctx.db, t).length + 1,
           senderType: "AI",
-          body: a.answer ?? "농가에 전달했어요. 직접 답변을 기다려 주세요.",
+          body:
+            a.answer ??
+            "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.",
           createdAt: nowIso(),
           handoffStatus: a.action === "HANDOFF" ? "FORWARDED" : null,
           sourceSummary: a.action === "HANDOFF" ? null : a.reason,

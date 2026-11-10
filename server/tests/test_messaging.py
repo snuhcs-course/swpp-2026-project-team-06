@@ -541,6 +541,10 @@ def test_AC_13_2_pesticide_question_is_forwarded(client, login):
     result = send(client, login("u-seojun"), "f-kang", "농약은 얼마나 치세요?").json()
 
     assert result["reply"]["handoffStatus"] == "FORWARDED"
+    # 11/10 PM 문구(policy.md, M-06)
+    assert result["reply"]["body"] == (
+        "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요."
+    )
     producer = login("u-kang")
     flagged = client.get(
         "/api/messaging/producer/chats", headers=producer, params={"needsReply": "true"}

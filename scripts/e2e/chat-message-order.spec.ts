@@ -107,7 +107,9 @@ test("AC-13-2/4 DEV-213: handoff shows forwarded notice without a new basis, ord
   const forwarded = await send(page, handoffPrompt);
   expect(forwarded.reply.handoffStatus).toBe("FORWARDED");
   expect(forwarded.reply.sourceSummary).toBeNull();
-  expect(forwarded.reply.body).toMatch(/^농가에 전달했어요/);
+  expect(forwarded.reply.body).toBe(
+    "AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.",
+  );
   await expectQuestionThenAnswer(page, handoffPrompt, forwarded.reply.body);
   const handoffBubble = page.getByText(forwarded.reply.body, { exact: true }).last().locator("..");
   await expect(handoffBubble.getByText(/^근거:/)).toHaveCount(0);

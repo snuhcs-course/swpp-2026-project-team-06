@@ -322,7 +322,7 @@ const segments = {
     await tap(page.getByRole("tab", { name: "1:1 채팅" }).or(btn("1:1 채팅")).first(), { after: 900 });
     const need = page.getByRole("tab", { name: /답변 필요/ }).or(btn(/답변 필요/)).first();
     if (await need.isVisible().catch(() => false)) await tap(need, { after: 900 });
-    await tap(page.getByRole("button", { name: /농가에 전달했어요|농약/ }).first(), { after: 1500 });
+    await tap(page.getByRole("button", { name: /농가에 답변을 요청했어요|농약/ }).first(), { after: 1500 });
     await type(chatInput(), "저농약으로 키워요. 수확 한 달 전부터는 치지 않아요.");
     await tap(btn(/전송|보내기/).last(), { after: 2000 });
   },

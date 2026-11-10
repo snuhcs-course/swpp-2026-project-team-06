@@ -23,7 +23,7 @@ Every consumer text message in a thread goes through these steps in order. The f
 | 3. Model answer | An API key is set. Claude gets the evidence JSON (section 3) and must return `{"action", "answer", "reason", "sourceRefs"}` | `ANSWER` only if it passes every check in section 4; otherwise `HANDOFF` |
 | 4. Fallback | No key, a model or network error, the 8-second timeout, or unparsable output | `HANDOFF` |
 
-A `HANDOFF` saves an AI message ("농가에 전달했어요…") with `handoffStatus: FORWARDED` and opens an `Escalation` (`OPEN` → `ANSWERED`) that appears in the producer's 1:1 list (`needsReply`).
+A `HANDOFF` saves an AI message ("AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요." — "This question is hard for the AI to answer, so we asked the farm to reply. You will see the farm's answer here."; wording changed 2026-11-10) with `handoffStatus: FORWARDED` and opens an `Escalation` (`OPEN` → `ANSWERED`) that appears in the producer's 1:1 list (`needsReply`).
 
 Rules come before the model on purpose: the most common questions (when does it arrive, how much is shipping, how sweet is it) get exact, free, instant answers that cannot drift.
 
@@ -57,7 +57,7 @@ The model's `ANSWER` is not trusted as is. It is stored only if all of these pas
 - The consumer message, the AI reply and the escalation are saved in **one transaction** while the thread row is locked, so two messages cannot interleave their answers (AC-13-6).
 - The service captures the thread version and the AI settings version before calling the model, and checks both again before saving. If the producer replied, switched the thread to `HUMAN`, or changed or turned off the AI settings in the meantime, the AI reply is discarded and the question stays with the producer.
 - A producer reply switches the thread to `HUMAN` in the same transaction. Switching back to `AUTO` only affects later messages; old questions are not re-answered.
-- In a `HUMAN` thread, or when the farm turned AI off, no AI message is stored. Instead the consumer sees "농가에 전달했어요" (forwarded to the farm) under their latest waiting question right away, and the header line says the farm answers directly. The consumer chat page returns `farmReply {mode, typicalReplyHours}`: the typical reply time is the median wait over the farm's replies in the last 30 days, rounded up to 1, 2, 3, 6, 12, 24, 48 or 72 hours, and is left out when there are fewer than 5 replies or the median is over 72 hours (DEV-208, AC-13-9, AC-13-10).
+- In a `HUMAN` thread, or when the farm turned AI off, no AI message is stored. Instead the consumer sees the status line "농가에 전달했어요" (forwarded to the farm; a status line, not the AI message above) under their latest waiting question right away, and the header line says the farm answers directly. The consumer chat page returns `farmReply {mode, typicalReplyHours}`: the typical reply time is the median wait over the farm's replies in the last 30 days, rounded up to 1, 2, 3, 6, 12, 24, 48 or 72 hours, and is left out when there are fewer than 5 replies or the median is over 72 hours (DEV-208, AC-13-9, AC-13-10).
 - Model calls have **no SDK retries** and an 8-second budget (product drafts use 20 seconds). A slow or failed call degrades to a handoff, never to an error for the consumer.
 
 ## 6. Producer and operator side
