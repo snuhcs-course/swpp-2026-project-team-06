@@ -273,6 +273,9 @@ export type NewsRoomMessage = {
   myReaction: boolean;
   /** 방송의 공개 범위(M-14). 소비자 답장은 null (DEV-210) */
   visibility: "PUBLIC" | "FOLLOWERS" | null;
+  /** 소유 생산자의 방송에만 숫자: 읽음 위치가 이 소식 이상인 팔로워 수, 이 소식에 연결된 답장 수(DEV-297). 그 밖에는 null */
+  readCount?: number | null;
+  replyCount?: number | null;
 };
 export type NewsRoomSummary = {
   canReply: boolean;
@@ -283,6 +286,28 @@ export type NewsRoomSummary = {
   lastAt: ISODate | null;
 };
 export type NewsRoomPage = Paged<NewsRoomMessage> & { room: NewsRoomSummary };
+/** 팬 답장 시트 한 줄(DEV-297). 이름은 생산자 방과 같은 가린 이름 */
+export type FanReply = {
+  messageId: string;
+  consumerId: string;
+  senderName: string;
+  body: string;
+  createdAt: ISODate;
+  editVersion: number;
+  /** 생산자가 시트에서 아직 확인하지 않음 */
+  unread: boolean;
+  /** 그 농가에 결제된 주문이 있는 소비자(예약 고객) */
+  reservedCustomer: boolean;
+  /** 이 답장을 인용한 소식(모두에게 답장)이 있음 */
+  quoted: boolean;
+};
+export type FanReplyPage = Paged<FanReply> & {
+  broadcast: { broadcastId: string; body: string; mediaCount: number; createdAt: ISODate };
+  total: number;
+  unreadCount: number;
+  /** 이 소식의 가장 최근 답장(필터·페이지와 무관) */
+  lastReplyId: string | null;
+};
 
 export type Home = {
   hero: {
@@ -404,6 +429,18 @@ export type ProductDetail = ProductCard & {
   status: ProductStatus;
 };
 
+/** 상품 목록 카드의 중량 옵션 한 줄(DEV-300). 박스는 모든 기간 합, 가격은 지금 판매 기간의 박스당 가격(없으면 null) */
+export type MyProductCardOption = {
+  optionId: string;
+  label: string;
+  weightKg: number;
+  /** 모든 기간의 예약+출하 박스(기간별 reservedCount 합) */
+  reserved: number;
+  /** 모든 기간의 판매 박스(기간 물량 합) */
+  quantity: number;
+  price: number | null;
+};
+
 export type MyProductCard = SalesState & {
   productId: string;
   name: string;
@@ -414,6 +451,8 @@ export type MyProductCard = SalesState & {
   reservedCount: number;
   currentStageLabel: string | null;
   updatedAt: ISODate;
+  /** 상품 옵션 순서(DEV-300) */
+  options: MyProductCardOption[];
 };
 
 export type MyProduct = Omit<
@@ -427,7 +466,6 @@ export type MyProduct = Omit<
   | "nextPrice"
   | "stageEndsAt"
   | "nextStageStartsAt"
-  | "currentStageId"
   | "brixRecordCount"
   | "farmerNote"
   | "reservedCount"

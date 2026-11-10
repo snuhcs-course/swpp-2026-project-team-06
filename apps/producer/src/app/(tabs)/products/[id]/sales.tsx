@@ -22,6 +22,8 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
 import { goBackOr } from "../../../../lib/nav";
+import { OptionBoxRow } from "../../../../lib/OptionBoxRow";
+import { optionBoxesFromProduct } from "../../../../lib/optionBoxes";
 const kg = (g: number) =>
   `${(g / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg`;
 function grams(text: string) {
@@ -198,7 +200,44 @@ export default function Sales() {
                       ? "승인된 물량 안에서 자유롭게 판매해요"
                       : "공급 물량을 확인한 뒤 예약을 시작해요"}
                 </T>
-                <View style={{ gap: 12 }}>
+                {/* DEV-300: 옵션마다 지금 기간 박스당 가격 · 예약+출하 / 판매 박스(모든 기간 합). 옵션끼리 더하지 않는다.
+                    11/10 생산자 인터뷰: 옵션별 가격·박스가 주, 아래 kg 항목은 판매 한도 입력과 짝인 보조 */}
+                {p.options.length ? (
+                  <View
+                    style={{
+                      gap: 8,
+                      paddingBottom: 16,
+                      borderBottomWidth: 1,
+                      borderBottomColor: tokens.color.border,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <T variant="caption" muted>
+                        옵션 · 박스당 가격
+                      </T>
+                      <T variant="caption" muted>
+                        예약+출하 / 판매
+                      </T>
+                    </View>
+                    {optionBoxesFromProduct(p.options, p.stages, p.currentStageId).map(
+                      (row) => (
+                        <OptionBoxRow
+                          key={row.optionId}
+                          row={row}
+                          variant="body"
+                          labelled
+                        />
+                      ),
+                    )}
+                  </View>
+                ) : null}
+                <View style={{ gap: 8 }}>
                   {[
                     ["승인 물량", p.approvedSupplyGrams],
                     ["현재 판매 한도", p.salesLimitGrams],
@@ -217,7 +256,7 @@ export default function Sales() {
                       <T variant="sub" muted>
                         {label}
                       </T>
-                      <T weight="semibold">{kg(Number(value))}</T>
+                      <T variant="sub">{kg(Number(value))}</T>
                     </View>
                   ))}
                 </View>

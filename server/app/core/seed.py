@@ -1037,8 +1037,20 @@ def seed(session: Session) -> None:
         Reaction(broadcast_id="n-2", user_id="u-minji", created_at=at("2026-10-05", "12:00"))
     )
     for rid, farm, consumer, body, when in ROOM_REPLIES:
+        # 답한 소식 = 그 답장 시각 이전 그 농가의 가장 최근 소식(DEV-297). 생산자는 아직 읽지 않음
+        answered = max(
+            ((b[2], b[0]) for b in BROADCASTS if b[1] == farm and b[2] <= at(*when)),
+            default=(None, None),
+        )[1]
         session.add(
-            RoomReply(id=rid, farm_id=farm, consumer_id=consumer, body=body, created_at=at(*when))
+            RoomReply(
+                id=rid,
+                farm_id=farm,
+                consumer_id=consumer,
+                body=body,
+                created_at=at(*when),
+                broadcast_id=answered,
+            )
         )
     for (farm, consumer), messages in THREADS.items():
         tid = _thread_id(farm, consumer)

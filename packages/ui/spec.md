@@ -170,3 +170,9 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `composer.tsx`: 1:1·소식방 공용 입력줄(40/40/40, 터치 48), 떠 있는 알약, 도구 칩, `copyToClipboard`(앱이 넘긴 expo-clipboard 도우미 우선, 없으면 웹 클립보드). ui 패키지에 의존성을 더하지 않는다.
 - 사진 전체 화면은 `ViewablePhoto`/`PhotoViewer`(RN Modal). 누르는 칸을 사진 위 형제로 겹쳐 사진의 img 역할을 보조기술에 남긴다.
 - `KeyboardRoot`·`useKeyboardShown`은 iOS·Android 공통(iOS는 will 이벤트). 웹은 그대로.
+
+## 소식별 읽음 수·팬 답장 시트 (DEV-297, 2026-11-10)
+- `NewsRoom` 생산자 반응 줄은 `BroadcastStats`(‘읽음 N · ♥ N · 답장 N ›’, 문구 계산은 순수 함수 `fanReplies.ts`의 `broadcastStats`). ‘답장 N ›’은 `fanReplies` prop이 있을 때만 버튼이 되고 `FanReplySheet`를 연다.
+- `FanReplySheet`는 API 주입형(`load`·`markRead`)이다. 열면 끝까지(최대 10쪽) 불러오고 `readThrough`까지 곧바로 읽음 처리한다. 점·칩은 처음 받은 목록을 쓰고 ‘안 읽음’은 `visibleReplies`로 거른다. ‘모두에게 답장’은 길게 누르기 ‘답장’과 같은 `replyTarget`(DEV-289 인용)으로, ‘1:1 채팅’은 `onPrivateReply`로 넘긴다.
+- 소비자 `NewsRoom`은 `markRead` prop이 있고 답장할 수 있는 방(팔로우 중)일 때, 맨 아래에 있으면 가장 최근 방송 id로 한 번씩 부른다(같은 id는 다시 부르지 않고 실패하면 다음 기회에). 화면은 바뀌지 않는다.
+
