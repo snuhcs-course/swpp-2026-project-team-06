@@ -44,10 +44,20 @@ PHONE = re.compile(r"^01[016789]-?\d{3,4}-?\d{4}$")
 # 저장 배송지는 계정당 50개까지(사용자 결정 10/18)
 ADDRESS_LIMIT = 50
 
-# 앱별 시드 테스트 계정 순서(ADR 0009·0010, 화면 SCR-05·SCR-19)
+# 앱별 시드 테스트 계정 순서(ADR 0009·0010, 화면 SCR-05·SCR-19). 뒤의 u-uat-*는 UAT 계정
+# (app.core.seed_uat, DEV-305). 목록은 DB에 있는 테스트 계정만 돌려준다
 TEST_ACCOUNTS = {
-    "consumer": ["u-minji", "u-seojun"],
-    "producer": ["u-kang", "u-misook", "u-new", "u-soonja", "u-taeho"],
+    "consumer": ["u-minji", "u-seojun", "u-uat-c1", "u-uat-c2", "u-uat-c3"],
+    "producer": [
+        "u-kang",
+        "u-misook",
+        "u-new",
+        "u-soonja",
+        "u-taeho",
+        "u-uat-p1",
+        "u-uat-p2",
+        "u-uat-p3",
+    ],
 }
 APP_ROLE = {"consumer": "CONSUMER", "producer": "PRODUCER"}
 
