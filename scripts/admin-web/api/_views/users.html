@@ -80,7 +80,7 @@ async function load() {
   const params = new URLSearchParams({ limit: "100" });
   if (q) params.set("q", q);
   if (role !== "ALL") params.set("role", role);
-  if (kind !== "ALL") params.set("kind", kind);
+  params.set("kind", kind === "ALL" ? "all" : kind); // 서버 기본은 실사용자만(DEV-307)
   try { const page = await call("/admin/users?" + params); rows = page.items; total = page.total; renderList(); }
   catch (e) { rows = []; total = 0; renderList(); toast(e.message, true); }
 }

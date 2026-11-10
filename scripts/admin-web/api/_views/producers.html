@@ -68,7 +68,7 @@ function renderList() {
 
 async function load() {
   rows = null; renderList();
-  try { rows = await call("/admin/producers?status=ALL"); renderList(); }
+  try { rows = await call("/admin/producers?status=ALL&kind=all"); renderList(); }
   catch (e) { rows = []; renderList(); toast(e.message, true); }
 }
 
