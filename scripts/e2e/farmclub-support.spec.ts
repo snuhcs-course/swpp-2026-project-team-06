@@ -42,7 +42,7 @@ test("AC-34-2 AC-34-3: the farmclub room carries a producer inquiry to the opera
   await expect(composer).toHaveValue("");
   await expect(page.getByText(question).last()).toBeVisible();
 
-  const inbox = await (await ops.get("/admin/support")).json();
+  const inbox = await (await ops.get("/admin/support?kind=all")).json();
   const kang = inbox.find(
     (r: { kind: string; targetId: string }) => r.kind === "PRODUCER" && r.targetId === "f-kang",
   );

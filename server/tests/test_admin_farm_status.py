@@ -538,3 +538,31 @@ def test_AC_23_8_history_includes_rejection_reapplication_and_withdrawal(
     # 처음 신청 → 반려 → 다시 신청 (탈퇴는 다시 신청과 같은 시각이라 그 뒤)
     assert kinds == ["APPLIED", "REJECTED", "APPLIED", "WITHDRAWN"]
     assert client.get("/admin/farms/f-404/history", headers=admin_headers).status_code == 404
+
+
+def test_AC_23_2_expired_deposit_is_flagged_and_clears_after_bulk_expiry(
+    client, admin_headers, login
+):
+    from datetime import timedelta
+
+    from app.core.clock import now
+
+    order_id = hyodon_order(client, login)
+    deposit = client.post(
+        f"/api/orders/{order_id}/deposit", headers=login("u-seojun") | key(), json={}
+    )
+    assert deposit.status_code == 200, deposit.text  # 물량을 잡은 실제 입금 대기
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(deposit_due_at=now() - timedelta(hours=1))
+        )
+    blocked = suspend(client, admin_headers, "f-hyodon")
+    assert blocked.status_code == 409
+    [order] = blocked.json()["details"]["orders"]
+    assert order["depositExpired"] is True
+    assert "자동 취소" in blocked.json()["message"]
+    expired = client.post("/admin/orders/expire-deposits", headers=admin_headers | key())
+    assert expired.status_code == 200, expired.text
+    assert suspend(client, admin_headers, "f-hyodon").status_code == 200

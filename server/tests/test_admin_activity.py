@@ -20,6 +20,15 @@ def key() -> dict[str, str]:
     return {"Idempotency-Key": str(uuid.uuid4())}
 
 
+@pytest.fixture(autouse=True)
+def no_posthog_from_env(monkeypatch):
+    """개발자 server/.env의 PostHog 값이 테스트에 섞이거나 실제 PostHog를 부르지 않게 비운다."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "posthog_personal_api_key", SecretStr(""))
+    monkeypatch.setattr(settings, "posthog_project_id", "")
+    monkeypatch.setattr(settings, "posthog_host", "https://us.posthog.com")
+
+
 @pytest.fixture
 def posthog(monkeypatch):
     """PostHog 조회 설정을 켜고, 보낸 요청을 기록하는 가짜 전송을 끼운다."""
@@ -213,3 +222,20 @@ def test_AC_23_10_settings_hide_key():
     assert SECRET not in repr(
         settings.model_copy(update={"posthog_personal_api_key": SecretStr(SECRET)})
     )
+
+
+def test_AC_23_10_posthog_total_deadline(client, admin_headers, posthog, monkeypatch):
+    """느린 응답은 단계별 시간 제한과 별개로 전체 시간에서 끊고 unavailable로 표시한다."""
+    import time
+
+    monkeypatch.setattr(posthog_events, "TIMEOUT_SECONDS", 0.3)
+
+    def slow(request):
+        time.sleep(2.0)
+        return httpx.Response(200, json={"results": []})
+
+    posthog(slow)
+    started = time.monotonic()
+    body = activity(client, admin_headers, "u-minji")
+    assert body["posthog"]["status"] == "unavailable"
+    assert time.monotonic() - started < 1.5

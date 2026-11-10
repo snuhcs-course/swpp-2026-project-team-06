@@ -13,6 +13,7 @@ distinct_id = userId인 이벤트를 HogQL 조회 API로 읽는다. 로그인 �
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Literal
 from urllib.parse import quote
@@ -65,6 +66,24 @@ def _person_url(host: str, project_id: str, user_id: str) -> str | None:
     return f"{host}/project/{quote(project_id, safe='')}/person/{quote(user_id, safe='')}"
 
 
+_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="posthog")
+
+
+def _post(host: str, project_id: str, key: str, user_id: str) -> httpx.Response:
+    with httpx.Client(timeout=TIMEOUT_SECONDS, transport=TRANSPORT) as client:
+        return client.post(
+            f"{host}/api/projects/{quote(project_id, safe='')}/query/",
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "query": {
+                    "kind": "HogQLQuery",
+                    "query": QUERY,
+                    "values": {"distinct_id": user_id},
+                }
+            },
+        )
+
+
 def person_events(user_id: str) -> PosthogActivity:
     settings = get_settings()
     key = settings.posthog_personal_api_key.get_secret_value().strip()
@@ -76,18 +95,12 @@ def person_events(user_id: str) -> PosthogActivity:
     if not _SAFE_ID.fullmatch(user_id):
         return PosthogActivity(status="unavailable", person_url=person_url, events=[])
     try:
-        with httpx.Client(timeout=TIMEOUT_SECONDS, transport=TRANSPORT) as client:
-            response = client.post(
-                f"{host}/api/projects/{quote(project_id, safe='')}/query/",
-                headers={"Authorization": f"Bearer {key}"},
-                json={
-                    "query": {
-                        "kind": "HogQLQuery",
-                        "query": QUERY,
-                        "values": {"distinct_id": user_id},
-                    }
-                },
-            )
+        # httpx 시간 제한은 연결·읽기 단계마다 걸리므로, 전체 시간은 따로 TIMEOUT_SECONDS로 끊는다
+        future = _POOL.submit(_post, host, project_id, key, user_id)
+        try:
+            response = future.result(timeout=TIMEOUT_SECONDS)
+        finally:
+            future.cancel()  # 아직 시작하지 않은 조회는 대기열에서 뺀다
         if response.status_code != 200:
             logger.warning("posthog_query_failed", extra={"status_code": response.status_code})
             return PosthogActivity(status="unavailable", person_url=person_url, events=[])

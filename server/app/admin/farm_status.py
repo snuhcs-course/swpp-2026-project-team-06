@@ -65,6 +65,9 @@ class BlockingOrder(CamelModel):
     deposit_due_at: datetime | None
     deposit_reported_at: datetime | None
     paid_at: datetime | None
+    # 입금 기한이 지났고 '입금했어요'도 없는 입금 대기.
+    # 일괄 만료(POST /admin/orders/expire-deposits)로 취소되면 정지를 막지 않는다
+    deposit_expired: bool
 
 
 class AffectedProduct(CamelModel):
@@ -144,6 +147,7 @@ def suspension_kind(farm: Farm) -> SuspensionKind | None:
 
 
 def blocking_orders(db: Session, farm_id: str) -> list[BlockingOrder]:
+    current = now()
     rows = db.execute(
         select(Order, Product.name)
         .join(Product, Product.id == Order.product_id)
@@ -163,6 +167,12 @@ def blocking_orders(db: Session, farm_id: str) -> list[BlockingOrder]:
             deposit_due_at=o.deposit_due_at,
             deposit_reported_at=o.deposit_reported_at,
             paid_at=o.paid_at,
+            deposit_expired=(
+                o.status == "AWAITING_DEPOSIT"
+                and o.deposit_reported_at is None
+                and o.deposit_due_at is not None
+                and o.deposit_due_at <= current
+            ),
         )
         for o, name in rows
     ]
@@ -202,6 +212,8 @@ def _suspend_refusal(db: Session, farm: Farm) -> tuple[Refusal | None, list[Bloc
             f"출하 전 주문이 {len(orders)}건 있어 정지할 수 없어요. "
             "계좌이체라 자동 환불되지 않으니 주문을 먼저 정리해 주세요."
         )
+        if any(o.deposit_expired for o in orders):
+            message += " 입금 기한이 지난 입금 대기는 소비자·생산자가 주문을 열면 자동 취소돼요."
         return Refusal(reason="FARM_HAS_OPEN_ORDERS", message=message), orders
     return None, []
 
