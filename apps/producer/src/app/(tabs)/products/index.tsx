@@ -2,7 +2,6 @@ import {
   allPages,
   catalog,
   serverNow,
-  type MyProduct,
   type MyProductCard,
 } from "@farmclub/api";
 import {
@@ -18,13 +17,13 @@ import {
   md,
   time,
   tokens,
-  useAsync,
   useLiveList,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { optionBoxesFromProduct, optionBoxesLine } from "../../../lib/optionBoxes";
+import { OptionBoxRow } from "../../../lib/OptionBoxRow";
+import { optionBoxesFromCard } from "../../../lib/optionBoxes";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import {
@@ -34,35 +33,18 @@ import {
   draftSaved,
 } from "../../../lib/productGroups";
 /**
- * DEV-300: 카드 물량 줄 = 옵션마다 '5kg 24박스 · 10kg 18박스'(예약+출하, 모든 기간 합).
- * 목록 카드에는 옵션별 값이 없어 상품 상세를 한 번 읽는다. 목록은 8초마다 다시 읽지만
- * 상세는 그 상품의 예약·출하 g·version이 바뀔 때만 다시 읽는다. 읽기 전·실패면 예전 kg 줄.
+ * DEV-300: 카드 물량 = 옵션마다 '5kg  32,000원   24박스 / 72박스'(가격은 지금 판매 기간, 박스는 모든 기간 합).
+ * 목록 카드(`GET /api/products/mine`)의 `options`를 바로 쓴다(카드마다 상세를 읽지 않는다). 옵션이 없으면 예전 kg 줄.
  */
 function SalesLine({ product }: { product: MyProductCard }) {
-  const detail = useAsync(
-    () => catalog.myProduct(product.productId),
-    [
-      product.productId,
-      product.reservedGrams,
-      product.shippedGrams,
-      product.version,
-    ],
-  );
-  // 다시 읽는 동안 이전 줄을 유지해 kg 줄로 깜박이지 않게 한다
-  const [last, setLast] = useState<MyProduct | null>(null);
-  useEffect(() => {
-    if (detail.data) setLast(detail.data);
-  }, [detail.data]);
-  // 다시 읽다 실패하면 옛 박스 줄 대신 kg 줄(아래 kg 줄과 같은 시점 값)
-  const p = detail.error ? null : (detail.data ?? last);
-  const line =
-    p && p.options.length
-      ? optionBoxesLine(optionBoxesFromProduct(p.options, p.stages))
-      : "";
-  return line ? (
-    <T variant="sub" numberOfLines={1}>
-      {line}
-    </T>
+  // 앱이 서버보다 먼저 배포되면 옛 카드에는 options가 없다 → kg 줄
+  const rows = optionBoxesFromCard(product.options ?? []);
+  return rows.length ? (
+    <View style={{ gap: tokens.space.xs }}>
+      {rows.map((row) => (
+        <OptionBoxRow key={row.optionId} row={row} />
+      ))}
+    </View>
   ) : (
     <T variant="sub">
       예약 중 {product.reservedGrams / 1000}kg · 출하{" "}
@@ -242,10 +224,11 @@ export default function Products() {
                 backgroundColor: tokens.color.surface,
                 borderRadius: 12,
                 padding: 12,
-                gap: 4,
+                gap: tokens.space.sm,
               }}
             >
               <SalesLine product={product} />
+              {/* 11/10 인터뷰: kg 총량은 보조(meta 12 회색) */}
               <T variant="caption" muted>
                 승인 {product.approvedSupplyGrams / 1000}kg · 추가 예약 가능{" "}
                 {product.remainingGrams / 1000}kg
