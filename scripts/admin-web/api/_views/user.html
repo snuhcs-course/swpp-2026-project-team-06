@@ -14,7 +14,7 @@
   <div class="content"><div class="wrap">
     <header class="page-head">
       <h1>사용자 찾기</h1>
-      <p class="hint">사용자 ID·주문 ID·주문 번호(입금자명 FC-MMDD-NNNN)로 찾아 주문·입금·환불을 보고 처리해요. 받는 사람 전화·주소는 보이지 않아요.</p>
+      <p class="hint">사용자 ID·주문 ID·주문 번호(입금자명 FC-MMDD-NNNN)로 찾아 주문·입금·환불을 보고 처리해요. 생산자는 농가 상품(작성 중 포함)도 보여요. 받는 사람 전화·주소는 보이지 않아요.</p>
     </header>
     <form id="find" class="row" style="margin-bottom: 16px">
       <input id="q" name="q" placeholder="u-… / o-… / FC-1021-1234" autocomplete="off" style="flex: 1; min-width: 200px">
@@ -36,7 +36,13 @@ const STATUS = {
 };
 const PAYMENT = { APPROVED: "입금 확인", PARTIALLY_REFUNDED: "부분 환불", REFUNDED: "전액 환불" };
 const ACTOR = { MANAGER: "운영자", CONSUMER: "소비자", SYSTEM: "자동" };
+// 농가 상품(DEV-303). 저장 상태와, 판매 중일 때 계산한 판매 상태(품절 등)
+const PRODUCT = { DRAFT: "작성 중", PENDING_APPROVAL: "승인 대기", REJECTED: "반려", PUBLISHED: "판매 중", CLOSED: "종료" };
+const PRODUCT_TONE = { DRAFT: "s-WITHDRAWN", PENDING_APPROVAL: "s-PENDING", REJECTED: "s-REJECTED", PUBLISHED: "s-APPROVED", CLOSED: "s-WITHDRAWN" };
+const AVAIL = { PAUSED: "일시 중지", ENDED: "판매 기간 끝", NOT_OPEN: "판매 전", TOTAL_SOLD_OUT: "품절", PERIOD_SOLD_OUT: "이번 기간 품절" };
+const DRAFT_FIELD = { name: "이름", variety: "품종", options: "옵션", expectedBrix: "당도", grade: "등급", deliveryWindow: "받는 시기", description: "설명" };
 const won = (n) => Number(n || 0).toLocaleString("ko-KR") + "원";
+const kg = (g) => (Number(g || 0) / 1000).toLocaleString("ko-KR") + "kg";
 const idOk = (v) => /^[A-Za-z0-9_-]+$/.test(v);
 let detail = null, busy = false;
 
@@ -80,6 +86,58 @@ function orderCard(o) {
   </article>`;
 }
 
+// 옵션 줄은 생산자 앱 상품 카드(DEV-300)와 같은 표기: 5kg 29,000원 · 38박스 / 180박스
+function optionLine(o) {
+  return `${esc(o.label)} ${o.price == null ? '<span class="hint">가격 없음</span>' : won(o.price)} · ${o.reserved}박스 / ${o.quantity}박스`;
+}
+
+function productCard(p) {
+  const avail = p.status === "PUBLISHED" && AVAIL[p.availability] ? " · " + AVAIL[p.availability] : "";
+  const lines = [
+    ["상품 ID", `<code>${esc(p.productId)}</code>`],
+    ["공급 승인", `${kg(p.approvedSupplyGrams)} <span class="hint">· 판매 한도 ${kg(p.salesLimitGrams)} · 남은 ${kg(p.remainingGrams)}</span>`],
+    ["옵션", p.options.length ? p.options.map(optionLine).join("<br>") : "—"],
+  ];
+  if (p.currentStageLabel) lines.push(["판매 기간", esc(p.currentStageLabel)]);
+  if (p.rejectReason) lines.push(["반려 사유", esc(p.rejectReason)]);
+  lines.push(["수정", when(p.updatedAt)]);
+  return `<article class="card app">
+    <div class="row" style="justify-content: space-between">
+      <h2>${esc(p.name || "이름 없음")}</h2>
+      <span class="badge ${PRODUCT_TONE[p.status] || ""}">${esc(PRODUCT[p.status] || p.status)}${avail}</span>
+    </div>
+    <dl class="meta">${lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+  </article>`;
+}
+
+// AI 상품 초안(product_drafts). 상품과 이어 둔 열이 없어 상품이 됐는지는 알 수 없다
+function draftCard(d) {
+  const lines = [
+    ["초안 ID", `<code>${esc(d.draftId)}</code>`],
+    ["품종", esc(d.variety || "—")],
+    ["옵션", d.options.length ? d.options.map(esc).join(", ") : "—"],
+  ];
+  if (!d.failed && d.missingFields.length) lines.push(["빈 칸", d.missingFields.map((f) => esc(DRAFT_FIELD[f] || f)).join(", ")]);
+  lines.push(["만든 때", when(d.createdAt)]);
+  return `<article class="card app">
+    <div class="row" style="justify-content: space-between">
+      <h2>${esc(d.name || "이름 없음")}</h2>
+      <span class="badge s-WITHDRAWN">작성 중 · AI 초안${d.failed ? " · 추출 실패" : ""}</span>
+    </div>
+    <dl class="meta">${lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+  </article>`;
+}
+
+function productSection(d) {
+  if (!d.farm) return "";
+  const list = d.products || [], ais = d.drafts || []; // 서버가 먼저 배포되기 전에도 깨지지 않게
+  const products = list.length ? list.map(productCard).join("") : `<p class="empty">등록한 상품이 없어요.</p>`;
+  const drafts = ais.length
+    ? `<h2 style="margin: 20px 0 8px">작성 중 AI 초안 ${ais.length}건</h2><p class="hint" style="margin: 0 0 8px">상품 만들기 전에 붙여넣은 글로 만든 초안이에요. 이미 상품이 된 초안도 함께 보여요(최근 50건).</p>` + ais.map(draftCard).join("")
+    : "";
+  return `<h2 style="margin: 20px 0 8px">상품 ${list.length}개</h2>` + products + drafts;
+}
+
 function render() {
   if (!detail) return;
   const d = detail;
@@ -98,7 +156,7 @@ function render() {
   const orders = d.role !== "CONSUMER" ? `<p class="empty">소비자 계정이 아니라 주문 내역이 없어요.</p>`
     : d.orders.length ? d.orders.map(orderCard).join("") + (d.ordersTruncated ? `<p class="hint">최근 100건만 보여요.</p>` : "")
     : `<p class="empty">주문이 없어요.</p>`;
-  $("#view").innerHTML = head + `<h2 style="margin: 20px 0 8px">주문 ${d.orders.length}건</h2>` + orders;
+  $("#view").innerHTML = head + productSection(d) + `<h2 style="margin: 20px 0 8px">주문 ${d.orders.length}건</h2>` + orders;
 }
 
 async function load(id) {
