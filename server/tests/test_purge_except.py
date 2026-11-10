@@ -713,3 +713,17 @@ def test_DEV_304_refuses_other_farm_media_in_kept_ai_history(extras):
     with pytest.raises(PurgeRefused, match="med-other"):
         purge(KEEP, commit=True)
     assert snapshot() == before
+
+
+def test_DEV_304_refuses_kept_product_using_deleted_product_source_photo(source_rows):
+    """다른 농가 상품의 자료 분석 사진 주소를 남는 상품이 담고 있으면 거부한다."""
+    with get_sessionmaker()() as s, s.begin():
+        s.execute(
+            update(t("products"))
+            .where(t("products").c.id == "p-house")
+            .values(photos=["/api/source-media/pp-other"])
+        )
+    before = snapshot()
+    with pytest.raises(PurgeRefused, match="pp-other"):
+        purge(KEEP, commit=True)
+    assert snapshot() == before

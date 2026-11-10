@@ -69,6 +69,7 @@ from app.source_analysis import models as _source_models  # noqa: F401
 EVENT_TYPE = "data.purge_except"
 LOCK_TIMEOUT = "5s"
 MEDIA_URL = re.compile(r"/api/media/([A-Za-z0-9_-]+)\.")
+SOURCE_MEDIA_URL = re.compile(r"/api/source-media/([A-Za-z0-9_-]+)")
 USAGE = "사용법: python -m app.admin.purge_except --keep <user id> [--keep <user id> …] [--commit]"
 
 
@@ -114,7 +115,7 @@ def _in(column, values: set[str]) -> ColumnElement[bool]:
     return column.in_(sorted(values))
 
 
-# 표 이름 → 남길 행 조건. 조건이 NULL이면 지운다(아래 _delete가 NULL을 거짓으로 본다).
+# 표 이름 → 남길 행 조건. 조건이 NULL이면 지운다(_run의 CASE가 NULL을 거짓으로 본다).
 Rule = Callable[[Keep], ColumnElement[bool]]
 RULES: dict[str, Rule] = {
     # 비용 장부. 사용자 ID가 없다
@@ -348,10 +349,21 @@ def _check_kept_rows(session: Session, keep: Keep) -> None:
         ),
     )
     referenced: set[str] = set()
+    referenced_photos: set[str] = set()
     for table in MEDIA_REFERENCING:
         for row in session.execute(select(t[table]).where(RULES[table](keep))).mappings():
-            referenced.update(MEDIA_URL.findall(json.dumps(dict(row), default=str)))
+            dumped = json.dumps(dict(row), default=str)
+            referenced.update(MEDIA_URL.findall(dumped))
+            referenced_photos.update(SOURCE_MEDIA_URL.findall(dumped))
     lost = _ids(session, select(media.c.id).where(_in(media.c.id, referenced - kept_media)))
+    # 자료 분석 상품 사진(/api/source-media/<id>)은 상품 단위로 남는다
+    photos = t["source_public_photos"]
+    lost |= _ids(
+        session,
+        select(photos.c.id).where(
+            _in(photos.c.id, referenced_photos), ~RULES["source_public_photos"](keep)
+        ),
+    )
     if lost:
         raise PurgeRefused(f"남는 농가·상품·소식이 지울 공개 미디어를 써요: {sorted(lost)}")
 
