@@ -15,7 +15,7 @@
     "test:mock": "tsc -p scripts/mock-tsconfig.json && node scripts/run-mock-tests.mjs",
     "coverage:producer": "tsc -p scripts/mock-tsconfig.json && node --test --experimental-test-coverage --test-coverage-include='apps/producer/src/**' scripts/test-producer-gate.mjs scripts/test-producer-kakao.mjs scripts/test-producer-status.mjs scripts/test-navigation.mjs",
     "coverage:producer-ui": "node scripts/producer-ui-coverage.mjs",
-    "design": "npx -y easel-canvas@0.1.0 --dir docs/design",
+    "design": "npx -y easel-canvas@0.1.1 --dir docs/design",
     "demo": "node scripts/demo.mjs",
     "demo:record": "node demo/cmd/record.mjs",
     "demo:stitch": "node demo/cmd/stitch.mjs",
