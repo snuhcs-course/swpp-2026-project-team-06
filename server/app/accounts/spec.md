@@ -15,10 +15,11 @@
 
 ## 계약
 - `User`: id, kakaoId?(I2), isTestAccount, role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone (tech-design/README.md). 같은 사람이라도 소비자·생산자 계정은 따로다(ADR 0010).
-- Mock 로그인은 설정 `MOCK_LOGIN_ENABLED`가 켜져 있을 때만 동작하고, 꺼지면 두 엔드포인트 모두 404다. `isTestAccount = true`인 시드 계정만 로그인되고 새 계정은 만들지 않는다(AC-01-4·5). 테스트 계정에는 `ADMIN`을 주지 않는다(ADR 0009).
+- Mock 로그인은 설정 `MOCK_LOGIN_ENABLED`가 켜져 있을 때만 동작하고, 꺼지면 두 엔드포인트 모두 404다. `isTestAccount = true`인 테스트 계정(시드·UAT)만 로그인되고 새 계정은 만들지 않는다(AC-01-4·5). 테스트 계정에는 `ADMIN`을 주지 않는다(ADR 0009).
 - 테스트 계정 목록·로그인은 `app`(`consumer`·`producer`)을 받아 그 앱 역할의 계정만 다룬다. 계정 역할이 `app`과 다르면 403 `WRONG_APP`.
 - 생산자 가입 신청은 생산자 계정(`role = PRODUCER`, 농가 없음)만 할 수 있고, `ownerName`으로 계정 이름을 바꾸며 `Farm`(PENDING)을 만든다. 소비자 계정에 생산자 역할을 붙이지 않는다(AC-01-7).
 - 시드: 소비자 2(김민지·이서준), 생산자 5(승인·확인 중·반려·정지·농가 없음), tech-design/README.md ‘시드 데이터’(N-07). 이름·연락처·주소는 가짜 값.
+- UAT 데이터(DEV-305): `python -m app.core.seed_uat [--commit]`이 넣는 소비자 3(`u-uat-c1..c3`)·생산자 3(`u-uat-p1..p3`)도 테스트 계정이다. tech-design/README.md ‘UAT 데이터’.
 - JWT 검증·현재 사용자 조회는 `core/security.py`가 제공하고, 토큰 발급은 이 모듈이 한다.
 - 다른 모듈과의 경계
   - farms: 가입 신청이 만드는 `Farm`(approvalStatus=PENDING)과 승인 상태는 farms가 가진다. 이 모듈은 farms의 service 함수로 농가를 만들고 승인 상태를 바꾼다.
@@ -38,3 +39,4 @@
 | 2026-10-17 | 카카오 로그인은 `GET /api/auth/kakao/config`(사용 여부·클라이언트 ID·복귀 경로 `/auth/kakao`)와 `POST /api/auth/kakao`(`code`, `redirectUri`, `app`). 복귀 주소는 CORS 허용 앱 주소의 `/auth/kakao`만 받는다. (카카오 식별자, 역할) 조합마다 계정 하나이며 처음이면 카카오계정 이메일(없으면 닉네임, 둘 다 없으면 ‘카카오 사용자’)을 이름으로 만든다(`isTestAccount=false`, 연락처 빈 값). 자리 이름이던 계정은 다음 로그인에서 실제 이름으로 바뀐다. REST API 키가 비면 404. 리프레시 토큰은 아직 없다(0009와 같은 7일 토큰) | FEAT-01 I2, ADR 0003·0010, DEV-32 | AC-01-8, AC-01-9, AC-01-10 |
 | 2026-10-23 | `needs_onboarding`은 닉네임·휴대폰·필수 동의만 본다(이름 제외, 위 10-18 행을 대신함). 이름은 가입 때 받지 않고 첫 주문서의 받는 사람으로 받으며 `name=""`로 남을 수 있다. 카카오에서는 이름을 받지 않고 전화번호만 받는다(DEV-78 심사 뒤 `phone_number`) | 가입 간소화(당근식), 사용자 결정 | AC-01-12 |
 | 2026-11-06 | 원산지 표시제도 안내 읽음(DEV-121, 원산지표시법 제6조 ⑥ 고지 증빙): `notice_reads`(사용자·종류·버전마다 한 줄, 처음 시각 유지, 탈퇴해도 남김), `POST /api/auth/me/notices`(`Producer` = 동의한 생산자, 승인 전도 됨, 지금 `ORIGIN_NOTICE_VERSION`만 받고 아니면 400), `UserView.origin_notice_read_at`(생산자만). `user_consents`에 넣지 않은 까닭: 동의가 아니라 읽음이고, (사용자, 종류) 한 줄이라 버전별 증빙이 남지 않는다. 마이그레이션 0027(#482의 0026 다음) | 원산지표시법 시행규칙 제4조의2 1호 | — |
+| 2026-11-10 | `TEST_ACCOUNTS` 뒤에 UAT 계정(소비자 `u-uat-c1..c3`, 생산자 `u-uat-p1..p3`, `app.core.seed_uat`)을 붙인다. 목록은 DB에 있는 `isTestAccount` 계정만 돌려주므로 UAT를 넣지 않은 로컬·CI는 그대로다. `MOCK_LOGIN_ENABLED` 기본값(false)은 바꾸지 않는다 | UAT는 새 테스트 계정으로(11/10), DEV-305 | AC-01-4·5 |
