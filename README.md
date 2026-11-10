@@ -238,6 +238,30 @@ deadline, so cancel them first if you want that list clean. `--restore` only reo
 command hid; orders that expired in the meantime stay cancelled.
 Permanently deleting data waits for the retention policy (PQ-06, DEV-94).
 
+**Wiping data except chosen producers (DEV-304, before UAT).** Deletes every user and their data
+except `role=ADMIN` accounts and the producers passed with `--keep` (their farms, products,
+drafts, news posts, farmclub support room, audit history, media and source files stay). All
+orders, payments, refunds, chats (except the kept farms' farmclub support rooms and the kept
+users' support threads), follows, idempotency records and consumer accounts go. Humans run it:
+
+1. Take a manual Railway Postgres backup snapshot and wait until it finishes.
+2. Look up the producer user ids (read-only) in the Railway Postgres query tab:
+   `select u.id, u.role, u.deleted_at, f.id, f.name from users u join farms f on f.producer_id = u.id where f.id in ('<farmId>', '<farmId>');`
+3. At a low-traffic time (the command locks every table against writes while it runs, dry run included),
+   dry run, review the printed kept users/farms/products and per-table counts with the PM, then commit:
+
+```bash
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId>           # dry run
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId> --commit  # delete
+```
+
+4. Check `/health`, public `/api/farms` (only the kept farms) and the admin page user list.
+
+It refuses a `--keep` user who is not a live producer with a farm, and refuses (changing nothing)
+when a kept row would point at deleted data it cannot clear. `--commit` writes one `ManagerEvent`
+(`data.purge_except`, `via: cli`) and deletes the freed R2 files; otherwise the source-analysis
+worker's cleanup removes unused files after 24 hours. Details: `server/app/admin/spec.md`.
+
 ### Automatic deploys (DEV-65, DEV-66)
 
 The repository belongs to the `snuhcs-course` organization, so the Railway GitHub App
