@@ -1,5 +1,8 @@
 """관리자 페이지 사용자 상세(DEV-106). 문의 대응용으로 한 사용자의 주문·입금·환불을 본다.
 
+생산자면 그 농가의 모든 상품(작성 중·승인 대기·반려·판매·종료)과 AI 상품 초안도 본다(DEV-303).
+옵션 줄은 생산자 앱 상품 카드(DEV-300 `card_options`)와 같은 정의를 쓴다.
+
 읽기만 한다. 입금 확인 대행·환불·배송 완료는 화면이 기존 운영 API(`/admin/orders/...`)를 그대로
 부른다. 받는 사람 전화·주소, 계정 전화·이메일은 내려 주지 않는다(운영자 화면에도 필요할 때만).
 """
@@ -12,7 +15,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.accounts.models import User
-from app.catalog.models import Product
+from app.catalog import service as catalog
+from app.catalog.models import Product, ProductDraft
+from app.catalog.schemas import MyProductCardOption, ProductStatus
 from app.core.db import get_db
 from app.core.errors import not_found
 from app.core.schemas import CamelModel
@@ -23,6 +28,9 @@ from app.orders.models import Order, Payment, Refund
 router = APIRouter(prefix="/admin/users", tags=["admin"])
 Db = Annotated[Session, Depends(get_db)]
 ORDER_LIMIT = 100
+DRAFT_LIMIT = 50
+# 생산자 앱 상품 목록(`my_product_cards`)과 같은 순서: 손볼 것 먼저
+STATUS_ORDER = {"REJECTED": 0, "PENDING_APPROVAL": 1, "PUBLISHED": 2, "DRAFT": 3, "CLOSED": 4}
 REFUNDABLE = ("RESERVED", "PREPARING", "SHIPPED", "DELIVERED")
 
 Action = Literal["confirm_deposit", "refund", "delivered"]
@@ -68,6 +76,35 @@ class UserOrder(CamelModel):
     actions: list[Action]
 
 
+class UserProduct(CamelModel):
+    """농가 상품 한 줄(DEV-303). 판매 중 상품의 품절·종료는 저장 상태가 아니라 `availability`."""
+
+    product_id: str
+    name: str
+    status: ProductStatus
+    availability: str  # catalog `SalesState.availability`(AVAILABLE·PERIOD_SOLD_OUT 등)
+    reject_reason: str | None
+    approved_supply_grams: int
+    sales_limit_grams: int
+    remaining_grams: int
+    sales_paused: bool
+    current_stage_label: str | None
+    options: list[MyProductCardOption]
+    updated_at: datetime
+
+
+class UserProductDraft(CamelModel):
+    """아직 상품이 되지 않았을 수 있는 AI 상품 초안(`product_drafts`). 원문은 내려 주지 않는다."""
+
+    draft_id: str
+    name: str | None
+    variety: str | None
+    options: list[str]
+    missing_fields: list[str]
+    failed: bool
+    created_at: datetime
+
+
 class UserDetail(CamelModel):
     user_id: str
     name: str
@@ -79,6 +116,8 @@ class UserDetail(CamelModel):
     farm: UserFarm | None
     orders: list[UserOrder]
     orders_truncated: bool
+    products: list[UserProduct]
+    drafts: list[UserProductDraft]
 
 
 class UserLookup(CamelModel):
@@ -168,6 +207,59 @@ def _orders(db: Session, consumer_id: str) -> tuple[list[UserOrder], bool]:
     return orders, truncated
 
 
+def _products(db: Session, farm_id: str) -> list[UserProduct]:
+    """순서·판매 기간 표기는 생산자 앱 `my_product_cards`·`my_product_card`와 같다.
+    옵션·단계·가격·물량은 `load_products`가 한 번에 읽는다. 판매 상태(`sales_state`)는
+    생산자 앱 카드처럼 상품마다 주문 합계를 한 번 읽는다."""
+    products = list(db.scalars(select(Product).where(Product.farm_id == farm_id)))
+    products.sort(key=lambda p: (STATUS_ORDER.get(p.status, 99), -p.updated_at.timestamp(), p.id))
+    rows = []
+    for item in catalog.load_products(db, products):
+        p, cur = item.product, catalog.current_stage(item)
+        state = catalog.sales_state(db, item)
+        rows.append(
+            UserProduct(
+                product_id=p.id,
+                name=p.name,
+                status=p.status,
+                availability=state.availability,
+                reject_reason=p.reject_reason,
+                approved_supply_grams=p.approved_supply_grams,
+                sales_limit_grams=p.sales_limit_grams,
+                remaining_grams=state.remaining_grams,
+                sales_paused=p.sales_paused,
+                current_stage_label=f"{cur.starts_at} ~ {cur.ends_at}" if cur else None,
+                options=catalog.card_options(item, cur),
+                updated_at=p.updated_at,
+            )
+        )
+    return rows
+
+
+def _drafts(db: Session, farm_id: str) -> list[UserProductDraft]:
+    drafts = db.scalars(
+        select(ProductDraft)
+        .where(ProductDraft.farm_id == farm_id)
+        .order_by(ProductDraft.created_at.desc(), ProductDraft.id)
+        .limit(DRAFT_LIMIT)
+    )
+    rows = []
+    for d in drafts:
+        out = d.output or {}
+        rows.append(
+            UserProductDraft(
+                draft_id=d.id,
+                name=out.get("name") or None,
+                variety=out.get("variety") or None,
+                options=list(out.get("options") or []),
+                missing_fields=list(d.missing_fields or []),
+                failed=d.failed,
+                created_at=d.created_at,
+            )
+        )
+    return rows
+
+
 @router.get("/by-order/{order_ref}", response_model=UserLookup)
 def find_by_order(db: Db, _: Admin, order_ref: str):
     """주문 ID 또는 주문 번호(입금자명 `FC-MMDD-NNNN`)로 주문한 소비자를 찾는다."""
@@ -188,6 +280,8 @@ def user_detail(db: Db, _: Admin, user_id: str):
         raise not_found("사용자를 찾을 수 없어요.")
     farm = db.scalar(select(Farm).where(Farm.producer_id == user.id))
     orders, truncated = _orders(db, user.id) if user.role == "CONSUMER" else ([], False)
+    products = _products(db, farm.id) if farm else []
+    drafts = _drafts(db, farm.id) if farm else []
     return UserDetail(
         user_id=user.id,
         name=user.name,
@@ -201,4 +295,6 @@ def user_detail(db: Db, _: Admin, user_id: str):
         else None,
         orders=orders,
         orders_truncated=truncated,
+        products=products,
+        drafts=drafts,
     )
