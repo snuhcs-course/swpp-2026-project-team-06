@@ -210,7 +210,7 @@ container runs `alembic upgrade head`, then serves on Railway's `$PORT`; Railway
 | `CONSUMER_APP_URL` | `https://farmclub.kr` (CORS, share-link redirects, Kakao return address). No trailing slash. |
 | `PRODUCER_APP_URL` | `https://farm.farmclub.kr` |
 | `SHARE_BASE_URL` | `https://farmclub.kr`. Set it after the consumer app with the `/s/*` proxy is live (see Domains). Empty: share links use the server's own address. |
-| `MOCK_LOGIN_ENABLED` | `true` while test accounts are used (Kakao login is not built yet) |
+| `MOCK_LOGIN_ENABLED` | `false` in production; `true` only during UAT or evaluation (see UAT accounts below) |
 | `ANTHROPIC_API_KEY` | Optional. Without it, AI answers come from registered rules and other questions go to the producer. |
 
 4. Deploy, then generate a public domain under the service's networking settings.
@@ -237,6 +237,42 @@ Orders whose buyer reported a deposit never auto-cancel and appear in `deposit-o
 deadline, so cancel them first if you want that list clean. `--restore` only reopens farms this
 command hid; orders that expired in the meantime stay cancelled.
 Permanently deleting data waits for the retention policy (PQ-06, DEV-94).
+
+**UAT accounts and data (DEV-305).** UAT uses dedicated test accounts, not the demo seed.
+`python -m app.core.seed_uat` adds three consumers (`u-uat-c1..c3`, "UAT 소비자 N") and three
+producers (`u-uat-p1..p3`): two approved farms (`f-uat-1`, `f-uat-2`) with products on sale
+(options, two price stages starting on the run date, approved supply) and one farm under review
+(`f-uat-3`). All are test accounts and appear in the test-login list, but nobody can log in while
+`MOCK_LOGIN_ENABLED=false`. Run it after the production cleanup (DEV-304); people run these:
+
+```bash
+railway ssh --service farmclub-api -- .venv/bin/python -m app.core.seed_uat            # dry run: prints what it would add, then rolls back
+railway ssh --service farmclub-api -- .venv/bin/python -m app.core.seed_uat --commit   # add
+```
+
+It refuses if any UAT ID (marker `u-uat-c1`) already exists, and rejects unknown options. Check
+`GET /api/farms` lists "UAT 농가 1" and "UAT 농가 2" and the admin user list (test accounts) shows the
+six UAT accounts (ops-tester accounts, if any, are listed there too).
+
+The two approved UAT farms and their products are public from the moment of `--commit`, even with
+test login off: real (Kakao) consumers can see them and place orders against the fake deposit
+account. Insert shortly before UAT (the second price stage ends 34 days after the run date). To keep
+the farms hidden until UAT starts, hide them after the check above with the DEV-93 command (they then
+drop out of `GET /api/farms`, as expected), reopen them when UAT starts and hide them again as soon as
+it ends. Hiding is refused once a real consumer has ordered from the farm.
+
+```bash
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm f-uat-1 --commit            # hide (same for f-uat-2)
+railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_farm f-uat-1 --restore --commit  # reopen for UAT
+```
+
+- **Start UAT:** set `MOCK_LOGIN_ENABLED=true` on `farmclub-api` (Railway redeploys). Testers use
+  `https://farmclub-consumer.vercel.app/login?evaluator=1` and
+  `https://farmclub-producer.vercel.app/login?evaluator=1` and pick a "UAT …" account.
+- **Stop UAT:** set `MOCK_LOGIN_ENABLED=false`; `GET /api/auth/test-accounts?app=consumer` returns 404 again.
+- **Clean up:** (command name and options to be re-checked once DEV-304 is merged) run the DEV-304 cleanup again, keeping only the real producers
+  (`python -m app.admin.purge_except --keep <real producer id> …`, dry run first, then `--commit`).
+  Do not pass UAT accounts to `--keep`.
 
 ### Automatic deploys (DEV-65, DEV-66)
 
