@@ -69,7 +69,9 @@ test("AC-06-8: unfollowed farm leaves the chat list; banner re-follow restores r
 
   await page.goto(`${consumerUrl}/chats?view=news`);
   await expect(page.getByText("한라네 과수원").first()).toBeVisible();
-  await expect(page.getByText("강씨네 귤밭")).toHaveCount(0);
+  // 소식방 목록 줄만 본다. 숨겨 둔 1:1 목록에는 문의가 있는 방이 팔로우와 무관하게 남는다(consumer_chats `_has_inquiries`),
+  // 앞 spec(AC-10-6 문의)이 같은 시드에서 돌면 getByText가 그 숨은 줄까지 세어 순서에 따라 실패했다
+  await expect(page.getByRole("button", { name: /^강씨네 귤밭,/ })).toHaveCount(0);
 
   await openRoom(page);
   await expect(dimmedReply(page)).toBeVisible();
@@ -77,7 +79,7 @@ test("AC-06-8: unfollowed farm leaves the chat list; banner re-follow restores r
   await expectRestored(page);
 
   await page.goto(`${consumerUrl}/chats?view=news`);
-  await expect(page.getByText("강씨네 귤밭").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^강씨네 귤밭,/ })).toBeVisible();
   assertClean();
 });
 
