@@ -94,7 +94,7 @@ test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings 
     texts.set(t, (texts.get(t) ?? 0) + 1);
   }
   for (const [t, count] of texts) await expect(amount.getByText(t, { exact: true })).toHaveCount(count);
-  await expect(amount.getByText(/^총 [\d,.]+ \/ [\d,.]+kg$/)).toBeVisible();
+  await expect(amount.getByText(/^총 [\d,.]+kg \/ [\d,.]+kg$/)).toBeVisible();
 
   // 상품 목록은 카드마다 상품 상세를 읽지 않는다(목록 API options만 쓴다)
   const detailReads: string[] = [];
@@ -156,7 +156,7 @@ test("AC-14-1(part)/AC-14-3 DEV-300: dashboard, product card and sales settings 
     const home5 = home.get("opt-5")!;
     await expect(amount).toHaveAccessibleName(new RegExp(escape(label({ ...home5, sold: home5.sold + 1 }))));
     const used = (dash.product.reservedGrams + dash.product.shippedGrams) / 1000 + 5;
-    await expect(amount.getByText(`총 ${n(used)} / ${n(dash.product.salesLimitGrams / 1000)}kg`, { exact: true })).toBeVisible();
+    await expect(amount.getByText(`총 ${n(used)}kg / ${n(dash.product.salesLimitGrams / 1000)}kg`, { exact: true })).toBeVisible();
   }
   assertClean();
 });

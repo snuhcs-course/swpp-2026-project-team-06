@@ -275,7 +275,7 @@ export default function Home() {
   // DEV-300: 옵션마다 따로(합치지 않음). 기간이 없으면 빈 목록 → 예전 kg 막대 줄
   const boxes = optionBoxesFromDashboard(dash.data?.stages ?? []);
   const totalKg = product
-    ? `${kg(usedGrams)} / ${kg(product.salesLimitGrams)}kg`
+    ? `${kg(usedGrams)}kg / ${kg(product.salesLimitGrams)}kg`
     : "";
   return (
     <Screen>
