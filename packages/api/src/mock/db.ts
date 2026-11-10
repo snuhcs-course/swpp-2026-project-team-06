@@ -145,6 +145,23 @@ export type NewsRec = {
   photos: string[];
   visibility: "PUBLIC" | "FOLLOWERS";
   baseReactions: number;
+  /** 인용한 소비자 답장 id(DEV-297, 서버 전용 — 응답에 내보내지 않음) */
+  quotedReplyId?: string | null;
+};
+/** 소식방 소비자 답장. 응답 모양 + 서버 전용 칸(DEV-297). 응답으로 낼 때 내부 칸은 뺀다 */
+export type RoomReplyRec = NewsRoomMessage & {
+  /** 답한 소식 = 보낸 순간 그 농가의 가장 최근 지우지 않은 소식. 응답의 broadcastId(답장은 null)와 다른 칸 */
+  answersBroadcastId?: string | null;
+  /** 생산자가 팬 답장 시트에서 확인한 시각. 없으면 안 읽음 */
+  producerReadAt?: string | null;
+};
+/** 소비자의 소식방 읽음 위치(DEV-297). (농가, 소비자)당 하나, 앞으로만 옮긴다 */
+export type RoomReadRec = {
+  farmId: string;
+  consumerId: string;
+  broadcastId: string;
+  /** 그 소식의 작성 시각(비교용) */
+  at: string;
 };
 export type OrderRec = Recipient & {
   trackingVersion?: number;
@@ -211,7 +228,8 @@ export type DB = {
   news: NewsRec[];
   /** 생산자가 지운 소식(M-23, DEV-210). 서버의 소프트 삭제처럼 모든 조회에서 빠지고 다시 지워도 204 */
   deletedNews?: NewsRec[];
-  roomReplies: NewsRoomMessage[];
+  roomReplies: RoomReplyRec[];
+  roomReads?: RoomReadRec[];
   reactions: { broadcastId: string; userId: string }[];
   /** key = `${farmId}:${consumerId}` */
   threads: Record<string, ChatMessage[]>;

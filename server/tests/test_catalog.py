@@ -2,12 +2,13 @@
 
 import uuid
 
-from sqlalchemy import update
+from sqlalchemy import delete, event, update
 
 from app.ai import service as ai
 from app.ai.schemas import DraftExtraction
+from app.catalog import service as catalog_service
 from app.catalog.models import Product, StageAllocation
-from app.core.db import get_sessionmaker
+from app.core.db import get_engine, get_sessionmaker
 
 STAGES = {
     "stages": [
@@ -198,6 +199,139 @@ def test_producer_product_list_matches_mock_grouping_and_stage_label(client, log
     ]
     house = next(item for item in items if item["productId"] == "p-house")
     assert house["currentStageLabel"] == "2026-10-01 ~ 2026-10-12"
+
+
+def _card_options(client, login, product_id: str) -> list[dict]:
+    items = client.get("/api/products/mine", headers=login("u-kang")).json()["items"]
+    return next(item for item in items if item["productId"] == product_id)["options"]
+
+
+def test_AC_14_3_DEV_300_card_options_sum_every_period_and_price_current_period(client, login):
+    # 시드 하우스 감귤: 기간 3개(10/01~12 지금, 10/13~, 10/24~), 5kg·10kg
+    assert _card_options(client, login, "p-house") == [
+        {
+            "optionId": "opt-5",
+            "label": "5kg",
+            "weightKg": 5,
+            "reserved": 38,
+            "quantity": 80 + 60 + 40,
+            "price": 29000,
+        },
+        {
+            "optionId": "opt-10",
+            "label": "10kg",
+            "weightKg": 10,
+            "reserved": 6,
+            "quantity": 20 + 25 + 15,
+            "price": 55000,
+        },
+    ]
+
+
+def test_AC_14_3_DEV_300_card_options_match_product_screen(client, login):
+    headers = login("u-kang")
+    items = client.get("/api/products/mine", headers=headers).json()["items"]
+    for item in items:
+        product = client.get(f"/api/products/mine/{item['productId']}", headers=headers).json()
+        stages = product["stages"]
+        # 판매 설정 가격 기준(currentStageId)은 카드 currentStageLabel과 같은 기간
+        cur = next((s for s in stages if s["stageId"] == product["currentStageId"]), None)
+        label = f"{cur['startsAt']} ~ {cur['endsAt']}" if cur else None
+        assert label == item["currentStageLabel"], item["productId"]
+        expected = [
+            {
+                "optionId": o["optionId"],
+                "label": o["label"],
+                "weightKg": o["weightKg"],
+                "reserved": sum(
+                    s["options"][o["optionId"]]["reservedCount"]
+                    for s in stages
+                    if o["optionId"] in s["options"]
+                ),
+                "quantity": sum(
+                    s["options"][o["optionId"]]["quantity"]
+                    for s in stages
+                    if o["optionId"] in s["options"]
+                ),
+                "price": cur["options"].get(o["optionId"], {}).get("price") if cur else None,
+            }
+            for o in product["options"]
+        ]
+        assert item["options"] == expected, item["productId"]
+
+
+def test_AC_14_3_DEV_300_card_option_not_allocated_counts_zero_and_has_no_price(client, login):
+    # 지금 기간(st-house-1)에서 10kg 물량을 빼면 그 기간은 0박스, 가격 없음.
+    # 다른 기간 박스는 그대로 더한다
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            delete(StageAllocation).where(
+                StageAllocation.stage_id == "st-house-1", StageAllocation.option_id == "opt-10"
+            )
+        )
+    ten = _card_options(client, login, "p-house")[1]
+    assert (ten["reserved"], ten["quantity"], ten["price"]) == (0, 25 + 15, None)
+
+
+def test_AC_14_3_DEV_300_sold_out_card_keeps_price_and_full_boxes(client, login):
+    # 레드향: 시드가 지금 기간 물량을 0으로 둔 품절(st-redhyang-1 0/0), 다음 기간 40.
+    # 품절이어도 지금 기간 값이 있으면 그 가격은 보인다
+    assert _card_options(client, login, "p-redhyang") == [
+        {
+            "optionId": "opt-3",
+            "label": "3kg",
+            "weightKg": 3,
+            "reserved": 0,
+            "quantity": 40,
+            "price": 32000,
+        }
+    ]
+    # 다른 옵션이 남아도 지금 기간 박스를 모두 채운 옵션은 그 가격과 꽉 찬 박스
+    with get_sessionmaker()() as session, session.begin():
+        session.execute(
+            update(StageAllocation)
+            .where(StageAllocation.stage_id == "st-house-1", StageAllocation.option_id == "opt-10")
+            .values(reserved_count=StageAllocation.quantity)
+        )
+    ten = _card_options(client, login, "p-house")[1]
+    assert (ten["reserved"], ten["quantity"], ten["price"]) == (20, 60, 55000)
+
+
+def test_AC_14_3_DEV_300_card_price_is_null_without_a_current_period(client, login):
+    # 청견: 기간이 10/15에 시작(오늘 10/07은 판매 기간 아님). 한라봉 초안: 기간 없음
+    cheonggyeon = _card_options(client, login, "p-cheonggyeon")
+    assert [(o["label"], o["reserved"], o["quantity"], o["price"]) for o in cheonggyeon] == [
+        ("5kg", 0, 50, None)
+    ]
+    hallabong = _card_options(client, login, "p-hallabong")
+    assert [(o["reserved"], o["quantity"], o["price"]) for o in hallabong] == [(0, 0, None)]
+
+
+def test_DEV_300_card_options_add_no_query(client, login, monkeypatch):
+    """옵션 줄은 한 번에 읽은 Loaded만 쓴다.
+
+    옵션을 빼고 읽어도 쿼리 수가 같다(카드마다 쿼리가 늘지 않는다).
+    """
+    statements: list[str] = []
+
+    def count(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    def queries() -> int:
+        statements.clear()
+        assert client.get("/api/products/mine", headers=headers).status_code == 200
+        return len(statements)
+
+    headers = login("u-kang")
+    engine = get_engine()
+    event.listen(engine, "before_cursor_execute", count)
+    try:
+        with_options = queries()
+        monkeypatch.setattr(catalog_service, "card_options", lambda item, cur: [])
+        without_options = queries()
+    finally:
+        event.remove(engine, "before_cursor_execute", count)
+    assert with_options == without_options
 
 
 def test_AC_01_6_consumer_token_on_producer_api_is_403(client, login):

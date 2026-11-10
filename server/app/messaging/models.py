@@ -27,6 +27,10 @@ class Broadcast(Base):
     __tablename__ = "broadcasts"
 
     reply_to: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 인용한 소비자 답장 id(DEV-297). 서버 전용: 응답·소비자에게 내보내지 않고
+    # 팬 답장 시트의 '모두에게 답장함'에만 쓴다. 익명 스냅샷은 reply_to 그대로.
+    # room_replies.broadcast_id와 서로 가리키는 FK 고리를 만들지 않으려고 FK 없이 둔다
+    quoted_reply_id: Mapped[str | None] = mapped_column(String(64), index=True)
 
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     edit_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -66,6 +70,26 @@ class RoomReply(Base):
     consumer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # 답한 소식(DEV-297): 보낸 순간 그 농가의 가장 최근 지우지 않은 소식. 없으면 None. 바꾸지 않는다
+    broadcast_id: Mapped[str | None] = mapped_column(ForeignKey("broadcasts.id"), index=True)
+    # 생산자가 읽은 시각(DEV-297). None이면 팬 답장 시트에서 '안 읽음'
+    producer_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RoomRead(Base):
+    """소비자의 소식방 읽음 위치(DEV-297). (농가, 소비자)당 하나이고 앞으로만 옮긴다.
+
+    소식 하나의 읽음 수 = 이 위치가 그 소식의 (작성 시각, id) 이상인 행 수.
+    """
+
+    __tablename__ = "room_reads"
+
+    farm_id: Mapped[str] = mapped_column(ForeignKey("farms.id"), primary_key=True)
+    consumer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    last_read_broadcast_id: Mapped[str] = mapped_column(ForeignKey("broadcasts.id"))
+    # 마지막으로 읽은 소식의 작성 시각(비교용 사본)
+    last_read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Thread(Base):

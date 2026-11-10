@@ -237,9 +237,9 @@ def test_AC_13_13_quoting_the_question_does_not_close_the_check_request(client, 
     assert _summary(client, producer)["aiCheckRequests"] == 1
 
 
-def test_AC_13_11_request_closed_before_0031_shows_no_flag(client, login):
+def test_AC_13_11_request_closed_before_0032_shows_no_flag(client, login):
     consumer, producer, answer_id, report = _requested(client, login)
-    # 0031 전에 농가 답장으로 닫힌 옛 행: resolution 없음
+    # 0032 전에 농가 답장으로 닫힌 옛 행: resolution 없음
     with get_sessionmaker()() as session, session.begin():
         session.execute(
             update(Escalation)

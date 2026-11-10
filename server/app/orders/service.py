@@ -1209,6 +1209,32 @@ def get_paid_order_of(db: Session, consumer_id: str, order_id: str) -> Order | N
     return order
 
 
+def paid_customer_ids(db: Session, farm_id: str, consumer_ids: list[str]) -> set[str]:
+    """그 농가 상품에 결제된(ACTIVE) 주문이 있는 소비자(DEV-297 팬 답장 '예약 고객').
+
+    취소·환불만 남은 소비자는 빠진다.
+    """
+    from app.catalog import service as catalog
+
+    if not consumer_ids:
+        return set()
+    product_ids = [item.product.id for item in catalog.farm_products(db, farm_id)]
+    if not product_ids:
+        return set()
+    return set(
+        db.scalars(
+            select(Order.consumer_id)
+            .where(
+                Order.product_id.in_(product_ids),
+                Order.consumer_id.in_(consumer_ids),
+                Order.paid_at.is_not(None),
+                Order.status.in_(ACTIVE),
+            )
+            .distinct()
+        )
+    )
+
+
 def order_belongs_to_farm(db: Session, order: Order, farm_id: str) -> bool:
     from app.catalog import service as catalog
 

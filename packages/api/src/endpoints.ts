@@ -316,6 +316,29 @@ export const messaging = {
       `/api/messaging/rooms/${farmId}/messages`,
       { body: { text, replyToMessageId, replyToVersion }, idempotencyKey },
     ),
+  /** 팔로워가 소식방에서 이 소식이 보이는 위치까지 읽었다(DEV-297) */
+  readRoom: (farmId: string, lastReadMessageId: string) =>
+    request<null>("PUT", `/api/messaging/rooms/${farmId}/read`, {
+      body: { lastReadMessageId },
+    }),
+  /** 소식 하나에 연결된 소비자 답장(팬 답장 시트, 자기 농가 생산자, DEV-297) */
+  fanReplies: (
+    farmId: string,
+    broadcastId: string,
+    q: { filter?: "all" | "unread" } & A.PageQuery = {},
+  ) =>
+    request<A.FanReplyPage>(
+      "GET",
+      `/api/messaging/rooms/${farmId}/broadcasts/${broadcastId}/replies`,
+      { query: q },
+    ),
+  /** 시트에서 본 답장(그 소식의 lastReadMessageId까지)을 생산자 읽음으로(DEV-297) */
+  readFanReplies: (farmId: string, broadcastId: string, lastReadMessageId: string) =>
+    request<{ unreadCount: number }>(
+      "PUT",
+      `/api/messaging/rooms/${farmId}/broadcasts/${broadcastId}/replies/read`,
+      { body: { lastReadMessageId } },
+    ),
   news: (q: A.PageQuery = {}) =>
     request<A.Paged<A.NewsItem>>("GET", "/api/messaging/news", { query: q }),
   farmNews: (farmId: string, q: A.PageQuery = {}) =>

@@ -9,7 +9,7 @@
 
 ## 구조
 - `router.py` — prefix `/messaging`(앱에서는 `/api/messaging`). 소식 `/news`, 농가별 공개 소식 `/farms/{farmId}/news`, 좋아요 `/news/{broadcastId}/reaction`, 채팅 `/chats`, 질문함 `/questions`. 관리 API `/admin/messages/...`는 기능 이슈에서 추가.
-- `models.py` — 담당 엔티티: `Broadcast`, `Reaction`, `Thread`, `ThreadMessage`, `Escalation`
+- `models.py` — 담당 엔티티: `Broadcast`, `Reaction`, `RoomReply`, `RoomRead`(소식방 읽음 위치, DEV-297), `Thread`, `ThreadMessage`, `Escalation`
 - `schemas.py` — 소식·좋아요·채팅·질문함 입출력
 - `service.py` — 소식 올리기, 팔로우한 농가의 소식 목록, 좋아요 켬·끔, 채팅 시작(자동 팔로우), 질문 → AI 응답 시도 → 전달, 연락처 가림(M-16)
 
@@ -45,7 +45,7 @@
 | 2026-10-22 | farmclub 문의 대화방(DEV-111, FEAT-34, M-22)은 기존 Thread를 쓰고 상대는 운영팀 계정 `u-farmclub`(ADMIN), 운영팀 메시지는 `OPERATOR`다(`support.py`). 농가 승인과 같은 트랜잭션에서 만들고(`accounts.decide_producer_application`), 기존 승인 농가는 마이그레이션 0019가 넣는다. `ai_mode` HUMAN 고정·AI 모드 변경 400, 생산자 안 읽음은 OPERATOR도 센다, 생산자 목록에 `isSupport`로 표시(고정하지 않고 최근 순). 운영자 읽음은 `consumer_last_read_message_id` 칸을 쓴다 | 생산자 목록·방·답장 API를 그대로 써서 바꿀 곳이 가장 적다. 소비자 경로는 소비자 본인 ID로만 찾으므로 노출되지 않는다 | AC-34-1~4 |
 | 2026-10-29 | 소비자 farmclub 문의 대화방(DEV-150, AC-34-6~8)은 `support_threads`(사용자당 하나)·`support_messages`(CONSUMER·OPERATOR)에 둔다. 가입(`kakao_signup`)·시드에서 만들고, 기존 소비자는 마이그레이션 0022가 넣는다. 소비자 경로 `/messaging/support/messages`·`/support/read`, 채팅 목록에 `is_support` 행을 섞는다. 연락처 가림 유지, AI 없음, 첨부 없음. 탈퇴 때 소비자 문의 본문을 지운다 | 소비자 1:1(Thread)은 농가 FK가 필수이고 팔로우·AI·전달·환불 알림에 묶여 있다. 가짜 농가는 농가·카탈로그·관리 목록에 샌다. 운영 중인 생산자 방은 그대로 둔다 | AC-34-6~8 |
 | 2026-11-03 | (10-08 결정 수정) 소비자 전송은 AI 호출 동안 대화 행을 잠그지 않는다. 시작할 때 모드·대화 버전·농가 AI ON·설정 버전을 캡처하고, 호출 뒤 저장 직전에 행을 FOR UPDATE로 잠가 다시 확인한다. 하나라도 바뀌었으면 AI 답을 저장하지 않고 질문을 `needsHuman`으로 남긴다. AI 답이 저장되지 않는 질문은 모두 `needsHuman`. 한 트랜잭션은 그대로(멱등 기록과 함께 커밋) | contracts-1.2 5장, I3-T09(CS-059/060, AIGUARD-05) | AC-13-6 |
-| 2026-11-10 | AI 답변 확인 요청 깃발(DEV-296): `escalations.resolution`(CONFIRMED·CORRECTED)·`resolved_by`(마이그레이션 0031). `status`는 OPEN·ANSWERED 그대로. 메시지 응답 `checkState`는 `_check_state`(OPEN → REQUESTED, ANSWERED는 `resolution` 그대로, resolution 없는 0031 전 옛 행은 null = 깃발 없음, `reported`는 true). 확인 요청은 AI 답변 인용(또는 지정)으로만 닫히고(소비자 질문 인용은 전달 질문만 닫는다) CORRECTED이며, 인용 대상 없이 하나만 닫으면 그 AI 답변을 인용해 저장한다. `confirm`은 행 잠금 후 OPEN일 때만 닫고, 이미 CONFIRMED면 그대로, CORRECTED면 409. CONFIRMED 뒤 그 AI 답변을 인용한 답장은 평범한 답장이라 결과를 바꾸지 않는다(PM 11/10). `needsReply`(목록 필터)는 확인 요청을 포함하고, 현황 `open_question_count`는 `_needs_reply(checks=False)`로 확인 요청만 열린 대화를 뺀다. 건수는 `_ai_check_count`·`ai_check_request_count` | 질문함 계약(status)을 유지하면서 누가·언제·어떻게 닫았는지 남기고, 현황에서 같은 일을 두 줄에 세지 않는다(PM 11/09 승인 Figma) | AC-13-5, AC-13-11, AC-13-12, AC-13-13 |
+| 2026-11-10 | AI 답변 확인 요청 깃발(DEV-296): `escalations.resolution`(CONFIRMED·CORRECTED)·`resolved_by`(마이그레이션 0032). `status`는 OPEN·ANSWERED 그대로. 메시지 응답 `checkState`는 `_check_state`(OPEN → REQUESTED, ANSWERED는 `resolution` 그대로, resolution 없는 0032 전 옛 행은 null = 깃발 없음, `reported`는 true). 확인 요청은 AI 답변 인용(또는 지정)으로만 닫히고(소비자 질문 인용은 전달 질문만 닫는다) CORRECTED이며, 인용 대상 없이 하나만 닫으면 그 AI 답변을 인용해 저장한다. `confirm`은 행 잠금 후 OPEN일 때만 닫고, 이미 CONFIRMED면 그대로, CORRECTED면 409. CONFIRMED 뒤 그 AI 답변을 인용한 답장은 평범한 답장이라 결과를 바꾸지 않는다(PM 11/10). `needsReply`(목록 필터)는 확인 요청을 포함하고, 현황 `open_question_count`는 `_needs_reply(checks=False)`로 확인 요청만 열린 대화를 뺀다. 건수는 `_ai_check_count`·`ai_check_request_count` | 질문함 계약(status)을 유지하면서 누가·언제·어떻게 닫았는지 남기고, 현황에서 같은 일을 두 줄에 세지 않는다(PM 11/09 승인 Figma) | AC-13-5, AC-13-11, AC-13-12, AC-13-13 |
 | 2026-11-04 | 소식 삭제 `DELETE /news/{broadcastId}`(승인 생산자, 자기 농가만, 다른 농가·없는 소식 404, 이미 지운 것 204). `broadcasts.deleted_at` 소프트 삭제(마이그레이션 0025), 모든 조회가 `_LIVE` 조건으로 뺀다. 방송 응답에 `visibility`를 담아 삭제 시트 안내에 쓴다. 본문 수정은 아래 DEV-289의 본인 메시지 PATCH 계약을 따른다 | HE P3(DEV-210), M-23. 운영자 복구·분쟁 확인용으로 행을 남기고 좋아요·답장·첨부 정리가 필요 없다 | AC-12-14, AC-12-15 |
 
 ## DEV-235/213 메시지 표시 계약
@@ -62,3 +62,12 @@
 
 - 본인 메시지 본문 수정은 `PATCH /messages/{messageId}`와 `PATCH /rooms/{farmId}/messages/{messageId}`로 제공한다. 마이그레이션0029는 `edited_at`·`edit_version`을 추가한다. 버전 충돌 및 멱등 재시도를 검증하고, 미디어·원래 시각·인용·AI 대기 상태는 유지한다. 수정은 Thread.version을 올려 이전 질문에 대한 진행 중 AI 응답을 무효화한다.
 - 소식방 소비자 원문은 비공개를 유지한다. 생산자가 같은 농가 글에 답장하면 익명 인용 스냅샷을 FOLLOWERS Broadcast의 `reply_to`에 저장한다(0030). 전화·계좌·이메일 가림, 선택 원문 버전409 검증과 별도1:1 이동은 FEAT-12를 따른다.
+
+### DEV-297 소식별 읽음 수·팬 답장
+동작·권한은 FEAT-15 DEV-297 절(AC-15-9~11), API는 contracts-1.2 소식방 절. 구현 결정은 `tasks/DEV-297.md`.
+
+- 읽음은 `room_reads`(농가·소비자당 하나)의 위치 하나다. `read_room`이 PostgreSQL upsert(`ON CONFLICT DO UPDATE WHERE 더 뒤`)로 앞으로만 옮긴다. 읽음 수는 `_broadcast_counts`가 위치의 (작성 시각, id) ≥ 방송인 행을 방송별로 센다(소유 생산자 응답에만).
+- 소비자 답장은 `send_room`에서 그 순간 가장 최근 지우지 않은 방송을 `room_replies.broadcast_id`에 저장하고 바꾸지 않는다. 소비자 답장에는 인용이 없고 DEV-289 `reply_to`는 반대 방향 익명 스냅샷이라 명시 대상이 없다. 응답 `broadcastId`(답장은 null)로는 내보내지 않는다.
+- 안 읽음은 `room_replies.producer_read_at`이 없는 답장(시트에서 확인 전). 시트 읽음 처리·생산자 인용이 채운다. 0031은 기존 답장을 그때 지우지 않았던 가장 최근 방송에 연결하고 읽음으로 채운다.
+- 인용 방송은 원문 답장 id를 `broadcasts.quoted_reply_id`(서버 전용)에 둔다. `room_replies.broadcast_id`와 FK 고리가 생기지 않게 FK 없이 둔다(`seed.clear`·삭제 순서).
+- 예약 고객은 orders service `paid_customer_ids`(결제 확인 + RESERVED~COMPLETED)로 판단하고, 탈퇴한 회원(`deleted_at`)은 빼고 보인다.

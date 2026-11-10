@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Response, UploadFile
 from sqlalchemy.orm import Session
@@ -27,6 +27,7 @@ from app.messaging.schemas import (
     ChatPage,
     ChatSummary,
     EscalationView,
+    FanReplyPage,
     InquiryStatusInput,
     InquiryView,
     MessageEditInput,
@@ -156,6 +157,42 @@ def send_room(
             db, user, farm_id, body.text, body.reply_to_message_id, body.reply_to_version
         ),
     )
+
+
+@router.put("/rooms/{farm_id}/read", status_code=204, response_class=Response)
+def read_room(db: Db, user: Consumer, farm_id: str, body: ReadInput):
+    """팔로워가 소식방에서 이 소식이 보이는 위치까지 읽었다(DEV-297). 소식별 읽음 수에 1회 센다."""
+    service.read_room(db, user, farm_id, body.last_read_message_id)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.get("/rooms/{farm_id}/broadcasts/{broadcast_id}/replies", response_model=FanReplyPage)
+def fan_replies(
+    db: Db,
+    producer: ApprovedProducer,
+    farm_id: str,
+    broadcast_id: str,
+    limit: Limit,
+    filter: Literal["all", "unread"] = "all",
+    cursor: str | None = None,
+):
+    """소식 하나에 연결된 소비자 답장(팬 답장 시트, DEV-297). 자기 농가 생산자만."""
+    user, farm = producer
+    return service.fan_replies(
+        db, user, farm, farm_id, broadcast_id, filter == "unread", cursor, limit
+    )
+
+
+@router.put("/rooms/{farm_id}/broadcasts/{broadcast_id}/replies/read", response_model=UnreadState)
+def read_fan_replies(
+    db: Db, producer: ApprovedProducer, farm_id: str, broadcast_id: str, body: ReadInput
+):
+    """시트에서 본 답장을 생산자 읽음으로 바꾼다(DEV-297). 남은 안 읽음 수를 준다."""
+    _, farm = producer
+    state = service.read_fan_replies(db, farm, farm_id, broadcast_id, body.last_read_message_id)
+    db.commit()
+    return state
 
 
 # ---------------- 소비자 1:1 ----------------

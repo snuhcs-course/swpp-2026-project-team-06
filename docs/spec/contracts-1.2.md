@@ -33,6 +33,12 @@
 - 사진·영상 방송은 기존 POST /api/messaging/news로 작성. FOLLOWERS가 기본, PUBLIC은 농가 공개 목록에도 노출한다. 본문 <=2000자, 사진 최대5장(각10MB), 영상1개(60초/100MB). Idempotency-Key 필수.
 - 소식 삭제(M-23, DEV-210): DELETE /api/messaging/news/{broadcastId}. 승인 생산자의 자기 농가 소식만 204, 다른 농가·없는 소식 404, 소비자·미승인 생산자 403. 이미 지운 자기 소식도 204(멱등). 소프트 삭제(`broadcasts.deleted_at`)이고 방 목록·요약·cursor·소식 목록·공개 소식·좋아요 모두 삭제분을 뺀다(좋아요 404). 답장·좋아요 행·첨부는 그대로 둔다. 수정 API는 없다.
 - 소비자 좋아요는 기존 reaction API를 공유한다. 소비자 답장에는 좋아요가 없다.
+- 소식별 읽음 수·팬 답장(DEV-297, FEAT-15 AC-15-9~11):
+  - items의 `readCount`·`replyCount`: 소유 생산자 응답의 방송에만 정수, 그 밖(소비자·비로그인·답장 행)은 null. 읽음 수 = 그 농가 소비자의 읽음 위치(팔로우할 때만 남기고, 끊어도 지우지 않음) 중 (createdAt, id)가 그 방송 이상인 수. 답장 수 = 그 방송에 연결된 소비자 답장 수.
+  - PUT /api/messaging/rooms/{farmId}/read {lastReadMessageId}: 팔로우 중인 소비자만(비로그인 401, 생산자·미팔로우 403). 대상은 그 농가의 지우지 않은 방송(답장 id·남의 농가·지운 소식 404). (농가, 소비자)당 위치 하나를 upsert로 앞으로만 옮기고 204.
+  - 소비자 답장은 저장할 때 그 순간 그 농가의 가장 최근 지우지 않은 방송(인용 방송 포함)에 연결된다(서버 전용 `room_replies.broadcast_id`, 응답 `broadcastId`는 계속 null). 생산자 인용 방송은 원문 답장 id를 서버 전용 칸에 둔다(응답에 없음).
+  - GET /api/messaging/rooms/{farmId}/broadcasts/{broadcastId}/replies?filter=all|unread&cursor&limit: 승인 생산자 본인 농가만(소비자 403, 다른 농가·지운·없는 방송 404). → {broadcast:{broadcastId,body,mediaCount,createdAt}, total, unreadCount, lastReplyId, items:[{messageId,consumerId,senderName,body,createdAt,editVersion,unread,reservedCustomer,quoted}], nextCursor}. 오래된 순, cursor는 생산자·방송·필터에 묶인다. senderName은 소식방과 같은 가린 이름, reservedCustomer = 그 농가 상품에 결제된(RESERVED~COMPLETED) 주문이 있음(탈퇴한 회원은 false), lastReplyId는 필터·쪽과 무관한 가장 최근 답장(화면은 불러온 마지막 답장까지 읽음 처리하고 이 값은 다른 클라이언트·확인용), quoted = 지우지 않은 인용 방송이 있음.
+  - PUT …/replies/read {lastReadMessageId}: 그 방송의 답장 중 (createdAt, id)가 그 답장 이하인 안 읽음을 생산자 읽음으로 → {unreadCount}. 다른 방송의 답장 id는 404. 인용해 모두에게 답하면 그 답장도 읽음이 된다.
 
 ### 1:1 식별과 엔드포인트
 

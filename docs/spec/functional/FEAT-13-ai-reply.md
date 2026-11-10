@@ -43,7 +43,7 @@
 
 ## DEV-296 AI 답변 확인 요청 깃발
 - 확인 요청은 `Escalation(reason=WRONG_ANSWER, reported_message_id)` 하나이고, 닫는 방법을 `resolution`(CONFIRMED·CORRECTED)과 `resolved_by`·`answered_at`에 남긴다. `status`는 OPEN·ANSWERED 그대로다.
-- 메시지 응답 `checkState`(REQUESTED·CONFIRMED·CORRECTED·null)로 양쪽 화면이 같은 상태를 본다. 0031 전에 닫힌 옛 요청은 어떻게 닫혔는지 몰라 null(깃발 없음, `reported`는 true, 버튼도 다시 보이지 않음)이다. 생산자 대화 요약 `aiCheckRequests`, 현황 `todo.aiCheckRequests`.
+- 메시지 응답 `checkState`(REQUESTED·CONFIRMED·CORRECTED·null)로 양쪽 화면이 같은 상태를 본다. 0032 전에 닫힌 옛 요청은 어떻게 닫혔는지 몰라 null(깃발 없음, `reported`는 true, 버튼도 다시 보이지 않음)이다. 생산자 대화 요약 `aiCheckRequests`, 현황 `todo.aiCheckRequests`.
 - 농가가 닫은(확인·바로잡음) 답변에는 소비자가 다시 확인을 요청하지 않는다(요청은 답변당 하나, 다시 누르면 기존 요청을 돌려줌).
 - 깃발이 열린 동안 그 방의 AI 자동 답을 멈추는 것(Figma 노트 ‘선택’)과 푸시·알림톡(FEAT-18)은 하지 않는다.
 
