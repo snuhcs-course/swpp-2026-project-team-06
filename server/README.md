@@ -93,5 +93,8 @@ With either of the first two missing the activity log reports `posthog.status =
 still loads. Check after setting: call the activity endpoint for an operator-known user
 through the admin proxy and confirm `posthog.status` is `"ok"`.
 
-Deploy order: deploy the API before the admin web (`scripts/admin-web`), because the
-current admin pages now send `kind=all`, which older servers reject on `/admin/users`.
+Deploy order: the admin web (`scripts/admin-web`) now sends `kind=all`, which servers
+before DEV-307 reject on `/admin/users`. The users page retries once without `kind` when
+that request is rejected with 400 `VALIDATION_ERROR`, so the automatic deploys may land in
+either order. While a new API runs with the old admin web (a few minutes), lists may hide
+test accounts; no data changes.

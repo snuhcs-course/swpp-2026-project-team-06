@@ -65,8 +65,8 @@ class BlockingOrder(CamelModel):
     deposit_due_at: datetime | None
     deposit_reported_at: datetime | None
     paid_at: datetime | None
-    # 입금 기한이 지났고 '입금했어요'도 없는 입금 대기.
-    # 일괄 만료(POST /admin/orders/expire-deposits)로 취소되면 정지를 막지 않는다
+    # 입금 기한이 지났고 '입금했어요'도 없는 입금 대기. 소비자·생산자가 주문을 열거나
+    # 운영자 일괄 만료가 돌면 취소되고, 그 뒤에는 정지를 막지 않는다
     deposit_expired: bool
 
 
@@ -330,7 +330,8 @@ def unsuspend_farm(db: Session, farm_id: str, raw_reason: str, manager_id: str) 
         _refuse(refusal)
     farm.approval_status = "APPROVED"
     farm.suspend_reason = None
-    # 정지 전 승인 농가와 같게: farmclub 문의 대화방이 없으면 연다(DEV-111)
+    # 정지 전 승인 농가와 같게: farmclub 문의 대화방이 없으면 연다(DEV-111).
+    # 다른 호출부(retire_test_farm·accounts)와 같은 지연 import
     from app.messaging.support import ensure_support_thread
 
     ensure_support_thread(db, farm.id)
@@ -356,6 +357,8 @@ def revert_rejection(
 
 
 def _act(db: Session, admin_id: str, farm_id: str, body: FarmReasonInput, key, verb: str):
+    # 없는 농가는 멱등 기록·감사 전에 404(admin/farms.py와 같은 방식).
+    # 상태는 run 안에서 잠그고 다시 본다
     if db.get(Farm, farm_id) is None:
         raise not_found("농가를 찾을 수 없어요.")
     run = {"suspend": suspend_farm, "unsuspend": unsuspend_farm, "revert": revert_rejection}[verb]
@@ -408,7 +411,9 @@ def farm_history(db: Session, farm: Farm) -> list[FarmHistoryEntry]:
     items: list[FarmHistoryEntry] = []
     decisions = list(
         db.scalars(
-            select(ProducerDecisionHistory).where(ProducerDecisionHistory.farm_id == farm.id)
+            select(ProducerDecisionHistory)
+            .where(ProducerDecisionHistory.farm_id == farm.id)
+            .order_by(ProducerDecisionHistory.decided_at, ProducerDecisionHistory.id)
         )
     )
     applied = {d.application_at for d in decisions} | {farm.applied_at}
@@ -435,12 +440,14 @@ def farm_history(db: Session, farm: Farm) -> list[FarmHistoryEntry]:
         for d in decisions
     ]
     events = db.scalars(
-        select(ManagerEvent).where(
+        select(ManagerEvent)
+        .where(
             ManagerEvent.target_type == "farm",
             ManagerEvent.target_id == farm.id,
             ManagerEvent.event_type.in_(tuple(HIDE_EVENTS)),
             ManagerEvent.status.in_(("SUCCEEDED", "RECOVERED")),
         )
+        .order_by(ManagerEvent.created_at, ManagerEvent.id)
     )
     items += [
         FarmHistoryEntry(
@@ -465,7 +472,8 @@ def farm_history(db: Session, farm: Farm) -> list[FarmHistoryEntry]:
                 ref_id=None,
             )
         )
-    # 같은 시각이면 신청을 먼저, 그다음 기록 시각을 모르는 행끼리는 입력 순서
+    # 같은 시각이면 신청을 먼저, 나머지는 출처별로 읽은 순서(시각·ID)를 지켜 결과가 늘 같다.
+    # 운영 시계는 마이크로초라 같은 시각의 결정은 사실상 없다
     items.sort(key=lambda e: (e.at, _TIE.get(e.kind, 1)))
     return items
 

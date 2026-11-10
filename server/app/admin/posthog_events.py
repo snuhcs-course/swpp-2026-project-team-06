@@ -70,7 +70,9 @@ _POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="posthog")
 
 
 def _post(host: str, project_id: str, key: str, user_id: str) -> httpx.Response:
-    with httpx.Client(timeout=TIMEOUT_SECONDS, transport=TRANSPORT) as client:
+    # 연결 2초, 읽기·쓰기는 단계마다 3초. 요청 전체 상한은 person_events의 future.result가 건다
+    timeout = httpx.Timeout(TIMEOUT_SECONDS * 0.6, connect=TIMEOUT_SECONDS * 0.4)
+    with httpx.Client(timeout=timeout, transport=TRANSPORT) as client:
         return client.post(
             f"{host}/api/projects/{quote(project_id, safe='')}/query/",
             headers={"Authorization": f"Bearer {key}"},
