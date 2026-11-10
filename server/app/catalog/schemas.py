@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from app.accounts.schemas import AccountKind
 from app.core.detail import DetailContent, MediaUri
 from app.core.schemas import CamelModel
 
@@ -95,6 +96,10 @@ class AdminCapacityRequest(CapacityRequestView):
     farm_name: str
     approved_supply_grams: int
     sales_limit_grams: int
+    # 농가 주인 계정 종류(REAL · SEED_TEST · OPS_TESTER)와 탈퇴 여부(DEV-307)
+    producer_id: str
+    account_kind: AccountKind
+    withdrawn: bool
 
 
 class ProductCard(SalesState):

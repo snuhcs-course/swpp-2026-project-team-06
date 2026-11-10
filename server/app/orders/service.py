@@ -686,8 +686,12 @@ def request_deposit(db: Session, consumer_id: str, order_id: str) -> OrderView:
         if holds_stock(order) and order.status in ("AWAITING_DEPOSIT", *ACTIVE):
             return order_view(db, order)
         raise conflict("INVALID_TRANSITION", "입금 안내를 받을 수 없는 주문이에요.")
-    farm = farms.get_farm(db, item.product.farm_id)
-    if farm is None or not farms.has_deposit_account(farm):
+    # 농가 행을 공유 잠금으로 읽는다. 운영자 정지(DEV-307)는 같은 행을 FOR UPDATE로 잠그고
+    # 출하 전 주문을 센다. 둘이 겹쳐도 정지된 농가에 입금 대기 주문이 생기지 않는다.
+    farm = farms.get_farm_shared(db, item.product.farm_id)
+    if farm is None or farm.approval_status != "APPROVED":
+        raise not_found("판매 중이 아닌 상품이에요.")
+    if not farms.has_deposit_account(farm):
         raise conflict("NO_FARM_ACCOUNT", "농가가 아직 입금 계좌를 등록하지 않았어요.")
     if item.product.sales_paused:
         raise conflict("SALES_PAUSED", "판매가 잠시 중지됐어요.", productId=order.product_id)

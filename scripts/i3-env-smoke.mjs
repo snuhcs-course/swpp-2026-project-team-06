@@ -117,7 +117,7 @@ await check("ENV-08", "Order o-42 has the same status for its consumer and produ
   return { pass: Boolean(consumer) && consumer === producer && !other, consumer, producer, producerB: { status: otherStatus, sees: other } };
 });
 await check("ENV-09", "Operator sees the pending farm application and the exception list", async () => {
-  const pending = items((await call("GET", "/admin/producers", { token: admin })).json).map((f) => `${f.farmId}:${f.status}`);
+  const pending = items((await call("GET", "/admin/producers?kind=all", { token: admin })).json).map((f) => `${f.farmId}:${f.status}`);
   const exceptions = (await call("GET", "/admin/exceptions", { token: admin })).status;
   return { pass: pending.includes("f-wimi:PENDING") && exceptions === 200, pending, exceptions };
 });

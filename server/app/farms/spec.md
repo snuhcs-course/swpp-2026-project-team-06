@@ -46,3 +46,7 @@ DEV-38: `share.py`의 `/s/farms/{farm_id}`는 Jinja2 자동 이스케이프 HTML
 ## DEV-68 입금 계좌
 - `Farm.bank_name`·`account_number`·`account_holder`·`account_updated_at`. `PATCH /api/farms/me`는 세 칸을 함께 받고(하나만 오면 400) 계좌번호는 숫자·하이픈 6~32자. `GET /api/farms/me`에만 내려주고 공개 `FarmDetail`에는 없다.
 - `has_deposit_account`·`deposit_account`·`seller_info`를 orders가 쓴다(입금 안내·주문 상세). catalog는 초기 공급 승인 요청에서 `has_deposit_account`가 거짓이면 409 `NO_FARM_ACCOUNT`.
+
+## DEV-307 운영자 정지
+- `get_farm_shared`(FOR SHARE)는 orders 입금 안내가 쓴다. 운영자 정지(`admin/farm_status.py`)의 FOR UPDATE와 겹치면 기다린다.
+- `decision_history`(`GET /admin/producers/{id}/decisions`)는 승인·반려 행만 돌려준다. 정지·풀기·되돌림(`SUSPENDED`·`UNSUSPENDED`·`REVERTED`)은 같은 `producer_decisions`에 쌓이고 `GET /admin/farms/{id}/history`에서 본다.

@@ -185,6 +185,7 @@ def operator_unread(db: Session, thread: Thread) -> int:
 def inbox(db: Session) -> list[dict]:
     """문의함 목록(생산자·소비자). 답변 대기(마지막 메시지가 문의)를 먼저, 그다음 최근 순."""
     from app.accounts.models import User
+    from app.accounts.service import account_kind
     from app.farms.models import Farm
 
     rows = db.execute(
@@ -207,6 +208,8 @@ def inbox(db: Session) -> list[dict]:
                 "last_at": last.created_at if last else thread.created_at,
                 "unread_count": operator_unread(db, thread),
                 "waiting": bool(last and last.sender_type == "PRODUCER"),
+                "account_kind": account_kind(producer),
+                "withdrawn": producer.deleted_at is not None,
             }
         )
     # 소비자 문의 대화방(DEV-150)도 함께 보인다
@@ -460,6 +463,7 @@ def _consumer_name(user) -> str:
 
 def consumer_inbox_rows(db: Session) -> list[dict]:
     from app.accounts.models import User
+    from app.accounts.service import account_kind
 
     # 소비자는 가입 때 모두 방을 받으므로, 실제로 문의한 방(소비자 메시지가 있는 방)만 보인다
     asked = (
@@ -490,6 +494,8 @@ def consumer_inbox_rows(db: Session) -> list[dict]:
                 "waiting": bool(
                     last and last.sender_type == "CONSUMER" and user.deleted_at is None
                 ),
+                "account_kind": account_kind(user),
+                "withdrawn": user.deleted_at is not None,
             }
         )
     return items

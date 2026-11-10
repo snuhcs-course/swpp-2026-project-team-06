@@ -490,7 +490,7 @@ def manager_01(log: Log) -> dict:
         note="approve f-wimi",
     )
     _, hist = log("GET", "/admin/producers/f-wimi/decisions", ADMIN, note="decision history")
-    _, app_view = log("GET", "/admin/producers?status=ALL", ADMIN, note="application list")
+    _, app_view = log("GET", "/admin/producers?status=ALL&kind=all", ADMIN, note="application list")
     s_msg, msg = refund_message(
         log, MINJI, "f-kang", f"m1-refund-{time.time()}", "consumer refund request"
     )
@@ -550,7 +550,7 @@ def manager_02(log: Log) -> dict:
     _, hh = log("GET", "/admin/producers/f-hyodon/decisions", ADMIN, note="history B")
     _, empty = log("GET", "/admin/producers/f-wimi/decisions", ADMIN, note="empty history target")
     _, missing = log("GET", "/admin/producers/f-nope/decisions", ADMIN, note="unknown target")
-    _, caps = log("GET", "/admin/capacity-requests?status=ALL", ADMIN, note="capacity requests")
+    _, caps = log("GET", "/admin/capacity-requests?status=ALL&kind=all", ADMIN, note="capacity requests")
     with Session() as s:
         from app.catalog.models import Product
         from app.farms.models import Farm
@@ -597,7 +597,7 @@ def manager_03(log: Log) -> dict:
     tries = []
     for who, token in (("producer", KANG), ("consumer", MINJI)):
         for method, path, body in (
-            ("GET", "/admin/producers?status=ALL", None),
+            ("GET", "/admin/producers?status=ALL&kind=all", None),
             ("GET", "/admin/exceptions?limit=5", None),
             ("GET", "/admin/orders/deposit-overdue", None),
             ("POST", "/admin/producers/f-wimi/approve", None),
@@ -619,7 +619,7 @@ def manager_03(log: Log) -> dict:
             )
             tries.append({"who": who, "method": method, "path": path, "status": s})
     s_anon, _ = log("GET", "/admin/exceptions?limit=5", None, note="no token")
-    wimi = log("GET", "/admin/producers?status=ALL", ADMIN, note="state after")[1]
+    wimi = log("GET", "/admin/producers?status=ALL&kind=all", ADMIN, note="state after")[1]
     s_bad, bad = log(
         "POST",
         "/admin/producers/f-nope/approve",

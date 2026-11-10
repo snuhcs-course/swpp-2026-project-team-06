@@ -42,7 +42,7 @@ test("AC-34-7: a consumer asks the farmclub team from the 1:1 list and sees the 
   await expect(composer).toHaveValue("");
   await expect(page.getByText(question).last()).toBeVisible();
 
-  const inbox = await (await ops.get("/admin/support")).json();
+  const inbox = await (await ops.get("/admin/support?kind=all")).json();
   const minji = inbox.find(
     (r: { kind: string; targetId: string }) => r.kind === "CONSUMER" && r.targetId === "u-minji",
   );

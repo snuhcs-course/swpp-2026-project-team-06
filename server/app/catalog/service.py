@@ -865,18 +865,29 @@ def capacity_history(db: Session, product_id: str) -> list[CapacityRequestView]:
     return [capacity_view(row) for row in rows]
 
 
-def list_capacity_requests(db: Session, status: str | None) -> list[AdminCapacityRequest]:
-    """운영자 공급 물량 신청 목록(DEV-87). status가 None이면 전부, 신청 최신순."""
+def list_capacity_requests(
+    db: Session, status: str | None, kind: str = "all"
+) -> list[AdminCapacityRequest]:
+    """운영자 공급 물량 신청 목록(DEV-87). status가 None이면 전부, 신청 최신순.
+
+    kind는 농가 주인 계정 필터(DEV-307): real · test · all.
+    """
+    from app.accounts.models import User
+    from app.accounts.service import account_kind, kind_clause
     from app.farms.models import Farm
 
     query = (
-        select(CapacityRequest, Product, Farm)
+        select(CapacityRequest, Product, Farm, User)
         .join(Product, Product.id == CapacityRequest.product_id)
         .join(Farm, Farm.id == Product.farm_id)
+        .join(User, User.id == Farm.producer_id)
         .order_by(CapacityRequest.created_at.desc(), CapacityRequest.id.desc())
     )
     if status is not None:
         query = query.where(CapacityRequest.status == status)
+    clause = kind_clause(kind)
+    if clause is not None:
+        query = query.where(clause)
     return [
         AdminCapacityRequest(
             **capacity_view(request).model_dump(),
@@ -886,8 +897,11 @@ def list_capacity_requests(db: Session, status: str | None) -> list[AdminCapacit
             farm_name=farm.name,
             approved_supply_grams=product.approved_supply_grams,
             sales_limit_grams=product.sales_limit_grams,
+            producer_id=producer.id,
+            account_kind=account_kind(producer),
+            withdrawn=producer.deleted_at is not None,
         )
-        for request, product, farm in db.execute(query)
+        for request, product, farm, producer in db.execute(query)
     ]
 
 

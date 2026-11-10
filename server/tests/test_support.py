@@ -122,7 +122,7 @@ def test_AC_34_3_producer_question_reaches_inbox_and_operator_reply_returns(
     # AI는 이 방에 답하지 않는다
     assert all(m.sender_type != "AI" for m in support_messages("f-kang"))
 
-    inbox = client.get("/admin/support", headers=admin_headers).json()
+    inbox = client.get("/admin/support?kind=all", headers=admin_headers).json()
     assert inbox[0]["targetId"] == "f-kang" and inbox[0]["kind"] == "PRODUCER"
     assert (inbox[0]["waiting"], inbox[0]["unreadCount"]) == (True, 1)
     assert inbox[0]["lastMessage"] == "정산은 언제 들어오나요?"
@@ -154,7 +154,7 @@ def test_AC_34_3_producer_question_reaches_inbox_and_operator_reply_returns(
     row = next(r for r in client.get(CHATS, headers=producer).json()["items"] if r["isSupport"])
     assert row["lastMessage"] == "매주 월요일에 지난주 정산이 들어가요."
     assert row["unreadCount"] == 2  # 환영 메시지 + 답장
-    inbox = client.get("/admin/support", headers=admin_headers).json()
+    inbox = client.get("/admin/support?kind=all", headers=admin_headers).json()
     kang = next(r for r in inbox if r["targetId"] == "f-kang")
     assert kang["waiting"] is False
 
@@ -174,7 +174,7 @@ def test_AC_34_3_reply_does_not_mark_unseen_inquiries_read(client, login, admin_
         "/admin/support/f-kang/messages", headers=admin_headers | key(), json={"text": "답장"}
     )
     kang = next(
-        r for r in client.get("/admin/support", headers=admin_headers).json()
+        r for r in client.get("/admin/support?kind=all", headers=admin_headers).json()
         if r["targetId"] == "f-kang"
     )
     assert kang["unreadCount"] == 1
@@ -198,7 +198,7 @@ def test_AC_34_4_support_room_is_hidden_from_consumers_and_admin_users(
     support_rows = [c for c in chats if c["farmName"] == "farmclub"]
     assert len(support_rows) == 1 and support_rows[0]["isSupport"] is True
     assert all(WELCOME not in c["lastMessage"] for c in chats)
-    users = client.get("/admin/users", headers=admin_headers).json()["items"]
+    users = client.get("/admin/users?kind=all", headers=admin_headers).json()["items"]
     assert SUPPORT_USER_ID not in {u["userId"] for u in users}
 
 
@@ -266,7 +266,7 @@ def test_AC_34_9_suspended_producer_opens_only_the_farmclub_room(client, login, 
     assert "1234-5678" not in message["body"]
     assert all(m.sender_type != "AI" for m in support_messages("f-stop"))
 
-    inbox = client.get("/admin/support", headers=admin_headers).json()
+    inbox = client.get("/admin/support?kind=all", headers=admin_headers).json()
     stop = next(r for r in inbox if r["targetId"] == "f-stop")
     assert (stop["kind"], stop["waiting"], stop["unreadCount"]) == ("PRODUCER", True, 1)
 

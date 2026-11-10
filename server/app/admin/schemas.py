@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
+from app.accounts.schemas import AccountKind
 from app.core.schemas import CamelModel
 from app.messaging.schemas import ChatMessage
 
@@ -77,6 +78,8 @@ class AdminUserView(CamelModel):
     signup: str  # SEED(kakao_id 없음) | KAKAO
     is_test_account: bool
     ops_tester: bool
+    account_kind: AccountKind  # DEV-307: REAL · SEED_TEST · OPS_TESTER
+    withdrawn: bool
     phone_last4: str | None
     created_at: datetime
     order_count: int
@@ -105,6 +108,9 @@ class SupportThreadView(CamelModel):
     last_at: datetime
     unread_count: int
     waiting: bool
+    # 문의한 계정(생산자 방은 농가 주인)의 종류와 탈퇴 여부(DEV-307)
+    account_kind: AccountKind
+    withdrawn: bool
 
 
 class SupportThreadPage(CamelModel):

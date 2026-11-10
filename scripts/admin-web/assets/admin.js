@@ -43,7 +43,11 @@ async function call(path, method = "GET", body) {
     location.href = "/login?next=" + encodeURIComponent(location.pathname);
     throw new Error("로그인이 필요해요.");
   }
-  if (!r.ok) throw new Error((data && data.message) || `요청이 실패했어요 (${r.status})`);
+  if (!r.ok) {
+    const err = new Error((data && data.message) || `요청이 실패했어요 (${r.status})`);
+    err.status = r.status; err.code = data && data.code; // 화면이 오류 종류를 가를 수 있게(DEV-307)
+    throw err;
+  }
   return data;
 }
 

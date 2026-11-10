@@ -8,6 +8,7 @@ from app.accounts.schemas import (
     Address,
     AddressInput,
     AddressPatchInput,
+    AdminProducerApplication,
     App,
     ApplicationFilter,
     ConsentsInput,
@@ -16,6 +17,7 @@ from app.accounts.schemas import (
     KakaoLoginInput,
     KakaoLoginResult,
     KakaoSignupInput,
+    KindFilter,
     LoginResult,
     MeUpdateInput,
     NoticeReadInput,
@@ -156,14 +158,18 @@ def delete_address(db: Db, user: Consumer, address_id: str):
     return None
 
 
-@admin_router.get("", response_model=list[ProducerApplication])
+@admin_router.get("", response_model=list[AdminProducerApplication])
 def producer_applications(
     db: Db,
     _: Admin,
     status: Annotated[ApplicationFilter, Query()] = "PENDING",
+    kind: Annotated[KindFilter, Query()] = "real",
 ):
-    """가입 신청 목록(운영자, DEV-82). 기본 확인 중(PENDING), ALL이면 전부. 신청 최신순."""
-    return service.list_producer_applications(db, None if status == "ALL" else status)
+    """가입 신청 목록(운영자, DEV-82). 기본 확인 중(PENDING), ALL이면 전부. 신청 최신순.
+
+    kind는 생산자 계정 필터(DEV-307): 기본 real(시드 테스트·운영 검증 계정 제외), test, all.
+    """
+    return service.list_producer_applications(db, None if status == "ALL" else status, kind)
 
 
 @admin_router.post("/{farm_id}/approve", response_model=ProducerDecision)

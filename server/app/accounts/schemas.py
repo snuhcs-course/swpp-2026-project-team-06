@@ -152,6 +152,18 @@ class ProducerApplication(ProducerApplicationInput):
     decided_at: datetime | None
 
 
+AccountKind = Literal["REAL", "SEED_TEST", "OPS_TESTER"]
+KindFilter = Literal["real", "test", "all"]
+
+
+class AdminProducerApplication(ProducerApplication):
+    """운영자 가입 신청 목록 한 줄. 생산자 계정 종류와 탈퇴 여부를 더한다(DEV-307)."""
+
+    producer_id: str
+    account_kind: AccountKind
+    withdrawn: bool
+
+
 class ProducerDecisionInput(CamelModel):
     reason: str = Field(min_length=1, max_length=500)
 

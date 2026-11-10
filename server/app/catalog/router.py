@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
+from app.accounts.schemas import KindFilter
 from app.catalog import service
 from app.catalog.schemas import (
     AdminCapacityRequest,
@@ -304,6 +305,10 @@ def admin_capacity_requests(
     db: Db,
     _: Admin,
     status: Annotated[CapacityFilter, Query()] = "PENDING",
+    kind: Annotated[KindFilter, Query()] = "real",
 ):
-    """공급 물량 신청 목록(운영자, DEV-87). 기본 심사 중(PENDING), ALL이면 전부. 신청 최신순."""
-    return service.list_capacity_requests(db, None if status == "ALL" else status)
+    """공급 물량 신청 목록(운영자, DEV-87). 기본 심사 중(PENDING), ALL이면 전부. 신청 최신순.
+
+    kind는 농가 주인 계정 필터(DEV-307): 기본 real(시드 테스트·운영 검증 계정 제외), test, all.
+    """
+    return service.list_capacity_requests(db, None if status == "ALL" else status, kind)

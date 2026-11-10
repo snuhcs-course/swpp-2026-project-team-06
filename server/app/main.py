@@ -3,9 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.accounts.router import admin_router as accounts_admin_router
 from app.accounts.router import router as accounts_router
+from app.admin.activity import router as admin_activity_router
 from app.admin.ai_usage import report_router as spec_check_report_router
 from app.admin.ai_usage import router as admin_ai_usage_router
+from app.admin.farm_status import producers_router as admin_producer_status_router
+from app.admin.farm_status import router as admin_farm_status_router
 from app.admin.farms import router as admin_farms_router
+from app.admin.home import router as admin_home_router
 from app.admin.router import router as admin_exceptions_router
 from app.admin.support import router as admin_support_router
 from app.admin.user_detail import router as admin_user_detail_router
@@ -90,5 +94,10 @@ for admin_router in (
     admin_user_detail_router,
     admin_support_router,
     admin_ai_usage_router,
+    # DEV-307: 농가 정지·풀기·되돌리기·이력, 사용자 활동 로그, 홈 건수
+    admin_farm_status_router,
+    admin_producer_status_router,
+    admin_activity_router,
+    admin_home_router,
 ):
     app.include_router(admin_router)
