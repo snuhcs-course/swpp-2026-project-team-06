@@ -102,7 +102,8 @@
 - 테스트를 통과시키려고 테스트를 지우거나 약하게 만들지 않는다.
 
 ## AI 사용 기록
-- AI를 쓴 작업은 Linear 결과와 PR 본문에 `Agent 시간 / Tokens`를 적는다(시트 기록용).
+- AI를 쓴 작업은 Linear 결과와 PR 본문에 `Agent 시간 / Tokens / Human 시간`을 적는다(시트 기록용, 시간은 0.5시간 단위).
+- 에이전트는 Agent 시간을 작업 시작·끝 시각이나 에이전트 실행 기록으로 재서 숫자로 적는다(값이 없으면 그 기록으로 어림한다). "미계측"·"계측 미제공" 같은 빈 값으로 두지 않는다. Tokens는 하네스·세션 사용량이 준 값만 적고, 주지 않으면 비워 둔다. Human 시간은 PR 본문·Linear 결과를 마무리하기 전에 작성자에게 물어 받은 값만 적는다. 묻지 못했으면 `Human 미확인`으로 두고 완료 보고에 그 사실을 적는다(SWPP-130).
 - 대표 프롬프트·AI가 틀린 사례는 iteration별 `docs/wiki/AI-Collaboration-Report-–-Iteration-N.md`(I1: `AI-Collaboration-Report-–-Iteration-1.md`와 Prompt Log) 작성 때 쓰이므로 PR 본문 "AI 사용"에 한 줄 남긴다.
 
 ## 공용 스킬 (`.agents/skills/`)
