@@ -273,6 +273,10 @@ railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.retire_test_
 - **Clean up:** (command name and options to be re-checked once DEV-304 is merged) run the DEV-304 cleanup again, keeping only the real producers
   (`python -m app.admin.purge_except --keep <real producer id> …`, dry run first, then `--commit`).
   Do not pass UAT accounts to `--keep`.
+  Until DEV-304 is merged, take UAT farms out of public view by hiding them with `retire_test_farm`
+  or the admin page's test-farm hide (DEV-98); the accounts stay.
+- "UAT 농가 3" (`f-uat-3`) stays in the admin producer-approval queue on purpose; do not approve or
+  reject it.
 
 ### Automatic deploys (DEV-65, DEV-66)
 

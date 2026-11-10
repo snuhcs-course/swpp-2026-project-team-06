@@ -15,7 +15,7 @@
 
 ## 계약
 - `User`: id, kakaoId?(I2), isTestAccount, role(CONSUMER·PRODUCER·ADMIN 중 하나, 바꾸지 않음), name, phone (tech-design/README.md). 같은 사람이라도 소비자·생산자 계정은 따로다(ADR 0010).
-- Mock 로그인은 설정 `MOCK_LOGIN_ENABLED`가 켜져 있을 때만 동작하고, 꺼지면 두 엔드포인트 모두 404다. `isTestAccount = true`인 시드 계정만 로그인되고 새 계정은 만들지 않는다(AC-01-4·5). 테스트 계정에는 `ADMIN`을 주지 않는다(ADR 0009).
+- Mock 로그인은 설정 `MOCK_LOGIN_ENABLED`가 켜져 있을 때만 동작하고, 꺼지면 두 엔드포인트 모두 404다. `isTestAccount = true`인 테스트 계정(시드·UAT)만 로그인되고 새 계정은 만들지 않는다(AC-01-4·5). 테스트 계정에는 `ADMIN`을 주지 않는다(ADR 0009).
 - 테스트 계정 목록·로그인은 `app`(`consumer`·`producer`)을 받아 그 앱 역할의 계정만 다룬다. 계정 역할이 `app`과 다르면 403 `WRONG_APP`.
 - 생산자 가입 신청은 생산자 계정(`role = PRODUCER`, 농가 없음)만 할 수 있고, `ownerName`으로 계정 이름을 바꾸며 `Farm`(PENDING)을 만든다. 소비자 계정에 생산자 역할을 붙이지 않는다(AC-01-7).
 - 시드: 소비자 2(김민지·이서준), 생산자 5(승인·확인 중·반려·정지·농가 없음), tech-design/README.md ‘시드 데이터’(N-07). 이름·연락처·주소는 가짜 값.

@@ -261,6 +261,7 @@ def seed_uat_in(session: Session) -> Summary:
         summary.farms.append(f"{f['id']} {f['name']} {f['region']} {f['approval_status']}")
     session.flush()
 
+    # seed_product는 upsert다. 경합해도 위 사용자·농가 insert가 먼저 PK 충돌로 실패한다
     for fields, options, stages in products:
         p = seed_product(session, fields["id"], products=products, capacity=capacity)
         seed_options_and_stages(session, p.id, options, stages)
