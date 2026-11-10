@@ -757,11 +757,20 @@ def test_DEV_310_refuses_when_expected_farms_differ_and_changes_nothing():
     message = str(refused.value)
     assert "달라요" in message
     assert "지워질 농가(--expect-farm에만 있음): ['f-halla']" in message
+    # 지워질 농가의 생산자 ID(= --keep에 넣으려던 값)를 보여 준다
+    halla = next(r["name"] for r in rows("farms") if r["id"] == "f-halla")
+    assert f"    f-halla {halla} (생산자 u-halla)" in message.splitlines()
     assert "더 남을 농가(--keep 생산자 것): ['f-hyodon']" in message
     # 두 집합을 모두 보여 준다
     assert "--expect-farm: ['f-halla', 'f-kang']" in message
     assert "f-hyodon" in message and "생산자 u-hyodon" in message
     assert snapshot() == before
+
+
+def test_DEV_310_marks_unknown_expected_farm_id():
+    with pytest.raises(PurgeRefused) as refused:
+        purge(KEEP, commit=True, expect_farms=["f-kang", "f-halla", "f-typo"], backup_done=True)
+    assert "    f-typo (DB에 없는 농가 ID)" in str(refused.value).splitlines()
 
 
 def test_DEV_310_refuses_subset_of_kept_farms():

@@ -269,7 +269,11 @@ def check_keep(session: Session, keep_ids: list[str]) -> None:
 
 
 def kept_farms(session: Session, keep_ids: list[str]) -> list[tuple[str, str, str]]:
-    """--keep 생산자가 가진 농가 (ID, 이름, 생산자 ID). 남는 농가는 정확히 이것이다."""
+    """--keep 생산자가 가진 농가 (ID, 이름, 생산자 ID). 남는 농가는 정확히 이것이다.
+
+    _collect의 farms(RULES["farms"]가 남기는 집합)와 같은 조건이어야 한다. 둘이 어긋나면
+    가드가 실제로 남는 농가와 다른 집합을 검사한다(test_DEV_310_matching_expected_farms_commit).
+    """
     farms = _t("farms")
     return [
         tuple(r)
@@ -286,8 +290,13 @@ def check_guards(
     expect_farms: list[str],
     commit: bool,
     backup_done: bool,
+    others: list[tuple[str, str, str]],
 ) -> None:
-    """--expect-farm 집합과 --backup-done을 검사한다. 문제를 모두 모아 PurgeRefused 하나로."""
+    """--expect-farm 집합과 --backup-done을 검사한다. 문제를 모두 모아 PurgeRefused 하나로.
+
+    others는 남지 않는 농가. --expect-farm에만 있는 농가의 이름·생산자를 보여 주는 데 쓴다
+    (오타였다면 그 생산자 ID가 --keep에 넣으려던 값이다).
+    """
     problems: list[str] = []
     actual = {farm_id for farm_id, _, _ in farms}
     expected = set(expect_farms)
@@ -301,6 +310,12 @@ def check_guards(
         if expected - actual:
             gone = sorted(expected - actual)
             problems.append(f"  지워질 농가(--expect-farm에만 있음): {gone}")
+            known = {fid: (name, pid) for fid, name, pid in others}
+            for fid in gone:
+                if fid in known:
+                    problems.append(f"    {fid} {known[fid][0]} (생산자 {known[fid][1]})")
+                else:
+                    problems.append(f"    {fid} (DB에 없는 농가 ID)")
         if actual - expected:
             extra = sorted(actual - expected)
             problems.append(f"  더 남을 농가(--keep 생산자 것): {extra}")
@@ -666,10 +681,8 @@ def purge_in(
     check_keep(session, keep_ids)
     # 잠근 뒤라 농가 주인이 바뀌지 않는다. 지우기 전에 남을 농가를 사람이 적은 것과 맞춘다
     farms = kept_farms(session, keep_ids)
-    check_guards(farms, expect, commit, backup_done)
-    report = Report(keep=keep_ids, expect_farms=expect, kept_farms=farms)
     t_farms = _t("farms")
-    report.deleted_farms = [
+    others = [
         tuple(r)
         for r in session.execute(
             select(t_farms.c.id, t_farms.c.name, t_farms.c.producer_id)
@@ -677,6 +690,8 @@ def purge_in(
             .order_by(t_farms.c.id)
         )
     ]
+    check_guards(farms, expect, commit, backup_done, others)
+    report = Report(keep=keep_ids, expect_farms=expect, kept_farms=farms, deleted_farms=others)
     savepoint = session.begin_nested()
     try:
         _run(session, keep_ids, report)
