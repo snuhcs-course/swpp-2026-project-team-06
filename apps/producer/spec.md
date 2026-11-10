@@ -88,7 +88,7 @@ Mock 스키마 7은 단일 판매값·capacityRequests·주문 unitWeightGrams/r
 ## DEV-51 현재 프론트 구현 기준 (1.6)
 
 제품 동작은 `docs/spec/conversation-ui-1.6.md` 및 관련 FEAT를 따른다. 이전 DEV-3/1.3/1.5 화면 배치는 변경 이력이며 API 계약만 유지한다. Figma 현재 시안 v6가 시각 기준이다.
-OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다. 기본 news, 품목 접힘. 현황은 전체 cursor 주문 건수 및 대표 상품 kg를 분리한다. ship은 RESERVED 조회만(맨 위 ‘수확 시작하기’ 줄은 예약 기간 카드로 이동), PREPARING 송장/출하만 제공한다. 수확 시작은 예약 기간 화면(`stages.tsx` + `lib/HarvestStart.tsx`)에서 기간 단위로 호출한다(DEV-231). 저장 안 한 값이 있으면 막아 폼과 섞이지 않게 한다.
+OwnNewsRoom을 채팅 탭 본문에 유지하고 비활성 때 polling을 끈다. 기본 news, 품목 접힘. 현황은 전체 cursor 주문 건수 및 대표 상품 판매량(DEV-300부터 옵션별 박스, kg은 보조)을 분리한다. ship은 RESERVED 조회만(맨 위 ‘수확 시작하기’ 줄은 예약 기간 카드로 이동), PREPARING 송장/출하만 제공한다. 수확 시작은 예약 기간 화면(`stages.tsx` + `lib/HarvestStart.tsx`)에서 기간 단위로 호출한다(DEV-231). 저장 안 한 값이 있으면 막아 폼과 섞이지 않게 한다.
 
 
 ## I2 생산자 오류 복구 (DEV-29/34/38)
@@ -190,7 +190,17 @@ DEV-287: 상품 편집은 최종 구매자 배치에서 제자리 수정하며, 
 
 Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 고쳤다. 동작·API 계약은 바꾸지 않았다. 화면 서술은 screens.md SCR-22·29·도움말 절.
 - 크기는 `tokens.*`(gutter·listRowProducer·touchTarget·heading 등)로 쓴다. 토큰에 아직 없는 기준표 값(작은 버튼 32, 썸네일 48, 진행 막대 6, accent 옅은 배경 `#FDECE2`)만 숫자로 둔다. 작은 버튼·칩은 hitSlop으로 누르는 영역 48.
-- 현황(`(tabs)/index.tsx`): 화면 안 머리(기존 `BrandLogo` 아이콘형 + 제목 ‘현황’(title) + `HelpButton`, 높이 56·세로 가운데, 아래 ‘농가명 · 날짜’). 로고는 PM 11/09 결정으로 유지한다. 할 일 줄은 화면 안 `TodoRow`(56, 오른쪽 accent 건수·‘필수’ 태그·chevron). ‘답하지 않은 문의’는 대시보드 `todo.openQuestions` → `/chats?view=private`. 물량 줄은 kg(옵션별 박스 무게가 달라 박스 합산은 공유 물량을 두 번 센다, DEV-292 결정), 썸네일은 `catalog.mine`의 대표 사진.
+- 현황(`(tabs)/index.tsx`): 화면 안 머리(기존 `BrandLogo` 아이콘형 + 제목 ‘현황’(title) + `HelpButton`, 높이 56·세로 가운데, 아래 ‘농가명 · 날짜’). 로고는 PM 11/09 결정으로 유지한다. 할 일 줄은 화면 안 `TodoRow`(56, 오른쪽 accent 건수·‘필수’ 태그·chevron). ‘답하지 않은 문의’는 대시보드 `todo.openQuestions` → `/chats?view=private`. 물량 줄은 DEV-300부터 옵션별 박스(아래 DEV-300 절)이고 kg 합계는 보조 글자, 썸네일은 `catalog.mine`의 대표 사진.
 - 배송 현황(`ship.tsx`): 공용 `Segmented` 대신 화면 안 밑줄 탭(ScrollView). 상품 줄은 `lib/orderWho.ts` `orderItem`이 상품명 끝 옵션 목록 중 이 주문 옵션이 든 목록만 뗀다(`scripts/test-producer-order-rows.mjs`). 시트·읽기 라벨은 `orderWho` 전체 글자 그대로(AC-17-10). 전체 탭 상태 칩은 `ORDER_STATUS`.
 - 투어(`lib/Tour.tsx`): `HelpButton`은 props 없이 버튼으로만 시작한다. 본 적 있음 기록(`help-guide-seen`)은 더 쓰지 않는다. 마지막 단계는 AC-34-5 때문에 farmclub 대화방 안내 한 문장을 남긴다.
 - Mock 전용 문구는 `isMock`일 때만 보인다(로그인 카카오 설명 등).
+
+## DEV-300 옵션별 가격·박스 판매 현황 (2026-11-10)
+
+농가 피드백(11/10)으로 현황·상품 목록·물량·판매 설정의 판매량을 중량 옵션마다 박스로 보이고, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조다. 옵션 줄은 `lib/OptionBoxRow.tsx` 하나(‘5kg  32,000원   24박스 / 72박스’)를 세 화면이 같이 쓴다. 화면 서술은 screens.md SCR-22·23·물량·판매 설정, AC-14-3.
+- 계산은 `lib/optionBoxes.ts` 순수 함수(`scripts/test-producer-option-boxes.mjs`). 옵션마다 모든 기간의 `reservedCount`(대시보드는 `reserved`)와 `quantity`를 더한다. 옵션끼리는 더하지 않는다(공유 물량 이중 계산, DEV-292). 박스 수는 예약+출하 한 숫자(출하해도 줄지 않는 값)라 예약 중/출하 완료로 나누지 않는다. 가격은 지금 판매 기간의 박스당 가격이고 없으면 null(줄에서 비움).
+- 출처별 함수: 상품 화면 `optionBoxesFromProduct(options, stages, p.currentStageId)`(서버가 고른 지금 판매 기간. 브라우저 Mock은 `X-Server-Time`이 없어 기기 날짜를 쓰면 Mock 기준일과 어긋나므로 앱에서 날짜로 고르지 않는다), 목록 카드 `optionBoxesFromCard(card.options)`(서버가 합·가격을 계산), 현황 `optionBoxesFromDashboard(stages)`(`current` 기간의 `price`, 서버 orders 변경 없음).
+- 순서: 상품 화면·카드는 상품 옵션 순서(값 없는 옵션은 0박스), 현황은 대시보드 기간을 앞에서부터 읽어 처음 나온 순서(서버가 값 없는 옵션은 빼고 준다).
+- 현황: 상품 줄 오른쪽 kg은 caption(12) 회색 ‘총 … kg’, 옵션 줄(sub 14, 가격·박스 semibold)마다 4px 막대. 대시보드 `stages`가 비면 예전 kg 줄과 6px 막대.
+- 상품 목록: `GET /api/products/mine` 카드의 `options`를 바로 쓴다(카드마다 상세를 읽던 N+1 제거). 옵션이 없으면 예전 kg 줄. ‘승인 · 추가 예약 가능 kg’ 줄은 caption(12) 회색 보조.
+- 물량·판매 설정: 요약 상자 안 옵션 표(body 16, ‘옵션 · 박스당 가격’ / ‘예약+출하 / 판매’, 줄마다 role group 읽기 라벨) 아래 kg 항목을 sub(14) 보조로. kg 항목은 판매 한도 입력과 짝이라 유지.

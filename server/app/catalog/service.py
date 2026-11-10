@@ -26,6 +26,7 @@ from app.catalog.schemas import (
     DraftFields,
     MyProduct,
     MyProductCard,
+    MyProductCardOption,
     MyStageView,
     ProductCard,
     ProductDetail,
@@ -402,6 +403,7 @@ def missing_fields(item: Loaded) -> list[str]:
 
 def my_product(db: Session, item: Loaded) -> MyProduct:
     p = item.product
+    cur = current_stage(item)
     return MyProduct(
         **sales_state(db, item).model_dump(),
         product_id=p.id,
@@ -419,6 +421,7 @@ def my_product(db: Session, item: Loaded) -> MyProduct:
         measured_brix_at=p.measured_brix_at,
         options=option_views(item),
         stages=my_stage_views(db, item),
+        current_stage_id=cur.id if cur else None,
         shipping_fee_type=p.shipping_fee_type,
         shipping_fee=p.shipping_fee,
         remote_area_fee=p.remote_area_fee,
@@ -432,6 +435,31 @@ def my_product(db: Session, item: Loaded) -> MyProduct:
         missing_fields=missing_fields(item),
         reserved_count=_reserved_people(db, [p.id]).get(p.id, 0),
     )
+
+
+def card_options(item: Loaded, cur: Stage | None) -> list[MyProductCardOption]:
+    """카드 옵션 줄(DEV-300): 상품 옵션 순서, 예약+출하·판매 박스는 모든 기간 합(값 없는 기간은 0).
+
+    가격은 지금 판매 기간(`cur`)의 박스당 가격이고, 그 기간이 없거나 그 옵션 값이 없으면 None.
+    이미 읽은 `Loaded`만 쓰므로 카드마다 쿼리가 늘지 않는다.
+    """
+    values = [item.stage_values(s) for s in item.stages]
+    current = item.stage_values(cur) if cur else {}
+    rows = []
+    for o in item.options:
+        held = [v[o.id] for v in values if o.id in v]
+        now = current.get(o.id)
+        rows.append(
+            MyProductCardOption(
+                option_id=o.id,
+                label=o.label,
+                weight_kg=o.weight_kg,
+                reserved=sum(v.reserved_count for v in held),
+                quantity=sum(v.quantity for v in held),
+                price=now.price if now else None,
+            )
+        )
+    return rows
 
 
 def my_product_card(db: Session, item: Loaded) -> MyProductCard:
@@ -448,6 +476,7 @@ def my_product_card(db: Session, item: Loaded) -> MyProductCard:
         reserved_count=_reserved_people(db, [p.id]).get(p.id, 0),
         current_stage_label=f"{cur.starts_at} ~ {cur.ends_at}" if cur else None,
         updated_at=p.updated_at,
+        options=card_options(item, cur),
     )
 
 

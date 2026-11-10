@@ -1,4 +1,9 @@
-import { allPages, catalog, serverNow } from "@farmclub/api";
+import {
+  allPages,
+  catalog,
+  serverNow,
+  type MyProductCard,
+} from "@farmclub/api";
 import {
   Button,
   EmptyState,
@@ -17,6 +22,8 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { OptionBoxRow } from "../../../lib/OptionBoxRow";
+import { optionBoxesFromCard } from "../../../lib/optionBoxes";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
 import {
@@ -25,6 +32,27 @@ import {
   productStatus,
   draftSaved,
 } from "../../../lib/productGroups";
+/**
+ * DEV-300: 카드 물량 = 옵션마다 '5kg  32,000원   24박스 / 72박스'(가격은 지금 판매 기간, 박스는 모든 기간 합).
+ * 목록 카드(`GET /api/products/mine`)의 `options`를 바로 쓴다(카드마다 상세를 읽지 않는다). 옵션이 없으면 예전 kg 줄.
+ */
+function SalesLine({ product }: { product: MyProductCard }) {
+  // 앱이 서버보다 먼저 배포되면 옛 카드에는 options가 없다 → kg 줄
+  const rows = optionBoxesFromCard(product.options ?? []);
+  return rows.length ? (
+    <View style={{ gap: tokens.space.xs }}>
+      {rows.map((row) => (
+        <OptionBoxRow key={row.optionId} row={row} />
+      ))}
+    </View>
+  ) : (
+    <T variant="sub">
+      예약 중 {product.reservedGrams / 1000}kg · 출하{" "}
+      {product.shippedGrams / 1000}kg
+    </T>
+  );
+}
+
 export default function Products() {
   const router = useRouter(),
     { filter } = useLocalSearchParams<{ filter?: string }>(),
@@ -196,13 +224,11 @@ export default function Products() {
                 backgroundColor: tokens.color.surface,
                 borderRadius: 12,
                 padding: 12,
-                gap: 4,
+                gap: tokens.space.sm,
               }}
             >
-              <T variant="sub">
-                예약 중 {product.reservedGrams / 1000}kg · 출하{" "}
-                {product.shippedGrams / 1000}kg
-              </T>
+              <SalesLine product={product} />
+              {/* 11/10 인터뷰: kg 총량은 보조(meta 12 회색) */}
               <T variant="caption" muted>
                 승인 {product.approvedSupplyGrams / 1000}kg · 추가 예약 가능{" "}
                 {product.remainingGrams / 1000}kg

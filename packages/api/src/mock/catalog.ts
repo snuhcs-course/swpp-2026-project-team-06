@@ -96,6 +96,8 @@ function myProduct(p: ProductRec): MyProduct {
     measuredBrixAt: p.measuredBrixAt,
     options: p.options,
     stages: myStages(p),
+    // DEV-300: 서버 my_product와 같다(지금 판매 기간)
+    currentStageId: currentStage(p)?.stageId ?? null,
     shippingFeeType: p.shippingFeeType,
     shippingFee: p.shippingFee,
     remoteAreaFee: p.remoteAreaFee,
@@ -204,24 +206,39 @@ register({
           ORDER[a.status] - ORDER[b.status] ||
           b.updatedAt.localeCompare(a.updatedAt),
       )
-      .map((p) => ({
-        ...salesState(ctx.db, p),
-        productId: p.productId,
-        name: p.name,
-        photo: p.photos[0] ?? null,
-        status: p.status,
-        rejectReason: p.rejectReason,
-        pendingCapacityRequest:
-          db().capacityRequests.find(
-            (r) => r.productId === p.productId && r.status === "PENDING",
-          ) ?? null,
-        reservedCount: p.reservedCount,
-        currentStageLabel: (() => {
-          const s = currentStage(p);
-          return s ? `${s.startsAt} ~ ${s.endsAt}` : null;
-        })(),
-        updatedAt: p.updatedAt,
-      }));
+      .map((p) => {
+        const cur = currentStage(p);
+        return {
+          ...salesState(ctx.db, p),
+          productId: p.productId,
+          name: p.name,
+          photo: p.photos[0] ?? null,
+          status: p.status,
+          rejectReason: p.rejectReason,
+          pendingCapacityRequest:
+            db().capacityRequests.find(
+              (r) => r.productId === p.productId && r.status === "PENDING",
+            ) ?? null,
+          reservedCount: p.reservedCount,
+          currentStageLabel: cur ? `${cur.startsAt} ~ ${cur.endsAt}` : null,
+          updatedAt: p.updatedAt,
+          // DEV-300: 서버 card_options와 같다(모든 기간 합, 가격은 지금 기간)
+          options: p.options.map((o) => ({
+            optionId: o.optionId,
+            label: o.label,
+            weightKg: o.weightKg,
+            reserved: p.stages.reduce(
+              (sum, s) => sum + (s.options[o.optionId]?.reservedCount ?? 0),
+              0,
+            ),
+            quantity: p.stages.reduce(
+              (sum, s) => sum + (s.options[o.optionId]?.quantity ?? 0),
+              0,
+            ),
+            price: cur?.options[o.optionId]?.price ?? null,
+          })),
+        };
+      });
     return paginate(list, ctx.query);
   },
 

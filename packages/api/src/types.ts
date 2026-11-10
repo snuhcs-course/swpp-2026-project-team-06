@@ -404,6 +404,18 @@ export type ProductDetail = ProductCard & {
   status: ProductStatus;
 };
 
+/** 상품 목록 카드의 중량 옵션 한 줄(DEV-300). 박스는 모든 기간 합, 가격은 지금 판매 기간의 박스당 가격(없으면 null) */
+export type MyProductCardOption = {
+  optionId: string;
+  label: string;
+  weightKg: number;
+  /** 모든 기간의 예약+출하 박스(기간별 reservedCount 합) */
+  reserved: number;
+  /** 모든 기간의 판매 박스(기간 물량 합) */
+  quantity: number;
+  price: number | null;
+};
+
 export type MyProductCard = SalesState & {
   productId: string;
   name: string;
@@ -414,6 +426,8 @@ export type MyProductCard = SalesState & {
   reservedCount: number;
   currentStageLabel: string | null;
   updatedAt: ISODate;
+  /** 상품 옵션 순서(DEV-300) */
+  options: MyProductCardOption[];
 };
 
 export type MyProduct = Omit<
@@ -427,7 +441,6 @@ export type MyProduct = Omit<
   | "nextPrice"
   | "stageEndsAt"
   | "nextStageStartsAt"
-  | "currentStageId"
   | "brixRecordCount"
   | "farmerNote"
   | "reservedCount"
