@@ -12,6 +12,8 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.accounts.models import User
+from app.accounts.schemas import KindFilter
+from app.accounts.service import account_kind, kind_clause
 from app.admin.schemas import AdminUserPage, AdminUserView
 from app.admin.service import run_manager_action
 from app.core.db import get_db
@@ -39,6 +41,8 @@ def _view(user: User, farm: Farm | None, order_count: int) -> AdminUserView:
         signup="KAKAO" if user.kakao_id else "SEED",
         is_test_account=user.is_test_account,
         ops_tester=user.ops_tester,
+        account_kind=account_kind(user),
+        withdrawn=user.deleted_at is not None,
         phone_last4=digits[-4:] if len(digits) >= 4 else None,
         created_at=user.created_at,
         order_count=order_count,
@@ -54,12 +58,13 @@ def list_users(
     _: Admin,
     q: str = "",
     role: Annotated[str | None, Query(pattern="^(CONSUMER|PRODUCER)$")] = None,
-    kind: Annotated[str | None, Query(pattern="^(test|real)$")] = None,
+    kind: Annotated[KindFilter, Query()] = "real",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ):
     """운영자 계정은 빼고 가입 최신순.
 
     q는 이름·닉네임·ID·농가 이름, 숫자 4자리 이상이면 전화 끝자리.
+    kind는 계정 필터(DEV-307): 기본 real(시드 테스트·운영 검증 계정 제외), test, all.
     """
     counts = _order_counts()
     stmt = (
@@ -70,11 +75,9 @@ def list_users(
     )
     if role:
         stmt = stmt.where(User.role == role)
-    test = User.is_test_account.is_(True) | User.ops_tester.is_(True)
-    if kind == "test":
-        stmt = stmt.where(test)
-    elif kind == "real":
-        stmt = stmt.where(~test)
+    clause = kind_clause(kind)
+    if clause is not None:
+        stmt = stmt.where(clause)
     q = q.strip()
     if q.isdigit() and len(q) >= 4:
         stmt = stmt.where(func.replace(User.phone, "-", "").endswith(q))

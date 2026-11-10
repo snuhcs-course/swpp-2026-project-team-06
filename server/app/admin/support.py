@@ -7,9 +7,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
+from app.accounts.schemas import KindFilter
+from app.accounts.service import kind_label_matches
 from app.admin.schemas import (
     SupportReadInput,
     SupportReadResult,
@@ -29,8 +31,13 @@ IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 
 @router.get("", response_model=list[SupportThreadView])
-def list_threads(db: Db, _: Admin):
-    return support.inbox(db)
+def list_threads(db: Db, _: Admin, kind: Annotated[KindFilter, Query()] = "real"):
+    """kind는 문의한 계정 필터(DEV-307): 기본 real, test, all."""
+    return filter_by_kind(support.inbox(db), kind)
+
+
+def filter_by_kind(rows: list[dict], kind: str) -> list[dict]:
+    return [r for r in rows if kind_label_matches(r["account_kind"], kind)]
 
 
 @router.get("/{farm_id}/messages", response_model=SupportThreadPage)

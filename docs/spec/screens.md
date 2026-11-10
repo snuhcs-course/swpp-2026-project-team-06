@@ -337,7 +337,7 @@ I1 화면(SCR-31·32·33 포함, 로그인은 앱별로 소비자 SCR-05, 생산
 #### SCR-19 하위: 정지 안내 `/suspended`
 
 - **목적**: 정지된 생산자에게 사유와 처리 결과를 알리고, 운영팀에 묻는 길을 준다(R-24, DEV-209).
-- **화면 요소·데이터**: 농가명, ‘계정이 정지됐어요’, ‘판매 중이던 상품은 내려졌고, 출하 전 주문은 소비자에게 전액 환불돼요.’, 사유 상자(오류색 라벨 ‘정지 사유’ + 사유), ‘사유가 사실과 다르거나 궁금한 점이 있으면 운영팀에 문의해 주세요. 정지된 동안에도 farmclub 대화방은 열려 있어요.’, 사업자 정보 메일이 있으면 ‘메일 · {메일}’(빌드 변수 `EXPO_PUBLIC_BUSINESS_EMAIL`, 없으면 줄 없음), 하단 주 버튼 ‘운영팀에 문의하기’, 글자 버튼 ‘로그아웃’.
+- **화면 요소·데이터**: 농가명, ‘계정이 정지됐어요’, ‘판매 중이던 상품은 내려졌고, 출하 전 주문은 소비자에게 전액 환불돼요.’(R-24 11/10 계좌이체 예외와 어긋나 후속에서 고친다, DEV-307 이슈 파일), 사유 상자(오류색 라벨 ‘정지 사유’ + 사유), ‘사유가 사실과 다르거나 궁금한 점이 있으면 운영팀에 문의해 주세요. 정지된 동안에도 farmclub 대화방은 열려 있어요.’, 사업자 정보 메일이 있으면 ‘메일 · {메일}’(빌드 변수 `EXPO_PUBLIC_BUSINESS_EMAIL`, 없으면 줄 없음), 하단 주 버튼 ‘운영팀에 문의하기’, 글자 버튼 ‘로그아웃’.
 - **입력·출력**: `GET /api/auth/me`(농가 상태 `SUSPENDED`, 정지 사유).
 - **버튼 동작**: 운영팀에 문의하기 → farmclub 문의 대화방 `/support`. 로그아웃 → SCR-19. 다른 생산자 화면 주소로 가도 여기로 온다(`/support`만 예외).
 
@@ -677,11 +677,12 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 메서드·경로 | 권한 | 요청 | 응답 | FEAT·규칙 | I1 |
 | --- | --- | --- | --- | --- | --- |
-| `GET /admin/producers` | 운영자 | `status`(`PENDING` 기본·`REJECTED`·`APPROVED`·`SUSPENDED`·`ALL`) | 가입 신청 목록(농가 ID, 대표자 이름, 농가명, 지역, 주 품목, 연락처, 상태, 신청·결정 시각, 반려 사유), 신청 최신순. 운영자 승인 웹(DEV-82)이 쓴다 | FEAT-01, R-22 | Should |
+| `GET /admin/producers` | 운영자 | `status`(`PENDING` 기본·`REJECTED`·`APPROVED`·`SUSPENDED`·`ALL`), `kind`(`real` 기본·`test`·`all`, DEV-307) | 가입 신청 목록(농가 ID, 대표자 이름, 농가명, 지역, 주 품목, 연락처, 상태, 신청·결정 시각, 반려 사유, 생산자 ID·`accountKind`·`withdrawn`), 신청 최신순. 운영자 승인 웹(DEV-82)이 쓴다 | FEAT-01, R-22, AC-23-12 | Should |
 | `POST /admin/producers/{farmId}/approve` | 운영자, `Idempotency-Key` | — | 농가 `APPROVED` | FEAT-01, R-22 | Should |
 | `POST /admin/producers/{farmId}/reject` | 운영자, `Idempotency-Key` | `reason` | 농가 `REJECTED`, 사유 | FEAT-01, R-22 | Should |
-| `GET /admin/producers/{farmId}/decisions` | 운영자 | — | 신청 시각·결정·사유·결정 운영자 이력(최신순) | FEAT-01, R-22 | Should |
-| `GET /admin/capacity-requests` | 운영자 | `status`(`PENDING` 기본·`APPROVED`·`REJECTED`·`WITHDRAWN`·`ALL`) | 공급 물량 신청 목록(신청 필드 + 상품 이름·상태, 농가 ID·이름, 현재 승인량·판매 한도), 신청 최신순. 관리자 페이지 공급 물량 승인(DEV-87)이 쓴다 | FEAT-04, R-25 | Should |
+| `GET /admin/producers/{farmId}/decisions` | 운영자 | — | 신청 시각·결정·사유·결정 운영자 이력(최신순). 승인·반려만(정지·되돌림 등은 아래 `/history`) | FEAT-01, R-22 | Should |
+| `POST /admin/producers/{farmId}/revert` | 운영자, `Idempotency-Key` | `reason`(필수, 1~500자) | 반려 → 확인 중(`PENDING`). 반려 사유·결정 시각을 지우고 신청 시각은 그대로. 결정 이력 `REVERTED`. 반려가 아니면 409 `INVALID_TRANSITION` (DEV-307) | FEAT-23 AC-23-6, R-22 | Should |
+| `GET /admin/capacity-requests` | 운영자 | `status`(`PENDING` 기본·`APPROVED`·`REJECTED`·`WITHDRAWN`·`ALL`), `kind`(`real` 기본·`test`·`all`, DEV-307) | 공급 물량 신청 목록(신청 필드 + 상품 이름·상태, 농가 ID·이름, 현재 승인량·판매 한도, 농가 주인 `producerId`·`accountKind`·`withdrawn`), 신청 최신순. 관리자 페이지 공급 물량 승인(DEV-87)이 쓴다 | FEAT-04, R-25 | Should |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/approve` | 운영자 | version | 공급 총중량 승인. 1.4 계약 | FEAT-04, R-25 | Must |
 | `POST /admin/products/{productId}/capacity-requests/{requestId}/reject` | 운영자 | version,reason | 신청 반려, 기존 판매 유지 | FEAT-04 | Must |
 | `POST /admin/orders/{orderId}/delivered` | 운영자, `Idempotency-Key` | — | `DELIVERED`, 배송 완료일 | FEAT-10, R-19 | Should |
@@ -691,12 +692,15 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /admin/orders/{orderId}/refunds` | 운영자 | — | 금액·사유·actor·시각 환불 이력(최신순) | R-11, R-12 | Should |
 | `GET /admin/exceptions`·`GET /admin/exceptions/{id}` | 운영자 | `status?`, `type?`, `cursor?`, `limit?` | 정제된 운영자 예외 목록·상세 | M01~M03, M07 | Should |
 | `POST /admin/exceptions/{id}/retry`·`POST /admin/exceptions/{id}/resolve` | 운영자 | — | 일시 실패 재시도 또는 예외 해결. 환불 요청 알림은 해결만 가능 | M01~M03, M07 | Should |
-| `POST /admin/farms/{farmId}/suspend` | 운영자 | `reason` | 농가 정지, 출하 전 주문 전액 환불 수 | R-24 | Should |
+| `GET /admin/farms/{farmId}/suspend-preview` | 운영자 | — | 바꾸지 않고 지금 상태, 할 수 있는 작업(`suspend`·`unsuspend`·`revert`·null), 정지 종류(`ADMIN`·`TEST_HIDDEN`·`WITHDRAWN`), 거부 사유(`refusal`), 막는 출하 전 주문(`blockingOrders`), 그 농가 상품과 상태(`products`) (DEV-307) | FEAT-23 AC-23-3, R-24 | Should |
+| `POST /admin/farms/{farmId}/suspend` | 운영자, `Idempotency-Key` | `reason`(필수, 1~500자, 숨김·탈퇴 고정 문구 불가) | 승인 농가를 `SUSPENDED`, 정지 사유 = `reason`. 상품 상태는 그대로(공개 경로가 승인 농가만 보여 줘 함께 숨는다). 출하 전 주문(`AWAITING_DEPOSIT`·`RESERVED`·`PREPARING`)이 있으면 409 `FARM_HAS_OPEN_ORDERS`(`details.orders`, 기한 지난 미알림 입금 대기는 `depositExpired` — 소비자·생산자가 열면 자동 취소되는 주문)로 거부하고 아무것도 바꾸지 않는다. 계좌이체라 자동 환불하지 않는다(R-24 11/10 예외). 승인 농가가 아니면 409 `INVALID_TRANSITION`. 결정 이력 `SUSPENDED`, 감사 `farm.suspend` (DEV-307) | FEAT-23 AC-23-1·2·7, R-24 | Should |
+| `POST /admin/farms/{farmId}/unsuspend` | 운영자, `Idempotency-Key` | `reason`(필수) | 운영자가 정지한 농가를 `APPROVED`로(상품 상태 그대로라 바로 판매 재개, farmclub 문의 대화방이 없으면 연다). 탈퇴 농가 409 `FARM_WITHDRAWN`, 테스트로 숨긴 농가 409 `TEST_FARM_HIDDEN`(→ `restore`), 정지가 아니면 409 `INVALID_TRANSITION`. 결정 이력 `UNSUSPENDED` (DEV-307) | FEAT-23 AC-23-4·5 | Should |
+| `GET /admin/farms/{farmId}/history` | 운영자 | — | 농가 결정 이력 오래된 순: `APPLIED`·`APPROVED`·`REJECTED`·`REVERTED`·`SUSPENDED`·`UNSUSPENDED`·`HIDDEN`·`RESTORED`·`WITHDRAWN`(종류, 시각, 사유, 운영자, 출처) (DEV-307) | FEAT-23 AC-23-8 | Should |
 | `GET /admin/farms`·`GET /admin/farms/{farmId}/preview` | 운영자 | — | 공개 중 농가와 테스트로 숨긴 농가 목록(생산자·테스트 계정 여부·상품 수), 숨기기·되돌리기 시험 실행(거부 사유, 출하 전 테스트 주문 수). 관리자 페이지 테스트 농가(DEV-98)가 쓴다 | R-24 | Should |
 | `POST /admin/farms/{farmId}/retire`·`POST /admin/farms/{farmId}/restore` | 운영자, `Idempotency-Key` | — | 테스트 농가를 숨김(`SUSPENDED`, 고정 사유) 또는 다시 공개. 테스트 계정이 아닌 소비자 주문이 있으면 409 `TEST_FARM_REFUSED`. 행은 지우지 않는다(DEV-93·DEV-98) | R-24 | Should |
-| `GET /admin/users` | 운영자 | `q?`(이름·닉네임·ID·농가 이름, 숫자 4자리 이상이면 전화 끝자리), `role?`(`CONSUMER`·`PRODUCER`), `kind?`(`test`·`real`), `limit?`(기본 50, 최대 200) | 운영자 계정을 뺀 사용자 목록(가입 방식 시드·카카오, 테스트 여부, 전화 끝 4자리, 가입일, 주문 수, 소유 농가), 가입 최신순, 전체 수. 관리자 페이지 사용자(DEV-107)가 쓴다 | — | Should |
+| `GET /admin/users` | 운영자 | `q?`(이름·닉네임·ID·농가 이름, 숫자 4자리 이상이면 전화 끝자리), `role?`(`CONSUMER`·`PRODUCER`), `kind?`(`real` 기본·`test`·`all`, DEV-307에서 기본을 전체 → 실사용자로 바꿈), `limit?`(기본 50, 최대 200) | 운영자 계정을 뺀 사용자 목록(가입 방식 시드·카카오, 테스트 여부, `accountKind`(`REAL`·`SEED_TEST`·`OPS_TESTER`), `withdrawn`, 전화 끝 4자리, 가입일, 주문 수, 소유 농가), 가입 최신순, 전체 수. 관리자 페이지 사용자(DEV-107)가 쓴다 | AC-23-12 | Should |
 | `POST /admin/users/{userId}/mark-tester`·`POST /admin/users/{userId}/unmark-tester` | 운영자, `Idempotency-Key` | — | 운영 검증 계정 표시(`opsTester`) 켜기·끄기. 테스트 농가 숨기기의 실사용자 주문 검사에서 테스트로 센다. 로그인·온보딩·앱 화면은 바뀌지 않는다. 운영자 계정·시드 테스트 계정은 409(`ADMIN_ACCOUNT`·`SEED_TEST_ACCOUNT`) (DEV-107) | — | Should |
-| `GET /admin/support` | 운영자 | — | farmclub 문의 대화방 목록. 생산자 방(`kind = PRODUCER`, `targetId` = 농가 ID)과 소비자 방(`kind = CONSUMER`, `targetId` = 사용자 ID, DEV-150, 소비자 메시지가 한 번이라도 있는 방만)을 함께 내려 준다. 행마다 이름·설명, 최근 메시지와 보낸 사람, 운영자가 안 읽은 문의 수, `waiting` = 마지막 메시지가 문의. 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함이 쓴다 | M-22 | Should |
+| `GET /admin/support` | 운영자 | `kind`(`real` 기본·`test`·`all`, 문의한 계정, DEV-307) | farmclub 문의 대화방 목록. 행마다 `accountKind`·`withdrawn`(DEV-307). 생산자 방(`kind = PRODUCER`, `targetId` = 농가 ID)과 소비자 방(`kind = CONSUMER`, `targetId` = 사용자 ID, DEV-150, 소비자 메시지가 한 번이라도 있는 방만)을 함께 내려 준다. 행마다 이름·설명, 최근 메시지와 보낸 사람, 운영자가 안 읽은 문의 수, `waiting` = 마지막 메시지가 문의. 답변 대기를 먼저, 그다음 최근 순. 관리자 페이지 문의함이 쓴다 | M-22 | Should |
 | `GET /admin/support/{farmId}/messages` | 운영자 | — | 그 농가 대화방 전체 메시지(`OPERATOR`·`PRODUCER`), 안 읽은 수. 대화방이 없으면 404 | M-22 | Should |
 | `POST /admin/support/{farmId}/messages` | 운영자, `Idempotency-Key` | `text`(1~1,000자) | 운영팀 답장(`senderType = OPERATOR`). 운영자 감사 기록을 남긴다. 읽음 위치는 바꾸지 않는다(읽음은 `/read`만) | M-22 | Should |
 | `POST /admin/support/{farmId}/read` | 운영자 | `messageId` | 운영자 읽음 위치(뒤로 가지 않음), 남은 안 읽은 수 | M-22 | Should |
@@ -704,6 +708,8 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 | `GET /admin/ai-usage` | 운영자 | `feature?`(`spec_check`·`product_draft`·`detail_draft`·`ai_answer`·`source_analysis`), `limit?`, `cursor?` | AI 호출 비용. `features`: 기능별 `thisMonth`(KST)·`last7Days`·`total`(호출 수, 입력·출력 토큰, 추정 금액 USD, 금액 없는 호출 수), `overall`: 같은 세 기간 전체 합계, `items`: 호출 목록(기능·모델·토큰·금액, spec-check는 PR 번호·제목·결과·실행 링크, 최신순). 관리자 페이지 AI 비용(DEV-144)이 쓴다 | — | Should |
 | `POST /internal/spec-check-runs` | CI 전용(`X-Spec-Check-Token` = 서버 `SPEC_CHECK_USAGE_TOKEN`) | `runKey`, `prNumber`, `prTitle`, `headSha`, `status`, `mode`, `model`, `inputTokens`, `outputTokens`, `runUrl`, `ranAt?` | spec-check가 모델을 부른 실행 한 건을 AI 비용(`spec_check`)으로 저장, 금액은 서버 단가표로 계산. 같은 `runKey`는 처음 기록 그대로. 토큰 미설정 503, 틀리면 401 (DEV-144) | — | Should |
 | `GET /admin/users/{userId}`·`GET /admin/users/by-order/{orderIdOrNo}` | 운영자 | — | 사용자 프로필(이름·닉네임·역할·테스트 계정·카카오 여부·농가)과 소비자 주문 최근 100건(상품·농가·상태·금액·입금 기한·입금 알림·입금 확인 주체·환불 이력·남은 결제 금액·받는 사람 앞 글자, 보일 버튼). 생산자면 `products[]`에 그 농가의 모든 상태 상품(DRAFT·PENDING_APPROVAL·REJECTED·PUBLISHED·CLOSED, 판매 상태 `availability`, 반려 사유, 승인 공급량·판매 한도·남은 양(g), 지금 판매 기간, 옵션별 이름·중량·지금 기간 가격·예약/물량 박스(생산자 앱 상품 카드와 같은 정의), 수정 시각)과 `drafts[]`에 AI 상품 초안 최근 50건(추출한 이름·품종·옵션·빈 칸·실패 여부·만든 시각, 붙여넣은 원문은 빼고)을 담는다. 농가가 없으면 둘 다 빈 목록(DEV-303). 받는 사람 전화·주소, 계정 전화·이메일은 내려 주지 않는다. 주문 ID 또는 주문 번호(입금자명)로 소비자를 찾는다. 관리자 페이지 사용자 화면(DEV-106)이 쓰고, 처리는 위 운영자 주문 API를 그대로 부른다 | R-11, R-12, R-19, R-28 | Should |
+| `GET /admin/users/{userId}/activity` | 운영자 | — | 활동 로그(DEV-307): `items` 서버 기록 최신순 300개(가입·동의·안내 읽음·탈퇴·운영 검증 표시·해제, 생산자는 농가 이력·상품 마지막 수정·공급 물량·받은 주문·문의 메시지, 소비자는 주문 단계·문의 메시지. 본문·받는 사람 정보 없음), `truncated`, `accountKind`, `withdrawn`, `posthog`(`status` = `disabled`(키 없음)·`ok`·`unavailable`(실패·5초 초과, 페이지는 200), `personUrl`, 최근 30일 `events` 50개: 이름·시각·앱·경로) | FEAT-23 AC-23-9·10, N-05 | Should |
+| `GET /admin/home` | 운영자 | `kind`(`real` 기본·`test`·`all`) | 할 일 건수(DEV-307): 요청한 `kind`, `pendingApplications`, `pendingCapacityRequests`, `waitingSupportThreads`(앞의 셋은 계정 필터), `openExceptions`(`OPEN`·`FAILED`), `overdueDeposits`(`deposit-overdue`와 같은 정의) | FEAT-23 AC-23-11 | Should |
 | `DELETE /admin/messages/{messageId}` | 운영자 | — | 204 | 정책 4장 | Should |
 
 1.1 엔드포인트 목록에 아래 1.2 계약을 합쳐 구현한다. 공통 오류 envelope와 계정 분리는 유지한다.
@@ -751,6 +757,7 @@ I1 열: Must 화면(4장)이 쓰는 API는 Must, 나머지는 Should다. 단 Mus
 
 | 날짜 | 버전 | 내용 |
 | --- | --- | --- |
+| 2026-11-10 | (1.7.6 뒤) | DEV-307: 7.2 운영자에 농가 정지 미리보기·정지·정지 풀기·결정 이력, 반려 되돌리기, 사용자 활동 로그(PostHog 선택), 홈 건수, 목록 계정 필터(`kind`, 기본 실사용자). 정지는 출하 전 주문이 있으면 거부하고 자동 환불하지 않는다(R-24 11/10 예외, FEAT-23) |
 | 2026-11-10 | (1.7.6 뒤) | DEV-296: AI 답변 확인 요청 깃발. SCR-16 요청함·확인함·바로잡음 표시, SCR-28 목록 띠·줄 태그·탭 배지, 대화방 확인 카드([답이 맞아요]/[바로잡기]), SCR-22 할 일 ‘AI 답변 확인 요청’, 새 엔드포인트 `.../confirm`, `checkState`·`aiCheckRequests` |
 | 2026-11-10 | (1.7.6 뒤) | DEV-296: SCR-22 대표 상품 줄 총 kg 글자를 ‘총 250kg / 2,400kg’으로(두 숫자 모두 kg, PM 11/10) |
 | 2026-11-10 | (1.7.6 뒤) | DEV-296: SCR-16 AI 전달 안내 문구를 ‘AI가 답하기 어려운 질문이라 농가에 답변을 요청했어요. 농가가 답하면 여기서 볼 수 있어요.’로(11/10 PM). 직접 응대 상태 줄 ‘농가에 전달했어요 · …’는 그대로. 이미 저장된 메시지는 옛 문구 |

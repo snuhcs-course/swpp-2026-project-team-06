@@ -810,6 +810,27 @@ The explicit chat-start request accepts an optional orderId. General starts reta
 
 Support history remains available to operators for hidden/suspended/rejected farms, and since DEV-209 suspended and rejected producers can still write to the team. The suspension notice also shows the business email when the build variable `EXPO_PUBLIC_BUSINESS_EMAIL` is set. Multi-operator assignment, notifications and operator photo viewing are outside I2; the inbox shows attachment counts only. Source: [FEAT-34](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/functional/FEAT-34-farmclub-support.md).
 
+### FEAT-23: Operator admin — suspension, revert, history, activity log, home
+
+**As an** operator, **I want to** suspend and unsuspend farms with a reason, revert a wrong rejection, and see each farm's decisions and each user's activity in one place, **so that** I no longer use test-farm hiding as a stand-in for suspension (DEV-307; screens follow in DEV-308/309).
+
+| Criterion | Given | When | Then |
+| --- | --- | --- | --- |
+| AC-23-1 | An approved farm | The operator suspends it with a reason | The farm becomes SUSPENDED with that reason, product statuses stay unchanged but disappear from public paths, the producer sees the reason, and a decision and audit record are kept; non-approved farms get 409 |
+| AC-23-2 | The farm has a pre-shipment order (awaiting deposit, reserved, preparing) | The operator suspends it | 409 `FARM_HAS_OPEN_ORDERS` lists the orders and nothing changes; there is no automatic refund (bank transfer, R-24 exception of 10 Nov 2026). Orders of a suspended farm cannot receive deposit instructions |
+| AC-23-3 | Any farm | The operator opens the suspension preview | Current status, available action, suspension kind, refusal, blocking orders and products are shown without changes |
+| AC-23-4 | A farm the operator suspended | The operator unsuspends it with a reason | It returns to APPROVED and its products sell again at once |
+| AC-23-5 | A withdrawn, test-hidden or not suspended farm | The operator unsuspends it | 409 `FARM_WITHDRAWN`, `TEST_FARM_HIDDEN` (use restore) or `INVALID_TRANSITION` |
+| AC-23-6 | A rejected application | The operator reverts it with a reason | It becomes PENDING with the rejection cleared and the application time kept; other states get 409 |
+| AC-23-7 | Suspend, unsuspend or revert | The reason is blank or the Idempotency-Key is missing, the same key is retried, or two requests race | 400; the first result (including a refusal) is replayed and the action runs only once; only one request changes the farm; suspension and deposit instructions cannot interleave |
+| AC-23-8 | A farm with decisions | The operator opens its history | Applied, approved, rejected, reverted, suspended, unsuspended, hidden, restored and withdrawn entries appear oldest first; refused actions are absent |
+| AC-23-9 | A user | The operator opens the activity log | Server activity appears newest first without message bodies or recipient details, with account kind and withdrawal flag |
+| AC-23-10 | The activity log | PostHog key/project are missing, PostHog answers, or PostHog fails or times out | Events are `disabled`, `ok` (last 30 days, 50 events) or `unavailable`; the page always loads and the key is never logged or returned |
+| AC-23-11 | The admin home | The operator opens it | Pending applications, pending capacity requests, waiting support threads, open exceptions and overdue deposits match their list definitions |
+| AC-23-12 | User, application, capacity and support lists | The operator passes `kind` = real, test or all | Default is real accounts; test means seed test or ops tester; rows show account kind and withdrawal; invalid values get 400 |
+
+Source: [FEAT-23](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/main/docs/spec/functional/FEAT-23-operator-admin.md).
+
 ## 6. Non-Functional Requirements
 
 | ID | Area | Requirement |
@@ -976,6 +997,8 @@ Rules that apply on every screen:
 | `/producers`: pending farm, review, approve/reject confirmation | Decision refreshes status; approval provisions support room | Role/session failure blocks action; failed response remains retryable |
 | `/capacity`: initial/increase request, approve/reject | Updated approved limit and request state | Version/validation conflict refreshes; UI/proxy failure is not approval |
 | `/farms`: preview controlled hide/restore | Test farm becomes absent/present on public discovery | Refuse hiding where protected non-test orders exist; hiding is distinct from pause or deletion |
+| Farm suspension API (DEV-307, screens in DEV-308/309): preview, suspend, unsuspend, revert a rejection, decision history | Suspended farm and its products disappear from public paths (product statuses unchanged); unsuspend restores selling at once; revert returns a rejected application to pending; history lists applied/approved/rejected/reverted/suspended/unsuspended/hidden/restored/withdrawn in time order | A reason is required. Suspension is refused while any pre-shipment order (awaiting deposit, reserved, preparing) exists, returning those orders, because bank transfers cannot be refunded automatically (R-24 exception decided 10 Nov 2026). Withdrawn and test-hidden farms cannot be unsuspended (test-hidden farms use restore) |
+| User activity log and home counts API (DEV-307) | Server activity (sign-up, consents, farm decisions, products, capacity, orders, support message times) and, when the operator sets a read-only PostHog key, the person's recent PostHog events; home counts of pending applications, capacity requests, waiting support threads, open exceptions and overdue deposits | No message bodies or recipient details. Without a PostHog key the events are omitted; a PostHog failure is marked unavailable and never fails the page. Lists default to real accounts (`kind=real`, also `test` and `all`) |
 | `/users` and user detail: search, tester marker, order lookup, producer products (all statuses, including drafts and AI drafts; read-only, DEV-303) | Limited user and recent-order support data | Phone masked in search; recipient delivery fields excluded from support lookup |
 | `/inbox`: select producer or consumer inquiry, reply | Read position and one operator message update | Operator only; producer photo count shown without photo viewing; consumer support is text only; no AI answer or order-state mutation |
 | `/ai-cost`: view AI cost by feature | Per-feature and overall totals (this month, last 7 days, all time) for spec-code-review, product draft, detail draft, AI answer and source analysis; filterable call list | Read-only; amounts are estimates from public per-token prices (source analysis uses the provider-reported cost), unpriced calls are counted separately; spec-check runs are reported by CI with a dedicated token |

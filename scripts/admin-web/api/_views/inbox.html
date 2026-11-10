@@ -85,7 +85,7 @@ function renderList() {
 }
 
 async function load() {
-  try { rows = await call("/admin/support"); }
+  try { rows = await call("/admin/support?kind=all"); }
   catch (e) { rows = []; toast(e.message, true); }
   renderList();
   // 다시 불러올 때는 읽음을 옮기지 않는다(읽음은 운영자가 대화를 열 때만)

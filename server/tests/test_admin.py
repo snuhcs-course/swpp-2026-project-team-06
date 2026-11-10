@@ -216,7 +216,7 @@ def test_admin_order_failures_leave_data_unchanged(client, login, admin_headers)
 
 def test_DEV_82_admin_lists_producer_applications_by_status(client, admin_headers, login):
     """운영자 가입 신청 목록: 기본 확인 중, 상태별·전체, 운영자만(DEV-82)."""
-    pending = client.get("/admin/producers", headers=admin_headers)
+    pending = client.get("/admin/producers?kind=all", headers=admin_headers)
     assert pending.status_code == 200, pending.text
     rows = pending.json()
     assert rows and all(r["status"] == "PENDING" for r in rows)
@@ -224,18 +224,18 @@ def test_DEV_82_admin_lists_producer_applications_by_status(client, admin_header
     assert wimi["ownerName"] and wimi["farmName"] and wimi["phone"]
     assert wimi["submittedAt"]
 
-    rejected = client.get("/admin/producers?status=REJECTED", headers=admin_headers).json()
+    rejected = client.get("/admin/producers?status=REJECTED&kind=all", headers=admin_headers).json()
     assert rejected and all(r["status"] == "REJECTED" for r in rejected)
     assert all(r["rejectReason"] for r in rejected)
 
-    every = client.get("/admin/producers?status=ALL", headers=admin_headers).json()
+    every = client.get("/admin/producers?status=ALL&kind=all", headers=admin_headers).json()
     assert {r["status"] for r in every} >= {"PENDING", "REJECTED", "APPROVED", "SUSPENDED"}
     times = [r["submittedAt"] for r in every]
     assert times == sorted(times, reverse=True)
 
     # 승인하면 확인 중 목록에서 빠진다
     assert client.post("/admin/producers/f-wimi/approve", headers=admin_headers | key()).is_success
-    after = client.get("/admin/producers", headers=admin_headers).json()
+    after = client.get("/admin/producers?kind=all", headers=admin_headers).json()
     assert "f-wimi" not in [r["farmId"] for r in after]
 
     assert client.get("/admin/producers?status=WRONG", headers=admin_headers).status_code == 400
@@ -245,7 +245,7 @@ def test_DEV_82_admin_lists_producer_applications_by_status(client, admin_header
 
 def test_DEV_87_admin_lists_capacity_requests_by_status(client, admin_headers, login):
     """운영자 공급 물량 신청 목록: 기본 심사 중, 상태별·전체, 상품·농가, 운영자만(DEV-87)."""
-    pending = client.get("/admin/capacity-requests", headers=admin_headers)
+    pending = client.get("/admin/capacity-requests?kind=all", headers=admin_headers)
     assert pending.status_code == 200, pending.text
     rows = pending.json()
     assert rows and all(r["status"] == "PENDING" for r in rows)
@@ -256,7 +256,7 @@ def test_DEV_87_admin_lists_capacity_requests_by_status(client, admin_headers, l
     assert row["requestedTotalGrams"] > row["approvedSupplyGrams"]
     assert row["version"] == 1 and row["createdAt"]
 
-    every = client.get("/admin/capacity-requests?status=ALL", headers=admin_headers).json()
+    every = client.get("/admin/capacity-requests?status=ALL&kind=all", headers=admin_headers).json()
     assert len(every) >= len(rows)
     times = [r["createdAt"] for r in every]
     assert times == sorted(times, reverse=True)
@@ -268,9 +268,11 @@ def test_DEV_87_admin_lists_capacity_requests_by_status(client, admin_headers, l
         json={"version": row["version"]},
     )
     assert approved.is_success, approved.text
-    after = client.get("/admin/capacity-requests", headers=admin_headers).json()
+    after = client.get("/admin/capacity-requests?kind=all", headers=admin_headers).json()
     assert "capacity-p-cheonggyeon" not in [r["requestId"] for r in after]
-    done = client.get("/admin/capacity-requests?status=APPROVED", headers=admin_headers).json()
+    done = client.get(
+        "/admin/capacity-requests?status=APPROVED&kind=all", headers=admin_headers
+    ).json()
     mine = next(r for r in done if r["requestId"] == "capacity-p-cheonggyeon")
     assert mine["approvedSupplyGrams"] == mine["requestedTotalGrams"]
     assert mine["decidedAt"]

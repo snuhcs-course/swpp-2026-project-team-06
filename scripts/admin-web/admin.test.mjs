@@ -296,3 +296,31 @@ test("중계는 소비자 문의 대화방 보기·답장·읽음도 넘긴다 (
     assert.equal((await go(path, "POST")).status, 400, path);
   }
 });
+
+test("중계는 정지·정지 풀기·되돌리기·이력·활동 로그·홈 건수와 계정 필터를 넘긴다 (DEV-307)", async () => {
+  const cookie = await signIn();
+  const go = (path, method = "GET") =>
+    call(proxy, { method, url: "/api/proxy?path=" + encodeURIComponent(path), headers: { cookie } });
+  for (const [path, method] of [
+    ["/admin/farms/f-kang/suspend-preview", "GET"],
+    ["/admin/farms/f-kang/suspend", "POST"],
+    ["/admin/farms/f-kang/unsuspend", "POST"],
+    ["/admin/farms/f-kang/history", "GET"],
+    ["/admin/producers/f-reject/revert", "POST"],
+    ["/admin/users/u-g4/activity", "GET"],
+    ["/admin/home", "GET"],
+    ["/admin/home?kind=all", "GET"],
+    ["/admin/support?kind=test", "GET"],
+    ["/admin/producers?status=ALL&kind=all", "GET"],
+    ["/admin/capacity-requests?status=PENDING&kind=real", "GET"],
+    ["/admin/users?kind=all", "GET"],
+  ]) {
+    assert.equal((await go(path, method)).status, 502, path); // 허용 → 실서버 호출까지 감
+  }
+  for (const path of [
+    "/admin/farms/f-kang/suspend?x=1", "/admin/farms/f-kang/delete", "/admin/users/u-1/activity/x",
+    "/admin/home/x", "/admin/home?x=1", "/admin/support?kind=a/b", "/admin/support?kind=wrong", "/admin/producers/f-1/revert/x", "/admin/farms/../orders",
+  ]) {
+    assert.equal((await go(path, "POST")).status, 400, path);
+  }
+});
