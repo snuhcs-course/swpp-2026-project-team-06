@@ -243,6 +243,14 @@ screens.md 1.0과 다르게 정한 것이다. SWPP-81에서 스펙 1.1에 반영
 | 디자인 시스템 | [screens/ds.html](screens/ds.html) | 1400×4700 |
 | 표지 · 화면 체크리스트 | [screens/cover.html](screens/cover.html) | 1240×1880 |
 
+### 제안 보드 (승인 전)
+
+원본은 `proposals/`에 있고, 캔버스에는 `screens/proposal-boards/`의 틀이 원본을 불러와 보인다(Easel은 `screens/` 아래만 읽는다). 승인되기 전에는 위 규칙·토큰을 바꾸지 않는다.
+
+| 프레임 | 파일 | 크기 |
+| --- | --- | --- |
+| 브랜드 아이덴티티 진단 · 방향 A 팬클럽 / B 수확 시계 / C 산지 서명 (DEV-311) | [proposals/dev-311-brand-audit.html](proposals/dev-311-brand-audit.html) · [proposals/dev-311-brand-directions.html](proposals/dev-311-brand-directions.html) | 1320×3300 · 1380×8400 |
+
 ## 스펙 1.2~1.5 반영 (SWPP-83)
 
 DEV-3(#38~#45)이 글로 정해 두었던 1.2 레이아웃·1.3 레이아웃·1.4 물량 승인을 위 규칙과 화면 목록에 옮겨 그렸다. 기능 기준은 [1.2 계약](../spec/contracts-1.2.md), [화면 구조 1.3](../spec/navigation-1.3.md), [공급 계약 1.4](../spec/capacity-1.4.md), [상세·소식방 1.5](../spec/storefront-1.5.md)이고, 화면·문구·크기는 이 폴더를 따른다.
