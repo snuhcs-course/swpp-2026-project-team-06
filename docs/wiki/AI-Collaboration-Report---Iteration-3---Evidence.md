@@ -284,8 +284,6 @@ For DEV-153 I requested current-build chat tests, then a cause-based implementat
 
 ## 2. How I Revised the Prompts and Scope
 
-An ambiguous request to reduce Hyun’s hours was over-applied: the agent moved all six tasks to Zahra and reported a 63-hour/zero-hour human split. I clarified that the estimates should be similar, with Zahra only one or two hours higher. It reported 32 versus 31 hours afterwards. These are planning estimates, not measured effort. On October 31 I corrected my own mistaken consumer/producer allocation; the agent’s original role split had followed my instructions.
-
 For the evaluator package, “structure by feature or flow” was too broad. I clarified that I wanted folders inside the ZIP, preserving the README. For DEV-153, I moved from requesting polished deliverables to explicitly requiring the Linear requirements, all five scenarios, diagnosis, small tasks and implementation in dependency order.
 
 ## 3. What AI Did Well
@@ -338,23 +336,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Require detailed, individually assigned tasks and separate human/agent estimates. The consumer/producer allocation here was later corrected by Minsun; it is not treated as authoritative final ownership.
 
-### P3 — 2026-10-29 15:08:14 KST · S1 · gpt-6-luna
-
-**Complete substantive input (ambient ui wrapper excluded).** Turn `01a18645-aac9-7a31-8af9-fde5e77db161`.
-
-> please miimize hours for hyun, redistribute to zahra
-
-**Summary/analysis (not a quotation):** Before: ambiguous workload reduction instruction. The agent over-applied it by moving all six Hyun tasks, producing an infeasible63h/0h human estimate split.
-
-### P4 — 2026-10-29 15:12:32 KST · S1 · gpt-6-luna
-
-**Complete substantive input (ambient ui wrapper excluded).** Turn `01a18649-e7a3-7792-a91a-e3f904b5ff3f`.
-
-> no make zahra. and hyun similar, just +1~2 hours to zahra
-
-**Summary/analysis (not a quotation):** After: explicit relative workload constraint. Agent subsequently reported32 vs31 estimated human hours. Estimates are not measured work or productivity.
-
-### P5 — 2026-10-31 22:35:17 KST · S2 · gpt-6-sol
+### P3 — 2026-10-31 22:35:17 KST · S2 · gpt-6-sol
 
 **Verbatim excerpt.** Turn `01a1922b-f60c-70c1-857c-649b33c0967f`.
 
@@ -364,7 +346,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Minsun corrects her own previous role mapping. Pasted teammate text preceding this excerpt is deliberately excluded; this is not attributed as an AI hallucination.
 
-### P6 — 2026-10-31 22:45:42 KST · S2 · gpt-6-sol
+### P4 — 2026-10-31 22:45:42 KST · S2 · gpt-6-sol
 
 **Complete substantive input (ambient ui wrapper excluded).** Turn `01a19235-82b4-7ff0-9d2e-d5d49e45074f`.
 
@@ -372,7 +354,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Request the frozen AI question/rubric deliverables. The returned60-question protocol is preparation, not evidence of model performance.
 
-### P7 — 2026-10-31 23:26:24 KST · S2 · gpt-6-sol
+### P5 — 2026-10-31 23:26:24 KST · S2 · gpt-6-sol
 
 **Complete substantive input (ambient ui wrapper excluded).** Turn `01a1925a-c28b-76c1-95a2-1d8134c2c475`.
 
@@ -380,7 +362,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Request the common journey matrix. Its44 cases and scoring protocol are a plan, not44 executed tests.
 
-### P8 — 2026-11-03 23:50:26 KST · S3 · gpt-6.1-sol
+### P6 — 2026-11-03 23:50:26 KST · S3 · gpt-6.1-sol
 
 **Complete substantive input (ambient ui wrapper excluded).** Turn `01a1a1e3-da92-7360-a701-8205327a60ff`.
 
@@ -390,7 +372,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Before: a broad request to organize by feature/flow was interpreted as a document rewrite.
 
-### P9 — 2026-11-03 23:51:52 KST · S3 · gpt-6.1-sol
+### P7 — 2026-11-03 23:51:52 KST · S3 · gpt-6.1-sol
 
 **Complete substantive input (ambient ui wrapper excluded).** Turn `01a1a1e5-210a-7881-9224-4d97c3b175b8`.
 
@@ -400,7 +382,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** After: clarify that ZIP folder structure, rather than README content, is the requested change. This is the corrected continuation input, not the earlier superseded edit.
 
-### P10 — 2026-11-06 15:26:17 KST · S5 · gpt-6-luna
+### P8 — 2026-11-06 15:26:17 KST · S5 · gpt-6-luna
 
 **Complete substantive input (ambient ui wrapper excluded).** Turn `01a1af87-ec87-7371-a1a5-4e65d4115c0c`.
 
@@ -408,7 +390,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Require the exact Linear task and all requirements to be reviewed before implementation.
 
-### P11 — 2026-11-06 16:20:36 KST · S5 · gpt-6.1-sol
+### P9 — 2026-11-06 16:20:36 KST · S5 · gpt-6.1-sol
 
 **Complete substantive input (ambient ui wrapper excluded).** Turn `01a1afbb-16c9-7ef1-9b67-c9984e55d3b2`.
 
@@ -416,7 +398,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Replace supporting checks alone with complete current-build execution of the five broad scenarios.
 
-### P12 — 2026-11-06 17:36:00 KST · S5 · gpt-6.1-sol
+### P10 — 2026-11-06 17:36:00 KST · S5 · gpt-6.1-sol
 
 **Verbatim excerpt.** Turn `01a1b000-2025-7d23-9549-be58ea31b836`.
 
@@ -424,7 +406,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Require diagnosis before implementation and small, executable tasks using the team’s established format.
 
-### P13 — 2026-11-06 19:12:38 KST · S5 · gpt-6.1-sol
+### P11 — 2026-11-06 19:12:38 KST · S5 · gpt-6.1-sol
 
 **Complete substantive input (ambient ui wrapper excluded).** Turn `01a1b058-98e7-7412-8f23-3bb0b3978b8a`.
 
@@ -432,7 +414,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Authorize implementation in dependency order with each step checked against the saved requirements.
 
-### P14 — 2026-11-06 21:56:33 KST · S5 · gpt-6.1-sol
+### P12 — 2026-11-06 21:56:33 KST · S5 · gpt-6.1-sol
 
 **Verbatim excerpt.** Turn `01a1b0ee-a91f-7f52-8fa9-0e059d7a5194`.
 
@@ -440,7 +422,7 @@ The following are selected neutral, software-development inputs. “Excerpt” m
 
 **Summary/analysis (not a quotation):** Ask for correction of the two actual CI failures. The stale demo oracle and invalid review JSON were different failures; neither justified weakening product permission checks.
 
-### P15 — 2026-11-06 22:19:00 KST · S5 · gpt-6.1-sol
+### P13 — 2026-11-06 22:19:00 KST · S5 · gpt-6.1-sol
 
 **Verbatim excerpt.** Turn `01a1b103-389c-7bd2-bd6f-ec778e4e553d`.
 
