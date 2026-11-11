@@ -1,8 +1,16 @@
 """고른 생산자와 운영자 계정만 남기고 운영 데이터를 지운다(DEV-304, UAT 준비).
 
-실행: uv run python -m app.admin.purge_except --keep <user id> [--keep <user id> …] [--commit]
+실행: uv run python -m app.admin.purge_except --keep <user id> [--keep <user id> …]
+      [--expect-farm <farm id> …] [--backup-done --commit]
 기본은 미리보기다. 한 트랜잭션에서 지운 뒤 되돌리고, 표별 삭제·유지 건수와 남는 사용자·농가·
-상품, 지울 저장소 키 수를 보여 준다. --commit을 붙여야 남긴다.
+상품, 지울 저장소 키 수를 보여 주고, 마지막 줄에 그대로 복사할 커밋 명령을 출력한다.
+--commit을 붙여야 남긴다.
+
+--commit에는 두 가지가 더 필요하다(DEV-310, 11/11 --keep 오타로 남길 농가가 지워진 사고).
+- --expect-farm <farm id>: 남을 농가를 직접 한 번 더 적는다. --keep 생산자의 농가 집합과
+  정확히 같아야 한다. 다르거나 없으면 두 집합을 보여 주고 아무것도 지우지 않는다.
+  미리보기에서도 받는다(같은 검사, 필수 아님).
+- --backup-done: Railway Postgres 수동 백업 스냅샷을 만들어 끝까지 기다렸다는 사람의 확인.
 
 남기는 것:
 - role=ADMIN 사용자 전부(u-admin = 관리자 웹 토큰 주인, u-farmclub = 문의 상대).
@@ -27,6 +35,7 @@ DEV-93에서 되돌린 FK 따라가기 삭제(커밋 929225b)는 지울 집합�
 
 import json
 import re
+import shlex
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -70,7 +79,18 @@ EVENT_TYPE = "data.purge_except"
 LOCK_TIMEOUT = "5s"
 MEDIA_URL = re.compile(r"/api/media/([A-Za-z0-9_-]+)\.")
 SOURCE_MEDIA_URL = re.compile(r"/api/source-media/([A-Za-z0-9_-]+)")
-USAGE = "사용법: python -m app.admin.purge_except --keep <user id> [--keep <user id> …] [--commit]"
+USAGE = (
+    "사용법: python -m app.admin.purge_except --keep <user id> [--keep <user id> …] "
+    "[--expect-farm <farm id> …] [--backup-done --commit]"
+)
+# 운영 runbook이 실행하는 형태. 미리보기 마지막 줄의 커밋 명령이 이것으로 시작한다
+COMMAND = "railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except"
+BACKUP_STEP = (
+    "Railway 대시보드 → Postgres 서비스 → Backups → 수동 스냅샷을 만들고 완료될 때까지 기다리세요."
+)
+BACKUP_HINT = f"--commit 전에 백업이 필요해요. {BACKUP_STEP} 그 뒤 --backup-done을 붙이세요."
+# 터미널·메모 앱의 자동 고침이 --를 바꾼 문자(em dash, en dash)
+AUTOCORRECTED_DASHES = ("\u2014", "\u2013")
 
 
 class PurgeRefused(Exception):
@@ -95,8 +115,21 @@ class Keep:
 
 
 @dataclass
+class Args:
+    keep: list[str]
+    commit: bool = False
+    expect_farms: list[str] = field(default_factory=list)
+    backup_done: bool = False
+
+
+@dataclass
 class Report:
     keep: list[str]
+    expect_farms: list[str] = field(default_factory=list)
+    # 지우기 전에 정한 남는 농가: (농가 ID, 이름, 생산자 ID)
+    kept_farms: list[tuple[str, str, str]] = field(default_factory=list)
+    # 지워질 농가: (농가 ID, 이름, 생산자 ID). 남아야 할 농가가 여기 있으면 --keep이 틀린 것이다
+    deleted_farms: list[tuple[str, str, str]] = field(default_factory=list)
     users: list[tuple[str, str, str]] = field(default_factory=list)
     farms: list[tuple[str, str, str]] = field(default_factory=list)
     products: list[tuple[str, str, str, str]] = field(default_factory=list)
@@ -233,6 +266,67 @@ def check_keep(session: Session, keep_ids: list[str]) -> None:
     missing = set(Base.metadata.tables) - set(RULES)
     if missing:
         raise PurgeRefused(f"남길 조건이 없는 표가 있어요(RULES에 추가): {sorted(missing)}")
+
+
+def kept_farms(session: Session, keep_ids: list[str]) -> list[tuple[str, str, str]]:
+    """--keep 생산자가 가진 농가 (ID, 이름, 생산자 ID). 남는 농가는 정확히 이것이다.
+
+    _collect의 farms(RULES["farms"]가 남기는 집합)와 같은 조건이어야 한다. 둘이 어긋나면
+    가드가 실제로 남는 농가와 다른 집합을 검사한다(test_DEV_310_matching_expected_farms_commit).
+    """
+    farms = _t("farms")
+    return [
+        tuple(r)
+        for r in session.execute(
+            select(farms.c.id, farms.c.name, farms.c.producer_id)
+            .where(_in(farms.c.producer_id, set(keep_ids)))
+            .order_by(farms.c.id)
+        )
+    ]
+
+
+def check_guards(
+    farms: list[tuple[str, str, str]],
+    expect_farms: list[str],
+    commit: bool,
+    backup_done: bool,
+    others: list[tuple[str, str, str]],
+) -> None:
+    """--expect-farm 집합과 --backup-done을 검사한다. 문제를 모두 모아 PurgeRefused 하나로.
+
+    others는 남지 않는 농가. --expect-farm에만 있는 농가의 이름·생산자를 보여 주는 데 쓴다
+    (오타였다면 그 생산자 ID가 --keep에 넣으려던 값이다).
+    """
+    problems: list[str] = []
+    actual = {farm_id for farm_id, _, _ in farms}
+    expected = set(expect_farms)
+    if commit and not expected:
+        problems.append(
+            "--commit에는 남을 농가를 --expect-farm <farmId>로 모두 적어야 해요"
+            "(--keep 오타를 막아요). 미리보기 마지막 줄을 그대로 복사해 실행하세요."
+        )
+    elif expected and expected != actual:
+        problems.append("--expect-farm 농가와 --keep 생산자의 농가가 달라요.")
+        if expected - actual:
+            gone = sorted(expected - actual)
+            problems.append(f"  지워질 농가(--expect-farm에만 있음): {gone}")
+            known = {fid: (name, pid) for fid, name, pid in others}
+            for fid in gone:
+                if fid in known:
+                    problems.append(f"    {fid} {known[fid][0]} (생산자 {known[fid][1]})")
+                else:
+                    problems.append(f"    {fid} (DB에 없는 농가 ID)")
+        if actual - expected:
+            extra = sorted(actual - expected)
+            problems.append(f"  더 남을 농가(--keep 생산자 것): {extra}")
+    if problems:
+        problems.append(f"  --expect-farm: {sorted(expected) or '(없음)'}")
+        problems.append("  --keep 생산자의 농가:")
+        problems.extend(f"    {fid} {name} (생산자 {pid})" for fid, name, pid in farms)
+    if commit and not backup_done:
+        problems.append(BACKUP_HINT)
+    if problems:
+        raise PurgeRefused("\n".join(problems))
 
 
 def _keep_events(session: Session, keep: Keep, stages: set[str]) -> set[str]:
@@ -513,7 +607,11 @@ def _audit(session: Session, report: Report) -> None:
             actor_id=None,
             target_type="system",
             target_id="purge_except",
-            request_summary={"via": "cli", "keep": report.keep},
+            request_summary={
+                "via": "cli",
+                "keep": report.keep,
+                "expectFarms": report.expect_farms,
+            },
             status="SUCCEEDED",
             retryable=False,
             attempts=1,
@@ -563,17 +661,37 @@ def _lock(session: Session) -> None:
         ) from exc
 
 
-def purge_in(session: Session, keep_ids: list[str], commit: bool) -> Report:
+def purge_in(
+    session: Session,
+    keep_ids: list[str],
+    commit: bool,
+    expect_farms: list[str] | None = None,
+    backup_done: bool = False,
+) -> Report:
     """남길 생산자만 두고 지운다. 호출한 쪽이 트랜잭션을 연다.
 
     미리보기(commit=False)는 savepoint 안에서 지운 뒤 되돌린다. commit이면 감사 이벤트를 남긴다.
+    commit에는 남는 농가 집합과 같은 expect_farms와 backup_done이 필요하다(DEV-310).
     """
     keep_ids = sorted(set(keep_ids))
+    expect = sorted(set(expect_farms or []))
     check_keep(session, keep_ids)
     _lock(session)
     # 검사와 잠금 사이에 탈퇴·농가 삭제가 있었을 수 있어 잠근 뒤 한 번 더 본다
     check_keep(session, keep_ids)
-    report = Report(keep=keep_ids)
+    # 잠근 뒤라 농가 주인이 바뀌지 않는다. 지우기 전에 남을 농가를 사람이 적은 것과 맞춘다
+    farms = kept_farms(session, keep_ids)
+    t_farms = _t("farms")
+    others = [
+        tuple(r)
+        for r in session.execute(
+            select(t_farms.c.id, t_farms.c.name, t_farms.c.producer_id)
+            .where(~_in(t_farms.c.id, {f for f, _, _ in farms}))
+            .order_by(t_farms.c.id)
+        )
+    ]
+    check_guards(farms, expect, commit, backup_done, others)
+    report = Report(keep=keep_ids, expect_farms=expect, kept_farms=farms, deleted_farms=others)
     savepoint = session.begin_nested()
     try:
         _run(session, keep_ids, report)
@@ -616,39 +734,71 @@ def delete_storage(keys: list[str]) -> tuple[int, list[str]]:
     return done, failed
 
 
-def purge(keep_ids: list[str], commit: bool = False) -> Report:
+def purge(
+    keep_ids: list[str],
+    commit: bool = False,
+    expect_farms: list[str] | None = None,
+    backup_done: bool = False,
+) -> Report:
     with get_sessionmaker()() as session, session.begin():
-        return purge_in(session, keep_ids, commit)
+        return purge_in(session, keep_ids, commit, expect_farms, backup_done)
 
 
-def parse(argv: list[str]) -> tuple[list[str], bool]:
-    keep: list[str] = []
-    commit = False
+def commit_command(report: Report) -> str:
+    """미리보기 결과로 만든, 그대로 복사해 실행할 커밋 명령 한 줄."""
+    args: list[str] = []
+    for user_id in report.keep:
+        args += ["--keep", user_id]
+    for farm_id, _, _ in report.kept_farms:
+        args += ["--expect-farm", farm_id]
+    args += ["--backup-done", "--commit"]
+    return f"{COMMAND} {shlex.join(args)}"
+
+
+def _reject_autocorrected(token: str) -> None:
+    # 11/11 실행 중 자동 고침이 --를 —로 바꿨다. ID에는 이 문자가 없다
+    if any(dash in token for dash in AUTOCORRECTED_DASHES):
+        raise PurgeRefused(
+            f"{token!r}에 하이픈이 아닌 대시(— 또는 –)가 있어요. "
+            "자동 고침이 --를 바꾼 것 같아요. 하이픈 두 개(--)로 다시 입력하거나 "
+            f"미리보기 마지막 줄을 그대로 복사하세요.\n{USAGE}"
+        )
+
+
+def parse(argv: list[str]) -> Args:
+    parsed = Args(keep=[])
     args = iter(argv)
     for arg in args:
+        _reject_autocorrected(arg)
         if arg == "--commit":
-            commit = True
-        elif arg == "--keep":
+            parsed.commit = True
+        elif arg == "--backup-done":
+            parsed.backup_done = True
+        elif arg in ("--keep", "--expect-farm"):
             value = next(args, None)
             if value is None or value.startswith("--"):
                 raise PurgeRefused(USAGE)
-            keep.append(value)
+            _reject_autocorrected(value)
+            (parsed.keep if arg == "--keep" else parsed.expect_farms).append(value)
         elif arg.startswith("--keep="):
-            keep.append(arg.removeprefix("--keep="))
+            parsed.keep.append(arg.removeprefix("--keep="))
+        elif arg.startswith("--expect-farm="):
+            parsed.expect_farms.append(arg.removeprefix("--expect-farm="))
         else:
             # 오타(--comit 등)나 위치 인자가 다른 동작으로 이어지지 않게 모두 거부한다
             raise PurgeRefused(USAGE)
-    if not keep or any(not k for k in keep):
+    if not parsed.keep or not all(parsed.keep) or not all(parsed.expect_farms):
         raise PurgeRefused(USAGE)
-    return keep, commit
+    return parsed
 
 
 def main(argv: list[str]) -> None:
     try:
-        keep, commit = parse(argv)
-        report = purge(keep, commit)
+        args = parse(argv)
+        report = purge(args.keep, args.commit, args.expect_farms, args.backup_done)
     except PurgeRefused as exc:
         sys.exit(f"지우지 않았어요: {exc}")
+    commit = args.commit
     print("남는 사용자:")
     for uid, name, role in report.users:
         print(f"  {uid} {name} ({role})")
@@ -669,7 +819,16 @@ def main(argv: list[str]) -> None:
     for key in report.storage_keys:
         print(f"  {key}")
     if not commit:
-        print("미리보기라 되돌렸어요. 지우려면 --commit을 붙여 다시 실행하세요.")
+        print("미리보기라 되돌렸어요.")
+        print("지워질 농가(남아야 할 농가가 여기 있으면 --keep이 틀렸어요. 멈추세요):")
+        for fid, name, producer in report.deleted_farms:
+            print(f"  {fid} {name} (생산자 {producer})")
+        print("남을 농가(이름이 맞는지 확인하세요. 하나라도 다르면 멈추세요):")
+        for fid, name, producer in report.kept_farms:
+            print(f"  {fid} {name} (생산자 {producer})")
+        print(f"지우기 전에 백업: {BACKUP_STEP}")
+        print("그다음 아래 줄을 고치지 말고 그대로 복사해 실행하세요:")
+        print(commit_command(report))
         return
     print("지웠어요. 감사 이벤트 1건(data.purge_except, via=cli)을 남겼어요.")
     if not report.storage_keys:

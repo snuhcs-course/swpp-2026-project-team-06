@@ -1,5 +1,6 @@
-"""DEV-304 고른 생산자만 남기는 운영 데이터 정리 명령."""
+"""DEV-304 고른 생산자만 남기는 운영 데이터 정리 명령. DEV-310 --expect-farm·--backup-done 가드."""
 
+import shlex
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -7,12 +8,14 @@ import pytest
 from sqlalchemy import func, insert, select, update
 
 from app.admin import purge_except
-from app.admin.purge_except import RULES, PurgeRefused, main, parse, purge
+from app.admin.purge_except import COMMAND, RULES, Args, PurgeRefused, main, parse, purge
 from app.core.db import Base, get_sessionmaker
 
 KEEP = ["u-kang", "u-halla"]
 KEPT_FARMS = {"f-kang", "f-halla"}
 ADMINS = {"u-admin", "u-farmclub"}
+# --commit에 필요한 확인(DEV-310): 남을 농가 집합과 백업 확인
+GUARDS = dict(expect_farms=sorted(KEPT_FARMS), backup_done=True)
 WHEN = datetime(2026, 10, 7, 1, tzinfo=UTC)
 KEY_KANG = "a" * 32 + "/" + "b" * 32
 KEY_OTHER = "c" * 32 + "/" + "d" * 32
@@ -222,7 +225,7 @@ def test_DEV_304_commit_keeps_chosen_producers_and_removes_the_rest(extras):
     capacity = rows("capacity_requests")
     assert len(support) == 2 and support_messages
 
-    report = purge(KEEP, commit=True)
+    report = purge(KEEP, commit=True, **GUARDS)
     assert report.committed
 
     assert {r["id"] for r in rows("users")} == ADMINS | set(KEEP)
@@ -245,7 +248,11 @@ def test_DEV_304_commit_keeps_chosen_producers_and_removes_the_rest(extras):
     events = {r["id"]: r for r in rows("manager_events")}
     purge_events = [e for e in events.values() if e["event_type"] == "data.purge_except"]
     assert len(purge_events) == 1
-    assert purge_events[0]["request_summary"] == {"via": "cli", "keep": sorted(KEEP)}
+    assert purge_events[0]["request_summary"] == {
+        "via": "cli",
+        "keep": sorted(KEEP),
+        "expectFarms": sorted(KEPT_FARMS),
+    }
     assert purge_events[0]["actor_id"] is None
     assert set(events) - {purge_events[0]["id"]} == {
         "ev-farm-kang",
@@ -296,7 +303,7 @@ def test_DEV_304_commit_keeps_chosen_producers_and_removes_the_rest(extras):
 
 
 def test_DEV_304_kept_farm_still_works_after_commit(extras, client, login, admin_headers):
-    purge(KEEP, commit=True)
+    purge(KEEP, commit=True, **GUARDS)
     from app.accounts.admin_token import main as admin_token
 
     admin_token([])  # u-admin이 남아 토큰을 발급한다
@@ -337,7 +344,7 @@ def test_DEV_304_admin_user_detail_keeps_products_and_drafts(extras, client, adm
 
     before_products, before_drafts = detail()
     assert before_products and before_drafts == ["d-kang"]
-    purge(KEEP, commit=True)
+    purge(KEEP, commit=True, **GUARDS)
     assert detail() == (before_products, ["d-kang"])
     assert [r["id"] for r in rows("product_drafts")] == ["d-kang"]
 
@@ -363,7 +370,7 @@ def test_DEV_304_refuses_withdrawn_producer():
     with get_sessionmaker()() as s, s.begin():
         s.execute(update(t("users")).where(t("users").c.id == "u-halla").values(deleted_at=WHEN))
     with pytest.raises(PurgeRefused, match="탈퇴"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert len(rows("users")) > 4
 
 
@@ -376,7 +383,7 @@ def test_DEV_304_refuses_when_kept_product_uses_other_farm_media(extras):
         )
     before = snapshot()
     with pytest.raises(PurgeRefused, match="med-other"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert snapshot() == before
 
 
@@ -387,10 +394,12 @@ def test_DEV_304_refuses_table_without_rule(monkeypatch):
 
 
 def test_DEV_304_parse_rejects_unknown_options():
-    assert parse(["--keep", "u-kang", "--keep=u-halla", "--commit"]) == (
-        ["u-kang", "u-halla"],
-        True,
+    assert parse(["--keep", "u-kang", "--keep=u-halla", "--commit"]) == Args(
+        keep=["u-kang", "u-halla"], commit=True
     )
+    assert parse(
+        ["--keep", "u-kang", "--expect-farm", "f-kang", "--expect-farm=f-x", "--backup-done"]
+    ) == Args(keep=["u-kang"], expect_farms=["f-kang", "f-x"], backup_done=True)
     for argv in (
         [],
         ["--commit"],
@@ -399,6 +408,11 @@ def test_DEV_304_parse_rejects_unknown_options():
         ["u-kang"],
         ["--keep", "u-kang", "--comit"],
         ["--keep="],
+        ["--keep", "u-kang", "--expect-farm"],
+        ["--keep", "u-kang", "--expect-farm", "--commit"],
+        ["--keep", "u-kang", "--expect-farm="],
+        ["--keep", "u-kang", "--backup-done=yes"],
+        ["--keep", "u-kang", "--backup"],
     ):
         with pytest.raises(PurgeRefused):
             parse(argv)
@@ -417,7 +431,10 @@ def test_DEV_304_cli_dry_run_then_commit(extras, capsys, monkeypatch):
     monkeypatch.setattr(
         purge_except, "delete_storage", lambda keys: (deleted.extend(keys), (len(keys), []))[1]
     )
-    main(["--keep", "u-kang", "--keep", "u-halla", "--commit"])
+    main(
+        ["--keep", "u-kang", "--keep", "u-halla"]
+        + ["--expect-farm", "f-kang", "--expect-farm", "f-halla", "--backup-done", "--commit"]
+    )
     out = capsys.readouterr().out
     assert "지웠어요" in out and "R2 파일 1개" in out
     assert deleted == [KEY_OTHER]
@@ -501,7 +518,7 @@ def source_rows(extras):
 
 
 def test_DEV_304_source_rows_and_storage_keys(source_rows):
-    report = purge(KEEP, commit=True)
+    report = purge(KEEP, commit=True, **GUARDS)
     for name, kept in (
         ("source_assets", {"asset-kang"}),
         ("source_pages", {"page-kang"}),
@@ -527,7 +544,7 @@ def test_DEV_304_skips_keys_of_source_files_already_cleaned(source_rows):
             .where(t("source_assets").c.id == "asset-other")
             .values(storage_key=key_gone, deleted=True, status="DELETED")
         )
-    report = purge(KEEP, commit=True)
+    report = purge(KEEP, commit=True, **GUARDS)
     assert {r["id"] for r in rows("source_assets")} == {"asset-kang"}
     assert report.storage_keys == sorted([KEY_OTHER, KEY_PAGE])
 
@@ -541,7 +558,7 @@ def test_DEV_304_refuses_kept_history_saved_by_deleted_user():
         )
     before = snapshot()
     with pytest.raises(PurgeRefused, match="saved_by"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert snapshot() == before
 
 
@@ -555,7 +572,7 @@ def test_DEV_304_fk_violation_rolls_back_and_refuses(source_rows):
         )
     before = snapshot()
     with pytest.raises(PurgeRefused, match="되돌렸어요"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert snapshot() == before
 
 
@@ -568,7 +585,7 @@ def test_DEV_304_kept_broadcast_drops_deleted_reply_snapshot(extras):
         )
         # 지울 이벤트의 지울 actor는 세지 않는다
         s.execute(insert(t("manager_events")).values(event("ev-gone", "order", "o-2", "u-minji")))
-    report = purge(KEEP, commit=True)
+    report = purge(KEEP, commit=True, **GUARDS)
     n2 = next(r for r in rows("broadcasts") if r["id"] == "n-2")
     assert n2["quoted_reply_id"] is None and n2["reply_to"] is None
     # 남는 행만 센다: 지운 소비자 actor를 가진 남는 이벤트는 ev-capacity 하나
@@ -585,7 +602,7 @@ def test_DEV_304_kept_broadcast_drops_legacy_snapshot_without_reply_id(extras):
             .where(t("broadcasts").c.id == "n-1")
             .values(reply_to={"senderType": "CONSUMER", "body": "옛 답장"}, quoted_reply_id=None)
         )
-    report = purge(KEEP, commit=True)
+    report = purge(KEEP, commit=True, **GUARDS)
     assert next(r for r in rows("broadcasts") if r["id"] == "n-1")["reply_to"] is None
     assert report.nulled["broadcasts.reply_to"] == 1
 
@@ -620,7 +637,7 @@ def test_DEV_304_gives_up_when_tables_are_locked_by_another_writer(monkeypatch):
         other.execute(update(t("farms")).where(t("farms").c.id == "f-kang").values(intro="잠금"))
         before = len(rows("users"))
         with pytest.raises(PurgeRefused, match="잠그지 못했어요"):
-            purge(KEEP, commit=True)
+            purge(KEEP, commit=True, **GUARDS)
     assert len(rows("users")) == before
 
 
@@ -637,7 +654,7 @@ def test_DEV_304_conversations_between_kept_producers_are_deleted(extras):
                 created_at=WHEN,
             )
         )
-    purge(KEEP, commit=True)
+    purge(KEEP, commit=True, **GUARDS)
     assert {r["id"] for r in rows("threads")} == {f"thread-support-{f}" for f in KEPT_FARMS}
 
 
@@ -648,7 +665,7 @@ def test_DEV_304_kept_capacity_request_forgets_deleted_decider():
             .where(t("capacity_requests").c.id == "capacity-p-cheonggyeon")
             .values(decided_by="u-minji")
         )
-    report = purge(KEEP, commit=True)
+    report = purge(KEEP, commit=True, **GUARDS)
     assert [r["decided_by"] for r in rows("capacity_requests")] == [None]
     assert report.nulled["capacity_requests.decided_by"] == 1
 
@@ -666,7 +683,7 @@ def test_DEV_304_refuses_other_farm_media_in_farm_or_news(extras, table, row_id,
         s.execute(update(t(table)).where(t(table).c.id == row_id).values(**values))
     before = snapshot()
     with pytest.raises(PurgeRefused, match="med-other"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert snapshot() == before
 
 
@@ -681,7 +698,7 @@ def test_DEV_304_refuses_other_farm_media_in_kept_ai_faq(extras):
         )
     before = snapshot()
     with pytest.raises(PurgeRefused, match="med-other"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert snapshot() == before
 
 
@@ -693,7 +710,7 @@ def test_DEV_304_kept_attachment_forgets_deleted_thread(extras):
             .where(t("private_attachments").c.id == "att-kang")
             .values(thread_id="thread-gone")
         )
-    report = purge(KEEP, commit=True)
+    report = purge(KEEP, commit=True, **GUARDS)
     assert [(a["id"], a["thread_id"]) for a in rows("private_attachments")] == [("att-kang", None)]
     assert report.nulled["private_attachments.thread_id"] == 1
 
@@ -711,7 +728,7 @@ def test_DEV_304_refuses_other_farm_media_in_kept_ai_history(extras):
         )
     before = snapshot()
     with pytest.raises(PurgeRefused, match="med-other"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert snapshot() == before
 
 
@@ -725,5 +742,140 @@ def test_DEV_304_refuses_kept_product_using_deleted_product_source_photo(source_
         )
     before = snapshot()
     with pytest.raises(PurgeRefused, match="pp-other"):
-        purge(KEEP, commit=True)
+        purge(KEEP, commit=True, **GUARDS)
     assert snapshot() == before
+
+
+# DEV-310: 11/11 --keep 하나가 오타라 남길 농가가 지워졌고 백업이 없었다
+
+
+def test_DEV_310_refuses_when_expected_farms_differ_and_changes_nothing():
+    # --keep 오타로 다른 생산자(u-hyodon)를 골랐지만 사람은 f-kang·f-halla가 남는다고 적었다
+    before = snapshot()
+    with pytest.raises(PurgeRefused) as refused:
+        purge(["u-kang", "u-hyodon"], commit=True, **GUARDS)
+    message = str(refused.value)
+    assert "달라요" in message
+    assert "지워질 농가(--expect-farm에만 있음): ['f-halla']" in message
+    # 지워질 농가의 생산자 ID(= --keep에 넣으려던 값)를 보여 준다
+    halla = next(r["name"] for r in rows("farms") if r["id"] == "f-halla")
+    assert f"    f-halla {halla} (생산자 u-halla)" in message.splitlines()
+    assert "더 남을 농가(--keep 생산자 것): ['f-hyodon']" in message
+    # 두 집합을 모두 보여 준다
+    assert "--expect-farm: ['f-halla', 'f-kang']" in message
+    assert "f-hyodon" in message and "생산자 u-hyodon" in message
+    assert snapshot() == before
+
+
+def test_DEV_310_marks_unknown_expected_farm_id():
+    with pytest.raises(PurgeRefused) as refused:
+        purge(KEEP, commit=True, expect_farms=["f-kang", "f-halla", "f-typo"], backup_done=True)
+    assert "    f-typo (DB에 없는 농가 ID)" in str(refused.value).splitlines()
+
+
+def test_DEV_310_refuses_subset_of_kept_farms():
+    before = snapshot()
+    with pytest.raises(PurgeRefused, match="더 남을 농가.*f-halla"):
+        purge(KEEP, commit=True, expect_farms=["f-kang"], backup_done=True)
+    assert snapshot() == before
+
+
+def test_DEV_310_commit_without_expect_farm_is_refused():
+    before = snapshot()
+    with pytest.raises(PurgeRefused) as refused:
+        purge(KEEP, commit=True, backup_done=True)
+    message = str(refused.value)
+    assert "--expect-farm <farmId>로 모두 적어야" in message
+    assert "--expect-farm: (없음)" in message
+    assert "f-kang" in message and "f-halla" in message
+    assert "Backups" not in message
+    assert snapshot() == before
+
+
+def test_DEV_310_commit_without_backup_done_is_refused():
+    before = snapshot()
+    with pytest.raises(PurgeRefused) as refused:
+        purge(KEEP, commit=True, expect_farms=sorted(KEPT_FARMS))
+    message = str(refused.value)
+    assert "Railway 대시보드 → Postgres 서비스 → Backups" in message
+    assert "--backup-done" in message and "달라요" not in message
+    assert snapshot() == before
+
+
+def test_DEV_310_reports_every_missing_guard_at_once():
+    with pytest.raises(PurgeRefused) as refused:
+        purge(KEEP, commit=True)
+    assert "--expect-farm <farmId>" in str(refused.value)
+    assert "Backups" in str(refused.value)
+
+
+def test_DEV_310_matching_expected_farms_commit():
+    report = purge(
+        KEEP, commit=True, expect_farms=["f-halla", "f-kang", "f-kang"], backup_done=True
+    )
+    assert report.committed
+    assert {r["id"] for r in rows("farms")} == KEPT_FARMS
+    assert {r["id"] for r in rows("users")} == ADMINS | set(KEEP)
+
+
+def test_DEV_310_dry_run_needs_no_flags_but_checks_given_expect_farm():
+    before = snapshot()
+    report = purge(KEEP)
+    assert not report.committed
+    assert [f[0] for f in report.kept_farms] == sorted(KEPT_FARMS)
+    assert not purge(KEEP, expect_farms=sorted(KEPT_FARMS)).committed
+    with pytest.raises(PurgeRefused, match="달라요"):
+        purge(KEEP, expect_farms=["f-kang", "f-hyodon"])
+    assert snapshot() == before
+
+
+def test_DEV_310_printed_commit_line_round_trips_and_commits(capsys):
+    names = {r["id"]: r["name"] for r in rows("farms")}
+    main(["--keep", "u-kang", "--keep", "u-halla"])
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(rows("users")) > 4
+    # 마지막 줄이 그대로 복사할 커밋 명령이다
+    line = lines[-1]
+    assert line.startswith(COMMAND + " ")
+    args = shlex.split(line)[len(shlex.split(COMMAND)) :]
+    assert parse(args) == Args(
+        keep=sorted(KEEP), commit=True, expect_farms=sorted(KEPT_FARMS), backup_done=True
+    )
+    # 사람이 명령을 실행하기 전에 남을 농가 이름을 본다
+    start = lines.index("남을 농가(이름이 맞는지 확인하세요. 하나라도 다르면 멈추세요):")
+    assert lines[start + 1 : start + 3] == [
+        f"  f-halla {names['f-halla']} (생산자 u-halla)",
+        f"  f-kang {names['f-kang']} (생산자 u-kang)",
+    ]
+    assert any("Backups" in x for x in lines[start:])
+    # 남아야 할 농가가 빠졌는지 보이게 지워질 농가도 보여 준다
+    gone = lines.index("지워질 농가(남아야 할 농가가 여기 있으면 --keep이 틀렸어요. 멈추세요):")
+    assert f"  f-hyodon {names['f-hyodon']} (생산자 u-hyodon)" in lines[gone + 1 : start]
+    assert not any("f-kang" in x or "f-halla" in x for x in lines[gone + 1 : start])
+
+    main(args)
+    assert "지웠어요" in capsys.readouterr().out
+    assert {r["id"] for r in rows("farms")} == KEPT_FARMS
+
+
+def test_DEV_310_cli_commit_without_guards_exits_and_changes_nothing(capsys):
+    before = snapshot()
+    with pytest.raises(SystemExit) as exited:
+        main(["--keep", "u-kang", "--keep", "u-halla", "--commit"])
+    assert "지우지 않았어요" in str(exited.value) and "Backups" in str(exited.value)
+    assert snapshot() == before
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["—keep", "u-kang"],
+        ["--keep", "u-kang", "—commit"],
+        ["--keep", "u-kang", "–-commit"],
+        ["--keep", "u-kang", "--expect-farm", "—f-kang"],
+        ["--keep", "u-kang", "—backup-done", "--commit"],
+    ],
+)
+def test_DEV_310_rejects_autocorrected_dashes_with_hint(argv):
+    with pytest.raises(PurgeRefused, match="자동 고침이 --를 바꾼 것 같아요"):
+        parse(argv)

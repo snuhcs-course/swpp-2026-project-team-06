@@ -244,24 +244,40 @@ drafts, news posts, farmclub support room, audit history, media and source files
 orders, payments, refunds, chats (except the kept farms' farmclub support rooms and the kept
 users' support threads), follows, idempotency records and consumer accounts go. Humans run it:
 
-1. Take a manual Railway Postgres backup snapshot and wait until it finishes.
-2. Look up the producer user ids (read-only) in the Railway Postgres query tab:
+1. Look up the producer user ids (read-only) in the Railway Postgres query tab:
    `select u.id, u.role, u.deleted_at, f.id, f.name from users u join farms f on f.producer_id = u.id where f.id in ('<farmId>', '<farmId>');`
-3. At a low-traffic time (the command locks every table against writes until it finishes, dry run included;
+2. At a low-traffic time (the command locks every table against writes until it finishes, dry run included;
    app writes wait that long, so press Ctrl-C if a dry run runs past a minute and retry later),
-   dry run, review the printed kept users/farms/products and per-table counts with the PM, then commit:
+   dry run and review the printed kept users/farms/products and per-table counts with the PM:
 
-```bash
-railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId>           # dry run
-railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId> --commit  # delete
-```
+   ```bash
+   railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId> --expect-farm <farmId> --expect-farm <farmId>
+   ```
 
-4. Check `/health`, public `/api/farms` (only the kept farms) and the admin page user list.
+   Write down the farm ids that must stay before the run and pass them as `--expect-farm`; the dry run
+   then refuses if a `--keep` id is wrong. The output ends with "지워질 농가" (farms that will be
+   deleted), "남을 농가" (farms that will stay, with names) and one commit command line. If a farm that
+   must stay is in the deleted list, or any kept name is wrong, stop.
+3. **Backup (enforced):** Railway dashboard → Postgres service → Backups → create a manual snapshot
+   and wait until it finishes. `--commit` refuses without `--backup-done`, the flag that says you did this.
+4. Copy the printed last line as is and run it. Do not retype it (a typo, or autocorrect turning `--`
+   into `—`, is how a farm was lost on 11/11). It looks like:
 
-It refuses a `--keep` user who is not a live producer with a farm, and refuses (changing nothing)
-when a kept row would point at deleted data it cannot clear. `--commit` writes one `ManagerEvent`
-(`data.purge_except`, `via: cli`) and deletes the freed R2 files; otherwise the source-analysis
-worker's cleanup removes unused files after 24 hours. Details: `server/app/admin/spec.md`.
+   ```bash
+   railway ssh --service farmclub-api -- .venv/bin/python -m app.admin.purge_except --keep <userId> --keep <userId> --expect-farm <farmId> --expect-farm <farmId> --backup-done --commit
+   ```
+
+5. Check `/health`, public `/api/farms` (only the kept farms) and the admin page user list.
+
+`--commit` needs `--expect-farm <farmId>` for every farm that will stay, and the set must equal the
+farms owned by the `--keep` producers; otherwise it prints both sets and changes nothing (DEV-310:
+on 11/11 one mistyped `--keep` id deleted a farm that should have stayed, with no backup). A dry run
+accepts `--expect-farm` too and checks it the same way. Unknown arguments and `—`/`–` dashes are
+refused. It also refuses a `--keep` user who is not a live producer with a farm, and refuses
+(changing nothing) when a kept row would point at deleted data it cannot clear. `--commit` writes
+one `ManagerEvent` (`data.purge_except`, `via: cli`, with the expected farms) and deletes the freed
+R2 files; otherwise the source-analysis worker's cleanup removes unused files after 24 hours.
+Details: `server/app/admin/spec.md`.
 
 **UAT accounts and data (DEV-305).** UAT uses dedicated test accounts, not the demo seed.
 `python -m app.core.seed_uat` adds three consumers (`u-uat-c1..c3`, "UAT 소비자 N") and three
@@ -294,7 +310,8 @@ with one `test_farm_retired` event each), so nobody sees them until UAT starts. 
    hiding is refused once a real consumer has ordered.
 4. **Clean up:** run the DEV-304
    cleanup above again, keeping only the real producers (`python -m app.admin.purge_except --keep <real
-   producer id> …`, dry run first, then `--commit`). Do not pass UAT accounts to `--keep`. Until then
+   producer id> …`: dry run first, back up, then run the commit line the dry run prints). Do not pass
+   UAT accounts to `--keep`. Until then
    the hidden farms simply stay hidden.
 
 "UAT 농가 3" (`f-uat-3`) stays in the admin producer-approval queue on purpose; do not approve or
