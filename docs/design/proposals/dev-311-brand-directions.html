@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>브랜드 방향 DEV-311</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 머리(고정 조건·세 안 요약) → 안마다 [결정 무브 → 같은 화면 묶음 5개(홈 상단·상품 상단·로그인·카톡 공유 카드·아이콘) → 공유 카드 원본 → 검산] → 비교 표·추천.
+   휴대폰 프레임 안은 앱 토큰만 쓴다(앱은 밝은 화면 전용). 보드 바깥만 테마를 따른다.
+   로고 그림은 DEV-311/assets/ 의 승인 원본 축소본(logo-*.png)과, 안 B용 평면화본(b-*-flat.png: 승인 원본 알파를 그대로 쓰고 색만 평면으로 채움)이다. */
+:root {
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --ink-2: #5E5D59; --rule: #DAD9D4;
+  --mark: #C94F0C; --mark-ink: #FFFFFF; --good: #2F6B3A; --good-soft: #E7F1E8; --warn: #8A5A00; --warn-soft: #FFF3D6;
+  --app-bg: #FFFFFF; --app-text: #111111; --app-muted: #6B6B6B; --app-surface: #F5F5F3; --app-border: #E8E8E6; --app-accent: #C94F0C;
+  --cream: #FFF4E8; --leaf: #56652A;
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --hand: "Nanum Pen Script", "Apple SD Gothic Neo", cursive;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935; --mark: #E2733A; --mark-ink: #1A0E07; --good: #8CC79A; --good-soft: #1D2E21; --warn: #F2C46B; --warn-soft: #3A2E14; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935; --mark: #E2733A; --mark-ink: #1A0E07; --good: #8CC79A; --good-soft: #1D2E21; --warn: #F2C46B; --warn-soft: #3A2E14; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px; padding: 32px max(16px, env(safe-area-inset-left, 0px)) 64px; font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+h1 { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 24px; line-height: 32px; letter-spacing: -0.01em; margin: 0; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--rule); padding: 1px 5px; border-radius: 4px; }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 74ch; color: var(--ink-2); font-size: 17px; line-height: 26px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--ink-2); }
+a { color: var(--mark); }
+
+.fixed { background: var(--panel); border-radius: 16px; padding: 18px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 24px; font-size: 14px; line-height: 21px; }
+.fixed b { display: block; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.sum { background: var(--panel); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.sum .k { font-size: 40px; line-height: 44px; font-weight: 800; letter-spacing: -0.03em; }
+.tag { display: inline-block; font-size: 12px; line-height: 20px; padding: 0 9px; border-radius: 999px; font-weight: 700; width: fit-content; }
+.tag.keep { background: var(--good-soft); color: var(--good); }
+.tag.refine { background: var(--warn-soft); color: var(--warn); }
+.tag.swap { background: #FBEAE8; color: #B42318; }
+.tag.rec { background: var(--mark); color: var(--mark-ink); }
+
+.dir { display: flex; flex-direction: column; gap: 24px; border-top: 2px solid var(--rule); padding-top: 32px; }
+.dir-head { display: flex; flex-direction: column; gap: 8px; }
+.dir-head .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.moves { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }
+.moves li { background: var(--panel); border-radius: 16px; padding: 18px; display: grid; grid-template-columns: 30px 1fr; gap: 4px 12px; min-width: 0; }
+.num { width: 28px; height: 28px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 14px; display: grid; place-items: center; grid-row: span 2; }
+.moves h3 { font-size: 16px; line-height: 24px; align-self: center; }
+.moves p { color: var(--ink-2); grid-column: 2; font-size: 14px; line-height: 21px; }
+
+.rail { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+.cell { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.cell > .lbl { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-2); }
+
+/* 휴대폰 프레임 — 앱 토큰만 */
+.phone { width: 390px; background: var(--app-bg); color: var(--app-text); border-radius: 28px; border: 1px solid var(--rule); overflow: hidden; position: relative; font-size: 16px; line-height: 24px; }
+.st { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 14px; font-weight: 600; }
+.hd { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+.ico { width: 24px; height: 24px; stroke: currentColor; stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.px { padding-left: 16px; padding-right: 16px; }
+.t22 { font-size: 22px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.t18 { font-size: 18px; line-height: 26px; font-weight: 700; }
+.t16 { font-size: 16px; line-height: 24px; }
+.t14 { font-size: 14px; line-height: 20px; }
+.t12 { font-size: 12px; line-height: 16px; }
+.mut { color: var(--app-muted); }
+.acc { color: var(--app-accent); }
+.b { font-weight: 700; } .sb { font-weight: 600; }
+.hr { height: 1px; background: var(--app-border); margin: 0 16px; }
+.photo { position: relative; background: #ddd center/cover no-repeat; }
+.pbtn { position: absolute; top: 52px; width: 40px; height: 40px; border-radius: 999px; background: rgba(0,0,0,.45); display: grid; place-items: center; color: #fff; }
+.farmrow { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.av { width: 44px; height: 44px; border-radius: 999px; background: #ccc center/cover; flex: 0 0 auto; }
+.btn { height: 52px; border-radius: 16px; display: grid; place-items: center; font-weight: 700; font-size: 16px; }
+.kakao { background: #FEE500; color: #191919; }
+.opt { margin: 0 16px; border: 1px solid var(--app-border); border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px 16px; }
+.card .ph { aspect-ratio: 1; border-radius: 16px; background: #ccc center/cover; position: relative; }
+.followbtn { height: 36px; padding: 0 14px; border-radius: 999px; background: var(--app-accent); color: #fff; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.fade { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(transparent, #fff); }
+
+/* 카카오톡 대화방 */
+.kchat { width: 390px; height: 560px; border-radius: 28px; overflow: hidden; background: #B2C7D9; border: 1px solid var(--rule); position: relative; font-size: 14px; line-height: 20px; color: #111; }
+.kchat .ktop { height: 88px; padding: 44px 16px 0; font-weight: 700; font-size: 16px; }
+.kmsg { display: flex; gap: 8px; padding: 6px 12px; }
+.kmsg .kav { width: 38px; height: 38px; border-radius: 14px; background: #9BB0C4; flex: 0 0 auto; }
+.kmsg .kname { font-size: 12px; color: #33414E; margin-bottom: 4px; }
+.kbub { background: #fff; border-radius: 4px 14px 14px 14px; padding: 8px 11px; width: fit-content; max-width: 250px; }
+.klink { width: 250px; background: #fff; border-radius: 4px 14px 14px 14px; overflow: hidden; }
+.klink .kimg { width: 250px; height: 131px; overflow: hidden; position: relative; background: #eee; }
+.klink .kt { padding: 10px 12px 2px; font-weight: 700; font-size: 14px; line-height: 20px; }
+.klink .kd { padding: 0 12px; color: #666; font-size: 13px; line-height: 18px; }
+.klink .ku { padding: 6px 12px 10px; color: #999; font-size: 12px; }
+
+/* OG 1200×630 원본 — 비율 유지 축소 */
+.og { width: 1200px; height: 630px; position: relative; overflow: hidden; font-family: var(--font); color: #111; transform-origin: 0 0; }
+.ogslot { position: relative; overflow: hidden; }
+.og-big { width: 600px; height: 315px; border-radius: 12px; border: 1px solid var(--rule); }
+
+/* 아이콘 패널 */
+.iconpanel { width: 390px; background: var(--panel); border-radius: 28px; border: 1px solid var(--rule); padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.irow { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.icell { display: flex; flex-direction: column; gap: 6px; align-items: center; font-size: 12px; line-height: 16px; color: var(--ink-2); }
+.icell canvas { display: block; background: #fff; }
+.zoom { image-rendering: pixelated; border: 1px solid var(--rule); }
+.homescreen { display: flex; gap: 22px; padding: 18px; border-radius: 18px; background: linear-gradient(160deg, #6E8BA8, #3D5269); }
+.homescreen .app { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #fff; font-size: 12px; }
+.homescreen canvas { width: 60px; height: 60px; border-radius: 14px; }
+.tab { display: flex; align-items: center; gap: 8px; background: #DEE1E6; border-radius: 10px 10px 0 0; padding: 8px 12px; width: 220px; font-size: 12px; color: #333; }
+.tab canvas { width: 16px; height: 16px; }
+
+/* 검산 */
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; }
+.box { background: var(--panel); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box h3 { font-size: 15px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 19px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--rule); }
+th { color: var(--ink-2); font-weight: 600; }
+.ok { color: var(--good); font-weight: 700; }
+.wn { color: var(--warn); font-weight: 700; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,.15); }
+.box ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 20px; display: flex; flex-direction: column; gap: 4px; }
+.tblx { overflow-x: auto; }
+.cmp { background: var(--panel); border-radius: 16px; overflow-x: auto; }
+.cmp table { min-width: 860px; font-size: 14px; line-height: 21px; }
+.cmp th, .cmp td { padding: 12px 14px; }
+.recbox { background: var(--panel); border-radius: 16px; padding: 22px; border-left: 6px solid var(--mark); display: flex; flex-direction: column; gap: 10px; }
+.recbox ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.foot { font-size: 13px; color: var(--ink-2); line-height: 20px; }
+
+/* 손글씨 자리표시 */
+.hand { font-family: var(--hand); font-weight: 400; letter-spacing: 0; }
+/* 안 B 가격 계단 */
+.stairs { display: flex; align-items: flex-end; gap: 6px; }
+.stairs .s { flex: 1; border-radius: 8px 8px 2px 2px; background: var(--app-border); color: var(--app-muted); display: flex; flex-direction: column; justify-content: flex-start; padding: 8px 10px; font-size: 14px; line-height: 20px; }
+.stairs .s.now { background: var(--app-accent); color: #fff; }
+.stairs .s b { font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="head">
+  <div class="eyebrow">DEV-311 · 브랜드 아이덴티티 재정비 · 2/2 방향</div>
+  <h1>세 방향을 같은 다섯 화면에 놓고 비교해요</h1>
+  <p class="lede">진단 보드(<a href="dev-311-brand-audit.html">dev-311-brand-audit.html</a>)의 14가지 어긋남을 고치는 방법은 색을 바꾸는 게 아니라 ‘이 서비스만 가진 것’ 하나를 정해 모든 접점이 그걸 말하게 하는 거예요. 세 안은 그 하나를 다르게 골랐어요: <b>A 팬클럽</b>(관계), <b>B 수확 시계</b>(시간), <b>C 산지 서명</b>(사람).</p>
+  <div class="meta"><span>예시 데이터: 디자인 README 시드(오늘 10월 7일 수, 강씨네 귤밭·하우스 감귤 5kg, 단계 가격 29,000 → 33,000 → 36,000, 받는 시기 11월 10일~20일, 37명 예약, 팔로워 128명)</span><span>프레임 폭 390</span></div>
+</header>
+
+<section class="fixed" aria-label="고정 조건">
+  <div><b>바꾸지 않는 것</b>이름 farmclub, 도메인 farmclub.kr·farm.farmclub.kr, Pretendard, 강조색 #C94F0C의 쓰임 규칙(화면당 한 곳)</div>
+  <div><b>바꾸는 범위</b>로고·워드마크 처리, 색 역할, 글자 톤, 문구 목소리, 사진 쓰는 법, 접점(공유 카드·앱 아이콘·파비콘·스플래시)</div>
+  <div><b>비교 화면</b>소비자 홈 상단 · 상품 상세 상단 · 로그인 · 카톡 말풍선 속 공유 카드 · 앱 아이콘·파비콘 16/32/180</div>
+  <div><b>현재 로고</b>팀 승인 작업(DEV-85·DEV-287). 안마다 유지 / 다듬기 / 교체 중 어디인지 밝혔어요. A는 원본 그대로예요.</div>
+</section>
+
+<section class="summary" aria-label="세 안 요약">
+  <div class="sum"><div class="k">A 팬클럽</div><span class="tag keep">현재 로고 유지</span><span class="tag rec">추천</span><p>로고의 ‘손잡이 위 귤’(응원봉)과 CLUB을 그대로 믿고, 화면·공유 카드·아이콘을 로고 쪽으로 맞춰요. 팔로워는 ‘팬’, 예약은 ‘n번째 예약’으로 관계를 보여 줘요.</p></div>
+  <div class="sum"><div class="k">B 수확 시계</div><span class="tag refine">현재 로고 다듬기</span><p>같은 글자 윤곽·같은 귤 그림에서 펠트 질감만 걷어 평면 2색으로. 정체성은 ‘수확까지 D-n’과 단계 가격 계단이 맡아요.</p></div>
+  <div class="sum"><div class="k">C 산지 서명</div><span class="tag swap">글자형 교체</span><p>앱 안 로고를 Pretendard 소문자 ‘farmclub.’로 바꾸고, 크게 보이는 자리는 농가의 얼굴·손·손글씨 서명에 내줘요. 현재 로고는 포장·굿즈 자리로 옮기는 안이에요.</p></div>
+</section>
+
+<!-- ============================ A ============================ -->
+<section class="dir" id="dir-a">
+  <div class="dir-head">
+    <div class="row"><h2>A 팬클럽</h2><span class="tag keep">현재 로고 유지 · 그림 0개 새로 그림</span><span class="tag rec">추천</span></div>
+    <p class="lede">로고가 이미 말하는 ‘농가의 팬클럽’을 기능 언어로 옮겨요. 팔로우·소식방·팬 답장(DEV-297)이 이미 있으니 새로 만드는 것보다 이름 붙이는 일이 많아요.</p>
+  </div>
+  <ol class="moves">
+    <li><span class="num">1</span><h3>로고는 원본 그대로, 접점이 로고를 따라와요</h3><p>승인 원본 4종 중 조합형·심볼만 써요. 소비자 로그인에도 생산자와 같은 DEV-85 배치(172×129, 제목 두 줄 오른쪽). 픽셀 수정 0.</p></li>
+    <li><span class="num">2</span><h3>주황은 역할로 나눠요</h3><p>로고 주황 #FB8F27은 그림 안에만. 글자·버튼은 지금 #C94F0C 그대로. 로고 손잡이 크림에서 뽑은 면색 <b>#FFF4E8</b> 하나를 더해 ‘팬·순번’ 영역에만 깔아요.</p></li>
+    <li><span class="num">3</span><h3>팔로워 → 팬, 예약 → n번째</h3><p>농가 줄 ‘팬 128명’, 상품 상단 ‘지금 예약하면 38번째예요’(예약 37명 + 1). 숫자만 22 굵게 주황, 나머지는 #111. 버튼 이름 ‘팔로우’는 그대로 둬요.</p></li>
+    <li><span class="num">4</span><h3>아이콘은 심볼만, 크림 바탕</h3><p>조합형 대신 승인 심볼(<code>logo-icon.png</code>)을 크림 바탕에 높이 86%로. 글자를 빼서 16px에서도 귤 원과 손잡이 대각선이 남아요. 생산자 앱은 올리브 #56652A 바탕으로 구별.</p></li>
+    <li><span class="num">5</span><h3>공유 카드도 같은 재료</h3><p>크림 바탕 + 조합형 + 농가 사진 원 + ‘팬 128명 · 37명 예약’. 사진 위에 글자를 얹지 않아 로고 질감과 사진이 싸우지 않아요.</p></li>
+    <li><span class="num">6</span><h3>이름은 글자로 쓸 때 ‘farmclub’ 하나</h3><p>그림 속 ‘FARM CLUB’은 그림이고, 글자(메타·대체 텍스트·관리자 alt·채팅 이름)는 모두 소문자 한 단어. ‘단계 가격’으로 용어도 하나.</p></li>
+  </ol>
+
+  <div class="rail">
+    <div class="cell"><span class="lbl">홈 상단</span>
+      <div class="phone" style="height:640px">
+        <div class="st"><span>9:41</span><span>●●●</span></div>
+        <div class="hd"><img src="DEV-311/assets/logo-wordmark.png" alt="FARM CLUB" style="width:130px;margin-left:-6px"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+        <div style="background:var(--cream);padding:16px 0 18px;margin-top:8px">
+          <div class="px" style="display:flex;justify-content:space-between;align-items:baseline"><span class="t18">내가 응원하는 농가</span><span class="t14 mut">전체</span></div>
+          <div style="display:flex;gap:16px;padding:12px 16px 0">
+            <div style="text-align:center;width:72px"><div class="av" style="width:64px;height:64px;margin:0 auto;background-image:url(../assets/farmer.jpg);box-shadow:0 0 0 2px #fff,0 0 0 4px #C94F0C"></div><div class="t12 sb" style="margin-top:6px">강씨네 귤밭</div><div class="t12 mut">새 소식</div></div>
+            <div style="text-align:center;width:72px"><div class="av" style="width:64px;height:64px;margin:0 auto;background-image:url(../assets/greenhouse.jpg)"></div><div class="t12 sb" style="margin-top:6px">효돈 하우스</div><div class="t12 mut">팬 86</div></div>
+            <div style="text-align:center;width:72px"><div class="av" style="width:64px;height:64px;margin:0 auto;background-image:url(../assets/branch.jpg)"></div><div class="t12 sb" style="margin-top:6px">한라네</div><div class="t12 mut">팬 54</div></div>
+          </div>
+        </div>
+        <div class="px" style="padding-top:24px;padding-bottom:12px"><span class="t18">제철 상품</span></div>
+        <div class="cards">
+          <div class="card"><div class="ph" style="background-image:url(../assets/greenhouse-aisle.jpg)"></div><div class="t14 mut" style="margin-top:8px">강씨네 귤밭 · 팬 128</div><div class="t16 sb">하우스 감귤 5kg</div><div class="t16 b">29,000원</div><div class="t12 acc sb">37명 예약 · 마감 D-5</div></div>
+          <div class="card"><div class="ph" style="background-image:url(../assets/orchard-crate.jpg)"></div><div class="t14 mut" style="margin-top:8px">남원 귤빛농원 · 팬 61</div><div class="t16 sb">조생 감귤 5kg</div><div class="t16 b">19,000원</div><div class="t12 acc sb">12명 예약 · 마감 D-2</div></div>
+        </div>
+        <div class="fade"></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">상품 상세 상단</span>
+      <div class="phone" style="height:640px">
+        <div class="photo" style="height:290px;background-image:url(../assets/greenhouse-aisle.jpg)"><span class="pbtn" style="left:16px"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><span class="pbtn" style="right:16px"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"/></svg></span></div>
+        <div class="farmrow"><div class="av" style="background-image:url(../assets/farmer.jpg)"></div><div style="flex:1"><div class="t16 sb">강씨네 귤밭</div><div class="t14 mut">제주 서귀포 · 팬 128명</div></div><span class="followbtn"><img src="DEV-311/assets/logo-icon.png" alt="" style="width:18px;height:18px;filter:brightness(0) invert(1)">팔로우</span></div>
+        <div class="hr"></div>
+        <div class="px" style="padding-top:16px"><div class="t22">하우스 감귤 5kg</div><div class="t16 mut">원산지 제주 서귀포</div></div>
+        <div style="margin:16px;background:var(--cream);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <img src="DEV-311/assets/logo-icon.png" alt="" style="width:34px">
+          <div><div class="t16">지금 예약하면 <span class="acc b" style="font-size:22px">38</span>번째예요</div><div class="t14 mut">37명이 먼저 예약했어요</div></div>
+        </div>
+        <div class="px"><div class="t16 sb">11월 10일~20일 도착 예정</div><div class="t14 mut">무료배송 · 마감 D-5</div></div>
+        <div class="opt" style="margin-top:14px"><div><div class="t16 sb">5kg</div><div class="t14 mut">42박스 남음</div></div><div class="t18">29,000원</div></div>
+        <div class="fade"></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">로그인</span>
+      <div class="phone" style="height:640px">
+        <div class="st"><span>9:41</span><span>●●●</span></div>
+        <div style="height:48px;padding:0 8px;display:flex;align-items:center"><svg class="ico" viewBox="0 0 24 24" style="margin:12px"><path d="M6 6l12 12M18 6 6 18"/></svg></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0">
+          <div style="font-size:30px;line-height:40px;font-weight:700;letter-spacing:-0.02em">로그인하고<br>계속해요</div>
+          <img src="DEV-311/assets/logo-full.png" alt="FARM CLUB" style="width:172px;transform:translate(-4px,-6px)">
+        </div>
+        <div class="px" style="padding-top:28px"><div class="btn kakao">카카오로 시작하기</div><p class="t14 mut" style="margin-top:12px">약관 동의와 연락처는 처음 가입할 때 한 번만 받아요</p></div>
+        <div style="margin:28px 16px 0;background:var(--cream);border-radius:16px;padding:14px 16px" class="t14">로그인하면 응원하는 농가의 새 소식을 소식방에서 받아요</div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">카톡 공유 카드</span>
+      <div class="kchat">
+        <div class="ktop">민지</div>
+        <div class="kmsg"><div class="kav"></div><div><div class="kname">민지</div><div class="kbub">이거 같이 예약할래?</div></div></div>
+        <div class="kmsg"><div class="kav" style="visibility:hidden"></div><div class="klink"><div class="kimg ogslot" data-og="og-a" data-w="250"></div><div class="kt">하우스 감귤 5kg · 강씨네 귤밭</div><div class="kd">지금 예약하면 38번째 · 11월 10일~20일 도착</div><div class="ku">farmclub.kr</div></div></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">앱 아이콘 · 파비콘</span>
+      <div class="iconpanel" data-icons="a"></div>
+    </div>
+  </div>
+
+  <div class="rail"><div class="cell"><span class="lbl">공유 카드 원본 1200×630 (½ 축소)</span><div class="ogslot og-big" data-og="og-a" data-w="600"></div></div><div class="cell"><span class="lbl">사이트 기본 공유 카드</span><div class="ogslot og-big" data-og="og-a-site" data-w="600"></div></div></div>
+
+  <div class="checks">
+    <div class="box"><h3>대비비 (WCAG 2.x)</h3><div class="tblx"><table>
+      <tr><th>글자 / 바탕</th><th>비</th><th>판정</th></tr>
+      <tr><td><span class="sw" style="background:#111"></span>#111 / <span class="sw" style="background:#FFF4E8"></span>#FFF4E8 크림</td><td>17.41</td><td class="ok">AAA</td></tr>
+      <tr><td>#6B6B6B 보조 / #FFF4E8</td><td>4.91</td><td class="ok">AA</td></tr>
+      <tr><td>#C94F0C 주황 / #FFF4E8</td><td>4.20</td><td class="wn">큰 글자만(22 굵게 숫자만)</td></tr>
+      <tr><td>흰 심볼 / #C94F0C 팔로우 버튼</td><td>4.56</td><td class="ok">비텍스트 3:1 통과</td></tr>
+      <tr><td>로고 FARM #97A15B · CLUB #FB8F27 / 흰</td><td>2.78 · 2.32</td><td>로고 예외(WCAG 1.4.3), 그대로 둠</td></tr>
+      <tr><td>생산자 아이콘 바탕 #56652A / 흰 화면</td><td>6.38</td><td class="ok">홈 화면에서 구별</td></tr>
+    </table></div></div>
+    <div class="box"><h3>작은 크기</h3><ul>
+      <li>16px: 귤 원이 약 9px, 손잡이 대각선 2~3px로 남아요. 지금(색 띠 두 줄)보다 형태가 읽혀요. 잎은 점 하나로 뭉개져요.</li>
+      <li>32px: 점박이 껍질 결은 사라지고 귤·잎·손잡이 세 덩어리. 크림 바탕이 흰 탭 바와 붙어 경계가 약해 1px 테두리 #F1E2CF가 필요할 수 있어요(기기 확인 전).</li>
+      <li>180px: 펠트 질감이 살아나는 크기. 글자가 없어 ‘farmclub’ 이름은 아이콘 아래 이름표가 맡아요.</li>
+      <li>홈 화면 글자형 130px은 지금 그대로 — 진단 3번(흐린 글자)은 이 안에서 남는 한계예요.</li>
+    </ul></div>
+    <div class="box"><h3>토큰 변화</h3><div class="tblx"><table>
+      <tr><th>토큰</th><th>지금</th><th>A</th></tr>
+      <tr><td><code>color.accent</code></td><td>#C94F0C</td><td>그대로</td></tr>
+      <tr><td><code>color.accentSoft</code> (새)</td><td>—</td><td>#FFF4E8 팬·순번 면만</td></tr>
+      <tr><td>manifest <code>background_color</code></td><td>#FFFFFF</td><td>#FFF4E8 (설치형 스플래시)</td></tr>
+      <tr><td>Android <code>adaptiveIcon.backgroundColor</code></td><td>#E6F4FE</td><td>#FFF4E8 / 생산자 #56652A</td></tr>
+      <tr><td>아이콘 원본</td><td>조합형 64% 폭</td><td>심볼 높이 86%</td></tr>
+      <tr><td>문구 ‘팔로워’ 표시</td><td>팔로워 128명</td><td>팬 128명</td></tr>
+    </table></div></div>
+    <div class="box"><h3>개발 범위 추정 (약 3~4일)</h3><ul>
+      <li>아이콘 재생성: <code>scripts/generate-brand-icons.mjs</code> 원본·비율·배경 인자 — 0.5일</li>
+      <li>공유 카드 정적 이미지 2장(소비자·생산자) + 메타 문구 통일 — 0.5일</li>
+      <li>소비자 로그인에 DEV-85 배치 재사용 — 0.5일</li>
+      <li><code>accentSoft</code> 토큰, 홈 ‘내가 응원하는 농가’ 줄, 상품 ‘n번째’ 상자(예약 수 <code>reservedCount</code> 이미 있음) — 1.5일</li>
+      <li>상품별 공유 카드(동적)는 후속 — 이 안은 정적 카드로 시작해도 돼요</li>
+      <li>스펙: <code>screens.md</code> 문구표, FEAT-06 팔로우 표시 이름 — 결정 필요</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============================ B ============================ -->
+<section class="dir" id="dir-b">
+  <div class="dir-head">
+    <div class="row"><h2>B 수확 시계</h2><span class="tag refine">현재 로고 다듬기 · 같은 윤곽, 질감만 걷음</span></div>
+    <p class="lede">farmclub에서만 사는 이유는 ‘수확 전에, 일찍 살수록 싸게’예요. 그 시간을 모든 접점의 같은 표식으로 만들어요. 로고는 승인된 글자 윤곽과 귤 그림을 그대로 쓰고, 작은 자리에서 흐려지는 펠트 질감만 평면으로 바꿔요.</p>
+  </div>
+  <ol class="moves">
+    <li><span class="num">1</span><h3>같은 로고, 평면 2색</h3><p>승인 원본의 알파(윤곽)를 그대로 두고 색만 채웠어요. FARM #56652A(6.38:1), CLUB #C94F0C(4.56:1, UI 강조와 같은 주황). 질감 원본은 로그인·공유 카드 큰 자리에 남겨요.</p></li>
+    <li><span class="num">2</span><h3>‘수확까지 D-n’이 첫 줄</h3><p>받는 시기 시작일까지 남은 날. 상품 사진 바로 아래 22/30 굵게, 카드에는 사진 왼쪽 아래 12 굵게. 오늘 10월 7일 → 11월 10일 = D-34.</p></li>
+    <li><span class="num">3</span><h3>단계 가격 계단</h3><p>세 단계를 막대 계단으로. 높이 = 가격 비례(29:33:36), 지금 칸만 주황, 아래 ‘10월 12일까지 이 가격 · 5일 남음’. 숫자 하나로 ‘왜 지금’에 답해요.</p></li>
+    <li><span class="num">4</span><h3>공유 카드 = 가격표</h3><p>상품 링크마다 계단 + D-n이 든 카드. 받은 사람이 앱을 열기 전에 오늘 가격과 다음 가격을 봐요. 사이트 기본 카드도 같은 틀.</p></li>
+    <li><span class="num">5</span><h3>아이콘은 평면 심볼</h3><p>평면 귤·잎·손잡이 3색 면. 16px에서 결이 없어 가장자리가 또렷해요. 생산자는 올리브 바탕.</p></li>
+    <li><span class="num">6</span><h3>로그인에도 오늘 가격</h3><p>예약하다 로그인으로 온 사람에게 고른 상품과 ‘10월 12일까지 이 가격’을 남겨 둬요. 로그인하는 사이 마감이 걱정되지 않게.</p></li>
+  </ol>
+
+  <div class="rail">
+    <div class="cell"><span class="lbl">홈 상단</span>
+      <div class="phone" style="height:640px">
+        <div class="st"><span>9:41</span><span>●●●</span></div>
+        <div class="hd"><img src="DEV-311/assets/b-wordmark-flat.png" alt="FARM CLUB" style="width:124px;margin-left:-6px"><div style="display:flex;align-items:center;gap:12px"><span class="t14 mut">10월 7일 수</span><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div></div>
+        <div class="px" style="padding-top:12px"><div class="t18">곧 수확해요</div></div>
+        <div style="padding:14px 16px 6px;position:relative">
+          <div style="position:relative;height:66px">
+            <div style="position:absolute;left:0;right:0;top:30px;height:2px;background:var(--app-border)"></div>
+            <div style="position:absolute;left:0;top:22px;width:2px;height:18px;background:#111"></div><div class="t12 b" style="position:absolute;left:0;top:44px">오늘</div>
+            <div class="t12 mut" style="position:absolute;left:30%;top:44px">11월</div><div class="t12 mut" style="position:absolute;left:78%;top:44px">12월</div>
+            <div style="position:absolute;left:26%;top:24px;width:14px;height:14px;border-radius:999px;background:#C94F0C"></div><div class="t12 sb" style="position:absolute;left:16%;top:0">남원 D-28</div>
+            <div style="position:absolute;left:36%;top:24px;width:14px;height:14px;border-radius:999px;background:#C94F0C"></div><div class="t12 sb acc" style="position:absolute;left:38%;top:0">강씨네 D-34</div>
+            <div style="position:absolute;left:62%;top:24px;width:14px;height:14px;border-radius:999px;background:#fff;border:2px solid #C94F0C"></div><div class="t12 sb" style="position:absolute;left:60%;top:0;white-space:nowrap">효돈 D-52</div>
+          </div>
+        </div>
+        <div class="px" style="padding-top:18px;padding-bottom:12px"><span class="t18">제철 상품</span></div>
+        <div class="cards">
+          <div class="card"><div class="ph" style="background-image:url(../assets/greenhouse-aisle.jpg)"><span class="t12 b" style="position:absolute;left:8px;bottom:8px;background:#111;color:#fff;border-radius:6px;padding:2px 6px">수확 D-34</span></div><div class="t14 mut" style="margin-top:8px">강씨네 귤밭</div><div class="t16 sb">하우스 감귤 5kg</div><div class="t16 b">29,000원 <span class="t12 mut" style="font-weight:400">→ 33,000</span></div><div class="t12 acc sb">10월 12일까지 이 가격</div></div>
+          <div class="card"><div class="ph" style="background-image:url(../assets/orchard-crate.jpg)"><span class="t12 b" style="position:absolute;left:8px;bottom:8px;background:#111;color:#fff;border-radius:6px;padding:2px 6px">수확 D-28</span></div><div class="t14 mut" style="margin-top:8px">남원 귤빛농원</div><div class="t16 sb">조생 감귤 5kg</div><div class="t16 b">19,000원 <span class="t12 mut" style="font-weight:400">→ 22,000</span></div><div class="t12 acc sb">10월 9일까지 이 가격</div></div>
+        </div>
+        <div class="fade"></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">상품 상세 상단</span>
+      <div class="phone" style="height:640px">
+        <div class="photo" style="height:260px;background-image:url(../assets/greenhouse-aisle.jpg)"><span class="pbtn" style="left:16px"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><span class="pbtn" style="right:16px"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"/></svg></span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px;border-bottom:1px solid var(--app-border)"><span class="t22">수확까지 34일</span><span class="t14 mut">11월 10일~20일 도착 예정</span></div>
+        <div class="px" style="padding-top:14px"><div class="t14 mut">강씨네 귤밭 · 제주 서귀포</div><div class="t22">하우스 감귤 5kg</div></div>
+        <div class="px" style="padding-top:16px">
+          <div class="stairs" style="height:128px">
+            <div class="s now" style="height:80.5%"><span class="t12">지금</span><b>29,000원</b></div>
+            <div class="s" style="height:91.6%"><span class="t12">10월 13일부터</span><b>33,000원</b></div>
+            <div class="s" style="height:100%"><span class="t12">11월 6일부터</span><b>36,000원</b></div>
+          </div>
+          <p class="t16" style="margin-top:12px"><b>10월 12일까지 이 가격</b> <span class="mut">· 5일 남음</span></p>
+          <p class="t14 mut">5kg · 42박스 남음 · 무료배송</p>
+        </div>
+        <div class="fade"></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">로그인</span>
+      <div class="phone" style="height:640px">
+        <div class="st"><span>9:41</span><span>●●●</span></div>
+        <div style="height:48px;padding:0 8px;display:flex;align-items:center"><svg class="ico" viewBox="0 0 24 24" style="margin:12px"><path d="M6 6l12 12M18 6 6 18"/></svg></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0">
+          <div style="font-size:30px;line-height:40px;font-weight:700;letter-spacing:-0.02em">로그인하고<br>계속해요</div>
+          <img src="DEV-311/assets/b-symbol-flat.png" alt="" style="width:92px">
+        </div>
+        <div style="margin:24px 16px 0;border:1px solid var(--app-border);border-radius:16px;padding:12px;display:flex;gap:12px;align-items:center">
+          <div style="width:56px;height:56px;border-radius:10px;background:url(../assets/greenhouse-aisle.jpg) center/cover"></div>
+          <div><div class="t16 sb">하우스 감귤 5kg × 1</div><div class="t14"><b>29,000원</b> <span class="mut">· 10월 12일까지 이 가격</span></div></div>
+        </div>
+        <div class="px" style="padding-top:20px"><div class="btn kakao">카카오로 시작하기</div><p class="t14 mut" style="margin-top:12px">로그인하고 바로 주문서로 돌아가요</p></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">카톡 공유 카드</span>
+      <div class="kchat">
+        <div class="ktop">민지</div>
+        <div class="kmsg"><div class="kav"></div><div><div class="kname">민지</div><div class="kbub">이거 같이 예약할래?</div></div></div>
+        <div class="kmsg"><div class="kav" style="visibility:hidden"></div><div class="klink"><div class="kimg ogslot" data-og="og-b" data-w="250"></div><div class="kt">하우스 감귤 5kg · 지금 29,000원</div><div class="kd">10월 12일까지 이 가격 · 수확까지 34일</div><div class="ku">farmclub.kr</div></div></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">앱 아이콘 · 파비콘</span>
+      <div class="iconpanel" data-icons="b"></div>
+    </div>
+  </div>
+
+  <div class="rail"><div class="cell"><span class="lbl">공유 카드 원본 1200×630 (½ 축소)</span><div class="ogslot og-big" data-og="og-b" data-w="600"></div></div><div class="cell"><span class="lbl">사이트 기본 공유 카드</span><div class="ogslot og-big" data-og="og-b-site" data-w="600"></div></div></div>
+
+  <div class="checks">
+    <div class="box"><h3>대비비 (WCAG 2.x)</h3><div class="tblx"><table>
+      <tr><th>글자 / 바탕</th><th>비</th><th>판정</th></tr>
+      <tr><td><span class="sw" style="background:#56652A"></span>FARM #56652A / 흰</td><td>6.38</td><td class="ok">AA (지금 2.78)</td></tr>
+      <tr><td><span class="sw" style="background:#C94F0C"></span>CLUB #C94F0C / 흰</td><td>4.56</td><td class="ok">AA (지금 2.32)</td></tr>
+      <tr><td>흰 / #C94F0C 지금 칸</td><td>4.56</td><td class="ok">16 굵게 이상(기존 규칙)</td></tr>
+      <tr><td>#6B6B6B / #E8E8E6 다음 칸</td><td>4.34</td><td class="wn">12px 라벨은 #555로(6.08)</td></tr>
+      <tr><td>흰 / #111 ‘수확 D-n’ 배지</td><td>18.88</td><td class="ok">AAA</td></tr>
+    </table></div></div>
+    <div class="box"><h3>작은 크기</h3><ul>
+      <li>16px: 평면이라 귤 원 가장자리가 한 픽셀로 또렷해요. 손잡이 크림 #F3E6D3은 흰 탭에서 거의 안 보여 귤 + 잎만 읽혀요 — 그래도 귤이에요.</li>
+      <li>32px: 귤·잎·손잡이·주황 점까지 구별.</li>
+      <li>헤더 글자형 124px: 평면 2색이라 FARM/CLUB 획 사이 틈이 살아나요(지금은 결 때문에 메워져 보임).</li>
+      <li>계단 막대 라벨 12px은 다음 칸 회색 위에서 대비가 낮아 글자색을 따로 둬야 해요(왼쪽 표).</li>
+    </ul></div>
+    <div class="box"><h3>토큰 변화</h3><div class="tblx"><table>
+      <tr><th>토큰</th><th>지금</th><th>B</th></tr>
+      <tr><td><code>color.accent</code></td><td>#C94F0C</td><td>그대로 (로고 CLUB도 이 색)</td></tr>
+      <tr><td><code>color.leaf</code> (새)</td><td>—</td><td>#56652A 로고·생산자 아이콘만</td></tr>
+      <tr><td><code>color.stairLabel</code> (새)</td><td>—</td><td>#555555</td></tr>
+      <tr><td>로고 <code>wordmark</code>·<code>icon</code></td><td>펠트 원본</td><td>평면본(같은 알파)</td></tr>
+      <tr><td>로고 <code>full</code></td><td>펠트 원본</td><td>그대로</td></tr>
+      <tr><td>Android 배경</td><td>#E6F4FE</td><td>#FFFFFF / 생산자 #56652A</td></tr>
+    </table></div></div>
+    <div class="box"><h3>개발 범위 추정 (약 5~6일)</h3><ul>
+      <li>평면 로고 2장 정식 출력(보드의 평면본은 시안, 디자이너 확인 필요) + 아이콘 재생성 — 1일</li>
+      <li>D-n 계산(받는 시기 시작일 − 오늘, 서버 시각 기준 DEV-229와 같은 방식) — 0.5일</li>
+      <li>가격 계단 부품(<code>packages/ui</code>), 홈 카드·상품 상단 — 1.5일</li>
+      <li>상품별 공유 카드 생성(이미지 함수 또는 서버 렌더, <code>vercel.json</code>은 고위험 경로) — 2~3일</li>
+      <li>스펙: 상품 상세 SCR-04 상단 구성, ‘단계 가격’ 용어 — 결정 필요</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============================ C ============================ -->
+<section class="dir" id="dir-c">
+  <div class="dir-head">
+    <div class="row"><h2>C 산지 서명</h2><span class="tag swap">앱 안 글자형 교체 · 현재 로고는 포장·굿즈로</span></div>
+    <p class="lede">브랜드를 작게, 농가를 크게. farmclub은 실제 활자(Pretendard ExtraBold)로 조용히 이름만 쓰고, 화면에서 가장 큰 자리는 농가의 얼굴·손·손글씨 서명이 차지해요. 현재 로고는 상자 스티커·현장 배너처럼 손에 닿는 자리에서 더 잘 살아요 — 앱 안에서만 물러나요.</p>
+  </div>
+  <ol class="moves">
+    <li><span class="num">1</span><h3>글자형 ‘farmclub.’</h3><p>Pretendard ExtraBold(800) 소문자, 자간 -0.045em, 마침표만 #C94F0C. 10월 공유 카드에서 쓰던 형태를 다듬어 이름 표기를 하나로. 후보는 아래 두 개만 크기별로 걸렀어요.</p></li>
+    <li><span class="num">2</span><h3>농가 서명</h3><p>가입 신청 때 농가가 손가락으로 쓴 이름(SVG 획)을 상품 첫 사진, 소식 끝, 공유 카드에 얹어요. 보드의 손글씨는 나눔손글씨 펜 자리표시예요.</p></li>
+    <li><span class="num">3</span><h3>첫 사진은 사람</h3><p>사진 순서 규칙: 1장 손·얼굴 → 2장 나무 → 3장 과일. 상품 등록 사진 칸 위 안내 한 줄 ‘첫 장은 따는 손이나 얼굴이 좋아요’.</p></li>
+    <li><span class="num">4</span><h3>제목은 농가의 한 문장</h3><p>소식에서 농가가 쓴 문장 하나를 상품·공유 카드의 큰 글자로(원문 그대로, AI 다듬기 없음). 없으면 상품명만.</p></li>
+    <li><span class="num">5</span><h3>색을 줄여요</h3><p>무채 + #C94F0C 하나. 로고의 올리브·밝은 주황은 앱 화면에서 빠져요. 색은 사진이 내요.</p></li>
+    <li><span class="num">6</span><h3>아이콘 ‘f.’</h3><p>소문자 f + 주황 마침표. 16px에서 f 세로획 2px. 생산자 앱은 검정 바탕 반전.</p></li>
+  </ol>
+
+  <div class="rail">
+    <div class="cell"><span class="lbl">홈 상단</span>
+      <div class="phone" style="height:640px">
+        <div class="st"><span>9:41</span><span>●●●</span></div>
+        <div class="hd"><span style="font-size:26px;font-weight:800;letter-spacing:-0.045em">farmclub<span class="acc">.</span></span><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+        <div class="px" style="padding-top:8px"><div class="t18">농가가 보낸 한 줄</div></div>
+        <div style="margin:12px 16px 0;border-radius:16px;overflow:hidden;position:relative;height:236px;background:url(../assets/farmer.jpg) center/cover">
+          <div style="position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.55))"></div>
+          <div class="hand" style="position:absolute;left:16px;right:16px;bottom:44px;color:#fff;font-size:34px;line-height:36px">올해는 비가 적어서 달아요</div>
+          <div class="t14" style="position:absolute;left:16px;bottom:16px;color:#fff;opacity:.9">강씨네 귤밭 · 10월 5일</div>
+          <div class="hand" style="position:absolute;right:16px;bottom:12px;color:#fff;font-size:26px">강씨네</div>
+        </div>
+        <div class="px" style="padding-top:22px;padding-bottom:12px"><span class="t18">제철 상품</span></div>
+        <div class="cards">
+          <div class="card"><div class="ph" style="background-image:url(../assets/harvest-hand.jpg)"></div><div class="t14 mut" style="margin-top:8px">강씨네 귤밭</div><div class="t16 sb">하우스 감귤 5kg</div><div class="t16 b">29,000원</div></div>
+          <div class="card"><div class="ph" style="background-image:url(../assets/basket.jpg)"></div><div class="t14 mut" style="margin-top:8px">남원 귤빛농원</div><div class="t16 sb">조생 감귤 5kg</div><div class="t16 b">19,000원</div></div>
+        </div>
+        <div class="fade"></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">상품 상세 상단</span>
+      <div class="phone" style="height:640px">
+        <div class="photo" style="height:300px;background-image:url(../assets/harvest-hand.jpg)"><span class="pbtn" style="left:16px"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><span class="pbtn" style="right:16px"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"/></svg></span>
+          <div style="position:absolute;inset:auto 0 0 0;height:90px;background:linear-gradient(transparent,rgba(0,0,0,.5))"></div>
+          <div class="hand" style="position:absolute;left:16px;bottom:10px;color:#fff;font-size:30px">강씨네 귤밭</div><div class="t12" style="position:absolute;right:16px;bottom:16px;color:#fff">1/4</div></div>
+        <div class="farmrow"><div class="av" style="background-image:url(../assets/farmer.jpg)"></div><div style="flex:1"><div class="t16 sb">강씨네 귤밭</div><div class="t14 mut">제주 서귀포 · 팔로워 128명</div></div><span class="followbtn">팔로우</span></div>
+        <div class="hr"></div>
+        <div class="px" style="padding-top:16px"><div class="t22">하우스 감귤 5kg</div><div class="t16 mut">원산지 제주 서귀포</div></div>
+        <div style="margin:14px 16px 0;padding-left:14px;border-left:3px solid #111">
+          <div class="hand" style="font-size:28px;line-height:32px">11월 10일부터 따요. 딴 날 바로 보내요.</div>
+          <div class="t14 mut" style="margin-top:4px">강씨네 귤밭 10월 5일 소식에서</div>
+        </div>
+        <div class="opt" style="margin-top:16px"><div><div class="t16 sb">5kg</div><div class="t14 mut">11월 10일~20일 도착 예정</div></div><div class="t18">29,000원</div></div>
+        <div class="fade"></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">로그인</span>
+      <div class="phone" style="height:640px">
+        <div class="st"><span>9:41</span><span>●●●</span></div>
+        <div style="height:48px;padding:0 8px;display:flex;align-items:center"><svg class="ico" viewBox="0 0 24 24" style="margin:12px"><path d="M6 6l12 12M18 6 6 18"/></svg></div>
+        <div class="px" style="padding-top:8px"><span style="font-size:22px;font-weight:800;letter-spacing:-0.045em">farmclub<span class="acc">.</span></span>
+          <div style="font-size:30px;line-height:40px;font-weight:700;letter-spacing:-0.02em;margin-top:18px">로그인하고<br>계속해요</div></div>
+        <div class="px" style="padding-top:22px;display:flex;align-items:center;gap:12px">
+          <div style="display:flex"><div class="av" style="width:40px;height:40px;background-image:url(../assets/farmer.jpg);box-shadow:0 0 0 2px #fff"></div><div class="av" style="width:40px;height:40px;margin-left:-10px;background-image:url(../assets/harvest-hand.jpg);box-shadow:0 0 0 2px #fff"></div><div class="av" style="width:40px;height:40px;margin-left:-10px;background-image:url(../assets/branch.jpg);box-shadow:0 0 0 2px #fff"></div></div>
+          <span class="t14 mut">농가가 직접 따서 보내요</span></div>
+        <div class="px" style="padding-top:24px"><div class="btn kakao">카카오로 시작하기</div><p class="t14 mut" style="margin-top:12px">약관 동의와 연락처는 처음 가입할 때 한 번만 받아요</p></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">카톡 공유 카드</span>
+      <div class="kchat">
+        <div class="ktop">민지</div>
+        <div class="kmsg"><div class="kav"></div><div><div class="kname">민지</div><div class="kbub">이거 같이 예약할래?</div></div></div>
+        <div class="kmsg"><div class="kav" style="visibility:hidden"></div><div class="klink"><div class="kimg ogslot" data-og="og-c" data-w="250"></div><div class="kt">“올해는 비가 적어서 달아요”</div><div class="kd">강씨네 귤밭 · 하우스 감귤 5kg 예약 중</div><div class="ku">farmclub.kr</div></div></div>
+      </div>
+    </div>
+    <div class="cell"><span class="lbl">앱 아이콘 · 파비콘</span>
+      <div class="iconpanel" data-icons="c"></div>
+    </div>
+  </div>
+
+  <div class="rail"><div class="cell"><span class="lbl">공유 카드 원본 1200×630 (½ 축소)</span><div class="ogslot og-big" data-og="og-c" data-w="600"></div></div>
+    <div class="cell"><span class="lbl">글자형 후보 크기별 렌더 (실제 활자)</span>
+      <div class="box" style="width:600px">
+        <table>
+          <tr><th></th><th>12px</th><th>16px</th><th>24px</th><th>44px</th></tr>
+          <tr><td class="t12">C-1 800 · -0.045em · 주황 마침표</td>
+            <td><span style="font-size:12px;font-weight:800;letter-spacing:-0.045em">farmclub<span style="color:#C94F0C">.</span></span></td>
+            <td><span style="font-size:16px;font-weight:800;letter-spacing:-0.045em">farmclub<span style="color:#C94F0C">.</span></span></td>
+            <td><span style="font-size:24px;font-weight:800;letter-spacing:-0.045em">farmclub<span style="color:#C94F0C">.</span></span></td>
+            <td><span style="font-size:44px;line-height:48px;font-weight:800;letter-spacing:-0.045em">farmclub<span style="color:#C94F0C">.</span></span></td></tr>
+          <tr><td class="t12">C-2 700 · -0.02em · 마침표 없음</td>
+            <td><span style="font-size:12px;font-weight:700;letter-spacing:-0.02em">farmclub</span></td>
+            <td><span style="font-size:16px;font-weight:700;letter-spacing:-0.02em">farmclub</span></td>
+            <td><span style="font-size:24px;font-weight:700;letter-spacing:-0.02em">farmclub</span></td>
+            <td><span style="font-size:44px;line-height:48px;font-weight:700;letter-spacing:-0.02em">farmclub</span></td></tr>
+        </table>
+        <p class="t12" style="color:var(--ink-2)">C-1을 써요. C-2는 12~16px에서 본문 글자와 구별이 안 돼요(굵기 700이 앱 제목과 같음). C-1의 마침표는 12px에서 2px 점이라 색이 약하지만 이름은 읽혀요. 기하 도형·새 심볼 없이 활자만 썼어요.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="checks">
+    <div class="box"><h3>대비비 (WCAG 2.x)</h3><div class="tblx"><table>
+      <tr><th>글자 / 바탕</th><th>비</th><th>판정</th></tr>
+      <tr><td>#111 글자형 / 흰</td><td>18.88</td><td class="ok">AAA</td></tr>
+      <tr><td>#C94F0C 마침표 / 흰</td><td>4.56</td><td class="ok">비텍스트 3:1 통과</td></tr>
+      <tr><td>흰 / #111 생산자 아이콘</td><td>18.88</td><td class="ok">AAA</td></tr>
+      <tr><td>흰 손글씨 / 사진 + 검정 55% 그라데이션</td><td>약 5~9</td><td class="wn">추정 — 밝은 사진에서 확인 필요</td></tr>
+    </table></div></div>
+    <div class="box"><h3>작은 크기</h3><ul>
+      <li>16px ‘f.’: f 세로획 2px, 가로획 1px. 귤이 없어 무엇을 파는지는 아이콘이 말하지 않아요(이름표에 의존).</li>
+      <li>32px: f 형태 또렷, 마침표 4px.</li>
+      <li>손글씨 서명은 28px 아래로 쓰지 않아요 — 실제 농가 서명은 획 굵기가 제각각이라 최소 크기 확인이 필요해요.</li>
+    </ul></div>
+    <div class="box"><h3>토큰 변화</h3><div class="tblx"><table>
+      <tr><th>토큰</th><th>지금</th><th>C</th></tr>
+      <tr><td><code>BrandLogo</code> wordmark·icon·full</td><td>펠트 원본 PNG</td><td>‘farmclub.’ SVG 1종 + ‘f.’ 아이콘</td></tr>
+      <tr><td><code>fontWeight.extrabold</code> (새)</td><td>—</td><td>800 (글자형만)</td></tr>
+      <tr><td><code>photoScrim</code> (새)</td><td>—</td><td>검정 0 → 55% 그라데이션</td></tr>
+      <tr><td>올리브·밝은 주황</td><td>로고 안</td><td>앱에서 빠짐</td></tr>
+      <tr><td>Android 배경</td><td>#E6F4FE</td><td>#FFFFFF / 생산자 #111111</td></tr>
+    </table></div></div>
+    <div class="box"><h3>개발 범위 추정 (약 6~7일 + 팀 합의)</h3><ul>
+      <li>글자형 SVG·아이콘·<code>BrandLogo</code> 교체(사용처 6곳, 관리자 포함) — 1일</li>
+      <li>생산자 가입 신청에 서명 입력·저장(R2, 모델 필드 → 고위험 경로) — 2~3일</li>
+      <li>사진 순서 안내·상품 첫 장 서명 겹치기 — 1일</li>
+      <li>소식 문장 고르기(농가가 상품에 한 문장 지정) + 공유 카드 — 2일</li>
+      <li>DEV-85·DEV-287 승인 결과를 앱 안에서 거두는 결정이라 팀 합의가 먼저예요</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============================ 비교·추천 ============================ -->
+<section class="dir" id="compare">
+  <h2>나란히 보면</h2>
+  <div class="cmp"><table>
+    <tr><th></th><th>A 팬클럽</th><th>B 수확 시계</th><th>C 산지 서명</th></tr>
+    <tr><td><b>로고</b></td><td>유지 (원본 그대로)</td><td>다듬기 (같은 윤곽, 평면 2색)</td><td>앱 안 교체 (활자 글자형)</td></tr>
+    <tr><td><b>정체성 메커니즘</b></td><td>관계: 팬 n명, n번째 예약</td><td>시간: 수확 D-n, 가격 계단</td><td>사람: 서명, 첫 사진, 농가 한 문장</td></tr>
+    <tr><td><b>진단 14개 중 해결</b></td><td>1·2·5·6·7·8·9·10·11·12 (10개)<br>남음: 3 흐린 글자, 4 재료, 13·14 사진</td><td>1·2·3·4·5·6·7·8·9·11·12 (11개)<br>남음: 10은 부분, 13·14 사진</td><td>1·2·3·4·5·6·7·8·9·10·11·12·13·14 (14개)</td></tr>
+    <tr><td><b>새로 필요한 데이터</b></td><td>없음 (팔로워 수·예약 수 있음)</td><td>없음 (단계·받는 시기 있음), 동적 공유 카드</td><td>농가 서명, 상품별 대표 문장</td></tr>
+    <tr><td><b>개발</b></td><td>약 3~4일, 고위험 경로 없음</td><td>약 5~6일, 공유 카드에서 <code>vercel.json</code> 가능</td><td>약 6~7일, 모델·마이그레이션</td></tr>
+    <tr><td><b>위험</b></td><td>‘팬’이라는 말이 어색할 수 있음, 흐린 로고 글자는 그대로</td><td>D-n이 늘 남아 있어 수확 뒤(D+) 표시 규칙이 필요</td><td>팀 승인 로고를 앱에서 거둠, 농가가 서명·사진을 안 채우면 빈 화면</td></tr>
+  </table></div>
+
+  <div class="recbox">
+    <div class="row" style="display:flex;gap:10px;align-items:center"><span class="tag rec">추천</span><h3>A 팬클럽</h3></div>
+    <ol>
+      <li><b>팀이 10월 19일 승인하고 11월 9일 아이콘까지 적용한 로고를 그대로 살려요.</b> 어긋남의 원인은 로고가 아니라 로고를 따라오지 않은 접점(공유 카드·아이콘·소비자 로그인·이름 표기)이라서, 접점을 맞추는 게 가장 직접적인 해결이에요.</li>
+      <li><b>메커니즘이 이미 제품 안에 있어요.</b> 팔로우·소식방·팬 답장(DEV-297)이 ‘농가의 팬클럽’이고, 로고의 손잡이 위 귤이 그걸 그림으로 말해요. 새 데이터 없이 이름과 자리만 바꾸면 돼요.</li>
+      <li><b>가장 싸고 되돌리기 쉬워요.</b> 약 3~4일, 고위험 경로 없음. 아이콘·공유 카드·로그인은 서로 독립이라 하나씩 머지할 수 있어요.</li>
+    </ol>
+    <p class="foot">B의 가격 계단(3번 무브)은 A와 부딪히지 않아서 A 뒤에 따로 붙일 수 있어요. 남는 한계(진단 3번 흐린 로고 글자)는 A 안에서는 고치지 않아요 — 로고를 만든 팀원과 B의 평면본을 같이 보는 자리를 후속으로 제안해요.</p>
+  </div>
+  <p class="foot">수치 출처: 대비비는 WCAG 2.x 상대 휘도 공식, 로고 원래 색은 승인 PNG 불투명 픽셀 평균. 평면본(<code>b-*-flat.png</code>)은 승인 원본의 알파를 그대로 쓰고 색만 칠한 시안이라 윤곽 손질(잎 꼭지 이음매)은 하지 않았어요. 손글씨는 나눔손글씨 펜(Google Fonts) 자리표시예요. 사진은 <code>docs/design/assets</code>의 자리표시 사진이에요.</p>
+</section>
+
+</div>
+
+<!-- 공유 카드 원본(1200×630). 슬롯(data-og)에 복제해 축소한다. -->
+<div hidden id="og-src">
+  <div class="og" id="og-a" style="background:#FFF4E8">
+    <img src="DEV-311/assets/logo-full.png" alt="" style="position:absolute;left:56px;top:150px;width:460px">
+    <div style="position:absolute;left:600px;top:96px;right:64px">
+      <div style="display:flex;align-items:center;gap:24px"><div style="width:120px;height:120px;border-radius:999px;background:url(../assets/farmer.jpg) center/cover;box-shadow:0 0 0 6px #fff,0 0 0 12px #C94F0C"></div><div><div style="font-size:44px;font-weight:700;line-height:56px">강씨네 귤밭</div><div style="font-size:32px;color:#6B6B6B;line-height:44px">제주 서귀포 · 팬 128명</div></div></div>
+      <div style="font-size:64px;font-weight:800;letter-spacing:-0.02em;line-height:80px;margin-top:56px">하우스 감귤 5kg</div>
+      <div style="font-size:40px;line-height:56px;margin-top:12px">지금 예약하면 <b style="color:#C94F0C;font-size:56px">38</b>번째예요</div>
+    </div>
+  </div>
+  <div class="og" id="og-a-site" style="background:#FFF4E8">
+    <img src="DEV-311/assets/logo-full.png" alt="" style="position:absolute;left:56px;top:150px;width:460px">
+    <div style="position:absolute;left:600px;top:170px;right:64px">
+      <div style="font-size:64px;font-weight:800;letter-spacing:-0.02em;line-height:84px">좋아하는 농가를<br>수확 전에 예약해요</div>
+      <div style="font-size:36px;color:#6B6B6B;line-height:52px;margin-top:24px">단계 가격 · 일찍 예약할수록 싸요</div>
+    </div>
+  </div>
+  <div class="og" id="og-b" style="background:#fff">
+    <div style="position:absolute;right:0;top:0;width:480px;height:630px;background:url(../assets/greenhouse-aisle.jpg) center/cover"></div>
+    <img src="DEV-311/assets/b-wordmark-flat.png" alt="" style="position:absolute;left:64px;top:52px;width:230px">
+    <div style="position:absolute;left:64px;top:150px;width:600px">
+      <div style="font-size:30px;color:#6B6B6B">강씨네 귤밭 · 수확까지 34일</div>
+      <div style="font-size:60px;font-weight:800;letter-spacing:-0.02em;line-height:76px">하우스 감귤 5kg</div>
+      <div class="stairs" style="height:230px;margin-top:22px;gap:12px">
+        <div class="s now" style="height:80.5%;border-radius:14px 14px 4px 4px;padding:16px 18px;font-size:26px;line-height:34px"><span>지금</span><b style="font-size:38px">29,000</b></div>
+        <div class="s" style="height:91.6%;border-radius:14px 14px 4px 4px;padding:16px 18px;font-size:26px;line-height:34px;color:#555"><span>10/13~</span><b style="font-size:38px">33,000</b></div>
+        <div class="s" style="height:100%;border-radius:14px 14px 4px 4px;padding:16px 18px;font-size:26px;line-height:34px;color:#555"><span>11/6~</span><b style="font-size:38px">36,000</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="og" id="og-b-site" style="background:#fff">
+    <img src="DEV-311/assets/b-symbol-flat.png" alt="" style="position:absolute;right:80px;top:110px;width:330px">
+    <img src="DEV-311/assets/b-wordmark-flat.png" alt="" style="position:absolute;left:64px;top:64px;width:280px">
+    <div style="position:absolute;left:64px;top:210px;width:680px">
+      <div style="font-size:66px;font-weight:800;letter-spacing:-0.02em;line-height:84px">수확 전에 예약할수록<br>싸요</div>
+      <div class="stairs" style="height:150px;margin-top:30px;gap:10px;width:420px"><div class="s now" style="height:60%"></div><div class="s" style="height:80%"></div><div class="s" style="height:100%"></div></div>
+    </div>
+  </div>
+  <div class="og" id="og-c" style="background:#fff">
+    <div style="position:absolute;left:0;top:0;width:660px;height:630px;background:url(../assets/farmer.jpg) center/cover"></div>
+    <div style="position:absolute;left:720px;top:90px;right:56px">
+      <div class="hand" style="font-size:116px;line-height:112px">올해는 비가 적어서 달아요</div>
+      <div class="hand" style="font-size:68px;margin-top:20px;text-align:right">강씨네 귤밭</div>
+      <div style="font-size:28px;color:#6B6B6B;margin-top:40px">하우스 감귤 5kg 예약 중</div>
+      <div style="font-size:40px;font-weight:800;letter-spacing:-0.045em;margin-top:18px">farmclub<span style="color:#C94F0C">.</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 공유 카드: 원본을 복제해 슬롯 폭에 맞춰 축소
+document.querySelectorAll('[data-og]').forEach(slot => {
+  const src = document.getElementById(slot.dataset.og);
+  const w = +slot.dataset.w; const s = w / 1200;
+  const c = src.cloneNode(true); c.removeAttribute('id');
+  c.style.transform = `scale(${s})`; c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0';
+  slot.style.width = w + 'px'; slot.style.height = Math.round(630 * s) + 'px';
+  slot.appendChild(c);
+});
+
+// 아이콘: 실제 픽셀 크기로 캔버스에 그린 뒤 키워 보인다(16·32는 픽셀 그대로 확대)
+const imgs = {};
+function load(src) { return imgs[src] ??= new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
+const specs = {
+  now: { bg: '#FFFFFF', img: 'DEV-311/assets/logo-full.png', fit: 'width', k: 0.64 },
+  a:   { bg: '#FFF4E8', img: 'DEV-311/assets/logo-icon.png', fit: 'height', k: 0.86 },
+  ap:  { bg: '#56652A', img: 'DEV-311/assets/logo-icon.png', fit: 'height', k: 0.86 },
+  b:   { bg: '#FFFFFF', img: 'DEV-311/assets/b-symbol-flat.png', fit: 'height', k: 0.86 },
+  bp:  { bg: '#56652A', img: 'DEV-311/assets/b-symbol-flat.png', fit: 'height', k: 0.86 },
+  c:   { bg: '#FFFFFF', text: '#111111', dot: '#C94F0C' },
+  cp:  { bg: '#111111', text: '#FFFFFF', dot: '#E8792A' },
+};
+async function draw(canvas, key, size) {
+  const sp = specs[key]; canvas.width = canvas.height = size; const x = canvas.getContext('2d');
+  x.fillStyle = sp.bg; x.fillRect(0, 0, size, size); x.imageSmoothingQuality = 'high';
+  if (sp.img) {
+    const im = await load(sp.img); if (!im) return;
+    let w, h; if (sp.fit === 'width') { w = size * sp.k; h = w * im.naturalHeight / im.naturalWidth; } else { h = size * sp.k; w = h * im.naturalWidth / im.naturalHeight; }
+    x.drawImage(im, (size - w) / 2, (size - h) / 2, w, h);
+  } else {
+    const fs = Math.round(size * 0.82);
+    x.font = `800 ${fs}px "Pretendard Variable", Pretendard, sans-serif`; x.textBaseline = 'alphabetic';
+    const fw = x.measureText('f').width; const dotR = Math.max(1, size * 0.07);
+    const total = fw + dotR * 2 + size * 0.02; const left = (size - total) / 2; const base = size * 0.80;
+    x.fillStyle = sp.text; x.fillText('f', left, base);
+    x.fillStyle = sp.dot; x.beginPath(); x.arc(left + fw + size * 0.02 + dotR, base - dotR, dotR, 0, Math.PI * 2); x.fill();
+  }
+}
+function cell(label, el) { const d = document.createElement('div'); d.className = 'icell'; d.append(el); const s = document.createElement('span'); s.textContent = label; d.append(s); return d; }
+function cv(cls, w) { const c = document.createElement('canvas'); if (cls) c.className = cls; if (w) { c.style.width = w + 'px'; c.style.height = w + 'px'; } return c; }
+async function panel(el, key) {
+  const pk = key + 'p';
+  const h = (t) => { const p = document.createElement('div'); p.className = 't12'; p.style.cssText = 'font-weight:700;color:var(--ink-2)'; p.textContent = t; return p; };
+  const rows = [];
+  for (const k of ['now', key]) {
+    const r = document.createElement('div'); r.className = 'irow';
+    const c16 = cv('zoom', 64), c32 = cv('zoom', 64), c16a = cv('', 16), c180 = cv('', 90);
+    c180.style.borderRadius = '20px'; c180.style.border = '1px solid var(--rule)';
+    await draw(c16, k, 16); await draw(c32, k, 32); await draw(c16a, k, 16); await draw(c180, k, 180);
+    r.append(cell('16 ×4', c16), cell('32 ×2', c32), cell('16 실제', c16a), cell('180 (½)', c180));
+    rows.push([k === 'now' ? '지금' : '이 안', r]);
+  }
+  for (const [t, r] of rows) { el.append(h(t)); el.append(r); }
+  // 홈 화면: 소비자·생산자 나란히
+  el.append(h('홈 화면 (소비자 · 생산자)'));
+  const hs = document.createElement('div'); hs.className = 'homescreen';
+  for (const [k, name] of [[key, 'farmclub'], [pk, 'farmclub 농가'], ['now', '지금 두 앱']]) {
+    const a = document.createElement('div'); a.className = 'app'; const c = cv('', 0); await draw(c, k, 180); a.append(c); const s = document.createElement('span'); s.textContent = name; a.append(s); hs.append(a);
+  }
+  el.append(hs);
+  el.append(h('브라우저 탭'));
+  const tab = document.createElement('div'); tab.className = 'tab'; const tc = cv('', 0); await draw(tc, key, 32); tab.append(tc); const ts = document.createElement('span'); ts.textContent = 'farmclub · 수확 전에 예약…'; tab.append(ts); el.append(tab);
+}
+(async () => {
+  try { await document.fonts.load('800 26px "Pretendard Variable"'); await document.fonts.load('28px "Nanum Pen Script"'); } catch (e) {}
+  for (const el of document.querySelectorAll('[data-icons]')) await panel(el, el.dataset.icons);
+  document.documentElement.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>
