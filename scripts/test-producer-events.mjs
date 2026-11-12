@@ -95,6 +95,10 @@ test("DEV-312: connection, server and conflict failures are not counted as error
     assert.equal(isServerTrouble(e), false, reason);
     assert.equal(serverErrorCode(e), "quantity_invalid", reason);
   }
+  // 입금 계좌가 없어 판매 요청이 막힌 409도 생산자가 고칠 안내라 센다
+  const noAccount = { status: 409, details: { reason: "NO_FARM_ACCOUNT" } };
+  assert.equal(isServerTrouble(noAccount), false);
+  assert.equal(serverErrorCode(noAccount), "deposit_account_required");
   assert.equal(isServerTrouble({ status: 409, details: { reason: "STALE_VERSION" } }), true);
 });
 

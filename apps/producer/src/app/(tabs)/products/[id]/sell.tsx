@@ -249,7 +249,7 @@ export default function Sell() {
   }
 
   function failure(e: unknown) {
-    // 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312). 연결·서버·충돌 실패는 세지 않는다
+    // 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312). 연결·서버·충돌 실패(생산자가 고칠 409 제외)는 세지 않는다
     if (!isServerTrouble(e))
       track("form_error_shown", { screen: "product_sell", code: serverErrorCode(e) });
     if (e instanceof ApiError && e.details.reason === "NO_FARM_ACCOUNT") {

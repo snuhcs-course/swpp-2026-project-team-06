@@ -72,7 +72,7 @@ export const SELL_FIELD_GROUPS: Record<string, string> = {
 export function serverErrorCode(error: unknown): FormErrorCode {
   const e = (error ?? {}) as ErrorLike;
   if (e.details?.reason === "NO_FARM_ACCOUNT") return "deposit_account_required";
-  if (isInputConflict(error)) return "quantity_invalid";
+  if (isFixableConflict(error)) return "quantity_invalid";
   const fields = Object.keys(e.details?.fields ?? {});
   if (fields.includes("variety")) return "variety_required";
   for (const f of fields)
@@ -116,22 +116,22 @@ export function replyKind(
 
 /**
  * 화면에 안내가 보이지만 입력 문제가 아닌 실패(연결 끊김·서버 오류·이미 바뀐 상태 409)인지.
- * 판매 한도 거절 409(`isInputConflict`)는 입력 문제라 false.
+ * 생산자가 고칠 수 있는 409(`isFixableConflict`: 판매 한도 거절, 입금 계좌 없음)는 false.
  * 이런 실패는 `form_error_shown`으로 세지 않는다(오류 안내 지표는 생산자가 고칠 수 있는 안내만).
  */
 export function isServerTrouble(error: unknown): boolean {
   const status = (error as { status?: unknown } | null)?.status;
   if (typeof status !== "number") return error instanceof TypeError;
-  if (isInputConflict(error)) return false;
+  if (isFixableConflict(error)) return false;
   return status === 0 || status === 409 || status >= 500;
 }
 
 /**
- * 409이지만 생산자가 입력을 고치면 되는 거절(server/app/catalog/service.py 판매 한도 검사):
- * 판매 한도가 승인 물량을 넘음 · 이미 예약·출하한 물량보다 작음. 오류 안내로 센다.
+ * 409이지만 생산자가 고치면 되는 거절(server/app/catalog/service.py): 판매 한도가 승인 물량을 넘음 ·
+ * 이미 예약·출하한 물량보다 작음 · 입금 계좌가 없어 판매 요청이 막힘. 오류 안내로 센다.
  */
-const INPUT_CONFLICTS = ["APPROVED_CAP_EXCEEDED", "CAP_BELOW_COMMITTED"];
-function isInputConflict(error: unknown): boolean {
+const FIXABLE_CONFLICTS = ["APPROVED_CAP_EXCEEDED", "CAP_BELOW_COMMITTED", "NO_FARM_ACCOUNT"];
+function isFixableConflict(error: unknown): boolean {
   const reason = (error as ErrorLike | null)?.details?.reason;
-  return typeof reason === "string" && INPUT_CONFLICTS.includes(reason);
+  return typeof reason === "string" && FIXABLE_CONFLICTS.includes(reason);
 }

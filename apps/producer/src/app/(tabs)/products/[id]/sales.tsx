@@ -70,7 +70,7 @@ export default function Sales() {
   /**
    * 저장·신청에서 생산자에게 보인 오류 안내. 위치·종류만 보낸다(글자 없음, DEV-312).
    * 화면 검사(kg·박스 수, ApiError가 아닌 Error)는 quantity_invalid, 연결·서버·충돌 실패는 세지 않는다
-   * (판매 한도 거절 409는 serverErrorCode가 quantity_invalid로 센다).
+   * (생산자가 고칠 409 — 판매 한도 거절은 quantity_invalid, 입금 계좌 없음은 deposit_account_required — 는 센다).
    */
   function shownFailure(e: unknown) {
     if (e instanceof Error && !(e instanceof ApiError) && !(e instanceof TypeError))
