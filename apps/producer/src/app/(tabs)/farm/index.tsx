@@ -237,13 +237,14 @@ export default function Farm() {
                   value={data.intro || "소개를 적어 주세요"}
                   onPress={() => router.push("/farm/edit/intro")}
                 />
-                {/* 입금 계좌(DEV-68): 소비자가 예약할 때 이 계좌로 직접 입금한다. 세션 녹화에서 가린다(DEV-71) */}
+                {/* 입금 계좌(DEV-68): 소비자가 예약할 때 이 계좌로 직접 입금한다. 세션 녹화에서 가린다(DEV-71).
+                    계좌번호·예금주는 이 화면에 두지 않고 하위 화면 /farm/account에서만 보인다(DEV-316) */}
                 <View {...privateArea}>
                   <Row
                     label="입금 계좌"
                     value={
                       data.accountNumber
-                        ? `${data.bankName} ${data.accountNumber}`
+                        ? `${data.bankName} 계좌를 등록했어요`
                         : "계좌를 등록해 주세요"
                     }
                     error={!data.accountNumber}
