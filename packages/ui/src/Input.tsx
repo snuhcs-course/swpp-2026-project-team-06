@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -28,6 +28,8 @@ type Props = {
   counter?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /** 입력칸에 초점을 옮길 때 쓰는 ref(예: 우편번호 찾기 뒤 상세 주소, DEV-314) */
+  inputRef?: Ref<TextInput>;
 };
 
 /** 입력칸: 높이 48, 글자 16, 라벨 15 굵게. 오류는 오류색 테두리 + 아래 설명. */
@@ -47,6 +49,7 @@ export function Input({
   counter,
   style,
   accessibilityLabel,
+  inputRef,
 }: Props) {
   const [focused, setFocused] = useState(false);
   return (
@@ -63,6 +66,7 @@ export function Input({
         </T>
       ) : null}
       <TextInput
+        ref={inputRef}
         accessibilityLabel={accessibilityLabel ?? label}
         value={value}
         onChangeText={onChangeText}

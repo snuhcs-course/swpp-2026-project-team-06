@@ -51,6 +51,7 @@ import {
   seenValues,
   type CheckoutConflict,
 } from "../../../lib/checkoutConflict";
+import { isRemoteArea } from "../../../lib/postcode";
 import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet } from "../../../lib/views";
@@ -60,8 +61,6 @@ import { goBackOr } from "../../../lib/nav";
 const CONSENT_VERSION = "policy-2026-10-23";
 /** 저장 배송지 한도(서버 ADDRESS_LIMIT) */
 const ADDRESS_LIMIT = 50;
-const isRemote = (postal: string, address: string) =>
-  /^(63|40[0-2]|23[01])/.test(postal) || /(울릉|옹진|도서)/.test(address);
 /** policy.md 2장 날짜 표기: "11월 10일~11월 20일" */
 const fullPeriod = (a: string, b: string) => `${md(a)}~${md(b)}`;
 /** 배송 메모 고르기(쿠팡식 선택 목록 + 직접 입력, DEV-293) */
@@ -175,7 +174,7 @@ export default function Checkout() {
   const opt = p?.options.find((o) => o.optionId === optionId) ?? p?.options[0];
   const unit = (opt && stage?.options[opt.optionId]?.price) || 0;
   const remoteFee =
-    recipient && p && isRemote(recipient.postalCode, recipient.address)
+    recipient && p && isRemoteArea(recipient.postalCode, recipient.address)
       ? p.remoteAreaFee
       : 0;
   const shipping = p?.shippingFeeType === "SEPARATE" ? p.shippingFee : 0;

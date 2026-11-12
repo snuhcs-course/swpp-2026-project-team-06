@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-314 우편번호 찾기
+배송지 입력(`lib/AddressForm.tsx`)은 웹에서만 ‘우편번호 찾기’를 보인다(`lib/postcodeSearch.ts`, 앱은 `.native.ts`로 숨김). 카카오 우편번호 스크립트(키 없음)는 화면이 열릴 때 한 번 불러오고, 팝업 대신 화면 위 레이어에 embed한다. 결과 → 칸 값과 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
+
 ## DEV-252 권한 확인 뒤 읽기 위치 복구
 SessionProvider는 auth 이벤트마다 메모리 scope를 동기 폐기한다. 같은 토큰 문자열로 다시 로그인해도 새 generation이고, 같은 세션 auth.me 성공은 기존 scope를 유지한다. event/request serial은 이전 세션·늦은 사용자 응답을 버린다. 일시적인 auth.me 실패는 UI만 숨기며 안전한 geometry는 재시도까지 유지한다.
 
