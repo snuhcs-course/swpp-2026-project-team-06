@@ -210,3 +210,10 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 현황: 상품 줄 오른쪽 kg은 caption(12) 회색 ‘총 Nkg / Mkg’(두 숫자 모두 단위, 11/10 DEV-296), 옵션 줄(sub 14, 가격·박스 semibold)마다 4px 막대. 대시보드 `stages`가 비면 예전 kg 줄과 6px 막대.
 - 상품 목록: `GET /api/products/mine` 카드의 `options`를 바로 쓴다(카드마다 상세를 읽던 N+1 제거). 옵션이 없으면 예전 kg 줄. ‘승인 · 추가 예약 가능 kg’ 줄은 caption(12) 회색 보조.
 - 물량·판매 설정: 요약 상자 안 옵션 표(body 16, ‘옵션 · 박스당 가격’ / ‘예약+출하 / 판매’, 줄마다 role group 읽기 라벨) 아래 kg 항목을 sub(14) 보조로. kg 항목은 판매 한도 입력과 짝이라 유지.
+
+## DEV-312 PostHog 생산자 이벤트 (2026-11-12)
+이벤트 이름·속성·파일럿 지표 원본은 트래킹 플랜(`docs/spec/tech-design/README.md` "트래킹 플랜"·"파일럿 지표"), 허용 목록·enum은 `packages/analytics/src/privacy.ts`. 기록은 `tasks/DEV-312.md`.
+- 화면은 `track`만 부른다. 연결·서버·409 실패(`isServerTrouble`)는 오류 안내로 세지 않는다. 속성은 ID·enum·불리언·ms만이고, 오류 코드·초안 결과·답장 종류는 `src/lib/producerEvents.ts` 순수 함수가 만든다(메시지·사유·송장 번호를 받지 않음). 판매·가격 서버 칸 별칭 표(`SELL_FIELD_GROUPS`)도 여기 한 곳에 두고 `sell.tsx` 칸 강조가 같이 쓴다.
+- 새 상품: `NewProductComposer`(flow source)는 상품마다 열림 한 번, 이 화면에서 받아들여진 run(`api.start`·`api.retry` 응답 id)이 끝난 상태로 바뀔 때만 `draft_created`. 처음 불러온 이미 끝난 run은 보내지 않는다. `manual.tsx`(flow text)는 `createDraft` 응답 뒤 입력 검증 오류가 아니면 요청·끝을 함께 보낸다.
+- 행동 이벤트는 서버 성공 응답 뒤(출하 전 송장은 화면 저장 뒤). `ship.tsx`의 `act`는 성공 콜백(`onDone`)으로 입금 승인·미승인만 보내고 환불 분기는 보내지 않는다. 출하는 성공한 주문마다 `order_shipped`.
+- 채팅: 불러온 메시지의 보낸 쪽·확인 요청 상태·시각만 기억해(본문 없음) 보내기 전 `replyKind`를 정한다. 서버가 인용한 메시지로만 전달을 닫으므로 인용 대상으로 나눈다(인용한 소비자 질문과 같은 시각의 열린 전달이 있으면 forwarded, 서버가 질문과 전달을 같은 시각으로 저장). farmclub 문의방, 답장 수정은 보내지 않는다.
