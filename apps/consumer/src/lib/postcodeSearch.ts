@@ -1,8 +1,16 @@
-// 우편번호 찾기 — 웹(DEV-314). iOS·Android는 postcodeSearch.native.ts(버튼 없음, 직접 입력).
+// 우편번호 찾기 — 웹(DEV-314). iOS·Android는 postcodeSearch.native.tsx(전체 화면 모달 + 웹뷰).
 // 카카오(다음) 우편번호 서비스 스크립트(키 없음)를 배송지 입력 화면이 열릴 때 한 번만 불러온다.
 // 창은 팝업(window.open) 대신 화면 위 레이어에 embed한다: 팝업 차단·웹뷰의 window.open 미지원을 피한다(서비스 안내).
 // 스크립트를 못 불러오면 onError를 부르고, 입력칸은 그대로 두어 직접 입력으로 이어 간다.
-import { POSTCODE_SCRIPT_URL, postcodeFields, type PostcodeFields, type PostcodeResult } from "./postcode";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
+
+import {
+  POSTCODE_LOAD_TIMEOUT_MS,
+  POSTCODE_SCRIPT_URL,
+  postcodeFields,
+  type PostcodeFields,
+  type PostcodeResult,
+} from "./postcode";
 
 type PostcodeOptions = {
   oncomplete: (data: PostcodeResult) => void;
@@ -19,9 +27,33 @@ type PostcodeWindow = Window & {
 
 export type PostcodeError = "load" | "result";
 
-export const postcodeSearchAvailable = true;
+export type PostcodeHandlers = {
+  onSelect: (fields: PostcodeFields) => void;
+  /** load: 서비스를 못 띄움, result: 고른 값에 5자리 우편번호·주소가 없음 */
+  onError: (reason: PostcodeError) => void;
+};
 
-const LOAD_TIMEOUT_MS = 10_000;
+/**
+ * 배송지 입력이 쓰는 입구(웹·앱 같은 모양). open()으로 찾기를 열고, node는 화면에 그릴 것(웹은 없음).
+ * 웹은 화면이 열릴 때 스크립트를 미리 불러 두고, 떠나면 열린 레이어를 닫는다.
+ */
+export function usePostcodeSearch(handlers: PostcodeHandlers): { open: () => void; node: ReactNode } {
+  const latest = useRef(handlers);
+  latest.current = handlers;
+  const closeRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    preloadPostcode();
+    return () => closeRef.current?.();
+  }, []);
+  const open = useCallback(() => {
+    closeRef.current?.();
+    closeRef.current = openPostcodeSearch({
+      onSelect: (fields) => latest.current.onSelect(fields),
+      onError: (reason) => latest.current.onError(reason),
+    });
+  }, []);
+  return { open, node: null };
+}
 let loading: Promise<PostcodeCtor> | null = null;
 
 function ctor(): PostcodeCtor | null {
@@ -46,7 +78,7 @@ function loadPostcode(): Promise<PostcodeCtor> {
       loading = null;
       reject(new Error(reason));
     };
-    const timer = setTimeout(() => fail("postcode script timeout"), LOAD_TIMEOUT_MS);
+    const timer = setTimeout(() => fail("postcode script timeout"), POSTCODE_LOAD_TIMEOUT_MS);
     script.onload = () => {
       const loaded = ctor();
       if (!loaded) return fail("postcode script loaded without Postcode");
@@ -60,7 +92,7 @@ function loadPostcode(): Promise<PostcodeCtor> {
 }
 
 /** 배송지 입력 화면이 열릴 때 미리 불러 둔다. 실패는 버튼을 누를 때 다시 시도한다 */
-export function preloadPostcode(): void {
+function preloadPostcode(): void {
   loadPostcode().catch(() => {});
 }
 
@@ -68,14 +100,10 @@ export function preloadPostcode(): void {
  * 우편번호 찾기 레이어를 연다. 고르면 onSelect(우편번호·주소)를 부르고 닫는다.
  * 돌려준 함수를 부르면 레이어를 닫는다(화면을 떠날 때).
  */
-export function openPostcodeSearch({
+function openPostcodeSearch({
   onSelect,
   onError,
-}: {
-  onSelect: (fields: PostcodeFields) => void;
-  /** load: 스크립트를 못 불러옴, result: 고른 값에 5자리 우편번호·주소가 없음 */
-  onError: (reason: PostcodeError) => void;
-}): () => void {
+}: PostcodeHandlers): () => void {
   let closed = false;
   let overlay: HTMLDivElement | null = null;
   // 열기 전 초점(‘우편번호 찾기’ 버튼). 고르지 않고 닫으면 여기로 돌려준다(고르면 상세 주소로 간다)

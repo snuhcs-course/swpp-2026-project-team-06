@@ -1,6 +1,7 @@
 // 배송지 입력 화면 본문(SCR-10 하위 /checkout/:productId/address, SCR-17 하위 배송지 추가·수정) — design: s-10-address
-// 웹은 ‘우편번호 찾기’(카카오 우편번호 서비스)로 우편번호·도로명 주소를 채우고 상세 주소 칸으로 넘어간다.
-// 직접 입력은 그대로 둔다(스크립트를 못 불러올 때, iOS·Android 앱). screens.md 결정 27, DEV-314.
+// ‘우편번호 찾기’(카카오 우편번호 서비스)로 우편번호·도로명 주소를 채우고 상세 주소 칸으로 넘어간다.
+// 웹은 화면 위 레이어, 앱은 전체 화면 웹뷰(postcodeSearch.ts / .native.tsx). 직접 입력은 그대로 둔다
+// (못 불러오면 안내). screens.md 결정 27, DEV-314.
 import { ApiError, auth, type Address, type Recipient } from "@farmclub/api";
 import {
   BottomBar,
@@ -17,12 +18,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { View, type TextInput } from "react-native";
 
 import type { PostcodeFields } from "./postcode";
-import {
-  openPostcodeSearch,
-  postcodeSearchAvailable,
-  preloadPostcode,
-  type PostcodeError,
-} from "./postcodeSearch";
+import { usePostcodeSearch, type PostcodeError } from "./postcodeSearch";
 import { isNetworkError, useToast } from "./toast";
 
 export type AddressValue = Recipient & { saveAddress: boolean };
@@ -80,14 +76,7 @@ export function AddressForm({
   /** 우편번호 찾기가 안 됐을 때 우편번호 칸 아래 안내(열지 못함 / 고른 값을 못 채움) */
   const [postcodeFailed, setPostcodeFailed] = useState<PostcodeError | null>(null);
   const detailRef = useRef<TextInput>(null);
-  const closePostcode = useRef<(() => void) | null>(null);
   const toast = useToast(120);
-
-  // 화면이 열릴 때 스크립트를 미리 불러 두고, 떠나면 열린 레이어를 닫는다
-  useEffect(() => {
-    if (postcodeSearchAvailable) preloadPostcode();
-    return () => closePostcode.current?.();
-  }, []);
 
   function applyPostcode(fields: PostcodeFields) {
     setPostal(fields.postalCode);
@@ -97,13 +86,11 @@ export function AddressForm({
     detailRef.current?.focus();
   }
 
+  const postcode = usePostcodeSearch({ onSelect: applyPostcode, onError: setPostcodeFailed });
+
   function findPostcode() {
-    closePostcode.current?.();
     setPostcodeFailed(null);
-    closePostcode.current = openPostcodeSearch({
-      onSelect: applyPostcode,
-      onError: setPostcodeFailed,
-    });
+    postcode.open();
   }
 
   useEffect(() => {
@@ -196,45 +183,33 @@ export function AddressForm({
             error={errors.recipientPhone}
           />
           <View style={{ gap: 8 }}>
-            {postcodeSearchAvailable ? (
-              <View style={{ gap: 8 }}>
-                <T variant="sub" weight="semibold">
-                  우편번호
-                </T>
-                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-                  <Input
-                    accessibilityLabel="우편번호"
-                    value={postal}
-                    onChangeText={(v) => {
-                      setPostal(v);
-                      setPostcodeFailed(null);
-                    }}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="5자리"
-                    error={errors.postalCode}
-                    hint={postcodeFailed ? POSTCODE_FAILED[postcodeFailed] : undefined}
-                    style={{ flex: 1 }}
-                  />
-                  <Button
-                    label="우편번호 찾기"
-                    variant="outline"
-                    onPress={findPostcode}
-                    style={{ minHeight: tokens.height.input }}
-                  />
-                </View>
+            <View style={{ gap: 8 }}>
+              <T variant="sub" weight="semibold">
+                우편번호
+              </T>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+                <Input
+                  accessibilityLabel="우편번호"
+                  value={postal}
+                  onChangeText={(v) => {
+                    setPostal(v);
+                    setPostcodeFailed(null);
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                  placeholder="5자리"
+                  error={errors.postalCode}
+                  hint={postcodeFailed ? POSTCODE_FAILED[postcodeFailed] : undefined}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="우편번호 찾기"
+                  variant="outline"
+                  onPress={findPostcode}
+                  style={{ minHeight: tokens.height.input }}
+                />
               </View>
-            ) : (
-              <Input
-                label="우편번호"
-                value={postal}
-                onChangeText={setPostal}
-                keyboardType="number-pad"
-                maxLength={5}
-                placeholder="5자리"
-                error={errors.postalCode}
-              />
-            )}
+            </View>
             <Input
               label="주소"
               value={address}
@@ -277,6 +252,7 @@ export function AddressForm({
           onPress={submit}
         />
       </BottomBar>
+      {postcode.node}
       {toast.node}
     </Screen>
   );
