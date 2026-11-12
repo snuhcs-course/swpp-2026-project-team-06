@@ -67,6 +67,8 @@ import {
   states,
 } from "./SourceWorkspace";
 import { goBackOr } from "./nav";
+import { track } from "@farmclub/analytics";
+import { composerErrorCode, draftResult, isServerTrouble } from "./producerEvents";
 // 서버가 새 상품을 만들 때 이름은 비어 있거나 "새 상품"이다. 이때만 AI 값으로 채운다.
 const DEFAULT_NAMES = ["", "새 상품"];
 // 새 상품의 서버 기본 보관 문구(catalog.create_product). 이 값이면 AI 값으로 바꿔도 된다.
@@ -358,6 +360,9 @@ export function NewProductComposer() {
     void fn()
       .catch((e) => {
         if (alive.current) {
+          // 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312). 연결·서버·충돌 실패는 세지 않는다
+          if (!isServerTrouble(e))
+            track("form_error_shown", { screen: "product_new", code: composerErrorCode(e) });
           if (e instanceof ApiError) {
             setValidationFields(e.details.fields ?? {});
             if (Object.keys(e.details.fields ?? {}).length) { setBuyerPreview(false); setSheetOpen(false); }
@@ -456,6 +461,33 @@ export function NewProductComposer() {
     }, 2500);
     return () => clearInterval(timer);
   }, [batchId, runs, load]);
+  // DEV-312 PostHog: 편집기 열림(상품마다 이 화면에서 한 번), AI 채우기 요청과 끝. 글자는 보내지 않는다.
+  const openedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!productId || openedFor.current === productId) return;
+    openedFor.current = productId;
+    track("product_editor_opened", { flow: "source", productId });
+  }, [productId]);
+  // 이 화면에서 받아들여진 요청의 run만 끝을 기다린다. 처음 불러온, 이미 끝난 run은 보내지 않는다.
+  const waiting = useRef<{ runId: string; at: number; productId?: string } | null>(null);
+  const requested = (runId: string, trigger: "start" | "retry") => {
+    const pid = productId ?? undefined;
+    track("draft_requested", { flow: "source", trigger, productId: pid });
+    waiting.current = { runId, at: Date.now(), productId: pid };
+  };
+  useEffect(() => {
+    const w = waiting.current;
+    const r = w && runs.find((x) => x.id === w.runId);
+    const result = r ? draftResult(r.status) : null;
+    if (!w || !result) return;
+    waiting.current = null;
+    track("draft_created", {
+      flow: "source",
+      result,
+      durationMs: Date.now() - w.at,
+      productId: w.productId,
+    });
+  }, [runs]);
   // 분석 결과의 상품명·보관 방법을 아직 기본값인 칸에만 채운다(가격은 채우지 않음, AC-03-1).
   useEffect(() => {
     if (!review || !target || !product) return;
@@ -636,12 +668,13 @@ export function NewProductComposer() {
       await flushAttachments.current?.();
       await flushBasicInfo.current?.(true);
       const latest = await api.get(batch.id);
-      await api.start(
+      const started = await api.start(
         batch.id,
         latest.version,
         keyFor("start", [latest.version, {}]),
         {},
       );
+      requested(started.id, "start");
       pending.current.clear();
       setSheetOpen(false);
       await load();
@@ -687,13 +720,14 @@ export function NewProductComposer() {
                 const ids = run.items
                   .filter((i) => ["FAILED", "PARTIAL"].includes(i.status))
                   .map((i) => i.id);
-                await api.retry(
+                const retried = await api.retry(
                   batch!.id,
                   run.id,
                   ids,
                   true,
                   keyFor("retry", [run.id, ids]),
                 );
+                requested(retried.id, "retry");
                 pending.current.clear();
                 await load();
               })

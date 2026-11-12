@@ -49,6 +49,8 @@ import {
   fieldErrors,
 } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
+import { isServerTrouble, serverErrorCode } from "../../../../lib/producerEvents";
+import { track } from "@farmclub/analytics";
 import { seoulToday } from "../../../../lib/HarvestStart";
 import { OriginFieldHint } from "../../../../lib/OriginFieldHint";
 
@@ -285,6 +287,8 @@ export default function EditProduct() {
       // 실패해도 입력은 그대로. 연결 문제는 공통 토스트 + 다시 시도(D-19)
       if (failToast(e, () => void doSave(then))) return false;
       const f = fieldErrors(e);
+      // 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312). 409 등 입력 문제가 아닌 실패는 세지 않는다
+      if (!isServerTrouble(e)) track("form_error_shown", { screen: "product_edit", code: serverErrorCode(e) });
       setErrors(f);
       setFailed(errMsg(e, "저장하지 못했어요. 다시 시도해 주세요."));
       return false;
@@ -304,6 +308,7 @@ export default function EditProduct() {
       router.push(`/products/${id}/sales`);
     } catch (e) {
       if (failToast(e, () => void publish())) return;
+      if (!isServerTrouble(e)) track("form_error_shown", { screen: "product_edit", code: serverErrorCode(e) });
       setFailed(errMsg(e, "요청하지 못했어요. 다시 시도해 주세요."));
     } finally {
       setPublishing(false);

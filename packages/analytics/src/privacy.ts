@@ -84,24 +84,112 @@ export function stripQuery(url: string): string {
   return cut < 0 ? url : url.slice(0, cut);
 }
 
-/** 앱이 직접 보내는 화면 이벤트(트래킹 플랜). 값은 내부 ID·수량·결과만 */
+/**
+ * enum 속성의 허용 값(DEV-312). 타입과 런타임 검사(cleanProps)가 같은 배열을 쓴다.
+ * 정해진 값이 아니면 cleanProps가 버려서, 사유·메시지 글자가 enum 자리로 새지 않는다.
+ */
+export const ENUM_VALUES = {
+  /** 새 상품 경로: 자료 분석(NewProductComposer) · 글로 초안(manual) */
+  flow: ["source", "text"],
+  /** AI 채우기 요청: 처음·다시 채우기 · 실패 항목 재시도 */
+  trigger: ["start", "retry"],
+  result: ["success", "partial", "failed", "canceled"],
+  decision: ["approved", "rejected"],
+  /** 미승인 사유를 고른 방식(사유 글자는 보내지 않는다) */
+  reasonKind: ["preset", "custom"],
+  /** 물량 신청: 첫 신청(승인 물량 0) · 증액. 서버 CapacityRequest.kind와 같은 기준 */
+  requestKind: ["initial", "increase"],
+  kind: ["forwarded", "check_confirmed", "check_corrected", "plain"],
+  screen: ["product_new", "product_edit", "product_sell", "product_sales", "ship"],
+  code: [
+    "variety_required",
+    "photo_required",
+    "options_invalid",
+    "delivery_invalid",
+    "prices_invalid",
+    "shipping_invalid",
+    "quantity_invalid",
+    "deposit_account_required",
+    "carrier_required",
+    "tracking_too_long",
+    "reason_required",
+    "other",
+  ],
+} as const;
+type Enum<K extends keyof typeof ENUM_VALUES> = (typeof ENUM_VALUES)[K][number];
+export type ProductFlow = Enum<"flow">;
+export type DraftTrigger = Enum<"trigger">;
+export type DraftResult = Enum<"result">;
+export type DepositDecision = Enum<"decision">;
+export type ReasonKind = Enum<"reasonKind">;
+export type RequestKind = Enum<"requestKind">;
+export type ReplyKind = Enum<"kind">;
+export type ProducerScreen = Enum<"screen">;
+export type FormErrorCode = Enum<"code">;
+
+/** 앱이 직접 보내는 화면 이벤트(트래킹 플랜). 값은 내부 ID·수량·결과·enum·불리언·ms만(N-05) */
 export type AppEvents = {
   product_viewed: { productId: string; farmId: string };
   checkout_started: { productId: string };
   checkout_submitted: { productId: string; orderId: string; quantity: number };
   deposit_reported: { orderId: string };
+  // 생산자 앱(DEV-312). 이름·연락처·메시지 본문·송장 번호·사유 글자는 넣지 않는다
+  product_editor_opened: { flow: ProductFlow; productId?: string };
+  draft_requested: { flow: ProductFlow; trigger: DraftTrigger; productId?: string };
+  draft_created: {
+    flow: ProductFlow;
+    result: DraftResult;
+    durationMs: number;
+    productId?: string;
+  };
+  sale_start_requested: {
+    productId: string;
+    screen: ProducerScreen;
+    requestKind: RequestKind;
+  };
+  deposit_decided: {
+    orderId: string;
+    decision: DepositDecision;
+    reasonKind?: ReasonKind;
+    cancelOrder?: boolean;
+  };
+  invoice_saved: { orderId: string; hasCarrier: boolean; afterShipped: boolean };
+  order_shipped: { orderId: string; hasCarrier: boolean };
+  producer_reply_sent: { kind: ReplyKind };
+  form_error_shown: { screen: ProducerScreen; code: FormErrorCode };
 };
 export type AppEventName = keyof AppEvents;
 
-const ALLOWED_PROPS: { [E in AppEventName]: readonly (keyof AppEvents[E])[] } =
-  {
-    product_viewed: ["productId", "farmId"],
-    checkout_started: ["productId"],
-    checkout_submitted: ["productId", "orderId", "quantity"],
-    deposit_reported: ["orderId"],
-  };
+const ALLOWED_PROPS: { [E in AppEventName]: readonly (keyof AppEvents[E])[] } = {
+  product_viewed: ["productId", "farmId"],
+  checkout_started: ["productId"],
+  checkout_submitted: ["productId", "orderId", "quantity"],
+  deposit_reported: ["orderId"],
+  product_editor_opened: ["flow", "productId"],
+  draft_requested: ["flow", "trigger", "productId"],
+  draft_created: ["flow", "result", "durationMs", "productId"],
+  sale_start_requested: ["productId", "screen", "requestKind"],
+  deposit_decided: ["orderId", "decision", "reasonKind", "cancelOrder"],
+  invoice_saved: ["orderId", "hasCarrier", "afterShipped"],
+  order_shipped: ["orderId", "hasCarrier"],
+  producer_reply_sent: ["kind"],
+  form_error_shown: ["screen", "code"],
+};
 
-/** 타입을 우회해 들어온 속성(이름·주소 등)도 런타임에 한 번 더 걸러 낸다 */
+/** 이벤트 이름 목록(테스트·문서 대조용) */
+export const APP_EVENT_NAMES = Object.keys(ALLOWED_PROPS) as AppEventName[];
+
+/** 이벤트가 보낼 수 있는 속성 키(테스트·문서 대조용) */
+export function allowedProps(event: AppEventName): readonly string[] {
+  return ALLOWED_PROPS[event] as readonly string[];
+}
+
+const ENUMS = ENUM_VALUES as Record<string, readonly string[]>;
+
+/**
+ * 타입을 우회해 들어온 속성(이름·주소 등)도 런타임에 한 번 더 걸러 낸다.
+ * enum 속성은 정해진 값만, ms·수량은 유한한 0 이상 숫자만 남긴다(DEV-312).
+ */
 export function cleanProps<E extends AppEventName>(
   event: E,
   props: AppEvents[E],
@@ -109,8 +197,13 @@ export function cleanProps<E extends AppEventName>(
   const out: Record<string, string | number | boolean> = {};
   for (const key of ALLOWED_PROPS[event] as readonly string[]) {
     const v = (props as Record<string, unknown>)[key];
-    if (
-      typeof v === "number" ||
+    if (Object.hasOwn(ENUMS, key)) {
+      if (typeof v === "string" && ENUMS[key].includes(v)) out[key] = v;
+      continue;
+    }
+    if (typeof v === "number") {
+      if (Number.isFinite(v) && v >= 0) out[key] = v;
+    } else if (
       typeof v === "boolean" ||
       (typeof v === "string" && v.length <= 64)
     )
