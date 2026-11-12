@@ -61,7 +61,7 @@ async function openFilledCheckout(page: Page) {
   }
   await page.getByLabel("받는 사람").fill("DEV216 구매자");
   await page.getByLabel("연락처").fill("010-1234-5678");
-  await page.getByLabel("우편번호").fill("04001");
+  await page.getByLabel("우편번호", { exact: true }).fill("04001");
   await page.getByRole("textbox", { name: "주소", exact: true }).fill("서울 마포구 월드컵북로 12");
   await page.getByLabel("상세 주소").fill("302호");
   await page.getByRole("button", { name: "이 주소로 받기" }).click();

@@ -208,7 +208,7 @@ async function enterAddress(page, savedCount, { postal, address, detail, name = 
   }
   await page.getByLabel("받는 사람").fill(name);
   await page.getByLabel("연락처").fill(phone);
-  await page.getByLabel("우편번호").fill(postal);
+  await page.getByLabel("우편번호", { exact: true }).fill(postal);
   await page.getByRole("textbox", { name: "주소", exact: true }).fill(address);
   await page.getByLabel("상세 주소").fill(detail);
   await page.getByRole("button", { name: "이 주소로 받기" }).click();

@@ -96,7 +96,7 @@ test("DEV-142 AC-01-12: sign-up asks only nickname and phone; name and address c
   await expect(page.getByLabel("받는 사람")).toHaveValue("");
   // ‘기본 배송지로 저장’은 첫 주문에서 켜진 채 시작한다
   await page.getByLabel("받는 사람").fill("박현");
-  await page.getByLabel("우편번호").fill("06236");
+  await page.getByLabel("우편번호", { exact: true }).fill("06236");
   await page.getByLabel("주소", { exact: true }).fill("서울 강남구 테헤란로 1");
   await page.getByRole("button", { name: "이 주소로 받기" }).click();
   await expect(page).toHaveURL(/\/checkout\/p-house$/);
