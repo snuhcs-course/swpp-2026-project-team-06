@@ -42,6 +42,8 @@ import { useHideTabBar, useSession } from "../../../../lib/session";
 import { seoulToday } from "../../../../lib/HarvestStart";
 import { FieldButton, LoadError } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
+import { SELL_FIELD_GROUPS, isServerTrouble, sellErrorCode, serverErrorCode } from "../../../../lib/producerEvents";
+import { track } from "@farmclub/analytics";
 
 const WEIGHTS = [3, 5, 10];
 type Cell = { price: number | null; quantity: number | null };
@@ -214,7 +216,7 @@ export default function Sell() {
 
   /** 화면 값 검사. 서버도 같은 규칙(R-18 기간·가격, AC-04-1 필수 칸)을 다시 검사한다. */
   function check() {
-    const bad = (key: string, message: string) => { setPreview(false); setInvalidFields({ [key]: message }); return message; };
+    const bad = (key: string, message: string) => { setPreview(false); setInvalidFields({ [key]: message }); track("form_error_shown", { screen: "product_sell", code: sellErrorCode(key) }); return message; };
     if (!form!.options.length) return bad("options", "중량 옵션을 하나 이상 골라 주세요.");
     if (!form!.deliveryWindow) return bad("delivery", "받는 시기를 정해 주세요.");
     if (!form!.maxDelayUntil) return bad("delivery", "전액 환불 날짜를 정해 주세요.");
@@ -247,6 +249,9 @@ export default function Sell() {
   }
 
   function failure(e: unknown) {
+    // 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312). 연결·서버·충돌 실패(생산자가 고칠 409 제외)는 세지 않는다
+    if (!isServerTrouble(e))
+      track("form_error_shown", { screen: "product_sell", code: serverErrorCode(e) });
     if (e instanceof ApiError && e.details.reason === "NO_FARM_ACCOUNT") {
       // 계좌 안내 줄('입금 계좌 등록' 버튼)이 보이도록 농가 정보를 다시 읽는다
       void farms.mine().then(setFarm).catch(() => {});
@@ -254,7 +259,7 @@ export default function Sell() {
     }
     // 서버 메시지(예: '빠진 칸이 있어요: 품종, …')를 먼저, 칸별 사유는 이름과 함께 붙인다.
     if (e instanceof ApiError) {
-      const aliases: Record<string, string> = { options: "options", deliveryWindow: "delivery", maxDelayUntil: "delivery", shippingFee: "shipping", remoteAreaFee: "shipping", maxQuantityPerOrder: "quantity", requestedTotalGrams: "quantity", stages: "prices" };
+      const aliases = SELL_FIELD_GROUPS;
       const invalid = Object.entries(e.details.fields ?? {}).find(([key]) => aliases[key]);
       if (invalid) { setPreview(false); setInvalidFields({ [aliases[invalid[0]]]: invalid[1] }); }
       const fields = Object.entries(e.details.fields ?? {}).map(
@@ -567,6 +572,7 @@ export default function Sell() {
             const fresh = await save();
             if (!fresh) return;
             await catalog.requestCapacity(id, requestedGrams, fresh.version, keyFor("request", [requestedGrams, fresh.version]));
+            track("sale_start_requested", { productId: id, screen: "product_sell", requestKind: fresh.approvedSupplyGrams === 0 ? "initial" : "increase" });
             toast("판매 시작을 요청했어요. 운영자가 확인하면 공개돼요.");
             router.dismissTo("/products");
           })} />

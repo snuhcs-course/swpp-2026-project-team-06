@@ -1,3 +1,4 @@
+import { VARIETY_REQUIRED_MESSAGE } from "./producerEvents";
 import {
   sourceAnalysis as api,
   type SourceBatch,
@@ -128,7 +129,7 @@ export function useSourceBasicInfo({
         required &&
         Object.values(current.current).some((b) => !b.variety.trim())
       )
-        throw new Error("과일 품종명을 입력해 주세요.");
+        throw new Error(VARIETY_REQUIRED_MESSAGE);
       await save();
       // A blur save may have started before the final keystroke.
       await save();
