@@ -125,7 +125,7 @@ test("DEV-113 AC-01-17: server, Mock and apps share one terms version", async ()
   assert.ok(html.includes(`${y}년 ${m}월 ${d}일 변경:`), "version date is a recorded change");
   const toIso = (k) => k.replace(/(\d+)년 (\d+)월 (\d+)일/, (_, a, b, c) => `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`);
   assert.ok(server <= toIso(content.privacyPolicy.effective), "version is not after the privacy effective date");
-  // 시행일이 버전보다 늦으면 마지막 변경 기록이 재동의하지 않는다고 적는다
+  // 시행일이 버전보다 늦으면 시행일 날짜의 변경 기록이 재동의하지 않는다고 적는다
   if (toIso(content.privacyPolicy.effective) !== server)
     assert.match(html, new RegExp(`${content.privacyPolicy.effective} 변경:[^<]*다시 동의를 받지 않습니다`));
 });

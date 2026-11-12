@@ -1,5 +1,6 @@
 // 우편번호 찾기 — 웹(DEV-314). iOS·Android는 postcodeSearch.native.tsx(전체 화면 모달 + 웹뷰).
-// 카카오(다음) 우편번호 서비스 스크립트(키 없음)를 배송지 입력 화면이 열릴 때 한 번만 불러온다.
+// 카카오(다음) 우편번호 서비스 스크립트(키 없음)는 ‘우편번호 찾기’를 처음 누를 때 한 번만 불러온다.
+// 화면만 열고 직접 입력하면 카카오에 요청이 가지 않는다(처리방침 제2조 고지와 맞춤).
 // 창은 팝업(window.open) 대신 화면 위 레이어에 embed한다: 팝업 차단·웹뷰의 window.open 미지원을 피한다(서비스 안내).
 // 스크립트를 못 불러오면 onError를 부르고, 입력칸은 그대로 두어 직접 입력으로 이어 간다.
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
@@ -35,16 +36,13 @@ export type PostcodeHandlers = {
 
 /**
  * 배송지 입력이 쓰는 입구(웹·앱 같은 모양). open()으로 찾기를 열고, node는 화면에 그릴 것(웹은 없음).
- * 웹은 화면이 열릴 때 스크립트를 미리 불러 두고, 떠나면 열린 레이어를 닫는다.
+ * 웹은 누를 때 스크립트를 불러 레이어를 열고, 화면을 떠나면 열린 레이어를 닫는다.
  */
 export function usePostcodeSearch(handlers: PostcodeHandlers): { open: () => void; node: ReactNode } {
   const latest = useRef(handlers);
   latest.current = handlers;
   const closeRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    preloadPostcode();
-    return () => closeRef.current?.();
-  }, []);
+  useEffect(() => () => closeRef.current?.(), []);
   const open = useCallback(() => {
     closeRef.current?.();
     closeRef.current = openPostcodeSearch({
@@ -89,11 +87,6 @@ function loadPostcode(): Promise<PostcodeCtor> {
     document.head.appendChild(script);
   });
   return loading;
-}
-
-/** 배송지 입력 화면이 열릴 때 미리 불러 둔다. 실패는 버튼을 누를 때 다시 시도한다 */
-function preloadPostcode(): void {
-  loadPostcode().catch(() => {});
 }
 
 /**

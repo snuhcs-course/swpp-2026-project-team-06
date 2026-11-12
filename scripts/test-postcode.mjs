@@ -99,6 +99,7 @@ test("test_DEV_314_script_and_platforms: 공식 스크립트, 웹은 레이어·
   assert.equal(POSTCODE_SCRIPT_URL, "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js");
   const web = read("apps/consumer/src/lib/postcodeSearch.ts");
   assert.match(web, /\.embed\(/, "팝업 대신 레이어로 연다");
+  assert.doesNotMatch(web, /preloadPostcode|useEffect\(\(\) => \{\s*loadPostcode/, "누르기 전에는 카카오 스크립트를 부르지 않는다(처리방침 제2조)");
   assert.doesNotMatch(web, /react-native-webview/, "웹 번들은 웹뷰를 가져오지 않는다");
   const native = read("apps/consumer/src/lib/postcodeSearch.native.tsx");
   assert.match(native, /from "react-native-webview"/);

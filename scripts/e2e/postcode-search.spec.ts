@@ -49,15 +49,21 @@ test("DEV-314 AC-08-4: postcode search fills postal code and road address, focus
   page,
 }) => {
   const assertClean = monitor(page);
-  await page.route(SCRIPT, (route) =>
-    route.fulfill({ status: 200, contentType: "application/javascript", body: STUB }),
-  );
+  let scriptRequests = 0;
+  await page.route(SCRIPT, (route) => {
+    scriptRequests += 1;
+    return route.fulfill({ status: 200, contentType: "application/javascript", body: STUB });
+  });
   await loginConsumer(page);
   await openAddressForm(page);
+  // 처리방침 제2조: 화면만 열면 카카오 스크립트를 부르지 않는다
+  await page.waitForTimeout(500);
+  expect(scriptRequests).toBe(0);
 
   await page.getByRole("button", { name: "우편번호 찾기" }).click();
   const dialog = page.getByRole("dialog", { name: "우편번호 찾기" });
   await expect(dialog).toBeVisible();
+  expect(scriptRequests).toBe(1);
   await dialog.getByRole("button", { name: "가짜 주소 고르기" }).click();
   await expect(dialog).toHaveCount(0);
 
