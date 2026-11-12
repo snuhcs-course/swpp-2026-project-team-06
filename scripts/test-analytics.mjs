@@ -208,7 +208,7 @@ test("DEV-312: the tracking plan table lists every app event", () => {
   for (const event of APP_EVENT_NAMES) assert.match(plan, new RegExp("\\| `" + event + "` \\|"), event);
 });
 
-test("DEV-312: deposit decisions never carry the reason text, only how it was chosen", () => {
+test("DEV-312 AC-09-8 AC-09-9: deposit decisions never carry the reason text, only how it was chosen", () => {
   assert.deepEqual(
     cleanProps("deposit_decided", {
       orderId: "o1",

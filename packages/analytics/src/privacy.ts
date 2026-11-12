@@ -87,6 +87,7 @@ export function stripQuery(url: string): string {
 /**
  * enum 속성의 허용 값(DEV-312). 타입과 런타임 검사(cleanProps)가 같은 배열을 쓴다.
  * 정해진 값이 아니면 cleanProps가 버려서, 사유·메시지 글자가 enum 자리로 새지 않는다.
+ * 검사는 속성 이름 기준이라, 키 이름은 모든 이벤트에서 같은 뜻·같은 값으로 쓴다(새 값이 필요하면 새 키).
  */
 export const ENUM_VALUES = {
   /** 새 상품 경로: 자료 분석(NewProductComposer) · 글로 초안(manual) */
