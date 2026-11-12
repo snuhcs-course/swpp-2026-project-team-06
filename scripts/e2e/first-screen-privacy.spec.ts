@@ -94,3 +94,21 @@ test("DEV-316 AC-02-1: producer settings and farm profile hide the account numbe
   await expect(page.getByLabel("예금주")).toHaveValue("강영수");
   assertClean();
 });
+
+test("DEV-316 AC-01-3: the pending screen hides the applicant name and phone; the application sheet still shows it", async ({
+  page,
+}) => {
+  const assertClean = monitor(page);
+  // 시드 f-wimi: 대표자 오미숙, 연락처 010-4321-8765, 확인 중
+  await loginProducer(page, "오미숙");
+  await expect(page).toHaveURL(/\/pending$/);
+  await expect(page.getByText("확인 중이에요")).toBeVisible();
+  await expect(page.getByText("신청서에 적은 번호로 연락드려요")).toBeVisible();
+  const text = await page.locator("body").innerText();
+  expect(text).not.toContain("010-4321-8765");
+  expect(text).not.toContain("오미숙");
+  await page.getByRole("button", { name: /^신청 내용 보기/ }).click();
+  await expect(page.getByText("010-4321-8765")).toBeVisible();
+  await expect(page.getByText("오미숙")).toBeVisible();
+  assertClean();
+});
