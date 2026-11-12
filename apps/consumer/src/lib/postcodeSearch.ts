@@ -78,8 +78,11 @@ export function openPostcodeSearch({
 }): () => void {
   let closed = false;
   let overlay: HTMLDivElement | null = null;
+  // 열기 전 초점(‘우편번호 찾기’ 버튼). 고르지 않고 닫으면 여기로 돌려준다(고르면 상세 주소로 간다)
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  // Esc는 이 문서에 초점이 있을 때만 닫는다. 카카오 iframe 안(교차 출처) 키 입력은 받을 수 없어 ‘닫기’·바깥 누름을 둔다
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") close();
+    if (e.key === "Escape") dismiss();
   };
   function close() {
     if (closed) return;
@@ -88,11 +91,16 @@ export function openPostcodeSearch({
     overlay?.remove();
     overlay = null;
   }
+  function dismiss() {
+    const wasOpen = !!overlay;
+    close();
+    if (wasOpen) opener?.focus();
+  }
 
   loadPostcode().then(
     (Postcode) => {
       if (closed) return;
-      overlay = buildOverlay(close);
+      overlay = buildOverlay(dismiss);
       const frame = overlay.querySelector<HTMLDivElement>("[data-postcode-frame]");
       document.body.appendChild(overlay);
       document.addEventListener("keydown", onKey);

@@ -205,7 +205,10 @@ export function AddressForm({
                   <Input
                     accessibilityLabel="우편번호"
                     value={postal}
-                    onChangeText={setPostal}
+                    onChangeText={(v) => {
+                      setPostal(v);
+                      setPostcodeFailed(null);
+                    }}
                     keyboardType="number-pad"
                     maxLength={5}
                     placeholder="5자리"

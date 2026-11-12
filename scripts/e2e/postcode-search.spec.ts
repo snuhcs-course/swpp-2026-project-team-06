@@ -92,6 +92,7 @@ test("DEV-314: closing the search layer leaves the fields as they were", async (
   await dialog.getByRole("button", { name: "닫기", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByLabel("우편번호", { exact: true })).toHaveValue("04001");
+  await expect(page.getByRole("button", { name: "우편번호 찾기" })).toBeFocused();
   assertClean();
 });
 
