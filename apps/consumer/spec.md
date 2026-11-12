@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-314 우편번호 찾기
+배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.ts`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
+
 ## DEV-252 권한 확인 뒤 읽기 위치 복구
 SessionProvider는 auth 이벤트마다 메모리 scope를 동기 폐기한다. 같은 토큰 문자열로 다시 로그인해도 새 generation이고, 같은 세션 auth.me 성공은 기존 scope를 유지한다. event/request serial은 이전 세션·늦은 사용자 응답을 버린다. 일시적인 auth.me 실패는 UI만 숨기며 안전한 geometry는 재시도까지 유지한다.
 

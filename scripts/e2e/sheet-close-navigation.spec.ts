@@ -41,7 +41,7 @@ test("DEV-225 FEAT-08: option sheet and address sheet are gone once checkout and
   await expect(addressSheet).toBeVisible();
   resume = await freezeAnimations(page);
   await addressSheet.click();
-  await expect(page.getByLabel("우편번호")).toBeVisible();
+  await expect(page.getByLabel("우편번호", { exact: true })).toBeVisible();
   await expect(addressSheet).toHaveCount(0);
   await resume();
   assertClean();

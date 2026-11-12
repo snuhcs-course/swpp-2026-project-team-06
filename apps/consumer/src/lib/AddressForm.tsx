@@ -1,5 +1,7 @@
 // 배송지 입력 화면 본문(SCR-10 하위 /checkout/:productId/address, SCR-17 하위 배송지 추가·수정) — design: s-10-address
-// I1은 우편번호·주소·상세 주소를 직접 입력한다. ‘우편번호 찾기’는 없다(screens.md 결정 27).
+// ‘우편번호 찾기’(카카오 우편번호 서비스)로 우편번호·도로명 주소를 채우고 상세 주소 칸으로 넘어간다.
+// 웹은 화면 위 레이어, 앱은 전체 화면 웹뷰(postcodeSearch.ts / .native.tsx). 직접 입력은 그대로 둔다
+// (못 불러오면 안내). screens.md 결정 27, DEV-314.
 import { ApiError, auth, type Address, type Recipient } from "@farmclub/api";
 import {
   BottomBar,
@@ -12,9 +14,11 @@ import {
   T,
   tokens,
 } from "@farmclub/ui";
-import { useEffect, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { View, type TextInput } from "react-native";
 
+import type { PostcodeFields } from "./postcode";
+import { usePostcodeSearch, type PostcodeError } from "./postcodeSearch";
 import { isNetworkError, useToast } from "./toast";
 
 export type AddressValue = Recipient & { saveAddress: boolean };
@@ -43,6 +47,10 @@ type Props = {
 };
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
+const POSTCODE_FAILED: Record<PostcodeError, string> = {
+  load: "우편번호 찾기를 열지 못했어요. 우편번호와 주소를 직접 입력해 주세요.",
+  result: "고른 주소를 채우지 못했어요. 우편번호와 주소를 직접 입력해 주세요.",
+};
 
 export function AddressForm({
   mode,
@@ -65,7 +73,25 @@ export function AddressForm({
   const [isDefault, setIsDefault] = useState(!saveBlocked);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  /** 우편번호 찾기가 안 됐을 때 우편번호 칸 아래 안내(열지 못함 / 고른 값을 못 채움) */
+  const [postcodeFailed, setPostcodeFailed] = useState<PostcodeError | null>(null);
+  const detailRef = useRef<TextInput>(null);
   const toast = useToast(120);
+
+  function applyPostcode(fields: PostcodeFields) {
+    setPostal(fields.postalCode);
+    setAddress(fields.address);
+    setPostcodeFailed(null);
+    setErrors(({ postalCode: _p, address: _a, ...rest }) => rest);
+    detailRef.current?.focus();
+  }
+
+  const postcode = usePostcodeSearch({ onSelect: applyPostcode, onError: setPostcodeFailed });
+
+  function findPostcode() {
+    setPostcodeFailed(null);
+    postcode.open();
+  }
 
   useEffect(() => {
     if (!initial) return;
@@ -157,15 +183,33 @@ export function AddressForm({
             error={errors.recipientPhone}
           />
           <View style={{ gap: 8 }}>
-            <Input
-              label="우편번호"
-              value={postal}
-              onChangeText={setPostal}
-              keyboardType="number-pad"
-              maxLength={5}
-              placeholder="5자리"
-              error={errors.postalCode}
-            />
+            <View style={{ gap: 8 }}>
+              <T variant="sub" weight="semibold">
+                우편번호
+              </T>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+                <Input
+                  accessibilityLabel="우편번호"
+                  value={postal}
+                  onChangeText={(v) => {
+                    setPostal(v);
+                    setPostcodeFailed(null);
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                  placeholder="5자리"
+                  error={errors.postalCode}
+                  hint={postcodeFailed ? POSTCODE_FAILED[postcodeFailed] : undefined}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="우편번호 찾기"
+                  variant="outline"
+                  onPress={findPostcode}
+                  style={{ minHeight: tokens.height.input }}
+                />
+              </View>
+            </View>
             <Input
               label="주소"
               value={address}
@@ -175,6 +219,7 @@ export function AddressForm({
               style={{ marginTop: 8 }}
             />
             <Input
+              inputRef={detailRef}
               value={detail}
               onChangeText={setDetail}
               placeholder="상세 주소"
@@ -207,6 +252,7 @@ export function AddressForm({
           onPress={submit}
         />
       </BottomBar>
+      {postcode.node}
       {toast.node}
     </Screen>
   );
