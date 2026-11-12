@@ -1,6 +1,6 @@
-# I4 AI evaluation criteria (DEV-263) — DRAFT, not yet frozen
+# I4 AI evaluation criteria (DEV-263)
 
-Frozen when committed to `main` before the 11/11 baseline run. The commit hash is the freeze point. Changing any item below after freeze requires a new version and re-running every compared arm. Thresholds are agreed with the PM **before** results are seen and are never lowered afterwards.
+Metrics and datasets were frozen at branch commit `e8f29e7`, before the first baseline run. Pass lines (section 4) are **pending PM agreement**. Changing any item below after freeze requires a new version and re-running every compared arm. Thresholds are agreed with the PM **before** results are seen and are never lowered afterwards.
 
 ## 1. Datasets and exposure
 
@@ -9,7 +9,7 @@ Frozen when committed to `main` before the 11/11 baseline run. The commit hash i
 | Chat | I3 frozen 60 questions × 3 trials = 180 (`docs/evaluation/i3-ai-support/questions.jsonl`, sha256 `c0bcef7f…`) | Regression (must not get worse) | Development — fully known |
 | Chat | I4 producer-FAQ set (real producer questions + phrasing variants, collected with Jinwoo/Minsun, DEV-265) | Capability (answer more answerable questions) | Development — frozen before first improvement |
 | Chat | 11/05 sealed holdout (30 cases) | — | **Exposed** (answerable 1/15 already known); not reused as independent evidence |
-| Draft | I3 dev set: synthetic 20 + public 12 (DEV-170 R4) | Development | Known |
+| Draft | Synthetic 23 (current `synthetic.CASES`; I3 R4 had 20) + public 12 (DEV-170) | Development | Known |
 | Draft | Holdout v1.1 / v2 | — | **Exposed** (v1.1 run once; v2 INVALID_INCOMPLETE) |
 
 A new generalization claim needs a new sealed set owned by someone other than the improver. Without one, results are reported as development improvements only.
