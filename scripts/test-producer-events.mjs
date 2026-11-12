@@ -89,6 +89,13 @@ test("DEV-312: connection, server and conflict failures are not counted as error
   assert.equal(isServerTrouble(new TypeError("Failed to fetch")), true);
   assert.equal(isServerTrouble(new Error("과일 품종명을 입력해 주세요.")), false);
   assert.equal(isServerTrouble(null), false);
+  // 판매 한도 거절(409)은 생산자가 고칠 수 있는 입력 오류라 센다
+  for (const reason of ["APPROVED_CAP_EXCEEDED", "CAP_BELOW_COMMITTED"]) {
+    const e = { status: 409, details: { reason } };
+    assert.equal(isServerTrouble(e), false, reason);
+    assert.equal(serverErrorCode(e), "quantity_invalid", reason);
+  }
+  assert.equal(isServerTrouble({ status: 409, details: { reason: "STALE_VERSION" } }), true);
 });
 
 test("DEV-312: the variety notice SourceBasicInfo throws maps to variety_required", () => {

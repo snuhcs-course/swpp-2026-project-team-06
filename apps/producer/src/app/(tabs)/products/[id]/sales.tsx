@@ -69,10 +69,11 @@ export default function Sales() {
   }
   /**
    * 저장·신청에서 생산자에게 보인 오류 안내. 위치·종류만 보낸다(글자 없음, DEV-312).
-   * 화면 검사(kg·박스 수, ApiError가 아닌 오류)는 quantity_invalid, 연결·서버·충돌 실패는 세지 않는다.
+   * 화면 검사(kg·박스 수, ApiError가 아닌 Error)는 quantity_invalid, 연결·서버·충돌 실패는 세지 않는다
+   * (판매 한도 거절 409는 serverErrorCode가 quantity_invalid로 센다).
    */
-  function shownFailure(e: unknown, local = false) {
-    if (local || (e instanceof Error && !(e instanceof ApiError) && !(e instanceof TypeError)))
+  function shownFailure(e: unknown) {
+    if (e instanceof Error && !(e instanceof ApiError) && !(e instanceof TypeError))
       track("form_error_shown", { screen: "product_sales", code: "quantity_invalid" });
     else if (!isServerTrouble(e))
       track("form_error_shown", { screen: "product_sales", code: serverErrorCode(e) });
@@ -98,7 +99,6 @@ export default function Sales() {
     setBusy(true);
     setError("");
     setNote("");
-    let localInvalid = false;
     try {
       const input =
         action === "request"
@@ -120,12 +120,10 @@ export default function Sales() {
       if (
         action === "save" &&
         (!/^\d+$/.test(perOrder) || Number(perOrder) < 1)
-      ) {
-        localInvalid = true;
+      )
         throw new Error(
           "한 주문 최대 박스 수는 1 이상의 정수로 입력해 주세요.",
         );
-      }
       const body = JSON.stringify({ action, input });
       if (pending.current?.body !== body)
         pending.current = { body, key: newIdempotencyKey() };
@@ -173,7 +171,7 @@ export default function Sales() {
               : "판매 설정을 저장했어요.",
       );
     } catch (e) {
-      shownFailure(e, localInvalid);
+      shownFailure(e);
     } finally {
       setBusy(false);
     }
@@ -185,7 +183,7 @@ export default function Sales() {
       setError("");
       setConfirm("request");
     } catch (e) {
-      shownFailure(e, true);
+      shownFailure(e);
     }
   }
   const editable =
