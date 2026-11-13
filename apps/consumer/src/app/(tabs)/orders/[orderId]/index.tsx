@@ -24,7 +24,6 @@ import {
   period,
   time,
   tokens,
-  useAsync,
   eulReul,
   won,
 } from "@farmclub/ui";
@@ -52,6 +51,7 @@ import {
 } from "../../../../lib/views";
 import { goBackOr } from "../../../../lib/nav";
 import { orderChatTarget } from "../../../../lib/orderChat";
+import { useOrderDetail } from "../../../../lib/useOrderDetail";
 
 const fmt = { md, deadline, time, won };
 
@@ -63,8 +63,8 @@ export default function OrderDetail() {
     data: o,
     error,
     reload,
-    setData,
-  } = useAsync(() => orders.get(orderId), [orderId]);
+    mutate,
+  } = useOrderDetail(orderId);
   const [cancelSheet, setCancelSheet] = useState(false);
   // 받는 시기 변경에 '전액 환불'로 답하기 전 확인(DEV-291). 되돌릴 수 없어 취소와 같은 시트를 거친다
   const [refundSheet, setRefundSheet] = useState(false);
@@ -76,19 +76,17 @@ export default function OrderDetail() {
     setBusy(true);
     setActionError(null);
     try {
-      const next = await fn();
-      setData(() => next);
-      if (success) toast.show(success);
+      const applied = await mutate(fn);
+      if (applied && success) toast.show(success);
     } catch (e) {
       if (isNetworkError(e)) {
         // 연결 문제 → 공통 오류 토스트와 다시 시도
         toast.fail(e, () => void act(fn, success));
       } else {
-        // 409: 이미 상태가 바뀜 → 최신 상태로 다시 그린다
+        // 쓰기 뒤 최신 조회는 useOrderDetail이 맡는다(409도 포함).
         setActionError(
           e instanceof ApiError ? e.message : "잠시 뒤 다시 시도해 주세요.",
         );
-        await reload();
       }
     } finally {
       setBusy(false);
@@ -142,6 +140,7 @@ export default function OrderDetail() {
         )
       ) : (
         <Scroll bottom={170}>
+          {error ? <LoadError error={error} onRetry={reload} /> : null}
           <View
             style={{
               paddingHorizontal: tokens.space.gutter,
@@ -191,7 +190,7 @@ export default function OrderDetail() {
               </T>
             ) : null}
             {/* 농가 미승인(DEV-68 AC-09-9·AC-17-8): 사유를 그대로 보여 준다 */}
-            {awaiting && o.depositIssue ? (
+            {awaiting && o.depositIssue && !o.depositReportedAt ? (
               <Notice
                 title="농가가 입금을 확인하지 못했어요"
                 body={`사유 · ${o.depositIssue}\n확인한 뒤 다시 입금했다고 알려 주세요. 궁금하면 농가에 물어보세요.`}
