@@ -197,7 +197,11 @@
 
     "share-default.html": {"x":3000,"y":11986,"w":1200,"h":630,"title":"공유 미리보기 · 기본"},
 
-    "share-farm.html": {"x":3000,"y":11236,"w":1200,"h":630,"title":"공유 미리보기 · 농가 링크"}
+    "share-farm.html": {"x":3000,"y":11236,"w":1200,"h":630,"title":"공유 미리보기 · 농가 링크"},
+
+    "proposal-boards/dev-311-brand-audit.html": {"x":0,"y":16300,"w":1320,"h":3300,"title":"DEV-311 브랜드 진단 (제안)"},
+
+    "proposal-boards/dev-311-brand-directions.html": {"x":1440,"y":16300,"w":1380,"h":8400,"title":"DEV-311 브랜드 방향 A·B·C (제안)"}
   },
   "order": [
     "scr-01.html",
@@ -297,7 +301,9 @@
     "s-23-filter.html",
     "s-25-salespending.html",
     "s-25-pausesheet.html",
-    "s-30-detail-preview.html"
+    "s-30-detail-preview.html",
+    "proposal-boards/dev-311-brand-audit.html",
+    "proposal-boards/dev-311-brand-directions.html"
   ],
   "notes": {
     "nb": {"kind":"sticky","x":0,"y":-210,"w":1330,"text":"글꼴 Pretendard 가변(한글 서브셋) · 숫자 tabular · 크기 34/22/17/16/15(16은 입력, 15는 보조·메타·채팅) · 굵기 400/600/700\n색: 글자 #111111 · 보조 #6B6B6B · 바탕 #FFFFFF · 면 #F5F5F3 · 선 #E8E8E6 · 강조 #C94F0C(흰 글자 4.56:1, 17px 600 이상, 화면당 한 곳)\n누르는 영역 48 · 간격 4 단위 · 썸네일 104/64/40 · 모서리 8 / 16 / 원형 · 카드는 누르는 것만 · 칩은 D-day·품절만 · 탭 발견·소식·채팅·내 정보"},
@@ -318,6 +324,8 @@
 
     "ts2": {"kind":"title","x":0,"y":7976,"maxW":7910,"text":"상태 프레임 · 생산자 14 + 시트 7"},
 
-    "tx": {"kind":"title","x":1480,"y":10916,"maxW":4200,"text":"PC · 공유 미리보기 · 아이콘"}
+    "tx": {"kind":"title","x":1480,"y":10916,"maxW":4200,"text":"PC · 공유 미리보기 · 아이콘"},
+
+    "t311": {"kind":"title","x":0,"y":16190,"maxW":2820,"text":"DEV-311 브랜드 아이덴티티 제안 (승인 전)"}
   }
 }
