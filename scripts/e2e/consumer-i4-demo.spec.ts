@@ -76,6 +76,7 @@ async function caption(page: Page, scene: string, title: string, lines: string[]
         boxSizing: "border-box", padding: "24px", borderRadius: "20px",
         background: "#173A2C", color: "#FFFFFF", zIndex: "2147483647",
         fontFamily: 'Pretendard, "Apple SD Gothic Neo", sans-serif',
+        wordBreak: "keep-all", overflowWrap: "break-word",
         boxShadow: "0 8px 32px #0000001a", pointerEvents: "none",
       });
       document.body.appendChild(panel);
@@ -228,12 +229,14 @@ test("DEV-281 AC-09-9/10 AC-10-9 AC-33-5: record the local consumer recovery dem
       }
       return route.continue();
     });
-    await caption(page, "03 / 문의 오류 복구", "조회 실패를 한 번 주입", [
+    const explainInquiry = () => caption(page, "03 / 문의 오류 복구", "조회 실패를 한 번 주입", [
       "다음 오류는 자동 시연이 의도적으로 만든 HTTP 400입니다.",
       "유형·내용·사진을 작성하고 다시 시도해 보겠습니다.",
     ]);
+    await explainInquiry();
     await page.waitForTimeout(2000);
     await page.goto(`${origins.consumer}/orders/${orderId}/inquiry`);
+    await explainInquiry();
     const retry = page.getByRole("button", { name: "다시 시도", exact: true });
     await expect(retry).toBeVisible();
     await expect(page.getByText("주문 불러오는 중…", { exact: true })).toHaveCount(0);
