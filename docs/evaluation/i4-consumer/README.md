@@ -48,6 +48,12 @@ Outputs live under the ignored `test-results/` directory: video, screenshots, a 
 
 A failed demonstration remains a failed result. Trace recording is disabled to avoid retaining authentication. Inspect the sanitized manifest, screenshots and runner logs and record the defect before repeating; keep the old run separately if it is needed as evidence.
 
+### Verified local recording
+
+The 14 November local recording used clean source `877d41ccc70e6b36a2e8ecf1d6ae41bd2b41b91c` and passed in 20.9 seconds, with eight completed assertions. Five screenshots, the WebM and evidence README matched their recorded SHA-256 hashes. Chromium decoded the video at 1280×800 with a 21.76-second duration; frames at 4, 10.88 and 19.76 seconds were visually inspected. The manifest explicitly leaves the API commit unverified and records that ffprobe was unavailable. This is technical evidence, with no participant observations or acceptance decision.
+
+The first clean-source run (`b7075e5`) failed because the error injection inspected a SPA URL before its navigation update. Its failed video/manifest were preserved. The recorder now ends detail polling before opening the inquiry scene; the original retry/persistence assertions remain unchanged. Generated recordings stay outside Git; the evidence README and manifest travel with the video.
+
 ### Suggested narration
 
 | Scene | Explain | Observable result |
