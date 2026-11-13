@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>첫 예약 동선 점검 DEV-268</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 머리 → 동선 지도 → 단계별 현재 캡처 + 문제 → 문제 표 → 개선 제안(BEFORE 캡처 | AFTER 390 목업) → 버그 후보·확인 범위.
+   휴대폰 목업 안은 앱이 밝은 화면만 쓰므로 두 테마 모두 같은 앱 토큰(UI 1.6)을 쓴다. */
+:root {
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --ink-2: #5E5D59; --rule: #DAD9D4;
+  --mark: #C94F0C; --mark-ink: #FFFFFF;
+  --block: #B42318; --block-soft: #FBEAE8;
+  --hes: #9A5B00; --hes-soft: #FBF0DC;
+  --nit: #55534E; --nit-soft: #ECEBE7;
+  --good: #2F6B3A; --good-soft: #E7F1E8;
+  /* 앱 토큰 (docs/design/README.md UI 1.6, packages/ui/src/tokens.ts) */
+  --app-bg: #FFFFFF; --app-text: #111111; --app-muted: #6B6B6B; --app-surface: #F5F5F3;
+  --app-border: #E8E8E6; --app-accent: #C94F0C; --app-bar: rgba(255,255,255,0.92);
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+    --mark: #E2733A; --mark-ink: #1A0E07;
+    --block: #F08A7E; --block-soft: #3A1F1C; --hes: #E8B562; --hes-soft: #3A2C14; --nit: #BDBBB4; --nit-soft: #2E2D2A;
+    --good: #8CC79A; --good-soft: #1D2E21; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935;
+  --mark: #E2733A; --mark-ink: #1A0E07;
+  --block: #F08A7E; --block-soft: #3A1F1C; --hes: #E8B562; --hes-soft: #3A2C14; --nit: #BDBBB4; --nit-soft: #2E2D2A;
+  --good: #8CC79A; --good-soft: #1D2E21; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px;
+  padding: 32px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px));
+  font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+h1 { font-size: 30px; line-height: 38px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 30px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 72ch; color: var(--ink-2); font-size: 17px; line-height: 26px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--rule); padding: 1px 5px; border-radius: 4px; color: var(--ink); overflow-wrap: anywhere; }
+
+/* 요약 숫자 */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--panel); border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 2px; }
+.kpi b { font-size: 28px; line-height: 36px; }
+.kpi span { color: var(--ink-2); font-size: 13px; line-height: 18px; }
+
+/* 동선 지도 */
+.flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.flow li { background: var(--panel); border-radius: 999px; padding: 6px 14px; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.flow li small { font-weight: 700; font-size: 12px; color: var(--ink-2); }
+.flow .arrow { background: none; padding: 0; color: var(--ink-2); font-weight: 400; }
+
+/* 배지 */
+.sev, .kind, .size { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.sev.block { background: var(--block-soft); color: var(--block); }
+.sev.hes { background: var(--hes-soft); color: var(--hes); }
+.sev.nit { background: var(--nit-soft); color: var(--nit); }
+.kind { background: transparent; border: 1px solid var(--rule); color: var(--ink-2); }
+.size { background: transparent; border: 1px dashed var(--ink-2); color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; color: var(--ink-2); font-size: 13px; }
+
+/* 단계 */
+.stage { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 760px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.shots { display: flex; flex-direction: column; gap: 10px; }
+.shot { width: 100%; max-width: 300px; border-radius: 20px; border: 1px solid var(--rule); display: block; background: #fff; }
+.shot-cap { font-size: 12px; line-height: 16px; color: var(--ink-2); }
+.issues { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.issue { background: var(--panel); border-radius: 16px; padding: 16px 20px; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 6px 12px; }
+.issue .n { width: 28px; height: 28px; border-radius: 999px; background: var(--ink); color: var(--panel); font-weight: 700; font-size: 14px; display: grid; place-items: center; grid-row: span 6; }
+.issue .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.issue dl { margin: 0; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 4px 10px; font-size: 14px; line-height: 21px; }
+.issue dt { color: var(--ink-2); font-weight: 600; }
+.issue dd { margin: 0; min-width: 0; }
+.ok { background: var(--good-soft); color: var(--good); border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 21px; }
+
+/* 표 */
+.tblwrap { overflow-x: auto; background: var(--panel); border-radius: 16px; }
+table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 14px; line-height: 21px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--rule); }
+thead th { border-top: 0; font-size: 12px; line-height: 16px; color: var(--ink-2); letter-spacing: 0.04em; }
+td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+/* 제안 */
+.prop { display: flex; flex-direction: column; gap: 20px; }
+.prop-head { display: flex; flex-direction: column; gap: 8px; }
+.pair { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.col { display: flex; flex-direction: column; gap: 10px; width: min(390px, 100%); }
+.tag { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+.tag i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.tag.before i { background: var(--block); }
+.tag.after i { background: var(--good); }
+.moves { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 28px; }
+.moves ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.moves li::marker { font-weight: 700; }
+.facts { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 4px 10px; font-size: 14px; line-height: 21px; background: var(--panel); border-radius: 12px; padding: 12px 14px; }
+.facts dt { color: var(--ink-2); font-weight: 600; }
+.facts dd { margin: 0; }
+
+/* 휴대폰 목업 — 앱 토큰만 쓴다 */
+.phone { width: 100%; background: var(--app-bg); color: var(--app-text); border-radius: 28px; border: 1px solid var(--rule); overflow: hidden; position: relative; display: flex; flex-direction: column; font-size: 16px; line-height: 24px; }
+.g { padding-left: 16px; padding-right: 16px; }
+.hbar { height: 56px; display: flex; align-items: center; gap: 4px; padding: 0 4px; }
+.hbar .ic { width: 48px; height: 48px; display: grid; place-items: center; }
+.hbar b { font-size: 18px; line-height: 26px; }
+.ic svg { width: 24px; height: 24px; stroke: currentColor; stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.photo { height: 140px; background: linear-gradient(135deg, #F0A060 0%, #C9682A 45%, #5E7A3A 100%); position: relative; }
+.photo .circ { position: absolute; top: 12px; width: 40px; height: 40px; border-radius: 999px; background: rgba(0,0,0,0.45); color: #fff; display: grid; place-items: center; }
+.t22 { font-size: 22px; line-height: 30px; letter-spacing: -0.01em; }
+.t18 { font-size: 18px; line-height: 26px; }
+.t14 { font-size: 14px; line-height: 20px; }
+.t12 { font-size: 12px; line-height: 16px; }
+.b { font-weight: 700; } .sb { font-weight: 600; }
+.mut { color: var(--app-muted); }
+.acc { color: var(--app-accent); }
+.strike { text-decoration: line-through; }
+.hr { height: 1px; background: var(--app-border); }
+.band { height: 8px; background: var(--app-surface); }
+.opt { border: 1px solid var(--app-border); border-radius: 16px; overflow: hidden; }
+.opt > div { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; gap: 12px; }
+.opt > div + div { border-top: 1px solid var(--app-border); }
+.price { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.list { display: flex; flex-direction: column; }
+.li { display: flex; gap: 12px; align-items: flex-start; min-height: 48px; padding: 12px 0; }
+.li + .li { border-top: 1px solid var(--app-border); }
+.li .ic { width: 24px; height: 24px; flex-shrink: 0; color: var(--app-muted); margin-top: 0; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; padding: 12px 0; border-top: 1px solid var(--app-border); }
+.row .k { color: var(--app-muted); flex-shrink: 0; }
+.row .v { text-align: right; display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; min-width: 0; }
+.copy { font-weight: 600; min-height: 48px; display: inline-flex; align-items: center; }
+.box { background: var(--app-surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.bbar { margin-top: auto; background: var(--app-bar); border-top: 1px solid var(--app-border); padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 8px; }
+.btn { height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 17px; font-weight: 600; }
+.btn.pri { background: var(--app-accent); color: #fff; }
+.btn.sec { background: var(--app-surface); color: var(--app-text); height: 48px; }
+.btn.line { border: 1px solid var(--app-border); background: var(--app-bg); height: 48px; }
+.btn.txt { height: 48px; }
+.sheetwrap { background: rgba(0,0,0,0.4); padding-top: 120px; display: flex; flex-direction: column; flex: 1; }
+.sheet { background: #FAFAF9; border-radius: 20px 20px 0 0; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.grab { width: 36px; height: 4px; border-radius: 999px; background: var(--app-border); margin: 0 auto 4px; }
+.sum { display: flex; gap: 12px; align-items: center; background: var(--app-bg); border: 1px solid var(--app-border); border-radius: 16px; padding: 12px; }
+.sum .th { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #F0A060, #C9682A); flex-shrink: 0; }
+.chip { height: 32px; padding: 0 12px; border-radius: 999px; background: var(--app-surface); display: inline-grid; place-items: center; font-size: 14px; }
+.chip.on { background: var(--app-text); color: #fff; font-weight: 600; }
+.mark { outline: 2px dashed var(--good); outline-offset: 3px; border-radius: 8px; }
+.farmhead { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 8px 0 4px; border-bottom: 1px solid var(--app-border); }
+.av { width: 40px; height: 40px; border-radius: 999px; background: linear-gradient(135deg, #5E7A3A, #C9682A); flex-shrink: 0; }
+.follow { margin-left: auto; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--app-accent); color: #fff; font-size: 14px; font-weight: 600; display: grid; place-items: center; }
+.bubble { background: var(--app-bg); border-radius: 4px 16px 16px 16px; padding: 10px 14px; max-width: 272px; }
+.room { background: var(--app-surface); padding: 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.notice { background: var(--app-surface); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.dl { list-style: none; margin: 0; padding: 0; }
+.qa { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.card { background: var(--panel); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card ul, .card ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.card.bug { border: 1px solid var(--block); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 머리 -->
+  <section class="head">
+    <p class="eyebrow">DEV-268 · I4 서비스 점검 · 제안 보드(승인 전, 앱 코드 변경 없음)</p>
+    <h1>처음 온 사람이 첫 예약을 끝내기까지</h1>
+    <p class="lede">공유 링크·홈에 도착해서 예약 내역을 보기까지 열 단계를 390 폭, 비로그인 첫 방문자로 직접 눌러 봤어요. 고른 옵션은 로그인 뒤에도 그대로 이어지고 화면도 대부분 정리돼 있어요. 걸리는 곳은 세 가지예요. ① 가격과 ‘마감’이 무엇을 뜻하는지 설명이 없어요. ② 계좌이체로 선결제한다는 사실과 환불 약속이 결정 지점에 보이지 않아요. ③ 공유 링크로 들어오면 첫 화면이 로그인을 먼저 요구해요.</p>
+    <div class="meta">
+      <span>기준: origin/main <code>e48b3f1</code> (DEV-292·293 반영 뒤)</span>
+      <span>실행: 로컬 실스택 <code>scripts/demo.mjs</code>(FastAPI + 소비자 앱, 시드, FIXED_NOW 2026-10-07 10:00, 목 로그인)</span>
+      <span>배포 확인: <code>farmclub-consumer.vercel.app</code> 읽기 전용(로그인·주문 없음) + curl</span>
+      <span>2026-11-11 · 박현</span>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><b>18</b><span>문제 (막힘 2 · 망설임 10 · 거슬림 6)</span></div>
+      <div class="kpi"><b>13</b><span>작음: 반나절 이하</span></div>
+      <div class="kpi"><b>5</b><span>큼: 영역 담당자와 논의</span></div>
+      <div class="kpi"><b>7</b><span>개선 제안(영향 큰 순)</span></div>
+      <div class="kpi"><b>2</b><span>버그 후보(스펙과 다름, 따로 보고)</span></div>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>점검한 동선</h2>
+    <ul class="flow">
+      <li><small>A</small>공유 링크 · 홈</li><li class="arrow">→</li>
+      <li><small>B</small>농가 페이지</li><li class="arrow">→</li>
+      <li><small>C</small>상품 상세</li><li class="arrow">→</li>
+      <li><small>D</small>옵션·수량 시트</li><li class="arrow">→</li>
+      <li><small>E</small>로그인 안내·로그인</li><li class="arrow">→</li>
+      <li><small>F</small>주문서</li><li class="arrow">→</li>
+      <li><small>G</small>입금 안내</li><li class="arrow">→</li>
+      <li><small>H</small>주문 완료 · 내 주문</li>
+    </ul>
+    <div class="legend">
+      <span class="sev block">막힘</span> 다음으로 못 가거나 대부분 이탈
+      <span class="sev hes">망설임</span> 갈 수는 있지만 멈추고 의심함
+      <span class="sev nit">거슬림</span> 결과는 같지만 품질이 떨어짐
+      <span class="kind">버그·UX·문구</span> 종류
+      <span class="size">작음·큼</span> 고칠 크기(작음 = 반나절 이하, 큼 = 담당자 논의)
+    </div>
+  </section>
+
+  <!-- A 홈 -->
+  <section class="head">
+    <p class="eyebrow">A · 공유 링크 · 홈 (SCR-01)</p>
+    <div class="stage">
+      <div class="shots">
+        <img class="shot" src="DEV-268/before-01-home.png" alt="로컬 시드 홈: 농가 소식 카드와 제철 상품 2열, 가격 옆 취소선, 마감 D-5">
+        <p class="shot-cap">로컬 시드 · 390×844</p>
+        <img class="shot" src="DEV-268/before-00-vercel-home-empty.png" alt="배포 홈: 농가의 첫 소식을 기다려요 아래 큰 빈칸, 현재 예약 가능한 상품이 없어요 한 줄">
+        <p class="shot-cap">배포(vercel) 홈 · 11/11 실제 상태, 위 440만</p>
+      </div>
+      <div class="issues">
+        <div class="issue"><span class="n">1</span>
+          <h3>상품이 없을 때 홈에 다음 행동이 없고, 소식 빈칸 아래가 크게 비어요</h3>
+          <div class="tags"><span class="sev block">막힘</span><span class="kind">UX · 버그 후보</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>배포 주소 홈을 비로그인으로 열기(11/11 기준 판매 중 상품 0개, 소식 0개).</dd>
+            <dt>근거</dt><dd>지금 들어오는 첫 방문자가 모두 이 화면을 봐요. ‘농가의 첫 소식을 기다려요’ 아래 약 200px가 비고, ‘현재 예약 가능한 상품이 없어요’ 다음에 할 수 있는 일(농가 둘러보기)이 없어 그대로 나가요. 빈칸은 가로 <code>ScrollView</code>가 빈 글자 하나를 감싼 채 높이를 차지해서 생긴 것으로 추정해요(코드로만 확인).</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/(tabs)/index.tsx</code> · <code>packages/ui/src/Storefront.tsx</code>(<code>FeedCarousel</code>)</dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">2</span>
+          <h3>취소선 가격이 무엇과 비교한 값인지 설명이 없어요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">문구</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>홈 제철 상품 카드, 상품 상세 옵션 카드의 <span style="text-decoration:line-through">36,000원</span> 29,000원.</dd>
+            <dt>근거</dt><dd>취소선은 ‘마지막 예약 기간 가격’인데 화면에는 이름이 없어서 흔한 할인 표시로 읽혀요. 단계 가격(일찍 예약할수록 싸다)이 이 서비스의 핵심인데 설명이 한 번도 나오지 않아요. 할인으로 읽히면 ‘원래 값을 부풀렸나’ 하는 의심이 생겨요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/(tabs)/index.tsx</code>(상품 카드) · <code>packages/ui/src/ProductPage.tsx</code> · <code>packages/ui/src/Storefront.tsx</code></dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">3</span>
+          <h3>‘마감 D-5’는 지금 가격이 끝나는 날인데, 예약이 닫히는 날로 읽혀요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">문구</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd><code>GET /api/products/p-house</code> → <code>dDay 5</code>, <code>stageEndsAt 2026-10-12</code>(1단계 끝). 예약은 3단계 11월 9일까지 받아요.</dd>
+            <dt>근거</dt><dd>‘마감’은 보통 ‘더는 못 산다’로 읽혀서, 서두르지 않아도 되는 사람을 서두르게 하거나 D-day가 지난 뒤 다시 온 사람을 헷갈리게 해요. 바로 앞의 취소선과 이어 읽으면 ‘5일 남은 할인’이 돼요.</dd>
+            <dt>파일</dt><dd><code>packages/ui/src/format.ts</code>(<code>closesText</code>) · <code>packages/ui/src/ProductPage.tsx:477</code> · 홈 카드</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B 농가 페이지 -->
+  <section class="head">
+    <p class="eyebrow">B · 농가 페이지 = 농가 공유 링크 착지 (SCR-03 소식방)</p>
+    <div class="stage">
+      <div class="shots">
+        <img class="shot" src="DEV-268/before-02-farm.png" alt="농가 페이지: 머리 팔로우 주황, 판매 중 1개 한 줄 접힘, 소식 말풍선, 하단 로그인하고 참여하기 주황">
+        <p class="shot-cap">/farms/f-kang 비로그인 · 390×844</p>
+      </div>
+      <div class="issues">
+        <div class="issue"><span class="n">4</span>
+          <h3>공유 링크로 온 첫 방문자에게 ‘로그인’이 먼저 보이고 상품은 접혀 있어요</h3>
+          <div class="tags"><span class="sev block">막힘</span><span class="kind">UX</span><span class="size">큼</span></div>
+          <dl>
+            <dt>재현</dt><dd>비로그인으로 <code>/farms/f-kang</code>(농가 링크 <code>/s/farms/:id</code>가 여는 곳) 열기.</dd>
+            <dt>근거</dt><dd>미리보기가 붙는 유일한 링크(FEAT-19)가 여기로 와요. 주황이 두 곳(머리 ‘팔로우’, 하단 ‘로그인하고 참여하기’)이고 둘 다 로그인을 요구해요. 판매 상품은 ‘판매 중 1개 · …’ 한 줄로 접혀 있어 예약으로 가는 길이 가장 약해요. 농가가 단골을 데려오는 주 경로라 첫 예약 전환에 가장 크게 걸려요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/lib/FarmRoom.tsx</code> · <code>apps/consumer/src/app/(tabs)/farms/[farmId].tsx</code> (DEV-295 소식방 결정 ‘판매 품목은 접힌 채 시작’과 함께 논의)</dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">5</span>
+          <h3>소식방의 좋아요·팔로잉·전송이 웹에서 48보다 작아요</h3>
+          <div class="tags"><span class="sev nit">거슬림</span><span class="kind">버그 후보(N-02)</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>로그인 뒤 같은 화면에서 실측(390, 웹): 좋아요 20×20, ‘팔로잉’ 75×32, 전송 40×40.</dd>
+            <dt>근거</dt><dd>README 규칙은 ‘보이는 크기는 두고 여백으로 48’. RN <code>hitSlop</code>이 웹에서 누르는 영역을 넓히는지는 확인하지 못했어요. 넓히지 않는다면 N-02 위반이에요. 휴대폰 실기기 확인이 필요해요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/lib/FarmRoom.tsx</code> · <code>packages/ui/src/Button.tsx</code>(compact <code>hitSlop</code>) · <code>packages/ui/src/ChatBubble.tsx</code></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- C 상품 상세 -->
+  <section class="head">
+    <p class="eyebrow">C · 상품 상세 (SCR-04)</p>
+    <div class="stage">
+      <div class="shots">
+        <img class="shot" src="DEV-268/before-03-product.png" alt="상품 상세 1500 높이: 사진, 판매자 줄, 상품명·원산지, 도착 예정 줄, 옵션 카드, 취소 규정 한 줄, 농가 이야기, 주황 당도 블록">
+        <p class="shot-cap">/products/p-house · 390×1500</p>
+        <img class="shot" src="DEV-268/before-03b-arrival.png" alt="도착 예정 줄을 펼친 모습: 11월 30일까지 못 보내면 자동 전액 환불, 도서산간 3,000원">
+        <p class="shot-cap">‘11월 10일~20일 도착 예정’을 펼쳐야 보이는 환불 약속</p>
+      </div>
+      <div class="issues">
+        <div class="issue"><span class="n">6</span>
+          <h3>‘농가 계좌로 직접 입금’이라는 결제 방식이 상세에 없어요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">문구</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>상세를 끝까지 내려도 결제 방식이 없음. ‘출하 전 전액 환불 · …’ 줄을 눌러 펼쳐야 ‘예약할 때 전액을 한 번에 입금해요’가 나와요.</dd>
+            <dt>근거</dt><dd>카드 결제를 기대한 사람은 주문서 맨 아래 12 보조 글이나 입금 안내 화면에서야 알아요. 로그인과 주소 입력을 다 하고 나서 ‘처음 보는 농가 개인 계좌로 이체’를 마주치면 가장 비싼 지점에서 이탈해요.</dd>
+            <dt>파일</dt><dd><code>packages/ui/src/ProductPage.tsx</code></dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">7</span>
+          <h3>믿을 근거가 결정 지점에서 멀어요: 예약 인원은 빠지고 환불 약속은 접혀 있어요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">UX</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>홈 카드에는 ‘37명 예약’이 있는데 상세에는 없어요(API <code>reservedCount 37</code>은 내려옴). ‘11월 30일까지 못 보내면 자동 전액 환불’은 도착 예정 줄을 펼쳐야 보여요. 팔로워 수는 DEV-293에서 뺐어요(API에 값 없음).</dd>
+            <dt>근거</dt><dd>처음 보는 농가에 3주 뒤 받을 물건값을 먼저 보내려면 ‘다른 사람도 샀다’와 ‘못 받으면 돈이 돌아온다’가 옵션 카드 바로 곁에 있어야 해요. 지금은 가격 카드 → 접힌 줄 → 긴 이야기 순이라 근거가 스크롤 아래에 흩어져 있어요.</dd>
+            <dt>파일</dt><dd><code>packages/ui/src/ProductPage.tsx</code> (데이터는 이미 있음: <code>reservedCount</code>, <code>maxDelayUntil</code>)</dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">8</span>
+          <h3>측정 당도 블록이 화면 폭 전체를 주황으로 칠해 예약하기와 겨뤄요</h3>
+          <div class="tags"><span class="sev nit">거슬림</span><span class="kind">UX</span><span class="size">큼</span></div>
+          <dl>
+            <dt>재현</dt><dd>상세를 한 화면 내리면 약 390×420의 강조색 면 + 일러스트.</dd>
+            <dt>근거</dt><dd>‘강조색은 화면당 주요 버튼 하나’ 규칙과 충돌하고, 주황 면이 하단 ‘예약하기’와 시선을 나눠요. 숫자 11.8은 신뢰 근거라 살리되 면색(#F5F5F3)으로 낮추는 쪽을 제안해요. 판매페이지 모듈 렌더러(공용 18모듈) 담당과 논의가 필요해요. 브랜드 톤 판단은 DEV-311 범위예요.</dd>
+            <dt>파일</dt><dd><code>packages/ui/src/BrixReading.tsx</code></dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">9</span>
+          <h3>상품 공유가 상품 미리보기 없이 사이트 공통 카드로 나가요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">UX</span><span class="size">큼</span></div>
+          <dl>
+            <dt>재현</dt><dd>사진 위 공유 → 주소 <code>/products/:id</code>. <code>curl -A facebookexternalhit https://farmclub-consumer.vercel.app/products/x</code> → og:title ‘farmclub · 수확 전에 예약하는 산지 직송 감귤’, og:image <code>/og.jpg</code>(모든 상품 같음). 농가 링크 <code>/s/farms/:id</code>는 농가 이름·사진이 나와요(curl 확인).</dd>
+            <dt>근거</dt><dd>카톡으로 받은 사람이 무슨 상품인지 모른 채 눌러야 해요. 상품별 미리보기는 서버 렌더 주소(<code>/s/products/:id</code>)를 새로 만들어야 해서 서버·vercel rewrite 작업이에요. 스펙(FEAT-19)은 농가 링크만 정하고 있어 동작 위반은 아니에요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/(tabs)/products/[productId].tsx</code>(<code>shareProduct</code>) · <code>server/app/farms/share.py</code> · <code>apps/consumer/vercel.json</code></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- D·E 시트·로그인 -->
+  <section class="head">
+    <p class="eyebrow">D · 옵션·수량 시트 → E · 로그인 안내·로그인 (SCR-04 시트, SCR-05)</p>
+    <div class="stage">
+      <div class="shots">
+        <img class="shot" src="DEV-268/before-04-sheet.png" alt="옵션과 수량 시트: 5kg 선택, 수량 2, 58,000원, 주문서로">
+        <img class="shot" src="DEV-268/before-05-gate.png" alt="로그인 안내 시트: 로그인하고 예약해요, 팔로우·예약·채팅은 로그인이 필요해요">
+        <img class="shot" src="DEV-268/before-06-login.png" alt="로그인 화면: 로그인하고 계속해요, 테스트 계정 두 개, 김민지로 로그인">
+      </div>
+      <div class="issues">
+        <div class="ok">잘 되는 것: 시트에서 고른 옵션·수량(5kg × 2)이 로그인 뒤 주문서 주소 <code>?optionId=opt-5&amp;quantity=2</code>로 그대로 이어져요(AC-01-1). 주문서에서 새로 고침해도 유지돼요. ‘채팅’ 관문은 로그인 뒤 바로 채팅 시작으로 이어져요.</div>
+        <div class="issue"><span class="n">10</span>
+          <h3>로그인 안내 시트가 고른 것을 보여 주지 않고, 본문은 모든 행동에 같은 문장이에요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">문구</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>상세 → 예약하기 → 주문서로(비로그인). 제목만 ‘로그인하고 예약해요’로 바뀌고, 본문은 ‘팔로우·예약·채팅은 로그인이 필요해요…’로 늘 같아요.</dd>
+            <dt>근거</dt><dd>방금 고른 ‘5kg × 2 · 58,000원’이 시트에서 사라져 ‘다시 골라야 하나’ 걱정하게 돼요. 실제로는 유지되니 그 사실을 보여 주면 돼요. 안내 → 로그인 화면 → 계정 선택까지 세 번 누르는데, 그사이 맥락 표시가 한 번도 없어요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/lib/session.tsx</code>(32행 제목표, 270행 본문)</dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">11</span>
+          <h3>로그인 화면에서 새로 고침하면 고른 옵션이 사라지고 상세로 돌아가요</h3>
+          <div class="tags"><span class="sev nit">거슬림</span><span class="kind">버그 후보</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>비로그인 상세 → 예약하기 → 10kg, 수량 2 → 주문서로 → 로그인 → 로그인 화면에서 새로 고침 → 김민지로 로그인 → <code>/products/p-house</code>(주문서가 아님).</dd>
+            <dt>근거</dt><dd>‘돌아가서 이어 할 행동’(<code>resume</code>)이 React 상태에만 있어요. 카카오 경로는 <code>lib/kakao.ts</code>가 sessionStorage에 따로 담아 보존해요(코드로만 확인, 카카오 실로그인은 하지 않음). 목 로그인(평가자 경로 <code>?evaluator=1</code> 포함)에서 새로 고침·탭 복원 때 끊겨요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/lib/session.tsx</code> · <code>apps/consumer/src/app/login.tsx</code></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- F 주문서 -->
+  <section class="head">
+    <p class="eyebrow">F · 주문서 (SCR-10)</p>
+    <div class="stage">
+      <div class="shots">
+        <img class="shot" src="DEV-268/before-07-checkout.png" alt="주문서: 상품 줄 변경 주황, 받는 곳 변경 주황, 총 입금액 주황, 예약 전 확인 5개, 아래 12 보조 글 농가 계좌로 직접 입금">
+        <p class="shot-cap">저장 배송지가 있는 김민지 · 390×1180</p>
+        <img class="shot" src="DEV-268/before-07b-checkout-no-address.png" alt="배송지 없는 첫 주문: 받는 사람과 주소 입력 점선, 꺼진 29,000원 예약하기">
+        <p class="shot-cap">배송지 없는 이서준(첫 주문)</p>
+      </div>
+      <div class="issues">
+        <div class="issue"><span class="n">12</span>
+          <h3>입금 방식·24시간 자동 취소가 동의 아래 12 보조 글에 묻혀 있어요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">문구</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>주문서 끝 ‘농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면 자동 취소돼요.’(12, 보조색). 버튼은 ‘58,000원 예약하기’.</dd>
+            <dt>근거</dt><dd>버튼을 누르면 돈이 나가는 게 아니라 계좌 안내가 나오고 물량이 24시간 잡혀요. 이 사실이 버튼 가까이 없어서 ‘누르면 바로 결제되나’ 하고 멈춰요. 6번과 같은 정보를 결정 지점마다 한 줄씩 두는 문제예요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/checkout/[productId]/index.tsx</code></dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">13</span>
+          <h3>꺼진 예약하기 버튼의 이유가 눈에 보이지 않아요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">UX</span><span class="size">큼</span></div>
+          <dl>
+            <dt>재현</dt><dd>배송지 없는 계정으로 주문서를 열면 회색 ‘29,000원 예약하기’. 이유(‘받는 곳을 먼저 정해 주세요. 필수 동의 5개 중 0개 했어요’)는 <code>aria-describedby</code>에만 있어요.</dd>
+            <dt>근거</dt><dd>첫 주문자는 모두 이 상태에서 시작해요. 눌러도 반응이 없으면 ‘고장’으로 읽혀요. 11/09 PM 결정(눈에 보이는 문구 없음)을 다시 볼 근거라서 ‘큼’으로 둬요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/checkout/[productId]/index.tsx</code> · <code>docs/spec/screens.md</code> SCR-10 빈 상태</dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">14</span>
+          <h3>강조색이 한 화면에 네 곳이에요(변경 둘, 총 입금액, 버튼)</h3>
+          <div class="tags"><span class="sev nit">거슬림</span><span class="kind">UX</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>주문서 상품 줄 ‘변경’, 받는 곳 ‘변경’, ‘총 입금액 58,000원’이 #C94F0C.</dd>
+            <dt>근거</dt><dd>README 규칙 ‘강조색은 화면당 주요 버튼 하나’. 글자 버튼 ‘변경’이 주요 버튼과 같은 무게로 보여요. Figma v6 주문서 프레임과 맞춰 본 뒤 고쳐야 해요(Figma에 주황으로 그려져 있다면 규칙 쪽을 정리).</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/checkout/[productId]/index.tsx</code></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- G 입금 안내 -->
+  <section class="head">
+    <p class="eyebrow">G · 입금 안내 (SCR-11) · 뒤로 가기</p>
+    <div class="stage">
+      <div class="shots">
+        <img class="shot" src="DEV-268/before-08-deposit.png" alt="입금 안내: 입금할 금액 58,000원 큰 숫자와 입금액 줄 58,000원 중복, 입금자명 FC 번호, 아래 입금자명: 주문 번호 캡션">
+        <img class="shot" src="DEV-268/before-08b-back-checkout.png" alt="입금 안내에서 뒤로: 동의가 켜진 채 58,000원 예약하기가 그대로">
+        <p class="shot-cap">입금 안내 → 브라우저 뒤로</p>
+      </div>
+      <div class="issues">
+        <div class="issue"><span class="n">15</span>
+          <h3>‘입금자명을 주문 번호로 바꿔 보내라’는 행동 지시가 없어요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">문구</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>입금 안내 표 아래 12 캡션 ‘입금자명: 주문 번호’ 한 줄뿐이에요.</dd>
+            <dt>근거</dt><dd>은행 앱의 받는 분 통장 표시는 기본이 보내는 사람 이름이에요. 그대로 보내면 농가가 통장에서 주문을 못 찾아 입금 확인이 늦어지고, 첫 주문 경험이 ‘입금 확인 중’에서 멈춰요. 같은 58,000원이 큰 숫자와 ‘입금액’ 줄에 두 번 나오고, 금액에는 복사가 없어요(계좌·입금자명만 있음).</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/checkout/[productId]/pay.tsx</code> · <code>apps/consumer/src/lib/DepositCard.tsx</code></dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">16</span>
+          <h3>입금 안내에서 뒤로 오면 이미 예약된 줄 모른 채 같은 버튼이 다시 켜져 있어요</h3>
+          <div class="tags"><span class="sev hes">망설임</span><span class="kind">UX</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>주문서 → 예약하기 → 입금 안내 → 브라우저 뒤로. 동의가 켜진 채 ‘58,000원 예약하기’가 그대로예요. 다시 누르면 같은 멱등 키라 <b>같은 주문</b>으로 가요(중복 주문 없음, 직접 확인). 상세에서 처음부터 다시 예약하면 새 입금 대기 주문이 생겨요(로컬에서 같은 상품 입금 대기 5건 쌓임).</dd>
+            <dt>근거</dt><dd>스펙상 뒤로 → 주문서는 맞아요(SCR-11). 다만 ‘입금 대기 주문이 이미 있다’를 알리지 않아서, 다시 예약하거나 ‘예약이 안 됐나’ 하고 상세에서 새로 시작해요. 이미 있는 ‘이미 만든 예약’ 안내(DEV-293, <code>placed</code>)를 이 경우에도 쓰면 돼요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/checkout/[productId]/index.tsx</code>(<code>placedRef</code>·<code>placed</code>)</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- H 완료·내 주문 -->
+  <section class="head">
+    <p class="eyebrow">H · 주문 완료 (SCR-12) · 내 주문 (SCR-13)</p>
+    <div class="stage">
+      <div class="shots">
+        <img class="shot" src="DEV-268/before-10-done.png" alt="주문 완료: 검정 체크 원, 입금 확인 중, 입금 정보 줄, 주문 상세 보기">
+        <img class="shot" src="DEV-268/before-11-orders.png" alt="내 주문: 확정 0, 미확정 9, 취소·환불 1 칩, 입금 대기 주문 여러 줄">
+      </div>
+      <div class="issues">
+        <div class="issue"><span class="n">17</span>
+          <h3>체크 아이콘이 ‘끝났다’로 보이는데 예약은 아직 확정 전이에요</h3>
+          <div class="tags"><span class="sev nit">거슬림</span><span class="kind">문구</span><span class="size">작음</span></div>
+          <dl>
+            <dt>재현</dt><dd>입금 안내 → ‘입금을 마쳤어요’ → <code>/orders/:id/done</code>. 검정 체크 원 + ‘입금 확인 중’.</dd>
+            <dt>근거</dt><dd>본문 ‘농가가 입금을 확인하면 예약 완료로 바뀌어요’는 정확하지만, 언제쯤인지(예: 보통 하루 안) 없이 끝나요. 첫 주문자는 기다리는 동안 확인 방법을 몰라요. 아이콘은 스펙 결정(‘기존 검정 체크 원 그대로’)이라 문구만 보태는 쪽을 제안해요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/(tabs)/orders/[orderId]/done.tsx</code></dd>
+          </dl>
+        </div>
+        <div class="issue"><span class="n">18</span>
+          <h3>방금 한 첫 예약이 ‘미확정’ 탭에 들어가요</h3>
+          <div class="tags"><span class="sev nit">거슬림</span><span class="kind">문구</span><span class="size">큼</span></div>
+          <dl>
+            <dt>재현</dt><dd>내 주문 탭 기본 ‘미확정’에 입금 대기·예약 완료·배송 중이 모두 있어요.</dd>
+            <dt>근거</dt><dd>‘미확정’은 구매 확정 전이라는 뜻이지만, 처음 온 사람은 ‘예약이 확정되지 않았다(문제 있음)’로 읽어요. ‘진행 중 / 끝남 / 취소·환불’ 같은 이름을 제안해요. AC-10-6에 탭 이름이 박혀 있어 스펙·테스트를 같이 바꿔야 해요.</dd>
+            <dt>파일</dt><dd><code>apps/consumer/src/app/(tabs)/orders/index.tsx</code> · <code>apps/consumer/src/lib/orderGroups.ts</code> · <code>docs/spec/functional/FEAT-10-order-history.md</code></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 표 -->
+  <section class="head">
+    <h2>문제 목록</h2>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>#</th><th>단계</th><th>한 줄</th><th>심각도</th><th>종류</th><th>크기</th><th>파일</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>A 홈</td><td>상품 0개일 때 다음 행동 없음, 소식 빈칸 아래 큰 공백</td><td><span class="sev block">막힘</span></td><td>UX·버그 후보</td><td>작음</td><td class="code">(tabs)/index.tsx, ui/Storefront.tsx</td></tr>
+          <tr><td>2</td><td>A·C</td><td>취소선 가격이 무엇과의 비교인지 없음</td><td><span class="sev hes">망설임</span></td><td>문구</td><td>작음</td><td class="code">(tabs)/index.tsx, ui/ProductPage.tsx</td></tr>
+          <tr><td>3</td><td>A·C</td><td>‘마감 D-5’ = 지금 가격 끝인데 예약 마감으로 읽힘</td><td><span class="sev hes">망설임</span></td><td>문구</td><td>작음</td><td class="code">ui/format.ts, ui/ProductPage.tsx</td></tr>
+          <tr><td>4</td><td>B 농가</td><td>공유 링크 착지에서 로그인이 먼저, 상품은 접힘</td><td><span class="sev block">막힘</span></td><td>UX</td><td>큼</td><td class="code">lib/FarmRoom.tsx</td></tr>
+          <tr><td>5</td><td>B 농가</td><td>좋아요 20·팔로잉 32·전송 40, 웹 터치 48 미만 가능</td><td><span class="sev nit">거슬림</span></td><td>버그 후보</td><td>작음</td><td class="code">lib/FarmRoom.tsx, ui/Button.tsx</td></tr>
+          <tr><td>6</td><td>C 상세</td><td>계좌 직접 입금이라는 결제 방식이 상세에 없음</td><td><span class="sev hes">망설임</span></td><td>문구</td><td>작음</td><td class="code">ui/ProductPage.tsx</td></tr>
+          <tr><td>7</td><td>C 상세</td><td>예약 인원 빠짐, 지연 시 자동 환불이 접혀 있음</td><td><span class="sev hes">망설임</span></td><td>UX</td><td>작음</td><td class="code">ui/ProductPage.tsx</td></tr>
+          <tr><td>8</td><td>C 상세</td><td>당도 블록 전면 강조색이 예약하기와 겨룸</td><td><span class="sev nit">거슬림</span></td><td>UX</td><td>큼</td><td class="code">ui/BrixReading.tsx</td></tr>
+          <tr><td>9</td><td>C 상세</td><td>상품 공유 미리보기가 사이트 공통 카드</td><td><span class="sev hes">망설임</span></td><td>UX</td><td>큼</td><td class="code">products/[productId].tsx, server/app/farms/share.py</td></tr>
+          <tr><td>10</td><td>E 관문</td><td>안내 시트에 고른 옵션·금액 없음, 본문 공통 문장</td><td><span class="sev hes">망설임</span></td><td>문구</td><td>작음</td><td class="code">lib/session.tsx</td></tr>
+          <tr><td>11</td><td>E 로그인</td><td>로그인 화면 새로 고침 시 고른 옵션 사라짐(목 로그인)</td><td><span class="sev nit">거슬림</span></td><td>버그 후보</td><td>작음</td><td class="code">lib/session.tsx, app/login.tsx</td></tr>
+          <tr><td>12</td><td>F 주문서</td><td>입금 방식·24시간 자동 취소가 12 보조 글에 묻힘</td><td><span class="sev hes">망설임</span></td><td>문구</td><td>작음</td><td class="code">checkout/[productId]/index.tsx</td></tr>
+          <tr><td>13</td><td>F 주문서</td><td>꺼진 예약하기의 이유가 눈에 안 보임</td><td><span class="sev hes">망설임</span></td><td>UX</td><td>큼</td><td class="code">checkout/[productId]/index.tsx</td></tr>
+          <tr><td>14</td><td>F 주문서</td><td>강조색 네 곳(변경 둘·총 입금액·버튼)</td><td><span class="sev nit">거슬림</span></td><td>UX</td><td>작음</td><td class="code">checkout/[productId]/index.tsx</td></tr>
+          <tr><td>15</td><td>G 입금</td><td>입금자명 바꾸라는 지시 없음, 금액 중복·금액 복사 없음</td><td><span class="sev hes">망설임</span></td><td>문구</td><td>작음</td><td class="code">checkout/[productId]/pay.tsx, lib/DepositCard.tsx</td></tr>
+          <tr><td>16</td><td>G 뒤로</td><td>뒤로 오면 이미 예약된 걸 모르고 같은 버튼이 켜져 있음</td><td><span class="sev hes">망설임</span></td><td>UX</td><td>작음</td><td class="code">checkout/[productId]/index.tsx</td></tr>
+          <tr><td>17</td><td>H 완료</td><td>‘입금 확인 중’이 언제 끝나는지 없음</td><td><span class="sev nit">거슬림</span></td><td>문구</td><td>작음</td><td class="code">orders/[orderId]/done.tsx</td></tr>
+          <tr><td>18</td><td>H 내 주문</td><td>첫 예약이 ‘미확정’ 탭에 — 문제 상태로 읽힘</td><td><span class="sev nit">거슬림</span></td><td>문구</td><td>큼</td><td class="code">orders/index.tsx, lib/orderGroups.ts</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 제안 -->
+  <section class="head">
+    <p class="eyebrow">개선 제안 · 영향 큰 순서 7개</p>
+    <h2>BEFORE(지금 캡처) | AFTER(390 목업)</h2>
+    <p class="lede">모두 기존 토큰 안에서 풀었어요: Pretendard, 좌우 16, 본문 16 · 보조 14 · 메타 12 · 숫자 22, 주요 버튼 52 · 보조 48, 터치 48 이상, 강조색은 화면당 주요 버튼 하나. 새 부품은 없고 <code>ListRow</code>·<code>Notice</code>(면색 상자)·<code>Sheet</code>를 다시 써요. 문구는 해요체 한두 문장이에요.</p>
+  </section>
+
+  <!-- P1 -->
+  <section class="prop">
+    <div class="prop-head">
+      <p class="eyebrow">제안 1 · 문제 6 · 7 · 12 — 결정 지점에 ‘알아 둘 세 가지’</p>
+      <h2>옵션 카드 바로 아래에 예약 인원·입금 방식·환불 약속을 한 묶음으로</h2>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag before"><i></i>BEFORE</span>
+        <img class="shot" style="max-width:390px" src="DEV-268/before-03b-arrival.png" alt="지금 상품 상세 가운데: 옵션 카드 아래 취소 규정 한 줄만">
+      </div>
+      <div class="col"><span class="tag after"><i></i>AFTER</span>
+        <div class="phone">
+          <div class="g" style="padding-top:16px">
+            <p class="t22 b">하우스 감귤 5kg / 10kg</p>
+            <p class="t22">원산지 제주 서귀포</p>
+            <div class="hr" style="margin:16px 0 12px"></div>
+            <p class="b">11월 10일~20일 도착 예정</p>
+            <p class="t14 mut">무료배송 · 이 가격은 10월 12일까지</p>
+            <div class="opt" style="margin-top:16px">
+              <div><div><p class="b">5kg</p><p class="t14 mut">42박스 남음</p></div><div class="price"><span class="t12 mut">지금 예약가</span><span class="t18 b">29,000원</span></div></div>
+              <div><div><p class="b">10kg</p><p class="t14 mut">14박스 남음</p></div><div class="price"><span class="t12 mut">지금 예약가</span><span class="t18 b">55,000원</span></div></div>
+            </div>
+            <p class="t12 mut" style="margin-top:8px">일찍 예약할수록 싸요. 마지막 기간 5kg 36,000원</p>
+            <div class="list mark" style="margin-top:20px">
+              <div class="li"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 19c.8-3.2 3.2-5 6-5s5.2 1.8 6 5"/><path d="M16 5.5a3 3 0 0 1 0 5.6M18 14c1.6.6 2.7 2.2 3 5"/></svg></span><div><p>37명이 예약했어요</p></div></div>
+              <div class="li"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span><div><p>농가 계좌로 직접 입금해요</p><p class="t14 mut">예약하면 24시간 동안 물량을 잡아 둬요</p></div></div>
+              <div class="li"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></svg></span><div><p>11월 30일까지 못 보내면 전액 환불</p><p class="t14 mut">보내기 전에는 언제든 취소할 수 있어요</p></div></div>
+            </div>
+          </div>
+          <div class="bbar" style="margin-top:20px; flex-direction:row; gap:8px">
+            <div class="btn sec" style="flex:0 0 120px; height:52px">채팅</div>
+            <div class="btn pri" style="flex:1">예약하기</div>
+          </div>
+        </div>
+      </div>
+      <div class="moves">
+        <ol>
+          <li><b>취소 규정 한 줄을 세 줄 목록으로 바꿔요.</b> <code>ListRow</code> 최소 48, 아이콘 24 보조색, 본문 16 + 보조 14. 지금 접혀 있는 ‘전액 환불’ 문장과 도착 줄 안의 ‘11월 30일 자동 환불’을 꺼내요.</li>
+          <li><b>순서는 사회적 근거 → 돈이 나가는 방식 → 돌려받는 약속.</b> ‘누가 샀나 → 어떻게 내나 → 못 받으면’ 순으로 처음 보는 농가에 대한 의심을 차례로 풀어요.</li>
+          <li><b>숫자는 응답에 있는 값만 써요.</b> <code>reservedCount</code>(0이면 줄째 숨김, DEV-227 빈 값 규칙), <code>maxDelayUntil</code>(없으면 줄째 숨김). 지어낸 문구는 없어요.</li>
+          <li><b>옵션 카드와 목록 사이 20, 목록과 ‘농가 이야기’ 사이 40.</b> 결정에 필요한 것을 한 화면(390×844)에 모아요. 접히는 ‘도착 예정 ›’ 펼침은 도서산간 운임만 남겨요.</li>
+          <li><b>강조색은 쓰지 않아요.</b> 신뢰 줄은 글자색 #111, 아이콘 #6B6B6B. 주황은 하단 ‘예약하기’ 하나예요.</li>
+        </ol>
+        <dl class="facts">
+          <dt>토큰</dt><dd>기존 안에서 해결(새 색·새 부품 없음)</dd>
+          <dt>개발</dt><dd>작음 · <code>ProductPage.tsx</code> 한 곳 + 생산자 구매자 미리보기 자동 반영 · e2e 단언 한두 줄(‘출하 전 전액 환불’ 문구)</dd>
+          <dt>스펙</dt><dd>screens.md SCR-04 ‘취소 규정 한 줄’ → ‘알아 둘 세 줄’로 고쳐야 해요</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- P2 -->
+  <section class="prop">
+    <div class="prop-head">
+      <p class="eyebrow">제안 2 · 문제 2 · 3 — 단계 가격을 한 번 말해 주기</p>
+      <h2>취소선 대신 ‘지금 예약가’, ‘마감 D-5’ 대신 ‘이 가격 D-5’</h2>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag before"><i></i>BEFORE</span>
+        <img class="shot" style="max-width:390px" src="DEV-268/before-01-home.png" alt="지금 홈: 29,000원 옆 36,000원 취소선, 마감 D-5">
+      </div>
+      <div class="col"><span class="tag after"><i></i>AFTER (홈 카드)</span>
+        <div class="phone">
+          <div class="g" style="padding-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px">
+            <div>
+              <div style="aspect-ratio:1; border-radius:16px; background:linear-gradient(135deg,#F0A060,#C9682A)"></div>
+              <p class="t14 mut" style="margin-top:8px">강씨네 귤밭</p>
+              <p class="sb">하우스 감귤 5kg / 10kg</p>
+              <p class="b">29,000원~</p>
+              <p class="t12 acc sb mark">이 가격 D-5</p>
+              <p class="t12 mut">37명 예약</p>
+            </div>
+            <div>
+              <div style="aspect-ratio:1; border-radius:16px; background:linear-gradient(135deg,#7A8F4A,#C9682A)"></div>
+              <p class="t14 mut" style="margin-top:8px">효돈 하우스농원</p>
+              <p class="sb">하우스 감귤 3kg</p>
+              <p class="b">19,000원</p>
+              <p class="t12 acc sb">이 가격 D-9</p>
+            </div>
+          </div>
+          <div class="g" style="padding:16px">
+            <div class="box mark"><p class="t14"><b>일찍 예약할수록 싸요.</b> 농가가 기간마다 가격을 정하고, 지금 예약하면 지금 가격으로 받아요.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="moves">
+        <ol>
+          <li><b>‘마감 D-n’ → ‘이 가격 D-n’.</b> 값(<code>dDay</code> = 현재 기간 끝)은 그대로 두고 이름만 사실대로. 홈 카드·상세 도착 줄·농가 판매 품목 세 곳이 <code>closesText</code> 하나를 써서 한 줄 수정이에요.</li>
+          <li><b>카드에서는 취소선을 빼요.</b> 2열 카드 폭 171에서 비교 가격까지 넣으면 할인으로만 읽혀요. 상세에서는 옵션 카드 아래 12 보조 한 줄 ‘마지막 기간 5kg 36,000원’으로 이름을 붙여 남겨요(제안 1 목업).</li>
+          <li><b>홈 상품 목록 위에 한 번만 개념 설명.</b> 면색 상자, 14/20, 두 문장. 처음 온 사람에게 단계 가격을 알려 주는 유일한 자리예요. 상품이 없으면 숨겨요.</li>
+          <li><b>다음 기간 가격(<code>nextPrice</code>)은 쓰지 않아요.</b> 스펙의 ‘다음 기간 이득 문구 없음’을 지켜요. ‘기간마다 올라요’까지만 말해요.</li>
+        </ol>
+        <dl class="facts">
+          <dt>토큰</dt><dd>기존 안 · 홈 카드 D-day 주황 글자는 지금과 같아요(DEV-293 그대로)</dd>
+          <dt>개발</dt><dd>작음 · <code>format.ts</code> 1줄, 홈 카드·<code>ProductPage.tsx</code> 비교 가격 위치, 상자 1개</dd>
+          <dt>결정 필요</dt><dd>취소선 제거는 DEV-293 승인안(Figma 1:14)과 달라서 PM 확인이 필요해요</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- P3 -->
+  <section class="prop">
+    <div class="prop-head">
+      <p class="eyebrow">제안 3 · 문제 4 — 공유 링크 착지</p>
+      <h2>비로그인 첫 방문엔 판매 상품을 펼치고, 로그인 버튼은 보조로 낮춰요</h2>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag before"><i></i>BEFORE</span>
+        <img class="shot" style="max-width:390px" src="DEV-268/before-02-farm.png" alt="지금 농가 페이지">
+      </div>
+      <div class="col"><span class="tag after"><i></i>AFTER</span>
+        <div class="phone" style="min-height:760px">
+          <div class="farmhead">
+            <span class="ic" style="width:48px;height:48px;display:grid;place-items:center"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <span class="av"></span>
+            <div><p class="b">강씨네 귤밭</p><p class="t12 mut">제주 서귀포 · 팔로워 128명</p></div>
+            <span class="follow" style="background:var(--app-surface); color:var(--app-text)">팔로우</span>
+          </div>
+          <div class="g mark" style="padding-top:12px; padding-bottom:12px; margin:8px 8px 0">
+            <p class="t12 mut sb">판매 중 1개</p>
+            <div style="display:flex; gap:12px; align-items:center; min-height:72px">
+              <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#F0A060,#C9682A);flex-shrink:0"></div>
+              <div style="flex:1; min-width:0"><p class="sb">하우스 감귤 5kg / 10kg</p><p class="t14 mut">11월 10일~20일 도착 · 37명 예약</p><p class="b">29,000원~</p></div>
+              <span class="ic" style="color:var(--app-muted)"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+            </div>
+          </div>
+          <div class="room" style="margin-top:8px">
+            <p class="t12 mut" style="text-align:center">10월 5일 월요일</p>
+            <div class="bubble"><p>하우스 안 온도가 잘 유지돼서 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</p></div>
+            <div style="height:120px; width:200px; border-radius:16px; background:linear-gradient(135deg,#7A8F4A,#C9682A)"></div>
+          </div>
+          <div class="bbar" style="margin-top:0">
+            <div class="btn pri mark">하우스 감귤 예약하기</div>
+            <div class="btn txt">로그인하고 소식에 답하기</div>
+          </div>
+        </div>
+      </div>
+      <div class="moves">
+        <ol>
+          <li><b>비로그인 + 판매 상품 1개 이상이면 판매 품목을 펼친 채 시작해요.</b> 상품 줄 72(썸네일 64), 받는 시기·예약 인원·가격. 팔로워·로그인 상태에서는 지금처럼 접힌 한 줄(DEV-295 그대로).</li>
+          <li><b>하단 주요 버튼을 ‘예약하기’로.</b> 상품이 1개면 ‘(상품명) 예약하기’ → 상세로, 여러 개면 ‘판매 상품 보기’. 로그인 없이 누를 수 있는 행동을 주황 하나로.</li>
+          <li><b>‘로그인하고 참여하기’는 글자 버튼 48로 낮추고 문구를 구체적으로.</b> ‘로그인하고 소식에 답하기’.</li>
+          <li><b>머리 ‘팔로우’는 이 화면에서만 면색으로.</b> 강조색 예외(SCR-03 팔로우)를 하단 주요 버튼과 겹치지 않게 비로그인일 때만 풀어요. 팔로워 수는 머리 보조 줄 12로.</li>
+        </ol>
+        <dl class="facts">
+          <dt>토큰</dt><dd>기존 안 · 강조색 예외 규칙 한 줄 수정 필요</dd>
+          <dt>개발</dt><dd>큼 · <code>FarmRoom.tsx</code> 비로그인 분기, 소식방 담당(DEV-295)과 논의 · e2e <code>discovery-and-gates</code>의 ‘판매 품목 aria-expanded=false’ 단언이 비로그인 경로에서 바뀜</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- P4 -->
+  <section class="prop">
+    <div class="prop-head">
+      <p class="eyebrow">제안 4 · 문제 15 — 입금 안내</p>
+      <h2>금액은 한 번, 입금자명은 ‘이렇게 바꿔 보내 주세요’로</h2>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag before"><i></i>BEFORE</span>
+        <img class="shot" style="max-width:390px" src="DEV-268/before-08-deposit.png" alt="지금 입금 안내">
+      </div>
+      <div class="col"><span class="tag after"><i></i>AFTER</span>
+        <div class="phone" style="min-height:760px">
+          <div class="hbar"><span class="ic"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span><b>입금 안내</b></div>
+          <div class="g">
+            <p class="t14 mut">10월 8일 (목) 오전 10:00까지 입금해 주세요</p>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px">
+              <p class="t22 b" style="font-size:28px; line-height:36px">58,000원</p><span class="copy">복사</span>
+            </div>
+            <p class="t14 mut">하우스 감귤 5kg × 2 · 강씨네 귤밭</p>
+            <div style="margin-top:16px">
+              <div class="row"><span class="k">계좌번호</span><span class="v"><b>제주은행 101-23-456789</b><span class="copy">복사</span></span></div>
+              <div class="row"><span class="k">예금주</span><span class="v">강영수 (강씨네 귤밭)</span></div>
+              <div class="row" style="border-bottom:1px solid var(--app-border)"><span class="k">입금자명</span><span class="v"><b>FC-1007-7017</b><span class="copy">복사</span></span></div>
+            </div>
+            <div class="box mark" style="margin-top:16px">
+              <p class="sb">받는 분 통장 표시를 FC-1007-7017로 바꿔 보내 주세요</p>
+              <p class="t14 mut">농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요.</p>
+            </div>
+            <p class="t14 b" style="margin-top:24px">판매자</p>
+            <p class="t14">강씨네 귤밭 · 대표 강영수 · 제주 서귀포</p>
+          </div>
+          <div class="bbar">
+            <div class="btn pri">입금을 마쳤어요</div>
+            <div class="btn txt">나중에 입금할게요</div>
+          </div>
+        </div>
+      </div>
+      <div class="moves">
+        <ol>
+          <li><b>금액은 큰 숫자 한 번(28/36) + 복사.</b> ‘입금액’ 줄을 지워요(‘같은 정보는 한 화면에 한 번’). 은행 앱에 금액을 손으로 옮기지 않게 복사를 붙여요(누르는 영역 48).</li>
+          <li><b>기한을 금액 위 첫 줄로.</b> ‘○일 ○시까지 입금해 주세요’(14 보조). 표의 ‘입금 기한’ 줄은 빼요.</li>
+          <li><b>‘입금자명: 주문 번호’ 캡션 → 면색 상자 두 문장.</b> 제목 16 600 ‘받는 분 통장 표시를 …로 바꿔 보내 주세요’, 본문 14 보조. 은행 앱 용어(받는 분 통장 표시)를 그대로 써요.</li>
+          <li><b>표는 계좌·예금주·입금자명 세 줄(48 이상).</b> 굵게는 계좌번호·입금자명 둘.</li>
+          <li><b>중개자 고지·구매안전서비스 문장은 판매자 아래에 그대로</b>(법정 고지라 이번 제안에서 빼지 않아요. 목업에서는 생략).</li>
+        </ol>
+        <dl class="facts">
+          <dt>토큰</dt><dd>기존 안 · 상자는 <code>Notice</code></dd>
+          <dt>개발</dt><dd>작음 · <code>pay.tsx</code>·<code>DepositCard.tsx</code>(완료·주문 상세도 같은 카드라 금액 줄 처리는 화면별 옵션으로) · e2e ‘입금액’ 단언 확인</dd>
+          <dt>스펙</dt><dd>screens.md SCR-11 화면 요소 순서 고침</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- P5 -->
+  <section class="prop">
+    <div class="prop-head">
+      <p class="eyebrow">제안 5 · 문제 10 — 로그인 안내 시트</p>
+      <h2>고른 옵션을 시트 안에 보여 주고 ‘그대로 이어진다’고 말해요</h2>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag before"><i></i>BEFORE</span>
+        <img class="shot" style="max-width:390px" src="DEV-268/before-05-gate.png" alt="지금 로그인 안내 시트">
+      </div>
+      <div class="col"><span class="tag after"><i></i>AFTER</span>
+        <div class="phone" style="min-height:760px">
+          <div class="sheetwrap" style="padding-top:330px">
+            <div class="sheet">
+              <div class="grab"></div>
+              <p class="t18 b">로그인하고 예약해요</p>
+              <div class="sum mark">
+                <span class="th"></span>
+                <div style="flex:1; min-width:0"><p class="sb">하우스 감귤 5kg × 2</p><p class="t14 mut">강씨네 귤밭 · 11월 10일~20일 도착</p></div>
+                <p class="b">58,000원</p>
+              </div>
+              <p class="t14 mut">로그인하면 고른 옵션 그대로 주문서로 가요.</p>
+              <div class="btn pri" style="margin-top:4px">로그인</div>
+              <div class="btn txt">나중에</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="moves">
+        <ol>
+          <li><b>제목 아래 고른 것 요약 한 줄(카드 72).</b> 썸네일 48 · 상품명 옵션 × 수량 16 600 · 농가·받는 시기 14 · 금액 16 굵게. 주문서 상품 줄과 같은 모양이라 다음 화면이 예상돼요.</li>
+          <li><b>본문은 행동별 한 문장.</b> 예약 ‘로그인하면 고른 옵션 그대로 주문서로 가요.’ · 채팅 ‘로그인하면 바로 농가와 대화를 시작해요.’ · 팔로우 ‘로그인하면 바로 팔로우돼요.’ 지금 제목표(<code>session.tsx:32</code>) 옆에 본문표를 둬요.</li>
+          <li><b>시트 제목 22 → 18.</b> README 기준표(시트 제목 18)에 맞춰요.</li>
+          <li><b>로그인 화면 제목도 이어 받기.</b> <code>from=reserve</code>면 ‘로그인하고 예약을 이어 가요’(SCR-05 제목 한 곳).</li>
+        </ol>
+        <dl class="facts">
+          <dt>토큰</dt><dd>기존 안</dd>
+          <dt>개발</dt><dd>작음 · <code>requireLogin</code>에 이미 넘기는 <code>data</code>(optionId·quantity)로 요약을 그려요 · e2e ‘로그인하고 예약해요’ 단언은 그대로</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- P6 -->
+  <section class="prop">
+    <div class="prop-head">
+      <p class="eyebrow">제안 6 · 문제 16 · 12 · 14 — 주문서</p>
+      <h2>뒤로 오면 ‘이미 만든 예약’을 먼저, 버튼 위에는 다음에 일어날 일 한 줄</h2>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag before"><i></i>BEFORE</span>
+        <img class="shot" style="max-width:390px" src="DEV-268/before-08b-back-checkout.png" alt="입금 안내에서 뒤로 온 주문서">
+      </div>
+      <div class="col"><span class="tag after"><i></i>AFTER</span>
+        <div class="phone" style="min-height:760px">
+          <div class="hbar"><span class="ic"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span><b>주문서</b></div>
+          <div class="g">
+            <div class="notice mark">
+              <p class="sb">이미 만든 예약이 있어요</p>
+              <p class="t14 mut">FC-1007-7017 · 입금 대기 · 내일 오전 10:00까지</p>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center; margin-top:16px">
+              <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#F0A060,#C9682A)"></div>
+              <div style="flex:1"><p class="sb">하우스 감귤 5kg × 2</p><p class="t14 mut">강씨네 귤밭 · 11월 10일~20일 도착</p></div>
+              <span class="sb" style="min-height:48px; display:grid; place-items:center">변경</span>
+            </div>
+          </div>
+          <div class="band" style="margin-top:16px"></div>
+          <div class="g" style="padding-top:16px">
+            <div style="display:flex; justify-content:space-between"><p class="t18 b">받는 곳</p><span class="sb">변경</span></div>
+            <p class="t14" style="margin-top:4px">김민지 · 010-2345-6789</p>
+            <p class="t14 mut">서울 마포구 월드컵북로 12, 302호</p>
+          </div>
+          <div class="band" style="margin-top:16px"></div>
+          <div class="g" style="padding-top:16px">
+            <div style="display:flex; justify-content:space-between; align-items:baseline"><p class="b">총 입금액</p><p class="t22 b">58,000원</p></div>
+          </div>
+          <div class="bbar">
+            <p class="t14 mut mark" style="text-align:center">누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금</p>
+            <div class="btn pri">입금 안내 보기</div>
+          </div>
+        </div>
+      </div>
+      <div class="moves">
+        <ol>
+          <li><b>뒤로 왔을 때도 ‘이미 만든 예약’ 안내를 띄워요.</b> 지금은 같은 키로 다시 보내 409(<code>IDEMPOTENCY_MISMATCH</code>)일 때만 나와요. 입금 안내로 넘어간 주문(<code>placedRef</code>)이 있으면 돌아오자마자 <code>Notice</code> + 하단 ‘입금 안내 보기’(DEV-293에 있는 부품 그대로).</li>
+          <li><b>버튼 바로 위 14 보조 한 줄.</b> ‘누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금’. 동의 아래 12 문장은 지워요(같은 정보 한 번).</li>
+          <li><b>‘변경’ 두 곳과 총 입금액은 글자색 #111.</b> 강조색은 하단 버튼 하나. 총 입금액은 숫자 강조 22 굵게로 위계를 유지해요.</li>
+          <li><b>(논의) 꺼진 버튼 이유도 같은 자리에.</b> 받는 곳이 없거나 동의가 빠지면 이 줄이 ‘받는 곳을 먼저 정해 주세요’·‘필수 동의 5개 중 3개 했어요’로 바뀌어요. 11/09 PM 결정을 뒤집는 부분이라 문제 13으로 따로 올려요.</li>
+        </ol>
+        <dl class="facts">
+          <dt>토큰</dt><dd>기존 안</dd>
+          <dt>개발</dt><dd>1~3 작음(<code>checkout/[productId]/index.tsx</code>) · 4는 PM 결정 뒤</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- P7 -->
+  <section class="prop">
+    <div class="prop-head">
+      <p class="eyebrow">제안 7 · 문제 1 — 상품이 없는 홈</p>
+      <h2>빈칸을 없애고 ‘농가 둘러보기’ 하나를 남겨요</h2>
+    </div>
+    <div class="pair">
+      <div class="col"><span class="tag before"><i></i>BEFORE</span>
+        <img class="shot" style="max-width:390px" src="DEV-268/before-00-vercel-home-empty.png" alt="지금 배포 홈 빈 상태">
+      </div>
+      <div class="col"><span class="tag after"><i></i>AFTER</span>
+        <div class="phone">
+          <div class="g" style="height:56px; display:flex; align-items:center; justify-content:space-between">
+            <p class="t18 b" style="color:#7A8F4A">FARM <span style="color:#E8812F">CLUB</span></p>
+            <span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg></span>
+          </div>
+          <div class="g" style="padding-top:24px; padding-bottom:24px">
+            <div class="mark" style="padding:4px">
+              <p class="t18 b">지금은 예약할 수 있는 상품이 없어요</p>
+              <p class="t14 mut" style="margin-top:4px">농가가 예약을 열면 여기에 보여요. 그사이 농가 소식을 둘러볼 수 있어요.</p>
+              <div class="btn line" style="margin-top:16px">농가 둘러보기</div>
+            </div>
+          </div>
+          <div style="height:120px"></div>
+          <div style="margin:12px; height:64px; border-radius:999px; border:1px solid var(--app-border); display:flex; align-items:center; justify-content:space-around" class="t14 mut"><span class="acc sb">발견</span><span>내 주문</span><span>채팅</span><span>내 정보</span></div>
+        </div>
+      </div>
+      <div class="moves">
+        <ol>
+          <li><b>상품·소식이 모두 없으면 섹션 머리 둘을 빼고 한 덩어리로.</b> 제목 18 굵게 + 보조 14 한 문장 + 테두리 버튼 48 ‘농가 둘러보기’(→ SCR-02). 주요 버튼(주황)은 쓰지 않아요.</li>
+          <li><b>소식만 없으면 ‘농가 소식’ 섹션을 통째로 숨겨요.</b> 빈 가로 스크롤이 높이를 차지하는 빈칸(약 200)을 없애요.</li>
+          <li><b>상품만 없으면 지금 문구 그대로 + 같은 테두리 버튼.</b> AC-06-5(‘현재 예약 가능한 상품이 없어요’와 소식 유지)를 지켜요.</li>
+        </ol>
+        <dl class="facts">
+          <dt>토큰</dt><dd>기존 안 · 로고는 지금 자산 그대로(브랜드는 DEV-311 범위)</dd>
+          <dt>개발</dt><dd>작음 · <code>(tabs)/index.tsx</code> 분기 3개 · AC-06-5 e2e 문구 유지</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- 버그·범위 -->
+  <section class="head">
+    <h2>스펙과 다른 동작(버그 후보) · 확인 범위</h2>
+    <div class="qa">
+      <div class="card bug">
+        <h3>버그 후보 1 · 로그인 화면 새로 고침 시 예약 맥락 사라짐 (문제 11)</h3>
+        <p>스펙: SCR-04 ‘로그인 복귀 후 선택 값 보존’, SCR-05 ‘누른 화면·행동으로 복귀’.</p>
+        <ol>
+          <li>로컬 스택, 비로그인으로 <code>/products/p-house</code></li>
+          <li>예약하기 → 10kg, 수량 2 → 주문서로 → 로그인</li>
+          <li><code>/login?next=%2Fproducts%2Fp-house&amp;from=reserve</code>에서 새로 고침</li>
+          <li>김민지로 로그인 → <b>결과</b> <code>/products/p-house</code>, 시트 닫힘(기대: <code>/checkout/p-house?optionId=opt-10&amp;quantity=2</code>)</li>
+        </ol>
+        <p class="t14" style="color:var(--ink-2)">원인(코드): <code>resume</code>이 <code>session.tsx</code>의 React 상태에만 있음. 카카오 경로는 sessionStorage로 보존.</p>
+      </div>
+      <div class="card bug">
+        <h3>버그 후보 2 · 홈 소식 빈 상태 아래 빈칸 (문제 1)</h3>
+        <p>스펙: AC-06-5는 문구만 정하지만 README 간격 규칙(섹션 사이 40)과 다름.</p>
+        <ol>
+          <li>판매 중 상품 0개 · 소식 0개(배포 주소 11/11 상태)</li>
+          <li>비로그인으로 홈 열기</li>
+          <li><b>결과</b> ‘농가의 첫 소식을 기다려요’ 아래 약 200px 빈칸</li>
+        </ol>
+        <p class="t14" style="color:var(--ink-2)">원인 추정: <code>FeedCarousel</code>(가로 <code>ScrollView</code>)이 빈 글자를 감싸고 높이를 차지. 로컬에서 소식을 지워 재현하지는 않았어요.</p>
+      </div>
+      <div class="card">
+        <h3>직접 확인한 것</h3>
+        <ul>
+          <li>로컬 실스택(FastAPI + 소비자 앱, DB <code>farmclub_dev268</code>)에서 A~H 전부 Playwright로 390×844 터치 에뮬레이션으로 누름</li>
+          <li>로그인 뒤 옵션·수량 유지, 주문서 새로 고침 유지, 채팅 관문 복귀</li>
+          <li>입금 안내 → 뒤로 → 다시 예약 = 같은 주문(멱등), 중복 생성 없음</li>
+          <li>터치 영역 실측(홈·상세·시트·주문서·입금·로그인은 모두 48 이상, 농가 소식방만 미만)</li>
+          <li>og: 상품 주소는 공통 카드, 농가 <code>/s/farms/:id</code>는 농가 이름·사진(배포 curl)</li>
+          <li>배포 홈·농가 페이지 비로그인 읽기 전용 화면</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>추정했거나 못 한 것</h3>
+        <ul>
+          <li>RN <code>hitSlop</code>이 웹에서 누르는 영역을 넓히는지(문제 5) — 실기기 확인 필요</li>
+          <li>카카오 로그인 경로(실계정 금지) — 코드로만 확인</li>
+          <li>Figma v6과 주문서 강조색 대조(문제 14) — 열람만 가능해 이번엔 보지 않음</li>
+          <li>시스템 글자 200%, 360·430 폭, 긴 상품명 줄바꿈은 상세·주문서만 훑어봄(깨짐 없음), 따로 캡처하지 않음</li>
+          <li>오류·로딩: 없는 상품(‘판매 중이 아닌 상품이에요’ + 농가 둘러보기)만 확인, 네트워크 오류는 재현하지 않음</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="head">
+    <h2>다음 단계</h2>
+    <p class="lede">승인되면 제안별로 개발 이슈를 나눠요. 작음 묶음(제안 1·2·4·5·6의 1~3·7)은 소비자 앱 한 PR로 할 수 있어요. 큼(제안 3, 문제 8·9·13·18)은 담당자와 먼저 정해요. 화면이 바뀌는 PR은 같은 PR에서 screens.md·Figma v6을 함께 고쳐요.</p>
+  </section>
+
+</div>
+</body>
+</html>
