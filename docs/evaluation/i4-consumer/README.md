@@ -2,7 +2,7 @@
 
 Owner: Minsun Kim. Related issues: DEV-281 (personal demo), DEV-262 (consumer sessions), DEV-277 (AI collaboration contribution).
 
-## Current release evidence
+## Observed release evidence — DEV-318 only
 
 PR [#593](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/593) merged on 14 November 2026 at 03:08:57 KST as `021d912ba768e8ddc16153281c87ba7beac952b0`.
 
@@ -10,6 +10,8 @@ PR [#593](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/593) m
 - [Consumer deployment](https://github.com/snuhcs-course/swpp-2026-project-team-06/actions/runs/43479827580/job/132073118619) logged the exact deploying SHA, performed a live check and updated deploy/vercel-consumer to that SHA.
 - The default consumer Vercel alias returned HTTP 200; its served bundle filename matched the deployment export and contained the new recovery messages. The API health endpoint returned HTTP 200.
 - These were read-only deployment observations. Authenticated production transactions and native device behavior remain unverified.
+
+The separate correctness fix [PR #597](https://github.com/snuhcs-course/swpp-2026-project-team-06/pull/597), DEV-320, prevents duplicate stock reservations after an uncertain deposit response. Its dedicated four-case real-server recovery suite and five existing checkout regressions passed locally. It is awaiting CI/human review and has not been verified as merged or deployed. This three-scene demo records DEV-318 behavior and does not claim to exercise or deploy DEV-320. Identify each tested source commit separately.
 
 ## Decisions to settle before formal acceptance
 
@@ -44,7 +46,7 @@ The existing runner applies migrations, resets synthetic data in the selected da
 
 Outputs live under the ignored `test-results/` directory: video, screenshots, a sanitized manifest, and a short evidence README. The manifest records the actual source commit and working-tree state, browser/environment, injected failure and simulation details, real assertion outcomes, and artifact hashes. API deployment SHA stays unknown unless independently supplied and verified. It contains no login token, bank account, contact/address value, participant response or private conversation body.
 
-A failed demonstration remains a failed result. Inspect the retained trace/screenshots and record the defect before repeating; keep the old run separately if it is needed as evidence.
+A failed demonstration remains a failed result. Trace recording is disabled to avoid retaining authentication. Inspect the sanitized manifest, screenshots and runner logs and record the defect before repeating; keep the old run separately if it is needed as evidence.
 
 ### Suggested narration
 
