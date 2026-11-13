@@ -30,3 +30,6 @@
 | 2026-11-06 | `demo:publish`는 `videos.mjs upload`(GitHub Release)를 감싼다. 운영 녹화는 `--target prod --yes`로만, `make`에는 없음 | DEV-133 저장소 결정 유지, Makefile 규칙(운영 명령 없음) | — |
 | 2026-11-06 | 영상에 로그인 화면(카카오 안내·테스트 계정 선택)을 넣지 않는다. 로컬 녹화는 `prep-test-login.mjs`로 미리 로그인한 `DEMO_PROFILE`을 쓰고, `story.mjs`는 그 프로필이면 로그인 단계를 건너뛴다. 생산자 도움말 투어도 본 것으로 둔다. `scenario.mjs`에서 로그인 자막은 `when: "login"`(미리 로그인하지 않은 녹화에서만)이고 사이트 단계에는 없다 | 실제 로그인은 카카오이고 테스트 계정 화면은 시험용이라 데모에 보이면 안 됨(DEV-181) | — |
 | 2026-11-06 | I3 영상은 새 Release `demo-i3`(scenario `iteration: "i3"`). 출하가 앱에 생겨(DEV-231) 구간 p5·c4(수확 시작 → 출하 → 배송 중)를 넣고 끝 장면을 c4로 옮겼다. `manifest.json` 길이는 올린 영상을 `demo:stitch --measure`로 잰 값. `demo-i2` Release는 그대로 둔다 | `iteration-2-demo` README가 그 파일을 가리킴 | — |
+
+## DEV-281 소비자 복구 개인 데모
+기존 Playwright discovery와 run-integration.mjs에서 consumer-i4-demo.spec.ts를 실행한다. 제품 동작은 바꾸지 않는다. 로컬 합성 API로 준비한 입금·확인과 의도적 HTTP400을 자막으로 표시하고 세 복구 장면의 실제 단언·영상·스크린샷·소스/파일 해시 manifest를 남긴다. 인증은 첫 이동 전에 준비하며 trace를 끄고 토큰을 증거에 쓰지 않는다. 영상은 test-results에만 두며 실제 참가자 세션·공식 I4 형식·동결 oracle 결정은 별도로 유지한다. 안내는 docs/evaluation/i4-consumer/README.md.

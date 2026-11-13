@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "record_kind": "HUMAN_SESSION_TEMPLATE",
+  "status": "NOT_RUN",
+  "owner": "Minsun Kim",
+  "session": {
+    "id": null,
+    "kind": null,
+    "date_time_kst": null,
+    "participant_code": null,
+    "participant_category": null,
+    "recording_consent": null,
+    "facilitator": null,
+    "reviewer": null
+  },
+  "plan": {
+    "recruitment_target": null,
+    "actual_recruited": null,
+    "constraints": null,
+    "approved_script_reference": null,
+    "approved_pilot_questionnaire_reference": null
+  },
+  "environment": {
+    "consumer_url": null,
+    "producer_url": null,
+    "source_commit": null,
+    "api_commit": null,
+    "schema_revision": null,
+    "fixture_revision": null,
+    "device": null,
+    "browser_version": null,
+    "os_version": null
+  },
+  "decisions_pending": [
+    {
+      "issue": "DEV-244",
+      "decision": null,
+      "approved_by": null,
+      "approved_at": null,
+      "oracle_version": null,
+      "oracle_sha256": null
+    },
+    {
+      "issue": "DEV-260",
+      "official_notice_reference": null,
+      "submission_time_kst": null,
+      "required_format": null
+    }
+  ],
+  "tasks": [
+    {
+      "case_id": "UAT-I3-01",
+      "status": "NOT_RUN",
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_seconds": null,
+      "assistance": null,
+      "interventions": [],
+      "expected": null,
+      "observed": null,
+      "participant_explanation": null,
+      "consumer_producer_agreement": null,
+      "sanitized_record_references": [],
+      "restricted_evidence_references": [],
+      "defect_issue": null,
+      "retest_of": null,
+      "reviewer_decision": null
+    },
+    {
+      "case_id": "UAT-I3-02",
+      "status": "NOT_RUN",
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_seconds": null,
+      "assistance": null,
+      "interventions": [],
+      "expected": null,
+      "observed": null,
+      "participant_explanation": null,
+      "consumer_producer_agreement": null,
+      "sanitized_record_references": [],
+      "restricted_evidence_references": [],
+      "defect_issue": null,
+      "retest_of": null,
+      "reviewer_decision": null
+    },
+    {
+      "case_id": "UAT-I3-03",
+      "status": "NOT_RUN",
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_seconds": null,
+      "assistance": null,
+      "interventions": [],
+      "expected": null,
+      "observed": null,
+      "participant_explanation": null,
+      "consumer_producer_agreement": null,
+      "sanitized_record_references": [],
+      "restricted_evidence_references": [],
+      "defect_issue": null,
+      "retest_of": null,
+      "reviewer_decision": null
+    },
+    {
+      "case_id": "CANCELLATION_REFUND",
+      "status": "NOT_RUN",
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_seconds": null,
+      "assistance": null,
+      "interventions": [],
+      "expected": null,
+      "observed": null,
+      "participant_explanation": null,
+      "consumer_producer_agreement": null,
+      "sanitized_record_references": [],
+      "restricted_evidence_references": [],
+      "defect_issue": null,
+      "retest_of": null,
+      "reviewer_decision": null
+    }
+  ],
+  "pilot_feedback": {
+    "sus_questionnaire_reference": null,
+    "responses": null,
+    "score": null,
+    "interview_notes_reference": null,
+    "posthog_window": null,
+    "posthog_evidence_reference": null
+  },
+  "limitations": [],
+  "human_acceptance": {
+    "decision": null,
+    "decided_by": null,
+    "decided_at": null
+  },
+  "automated_demo_evidence_reference": null
+}
