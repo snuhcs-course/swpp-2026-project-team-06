@@ -417,6 +417,9 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** I tap Reserve
 - **THEN** I see that reason even if the price also changed, without "Reserve at the new price": paused disables Reserve with a "Check again" link, a sold-out option offers "Change option", and an ended period or full stock offers "Back to product"
 
+**Checkout edits after an uncertain deposit request (DEV-320, FEAT-08 E2)**
+After order creation, a lost deposit-instructions response or HTTP5xx leaves the original request unresolved. Editing the form must not create a second order before that request is resolved under AC-09-3. An unresolved result shows “예약 결과를 확인해 주세요” with “예약 결과 확인하기”. Successful recovery shows the neutral “이미 만든 예약이 있어요” and offers the existing order's deposit instructions; it does not claim a fresh order or a freshly verified deposit status. The notice explains that later form edits were not saved and that changing the existing reservation requires canceling it and reserving again. These states reuse the existing Notice and Button without a new layout. This recovery applies to the remembered checkout context in the same session; it does not infer whether orders on other devices or new checkout screens express the same purchase intent.
+
 ### FEAT-09: Bank transfer to the farm (deposit and confirmation)
 
 **As a** consumer, **I want to** pay the full amount once by transferring it to the farm's account, **so that** stock is never taken twice and the farm, not a platform, receives my money. (Revised in DEV-68, 2026-10-18: card payment was put on hold; farmclub is a marketplace intermediary.)
@@ -437,6 +440,9 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 - **GIVEN** I requested deposit instructions
 - **WHEN** the same request is sent again because the response was lost
 - **THEN** the stock is taken once and I get the same result as the first time
+- **AND** checkout remembers the original order, option, quantity and deposit key before sending the request. After a transport failure or HTTP5xx, it replays that original deposit request with the same key before allowing another order creation, even if I edited the form. A single GET reporting `PENDING_PAYMENT` does not resolve the outstanding POST.
+- **AND** repeated uncertain failures and an `IDEMPOTENCY_MISMATCH` from that replay keep the original recovery context. A definitive domain rejection (HTTP400/409) releases it into the existing field-error or price/stock reconfirmation flow. Successful recovery opens the existing order path and does not claim that later form edits were saved.
+- **AND** synchronous submission serialization prevents overlapping attempts on the same screen; responses and recovery callbacks from an earlier account or session cannot issue new requests or navigate the current session (DEV-320).
 
 **AC-09-6: Mixed weights**
 - **GIVEN** 5kg and 10kg options share one supply limit
