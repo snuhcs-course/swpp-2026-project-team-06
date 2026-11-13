@@ -90,4 +90,3 @@ Privacy leaks, cross-account access, duplicate orders and wrong totals require a
 - **By 18 November:** provide your own consumer demo segment (DEV-281), source/run instructions and limitations, plus your actual AI collaboration contribution (DEV-277).
 - **19 November:** confirm your segment and evidence during PM compilation. DEV-273 owns the entire team demo.
 - **20 November:** submission is the current planned date; the official time and required format still need confirmation through DEV-260.
-

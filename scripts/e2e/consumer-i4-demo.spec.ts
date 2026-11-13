@@ -210,9 +210,14 @@ test("DEV-281 AC-09-9/10 AC-10-9 AC-33-5: record the local consumer recovery dem
     await page.waitForTimeout(2000);
     await screenshot("02-reserved-live-refresh.png");
 
+    // Start the inquiry scene from the order list, after the retained detail's
+    // focus polling has stopped. A request may precede a client-side URL update,
+    // so URL inspection inside its handler is not a reliable scene boundary.
+    await page.goto(`${origins.consumer}/orders`);
+    await expect(page.getByRole("heading", { name: "내 주문", exact: true })).toBeVisible();
     let inquiryReads = 0;
     await page.route(`${origins.api}${orderEndpoint}`, async route => {
-      if (route.request().method() !== "GET" || !new URL(page.url()).pathname.endsWith("/inquiry"))
+      if (route.request().method() !== "GET")
         return route.continue();
       inquiryReads++;
       if (inquiryReads === 1) {
@@ -228,7 +233,7 @@ test("DEV-281 AC-09-9/10 AC-10-9 AC-33-5: record the local consumer recovery dem
       "유형·내용·사진을 작성하고 다시 시도해 보겠습니다.",
     ]);
     await page.waitForTimeout(2000);
-    await page.getByRole("button", { name: "상품 문제 문의 · 사진 첨부", exact: true }).click();
+    await page.goto(`${origins.consumer}/orders/${orderId}/inquiry`);
     const retry = page.getByRole("button", { name: "다시 시도", exact: true });
     await expect(retry).toBeVisible();
     await expect(page.getByText("주문 불러오는 중…", { exact: true })).toHaveCount(0);
