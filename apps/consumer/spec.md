@@ -168,3 +168,9 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 
 ## 내 정보 첫 화면 개인정보 (DEV-316, 2026-11-12)
 - `/me` 첫 화면 글은 `lib/meSummary.ts`가 만든다: 머리는 닉네임만(`meHeading`, 없으면 실명 대신 ‘닉네임을 정해 주세요’(닉네임 없는 카카오 계정은 늘 가입 전이라 링크 없음)/테스트 계정 ‘닉네임 없음’), 배송지 행은 개수만(`addressSummary`). 첫 화면에서 `user.name`·`user.phone`·`user.email`·배송지 주소를 그리지 않는다(`scripts/test-me-privacy.mjs`가 소스를 확인). 전체 값은 `/me/profile`·`/me/addresses`에서만.
+
+
+## DEV-318 주문 상태와 조회 복구
+- orderText는 현재 depositReportedAt을 과거 depositIssue보다 우선한다. 미승인은 서버가 알림 시각을 비우므로 실제 새 미승인은 계속 보이며 과거 기록은 서버에 남긴다(AC-09-9/10).
+- useOrderDetail은 검증된 계정/세션 generation과 주문 ID에 조회 상태를 묶는다. focus·foreground 복귀 및 활성 8초 polling을 적용하고 background/blur/scope 변경·쓰기 시작/완료마다 읽기를 무효화한다. 쓰기와 겹친 읽기는 폐기 후 새로 읽는다(AC-10-9).
+- InquiryForm의 주문 reload는 문의 유형·본문·사진 상태를 재생성하지 않는다. 조회 실패/로딩 문구를 구분하고 공통 LoadError로 재시도한다(AC-33-5).

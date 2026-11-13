@@ -23,7 +23,7 @@ import { useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
 import { useGoBack } from "../../../../lib/nav";
-import { errMsg } from "../../../../lib/views";
+import { errMsg, LoadError } from "../../../../lib/views";
 export default function InquiryForm() {
   useHideTabBar();
   const { orderId } = useLocalSearchParams<{ orderId: string }>(),
@@ -76,7 +76,7 @@ export default function InquiryForm() {
             }}
           >
             <T variant="heading">농가에 알려 주세요</T>
-            <T>{order.data?.productName ?? "주문 불러오는 중…"}</T>
+            <T>{order.data?.productName ?? (order.error ? "주문 정보를 불러오지 못했어요" : "주문 불러오는 중…")}</T>
             <T variant="sub" muted>
               {order.data
                 ? `${order.data.optionLabel} × ${order.data.quantity} · ${order.data.orderNo}`
@@ -115,8 +115,11 @@ export default function InquiryForm() {
             사진은 나와 해당 농가만 볼 수 있어요. 문의는 1:1 채팅으로 전달되며,
             환불·보상은 별도 확인이 필요해요.
           </T>
-          {error || order.error ? (
-            <T color={tokens.color.error}>{error || errMsg(order.error, "주문을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.")}</T>
+          {order.error ? (
+            <LoadError error={order.error} onRetry={order.reload} />
+          ) : null}
+          {error ? (
+            <T color={tokens.color.error}>{error}</T>
           ) : null}
           <Button
             label="농가에 문의 보내기"

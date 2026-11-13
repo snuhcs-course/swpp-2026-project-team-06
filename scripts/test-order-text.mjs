@@ -87,6 +87,19 @@ test("DEV-207 AC-09-9: a rejected deposit asks to check the reason and allows an
   assert.equal(t.canCancel(issue), true);
 });
 
+test("DEV-318 AC-09-9/10: a new deposit report supersedes the retained rejection", () => {
+  const reportedAgain = { ...reported, depositIssue: issue.depositIssue };
+  assert.equal(t.depositPhase(reportedAgain, NOW), "reported");
+  assert.equal(t.statusTitle(reportedAgain), "입금 확인 중");
+  assert.equal(t.listHeadline(reportedAgain, NOW), "입금 확인 중 · 농가가 확인하고 있어요");
+  assert.match(t.depositRefundSentence(reportedAgain, f, NOW), /입금했다고 알려 주셨어요/);
+  assert.doesNotMatch(t.depositRefundSentence(reportedAgain, f, NOW), /입금해 주세요/);
+  assert.equal(t.canCancel(reportedAgain), false);
+  assert.equal(t.depositPhase(reportedAgain, AFTER_DUE), "late");
+  assert.equal(t.listHeadline(reportedAgain, AFTER_DUE), "입금 확인 늦어짐 · farmclub이 연락하고 있어요");
+  assert.equal(reportedAgain.depositIssue, "금액이 달라요");
+});
+
 test("DEV-207 AC-11-1: right after a cancel the refund is pending, not done", () => {
   assert.equal(t.refundPhase(refund), "pending");
   assert.equal(t.statusTitle(refund), "환불 대기");

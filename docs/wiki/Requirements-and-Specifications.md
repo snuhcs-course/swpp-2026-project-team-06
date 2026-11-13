@@ -1119,3 +1119,12 @@ News rooms and 1:1 chats now read like a private bubble chat (approved Figma rev
 
 ### DEV-297 per-post read counts and fan reply sheet
 The producer's own news room now shows one right-aligned line under each own post: "읽음 N · ♥ N · 답장 N ›" (Figma review 7:90). A follower's read position moves forward when they are at the bottom of the room, and a post's read count is the number of followers whose position has reached it, so each follower counts once per post. Each consumer reply is linked, when it is sent, to the latest post the farm had not deleted; consumer replies carry no quote of their own (the DEV-289 quote goes the other way), so the bubble right above the reply is treated as what it answers. "답장 N ›" opens the fan reply sheet (Figma 7:93): title "답장 N", the post's opening words and date, "전체 N / 안 읽음 N" chips, and one row per reply with an initial avatar, masked name, a "예약 고객" tag for consumers with a paid order at this farm (not for withdrawn members), an unread dot, time, text, "모두에게 답장" (the DEV-289 anonymous quote flow, shown as "모두에게 답장함 ✓" once quoted) and "1:1 채팅". Opening the sheet marks the loaded replies as read while the dots and chips keep the state from when it opened. The "질문" filter, news-room unread counts and "followed for N days" are out of scope.
+
+
+### I4 consumer order recovery (DEV-318)
+
+For FEAT-09 AC-09-9/10, a new consumer payment report supersedes a retained earlier rejection in current status labels and warnings. The server keeps the historical reason; another producer rejection clears the report timestamp and becomes visible again. No payment, stock or authorization transition changes.
+
+For FEAT-10 AC-10-9, order detail refreshes on screen/foreground return and every eight seconds while active. It pauses in the background, rejects reads started before a mutation or session/route change, and offers retry after a transient refresh failure while retaining the last information. Authorization denial removes protected data.
+
+For FEAT-33 AC-33-5, an initial order lookup failure on the inquiry form has an explicit retry and failure label. Retrying retains the inquiry type, text and selected photos; sending requires a successfully loaded paid order. Figma synchronization is tracked in DEV-319.
