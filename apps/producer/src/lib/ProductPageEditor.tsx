@@ -24,9 +24,9 @@ import {
   tokens,
   useAsync,
 } from "@farmclub/ui";
-import { useNavigation, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Platform, TextInput, View } from "react-native";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Linking, Platform, TextInput, View } from "react-native";
 import { useHideTabBar, useSession } from "./session";
 import { DetailEditor } from "./DetailEditor";
 import { isMock } from "@farmclub/api";
@@ -92,8 +92,24 @@ export function ProductPageEditor({ productId }: { productId: string }) {
     </Screen>
   );
 }
+// 반영 뒤 토스트 '보기'가 여는 소비자 앱 상품 페이지(DEV-324). 설정의 '소비자 앱에서 내 농가 보기'와 같은 주소 규칙
+const CONSUMER_URL = process.env.EXPO_PUBLIC_CONSUMER_URL ?? "https://farmclub.kr";
+
 function Editor({ productId }: { productId: string }) {
   useHideTabBar();
+  const { toast, hideToast } = useSession();
+  // 저장 토스트('지금 반영')가 떠 있는지. 다시 고치기 시작하면 닫는다(고치는 중엔 반영할 수 없음, DEV-324)
+  const saveToastShown = useRef(false);
+  const saveToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissSaveToast = () => {
+    if (saveToastTimer.current) clearTimeout(saveToastTimer.current);
+    saveToastTimer.current = null;
+    if (!saveToastShown.current) return;
+    saveToastShown.current = false;
+    hideToast();
+  };
+  // 화면이 가려지거나(다른 화면을 위에 쌓음) 나가면 '지금 반영' 토스트도 닫는다. 그 화면에서는 반영할 수 없다
+  useFocusEffect(useCallback(() => () => dismissSaveToast(), [])); // dismissSaveToast는 ref만 쓴다
   const router = useRouter(),
     navigation = useNavigation();
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
@@ -135,6 +151,11 @@ function Editor({ productId }: { productId: string }) {
   };
   const dirty =
     !!row && JSON.stringify(snapshot) !== JSON.stringify(row.snapshot);
+  // 토스트 동작은 저장 때 만든 함수라 최신 dirty를 ref로 읽는다(DEV-324)
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
   const accept = (value: ProductWorkspace) => {
     setRow(value);
     setSnapshot(copy(value.snapshot));
@@ -229,6 +250,8 @@ function Editor({ productId }: { productId: string }) {
   }, [dirty, busy]);
   const act = async (fn: () => Promise<void>) => {
     if (lock.current) return;
+    // 새 작업(저장·반영·사진 올리기 등)이 시작되면 앞선 저장 토스트의 '지금 반영'은 더는 맞지 않는다
+    dismissSaveToast();
     lock.current = true;
     setBusy(true);
     setError("");
@@ -243,8 +266,49 @@ function Editor({ productId }: { productId: string }) {
       if (alive.current) setBusy(false);
     }
   };
+  /** 수정본 저장. 성공하면 하단 토스트로 알리고 바로 반영할 수 있게 한다(DEV-324) */
+  const save = () =>
+    void act(async () => {
+      if (!row || !snapshot) return;
+      const result = await productWorkspace.save(
+        productId,
+        row.version,
+        snapshot,
+        key(`save:${row.version}:${JSON.stringify(snapshot)}`),
+      );
+      if (alive.current) {
+        accept(result);
+        // 반영할 것이 있을 때만 '지금 반영'(반영된 내용과 같게 되돌려 저장하면 없음)
+        if (result.hasUnpublishedChanges) {
+          toast("수정본을 저장했어요", {
+            action: {
+              label: "지금 반영",
+              onPress: () => {
+                saveToastShown.current = false;
+                // 누르는 순간 다시 고치는 중이거나 다른 작업(사진 올리기 포함) 중이면 열지 않는다
+                if (
+                  dirtyRef.current ||
+                  lock.current ||
+                  busyRef.current ||
+                  !navigation.isFocused()
+                )
+                  return;
+                setConfirm(true);
+              },
+            },
+          });
+          saveToastShown.current = true;
+          // 토스트(동작 버튼 있음)는 4초 뒤 저절로 닫힌다(packages/ui content.tsx Toast의 long 4000과 맞춤). 그 뒤에는 다른 토스트를 닫지 않게 표시를 내린다
+          saveToastTimer.current = setTimeout(() => {
+            saveToastShown.current = false;
+            saveToastTimer.current = null;
+          }, 4000);
+        } else toast("수정본을 저장했어요");
+      }
+    });
   const update = (fn: (next: PageSnapshot) => void) => {
     if (!snapshot || busy) return;
+    dismissSaveToast();
     setSnapshot((current) => {
       if (!current) return current;
       const next = copy(current);
@@ -291,11 +355,38 @@ function Editor({ productId }: { productId: string }) {
       <Scroll bottom={190}>
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           <T variant="heading">{name}</T>
-          <T variant="sub" muted>
-            {row?.hasUnpublishedChanges
-              ? "저장한 수정본이 있어요. 아직 구매자에게 보이지 않아요."
-              : "현재 상품에 반영된 내용을 수정해요."}
-          </T>
+          {/* 상태 줄(DEV-324): 고치는 중 / 저장됨·반영 전 / 반영된 내용 */}
+          {row ? (
+            <View
+              testID="page-save-state"
+              style={{
+                alignSelf: "flex-start",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: tokens.radius.sm,
+                backgroundColor:
+                  !dirty && row.hasUnpublishedChanges
+                    ? "#FDECE2" // accent 옅은 배경(apps/producer/spec.md DEV-294 기준표 값)
+                    : tokens.color.surface,
+              }}
+            >
+              <T
+                variant="sub"
+                weight="semibold"
+                color={
+                  !dirty && row.hasUnpublishedChanges
+                    ? tokens.color.accentPressed
+                    : tokens.color.text
+                }
+              >
+                {dirty
+                  ? "저장 안 한 수정이 있어요"
+                  : row.hasUnpublishedChanges
+                    ? "저장됨 · 아직 소비자에게 안 보여요"
+                    : "지금 상품에 반영된 내용이에요"}
+              </T>
+            </View>
+          ) : null}
           {error ? (
             <View accessibilityRole="alert" style={card}>
               <T color={tokens.color.error}>{error}</T>
@@ -326,14 +417,17 @@ function Editor({ productId }: { productId: string }) {
             ) : null
           ) : preview ? (
             <View testID="product-page-preview">
-              {snapshot.representativeUri ? (
-                <Photo
-                  uri={media(snapshot.representativeUri)}
-                  width="100%"
-                  height={244}
-                  alt="대표사진"
-                />
-              ) : null}
+              {/* 대표 사진이 없으면 구매자 화면처럼 기본 사진(DEV-322) */}
+              <Photo
+                uri={
+                  snapshot.representativeUri
+                    ? media(snapshot.representativeUri)
+                    : null
+                }
+                width="100%"
+                height={244}
+                alt="대표사진"
+              />
               {snapshot.kind === "modules" ? (
                 <ModuleStory
                   content={{
@@ -371,7 +465,11 @@ function Editor({ productId }: { productId: string }) {
                   modules={snapshot.modules}
                   media={media}
                   busy={busy}
-                  onUploading={setBusy}
+                  onUploading={(uploading: boolean) => {
+                    // 사진을 올리기 시작하면 앞선 저장 토스트의 '지금 반영'은 더는 맞지 않는다
+                    if (uploading) dismissSaveToast();
+                    setBusy(uploading);
+                  }}
                   onChange={(modules) =>
                     update((s) => {
                       s.modules = modules;
@@ -526,36 +624,33 @@ function Editor({ productId }: { productId: string }) {
       </Scroll>
       {row && snapshot && !preview ? (
         <BottomBar>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button
-              label="수정본 저장"
-              style={{ flex: 1 }}
-              disabled={!dirty || busy}
-              loading={busy}
-              onPress={() =>
-                void act(async () => {
-                  const result = await productWorkspace.save(
-                    productId,
-                    row.version,
-                    snapshot,
-                    key(`save:${row.version}:${JSON.stringify(snapshot)}`),
-                  );
-                  if (alive.current) {
-                    accept(result);
-                    setNotice(
-                      "수정본을 저장했어요. 아직 상품에는 반영되지 않았어요.",
-                    );
-                  }
-                })
-              }
-            />
-          </View>
-          <Button
-            label="상품에 반영"
-            variant="text"
-            disabled={dirty || busy || !row.hasUnpublishedChanges}
-            onPress={() => setConfirm(true)}
-          />
+          {/* DEV-324: 저장한 수정본이 반영 전이면 주 버튼이 '상품에 반영', 고치는 중이면 '수정본 저장' */}
+          {!dirty && row.hasUnpublishedChanges ? (
+            <>
+              <Button
+                label="상품에 반영"
+                disabled={busy}
+                loading={busy}
+                onPress={() => setConfirm(true)}
+              />
+              <Button label="수정본 저장" variant="text" disabled onPress={save} />
+            </>
+          ) : (
+            <>
+              <Button
+                label="수정본 저장"
+                disabled={!dirty || busy}
+                loading={busy}
+                onPress={save}
+              />
+              <Button
+                label="상품에 반영"
+                variant="text"
+                disabled={dirty || busy || !row.hasUnpublishedChanges}
+                onPress={() => setConfirm(true)}
+              />
+            </>
+          )}
         </BottomBar>
       ) : null}
       <Sheet visible={confirm} onClose={() => !busy && setConfirm(false)}>
@@ -567,7 +662,8 @@ function Editor({ productId }: { productId: string }) {
         </T>
         <Button
           label="확인 · 상품에 반영"
-          disabled={busy}
+          // 저장 안 한 수정이 있으면 반영하지 않는다(반영이 화면의 수정을 덮어씀, DEV-324 토스트 '지금 반영' 경로)
+          disabled={busy || dirty}
           onPress={() =>
             void act(async () => {
               const result = await productWorkspace.apply(
@@ -578,7 +674,18 @@ function Editor({ productId }: { productId: string }) {
               if (alive.current) {
                 accept(result);
                 setConfirm(false);
-                setNotice("상품에 반영했어요.");
+                // 판매 중이면 소비자가 보는 페이지가 바뀌었으니 바로 볼 수 있게 한다(DEV-324)
+                if (status === "PUBLISHED")
+                  toast("소비자 화면에 반영했어요", {
+                    action: {
+                      label: "보기",
+                      onPress: () =>
+                        void Linking.openURL(
+                          `${CONSUMER_URL}/products/${productId}`,
+                        ),
+                    },
+                  });
+                else toast("상품에 반영했어요");
               }
             })
           }

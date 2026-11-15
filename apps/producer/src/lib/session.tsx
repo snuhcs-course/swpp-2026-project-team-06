@@ -32,19 +32,27 @@ type Session = {
   refresh: () => Promise<User | null>;
   tabBarHidden: boolean;
   setTabBarHidden: (v: boolean) => void;
-  /** 화면을 옮겨도 남는 토스트(결정 37, D-19). 성공은 2초, 오류는 4초 + 다시 시도 */
+  /** 화면을 옮겨도 남는 토스트(결정 37, D-19). 성공은 2초, 오류는 4초 + 다시 시도, 동작 버튼(action)이 있으면 4초 */
   toast: (
     message: string,
-    opts?: { tone?: "success" | "error"; onRetry?: () => void },
+    opts?: {
+      tone?: "success" | "error";
+      onRetry?: () => void;
+      /** 토스트 안 동작 버튼(예: 저장 뒤 '지금 반영', DEV-324) */
+      action?: { label: string; onPress: () => void };
+    },
   ) => void;
   /** 쓰기 실패 공통 처리: 연결 문제(네트워크·5xx)면 '연결이 불안정해요' + 다시 시도 토스트를 띄우고 true */
   failToast: (e: unknown, retry: () => void) => boolean;
+  /** 떠 있는 토스트를 닫는다(예: 저장 토스트의 '지금 반영'이 더는 맞지 않을 때, DEV-324) */
+  hideToast: () => void;
 };
 
 type ToastState = {
   message: string;
   tone: "success" | "error";
   onRetry?: () => void;
+  action?: { label: string; onPress: () => void };
 } | null;
 
 /** 연결 문제(네트워크 끊김·서버 오류)인지. 검증·409 같은 오류는 화면 안에서 보여 준다 */
@@ -67,6 +75,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         message,
         tone: opts?.tone ?? "success",
         onRetry: opts?.onRetry,
+        action: opts?.action,
       }),
     [],
   );
@@ -133,8 +142,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setTabBarHidden,
       toast,
       failToast,
+      hideToast,
     }),
-    [user, ready, refresh, tabBarHidden, toast, failToast],
+    [user, ready, refresh, tabBarHidden, toast, failToast, hideToast],
   );
   return (
     <Ctx.Provider value={value}>
@@ -143,6 +153,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         message={toastState?.message ?? null}
         tone={toastState?.tone}
         onRetry={toastState?.onRetry}
+        action={toastState?.action}
         onHide={hideToast}
       />
     </Ctx.Provider>

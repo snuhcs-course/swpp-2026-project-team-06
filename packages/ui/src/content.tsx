@@ -1,5 +1,5 @@
 declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Image,
   Pressable,
@@ -151,7 +151,15 @@ export function Chip({ label }: { label: string }) {
 
 /* ---------------- Photo ---------------- */
 
-/** 사진. 없으면 자리 표시(D-10): 면색 + 보조색 아이콘(상품 = 감귤, 농가 = 집, 사람 = 이름 첫 글자) */
+/** 상품 기본 사진(DEV-322): 면색 + 그레이스케일 로고. 브랜드 원본 PNG는 그대로 두고 따로 만든 그림 */
+const PRODUCT_FALLBACK = require("../assets/brand/product-fallback.webp");
+/** 이 높이 이하 상품 썸네일은 기본 사진 대신 작은 로고만 둔다(DEV-322) */
+const SMALL_THUMB = 64;
+
+/**
+ * 사진. 없으면 자리 표시(D-10): 면색 + 보조색 아이콘(농가 = 집, 사람 = 이름 첫 글자).
+ * 상품은 기본 사진(면색 + 그레이스케일 로고), 64 이하 썸네일은 작은 로고. 주소가 있어도 못 불러오면 같은 자리 표시(DEV-322).
+ */
 export function Photo({
   uri,
   width,
@@ -162,6 +170,7 @@ export function Photo({
   style,
   kind = "product",
   name,
+  productFallback = true,
 }: {
   uri?: string | null;
   width: number | "100%";
@@ -172,8 +181,14 @@ export function Photo({
   style?: StyleProp<ViewStyle>;
   kind?: "product" | "farm" | "person";
   name?: string;
+  /** false면 상품 기본 사진 대신 작은 로고(상품 사진이 아닌 자리: 농가 대표 사진·소식 사진, DEV-322) */
+  productFallback?: boolean;
 }) {
   const ph = Math.max(20, Math.min(40, Math.round(height * 0.32)));
+  // 불러오기 실패한 주소. 주소가 바뀌면 다시 시도한다
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const shown = uri && uri !== failedUri ? uri : null;
+  const missingLabel = alt ? `${alt} 사진 없음` : "사진 없음";
   return (
     <View
       style={[
@@ -189,26 +204,35 @@ export function Photo({
         style,
       ]}
     >
-      {!uri ? (
+      {!shown ? (
         kind === "person" ? (
           <T variant="sub" weight="bold" muted accessibilityRole="text">
             {(name ?? "?").slice(0, 1)}
           </T>
+        ) : kind === "product" && productFallback && height > SMALL_THUMB ? (
+          <Image
+            testID="product-photo-fallback"
+            source={PRODUCT_FALLBACK}
+            accessibilityLabel={missingLabel}
+            resizeMode="cover"
+            style={{ width: "100%", height: "100%" }}
+          />
         ) : (
-          <View accessibilityLabel={alt ? `${alt} 사진 없음` : "사진 없음"}>
+          <View accessibilityLabel={missingLabel}>
             {kind === "farm" ? <Icon name="home" size={ph} color={tokens.color.textMuted} /> : <BrandLogo variant="monochrome" width={Math.min(80, height * 0.65)} decorative />}
           </View>
         )
       ) : null}
-      {uri ? (
+      {shown ? (
         <Image
           source={{
-            uri: uri.startsWith("/api/source-media/")
+            uri: shown.startsWith("/api/source-media/")
               ? (
                   process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000"
-                ).replace(/\/+$/, "") + uri
-              : uri,
+                ).replace(/\/+$/, "") + shown
+              : shown,
           }}
+          onError={() => setFailedUri(shown)}
           accessibilityLabel={alt}
           resizeMode="cover"
           style={[

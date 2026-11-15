@@ -48,6 +48,7 @@ export function DetailEditor({ productId }: { productId?: string }) {
 }
 function Editor({ productId }: { productId?: string }) {
   useHideTabBar();
+  const { toast } = useSession();
   const router = useRouter(),
     navigation = useNavigation();
   const [record, setRecord] = useState<MyFarm | MyProduct | null>(null);
@@ -220,6 +221,8 @@ function Editor({ productId }: { productId?: string }) {
       setRecord(r);
       setBaseline(body);
       setSaved(true);
+      // 저장 버튼은 하단에 있어 위쪽 안내가 안 보일 수 있다. 하단 토스트로 알린다(DEV-324)
+      toast("상세 페이지를 저장했어요");
       pending.current = null;
     } catch (e) {
       if (!alive.current) return;
@@ -294,7 +297,6 @@ function Editor({ productId }: { productId?: string }) {
           {!record && error ? (
             <Button label="다시 불러오기" onPress={load} />
           ) : null}
-          {saved ? <Notice title="상세 페이지를 저장했어요" /> : null}
           {locked ? (
             <Notice
               title="현재 상태에서는 수정할 수 없어요"

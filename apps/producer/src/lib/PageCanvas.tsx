@@ -517,7 +517,8 @@ export function PageCanvas({
   };
   if (preview) return (
     <View testID="buyer-preview">
-      {representativeUri && !emptyHint ? <Photo uri={media(representativeUri)} width="100%" height={244} alt="대표사진" /> : null}
+      {/* 대표 사진이 없으면 구매자 화면처럼 기본 사진(DEV-322) */}
+      {!emptyHint ? <Photo uri={representativeUri ? media(representativeUri) : null} width="100%" height={244} alt="대표사진" /> : null}
       <ModuleStory content={{ hiddenSectionIds, modules: displayModules.filter((m) => m.enabled && !blocked.includes(m.id)) }} mediaUrl={media} />
     </View>
   );
