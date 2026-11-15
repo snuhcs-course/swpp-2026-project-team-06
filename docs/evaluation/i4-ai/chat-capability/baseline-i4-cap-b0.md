@@ -33,7 +33,7 @@ The "before" measurement on the frozen capability set v1 (`manifest.json`, 29 ca
 | CAP-012 | 예약하면 언제 출하돼요? | ANSWER → HANDOFF | rule | False conflict: delivery window (numbers) vs reservation policy (no numbers) |
 | CAP-015 | 도서산간은 추가 비용 있어요? | ANSWER → HANDOFF | model → validator | Rejected by the validator ("등록된 근거로 답변 내용을 확인할 수 없어요"). Likely cause: `_PRICE` rejects any "N원" amount, including the registered remote-area fee. Not confirmed; the model text isn't stored |
 | CAP-019 | 제 귤 언제 와요? | ANSWER → HANDOFF | model | Generic reason ("등록된 정보로 확답하기 어려워요"): either the model chose HANDOFF or `is_non_answer` fired. Not distinguishable from the trace |
-| CAP-009 | 냉장고에 넣어야 하나요? | ANSWER → HANDOFF | model | The model chose HANDOFF: the evidence says only "서늘한 곳에 보관", not whether to refrigerate. **Gold label questionable** — kept frozen, flagged for human review |
+| CAP-009 | 냉장고에 넣어야 하나요? | ANSWER → HANDOFF | model | The model chose HANDOFF: the evidence says only "서늘한 곳에 보관", not whether to refrigerate. Human review (11/15): gold ANSWER stands — quoting the farm's own storage FAQ answers the question; adding general knowledge would not be allowed |
 
 ## Limits
 
