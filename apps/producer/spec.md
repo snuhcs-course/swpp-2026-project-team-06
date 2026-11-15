@@ -222,5 +222,5 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 
 - 현황 맨 위 `lib/ConsumerPageCard.tsx`(승인 농가만, `farms.mine().status === "APPROVED"`). 공용 `Notice`는 `accessibilityRole="alert"`라 상시 안내에 맞지 않아 앱 안 컴포넌트로 둔다.
 - 오른쪽 'farmclub.kr' 버튼은 페이지를 열지 않고 설정 화면 '복사'와 같은 `shareUrl`을 `copyText`로 복사한다. 누르는 영역은 `tokens.touchTarget.min`(48).
-- 닫기는 `localStorage` 키 `farmclub-producer:consumer-page-card-closed:<farmId>`(농가별). 저장소가 없으면(네이티브) 모듈 Set으로 앱을 다시 실행하기 전까지 기억한다.
+- 닫기는 공용 `readStore`/`writeStore`(웹 localStorage, 앱 SecureStore, 앱 이름공간) 키 `consumer-page-card-closed:<farmId>`(농가별)로 기억한다.
 - 연주황 면은 기준표 accent 옅은 배경 `#FDECE2`, 테두리 `#F6D9C4`(Figma C3).

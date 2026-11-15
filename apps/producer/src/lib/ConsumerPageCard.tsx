@@ -2,7 +2,7 @@
 // 디자인: PM이 고른 Figma C3(주황 계열 내 농가 카드, 도메인은 오른쪽 버튼에만).
 // 오른쪽 'farmclub.kr' 버튼은 페이지를 열지 않고 내 농가 링크만 복사한다(PM 11/15). 링크는 설정 › 농가 프로필·공유 링크의
 // '복사'와 같은 공유 링크(shareUrl, 서버가 절대 주소로 줌 — 카카오톡 미리보기용 /s/farms/:id). 승인 농가만 값이 있다.
-import type { MyFarm } from "@farmclub/api";
+import { readStore, writeStore, type MyFarm } from "@farmclub/api";
 import { Icon, IconButton, Photo, T, tokens } from "@farmclub/ui";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -14,32 +14,16 @@ import { copyText } from "./views";
 const TINT = "#FDECE2";
 const TINT_BORDER = "#F6D9C4";
 
-/** 닫았는지는 이 기기(브라우저)·농가별로 기억한다. 저장소를 못 쓰면(네이티브 앱 포함) 앱을 다시 실행하기 전까지만 닫힌다 */
-const keyFor = (farmId: string) =>
-  `farmclub-producer:consumer-page-card-closed:${farmId}`;
-/** 저장소가 없을 때(네이티브 앱 등) 이번 실행 동안 닫은 농가 */
-const closedThisRun = new Set<string>();
-function closedBefore(farmId: string) {
-  if (closedThisRun.has(farmId)) return true;
-  try {
-    return globalThis.localStorage?.getItem(keyFor(farmId)) === "1";
-  } catch {
-    return false;
-  }
-}
+/** 닫았는지는 이 기기·농가별로 기억한다. 공용 저장소(`readStore`/`writeStore`: 웹 localStorage, 앱 SecureStore, 앱 이름공간)를 쓴다 */
+const keyFor = (farmId: string) => `consumer-page-card-closed:${farmId}`;
 
 export function ConsumerPageCard({ farm }: { farm: MyFarm }) {
   const { toast } = useSession();
-  const [closed, setClosed] = useState(() => closedBefore(farm.farmId));
+  const [closed, setClosed] = useState(() => readStore(keyFor(farm.farmId)) === "1");
   if (closed) return null;
   const close = () => {
     setClosed(true);
-    closedThisRun.add(farm.farmId);
-    try {
-      globalThis.localStorage?.setItem(keyFor(farm.farmId), "1");
-    } catch {
-      // 저장소를 못 쓰면 closedThisRun으로 이번 실행 동안만 닫힌다
-    }
+    writeStore(keyFor(farm.farmId), "1");
   };
   const link = farm.shareUrl;
   const copy = async () => {
