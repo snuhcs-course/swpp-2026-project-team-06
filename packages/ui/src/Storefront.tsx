@@ -255,6 +255,7 @@ export function NewsCard({
       {news.photos[0] ? (
         <Photo
           uri={news.photos[0]}
+          productFallback={false}
           width={width}
           height={150}
           radius={0}

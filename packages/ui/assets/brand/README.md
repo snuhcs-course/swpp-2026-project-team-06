@@ -21,3 +21,5 @@ DEV-325: 앱(`BrandLogo`)은 원본 대신 표시용 사본 `*.display.webp`를 
 | `logo-paper-glow-clean.display.webp` | `logo-paper-glow-clean.png` | 516×387 | 로그인 조합형 172px |
 
 재생성: `cwebp -q 82 -alpha_q 90 -m 6 -resize <너비> 0 <원본>.png -o <원본>.display.webp`
+
+DEV-322: `product-fallback.webp`는 상품 기본 사진이다(PM 11/15: 회색 배경 + 그레이스케일 로고). 1080×1080, 면색 #F5F5F3 가운데에 `logo-grayscale.png`를 폭 42%·불투명도 55%로 얹어 WebP(품질 82)로 저장했다. 원본 PNG는 바꾸지 않는다. 공용 `Photo`가 상품 사진이 없거나 못 불러올 때(64 이하 썸네일 제외) 쓴다. `*.display.webp` 사본 규칙 대상이 아니다(PNG 사본이 아닌 새 WebP).

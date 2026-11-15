@@ -163,7 +163,7 @@ export function RoomMedia({ uri }: { uri: string }) {
       </Pressable>
     );
   }
-  return <Photo uri={uri} width={272} height={236} alt="소식 사진" />;
+  return <Photo uri={uri} width={272} height={236} alt="소식 사진" productFallback={false} />;
 }
 export function NewsRoom({
   edit,
@@ -689,7 +689,7 @@ export function NewsRoom({
                 ) : (
                   <ViewablePhoto key={uri} uri={uri}
                     onLongPress={hasMenu(m) ? () => { setMenuPoint(null); setMenuTarget(m); } : undefined}>
-                    <Photo uri={uri} width={photoWidth(mine)} height={photoWidth(mine)} alt="소식 사진" />
+                    <Photo uri={uri} width={photoWidth(mine)} height={photoWidth(mine)} alt="소식 사진" productFallback={false} />
                   </ViewablePhoto>
                 ),
               )}

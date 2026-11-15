@@ -127,6 +127,7 @@ export function NewsCard({
           <Photo
             key={uri}
             uri={uri}
+            productFallback={false}
             width="100%"
             height={photoH}
             alt={item.body.slice(0, 20)}
