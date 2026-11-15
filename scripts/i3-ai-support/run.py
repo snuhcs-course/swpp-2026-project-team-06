@@ -43,6 +43,10 @@ COHORT_SUFFIX = "" if BASELINE == FIRST_BASELINE else f"-{BASELINE}"
 SEED = 1542026
 TEMPLATE_LOG = ROOT / "docs" / "evaluation" / "i3-ai-support" / "run-log.csv"
 RUN_LOG = TEMPLATE_LOG if not COHORT_SUFFIX else TEMPLATE_LOG.with_name(f"run-log-{BASELINE}.csv")
+OTHER_SET = fixtures.QUESTIONS != fixtures.DEFAULT_QUESTIONS.resolve()
+if OTHER_SET:
+    # another question set logs next to its own questions file, with rows built from that file
+    RUN_LOG = fixtures.QUESTIONS.with_name(f"run-log-{BASELINE}.csv")
 TRACES = ROOT / ".artifacts" / "i3-ai-support" / BASELINE
 PROVIDER_MODE = {
     "available": "passthrough",
@@ -323,7 +327,7 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
     cases = {c["id"]: c for c in fixtures.load_cases()}
     if rescore:
         results = {}
-        for path in TRACES.glob("CS-*-r[123].json"):
+        for path in TRACES.glob("*-r[123].json"):
             trace = json.loads(path.read_text(encoding="utf-8"))
             if trace["status"] != "BLOCKED":
                 trace.update(score(cases[trace["case"]], trace))
@@ -337,6 +341,20 @@ def write_log(results: dict | None = None, rescore: bool = False) -> None:
     with source.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
         fields = list(rows[0].keys())
+    if OTHER_SET and source == TEMPLATE_LOG:
+        # same columns, one row per planned trial of this set
+        rows = [
+            {
+                **dict.fromkeys(fields, ""),
+                "case_id": c["id"],
+                "run_number": str(r),
+                "stratum": c["stratum"],
+                "gold_action": c["gold_action"],
+                "fixture_revision": rows[0]["fixture_revision"],
+            }
+            for c in cases.values()
+            for r in (1, 2, 3)
+        ]
     for row in rows:
         trace, name = results[(row["case_id"], int(row["run_number"]))]
 
