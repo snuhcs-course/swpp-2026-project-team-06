@@ -284,3 +284,14 @@ FEAT-03 AC-03-5 · M-11 · AC-SRC-3/11. 작업 기록은 `server/tasks/DEV-228.m
 
 
 DEV-287: 기본 정보의 당도는 화면에서 측정 당도로 표시하며 품질 확인 텍스트도 같은 문구를 쓴다. expectedBrix 저장/API 이름과 근거·직접 편집 우선순위는 유지한다.
+
+## DEV-328 공개 상품사진 크기·캐시 (2026-11-15)
+
+FEAT-03/04 · AC-SRC-6/9/11. 작업 기록은 `server/tasks/DEV-328.md`.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-15 | 공개 사진(`publish.copy_photo`, 작업 공간 업로드)은 `photos.public_photo`: EXIF 방향 적용 → 긴 변 1600px 이하(키우지 않음) → JPEG q82 progressive, EXIF·XMP·ICC 없음. 분석용 `prepare_photo`는 무손실 PNG 유지 | 앱 본문 최대 480 CSS px × 3x = 1440px. 780px 사진에서 PNG가 JPEG의 6~9배, 휴대폰 크기는 수십 배 | AC-SRC-6 |
+| 2026-11-15 | Content-Type은 저장 바이트로 판별(`core.images.sniff`), 마이그레이션 없음. 이전 PNG는 `image/png` 그대로 | 옛 사진과 새 사진이 함께 있어 고정값을 쓸 수 없음 | AC-SRC-6 |
+| 2026-11-15 | `/api/source-media/{id}`는 `public, max-age=300` + ETag(저장 키 해시). 304도 접근 검사 뒤에만, 304에서는 저장소를 읽지 않는다. 생산자 미리보기는 `no-store` 유지 | 저장 키는 한 번만 쓰지만 접근은 상품 공개 상태에 달려 있어 긴 캐시는 공개 취소 뒤 노출이 길어짐 | AC-SRC-9 |
+| 2026-11-15 | 이전 PNG는 사람이 `python -m app.source_analysis.recompress_photos [--commit]`로 바꾼다(id 유지, 새 키 쓰고 커밋 뒤 옛 키 삭제) | URL·상품 데이터를 바꾸지 않고 운영 실행은 사람이 함 | AC-SRC-6 |
