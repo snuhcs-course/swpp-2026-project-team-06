@@ -6,7 +6,7 @@ import { StoryImage } from "./DetailStory";
 
 // The original nine-slice frame surrounds the photo; it never covers or crops it.
 const frame = Asset.fromModule(
-  require("../assets/source/decor/photo-frame.png"),
+  require("../assets/source/decor/photo-frame.display.webp"),
 );
 export function SourcePhoto({ uri, alt }: { uri: string; alt: string }) {
   const photo = uri ? (

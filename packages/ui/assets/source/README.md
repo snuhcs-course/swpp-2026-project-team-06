@@ -11,3 +11,18 @@
 농가 소식은 내장 ImageGen으로 새로 만든 `headings/updates.png`를 사용한다. 기존 제목 아이콘을 직접 참조한 [최종 프롬프트](headings/updates-prompt.md)와 생성 원본 알파를 보존한다. 기존7종에 소식1종을 더해 큰 제목 아이콘은8종이며 작은 제목에는 추가하지 않는다. 당도계는 사용자 확정 [그림과 생성 기록](brix-meter-prompt.md)을 사용한다.
 
 손3종은 [흰색 채움 편집 프롬프트](white-hand-prompts.md)에 따라 built-in ImageGen으로 편집했다. 손 내부는 흰색, 바깥은 투명이며 기존 원본은 docs/design/sales-templates/assets/size-guide에 보존한다. 손·당도 영역은 코드 그라디언트 없이 생성 이미지 자체의 매끈한 곡선·투명 경계로 연결한다.
+
+## DEV-325 표시용 WebP 사본 (2026-11-15)
+
+앱은 원본 PNG 대신 옆의 `*.display.webp`를 쓴다. 원본은 출처 보존으로 그대로 둔다. 크기 = 코드에서 가장 크게 그리는 크기 × 3(소제목 아이콘 8종은 ×4인 144px), 원본(1254px)보다 크면 원본 크기다.
+
+| 사본 | 크기 | 기준 |
+| --- | --- | --- |
+| `headings/*.display.webp` 8종 | 144×144 | 소제목 36px |
+| `brix-meter.display.webp` | 840×840 | 당도계 280px |
+| `outline-{small,medium,large}.display.webp` | 960×960 | 손 비교 약 316px(화면 최대 480px) |
+| `decor/orange-paper.display.webp` | 1254×1254(원본) | 전체 폭 stretch, 최대 480×약 620px |
+| `decor/photo-frame.display.webp` | 1254×1254(원본) | 사진 테두리 9% 9-slice. 비율을 바꾸지 않는다 |
+
+`icons/*.png`는 앱에서 쓰지 않아(e2e 업로드 파일) 사본이 없다.
+재생성: `cwebp -q 82 -alpha_q 90 -m 6 [-resize <너비> 0] <원본>.png -o <원본>.display.webp`

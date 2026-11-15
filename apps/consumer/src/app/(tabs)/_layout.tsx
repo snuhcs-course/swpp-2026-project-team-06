@@ -1,8 +1,9 @@
 import { messaging, allPages } from "@farmclub/api";
-import { TabBar, type IconName } from "@farmclub/ui";
+import { TabBar, inBackground, type IconName } from "@farmclub/ui";
 import { Tabs } from "expo-router";
 import { CommonActions } from "expo-router/react-navigation";
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 
 import { useSession } from "../../lib/session";
 
@@ -84,8 +85,10 @@ export default function TabsLayout() {
       return;
     }
     let alive = true;
-    const load = () =>
-      allPages(
+    // DEV-325: 탭이 숨겨졌거나 앱이 백그라운드면 배지 요청을 쉬고, 돌아오면 바로 한 번 읽는다(useLiveList와 같은 규칙).
+    const load = () => {
+      if (inBackground()) return;
+      void allPages(
         (cursor) => messaging.chats({ limit: 50, cursor }),
         () => !alive,
       )
@@ -93,11 +96,16 @@ export default function TabsLayout() {
           (r) => alive && setUnread(r.reduce((n, c) => n + c.unreadCount, 0)),
         )
         .catch(() => undefined);
-    void load();
+    };
+    load();
     const t = setInterval(load, 8000);
+    const resumed = AppState.addEventListener("change", (state) => {
+      if (state === "active") load();
+    });
     return () => {
       alive = false;
       clearInterval(t);
+      resumed?.remove();
     };
   }, [user]);
 

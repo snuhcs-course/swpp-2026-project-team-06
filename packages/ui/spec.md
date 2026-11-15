@@ -100,6 +100,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 실측 당도 영역은 투명 곡선과 그림·날짜가 겹치지 않도록 상하96px 여백을 확보한다. 손 비교 영역은64px를 유지한다.
 
 - DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
+- DEV-322: 공용 `Photo`의 상품 자리 표시는 높이 64 이하면 작은 그레이스케일 로고, 그보다 크면 기본 사진 `assets/brand/product-fallback.webp`(면색 + 그레이스케일 로고, 브랜드 원본과 별도 파일)다. 주소가 있어도 `onError`가 나면 마지막으로 실패한 주소를 기억하고 같은 자리 표시를 그린다(다른 주소로 바뀌면 그 주소를 불러 본다). 상품 사진이 아닌 자리(생산자 농가 대표 사진, 소식 사진)는 `productFallback={false}`로 예전처럼 작은 로고를 쓴다. 실제 상품 사진과 구분되도록 로고만 쓰고 감귤 사진은 쓰지 않는다.
 
 
 ## DEV-85 승인 로고 배치 (2026-10-19)
@@ -184,6 +185,9 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `FanReplySheet`는 API 주입형(`load`·`markRead`)이다. 열면 끝까지(최대 10쪽) 불러오고 `readThrough`까지 곧바로 읽음 처리한다. 점·칩은 처음 받은 목록을 쓰고 ‘안 읽음’은 `visibleReplies`로 거른다. ‘모두에게 답장’은 길게 누르기 ‘답장’과 같은 `replyTarget`(DEV-289 인용)으로, ‘1:1 채팅’은 `onPrivateReply`로 넘긴다.
 - 소비자 `NewsRoom`은 `markRead` prop이 있고 답장할 수 있는 방(팔로우 중)일 때, 맨 아래에 있으면 가장 최근 방송 id로 한 번씩 부른다(같은 id는 다시 부르지 않고 실패하면 다음 기회에). 화면은 바뀌지 않는다.
 
+## 표시용 WebP 사본 (DEV-325, 2026-11-15)
+- 앱 코드가 `require`하는 장식·로고 PNG는 원본 대신 옆의 `<원본 이름>.display.webp`를 쓴다. 크기 = 코드에서 가장 크게 그리는 크기 × 3(소제목 아이콘 8종은 36px 표시라 ×4인 144px로 둔다), 원본보다 크면 원본 크기. `cwebp -q 82 -alpha_q 90 -m 6`(알파 유지). 원본 PNG는 출처 보존으로 그대로 둔다(로고 원본은 위 DEV-85 절대로 자르거나 변형하지 않고 사본만 더한다).
+- 새 장식·로고를 더하거나 표시 크기를 키우면 사본도 다시 만든다. 크기 표와 명령은 `assets/source/README.md`·`assets/brand/README.md`.
 
 ## 품절 덮개 (DEV-327, 2026-11-15)
 - `SoldOutOverlay`(`SoldOutOverlay.tsx`)는 `Photo`를 감싸는 View다. `show`면 같은 모서리 반경의 흰색 62% 막과 가운데 굵은 ‘품절’(`rgba(74,74,74,0.85)`, 글자 `soldOutFontSize(height)` = clamp(20, round(height × 0.16), 28))을 얹는다. `testID="sold-out-overlay"`, `pointerEvents="none"`, 바깥 여백은 감싼 View의 `style`로. `Photo`는 바꾸지 않는다.

@@ -2,22 +2,22 @@ import { Image, type ImageStyle, type StyleProp } from "react-native";
 
 const variants = {
   wordmark: {
-    source: require("../assets/brand/logo-wordmark.png"),
+    source: require("../assets/brand/logo-wordmark.display.webp"),
     width: 174,
     height: 56,
   },
   icon: {
-    source: require("../assets/brand/logo-icon.png"),
+    source: require("../assets/brand/logo-icon.display.webp"),
     width: 36,
     height: 40,
   },
   monochrome: {
-    source: require("../assets/brand/logo-grayscale.png"),
+    source: require("../assets/brand/logo-grayscale.display.webp"),
     width: 172,
     height: 129,
   },
   full: {
-    source: require("../assets/brand/logo-paper-glow-clean.png"),
+    source: require("../assets/brand/logo-paper-glow-clean.display.webp"),
     width: 172,
     height: 129,
   },
