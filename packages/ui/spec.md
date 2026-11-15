@@ -184,3 +184,7 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - `FanReplySheet`는 API 주입형(`load`·`markRead`)이다. 열면 끝까지(최대 10쪽) 불러오고 `readThrough`까지 곧바로 읽음 처리한다. 점·칩은 처음 받은 목록을 쓰고 ‘안 읽음’은 `visibleReplies`로 거른다. ‘모두에게 답장’은 길게 누르기 ‘답장’과 같은 `replyTarget`(DEV-289 인용)으로, ‘1:1 채팅’은 `onPrivateReply`로 넘긴다.
 - 소비자 `NewsRoom`은 `markRead` prop이 있고 답장할 수 있는 방(팔로우 중)일 때, 맨 아래에 있으면 가장 최근 방송 id로 한 번씩 부른다(같은 id는 다시 부르지 않고 실패하면 다음 기회에). 화면은 바뀌지 않는다.
 
+
+## 품절 덮개 (DEV-327, 2026-11-15)
+- `SoldOutOverlay`(`SoldOutOverlay.tsx`)는 `Photo`를 감싸는 View다. `show`면 같은 모서리 반경의 흰색 62% 막과 가운데 굵은 ‘품절’(`rgba(74,74,74,0.85)`, 글자 `soldOutFontSize(height)` = clamp(20, round(height × 0.16), 28))을 얹는다. `testID="sold-out-overlay"`, `pointerEvents="none"`, 바깥 여백은 감싼 View의 `style`로. `Photo`는 바꾸지 않는다.
+- 쓰는 곳은 소비자 홈 ‘제철 상품’ 카드와 농가 목록 줄뿐이다(AC-07-3, PM 11/15). 상품 상세·판매 품목·소식 선반에는 넣지 않는다.
