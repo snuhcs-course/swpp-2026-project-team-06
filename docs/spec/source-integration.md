@@ -24,7 +24,7 @@
 - 동일 자료 revision·가림버전·모델·prompt·대상·시각 선택의 성공 결과는 재사용한다. 취소/재분석으로 생산자 편집을 덮어쓰지 않는다.
 - POST batches/:bid/drafts/:did/apply는 productId/productVersion/draftVersion 및 Idempotency-Key를 받는다. 소유권과 최신 batch/review/source/product 버전을 검사한다.
 - Product.moduleDetail(schemaVersion=1, modules)을 별도로 저장한다. 기존 detailContent는 보존하며 새 모듈 없는 상품은 기존 렌더러를 사용한다. 가격·재고·주문·상품 공개 상태는 바꾸지 않는다.
-- 상품사진은 EXIF 없는 PNG로 준비하며 명시적 반영 시 독립 공개 사진으로 복사한다. 공개 응답에는 본문·공개 사진 URI·허용 일러스트만 둔다. 원본 삭제와 공개 사진 수명은 독립이다. 사진 접근은 현재 스냅샷 참조·상품 PUBLISHED·농가 승인을 검사한다.
+- 상품사진은 EXIF 없는 PNG로 준비하며(비공개 분석 사본) 명시적 반영 시 독립 공개 사진으로 복사한다. 공개 사진은 비율을 유지한 채 긴 변 1600px 이하로 줄인 JPEG이며 EXIF 방향을 적용하고 메타데이터를 넣지 않는다(DEV-328). 판매페이지 작업 공간에서 올린 사진도 같다. 공개 응답에는 본문·공개 사진 URI·허용 일러스트만 둔다. 원본 삭제와 공개 사진 수명은 독립이다. 사진 접근은 현재 스냅샷 참조·상품 PUBLISHED·농가 승인을 검사한다. `/api/source-media/{id}`는 저장된 형식의 Content-Type(이전 공개분은 PNG)과 `Cache-Control: private, max-age=300`·ETag로 응답하고(보는 사람의 캐시만, 공유 프록시에는 남지 않음), `If-None-Match` 304도 접근 검사를 통과한 뒤에만 준다. 공개를 취소하면 이미 받아 간 사람의 캐시에서 최대 5분 뒤 사라진다.
 
 ## 제공자와 비용
 
