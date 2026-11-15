@@ -35,7 +35,7 @@ export function BrixReading({
       {hasMeasurement ? (
         <Image
           testID="brix-meter-illustration"
-          source={require("../assets/source/brix-meter.png")}
+          source={require("../assets/source/brix-meter.display.webp")}
           resizeMode="contain"
           accessible={false}
           aria-hidden

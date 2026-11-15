@@ -11,8 +11,9 @@ declare const process: {
     EXPO_PUBLIC_EVALUATOR_LOGIN?: string;
   };
 };
+// Metro(앱)와 CommonJS(Mock 테스트 빌드)의 모듈 require. 아래 Mock 한 곳에서만 쓴다.
+declare const require: (id: "./mock") => typeof import("./mock");
 
-import { mockTransport, resetMockState } from "./mock";
 import { blobUrl } from "./objectUrl";
 import { recordServerTime, SERVER_TIME_HEADER } from "./serverClock";
 import { storageGet, storageSet } from "./storage";
@@ -29,6 +30,10 @@ export const apiUrl =
   (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, "");
 export const isMock =
   !!sharedMockUrl || process.env.EXPO_PUBLIC_API_MOCK === "1";
+// DEV-325: 브라우저 Mock(시드 데이터 포함)은 EXPO_PUBLIC_API_MOCK=1일 때만 불러온다. Expo가 이 값을 빌드 때 글자로
+// 바꾸면 운영 빌드(=0)에서는 조건이 false로 접혀 Metro가 Mock 모듈을 번들에 넣지 않는다. 조건을 변수로 빼지 않는다.
+const browserMock =
+  process.env.EXPO_PUBLIC_API_MOCK === "1" ? require("./mock") : null;
 // 평가용 빌드(DEV-200): 앱에는 주소창이 없어 ?evaluator=1(DEV-198)을 줄 수 없으므로 빌드 변수로 켠다.
 // EAS preview 환경에만 둔다. 웹(Vercel)과 production 채널에는 넣지 않는다.
 export const evaluatorBuild = process.env.EXPO_PUBLIC_EVALUATOR_LOGIN === "1";
@@ -189,7 +194,8 @@ export async function request<T>(
   const attempt = authAttempt(), token = attempt.token;
   if (token) headers.Authorization = `Bearer ${token}`;
   if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
-  const transport = isMock && !sharedMockUrl ? mockTransport : httpTransport;
+  const transport =
+    isMock && !sharedMockUrl && browserMock ? browserMock.mockTransport : httpTransport;
   let res: { status: number; body: unknown };
   try {
     res = await transport({ method, path: fullPath, body: opts.body, headers });
@@ -219,7 +225,7 @@ export function newIdempotencyKey(): string {
 export async function resetDemoData() {
   if (!isMock) return;
   if (sharedMockUrl) await request("POST", "/__mock/reset");
-  else resetMockState();
+  else browserMock?.resetMockState();
   setToken(null);
 }
 

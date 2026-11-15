@@ -45,58 +45,58 @@ export type StoryEditing = {
   wrap: (module: StoryModule, content: ReactNode) => ReactNode;
 };
 const illustrations: Record<string, ImageSourcePropType> = {
-  "hand-citrus-small": require("../assets/source/outline-small.png"),
-  "hand-citrus-medium": require("../assets/source/outline-medium.png"),
-  "hand-citrus-large": require("../assets/source/outline-large.png"),
+  "hand-citrus-small": require("../assets/source/outline-small.display.webp"),
+  "hand-citrus-medium": require("../assets/source/outline-medium.display.webp"),
+  "hand-citrus-large": require("../assets/source/outline-large.display.webp"),
 };
 const groups = [
   {
     id: "composition",
     title: "받으실 구성",
     modules: ["composition", "pieceCount"],
-    icon: require("../assets/source/headings/composition.png"),
+    icon: require("../assets/source/headings/composition.display.webp"),
   },
   {
     id: "taste",
     title: "맛과 크기",
     modules: ["taste", "specification", "sizePhoto", "crossSectionPhoto"],
-    icon: require("../assets/source/headings/taste.png"),
+    icon: require("../assets/source/headings/taste.display.webp"),
   },
   {
     id: "production",
     title: "품질과 생산 과정",
     modules: ["qualityEvidence", "productionProcess"],
-    icon: require("../assets/source/headings/production.png"),
+    icon: require("../assets/source/headings/production.display.webp"),
   },
   {
     id: "packing",
     title: "포장과 배송",
     modules: ["packagePhoto", "delivery"],
-    icon: require("../assets/source/headings/packing.png"),
+    icon: require("../assets/source/headings/packing.display.webp"),
   },
   {
     id: "storage",
     title: "보관 방법",
     modules: ["storage"],
-    icon: require("../assets/source/headings/storage.png"),
+    icon: require("../assets/source/headings/storage.display.webp"),
   },
   {
     id: "faq",
     title: "구매 전 확인",
     modules: ["appearanceFaq", "support"],
-    icon: require("../assets/source/headings/faq.png"),
+    icon: require("../assets/source/headings/faq.display.webp"),
   },
   {
     id: "farm",
     title: "농가 이야기",
     modules: ["farmStory", "farmPhotos"],
-    icon: require("../assets/source/headings/farm.png"),
+    icon: require("../assets/source/headings/farm.display.webp"),
   },
   {
     id: "updates",
     title: "농가 소식",
     modules: ["farmUpdates"],
-    icon: require("../assets/source/headings/updates.png"),
+    icon: require("../assets/source/headings/updates.display.webp"),
   },
 ];
 /** Reuse the story heading artwork for module selection controls. */
