@@ -22,6 +22,8 @@ class FeaturedProduct(CamelModel):
     name: str
     current_price: int
     d_day: int
+    # AC-07-3(DEV-327): 예약 가능 상품이 없으면 품절 상품이 대표가 되고 앱이 품절로 보인다.
+    availability: Literal["AVAILABLE", "TOTAL_SOLD_OUT", "PERIOD_SOLD_OUT"]
 
 
 class FarmCard(FarmSummary):
