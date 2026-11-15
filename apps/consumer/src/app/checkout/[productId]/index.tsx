@@ -51,6 +51,7 @@ import {
   seenValues,
   type CheckoutConflict,
 } from "../../../lib/checkoutConflict";
+import { chatViewState } from "../../../lib/chatViewState";
 import { isRemoteArea } from "../../../lib/postcode";
 import { useSession } from "../../../lib/session";
 import { isNetworkError, useToast } from "../../../lib/toast";
@@ -79,7 +80,7 @@ export default function Checkout() {
     changed?: string;
   }>();
   const router = useRouter();
-  const { user, ready, pendingRecipient, setPendingRecipient } = useSession();
+  const { user, ready, chatViewScope, pendingRecipient, setPendingRecipient } = useSession();
   const product = useAsync(
     () => catalog.product(params.productId),
     [params.productId],
@@ -115,9 +116,30 @@ export default function Checkout() {
   // 입금 안내(물량 선점)도 멱등 키로 한 번만(AC-09-3)
   const [depositKey, setDepositKey] = useState(newIdempotencyKey);
   // 이 주문서로 만든 입금 대기 주문(DEV-291). 입금 안내에서 뒤로 와 내용을 바꿔 내면 새 주문을 만들지 않고 이 주문을 알린다
-  type Placed = { orderId: string; optionId: string; quantity: number };
-  const placedRef = useRef<Placed | null>(null);
-  const [placed, setPlaced] = useState<Placed | null>(null);
+  type Placed = { productId: string; orderId: string; optionId: string; quantity: number };
+  type Recovery = Placed & { depositKey: string; shownTotal: number };
+  const scope = ready && user && chatViewScope
+    ? `${chatViewScope.generation}:${user.userId}:${params.productId}` : "";
+  const control = useMemo(() => ({
+    active: true,
+    submitting: false,
+    recovery: null as Recovery | null,
+    placed: null as Placed | null,
+  }), [scope]);
+  const currentControl = useRef(control);
+  currentControl.current = control;
+  const authorized = () => !!scope && currentControl.current === control &&
+    control.active && !!chatViewScope && chatViewState.isCurrent(chatViewScope);
+  useEffect(() => {
+    control.active = true;
+    setBusy(false);
+    return () => { control.active = false; };
+  }, [control]);
+  const [placedResult, setPlacedResult] = useState<{ scope: string; value: Placed | null } | null>(null);
+  const placed = placedResult?.scope === scope ? placedResult.value : null;
+  const setPlaced = (value: Placed | null) => setPlacedResult({ scope, value });
+  const [recoveryScope, setRecoveryScope] = useState<string | null>(null);
+  const recovering = recoveryScope === scope && !!control.recovery;
   const [saveAddress, setSaveAddress] = useState(false);
   const toast = useToast();
   const addressHref = {
@@ -198,7 +220,7 @@ export default function Checkout() {
     : null;
   const leaving = view?.primary.action === "backToProduct";
   const canPay =
-    leaving ||
+    recovering || leaving ||
     (!!recipient && allAgreed && !!p && (view ? view.primary.enabled : true));
 
   // 예약 버튼이 꺼진 이유: 화면 읽기에만 알린다(눈에 보이는 문구·토스트 없음, DEV-293 PM 결정)
@@ -262,83 +284,115 @@ export default function Checkout() {
   }
 
   async function submit(retried = false) {
-    if (leaving) return backToProduct();
-    if (!p || !opt || !recipient) return;
+    // Recovery precedes current-form validation: the original write may already
+    // hold stock even when the edited selection is unavailable or unchecked.
+    if (!authorized() || control.submitting) return;
+    const recovery = control.recovery;
+    if (!recovery && control.placed) {
+      setPlaced(control.placed);
+      return;
+    }
+    if (!recovery && leaving) return backToProduct();
+    if (!recovery && (!p || !opt || !recipient)) return;
+    control.submitting = true;
     setBusy(true);
     setErrors({});
     setPlaced(null);
-    // 주문서가 지금 보여 준 기간·단가·중량. 서버가 지금 값과 비교한다(AC-08-8)
-    const seen = seenValues(p, opt.optionId);
-    sentRef.current = seen;
-    const shownTotal = total;
+    let shownTotal = recovery?.shownTotal ?? total;
     try {
-      const o = await orders.create(
-        {
-          productId: p.productId,
-          optionId: opt.optionId,
-          quantity: qty,
-          recipientName: recipient.recipientName,
-          recipientPhone: recipient.recipientPhone,
-          postalCode: recipient.postalCode,
-          address: recipient.address,
-          addressDetail: recipient.addressDetail,
-          deliveryNote: memo.trim() || undefined,
-          consents,
-          consentVersion: CONSENT_VERSION,
-          saveAddress,
-          ...(seen
-            ? {
-                expectedStageId: seen.stageId ?? undefined,
-                expectedUnitPrice: seen.unitPrice ?? undefined,
-                expectedUnitWeightGrams: seen.unitWeightGrams ?? undefined,
-              }
-            : {}),
-        },
-        idemKey,
-      );
-      // DEV-68: 주문을 만든 뒤 바로 입금 안내를 받는다(물량 선점, 입금 대기)
-      await orders.deposit(o.orderId, depositKey);
-      placedRef.current = { orderId: o.orderId, optionId: opt.optionId, quantity: qty };
-      // 구매 퍼널 3단계: 주문서 제출 → 입금 안내(DEV-71). 받는 사람·주소는 보내지 않는다
+      let pending = recovery;
+      if (!pending && p && opt && recipient) {
+        const seen = seenValues(p, opt.optionId);
+        sentRef.current = seen;
+        const o = await orders.create(
+          {
+            productId: p.productId,
+            optionId: opt.optionId,
+            quantity: qty,
+            recipientName: recipient.recipientName,
+            recipientPhone: recipient.recipientPhone,
+            postalCode: recipient.postalCode,
+            address: recipient.address,
+            addressDetail: recipient.addressDetail,
+            deliveryNote: memo.trim() || undefined,
+            consents,
+            consentVersion: CONSENT_VERSION,
+            saveAddress,
+            ...(seen ? {
+              expectedStageId: seen.stageId ?? undefined,
+              expectedUnitPrice: seen.unitPrice ?? undefined,
+              expectedUnitWeightGrams: seen.unitWeightGrams ?? undefined,
+            } : {}),
+          },
+          idemKey,
+        );
+        if (!authorized()) return;
+        pending = {
+          productId: p.productId, orderId: o.orderId,
+          optionId: opt.optionId, quantity: qty, depositKey, shownTotal,
+        };
+        // Save BEFORE deposit. A lost response is not evidence of rollback.
+        control.recovery = pending;
+        setRecoveryScope(scope);
+      }
+      if (!pending) return;
+      shownTotal = pending.shownTotal;
+      await orders.deposit(pending.orderId, pending.depositKey);
+      if (!authorized()) return;
+      control.placed = pending;
+      control.recovery = null;
+      setRecoveryScope(null);
       track("checkout_submitted", {
-        productId: p.productId,
-        orderId: o.orderId,
-        quantity: qty,
+        productId: pending.productId,
+        orderId: pending.orderId,
+        quantity: pending.quantity,
       });
-      router.push({
-        pathname: "/checkout/[productId]/pay",
-        params: {
-          productId: p.productId,
-          orderId: o.orderId,
-          optionId: opt.optionId,
-          quantity: String(qty),
-        },
-      });
+      if (recovery) {
+        // The replay confirms the ORIGINAL operation; edited fields were not saved.
+        setPlaced(pending);
+      } else {
+        router.push({
+          pathname: "/checkout/[productId]/pay",
+          params: {
+            productId: pending.productId, orderId: pending.orderId,
+            optionId: pending.optionId, quantity: String(pending.quantity),
+          },
+        });
+      }
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        const reason = String(e.details.reason ?? "");
-        const step =
-          reason === "IDEMPOTENCY_MISMATCH"
-            ? mismatchStep(placedRef.current?.orderId ?? null, retried)
-            : null;
-        if (step === "showPlaced") {
-          // 이미 만든 주문이 있다: 키를 그대로 두어 다시 눌러도 두 번째 주문이 생기지 않게 한다
-          setPlaced(placedRef.current);
+      if (!authorized()) return;
+      const reason = e instanceof ApiError ? String(e.details.reason ?? "") : "";
+      if (control.recovery) {
+        // Only a definitive domain rejection can release this checkout's
+        // unresolved deposit. Auth/access failures and key mismatch cannot.
+        if (e instanceof ApiError && [400, 409].includes(e.status) &&
+            reason !== "IDEMPOTENCY_MISMATCH") {
+          control.recovery = null;
+          setRecoveryScope(null);
+          setIdemKey(newIdempotencyKey());
+          setDepositKey(newIdempotencyKey());
+        } else {
+          if (isNetworkError(e)) toast.fail(e, () => void submit());
+          else setErrors({ _: e instanceof ApiError ? e.message : "예약 결과를 확인해 주세요." });
           return;
         }
-        // 409도 멱등 결과로 저장되므로 키를 둘 다 새로 만든다
+      }
+      if (e instanceof ApiError && e.status === 409) {
+        const step = reason === "IDEMPOTENCY_MISMATCH"
+          ? mismatchStep(control.placed?.orderId ?? null, retried) : null;
+        if (step === "showPlaced") {
+          setPlaced(control.placed);
+          return;
+        }
         const nextOrderKey = newIdempotencyKey();
         setIdemKey(nextOrderKey);
         setDepositKey(newIdempotencyKey());
         if (step) {
-          // 같은 키에 다른 본문(앱 버그)이고 만든 주문이 없다: 새 키로 한 번만 다시 보낸다
           if (step === "fail") setErrors({ _: "잠시 뒤 다시 시도해 주세요." });
           else setRetryKey(nextOrderKey);
         } else {
-          // 서버 최신 가격·물량으로 다시 그리고 입력값은 유지, 안내는 reason으로 고른다
           setConflict({
-            reason,
-            details: e.details,
+            reason, details: e.details,
             firstTotal: reason === "STAGE_CHANGED" ? shownTotal : undefined,
           });
           await product.reload();
@@ -346,15 +400,13 @@ export default function Checkout() {
       } else if (e instanceof ApiError && e.details.fields) {
         setErrors(e.details.fields);
       } else if (isNetworkError(e)) {
-        // 같은 멱등 키로 다시 보낸다(입력 유지)
         toast.fail(e, () => void submit());
       } else {
-        setErrors({
-          _: e instanceof ApiError ? e.message : "잠시 뒤 다시 시도해 주세요.",
-        });
+        setErrors({ _: e instanceof ApiError ? e.message : "잠시 뒤 다시 시도해 주세요." });
       }
     } finally {
-      setBusy(false);
+      control.submitting = false;
+      if (authorized()) setBusy(false);
     }
   }
 
@@ -412,12 +464,20 @@ export default function Checkout() {
           />
         ) : null}
 
+        {recovering && !busy ? (
+          <Notice
+            style={{ margin: tokens.space.gutter, marginBottom: 0 }}
+            title="예약 결과를 확인해 주세요"
+            body="기존 요청의 결과를 확인한 뒤 다음 예약을 진행할 수 있어요. 바꾼 내용은 아직 저장되지 않았어요."
+          />
+        ) : null}
+
         {/* 이 주문서로 만든 입금 대기 예약이 있을 때(DEV-291). 제목 + 한 문장, 이동은 하단 버튼(DEV-293, Figma 11:133 ②) */}
         {placed ? (
           <Notice
             style={{ margin: tokens.space.gutter, marginBottom: 0 }}
-            title="입금을 기다리는 예약이 있어요"
-            body="옵션·수량을 바꾸려면 그 예약을 취소하고 다시 예약해 주세요."
+            title="이미 만든 예약이 있어요"
+            body="예약 후 바꾼 내용은 저장되지 않았어요. 내용을 바꾸려면 기존 예약을 취소하고 다시 예약해 주세요."
           />
         ) : null}
 
@@ -751,7 +811,7 @@ export default function Checkout() {
               router.push({
                 pathname: "/checkout/[productId]/pay",
                 params: {
-                  productId: params.productId,
+                  productId: placed.productId,
                   orderId: placed.orderId,
                   optionId: placed.optionId,
                   quantity: String(placed.quantity),
@@ -762,7 +822,8 @@ export default function Checkout() {
         ) : (
           <Button
             label={
-              view && view.primary.label !== "예약하기"
+              recovering ? "예약 결과 확인하기"
+                : view && view.primary.label !== "예약하기"
                 ? view.primary.label
                 : view?.hideAmount || !p
                   ? "예약하기"

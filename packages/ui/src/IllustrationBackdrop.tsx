@@ -11,7 +11,7 @@ export function IllustrationBackdrop() {
       style={[StyleSheet.absoluteFill, { backgroundColor: "#FFFFFF" }]}
     >
       <Image
-        source={require("../assets/source/decor/orange-paper.png")}
+        source={require("../assets/source/decor/orange-paper.display.webp")}
         accessible={false}
         resizeMode="stretch"
         style={{ width: "100%", height: "100%" }}

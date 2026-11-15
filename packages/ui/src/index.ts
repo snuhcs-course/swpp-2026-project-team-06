@@ -5,6 +5,7 @@ export {
   type ChatViewSnapshot, type ChatViewScope, type ChatViewLease, type MessageAnchor,
 } from "./chatViewState";
 export { BrandLogo } from "./BrandLogo";
+export { SoldOutOverlay, soldOutFontSize } from "./SoldOutOverlay";
 export {
   Price,
   ProductShelf,

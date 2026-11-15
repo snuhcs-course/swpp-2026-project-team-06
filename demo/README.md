@@ -62,3 +62,7 @@ DEMO_PROFILE=demo/.raw/prod-profile npm run demo:record -- --target prod --yes p
 - 운영 DB에 데모 농가·상품·주문이 생긴다(그래서 `--yes`가 있어야 돈다. `make`에는 운영 녹화 타깃이 없다). 농가·인물·연락처·계좌는 `story.mjs`의 가상 값만 쓴다
 - 다 찍은 뒤 데모 농가를 숨긴다: main README "Hiding a test farm (DEV-93)"의 `retire_test_farm`
 - 브라우저 프로필(`demo/.raw/`)에는 로그인 쿠키가 남는다. 커밋하지 않고 끝나면 지운다
+
+## I4 소비자 담당 구간 (DEV-281)
+
+개인 소비자 복구 구간은 [인수·데모 준비 안내](../docs/evaluation/i4-consumer/README.md)를 따른다. 기존 로컬 통합 실행기로 scripts/e2e/consumer-i4-demo.spec.ts를 실행하면 실제 로컬 UI의 입금 재알림·열린 주문 갱신·문의 재시도 세 장면을 녹화하고 소스/환경/파일 해시 manifest를 만든다. 영상과 증거는 git에서 제외된 test-results에 남으며 기존 I3 공개 영상·사이트·Release를 바꾸지 않는다. 사람 참가자 관찰은 별도 빈 session-template.json에 기록한다.

@@ -253,17 +253,13 @@ test("AC-07-6: comparison uses the same option in the last period and suppresses
   assert.equal(p.detailContent.blocks[0].uri, "/photos/farm-story.png");
 });
 
-test("AC-07-3: paused or total-sold-out products leave home/farm featured but stay visible and unreservable", async () => {
+test("AC-07-3: paused or total-sold-out products stay visible and unreservable on detail and farm page", async () => {
   for (const [change, availability] of [
     [(p) => (p.salesPaused = true), "PAUSED"],
     [(p) => (p.salesLimitGrams = 0), "TOTAL_SOLD_OUT"],
   ]) {
     reset();
     change(db().products["p-house"]);
-    const home = await ok("GET", "/api/home");
-    assert.ok(!home.recommended.some((c) => c.productId === "p-house"), availability);
-    const kang = home.farms.find((f) => f.farmId === "f-kang");
-    assert.notEqual(kang.featured?.productId, "p-house");
     const detail = await ok("GET", "/api/products/p-house");
     assert.equal(detail.availability, availability);
     assert.equal(detail.soldOut, true);
@@ -279,6 +275,83 @@ test("AC-07-3: paused or total-sold-out products leave home/farm featured but st
   assert.equal(redhyang.availability, "PERIOD_SOLD_OUT");
   assert.equal(redhyang.soldOut, true);
   assert.ok(redhyang.nextStageStartsAt);
+});
+
+test("AC-07-3 DEV-327: paused, not-open and ended products still leave home and farm featured", async () => {
+  const future = (p) =>
+    p.stages.forEach((s) => ((s.startsAt = "2026-12-01"), (s.endsAt = "2026-12-31")));
+  const past = (p) =>
+    p.stages.forEach((s) => ((s.startsAt = "2026-09-01"), (s.endsAt = "2026-09-30")));
+  for (const [change, availability] of [
+    [(p) => (p.salesPaused = true), "PAUSED"],
+    [future, "NOT_OPEN"],
+    [past, "ENDED"],
+  ]) {
+    reset();
+    change(db().products["p-hyodon"]);
+    assert.equal((await ok("GET", "/api/products/p-hyodon")).availability, availability);
+    const home = await ok("GET", "/api/home");
+    assert.ok(!home.recommended.some((c) => c.productId === "p-hyodon"), availability);
+    const hyodon = (await ok("GET", "/api/farms")).items.find((f) => f.farmId === "f-hyodon");
+    assert.equal(hyodon.featured, null, availability);
+  }
+  // 판매 중지된 히어로 상품은 히어로 링크도 비운다
+  reset();
+  db().products["p-house"].salesPaused = true;
+  assert.equal((await ok("GET", "/api/home")).hero.productId, null);
+});
+
+test("AC-07-3 DEV-327: sold-out products stay on home after available ones, hero only when available", async () => {
+  reset();
+  let home = await ok("GET", "/api/home");
+  // 시드 레드향(이번 기간 품절)은 예약 가능 상품 뒤에 남는다
+  assert.deepEqual(
+    home.recommended.map((c) => c.productId),
+    ["p-house", "p-hyodon", "p-noji", "p-redhyang"],
+  );
+  assert.equal(home.recommended.at(-1).availability, "PERIOD_SOLD_OUT");
+  assert.equal(home.hero.productId, "p-house");
+
+  reset();
+  db().products["p-house"].salesLimitGrams = 0;
+  home = await ok("GET", "/api/home");
+  assert.deepEqual(
+    home.recommended.map((c) => [c.productId, c.availability]),
+    [
+      ["p-hyodon", "AVAILABLE"],
+      ["p-noji", "AVAILABLE"],
+      ["p-house", "TOTAL_SOLD_OUT"],
+      ["p-redhyang", "PERIOD_SOLD_OUT"],
+    ],
+  );
+  // 히어로 상품이 품절이면 추천에는 남아도 히어로 링크는 비운다
+  assert.equal(home.hero.productId, null);
+});
+
+test("AC-07-3 DEV-327: farm featured falls back to a sold-out product and sorts after available farms", async () => {
+  reset();
+  let farms = (await ok("GET", "/api/farms")).items;
+  assert.deepEqual(
+    farms.map((f) => f.featured && [f.featured.productId, f.featured.availability]),
+    [["p-house", "AVAILABLE"], ["p-hyodon", "AVAILABLE"], ["p-noji", "AVAILABLE"], null],
+  );
+
+  reset();
+  db().products["p-house"].salesPaused = true;
+  const kang = (await ok("GET", "/api/home")).farms.find((f) => f.farmId === "f-kang");
+  // 강씨네: 하우스는 중지라 빠지고, 예약 가능 상품이 없어 이번 기간 품절인 레드향이 대표
+  assert.equal(kang.featured.productId, "p-redhyang");
+  assert.equal(kang.featured.availability, "PERIOD_SOLD_OUT");
+
+  reset();
+  db().products["p-hyodon"].salesLimitGrams = 0;
+  farms = (await ok("GET", "/api/farms")).items;
+  // 효돈(10/16)이 총 한도 소진: 노지(10/25)만 파는 한라 아래, 대표 없는 남원 위
+  assert.deepEqual(
+    farms.map((f) => f.farmId),
+    ["f-kang", "f-halla", "f-hyodon", "f-namwon"],
+  );
+  assert.equal(farms[2].featured.availability, "TOTAL_SOLD_OUT");
 });
 
 test("AC-15-8/AC-06-8: unfollowed consumer keeps only own replies, re-follow restores room and chat list (DEV-230)", async () => {

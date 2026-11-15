@@ -93,10 +93,23 @@ export function BuyerPreview({
       : uri.startsWith("/")
         ? apiUrl + uri
         : uri;
+  // 상품 사진 주소(DEV-322): 비공개 사진은 받은 blob, API 경로만 API 주소를 붙이고 나머지(시드 `/photos/…`·절대 주소)는 그대로.
+  // ProductPageEditor의 media와 같은 규칙. 아직 못 받은 비공개 사진("")은 빼서 기본 사진이 대신한다
+  const photoUrl = (uri: string) =>
+    uri.startsWith(PRIVATE)
+      ? (urls[uri] ?? "")
+      : uri.startsWith("/api/")
+        ? apiUrl + uri
+        : uri;
   const data = toPageData(product, farm.name, requestedGrams);
   return (
     <ProductPageBody
-      p={{ ...data, photo: data.photo ? media(data.photo) : null }}
+      // 여러 장이면 갤러리가 photos를 쓰므로 같이 바꾼다
+      p={{
+        ...data,
+        photo: data.photo ? photoUrl(data.photo) : null,
+        photos: (data.photos ?? []).map(photoUrl).filter(Boolean),
+      }}
       // 소비자 화면과 같은 참고가 규칙(품절·남은 물량 조건 포함)을 그대로 쓴다.
       reference={(optionId) =>
         referencePrice(

@@ -1,7 +1,8 @@
 import { messaging, type AiSettings } from "@farmclub/api";
-import { Icon, T, tokens } from "@farmclub/ui";
+import { Icon, T, inBackground, tokens } from "@farmclub/ui";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, AppState, Pressable, View } from "react-native";
 
 export function GlobalAiButton({ onEnabledChange }: { onEnabledChange?: (enabled: boolean) => void } = {}) {
   const [settings, setSettings] = useState<AiSettings | null>(null);
@@ -14,16 +15,35 @@ export function GlobalAiButton({ onEnabledChange }: { onEnabledChange?: (enabled
   }, []);
   useEffect(() => {
     alive.current = true;
-    const load = () => messaging.aiSettings().then(accept).catch(() => {
-      if (alive.current) setError("AI 설정을 불러오지 못했어요.");
-    });
-    void load();
-    const poll = setInterval(load, 5000);
     return () => {
       alive.current = false;
-      clearInterval(poll);
     };
-  }, [accept]);
+  }, []);
+  // DEV-325: 하단 탭은 다른 탭으로 가도 채팅 화면을 그대로 두므로, 이 화면이 보일 때만 읽는다.
+  // 브라우저 탭이 숨겨졌거나 앱이 백그라운드면 쉰다(useLiveList와 같은 규칙). 다시 보이면 바로 한 번 읽는다.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
+  useEffect(() => {
+    if (!focused) return;
+    const load = () => {
+      if (inBackground()) return;
+      void messaging.aiSettings().then(accept).catch(() => {
+        if (alive.current) setError("AI 설정을 불러오지 못했어요.");
+      });
+    };
+    load();
+    const poll = setInterval(load, 5000);
+    const resumed = AppState.addEventListener("change", (state) => {
+      if (state === "active") load();
+    });
+    return () => {
+      clearInterval(poll);
+      resumed?.remove();
+    };
+  }, [accept, focused]);
   useEffect(() => { if (settings) onEnabledChange?.(settings.enabled); }, [settings?.enabled, onEnabledChange]);
   async function toggle() {
     if (!settings || lock.current) return;
@@ -66,7 +86,13 @@ export function HumanReplyStatus({ until, serverNow, enabled }: { until?: string
   const [tick, setTick] = useState(Date.now());
   const offset = useRef(0);
   useEffect(() => { offset.current = serverNow ? Date.parse(serverNow) - Date.now() : 0; }, [serverNow]);
-  useEffect(() => { const timer = setInterval(() => setTick(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  // DEV-325: 남은 시간이 있을 때만 1초마다 다시 그린다(직접 응대 중이 아니면 타이머 없음)
+  useEffect(() => {
+    if (!enabled || !until) return;
+    setTick(Date.now());
+    const timer = setInterval(() => setTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [enabled, until]);
   const seconds = until ? Math.max(0, Math.ceil((Date.parse(until) - tick - offset.current) / 1000)) : 0;
   if (!enabled || !seconds) return null;
   return <View style={{ paddingHorizontal: 20, paddingVertical: 4 }}><T variant="caption" muted>

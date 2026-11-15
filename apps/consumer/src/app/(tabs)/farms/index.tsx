@@ -13,9 +13,11 @@ import {
   Screen,
   Scroll,
   Skeleton,
+  SoldOutOverlay,
   T,
   dday,
   tokens,
+  unavailableLabel,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useReducer, useRef, useState } from "react";
@@ -32,6 +34,17 @@ import {
 } from "../../../lib/farmSearch";
 import { LoadError } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
+
+/**
+ * 대표 상품이 품절인지(DEV-327). 품절 두 가지일 때만 참이다 — availability가 없는 응답(필드 추가 전 서버와
+ * 새 앱이 잠깐 만나는 배포 사이)은 판매 중으로 그려 모든 농가가 품절로 보이지 않게 한다.
+ */
+function featuredSoldOut(featured: { availability?: string } | null | undefined) {
+  return (
+    featured?.availability === "TOTAL_SOLD_OUT" ||
+    featured?.availability === "PERIOD_SOLD_OUT"
+  );
+}
 
 export default function FarmList() {
   const router = useRouter();
@@ -201,13 +214,19 @@ export default function FarmList() {
                 borderTopColor: tokens.color.border,
               }}
             >
-              <Photo
-                uri={f.photo}
-                width={tokens.thumb.browse}
+              {/* 대표 상품이 품절이면 사진 위 '품절' 덮개(AC-07-3, DEV-327) */}
+              <SoldOutOverlay
+                show={featuredSoldOut(f.featured)}
                 height={tokens.thumb.browse}
-                alt={f.name}
-                kind="farm"
-              />
+              >
+                <Photo
+                  uri={f.photo}
+                  width={tokens.thumb.browse}
+                  height={tokens.thumb.browse}
+                  alt={f.name}
+                  kind="farm"
+                />
+              </SoldOutOverlay>
               <View style={{ flex: 1, gap: 4 }}>
                 <T variant="body" weight="semibold">
                   {f.name}
@@ -228,11 +247,20 @@ export default function FarmList() {
                       marginTop: 4,
                     }}
                   >
-                    <FeaturedPrice
-                      productId={f.featured.productId}
-                      current={f.featured.currentPrice}
-                    />
-                    <Chip label={dday(f.featured.dDay)} />
+                    {!featuredSoldOut(f.featured) ? (
+                      <>
+                        <FeaturedPrice
+                          productId={f.featured.productId}
+                          current={f.featured.currentPrice}
+                        />
+                        <Chip label={dday(f.featured.dDay)} />
+                      </>
+                    ) : (
+                      // 품절 대표: 가격·D-day 자리에 품절 이름만(DEV-327)
+                      <T muted weight="semibold" numberOfLines={1}>
+                        {unavailableLabel(f.featured.availability)}
+                      </T>
+                    )}
                   </View>
                 ) : null}
               </View>

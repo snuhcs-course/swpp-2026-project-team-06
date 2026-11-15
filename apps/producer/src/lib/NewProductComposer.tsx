@@ -881,7 +881,7 @@ export function NewProductComposer() {
                               result: working ? undefined : review?.refinementResults?.[target.id],
                             }]}
                           /></View>
-                          {buyerPreview && !validationFields.representativePhoto ? (coverUrl ? <Photo uri={coverUrl} width="100%" height={244} alt="대표사진" /> : null) : coverUrl || (hasPhoto && !coverFailed) ? (
+                          {buyerPreview && !validationFields.representativePhoto ? <Photo uri={coverUrl} width="100%" height={244} alt="대표사진" /> : coverUrl || (hasPhoto && !coverFailed) ? (
                             !coverUrl ? (
                               <View
                                 testID="hero-photo"

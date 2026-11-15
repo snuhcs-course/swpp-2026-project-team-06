@@ -3,6 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.catalog.schemas import ProductCard
 from app.core.clock import now
 from app.core.config import get_settings
 from app.core.detail import DetailDraft, DetailDraftInput, detail_content
@@ -195,6 +196,24 @@ def _summary(f: Farm) -> dict:
     )
 
 
+# AC-07-3(DEV-327, PM 11/15): 홈 추천·농가 대표에는 예약 가능 상품과 품절 상품만 둔다.
+# 판매 중지·예약 시작 전·예약 종료는 빠진다(상세·농가 판매 품목에는 남는다, R-27).
+LISTED_AVAILABILITY = ("AVAILABLE", "TOTAL_SOLD_OUT", "PERIOD_SOLD_OUT")
+
+
+def listed_cards(cards: list[ProductCard]) -> list[ProductCard]:
+    """홈 추천·농가 대표 후보. 예약 가능 상품이 마감 임박순으로 먼저, 품절 상품은 그 뒤."""
+    from app.catalog import service as catalog
+
+    return [c for c in catalog.by_deadline(cards) if c.availability in LISTED_AVAILABILITY]
+
+
+def _featured_sort_key(card: FarmCard) -> tuple[bool, bool, int]:
+    """FEAT-06: 예약 가능 대표가 있는 농가(마감 임박순) → 대표가 품절인 농가 → 대표 없는 농가."""
+    f = card.featured
+    return (f is None, f is not None and f.availability != "AVAILABLE", f.d_day if f else 0)
+
+
 def farm_cards(db: Session) -> list[FarmCard]:
     """승인된 농가 카드. 지금 단계가 가장 일찍 끝나는 농가가 위(FEAT-06)."""
     from app.catalog import service as catalog
@@ -203,20 +222,21 @@ def farm_cards(db: Session) -> list[FarmCard]:
     grouped = catalog.group_by_farm(catalog.published_cards(db, [f.id for f in farms]))
     cards = []
     for f in farms:
-        live = [c for c in catalog.by_deadline(grouped.get(f.id, [])) if not c.sold_out]
-        top = live[0] if live else None
+        listed = listed_cards(grouped.get(f.id, []))
+        top = listed[0] if listed else None
         featured = (
             FeaturedProduct(
                 product_id=top.product_id,
                 name=top.name,
                 current_price=top.current_price or 0,
                 d_day=top.d_day or 0,
+                availability=top.availability,
             )
             if top
             else None
         )
         cards.append(FarmCard(**_summary(f), featured=featured))
-    return sorted(cards, key=lambda c: (c.featured is None, c.featured.d_day if c.featured else 0))
+    return sorted(cards, key=_featured_sort_key)
 
 
 def search_farms(db: Session, q: str | None) -> list[FarmCard]:
@@ -264,9 +284,14 @@ def home(db: Session) -> Home:
 
     settings = get_settings()
     limit = settings.home_recommend_limit
-    cards = [c for c in catalog.by_deadline(catalog.published_cards(db)) if not c.sold_out]
+    cards = listed_cards(catalog.published_cards(db))
     hero_id = settings.home_hero_product_id
-    hero_product = hero_id if any(c.product_id == hero_id for c in cards) else None
+    # 히어로는 예약 가능한 상품만(품절이면 비운다, DEV-327).
+    hero_product = (
+        hero_id
+        if any(c.product_id == hero_id and c.availability == "AVAILABLE" for c in cards)
+        else None
+    )
     return Home(
         hero=Hero(**HERO, product_id=hero_product),
         recommended=cards[:limit],
