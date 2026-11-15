@@ -17,17 +17,32 @@ test("AC-SRC-9: selling product edits remain private until explicit apply", asyn
     .click();
   await expect(page).toHaveURL(/\/products\/p-house\/detail$/);
   await expect(
-    page.getByText("현재 상품에 반영된 내용을 수정해요.", { exact: true }),
-  ).toBeVisible();
+    page.getByTestId("page-save-state"),
+  ).toHaveText("지금 상품에 반영된 내용이에요");
   await page.getByRole("button", { name: "설명 추가", exact: true }).click();
   const content = `판매페이지 수정 검증 ${Date.now()}`;
   await page.getByLabel("내용 1", { exact: true }).fill(content);
+  await expect(page.getByTestId("page-save-state")).toHaveText("저장 안 한 수정이 있어요");
   await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
-  await expect(
-    page.getByText("수정본을 저장했어요. 아직 상품에는 반영되지 않았어요.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  // DEV-324: 저장하면 하단 토스트 + '지금 반영', 상태 줄은 반영 전, 하단 주 버튼은 '상품에 반영'
+  const saved = page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" });
+  await expect(saved).toBeVisible();
+  await expect(saved.getByRole("button", { name: "지금 반영", exact: true })).toBeVisible();
+  await expect(page.getByTestId("page-save-state")).toHaveText("저장됨 · 아직 소비자에게 안 보여요");
+  await expect(page.getByRole("button", { name: "상품에 반영", exact: true })).toBeEnabled();
+  // '지금 반영'은 반영 확인 시트를 연다(고친 것이 없으면 확인 가능). 여기서는 취소한다
+  await saved.getByRole("button", { name: "지금 반영", exact: true }).click();
+  await expect(page.getByRole("button", { name: "확인 · 상품에 반영", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "취소", exact: true }).click();
+  // 다시 저장하고 토스트가 떠 있는 동안 고치기 시작하면 '지금 반영' 토스트는 닫힌다(고치는 중엔 반영 불가)
+  await page.getByLabel("내용 1", { exact: true }).fill(`${content} 고침`);
+  await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toBeVisible();
+  await page.getByLabel("내용 1", { exact: true }).fill(content);
+  await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toHaveCount(0);
+  await expect(page.getByTestId("page-save-state")).toHaveText("저장 안 한 수정이 있어요");
+  await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
+  await expect(page.getByTestId("page-save-state")).toHaveText("저장됨 · 아직 소비자에게 안 보여요");
   await page.reload();
   await expect(page.getByLabel("내용 1", { exact: true })).toHaveValue(content);
   await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
@@ -43,9 +58,11 @@ test("AC-SRC-9: selling product edits remain private until explicit apply", asyn
   await page
     .getByRole("button", { name: "확인 · 상품에 반영", exact: true })
     .click();
-  await expect(
-    page.getByText("상품에 반영했어요.", { exact: true }),
-  ).toBeVisible();
+  // DEV-324: 판매 중 상품은 '소비자 화면에 반영했어요' + 소비자 앱 상품 페이지 '보기'
+  const applied = page.getByRole("alert").filter({ hasText: "소비자 화면에 반영했어요" });
+  await expect(applied).toBeVisible();
+  await expect(applied.getByRole("button", { name: "보기", exact: true })).toBeVisible();
+  await expect(page.getByTestId("page-save-state")).toHaveText("지금 상품에 반영된 내용이에요");
   clean();
 });
 
@@ -117,9 +134,7 @@ with get_sessionmaker()() as db:
       .getByRole("button", { name: "수정본 저장", exact: true })
       .click();
     await expect(
-      page.getByText("수정본을 저장했어요. 아직 상품에는 반영되지 않았어요.", {
-        exact: true,
-      }),
+      page.getByText("수정본을 저장했어요", { exact: true }),
     ).toBeVisible();
     await page.reload();
     await expect(eye).not.toBeChecked();
@@ -181,9 +196,7 @@ with get_sessionmaker()() as db:
       .getByRole("button", { name: "수정본 저장", exact: true })
       .click();
     await expect(
-      page.getByText("수정본을 저장했어요. 아직 상품에는 반영되지 않았어요.", {
-        exact: true,
-      }),
+      page.getByText("수정본을 저장했어요", { exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
     await expect(page.getByTestId("product-page-preview")).not.toContainText(
@@ -197,7 +210,7 @@ with get_sessionmaker()() as db:
       .getByRole("button", { name: "확인 · 상품에 반영", exact: true })
       .click();
     await expect(
-      page.getByText("상품에 반영했어요.", { exact: true }),
+      page.getByText("소비자 화면에 반영했어요", { exact: true }),
     ).toBeVisible();
     const { apiUrl } = await import("./helpers");
     const product = await (
@@ -246,7 +259,7 @@ with get_sessionmaker()() as db:
   await expect(page.getByRole("button", { name: "대표사진", exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "대표사진", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
-  await expect(page.getByText("수정본을 저장했어요. 아직 상품에는 반영되지 않았어요.", { exact: true })).toBeVisible();
+  await expect(page.getByText("수정본을 저장했어요", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "대표사진", exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "대표사진", exact: true })).toBeVisible();
