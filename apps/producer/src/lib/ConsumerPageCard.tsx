@@ -3,7 +3,7 @@
 // 오른쪽 'farmclub.kr' 버튼은 페이지를 열지 않고 내 농가 링크만 복사한다(PM 11/15). 링크는 설정 › 농가 프로필·공유 링크의
 // '복사'와 같은 공유 링크(shareUrl, 서버가 절대 주소로 줌 — 카카오톡 미리보기용 /s/farms/:id). 승인 농가만 값이 있다.
 import type { MyFarm } from "@farmclub/api";
-import { Icon, Photo, T, tokens } from "@farmclub/ui";
+import { Icon, IconButton, Photo, T, tokens } from "@farmclub/ui";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 
@@ -38,7 +38,7 @@ export function ConsumerPageCard({ farm }: { farm: MyFarm }) {
     try {
       globalThis.localStorage?.setItem(keyFor(farm.farmId), "1");
     } catch {
-      // 이번 화면에서만 닫힌다
+      // 저장소를 못 쓰면 closedThisRun으로 이번 실행 동안만 닫힌다
     }
   };
   const link = farm.shareUrl;
@@ -71,14 +71,15 @@ export function ConsumerPageCard({ farm }: { farm: MyFarm }) {
         <T variant="sub" weight="semibold" color={tokens.color.accentPressed}>
           소비자가 보는 내 농가
         </T>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="소비자 페이지 안내 닫기"
-          onPress={close}
-          hitSlop={14}
-        >
-          <Icon name="close" size={20} color={tokens.color.textMuted} />
-        </Pressable>
+        {/* 공용 IconButton(누르는 영역 48 — 웹은 hitSlop이 먹지 않는다). 줄 높이는 음수 여백으로 유지 */}
+        <View style={{ margin: -14 }}>
+          <IconButton
+            icon="close"
+            label="소비자 페이지 안내 닫기"
+            size={20}
+            onPress={close}
+          />
+        </View>
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <Photo
