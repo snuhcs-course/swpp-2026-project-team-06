@@ -35,7 +35,6 @@ import {
 import { LoadError } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
 
-
 /**
  * 대표 상품이 품절인지(DEV-327). 품절 두 가지일 때만 참이다 — availability가 없는 응답(필드 추가 전 서버와
  * 새 앱이 잠깐 만나는 배포 사이)은 판매 중으로 그려 모든 농가가 품절로 보이지 않게 한다.
