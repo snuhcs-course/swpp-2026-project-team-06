@@ -326,14 +326,17 @@ function Editor({ productId }: { productId: string }) {
             ) : null
           ) : preview ? (
             <View testID="product-page-preview">
-              {snapshot.representativeUri ? (
-                <Photo
-                  uri={media(snapshot.representativeUri)}
-                  width="100%"
-                  height={244}
-                  alt="대표사진"
-                />
-              ) : null}
+              {/* 대표 사진이 없으면 구매자 화면처럼 기본 사진(DEV-322) */}
+              <Photo
+                uri={
+                  snapshot.representativeUri
+                    ? media(snapshot.representativeUri)
+                    : null
+                }
+                width="100%"
+                height={244}
+                alt="대표사진"
+              />
               {snapshot.kind === "modules" ? (
                 <ModuleStory
                   content={{
