@@ -197,6 +197,8 @@ export type FarmCard = FarmSummary & {
     name: string;
     currentPrice: number;
     dDay: number;
+    /** 예약 가능 상품이 없으면 품절 상품이 대표가 된다(AC-07-3, DEV-327) */
+    availability: "AVAILABLE" | "TOTAL_SOLD_OUT" | "PERIOD_SOLD_OUT";
   } | null;
 };
 

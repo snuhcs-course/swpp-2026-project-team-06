@@ -1,7 +1,7 @@
 import { validateDetail } from "./detailContent";
 // /api/home, /api/farms Mock (FEAT-02, 06, 19)
 import type { FollowState, Home, MyFarm } from "../types";
-import { farmCard, farmSummary, productCard } from "./derive";
+import { farmCard, farmSummary, listedCards, productCard } from "./derive";
 import type { Ctx } from "./router";
 import { fail, notFound, paginate, register } from "./router";
 
@@ -13,11 +13,17 @@ function approvedFarms(ctx: Ctx) {
   return Object.values(ctx.db.farms).filter((f) => f.status === "APPROVED");
 }
 
-/** FEAT-06 정렬: 지금 단계가 가장 일찍 끝나는 농가가 위, 판매 중 상품 없는 농가는 맨 아래 */
+/** FEAT-06 정렬: 예약 가능 대표가 있는 농가(지금 단계가 가장 일찍 끝나는 순) → 대표가 품절인 농가
+ *  → 대표 없는 농가(DEV-327, 서버 farm_cards와 같음) */
 function sortedFarmCards(ctx: Ctx) {
+  const rank = (f: { featured: { availability: string; dDay: number } | null }) =>
+    f.featured ? (f.featured.availability === "AVAILABLE" ? 0 : 1) : 2;
   return approvedFarms(ctx)
     .map((f) => farmCard(ctx.db, f))
-    .sort((a, b) => (a.featured?.dDay ?? 999) - (b.featured?.dDay ?? 999));
+    .sort(
+      (a, b) =>
+        rank(a) - rank(b) || (a.featured?.dDay ?? 0) - (b.featured?.dDay ?? 0),
+    );
 }
 
 function myFarm(ctx: Ctx) {
@@ -49,25 +55,30 @@ function follow(ctx: Ctx, on: boolean): FollowState {
 
 register({
   "GET /api/home": (ctx): Home => {
-    const recommended = Object.values(ctx.db.products)
-      .filter(
-        (p) =>
-          p.status === "PUBLISHED" &&
-          ctx.db.farms[p.farmId]?.status === "APPROVED",
-      )
-      .map((p) => productCard(ctx.db, p))
-      .filter((c) => !c.soldOut)
-      .sort((a, b) => (a.dDay ?? 99) - (b.dDay ?? 99))
-      .slice(0, 6);
+    // AC-07-3(DEV-327): 예약 가능 먼저, 품절은 그 뒤. 중지·시작 전·종료는 뺀다. 히어로는 예약 가능할 때만.
+    const listed = listedCards(
+      Object.values(ctx.db.products)
+        .filter(
+          (p) =>
+            p.status === "PUBLISHED" &&
+            ctx.db.farms[p.farmId]?.status === "APPROVED",
+        )
+        .map((p) => productCard(ctx.db, p)),
+    );
+    const heroId = "p-house";
     return {
       hero: {
         label: "10월 · 수확 전 예약",
         title: "서귀포 하우스 귤이\n지금 익어가고 있어요",
         caption: "강씨네 귤밭 · 하우스 감귤 5kg 보러 가기",
         photo: "/photos/orchard-crate.jpg",
-        productId: "p-house",
+        productId: listed.some(
+          (c) => c.productId === heroId && c.availability === "AVAILABLE",
+        )
+          ? heroId
+          : null,
       },
-      recommended,
+      recommended: listed.slice(0, 6),
       farms: sortedFarmCards(ctx).slice(0, 6),
     };
   },
