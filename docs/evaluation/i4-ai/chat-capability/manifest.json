@@ -6,14 +6,23 @@
     "path": "questions.jsonl",
     "sha256": "88262bac09338791432a6d7133f86dbb84b27f4e8145aaed1dcfe65b38974b9b",
     "cases": 29,
-    "gold_action": {"ANSWER": 20, "HANDOFF": 9},
+    "gold_action": {
+      "ANSWER": 20,
+      "HANDOFF": 9
+    },
     "trials_per_case": 3
   },
-  "excluded_pending_pm": {
-    "path": "pending.jsonl",
-    "cases": ["CAP-027"],
-    "reason": "Gold label not yet agreed with the PM; added as a separate set once decided, never merged into v1."
-  },
   "source": "team-written (Zahra); evidence copied from I3 fixtures P1, P2, P3, FARM_ONLY, ORDER, MULTI_NO_CONTEXT",
-  "real_questions": "Producer/consumer questions arrive later as a separate set (v2); v1 is never edited."
+  "real_questions": "PM decision 2026-11-15: no real user questions; the sets are team-written (synthetic wording) and reported as such.",
+  "v2": {
+    "path": "questions-v2.jsonl",
+    "frozen_on": "2026-11-15",
+    "sha256": "e0e1fe9a856caabd701a8bca830f470782c76eb2dacbe6646a484a98927487ed",
+    "cases": 2,
+    "gold_action": {
+      "ANSWER": 1,
+      "HANDOFF": 1
+    },
+    "contents": "CAP-027 (HANDOFF, guarantee) and CAP-031 '얼마나 달아요?' (ANSWER with registered Brix), gold labels decided by the PM on 2026-11-15; reported separately from v1."
+  }
 }

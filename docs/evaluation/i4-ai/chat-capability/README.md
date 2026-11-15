@@ -23,8 +23,8 @@ Run 3 trials per case, as in I3.
 ## Freeze (v1, 2026-11-15)
 
 - **Frozen:** 29 cases (ANSWER 20, HANDOFF 9), committed before any change to `server/app/ai`. The sha256 is in `manifest.json`. v1 is never edited.
-- **Left out:** CAP-027 "13브릭스 이상 보장되나요?" ("Is at least 13 Brix guaranteed?") is in `pending.jsonl` until the PM agrees its gold label. "얼마나 달아요?" ("How sweet is it?") is also undecided (taste under M-07, or answerable with Brix?) and was never in the set.
-- **Later questions** go in a separate set (v2), reported separately and never merged into v1. That covers real questions from Jinwoo (producers) and Minsun (consumers), with personal details removed, and the cases above once decided.
+- **v2 (2 cases, `questions-v2.jsonl`, frozen 2026-11-15 before any code change):** the two cases whose gold label the PM decided on 11/15. CAP-027 "13브릭스 이상 보장되나요?" ("Is at least 13 Brix guaranteed?") is HANDOFF, because it asks for a guarantee. CAP-031 "얼마나 달아요?" ("How sweet is it?") is ANSWER with the registered Brix and no taste judgment. Reported separately from v1.
+- **Question source:** all questions are team-written in everyday wording, not real user wording (PM decision 11/15). Results are reported with that caveat.
 
 ## Offline routing of the 30-case draft (2026-11-12, `main` @ `7ad9c123`, no model calls)
 
