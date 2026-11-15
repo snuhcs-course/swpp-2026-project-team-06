@@ -68,7 +68,7 @@ API와 worker는 같은 PostgreSQL 및 같은 비공개 Local/R2 저장소를 �
 
 ### 이전 공개 PNG 사진 줄이기 (DEV-328)
 
-`uv run python -m app.source_analysis.recompress_photos`는 원본 크기 PNG로 저장된 공개 상품사진을 표시용 JPEG(긴 변 1600px)로 바꿀 목록과 전후 바이트만 보여 준다. `--commit`을 붙여야 바꾸며 사진 id·URL은 그대로다. 운영에서는 사람이 실행한다(`server/tasks/DEV-328.md` 운영 실행).
+`uv run python -m app.source_analysis.recompress_photos`는 원본 크기 PNG로 저장된 공개 상품사진을 표시용 JPEG(긴 변 1600px)로 바꿀 목록과 전후 바이트만 보여 준다. R2 사진 저장소를 백업한 뒤 `--backup-done --commit`을 붙여야 바꾸며(되돌릴 수 없음) 사진 id·URL은 그대로다. 예전 키는 바로 지우지 않고 worker cleanup이 지운다. 실패한 사진이 있으면 종료 코드 1. 운영에서는 사람이 실행한다(`server/tasks/DEV-328.md` 운영 실행).
 
 ## OCR 교체 및 로컬 품질 검증 (DEV-58)
 

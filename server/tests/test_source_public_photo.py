@@ -110,14 +110,14 @@ def test_AC_SRC_6_small_published_photo_is_not_upscaled(client, login):
 def test_AC_SRC_9_published_photo_short_cache_and_etag(client, login):
     uri = publish_with_photo(client, login("u-kang"), photo_bytes((800, 600)))
     first = client.get(uri)
-    assert first.headers["cache-control"] == "public, max-age=300"
+    assert first.headers["cache-control"] == "private, max-age=300"
     assert first.headers.get_list("x-content-type-options") == ["nosniff"]
     tag = first.headers["etag"]
     assert tag.startswith('"') and "/" not in tag  # never the private storage key
     again = client.get(uri, headers={"If-None-Match": tag})
     assert again.status_code == 304 and again.content == b""
     assert again.headers["etag"] == tag
-    assert again.headers["cache-control"] == "public, max-age=300"
+    assert again.headers["cache-control"] == "private, max-age=300"
     assert client.get(uri, headers={"If-None-Match": f'W/{tag}, "x"'}).status_code == 304
     assert client.get(uri, headers={"If-None-Match": '"other"'}).status_code == 200
     # Revalidation still runs the access rule: an unpublished product never gets a 304.
@@ -211,15 +211,16 @@ def test_recompress_photos_commit_replaces_png_and_is_rerunnable(stored_photos):
 
     (png_id, png_key), (jpeg_id, jpeg_key) = stored_photos[0]
     with get_sessionmaker()() as db:
-        assert len(recompress(db, Storage(), commit=True).converted) == 1
+        converted = recompress(db, Storage(), commit=True).converted
+        assert [(c[0], c[1]) for c in converted] == [(png_id, png_key)]
     with get_sessionmaker()() as db:
         new_key = db.get(PublicPhoto, png_id).storage_key
         assert db.get(PublicPhoto, jpeg_id).storage_key == jpeg_key
     assert new_key != png_key
     image = opened(Storage().get(new_key))
     assert image.format == "JPEG" and image.size == (1600, 1200)
-    with pytest.raises(FileNotFoundError):
-        Storage().get(png_key)
+    # 예전 키는 바로 지우지 않는다(worker cleanup이 참조 없는 키를 지움)
+    assert Storage().get(png_key)[:4] == b"\x89PNG"
     with get_sessionmaker()() as db:
         assert recompress(db, Storage(), commit=True).converted == []
 
@@ -229,3 +230,11 @@ def test_recompress_photos_rejects_unknown_arguments():
 
     with pytest.raises(SystemExit):
         main(["--comit"])
+
+
+def test_recompress_photos_commit_requires_backup_confirmation():
+    from app.source_analysis.recompress_photos import main
+
+    with pytest.raises(SystemExit) as exc:
+        main(["--commit"])
+    assert "--backup-done" in str(exc.value)

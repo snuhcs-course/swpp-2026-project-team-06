@@ -95,8 +95,10 @@ def apply_draft(db, batch, draft, body):
     }
 
 
-# Access depends on the product staying published, so caches may keep a photo only briefly.
-PUBLIC_CACHE = "public, max-age=300"
+# Access depends on the product staying published, so only the viewer's own cache
+# may keep a photo, briefly. `private` keeps shared proxies from holding it after an
+# unpublish (there is no CDN in front of the API).
+PUBLIC_CACHE = "private, max-age=300"
 
 
 def media_type(data: bytes) -> str:
@@ -105,7 +107,8 @@ def media_type(data: bytes) -> str:
 
 
 def etag(photo: PublicPhoto) -> str:
-    # Storage keys are written once per photo; hash so the private key is never exposed.
+    # The ETag follows the storage key (recompress writes a new key, so the tag changes).
+    # Hash it so the private key is never exposed.
     return '"' + hashlib.sha256(photo.storage_key.encode()).hexdigest()[:32] + '"'
 
 
