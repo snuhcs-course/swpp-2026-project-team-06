@@ -189,3 +189,6 @@ DEV-289 최종 사용자 지시: 헤더 AI 아이콘+하단 AI 답변 ON/OFF, �
 - 앱 코드가 `require`하는 장식·로고 PNG는 원본 대신 옆의 `<원본 이름>.display.webp`를 쓴다. 크기 = 코드에서 가장 크게 그리는 크기 × 3(소제목 아이콘 8종은 36px 표시라 ×4인 144px로 둔다), 원본보다 크면 원본 크기. `cwebp -q 82 -alpha_q 90 -m 6`(알파 유지). 원본 PNG는 출처 보존으로 그대로 둔다(로고 원본은 위 DEV-85 절대로 자르거나 변형하지 않고 사본만 더한다).
 - 새 장식·로고를 더하거나 표시 크기를 키우면 사본도 다시 만든다. 크기 표와 명령은 `assets/source/README.md`·`assets/brand/README.md`.
 
+## 품절 덮개 (DEV-327, 2026-11-15)
+- `SoldOutOverlay`(`SoldOutOverlay.tsx`)는 `Photo`를 감싸는 View다. `show`면 같은 모서리 반경의 흰색 62% 막과 가운데 굵은 ‘품절’(`rgba(74,74,74,0.85)`, 글자 `soldOutFontSize(height)` = clamp(20, round(height × 0.16), 28))을 얹는다. `testID="sold-out-overlay"`, `pointerEvents="none"`, 바깥 여백은 감싼 View의 `style`로. `Photo`는 바꾸지 않는다.
+- 쓰는 곳은 소비자 홈 ‘제철 상품’ 카드와 농가 목록 줄뿐이다(AC-07-3, PM 11/15). 상품 상세·판매 품목·소식 선반에는 넣지 않는다.

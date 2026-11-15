@@ -1,6 +1,8 @@
 import { expect, test } from "./fixtures";
+import type { Locator } from "@playwright/test";
+import type { APIRequestContext } from "./fixtures";
 
-import { consumerUrl, loginProducer, monitor, producerUrl } from "./helpers";
+import { apiLogin, apiUrl, consumerUrl, loginProducer, monitor, producerUrl } from "./helpers";
 
 test("AC-06/07/15: anonymous discovery, public news, and login return", async ({
   page,
@@ -123,5 +125,85 @@ test("AC-06-2 AC-06-7: search failure shows a notice and retry does not duplicat
   ).toHaveCount(0);
   await expect(page.getByText("한라네 과수원")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "다시 시도" })).toHaveCount(0);
+  assertClean();
+});
+
+/** 강씨네 귤밭 생산자(테스트 계정)가 p-house 판매를 중지하거나 재개한다 */
+async function setHousePaused(request: APIRequestContext, paused: boolean) {
+  const token = await apiLogin(request, "u-kang", "producer");
+  const headers = { Authorization: `Bearer ${token}` };
+  const product = await (
+    await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })
+  ).json();
+  const response = await request.put(`${apiUrl}/api/products/p-house/sales-settings`, {
+    headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+    data: {
+      salesLimitGrams: product.salesLimitGrams,
+      maxQuantityPerOrder: product.maxQuantityPerOrder,
+      salesPaused: paused,
+      version: product.version,
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+async function overlayStyle(overlay: Locator) {
+  return {
+    scrim: await overlay.evaluate((el) => getComputedStyle(el).backgroundColor),
+    fontSize: await overlay
+      .getByText("품절", { exact: true })
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+  };
+}
+
+// DEV-327 (AC-07-3, PM 11/15): 품절 상품은 홈 '제철 상품'과 농가 목록에 남고 사진 위 '품절' 덮개로 보인다.
+test("AC-07-3 DEV-327: sold-out products stay on home and farm list with a sold-out overlay", async ({
+  page,
+  request,
+}) => {
+  const assertClean = monitor(page);
+  // 홈: 시드 레드향(이번 기간 품절)은 예약 가능 상품 뒤에 덮개·'이번 기간 품절'과 함께 남는다
+  await page.goto(consumerUrl);
+  const cards = page.locator('[aria-label$=" 상품 상세"]');
+  const redhyang = page.getByRole("link", { name: "레드향 3kg 상품 상세" });
+  await expect(redhyang).toBeVisible();
+  const names = await cards.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label")));
+  expect(names.at(-1)).toBe("레드향 3kg 상품 상세");
+  await expect(redhyang.getByTestId("sold-out-overlay")).toBeVisible();
+  await expect(redhyang.getByText("이번 기간 품절")).toBeVisible();
+  expect(await overlayStyle(redhyang.getByTestId("sold-out-overlay"))).toEqual({
+    scrim: "rgba(255, 255, 255, 0.62)",
+    fontSize: 28,
+  });
+  // 예약 가능 카드에는 덮개가 없다
+  await expect(page.getByTestId("sold-out-overlay")).toHaveCount(1);
+  await expect(
+    page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세" }).getByTestId("sold-out-overlay"),
+  ).toHaveCount(0);
+
+  // 농가 목록: 하우스를 중지하면(중지는 대표에서 빠짐) 강씨네에 예약 가능 상품이 없어
+  // 이번 기간 품절인 레드향이 대표로 남고 덮개·'이번 기간 품절', D-day 칩은 없다
+  await setHousePaused(request, true);
+  try {
+    await page.goto(`${consumerUrl}/farms`);
+    const row = page.getByRole("link").filter({ hasText: "강씨네 귤밭" });
+    await expect(row.getByText("이번 기간 품절")).toBeVisible();
+    await expect(row.getByText(/레드향 3kg/)).toBeVisible();
+    await expect(row.getByTestId("sold-out-overlay")).toBeVisible();
+    await expect(row.getByText(/^D-/)).toHaveCount(0);
+    expect((await overlayStyle(row.getByTestId("sold-out-overlay"))).fontSize).toBe(20);
+    // 대표가 품절인 농가는 예약 가능 대표가 있는 농가 뒤(효돈 10/16·한라네 10/25보다 아래), 대표 없는 농가 앞
+    await expect(page.getByText("지금 판매 중인 상품 없음")).toBeVisible();
+    const rows = await page.getByRole("link").allInnerTexts();
+    const at = (name: string) => rows.findIndex((t) => t.includes(name));
+    expect(at("강씨네 귤밭")).toBeGreaterThan(at("효돈 하우스농원"));
+    expect(at("강씨네 귤밭")).toBeGreaterThan(at("한라네 과수원"));
+    expect(at("강씨네 귤밭")).toBeLessThan(
+      rows.findIndex((t) => t.includes("지금 판매 중인 상품 없음")),
+    );
+    await expect(page.getByTestId("sold-out-overlay")).toHaveCount(1);
+  } finally {
+    await setHousePaused(request, false);
+  }
   assertClean();
 });
