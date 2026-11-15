@@ -32,7 +32,7 @@ type Session = {
   refresh: () => Promise<User | null>;
   tabBarHidden: boolean;
   setTabBarHidden: (v: boolean) => void;
-  /** 화면을 옮겨도 남는 토스트(결정 37, D-19). 성공은 2초, 오류는 4초 + 다시 시도 */
+  /** 화면을 옮겨도 남는 토스트(결정 37, D-19). 성공은 2초, 오류는 4초 + 다시 시도, 동작 버튼(action)이 있으면 4초 */
   toast: (
     message: string,
     opts?: {

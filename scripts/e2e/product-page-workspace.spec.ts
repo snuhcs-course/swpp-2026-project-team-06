@@ -39,7 +39,8 @@ test("AC-SRC-9: selling product edits remain private until explicit apply", asyn
   await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toBeVisible();
   await page.getByLabel("내용 1", { exact: true }).fill(content);
-  await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toHaveCount(0);
+  // 토스트는 4초 뒤 저절로도 닫히므로 그보다 짧게 기다려 '고치면 닫힘'을 확인한다
+  await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toHaveCount(0, { timeout: 1_000 });
   await expect(page.getByTestId("page-save-state")).toHaveText("저장 안 한 수정이 있어요");
   await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
   await expect(page.getByTestId("page-save-state")).toHaveText("저장됨 · 아직 소비자에게 안 보여요");

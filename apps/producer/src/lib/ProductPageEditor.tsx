@@ -298,7 +298,7 @@ function Editor({ productId }: { productId: string }) {
             },
           });
           saveToastShown.current = true;
-          // 토스트(동작 버튼 있음)는 4초 뒤 저절로 닫힌다. 그 뒤에는 다른 토스트를 닫지 않게 표시를 내린다
+          // 토스트(동작 버튼 있음)는 4초 뒤 저절로 닫힌다(packages/ui content.tsx Toast의 long 4000과 맞춤). 그 뒤에는 다른 토스트를 닫지 않게 표시를 내린다
           saveToastTimer.current = setTimeout(() => {
             saveToastShown.current = false;
             saveToastTimer.current = null;
