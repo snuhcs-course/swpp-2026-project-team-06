@@ -46,6 +46,29 @@ def test_AC_13_1_everyday_delivery_phrasings_use_the_delivery_window(question):
     assert result.source_refs == ["product:p-1"]
 
 
+@pytest.mark.parametrize(
+    "question",
+    ["다음 예약 언제 오픈해요?", "입금 언제 보내면 돼요?", "입금 언제 보내드리면 돼요?"],
+)
+def test_AC_13_1_when_questions_about_other_things_are_not_answered_with_the_delivery_window(
+    question,
+):
+    """PR #591 리뷰: 받는 시기 질문이 아니면 배송 기간으로 답하지 않는다."""
+    result = ai._rule_answer(question, PAID)
+
+    assert result is None or "받을 예정" not in (result.answer or ""), (question, result)
+
+
+@pytest.mark.parametrize("question", ["언제 오나요?", "언제쯤 올까요?", "언제 보내요?"])
+def test_AC_13_1_more_everyday_delivery_phrasings_use_the_delivery_window(question):
+    result = ai._rule_answer(question, PAID)
+
+    assert result is not None and result.answer == "2026-11-10 ~ 2026-11-14에 받을 예정이에요.", (
+        question,
+        result,
+    )
+
+
 def test_AC_13_1_order_window_answers_my_order_question():
     ev = PAID.model_copy(
         update={"order_id": "o-1", "order_delivery_window": ("2026-11-12", "2026-11-15")}
