@@ -212,10 +212,12 @@ def detail_draft(
 
 # ---------------- 문의 응답 (FEAT-13, M-05~M-09·M-15·M-18·M-20) ----------------
 
-# 항상 농가에 넘기는 주제(M-07): 농약·재배, 환불·보상, 항의, 흥정, 배송 약속, 주관적 맛·품질·파손
+# 항상 농가에 넘기는 주제(M-07): 농약·재배, 환불·보상, 항의, 흥정, 배송 약속, 주관적 맛·품질·파손,
+# 보장 요구. "빼 주세요"(배송비 빼 달라)는 흥정이다. "셔요"(시다)는 낱말일 때만 — "보내주셔요" 같은
+# 존댓말 끝은 아니다. "얼마나 달아요?"는 맛 판단이 아니라 등록 당도로 답한다(DEV-265, PM 11/15).
 _HANDOFF = re.compile(
-    r"농약|재배|유기농|환불|보상|항의|불만|흥정|깎|할인|파손|상했|썩|맛|신가|셔요|달아|달까"
-    r"|날짜.*변경|미뤄|당겨|약속"
+    r"농약|재배|유기농|환불|보상|항의|불만|흥정|깎|할인|빼\s*(?:주|줄|달|드)|파손|상했|썩|맛|신가"
+    r"|(?<![가-힣])셔요|안\s*셔요|보장|날짜.*변경|미뤄|당겨|약속"
 )
 # 농가가 적은 원칙·FAQ가 정책을 바꾸려 하면 쓰지 않는다
 _UNSAFE_POLICY = re.compile(
@@ -245,7 +247,18 @@ def _handoff(reason: str) -> AiAnswer:
 
 # 배송비 질문(무료배송 여부 포함)은 받는 시기 규칙보다 먼저 본다
 # (DEV-180: "무료배송인가요?"에 받는 날짜로 답했다)
-_FEE_QUESTION = re.compile(r"배송비|택배비|배송료|무료\s*배송|유료\s*배송")
+_FEE_QUESTION = re.compile(
+    r"배송비|택배비|배송료|무료\s*배송|유료\s*배송|도서\s*산간|추가\s*(?:비용|운임|요금)"
+)
+_REMOTE_QUESTION = re.compile(r"도서\s*산간|추가\s*(?:비용|운임|요금)")
+# 받는 시기: 배송·도착 낱말 또는 "언제 와요?"·"언제쯤 보내주셔요?"·"며칠 걸려요?" 같은 일상 표현
+_DELIVERY_QUESTION = re.compile(
+    r"배송|도착|수령|받는|받을|출하|언제.{0,4}(?:와|오|보내|받)|며칠\s*걸"
+)
+_RESERVATION_QUESTION = re.compile(r"예약.*(?:배송|출하|보내)|(?:배송|출하).*예약")
+# 당도 수치를 묻는 말. "얼마나 달아요?"도 등록 당도로 답하고 맛 판단은 하지 않는다(DEV-265)
+_BRIX_QUESTION = re.compile(r"당도|브릭스|brix|달아|달까|달죠|달나요", re.IGNORECASE)
+_BRIX_WORD = re.compile(r"당도|브릭스|brix", re.IGNORECASE)
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
 CONFLICT_REASON = "등록 정보가 서로 달라요"
 
@@ -287,16 +300,24 @@ def _rule_answer(question: str, ev: Evidence) -> AiAnswer | None:
     # (답 문구, 이유, 근거, 답으로 써도 되는가) — 앞에 있을수록 우선이다
     found: list[tuple[str, str, list[str], bool]] = []
     window = ev.order_delivery_window or ev.delivery_window
+    reservation = bool(_RESERVATION_QUESTION.search(q)) and bool(ev.reservation_shipping_policy)
     if _FEE_QUESTION.search(q) and ev.shipping_fee_type:
         if ev.shipping_fee_type == "FREE":
             text = f"무료배송이에요. 도서산간은 추가 운임 {ev.remote_area_fee:,}원이 붙어요."
         else:
             text = f"배송비는 {ev.shipping_fee:,}원이에요."
+            if _REMOTE_QUESTION.search(q) and ev.remote_area_fee:
+                text += f" 도서산간은 추가 운임 {ev.remote_area_fee:,}원이 붙어요."
         found.append((text, "등록 상품 정보", product_ref, True))
-    elif re.search(r"배송|도착|수령|받는|받을|출하", q) and window:
+    elif _DELIVERY_QUESTION.search(q) and window and not reservation:
+        # 예약 출하를 물으면 배송 기간이 아니라 예약 출하 원칙으로 답한다
+        # (DEV-265: 둘은 다른 사실이라 함께 모으면 거짓 충돌이 났다)
         ref = [f"order:{ev.order_id}"] if ev.order_delivery_window else product_ref
         found.append((f"{window[0]} ~ {window[1]}에 받을 예정이에요.", "확정 배송 기간", ref, True))
-    if re.search(r"당도|브릭스|brix", q, re.IGNORECASE):
+    if _BRIX_QUESTION.search(q):
+        if ev.measured_brix is None and ev.expected_brix is None and not _BRIX_WORD.search(q):
+            # "얼마나 달아요?"인데 등록 당도가 없으면 모델이 맛을 평가하지 않도록 바로 전달한다
+            return _handoff("등록된 당도가 없어요")
         if ev.measured_brix is not None:
             text = f"등록된 실측 당도는 {ev.measured_brix}Brix예요."
             found.append((text, "등록된 당도", product_ref, True))
@@ -311,7 +332,7 @@ def _rule_answer(question: str, ev: Evidence) -> AiAnswer | None:
         policy = ev.small_order_policy
         safe = not _UNSAFE_POLICY.search(policy)
         found.append((policy, "농가 소량 주문 원칙", ["farm:smallOrderPolicy"], safe))
-    if re.search(r"예약.*(?:배송|출하)|(?:배송|출하).*예약", q) and ev.reservation_shipping_policy:
+    if reservation:
         policy = ev.reservation_shipping_policy
         safe = not _UNSAFE_POLICY.search(policy)
         found.append((policy, "농가 예약 출하 원칙", ["farm:reservationShippingPolicy"], safe))
