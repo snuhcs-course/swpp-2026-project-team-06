@@ -57,6 +57,7 @@ export function NumField({
   hideLabel,
   highlight = false,
   disabled = false,
+  decimal = false,
 }: {
   label: string;
   value: number | null;
@@ -67,8 +68,19 @@ export function NumField({
   hideLabel?: boolean;
   highlight?: boolean;
   disabled?: boolean;
+  /** 소수 입력(예: 측정 당도 12.5). 소수점 키패드를 띄우고, 치는 동안 '12.'을 그대로 둔다(DEV-329) */
+  decimal?: boolean;
 }) {
-  const text = value == null ? "" : value.toLocaleString("ko-KR");
+  // 소수 칸은 입력 중 글자를 따로 들고 있어야 '12.'이 '12'로 바뀌지 않는다
+  const [draft, setDraft] = useState<string | null>(null);
+  const text =
+    decimal && draft != null
+      ? draft
+      : value == null
+        ? ""
+        : decimal
+          ? String(value)
+          : value.toLocaleString("ko-KR");
   return (
     <View style={{ gap: 8, flex: 1, minWidth: 0 }}>
       {hideLabel ? null : (
@@ -92,13 +104,22 @@ export function NumField({
           editable={!disabled}
           accessibilityLabel={label}
           value={text}
-          inputMode="numeric"
+          inputMode={decimal ? "decimal" : "numeric"}
           placeholder={placeholder}
           placeholderTextColor={tokens.color.textMuted}
           onChangeText={(t) => {
+            if (decimal) {
+              // 숫자와 소수점 하나만(쉼표 소수점 키패드도 받음)
+              const [whole, ...rest] = t.replace(/,/g, ".").replace(/[^\d.]/g, "").split(".");
+              const d = rest.length ? `${whole}.${rest.join("")}` : whole;
+              setDraft(d);
+              onChange(d === "" || d === "." ? null : Number(d));
+              return;
+            }
             const d = t.replace(/[^\d.]/g, "");
             onChange(d === "" ? null : Number(d));
           }}
+          onBlur={() => setDraft(null)}
           style={
             {
               flex: 1,

@@ -47,7 +47,8 @@ test("DEV-121 AC-14-6: unread producer reads the origin notice from the home tod
 test("DEV-121: product origin field shows the format hint and opens the notice", async ({ page }) => {
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/p-house/edit`);
-  const hint = page.getByText("'국산'·'제주산'처럼 시·도, 시·군·구 이름으로 적어요.", { exact: true });
+  // DEV-329(PM 11/15 '안내는 짧게'): 형식 설명은 '표시 방법 보기'에 두고 칸 아래는 예시 한 줄
+  const hint = page.getByText("예: 제주산, 서귀포시", { exact: true });
   await expect(hint).toBeVisible();
   await hint.scrollIntoViewIfNeeded();
   if (shot("after-impl-origin-field")) await page.screenshot({ path: shot("after-impl-origin-field")! });

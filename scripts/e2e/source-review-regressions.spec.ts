@@ -1249,3 +1249,150 @@ for (const composer of [false, true]) {
     clean();
   });
 }
+
+test("DEV-329: with unsaved page edits the size and Brix fields stay typeable and try to save the page first", async ({ page }) => {
+  const clean = monitor(page, [/404/]);
+  await loginProducer(page, "강영수");
+  const fixture = reviewFixture();
+  await serveReview(page, fixture);
+  await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}&composer=1`);
+  await page.getByText("상품정보", { exact: true }).click();
+  // 판매페이지 내용을 고쳐 저장 안 한 수정을 만든다
+  await page.getByLabel("상품 소개 보충 내용", { exact: true }).fill("새로 쓴 소개");
+  const brix = page.getByLabel("측정 당도 (°Bx)", { exact: true });
+  const size = page.getByLabel("사이즈", { exact: true });
+  // 예전에는 읽기 전용이라 휴대폰에서 키보드가 뜨지 않았다
+  await expect(brix).toBeEditable();
+  await expect(size).toBeEditable();
+  const saveTried = page.waitForRequest((r) => r.method() !== "GET" && r.url().includes("/batches/review-fixes"));
+  await brix.click();
+  await saveTried;
+  await brix.fill("12.5");
+  await expect(brix).toHaveValue("12.5");
+  // 이 픽스처는 저장을 받지 않으므로(404) 칸 아래에 짧은 안내만 뜬다
+  await expect(page.getByText("판매페이지를 저장하지 못했어요. ‘임시 저장’을 눌러 주세요", { exact: true })).toBeVisible();
+  // 새 상품 작성 화면의 그 줄 이름표는 '사이즈'(소비자 화면은 '중량·수량')
+  await expect(page.getByText("중량·수량", { exact: true })).toHaveCount(0);
+  // 구매자 미리보기는 소비자 화면 그대로
+  await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();
+  await expect(page.getByText("중량·수량", { exact: true })).toBeVisible();
+  await expect(page.getByText("사이즈", { exact: true })).toHaveCount(0);
+  clean();
+});
+
+test("DEV-329: a slow page save does not lock the Brix field the producer just tapped", async ({ page }) => {
+  const clean = monitor(page, [/404/]);
+  await loginProducer(page, "강영수");
+  const fixture = reviewFixture();
+  await serveReview(page, fixture);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/batches/review-fixes/editor*", async (route) => {
+    await gate;
+    return route.fulfill({ status: 404, json: { detail: "slow save" } });
+  });
+  await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}&composer=1`);
+  await page.getByText("상품정보", { exact: true }).click();
+  await page.getByLabel("상품 소개 보충 내용", { exact: true }).fill("새로 쓴 소개");
+  const brix = page.getByLabel("측정 당도 (°Bx)", { exact: true });
+  await brix.click();
+  // 판매페이지 임시 저장이 끝나기 전에도 칸이 읽기 전용이 되지 않아 키보드가 내려가지 않는다
+  await brix.pressSequentially("13");
+  await expect(brix).toBeEditable();
+  await expect(brix).toHaveValue("13");
+  release();
+  await expect(page.getByText("판매페이지를 저장하지 못했어요. ‘임시 저장’을 눌러 주세요", { exact: true })).toBeVisible();
+  await expect(brix).toHaveValue("13");
+  clean();
+});
+
+test("DEV-329: after a failed page save, temporary save stores the page edit before the basic info", async ({ page }) => {
+  const clean = monitor(page, [/404/]);
+  await loginProducer(page, "강영수");
+  const fixture = reviewFixture();
+  await serveReview(page, fixture);
+  let accept = false;
+  const puts: string[] = [];
+  await page.route("**/batches/review-fixes/**", (route) => {
+    const request = route.request();
+    if (request.method() !== "PUT") return route.fallback();
+    const sub = new URL(request.url()).pathname.split("/batches/review-fixes")[1] ?? "";
+    if (!accept) return route.fulfill({ status: 404, json: { detail: "save down" } });
+    puts.push(sub);
+    if (sub === "/editor") return route.fulfill({ json: { drafts: [] } });
+    if (sub === "/basic-info") return route.fulfill({ json: { ...fixture.batch, version: 2, reviewVersion: 2 } });
+    return route.fallback();
+  });
+  await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}&composer=1`);
+  await page.getByText("상품정보", { exact: true }).click();
+  await page.getByLabel("상품 소개 보충 내용", { exact: true }).fill("새로 쓴 소개");
+  const brix = page.getByLabel("측정 당도 (°Bx)", { exact: true });
+  await brix.click();
+  await expect(page.getByText("판매페이지를 저장하지 못했어요. ‘임시 저장’을 눌러 주세요", { exact: true })).toBeVisible();
+  await brix.fill("12.5");
+  await brix.blur();
+  // 저장이 다시 되는 상태에서 '임시 저장': 기본 정보 저장이 배치 버전을 올리기 전에 판매페이지를 먼저 저장해야 한다
+  accept = true;
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+  await expect.poll(() => puts.includes("/basic-info")).toBe(true);
+  expect(puts.indexOf("/editor")).toBeGreaterThan(-1);
+  expect(puts.indexOf("/editor")).toBeLessThan(puts.indexOf("/basic-info"));
+  // 저장에 성공하면 안내가 사라지고, 판매페이지를 다시 고쳐도 예전 실패 안내가 되살아나지 않는다
+  const failed = page.getByText("판매페이지를 저장하지 못했어요. ‘임시 저장’을 눌러 주세요", { exact: true });
+  await expect(failed).toHaveCount(0);
+  await page.getByLabel("상품 소개 보충 내용", { exact: true }).fill("한 번 더 고친 소개");
+  await expect(failed).toHaveCount(0);
+  clean();
+});
+
+test("DEV-329: a page edit made while a Brix save raises the version still saves on the new version", async ({ page }) => {
+  const clean = monitor(page, [/404/]);
+  await loginProducer(page, "강영수");
+  const fixture = reviewFixture();
+  // 서버처럼 기본 정보에서 만든 칸(측정 당도 근거)이 있다. 기본 정보를 저장하면 이 칸이 새 값으로 바뀐다
+  const base = fixture.review.editorFields[0].field;
+  fixture.review.editorFields.push({ status: "ready", field: { ...base, fieldKey: "qualityEvidence", value: "측정 당도: 11 °Bx" } });
+  await serveReview(page, fixture);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const editorBodies: { reviewVersion: number; fields: { fieldKey: string; value: string }[] }[] = [];
+  await page.route("**/batches/review-fixes/**", async (route) => {
+    const request = route.request();
+    if (request.method() !== "PUT") return route.fallback();
+    const sub = new URL(request.url()).pathname.split("/batches/review-fixes")[1] ?? "";
+    if (sub === "/basic-info") {
+      await gate;
+      // 서버처럼 기본 정보 저장이 review 버전을 올린다(판매페이지 편집 값은 그대로)
+      fixture.batch.version = 2;
+      fixture.batch.reviewVersion = 2;
+      fixture.review.reviewVersion = 2;
+      fixture.review.editorFields = fixture.review.editorFields.map((e) =>
+        e.field.fieldKey === "qualityEvidence" ? { ...e, field: { ...e.field, value: "측정 당도: 12.5 °Bx" } } : e);
+      return route.fulfill({ json: fixture.batch });
+    }
+    if (sub === "/editor") {
+      editorBodies.push(request.postDataJSON());
+      return route.fulfill({ json: { drafts: [] } });
+    }
+    return route.fallback();
+  });
+  await page.goto(`${producerUrl}/products/source-analysis?batchId=${fixture.batch.id}&composer=1`);
+  await page.getByText("상품정보", { exact: true }).click();
+  const brix = page.getByLabel("측정 당도 (°Bx)", { exact: true });
+  const story = page.getByLabel("상품 소개 보충 내용", { exact: true });
+  await brix.fill("12.5");
+  // 당도를 치고 바로 판매페이지 글 칸으로: 기본 정보 저장 중에도 그 칸은 잠기지 않는다(키보드가 내려가지 않게)
+  await story.click();
+  await expect(story).toBeEditable();
+  await story.fill("저장 중에 고친 소개");
+  release();
+  await page.getByRole("button", { name: "임시 저장", exact: true }).click();
+  // 생산자가 고친 칸은 서버에서 바뀌지 않았으므로 새 버전(2)으로 옮겨 저장한다.
+  // 고치지 않은 칸(측정 당도 근거)은 새 서버 값을, 고친 칸은 생산자 값을 보낸다
+  await expect.poll(() => editorBodies.length).toBeGreaterThan(0);
+  const body = editorBodies[0];
+  expect(body.reviewVersion).toBe(2);
+  expect(body.fields.find((f) => f.fieldKey === "qualityEvidence")?.value).toBe("측정 당도: 12.5 °Bx");
+  expect(body.fields.some((f) => f.value.includes("저장 중에 고친 소개"))).toBe(true);
+  clean();
+});
