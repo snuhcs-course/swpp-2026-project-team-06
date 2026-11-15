@@ -218,9 +218,17 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 행동 이벤트는 서버 성공 응답 뒤(출하 전 송장은 화면 저장 뒤). `ship.tsx`의 `act`는 성공 콜백(`onDone`)으로 입금 승인·미승인만 보내고 환불 분기는 보내지 않는다. 출하는 성공한 주문마다 `order_shipped`.
 - 채팅: 불러온 메시지의 보낸 쪽·확인 요청 상태·시각만 기억해(본문 없음) 보내기 전 `replyKind`를 정한다. 서버가 인용한 메시지로만 전달을 닫으므로 인용 대상으로 나눈다(인용한 소비자 질문과 같은 시각의 열린 전달이 있으면 forwarded, 서버가 질문과 전달을 같은 시각으로 저장). farmclub 문의방, 답장 수정은 보내지 않는다.
 
-## DEV-326 현황 소비자 페이지 안내 카드 (2026-11-15)
+## DEV-326 현황 소비자 페이지 안내 카드 (2026-11-15, DEV-331에서 고정 막대로 바뀜)
+
+아래는 DEV-331 이전 구현 기록이다.
 
 - 현황 맨 위 `lib/ConsumerPageCard.tsx`(승인 농가만, `farms.mine().status === "APPROVED"`). 공용 `Notice`는 `accessibilityRole="alert"`라 상시 안내에 맞지 않아 앱 안 컴포넌트로 둔다.
 - 오른쪽 'farmclub.kr' 버튼은 페이지를 열지 않고 설정 화면 '복사'와 같은 `shareUrl`을 `copyText`로 복사한다. 누르는 영역은 `tokens.touchTarget.min`(48).
 - 닫기는 공용 `readStore`/`writeStore`(웹 localStorage, 앱 SecureStore, 앱 이름공간) 키 `consumer-page-card-closed:<farmId>`(농가별)로 기억한다.
 - 연주황 면은 기준표 accent 옅은 배경 `#FDECE2`, 테두리 `#F6D9C4`(Figma C3).
+
+## DEV-331 현황 고정 공유 막대 (2026-11-15)
+
+- DEV-326 카드(`ConsumerPageCard`)를 `lib/ConsumerShareBar.tsx`로 바꿨다. 스크롤 밖 머리(현황·농가명·날짜) 안에 두어 고정한다. 승인 농가만, 공유 링크(`shareUrl`)가 없으면 띄우지 않는다.
+- 닫기와 그 기억(`consumer-page-card-closed:<farmId>`)은 없앴다. 예전에 닫은 기기에도 막대는 보인다(PM 11/15: 실수로 닫아 링크를 잃지 않게).
+- 막대 전체가 복사 버튼(높이 48, 접근성 이름 ‘소비자에게 우리 농가 공유하기, farmclub.kr 링크 복사’ — 보이는 문구를 이름에 넣는다). 오른쪽 알약은 눈에 보이는 버튼 모양이다.
