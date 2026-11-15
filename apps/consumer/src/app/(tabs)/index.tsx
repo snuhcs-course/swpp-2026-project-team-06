@@ -17,6 +17,7 @@ import {
   tokens,
   useAsync,
   closesText,
+  md,
   reservedText,
 } from "@farmclub/ui";
 import { useRouter } from "expo-router";
@@ -199,6 +200,8 @@ type HomeProduct = {
   availability?: string;
   reservedCount: number;
   dDay: number | null;
+  /** 품절이면 다음 예약 시작일(ProductCard.nextStageStartsAt, DEV-327) */
+  nextStageStartsAt?: string | null;
 };
 
 /** 2열 상품 카드: 사진 정사각 → 농가(14 보조) → 상품명 16 semibold → 가격 16 굵게 + 취소선 → 마감 D-day(DEV-293) */
@@ -248,13 +251,32 @@ function ProductCard({
         soldOut={p.soldOut}
         availability={p.availability}
       />
-      <CardMeta reserved={p.reservedCount} dDay={p.dDay} />
+      <CardMeta
+        reserved={p.reservedCount}
+        dDay={p.soldOut ? null : p.dDay}
+        next={p.soldOut ? p.nextStageStartsAt : null}
+      />
     </Pressable>
   );
 }
 
 /** 카드 메타 줄: 있는 조각만 잇고, 다 비면 줄도 없다(DEV-227, M-24). 마감은 강조색 12, 예약 수는 보조색 */
-function CardMeta({ reserved, dDay }: { reserved: number; dDay: number | null }) {
+function CardMeta({
+  reserved,
+  dDay,
+  next,
+}: {
+  reserved: number;
+  dDay: number | null;
+  /** 품절 카드: 마감 대신 다음 예약 시작일(DEV-327, Figma '다음 예약 11월 20일부터') */
+  next?: string | null;
+}) {
+  if (next)
+    return (
+      <T variant="caption" muted numberOfLines={1}>
+        다음 예약 {md(next)}부터
+      </T>
+    );
   const closes = closesText(dDay);
   const count = reservedText(reserved);
   if (!closes && !count) return null;

@@ -35,6 +35,18 @@ import {
 import { LoadError } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
 
+
+/**
+ * 대표 상품이 품절인지(DEV-327). 품절 두 가지일 때만 참이다 — availability가 없는 응답(필드 추가 전 서버와
+ * 새 앱이 잠깐 만나는 배포 사이)은 판매 중으로 그려 모든 농가가 품절로 보이지 않게 한다.
+ */
+function featuredSoldOut(featured: { availability?: string } | null | undefined) {
+  return (
+    featured?.availability === "TOTAL_SOLD_OUT" ||
+    featured?.availability === "PERIOD_SOLD_OUT"
+  );
+}
+
 export default function FarmList() {
   const router = useRouter();
   // 홈 헤더 검색 아이콘으로 오면 검색칸에 포커스(SCR-02, D-16)
@@ -205,7 +217,7 @@ export default function FarmList() {
             >
               {/* 대표 상품이 품절이면 사진 위 '품절' 덮개(AC-07-3, DEV-327) */}
               <SoldOutOverlay
-                show={!!f.featured && f.featured.availability !== "AVAILABLE"}
+                show={featuredSoldOut(f.featured)}
                 height={tokens.thumb.browse}
               >
                 <Photo
@@ -236,7 +248,7 @@ export default function FarmList() {
                       marginTop: 4,
                     }}
                   >
-                    {f.featured.availability === "AVAILABLE" ? (
+                    {!featuredSoldOut(f.featured) ? (
                       <>
                         <FeaturedPrice
                           productId={f.featured.productId}
