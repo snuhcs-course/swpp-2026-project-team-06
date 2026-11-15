@@ -49,7 +49,7 @@ test("DEV-322 product page keeps the real photo when it loads", async ({ page })
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${consumerUrl}/products/p-house`);
   await expect(page.getByRole("heading", { name: NAME })).toBeVisible();
-  await expect(page.getByRole("img", { name: NAME }).first()).toBeVisible();
+  await expect(page.getByRole("img", { name: NAME, exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("product-photo-fallback")).toHaveCount(0);
 });
 
@@ -72,8 +72,8 @@ test("DEV-322 producer buyer preview keeps the seeded product photos", async ({ 
   await page.setViewportSize({ width: 390, height: 844 });
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/p-house/sell`);
-  await expect(page.getByRole("img", { name: NAME }).first()).toBeVisible();
-  // 시드 사진(/photos/…)이 API 주소로 잘못 바뀌어 못 불러오면 기본 사진이 뜬다
+  await expect(page.getByRole("img", { name: `${NAME} 1`, exact: true })).toBeVisible();
+  // 시드 상품은 사진 2장이라 갤러리 이름은 '상품명 1'. 시드 사진(/photos/…)이 API 주소로 잘못 바뀌어 못 불러오면 기본 사진이 뜬다
   await page.waitForLoadState("networkidle");
   await expect(page.getByTestId("product-photo-fallback")).toHaveCount(0);
 });
@@ -90,5 +90,7 @@ test("DEV-322 producer farm photo keeps the small logo placeholder (not the prod
   });
   await page.goto(`${producerUrl}/farm`);
   await expect(page.getByText("소비자 앱에서 내 농가 보기", { exact: true })).toBeVisible();
+  // 작은 로고 자리 표시(이름 '대표 사진 사진 없음')는 있고, 상품 기본 사진은 없다
+  await expect(page.getByLabel("대표 사진 사진 없음", { exact: true })).toBeVisible();
   await expect(page.getByTestId("product-photo-fallback")).toHaveCount(0);
 });
