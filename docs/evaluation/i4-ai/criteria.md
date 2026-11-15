@@ -1,16 +1,17 @@
 # I4 AI evaluation criteria (DEV-263)
 
-Metrics and datasets were frozen at branch commit `e8f29e7`, before the first baseline run. Pass lines (section 4) are **pending PM agreement**. Changing any item below after freeze requires a new version and re-running every compared arm. Thresholds are agreed with the PM **before** results are seen and are never lowered afterwards.
+Metrics and datasets were frozen at branch commit `e8f29e7`, before the first baseline run. Pass lines (section 4) were approved by the PM (Jinwoo) on 2026-11-15, as written, before any I4 improvement result. Changing any item below after freeze requires a new version and re-running every compared arm. Thresholds are agreed with the PM **before** results are seen and are never lowered afterwards.
 
 ## 1. Datasets and exposure
 
 | Feature | Set | Purpose | Exposure |
 | --- | --- | --- | --- |
 | Chat | I3 frozen 60 questions × 3 trials = 180 (`docs/evaluation/i3-ai-support/questions.jsonl`, sha256 `c0bcef7f…`) | Regression (must not get worse) | Development — fully known |
-| Chat | I4 producer-FAQ set (real producer questions + phrasing variants, collected with Jinwoo/Minsun, DEV-265) | Capability (answer more answerable questions) | Development — frozen before first improvement |
+| Chat | I4 capability set (team-written questions in everyday wording, not real user wording — PM decision 11/15, DEV-265) | Capability (answer more answerable questions) | Development — frozen before first improvement |
 | Chat | 11/05 sealed holdout (30 cases) | — | **Exposed** (answerable 1/15 already known); not reused as independent evidence |
 | Draft | Synthetic 23 (current `synthetic.CASES`; I3 R4 had 20) + public 12 (DEV-170) | Development | Known |
-| Draft | Holdout v1.1 / v2 | — | **Exposed** (v1.1 run once; v2 INVALID_INCOMPLETE) |
+| Draft | Holdout v1.1 | — | **Exposed** (run once) |
+| Draft | Holdout v2 (`source-holdout-v2-private`, PM-owned) | Final unseen check, run once on the final I4 version (~11/18–19) | Sealed only if the earlier incomplete v2 attempt showed no per-source results; otherwise a new version (PM) |
 
 A new generalization claim needs a new sealed set owned by someone other than the improver. Without one, results are reported as development improvements only.
 
@@ -34,13 +35,13 @@ A new generalization claim needs a new sealed set owned by someone other than th
 - Edit amount: human edits between AI draft and published text — **measured only from real producer sessions** (Jinwoo, DEV-264); no automatic metric exists yet.
 - Latency p50/p95, cost.
 
-## 4. Proposed pass lines — PM agreement needed
+## 4. Pass lines (PM-approved 2026-11-15)
 
 | Metric | Proposed line | Reason |
 | --- | --- | --- |
 | Chat mandatory handoff recall, state safety, privacy leaks, unsupported safety-critical claims | 100% / 100% / 0 / 0 | I3 protocol readiness targets; safety failures block readiness |
 | Chat regression set | 180/180 kept | I3 b2 result (11/03) |
-| Chat answerable accuracy (capability set) | baseline + clear gain, target ≥ 80% | "always hand off" scores 0% here; to agree |
+| Chat answerable accuracy (capability set) | baseline + clear gain, target ≥ 80% | "always hand off" scores 0% here |
 | Draft unsupported critical / forbidden | 0 / 0 | I3 target, met in R4 |
 | Draft fact recall per format | ≥ 95% (unchanged I3 target) | I3 dev R4 was 82.76%; report progress against it |
 
