@@ -238,3 +238,24 @@ def test_recompress_photos_commit_requires_backup_confirmation():
     with pytest.raises(SystemExit) as exc:
         main(["--commit"])
     assert "--backup-done" in str(exc.value)
+
+
+def test_recompress_photos_exits_1_when_a_photo_fails(stored_photos, capsys):
+    from app.source_analysis.recompress_photos import main
+
+    (png_id, png_key), _ = stored_photos[0]
+    with get_sessionmaker()() as db:
+        broken = PublicPhoto(
+            product_id="p-house", storage_key=Storage().put(b"\x89PNG\r\n\x1a\nbroken")
+        )
+        db.add(broken)
+        db.commit()
+        broken_id = broken.id
+    with pytest.raises(SystemExit) as exc:
+        main(["--backup-done", "--commit"])
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert f"실패: {broken_id}" in out
+    with get_sessionmaker()() as db:
+        # 깨진 사진은 그대로, 나머지 PNG는 바뀐다
+        assert db.get(PublicPhoto, png_id).storage_key != png_key
