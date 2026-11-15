@@ -31,6 +31,7 @@ This document describes the main snapshot [`28feb94ac47b259b6a6299e9fd742b75e756
 | 2.1 | 2026-10-23 | Team 6 | DEV-33: consumer and producer apps move to EAS native builds (ADR 0013); platform split of web-only code, Kakao return through the app scheme |
 | 3.0 | 2026-11-06 | Minsun Kim; existing Team 6 and owner contributions retained | DEV-158: schema 0026, paid-order conversation association, session/anchor lifecycle, AI save-time race checks, two-stage source pipeline and reproducible I3 demo boundary |
 | 3.1 | 2026-11-09 | Team 6 | DEV-293: shared UI tokens and headers follow the DEV-292 audit baseline; consumer home, product detail, checkout, orders, me and login simplified (per-option boxes left, hidden tab bar on purchase screens) |
+| 3.2 | 2026-11-12 | Team 6 | DEV-312: the producer app sends PostHog events for product registration, AI draft requests and results, sale start requests, deposit decisions, invoices, shipments, chat replies and error notices (IDs, enum codes, flags and durations only); pilot metrics for the two-farm pilot are defined in the tracking plan |
 
 
 ## 1. System Architecture
@@ -52,7 +53,7 @@ Figure 1. Retained I2 component overview; the current tables and I3 lifecycle se
 | PostgreSQL 16 | Relational business data, job leases, private inquiry attachments, immutable snapshots, idempotency and spend records | SQLAlchemy + psycopg; Alembic migrations `0001`–`0026` |
 | Cloudflare R2 | Private source originals/prepared files; public-media objects delivered through application routes | Server-only S3-compatible credentials; source bucket is not public |
 | AI providers | Anthropic Claude Haiku 4.5 for existing text drafting/CS; OpenRouter Gemini 3 Flash Preview for source analysis | Separate adapters/configuration, structured outputs, validation and explicit failure states |
-| PostHog | Client page/funnel events, masked replay and heatmaps when enabled at build time, on the production hosts only | US Cloud; internal user identifier, no network/console recording |
+| PostHog | Client page/funnel events, producer workflow events for the pilot metrics (DEV-312), masked replay and heatmaps when enabled at build time, on the production hosts only | US Cloud; internal user identifier, no network/console recording; event properties are IDs, enum codes, flags and durations, never names, message text, tracking numbers or rejection reasons |
 
 ### 1.1 External libraries and runtime
 

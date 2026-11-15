@@ -54,7 +54,12 @@ function restart(ph: PostHog, app: AppName) {
 /** 화면 이벤트(트래킹 플랜). 꺼져 있으면 아무것도 하지 않는다 */
 export function track<E extends AppEventName>(event: E, props: AppEvents[E]) {
   if (!client) return;
-  client.capture(event, cleanProps(event, props));
+  // 분석 전송 실패가 업무 흐름(전송 성공 뒤 화면 처리)을 바꾸지 않게 삼킨다(DEV-312)
+  try {
+    client.capture(event, cleanProps(event, props));
+  } catch {
+    /* 무시 */
+  }
 }
 
 type AnalyticsUser = {

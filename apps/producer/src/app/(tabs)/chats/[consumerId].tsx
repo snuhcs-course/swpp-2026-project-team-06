@@ -16,11 +16,13 @@ import {
   SupportAvatar,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { GlobalAiButton, HumanReplyStatus } from "../../../lib/GlobalAiButton";
 import { View } from "react-native";
 import { ORDER_STATUS, copyText, errMsg } from "../../../lib/views";
 import { useHideTabBar } from "../../../lib/session";
+import { replyKind } from "../../../lib/producerEvents";
+import { track } from "@farmclub/analytics";
 export default function Chat() {
   useHideTabBar();
   const { consumerId, name } = useLocalSearchParams<{
@@ -39,9 +41,13 @@ export default function Chat() {
       return () => setActive(false);
     }, []),
   );
+  // 답장 종류(DEV-312)를 고르려고 불러온 메시지의 보낸 쪽·확인 요청 상태·시각만 기억한다(본문은 두지 않음)
+  const seen = useRef(new Map<string, { senderType: string; checkState?: string | null; createdAt: string }>());
   const load = useCallback(
     async (cursor?: string) => {
       const p = await messaging.producerMessages(consumerId, { cursor });
+      for (const m of p.items)
+        seen.current.set(m.messageId, { senderType: m.senderType, checkState: m.checkState, createdAt: m.createdAt });
       if (!cursor) setPage(p);
       return p;
     },
@@ -91,7 +97,11 @@ export default function Chat() {
         makeKey={newIdempotencyKey}
         read={(id) => messaging.producerRead(consumerId, id)}
         // 확인 요청된 AI 답변 아래 확인 카드 '답이 맞아요'(DEV-296). 바로잡기는 AI 답변을 인용한 답장
-        confirmCheck={support ? undefined : (id, key) => messaging.confirmAiAnswer(consumerId, id, key)}
+        confirmCheck={support ? undefined : async (id, key) => {
+          const r = await messaging.confirmAiAnswer(consumerId, id, key);
+          track("producer_reply_sent", { kind: "check_confirmed" });
+          return r;
+        }}
         loadPhoto={privateImage}
         upload={(f) => uploadAttachment(f, { threadId: page?.thread.threadId })}
         // 상대 이름은 서버가 준 가림 이름(DEV-232). 사진은 없어 첫 글자 아바타(DEV-295)
@@ -101,16 +111,24 @@ export default function Chat() {
         peerReadMessageId={support ? undefined : page?.thread.consumerLastReadMessageId}
         copy={copyText}
         // 보낸 뒤 다시 불러오기는 ChatThread가 한다. 여기서 기다리면 재조회 실패가 전송 실패('다시 보내기')로 보인다(DEV-291)
-        send={(text, ids, key, replyToMessageId) =>
-          messaging.producerSend(
+        send={async (text, ids, key, replyToMessageId) => {
+          // 보내기 전 상태로 종류를 정한다(서버가 인용한 전달을 답장과 함께 닫으므로). 본문·소비자 ID는 보내지 않는다
+          const kind = replyKind(
+            replyToMessageId ? seen.current.get(replyToMessageId) : undefined,
+            page?.escalations,
+          );
+          const r = await messaging.producerSend(
             consumerId,
             text,
             ids,
             [],
             key,
             replyToMessageId,
-          )
-        }
+          );
+          // farmclub 문의방 답장은 소비자 문의 응대가 아니라 세지 않는다
+          if (!support) track("producer_reply_sent", { kind });
+          return r;
+        }}
       >
         {page?.orders.length ? (
           <View

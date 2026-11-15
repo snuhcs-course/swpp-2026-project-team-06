@@ -1,5 +1,8 @@
 # apps/consumer spec
 
+## DEV-314 우편번호 찾기
+배송지 입력(`lib/AddressForm.tsx`)은 `usePostcodeSearch`(웹 `lib/postcodeSearch.ts`, 앱 `lib/postcodeSearch.native.tsx`)로 ‘우편번호 찾기’를 연다. 웹은 카카오 우편번호 스크립트(키 없음)를 버튼을 처음 누를 때 한 번 불러와 화면 위 레이어에 embed한다(누르기 전에는 카카오에 요청하지 않음). 앱은 전체 화면 모달 안 `react-native-webview`(13.16.1, `npx expo install`, PM 승인 11/12)에 같은 스크립트를 넣은 HTML을 열고 postMessage로 결과를 받는다. 웹 번들은 웹뷰를 가져오지 않는다(플랫폼 파일 분리). 결과 → 칸 값, 앱 메시지 읽기, 도서산간 판정은 순수 함수 `lib/postcode.ts`(서버 규칙과 같음, `scripts/test-postcode.mjs`). 못 불러오면 안내 후 직접 입력.
+
 ## DEV-252 권한 확인 뒤 읽기 위치 복구
 SessionProvider는 auth 이벤트마다 메모리 scope를 동기 폐기한다. 같은 토큰 문자열로 다시 로그인해도 새 generation이고, 같은 세션 auth.me 성공은 기존 scope를 유지한다. event/request serial은 이전 세션·늦은 사용자 응답을 버린다. 일시적인 auth.me 실패는 UI만 숨기며 안전한 geometry는 재시도까지 유지한다.
 
@@ -136,7 +139,7 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 
 - 안내·버튼은 `src/lib/checkoutConflict.ts` 순수 함수(`conflictView`)가 `details.reason`·`details`·다시 읽은 상품 `availability`로 정한다. 서버 `message`와 상품 `soldOut`은 쓰지 않는다(`soldOut`은 서버에서 판매 중지를 보지 않음, DEV-215).
 - ‘바뀐 금액으로 예약하기’는 `STAGE_CHANGED`이면서 `details.current`가 있을 때만. 주문 생성 본문에 화면이 보인 기간·단가·중량(`seenValues`)을 싣는다(FEAT-08 AC-08-8).
-- 409 뒤에는 주문·입금 멱등 키를 둘 다 새로 만들고 받는 곳·메모·동의·수량은 지우지 않는다. `IDEMPOTENCY_MISMATCH`는 새 키로 한 번만 다시 보낸다.
+- 확정된 가격·물량 등 도메인 409 뒤에는 주문·입금 멱등 키를 둘 다 새로 만들고 받는 곳·메모·동의·수량은 지우지 않는다. 입금 안내를 보내기 전 생성 단계의 `IDEMPOTENCY_MISMATCH`는 새 키로 한 번만 다시 보낸다. 입금 안내 결과가 불확실한 경우는 아래 DEV-320 복구가 우선이며, 원래 입금 요청 재생의 `IDEMPOTENCY_MISMATCH`로는 문맥·키를 지우지 않는다.
 - 판매 중지·계좌 없음의 ‘다시 확인하기’는 상품을 다시 읽어 열렸으면 안내를 지우되, 처음 보낸 값과 지금 값이 다르면 가격 안내로 바꾼다(`recheckedConflict`). 품절·물량·수량 안내는 옵션·수량을 바꾸면 사라진다.
 - 입금 기한이 지나 SCR-11에서 돌아온 경우(`changed=1`)는 `EXPIRED`로 ‘입금 기한이 지나 예약이 취소됐어요’ + ‘다시 예약하기’.
 - 보드 `docs/design/proposals/dev-216-checkout-stage-changed.html`, 테스트 `scripts/test-checkout-conflict.mjs`·`scripts/e2e/checkout-stage-changed.spec.ts`.
@@ -162,3 +165,18 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 - 주문서: 배송 메모는 선택 목록 시트(`MEMO_PRESETS` + 직접 입력 + 선택 안 함), 동의 본문은 ‘보기’로 펼침(체크박스 접근 이름은 보이는 글자와 같은 ‘동의 제목 (필수)’), 버튼 이름 ‘N원 예약하기’(충돌 안내가 다른 이름을 주면 그 이름), 금액 줄은 ‘상품 금액’·‘배송비’(FREE면 0원, SEPARATE·0이면 ‘배송비 확정 전’)·‘총 입금액’.
 - 주문 상세: 버튼 없는 하단 바는 두지 않는다. 배송 중 반품 안내는 본문 한 줄.
 - 개발 용어(Mock)는 `isMock`일 때만(로그인 캡션, 데모 데이터 초기화).
+
+## 내 정보 첫 화면 개인정보 (DEV-316, 2026-11-12)
+- `/me` 첫 화면 글은 `lib/meSummary.ts`가 만든다: 머리는 닉네임만(`meHeading`, 없으면 실명 대신 ‘닉네임을 정해 주세요’(닉네임 없는 카카오 계정은 늘 가입 전이라 링크 없음)/테스트 계정 ‘닉네임 없음’), 배송지 행은 개수만(`addressSummary`). 첫 화면에서 `user.name`·`user.phone`·`user.email`·배송지 주소를 그리지 않는다(`scripts/test-me-privacy.mjs`가 소스를 확인). 전체 값은 `/me/profile`·`/me/addresses`에서만.
+
+
+## DEV-318 주문 상태와 조회 복구
+- orderText는 현재 depositReportedAt을 과거 depositIssue보다 우선한다. 미승인은 서버가 알림 시각을 비우므로 실제 새 미승인은 계속 보이며 과거 기록은 서버에 남긴다(AC-09-9/10).
+- useOrderDetail은 검증된 계정/세션 generation과 주문 ID에 조회 상태를 묶는다. focus·foreground 복귀 및 활성 8초 polling을 적용하고 background/blur/scope 변경·쓰기 시작/완료마다 읽기를 무효화한다. 쓰기와 겹친 읽기는 폐기 후 새로 읽는다(AC-10-9).
+- InquiryForm의 주문 reload는 문의 유형·본문·사진 상태를 재생성하지 않는다. 조회 실패/로딩 문구를 구분하고 공통 LoadError로 재시도한다(AC-33-5).
+
+## DEV-320 입금 안내 결과가 불확실할 때의 복구
+- 주문 생성 응답을 받은 뒤 원래 주문 ID·옵션·수량·입금 안내 멱등 키를 입금 요청 **전에** 기억한다. transport 실패·5xx는 commit 여부가 불확실하므로 폼을 편집해도 새 주문을 만들지 않고 원래 주문에 원래 키로 입금 안내 요청을 재생한다(FEAT-08 E2, AC-09-3). 단일 GET이 `PENDING_PAYMENT`여도 미완료인 원래 POST를 대신 판정하지 않는다.
+- 반복 불확실 실패와 재생의 `IDEMPOTENCY_MISMATCH`는 같은 문맥·키를 유지한다. 서버의 명확한 도메인 400/409로 처리 거부가 확인되면 해당 문맥을 해제하고 기존 필드 오류·가격/물량 충돌 재확인 흐름을 적용한다.
+- 불확실 상태는 ‘예약 결과를 확인해 주세요’·‘예약 결과 확인하기’로 원래 요청을 재생한다. 성공 뒤에는 ‘이미 만든 예약이 있어요’와 ‘입금 안내 보기’를 제공해 원래 주문·옵션·수량으로 이동한다. 재생 성공을 새 주문 생성이나 현재 입금 상태 확인으로 표시하지 않으며, 뒤에 편집한 주문서 값은 저장되지 않았고 바꾸려면 기존 예약을 취소한 뒤 다시 예약해야 함을 알린다. 기존 Notice·Button을 재사용한다.
+- 같은 화면의 제출은 상태 갱신을 기다리지 않는 동기 잠금으로 직렬화한다. 현재 계정·세션과 주문서 문맥을 확인해 이전 세션의 지연 응답·복구 콜백이 새 요청이나 이동을 실행하지 못하게 한다. 복구 보장은 이 주문서의 기억된 문맥에 적용하며 다른 기기·새 주문서의 주문 의도를 판정하지 않는다.

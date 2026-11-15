@@ -353,7 +353,8 @@ export function recheckedConflict(
  * 같은 멱등 키에 다른 내용(409 IDEMPOTENCY_MISMATCH)이 왔을 때 할 일(FEAT-08 E2, DEV-291).
  * 입금 안내에서 뒤로 와 옵션·수량을 바꿔 다시 내면 이렇게 된다. 이때 새 키로 다시 보내면 두 번째 주문이 생기고
  * 첫 주문은 입금 대기로 24시간 물량을 잡는다. 그래서 이 주문서로 만든 주문이 있으면 다시 보내지 않고 그 주문을 알린다.
- * 만든 주문이 없을 때(앱 버그)만 새 키로 한 번 다시 보낸다.
+ * 확정된 입금 안내도 미해결 deposit도 없을 때만 새 생성 키로 한 번 다시 보낸다.
+ * 미해결 deposit은 화면에서 원래 주문·키를 먼저 재생하며 이 함수로 새 create를 허용하지 않는다(DEV-320).
  */
 export function mismatchStep(
   placedOrderId: string | null,

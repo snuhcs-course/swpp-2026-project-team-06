@@ -22,6 +22,8 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useHideTabBar } from "../../../../lib/session";
 import { goBackOr } from "../../../../lib/nav";
+import { isServerTrouble, serverErrorCode } from "../../../../lib/producerEvents";
+import { track } from "@farmclub/analytics";
 import { OptionBoxRow } from "../../../../lib/OptionBoxRow";
 import { optionBoxesFromProduct } from "../../../../lib/optionBoxes";
 const kg = (g: number) =>
@@ -64,6 +66,18 @@ export default function Sales() {
     setHistory(requests);
     setTotal(String(product.salesLimitGrams / 1000));
     setPerOrder(String(product.maxQuantityPerOrder));
+  }
+  /**
+   * 저장·신청에서 생산자에게 보인 오류 안내. 위치·종류만 보낸다(글자 없음, DEV-312).
+   * 화면 검사(kg·박스 수, ApiError가 아닌 Error)는 quantity_invalid, 연결·서버·충돌 실패는 세지 않는다
+   * (생산자가 고칠 409 — 판매 한도 거절은 quantity_invalid, 입금 계좌 없음은 deposit_account_required — 는 센다).
+   */
+  function shownFailure(e: unknown) {
+    if (e instanceof Error && !(e instanceof ApiError) && !(e instanceof TypeError))
+      track("form_error_shown", { screen: "product_sales", code: "quantity_invalid" });
+    else if (!isServerTrouble(e))
+      track("form_error_shown", { screen: "product_sales", code: serverErrorCode(e) });
+    failure(e);
   }
   function failure(e: unknown) {
     // 입금 계좌가 없으면 초기 승인 요청을 막는다(DEV-68). 어디서 등록하는지 함께 알린다
@@ -113,13 +127,16 @@ export default function Sales() {
       const body = JSON.stringify({ action, input });
       if (pending.current?.body !== body)
         pending.current = { body, key: newIdempotencyKey() };
-      if (action === "request")
+      if (action === "request") {
         await catalog.requestCapacity(
           id,
           grams(requested),
           p.version,
           pending.current.key,
         );
+        // 서버 CapacityRequest.kind와 같은 기준: 승인 물량이 0이면 첫 신청(DEV-312)
+        track("sale_start_requested", { productId: id, screen: "product_sales", requestKind: p.approvedSupplyGrams === 0 ? "initial" : "increase" });
+      }
       else if (action === "withdraw")
         await catalog.withdrawCapacity(
           id,
@@ -154,7 +171,7 @@ export default function Sales() {
               : "판매 설정을 저장했어요.",
       );
     } catch (e) {
-      failure(e);
+      shownFailure(e);
     } finally {
       setBusy(false);
     }
@@ -166,7 +183,7 @@ export default function Sales() {
       setError("");
       setConfirm("request");
     } catch (e) {
-      failure(e);
+      shownFailure(e);
     }
   }
   const editable =

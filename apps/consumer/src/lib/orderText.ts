@@ -60,8 +60,8 @@ export function depositPhase(
   now: number,
 ): "before" | "issue" | "reported" | "late" | null {
   if (o.status !== "AWAITING_DEPOSIT") return null;
-  if (o.depositIssue) return "issue";
-  if (!o.depositReportedAt) return "before";
+  // 미승인은 알림 시각을 비운다. 다시 알렸다면 남은 과거 사유보다 새 알림이 우선(DEV-318).
+  if (!o.depositReportedAt) return o.depositIssue ? "issue" : "before";
   return o.depositDueAt && Date.parse(o.depositDueAt) <= now
     ? "late"
     : "reported";

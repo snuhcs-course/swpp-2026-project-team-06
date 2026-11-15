@@ -42,6 +42,10 @@ import { isConnectionError, useSession } from "../lib/session";
 import { LoadError, ORDER_STATUS, errMsg } from "../lib/views";
 import { orderItemParts, orderWho } from "../lib/orderWho";
 import { goBackOr } from "../lib/nav";
+import { track, type FormErrorCode } from "@farmclub/analytics";
+
+/** 출하 처리 화면의 오류 안내 위치·종류만 보낸다(글자 없음, DEV-312) */
+const shownError = (code: FormErrorCode) => track("form_error_shown", { screen: "ship", code });
 
 type Data = {
   awaiting: ProducerOrder[];
@@ -189,6 +193,7 @@ export default function Ship() {
     let ok = 0;
     let conflicted = 0;
     let lost: unknown = null; // 연결 문제로 못 바꾼 주문은 고른 채로 두고 다시 시도
+    let failedShown = false;
     const left: string[] = [];
     for (const o of chosen) {
       const inv = invoices[o.orderId];
@@ -199,15 +204,22 @@ export default function Ship() {
           inv?.carrier ?? null,
         );
         ok += 1;
+        // 주문마다 처리 시각을 남긴다(송장 번호는 보내지 않음, DEV-312)
+        track("order_shipped", { orderId: o.orderId, hasCarrier: !!inv?.carrier });
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) conflicted += 1;
         else {
           left.push(o.orderId);
           if (isConnectionError(e)) lost = e;
-          else setNotice(errMsg(e));
+          else {
+            failedShown = true;
+            setNotice(errMsg(e));
+          }
         }
       }
     }
+    // 안내는 한 번 보이므로 실패가 여러 건이어도 한 번만 센다(DEV-312)
+    if (failedShown && !conflicted) shownError("other"); // 409 안내가 덮으면 보이지 않은 안내라 세지 않는다
     setConfirm(false);
     setPicked(left);
     if (conflicted)
@@ -232,9 +244,14 @@ export default function Ship() {
   async function saveInvoice() {
     if (!invoiceFor || busy) return;
     const no = draft.no.trim();
-    if (no.length > 50) return setInvoiceError("송장 번호는 50자까지예요");
-    if ((no || invoiceFor.status === "SHIPPED") && !draft.carrier)
+    if (no.length > 50) {
+      shownError("tracking_too_long");
+      return setInvoiceError("송장 번호는 50자까지예요");
+    }
+    if ((no || invoiceFor.status === "SHIPPED") && !draft.carrier) {
+      shownError("carrier_required");
       return setInvoiceError("택배사를 골라 주세요");
+    }
     if (invoiceFor.status === "SHIPPED" && draft.carrier) {
       const payload = JSON.stringify([invoiceFor.orderId, invoiceFor.trackingVersion, draft.carrier, no]);
       let key = trackingKeys.current.get(payload);
@@ -246,6 +263,7 @@ export default function Ship() {
       try {
         await orders.updateTracking(invoiceFor.orderId, invoiceFor.trackingVersion, draft.carrier, no || null, key);
         trackingKeys.current.delete(payload);
+        track("invoice_saved", { orderId: invoiceFor.orderId, hasCarrier: true, afterShipped: true });
         setInvoiceFor(null);
         toast("송장을 수정했어요");
         await load();
@@ -254,7 +272,10 @@ export default function Ship() {
           setInvoiceFor(null);
           setNotice(errMsg(e));
           await load();
-        } else setInvoiceError(errMsg(e));
+        } else {
+          if (!isConnectionError(e)) shownError("other");
+          setInvoiceError(errMsg(e));
+        }
       } finally { setBusy(false); }
       return;
     }
@@ -264,17 +285,20 @@ export default function Ship() {
     }));
     if (!picked.includes(invoiceFor.orderId))
       setPicked((p) => [...p, invoiceFor.orderId]);
+    // 출하 전 송장은 화면에만 저장한다(서버에는 출하 때 함께). 송장 번호는 보내지 않는다
+    track("invoice_saved", { orderId: invoiceFor.orderId, hasCarrier: !!draft.carrier, afterShipped: false });
     setInvoiceFor(null);
     toast("송장을 저장했어요");
   }
 
   // 승인·미승인 공통: 409면 최신 상태로 다시 그린다
-  async function act(run: () => Promise<unknown>, done: string, retry: () => void) {
+  async function act(run: () => Promise<unknown>, done: string, retry: () => void, onDone?: () => void) {
     if (busy) return;
     setBusy(true);
     setNotice(null);
     try {
       await run();
+      onDone?.();
       setReject(null);
       toast(done);
       await load();
@@ -284,9 +308,13 @@ export default function Ship() {
         setNotice("이미 상태가 바뀌었어요. 최신 상태로 다시 보여 드려요.");
         await load();
       } else if (isConnectionError(e)) failToast(e, retry);
-      else if (e instanceof ApiError && e.details.fields?.reason)
+      else if (e instanceof ApiError && e.details.fields?.reason) {
+        shownError("reason_required");
         setReasonError(String(e.details.fields.reason));
-      else setNotice(errMsg(e));
+      } else {
+        shownError("other");
+        setNotice(errMsg(e));
+      }
     } finally {
       setBusy(false);
     }
@@ -299,6 +327,7 @@ export default function Ship() {
           () => orders.confirmDeposit(o.orderId),
           `${o.orderNo} 입금을 승인했어요 · 예약 완료`,
           () => void approve(o),
+          () => track("deposit_decided", { orderId: o.orderId, decision: "approved" }),
         )
       : act(
           () => orders.refundSettled(o.orderId),
@@ -320,10 +349,12 @@ export default function Ship() {
   // 미승인(AC-09-9·AC-17-8): 사유 필수, 소비자에게 그대로 보인다
   function sendReject(o: ProducerOrder) {
     const text = preset === CUSTOM ? reason.trim() : (preset ?? "");
-    if (!text)
+    if (!text) {
+      shownError("reason_required");
       return setReasonError(
         preset === CUSTOM ? "사유를 적어 주세요" : "미승인 사유를 골라 주세요",
       );
+    }
     if (reject?.kind === "deposit")
       return act(
         () => orders.rejectDeposit(o.orderId, text, cancelOrder),
@@ -331,6 +362,8 @@ export default function Ship() {
           ? `${o.orderNo} 주문을 취소했어요`
           : `${o.orderNo} 미승인 사유를 소비자에게 알렸어요`,
         () => sendReject(o),
+        // 사유 글자는 보내지 않고 고른 방식만(DEV-312)
+        () => track("deposit_decided", { orderId: o.orderId, decision: "rejected", reasonKind: preset === CUSTOM ? "custom" : "preset", cancelOrder }),
       );
     return act(
       () => orders.refundIssue(o.orderId, text),

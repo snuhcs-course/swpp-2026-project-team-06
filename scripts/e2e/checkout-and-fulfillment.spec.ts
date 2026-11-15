@@ -36,7 +36,7 @@ test("AC-08-1/09/10: consumer checkout counts consents, reaches producer and pre
   }
   await consumerPage.getByLabel("받는 사람").fill("DEV25 구매자");
   await consumerPage.getByLabel("연락처").fill("010-1234-5678");
-  await consumerPage.getByLabel("우편번호").fill("63584");
+  await consumerPage.getByLabel("우편번호", { exact: true }).fill("63584");
   await consumerPage
     .getByRole("textbox", { name: "주소", exact: true })
     .fill("제주특별자치도 서귀포시 통합로 25");
