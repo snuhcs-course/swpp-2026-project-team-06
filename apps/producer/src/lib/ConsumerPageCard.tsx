@@ -17,7 +17,10 @@ const TINT_BORDER = "#F6D9C4";
 /** 닫았는지는 이 기기(브라우저)·농가별로 기억한다. 저장소를 못 쓰면(네이티브 앱 포함) 앱을 다시 실행하기 전까지만 닫힌다 */
 const keyFor = (farmId: string) =>
   `farmclub-producer:consumer-page-card-closed:${farmId}`;
+/** 저장소가 없을 때(네이티브 앱 등) 이번 실행 동안 닫은 농가 */
+const closedThisRun = new Set<string>();
 function closedBefore(farmId: string) {
+  if (closedThisRun.has(farmId)) return true;
   try {
     return globalThis.localStorage?.getItem(keyFor(farmId)) === "1";
   } catch {
@@ -31,6 +34,7 @@ export function ConsumerPageCard({ farm }: { farm: MyFarm }) {
   if (closed) return null;
   const close = () => {
     setClosed(true);
+    closedThisRun.add(farm.farmId);
     try {
       globalThis.localStorage?.setItem(keyFor(farm.farmId), "1");
     } catch {
@@ -83,7 +87,7 @@ export function ConsumerPageCard({ farm }: { farm: MyFarm }) {
           height={56}
           radius={12}
           kind="farm"
-          alt={farm.name}
+          alt="농가 사진"
           style={{ backgroundColor: tokens.color.background }}
         />
         <View style={{ flex: 1, gap: 2 }}>
@@ -103,7 +107,7 @@ export function ConsumerPageCard({ farm }: { farm: MyFarm }) {
             accessibilityLabel="farmclub.kr 내 농가 링크 복사"
             onPress={() => void copy()}
             style={({ pressed }) => ({
-              minHeight: 44,
+              minHeight: tokens.touchTarget.min,
               paddingLeft: 14,
               paddingRight: 12,
               borderRadius: tokens.radius.full,

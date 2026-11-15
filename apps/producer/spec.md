@@ -217,3 +217,10 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - 새 상품: `NewProductComposer`(flow source)는 상품마다 열림 한 번, 이 화면에서 받아들여진 run(`api.start`·`api.retry` 응답 id)이 끝난 상태로 바뀔 때만 `draft_created`. 처음 불러온 이미 끝난 run은 보내지 않는다. `manual.tsx`(flow text)는 `createDraft` 응답 뒤 입력 검증 오류가 아니면 요청·끝을 함께 보낸다.
 - 행동 이벤트는 서버 성공 응답 뒤(출하 전 송장은 화면 저장 뒤). `ship.tsx`의 `act`는 성공 콜백(`onDone`)으로 입금 승인·미승인만 보내고 환불 분기는 보내지 않는다. 출하는 성공한 주문마다 `order_shipped`.
 - 채팅: 불러온 메시지의 보낸 쪽·확인 요청 상태·시각만 기억해(본문 없음) 보내기 전 `replyKind`를 정한다. 서버가 인용한 메시지로만 전달을 닫으므로 인용 대상으로 나눈다(인용한 소비자 질문과 같은 시각의 열린 전달이 있으면 forwarded, 서버가 질문과 전달을 같은 시각으로 저장). farmclub 문의방, 답장 수정은 보내지 않는다.
+
+## DEV-326 현황 소비자 페이지 안내 카드 (2026-11-15)
+
+- 현황 맨 위 `lib/ConsumerPageCard.tsx`(승인 농가만, `farms.mine().status === "APPROVED"`). 공용 `Notice`는 `accessibilityRole="alert"`라 상시 안내에 맞지 않아 앱 안 컴포넌트로 둔다.
+- 오른쪽 'farmclub.kr' 버튼은 페이지를 열지 않고 설정 화면 '복사'와 같은 `shareUrl`을 `copyText`로 복사한다. 누르는 영역은 `tokens.touchTarget.min`(48).
+- 닫기는 `localStorage` 키 `farmclub-producer:consumer-page-card-closed:<farmId>`(농가별). 저장소가 없으면(네이티브) 모듈 Set으로 앱을 다시 실행하기 전까지 기억한다.
+- 연주황 면은 기준표 accent 옅은 배경 `#FDECE2`, 테두리 `#F6D9C4`(Figma C3).
