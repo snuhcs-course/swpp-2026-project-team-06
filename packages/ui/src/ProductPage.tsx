@@ -94,6 +94,8 @@ export type ProductPageSlots = {
   story?: ReactNode;
   brix?: ReactNode;
   info?: Partial<Record<"origin" | "size" | "storage", ReactNode>>;
+  /** 편집 화면에서만 상품정보 줄 이름을 바꾼다(새 상품 작성의 사이즈 칸, DEV-329). 소비자 화면 이름표는 그대로 */
+  infoLabels?: Partial<Record<"size", string>>;
   /** 상품정보를 펼친 채로 둔다 */
   infoOpen?: boolean;
 };
@@ -241,7 +243,7 @@ export function ProductPageBody({
             [
               ["원산지", p.info.origin, slots?.info?.origin],
               ["생산자", p.info.producer],
-              ["중량·수량", p.info.size, slots?.info?.size],
+              [slots?.infoLabels?.size ?? "중량·수량", p.info.size, slots?.info?.size],
               ["포장일", p.info.packedAt],
               ["보관 방법", p.info.storage, slots?.info?.storage],
               ["상담", p.info.contact],

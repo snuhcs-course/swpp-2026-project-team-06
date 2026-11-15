@@ -546,6 +546,7 @@ export default function EditProduct() {
               onChange={(v) => { setForm(f => f ? { ...f, expectedBrix: v, measuredBrix: v } : f); }}
               unit="Brix"
               placeholder="예: 12.5"
+              decimal
             />
           </View>
           <View style={{ gap: 8 }}>

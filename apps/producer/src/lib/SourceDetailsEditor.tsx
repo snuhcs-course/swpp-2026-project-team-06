@@ -52,6 +52,15 @@ const initialSelection = (
         ).map(([id]) => id),
     ]),
   );
+// 다른 화면이 모듈 켜기·숨김만 바꿔 저장했는지 보려고 초안 선택을 한 줄로 만든다.
+const draftChoices = (drafts: SourceDraft[]) =>
+  JSON.stringify(
+    drafts.map((d) => [
+      d.targetId,
+      d.snapshot.modules.filter((m) => m.enabled).map((m) => m.id),
+      d.snapshot.hiddenSectionIds ?? [],
+    ]),
+  );
 const initialHidden = (drafts: SourceDraft[]) => {
   const hidden: Record<string, string[]> = {};
   // Drafts arrive newest first, matching initialSelection.
@@ -113,7 +122,7 @@ export function SourceDetailsEditor({
   /** fresh: 고친 내용이 없을 때 서버의 최신 review로 저장한다(기본 정보 저장으로 reviewVersion이 오른 경우). */
   /** name: 상품명과 상세 맨 위 제목을 맞출 때 그 값으로 저장한다(DEV-184). */
   saveRef: {
-    current: ((fresh?: SourceReview, name?: string) => Promise<boolean>) | null;
+    current: ((fresh?: SourceReview, name?: string, freshDrafts?: SourceDraft[]) => Promise<boolean>) | null;
   };
   onDirty: (dirty: boolean) => void;
   onBusy: (busy: boolean) => void;
@@ -171,6 +180,10 @@ export function SourceDetailsEditor({
     };
   }, [batch.id, photoKey]);
   const version = useRef(review.reviewVersion),
+    // 고치기 시작한 버전의 서버 편집 값·초안 선택. 저장 안 한 수정을 새 버전으로 옮길 수 있는지 판단할 때 쓴다(DEV-329).
+    base = useRef<{ fields: SourceEditorField[]; choices: string } | null>(null),
+    // effect가 옮긴 결과. 다음 렌더 전(저장 클로저가 아직 옛 entries를 들고 있을 때) save()가 이것을 쓴다.
+    rebased = useRef<{ version: number; entries: SourceEditorField[] } | null>(null),
     lock = useRef(false),
     alive = useRef(true);
   const requests = useRef(new Map<string, string>());
@@ -184,13 +197,59 @@ export function SourceDetailsEditor({
     onDirty(dirty);
   }, [dirty, onDirty]);
   // Keep an unsaved edit anchored to its version; stale saves must fail, not overwrite.
+  // DEV-329: a basic-info or cover-photo save raises the version and regenerates fields the producer did not
+  // touch (specification, qualityEvidence). If every field the producer edited is unchanged on the server and
+  // no other screen changed the module choices, the edit is rebased: untouched fields take the new server
+  // values and the producer's edits are kept. Otherwise the edit stays on its version and the save fails.
+  if (!base.current)
+    base.current = { fields: review.editorFields, choices: draftChoices(drafts) };
+  /** 저장 안 한 수정을 더 새 review 위로 옮긴 결과. 옮길 수 없으면 null(그 수정은 옛 버전에 남아 저장이 거절된다). */
+  const rebase = (
+    next: SourceReview,
+    nextDrafts: SourceDraft[],
+    local: SourceEditorField[],
+    start = base.current!,
+  ) => {
+    if (draftChoices(nextDrafts) !== start.choices) return null;
+    const before = new Map(start.fields.map((e) => [identity(e.field), JSON.stringify(e)]));
+    const after = new Map(next.editorFields.map((e) => [identity(e.field), JSON.stringify(e)]));
+    const edited = local.filter((e) => JSON.stringify(e) !== before.get(identity(e.field)));
+    if (edited.some((e) => before.get(identity(e.field)) !== after.get(identity(e.field)))) return null;
+    const mine = new Map(edited.map((e) => [identity(e.field), e]));
+    return next.editorFields.map((e) => mine.get(identity(e.field)) ?? e);
+  };
+  // 옮긴 entries가 화면에 반영되면 저장 클로저도 새 entries를 들고 있으니 임시 결과를 지운다.
+  // 옮기는 effect보다 먼저 선언해, 같은 커밋에서 둘 다 돌 때 방금 채운 결과를 지우지 않게 한다
+  useEffect(() => {
+    rebased.current = null;
+  }, [entries]);
   useEffect(() => {
     if (!dirty) {
       setEntries(review.editorFields);
       setEnabled(initialSelection(batch, review, drafts));
       setHidden(initialHidden(drafts));
       version.current = review.reviewVersion;
+      base.current = { fields: review.editorFields, choices: draftChoices(drafts) };
+      return;
     }
+    if (review.reviewVersion <= version.current) return;
+    const start = base.current!;
+    const moved = rebase(review, drafts, entries, start);
+    if (!moved) return;
+    const previousVersion = version.current;
+    version.current = review.reviewVersion;
+    base.current = { fields: review.editorFields, choices: draftChoices(drafts) };
+    rebased.current = { version: review.reviewVersion, entries: moved };
+    // 함수형 업데이트: 이 effect 전에 들어온 키 입력도 잃지 않는다. 그 입력 때문에 옮길 수 없게 되면
+    // 버전도 원래대로 돌려 저장이 거절되게 한다(서버가 새로 만든 값을 덮어쓰지 않게). 결과는 멱등이다.
+    setEntries((old) => {
+      const next = rebase(review, drafts, old, start);
+      if (next) return next;
+      version.current = previousVersion;
+      base.current = start;
+      rebased.current = null;
+      return old;
+    });
   }, [review, drafts, batch, dirty]);
   const change = (field: SourceField) => {
     const id = SOURCE_MODULES.find(([id]) =>
@@ -211,6 +270,7 @@ export function SourceDetailsEditor({
   const save = async (
     fresh?: SourceReview,
     name?: string,
+    freshDrafts?: SourceDraft[],
   ): Promise<boolean> => {
     if (lock.current) return false;
     lock.current = true;
@@ -219,8 +279,20 @@ export function SourceDetailsEditor({
     setError("");
     // 고친 내용이 있으면 그 버전 그대로(오래됐으면 서버가 거절), 없으면 최신 review로 저장한다.
     const useFresh = !!fresh && !dirty;
-    const reviewVersion = useFresh ? fresh.reviewVersion : version.current;
-    const fields = (useFresh ? fresh.editorFields : entries).map((e) =>
+    // 고친 내용이 있는데 더 새 review를 받았으면(기본 정보 저장 직후 등) 화면이 다시 그려지기 전이라도
+    // 같은 rebase 규칙으로 새 버전에 맞춰 저장한다(DEV-329).
+    // 모듈 선택 비교는 서버의 최신 초안(freshDrafts)으로만 한다. 없으면 옮기지 않는다(다른 화면 선택을 덮어쓰지 않게).
+    // effect가 방금 옮겼는데 이 클로저가 아직 옛 entries를 들고 있으면 옮긴 결과를 쓴다(옛 값이 새 버전에 실리지 않게)
+    const local =
+      rebased.current && rebased.current.version === version.current
+        ? rebased.current.entries
+        : entries;
+    const moved =
+      fresh && dirty && freshDrafts && fresh.reviewVersion > version.current
+        ? rebase(fresh, freshDrafts, local)
+        : null;
+    const reviewVersion = useFresh || moved ? fresh!.reviewVersion : version.current;
+    const fields = (useFresh ? fresh.editorFields : (moved ?? local)).map((e) =>
       name &&
       batch.targets.length === 1 &&
       e.field.fieldKey === "name" &&
@@ -269,8 +341,8 @@ export function SourceDetailsEditor({
     }
   };
   useEffect(() => {
-    saveRef.current = (fresh, name) =>
-      busy || uploading ? Promise.resolve(false) : save(fresh, name);
+    saveRef.current = (fresh, name, freshDrafts) =>
+      busy || uploading ? Promise.resolve(false) : save(fresh, name, freshDrafts);
     return () => {
       saveRef.current = null;
     };

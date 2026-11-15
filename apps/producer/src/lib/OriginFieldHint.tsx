@@ -10,9 +10,6 @@ export function OriginFieldHint() {
       <T variant="caption" muted>
         {originNotice.fieldHint}
       </T>
-      <T variant="caption" muted>
-        {originNotice.fieldPlacement}
-      </T>
       <Pressable
         accessibilityRole="link"
         accessibilityLabel="원산지 표시 방법 보기"
