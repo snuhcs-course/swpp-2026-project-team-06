@@ -128,24 +128,23 @@ test("AC-06-2 AC-06-7: search failure shows a notice and retry does not duplicat
   assertClean();
 });
 
-/** 효돈 하우스농원 생산자가 p-hyodon 판매 한도를 바꾼다. null이면 예약·출하한 만큼으로(총 한도 소진) */
-async function setHyodonLimit(request: APIRequestContext, limit: number | null) {
-  const token = await apiLogin(request, "u-hyodon", "producer");
+/** 강씨네 귤밭 생산자(테스트 계정)가 p-house 판매를 중지하거나 재개한다 */
+async function setHousePaused(request: APIRequestContext, paused: boolean) {
+  const token = await apiLogin(request, "u-kang", "producer");
   const headers = { Authorization: `Bearer ${token}` };
   const product = await (
-    await request.get(`${apiUrl}/api/products/mine/p-hyodon`, { headers })
+    await request.get(`${apiUrl}/api/products/mine/p-house`, { headers })
   ).json();
-  const response = await request.put(`${apiUrl}/api/products/p-hyodon/sales-settings`, {
+  const response = await request.put(`${apiUrl}/api/products/p-house/sales-settings`, {
     headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
     data: {
-      salesLimitGrams: limit ?? product.reservedGrams + product.shippedGrams,
+      salesLimitGrams: product.salesLimitGrams,
       maxQuantityPerOrder: product.maxQuantityPerOrder,
-      salesPaused: product.salesPaused,
+      salesPaused: paused,
       version: product.version,
     },
   });
   expect(response.ok(), await response.text()).toBeTruthy();
-  return product.salesLimitGrams as number;
 }
 
 async function overlayStyle(overlay: Locator) {
@@ -182,26 +181,29 @@ test("AC-07-3 DEV-327: sold-out products stay on home and farm list with a sold-
     page.getByRole("link", { name: "하우스 감귤 5kg / 10kg 상품 상세" }).getByTestId("sold-out-overlay"),
   ).toHaveCount(0);
 
-  // 농가 목록: 효돈 상품이 총 한도 소진이면 대표로 남고 덮개·'전체 물량 품절', D-day 칩은 없다
-  const original = await setHyodonLimit(request, null);
+  // 농가 목록: 하우스를 중지하면(중지는 대표에서 빠짐) 강씨네에 예약 가능 상품이 없어
+  // 이번 기간 품절인 레드향이 대표로 남고 덮개·'이번 기간 품절', D-day 칩은 없다
+  await setHousePaused(request, true);
   try {
     await page.goto(`${consumerUrl}/farms`);
-    const row = page.getByRole("link").filter({ hasText: "효돈 하우스농원" });
-    await expect(row.getByText("전체 물량 품절")).toBeVisible();
+    const row = page.getByRole("link").filter({ hasText: "강씨네 귤밭" });
+    await expect(row.getByText("이번 기간 품절")).toBeVisible();
+    await expect(row.getByText(/레드향 3kg/)).toBeVisible();
     await expect(row.getByTestId("sold-out-overlay")).toBeVisible();
     await expect(row.getByText(/^D-/)).toHaveCount(0);
     expect((await overlayStyle(row.getByTestId("sold-out-overlay"))).fontSize).toBe(20);
-    // 대표가 품절인 농가는 예약 가능 대표가 있는 농가 뒤(한라네 노지 10/25보다 아래), 대표 없는 농가 앞
+    // 대표가 품절인 농가는 예약 가능 대표가 있는 농가 뒤(효돈 10/16·한라네 10/25보다 아래), 대표 없는 농가 앞
     await expect(page.getByText("지금 판매 중인 상품 없음")).toBeVisible();
     const rows = await page.getByRole("link").allInnerTexts();
     const at = (name: string) => rows.findIndex((t) => t.includes(name));
-    expect(at("효돈 하우스농원")).toBeGreaterThan(at("한라네 과수원"));
-    expect(at("효돈 하우스농원")).toBeLessThan(
+    expect(at("강씨네 귤밭")).toBeGreaterThan(at("효돈 하우스농원"));
+    expect(at("강씨네 귤밭")).toBeGreaterThan(at("한라네 과수원"));
+    expect(at("강씨네 귤밭")).toBeLessThan(
       rows.findIndex((t) => t.includes("지금 판매 중인 상품 없음")),
     );
     await expect(page.getByTestId("sold-out-overlay")).toHaveCount(1);
   } finally {
-    await setHyodonLimit(request, original);
+    await setHousePaused(request, false);
   }
   assertClean();
 });
