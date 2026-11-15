@@ -1,9 +1,10 @@
 """Explicit publication: allow-listed snapshot; never expose source identifiers."""
 
+import hashlib
 from copy import deepcopy
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -94,13 +95,26 @@ def apply_draft(db, batch, draft, body):
     }
 
 
+# Access depends on the product staying published, so caches may keep a photo only briefly.
+PUBLIC_CACHE = "public, max-age=300"
+
+
 def media_type(data: bytes) -> str:
     """Stored bytes decide the type: legacy copies are PNG, DEV-328 copies are JPEG."""
     return sniff(data) or "application/octet-stream"
 
 
+def etag(photo: PublicPhoto) -> str:
+    # Storage keys are written once per photo; hash so the private key is never exposed.
+    return '"' + hashlib.sha256(photo.storage_key.encode()).hexdigest()[:32] + '"'
+
+
 @public_router.get("/source-media/{photo_id}")
-def public_photo(photo_id: str, db: Annotated[Session, Depends(get_db)]):
+def public_photo(
+    photo_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    if_none_match: Annotated[str | None, Header()] = None,
+):
     photo = db.get(PublicPhoto, photo_id)
     if photo is None:
         raise not_found()
@@ -122,9 +136,10 @@ def public_photo(photo_id: str, db: Annotated[Session, Depends(get_db)]):
     )
     if not referenced:
         raise not_found()
+    tag = etag(photo)
+    headers = {"Cache-Control": PUBLIC_CACHE, "ETag": tag, "X-Content-Type-Options": "nosniff"}
+    tags = [t.strip().removeprefix("W/") for t in (if_none_match or "").split(",")]
+    if "*" in tags or tag in tags:
+        return Response(status_code=304, headers=headers)
     data = Storage().get(photo.storage_key)
-    return Response(
-        data,
-        media_type=media_type(data),
-        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
-    )
+    return Response(data, media_type=media_type(data), headers=headers)
