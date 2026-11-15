@@ -100,6 +100,7 @@ Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace 
 실측 당도 영역은 투명 곡선과 그림·날짜가 겹치지 않도록 상하96px 여백을 확보한다. 손 비교 영역은64px를 유지한다.
 
 - DEV-58 / AC-SRC-11: 자료 텍스트는 첨부 카드 안에서 생성·수정하고 blur/분석 전 저장한다. 대표사진은 대상별 representativeAssetId와 비공개 스냅샷에 저장하며 첫 성공 상품사진 자동 선택/별 지정/삭제 시 다음 사진 대체를 지원한다. 분석 및 공개 반영 시 유효한 상품사진 필수. product workspace는 representativeUri를 저장하며 기존 상품 대표를 초기값으로 사용한다. 대표 커버는 숨긴 섹션과 독립적이며 공개 반영 시 product.photos 첫 사진과 동기화한다. 공용 Photo는 /api/source-media 상대 경로를 API 주소로 해석한다.
+- DEV-322: 공용 `Photo`의 상품 자리 표시는 높이 64 이하면 작은 그레이스케일 로고, 그보다 크면 기본 사진 `assets/brand/product-fallback.webp`(면색 + 그레이스케일 로고, 브랜드 원본과 별도 파일)다. 주소가 있어도 `onError`가 나면 마지막으로 실패한 주소를 기억하고 같은 자리 표시를 그린다(다른 주소로 바뀌면 그 주소를 불러 본다). 상품 사진이 아닌 자리(생산자 농가 대표 사진, 소식 사진)는 `productFallback={false}`로 예전처럼 작은 로고를 쓴다. 실제 상품 사진과 구분되도록 로고만 쓰고 감귤 사진은 쓰지 않는다.
 
 
 ## DEV-85 승인 로고 배치 (2026-10-19)

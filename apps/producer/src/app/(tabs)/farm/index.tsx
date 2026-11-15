@@ -181,6 +181,7 @@ export default function Farm() {
               >
                 <Photo
                   uri={data.photo}
+                  productFallback={false}
                   width="100%"
                   height={180}
                   radius={0}
