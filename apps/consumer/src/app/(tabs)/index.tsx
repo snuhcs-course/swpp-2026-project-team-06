@@ -12,6 +12,7 @@ import {
   Screen,
   Scroll,
   Skeleton,
+  SoldOutOverlay,
   T,
   tokens,
   useAsync,
@@ -217,14 +218,20 @@ function ProductCard({
       onPress={onPress}
       style={{ width, gap: 4 }}
     >
-      <Photo
-        uri={p.photo}
-        width={width}
+      {/* 품절이면 사진 위 '품절' 덮개(AC-07-3, DEV-327). 홈 추천에는 서버가 품절 두 가지만 남긴다 */}
+      <SoldOutOverlay
+        show={p.soldOut}
         height={width}
-        alt={p.name}
-        kind="product"
         style={{ marginBottom: 8 }}
-      />
+      >
+        <Photo
+          uri={p.photo}
+          width={width}
+          height={width}
+          alt={p.name}
+          kind="product"
+        />
+      </SoldOutOverlay>
       <T variant="sub" muted numberOfLines={1}>
         {p.farmName}
       </T>

@@ -13,9 +13,11 @@ import {
   Screen,
   Scroll,
   Skeleton,
+  SoldOutOverlay,
   T,
   dday,
   tokens,
+  unavailableLabel,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useReducer, useRef, useState } from "react";
@@ -201,13 +203,19 @@ export default function FarmList() {
                 borderTopColor: tokens.color.border,
               }}
             >
-              <Photo
-                uri={f.photo}
-                width={tokens.thumb.browse}
+              {/* 대표 상품이 품절이면 사진 위 '품절' 덮개(AC-07-3, DEV-327) */}
+              <SoldOutOverlay
+                show={!!f.featured && f.featured.availability !== "AVAILABLE"}
                 height={tokens.thumb.browse}
-                alt={f.name}
-                kind="farm"
-              />
+              >
+                <Photo
+                  uri={f.photo}
+                  width={tokens.thumb.browse}
+                  height={tokens.thumb.browse}
+                  alt={f.name}
+                  kind="farm"
+                />
+              </SoldOutOverlay>
               <View style={{ flex: 1, gap: 4 }}>
                 <T variant="body" weight="semibold">
                   {f.name}
@@ -228,11 +236,20 @@ export default function FarmList() {
                       marginTop: 4,
                     }}
                   >
-                    <FeaturedPrice
-                      productId={f.featured.productId}
-                      current={f.featured.currentPrice}
-                    />
-                    <Chip label={dday(f.featured.dDay)} />
+                    {f.featured.availability === "AVAILABLE" ? (
+                      <>
+                        <FeaturedPrice
+                          productId={f.featured.productId}
+                          current={f.featured.currentPrice}
+                        />
+                        <Chip label={dday(f.featured.dDay)} />
+                      </>
+                    ) : (
+                      // 품절 대표: 가격·D-day 자리에 품절 이름만(DEV-327)
+                      <T muted weight="semibold" numberOfLines={1}>
+                        {unavailableLabel(f.featured.availability)}
+                      </T>
+                    )}
                   </View>
                 ) : null}
               </View>
