@@ -22,7 +22,12 @@ Set historical false. Omit ambiguous/empty descriptions. photoRequests must be e
 Never infer product facts. Never return any other fieldKey."""
 
 
-def prepare_photo(data):
+# DEV-328: consumer copies. App content is at most 480 CSS px wide; 3x full width needs 1440px.
+PUBLIC_MAX_EDGE = 1600
+PUBLIC_JPEG_QUALITY = 82
+
+
+def _encode(data, save):
     from pillow_heif import register_heif_opener
 
     from app.source_analysis.preprocess import PreparationError
@@ -34,12 +39,27 @@ def prepare_photo(data):
                 raise PreparationError("IMAGE_LIMIT")
             image = ImageOps.exif_transpose(raw).convert("RGB")
             out = io.BytesIO()
-            image.save(out, "PNG")
+            save(image, out)
             return out.getvalue()
     except PreparationError:
         raise
     except Exception as exc:
         raise PreparationError("INVALID_IMAGE") from exc
+
+
+def prepare_photo(data):
+    """Private lossless analysis copy (EXIF orientation applied, metadata dropped)."""
+    return _encode(data, lambda image, out: image.save(out, "PNG"))
+
+
+def public_photo(data):
+    """Consumer copy: long edge <= PUBLIC_MAX_EDGE, progressive JPEG without EXIF/XMP/ICC."""
+
+    def save(image, out):
+        image.thumbnail((PUBLIC_MAX_EDGE, PUBLIC_MAX_EDGE), Image.Resampling.LANCZOS)
+        image.save(out, "JPEG", quality=PUBLIC_JPEG_QUALITY, optimize=True, progressive=True)
+
+    return _encode(data, save)
 
 
 def ready_photo(db, source, data):
