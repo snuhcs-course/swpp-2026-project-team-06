@@ -1,0 +1,19 @@
+{
+  "set": "i4-chat-capability-v1",
+  "frozen_on": "2026-11-15",
+  "frozen_before": "any change to server/app/ai for DEV-265",
+  "questions": {
+    "path": "questions.jsonl",
+    "sha256": "88262bac09338791432a6d7133f86dbb84b27f4e8145aaed1dcfe65b38974b9b",
+    "cases": 29,
+    "gold_action": {"ANSWER": 20, "HANDOFF": 9},
+    "trials_per_case": 3
+  },
+  "excluded_pending_pm": {
+    "path": "pending.jsonl",
+    "cases": ["CAP-027"],
+    "reason": "Gold label not yet agreed with the PM; added as a separate set once decided, never merged into v1."
+  },
+  "source": "team-written (Zahra); evidence copied from I3 fixtures P1, P2, P3, FARM_ONLY, ORDER, MULTI_NO_CONTEXT",
+  "real_questions": "Producer/consumer questions arrive later as a separate set (v2); v1 is never edited."
+}

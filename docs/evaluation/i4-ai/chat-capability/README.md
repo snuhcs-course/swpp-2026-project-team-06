@@ -1,8 +1,8 @@
-# I4 chat capability set (DEV-265) — DRAFT, not frozen
+# I4 chat capability set (DEV-265) — v1 frozen 2026-11-15
 
 Purpose: measure whether the AI answers questions it can answer, instead of handing them off, without answering questions that must go to the producer. This is a **development set**: the same person writes it and improves the product, so results show recovery on known inputs, not generalization (`../criteria.md` section 1).
 
-## Contents (`questions-draft.jsonl`)
+## Contents (`questions.jsonl`, sha256 in `manifest.json`)
 
 - **Format:** the same row format as `../../i3-ai-support/questions.jsonl`.
 - **Evidence:** each row's `evidence` is copied unchanged from the I3 fixtures `P1`, `P2`, `P3`, `FARM_ONLY`, `ORDER` and `MULTI_NO_CONTEXT`, so the I3 fixture check still applies.
@@ -11,7 +11,7 @@ Purpose: measure whether the AI answers questions it can answer, instead of hand
 | Stratum | Gold | Cases | What it probes |
 | --- | --- | ---: | --- |
 | answerable_variant | ANSWER | 20 | The same registered facts as I3 (fee, delivery window, Brix, FAQ, small-order and reservation policy, order window), asked in everyday phrasings |
-| handoff_lookalike | HANDOFF | 10 | Questions that look answerable but must go to the producer (M-07 haggling, delivery change, taste, pesticide, refund; guarantees; missing evidence; ambiguous product) |
+| handoff_lookalike | HANDOFF | 9 | Questions that look answerable but must go to the producer (M-07 haggling, delivery change, taste, pesticide, refund; guarantees; missing evidence; ambiguous product) |
 
 Run 3 trials per case, as in I3.
 
@@ -20,15 +20,13 @@ Run 3 trials per case, as in I3.
 - **The I3 runner scores facts by numbers only.** An answer passes if it contains every gold number and no number missing from the evidence.
 - **Non-numeric answers can't be fully scored automatically.** This covers storage, washing, small-order and reservation-policy answers, so they need human review. Until reviewed they are reported as **UNREVIEWED**, not PASS.
 
-## Before freezing
+## Freeze (v1, 2026-11-15)
 
-1. **Add real questions** collected by Jinwoo (producers) and Minsun (consumers), with personal details removed. Mark them `source: producer` / `consumer`.
-2. **Resolve the open gold labels** (PM):
-   - "얼마나 달아요?" ("How sweet is it?"): is it subjective taste (M-07) or answerable with Brix? It is excluded until decided.
-   - CAP-027 "13브릭스 이상 보장되나요?" ("Is at least 13 Brix guaranteed?"): drafted as HANDOFF.
-3. **Freeze:** rename to `questions.jsonl`, record its sha256 in `manifest.json`, and commit before any change to `server/app/ai`.
+- **Frozen:** 29 cases (ANSWER 20, HANDOFF 9), committed before any change to `server/app/ai`. The sha256 is in `manifest.json`. v1 is never edited.
+- **Left out:** CAP-027 "13브릭스 이상 보장되나요?" ("Is at least 13 Brix guaranteed?") is in `pending.jsonl` until the PM agrees its gold label. "얼마나 달아요?" ("How sweet is it?") is also undecided (taste under M-07, or answerable with Brix?) and was never in the set.
+- **Later questions** go in a separate set (v2), reported separately and never merged into v1. That covers real questions from Jinwoo (producers) and Minsun (consumers), with personal details removed, and the cases above once decided.
 
-## Offline routing of the draft (2026-11-12, `main` @ `7ad9c123`, no model calls)
+## Offline routing of the 30-case draft (2026-11-12, `main` @ `7ad9c123`, no model calls)
 
 The keyword filter and rule step only; no model calls:
 
