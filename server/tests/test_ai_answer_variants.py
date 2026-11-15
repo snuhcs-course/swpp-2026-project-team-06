@@ -26,6 +26,9 @@ PAID = Evidence(
         "안 셔요?",
         "맛있어요?",
         "달고 맛있어요?",
+        "달아요?",
+        "너무 달아요",
+        "덜 달아요",
     ],
 )
 def test_M_07_haggling_guarantee_and_taste_are_always_handed_off(question):
@@ -60,6 +63,24 @@ def test_AC_13_1_reservation_question_uses_policy_not_a_false_conflict():
 
     assert result is not None and result.action == "ANSWER", result
     assert result.source_refs == ["farm:reservationShippingPolicy"]
+
+
+def test_M_05_reservation_question_with_own_order_uses_the_order_window():
+    """본인 주문 사실이 농가 원칙보다 먼저다: 주문 배송 기간으로 답한다."""
+    ev = PAID.model_copy(
+        update={"order_id": "o-1", "order_delivery_window": ("2026-11-12", "2026-11-15")}
+    )
+
+    result = ai._rule_answer("예약한 제 귤 언제 배송돼요?", ev)
+
+    assert result is not None and result.action == "ANSWER", result
+    assert result.source_refs == ["order:o-1"]
+
+
+def test_AC_13_1_extra_cost_request_is_not_answered_with_the_fee():
+    result = ai._rule_answer("추가 비용 없이 두 박스 묶어 보내주실 수 있나요?", PAID)
+
+    assert result is None or "배송비" not in (result.answer or "")
 
 
 def test_AC_13_2_reservation_policy_conflicting_with_faq_is_still_handed_off():
