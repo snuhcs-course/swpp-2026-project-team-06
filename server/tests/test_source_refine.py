@@ -217,6 +217,25 @@ def test_AC_SRC_3_factual_clauses_are_not_exaggeration(value):
     assert not has_exaggeration(value)
 
 
+@pytest.mark.parametrize(
+    ("quote", "value", "code"),
+    [
+        ("당도측정결과 13.2Brix 13.5Brix", "당도 13.2Brix~13.5Brix", "UNSUPPORTED_RANGE"),
+        ("당도측정결과 13.2Brix 13.5Brix", "당도 13.2Brix, 13.5Brix", None),
+        ("당도 13~14 브릭스", "당도 13~14브릭스", None),
+        ("2kg 8-18과", "2kg 8~18과", None),
+    ],
+)
+def test_AC_SRC_3_range_needs_a_range_in_the_quote(quote, value, code):
+    """DEV-264: two separate samples must not become a range."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = quote
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "taste", "texts": texts}])
+    diagnostics = refinement.validate(out, source, "target")[1]
+    assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
+
+
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(
@@ -1558,7 +1577,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v10-no-exaggeration"
+    assert PROMPT_VERSION == "source-refine-v11-routing"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 

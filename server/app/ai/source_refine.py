@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v10-no-exaggeration"
+PROMPT_VERSION = "source-refine-v11-routing"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -56,7 +56,8 @@ Exclude ALL amounts as price, including shipping fees and free-shipping threshol
 the producer sets shipping fees in ② (R-20).
 Exclude Farmclub common policy as platform: exchange/refund/return/compensation terms,
 customer center/hours/contact channels, ordering/payment/deposits, purchase limits,
-and weight/size option selection. Never invent Farmclub policy.
+and weight/size option selection, including order-memo requests (배송 메모란에 원하시는 과수를
+남겨주시면). Never invent Farmclub policy.
 Contact-channel directions are platform policy even without a phone number, payment,
 or customer-center keyword: app chat, farm inquiry, seller messaging and where/how to
 ask product questions must be excluded as platform, never kept under support.
@@ -145,6 +146,7 @@ original separator, endpoint units and numeric format within the polished clause
 supported production/harvest seasons and their routing; do not omit them to avoid numbers.
 If a candidate's number/unit differs from its quote, use only the exact supported quote
 expression or exclude the unsupported claim. Never treat the candidate's own value as proof.
+Separate values stay separate: 13.2Brix 13.5Brix are two measurements, never 13.2~13.5Brix.
 Every number in a text must appear in a quote of a candidate THAT TEXT cites. When one text
 joins values from several candidates (a weight with its piece count, 2kg: 8~18과; a size with
 its weight), cite ALL of those candidates; otherwise the text is rejected and the fact is lost.

@@ -34,6 +34,20 @@ def numbers(value):
     return result
 
 
+_RANGE = re.compile(
+    rf"(?P<a>\d+(?:[,.]\d+)*)\s*(?P<ua>{_UNIT})?\s*[~–-]\s*(?P<b>\d+(?:[,.]\d+)*)\s*(?P<ub>{_UNIT})?",
+    re.IGNORECASE,
+)
+
+
+def ranges(value):
+    """Range endpoints written as a~b / a-b, as (a, b). Units are checked by numbers().
+    Two separate values ("13.2Brix 13.5Brix") are not a range."""
+    return {
+        (m["a"].replace(",", ""), m["b"].replace(",", "")) for m in _RANGE.finditer(value)
+    }
+
+
 def _contains(value, words):
     compact = re.sub(r"\s+", "", value).lower()
     return any(re.sub(r"\s+", "", word).lower() in compact for word in words)

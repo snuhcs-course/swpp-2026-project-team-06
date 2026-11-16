@@ -25,6 +25,7 @@ from app.source_analysis.text_safety import (
     has_period_text,
     has_platform_text,
     numbers,
+    ranges,
 )
 
 
@@ -194,6 +195,11 @@ def validate(output, candidates, target_id, *, target_count=0):
                 "\n".join(e["quote"] for c in cited for e in c["evidence"])
             ):
                 code = "UNSUPPORTED_NUMBER"
+            elif ranges(text.value) - ranges(
+                "\n".join(e["quote"] for c in cited for e in c["evidence"])
+            ):
+                # DEV-264: "13.2Brix 13.5Brix" are two samples, not the range 13.2~13.5.
+                code = "UNSUPPORTED_RANGE"
             elif any(
                 (c["historical"] or c["fieldKey"] == "historicalSales") and has_money(c["value"])
                 for c in cited
@@ -242,6 +248,7 @@ def validate(output, candidates, target_id, *, target_count=0):
         "PRICED_HISTORY": "price",
         "HEALTH_CLAIM": "health",
         "EXAGGERATION": "unsupported",
+        "UNSUPPORTED_RANGE": "unsupported",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:
