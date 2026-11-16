@@ -276,10 +276,18 @@ def load_gold(
         "sources": [s.model_dump() for g in golds for s in g.sources],
     }
     final_score.Gold.model_validate(combined)
-    # DEV-264: the product sends the producer-typed name to the model. The gold `product` is
-    # its only stand-in here; no other gold field reaches the model.
-    names = {s.id: s.product for g in golds for s in g.sources}
-    return references, gold_files, names
+    return references, gold_files
+
+
+def product_names(references, gold_files):
+    """DEV-264: the product sends the producer-typed name to the model. The gold `product` is
+    its only stand-in here; no other gold field reaches the model."""
+    names = {}
+    for path in [ROOT / r["path"] for r in references] + [Path(p) for p in gold_files]:
+        raw = read_json(path)
+        for source in raw["sources"] if isinstance(raw, dict) else raw:
+            names[source["id"]] = source.get("product") or ""
+    return names
 
 
 def estimate(rows, provider, model):
@@ -1127,9 +1135,10 @@ def main(argv=None):
             cfg.app_env != "local" or url.host not in ("127.0.0.1", "localhost")
         ):
             raise ValueError("Paid evaluation requires a scratch local database")
-        references, gold_files, names = load_gold(
+        references, gold_files = load_gold(
             args.split, args.subset, dev_dir, holdout_dir, rows, args.holdout_version
         )
+        names = product_names(references, gold_files)
         # Preflight OCR before spending or consuming the holdout attempt. No network provisioning.
         if any(r["mime"] != "text/plain" for r in rows):
             from app.source_analysis.preprocess import _ocr_engine
