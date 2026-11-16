@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>브랜드 통합안 DEV-311</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 통합안 = A 팬클럽(로고 원본, 팬·순번) + B의 가격 계단만, 2026-11-15 승인된 DEV-268 UX 제안 7개 위에 얹음.
+   레이아웃: 머리 → 출처 요약 표 → 설계 결정 6 → 조정(겹치는 자리) → 화면 7쌍(지금 | 통합안, 같은 폭·같은 높이) → 공유 카드 원본 → 가격 계단 시안(기록) → 검산 → 결정(11/16).
+   휴대폰 프레임 안은 앱 토큰만 쓴다(앱은 밝은 화면 전용). 보드 바깥만 테마를 따른다.
+   '지금' 캡처는 DEV-311/integrated/*-before.png(DEV-268 before·DEV-311 current를 390 폭으로 자르고 사업자 정보 푸터를 뺀 것).
+   카톡 공유 카드와 아이콘의 '지금'은 실제 og.jpg·아이콘 원본으로 이 보드에서 다시 그린 것이다. */
+:root {
+  --bg: #EFEEEA; --panel: #FFFFFF; --ink: #111111; --ink-2: #5E5D59; --rule: #DAD9D4;
+  --mark: #C94F0C; --mark-ink: #FFFFFF; --good: #2F6B3A; --good-soft: #E7F1E8; --warn: #8A5A00; --warn-soft: #FFF3D6;
+  --a: #2F6B3A; --a-soft: #E7F1E8; --b: #6A4A00; --b-soft: #FFF0C9; --ux: #1F4E8C; --ux-soft: #E3ECF8;
+  --app-bg: #FFFFFF; --app-text: #111111; --app-muted: #6B6B6B; --app-surface: #F5F5F3; --app-border: #E8E8E6; --app-accent: #C94F0C;
+  --cream: #FFF4E8;
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935; --mark: #E2733A; --mark-ink: #1A0E07; --good: #8CC79A; --good-soft: #1D2E21; --warn: #F2C46B; --warn-soft: #3A2E14; --a: #8CC79A; --a-soft: #1D2E21; --b: #F2C46B; --b-soft: #3A2E14; --ux: #9DBDEB; --ux-soft: #1C2A3D; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #171716; --panel: #22221F; --ink: #F1F0EC; --ink-2: #A9A7A0; --rule: #3A3935; --mark: #E2733A; --mark-ink: #1A0E07; --good: #8CC79A; --good-soft: #1D2E21; --warn: #F2C46B; --warn-soft: #3A2E14; --a: #8CC79A; --a-soft: #1D2E21; --b: #F2C46B; --b-soft: #3A2E14; --ux: #9DBDEB; --ux-soft: #1C2A3D; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 22px; padding: 32px 16px 64px; font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 24px; line-height: 32px; letter-spacing: -0.01em; margin: 0; }
+h3 { font-size: 17px; line-height: 25px; margin: 0; }
+p { margin: 0; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--rule); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: var(--mark); }
+.eyebrow { font-size: 13px; line-height: 18px; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; }
+.lede { max-width: 76ch; color: var(--ink-2); font-size: 17px; line-height: 26px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--ink-2); }
+section { display: flex; flex-direction: column; gap: 16px; }
+.sec { border-top: 2px solid var(--rule); padding-top: 28px; }
+
+.src { display: inline-block; font-size: 12px; line-height: 20px; padding: 0 8px; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+.src.a { background: var(--a-soft); color: var(--a); }
+.src.b { background: var(--b-soft); color: var(--b); }
+.src.ux { background: var(--ux-soft); color: var(--ux); }
+.src.cut { background: transparent; color: var(--ink-2); border: 1px dashed var(--ink-2); }
+
+.card { background: var(--panel); border-radius: 16px; padding: 18px 20px; min-width: 0; }
+.tblx { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 21px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--rule); }
+th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
+.sum table { min-width: 860px; }
+.ok { color: var(--good); font-weight: 700; }
+.wn { color: var(--warn); font-weight: 700; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,.15); }
+
+.moves { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 12px; }
+.moves li { background: var(--panel); border-radius: 16px; padding: 18px; display: grid; grid-template-columns: 30px 1fr; gap: 6px 12px; min-width: 0; }
+.num { width: 28px; height: 28px; border-radius: 999px; background: var(--mark); color: var(--mark-ink); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+.moves h3 { font-size: 16px; line-height: 24px; align-self: center; }
+.moves p, .moves .why { color: var(--ink-2); grid-column: 2; font-size: 14px; line-height: 21px; }
+.moves .tags { grid-column: 2; display: flex; gap: 6px; flex-wrap: wrap; }
+
+.adj { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; }
+.adj .card { display: flex; flex-direction: column; gap: 10px; }
+.adj h3 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.adj ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 21px; }
+.adj .k { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+
+/* 화면 쌍 */
+.pair { display: grid; grid-template-columns: minmax(240px, 1fr) auto; gap: 20px 28px; align-items: start; border-top: 1px solid var(--rule); padding-top: 24px; }
+.pair .note { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pair .note ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 21px; }
+.pair .note .from { font-size: 13px; color: var(--ink-2); }
+.duo { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+.col { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.col > .lbl { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-2); }
+.col > .lbl.after { color: var(--mark); }
+.shot { width: 390px; position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--rule); background: #fff; }
+.shot > img.cap { display: block; width: 390px; }
+@media (max-width: 920px) { .pair { grid-template-columns: 1fr; } }
+@media (max-width: 440px) { .pair .duo, .duo.quad { flex-direction: column; flex-wrap: nowrap; overflow: visible; } .pair .shot, .duo.quad .shot { zoom: .9; } }
+
+/* 휴대폰 안 — 앱 토큰만 */
+.phone { width: 390px; background: var(--app-bg); color: var(--app-text); font-size: 16px; line-height: 24px; position: relative; overflow: hidden; }
+.ico { width: 24px; height: 24px; stroke: currentColor; stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+.px { padding-left: 16px; padding-right: 16px; }
+.t22 { font-size: 22px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.t20 { font-size: 20px; line-height: 28px; }
+.t18 { font-size: 18px; line-height: 26px; font-weight: 700; }
+.t16 { font-size: 16px; line-height: 24px; }
+.t14 { font-size: 14px; line-height: 20px; }
+.t12 { font-size: 12px; line-height: 16px; }
+.mut { color: var(--app-muted); }
+.acc { color: var(--app-accent); }
+.b { font-weight: 700; } .sb { font-weight: 600; }
+.hd { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+.hd2 { height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 12px; font-size: 18px; font-weight: 700; }
+.testbar { background: var(--app-surface); padding: 6px 16px; font-size: 12px; line-height: 20px; color: #333; }
+.av { width: 44px; height: 44px; border-radius: 999px; background: #ccc center/cover; flex: 0 0 auto; }
+.ph { background: #ddd center/cover no-repeat; }
+.pbtn { position: absolute; top: 12px; width: 40px; height: 40px; border-radius: 999px; background: rgba(0,0,0,.45); display: grid; place-items: center; color: #fff; }
+.hr { height: 1px; background: var(--app-border); }
+.btn { height: 52px; border-radius: 14px; display: grid; place-items: center; font-weight: 700; font-size: 16px; }
+.btn.pri { background: var(--app-accent); color: #fff; }
+.btn.kakao { background: #FEE500; color: #191919; }
+.notice { background: var(--app-surface); border-radius: 14px; padding: 14px 16px; }
+.row48 { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--app-border); }
+.copy { font-size: 14px; font-weight: 700; padding: 0 0 0 12px; }
+.tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #fff; border-top: 1px solid var(--app-border); display: grid; grid-template-columns: repeat(4, 1fr); padding-top: 10px; }
+.tabbar div { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; line-height: 16px; color: var(--app-muted); }
+.tabbar div.on { color: var(--app-accent); font-weight: 700; }
+.fade { position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(transparent, #fff); }
+
+/* B에서 가져온 장치: 가격 계단(기간 순서 계단) */
+.stair { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-items: end; }
+.stair .bar { border: 1.5px solid #6B6B6B; border-bottom-width: 1.5px; border-radius: 6px 6px 2px 2px; background: #fff; }
+.stair .bar.now { background: #111; border-color: #111; }
+.stair .lab { font-size: 12px; line-height: 16px; color: var(--app-muted); }
+.stair .lab.now { color: #111; font-weight: 600; }
+.gly { width: 14px; height: 10px; flex: 0 0 auto; vertical-align: -1px; }
+.stagechip { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 신뢰 줄(UX ①) */
+.trust { padding: 0 16px; }
+.trust .tr { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--app-border); align-items: flex-start; }
+.trust .tr:last-child { border-bottom: 0; }
+.trust .tr .ico { color: #6B6B6B; margin-top: 0; }
+
+/* 카카오톡 대화방 */
+.kchat { width: 390px; height: 560px; background: #B2C7D9; position: relative; font-size: 14px; line-height: 20px; color: #111; }
+.kchat .ktop { height: 64px; padding: 20px 16px 0; font-weight: 700; font-size: 16px; }
+.kmsg { display: flex; gap: 8px; padding: 6px 12px; }
+.kmsg .kav { width: 38px; height: 38px; border-radius: 14px; background: #9BB0C4; flex: 0 0 auto; }
+.kmsg .kname { font-size: 12px; color: #33414E; margin-bottom: 4px; }
+.kbub { background: #fff; border-radius: 4px 14px 14px 14px; padding: 8px 11px; width: fit-content; max-width: 250px; }
+.klink { width: 250px; background: #fff; border-radius: 4px 14px 14px 14px; overflow: hidden; }
+.klink .kimg { width: 250px; height: 131px; overflow: hidden; position: relative; background: #eee; }
+.klink .kimg > img { width: 250px; height: 131px; object-fit: cover; display: block; }
+.klink .kt { padding: 10px 12px 2px; font-weight: 700; font-size: 14px; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.klink .kd { padding: 0 12px; color: #666; font-size: 13px; line-height: 18px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.klink .ku { padding: 6px 12px 10px; color: #999; font-size: 12px; }
+
+/* OG 1200×630 원본 */
+.og { width: 1200px; height: 630px; position: relative; overflow: hidden; font-family: var(--font); color: #111; transform-origin: 0 0; }
+.ogslot { position: relative; overflow: hidden; }
+.og-big { border-radius: 12px; border: 1px solid var(--rule); }
+
+/* 아이콘 패널 */
+.iconpanel { width: 390px; background: #fff; color: #333; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.iconpanel .h { font-size: 12px; line-height: 16px; font-weight: 700; color: #5E5D59; }
+.irow { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.icell { display: flex; flex-direction: column; gap: 6px; align-items: center; font-size: 12px; line-height: 16px; color: #5E5D59; }
+.icell canvas { display: block; background: #fff; }
+.zoom { image-rendering: pixelated; border: 1px solid #DAD9D4; }
+.homescreen { display: flex; gap: 22px; padding: 18px; border-radius: 18px; background: linear-gradient(160deg, #6E8BA8, #3D5269); }
+.homescreen .app { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #fff; font-size: 12px; }
+.homescreen canvas { width: 60px; height: 60px; border-radius: 14px; }
+.tab { display: flex; align-items: center; gap: 8px; background: #DEE1E6; border-radius: 10px 10px 0 0; padding: 8px 12px; width: 240px; font-size: 12px; color: #333; }
+.tab canvas { width: 16px; height: 16px; }
+
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.checks .card { display: flex; flex-direction: column; gap: 10px; }
+.checks h3 { font-size: 15px; }
+.checks ul, .decide ol { margin: 0; padding-left: 18px; font-size: 14px; line-height: 21px; display: flex; flex-direction: column; gap: 5px; }
+.foot { font-size: 13px; color: var(--ink-2); line-height: 20px; }
+
+/* 가격 계단 시안 */
+.t13 { font-size: 13px; line-height: 18px; }
+.v4list { border-top: 1px solid #111; }
+.v4row { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; padding: 6px 0 6px 14px; border-bottom: 1px solid var(--app-border); }
+.v4row:last-child { border-bottom: 0; }
+.v4row.now i { position: absolute; left: 0; top: 7px; bottom: 7px; width: 4px; background: #111; }
+.v4amt { font-size: 20px; line-height: 24px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.v5num { font-size: 34px; line-height: 40px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #111; margin-top: 2px; }
+.v6num { font-size: 46px; line-height: 52px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: #111; }
+.v7amt { font-size: 20px; line-height: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.v1num { font-size: 40px; line-height: 44px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #111; }
+.v2big { font-size: 26px; line-height: 32px; font-weight: 800; letter-spacing: -0.02em; color: #111; }
+.v3amt { line-height: 24px; font-weight: 800; letter-spacing: -0.01em; color: #111; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.glyphpanel { width: 390px; background: #fff; color: #111; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.glyphpanel .h { font-size: 12px; line-height: 16px; font-weight: 700; color: #5E5D59; }
+.grow { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.gbox { display: inline-flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; }
+.adj ol.dl { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 21px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="head">
+  <div class="eyebrow">DEV-311 · 브랜드 아이덴티티 재정비 · 통합안 (A + B 가격 계단, 승인된 DEV-268 UX 위)</div>
+  <h1>A 팬클럽에 B의 가격 계단만 붙여, 승인된 첫 예약 동선 위에 얹었어요</h1>
+  <p class="lede">로고는 승인 원본 그대로 두고(A), 단계 가격은 계단 하나로 보여 줘요(B에서 이것만). 같은 자리를 11월 15일 승인된 UX 제안(<code>dev-268-first-reservation-audit.html</code>, 제안 7개)도 건드려서, 겹치는 곳은 UX 문구·구조를 그대로 두고 브랜드 장치는 그 위에 얹었어요. 화면마다 왼쪽이 지금, 오른쪽이 통합안이에요.</p>
+  <div class="meta"><span>예시 데이터: DEV-268 로컬 시드(오늘 10월 7일, 강씨네 귤밭 · 하우스 감귤 5kg/10kg, 5kg 29,000 → 33,000 → 36,000원, 이 가격 10월 12일까지, 37명 예약, 팔로워 128명)</span><span>프레임 폭 390, 쌍마다 같은 높이</span><span>2026-11-15</span></div>
+</header>
+
+<section aria-label="어디서 무엇을 가져왔나">
+  <h2>화면별로 무엇이 바뀌나</h2>
+  <div class="card sum"><div class="tblx"><table>
+    <tr><th style="width:120px">화면</th><th>무엇이 바뀌나</th><th style="width:200px"><span class="src a">A 팬클럽</span></th><th style="width:200px"><span class="src b">B 가격 계단</span></th><th style="width:220px"><span class="src ux">UX 승인안</span></th></tr>
+    <tr><td><b>홈</b></td><td>소식 카드에 팬 수, 상품 위 단계 가격 설명 상자에 계단 표식, 카드의 ‘이 가격 D-n’ 앞에 지금 단계 표식</td><td>소식 카드 ‘팬 n명’, 로고 원본 위치 그대로</td><td>계단 표식(개념 상자 28×20, 카드 14×10)</td><td>② ‘이 가격 D-n’·취소선 제거·개념 상자 두 문장</td></tr>
+    <tr><td><b>상품 상세</b></td><td>‘지금 예약가’ 옵션 카드 아래 계단 블록, 신뢰 세 줄 첫 줄에 ‘지금 예약하면 38번째예요’, 농가 줄 ‘팬 128명’</td><td>팬 128명, 38번째(보조 줄로)</td><td>계단 블록(기간 순서 높이)</td><td>① 알아 둘 세 줄 · ② 지금 예약가·이 가격 날짜</td></tr>
+    <tr><td><b>로그인</b></td><td>소비자 로그인에도 승인 조합형 로고, 제목은 예약에서 왔을 때 문구</td><td>DEV-85 배치(제목 왼쪽, 로고 오른쪽)</td><td>—</td><td>⑤ ‘로그인하고 예약을 이어 가요’</td></tr>
+    <tr><td><b>카톡 공유 카드</b></td><td>옛 ‘farmclub.’ 워드마크 카드를 크림 바탕 + 승인 조합형 + 계단 표식 정적 카드 한 장으로</td><td>크림 #FFF4E8, 조합형, 이름 ‘farmclub’ 한 가지</td><td>계단 표식만(가격 숫자는 안 넣음)</td><td>② 개념 문장을 설명 문구로</td></tr>
+    <tr><td><b>아이콘</b></td><td>조합형 64% 폭 → 심볼 높이 86%, 크림 바탕 · 생산자 올리브</td><td>A 무브 4 그대로</td><td>—</td><td>—</td></tr>
+    <tr><td><b>주문서</b></td><td>뒤로 왔을 때 ‘이미 만든 예약’ 안내, 상품 줄에 ‘지금 예약가로 잡아 뒀어요’</td><td>—</td><td>표식 + ‘지금 예약가’ 이름 이어 쓰기</td><td>⑥ 이미 만든 예약 · 버튼 위 한 줄 · 강조색 버튼 하나</td></tr>
+    <tr><td><b>입금 안내</b></td><td>금액 한 번 + 복사, 기한 첫 줄, 입금자명 안내 상자(입금 안내의 서버 순번 줄은 11/16 결정으로 후속)</td><td>—</td><td>—</td><td>④ 금액 한 번·기한 첫 줄·입금자명 두 문장</td></tr>
+  </table></div></div>
+  <p class="foot">B에서 가져오지 않은 것: 평면 로고 다듬기, ‘수확까지 D-n’ 첫 줄과 홈 수확 타임라인, 상품별 가격표 공유 카드, 로그인의 ‘이 가격’ 상자, 막대 높이 가격 비례, 지금 칸 주황. C는 쓰지 않았어요.</p>
+</section>
+
+<section class="sec" aria-label="설계 결정">
+  <h2>설계 결정 여섯 가지</h2>
+  <ol class="moves">
+    <li><span class="num">1</span><h3>로고는 원본 그대로, 자리 셋만</h3><p>홈 머리 글자형(지금 위치·폭 159 그대로), 로그인 조합형(150×113), 아이콘 심볼(높이 86%). 픽셀 수정 0, 새 그림 0. 이름을 글자로 쓸 때는 ‘farmclub’ 하나(메타 제목·카톡 카드 포함).</p><div class="tags"><span class="src a">A 1·4·6</span></div></li>
+    <li><span class="num">2</span><h3>숫자 두 개는 자리를 나눠요</h3><p>‘팬 n명’은 농가 줄(상세 농가 줄, 홈 소식 카드)에만, ‘n명 예약’은 상품 줄(카드·신뢰 첫 줄)에만 둬요. 한 줄에 ‘명’ 숫자가 둘 오지 않아요. A 홈 카드의 ‘· 팬 128’은 뺐어요.</p><div class="tags"><span class="src a">A 3</span><span class="src ux">UX ①</span></div></li>
+    <li><span class="num">3</span><h3>계단 높이는 가격이 아니라 기간 순서</h3><p>막대 높이 1:2:3(20·32·44px). 가격 비례(29:33:36)면 첫 칸과 마지막 칸 차이가 20%뿐이라 44px 안에서 9px 차이로 계단이 안 읽혀요. 지금 칸만 #111로 채우고 나머지는 #6B6B6B 1.5px 테두리(흰 바탕 5.33:1).</p><div class="tags"><span class="src b">B 3</span></div></li>
+    <li><span class="num">4</span><h3>계단은 가격을 다시 쓰지 않아요</h3><p>지금 가격은 옵션 카드 ‘지금 예약가’에 한 번만. 계단 라벨은 날짜, 가격은 마지막 칸 ‘5kg 36,000원’ 하나(UX ②가 남긴 줄을 옮긴 것). 다음 기간 가격(<code>nextPrice</code>)은 어디에도 안 써요.</p><div class="tags"><span class="src b">B 3</span><span class="src ux">UX ②</span></div></li>
+    <li><span class="num">5</span><h3>주황은 세 역할, 새 색은 크림 하나</h3><p>#FB8F27은 로고 그림 안에만, #C94F0C는 주요 버튼과 홈 카드 D-day 글자(DEV-293 그대로), 새 값 #FFF4E8은 공유 카드·아이콘 바탕에만(앱 화면 안에서는 이번 범위에 쓰는 곳이 없어 UI 토큰은 후속 ‘응원하는 농가’ 줄과 함께 정해요). 계단·신뢰 줄에는 주황을 안 써요(UX ‘주황은 버튼 하나’).</p><div class="tags"><span class="src a">A 2</span><span class="src ux">UX ①⑥</span></div></li>
+    <li><span class="num">6</span><h3>순번은 상세의 예측 문구 하나만</h3><p>상세 신뢰 첫 줄 보조 14 ‘지금 예약하면 38번째예요’(예약 수 + 1)만 둬요. 입금 안내의 확정 순번(‘강씨네 귤밭의 38번째 예약이에요’)은 주문 순번이 서버에 있어야 해서 11/16 결정으로 후속 이슈로 뺐어요(주문 쪽 고위험 경로). A의 상세 크림 상자와 22 주황 숫자도 뺐어요.</p><div class="tags"><span class="src a">A 3</span><span class="src ux">UX ①</span></div></li>
+  </ol>
+</section>
+
+<section class="sec" aria-label="조정">
+  <h2>조정: 같은 자리를 두 안이 건드린 곳</h2>
+  <div class="adj">
+    <div class="card">
+      <h3>(가) <span class="src b">B 가격 계단</span> ↔ <span class="src ux">UX ② 지금 예약가 · 이 가격 D-n</span></h3>
+      <div class="k">합친 하나</div>
+      <ul>
+        <li>문구는 UX 그대로: 옵션 카드 ‘지금 예약가’, 도착 줄 ‘이 가격은 10월 12일까지’, 카드 ‘이 가격 D-5’, 홈 개념 상자 두 문장, 취소선 없음.</li>
+        <li>계단은 UX가 남긴 12px 한 줄(‘일찍 예약할수록 싸요. 마지막 기간 5kg 36,000원’) 자리에 들어가요. 같은 두 사실을 그림으로 바꾼 것이라 정보는 늘지 않아요.</li>
+        <li>카드·개념 상자·공유 카드에는 막대 셋짜리 표식(14×10, 28×20)만. 글자 ‘이 가격 D-n’ 앞에 붙어 지금 몇 번째 기간인지 보여 줘요.</li>
+      </ul>
+      <div class="k">버린 것</div>
+      <ul>
+        <li>막대 안 가격 세 개 — 다음 가격이 보여 UX ②의 ‘nextPrice 안 씀’과 부딪혀요.</li>
+        <li>‘10월 12일까지 이 가격 · 5일 남음’ — ‘이 가격 D-5’와 같은 말을 두 번 해요.</li>
+        <li>지금 칸 주황, 가격 비례 높이, 계단이 든 상품별 공유 카드.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>(나) <span class="src a">A 팬 n명 · n번째</span> ↔ <span class="src ux">UX ① n명 예약</span></h3>
+      <div class="k">합친 하나</div>
+      <ul>
+        <li>신뢰 세 줄 첫 줄은 UX 그대로 ‘37명이 예약했어요’(아이콘 24 #6B6B6B, 글자 #111, 강조색 없음).</li>
+        <li>A의 순번은 그 줄의 보조 14 ‘지금 예약하면 38번째예요’로 들어가요. 같은 숫자에서 나온 두 말이라 한 줄에 묶었어요(37 + 1).</li>
+        <li>‘팬 128명’은 농가 줄로만. 상품 숫자(37)와 농가 숫자(128)가 같은 줄에 안 나와요.</li>
+      </ul>
+      <div class="k">버린 것</div>
+      <ul>
+        <li>상세의 크림 상자 + 로고 심볼 + 22 주황 ‘38’ — 신뢰 세 줄이 한 묶음 목록이라 한 줄만 다른 상자면 묶음이 깨지고, 주황이 하단 버튼과 겹쳐요.</li>
+        <li>홈 상품 카드의 ‘· 팬 128’(171 폭 카드에 ‘명’ 숫자 둘).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>(다) <span class="src a">A DEV-85 로그인 배치</span> ↔ <span class="src ux">UX ⑤ 이어 받는 제목</span></h3>
+      <ul>
+        <li>‘로그인하고 / 예약을 이어 가요’ 28px 굵게는 둘째 줄이 177px이에요(브라우저 측정). 로고 172(DEV-85 크기)면 제목 칸이 174px라 셋째 줄로 넘어가요.</li>
+        <li>문구는 UX 그대로 두고 로고를 150×113(87%)으로 줄였어요. 제목 칸 196px, 기기 글꼴 차이에 19px 여유. 아래 검산 표에서 줄 수를 브라우저가 직접 재요.</li>
+        <li>A의 크림 안내(‘응원하는 농가의 새 소식을…’)는 예약에서 온 로그인에서는 빼요. 팔로우·채팅에서 왔을 때만.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>(라) 홈 카드 숫자 줄</h3>
+      <ul>
+        <li>UX ② 카드: ‘이 가격 D-5’(12 600 주황) 아래 ‘37명 예약’(12 보조). 표식은 ‘이 가격’ 앞에만 붙여 같은 줄 폭(171)에서 넘치지 않게 했어요.</li>
+        <li>카드 표식은 카드 응답에 지금 기간 순서·기간 수가 있어야 해요(<code>ProductCard</code>엔 아직 없음, 상세 <code>stages</code>엔 있음). 없으면 카드 표식만 빼고 글자는 그대로 둬요.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 화면 쌍 ============================ -->
+<section class="sec" aria-label="화면 비교">
+  <h2>지금 | 통합안</h2>
+
+  <!-- 홈 -->
+  <div class="pair" id="p-home">
+    <div class="note"><h3>홈 (비로그인 첫 방문)</h3>
+      <ol>
+        <li>로고는 지금 자리·크기 그대로예요. <span class="src a">A 1</span></li>
+        <li>소식 카드 이름 옆에 ‘팬 128명’. <span class="src a">A 3</span></li>
+        <li>제철 상품 위 개념 상자 두 문장 + 계단 표식 28×20. 상품이 없으면 숨겨요. <span class="src ux">UX ②</span> <span class="src b">B 3</span></li>
+        <li>카드: 취소선 빼고 ‘29,000원~’, ‘[표식] 이 가격 D-5’, ‘37명 예약’. <span class="src ux">UX ②</span></li>
+      </ol>
+      <p class="from">지금: DEV-268 로컬 시드 캡처(11/11). 로그인 상태의 ‘내가 응원하는 농가’ 크림 줄(A)은 후속 이슈라 그리지 않았어요(결정 7).</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="home-before" style="height:844px"><img class="cap" src="DEV-311/integrated/home-before.png" alt="지금 홈"></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="home-after" style="height:844px"><div class="phone" style="height:844px">
+        <div class="hd" style="height:70px"><img src="DEV-311/assets/logo-wordmark.png" alt="FARM CLUB" style="width:159px;margin-left:0"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+        <div class="px" style="display:flex;justify-content:space-between;align-items:baseline;padding-top:8px"><span class="t18">농가 소식</span><span class="t14 mut">전체</span></div>
+        <div style="display:flex;gap:12px;padding:16px 0 0 16px;overflow:hidden">
+          <div style="flex:0 0 260px;border-radius:16px;overflow:hidden;background:var(--app-surface)">
+            <div class="ph" style="height:76px;background-image:url(../assets/greenhouse.jpg)"></div>
+            <div style="padding:12px 14px 14px">
+              <div style="display:flex;align-items:center;gap:8px"><div class="av" style="width:28px;height:28px;background-image:url(../assets/farmer.jpg)"></div><span class="t14 sb">강씨네 귤밭</span><span class="t12 mut" data-wrap="1" data-wrap-name="홈 소식 카드 이름 줄">팬 128명 · 10월 5일</span></div>
+              <p class="t14" style="margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">하우스 안 온도가 잘 유지돼서 실측 11.8Brix 나왔어요. 10일 전후로 첫 수확 시작합니다.</p>
+            </div>
+          </div>
+          <div style="flex:0 0 260px;border-radius:16px;background:var(--app-surface);padding:14px;height:96px">
+            <div style="display:flex;align-items:center;gap:8px"><div class="av" style="width:28px;height:28px;background-image:url(../assets/branch.jpg)"></div><span class="t14 sb">한라네 과수원</span><span class="t12 mut">팬 54명</span></div>
+            <p class="t14" style="margin-top:8px">태풍 지나가고 밭 둘러봤는데 낙과가 거의 없어요.</p>
+          </div>
+        </div>
+        <div class="px" style="padding-top:22px"><span class="t18">제철 상품</span></div>
+        <div style="margin:12px 16px 0;background:var(--app-surface);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center">
+          <svg class="gly" viewBox="0 0 14 10" style="width:28px;height:20px;color:#111"><use href="#g1"/></svg>
+          <p class="t14" data-wrap="2" data-wrap-name="홈 개념 상자"><b>일찍 예약할수록 싸요.</b> 농가가 기간마다 가격을 정하고, 지금 예약하면 지금 가격으로 받아요.</p>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px 0">
+          <div><div class="ph" style="aspect-ratio:1;border-radius:16px;background-image:url(../assets/basket.jpg)"></div>
+            <div class="t14 mut" style="margin-top:10px">강씨네 귤밭</div><div class="t16 sb" data-wrap="1" data-wrap-name="홈 카드 상품명">하우스 감귤 5kg / 10kg</div><div class="t18" style="margin-top:2px">29,000원~</div>
+            <div class="t12 acc sb stagechip" style="margin-top:4px" data-wrap="1" data-wrap-name="홈 카드 ‘이 가격 D-n’"><svg class="gly" viewBox="0 0 14 10"><use href="#g1"/></svg>이 가격 D-5</div><div class="t12 mut">37명 예약</div></div>
+          <div><div class="ph" style="aspect-ratio:1;border-radius:16px;background-image:url(../assets/greenhouse-aisle.jpg)"></div>
+            <div class="t14 mut" style="margin-top:10px">효돈 하우스농원</div><div class="t16 sb">하우스 감귤 3kg</div><div class="t18" style="margin-top:2px">19,000원</div>
+            <div class="t12 acc sb stagechip" style="margin-top:4px"><svg class="gly" viewBox="0 0 14 10"><use href="#g1"/></svg>이 가격 D-9</div></div>
+        </div>
+        <div class="tabbar">
+          <div class="on"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>발견</div>
+          <div><svg class="ico" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg>내 주문</div>
+          <div><svg class="ico" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z"/></svg>채팅</div>
+          <div><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>내 정보</div>
+        </div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <!-- 상품 상세 -->
+  <div class="pair" id="p-product">
+    <div class="note"><h3>상품 상세 (상단 ~ 가격·옵션·신뢰 세 줄)</h3>
+      <ol>
+        <li>농가 줄 ‘제주 서귀포 · 팬 128명’. 버튼 이름 ‘팔로우’는 그대로. <span class="src a">A 3</span></li>
+        <li>도착 줄 ‘무료배송 · 이 가격은 10월 12일까지’, 옵션 카드 ‘지금 예약가’, 취소선 없음. <span class="src ux">UX ②</span></li>
+        <li>계단 블록: ‘일찍 예약할수록 싸요’ + 막대 셋(20·32·44) + 날짜 라벨, 마지막 칸만 가격 ‘5kg 36,000원’. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
+        <li>신뢰 세 줄, 첫 줄 보조에 ‘지금 예약하면 38번째예요’. <span class="src ux">UX ①</span> <span class="src a">A 3</span></li>
+      </ol>
+      <p class="from">지금: DEV-268 로컬 시드 캡처 위 1060px. 아래쪽 ‘채팅 · 예약하기’ 고정 버튼은 두 쪽 모두 이 높이 밖이에요.</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="product-before" style="height:1060px"><img class="cap" src="DEV-311/integrated/product-before.png" alt="지금 상품 상세"></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="product-after" style="height:1060px"><div class="phone" style="height:1060px">
+        <div class="ph" style="height:300px;position:relative;background-image:url(../assets/basket.jpg)"><span class="pbtn" style="left:12px"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><span class="pbtn" style="right:12px"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"/></svg></span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div class="av" style="background-image:url(../assets/farmer.jpg)"></div><div style="flex:1"><div class="t16 sb">강씨네 귤밭</div><div class="t14 mut" data-wrap="1" data-wrap-name="상세 농가 줄">제주 서귀포 · 팬 128명</div></div><svg class="ico mut" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
+        <div class="px" style="padding-top:20px"><div class="t22" data-wrap="1" data-wrap-name="상세 상품명">하우스 감귤 5kg / 10kg</div><div class="t20">원산지 제주 서귀포</div></div>
+        <div class="hr" style="margin:16px 16px 0"></div>
+        <div class="px" style="display:flex;justify-content:space-between;align-items:center;padding-top:14px"><div><div class="t16 sb">11월 10일~20일 도착 예정</div><div class="t14 mut" data-wrap="1" data-wrap-name="상세 도착 줄">무료배송 · 이 가격은 10월 12일까지</div></div><svg class="ico" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
+        <div style="margin:18px 16px 0;border:1px solid var(--app-border);border-radius:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div><div class="t16 sb">5kg</div><div class="t14 mut">35박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">29,000원</div></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div><div class="t16 sb">10kg</div><div class="t14 mut">14박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">55,000원</div></div></div>
+        </div>
+        <div class="px" style="padding-top:18px">
+          <div class="t14 sb">일찍 예약할수록 싸요</div>
+          <div class="stair" style="margin-top:8px;height:44px"><div class="bar now" style="height:20px"></div><div class="bar" style="height:32px"></div><div class="bar" style="height:44px"></div></div>
+          <div class="stair" style="margin-top:6px;align-items:start"><div class="lab now" data-wrap="1" data-wrap-name="계단 지금 라벨">지금 · 10월 12일까지</div><div class="lab" data-wrap="1" data-wrap-name="계단 둘째 라벨">10월 13일부터</div><div class="lab" data-wrap="2" data-wrap-name="계단 마지막 라벨">11월 6일부터<br>5kg 36,000원</div></div>
+        </div>
+        <div class="trust" style="margin-top:14px">
+          <div class="tr"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.8 3 2.6 3.5 5.2"/></svg><div><div class="t16">37명이 예약했어요</div><div class="t14 mut" data-wrap="1" data-wrap-name="신뢰 첫 줄 보조">지금 예약하면 38번째예요</div></div></div>
+          <div class="tr"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><div><div class="t16">농가 계좌로 직접 입금해요</div><div class="t14 mut" data-wrap="1" data-wrap-name="신뢰 둘째 줄 보조">예약하면 24시간 동안 물량을 잡아 둬요</div></div></div>
+          <div class="tr"><svg class="ico" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4M12 8v4l3 2"/></svg><div><div class="t16" data-wrap="1" data-wrap-name="신뢰 셋째 줄">11월 30일까지 못 보내면 전액 환불</div><div class="t14 mut">보내기 전에는 언제든 취소할 수 있어요</div></div></div>
+        </div>
+        <div class="fade"></div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <!-- 로그인 -->
+  <div class="pair" id="p-login">
+    <div class="note"><h3>로그인 (소비자, 예약하다 온 경우)</h3>
+      <ol>
+        <li>생산자 로그인과 같은 배치(제목 왼쪽 · 조합형 오른쪽). 로고 150×113. <span class="src a">A 1</span></li>
+        <li>제목 ‘로그인하고 예약을 이어 가요’(from=reserve). <span class="src ux">UX ⑤</span></li>
+        <li>카카오 버튼·안내 한 줄은 지금 그대로. 예약에서 왔을 땐 크림 안내 줄을 안 둬요(조정 다).</li>
+      </ol>
+      <p class="from">지금: 배포 주소(farmclub-consumer.vercel.app) 11/11 캡처, 아래 사업자 정보 푸터는 잘라 냈어요.</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="login-before" style="height:500px"><img class="cap" src="DEV-311/integrated/login-before.png" alt="지금 소비자 로그인"></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="login-after" style="height:500px"><div class="phone" style="height:500px">
+        <div style="height:56px;display:flex;align-items:center;padding:0 16px"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px 0">
+          <div style="font-size:28px;line-height:38px;font-weight:700;letter-spacing:-0.02em;min-width:0" data-wrap="2" data-wrap-name="로그인 제목(로고 150 옆)">로그인하고<br>예약을 이어 가요</div>
+          <img src="DEV-311/assets/logo-full.png" alt="FARM CLUB" style="width:150px;flex:0 0 auto">
+        </div>
+        <div class="px" style="padding-top:28px"><div class="btn kakao">카카오로 시작하기</div><p class="t14 mut" style="margin-top:14px">약관 동의와 연락처는 처음 가입할 때 한 번만 받아요</p></div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <!-- 카톡 공유 카드 -->
+  <div class="pair" id="p-share">
+    <div class="note"><h3>카톡 공유 카드 (사이트 기본, 상품 링크에도 나가는 카드)</h3>
+      <ol>
+        <li>10월 8일 ‘farmclub.’ 워드마크 카드를 크림 바탕 + 승인 조합형으로. 앱을 열면 보이는 로고와 같아져요. <span class="src a">A 5</span></li>
+        <li>큰 글은 ‘좋아하는 농가를 수확 전에 예약해요’, 그 아래 계단 표식과 ‘일찍 예약할수록 싸요’. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
+        <li>메타 제목·설명도 같은 말투: ‘farmclub · 좋아하는 농가를 수확 전에 예약해요’, ‘농가가 기간마다 가격을 정하고, 지금 예약하면 지금 가격으로 받아요.’ <span class="src a">A 6</span></li>
+        <li>정적 이미지 한 장이라 숫자(팬·예약·가격)는 넣지 않아요. 상품별 동적 카드는 후속 이슈(결정 6).</li>
+      </ol>
+      <p class="from">지금: 실제 <code>og.jpg</code>와 <code>index.html</code>의 og:title·og:description으로 이 보드에서 다시 그린 말풍선이에요(카톡 앱 캡처 아님).</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="share-before" style="height:560px"><div class="kchat">
+        <div class="ktop">민지</div>
+        <div class="kmsg"><div class="kav"></div><div><div class="kname">민지</div><div class="kbub">이거 같이 예약할래?</div></div></div>
+        <div class="kmsg"><div class="kav" style="visibility:hidden"></div><div class="klink"><div class="kimg"><img src="DEV-311/assets/og-current.jpg" alt=""></div><div class="kt">farmclub · 수확 전에 예약하는 산지 직송 감귤</div><div class="kd">농가가 정한 시기별 가격 · 일찍 예약할수록 싸요</div><div class="ku">farmclub.kr</div></div></div>
+      </div></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="share-after" style="height:560px"><div class="kchat">
+        <div class="ktop">민지</div>
+        <div class="kmsg"><div class="kav"></div><div><div class="kname">민지</div><div class="kbub">이거 같이 예약할래?</div></div></div>
+        <div class="kmsg"><div class="kav" style="visibility:hidden"></div><div class="klink"><div class="kimg ogslot" data-og="og-int" data-w="250"></div><div class="kt">farmclub · 좋아하는 농가를 수확 전에 예약해요</div><div class="kd">농가가 기간마다 가격을 정하고, 지금 예약하면 지금 가격으로 받아요.</div><div class="ku">farmclub.kr</div></div></div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <!-- 아이콘 -->
+  <div class="pair" id="p-icons">
+    <div class="note"><h3>앱 아이콘 · 파비콘 16 / 32 / 180</h3>
+      <ol>
+        <li>조합형(글자 포함) 64% 폭 → 승인 심볼 <code>logo-icon.png</code> 높이 86%. <span class="src a">A 4</span></li>
+        <li>바탕 크림 #FFF4E8, 생산자 앱은 올리브 #56652A로 홈 화면에서 구별. <span class="src a">A 4</span></li>
+        <li>16px에서 남는 것은 아래 검산(브라우저가 이 그림을 직접 세요).</li>
+      </ol>
+      <p class="from">두 쪽 모두 원본 PNG를 실제 크기 캔버스에 그린 뒤 키워 보였어요(16 ×4, 32 ×2는 픽셀 그대로).</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="icons-before"><div class="iconpanel" data-icons="now"></div></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="icons-after"><div class="iconpanel" data-icons="a"></div></div></div>
+    </div>
+  </div>
+
+  <!-- 주문서 -->
+  <div class="pair" id="p-checkout">
+    <div class="note"><h3>주문서 (입금 안내에서 뒤로 온 경우)</h3>
+      <ol>
+        <li>돌아오자마자 ‘이미 만든 예약이 있어요’ 안내 + 하단 ‘입금 안내 보기’. <span class="src ux">UX ⑥</span></li>
+        <li>상품 줄 셋째 줄 ‘[표식] 지금 예약가로 잡아 뒀어요’. 상세의 ‘지금 예약가’ 이름을 이어 써요. <span class="src b">B 3</span> <span class="src ux">UX ②</span></li>
+        <li>‘변경’·총 입금액은 #111, 주황은 하단 버튼 하나. 버튼 위 한 줄 ‘누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금’. <span class="src ux">UX ⑥</span></li>
+      </ol>
+      <p class="from">지금: DEV-268 로컬 시드 ‘뒤로 온 주문서’ 위 844px(목 로그인 테스트 계정, 시드 주소).</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="checkout-before" style="height:844px"><img class="cap" src="DEV-311/integrated/checkout-before.png" alt="지금 주문서"></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="checkout-after" style="height:844px"><div class="phone" style="height:844px">
+        <div class="hd2"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>주문서</div>
+        <div class="testbar">테스트 서비스예요 · 실제 입금·배송은 없어요</div>
+        <div class="notice" style="margin:14px 16px 0"><div class="t16 sb">이미 만든 예약이 있어요</div><div class="t14 mut" data-wrap="1" data-wrap-name="주문서 안내 보조">FC-1007-3379 · 입금 대기 · 내일 오전 10:00까지</div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:16px">
+          <div class="ph" style="width:64px;height:64px;border-radius:10px;flex:0 0 auto;background-image:url(../assets/basket.jpg)"></div>
+          <div style="flex:1;min-width:0"><div class="t16 sb">하우스 감귤 5kg × 2</div><div class="t14 mut">강씨네 귤밭 · 11월 10일~20일 도착</div><div class="t12 sb stagechip" style="margin-top:4px" data-wrap="1" data-wrap-name="주문서 지금 예약가 줄"><svg class="gly" viewBox="0 0 14 10"><use href="#g1"/></svg>지금 예약가로 잡아 뒀어요</div></div>
+          <span class="t14 sb">변경</span>
+        </div>
+        <div style="height:8px;background:var(--app-surface)"></div>
+        <div class="px" style="padding-top:18px;padding-bottom:18px"><div style="display:flex;justify-content:space-between"><span class="t18">받는 곳</span><span class="t14 sb">변경</span></div><div class="t16" style="margin-top:8px">김민지 · 010-2345-6789</div><div class="t14 mut">서울 마포구 월드컵북로 12, 302호</div></div>
+        <div style="height:8px;background:var(--app-surface)"></div>
+        <div class="px" style="display:flex;justify-content:space-between;align-items:center;padding-top:18px;padding-bottom:18px"><span class="t16 sb">총 입금액</span><span class="t22">58,000원</span></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;border-top:1px solid var(--app-border);padding:10px 16px 20px;background:#fff">
+          <p class="t14 mut" style="text-align:center" data-wrap="1" data-wrap-name="주문서 버튼 위 한 줄">누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금</p>
+          <div class="btn pri" style="margin-top:8px">입금 안내 보기</div>
+        </div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <!-- 입금 안내 -->
+  <div class="pair" id="p-deposit">
+    <div class="note"><h3>입금 안내</h3>
+      <ol>
+                <li>기한이 첫 줄, 금액은 큰 숫자 한 번 + 복사. ‘입금액’·‘입금 기한’ 줄은 빼요. <span class="src ux">UX ④</span></li>
+        <li>입금자명 안내는 면색 상자 두 문장 ‘받는 분 통장 표시를 …로 바꿔 보내 주세요’. <span class="src ux">UX ④</span></li>
+      </ol>
+      <p class="from">지금: DEV-268 로컬 시드 위 540px(아래 판매자·고지 절은 두 쪽 모두 이 높이 밖). 계좌·예금주는 시드의 가짜 값이에요. 맨 위 순번 줄(A)은 11/16 결정으로 후속이라 그리지 않았어요.</p>
+    </div>
+    <div class="duo">
+      <div class="col"><span class="lbl">지금</span><div class="shot" data-shot="deposit-before" style="height:540px"><img class="cap" src="DEV-311/integrated/deposit-before.png" alt="지금 입금 안내"></div></div>
+      <div class="col"><span class="lbl after">통합안</span><div class="shot" data-shot="deposit-after" style="height:540px"><div class="phone" style="height:540px">
+        <div class="hd2"><svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>입금 안내</div>
+        <div class="testbar">테스트 서비스예요 · 실제 돈은 나가지 않아요</div>
+        <div class="px" style="padding-top:14px">
+          <div class="t14 mut">10월 8일 (목) 오전 10:00까지 입금해 주세요</div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:28px;line-height:36px;font-weight:700">58,000원</span><span class="copy">복사</span></div>
+          <div class="t14 mut">하우스 감귤 5kg × 2 · 강씨네 귤밭</div>
+        </div>
+        <div class="px" style="margin-top:8px">
+          <div class="row48" style="border-top:1px solid var(--app-border)"><span class="t16 mut">계좌번호</span><span class="t16 b">제주은행 101-23-456789<span class="copy">복사</span></span></div>
+          <div class="row48"><span class="t16 mut">예금주</span><span class="t16">강영수 (강씨네 귤밭)</span></div>
+          <div class="row48"><span class="t16 mut">입금자명</span><span class="t16 b">FC-1007-3379<span class="copy">복사</span></span></div>
+        </div>
+        <div class="notice" style="margin:14px 16px 0"><div class="t16 sb" data-wrap="2" data-wrap-name="입금자명 안내 제목">받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요</div><div class="t14 mut" style="margin-top:2px">농가가 이 이름으로 입금을 찾아요.</div></div>
+      </div></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" aria-label="공유 카드 원본">
+  <h2>공유 카드 원본 1200×630 (½)</h2>
+  <div class="duo"><div class="col"><span class="lbl">지금 og.jpg</span><img src="DEV-311/assets/og-current.jpg" alt="지금 공유 카드" style="width:600px;height:315px;border-radius:12px;border:1px solid var(--rule)"></div><div class="col"><span class="lbl after">통합안</span><div class="ogslot og-big" data-og="og-int" data-w="600"></div></div></div>
+</section>
+
+<!-- ============================ 가격 계단 시안 ============================ -->
+<section class="sec" aria-label="가격 계단 시안" id="stair">
+  <h2>가격 계단 시안 (11/15 피드백: 더 눈에 들어오게, 장식 없이)</h2>
+  <div class="card" style="border-left:6px solid var(--mark)"><h3>결정(11/16): 지금 통합안 유지, V1~V7 미채택</h3><p style="font-size:14px;line-height:21px;color:var(--ink-2)">사용자가 7안을 본 뒤 처음 통합안 계단(테두리 칸 셋, 높이 20·32·44, 지금 칸만 채움, 마지막 칸에 ‘5kg 36,000원’)을 그대로 쓰기로 했어요. 아래 시안은 비교 기록으로 남겨요. 4단계 이상에서 ‘지금 · 날짜’가 두 줄로 꺾이던 것만 고쳤어요(‘지금’을 지금 칸 위 빈자리로 올림).</p></div>
+  <p class="lede">통합안의 계단은 테두리 상자 셋 + 검은 칸 하나라 와이어프레임 막대그래프처럼 읽혔어요. 색·그라데이션·그림자를 더하지 않고, 큰 글자와 작은 라벨의 크기 차이, 꽉 찬 면이나 선 하나로 다시 그렸어요. 세 안은 구조가 달라요: V1은 시간 레일, V2는 글자 계단, V3는 이어진 면. 문구는 UX 승인안 그대로이고, 가격은 마지막 기간 ‘5kg 36,000원’ 하나만 보여요.</p>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl">지금 통합안 · 채택</span><div class="shot" data-shot="stair-current" style="height:440px"><div class="phone" style="height:440px" data-frame="cur"></div></div></div>
+    <div class="col"><span class="lbl after">V1 레일</span><div class="shot" data-shot="stair-v1" style="height:440px"><div class="phone" style="height:440px" data-frame="v1"></div></div></div>
+    <div class="col"><span class="lbl after">V2 글자 계단</span><div class="shot" data-shot="stair-v2" style="height:440px"><div class="phone" style="height:440px" data-frame="v2"></div></div></div>
+    <div class="col"><span class="lbl after">V3 실루엣</span><div class="shot" data-shot="stair-v3" style="height:440px"><div class="phone" style="height:440px" data-frame="v3"></div></div></div>
+  </div>
+
+  <div class="lbl" style="margin-top:8px;font-size:13px;font-weight:700;color:var(--ink-2)">2차 (11/16, 요즘 쓰는 패턴)</div>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl after">V4 티어 줄</span><div class="shot" data-shot="stair-v4" style="height:440px"><div class="phone" style="height:440px" data-frame="v4"></div></div></div>
+    <div class="col"><span class="lbl after">V5 세그먼트 미터</span><div class="shot" data-shot="stair-v5" style="height:440px"><div class="phone" style="height:440px" data-frame="v5"></div></div></div>
+    <div class="col"><span class="lbl after">V6 차액</span><div class="shot" data-shot="stair-v6" style="height:440px"><div class="phone" style="height:440px" data-frame="v6"></div></div></div>
+    <div class="col"><span class="lbl after">V7 실루엣 다듬기</span><div class="shot" data-shot="stair-v7" style="height:440px"><div class="phone" style="height:440px" data-frame="v7"></div></div></div>
+  </div>
+
+  <h3 style="margin-top:12px">작은 표식: 홈 카드 ‘이 가격 D-5’ 앞 14×10 · 개념 상자·공유 카드 28×20</h3>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl">지금 통합안</span><div class="shot" data-shot="glyph-current"><div class="glyphpanel" data-glyph="cur"></div></div></div>
+    <div class="col"><span class="lbl after">V1</span><div class="shot" data-shot="glyph-v1"><div class="glyphpanel" data-glyph="v1"></div></div></div>
+    <div class="col"><span class="lbl after">V2</span><div class="shot" data-shot="glyph-v2"><div class="glyphpanel" data-glyph="v2"></div></div></div>
+    <div class="col"><span class="lbl after">V3</span><div class="shot" data-shot="glyph-v3"><div class="glyphpanel" data-glyph="v3"></div></div></div>
+  </div>
+
+  <div class="lbl" style="margin-top:8px;font-size:13px;font-weight:700;color:var(--ink-2)">2차 (11/16, 요즘 쓰는 패턴)</div>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl after">V4</span><div class="shot" data-shot="glyph-v4"><div class="glyphpanel" data-glyph="v4"></div></div></div>
+    <div class="col"><span class="lbl after">V5</span><div class="shot" data-shot="glyph-v5"><div class="glyphpanel" data-glyph="v5"></div></div></div>
+    <div class="col"><span class="lbl after">V6</span><div class="shot" data-shot="glyph-v6"><div class="glyphpanel" data-glyph="v6"></div></div></div>
+    <div class="col"><span class="lbl after">V7</span><div class="shot" data-shot="glyph-v7"><div class="glyphpanel" data-glyph="v7"></div></div></div>
+  </div>
+
+  <h3 style="margin-top:12px">단계가 2개일 때 · 4개이고 날짜가 길 때</h3>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl">지금 통합안</span><div class="shot" data-shot="stress-current"><div class="phone stresspanel" data-stress="cur"></div></div></div>
+    <div class="col"><span class="lbl after">V1</span><div class="shot" data-shot="stress-v1"><div class="phone stresspanel" data-stress="v1"></div></div></div>
+    <div class="col"><span class="lbl after">V2</span><div class="shot" data-shot="stress-v2"><div class="phone stresspanel" data-stress="v2"></div></div></div>
+    <div class="col"><span class="lbl after">V3</span><div class="shot" data-shot="stress-v3"><div class="phone stresspanel" data-stress="v3"></div></div></div>
+  </div>
+
+  <div class="lbl" style="margin-top:8px;font-size:13px;font-weight:700;color:var(--ink-2)">2차 (11/16, 요즘 쓰는 패턴)</div>
+  <div class="duo quad" style="flex-wrap:wrap">
+    <div class="col"><span class="lbl after">V4</span><div class="shot" data-shot="stress-v4"><div class="phone stresspanel" data-stress="v4"></div></div></div>
+    <div class="col"><span class="lbl after">V5</span><div class="shot" data-shot="stress-v5"><div class="phone stresspanel" data-stress="v5"></div></div></div>
+    <div class="col"><span class="lbl after">V6</span><div class="shot" data-shot="stress-v6"><div class="phone stresspanel" data-stress="v6"></div></div></div>
+    <div class="col"><span class="lbl after">V7</span><div class="shot" data-shot="stress-v7"><div class="phone stresspanel" data-stress="v7"></div></div></div>
+  </div>
+
+  <div class="adj">
+    <div class="card">
+      <h3>V1 레일 · 남은 날이 주인공</h3>
+      <ol class="dl">
+        <li><b>큰 숫자 하나.</b> ‘이 가격 D-5’를 40/44 800 tabular로 지금 구간 바로 위에. 홈 카드와 같은 말을 크게 쓴 거라 새 문구가 없어요. 가격(29,000원)은 옵션 카드에 있으니 다시 쓰지 않아요.</li>
+        <li><b>구간 길이 = 실제 기간.</b> 오늘부터 각 기간 끝까지의 날 수로 폭을 나누고, 한 구간 최소 56px. 5일 남은 지금 구간이 짧게 보이는 게 곧 ‘서두를 이유’예요.</li>
+        <li><b>선 하나.</b> 지금 구간은 5px 검정 면, 뒤는 1px #111 선이 한 단씩 오르는 계단(오름 합계 22px, 단 수로 나눠요). 라벨은 양 끝 둘만: 왼쪽 ‘10월 12일까지’, 오른쪽 ‘11월 6일부터 / 5kg 36,000원’. 가운데 구간은 이름을 달지 않아요.</li>
+      </ol>
+      <div class="tblx"><table>
+        <tr><th>검산</th><th>값</th></tr>
+        <tr><td>대비비</td><td>#111 숫자·선 / 흰 18.88 · #6B6B6B 라벨 / 흰 5.33</td></tr>
+        <tr><td>가장 작은 글자</td><td>14 (라벨). 큰 숫자 40</td></tr>
+        <tr><td>390 줄바꿈</td><td data-wrapsum="v1">—</td></tr>
+        <tr><td>단계 2 · 4</td><td>2: 선이 한 번만 올라가요. 4: 가운데 둘은 이름 없는 단이라 깨지지 않지만, 기간 날짜를 보려면 상세 펼침이 필요해요</td></tr>
+        <tr><td>긴 날짜</td><td>라벨이 양 끝 둘뿐이라 ‘11월 30일까지’도 한 줄. D-54처럼 두 자리도 같은 자리</td></tr>
+        <tr><td>개발</td><td>중간 · <code>react-native-svg</code>(이미 의존성)로 경로 계산, 날 수 비례·최소 폭 규칙 테스트 필요 · 약 1.5일</td></tr>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>V2 글자 계단 · 기준선이 오른다</h3>
+      <ol class="dl">
+        <li><b>도형 없이 글자와 기준선만.</b> 단마다 글자가 자기 기준선(가로 선) 위에 서고, 다음 단은 한 칸 오른쪽·44px 위에서 시작해요. 선 셋이 오른쪽 위로 오르는 모양이 계단이에요.</li>
+        <li><b>지금 단만 크게.</b> ‘지금’ 14 600 + ‘10월 12일까지’ 26/32 800 #111, 기준선 3px 검정. 뒤 단은 14 #6B6B6B, 기준선 1px.</li>
+        <li><b>빈자리에 제목.</b> 계단이 오른쪽 위로 비켜 간 왼쪽 위 빈칸에 ‘일찍 예약할수록 싸요’. 블록 높이가 따로 늘지 않아요.</li>
+        <li><b>가격은 꼭대기 단에만.</b> ‘5kg 36,000원’ 14 600 #111.</li>
+      </ol>
+      <div class="tblx"><table>
+        <tr><th>검산</th><th>값</th></tr>
+        <tr><td>대비비</td><td>#111 / 흰 18.88 · #6B6B6B 단 글자·기준선 / 흰 5.33</td></tr>
+        <tr><td>가장 작은 글자</td><td>14. 큰 날짜 26</td></tr>
+        <tr><td>390 줄바꿈</td><td data-wrapsum="v2">—</td></tr>
+        <tr><td>단계 2 · 4</td><td>단마다 44px라 4단이면 블록 높이 192px(3단 148). 단 수가 늘면 세로로 길어져요</td></tr>
+        <tr><td>긴 날짜</td><td>지금 단은 전체 폭을 써서 ‘11월 30일까지’ 26px도 한 줄. 4단에서 빈자리 제목 폭은 268px</td></tr>
+        <tr><td>개발</td><td>쉬움 · View 절대 위치와 선 3개, SVG 없음 · 약 1일</td></tr>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>V3 실루엣 · 이어진 면 하나</h3>
+      <ol class="dl">
+        <li><b>떨어진 상자 셋이 아니라 붙은 면 하나.</b> 틈 0, 모서리 0, 1px #111 바닥선 하나. 높이 28 → 50 → 72로 오르는 한 덩어리라 막대그래프가 아니라 계단으로 읽혀요.</li>
+        <li><b>지금 단만 검정.</b> #111 면 안에 흰 ‘지금’ 14 700. 뒤 단은 기존 선 토큰 #E8E8E6으로 칠해 새 색이 없어요.</li>
+        <li><b>마지막 단 안에 그 가격.</b> 가장 높은 단 안에 ‘5kg’ 12 + ‘36,000원’ 20 800. 높이 차이와 숫자가 같은 자리에서 말해요.</li>
+        <li><b>날짜는 면 바로 아래 한 줄.</b> 지금 단 ‘10월 12일까지’ 14 600 #111, 뒤 단 ‘10월 13일부터’ 14 #6B6B6B. 제목은 V2처럼 왼쪽 위 빈자리.</li>
+      </ol>
+      <div class="tblx"><table>
+        <tr><th>검산</th><th>값</th></tr>
+        <tr><td>대비비</td><td>흰 / #111 18.88 · #111 / #E8E8E6 15.39 · ‘5kg’ #555 / #E8E8E6 6.08 · #E8E8E6 면 / 흰 1.23(면 경계는 약해요. 기간 정보는 아래 날짜 글자가 같이 전해서 1.4.11 예외로 봤어요)</td></tr>
+        <tr><td>가장 작은 글자</td><td>12 (‘5kg’, 4단의 날짜). 나머지 14 이상</td></tr>
+        <tr><td>390 줄바꿈</td><td data-wrapsum="v3">—</td></tr>
+        <tr><td>단계 2 · 4</td><td>2: 반씩, 높이 28·72. 4: 한 단 89px, 날짜 12·가격 16으로 줄여요. 그래도 한 줄(아래 표)</td></tr>
+        <tr><td>긴 날짜</td><td>‘12월 15일부터’ 12px 74px로 89px 칸 안. 5단부터는 날짜를 지금·마지막만 남기는 규칙이 필요해요</td></tr>
+        <tr><td>개발</td><td>쉬움 · 높이가 다른 View 셋을 틈 없이 붙이면 끝, SVG 없음 · 약 0.5~1일</td></tr>
+        <tr><td>강조색으로 칠하면</td><td>상세 한 화면에 주황이 ‘예약하기’ 버튼과 지금 단 두 곳이 돼요. 주황 면은 눌리는 것처럼 보여 버튼과 겹치므로 검정으로 뒀어요</td></tr>
+      </table></div>
+    </div>
+    <h3 style="grid-column:1/-1;margin-top:8px">2차 (11/16) · 요즘 서비스에서 쓰는 단계 가격 패턴</h3>
+    <div class="card">
+      <h3>V4 티어 줄 · 얼리버드 티켓 목록식</h3>
+      <ol class="dl"><li><b>단계마다 한 줄, 헤어라인 구분.</b> 이름은 명사(‘지금’ ‘다음 기간’ ‘마지막 기간’), 아래에 날짜. 가격은 지금 줄(5kg 29,000원 20px 800)과 마지막 줄(‘5kg 36,000원’ 14 회색)만.</li><li><b>지금 줄은 왼쪽 4px 검정 막대 + 굵은 글자.</b> 검정 면으로 칠하면 옵션을 고른 상태나 누르는 버튼처럼 보이고, 바로 위 옵션 카드와 선택 표시가 겹쳐요. 막대는 ‘여기’만 가리켜요.</li><li><b>지난 단계는 취소선 대신</b> #767676 13px ‘지난 기간 · 11월 1일~15일’ + 오른쪽 ‘마감’.</li></ol>
+      <div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>#111 / 흰 18.88 · #6B6B6B / 흰 5.33 · 지난 단계 #767676 / 흰 4.54(새 회색 값 하나)</td></tr><tr><td>가장 작은 글자</td><td>13</td></tr><tr><td>390 줄바꿈</td><td><span data-wrapsum="v4">—</span></td></tr><tr><td>단계 2 · 4</td><td>줄 높이 48 고정이라 4단계+지난 단계면 블록 240px. 세로로 가장 길어요</td></tr><tr><td>개발</td><td>쉬움 · 목록 줄(ListRow) 재사용 · 약 0.5일</td></tr><tr><td>걸리는 점</td><td>UI 1.6이 소비자 화면에서 뺀 ‘날짜별 가격표’에 가장 가까워요(conversation-ui-1.6 20행, screens.md SCR-04). 29,000원이 옵션 카드와 겹쳐요</td></tr></table></div>
+    </div>
+    <div class="card">
+      <h3>V5 세그먼트 미터 · 진행 막대식</h3>
+      <ol class="dl"><li><b>주인공은 지금 가격.</b> ‘5kg 지금 예약가’ 13 + ‘29,000원’ 34/40 800, 오른쪽 위에 ‘이 가격 D-5’ 13 굵게.</li><li><b>계단 대신 평평한 8px 칸 막대.</b> 칸 사이 2px, 지금 칸만 #111, 다음 칸 #E8E8E6, 지난 칸 #BDBDB9. 모서리 0.</li><li><b>라벨은 두 개.</b> 지금 칸 아래 ‘지금 · 10월 12일까지’, 오른쪽 끝 ‘마지막 5kg 36,000원’. 지난 칸 아래만 ‘마감’.</li></ol>
+      <div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>#111 / 흰 18.88 · #6B6B6B / 흰 5.33 · 칸 #E8E8E6 1.23 · 지난 칸 #BDBDB9 1.88(칸 구분은 약해요. 정보는 라벨 글자가 전해요)</td></tr><tr><td>가장 작은 글자</td><td>13(‘마감’ 12)</td></tr><tr><td>390 줄바꿈</td><td><span data-wrapsum="v5">—</span></td></tr><tr><td>단계 2 · 4</td><td>칸 수만 바뀌고 높이는 같아요(블록 약 100px). 4단계+지난 단계도 라벨 셋이 한 줄</td></tr><tr><td>개발</td><td>쉬움 · View 칸 n개 · 약 0.5일</td></tr><tr><td>걸리는 점</td><td>계단 은유가 사라져요. 29,000원이 바로 위 옵션 카드와 겹쳐요(150px 안에 두 번)</td></tr></table></div>
+    </div>
+    <div class="card">
+      <h3>V6 차액이 주인공 · 에디토리얼 큰 숫자</h3>
+      <ol class="dl"><li><b>도형 없이 숫자 하나.</b> ‘5kg · 마지막 기간보다’ 13 600 + ‘7,000원’ 46/52 800 + ‘싸요’ 20.</li><li><b>근거는 한 줄.</b> 1px #111 선 아래 ‘10월 12일까지 29,000원 → 마지막 36,000원’ 14. 중간 가격은 없어요.</li><li><b>차액 = 마지막 − 지금.</b> 단계가 몇 개든 계산이 같아 2·4단계에서 모양이 안 바뀌어요.</li></ol>
+      <div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>#111 / 흰 18.88 · #6B6B6B / 흰 5.33</td></tr><tr><td>가장 작은 글자</td><td>13</td></tr><tr><td>390 줄바꿈</td><td><span data-wrapsum="v6">—</span></td></tr><tr><td>단계 2 · 4</td><td>모양 그대로, 숫자만 바뀜(4,000원 · 6,000원)</td></tr><tr><td>개발</td><td>가장 쉬움 · 글자 셋 · 약 0.5일</td></tr><tr><td>UX ②·스펙과 충돌</td><td><b>충돌한다고 봐요.</b> 스펙이 금지한 건 ‘다음 기간 대비 이득 문구’인데, ‘7,000원 싸요’는 비교 대상만 마지막 기간으로 바꾼 같은 종류의 이득 문구예요. DEV-268 문제 2(취소선이 할인으로 읽혀 값을 부풀렸나 의심)도 그대로 돌아와요. 쓰려면 스펙(UI 1.6 20행) 변경 결정이 먼저예요</td></tr></table></div>
+    </div>
+    <div class="card">
+      <h3>V7 V3 다듬기 · 강조를 지금으로</h3>
+      <ol class="dl"><li><b>지금 단을 두 배 폭으로.</b> 칸 비율 2:1:1, 높이 44 → 60 → 76. 검정 지금 단 안에 흰 ‘지금’ 13 + ‘29,000원’ 20 800이 이 블록에서 가장 큰 글자.</li><li><b>마지막 가격은 낮춰요.</b> 가장 높은 단 안 ‘5kg / 36,000원’ 14 600 #555.</li><li><b>날짜는 면 아래.</b> 지금 단 아래 ‘10월 12일까지’ 13 600, 뒤 단은 시작 날짜 13 회색. 4단계부터는 가운데 날짜를 빼고 지금·마지막만. 지난 단계는 #F5F5F3 낮은 단 안에 ‘마감’.</li></ol>
+      <div class="tblx"><table><tr><th>검산</th><th>값</th></tr><tr><td>대비비</td><td>흰 / #111 18.88 · #555 / #E8E8E6 6.08 · ‘마감’ #6B6B6B / #F5F5F3 4.88 · 면 #E8E8E6 / 흰 1.23</td></tr><tr><td>가장 작은 글자</td><td>12(‘5kg’, ‘마감’). 나머지 13 이상</td></tr><tr><td>390 줄바꿈</td><td><span data-wrapsum="v7">—</span></td></tr><tr><td>단계 2 · 4</td><td>2: 2:1, 높이 44·76. 4+지난 단계: 한 단 72px, 마지막 가격 13·안쪽 여백 6으로 줄여 칸 안</td></tr><tr><td>개발</td><td>쉬움 · View 셋, 폭만 2배 · 약 0.5~1일</td></tr><tr><td>걸리는 점</td><td>29,000원이 옵션 카드와 겹쳐요. 검정 면이 화면에서 가장 무거운 요소예요</td></tr></table></div>
+    </div>
+    <div class="card" style="border-left:6px solid var(--mark);grid-column:1/-1">
+      <h3>검토했지만 채택하지 않음 · 당시 추천은 1순위 V5, 2순위 V7 (11/16 결정: 지금 통합안 유지)</h3>
+      <ol class="dl">
+        <li><b>1순위 V5.</b> 질문이 ‘요즘 쓰는 방향’이었고, 그중 가장 차분하면서 눈에 들어와요. 34px 가격 + 8px 미터 두 요소뿐이라 장식 없이 에이전시 톤이 나요. 단계 수·지난 단계가 바뀌어도 높이가 같고(약 100px), View만으로 0.5일이에요. 14×10 표식도 칸 셋 막대로 그대로 줄어요.</li>
+        <li><b>2순위 V7.</b> 계단 은유를 지키고 싶으면 이 안이에요. V3보다 강조가 맞는 자리(지금 가격)로 옮겨 갔고, 2~4단계·지난 단계까지 칸 안에 들어가요. 다만 검정 면이 무거워 화면 위계가 버튼과 다퉈요.</li>
+        <li><b>뒤로 미룬 것.</b> V4는 UI 1.6이 소비자 화면에서 뺀 날짜별 가격표에 가장 가깝고, V6는 스펙이 금지한 이득 문구 성격이라 스펙 결정 없이 넣기 어려워요. V1~V3은 1차 그대로 두되, V3는 V7로 대체 가능해요.</li>
+        <li><b>V5·V7 공통으로 정할 것.</b> 29,000원이 바로 위 옵션 카드(5kg 29,000원)와 겹쳐요. 계단 쪽 가격을 남기면 옵션 카드의 ‘지금 예약가’ 라벨을 빼는 식으로 한쪽을 가볍게 해야 해요.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 검산 ============================ -->
+<section class="sec" aria-label="검산">
+  <h2>검산</h2>
+  <div class="checks">
+    <div class="card"><h3>대비비 (WCAG 2.x 상대 휘도 공식)</h3><div class="tblx"><table>
+      <tr><th>글자·그림 / 바탕</th><th>비</th><th>판정</th></tr>
+      <tr><td><span class="sw" style="background:#111"></span>#111 공유 카드 글 / <span class="sw" style="background:#FFF4E8"></span>#FFF4E8</td><td>17.41</td><td class="ok">AAA</td></tr>
+      <tr><td>#6B6B6B 보조 / #FFF4E8 (공유 카드 작은 글)</td><td>4.91</td><td class="ok">AA</td></tr>
+      <tr><td>#C94F0C ‘이 가격 D-5’ 12 600 / 흰</td><td>4.56</td><td class="ok">AA (DEV-293 그대로)</td></tr>
+      <tr><td>계단 빈 칸 테두리 #6B6B6B / 흰</td><td>5.33</td><td class="ok">비텍스트 3:1 통과</td></tr>
+      <tr><td>계단 지금 칸 #111 / 흰</td><td>18.88</td><td class="ok">비텍스트 통과</td></tr>
+      <tr><td>#6B6B6B 계단 라벨 12 / 흰</td><td>5.33</td><td class="ok">AA</td></tr>
+      <tr><td>#6B6B6B 개념 상자 14 / #F5F5F3</td><td>4.88</td><td class="ok">AA</td></tr>
+      <tr><td>크림 아이콘 바탕 #FFF4E8 / 흰 탭·#DEE1E6 탭</td><td>1.08 · 1.21</td><td class="wn">경계 약함 — 아이콘 외곽은 OS 마스크가 그려요(기기 확인 전)</td></tr>
+      <tr><td>로고 FARM #97A15B · CLUB #FB8F27 / 흰</td><td>2.78 · 2.32</td><td>로고 예외(WCAG 1.4.3), 손대지 않음</td></tr>
+    </table></div></div>
+    <div class="card"><h3>16px 아이콘 판독 (이 보드의 캔버스를 직접 셈)</h3><div class="tblx"><table id="icon16">
+      <tr><th></th><th>귤 주황 픽셀</th><th>귤 덩어리 폭×높이</th><th>바탕 아닌 픽셀</th></tr>
+      <tr><td>지금 (조합형 64%)</td><td data-k="now-o">—</td><td data-k="now-bb">—</td><td data-k="now-ink">—</td></tr>
+      <tr><td>통합안 (심볼 86%)</td><td data-k="a-o">—</td><td data-k="a-bb">—</td><td data-k="a-ink">—</td></tr>
+    </table></div>
+      <ul>
+        <li>주황 픽셀 = R&gt;200, 80&lt;G&lt;200, B&lt;110인 픽셀(바탕과 섞인 뒤). 지금은 CLUB 글자도 주황이라 왼쪽 7px(심볼 자리)만 셌어요. 글자 두 줄이 같은 정사각에 들어가 귤이 몇 픽셀로 줄어요.</li>
+        <li>계단 표식 14×10: 막대 폭 3px, 간격 2px, 빈 막대 1px 테두리. 12px 글자 옆에서 막대 셋이 구별돼요(위 홈 쌍). 실기기 확인 전이에요.</li>
+      </ul>
+    </div>
+    <div class="card"><h3>390 폭 줄바꿈 (보드가 열릴 때 브라우저가 잼)</h3><div class="tblx"><table id="wraps"><tr><th>자리</th><th>허용 줄</th><th>잰 줄</th><th>판정</th></tr></table></div>
+      <p class="foot">줄 수 = 요소 높이 ÷ 줄 높이(반올림). 글꼴은 Pretendard 가변(CDN). 글꼴을 못 받으면 기기 글꼴이라 줄 수가 달라질 수 있어요.</p></div>
+    <div class="card"><h3>UI 1.6 토큰 대비 바뀌는 것</h3><div class="tblx"><table>
+      <tr><th>토큰·자산</th><th>지금</th><th>통합안</th></tr>
+      <tr><td><code>color.accent</code></td><td>#C94F0C</td><td>그대로</td></tr>
+      <tr><td><code>color.accentSoft</code> (새)</td><td>—</td><td>#FFF4E8 공유 카드·아이콘 바탕(UI 토큰 추가는 후속 ‘응원하는 농가’ 줄과 함께)</td></tr>
+      <tr><td>계단 색</td><td>—</td><td>새 토큰 없음: #111(text), #6B6B6B(muted), 흰(bg)</td></tr>
+      <tr><td>새 부품</td><td>—</td><td><code>PriceStair</code>(상세), <code>StageGlyph</code>(14×10·28×20)</td></tr>
+      <tr><td>manifest <code>background_color</code></td><td>#FFFFFF</td><td>#FFF4E8</td></tr>
+      <tr><td>Android <code>adaptiveIcon.backgroundColor</code></td><td>#E6F4FE</td><td>#FFF4E8 / 생산자 #56652A</td></tr>
+      <tr><td>아이콘 원본</td><td>조합형 64% 폭</td><td>심볼 높이 86%</td></tr>
+      <tr><td><code>og.jpg</code>·og:title·og:description</td><td>‘farmclub.’ 워드마크 · ‘수확 전에 예약하는 산지 직송 감귤’</td><td>크림 + 조합형 · ‘좋아하는 농가를 수확 전에 예약해요’</td></tr>
+      <tr><td>로고 <code>BrandLogo</code></td><td>원본 4종</td><td>그대로 (소비자 로그인 사용처 +1)</td></tr>
+      <tr><td>표시 문구</td><td>팔로워 128명</td><td>팬 128명 (버튼 ‘팔로우’ 그대로)</td></tr>
+    </table></div></div>
+    <div class="card"><h3>개발 범위 추정 (브랜드 몫만, 약 3.5~4.5일)</h3>
+      <ul>
+        <li>UX ①②④⑤⑥은 DEV-268 후속 이슈 몫이라 여기서 세지 않아요. 브랜드 몫은 그 PR 뒤에 얹어요.</li>
+        <li>아이콘 재생성(<code>scripts/generate-brand-icons.mjs</code> 원본·비율·바탕 인자), manifest·Android 바탕 — 0.5일</li>
+        <li>정적 공유 카드 2장(소비자·생산자) + 메타 제목·설명 — 0.5일</li>
+        <li>소비자 로그인 로고 배치(DEV-85 재사용, 150) — 0.5일</li>
+        <li><code>PriceStair</code>(상세 <code>stages</code>로 그림, 새 데이터 없음) + <code>StageGlyph</code> — 1~1.5일</li>
+        <li>카드 표식용 지금 기간 순서·기간 수를 카드 응답에 추가(<code>server/app/catalog</code> 스키마, 고위험 경로 아님) — 0.5일</li>
+        <li>‘팬 n명’ 표시 두 곳(상세 농가 줄·홈 소식 카드) — 0.5일. 입금 안내 서버 순번(<code>server/app/orders/**</code>, 고위험)은 후속(결정 2)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec decide" aria-label="결정">
+  <h2>결정 (2026-11-16, 사용자 “추천대로 진행해”)</h2>
+  <div class="card"><ol>
+    <li><b>‘팬’ 호칭을 쓴다.</b> 화면 표시만 ‘팬 n명’, 버튼 이름은 ‘팔로우’ 그대로. FEAT-06 팔로우 표시 이름·screens.md 문구표는 구현 PR에서 고쳐요.</li>
+    <li><b>입금 안내의 서버 순번은 이번 범위에서 뺀다.</b> 상세의 예측 문구 ‘지금 예약하면 38번째예요’만 둬요. 확정 순번은 주문 순번이 서버에 있어야 해서(<code>server/app/orders/**</code>, 고위험) 후속 이슈로. <code>reservedCount</code>가 사람 수인지 박스 수인지는 구현 때 확인해요.</li>
+    <li><b>취소선 정가를 뺀다.</b> UX ②대로. DEV-293 승인 Figma 1:14와 다르므로 구현 PR에서 Figma v6을 같이 고쳐요.</li>
+    <li><b>계단 높이는 기간 순서.</b> 가격 비례가 아니에요. 계단 모양은 지금 통합안 그대로(11/16, V1~V7 미채택).</li>
+    <li><b>로그인 로고 150으로 줄이고</b> 제목 ‘로그인하고 예약을 이어 가요’는 유지.</li>
+    <li><b>상품별 동적 공유 카드는 후속 이슈.</b> 이번에는 사이트 공통 정적 카드 한 장.</li>
+    <li><b>로그인 상태 홈 ‘내가 응원하는 농가’ 줄은 후속 이슈.</b></li>
+  </ol></div>
+  <p class="foot">수치 출처: 대비비는 WCAG 2.x 상대 휘도 공식으로 계산. 16px 판독·줄바꿈은 이 페이지가 열릴 때 캔버스·레이아웃을 직접 재서 채워요. 사진은 <code>docs/design/assets</code>의 자리표시 사진, 로고는 <code>DEV-311/assets</code>의 승인 원본 축소본이에요. 계좌·이름·연락처는 DEV-268 로컬 시드의 가짜 값이에요.</p>
+</section>
+
+</div>
+
+<!-- 계단 표식(지금 = 첫 기간) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="g1"><rect x="0" y="6" width="3" height="4" rx=".5" fill="currentColor"/><rect x="5.5" y="3.5" width="2" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1"/><rect x="10.5" y=".5" width="2" height="9" rx=".5" fill="none" stroke="currentColor" stroke-width="1"/></g>
+</defs></svg>
+
+<!-- 공유 카드 원본(1200×630) -->
+<div hidden id="og-src">
+  <div class="og" id="og-int" style="background:#FFF4E8">
+    <img src="DEV-311/assets/logo-full.png" alt="" style="position:absolute;left:56px;top:150px;width:460px">
+    <div style="position:absolute;left:580px;top:150px;right:64px">
+      <div style="font-size:64px;font-weight:800;letter-spacing:-0.02em;line-height:84px">좋아하는 농가를<br>수확 전에 예약해요</div>
+      <div style="display:flex;align-items:center;gap:22px;margin-top:40px">
+        <svg viewBox="0 0 14 10" style="width:84px;height:60px;color:#111"><use href="#g1"/></svg>
+        <div style="font-size:38px;line-height:52px;color:#6B6B6B">일찍 예약할수록 싸요</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 공유 카드: 원본을 복제해 슬롯 폭에 맞춰 축소
+document.querySelectorAll('[data-og]').forEach(slot => {
+  const src = document.getElementById(slot.dataset.og);
+  const w = +slot.dataset.w; const s = w / 1200;
+  const c = src.cloneNode(true); c.removeAttribute('id');
+  c.style.transform = `scale(${s})`; c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0';
+  slot.style.width = w + 'px'; slot.style.height = Math.round(630 * s) + 'px';
+  slot.appendChild(c);
+});
+
+// 아이콘: 실제 픽셀 크기로 캔버스에 그린 뒤 키워 보인다(16·32는 픽셀 그대로 확대)
+const imgs = {};
+function load(src) { return imgs[src] ??= new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
+const specs = {
+  now: { bg: '#FFFFFF', img: 'DEV-311/assets/logo-full.png', fit: 'width', k: 0.64 },
+  a:   { bg: '#FFF4E8', img: 'DEV-311/assets/logo-icon.png', fit: 'height', k: 0.86 },
+  ap:  { bg: '#56652A', img: 'DEV-311/assets/logo-icon.png', fit: 'height', k: 0.86 },
+};
+async function draw(canvas, key, size) {
+  const sp = specs[key]; canvas.width = canvas.height = size; const x = canvas.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = sp.bg; x.fillRect(0, 0, size, size); x.imageSmoothingQuality = 'high';
+  const im = await load(sp.img); if (!im) return;
+  let w, h; if (sp.fit === 'width') { w = size * sp.k; h = w * im.naturalHeight / im.naturalWidth; } else { h = size * sp.k; w = h * im.naturalWidth / im.naturalHeight; }
+  x.drawImage(im, (size - w) / 2, (size - h) / 2, w, h);
+}
+function cell(label, el) { const d = document.createElement('div'); d.className = 'icell'; d.append(el); const s = document.createElement('span'); s.textContent = label; d.append(s); return d; }
+function cv(cls, w) { const c = document.createElement('canvas'); if (cls) c.className = cls; if (w) { c.style.width = w + 'px'; c.style.height = w + 'px'; } return c; }
+function hd(t) { const p = document.createElement('div'); p.className = 'h'; p.textContent = t; return p; }
+async function panel(el, key) {
+  const r = document.createElement('div'); r.className = 'irow';
+  const c16 = cv('zoom', 64), c32 = cv('zoom', 64), c16a = cv('', 16), c180 = cv('', 90);
+  c180.style.borderRadius = '20px'; c180.style.border = '1px solid #DAD9D4';
+  await draw(c16, key, 16); await draw(c32, key, 32); await draw(c16a, key, 16); await draw(c180, key, 180);
+  r.append(cell('16 ×4', c16), cell('32 ×2', c32), cell('16 실제', c16a), cell('180 (½)', c180));
+  el.append(hd(key === 'now' ? '파비콘 · 홈 화면 아이콘' : '파비콘 · 홈 화면 아이콘'), r);
+  el.append(hd('홈 화면 (소비자 · 생산자)'));
+  const hs = document.createElement('div'); hs.className = 'homescreen';
+  const apps = key === 'now' ? [['now', 'farmclub'], ['now', 'farmclub 농가']] : [['a', 'farmclub'], ['ap', 'farmclub 농가']];
+  for (const [k, name] of apps) { const a = document.createElement('div'); a.className = 'app'; const c = cv('', 0); await draw(c, k, 180); a.append(c); const s = document.createElement('span'); s.textContent = name; a.append(s); hs.append(a); }
+  el.append(hs);
+  el.append(hd('브라우저 탭'));
+  const tab = document.createElement('div'); tab.className = 'tab'; const tc = cv('', 0); await draw(tc, key, 32); tab.append(tc); const ts = document.createElement('span'); ts.textContent = key === 'now' ? 'farmclub · 수확 전에 예약하는…' : 'farmclub · 좋아하는 농가를 수확…'; tab.append(ts); el.append(tab);
+  return c16a;
+}
+function measure(canvas, key) {
+  const x = canvas.getContext('2d', { willReadFrequently: true }); const d = x.getImageData(0, 0, 16, 16).data;
+  const bg = specs[key].bg; const br = parseInt(bg.slice(1, 3), 16), bgG = parseInt(bg.slice(3, 5), 16), bb = parseInt(bg.slice(5, 7), 16);
+  let o = 0, ink = 0, x0 = 99, y0 = 99, x1 = -1, y1 = -1;
+  for (let i = 0; i < 256; i++) {
+    const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2];
+    if (Math.abs(r - br) + Math.abs(g - bgG) + Math.abs(b - bb) > 30) ink++;
+    const px0 = i % 16; if (r > 200 && g > 80 && g < 200 && b < 110 && (key !== 'now' || px0 < 7)) { o++; const px = i % 16, py = (i / 16) | 0; x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py); }
+  }
+  const set = (k, v) => { const c = document.querySelector(`#icon16 [data-k="${k}"]`); if (c) c.textContent = v; };
+  set(key + '-o', o + 'px'); set(key + '-bb', o ? `${x1 - x0 + 1}×${y1 - y0 + 1}px` : '—'); set(key + '-ink', ink + ' / 256');
+}
+function wraps() {
+  const tb = document.getElementById('wraps');
+  document.querySelectorAll('[data-wrap]').forEach(el => {
+    const lh = parseFloat(getComputedStyle(el).lineHeight); const n = Math.round(el.getBoundingClientRect().height / lh);
+    const max = +el.dataset.wrap; const ok = n <= max;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${el.dataset.wrapName}</td><td>${max}</td><td>${n}</td><td class="${ok ? 'ok' : 'wn'}">${ok ? '맞음' : '넘침'}</td>`;
+    tb.append(tr);
+  });
+}
+// ===== 가격 계단 시안: 같은 데이터로 네 가지(cur·v1·v2·v3)를 그린다 =====
+const STAIR_SETS = {
+  base: { dday: 5, stages: [{ until: '10월 12일까지', days: 6 }, { from: '10월 13일부터', days: 24 }, { from: '11월 6일부터', days: 4, price: '5kg 36,000원' }] },
+  two:  { dday: 5, stages: [{ until: '10월 12일까지', days: 6 }, { from: '10월 13일부터', days: 28, price: '5kg 33,000원' }] },
+  four: { dday: 54, stages: [{ until: '11월 30일까지', days: 55 }, { from: '12월 1일부터', days: 14 }, { from: '12월 15일부터', days: 16 }, { from: '12월 31일부터', days: 10, price: '5kg 41,000원' }] },
+};
+const SW = 358; // 390 - 좌우 16
+const CAP = '일찍 예약할수록 싸요';
+function wrapAttr(v, set, name, max) { return set === 'base' || name.startsWith('!') ? ` data-wrap="${max}" data-wrap-name="${v.toUpperCase()} ${name.replace('!', '')}" data-wrap-v="${v}"` : ''; }
+function stairCur(S, set) {
+  const n = S.stages.length;
+  // 4단계 이상이면 칸 폭(약 85px)에 '지금 · 날짜'가 안 들어가서 '지금'을 지금 칸 위 빈자리로 올린다(11/16)
+  const split = n >= 4, nm = `data-wrap-v="cur" data-wrap-name="지금 통합안 ${n}단계 지금 라벨"`;
+  const bars = S.stages.map((s, i) => {
+    const bar = `<div class="bar${i ? '' : ' now'}" style="height:${Math.round(44 * (i + 1) / n)}px"></div>`;
+    return i === 0 && split ? `<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><div class="lab now" data-wrap="1" ${nm.replace('지금 라벨', '‘지금’ (칸 위)')}>지금</div>${bar}</div>` : bar;
+  }).join('');
+  const labs = S.stages.map((s, i) => i === 0 ? `<div class="lab now" data-wrap="1" ${nm}>${split ? s.until : '지금 · ' + s.until}</div>` : (s.price ? `<div class="lab">${s.from}<br>${s.price}</div>` : `<div class="lab">${s.from}</div>`)).join('');
+  return `<div class="t14 sb">${CAP}</div>
+    <div class="stair" style="grid-template-columns:repeat(${n},1fr);margin-top:8px;height:44px">${bars}</div>
+    <div class="stair" style="grid-template-columns:repeat(${n},1fr);margin-top:6px;align-items:start">${labs}</div>`;
+}
+function stairV1(S, set) {
+  const n = S.stages.length, total = S.stages.reduce((a, s) => a + s.days, 0), MIN = 56;
+  let w = S.stages.map(s => s.days / total * SW);
+  for (let k = 0; k < 4; k++) { const small = w.map(x => x < MIN); const fixed = small.filter(Boolean).length * MIN; const rest = S.stages.reduce((a, s, i) => a + (small[i] ? 0 : s.days), 0); w = S.stages.map((s, i) => small[i] ? MIN : s.days / rest * (SW - fixed)); }
+  const rise = n > 1 ? 22 / (n - 1) : 0, base = 27;
+  let x = w[0], d = `M${x} ${base - 0.5}`;
+  for (let i = 1; i < n; i++) { const y = base - i * rise - 0.5; d += ` V${y} H${x + w[i]}`; x += w[i]; }
+  const last = S.stages[n - 1];
+  return `<div class="t14 sb">${CAP}</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin-top:10px"><span class="t14 sb">이 가격</span><span class="v1num">D-${S.dday}</span></div>
+    <svg width="${SW}" height="30" viewBox="0 0 ${SW} 30" style="display:block;margin-top:2px" aria-hidden="true">
+      <rect x="0" y="${base - 3}" width="${w[0]}" height="5" fill="#111"/>
+      <path d="${d}" fill="none" stroke="#111" stroke-width="1"/>
+    </svg>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-top:6px">
+      <div class="t14 sb" style="flex:0 0 auto"${wrapAttr('v1', set, '지금 끝 날짜', 1)}>${S.stages[0].until}</div>
+      <div style="text-align:right"><div class="t14 mut"${wrapAttr('v1', set, '마지막 시작', 1)}>${last.from}</div><div class="t14 sb">${last.price}</div></div>
+    </div>`;
+}
+function stairV2(S, set) {
+  const n = S.stages.length, unit = SW / n, RH = 44, NH = 60, H = (n - 1) * RH + NH;
+  const rows = S.stages.map((s, i) => {
+    const left = i * unit;
+    if (i === 0) return `<div style="position:absolute;left:0;right:0;top:${(n - 1) * RH}px;height:${NH}px;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:6px">
+        <span class="t14 sb">지금</span><span class="v2big"${wrapAttr('v2', set, '지금 단 큰 날짜', 1)}>${s.until}</span>
+        <i style="position:absolute;left:0;bottom:0;width:${unit}px;height:3px;background:#111"></i><i style="position:absolute;left:${unit}px;right:0;bottom:0;height:1px;background:#6B6B6B"></i></div>`;
+    const top = (n - 1 - i) * RH;
+    return `<div style="position:absolute;left:${left}px;right:0;top:${top}px;height:${RH}px;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:5px;border-bottom:1px solid #6B6B6B">
+        ${s.price ? `<span class="t14 mut" style="line-height:18px"${wrapAttr('v2', set, '꼭대기 단 날짜', 1)}>${s.from}</span><span class="t14 sb" style="line-height:18px">${s.price}</span>` : `<span class="t14 mut"${wrapAttr('v2', set, '가운데 단 날짜', 1)}>${s.from}</span>`}</div>`;
+  });
+  return `<div style="position:relative;height:${H}px">
+      <div class="t14 sb" style="position:absolute;left:0;top:0;width:${(n - 1) * unit - 12}px">${CAP}</div>
+      ${rows.join('')}</div>`;
+}
+function stairV3(S, set) {
+  const n = S.stages.length, unit = SW / n, H0 = 28, H1 = 72, small = n >= 4;
+  const hs = S.stages.map((s, i) => n > 1 ? Math.round(H0 + (H1 - H0) * i / (n - 1)) : H1);
+  const last = S.stages[n - 1]; const [kg, ...amt] = last.price.split(' ');
+  const boxes = S.stages.map((s, i) => {
+    const bg = i === 0 ? '#111' : '#E8E8E6';
+    let inner = '';
+    if (i === 0) inner = `<span style="color:#fff;font-size:14px;line-height:20px;font-weight:700;padding:4px 8px">지금</span>`;
+    else if (i === n - 1) inner = `<div style="padding:7px 8px 0;min-width:0"><div class="t12" style="color:#555">${kg}</div><div class="v3amt" style="font-size:${small ? 16 : 20}px" data-fit="1" data-wrap="1" data-wrap-name="V3 ${set === 'base' ? '' : (set === 'two' ? '2단 ' : '4단 ')}마지막 단 가격" data-wrap-v="v3">${amt.join(' ')}</div></div>`;
+    return `<div style="height:${hs[i]}px;background:${bg};display:flex;align-items:flex-start;min-width:0;overflow:hidden">${inner}</div>`;
+  }).join('');
+  const labs = S.stages.map((s, i) => `<div class="${small ? 't12' : 't14'} ${i ? 'mut' : 'sb'}" style="min-width:0"${i === 0 ? wrapAttr('v3', set, '지금 단 날짜', 1) : (i === n - 1 ? '' : (set === 'four' ? wrapAttr('v3', '!', '!4단 가운데 날짜', 1) : wrapAttr('v3', set, '가운데 단 날짜', 1)))}>${i ? s.from : s.until}</div>`).join('');
+  return `<div style="position:relative">
+      <div class="t14 sb" style="position:absolute;left:0;top:0">${CAP}</div>
+      <div style="display:grid;grid-template-columns:repeat(${n},1fr);align-items:end;height:${H1 + 1}px;border-bottom:1px solid #111">${boxes}</div>
+      <div style="display:grid;grid-template-columns:repeat(${n},1fr);gap:0;margin-top:8px">${labs}</div></div>`;
+}
+const STAIRS = { cur: stairCur, v1: stairV1, v2: stairV2, v3: stairV3 };
+// ===== 2차 시안 V4~V7: 요즘 서비스에서 쓰는 단계 가격 패턴 =====
+// 지금 가격·마지막 가격(5kg 기준)과 지난 단계가 있는 경우를 더한 데이터
+Object.assign(STAIR_SETS.base, { kg: '5kg', nowAmt: 29000, lastAmt: 36000 });
+Object.assign(STAIR_SETS.two, { kg: '5kg', nowAmt: 29000, lastAmt: 33000 });
+STAIR_SETS.fourpast = { dday: 54, kg: '5kg', nowAmt: 35000, lastAmt: 41000, stages: [
+  { past: true, range: '11월 1일~15일' }, { until: '11월 30일까지', days: 55 }, { from: '12월 1일부터', days: 14 }, { from: '12월 15일부터', days: 16, price: '5kg 41,000원' }] };
+const won = n => n.toLocaleString('ko-KR') + '원';
+const PAST = '#767676';
+function nowIdx(S) { return S.stages.findIndex(s => !s.past); }
+// V4 티어 줄: 단계마다 한 줄, 헤어라인 구분, 지금 줄은 왼쪽 4px 검정 막대 + 굵은 글자
+function stairV4(S, set) {
+  const ni = nowIdx(S), n = S.stages.length;
+  const rows = S.stages.map((s, i) => {
+    const last = i === n - 1;
+    if (s.past) return `<div class="v4row"><div><div class="t13" style="color:${PAST}">지난 기간</div><div class="t13" style="color:${PAST}">${s.range}</div></div><div class="t13" style="color:${PAST}">마감</div></div>`;
+    if (i === ni) return `<div class="v4row now"><i></i><div><div class="t16 b">지금</div><div class="t13 mut"${wrapAttr('v4', set, '지금 줄 날짜', 1)}>${s.until}</div></div><div style="text-align:right"><div class="t13 mut">${S.kg}</div><div class="v4amt">${won(S.nowAmt)}</div></div></div>`;
+    return `<div class="v4row"><div><div class="t14 mut sb">${last ? '마지막 기간' : '다음 기간'}</div><div class="t13 mut"${last ? '' : wrapAttr('v4', set, '다음 줄 날짜', 1)}>${s.from}</div></div>${last ? `<div class="t14 mut" style="text-align:right"${wrapAttr('v4', set, '마지막 줄 가격', 1)}>${s.price}</div>` : '<div></div>'}</div>`;
+  }).join('');
+  return `<div class="v4list">${rows}</div>`;
+}
+// V5 세그먼트 미터: 큰 지금 가격 + 평평한 칸 막대
+function stairV5(S, set) {
+  const n = S.stages.length, ni = nowIdx(S), gap = 2, w = (SW - gap * (n - 1)) / n;
+  const segs = S.stages.map((s, i) => `<i style="position:absolute;left:${i * (w + gap)}px;width:${w}px;top:0;height:8px;background:${i === ni ? '#111' : (s.past ? '#BDBDB9' : '#E8E8E6')}"></i>`).join('');
+  const past = S.stages.map((s, i) => s.past ? `<span class="t12" style="position:absolute;left:${i * (w + gap)}px;top:0;color:${PAST}">마감</span>` : '').join('');
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t13 mut">${S.kg} 지금 예약가</span><span class="t13 b"${wrapAttr('v5', set, '이 가격 D-n', 1)}>이 가격 D-${S.dday}</span></div>
+    <div class="v5num">${won(S.nowAmt)}</div>
+    <div style="position:relative;height:8px;margin-top:10px">${segs}</div>
+    <div style="position:relative;height:20px;margin-top:8px">${past}
+      <span class="t13 b" style="position:absolute;left:${ni * (w + gap)}px;top:0"${wrapAttr('v5', set, '지금 라벨', 1)}>지금 · ${S.stages[ni].until}</span>
+      <span class="t13 mut" style="position:absolute;right:0;top:0"${wrapAttr('v5', set, '마지막 라벨', 1)}>마지막 ${S.stages[n - 1].price}</span></div>`;
+}
+// V6 차액이 주인공: 도형 없이 큰 숫자 하나
+function stairV6(S, set) {
+  const n = S.stages.length, ni = nowIdx(S);
+  return `<div class="t13 sb mut" style="letter-spacing:.02em">${S.kg} · 마지막 기간보다</div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px"><span class="v6num">${won(S.lastAmt - S.nowAmt)}</span><span class="t20 b">싸요</span></div>
+    <div class="hr" style="margin-top:12px;background:#111"></div>
+    <div class="t14" style="margin-top:10px;font-variant-numeric:tabular-nums"${wrapAttr('v6', set, '비교 한 줄', 1)}><b>${S.stages[ni].until} ${won(S.nowAmt)}</b> <span class="mut">→ 마지막 ${won(S.lastAmt)}</span></div>`;
+}
+// V7 V3 다듬기: 지금 단을 두 배 폭으로 넓혀 '지금 29,000원'을 가장 큰 글자로, 마지막 가격은 낮춤
+function stairV7(S, set) {
+  const n = S.stages.length, ni = nowIdx(S), units = n + 1, u = SW / units;
+  const H = n === 2 ? [44, 76] : (S.stages.some(s => s.past) ? [28, 44, 60, 76] : [44, 60, 76]);
+  const cols = S.stages.map((s, i) => (i === ni ? 2 * u : u) + 'px').join(' ');
+  const boxes = S.stages.map((s, i) => {
+    let bg = '#E8E8E6', inner = '';
+    if (s.past) { bg = '#F5F5F3'; inner = `<span class="t12 mut" style="padding:4px 6px">마감</span>`; }
+    if (i === ni) { bg = '#111'; inner = `<span style="color:#fff;padding:10px 10px 0;white-space:nowrap"><span class="t13 b" style="margin-right:6px">지금</span><span class="v7amt"${wrapAttr('v7', set, '지금 단 안 가격', 1)}>${won(S.nowAmt)}</span></span>`; }
+    if (i === n - 1) inner = `<div style="padding:8px ${n >= 4 ? 6 : 8}px 0;min-width:0"><div class="t12" style="color:#555">${S.kg}</div><div class="${n >= 4 ? 't13' : 't14'} sb" style="color:#555;white-space:nowrap" data-fit="1" data-wrap="1" data-wrap-name="V7 ${set === 'base' ? '' : (set === 'two' ? '2단 ' : '4단 ')}마지막 단 가격" data-wrap-v="v7">${won(S.lastAmt)}</div></div>`;
+    return `<div style="height:${H[i]}px;background:${bg};display:flex;align-items:flex-start;min-width:0;overflow:hidden">${inner}</div>`;
+  }).join('');
+  const x0 = i => S.stages.slice(0, i).reduce((a, s, k) => a + (k === ni ? 2 * u : u), 0);
+  const labs = S.stages.map((s, i) => {
+    if (s.past) return '';
+    const last = i === n - 1;
+    if (i !== ni && !last && n >= 4) return '';
+    const txt = i === ni ? s.until : s.from;
+    const pos = last ? 'right:0' : `left:${x0(i)}px`;
+    const meas = i === ni ? '' : ` data-wrap="1" data-wrap-name="V7 ${set === 'base' ? '' : set === 'two' ? '2단 ' : '4단 '}${last ? '마지막' : '가운데'} 날짜" data-wrap-v="v7"`;
+    return `<span class="t13 ${i === ni ? 'sb' : 'mut'}" style="position:absolute;top:0;${pos};white-space:nowrap"${meas}>${txt}</span>`;
+  }).join('');
+  return `<div style="position:relative">
+      <div class="t14 sb" style="position:absolute;left:0;top:0">${CAP}</div>
+      <div style="display:grid;grid-template-columns:${cols};align-items:end;height:${H[H.length - 1] + 1}px;border-bottom:1px solid #111">${boxes}</div>
+      <div style="position:relative;height:18px;margin-top:8px">${labs}</div></div>`;
+}
+Object.assign(STAIRS, { v4: stairV4, v5: stairV5, v6: stairV6, v7: stairV7 });
+
+const OPTCARD = `<div style="margin:16px 16px 0;border:1px solid var(--app-border);border-radius:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--app-border)"><div><div class="t16 sb">5kg</div><div class="t14 mut">35박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">29,000원</div></div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div><div class="t16 sb">10kg</div><div class="t14 mut">14박스 남음</div></div><div style="text-align:right"><div class="t12 mut">지금 예약가</div><div class="t18">55,000원</div></div></div></div>`;
+const TRUST1 = `<div class="trust" style="margin-top:16px"><div class="tr" style="border-top:1px solid var(--app-border)"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.8 3 2.6 3.5 5.2"/></svg><div><div class="t16">37명이 예약했어요</div><div class="t14 mut">지금 예약하면 38번째예요</div></div></div></div>`;
+document.querySelectorAll('[data-frame]').forEach(el => {
+  const v = el.dataset.frame;
+  el.innerHTML = OPTCARD + `<div class="px" style="padding-top:20px">${STAIRS[v](STAIR_SETS.base, 'base')}</div>` + TRUST1;
+});
+document.querySelectorAll('[data-stress]').forEach(el => {
+  const v = el.dataset.stress;
+  el.innerHTML = `<div class="px" style="padding:16px"><div class="t12 mut" style="margin-bottom:10px">단계 2개</div>${STAIRS[v](STAIR_SETS.two, 'two')}
+    <div class="hr" style="margin:20px 0 16px"></div><div class="t12 mut" style="margin-bottom:10px">${['v4','v5','v6','v7'].includes(v) ? '단계 4개 · 지난 단계 1개 · 11월 30일까지 · D-54' : '단계 4개 · 11월 30일까지 · D-54'}</div>${['v4','v5','v6','v7'].includes(v) ? STAIRS[v](STAIR_SETS.fourpast, 'fourpast') : STAIRS[v](STAIR_SETS.four, 'four')}</div>`;
+});
+// 작은 표식 14×10 (viewBox 0 0 14 10). c = 색
+const GLYPH = {
+  cur: c => `<rect x="0" y="6" width="3" height="4" rx=".5" fill="${c}"/><rect x="5.5" y="3.5" width="2" height="6" rx=".5" fill="none" stroke="${c}" stroke-width="1"/><rect x="10.5" y=".5" width="2" height="9" rx=".5" fill="none" stroke="${c}" stroke-width="1"/>`,
+  v1: c => `<rect x="0" y="8" width="5" height="2" fill="${c}"/><path d="M4.5 9.5V5.5H9.5V1.5H14" fill="none" stroke="${c}" stroke-width="1"/>`,
+  v2: c => `<rect x="0" y="8" width="5" height="2" fill="${c}"/><rect x="5" y="9" width="9" height="1" fill="${c}"/><rect x="5" y="5" width="9" height="1" fill="${c}"/><rect x="10" y="1" width="4" height="1" fill="${c}"/>`,
+  v3: c => `<path d="M0 10V7H5V4H10V0H14V10Z" fill="${c}" fill-opacity=".28"/><rect x="0" y="7" width="5" height="3" fill="${c}"/>`,
+};
+Object.assign(GLYPH, {
+  v4: c => `<rect x="0" y="0" width="2" height="4" fill="${c}"/><rect x="3" y="1" width="11" height="2" fill="${c}"/><rect x="3" y="5" width="11" height="1" fill="${c}" fill-opacity=".45"/><rect x="3" y="8" width="11" height="1" fill="${c}" fill-opacity=".45"/>`,
+  v5: c => `<rect x="0" y="3.5" width="4" height="3" fill="${c}"/><rect x="5" y="3.5" width="4" height="3" fill="${c}" fill-opacity=".28"/><rect x="10" y="3.5" width="4" height="3" fill="${c}" fill-opacity=".28"/>`,
+  v6: c => `<rect x="0" y="9" width="14" height="1" fill="${c}"/><rect x="1" y="6" width="3" height="3" fill="${c}"/><rect x="10" y="0" width="3" height="9" fill="${c}" fill-opacity=".28"/>`,
+  v7: c => `<path d="M0 10V5.5H7V3H10.5V0H14V10Z" fill="${c}" fill-opacity=".28"/><rect x="0" y="5.5" width="7" height="4.5" fill="${c}"/>`,
+});
+
+function glyphSvg(v, c, w, h) { return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 14 10">${GLYPH[v](c)}</svg>`; }
+async function glyphZoom(v, c, w, h, bg, k) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.className = 'zoom'; cv.style.width = w * k + 'px'; cv.style.height = h * k + 'px';
+  const x = cv.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, w, h);
+  await new Promise(r => { const im = new Image(); im.onload = () => { x.drawImage(im, 0, 0, w, h); r(); }; im.onerror = r; im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(glyphSvg(v, c, w, h)); });
+  return cv;
+}
+async function glyphPanels() {
+  for (const el of document.querySelectorAll('[data-glyph]')) {
+    const v = el.dataset.glyph;
+    el.innerHTML = `<div class="h">실제 크기</div>
+      <div class="grow"><span class="t12 acc sb stagechip">${glyphSvg(v, '#C94F0C', 14, 10)}이 가격 D-5</span>
+        <span class="gbox" style="background:#F5F5F3">${glyphSvg(v, '#111', 28, 20)}<span class="t14"><b>일찍 예약할수록 싸요.</b></span></span></div>
+      <div class="grow"><span class="gbox" style="background:#FFF4E8">${glyphSvg(v, '#111', 28, 20)}<span class="t12" style="color:#6B6B6B">공유 카드(½ 축소 전 크기)</span></span></div>
+      <div class="h">4배 확대 (픽셀 그대로)</div><div class="grow z"></div>`;
+    const z = el.querySelector('.z');
+    for (const [c, w, h, bg, lab] of [['#C94F0C', 14, 10, '#FFFFFF', '14×10 카드'], ['#111111', 28, 20, '#F5F5F3', '28×20 개념 상자']]) {
+      const d = document.createElement('div'); d.className = 'icell'; d.append(await glyphZoom(v, c, w, h, bg, 4)); const s = document.createElement('span'); s.textContent = lab; d.append(s); z.append(d);
+    }
+  }
+}
+function wrapSummary() {
+  for (const td of document.querySelectorAll('[data-wrapsum]')) {
+    const v = td.dataset.wrapsum; const els = [...document.querySelectorAll(`[data-wrap-v="${v}"]`)];
+    let bad = 0; els.forEach(e => { const n = Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)); if (n > +e.dataset.wrap) bad++; if (e.dataset.fit && e.scrollWidth > e.clientWidth + 0.5) bad++; });
+    td.textContent = `${els.length}곳 재서 ${bad ? bad + '곳 넘침' : '모두 한 줄·칸 안'}`;
+  }
+}
+
+(async () => {
+  try { await document.fonts.load('700 28px "Pretendard Variable"'); await document.fonts.ready; } catch (e) {}
+  wraps();
+  await glyphPanels(); wrapSummary();
+  for (const el of document.querySelectorAll('[data-icons]')) { const key = el.dataset.icons; const c = await panel(el, key); try { measure(c, key); } catch (e) { /* file://에서는 캔버스를 못 읽어요 — 캔버스(Easel)·http로 열면 채워져요 */ } }
+  document.documentElement.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>
