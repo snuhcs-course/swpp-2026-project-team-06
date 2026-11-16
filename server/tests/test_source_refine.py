@@ -179,8 +179,8 @@ def test_AC_SRC_3_combined_numbers_pass_only_when_every_source_is_cited():
 def test_AC_SRC_3_prompt_keeps_other_product_lists_out_of_composition():
     from app.ai.source_refine import PROMPT
 
-    assert "is never this\nproduct's hero, summary or composition" in PROMPT
-    assert "exclude it as other_product" in PROMPT
+    assert "are never part of this\npage, not even farmStory" in PROMPT
+    assert "exclude them as other_product" in PROMPT
 
 
 def fixture_extract(mode, model, chunk, targets, images):
@@ -1524,7 +1524,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v8-cite-all-numbers"
+    assert PROMPT_VERSION == "source-refine-v9-target-name"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 

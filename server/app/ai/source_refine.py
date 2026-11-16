@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v8-cite-all-numbers"
+PROMPT_VERSION = "source-refine-v9-target-name"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -109,9 +109,9 @@ An explicit farm-introduction heading does not make cultivation/taste facts farm
 split them into their specific modules, retaining the remaining farmer story in farmStory.
 A main-production-item list is not automatically package contents. Retain the selected
 product's identity in hero/summary and its production season in productionProcess.
-A list of the farm's other products or cultivars (한라봉, 황금향, 레드향 등) is never this
-product's hero, summary or composition: keep it only as farm narrative in farmStory, or
-exclude it as other_product.
+A list of the farm's other products or cultivars (한라봉, 황금향, 레드향 등) and any package,
+weight or option of a product other than the supplied target name are never part of this
+page, not even farmStory: exclude them as other_product.
 Do NOT label a growing/harvest season as period just because it contains months/dates.
 Distinguish those from sale/booking windows, availability changes and shipping/arrival timing,
 which remain excluded. Storage/ripening durations remain supported product facts too.
