@@ -306,6 +306,7 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** I set, pause, resume or change periods
 - **THEN** my sales limit stays between what is already sold and the approved amount
 - **AND** it is not reset by those actions
+- **AND** a sold-out product can still raise its limit up to the approved amount or change the per-order maximum; the "is anything sellable" check runs only when resuming a paused product (DEV-344)
 
 ### FEAT-05: Periods, prices and allocation
 

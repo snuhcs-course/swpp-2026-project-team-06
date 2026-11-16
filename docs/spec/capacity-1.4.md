@@ -52,7 +52,7 @@
 - POST /api/products/{productId}/capacity-requests/{requestId}/withdraw: {version}; 신청 버전 검사 후 철회하고 상품 버전도 올린다.
 - POST /admin/products/{productId}/capacity-requests/{requestId}/approve: {version}; 신청 버전과 현재 대기 상태·소속 상품을 검사한다. 상품 잠금 안에서 최초 한도 설정 또는 증액을 적용하고 상품·신청 버전을 올린다.
 - POST /admin/products/{productId}/capacity-requests/{requestId}/reject: {version,reason}; 비어 있지 않은 사유 필수. 최초 상품만 REJECTED로 전환하고 증액 반려는 기존 판매 상태·한도를 유지한다.
-- PUT /api/products/{productId}/sales-settings: {salesLimitGrams,maxQuantityPerOrder,salesPaused,version}; 응답은 상품 ID·한 주문 상한·중량 집계·판매 상태·version. 초안은 salesLimitGrams=0만, 승인 상품은 사용량≤한도≤승인량. 재개 시 현재 또는 미래 기간의 판매 가능 옵션 존재 여부 검사.
+- PUT /api/products/{productId}/sales-settings: {salesLimitGrams,maxQuantityPerOrder,salesPaused,version}; 응답은 상품 ID·한 주문 상한·중량 집계·판매 상태·version. 초안은 salesLimitGrams=0만, 승인 상품은 사용량≤한도≤승인량. 재개 검사(현재 또는 미래 기간의 판매 가능 옵션 존재 여부, 없으면 409 NOT_RESUMABLE)는 salesPaused true→false일 때만 한다. 중지가 아닌 상품의 한도·주문당 상한 저장은 품절이어도 검사하지 않는다(DEV-344: 품절 상품이 한도를 먼저 올리거나 주문당 상한을 바꿀 수 있어야 한다). 승인량을 넘는 한도는 409 APPROVED_CAP_EXCEEDED '승인 물량을 넘어요. 물량 추가를 신청해 주세요.'
 - PATCH /api/products/{productId}: 편집 입력에 version 필수. 신청 중 최초 상품은 변경 불가. 승인 상품은 검증 후 즉시 반영하며 상품 version 증가.
 - PUT /api/products/{productId}/stages: 기존 입력 유지, 응답 {version,stages}. 승인 사본 없음.
 - 구형 POST publish-request 및 /admin/products/{productId}/approve|reject는 새 신청 API로 대체한다. 소비자/생산자 앱의 공개 경로는 변경하지 않는다.
@@ -72,7 +72,7 @@
 - 실데이터의 박스 한도에서 승인 kg을 자동 추정하지 않는다. 공급 확인 후 확정한 상품별 승인량·판매 한도 전환표가 필요하다. 주문 스냅샷은 보존된 옵션 중량으로 복원하며 불명확하면 중단한다.
 - 로컬 데모는 외부 백업 후 명시적인 상품별 g 전환표로 1회 변환한다. 기존 주문·채팅·ID·중지 상태를 보존한다. 폐기된 중간 API/저장 형식의 런타임 호환 분기는 남기지 않는다.
 - AC-04-8: 최초 신청/승인/반려/철회/재신청, 증액 중 기존 판매·반려 유지·승인 한도만 증가, 한 건 대기·멱등·버전/권한 검사.
-- AC-04-9: 판매 한도는 사용량~승인량 사이. 중지·재개·기간 변경으로 한도가 초기화되지 않는다.
+- AC-04-9: 판매 한도는 사용량~승인량 사이. 중지·재개·기간 변경으로 한도가 초기화되지 않는다. 품절(총 한도 소진·이번 기간 품절) 상품도 한도를 승인량까지 올리고 주문당 상한을 바꿀 수 있으며, 재개 가능 검사는 중지→재개 때만 한다(DEV-344).
 - AC-05-6: 예약 있는 기간도 가격 즉시 반영, 기존 결제 주문 보존, 미결제 재확인. 기간/중량 잠금 유지.
 - AC-09-6: 5kg×2와 10kg×1은 각각 10kg 차감. 마지막 물량 동시 결제는 한 건만 성공, 잔여 3kg은 5kg 옵션 품절. 중복 취소·부분 미공급·출하/환불 집계를 검증한다.
 - AC-10-6: 구매 확정 기준의 상단 상태 탭·건수·선택 유지. 타입·Mock 회귀·두 앱 웹 export·모바일 검증과 PR CI 통과.

@@ -580,6 +580,97 @@ def test_AC_04_8_9_capacity_lifecycle_and_increase(client, login, admin_headers)
     assert {item["status"] for item in history["items"]} == {"REJECTED", "APPROVED"}
 
 
+def _sales(client, headers, pid: str, *, limit: int, per_order: int = 3, paused: bool = False):
+    product = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    return client.put(
+        f"/api/products/{pid}/sales-settings",
+        headers=headers | key(),
+        json={
+            "salesLimitGrams": limit,
+            "maxQuantityPerOrder": per_order,
+            "salesPaused": paused,
+            "version": product["version"],
+        },
+    )
+
+
+def test_AC_04_9_DEV_344_sold_out_product_can_change_settings_and_raise_limit(client, login):
+    headers = login("u-kang")
+    product = client.get("/api/products/mine/p-house", headers=headers).json()
+    committed = product["reservedGrams"] + product["shippedGrams"]
+
+    sold_out = _sales(client, headers, "p-house", limit=committed)
+    assert sold_out.status_code == 200, sold_out.text
+    assert sold_out.json()["availability"] == "TOTAL_SOLD_OUT"
+
+    per_order = _sales(client, headers, "p-house", limit=committed, per_order=5)
+    assert per_order.status_code == 200, per_order.text
+    assert per_order.json()["availability"] == "TOTAL_SOLD_OUT"
+
+    raised = _sales(client, headers, "p-house", limit=committed + 50_000, per_order=5)
+    assert raised.status_code == 200, raised.text
+    assert raised.json()["availability"] == "AVAILABLE"
+    assert raised.json()["remainingGrams"] == 50_000
+
+
+def test_AC_04_9_DEV_344_period_sold_out_product_can_change_per_order(client, login):
+    headers = login("u-kang")
+    product = client.get("/api/products/mine/p-house", headers=headers).json()
+    stages = [
+        {
+            "stageId": stage["stageId"],
+            "name": stage["name"],
+            "startsAt": stage["startsAt"],
+            "endsAt": stage["endsAt"],
+            "options": {
+                option_id: {"price": value["price"], "quantity": value["reservedCount"]}
+                for option_id, value in stage["options"].items()
+            },
+        }
+        for stage in product["stages"]
+    ]
+    saved = client.put(
+        "/api/products/p-house/stages",
+        headers=headers | key(),
+        json={"stages": stages, "version": product["version"]},
+    )
+    assert saved.status_code == 200, saved.text
+    product = client.get("/api/products/mine/p-house", headers=headers).json()
+    assert product["remainingGrams"] > 0
+
+    per_order = _sales(client, headers, "p-house", limit=product["salesLimitGrams"], per_order=5)
+    assert per_order.status_code == 200, per_order.text
+    assert per_order.json()["availability"] == "PERIOD_SOLD_OUT"
+
+
+def test_AC_04_9_DEV_344_over_approved_limit_points_to_capacity_request(client, login):
+    headers = login("u-kang")
+    product = client.get("/api/products/mine/p-house", headers=headers).json()
+
+    over = _sales(client, headers, "p-house", limit=product["approvedSupplyGrams"] + 1_000)
+    assert over.status_code == 409
+    assert over.json()["details"]["reason"] == "APPROVED_CAP_EXCEEDED"
+    assert "물량 추가를 신청" in over.json()["message"]
+
+
+def test_AC_04_9_DEV_344_resume_still_requires_sellable_stock(client, login):
+    headers = login("u-kang")
+    product = client.get("/api/products/mine/p-house", headers=headers).json()
+    committed = product["reservedGrams"] + product["shippedGrams"]
+
+    paused = _sales(client, headers, "p-house", limit=committed, paused=True)
+    assert paused.status_code == 200, paused.text
+    assert paused.json()["availability"] == "PAUSED"
+
+    blocked = _sales(client, headers, "p-house", limit=committed, paused=False)
+    assert blocked.status_code == 409
+    assert blocked.json()["details"]["reason"] == "NOT_RESUMABLE"
+
+    resumed = _sales(client, headers, "p-house", limit=committed + 50_000, paused=False)
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["availability"] == "AVAILABLE"
+
+
 def test_AC_04_8_capacity_withdrawal_authorization_and_reason(client, login, admin_headers):
     producer = login("u-kang")
     pending = client.get("/api/products/mine/p-cheonggyeon", headers=producer).json()
