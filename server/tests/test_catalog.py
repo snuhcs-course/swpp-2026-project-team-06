@@ -606,6 +606,8 @@ def test_AC_04_9_DEV_344_sold_out_product_can_change_settings_and_raise_limit(cl
     per_order = _sales(client, headers, "p-house", limit=committed, per_order=5)
     assert per_order.status_code == 200, per_order.text
     assert per_order.json()["availability"] == "TOTAL_SOLD_OUT"
+    mine = client.get("/api/products/mine/p-house", headers=headers).json()
+    assert mine["maxQuantityPerOrder"] == 5
 
     raised = _sales(client, headers, "p-house", limit=committed + 50_000, per_order=5)
     assert raised.status_code == 200, raised.text
@@ -641,6 +643,8 @@ def test_AC_04_9_DEV_344_period_sold_out_product_can_change_per_order(client, lo
     per_order = _sales(client, headers, "p-house", limit=product["salesLimitGrams"], per_order=5)
     assert per_order.status_code == 200, per_order.text
     assert per_order.json()["availability"] == "PERIOD_SOLD_OUT"
+    mine = client.get("/api/products/mine/p-house", headers=headers).json()
+    assert mine["maxQuantityPerOrder"] == 5
 
 
 def test_AC_04_9_DEV_344_over_approved_limit_points_to_capacity_request(client, login):
