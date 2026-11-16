@@ -157,7 +157,7 @@ FEAT-03/04/07 · AC-SRC-2/3/5/6 · M-11/13/18. 평가 계약은 DEV-187 final-te
 - 개발 중간 버전 stage-1 `source-v7-fact-coverage`, stage-2 `source-refine-v5-fact-routing`은 배포된 호환 대상이 아니다. 출처/상품 구분·후보 전체 사실 보존, 생산 계절과 판매/배송 기간 분리, 농가/생산/맛 모듈 분할 지시는 최종 v8/v6에 유지한다. OCR 프롬프트와 금액/건강·근거 검증은 유지한다. FEAT-03/04/07 · AC-SRC-2/3/6.
 - metadata `errorCode`는 고정 코드만 기록하며 401/403은 `PROVIDER_AUTH`로 즉시 전체 실행을 중단한다. 나머지 자료는 `NOT_RUN`으로 채점 분모에 남긴다. 제공자 오류 본문은 기록하지 않는다.
 - `costUsd`/`settledUsd`는 제공자 정산액만 보고한다. `reservedUsd`는 누적 총 예약액, `unsettledReservedUsd`는 정산 미확인 예약액이며 한도에는 계속 포함한다. gross 예약액과 정산액은 더해서 지출로 해석하지 않는다.
-- 대상 이름/생산자 선택 정보가 없는 혼합 자료의 한계는 private 분석에 기록한다. gold product를 모델 입력으로 복사하지 않는다. 개발 실패 상세는 저장소 밖에만 남기고 holdout은 튜닝에 사용하지 않는다.
+- 대상 이름/생산자 선택 정보가 없는 혼합 자료의 한계는 private 분석에 기록한다. gold product를 모델 입력으로 복사하지 않는다(2026-11-17 DEV-264로 대체: 평가에서는 gold `product`만 생산자가 입력한 상품 이름 대신 보낸다). 개발 실패 상세는 저장소 밖에만 남기고 holdout은 튜닝에 사용하지 않는다.
 
 ## DEV-170 최종 개발 튜닝2/2
 
@@ -296,3 +296,4 @@ FEAT-03/04 · AC-SRC-6/9/11. 작업 기록은 `server/tasks/DEV-328.md`.
 | 2026-11-15 | `/api/source-media/{id}`는 `private, max-age=300` + ETag(저장 키 해시, 키가 바뀌면 바뀜). 304도 접근 검사 뒤에만, 304에서는 저장소를 읽지 않는다. 생산자 미리보기는 `no-store` 유지 | 접근은 상품 공개 상태에 달려 있어 긴 캐시는 공개 취소 뒤 노출이 길어짐. API 앞에 CDN이 없어 `private`로 공유 프록시 보관을 막음(scan-before-merge 반영) | AC-SRC-9 |
 | 2026-11-15 | 이전 PNG는 사람이 `python -m app.source_analysis.recompress_photos [--backup-done --commit]`로 바꾼다(id 유지, 새 키 쓰고 커밋, 옛 키는 worker cleanup이 지움, R2 백업 확인 필수) | URL·상품 데이터를 바꾸지 않고 운영 실행은 사람이 함 | AC-SRC-6 |
 | 2026-11-17 | refine 입력 상한을 원문순 80후보 / JSON 32,000자로 올린다(11-02의 40/16,000 대체, 생략 진단·freshness 규칙은 그대로). stage-2 `source-refine-v8-cite-all-numbers`: 여러 후보의 숫자를 합친 문장은 그 후보를 모두 인용하고(검증기는 그대로), 농가의 다른 품목 목록은 hero·summary·composition에 넣지 않는다(farmStory 또는 other_product) | 공개 개발 24건 분석(DEV-264): 상한에서 17사실, 단일 인용 숫자 탈락 14사실을 잃었다. 40후보에서 stage-2 출력 최대 약 1.3k토큰 | AC-SRC-2/3/5 |
+| 2026-11-17 | stage 1·2에 대상 상품 이름을 보낸다: `{"id", "name": scrub(name)}`(연락처 등은 M-18대로 가림, basicInfo는 보내지 않음). DEV-54의 "이름은 개인정보일 수 있어 보내지 않는다"를 대체. 평가(`final_eval`)는 같은 모양으로 gold `product`만 이름 대신 보낸다(다른 gold 필드는 모델에 가지 않음). stage-2 `source-refine-v9-target-name`: 다른 품목 목록·다른 상품의 포장·중량은 어느 모듈에도 넣지 않고 other_product로 뺀다 | 혼합 자료(한 파일에 두 상품)에서 대상이 없어 사실이 모두 빠지거나(h3-text-02) 다른 상품 포장이 섞였다(h3-text-03). 앱은 이름을 이미 필수로 받는다(`service.targets`). 사람 이름은 scrub이 가리지 않는다 — 원문 자료와 같은 수준 | AC-SRC-2/3, M-18 |

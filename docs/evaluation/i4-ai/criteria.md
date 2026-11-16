@@ -53,6 +53,8 @@ Improvement is claimed only on the same denominator, with no safety regression, 
 
 Model and provider, prompt/code commit, scorer and runner digest, dataset digest, fixture revision, `FIXED_NOW`, seed 1542026, environment. Subject code/prompt may change between arms; nothing else.
 
+**Version note (2026-11-17, DEV-264):** from the round-2 draft run (`source-i4-b2-*`) the evaluation sends the target product name to the model, because the product now does (masked, M-18). The name comes from the gold `product` field as a stand-in for the producer's typed name; no other gold field reaches the model. The before arm (`source-i4-b0-*`) and round 1 (`source-i4-b1-*`) ran without a name, as the product did then. The before/after difference therefore includes this product change.
+
 ## 6. Schedule
 
 11/11 baseline (`i4-b0`) → 11/13 → 11/16 → 11/19 final, same manifest. Human review: chat — Zahra reviews every FAIL and 10 random PASS per cohort; draft — owner to agree (proposed Jinwoo, with real producer materials).
