@@ -155,6 +155,34 @@ def test_AC_SRC_3_validation_cited_quotes_ranges_and_units():
     assert refinement.validate(bad, source, "target")[1]["rejectedCount"] == 1
 
 
+def test_AC_SRC_3_combined_numbers_pass_only_when_every_source_is_cited():
+    """DEV-264: "2kg: 8~18과" joins a weight and a piece count. The validator is unchanged:
+    citing only the count candidate is still rejected; citing both passes."""
+    from app.ai.source_refine import PROMPT
+
+    base = candidates()[0]
+    weight = {**base, "id": "w", "fieldKey": "composition", "value": "2kg"}
+    count = {**base, "id": "n", "fieldKey": "pieceCount", "value": "8~18과"}
+    weight["evidence"] = [{"quote": "중량 : 2kg"}]
+    count["evidence"] = [{"quote": "수 량 : 8~18과"}]
+    source = [weight, count]
+
+    def text(ids):
+        texts = [{"value": "2kg: 8~18과", "candidateIds": ids}]
+        return Refinement(modules=[{"module": "pieceCount", "texts": texts}])
+
+    assert refinement.validate(text(["n"]), source, "target")[1]["rejectedCount"] == 1
+    assert refinement.validate(text(["w", "n"]), source, "target")[1]["rejectedCount"] == 0
+    assert "cite ALL of those candidates" in PROMPT
+
+
+def test_AC_SRC_3_prompt_keeps_other_product_lists_out_of_composition():
+    from app.ai.source_refine import PROMPT
+
+    assert "is never this\nproduct's hero, summary or composition" in PROMPT
+    assert "exclude it as other_product" in PROMPT
+
+
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(
@@ -1496,7 +1524,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v7-farm-common"
+    assert PROMPT_VERSION == "source-refine-v8-cite-all-numbers"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 

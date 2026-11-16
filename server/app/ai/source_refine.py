@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v7-farm-common"
+PROMPT_VERSION = "source-refine-v8-cite-all-numbers"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -109,6 +109,9 @@ An explicit farm-introduction heading does not make cultivation/taste facts farm
 split them into their specific modules, retaining the remaining farmer story in farmStory.
 A main-production-item list is not automatically package contents. Retain the selected
 product's identity in hero/summary and its production season in productionProcess.
+A list of the farm's other products or cultivars (한라봉, 황금향, 레드향 등) is never this
+product's hero, summary or composition: keep it only as farm narrative in farmStory, or
+exclude it as other_product.
 Do NOT label a growing/harvest season as period just because it contains months/dates.
 Distinguish those from sale/booking windows, availability changes and shipping/arrival timing,
 which remain excluded. Storage/ripening durations remain supported product facts too.
@@ -136,6 +139,9 @@ original separator, endpoint units and numeric format within the polished clause
 supported production/harvest seasons and their routing; do not omit them to avoid numbers.
 If a candidate's number/unit differs from its quote, use only the exact supported quote
 expression or exclude the unsupported claim. Never treat the candidate's own value as proof.
+Every number in a text must appear in a quote of a candidate THAT TEXT cites. When one text
+joins values from several candidates (a weight with its piece count, 2kg: 8~18과; a size with
+its weight), cite ALL of those candidates; otherwise the text is rejected and the fact is lost.
 """
 
 
