@@ -85,4 +85,4 @@ Not run in this PR. Each one comes in its own follow-up PR, frozen before its fi
    - First check the scorer itself: the gold text must score 100%.
    - Then score an LLM paraphrase of the gold. The drop in strict recall is the scorer's built-in underestimate.
 8. **Groundedness judge.** Each output sentence is marked supported / unsupported / unknown against the source. Today only numbers and units are checked, so a claim with no number in it ("무농약으로 키웠어요") is not caught.
-9. **Format coverage.** Render the synthetic texts into images, long images and PDFs with code, and score them on the same gold. Today `long_image` has 0 sources, and 20 of 23 sources are text.
+9. **Format coverage.** Render the synthetic texts into images, long images and PDFs with code, and score them on the same gold. In the synthetic set, `long_image` has 0 sources and 20 of 23 sources are text (the public set has 4 long images and 6 PDFs).
