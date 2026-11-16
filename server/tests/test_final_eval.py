@@ -64,6 +64,20 @@ def gold(path, sid="case-01"):
     return path
 
 
+def test_AC_SRC_2_eval_target_carries_the_masked_product_name(monkeypatch):
+    """DEV-264: the runner mirrors the product, which sends the producer-typed name."""
+    seen = []
+    real = ev.extraction_ai.extract
+
+    def capture(mode, model, chunk, targets, images, **kw):
+        seen.append(targets)
+        return real(mode, model, chunk, targets, images, **kw)
+
+    monkeypatch.setattr(ev.extraction_ai, "extract", capture)
+    ev.evaluate_source(row(), "mock", "mock-model", ev.Calls("mock", 3), "황금향 010-1234-5678")
+    assert seen and all(t == [{"id": "eval-target", "name": "황금향 [가림]"}] for t in seen)
+
+
 def setup_output(tmp_path, monkeypatch, text=ai.MOCK_TEXT):
     monkeypatch.setattr(ev, "ROOT", Path("/imaginary/repo"))
     r = row(text)

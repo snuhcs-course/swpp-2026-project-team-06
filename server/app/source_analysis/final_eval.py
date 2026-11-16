@@ -276,7 +276,10 @@ def load_gold(
         "sources": [s.model_dump() for g in golds for s in g.sources],
     }
     final_score.Gold.model_validate(combined)
-    return references, gold_files
+    # DEV-264: the product sends the producer-typed name to the model. The gold `product` is
+    # its only stand-in here; no other gold field reaches the model.
+    names = {s.id: s.product for g in golds for s in g.sources}
+    return references, gold_files, names
 
 
 def estimate(rows, provider, model):
@@ -432,7 +435,7 @@ def evidence_text(local_text, chunk, diagnostics):
     return "\n;\n".join(dict.fromkeys(t for t in (local_text, transcript) if t))
 
 
-def evaluate_source(row, provider, model, calls):
+def evaluate_source(row, provider, model, calls, target_name=""):
     started = time.perf_counter()
     first_entry = len(calls.entries)
     metric = {k: row[k] for k in ("id", "format", "inputSha256")}
@@ -448,7 +451,7 @@ def evaluate_source(row, provider, model, calls):
         pages = parse(row["data"], row["mime"])
         metric["preprocessMs"] = (time.perf_counter() - started) * 1000
         metric.update({k: pages[0][k] for k in ("pagesAnalysed", "pagesSkipped") if k in pages[0]})
-        target = {"id": "eval-target"}
+        target = {"id": "eval-target", "name": scrub(target_name)}
         chunk = {
             "sourceId": row["id"],
             "sourceRevision": 1,
@@ -1124,7 +1127,7 @@ def main(argv=None):
             cfg.app_env != "local" or url.host not in ("127.0.0.1", "localhost")
         ):
             raise ValueError("Paid evaluation requires a scratch local database")
-        references, gold_files = load_gold(
+        references, gold_files, names = load_gold(
             args.split, args.subset, dev_dir, holdout_dir, rows, args.holdout_version
         )
         # Preflight OCR before spending or consuming the holdout attempt. No network provisioning.
@@ -1181,7 +1184,9 @@ def main(argv=None):
                         )
                     )
                 else:
-                    result = evaluate_source(row, args.provider, model, calls)
+                    result = evaluate_source(
+                        row, args.provider, model, calls, names.get(row["id"], "")
+                    )
                     results.append(result)
                     if result[1].get("errorCode") in {"BUDGET_EXCEEDED", "PROVIDER_AUTH"}:
                         aborted = result[1]["errorCode"]
@@ -1211,6 +1216,7 @@ def main(argv=None):
                 "maxUsd": args.max_usd,
                 "sourceMaxOutputTokens": cfg.source_max_output_tokens,
                 "measurementVersion": final_score.MEASUREMENT_VERSION,
+                "targetName": "gold product (stand-in for the producer-typed name, DEV-264)",
                 "estimate": planned,
                 "goldFiles": list(map(str, gold_files)),
                 "sources": [r[1] for r in results],
