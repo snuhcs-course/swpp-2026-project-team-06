@@ -11,6 +11,7 @@ exact function the chat path uses) must reproduce the row's evidence before the 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,7 +31,9 @@ from app.farms.models import Farm, FarmAiSettings, Follow  # noqa: E402
 from app.messaging import service as messaging  # noqa: E402
 from app.orders.models import Order  # noqa: E402
 
-QUESTIONS = ROOT / "docs" / "evaluation" / "i3-ai-support" / "questions.jsonl"
+DEFAULT_QUESTIONS = ROOT / "docs" / "evaluation" / "i3-ai-support" / "questions.jsonl"
+# Another frozen set in the same row format (e.g. the I4 capability set, DEV-265); default stays I3.
+QUESTIONS = Path(os.environ.get("I3_QUESTIONS") or DEFAULT_QUESTIONS).resolve()
 FARM = "f-eval"
 PRODUCER = "u-eval-producer"
 # Fixture products (protocol.md "Fixture interpretation"); all stay PUBLISHED so the farm is multi-product.
@@ -224,10 +227,11 @@ def _norm(value):
 if __name__ == "__main__":
     require_local_database()
     failures = 0
-    for case in load_cases():
+    cases = load_cases()
+    for case in cases:
         trial = prepare(case, 0, suffix="-check")
         if trial.fidelity_diff:
             failures += 1
             print(case["id"], json.dumps(trial.fidelity_diff, ensure_ascii=False))
-    print(f"fidelity: {60 - failures}/60 cases reproduce their evidence exactly")
+    print(f"fidelity: {len(cases) - failures}/{len(cases)} cases reproduce their evidence exactly")
     sys.exit(1 if failures else 0)
