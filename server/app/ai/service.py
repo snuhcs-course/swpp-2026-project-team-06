@@ -258,7 +258,7 @@ _DELIVERY_QUESTION = re.compile(
 )
 _RESERVATION_QUESTION = re.compile(r"예약.*(?:배송|출하|보내)|(?:배송|출하).*예약")
 # 당도 수치를 묻는 말. "얼마나 달아요?"도 등록 당도로 답하고 맛 판단은 하지 않는다(DEV-265)
-_BRIX_QUESTION = re.compile(r"당도|브릭스|brix|얼마나\s*달", re.IGNORECASE)
+_BRIX_QUESTION = re.compile(r"당도|브릭스|brix|얼마나\s*달(?:아|까)", re.IGNORECASE)
 _BRIX_WORD = re.compile(r"당도|브릭스|brix", re.IGNORECASE)
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
 CONFLICT_REASON = "등록 정보가 서로 달라요"

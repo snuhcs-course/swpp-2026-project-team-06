@@ -146,6 +146,14 @@ def test_AC_13_3_how_sweet_is_answered_with_registered_brix_only():
     assert expected is not None and "예상" in expected.answer
 
 
+@pytest.mark.parametrize("question", ["얼마나 달콤해요?", "다른 귤이랑 얼마나 달라요?"])
+def test_AC_13_8_other_how_much_phrasings_do_not_get_the_brix_answer(question):
+    """spec-check #591: 맛 표현("달콤")·"달라요"(다르다)는 등록 당도로 답하지 않는다."""
+    result = ai._rule_answer(question, PAID)
+
+    assert result is None or "Brix" not in (result.answer or ""), (question, result)
+
+
 def test_AC_13_8_how_sweet_without_registered_brix_is_handed_off():
     result = ai.answer_question("얼마나 달아요?", Evidence(product_id="p-1"))
 
