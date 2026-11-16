@@ -950,8 +950,11 @@ def process(item_id, token):
             }
             allowed = set(item.target_ids)
             selected_targets = [t for t in run.targets if t["id"] in allowed]
-            # Names may contain personal data; only approved source contents are needed.
-            selected_targets = [{"id": t["id"]} for t in selected_targets]
+            # DEV-264: the producer-typed product name tells products apart in mixed sources.
+            # Contact data is masked like every other model input (M-18); basicInfo stays out.
+            selected_targets = [
+                {"id": t["id"], "name": scrub(t.get("name") or "")} for t in selected_targets
+            ]
             mode, model = run.mode, run.model
             if mode != "mock" and not use_vision_ocr:
                 from app.source_analysis.budget import reserve

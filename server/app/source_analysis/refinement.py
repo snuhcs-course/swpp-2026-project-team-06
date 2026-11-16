@@ -343,8 +343,9 @@ def process(item_id, token):
         diagnostic_candidates = all_candidates + (
             payload(current_candidates(db, batch.id, None)) if len(run.targets) > 1 else []
         )
-        # Target names may be personal data. Candidate values already identify the product.
-        target = {"id": item.target_ids[0]}
+        # DEV-264: same masked product name as stage 1, so stage 2 can drop other products.
+        named = next((t for t in run.targets if t["id"] == item.target_ids[0]), {})
+        target = {"id": item.target_ids[0], "name": scrub(named.get("name") or "")}
         mode, model = run.mode, run.model
         target_count = len(run.targets)
     if mode == "mock" or not candidates:

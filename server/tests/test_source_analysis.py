@@ -217,6 +217,48 @@ def test_AC_SRC_6_real_mode_proceeds_without_privacy_review(client, login, monke
     assert "example@example.test" in str(received)
 
 
+def test_AC_SRC_2_M_18_model_gets_masked_product_name(client, login, monkeypatch):
+    """DEV-264: the producer-typed name tells products apart in mixed sources; contact data in
+    it is masked and basicInfo is not sent."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "source_analysis_provider", "openai")
+    h = login("u-kang")
+    response = client.post(
+        PREFIX,
+        headers=key(h),
+        json={"targets": [{"name": "황금향 010-1234-5678", "basicInfo": {"variety": "황금향"}}]},
+    )
+    assert response.status_code == 201, response.text
+    batch = response.json()
+    upload(client, h, batch)
+    start(client, h, batch["id"])
+    received = []
+    from app.ai.source_analysis import ExtractionResponse
+    from app.source_analysis.schemas import Extraction
+
+    def fake(mode, model, chunk, targets, images):
+        received.append(targets)
+        return ExtractionResponse(
+            Extraction(candidates=[], photo_requests=[]), {"input_tokens": 1}, "r"
+        )
+
+    from app.source_analysis import refinement
+
+    refined = []
+    real_refine = refinement.refine
+
+    def capture(mode, model, target, candidates):
+        refined.append(target)
+        return real_refine(mode, model, target, candidates)
+
+    monkeypatch.setattr(worker, "extract", fake)
+    monkeypatch.setattr(refinement, "refine", capture)
+    drain()
+    named = {"id": batch["targets"][0]["id"], "name": "황금향 [가림]"}
+    assert received and all(targets == [named] for targets in received)
+    assert refined and all(target == named for target in refined)
+
+
 def test_AC_SRC_5_reanalysis_preserves_review_and_cancel(client, login):
     h = login("u-kang")
     batch = create(client, h)
