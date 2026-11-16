@@ -250,6 +250,7 @@ screens.md 1.0과 다르게 정한 것이다. SWPP-81에서 스펙 1.1에 반영
 | 프레임 | 파일 | 크기 |
 | --- | --- | --- |
 | 브랜드 아이덴티티 진단 · 방향 A 팬클럽 / B 수확 시계 / C 산지 서명 (DEV-311) | [proposals/dev-311-brand-audit.html](proposals/dev-311-brand-audit.html) · [proposals/dev-311-brand-directions.html](proposals/dev-311-brand-directions.html) | 1320×3300 · 1380×8400 |
+| 브랜드 통합안: A 팬클럽 + B 가격 계단, 승인된 DEV-268 UX 위 (DEV-311) | [proposals/dev-311-brand-integrated.html](proposals/dev-311-brand-integrated.html) | 1380×20000 |
 
 ## 스펙 1.2~1.5 반영 (SWPP-83)
 
