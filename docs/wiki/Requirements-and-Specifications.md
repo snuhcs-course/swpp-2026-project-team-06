@@ -102,7 +102,7 @@ Sources (checked 9 October 2026): [Nongsafund on funding and advance purchases, 
 | Pricing | Earlier periods are cheaper and periods do not overlap. Changed terms are reconfirmed before payment; paid orders keep their price | R-17-18 |
 | Capacity | Reserved plus shipped weight <= sales limit <= approved weight. Limits are set in kg; producer sales screens show each weight option's current box price and sold boxes, with total kg as secondary text (DEV-300) | R-06, R-26 |
 | Quantity | One option and one address per order, within the per-order and per-period box limits | R-23 |
-| Pause | The product stays visible, new orders and unpaid payments are blocked, existing paid orders can still ship | R-27 |
+| Pause | The product stays visible, new orders and unpaid payments are blocked, existing paid orders can still ship. Resuming needs a current or future period with stock left; this is checked only when resuming, so a sold-out product can still raise its limit or change the per-order maximum (DEV-344) | R-27 |
 | Cancellation | Before confirmed payment: cancel unpaid instructions with no recorded refund and release held stock once; a reported transfer requires factual reconciliation. After confirmed payment: full refund before shipment, sent by the farm back to the account the buyer paid from, and eligible stock is restored once. Refunds after shipping do not restore capacity | R-07-08, R-26, R-28 |
 | Delivery change | The buyer accepts the new window or takes a full refund | R-21 |
 | Shipment | Only PREPARING orders can ship. Starting harvest on a sale period moves that period's reserved orders to PREPARING (DEV-231). Delivery confirmation belongs to the operator, then receipt confirmation to the consumer | R-19 |
@@ -306,6 +306,7 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **WHEN** I set, pause, resume or change periods
 - **THEN** my sales limit stays between what is already sold and the approved amount
 - **AND** it is not reset by those actions
+- **AND** a sold-out product can still raise its limit up to the approved amount or change the per-order maximum; the "is anything sellable" check runs only when resuming a paused product (DEV-344)
 
 ### FEAT-05: Periods, prices and allocation
 
