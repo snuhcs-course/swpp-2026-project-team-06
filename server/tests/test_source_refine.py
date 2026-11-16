@@ -236,6 +236,20 @@ def test_AC_SRC_3_range_needs_a_range_in_the_quote(quote, value, code):
     assert [r["code"] for r in diagnostics["rejected"]] == ([code] if code else [])
 
 
+def test_AC_SRC_2_prompt_routes_commonly_misplaced_facts():
+    """DEV-264: routing lines for the facts most often placed in the wrong section."""
+    from app.ai.source_refine import PROMPT
+
+    for line in (
+        "cultivar background and parentage",
+        "package type (선물용/가정용/실속형 포장)",
+        "keeping, ripening and room-temperature durations",
+        "growing conditions and harvest timing",
+        "short factual tagline",
+    ):
+        assert line in PROMPT
+
+
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(

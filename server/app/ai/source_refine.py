@@ -100,11 +100,17 @@ PROMPT += """
 FACT PRESERVATION AND MODULE AUDIT (apply before returning):
 fieldKey is an extraction hint, not a command to keep a mixed sentence in that module.
 Split mixed candidates into supported clauses with the same candidateIds. Route each fact:
-- hero: explicit product title only; never move a farm narrative into a new advertising title.
-- summary: product identity, origin, cultivar background and factual distribution/provenance.
-- composition/pieceCount: package contents, weight and explicit count respectively.
-- taste: flavour, aroma, sweetness, juice, texture, size/grade and eating/serving occasions.
-  Move these facts out of summary even when summary contains a product introduction.
+- hero: explicit product title, or a short factual tagline the source gives as the product's
+  headline; never move a farm narrative into a new advertising title.
+- summary: product identity, origin/region, cultivar background and parentage (A와 B를 교배),
+  and factual distribution/provenance. These never go to taste.
+- composition/pieceCount: package contents, weight, package type (선물용/가정용/실속형 포장)
+  and explicit count respectively.
+- taste: flavour, aroma, sweetness, juice, texture, size/grade and eating/serving occasions
+  (식후 과일, 간식). Move these facts out of summary even when summary has an introduction.
+- storage: keeping, ripening and room-temperature durations (3~5일 상온 후숙), never taste.
+- productionProcess also takes growing conditions and harvest timing (해풍, 일조, 완숙 수확),
+  never taste.
 - qualityEvidence: explicit certification or measurement with its original sample context.
 - productionProcess: growing/harvesting/sorting/inspection methods and harvest principles;
   also production/harvest months or seasons, including year-round production.
