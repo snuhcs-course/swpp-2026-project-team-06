@@ -278,8 +278,10 @@ def input_hash(candidates):
     ).hexdigest()
 
 
-MAX_REFINE_CANDIDATES = 40
-MAX_REFINE_CHARS = 16000
+# DEV-264: 40/16,000 cut real multi-page sources (76 candidates, 25k chars) mid-document.
+# At 40 candidates stage-2 output peaked at ~1.3k tokens, far below the 8,000 output limit.
+MAX_REFINE_CANDIDATES = 80
+MAX_REFINE_CHARS = 32000
 
 
 def limit_candidates(candidates):

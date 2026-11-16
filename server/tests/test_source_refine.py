@@ -1693,6 +1693,15 @@ def test_AC_SRC_2_5_refine_input_cap_is_deterministic_and_bounded():
     }
 
 
+def test_AC_SRC_2_5_refine_cap_fits_a_long_multi_page_source():
+    """DEV-264: a 76-candidate source (25k JSON chars) reaches stage 2 whole."""
+    source = (candidates() * 10)[:76]
+    selected, diagnostics = refinement.limit_candidates(source)
+    assert selected == source
+    assert diagnostics["candidatesSkipped"] == 0
+    assert refinement.MAX_REFINE_CANDIDATES == 80 and refinement.MAX_REFINE_CHARS == 32000
+
+
 @pytest.mark.parametrize(
     "source,reason",
     [
