@@ -19,6 +19,7 @@ from app.source_analysis.models import Asset, Batch, Candidate, Item, Page, Run
 from app.source_analysis.preprocess import scrub
 from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
+    has_exaggeration,
     has_health_claim,
     has_money,
     has_period_text,
@@ -185,6 +186,8 @@ def validate(output, candidates, target_id, *, target_count=0):
                 code = "MONEY_AMOUNT"
             elif has_health_claim(text.value) or any(has_health_claim(c["value"]) for c in cited):
                 code = "HEALTH_CLAIM"
+            elif has_exaggeration(text.value):
+                code = "EXAGGERATION"
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
@@ -238,6 +241,7 @@ def validate(output, candidates, target_id, *, target_count=0):
         "MONEY_AMOUNT": "price",
         "PRICED_HISTORY": "price",
         "HEALTH_CLAIM": "health",
+        "EXAGGERATION": "unsupported",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:

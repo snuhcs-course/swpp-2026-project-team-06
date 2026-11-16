@@ -54,3 +54,13 @@ def has_period_text(value):
     return _contains(value, SAFETY_LISTS["period"]) or any(
         pattern.search(value) for pattern in _PERIOD_PATTERNS
     )
+
+
+_EXAGGERATION_PATTERNS = [re.compile(p) for p in SAFETY_LISTS["exaggerationPatterns"]]
+
+
+def has_exaggeration(value):
+    """DEV-264: superlatives, comparisons with other products and calls to action."""
+    return _contains(value, SAFETY_LISTS["exaggeration"]) or any(
+        pattern.search(value) for pattern in _EXAGGERATION_PATTERNS
+    )

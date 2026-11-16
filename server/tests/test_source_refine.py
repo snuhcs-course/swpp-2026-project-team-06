@@ -183,6 +183,40 @@ def test_AC_SRC_3_prompt_keeps_other_product_lists_out_of_composition():
     assert "exclude them as other_product" in PROMPT
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "최고의 당도와 풍미를 자랑합니다.",
+        "한라봉이나 레드향 등 다른 감귤류보다 높은 당도를 자랑합니다",
+        "지금 바로 제주도의 카라향을 만나보세요!",
+        "효돈 마을 감귤이 으뜸입니다.",
+    ],
+)
+def test_AC_SRC_3_exaggeration_text_is_rejected(value):
+    """DEV-264: superlatives, comparisons and calls to action never reach the page."""
+    source = candidates()
+    source[0]["evidence"][0]["quote"] = value
+    texts = [{"value": value, "candidateIds": ["c0"]}]
+    out = Refinement(modules=[{"module": "taste", "texts": texts}])
+    accepted, diagnostics = refinement.validate(out, source, "target")
+    assert diagnostics["rejectedCount"] == 1
+    assert diagnostics["rejected"][0]["code"] == "EXAGGERATION"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "당도 13~14 브릭스예요.",
+        "최고 당도 15브릭스까지 나와요.",
+        "보다 신선하게 보내려고 당일 수확해요.",
+    ],
+)
+def test_AC_SRC_3_factual_clauses_are_not_exaggeration(value):
+    from app.source_analysis.text_safety import has_exaggeration
+
+    assert not has_exaggeration(value)
+
+
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(
@@ -1524,7 +1558,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v9-target-name"
+    assert PROMPT_VERSION == "source-refine-v10-no-exaggeration"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 

@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v9-target-name"
+PROMPT_VERSION = "source-refine-v10-no-exaggeration"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -67,6 +67,12 @@ Keep harvest/sorting methods and freshness. Reduce mixed policy to supported pro
 1-3일 이내 제주에서 직배송 -> delivery: 제주 농장에서 직접 보내요 (exclude period).
 수확 후 순차 출고하며 도착일은 확정하지 않습니다 -> delivery: 수확 후 순차 출고해요
 (exclude the arrival-date clause as period).
+ALWAYS drop superlatives, comparisons with other products or farms and calls to action
+(최고의, 최상, 으뜸, 1등, 다른 감귤류보다 높은, 지금 바로 만나보세요): keep only the factual
+clause beside them (…당도 13~14 브릭스로 다른 감귤류보다 높은 당도 -> 당도 13~14 브릭스).
+The server rejects any text that still contains them, losing its facts.
+A seller or brand introduction that is not the farm itself (…브랜드입니다) and import/
+purchase-agent notices are not farmStory: exclude them as platform.
 ALWAYS remove health/efficacy claims, including immunity/digestion/fatigue/diet/skin/beauty/
 disease prevention/효능 and nutrient statements attached to such claims. 건강하게 키운 is neutral.
 NEVER cite a candidate containing a health claim, even to retain a neutral fragment or nutrient
