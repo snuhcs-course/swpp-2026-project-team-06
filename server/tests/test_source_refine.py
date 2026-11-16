@@ -1756,7 +1756,7 @@ def test_AC_SRC_3_final_prompt_keeps_r3_coverage_and_excludes_contact_policy():
     from app.ai.source_analysis import PROMPT_VERSION as EXTRACT_VERSION
     from app.ai.source_refine import PROMPT
 
-    assert EXTRACT_VERSION == "source-v8-exact-numbers"
+    assert EXTRACT_VERSION == "source-v9-coverage"
     assert "IDENTITY AND COVERAGE AUDIT" in EXTRACT_PROMPT
     assert "FACT PRESERVATION AND MODULE AUDIT" in PROMPT
     assert "production/harvest months or seasons, including year-round production" in PROMPT

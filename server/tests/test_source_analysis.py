@@ -774,3 +774,12 @@ def test_AC_SRC_8_batch_pdf_cap_after_per_pdf_cap(client, login, monkeypatch):
     )
     state = client.get(f"{PREFIX}/{batch['id']}", headers=h).json()
     assert sum(s["pageCount"] for s in state["sources"] if s["mime"] == "application/pdf") == 60
+
+
+def test_AC_SRC_2_stage1_prompt_has_coverage_checklist():
+    """DEV-264: short facts stage 1 often skipped (packing, size grades, taste caveats)."""
+    from app.ai.source_analysis import PROMPT, PROMPT_VERSION
+
+    assert PROMPT_VERSION == "source-v9-coverage"
+    for item in ("shipping and packing", "size grades", "taste qualifiers", "appearance notes"):
+        assert item in PROMPT
