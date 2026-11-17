@@ -38,6 +38,12 @@ Main advanced to 923a2eb while the Figma follow-up was running. Integrated it in
 - Browser: back-rules, checkout-stage-changed, checkout-deposit-recovery and first-reservation-ux — **21/21 passed**, no retries. The initial 20/21 result exposed a now-ambiguous selector after the price stair was added; it was scoped to product-options without weakening the exact price assertion.
 - Independent merge/source/design review has no remaining actionable findings. The PR remains open for human review; no deployment or physical-device UAT is claimed.
 
+## Final CI fixture correction (DEV-244)
+
+CI run 44087966459 passed server, apps and integration shards 1/2. Shard 3 passed 102 cases with two skips but failed one chat-order case on both attempts. Its retained screenshots show the question was displayed with number-like UUID groups correctly masked under M-16; the test searched its raw UUID. An unchanged local run passed, matching this input-dependent fixture failure rather than establishing a product ordering regression.
+
+Public-only fixture suffixes now map UUID digits injectively to letters, preventing accidental contact-number matches while preserving uniqueness. All exact text, persisted-sequence, DOM-order, reload, producer-view, source-evidence and handoff assertions remain. Idempotency keys stay UUIDs; product masking/order code and frozen oracles are untouched. The corrected two-case spec passes **6/6 cases across three repetitions**, with another **7/7 real API gate**. Independent review has no remaining findings. Final CI is checked separately; the earlier failed run is not reported as passing.
+
 ## Historical package audit (DEV-163)
 
 Re-audited against the preserved submission-manifest.json created 6 November 2026 at 14:58:34 UTC. All six file hashes match it exactly. PDFs retain valid PDF signatures; XLSX containers retain workbook.xml and pass ZIP integrity. The re-created archive contains only:

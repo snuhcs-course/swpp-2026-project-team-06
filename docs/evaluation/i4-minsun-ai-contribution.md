@@ -26,6 +26,8 @@ Initial browser assertions assumed paused products still display prices, that a 
 
 After the user restored Figma access, the editing service could not load Pretendard Variable or override text properties bound to that missing font. The agent verified the app’s explicit Noto Sans KR fallback, created editable state copies with that supported family, and preserved the source screens/library. Independent design review caught missing uploaded-photo preview/delete controls and the wrong timeout icon; these and a loading-indicator alignment issue were corrected before final visual/readback verification. The font/component-copy limitation remains explicit in the design evidence.
 
+The broader CI run then exposed a latent test-data error: a random UUID sometimes resembled a bank account, so the existing privacy filter masked the message and the exact raw-text locator failed. The screenshots and unchanged local reproduction distinguished this from message-order loss. Public fixture suffixes were changed to an injective letter-only encoding while retaining all assertions and UUID idempotency keys. The corrected two-case spec passed all six cases over three repetitions, and seven API scenarios passed again.
+
 ## Verification and human boundary
 
 The initial implementation gates at d2386f3 were 1,835 server tests passed / 1 skipped with the UTC database setting used by CI; 339 Mock tests passed / 1 skipped; all five workspace typechecks; seven real API integration scenarios; and 13 browser cases. The original v1.0 and proposed v1.1 matrix validators each validate 44 cases. These are local synthetic checks, not participant UAT, production deployment or native-device acceptance.
