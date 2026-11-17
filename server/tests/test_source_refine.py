@@ -250,13 +250,6 @@ def test_AC_SRC_2_prompt_routes_commonly_misplaced_facts():
         assert line in PROMPT
 
 
-def test_AC_SRC_2_prompt_keeps_source_wording_and_caveats():
-    from app.ai.source_refine import PROMPT
-
-    assert "descriptive words and phrases verbatim" in PROMPT
-    assert "never drop them as minor" in PROMPT
-
-
 def fixture_extract(mode, model, chunk, targets, images):
     assert mode == "mock" and images == []
     return ExtractionResponse(
@@ -1598,7 +1591,7 @@ def test_AC_SRC_3_served_refinement_rechecks_safety(client, login, monkeypatch, 
 def test_AC_SRC_3_prompt_excludes_entire_health_candidate():
     from app.ai.source_refine import PROMPT, PROMPT_VERSION
 
-    assert PROMPT_VERSION == "source-refine-v12-source-wording"
+    assert PROMPT_VERSION == "source-refine-v11-routing"
     assert "NEVER cite a candidate containing a health claim" in PROMPT
     assert "List that entire candidate in excluded with reason health" in PROMPT
 

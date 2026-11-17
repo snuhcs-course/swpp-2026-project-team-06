@@ -20,7 +20,7 @@ from app.source_analysis.text_safety import (
     has_platform_text,
 )
 
-PROMPT_VERSION = "source-refine-v12-source-wording"
+PROMPT_VERSION = "source-refine-v11-routing"
 PHOTO_FIELDS = {"hero", "sizePhoto", "crossSectionPhoto", "packagePhoto", "farmPhotos"}
 TEXT_MODULE_FIELDS = {
     module: next(key for key in keys if key not in PHOTO_FIELDS)
@@ -136,10 +136,6 @@ quantities into one package or remove the labels that explain which is which.
 Keep unknown/negative qualifiers next to their known fact. Do not exclude a supported
 unknown qualifier as unsupported, or replace a non-measurement statement with a measurement.
 Prefer source wording over synonyms for factual clauses, negation and uncertainty.
-Keep the source's own descriptive words and phrases verbatim (탱글탱글, 새콤달콤, 산지 직송,
-호불호 없는, 품종상의 특성): change only particles, endings and joins, never swap them for
-synonyms or shorter paraphrases. Keep small caveats as their own clauses (나무·수확 시기에 따라
-맛 차이, 박스 디자인은 재고에 따라 변동), never drop them as minor.
 For EVERY candidate compare all its facts with accepted text, not merely whether its ID
 was cited. Account for every safe clause, label and qualifier. Only true duplicates can be
 merged; do not silently lose facts while shortening. Cite each retained clause and list
