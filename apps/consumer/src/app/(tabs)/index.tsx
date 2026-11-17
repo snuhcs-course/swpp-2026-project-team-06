@@ -24,11 +24,12 @@ import {
 import { useRouter } from "expo-router";
 import { Pressable, View, useWindowDimensions } from "react-native";
 import { useSession } from "../../lib/session";
+import { useFocusedAsync } from "../../lib/useFocusedAsync";
 
 export default function Home() {
   const router = useRouter();
   const { user } = useSession();
-  const home = useAsync(() => farms.home(), []);
+  const home = useFocusedAsync(() => farms.home(), []);
   const news = useAsync(async () => {
     if (!home.data) return [];
     const pages = await Promise.all(

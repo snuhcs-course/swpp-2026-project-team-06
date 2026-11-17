@@ -140,7 +140,7 @@ Figure 2. Retained I2 principal-relationship overview; the I3 association below 
 | Identity | `User`, `UserConsent`, `ShippingAddress`; role/app gates; shipping details exposed only to authorized participants |
 | Farm | `Farm`, `Follow`, `FarmAiSettings`, `FarmAiSettingsHistory`; farm owner and versioned settings; approval distinct from public visibility and suspension |
 | Catalog | `Product`, `Option`, `Stage`, `StagePrice`, `StageAllocation`, `CapacityRequest`, `ProductDraft`; period/option composite keys, approved grams and sales limits, product version |
-| Commerce | `Order`, `Payment`, `Refund`; unique order number; payment unique per order; copied unit price/weight/address/consents; refund history separate from fulfillment |
+| Commerce | `Order`, `Payment`, `Refund`; unique order number; short depositor code (`deposit_code`, name + digits, unique among one farm's awaiting orders, DEV-342); payment unique per order; copied unit price/weight/address/consents; refund history separate from fulfillment |
 | Communication | `Broadcast`, `Reaction`, `RoomReply`, `Thread`, `ThreadMessage`, `Escalation`, `OrderInquiry`, `PrivateAttachment`, `ThreadOrderContext`, `SupportThread`, `SupportMessage`; unique farm/consumer thread and per-thread sequence; participant-filtered reads |
 | Source analysis | `Batch`, `Asset`, `Page`, `Run`, `Item`, `Candidate`, `ReviewedField`, `Draft`, `RequestRecord`, `PublicPhoto`, `Spend`, `ProductWorkspace`; farm ownership, source revisions, job leases and product-bound draft snapshots |
 | Operations / media / retry | `ManagerEvent`, `PublicMedia`, `IdempotencyRecord`; action history, validated object metadata, unique user/scope/key with body hash and stored response |
@@ -151,7 +151,7 @@ Schema head at this reference is **0026**. The retained I2 sequence covers basel
 
 ![I3 paid-order context relationships](images/i3-order-context.svg)
 
-Figure 2a. I3 paid-order entry records a context independently of messages and formal problem inquiries. `ThreadOrderContext` has composite primary key `(thread_id, order_id)`, creation time, cascading foreign keys to thread/order, and an order lookup index. The association is a retained entry record; it grants no authority without current owner/payment/farm checks. Existing valid `OrderInquiry` links remain readable without a mutating GET or data backfill. Source: [0026 migration](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/server/migrations/versions/0026_thread_order_contexts.py) and [current eligibility checks](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/server/app/messaging/order_context.py).
+Figure 2a. I3 paid-order entry records a context independently of messages and formal problem inquiries. `ThreadOrderContext` has composite primary key `(thread_id, order_id)`, creation time, cascading foreign keys to thread/order, an order lookup index, and `source` (`CONSUMER` | `PRODUCER`, NOT NULL, default `CONSUMER`, added in migration 0034 by DEV-342). `CONSUMER` rows are the consumer's paid-order entries and form the chat's linked orders; `PRODUCER` rows come from a producer's '채팅하기' on an awaiting-deposit order and only grant the buyer visibility and ordinary replies regardless of follow. The association is a retained entry record; it grants no authority without current owner/farm checks, and it counts only while the order has payment history or is awaiting a deposit. Existing valid `OrderInquiry` links remain readable without a mutating GET or data backfill. Source: [0026 migration](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/server/migrations/versions/0026_thread_order_contexts.py) and [current eligibility checks](https://github.com/snuhcs-course/swpp-2026-project-team-06/blob/28feb94ac47b259b6a6299e9fd742b75e756a33d/server/app/messaging/order_context.py).
 
 ### 2.4 API specification
 
@@ -320,3 +320,23 @@ Optional source jobs require `SOURCE_ANALYSIS_ENABLED=true`, an API and worker w
 | Product contracts | `docs/spec/functional/`, `docs/spec/source-integration.md`, `docs/spec/source-editor.md`, `docs/spec/conversation-ui-1.6.md` |
 
 Where older source documents contain dated decisions, use their current-contract notices and the implemented code at this document's commit. Diagram sources (`images/i2-*.dot`) are retained alongside exported figures for future maintenance.
+
+
+### Reservation period identity (DEV-336, AC-05-4)
+
+Period updates match existing rows by stageId, reject unknown or duplicate IDs, and delete only omitted IDs. Rows without an ID create new periods. Date order determines sequential labels; reservations and order snapshots remain attached to the original period ID. Date/deletion locks and allocated-stock checks use that ID.
+
+
+### Consumer price freshness (DEV-337, AC-08-8)
+
+Returning to home/product reloads current prices and availability. Product reservation stays disabled during refresh/failure, with retry on failure. Checkout displays an informational old/new unit-price notice when its initial authoritative load differs from the product price. Subsequent changes still use the existing server conflict response and explicit “Reserve at updated price” action, preserving form inputs.
+
+
+### Chat navigation history (DEV-340, FEAT-12)
+
+A conversation header consumes an existing back-stack entry. If opened directly, it replaces the route with the product, farm-info or order fallback. Repeated product → chat → Back → Back leaves the product rather than returning to the same chat.
+
+
+### Message order and oracle version (DEV-244, AC-12-8)
+
+Private 1:1 messages, page boundaries and read watermarks follow persisted sequence, including equal timestamps and opposing lexical IDs. Dates still derive from createdAt. News pagination retains its timestamp/ID contract. The prospective v1.1 oracle in docs/evaluation/i3-journeys/versions/v1.1 preserves the complete frozen v1.0 record and historical failure, and awaits PM adoption for future UAT.

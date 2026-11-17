@@ -50,7 +50,7 @@ try {
   await tap(btn("이 주소로 받기"));
   await tap(page.getByRole("checkbox", { name: "모두 동의해요" }));
   await tap(btn("예약하기").last(), { after: 1500 });
-  await cap("무통장 입금 안내", "farmclub은 돈을 받지 않아요.\n농가 계좌·입금액·입금자명(주문 번호)·\n기한을 보여 주고, 입금한 뒤\n'입금을 마쳤어요'를 눌러요.", "FEAT-09 · SCR-11");
+  await cap("무통장 입금 안내", "farmclub은 돈을 받지 않아요.\n농가 계좌·입금액·입금자명(짧은 입금 코드)·\n기한을 보여 주고, 입금한 뒤\n'입금을 마쳤어요'를 눌러요.", "FEAT-09 · SCR-11");
   await scroll(400);
   await tap(btn("입금을 마쳤어요"), { after: 2000 });
   await cap("입금 확인 대기", "농가가 통장과 대조해 '입금 확인'을\n누르면 예약이 완료돼요.", "SCR-12");

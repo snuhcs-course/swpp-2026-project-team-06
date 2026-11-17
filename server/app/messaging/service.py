@@ -32,7 +32,12 @@ from app.messaging.models import (
     ThreadMessage,
     ThreadOrderContext,
 )
-from app.messaging.order_context import eligible_order_ids, has_order_context, require_paid_order
+from app.messaging.order_context import (
+    eligible_order_ids,
+    has_order_context,
+    has_producer_context,
+    require_paid_order,
+)
 from app.messaging.schemas import (
     AttachmentView,
     ChatMessage,
@@ -817,6 +822,18 @@ def _set_mode(t: Thread, mode: str) -> None:
         t.version += 1
 
 
+def _may_send_without_order(
+    db: Session, consumer_id: str, thread: Thread, *, fresh: bool = False
+) -> bool:
+    """주문 없이 보내는 보통 메시지: 팔로우했거나, 생산자가 그 소비자의 주문으로 연 대화
+    (DEV-342). `fresh`면 주문을 DB에서 다시 읽는다(저장 직전 재확인)."""
+    from app.farms import service as farms
+
+    return farms.is_following(db, consumer_id, thread.farm_id) or has_producer_context(
+        db, thread, fresh=fresh
+    )
+
+
 def _has_inquiries(db: Session, thread_id: str) -> bool:
     """Compatibility name: current explicit order context or legitimate inquiry."""
     thread = db.get(Thread, thread_id)
@@ -1078,10 +1095,15 @@ def start_chat(db: Session, consumer, farm_id: str, order_id: str | None = None)
     ensure_thread(db, farm_id, consumer.id)
     thread = get_thread(db, farm_id, consumer.id, lock=True)
     if order_id is not None:
+        # 소비자가 직접 연 결제 주문 진입은 연결 주문이다.
+        # 생산자가 먼저 남긴 같은 주문 행은 소비자 쪽으로 바꾼다
+        statement = pg_insert(ThreadOrderContext).values(
+            thread_id=thread.id, order_id=order_id, created_at=now(), source="CONSUMER"
+        )
         db.execute(
-            pg_insert(ThreadOrderContext)
-            .values(thread_id=thread.id, order_id=order_id, created_at=now())
-            .on_conflict_do_nothing(index_elements=["thread_id", "order_id"])
+            statement.on_conflict_do_update(
+                index_elements=["thread_id", "order_id"], set_={"source": "CONSUMER"}
+            )
         )
         return StartChatResult(farm_id=farm_id, auto_followed=False)
     auto_followed = not farms.is_following(db, consumer.id, farm_id)
@@ -1315,12 +1337,11 @@ def _evidence(
 
 def authorize_chat_send(db: Session, consumer, farm_id: str, body: SendInput) -> None:
     """Revalidate access even when a committed send is replayed."""
-    from app.farms import service as farms
 
-    _consumer_thread(db, consumer.id, farm_id)
+    thread = _consumer_thread(db, consumer.id, farm_id)
     if body.order_id is not None:
         require_paid_order(db, consumer.id, farm_id, body.order_id)
-    elif not farms.is_following(db, consumer.id, farm_id):
+    elif not _may_send_without_order(db, consumer.id, thread):
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
 
 
@@ -1349,8 +1370,9 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
         if order is None or not orders.order_belongs_to_farm(db, order, farm_id):
             raise not_found("결제한 본인 주문만 문의할 수 있어요.")
         context = orders.order_context(db, order)
-    elif not farms.is_following(db, consumer.id, farm_id):
-        # 팔로우 해제 뒤에는 본인 결제 주문 문맥으로만 보낼 수 있다(contracts-1.2 4장)
+    elif not _may_send_without_order(db, consumer.id, thread):
+        # 팔로우 해제 뒤에는 본인 결제 주문 문맥으로만 보낼 수 있다(contracts-1.2 4장).
+        # 생산자가 그 소비자의 주문으로 연 대화는 예외(DEV-342)
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
     if body.product_id:
         # 판매 중인 그 농가 상품만 근거로 쓴다(DEV-97). 주문이 함께 오면 주문이 먼저다
@@ -1374,7 +1396,7 @@ def consumer_send(db: Session, consumer, farm_id: str, body: SendInput) -> Consu
     if body.order_id:
         # Do not commit with a stale order identity after an external AI call.
         require_paid_order(db, consumer.id, farm_id, body.order_id, fresh=True)
-    elif not farms.is_following(db, consumer.id, farm_id):
+    elif not _may_send_without_order(db, consumer.id, thread, fresh=True):
         raise forbidden("팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.")
     unchanged = (
         _effective_mode(thread),
@@ -1510,10 +1532,45 @@ def producer_chats(
     return _offset_page(rows, cursor, limit)
 
 
-def producer_start(db: Session, farm, consumer_id: str, room_reply_id: str | None) -> ThreadView:
-    """기존 대화, 또는 자기 소식방에 답장한 현재 팔로워만 대상이다. 임의 고객 검색은 없다."""
-    from app.farms import service as farms
+def producer_start(
+    db: Session,
+    farm,
+    consumer_id: str | None,
+    room_reply_id: str | None,
+    order_id: str | None = None,
+) -> ThreadView:
+    """기존 대화, 자기 소식방에 답장한 현재 팔로워, 또는 자기 농가 주문의 소비자(DEV-342)만
+    대상이다.
 
+    주문으로 시작하면 서버가 그 주문이 이 농가의 입금 대기 주문인지 확인하고
+    소비자를 정한다. consumerId를 함께 보내면 그 주문의 소비자와 같아야 한다. 임의 고객 검색은 없다.
+    """
+    from app.accounts import service as accounts
+    from app.farms import service as farms
+    from app.orders import service as orders
+
+    if order_id is not None:
+        buyer = orders.buyer_of_farm_order(db, farm.id, order_id)
+        user = accounts.get_user(db, buyer) if buyer else None
+        if (
+            buyer is None
+            or (consumer_id is not None and consumer_id != buyer)
+            or user is None
+            or user.deleted_at is not None
+        ):
+            raise not_found("대화를 시작할 수 없는 주문이에요.")
+        thread = ensure_thread(db, farm.id, buyer)
+        # 생산자 쪽 주문 문맥(source PRODUCER)을 남긴다. 구매자는 팔로우와 상관없이 이 대화를
+        # 보고 답한다. 연결 주문(주문 문의 모드)으로는 쓰지 않아 팔로워의 대화도 보통 대화
+        # 그대로다(DEV-342)
+        db.execute(
+            pg_insert(ThreadOrderContext)
+            .values(thread_id=thread.id, order_id=order_id, created_at=now(), source="PRODUCER")
+            .on_conflict_do_nothing(index_elements=["thread_id", "order_id"])
+        )
+        return _thread_view(thread)
+    if consumer_id is None:
+        raise invalid({"consumerId": "대화할 소비자나 주문을 골라 주세요"})
     thread = get_thread(db, farm.id, consumer_id)
     if thread is None:
         reply = db.get(RoomReply, room_reply_id) if room_reply_id else None

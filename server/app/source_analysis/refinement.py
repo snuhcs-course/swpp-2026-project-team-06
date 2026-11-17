@@ -19,11 +19,14 @@ from app.source_analysis.models import Asset, Batch, Candidate, Item, Page, Run
 from app.source_analysis.preprocess import scrub
 from app.source_analysis.text_safety import (
     SAFETY_LISTS_HASH,
+    has_exaggeration,
     has_health_claim,
     has_money,
     has_period_text,
     has_platform_text,
+    has_policy_text,
     numbers,
+    ranges,
 )
 
 
@@ -185,12 +188,21 @@ def validate(output, candidates, target_id, *, target_count=0):
                 code = "MONEY_AMOUNT"
             elif has_health_claim(text.value) or any(has_health_claim(c["value"]) for c in cited):
                 code = "HEALTH_CLAIM"
+            elif has_exaggeration(text.value):
+                code = "EXAGGERATION"
+            elif has_policy_text(text.value):
+                code = "POLICY_TEXT"
             elif scrub(text.value) != text.value:
                 code = "PRIVATE_VALUE"
             elif numbers(text.value) - numbers(
                 "\n".join(e["quote"] for c in cited for e in c["evidence"])
             ):
                 code = "UNSUPPORTED_NUMBER"
+            elif ranges(text.value) - ranges(
+                "\n".join(e["quote"] for c in cited for e in c["evidence"])
+            ):
+                # DEV-264: "13.2Brix 13.5Brix" are two samples, not the range 13.2~13.5.
+                code = "UNSUPPORTED_RANGE"
             elif any(
                 (c["historical"] or c["fieldKey"] == "historicalSales") and has_money(c["value"])
                 for c in cited
@@ -238,6 +250,9 @@ def validate(output, candidates, target_id, *, target_count=0):
         "MONEY_AMOUNT": "price",
         "PRICED_HISTORY": "price",
         "HEALTH_CLAIM": "health",
+        "EXAGGERATION": "unsupported",
+        "UNSUPPORTED_RANGE": "unsupported",
+        "POLICY_TEXT": "platform",
         "PRIVATE_VALUE": "pii",
     }
     for rejected_text in rejected:
@@ -278,8 +293,10 @@ def input_hash(candidates):
     ).hexdigest()
 
 
-MAX_REFINE_CANDIDATES = 40
-MAX_REFINE_CHARS = 16000
+# DEV-264: 40/16,000 cut real multi-page sources (76 candidates, 25k chars) mid-document.
+# At 40 candidates stage-2 output peaked at ~1.3k tokens, far below the 8,000 output limit.
+MAX_REFINE_CANDIDATES = 80
+MAX_REFINE_CHARS = 32000
 
 
 def limit_candidates(candidates):
@@ -341,8 +358,9 @@ def process(item_id, token):
         diagnostic_candidates = all_candidates + (
             payload(current_candidates(db, batch.id, None)) if len(run.targets) > 1 else []
         )
-        # Target names may be personal data. Candidate values already identify the product.
-        target = {"id": item.target_ids[0]}
+        # DEV-264: same masked product name as stage 1, so stage 2 can drop other products.
+        named = next((t for t in run.targets if t["id"] == item.target_ids[0]), {})
+        target = {"id": item.target_ids[0], "name": scrub(named.get("name") or "")}
         mode, model = run.mode, run.model
         target_count = len(run.targets)
     if mode == "mock" or not candidates:

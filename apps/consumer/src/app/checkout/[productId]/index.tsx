@@ -83,6 +83,7 @@ export default function Checkout() {
     optionId?: string;
     quantity?: string;
     changed?: string;
+    seenUnitPrice?: string;
   }>();
   const router = useRouter();
   const { user, ready, chatViewScope, pendingRecipient, setPendingRecipient } = useSession();
@@ -465,6 +466,16 @@ export default function Checkout() {
       />
       <TestBand text="테스트 서비스예요 · 실제 입금·배송은 없어요" />
       <Scroll bottom={170}>
+        {!view && p && unit > 0 && params.seenUnitPrice &&
+          Number.isSafeInteger(Number(params.seenUnitPrice)) &&
+          Number(params.seenUnitPrice) > 0 &&
+          Number(params.seenUnitPrice) !== unit && optionId === params.optionId ? (
+          <Notice
+            style={{ margin: tokens.space.gutter, marginBottom: 0 }}
+            title="가격이 바뀌었어요"
+            body={`${won(Number(params.seenUnitPrice))} → ${won(unit)} · 아래 총 입금액을 확인해 주세요.`}
+          />
+        ) : null}
         {view ? (
           <Notice
             style={{ margin: tokens.space.gutter, marginBottom: 0 }}

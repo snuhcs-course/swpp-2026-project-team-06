@@ -64,6 +64,29 @@ def gold(path, sid="case-01"):
     return path
 
 
+def test_AC_SRC_2_eval_target_carries_the_masked_product_name(monkeypatch):
+    """DEV-264: the runner mirrors the product, which sends the producer-typed name."""
+    seen = []
+    real = ev.extraction_ai.extract
+
+    def capture(mode, model, chunk, targets, images, **kw):
+        seen.append(targets)
+        return real(mode, model, chunk, targets, images, **kw)
+
+    monkeypatch.setattr(ev.extraction_ai, "extract", capture)
+    ev.evaluate_source(row(), "mock", "mock-model", ev.Calls("mock", 3), "황금향 010-1234-5678")
+    assert seen and all(t == [{"id": "eval-target", "name": "황금향 [가림]"}] for t in seen)
+
+
+def test_AC_SRC_2_product_names_come_only_from_gold_product(tmp_path):
+    listed = tmp_path / "listed.json"
+    ev.write_json(listed, [{"id": "a", "product": "황금향", "sentences": []}])
+    wrapped = tmp_path / "wrapped.json"
+    ev.write_json(wrapped, {"sources": [{"id": "b", "product": "레드향", "sentences": []}]})
+    names = ev.product_names([{"path": str(listed)}], [wrapped])
+    assert names == {"a": "황금향", "b": "레드향"}
+
+
 def setup_output(tmp_path, monkeypatch, text=ai.MOCK_TEXT):
     monkeypatch.setattr(ev, "ROOT", Path("/imaginary/repo"))
     r = row(text)

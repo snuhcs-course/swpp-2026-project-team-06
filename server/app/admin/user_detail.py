@@ -19,7 +19,7 @@ from app.catalog import service as catalog
 from app.catalog.models import Product, ProductDraft
 from app.catalog.schemas import MyProductCardOption, ProductStatus
 from app.core.db import get_db
-from app.core.errors import not_found
+from app.core.errors import conflict, not_found
 from app.core.schemas import CamelModel
 from app.core.security import Admin
 from app.farms.models import Farm
@@ -54,6 +54,8 @@ class UserRefund(CamelModel):
 class UserOrder(CamelModel):
     order_id: str
     order_no: str
+    # 입금자명(DEV-342). 0034 때 입금 대기가 아니었거나 이미 ‘입금했어요’를 보낸 주문은 null
+    deposit_code: str | None
     product_name: str
     farm_id: str
     farm_name: str
@@ -171,6 +173,7 @@ def _orders(db: Session, consumer_id: str) -> tuple[list[UserOrder], bool]:
             UserOrder(
                 order_id=order.id,
                 order_no=order.order_no,
+                deposit_code=order.deposit_code,
                 product_name=product_name,
                 farm_id=farm_id,
                 farm_name=farm_name,
@@ -260,12 +263,34 @@ def _drafts(db: Session, farm_id: str) -> list[UserProductDraft]:
 
 @router.get("/by-order/{order_ref}", response_model=UserLookup)
 def find_by_order(db: Db, _: Admin, order_ref: str):
-    """주문 ID 또는 주문 번호(입금자명 `FC-MMDD-NNNN`)로 주문한 소비자를 찾는다."""
+    """주문 ID, 주문 번호(`FC-MMDD-NNNN`) 또는 입금자명(`김민지76`, DEV-342)으로
+    주문한 소비자를 찾는다.
+
+    입금자명은 한 농가의 입금 대기 주문끼리만 겹치지 않는다. 그래서 입금 대기 주문을 먼저 보고,
+    없으면 지난 주문을 최근 순으로 본다. 그 묶음이 여러 소비자의 주문이면 고르지 않고 409로
+    주문 번호를 묻는다(농가 화면에 입금자명과 주문 번호가 함께 보인다).
+    """
+    ref = order_ref.strip()
     order = db.scalar(
-        select(Order).where(
-            or_(Order.id == order_ref, func.upper(Order.order_no) == order_ref.upper())
-        )
+        select(Order).where(or_(Order.id == ref, func.upper(Order.order_no) == ref.upper()))
     )
+    if order is None:
+        code = "".join(ref.split())
+        matches = list(
+            db.scalars(
+                select(Order)
+                .where(func.upper(Order.deposit_code) == code.upper())
+                .order_by(Order.created_at.desc(), Order.id.desc())
+            )
+        )
+        awaiting = [o for o in matches if o.status == "AWAITING_DEPOSIT"]
+        group = awaiting or matches
+        if len({o.consumer_id for o in group}) > 1:
+            raise conflict(
+                "AMBIGUOUS_DEPOSIT_CODE",
+                "입금자명이 같은 주문이 여러 소비자에게 있어요. 주문 번호로 찾아 주세요.",
+            )
+        order = group[0] if group else None
     if order is None:
         raise not_found("주문을 찾을 수 없어요.")
     return UserLookup(user_id=order.consumer_id, order_id=order.id)

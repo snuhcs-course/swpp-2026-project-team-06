@@ -2173,3 +2173,45 @@ def test_AC_SRC_5_DEV_193_text_chunk_supersession_preserves_disjoint_span_eviden
         assert [candidate.outdated for candidate in candidates] == [False, True, False]
         stored = list(db.scalars(select(Candidate).where(Candidate.item_id == item.id)))
         assert len(stored) == (0 if empty else 1)
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "page_ok", "calls"),
+    [
+        ("INCOMPLETE_OCR", None, True, 2),  # Retried once with double room, then read.
+        ("INVALID_OCR", "INVALID_OCR", False, 2),  # Retried once only, then the page fails.
+        ("REQUEST_UNCERTAIN", None, False, 1),  # May already be charged: never retried.
+    ],
+)
+def test_AC_SRC_5_ocr_cap_failure_is_retried_once_with_double_room(
+    monkeypatch, first, second, page_ok, calls
+):
+    """DEV-264: dense pages hit the 2,048-token / 150-line caps every run."""
+    monkeypatch.setattr(get_settings(), "source_ocr_concurrency", 1)
+    image = io.BytesIO()
+    Image.new("RGB", (24, 24), "white").save(image, "PNG")
+    chunk = {"pages": [{"number": 1, "spans": []}]}
+    seen, tokens = [], []
+
+    def ocr(encoded, retry=False):
+        seen.append(retry)
+        code = second if retry else first
+        if code:
+            raise ExtractionError(code)
+        return Transcription(["서늘한 곳에 보관해 주세요."], {}, "fixture")
+
+    def call(*args):
+        tokens.append(args[6])
+        return args[5]()
+
+    monkeypatch.setattr(worker, "transcribe", ocr)
+    if page_ok:
+        diagnostics = worker.transcribe_pages(chunk, {1: image.getvalue()}, call)
+        assert diagnostics["pagesFailed"] == [] and chunk["pages"][0]["spans"]
+    else:
+        # The only page failed, so the source has no text: transcribe_pages raises.
+        with pytest.raises(ExtractionError) as failed:
+            worker.transcribe_pages(chunk, {1: image.getvalue()}, call)
+        assert failed.value.code == (second or first)
+    assert len(seen) == calls and seen == [False, True][:calls]
+    assert tokens == [worker.OCR_MAX_TOKENS, worker.OCR_RETRY_MAX_TOKENS][:calls]

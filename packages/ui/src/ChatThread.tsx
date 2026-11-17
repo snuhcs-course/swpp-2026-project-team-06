@@ -75,6 +75,9 @@ type Props = {
   upload?: (file: File | PickedPhoto) => Promise<{ attachmentId: string }>;
   /** 입력칸 안내 문구. 기본은 '메시지 입력'(Figma 1:38)(생산자 farmclub 방은 '운영팀에 문의 남기기', DEV-209) */
   placeholder?: string;
+  /** 입력칸에 넣어 둘 글(보내지 않는다). 생산자 입금 대기 주문 ‘채팅하기’(DEV-342).
+   *  처음 열 때와 id가 바뀔 때만 넣는다(이미 떠 있던 화면을 다시 쓸 때) */
+  prefill?: { text: string; id: string | number };
   /** 소비자 화면: 농가 답을 기다리는 마지막 질문 아래 상태 줄 문구(DEV-208). 없으면 그리지 않는다 */
   forwardStatus?: string;
   /** 상대(소비자 화면은 농가, 생산자 화면은 소비자·farmclub). 주면 상대 말풍선에 아바타와 실제 이름을 붙인다(DEV-295) */
@@ -107,6 +110,7 @@ export function ChatThread({
   loadPhoto,
   upload,
   placeholder = "메시지 입력",
+  prefill,
   forwardStatus,
   peer,
   systemLine,
@@ -134,7 +138,7 @@ export function ChatThread({
     [cursor, setCursor] = useState<string | null>(initialPage?.nextCursor ?? null),
     [ready, setReady] = useState(Boolean(initialPage)),
     [error, setError] = useState(""),
-    [text, setText] = useState(""),
+    [text, setText] = useState(prefill?.text ?? ""),
     [ids, setIds] = useState<string[]>([]),
     [photos, setPhotos] = useState(false),
     [uploading, setUploading] = useState(false),
@@ -446,6 +450,13 @@ export function ChatThread({
       clearInterval(timer);
     };
   }, [active, load, retryCount, currentIdentity]);
+  // 이미 떠 있던 대화 화면을 다시 쓸 때 새로 넘어온 미리 넣을 글(DEV-342)
+  const prefillId = prefill?.id;
+  const prefillText = useRef(prefill?.text);
+  prefillText.current = prefill?.text;
+  useEffect(() => {
+    if (prefillId !== undefined && prefillText.current) setText(prefillText.current);
+  }, [prefillId]);
   async function submit() {
     if (!sameRoom() || !ready || !composerEnabled || lock.current || uploading || (!text.trim() && !ids.length)) return;
     const submittedScope = context.current, run = epoch.current;
