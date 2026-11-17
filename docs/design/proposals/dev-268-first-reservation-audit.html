@@ -534,8 +534,8 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
             <p class="b">11월 10일~20일 도착 예정</p>
             <p class="t14 mut">무료배송 · 이 가격은 10월 12일까지</p>
             <div class="opt" style="margin-top:16px">
-              <div><div><p class="b">5kg</p><p class="t14 mut">42박스 남음</p></div><div class="price"><span class="t12 mut">지금 예약가</span><span class="t18 b">29,000원</span></div></div>
-              <div><div><p class="b">10kg</p><p class="t14 mut">14박스 남음</p></div><div class="price"><span class="t12 mut">지금 예약가</span><span class="t18 b">55,000원</span></div></div>
+              <div><div><p class="b">5kg</p><p class="t14 mut">42박스 남음</p></div><div class="price"><span class="t12 mut">지금 예약가 <s>36,000원</s></span><span class="t18 b">29,000원</span></div></div>
+              <div><div><p class="b">10kg</p><p class="t14 mut">14박스 남음</p></div><div class="price"><span class="t12 mut">지금 예약가 <s>68,000원</s></span><span class="t18 b">55,000원</span></div></div>
             </div>
             <p class="t12 mut" style="margin-top:8px">일찍 예약할수록 싸요. 마지막 기간 5kg 36,000원</p>
             <div class="list mark" style="margin-top:20px">
@@ -571,7 +571,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
   <section class="prop">
     <div class="prop-head">
       <p class="eyebrow">제안 2 · 문제 2 · 3 — 단계 가격을 한 번 말해 주기</p>
-      <h2>취소선 대신 ‘지금 예약가’, ‘마감 D-5’ 대신 ‘이 가격 D-5’</h2>
+      <h2>‘지금 예약가’ 이름 붙이기, ‘마감 D-5’ 대신 ‘이 가격 D-5’ (취소선은 11/17 유지)</h2>
     </div>
     <div class="pair">
       <div class="col"><span class="tag before"><i></i>BEFORE</span>
@@ -584,7 +584,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
               <div style="aspect-ratio:1; border-radius:16px; background:linear-gradient(135deg,#F0A060,#C9682A)"></div>
               <p class="t14 mut" style="margin-top:8px">강씨네 귤밭</p>
               <p class="sb">하우스 감귤 5kg / 10kg</p>
-              <p class="b">29,000원~</p>
+              <p class="b">29,000원~ <s class="t14 mut" style="font-weight:400">36,000원</s></p>
               <p class="t12 acc sb mark">이 가격 D-5</p>
               <p class="t12 mut">37명 예약</p>
             </div>
@@ -592,7 +592,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
               <div style="aspect-ratio:1; border-radius:16px; background:linear-gradient(135deg,#7A8F4A,#C9682A)"></div>
               <p class="t14 mut" style="margin-top:8px">효돈 하우스농원</p>
               <p class="sb">하우스 감귤 3kg</p>
-              <p class="b">19,000원</p>
+              <p class="b">19,000원 <s class="t14 mut" style="font-weight:400">22,000원</s></p>
               <p class="t12 acc sb">이 가격 D-9</p>
             </div>
           </div>
@@ -604,14 +604,14 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="moves">
         <ol>
           <li><b>‘마감 D-n’ → ‘이 가격 D-n’.</b> 값(<code>dDay</code> = 현재 기간 끝)은 그대로 두고 이름만 사실대로. 홈 카드·상세 도착 줄·농가 판매 품목 세 곳이 <code>closesText</code> 하나를 써서 한 줄 수정이에요.</li>
-          <li><b>카드에서는 취소선을 빼요.</b> 2열 카드 폭 171에서 비교 가격까지 넣으면 할인으로만 읽혀요. 상세에서는 옵션 카드 아래 12 보조 한 줄 ‘마지막 기간 5kg 36,000원’으로 이름을 붙여 남겨요(제안 1 목업).</li>
+          <li><b>취소선은 유지해요(11/17 PM 결정, 11/16 제거 결정 취소).</b> 앵커링 때문에 마지막 기간 가격을 취소선으로 둬요: 홈 카드 가격 옆, 상세 옵션 카드 ‘지금 예약가 <s>36,000원</s>’. 처음 제안의 ‘카드에서 취소선을 빼요’는 취소했어요.</li>
           <li><b>홈 상품 목록 위에 한 번만 개념 설명.</b> 면색 상자, 14/20, 두 문장. 처음 온 사람에게 단계 가격을 알려 주는 유일한 자리예요. 상품이 없으면 숨겨요.</li>
-          <li><b>다음 기간 가격(<code>nextPrice</code>)은 쓰지 않아요.</b> 스펙의 ‘다음 기간 이득 문구 없음’을 지켜요. ‘기간마다 올라요’까지만 말해요.</li>
+          <li><b>기간별 가격은 상세 계단에 보여요(11/17 PM 결정).</b> 처음 제안의 ‘다음 기간 가격은 쓰지 않아요’는 바뀌었어요. 제안 1 목업의 ‘일찍 예약할수록 싸요. 마지막 기간 5kg 36,000원’ 줄 자리에 DEV-311 통합안 계단이 들어가 칸마다 날짜와 그 기간 가격을 보이고, 같은 가격이 이어지면 한 칸으로 합쳐요. 차액·이득 문구는 계속 없어요.</li>
         </ol>
         <dl class="facts">
           <dt>토큰</dt><dd>기존 안 · 홈 카드 D-day 주황 글자는 지금과 같아요(DEV-293 그대로)</dd>
           <dt>개발</dt><dd>작음 · <code>format.ts</code> 1줄, 홈 카드·<code>ProductPage.tsx</code> 비교 가격 위치, 상자 1개</dd>
-          <dt>결정</dt><dd>취소선 제거 확정(11/16). DEV-293 승인안(Figma 1:14)과 달라서 구현 PR에서 Figma v6도 고쳐요</dd>
+          <dt>결정</dt><dd>취소선 유지(11/17 PM, 11/16 제거 결정 취소) · 상세 계단에 기간별 가격 표시(11/17 PM)</dd>
         </dl>
       </div>
     </div>
@@ -936,7 +936,8 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
     <h2>결정 (11/15~17)</h2>
     <ul class="lede" style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:23px">
       <li>11/15 제안 1~7 승인.</li>
-      <li>11/16 제안 2의 취소선 제거 확정.</li>
+      <li>11/16 제안 2의 취소선 제거 확정 → 11/17 PM 취소(취소선 유지, 앵커링).</li>
+      <li>11/17 PM 상세 계단에 기간별 가격 표시, 같은 가격은 한 칸으로 합침(DEV-311 통합안). 제안 2의 ‘다음 기간 가격 숨김’은 바뀜.</li>
       <li>11/16 제안은 지금 화면의 정보·입력·동의 항목을 빼지 않고 더하기만 한다. 제안 4·6 목업을 이 원칙으로 다시 그렸어요(받는 곳 ‘기본’·우편번호·배송 메모, 상품 금액·배송비, 예약 전 확인 절, 판매자 연락처·중개자 고지·구매안전서비스 고지).</li>
       <li>11/17 입금 기한은 지금 자리(표 안 입금자명 아래) 그대로. 제안 4의 ‘기한 맨 위’는 취소.</li>
       <li>미정: 제안 6의 꺼진 버튼 이유 줄(문제 13, 11/09 PM 결정과 충돌).</li>
