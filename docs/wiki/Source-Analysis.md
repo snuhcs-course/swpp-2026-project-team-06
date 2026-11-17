@@ -288,7 +288,7 @@ Stage-2 prompt version: `source-refine-v11-routing`; stage-1: `source-v9-coverag
 
 ## DEV-355 deterministic draft safety checks (November 18)
 
-Stage-2 validation now rejects unsupported Korean range rewrites (`a에서 b 사이`, `a부터 b까지`), farm product line-ups, and a different citrus variety in the target product's identity or package modules. The evaluation runner's `--stage2-model` option changes only stage 2; its estimate and metadata report both models. DEV-355 uses the 24 public development sources and 23 synthetic cases, reports two-run means, and does not reuse holdout v2. A PDF stage-1 follow-up keeps harvest/production years and seasons, and farm-history durations, in their factual fields; only explicit past-sale periods, prices, inventory or promotions use `historicalSales` and `historical=true` (`source-v10-historical-scope`).
+Stage-2 validation now rejects unsupported Korean range rewrites (`a에서 b 사이`, `a부터 b까지`), farm product line-ups, and a different citrus variety in the target product's identity or package modules. The evaluation runner's `--stage2-model` option changes only stage 2; its estimate and metadata report both models. DEV-355 uses the 24 public development sources and 23 synthetic cases, reports two-run means, and does not reuse holdout v2. A stage-1 prompt experiment (`source-v10-historical-scope`, narrowing `historical=true` to explicit past sales) was measured and not adopted: total facts fell and the PDF gain appeared in only one of two runs. Stage 1 stays `source-v9-coverage`.
 
 ## Light producer photo previews (DEV-341, November 17)
 

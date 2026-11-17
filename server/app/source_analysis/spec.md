@@ -322,7 +322,6 @@ FEAT-03 · AC-SRC-2/3. 작업 기록은 `server/tasks/DEV-355.md`.
 | --- | --- | --- | --- |
 | 2026-11-18 | `text_safety`가 한국어 `에서/부터 … 사이/까지` 범위를 검출하고, 농가 품목 목록·대상 상품과 다른 품종의 정체성/포장 문구를 stage-2 검증에서 거절한다. prompt는 그대로 둔다 | holdout v2에서 불안정한 금지·무근거 출력을 결정적 코드로 막기 | AC-SRC-3 |
 | 2026-11-18 | `final_eval --stage2-model`은 stage 1의 `--model`을 유지하고 stage 2만 덮어쓴다. 추정 비용과 metadata는 두 모델을 분리해 기록한다 | 더 강한 stage-2 모델 비교가 stage-1 변화를 섞지 않도록 | AC-SRC-2 |
-| 2026-11-18 | stage-1 prompt `source-v10-historical-scope`는 과거 판매 사실에만 `historical=true`를 쓰며, 수확/생산 연도·시즌이나 농가 연혁은 일반 field에 보존한다 | PDF f1에서 historical flag와 composition field가 충돌한 후보가 검증에서 거절됨 | AC-SRC-2 |
 
 ## DEV-341 생산자 사진 미리보기·업로드 가볍게 (2026-11-17)
 

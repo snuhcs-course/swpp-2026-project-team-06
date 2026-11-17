@@ -146,3 +146,5 @@ An offline audit of the 24 public f1 PDFs (105 gold facts) found 76 facts repres
 - **Holdout v2**, once, on the merged code. Zahra runs it in her own terminal on a fresh database and pastes back only totals. Semantic recall on holdout was approved by Jinwoo on 11/17, on four conditions: no-training providers only (enforced in code), totals shared only, strict recall stays the pass line, one run (`--allow-holdout`).
 - **Human review** of the drafts (Jinwoo).
 - **Cost of this work:** about $5.5 of the $6 approved, development runs and judge included.
+
+- **Decision (Zahra, 11/18): the v10 stage-1 prompt is reverted, not adopted.** Total facts fell (254.5 → 244 of 354), long-image recall dropped, and the PDF gain (+4 facts, +3 critical) came from one of two runs only. The audit finding stays: six PDF candidates were rejected as historical sales but held eight composition facts. That is a candidate cause for a future, separately measured fix. Stage 1 stays `source-v9-coverage`.
