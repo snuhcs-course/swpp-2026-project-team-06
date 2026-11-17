@@ -13,6 +13,7 @@ import { DetailStory } from "./DetailStory";
 import { Icon } from "./Icon";
 import { ModuleStory } from "./ModuleStory";
 import { Photo } from "./content";
+import { PriceStair } from "./PriceStair";
 import { Price } from "./Storefront";
 import { T } from "./Text";
 import {
@@ -22,6 +23,7 @@ import {
   joinMeta,
   md,
   optionLeft,
+  priceUntilText,
   shippingText,
   unavailableLabel,
   won,
@@ -43,6 +45,10 @@ export type ProductPageData = {
   /** 판매자 줄(아바타·지역). 생산자 미리보기에는 없을 수 있다 */
   farmPhoto?: string | null;
   farmRegion?: string;
+  /** 판매자 줄 ‘팬 n명’(농가 followerCount, DEV-348). 모르면 넘기지 않는다(M-24: 자리표시자 없음) */
+  farmFollowerCount?: number | null;
+  /** 이 상품을 예약한 사람 수(서버 reserved_people, 박스 수 아님). 알아 둘 세 줄 첫 줄(DEV-348) */
+  reservedCount?: number;
   /** 생산자 미리보기에서는 아직 비어 있을 수 있다(DEV-227: 오늘 날짜로 채우지 않는다). */
   deliveryWindow: { start: string; end: string } | null;
   maxDelayUntil: string | null;
@@ -52,6 +58,9 @@ export type ProductPageData = {
   options: { optionId: string; label: string; weightKg: number }[];
   stages: {
     stageId: string;
+    /** 가격 계단 순서·날짜(DEV-348). 상세 응답·생산자 MyStage에 있다 */
+    seq?: number;
+    startsAt?: string;
     endsAt?: string;
     options: Record<string, StageOption>;
   }[];
@@ -102,7 +111,6 @@ export type ProductPageSlots = {
 
 export function ProductPageBody({
   p,
-  reference,
   mediaUrl,
   onFarmPress,
   onBack,
@@ -111,8 +119,9 @@ export function ProductPageBody({
 }: {
   p: ProductPageData;
   slots?: ProductPageSlots;
-  /** 이전 기간 가격(취소선). 소비자 앱은 api의 referencePrice를 넘긴다. */
-  reference: (optionId: string) => number | null;
+  /** 예전 취소선 비교 가격. DEV-348에서 취소선을 빼서 쓰지 않는다(마지막 기간 가격은 가격 계단이 보인다).
+   *  생산자 앱 호출부 정리는 후속이라 받기만 한다 */
+  reference?: (optionId: string) => number | null;
   mediaUrl?: (uri: string) => string;
   onFarmPress?: () => void;
   /** 사진 위 뒤로(소비자 상세, 결정 26). 생산자 미리보기는 넘기지 않는다 */
@@ -159,6 +168,7 @@ export function ProductPageBody({
           name={p.farmName}
           photo={p.farmPhoto ?? null}
           region={p.farmRegion}
+          fans={p.farmFollowerCount}
           onPress={onFarmPress}
         />
       ) : null}
@@ -187,7 +197,6 @@ export function ProductPageBody({
             cur={cur}
             open={open}
             toggle={toggle}
-            reference={reference}
           />
         )}
       </View>
@@ -341,17 +350,21 @@ function SellerRow({
   name,
   photo,
   region,
+  fans,
   onPress,
 }: {
   name: string;
   photo: string | null;
   region?: string;
+  /** 팔로워 수를 소비자 화면에서는 ‘팬 n명’으로 부른다(DEV-348, DEV-311 결정 ①). 버튼 이름 ‘팔로우’는 그대로 */
+  fans?: number | null;
   onPress?: () => void;
 }) {
+  const meta = joinMeta(region, fans != null ? `팬 ${fans.toLocaleString("ko-KR")}명` : "");
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={region ? `${name}, ${region}` : name}
+      accessibilityLabel={meta ? `${name}, ${meta}` : name}
       disabled={!onPress}
       onPress={onPress}
       style={{
@@ -377,9 +390,9 @@ function SellerRow({
         <T weight="semibold" numberOfLines={1}>
           {name}
         </T>
-        {region ? (
+        {meta ? (
           <T variant="caption" muted numberOfLines={1}>
-            {region}
+            {meta}
           </T>
         ) : null}
       </View>
@@ -462,21 +475,22 @@ function SaleRows({
   cur,
   open,
   toggle,
-  reference,
 }: {
   p: ProductPageData;
   cur: ProductPageData["stages"][number] | null;
   open: Open;
   toggle: (k: NonNullable<Open>) => void;
-  reference: (optionId: string) => number | null;
 }) {
   const fee = shippingText(p.shippingFeeType, p.shippingFee);
   return (
     <>
-      {/* 받는 시기 + 배송비·마감 한 줄. 펼치면 기간 변경·지연 환불·도서산간 안내 */}
+      {/* 받는 시기 + 배송비·‘이 가격은 ○월 ○일까지’ 한 줄(DEV-348 UX ②). 펼치면 기간 변경·지연 환불·도서산간 안내 */}
       <Fold
         label={deliveryText(p.deliveryWindow, lastReservationEnd(p))}
-        sub={joinMeta(fee, p.soldOut ? "" : closesText(p.dDay))}
+        sub={joinMeta(
+          fee,
+          p.soldOut ? "" : priceUntilText(cur?.endsAt) || closesText(p.dDay),
+        )}
         open={open === "window"}
         onPress={() => toggle("window")}
       >
@@ -551,10 +565,11 @@ function SaleRows({
                     </T>
                   ) : null}
                 </View>
+                {/* 취소선 정가 대신 ‘지금 예약가’(DEV-348, DEV-268 UX ② · DEV-311 결정 ③) */}
                 <Price
                   align="right"
+                  label="지금 예약가"
                   current={value?.price ?? null}
-                  reference={reference(o.optionId)}
                   soldOut={left <= 0}
                   availability={p.availability}
                 />
@@ -563,7 +578,11 @@ function SaleRows({
           })}
         </View>
       )}
-      {/* 취소·환불 규정 한 줄 + 펼치기(DEV-293) */}
+      {/* 가격 계단: 지금 기간부터 마지막 기간까지, 가격은 마지막 칸 하나(AC-07-9, DEV-348) */}
+      <PriceStair p={p} />
+      {/* 알아 둘 세 줄(AC-07-10, DEV-348 UX ①) */}
+      <TrustRows p={p} />
+      {/* 취소·환불 규정 한 줄 + 펼치기(DEV-293). 세 줄에 없는 ‘출하 후 단순 변심 반품 불가’를 담아 그대로 둔다(DEV-348) */}
       <Pressable
         accessibilityRole="button"
         aria-expanded={open === "cancel"}
@@ -599,5 +618,61 @@ function SaleRows({
         </View>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 알아 둘 세 줄(DEV-268 UX ①): 사회적 근거 → 돈이 나가는 방식 → 돌려받는 약속.
+ * 숫자는 응답 값만 쓴다. 예약한 사람이 없거나 최대 지연 기한이 없으면 그 줄째 뺀다(M-24).
+ */
+function TrustRows({ p }: { p: ProductPageData }) {
+  const people = p.reservedCount ?? 0;
+  const rows: { icon: "people" | "card" | "refund"; title: string; note?: string }[] = [];
+  if (people > 0)
+    rows.push({
+      icon: "people",
+      title: `${people.toLocaleString("ko-KR")}명이 예약했어요`,
+      // reservedCount는 예약한 사람 수라 다음 예약은 n+1번째(서버 순번이 아닌 예측 문구, DEV-311 결정 ②)
+      note: p.soldOut ? undefined : `지금 예약하면 ${(people + 1).toLocaleString("ko-KR")}번째예요`,
+    });
+  rows.push({
+    icon: "card",
+    title: "농가 계좌로 직접 입금해요",
+    note: "예약하면 24시간 동안 물량을 잡아 둬요",
+  });
+  if (p.maxDelayUntil)
+    rows.push({
+      icon: "refund",
+      title: `${md(p.maxDelayUntil)}까지 못 보내면 전액 환불`,
+      note: "보내기 전에는 언제든 취소할 수 있어요",
+    });
+  return (
+    <View testID="product-trust-rows">
+      {rows.map((r, i) => (
+        <View
+          key={r.icon}
+          testID="product-trust-row"
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 12,
+            minHeight: tokens.touchTarget.min,
+            paddingVertical: 12,
+            borderTopWidth: i === 0 ? 0 : 1,
+            borderTopColor: tokens.color.border,
+          }}
+        >
+          <Icon name={r.icon} size={24} color={tokens.color.textMuted} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T>{r.title}</T>
+            {r.note ? (
+              <T variant="sub" muted>
+                {r.note}
+              </T>
+            ) : null}
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }

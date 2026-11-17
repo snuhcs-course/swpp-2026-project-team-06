@@ -19,6 +19,8 @@ export function Price({
   large = false,
   inline = false,
   align = "left",
+  label,
+  from = false,
 }: {
   current: number | null;
   reference?: number | null;
@@ -29,6 +31,10 @@ export function Price({
   large?: boolean;
   inline?: boolean;
   align?: "left" | "right";
+  /** 가격 위 12 보조 이름(상품 상세 옵션 줄 ‘지금 예약가’, DEV-348 UX ②). 취소선 자리에 놓이므로 reference와 같이 쓰지 않는다 */
+  label?: string;
+  /** 옵션이 여럿일 때 가장 싼 가격 뒤 ‘~’(홈 카드 ‘29,000원~’, DEV-348) */
+  from?: boolean;
 }) {
   const right = align === "right";
   if (soldOut || current === null)
@@ -42,8 +48,18 @@ export function Price({
         {unavailableLabel(availability)}
       </T>
     );
+  const caption = label ? (
+    <T
+      variant="caption"
+      muted
+      numberOfLines={1}
+      style={right ? { textAlign: "right" } : undefined}
+    >
+      {label}
+    </T>
+  ) : null;
   const strike =
-    reference != null && reference > current ? (
+    !label && reference != null && reference > current ? (
       <T
         variant={inline ? "sub" : "caption"}
         muted
@@ -64,6 +80,7 @@ export function Price({
       style={right ? { textAlign: "right" } : undefined}
     >
       {won(current)}
+      {from ? "~" : ""}
     </T>
   );
   if (inline)
@@ -88,7 +105,7 @@ export function Price({
         alignItems: right ? "flex-end" : undefined,
       }}
     >
-      {strike}
+      {caption ?? strike}
       {main}
     </View>
   );
