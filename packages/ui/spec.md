@@ -1,7 +1,7 @@
 # packages/ui spec
 
 ## DEV-348 가격 계단
-`PriceStair`(상품 상세, `ProductPageBody`의 `SaleRows` 안)는 계산을 `stairSteps.ts`의 순수 함수 `priceStair`에 맡긴다(대소문자만 다른 `priceStair.ts`는 macOS에서 `PriceStair.tsx`와 겹쳐 이름을 달리함, node 테스트가 바로 불러오도록 import 없이 `md`·`won`을 인자로 받음). 지금 기간부터 마지막 기간까지 칸, 높이는 기간 순서 20→44 선형, 첫 옵션의 마지막 기간 가격 하나, 4칸 이상이면 ‘지금’을 칸 위로, 예약 불가·지금 기간 없음·남은 기간 하나·마지막 가격이 높지 않으면 null(FEAT-07 AC-07-9, `scripts/test-price-stair.mjs`). 알아 둘 세 줄은 같은 파일의 `TrustRows`(AC-07-10). `Price`는 `label`(‘지금 예약가’, 취소선 자리)과 `from`(‘~’)을 받는다. `ProductPageBody`의 `reference`는 더 쓰지 않는 선택 prop(생산자 호출부 정리는 후속). `StairMark`는 정적 장식 표식(홈 개념 상자, 알약 기둥 셋: 첫 기둥 100%·나머지 28%, 단계 수와 무관).
+`PriceStair`(상품 상세, `ProductPageBody`의 `SaleRows` 안)는 계산을 `stairSteps.ts`의 순수 함수 `priceStair`에 맡긴다(대소문자만 다른 `priceStair.ts`는 macOS에서 `PriceStair.tsx`와 겹쳐 이름을 달리함, node 테스트가 바로 불러오도록 import 없이 `md`·`won`을 인자로 받음). 지금 기간부터 마지막 기간까지, 첫 옵션 가격이 같은 기간은 한 칸으로 합치고, 높이는 칸 순서 20→44 선형, 칸마다 날짜와 가격(옵션 이름은 제목 줄 ‘· 5kg 기준’), 4칸 이상이면 ‘지금’을 칸 위로, 예약 불가·지금 기간 없음·합친 뒤 칸 하나·앞 칸보다 싼 칸·빈 가격이면 null(11/17 PM 결정)(FEAT-07 AC-07-9, `scripts/test-price-stair.mjs`). 알아 둘 세 줄은 같은 파일의 `TrustRows`(AC-07-10). `Price`는 `label`(‘지금 예약가’)을 받아 취소선 비교 가격과 같은 줄 왼쪽에 둔다. `ProductPageBody`의 `reference`(취소선)는 main 그대로 필수(11/17 PM 결정으로 유지). `StairMark`는 정적 장식 표식(홈 개념 상자, 알약 기둥 셋: 첫 기둥 100%·나머지 28%, 단계 수와 무관).
 
 ## DEV-251 메시지 anchor 복원
 - 소비자 route가 방의 권한을 새로 확인한 뒤 `initialPage`와 선택 `viewState`(농가·실제 thread ID·metadata snapshot·save callback)를 전달한다. 이를 쓰지 않는 생산자/운영 문의 호출자는 기존 계약을 유지한다.
