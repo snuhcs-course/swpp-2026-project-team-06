@@ -105,6 +105,23 @@ export function placedLine(
   return parts.join(" · ");
 }
 
+/** 입금 안내 입금자명 상자 제목(DEV-268 UX ④, DEV-356): ‘받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요’.
+ *  주문 번호는 숫자로 끝나므로 숫자 읽기(영·삼·육은 받침 → ‘으로’)로 조사를 고른다 */
+export function depositorNameTitle(orderNo: string): string {
+  const last = orderNo.trim().slice(-1);
+  const josa = /[036]/.test(last)
+    ? "으로"
+    : /[0-9]/.test(last)
+      ? "로"
+      : (() => {
+          const c = last.charCodeAt(0);
+          if (c < 0xac00 || c > 0xd7a3) return "로";
+          const jong = (c - 0xac00) % 28;
+          return jong === 0 || jong === 8 ? "로" : "으로";
+        })();
+  return `받는 분 통장 표시를 ${orderNo}${josa} 바꿔 보내 주세요`;
+}
+
 /** SCR-13 목록 굵은 줄: 상태 · 다음 일 */
 export function listHeadline(
   o: DepositFields & RefundFields & Pick<Order, "actions">,
