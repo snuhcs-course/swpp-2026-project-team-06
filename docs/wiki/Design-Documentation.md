@@ -320,3 +320,8 @@ Optional source jobs require `SOURCE_ANALYSIS_ENABLED=true`, an API and worker w
 | Product contracts | `docs/spec/functional/`, `docs/spec/source-integration.md`, `docs/spec/source-editor.md`, `docs/spec/conversation-ui-1.6.md` |
 
 Where older source documents contain dated decisions, use their current-contract notices and the implemented code at this document's commit. Diagram sources (`images/i2-*.dot`) are retained alongside exported figures for future maintenance.
+
+
+### Reservation period identity (DEV-336, AC-05-4)
+
+Period updates match existing rows by stageId, reject unknown or duplicate IDs, and delete only omitted IDs. Rows without an ID create new periods. Date order determines sequential labels; reservations and order snapshots remain attached to the original period ID. Date/deletion locks and allocated-stock checks use that ID.
