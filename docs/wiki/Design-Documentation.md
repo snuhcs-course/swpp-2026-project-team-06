@@ -335,3 +335,8 @@ Returning to home/product reloads current prices and availability. Product reser
 ### Chat navigation history (DEV-340, FEAT-12)
 
 A conversation header consumes an existing back-stack entry. If opened directly, it replaces the route with the product, farm-info or order fallback. Repeated product → chat → Back → Back leaves the product rather than returning to the same chat.
+
+
+### Message order and oracle version (DEV-244, AC-12-8)
+
+Private 1:1 messages, page boundaries and read watermarks follow persisted sequence, including equal timestamps and opposing lexical IDs. Dates still derive from createdAt. News pagination retains its timestamp/ID contract. The prospective v1.1 oracle in docs/evaluation/i3-journeys/versions/v1.1 preserves the complete frozen v1.0 record and historical failure, and awaits PM adoption for future UAT.

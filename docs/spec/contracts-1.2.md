@@ -13,7 +13,7 @@
 - 수확 시작(POST /api/orders/producer/harvest-start)은 {productId, stageId?}와 Idempotency-Key(필수)를 받아 그 기간의 RESERVED만 PREPARING으로 바꾸고 {changed, stageId, orderIds}를 준다. stageId가 없으면 상품 전체(이전 호환). 생산자 GET /api/products/mine/{id}의 stages[]는 reservedOrderCount·awaitingOrderCount·preparingOrderCount·harvestStarted(출하 준비 이후 주문이 있으면 true, 저장 칸 없음)를, 현황 todo는 toHarvest·harvestTargets[{productId,productName,stageId,stageName,endsAt,count,closed}]를, 생산자 주문 줄은 stageId를 더한다(FEAT-17 AC-17-11·12, FEAT-14 AC-14-5, DEV-231).
 - 아래 POST 생성/메시지 전송은 Idempotency-Key 필수. 사용자+동작+자원+키 범위로 같은 본문은 같은 결과, 다른 본문은 409 IDEMPOTENCY_MISMATCH. 키·본문 해시·결과는 24시간 이상 보관한다. 성공 재전송은 현재 판매 상태가 달라도 기존 결과를 반환하되 권한은 다시 확인한다.
 - 설정 PUT에는 version을 받는다. 응답 version은 증가하며 오래된 버전은 409 STALE_VERSION. 같은 요청 재전송은 Idempotency-Key로 기존 성공을 반환한다. 상태를 바꾸는 GET은 만들지 않는다.
-- 페이지 응답은 {items,nextCursor}. 메시지는 최신 페이지를 조회하되 items는 오래된 순으로 반환한다. cursor는 (createdAt,id) 기반 opaque 값이며 사용자·자원에 귀속된다. 권한 필터 후 limit(기본 20, 최대 50)을 적용한다.
+- 페이지 응답은 {items,nextCursor}. 메시지는 최신 페이지를 조회하되 items는 오래된 순으로 반환한다. 소식 cursor는 (createdAt,id), 1:1 메시지 cursor는 저장된 sequence 경계 기반 opaque 값이며 사용자·자원에 귀속된다(DEV-244). 권한 필터 후 limit(기본 20, 최대 50)을 적용한다.
 - 기존 ID와 데이터는 유지한다. 아직 배포된 적 없는 로컬 중간 형식을 영구 API 별칭으로 추가하지 않는다.
 
 ## 2·3. 판매 수량·승인·기간 가격 — 1.4로 대체
@@ -130,7 +130,7 @@
 - 본인 결제 주문의 미팔로우 문의는 허용, 타인 주문/첨부는 차단. 사진 문의 처리 상태가 주문 환불 상태를 바꾸지 않음.
 
 ## DEV-235 1:1 메시지 저장 순서
-ChatMessage.sequence는 기존 서버 메시지 삽입 순번이다. 같은 createdAt이어도 질문→AI 답→농가 답의 저장 순서를 유지하며 페이지/다시 불러오기/전송 응답에서 같은 메시지의 순번은 같다. 기존 커서·읽음 기준은 바꾸지 않는다. 구 API 응답과 순차 배포되는 클라이언트는 순번이 모두 있을 때 그 순서, 없거나 섞이면 시각순·동시각 서버 제공 순서를 유지한다.
+ChatMessage.sequence는 기존 서버 메시지 삽입 순번이다. 같은 createdAt이어도 질문→AI 답→농가 답의 저장 순서를 유지하며 페이지/다시 불러오기/전송 응답에서 같은 메시지의 순번은 같다. 1:1의 페이지 경계와 읽음 위치도 같은 저장 순번을 쓴다. 커서에는 사용자·thread scope와 순번·메시지 ID를 넣고, 이전 페이지는 그 순번보다 작은 행을 읽는다. 소식방의 (createdAt,id) 계약은 유지한다(DEV-244). 구 API 응답과 순차 배포되는 클라이언트는 순번이 모두 있을 때 그 순서, 없거나 섞이면 시각순·동시각 서버 제공 순서를 유지한다.
 
 ## DEV-289 인용 답장·일시 직접 응대
 - 양쪽 메시지 전송에 선택적 replyToMessageId를 받는다. 저장 전 같은 Thread 메시지인지 검증하고 서버의 가린 본문·발신자·첨부 개수에서 replyTo 인용을 만든다. 조회·전송 메시지는 replyToMessageId와 replyTo를 포함한다.
