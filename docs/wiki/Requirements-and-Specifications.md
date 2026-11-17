@@ -397,9 +397,9 @@ The current contract is [source-integration](https://github.com/snuhcs-course/sw
 - **AND** a product that cannot be reserved shows one name per availability state on cards, the product page and the producer list
 
 **AC-07-9: Price stair (DEV-348; PM decision 2026-11-17)**
-- **GIVEN** a later period has a higher price for the first option
+- **GIVEN** a later period has a higher price for the basis option (the first option that can be reserved now)
 - **WHEN** I open the product page
-- **THEN** under the option card, "The earlier you reserve, the cheaper · 5kg basis" and one outlined bar per price step from now to the last period; consecutive periods with the same price merge into one bar; bar heights follow bar order, not price (three bars 20/32/44); only the current bar is filled; under every bar its date ("Now · until Oct 12", "from Oct 13" = start of the merged span) and its price ("33,000 won"); with four or more bars "Now" moves above the current bar
+- **THEN** under the option card, "The earlier you reserve, the cheaper · 5kg basis" and one outlined bar per price step from now to the last period; consecutive periods with the same price merge into one bar, and the delivery row's "this price until" uses the same end date as the current bar; bar heights follow bar order, not price (three bars 20/32/44); only the current bar is filled; under every bar its date ("Now · until Oct 12", "from Oct 13" = start of the merged span) and its price ("33,000 won"); with four or more bars "Now" moves above the current bar
 - **AND** no difference or savings wording appears, and nothing is drawn when the product cannot be reserved, there is no current period, only one bar is left after merging, any later price is lower than the one before it, or a later period has no price
 
 **AC-07-10: Three things to know (DEV-348)**
