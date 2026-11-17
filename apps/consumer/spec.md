@@ -189,3 +189,8 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 ## DEV-337 Consumer price freshness
 
 Home/product data use useFocusedAsync: useAsync loads initially and on resource changes; later focus events reload with its existing request-generation guard. Failed refreshes preserve content and expose retry; the product reservation CTA stays disabled during loading/error. Checkout retains its own reviewed snapshot and existing AC-08-8 conflict gate. Product entry carries the previously seen unit price for an informational notice when initial checkout loads a different price; it never replaces the server-authoritative amount.
+
+
+## DEV-340 Chat Back history
+
+Conversation headers use goBackOr with roomBackTarget as the direct-entry fallback. Existing in-app history is consumed with back, rather than adding another forward visit to the source product. A fresh direct URL replaces its fallback.
