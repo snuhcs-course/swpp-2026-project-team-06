@@ -1,4 +1,4 @@
-"""DEV-342: 짧은 입금자명(FEAT-09 AC-09-11~13, R-28), 운영자 입금자명 찾기,
+"""DEV-342: 짧은 입금자명(FEAT-09 AC-09-12~14, R-28), 운영자 입금자명 찾기,
 생산자가 자기 농가 주문으로 대화 시작(FEAT-12 AC-12-17),
 팔로우하지 않은 구매자도 그 대화를 봄(AC-12-18)."""
 
@@ -47,10 +47,10 @@ def _first_free(monkeypatch):
     monkeypatch.setattr(deposit_code.secrets, "choice", lambda values: values[0])
 
 
-# ---------- 형식·이름 (AC-09-11) ----------
+# ---------- 형식·이름 (AC-09-12) ----------
 
 
-def test_AC_09_11_awaiting_order_gets_nickname_first_three_plus_two_digits(client, login):
+def test_AC_09_12_awaiting_order_gets_nickname_first_three_plus_two_digits(client, login):
     # 농가에 이미 보이는 닉네임 앞 3글자(PM 11/17). 계정 실명·받는 사람 이름(이서준)은 쓰지 않는다
     _set_user("u-minji", name="김실명", nickname="귤사랑해요")
     headers = login("u-minji")
@@ -77,7 +77,7 @@ def test_AC_09_11_awaiting_order_gets_nickname_first_three_plus_two_digits(clien
     assert next(r for r in rows if r["orderId"] == order["orderId"])["depositCode"] == code
 
 
-def test_AC_09_11_code_stays_after_confirm_and_is_kept_for_history(client, login):
+def test_AC_09_12_code_stays_after_confirm_and_is_kept_for_history(client, login):
     headers = login("u-minji")
     order = _awaiting(client, headers)
     confirmed = client.post(
@@ -101,7 +101,7 @@ def test_AC_09_11_code_stays_after_confirm_and_is_kept_for_history(client, login
         ("2024", r"주문\d{2}"),
     ],
 )
-def test_AC_09_12_name_cleanup_truncation_and_fallbacks(client, login, nickname, expected):
+def test_AC_09_13_name_cleanup_truncation_and_fallbacks(client, login, nickname, expected):
     _set_user("u-minji", name="김실명", nickname=nickname)
     headers = login("u-minji")
     # 받는 사람 이름은 쓰지 않는다
@@ -112,7 +112,7 @@ def test_AC_09_12_name_cleanup_truncation_and_fallbacks(client, login, nickname,
     assert len(order["depositCode"]) <= 5
 
 
-def test_AC_09_12_pick_code_tiers_and_exhaustion():
+def test_AC_09_13_pick_code_tiers_and_exhaustion():
     two = {f"김민지{n:02d}" for n in range(100)}
     # 2자리가 남아 있으면 2자리
     assert deposit_code.pick_code("김민지", two - {"김민지42"}) == "김민지42"
@@ -125,10 +125,10 @@ def test_AC_09_12_pick_code_tiers_and_exhaustion():
     assert deposit_code.pick_code("김민지", every) is None
 
 
-# ---------- 같은 농가 입금 대기끼리 겹치지 않음 (AC-09-13) ----------
+# ---------- 같은 농가 입금 대기끼리 겹치지 않음 (AC-09-14) ----------
 
 
-def test_AC_09_13_codes_do_not_repeat_among_one_farms_awaiting_orders(
+def test_AC_09_14_codes_do_not_repeat_among_one_farms_awaiting_orders(
     client, login, monkeypatch
 ):
     _first_free(monkeypatch)
@@ -153,7 +153,7 @@ def test_AC_09_13_codes_do_not_repeat_among_one_farms_awaiting_orders(
     assert fifth["depositCode"] == "김민지01"
 
 
-def test_AC_09_13_other_farms_may_share_a_code(client, login, monkeypatch):
+def test_AC_09_14_other_farms_may_share_a_code(client, login, monkeypatch):
     _first_free(monkeypatch)
     headers = login("u-minji")
     kang = _awaiting(client, headers)
@@ -161,7 +161,7 @@ def test_AC_09_13_other_farms_may_share_a_code(client, login, monkeypatch):
     assert kang["depositCode"] == halla["depositCode"] == "김민지00"
 
 
-def test_AC_09_13_concurrent_deposits_on_one_farm_get_different_codes(
+def test_AC_09_14_concurrent_deposits_on_one_farm_get_different_codes(
     client, login, monkeypatch
 ):
     """다른 상품이면 상품 잠금으로 줄 서지 않는다. 농가 단위 잠금이 없으면 둘 다 김민지00이 된다."""
@@ -187,9 +187,9 @@ def test_AC_09_13_concurrent_deposits_on_one_farm_get_different_codes(
 
 
 def test_DEV_342_migration_backfill_uses_the_same_rule():
-    """0033 백필은 앱 코드를 import하지 않고 같은 규칙을 복사해 둔다. 둘이 어긋나지 않게 본다."""
-    path = Path(__file__).parents[1] / "migrations" / "versions" / "0033_order_deposit_code.py"
-    spec = importlib.util.spec_from_file_location("m0033", path)
+    """0034 백필은 앱 코드를 import하지 않고 같은 규칙을 복사해 둔다. 둘이 어긋나지 않게 본다."""
+    path = Path(__file__).parents[1] / "migrations" / "versions" / "0034_order_deposit_code.py"
+    spec = importlib.util.spec_from_file_location("m0034", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     for name in ["김 민지", "귤사랑해요", "☆", "Christopher", "귤🍊러버", "김○○", "", None]:
@@ -551,7 +551,7 @@ def test_AC_12_18_follow_then_open_then_unfollow_still_sees_and_answers(client, 
     assert reply.status_code == 200, reply.text
 
 
-def test_AC_09_13_uniqueness_ignores_letter_case():
+def test_AC_09_14_uniqueness_ignores_letter_case():
     """은행이 대문자로 바꾸기도 하고 운영자 찾기도 대소문자를 무시한다: Kim00과 KIM00은 같다."""
     class First:
         @staticmethod
@@ -566,8 +566,8 @@ def test_AC_09_13_uniqueness_ignores_letter_case():
         assert deposit_code.pick_code("Kim", {"KIM00"}) == "Kim01"
     finally:
         dc.secrets = original
-    path = Path(__file__).parents[1] / "migrations" / "versions" / "0033_order_deposit_code.py"
-    spec = importlib.util.spec_from_file_location("m0033_case", path)
+    path = Path(__file__).parents[1] / "migrations" / "versions" / "0034_order_deposit_code.py"
+    spec = importlib.util.spec_from_file_location("m0034_case", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     assert module._pick("Kim", {"kim00"}, First) == "Kim01"
@@ -575,8 +575,8 @@ def test_AC_09_13_uniqueness_ignores_letter_case():
 
 def test_DEV_342_backfill_skips_orders_that_already_reported_payment(client, login):
     """이미 ‘입금했어요’를 보낸 주문은 옛 안내(주문 번호)대로 보냈을 수 있어 백필하지 않는다."""
-    path = Path(__file__).parents[1] / "migrations" / "versions" / "0033_order_deposit_code.py"
-    spec = importlib.util.spec_from_file_location("m0033_backfill", path)
+    path = Path(__file__).parents[1] / "migrations" / "versions" / "0034_order_deposit_code.py"
+    spec = importlib.util.spec_from_file_location("m0034_backfill", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     headers = login("u-minji")

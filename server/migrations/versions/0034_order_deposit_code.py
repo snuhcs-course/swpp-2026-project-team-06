@@ -7,8 +7,8 @@ import re
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0033"
-down_revision = "0032"
+revision = "0034"
+down_revision = "0033"
 branch_labels = depends_on = None
 
 # Same rule as app/orders/deposit_code.py at the time of writing (kept here so later code changes

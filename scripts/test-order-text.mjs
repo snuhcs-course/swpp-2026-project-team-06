@@ -201,7 +201,7 @@ test("AC-08-10: a rejected deposit still shows the deadline it keeps (AC-09-9)",
   );
 });
 
-// DEV-356 (FEAT-09 AC-09-11, SCR-11): 입금자명 안내 상자 제목의 조사는 주문 번호 끝 숫자의 읽기로
+// DEV-356 (FEAT-09 AC-09-11, SCR-11): 입금자명 안내 상자 제목의 조사는 입금자명 끝 숫자의 읽기로(DEV-342 짧은 코드, 옛 주문은 주문 번호)
 test("AC-09-11: depositor-name title picks 로/으로 by how the last digit is read", () => {
   assert.equal(t.depositorNameTitle("FC-1007-3379"), "받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요");
   assert.equal(t.depositorNameTitle("FC-1007-7108"), "받는 분 통장 표시를 FC-1007-7108로 바꿔 보내 주세요");

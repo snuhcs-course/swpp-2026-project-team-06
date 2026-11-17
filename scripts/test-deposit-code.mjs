@@ -1,4 +1,4 @@
-// DEV-342 (FEAT-09 AC-09-11~13, R-28 · FEAT-12 AC-12-17): 짧은 입금자명과 입금 대기 주문 ‘채팅하기’.
+// DEV-342 (FEAT-09 AC-09-12~14, R-28 · FEAT-12 AC-12-17): 짧은 입금자명과 입금 대기 주문 ‘채팅하기’.
 // packages/api/src/depositCode.ts(서버 server/app/orders/deposit_code.py와 같은 규칙), Mock 입금 안내·생산자 대화 시작,
 // apps/producer/src/lib/orderWho.ts의 미리 넣는 글을 본다(화면은 scripts/e2e/deposit-code.spec.ts).
 import assert from "node:assert/strict";
@@ -47,7 +47,7 @@ async function awaiting(token, extra) {
   return r.body;
 }
 
-test("AC-09-12 (Mock): the code uses the nickname's first 3 letters, never the real or recipient name", async () => {
+test("AC-09-13 (Mock): the code uses the nickname's first 3 letters, never the real or recipient name", async () => {
   reset();
   db().users["u-minji"].name = "김실명";
   db().users["u-minji"].nickname = "귤사랑해요";
@@ -60,7 +60,7 @@ test("AC-09-12 (Mock): the code uses the nickname's first 3 letters, never the r
   assert.match((await awaiting(minji)).depositCode, /^김\d{2}$/);
 });
 
-test("AC-09-13 (Mock): an unpaid canceled order's code stays reserved for 3 days after its deadline", async () => {
+test("AC-09-14 (Mock): an unpaid canceled order's code stays reserved for 3 days after its deadline", async () => {
   reset();
   nicknames();
   const minji = await login("u-minji", "consumer");
@@ -98,7 +98,7 @@ test("AC-12-18 (Mock): a buyer who does not follow the farm sees and answers a c
   assert.deepEqual((await api("GET", "/api/messaging/chats/f-kang/messages", seojun)).body.orders, []);
 });
 
-test("AC-09-12: name cleanup, 3-letter name and fallbacks match the server rule", () => {
+test("AC-09-13: name cleanup, 3-letter name and fallbacks match the server rule", () => {
   assert.equal(depositCodeName("귤 사랑"), "귤사랑");
   assert.equal(depositCodeName("귤사랑해요"), "귤사랑");
   assert.equal(depositCodeName("귤🍊러버"), "귤러버");
@@ -117,7 +117,7 @@ test("AC-09-12: name cleanup, 3-letter name and fallbacks match the server rule"
   assert.equal(pickDepositCode("Kim", new Set(["KIM00"]), first), "Kim01");
 });
 
-test("AC-09-11/13 (Mock): deposit gives the nickname's first 3 letters + 2 digits, unique among the farm's awaiting orders", async () => {
+test("AC-09-12/14 (Mock): deposit gives the nickname's first 3 letters + 2 digits, unique among the farm's awaiting orders", async () => {
   reset();
   nicknames();
   const minji = await login("u-minji", "consumer");

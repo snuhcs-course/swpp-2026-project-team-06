@@ -1,4 +1,4 @@
-// DEV-342 (FEAT-09 AC-09-11, R-28 · FEAT-12 AC-12-17): 짧은 입금자명과 입금 대기 주문 ‘채팅하기’.
+// DEV-342 (FEAT-09 AC-09-12, R-28 · FEAT-12 AC-12-17): 짧은 입금자명과 입금 대기 주문 ‘채팅하기’.
 // 소비자 입금 안내는 주문 번호가 아니라 ‘김민지76’ 꼴 입금자명을 보이고 복사한다.
 // 생산자 입금 대기 줄 ‘채팅하기’는 그 소비자 대화를 열고 확인 글을 입력칸에만 넣는다(보내지 않음).
 import { expect, test } from "./fixtures";
@@ -42,7 +42,7 @@ async function awaitingOrder(request: Parameters<typeof apiLogin>[0], tag: strin
   };
 }
 
-test("AC-09-11: consumer deposit card shows and copies the short depositor name", async ({ browser, request }) => {
+test("AC-09-12: consumer deposit card shows and copies the short depositor name", async ({ browser, request }) => {
   const { order } = await awaitingOrder(request, "card");
   // 닉네임 앞 3글자(없으면 가림 이름 앞 글자) + 숫자 2자리(PM 11/17)
   expect(order.depositCode).toMatch(/^[가-힣A-Za-z]{1,3}\d{2}$/);
@@ -57,15 +57,20 @@ test("AC-09-11: consumer deposit card shows and copies the short depositor name"
   await expect(page.locator("[data-ph-private]").getByText(order.depositCode, { exact: true })).toHaveCount(1);
   // 주문 번호는 입금자명으로 보이지 않는다(입금 안내 화면)
   await expect(page.getByText(order.orderNo, { exact: true })).toHaveCount(0);
-  await expect(page.getByText("은행 앱 ‘받는 분 통장 표시’에 입금자명을 그대로 적어 주세요")).toBeVisible();
-  // 입금자명 줄의 ‘복사’(계좌번호 줄 다음 두 번째 복사 버튼)
-  await page.getByRole("button", { name: "복사" }).nth(1).click();
+  // 입금 안내는 DEV-356 입금자명 안내 상자가 짧은 코드로 같은 말을 한다(카드 아래 한 줄은 이 화면에서 숨김)
+  await expect(page.getByText(new RegExp(`받는 분 통장 표시를 ${order.depositCode}(로|으로) 바꿔 보내 주세요`))).toBeVisible();
+  // 안내 상자 제목에도 입금자명이 들어 있어 녹화에서 가린다(N-05)
+  await expect(page.locator("[data-ph-private]").getByText(/받는 분 통장 표시를 /)).toHaveCount(1);
+  await expect(page.getByText("은행 앱 ‘받는 분 통장 표시’에 입금자명을 그대로 적어 주세요")).toHaveCount(0);
+  // 입금자명 줄의 ‘복사’(이름이 정확히 ‘복사’인 버튼 중 계좌번호 다음 두 번째. 금액 복사는 ‘입금할 금액 복사’)
+  await page.getByRole("button", { name: "복사", exact: true }).nth(1).click();
   await expect(page.getByText("입금자명을 복사했어요")).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(order.depositCode);
 
   // 주문 완료·주문 상세에도 같은 입금자명. 완료 화면은 주문 번호를 따로 보인다
   await page.goto(`${consumerUrl}/orders/${order.orderId}/done`);
   await expect(page.locator("[data-ph-private]").getByText(order.depositCode, { exact: true })).toBeVisible();
+  await expect(page.getByText("은행 앱 ‘받는 분 통장 표시’에 입금자명을 그대로 적어 주세요")).toBeVisible();
   await expect(page.getByText(order.orderNo, { exact: true })).toBeVisible();
   await page.goto(`${consumerUrl}/orders/${order.orderId}`);
   await expect(page.locator("[data-ph-private]").getByText(order.depositCode, { exact: true })).toBeVisible();

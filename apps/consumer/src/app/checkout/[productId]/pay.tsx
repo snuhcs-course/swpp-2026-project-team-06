@@ -1,6 +1,6 @@
 // SCR-11 입금 안내 (FEAT-09 개정, DEV-68, R-01·R-02·R-28, policy 6장)
 // 소비자는 농가 계좌로 직접 입금한다. 이 화면은 주문서에서 받은 입금 대기 주문을 보여 주기만 하고, 돈을 받지 않는다.
-import { track } from "@farmclub/analytics";
+import { privateArea, track } from "@farmclub/analytics";
 import { ApiError, orders } from "@farmclub/api";
 import {
   BottomBar,
@@ -146,11 +146,14 @@ export default function DepositGuide() {
               />
               {/* ‘입금자명: 주문 번호’ 캡션을 행동 지시 두 문장으로(UX ④). 은행 앱 용어 ‘받는 분 통장 표시’를 그대로 쓴다.
                   입금자명은 짧은 입금 코드(DEV-342), 이 상자가 카드 아래 안내 한 줄을 대신한다 */}
-              <Notice
-                title={depositorNameTitle(o.depositCode ?? o.orderNo)}
-                body="농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요."
-                style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
-              />
+              {/* 제목에 입금자명(닉네임 앞 3글자)이 들어 있어 세션 녹화에서 가린다(N-05) */}
+              <View {...privateArea}>
+                <Notice
+                  title={depositorNameTitle(o.depositCode ?? o.orderNo)}
+                  body="농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요."
+                  style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
+                />
+              </View>
 
               <View
                 style={{

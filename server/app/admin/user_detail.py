@@ -54,7 +54,7 @@ class UserRefund(CamelModel):
 class UserOrder(CamelModel):
     order_id: str
     order_no: str
-    # 입금자명(DEV-342). 0033 때 입금 대기가 아니었거나 이미 ‘입금했어요’를 보낸 주문은 null
+    # 입금자명(DEV-342). 0034 때 입금 대기가 아니었거나 이미 ‘입금했어요’를 보낸 주문은 null
     deposit_code: str | None
     product_name: str
     farm_id: str

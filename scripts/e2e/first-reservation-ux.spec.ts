@@ -128,11 +128,11 @@ test("DEV-356 AC-09-11 AC-08-10: deposit shows the amount once, keeps the deadli
   // 입금 안내(SCR-11)
   await expect(page).toHaveURL(/\/checkout\/p-house\/pay/);
   await expect(page.getByText("입금할 금액", { exact: true })).toBeVisible();
-  // 입금자명은 짧은 입금 코드(닉네임 앞 3글자 + 숫자, DEV-342). 없는 옛 주문만 주문 번호
+  // 입금자명은 짧은 입금 코드(닉네임 앞 3글자 + 숫자, DEV-342). 새 주문은 늘 코드가 있다
   const depositor = (
-    (await page.getByText(/^([가-힣A-Za-z]{1,3}\d{2,3}|FC-[0-9A-Z-]+)$/).first().textContent()) ?? ""
+    (await page.getByText(/^[가-힣A-Za-z]{1,3}\d{2,3}$/).first().textContent()) ?? ""
   ).trim();
-  expect(depositor).toMatch(/^([가-힣A-Za-z]{1,3}\d{2,3}|FC-)/);
+  expect(depositor).toMatch(/^[가-힣A-Za-z]{1,3}\d{2,3}$/);
   // 금액은 큰 숫자 한 번 + 복사, ‘입금액’ 줄은 없다
   await expect(page.getByRole("button", { name: "입금할 금액 복사" })).toBeVisible();
   await expect(page.getByText("입금액", { exact: true })).toHaveCount(0);

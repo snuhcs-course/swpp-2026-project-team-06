@@ -509,7 +509,7 @@ Flow: Reserve on the checkout screen → the server takes the stock and sets the
 **AC-09-12: Short depositor name (DEV-342)**
 - **GIVEN** a buyer received deposit instructions
 - **WHEN** they open the deposit screen, order received or order details, or the producer opens the awaiting row or approval sheet
-- **THEN** the depositor name is the first 3 letters of the buyer's nickname + 2 digits (e.g. `김민지76`, at most 6 characters) and Copy copies that value; consumer screens say to put it in the bank app's "recipient's statement" field
+- **THEN** the depositor name is the first 3 letters of the buyer's nickname + 2 digits (e.g. `김민지76`, at most 6 characters) and Copy copies that value; the order-received and order-detail screens add a line saying to put it in the bank app's "recipient's statement" field, while the deposit instructions show the AC-09-11 box with the depositor name instead of that line (the value is masked in session recordings)
 - **AND** the order number is unchanged, the code stays after confirmation, and older orders without a code show the order number
 
 **AC-09-13: Name cleanup and fallbacks (DEV-342)**

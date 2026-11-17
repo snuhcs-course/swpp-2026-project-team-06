@@ -76,7 +76,7 @@ class OrderView(CamelModel):
     released_quantity: int
     order_id: str
     order_no: str
-    # 입금자명(짧은 입금 코드, DEV-342). 입금 안내 전 주문, 0033 때 입금 대기가 아니었거나
+    # 입금자명(짧은 입금 코드, DEV-342). 입금 안내 전 주문, 0034 때 입금 대기가 아니었거나
     # 이미 ‘입금했어요’를 보낸 주문은 null → 앱은 주문 번호를 보인다
     deposit_code: str | None
     product_id: str

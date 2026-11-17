@@ -11,7 +11,7 @@
 - 숫자는 같은 농가의 입금 대기 주문, 그리고 입금 기한이 끝난 지 3일이 안 된 돈 없이 취소된 주문과
   겹치지 않는 값 중에서 무작위로 고른다(늦게 보낸 돈이 새 주문과 헷갈리지 않게).
 
-Mock(`packages/api/src/depositCode.ts`)과 백필 마이그레이션(0033)이 같은 규칙을 따른다.
+Mock(`packages/api/src/depositCode.ts`)과 백필 마이그레이션(0034)이 같은 규칙을 따른다.
 """
 
 import re
