@@ -167,7 +167,9 @@ def test_DEV_341_cleanup_keeps_live_previews_and_deletes_removed_ones(client, lo
         assert db.get(Asset, asset["id"]).status == "DELETED"
 
 
-def test_AC_SRC_11_DEV_341_workspace_photo_is_cacheable_for_its_owner(client, login):
+def test_AC_SRC_11_DEV_341_workspace_photo_is_cacheable_for_its_owner(
+    client, login, other_farm_headers
+):
     h = login("u-kang")
     client.post(
         WORKSPACES, headers={**h, "Idempotency-Key": str(uuid4())}, json={"productId": "p-house"}
@@ -184,6 +186,9 @@ def test_AC_SRC_11_DEV_341_workspace_photo_is_cacheable_for_its_owner(client, lo
     assert "authorization" in first.headers["vary"].lower()
     assert client.get(url, headers={**h, "If-None-Match": first.headers["etag"]}).status_code == 304
     assert client.get(url, headers={"If-None-Match": first.headers["etag"]}).status_code == 401
+    # Another approved farm with the right ETag gets 404, never a 304 that confirms the photo.
+    other = {**other_farm_headers, "If-None-Match": first.headers["etag"]}
+    assert client.get(url, headers=other).status_code == 404
 
 
 def test_AC_SRC_11_DEV_341_workspace_upload_rejects_strangers_before_decoding(
