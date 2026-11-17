@@ -278,6 +278,10 @@ def invalidate(db, row, source):
 
 def patch_asset(db, row, source, body):
     version(source.revision, body.source_version)
+    if source.product_photo:
+        raise invalid(
+            {"originalPhoto": "기존 상품 사진은 연결을 바꿀 수 없어요. 지우고 새로 올려 주세요."}
+        )
     assignment(row, body.target_ids, body.common)
     if body.original_photo and not source.mime.startswith("image/"):
         raise invalid({"originalPhoto": "이미지 원본만 선택해 주세요."})
@@ -401,6 +405,9 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
     sources = list(
         db.scalars(select(Asset).where(Asset.batch_id == row.id, Asset.deleted.is_(False)))
     )
+    inputs = sources
+    # Photos referenced from the existing product page (DEV-346) have no bytes to analyse.
+    sources = [a for a in sources if not a.product_photo]
     if not sources:
         raise invalid({"sources": "자료를 먼저 넣어 주세요."})
     settings = get_settings()
@@ -437,7 +444,7 @@ def start_run(db, row, expected, retry_items=None, visual_pages=None):
     visual_pages = {sid: nums for sid, nums in visual_pages.items() if sid not in reparsed}
     run = Run(
         inputs=[
-            {"id": p.id, "revision": p.revision, "description": p.description} for p in sources
+            {"id": p.id, "revision": p.revision, "description": p.description} for p in inputs
         ],
         visual_pages=visual_pages,
         batch_id=row.id,
@@ -846,7 +853,7 @@ def patch_review(db, row, body, *, inactive=frozenset()):
     return review(db, row)
 
 
-def save_drafts(db, row, body, *, editor=False):
+def save_drafts(db, row, body, *, editor=False, migrated=False):
     version(row.review_version, body.review_version)
     if len({t.target_id for t in body.targets}) != len(body.targets):
         raise invalid({"targets": "상품을 중복 지정할 수 없어요."})
@@ -874,9 +881,11 @@ def save_drafts(db, row, body, *, editor=False):
         for field in fields:
             if editor and field.field_key not in active_keys:
                 continue
-            if has_health_claim(field.value):
+            # A page migrated as-is (DEV-346) keeps its published wording; the rules apply when
+            # the producer next saves it in the composer.
+            if not migrated and has_health_claim(field.value):
                 raise invalid({field.field_key: "건강 효능 문구는 넣을 수 없어요."})
-            if has_money(field.value):
+            if not migrated and has_money(field.value):
                 raise invalid({field.field_key: "상세 문구에 금액을 넣을 수 없어요."})
             candidates = list(
                 db.scalars(

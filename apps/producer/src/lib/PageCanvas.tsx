@@ -37,6 +37,7 @@ export function PageCanvas({
   emptyHint = false,
   showStoryTextHints = false,
   onUploading,
+  uploadLabel,
   blocked = [],
 }: {
   representativeUri?: string | null;
@@ -56,6 +57,8 @@ export function PageCanvas({
   /** 새 상품 composer의 판매·가격 단계 안내만 명시적으로 켠다. */
   showStoryTextHints?: boolean;
   onUploading?: (v: boolean) => void;
+  /** 올리는 중 '새 사진 추가' 버튼에 보일 진행 문구(예: '사진 올리는 중 1/2', DEV-341) */
+  uploadLabel?: string;
   blocked?: string[];
 }) {
   const validation = useContext(FieldFeedbackContext);
@@ -432,10 +435,11 @@ export function PageCanvas({
             {onUpload ? (
               <Button
                 compact
-                label="새 사진 추가"
+                label={(uploading && uploadLabel) || "새 사진 추가"}
                 variant="outline"
                 disabled={busy || uploading}
-                loading={uploading}
+                // 진행 문구가 있으면 스피너 대신 글자로 보인다(스피너는 글자를 가림)
+                loading={uploading && !uploadLabel}
                 onPress={async () => {
                   setUploading(true);
                   onUploading?.(true);

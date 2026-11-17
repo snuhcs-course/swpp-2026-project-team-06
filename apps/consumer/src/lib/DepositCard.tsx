@@ -1,4 +1,5 @@
 // 농가 계좌·입금자명·기한(알린 뒤에는 알린 시각) 목록 (SCR-11·12·14, DEV-68, DEV-207). 기존 주문 상세·주문 완료와 같은 Row 목록 부품, 복사는 글자 버튼.
+// 입금자명은 짧은 입금 코드(닉네임 앞 3글자 + 숫자, 예: 김민지76, DEV-342 · R-28). 은행 ‘받는 분 통장 표시’ 칸(대개 7자 안팎)에 들어간다. 없는 옛 주문은 주문 번호.
 import type { Order } from "@farmclub/api";
 import { Button, T, deadline, tokens, won } from "@farmclub/ui";
 import type { ReactNode } from "react";
@@ -8,16 +9,23 @@ export function DepositCard({
   o,
   onCopy,
   style,
+  hideAmount = false,
+  hideHint = false,
 }: {
   o: Order;
   onCopy: (text: string, what: string) => void;
   style?: StyleProp<ViewStyle>;
+  /** 위에 큰 금액(+ 복사)이 따로 있는 화면은 ‘입금액’ 줄을 뺀다(입금 안내 SCR-11, DEV-268 UX ④·DEV-356). 완료·주문 상세는 그대로 */
+  hideAmount?: boolean;
+  /** 아래 안내 한 줄을 뺀다. 입금 안내(SCR-11)는 같은 말을 입금자명 안내 상자(Notice)로 크게 보여 준다(DEV-356·DEV-342) */
+  hideHint?: boolean;
 }) {
   const a = o.depositAccount;
+  const depositor = o.depositCode ?? o.orderNo;
   return (
     <View style={[{ paddingHorizontal: tokens.space.gutter }, style]}>
       {/* 강조는 입금액·계좌번호·입금자명 셋(박현 10/18). 복사는 은행 앱에 붙여 넣을 두 값만 */}
-      <Row k="입금액" v={won(o.totalAmount)} bold />
+      {hideAmount ? null : <Row k="입금액" v={won(o.totalAmount)} bold />}
       <Row k="계좌번호">
         <Value
           text={a ? `${a.bankName} ${a.accountNumber}` : "—"}
@@ -28,13 +36,19 @@ export function DepositCard({
       </Row>
       <Row k="예금주" v={a ? `${a.accountHolder} (${o.farmName})` : "—"} masked />
       <Row k="입금자명">
-        <Value text={o.orderNo} bold onCopy={() => onCopy(o.orderNo, "입금자명")} />
+        {/* 닉네임이 들어 있어 녹화에서 값을 가린다(N-05, DEV-342). 복사는 그대로 된다 */}
+        <Value text={depositor} bold masked onCopy={() => onCopy(depositor, "입금자명")} />
       </Row>
       {/* 알린 뒤에는 기한 대신 알린 시각(DEV-207): 서버도 알린 주문은 기한으로 취소하지 않는다(AC-09-7) */}
       {o.depositReportedAt ? (
         <Row k="입금 알림" v={deadline(o.depositReportedAt)} last />
       ) : (
         <Row k="입금 기한" v={`${deadline(o.depositDueAt)}까지`} last />
+      )}
+      {hideHint ? null : (
+        <T variant="caption" muted style={{ marginTop: 8 }}>
+          은행 앱 ‘받는 분 통장 표시’에 입금자명을 그대로 적어 주세요
+        </T>
       )}
     </View>
   );

@@ -19,6 +19,9 @@ export function Price({
   large = false,
   inline = false,
   align = "left",
+  label,
+  from = false,
+  wrap = false,
 }: {
   current: number | null;
   reference?: number | null;
@@ -29,6 +32,12 @@ export function Price({
   large?: boolean;
   inline?: boolean;
   align?: "left" | "right";
+  /** 가격 위 12 보조 이름(상품 상세 옵션 줄 ‘지금 예약가’, DEV-348 UX ②). 취소선 비교 가격이 있으면 같은 줄 오른쪽에 둔다(11/17 PM: 앵커링으로 취소선 유지) */
+  label?: string;
+  /** 가격 뒤 ‘~’(옵션이 여럿인 홈 카드 ‘29,000원~’, DEV-348). 취소선은 그 옆에 그대로 */
+  from?: boolean;
+  /** inline에서 한 줄에 안 들면 취소선을 다음 줄로 내린다(360 폭 홈 카드 6자리 가격 ‘136,000원~ ~~150,000원~~’, DEV-348 리뷰 반영) */
+  wrap?: boolean;
 }) {
   const right = align === "right";
   if (soldOut || current === null)
@@ -64,6 +73,7 @@ export function Price({
       style={right ? { textAlign: "right" } : undefined}
     >
       {won(current)}
+      {from ? "~" : ""}
     </T>
   );
   if (inline)
@@ -74,10 +84,11 @@ export function Price({
           alignItems: "baseline",
           gap: 6,
           flexShrink: 0,
+          ...(wrap ? { flexWrap: "wrap" as const, rowGap: 0 } : {}),
         }}
       >
-        {main}
-        {strike}
+        {wrap ? <View style={{ flexShrink: 0 }}>{main}</View> : main}
+        {wrap && strike ? <View style={{ flexShrink: 0 }}>{strike}</View> : strike}
       </View>
     );
   return (
@@ -88,7 +99,24 @@ export function Price({
         alignItems: right ? "flex-end" : undefined,
       }}
     >
-      {strike}
+      {label ? (
+        // ‘지금 예약가 ~~36,000원~~’ 한 줄(DEV-348). 취소선이 없으면 라벨만
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "baseline",
+            gap: 4,
+            justifyContent: right ? "flex-end" : "flex-start",
+          }}
+        >
+          <T variant="caption" muted numberOfLines={1}>
+            {label}
+          </T>
+          {strike}
+        </View>
+      ) : (
+        strike
+      )}
       {main}
     </View>
   );

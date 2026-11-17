@@ -1,5 +1,6 @@
 import { PageCanvas } from "./PageCanvas";
-import { chooseSourceFiles } from "./sourceFiles";
+import { chooseSourceFiles, type PickedFile } from "./sourceFiles";
+import { shrinkPhoto } from "./photoResize";
 import {
   apiUrl,
   catalog,
@@ -25,7 +26,7 @@ import {
   useAsync,
 } from "@farmclub/ui";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Platform, TextInput, View } from "react-native";
 import { useHideTabBar, useSession } from "./session";
 import { DetailEditor } from "./DetailEditor";
@@ -53,7 +54,14 @@ const card = {
 
 const copy = (value: PageSnapshot): PageSnapshot =>
   JSON.parse(JSON.stringify(value));
-export function ProductPageEditor({ productId }: { productId: string }) {
+export function ProductPageEditor({
+  productId,
+  warning,
+}: {
+  productId: string;
+  /** DEV-346: composer에 저장한 작업이 있어 이 편집기로 왔을 때 보이는 경고 */
+  warning?: string;
+}) {
   const { user } = useSession();
   const router = useRouter();
   // 자료 분석이 꺼진 서버(운영 배포 보류)는 기존 상세 편집을 쓴다(DEV-84)
@@ -66,7 +74,7 @@ export function ProductPageEditor({ productId }: { productId: string }) {
     return <DetailEditor productId={productId} />;
   if (source.data)
     return (
-      <Editor key={`${user?.userId}:${productId}`} productId={productId} />
+      <Editor key={`${user?.userId}:${productId}`} productId={productId} warning={warning} />
     );
   return (
     <Screen>
@@ -95,7 +103,7 @@ export function ProductPageEditor({ productId }: { productId: string }) {
 // 반영 뒤 토스트 '보기'가 여는 소비자 앱 상품 페이지(DEV-324). 설정의 '소비자 앱에서 내 농가 보기'와 같은 주소 규칙
 const CONSUMER_URL = process.env.EXPO_PUBLIC_CONSUMER_URL ?? "https://farmclub.kr";
 
-function Editor({ productId }: { productId: string }) {
+function Editor({ productId, warning }: { productId: string; warning?: string }) {
   useHideTabBar();
   const { toast, hideToast } = useSession();
   // 저장 토스트('지금 반영')가 떠 있는지. 다시 고치기 시작하면 닫는다(고치는 중엔 반영할 수 없음, DEV-324)
@@ -128,13 +136,30 @@ function Editor({ productId }: { productId: string }) {
     [notice, setNotice] = useState("");
   const [preview, setPreview] = useState(false),
     [confirm, setConfirm] = useState(false);
-  const extraUrls = useRef<string[]>([]);
+  // 이 화면이 만든 사진 주소(uri → blob URL). 나갈 때 한 번에 해제한다(DEV-341)
+  const ownedUrls = useRef(new Map<string, string>());
+  const loadingUris = useRef(new Set<string>());
   useEffect(
     () => () => {
-      extraUrls.current.forEach(URL.revokeObjectURL);
+      ownedUrls.current.forEach((url) => URL.revokeObjectURL(url));
     },
     [],
   );
+  // 불러오지 못한 사진(uri). 다른 사진은 그대로 보이고 이 사진만 다시 불러온다(DEV-341)
+  const [failedPhotos, setFailedPhotos] = useState<string[]>([]);
+  // 사진 올리는 중 진행(올린 장수/전체)과 올리기를 시작한 버튼. 그 버튼에만 보인다(DEV-341)
+  type UploadControl = "canvas" | "blocks";
+  const [photoProgress, setPhotoProgress] = useState<{
+    done: number;
+    total: number;
+    from: UploadControl;
+  } | null>(null);
+  const showPhoto = (uri: string, url: string) => {
+    const old = ownedUrls.current.get(uri);
+    ownedUrls.current.set(uri, url);
+    setPhotoUrls((current) => ({ ...current, [uri]: url }));
+    if (old && old !== url) URL.revokeObjectURL(old);
+  };
   const [extraPhotos, setExtraPhotos] = useState<
     { uri: string; alt: string }[]
   >([]);
@@ -186,43 +211,93 @@ function Editor({ productId }: { productId: string }) {
       alive.current = false;
     };
   }, [productId]);
-  useEffect(() => {
-    if (!row) return;
-    let cancelled = false;
-    const urls: string[] = [];
-    const sources = [
-      ...new Set([
-        ...(row.snapshot.representativeUri
-          ? [row.snapshot.representativeUri]
-          : []),
-        ...row.snapshot.modules.flatMap((m) => m.photos.map((p) => p.uri)),
-        ...row.snapshot.content.blocks.flatMap((b) =>
-          b.type === "image" ? [b.uri] : [],
+  // 보여 줄 작업 사진(저장본·반영본·지금 고치는 내용). 주소 목록이 바뀔 때만 없는 사진을 받는다(DEV-341)
+  const photoUris = useMemo(
+    () =>
+      [
+        ...new Set(
+          [row?.snapshot, row?.publishedSnapshot, snapshot].flatMap((snap) =>
+            snap
+              ? [
+                  ...(snap.representativeUri ? [snap.representativeUri] : []),
+                  ...snap.modules.flatMap((m) => m.photos.map((p) => p.uri)),
+                  ...snap.content.blocks.flatMap((b) =>
+                    b.type === "image" ? [b.uri] : [],
+                  ),
+                ]
+              : [],
+          ),
         ),
-      ]),
-    ].filter((uri) => uri.startsWith("/api/source-media/"));
-    void Promise.all(
-      sources.map(async (uri) => {
-        const url = await productWorkspace.photo(
-          productId,
-          uri.split("/").pop()!,
-        );
-        urls.push(url);
-        if (cancelled) URL.revokeObjectURL(url);
-        return [uri, url] as const;
-      }),
-    )
-      .then((entries) => {
-        if (!cancelled) setPhotoUrls(Object.fromEntries(entries));
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message);
-      });
-    return () => {
-      cancelled = true;
-      urls.forEach((url) => URL.revokeObjectURL(url));
+      ].filter((uri) => uri.startsWith("/api/source-media/")),
+    [row, snapshot],
+  );
+  const photoKey = photoUris.join("\n");
+  const loadPhoto = useCallback(
+    async (uri: string) => {
+      if (loadingUris.current.has(uri)) return;
+      loadingUris.current.add(uri);
+      setFailedPhotos((old) => old.filter((u) => u !== uri));
+      try {
+        const url = await productWorkspace.photo(productId, uri.split("/").pop()!);
+        if (!alive.current) URL.revokeObjectURL(url);
+        else showPhoto(uri, url);
+      } catch {
+        if (alive.current)
+          setFailedPhotos((old) => (old.includes(uri) ? old : [...old, uri]));
+      } finally {
+        loadingUris.current.delete(uri);
+      }
+    },
+    [productId],
+  );
+  useEffect(() => {
+    for (const uri of photoUris)
+      if (!ownedUrls.current.has(uri)) void loadPhoto(uri);
+    // photoKey가 같으면(글만 고침·저장 응답) 다시 받지 않는다
+  }, [photoKey, loadPhoto]);
+  /** 사진을 줄여 올린다(동시에 2장). 실패한 사진은 건너뛰고 나머지를 돌려준다(DEV-341) */
+  const uploadPhotos = async (files: PickedFile[], from: UploadControl) => {
+    const added: ({ uri: string; alt: string } | null)[] = files.map(() => null);
+    let next = 0,
+      done = 0;
+    if (files.length) setPhotoProgress({ done, total: files.length, from });
+    const worker = async () => {
+      while (next < files.length) {
+        const index = next++;
+        try {
+          const { file, preview } = await shrinkPhoto(files[index]);
+          const photo = await productWorkspace.uploadPhoto(productId, file);
+          added[index] = photo;
+          // 방금 줄인 사진을 바로 보인다(같은 사진을 다시 받지 않음). 못 줄인 형식은 서버 사본을 받는다
+          if (!alive.current) {
+            // 화면을 떠났으면 아무것도 받거나 만들지 않는다
+          } else if (preview) showPhoto(photo.uri, URL.createObjectURL(preview));
+          else void loadPhoto(photo.uri);
+        } catch {
+          // 아래에서 장수로 알린다
+        }
+        done += 1;
+        if (alive.current) setPhotoProgress({ done, total: files.length, from });
+      }
     };
-  }, [row, productId]);
+    try {
+      await Promise.all([worker(), worker()]);
+    } finally {
+      if (alive.current) setPhotoProgress(null);
+    }
+    const ok = added.filter((p): p is { uri: string; alt: string } => !!p);
+    if (ok.length < files.length && alive.current)
+      setError(
+        `사진 ${files.length - ok.length}장을 올리지 못했어요. 그 사진만 다시 추가해 주세요.`,
+      );
+    return ok;
+  };
+  // 지금 보여 줄 사진 중 실패한 것만 안내한다(지운 사진의 실패는 남기지 않음)
+  const shownFailures = failedPhotos.filter((uri) => photoUris.includes(uri));
+  const uploadLabel = (from: UploadControl) =>
+    photoProgress?.from === from
+      ? `사진 올리는 중 ${photoProgress.done}/${photoProgress.total}`
+      : undefined;
   useEffect(
     () =>
       navigation.addListener("beforeRemove", (event) => {
@@ -355,6 +430,13 @@ function Editor({ productId }: { productId: string }) {
       <Scroll bottom={190}>
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           <T variant="heading">{name}</T>
+          {warning ? (
+            <View accessibilityRole="alert">
+              <T variant="sub" color={tokens.color.error}>
+                {warning}
+              </T>
+            </View>
+          ) : null}
           {/* 상태 줄(DEV-324): 고치는 중 / 저장됨·반영 전 / 반영된 내용 */}
           {row ? (
             <View
@@ -409,6 +491,26 @@ function Editor({ productId }: { productId: string }) {
           {notice ? (
             <View accessibilityLiveRegion="polite">
               <T>{notice}</T>
+            </View>
+          ) : null}
+          {shownFailures.length ? (
+            <View accessibilityRole="alert" style={card} testID="photo-load-failed">
+              <T color={tokens.color.error}>
+                사진 {shownFailures.length}장을 불러오지 못했어요. 다른 사진은 그대로예요.
+              </T>
+              {shownFailures.map((uri, i) => (
+                <Button
+                  key={uri}
+                  compact
+                  label={
+                    shownFailures.length > 1
+                      ? `사진 ${i + 1} 다시 불러오기`
+                      : "사진 다시 불러오기"
+                  }
+                  variant="outline"
+                  onPress={() => void loadPhoto(uri)}
+                />
+              ))}
             </View>
           ) : null}
           {!row || !snapshot ? (
@@ -487,20 +589,11 @@ function Editor({ productId }: { productId: string }) {
                       ].map((p) => [p.uri, p]),
                     ).values(),
                   ]}
+                  uploadLabel={uploadLabel("canvas")}
                   onUpload={async () => {
                     const files = await chooseSourceFiles(true);
-                    const added: { uri: string; alt: string }[] = [];
-                    for (const file of files) {
-                      const photo = await productWorkspace.uploadPhoto(
-                        productId,
-                        file,
-                      );
-                      const id = photo.uri.split("/").pop()!;
-                      const url = await productWorkspace.photo(productId, id);
-                      extraUrls.current.push(url);
-                      setPhotoUrls((old) => ({ ...old, [photo.uri]: url }));
-                      added.push(photo);
-                    }
+                    setError("");
+                    const added = await uploadPhotos(files, "canvas");
                     if (!snapshot.representativeUri && added[0])
                       update((s) => {
                         s.representativeUri = added[0].uri;
@@ -567,30 +660,19 @@ function Editor({ productId }: { productId: string }) {
                     </View>
                   ))}
                   <Button
-                    label="사진 추가"
+                    label={uploadLabel("blocks") ?? "사진 추가"}
                     variant="outline"
                     disabled={busy}
                     onPress={() =>
                       void act(async () => {
                         const files = await chooseSourceFiles(true);
                         const next = copy(snapshot);
-                        for (const file of files) {
-                          const photo = await productWorkspace.uploadPhoto(
-                            productId,
-                            file,
-                          );
+                        for (const photo of await uploadPhotos(files, "blocks"))
                           next.content.blocks.push({
                             id: newIdempotencyKey(),
                             type: "image",
                             ...photo,
                           });
-                          const url = await productWorkspace.photo(
-                            productId,
-                            photo.uri.split("/").pop()!,
-                          );
-                          extraUrls.current.push(url);
-                          setPhotoUrls((old) => ({ ...old, [photo.uri]: url }));
-                        }
                         setSnapshot(next);
                       })
                     }
@@ -630,7 +712,7 @@ function Editor({ productId }: { productId: string }) {
               <Button
                 label="상품에 반영"
                 disabled={busy}
-                loading={busy}
+                loading={busy && !photoProgress}
                 onPress={() => setConfirm(true)}
               />
               <Button label="수정본 저장" variant="text" disabled onPress={save} />
@@ -640,7 +722,7 @@ function Editor({ productId }: { productId: string }) {
               <Button
                 label="수정본 저장"
                 disabled={!dirty || busy}
-                loading={busy}
+                loading={busy && !photoProgress}
                 onPress={save}
               />
               <Button

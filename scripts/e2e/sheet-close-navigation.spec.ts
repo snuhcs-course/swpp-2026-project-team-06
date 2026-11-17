@@ -55,8 +55,8 @@ test("DEV-225 decision 25: gate sheet is gone on login and option sheet is gone 
   await page.getByRole("button", { name: "예약하기" }).click();
   await page.getByRole("button", { name: "주문서로" }).click();
   await expect(page.getByText("로그인하고 예약해요")).toBeVisible();
-  // 닫히는 동안 제목은 비므로 본문으로 시트를 찾는다
-  const gate = page.getByText("팔로우·예약·채팅은 로그인이 필요해요", { exact: false });
+  // 닫히는 동안 제목은 비므로 본문으로 시트를 찾는다. 예약 관문 본문은 DEV-356(UX ⑤)에서 예약용 한 문장으로 바뀌었다
+  const gate = page.getByText("로그인하면 고른 옵션 그대로 주문서로 가요.", { exact: false });
   await expect(gate).toBeVisible();
   const resume = await freezeAnimations(page);
   await page.getByRole("button", { name: "로그인", exact: true }).click();

@@ -66,23 +66,23 @@ export function BuyerPreview({
   useEffect(() => {
     let alive = true;
     const made: string[] = [];
-    void Promise.all(
-      [...new Set(uris)].map(async (uri) => {
-        const url = await productWorkspace.photo(
-          product.productId,
-          uri.split("/").pop()!,
-        );
-        made.push(url);
-        return [uri, url] as const;
-      }),
-    )
-      .then((pairs) => {
-        if (alive) setUrls(Object.fromEntries(pairs));
-        else made.forEach(URL.revokeObjectURL);
-      })
-      .catch(() => {});
+    // 사진마다 따로 받는다(DEV-341). 한 장이 실패해도 나머지는 보이고, 실패한 사진은 기본 자리로 남는다.
+    for (const uri of new Set(uris))
+      productWorkspace
+        .photo(product.productId, uri.split("/").pop()!)
+        .then((url) => {
+          if (!alive) return URL.revokeObjectURL(url);
+          made.push(url);
+          setUrls((old) => ({ ...old, [uri]: url }));
+        })
+        .catch(() => {});
     return () => {
       alive = false;
+      // 해제할 주소는 화면에서도 뺀다(해제된 주소가 깨진 사진으로 남지 않게)
+      const gone = new Set(made);
+      setUrls((old) =>
+        Object.fromEntries(Object.entries(old).filter(([, url]) => !gone.has(url))),
+      );
       made.forEach(URL.revokeObjectURL);
     };
     // key가 사진 목록을 대표한다.

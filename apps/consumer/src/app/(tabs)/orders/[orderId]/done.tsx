@@ -138,11 +138,12 @@ export default function Done() {
           <View
             style={{
               paddingHorizontal: tokens.space.gutter,
-              paddingTop: awaiting ? 0 : tokens.space.lg,
+              // 입금 정보 아래 안내 한 줄(DEV-342)과 붙지 않게 조금 띄운다
+              paddingTop: awaiting ? tokens.space.md : tokens.space.lg,
             }}
           >
-            {/* 입금 대기면 주문 번호(=입금자명)·합계(=입금액)는 위 입금 정보와 겹치므로 상품·배송지만 */}
-            {!awaiting ? <KV k="주문 번호" v={o.orderNo} /> : null}
+            {/* 입금 대기면 합계(=입금액)는 위 입금 정보와 겹쳐 뺀다. 입금자명은 주문 번호와 따로라(DEV-342) 주문 번호는 늘 보인다 */}
+            <KV k="주문 번호" v={o.orderNo} />
             <KV
               k="상품"
               v={`${o.productName} ${o.optionLabel} × ${o.quantity}`}

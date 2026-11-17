@@ -22,8 +22,9 @@ import {
   paginate,
   register,
 } from "./router";
-import { ADDRESS_LIMIT } from "./auth";
+import { ADDRESS_LIMIT, publicName } from "./auth";
 import { ORDER_CONSENT_KEYS, allOrderConsents } from "../orderConsents";
+import { depositCodeName, pickDepositCode } from "../depositCode";
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 /** 도서산간(예시): 제주·울릉·옹진 등 우편번호 앞자리 */
@@ -87,6 +88,8 @@ function refund(ctx: Ctx, o: OrderRec, reason: string) {
 
 /** 입금 기한(시간). 서버 DEPOSIT_DEADLINE_HOURS와 같다(R-28) */
 const DEPOSIT_DEADLINE_HOURS = 24;
+/** 돈 없이 취소된 주문의 입금자명을 다시 쓰지 않는 기간(입금 기한 끝부터, 서버 DEPOSIT_CODE_HOLD_DAYS, DEV-342) */
+const DEPOSIT_CODE_HOLD_DAYS = 3;
 const DEPOSIT_EXPIRED = "입금 기한 초과";
 
 /** 입금 대기 주문을 결제 없이 끝낸다. 잡아 둔 물량은 한 번만 돌려준다(R-28) */
@@ -238,6 +241,28 @@ register({
         conflict("NO_FARM_ACCOUNT", "농가가 아직 입금 계좌를 등록하지 않았어요.");
       const s = assertSale(ctx.db, p, o.optionId, o.quantity, o);
       s.options[o.optionId].reservedCount += o.quantity;
+      // 입금자명(DEV-342): 닉네임 앞 3글자 + 숫자(PM 11/17, 계정 실명·받는 사람 이름은 쓰지 않음). 같은 농가 입금 대기 주문과
+      // 입금 기한이 끝난 지 3일이 안 된 돈 없이 취소된 주문끼리 겹치지 않게
+      const holdFrom = Date.now() - DEPOSIT_CODE_HOLD_DAYS * 86400_000;
+      const taken = new Set(
+        Object.values(ctx.db.orders)
+          .filter(
+            (x) =>
+              x.orderId !== o.orderId &&
+              (x.status === "AWAITING_DEPOSIT" ||
+                (x.status === "CANCELED" && !x.paidAt && !!x.depositDueAt && Date.parse(x.depositDueAt) > holdFrom)) &&
+              ctx.db.products[x.productId]?.farmId === p.farmId &&
+              x.depositCode,
+          )
+          .map((x) => x.depositCode as string),
+      );
+      const code = pickDepositCode(
+        depositCodeName(publicName(ctx.db.users[o.consumerId])),
+        taken,
+      );
+      if (!code)
+        conflict("INVALID_TRANSITION", "입금자명을 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      o.depositCode = code;
       o.status = "AWAITING_DEPOSIT";
       o.depositDueAt = new Date(
         Date.now() + DEPOSIT_DEADLINE_HOURS * 3600_000,

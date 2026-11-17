@@ -1,6 +1,11 @@
-// Specification-only public UI checks. Product implementation/diff was not read.
+// Public UI checks for persisted message order and AI evidence.
 import { test as base, expect, type Page } from "./fixtures";
 import { apiLogin, apiUrl, consumerUrl, producerUrl, loginConsumer, loginProducer } from "./helpers";
+
+// UUID numeric groups can match the contact filter and change the displayed test text.
+// Encode hex digits as letters while keeping uniqueness; idempotency headers stay UUIDs.
+const publicMarker = () =>
+  crypto.randomUUID().replace(/[0-9]/g, digit => String.fromCharCode(103 + Number(digit)));
 
 const test = base.extend<{ ruleAnswer: void }>({
   ruleAnswer: [async ({ request }, use) => {
@@ -20,7 +25,7 @@ const test = base.extend<{ ruleAnswer: void }>({
       const saved = await request.put(settingsPath, {
         headers: mutationHeaders(),
         // Unique public answer content makes waiting for this answer independent of older messages.
-        data: { ...originalSettings, enabled: true, smallOrderPolicy: `1kg부터 주문할 수 있어요. 순서 검증 ${crypto.randomUUID()}` },
+        data: { ...originalSettings, enabled: true, smallOrderPolicy: `1kg부터 주문할 수 있어요. 순서 검증 ${publicMarker()}` },
       });
       expect(saved.ok()).toBeTruthy();
       if (originalThread.aiMode !== "AUTO") {
@@ -74,7 +79,7 @@ test("AC-12-1 DEV-235: equal-time question and rule answer keep DOM order after 
   await page.setViewportSize({ width: 390, height: 844 });
   await loginConsumer(page, "김민지");
   await page.goto(`${consumerUrl}/chats/f-kang?start=1`);
-  const prompt = `소량 주문 되나요? 순서 확인 ${crypto.randomUUID()}`;
+  const prompt = `소량 주문 되나요? 순서 확인 ${publicMarker()}`;
   const sent = await send(page, prompt);
   expect(sent.reply?.senderType).toBe("AI");
   expect(sent.reply.handoffStatus).toBeNull();
@@ -95,7 +100,7 @@ test("AC-13-2/4 DEV-213: handoff shows forwarded notice without a new basis, ord
   await loginConsumer(page, "김민지");
   await page.goto(`${consumerUrl}/chats/f-kang?start=1`);
   await expect(page.getByRole("textbox", { name: "메시지", exact: true })).toBeVisible();
-  const answerPrompt = `소량 주문 되나요? 근거 확인 ${crypto.randomUUID()}`;
+  const answerPrompt = `소량 주문 되나요? 근거 확인 ${publicMarker()}`;
   const answered = await send(page, answerPrompt);
   expect(answered.reply.handoffStatus).toBeNull();
   expect(answered.reply.sourceSummary).toBeTruthy();
@@ -103,7 +108,7 @@ test("AC-13-2/4 DEV-213: handoff shows forwarded notice without a new basis, ord
   const answerBubble = page.getByText(answered.reply.body, { exact: true }).last().locator("..");
   const answerBasis = answerBubble.getByText(`근거: ${answered.reply.sourceSummary}`, { exact: true });
   await expect(answerBasis).toBeAttached();
-  const handoffPrompt = `농약은 얼마나 치세요? 전달 확인 ${crypto.randomUUID()}`;
+  const handoffPrompt = `농약은 얼마나 치세요? 전달 확인 ${publicMarker()}`;
   const forwarded = await send(page, handoffPrompt);
   expect(forwarded.reply.handoffStatus).toBe("FORWARDED");
   expect(forwarded.reply.sourceSummary).toBeNull();

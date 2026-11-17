@@ -20,12 +20,13 @@ import {
   useLiveList,
 } from "@farmclub/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { OptionBoxRow } from "../../../lib/OptionBoxRow";
 import { optionBoxesFromCard } from "../../../lib/optionBoxes";
 import { HelpButton } from "../../../lib/Tour";
 import { useSession } from "../../../lib/session";
+import { productPhotoUrl } from "../../../lib/sourcePhoto";
 import {
   productGroup,
   productGroups,
@@ -50,6 +51,42 @@ function SalesLine({ product }: { product: MyProductCard }) {
       예약 중 {product.reservedGrams / 1000}kg · 출하{" "}
       {product.shippedGrams / 1000}kg
     </T>
+  );
+}
+
+/**
+ * 카드 썸네일. 반영한 사진(`/api/source-media/…`)은 판매 중일 때만 공개 주소로 열리므로,
+ * 판매 중이 아닌 상품은 생산자 인증 주소로 받아 보인다(DEV-346, 전에는 404로 기본 사진이 나왔다).
+ */
+function CardPhoto({ product }: { product: MyProductCard }) {
+  // 판매 중이면 공개 주소 그대로, 아니면 productPhotoUrl이 반영 사진을 인증 주소로 바꾼다.
+  const privatePhoto = product.status !== "PUBLISHED" ? product.photo : null;
+  const [blob, setBlob] = useState<string | null>(null);
+  useEffect(() => {
+    setBlob(null);
+    if (!privatePhoto) return;
+    let alive = true;
+    let url = "";
+    void productPhotoUrl(product.productId, privatePhoto)
+      .then((u) => {
+        url = u;
+        if (alive) setBlob(u);
+        else URL.revokeObjectURL(u);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [product.productId, privatePhoto]);
+  return (
+    <Photo
+      uri={privatePhoto ? blob : product.photo}
+      width={64}
+      height={64}
+      kind="product"
+      alt={product.name}
+    />
   );
 }
 
@@ -179,13 +216,7 @@ export default function Products() {
               onPress={() => router.push(`/products/${product.productId}/edit`)}
               style={{ flexDirection: "row", gap: 16, minHeight: 64 }}
             >
-              <Photo
-                uri={product.photo}
-                width={64}
-                height={64}
-                kind="product"
-                alt={product.name}
-              />
+              <CardPhoto product={product} />
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                 <T
                   variant="caption"

@@ -156,17 +156,24 @@ function list(d: DB, t: Thread) {
 function inquiries(d: DB, t: Thread) {
   return d.inquiries.filter((i) => i.threadId === t.threadId);
 }
-function eligibleOrderIds(d: DB, t: Thread): string[] {
+type Source = "CONSUMER" | "PRODUCER";
+const ANY: Source[] = ["CONSUMER", "PRODUCER"];
+/** 기본은 연결 주문(소비자 쪽 문맥·문의). 보기 판단은 ANY, 생산자 쪽만은 ["PRODUCER"](DEV-342) */
+function eligibleOrderIds(d: DB, t: Thread, sources: Source[] = ["CONSUMER"]): string[] {
   const recorded = new Set([
-    ...inquiries(d, t).map(i => i.orderId),
-    ...(d.threadOrderContexts ?? []).filter(c => c.threadId === t.threadId).map(c => c.orderId),
+    ...(sources.includes("CONSUMER") ? inquiries(d, t).map(i => i.orderId) : []),
+    ...(d.threadOrderContexts ?? [])
+      .filter(c => c.threadId === t.threadId && sources.includes(c.source ?? "CONSUMER"))
+      .map(c => c.orderId),
   ]);
   return [...recorded].filter(id => {
     const o = d.orders[id];
-    return o && o.paidAt && o.consumerId === t.consumerId &&
+    return o && chatEligible(o) && o.consumerId === t.consumerId &&
       d.products[o.productId]?.farmId === t.farmId;
   }).sort();
 }
+/** 대화를 보게 하는 주문 문맥: 결제 이력 또는 입금 대기(DEV-342, 서버 get_chat_order_of). 메시지 주문·연결 주문은 결제 주문만 */
+const chatEligible = (o: OrderRec) => !!o.paidAt || o.status === "AWAITING_DEPOSIT";
 function paidOrder(ctx: Ctx, id: string): OrderRec {
   const u = ctx.me(),
     o = ctx.db.orders[id];
@@ -189,11 +196,13 @@ function access(ctx: Ctx, write = false): Thread {
   const t = ctx.db.threadMeta[key(f, c)];
   if (!t) notFound("대화를 먼저 시작해 주세요.");
   if (u.role === "CONSUMER" && !following(ctx.db, f, c)) {
-    if (!eligibleOrderIds(ctx.db, t).length)
+    if (!eligibleOrderIds(ctx.db, t, ANY).length)
       fail(403, "FORBIDDEN", "팔로우한 농가와만 채팅할 수 있어요.");
     if (write) {
-      if (ctx.body.orderId == null)
+      // 생산자가 그 소비자의 주문으로 연 대화는 주문 없이도 답할 수 있다(DEV-342)
+      if (ctx.body.orderId == null && !eligibleOrderIds(ctx.db, t, ["PRODUCER"]).length)
         fail(403, "FORBIDDEN", "팔로우한 농가와만 채팅할 수 있어요. 주문 문의는 주문 상세에서 해 주세요.");
+      if (ctx.body.orderId == null) return t;
       const o = paidOrder(ctx, String(ctx.body.orderId ?? ""));
       if (ctx.db.products[o.productId]?.farmId !== f) notFound();
     }
@@ -709,7 +718,7 @@ register({
             t.consumerId === u.userId &&
             ctx.db.farms[t.farmId]?.status === "APPROVED" &&
             (following(ctx.db, t.farmId, u.userId) ||
-              eligibleOrderIds(ctx.db, t).length > 0),
+              eligibleOrderIds(ctx.db, t, ANY).length > 0),
         )
         .map((t): ChatSummary => {
           const f = ctx.db.farms[t.farmId],
@@ -777,8 +786,10 @@ register({
       const thread = ensureThread(ctx.db, f, u.userId);
       if (orderId !== undefined) {
         const contexts = ctx.db.threadOrderContexts ??= [];
-        if (!contexts.some(c => c.threadId === thread.threadId && c.orderId === orderId))
-          contexts.push({ threadId: thread.threadId, orderId, createdAt: nowIso() });
+        const existing = contexts.find(c => c.threadId === thread.threadId && c.orderId === orderId);
+        // 소비자가 직접 연 결제 주문 진입은 연결 주문. 생산자가 먼저 남긴 같은 주문 행은 소비자 쪽으로
+        if (existing) existing.source = "CONSUMER";
+        else contexts.push({ threadId: thread.threadId, orderId, createdAt: nowIso(), source: "CONSUMER" });
         return { farmId: f, autoFollowed: false };
       }
       const autoFollowed = !following(ctx.db, f, u.userId);
@@ -888,8 +899,34 @@ register({
     return withCheckState(ctx.db, target);
   },
   "POST /api/messaging/producer/chats": (ctx) => {
-    const f = ctx.me().farmId!,
-      c = String(ctx.body.consumerId),
+    const f = ctx.me().farmId!;
+    // 자기 농가 입금 대기 주문의 소비자(DEV-342, 입금 대기 줄 ‘채팅하기’). 지난 구매자에게는 열지 않는다
+    if (ctx.body.orderId != null) {
+      const o = ctx.db.orders[String(ctx.body.orderId)];
+      const visible =
+        !!o &&
+        o.status === "AWAITING_DEPOSIT" &&
+        ctx.db.products[o.productId]?.farmId === f;
+      const buyer = o ? ctx.db.users[o.consumerId] : undefined;
+      if (
+        !visible ||
+        !buyer ||
+        buyer.deleted ||
+        (ctx.body.consumerId != null && ctx.body.consumerId !== o.consumerId)
+      )
+        notFound("대화를 시작할 수 없는 주문이에요.");
+      return idempotent(ctx, `producer-start-order:${o.orderId}`, () => {
+        const thread = ensureThread(ctx.db, f, o.consumerId);
+        // 생산자 쪽 주문 문맥: 팔로우와 상관없이 보고 답하게 하되 연결 주문으로는 쓰지 않는다(DEV-342)
+        const contexts = (ctx.db.threadOrderContexts ??= []);
+        if (!contexts.some((c) => c.threadId === thread.threadId && c.orderId === o.orderId))
+          contexts.push({ threadId: thread.threadId, orderId: o.orderId, createdAt: nowIso(), source: "PRODUCER" });
+        return thread;
+      });
+    }
+    if (ctx.body.consumerId == null)
+      invalid({ consumerId: "대화할 소비자나 주문을 골라 주세요" });
+    const c = String(ctx.body.consumerId),
       t = ctx.db.threadMeta[key(f, c)];
     if (
       !t &&
@@ -1087,7 +1124,7 @@ export function attachmentAccess(
   if (
     u.role === "CONSUMER" &&
     !following(ctx.db, t.farmId, u.userId) &&
-    !eligibleOrderIds(ctx.db, t).length
+    !eligibleOrderIds(ctx.db, t, ANY).length
   )
     notFound();
 }

@@ -1,5 +1,6 @@
 """Validate the frozen DEV-152 matrix without running product tests."""
 
+import argparse
 import csv
 import hashlib
 import json
@@ -27,14 +28,28 @@ def digest(path):
 
 
 def main():
-    manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--revision", choices=("v1.0", "v1.1"), default="v1.0")
+    revision = parser.parse_args().revision
+    root = ROOT if revision == "v1.0" else ROOT / "versions" / revision
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
     for filename in ("matrix.csv", "protocol.md"):
-        assert digest(ROOT / filename) == manifest["sha256"][filename], f"changed frozen {filename}"
+        assert digest(root / filename) == manifest["sha256"][filename], f"changed frozen {filename}"
 
-    with (ROOT / "matrix.csv").open(newline="", encoding="utf-8") as stream:
+    with (root / "matrix.csv").open(newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         assert set(reader.fieldnames or []) == FIELDS, "matrix columns differ from frozen schema"
         rows = list(reader)
+    if revision == "v1.1":
+        parent = json.loads((ROOT / "manifest.json").read_text())
+        assert digest(ROOT / "matrix.csv") == parent["sha256"]["matrix.csv"]
+        assert digest(ROOT / "protocol.md") == manifest["parent_protocol_sha256"]
+        with (ROOT / "matrix.csv").open(newline="", encoding="utf-8") as stream:
+            previous = list(csv.DictReader(stream))
+        assert len(previous) == len(rows)
+        for old, new in zip(previous, rows):
+            allowed = {"version", "expected_result"} if old["case_id"] == "I3-CHAT-02" else {"version"}
+            assert all(new[key] == value for key, value in old.items() if key not in allowed)
     assert len(rows) == manifest["case_count"] == 44
     assert len({r["case_id"] for r in rows}) == len(rows), "duplicate case ID"
 

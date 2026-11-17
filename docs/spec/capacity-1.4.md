@@ -52,16 +52,16 @@
 - POST /api/products/{productId}/capacity-requests/{requestId}/withdraw: {version}; 신청 버전 검사 후 철회하고 상품 버전도 올린다.
 - POST /admin/products/{productId}/capacity-requests/{requestId}/approve: {version}; 신청 버전과 현재 대기 상태·소속 상품을 검사한다. 상품 잠금 안에서 최초 한도 설정 또는 증액을 적용하고 상품·신청 버전을 올린다.
 - POST /admin/products/{productId}/capacity-requests/{requestId}/reject: {version,reason}; 비어 있지 않은 사유 필수. 최초 상품만 REJECTED로 전환하고 증액 반려는 기존 판매 상태·한도를 유지한다.
-- PUT /api/products/{productId}/sales-settings: {salesLimitGrams,maxQuantityPerOrder,salesPaused,version}; 응답은 상품 ID·한 주문 상한·중량 집계·판매 상태·version. 초안은 salesLimitGrams=0만, 승인 상품은 사용량≤한도≤승인량. 재개 검사(현재 또는 미래 기간의 판매 가능 옵션 존재 여부, 없으면 409 NOT_RESUMABLE)는 salesPaused true→false일 때만 한다. 중지가 아닌 상품의 한도·주문당 상한 저장은 품절이어도 검사하지 않는다(DEV-344: 품절 상품이 한도를 먼저 올리거나 주문당 상한을 바꿀 수 있어야 한다). 승인량을 넘는 한도는 409 APPROVED_CAP_EXCEEDED '승인 물량을 넘어요. 물량 추가를 신청해 주세요.'
+- PUT /api/products/{productId}/sales-settings: {salesLimitGrams,maxQuantityPerOrder,salesPaused,version}; 응답은 `SalesState`(중량 집계 approvedSupplyGrams·salesLimitGrams·reservedGrams·shippedGrams·soldQuantity·remainingGrams, 판매 상태 salesPaused·availability, version)다. 상품 ID(경로에 있음)와 한 주문 상한(요청에 보낸 값을 그대로 저장)은 응답에 없다. 화면은 저장 뒤 상품 상세를 다시 읽는다(DEV-342에서 코드에 맞춰 정정). 초안은 salesLimitGrams=0만, 승인 상품은 사용량≤한도≤승인량. 재개 검사(현재 또는 미래 기간의 판매 가능 옵션 존재 여부, 없으면 409 NOT_RESUMABLE)는 salesPaused true→false일 때만 한다. 중지가 아닌 상품의 한도·주문당 상한 저장은 품절이어도 검사하지 않는다(DEV-344: 품절 상품이 한도를 먼저 올리거나 주문당 상한을 바꿀 수 있어야 한다). 승인량을 넘는 한도는 409 APPROVED_CAP_EXCEEDED '승인 물량을 넘어요. 물량 추가를 신청해 주세요.'
 - PATCH /api/products/{productId}: 편집 입력에 version 필수. 신청 중 최초 상품은 변경 불가. 승인 상품은 검증 후 즉시 반영하며 상품 version 증가.
-- PUT /api/products/{productId}/stages: 기존 입력 유지, 응답 {version,stages}. 승인 사본 없음.
+- PUT /api/products/{productId}/stages: 기존 입력 유지, 응답 {version,stages}. 기존 기간은 stageId로 대응하고 빠진 ID만 삭제한다. ID 없는 입력은 새 기간이며 다른 상품·모르는·중복 ID는 400이다. 날짜순 seq와 단계 이름을 다시 매기고, 주문 잠금·예약 박스 검사는 같은 stageId 기준으로 수행한다(AC-05-4, DEV-336). 승인 사본 없음.
 - 구형 POST publish-request 및 /admin/products/{productId}/approve|reject는 새 신청 API로 대체한다. 소비자/생산자 앱의 공개 경로는 변경하지 않는다.
 - 오류 409 reason 추가: APPROVED_CAP_EXCEEDED, CAP_BELOW_COMMITTED, CAPACITY_REQUEST_PENDING, INVALID_TRANSITION. STALE_VERSION·PERIOD_LOCKED·STAGE_CHANGED·TOTAL_LIMIT_REACHED·SOLD_OUT 유지. 초과 요청은 400 필드 오류 또는 해당 409로 실패하며 부분 저장하지 않는다.
 
 ## 5. 화면
 
 - 상품 필터: 판매 중 → 심사 중 → 작성 중 → 판매 중지 → 판매 종료. 심사 중은 최초 물량 심사만. 증액 심사는 기존 그룹에 '물량 추가 심사 중' 배지.
-- 판매 설정: 맨 위 옵션별 박스당 가격(지금 판매 기간) · 예약+출하 / 판매 박스 표(박스는 모든 기간 합, DEV-300), 그 아래 보조 글자로 승인 물량/현재 판매 한도/예약 중/출하 완료/추가 예약 가능(kg), 주문당 상한(박스), 중지/재개, 공급 신청·이력. 상품 목록 카드도 옵션별 박스당 가격·예약+출하 / 판매 박스를 보이고 kg 줄은 메타 회색 보조다(DEV-300, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조). 한도·승인·신청은 계속 kg다.
+- 판매 설정: 맨 위 옵션별 박스당 가격(지금 판매 기간) · 예약+출하 / 판매 박스 표(박스는 모든 기간 합, DEV-300), 그 아래 보조 글자로 승인 물량/현재 판매 한도/예약 중/출하 완료/추가 예약 가능(kg), 주문당 상한(박스), 중지/재개, 공급 신청·이력. 상품 목록 카드도 옵션별 박스당 가격·예약+출하 / 판매 박스를 보이고 kg 줄은 메타 회색 보조다(DEV-300, 11/10 생산자 인터뷰: 옵션별 가격·박스가 주, kg 총량은 보조). 한도·승인·신청은 계속 kg다. 판매 중(PUBLISHED) 상품이 품절이면 맨 위에 무엇을 늘릴지 안내한다: 전체 물량 품절은 판매 한도(승인량까지) 또는 물량 추가 신청, 이번 기간 품절은 기간·가격의 박스 수. 오류·성공 안내는 누른 버튼 아래, `APPROVED_CAP_EXCEEDED`는 신청 칸으로 이동한다. 기간·가격 저장 뒤에도 판매 중 상품이 전체 물량 품절이면 그 화면에 머물러 판매 한도 늘리기로 안내한다(DEV-345, 문구는 [screens.md](./screens.md) 판매 설정·SCR-26).
 - 최초는 '공급 물량 승인 요청', 이후 '물량 추가 신청'. 신청 전 기존 승인량·추가량·신청 후 총량을 표시한다. 대기 중 철회, 반려 시 사유와 재신청을 제공한다.
 - 신규 상품은 판매 한도 입력 대신 공급 신청 kg을 입력한다. 최초 신청 시 필수 항목·기간 검증. 상품·기간 편집에 '승인 전 가격 유지' 문구를 없앤다.
 - 상단 탭은 확정 → 미확정 → 취소·환불이며 기본은 미확정이다. 미확정은 RESERVED/PREPARING/SHIPPED/DELIVERED, 확정은 COMPLETED, 취소·환불은 CANCELED/REFUNDED/PARTIALLY_REFUNDED다. 결제 전 주문은 제외한다. 모든 페이지를 집계한 건수를 표시하고, 미확정 내 응답 필요 주문을 우선한 뒤 최신순으로 정렬한다. 선택은 filter=pending|confirmed|canceled로 상세 왕복·로그인 복귀에도 유지한다. 기존 API 반환 범위는 변경하지 않는다.
@@ -76,3 +76,7 @@
 - AC-05-6: 예약 있는 기간도 가격 즉시 반영, 기존 결제 주문 보존, 미결제 재확인. 기간/중량 잠금 유지.
 - AC-09-6: 5kg×2와 10kg×1은 각각 10kg 차감. 마지막 물량 동시 결제는 한 건만 성공, 잔여 3kg은 5kg 옵션 품절. 중복 취소·부분 미공급·출하/환불 집계를 검증한다.
 - AC-10-6: 구매 확정 기준의 상단 상태 탭·건수·선택 유지. 타입·Mock 회귀·두 앱 웹 export·모바일 검증과 PR CI 통과.
+
+### 소비자 가격 갱신 (DEV-337)
+
+홈·상품 상세는 다시 포커스를 받으면 최신 가격·예약 가능 상태를 조회한다. 재조회 중/실패한 상품의 예약 버튼은 꺼지고 실패 시 다시 시도한다. 상품에서 본 단가와 새 주문서 단가가 다르면 주문서에 변경 안내와 최신 합계를 보인다. 이미 주문서에서 본 조건이 제출 전에 달라지면 기존 AC-08-8의 명시적 재확인이 필요하다. 주소 화면 왕복으로 주문서 스냅샷을 조용히 바꾸지 않는다.

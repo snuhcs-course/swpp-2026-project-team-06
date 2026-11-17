@@ -30,10 +30,11 @@
 | 2026-10-07 | `ProductDraft`는 catalog가 가진다. ai 모듈은 저장하지 않는다 | ai는 모델 호출 어댑터만 맡아 다른 모델로 바꾸기 쉽게(ADR 0004) | AC-03-1 |
 | 2026-10-07 | 라우터 prefix는 `/products` | ia.md 경로와 같은 말 | — |
 | 2026-10-07 | 상품 응답에 `reservedCount`(결제된 주문의 소비자 수, 중복 없음), 상품 상세 농가 요약에 `brixRecordCount`. 상품 상세의 최신 소식은 없앰 | SWPP-81(screens.md 1.1 결정 24·26) | AC-07-1 |
-| 2026-10-08 | 옵션 기본 키는 (상품, 옵션 ID). 단계 ID는 전체 유일(`st-house-1`). 단계 저장은 순서대로 기존 행을 고쳐 ID와 예약 박스를 유지하고, 예약보다 적은 물량·예약 있는 단계 삭제는 400 | Mock의 opt-5 공유, R-06 | AC-05-1, AC-05-2 |
+| 2026-10-08 | 옵션 기본 키는 (상품, 옵션 ID). 단계 ID는 전체 유일(`st-house-1`). 단계 저장은 stageId로 기존 행을 고쳐 ID와 예약 박스를 유지하고, 예약보다 적은 물량·예약 있는 단계 삭제는 400 | Mock의 opt-5 공유, R-06 | AC-05-1, AC-05-2 |
 | 2026-10-08 | `reservedCount`는 저장하지 않고 orders의 결제 주문 소비자 수로 계산한다. 상태에 REJECTED를 둔다(스펙 1.1 화면) | tech-design 데이터 모델 | AC-04-2 |
 | 2026-10-08 | 게시 요청 빠진 칸에 원산지·보관 방법도 넣는다 | FEAT-04 입력·검증 | AC-04-1 |
 | 2026-10-09 | `Product.detailContent`는 nullable JSON이고 공개·내 상품 응답에서 null은 생략한다. 초안 생성은 기존 수정 가능 상태·소유권을 따른다 | storefront-1.5 | AC-03-4, AC-07-5 |
 | 2026-10-16 | 공급 물량 결정은 기존 사유 이력 구조를 유지하고 `CapacityRequest.decidedBy`만 추가한다 | 별도 사유 분류 없이 운영자 책임 추적 | AC-04-8 |
 | 2026-11-10 | 생산자 목록 카드(`MyProductCard`)에 `options: [{optionId,label,weightKg,reserved,quantity,price}]`. `card_options`가 이미 읽은 `Loaded`(`stage_values`)만 써서 모든 기간 예약+출하·판매 박스를 옵션마다 더하고, 가격은 `current_stage` 기간 값(없으면 null). 카드마다 쿼리를 더하지 않는다. `MyProduct`에도 같은 `current_stage_id`를 준다 | 앱이 카드마다 상품 상세를 읽던 N+1 제거, 11/10 생산자 인터뷰(옵션별 가격·박스가 주, kg 총량은 보조, DEV-300) | AC-14-3 |
 | 2026-11-10 | 공급 물량 목록 `GET /admin/capacity-requests`에 `kind`(real 기본·test·all, 농가 주인 계정)와 행 `producerId`·`accountKind`·`withdrawn`(DEV-307) | 관리자 개편 목록 계정 필터(PM 결정 11/10) | AC-23-12 |
+| 2026-11-17 | 기존 기간은 stageId로만 대응하고 누락 ID만 삭제한다. ID 없는 입력은 새 기간, 모르는·중복 ID는 400. 날짜순 seq와 이름을 다시 매긴다 | DEV-336: 삭제·정렬 뒤에도 주문/예약을 다른 기간으로 옮기지 않음 | AC-05-4 |

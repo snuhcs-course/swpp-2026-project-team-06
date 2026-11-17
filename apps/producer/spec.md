@@ -53,6 +53,7 @@
 | 2026-10-07 | DEV-12의 화면은 `Placeholder`로 "SCR-xx 화면 이름 · FEAT-xx"만 보여준다. 승인 전 잠금은 아직 없음 | 뼈대 이슈, 기능은 DEV-3·DEV-4 | AC-01-3 |
 | 2026-10-07 | SCR-27 레이블을 ‘소식 올리기’로, SCR-29는 상태 변경 + 송장(자연어 I2), 로그인은 테스트 계정 | P22 결정(SWPP-26) | AC-17-2, AC-17-4 |
 | 2026-10-07 | 로그인을 SCR-19(생산자 계정만)로, `/suspended`·`/questions/:escalationId`·`/farm/edit/:field` 하위 화면, 현황의 출하 처리 버튼 대신 할 일, 여러 건 출하와 택배사 | SWPP-81(screens.md 1.1, ADR 0010) | AC-01-3, AC-01-6, AC-17-2 |
+| 2026-11-17 | 가입 신청(SCR-20) 연락처 칸은 처음 신청일 때 계정 `phone`(카카오 동의 전화번호, 서버가 010-0000-0000 꼴로 저장)으로 미리 채운다. 칸이 비어 있을 때만 채우고 반려 뒤 재신청은 이전 신청 값을 쓴다. 대표자 이름은 카카오에서 받지 않으므로 채우지 않는다 | FEAT-01 I2, DEV-78 | AC-01-16 |
 
 
 ## DEV-3 로컬 이식 결정 (2026-10-07)
@@ -112,12 +113,20 @@ DEV-84 자료 분석이 꺼진 환경의 복구 경로(운영은 DEV-90에서 �
 상품 목록의 별도 자료로 상세 만들기 버튼은 제거하며 새 상품 버튼을 단일 신규 진입으로 사용한다. 기존 상품의 저장 작업 편집 진입은 유지한다.
 
 ### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
+- (DEV-346부터 `판매페이지 수정`은 composer로 연다. 이 절의 비공개 수정본 편집기는 composer로 옮기지 못한 페이지·예전 앱·자료 분석이 꺼진 서버의 대체 경로다. 동작은 `docs/spec/source-integration.md` 'DEV-346' 절.)
 - 상품 목록의 `판매페이지 수정`은 해당 상품의 비공개 수정본을 연다. 없으면 현재 `moduleDetail` 또는 `detailContent`를 사진 URI/문구 그대로 보존하여 시작한다. 원본 자료가 없어도 수정할 수 있다.
 - `수정본 저장`은 공개 내용을 변경하지 않는다. `상품에 반영` 확인 후에만 상품 상세가 변경된다. 판매 중인 상품은 구매자 페이지에 즉시 반영되며, 초안/심사 상태는 바꾸지 않는다.
 - 상품 버전이 바뀌면 적용을 거절한다. 수정본을 자동 폐기하지 않고, 사용자가 명시적으로 현재 상품 불러오기를 선택해야 폐기한다. 저장하지 않은 입력에는 이탈 확인을 표시한다.
 - 새 상품은 상품+연결 자료 작업을 한 트랜잭션으로 생성한다. 멱등 키 재시도로 응답 유실 시 중복 생성하지 않는다.
 - API: POST `/api/source-analysis/product-workspaces` (선택 productId), PUT `/{productId}` (version/snapshot), POST `/{productId}/apply` (version). 초기화는 POST의 discardChanges/version으로 명시한다. 승인 농가 소유권·상품/수정본 버전·사진 소유 참조를 검증한다.
 - 생산자 4탭은 유지한다. 공통 좌우20px/카드16px/카드반경16px/터치48px 규격을 사용한다. AI 채팅 기능은 이번 변경 범위에서 제외한다.
+
+
+### 판매페이지 수정 = composer (DEV-346, 구현 결정)
+- `/products/:id/detail`은 `productWorkspace.open(..., composer: true)` 응답이 `composer: true`일 때 `/products/source-analysis?batchId=…&composer=1`로 바꿔 연다(`notice=replaced|replaced-ai`는 한 번 보이고 지움). `composer: false`·예전 서버(400)·자료 분석 꺼짐·Mock은 `ProductPageEditor`(`composerBlocked`면 `warning`). 서버 오류면 '다시 열기'·'기존 편집기로 열기'.
+- 판매 중·승인 대기·종료 상품: composer에서 상품명·원산지·보관·품종·당도·대표사진을 잠그고 상품 값을 보이며, 누르면 상품 편집으로 가는 시트. 반영은 상세만(상품 PATCH 없음, `saveProduct`는 판매 전만). 확인 시트 뒤 SCR-25.
+- 사진 주소: `sourcePhotoUrl`/`productPhotoUrl`(`lib/sourcePhoto.ts`) — 올린 사진은 `sourcePageImage`, 옮겨 온 사진은 주소 그대로(`/api/source-media/`는 생산자 인증 주소). 카드 썸네일(`CardPhoto`)도 같은 규칙.
+- 409 `PAGE_CHANGED`면 오류 줄에 '다시 열기'. '이미 반영한 초안' 세션 기억(DEV-184)은 그대로 둔다.
 
 ### DEV-58 통합 편집
 AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
@@ -232,3 +241,13 @@ Figma 검토본(PM 11/09 승인)대로 현황·배송 현황·투어·문구를 
 - DEV-326 카드(`ConsumerPageCard`)를 `lib/ConsumerShareBar.tsx`로 바꿨다. 스크롤 밖 머리(현황·농가명·날짜) 안에 두어 고정한다. 승인 농가만, 공유 링크(`shareUrl`)가 없으면 띄우지 않는다.
 - 닫기와 그 기억(`consumer-page-card-closed:<farmId>`)은 없앴다. 예전에 닫은 기기에도 막대는 보인다(PM 11/15: 실수로 닫아 링크를 잃지 않게).
 - 막대 전체가 복사 버튼(높이 48, 접근성 이름 ‘소비자에게 우리 농가 공유하기, farmclub.kr 링크 복사’ — 보이는 문구를 이름에 넣는다). 오른쪽 알약은 눈에 보이는 버튼 모양이다.
+
+## DEV-345 품절 안내·저장 결과 위치 (2026-11-17)
+
+화면 서술·문구는 screens.md 판매 설정·SCR-26, 기록은 `tasks/DEV-345.md`.
+- 품절 안내는 `lib/soldOutGuide.ts` 순수 함수(`scripts/test-sold-out-guide.mjs`). 판정은 서버 `availability`를 그대로 쓰고 `PUBLISHED`만 안내한다(승인 전은 한도 0이라 서버가 `TOTAL_SOLD_OUT`을 줌). 박스 소진은 `currentStageId` 기간의 모든 옵션이 `quantity ≤ reservedCount`, 그 기간에 박스를 정한 옵션이 하나도 없으면(옵션 교체) kg 대신 이번 기간 안내.
+- 물량·판매 설정의 오류·성공 안내는 상태 `at`(save·pause·request·page) 한 자리에만 보인다: 누른 버튼 바로 아래, 신청·철회는 ‘물량 추가 신청’ 영역 끝, 불러오기 실패만 맨 아래. 기간·가격도 저장 오류·저장 뒤 안내를 저장 버튼 아래에 둔다(불러오기 실패는 위).
+- 화면 밖이면 웹에서만 `scrollIntoView({ block: "nearest" })`(View ref의 DOM 노드, 네이티브에는 함수가 없어 아무 일도 안 함 — `lib/FieldFeedback.tsx`와 같은 방식). ‘물량 추가 신청하기’는 신청 영역을 `block: "center"`로 옮기고 `Input.inputRef`로 초점.
+- 판매 설정 → ‘기간·가격에서 박스 늘리기’는 `/products/:id/stages?from=sales`로 열고, 기간·가격의 ‘판매 한도 늘리기’는 `from=sales`이고 `router.canGoBack()`이면 `router.back()`(판매 설정→기간→판매 설정으로 스택이 쌓여 뒤로가 맴도는 것을 막음), 아니면 push.
+- 판매 설정은 `useFocusEffect`로 읽는다(처음 열 때·돌아올 때). 다시 들어올 때는 지난 결과 안내(`error`·`note`·`at`·`capExceeded`)를 지우고, 판매 한도·한 주문 최대 칸은 마지막으로 불러온 값과 같을 때만 새 값으로 바꾼다(고친 입력 보존). 저장·중지 등 성공 뒤와 ‘최신 상태 확인’은 예전처럼 서버 값으로 덮는다.
+- 기간·가격 저장 뒤 상품을 다시 읽어 `PUBLISHED`이고 `TOTAL_SOLD_OUT`이면 머문다. 다시 고치거나 기간을 추가·삭제하면 그 안내를 지운다.

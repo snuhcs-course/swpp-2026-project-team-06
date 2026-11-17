@@ -1,6 +1,10 @@
-"""Approved-producer API. All downloads/previews are authenticated and non-cacheable."""
+"""Approved-producer API. All downloads/previews are authenticated.
 
-from typing import Annotated
+Originals and unredacted pages are non-cacheable; resized page previews and workspace photos may
+stay in the producer's own browser cache, keyed by revision/ETag (DEV-341).
+"""
+
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 from fastapi.responses import Response
@@ -14,6 +18,7 @@ from app.core.security import ApprovedProducer
 from app.source_analysis import editor as e
 from app.source_analysis import service as s
 from app.source_analysis import workspace as w
+from app.source_analysis.caching import PREVIEW_CACHE, PREVIEW_REVALIDATE, not_modified, tag_for
 from app.source_analysis.models import Asset, Batch, Draft, Page, PublicPhoto, Run
 from app.source_analysis.schemas import (
     ApplyDraft,
@@ -61,7 +66,13 @@ def commit(db, result):
 
 
 @router.get("/product-workspaces/{pid}/photos/{photo_id}")
-def workspace_photo(pid: str, photo_id: str, who: ApprovedProducer, db: DB):
+def workspace_photo(
+    pid: str,
+    photo_id: str,
+    who: ApprovedProducer,
+    db: DB,
+    if_none_match: Annotated[str | None, Header()] = None,
+):
     from app.catalog import service as catalog
     from app.source_analysis.publish import media_type
 
@@ -69,8 +80,13 @@ def workspace_photo(pid: str, photo_id: str, who: ApprovedProducer, db: DB):
     photo = db.get(PublicPhoto, photo_id)
     if photo is None or photo.product_id != pid:
         raise not_found()
+    # A photo id is one stored copy (recompress writes a new key, so the ETag changes).
+    tag = tag_for(photo.storage_key)
+    headers = {"Cache-Control": PREVIEW_CACHE, "ETag": tag, "Vary": "Authorization"}
+    if not_modified(tag, if_none_match):
+        return Response(status_code=304, headers=headers)
     data = Storage().get(photo.storage_key)
-    return Response(data, media_type=media_type(data), headers={"Cache-Control": "no-store"})
+    return Response(data, media_type=media_type(data), headers=headers)
 
 
 @router.post("/product-workspaces")
@@ -284,19 +300,32 @@ def source_details(bid: str, sid: str, body: SourceEdit, who: ApprovedProducer, 
 
 @router.post("/product-workspaces/{pid}/photos", status_code=201)
 def upload_page_photo(pid: str, who: ApprovedProducer, db: DB, file: Annotated[UploadFile, File()]):
-    from app.source_analysis.photos import public_photo
+    from app.catalog import service as catalog
+    from app.source_analysis import photos
+    from app.source_analysis.models import ProductWorkspace
     from app.source_analysis.preprocess import PreparationError
 
-    _, workspace = w.owned(db, who[1], pid)
+    # Unlocked ownership/workspace check first, so a stranger's upload is never decoded.
+    catalog.load_my_product(db, who[1].id, pid)
+    if db.get(ProductWorkspace, pid) is None:
+        raise invalid({"productId": "판매페이지 편집을 먼저 열어 주세요."})
+    # End the read transaction before the slow read/convert so the connection is not left idle in
+    # a transaction; `w.owned` below re-checks everything under the lock.
+    db.rollback()
     data = file.file.read(20 * 1024 * 1024 + 1)
     if not data or len(data) > 20 * 1024 * 1024:
         raise invalid({"file": "사진은 20MB 이하로 올려 주세요."})
     try:
         # Served to consumers via /api/source-media once applied: same display-size JPEG (DEV-328).
-        prepared = public_photo(data)
+        # Encoded and stored outside the product lock (DEV-341) so saves/applies do not wait.
+        prepared = photos.public_photo(data)
     except PreparationError as exc:
         raise invalid({"file": str(exc)}) from exc
-    photo = PublicPhoto(product_id=pid, storage_key=Storage().put(prepared))
+    key = Storage().put(prepared)
+    # The row itself is still added under the product lock, re-checking ownership/workspace.
+    # If that fails, the stored file is an orphan that worker cleanup removes after 24h.
+    w.owned(db, who[1], pid)
+    photo = PublicPhoto(product_id=pid, storage_key=key)
     db.add(photo)
     db.flush()
     return commit(db, {"uri": f"/api/source-media/{photo.id}", "alt": "상품 사진"})
@@ -314,6 +343,8 @@ def source_delete(bid: str, sid: str, who: ApprovedProducer, db: DB, version: in
 def content(bid: str, sid: str, who: ApprovedProducer, db: DB):
     s.batch(db, who[1].id, bid, False)
     source = s.asset(db, bid, sid)
+    if source.product_photo:
+        raise not_found()  # a referenced product page photo has no stored bytes (DEV-346)
     return Response(
         Storage().get(source.storage_key),
         media_type="application/octet-stream",
@@ -326,6 +357,8 @@ def content(bid: str, sid: str, who: ApprovedProducer, db: DB):
 
 def page_for(db, bid, sid, number):
     source = s.asset(db, bid, sid)
+    if source.product_photo:
+        raise not_found()  # referenced product page photos have no pages (DEV-346)
     page = db.scalar(
         select(Page).where(
             Page.asset_id == sid, Page.revision == source.revision, Page.number == number
@@ -353,18 +386,53 @@ def page(bid: str, sid: str, number: int, who: ApprovedProducer, db: DB):
 
 @router.get("/batches/{bid}/sources/{sid}/pages/{number}/image")
 def page_image(
-    bid: str, sid: str, number: int, who: ApprovedProducer, db: DB, sanitized: bool = True
+    bid: str,
+    sid: str,
+    number: int,
+    who: ApprovedProducer,
+    db: DB,
+    sanitized: bool = True,
+    variant: Literal["original", "display", "thumb"] = "original",
+    v: Annotated[str | None, Query(max_length=40)] = None,
+    if_none_match: Annotated[str | None, Header()] = None,
 ):
+    """Page image. `original` is the stored lossless PNG (no-store, unchanged contract).
+
+    DEV-341: `display` (long edge <= 1600px JPEG, cover/editor) and `thumb` (short edge <= 480px,
+    attachment tiles) are previews of the sanitized image. With `v=<revision>.<sanitizationVersion>`
+    matching the current source they are cacheable for a day; otherwise they revalidate by ETag.
+    """
+    from app.source_analysis.photos import page_variant, variant_key
+    from app.source_analysis.preprocess import PreparationError
+
     s.batch(db, who[1].id, bid, False)
-    _, page = page_for(db, bid, sid, number)
+    source, page = page_for(db, bid, sid, number)
     key = page.sanitized_key if sanitized else page.image_key
     if key is None:
         raise not_found()
-    return Response(
-        Storage().get(key),
-        media_type="image/png",
-        headers={"Cache-Control": "no-store"},
-    )
+    if variant == "original" or not sanitized:
+        # Unredacted pages are never previewed or cached.
+        if variant != "original":
+            raise invalid({"variant": "가림 처리된 이미지만 미리보기로 받을 수 있어요."})
+        return Response(
+            Storage().get(key),
+            media_type="image/png",
+            headers={"Cache-Control": "no-store"},
+        )
+    current = v == f"{source.revision}.{source.sanitization_version}"
+    tag = tag_for(variant_key(key, variant))
+    headers = {
+        "Cache-Control": PREVIEW_CACHE if current else PREVIEW_REVALIDATE,
+        "ETag": tag,
+        "Vary": "Authorization",
+    }
+    if not_modified(tag, if_none_match):
+        return Response(status_code=304, headers=headers)
+    try:
+        data = page_variant(Storage(), key, variant)
+    except PreparationError as exc:  # e.g. an oversized legacy page image
+        raise invalid({"variant": "이 이미지는 미리보기를 만들 수 없어요."}) from exc
+    return Response(data, media_type="image/jpeg", headers=headers)
 
 
 @router.patch("/batches/{bid}/sources/{sid}/privacy")

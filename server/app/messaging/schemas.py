@@ -291,8 +291,11 @@ class StartChatResult(CamelModel):
 
 
 class ProducerStartInput(CamelModel):
-    consumer_id: str
+    """기존 대화·소식방 답장(consumerId+roomReplyId) 또는 자기 농가 주문(orderId, DEV-342)."""
+
+    consumer_id: str | None = None
     room_reply_id: str | None = None
+    order_id: str | None = None
 
 
 class SendInput(CamelModel):

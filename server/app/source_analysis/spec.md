@@ -89,12 +89,24 @@ Sol은 명시적 비교 선택(`openai/gpt-6.1-sol`, low 추론)으로 허용한
 - 제품 연결은 실제 DB+고정 제공자 응답 회귀267개와 로컬 실호출 UI 흐름1건으로 검증했다. 긴 이미지의 OCR6회+추출1회는28.364초/$0.011443이며 가림 준비3.578초와 사람 검토 시간은 별도다. 업로드→가림→검토/설정→저장→명시적 적용→공개 본문 일치를 확인했다. 기존 승인·공개 상품의 상세 수정이며 신규 상품 승인 검증이나 새로운 정확도 평가가 아니다. 상세 메타데이터는 docs/spec/validation/source-gemini-production-2026-10-17.json에 기록한다. PR 머지 전 사용자가 업로드→가림→검토/설정→미리보기→저장→공개 흐름을 직접 확인한다.
 
 ### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
+- (DEV-346부터 `판매페이지 수정`은 composer로 연다. 이 절의 비공개 수정본 편집기는 composer로 옮기지 못한 페이지·예전 앱·자료 분석이 꺼진 서버의 대체 경로다. 동작은 `docs/spec/source-integration.md` 'DEV-346' 절.)
 - 상품 목록의 `판매페이지 수정`은 해당 상품의 비공개 수정본을 연다. 없으면 현재 `moduleDetail` 또는 `detailContent`를 사진 URI/문구 그대로 보존하여 시작한다. 원본 자료가 없어도 수정할 수 있다.
 - `수정본 저장`은 공개 내용을 변경하지 않는다. `상품에 반영` 확인 후에만 상품 상세가 변경된다. 판매 중인 상품은 구매자 페이지에 즉시 반영되며, 초안/심사 상태는 바꾸지 않는다.
 - 상품 버전이 바뀌면 적용을 거절한다. 수정본을 자동 폐기하지 않고, 사용자가 명시적으로 현재 상품 불러오기를 선택해야 폐기한다. 저장하지 않은 입력에는 이탈 확인을 표시한다.
 - 새 상품은 상품+연결 자료 작업을 한 트랜잭션으로 생성한다. 멱등 키 재시도로 응답 유실 시 중복 생성하지 않는다.
 - API: POST `/api/source-analysis/product-workspaces` (선택 productId), PUT `/{productId}` (version/snapshot), POST `/{productId}/apply` (version). 초기화는 POST의 discardChanges/version으로 명시한다. 승인 농가 소유권·상품/수정본 버전·사진 소유 참조를 검증한다.
 - 생산자 4탭은 유지한다. 공통 좌우20px/카드16px/카드반경16px/터치48px 규격을 사용한다. AI 채팅 기능은 이번 변경 범위에서 제외한다.
+
+
+### 판매페이지 수정 = composer (DEV-346, 구현 결정)
+| 결정 | 내용 |
+| -- | -- |
+| 열기 | `POST /product-workspaces {productId, composer: true}`만 옮기기를 한다(`workspace.composer_view`). 응답 `composer`(열 수 있음), `composerBlocked: "LEGACY_REVISION"`(기존 편집기 수정본이 composer 작업과 겹침), `composerNotice: "PAGE_REPLACED"`·`"PAGE_AND_AI_REPLACED"`. `composer` 없는 호출은 예전 응답 그대로. |
+| 참조 사진 | 예전 페이지 사진은 복사하지 않고 `source_assets` 행(`original_photo`, `PREPARED`, `storage_key=""`, 쪽 없음, `product_photo={uri, alt}`)으로 가리킨다. 분석·연결 바꾸기에서 빠지고 바이트·쪽 API는 404, worker 정리는 저장소 삭제를 건너뛴다. 반영은 주소 그대로(`/api/source-media/`는 그 상품 `PublicPhoto`만). |
+| 지문 | `source_product_workspaces.page_source`(이야기 모듈→블록→설명 sha256)·`page_draft_id`(맞춘 초안)를 옮길 때·workspace 자기 batch 반영 때 기록한다. 다르면 다시 옮기고(진행 중 분석은 페이지가 칸에 들어갈 때만 취소), 판매 중 등 상품의 자기 batch 반영은 409 `PAGE_CHANGED`. composer 작업 = 맞춘 초안보다 새고 내용이 다른 초안. |
+| 옮기기 | `save_drafts(migrated=True)`는 금액·효능 검사를 건너뛴다(공개된 문구 보존). 칸 3,000자·사진 30장·batch 자료 30개를 넘으면 옮기지 않는다(`composer:false`). |
+| 판매 중 등 상품 | composer는 상세만 고친다: 기본 정보(품종·예상 당도)는 열 때 상품 값으로 맞추고, 자기 batch 반영은 `product.photos`를 바꾸지 않는다. 판매 전·2탭 자료 작업 반영은 예전대로. |
+| 마이그레이션 | 0033: 위 컬럼 세 개. downgrade는 참조 행을 `DELETED`로 먼저 바꾼다. |
 
 ### DEV-58 통합 편집
 AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.
@@ -301,3 +313,18 @@ FEAT-03/04 · AC-SRC-6/9/11. 작업 기록은 `server/tasks/DEV-328.md`.
 | 2026-11-18 | stage-2 `source-refine-v11-routing`: 태그라인 → hero, 교배·원산지 → summary, 포장 종류 → composition, 후숙·보관 기간 → storage, 재배 조건·수확 시기 → productionProcess, 먹는 때 → taste. stage-1 `source-v9-coverage`: 포장·배송, 크기 등급, 맛 단서, 재배 방식, 외관·농가 사실 점검 목록. "원문 표현 그대로" 규칙(v12)은 critical이 줄고 다른 절 배치가 늘어 되돌림 | 다른 절 배치·stage-1 놓침 분석(DEV-264) | AC-SRC-2 |
 | 2026-11-18 | OCR 조각이 출력 한도(`INCOMPLETE_OCR`)나 줄 한도(`INVALID_OCR`)에 걸리면 한 번만 두 배 한도(4,096토큰·300줄)로 다시 읽는다. 시간 초과·연결 오류(`REQUEST_UNCERTAIN`)는 이미 과금됐을 수 있어 재시도하지 않는다(11-02 "자동 재시도 없음"의 좁은 예외) | 같은 PDF 쪽이 세 번 연속 같은 한도로 실패 — 일시 오류가 아님 | AC-SRC-5 |
 | 2026-11-18 | 평가 전용: 채점기 `dev264-number-evidence-v2`(숫자 쉼표는 천 단위만), 의미 재현율 `semantic_recall` + `app/ai/fact_judge.py` `fact-judge-v1`(엄격 실패 사실만 판정, unknown은 놓침, holdout은 `--allow-holdout`). 평가는 지출 장부가 깨끗한 로컬 DB에서 돌린다(`farmclub_i3` 장부가 $5 한도에 차 있었음) | 측정 정확도·holdout 시도 보호 | AC-SRC-2 |
+
+## DEV-341 생산자 사진 미리보기·업로드 가볍게 (2026-11-17)
+
+FEAT-03/04 · AC-SRC-5/6/11. 작업 기록은 `server/tasks/DEV-341.md`.
+
+| 날짜 | 구현 결정 | 이유 | 관련 AC |
+| --- | --- | --- | --- |
+| 2026-11-17 | `GET .../pages/{n}/image`에 `variant=display`(긴 변 1600px JPEG, `public_photo`와 같은 변환)·`thumb`(짧은 변 480px·긴 변 1600px 이하 JPEG)를 더한다. 둘 다 정사각형 `thumbnail((L, L))`라 DEV-328 크기와 같다(4000×3001 → 1600×1200). 기본(`original`)은 무손실 PNG·`no-store` 그대로. `sanitized=false`의 미리보기는 400 | 12MP 사진의 PNG가 16~30MB라 10Mbps에서 대표사진이 50초 뒤 보임. 분석·공개 반영은 PNG를 계속 원천으로 씀 | AC-SRC-6 |
+| 2026-11-17 | 미리보기는 마이그레이션 없이 원본 키에서 정해지는 키(`photos.variant_key`: 같은 prefix + sha256(key:variant:버전) 32자)에 둔다. 상품사진은 업로드 때 한 번 디코딩해 PNG·display·thumb를 함께 쓰고, 없으면(이전 업로드·문서 페이지) 첫 요청 때 PNG에서 만들어 저장한다 | 모델·마이그레이션(고위험) 없이 저장. 가림이 바뀌면 `sanitized_key`가 바뀌어 미리보기 키도 바뀜 | AC-SRC-6 |
+| 2026-11-17 | worker cleanup은 살아 있는 페이지의 미리보기 키를 `used`로 보고, 자료를 지울 때 함께 지운다. 고아가 된 미리보기는 기존 24시간 고아 정리가 지운다. `purge_except`(admin)는 바꾸지 않는다(남은 미리보기는 worker 고아 정리로 지워짐) | 매일 지워졌다 다시 만드는 일을 막음. 고위험 경로를 건드리지 않음 | AC-SRC-5 |
+| 2026-11-17 | 미리보기 캐시: `v=<revision>.<sanitizationVersion>`이 현재와 같으면 `private, max-age=86400`, 다르거나 없으면 `private, no-cache`. 둘 다 ETag(미리보기 키 해시)·`Vary: Authorization`, 304는 소유 검사 뒤에만. `SourceRequestMiddleware`는 라우트가 정한 Cache-Control이 `caching.PREVIEW_CACHE_VALUES`의 두 값과 정확히 같을 때만 그대로 두고 나머지는 계속 `no-store`. ETag·If-None-Match 처리는 `caching.tag_for`·`not_modified` 하나로 공개 사진(`publish`)과 함께 쓴다 | 같은 revision의 바이트는 바뀌지 않음. 같은 브라우저의 다른 로그인은 다시 검증 | AC-SRC-5/6 |
+| 2026-11-17 | 판매페이지 작업 사진 미리보기(`GET product-workspaces/{pid}/photos/{id}`)는 DEV-328의 `no-store` 대신 `private, max-age=86400` + ETag(저장 키 해시) + `Vary: Authorization`. 사진 id 하나는 저장본 하나(변환 명령은 키를 새로 써 ETag가 바뀜) | 편집 화면을 다시 열 때마다 사진을 다시 받던 비용 제거. 소유자 본인 브라우저만 | AC-SRC-11 |
+| 2026-11-17 | 작업 사진 업로드는 잠금 없이 소유·작업 공간을 먼저 확인하고 읽기 트랜잭션을 닫은 뒤(`db.rollback()`, 변환 동안 idle in transaction 방지) JPEG 변환·저장을 하고, `workspace.owned`(advisory lock + FOR UPDATE)로 다시 확인하고 행만 넣는다. 잠금 확인이 실패하면 저장한 파일은 고아 정리가 지운다 | 큰 사진 변환 동안 같은 상품의 저장·반영·다른 업로드가 기다리지 않게 | AC-SRC-11 |
+| 2026-11-17 | 공개 반영(`copy_photo`)은 `page_variant(display)`를 써서 이미 만든 미리보기 바이트를 새 키로 복사한다(같은 변환이라 결과 동일) | 반영 때 12MP PNG를 다시 디코딩하지 않음 | AC-SRC-9 |
+| 2026-11-17 | 감수한 점: 미리보기는 그 브라우저에 최대 하루 남는다(자료를 지우거나 상품 연결을 바꿔도 이미 받은 사본은 `max-age` 동안 그 생산자 브라우저에만 남음, 다른 로그인은 `Vary: Authorization`으로 재검증). 앱 메모리 공유본은 로그인이 바뀌거나 로그아웃하면 지운다. 상품사진 업로드는 미리보기 두 장을 더 만들어 12MP 기준 서버 처리 0.64초→0.79초(로컬 측정) | 여는 시간 49.6초→2.1초(10Mbps)에 비해 작은 비용. 원본·가림 전 이미지는 계속 `no-store` | AC-SRC-5/6 |

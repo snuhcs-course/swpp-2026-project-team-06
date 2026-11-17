@@ -42,6 +42,7 @@ from app.source_analysis.models import (
     new_id,
     utcnow,
 )
+from app.source_analysis.photos import variant_keys
 from app.source_analysis.preprocess import (
     PREPROCESS_VERSION,
     TEXT_CHUNK_CHARS,
@@ -1153,11 +1154,12 @@ def cleanup():
             select(Asset).where(Asset.deleted.is_(True), Asset.status != "DELETED")
         ):
             for page in db.scalars(select(Page).where(Page.asset_id == source.id)):
-                for key in (page.image_key, page.sanitized_key):
-                    if key:
-                        store.delete(key)
+                for key in {page.image_key, page.sanitized_key} - {None}:
+                    for derived in (key, *variant_keys(key)):  # DEV-341 previews
+                        store.delete(derived)
                 db.delete(page)
-            store.delete(source.storage_key)
+            if source.storage_key:  # product photo references (DEV-346) own no bytes
+                store.delete(source.storage_key)
             source.filename = "deleted"
             source.description = ""
             source.placement = {}
@@ -1169,7 +1171,9 @@ def cleanup():
         # 공개 미디어(DEV-102)는 같은 저장소를 쓰므로 지우지 않는다
         used.update(db.scalars(select(PublicMedia.storage_key)))
         for p in db.scalars(select(Page)):
-            used.update(k for k in (p.image_key, p.sanitized_key) if k)
+            for k in (p.image_key, p.sanitized_key):
+                if k:
+                    used.update((k, *variant_keys(k)))  # previews live as long as their page
         for key in store.expired():
             if key not in used:
                 store.delete(key)

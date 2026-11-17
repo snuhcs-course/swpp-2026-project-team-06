@@ -80,12 +80,18 @@ productPresentation은 동일 옵션 마지막 기간 비교 가격을 계산하
 Current contract: docs/spec/source-integration.md, AC-SRC-1~10. SourceWorkspace uses the sourceAnalysis client and shared ModuleStory renderer. Product moduleDetail is separate from legacy detailContent. OpenRouter Gemini and persistent budget accounting are source-analysis-only.
 
 ### 상품별 판매페이지 수정 (DEV-58, 2026-10-17)
+- (DEV-346부터 `판매페이지 수정`은 composer로 연다. 이 절의 비공개 수정본 편집기는 composer로 옮기지 못한 페이지·예전 앱·자료 분석이 꺼진 서버의 대체 경로다. 동작은 `docs/spec/source-integration.md` 'DEV-346' 절.)
 - 상품 목록의 `판매페이지 수정`은 해당 상품의 비공개 수정본을 연다. 없으면 현재 `moduleDetail` 또는 `detailContent`를 사진 URI/문구 그대로 보존하여 시작한다. 원본 자료가 없어도 수정할 수 있다.
 - `수정본 저장`은 공개 내용을 변경하지 않는다. `상품에 반영` 확인 후에만 상품 상세가 변경된다. 판매 중인 상품은 구매자 페이지에 즉시 반영되며, 초안/심사 상태는 바꾸지 않는다.
 - 상품 버전이 바뀌면 적용을 거절한다. 수정본을 자동 폐기하지 않고, 사용자가 명시적으로 현재 상품 불러오기를 선택해야 폐기한다. 저장하지 않은 입력에는 이탈 확인을 표시한다.
 - 새 상품은 상품+연결 자료 작업을 한 트랜잭션으로 생성한다. 멱등 키 재시도로 응답 유실 시 중복 생성하지 않는다.
 - API: POST `/api/source-analysis/product-workspaces` (선택 productId), PUT `/{productId}` (version/snapshot), POST `/{productId}/apply` (version). 초기화는 POST의 discardChanges/version으로 명시한다. 승인 농가 소유권·상품/수정본 버전·사진 소유 참조를 검증한다.
 - 생산자 4탭은 유지한다. 공통 좌우20px/카드16px/카드반경16px/터치48px 규격을 사용한다. AI 채팅 기능은 이번 변경 범위에서 제외한다.
+
+
+### 판매페이지 수정 = composer (DEV-346)
+- `productWorkspace.open(productId, key, discardChanges, version, composer)`: `composer: true`일 때만 요청에 넣는다(예전 서버는 400 `fields.composer`). 응답 `composer?`, `composerBlocked?: "LEGACY_REVISION"`, `composerNotice?: "PAGE_REPLACED" | "PAGE_AND_AI_REPLACED"`.
+- `SourceAsset.productPhoto?: {uri, alt}`: 상품 페이지에서 옮겨 온 바이트 없는 사진. 이미지 받기 함수(`sourcePageImage`)는 바꾸지 않았다(앱의 `sourcePhotoUrl`이 고름).
 
 ### DEV-58 통합 편집
 AC-SRC-11: review.editorFields 자동 채움 제안, PUT /batches/:bid/editor 원자 저장. 자동 제안은 UNREVIEWED/EXTRACTED로 보존하며 개별 확정 없이 유효한 ON 항목만 previewModules에 포함한다. 기존 API와 저장 데이터는 유지한다. OFF 내용은 복원 가능하며 오래된 OFF 근거는 공개 검증에서 제외한다. UI는 자료/상세 편집 2탭, 카드별 스위치/직접 편집/접히는 원문.

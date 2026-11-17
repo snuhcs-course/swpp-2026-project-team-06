@@ -1,5 +1,5 @@
 // 1:1 채팅(ChatThread)과 소식방(NewsRoom)이 같이 쓰는 입력줄·떠 있는 알약·복사(DEV-295, Figma 1:38·7:78·7:90).
-import type { ReactNode, Ref } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
 import { Icon, type IconName } from "./Icon";
 import { T } from "./Text";
@@ -10,6 +10,33 @@ export const COMPOSER_ROW = 40;
 /** 40 칸을 터치 48로 넓히는 여백(N-02) */
 const HIT = (tokens.touchTarget.min - COMPOSER_ROW) / 2;
 const INPUT_LINE = 22;
+const INPUT_PAD = (COMPOSER_ROW - INPUT_LINE) / 2;
+/** 입력칸이 늘어나는 최대 높이: 6줄. 그보다 길면 입력칸 안에서 스크롤(DEV-342) */
+const COMPOSER_MAX_HEIGHT = INPUT_LINE * 6 + INPUT_PAD * 2;
+
+/**
+ * 웹 textarea는 글이 길어져도 스스로 커지지 않는다(앱의 multiline은 maxHeight까지 커짐).
+ * 웹에서만 글이 바뀔 때·폭이 바뀔 때 scrollHeight로 높이를 다시 재서 COMPOSER_MAX_HEIGHT까지 늘린다.
+ * 줄어들 때도 맞도록 잴 때 잠깐 높이를 0으로 둔다.
+ */
+function useWebAutoHeight(value: string) {
+  const node = useRef<TextInput | null>(null);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  const measure = useCallback(() => {
+    if (Platform.OS !== "web") return;
+    const el = node.current as unknown as HTMLTextAreaElement | null;
+    if (!el || typeof el.scrollHeight !== "number" || !el.style) return;
+    const prev = el.style.height, top = el.scrollTop;
+    el.style.height = "0px";
+    const content = el.scrollHeight;
+    el.style.height = prev;
+    el.scrollTop = top; // 6줄을 넘겨 입력칸 안에서 스크롤 중이어도 위치를 지킨다
+    const next = Math.min(COMPOSER_MAX_HEIGHT, Math.max(COMPOSER_ROW, Math.ceil(content)));
+    setHeight((cur) => (cur === next ? cur : next));
+  }, []);
+  useLayoutEffect(measure, [value, measure]);
+  return { node, height, measure };
+}
 
 export function Composer({
   value,
@@ -47,6 +74,16 @@ export function Composer({
   /** 입력줄 위(답장 대상, 첨부 사진, 도구 칩 등) */
   above?: ReactNode;
 }) {
+  const auto = useWebAutoHeight(value);
+  // 바깥 inputRef(포커스 등)와 높이 재기용 ref를 함께 건다
+  const setRef = useCallback(
+    (el: TextInput | null) => {
+      auto.node.current = el;
+      if (typeof inputRef === "function") inputRef(el);
+      else if (inputRef) (inputRef as { current: TextInput | null }).current = el;
+    },
+    [inputRef, auto.node],
+  );
   return (
     <View style={{ gap: tokens.space.sm }}>
       {above}
@@ -73,7 +110,7 @@ export function Composer({
           </Pressable>
         ) : null}
         <TextInput
-          ref={inputRef}
+          ref={setRef}
           accessibilityLabel={accessibilityLabel}
           placeholder={placeholder}
           placeholderTextColor={tokens.color.textMuted}
@@ -81,17 +118,18 @@ export function Composer({
           onChangeText={onChangeText}
           editable={editable}
           multiline
-          // 웹 textarea는 기본 2줄 높이라 한 줄(40)로 시작하게 한다. 긴 글은 maxHeight까지 스크롤
-          {...(Platform.OS === "web" ? { numberOfLines: 1 } : null)}
+          // 웹 textarea는 기본 2줄 높이라 한 줄(40)로 시작하게 하고, 글이 길어지면 6줄까지 늘린다(DEV-342). 그 뒤는 스크롤
+          {...(Platform.OS === "web" ? { numberOfLines: 1, onLayout: auto.measure } : null)}
           maxLength={maxLength}
           textAlignVertical="center"
           style={{
             flex: 1,
             minWidth: 0,
             minHeight: COMPOSER_ROW,
-            maxHeight: 120,
+            maxHeight: COMPOSER_MAX_HEIGHT,
+            ...(Platform.OS === "web" && auto.height ? { height: auto.height } : null),
             paddingHorizontal: tokens.space.md,
-            paddingVertical: (COMPOSER_ROW - INPUT_LINE) / 2,
+            paddingVertical: INPUT_PAD,
             borderRadius: COMPOSER_ROW / 2,
             backgroundColor: tokens.color.surface,
             fontSize: tokens.fontSize.input,

@@ -169,6 +169,8 @@ export type OrderRec = Recipient & {
   releasedQuantity: number;
   orderId: string;
   orderNo: string;
+  /** 입금자명(DEV-342). 입금 안내 때 정한다 */
+  depositCode?: string | null;
   consumerId: string;
   buyerName: string;
   productId: string;
@@ -245,7 +247,8 @@ export type DB = {
   aiHistory: { farmId: string; settings: AiSettings; createdAt: string }[];
   inquiries: Inquiry[];
   /** Additive schema-9 field. Old saved DBs mean no explicit order entries. */
-  threadOrderContexts?: { threadId: string; orderId: string; createdAt: string }[];
+  /** source: CONSUMER(소비자 결제 주문 진입, 연결 주문) · PRODUCER(생산자 ‘채팅하기’, 보기만, DEV-342). 없으면 CONSUMER */
+  threadOrderContexts?: { threadId: string; orderId: string; createdAt: string; source?: "CONSUMER" | "PRODUCER" }[];
   attachments: Record<
     string,
     Attachment & {

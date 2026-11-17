@@ -8,12 +8,12 @@
 - 금액·박스 수는 정수. 소비자 수 reservedCount, 주문 건수 orderCount, 판매된 박스 수 soldQuantity는 다른 값이다.
 - 생산자 API는 PRODUCER + APPROVED + 자원 소유를 검사한다. 다른 앱 토큰은 403 FORBIDDEN/details.reason=WRONG_APP, 미로그인 401. 같은 역할의 타 농가/타 소비자 자원은 404. 미팔로우 소식방은 403.
 - 읽기/쓰기에 동일 권한을 적용한다. 첨부 URL 추측, 목록 미리보기, cursor로 다른 사람의 메시지를 알아낼 수 없어야 한다.
-- 400 VALIDATION_ERROR/details.fields, 409 CONFLICT/details.reason을 유지한다. 추가 reason: SALES_PAUSED, TOTAL_LIMIT_REACHED, CAP_BELOW_SOLD, STALE_VERSION, PERIOD_LOCKED, NOT_RESUMABLE(판매 중지 → 재개할 때만, DEV-344). 기간 변경은 기존 STAGE_CHANGED, 기간 물량 소진은 SOLD_OUT.
+- 400 VALIDATION_ERROR/details.fields, 409 CONFLICT/details.reason을 유지한다. 추가 reason: SALES_PAUSED, TOTAL_LIMIT_REACHED, CAP_BELOW_COMMITTED(판매 한도 < 예약 중+출하 완료, DEV-342에서 코드에 맞춰 이름 정정), STALE_VERSION, PERIOD_LOCKED, NOT_RESUMABLE(판매 중지 → 재개할 때만, DEV-344). 기간 변경은 기존 STAGE_CHANGED, 기간 물량 소진은 SOLD_OUT.
 - 주문 생성(POST /api/orders)은 주문서가 본 expectedStageId·expectedUnitPrice·expectedUnitWeightGrams(지금은 선택, 다음 이터레이션 필수)를 받아 지금 값과 다르면 409 STAGE_CHANGED. 검사 순서는 판매 중지(SALES_PAUSED) → 지금 기간 없음(STAGE_CHANGED, current=null) → 전체 물량(TOTAL_LIMIT_REACHED) → 기간 물량(SOLD_OUT, details.optionId) → 본 값 비교(STAGE_CHANGED). STAGE_CHANGED details는 {reason,productId,optionId,previous:{stageId,unitPrice,unitWeightGrams},current:{stageId,unitPrice,unitWeightGrams,startsAt,endsAt}|null,nextStageStartsAt}이고 입금 안내(POST /api/orders/{id}/deposit)도 같은 모양(previous=주문 스냅샷). 기대값은 멱등 본문 해시에 들어가 같은 키·다른 기대값은 IDEMPOTENCY_MISMATCH(FEAT-08 AC-08-8·AC-08-9, DEV-216).
 - 수확 시작(POST /api/orders/producer/harvest-start)은 {productId, stageId?}와 Idempotency-Key(필수)를 받아 그 기간의 RESERVED만 PREPARING으로 바꾸고 {changed, stageId, orderIds}를 준다. stageId가 없으면 상품 전체(이전 호환). 생산자 GET /api/products/mine/{id}의 stages[]는 reservedOrderCount·awaitingOrderCount·preparingOrderCount·harvestStarted(출하 준비 이후 주문이 있으면 true, 저장 칸 없음)를, 현황 todo는 toHarvest·harvestTargets[{productId,productName,stageId,stageName,endsAt,count,closed}]를, 생산자 주문 줄은 stageId를 더한다(FEAT-17 AC-17-11·12, FEAT-14 AC-14-5, DEV-231).
 - 아래 POST 생성/메시지 전송은 Idempotency-Key 필수. 사용자+동작+자원+키 범위로 같은 본문은 같은 결과, 다른 본문은 409 IDEMPOTENCY_MISMATCH. 키·본문 해시·결과는 24시간 이상 보관한다. 성공 재전송은 현재 판매 상태가 달라도 기존 결과를 반환하되 권한은 다시 확인한다.
 - 설정 PUT에는 version을 받는다. 응답 version은 증가하며 오래된 버전은 409 STALE_VERSION. 같은 요청 재전송은 Idempotency-Key로 기존 성공을 반환한다. 상태를 바꾸는 GET은 만들지 않는다.
-- 페이지 응답은 {items,nextCursor}. 메시지는 최신 페이지를 조회하되 items는 오래된 순으로 반환한다. cursor는 (createdAt,id) 기반 opaque 값이며 사용자·자원에 귀속된다. 권한 필터 후 limit(기본 20, 최대 50)을 적용한다.
+- 페이지 응답은 {items,nextCursor}. 메시지는 최신 페이지를 조회하되 items는 오래된 순으로 반환한다. 소식 cursor는 (createdAt,id), 1:1 메시지 cursor는 저장된 sequence 경계 기반 opaque 값이며 사용자·자원에 귀속된다(DEV-244). 권한 필터 후 limit(기본 20, 최대 50)을 적용한다.
 - 기존 ID와 데이터는 유지한다. 아직 배포된 적 없는 로컬 중간 형식을 영구 API 별칭으로 추가하지 않는다.
 
 ## 2·3. 판매 수량·승인·기간 가격 — 1.4로 대체
@@ -49,7 +49,7 @@
 - 소비자 기존 /api/messaging/chats 경로 유지. 주문 문의가 있는 대화는 팔로우 해제 후에도 목록에 남는다.
 - 소비자 GET /api/messaging/chats/{farmId}/messages → {thread,items,nextCursor,inquiries,orders}; inquiries는 해당 대화의 문의, orders는 연결 주문 요약이며 본인 소유 범위만 포함한다.
 - GET /api/messaging/producer/chats?needsReply=&cursor=&limit= → Paged<{threadId,consumerId,consumerName,lastMessage,lastAt,unreadCount,needsReply,aiCheckRequests,aiMode}>. 승인된 자기 농가의 모든 기존 대화/전달 질문을 소비자별로 묶는다. aiCheckRequests는 그 대화의 열린 AI 답변 확인 요청 수(DEV-296).
-- POST /api/messaging/producer/chats {consumerId,roomReplyId?} → Thread. 기존 대화 또는 자기 소식방에 답장한 현재 팔로워만 대상으로 허용하며 무작위 고객 검색은 제공하지 않는다.
+- POST /api/messaging/producer/chats {consumerId?,roomReplyId?,orderId?} → Thread. 기존 대화, 자기 소식방에 답장한 현재 팔로워, 또는 자기 농가 입금 대기 주문의 소비자(orderId, DEV-342)만 대상으로 허용하며 무작위 고객 검색은 제공하지 않는다. orderId를 주면 서버가 그 주문이 이 농가의 `AWAITING_DEPOSIT` 주문인지 확인하고 그 소비자 대화를 연다(없으면 만든다). 다른 농가·입금 대기가 아닌·없는 주문, 탈퇴한 소비자, 함께 보낸 consumerId가 주문의 소비자와 다르면 404. consumerId와 orderId가 모두 없으면 400. 멱등 범위는 orderId면 `producer-start-order:{orderId}`. orderId로 열면 대화에 생산자 쪽 주문 문맥(ThreadOrderContext, `source=PRODUCER`, 0034에서 칸 추가·옛 행은 CONSUMER)을 남긴다. 소비자 쪽 팔로우 예외는 "대화에 기록된 주문 문맥이 지금 본인 주문이고 결제 이력이 있거나 입금 대기"로 넓힌다(PM 11/17). 생산자 쪽 문맥은 팔로우와 상관없이 보기·주문 없는 보통 메시지 전송을 허락하지만 연결 주문(`orders`)에는 들어가지 않는다(소비자 쪽 문맥·문의만). 소비자가 직접 같은 결제 주문으로 진입하면 그 행은 CONSUMER로 바뀐다. 돈 없이 취소되면 다시 막힌다.
 - GET /api/messaging/producer/chats/{consumerId}/messages → {thread,items,nextCursor,escalations,inquiries,orders,consumerName}. consumerName은 목록과 같은 가림 이름(문의 방은 'farmclub'), 소비자 조회에서는 null(DEV-232). items는 기존 ChatMessage + orderId?,inquiryId?,sourceRefs?,settingsVersion?. AI 메시지에는 양쪽 조회 모두 reported와 checkState(REQUESTED·CONFIRMED·CORRECTED·null, DEV-296)가 있다. resolution 없이 닫힌 옛 요청은 reported=true, checkState=null. confirm은 Idempotency-Key를 받지만 저장하지 않는다(결과가 상태로 정해짐).
 - POST /api/messaging/producer/chats/{consumerId}/messages/{messageId}/confirm → ChatMessage(DEV-296 '답이 맞아요'). 열린 확인 요청을 답장 없이 닫는다(escalation status=ANSWERED, resolution=CONFIRMED, resolved_by, answered_at). 메시지·AI 모드·Thread.version은 바꾸지 않는다. 이미 CONFIRMED면 같은 결과 200, 확인 요청이 없거나 다른 농가 대화면 404, 이미 바로잡았으면 409 CONFLICT(details.reason=ALREADY_CORRECTED).
 - POST 같은 messages 경로 {text,attachmentIds?,answerToEscalationIds?} → {message,thread}. 텍스트 <=1000자, 사진3장 이하, 본문/첨부 중 하나 필수. 성공 저장과 aiMode=HUMAN 전환을 같은 트랜잭션에서 처리한다. 사진은 해당 대화의 비공개 첨부 ID만 허용한다.
@@ -62,7 +62,7 @@
 - 소비자 messages 전송도 Idempotency-Key, {text,attachmentIds?,orderId?}를 사용한다. 정상 응답 {message,reply}; HUMAN/농가 AI OFF이면 reply=null이며 농가 답변 필요 표시. 소비자 messages 조회는 farmReply {mode:AI|FARM, typicalReplyHours:int|null}를 함께 준다. mode는 방 AUTO·농가 AI ON일 때만 AI. typicalReplyHours는 최근 30일 농가 답 대기시간 중앙값을 1·2·3·6·12·24·48·72시간으로 올림하고 5건 미만·72시간 초과는 null, 농가별 10분 캐시. 생산자 조회는 farmReply=null(DEV-208). AI 처리 중 농가가 HUMAN 전환하면 커밋 직전 모드를 재검사해 늦은 AI 답변이 끼어들지 않게 한다.
 - AI 작업 시작 시 Thread.version과 AiSettings.version을 캡처한다. 저장 직전 현재 ON/AUTO 여부와 두 버전이 모두 같은지 같은 트랜잭션에서 검사한다. HUMAN→AUTO 또는 OFF→ON 왕복에도 이전 작업의 답은 저장하지 않는다. 폐기된 질문에 생산자 답변이 아직 없으면 직접 응대 대상으로 남기며 자동 재실행하지 않는다.
 - 기존 questions 조회/answer 계약은 유지하고 같은 Thread·Escalation을 사용한다. 기존 answer도 HUMAN 전환 규칙을 적용한다. 새 화면은 producer/chats를 사용한다.
-- 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수(누락하면 403 FORBIDDEN)이며 임의 다른 주문의 문맥을 첨부할 수 없다(타인/미결제/다른 농가/없는 주문은 404).
+- 일반 새 대화는 기존 팔로우 규칙 유지. 주문 문의는 서버가 확인한 결제 이력 주문 소유자와 해당 농가에 한해 예외. 미팔로우 상태의 전송은 그 주문 orderId가 필수(누락하면 403 FORBIDDEN)이며 임의 다른 주문의 문맥을 첨부할 수 없다(타인/미결제/다른 농가/없는 주문은 404). 예외(DEV-342): 생산자가 그 소비자의 입금 대기 주문으로 연 대화(생산자 쪽 문맥)에서는 orderId 없이 보통 메시지로 답한다. 생산자 쪽 문맥 대화에서는 대화 단위 사진(threadId, 예: 입금 확인증)도 보낼 수 있다. 이때도 메시지에 붙이는 orderId와 주문 단위 사진은 결제 주문만이다(입금 대기 주문은 404).
 - 소식방·1:1 모두 활성 화면에서 2초 polling, 숨김/비활성 중단. cursor 이전 페이지/새 페이지 합치기는 ID 기준으로 중복 제거. 과거 읽는 위치를 유지하고 새 메시지 이동 버튼 제공. 최신 페이지부터 기존 마지막 메시지 ID와 만날 때까지 cursor 페이지를 이어 읽어 polling 사이 limit보다 많은 메시지가 와도 빠뜨리지 않는다.
 
 ## 5. AI 응답 설정 (SCR-31, FEAT-32)
@@ -130,7 +130,7 @@
 - 본인 결제 주문의 미팔로우 문의는 허용, 타인 주문/첨부는 차단. 사진 문의 처리 상태가 주문 환불 상태를 바꾸지 않음.
 
 ## DEV-235 1:1 메시지 저장 순서
-ChatMessage.sequence는 기존 서버 메시지 삽입 순번이다. 같은 createdAt이어도 질문→AI 답→농가 답의 저장 순서를 유지하며 페이지/다시 불러오기/전송 응답에서 같은 메시지의 순번은 같다. 기존 커서·읽음 기준은 바꾸지 않는다. 구 API 응답과 순차 배포되는 클라이언트는 순번이 모두 있을 때 그 순서, 없거나 섞이면 시각순·동시각 서버 제공 순서를 유지한다.
+ChatMessage.sequence는 기존 서버 메시지 삽입 순번이다. 같은 createdAt이어도 질문→AI 답→농가 답의 저장 순서를 유지하며 페이지/다시 불러오기/전송 응답에서 같은 메시지의 순번은 같다. 1:1의 페이지 경계와 읽음 위치도 같은 저장 순번을 쓴다. 커서에는 사용자·thread scope와 순번·메시지 ID를 넣고, 이전 페이지는 그 순번보다 작은 행을 읽는다. 소식방의 (createdAt,id) 계약은 유지한다(DEV-244). 구 API 응답과 순차 배포되는 클라이언트는 순번이 모두 있을 때 그 순서, 없거나 섞이면 시각순·동시각 서버 제공 순서를 유지한다.
 
 ## DEV-289 인용 답장·일시 직접 응대
 - 양쪽 메시지 전송에 선택적 replyToMessageId를 받는다. 저장 전 같은 Thread 메시지인지 검증하고 서버의 가린 본문·발신자·첨부 개수에서 replyTo 인용을 만든다. 조회·전송 메시지는 replyToMessageId와 replyTo를 포함한다.

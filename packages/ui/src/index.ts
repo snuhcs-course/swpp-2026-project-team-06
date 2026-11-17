@@ -79,6 +79,8 @@ export {
   joinMeta,
   reservedText,
   closesText,
+  priceUntilText,
+  fansText,
   AVAILABILITY_LABEL,
   unavailableLabel,
   brixText,
@@ -114,6 +116,8 @@ export {
   type ProductPageData,
   type ProductPageSlots,
 } from "./ProductPage";
+export { PriceStair, StairMark, stairBasisOptionId } from "./PriceStair";
+export { priceHoldsUntil, priceStair, type Stair, type StairInput } from "./stairSteps";
 export { LegalFooter, LegalDocument } from "./Legal";
 export { WithdrawSheet } from "./WithdrawSheet";
 export {

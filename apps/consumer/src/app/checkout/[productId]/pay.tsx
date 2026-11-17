@@ -1,6 +1,6 @@
 // SCR-11 입금 안내 (FEAT-09 개정, DEV-68, R-01·R-02·R-28, policy 6장)
 // 소비자는 농가 계좌로 직접 입금한다. 이 화면은 주문서에서 받은 입금 대기 주문을 보여 주기만 하고, 돈을 받지 않는다.
-import { track } from "@farmclub/analytics";
+import { privateArea, track } from "@farmclub/analytics";
 import { ApiError, orders } from "@farmclub/api";
 import {
   BottomBar,
@@ -22,6 +22,7 @@ import { View } from "react-native";
 
 import { useToast } from "../../../lib/toast";
 import { DepositCard } from "../../../lib/DepositCard";
+import { depositorNameTitle } from "../../../lib/orderText";
 import { LoadError, copyText } from "../../../lib/views";
 import { useGoBack } from "../../../lib/nav";
 
@@ -106,7 +107,27 @@ export default function DepositGuide() {
             <T variant="sub" muted>
               입금할 금액
             </T>
-            <T variant="title">{o ? won(o.totalAmount) : " "}</T>
+            {/* 금액은 한 번 + 복사(DEV-268 UX ④, DEV-356). 은행 앱에 손으로 옮기지 않게 숫자만 복사한다 */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
+            >
+              <T variant="title" style={{ flexShrink: 1 }}>
+                {o ? won(o.totalAmount) : " "}
+              </T>
+              {o ? (
+                <Button
+                  label="복사"
+                  variant="text"
+                  accessibilityLabel="입금할 금액 복사"
+                  onPress={() => void copy(String(o.totalAmount), "입금할 금액")}
+                />
+              ) : null}
+            </View>
             <T variant="sub" muted>
               {o
                 ? `${o.productName} ${o.optionLabel} × ${o.quantity} · ${o.farmName}`
@@ -116,14 +137,23 @@ export default function DepositGuide() {
 
           {o ? (
             <>
-              <DepositCard o={o} onCopy={copy} />
-              <T
-                variant="caption"
-                muted
-                style={{ marginHorizontal: tokens.space.gutter, marginTop: 8 }}
-              >
-                입금자명: 주문 번호
-              </T>
+              <DepositCard
+                o={o}
+                onCopy={copy}
+                hideAmount
+                hideHint
+                style={{ marginTop: 12 }}
+              />
+              {/* ‘입금자명: 주문 번호’ 캡션을 행동 지시 두 문장으로(UX ④). 은행 앱 용어 ‘받는 분 통장 표시’를 그대로 쓴다.
+                  입금자명은 짧은 입금 코드(DEV-342), 이 상자가 카드 아래 안내 한 줄을 대신한다 */}
+              {/* 제목에 입금자명(닉네임 앞 3글자)이 들어 있어 세션 녹화에서 가린다(N-05) */}
+              <View {...privateArea}>
+                <Notice
+                  title={depositorNameTitle(o.depositCode ?? o.orderNo)}
+                  body="농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요."
+                  style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
+                />
+              </View>
 
               <View
                 style={{

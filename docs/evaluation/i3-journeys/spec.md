@@ -10,3 +10,5 @@ This folder holds the versioned, prospective test oracle for DEV-152. Product be
 | Inherit the DEV-154 AI corpus and three-run policy | Keep AI targets and trial denominators consistent across I3 work. |
 
 The authoritative case list is `matrix.csv`; `protocol.md` defines fixture, evidence, status, and aggregation rules. `manifest.json` records the frozen revision. `validate.py` checks the file shape and digest.
+
+DEV-244: Root matrix/protocol/manifest remain the immutable v1.0 snapshot. versions/v1.1 is a prospective ordering correction, pending PM adoption. validate.py checks both digests and that every non-ordering cell is unchanged except version.

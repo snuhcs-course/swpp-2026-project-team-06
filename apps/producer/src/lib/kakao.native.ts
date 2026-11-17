@@ -8,6 +8,8 @@ import type { KakaoConfig } from "@farmclub/api";
 
 export const KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize";
 export const KAKAO_REDIRECT_PATH = "/auth/kakao";
+/** 인가 요청 동의 항목(DEV-78). 웹 kakao.ts와 같다 */
+export const KAKAO_SCOPE = "account_email,phone_number";
 export const APP_SCHEME = "farmclub-producer";
 export const APP_STATE_PREFIX = "app-";
 
@@ -39,7 +41,8 @@ export function beginKakaoLogin(config: KakaoConfig): string | null {
     redirect_uri: kakaoRedirectUri(config),
     response_type: "code",
     state: nonce,
-    scope: "account_email",
+    // 웹(kakao.ts)과 같은 동의 항목. 쉼표로 잇는다(DEV-78)
+    scope: KAKAO_SCOPE,
   });
   return `${KAKAO_AUTHORIZE_URL}?${params.toString()}`;
 }

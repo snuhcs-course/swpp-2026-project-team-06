@@ -459,6 +459,12 @@ export const messaging = {
       body: { consumerId, roomReplyId },
       idempotencyKey: newIdempotencyKey(),
     }),
+  /** 자기 농가 주문의 소비자와 대화를 연다(DEV-342). 소비자는 서버가 주문에서 정한다 */
+  producerStartForOrder: (orderId: string) =>
+    request<A.Thread>("POST", "/api/messaging/producer/chats", {
+      body: { orderId },
+      idempotencyKey: newIdempotencyKey(),
+    }),
   producerMessages: (consumerId: string, q: A.PageQuery = {}) =>
     request<A.ChatPage>(
       "GET",

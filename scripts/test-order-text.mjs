@@ -181,3 +181,35 @@ test("AC-10-8: other stages and pending window changes add no extra line", () =>
   assert.equal(t.listWhen({ ...first, status: "REFUNDED" }, period), null);
   assert.equal(t.listWhen({ ...first, proposedDeliveryWindow: { start: "2026-11-24", end: "2026-12-04" } }, period), null);
 });
+
+// DEV-356 (FEAT-08 AC-08-10, SCR-10): 입금 안내에서 뒤로 온 주문서 ‘이미 만든 예약이 있어요’ 첫 줄
+test("AC-08-10: placed notice line shows order number, status and deadline before reporting", () => {
+  assert.equal(
+    t.placedLine({ ...before, orderNo: "FC-1007-3379" }, f),
+    "FC-1007-3379 · 입금 대기 · 11월 4일 (수) 22:22까지",
+  );
+});
+
+test("AC-08-10: after the deposit is reported the line drops the deadline (AC-09-7)", () => {
+  assert.equal(t.placedLine({ ...reported, orderNo: "FC-1007-3379" }, f), "FC-1007-3379 · 입금 확인 중");
+});
+
+test("AC-08-10: a rejected deposit still shows the deadline it keeps (AC-09-9)", () => {
+  assert.equal(
+    t.placedLine({ ...issue, orderNo: "FC-1007-3379" }, f),
+    "FC-1007-3379 · 입금 대기 · 11월 4일 (수) 22:22까지",
+  );
+});
+
+// DEV-356 (FEAT-09 AC-09-11, SCR-11): 입금자명 안내 상자 제목의 조사는 입금자명 끝 숫자의 읽기로(DEV-342 짧은 코드, 옛 주문은 주문 번호)
+test("AC-09-11: depositor-name title picks 로/으로 by how the last digit is read", () => {
+  assert.equal(t.depositorNameTitle("FC-1007-3379"), "받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요");
+  assert.equal(t.depositorNameTitle("FC-1007-7108"), "받는 분 통장 표시를 FC-1007-7108로 바꿔 보내 주세요");
+  assert.equal(t.depositorNameTitle("FC-1007-7100"), "받는 분 통장 표시를 FC-1007-7100으로 바꿔 보내 주세요");
+  assert.equal(t.depositorNameTitle("FC-1007-7103"), "받는 분 통장 표시를 FC-1007-7103으로 바꿔 보내 주세요");
+  assert.equal(t.depositorNameTitle("FC-1007-7106"), "받는 분 통장 표시를 FC-1007-7106으로 바꿔 보내 주세요");
+  assert.equal(t.depositorNameTitle("FC-1007-7101"), "받는 분 통장 표시를 FC-1007-7101로 바꿔 보내 주세요");
+  // DEV-342: 입금자명은 짧은 입금 코드(닉네임 앞 3글자 + 숫자)
+  assert.equal(t.depositorNameTitle("김민지76"), "받는 분 통장 표시를 김민지76으로 바꿔 보내 주세요");
+  assert.equal(t.depositorNameTitle("귤사랑11"), "받는 분 통장 표시를 귤사랑11로 바꿔 보내 주세요");
+});

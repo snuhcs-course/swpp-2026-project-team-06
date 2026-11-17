@@ -4,7 +4,10 @@ Access rule (AC-SRC-6/9) is unchanged: only photos referenced by a published pro
 """
 
 import io
+import subprocess
+import sys
 from copy import deepcopy
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -172,7 +175,9 @@ def test_AC_SRC_11_workspace_upload_is_oriented_display_size_jpeg(client, login)
     preview = client.get(f"{WORKSPACES}/p-house/photos/{photo_id}", headers=h)
     assert preview.status_code == 200
     assert preview.headers["content-type"] == "image/jpeg"
-    assert preview.headers["cache-control"] == "no-store"  # private until applied
+    # Private until applied: only the owner's browser may keep it (DEV-341 replaced no-store).
+    assert preview.headers["cache-control"] == "private, max-age=86400"
+    assert "authorization" in preview.headers["vary"].lower()
     image = opened(preview.content)
     assert image.size == (1200, 1600) and not image.getexif()
 
@@ -259,3 +264,37 @@ def test_recompress_photos_exits_1_when_a_photo_fails(stored_photos, capsys):
     with get_sessionmaker()() as db:
         # 깨진 사진은 그대로, 나머지 PNG는 바뀐다
         assert db.get(PublicPhoto, png_id).storage_key != png_key
+
+
+STANDALONE_RECOMPRESS = """
+from sqlalchemy.orm import configure_mappers
+
+import app.source_analysis.recompress_photos  # noqa: F401
+from app.core.db import Base
+from app.source_analysis.models import PublicPhoto
+
+configure_mappers()
+assert [fk.column.table.name for fk in PublicPhoto.__table__.c.product_id.foreign_keys] == [
+    "products"
+]
+for table in Base.metadata.tables.values():
+    for fk in table.foreign_keys:
+        fk.column  # NoReferencedTableError if the target model module was never imported
+"""
+
+
+def test_recompress_photos_registers_fk_targets_in_a_fresh_process():
+    """DEV-359: the command runs alone, so its imports must register every FK target table.
+
+    Other tests import all models first, so only a fresh interpreter shows the missing import
+    that made `session.commit()` fail with NoReferencedTableError in production.
+    """
+    server = Path(__file__).resolve().parents[1]
+    run = subprocess.run(
+        [sys.executable, "-c", STANDALONE_RECOMPRESS],
+        cwd=server,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert run.returncode == 0, run.stderr

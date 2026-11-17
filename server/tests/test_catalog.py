@@ -741,6 +741,7 @@ def test_reserved_stage_quantity_cannot_drop_below_reserved(client, login):
     current = client.get("/api/products/mine/p-house", headers=headers).json()
     stages = [
         {
+            "stageId": s["stageId"],
             "name": s["name"],
             "startsAt": s["startsAt"],
             "endsAt": s["endsAt"],
@@ -803,3 +804,148 @@ def test_DEV_258_published_product_keeps_origin(client, login):
     assert response.status_code == 400, response.text
     assert "원산지" in response.json()["details"]["fields"]
     assert client.get("/api/products/p-house").json()["info"]["origin"] == "제주 서귀포"
+
+
+def _period_fixture(client, headers):
+    pid = _new_product(client, headers)
+    product = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    response = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={**STAGES, "version": product["version"]},
+    )
+    assert response.status_code == 200, response.text
+    return pid, response.json()
+
+
+def _period_inputs(result):
+    return [
+        {
+            **s,
+            "options": {
+                oid: {"price": v["price"], "quantity": v["quantity"]}
+                for oid, v in s["options"].items()
+            },
+        }
+        for s in result["stages"]
+    ]
+
+
+def test_AC_05_4_delete_first_stage_keeps_ids(client, login):
+    headers = login("u-kang")
+    pid, initial = _period_fixture(client, headers)
+    first, second = initial["stages"]
+    with get_sessionmaker()() as db, db.begin():
+        db.get(StageAllocation, (second["stageId"], "opt-5")).reserved_count = 3
+    response = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={"version": initial["version"], "stages": _period_inputs(initial)[1:]},
+    )
+    assert response.status_code == 200, response.text
+    saved = response.json()["stages"]
+    assert len(saved) == 1
+    assert saved[0]["stageId"] == second["stageId"]
+    assert saved[0]["seq"] == 1
+    assert saved[0]["name"] == "1단계"
+    assert saved[0]["startsAt"] == second["startsAt"]
+    assert saved[0]["options"]["opt-5"]["reservedCount"] == 3
+    from app.catalog.models import Stage
+
+    with get_sessionmaker()() as db:
+        assert db.get(Stage, first["stageId"]) is None
+
+
+def test_AC_05_4_reserved_order_stays_on_retained_stage(client, login):
+    from app.orders.models import Order
+
+    headers = login("u-kang")
+    pid, initial = _period_fixture(client, headers)
+    second_id = initial["stages"][1]["stageId"]
+    with get_sessionmaker()() as db, db.begin():
+        order = db.get(Order, "o-42")
+        order.stage_id = second_id
+        order.product_id = pid
+        snapshot = (order.unit_price, order.unit_weight_grams, order.quantity)
+    response = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={"version": initial["version"], "stages": _period_inputs(initial)[1:]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["stages"][0]["stageId"] == second_id
+    with get_sessionmaker()() as db:
+        order = db.get(Order, "o-42")
+        assert order.stage_id == second_id
+        assert (order.unit_price, order.unit_weight_grams, order.quantity) == snapshot
+    # Now trying to remove the period that actually owns the order is blocked.
+    changed = _period_inputs(response.json())
+    changed[0].pop("stageId")
+    blocked = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={"version": response.json()["version"], "stages": changed},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["details"]["reason"] == "PERIOD_LOCKED"
+
+
+def test_AC_05_4_rejects_unknown_duplicate_and_foreign_ids_atomically(client, login):
+    from copy import deepcopy
+
+    headers = login("u-kang")
+    pid, initial = _period_fixture(client, headers)
+    before = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+    for bad_ids in (
+        ("missing-stage", None),
+        ("st-house-1", None),
+        (None, initial["stages"][0]["stageId"]),
+    ):
+        rows = deepcopy(_period_inputs(initial))
+        for index, bad_id in enumerate(bad_ids):
+            if bad_id is not None:
+                rows[index]["stageId"] = bad_id
+        response = client.put(
+            f"/api/products/{pid}/stages",
+            headers=headers | key(),
+            json={"version": initial["version"], "stages": rows},
+        )
+        assert response.status_code == 400, response.text
+        current = client.get(f"/api/products/mine/{pid}", headers=headers).json()
+        assert current["version"] == initial["version"]
+        assert current["stages"] == before["stages"]
+
+
+def test_AC_05_4_sort_and_add_preserve_reserved_quantity_and_unique_names(client, login):
+    headers = login("u-kang")
+    pid, initial = _period_fixture(client, headers)
+    rows = _period_inputs(initial)
+    with get_sessionmaker()() as db, db.begin():
+        db.get(StageAllocation, (rows[1]["stageId"], "opt-5")).reserved_count = 3
+    new = {
+        **rows[0],
+        "startsAt": "2026-11-01",
+        "endsAt": "2026-11-05",
+        "options": {"opt-5": {"price": 30000, "quantity": 10}},
+    }
+    new.pop("stageId")
+    rows[0]["name"] = rows[1]["name"] = new["name"] = "2단계"
+    response = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={"version": initial["version"], "stages": [new, rows[1], rows[0]]},
+    )
+    assert response.status_code == 200, response.text
+    stages = response.json()["stages"]
+    assert [s["stageId"] for s in stages[:2]] == [s["stageId"] for s in initial["stages"]]
+    assert len({s["name"] for s in stages}) == 3
+    assert stages[1]["options"]["opt-5"]["reservedCount"] == 3
+    rows = _period_inputs(response.json())
+    rows[1]["options"]["opt-5"]["quantity"] = 2
+    blocked = client.put(
+        f"/api/products/{pid}/stages",
+        headers=headers | key(),
+        json={"version": response.json()["version"], "stages": rows},
+    )
+    assert blocked.status_code == 400
+    assert "stages.1.opt-5.quantity" in blocked.json()["details"]["fields"]

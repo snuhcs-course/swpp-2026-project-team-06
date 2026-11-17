@@ -1,5 +1,6 @@
 import { PageCanvas } from "./PageCanvas";
 import { chooseSourceFiles } from "./sourceFiles";
+import { sourcePhotoUrl } from "./sourcePhoto";
 import {
   hasHealthClaim,
   hasMoney,
@@ -11,6 +12,7 @@ import {
   type SourceDraft,
   type SourceEditorField,
   type SourceField,
+  type SourceAsset,
   type SourceReview,
 } from "@farmclub/api";
 import { Button, SOURCE_MODULES, T, tokens } from "@farmclub/ui";
@@ -155,27 +157,54 @@ export function SourceDetailsEditor({
   // 저장 뒤 batch를 다시 읽어도 사진이 같으면 blob URL을 해제·재요청하지 않는다(표시 중 URL 해제 방지).
   const photoKey = batch.sources
     .filter((s) => s.originalPhoto && s.status === "PREPARED")
-    .map((s) => `${s.id}:${s.revision}`)
+    .map((s) => `${s.id}:${s.revision}:${s.sanitizationVersion}`)
     .join(",");
+  // DEV-341: 사진마다 따로 받는다(표시용 JPEG, 대표사진·첨부 칸과 같은 요청을 공유). 한 장이 실패해도
+  // 나머지는 보이고, 실패한 사진만 다시 불러온다.
+  type PhotoRef = Pick<SourceAsset, "id" | "revision" | "sanitizationVersion">;
+  const [failedPhotos, setFailedPhotos] = useState<PhotoRef[]>([]);
+  const failPhoto = (p: PhotoRef) =>
+    setFailedPhotos((old) => [...old.filter((f) => f.id !== p.id), p]);
+  /** 실패한 그 사진만 다시 받는다. 다른 사진 주소는 그대로 둔다 */
+  const retryPhoto = (p: PhotoRef) => {
+    setFailedPhotos((old) => old.filter((f) => f.id !== p.id));
+    const source = batch.sources.find((x) => x.id === p.id);
+    // 옮겨 온 사진(DEV-346)은 바이트가 없어 자기 주소로 다시 받는다
+    (source
+      ? sourcePhotoUrl(batch, source, "display")
+      : sourcePageImage(batch.id, p.id, 1, { variant: "display", source: p }))
+      .then((url) => {
+        if (!alive.current) return URL.revokeObjectURL(url);
+        extraUrls.current.push(url);
+        setPhotoUrls((old) => ({ ...old, [p.id]: url }));
+      })
+      .catch(() => {
+        if (alive.current) failPhoto(p);
+      });
+  };
   useEffect(() => {
     let alive = true;
     const urls: string[] = [];
-    Promise.all(
-      batch.sources
-        .filter((s) => s.originalPhoto && s.status === "PREPARED")
-        .map(async (s) => {
-          const url = await sourcePageImage(batch.id, s.id, 1);
+    setFailedPhotos([]);
+    for (const s of batch.sources.filter(
+      (s) => s.originalPhoto && s.status === "PREPARED",
+    ))
+      sourcePhotoUrl(batch, s, "display")
+        .then((url) => {
+          if (!alive) return URL.revokeObjectURL(url);
           urls.push(url);
-          return [s.id, url] as const;
-        }),
-    )
-      .then((pairs) => {
-        if (alive) setPhotoUrls(Object.fromEntries(pairs));
-        else urls.forEach(URL.revokeObjectURL);
-      })
-      .catch(() => setError("사진을 불러오지 못했어요. 다시 열어 주세요."));
+          setPhotoUrls((old) => ({ ...old, [s.id]: url }));
+        })
+        .catch(() => {
+          if (alive) failPhoto(s);
+        });
     return () => {
       alive = false;
+      // 해제할 주소는 화면에서도 뺀다(해제된 주소가 깨진 사진으로 남지 않게). 같은 사진은 메모리 공유로 바로 다시 온다
+      const gone = new Set(urls);
+      setPhotoUrls((old) =>
+        Object.fromEntries(Object.entries(old).filter(([, url]) => !gone.has(url))),
+      );
       urls.forEach(URL.revokeObjectURL);
     };
   }, [batch.id, photoKey]);
@@ -350,6 +379,27 @@ export function SourceDetailsEditor({
   return (
     <View style={{ gap: 16 }}>
       {error ? <T color={tokens.color.error}>{error}</T> : null}
+      {failedPhotos.length ? (
+        <View
+          accessibilityRole="alert"
+          testID="photo-load-failed"
+          // 새 상품 화면(emptyHint)은 편집기가 화면 끝까지 붙으므로 둘레 내용과 같은 좌우 여백을 준다
+          style={{ gap: 8, paddingHorizontal: emptyHint ? tokens.space.gutter : 0 }}
+        >
+          <T color={tokens.color.error}>
+            사진 {failedPhotos.length}장을 불러오지 못했어요. 다른 사진은 그대로예요.
+          </T>
+          {failedPhotos.map((p, i) => (
+            <Button
+              key={p.id}
+              compact
+              variant="outline"
+              label={failedPhotos.length > 1 ? `사진 ${i + 1} 다시 불러오기` : "사진 다시 불러오기"}
+              onPress={() => retryPhoto(p)}
+            />
+          ))}
+        </View>
+      ) : null}
       {!preview && !emptyHint &&
       batch.sources.some(
         (s) =>
@@ -462,9 +512,15 @@ export function SourceDetailsEditor({
               );
               version.current += 1;
               added.push({ uri: asset.id, alt: file.name });
-              const url = await sourcePageImage(batch.id, asset.id, 1);
-              extraUrls.current.push(url);
-              setPhotoUrls((old) => ({ ...old, [asset.id]: url }));
+              // 올리기는 끝났으니 미리보기를 못 받아도 사진은 넣고, 실패 칸에서 다시 불러온다(DEV-341)
+              const url = await sourcePageImage(batch.id, asset.id, 1, {
+                variant: "display",
+                source: asset,
+              }).catch(() => null);
+              if (url) {
+                extraUrls.current.push(url);
+                setPhotoUrls((old) => ({ ...old, [asset.id]: url }));
+              } else failPhoto(asset);
             }
             setExtraPhotos((old) => [
               ...old,
