@@ -10,6 +10,7 @@ Product behavior is defined by `docs/spec/`. This folder records the evidence us
 | Integrate new `scripts/e2e/*.spec.ts` cases through the existing Playwright discovery and root `make test-e2e` target. | Existing test entry points include the closure spec without a second runner or an unregistered command. |
 | Record only synthetic text and safe metadata in committed reports. | M-02, N-05, N-06. Exclude tokens, private image bytes, delivery addresses, unrelated chat bodies, and raw browser traces. |
 | Treat discovery, type checks, simulated focus changes, and native execution as distinct evidence. | A discovered test is pending until executed; desktop browser tests do not prove native app background behavior. |
+| Record Figma synchronization as exact implemented states in editable frames using the existing design system. | Keep node/source references and visual inspection plus structured readback evidence separate from code-test, deployment and human-acceptance results; design synchronization alone does not establish those results. |
 | Keep the saved message sequence contract and KST date grouping. | DEV-235 / DEV-223. DEV-244 is a separate frozen-oracle decision, outside these defect fixes. |
 | Keep closure open until required regressions, human review, merge, and read-only deployment confirmation are recorded. | `AGENTS.md`; model/migration changes require human review. |
 
