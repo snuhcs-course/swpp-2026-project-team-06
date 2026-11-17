@@ -1149,7 +1149,8 @@ def cleanup():
                     for derived in (key, *variant_keys(key)):  # DEV-341 previews
                         store.delete(derived)
                 db.delete(page)
-            store.delete(source.storage_key)
+            if source.storage_key:  # product photo references (DEV-346) own no bytes
+                store.delete(source.storage_key)
             source.filename = "deleted"
             source.description = ""
             source.placement = {}

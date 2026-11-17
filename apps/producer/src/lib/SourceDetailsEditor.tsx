@@ -1,5 +1,6 @@
 import { PageCanvas } from "./PageCanvas";
 import { chooseSourceFiles } from "./sourceFiles";
+import { sourcePhotoUrl } from "./sourcePhoto";
 import {
   hasHealthClaim,
   hasMoney,
@@ -167,7 +168,11 @@ export function SourceDetailsEditor({
   /** 실패한 그 사진만 다시 받는다. 다른 사진 주소는 그대로 둔다 */
   const retryPhoto = (p: PhotoRef) => {
     setFailedPhotos((old) => old.filter((f) => f.id !== p.id));
-    sourcePageImage(batch.id, p.id, 1, { variant: "display", source: p })
+    const source = batch.sources.find((x) => x.id === p.id);
+    // 옮겨 온 사진(DEV-346)은 바이트가 없어 자기 주소로 다시 받는다
+    (source
+      ? sourcePhotoUrl(batch, source, "display")
+      : sourcePageImage(batch.id, p.id, 1, { variant: "display", source: p }))
       .then((url) => {
         if (!alive.current) return URL.revokeObjectURL(url);
         extraUrls.current.push(url);
@@ -184,7 +189,7 @@ export function SourceDetailsEditor({
     for (const s of batch.sources.filter(
       (s) => s.originalPhoto && s.status === "PREPARED",
     ))
-      sourcePageImage(batch.id, s.id, 1, { variant: "display", source: s })
+      sourcePhotoUrl(batch, s, "display")
         .then((url) => {
           if (!alive) return URL.revokeObjectURL(url);
           urls.push(url);

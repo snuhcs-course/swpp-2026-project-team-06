@@ -16,7 +16,6 @@ import {
   farms,
   isMock,
   newIdempotencyKey,
-  sourcePageImage,
   uploadSource,
   sourceAnalysis as api,
   type MyProduct,
@@ -67,8 +66,13 @@ import {
   states,
 } from "./SourceWorkspace";
 import { goBackOr } from "./nav";
+import { productPhotoUrl, sourcePhotoUrl } from "./sourcePhoto";
 import { track } from "@farmclub/analytics";
 import { composerErrorCode, draftResult, isServerTrouble } from "./producerEvents";
+/** DEV-346(11/17 PM): 구매자에게 보이는 상품에서 잠근 상품 칸 안내 */
+const LOCKED_TEXT = "상품명·원산지·보관·품종·당도·대표사진은 상품 편집에서 바꿔요";
+/** 판매 전(구매자에게 안 보임) 상태. 반영해도 구매자 화면이 바뀌지 않는다(DEV-346). */
+const isPreSale = (status: string) => status === "DRAFT" || status === "REJECTED";
 // 서버가 새 상품을 만들 때 이름은 비어 있거나 "새 상품"이다. 이때만 AI 값으로 채운다.
 const DEFAULT_NAMES = ["", "새 상품"];
 // 새 상품의 서버 기본 보관 문구(catalog.create_product). 이 값이면 AI 값으로 바꿔도 된다.
@@ -120,6 +124,7 @@ function FillInput({
   onBlur,
   onFocus,
   numeric = false,
+  onLockedPress,
 }: {
   label: string;
   value: string;
@@ -131,6 +136,8 @@ function FillInput({
   onBlur?: () => void;
   onFocus?: () => void;
   numeric?: boolean;
+  /** 잠긴 칸을 누르면(DEV-346: 구매자에게 보이는 상품의 상품 칸) */
+  onLockedPress?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
   const feedback = useContext(FieldFeedbackContext);
@@ -172,6 +179,14 @@ function FillInput({
         backgroundColor: !editable ? tokens.color.surface : focused ? "#FFF0DC" : "#FFF7EB",
       }}
     />
+    {!editable && onLockedPress ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${LOCKED_TEXT}`}
+        onPress={onLockedPress}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+    ) : null}
     </View></FieldFeedback>
   );
 }
@@ -193,7 +208,7 @@ export function NewProductComposer() {
   >(null);
   const router = useRouter(),
     navigation = useNavigation(),
-    { batchId } = useLocalSearchParams<{ batchId?: string }>();
+    { batchId, notice: openNotice } = useLocalSearchParams<{ batchId?: string; notice?: string }>();
   const [batch, setBatch] = useState<SourceBatch | null>(null),
     [review, setReview] = useState<SourceReview | null>(null),
     [runs, setRuns] = useState<SourceRun[]>([]),
@@ -201,6 +216,19 @@ export function NewProductComposer() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState<SourceActionError | null>(null),
     [notice, setNotice] = useState("");
+  // DEV-346: 판매페이지 수정으로 열 때 서버가 다른 화면에서 반영한 페이지로 새로 불러왔다고 알린 경우.
+  // 한 번 보이고 주소 값을 지운다(새로고침 때 다시 뜨지 않게).
+  useEffect(() => {
+    if (openNotice !== "replaced" && openNotice !== "replaced-ai") return;
+    setNotice(
+      openNotice === "replaced-ai"
+        ? "다른 화면에서 반영한 판매페이지로 새로 불러왔어요. 이전 임시 저장과 진행 중이던 AI 작업은 반영되지 않았어요."
+        : "다른 화면에서 반영한 판매페이지로 새로 불러왔어요. 이전 임시 저장은 반영되지 않았어요.",
+    );
+    router.setParams({ notice: undefined });
+  }, [openNotice, router]);
+  // 반영이 409 PAGE_CHANGED(그 사이 다른 화면에서 판매페이지를 반영함)로 막혔는지: '다시 열기'를 보인다.
+  const [pageChanged, setPageChanged] = useState(false);
   const [pendingText, setPendingText] = useState(false);
   const [attachDirty, setAttachDirty] = useState(false),
     [editorDirty, setEditorDirty] = useState(false);
@@ -261,8 +289,8 @@ export function NewProductComposer() {
     if (!batch || !coverId) return;
     let alive = true;
     let url = "";
-    // DEV-341: 표시용 JPEG(긴 변 1600px). 편집기의 같은 사진 요청과 공유한다.
-    void sourcePageImage(batch.id, coverId, 1, { variant: "display", source: cover! })
+    // DEV-341: 표시용 JPEG(긴 변 1600px), 편집기의 같은 사진 요청과 공유. 옮겨 온 사진은 자기 주소(DEV-346)
+    void sourcePhotoUrl(batch, cover!, "display")
       .then((u) => {
         url = u;
         if (alive) setCoverUrl(u);
@@ -303,6 +331,31 @@ export function NewProductComposer() {
     !!product &&
     JSON.stringify(form) !== JSON.stringify(toForm(product));
   const dirty = attachDirty || editorDirty || basicDirty || productDirty;
+  // DEV-346(11/17 PM): 판매 중·승인 대기·종료 상품도 이 화면에서 판매페이지를 고친다. 상품 칸(상품명·원산지·
+  // 보관·품종·당도·대표사진)은 잠그고 상품 값을 그대로 보이며, 상품 편집(SCR-25)에서만 고친다. 반영은 상세만 바꾼다.
+  const preSale = !product || isPreSale(product.status);
+  const [lockedOpen, setLockedOpen] = useState(false);
+  const openLocked = () => setLockedOpen(true);
+  // 구매자에게 보이는 상품의 대표사진은 batch가 아니라 상품의 지금 대표사진을 보인다.
+  const productCover = !preSale ? (product?.photos[0] ?? null) : null;
+  const [productCoverUrl, setProductCoverUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setProductCoverUrl(null);
+    if (!productCover || !productId) return;
+    let alive = true;
+    let url = "";
+    void productPhotoUrl(productId, productCover)
+      .then((u) => {
+        url = u;
+        if (alive) setProductCoverUrl(u);
+        else URL.revokeObjectURL(u);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [productId, productCover]);
   // An untouched legacy basic-info value must not replace a registered measurement.
   const displayBrix = (input: string) => {
     const value = input.trim() ? Number(input) : null;
@@ -379,6 +432,7 @@ export function NewProductComposer() {
     lock.current = true;
     setBusy(true);
     setError(null);
+    setPageChanged(false);
     setValidationFields({});
     if (starting) setStartError("");
     setNotice("");
@@ -389,6 +443,9 @@ export function NewProductComposer() {
           if (!isServerTrouble(e))
             track("form_error_shown", { screen: "product_new", code: composerErrorCode(e) });
           if (e instanceof ApiError) {
+            const changed = (e.details as { reason?: string }).reason === "PAGE_CHANGED";
+            setPageChanged(changed);
+            if (changed) setConfirmation(null); // 확인 시트를 닫아 오류 줄의 '다시 열기'가 보이게
             setValidationFields(e.details.fields ?? {});
             if (Object.keys(e.details.fields ?? {}).length) { setBuyerPreview(false); setSheetOpen(false); }
           }
@@ -523,7 +580,7 @@ export function NewProductComposer() {
   }, [runs]);
   // 분석 결과의 상품명·보관 방법을 아직 기본값인 칸에만 채운다(가격은 채우지 않음, AC-03-1).
   useEffect(() => {
-    if (!review || !target || !product) return;
+    if (!review || !target || !product || !isPreSale(product.status)) return;
     const value = (key: string) =>
       review.editorFields
         .find(
@@ -567,6 +624,7 @@ export function NewProductComposer() {
     setForm((f) => (f ? { ...f, [k]: v } : f));
   };
   // 품종·측정 당도는 AI 입력용 기본 정보(batch)에 쓰고, 상품에도 같은 값을 넣는다.
+  // 판매 전 상품만 부른다(DEV-346: 구매자에게 보이는 상품은 상품 값을 이 화면에서 바꾸지 않는다).
   const saveProduct = async () => {
     if (!productId || !product || !form) return;
     const latest = target ? (await api.get(batch!.id)).targets[0] : null;
@@ -616,7 +674,8 @@ export function NewProductComposer() {
         "판매페이지를 저장하지 못했어요. 판매페이지 위의 안내를 확인해 주세요.",
       );
     await flushBasicInfo.current?.();
-    await saveProduct();
+    // 판매 전 상품만 상품에 저장한다. 그 밖의 상품은 상품 칸이 잠겨 있고 반영도 상세만 바꾼다(DEV-346).
+    if (preSale) await saveProduct();
     if (!review || !showEditor || !target) return;
     // flush로 batch·review 버전이 바뀌었을 수 있으니 렌더 시점 값이 아니라 서버 값으로 판단한다.
     const [b, r, ds] = await Promise.all([
@@ -628,8 +687,10 @@ export function NewProductComposer() {
       (d) => d.targetId === target.id && isFresh(d, r.reviewVersion, b.version),
     );
     // 상품명이 상세 맨 위 제목과 다르면 같이 맞춘다(구매자 화면에 이름이 둘로 보이지 않게).
+    // 구매자에게 보이는 상품은 맞추지 않는다(DEV-346): 옮겨 온 페이지의 제목을 손대지 않고 반영해도 그대로 두고,
+    // 다시 저장해 금액·효능 검사로 막히지 않게. 상품명은 SCR-25에서 고친다.
     const name =
-      form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name.trim() : "";
+      preSale && form && !DEFAULT_NAMES.includes(form.name.trim()) ? form.name.trim() : "";
     const nameDiffers =
       !!name &&
       r.editorFields.some(
@@ -756,6 +817,9 @@ export function NewProductComposer() {
   const hasPhoto = !!batch?.sources.some(
     (s) => s.originalPhoto && s.status === "PREPARED",
   );
+  // 화면 맨 위 대표사진: 판매 전은 batch(고를 수 있음), 구매자에게 보이는 상품은 상품의 지금 대표사진(잠금).
+  const shownCover = preSale ? coverUrl : productCoverUrl;
+  const coverPresent = preSale ? hasPhoto && !coverFailed : !!productCover;
   const photoCount = batch?.sources.filter((s) => s.originalPhoto).length ?? 0,
     materialCount = batch?.sources.filter((s) => !s.originalPhoto).length ?? 0;
   const startLabel = working
@@ -852,7 +916,19 @@ export function NewProductComposer() {
     <View accessibilityRole="alert" style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
       <Icon name="alert" size={18} color={tokens.color.error} />
       <T variant="caption" color={tokens.color.error} style={{ flex: 1 }}>{error.message}</T>
-      {error.canRefresh ? (
+      {pageChanged && productId ? (
+        <Button
+          label="다시 열기"
+          variant="text"
+          compact
+          disabled={busy}
+          // 판매페이지 수정으로 다시 열어 서버가 지금 페이지로 새로 불러오게 한다(DEV-346)
+          onPress={() => {
+            allowLeave.current = true;
+            router.replace(`/products/${productId}/detail`);
+          }}
+        />
+      ) : error.canRefresh ? (
         <Button
           label="다시 확인"
           variant="text"
@@ -937,7 +1013,14 @@ export function NewProductComposer() {
                 size: "",
                 brix: "",
               };
-              const values = { ...inputs, brix: displayBrix(inputs.brix) };
+              // 구매자에게 보이는 상품은 품종·당도를 상품 값으로 보인다(잠금, DEV-346).
+              const values = preSale
+                ? { ...inputs, brix: displayBrix(inputs.brix) }
+                : {
+                    ...inputs,
+                    variety: product.variety,
+                    brix: String(product.measuredBrix ?? product.expectedBrix ?? ""),
+                  };
               const locked = fieldsLocked || !!activeRun;
               const basicField = (
                 key: BasicInfoKey,
@@ -951,7 +1034,8 @@ export function NewProductComposer() {
                     value={values[key]}
                     placeholder={placeholder}
                     maxLength={maxLength}
-                    editable={!locked}
+                    editable={!locked && (preSale || key === "size")}
+                    onLockedPress={preSale || key === "size" ? undefined : openLocked}
                     numeric={key === "brix"}
                     onFocus={() => focusBasic(key)}
                     onChange={(v) => {
@@ -971,8 +1055,12 @@ export function NewProductComposer() {
                         ...product,
                         name: form.name,
                         variety: values.variety,
-                        expectedBrix: values.brix ? Number(values.brix) : null,
-                        measuredBrix: values.brix ? Number(values.brix) : null,
+                        expectedBrix: preSale
+                          ? values.brix ? Number(values.brix) : null
+                          : product.expectedBrix,
+                        measuredBrix: preSale
+                          ? values.brix ? Number(values.brix) : null
+                          : product.measuredBrix,
                         info: {
                           ...product.info,
                           origin: form.origin,
@@ -996,8 +1084,8 @@ export function NewProductComposer() {
                               result: working ? undefined : review?.refinementResults?.[target.id],
                             }]}
                           /></View>
-                          {buyerPreview && !validationFields.representativePhoto ? <Photo uri={coverUrl} width="100%" height={244} alt="대표사진" /> : coverUrl || (hasPhoto && !coverFailed) ? (
-                            !coverUrl ? (
+                          {buyerPreview && !validationFields.representativePhoto ? <Photo uri={shownCover} width="100%" height={244} alt="대표사진" /> : shownCover || coverPresent ? (
+                            !shownCover ? (
                               <View
                                 testID="hero-photo"
                                 style={{
@@ -1015,13 +1103,13 @@ export function NewProductComposer() {
                               <Pressable
                                 testID="hero-photo"
                                 accessibilityRole="button"
-                                accessibilityLabel="대표 사진 바꾸기"
-                                style={{ borderWidth: 2, borderColor: "#E9B980", backgroundColor: "#FFF7EB" }}
-                                disabled={busy || !!activeRun}
-                                onPress={() => void pickCover()}
+                                accessibilityLabel={preSale ? "대표 사진 바꾸기" : `대표사진, ${LOCKED_TEXT}`}
+                                style={{ borderWidth: 2, borderColor: preSale ? "#E9B980" : tokens.color.border, backgroundColor: "#FFF7EB" }}
+                                disabled={preSale && (busy || !!activeRun)}
+                                onPress={() => (preSale ? void pickCover() : openLocked())}
                               >
                                 <Photo
-                                  uri={coverUrl}
+                                  uri={shownCover}
                                   width="100%"
                                   height={244}
                                   radius={0}
@@ -1033,9 +1121,9 @@ export function NewProductComposer() {
                             <Pressable
                               testID="hero-placeholder"
                               accessibilityRole="button"
-                              accessibilityLabel="대표 사진 넣기"
-                              disabled={busy || !!activeRun}
-                                onPress={() => void pickCover()}
+                              accessibilityLabel={preSale ? "대표 사진 넣기" : `대표사진, ${LOCKED_TEXT}`}
+                              disabled={preSale && (busy || !!activeRun)}
+                                onPress={() => (preSale ? void pickCover() : openLocked())}
                               style={{
                                 minHeight: 48,
                                 padding: 12,
@@ -1074,9 +1162,15 @@ export function NewProductComposer() {
                             }
                             title
                             maxLength={40}
-                            editable={!fieldsLocked}
+                            editable={!fieldsLocked && preSale}
                             onChange={(v) => setField("name", v)}
+                            onLockedPress={preSale ? undefined : openLocked}
                           />
+                          {preSale ? null : (
+                            <T variant="caption" muted>
+                              {LOCKED_TEXT}
+                            </T>
+                          )}
                         </View>
                       ),
                       origin: buyerPreview ? undefined : (
@@ -1087,8 +1181,9 @@ export function NewProductComposer() {
                           value={form.origin}
                           placeholder="원산지를 적어 주세요. 예: 제주 서귀포"
                           maxLength={30}
-                          editable={!fieldsLocked}
+                          editable={!fieldsLocked && preSale}
                           onChange={(v) => setField("origin", v)}
+                            onLockedPress={preSale ? undefined : openLocked}
                         />
                         </View>
                       ),
@@ -1132,8 +1227,9 @@ export function NewProductComposer() {
                                 emptyHint
                                 preview={buyerPreview}
                                 showStoryTextHints
+                                // 구매자에게 보이는 상품은 페이지 제목을 상품명으로 맞추지 않으므로 저장된 제목을 그대로 보인다(DEV-346).
                                 displayName={
-                                  DEFAULT_NAMES.includes(form.name.trim())
+                                  !preSale || DEFAULT_NAMES.includes(form.name.trim())
                                     ? undefined
                                     : form.name.trim()
                                 }
@@ -1189,8 +1285,9 @@ export function NewProductComposer() {
                               value={form.origin}
                               placeholder="예: 서귀포시"
                               maxLength={30}
-                              editable={!fieldsLocked}
+                              editable={!fieldsLocked && preSale}
                               onChange={(v) => setField("origin", v)}
+                            onLockedPress={preSale ? undefined : openLocked}
                             />
                             {/* DEV-121: 원산지 표시 형식과 안내 화면 */}
                             <OriginFieldHint />
@@ -1213,8 +1310,9 @@ export function NewProductComposer() {
                               value={form.storage}
                               placeholder="예: 서늘한 곳"
                               maxLength={30}
-                              editable={!fieldsLocked}
+                              editable={!fieldsLocked && preSale}
                               onChange={(v) => setField("storage", v)}
+                            onLockedPress={preSale ? undefined : openLocked}
                             />
                           </View>
                         ),
@@ -1280,8 +1378,9 @@ export function NewProductComposer() {
             sheetOpen ? (
               <View style={{ gap: 8 }}>
                 <T variant="caption">과일 품종명 *</T>
-                <FillInput label="과일 품종명" value={basic.inputs[target?.id ?? ""]?.variety ?? ""}
-                  placeholder="예: 온주밀감" maxLength={100} editable={!(fieldsLocked || activeRun)}
+                <FillInput label="과일 품종명" value={preSale ? (basic.inputs[target?.id ?? ""]?.variety ?? "") : (product?.variety ?? "")}
+                  placeholder="예: 온주밀감" maxLength={100} editable={!(fieldsLocked || activeRun || !preSale)}
+                  onLockedPress={preSale ? undefined : openLocked}
                   onFocus={() => focusBasic("sheetVariety")}
                   onChange={(v) => { if (target) basic.change(target.id, "variety", v); setStartError(""); }} onBlur={blurBasic} />
                 {basicNoteFor("sheetVariety")}
@@ -1323,13 +1422,15 @@ export function NewProductComposer() {
                     mutate(async () => {
                       await saveAll();
                       setNotice(
-                        "비공개로 저장했어요. 상품에는 아직 적용되지 않았어요.",
+                        preSale
+                          ? "비공개로 저장했어요. 상품에는 아직 적용되지 않았어요."
+                          : "비공개로 저장했어요. '상품에 반영'을 누르기 전까지 구매자 화면은 그대로예요.",
                       );
                     })
                   }
                 />
                 <Button
-                  label="다음: 판매·가격"
+                  label={preSale ? "다음: 판매·가격" : "상품에 반영"}
                   size="producer"
                   disabled={busy || working || !productId || !product || !form}
                   style={{ flex: 2 }}
@@ -1340,7 +1441,8 @@ export function NewProductComposer() {
                       const photoTarget = photoBatch.targets.find(t => t.id === target.id);
                       const photo = photoBatch.sources.find(source => source.id === photoTarget?.representativeAssetId)
                         ?? photoBatch.sources.find(source => source.originalPhoto && (source.common || source.targetIds.includes(target.id)));
-                      if (!photo || !photo.originalPhoto || photo.status !== "PREPARED")
+                      // 구매자에게 보이는 상품은 대표사진을 바꾸지 않는다(상품 편집에서만, DEV-346): 확인하지 않는다.
+                      if (preSale && (!photo || !photo.originalPhoto || photo.status !== "PREPARED"))
                         throw new ApiError(400, { code: "VALIDATION_ERROR", message: "대표사진을 추가해 주세요.", details: { fields: { representativePhoto: "대표사진을 한 장 올려 주세요." } } });
                       await saveAll();
                       const [ds, r, b] = await Promise.all([
@@ -1373,7 +1475,7 @@ export function NewProductComposer() {
                           const index = fields.findIndex(field => field.targetId === target.id && field.fieldKey === fieldKey);
                           if (index < 0) fields.push(replacement); else fields[index] = replacement;
                         }
-                        const saved = await api.saveEditor(batch.id, r.reviewVersion, fields, [{ targetId: target.id, enabledModuleIds: ["hero"] }], keyFor("manual-cover", [r.reviewVersion, photo.id, form?.name]));
+                        const saved = await api.saveEditor(batch.id, r.reviewVersion, fields, [{ targetId: target.id, enabledModuleIds: ["hero"] }], keyFor("manual-cover", [r.reviewVersion, photo?.id, form?.name]));
                         d = saved.drafts.find(draft => draft.targetId === target.id);
                         if (!d) throw new Error("상품사진을 저장하지 못했어요. 다시 시도해 주세요.");
                       }
@@ -1432,11 +1534,22 @@ export function NewProductComposer() {
         </View>
       ) : null}
 
+      <Sheet visible={lockedOpen} onClose={() => setLockedOpen(false)}>
+        <T>{LOCKED_TEXT}</T>
+        <Button
+          label="상품 편집으로 가기"
+          size="producer"
+          onPress={() => {
+            setLockedOpen(false);
+            if (productId) router.push(`/products/${productId}/edit`);
+          }}
+        />
+      </Sheet>
       <Sheet visible={!!confirmation} onClose={() => setConfirmation(null)}>
         <T variant="heading">상품에 반영할까요?</T>
         <T>
           {confirmation?.status === "PUBLISHED"
-            ? "판매 중인 상품이라 상세페이지와 사진이 구매자에게 바로 보여요. 가격과 재고는 바뀌지 않아요."
+            ? "판매 중인 상품이라 상세페이지가 구매자에게 바로 보여요. 가격·재고와 대표사진은 바뀌지 않아요."
             : confirmation?.status === "PENDING_APPROVAL"
               ? "승인 대기 중인 상품이에요. 반영한 상세페이지는 승인되면 구매자에게 보여요."
               : "판매가 끝난 상품이에요. 상품 페이지에 남은 상세가 이 내용으로 바뀌어요."}

@@ -31,6 +31,8 @@ export type SourceAsset = {
   status: string;
   pageCount: number;
   error: string | null;
+  /** DEV-346: 상품 페이지에 이미 있던 사진(composer로 처음 열 때 옮김). 바이트 없이 이 주소를 그대로 쓴다. */
+  productPhoto?: { uri: string; alt: string } | null;
 };
 export type SourceBatch = {
   id: string;

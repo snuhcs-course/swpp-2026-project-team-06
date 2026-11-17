@@ -54,6 +54,9 @@ class Asset(Base):
     char_count: Mapped[int] = mapped_column(default=0)
     deleted: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # DEV-346: a photo already on the product page ({"uri", "alt"}), referenced instead of copied
+    # when an existing product page is opened in the composer. No bytes, pages or analysis.
+    product_photo: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class Page(Base):
@@ -184,3 +187,8 @@ class ProductWorkspace(Base):
     published_snapshot: Mapped[dict] = mapped_column(JSON)
     base_product_version: Mapped[int] = mapped_column(Integer)
     version: Mapped[int] = mapped_column(Integer, default=1)
+    # DEV-346: fingerprint of the product story the composer draft last matched (migration or
+    # composer apply). A different current story means it changed outside the composer.
+    page_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # the draft that matched it; a later draft is composer work saved since
+    page_draft_id: Mapped[str | None] = mapped_column(String(64), nullable=True)

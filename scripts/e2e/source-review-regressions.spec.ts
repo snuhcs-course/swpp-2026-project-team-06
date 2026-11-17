@@ -5,7 +5,8 @@ const uncertainRetryCost = "결과가 불명확한 요청을 재시도하면 비
 const retryCost = "다시 분석하면 비용이 다시 들 수 있어요. 확인했어요.";
 
 function reviewFixture() {
-  const target = { id: "target", name: "회귀 감귤", productId: "p-house",
+  // DEV-346: a not-yet-selling product; selling products lock the composer's product fields.
+  const target = { id: "target", name: "회귀 감귤", productId: "p-hallabong",
     basicInfo: { variety: "온주밀감", size: "중과", expectedBrix: null } };
   const source = { id: "anchor", filename: "원문자료.txt", mime: "text/plain",
     targetIds: [target.id], common: false, originalPhoto: false, revision: 1,
@@ -608,7 +609,7 @@ for (const composer of [false, true]) {
     const fixture = contractFixture();
     await serveContractReview(page, fixture);
     // A new product has no sale settings yet (no sale stages).
-    if (composer) await page.route("**/api/products/mine/p-house", async (route) => {
+    if (composer) await page.route("**/api/products/mine/p-hallabong", async (route) => {
       if (route.request().method() !== "GET") return route.fallback();
       const response = await route.fetch();
       return route.fulfill({ response, json: { ...(await response.json()), stages: [] } });
@@ -642,6 +643,8 @@ for (const composer of [false, true]) {
     const clean = monitor(page);
     await loginProducer(page, "강영수");
     const fixture = contractFixture();
+    // A product with sale settings (seeded selling p-house).
+    for (const t of [...fixture.batch.targets, ...fixture.review.targets]) t.productId = "p-house";
     await serveContractReview(page, fixture);
     await openContractReview(page, fixture, true);
     await page.getByRole("button", { name: /^(구매자 화면 미리보기|구매자 화면 보기)$/ }).click();

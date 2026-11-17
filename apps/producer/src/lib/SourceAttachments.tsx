@@ -1,7 +1,6 @@
 import {
   isNativeFile,
   sourceAnalysis as api,
-  sourcePageImage,
   uploadSource,
   type SourceAsset,
   type SourceBatch,
@@ -10,8 +9,10 @@ import { Button, Icon, T, StoryImage, tokens } from "@farmclub/ui";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Image, Pressable, TextInput, View } from "react-native";
 import { chooseSourceFiles, type PickedFile } from "./sourceFiles";
+import { sourcePhotoUrl } from "./sourcePhoto";
 function Tile({
   batch,
+  targets,
   source,
   onEdit,
   onRemove,
@@ -34,6 +35,8 @@ function Tile({
   onDescriptionBlur: () => void;
   localUri?: string;
   batch: string;
+  /** 상품 페이지에서 옮겨 온 사진의 상품을 찾을 때(DEV-346) */
+  targets: SourceBatch["targets"];
   source: SourceAsset;
   onEdit: () => void;
   onRemove: () => void;
@@ -58,8 +61,8 @@ function Tile({
         })
         .catch(() => {});
     else if (source.pageCount)
-      // DEV-341: 첨부 칸은 작은 사본(짧은 변 480px JPEG)만 받는다
-      sourcePageImage(batch, source.id, 1, { variant: "thumb", source })
+      // DEV-341: 첨부 칸은 작은 사본(짧은 변 480px JPEG)만 받는다. 옮겨 온 사진은 자기 주소(DEV-346)
+      sourcePhotoUrl({ id: batch, targets }, source, "thumb")
         .then((u) => {
           url = u;
           if (active) setUri(u);
@@ -592,6 +595,7 @@ export function SourceAttachments({
                 <Tile
                   key={s.id}
                   batch={batch.id}
+                  targets={batch.targets}
                   editor={
                     editing?.source?.id === s.id ? inlineInput : undefined
                   }
