@@ -115,6 +115,8 @@ export {
   type ProductPageData,
   type ProductPageSlots,
 } from "./ProductPage";
+export { PriceStair, StairMark } from "./PriceStair";
+export { priceStair, type Stair, type StairInput } from "./stairSteps";
 export { LegalFooter, LegalDocument } from "./Legal";
 export { WithdrawSheet } from "./WithdrawSheet";
 export {
