@@ -37,19 +37,22 @@ async function producerApi(request: APIRequestContext) {
     expect(response.ok(), await response.text()).toBeTruthy();
     return response.json();
   };
-  const setLimit = async (id: string, grams: number) => {
+  const putSales = async (id: string, change: (p: Product) => { salesLimitGrams?: number; salesPaused?: boolean }) => {
     const p = await read(id);
     const response = await request.put(`${apiUrl}/api/products/${id}/sales-settings`, {
       headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
       data: {
-        salesLimitGrams: grams,
+        salesLimitGrams: p.salesLimitGrams,
         maxQuantityPerOrder: p.maxQuantityPerOrder,
         salesPaused: p.salesPaused,
         version: p.version,
+        ...change(p),
       },
     });
     expect(response.ok(), await response.text()).toBeTruthy();
   };
+  const setLimit = (id: string, grams: number) => putSales(id, () => ({ salesLimitGrams: grams }));
+  const setPaused = (id: string, paused: boolean) => putSales(id, () => ({ salesPaused: paused }));
   /** 기간 stageId의 옵션 박스 수만 바꿔 저장한다(나머지는 그대로) */
   const setStageQuantity = async (
     id: string,
@@ -90,7 +93,7 @@ async function producerApi(request: APIRequestContext) {
     expect(patched.ok(), await patched.text()).toBeTruthy();
     return read(draft.productId);
   };
-  return { read, setLimit, setStageQuantity, createDraft };
+  return { read, setLimit, setPaused, setStageQuantity, createDraft };
 }
 
 /** p-house를 전체 물량 품절(한도 = 예약+출하, 승인 물량 > 한도)로 두고 run 뒤 한도를 되돌린다 */
@@ -181,11 +184,18 @@ test("SCR-26 AC-04-9 DEV-345: saving periods while still fully sold out stays an
     await expect(page.getByRole("button", { name: "예약 기간 저장" })).toBeVisible();
     // 값을 바꾸지 않고 저장해도 서버 저장 뒤 상품을 다시 읽어 판단한다(박스만으로는 kg 품절이 풀리지 않는다)
     await page.getByRole("button", { name: "예약 기간 저장" }).click();
-    await expect(page.getByText("박스 수를 저장했어요.", { exact: true })).toBeInViewport();
+    await expect(page.getByText("기간·가격을 저장했어요.", { exact: true })).toBeInViewport();
     await expect(
       page.getByText(`판매 한도(${kg(p.salesLimitGrams)})를 모두 써서 아직 예약을 받을 수 없어요.`, { exact: true }),
     ).toBeInViewport();
     await expect(page).toHaveURL(/\/products\/p-house\/stages$/);
+    // 다시 고치기 시작하면 지난 저장 결과 안내는 사라진다. 원래 값으로 되돌려 다시 저장한다
+    const lastBoxes = page.getByLabel("5kg 판매 물량").last();
+    const boxes = await lastBoxes.inputValue();
+    await lastBoxes.fill(String(Number(boxes.replace(/,/g, "")) + 1));
+    await expect(page.getByText("기간·가격을 저장했어요.")).toHaveCount(0);
+    await lastBoxes.fill(boxes.replace(/,/g, ""));
+    await page.getByRole("button", { name: "예약 기간 저장" }).click();
     await page.getByRole("button", { name: "판매 한도 늘리기" }).click();
     await expect(page).toHaveURL(/\/products\/p-house\/sales$/);
     await expect(page.getByText("전체 물량 품절", { exact: true })).toBeVisible();
@@ -200,7 +210,7 @@ test("SCR-26 DEV-345: saving periods of a sellable product still goes back", asy
   await page.goto(`${producerUrl}/products/p-house/stages`);
   await page.getByRole("button", { name: "예약 기간 저장" }).click();
   await expect(page).toHaveURL(/\/products$/);
-  await expect(page.getByText("박스 수를 저장했어요.")).toHaveCount(0);
+  await expect(page.getByText("기간·가격을 저장했어요.")).toHaveCount(0);
   assertClean();
 });
 
@@ -262,6 +272,32 @@ test("SCR-26 AC-04-9 DEV-345: an unapproved product goes back after saving perio
   await expect(page.getByText("공급 물량을 확인한 뒤 예약을 시작해요", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "공급 물량 승인 요청" })).toBeVisible();
   await expect(page.getByText("전체 물량 품절")).toHaveCount(0);
-  await expect(page.getByText("박스 수를 저장했어요.")).toHaveCount(0);
+  await expect(page.getByText("기간·가격을 저장했어요.")).toHaveCount(0);
+  assertClean();
+});
+
+test("AC-04-9 DEV-345: pause and resume results appear right under the pause button", async ({ page, request }) => {
+  const assertClean = monitor(page);
+  await loginProducer(page, "강영수");
+  const api = await producerApi(request);
+  expect((await api.read("p-house")).salesPaused).toBe(false);
+  try {
+    await page.goto(`${producerUrl}/products/p-house/sales`);
+    await page.getByRole("button", { name: "판매 중지" }).click();
+    await page.getByRole("button", { name: "확인", exact: true }).click();
+    const resume = page.getByRole("button", { name: "판매 재개" });
+    const paused = page.getByText("판매를 중지했어요. 기존 예약은 유지돼요.", { exact: true });
+    await expect(paused).toBeInViewport();
+    // 안내는 맨 아래가 아니라 누른 버튼(이제 ‘판매 재개’) 바로 아래
+    const [button, note] = [await resume.boundingBox(), await paused.boundingBox()];
+    expect(note!.y).toBeGreaterThan(button!.y);
+    expect(note!.y - (button!.y + button!.height)).toBeLessThan(40);
+    await resume.click();
+    await page.getByRole("button", { name: "확인", exact: true }).click();
+    await expect(page.getByText("판매를 재개했어요.", { exact: true })).toBeInViewport();
+    await expect(paused).toHaveCount(0);
+  } finally {
+    if ((await api.read("p-house")).salesPaused) await api.setPaused("p-house", false);
+  }
   assertClean();
 });

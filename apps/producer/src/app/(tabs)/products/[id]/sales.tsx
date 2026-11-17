@@ -27,6 +27,7 @@ import { isServerTrouble, serverErrorCode } from "../../../../lib/producerEvents
 import { track } from "@farmclub/analytics";
 import { OptionBoxRow } from "../../../../lib/OptionBoxRow";
 import { optionBoxesFromProduct } from "../../../../lib/optionBoxes";
+import { soldOutGuide } from "../../../../lib/soldOutGuide";
 const kg = (g: number) =>
   `${(g / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}kg`;
 function grams(text: string) {
@@ -47,52 +48,6 @@ function reveal(node: unknown, block: "center" | "nearest" = "nearest") {
   (node as { scrollIntoView?: (options: object) => void } | null)?.scrollIntoView?.({
     block,
   });
-}
-/**
- * DEV-345: 판매 중(PUBLISHED) 품절 상품의 다음 행동 안내. 전체 물량 품절은 판매 한도·승인 물량 중 무엇을 늘려야 하는지,
- * 이번 기간 품절은 박스 수를 늘리면 된다고 알린다. 그 밖의 상태는 안내하지 않는다(null).
- * 승인 전 상품은 한도가 0이라 서버가 TOTAL_SOLD_OUT을 주지만 이 화면은 ‘공급 물량 승인 요청’ 화면이라 안내하지 않는다.
- */
-function soldOutGuide(p: MyProduct) {
-  if (p.status !== "PUBLISHED") return null;
-  const current = p.stages.find((s) => s.stageId === p.currentStageId);
-  // 옵션을 바꿔 지금 기간에 박스가 정해진 옵션이 하나도 없어도 서버는 TOTAL_SOLD_OUT을 준다(kg은 남음).
-  // 이때는 kg 한도가 아니라 박스를 정해야 하므로 이번 기간 안내를 쓴다
-  const noBoxes =
-    !!current && p.options.every((o) => !current.options[o.optionId]);
-  const boxesOut =
-    !!current &&
-    p.options.every((o) => {
-      const v = current.options[o.optionId];
-      return !v || v.quantity <= v.reservedCount;
-    });
-  if (p.availability === "TOTAL_SOLD_OUT" && !noBoxes) {
-    if (p.approvedSupplyGrams > p.salesLimitGrams)
-      return {
-        title: "전체 물량 품절",
-        body: `판매 한도 ${kg(p.salesLimitGrams)}를 모두 채웠어요. 승인 ${kg(p.approvedSupplyGrams)}까지 늘릴 수 있어요.`,
-        hint: boxesOut
-          ? "이번 기간에 남은 박스도 없어요. 기간·가격에서 박스 수도 늘려 주세요."
-          : "한도를 늘린 뒤 박스가 모자라면 기간·가격에서 박스 수도 늘려 주세요.",
-        toStages: boxesOut,
-      };
-    return {
-      title: "전체 물량 품절",
-      body: p.pendingCapacityRequest
-        ? "승인 물량을 모두 썼어요. 물량 추가 신청을 심사 중이에요. 승인되면 늘릴 수 있어요."
-        : "승인 물량을 모두 썼어요. 아래 ‘물량 추가 신청’ 후 운영자가 승인하면 늘릴 수 있어요.",
-      hint: null,
-      toStages: false,
-    };
-  }
-  if (p.availability === "PERIOD_SOLD_OUT" || p.availability === "TOTAL_SOLD_OUT")
-    return {
-      title: "이번 기간 품절",
-      body: "이번 기간에 남은 박스가 없어요. 기간·가격에서 박스 수를 늘리면 바로 다시 예약받아요.",
-      hint: null,
-      toStages: true,
-    };
-  return null;
 }
 /** 저장·신청 결과(오류·성공 안내)를 보일 자리: 누른 버튼 바로 아래. page = 맨 아래(불러오기 실패) */
 type Where = "save" | "pause" | "request" | "page";
@@ -118,15 +73,25 @@ export default function Sales() {
     "request" | "pause" | "withdraw" | null
   >(null);
   const pending = useRef<{ body: string; key: string } | null>(null);
-  async function load() {
+  // 마지막으로 불러와 칸에 넣은 값. 다시 들어와 읽을 때 이 값과 다르면 생산자가 고친 것이라 덮지 않는다(DEV-345)
+  const loaded = useRef({ total: "", perOrder: "" });
+  async function load(keepEdits = false) {
     const [product, requests] = await Promise.all([
       catalog.myProduct(id),
       allPages((cursor) => catalog.capacityRequests(id, { cursor, limit: 50 })),
     ]);
     setP(product);
     setHistory(requests);
-    setTotal(String(product.salesLimitGrams / 1000));
-    setPerOrder(String(product.maxQuantityPerOrder));
+    const prev = loaded.current,
+      next = {
+        total: String(product.salesLimitGrams / 1000),
+        perOrder: String(product.maxQuantityPerOrder),
+      };
+    loaded.current = next;
+    setTotal((cur) => (keepEdits && cur !== prev.total ? cur : next.total));
+    setPerOrder((cur) =>
+      keepEdits && cur !== prev.perOrder ? cur : next.perOrder,
+    );
   }
   /**
    * 저장·신청에서 생산자에게 보인 오류 안내. 위치·종류만 보낸다(글자 없음, DEV-312).
@@ -156,10 +121,15 @@ export default function Sales() {
           : "처리하지 못했어요",
     );
   }
-  // 기간·가격에서 박스를 고치고 돌아오면(DEV-345) 최신 상태로 다시 읽는다. 처음 열 때도 여기서 읽는다
+  // 기간·가격에서 박스를 고치고 돌아오면(DEV-345) 최신 상태로 다시 읽는다. 처음 열 때도 여기서 읽는다.
+  // 지난 결과 안내는 지우고, 생산자가 고친 입력칸은 그대로 둔다
   useFocusEffect(
     useCallback(() => {
-      void load().catch((e) => failure(e));
+      setError("");
+      setNote("");
+      setAt("page");
+      setCapExceeded(false);
+      void load(true).catch((e) => failure(e));
     }, [id]),
   );
   // 버튼 아래 안내가 화면 밖이면 보이는 곳까지 스크롤(웹)
@@ -280,7 +250,8 @@ export default function Sales() {
         style={{ gap: 4 }}
       >
         {error ? <T color={tokens.color.error}>{error}</T> : <T>{note}</T>}
-        {error && capExceeded && where === "save" ? (
+        {/* 심사 중인 신청이 있으면 신청 칸이 없어 옮겨 갈 곳이 없다 */}
+        {error && capExceeded && where === "save" && !p?.pendingCapacityRequest ? (
           <Button
             label="물량 추가 신청하기"
             variant="text"

@@ -114,6 +114,8 @@ export default function Periods() {
       reveal(saveResult.current);
   }, [error, errorAt, stillSoldOut]);
   function update(i: number, patch: Partial<Row>) {
+    // 다시 고치기 시작하면 지난 저장 결과 안내는 지운다(DEV-345)
+    setStillSoldOut(null);
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   }
   async function save() {
@@ -243,9 +245,10 @@ export default function Periods() {
                         label="기간 삭제"
                         variant="text"
                         disabled={locked || rows.length === 1 || busy}
-                        onPress={() =>
-                          setRows((rs) => rs.filter((_, j) => j !== i))
-                        }
+                        onPress={() => {
+                          setStillSoldOut(null);
+                          setRows((rs) => rs.filter((_, j) => j !== i));
+                        }}
                       />
                     </View>
                     {locked ? (
@@ -339,12 +342,13 @@ export default function Periods() {
                 label="＋ 예약 기간 추가"
                 variant="outline"
                 disabled={busy}
-                onPress={() =>
+                onPress={() => {
+                  setStillSoldOut(null);
                   setRows((rs) => [
                     ...rs,
                     blank(p, addDays(rs.at(-1)?.endsAt ?? seoulToday(), 1)),
-                  ])
-                }
+                  ]);
+                }}
               />
               <T variant="caption" muted>
                 기간 사이를 비워 두면 그동안 예약을 받지 않아요. 모든 예약
@@ -364,7 +368,7 @@ export default function Periods() {
                 ) : null}
                 {stillSoldOut !== null ? (
                   <Notice
-                    title="박스 수를 저장했어요."
+                    title="기간·가격을 저장했어요."
                     body={`판매 한도(${kg(stillSoldOut)})를 모두 써서 아직 예약을 받을 수 없어요.`}
                     action={
                       <Button
