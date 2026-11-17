@@ -611,7 +611,7 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
         <dl class="facts">
           <dt>토큰</dt><dd>기존 안 · 홈 카드 D-day 주황 글자는 지금과 같아요(DEV-293 그대로)</dd>
           <dt>개발</dt><dd>작음 · <code>format.ts</code> 1줄, 홈 카드·<code>ProductPage.tsx</code> 비교 가격 위치, 상자 1개</dd>
-          <dt>결정 필요</dt><dd>취소선 제거는 DEV-293 승인안(Figma 1:14)과 달라서 PM 확인이 필요해요</dd>
+          <dt>결정</dt><dd>취소선 제거 확정(11/16). DEV-293 승인안(Figma 1:14)과 달라서 구현 PR에서 Figma v6도 고쳐요</dd>
         </dl>
       </div>
     </div>
@@ -682,23 +682,28 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col"><span class="tag after"><i></i>AFTER</span>
         <div class="phone" style="min-height:760px">
           <div class="hbar"><span class="ic"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span><b>입금 안내</b></div>
-          <div class="g">
-            <p class="t14 mut">10월 8일 (목) 오전 10:00까지 입금해 주세요</p>
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px">
+          <p class="t12" style="background:var(--app-surface);padding:6px 16px;color:#333">테스트 서비스예요 · 실제 돈은 나가지 않아요</p>
+          <div class="g" style="padding-top:16px">
+            <p class="t14 mut">입금할 금액</p>
+            <div class="mark" style="display:flex; align-items:center; justify-content:space-between; margin-top:4px; margin-bottom:8px">
               <p class="t22 b" style="font-size:28px; line-height:36px">58,000원</p><span class="copy">복사</span>
             </div>
             <p class="t14 mut">하우스 감귤 5kg × 2 · 강씨네 귤밭</p>
             <div style="margin-top:16px">
               <div class="row"><span class="k">계좌번호</span><span class="v"><b>제주은행 101-23-456789</b><span class="copy">복사</span></span></div>
               <div class="row"><span class="k">예금주</span><span class="v">강영수 (강씨네 귤밭)</span></div>
-              <div class="row" style="border-bottom:1px solid var(--app-border)"><span class="k">입금자명</span><span class="v"><b>FC-1007-7017</b><span class="copy">복사</span></span></div>
+              <div class="row"><span class="k">입금자명</span><span class="v"><b>FC-1007-7017</b><span class="copy">복사</span></span></div>
+              <div class="row" style="border-bottom:1px solid var(--app-border)"><span class="k">입금 기한</span><span class="v">10월 8일 (목) 10:00까지</span></div>
             </div>
             <div class="box mark" style="margin-top:16px">
               <p class="sb">받는 분 통장 표시를 FC-1007-7017로 바꿔 보내 주세요</p>
               <p class="t14 mut">농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요.</p>
             </div>
-            <p class="t14 b" style="margin-top:24px">판매자</p>
-            <p class="t14">강씨네 귤밭 · 대표 강영수 · 제주 서귀포</p>
+            <p class="t18 b" style="margin-top:24px">판매자</p>
+            <p>강씨네 귤밭 · 대표 강영수</p>
+            <p class="t14 mut">제주 서귀포 · 010-2222-3333</p>
+            <div class="box" style="margin-top:12px"><p class="sb">farmclub은 통신판매중개자예요</p><p class="t14 mut">거래 당사자가 아니에요. 상품·배송·환불의 책임은 판매자인 강씨네 귤밭에 있어요.</p></div>
+            <p class="t12 mut" style="margin:12px 0 16px">구매안전서비스(은행 에스크로이체)는 소비자가 원할 때 자기 은행에서 이용할 수 있어요. 가격은 같아요.</p>
           </div>
           <div class="bbar">
             <div class="btn pri">입금을 마쳤어요</div>
@@ -709,10 +714,10 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="moves">
         <ol>
           <li><b>금액은 큰 숫자 한 번(28/36) + 복사.</b> ‘입금액’ 줄을 지워요(‘같은 정보는 한 화면에 한 번’). 은행 앱에 금액을 손으로 옮기지 않게 복사를 붙여요(누르는 영역 48).</li>
-          <li><b>기한을 금액 위 첫 줄로.</b> ‘○일 ○시까지 입금해 주세요’(14 보조). 표의 ‘입금 기한’ 줄은 빼요.</li>
+          <li><b>입금 기한은 지금 자리 그대로(11/17 결정).</b> 처음 제안한 ‘기한을 금액 위 첫 줄로’는 취소했어요. 표의 입금자명 아래 ‘입금 기한’ 줄과 맨 위 ‘입금할 금액’ 라벨을 그대로 둬요.</li>
           <li><b>‘입금자명: 주문 번호’ 캡션 → 면색 상자 두 문장.</b> 제목 16 600 ‘받는 분 통장 표시를 …로 바꿔 보내 주세요’, 본문 14 보조. 은행 앱 용어(받는 분 통장 표시)를 그대로 써요.</li>
-          <li><b>표는 계좌·예금주·입금자명 세 줄(48 이상).</b> 굵게는 계좌번호·입금자명 둘.</li>
-          <li><b>중개자 고지·구매안전서비스 문장은 판매자 아래에 그대로</b>(법정 고지라 이번 제안에서 빼지 않아요. 목업에서는 생략).</li>
+          <li><b>표는 계좌·예금주·입금자명·입금 기한 네 줄(48 이상).</b> 굵게는 계좌번호·입금자명 둘.</li>
+          <li><b>판매자(연락처 포함)·중개자 고지·구매안전서비스 문장은 그대로</b>(법정 고지라 빼지 않아요. 11/16 누락 금지 원칙에 따라 목업에도 넣었어요).</li>
         </ol>
         <dl class="facts">
           <dt>토큰</dt><dd>기존 안 · 상자는 <code>Notice</code></dd>
@@ -779,26 +784,42 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="col"><span class="tag after"><i></i>AFTER</span>
         <div class="phone" style="min-height:760px">
           <div class="hbar"><span class="ic"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span><b>주문서</b></div>
-          <div class="g">
+          <p class="t12" style="background:var(--app-surface);padding:6px 16px;color:#333">테스트 서비스예요 · 실제 입금·배송은 없어요</p>
+          <div class="g" style="padding-top:16px">
             <div class="notice mark">
               <p class="sb">이미 만든 예약이 있어요</p>
               <p class="t14 mut">FC-1007-7017 · 입금 대기 · 내일 오전 10:00까지</p>
+              <p class="t14 mut">옵션·수량을 바꾸려면 그 예약을 취소하고 다시 예약해 주세요.</p>
             </div>
             <div style="display:flex; gap:12px; align-items:center; margin-top:16px">
               <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#F0A060,#C9682A)"></div>
               <div style="flex:1"><p class="sb">하우스 감귤 5kg × 2</p><p class="t14 mut">강씨네 귤밭 · 11월 10일~20일 도착</p></div>
-              <span class="sb" style="min-height:48px; display:grid; place-items:center">변경</span>
+              <span class="sb mark" style="min-height:48px; display:grid; place-items:center">변경</span>
             </div>
           </div>
           <div class="band" style="margin-top:16px"></div>
-          <div class="g" style="padding-top:16px">
+          <div class="g" style="padding-top:16px; padding-bottom:16px">
             <div style="display:flex; justify-content:space-between"><p class="t18 b">받는 곳</p><span class="sb">변경</span></div>
-            <p class="t14" style="margin-top:4px">김민지 · 010-2345-6789</p>
-            <p class="t14 mut">서울 마포구 월드컵북로 12, 302호</p>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><p class="sb">김민지</p><span class="t12" style="background:var(--app-surface);border-radius:6px;padding:2px 8px;color:#555">기본</span></div>
+            <p>010-2345-6789</p>
+            <p>서울 마포구 월드컵북로 12, 302호 (04001)</p>
+            <div style="margin-top:12px;border:1px solid var(--app-border);border-radius:12px;min-height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 16px"><span class="mut">배송 메모 (선택)</span><span class="mut">›</span></div>
           </div>
-          <div class="band" style="margin-top:16px"></div>
-          <div class="g" style="padding-top:16px">
-            <div style="display:flex; justify-content:space-between; align-items:baseline"><p class="b">총 입금액</p><p class="t22 b">58,000원</p></div>
+          <div class="band"></div>
+          <div class="g" style="padding-top:16px; padding-bottom:16px">
+            <p class="t18 b">입금 금액</p>
+            <div style="display:flex;justify-content:space-between;margin-top:8px"><span class="mut">상품 금액</span><span>58,000원</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px"><span class="mut">배송비</span><span>0원</span></div>
+            <div class="mark" style="display:flex; justify-content:space-between; align-items:baseline;margin-top:12px;padding-top:12px;border-top:1px solid var(--app-border)"><p class="b">총 입금액</p><p class="t22 b">58,000원</p></div>
+          </div>
+          <div class="band"></div>
+          <div class="g" style="padding-top:16px; padding-bottom:12px">
+            <p class="t18 b">예약 전 확인</p>
+            <div style="margin-top:8px"><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="flex:1" class="b">모두 동의해요</span></div></div>
+            <div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="flex:1">받는 시기 (필수)</span><span class="t14 mut">보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="flex:1">지연 시 환불 (필수)</span><span class="t14 mut">보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="flex:1">흉작·수량 부족 (필수)</span><span class="t14 mut">보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="flex:1">취소·반품 조건 (필수)</span><span class="t14 mut">보기</span></div><div style="display:flex;align-items:center;gap:12px;min-height:48px"><svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0"><rect x="1" y="1" width="22" height="22" rx="6" fill="#111"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="flex:1">개인정보 제3자 제공 (판매자) (필수)</span><span class="t14 mut">보기</span></div>
+            <p class="t12 mut" style="margin-top:12px">농가 계좌로 직접 입금해요. 24시간 안에 입금하지 않으면 자동 취소돼요.</p>
+            <p class="t12 mut" style="margin-top:6px">farmclub은 통신판매중개자이고, 상품·배송·환불 책임은 판매자 강씨네 귤밭에 있어요.</p>
+            <div style="display:flex;gap:16px;min-height:48px;align-items:center"><span class="t14">이용약관</span><span class="t14 sb">개인정보 처리방침</span></div>
           </div>
           <div class="bbar">
             <p class="t14 mut mark" style="text-align:center">누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금</p>
@@ -809,9 +830,9 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
       <div class="moves">
         <ol>
           <li><b>뒤로 왔을 때도 ‘이미 만든 예약’ 안내를 띄워요.</b> 지금은 같은 키로 다시 보내 409(<code>IDEMPOTENCY_MISMATCH</code>)일 때만 나와요. 입금 안내로 넘어간 주문(<code>placedRef</code>)이 있으면 돌아오자마자 <code>Notice</code> + 하단 ‘입금 안내 보기’(DEV-293에 있는 부품 그대로).</li>
-          <li><b>버튼 바로 위 14 보조 한 줄.</b> ‘누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금’. 동의 아래 12 문장은 지워요(같은 정보 한 번).</li>
+          <li><b>버튼 바로 위 14 보조 한 줄.</b> ‘누르면 농가 계좌를 알려 드려요 · 24시간 안에 입금’. 동의 아래 12 문장·중개자 고지·약관 링크는 그대로 둬요(11/16 누락 금지 원칙, 처음 제안의 ‘지워요’는 취소).</li>
           <li><b>‘변경’ 두 곳과 총 입금액은 글자색 #111.</b> 강조색은 하단 버튼 하나. 총 입금액은 숫자 강조 22 굵게로 위계를 유지해요.</li>
-          <li><b>(논의) 꺼진 버튼 이유도 같은 자리에.</b> 받는 곳이 없거나 동의가 빠지면 이 줄이 ‘받는 곳을 먼저 정해 주세요’·‘필수 동의 5개 중 3개 했어요’로 바뀌어요. 11/09 PM 결정을 뒤집는 부분이라 문제 13으로 따로 올려요.</li>
+          <li><b>(미정) 꺼진 버튼 이유도 같은 자리에.</b> 받는 곳이 없거나 동의가 빠지면 이 줄이 ‘받는 곳을 먼저 정해 주세요’·‘필수 동의 5개 중 3개 했어요’로 바뀌어요. 11/09 PM 결정을 뒤집는 부분이라 문제 13으로 따로 올려요.</li>
         </ol>
         <dl class="facts">
           <dt>토큰</dt><dd>기존 안</dd>
@@ -909,6 +930,17 @@ td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
         </ul>
       </div>
     </div>
+  </section>
+
+  <section class="head">
+    <h2>결정 (11/15~17)</h2>
+    <ul class="lede" style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:23px">
+      <li>11/15 제안 1~7 승인.</li>
+      <li>11/16 제안 2의 취소선 제거 확정.</li>
+      <li>11/16 제안은 지금 화면의 정보·입력·동의 항목을 빼지 않고 더하기만 한다. 제안 4·6 목업을 이 원칙으로 다시 그렸어요(받는 곳 ‘기본’·우편번호·배송 메모, 상품 금액·배송비, 예약 전 확인 절, 판매자 연락처·중개자 고지·구매안전서비스 고지).</li>
+      <li>11/17 입금 기한은 지금 자리(표 안 입금자명 아래) 그대로. 제안 4의 ‘기한 맨 위’는 취소.</li>
+      <li>미정: 제안 6의 꺼진 버튼 이유 줄(문제 13, 11/09 PM 결정과 충돌).</li>
+    </ul>
   </section>
 
   <section class="head">
