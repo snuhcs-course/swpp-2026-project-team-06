@@ -1,10 +1,62 @@
 import { test, expect } from "./fixtures";
 import { producerUrl, loginProducer, monitor } from "./helpers";
 
+// DEV-346: 판매페이지 수정은 composer로 연다(scripts/e2e/page-editor-unified.spec.ts).
+// 이 파일은 composer로 옮기지 못한 페이지·예전 서버에서 쓰는 기존 편집기(ProductPageEditor)를 본다.
+// 첫 테스트는 요약 한 칸(3000자)을 넘는 블록 페이지(서버가 옮기지 않아 composer: false), 나머지는
+// 요청에서 composer를 빼서 응답에 composer가 없게 해(composer 도입 전 앱의 요청과 같음) 기존 편집기로 연다.
+// 시드 p-house를 바꾸므로 파일 끝에 되돌린다.
+const LONG = `${"가".repeat(2000)}`;
+async function legacyEditorOnly(page: import("@playwright/test").Page) {
+  await page.route("**/api/source-analysis/product-workspaces", async (route) => {
+    const body = route.request().postDataJSON() ?? {};
+    delete body.composer;
+    await route.continue({ postData: JSON.stringify(body) });
+  });
+}
+async function unfitPage(script: string) {
+  const { execFileSync } = await import("node:child_process");
+  const path = await import("node:path");
+  execFileSync(
+    path.resolve("server/.venv/bin/python"),
+    [
+      "-c",
+      `
+from tests import migrations_models
+from app.core.db import get_sessionmaker
+from app.catalog.models import Product
+from app.source_analysis.models import ProductWorkspace
+import sys
+LONG = sys.argv[1]
+with get_sessionmaker()() as db:
+${script}
+ db.commit()
+`,
+      LONG,
+    ],
+    { cwd: path.resolve("server"), env: process.env },
+  );
+}
+
+test.afterAll(async () => {
+  await unfitPage(` p = db.get(Product, 'p-house')
+ p.module_detail = None
+ p.detail_content = None
+ p.version += 1
+ row = db.get(ProductWorkspace, 'p-house')
+ if row: db.delete(row)`);
+});
+
 test("AC-SRC-9: selling product edits remain private until explicit apply", async ({
   page,
 }) => {
   test.skip(process.env.SOURCE_ANALYSIS_ENABLED !== "true");
+  await unfitPage(` p = db.get(Product, 'p-house')
+ p.module_detail = None
+ p.detail_content = {'blocks': [{'id': f'long{i}', 'type': 'text', 'title': '', 'body': LONG} for i in (1, 2)]}
+ p.version += 1
+ row = db.get(ProductWorkspace, 'p-house')
+ if row: db.delete(row)`);
   const clean = monitor(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products?filter=selling`);
@@ -16,12 +68,14 @@ test("AC-SRC-9: selling product edits remain private until explicit apply", asyn
     .getByRole("button", { name: "판매페이지 수정", exact: true })
     .click();
   await expect(page).toHaveURL(/\/products\/p-house\/detail$/);
+  // composer로 옮기지 못한 페이지라 기존 편집기에 남는다(DEV-346).
+  await expect(page).not.toHaveURL(/composer=1/);
   await expect(
     page.getByTestId("page-save-state"),
   ).toHaveText("지금 상품에 반영된 내용이에요");
   await page.getByRole("button", { name: "설명 추가", exact: true }).click();
   const content = `판매페이지 수정 검증 ${Date.now()}`;
-  await page.getByLabel("내용 1", { exact: true }).fill(content);
+  await page.getByLabel("내용 3", { exact: true }).fill(content);
   await expect(page.getByTestId("page-save-state")).toHaveText("저장 안 한 수정이 있어요");
   await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
   // DEV-324: 저장하면 하단 토스트 + '지금 반영', 상태 줄은 반영 전, 하단 주 버튼은 '상품에 반영'
@@ -35,21 +89,21 @@ test("AC-SRC-9: selling product edits remain private until explicit apply", asyn
   await expect(page.getByRole("button", { name: "확인 · 상품에 반영", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "취소", exact: true }).click();
   // 다시 저장하고 토스트가 떠 있는 동안 고치기 시작하면 '지금 반영' 토스트는 닫힌다(고치는 중엔 반영 불가)
-  await page.getByLabel("내용 1", { exact: true }).fill(`${content} 고침`);
+  await page.getByLabel("내용 3", { exact: true }).fill(`${content} 고침`);
   await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toBeVisible();
-  await page.getByLabel("내용 1", { exact: true }).fill(content);
+  await page.getByLabel("내용 3", { exact: true }).fill(content);
   // 토스트는 4초 뒤 저절로도 닫히므로 그보다 짧게 기다려 '고치면 닫힘'을 확인한다
   await expect(page.getByRole("alert").filter({ hasText: "수정본을 저장했어요" })).toHaveCount(0, { timeout: 1_000 });
   await expect(page.getByTestId("page-save-state")).toHaveText("저장 안 한 수정이 있어요");
   await page.getByRole("button", { name: "수정본 저장", exact: true }).click();
   await expect(page.getByTestId("page-save-state")).toHaveText("저장됨 · 아직 소비자에게 안 보여요");
   await page.reload();
-  await expect(page.getByLabel("내용 1", { exact: true })).toHaveValue(content);
+  await expect(page.getByLabel("내용 3", { exact: true })).toHaveValue(content);
   await page.getByRole("button", { name: "구매자 화면 미리보기", exact: true }).click();
   await expect(page.getByTestId("product-page-preview")).toContainText(content);
   await page.getByRole("button", { name: "편집으로 돌아가기", exact: true }).click();
-  await expect(page.getByLabel("내용 1", { exact: true })).toHaveValue(content);
+  await expect(page.getByLabel("내용 3", { exact: true })).toHaveValue(content);
   await page.getByRole("button", { name: "상품에 반영", exact: true }).click();
   await expect(
     page.getByText("반영하면 구매자가 보는 판매페이지가 바로 바뀌어요.", {
@@ -94,6 +148,7 @@ with get_sessionmaker()() as db:
       ],
       { cwd: path.resolve("server"), env: process.env },
     );
+    await legacyEditorOnly(page);
     await page.setViewportSize({ width, height: 900 });
     const clean = monitor(page);
     await loginProducer(page, "강영수");
@@ -250,6 +305,7 @@ with get_sessionmaker()() as db:
  p.module_detail = {'schemaVersion': 1, 'modules': []}
  db.commit()
 `, pid], { cwd: path.resolve("server"), env: process.env });
+  await legacyEditorOnly(page);
   const clean = monitor(page);
   await loginProducer(page, "강영수");
   await page.goto(`${producerUrl}/products/${pid}/detail`);

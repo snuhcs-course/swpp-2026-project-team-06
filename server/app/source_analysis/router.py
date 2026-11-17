@@ -343,6 +343,8 @@ def source_delete(bid: str, sid: str, who: ApprovedProducer, db: DB, version: in
 def content(bid: str, sid: str, who: ApprovedProducer, db: DB):
     s.batch(db, who[1].id, bid, False)
     source = s.asset(db, bid, sid)
+    if source.product_photo:
+        raise not_found()  # a referenced product page photo has no stored bytes (DEV-346)
     return Response(
         Storage().get(source.storage_key),
         media_type="application/octet-stream",
@@ -355,6 +357,8 @@ def content(bid: str, sid: str, who: ApprovedProducer, db: DB):
 
 def page_for(db, bid, sid, number):
     source = s.asset(db, bid, sid)
+    if source.product_photo:
+        raise not_found()  # referenced product page photos have no pages (DEV-346)
     page = db.scalar(
         select(Page).where(
             Page.asset_id == sid, Page.revision == source.revision, Page.number == number

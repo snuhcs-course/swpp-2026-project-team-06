@@ -54,7 +54,14 @@ const card = {
 
 const copy = (value: PageSnapshot): PageSnapshot =>
   JSON.parse(JSON.stringify(value));
-export function ProductPageEditor({ productId }: { productId: string }) {
+export function ProductPageEditor({
+  productId,
+  warning,
+}: {
+  productId: string;
+  /** DEV-346: composer에 저장한 작업이 있어 이 편집기로 왔을 때 보이는 경고 */
+  warning?: string;
+}) {
   const { user } = useSession();
   const router = useRouter();
   // 자료 분석이 꺼진 서버(운영 배포 보류)는 기존 상세 편집을 쓴다(DEV-84)
@@ -67,7 +74,7 @@ export function ProductPageEditor({ productId }: { productId: string }) {
     return <DetailEditor productId={productId} />;
   if (source.data)
     return (
-      <Editor key={`${user?.userId}:${productId}`} productId={productId} />
+      <Editor key={`${user?.userId}:${productId}`} productId={productId} warning={warning} />
     );
   return (
     <Screen>
@@ -96,7 +103,7 @@ export function ProductPageEditor({ productId }: { productId: string }) {
 // 반영 뒤 토스트 '보기'가 여는 소비자 앱 상품 페이지(DEV-324). 설정의 '소비자 앱에서 내 농가 보기'와 같은 주소 규칙
 const CONSUMER_URL = process.env.EXPO_PUBLIC_CONSUMER_URL ?? "https://farmclub.kr";
 
-function Editor({ productId }: { productId: string }) {
+function Editor({ productId, warning }: { productId: string; warning?: string }) {
   useHideTabBar();
   const { toast, hideToast } = useSession();
   // 저장 토스트('지금 반영')가 떠 있는지. 다시 고치기 시작하면 닫는다(고치는 중엔 반영할 수 없음, DEV-324)
@@ -423,6 +430,13 @@ function Editor({ productId }: { productId: string }) {
       <Scroll bottom={190}>
         <View style={{ padding: tokens.space.gutter, gap: tokens.space.md }}>
           <T variant="heading">{name}</T>
+          {warning ? (
+            <View accessibilityRole="alert">
+              <T variant="sub" color={tokens.color.error}>
+                {warning}
+              </T>
+            </View>
+          ) : null}
           {/* 상태 줄(DEV-324): 고치는 중 / 저장됨·반영 전 / 반영된 내용 */}
           {row ? (
             <View

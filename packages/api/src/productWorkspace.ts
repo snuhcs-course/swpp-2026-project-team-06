@@ -20,6 +20,12 @@ export type ProductWorkspace = {
   snapshot: PageSnapshot;
   publishedSnapshot: PageSnapshot;
   hasUnpublishedChanges: boolean;
+  /** DEV-346: composer로 열어 달라고 했을 때만. true면 batch 초안이 지금 상품 페이지를 담고 있다. */
+  composer?: boolean;
+  /** DEV-346: composer로 못 연 이유. LEGACY_REVISION = 기존 편집기 수정본이 composer 작업과 겹침 */
+  composerBlocked?: "LEGACY_REVISION";
+  /** DEV-346: 다른 화면에서 반영한 판매페이지로 composer 값을 새로 불러왔고 그 전 임시 저장이 있었다 */
+  composerNotice?: "PAGE_REPLACED" | "PAGE_AND_AI_REPLACED";
 };
 const base = "/api/source-analysis/product-workspaces";
 export const productWorkspace = {
@@ -52,9 +58,10 @@ export const productWorkspace = {
     key: string,
     discardChanges = false,
     version?: number,
+    composer?: boolean,
   ) =>
     request<ProductWorkspace>("POST", base, {
-      body: { productId, discardChanges, version },
+      body: { productId, discardChanges, version, ...(composer ? { composer } : {}) },
       idempotencyKey: key,
     }),
   save: (

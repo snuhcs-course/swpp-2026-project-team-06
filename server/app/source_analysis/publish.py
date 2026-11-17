@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from typing import Annotated
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import Response
@@ -44,9 +45,25 @@ def apply_draft(db, batch, draft, body):
     copied, store = {}, Storage()
     from app.source_analysis.representative import selected
 
-    representative = selected(db, batch.id, target, required=True)
-    if snap.get("representativeAssetId") != representative.id:
-        raise conflict("PHOTO_CHANGED", "대표사진을 확인한 뒤 초안을 다시 저장해 주세요.")
+    # DEV-346 (11/17 PM): in the composer a buyer-visible product's cover is edited only in SCR-25,
+    # so applying its page (the product workspace's own batch) leaves product.photos as they are.
+    # Before sale, and from other source workspaces, the draft's cover becomes the cover as before.
+    keeps_cover = (
+        product.status not in ("DRAFT", "REJECTED")
+        and workspace is not None
+        and batch.id == workspace.batch_id
+    )
+    if keeps_cover and workspace.page_source:
+        from app.source_analysis.workspace import page_source, story_kind
+
+        # The page was applied elsewhere (legacy editor, another screen, admin) since this draft
+        # matched it: never overwrite it with an old draft (same description exception as open).
+        if page_source(product) != workspace.page_source and story_kind(product) != "text":
+            raise conflict("PAGE_CHANGED", "판매페이지가 바뀌었어요. 다시 열어 주세요.")
+    if not keeps_cover:
+        representative = selected(db, batch.id, target, required=True)
+        if snap.get("representativeAssetId") != representative.id:
+            raise conflict("PHOTO_CHANGED", "대표사진을 확인한 뒤 초안을 다시 저장해 주세요.")
 
     def copy_photo(sid):
         source = s.asset(db, batch.id, sid)
@@ -54,6 +71,16 @@ def apply_draft(db, batch, draft, body):
             raise conflict("PHOTO_NOT_PREPARED", "상품사진 준비를 완료해 주세요.")
         if not source.common and draft.target_id not in source.target_ids:
             raise conflict("PHOTO_CHANGED", "상품의 원본 사진 연결을 확인해 주세요.")
+        if source.product_photo:
+            # DEV-346: a photo the product page already used; keep its URI (no copy, no re-encode).
+            uri = source.product_photo["uri"]
+            path = urlparse(uri).path  # relative or absolute (https://…/api/source-media/<id>)
+            if path.startswith("/api/source-media/"):
+                own = db.get(PublicPhoto, path.removeprefix("/api/source-media/"))
+                if own is None or own.product_id != product.id:
+                    raise conflict("PHOTO_CHANGED", "상품의 원본 사진 연결을 확인해 주세요.")
+            alt = source.product_photo["alt"] or "생산자가 제공한 상품사진"
+            return {"uri": uri, "alt": alt}
         if sid not in copied:
             pages = s.pages_for(db, source)
             if len(pages) != 1 or not pages[0].sanitized_key:
@@ -66,7 +93,7 @@ def apply_draft(db, batch, draft, body):
             copied[sid] = photo.id
         return {"uri": f"/api/source-media/{copied[sid]}", "alt": "생산자가 제공한 상품사진"}
 
-    cover = copy_photo(representative.id)
+    cover = None if keeps_cover else copy_photo(representative.id)
     modules = []
     for module in snap["previewModules"]:
         photos = [copy_photo(sid) for sid in module["photoAssetIds"]]
@@ -78,12 +105,15 @@ def apply_draft(db, batch, draft, body):
                 "illustrationId": module["illustrationId"],
             }
         )
-    product.photos = [cover["uri"], *[p for p in product.photos if p != cover["uri"]]]
+    if cover:
+        product.photos = [cover["uri"], *[p for p in product.photos if p != cover["uri"]]]
     product.module_detail = {"schemaVersion": 1, "modules": modules}
     product.version += 1
     if workspace:
-        from app.source_analysis.workspace import published
+        from app.source_analysis.workspace import page_source, published
 
+        if batch.id == workspace.batch_id:  # the workspace's own composer draft is the page now
+            workspace.page_source, workspace.page_draft_id = page_source(product), draft.id
         workspace.snapshot = published(product)
         workspace.published_snapshot = deepcopy(workspace.snapshot)
         workspace.base_product_version = product.version
