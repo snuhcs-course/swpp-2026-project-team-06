@@ -98,6 +98,14 @@ export default function Apply() {
       .catch(() => undefined);
   }, [user?.farmStatus]);
 
+  // 처음 신청: 카카오 동의로 받은 전화번호(계정 phone)로 연락처 칸을 미리 채운다(DEV-78, FEAT-01 I2).
+  // 칸이 비어 있을 때만 채우고, 고친 값·반려 뒤 불러온 값은 덮지 않는다. 번호가 없으면 직접 입력한다
+  const accountPhone = user?.farmStatus === "REJECTED" ? "" : (user?.phone ?? "").trim();
+  useEffect(() => {
+    if (!accountPhone) return;
+    setForm((f) => (f.phone ? f : { ...f, phone: accountPhone }));
+  }, [accountPhone]);
+
   const set = (k: keyof ProducerApplicationInput) => (v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
     setErrors((e) => ({ ...e, [k]: "" }));
