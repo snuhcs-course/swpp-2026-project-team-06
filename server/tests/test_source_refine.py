@@ -258,6 +258,7 @@ def test_AC_SRC_2_prompt_routes_commonly_misplaced_facts():
         "요청이 없을 시 14과~19과 랜덤 발송됩니다.",
         "판매가 올해 종료되었습니다.",
         "반품 시 연락 주세요",
+        "배송일은 미확정입니다.",
     ],
 )
 def test_AC_SRC_3_clear_policy_text_is_rejected(value):
