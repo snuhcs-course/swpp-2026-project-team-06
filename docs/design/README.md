@@ -252,3 +252,5 @@ DEV-3(#38~#45)이 글로 정해 두었던 1.2 레이아웃·1.3 레이아웃·1.
 - 360/390/430/1440px에서 가로 넘침, 긴 상품명·큰 숫자·사진 여러 장·빈 상태·오류·로딩·키보드를 확인한다. 입력창·키보드·탭 바가 메시지나 저장 버튼을 가리지 않게 안전 영역과 실제 하단 높이를 반영한다.
 
 참고: [Bubble 공식 소개](https://www.dear-u.co/en/pages/business_bubble.php)의 대화 구성, [공식 화면 예시](https://www.dear-u.co/images/renew/sub/bubbleApp03_en.jpg). 자산·로고를 복제하지 않고 Farmclub의 비공개 답장 규칙을 적용한다. 판매 총 한도와 구매 한도 구분은 [Coupang 공식 상품 API](https://developers.coupang.com/ko/api/products/querying-product)의 별도 항목을 참고했다. 실제 기능 기준은 [1.2 계약](../spec/contracts-1.2.md)이다.
+
+- **첫 예약 동선 점검(DEV-268, 제안 단계·승인 전)**: 공유 링크·홈 → 상품 → 로그인 → 주문서 → 입금 안내 → 내 주문을 390 비로그인 첫 방문자로 점검한 문제 18개와 개선 제안 7개(before 캡처 | after 목업). 제안 보드 [proposals/dev-268-first-reservation-audit.html](proposals/dev-268-first-reservation-audit.html), 캔버스 보드 `screens/dev-268-first-reservation-audit.html`(원본을 불러오는 틀)

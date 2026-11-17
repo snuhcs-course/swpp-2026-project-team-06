@@ -41,7 +41,11 @@ export type IconName =
   | "truck"
   | "settings"
   /** AI 답변 확인 요청 깃발(DEV-296) */
-  | "flag";
+  | "flag"
+  /** 상품 상세 알아 둘 세 줄(DEV-348, DEV-268 UX ①): 예약한 사람 · 계좌 입금 · 환불 약속 */
+  | "people"
+  | "card"
+  | "refund";
 
 type Props = {
   name: IconName;
@@ -112,6 +116,19 @@ export function Icon({
       {name === "chevronDown" && <Path d="M6 9l6 6 6-6" {...p} />}
       {name === "check" && <Path d="M5 12l4 4L19 6" {...p} />}
       {name === "flag" && <Path d="M6 21V4M6 4h11l-2 4 2 4H6" {...p} fill={color} />}
+      {name === "people" && (
+        <>
+          <Circle cx={9} cy={8} r={3.5} {...p} />
+          <Path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M15.5 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.8 3 2.6 3.5 5.2" {...p} />
+        </>
+      )}
+      {name === "card" && (
+        <>
+          <Rect x={3} y={5.5} width={18} height={13} rx={2} {...p} />
+          <Path d="M3 10h18M7 15h4" {...p} />
+        </>
+      )}
+      {name === "refund" && <Path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4h4M12 8v4l3 2" {...p} />}
       {name === "plus" && <Path d="M12 5v14M5 12h14" {...p} />}
       {name === "search" && (
         <>

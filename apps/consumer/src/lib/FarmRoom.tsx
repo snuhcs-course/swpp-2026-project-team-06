@@ -17,6 +17,7 @@ import {
   focusRing,
   useAsync,
   tokens,
+  fansText,
 } from "@farmclub/ui";
 import { Pressable } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -134,8 +135,10 @@ export default function FarmRoom() {
       <ConversationHeader
         name={farm.data?.name ?? "소식방"}
         photo={farm.data?.photo}
-        // 부제 '소식방' → '팔로워 N명'(DEV-295, Figma 7:78). 불러오기 전에는 비운다(M-11)
-        subtitle={farm.data ? `팔로워 ${farm.data.followerCount}명` : undefined}
+        // 부제 '소식방' → '팔로워 N명'(DEV-295, Figma 7:78) → 소비자 화면 호칭 '팬 N명'(DEV-348, DEV-311 결정 ①, 버튼 '팔로우'는 그대로).
+        // 불러오기 전에는 비운다(M-11)
+        // 0명이면 부제를 비운다(예약 수 0명 생략과 같은 규칙, 리뷰 반영)
+        subtitle={farm.data ? fansText(farm.data.followerCount) || undefined : undefined}
         onBack={() =>
           goBackOr(router, "/")
         }
