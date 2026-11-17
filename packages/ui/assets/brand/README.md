@@ -11,6 +11,8 @@
 
 DEV-287: 흑백 표시는 두 줄 조합형 원본에 grayscale(1)을 적용해 생성한 `logo-grayscale.png`를 사용한다. 구형 f. 앱 아이콘과 Expo 기본 자산은 승인된 두 줄 로고를 여백 안에 맞춘 PNG로 교체한다. 재생성: `node scripts/generate-brand-icons.mjs` (Playwright Chromium 필요). 원본 PNG를 다시 만들면 앱이 쓰는 `*.display.webp` 사본도 아래 DEV-325 표의 크기로 `cwebp`로 다시 만든다.
 
+DEV-358: 브랜드 통합안(DEV-311)에 따라 앱 아이콘·파비콘은 `logo-icon.png`를 높이 86%로(바탕 소비자 #FFF4E8, 생산자 #56652A), 소비자 공유 카드 `apps/consumer/public/og.jpg`는 `logo-paper-glow-clean.png`로 같은 스크립트가 만든다. 스플래시·Android 적응형 층·PWA maskable(`icon-maskable-512.png`)은 위 DEV-287 방식 그대로다.
+
 DEV-325: 앱(`BrandLogo`)은 원본 대신 표시용 사본 `*.display.webp`를 쓴다. 원본 PNG는 그대로 보존한다. 크기는 `BrandLogo` 기본 크기 × 3이다.
 
 | 사본 | 원본 | 크기 | 기준 |
