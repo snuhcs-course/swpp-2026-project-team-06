@@ -325,3 +325,8 @@ Where older source documents contain dated decisions, use their current-contract
 ### Reservation period identity (DEV-336, AC-05-4)
 
 Period updates match existing rows by stageId, reject unknown or duplicate IDs, and delete only omitted IDs. Rows without an ID create new periods. Date order determines sequential labels; reservations and order snapshots remain attached to the original period ID. Date/deletion locks and allocated-stock checks use that ID.
+
+
+### Consumer price freshness (DEV-337, AC-08-8)
+
+Returning to home/product reloads current prices and availability. Product reservation stays disabled during refresh/failure, with retry on failure. Checkout displays an informational old/new unit-price notice when its initial authoritative load differs from the product price. Subsequent changes still use the existing server conflict response and explicit “Reserve at updated price” action, preserving form inputs.

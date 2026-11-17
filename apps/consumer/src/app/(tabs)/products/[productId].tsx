@@ -17,7 +17,6 @@ import {
   Skeleton,
   T,
   tokens,
-  useAsync,
 } from "@farmclub/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -27,6 +26,7 @@ import { useHideTabBar, useSession } from "../../../lib/session";
 import { useToast } from "../../../lib/toast";
 import { LoadError, OptionSheet, copyText, isStatus } from "../../../lib/views";
 import { goBackOr } from "../../../lib/nav";
+import { useFocusedAsync } from "../../../lib/useFocusedAsync";
 
 declare const process: { env: { EXPO_PUBLIC_CONSUMER_URL?: string } };
 
@@ -73,7 +73,8 @@ export default function ProductPage() {
     data: p,
     error,
     reload,
-  } = useAsync(() => catalog.product(productId), [productId]);
+    loading,
+  } = useFocusedAsync(() => catalog.product(productId), [productId]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [optionId, setOptionId] = useState<string>("");
   const [qty, setQty] = useState(1);
@@ -99,7 +100,10 @@ export default function ProductPage() {
   function goCheckout(o: string, q: number) {
     router.push({
       pathname: "/checkout/[productId]",
-      params: { productId, optionId: o, quantity: String(q) },
+      params: {
+        productId, optionId: o, quantity: String(q),
+        seenUnitPrice: String(p?.stages.find(s => s.stageId === p.currentStageId)?.options[o]?.price ?? ""),
+      },
     });
   }
 
@@ -166,6 +170,7 @@ export default function ProductPage() {
     <Screen>
       {/* 머리 없이 사진이 곧 머리: 사진 위 뒤로·공유(결정 26, DEV-293) */}
       <Scroll bottom={120}>
+        {error ? <LoadError error={error} onRetry={reload} /> : null}
         <ProductPageBody
           p={p}
           reference={(o) => referencePrice(p, o)}
@@ -192,7 +197,7 @@ export default function ProductPage() {
           />
           <Button
             label="예약하기"
-            disabled={p.soldOut}
+            disabled={p.soldOut || loading || !!error}
             onPress={reserve}
             style={{ flex: 2 }}
           />

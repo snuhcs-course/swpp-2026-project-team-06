@@ -184,3 +184,8 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 ## 홈·농가 목록 품절 상품 (DEV-327, 2026-11-15)
 - 홈 카드는 `soldOut`이면 사진을 `SoldOutOverlay`로 덮는다(홈 추천에는 서버가 품절 두 가지만 남긴다). 사진 아래 여백은 덮개 바깥 View에 둔다.
 - 농가 목록 줄은 `featured.availability`가 `TOTAL_SOLD_OUT`·`PERIOD_SOLD_OUT`일 때만(필드가 없으면 판매 중) 농가 사진에 덮개를 얹고, 가격·D-day 칩 대신 `unavailableLabel(availability)` 한 줄만 둔다(상품 다시 읽기 `FeaturedPrice`도 부르지 않음).
+
+
+## DEV-337 Consumer price freshness
+
+Home/product data use useFocusedAsync: useAsync loads initially and on resource changes; later focus events reload with its existing request-generation guard. Failed refreshes preserve content and expose retry; the product reservation CTA stays disabled during loading/error. Checkout retains its own reviewed snapshot and existing AC-08-8 conflict gate. Product entry carries the previously seen unit price for an informational notice when initial checkout loads a different price; it never replaces the server-authoritative amount.
