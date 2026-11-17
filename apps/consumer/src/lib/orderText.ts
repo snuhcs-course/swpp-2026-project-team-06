@@ -92,6 +92,19 @@ export function statusTitle(o: DepositFields & RefundFields): string {
   return STATUS_LABEL[o.status];
 }
 
+/** 주문서 ‘이미 만든 예약이 있어요’ 첫 줄(DEV-356, UX ⑥): ‘FC-1007-3379 · 입금 대기 · 10월 8일 (목) 10:00까지’.
+ *  기한은 입금을 알리기 전 입금 대기에만 붙인다(알린 뒤에는 기한으로 취소되지 않음, AC-09-7·DEV-207) */
+export function placedLine(
+  o: DepositFields & RefundFields & Pick<Order, "orderNo">,
+  f: Pick<Fmt, "deadline">,
+): string {
+  const parts = [o.orderNo, statusTitle(o)];
+  if (depositPhase(o, 0) === "before" || depositPhase(o, 0) === "issue") {
+    if (o.depositDueAt) parts.push(`${f.deadline(o.depositDueAt)}까지`);
+  }
+  return parts.join(" · ");
+}
+
 /** SCR-13 목록 굵은 줄: 상태 · 다음 일 */
 export function listHeadline(
   o: DepositFields & RefundFields & Pick<Order, "actions">,
