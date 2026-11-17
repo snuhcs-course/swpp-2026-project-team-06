@@ -8,16 +8,19 @@ export function DepositCard({
   o,
   onCopy,
   style,
+  hideAmount = false,
 }: {
   o: Order;
   onCopy: (text: string, what: string) => void;
   style?: StyleProp<ViewStyle>;
+  /** 위에 큰 금액(+ 복사)이 따로 있는 화면은 ‘입금액’ 줄을 뺀다(입금 안내 SCR-11, DEV-268 UX ④·DEV-356). 완료·주문 상세는 그대로 */
+  hideAmount?: boolean;
 }) {
   const a = o.depositAccount;
   return (
     <View style={[{ paddingHorizontal: tokens.space.gutter }, style]}>
       {/* 강조는 입금액·계좌번호·입금자명 셋(박현 10/18). 복사는 은행 앱에 붙여 넣을 두 값만 */}
-      <Row k="입금액" v={won(o.totalAmount)} bold />
+      {hideAmount ? null : <Row k="입금액" v={won(o.totalAmount)} bold />}
       <Row k="계좌번호">
         <Value
           text={a ? `${a.bankName} ${a.accountNumber}` : "—"}

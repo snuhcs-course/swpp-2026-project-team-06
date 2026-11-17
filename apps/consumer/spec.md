@@ -187,3 +187,6 @@ DEV-112: `/auth/kakao`는 생산자 앱(DEV-108)과 같은 모양(닫기 + 가�
 ## 홈·농가 목록 품절 상품 (DEV-327, 2026-11-15)
 - 홈 카드는 `soldOut`이면 사진을 `SoldOutOverlay`로 덮는다(홈 추천에는 서버가 품절 두 가지만 남긴다). 사진 아래 여백은 덮개 바깥 View에 둔다.
 - 농가 목록 줄은 `featured.availability`가 `TOTAL_SOLD_OUT`·`PERIOD_SOLD_OUT`일 때만(필드가 없으면 판매 중) 농가 사진에 덮개를 얹고, 가격·D-day 칩 대신 `unavailableLabel(availability)` 한 줄만 둔다(상품 다시 읽기 `FeaturedPrice`도 부르지 않음).
+
+## DEV-356 로그인·주문서·입금 안내 (2026-11-17)
+로그인(SCR-05)은 제목 왼쪽 · 조합형 `BrandLogo variant="full"` 오른쪽(생산자 SCR-19 배치), 폭은 `min(150, max(96, 창 폭 − 236))`라 390에서 150, 좁은 폭에서도 제목 두 줄. 제목은 `from=reserve`만 ‘로그인하고 예약을 이어 가요’. 관문 시트(`lib/session.tsx`)는 예약 관문에서만 `lib/GateSummary.tsx`(next의 `/products/:id`·data의 optionId·quantity로 상품을 읽음, 순수 계산 `lib/reserveSummary.ts`)와 예약용 본문을 그리고, 닫히는 동안 마지막 관문 문구를 유지한다. 주문서는 `control.placed`(이 주문서로 만든 입금 대기 주문)가 있으면 화면이 다시 보일 때(useFocusEffect) ‘이미 만든 예약’ Notice를 띄우고 첫 줄을 `orders.get` + `placedLine`(lib/orderText.ts)으로 채운다. 강조색은 하단 버튼 하나(‘변경’·총 입금액은 글자색). 입금 안내는 `DepositCard hideAmount`로 ‘입금액’ 줄만 빼고(완료·주문 상세는 그대로) 큰 금액 옆에 복사, 입금자명 안내는 Notice + `depositorNameTitle`(끝 숫자 읽기로 로/으로). FEAT-01 AC-01-21, FEAT-08 AC-08-10, FEAT-09 AC-09-11.

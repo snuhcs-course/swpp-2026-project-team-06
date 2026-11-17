@@ -513,8 +513,19 @@ test("DEV-208 AC-13-9: direct-mode room shows who answers and a forwarded status
   await page.goto(`${consumerUrl}/chats/f-kang`);
   // DEV-295: 위 안내 띠 대신 대화 맨 위 시스템 문구 한 줄(Figma 1:38)
   await expect(page.getByTestId("chat-system-line")).toHaveText("AI 안내가 꺼져 있어요 · 농가가 직접 답해요");
+  // 같은 DB에서 먼저 돈 spec(checkout-and-fulfillment의 o-07 문의, consumer-order-recovery의 DEV-318 문의)이
+  // 이 방에 결제 주문을 둘 이상 연결해 두면, 방은 주문을 고르기 전까지 입력칸을 잠근다(주문이 하나면 자동 선택).
+  // 그때는 사용자가 하듯 주문 하나를 골라 같은 질문을 보낸다. 주문이 하나일 때 자동 선택되는 것과 같은 경로이고,
+  // 전달 상태 줄은 주문과 상관없이 ‘농가가 답해야 하는 마지막 질문’ 아래에 붙으므로 아래 단언은 그대로다(DEV-356)
+  const pickOrder = page.getByRole("button", { name: "주문 선택", exact: true });
+  if (await pickOrder.isVisible()) {
+    await pickOrder.click();
+    await page.getByRole("button", { name: /^주문 \S+ · .+ · \d+개$/ }).first().click();
+  }
+  const composer = page.getByRole("textbox", { name: "메시지" });
+  await expect(composer).toBeEditable();
   const question = `DEV-208 당도는 얼마예요? ${Date.now()}`;
-  await page.getByRole("textbox", { name: "메시지" }).fill(question);
+  await composer.fill(question);
   await page.getByRole("button", { name: "전송", exact: true }).click();
   await expect(page.getByText(question, { exact: true })).toBeVisible();
   const status = page.getByTestId("chat-forward-status");

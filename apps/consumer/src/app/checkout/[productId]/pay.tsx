@@ -22,6 +22,7 @@ import { View } from "react-native";
 
 import { useToast } from "../../../lib/toast";
 import { DepositCard } from "../../../lib/DepositCard";
+import { depositorNameTitle } from "../../../lib/orderText";
 import { LoadError, copyText } from "../../../lib/views";
 import { useGoBack } from "../../../lib/nav";
 
@@ -106,7 +107,27 @@ export default function DepositGuide() {
             <T variant="sub" muted>
               입금할 금액
             </T>
-            <T variant="title">{o ? won(o.totalAmount) : " "}</T>
+            {/* 금액은 한 번 + 복사(DEV-268 UX ④, DEV-356). 은행 앱에 손으로 옮기지 않게 숫자만 복사한다 */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
+            >
+              <T variant="title" style={{ flexShrink: 1 }}>
+                {o ? won(o.totalAmount) : " "}
+              </T>
+              {o ? (
+                <Button
+                  label="복사"
+                  variant="text"
+                  accessibilityLabel="입금할 금액 복사"
+                  onPress={() => void copy(String(o.totalAmount), "입금할 금액")}
+                />
+              ) : null}
+            </View>
             <T variant="sub" muted>
               {o
                 ? `${o.productName} ${o.optionLabel} × ${o.quantity} · ${o.farmName}`
@@ -116,14 +137,18 @@ export default function DepositGuide() {
 
           {o ? (
             <>
-              <DepositCard o={o} onCopy={copy} />
-              <T
-                variant="caption"
-                muted
-                style={{ marginHorizontal: tokens.space.gutter, marginTop: 8 }}
-              >
-                입금자명: 주문 번호
-              </T>
+              <DepositCard
+                o={o}
+                onCopy={copy}
+                hideAmount
+                style={{ marginTop: 12 }}
+              />
+              {/* ‘입금자명: 주문 번호’ 캡션을 행동 지시 두 문장으로(UX ④). 은행 앱 용어 ‘받는 분 통장 표시’를 그대로 쓴다 */}
+              <Notice
+                title={depositorNameTitle(o.orderNo)}
+                body="농가가 이 이름으로 입금을 찾아요. 이름이 다르면 확인이 늦어질 수 있어요."
+                style={{ marginHorizontal: tokens.space.gutter, marginTop: 16 }}
+              />
 
               <View
                 style={{

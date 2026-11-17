@@ -92,6 +92,36 @@ export function statusTitle(o: DepositFields & RefundFields): string {
   return STATUS_LABEL[o.status];
 }
 
+/** 주문서 ‘이미 만든 예약이 있어요’ 첫 줄(DEV-356, UX ⑥): ‘FC-1007-3379 · 입금 대기 · 10월 8일 (목) 10:00까지’.
+ *  기한은 입금을 알리기 전 입금 대기에만 붙인다(알린 뒤에는 기한으로 취소되지 않음, AC-09-7·DEV-207) */
+export function placedLine(
+  o: DepositFields & RefundFields & Pick<Order, "orderNo">,
+  f: Pick<Fmt, "deadline">,
+): string {
+  const parts = [o.orderNo, statusTitle(o)];
+  if (depositPhase(o, 0) === "before" || depositPhase(o, 0) === "issue") {
+    if (o.depositDueAt) parts.push(`${f.deadline(o.depositDueAt)}까지`);
+  }
+  return parts.join(" · ");
+}
+
+/** 입금 안내 입금자명 상자 제목(DEV-268 UX ④, DEV-356): ‘받는 분 통장 표시를 FC-1007-3379로 바꿔 보내 주세요’.
+ *  주문 번호는 숫자로 끝나므로 숫자 읽기(영·삼·육은 받침 → ‘으로’)로 조사를 고른다 */
+export function depositorNameTitle(orderNo: string): string {
+  const last = orderNo.trim().slice(-1);
+  const josa = /[036]/.test(last)
+    ? "으로"
+    : /[0-9]/.test(last)
+      ? "로"
+      : (() => {
+          const c = last.charCodeAt(0);
+          if (c < 0xac00 || c > 0xd7a3) return "로";
+          const jong = (c - 0xac00) % 28;
+          return jong === 0 || jong === 8 ? "로" : "으로";
+        })();
+  return `받는 분 통장 표시를 ${orderNo}${josa} 바꿔 보내 주세요`;
+}
+
 /** SCR-13 목록 굵은 줄: 상태 · 다음 일 */
 export function listHeadline(
   o: DepositFields & RefundFields & Pick<Order, "actions">,
