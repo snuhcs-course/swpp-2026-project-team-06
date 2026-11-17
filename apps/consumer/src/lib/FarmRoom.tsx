@@ -134,8 +134,9 @@ export default function FarmRoom() {
       <ConversationHeader
         name={farm.data?.name ?? "소식방"}
         photo={farm.data?.photo}
-        // 부제 '소식방' → '팔로워 N명'(DEV-295, Figma 7:78). 불러오기 전에는 비운다(M-11)
-        subtitle={farm.data ? `팔로워 ${farm.data.followerCount}명` : undefined}
+        // 부제 '소식방' → '팔로워 N명'(DEV-295, Figma 7:78) → 소비자 화면 호칭 '팬 N명'(DEV-348, DEV-311 결정 ①, 버튼 '팔로우'는 그대로).
+        // 불러오기 전에는 비운다(M-11)
+        subtitle={farm.data ? `팬 ${farm.data.followerCount}명` : undefined}
         onBack={() =>
           goBackOr(router, "/")
         }
